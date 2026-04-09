@@ -7710,7 +7710,7 @@ window.crmOpenModal=function(defaultStage,editId){
           rh+='<td style="padding:8px 10px;color:var(--muted);font-size:13px">'+new Date(rv.data).toLocaleDateString('pt-BR')+'</td>';
           rh+='<td style="padding:8px 10px;text-align:right;font-weight:700;font-size:13px;color:var(--navy)">'+brl(rv.valorTabela||0)+'</td>';
           rh+='<td style="padding:8px 10px;text-align:right;font-weight:800;font-size:13px;color:#e67e22">'+brl(rv.valorFaturamento||0)+'</td>';
-          var hasProposal=opp.propostas&&opp.propostas[ri];
+          var hasProposal=opp.revisoes[ri].pdfPages&&opp.revisoes[ri].pdfPages.length>0;
           rh+='<td style="padding:4px 6px;text-align:center;white-space:nowrap">';
           if(hasProposal) rh+='<button onclick="event.stopPropagation();crmVerProposta(\''+editId+'\','+ri+')" style="background:none;border:1px solid #27ae60;color:#27ae60;border-radius:6px;font-size:10px;cursor:pointer;padding:3px 6px;font-weight:700;margin-right:3px" title="Ver proposta salva">📄</button>';
           rh+='<button onclick="crmDeleteRevision(\''+editId+'\','+ri+')" style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:6px;font-size:10px;cursor:pointer;padding:3px 6px;font-weight:700" title="Excluir revisão">✕</button></td>';
@@ -8114,16 +8114,17 @@ window.crmAtualizarValorCard=function(){
 window.crmVerProposta=function(cardId, revIndex){
   var data=cLoad();
   var card=data.find(function(o){return o.id===cardId;});
-  if(!card||!card.propostas||!card.propostas[revIndex]){alert('Proposta não encontrada.');return;}
-  var prop=card.propostas[revIndex];
+  if(!card||!card.revisoes||!card.revisoes[revIndex]){alert('Revisão não encontrada.');return;}
+  var rev=card.revisoes[revIndex];
+  if(!rev.pdfPages||!rev.pdfPages.length){alert('Nenhuma proposta salva nesta revisão.');return;}
   var ov=document.createElement('div');
   ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:99999;overflow-y:auto;padding:20px;cursor:pointer';
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   var inner='<div style="max-width:800px;margin:0 auto;text-align:center">';
-  inner+='<div style="color:#fff;font-size:14px;font-weight:700;margin-bottom:12px">📄 '+prop.label+' — '+(card.cliente||'')+'<br><span style="font-size:11px;opacity:.6">'+new Date(prop.data).toLocaleString('pt-BR')+'</span></div>';
+  inner+='<div style="color:#fff;font-size:14px;font-weight:700;margin-bottom:12px">📄 '+(rev.label||'Proposta')+' — '+(card.cliente||'')+'<br><span style="font-size:11px;opacity:.6">'+(rev.pdfDate?new Date(rev.pdfDate).toLocaleString('pt-BR'):'')+'</span></div>';
   inner+='<div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#e74c3c;color:#fff;font-weight:700;cursor:pointer;font-size:13px">✕ Fechar</button></div>';
-  for(var i=0;i<prop.pages.length;i++){
-    inner+='<div style="margin-bottom:16px"><img src="'+prop.pages[i]+'" style="width:100%;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.5)"><div style="color:#888;font-size:10px;margin-top:4px">Página '+(i+1)+' de '+prop.pages.length+'</div></div>';
+  for(var i=0;i<rev.pdfPages.length;i++){
+    inner+='<div style="margin-bottom:16px"><img src="'+rev.pdfPages[i]+'" style="width:100%;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.5)"><div style="color:#888;font-size:10px;margin-top:4px">Página '+(i+1)+' de '+rev.pdfPages.length+'</div></div>';
   }
   inner+='</div>';
   ov.innerHTML=inner;
@@ -8925,39 +8926,47 @@ function printProposta(){
 function _exportPropostaToCard(cardId, revLabel, callback){
   if(typeof html2canvas==='undefined'){console.warn('html2canvas não carregado');if(callback)callback(null);return;}
   populateProposta();
-  // Garantir que as páginas da proposta estão visíveis para captura
+  // Tornar proposta visível off-screen para captura (sem trocar aba)
   var propostaTab=document.getElementById('tab-proposta');
-  var wasHidden=propostaTab&&propostaTab.style.display==='none';
-  if(wasHidden) propostaTab.style.display='block';
+  var origStyle=propostaTab?propostaTab.getAttribute('style'):'';
+  if(propostaTab){
+    propostaTab.style.display='block';
+    propostaTab.style.position='absolute';
+    propostaTab.style.left='-9999px';
+    propostaTab.style.top='0';
+    propostaTab.style.opacity='0';
+    propostaTab.style.pointerEvents='none';
+  }
   var pages=document.querySelectorAll('.proposta-page');
-  if(!pages.length){if(callback)callback(null);return;}
+  if(!pages.length){
+    if(propostaTab) propostaTab.setAttribute('style',origStyle||'');
+    if(callback)callback(null);return;
+  }
   var captures=[];
   var idx=0;
   function captureNext(){
     if(idx>=pages.length){
-      // Restaurar tab
-      if(wasHidden) propostaTab.style.display='none';
-      // Salvar no card CRM
+      // Restaurar aba
+      if(propostaTab) propostaTab.setAttribute('style',origStyle||'display:none');
+      // Salvar PDF dentro da ÚLTIMA REVISÃO do card
       if(cardId){
         try{
           var data=cLoad();
           var ci=data.findIndex(function(o){return o.id===cardId;});
-          if(ci>=0){
-            if(!data[ci].propostas) data[ci].propostas=[];
-            data[ci].propostas.push({
-              label:revLabel||'Proposta',
-              data:new Date().toISOString(),
-              pages:captures
-            });
+          if(ci>=0 && data[ci].revisoes && data[ci].revisoes.length>0){
+            var lastRev=data[ci].revisoes[data[ci].revisoes.length-1];
+            lastRev.pdfPages=captures;
+            lastRev.pdfDate=new Date().toISOString();
             cSave(data);
+            console.log('✅ PDF salvo na revisão: '+lastRev.label+' ('+captures.length+' páginas)');
           }
-        }catch(e){console.warn('Erro ao salvar proposta no card:',e);}
+        }catch(e){console.warn('Erro ao salvar PDF no card:',e);}
       }
       if(callback) callback(captures);
       return;
     }
-    html2canvas(pages[idx],{scale:0.6,useCORS:true,logging:false,backgroundColor:'#ffffff'}).then(function(canvas){
-      captures.push(canvas.toDataURL('image/jpeg',0.5));
+    html2canvas(pages[idx],{scale:0.5,useCORS:true,logging:false,backgroundColor:'#ffffff'}).then(function(canvas){
+      captures.push(canvas.toDataURL('image/jpeg',0.45));
       idx++;
       captureNext();
     }).catch(function(e){
@@ -8966,8 +8975,7 @@ function _exportPropostaToCard(cardId, revLabel, callback){
       captureNext();
     });
   }
-  // Aguardar render
-  setTimeout(captureNext, 400);
+  setTimeout(captureNext, 500);
 }
 
 function populateProposta(){
