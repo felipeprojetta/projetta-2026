@@ -5985,8 +5985,8 @@ function gerarCustoTotal(){
       var _mSel=document.getElementById('carac-modelo')||document.getElementById('plan-modelo');
       var _mVal=_mSel?_mSel.value:'';
       var _isRip=['08','15','20','21'].indexOf(_mVal)>=0;
-      var _qPc=parseInt($('qtd-portas').value)||1;
-      var nChapasTotal=nChapas*_qPc;
+      // nChapas já inclui todas as portas (nesting rodou com peças multiplicadas)
+      var nChapasTotal=nChapas;
       var corteAuto=nChapasTotal>0?(_isRip?nChapasTotal+2:nChapasTotal+1):0;
       var hCorteEl=document.getElementById('h-corte');
       if(hCorteEl && corteAuto>0 && hCorteEl.dataset.manual!=='1'){
