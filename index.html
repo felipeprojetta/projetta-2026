@@ -5649,6 +5649,8 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   if(_qPerfis>1){
     cuts.forEach(function(c){ c.qty=c.qty*_qPerfis; });
   }
+  // DEBUG: verificar quantidades
+  console.log('[DEBUG] qP='+_qPerfis+' | PA ALTURA qty='+cuts[0].qty+' | cuts total='+cuts.reduce(function(s,c){return s+c.qty;},0));
 
   var groups={},seenKeys=[];
   cuts.forEach(function(c){
@@ -5663,6 +5665,8 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       }
     }
   });
+  // DEBUG: verificar allCuts
+  seenKeys.forEach(function(k){ console.log('[DEBUG] '+k+': allCuts.length='+groups[k].allCuts.length); });
 
   var groupRes={};
   seenKeys.forEach(function(key){
