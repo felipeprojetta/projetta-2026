@@ -5644,6 +5644,12 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     }
   });
 
+  // ── Multiplicar cortes por qtd portas ANTES da otimização de barras ──
+  var _qPerfis=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+  if(_qPerfis>1){
+    cuts.forEach(function(c){ c.qty=c.qty*_qPerfis; });
+  }
+
   var groups={},seenKeys=[];
   cuts.forEach(function(c){
     var key=c.code;
@@ -6037,12 +6043,8 @@ function gerarOS(){
     if(!window._osAutoMode) alert(d.error); // só alerta no clique manual
     return;
   }
-  // ── Multiplicar cortes por quantidade de portas (otimização conjunta) ──
-  var _qPOS=parseInt(($('qtd-portas')||{value:'1'}).value)||1;
-  window._qPOS=_qPOS;
-  if(_qPOS>1){
-    d.cuts.forEach(function(c){ c.qty=c.qty*_qPOS; });
-  }
+  // qP multiplicação agora acontece DENTRO de _calcularDadosPerfis
+  window._qPOS=parseInt(($('qtd-portas')||{value:'1'}).value)||1;
 
   // ── Cabeçalho ─────────────────────────────────────────────────────────────
   var cliente=(document.getElementById('nome-cliente')||{value:''}).value||
