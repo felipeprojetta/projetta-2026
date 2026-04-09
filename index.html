@@ -4342,52 +4342,7 @@ window.loadRevision=function(id,revIdx){
 };
 
 /* ── Lock/Unlock orçamento ── */
-function _setOrcLock(locked){
-  window._orcLocked=locked;
-  var panel=document.getElementById('tab-orcamento');
-  if(!panel)return;
-  var inputs=panel.querySelectorAll('input,select,textarea');
-  for(var i=0;i<inputs.length;i++){
-    if(locked){inputs[i].dataset.wasDisabled=inputs[i].disabled?'1':'0';inputs[i].disabled=true;}
-    else{if(inputs[i].dataset.wasDisabled==='0')inputs[i].disabled=false;}
-  }
-  var btns=panel.querySelectorAll('button');
-  for(var j=0;j<btns.length;j++){
-    var txt=(btns[j].textContent||'').toLowerCase();
-    if(txt.indexOf('gerar')>=0||txt.indexOf('calcul')>=0||txt.indexOf('salvar')>=0){
-      btns[j].style.display=locked?'none':'';
-    }
-  }
-  // Lock badge
-  var lockBadge=document.getElementById('orc-lock-badge');
-  if(!lockBadge){
-    lockBadge=document.createElement('div');lockBadge.id='orc-lock-badge';
-    lockBadge.style.cssText='position:fixed;top:60px;right:20px;z-index:9999;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15)';
-    document.body.appendChild(lockBadge);
-  }
-  if(locked){
-    lockBadge.style.display='block';
-    lockBadge.style.background='linear-gradient(135deg,#c0392b,#e74c3c)';lockBadge.style.color='#fff';
-    lockBadge.innerHTML='🔒 ORÇAMENTO CONGELADO <span style="margin-left:8px;padding:3px 10px;background:rgba(255,255,255,0.2);border-radius:4px;font-size:11px">📝 Criar Nova Revisão</span>';
-    lockBadge.onclick=function(){
-      if(confirm('Criar nova revisão editável a partir deste orçamento?')){
-        _setOrcLock(false);
-        saveMode="revision";
-        var banner=document.getElementById('cur-banner');
-        if(banner){var revB=document.getElementById('cur-rev-badge');if(revB){revB.textContent='NOVA REVISÃO (editando)';revB.style.display='';revB.style.background='#e67e22';}}
-      }
-    };
-  } else {
-    lockBadge.style.display='block';
-    lockBadge.style.background='linear-gradient(135deg,#e67e22,#f39c12)';lockBadge.style.color='#fff';
-    lockBadge.innerHTML='✏️ EDITANDO NOVA REVISÃO — <span style="font-weight:400">salve ao finalizar</span>';
-    lockBadge.onclick=null;
-    lockBadge.style.cursor='default';
-  }
-  // Hide memorial when unlocking
-  var mem=document.getElementById('memorial-panel');
-  if(mem&&!locked) mem.style.display='none';
-}
+function _setOrcLock(locked){ return; /* TRAVA DESATIVADA - campos permanecem editaveis apos salvar */ }
 
 /* ── Memorial de Cálculo ── */
 function showMemorial(snap, orcName, revLabel){
