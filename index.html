@@ -700,8 +700,8 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
         <button class="hbtn" onclick="novaRevisao()" style="color:#fff;background:#e67e22;border-color:#e67e22">Nova revisão</button>
         <button class="hbtn" onclick="abrirModalATP()" id="btn-gerar-atp" style="background:#1a5276;color:#fff;border-color:#1a5276;font-weight:800">📋 Gerar ATP</button>
         <button class="hbtn" onclick="salvarRapido()" style="color:#fff;background:#e67e22;border-color:#e67e22;font-size:13px;padding:7px 20px;font-weight:800">💾 SALVAR</button>
-        <button class="hbtn" id="crm-orc-pronto-btn" onclick="crmOrcamentoPronto()" style="display:none;background:#27ae60;border-color:#27ae60;color:#fff;font-weight:800;animation:pulse 1.5s infinite">✅ Orçamento Pronto</button>
-        <button class="hbtn" id="crm-atualizar-btn" onclick="crmAtualizarValorCard()" style="background:#2980b9;border-color:#2980b9;color:#fff;font-weight:800">🔄 Atualizar Valor p/ Card</button>
+        <button class="hbtn" id="crm-orc-pronto-btn" onclick="crmOrcamentoPronto()" style="display:none;background:#27ae60;border-color:#27ae60;color:#fff;font-weight:800;animation:pulse 1.5s infinite">✅ Orçamento Pronto para Envio</button>
+        <button class="hbtn" id="crm-atualizar-btn" onclick="crmAtualizarValorCard()" style="display:none;background:#2980b9;border-color:#2980b9;color:#fff;font-weight:800">🔄 Atualizar Valor p/ Card</button>
         <span id="autosave-ind" style="font-size:10px;color:#1a7a20;font-weight:600;opacity:0;transition:opacity .3s"></span>
       </div>
     </div>
@@ -4592,6 +4592,27 @@ function salvarRapido(){
     if(ind){ind.textContent='✓ Salvo!';ind.style.opacity='1';setTimeout(function(){ind.style.opacity='0';},2000);}
   }
   $('hist-count').textContent=loadDB().length;
+  // Após salvar: mostrar botão correto se vinculado ao CRM
+  if(window._crmOrcCardId){
+    try{
+      var crmData=cLoad();
+      var crmIdx=crmData.findIndex(function(o){return o.id===window._crmOrcCardId;});
+      if(crmIdx>=0){
+        var temOriginal=crmData[crmIdx].revisoes&&crmData[crmIdx].revisoes.length>0;
+        if(temOriginal){
+          // Já tem Original no card → mostrar "Atualizar Valor" para revisões
+          var btnAtt=document.getElementById('crm-atualizar-btn');
+          if(btnAtt){btnAtt.style.display='inline-flex';btnAtt.textContent='🔄 Atualizar Valor p/ Card';}
+          var btnP=document.getElementById('crm-orc-pronto-btn');if(btnP)btnP.style.display='none';
+        } else {
+          // Primeiro orçamento → mostrar "Orçamento Pronto para Envio"
+          var btnP=document.getElementById('crm-orc-pronto-btn');
+          if(btnP){btnP.style.display='inline-flex';btnP.textContent='✅ Orçamento Pronto para Envio';}
+          var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
+        }
+      }
+    }catch(e){console.warn('CRM btn check:',e);}
+  }
 }
 
 function novaRevisao(){
@@ -4619,28 +4640,9 @@ function novaRevisao(){
   $('cur-rev-badge').textContent=label;
   $('cur-rev-badge').style.display='';
   $('cur-name').textContent=entry.name;
-  // Auto-sync revisão ao card CRM vinculado
-  if(window._crmOrcCardId){
-    try{
-      var crmData=cLoad();
-      var crmIdx=crmData.findIndex(function(o){return o.id===window._crmOrcCardId;});
-      if(crmIdx>=0){
-        var vals=_captureOrcValues();
-        if(!crmData[crmIdx].revisoes) crmData[crmIdx].revisoes=[];
-        var isFirstCrm=crmData[crmIdx].revisoes.length===0;
-        var crmRevLabel=isFirstCrm?'Original':'Revisão '+crmData[crmIdx].revisoes.length;
-        crmData[crmIdx].revisoes.push({
-          rev:crmData[crmIdx].revisoes.length,
-          label:crmRevLabel,
-          data:new Date().toISOString(),
-          valorTabela:vals.tab,
-          valorFaturamento:vals.fat
-        });
-        crmData[crmIdx].updatedAt=new Date().toISOString();
-        cSave(crmData);
-      }
-    }catch(e){console.error('CRM auto-sync error:',e);}
-  }
+  // Após criar revisão: esconder botões CRM (só aparecem após SALVAR)
+  var btnPronto=document.getElementById('crm-orc-pronto-btn');if(btnPronto)btnPronto.style.display='none';
+  var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
   var ind=document.getElementById('autosave-ind');
   if(ind){ind.textContent='✓ '+label+' criada!';ind.style.opacity='1';setTimeout(function(){ind.style.opacity='0';},3000);}
   $('hist-count').textContent=loadDB().length;
@@ -7962,14 +7964,11 @@ window.crmFazerOrcamento=function(id){
       }, 600); // aguardar campos preenchidos
     }
     var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';t.textContent='✅ Dados de '+opp.cliente+' transferidos! Clique "Orçamento Pronto" ao finalizar.';document.body.appendChild(t);setTimeout(function(){t.remove();},4000);
-    // Show "Orçamento Pronto" button
+    // Botões CRM: escondidos até o usuário SALVAR o orçamento
     var btn=document.getElementById('crm-orc-pronto-btn');
-    if(btn){btn.style.display='inline-flex';btn.setAttribute('data-id',id);btn.textContent='✅ Orçamento Pronto';}
-    // Show "Atualizar Valor" button if card already has revisions
+    if(btn){btn.style.display='none';btn.setAttribute('data-id',id);}
     var btnAtt=document.getElementById('crm-atualizar-btn');
-    if(btnAtt&&opp.revisoes&&opp.revisoes.length>0){
-      btnAtt.style.display='inline-flex';btnAtt.textContent='🔄 Atualizar Valor';
-    } else if(btnAtt){btnAtt.style.display='none';}
+    if(btnAtt){btnAtt.style.display='none';}
   },350);
 };
 window.crmDeleteRevision=function(cardId,revIndex){
@@ -8026,11 +8025,15 @@ window.crmOrcamentoPronto=function(){
     if(resEl&&resEl.value.trim()) data[idx].reserva=resEl.value.trim();
     cSave(data);
     crmRender();
-    // Manter link ativo — trocar botão para "Atualizar"
+    // Gerar PDF da proposta e abrir impressão
+    if(typeof printProposta==='function'){
+      try{ printProposta(); }catch(e){ console.warn('Erro ao gerar PDF:',e); }
+    }
+    // Esconder "Pronto para Envio", mostrar "Atualizar Valor" para próximas revisões
     var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
-    var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt){btnAtt.style.display='inline-flex';btnAtt.textContent='🔄 Atualizar Valor';}
-    // NÃO null o _crmOrcCardId — manter link para atualizações futuras
-    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='✅ Card movido p/ Orçamento Pronto! '+revLabel+' salva. Use "Atualizar Valor" para novas revisões.';document.body.appendChild(toast);setTimeout(function(){toast.remove();},4000);
+    var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt){btnAtt.style.display='none';}
+    // Toast de confirmação
+    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='✅ '+revLabel+' enviada! Card movido p/ Orçamento Pronto. PDF gerado.';document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
     if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
   }
 };
@@ -8047,7 +8050,7 @@ window.crmAtualizarValorCard=function(){
   data[idx].valor=vals.fat;
   data[idx].valorTabela=vals.tab;
   data[idx].valorFaturamento=vals.fat;
-  // Nova revisão
+  // Nova revisão no card
   if(!data[idx].revisoes) data[idx].revisoes=[];
   var revNum=data[idx].revisoes.length;
   var revLabel='Revisão '+revNum;
@@ -8065,7 +8068,14 @@ window.crmAtualizarValorCard=function(){
   if(resEl&&resEl.value.trim()) data[idx].reserva=resEl.value.trim();
   cSave(data);
   crmRender();
-  var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2980b9;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='🔄 '+revLabel+' salva! Card "'+data[idx].cliente+'" atualizado com Tab: '+brl(vals.tab)+' | Fat: '+brl(vals.fat);document.body.appendChild(toast);setTimeout(function(){toast.remove();},4000);
+  // Gerar PDF da proposta revisada
+  if(typeof printProposta==='function'){
+    try{ printProposta(); }catch(e){ console.warn('Erro ao gerar PDF:',e); }
+  }
+  // Esconder o botão após atualizar
+  var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
+  var btnPronto=document.getElementById('crm-orc-pronto-btn');if(btnPronto)btnPronto.style.display='none';
+  var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2980b9;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='🔄 '+revLabel+' atualizada no Card! PDF gerado. Tab: '+brl(vals.tab)+' | Fat: '+brl(vals.fat);document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
 };
 
 /* ── Helper: capturar valores do orçamento ──────── */
