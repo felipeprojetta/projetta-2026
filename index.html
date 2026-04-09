@@ -9799,6 +9799,12 @@ function calcPerfis(){
     return kgMerc;
   }
 
+  // ── Multiplicar cortes por qtd portas ANTES da otimização de barras ──
+  var _qPLev=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+  if(_qPLev>1){
+    cuts.forEach(function(c){ c.qty=c.qty*_qPLev; });
+  }
+
   // ── Group cuts by code for bin packing ──────────────────────────────────
   var groups={};
   var seenKeys=[];
