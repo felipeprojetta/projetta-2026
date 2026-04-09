@@ -4596,26 +4596,28 @@ function salvarRapido(){
     if(ind){ind.textContent='✓ Salvo!';ind.style.opacity='1';setTimeout(function(){ind.style.opacity='0';},2000);}
   }
   $('hist-count').textContent=loadDB().length;
-  // Após salvar: mostrar botão correto se vinculado ao CRM
+  // Após salvar: SEMPRE mostrar botão "Pronto para Envio"
+  // Verificar se é primeiro envio ou revisão
+  var _temEnvioAnterior=false;
   if(window._crmOrcCardId){
     try{
       var crmData=cLoad();
       var crmIdx=crmData.findIndex(function(o){return o.id===window._crmOrcCardId;});
-      if(crmIdx>=0){
-        var temOriginal=crmData[crmIdx].revisoes&&crmData[crmIdx].revisoes.length>0;
-        if(temOriginal){
-          // Já tem Original no card → mostrar "Atualizar Valor" para revisões
-          var btnAtt=document.getElementById('crm-atualizar-btn');
-          if(btnAtt){btnAtt.style.display='inline-flex';btnAtt.textContent='🔄 Atualizar Valor p/ Card';}
-          var btnP=document.getElementById('crm-orc-pronto-btn');if(btnP)btnP.style.display='none';
-        } else {
-          // Primeiro orçamento → mostrar "Orçamento Pronto para Envio"
-          var btnP=document.getElementById('crm-orc-pronto-btn');
-          if(btnP){btnP.style.display='inline-flex';btnP.textContent='✅ Orçamento Pronto para Envio';}
-          var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
-        }
+      if(crmIdx>=0 && crmData[crmIdx].revisoes && crmData[crmIdx].revisoes.length>0){
+        _temEnvioAnterior=true;
       }
-    }catch(e){console.warn('CRM btn check:',e);}
+    }catch(e){}
+  }
+  var btnP=document.getElementById('crm-orc-pronto-btn');
+  var btnAtt=document.getElementById('crm-atualizar-btn');
+  if(_temEnvioAnterior){
+    // Já enviou Original → mostrar "Pronto para Envio" (gera PDF) + "Atualizar Valor"
+    if(btnP){btnP.style.display='inline-flex';btnP.textContent='✅ Orçamento Pronto para Envio';}
+    if(btnAtt){btnAtt.style.display='inline-flex';btnAtt.textContent='🔄 Atualizar Valor no Card';}
+  } else {
+    // Primeiro salvamento → mostrar apenas "Pronto para Envio"
+    if(btnP){btnP.style.display='inline-flex';btnP.textContent='✅ Orçamento Pronto para Envio';}
+    if(btnAtt) btnAtt.style.display='none';
   }
 }
 
@@ -8017,48 +8019,52 @@ window.crmDeleteRevision=function(cardId,revIndex){
 };
 
 window.crmOrcamentoPronto=function(){
-  var id=window._crmOrcCardId;if(!id)return;
-  var data=cLoad();var idx=data.findIndex(function(o){return o.id===id;});
-  if(idx>=0){
-    var stages=gStages();
-    var enviarStage=stages.find(function(s){return s.id==='s3b';})||stages.find(function(s){return/pronto|feito|enviar/i.test(s.label);});
-    data[idx].stage=enviarStage?enviarStage.id:'s3b';
-    data[idx].updatedAt=new Date().toISOString();
-    // Capturar valores
-    var vals=_captureOrcValues();
-    data[idx].valor=vals.fat;
-    data[idx].valorTabela=vals.tab;
-    data[idx].valorFaturamento=vals.fat;
-    // Salvar revisão com valores
-    if(!data[idx].revisoes) data[idx].revisoes=[];
-    var isFirst=data[idx].revisoes.length===0;
-    var revNum=isFirst?0:data[idx].revisoes.length;
-    var revLabel=isFirst?'Original':'Revisão '+data[idx].revisoes.length;
-    data[idx].revisoes.push({
-      rev:revNum,
-      label:revLabel,
-      data:new Date().toISOString(),
-      valorTabela:vals.tab,
-      valorFaturamento:vals.fat
-    });
-    // Capturar AGP e Reserva do orçamento
-    var agpEl=document.getElementById('num-agp');
-    if(agpEl&&agpEl.value.trim()) data[idx].agp=agpEl.value.trim();
-    var resEl=document.getElementById('numprojeto');
-    if(resEl&&resEl.value.trim()) data[idx].reserva=resEl.value.trim();
-    cSave(data);
-    crmRender();
-    // Gerar PDF da proposta e abrir impressão
-    if(typeof printProposta==='function'){
-      try{ printProposta(); }catch(e){ console.warn('Erro ao gerar PDF:',e); }
+  var id=window._crmOrcCardId;
+  var revLabel='Original';
+
+  // Se tem card CRM vinculado: salvar valores e mover card
+  if(id){
+    var data=cLoad();var idx=data.findIndex(function(o){return o.id===id;});
+    if(idx>=0){
+      var isFirst=!data[idx].revisoes||data[idx].revisoes.length===0;
+      // Mover card apenas na PRIMEIRA vez (Original)
+      if(isFirst){
+        var stages=gStages();
+        var enviarStage=stages.find(function(s){return s.id==='s3b';})||stages.find(function(s){return/pronto|feito|enviar/i.test(s.label);});
+        data[idx].stage=enviarStage?enviarStage.id:'s3b';
+      }
+      data[idx].updatedAt=new Date().toISOString();
+      var vals=_captureOrcValues();
+      data[idx].valor=vals.fat;
+      data[idx].valorTabela=vals.tab;
+      data[idx].valorFaturamento=vals.fat;
+      if(!data[idx].revisoes) data[idx].revisoes=[];
+      var revNum=data[idx].revisoes.length;
+      revLabel=isFirst?'Original':'Revisão '+revNum;
+      data[idx].revisoes.push({
+        rev:revNum, label:revLabel,
+        data:new Date().toISOString(),
+        valorTabela:vals.tab, valorFaturamento:vals.fat
+      });
+      var agpEl=document.getElementById('num-agp');
+      if(agpEl&&agpEl.value.trim()) data[idx].agp=agpEl.value.trim();
+      var resEl=document.getElementById('numprojeto');
+      if(resEl&&resEl.value.trim()) data[idx].reserva=resEl.value.trim();
+      cSave(data);
+      if(typeof crmRender==='function') crmRender();
     }
-    // Esconder "Pronto para Envio", mostrar "Atualizar Valor" para próximas revisões
-    var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
-    var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt){btnAtt.style.display='none';}
-    // Toast de confirmação
-    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='✅ '+revLabel+' enviada! Card movido p/ Orçamento Pronto. PDF gerado.';document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
-    if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
   }
+  // SEMPRE gerar PDF
+  if(typeof printProposta==='function'){
+    try{ printProposta(); }catch(e){ console.warn('Erro ao gerar PDF:',e); }
+  }
+  // Esconder botões após envio
+  var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
+  var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
+  // Toast
+  var msg=id?'✅ '+revLabel+' enviada! PDF gerado.'+(revLabel==='Original'?' Card movido.':''):'✅ PDF da proposta gerado!';
+  var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent=msg;document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
+  if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
 };
 
 /* ── Atualizar Valor para Card (sem mudar etapa) ── */
