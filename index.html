@@ -660,7 +660,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 .login-box button{width:100%;padding:12px;border:none;border-radius:10px;background:var(--navy);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
 .login-box button:hover{background:var(--navy-mid)}
 .login-err{font-size:11px;color:#e74c3c;font-weight:600;min-height:18px;margin-bottom:8px}
-.login-online{position:fixed;top:8px;right:8px;display:flex;align-items:center;gap:6px;background:var(--navy);padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;color:#fff;z-index:99998;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.login-online{position:fixed;top:8px;right:8px;display:flex;align-items:center;gap:6px;background:var(--navy);padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;color:#fff;z-index:900;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .login-online .dot-on{width:8px;height:8px;border-radius:50%;background:#27ae60;animation:pulse-on 2s infinite}
 @keyframes pulse-on{0%,100%{opacity:1}50%{opacity:.4}}
 </style>
@@ -14194,7 +14194,7 @@ function _createOnlineWidget(){
   if(document.getElementById('online-widget'))return;
   var w=document.createElement('div');
   w.id='online-widget';
-  w.style.cssText='position:fixed;bottom:14px;right:14px;background:var(--navy);border-radius:12px;padding:8px 14px;z-index:99997;box-shadow:0 3px 12px rgba(0,0,0,.25);min-width:120px;font-family:Montserrat,sans-serif';
+  w.style.cssText='position:fixed;bottom:14px;right:14px;background:var(--navy);border-radius:12px;padding:8px 14px;z-index:899;box-shadow:0 3px 12px rgba(0,0,0,.25);min-width:120px;font-family:Montserrat,sans-serif';
   w.innerHTML='<div style="font-size:9px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">● Online agora</div><div id="online-widget-list" style="font-size:11px;color:#fff"></div>';
   document.body.appendChild(w);
 }
