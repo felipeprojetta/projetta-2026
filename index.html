@@ -3628,36 +3628,32 @@ function calc(){
     return nFol===2 ? d*2 : d;
   }
 
-  // ── Quantidade de portas para multiplicar horas ──
-  var _qPh=parseInt($('qtd-portas').value)||1;
-  var _qPnote=_qPh>1?' × '+_qPh+' portas':'';
-
-  // Aplicar Portal (só se campo vazio ou era automático) × qP
+  // Aplicar Portal (só se campo vazio ou era automático)
   var hPortalEl=$('h-portal');
   if(hPortalEl && _altMM>0 && window._osGeradoUmaVez){
-    var _pAuto=_horasPortal(_altMM,_nFol)*_qPh;
-    _setHoraAuto('h-portal',_pAuto,'h-portal-auto','(auto'+_qPnote+')');
+    var _pAuto=_horasPortal(_altMM,_nFol);
+    _setHoraAuto('h-portal',_pAuto,'h-portal-auto','(auto)');
   }
-  // Aplicar Quadro (só se campo vazio ou era automático) × qP
+  // Aplicar Quadro (só se campo vazio ou era automático)
   var hQuadroEl=$('h-quadro');
   if(hQuadroEl && _altMM>0 && window._osGeradoUmaVez){
-    var _qAuto=_horasQuadro(_altMM,_nFol)*_qPh;
-    _setHoraAuto('h-quadro',_qAuto,'h-quadro-auto','(auto'+_qPnote+')');
+    var _qAuto=_horasQuadro(_altMM,_nFol);
+    _setHoraAuto('h-quadro',_qAuto,'h-quadro-auto','(auto)');
   }
-  // Aplicar Colagem (automático) × qP
+  // Aplicar Colagem (automático para todos os tipos de porta)
   var hColagemEl=$('h-colagem');
   if(hColagemEl && _altMM>0 && window._osGeradoUmaVez && (hColagemEl.value==='' || hColagemEl.dataset.auto==='1' || hColagemEl.value==='0')){
     var _cDias=_diasColagem(_altMM,_nFol,_isCava,_isRip);
-    var _cHoras=_cDias*9*_qPh; // 9h por dia de colagem × qtd portas
+    var _cHoras=_cDias*9; // 9h por dia de colagem
     var _cTipo=_isCava?'cava':(_isRip?'ripado':'lisa');
-    _setHoraAuto('h-colagem',_cHoras>0?_cHoras:'','h-colagem-auto',_cHoras>0?'(auto '+_cTipo+': '+_cDias+'d × 9h × '+_qPh+'p = '+_cHoras+'h)':'');
+    _setHoraAuto('h-colagem',_cHoras>0?_cHoras:'','h-colagem-auto',_cHoras>0?'(auto '+_cTipo+': '+_cDias+'d × 9h = '+_cHoras+'h)':'');
   }
-  // Aplicar Conf & Bem (Conferência e Embalagem) × qP
+  // Aplicar Conf & Bem (Conferência e Embalagem)
   var hConfEl=$('h-conf');
   if(hConfEl && _altMM>0 && window._osGeradoUmaVez){
     var _cfBase = _altMM < 6000 ? 3 : 4;
-    var _cfAuto = (_nFol === 2 ? _cfBase * 2 : _cfBase)*_qPh;
-    _setHoraAuto('h-conf',_cfAuto,'h-conf-auto','(auto: '+_cfAuto+'h'+_qPnote+')');
+    var _cfAuto = _nFol === 2 ? _cfBase * 2 : _cfBase;
+    _setHoraAuto('h-conf',_cfAuto,'h-conf-auto','(auto: '+_cfAuto+'h)');
   }
   // ══════════════════════════════════════════════════════════════════════
 
@@ -3675,11 +3671,9 @@ function calc(){
   const subMO=totalH*cH;
   const subFab=subAcm+subAlu+perfis+subMO;
 
-  // ── Quantidade de portas para multiplicar display ──
-  var _qP=parseInt($('qtd-portas').value)||1;
-  $('r-horas').textContent=(totalH*_qP)+' h'+(_qP>1?' (×'+_qP+' portas)':'');
+  $('r-horas').textContent=totalH+' h';
   var _osOK=window._osGeradoUmaVez;
-  var _brlOS=function(v){return _osOK?brl(v*_qP):'—';};
+  var _brlOS=function(v){return _osOK?brl(v):'—';};
   $('sub-acm').textContent=_brlOS(subAcm);
   $('sub-alu').textContent=_brlOS(subAlu);
   $('sub-perf-mat').textContent=_brlOS(fabMatPerf);
@@ -3687,9 +3681,9 @@ function calc(){
   $('sub-perf-acess').textContent=_brlOS(fabAcess);
   $('sub-perf').textContent=_brlOS(perfis);
   $('sub-mo').textContent=_brlOS(subMO);
-  $('sub-h').textContent=(totalH*_qP)+(_qP>1?' ('+totalH+'h × '+_qP+')':'');
+  $('sub-h').textContent=totalH;
   $('sub-ch').textContent=cH;
-  $('r-fab').textContent=window._osGeradoUmaVez?brl(subFab*_qP):'—';
+  $('r-fab').textContent=window._osGeradoUmaVez?brl(subFab):'—';
 
   /* INSTALAÇÃO */
   // Auto-calc Dias de instalação — só quando OS foi gerada e altura preenchida
@@ -5320,8 +5314,7 @@ function aprovCalc(){
   var usable=(SW-2*mg)*(SH-2*mg);
   var minS=Math.ceil(totPA/Math.max(1,usable));
   var eff=(minS/APROV_RES.numSheets*100).toFixed(0);
-  var _qPs=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
-  document.getElementById('mst-n').textContent=APROV_RES.numSheets*_qPs+(_qPs>1?' ('+APROV_RES.numSheets+' × '+_qPs+' portas)':'');
+  document.getElementById('mst-n').textContent=APROV_RES.numSheets;
   document.getElementById('mst-u').textContent=util+'%';
   document.getElementById('mst-w').textContent=(100-parseFloat(util)).toFixed(1)+'%';
   document.getElementById('mst-e').textContent=eff+'%';
@@ -5359,9 +5352,7 @@ function aprovRun(){
   var totSA=res.numSheets*SW*SH;
   var util=(totPA/totSA*100).toFixed(1);
   // update compact result
-  var _qPr=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
-  var _nSh=res.numSheets*_qPr;
-  var summary=_nSh+' chapa(s) '+SW+'×'+SH+'mm  ·  '+util+'% aproveit.'+(_qPr>1?' (×'+_qPr+' portas)':'');
+  var summary=res.numSheets+' chapa(s) '+SW+'×'+SH+'mm  ·  '+util+'% aproveit.';
   if(res.failed.length>0) summary+='  ·  ⚠ '+res.failed.length+' peça(s) não couberam';
   document.getElementById('aprov-summary').textContent=summary;
   var chips='<span class="aprov-chip or">'+res.numSheets+' chapa(s)</span>'+
@@ -5800,7 +5791,7 @@ function _renderPadroesContent(data, kerf){
       } else {
         totalQtd+=c.qty;
         html+='<tr>'
-             +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-weight:700">'+c.qty*_qPOS+'</td>'
+             +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-weight:700">'+c.qty+'</td>'
              +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center">'+c.compMM+'</td>'
              +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center">90/90</td>'
              +'<td style="padding:3px 8px;border:0.5px solid #eee;color:#555">'+c.desc+'</td>'
@@ -5877,7 +5868,7 @@ function _renderPadroesContent(data, kerf){
     fRows.forEach(function(r,i){
       var bg=i%2===0?'#faf7fc':'#fff';
       html+='<tr style="background:'+bg+'">'+
-        '<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-weight:700">'+r.qty*_qPOS+'</td>'+
+        '<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-weight:700">'+r.qty+'</td>'+
         '<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center">'+r.mm+'</td>'+
         '<td style="padding:3px 8px;border:0.5px solid #eee;color:#6c3483;font-weight:600;font-size:9px">'+r.code+'</td>'+
         '<td style="padding:3px 8px;border:0.5px solid #eee;color:#555">'+r.desc+'</td>'+
@@ -5973,9 +5964,7 @@ function gerarCustoTotal(){
       var _mSel=document.getElementById('carac-modelo')||document.getElementById('plan-modelo');
       var _mVal=_mSel?_mSel.value:'';
       var _isRip=['08','15','20','21'].indexOf(_mVal)>=0;
-      var _qPc=parseInt($('qtd-portas').value)||1;
-      var nChapasTotal=nChapas*_qPc;
-      var corteAuto=nChapasTotal>0?(_isRip?nChapasTotal+2:nChapasTotal+1):0;
+      var corteAuto=nChapas>0?(_isRip?nChapas+2:nChapas+1):0;
       var hCorteEl=document.getElementById('h-corte');
       if(hCorteEl && corteAuto>0 && hCorteEl.dataset.manual!=='1'){
         hCorteEl.value=corteAuto;
@@ -6022,9 +6011,6 @@ function gerarOS(){
   if(_docEl) _docEl.style.display='none';
 
   try {
-  // Quantidade de portas para multiplicar quantidades na OS (global)
-  var _qPOS=parseInt(($('qtd-portas')||{value:'1'}).value)||1;
-  window._qPOS=_qPOS;
   var L=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
   var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
   if(L<=0||H<=0){
@@ -6088,7 +6074,7 @@ function gerarOS(){
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px;color:#888">'+c.lh+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px">'+barLen+'M</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-weight:700;font-size:11px;color:#e67e22">'+p0+'</td>'
-          +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px">'+c.qty*_qPOS+'</td>'
+          +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px">'+c.qty+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px;color:#666">'+c.kgM.toFixed(3).replace('.',',')+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-weight:700;font-size:11px;color:#e67e22">'+kgP0.toFixed(3).replace('.',',')+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;font-size:9px;color:#e67e22;white-space:nowrap">✂ EMENDA'+c.obs.replace('BRUTO','').replace('BNF-TECNO','')+'</td>'
@@ -6102,7 +6088,7 @@ function gerarOS(){
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px;color:#888">'+c.lh+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px">'+barLen+'M</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-weight:700;font-size:11px;color:#e67e22">'+compMM_compl+'</td>'
-          +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px">'+c.qty*_qPOS+'</td>'
+          +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px">'+c.qty+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px;color:#666">'+c.kgM.toFixed(3).replace('.',',')+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-weight:700;font-size:11px;color:#e67e22">'+kgP1.toFixed(3).replace('.',',')+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;font-size:9px;color:#e67e22;white-space:nowrap">↩ complemento '+c.obs.replace('BRUTO','').replace('BNF-TECNO','')+'</td>'
@@ -6117,7 +6103,7 @@ function gerarOS(){
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px;color:#888">'+c.lh+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px">'+barLen+'M</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-weight:700;font-size:11px">'+c.compMM+'</td>'
-          +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px">'+c.qty*_qPOS+'</td>'
+          +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px">'+c.qty+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px;color:#666">'+c.kgM.toFixed(3).replace('.',',')+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-weight:700;font-size:11px;color:'+themeColor+'">'+kgLiq.toFixed(3).replace('.',',')+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;font-size:9px;color:'+(ip?'#8e44ad':'#888')+';white-space:nowrap">'+c.obs+'</td>'
@@ -9848,7 +9834,7 @@ function calcPerfis(){
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;font-size:10px">'+c.desc+'</td>'
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:center;font-size:9px;color:#888">'+lh+'</td>'
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-weight:700;font-size:10px">'+c.compMM+'</td>'
-      +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px">'+c.qty*_qPOS+'</td>'
+      +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px">'+c.qty+'</td>'
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px;color:#888">'+kgM.toFixed(3).replace('.',',')+'</td>'
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-weight:700;font-size:10px;color:var(--navy)">'+kgLiq.toFixed(3).replace('.',',')+'</td>'
       +'</tr>';
@@ -13547,7 +13533,7 @@ function _calcAcessoriosOS(d, nFolhas, sis){
     totalAcess+=tot;
     var bg=i%2===0?'#f9f8f5':'#fff';
     html+='<tr style="background:'+bg+'">'
-      +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-weight:700">'+r.qty*_qPOS+'</td>'
+      +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-weight:700">'+r.qty+'</td>'
       +'<td style="padding:3px 8px;border:0.5px solid #eee;font-size:9px;color:#1a3a4a">'+r.code+'</td>'
       +'<td style="padding:3px 8px;border:0.5px solid #eee">'+r.desc+'</td>'
       +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:right">'+(r.preco>0?'R$ '+r.preco.toFixed(2):'—')+'</td>'
@@ -13695,7 +13681,7 @@ function _renderOSAcess(d, acessRows, vedaInfo){
         var bg=isZero?'#ffebee':i%2===0?'#f9f8f5':'#fff';
         var boldCls=isZero?'font-weight:800;':'';
         html+='<tr style="background:'+bg+(isZero?';border-left:3px solid #b71c1c':'')+'">'
-             +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-weight:700;'+boldCls+'">'+item.qty*(window._qPOS||1)+'</td>'
+             +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-weight:700;'+boldCls+'">'+item.qty+'</td>'
              +'<td style="padding:3px 8px;border:0.5px solid #eee;font-size:9.5px;color:'+gc+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+boldCls+'">'+item.code+'</td>'
              +'<td style="padding:3px 8px;border:0.5px solid #eee;overflow:hidden;text-overflow:ellipsis;'+boldCls+'">'+item.desc+'</td>'
              +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-size:9px;color:#888;overflow:hidden;text-overflow:ellipsis">'+(item.obs||'')+'</td>'
@@ -13740,7 +13726,7 @@ function _renderOSAcess(d, acessRows, vedaInfo){
       var isZero=(!item.preco||item.preco<=0);
       var bg=isZero?'#ffebee':i%2===0?'#f9f7fd':'#fff';
       html+='<tr style="background:'+bg+(isZero?';border-left:3px solid #b71c1c':'')+'">'
-           +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-weight:700">'+item.qty*(window._qPOS||1)+'</td>'
+           +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-weight:700">'+item.qty+'</td>'
            +'<td style="padding:3px 8px;border:0.5px solid #eee;font-size:9.5px;color:#7d3c98;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+item.code+'</td>'
            +'<td style="padding:3px 8px;border:0.5px solid #eee;overflow:hidden;text-overflow:ellipsis">'+item.desc+'</td>'
            +'<td style="padding:3px 8px;border:0.5px solid #eee;text-align:center;font-size:9px;color:#888">'+(item.obs||'')+'</td>'
