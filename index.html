@@ -8098,6 +8098,8 @@ window.crmOrcamentoPronto=function(){
   // Esconder botões após envio e TRAVAR orçamento
   var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
+  // Travar orçamento — PDF salvo, valores devem bater. Para alterar, Nova Revisão.
+  _setOrcLock(true);
   // Travar orçamento — somente leitura até Nova Revisão
   _setOrcLock(true);
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
