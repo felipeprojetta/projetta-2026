@@ -7710,7 +7710,10 @@ window.crmOpenModal=function(defaultStage,editId){
           rh+='<td style="padding:8px 10px;color:var(--muted);font-size:13px">'+new Date(rv.data).toLocaleDateString('pt-BR')+'</td>';
           rh+='<td style="padding:8px 10px;text-align:right;font-weight:700;font-size:13px;color:var(--navy)">'+brl(rv.valorTabela||0)+'</td>';
           rh+='<td style="padding:8px 10px;text-align:right;font-weight:800;font-size:13px;color:#e67e22">'+brl(rv.valorFaturamento||0)+'</td>';
-          rh+='<td style="padding:4px 6px;text-align:center"><button onclick="crmDeleteRevision(\''+editId+'\','+ri+')" style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:6px;font-size:10px;cursor:pointer;padding:3px 6px;font-weight:700" title="Excluir revisão">✕</button></td>';
+          var hasProposal=opp.propostas&&opp.propostas[ri];
+          rh+='<td style="padding:4px 6px;text-align:center;white-space:nowrap">';
+          if(hasProposal) rh+='<button onclick="event.stopPropagation();crmVerProposta(\''+editId+'\','+ri+')" style="background:none;border:1px solid #27ae60;color:#27ae60;border-radius:6px;font-size:10px;cursor:pointer;padding:3px 6px;font-weight:700;margin-right:3px" title="Ver proposta salva">📄</button>';
+          rh+='<button onclick="crmDeleteRevision(\''+editId+'\','+ri+')" style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:6px;font-size:10px;cursor:pointer;padding:3px 6px;font-weight:700" title="Excluir revisão">✕</button></td>';
           rh+='</tr>';
         });
         rh+='</table>';
@@ -8054,16 +8057,15 @@ window.crmOrcamentoPronto=function(){
       if(typeof crmRender==='function') crmRender();
     }
   }
-  // SEMPRE gerar PDF
-  if(typeof printProposta==='function'){
-    try{ printProposta(); }catch(e){ console.warn('Erro ao gerar PDF:',e); }
-  }
+  // Exportar proposta silenciosamente e salvar no card (sem abrir impressão)
+  _exportPropostaToCard(id, revLabel, function(captures){
+    var nPages=captures?captures.length:0;
+    var msg=id?'✅ '+revLabel+' salva! '+nPages+' página(s) anexadas ao card.'+(revLabel==='Original'?' Card movido.':''):'✅ Proposta exportada! '+nPages+' página(s).';
+    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent=msg;document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
+  });
   // Esconder botões após envio
   var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
-  // Toast
-  var msg=id?'✅ '+revLabel+' enviada! PDF gerado.'+(revLabel==='Original'?' Card movido.':''):'✅ PDF da proposta gerado!';
-  var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent=msg;document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
 };
 
@@ -8097,17 +8099,37 @@ window.crmAtualizarValorCard=function(){
   if(resEl&&resEl.value.trim()) data[idx].reserva=resEl.value.trim();
   cSave(data);
   crmRender();
-  // Gerar PDF da proposta revisada
-  if(typeof printProposta==='function'){
-    try{ printProposta(); }catch(e){ console.warn('Erro ao gerar PDF:',e); }
-  }
+  // Exportar proposta silenciosamente e salvar no card
+  _exportPropostaToCard(id, revLabel, function(captures){
+    var nPages=captures?captures.length:0;
+    var toast2=document.createElement('div');toast2.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2980b9;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast2.textContent='🔄 '+revLabel+' atualizada! '+nPages+' pág. anexadas. Tab: '+brl(vals.tab)+' | Fat: '+brl(vals.fat);document.body.appendChild(toast2);setTimeout(function(){toast2.remove();},5000);
+  });
   // Esconder o botão após atualizar
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
   var btnPronto=document.getElementById('crm-orc-pronto-btn');if(btnPronto)btnPronto.style.display='none';
-  var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2980b9;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='🔄 '+revLabel+' atualizada no Card! PDF gerado. Tab: '+brl(vals.tab)+' | Fat: '+brl(vals.fat);document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
 };
 
 /* ── Helper: capturar valores do orçamento ──────── */
+/* ── Ver Proposta salva no card ── */
+window.crmVerProposta=function(cardId, revIndex){
+  var data=cLoad();
+  var card=data.find(function(o){return o.id===cardId;});
+  if(!card||!card.propostas||!card.propostas[revIndex]){alert('Proposta não encontrada.');return;}
+  var prop=card.propostas[revIndex];
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:99999;overflow-y:auto;padding:20px;cursor:pointer';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  var inner='<div style="max-width:800px;margin:0 auto;text-align:center">';
+  inner+='<div style="color:#fff;font-size:14px;font-weight:700;margin-bottom:12px">📄 '+prop.label+' — '+(card.cliente||'')+'<br><span style="font-size:11px;opacity:.6">'+new Date(prop.data).toLocaleString('pt-BR')+'</span></div>';
+  inner+='<div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#e74c3c;color:#fff;font-weight:700;cursor:pointer;font-size:13px">✕ Fechar</button></div>';
+  for(var i=0;i<prop.pages.length;i++){
+    inner+='<div style="margin-bottom:16px"><img src="'+prop.pages[i]+'" style="width:100%;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.5)"><div style="color:#888;font-size:10px;margin-top:4px">Página '+(i+1)+' de '+prop.pages.length+'</div></div>';
+  }
+  inner+='</div>';
+  ov.innerHTML=inner;
+  document.body.appendChild(ov);
+};
+
 function _captureOrcValues(){
   var valorFatEl=document.getElementById('d-fat')||document.getElementById('prop-total-orc');
   var valorFat=0;
@@ -8889,7 +8911,6 @@ window.crmMapFilter=function(){
 function printProposta(){
   populateProposta();
   switchTab('proposta');
-  // Fechar aproveitamento drawer se estiver aberto
   var ad=document.getElementById('aprov-drawer');if(ad)ad.style.display='none';
   var ab=document.getElementById('aprov-backdrop');if(ab)ab.style.display='none';
   var origTitle=document.title;
@@ -8898,6 +8919,55 @@ function printProposta(){
     window.print();
     document.title=origTitle;
   },300);
+}
+
+/* ── Exportar proposta silenciosamente e salvar no card CRM ── */
+function _exportPropostaToCard(cardId, revLabel, callback){
+  if(typeof html2canvas==='undefined'){console.warn('html2canvas não carregado');if(callback)callback(null);return;}
+  populateProposta();
+  // Garantir que as páginas da proposta estão visíveis para captura
+  var propostaTab=document.getElementById('tab-proposta');
+  var wasHidden=propostaTab&&propostaTab.style.display==='none';
+  if(wasHidden) propostaTab.style.display='block';
+  var pages=document.querySelectorAll('.proposta-page');
+  if(!pages.length){if(callback)callback(null);return;}
+  var captures=[];
+  var idx=0;
+  function captureNext(){
+    if(idx>=pages.length){
+      // Restaurar tab
+      if(wasHidden) propostaTab.style.display='none';
+      // Salvar no card CRM
+      if(cardId){
+        try{
+          var data=cLoad();
+          var ci=data.findIndex(function(o){return o.id===cardId;});
+          if(ci>=0){
+            if(!data[ci].propostas) data[ci].propostas=[];
+            data[ci].propostas.push({
+              label:revLabel||'Proposta',
+              data:new Date().toISOString(),
+              pages:captures
+            });
+            cSave(data);
+          }
+        }catch(e){console.warn('Erro ao salvar proposta no card:',e);}
+      }
+      if(callback) callback(captures);
+      return;
+    }
+    html2canvas(pages[idx],{scale:0.6,useCORS:true,logging:false,backgroundColor:'#ffffff'}).then(function(canvas){
+      captures.push(canvas.toDataURL('image/jpeg',0.5));
+      idx++;
+      captureNext();
+    }).catch(function(e){
+      console.warn('Erro captura pg'+idx+':',e);
+      idx++;
+      captureNext();
+    });
+  }
+  // Aguardar render
+  setTimeout(captureNext, 400);
 }
 
 function populateProposta(){
