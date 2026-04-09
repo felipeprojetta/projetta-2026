@@ -10877,6 +10877,10 @@ function planUpd() {
   var manualP=(typeof getManualPieces==='function')?getManualPieces():[];
   for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
 
+  // ── Multiplicar peças por qtd portas ──
+  var _qPUpd=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+  if(_qPUpd>1){ pieces.forEach(function(p){ if(p.qty) p.qty=p.qty*_qPUpd; else if(p[3]) p[3]=p[3]*_qPUpd; }); }
+
   if(pieces.length===0){
     document.getElementById('plan-summary-txt').textContent=(!Mv?'selecione um modelo ou adicione pecas manuais':'preencha largura e altura');
     var infoEl=document.getElementById('plan-auto-info');if(infoEl)infoEl.style.display='none';
@@ -11010,6 +11014,10 @@ function _autoSelectAndRun(){
     if(Array.isArray(p)) return {label:p[0],w:p[1],h:p[2],qty:p[3]||1};
     return p;
   });
+
+  // ── Multiplicar peças por qtd portas antes do nesting ──
+  var _qPAuto=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+  if(_qPAuto>1){ pcsNorm.forEach(function(p){ p.qty=p.qty*_qPAuto; }); }
 
   var maxDim=0;
   pcsNorm.forEach(function(p){var d=Math.max(p.w,p.h);if(d>maxDim)maxDim=d;});
@@ -11278,6 +11286,10 @@ function planRun() {
   for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
 
   if(pieces.length===0){alert('Nenhuma peça para calcular. Selecione um modelo ou adicione peças manuais.');return;}
+
+  // ── Multiplicar peças por qtd portas antes do nesting ──
+  var _qPlan=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+  if(_qPlan>1){ pieces.forEach(function(p){ p.qty=p.qty*_qPlan; }); }
 
   var parts=document.getElementById('plan-chapa').value.split('|');
   var SW=parseInt(parts[0]),SH=parseInt(parts[1]);
