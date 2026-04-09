@@ -3580,8 +3580,9 @@ function calc(){
   if(rm2t)rm2t.textContent=m2T>0?m2T.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' m² (porta: '+m2.toFixed(2)+' + fixos: '+m2Fixos.toFixed(2)+')':'—';
 
   /* FABRICAÇÃO */
-  const subAcm=sumBlocks('acm',aC);
-  const subAlu=sumBlocks('alu',lC);
+  var _qPcalc=parseInt($('qtd-portas').value)||1;
+  const subAcm=sumBlocks('acm',aC)*_qPcalc;
+  const subAlu=sumBlocks('alu',lC)*_qPcalc;
   const fabMatPerf=n('fab-mat-perfis')||0;
   const fabPintura=n('fab-custo-pintura')||0;
   const fabAcess=n('fab-custo-acess')||0;
@@ -3628,32 +3629,36 @@ function calc(){
     return nFol===2 ? d*2 : d;
   }
 
-  // Aplicar Portal (só se campo vazio ou era automático)
+  // ── Qtd portas para multiplicar horas de fabricação ──
+  var _qPh=parseInt($('qtd-portas').value)||1;
+  var _qPnote=_qPh>1?' × '+_qPh+'p':'';
+
+  // Aplicar Portal × qP (cada porta precisa ser montada)
   var hPortalEl=$('h-portal');
   if(hPortalEl && _altMM>0 && window._osGeradoUmaVez){
-    var _pAuto=_horasPortal(_altMM,_nFol);
-    _setHoraAuto('h-portal',_pAuto,'h-portal-auto','(auto)');
+    var _pAuto=_horasPortal(_altMM,_nFol)*_qPh;
+    _setHoraAuto('h-portal',_pAuto,'h-portal-auto','(auto'+_qPnote+')');
   }
-  // Aplicar Quadro (só se campo vazio ou era automático)
+  // Aplicar Quadro × qP
   var hQuadroEl=$('h-quadro');
   if(hQuadroEl && _altMM>0 && window._osGeradoUmaVez){
-    var _qAuto=_horasQuadro(_altMM,_nFol);
-    _setHoraAuto('h-quadro',_qAuto,'h-quadro-auto','(auto)');
+    var _qAuto=_horasQuadro(_altMM,_nFol)*_qPh;
+    _setHoraAuto('h-quadro',_qAuto,'h-quadro-auto','(auto'+_qPnote+')');
   }
-  // Aplicar Colagem (automático para todos os tipos de porta)
+  // Aplicar Colagem × qP (9h por dia × qP)
   var hColagemEl=$('h-colagem');
   if(hColagemEl && _altMM>0 && window._osGeradoUmaVez && (hColagemEl.value==='' || hColagemEl.dataset.auto==='1' || hColagemEl.value==='0')){
     var _cDias=_diasColagem(_altMM,_nFol,_isCava,_isRip);
-    var _cHoras=_cDias*9; // 9h por dia de colagem
+    var _cHoras=_cDias*9*_qPh;
     var _cTipo=_isCava?'cava':(_isRip?'ripado':'lisa');
-    _setHoraAuto('h-colagem',_cHoras>0?_cHoras:'','h-colagem-auto',_cHoras>0?'(auto '+_cTipo+': '+_cDias+'d × 9h = '+_cHoras+'h)':'');
+    _setHoraAuto('h-colagem',_cHoras>0?_cHoras:'','h-colagem-auto',_cHoras>0?'(auto '+_cTipo+': '+_cDias+'d×9h×'+_qPh+'p='+_cHoras+'h)':'');
   }
-  // Aplicar Conf & Bem (Conferência e Embalagem)
+  // Aplicar Conf & Bem × qP (conferência e embalagem)
   var hConfEl=$('h-conf');
   if(hConfEl && _altMM>0 && window._osGeradoUmaVez){
     var _cfBase = _altMM < 6000 ? 3 : 4;
-    var _cfAuto = _nFol === 2 ? _cfBase * 2 : _cfBase;
-    _setHoraAuto('h-conf',_cfAuto,'h-conf-auto','(auto: '+_cfAuto+'h)');
+    var _cfAuto = (_nFol === 2 ? _cfBase * 2 : _cfBase)*_qPh;
+    _setHoraAuto('h-conf',_cfAuto,'h-conf-auto','(auto: '+_cfAuto+'h'+_qPnote+')');
   }
   // ══════════════════════════════════════════════════════════════════════
 
@@ -3901,16 +3906,15 @@ function calc(){
   const pFat=custo*fF,pTab=custo*fT,dVal=pTab*descPrj;
   const mkp=custo>0?(pTab/custo-1)*100:0;
 
-  // Painel PORTA (multiplicado por quantidade)
+  // Painel PORTA (custos já incluem todas as portas via otimização)
   const qP=parseInt($('qtd-portas').value)||1;
   // pFatReal = preço que o cliente paga = tabela × (1 − desconto negociado)
-  // Com desconto=0%: pFatReal = pTab (tabela = faturamento) ✓
   const pFatReal=pTab*(1-descPrj);
-  $('m-custo-porta').textContent=brl(custo*qP);
+  $('m-custo-porta').textContent=brl(custo);
   $('m-custo-porta-m2').textContent=m2>0?br2(custo/m2)+'/m²':'—';
   $('m-mkp-porta').textContent=pf(mkp);
-  $('m-tab-porta').textContent=brl(pTab*qP);
-  $('m-fat-porta').textContent=brl(pFatReal*qP);
+  $('m-tab-porta').textContent=brl(pTab);
+  $('m-fat-porta').textContent=brl(pFatReal);
   $('m-tab-porta-m2').textContent=m2>0?br2(pTab/m2)+'/m²':'—';
   $('m-fat-porta-m2').textContent=m2>0?br2(pFatReal/m2)+'/m²':'—';
 
@@ -3932,9 +3936,9 @@ function calc(){
   const custoAc=0, pFatAc=0, pTabAc=0;
 
   /* ══ RESULTADO GERAL (PORTA + FECHADURA) × QTD ══ */
-  const pFatTotal=pFatReal*qP; // preço real pago (tabela − desconto negociado)
-  const pTabTotal=pTab*qP;
-  const custoTotal=custo*qP;
+  const pFatTotal=pFatReal; // preço real pago (tabela − desconto negociado)
+  const pTabTotal=pTab;
+  const custoTotal=custo;
   const mkpTotal=custoTotal>0?(pTabTotal/custoTotal-1)*100:0;
 
   $('m-custo').textContent=brl(custoTotal);
@@ -3954,17 +3958,17 @@ function calc(){
 
   // DRE: Preço Tabela → Desconto → Faturamento
   // Desconto = desconto negociado (dVal = pTab * descPrj)
-  var dDescTotal=dVal*qP; // desconto sobre preço tabela da porta
+  var dDescTotal=dVal; // desconto sobre preço tabela da porta
   var pFatRealTotal=pTabTotal-dDescTotal; // receita faturamento = tabela - desconto negociado
   $('d-tab').textContent=brl(pTabTotal);
-  $('d-tab-porta').textContent=brl(pTab*qP);
-  if(custoAc>0&&$('d-tab-fech')) $('d-tab-fech').textContent=brl(pTabAc*qP);
+  $('d-tab-porta').textContent=brl(pTab);
+  if(custoAc>0&&$('d-tab-fech')) $('d-tab-fech').textContent=brl(pTabAc);
   if($('d-tab-fech-row')) $('d-tab-fech-row').style.display=custoAc>0?'':'none';
   $('d-desc-val').textContent=dDescTotal>0?'−'+brl(dDescTotal):'R$ 0';
   $('d-desc-pct').textContent=descPrj>0?pf(descPrj*100)+' aplicado':'sem desconto';
   $('d-fat').textContent=brl(pFatRealTotal);
-  $('d-fat-porta').textContent=brl((pTab-dVal)*qP);
-  if(custoAc>0) $('d-fat-fech').textContent=brl(pTabAc*(1-descPrj)*qP);
+  $('d-fat-porta').textContent=brl(pTab-dVal);
+  if(custoAc>0) $('d-fat-fech').textContent=brl(pTabAc*(1-descPrj));
   $('d-imp').textContent='−'+brl(vI);$('d-imp-pct').textContent=pf(imp*100);
   $('d-rep').textContent='−'+brl(vR);$('d-rep-pct').textContent=pf(rep*100);
   $('d-rt').textContent='−'+brl(vT);$('d-rt-pct').textContent=pf(rt*100);
@@ -5292,6 +5296,9 @@ function aprovCalc(){
   var SW=parseInt(parts[0]),SH=parseInt(parts[1]);
   APROV_SD={w:SW,h:SH,mg:mg};
   var pieces=aprovPieces(L,A,fol,mod);
+  // Multiplicar peças por quantidade de portas antes do nesting
+  var _qPA=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+  if(_qPA>1){ pieces.forEach(function(p){ p.qty=p.qty*_qPA; }); }
   APROV_RES=aprovMaxRects(pieces,SW,SH,kerf,rot,mg);
   // Reordenar chapas: maior aproveitamento primeiro
   if(APROV_RES.numSheets>1){
@@ -5346,6 +5353,8 @@ function aprovRun(){
   // quick calc
   APROV_SD={w:SW,h:SH,mg:10};
   var kerf=4,rot=true,mg=10;
+  var _qPAR=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+  if(_qPAR>1){ pieces.forEach(function(p){ p.qty=p.qty*_qPAR; }); }
   var res=aprovMaxRects(pieces,SW,SH,kerf,rot,mg);
   APROV_RES=res;APROV_CSI=0;
   APROV_SD={w:SW,h:SH,mg:mg};
@@ -5964,7 +5973,9 @@ function gerarCustoTotal(){
       var _mSel=document.getElementById('carac-modelo')||document.getElementById('plan-modelo');
       var _mVal=_mSel?_mSel.value:'';
       var _isRip=['08','15','20','21'].indexOf(_mVal)>=0;
-      var corteAuto=nChapas>0?(_isRip?nChapas+2:nChapas+1):0;
+      var _qPc=parseInt($('qtd-portas').value)||1;
+      var nChapasTotal=nChapas*_qPc;
+      var corteAuto=nChapasTotal>0?(_isRip?nChapasTotal+2:nChapasTotal+1):0;
       var hCorteEl=document.getElementById('h-corte');
       if(hCorteEl && corteAuto>0 && hCorteEl.dataset.manual!=='1'){
         hCorteEl.value=corteAuto;
@@ -6025,6 +6036,12 @@ function gerarOS(){
   if(d.error){
     if(!window._osAutoMode) alert(d.error); // só alerta no clique manual
     return;
+  }
+  // ── Multiplicar cortes por quantidade de portas (otimização conjunta) ──
+  var _qPOS=parseInt(($('qtd-portas')||{value:'1'}).value)||1;
+  window._qPOS=_qPOS;
+  if(_qPOS>1){
+    d.cuts.forEach(function(c){ c.qty=c.qty*_qPOS; });
   }
 
   // ── Cabeçalho ─────────────────────────────────────────────────────────────
@@ -13776,7 +13793,9 @@ function _renderOSAcess(d, acessRows, vedaInfo){
 
   if(!window._syncingAcess){
     window._syncingAcess = true;
-    _fabSetSysValue('acess', totalParaFab);
+    // Multiplicar acessórios por quantidade de portas (igual perfis)
+    var _qPAcess=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+    _fabSetSysValue('acess', totalParaFab*_qPAcess);
     if(typeof syncFabPerfisTotal === 'function') syncFabPerfisTotal();
     if(typeof calc === 'function') calc();
     window._syncingAcess = false;
