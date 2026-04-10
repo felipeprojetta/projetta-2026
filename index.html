@@ -3616,9 +3616,15 @@ function calc(){
   if(rm2t)rm2t.textContent=m2T>0?m2T.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' m² (porta: '+m2.toFixed(2)+' + fixos: '+m2Fixos.toFixed(2)+')':'—';
 
   /* FABRICAÇÃO */
-  var _qPcalc=parseInt($('qtd-portas').value)||1;
-  const subAcm=sumBlocks('acm',aC)*_qPcalc;
-  const subAlu=sumBlocks('alu',lC)*_qPcalc;
+  var _qPcalc;
+  if(window._mpItens && window._mpItens.length > 0){
+    _qPcalc=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
+  } else {
+    _qPcalc=parseInt($('qtd-portas').value)||1;
+  }
+  // Chapas: NÃO multiplicar por qP — planificador já calculou com todas as peças
+  const subAcm=sumBlocks('acm',aC);
+  const subAlu=sumBlocks('alu',lC);
   const fabMatPerf=n('fab-mat-perfis')||0;
   const fabPintura=n('fab-custo-pintura')||0;
   const fabAcess=n('fab-custo-acess')||0;
@@ -3666,7 +3672,12 @@ function calc(){
   }
 
   // ── Qtd portas para multiplicar horas de fabricação ──
-  var _qPh=parseInt($('qtd-portas').value)||1;
+  var _qPh;
+  if(window._mpItens && window._mpItens.length > 0){
+    _qPh=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
+  } else {
+    _qPh=parseInt($('qtd-portas').value)||1;
+  }
   var _qPnote=_qPh>1?' × '+_qPh+'p':'';
 
   // Aplicar Portal × qP (cada porta precisa ser montada)
@@ -4132,6 +4143,10 @@ function captureFormData(){
     data['fixo-lados-'+fixoIdx]=ld;
     fixoIdx++;
   });
+  // Salvar itens multi-porta
+  if(window._mpItens && window._mpItens.length > 0){
+    data['_mpItens']=JSON.stringify(window._mpItens);
+  }
   return data;
 }
 
@@ -4305,6 +4320,14 @@ function restoreFormData(data){
     window._osGeradoUmaVez = !!data._osGeradoUmaVez;
   } else {
     window._osGeradoUmaVez = !!(parseFloat(data['h-portal'])||parseFloat(data['h-quadro'])||parseFloat(data['h-corte'])||parseFloat(data['h-colagem'])||parseFloat(data['h-conf'])||parseFloat(data['custo-hora']));
+  }
+  // Restaurar itens multi-porta
+  if(data['_mpItens']){
+    try{ window._mpItens=JSON.parse(data['_mpItens']); }catch(e){ window._mpItens=[]; }
+    if(typeof _mpRender==='function') _mpRender();
+  } else {
+    window._mpItens=[];
+    if(typeof _mpRender==='function') _mpRender();
   }
   calc();
 }
@@ -4900,6 +4923,9 @@ function resetToDefaults(){
   $('dataprojeto').valueAsDate=new Date();
   // dimensões — vazio
   ['largura','altura'].forEach(f=>{$(f).value='';});
+  // Limpar tabela multi-porta
+  window._mpItens=[];
+  if(typeof _mpRender==='function') _mpRender();
   // folhas
   var fol=$('folhas-porta');if(fol)fol.selectedIndex=0;
   // fabricação — vazio exceto custo-hora fixo
@@ -6072,7 +6098,10 @@ function gerarCustoTotal(){
           var _nFol=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
           var _sis=(_d&&_d.sis)||(document.getElementById('prod-sistema')||{value:''}).value||'PA006';
           var _aRows=_calcAcessoriosOS(_d,_nFol,_sis);
-          var _vInfo=_d&&_d.vedaSize?{qty:_d.vedaQty,code:_d.vedaCode,size:_d.vedaSize}:null;
+          var _qPGCT=window._qPOS||parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+          if(window._mpItens&&window._mpItens.length>0) _qPGCT=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
+          if(_qPGCT>1){ _aRows.forEach(function(r){ r.qty=r.qty*_qPGCT; }); }
+          var _vInfo=_d&&_d.vedaSize?{qty:_d.vedaQty*_qPGCT,code:_d.vedaCode,size:_d.vedaSize}:null;
           _renderOSAcess(_d,_aRows,_vInfo);
         }catch(_e){ console.warn('acess sync:',_e); }
         if(typeof calc==='function') calc();
@@ -6112,13 +6141,26 @@ function gerarOS(){
   if(nFolhas!==1){if(!window._osAutoMode)alert('OS para 2 folhas em desenvolvimento. Calculando para 1 folha.');nFolhas=1;}
   var barraMM=(parseFloat((document.getElementById('pf-barra-m')||{value:6}).value)||6)*1000;
 
-  var d=_calcularDadosPerfis(L,H,nFolhas,barraMM);
-  if(d.error){
-    if(!window._osAutoMode) alert(d.error); // só alerta no clique manual
-    return;
+  var d;
+  // ── Multi-porta: calcular combinado ──
+  if(window._mpItens && window._mpItens.length > 0){
+    d=_mpCalcCombinedPerfis(barraMM);
+    if(d.error){
+      if(!window._osAutoMode) alert(d.error);
+      return;
+    }
+    window._qPOS=1; // multi-door gerencia qtd internamente
+    // Usar dimensões do primeiro item para cabeçalho
+    L=window._mpItens[0].largura; H=window._mpItens[0].altura;
+    nFolhas=window._mpItens[0].folhas||1;
+  } else {
+    d=_calcularDadosPerfis(L,H,nFolhas,barraMM);
+    if(d.error){
+      if(!window._osAutoMode) alert(d.error);
+      return;
+    }
+    window._qPOS=parseInt(($('qtd-portas')||{value:'1'}).value)||1;
   }
-  // qP multiplicação agora acontece DENTRO de _calcularDadosPerfis
-  window._qPOS=parseInt(($('qtd-portas')||{value:'1'}).value)||1;
 
   // ── Cabeçalho ─────────────────────────────────────────────────────────────
   var cliente=(document.getElementById('nome-cliente')||{value:''}).value||
@@ -6231,7 +6273,12 @@ function gerarOS(){
 
   // Definir kgM dos cortes do fixo via PERFIS_DB e empurrar em d.cuts
   // Multiplicar fixos por qtd portas (mesmo tratamento da porta principal)
-  var _qPFixo=parseInt(($('qtd-portas')||{value:'1'}).value)||1;
+  var _qPFixo;
+  if(window._mpItens&&window._mpItens.length>0){
+    _qPFixo=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
+  } else {
+    _qPFixo=parseInt(($('qtd-portas')||{value:'1'}).value)||1;
+  }
   _fixosD.cuts.forEach(function(fc){
     if(!fc.kgM){
       var kgFound=0, baseCode=fc.code.replace(/-[678]M$/,'');
@@ -6542,6 +6589,10 @@ function gerarOS(){
 
   // ── Acessórios (fechadura, roseta, cilindro) ─────────────────────────────────
   var _acessRows  = _calcAcessoriosOS(d, nFolhas, d.sis||sis);
+  // Multiplicar quantidades de acessórios por quantidade de portas
+  var _qPAc=window._qPOS||parseInt(($('qtd-portas')||{value:'1'}).value)||1;
+  if(window._mpItens&&window._mpItens.length>0) _qPAc=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
+  if(_qPAc>1){ _acessRows.forEach(function(r){ r.qty=r.qty*_qPAc; }); }
   var _totalAcess = _renderAcessoriosOS(_acessRows);
   // Nota: o valor total de acessórios será sincronizado com fab-custo-acess
   // pela função _renderOSAcess, que inclui o pivô no cálculo.
@@ -6562,9 +6613,10 @@ function gerarOS(){
         break;
       }
     }
-    var vedaTotal = vedaPreco * d.vedaQty;
+    var _vedaQtyTotal=d.vedaQty*(_qPAc||1);
+    var vedaTotal = vedaPreco * _vedaQtyTotal;
     vedaTbody.innerHTML = '<tr style="background:#f9f8f5">'
-      +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:center;font-weight:700">'+d.vedaQty+'</td>'
+      +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:center;font-weight:700">'+_vedaQtyTotal+'</td>'
       +'<td style="padding:4px 8px;border:0.5px solid #eee;font-weight:700;color:#1a5276">'+d.vedaCode+'</td>'
       +'<td style="padding:4px 8px;border:0.5px solid #eee">Veda porta '+(d.vedaSize)+'mm</td>'
       +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:center">'+d.vedaSize+'</td>'
@@ -6583,7 +6635,7 @@ function gerarOS(){
   window._lastOSData = d; // store for weight recalc
 
   // ── Atualizar aba OS Acessórios ───────────────────────────────────────────
-  var _vedaInfo = d.vedaSize ? {qty:d.vedaQty, code:d.vedaCode, size:d.vedaSize, folhaPAPA:d.folhaPAPA} : null;
+  var _vedaInfo = d.vedaSize ? {qty:d.vedaQty*(_qPAc||1), code:d.vedaCode, size:d.vedaSize, folhaPAPA:d.folhaPAPA} : null;
   window._lastVedaInfo = _vedaInfo; // global for _calcAcessoriosOS
   _renderOSAcess(d, _acessRows, _vedaInfo);
   var btnAprov = document.getElementById('btn-aproveitamento');
@@ -11039,16 +11091,18 @@ function planUpd() {
   document.getElementById('plan-friso-row').style.display=isFriso?'':'none';
 
   var pieces=[];
-  if(Mv&&Lv>0&&Av>0){
-    var Fv=parseInt(document.getElementById('plan-folhas').value)||1;
-    pieces=plnPecas(Lv,Av,Fv,Mv);
+  if(window._mpItens && window._mpItens.length > 0){
+    pieces=_mpCalcAllPiecesCombined();
+  } else {
+    if(Mv&&Lv>0&&Av>0){
+      var Fv=parseInt(document.getElementById('plan-folhas').value)||1;
+      pieces=plnPecas(Lv,Av,Fv,Mv);
+    }
+    var manualP=(typeof getManualPieces==='function')?getManualPieces():[];
+    for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
+    var _qPUpd=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+    if(_qPUpd>1){ pieces.forEach(function(p){ if(p.qty) p.qty=p.qty*_qPUpd; else if(p[3]) p[3]=p[3]*_qPUpd; }); }
   }
-  var manualP=(typeof getManualPieces==='function')?getManualPieces():[];
-  for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
-
-  // ── Multiplicar peças por qtd portas ──
-  var _qPUpd=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
-  if(_qPUpd>1){ pieces.forEach(function(p){ if(p.qty) p.qty=p.qty*_qPUpd; else if(p[3]) p[3]=p[3]*_qPUpd; }); }
 
   if(pieces.length===0){
     document.getElementById('plan-summary-txt').textContent=(!Mv?'selecione um modelo ou adicione pecas manuais':'preencha largura e altura');
@@ -11174,19 +11228,23 @@ function _autoSelectAndRun(){
   var Av=parseFloat(document.getElementById('altura').value)||0;
   var Mv=document.getElementById('plan-modelo').value;
   var Fv=parseInt(document.getElementById('plan-folhas').value)||1;
-  var pieces=plnPecas(Lv,Av,Fv,Mv);
-  var manualP=(typeof getManualPieces==='function')?getManualPieces():[];
-  for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
-  if(!pieces.length) return;
-
-  var pcsNorm=pieces.map(function(p){
-    if(Array.isArray(p)) return {label:p[0],w:p[1],h:p[2],qty:p[3]||1};
-    return p;
-  });
-
-  // ── Multiplicar peças por qtd portas antes do nesting ──
-  var _qPAuto=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
-  if(_qPAuto>1){ pcsNorm.forEach(function(p){ p.qty=p.qty*_qPAuto; }); }
+  var pieces, pcsNorm;
+  // ── Multi-porta: usar peças combinadas ──
+  if(window._mpItens && window._mpItens.length > 0){
+    pcsNorm=_mpCalcAllPiecesCombined();
+  } else {
+    pieces=plnPecas(Lv,Av,Fv,Mv);
+    var manualP=(typeof getManualPieces==='function')?getManualPieces():[];
+    for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
+    if(!pieces.length) return;
+    pcsNorm=pieces.map(function(p){
+      if(Array.isArray(p)) return {label:p[0],w:p[1],h:p[2],qty:p[3]||1};
+      return p;
+    });
+    var _qPAuto=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+    if(_qPAuto>1){ pcsNorm.forEach(function(p){ p.qty=p.qty*_qPAuto; }); }
+  }
+  if(!pcsNorm||!pcsNorm.length) return;
 
   var maxDim=0;
   pcsNorm.forEach(function(p){var d=Math.max(p.w,p.h);if(d>maxDim)maxDim=d;});
@@ -11445,20 +11503,20 @@ function planRun() {
   var Av=parseFloat(document.getElementById('altura').value)||0;
   var Mv=document.getElementById('plan-modelo').value;
   var pieces=[];
-  // Peças calculadas (se modelo selecionado)
-  if(Mv&&Lv>0&&Av>0){
-    var Fv=parseInt(document.getElementById('plan-folhas').value)||1;
-    pieces=plnPecas(Lv,Av,Fv,Mv);
+  // ── Multi-porta: usar peças combinadas ──
+  if(window._mpItens && window._mpItens.length > 0){
+    pieces=_mpCalcAllPiecesCombined();
+  } else {
+    if(Mv&&Lv>0&&Av>0){
+      var Fv=parseInt(document.getElementById('plan-folhas').value)||1;
+      pieces=plnPecas(Lv,Av,Fv,Mv);
+    }
+    var manualP=getManualPieces();
+    for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
+    var _qPlan=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+    if(_qPlan>1){ pieces.forEach(function(p){ p.qty=p.qty*_qPlan; }); }
   }
-  // Peças manuais
-  var manualP=getManualPieces();
-  for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
-
   if(pieces.length===0){alert('Nenhuma peça para calcular. Selecione um modelo ou adicione peças manuais.');return;}
-
-  // ── Multiplicar peças por qtd portas antes do nesting ──
-  var _qPlan=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
-  if(_qPlan>1){ pieces.forEach(function(p){ p.qty=p.qty*_qPlan; }); }
 
   var parts=document.getElementById('plan-chapa').value.split('|');
   var SW=parseInt(parts[0]),SH=parseInt(parts[1]);
@@ -13986,9 +14044,8 @@ function _renderOSAcess(d, acessRows, vedaInfo){
 
   if(!window._syncingAcess){
     window._syncingAcess = true;
-    // Multiplicar acessórios por quantidade de portas (igual perfis)
-    var _qPAcess=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
-    _fabSetSysValue('acess', totalParaFab*_qPAcess);
+    // Acessórios: quantidades já multiplicadas por qP na geração
+    _fabSetSysValue('acess', totalParaFab);
     if(typeof syncFabPerfisTotal === 'function') syncFabPerfisTotal();
     if(typeof calc === 'function') calc();
     window._syncingAcess = false;
@@ -14012,7 +14069,11 @@ function _updatePesoAcessorios(){
   var nFolhas = parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
   var sis = (d && d.sis) || (document.getElementById('prod-sistema')||{value:''}).value || 'PA006';
   var acessRows = _calcAcessoriosOS(d, nFolhas, sis);
-  var vedaInfo = d.vedaSize ? {qty:d.vedaQty, code:d.vedaCode, size:d.vedaSize} : null;
+  // Multiplicar quantidades por qtd portas
+  var _qPUpAc=window._qPOS||parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+  if(window._mpItens&&window._mpItens.length>0) _qPUpAc=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
+  if(_qPUpAc>1){ acessRows.forEach(function(r){ r.qty=r.qty*_qPUpAc; }); }
+  var vedaInfo = d.vedaSize ? {qty:d.vedaQty*(window._qPOS||1), code:d.vedaCode, size:d.vedaSize} : null;
   _renderOSAcess(d, acessRows, vedaInfo);
 }
 
@@ -14764,6 +14825,161 @@ function _mpCalcAllPieces(){
       });
     }
   });
+  return allPieces;
+}
+/* Calcula perfis combinados de múltiplas portas (multi-door) */
+function _mpCalcCombinedPerfis(barraMM){
+  var itens=_mpGetItens();
+  var allCuts=[];
+  var firstD=null;
+  // Salvar estado do form
+  var savedQP=document.getElementById('qtd-portas').value;
+  var savedL=document.getElementById('largura').value;
+  var savedA=document.getElementById('altura').value;
+  var savedMod=document.getElementById('carac-modelo')?document.getElementById('carac-modelo').value:'';
+  var savedFol=document.getElementById('folhas-porta')?document.getElementById('folhas-porta').value:'1';
+  // Desligar qP (cada item tem sua qtd)
+  document.getElementById('qtd-portas').value='1';
+
+  itens.forEach(function(it,idx){
+    if(it.largura<=0||it.altura<=0) return;
+    // Setar form para este item
+    document.getElementById('largura').value=it.largura;
+    document.getElementById('altura').value=it.altura;
+    if(document.getElementById('carac-modelo')) document.getElementById('carac-modelo').value=it.modelo||'01';
+    if(document.getElementById('folhas-porta')) document.getElementById('folhas-porta').value=it.folhas||'1';
+    // Calcular cortes deste item
+    try{
+      var d=_calcularDadosPerfis(it.largura,it.altura,it.folhas||1,barraMM);
+      if(d.error) return;
+      if(!firstD) firstD=d;
+      // Coletar cortes (sem qP pois qtd-portas=1), multiplicar por qty do item
+      d.cuts.forEach(function(c){
+        allCuts.push({
+          code:c.code, desc:c.desc, compMM:c.compMM,
+          qty:c.qty*it.qtd,
+          pintado:c.pintado, secao:c.secao,
+          barLenMM:c.barLenMM, lh:c.lh||'', obs:c.obs||'',
+          perf:c.perf, kgM:c.kgM||0,
+          isSplit:c.isSplit, splitPieces:c.splitPieces,
+          splitDesc:c.splitDesc||'',
+          _itemIdx:idx, _itemLabel:'Item '+(idx+1)+': '+it.modeloTxt+' '+it.largura+'×'+it.altura
+        });
+      });
+    }catch(e){console.warn('MP item '+idx+' error:',e);}
+  });
+
+  // Restaurar form
+  document.getElementById('qtd-portas').value=savedQP;
+  document.getElementById('largura').value=savedL;
+  document.getElementById('altura').value=savedA;
+  if(document.getElementById('carac-modelo')) document.getElementById('carac-modelo').value=savedMod;
+  if(document.getElementById('folhas-porta')) document.getElementById('folhas-porta').value=savedFol;
+
+  if(!firstD) return {error:'Nenhum item válido na tabela multi-porta'};
+
+  // ── Re-otimizar barras com TODOS os cortes combinados ──
+  var kgTecno=parseFloat((document.getElementById('pf-kg-tecnoperfil')||{value:31}).value)||31;
+  var kgMerc=parseFloat((document.getElementById('pf-kg-mercado')||{value:38}).value)||38;
+  var kgWeiku=parseFloat((document.getElementById('pf-kg-weiku')||{value:35}).value)||35;
+  var precoPint=parseFloat((document.getElementById('pf-preco-pintura')||{value:18}).value)||18;
+
+  function _getPerf(code){
+    for(var i=0;i<PERFIS_DB.length;i++){if(PERFIS_DB[i].c===code)return PERFIS_DB[i];}
+    var base=code.replace(/-[678]M$/,'');
+    for(var i=0;i<PERFIS_DB.length;i++){if(PERFIS_DB[i].c===base)return PERFIS_DB[i];}
+    return null;
+  }
+  function _getPrecoKg(p){
+    if(!p)return kgMerc;
+    var f=p.f||'';
+    if(f==='TECNOPERFIL'||f==='PROJETTA')return kgTecno;
+    if(f==='WEIKU')return kgWeiku;
+    if(f==='PERFISUD')return kgTecno;
+    return kgMerc;
+  }
+
+  // Agrupar e otimizar
+  var groups={},seenKeys=[];
+  allCuts.forEach(function(c){
+    if(!c.perf) c.perf=_getPerf(c.code);
+    if(!c.kgM && c.perf) c.kgM=c.perf.kg||0;
+    var key=c.code;
+    if(!groups[key]){
+      groups[key]={code:key,allCuts:[],pintado:c.pintado,barLenMM:c.barLenMM,perf:c.perf,precoKg:_getPrecoKg(c.perf)};
+      seenKeys.push(key);
+    }
+    for(var i=0;i<c.qty;i++){
+      if(c.isSplit&&c.splitPieces){
+        c.splitPieces.forEach(function(p){groups[key].allCuts.push(p);});
+      } else {
+        groups[key].allCuts.push(c.compMM);
+      }
+    }
+  });
+
+  var groupRes={};
+  seenKeys.forEach(function(key){
+    var g=groups[key];
+    var bars=binPackFFD(g.allCuts,g.barLenMM);
+    var nBars=bars.length;
+    var totUsed=g.allCuts.reduce(function(s,x){return s+x;},0);
+    var totBruto=bars.reduce(function(s,b){return s+b.barLen;},0);
+    var aprov=totBruto>0?totUsed/totBruto*100:0;
+    var kgM=g.perf?g.perf.kg:0;
+    var kgLiq=totUsed/1000*kgM;
+    var kgBruto=totBruto/1000*kgM;
+    var custoPerfil=kgBruto*g.precoKg;
+    var custoPintura=g.pintado?kgBruto*precoPint:0;
+    var barsDetail=bars.map(function(b){
+      return {len:b.barLen,items:b.items.slice().sort(function(a,x){return x-a;}),remaining:b.remaining,sobra:b.sobra!=null?b.sobra:b.remaining};
+    });
+    groupRes[key]={nBars:nBars,totUsed:totUsed,totBruto:totBruto,aprov:aprov,
+      kgLiq:kgLiq,kgBruto:kgBruto,precoKg:g.precoKg,
+      custoPerfil:custoPerfil,custoPintura:custoPintura,custoTotal:custoPerfil+custoPintura,
+      barLenMM:g.barLenMM,pintado:g.pintado,barsDetail:barsDetail};
+  });
+
+  // Montar d compatível com o retorno de _calcularDadosPerfis
+  var merged={
+    cuts:allCuts, groupRes:groupRes, seenKeys:seenKeys,
+    sis:firstD.sis, N_H:firstD.N_H,
+    temCava:firstD.temCava, larguraCava:firstD.larguraCava,
+    travCavaSize:firstD.travCavaSize,
+    vedaSize:firstD.vedaSize, vedaCode:firstD.vedaCode, vedaQty:firstD.vedaQty,
+    folhaPAPA:firstD.folhaPAPA,
+    kgTecno:kgTecno, kgMerc:kgMerc, precoPint:precoPint,
+    isPintado:firstD.isPintado,
+    _multiDoor:true, _itens:itens
+  };
+  return merged;
+}
+
+/* Calcula todas as peças de chapa para multi-door combinado */
+function _mpCalcAllPiecesCombined(){
+  var itens=_mpGetItens();
+  var allPieces=[];
+  var savedMod=document.getElementById('plan-modelo')?document.getElementById('plan-modelo').value:'';
+  var savedFol=document.getElementById('plan-folhas')?document.getElementById('plan-folhas').value:'1';
+
+  itens.forEach(function(it,idx){
+    if(it.largura<=0||it.altura<=0) return;
+    if(document.getElementById('plan-modelo')) document.getElementById('plan-modelo').value=it.modelo||'01';
+    if(document.getElementById('plan-folhas')) document.getElementById('plan-folhas').value=it.folhas||'1';
+    try{
+      var pieces=plnPecas(it.largura, it.altura, it.folhas||1, it.modelo||'01');
+      pieces.forEach(function(p){
+        var pc=Array.isArray(p)?{label:p[0],w:p[1],h:p[2],qty:(p[3]||1)*it.qtd,color:p[4]||''}
+          :{label:p.label,w:p.w,h:p.h,qty:(p.qty||1)*it.qtd,color:p.color||''};
+        pc._itemIdx=idx;
+        allPieces.push(pc);
+      });
+    }catch(e){console.warn('MP chapas item '+idx+':',e);}
+  });
+
+  // Restaurar
+  if(document.getElementById('plan-modelo')) document.getElementById('plan-modelo').value=savedMod;
+  if(document.getElementById('plan-folhas')) document.getElementById('plan-folhas').value=savedFol;
   return allPieces;
 }
 /* ══ END MODULE: MULTI-PORTA ══ */
