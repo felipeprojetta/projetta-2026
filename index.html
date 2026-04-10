@@ -608,6 +608,49 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 .crm-pipeline-wrap{position:relative;overflow:visible}
 /* Gradient removed — was hiding Fechado/Perdido columns */
 
+/* ── Clientes Tab ──────────────────────────────── */
+.cli-card{background:#fff;border:1.5px solid #e0ddd8;border-radius:10px;margin-bottom:12px;overflow:hidden;transition:box-shadow .2s}
+.cli-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.cli-hdr{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;gap:10px;user-select:none}
+.cli-hdr:hover{background:#faf8f4}
+.cli-name{font-size:14px;font-weight:700;color:#003144}
+.cli-name small{font-size:11px;font-weight:400;color:#888;margin-left:6px}
+.cli-badges{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.cli-badge{font-size:10px;padding:3px 10px;border-radius:12px;font-weight:600;white-space:nowrap}
+.cli-badge.orc{background:#e8f4fd;color:#1a5276}
+.cli-badge.val{background:#e8f8e8;color:#1a7a20}
+.cli-badge.date{background:#f5f0e8;color:#8a6d3b}
+.cli-chevron{font-size:14px;color:#aaa;transition:transform .2s;flex-shrink:0}
+.cli-card.open .cli-chevron{transform:rotate(90deg)}
+.cli-body{display:none;border-top:1px solid #e8e5e0;padding:0}
+.cli-card.open .cli-body{display:block}
+.cli-orc{padding:12px 16px;border-bottom:1px solid #f0ede8;display:flex;gap:12px;align-items:flex-start}
+.cli-orc:last-child{border-bottom:none}
+.cli-orc:hover{background:#faf8f4}
+.cli-orc-info{flex:1;min-width:0}
+.cli-orc-name{font-size:12px;font-weight:700;color:#222}
+.cli-orc-meta{font-size:10px;color:#888;margin-top:2px}
+.cli-orc-meta b{color:#003144}
+.cli-orc-vals{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.cli-orc-val{font-size:10px;background:#f5f5f5;padding:2px 8px;border-radius:4px;color:#333}
+.cli-orc-val b{color:#003144}
+.cli-orc-revs{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+.cli-rev-pill{font-size:9px;padding:3px 8px;border-radius:5px;cursor:pointer;border:1px solid #ccc;background:#fff;color:#333;font-weight:600;transition:all .15s;line-height:1.2}
+.cli-rev-pill:hover{background:#e8f4fd;border-color:#2980b9}
+.cli-rev-pill.orig{border-color:#27ae60;color:#27ae60}
+.cli-rev-pill.active{background:#003144;color:#fff;border-color:#003144}
+.cli-rev-pill .rev-date{font-size:8px;font-weight:400;color:inherit;opacity:.7;display:block}
+.cli-orc-actions{display:flex;flex-direction:column;gap:4px;flex-shrink:0;padding-top:2px}
+.cli-orc-actions button{font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;font-weight:600;font-family:inherit;white-space:nowrap;transition:all .15s}
+.cli-orc-actions button:hover{background:#003144;color:#fff;border-color:#003144}
+.cli-orc-actions button.del{color:#e74c3c;border-color:#e74c3c}
+.cli-orc-actions button.del:hover{background:#e74c3c;color:#fff}
+.cli-empty{padding:40px;text-align:center;color:#aaa;font-size:13px}
+.cli-stats{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.cli-stat{background:#fff;border:1.5px solid #e0ddd8;border-radius:10px;padding:12px 18px;flex:1;min-width:140px;text-align:center}
+.cli-stat .num{font-size:22px;font-weight:800;color:#003144}
+.cli-stat .lbl{font-size:10px;color:#888;margin-top:2px}
+
 </style>
 
 <!-- SAVE MODAL -->
@@ -736,6 +779,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <!-- TAB NAVIGATION -->
 <div class="main-tabs">
   <button class="main-tab on" onclick="switchTab('crm')" id="btn-tab-crm">📊 CRM</button>
+  <button class="main-tab" onclick="switchTab('clientes')" id="btn-tab-clientes">📂 Clientes</button>
   <button class="main-tab" onclick="switchTab('orcamento')">Orçamento</button>
   <button class="main-tab" onclick="switchTab('proposta')">Proposta Comercial</button>
   <button class="main-tab" onclick="switchTab('cadastro')">Cadastro</button>
@@ -975,6 +1019,29 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     <div id="crm-import-status" style="margin-top:8px;font-size:12px;color:#27ae60;display:none"></div>
   </div>
 </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TAB: CLIENTES — Visão por Cliente com Histórico
+════════════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-clientes">
+<div class="card" style="margin-top:14px">
+  <div class="card-hd" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="dot" style="background:#2980b9"></div>
+      <span>Clientes e Histórico de Orçamentos</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="text" id="cli-hist-search" placeholder="🔍 Buscar cliente, ATP, AGP..." oninput="renderClientesTab()" style="padding:6px 12px;border:1px solid #ccc;border-radius:8px;font-size:12px;width:260px;outline:none;font-family:inherit">
+      <select id="cli-hist-sort" onchange="renderClientesTab()" style="padding:6px 8px;border:1px solid #ccc;border-radius:8px;font-size:11px;outline:none;font-family:inherit">
+        <option value="recent">Mais recentes</option>
+        <option value="alpha">A → Z</option>
+        <option value="count">Mais orçamentos</option>
+      </select>
+    </div>
+  </div>
+</div>
+<div id="cli-hist-body" style="margin-top:14px"></div>
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
@@ -7512,6 +7579,141 @@ function printOSColagem(){
   w.document.close();
 }
 
+/* ═══════════════════════════════════════════════════
+   CLIENTES TAB — Visão por Cliente com Histórico
+═══════════════════════════════════════════════════ */
+function renderClientesTab(){
+  var body=$('cli-hist-body');if(!body)return;
+  var db=loadDB();
+  var searchEl=$('cli-hist-search');
+  var q=searchEl?searchEl.value.toLowerCase().trim():'';
+  var sortBy=($('cli-hist-sort')||{value:'recent'}).value;
+
+  // Filtrar
+  var filtered=q?db.filter(function(e){
+    var text=(e.name||'')+' '+(e.client||'')+' '+(e.project||'');
+    if(e.revisions)e.revisions.forEach(function(r){text+=' '+(r.label||'');if(r.data){text+=' '+(r.data['num-atp']||'')+' '+(r.data['num-agp']||'')+' '+(r.data['numprojeto']||'');}});
+    return text.toLowerCase().indexOf(q)>=0;
+  }):db;
+
+  // Agrupar por cliente
+  var groups={};
+  filtered.forEach(function(e){
+    var cli=(e.client||'Sem cliente').trim();
+    if(!cli)cli='Sem cliente';
+    if(!groups[cli])groups[cli]={name:cli,entries:[],lastDate:'',totalVal:0};
+    groups[cli].entries.push(e);
+    // Pegar valores da última revisão
+    var lastRev=e.revisions&&e.revisions.length?e.revisions[e.revisions.length-1]:null;
+    if(lastRev&&lastRev.data){
+      var vt=parseFloat(lastRev.data['valor-final']||lastRev.data['total-geral']||0);
+      groups[cli].totalVal+=vt;
+    }
+    if(e.createdAt&&e.createdAt>groups[cli].lastDate)groups[cli].lastDate=e.createdAt;
+  });
+
+  var list=Object.values(groups);
+
+  // Ordenar
+  if(sortBy==='alpha') list.sort(function(a,b){return a.name.localeCompare(b.name);});
+  else if(sortBy==='count') list.sort(function(a,b){return b.entries.length-a.entries.length;});
+  else list.sort(function(a,b){return b.lastDate.localeCompare(a.lastDate);});
+
+  // Stats
+  var totalClientes=list.length;
+  var totalOrcs=filtered.length;
+  var totalRevs=0;
+  filtered.forEach(function(e){totalRevs+=(e.revisions||[]).length;});
+
+  var h='<div class="cli-stats">';
+  h+='<div class="cli-stat"><div class="num">'+totalClientes+'</div><div class="lbl">Clientes</div></div>';
+  h+='<div class="cli-stat"><div class="num">'+totalOrcs+'</div><div class="lbl">Orçamentos</div></div>';
+  h+='<div class="cli-stat"><div class="num">'+totalRevs+'</div><div class="lbl">Revisões</div></div>';
+  h+='</div>';
+
+  if(!list.length){
+    h+='<div class="cli-empty">📂 Nenhum orçamento encontrado'+(q?' para "'+q+'"':'')+'</div>';
+    body.innerHTML=h;return;
+  }
+
+  list.forEach(function(grp,gi){
+    var nOrc=grp.entries.length;
+    h+='<div class="cli-card" id="cli-grp-'+gi+'">';
+    h+='<div class="cli-hdr" onclick="toggleCliCard('+gi+')">';
+    h+='<div style="flex:1;min-width:0"><div class="cli-name">'+grp.name+'<small>'+nOrc+' orçamento'+(nOrc>1?'s':'')+'</small></div></div>';
+    h+='<div class="cli-badges">';
+    if(grp.totalVal>0) h+='<span class="cli-badge val">R$ '+grp.totalVal.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>';
+    if(grp.lastDate) h+='<span class="cli-badge date">'+grp.lastDate+'</span>';
+    h+='</div>';
+    h+='<span class="cli-chevron">▶</span>';
+    h+='</div>';
+
+    // Body: lista de orçamentos
+    h+='<div class="cli-body">';
+    grp.entries.forEach(function(e){
+      var lastRev=e.revisions&&e.revisions.length?e.revisions[e.revisions.length-1]:null;
+      var _d=lastRev?lastRev.data||{}:{};
+      var _L=_d['largura']||'';
+      var _A=_d['altura']||'';
+      var _mod=_d['carac-modelo-txt']||_d['carac-modelo']||'';
+      var _cor=_d['carac-cor-ext']||'';
+      var _agp=_d['num-agp']||'';
+      var _atp=_d['num-atp']||'';
+      var _reserva=_d['numprojeto']||e.project||'';
+      var _total=_d['valor-final']||_d['total-geral']||'';
+      var _custo=_d['custo-total']||'';
+
+      h+='<div class="cli-orc">';
+      h+='<div class="cli-orc-info">';
+      h+='<div class="cli-orc-name">'+(e.name||'Sem nome')+'</div>';
+      h+='<div class="cli-orc-meta">';
+      if(_agp) h+='<b>AGP:</b> '+_agp+' &nbsp; ';
+      if(_atp) h+='<b>ATP:</b> '+_atp+' &nbsp; ';
+      if(_reserva) h+='<b>Reserva:</b> '+_reserva+' &nbsp; ';
+      h+='Criado: '+(e.createdAt||'—');
+      h+='</div>';
+
+      // Valores
+      h+='<div class="cli-orc-vals">';
+      if(_L&&_A) h+='<span class="cli-orc-val"><b>Vão:</b> '+_L+'×'+_A+'mm</span>';
+      if(_mod) h+='<span class="cli-orc-val"><b>Mod:</b> '+_mod+'</span>';
+      if(_cor) h+='<span class="cli-orc-val"><b>Cor:</b> '+_cor+'</span>';
+      if(_total) h+='<span class="cli-orc-val" style="background:#e8f8e8"><b>Venda:</b> R$ '+(parseFloat(_total)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span>';
+      if(_custo) h+='<span class="cli-orc-val" style="background:#fef3e0"><b>Custo:</b> R$ '+(parseFloat(_custo)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span>';
+      h+='</div>';
+
+      // Pills de revisão
+      h+='<div class="cli-orc-revs">';
+      (e.revisions||[]).forEach(function(r,ri){
+        var isCurrent=(currentId===e.id&&currentRev===ri);
+        h+='<button class="cli-rev-pill '+(ri===0?'orig ':' ')+(isCurrent?'active':'')+'" onclick="loadRevision(\''+e.id+'\','+ri+');switchTab(\'orcamento\')">';
+        h+=(r.label||'Rev '+ri);
+        if(r.savedAt) h+='<span class="rev-date">'+r.savedAt+'</span>';
+        h+='</button>';
+      });
+      h+='</div>';
+
+      h+='</div>'; // cli-orc-info
+
+      h+='<div class="cli-orc-actions">';
+      h+='<button onclick="loadRevision(\''+e.id+'\','+(e.revisions.length-1)+');switchTab(\'orcamento\')">📂 Abrir</button>';
+      h+='<button class="del" onclick="if(confirm(\'Excluir este orçamento?\'))deleteOrc(\''+e.id+'\')">🗑</button>';
+      h+='</div>';
+
+      h+='</div>'; // cli-orc
+    });
+    h+='</div>'; // cli-body
+    h+='</div>'; // cli-card
+  });
+
+  body.innerHTML=h;
+}
+
+function toggleCliCard(idx){
+  var card=$('cli-grp-'+idx);
+  if(card) card.classList.toggle('open');
+}
+
 function switchTab(tabId) {
   document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('on'); });
   document.querySelectorAll('.main-tab').forEach(function(b){ b.classList.remove('on'); });
@@ -7522,6 +7724,7 @@ function switchTab(tabId) {
     if(tabs[i].getAttribute('onclick').indexOf(tabId)>=0) tabs[i].classList.add('on');
   }
   if (tabId==='perfis'||tabId==='cadastro') { syncPerfisTab(); renderPerfisDB(); renderCompDB(); renderPrecosACM(); }
+  if (tabId==='clientes') { renderClientesTab(); }
   if (tabId==='acessorios'||tabId==='cadastro') { renderCompDB();
   loadModelos();
   loadModeloImagens(); }
