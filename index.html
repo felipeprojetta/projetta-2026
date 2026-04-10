@@ -5325,14 +5325,33 @@ var APROV_RES=null, APROV_CSI=0, APROV_SD={w:1500,h:5000,mg:10};
 function aprovPieces(Lmm,Amm,fol,mod){
   var L=Math.round(Lmm),A=Math.round(Amm);
   var TUB_SUP=A<4000?38:51;
-  var G4=A-10-TUB_SUP-28+8,G3=Math.round(L-20-343+218),G2=Math.round((L-20-343+256)/2);
+  var SIS=A<4000?'PA006':'PA007';
+  var REF=20; // CEM: Refilado (default 20mm em FASE=4)
+  // CEM: ALTCHPA = H - FOLGAALT - TUBPORTAL - ESPPIV + TRANSPIV
+  var G4=A-10-TUB_SUP-28+8;
+  // CEM: LARINTQD = L - FOLGALAR - (171.5)*2 (PA007) ou (136.5)*2 (PA006)
+  var _intqd = SIS==='PA007' ? Math.round(L-20-171.5*2) : Math.round(L-20-136.5*2);
+  // CEM: LARCH = L - FOLGALAR - 81.5 - 43.5 (PA007,piv,1flh)
+  var _larch = SIS==='PA007' ? Math.round(L-20-81.5-43.5) : Math.round(L-20-43.5-43.5);
+  // Legacy G3/G2 for backward compat
+  var G3=Math.round(L-20-343+218),G2=Math.round((L-20-343+256)/2);
   var fW=(fol==2)?G2:G3,bH=G4+116,nL=(fol==2)?4:2,r=[];
   if(mod==='10'||mod==='11'||mod==='15'||mod==='23acm'||mod==='23alu'){
-    if(fol==1)r.push(['TAMPA MAIOR',fW+40,G4,2]);
-    else{r.push(['TAMPA F1',G2+32,G4,1],['TAMPA F2',G2+14,G4,2],['TAMPA F3',G2-4,G4,1]);}
-    r.push(['ACAB LAT 1',88.5,G4,nL],['ACAB LAT 2',90,G4,nL],['ACAB LAT Z',110,G4,nL]);
-    r.push(['U PORTAL',221,L-20,1],['BAT 01',42,bH,2],['BAT 02Z',51,bH,2],['BAT 03',81,bH,2]);
-    r.push(['TAP FURO',119,bH,3],['FIT ACAB ME',76.5,bH,2],['FIT ACAB MA',114.5,bH,2],['FIT ACAB FITA',101,bH,2]);
+    // CEM: TAMPA = LARCH+(2*REF)-1 × ALTCHPA
+    if(fol==1)r.push(['TAMPA',_larch+(2*REF)-1,G4,2]);
+    else{r.push(['TAMPA F1',Math.round((_larch-14)/2)+(2*REF)-1,G4,1],['TAMPA F2',Math.round((_larch-14)/2)+(2*REF)-1,G4,2],['TAMPA F3',Math.round((_larch-14)/2)+(2*REF)-1,G4,1]);}
+    // CEM: ACABLA1=70+18.5, ACABLA2=70+REF, ZPORTA=18.5+53.5+13(PA006) ou 18.5+78.5+13(PA007)
+    var _acabla1=70+18.5, _acabla2=70+REF;
+    var _zporta=SIS==='PA007'?(18.5+78.5+13):(18.5+53.5+13);
+    r.push(['ACAB LAT 1',_acabla1,G4,nL],['ACAB LAT 2',_acabla2,G4,nL],['ACAB LAT Z',_zporta,G4,nL]);
+    // CEM: UPORTAL, TAPFUR, FITACABME, FITACABMA, FITACABLAR
+    var _uportal=SIS==='PA006'?(76+2+8-1+(TUB_SUP+4)*2):(102+2+8-1+(TUB_SUP+4)*2);
+    var _tapfur=SIS==='PA006'?(REF+54+REF):(REF+79+REF);
+    var _fitme=REF+26.5+REF+10;  // FOLGALAR/2=10
+    var _fitma=REF+64.5+REF+10;
+    var _fitlar=10+REF+TUB_SUP+REF;  // FOLGAALT+REF+TUB+REF
+    r.push(['U PORTAL',_uportal,L-20,1]);
+    r.push(['TAP FURO',_tapfur,bH+100,4],['FIT ACAB ME',_fitme,bH+100,2],['FIT ACAB MA',_fitma,bH+100,2],['FIT ACAB FITA',_fitlar,bH+100,2]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT',225,A+150,5],['ALISAR LAR',225,L+300,2]);
     if(mod==='23acm'||mod==='23alu'){var ml=Math.max(0,fW-300),ma=823,mb=Math.max(0,G4-675-ma);
       r.push(['MOLD LAR',143,ml,8],['MOLD ALT1',143,ma,(fol==2)?8:4]);if(mb>50)r.push(['MOLD ALT2',143,mb,(fol==2)?8:4]);}
@@ -5341,15 +5360,30 @@ function aprovPieces(Lmm,Amm,fol,mod){
   }
   if(mod==='01'||mod==='02'||mod==='08'){
     var DC=parseInt($('aprov-dim-cava').value)||150,HC=parseInt($('aprov-h-cava').value)||210;
-    var cH=Math.max(0,G4-Math.round(HC*1.4));
-    var cavaDeduc=DC+HC+2;
-    r.push(['CAVA',DC+116,cH,(fol==2)?4:2],['TAMPA CAVA',DC+90,HC,4]);
-    if(fol==1)r.push(['TAMPA MAIOR',fW+40-cavaDeduc,G4,2]);
-    else{var G2c=Math.round((fW+40-cavaDeduc)/2);r.push(['TAMPA F1',G2c+19,G4,1],['TAMPA F2',G2c,G4,2],['TAMPA F3',G2c-19,G4,1]);}
-    r.push(['TAMPA BOR CAVA',HC+38,G4,(fol==2)?4:2]);
-    r.push(['ACAB LAT 1',88.5,G4,nL],['ACAB LAT 2',90,G4,nL],['ACAB LAT Z',110,G4,nL]);
-    r.push(['U PORTAL',221,L-20,1],['BAT 01',42,bH,2],['BAT 02Z',51,bH,2],['BAT 03',81,bH,2]);
-    r.push(['TAP FURO',119,bH,3],['FIT ACAB ME',76.5,bH,2],['FIT ACAB MA',114.5,bH,2],['FIT ACAB FITA',101,bH,2]);
+    var DISTBORCAV=HC; // CEM: DISTBORCAV = distância borda na cava
+    // CEM: CAVA = (LARCAV+23+23+35+35) × (ALTINTQD-5-5-1-1)
+    var _cavaW=DC+23+23+35+35;
+    var _cavaH=Math.round(_intqd>0?(_intqd-12):G4-12); // ALTINTQD-12 aprox
+    r.push(['CAVA',_cavaW,_cavaH,(fol==2)?4:2]);
+    // CEM: TAMPA CAVA = (LARCAV+90) × 210
+    r.push(['TAMPA CAVA',DC+90,210,4]);
+    // CEM: TAMPA = (LARCH-DISTBORCAV-LARCAV)+(2*REF)-2 × ALTCHPA
+    var _tampaW=Math.round(_larch-DISTBORCAV-DC+(2*REF)-2);
+    if(fol==1)r.push(['TAMPA',_tampaW,G4,2]);
+    else{var _tw2=Math.round(_tampaW/2);r.push(['TAMPA F1',_tw2,G4,1],['TAMPA F2',_tw2,G4,2],['TAMPA F3',_tw2,G4,1]);}
+    // CEM: DIST BOR CAV = DISTBORCAV+(2*REF)-2 × ALTCHPA
+    r.push(['DIST BOR CAV',DISTBORCAV+(2*REF)-2,G4,(fol==2)?4:2]);
+    // CEM: ACABLA, ZPORTA, etc
+    var _acabla1=70+18.5, _acabla2=70+REF;
+    var _zporta=SIS==='PA007'?(18.5+78.5+13):(18.5+53.5+13);
+    r.push(['ACAB LAT 1',_acabla1,G4,nL],['ACAB LAT 2',_acabla2,G4,nL],['ACAB LAT Z',_zporta,G4,nL]);
+    var _uportal=SIS==='PA006'?(76+2+8-1+(TUB_SUP+4)*2):(102+2+8-1+(TUB_SUP+4)*2);
+    var _tapfur=SIS==='PA006'?(REF+54+REF):(REF+79+REF);
+    var _fitme=REF+26.5+REF+10;
+    var _fitma=REF+64.5+REF+10;
+    var _fitlar=10+REF+TUB_SUP+REF;
+    r.push(['U PORTAL',_uportal,L-20,1]);
+    r.push(['TAP FURO',_tapfur,bH+100,4],['FIT ACAB ME',_fitme,bH+100,2],['FIT ACAB MA',_fitma,bH+100,2],['FIT ACAB FITA',_fitlar,bH+100,2]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT',225,A+150,5],['ALISAR LAR',225,L+300,2]);
     if(mod==='02')r.push(['FRISO VERT',100,G4,2],['TAMPA FRISO',39,G4,2]);
     if(mod==='08')r.push(['RIPAS',98,G4,Math.max(1,Math.round((fW-330)/90))*((fol==2)?2:1)]);
@@ -5971,6 +6005,8 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     if(has7M)       c.barLenMM=7000;
     else if(has8M)  c.barLenMM=8000;
     else            c.barLenMM=6000; // TODOS os outros = 6m fixo
+    // CEM: emenda automática quando corte > 5950mm (para perfis de 6m)
+    // Perfis PA007F/P de 7m e 8m: emenda quando > usable
     var usable = c.barLenMM-10;
     c.isSplit = c.compMM > usable;
     if(c.isSplit){
