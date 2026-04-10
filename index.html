@@ -1099,8 +1099,9 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div class="orc-itens-bar-title">📦 Itens do Pedido — <span id="orc-itens-cli">Cliente</span></div>
       <div class="orc-itens-bar-sub">Clique em cada item para configurar. Depois clique em <b>SALVAR</b>.</div>
     </div>
-    <div style="display:flex;gap:6px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button onclick="orcItemSalvarAtual()" style="padding:6px 14px;border-radius:8px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💾 Salvar Item Atual</button>
+      <button onclick="gerarOS()" style="padding:6px 14px;border-radius:8px;border:none;background:#c47012;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⚙ Gerar OS</button>
     </div>
   </div>
   <div class="orc-itens-grid" id="orc-itens-grid"></div>
@@ -5254,12 +5255,6 @@ function newOrcamento(){
   // Hide CRM items bar
   window._orcItens=[];window._orcItemAtual=-1;
   var ibar=document.getElementById('orc-itens-bar');if(ibar)ibar.classList.remove('show');
-  // Show Características da Porta back (for direct orçamento)
-  var _caracBody=document.getElementById('carac-body');
-  var _caracSection=_caracBody?_caracBody.closest('.card'):null;
-  if(_caracSection)_caracSection.style.display='';
-  var _fixoSec=document.getElementById('tem-fixo');
-  if(_fixoSec){var _fs=_fixoSec.closest('.sec');if(_fs)_fs.style.display='';}
 
   if(!confirm('Iniciar novo orçamento? O orçamento atual será salvo automaticamente.')) return;
   // Unlock form
@@ -8772,31 +8767,14 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"><label>Folhas</label><select id="'+pre+'folhas"><option value="1"'+(item.folhas==='2'?'':' selected')+'>1 folha</option><option value="2"'+(item.folhas==='2'?' selected':'')+'>2 folhas</option></select></div>';
       h+='</div>';
       h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Fechadura Mecânica</label><select id="'+pre+'fech_mec"><option value="">— Selecione —</option><option value="04 PINOS">04 Pinos</option><option value="08 PINOS">08 Pinos</option><option value="12 PINOS">12 Pinos</option><option value="16 PINOS">16 Pinos</option><option value="24 PINOS">24 Pinos</option></select></div>';
-      h+='<div class="crm-field"><label>Fechadura Digital</label><select id="'+pre+'fech_dig"><option value="">— Nenhuma —</option><option value="TEDEE">Tedee</option><option value="YALE">Yale</option><option value="SAMSUNG">Samsung</option></select></div>';
+      h+='<div class="crm-field"><label>Fechadura Mecânica</label><select id="'+pre+'fech_mec"><option value="">— Selecione —</option><option value="04 PINOS">04 pinos</option><option value="08 PINOS">08 pinos</option><option value="12 PINOS">12 pinos</option><option value="16 PINOS">16 pinos</option><option value="24 PINOS">24 pinos</option></select></div>';
+      h+='<div class="crm-field"><label>Fechadura Digital</label><select id="'+pre+'fech_dig"><option value="">— Selecione —</option><option value="NÃO SE APLICA">Não se aplica</option><option value="TEDEE">Tedee</option><option value="PHILIPS 9300">Philips 9300</option><option value="EMTECO">Emteco</option><option value="PHILIPS">Philips</option><option value="NUKI">Nuki</option></select></div>';
       h+='</div>';
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Cilindro</label><select id="'+pre+'cilindro"><option value="">— Selecione —</option><option value="KESO">Keso</option><option value="UDINESE">Udinese</option></select></div>';
       h+='<div class="crm-field"><label>Puxador</label><select id="'+pre+'puxador"><option value="">— Selecione —</option><option value="CAVA">Cava</option><option value="EXTERNO">Puxador Externo</option></select></div>';
       h+='</div>';
-      // Configuração da Cava (para modelos com cava: 01-09, 24, 26)
-      h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">⚙️ Configuração da Cava</div>';
-      h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Dist. Borda Cava (mm)</label><input type="number" id="'+pre+'dist_borda_cava" value="'+(item.dist_borda_cava||210)+'" min="50" max="500" placeholder="210"></div>';
-      h+='<div class="crm-field"><label>Largura Cava (mm)</label><input type="number" id="'+pre+'largura_cava" value="'+(item.largura_cava||150)+'" min="50" max="400" placeholder="150"></div>';
-      h+='</div>';
-      h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Cantoneira Cava (mm)</label><input type="number" id="'+pre+'cantoneira_cava" value="'+(item.cantoneira_cava||30)+'" min="10" max="60" placeholder="30"></div>';
-      h+='<div class="crm-field"><label>Dist. Borda Friso (mm)</label><input type="number" id="'+pre+'dist_borda_friso" value="'+(item.dist_borda_friso||'')+'" min="0" max="500" placeholder="0"></div>';
-      h+='</div>';
-      h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Largura Friso (mm)</label><input type="number" id="'+pre+'largura_friso" value="'+(item.largura_friso||'')+'" min="0" max="100" placeholder="0"></div>';
-      h+='<div class="crm-field"><label>Qtd Frisos Verticais</label><input type="number" id="'+pre+'friso_vert" value="'+(item.friso_vert||0)+'" min="0" max="20"></div>';
-      h+='</div>';
-      h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Qtd Frisos Horizontais</label><input type="number" id="'+pre+'friso_horiz" value="'+(item.friso_horiz||0)+'" min="0" max="20"></div>';
-      h+='<div class="crm-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="'+pre+'tem_alisar"'+(item.tem_alisar?' checked':'')+' style="width:14px;height:14px"> Tem Alisar</label></div>';
-      h+='</div>';
+      // Nota: Config detalhada (cava, friso, alisar) fica em Características da Porta no Orçamento
     } else if(item.tipo==='fixo'){
       h+='<div class="crm-field"><label>Tipo de Fixação</label><select id="'+pre+'tipo_fixacao"><option value="">— Selecione —</option><option value="LATERAL">Lateral</option><option value="BANDEIRA">Bandeira (superior)</option><option value="INFERIOR">Inferior</option></select></div>';
       h+='</div>';
@@ -8961,13 +8939,11 @@ function orcItensFromCRM(itens, cliente){
   // Auto-select first item
   if(window._orcItens.length > 0){
     setTimeout(function(){ orcItemSelecionar(0); }, 200);
-    // Hide Características da Porta (data comes from CRM items)
-    var _caracBody = document.getElementById('carac-body');
-    var _caracSection = _caracBody ? _caracBody.closest('.card') : null;
-    if(_caracSection) _caracSection.style.display = 'none';
-    // Also hide Fixos Laterais (handled by CRM items)
-    var _fixoSec = document.getElementById('tem-fixo');
-    if(_fixoSec){var _fs=_fixoSec.closest('.sec');if(_fs)_fs.style.display='none';}
+    // Auto-open Características da Porta for editing
+    setTimeout(function(){
+      var _caracBody = document.getElementById('carac-body');
+      if(_caracBody) _caracBody.style.display = '';
+    }, 400);
   }
 }
 
