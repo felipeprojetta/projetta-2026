@@ -3149,13 +3149,9 @@ Equipe Projetta by Weiku</textarea>
       <span>Ordem de Serviço — Corte de Perfis</span>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button onclick="gerarOS()" style="padding:7px 18px;border-radius:8px;border:none;background:#c47012;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">⚙ Gerar OS</button>
       <button onclick="imprimirOS()" style="padding:7px 16px;border-radius:8px;border:1px solid #003144;background:#fff;color:#003144;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🖨 Imprimir</button>
       <button onclick="relatorioBarras()" style="padding:7px 16px;border-radius:8px;border:1px solid #1a5276;background:#1a5276;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📄 Relação de Barras</button>
       <button onclick="abrirAproveitamento()" id="btn-aproveitamento" style="padding:7px 18px;border-radius:8px;border:none;background:#1a5276;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📐 Aproveitamento de Barras</button>
-      <button onclick="gerarRomaneio()" style="padding:7px 18px;border-radius:8px;border:none;background:#27ae60;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📦 Romaneio de Compra</button>
-      <button onclick="gerarRelatorioProducao()" style="padding:7px 18px;border-radius:8px;border:none;background:#8e44ad;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🏭 Relatório Produção</button>
-      <button onclick="printOSColagem()" style="padding:7px 18px;border-radius:8px;border:none;background:#E8732C;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📋 OS Colagem</button>
     </div>
   </div>
 </div>
@@ -3391,6 +3387,27 @@ Equipe Projetta by Weiku</textarea>
         <div style="font-size:24px;text-align:center;margin-bottom:6px">💰</div>
         <div style="font-size:12px;font-weight:800;color:#003144;text-align:center;margin-bottom:4px">Resumo de Custos</div>
         <div style="font-size:9px;color:#888;text-align:center;line-height:1.4">Visão consolidada: perfis, acessórios, superfícies, acabamento e mão de obra.</div>
+      </div>
+
+      <!-- Romaneio de Compra -->
+      <div style="background:#fff;border:2px solid #27ae60;border-radius:10px;padding:14px;cursor:pointer;transition:box-shadow .2s" onclick="gerarRomaneio()" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.15)'" onmouseout="this.style.boxShadow='none'">
+        <div style="font-size:24px;text-align:center;margin-bottom:6px">📦</div>
+        <div style="font-size:12px;font-weight:800;color:#1a7a20;text-align:center;margin-bottom:4px">Romaneio de Compra</div>
+        <div style="font-size:9px;color:#888;text-align:center;line-height:1.4">Perfis, chapas e acessórios com custos para compra de materiais.</div>
+      </div>
+
+      <!-- Relatório de Produção -->
+      <div style="background:#fff;border:2px solid #8e44ad;border-radius:10px;padding:14px;cursor:pointer;transition:box-shadow .2s" onclick="gerarRelatorioProducao()" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.15)'" onmouseout="this.style.boxShadow='none'">
+        <div style="font-size:24px;text-align:center;margin-bottom:6px">🏭</div>
+        <div style="font-size:12px;font-weight:800;color:#8e44ad;text-align:center;margin-bottom:4px">Relatório de Produção</div>
+        <div style="font-size:9px;color:#888;text-align:center;line-height:1.4">Checklist de etapas, lista de corte e controle de produção.</div>
+      </div>
+
+      <!-- OS Colagem -->
+      <div style="background:#fff;border:2px solid #E8732C;border-radius:10px;padding:14px;cursor:pointer;transition:box-shadow .2s" onclick="printOSColagem()" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.15)'" onmouseout="this.style.boxShadow='none'">
+        <div style="font-size:24px;text-align:center;margin-bottom:6px">📋</div>
+        <div style="font-size:12px;font-weight:800;color:#E8732C;text-align:center;margin-bottom:4px">OS Colagem</div>
+        <div style="font-size:9px;color:#888;text-align:center;line-height:1.4">Ordem de serviço completa estilo CEM Pro com perfis, componentes e chapas.</div>
       </div>
 
     </div>
