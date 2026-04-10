@@ -8658,15 +8658,17 @@ window.crmItemCreate=function(tipo){
     cor_ext:'',cor_int:''
   };
   if(tipo==='porta_pivotante'){
-    item.modelo='';item.abertura='PIVOTANTE';item.folhas='1';
-    item.fech_mec='';item.fech_dig='';item.cilindro='';item.puxador='';
+    item.modelo='01';item.abertura='PIVOTANTE';item.folhas='1';
+    item.fech_mec='';item.fech_dig='NÃO SE APLICA';item.cilindro='KESO';item.puxador='CAVA';
+    item.dist_borda_cava='210';item.largura_cava='150';item.cantoneira_cava='30';
+    item.tem_alisar=true;
   }
   if(tipo==='fixo'){
-    item.tipo_vidro='';item.tipo_fixacao='';
+    item.tipo_fixacao='LATERAL';item.revestimento_lados='2';item.tem_estrutura='SIM';
+    item.tipo_material='ACM';item.tipo_vidro='';
   }
   _crmItens.push(item);
   _crmItensRender();
-  // Auto-open the new item
   setTimeout(function(){
     var el=document.getElementById('crm-item-'+item.id);
     if(el)el.classList.add('open');
@@ -8677,6 +8679,57 @@ window.crmItemRemove=function(id){
   if(!confirm('Remover este item?'))return;
   _crmItens=_crmItens.filter(function(i){return i.id!==id;});
   _crmItensRender();
+}
+
+// ── Auto-seleção por altura, modelo e fechadura digital ──
+window.crmItemAutoSelect=function(id){
+  var item=_crmItens.find(function(i){return i.id===id;});
+  if(!item||item.tipo!=='porta_pivotante')return;
+  var pre='crmit-'+id+'-';
+  var H=parseInt((document.getElementById(pre+'altura')||{value:0}).value)||0;
+  var modelo=(document.getElementById(pre+'modelo')||{value:''}).value;
+  var fechDig=(document.getElementById(pre+'fech_dig')||{value:''}).value.toUpperCase();
+
+  // Auto-select FECHADURA MECÂNICA por altura (mesma lógica de _autoSelectFechadura)
+  if(H>0){
+    var TUB=H>=4000?50.8:38.1;
+    var PA_F=Math.round(H-10-TUB-28+8);
+    var inicio=1020;
+    if(fechDig.indexOf('PHILIPS')>=0) inicio=1380;
+    var opcoes=[
+      {val:'24 PINOS',comp:6000},{val:'16 PINOS',comp:4000},
+      {val:'12 PINOS',comp:2000},{val:'08 PINOS',comp:800},{val:'04 PINOS',comp:400}
+    ];
+    var sel=document.getElementById(pre+'fech_mec');
+    if(sel){
+      var found=false;
+      for(var i=0;i<opcoes.length;i++){
+        if(inicio+opcoes[i].comp<=PA_F){sel.value=opcoes[i].val;found=true;break;}
+      }
+      if(!found)sel.value='04 PINOS';
+    }
+  }
+
+  // Auto-select PUXADOR por modelo (modelos com cava = CAVA, lisa = EXTERNO)
+  if(modelo){
+    var modInt=parseInt(modelo)||0;
+    var cavaMods=[1,2,3,4,5,6,7,8,9,10,11,24,26];
+    var puxSel=document.getElementById(pre+'puxador');
+    if(puxSel) puxSel.value=cavaMods.indexOf(modInt)>=0?'CAVA':'EXTERNO';
+  }
+}
+
+// Trigger auto-select when altura changes
+window.crmItemAlturaChange=function(id){
+  crmItemAutoSelect(id);
+}
+
+// Show/hide vidro field for fixo items
+window.crmItemFixoMaterial=function(id){
+  var pre='crmit-'+id+'-';
+  var mat=(document.getElementById(pre+'tipo_material')||{value:''}).value;
+  var wrap=document.getElementById(pre+'vidro_wrap');
+  if(wrap) wrap.style.display=mat==='VIDRO'?'':'none';
 }
 
 window.crmItemDuplicate=function(id){
@@ -8699,8 +8752,8 @@ window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
     var fields=['qtd','largura','altura','cor_ext','cor_int'];
-    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_vert','friso_horiz']);
-    if(item.tipo==='fixo') fields=fields.concat(['tipo_vidro','tipo_fixacao']);
+    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','dist_borda_cava','largura_cava','cantoneira_cava']);
+    if(item.tipo==='fixo') fields=fields.concat(['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material']);
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el) item[f]=el.value;
@@ -8757,30 +8810,46 @@ window._crmItensRender=function(){
     h+='<div class="crm-field"><label>Largura (mm)</label><input type="number" id="'+pre+'largura" value="'+(item.largura||'')+'" placeholder="ex: 1996" min="200" max="5000"></div>';
     h+='</div>';
     h+='<div class="crm-row">';
-    h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 6174" min="200" max="8000"></div>';
+    h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 6174" min="200" max="8000" onchange="crmItemAutoSelect(\''+item.id+'\')" oninput="crmItemAutoSelect(\''+item.id+'\')"></div>';
     
     if(item.tipo==='porta_pivotante'){
       h+='<div class="crm-field"><label>Abertura</label><select id="'+pre+'abertura"><option value="PIVOTANTE"'+(item.abertura==='PIVOTANTE'?' selected':'')+'>Pivotante</option><option value="DOBRADIÇA"'+(item.abertura==='DOBRADIÇA'?' selected':'')+'>Dobradiça</option></select></div>';
       h+='</div>';
       h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Modelo</label><select id="'+pre+'modelo">'+modeloOpts.replace('value="'+item.modelo+'"','value="'+item.modelo+'" selected')+'</select></div>';
+      h+='<div class="crm-field"><label>Modelo</label><select id="'+pre+'modelo" onchange="crmItemAutoSelect(\''+item.id+'\')">'+modeloOpts.replace('value="'+item.modelo+'"','value="'+item.modelo+'" selected')+'</select></div>';
       h+='<div class="crm-field"><label>Folhas</label><select id="'+pre+'folhas"><option value="1"'+(item.folhas==='2'?'':' selected')+'>1 folha</option><option value="2"'+(item.folhas==='2'?' selected':'')+'>2 folhas</option></select></div>';
       h+='</div>';
+      // Fechaduras
+      h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🔐 Fechaduras</div>';
       h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Fechadura Mecânica</label><select id="'+pre+'fech_mec"><option value="">— Selecione —</option><option value="04 PINOS">04 pinos</option><option value="08 PINOS">08 pinos</option><option value="12 PINOS">12 pinos</option><option value="16 PINOS">16 pinos</option><option value="24 PINOS">24 pinos</option></select></div>';
-      h+='<div class="crm-field"><label>Fechadura Digital</label><select id="'+pre+'fech_dig"><option value="">— Selecione —</option><option value="NÃO SE APLICA">Não se aplica</option><option value="TEDEE">Tedee</option><option value="PHILIPS 9300">Philips 9300</option><option value="EMTECO">Emteco</option><option value="PHILIPS">Philips</option><option value="NUKI">Nuki</option></select></div>';
+      h+='<div class="crm-field"><label>Mecânica <small style="color:#888">(auto por altura)</small></label><select id="'+pre+'fech_mec"><option value="">— Selecione —</option><option value="04 PINOS">04 pinos</option><option value="08 PINOS">08 pinos</option><option value="12 PINOS">12 pinos</option><option value="16 PINOS">16 pinos</option><option value="24 PINOS">24 pinos</option></select></div>';
+      h+='<div class="crm-field"><label>Digital</label><select id="'+pre+'fech_dig" onchange="crmItemAutoSelect(\''+item.id+'\')"><option value="">— Selecione —</option><option value="NÃO SE APLICA">Não se aplica</option><option value="TEDEE">Tedee</option><option value="PHILIPS 9300">Philips 9300</option><option value="EMTECO">Emteco</option><option value="PHILIPS">Philips</option><option value="NUKI">Nuki</option></select></div>';
       h+='</div>';
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Cilindro</label><select id="'+pre+'cilindro"><option value="">— Selecione —</option><option value="KESO">Keso</option><option value="UDINESE">Udinese</option></select></div>';
-      h+='<div class="crm-field"><label>Puxador</label><select id="'+pre+'puxador"><option value="">— Selecione —</option><option value="CAVA">Cava</option><option value="EXTERNO">Puxador Externo</option></select></div>';
+      h+='<div class="crm-field"><label>Puxador <small style="color:#888">(auto por modelo)</small></label><select id="'+pre+'puxador"><option value="">— Selecione —</option><option value="CAVA">Cava</option><option value="EXTERNO">Puxador Externo</option></select></div>';
       h+='</div>';
-      // Nota: Config detalhada (cava, friso, alisar) fica em Características da Porta no Orçamento
-    } else if(item.tipo==='fixo'){
-      h+='<div class="crm-field"><label>Tipo de Fixação</label><select id="'+pre+'tipo_fixacao"><option value="">— Selecione —</option><option value="LATERAL">Lateral</option><option value="BANDEIRA">Bandeira (superior)</option><option value="INFERIOR">Inferior</option></select></div>';
+      // Config Cava
+      h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">⚙️ Configuração da Cava</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Dist. Borda Cava (mm)</label><input type="number" id="'+pre+'dist_borda_cava" value="'+(item.dist_borda_cava||210)+'" min="50" max="500"></div>';
+      h+='<div class="crm-field"><label>Largura Cava (mm)</label><input type="number" id="'+pre+'largura_cava" value="'+(item.largura_cava||150)+'" min="50" max="400"></div>';
       h+='</div>';
       h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Tipo de Vidro</label><select id="'+pre+'tipo_vidro"><option value="">— Selecione —</option><option value="TEMPERADO">Temperado</option><option value="LAMINADO">Laminado</option><option value="INSULADO">Insulado</option></select></div>';
-      h+='<div class="crm-field"></div>';
+      h+='<div class="crm-field"><label>Cantoneira (mm)</label><input type="number" id="'+pre+'cantoneira_cava" value="'+(item.cantoneira_cava||30)+'" min="10" max="60"></div>';
+      h+='<div class="crm-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="'+pre+'tem_alisar"'+(item.tem_alisar?' checked':'')+' style="width:14px;height:14px"> Tem Alisar</label></div>';
+      h+='</div>';
+    } else if(item.tipo==='fixo'){
+      h+='<div class="crm-field"><label>Posição</label><select id="'+pre+'tipo_fixacao"><option value="LATERAL"'+(item.tipo_fixacao==='LATERAL'?' selected':'')+'>Lateral</option><option value="BANDEIRA"'+(item.tipo_fixacao==='BANDEIRA'?' selected':'')+'>Bandeira (superior)</option><option value="INFERIOR"'+(item.tipo_fixacao==='INFERIOR'?' selected':'')+'>Inferior</option></select></div>';
+      h+='</div>';
+      h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🔲 Configuração do Fixo</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Revestimento</label><select id="'+pre+'revestimento_lados"><option value="2"'+(item.revestimento_lados==='2'?' selected':'')+'>2 lados</option><option value="1"'+(item.revestimento_lados==='1'?' selected':'')+'>1 lado</option></select></div>';
+      h+='<div class="crm-field"><label>Estrutura Alumínio</label><select id="'+pre+'tem_estrutura"><option value="SIM"'+(item.tem_estrutura==='SIM'?' selected':'')+'>Sim</option><option value="NÃO"'+(item.tem_estrutura==='NÃO'?' selected':'')+'>Não</option></select></div>';
+      h+='</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Tipo Material</label><select id="'+pre+'tipo_material" onchange="crmItemFixoMaterial(\''+item.id+'\')"><option value="ACM"'+(item.tipo_material==='ACM'?' selected':'')+'>ACM (Chapa)</option><option value="VIDRO"'+(item.tipo_material==='VIDRO'?' selected':'')+'>Vidro</option></select></div>';
+      h+='<div class="crm-field" id="'+pre+'vidro_wrap" style="'+(item.tipo_material==='VIDRO'?'':'display:none')+'"><label>Tipo de Vidro</label><select id="'+pre+'tipo_vidro"><option value="">— Selecione —</option><option value="TEMPERADO"'+(item.tipo_vidro==='TEMPERADO'?' selected':'')+'>Temperado</option><option value="LAMINADO"'+(item.tipo_vidro==='LAMINADO'?' selected':'')+'>Laminado</option><option value="INSULADO"'+(item.tipo_vidro==='INSULADO'?' selected':'')+'>Insulado</option><option value="PINAZO"'+(item.tipo_vidro==='PINAZO'?' selected':'')+'>Com Pinazo</option></select></div>';
       h+='</div>';
     } else {
       h+='<div class="crm-field"></div></div>';
@@ -8808,7 +8877,7 @@ window._crmItensRender=function(){
   // Re-apply selected values for selects (the replace trick doesn't always work)
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
-    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','cor_ext','cor_int']:['tipo_fixacao','tipo_vidro','cor_ext','cor_int'];
+    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','cor_ext','cor_int','dist_borda_cava','largura_cava','cantoneira_cava']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int'];
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el&&item[f]) el.value=item[f];
@@ -8828,7 +8897,7 @@ window._crmItensToCardData=function(){
       clean.friso_vert=item.friso_vert||'0';clean.friso_horiz=item.friso_horiz||'0';clean.tem_alisar=!!item.tem_alisar;
     }
     if(item.tipo==='fixo'){
-      clean.tipo_vidro=item.tipo_vidro||'';clean.tipo_fixacao=item.tipo_fixacao||'';
+      clean.tipo_vidro=item.tipo_vidro||'';clean.tipo_fixacao=item.tipo_fixacao||'';clean.revestimento_lados=item.revestimento_lados||'2';clean.tem_estrutura=item.tem_estrutura||'SIM';clean.tipo_material=item.tipo_material||'ACM';
     }
     return clean;
   });
