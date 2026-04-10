@@ -608,6 +608,26 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 .crm-pipeline-wrap{position:relative;overflow:visible}
 /* Gradient removed — was hiding Fechado/Perdido columns */
 
+/* ── Orçamento Item Cards ──────────────────────── */
+.orc-itens-bar{background:#fff;border:2px solid #003144;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:none}
+.orc-itens-bar.show{display:block}
+.orc-itens-bar-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.orc-itens-bar-title{font-size:12px;font-weight:800;color:#003144}
+.orc-itens-bar-sub{font-size:10px;color:#888}
+.orc-itens-grid{display:flex;gap:8px;flex-wrap:wrap}
+.orc-item-card{border:2px solid #ddd;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .15s;min-width:140px;flex:1;max-width:220px;position:relative}
+.orc-item-card:hover{border-color:#e67e22;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.orc-item-card.active{border-color:#003144;background:#f0f7fb;box-shadow:0 2px 12px rgba(0,49,68,.15)}
+.orc-item-card.done{border-color:#27ae60}
+.orc-item-card .oic-icon{font-size:16px}
+.orc-item-card .oic-tipo{font-size:10px;font-weight:700;color:#003144;margin-top:2px}
+.orc-item-card .oic-dim{font-size:10px;color:#555}
+.orc-item-card .oic-mod{font-size:9px;color:#888}
+.orc-item-card .oic-qty{position:absolute;top:6px;right:8px;font-size:9px;font-weight:700;background:#e8f8e8;color:#1a7a20;padding:1px 6px;border-radius:4px}
+.orc-item-card .oic-check{position:absolute;top:6px;left:8px;font-size:12px;display:none}
+.orc-item-card.done .oic-check{display:block}
+.orc-item-card .oic-num{font-size:9px;color:#aaa;margin-bottom:2px}
+
 /* ── CRM Items ─────────────────────────────────── */
 .crm-item{background:var(--page);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .15s}
 .crm-item.open{border-color:var(--orange)}
@@ -1071,6 +1091,21 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <!-- ════════════════════════════════════════════════ -->
 
 <div class="tab-panel" id="tab-orcamento">
+
+<!-- ITENS DO CRM — barra de navegação -->
+<div class="orc-itens-bar" id="orc-itens-bar">
+  <div class="orc-itens-bar-hdr">
+    <div>
+      <div class="orc-itens-bar-title">📦 Itens do Pedido — <span id="orc-itens-cli">Cliente</span></div>
+      <div class="orc-itens-bar-sub">Clique em cada item para configurar. Depois clique em <b>SALVAR</b>.</div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button onclick="orcItemSalvarAtual()" style="padding:6px 14px;border-radius:8px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💾 Salvar Item Atual</button>
+    </div>
+  </div>
+  <div class="orc-itens-grid" id="orc-itens-grid"></div>
+</div>
+
 
 <!-- RESUMO DA OBRA (estilo CEM) -->
 <div id="resumo-obra" style="display:none;margin:0 0 12px;border:2px solid #003144;border-radius:10px;overflow:hidden;font-family:inherit">
@@ -5238,6 +5273,10 @@ function zerarValores(){
   if(ind){ind.textContent='✓ Zerado';ind.style.opacity='1';setTimeout(function(){ind.style.opacity='0';},2000);}
 }
 function newOrcamento(){
+  // Hide CRM items bar
+  window._orcItens=[];window._orcItemAtual=-1;
+  var ibar=document.getElementById('orc-itens-bar');if(ibar)ibar.classList.remove('show');
+
   if(!confirm('Iniciar novo orçamento? O orçamento atual será salvo automaticamente.')) return;
   // Unlock form
   window._orcLocked=false;
@@ -8895,6 +8934,162 @@ window.crmDeleteFromModal=function(){
   }
 };
 
+/* ═══ ORC ITEMS — Itens do CRM no Orçamento ═══ */
+window._orcItens = [];      // Array of items from CRM
+window._orcItemAtual = -1;  // Index of currently editing item
+
+function orcItensFromCRM(itens, cliente){
+  window._orcItens = (itens||[]).map(function(it,i){
+    return Object.assign({}, it, {_idx:i, _configured:false, _formData:null});
+  });
+  window._orcItemAtual = -1;
+  var bar = document.getElementById('orc-itens-bar');
+  if(bar){
+    bar.classList.toggle('show', window._orcItens.length > 0);
+  }
+  var cliEl = document.getElementById('orc-itens-cli');
+  if(cliEl) cliEl.textContent = cliente || 'Cliente';
+  orcItensRender();
+  // Auto-select first item
+  if(window._orcItens.length > 0){
+    setTimeout(function(){ orcItemSelecionar(0); }, 200);
+  }
+}
+
+function orcItensRender(){
+  var grid = document.getElementById('orc-itens-grid');
+  if(!grid) return;
+  if(!window._orcItens.length){ grid.innerHTML=''; return; }
+  
+  var TIPOS = {porta_pivotante:{icon:'🚪',label:'Porta Pivotante'},fixo:{icon:'🔲',label:'Fixo'},porta_interna:{icon:'🚪',label:'Porta Interna'},revestimento:{icon:'🧱',label:'Revestimento'}};
+  
+  var h = '';
+  window._orcItens.forEach(function(it, idx){
+    var t = TIPOS[it.tipo] || {icon:'📦',label:it.tipo};
+    var isActive = idx === window._orcItemAtual;
+    var isDone = it._configured;
+    h += '<div class="orc-item-card'+(isActive?' active':'')+(isDone?' done':'')+'" onclick="orcItemSelecionar('+idx+')">';
+    h += '<span class="oic-check">✅</span>';
+    if(it.qtd > 1) h += '<span class="oic-qty">×'+it.qtd+'</span>';
+    h += '<div class="oic-num">Item '+(idx+1)+'</div>';
+    h += '<div class="oic-icon">'+t.icon+'</div>';
+    h += '<div class="oic-tipo">'+t.label+'</div>';
+    if(it.largura && it.altura) h += '<div class="oic-dim">'+it.largura+' × '+it.altura+' mm</div>';
+    var details = [];
+    if(it.modelo) details.push('Mod '+it.modelo);
+    if(it.cor_ext) details.push(it.cor_ext.substring(0,20));
+    if(details.length) h += '<div class="oic-mod">'+details.join(' · ')+'</div>';
+    h += '</div>';
+  });
+  grid.innerHTML = h;
+}
+
+function orcItemSalvarAtual(){
+  if(window._orcItemAtual < 0 || !window._orcItens.length) return;
+  // Capture current form data into the item
+  var it = window._orcItens[window._orcItemAtual];
+  if(!it) return;
+  // Capture from form
+  it.largura = parseInt((document.getElementById('largura')||{value:0}).value) || it.largura;
+  it.altura = parseInt((document.getElementById('altura')||{value:0}).value) || it.altura;
+  it._configured = true;
+  // Capture all form data for this item
+  if(typeof captureFormData === 'function'){
+    it._formData = captureFormData();
+  }
+  orcItensRender();
+  // Toast
+  var toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 3px 12px rgba(0,0,0,.2)';
+  toast.textContent = '✅ Item '+(window._orcItemAtual+1)+' salvo!';
+  document.body.appendChild(toast);
+  setTimeout(function(){toast.remove();},2000);
+}
+
+function orcItemSelecionar(idx){
+  if(idx < 0 || idx >= window._orcItens.length) return;
+  
+  // Save current item before switching
+  if(window._orcItemAtual >= 0 && window._orcItemAtual !== idx){
+    var cur = window._orcItens[window._orcItemAtual];
+    if(cur && typeof captureFormData === 'function'){
+      cur._formData = captureFormData();
+      cur.largura = parseInt((document.getElementById('largura')||{value:0}).value) || cur.largura;
+      cur.altura = parseInt((document.getElementById('altura')||{value:0}).value) || cur.altura;
+    }
+  }
+  
+  window._orcItemAtual = idx;
+  var it = window._orcItens[idx];
+  orcItensRender();
+  
+  // If item has saved form data, restore it
+  if(it._formData && typeof restoreFormData === 'function'){
+    restoreFormData(it._formData);
+    setTimeout(function(){
+      if(typeof calc==='function') try{calc();}catch(e){}
+    }, 200);
+    return;
+  }
+  
+  // Otherwise, load from CRM item data into form
+  function setF(fid,v){
+    var e=document.getElementById(fid);
+    if(e && v !== undefined && v !== null && v !== ''){
+      e.value = v;
+      ['input','change'].forEach(function(evt){e.dispatchEvent(new Event(evt,{bubbles:true}));});
+    }
+  }
+  
+  setF('largura', it.largura);
+  setF('altura', it.altura);
+  setF('qtd-portas', it.qtd || 1);
+  
+  if(it.tipo === 'porta_pivotante'){
+    setF('carac-abertura', it.abertura || 'PIVOTANTE');
+    setF('carac-modelo', it.modelo);
+    setF('folhas-porta', it.folhas || '1');
+    setF('carac-folhas', it.folhas || '1');
+    if(it.cor_ext) setF('carac-cor-ext', it.cor_ext);
+    if(it.cor_int) setF('carac-cor-int', it.cor_int);
+    if(it.fech_mec) setF('carac-fech-mec', it.fech_mec);
+    if(it.fech_dig) setF('carac-fech-dig', it.fech_dig);
+    if(it.cilindro) setF('carac-cilindro', it.cilindro);
+    if(it.puxador) setF('carac-puxador', it.puxador);
+    if(typeof onModeloChange==='function' && it.modelo) try{onModeloChange();}catch(e){}
+  }
+  
+  if(it.tipo === 'fixo'){
+    // For fixo, set dimensions and cor, leave model empty
+    if(it.cor_ext) setF('carac-cor-ext', it.cor_ext);
+    if(it.cor_int) setF('carac-cor-int', it.cor_int);
+  }
+  
+  setTimeout(function(){
+    if(typeof calc==='function') try{calc();}catch(e){}
+  }, 300);
+}
+
+// Backward compat: restore form data
+function restoreFormData(data){
+  if(!data) return;
+  Object.keys(data).forEach(function(key){
+    var el = document.getElementById(key);
+    if(!el) return;
+    if(el.type === 'checkbox'){
+      el.checked = (data[key] === true || data[key] === 'true');
+    } else {
+      el.value = data[key] || '';
+    }
+  });
+  // Trigger change events on key fields
+  ['largura','altura','carac-modelo','carac-cor-ext','carac-cor-int','folhas-porta'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+}
+
+
 /* ── Fazer Orçamento ─────────────────────────────── */
 window._crmOrcCardId=null;
 window.crmFazerOrcamento=function(id){
@@ -8924,6 +9119,14 @@ window.crmFazerOrcamento=function(id){
     // Agora preencher com dados do CRM
     function setF(fid,v){var e=document.getElementById(fid);if(e&&v){e.value=v;['input','change'].forEach(function(evt){e.dispatchEvent(new Event(evt,{bubbles:true}));});}}
     setF('cliente',opp.cliente);
+    
+    // Transfer items to Orçamento
+    if(opp.itens && opp.itens.length > 0){
+      orcItensFromCRM(opp.itens, opp.cliente);
+    } else if(opp.largura && opp.altura){
+      // Backward compat: single item
+      orcItensFromCRM([{tipo:'porta_pivotante',qtd:1,largura:opp.largura,altura:opp.altura,modelo:opp.modelo||'',abertura:opp.abertura||'PIVOTANTE',folhas:opp.folhas||'1',cor_ext:opp.cor_ext||'',cor_int:opp.cor_int||''}], opp.cliente);
+    }
     setF('largura',opp.largura||'');
     setF('altura',opp.altura||'');
     // Responsavel (Thays/Felipe/Andressa) — map to the select
