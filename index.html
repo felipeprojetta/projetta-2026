@@ -1972,29 +1972,36 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     </div>
   </div>
 
-  <!-- TABELA DE PREÇO -->
+  <!-- TABELA DE PREÇO (dinâmica - suporta multi-porta) -->
   <table style="width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:4px">
+    <thead>
     <tr style="background:#f0f0f0">
-      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:10%">Tipo:</th>
-      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:15%">Linha:</th>
-      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:8%">Qtd:</th>
-      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:22%">Valor (un.):</th>
-      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:22%">Valor Total:</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:6%">Item</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:left;width:28%">Descrição</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:14%">Medidas</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:6%">Qtd</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:18%">Valor (un.)</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:18%">Valor Total</th>
     </tr>
+    </thead>
+    <tbody id="prop-items-tbody">
     <tr>
       <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">01</td>
-      <td style="padding:4px 8px;border:1px solid #ccc;text-align:center" id="prop-linha">PORTA PROJETTA</td>
+      <td style="padding:4px 8px;border:1px solid #ccc" id="prop-linha">PORTA PROJETTA</td>
+      <td style="padding:4px 8px;border:1px solid #ccc;text-align:center" id="prop-medidas">—</td>
       <td style="padding:4px 8px;border:1px solid #ccc;text-align:center" id="prop-qtd-porta">1</td>
       <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700" id="prop-valor-un">—</td>
       <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700" id="prop-valor-total-porta">—</td>
     </tr>
     <tr id="prop-row-fech" style="display:none">
       <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">02</td>
-      <td style="padding:4px 8px;border:1px solid #ccc;text-align:center" id="prop-nome-fech">Acessório</td>
+      <td style="padding:4px 8px;border:1px solid #ccc" id="prop-nome-fech">Acessório</td>
+      <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">—</td>
       <td style="padding:4px 8px;border:1px solid #ccc;text-align:center" id="prop-qtd-fech">1</td>
       <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700" id="prop-valor-un-fech">—</td>
       <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700" id="prop-valor-total-fech">—</td>
     </tr>
+    </tbody>
   </table>
 
   <!-- TOTAIS -->
@@ -3051,6 +3058,8 @@ Equipe Projetta by Weiku</textarea>
       <button onclick="imprimirOS()" style="padding:7px 16px;border-radius:8px;border:1px solid #003144;background:#fff;color:#003144;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🖨 Imprimir</button>
       <button onclick="relatorioBarras()" style="padding:7px 16px;border-radius:8px;border:1px solid #1a5276;background:#1a5276;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📄 Relação de Barras</button>
       <button onclick="abrirAproveitamento()" id="btn-aproveitamento" style="padding:7px 18px;border-radius:8px;border:none;background:#1a5276;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📐 Aproveitamento de Barras</button>
+      <button onclick="gerarRomaneio()" style="padding:7px 18px;border-radius:8px;border:none;background:#27ae60;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📦 Romaneio de Compra</button>
+      <button onclick="gerarRelatorioProducao()" style="padding:7px 18px;border-radius:8px;border:none;background:#8e44ad;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🏭 Relatório Produção</button>
     </div>
   </div>
 </div>
@@ -9212,11 +9221,21 @@ function populateProposta(){
     document.getElementById('prop-cor-int').textContent=corAlu;
     document.getElementById('prop-linha').textContent='PORTA PROJETTA';
   }
-  // Quantidade
+  // Quantidade (suporte multi-porta)
   var qtdPortas=parseInt(g('qtd-portas'))||1;
+  if(window._mpItens&&window._mpItens.length>0){
+    qtdPortas=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
+  }
+  // Popular tabela de itens da proposta (multi-porta)
+  _populatePropostaItens();
   var qtdFech=parseInt(g('qtd-fechaduras'))||1;
   document.getElementById('prop-qtd').textContent=qtdPortas;
   document.getElementById('prop-qtd-porta').textContent=qtdPortas;
+  // Medidas na proposta (single-door)
+  var _propMed=document.getElementById('prop-medidas');
+  if(_propMed&&(!window._mpItens||window._mpItens.length===0)){
+    _propMed.textContent=g('largura')+' × '+g('altura');
+  }
 
   // Valores do painel (já multiplicados por qtd no calc)
   var parseVal=function(el){
@@ -14981,6 +15000,211 @@ function _mpCalcAllPiecesCombined(){
   if(document.getElementById('plan-modelo')) document.getElementById('plan-modelo').value=savedMod;
   if(document.getElementById('plan-folhas')) document.getElementById('plan-folhas').value=savedFol;
   return allPieces;
+}
+/* ── Popula tabela de itens na proposta comercial (multi-porta) ── */
+function _populatePropostaItens(){
+  var tbody=document.getElementById('prop-items-tbody');
+  if(!tbody) return;
+  if(!window._mpItens||window._mpItens.length===0) return; // single-door: keep default
+  var brl2=function(v){return v>0?'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';};
+  var totalQtd=0, totalOrc=0;
+  var custoTotal=parseFloat((document.getElementById('m-custo')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
+  var tabTotal=parseFloat((document.getElementById('m-tab')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
+  var totalPortas=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
+  var html='';
+  window._mpItens.forEach(function(it,i){
+    totalQtd+=it.qtd;
+    var proporcao=totalPortas>0?it.qtd/totalPortas:0;
+    var valorTotal=tabTotal*proporcao;
+    var valorUn=it.qtd>0?valorTotal/it.qtd:0;
+    totalOrc+=valorTotal;
+    html+='<tr>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+(i+1).toString().padStart(2,'0')+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc">'+it.modeloTxt+(it.temFixo?' + Fixo':'')+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">'+it.largura+' × '+it.altura+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+it.qtd+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+brl2(valorUn)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+brl2(valorTotal)+'</td>'
+      +'</tr>';
+  });
+  tbody.innerHTML=html;
+  // Atualizar totais
+  var qtdEl=document.getElementById('prop-qtd');if(qtdEl)qtdEl.textContent=totalQtd;
+  var qtdPEl=document.getElementById('prop-qtd-porta');if(qtdPEl)qtdPEl.textContent=totalQtd;
+}
+
+/* ══ ROMANEIO DE COMPRA — Lista consolidada para pedir material ══ */
+function gerarRomaneio(){
+  if(!window._lastOSData){alert('Gere a OS primeiro.');return;}
+  var d=window._lastOSData;
+  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var cliente=(document.getElementById('cliente')||{value:''}).value||'—';
+  var agp=(document.getElementById('num-agp')||{value:''}).value||'—';
+
+  // 1. PERFIS — agrupar por código
+  var perfis=[];
+  d.seenKeys.forEach(function(key){
+    var r=d.groupRes[key];if(!r||r.nBars===0)return;
+    var perf=null;for(var i=0;i<PERFIS_DB.length;i++){if(PERFIS_DB[i].c===key||PERFIS_DB[i].c===key.replace(/-[678]M$/,'')){perf=PERFIS_DB[i];break;}}
+    perfis.push({code:key,desc:perf?perf.d:key,forn:perf?perf.f:'—',nBars:r.nBars,barLen:r.barLenMM/1000,kgBruto:r.kgBruto,pintado:r.pintado,custo:r.custoTotal});
+  });
+
+  // 2. CHAPAS — do planificador
+  var chapas=[];
+  for(var qi=1;qi<=20;qi++){
+    var selEl=document.getElementById('acm-sel-'+qi);
+    var qtyEl=document.getElementById('acm-qty-'+qi);
+    if(!selEl||!qtyEl) break;
+    var qty=parseInt(qtyEl.value)||0;if(qty===0)continue;
+    var parts=selEl.value.split('|');
+    var preco=parseFloat(parts[0])||0;
+    var opt=selEl.options[selEl.selectedIndex];
+    chapas.push({desc:opt?opt.text:'Chapa ACM',qty:qty,preco:preco,total:preco*qty});
+  }
+
+  // 3. ACESSÓRIOS — do último cálculo
+  var acessHTML='';
+  var osaTbody=document.getElementById('osa-fab-tbody');
+  if(osaTbody){
+    var rows=osaTbody.querySelectorAll('tr');
+    rows.forEach(function(r){
+      var tds=r.querySelectorAll('td');
+      if(tds.length>=5){
+        acessHTML+='<tr>'+r.innerHTML+'</tr>';
+      }
+    });
+  }
+
+  // Gerar janela
+  var w=window.open('','_blank','width=800,height=900');
+  w.document.write('<!DOCTYPE html><html><head><title>Romaneio de Compra</title>');
+  w.document.write('<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Montserrat,Arial,sans-serif;padding:16px;background:#f7f6f3}');
+  w.document.write('.pg{max-width:700px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 16px rgba(0,0,0,.06);padding:20px}');
+  w.document.write('.hdr{background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:14px 18px;border-radius:8px;margin-bottom:16px}');
+  w.document.write('.hdr h1{font-size:16px;font-weight:800}.hdr-sub{font-size:10px;opacity:.7;margin-top:3px}');
+  w.document.write('.sec{border:1px solid #ddd;border-radius:6px;margin-bottom:12px;overflow:hidden}');
+  w.document.write('.sec-h{background:#f0f4f6;padding:8px 12px;font-size:11px;font-weight:800;color:#c47012;text-transform:uppercase;letter-spacing:.05em}');
+  w.document.write('table{width:100%;border-collapse:collapse;font-size:10px}');
+  w.document.write('th{background:#eee;padding:4px 8px;border:0.5px solid #ddd;text-align:left;font-size:9px;text-transform:uppercase;color:#666}');
+  w.document.write('td{padding:4px 8px;border-bottom:0.5px solid #eee}');
+  w.document.write('.tot{background:#003144;color:#fff;font-weight:700;font-size:11px}');
+  w.document.write('@media print{body{padding:0;background:#fff}.pg{box-shadow:none;border-radius:0}}');
+  w.document.write('</style></head><body><div class="pg">');
+
+  // Header
+  w.document.write('<div class="hdr"><h1>📦 ROMANEIO DE COMPRA</h1>');
+  w.document.write('<div class="hdr-sub">Cliente: '+cliente+' | AGP: '+agp+' | Data: '+new Date().toLocaleDateString('pt-BR')+'</div></div>');
+
+  // PERFIS
+  w.document.write('<div class="sec"><div class="sec-h">🔩 Perfis de Alumínio</div><table>');
+  w.document.write('<tr><th>Código</th><th>Descrição</th><th>Fornecedor</th><th style="text-align:center">Barras</th><th style="text-align:center">Barra (m)</th><th style="text-align:right">Kg Bruto</th><th style="text-align:center">Pintura</th><th style="text-align:right">Custo</th></tr>');
+  var totKg=0,totCusto=0,totBars=0;
+  perfis.forEach(function(p){
+    totKg+=p.kgBruto;totCusto+=p.custo;totBars+=p.nBars;
+    w.document.write('<tr><td style="font-weight:700;color:#003144;white-space:nowrap">'+p.code+'</td><td>'+p.desc+'</td><td style="font-size:9px;color:#888">'+p.forn+'</td><td style="text-align:center;font-weight:700">'+p.nBars+'</td><td style="text-align:center">'+p.barLen+'m</td><td style="text-align:right">'+p.kgBruto.toFixed(2)+'</td><td style="text-align:center">'+(p.pintado?'🎨 Sim':'—')+'</td><td style="text-align:right;font-weight:700">'+brl(p.custo)+'</td></tr>');
+  });
+  w.document.write('<tr class="tot"><td colspan="3">TOTAL PERFIS</td><td style="text-align:center">'+totBars+'</td><td></td><td style="text-align:right">'+totKg.toFixed(2)+' kg</td><td></td><td style="text-align:right">'+brl(totCusto)+'</td></tr>');
+  w.document.write('</table></div>');
+
+  // CHAPAS
+  if(chapas.length>0){
+    w.document.write('<div class="sec"><div class="sec-h">🪵 Chapas ACM</div><table>');
+    w.document.write('<tr><th>Chapa</th><th style="text-align:center">Quantidade</th><th style="text-align:right">Preço Unit.</th><th style="text-align:right">Total</th></tr>');
+    var totChapa=0;
+    chapas.forEach(function(c){totChapa+=c.total;
+      w.document.write('<tr><td>'+c.desc+'</td><td style="text-align:center;font-weight:700">'+c.qty+'</td><td style="text-align:right">'+brl(c.preco)+'</td><td style="text-align:right;font-weight:700">'+brl(c.total)+'</td></tr>');
+    });
+    w.document.write('<tr class="tot"><td>TOTAL CHAPAS</td><td></td><td></td><td style="text-align:right">'+brl(totChapa)+'</td></tr>');
+    w.document.write('</table></div>');
+  }
+
+  // ACESSÓRIOS
+  if(acessHTML){
+    w.document.write('<div class="sec"><div class="sec-h">🔧 Acessórios e Componentes</div><table>');
+    w.document.write('<tr><th>Qtd</th><th>Código</th><th>Descrição</th><th style="text-align:right">Preço</th><th style="text-align:right">Total</th></tr>');
+    w.document.write(acessHTML);
+    w.document.write('</table></div>');
+  }
+
+  w.document.write('<div style="text-align:center;font-size:9px;color:#999;margin-top:12px">Gerado em '+new Date().toLocaleString('pt-BR')+' — Projetta v6</div>');
+  w.document.write('</div></body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},500);
+}
+
+/* ══ RELATÓRIO DE PRODUÇÃO — Para chão de fábrica ══ */
+function gerarRelatorioProducao(){
+  if(!window._lastOSData){alert('Gere a OS primeiro.');return;}
+  var d=window._lastOSData;
+  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var cliente=(document.getElementById('cliente')||{value:''}).value||'—';
+  var agp=(document.getElementById('num-agp')||{value:''}).value||'—';
+  var L=(document.getElementById('largura')||{value:0}).value;
+  var A=(document.getElementById('altura')||{value:0}).value;
+  var modelo=(document.getElementById('carac-modelo')||{}).selectedIndex>=0?(document.getElementById('carac-modelo').options[document.getElementById('carac-modelo').selectedIndex].text||''):'';
+
+  var w=window.open('','_blank','width=800,height=900');
+  w.document.write('<!DOCTYPE html><html><head><title>Relatório de Produção</title>');
+  w.document.write('<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Montserrat,Arial,sans-serif;padding:16px;background:#f7f6f3}');
+  w.document.write('.pg{max-width:700px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 16px rgba(0,0,0,.06);padding:20px}');
+  w.document.write('.hdr{background:linear-gradient(135deg,#8e44ad,#6c3483);color:#fff;padding:14px 18px;border-radius:8px;margin-bottom:16px}');
+  w.document.write('.hdr h1{font-size:16px;font-weight:800}.hdr-sub{font-size:10px;opacity:.7;margin-top:3px}');
+  w.document.write('.sec{border:1px solid #ddd;border-radius:6px;margin-bottom:12px;overflow:hidden}');
+  w.document.write('.sec-h{background:#f0f4f6;padding:8px 12px;font-size:11px;font-weight:800;color:#8e44ad;text-transform:uppercase;letter-spacing:.05em}');
+  w.document.write('table{width:100%;border-collapse:collapse;font-size:10px}');
+  w.document.write('th{background:#eee;padding:4px 8px;border:0.5px solid #ddd;text-align:left;font-size:9px;text-transform:uppercase;color:#666}');
+  w.document.write('td{padding:4px 8px;border-bottom:0.5px solid #eee}');
+  w.document.write('.check{width:18px;height:18px;border:2px solid #999;border-radius:3px;display:inline-block}');
+  w.document.write('@media print{body{padding:0;background:#fff}.pg{box-shadow:none;border-radius:0}}');
+  w.document.write('</style></head><body><div class="pg">');
+
+  // Header
+  w.document.write('<div class="hdr"><h1>🏭 RELATÓRIO DE PRODUÇÃO</h1>');
+  w.document.write('<div class="hdr-sub">Cliente: '+cliente+' | AGP: '+agp+' | Modelo: '+modelo+' | Vão: '+L+'×'+A+'mm</div>');
+  w.document.write('<div class="hdr-sub">Data: '+new Date().toLocaleDateString('pt-BR')+' | OS: '+new Date().getTime()+'</div></div>');
+
+  // ETAPAS DE PRODUÇÃO
+  var etapas=['CORTE DE PERFIS','USINAGEM','MONTAGEM PORTAL','MONTAGEM QUADRO','COLAGEM DE CHAPAS','CONFERÊNCIA E EMBALAGEM','INSTALAÇÃO'];
+  w.document.write('<div class="sec"><div class="sec-h">📋 Checklist de Etapas</div><table>');
+  w.document.write('<tr><th style="width:30px">✓</th><th>Etapa</th><th style="width:80px">Horas</th><th style="width:100px">Responsável</th><th style="width:80px">Data</th></tr>');
+  var horasMap={'CORTE DE PERFIS':(document.getElementById('h-corte')||{value:0}).value,'MONTAGEM PORTAL':(document.getElementById('h-portal')||{value:0}).value,'MONTAGEM QUADRO':(document.getElementById('h-quadro')||{value:0}).value,'COLAGEM DE CHAPAS':(document.getElementById('h-colagem')||{value:0}).value,'CONFERÊNCIA E EMBALAGEM':(document.getElementById('h-conf')||{value:0}).value};
+  etapas.forEach(function(e){
+    var h=horasMap[e]||'—';
+    w.document.write('<tr><td style="text-align:center"><span class="check"></span></td><td style="font-weight:700">'+e+'</td><td style="text-align:center">'+(h!=='—'?h+'h':'—')+'</td><td></td><td></td></tr>');
+  });
+  w.document.write('</table></div>');
+
+  // LISTA DE CORTE POR BARRA
+  w.document.write('<div class="sec"><div class="sec-h">✂️ Lista de Corte por Barra</div><table>');
+  w.document.write('<tr><th>Perfil</th><th style="text-align:center">Barra</th><th style="text-align:center">Barras</th><th>Cortes (mm)</th><th style="text-align:center">Aprov.</th></tr>');
+  d.seenKeys.forEach(function(key){
+    var r=d.groupRes[key];if(!r||r.nBars===0)return;
+    if(r.barsDetail){
+      r.barsDetail.forEach(function(bar,bi){
+        var items=bar.items.map(function(x){return x+'mm';}).join(' + ');
+        var aprov=bar.len>0?((bar.len-bar.sobra)/bar.len*100).toFixed(0):'—';
+        w.document.write('<tr><td style="font-weight:700;color:#003144;font-size:9px;white-space:nowrap">'+key+(bi===0?' ('+r.nBars+'x)':'')+'</td><td style="text-align:center;font-size:9px">'+(bar.len/1000)+'m</td><td style="text-align:center;font-weight:700">#'+(bi+1)+'</td><td style="font-size:9px">'+items+'</td><td style="text-align:center;color:'+(parseInt(aprov)>85?'#27ae60':'#e67e22')+'">'+aprov+'%</td></tr>');
+      });
+    } else {
+      w.document.write('<tr><td style="font-weight:700">'+key+'</td><td style="text-align:center">'+(r.barLenMM/1000)+'m</td><td style="text-align:center;font-weight:700">'+r.nBars+'</td><td>—</td><td>'+r.aprov.toFixed(0)+'%</td></tr>');
+    }
+  });
+  w.document.write('</table></div>');
+
+  // MULTI-PORTA info
+  if(window._mpItens&&window._mpItens.length>0){
+    w.document.write('<div class="sec"><div class="sec-h">🚪 Itens da Proposta</div><table>');
+    w.document.write('<tr><th>#</th><th>Modelo</th><th style="text-align:center">Medidas</th><th style="text-align:center">Qtd</th><th style="text-align:center">Fixo</th></tr>');
+    window._mpItens.forEach(function(it,i){
+      w.document.write('<tr><td style="font-weight:700">'+(i+1)+'</td><td>'+it.modeloTxt+'</td><td style="text-align:center">'+it.largura+'×'+it.altura+'</td><td style="text-align:center;font-weight:700">'+it.qtd+'</td><td style="text-align:center">'+(it.temFixo?'✓':'—')+'</td></tr>');
+    });
+    w.document.write('</table></div>');
+  }
+
+  w.document.write('<div style="text-align:center;font-size:9px;color:#999;margin-top:12px">Gerado em '+new Date().toLocaleString('pt-BR')+' — Projetta v6</div>');
+  w.document.write('</div></body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},500);
 }
 /* ══ END MODULE: MULTI-PORTA ══ */
 </script>
