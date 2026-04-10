@@ -5794,12 +5794,34 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   var LARGURA_CAVA = _cavLargEl ? (parseFloat(_cavLargEl.value) || _cavLargDefault) : _cavLargDefault;
   var TRAV_CAVA = LARGURA_CAVA + _travCavaAdd;  // Travamento da cava = largura cava + 100mm
 
-  // ── TRAV VERT quantidade por folha (planilha FORMULAS_PARA_PERFIS) ──────
-  // 1 FOLHA: L<2200=1 | 2201-3000=2 | >3001=3 | com cava: +2
-  // 2 FOLHAS: mesma regra base | com cava: +4
-  var _travBase = L > 3000 ? 3 : L > 2200 ? 2 : 1;
-  var _cavaTravAdd = temCava ? 2 : 0;  // +2 por folha quando cava (1 folha=+2, 2 folhas=+4 total)
-  var TRAV_V_QTY_PF = _semModelo ? 0 : (_travBase + _cavaTravAdd);
+  // ── TRAV VERT quantidade — LÓGICA CEM PRO ──────────────────────────────
+  // CEM: TRAVER depende do MOD e LARINTQD
+  // Grupo A (MOD=12,18,25 — Lisa/Frisos H/Molduras): base menor
+  // Grupo B (MOD=3,5,10 — Cava/Cava+Friso H/Lisa): base média
+  // Grupo C (MOD=4,6,7 — Cava+Friso V/Cava+Friso V&H): base maior (tem friso)
+  // Default: Grupo B (mesma regra para modelos sem regra específica)
+  var _modInt = parseInt(modeloSel) || 0;
+  var _grpA = [12,18,25].indexOf(_modInt) >= 0;
+  var _grpC = [4,6,7,9,14,15,16].indexOf(_modInt) >= 0;
+  // LARINTQD para determinar travessas (CEM usa LARINTQD, aqui usamos LAR_IS que é equivalente)
+  var _larintqd = LAR_IS;
+  var _travBase;
+  if(_grpA){
+    // Lisa/Molduras: 1 (<1200), 2 (1200-2200), 3 (2200-3200)
+    _travBase = _larintqd < 1200 ? 1 : _larintqd < 2200 ? 2 : 3;
+  } else if(_grpC){
+    // Cava+Friso: 3 (<1600), 4 (1600-2600), 5 (2600-3600)
+    _travBase = _larintqd < 1600 ? 3 : _larintqd < 2600 ? 4 : 5;
+  } else {
+    // Cava/Lisa/Default: 2 (<1600), 3 (1600-2600), 4 (2600-3600)
+    _travBase = _larintqd < 1600 ? 2 : _larintqd < 2600 ? 3 : 4;
+  }
+  // Override manual: se campo TRAVERS foi preenchido, usar ele
+  var _travOverride = _readFriso('carac-friso-vert', -1);
+  if(_travOverride >= 0 && QTY_FRISO_VERT > 0) {
+    // Frisos verticais são separados das travessas
+  }
+  var TRAV_V_QTY_PF = _semModelo ? 0 : _travBase;
   var TRAV_V_QTY    = TRAV_V_QTY_PF * nFolhas;
 
   // Quantidade de frisos: lida manualmente dos inputs (por modelo)
@@ -5849,7 +5871,27 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   // CANAL ESCOVA: VEDA PORTA + 10
   var CAN_E  = Math.round(VED_IS + 10);
 
-  // TRA HOR MEIO = LAR INF & SUP (mesma fórmula da planilha)
+  // REF = Refilado (CEM: default 20mm em FASE=4)
+  var REF = 20;
+
+  // ── CEM: Fórmulas de acabamento portal ───────────────────────────────
+  var ACABLA1 = (sis === 'PA007') ? 70 + 18.5 : 70 + 18.5;
+  var ACABLA2 = 70 + REF;
+  var ZPORTA  = (sis === 'PA006') ? (18.5+53.5+13) : (18.5+78.5+13);
+  var UPORTAL = (sis === 'PA006') ? (76+2+8-1+(TUB+4)*2) : (102+2+8-1+(TUB+4)*2);
+  var TAPFUR  = (sis === 'PA006') ? (REF+54+REF) : (REF+79+REF);
+  var FITACABME  = REF + 26.5 + REF + (FGL/2);
+  var FITACABMA  = REF + 64.5 + REF + (FGL/2);
+  var FITACABLAR = FGA + REF + TUB + REF;
+  var ALTPORTAL  = Math.round(H - FGA - TUB - 4);  // CEM: H-FOLGAALT-TUBPORTAL-4+SOLE
+  // Armazenar para uso em chapas
+  window._cemVars = {REF:REF, ACABLA1:ACABLA1, ACABLA2:ACABLA2, ZPORTA:ZPORTA,
+    UPORTAL:UPORTAL, TAPFUR:TAPFUR, FITACABME:FITACABME, FITACABMA:FITACABMA,
+    FITACABLAR:FITACABLAR, ALTPORTAL:ALTPORTAL, ALTCHPA:PA_F, LARINTQD:LAR_IS,
+    LARCH: Math.round(L - FGL - FGR - (sis==='PA007'?81.5:43.5) - 43.5)};
+
+  // TRA HOR MEIO: CEM usa VAOTRAV/(TRAVER-1) para modelos com cava+friso
+  // Simplificado: para MOD básicos = LAR INF & SUP
   var TRA_HM = LAR_IS;
 
   // FRISO HORIZ: mesmo comprimento que LAR INF & SUP
@@ -5864,9 +5906,9 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   // TRA PORTAL (OLHAL): LARGURA - FGLD - FGLE - 46.5 - 46.5
   var TRA_PO = Math.round(L - FGL - FGR - 46.5 - 46.5);
 
-  // VEDA PORTA (componente — borracha de vedação, não perfil)
-  var FOLHA_PA_PA  = L - FGL - FGR - 125;
-  var VEDA_SIZE    = Math.max(720, (Math.ceil((FOLHA_PA_PA - 620) / 100) * 100) + 620);
+  // VEDA PORTA (componente — CEM: por LARFINAL que é VED_IS = LARINTQD+110+110)
+  var LARFINAL_CEM = VED_IS;  // CEM: LARFINAL = LARINTQD+110+110 para 1 folha
+  var VEDA_SIZE    = Math.max(720, (Math.ceil((LARFINAL_CEM - 620) / 100) * 100) + 620);
   var VEDA_CODE    = 'PA-VED' + VEDA_SIZE;
   var VEDA_QTY     = nFolhas === 2 ? 4 : 2;
 
@@ -5900,7 +5942,8 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     // PORTAL
     {code:C.lar_portal,  desc:'LAR PORTAL',    compMM:LAR_PO,        qty:1,             pintado:false,secao:'PORTAL',barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
     {code:C.alt_portal+'-'+paPBarLen/1000+'M',desc:'ALT PORTAL',     compMM:PA_P,       qty:2,         pintado:true, secao:'PORTAL',barLenMM:paPBarLen, lh:'90/90 A', obs:'BNF-TECNO'},
-    {code:C.tra_portal,  desc:'TRA PORTAL',    compMM:TRA_PO,        qty:3,             pintado:false,secao:'PORTAL',barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
+    // TRA PORTAL qty: CEM = 2(H<3500), 3(3500-5000), 4(5000-6000), 5(6000-8000)
+    {code:C.tra_portal,  desc:'TRA PORTAL',    compMM:TRA_PO,        qty:(PA_F<3500?2:PA_F<5000?3:PA_F<6000?4:5), pintado:false,secao:'PORTAL',barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
   ];
 
   cuts.forEach(function(c){c.perf=getPerf(c.code);c.kgM=c.perf?c.perf.kg:0;});
@@ -6827,6 +6870,15 @@ function gerarOS(){
 
   // ── Padrões de Cortes ─────────────────────────────────────────────────────
     window._lastPadroesHTML = _renderPadroesContent(d, 9);
+  // Store CEM calculated variables for components
+  d.cemVars = window._cemVars || {};
+  d.TRAVER = TRAV_V_QTY_PF;  // travessas verticais por folha
+  d.TRAHOR = N_H;             // travessas horizontais
+  d.LARFINAL = VED_IS;        // largura final porta
+  d.LARINTQD = LAR_IS;        // largura interna quadro
+  d.ALTCHPA = PA_F;            // altura da chapa
+  d.ALTINTQD = TRAV_V;        // altura interna quadro
+  d.REF = 20;                  // refilado
   window._lastOSData = d; // store for weight recalc
 
   // ── Atualizar aba OS Acessórios ───────────────────────────────────────────
@@ -14759,6 +14811,45 @@ function _calcAcessoriosOS(d, nFolhas, sis){
   var rows=[];
   var H = parseFloat((document.getElementById('altura')||{value:0}).value)||0;
   var L = parseFloat((document.getElementById('largura')||{value:0}).value)||0;
+  var TRAVER = d.TRAVER || 3;
+  var TRAHOR = d.TRAHOR || Math.floor(H/1000);
+  var REF = d.REF || 20;
+  var ALTCHPA = d.ALTCHPA || H;
+  var LARINTQD = d.LARINTQD || L;
+  var ALTINTQD = d.ALTINTQD || H;
+  var LARFINAL = d.LARFINAL || L;
+
+  // ── CEM: DOWSIL 995 — quantidade por fórmula de perímetro ──────────
+  var _dowsilPerimetro = ((H*8 + L*8) + (H*TRAVER) + (L*TRAHOR)) / 1000;
+  var _dowsilQty = Math.ceil(_dowsilPerimetro / 15);  // 15ml por sachê de 591ml ≈ 39 aplicações
+  if(_dowsilQty < 1) _dowsilQty = 1;
+  rows.push({qty:_dowsilQty, code:'PA-DOWSIL 995 EST SH', desc:'Dowsil 995 Preto Sachê 591ml — CEM fórmula', preco:getPreco('PA-DOWSIL 995 EST SH'), apl:'FAB', grp:'SILICONE', obs:'ESTRUTURAL PORTA & PORTAL'});
+
+  // ── CEM: FITA DUPLA FACE 19mm — por perímetro ─────────────────────
+  var _fitaPerimetro = ((H*8 + L*8)) / 1000;
+  var _fita19Qty = Math.ceil(_fitaPerimetro / 20);
+  if(_fita19Qty < 1) _fita19Qty = 1;
+  rows.push({qty:_fita19Qty, code:'PA-FITDF 19X20X1.0', desc:'Fita Dupla Face 19mm × 20m', preco:getPreco('PA-FITDF 19X20X1.0'), apl:'FAB', grp:'FITAS', obs:'FITA DF 19'});
+  rows.push({qty:1, code:'PA-FITDF 12X20X1.0', desc:'Fita Dupla Face 12mm × 20m', preco:getPreco('PA-FITDF 12X20X1.0'), apl:'FAB', grp:'FITAS', obs:'FITA DF 12'});
+
+  // ── CEM: PARAFUSOS ENCHIMENTO — por fórmula PARAREVEST ─────────────
+  var _pararevest = Math.ceil(((H/300)+1)*4 + ((L/300)+1)*4 + (2*TRAVER*((ALTINTQD/300)+1)) + (2*(ALTINTQD/300)+1));
+  if(_pararevest < 10) _pararevest = 10;
+  rows.push({qty:_pararevest, code:'PA-CHA AA PHS 4,2X19', desc:'Parafuso Enchimento 4.2×19 — CEM fórmula', preco:getPreco('PA-CHA AA PHS 4,2X19'), apl:'FAB', grp:'PARAFUSOS', obs:'PARAFUSO ENCHIMENTO'});
+
+  // ── CEM: PRIMER ────────────────────────────────────────────────────
+  rows.push({qty:0.5, code:'PA-PRIMER', desc:'Primer Fita Dupla Face VHB 940ml', preco:getPreco('PA-PRIMER'), apl:'FAB', grp:'PRIMER', obs:'PRIMER FABRICA'});
+
+  // ── CEM: ISOPOR PORTAL — por perímetro ─────────────────────────────
+  var _isopCode = (sis==='PA007' || d.sis==='PA007') ? 'PA-ISOPOR 125' : 'PA-ISOPOR 115';
+  var _isopQty = Math.ceil((H*2 + L*2 + H*2 + L) / 1000);  // porta + portal
+  rows.push({qty:_isopQty, code:_isopCode, desc:'EPS Canaleta U — Isopor', preco:getPreco(_isopCode), apl:'FAB', grp:'ISOPOR', obs:'ISOPOR PORTA & PORTAL'});
+
+  // ── CEM: Q-LON 48800 + 48750 ──────────────────────────────────────
+  var _qlonQty = nFolhas === 2 ? 3 : 2;  // CEM: 2 alturas por folha (1flh=2, 2flh=3)
+  var _qlonLen = Math.ceil(ALTCHPA / 1000);  // metros por peça
+  rows.push({qty:_qlonQty*_qlonLen, code:'PA-QL 48800', desc:'Q-Lon 48 800 Preta Flipper Seal', preco:getPreco('PA-QL 48800'), apl:'FAB', grp:'QLON', obs:'Q-LON 48800'});
+  rows.push({qty:_qlonQty*_qlonLen, code:'PA-QL 48750', desc:'Q-Lon 48 750 Preta R-600', preco:getPreco('PA-QL 48750'), apl:'FAB', grp:'QLON', obs:'Q-LON 48750'});
 
   // ── FABRICAÇÃO — FECHADURA KESO ────────────────────────────────────────────
   var fechTipo = (document.getElementById('carac-fech-mec')||{value:''}).value||'';
@@ -15063,6 +15154,36 @@ function _calcAcessoriosOS(d, nFolhas, sis){
     window._lastFixosAcessRows=[]; window._lastFixosPerfisRows=[]; window._lastFixosM2Chapa=0;
     console.warn('fixos calc error', efx);
   }
+
+  // ── CEM: COMPONENTES DE OBRA (instalação) ──────────────────────────
+  rows.push({qty:0.5, code:'PA-PRIMER', desc:'Primer Fita Dupla Face VHB 940ml', preco:getPreco('PA-PRIMER'), apl:'OBRA', grp:'PRIMER', obs:'PRIMER OBRA'});
+
+  // High Tack: CEM = 2(H<4000), 3(4000-6000), 5(6000-8000)
+  var _htQty = H < 4000 ? 2 : H < 6000 ? 3 : 5;
+  rows.push({qty:_htQty, code:'PA-HIGHTACK BR', desc:'Fix All High Tack Branco 290ml', preco:getPreco('PA-HIGHTACK BR'), apl:'OBRA', grp:'MS', obs:'MS OBRA'});
+
+  // Espuma expansiva: CEM = 1(H<4000), 2(4000-6000), 3(6000-8000)
+  var _espQty = H < 4000 ? 1 : H < 6000 ? 2 : 3;
+  rows.push({qty:_espQty, code:'PA-ESPUMA EXP GUN', desc:'Soudafoam Gun 750ml Espuma PU Expansiva', preco:getPreco('PA-ESPUMA EXP GUN'), apl:'OBRA', grp:'ESPUMA', obs:'ESP EXP'});
+
+  // Buchas pivô: CEM = 12 fixo
+  rows.push({qty:12, code:'PA-BUCHA 06', desc:'Duopower 6 SC1500', preco:getPreco('PA-BUCHA 06'), apl:'OBRA', grp:'BUCHAS', obs:'BUC FISHER PIVO'});
+
+  // Buchas portal: CEM = (H/300)*2 (tipo fixação PAR&BCH)
+  var _buchaPortalQty = Math.ceil((H/300)) * 2;
+  rows.push({qty:_buchaPortalQty, code:'PA-BUCHA 08', desc:'Duopower 8 SC750', preco:getPreco('PA-BUCHA 08'), apl:'OBRA', grp:'BUCHAS', obs:'BUC FISHER PORTAL'});
+
+  // Parafusos sextavados portal: mesma qty que buchas
+  rows.push({qty:_buchaPortalQty, code:'PA-PAR SOB M6X65', desc:'Sext Sob M6×65 DIN 571 A2', preco:getPreco('PA-PAR SOB M6X65'), apl:'OBRA', grp:'PARAFUSOS', obs:'PAR SEXT'});
+
+  // Parafusos pivô: CEM = 12 fixo
+  rows.push({qty:12, code:'PA-CHA AA PHS 4,8X50', desc:'Chata AA PHS 4.8×50 DIN 7982 A2', preco:getPreco('PA-CHA AA PHS 4,8X50'), apl:'OBRA', grp:'PARAFUSOS', obs:'PAR PIVO'});
+
+  // Escovinha: CEM = 4×(LARCH+10)/1000 para SIS=7, 2× para SIS=6
+  var _larch = (window._cemVars && window._cemVars.LARCH) || Math.round(L - 125);
+  var _escQty = (sis==='PA007' || d.sis==='PA007') ? 4 : 2;
+  var _escMt = Math.ceil((_larch + 10) * _escQty / 1000);
+  rows.push({qty:_escMt, code:'PA-FITA VED 5X20', desc:'Escovinha Veda Frestas 5×20', preco:getPreco('PA-FITA VED 5X20'), apl:'OBRA', grp:'ESCOVINHA', obs:'ESCOVINHA'});
 
   // ── Acessórios do Quadro Fixo — juntar com FABRICAÇÃO ──────────────────────
   var _fixAcessRows = window._lastFixosAcessRows || [];
