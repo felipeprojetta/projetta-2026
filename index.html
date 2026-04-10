@@ -7690,17 +7690,19 @@ function renderClientesTab(){
       if(card.largura&&card.altura) h+='<span class="cli-orc-val"><b>Vão:</b> '+card.largura+'×'+card.altura+'mm</span>';
       if(card.modelo) h+='<span class="cli-orc-val"><b>Mod:</b> '+card.modelo+'</span>';
       if(card.cor_ext) h+='<span class="cli-orc-val"><b>Cor:</b> '+card.cor_ext+'</span>';
-      if(card.valor) h+='<span class="cli-orc-val" style="background:#e8f8e8"><b>Valor:</b> R$ '+(parseFloat(card.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span>';
+      if(card.valor) h+='<span class="cli-orc-val" style="background:#e8f8e8"><b>Valor:</b> R$ '+(parseFloat(card.valorFaturamento||card.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span>';
+      if(card.valorTabela&&card.valorTabela!=card.valorFaturamento) h+='<span class="cli-orc-val" style="background:#fef3e0"><b>Tabela:</b> R$ '+(parseFloat(card.valorTabela)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span>';
       h+='</div>';
       // Revisões do CRM card
       if(card.revisoes&&card.revisoes.length>0){
         h+='<div class="cli-orc-revs">';
         card.revisoes.forEach(function(rv,ri){
-          var rvVal=rv.orcValues?'R$ '+(parseFloat(rv.orcValues['valor-final']||rv.orcValues['total-geral']||0)||0).toLocaleString('pt-BR',{minimumFractionDigits:2}):'';
+          var rvVal=rv.valorFaturamento||rv.valorTabela||0;
+          var rvStr=rvVal?'R$ '+(+rvVal).toLocaleString('pt-BR',{minimumFractionDigits:2}):'';
           h+='<span class="cli-rev-pill '+(ri===0?'orig':'')+'" style="cursor:default">';
           h+=(rv.label||'Rev '+ri);
-          if(rvVal) h+=' — '+rvVal;
-          if(rv.date) h+='<span class="rev-date">'+new Date(rv.date).toLocaleDateString('pt-BR')+'</span>';
+          if(rvStr) h+=' — '+rvStr;
+          if(rv.data) h+='<span class="rev-date">'+new Date(rv.data).toLocaleDateString('pt-BR')+'</span>';
           h+='</span>';
         });
         h+='</div>';
