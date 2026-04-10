@@ -736,7 +736,6 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div class="hbtns">
         <button class="hbtn" onclick="newOrcamento()">+ Novo</button>
         <button class="hbtn" onclick="zerarValores()" style="color:#fff;background:#e67e22;border-color:#e67e22">Zerar</button>
-        <button class="hbtn" onclick="toggleHist()" id="hist-btn" style="color:#fff;background:#2980b9;border-color:#2980b9">Histórico (<span id="hist-count">0</span>)</button>
         <button class="hbtn" onclick="novaRevisao()" style="color:#fff;background:#e67e22;border-color:#e67e22">Nova revisão</button>
         <button class="hbtn" onclick="abrirModalATP()" id="btn-gerar-atp" style="background:#1a5276;color:#fff;border-color:#1a5276;font-weight:800">📋 Gerar ATP</button>
         <button class="hbtn" onclick="salvarRapido()" style="color:#fff;background:#e67e22;border-color:#e67e22;font-size:13px;padding:7px 20px;font-weight:800">💾 SALVAR</button>
@@ -762,11 +761,8 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 </div>
 
 <!-- HISTORY PANEL -->
-<div class="hist-panel" id="hist-panel">
-  <div class="hist-top">
-    <h2>Orçamentos salvos</h2>
-    <button class="mbtn" onclick="toggleHist()" style="font-size:11px;padding:4px 10px">Fechar</button>
-  </div>
+<div class="hist-panel" id="hist-panel" style="display:none">
+  <span id="hist-count" style="display:none">0</span>
   <div style="margin:8px 0"><input type="text" id="hist-search" placeholder="🔍 Buscar por cliente, ATP ou reserva..." oninput="renderHistory()" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;font-family:inherit;background:var(--page)"></div>
   <div id="hist-body"></div>
 </div>
@@ -7683,8 +7679,12 @@ function renderClientesTab(){
       h+='<div class="cli-orc-revs">';
       (e.revisions||[]).forEach(function(r,ri){
         var isCurrent=(currentId===e.id&&currentRev===ri);
+        var rv=r.data||{};
+        var rvTotal=rv['valor-final']||rv['total-geral']||'';
+        var rvLabel=(r.label||'Rev '+ri);
+        if(rvTotal) rvLabel+=' — R$ '+(parseFloat(rvTotal)||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
         h+='<button class="cli-rev-pill '+(ri===0?'orig ':' ')+(isCurrent?'active':'')+'" onclick="loadRevision(\''+e.id+'\','+ri+');switchTab(\'orcamento\')">';
-        h+=(r.label||'Rev '+ri);
+        h+=rvLabel;
         if(r.savedAt) h+='<span class="rev-date">'+r.savedAt+'</span>';
         h+='</button>';
       });
@@ -7693,8 +7693,10 @@ function renderClientesTab(){
       h+='</div>'; // cli-orc-info
 
       h+='<div class="cli-orc-actions">';
-      h+='<button onclick="loadRevision(\''+e.id+'\','+(e.revisions.length-1)+');switchTab(\'orcamento\')">📂 Abrir</button>';
-      h+='<button class="del" onclick="if(confirm(\'Excluir este orçamento?\'))deleteOrc(\''+e.id+'\')">🗑</button>';
+      h+='<button onclick="loadRevision(\''+e.id+'\',0);switchTab(\'orcamento\')" title="Abrir versão original">📂 Original</button>';
+      if(e.revisions.length>1) h+='<button onclick="loadRevision(\''+e.id+'\','+(e.revisions.length-1)+');switchTab(\'orcamento\')" title="Abrir última revisão">📝 Última Rev</button>';
+      h+='<button onclick="loadRevision(\''+e.id+'\','+(e.revisions.length-1)+');switchTab(\'orcamento\');setTimeout(novaRevisao,300)" title="Criar nova revisão a partir da última">➕ Nova Rev</button>';
+      h+='<button class="del" onclick="event.stopPropagation();if(confirm(\'Excluir este orçamento e todas as revisões?\'))deleteOrc(\''+e.id+'\');setTimeout(renderClientesTab,200)" title="Excluir">🗑 Excluir</button>';
       h+='</div>';
 
       h+='</div>'; // cli-orc
