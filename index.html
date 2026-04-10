@@ -1122,9 +1122,12 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 
     <!-- TABELA MULTI-PORTA -->
     <div id="multi-porta-section" style="margin:10px 0;border:2px solid #1a5276;border-radius:10px;overflow:hidden">
-      <div style="background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
+      <div style="background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
         <span style="font-size:12px;font-weight:800;letter-spacing:.04em">📋 ITENS DA PROPOSTA</span>
-        <button onclick="_mpAdicionarItem()" style="padding:5px 14px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Adicionar Porta Diferente</button>
+        <div style="display:flex;gap:6px">
+          <button onclick="_mpAdicionarItem()" style="padding:5px 12px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Capturar do Formulário</button>
+          <button onclick="_mpAdicionarVazio()" style="padding:5px 12px;border-radius:6px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Linha Vazia</button>
+        </div>
       </div>
       <div id="mp-empty" style="padding:12px;text-align:center;font-size:11px;color:#999">
         Quando precisar orçar <b>portas de tamanhos diferentes</b>, clique em "+ Adicionar Porta Diferente".<br>
@@ -12385,6 +12388,8 @@ function addFixo(){
     '<div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Fixo '+id+'</div>'+
     '<div class="fr"><span class="fl">Largura mm</span><div class="fv"><input type="number" class="fixo-larg" value="" min="100" step="1" style="'+_N+'" oninput="calc()"></div></div>'+
     '<div class="fr"><span class="fl">Altura mm</span><div class="fv"><input type="number" class="fixo-alt" value="" min="100" step="1" style="'+_N+'" oninput="calc()"></div></div>'+
+    '<div class="fr" style="background:#fff3e0;border:1.5px solid #e67e22;border-radius:6px;padding:4px 8px"><span class="fl" style="font-weight:800;color:#e67e22">🔢 Quantidade</span><div class="fv"><input type="number" class="fixo-qty" value="1" min="1" max="10" step="1" style="width:60px;padding:5px 8px;border:1.5px solid #e67e22;border-radius:6px;font-size:14px;font-weight:800;text-align:center;color:#e67e22;background:#fff" oninput="calc()"></div></div>'+
+    '<div class="fr"><span class="fl">Lado</span><div class="fv"><select class="fixo-lado" onchange="calc()" style="'+_S+'"><option value="esquerdo">Esquerdo</option><option value="direito">Direito</option><option value="ambos">Ambos (E+D)</option></select></div></div>'+
     '<div class="fr"><span class="fl">Revestimento</span><div class="fv"><select class="fixo-lados" onchange="calc()" style="'+_S+'"><option value="1">1 lado</option><option value="2">2 lados</option></select></div></div>'+
     '<div class="fr"><span class="fl">Tem estrutura?</span><div class="fv"><select class="fixo-estr" onchange="calc()" style="'+_S+'"><option value="nao">Não</option><option value="sim">Sim</option></select></div></div>'+
     '<div class="fr" style="background:#f0f7ff;border-radius:5px;padding:4px 0;margin-top:2px">'+
@@ -14812,13 +14817,14 @@ window.addEventListener('beforeunload',function(){
 window._mpItens=[];
 
 function _mpAdicionarItem(){
-  // Captura dados atuais do formulário
+  // Captura dados atuais do formulário (ou cria item padrão se vazio)
   var modEl=document.getElementById('carac-modelo');
   var modTxt=modEl&&modEl.selectedIndex>=0?(modEl.options[modEl.selectedIndex].text||'01 Cava'):'01 Cava';
   var modVal=modEl?modEl.value:'01';
   var L=parseFloat(document.getElementById('largura').value)||0;
   var A=parseFloat(document.getElementById('altura').value)||0;
-  if(L<=0||A<=0){alert('Preencha Largura e Altura antes de adicionar.');return;}
+  // Se form vazio, criar item padrão editável
+  if(L<=0||A<=0){ L=1200; A=2400; }
   var folhas=parseInt((document.getElementById('folhas-porta')||{value:'1'}).value)||1;
   var qtd=parseInt((document.getElementById('qtd-portas')||{value:'1'}).value)||1;
   var abertEl=document.getElementById('carac-abertura');
@@ -14828,14 +14834,13 @@ function _mpAdicionarItem(){
   var fixoData=null;
   if(temFixo){
     fixoData=[];
-    var fixoItems=document.querySelectorAll('[id^="fixo-"][id$="-lado"]');
-    fixoItems.forEach(function(el){
-      var idx=el.id.replace('fixo-','').replace('-lado','');
-      fixoData.push({
-        lado:(document.getElementById('fixo-'+idx+'-lado')||{value:'esquerdo'}).value,
-        largura:parseFloat((document.getElementById('fixo-'+idx+'-larg')||{value:0}).value)||0,
-        altura:parseFloat((document.getElementById('fixo-'+idx+'-alt')||{value:0}).value)||0
-      });
+    var fixoBlks=document.querySelectorAll('.fixo-blk');
+    fixoBlks.forEach(function(bl){
+      var larg=parseFloat((bl.querySelector('.fixo-larg')||{value:0}).value)||0;
+      var alt=parseFloat((bl.querySelector('.fixo-alt')||{value:0}).value)||0;
+      var lado=(bl.querySelector('.fixo-lado')||{value:'esquerdo'}).value;
+      var fqty=parseInt((bl.querySelector('.fixo-qty')||{value:1}).value)||1;
+      fixoData.push({ lado:lado, largura:larg, altura:alt, qty:fqty });
     });
   }
   var corExt=(document.getElementById('carac-cor-ext')||{value:''}).value;
@@ -14867,31 +14872,72 @@ function _mpRender(){
     return;
   }
   empty.style.display='none';wrap.style.display='';
+  var nomes=_getModelosNomes();
+  var codes=Object.keys(nomes).sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true});});
   var html='';
   var totalQtd=0;
+  var iS='width:100%;padding:3px 5px;border:1px solid #ccc;border-radius:4px;font-size:11px;font-weight:600;font-family:inherit;text-align:center';
   window._mpItens.forEach(function(it,i){
     totalQtd+=it.qtd;
     var bg=i%2===0?'#fff':'#f9f8f5';
+    // Modelo select options
+    var modOpts='';
+    codes.forEach(function(c){
+      modOpts+='<option value="'+c+'"'+(c===it.modelo?' selected':'')+'>'+c+' '+nomes[c]+'</option>';
+    });
     html+='<tr style="background:'+bg+'">'
-      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-weight:700;color:#e67e22">'+(i+1)+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;font-weight:600;font-size:10px">'+it.modeloTxt+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-weight:700">'+it.largura+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-weight:700">'+it.altura+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center">'+it.folhas+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-weight:800;color:#e67e22;font-size:13px">'+it.qtd+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center">'+(it.temFixo?'✓':'—')+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center">'
-      +'<button onclick="_mpEditar('+i+')" style="background:none;border:1px solid #2980b9;color:#2980b9;border-radius:4px;font-size:10px;cursor:pointer;padding:2px 5px;font-weight:700;margin-right:2px" title="Carregar no formulário">✏</button>'
-      +'<button onclick="_mpRemover('+i+')" style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:4px;font-size:10px;cursor:pointer;padding:2px 5px;font-weight:700" title="Remover item">✕</button>'
+      +'<td style="padding:4px 6px;border-bottom:0.5px solid #eee;text-align:center;font-weight:700;color:#e67e22;font-size:12px">'+(i+1)+'</td>'
+      // Modelo
+      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee"><select onchange="_mpUpdateField('+i+',\'modelo\',this.value);_mpUpdateField('+i+',\'modeloTxt\',this.options[this.selectedIndex].text)" style="'+iS+';text-align:left;font-size:10px;max-width:130px">'+modOpts+'</select></td>'
+      // Largura
+      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee"><input type="number" value="'+it.largura+'" min="200" max="5000" onchange="_mpUpdateField('+i+',\'largura\',parseInt(this.value)||0)" style="'+iS+';width:65px"></td>'
+      // Altura
+      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee"><input type="number" value="'+it.altura+'" min="500" max="8000" onchange="_mpUpdateField('+i+',\'altura\',parseInt(this.value)||0)" style="'+iS+';width:65px"></td>'
+      // Folhas
+      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee"><select onchange="_mpUpdateField('+i+',\'folhas\',parseInt(this.value))" style="'+iS+';width:45px"><option value="1"'+(it.folhas===1?' selected':'')+'>1</option><option value="2"'+(it.folhas===2?' selected':'')+'>2</option></select></td>'
+      // Qtd
+      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee"><input type="number" value="'+it.qtd+'" min="1" max="20" onchange="_mpUpdateField('+i+',\'qtd\',parseInt(this.value)||1);_mpUpdateTotal()" style="'+iS+';width:45px;color:#e67e22;font-weight:800;font-size:13px;border-color:#e67e22"></td>'
+      // Fixo
+      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee;text-align:center"><input type="checkbox" '+(it.temFixo?'checked':'')+' onchange="_mpUpdateField('+i+',\'temFixo\',this.checked)" style="width:16px;height:16px;cursor:pointer"></td>'
+      // Ações
+      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee;text-align:center">'
+      +'<button onclick="_mpDuplicar('+i+')" style="background:none;border:1px solid #27ae60;color:#27ae60;border-radius:4px;font-size:9px;cursor:pointer;padding:2px 4px;font-weight:700;margin-right:2px" title="Duplicar item">📋</button>'
+      +'<button onclick="_mpRemover('+i+')" style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:4px;font-size:9px;cursor:pointer;padding:2px 4px;font-weight:700" title="Remover item">✕</button>'
       +'</td></tr>';
   });
   tbody.innerHTML=html;
   document.getElementById('mp-total-qtd').textContent=totalQtd;
 }
 
+function _mpUpdateField(idx,field,value){
+  if(window._mpItens[idx]) window._mpItens[idx][field]=value;
+}
+function _mpUpdateTotal(){
+  var totalQtd=window._mpItens.reduce(function(s,it){return s+(it.qtd||0);},0);
+  var el=document.getElementById('mp-total-qtd');if(el)el.textContent=totalQtd;
+}
+function _mpDuplicar(idx){
+  var it=window._mpItens[idx];if(!it)return;
+  var copy=JSON.parse(JSON.stringify(it));
+  copy.id='mp_'+Date.now();
+  window._mpItens.splice(idx+1,0,copy);
+  _mpRender();
+}
+
+function _mpAdicionarVazio(){
+  var nomes=_getModelosNomes();
+  window._mpItens.push({
+    id:'mp_'+Date.now(),
+    modelo:'01', modeloTxt:'01 - '+(nomes['01']||'Cava'),
+    largura:1200, altura:2400, folhas:1, qtd:1,
+    abertura:'direita', temFixo:false, fixos:null,
+    corExt:'', corInt:''
+  });
+  _mpRender();
+}
+
 function _mpEditar(idx){
   var it=window._mpItens[idx];if(!it)return;
-  // Carregar dados do item no formulário
   document.getElementById('largura').value=it.largura;
   document.getElementById('altura').value=it.altura;
   document.getElementById('qtd-portas').value=it.qtd;
