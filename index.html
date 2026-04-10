@@ -7576,6 +7576,7 @@ function buildCard(o,st,isFazerOrc){
   }
 
   html+='<div class="crm-card-actions">'+
+    '<button class="crm-card-act" title="Compartilhar" onclick="event.stopPropagation();crmCompartilharCard(\''+o.id+'\')" style="color:#27ae60">📤</button>'+
     '<button class="crm-card-act" title="Mover" onclick="event.stopPropagation();crmQuickMove(\''+o.id+'\')">↕</button>'+
     '<button class="crm-card-act" title="Editar" onclick="event.stopPropagation();crmOpenModal(null,\''+o.id+'\')">✏</button>'+
     '<button class="crm-card-act" title="Excluir" onclick="event.stopPropagation();crmDeleteOpp(\''+o.id+'\')">🗑</button>'+
@@ -8200,6 +8201,140 @@ window.crmFazerOrcamento=function(id){
     if(btnAtt){btnAtt.style.display='none';}
   },350);
 };
+/* ── Compartilhar Card — Link/WhatsApp/Download ── */
+window.crmCompartilharCard=function(cardId){
+  var data=cLoad();
+  var card=data.find(function(o){return o.id===cardId;});
+  if(!card){alert('Card não encontrado.');return;}
+  var brl=function(v){return v?'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';};
+  var lastRev=card.revisoes&&card.revisoes.length>0?card.revisoes[card.revisoes.length-1]:null;
+  var valorTab=lastRev?brl(lastRev.valorTabela):brl(card.valorTabela||card.valor);
+  var valorFat=lastRev?brl(lastRev.valorFaturamento):brl(card.valorFaturamento||card.valor);
+  var revLabel=lastRev?lastRev.label:'—';
+
+  // Texto para WhatsApp
+  var wppText='*PROJETTA PORTAS EXCLUSIVAS*\n\n'
+    +'📋 *Proposta Comercial*\n'
+    +'👤 Cliente: *'+card.cliente+'*\n'
+    +(card.agp?'📌 AGP: '+card.agp+'\n':'')
+    +(card.reserva?'📌 Reserva: '+card.reserva+'\n':'')
+    +(card.largura?'📐 Medidas: '+card.largura+' × '+card.altura+' mm\n':'')
+    +(card.modelo?'🚪 Modelo: '+card.modelo+'\n':'')
+    +'\n💰 *Valores:*\n'
+    +'Tabela: '+valorTab+'\n'
+    +'Faturamento: '+valorFat+'\n'
+    +'Versão: '+revLabel+'\n'
+    +'\n📅 '+new Date().toLocaleDateString('pt-BR');
+
+  // Texto para copiar
+  var copyText='PROJETTA PORTAS EXCLUSIVAS\n'
+    +'Proposta: '+card.cliente+'\n'
+    +(card.agp?'AGP: '+card.agp+'\n':'')
+    +(card.largura?'Medidas: '+card.largura+'×'+card.altura+'mm\n':'')
+    +'Tabela: '+valorTab+' | Fat: '+valorFat+'\n'
+    +'Versão: '+revLabel;
+
+  // Modal de compartilhamento
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  var html='<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.3);font-family:Montserrat,Arial,sans-serif;overflow:hidden">';
+  html+='<div style="background:linear-gradient(135deg,#27ae60,#2ecc71);color:#fff;padding:14px 18px;border-radius:12px 12px 0 0">';
+  html+='<div style="font-size:15px;font-weight:800">📤 Compartilhar Proposta</div>';
+  html+='<div style="font-size:11px;opacity:.8">'+card.cliente+' — '+valorFat+'</div></div>';
+  html+='<div style="padding:16px;display:flex;flex-direction:column;gap:10px">';
+
+  // WhatsApp
+  html+='<a href="https://wa.me/?text='+encodeURIComponent(wppText)+'" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:8px;background:#25D366;color:#fff;text-decoration:none;font-weight:700;font-size:13px">📱 Enviar por WhatsApp</a>';
+
+  // Email
+  var emailSubject='Proposta Projetta - '+card.cliente;
+  var emailBody=copyText;
+  html+='<a href="mailto:?subject='+encodeURIComponent(emailSubject)+'&body='+encodeURIComponent(emailBody)+'" style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:8px;background:#3498db;color:#fff;text-decoration:none;font-weight:700;font-size:13px">📧 Enviar por E-mail</a>';
+
+  // Copiar texto
+  html+='<button onclick="navigator.clipboard.writeText(\''+copyText.replace(/'/g,"\\'").replace(/\n/g,"\\n")+'\').then(function(){this.textContent=\'✅ Copiado!\'}.bind(this))" style="padding:12px 16px;border-radius:8px;background:#f0f0f0;border:1px solid #ddd;color:#333;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;text-align:left">📋 Copiar Texto da Proposta</button>';
+
+  // Ver proposta salva (se tiver PDF)
+  if(lastRev&&lastRev.pdfPages&&lastRev.pdfPages.length>0){
+    html+='<button onclick="document.querySelector(\'div[style*=fixed]\').remove();crmVerProposta(\''+cardId+'\','+(card.revisoes.length-1)+')" style="padding:12px 16px;border-radius:8px;background:#8e44ad;color:#fff;border:none;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">📄 Ver PDF da Proposta</button>';
+  }
+
+  // Link direto (gera página standalone)
+  html+='<button onclick="_gerarPaginaProposta(\''+cardId+'\')" style="padding:12px 16px;border-radius:8px;background:#e67e22;color:#fff;border:none;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">🔗 Gerar Página da Proposta</button>';
+
+  html+='<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:8px;background:none;border:none;color:#999;font-size:12px;cursor:pointer;font-family:inherit">Fechar</button>';
+  html+='</div></div>';
+  ov.innerHTML=html;
+  document.body.appendChild(ov);
+};
+
+/* ── Gerar página standalone da proposta ── */
+function _gerarPaginaProposta(cardId){
+  var data=cLoad();
+  var card=data.find(function(o){return o.id===cardId;});
+  if(!card)return;
+  var brl=function(v){return v?'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';};
+  var lastRev=card.revisoes&&card.revisoes.length>0?card.revisoes[card.revisoes.length-1]:null;
+  var w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">');
+  w.document.write('<title>Proposta - '+card.cliente+'</title>');
+  w.document.write('<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f5;color:#333}');
+  w.document.write('.pg{max-width:600px;margin:0 auto;background:#fff;min-height:100vh}');
+  w.document.write('.hdr{background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:24px 20px;text-align:center}');
+  w.document.write('.hdr h1{font-size:14px;letter-spacing:2px;opacity:.7;margin-bottom:8px}');
+  w.document.write('.hdr h2{font-size:20px;font-weight:800}');
+  w.document.write('.body{padding:20px}.card{border:1px solid #eee;border-radius:10px;padding:16px;margin-bottom:12px}');
+  w.document.write('.card-t{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px;font-weight:700}');
+  w.document.write('.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:14px}');
+  w.document.write('.row:last-child{border:none}.lbl{color:#888}.val{font-weight:700;color:#003144}');
+  w.document.write('.total{background:#003144;color:#fff;border-radius:10px;padding:16px;text-align:center;margin:12px 0}');
+  w.document.write('.total .v{font-size:28px;font-weight:800}');
+  w.document.write('.foot{text-align:center;padding:20px;font-size:10px;color:#aaa}');
+  w.document.write('img{width:100%;border-radius:8px;margin:8px 0}');
+  w.document.write('</style></head><body><div class="pg">');
+  w.document.write('<div class="hdr"><h1>PROJETTA PORTAS EXCLUSIVAS</h1><h2>Proposta Comercial</h2></div>');
+  w.document.write('<div class="body">');
+  // Cliente
+  w.document.write('<div class="card"><div class="card-t">Cliente</div>');
+  w.document.write('<div class="row"><span class="lbl">Nome</span><span class="val">'+card.cliente+'</span></div>');
+  if(card.agp) w.document.write('<div class="row"><span class="lbl">AGP</span><span class="val">'+card.agp+'</span></div>');
+  if(card.reserva) w.document.write('<div class="row"><span class="lbl">Reserva</span><span class="val">'+card.reserva+'</span></div>');
+  if(card.cidade) w.document.write('<div class="row"><span class="lbl">Cidade</span><span class="val">'+card.cidade+'</span></div>');
+  w.document.write('</div>');
+  // Produto
+  if(card.largura||card.modelo){
+    w.document.write('<div class="card"><div class="card-t">Produto</div>');
+    if(card.largura) w.document.write('<div class="row"><span class="lbl">Medidas</span><span class="val">'+card.largura+' × '+card.altura+' mm</span></div>');
+    if(card.modelo) w.document.write('<div class="row"><span class="lbl">Modelo</span><span class="val">'+card.modelo+'</span></div>');
+    if(card.abertura) w.document.write('<div class="row"><span class="lbl">Abertura</span><span class="val">'+card.abertura+'</span></div>');
+    w.document.write('</div>');
+  }
+  // Valores
+  w.document.write('<div class="total"><div style="font-size:11px;opacity:.6;margin-bottom:4px">VALOR DA PROPOSTA</div>');
+  w.document.write('<div class="v">'+brl(lastRev?lastRev.valorFaturamento:card.valorFaturamento||card.valor)+'</div>');
+  w.document.write('<div style="font-size:11px;opacity:.5;margin-top:4px">'+(lastRev?lastRev.label:'')+'</div></div>');
+  // Revisões
+  if(card.revisoes&&card.revisoes.length>0){
+    w.document.write('<div class="card"><div class="card-t">Histórico de Versões</div>');
+    card.revisoes.forEach(function(rv){
+      w.document.write('<div class="row"><span class="lbl">'+(rv.label||'—')+'</span><span class="val">'+brl(rv.valorFaturamento)+'</span></div>');
+    });
+    w.document.write('</div>');
+  }
+  // PDF pages
+  if(lastRev&&lastRev.pdfPages){
+    w.document.write('<div class="card"><div class="card-t">Proposta Visual</div>');
+    lastRev.pdfPages.forEach(function(pg,i){
+      w.document.write('<img src="'+pg+'" alt="Página '+(i+1)+'">');
+    });
+    w.document.write('</div>');
+  }
+  w.document.write('<div class="foot">Gerado em '+new Date().toLocaleString('pt-BR')+'<br>Projetta Portas Exclusivas — projetta.com.br</div>');
+  w.document.write('</div></div></body></html>');
+  w.document.close();
+}
+
 window.crmDeleteRevision=function(cardId,revIndex){
   if(!confirm('Excluir esta revisão?'))return;
   var data=cLoad();
