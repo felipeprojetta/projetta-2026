@@ -6194,6 +6194,8 @@ function gerarOS(){
   window._lastFixosM2Chapa    = _fixosD.m2ChapaFixos;
 
   // Definir kgM dos cortes do fixo via PERFIS_DB e empurrar em d.cuts
+  // Multiplicar fixos por qtd portas (mesmo tratamento da porta principal)
+  var _qPFixo=parseInt(($('qtd-portas')||{value:'1'}).value)||1;
   _fixosD.cuts.forEach(function(fc){
     if(!fc.kgM){
       var kgFound=0, baseCode=fc.code.replace(/-[678]M$/,'');
@@ -6203,8 +6205,18 @@ function gerarOS(){
       fc.kgM=kgFound;
     }
     fc.barLenMM=6000; // fixo sempre 6m
+    if(_qPFixo>1) fc.qty=fc.qty*_qPFixo;
     d.cuts.push(fc);
   });
+  // Multiplicar acessórios do fixo × qP
+  if(_qPFixo>1 && _fixosD.acessRows){
+    _fixosD.acessRows.forEach(function(ar){ ar.qty=ar.qty*_qPFixo; });
+  }
+  // Multiplicar m² chapa fixo × qP
+  if(_qPFixo>1 && _fixosD.m2ChapaFixos){
+    _fixosD.m2ChapaFixos=_fixosD.m2ChapaFixos*_qPFixo;
+    window._lastFixosM2Chapa=_fixosD.m2ChapaFixos;
+  }
 
   // Renderizar QUADRO FIXO — tabela unificada, mesmo renderSecao
   var hasFix = _fixosD.cuts.some(function(c){return c.qty>0;});
