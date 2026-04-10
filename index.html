@@ -743,7 +743,6 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   <button class="main-tab" onclick="switchTab('os-acess')" id="btn-tab-os-acess">Levantamento de Acessórios</button>
   <button class="main-tab" onclick="switchTab('planificador')" id="btn-tab-plan">Levantamento de Superfícies</button>
   <button class="main-tab" onclick="switchTab('relatorios')" id="btn-tab-rel">Relatórios</button>
-  <button class="main-tab" onclick="switchTab('ia')" id="btn-tab-ia" style="background:linear-gradient(135deg,#8e44ad,#3498db);color:#fff;border-radius:8px;font-weight:800">🤖 IA Levantamento</button>
 </div>
 
 <!-- TAB: ORCAMENTO -->
@@ -3273,60 +3272,6 @@ Equipe Projetta by Weiku</textarea>
 </div><!-- close tab-os -->
 
 <!-- TAB: RELATÓRIOS -->
-<!-- ═══ ABA IA LEVANTAMENTO ══════════════════════════════════════ -->
-<div class="tab-panel" id="tab-ia">
-  <div style="max-width:800px;margin:0 auto;padding:16px">
-    <div style="background:linear-gradient(135deg,#8e44ad,#3498db);color:#fff;padding:16px 20px;border-radius:12px;margin-bottom:16px">
-      <div style="font-size:18px;font-weight:800">🤖 IA para Levantamento Automático</div>
-      <div style="font-size:12px;opacity:.8;margin-top:4px">Envie uma planta, desenho, medição ou lista e a IA interpreta e gera os itens da proposta automaticamente</div>
-    </div>
-
-    <!-- Upload de imagem -->
-    <div style="border:2px dashed #8e44ad;border-radius:10px;padding:20px;text-align:center;margin-bottom:12px;background:#faf5ff;cursor:pointer" onclick="document.getElementById('ia-file-input').click()" id="ia-drop-zone">
-      <div style="font-size:32px;margin-bottom:8px">📷</div>
-      <div style="font-size:13px;font-weight:700;color:#8e44ad">Clique ou arraste uma imagem aqui</div>
-      <div style="font-size:11px;color:#888;margin-top:4px">Planta baixa, croqui, medição, planilha, foto da obra</div>
-      <input type="file" id="ia-file-input" accept="image/*,.pdf" style="display:none" onchange="_iaFileSelected(this)">
-      <div id="ia-img-preview" style="display:none;margin-top:12px"><img id="ia-img-thumb" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid #ddd"></div>
-    </div>
-
-    <!-- Texto livre -->
-    <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px">OU cole o texto do levantamento / medição:</div>
-      <textarea id="ia-texto" rows="5" placeholder="Ex: Porta cava 1200x2400 qty 2 com fixo esquerdo 400mm&#10;Porta ripado 1000x2100 qty 1&#10;&#10;Ou cole dados de uma planilha, e-mail, lista de medidas..." style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font-size:12px;font-family:inherit;resize:vertical"></textarea>
-    </div>
-
-    <!-- Contexto adicional -->
-    <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px">Contexto adicional (opcional):</div>
-      <input type="text" id="ia-contexto" placeholder="Ex: todas portas modelo cava, cor bone white, com fechadura KESO 08 pinos" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:12px;font-family:inherit">
-    </div>
-
-    <!-- Botão Analisar -->
-    <button onclick="_iaAnalisar()" id="ia-btn-analisar" style="width:100%;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#8e44ad,#3498db);color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:16px">
-      🤖 Analisar com IA
-    </button>
-
-    <!-- Loading -->
-    <div id="ia-loading" style="display:none;text-align:center;padding:20px">
-      <div style="font-size:24px;animation:pulse 1.5s infinite">🤖</div>
-      <div style="font-size:13px;font-weight:700;color:#8e44ad;margin-top:8px">Analisando... aguarde</div>
-    </div>
-
-    <!-- Resultado -->
-    <div id="ia-resultado" style="display:none">
-      <div style="font-size:12px;font-weight:800;color:#8e44ad;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📋 Itens Identificados pela IA</div>
-      <div id="ia-resultado-body" style="border:1px solid #ddd;border-radius:8px;overflow:hidden;margin-bottom:12px"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="_iaAdicionarTodos()" style="flex:1;padding:10px;border-radius:8px;border:none;background:#27ae60;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✅ Adicionar Todos ao Orçamento</button>
-        <button onclick="_iaLimpar()" style="padding:10px 16px;border-radius:8px;border:1px solid #e74c3c;color:#e74c3c;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#fff">✕ Limpar</button>
-      </div>
-      <div id="ia-raw" style="display:none;margin-top:12px;border:1px solid #eee;border-radius:8px;padding:10px;font-size:10px;color:#888;background:#f9f9f9;max-height:200px;overflow-y:auto"></div>
-      <button onclick="document.getElementById('ia-raw').style.display=document.getElementById('ia-raw').style.display==='none'?'':'none'" style="margin-top:6px;background:none;border:none;color:#aaa;font-size:10px;cursor:pointer;font-family:inherit">ver resposta bruta da IA</button>
-    </div>
-  </div>
-</div>
-
 <div class="tab-panel" id="tab-relatorios">
 <div style="max-width:1520px;margin:0 auto;padding:14px 20px 60px">
 <div class="card">
