@@ -713,10 +713,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     <img id="login-logo" src="" alt="Projetta by Weiku">
     <div class="login-sub">Acesso restrito — digite suas credenciais</div>
     <input type="text" id="login-user" placeholder="Usuário" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
-    <div style="position:relative">
-      <input type="password" id="login-pass" placeholder="Senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')authLogin()" style="padding-right:40px">
-      <button type="button" onclick="var p=document.getElementById('login-pass');if(p.type==='password'){p.type='text';this.textContent='🙈'}else{p.type='password';this.textContent='👁'}" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:16px;cursor:pointer;padding:2px">👁</button>
-    </div>
+      <input type="text" id="login-pass" placeholder="Senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')authLogin()">
     <div class="login-err" id="login-err"></div>
     <button onclick="authLogin()">Entrar</button>
   </div>
