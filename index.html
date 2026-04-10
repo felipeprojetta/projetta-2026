@@ -981,6 +981,56 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <!-- ════════════════════════════════════════════════ -->
 
 <div class="tab-panel" id="tab-orcamento">
+
+<!-- RESUMO DA OBRA (estilo CEM) -->
+<div id="resumo-obra" style="display:none;margin:0 0 12px;border:2px solid #003144;border-radius:10px;overflow:hidden;font-family:inherit">
+  <div style="background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="var b=document.getElementById('resumo-obra-body');b.style.display=b.style.display==='none'?'':'none'">
+    <span style="font-size:13px;font-weight:800;letter-spacing:.04em">📊 RESUMO DA OBRA</span>
+    <span style="font-size:10px;opacity:.7" id="resumo-obra-status">▼ clique para expandir</span>
+  </div>
+  <div id="resumo-obra-body" style="padding:10px;display:flex;flex-wrap:wrap;gap:8px;background:#f9fafb">
+    <div style="flex:1;min-width:130px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#fff">
+      <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.04em">Esquadrias</div>
+      <div style="font-size:16px;font-weight:800;color:#003144" id="ro-area">—</div>
+      <div style="font-size:10px;color:#888" id="ro-pecas">— peça(s)</div>
+    </div>
+    <div style="flex:1;min-width:130px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#fff">
+      <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.04em">Perfis</div>
+      <div style="font-size:14px;font-weight:800;color:#003144" id="ro-perfis-kg">—</div>
+      <div style="font-size:10px;color:#888" id="ro-perfis-bruto">bruto: —</div>
+      <div style="font-size:10px;color:#e67e22;font-weight:700" id="ro-perfis-val">—</div>
+    </div>
+    <div style="flex:1;min-width:130px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#fff">
+      <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.04em">Chapas</div>
+      <div style="font-size:14px;font-weight:800;color:#003144" id="ro-chapas-qty">—</div>
+      <div style="font-size:10px;color:#888" id="ro-chapas-peso">—</div>
+      <div style="font-size:10px;color:#e67e22;font-weight:700" id="ro-chapas-val">—</div>
+    </div>
+    <div style="flex:1;min-width:130px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#fff">
+      <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.04em">Componentes</div>
+      <div style="font-size:10px;color:#e67e22;font-weight:700" id="ro-acess-val">—</div>
+      <div style="font-size:10px;color:#888" id="ro-acess-desc">acessórios + fechaduras</div>
+    </div>
+    <div style="flex:1;min-width:130px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#fff">
+      <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.04em">Mão de Obra</div>
+      <div style="font-size:14px;font-weight:800;color:#003144" id="ro-horas">—</div>
+      <div style="font-size:10px;color:#e67e22;font-weight:700" id="ro-mo-val">—</div>
+    </div>
+    <div style="flex:1;min-width:130px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#fff">
+      <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.04em">Instalação</div>
+      <div style="font-size:10px;color:#e67e22;font-weight:700" id="ro-inst-val">—</div>
+    </div>
+    <div style="flex:1;min-width:200px;border:2px solid #e67e22;border-radius:8px;padding:10px 12px;background:#fff8f0;text-align:center">
+      <div style="font-size:9px;font-weight:700;color:#e67e22;text-transform:uppercase;letter-spacing:.04em">Custo Total Fabricação</div>
+      <div style="font-size:22px;font-weight:900;color:#003144" id="ro-custo-total">—</div>
+      <div style="display:flex;justify-content:center;gap:16px;margin-top:4px">
+        <div><div style="font-size:9px;color:#888">Tabela</div><div style="font-size:13px;font-weight:800;color:#003144" id="ro-tab">—</div></div>
+        <div><div style="font-size:9px;color:#888">Faturamento</div><div style="font-size:13px;font-weight:800;color:#27ae60" id="ro-fat">—</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="grid">
 <div>
 
@@ -4088,6 +4138,7 @@ function calc(){
   else{bd.className='badge bd';bd.textContent='Abaixo da meta '+pf(ml);}
   autoSave();
   _updatePesoAcessorios();
+  if(typeof _updateResumoObra==='function') _updateResumoObra();
 }
 
 /* ══ END MODULE: ORCAMENTO_CALC ══ */
@@ -15574,6 +15625,85 @@ function gerarRelatorioProducao(){
   w.document.close();
   setTimeout(function(){w.print();},500);
 }
+/* ══ RESUMO DA OBRA (estilo CEM) ═════════════════════════════════ */
+function _updateResumoObra(){
+  var panel=document.getElementById('resumo-obra');
+  if(!panel) return;
+  var brl=function(v){return v?'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';};
+  // Só mostrar se OS foi gerada
+  if(!window._osGeradoUmaVez){panel.style.display='none';return;}
+  panel.style.display='';
+
+  // Área
+  var W=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
+  var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
+  var m2=(W/1000)*(H/1000);
+  var qP=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+  if(window._mpItens&&window._mpItens.length>0){
+    qP=window._mpItens.reduce(function(s,it){return s+(parseInt(it._qtd||it['qtd-portas'])||1);},0);
+    m2=0;
+    window._mpItens.forEach(function(it){
+      var l=parseFloat(it._largura||it['largura'])||0;
+      var a=parseFloat(it._altura||it['altura'])||0;
+      var q=parseInt(it._qtd||it['qtd-portas'])||1;
+      m2+=(l/1000)*(a/1000)*q;
+    });
+  } else { m2=m2*qP; }
+  document.getElementById('ro-area').textContent=m2.toFixed(2)+' m²';
+  document.getElementById('ro-pecas').textContent=qP+' porta(s)'+(window._mpItens&&window._mpItens.length>1?' · '+window._mpItens.length+' itens':'');
+
+  // Perfis
+  var d=window._lastOSData;
+  if(d){
+    var kgLiq=0,kgBru=0,custoPerfis=0;
+    d.seenKeys.forEach(function(key){
+      var r=d.groupRes[key];if(!r)return;
+      kgLiq+=r.kgLiq||0;kgBru+=r.kgBruto||0;custoPerfis+=r.custoTotal||0;
+    });
+    document.getElementById('ro-perfis-kg').textContent=kgLiq.toFixed(1)+' kg líq';
+    document.getElementById('ro-perfis-bruto').textContent='bruto: '+kgBru.toFixed(1)+' kg';
+    document.getElementById('ro-perfis-val').textContent=brl(custoPerfis);
+  }
+
+  // Chapas
+  var chapasQty=0;
+  if(window._chapasCalculadas) chapasQty=window._chapasCalculadas;
+  else{
+    var qEl=document.getElementById('plan-acm-qty');
+    if(qEl) chapasQty=parseInt(qEl.value)||0;
+  }
+  var subAcm=parseFloat((document.getElementById('sub-acm')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
+  var pesoChapa=window._planPesoBrutoACM||0;
+  document.getElementById('ro-chapas-qty').textContent=chapasQty+' chapa(s)';
+  document.getElementById('ro-chapas-peso').textContent=pesoChapa>0?pesoChapa.toFixed(1)+' kg':'';
+  document.getElementById('ro-chapas-val').textContent=brl(subAcm);
+
+  // Acessórios
+  var fabAcess=parseFloat((document.getElementById('fab-custo-acess')||{value:'0'}).value.replace(/\./g,'').replace(',','.'))||0;
+  document.getElementById('ro-acess-val').textContent=brl(fabAcess);
+
+  // MO
+  var totalH=parseFloat((document.getElementById('sub-h')||{textContent:'0'}).textContent)||0;
+  var subMO=parseFloat((document.getElementById('sub-mo')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
+  document.getElementById('ro-horas').textContent=totalH+'h (×2 op.)';
+  document.getElementById('ro-mo-val').textContent=brl(subMO);
+
+  // Instalação
+  var subInst=parseFloat((document.getElementById('r-inst')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
+  document.getElementById('ro-inst-val').textContent=brl(subInst);
+
+  // Custo Total + Preços
+  var custoEl=document.getElementById('m-custo');
+  var tabEl=document.getElementById('m-tab');
+  var fatEl=document.getElementById('m-fat');
+  document.getElementById('ro-custo-total').textContent=custoEl?custoEl.textContent:'—';
+  document.getElementById('ro-tab').textContent=tabEl?tabEl.textContent:'—';
+  document.getElementById('ro-fat').textContent=fatEl?fatEl.textContent:'—';
+
+  document.getElementById('resumo-obra-status').textContent='Calculada ✓';
+}
+/* ══ END RESUMO DA OBRA ══ */
+
 /* ══ IA LEVANTAMENTO AUTOMÁTICO ═══════════════════════════════════ */
 window._iaImageB64=null;
 window._iaItens=[];
