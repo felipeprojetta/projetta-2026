@@ -1118,6 +1118,42 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     </div>
     <div class="fr"><span class="fl">Área calculada</span><div class="fv c cb2" id="r-m2">—</div></div>
     <div class="fr" style="background:#fff3e0;border:2px solid #e67e22;border-radius:8px;padding:6px 12px;margin:6px 0"><span class="fl" style="font-weight:800;color:#e67e22">🚪 Quantidade de portas</span><div class="fv"><input type="number" id="qtd-portas" value="1" min="1" max="20" step="1" oninput="calc();_osAutoUpdate()" style="width:70px;font-size:16px;font-weight:800;text-align:center;border:2px solid #e67e22;border-radius:6px;background:#fff;color:#e67e22"></div></div>
+
+    <!-- TABELA MULTI-PORTA -->
+    <div id="multi-porta-section" style="margin:10px 0;border:2px solid #1a5276;border-radius:10px;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;font-weight:800;letter-spacing:.04em">📋 ITENS DA PROPOSTA</span>
+        <button onclick="_mpAdicionarItem()" style="padding:5px 14px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Adicionar Porta Diferente</button>
+      </div>
+      <div id="mp-empty" style="padding:12px;text-align:center;font-size:11px;color:#999">
+        Quando precisar orçar <b>portas de tamanhos diferentes</b>, clique em "+ Adicionar Porta Diferente".<br>
+        Para portas iguais, use o campo "Quantidade de portas" acima.
+      </div>
+      <div id="mp-table-wrap" style="display:none;overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:11px" id="mp-table">
+          <thead>
+            <tr style="background:#f0f4f6">
+              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center;width:30px">#</th>
+              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:left">Modelo</th>
+              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">L (mm)</th>
+              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">A (mm)</th>
+              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">Folhas</th>
+              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">Qtd</th>
+              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">Fixo</th>
+              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center;width:70px">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="mp-tbody"></tbody>
+          <tfoot>
+            <tr style="background:#003144;color:#fff">
+              <td colspan="5" style="padding:6px 8px;font-weight:700;font-size:11px">TOTAL</td>
+              <td id="mp-total-qtd" style="padding:6px 8px;text-align:center;font-weight:800;font-size:13px">0</td>
+              <td colspan="2" style="padding:6px 8px;font-size:10px">porta(s)</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
     <div class="sec" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">
       <span>Fixos laterais</span>
       <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;cursor:pointer">
@@ -14550,6 +14586,187 @@ window.addEventListener('beforeunload',function(){
 
 })();
 /* ══ END MODULE: AUTH ══ */
+
+/* ══ MODULE: MULTI-PORTA ══════════════════════════════════════════════ */
+/* Gerencia itens da proposta com portas de tamanhos diferentes */
+window._mpItens=[];
+
+function _mpAdicionarItem(){
+  // Captura dados atuais do formulário
+  var modEl=document.getElementById('carac-modelo');
+  var modTxt=modEl&&modEl.selectedIndex>=0?(modEl.options[modEl.selectedIndex].text||'01 Cava'):'01 Cava';
+  var modVal=modEl?modEl.value:'01';
+  var L=parseFloat(document.getElementById('largura').value)||0;
+  var A=parseFloat(document.getElementById('altura').value)||0;
+  if(L<=0||A<=0){alert('Preencha Largura e Altura antes de adicionar.');return;}
+  var folhas=parseInt((document.getElementById('folhas-porta')||{value:'1'}).value)||1;
+  var qtd=parseInt((document.getElementById('qtd-portas')||{value:'1'}).value)||1;
+  var abertEl=document.getElementById('carac-abertura');
+  var abertura=abertEl?abertEl.value:'direita';
+  var temFixo=document.getElementById('tem-fixo')?document.getElementById('tem-fixo').checked:false;
+  // Capturar dados do fixo se tiver
+  var fixoData=null;
+  if(temFixo){
+    fixoData=[];
+    var fixoItems=document.querySelectorAll('[id^="fixo-"][id$="-lado"]');
+    fixoItems.forEach(function(el){
+      var idx=el.id.replace('fixo-','').replace('-lado','');
+      fixoData.push({
+        lado:(document.getElementById('fixo-'+idx+'-lado')||{value:'esquerdo'}).value,
+        largura:parseFloat((document.getElementById('fixo-'+idx+'-larg')||{value:0}).value)||0,
+        altura:parseFloat((document.getElementById('fixo-'+idx+'-alt')||{value:0}).value)||0
+      });
+    });
+  }
+  var corExt=(document.getElementById('carac-cor-ext')||{value:''}).value;
+  var corInt=(document.getElementById('carac-cor-int')||{value:''}).value;
+
+  var item={
+    id:'mp_'+Date.now(),
+    modelo:modVal, modeloTxt:modTxt,
+    largura:L, altura:A, folhas:folhas, qtd:qtd,
+    abertura:abertura, temFixo:temFixo, fixos:fixoData,
+    corExt:corExt, corInt:corInt
+  };
+  window._mpItens.push(item);
+  // Resetar qtd para 1 no form (cada item tem sua qtd)
+  document.getElementById('qtd-portas').value='1';
+  _mpRender();
+  // Toast
+  var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 3px 12px rgba(0,0,0,.2)';
+  t.textContent='✅ Item '+window._mpItens.length+' adicionado: '+modTxt+' '+L+'×'+A+' (×'+qtd+')';
+  document.body.appendChild(t);setTimeout(function(){t.remove();},3000);
+}
+
+function _mpRender(){
+  var tbody=document.getElementById('mp-tbody');
+  var empty=document.getElementById('mp-empty');
+  var wrap=document.getElementById('mp-table-wrap');
+  if(!window._mpItens.length){
+    empty.style.display='';wrap.style.display='none';
+    return;
+  }
+  empty.style.display='none';wrap.style.display='';
+  var html='';
+  var totalQtd=0;
+  window._mpItens.forEach(function(it,i){
+    totalQtd+=it.qtd;
+    var bg=i%2===0?'#fff':'#f9f8f5';
+    html+='<tr style="background:'+bg+'">'
+      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-weight:700;color:#e67e22">'+(i+1)+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;font-weight:600;font-size:10px">'+it.modeloTxt+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-weight:700">'+it.largura+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-weight:700">'+it.altura+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center">'+it.folhas+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-weight:800;color:#e67e22;font-size:13px">'+it.qtd+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center">'+(it.temFixo?'✓':'—')+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center">'
+      +'<button onclick="_mpEditar('+i+')" style="background:none;border:1px solid #2980b9;color:#2980b9;border-radius:4px;font-size:10px;cursor:pointer;padding:2px 5px;font-weight:700;margin-right:2px" title="Carregar no formulário">✏</button>'
+      +'<button onclick="_mpRemover('+i+')" style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:4px;font-size:10px;cursor:pointer;padding:2px 5px;font-weight:700" title="Remover item">✕</button>'
+      +'</td></tr>';
+  });
+  tbody.innerHTML=html;
+  document.getElementById('mp-total-qtd').textContent=totalQtd;
+}
+
+function _mpEditar(idx){
+  var it=window._mpItens[idx];if(!it)return;
+  // Carregar dados do item no formulário
+  document.getElementById('largura').value=it.largura;
+  document.getElementById('altura').value=it.altura;
+  document.getElementById('qtd-portas').value=it.qtd;
+  var modEl=document.getElementById('carac-modelo');
+  if(modEl){for(var i=0;i<modEl.options.length;i++){if(modEl.options[i].value===it.modelo){modEl.selectedIndex=i;break;}}}
+  var folEl=document.getElementById('folhas-porta');
+  if(folEl) folEl.value=it.folhas;
+  var abEl=document.getElementById('carac-abertura');
+  if(abEl) abEl.value=it.abertura;
+  // Disparar eventos
+  ['largura','altura','qtd-portas'].forEach(function(id){
+    var el=document.getElementById(id);if(el) el.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  if(modEl) modEl.dispatchEvent(new Event('change',{bubbles:true}));
+  // Remover item da tabela (será re-adicionado ao clicar +)
+  window._mpItens.splice(idx,1);
+  _mpRender();
+  var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2980b9;color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 3px 12px rgba(0,0,0,.2)';
+  t.textContent='✏ Item '+(idx+1)+' carregado no formulário. Edite e clique "+" para re-adicionar.';
+  document.body.appendChild(t);setTimeout(function(){t.remove();},3000);
+}
+
+function _mpRemover(idx){
+  if(!confirm('Remover item '+(idx+1)+'?'))return;
+  window._mpItens.splice(idx,1);
+  _mpRender();
+}
+
+/* Retorna lista de todos os itens para cálculo.
+   Se tabela vazia: retorna item único do formulário.
+   Se tabela tem itens: retorna itens da tabela. */
+function _mpGetItens(){
+  if(window._mpItens.length>0) return window._mpItens.slice(); // cópia
+  // Sem itens na tabela: usar campos do formulário (compatibilidade)
+  var modEl=document.getElementById('carac-modelo');
+  return [{
+    id:'single',
+    modelo:modEl?modEl.value:'01',
+    modeloTxt:modEl&&modEl.selectedIndex>=0?(modEl.options[modEl.selectedIndex].text||''):'',
+    largura:parseFloat(document.getElementById('largura').value)||0,
+    altura:parseFloat(document.getElementById('altura').value)||0,
+    folhas:parseInt((document.getElementById('folhas-porta')||{value:'1'}).value)||1,
+    qtd:parseInt((document.getElementById('qtd-portas')||{value:'1'}).value)||1,
+    abertura:(document.getElementById('carac-abertura')||{value:''}).value,
+    temFixo:document.getElementById('tem-fixo')?document.getElementById('tem-fixo').checked:false,
+    fixos:null,
+    corExt:(document.getElementById('carac-cor-ext')||{value:''}).value,
+    corInt:(document.getElementById('carac-cor-int')||{value:''}).value
+  }];
+}
+
+/* Calcula todos os cortes de perfis de todos os itens combinados */
+function _mpCalcAllCuts(barraMM){
+  var itens=_mpGetItens();
+  var allCuts=[];
+  var errors=[];
+  itens.forEach(function(it,i){
+    if(it.largura<=0||it.altura<=0){errors.push('Item '+(i+1)+': sem dimensões');return;}
+    var nFolhas=it.folhas||1;
+    // Calcular cortes para este item
+    try{
+      var d=_calcularDadosPerfis(it.largura, it.altura, nFolhas, barraMM);
+      if(d.error){errors.push('Item '+(i+1)+': '+d.error);return;}
+      // Multiplicar por quantidade deste item
+      d.cuts.forEach(function(c){
+        c.qty=c.qty*it.qtd;
+        c._itemIdx=i; // marcar de qual item veio
+        allCuts.push(c);
+      });
+    }catch(e){errors.push('Item '+(i+1)+': erro no cálculo');}
+  });
+  return {cuts:allCuts, errors:errors, itens:itens};
+}
+
+/* Calcula todas as peças de chapa de todos os itens combinados */
+function _mpCalcAllPieces(){
+  var itens=_mpGetItens();
+  var allPieces=[];
+  itens.forEach(function(it,i){
+    if(it.largura<=0||it.altura<=0) return;
+    var fol=it.folhas||1;
+    // Usar planificador de modelo
+    var modVal=it.modelo||'01';
+    if(typeof plnPecas==='function'){
+      var pieces=plnPecas(it.largura, it.altura, fol, modVal);
+      pieces.forEach(function(p){
+        var pc=Array.isArray(p)?{label:p[0],w:p[1],h:p[2],qty:(p[3]||1)*it.qtd}:{label:p.label,w:p.w,h:p.h,qty:(p.qty||1)*it.qtd};
+        pc._itemIdx=i;
+        allPieces.push(pc);
+      });
+    }
+  });
+  return allPieces;
+}
+/* ══ END MODULE: MULTI-PORTA ══ */
 </script>
 
 <!-- ═══════════════════════════════════════════════════════
