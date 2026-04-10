@@ -14859,10 +14859,53 @@ function _calcAcessoriosOS(d, nFolhas, sis){
     if(fech.code) rows.push({qty:1*nFolhas,code:fech.code,desc:'Fechadura '+fechTipo+' KESO — maior valor',preco:fech.preco,apl:'FAB',grp:'FECHADURAS',obs:'FECHADURA'});
   }
 
+  // ── FABRICAÇÃO — CONTRA-TESTA (CEM: por FECHMEC) ───────────────────
+  if(fechTipo){
+    // Contra-testa principal: 1 por folha
+    rows.push({qty:1*nFolhas, code:'PA-KESO CRT 4P RT CR', desc:'Contra-testa Inox Furo Oblongo 04 Pinos', preco:getPreco('PA-KESO CRT 4P RT CR'), apl:'OBRA', grp:'CONTRA-TESTA', obs:'CONTRA TESTA'});
+
+    // Parafusos contra-testa: CEM = 4(04P), 8(08P), 12(12P), 16(16P), 24(24P)
+    var _parCTMap = {'04 PINOS':4, '08 PINOS':8, '12 PINOS':12, '16 PINOS':16, '24 PINOS':24};
+    var _parCTQty = _parCTMap[fechTipo] || 12;
+    rows.push({qty:_parCTQty*nFolhas, code:'PA-CHAAA PHS 35X20', desc:'Parafusos Contra-testa 35x20mm', preco:getPreco('PA-CHAAA PHS 35X20'), apl:'OBRA', grp:'PARAFUSOS', obs:'PARAFUSO CONTRA TESTA'});
+
+    // Contra-testas auxiliares: CEM = 0(04P), 1(08P), 2(12P), 3(16P), 5(24P)
+    var _crtAuxMap = {'04 PINOS':0, '08 PINOS':1, '12 PINOS':2, '16 PINOS':3, '24 PINOS':5};
+    var _crtAuxQty = _crtAuxMap[fechTipo] || 0;
+    if(_crtAuxQty > 0){
+      rows.push({qty:_crtAuxQty*nFolhas, code:'PA-KESO CRT AUX CR', desc:'Contra-testa Auxiliar Inox', preco:getPreco('PA-KESO CRT AUX CR'), apl:'OBRA', grp:'CONTRA-TESTA', obs:'AUXILIAR CONTRATESTA'});
+    }
+
+    // Caixeta principal: CEM = 1 por folha (se fechmec != sem)
+    rows.push({qty:1*nFolhas, code:'PA-KESO CXT 4P', desc:'Caixeta Acabamento Fechadura Rolete 04 Pinos', preco:getPreco('PA-KESO CXT 4P'), apl:'OBRA', grp:'CAIXETA', obs:'CAIXETA PRINCIPAL'});
+
+    // Caixetas auxiliares: CEM = 0(04P), 1(08P), 2(12P), 3(16P), 5(24P)
+    var _cxtAuxQty = _crtAuxMap[fechTipo] || 0;
+    if(_cxtAuxQty > 0){
+      rows.push({qty:_cxtAuxQty*nFolhas, code:'PA-KESO CXT AUX', desc:'Caixeta Acabamento Auxiliares', preco:getPreco('PA-KESO CXT AUX'), apl:'OBRA', grp:'CAIXETA', obs:'CAIXETA AUXILIAR'});
+    }
+  }
+
   // ── FABRICAÇÃO — ROSETA KESO ───────────────────────────────────────────────
   if(fechTipo){
     var ros = maxPrecoByPrefix('PA-KESO ROS');
     if(ros.code) rows.push({qty:2*nFolhas,code:ros.code,desc:'Roseta KESO — maior valor',preco:ros.preco,apl:'FAB',grp:'FECHADURAS',obs:'ROSETA'});
+  }
+
+  // ── FABRICAÇÃO — LINGUETA KESO (CEM: por SIS) ──────────────────────
+  if(fechTipo){
+    var _linguetaCode = (sis==='PA007'||d.sis==='PA007') ? 'PA-KESODOB 40 BL' : 'PA-KESODOB 30 BL';
+    var _linguetaDesc = (sis==='PA007'||d.sis==='PA007') ? 'Lingueta KESO 40mm Preto' : 'Lingueta KESO 30mm Preto';
+    rows.push({qty:1*nFolhas, code:_linguetaCode, desc:_linguetaDesc, preco:getPreco(_linguetaCode), apl:'OBRA', grp:'FECHADURAS', obs:'LINGUETA'});
+  }
+
+  // ── FABRICAÇÃO — DOBRADIÇAS (CEM: TIPABERT=4) ──────────────────────
+  var _abertura = (document.getElementById('carac-abertura')||{value:''}).value||'';
+  if(_abertura.toUpperCase().indexOf('DOBRA') >= 0){
+    var _numDob = 4;  // CEM: NUMDOB default
+    if(H > 3000) _numDob = 5;
+    if(H > 4000) _numDob = 6;
+    rows.push({qty:_numDob*nFolhas, code:'PA-DOBKESO 4X3X3 PRE', desc:'Dobradiça KESO 4x3x3 Preta', preco:getPreco('PA-DOBKESO 4X3X3 PRE'), apl:'FAB', grp:'DOBRADICAS', obs:'DOBRADIÇA'});
   }
 
   // ── FABRICAÇÃO — CILINDRO (KESO ou UDINESE) ───────────────────────────────
@@ -15155,6 +15198,24 @@ function _calcAcessoriosOS(d, nFolhas, sis){
     console.warn('fixos calc error', efx);
   }
 
+  // ── OBRA — TEDEE COMPONENTES (CEM: por FECHDIG) ────────────────────
+  var _fechDig = (document.getElementById('carac-fech-dig')||{value:''}).value||'';
+  if(_fechDig && _fechDig.toUpperCase().indexOf('TEDEE') >= 0){
+    rows.push({qty:1, code:'PA-TEDEE-BRIDGE', desc:'Tedee Bridge TBV1.0 WiFi', preco:getPreco('PA-TEDEE-BRIDGE'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'FECHADURA DIGITAL'});
+    rows.push({qty:1, code:'PA-TEDEE-FEC-PT', desc:'Tedee Lock PRO Homekit Preta', preco:getPreco('PA-TEDEE-FEC-PT'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'FECHADURA DIGITAL'});
+    rows.push({qty:1, code:'PA-TEDEE-TEC-PT', desc:'Tedee Keypad PRO Teclado Biométrico', preco:getPreco('PA-TEDEE-TEC-PT'), apl:'OBRA', grp:'TECLADO', obs:'TECLADO TEDEE'});
+    rows.push({qty:1, code:'PA - PILHA AAA 4X', desc:'Pacote Pilha AA 4 unidades', preco:getPreco('PA - PILHA AAA 4X'), apl:'OBRA', grp:'PILHA', obs:'PILHA PARA TEDEE'});
+  }
+
+  // ── OBRA — NUKI COMPONENTES (CEM: FECHDIG=8) ─────────────────────
+  if(_fechDig && _fechDig.toUpperCase().indexOf('NUKI') >= 0){
+    rows.push({qty:1, code:'PA-NUKI-FEC-BL', desc:'Nuki Smart Lock Preto', preco:getPreco('PA-NUKI-FEC-BL'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'FECHADURA DIGITAL'});
+    rows.push({qty:1, code:'PA-NUKI-TEC-BL', desc:'Nuki Keypad Teclado Preto', preco:getPreco('PA-NUKI-TEC-BL'), apl:'OBRA', grp:'TECLADO', obs:'TECLADO NUKI'});
+    rows.push({qty:1, code:'PA-NUKI-BRI', desc:'Nuki Bridge WiFi', preco:getPreco('PA-NUKI-BRI'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'BRIDGE NUKI'});
+    rows.push({qty:2, code:'PA-NUKISUPORTE', desc:'Nuki Suporte Montagem', preco:getPreco('PA-NUKISUPORTE'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'SUPORTE NUKI'});
+    rows.push({qty:1, code:'PA-NUKIBATERIA', desc:'Nuki Bateria Recarregável', preco:getPreco('PA-NUKIBATERIA'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'BATERIA NUKI'});
+  }
+
   // ── CEM: COMPONENTES DE OBRA (instalação) ──────────────────────────
   rows.push({qty:0.5, code:'PA-PRIMER', desc:'Primer Fita Dupla Face VHB 940ml', preco:getPreco('PA-PRIMER'), apl:'OBRA', grp:'PRIMER', obs:'PRIMER OBRA'});
 
@@ -15184,6 +15245,18 @@ function _calcAcessoriosOS(d, nFolhas, sis){
   var _escQty = (sis==='PA007' || d.sis==='PA007') ? 4 : 2;
   var _escMt = Math.ceil((_larch + 10) * _escQty / 1000);
   rows.push({qty:_escMt, code:'PA-FITA VED 5X20', desc:'Escovinha Veda Frestas 5×20', preco:getPreco('PA-FITA VED 5X20'), apl:'OBRA', grp:'ESCOVINHA', obs:'ESCOVINHA'});
+
+  // ── FABRICAÇÃO — FECHO UNHA + CREMONA (CEM: 2 folhas) ──────────────
+  if(nFolhas >= 2){
+    if(H < 4000){
+      rows.push({qty:2, code:'PA-FECHUNHA', desc:'Fecho Unha para 2 folhas', preco:getPreco('PA-FECHUNHA'), apl:'FAB', grp:'FECHOS', obs:'FECHO UNHA'});
+      rows.push({qty:2, code:'9002082', desc:'Roldana Fecho Unha', preco:getPreco('9002082'), apl:'FAB', grp:'FECHOS', obs:'ROLDANA'});
+    } else {
+      rows.push({qty:1, code:'PA-FECHUNHA', desc:'Fecho Unha para 2 folhas', preco:getPreco('PA-FECHUNHA'), apl:'FAB', grp:'FECHOS', obs:'FECHO UNHA'});
+      rows.push({qty:1, code:'PA-CREMONA MAGNETICA', desc:'Cremona Magnética', preco:getPreco('PA-CREMONA MAGNETICA'), apl:'FAB', grp:'FECHOS', obs:'CREMONA'});
+      rows.push({qty:1, code:'9002082', desc:'Roldana Fecho Unha', preco:getPreco('9002082'), apl:'FAB', grp:'FECHOS', obs:'ROLDANA'});
+    }
+  }
 
   // ── Acessórios do Quadro Fixo — juntar com FABRICAÇÃO ──────────────────────
   var _fixAcessRows = window._lastFixosAcessRows || [];
