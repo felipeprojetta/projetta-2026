@@ -7574,33 +7574,59 @@ function printOSColagem(){
 
 /* ═══════════════════════════════════════════════════
    CLIENTES TAB — Visão por Cliente com Histórico
+   Mostra clientes do CRM + Orçamentos salvos
 ═══════════════════════════════════════════════════ */
 function renderClientesTab(){
   var body=$('cli-hist-body');if(!body)return;
   var db=loadDB();
+  var crmData=[];try{crmData=JSON.parse(localStorage.getItem('projetta_crm_v1'))||[];}catch(e){}
   var searchEl=$('cli-hist-search');
   var q=searchEl?searchEl.value.toLowerCase().trim():'';
   var sortBy=($('cli-hist-sort')||{value:'recent'}).value;
 
-  // Filtrar
-  var filtered=q?db.filter(function(e){
-    var text=(e.name||'')+' '+(e.client||'')+' '+(e.project||'');
-    if(e.revisions)e.revisions.forEach(function(r){text+=' '+(r.label||'');if(r.data){text+=' '+(r.data['num-atp']||'')+' '+(r.data['num-agp']||'')+' '+(r.data['numprojeto']||'');}});
-    return text.toLowerCase().indexOf(q)>=0;
-  }):db;
-
-  // Agrupar por cliente
+  // Agrupar por cliente — combinar CRM + Orçamentos
   var groups={};
-  filtered.forEach(function(e){
+
+  // 1) CRM cards
+  var _stagesMap={};
+  try{
+    var _st=JSON.parse(localStorage.getItem('projetta_crm_settings_v1'))||{};
+    (_st.stages||[]).forEach(function(s){_stagesMap[s.id]=s;});
+  }catch(e){}
+  // Default stages
+  if(!Object.keys(_stagesMap).length){
+    [{id:'s1',label:'Prospecção',icon:'🎯'},{id:'s2',label:'Qualificação',icon:'🔍'},{id:'s3',label:'Fazer Orçamento',icon:'📋'},{id:'s4',label:'Proposta Enviada',icon:'📩'},{id:'s5',label:'Negociação',icon:'🤝'},{id:'s6',label:'Fechado ✅',icon:'🏆'},{id:'s7',label:'Perdido',icon:'❌'}].forEach(function(s){_stagesMap[s.id]=s;});
+  }
+
+  crmData.forEach(function(card){
+    var cli=(card.cliente||'').trim();
+    if(!cli)return;
+    if(q){
+      var text=cli+' '+(card.contato||'')+' '+(card.email||'')+' '+(card.agp||'')+' '+(card.reserva||'')+' '+(card.notas||'');
+      if(text.toLowerCase().indexOf(q)<0)return;
+    }
+    if(!groups[cli])groups[cli]={name:cli,entries:[],crmCards:[],lastDate:'',totalVal:0};
+    groups[cli].crmCards.push(card);
+    if(card.valor)groups[cli].totalVal+=parseFloat(card.valor)||0;
+    var dt=card.updatedAt||card.createdAt||'';
+    if(dt>groups[cli].lastDate)groups[cli].lastDate=dt;
+  });
+
+  // 2) Orçamentos salvos
+  db.forEach(function(e){
+    if(q){
+      var text=(e.name||'')+' '+(e.client||'')+' '+(e.project||'');
+      if(e.revisions)e.revisions.forEach(function(r){text+=' '+(r.label||'');if(r.data){text+=' '+(r.data['num-atp']||'')+' '+(r.data['num-agp']||'')+' '+(r.data['numprojeto']||'');}});
+      if(text.toLowerCase().indexOf(q)<0)return;
+    }
     var cli=(e.client||'Sem cliente').trim();
     if(!cli)cli='Sem cliente';
-    if(!groups[cli])groups[cli]={name:cli,entries:[],lastDate:'',totalVal:0};
+    if(!groups[cli])groups[cli]={name:cli,entries:[],crmCards:[],lastDate:'',totalVal:0};
     groups[cli].entries.push(e);
-    // Pegar valores da última revisão
     var lastRev=e.revisions&&e.revisions.length?e.revisions[e.revisions.length-1]:null;
     if(lastRev&&lastRev.data){
       var vt=parseFloat(lastRev.data['valor-final']||lastRev.data['total-geral']||0);
-      groups[cli].totalVal+=vt;
+      if(vt)groups[cli].totalVal+=vt;
     }
     if(e.createdAt&&e.createdAt>groups[cli].lastDate)groups[cli].lastDate=e.createdAt;
   });
@@ -7609,40 +7635,85 @@ function renderClientesTab(){
 
   // Ordenar
   if(sortBy==='alpha') list.sort(function(a,b){return a.name.localeCompare(b.name);});
-  else if(sortBy==='count') list.sort(function(a,b){return b.entries.length-a.entries.length;});
-  else list.sort(function(a,b){return b.lastDate.localeCompare(a.lastDate);});
+  else if(sortBy==='count') list.sort(function(a,b){return (b.entries.length+b.crmCards.length)-(a.entries.length+a.crmCards.length);});
+  else list.sort(function(a,b){return b.lastDate>a.lastDate?1:b.lastDate<a.lastDate?-1:0;});
 
   // Stats
   var totalClientes=list.length;
-  var totalOrcs=filtered.length;
-  var totalRevs=0;
-  filtered.forEach(function(e){totalRevs+=(e.revisions||[]).length;});
+  var totalOrcs=0,totalRevs=0,totalCrmCards=0;
+  list.forEach(function(g){totalOrcs+=g.entries.length;totalCrmCards+=g.crmCards.length;g.entries.forEach(function(e){totalRevs+=(e.revisions||[]).length;});});
 
   var h='<div class="cli-stats">';
   h+='<div class="cli-stat"><div class="num">'+totalClientes+'</div><div class="lbl">Clientes</div></div>';
+  h+='<div class="cli-stat"><div class="num">'+totalCrmCards+'</div><div class="lbl">Cards CRM</div></div>';
   h+='<div class="cli-stat"><div class="num">'+totalOrcs+'</div><div class="lbl">Orçamentos</div></div>';
   h+='<div class="cli-stat"><div class="num">'+totalRevs+'</div><div class="lbl">Revisões</div></div>';
   h+='</div>';
 
   if(!list.length){
-    h+='<div class="cli-empty">📂 Nenhum orçamento encontrado'+(q?' para "'+q+'"':'')+'</div>';
+    h+='<div class="cli-empty">📂 Nenhum cliente encontrado'+(q?' para "'+q+'"':'')+'</div>';
     body.innerHTML=h;return;
   }
 
   list.forEach(function(grp,gi){
     var nOrc=grp.entries.length;
+    var nCrm=grp.crmCards.length;
+    var nTotal=nOrc+nCrm;
     h+='<div class="cli-card" id="cli-grp-'+gi+'">';
     h+='<div class="cli-hdr" onclick="toggleCliCard('+gi+')">';
-    h+='<div style="flex:1;min-width:0"><div class="cli-name">'+grp.name+'<small>'+nOrc+' orçamento'+(nOrc>1?'s':'')+'</small></div></div>';
+    h+='<div style="flex:1;min-width:0"><div class="cli-name">'+grp.name+'</div>';
+    h+='<div style="font-size:10px;color:#888;margin-top:2px">';
+    if(nCrm) h+='<span style="background:#e8f4fd;color:#1a5276;padding:1px 6px;border-radius:4px;font-weight:600;margin-right:4px">'+nCrm+' card'+(nCrm>1?'s':'')+'</span>';
+    if(nOrc) h+='<span style="background:#e8f8e8;color:#1a7a20;padding:1px 6px;border-radius:4px;font-weight:600">'+nOrc+' orçamento'+(nOrc>1?'s':'')+'</span>';
+    h+='</div></div>';
     h+='<div class="cli-badges">';
     if(grp.totalVal>0) h+='<span class="cli-badge val">R$ '+grp.totalVal.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>';
-    if(grp.lastDate) h+='<span class="cli-badge date">'+grp.lastDate+'</span>';
     h+='</div>';
     h+='<span class="cli-chevron">▶</span>';
     h+='</div>';
 
-    // Body: lista de orçamentos
     h+='<div class="cli-body">';
+
+    // ── CRM CARDS ──
+    grp.crmCards.forEach(function(card){
+      var stg=_stagesMap[card.stage]||{label:'—',icon:'',color:'#999'};
+      h+='<div class="cli-orc" style="border-left:3px solid '+(stg.color||'#ccc')+'">';
+      h+='<div class="cli-orc-info">';
+      h+='<div class="cli-orc-name" style="color:#1a5276">'+stg.icon+' CRM — '+stg.label+'</div>';
+      h+='<div class="cli-orc-meta">';
+      if(card.contato) h+='<b>Contato:</b> '+card.contato+' &nbsp; ';
+      if(card.email) h+='<b>Email:</b> '+card.email+' &nbsp; ';
+      if(card.agp) h+='<b>AGP:</b> '+card.agp+' &nbsp; ';
+      if(card.reserva) h+='<b>Reserva:</b> '+card.reserva+' &nbsp; ';
+      h+='</div>';
+      h+='<div class="cli-orc-vals">';
+      if(card.largura&&card.altura) h+='<span class="cli-orc-val"><b>Vão:</b> '+card.largura+'×'+card.altura+'mm</span>';
+      if(card.modelo) h+='<span class="cli-orc-val"><b>Mod:</b> '+card.modelo+'</span>';
+      if(card.cor_ext) h+='<span class="cli-orc-val"><b>Cor:</b> '+card.cor_ext+'</span>';
+      if(card.valor) h+='<span class="cli-orc-val" style="background:#e8f8e8"><b>Valor:</b> R$ '+(parseFloat(card.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span>';
+      h+='</div>';
+      // Revisões do CRM card
+      if(card.revisoes&&card.revisoes.length>0){
+        h+='<div class="cli-orc-revs">';
+        card.revisoes.forEach(function(rv,ri){
+          var rvVal=rv.orcValues?'R$ '+(parseFloat(rv.orcValues['valor-final']||rv.orcValues['total-geral']||0)||0).toLocaleString('pt-BR',{minimumFractionDigits:2}):'';
+          h+='<span class="cli-rev-pill '+(ri===0?'orig':'')+'" style="cursor:default">';
+          h+=(rv.label||'Rev '+ri);
+          if(rvVal) h+=' — '+rvVal;
+          if(rv.date) h+='<span class="rev-date">'+new Date(rv.date).toLocaleDateString('pt-BR')+'</span>';
+          h+='</span>';
+        });
+        h+='</div>';
+      }
+      if(card.notas) h+='<div style="font-size:9px;color:#888;margin-top:4px;font-style:italic">'+card.notas.substring(0,100)+(card.notas.length>100?'...':'')+'</div>';
+      h+='</div>';
+      h+='<div class="cli-orc-actions">';
+      h+='<button onclick="crmEditOpp(\''+card.id+'\');switchTab(\'crm\')" title="Abrir no CRM">📊 CRM</button>';
+      h+='</div>';
+      h+='</div>';
+    });
+
+    // ── ORÇAMENTOS ──
     grp.entries.forEach(function(e){
       var lastRev=e.revisions&&e.revisions.length?e.revisions[e.revisions.length-1]:null;
       var _d=lastRev?lastRev.data||{}:{};
