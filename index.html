@@ -15599,23 +15599,6 @@ function _mpGetItens(){
   }];
 }
 
-  var item={
-    id:'mp_'+Date.now(),
-    modelo:modVal, modeloTxt:modTxt,
-    largura:L, altura:A, folhas:folhas, qtd:qtd,
-    abertura:abertura, temFixo:temFixo, fixos:fixoData,
-    corExt:corExt, corInt:corInt
-  };
-  window._mpItens.push(item);
-  // Resetar qtd para 1 no form (cada item tem sua qtd)
-  document.getElementById('qtd-portas').value='1';
-  _mpRender();
-  // Toast
-  var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 3px 12px rgba(0,0,0,.2)';
-  t.textContent='✅ Item '+window._mpItens.length+' adicionado: '+modTxt+' '+L+'×'+A+' (×'+qtd+')';
-  document.body.appendChild(t);setTimeout(function(){t.remove();},3000);
-}
-
 /* Calcula todos os cortes de perfis de todos os itens combinados */
 function _mpCalcAllCuts(barraMM){
   var itens=_mpGetItens();
