@@ -15860,18 +15860,18 @@ function gerarRomaneio(){
     chapas.push({desc:opt?opt.text:'Chapa ACM',qty:qty,preco:preco,total:preco*qty});
   }
 
-  // 3. ACESSÓRIOS — do último cálculo
-  var acessHTML='';
-  var osaTbody=document.getElementById('osa-fab-tbody');
-  if(osaTbody){
-    var rows=osaTbody.querySelectorAll('tr');
-    rows.forEach(function(r){
-      var tds=r.querySelectorAll('td');
-      if(tds.length>=5){
-        acessHTML+='<tr>'+r.innerHTML+'</tr>';
-      }
-    });
-  }
+  // 3. ACESSÓRIOS — calcular diretamente
+  var acessRows=[];
+  var acessTotal=0;
+  try{
+    var nFolhas=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
+    var sis=d.sis||(document.getElementById('prod-sistema')||{value:''}).value||'PA006';
+    acessRows=_calcAcessoriosOS(d,nFolhas,sis);
+    // Adicionar veda porta se disponível
+    if(d.vedaCode&&d.vedaPreco){
+      acessRows.push({qty:2*nFolhas,code:d.vedaCode,desc:'Veda Porta Automático '+d.vedaSize+'mm',preco:d.vedaPreco,apl:'FAB',grp:'VEDA',obs:'VEDA PORTA'});
+    }
+  }catch(e){console.warn('Romaneio: acessórios',e);}
 
   // Gerar janela
   var w=window.open('','_blank','width=800,height=900');
@@ -15917,12 +15917,29 @@ function gerarRomaneio(){
   }
 
   // ACESSÓRIOS
-  if(acessHTML){
+  if(acessRows.length>0){
     w.document.write('<div class="sec"><div class="sec-h">🔧 Acessórios e Componentes</div><table>');
-    w.document.write('<tr><th>Qtd</th><th>Código</th><th>Descrição</th><th style="text-align:right">Preço</th><th style="text-align:right">Total</th></tr>');
-    w.document.write(acessHTML);
+    w.document.write('<tr><th style="text-align:center">Qtd</th><th>Código</th><th>Descrição</th><th>Grupo</th><th style="text-align:right">Preço Unit.</th><th style="text-align:right">Total</th></tr>');
+    var totAcess=0;
+    acessRows.forEach(function(a){
+      var t=a.qty*(a.preco||0);totAcess+=t;
+      w.document.write('<tr><td style="text-align:center;font-weight:700">'+a.qty+'</td><td style="font-weight:700;color:#003144;white-space:nowrap;font-size:9px">'+a.code+'</td><td style="font-size:9px">'+a.desc+'</td><td style="font-size:9px;color:#888">'+(a.obs||a.grp||'')+'</td><td style="text-align:right">'+brl(a.preco||0)+'</td><td style="text-align:right;font-weight:700">'+brl(t)+'</td></tr>');
+    });
+    w.document.write('<tr class="tot"><td colspan="5">TOTAL ACESSÓRIOS</td><td style="text-align:right">'+brl(totAcess)+'</td></tr>');
     w.document.write('</table></div>');
   }
+
+  // TOTAL GERAL
+  var totChapas=0;chapas.forEach(function(c){totChapas+=c.total;});
+  var totAcessGeral=0;acessRows.forEach(function(a){totAcessGeral+=a.qty*(a.preco||0);});
+  var totalGeral=totCusto+totChapas+totAcessGeral;
+  w.document.write('<div style="background:#003144;color:#fff;border-radius:6px;padding:12px 16px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;font-size:12px">');
+  w.document.write('<span style="font-weight:700">TOTAL GERAL DO ROMANEIO</span>');
+  w.document.write('<span style="font-size:16px;font-weight:800">'+brl(totalGeral)+'</span>');
+  w.document.write('</div>');
+  w.document.write('<div style="display:flex;justify-content:space-around;margin-top:6px;font-size:9px;color:#888">');
+  w.document.write('<span>Perfis: '+brl(totCusto)+'</span><span>Chapas: '+brl(totChapas)+'</span><span>Acessórios: '+brl(totAcessGeral)+'</span>');
+  w.document.write('</div>');
 
   w.document.write('<div style="text-align:center;font-size:9px;color:#999;margin-top:12px">Gerado em '+new Date().toLocaleString('pt-BR')+' — Projetta v6</div>');
   w.document.write('</div></body></html>');
