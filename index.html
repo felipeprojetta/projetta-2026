@@ -8633,7 +8633,7 @@ window.crmBuscarReservaWeiku=function(){
 
 
 /* ═══ CRM ITEMS SYSTEM ═══════════════════════════════════════════ */
-var _crmItens = [];
+window._crmItens = [];
 
 var CRM_ITEM_TYPES = {
   porta_pivotante: {label:'Porta Pivotante', icon:'🚪', desc:'Porta de entrada com pivô'},
@@ -8642,7 +8642,7 @@ var CRM_ITEM_TYPES = {
   revestimento:    {label:'Revestimento',     icon:'🧱', desc:'Em breve', disabled:true}
 };
 
-function _crmGetCorOptions(){
+window._crmGetCorOptions=function(){
   // Reuse cor options from the main system
   var mainSel=document.getElementById('carac-cor-ext');
   if(mainSel&&mainSel.options.length>1){
@@ -8653,7 +8653,7 @@ function _crmGetCorOptions(){
   return '<option value="">— Selecione —</option>';
 }
 
-function crmItemAdd(){
+window.crmItemAdd=function(){
   // Show type picker
   var list=document.getElementById('crm-itens-list');
   var empty=document.getElementById('crm-itens-empty');
@@ -8669,7 +8669,7 @@ function crmItemAdd(){
   list.parentNode.insertBefore(picker,list);
 }
 
-function crmItemCreate(tipo){
+window.crmItemCreate=function(tipo){
   var picker=document.getElementById('crm-type-picker');if(picker)picker.remove();
   var item={
     id:'ci_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
@@ -8694,13 +8694,13 @@ function crmItemCreate(tipo){
   },50);
 }
 
-function crmItemRemove(id){
+window.crmItemRemove=function(id){
   if(!confirm('Remover este item?'))return;
   _crmItens=_crmItens.filter(function(i){return i.id!==id;});
   _crmItensRender();
 }
 
-function crmItemDuplicate(id){
+window.crmItemDuplicate=function(id){
   var orig=_crmItens.find(function(i){return i.id===id;});
   if(!orig)return;
   var copy=JSON.parse(JSON.stringify(orig));
@@ -8709,14 +8709,14 @@ function crmItemDuplicate(id){
   _crmItensRender();
 }
 
-function crmItemToggle(id){
+window.crmItemToggle=function(id){
   // Save current open item data before toggling
   _crmItensSaveFromDOM();
   var el=document.getElementById('crm-item-'+id);
   if(el)el.classList.toggle('open');
 }
 
-function _crmItensSaveFromDOM(){
+window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
     var fields=['qtd','largura','altura','cor_ext','cor_int'];
@@ -8729,7 +8729,7 @@ function _crmItensSaveFromDOM(){
   });
 }
 
-function _crmItensRender(){
+window._crmItensRender=function(){
   var list=document.getElementById('crm-itens-list');
   var empty=document.getElementById('crm-itens-empty');
   if(!list)return;
@@ -8833,7 +8833,7 @@ function _crmItensRender(){
   });
 }
 
-function _crmItensToCardData(){
+window._crmItensToCardData=function(){
   _crmItensSaveFromDOM();
   return _crmItens.map(function(item){
     var clean={id:item.id,tipo:item.tipo,qtd:parseInt(item.qtd)||1,largura:parseInt(item.largura)||0,altura:parseInt(item.altura)||0,cor_ext:item.cor_ext||'',cor_int:item.cor_int||''};
@@ -8848,7 +8848,7 @@ function _crmItensToCardData(){
   });
 }
 
-function _crmItensFromCardData(itens){
+window._crmItensFromCardData=function(itens){
   _crmItens=(itens||[]).map(function(it){
     return Object.assign({},it,{id:it.id||('ci_'+Date.now()+'_'+Math.random().toString(36).substr(2,4))});
   });
