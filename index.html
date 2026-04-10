@@ -5254,6 +5254,12 @@ function newOrcamento(){
   // Hide CRM items bar
   window._orcItens=[];window._orcItemAtual=-1;
   var ibar=document.getElementById('orc-itens-bar');if(ibar)ibar.classList.remove('show');
+  // Show Características da Porta back (for direct orçamento)
+  var _caracBody=document.getElementById('carac-body');
+  var _caracSection=_caracBody?_caracBody.closest('.card'):null;
+  if(_caracSection)_caracSection.style.display='';
+  var _fixoSec=document.getElementById('tem-fixo');
+  if(_fixoSec){var _fs=_fixoSec.closest('.sec');if(_fs)_fs.style.display='';}
 
   if(!confirm('Iniciar novo orçamento? O orçamento atual será salvo automaticamente.')) return;
   // Unlock form
@@ -8698,12 +8704,15 @@ window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
     var fields=['qtd','largura','altura','cor_ext','cor_int'];
-    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador']);
+    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_vert','friso_horiz']);
     if(item.tipo==='fixo') fields=fields.concat(['tipo_vidro','tipo_fixacao']);
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el) item[f]=el.value;
     });
+    // Checkbox fields
+    var _cbAlisar=document.getElementById(pre+'tem_alisar');
+    if(_cbAlisar) item.tem_alisar=_cbAlisar.checked;
   });
 }
 
@@ -8770,6 +8779,24 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"><label>Cilindro</label><select id="'+pre+'cilindro"><option value="">— Selecione —</option><option value="KESO">Keso</option><option value="UDINESE">Udinese</option></select></div>';
       h+='<div class="crm-field"><label>Puxador</label><select id="'+pre+'puxador"><option value="">— Selecione —</option><option value="CAVA">Cava</option><option value="EXTERNO">Puxador Externo</option></select></div>';
       h+='</div>';
+      // Configuração da Cava (para modelos com cava: 01-09, 24, 26)
+      h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">⚙️ Configuração da Cava</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Dist. Borda Cava (mm)</label><input type="number" id="'+pre+'dist_borda_cava" value="'+(item.dist_borda_cava||210)+'" min="50" max="500" placeholder="210"></div>';
+      h+='<div class="crm-field"><label>Largura Cava (mm)</label><input type="number" id="'+pre+'largura_cava" value="'+(item.largura_cava||150)+'" min="50" max="400" placeholder="150"></div>';
+      h+='</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Cantoneira Cava (mm)</label><input type="number" id="'+pre+'cantoneira_cava" value="'+(item.cantoneira_cava||30)+'" min="10" max="60" placeholder="30"></div>';
+      h+='<div class="crm-field"><label>Dist. Borda Friso (mm)</label><input type="number" id="'+pre+'dist_borda_friso" value="'+(item.dist_borda_friso||'')+'" min="0" max="500" placeholder="0"></div>';
+      h+='</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Largura Friso (mm)</label><input type="number" id="'+pre+'largura_friso" value="'+(item.largura_friso||'')+'" min="0" max="100" placeholder="0"></div>';
+      h+='<div class="crm-field"><label>Qtd Frisos Verticais</label><input type="number" id="'+pre+'friso_vert" value="'+(item.friso_vert||0)+'" min="0" max="20"></div>';
+      h+='</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Qtd Frisos Horizontais</label><input type="number" id="'+pre+'friso_horiz" value="'+(item.friso_horiz||0)+'" min="0" max="20"></div>';
+      h+='<div class="crm-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="'+pre+'tem_alisar"'+(item.tem_alisar?' checked':'')+' style="width:14px;height:14px"> Tem Alisar</label></div>';
+      h+='</div>';
     } else if(item.tipo==='fixo'){
       h+='<div class="crm-field"><label>Tipo de Fixação</label><select id="'+pre+'tipo_fixacao"><option value="">— Selecione —</option><option value="LATERAL">Lateral</option><option value="BANDEIRA">Bandeira (superior)</option><option value="INFERIOR">Inferior</option></select></div>';
       h+='</div>';
@@ -8818,6 +8845,9 @@ window._crmItensToCardData=function(){
     if(item.tipo==='porta_pivotante'){
       clean.modelo=item.modelo||'';clean.abertura=item.abertura||'PIVOTANTE';clean.folhas=item.folhas||'1';
       clean.fech_mec=item.fech_mec||'';clean.fech_dig=item.fech_dig||'';clean.cilindro=item.cilindro||'';clean.puxador=item.puxador||'';
+      clean.dist_borda_cava=item.dist_borda_cava||'210';clean.largura_cava=item.largura_cava||'150';clean.cantoneira_cava=item.cantoneira_cava||'30';
+      clean.dist_borda_friso=item.dist_borda_friso||'';clean.largura_friso=item.largura_friso||'';
+      clean.friso_vert=item.friso_vert||'0';clean.friso_horiz=item.friso_horiz||'0';clean.tem_alisar=!!item.tem_alisar;
     }
     if(item.tipo==='fixo'){
       clean.tipo_vidro=item.tipo_vidro||'';clean.tipo_fixacao=item.tipo_fixacao||'';
@@ -8931,6 +8961,13 @@ function orcItensFromCRM(itens, cliente){
   // Auto-select first item
   if(window._orcItens.length > 0){
     setTimeout(function(){ orcItemSelecionar(0); }, 200);
+    // Hide Características da Porta (data comes from CRM items)
+    var _caracBody = document.getElementById('carac-body');
+    var _caracSection = _caracBody ? _caracBody.closest('.card') : null;
+    if(_caracSection) _caracSection.style.display = 'none';
+    // Also hide Fixos Laterais (handled by CRM items)
+    var _fixoSec = document.getElementById('tem-fixo');
+    if(_fixoSec){var _fs=_fixoSec.closest('.sec');if(_fs)_fs.style.display='none';}
   }
 }
 
@@ -9034,6 +9071,15 @@ function orcItemSelecionar(idx){
     if(it.fech_dig) setF('carac-fech-dig', it.fech_dig);
     if(it.cilindro) setF('carac-cilindro', it.cilindro);
     if(it.puxador) setF('carac-puxador', it.puxador);
+    // Cava config
+    if(it.dist_borda_cava) setF('carac-dist-borda-cava', it.dist_borda_cava);
+    if(it.largura_cava) setF('carac-largura-cava', it.largura_cava);
+    if(it.dist_borda_friso) setF('carac-dist-borda-friso', it.dist_borda_friso);
+    if(it.largura_friso) setF('carac-largura-friso', it.largura_friso);
+    if(it.friso_vert) setF('carac-friso-vert', it.friso_vert);
+    if(it.friso_horiz) setF('carac-friso-horiz', it.friso_horiz);
+    var _alisarEl = document.getElementById('carac-tem-alisar');
+    if(_alisarEl) _alisarEl.checked = !!it.tem_alisar;
     if(typeof onModeloChange==='function' && it.modelo) try{onModeloChange();}catch(e){}
   }
   
