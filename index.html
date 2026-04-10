@@ -5325,33 +5325,14 @@ var APROV_RES=null, APROV_CSI=0, APROV_SD={w:1500,h:5000,mg:10};
 function aprovPieces(Lmm,Amm,fol,mod){
   var L=Math.round(Lmm),A=Math.round(Amm);
   var TUB_SUP=A<4000?38:51;
-  var SIS=A<4000?'PA006':'PA007';
-  var REF=20; // CEM: Refilado (default 20mm em FASE=4)
-  // CEM: ALTCHPA = H - FOLGAALT - TUBPORTAL - ESPPIV + TRANSPIV
-  var G4=A-10-TUB_SUP-28+8;
-  // CEM: LARINTQD = L - FOLGALAR - (171.5)*2 (PA007) ou (136.5)*2 (PA006)
-  var _intqd = SIS==='PA007' ? Math.round(L-20-171.5*2) : Math.round(L-20-136.5*2);
-  // CEM: LARCH = L - FOLGALAR - 81.5 - 43.5 (PA007,piv,1flh)
-  var _larch = SIS==='PA007' ? Math.round(L-20-81.5-43.5) : Math.round(L-20-43.5-43.5);
-  // Legacy G3/G2 for backward compat
-  var G3=Math.round(L-20-343+218),G2=Math.round((L-20-343+256)/2);
+  var G4=A-10-TUB_SUP-28+8,G3=Math.round(L-20-343+218),G2=Math.round((L-20-343+256)/2);
   var fW=(fol==2)?G2:G3,bH=G4+116,nL=(fol==2)?4:2,r=[];
   if(mod==='10'||mod==='11'||mod==='15'||mod==='23acm'||mod==='23alu'){
-    // CEM: TAMPA = LARCH+(2*REF)-1 × ALTCHPA
-    if(fol==1)r.push(['TAMPA',_larch+(2*REF)-1,G4,2]);
-    else{r.push(['TAMPA F1',Math.round((_larch-14)/2)+(2*REF)-1,G4,1],['TAMPA F2',Math.round((_larch-14)/2)+(2*REF)-1,G4,2],['TAMPA F3',Math.round((_larch-14)/2)+(2*REF)-1,G4,1]);}
-    // CEM: ACABLA1=70+18.5, ACABLA2=70+REF, ZPORTA=18.5+53.5+13(PA006) ou 18.5+78.5+13(PA007)
-    var _acabla1=70+18.5, _acabla2=70+REF;
-    var _zporta=SIS==='PA007'?(18.5+78.5+13):(18.5+53.5+13);
-    r.push(['ACAB LAT 1',_acabla1,G4,nL],['ACAB LAT 2',_acabla2,G4,nL],['ACAB LAT Z',_zporta,G4,nL]);
-    // CEM: UPORTAL, TAPFUR, FITACABME, FITACABMA, FITACABLAR
-    var _uportal=SIS==='PA006'?(76+2+8-1+(TUB_SUP+4)*2):(102+2+8-1+(TUB_SUP+4)*2);
-    var _tapfur=SIS==='PA006'?(REF+54+REF):(REF+79+REF);
-    var _fitme=REF+26.5+REF+10;  // FOLGALAR/2=10
-    var _fitma=REF+64.5+REF+10;
-    var _fitlar=10+REF+TUB_SUP+REF;  // FOLGAALT+REF+TUB+REF
-    r.push(['U PORTAL',_uportal,L-20,1]);
-    r.push(['TAP FURO',_tapfur,bH+100,4],['FIT ACAB ME',_fitme,bH+100,2],['FIT ACAB MA',_fitma,bH+100,2],['FIT ACAB FITA',_fitlar,bH+100,2]);
+    if(fol==1)r.push(['TAMPA MAIOR',fW+40,G4,2]);
+    else{r.push(['TAMPA F1',G2+32,G4,1],['TAMPA F2',G2+14,G4,2],['TAMPA F3',G2-4,G4,1]);}
+    r.push(['ACAB LAT 1',88.5,G4,nL],['ACAB LAT 2',90,G4,nL],['ACAB LAT Z',110,G4,nL]);
+    r.push(['U PORTAL',221,L-20,1],['BAT 01',42,bH,2],['BAT 02Z',51,bH,2],['BAT 03',81,bH,2]);
+    r.push(['TAP FURO',119,bH,3],['FIT ACAB ME',76.5,bH,2],['FIT ACAB MA',114.5,bH,2],['FIT ACAB FITA',101,bH,2]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT',225,A+150,5],['ALISAR LAR',225,L+300,2]);
     if(mod==='23acm'||mod==='23alu'){var ml=Math.max(0,fW-300),ma=823,mb=Math.max(0,G4-675-ma);
       r.push(['MOLD LAR',143,ml,8],['MOLD ALT1',143,ma,(fol==2)?8:4]);if(mb>50)r.push(['MOLD ALT2',143,mb,(fol==2)?8:4]);}
@@ -5360,30 +5341,15 @@ function aprovPieces(Lmm,Amm,fol,mod){
   }
   if(mod==='01'||mod==='02'||mod==='08'){
     var DC=parseInt($('aprov-dim-cava').value)||150,HC=parseInt($('aprov-h-cava').value)||210;
-    var DISTBORCAV=HC; // CEM: DISTBORCAV = distância borda na cava
-    // CEM: CAVA = (LARCAV+23+23+35+35) × (ALTINTQD-5-5-1-1)
-    var _cavaW=DC+23+23+35+35;
-    var _cavaH=Math.round(_intqd>0?(_intqd-12):G4-12); // ALTINTQD-12 aprox
-    r.push(['CAVA',_cavaW,_cavaH,(fol==2)?4:2]);
-    // CEM: TAMPA CAVA = (LARCAV+90) × 210
-    r.push(['TAMPA CAVA',DC+90,210,4]);
-    // CEM: TAMPA = (LARCH-DISTBORCAV-LARCAV)+(2*REF)-2 × ALTCHPA
-    var _tampaW=Math.round(_larch-DISTBORCAV-DC+(2*REF)-2);
-    if(fol==1)r.push(['TAMPA',_tampaW,G4,2]);
-    else{var _tw2=Math.round(_tampaW/2);r.push(['TAMPA F1',_tw2,G4,1],['TAMPA F2',_tw2,G4,2],['TAMPA F3',_tw2,G4,1]);}
-    // CEM: DIST BOR CAV = DISTBORCAV+(2*REF)-2 × ALTCHPA
-    r.push(['DIST BOR CAV',DISTBORCAV+(2*REF)-2,G4,(fol==2)?4:2]);
-    // CEM: ACABLA, ZPORTA, etc
-    var _acabla1=70+18.5, _acabla2=70+REF;
-    var _zporta=SIS==='PA007'?(18.5+78.5+13):(18.5+53.5+13);
-    r.push(['ACAB LAT 1',_acabla1,G4,nL],['ACAB LAT 2',_acabla2,G4,nL],['ACAB LAT Z',_zporta,G4,nL]);
-    var _uportal=SIS==='PA006'?(76+2+8-1+(TUB_SUP+4)*2):(102+2+8-1+(TUB_SUP+4)*2);
-    var _tapfur=SIS==='PA006'?(REF+54+REF):(REF+79+REF);
-    var _fitme=REF+26.5+REF+10;
-    var _fitma=REF+64.5+REF+10;
-    var _fitlar=10+REF+TUB_SUP+REF;
-    r.push(['U PORTAL',_uportal,L-20,1]);
-    r.push(['TAP FURO',_tapfur,bH+100,4],['FIT ACAB ME',_fitme,bH+100,2],['FIT ACAB MA',_fitma,bH+100,2],['FIT ACAB FITA',_fitlar,bH+100,2]);
+    var cH=Math.max(0,G4-Math.round(HC*1.4));
+    var cavaDeduc=DC+HC+2;
+    r.push(['CAVA',DC+116,cH,(fol==2)?4:2],['TAMPA CAVA',DC+90,HC,4]);
+    if(fol==1)r.push(['TAMPA MAIOR',fW+40-cavaDeduc,G4,2]);
+    else{var G2c=Math.round((fW+40-cavaDeduc)/2);r.push(['TAMPA F1',G2c+19,G4,1],['TAMPA F2',G2c,G4,2],['TAMPA F3',G2c-19,G4,1]);}
+    r.push(['TAMPA BOR CAVA',HC+38,G4,(fol==2)?4:2]);
+    r.push(['ACAB LAT 1',88.5,G4,nL],['ACAB LAT 2',90,G4,nL],['ACAB LAT Z',110,G4,nL]);
+    r.push(['U PORTAL',221,L-20,1],['BAT 01',42,bH,2],['BAT 02Z',51,bH,2],['BAT 03',81,bH,2]);
+    r.push(['TAP FURO',119,bH,3],['FIT ACAB ME',76.5,bH,2],['FIT ACAB MA',114.5,bH,2],['FIT ACAB FITA',101,bH,2]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT',225,A+150,5],['ALISAR LAR',225,L+300,2]);
     if(mod==='02')r.push(['FRISO VERT',100,G4,2],['TAMPA FRISO',39,G4,2]);
     if(mod==='08')r.push(['RIPAS',98,G4,Math.max(1,Math.round((fW-330)/90))*((fol==2)?2:1)]);
@@ -5828,34 +5794,12 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   var LARGURA_CAVA = _cavLargEl ? (parseFloat(_cavLargEl.value) || _cavLargDefault) : _cavLargDefault;
   var TRAV_CAVA = LARGURA_CAVA + _travCavaAdd;  // Travamento da cava = largura cava + 100mm
 
-  // ── TRAV VERT quantidade — LÓGICA CEM PRO ──────────────────────────────
-  // CEM: TRAVER depende do MOD e LARINTQD
-  // Grupo A (MOD=12,18,25 — Lisa/Frisos H/Molduras): base menor
-  // Grupo B (MOD=3,5,10 — Cava/Cava+Friso H/Lisa): base média
-  // Grupo C (MOD=4,6,7 — Cava+Friso V/Cava+Friso V&H): base maior (tem friso)
-  // Default: Grupo B (mesma regra para modelos sem regra específica)
-  var _modInt = parseInt(modeloSel) || 0;
-  var _grpA = [12,18,25].indexOf(_modInt) >= 0;
-  var _grpC = [4,6,7,9,14,15,16].indexOf(_modInt) >= 0;
-  // LARINTQD para determinar travessas (CEM usa LARINTQD, aqui usamos LAR_IS que é equivalente)
-  var _larintqd = LAR_IS;
-  var _travBase;
-  if(_grpA){
-    // Lisa/Molduras: 1 (<1200), 2 (1200-2200), 3 (2200-3200)
-    _travBase = _larintqd < 1200 ? 1 : _larintqd < 2200 ? 2 : 3;
-  } else if(_grpC){
-    // Cava+Friso: 3 (<1600), 4 (1600-2600), 5 (2600-3600)
-    _travBase = _larintqd < 1600 ? 3 : _larintqd < 2600 ? 4 : 5;
-  } else {
-    // Cava/Lisa/Default: 2 (<1600), 3 (1600-2600), 4 (2600-3600)
-    _travBase = _larintqd < 1600 ? 2 : _larintqd < 2600 ? 3 : 4;
-  }
-  // Override manual: se campo TRAVERS foi preenchido, usar ele
-  var _travOverride = _readFriso('carac-friso-vert', -1);
-  if(_travOverride >= 0 && QTY_FRISO_VERT > 0) {
-    // Frisos verticais são separados das travessas
-  }
-  var TRAV_V_QTY_PF = _semModelo ? 0 : _travBase;
+  // ── TRAV VERT quantidade por folha (planilha FORMULAS_PARA_PERFIS) ──────
+  // 1 FOLHA: L<2200=1 | 2201-3000=2 | >3001=3 | com cava: +2
+  // 2 FOLHAS: mesma regra base | com cava: +4
+  var _travBase = L > 3000 ? 3 : L > 2200 ? 2 : 1;
+  var _cavaTravAdd = temCava ? 2 : 0;  // +2 por folha quando cava (1 folha=+2, 2 folhas=+4 total)
+  var TRAV_V_QTY_PF = _semModelo ? 0 : (_travBase + _cavaTravAdd);
   var TRAV_V_QTY    = TRAV_V_QTY_PF * nFolhas;
 
   // Quantidade de frisos: lida manualmente dos inputs (por modelo)
@@ -5905,27 +5849,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   // CANAL ESCOVA: VEDA PORTA + 10
   var CAN_E  = Math.round(VED_IS + 10);
 
-  // REF = Refilado (CEM: default 20mm em FASE=4)
-  var REF = 20;
-
-  // ── CEM: Fórmulas de acabamento portal ───────────────────────────────
-  var ACABLA1 = (sis === 'PA007') ? 70 + 18.5 : 70 + 18.5;
-  var ACABLA2 = 70 + REF;
-  var ZPORTA  = (sis === 'PA006') ? (18.5+53.5+13) : (18.5+78.5+13);
-  var UPORTAL = (sis === 'PA006') ? (76+2+8-1+(TUB+4)*2) : (102+2+8-1+(TUB+4)*2);
-  var TAPFUR  = (sis === 'PA006') ? (REF+54+REF) : (REF+79+REF);
-  var FITACABME  = REF + 26.5 + REF + (FGL/2);
-  var FITACABMA  = REF + 64.5 + REF + (FGL/2);
-  var FITACABLAR = FGA + REF + TUB + REF;
-  var ALTPORTAL  = Math.round(H - FGA - TUB - 4);  // CEM: H-FOLGAALT-TUBPORTAL-4+SOLE
-  // Armazenar para uso em chapas
-  window._cemVars = {REF:REF, ACABLA1:ACABLA1, ACABLA2:ACABLA2, ZPORTA:ZPORTA,
-    UPORTAL:UPORTAL, TAPFUR:TAPFUR, FITACABME:FITACABME, FITACABMA:FITACABMA,
-    FITACABLAR:FITACABLAR, ALTPORTAL:ALTPORTAL, ALTCHPA:PA_F, LARINTQD:LAR_IS,
-    LARCH: Math.round(L - FGL - FGR - (sis==='PA007'?81.5:43.5) - 43.5)};
-
-  // TRA HOR MEIO: CEM usa VAOTRAV/(TRAVER-1) para modelos com cava+friso
-  // Simplificado: para MOD básicos = LAR INF & SUP
+  // TRA HOR MEIO = LAR INF & SUP (mesma fórmula da planilha)
   var TRA_HM = LAR_IS;
 
   // FRISO HORIZ: mesmo comprimento que LAR INF & SUP
@@ -5940,9 +5864,9 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   // TRA PORTAL (OLHAL): LARGURA - FGLD - FGLE - 46.5 - 46.5
   var TRA_PO = Math.round(L - FGL - FGR - 46.5 - 46.5);
 
-  // VEDA PORTA (componente — CEM: por LARFINAL que é VED_IS = LARINTQD+110+110)
-  var LARFINAL_CEM = VED_IS;  // CEM: LARFINAL = LARINTQD+110+110 para 1 folha
-  var VEDA_SIZE    = Math.max(720, (Math.ceil((LARFINAL_CEM - 620) / 100) * 100) + 620);
+  // VEDA PORTA (componente — borracha de vedação, não perfil)
+  var FOLHA_PA_PA  = L - FGL - FGR - 125;
+  var VEDA_SIZE    = Math.max(720, (Math.ceil((FOLHA_PA_PA - 620) / 100) * 100) + 620);
   var VEDA_CODE    = 'PA-VED' + VEDA_SIZE;
   var VEDA_QTY     = nFolhas === 2 ? 4 : 2;
 
@@ -5976,8 +5900,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     // PORTAL
     {code:C.lar_portal,  desc:'LAR PORTAL',    compMM:LAR_PO,        qty:1,             pintado:false,secao:'PORTAL',barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
     {code:C.alt_portal+'-'+paPBarLen/1000+'M',desc:'ALT PORTAL',     compMM:PA_P,       qty:2,         pintado:true, secao:'PORTAL',barLenMM:paPBarLen, lh:'90/90 A', obs:'BNF-TECNO'},
-    // TRA PORTAL qty: CEM = 2(H<3500), 3(3500-5000), 4(5000-6000), 5(6000-8000)
-    {code:C.tra_portal,  desc:'TRA PORTAL',    compMM:TRA_PO,        qty:(PA_F<3500?2:PA_F<5000?3:PA_F<6000?4:5), pintado:false,secao:'PORTAL',barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
+    {code:C.tra_portal,  desc:'TRA PORTAL',    compMM:TRA_PO,        qty:3,             pintado:false,secao:'PORTAL',barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
   ];
 
   cuts.forEach(function(c){c.perf=getPerf(c.code);c.kgM=c.perf?c.perf.kg:0;});
@@ -6005,8 +5928,6 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     if(has7M)       c.barLenMM=7000;
     else if(has8M)  c.barLenMM=8000;
     else            c.barLenMM=6000; // TODOS os outros = 6m fixo
-    // CEM: emenda automática quando corte > 5950mm (para perfis de 6m)
-    // Perfis PA007F/P de 7m e 8m: emenda quando > usable
     var usable = c.barLenMM-10;
     c.isSplit = c.compMM > usable;
     if(c.isSplit){
@@ -6906,15 +6827,6 @@ function gerarOS(){
 
   // ── Padrões de Cortes ─────────────────────────────────────────────────────
     window._lastPadroesHTML = _renderPadroesContent(d, 9);
-  // Store CEM calculated variables for components
-  d.cemVars = window._cemVars || {};
-  d.TRAVER = TRAV_V_QTY_PF;  // travessas verticais por folha
-  d.TRAHOR = N_H;             // travessas horizontais
-  d.LARFINAL = VED_IS;        // largura final porta
-  d.LARINTQD = LAR_IS;        // largura interna quadro
-  d.ALTCHPA = PA_F;            // altura da chapa
-  d.ALTINTQD = TRAV_V;        // altura interna quadro
-  d.REF = 20;                  // refilado
   window._lastOSData = d; // store for weight recalc
 
   // ── Atualizar aba OS Acessórios ───────────────────────────────────────────
@@ -14847,45 +14759,6 @@ function _calcAcessoriosOS(d, nFolhas, sis){
   var rows=[];
   var H = parseFloat((document.getElementById('altura')||{value:0}).value)||0;
   var L = parseFloat((document.getElementById('largura')||{value:0}).value)||0;
-  var TRAVER = d.TRAVER || 3;
-  var TRAHOR = d.TRAHOR || Math.floor(H/1000);
-  var REF = d.REF || 20;
-  var ALTCHPA = d.ALTCHPA || H;
-  var LARINTQD = d.LARINTQD || L;
-  var ALTINTQD = d.ALTINTQD || H;
-  var LARFINAL = d.LARFINAL || L;
-
-  // ── CEM: DOWSIL 995 — quantidade por fórmula de perímetro ──────────
-  var _dowsilPerimetro = ((H*8 + L*8) + (H*TRAVER) + (L*TRAHOR)) / 1000;
-  var _dowsilQty = Math.ceil(_dowsilPerimetro / 15);  // 15ml por sachê de 591ml ≈ 39 aplicações
-  if(_dowsilQty < 1) _dowsilQty = 1;
-  rows.push({qty:_dowsilQty, code:'PA-DOWSIL 995 EST SH', desc:'Dowsil 995 Preto Sachê 591ml — CEM fórmula', preco:getPreco('PA-DOWSIL 995 EST SH'), apl:'FAB', grp:'SILICONE', obs:'ESTRUTURAL PORTA & PORTAL'});
-
-  // ── CEM: FITA DUPLA FACE 19mm — por perímetro ─────────────────────
-  var _fitaPerimetro = ((H*8 + L*8)) / 1000;
-  var _fita19Qty = Math.ceil(_fitaPerimetro / 20);
-  if(_fita19Qty < 1) _fita19Qty = 1;
-  rows.push({qty:_fita19Qty, code:'PA-FITDF 19X20X1.0', desc:'Fita Dupla Face 19mm × 20m', preco:getPreco('PA-FITDF 19X20X1.0'), apl:'FAB', grp:'FITAS', obs:'FITA DF 19'});
-  rows.push({qty:1, code:'PA-FITDF 12X20X1.0', desc:'Fita Dupla Face 12mm × 20m', preco:getPreco('PA-FITDF 12X20X1.0'), apl:'FAB', grp:'FITAS', obs:'FITA DF 12'});
-
-  // ── CEM: PARAFUSOS ENCHIMENTO — por fórmula PARAREVEST ─────────────
-  var _pararevest = Math.ceil(((H/300)+1)*4 + ((L/300)+1)*4 + (2*TRAVER*((ALTINTQD/300)+1)) + (2*(ALTINTQD/300)+1));
-  if(_pararevest < 10) _pararevest = 10;
-  rows.push({qty:_pararevest, code:'PA-CHA AA PHS 4,2X19', desc:'Parafuso Enchimento 4.2×19 — CEM fórmula', preco:getPreco('PA-CHA AA PHS 4,2X19'), apl:'FAB', grp:'PARAFUSOS', obs:'PARAFUSO ENCHIMENTO'});
-
-  // ── CEM: PRIMER ────────────────────────────────────────────────────
-  rows.push({qty:0.5, code:'PA-PRIMER', desc:'Primer Fita Dupla Face VHB 940ml', preco:getPreco('PA-PRIMER'), apl:'FAB', grp:'PRIMER', obs:'PRIMER FABRICA'});
-
-  // ── CEM: ISOPOR PORTAL — por perímetro ─────────────────────────────
-  var _isopCode = (sis==='PA007' || d.sis==='PA007') ? 'PA-ISOPOR 125' : 'PA-ISOPOR 115';
-  var _isopQty = Math.ceil((H*2 + L*2 + H*2 + L) / 1000);  // porta + portal
-  rows.push({qty:_isopQty, code:_isopCode, desc:'EPS Canaleta U — Isopor', preco:getPreco(_isopCode), apl:'FAB', grp:'ISOPOR', obs:'ISOPOR PORTA & PORTAL'});
-
-  // ── CEM: Q-LON 48800 + 48750 ──────────────────────────────────────
-  var _qlonQty = nFolhas === 2 ? 3 : 2;  // CEM: 2 alturas por folha (1flh=2, 2flh=3)
-  var _qlonLen = Math.ceil(ALTCHPA / 1000);  // metros por peça
-  rows.push({qty:_qlonQty*_qlonLen, code:'PA-QL 48800', desc:'Q-Lon 48 800 Preta Flipper Seal', preco:getPreco('PA-QL 48800'), apl:'FAB', grp:'QLON', obs:'Q-LON 48800'});
-  rows.push({qty:_qlonQty*_qlonLen, code:'PA-QL 48750', desc:'Q-Lon 48 750 Preta R-600', preco:getPreco('PA-QL 48750'), apl:'FAB', grp:'QLON', obs:'Q-LON 48750'});
 
   // ── FABRICAÇÃO — FECHADURA KESO ────────────────────────────────────────────
   var fechTipo = (document.getElementById('carac-fech-mec')||{value:''}).value||'';
@@ -14895,53 +14768,10 @@ function _calcAcessoriosOS(d, nFolhas, sis){
     if(fech.code) rows.push({qty:1*nFolhas,code:fech.code,desc:'Fechadura '+fechTipo+' KESO — maior valor',preco:fech.preco,apl:'FAB',grp:'FECHADURAS',obs:'FECHADURA'});
   }
 
-  // ── FABRICAÇÃO — CONTRA-TESTA (CEM: por FECHMEC) ───────────────────
-  if(fechTipo){
-    // Contra-testa principal: 1 por folha
-    rows.push({qty:1*nFolhas, code:'PA-KESO CRT 4P RT CR', desc:'Contra-testa Inox Furo Oblongo 04 Pinos', preco:getPreco('PA-KESO CRT 4P RT CR'), apl:'OBRA', grp:'CONTRA-TESTA', obs:'CONTRA TESTA'});
-
-    // Parafusos contra-testa: CEM = 4(04P), 8(08P), 12(12P), 16(16P), 24(24P)
-    var _parCTMap = {'04 PINOS':4, '08 PINOS':8, '12 PINOS':12, '16 PINOS':16, '24 PINOS':24};
-    var _parCTQty = _parCTMap[fechTipo] || 12;
-    rows.push({qty:_parCTQty*nFolhas, code:'PA-CHAAA PHS 35X20', desc:'Parafusos Contra-testa 35x20mm', preco:getPreco('PA-CHAAA PHS 35X20'), apl:'OBRA', grp:'PARAFUSOS', obs:'PARAFUSO CONTRA TESTA'});
-
-    // Contra-testas auxiliares: CEM = 0(04P), 1(08P), 2(12P), 3(16P), 5(24P)
-    var _crtAuxMap = {'04 PINOS':0, '08 PINOS':1, '12 PINOS':2, '16 PINOS':3, '24 PINOS':5};
-    var _crtAuxQty = _crtAuxMap[fechTipo] || 0;
-    if(_crtAuxQty > 0){
-      rows.push({qty:_crtAuxQty*nFolhas, code:'PA-KESO CRT AUX CR', desc:'Contra-testa Auxiliar Inox', preco:getPreco('PA-KESO CRT AUX CR'), apl:'OBRA', grp:'CONTRA-TESTA', obs:'AUXILIAR CONTRATESTA'});
-    }
-
-    // Caixeta principal: CEM = 1 por folha (se fechmec != sem)
-    rows.push({qty:1*nFolhas, code:'PA-KESO CXT 4P', desc:'Caixeta Acabamento Fechadura Rolete 04 Pinos', preco:getPreco('PA-KESO CXT 4P'), apl:'OBRA', grp:'CAIXETA', obs:'CAIXETA PRINCIPAL'});
-
-    // Caixetas auxiliares: CEM = 0(04P), 1(08P), 2(12P), 3(16P), 5(24P)
-    var _cxtAuxQty = _crtAuxMap[fechTipo] || 0;
-    if(_cxtAuxQty > 0){
-      rows.push({qty:_cxtAuxQty*nFolhas, code:'PA-KESO CXT AUX', desc:'Caixeta Acabamento Auxiliares', preco:getPreco('PA-KESO CXT AUX'), apl:'OBRA', grp:'CAIXETA', obs:'CAIXETA AUXILIAR'});
-    }
-  }
-
   // ── FABRICAÇÃO — ROSETA KESO ───────────────────────────────────────────────
   if(fechTipo){
     var ros = maxPrecoByPrefix('PA-KESO ROS');
     if(ros.code) rows.push({qty:2*nFolhas,code:ros.code,desc:'Roseta KESO — maior valor',preco:ros.preco,apl:'FAB',grp:'FECHADURAS',obs:'ROSETA'});
-  }
-
-  // ── FABRICAÇÃO — LINGUETA KESO (CEM: por SIS) ──────────────────────
-  if(fechTipo){
-    var _linguetaCode = (sis==='PA007'||d.sis==='PA007') ? 'PA-KESODOB 40 BL' : 'PA-KESODOB 30 BL';
-    var _linguetaDesc = (sis==='PA007'||d.sis==='PA007') ? 'Lingueta KESO 40mm Preto' : 'Lingueta KESO 30mm Preto';
-    rows.push({qty:1*nFolhas, code:_linguetaCode, desc:_linguetaDesc, preco:getPreco(_linguetaCode), apl:'OBRA', grp:'FECHADURAS', obs:'LINGUETA'});
-  }
-
-  // ── FABRICAÇÃO — DOBRADIÇAS (CEM: TIPABERT=4) ──────────────────────
-  var _abertura = (document.getElementById('carac-abertura')||{value:''}).value||'';
-  if(_abertura.toUpperCase().indexOf('DOBRA') >= 0){
-    var _numDob = 4;  // CEM: NUMDOB default
-    if(H > 3000) _numDob = 5;
-    if(H > 4000) _numDob = 6;
-    rows.push({qty:_numDob*nFolhas, code:'PA-DOBKESO 4X3X3 PRE', desc:'Dobradiça KESO 4x3x3 Preta', preco:getPreco('PA-DOBKESO 4X3X3 PRE'), apl:'FAB', grp:'DOBRADICAS', obs:'DOBRADIÇA'});
   }
 
   // ── FABRICAÇÃO — CILINDRO (KESO ou UDINESE) ───────────────────────────────
@@ -15232,66 +15062,6 @@ function _calcAcessoriosOS(d, nFolhas, sis){
   }catch(efx){
     window._lastFixosAcessRows=[]; window._lastFixosPerfisRows=[]; window._lastFixosM2Chapa=0;
     console.warn('fixos calc error', efx);
-  }
-
-  // ── OBRA — TEDEE COMPONENTES (CEM: por FECHDIG) ────────────────────
-  var _fechDig = (document.getElementById('carac-fech-dig')||{value:''}).value||'';
-  if(_fechDig && _fechDig.toUpperCase().indexOf('TEDEE') >= 0){
-    rows.push({qty:1, code:'PA-TEDEE-BRIDGE', desc:'Tedee Bridge TBV1.0 WiFi', preco:getPreco('PA-TEDEE-BRIDGE'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'FECHADURA DIGITAL'});
-    rows.push({qty:1, code:'PA-TEDEE-FEC-PT', desc:'Tedee Lock PRO Homekit Preta', preco:getPreco('PA-TEDEE-FEC-PT'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'FECHADURA DIGITAL'});
-    rows.push({qty:1, code:'PA-TEDEE-TEC-PT', desc:'Tedee Keypad PRO Teclado Biométrico', preco:getPreco('PA-TEDEE-TEC-PT'), apl:'OBRA', grp:'TECLADO', obs:'TECLADO TEDEE'});
-    rows.push({qty:1, code:'PA - PILHA AAA 4X', desc:'Pacote Pilha AA 4 unidades', preco:getPreco('PA - PILHA AAA 4X'), apl:'OBRA', grp:'PILHA', obs:'PILHA PARA TEDEE'});
-  }
-
-  // ── OBRA — NUKI COMPONENTES (CEM: FECHDIG=8) ─────────────────────
-  if(_fechDig && _fechDig.toUpperCase().indexOf('NUKI') >= 0){
-    rows.push({qty:1, code:'PA-NUKI-FEC-BL', desc:'Nuki Smart Lock Preto', preco:getPreco('PA-NUKI-FEC-BL'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'FECHADURA DIGITAL'});
-    rows.push({qty:1, code:'PA-NUKI-TEC-BL', desc:'Nuki Keypad Teclado Preto', preco:getPreco('PA-NUKI-TEC-BL'), apl:'OBRA', grp:'TECLADO', obs:'TECLADO NUKI'});
-    rows.push({qty:1, code:'PA-NUKI-BRI', desc:'Nuki Bridge WiFi', preco:getPreco('PA-NUKI-BRI'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'BRIDGE NUKI'});
-    rows.push({qty:2, code:'PA-NUKISUPORTE', desc:'Nuki Suporte Montagem', preco:getPreco('PA-NUKISUPORTE'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'SUPORTE NUKI'});
-    rows.push({qty:1, code:'PA-NUKIBATERIA', desc:'Nuki Bateria Recarregável', preco:getPreco('PA-NUKIBATERIA'), apl:'OBRA', grp:'FECHADURA DIGITAL', obs:'BATERIA NUKI'});
-  }
-
-  // ── CEM: COMPONENTES DE OBRA (instalação) ──────────────────────────
-  rows.push({qty:0.5, code:'PA-PRIMER', desc:'Primer Fita Dupla Face VHB 940ml', preco:getPreco('PA-PRIMER'), apl:'OBRA', grp:'PRIMER', obs:'PRIMER OBRA'});
-
-  // High Tack: CEM = 2(H<4000), 3(4000-6000), 5(6000-8000)
-  var _htQty = H < 4000 ? 2 : H < 6000 ? 3 : 5;
-  rows.push({qty:_htQty, code:'PA-HIGHTACK BR', desc:'Fix All High Tack Branco 290ml', preco:getPreco('PA-HIGHTACK BR'), apl:'OBRA', grp:'MS', obs:'MS OBRA'});
-
-  // Espuma expansiva: CEM = 1(H<4000), 2(4000-6000), 3(6000-8000)
-  var _espQty = H < 4000 ? 1 : H < 6000 ? 2 : 3;
-  rows.push({qty:_espQty, code:'PA-ESPUMA EXP GUN', desc:'Soudafoam Gun 750ml Espuma PU Expansiva', preco:getPreco('PA-ESPUMA EXP GUN'), apl:'OBRA', grp:'ESPUMA', obs:'ESP EXP'});
-
-  // Buchas pivô: CEM = 12 fixo
-  rows.push({qty:12, code:'PA-BUCHA 06', desc:'Duopower 6 SC1500', preco:getPreco('PA-BUCHA 06'), apl:'OBRA', grp:'BUCHAS', obs:'BUC FISHER PIVO'});
-
-  // Buchas portal: CEM = (H/300)*2 (tipo fixação PAR&BCH)
-  var _buchaPortalQty = Math.ceil((H/300)) * 2;
-  rows.push({qty:_buchaPortalQty, code:'PA-BUCHA 08', desc:'Duopower 8 SC750', preco:getPreco('PA-BUCHA 08'), apl:'OBRA', grp:'BUCHAS', obs:'BUC FISHER PORTAL'});
-
-  // Parafusos sextavados portal: mesma qty que buchas
-  rows.push({qty:_buchaPortalQty, code:'PA-PAR SOB M6X65', desc:'Sext Sob M6×65 DIN 571 A2', preco:getPreco('PA-PAR SOB M6X65'), apl:'OBRA', grp:'PARAFUSOS', obs:'PAR SEXT'});
-
-  // Parafusos pivô: CEM = 12 fixo
-  rows.push({qty:12, code:'PA-CHA AA PHS 4,8X50', desc:'Chata AA PHS 4.8×50 DIN 7982 A2', preco:getPreco('PA-CHA AA PHS 4,8X50'), apl:'OBRA', grp:'PARAFUSOS', obs:'PAR PIVO'});
-
-  // Escovinha: CEM = 4×(LARCH+10)/1000 para SIS=7, 2× para SIS=6
-  var _larch = (window._cemVars && window._cemVars.LARCH) || Math.round(L - 125);
-  var _escQty = (sis==='PA007' || d.sis==='PA007') ? 4 : 2;
-  var _escMt = Math.ceil((_larch + 10) * _escQty / 1000);
-  rows.push({qty:_escMt, code:'PA-FITA VED 5X20', desc:'Escovinha Veda Frestas 5×20', preco:getPreco('PA-FITA VED 5X20'), apl:'OBRA', grp:'ESCOVINHA', obs:'ESCOVINHA'});
-
-  // ── FABRICAÇÃO — FECHO UNHA + CREMONA (CEM: 2 folhas) ──────────────
-  if(nFolhas >= 2){
-    if(H < 4000){
-      rows.push({qty:2, code:'PA-FECHUNHA', desc:'Fecho Unha para 2 folhas', preco:getPreco('PA-FECHUNHA'), apl:'FAB', grp:'FECHOS', obs:'FECHO UNHA'});
-      rows.push({qty:2, code:'9002082', desc:'Roldana Fecho Unha', preco:getPreco('9002082'), apl:'FAB', grp:'FECHOS', obs:'ROLDANA'});
-    } else {
-      rows.push({qty:1, code:'PA-FECHUNHA', desc:'Fecho Unha para 2 folhas', preco:getPreco('PA-FECHUNHA'), apl:'FAB', grp:'FECHOS', obs:'FECHO UNHA'});
-      rows.push({qty:1, code:'PA-CREMONA MAGNETICA', desc:'Cremona Magnética', preco:getPreco('PA-CREMONA MAGNETICA'), apl:'FAB', grp:'FECHOS', obs:'CREMONA'});
-      rows.push({qty:1, code:'9002082', desc:'Roldana Fecho Unha', preco:getPreco('9002082'), apl:'FAB', grp:'FECHOS', obs:'ROLDANA'});
-    }
   }
 
   // ── Acessórios do Quadro Fixo — juntar com FABRICAÇÃO ──────────────────────
