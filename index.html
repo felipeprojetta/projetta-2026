@@ -743,6 +743,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   <button class="main-tab" onclick="switchTab('os-acess')" id="btn-tab-os-acess">Levantamento de Acessórios</button>
   <button class="main-tab" onclick="switchTab('planificador')" id="btn-tab-plan">Levantamento de Superfícies</button>
   <button class="main-tab" onclick="switchTab('relatorios')" id="btn-tab-rel">Relatórios</button>
+  <button class="main-tab" onclick="switchTab('ia')" id="btn-tab-ia" style="background:linear-gradient(135deg,#8e44ad,#3498db);color:#fff;border-radius:8px;font-weight:800">🤖 IA Levantamento</button>
 </div>
 
 <!-- TAB: ORCAMENTO -->
@@ -3237,6 +3238,60 @@ Equipe Projetta by Weiku</textarea>
 </div><!-- close tab-os -->
 
 <!-- TAB: RELATÓRIOS -->
+<!-- ═══ ABA IA LEVANTAMENTO ══════════════════════════════════════ -->
+<div class="tab-panel" id="tab-ia">
+  <div style="max-width:800px;margin:0 auto;padding:16px">
+    <div style="background:linear-gradient(135deg,#8e44ad,#3498db);color:#fff;padding:16px 20px;border-radius:12px;margin-bottom:16px">
+      <div style="font-size:18px;font-weight:800">🤖 IA para Levantamento Automático</div>
+      <div style="font-size:12px;opacity:.8;margin-top:4px">Envie uma planta, desenho, medição ou lista e a IA interpreta e gera os itens da proposta automaticamente</div>
+    </div>
+
+    <!-- Upload de imagem -->
+    <div style="border:2px dashed #8e44ad;border-radius:10px;padding:20px;text-align:center;margin-bottom:12px;background:#faf5ff;cursor:pointer" onclick="document.getElementById('ia-file-input').click()" id="ia-drop-zone">
+      <div style="font-size:32px;margin-bottom:8px">📷</div>
+      <div style="font-size:13px;font-weight:700;color:#8e44ad">Clique ou arraste uma imagem aqui</div>
+      <div style="font-size:11px;color:#888;margin-top:4px">Planta baixa, croqui, medição, planilha, foto da obra</div>
+      <input type="file" id="ia-file-input" accept="image/*,.pdf" style="display:none" onchange="_iaFileSelected(this)">
+      <div id="ia-img-preview" style="display:none;margin-top:12px"><img id="ia-img-thumb" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid #ddd"></div>
+    </div>
+
+    <!-- Texto livre -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px">OU cole o texto do levantamento / medição:</div>
+      <textarea id="ia-texto" rows="5" placeholder="Ex: Porta cava 1200x2400 qty 2 com fixo esquerdo 400mm&#10;Porta ripado 1000x2100 qty 1&#10;&#10;Ou cole dados de uma planilha, e-mail, lista de medidas..." style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font-size:12px;font-family:inherit;resize:vertical"></textarea>
+    </div>
+
+    <!-- Contexto adicional -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px">Contexto adicional (opcional):</div>
+      <input type="text" id="ia-contexto" placeholder="Ex: todas portas modelo cava, cor bone white, com fechadura KESO 08 pinos" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:12px;font-family:inherit">
+    </div>
+
+    <!-- Botão Analisar -->
+    <button onclick="_iaAnalisar()" id="ia-btn-analisar" style="width:100%;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#8e44ad,#3498db);color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:16px">
+      🤖 Analisar com IA
+    </button>
+
+    <!-- Loading -->
+    <div id="ia-loading" style="display:none;text-align:center;padding:20px">
+      <div style="font-size:24px;animation:pulse 1.5s infinite">🤖</div>
+      <div style="font-size:13px;font-weight:700;color:#8e44ad;margin-top:8px">Analisando... aguarde</div>
+    </div>
+
+    <!-- Resultado -->
+    <div id="ia-resultado" style="display:none">
+      <div style="font-size:12px;font-weight:800;color:#8e44ad;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📋 Itens Identificados pela IA</div>
+      <div id="ia-resultado-body" style="border:1px solid #ddd;border-radius:8px;overflow:hidden;margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="_iaAdicionarTodos()" style="flex:1;padding:10px;border-radius:8px;border:none;background:#27ae60;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✅ Adicionar Todos ao Orçamento</button>
+        <button onclick="_iaLimpar()" style="padding:10px 16px;border-radius:8px;border:1px solid #e74c3c;color:#e74c3c;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#fff">✕ Limpar</button>
+      </div>
+      <div id="ia-raw" style="display:none;margin-top:12px;border:1px solid #eee;border-radius:8px;padding:10px;font-size:10px;color:#888;background:#f9f9f9;max-height:200px;overflow-y:auto"></div>
+      <button onclick="document.getElementById('ia-raw').style.display=document.getElementById('ia-raw').style.display==='none'?'':'none'" style="margin-top:6px;background:none;border:none;color:#aaa;font-size:10px;cursor:pointer;font-family:inherit">ver resposta bruta da IA</button>
+    </div>
+  </div>
+</div>
+
 <div class="tab-panel" id="tab-relatorios">
 <div style="max-width:1520px;margin:0 auto;padding:14px 20px 60px">
 <div class="card">
@@ -15291,6 +15346,190 @@ function gerarRelatorioProducao(){
   w.document.close();
   setTimeout(function(){w.print();},500);
 }
+/* ══ IA LEVANTAMENTO AUTOMÁTICO ═══════════════════════════════════ */
+window._iaImageB64=null;
+window._iaItens=[];
+
+function _iaFileSelected(input){
+  if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    window._iaImageB64=e.target.result;
+    var thumb=document.getElementById('ia-img-thumb');
+    var prev=document.getElementById('ia-img-preview');
+    if(thumb&&prev){thumb.src=e.target.result;prev.style.display='';}
+  };
+  reader.readAsDataURL(file);
+}
+
+async function _iaAnalisar(){
+  var texto=(document.getElementById('ia-texto')||{value:''}).value.trim();
+  var contexto=(document.getElementById('ia-contexto')||{value:''}).value.trim();
+  var imgB64=window._iaImageB64;
+
+  if(!texto&&!imgB64){alert('Envie uma imagem ou cole um texto para a IA analisar.');return;}
+
+  var btn=document.getElementById('ia-btn-analisar');
+  var loading=document.getElementById('ia-loading');
+  var resultado=document.getElementById('ia-resultado');
+  btn.disabled=true;btn.textContent='⏳ Analisando...';
+  loading.style.display='';resultado.style.display='none';
+
+  var sysPrompt='Você é um especialista em levantamento de medidas para fábricas de portas e esquadrias. '
+    +'Analise a imagem ou texto fornecido e extraia TODOS os itens de portas/esquadrias. '
+    +'Para cada item extraia: modelo (cava, lisa, ripado, etc.), largura (mm), altura (mm), quantidade, '
+    +'se tem fixo (esquerdo/direito/ambos), largura do fixo, abertura (esquerda/direita), '
+    +'cor externa, cor interna, observações. '
+    +'Se não conseguir determinar algum campo, use "—" como valor. '
+    +'RESPONDA APENAS em JSON, sem markdown, sem explicação, formato: '
+    +'[{"modelo":"01","modeloTxt":"Cava","largura":1200,"altura":2400,"qtd":2,"folhas":1,'
+    +'"abertura":"direita","temFixo":true,"fixoLado":"esquerdo","fixoLarg":400,'
+    +'"corExt":"BONE WHITE","corInt":"BONE WHITE","obs":""}] '
+    +'Modelos disponíveis: 01=Cava, 02=Cava+1FrisoVert, 03=Cava+2FrisoHoriz, 08=Cava+Ripado, '
+    +'10=PuxadorExterno Lisa, 15=PuxadorExterno+Ripado, 22=CavaPremium, 24=CavaHorizontal. '
+    +'Se o texto mencionar "cava" use modelo 01, "ripado" use 08, "lisa" use 10. '
+    +(contexto?'Contexto adicional do usuário: '+contexto:'');
+
+  var userContent=[];
+  if(imgB64){
+    var mtype=imgB64.indexOf('data:image/png')===0?'image/png':'image/jpeg';
+    var b64data=imgB64.split(',')[1];
+    userContent.push({type:'image',source:{type:'base64',media_type:mtype,data:b64data}});
+  }
+  var textMsg='Analise e extraia os itens de portas/esquadrias.';
+  if(texto) textMsg+='\n\nTexto do levantamento:\n'+texto;
+  if(contexto) textMsg+='\n\nContexto: '+contexto;
+  userContent.push({type:'text',text:textMsg});
+
+  try{
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:2000,
+        system:sysPrompt,
+        messages:[{role:'user',content:userContent}]
+      })
+    });
+    var data=await resp.json();
+    var rawText=data.content?data.content.map(function(c){return c.text||'';}).join(''):'';
+    document.getElementById('ia-raw').textContent=rawText;
+
+    // Parse JSON
+    var clean=rawText.replace(/```json|```/g,'').trim();
+    var itens=JSON.parse(clean);
+    window._iaItens=itens;
+    _iaRenderResultado(itens);
+  }catch(e){
+    console.error('IA error:',e);
+    alert('Erro na análise: '+e.message+'\nVerifique o console para detalhes.');
+  }finally{
+    btn.disabled=false;btn.textContent='🤖 Analisar com IA';
+    loading.style.display='none';
+  }
+}
+
+function _iaRenderResultado(itens){
+  var body=document.getElementById('ia-resultado-body');
+  var res=document.getElementById('ia-resultado');
+  if(!itens||!itens.length){
+    body.innerHTML='<div style="padding:16px;text-align:center;color:#888">Nenhum item identificado. Tente uma imagem mais clara ou adicione texto.</div>';
+    res.style.display='';return;
+  }
+  var html='<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  html+='<thead><tr style="background:#f0f4f6">';
+  html+='<th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center;width:30px">#</th>';
+  html+='<th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:left">Modelo</th>';
+  html+='<th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">L×A (mm)</th>';
+  html+='<th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">Qtd</th>';
+  html+='<th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">Fixo</th>';
+  html+='<th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">Abertura</th>';
+  html+='<th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:left">Obs</th>';
+  html+='</tr></thead><tbody>';
+  itens.forEach(function(it,i){
+    var bg=i%2===0?'#fff':'#f9f8f5';
+    var fixoTxt=it.temFixo?(it.fixoLado||'sim')+(it.fixoLarg?' '+it.fixoLarg+'mm':''):'—';
+    html+='<tr style="background:'+bg+'">';
+    html+='<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-weight:700;color:#8e44ad">'+(i+1)+'</td>';
+    html+='<td style="padding:5px 8px;border-bottom:0.5px solid #eee;font-weight:600">'+(it.modeloTxt||it.modelo||'—')+'</td>';
+    html+='<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-weight:700">'+(it.largura||'—')+' × '+(it.altura||'—')+'</td>';
+    html+='<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-weight:800;color:#e67e22;font-size:13px">'+(it.qtd||1)+'</td>';
+    html+='<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-size:10px">'+fixoTxt+'</td>';
+    html+='<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:center;font-size:10px">'+(it.abertura||'—')+'</td>';
+    html+='<td style="padding:5px 8px;border-bottom:0.5px solid #eee;font-size:10px;color:#888">'+(it.obs||'—')+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  body.innerHTML=html;
+  res.style.display='';
+}
+
+function _iaAdicionarTodos(){
+  if(!window._iaItens||!window._iaItens.length){alert('Nenhum item para adicionar.');return;}
+  var nomes=_getModelosNomes();
+  window._iaItens.forEach(function(it){
+    var code=it.modelo||'01';
+    var nome=nomes[code]||it.modeloTxt||'Modelo '+code;
+    window._mpItens.push({
+      id:'mp_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
+      modelo:code, modeloTxt:code+' - '+nome,
+      largura:parseInt(it.largura)||1200,
+      altura:parseInt(it.altura)||2400,
+      folhas:parseInt(it.folhas)||1,
+      qtd:parseInt(it.qtd)||1,
+      abertura:it.abertura||'direita',
+      temFixo:!!it.temFixo,
+      fixos:it.temFixo?[{lado:it.fixoLado||'esquerdo',largura:parseInt(it.fixoLarg)||400,altura:parseInt(it.altura)||2400}]:null,
+      corExt:it.corExt||'',corInt:it.corInt||''
+    });
+  });
+  _mpRender();
+  // Preencher primeiro item no formulário
+  if(window._mpItens.length>0){
+    var first=window._mpItens[0];
+    document.getElementById('largura').value=first.largura;
+    document.getElementById('altura').value=first.altura;
+    document.getElementById('qtd-portas').value='1';
+    var modEl=document.getElementById('carac-modelo');
+    if(modEl){for(var i=0;i<modEl.options.length;i++){if(modEl.options[i].value===first.modelo){modEl.selectedIndex=i;break;}}}
+    ['largura','altura'].forEach(function(id){var el=document.getElementById(id);if(el)el.dispatchEvent(new Event('input',{bubbles:true}));});
+    if(modEl) modEl.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+  switchTab('orcamento');
+  var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';
+  t.textContent='✅ '+window._iaItens.length+' itens adicionados à proposta pela IA!';
+  document.body.appendChild(t);setTimeout(function(){t.remove();},4000);
+}
+
+function _iaLimpar(){
+  window._iaItens=[];
+  window._iaImageB64=null;
+  document.getElementById('ia-texto').value='';
+  document.getElementById('ia-contexto').value='';
+  document.getElementById('ia-resultado').style.display='none';
+  document.getElementById('ia-img-preview').style.display='none';
+  document.getElementById('ia-file-input').value='';
+}
+
+// Drag & Drop
+document.addEventListener('DOMContentLoaded',function(){
+  var dz=document.getElementById('ia-drop-zone');
+  if(!dz)return;
+  dz.addEventListener('dragover',function(e){e.preventDefault();dz.style.borderColor='#27ae60';dz.style.background='#f0fff5';});
+  dz.addEventListener('dragleave',function(){dz.style.borderColor='#8e44ad';dz.style.background='#faf5ff';});
+  dz.addEventListener('drop',function(e){
+    e.preventDefault();dz.style.borderColor='#8e44ad';dz.style.background='#faf5ff';
+    if(e.dataTransfer.files&&e.dataTransfer.files[0]){
+      var input=document.getElementById('ia-file-input');
+      input.files=e.dataTransfer.files;
+      _iaFileSelected(input);
+    }
+  });
+});
+/* ══ END IA LEVANTAMENTO ══ */
+
 /* ══ PAINEL DE CONFIGURAÇÃO DE PARÂMETROS POR MODELO ══ */
 function _abrirParamsModelo(code, nome){
   var params=_getModeloParams(code);
