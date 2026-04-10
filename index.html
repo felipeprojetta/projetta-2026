@@ -1120,42 +1120,24 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     <div class="fr"><span class="fl">Área calculada</span><div class="fv c cb2" id="r-m2">—</div></div>
     <div class="fr" style="background:#fff3e0;border:2px solid #e67e22;border-radius:8px;padding:6px 12px;margin:6px 0"><span class="fl" style="font-weight:800;color:#e67e22">🚪 Quantidade de portas</span><div class="fv"><input type="number" id="qtd-portas" value="1" min="1" max="20" step="1" oninput="calc();_osAutoUpdate()" style="width:70px;font-size:16px;font-weight:800;text-align:center;border:2px solid #e67e22;border-radius:6px;background:#fff;color:#e67e22"></div></div>
 
-    <!-- TABELA MULTI-PORTA -->
+    <!-- ITENS DA PROPOSTA (multi-porta) -->
     <div id="multi-porta-section" style="margin:10px 0;border:2px solid #1a5276;border-radius:10px;overflow:hidden">
       <div style="background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
         <span style="font-size:12px;font-weight:800;letter-spacing:.04em">📋 ITENS DA PROPOSTA</span>
         <div style="display:flex;gap:6px">
-          <button onclick="_mpAdicionarItem()" style="padding:5px 12px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Capturar do Formulário</button>
-          <button onclick="_mpAdicionarVazio()" style="padding:5px 12px;border-radius:6px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Linha Vazia</button>
+          <button onclick="_mpSalvarItemAtual()" id="mp-btn-salvar" style="display:none;padding:5px 12px;border-radius:6px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💾 Salvar Item Atual</button>
+          <button onclick="_mpNovoItem()" style="padding:5px 12px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Novo Item</button>
         </div>
       </div>
-      <div id="mp-empty" style="padding:12px;text-align:center;font-size:11px;color:#999">
-        Quando precisar orçar <b>portas de tamanhos diferentes</b>, clique em "+ Adicionar Porta Diferente".<br>
-        Para portas iguais, use o campo "Quantidade de portas" acima.
+      <!-- Banner do item em edição -->
+      <div id="mp-editing-banner" style="display:none;background:#fff3e0;border-bottom:1px solid #e67e22;padding:8px 14px;font-size:12px;font-weight:700;color:#e67e22;display:flex;align-items:center;gap:8px">
+        <span>✏️ Editando:</span> <span id="mp-editing-label">—</span>
+        <button onclick="_mpSalvarItemAtual()" style="margin-left:auto;padding:4px 12px;border-radius:6px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💾 Salvar</button>
       </div>
-      <div id="mp-table-wrap" style="display:none;overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:11px" id="mp-table">
-          <thead>
-            <tr style="background:#f0f4f6">
-              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center;width:30px">#</th>
-              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:left">Modelo</th>
-              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">L (mm)</th>
-              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">A (mm)</th>
-              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">Folhas</th>
-              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">Qtd</th>
-              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center">Fixo</th>
-              <th style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:center;width:70px">Ações</th>
-            </tr>
-          </thead>
-          <tbody id="mp-tbody"></tbody>
-          <tfoot>
-            <tr style="background:#003144;color:#fff">
-              <td colspan="5" style="padding:6px 8px;font-weight:700;font-size:11px">TOTAL</td>
-              <td id="mp-total-qtd" style="padding:6px 8px;text-align:center;font-weight:800;font-size:13px">0</td>
-              <td colspan="2" style="padding:6px 8px;font-size:10px">porta(s)</td>
-            </tr>
-          </tfoot>
-        </table>
+      <!-- Lista de itens -->
+      <div id="mp-list" style="padding:0"></div>
+      <div id="mp-empty" style="padding:12px;text-align:center;font-size:11px;color:#999">
+        Para orçar <b>portas diferentes</b>, clique <b>"+ Novo Item"</b>. Configure cada porta separadamente usando o formulário completo abaixo.
       </div>
     </div>
     <div class="sec" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">
@@ -14950,36 +14932,227 @@ window.addEventListener('beforeunload',function(){
 /* ══ MODULE: MULTI-PORTA ══════════════════════════════════════════════ */
 /* Gerencia itens da proposta com portas de tamanhos diferentes */
 window._mpItens=[];
+window._mpEditingIdx=-1; // -1 = não editando nenhum item
 
-function _mpAdicionarItem(){
-  // Captura dados atuais do formulário (ou cria item padrão se vazio)
+// Campos do formulário que são POR ITEM (cada porta diferente)
+var _MP_ITEM_FIELDS=['largura','altura','qtd-portas','folhas-porta',
+  'carac-modelo','carac-abertura','carac-folhas',
+  'carac-cor-ext','carac-cor-int',
+  'carac-fech-mec','carac-fech-dig','carac-cilindro',
+  'carac-puxador','carac-pux-tam',
+  'carac-largura-cava','carac-dist-borda-cava',
+  'carac-largura-friso','carac-dist-borda-friso',
+  'carac-friso-vert','carac-friso-horiz',
+  'carac-tem-alisar'];
+
+function _mpCaptureItem(){
+  var data={};
+  _MP_ITEM_FIELDS.forEach(function(f){
+    var el=document.getElementById(f);
+    if(!el) return;
+    if(el.type==='checkbox') data[f]=el.checked?'1':'0';
+    else data[f]=el.value||'';
+  });
+  // Fixos
+  data['tem-fixo']=document.getElementById('tem-fixo')?document.getElementById('tem-fixo').checked:false;
+  var fixos=[];
+  document.querySelectorAll('.fixo-blk').forEach(function(bl){
+    fixos.push({
+      larg:(bl.querySelector('.fixo-larg')||{value:''}).value,
+      alt:(bl.querySelector('.fixo-alt')||{value:''}).value,
+      qty:(bl.querySelector('.fixo-qty')||{value:'1'}).value,
+      lado:(bl.querySelector('.fixo-lado')||{value:'esquerdo'}).value,
+      lados:(bl.querySelector('.fixo-lados')||{value:'1'}).value,
+      estr:(bl.querySelector('.fixo-estr')||{value:'nao'}).value
+    });
+  });
+  data._fixos=fixos;
+  // Meta
   var modEl=document.getElementById('carac-modelo');
-  var modTxt=modEl&&modEl.selectedIndex>=0?(modEl.options[modEl.selectedIndex].text||'01 Cava'):'01 Cava';
-  var modVal=modEl?modEl.value:'01';
-  var L=parseFloat(document.getElementById('largura').value)||0;
-  var A=parseFloat(document.getElementById('altura').value)||0;
-  // Se form vazio, criar item padrão editável
-  if(L<=0||A<=0){ L=1200; A=2400; }
-  var folhas=parseInt((document.getElementById('folhas-porta')||{value:'1'}).value)||1;
-  var qtd=parseInt((document.getElementById('qtd-portas')||{value:'1'}).value)||1;
-  var abertEl=document.getElementById('carac-abertura');
-  var abertura=abertEl?abertEl.value:'direita';
-  var temFixo=document.getElementById('tem-fixo')?document.getElementById('tem-fixo').checked:false;
-  // Capturar dados do fixo se tiver
-  var fixoData=null;
-  if(temFixo){
-    fixoData=[];
-    var fixoBlks=document.querySelectorAll('.fixo-blk');
-    fixoBlks.forEach(function(bl){
-      var larg=parseFloat((bl.querySelector('.fixo-larg')||{value:0}).value)||0;
-      var alt=parseFloat((bl.querySelector('.fixo-alt')||{value:0}).value)||0;
-      var lado=(bl.querySelector('.fixo-lado')||{value:'esquerdo'}).value;
-      var fqty=parseInt((bl.querySelector('.fixo-qty')||{value:1}).value)||1;
-      fixoData.push({ lado:lado, largura:larg, altura:alt, qty:fqty });
+  data._modeloTxt=modEl&&modEl.selectedIndex>=0?(modEl.options[modEl.selectedIndex].text||''):'';
+  data._modelo=modEl?modEl.value:'01';
+  data._largura=parseFloat(data['largura'])||0;
+  data._altura=parseFloat(data['altura'])||0;
+  data._qtd=parseInt(data['qtd-portas'])||1;
+  data._folhas=parseInt(data['folhas-porta'])||1;
+  return data;
+}
+
+function _mpRestoreItem(data){
+  if(!data) return;
+  _MP_ITEM_FIELDS.forEach(function(f){
+    var el=document.getElementById(f);
+    if(!el||data[f]===undefined) return;
+    if(el.type==='checkbox') el.checked=(data[f]==='1');
+    else el.value=data[f];
+  });
+  // Fixos
+  var temFixo=document.getElementById('tem-fixo');
+  if(temFixo) temFixo.checked=!!data['tem-fixo'];
+  if(typeof toggleFixos==='function') toggleFixos();
+  // Remover fixos existentes e recriar
+  var fixosList=document.getElementById('fixos-list');
+  if(fixosList) fixosList.innerHTML='';
+  if(data._fixos&&data._fixos.length>0){
+    data._fixos.forEach(function(fx){
+      if(typeof addFixo==='function') addFixo();
+      var lastBlk=document.querySelector('.fixo-blk:last-child');
+      if(lastBlk){
+        var larg=lastBlk.querySelector('.fixo-larg');if(larg)larg.value=fx.larg||'';
+        var alt=lastBlk.querySelector('.fixo-alt');if(alt)alt.value=fx.alt||'';
+        var qty=lastBlk.querySelector('.fixo-qty');if(qty)qty.value=fx.qty||'1';
+        var lado=lastBlk.querySelector('.fixo-lado');if(lado)lado.value=fx.lado||'esquerdo';
+        var lados=lastBlk.querySelector('.fixo-lados');if(lados)lados.value=fx.lados||'1';
+        var estr=lastBlk.querySelector('.fixo-estr');if(estr)estr.value=fx.estr||'nao';
+      }
     });
   }
-  var corExt=(document.getElementById('carac-cor-ext')||{value:''}).value;
-  var corInt=(document.getElementById('carac-cor-int')||{value:''}).value;
+  // Disparar eventos
+  ['largura','altura'].forEach(function(id){var el=document.getElementById(id);if(el)el.dispatchEvent(new Event('input',{bubbles:true}));});
+  var modEl=document.getElementById('carac-modelo');
+  if(modEl) modEl.dispatchEvent(new Event('change',{bubbles:true}));
+  if(typeof calc==='function') calc();
+}
+
+function _mpNovoItem(){
+  // Salvar item atual se estiver editando
+  if(window._mpEditingIdx>=0) _mpSalvarItemAtual();
+  // Criar novo item com dados atuais do form (ou padrão se vazio)
+  var data=_mpCaptureItem();
+  data.id='mp_'+Date.now();
+  window._mpItens.push(data);
+  window._mpEditingIdx=window._mpItens.length-1;
+  _mpRender();
+  // Limpar form para o novo item
+  ['largura','altura'].forEach(function(f){var el=document.getElementById(f);if(el)el.value='';});
+  document.getElementById('qtd-portas').value='1';
+  var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 3px 12px rgba(0,0,0,.2)';
+  t.textContent='✅ Item '+(window._mpItens.length)+' salvo! Configure o próximo item abaixo.';
+  document.body.appendChild(t);setTimeout(function(){t.remove();},3000);
+}
+
+function _mpSalvarItemAtual(){
+  if(window._mpEditingIdx<0||!window._mpItens[window._mpEditingIdx]) return;
+  var data=_mpCaptureItem();
+  data.id=window._mpItens[window._mpEditingIdx].id||('mp_'+Date.now());
+  window._mpItens[window._mpEditingIdx]=data;
+  _mpRender();
+  var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 3px 12px rgba(0,0,0,.2)';
+  t.textContent='💾 Item '+(window._mpEditingIdx+1)+' atualizado!';
+  document.body.appendChild(t);setTimeout(function(){t.remove();},2000);
+}
+
+function _mpCarregarItem(idx){
+  if(window._mpEditingIdx>=0) _mpSalvarItemAtual(); // salvar atual antes de trocar
+  if(!window._mpItens[idx]) return;
+  _mpRestoreItem(window._mpItens[idx]);
+  window._mpEditingIdx=idx;
+  _mpRender();
+  // Scroll para o topo do formulário
+  document.getElementById('largura').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function _mpRender(){
+  var list=document.getElementById('mp-list');
+  var empty=document.getElementById('mp-empty');
+  var banner=document.getElementById('mp-editing-banner');
+  var btnSalvar=document.getElementById('mp-btn-salvar');
+  if(!window._mpItens.length){
+    if(empty) empty.style.display='';
+    if(list) list.innerHTML='';
+    if(banner) banner.style.display='none';
+    if(btnSalvar) btnSalvar.style.display='none';
+    window._mpEditingIdx=-1;
+    return;
+  }
+  if(empty) empty.style.display='none';
+  if(btnSalvar) btnSalvar.style.display='inline-flex';
+  var totalQtd=0;
+  var html='';
+  window._mpItens.forEach(function(it,i){
+    var qtd=parseInt(it._qtd||it['qtd-portas'])||1;
+    totalQtd+=qtd;
+    var isEditing=i===window._mpEditingIdx;
+    var bg=isEditing?'#fff8f0':'#fff';
+    var border=isEditing?'border-left:4px solid #e67e22;':'border-left:4px solid transparent;';
+    var modelo=it._modeloTxt||it._modelo||'—';
+    var L=it._largura||parseFloat(it['largura'])||0;
+    var A=it._altura||parseFloat(it['altura'])||0;
+    var temFixo=it['tem-fixo']||it.temFixo;
+    var nFixos=it._fixos?it._fixos.length:0;
+    html+='<div style="padding:8px 14px;background:'+bg+';'+border+'border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="_mpCarregarItem('+i+')">';
+    html+='<span style="font-size:16px;font-weight:800;color:'+(isEditing?'#e67e22':'#003144')+';min-width:28px">'+(i+1)+'</span>';
+    html+='<div style="flex:1;min-width:0">';
+    html+='<div style="font-size:12px;font-weight:700;color:#003144">'+modelo+'</div>';
+    html+='<div style="font-size:10px;color:#888">'+L+' × '+A+' mm'+(temFixo?' · '+nFixos+' fixo(s)':'')+'</div>';
+    html+='</div>';
+    html+='<span style="background:#e67e22;color:#fff;font-size:12px;font-weight:800;padding:3px 10px;border-radius:12px;min-width:30px;text-align:center">×'+qtd+'</span>';
+    if(isEditing) html+='<span style="font-size:10px;color:#e67e22;font-weight:700">✏ editando</span>';
+    html+='<button onclick="event.stopPropagation();_mpRemover('+i+')" style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:4px;font-size:10px;cursor:pointer;padding:2px 6px;font-weight:700" title="Remover">✕</button>';
+    html+='</div>';
+  });
+  // Total
+  html+='<div style="background:#003144;color:#fff;padding:6px 14px;display:flex;justify-content:space-between;font-size:11px;font-weight:700">';
+  html+='<span>TOTAL: '+window._mpItens.length+' item(ns)</span>';
+  html+='<span>'+totalQtd+' porta(s)</span></div>';
+  if(list) list.innerHTML=html;
+  // Banner
+  if(banner&&window._mpEditingIdx>=0){
+    banner.style.display='flex';
+    var label=document.getElementById('mp-editing-label');
+    var it=window._mpItens[window._mpEditingIdx];
+    if(label) label.textContent='Item '+(window._mpEditingIdx+1)+' — '+(it._modeloTxt||'')+(it._largura?' '+it._largura+'×'+it._altura:'');
+  } else if(banner){
+    banner.style.display='none';
+  }
+}
+
+function _mpRemover(idx){
+  if(!confirm('Remover item '+(idx+1)+'?'))return;
+  window._mpItens.splice(idx,1);
+  if(window._mpEditingIdx===idx) window._mpEditingIdx=-1;
+  else if(window._mpEditingIdx>idx) window._mpEditingIdx--;
+  _mpRender();
+}
+
+function _mpGetItens(){
+  // Salvar item atual se editando
+  if(window._mpEditingIdx>=0&&window._mpItens.length>0) _mpSalvarItemAtual();
+  if(window._mpItens.length>0){
+    return window._mpItens.map(function(it){
+      return {
+        id:it.id,
+        modelo:it._modelo||it['carac-modelo']||'01',
+        modeloTxt:it._modeloTxt||'',
+        largura:parseFloat(it._largura||it['largura'])||0,
+        altura:parseFloat(it._altura||it['altura'])||0,
+        folhas:parseInt(it._folhas||it['folhas-porta'])||1,
+        qtd:parseInt(it._qtd||it['qtd-portas'])||1,
+        abertura:it['carac-abertura']||'',
+        temFixo:!!(it['tem-fixo']),
+        fixos:it._fixos||null,
+        corExt:it['carac-cor-ext']||'',
+        corInt:it['carac-cor-int']||''
+      };
+    });
+  }
+  // Sem itens: usar formulário (compatibilidade)
+  var modEl=document.getElementById('carac-modelo');
+  return [{
+    id:'single',
+    modelo:modEl?modEl.value:'01',
+    modeloTxt:modEl&&modEl.selectedIndex>=0?(modEl.options[modEl.selectedIndex].text||''):'',
+    largura:parseFloat(document.getElementById('largura').value)||0,
+    altura:parseFloat(document.getElementById('altura').value)||0,
+    folhas:parseInt((document.getElementById('folhas-porta')||{value:'1'}).value)||1,
+    qtd:parseInt((document.getElementById('qtd-portas')||{value:'1'}).value)||1,
+    abertura:(document.getElementById('carac-abertura')||{value:''}).value,
+    temFixo:document.getElementById('tem-fixo')?document.getElementById('tem-fixo').checked:false,
+    fixos:null,
+    corExt:(document.getElementById('carac-cor-ext')||{value:''}).value,
+    corInt:(document.getElementById('carac-cor-int')||{value:''}).value
+  }];
+}
 
   var item={
     id:'mp_'+Date.now(),
@@ -14996,132 +15169,6 @@ function _mpAdicionarItem(){
   var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 3px 12px rgba(0,0,0,.2)';
   t.textContent='✅ Item '+window._mpItens.length+' adicionado: '+modTxt+' '+L+'×'+A+' (×'+qtd+')';
   document.body.appendChild(t);setTimeout(function(){t.remove();},3000);
-}
-
-function _mpRender(){
-  var tbody=document.getElementById('mp-tbody');
-  var empty=document.getElementById('mp-empty');
-  var wrap=document.getElementById('mp-table-wrap');
-  if(!window._mpItens.length){
-    empty.style.display='';wrap.style.display='none';
-    return;
-  }
-  empty.style.display='none';wrap.style.display='';
-  var nomes=_getModelosNomes();
-  var codes=Object.keys(nomes).sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true});});
-  var html='';
-  var totalQtd=0;
-  var iS='width:100%;padding:3px 5px;border:1px solid #ccc;border-radius:4px;font-size:11px;font-weight:600;font-family:inherit;text-align:center';
-  window._mpItens.forEach(function(it,i){
-    totalQtd+=it.qtd;
-    var bg=i%2===0?'#fff':'#f9f8f5';
-    // Modelo select options
-    var modOpts='';
-    codes.forEach(function(c){
-      modOpts+='<option value="'+c+'"'+(c===it.modelo?' selected':'')+'>'+c+' '+nomes[c]+'</option>';
-    });
-    html+='<tr style="background:'+bg+'">'
-      +'<td style="padding:4px 6px;border-bottom:0.5px solid #eee;text-align:center;font-weight:700;color:#e67e22;font-size:12px">'+(i+1)+'</td>'
-      // Modelo
-      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee"><select onchange="_mpUpdateField('+i+',\'modelo\',this.value);_mpUpdateField('+i+',\'modeloTxt\',this.options[this.selectedIndex].text)" style="'+iS+';text-align:left;font-size:10px;max-width:130px">'+modOpts+'</select></td>'
-      // Largura
-      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee"><input type="number" value="'+it.largura+'" min="200" max="5000" onchange="_mpUpdateField('+i+',\'largura\',parseInt(this.value)||0)" style="'+iS+';width:65px"></td>'
-      // Altura
-      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee"><input type="number" value="'+it.altura+'" min="500" max="8000" onchange="_mpUpdateField('+i+',\'altura\',parseInt(this.value)||0)" style="'+iS+';width:65px"></td>'
-      // Folhas
-      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee"><select onchange="_mpUpdateField('+i+',\'folhas\',parseInt(this.value))" style="'+iS+';width:45px"><option value="1"'+(it.folhas===1?' selected':'')+'>1</option><option value="2"'+(it.folhas===2?' selected':'')+'>2</option></select></td>'
-      // Qtd
-      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee"><input type="number" value="'+it.qtd+'" min="1" max="20" onchange="_mpUpdateField('+i+',\'qtd\',parseInt(this.value)||1);_mpUpdateTotal()" style="'+iS+';width:45px;color:#e67e22;font-weight:800;font-size:13px;border-color:#e67e22"></td>'
-      // Fixo
-      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee;text-align:center"><input type="checkbox" '+(it.temFixo?'checked':'')+' onchange="_mpUpdateField('+i+',\'temFixo\',this.checked)" style="width:16px;height:16px;cursor:pointer"></td>'
-      // Ações
-      +'<td style="padding:3px 4px;border-bottom:0.5px solid #eee;text-align:center">'
-      +'<button onclick="_mpDuplicar('+i+')" style="background:none;border:1px solid #27ae60;color:#27ae60;border-radius:4px;font-size:9px;cursor:pointer;padding:2px 4px;font-weight:700;margin-right:2px" title="Duplicar item">📋</button>'
-      +'<button onclick="_mpRemover('+i+')" style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:4px;font-size:9px;cursor:pointer;padding:2px 4px;font-weight:700" title="Remover item">✕</button>'
-      +'</td></tr>';
-  });
-  tbody.innerHTML=html;
-  document.getElementById('mp-total-qtd').textContent=totalQtd;
-}
-
-function _mpUpdateField(idx,field,value){
-  if(window._mpItens[idx]) window._mpItens[idx][field]=value;
-}
-function _mpUpdateTotal(){
-  var totalQtd=window._mpItens.reduce(function(s,it){return s+(it.qtd||0);},0);
-  var el=document.getElementById('mp-total-qtd');if(el)el.textContent=totalQtd;
-}
-function _mpDuplicar(idx){
-  var it=window._mpItens[idx];if(!it)return;
-  var copy=JSON.parse(JSON.stringify(it));
-  copy.id='mp_'+Date.now();
-  window._mpItens.splice(idx+1,0,copy);
-  _mpRender();
-}
-
-function _mpAdicionarVazio(){
-  var nomes=_getModelosNomes();
-  window._mpItens.push({
-    id:'mp_'+Date.now(),
-    modelo:'01', modeloTxt:'01 - '+(nomes['01']||'Cava'),
-    largura:1200, altura:2400, folhas:1, qtd:1,
-    abertura:'direita', temFixo:false, fixos:null,
-    corExt:'', corInt:''
-  });
-  _mpRender();
-}
-
-function _mpEditar(idx){
-  var it=window._mpItens[idx];if(!it)return;
-  document.getElementById('largura').value=it.largura;
-  document.getElementById('altura').value=it.altura;
-  document.getElementById('qtd-portas').value=it.qtd;
-  var modEl=document.getElementById('carac-modelo');
-  if(modEl){for(var i=0;i<modEl.options.length;i++){if(modEl.options[i].value===it.modelo){modEl.selectedIndex=i;break;}}}
-  var folEl=document.getElementById('folhas-porta');
-  if(folEl) folEl.value=it.folhas;
-  var abEl=document.getElementById('carac-abertura');
-  if(abEl) abEl.value=it.abertura;
-  // Disparar eventos
-  ['largura','altura','qtd-portas'].forEach(function(id){
-    var el=document.getElementById(id);if(el) el.dispatchEvent(new Event('input',{bubbles:true}));
-  });
-  if(modEl) modEl.dispatchEvent(new Event('change',{bubbles:true}));
-  // Remover item da tabela (será re-adicionado ao clicar +)
-  window._mpItens.splice(idx,1);
-  _mpRender();
-  var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2980b9;color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 3px 12px rgba(0,0,0,.2)';
-  t.textContent='✏ Item '+(idx+1)+' carregado no formulário. Edite e clique "+" para re-adicionar.';
-  document.body.appendChild(t);setTimeout(function(){t.remove();},3000);
-}
-
-function _mpRemover(idx){
-  if(!confirm('Remover item '+(idx+1)+'?'))return;
-  window._mpItens.splice(idx,1);
-  _mpRender();
-}
-
-/* Retorna lista de todos os itens para cálculo.
-   Se tabela vazia: retorna item único do formulário.
-   Se tabela tem itens: retorna itens da tabela. */
-function _mpGetItens(){
-  if(window._mpItens.length>0) return window._mpItens.slice(); // cópia
-  // Sem itens na tabela: usar campos do formulário (compatibilidade)
-  var modEl=document.getElementById('carac-modelo');
-  return [{
-    id:'single',
-    modelo:modEl?modEl.value:'01',
-    modeloTxt:modEl&&modEl.selectedIndex>=0?(modEl.options[modEl.selectedIndex].text||''):'',
-    largura:parseFloat(document.getElementById('largura').value)||0,
-    altura:parseFloat(document.getElementById('altura').value)||0,
-    folhas:parseInt((document.getElementById('folhas-porta')||{value:'1'}).value)||1,
-    qtd:parseInt((document.getElementById('qtd-portas')||{value:'1'}).value)||1,
-    abertura:(document.getElementById('carac-abertura')||{value:''}).value,
-    temFixo:document.getElementById('tem-fixo')?document.getElementById('tem-fixo').checked:false,
-    fixos:null,
-    corExt:(document.getElementById('carac-cor-ext')||{value:''}).value,
-    corInt:(document.getElementById('carac-cor-int')||{value:''}).value
-  }];
 }
 
 /* Calcula todos os cortes de perfis de todos os itens combinados */
