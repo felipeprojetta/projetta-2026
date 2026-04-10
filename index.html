@@ -608,6 +608,40 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 .crm-pipeline-wrap{position:relative;overflow:visible}
 /* Gradient removed — was hiding Fechado/Perdido columns */
 
+/* ── CRM Items ─────────────────────────────────── */
+.crm-item{background:var(--page);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .15s}
+.crm-item.open{border-color:var(--orange)}
+.crm-item-hdr{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none}
+.crm-item-hdr:hover{background:#f5f2ec}
+.crm-item-icon{font-size:18px;flex-shrink:0}
+.crm-item-info{flex:1;min-width:0}
+.crm-item-title{font-size:11px;font-weight:700;color:var(--navy)}
+.crm-item-sub{font-size:9px;color:#888;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crm-item-badges{display:flex;gap:4px;flex-shrink:0}
+.crm-item-badge{font-size:9px;padding:2px 8px;border-radius:4px;font-weight:600}
+.crm-item-badge.qty{background:#e8f8e8;color:#1a7a20}
+.crm-item-badge.dim{background:#e8f4fd;color:#1a5276}
+.crm-item-chevron{font-size:12px;color:#aaa;transition:transform .2s;flex-shrink:0}
+.crm-item.open .crm-item-chevron{transform:rotate(90deg)}
+.crm-item-body{display:none;padding:12px;border-top:1px solid var(--border-light)}
+.crm-item.open .crm-item-body{display:block}
+.crm-item-body .crm-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.crm-item-body .crm-field{display:flex;flex-direction:column;gap:3px}
+.crm-item-body .crm-field label{font-size:10px;font-weight:700;color:var(--navy)}
+.crm-item-body .crm-field input,.crm-item-body .crm-field select{padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;font-family:inherit;outline:none}
+.crm-item-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:10px;padding-top:8px;border-top:1px dashed #eee}
+.crm-item-actions button{font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;font-weight:600;font-family:inherit;transition:.15s}
+.crm-item-actions button:hover{opacity:.8}
+.crm-item-actions .del{color:#e74c3c;border-color:#e74c3c}
+.crm-item-actions .dup{color:#2980b9;border-color:#2980b9}
+.crm-type-picker{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 0}
+.crm-type-btn{padding:14px 10px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;transition:.15s;font-family:inherit}
+.crm-type-btn:hover{border-color:var(--orange);background:#fffbf5}
+.crm-type-btn .icon{font-size:24px;display:block;margin-bottom:4px}
+.crm-type-btn .lbl{font-size:11px;font-weight:700;color:var(--navy)}
+.crm-type-btn .desc{font-size:8px;color:#888;margin-top:2px}
+.crm-type-btn.disabled{opacity:.4;pointer-events:none}
+
 /* ── Clientes Tab ──────────────────────────────── */
 .cli-card{background:#fff;border:1.5px solid #e0ddd8;border-radius:10px;margin-bottom:12px;overflow:hidden;transition:box-shadow .2s}
 .cli-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.08)}
@@ -906,23 +940,20 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
         </div><input type="hidden" id="crm-o-wrep">
       </div>
     </div>
-    <div class="crm-section-label">📐 Dimensões & Modelo</div>
-    <div class="crm-row">
-      <div class="crm-field"><label>Largura (mm)</label><input type="number" id="crm-o-largura" placeholder="ex: 900" min="200" max="5000"></div>
-      <div class="crm-field"><label>Altura (mm)</label><input type="number" id="crm-o-altura" placeholder="ex: 2100" min="500" max="8000"></div>
+    <!-- ═══ ITENS DO PEDIDO ═══ -->
+    <div class="crm-section-label" style="display:flex;justify-content:space-between;align-items:center">
+      <span>📦 Itens do Pedido</span>
+      <button type="button" onclick="crmItemAdd()" style="padding:5px 14px;border-radius:8px;border:none;background:var(--orange);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Adicionar Item</button>
     </div>
-    <div class="crm-row">
-      <div class="crm-field"><label>Tipo de Abertura</label><select id="crm-o-abertura"><option value="">— Selecione —</option><option value="PIVOTANTE">Pivotante</option><option value="DOBRADIÇA">Dobradiça</option></select></div>
-      <div class="crm-field"><label>Modelo</label><select id="crm-o-modelo"><option value="">— Selecione —</option><option value="01">01 - Cava</option><option value="02">02 - Cava + 01 Friso Vertical</option><option value="03">03 - Cava + 02 Friso Horizontal</option><option value="04">04 - Cava + 01 Friso Vertical & 01 Friso Horizontal</option><option value="05">05 - Cava + 01 Friso Vertical & 02 Friso Horizontal</option><option value="06">06 - Cava + Friso Horizontal Variável</option><option value="07">07 - Cava + Frisos Vertical Multiplo</option><option value="08">08 - Cava + Ripado</option><option value="09">09 - Cava Dupla</option><option value="10">10 - Puxador Externo Lisa</option><option value="11">11 - Puxador Externo + 01 Friso Vertical</option><option value="12">12 - Puxador Externo + 01 Friso Vertical & 01 Friso Horizontal</option><option value="13">13 - Puxador Externo + 01 Friso Vertical & 02 Friso Horizontal</option><option value="14">14 - Puxador Externo + Frisos Vertical Multiplo</option><option value="15">15 - Puxador Externo + Ripado</option><option value="16">16 - Puxador Externo + Friso Horizontal Variável</option><option value="17">17 - Puxador Externo + Friso Horizontal Variável Inclinado</option><option value="18">18 - Puxador Externo + Friso Geométricos</option><option value="19">19 - Cava + Friso Geométricos</option><option value="20">20 - Puxador Externo + Friso Horizontal Variável (Ripas)</option><option value="21">21 - Friso Angular</option><option value="22">22 - Cava Premium</option><option value="23">23 - Classica com Molduras</option><option value="24">24 - Cava Horizontal</option></select></div>
+    <div id="crm-itens-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div id="crm-itens-empty" style="text-align:center;padding:16px;color:#aaa;font-size:11px;border:1.5px dashed #ddd;border-radius:10px">
+      Nenhum item adicionado.<br>Clique em <b>+ Adicionar Item</b> para incluir portas, fixos, etc.
     </div>
-    <div class="crm-row">
-      <div class="crm-field"><label>Número de Folhas</label><select id="crm-o-folhas"><option value="">— Selecione —</option><option value="1">1 folha</option><option value="2">2 folhas</option></select></div>
-    </div>
-    <div class="crm-section-label">🎨 Cores da Chapa</div>
-    <div class="crm-row">
-      <div class="crm-field"><label>Cor Externa</label><select id="crm-o-cor-ext" style="font-size:11px"><option value="">— Selecione —</option></select></div>
-      <div class="crm-field"><label>Cor Interna</label><select id="crm-o-cor-int" style="font-size:11px"><option value="">— Selecione —</option></select></div>
-    </div>
+    <!-- Hidden compat fields (used by save/load) -->
+    <input type="hidden" id="crm-o-largura"><input type="hidden" id="crm-o-altura">
+    <input type="hidden" id="crm-o-abertura"><input type="hidden" id="crm-o-modelo">
+    <input type="hidden" id="crm-o-folhas">
+    <input type="hidden" id="crm-o-cor-ext"><input type="hidden" id="crm-o-cor-int">
     <div class="crm-section-label">📍 Cidade de Instalação</div>
     <div class="crm-field">
       <label>CEP</label>
@@ -8391,6 +8422,15 @@ window.crmOpenModal=function(defaultStage,editId){
   el('crm-modal-sub').textContent=opp?'Criado em '+dateLabel(opp.createdAt):'';
   el('crm-del-btn').style.display=editId?'flex':'none';
   if(opp){
+    // Load itens
+    if(opp.itens&&opp.itens.length>0){
+      _crmItensFromCardData(opp.itens);
+    } else if(opp.largura&&opp.altura){
+      // Backward compat: convert old single-item to itens array
+      _crmItensFromCardData([{tipo:'porta_pivotante',qtd:1,largura:opp.largura,altura:opp.altura,modelo:opp.modelo||'',abertura:opp.abertura||'PIVOTANTE',folhas:opp.folhas||'1',cor_ext:opp.cor_ext||'',cor_int:opp.cor_int||''}]);
+    } else {
+      _crmItens=[];_crmItensRender();
+    }
     setVal('crm-o-cliente',opp.cliente);setVal('crm-o-contato',opp.contato);setVal('crm-o-email',opp.email||'');
     setVal('crm-o-data-contato',opp.dataContato||opp.createdAt?(opp.dataContato||opp.createdAt.slice(0,10)):'');
     setVal('crm-o-valor',opp.valor||'');setVal('crm-o-fechamento',opp.fechamento);
@@ -8446,6 +8486,7 @@ window.crmOpenModal=function(defaultStage,editId){
     }
   } else {
     ['crm-o-cliente','crm-o-contato','crm-o-email','crm-o-valor','crm-o-notas','crm-o-pais','crm-o-cidade-intl','crm-o-cidade-nac','crm-o-largura','crm-o-altura','crm-o-cep'].forEach(function(id){setVal(id,'');});
+    _crmItens=[];_crmItensRender();
     setVal('crm-o-data-contato',new Date().toISOString().slice(0,10));
     setVal('crm-o-fechamento','');setVal('crm-o-prioridade','');setVal('crm-o-potencial','');
     setVal('crm-o-abertura','');setVal('crm-o-modelo','');setVal('crm-o-estado','');
@@ -8551,6 +8592,231 @@ window.crmBuscarReservaWeiku=function(){
   });
 };
 
+
+/* ═══ CRM ITEMS SYSTEM ═══════════════════════════════════════════ */
+var _crmItens = [];
+
+var CRM_ITEM_TYPES = {
+  porta_pivotante: {label:'Porta Pivotante', icon:'🚪', desc:'Porta de entrada com pivô'},
+  fixo:            {label:'Fixo / Lateral',   icon:'🔲', desc:'Vidro fixo, lateral ou bandeira'},
+  porta_interna:   {label:'Porta Interna',    icon:'🚪', desc:'Em breve', disabled:true},
+  revestimento:    {label:'Revestimento',     icon:'🧱', desc:'Em breve', disabled:true}
+};
+
+function _crmGetCorOptions(){
+  // Reuse cor options from the main system
+  var mainSel=document.getElementById('carac-cor-ext');
+  if(mainSel&&mainSel.options.length>1){
+    var h='<option value="">— Selecione —</option>';
+    for(var i=1;i<mainSel.options.length;i++) h+='<option value="'+mainSel.options[i].value+'">'+mainSel.options[i].text+'</option>';
+    return h;
+  }
+  return '<option value="">— Selecione —</option>';
+}
+
+function crmItemAdd(){
+  // Show type picker
+  var list=document.getElementById('crm-itens-list');
+  var empty=document.getElementById('crm-itens-empty');
+  // Check if picker already open
+  if(document.getElementById('crm-type-picker')){document.getElementById('crm-type-picker').remove();return;}
+  var picker=document.createElement('div');
+  picker.id='crm-type-picker';
+  picker.className='crm-type-picker';
+  Object.keys(CRM_ITEM_TYPES).forEach(function(key){
+    var t=CRM_ITEM_TYPES[key];
+    picker.innerHTML+='<div class="crm-type-btn'+(t.disabled?' disabled':'')+'" onclick="'+(t.disabled?'':'crmItemCreate(\''+key+'\')')+'"><span class="icon">'+t.icon+'</span><span class="lbl">'+t.label+'</span><span class="desc">'+t.desc+'</span></div>';
+  });
+  list.parentNode.insertBefore(picker,list);
+}
+
+function crmItemCreate(tipo){
+  var picker=document.getElementById('crm-type-picker');if(picker)picker.remove();
+  var item={
+    id:'ci_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
+    tipo:tipo,
+    qtd:1,
+    largura:'',altura:'',
+    cor_ext:'',cor_int:''
+  };
+  if(tipo==='porta_pivotante'){
+    item.modelo='';item.abertura='PIVOTANTE';item.folhas='1';
+    item.fech_mec='';item.fech_dig='';item.cilindro='';item.puxador='';
+  }
+  if(tipo==='fixo'){
+    item.tipo_vidro='';item.tipo_fixacao='';
+  }
+  _crmItens.push(item);
+  _crmItensRender();
+  // Auto-open the new item
+  setTimeout(function(){
+    var el=document.getElementById('crm-item-'+item.id);
+    if(el)el.classList.add('open');
+  },50);
+}
+
+function crmItemRemove(id){
+  if(!confirm('Remover este item?'))return;
+  _crmItens=_crmItens.filter(function(i){return i.id!==id;});
+  _crmItensRender();
+}
+
+function crmItemDuplicate(id){
+  var orig=_crmItens.find(function(i){return i.id===id;});
+  if(!orig)return;
+  var copy=JSON.parse(JSON.stringify(orig));
+  copy.id='ci_'+Date.now()+'_'+Math.random().toString(36).substr(2,4);
+  _crmItens.push(copy);
+  _crmItensRender();
+}
+
+function crmItemToggle(id){
+  // Save current open item data before toggling
+  _crmItensSaveFromDOM();
+  var el=document.getElementById('crm-item-'+id);
+  if(el)el.classList.toggle('open');
+}
+
+function _crmItensSaveFromDOM(){
+  _crmItens.forEach(function(item){
+    var pre='crmit-'+item.id+'-';
+    var fields=['qtd','largura','altura','cor_ext','cor_int'];
+    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador']);
+    if(item.tipo==='fixo') fields=fields.concat(['tipo_vidro','tipo_fixacao']);
+    fields.forEach(function(f){
+      var el=document.getElementById(pre+f);
+      if(el) item[f]=el.value;
+    });
+  });
+}
+
+function _crmItensRender(){
+  var list=document.getElementById('crm-itens-list');
+  var empty=document.getElementById('crm-itens-empty');
+  if(!list)return;
+  
+  // Save current values first
+  _crmItensSaveFromDOM();
+  
+  if(!_crmItens.length){
+    list.innerHTML='';
+    if(empty)empty.style.display='';
+    return;
+  }
+  if(empty)empty.style.display='none';
+  
+  var corOpts=_crmGetCorOptions();
+  var modeloOpts='<option value="">— Selecione —</option><option value="01">01 - Cava</option><option value="02">02 - Cava + Friso</option><option value="08">08 - Cava + Ripado</option><option value="10">10 - Lisa</option><option value="11">11 - Friso Vertical</option><option value="15">15 - Ripado</option><option value="23">23 - Molduras</option><option value="03">03 - Cava + 2 Frisos H</option><option value="04">04 - Cava + Friso V&H</option><option value="05">05 - Cava + Friso V & 2H</option><option value="06">06 - Cava + Frisos H Variável</option><option value="07">07 - Cava + Frisos V Múltiplo</option><option value="09">09 - Cava Dupla</option><option value="12">12 - Pux Ext + Friso V&H</option><option value="13">13 - Pux Ext + Friso V & 2H</option><option value="14">14 - Pux Ext + Frisos V Múltiplo</option><option value="16">16 - Pux Ext + Frisos H Variável</option><option value="17">17 - Pux Ext + Frisos H Inclinado</option><option value="18">18 - Pux Ext + Geométricos</option><option value="19">19 - Cava + Geométricos</option><option value="20">20 - Pux Ext + Ripas H</option><option value="21">21 - Friso Angular</option><option value="22">22 - Cava Premium</option><option value="24">24 - Cava Horizontal</option>';
+  
+  var h='';
+  _crmItens.forEach(function(item,idx){
+    var t=CRM_ITEM_TYPES[item.tipo]||{label:item.tipo,icon:'📦'};
+    var dimStr=(item.largura&&item.altura)?item.largura+'×'+item.altura+'mm':'sem medidas';
+    var modStr=item.modelo?('Mod '+item.modelo):'';
+    var sub=[dimStr,modStr,item.cor_ext].filter(Boolean).join(' · ');
+    
+    h+='<div class="crm-item" id="crm-item-'+item.id+'">';
+    h+='<div class="crm-item-hdr" onclick="crmItemToggle(\''+item.id+'\')">';
+    h+='<span class="crm-item-icon">'+t.icon+'</span>';
+    h+='<div class="crm-item-info"><div class="crm-item-title">Item '+(idx+1)+': '+t.label+'</div><div class="crm-item-sub">'+sub+'</div></div>';
+    h+='<div class="crm-item-badges">';
+    if(item.qtd>1) h+='<span class="crm-item-badge qty">×'+item.qtd+'</span>';
+    if(item.largura&&item.altura) h+='<span class="crm-item-badge dim">'+item.largura+'×'+item.altura+'</span>';
+    h+='</div>';
+    h+='<span class="crm-item-chevron">▶</span>';
+    h+='</div>';
+    
+    // Body with fields
+    var pre='crmit-'+item.id+'-';
+    h+='<div class="crm-item-body">';
+    
+    // Common fields: Qtd, Largura, Altura
+    h+='<div class="crm-row">';
+    h+='<div class="crm-field"><label>Quantidade</label><input type="number" id="'+pre+'qtd" value="'+(item.qtd||1)+'" min="1" max="50"></div>';
+    h+='<div class="crm-field"><label>Largura (mm)</label><input type="number" id="'+pre+'largura" value="'+(item.largura||'')+'" placeholder="ex: 1996" min="200" max="5000"></div>';
+    h+='</div>';
+    h+='<div class="crm-row">';
+    h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 6174" min="200" max="8000"></div>';
+    
+    if(item.tipo==='porta_pivotante'){
+      h+='<div class="crm-field"><label>Abertura</label><select id="'+pre+'abertura"><option value="PIVOTANTE"'+(item.abertura==='PIVOTANTE'?' selected':'')+'>Pivotante</option><option value="DOBRADIÇA"'+(item.abertura==='DOBRADIÇA'?' selected':'')+'>Dobradiça</option></select></div>';
+      h+='</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Modelo</label><select id="'+pre+'modelo">'+modeloOpts.replace('value="'+item.modelo+'"','value="'+item.modelo+'" selected')+'</select></div>';
+      h+='<div class="crm-field"><label>Folhas</label><select id="'+pre+'folhas"><option value="1"'+(item.folhas==='2'?'':' selected')+'>1 folha</option><option value="2"'+(item.folhas==='2'?' selected':'')+'>2 folhas</option></select></div>';
+      h+='</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Fechadura Mecânica</label><select id="'+pre+'fech_mec"><option value="">— Selecione —</option><option value="04 PINOS">04 Pinos</option><option value="08 PINOS">08 Pinos</option><option value="12 PINOS">12 Pinos</option><option value="16 PINOS">16 Pinos</option><option value="24 PINOS">24 Pinos</option></select></div>';
+      h+='<div class="crm-field"><label>Fechadura Digital</label><select id="'+pre+'fech_dig"><option value="">— Nenhuma —</option><option value="TEDEE">Tedee</option><option value="YALE">Yale</option><option value="SAMSUNG">Samsung</option></select></div>';
+      h+='</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Cilindro</label><select id="'+pre+'cilindro"><option value="">— Selecione —</option><option value="KESO">Keso</option><option value="UDINESE">Udinese</option></select></div>';
+      h+='<div class="crm-field"><label>Puxador</label><select id="'+pre+'puxador"><option value="">— Selecione —</option><option value="CAVA">Cava</option><option value="EXTERNO">Puxador Externo</option></select></div>';
+      h+='</div>';
+    } else if(item.tipo==='fixo'){
+      h+='<div class="crm-field"><label>Tipo de Fixação</label><select id="'+pre+'tipo_fixacao"><option value="">— Selecione —</option><option value="LATERAL">Lateral</option><option value="BANDEIRA">Bandeira (superior)</option><option value="INFERIOR">Inferior</option></select></div>';
+      h+='</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Tipo de Vidro</label><select id="'+pre+'tipo_vidro"><option value="">— Selecione —</option><option value="TEMPERADO">Temperado</option><option value="LAMINADO">Laminado</option><option value="INSULADO">Insulado</option></select></div>';
+      h+='<div class="crm-field"></div>';
+      h+='</div>';
+    } else {
+      h+='<div class="crm-field"></div></div>';
+    }
+    
+    // Cores (common)
+    h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🎨 Cores</div>';
+    h+='<div class="crm-row">';
+    h+='<div class="crm-field"><label>Cor Externa</label><select id="'+pre+'cor_ext" style="font-size:10px">'+corOpts.replace('value="'+item.cor_ext+'"','value="'+item.cor_ext+'" selected')+'</select></div>';
+    h+='<div class="crm-field"><label>Cor Interna</label><select id="'+pre+'cor_int" style="font-size:10px">'+corOpts.replace('value="'+item.cor_int+'"','value="'+item.cor_int+'" selected')+'</select></div>';
+    h+='</div>';
+    
+    // Actions
+    h+='<div class="crm-item-actions">';
+    h+='<button class="dup" onclick="event.stopPropagation();crmItemDuplicate(\''+item.id+'\')">📋 Duplicar</button>';
+    h+='<button class="del" onclick="event.stopPropagation();crmItemRemove(\''+item.id+'\')">🗑 Remover</button>';
+    h+='</div>';
+    
+    h+='</div>'; // body
+    h+='</div>'; // crm-item
+  });
+  
+  list.innerHTML=h;
+  
+  // Re-apply selected values for selects (the replace trick doesn't always work)
+  _crmItens.forEach(function(item){
+    var pre='crmit-'+item.id+'-';
+    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','cor_ext','cor_int']:['tipo_fixacao','tipo_vidro','cor_ext','cor_int'];
+    fields.forEach(function(f){
+      var el=document.getElementById(pre+f);
+      if(el&&item[f]) el.value=item[f];
+    });
+  });
+}
+
+function _crmItensToCardData(){
+  _crmItensSaveFromDOM();
+  return _crmItens.map(function(item){
+    var clean={id:item.id,tipo:item.tipo,qtd:parseInt(item.qtd)||1,largura:parseInt(item.largura)||0,altura:parseInt(item.altura)||0,cor_ext:item.cor_ext||'',cor_int:item.cor_int||''};
+    if(item.tipo==='porta_pivotante'){
+      clean.modelo=item.modelo||'';clean.abertura=item.abertura||'PIVOTANTE';clean.folhas=item.folhas||'1';
+      clean.fech_mec=item.fech_mec||'';clean.fech_dig=item.fech_dig||'';clean.cilindro=item.cilindro||'';clean.puxador=item.puxador||'';
+    }
+    if(item.tipo==='fixo'){
+      clean.tipo_vidro=item.tipo_vidro||'';clean.tipo_fixacao=item.tipo_fixacao||'';
+    }
+    return clean;
+  });
+}
+
+function _crmItensFromCardData(itens){
+  _crmItens=(itens||[]).map(function(it){
+    return Object.assign({},it,{id:it.id||('ci_'+Date.now()+'_'+Math.random().toString(36).substr(2,4))});
+  });
+  _crmItensRender();
+}
+
+
 window.crmSaveOpp=function(){
   var cliente=val('crm-o-cliente').trim();
   if(!cliente){var c=el('crm-o-cliente');if(c)c.focus();return;}
@@ -8573,14 +8839,15 @@ window.crmSaveOpp=function(){
     prioridade:val('crm-o-prioridade')||'',
     potencial: val('crm-o-potencial')||'',
     notas:     val('crm-o-notas').trim(),
-    largura:   parseInt(val('crm-o-largura'))||0,
-    altura:    parseInt(val('crm-o-altura'))||0,
+    largura:   (_crmItens.length?parseInt(_crmItens[0].largura):parseInt(val('crm-o-largura')))||0,
+    altura:    (_crmItens.length?parseInt(_crmItens[0].altura):parseInt(val('crm-o-altura')))||0,
     abertura:  val('crm-o-abertura'),
     modelo:    val('crm-o-modelo'),
     folhas:    val('crm-o-folhas')||'1',
     cor_ext:   val('crm-o-cor-ext'),
     cor_int:   val('crm-o-cor-int'),
     reserva:   val('crm-o-reserva').trim(),
+    itens:     _crmItensToCardData(),
     agp:       val('crm-o-agp').trim(),
     cep:       val('crm-o-cep'),
     scope:     scope,
