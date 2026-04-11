@@ -4735,8 +4735,8 @@ window.loadRevision=function(id,revIdx){
   window._pendingRevision=false;
   _persistSession();
   
-  // Se snapshot congelado, bloquear recálculos ANTES de restaurar form
-  window._snapshotLock=!!rev.snapshot;
+  // SÓ bloquear se foi enviado via Orçamento Pronto (não por salvar normal)
+  window._snapshotLock=!!rev.crmPronto;
   
   // Restore form data (all fields from when it was saved)
   if(rev.data){
@@ -4765,10 +4765,12 @@ window.loadRevision=function(id,revIdx){
     }
   }, 300);
   
-  // TRAVAR orçamento — usar valores congelados do snapshot
-  setTimeout(function(){
-    _setOrcLock(true);
-  }, 600);
+  // TRAVAR orçamento SOMENTE se foi enviado via Orçamento Pronto
+  if(rev.crmPronto){
+    setTimeout(function(){
+      _setOrcLock(true);
+    }, 600);
+  }
   
   toggleHist();
 };
@@ -10115,10 +10117,16 @@ window.crmOrcamentoPronto=function(){
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
   // Salvar orçamento antes de travar
   if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){}
-  // Marcar orçamento como vinculado ao card CRM
-  if(currentId && id){
+  // Marcar orçamento como vinculado ao card CRM + travar revisão
+  if(currentId){
     var _db2=loadDB();var _oi=_db2.findIndex(function(e){return e.id===currentId;});
-    if(_oi>=0){_db2[_oi].crmCardId=id;saveDB(_db2);}
+    if(_oi>=0){
+      _db2[_oi].crmCardId=id;
+      // Marcar revisão atual como "pronto" (trava edição)
+      var _rev=_db2[_oi].revisions[currentRev];
+      if(_rev) _rev.crmPronto=true;
+      saveDB(_db2);
+    }
   }
   // Travar orçamento — PDF salvo, valores devem bater. Para alterar, Nova Revisão.
   _setOrcLock(true);
