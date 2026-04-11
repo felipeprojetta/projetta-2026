@@ -904,6 +904,12 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   </div>
   <div class="crm-modal-body">
     <div class="crm-field"><label>Etapa Atual</label><div id="crm-opp-stages" style="display:flex;align-items:center;gap:8px"><span id="crm-stage-current" style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;color:#fff"></span><select id="crm-stage-select" onchange="_stageId=this.value;crmUpdateStageDisplay()" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:11px;background:var(--page);cursor:pointer"></select></div></div>
+    <div class="crm-field" style="margin-bottom:6px">
+      <div style="display:flex;gap:6px">
+        <button type="button" id="crm-btn-nac" class="active" onclick="crmSetScope('nacional')" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid #1565c0;background:#e3f2fd;color:#1565c0;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🇧🇷 Nacional</button>
+        <button type="button" id="crm-btn-intl" onclick="crmSetScope('internacional')" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid #e65100;background:#fff;color:#e65100;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🌍 Internacional</button>
+      </div>
+    </div>
     <div class="crm-field"><label>Cliente *</label><input type="text" id="crm-o-cliente" placeholder="Nome do cliente"></div>
     <div class="crm-field"><label>Contato (WhatsApp)</label>
       <div style="display:flex;gap:6px;align-items:center">
@@ -1005,14 +1011,6 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     <input type="hidden" id="crm-o-folhas">
     <input type="hidden" id="crm-o-cor-ext"><input type="hidden" id="crm-o-cor-int">
     <div class="crm-section-label">📍 Cidade de Instalação</div>
-    <!-- Scope Nacional/Internacional -->
-    <div class="crm-field" style="margin-bottom:8px">
-      <label>Escopo</label>
-      <div style="display:flex;gap:6px">
-        <button type="button" id="crm-btn-nac" class="active" onclick="crmSetScope('nacional')" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid #1565c0;background:#e3f2fd;color:#1565c0;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🇧🇷 Nacional</button>
-        <button type="button" id="crm-btn-intl" onclick="crmSetScope('internacional')" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid #e65100;background:#fff;color:#e65100;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🌍 Internacional</button>
-      </div>
-    </div>
     <div class="crm-field">
       <label>CEP</label>
       <div class="crm-cep-row"><input type="text" id="crm-o-cep" placeholder="00000-000" maxlength="9" oninput="crmCepMask(this)"><button type="button" class="crm-cep-btn" onclick="crmBuscarCep()">🔍 Buscar</button></div>
@@ -1025,13 +1023,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       </div>
     </div>
     <div id="crm-loc-internacional" style="display:none">
-      <div class="crm-intl-section">
-        <div style="font-size:10px;font-weight:800;color:#e67e22;margin-bottom:8px">🌍 OPORTUNIDADE INTERNACIONAL</div>
-        <div class="crm-row">
-          <div class="crm-field"><label>País</label><input type="text" id="crm-o-pais" placeholder="ex: Portugal, EUA"></div>
-          <div class="crm-field"><label>Cidade</label><input type="text" id="crm-o-cidade-intl" placeholder="ex: Lisboa, Miami"></div>
-        </div>
-      </div>
+      <input type="hidden" id="crm-o-pais"><input type="hidden" id="crm-o-cidade-intl">
     </div>
     <div class="crm-row">
       <div class="crm-field"><label>Valor Estimado (R$)</label><input type="number" id="crm-o-valor" placeholder="0,00" min="0"></div>
