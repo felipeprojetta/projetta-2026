@@ -4418,11 +4418,15 @@ function captureFormData(){
     var ld=(bl.querySelector('.fixo-lados')||{value:''}).value;
     var tp=(bl.querySelector('.fixo-tipo')||{value:'superior'}).value;
     var lado=(bl.querySelector('.fixo-lado')||{value:''}).value;
+    var qf=(bl.querySelector('.fixo-qty')||{value:'1'}).value;
+    var ef=(bl.querySelector('.fixo-estr')||{value:'nao'}).value;
     data['fixo-larg-'+fixoIdx]=lf;
     data['fixo-alt-'+fixoIdx]=af;
     data['fixo-lados-'+fixoIdx]=ld;
     data['fixo-tipo-'+fixoIdx]=tp;
     data['fixo-lado-'+fixoIdx]=lado;
+    data['fixo-qty-'+fixoIdx]=qf;
+    data['fixo-estr-'+fixoIdx]=ef;
     fixoIdx++;
   });
   // Salvar itens multi-porta
@@ -4602,6 +4606,30 @@ function restoreFormData(data){
     window._osGeradoUmaVez = !!data._osGeradoUmaVez;
   } else {
     window._osGeradoUmaVez = !!(parseFloat(data['h-portal'])||parseFloat(data['h-quadro'])||parseFloat(data['h-corte'])||parseFloat(data['h-colagem'])||parseFloat(data['h-conf'])||parseFloat(data['custo-hora']));
+  }
+  // Restaurar fixos
+  var _fixoList=document.getElementById('fixos-list');
+  if(_fixoList) _fixoList.innerHTML='';
+  fixoCount=0;
+  if(data['tem-fixo']==='true'||data['tem-fixo']===true){
+    var tfCk=document.getElementById('tem-fixo');
+    if(tfCk){tfCk.checked=true;if(typeof toggleFixos==='function')toggleFixos();}
+    var _fxi=1;
+    while(data['fixo-larg-'+_fxi]||data['fixo-alt-'+_fxi]){
+      addFixo();
+      var _lastBlk=document.querySelectorAll('.fixo-blk');
+      var _lb=_lastBlk[_lastBlk.length-1];
+      if(_lb){
+        var _fl=_lb.querySelector('.fixo-larg');if(_fl)_fl.value=data['fixo-larg-'+_fxi]||'';
+        var _fa=_lb.querySelector('.fixo-alt');if(_fa)_fa.value=data['fixo-alt-'+_fxi]||'';
+        var _fld=_lb.querySelector('.fixo-lados');if(_fld)_fld.value=data['fixo-lados-'+_fxi]||'1';
+        var _ft=_lb.querySelector('.fixo-tipo');if(_ft){_ft.value=data['fixo-tipo-'+_fxi]||'superior';toggleFixoTipo(_ft);}
+        var _fla=_lb.querySelector('.fixo-lado');if(_fla)_fla.value=data['fixo-lado-'+_fxi]||'esquerdo';
+        var _fq=_lb.querySelector('.fixo-qty');if(_fq)_fq.value=data['fixo-qty-'+_fxi]||'1';
+        var _fe=_lb.querySelector('.fixo-estr');if(_fe)_fe.value=data['fixo-estr-'+_fxi]||'nao';
+      }
+      _fxi++;
+    }
   }
   // Restaurar itens multi-porta
   if(data['_mpItens']){
