@@ -1822,7 +1822,6 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
         <button onclick="instIntlBuscarDecolar()" style="padding:6px 12px;border-radius:6px;border:1px solid #e65100;background:#fff3e0;color:#e65100;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">✈️ Buscar Passagem — Decolar</button>
         <button onclick="instIntlBuscarBooking()" style="padding:6px 12px;border-radius:6px;border:1px solid #003580;background:#e8eef6;color:#003580;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">🏨 Buscar Hotel — Booking</button>
-        <button onclick="instIntlBuscarCarro()" style="padding:6px 12px;border-radius:6px;border:1px solid #2e7d32;background:#e8f5e9;color:#2e7d32;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">🚗 Buscar Carro — RentCars</button>
       </div>
       <!-- Custos -->
       <div style="font-size:10px;font-weight:700;color:#1565c0;margin-bottom:4px">💰 Custos (preencha após pesquisar)</div>
@@ -1831,7 +1830,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div class="fr"><span class="fl">🏨 Hotel/dia</span><div class="fv"><input type="number" id="inst-intl-hotel" value="" min="0" step="100" oninput="calc()" placeholder="Buscar no Booking"></div></div>
       <div class="fr"><span class="fl">🍽️ Alimentação/pessoa/dia</span><div class="fv"><input type="number" id="inst-intl-alim" value="300" min="0" step="50" oninput="calc()"></div></div>
       <div class="fr"><span class="fl">🏥 Seguro Saúde/pessoa</span><div class="fv"><input type="number" id="inst-intl-seguro" value="300" min="0" step="50" oninput="calc()"></div></div>
-      <div class="fr"><span class="fl">🚗 Aluguel Carro+Gasolina/dia</span><div class="fv"><input type="number" id="inst-intl-carro" value="" min="0" step="50" oninput="calc()" placeholder="Buscar na RentCars"></div></div>
+      <div class="fr"><span class="fl">🚗 Aluguel Carro+Gasolina/dia</span><div class="fv"><input type="number" id="inst-intl-carro" value="850" min="0" step="50" oninput="calc()"></div></div>
       <div class="fr"><span class="fl">👷 Mão de Obra/dia inst.</span><div class="fv"><input type="number" id="inst-intl-mo" value="500" min="0" step="100" oninput="calc()"></div></div>
       <div class="dvdr"></div>
       <div class="fr"><span class="fl">💲 Câmbio USD <small>média 3 meses</small></span><div class="fv"><input type="number" id="inst-intl-cambio" value="5.20" min="1" max="10" step="0.01" oninput="calc()"></div></div>
@@ -13991,15 +13990,6 @@ function instIntlBuscarBooking(){
   var fmt=function(d){return d.getFullYear()+'-'+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate();};
   window.open('https://www.booking.com/searchresults.html?ss='+encodeURIComponent(pais||aero)+'&checkin='+fmt(dep)+'&checkout='+fmt(ret)+'&group_adults=2&no_rooms=1','_blank');
 }
-// ── Buscar Carro RentCars ──
-function instIntlBuscarCarro(){
-  var aero=(document.getElementById('inst-intl-aero')||{value:''}).value||'';
-  var dias=parseInt((document.getElementById('inst-intl-dias')||{value:3}).value)||3;
-  var dep=new Date();dep.setDate(dep.getDate()+30);
-  var ret=new Date(dep);ret.setDate(ret.getDate()+dias+2);
-  var fmt=function(d){return d.getFullYear()+'-'+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate();};
-  window.open('https://www.rentcars.com/pt/pesquisa?location='+encodeURIComponent(aero+' airport')+'&pickupDate='+fmt(dep)+'&returnDate='+fmt(ret),'_blank');
-}
 // ── Porte auto-select ──
 function instIntlPorteChange(){
   var porte=(document.getElementById('inst-intl-porte')||{value:'M'}).value;
@@ -14023,6 +14013,95 @@ function instIntlFetchCambio(){
     if(info)info.textContent='✅ Média BCB ('+vals.length+' dias): R$ '+media;
     calc();
   }).catch(function(){if(info)info.textContent='⚠️ Erro. Usando default.';});
+}
+
+// ── Cálculo Internacional com DRE completo ──
+function calcInstIntl(){
+  var gv=function(id){return parseFloat((document.getElementById(id)||{value:0}).value)||0;};
+  var pessoas=gv('inst-intl-pessoas');
+  var diasInst=gv('inst-intl-dias');
+  var diasViagem=diasInst+2;
+  var cambio=gv('inst-intl-cambio')||5.20;
+
+  var udiGru=gv('inst-intl-udigru');
+  var passagem=gv('inst-intl-passagem')*pessoas;
+  var hotel=gv('inst-intl-hotel')*diasViagem;
+  var alim=gv('inst-intl-alim')*pessoas*diasViagem;
+  var seguro=gv('inst-intl-seguro')*pessoas;
+  var carro=gv('inst-intl-carro')*diasViagem;
+  var mo=gv('inst-intl-mo')*diasInst;
+  var margemLiq=gv('inst-intl-margem')/100;
+
+  var custoTotal=udiGru+passagem+hotel+alim+seguro+carro+mo;
+
+  // DRE — buscar taxas do orçamento (mesmas da porta)
+  var pctImp=parseFloat((document.getElementById('imp')||{value:17}).value)||17;
+  var pctCom=parseFloat((document.getElementById('comissao')||{value:0}).value)||0;
+  var pctRep=parseFloat((document.getElementById('repasse')||{value:0}).value)||0;
+  var pctGest=parseFloat((document.getElementById('gest')||{value:0}).value)||0;
+  var pctML=margemLiq*100;
+
+  // Markup: Preço = Custo / (1 - imp% - com% - rep% - gest% - margem%)
+  var totalDeduc=(pctImp+pctCom+pctRep+pctGest+pctML)/100;
+  var divisor=Math.max(0.01, 1-totalDeduc);
+  var precoTabela=custoTotal/divisor;
+  var desconto=parseFloat((document.getElementById('desconto')||{value:0}).value)||0;
+  var precoFat=precoTabela*(1-desconto/100);
+
+  var impostos=precoFat*(pctImp/100);
+  var comissao=precoFat*(pctCom/100);
+  var repasse=precoFat*(pctRep/100);
+  var gestao=precoFat*(pctGest/100);
+  var lucroBruto=precoFat-custoTotal-impostos-comissao-repasse-gestao;
+  var irpj=lucroBruto>0?lucroBruto*0.34:0;
+  var lucroLiq=lucroBruto-irpj;
+  var mkp=custoTotal>0?((precoTabela/custoTotal-1)*100):0;
+  var mbPct=precoFat>0?(lucroBruto/precoFat*100):0;
+  var mlPct=precoFat>0?(lucroLiq/precoFat*100):0;
+
+  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});};
+  var usd=function(v){return 'US$ '+(v/cambio).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});};
+
+  var res=document.getElementById('inst-intl-result');
+  if(res && custoTotal>0){
+    var aero=(document.getElementById('inst-intl-aero')||{value:''}).value||'???';
+    res.innerHTML=
+      '<div style="font-size:9px;color:#666;margin-bottom:6px">GRU → <b>'+aero+'</b> · '+pessoas+' pess × '+diasViagem+' dias ('+diasInst+' inst + 2 viagem)</div>'+
+      // Breakdown custos
+      '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:2px 8px;font-size:9.5px">'+
+      '<div>🛫 UDI→GRU:</div><div>'+brl(udiGru)+'</div><div style="color:#1565c0">'+usd(udiGru)+'</div>'+
+      '<div>✈️ Passagens ('+pessoas+'p):</div><div>'+brl(passagem)+'</div><div style="color:#1565c0">'+usd(passagem)+'</div>'+
+      '<div>🏨 Hotel ('+diasViagem+'d):</div><div>'+brl(hotel)+'</div><div style="color:#1565c0">'+usd(hotel)+'</div>'+
+      '<div>🍽️ Alimentação:</div><div>'+brl(alim)+'</div><div style="color:#1565c0">'+usd(alim)+'</div>'+
+      '<div>🏥 Seguro:</div><div>'+brl(seguro)+'</div><div style="color:#1565c0">'+usd(seguro)+'</div>'+
+      '<div>🚗 Carro+Gas:</div><div>'+brl(carro)+'</div><div style="color:#1565c0">'+usd(carro)+'</div>'+
+      '<div>👷 Mão de Obra:</div><div>'+brl(mo)+'</div><div style="color:#1565c0">'+usd(mo)+'</div>'+
+      '</div>'+
+      '<hr style="margin:6px 0;border:none;border-top:1.5px solid #003144">'+
+      // DRE
+      '<div style="font-size:10px;font-weight:800;color:#003144;margin-bottom:4px">📊 DRE — INSTALAÇÃO</div>'+
+      '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:2px 8px;font-size:10px">'+
+      '<div style="font-weight:700">(+) Preço Tabela:</div><div style="font-weight:700">'+brl(precoTabela)+'</div><div style="color:#1565c0;font-weight:700">'+usd(precoTabela)+'</div>'+
+      (desconto>0?'<div>(−) Desconto '+desconto.toFixed(1)+'%:</div><div style="color:#c0392b">-'+brl(precoTabela-precoFat)+'</div><div style="color:#c0392b">-'+usd(precoTabela-precoFat)+'</div>':'')+
+      '<div style="font-weight:700">(=) Receita Fat.:</div><div style="font-weight:700">'+brl(precoFat)+'</div><div style="color:#1565c0;font-weight:700">'+usd(precoFat)+'</div>'+
+      '<div style="color:#c0392b">(−) Impostos '+pctImp+'%:</div><div style="color:#c0392b">-'+brl(impostos)+'</div><div style="color:#c0392b">-'+usd(impostos)+'</div>'+
+      (pctCom>0?'<div>(−) Comissão '+pctCom+'%:</div><div style="color:#c0392b">-'+brl(comissao)+'</div><div style="color:#c0392b">-'+usd(comissao)+'</div>':'')+
+      (pctRep>0?'<div>(−) Repasse '+pctRep+'%:</div><div style="color:#c0392b">-'+brl(repasse)+'</div><div style="color:#c0392b">-'+usd(repasse)+'</div>':'')+
+      (pctGest>0?'<div>(−) Gestão '+pctGest+'%:</div><div style="color:#c0392b">-'+brl(gestao)+'</div><div style="color:#c0392b">-'+usd(gestao)+'</div>':'')+
+      '<div>(−) Custo Total:</div><div>-'+brl(custoTotal)+'</div><div>-'+usd(custoTotal)+'</div>'+
+      '<div style="font-weight:700">(=) Lucro Bruto:</div><div style="font-weight:700">'+brl(lucroBruto)+'</div><div style="font-weight:700">'+usd(lucroBruto)+'</div>'+
+      '<div>(−) IRPJ+CSLL 34%:</div><div style="color:#c0392b">-'+brl(irpj)+'</div><div style="color:#c0392b">-'+usd(irpj)+'</div>'+
+      '</div>'+
+      '<div style="background:#e8f5e9;border-radius:5px;padding:6px 8px;margin-top:6px;display:flex;justify-content:space-between;font-size:11px;font-weight:800;color:#2e7d32">'+
+      '<span>(=) Lucro Líquido:</span><span>'+brl(lucroLiq)+' ('+mlPct.toFixed(1)+'%)</span>'+
+      '</div>'+
+      '<div style="background:#003144;color:#fff;padding:8px 10px;border-radius:5px;margin-top:6px;display:grid;grid-template-columns:1fr 1fr;font-size:12px;font-weight:800;text-align:center">'+
+      '<div>'+brl(precoFat)+'</div><div style="color:#90caf9">'+usd(precoFat)+'</div>'+
+      '</div>'+
+      '<div style="text-align:center;font-size:9px;color:#888;margin-top:2px">Markup '+mkp.toFixed(1)+'% · Câmbio R$ '+cambio.toFixed(2)+'</div>';
+  }
+
+  return custoTotal; // retorna custo para calc() principal
 }
 
 function instIntlPorteChange(){
