@@ -1802,9 +1802,17 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     <div id="inst-internacional-calc" style="display:none;background:#e3f2fd;border:1.5px solid #2196f3;border-radius:8px;padding:12px 14px;margin-bottom:8px">
       <div style="font-size:11px;font-weight:700;color:#1565c0;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">🌍 Instalação Internacional</div>
       <!-- Rota -->
-      <div class="fr" style="background:#bbdefb;border-radius:6px;padding:6px 8px;margin-bottom:6px">
-        <span class="fl" style="font-weight:700;color:#1565c0;font-size:11px">✈️ GRU (Guarulhos) →</span>
-        <div class="fv"><input type="text" id="inst-intl-aero" placeholder="Aeroporto destino (ex: LIS, JFK)" oninput="calc()" style="border-color:#90caf9;font-weight:700;color:#1565c0"></div>
+      <div style="background:#bbdefb;border-radius:6px;padding:8px;margin-bottom:6px">
+        <div style="font-size:10px;font-weight:700;color:#1565c0;margin-bottom:4px">✈️ GRU (Guarulhos) →</div>
+        <div class="fr" style="border:none;padding:2px 0"><span class="fl" style="font-size:11px">Cidade destino</span>
+          <div class="fv" style="position:relative">
+            <input type="text" id="inst-intl-cidade" placeholder="Ex: Lisboa, Miami, Dubai..." oninput="instIntlCidadeSearch(this.value)" style="border-color:#90caf9;font-weight:600;color:#1565c0">
+            <div id="inst-intl-cidade-ac" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #90caf9;border-radius:0 0 6px 6px;max-height:180px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.15);font-size:11px"></div>
+          </div>
+        </div>
+        <div class="fr" style="border:none;padding:2px 0"><span class="fl" style="font-size:11px">Aeroporto <small style="color:#888">(auto)</small></span>
+          <div class="fv"><input type="text" id="inst-intl-aero" placeholder="IATA (ex: LIS)" oninput="calc()" style="border-color:#90caf9;font-weight:700;color:#1565c0;text-transform:uppercase;letter-spacing:2px;text-align:center;max-width:100px"></div>
+        </div>
       </div>
       <div id="inst-intl-pais-info" style="font-size:9px;color:#1565c0;margin-bottom:6px;font-weight:600"></div>
       <!-- Porte -->
@@ -14038,6 +14046,82 @@ function instIntlPorteChange(){
   if(porte==='M'){if(pEl)pEl.value=3;if(dEl)dEl.value=3;}
   if(porte==='G'){if(pEl)pEl.value=3;if(dEl)dEl.value=4;}
 }
+
+// ── Cidade → Aeroporto (banco de dados) ──
+var _AEROPORTOS=[
+  // Europa
+  {c:'Lisboa',p:'Portugal',a:'LIS'},{c:'Porto',p:'Portugal',a:'OPO'},{c:'Faro',p:'Portugal',a:'FAO'},
+  {c:'Madrid',p:'Espanha',a:'MAD'},{c:'Barcelona',p:'Espanha',a:'BCN'},{c:'Málaga',p:'Espanha',a:'AGP'},
+  {c:'Paris',p:'França',a:'CDG'},{c:'Nice',p:'França',a:'NCE'},{c:'Lyon',p:'França',a:'LYS'},
+  {c:'Londres',p:'Inglaterra',a:'LHR'},{c:'Roma',p:'Itália',a:'FCO'},{c:'Milão',p:'Itália',a:'MXP'},
+  {c:'Berlim',p:'Alemanha',a:'BER'},{c:'Frankfurt',p:'Alemanha',a:'FRA'},{c:'Munique',p:'Alemanha',a:'MUC'},
+  {c:'Amsterdam',p:'Holanda',a:'AMS'},{c:'Bruxelas',p:'Bélgica',a:'BRU'},{c:'Zurique',p:'Suíça',a:'ZRH'},
+  {c:'Genebra',p:'Suíça',a:'GVA'},{c:'Viena',p:'Áustria',a:'VIE'},{c:'Praga',p:'Rep. Tcheca',a:'PRG'},
+  {c:'Varsóvia',p:'Polônia',a:'WAW'},{c:'Atenas',p:'Grécia',a:'ATH'},{c:'Dublin',p:'Irlanda',a:'DUB'},
+  {c:'Copenhague',p:'Dinamarca',a:'CPH'},{c:'Estocolmo',p:'Suécia',a:'ARN'},{c:'Oslo',p:'Noruega',a:'OSL'},
+  {c:'Helsinki',p:'Finlândia',a:'HEL'},{c:'Istambul',p:'Turquia',a:'IST'},{c:'Bucareste',p:'Romênia',a:'OTP'},
+  {c:'Mônaco',p:'Mônaco',a:'NCE'},{c:'Luxemburgo',p:'Luxemburgo',a:'LUX'},
+  // Américas
+  {c:'Miami',p:'EUA',a:'MIA'},{c:'Nova York',p:'EUA',a:'JFK'},{c:'New York',p:'EUA',a:'JFK'},
+  {c:'Los Angeles',p:'EUA',a:'LAX'},{c:'Orlando',p:'EUA',a:'MCO'},{c:'Houston',p:'EUA',a:'IAH'},
+  {c:'Chicago',p:'EUA',a:'ORD'},{c:'São Francisco',p:'EUA',a:'SFO'},{c:'Dallas',p:'EUA',a:'DFW'},
+  {c:'Las Vegas',p:'EUA',a:'LAS'},{c:'Washington',p:'EUA',a:'IAD'},{c:'Boston',p:'EUA',a:'BOS'},
+  {c:'Atlanta',p:'EUA',a:'ATL'},{c:'Seattle',p:'EUA',a:'SEA'},{c:'Denver',p:'EUA',a:'DEN'},
+  {c:'Toronto',p:'Canadá',a:'YYZ'},{c:'Vancouver',p:'Canadá',a:'YVR'},{c:'Montreal',p:'Canadá',a:'YUL'},
+  {c:'Cidade do México',p:'México',a:'MEX'},{c:'Cancún',p:'México',a:'CUN'},
+  {c:'Buenos Aires',p:'Argentina',a:'EZE'},{c:'Santiago',p:'Chile',a:'SCL'},
+  {c:'Lima',p:'Peru',a:'LIM'},{c:'Bogotá',p:'Colômbia',a:'BOG'},
+  {c:'Montevidéu',p:'Uruguai',a:'MVD'},{c:'Panamá',p:'Panamá',a:'PTY'},
+  // Oriente Médio
+  {c:'Dubai',p:'Emirados Árabes',a:'DXB'},{c:'Abu Dhabi',p:'Emirados Árabes',a:'AUH'},
+  {c:'Doha',p:'Catar',a:'DOH'},{c:'Riade',p:'Arábia Saudita',a:'RUH'},
+  {c:'Tel Aviv',p:'Israel',a:'TLV'},{c:'Beirute',p:'Líbano',a:'BEY'},
+  // Ásia
+  {c:'Tóquio',p:'Japão',a:'NRT'},{c:'Osaka',p:'Japão',a:'KIX'},
+  {c:'Seul',p:'Coreia do Sul',a:'ICN'},{c:'Pequim',p:'China',a:'PEK'},
+  {c:'Xangai',p:'China',a:'PVG'},{c:'Hong Kong',p:'China',a:'HKG'},
+  {c:'Cingapura',p:'Cingapura',a:'SIN'},{c:'Bangkok',p:'Tailândia',a:'BKK'},
+  {c:'Mumbai',p:'Índia',a:'BOM'},{c:'Nova Delhi',p:'Índia',a:'DEL'},
+  // Oceania
+  {c:'Sydney',p:'Austrália',a:'SYD'},{c:'Melbourne',p:'Austrália',a:'MEL'},
+  {c:'Auckland',p:'Nova Zelândia',a:'AKL'},
+  // África
+  {c:'Joanesburgo',p:'África do Sul',a:'JNB'},{c:'Cidade do Cabo',p:'África do Sul',a:'CPT'},
+  {c:'Luanda',p:'Angola',a:'LAD'},{c:'Maputo',p:'Moçambique',a:'MPM'},
+  {c:'Cairo',p:'Egito',a:'CAI'},{c:'Casablanca',p:'Marrocos',a:'CMN'},
+  {c:'Nairobi',p:'Quênia',a:'NBO'},{c:'Lagos',p:'Nigéria',a:'LOS'}
+];
+
+function instIntlCidadeSearch(val){
+  var ac=document.getElementById('inst-intl-cidade-ac');
+  if(!ac)return;
+  if(!val||val.length<2){ac.style.display='none';return;}
+  var q=val.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  var matches=_AEROPORTOS.filter(function(a){
+    var cn=a.c.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    var pn=a.p.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return cn.indexOf(q)>=0||pn.indexOf(q)>=0||a.a.toLowerCase().indexOf(q)>=0;
+  }).slice(0,8);
+  if(!matches.length){ac.style.display='none';return;}
+  ac.innerHTML=matches.map(function(m){
+    return '<div onclick="instIntlSelectCidade(\''+m.c+'\',\''+m.a+'\',\''+m.p+'\')" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #eee;display:flex;justify-content:space-between" onmouseover="this.style.background=\'#e3f2fd\'" onmouseout="this.style.background=\'\'"><span>'+m.c+', '+m.p+'</span><b style="color:#1565c0">'+m.a+'</b></div>';
+  }).join('');
+  ac.style.display='block';
+}
+
+function instIntlSelectCidade(cidade,aero,pais){
+  var ci=document.getElementById('inst-intl-cidade');if(ci)ci.value=cidade;
+  var ae=document.getElementById('inst-intl-aero');if(ae)ae.value=aero;
+  var ac=document.getElementById('inst-intl-cidade-ac');if(ac)ac.style.display='none';
+  var pi=document.getElementById('inst-intl-pais-info');if(pi)pi.textContent='🌍 '+cidade+', '+pais+' — Aeroporto: '+aero;
+  calc();
+}
+
+// Fechar autocomplete ao clicar fora
+document.addEventListener('click',function(e){
+  var ac=document.getElementById('inst-intl-cidade-ac');
+  if(ac&&!ac.contains(e.target)&&e.target.id!=='inst-intl-cidade')ac.style.display='none';
+});
 // ── Fetch câmbio BCB ──
 function instIntlFetchCambio(){
   var info=document.getElementById('inst-intl-cambio-info');
