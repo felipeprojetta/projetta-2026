@@ -5481,6 +5481,96 @@ function aprovPieces(Lmm,Amm,fol,mod){
   return res;
 }
 
+// ── FIXO PIECES — chapas do fixo conforme planilha de precificação ──
+function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
+  if(!Lfixo||!Afixo) return [];
+  var is2L=(lados===2);
+  var FGA=10,FGLA=20,PIV=28,TPIV=8,REF=20;
+  var TUB=Aporta>4000?51:38;
+  // Door reference values
+  var G3=Math.round(Lporta-FGLA-171.5-171.5+90+128); // LAR CH FRONTAL 1FLH
+  var G4=Math.round(Aporta-FGA-TUB-PIV+TPIV);          // ALT CH FRONTAL
+  var bH=G4+116; // batente height
+
+  // Cava params from form (models 01,02,08)
+  var DC=parseInt(($('aprov-dim-cava')||{value:150}).value)||150;
+  var HC=parseInt(($('aprov-h-cava')||{value:210}).value)||210;
+
+  // Door intermediate widths needed for fixo
+  var CAVA_W=DC+116;          // PORTA_01 width = LAR_CAVA+23+23+35+35
+  var L_CAVA_W=DC+90;         // PORTA_02 width = LAR_CAVA+100-10
+  var TAMPA_MAIOR_W=Math.round((G3-HC-1-DC-1)+40); // PORTA_03 width
+  var TAMPA_BORDA_W=HC+REF*2-2;                     // PORTA_04 width
+  var M_TAMPA=TAMPA_MAIOR_W-REF*2;  // M9 = net width TAMPA_MAIOR
+  var M_BORDA=TAMPA_BORDA_W-REF*2;  // M10 = net width TAMPA_BORDA
+  var TAMPA_FINAL=G3;               // C19
+  var TAMPA_REF=G3-1+REF+REF;       // C20
+
+  // Fixo heights
+  var hCavaFix=Afixo-TUB-TUB;          // FIXO_01 H: altura fixo - 2×tub
+  var hTampaFix=Afixo+TUB+REF;         // FIXO_03-06 H: tampa maior/borda
+  var hFitFix=Afixo+100;               // FIXO_07-08 H: fit acabamento
+  var hFitLar=Lporta+100;              // FIXO_09 H: fit largura fita
+
+  var r=[];
+  var q1=is2L?2:1, q2=is2L?4:2;
+
+  if(mod==='01'||mod==='02'||mod==='08'){
+    // Peças com CAVA
+    r.push(['FX CAVA SUP',CAVA_W,hCavaFix,q1]);
+    r.push(['FX L CAVA',L_CAVA_W,210,q2]);
+    r.push(['FX TAMPA MAIOR',M_TAMPA+44+REF,hTampaFix,1]);
+    if(is2L) r.push(['FX TAMPA MAIOR 2L',M_TAMPA+82+REF,hTampaFix,1]);
+    r.push(['FX TAMPA BOR CAVA',M_BORDA+44+REF,hTampaFix,1]);
+    if(is2L) r.push(['FX TAMPA BOR CAVA 2L',M_BORDA+82+REF,hTampaFix,1]);
+    r.push(['FX FIT ME',76.5,hFitFix,q1]);
+    r.push(['FX FIT MA',114.5,hFitFix,q1]);
+    r.push(['FX FIT FITA',101,hFitLar,q1]);
+    r.push(['FX BAT 01',47,bH,q1]);
+    r.push(['FX BAT 03',70,bH,q1]);
+    // Modelo 02: friso no fixo
+    if(mod==='02'){
+      var larFriso=parseInt((document.getElementById('carac-friso-larg')||{value:50}).value)||50;
+      r.push(['FX FRISO',larFriso+100,hTampaFix,q1]);
+    }
+    // Modelo 08: ripado no fixo (peças estreitas repetidas)
+    if(mod==='08'){
+      var nRipas=Math.max(1,Math.round((Lfixo-330)/90));
+      r.push(['FX RIPAS',98,hCavaFix,nRipas*q1]);
+    }
+  }
+
+  if(mod==='10'||mod==='11'||mod==='15'||mod==='23acm'||mod==='23alu'){
+    // Lisa — sem cava, tampa cobre toda largura
+    // Door TAMPA_MAIOR for Lisa: G3+40 (approx)
+    var lisaTW=G3+40;
+    var M_lisaT=lisaTW-REF*2;
+    r.push(['FX TAMPA MAIOR',M_lisaT+44+82-1,hTampaFix,1]);
+    if(is2L) r.push(['FX TAMPA MAIOR 2L',M_lisaT+44+44-1,hTampaFix,1]);
+    r.push(['FX FIT ME',76.5,hFitFix,q1]);
+    r.push(['FX FIT MA',114.5,hFitFix,q1]);
+    r.push(['FX FIT FITA',101,hFitLar,q1]);
+    r.push(['FX BAT 01',47,bH,q1]);
+    r.push(['FX BAT 03',70,bH,q1]);
+    // Modelo 11: friso vertical
+    if(mod==='11'){
+      var larFriso11=parseInt((document.getElementById('carac-friso-larg')||{value:10}).value)||10;
+      r.push(['FX FRISO',larFriso11+100,hTampaFix,q1]);
+    }
+    // Modelo 15: ripas
+    if(mod==='15'){
+      var nRipas15=Math.max(1,Math.round((Lfixo-180)/90));
+      r.push(['FX RIPAS',98,hCavaFix||Afixo-TUB*2,nRipas15*q1]);
+    }
+  }
+
+  // Montar resultado com cores
+  var res=[];
+  for(var i=0;i<r.length;i++){var p=r[i];var w=Math.round(p[1]*2)/2,h=Math.round(p[2]*2)/2,q=p[3];
+    if(w>0&&h>0&&q>0)res.push({label:p[0],w:w,h:h,qty:q,color:APROV_COLORS[(i+12)%APROV_COLORS.length]});}
+  return res;
+}
+
 function aprovMaxRects(pieces,SW,SH,kerf,rot,mg){
   var todo=[];
   for(var i=0;i<pieces.length;i++)for(var j=0;j<pieces[i].qty;j++){
@@ -5493,7 +5583,10 @@ function aprovMaxRects(pieces,SW,SH,kerf,rot,mg){
   var PIECE_PRIORITY={'TAMPA MAIOR':1,'TAMPA BOR CAVA':1,'TAMPA CAVA':1,'CAVA':2,
     'ACAB LAT 1':3,'ACAB LAT 2':3,'ACAB LAT Z':3,'ALISAR ALT':4,'ALISAR LAR':4,
     'BAT 01':5,'BAT 02Z':5,'BAT 03':5,'TAP FURO':6,'FIT ACAB ME':6,'FIT ACAB MA':6,
-    'FIT ACAB FITA':6,'U PORTAL':7};
+    'FIT ACAB FITA':6,'U PORTAL':7,
+    'FX TAMPA MAIOR':9,'FX TAMPA MAIOR 2L':9,'FX TAMPA BOR CAVA':9,'FX TAMPA BOR CAVA 2L':9,
+    'FX CAVA SUP':10,'FX L CAVA':10,'FX FIT ME':11,'FX FIT MA':11,'FX FIT FITA':11,
+    'FX BAT 01':12,'FX BAT 03':12,'FX FRISO':12,'FX RIPAS':13};
   function _prio(lbl){var p=PIECE_PRIORITY[lbl];return p||8;}
   todo.sort(function(a,b){
     var pa=_prio(a.label),pb=_prio(b.label);
@@ -5708,6 +5801,21 @@ function aprovCalc(){
   var SW=parseInt(parts[0]),SH=parseInt(parts[1]);
   APROV_SD={w:SW,h:SH,mg:mg};
   var pieces=aprovPieces(L,A,fol,mod);
+  // Adicionar peças dos fixos
+  var tfEl2=document.getElementById('tem-fixo');
+  if(tfEl2&&tfEl2.checked){
+    document.querySelectorAll('.fixo-blk').forEach(function(el){
+      var Lf=parseFloat((el.querySelector('.fixo-larg')||{value:0}).value)||0;
+      var Af=parseFloat((el.querySelector('.fixo-alt')||{value:0}).value)||0;
+      var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
+      var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
+      if(Lf>0&&Af>0){
+        var fp=aprovFixoPieces(L,A,Lf,Af,ld,mod);
+        if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
+        pieces=pieces.concat(fp);
+      }
+    });
+  }
   // Multiplicar peças por quantidade de portas antes do nesting
   var _qPA=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
   if(_qPA>1){ pieces.forEach(function(p){ p.qty=p.qty*_qPA; }); }
@@ -5759,6 +5867,21 @@ function aprovRun(){
   var parts=$('aprov-chapa').value.split('|');
   var SW=parseInt(parts[0]),SH=parseInt(parts[1]);
   var pieces=aprovPieces(L,A,fol,mod);
+  // Adicionar peças dos fixos
+  var _tfR=document.getElementById('tem-fixo');
+  if(_tfR&&_tfR.checked){
+    document.querySelectorAll('.fixo-blk').forEach(function(el){
+      var Lf=parseFloat((el.querySelector('.fixo-larg')||{value:0}).value)||0;
+      var Af=parseFloat((el.querySelector('.fixo-alt')||{value:0}).value)||0;
+      var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
+      var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
+      if(Lf>0&&Af>0){
+        var fp=aprovFixoPieces(L,A,Lf,Af,ld,mod);
+        if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
+        pieces=pieces.concat(fp);
+      }
+    });
+  }
   var totPA=pieces.reduce(function(s,p){return s+p.w*p.h*p.qty;},0);
   var usable=SW*SH;
   var nChapas=Math.ceil(totPA/usable)+1; // conservative before detailed calc
@@ -7601,6 +7724,21 @@ function printOSColagem(){
     var fol=nFolhas;
     var mod=modelo;
     var pieces=aprovPieces(L,H,fol,mod);
+    // Adicionar peças dos fixos
+    var _tfOS=document.getElementById('tem-fixo');
+    if(_tfOS&&_tfOS.checked){
+      document.querySelectorAll('.fixo-blk').forEach(function(el){
+        var Lf=parseFloat((el.querySelector('.fixo-larg')||{value:0}).value)||0;
+        var Af=parseFloat((el.querySelector('.fixo-alt')||{value:0}).value)||0;
+        var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
+        var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
+        if(Lf>0&&Af>0){
+          var fp=aprovFixoPieces(L,H,Lf,Af,ld,mod);
+          if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
+          pieces=pieces.concat(fp);
+        }
+      });
+    }
     var chapaDesc=($('aprov-chapa-sel')||{value:''}).value||'BLACK DOOR 4X1500X6000';
     pieces.forEach(function(p){
       chapasRows.push({code:'HDKRAL',desc:chapaDesc,qty:p.qty,lxh:Math.round(p.w)+' x '+Math.round(p.h),obs:p.label});
