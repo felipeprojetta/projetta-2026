@@ -4829,8 +4829,32 @@ function salvarRapido(){
     var reserva=$('numprojeto').value.trim();
     var nome=cliente+(reserva?' — '+reserva:'');
     saveNew(nome);
+    window._pendingRevision=false;
     var ind=document.getElementById('autosave-ind');
-    if(ind){ind.textContent='✓ Salvo como "'+nome+'"';ind.style.opacity='1';setTimeout(function(){ind.style.opacity='0';},3000);}
+    if(ind){ind.textContent='✓ Salvo como "'+nome+'"';ind.style.opacity='1';ind.style.color='#1a7a20';setTimeout(function(){ind.style.opacity='0';},3000);}
+  } else if(window._pendingRevision){
+    // NOVA REVISÃO: criar revisão nova (não sobrescrever)
+    var db=loadDB();
+    var idx=db.findIndex(function(e){return e.id===currentId;});
+    if(idx<0) return;
+    var data=captureFormData();
+    var nextNum=db[idx].revisions.length;
+    var padNum=nextNum<10?'0'+nextNum:''+nextNum;
+    var cliente=(data['cliente']||'').trim()||db[idx].client||'Sem nome';
+    var label=cliente+' Rev'+padNum;
+    db[idx].revisions.push({rev:nextNum, label:label, savedAt:now(), data:data, snapshot:captureSnapshot()});
+    db[idx].client=data['cliente']||db[idx].client;
+    db[idx].project=data['numprojeto']||db[idx].project;
+    if(cliente) db[idx].name=cliente+(data['numprojeto']?' — '+data['numprojeto']:'');
+    currentRev=nextNum;
+    saveDB(db);
+    _persistSession();
+    $('cur-rev-badge').textContent=label;
+    $('cur-rev-badge').style.display='';
+    $('cur-name').textContent=db[idx].name;
+    window._pendingRevision=false;
+    var ind=document.getElementById('autosave-ind');
+    if(ind){ind.textContent='✓ '+label+' salva!';ind.style.opacity='1';ind.style.color='#1a7a20';setTimeout(function(){ind.style.opacity='0';},3000);}
   } else {
     // Já existe: atualizar revisão atual silenciosamente
     var db=loadDB();
@@ -4842,16 +4866,14 @@ function salvarRapido(){
     try{db[idx].revisions[currentRev].snapshot=captureSnapshot();}catch(e){}
     db[idx].client=data['cliente']||db[idx].client;
     db[idx].project=data['numprojeto']||db[idx].project;
-    // Atualizar nome se cliente mudou
     var cliente=data['cliente']||'';
     var reserva=data['numprojeto']||'';
     if(cliente) db[idx].name=cliente+(reserva?' — '+reserva:'');
     saveDB(db);
     _persistSession();
-    // Atualizar banner
     $('cur-name').textContent=db[idx].name;
     var ind=document.getElementById('autosave-ind');
-    if(ind){ind.textContent='✓ Salvo!';ind.style.opacity='1';setTimeout(function(){ind.style.opacity='0';},2000);}
+    if(ind){ind.textContent='✓ Salvo!';ind.style.opacity='1';ind.style.color='#1a7a20';setTimeout(function(){ind.style.opacity='0';},2000);}
   }
   $('hist-count').textContent=loadDB().length;
   // Após salvar: SEMPRE mostrar botão "Pronto para Envio"
@@ -4882,36 +4904,43 @@ function salvarRapido(){
 function novaRevisao(){
   // Destravar orçamento para edição
   _setOrcLock(false);
+  window._orcLocked=false;
+  
+  // Mostrar botão GERAR CUSTO COMPLETO para recalcular
+  var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='';
+  
+  // Se tem itens do CRM, permitir edição nos itens
+  if(window._orcItens && window._orcItens.length > 0){
+    // Mostrar barra de itens como editável
+    var bar=document.getElementById('orc-itens-bar');
+    if(bar) bar.classList.add('show');
+  }
+  
+  // Abrir Características da Porta para edição
+  var caracBody=document.getElementById('carac-body');
+  if(caracBody) caracBody.style.display='';
+  
   if(!currentId){
     salvarRapido();
     if(!currentId) return;
   }
-  var db=loadDB();
-  var entry=db.find(function(e){return e.id===currentId;});
-  if(!entry) return;
-  // Contar revisões: total - 1 (descontando o Original)
-  var nextNum=entry.revisions.length;
-  var padNum=nextNum<10?'0'+nextNum:''+nextNum;
-  var cliente=($('cliente').value||'').trim()||entry.client||'Sem nome';
-  var label=cliente+' Rev'+padNum;
-  var data=captureFormData();
-  var revIdx=entry.revisions.length;
-  entry.revisions.push({rev:revIdx, label:label, savedAt:now(), data:data});
-  // Update entry name to reflect latest client
-  entry.client=data['cliente']||entry.client;
-  entry.name=cliente+(data['numprojeto']?' — '+data['numprojeto']:'');
-  currentRev=revIdx;
-  _persistSession();
-  saveDB(db);
-  $('cur-rev-badge').textContent=label;
-  $('cur-rev-badge').style.display='';
-  $('cur-name').textContent=entry.name;
-  // Após criar revisão: esconder botões CRM (só aparecem após SALVAR)
+  
+  // NÃO criar revisão agora — só marca que está em modo revisão
+  // A revisão será criada quando o usuário clicar SALVAR
+  window._pendingRevision = true;
+  
+  // Esconder botões CRM (só aparecem após SALVAR)
   var btnPronto=document.getElementById('crm-orc-pronto-btn');if(btnPronto)btnPronto.style.display='none';
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
+  
+  // Visual feedback
   var ind=document.getElementById('autosave-ind');
-  if(ind){ind.textContent='✓ '+label+' criada!';ind.style.opacity='1';setTimeout(function(){ind.style.opacity='0';},3000);}
-  $('hist-count').textContent=loadDB().length;
+  if(ind){ind.textContent='✏️ Modo revisão — edite e clique SALVAR';ind.style.opacity='1';ind.style.color='#e67e22';}
+  
+  // Toast
+  var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#e67e22;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';
+  t.textContent='✏️ Campos liberados para revisão! Edite e clique SALVAR.';
+  document.body.appendChild(t);setTimeout(function(){t.remove();},4000);
 }
 
 /* modal flow */
