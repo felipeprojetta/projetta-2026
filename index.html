@@ -7995,6 +7995,8 @@ function renderClientesTab(){
     if(!cli)cli='Sem cliente';
     // SÓ adicionar se o cliente já existe no CRM (groups já tem o nome)
     if(!groups[cli]) return; // Sem CRM card = não aparece
+    // SÓ mostrar orçamentos vinculados ao CRM (Orçamento Pronto)
+    if(!e.crmCardId) return;
     groups[cli].entries.push(e);
     var lastRev=e.revisions&&e.revisions.length?e.revisions[e.revisions.length-1]:null;
     if(lastRev&&lastRev.data){
@@ -10027,6 +10029,11 @@ window.crmOrcamentoPronto=function(){
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
   // Salvar orçamento antes de travar
   if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){}
+  // Marcar orçamento como vinculado ao card CRM
+  if(currentId && id){
+    var _db2=loadDB();var _oi=_db2.findIndex(function(e){return e.id===currentId;});
+    if(_oi>=0){_db2[_oi].crmCardId=id;saveDB(_db2);}
+  }
   // Travar orçamento — PDF salvo, valores devem bater. Para alterar, Nova Revisão.
   _setOrcLock(true);
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
