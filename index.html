@@ -1005,6 +1005,14 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     <input type="hidden" id="crm-o-folhas">
     <input type="hidden" id="crm-o-cor-ext"><input type="hidden" id="crm-o-cor-int">
     <div class="crm-section-label">📍 Cidade de Instalação</div>
+    <!-- Scope Nacional/Internacional -->
+    <div class="crm-field" style="margin-bottom:8px">
+      <label>Escopo</label>
+      <div style="display:flex;gap:6px">
+        <button type="button" id="crm-btn-nac" class="active" onclick="crmSetScope('nacional')" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid #1565c0;background:#e3f2fd;color:#1565c0;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🇧🇷 Nacional</button>
+        <button type="button" id="crm-btn-intl" onclick="crmSetScope('internacional')" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid #e65100;background:#fff;color:#e65100;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🌍 Internacional</button>
+      </div>
+    </div>
     <div class="crm-field">
       <label>CEP</label>
       <div class="crm-cep-row"><input type="text" id="crm-o-cep" placeholder="00000-000" maxlength="9" oninput="crmCepMask(this)"><button type="button" class="crm-cep-btn" onclick="crmBuscarCep()">🔍 Buscar</button></div>
@@ -8591,8 +8599,10 @@ window.crmSetView=function(v){
 /* ── Nacional/Internacional ──────────────────────── */
 window.crmSetScope=function(scope){
   _scope=scope;
-  var btnNac=el('crm-btn-nac');if(btnNac)btnNac.classList.toggle('active',scope==='nacional');
-  var btnIntl=el('crm-btn-intl');if(btnIntl){btnIntl.classList.toggle('active',scope==='internacional');btnIntl.classList.toggle('internacional',scope==='internacional');}
+  var btnNac=el('crm-btn-nac');
+  var btnIntl=el('crm-btn-intl');
+  if(btnNac){btnNac.style.background=scope==='nacional'?'#e3f2fd':'#fff';btnNac.style.fontWeight=scope==='nacional'?'800':'600';}
+  if(btnIntl){btnIntl.style.background=scope==='internacional'?'#fff3e0':'#fff';btnIntl.style.fontWeight=scope==='internacional'?'800':'600';}
   var locNac=el('crm-loc-nacional');if(locNac)locNac.style.display=scope==='nacional'?'block':'none';
   var locIntl=el('crm-loc-internacional');if(locIntl)locIntl.style.display=scope==='internacional'?'block':'none';
 };
@@ -9829,8 +9839,9 @@ window.crmFazerOrcamento=function(id){
       // Backward compat: single item
       orcItensFromCRM([{tipo:'porta_pivotante',qtd:1,largura:opp.largura,altura:opp.altura,modelo:opp.modelo||'',abertura:opp.abertura||'PIVOTANTE',folhas:opp.folhas||'1',cor_ext:opp.cor_ext||'',cor_int:opp.cor_int||''}], opp.cliente);
     }
-    // Transfer instalação
+    // Transfer instalação — internacional auto-seleciona instalação internacional
     var instQuem=opp.inst_quem||'PROJETTA';
+    if(opp.scope==='internacional') instQuem='INTERNACIONAL';
     setF('inst-quem',instQuem);
     if(instQuem==='TERCEIROS'){
       setF('inst-terceiros-valor',opp.inst_valor||'');
