@@ -834,7 +834,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   <button class="main-tab" onclick="switchTab('os-acess')" id="btn-tab-os-acess">Levantamento de Acessórios</button>
   <button class="main-tab" onclick="switchTab('planificador')" id="btn-tab-plan">Levantamento de Superfícies</button>
   <button class="main-tab" onclick="switchTab('relatorios')" id="btn-tab-rel">Relatórios</button>
-  <button class="main-tab" onclick="switchTab('custoreal')" id="btn-tab-custoreal">Custo Real</button>
+  <button class="main-tab" onclick="switchTab('custoreal')" id="btn-tab-custoreal">Custo Real NFE</button>
 </div>
 
 <!-- TAB: ORCAMENTO -->
@@ -3559,8 +3559,18 @@ Equipe Projetta by Weiku</textarea>
 
 <!-- ═══ TAB: CUSTO REAL — Análise NF-e ═══ -->
 <div class="tab-panel" id="tab-custoreal">
-  <div class="sec">📊 Custo Real — Análise de Nota Fiscal</div>
+  <div class="sec">📊 Custo Real NFE — Análise de Nota Fiscal</div>
   <div style="max-width:900px;margin:0 auto;padding:0 16px">
+    <!-- Chave de Acesso -->
+    <div style="background:#fff;border:1.5px solid #e0e0e0;border-radius:10px;padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:#003144;margin-bottom:8px">🔑 Consultar por Chave de Acesso (44 dígitos)</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="nfe-chave" placeholder="Cole a chave de acesso da NF-e (44 dígitos)" maxlength="44" style="flex:1;padding:10px 12px;border:1.5px solid #90caf9;border-radius:8px;font-size:13px;font-family:monospace;letter-spacing:1px;outline:none" oninput="parseChaveNFe(this.value)">
+        <button onclick="abrirSefazConsulta()" style="padding:10px 16px;border-radius:8px;border:none;background:#1565c0;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🌐 Consultar SEFAZ</button>
+      </div>
+      <div id="nfe-chave-info" style="margin-top:8px;font-size:11px;color:#666"></div>
+    </div>
+    <!-- Upload XML -->
     <div style="background:linear-gradient(135deg,#f5f7fa,#eef2f7);border:2px dashed #90caf9;border-radius:12px;padding:30px;text-align:center;margin-bottom:20px;cursor:pointer" onclick="document.getElementById('nfe-upload').click()" id="nfe-drop-zone">
       <div style="font-size:36px;margin-bottom:8px">📄</div>
       <div style="font-size:14px;font-weight:700;color:#1565c0">Arraste ou clique para enviar NF-e</div>
@@ -16627,6 +16637,36 @@ function renderNFeHist(){
   el.innerHTML=h;
 }
 /* ══ END MODULE: CUSTO_REAL ══ */
+
+function parseChaveNFe(chave){
+  var info=document.getElementById('nfe-chave-info');if(!info)return;
+  var c=chave.replace(/\D/g,'');
+  if(c.length<44){info.innerHTML=c.length>0?'<span style="color:#e65100">'+c.length+'/44 dígitos</span>':'';return;}
+  var UFS={11:'RO',12:'AC',13:'AM',14:'RR',15:'PA',16:'AP',17:'TO',21:'MA',22:'PI',23:'CE',24:'RN',25:'PB',26:'PE',27:'AL',28:'SE',29:'BA',31:'MG',32:'ES',33:'RJ',35:'SP',41:'PR',42:'SC',43:'RS',50:'MS',51:'MT',52:'GO',53:'DF'};
+  var uf=UFS[c.substring(0,2)]||c.substring(0,2);
+  var aamm=c.substring(2,6);var ano='20'+aamm.substring(0,2);var mes=aamm.substring(2,4);
+  var cnpj=c.substring(6,20);
+  var cnpjFmt=cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+  var modelo=c.substring(20,22)==='55'?'NF-e':'NFC-e';
+  var serie=parseInt(c.substring(22,25));
+  var numero=parseInt(c.substring(25,34));
+  info.innerHTML=
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin-top:6px">'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>UF:</b> '+uf+'</div>'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>Data:</b> '+mes+'/'+ano+'</div>'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>CNPJ:</b> '+cnpjFmt+'</div>'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>Modelo:</b> '+modelo+'</div>'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>Série:</b> '+serie+'</div>'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>Nº NF:</b> '+numero+'</div>'+
+    '</div>'+
+    '<div style="margin-top:8px;font-size:10px;color:#888">✅ Chave válida — clique em <b>Consultar SEFAZ</b> para abrir o portal e baixar o XML</div>';
+}
+
+function abrirSefazConsulta(){
+  var chave=(document.getElementById('nfe-chave')||{value:''}).value.replace(/\D/g,'');
+  if(chave.length!==44){alert('Cole a chave de acesso com 44 dígitos.');return;}
+  window.open('https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=completa&tipoConteudo=XbSeqxE8pl8=&nfe='+chave,'_blank');
+}
 </script>
 
 <!-- ═══════════════════════════════════════════════════════
@@ -16645,7 +16685,7 @@ var ADMIN_USER='felipe.projetta';
 var ADMIN_PASS='fp2026';
 
 var TABS=['crm','orcamento','proposta','cadastro','os','os-acess','planificador','relatorios'];
-var TAB_LABELS={crm:'CRM',orcamento:'Orçamento',proposta:'Proposta',cadastro:'Cadastro',os:'Perfis','os-acess':'Acessórios',planificador:'Superfícies',relatorios:'Relatórios',custoreal:'Custo Real'};
+var TAB_LABELS={crm:'CRM',orcamento:'Orçamento',proposta:'Proposta',cadastro:'Cadastro',os:'Perfis','os-acess':'Acessórios',planificador:'Superfícies',relatorios:'Relatórios',custoreal:'Custo Real NFE'};
 var PERM_OPTS=['Editar','Ver','Bloqueado'];
 
 function getUsers(){
