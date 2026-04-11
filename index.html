@@ -4633,35 +4633,38 @@ window.loadRevision=function(id,revIdx){
   var rev=entry.revisions[revIdx];
   if(!rev) return;
   currentId=id; currentRev=revIdx;
-  window._orcLocked=false;
   window._pendingRevision=false;
   _persistSession();
   
-  // Restore form data
+  // Restore form data (all fields from when it was saved)
   if(rev.data){
     restoreFormData(rev.data);
   }
   updateBanner(entry.name, rev.label);
   if(rev.snapshot) showMemorial(rev.snapshot, entry.name, rev.label);
   
-  // Hide CRM items bar (loading from saved revision, not CRM)
+  // Hide CRM items bar
   var ibar=document.getElementById('orc-itens-bar');
   if(ibar) ibar.classList.remove('show');
   window._orcItens=[];window._orcItemAtual=-1;
   
-  // Show Gerar Custo and Características back
+  // Show buttons
   var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='';
   var iqw=document.getElementById('inst-quem-wrap');if(iqw)iqw.style.display='';
   
-  _setOrcLock(false);
-  
-  // Trigger recalculation after data is restored
+  // Trigger full recalculation to populate all display fields
   setTimeout(function(){
     if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
     if(typeof planUpd==='function') try{planUpd();}catch(e){}
     if(typeof toggleInstQuem==='function') try{toggleInstQuem();}catch(e){}
-    if(typeof calc==='function') try{calc();}catch(e){}
+    // Full recalc: gerarCustoTotal includes gerarOS + aprovCalc + calc
+    if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
   }, 300);
+  
+  // TRAVAR orçamento após recalcular — valores congelados
+  setTimeout(function(){
+    _setOrcLock(true);
+  }, 2000);
   
   toggleHist();
 };
