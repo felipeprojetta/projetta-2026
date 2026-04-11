@@ -16501,14 +16501,11 @@ async function parseNFePDF(arrayBuffer, fileName){
   try{
     var pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
     var fullText='';
-    var flatText=''; // texto simples concatenado para regex de totais
     var rows=[];
     for(var i=1;i<=pdf.numPages;i++){
       var page=await pdf.getPage(i);
       var tc=await page.getTextContent();
-      // Texto simples (para regex de impostos/totais)
-      flatText+=tc.items.map(function(it){return it.str;}).join(' ')+' ';
-      // Agrupar por Y (linha) para extração de itens
+      // Agrupar por Y → ordenar → juntar (preserva ordem visual)
       var yMap={};
       tc.items.forEach(function(it){
         var y=Math.round(it.transform[5]);
@@ -16518,10 +16515,12 @@ async function parseNFePDF(arrayBuffer, fileName){
       var ys=Object.keys(yMap).map(Number).sort(function(a,b){return b-a;});
       ys.forEach(function(y){
         var cells=yMap[y].sort(function(a,b){return a.x-b.x;});
-        rows.push(cells.map(function(c){return c.str;}).join(' '));
+        var line=cells.map(function(c){return c.str;}).join(' ');
+        rows.push(line);
+        fullText+=line+' ';
       });
     }
-    fullText=flatText; // usar texto plano para regex
+    console.log('[NFE] Texto extraído:',fullText.substring(0,2000));
     parseDanfeText(fullText, fileName, rows);
   }catch(e){
     console.error('Erro PDF:',e);
@@ -16560,15 +16559,71 @@ function parseDanfeText(txt, fileName, rows){
   var vFrete=findN(/(?:VALOR\s*(?:DO\s*)?)?FRETE[:\s]*([\d\.,]+)/i);
   var vDesc=findN(/DESCONTO[:\s]*([\d\.,]+)/i);
 
-  // Impostos
+  // Impostos — busca direta por regex
   var vBCICMS=findN(/BASE?\s*(?:DE\s*)?C[AÁ]LC(?:ULO)?\s*(?:DO?\s*)?ICMS[:\s]*([\d\.,]+)/i);
   var vICMS=findN(/VAL(?:OR)?\.?\s*(?:DO?\s*)?ICMS[:\s]*([\d\.,]+)/i);
   var vBCST=findN(/BASE?\s*(?:DE\s*)?C[AÁ]LC(?:ULO)?\s*(?:DO?\s*)?(?:ICMS\s*)?S\.?T\.?[:\s]*([\d\.,]+)/i);
-  var vICMSST=findN(/VAL(?:OR)?\.?\s*(?:DO?\s*)?(?:ICMS\s*)?S\.?T\.?[:\s]*([\d\.,]+)/i);
+  var vICMSST=findN(/VAL(?:OR)?\.?\s*(?:DO?\s*)?(?:ICMS\s*)?S(?:UB)?(?:ST)?\.?(?:T)?\.?[:\s]*([\d\.,]+)/i);
   var vIPI=findN(/VAL(?:OR)?\.?\s*(?:TOTAL\s*)?(?:DO?\s*)?IPI[:\s]*([\d\.,]+)/i);
-  var vPIS=findN(/(?:VALOR\s*)?PIS[:\s]*([\d\.,]+)/i);
-  var vCOFINS=findN(/(?:VALOR\s*)?COFINS[:\s]*([\d\.,]+)/i);
+  var vPIS=findN(/(?:VALOR\s*(?:DO\s*)?)?PIS[:\s]*([\d\.,]+)/i);
+  var vCOFINS=findN(/(?:VALOR\s*(?:DO\s*)?)?COFINS[:\s]*([\d\.,]+)/i);
   var vOutro=findN(/OUTRAS\s*DESP(?:ESAS)?[:\s]*([\d\.,]+)/i);
+
+  // Fallback: DANFE padrão tem labels numa linha e valores na próxima
+  // Buscar nas rows: linha com "BASE" + "ICMS" → próxima linha tem os valores
+  if(!vICMS && rows.length>0){
+    for(var _ri=0;_ri<rows.length-1;_ri++){
+      var _rl=rows[_ri].toUpperCase();
+      if(_rl.indexOf('BASE')>=0 && _rl.indexOf('ICMS')>=0 && _rl.indexOf('IPI')>=0){
+        // Próxima(s) linha(s) contêm os valores
+        var _valLine=rows[_ri+1];
+        // Se a próxima linha ainda tem texto (não só números), tentar a seguinte
+        if(_valLine && !/^\s*[\d\.,\s]+$/.test(_valLine) && _ri+2<rows.length) _valLine=rows[_ri+2];
+        var _vals=[];
+        var _vm=_valLine.match(/(\d[\d\.]*,\d{2})/g);
+        if(_vm) _vm.forEach(function(v){_vals.push(parseFloat(v.replace(/\./g,'').replace(',','.'))||0);});
+        // Ordem padrão DANFE: BC_ICMS, V_ICMS, BC_ST, V_ST, V_IPI
+        if(_vals.length>=5){
+          vBCICMS=_vals[0];vICMS=_vals[1];vBCST=_vals[2];vICMSST=_vals[3];vIPI=_vals[4];
+          console.log('[NFE] Impostos extraídos por fallback rows:',{vBCICMS,vICMS,vBCST,vICMSST,vIPI});
+        } else if(_vals.length>=2){
+          vBCICMS=_vals[0];vICMS=_vals[1];
+          if(_vals[2])vIPI=_vals[2];
+        }
+        break;
+      }
+    }
+    // Buscar PIS/COFINS e valor NF nas rows
+    for(var _ri2=0;_ri2<rows.length-1;_ri2++){
+      var _rl2=rows[_ri2].toUpperCase();
+      if(_rl2.indexOf('PIS')>=0 && _rl2.indexOf('COFINS')>=0){
+        var _valLine2=rows[_ri2+1];
+        if(_valLine2 && !/^\s*[\d\.,\s]+$/.test(_valLine2) && _ri2+2<rows.length) _valLine2=rows[_ri2+2];
+        var _vals2=[];
+        var _vm2=_valLine2.match(/(\d[\d\.]*,\d{2})/g);
+        if(_vm2) _vm2.forEach(function(v){_vals2.push(parseFloat(v.replace(/\./g,'').replace(',','.'))||0);});
+        // Buscar nas posições: geralmente PIS e COFINS estão entre os últimos
+        if(_vals2.length>=2){
+          // Encontrar PIS e COFINS: últimos dois valores significativos
+          vPIS=_vals2[_vals2.length-2]||0;
+          vCOFINS=_vals2[_vals2.length-1]||0;
+        }
+        break;
+      }
+    }
+    // Valor total NF
+    if(!vNF){
+      for(var _ri3=0;_ri3<rows.length;_ri3++){
+        var _rl3=rows[_ri3].toUpperCase();
+        if(_rl3.indexOf('TOTAL')>=0 && _rl3.indexOf('NOTA')>=0){
+          var _vmn=rows[_ri3].match(/(\d[\d\.]*,\d{2})/);
+          if(!_vmn && _ri3+1<rows.length) _vmn=rows[_ri3+1].match(/(\d[\d\.]*,\d{2})/);
+          if(_vmn) vNF=parseFloat(_vmn[1].replace(/\./g,'').replace(',','.'))||0;
+          break;
+        }
+      }
+    }
+  }
 
   if(!vNF&&vProd) vNF=vProd+vFrete+vOutro-vDesc+vIPI+vICMSST;
 
