@@ -9049,11 +9049,41 @@ function orcItensFromCRM(itens, cliente){
   }
   var cliEl = document.getElementById('orc-itens-cli');
   if(cliEl) cliEl.textContent = cliente || 'Cliente';
+  
+  // ── Criar blocos de fixo a partir dos itens CRM tipo "fixo" ────
+  var fixoItens = window._orcItens.filter(function(it){ return it.tipo === 'fixo'; });
+  if(fixoItens.length > 0){
+    // Ativar sistema de fixos
+    var tfEl = document.getElementById('tem-fixo');
+    if(tfEl){ tfEl.checked = true; if(typeof toggleFixos==='function') toggleFixos(); }
+    // Limpar fixos existentes
+    var fList = document.getElementById('fixos-list');
+    if(fList) fList.innerHTML = '';
+    // Criar bloco para cada fixo do CRM
+    fixoItens.forEach(function(fx, fi){
+      var qty = parseInt(fx.qtd) || 1;
+      for(var q=0; q<qty; q++){
+        if(typeof addFixo === 'function') addFixo();
+        // Preencher o último fixo criado
+        var blks = document.querySelectorAll('.fixo-blk');
+        var last = blks[blks.length - 1];
+        if(last){
+          var larg = last.querySelector('.fixo-larg'); if(larg) larg.value = fx.largura || '';
+          var alt  = last.querySelector('.fixo-alt');  if(alt)  alt.value  = fx.altura  || '';
+          var lados= last.querySelector('.fixo-lados');if(lados)lados.value= fx.revestimento_lados || '2';
+          var estr = last.querySelector('.fixo-estr'); if(estr) estr.value = fx.tem_estrutura==='SIM' ? 'sim' : 'nao';
+          var lado = last.querySelector('.fixo-lado'); if(lado) lado.value = fx.tipo_fixacao==='BANDEIRA'?'ambos':'esquerdo';
+        }
+      }
+    });
+  }
+  
   orcItensRender();
-  // Auto-select first item
+  // Auto-select first porta item (or first item)
   if(window._orcItens.length > 0){
-    setTimeout(function(){ orcItemSelecionar(0); }, 200);
-    // Auto-open Características da Porta for editing
+    var firstPorta = window._orcItens.findIndex(function(it){ return it.tipo === 'porta_pivotante'; });
+    var selectIdx = firstPorta >= 0 ? firstPorta : 0;
+    setTimeout(function(){ orcItemSelecionar(selectIdx); }, 200);
     setTimeout(function(){
       var _caracBody = document.getElementById('carac-body');
       if(_caracBody) _caracBody.style.display = '';
