@@ -16548,22 +16548,20 @@ async function parseNFePDF(arrayBuffer, fileName){
     for(var i=1;i<=pdf.numPages;i++){
       var page=await pdf.getPage(i);
       var tc=await page.getTextContent();
-      // Agrupar por Y → ordenar → juntar (preserva ordem visual)
+      // Método ORIGINAL que funcionou: join simples na ordem do PDF
+      fullText+=tc.items.map(function(it){return it.str;}).join(' ')+' ';
+      // Rows por Y para extração de itens
       var yMap={};
       tc.items.forEach(function(it){
         var y=Math.round(it.transform[5]);
         if(!yMap[y])yMap[y]=[];
         yMap[y].push({x:Math.round(it.transform[4]),str:it.str});
       });
-      var ys=Object.keys(yMap).map(Number).sort(function(a,b){return b-a;});
-      ys.forEach(function(y){
-        var cells=yMap[y].sort(function(a,b){return a.x-b.x;});
-        var line=cells.map(function(c){return c.str;}).join(' ');
-        rows.push(line);
-        fullText+=line+' ';
+      Object.keys(yMap).map(Number).sort(function(a,b){return b-a;}).forEach(function(y){
+        rows.push(yMap[y].sort(function(a,b){return a.x-b.x;}).map(function(c){return c.str;}).join(' '));
       });
     }
-    console.log('[NFE] Texto extraído:',fullText.substring(0,2000));
+    console.log('[NFE] Texto extraído:',fullText.substring(0,3000));
     parseDanfeText(fullText, fileName, rows);
   }catch(e){
     console.error('Erro PDF:',e);
