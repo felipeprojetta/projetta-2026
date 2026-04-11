@@ -1815,15 +1815,10 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
         </div>
       </div>
       <div id="inst-intl-pais-info" style="font-size:9px;color:#1565c0;margin-bottom:6px;font-weight:600"></div>
-      <!-- Porte -->
-      <div class="fr"><span class="fl" style="font-weight:700;color:#1565c0">Porte da Porta</span><div class="fv"><select id="inst-intl-porte" onchange="instIntlPorteChange();calc()" style="width:100%;padding:5px 8px;border:1px solid #90caf9;border-radius:6px;font-size:12px;background:#fff;color:var(--navy);font-weight:600">
-        <option value="P">Pequena (até 3m²) — 2 pess, 2 dias</option>
-        <option value="M" selected>Média (3-6m²) — 3 pess, 3 dias</option>
-        <option value="G">Grande (>6m²) — 3 pess, 4 dias</option>
-        <option value="C">Customizado</option>
-      </select></div></div>
+      <!-- Porte removido — manual -->
       <div class="fr"><span class="fl">Nº Pessoas</span><div class="fv"><input type="number" id="inst-intl-pessoas" value="3" min="1" max="10" oninput="calc()"></div></div>
       <div class="fr"><span class="fl">Dias Instalação</span><div class="fv"><input type="number" id="inst-intl-dias" value="3" min="1" max="30" oninput="calc()"></div></div>
+      <div style="font-size:11px;color:#888;margin-bottom:6px">🛫 Viagem: 2 dias ida (UDI→GRU + GRU→Destino) + 2 dias volta = <b>4 dias viagem</b> + dias instalação</div>
       <div class="dvdr"></div>
       <!-- Buscar preços -->
       <div style="font-size:10px;font-weight:700;color:#1565c0;margin-bottom:6px">🔍 Buscar Preços Online</div>
@@ -1839,7 +1834,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div class="fr"><span class="fl">🍽️ Alimentação/pessoa/dia</span><div class="fv"><input type="number" id="inst-intl-alim" value="300" min="0" step="50" oninput="calc()"></div></div>
       <div class="fr"><span class="fl">🏥 Seguro Saúde/pessoa</span><div class="fv"><input type="number" id="inst-intl-seguro" value="300" min="0" step="50" oninput="calc()"></div></div>
       <div class="fr"><span class="fl">🚗 Aluguel Carro+Gasolina/dia</span><div class="fv"><input type="number" id="inst-intl-carro" value="850" min="0" step="50" oninput="calc()"></div></div>
-      <div class="fr"><span class="fl">👷 Mão de Obra/dia inst.</span><div class="fv"><input type="number" id="inst-intl-mo" value="500" min="0" step="100" oninput="calc()"></div></div>
+      <div class="fr"><span class="fl">👷 Mão de Obra/dia inst.</span><div class="fv"><input type="number" id="inst-intl-mo" value="1200" min="0" step="100" oninput="calc()"></div></div>
       <div class="dvdr"></div>
       <div class="fr"><span class="fl">💲 Câmbio USD <small>média 3 meses</small></span><div class="fv"><input type="number" id="inst-intl-cambio" value="5.20" min="1" max="10" step="0.01" oninput="calc()"></div></div>
       <div id="inst-intl-cambio-info" style="font-size:8px;color:#888;margin-bottom:4px"></div>
@@ -8925,16 +8920,17 @@ window.crmInstCalcIntl=function(){
   var gv=function(id){return parseFloat((document.getElementById(id)||{value:0}).value)||0;};
   var pessoas=gv('crm-o-inst-pessoas');
   var diasInst=gv('crm-o-inst-dias');
-  var diasViagem=diasInst+2;
+  var diasViagem=4; // 2 ida + 2 volta fixo
+  var diasTotal=diasInst+diasViagem;
   var cambio=gv('crm-o-inst-cambio')||5.20;
   var margemLiq=gv('crm-o-inst-margem')/100;
 
   var udiGru=gv('crm-o-inst-udigru');
   var passagem=gv('crm-o-inst-passagem')*pessoas;
-  var hotel=gv('crm-o-inst-hotel')*diasViagem;
-  var alim=gv('crm-o-inst-alim')*pessoas*diasViagem;
+  var hotel=gv('crm-o-inst-hotel')*diasTotal;
+  var alim=gv('crm-o-inst-alim')*pessoas*diasTotal;
   var seguro=gv('crm-o-inst-seguro')*pessoas;
-  var carro=gv('crm-o-inst-carro')*diasViagem;
+  var carro=gv('crm-o-inst-carro')*diasTotal;
   var mo=gv('crm-o-inst-mo')*diasInst;
 
   var custoTotal=udiGru+passagem+hotel+alim+seguro+carro+mo;
@@ -14150,15 +14146,16 @@ function calcInstIntl(){
   var gv=function(id){return parseFloat((document.getElementById(id)||{value:0}).value)||0;};
   var pessoas=gv('inst-intl-pessoas');
   var diasInst=gv('inst-intl-dias');
-  var diasViagem=diasInst+2;
+  var diasViagem=4; // 2 ida (UDI→GRU + GRU→Destino) + 2 volta (Destino→GRU + GRU→UDI)
+  var diasTotal=diasInst+diasViagem;
   var cambio=gv('inst-intl-cambio')||5.20;
 
   var udiGru=gv('inst-intl-udigru');
   var passagem=gv('inst-intl-passagem')*pessoas;
-  var hotel=gv('inst-intl-hotel')*diasViagem;
-  var alim=gv('inst-intl-alim')*pessoas*diasViagem;
+  var hotel=gv('inst-intl-hotel')*diasTotal;
+  var alim=gv('inst-intl-alim')*pessoas*diasTotal;
   var seguro=gv('inst-intl-seguro')*pessoas;
-  var carro=gv('inst-intl-carro')*diasViagem;
+  var carro=gv('inst-intl-carro')*diasTotal;
   var mo=gv('inst-intl-mo')*diasInst;
   var margemLiq=gv('inst-intl-margem')/100;
 
@@ -14186,7 +14183,6 @@ function calcInstIntl(){
   var irpj=lucroBruto>0?lucroBruto*0.34:0;
   var lucroLiq=lucroBruto-irpj;
   var mkp=custoTotal>0?((precoTabela/custoTotal-1)*100):0;
-  var mbPct=precoFat>0?(lucroBruto/precoFat*100):0;
   var mlPct=precoFat>0?(lucroLiq/precoFat*100):0;
 
   var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});};
@@ -14196,21 +14192,25 @@ function calcInstIntl(){
   if(res && custoTotal>0){
     var aero=(document.getElementById('inst-intl-aero')||{value:''}).value||'???';
     res.innerHTML=
-      '<div style="font-size:9px;color:#666;margin-bottom:6px">GRU → <b>'+aero+'</b> · '+pessoas+' pess × '+diasViagem+' dias ('+diasInst+' inst + 2 viagem)</div>'+
-      // Breakdown custos
-      '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:2px 8px;font-size:9.5px">'+
+      '<div style="font-size:11px;color:#444;margin-bottom:6px;font-weight:600">'+
+      '🗓️ <b>'+diasTotal+' dias total</b>: '+diasInst+' instalação + 4 viagem'+
+      '</div>'+
+      '<div style="font-size:11px;color:#666;margin-bottom:8px;line-height:1.6">'+
+      '📍 IDA: UDI→GRU (1d) + GRU→'+aero+' (1d)<br>'+
+      '📍 VOLTA: '+aero+'→GRU (1d) + GRU→UDI (1d)'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:3px 10px;font-size:11px">'+
       '<div>🛫 UDI→GRU:</div><div>'+brl(udiGru)+'</div><div style="color:#1565c0">'+usd(udiGru)+'</div>'+
       '<div>✈️ Passagens ('+pessoas+'p):</div><div>'+brl(passagem)+'</div><div style="color:#1565c0">'+usd(passagem)+'</div>'+
-      '<div>🏨 Hotel ('+diasViagem+'d):</div><div>'+brl(hotel)+'</div><div style="color:#1565c0">'+usd(hotel)+'</div>'+
+      '<div>🏨 Hotel ('+diasTotal+'d):</div><div>'+brl(hotel)+'</div><div style="color:#1565c0">'+usd(hotel)+'</div>'+
       '<div>🍽️ Alimentação:</div><div>'+brl(alim)+'</div><div style="color:#1565c0">'+usd(alim)+'</div>'+
       '<div>🏥 Seguro:</div><div>'+brl(seguro)+'</div><div style="color:#1565c0">'+usd(seguro)+'</div>'+
-      '<div>🚗 Carro+Gas:</div><div>'+brl(carro)+'</div><div style="color:#1565c0">'+usd(carro)+'</div>'+
-      '<div>👷 Mão de Obra:</div><div>'+brl(mo)+'</div><div style="color:#1565c0">'+usd(mo)+'</div>'+
+      '<div>🚗 Carro+Gas ('+diasTotal+'d):</div><div>'+brl(carro)+'</div><div style="color:#1565c0">'+usd(carro)+'</div>'+
+      '<div>👷 M.O. ('+diasInst+'d × R$'+gv('inst-intl-mo')+'):</div><div>'+brl(mo)+'</div><div style="color:#1565c0">'+usd(mo)+'</div>'+
       '</div>'+
-      '<hr style="margin:6px 0;border:none;border-top:1.5px solid #003144">'+
-      // DRE
-      '<div style="font-size:10px;font-weight:800;color:#003144;margin-bottom:4px">📊 DRE — INSTALAÇÃO</div>'+
-      '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:2px 8px;font-size:10px">'+
+      '<hr style="margin:8px 0;border:none;border-top:1.5px solid #003144">'+
+      '<div style="font-size:12px;font-weight:800;color:#003144;margin-bottom:4px">📊 DRE — INSTALAÇÃO</div>'+
+      '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:3px 10px;font-size:11px">'+
       '<div style="font-weight:700">(+) Preço Tabela:</div><div style="font-weight:700">'+brl(precoTabela)+'</div><div style="color:#1565c0;font-weight:700">'+usd(precoTabela)+'</div>'+
       (desconto>0?'<div>(−) Desconto '+desconto.toFixed(1)+'%:</div><div style="color:#c0392b">-'+brl(precoTabela-precoFat)+'</div><div style="color:#c0392b">-'+usd(precoTabela-precoFat)+'</div>':'')+
       '<div style="font-weight:700">(=) Receita Fat.:</div><div style="font-weight:700">'+brl(precoFat)+'</div><div style="color:#1565c0;font-weight:700">'+usd(precoFat)+'</div>'+
@@ -14222,13 +14222,13 @@ function calcInstIntl(){
       '<div style="font-weight:700">(=) Lucro Bruto:</div><div style="font-weight:700">'+brl(lucroBruto)+'</div><div style="font-weight:700">'+usd(lucroBruto)+'</div>'+
       '<div>(−) IRPJ+CSLL 34%:</div><div style="color:#c0392b">-'+brl(irpj)+'</div><div style="color:#c0392b">-'+usd(irpj)+'</div>'+
       '</div>'+
-      '<div style="background:#e8f5e9;border-radius:5px;padding:6px 8px;margin-top:6px;display:flex;justify-content:space-between;font-size:11px;font-weight:800;color:#2e7d32">'+
+      '<div style="background:#e8f5e9;border-radius:5px;padding:8px 10px;margin-top:8px;display:flex;justify-content:space-between;font-size:12px;font-weight:800;color:#2e7d32">'+
       '<span>(=) Lucro Líquido:</span><span>'+brl(lucroLiq)+' ('+mlPct.toFixed(1)+'%)</span>'+
       '</div>'+
-      '<div style="background:#003144;color:#fff;padding:8px 10px;border-radius:5px;margin-top:6px;display:grid;grid-template-columns:1fr 1fr;font-size:12px;font-weight:800;text-align:center">'+
+      '<div style="background:#003144;color:#fff;padding:10px 12px;border-radius:5px;margin-top:6px;display:grid;grid-template-columns:1fr 1fr;font-size:14px;font-weight:800;text-align:center">'+
       '<div>'+brl(precoFat)+'</div><div style="color:#90caf9">'+usd(precoFat)+'</div>'+
       '</div>'+
-      '<div style="text-align:center;font-size:9px;color:#888;margin-top:2px">Markup '+mkp.toFixed(1)+'% · Câmbio R$ '+cambio.toFixed(2)+'</div>';
+      '<div style="text-align:center;font-size:10px;color:#888;margin-top:3px">Markup '+mkp.toFixed(1)+'% · Câmbio R$ '+cambio.toFixed(2)+'</div>';
   }
 
   return custoTotal; // retorna custo para calc() principal
