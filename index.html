@@ -5879,7 +5879,7 @@ function aprovCalc(){
       var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
       if(Lf>0&&Af>0){
         var _tipo=(el.querySelector(".fixo-tipo")||{value:"superior"}).value;
-        var fp=_tipo==="superior"?aprovFixoPieces(L,A,Lf,Af,ld,mod):[{label:"FX LATERAL",w:Lf,h:Af,qty:ld,color:APROV_COLORS[15]}];
+        var fp=_tipo==="superior"?aprovFixoPieces(L,A,Lf,Af,ld,mod):[{label:"FX LATERAL",w:Lf+100,h:Af+100,qty:ld,color:APROV_COLORS[15]}];
         if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
         pieces=pieces.concat(fp);
       }
@@ -5946,7 +5946,7 @@ function aprovRun(){
       var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
       if(Lf>0&&Af>0){
         var _tipo=(el.querySelector(".fixo-tipo")||{value:"superior"}).value;
-        var fp=_tipo==="superior"?aprovFixoPieces(L,A,Lf,Af,ld,mod):[{label:"FX LATERAL",w:Lf,h:Af,qty:ld,color:APROV_COLORS[15]}];
+        var fp=_tipo==="superior"?aprovFixoPieces(L,A,Lf,Af,ld,mod):[{label:"FX LATERAL",w:Lf+100,h:Af+100,qty:ld,color:APROV_COLORS[15]}];
         if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
         pieces=pieces.concat(fp);
       }
@@ -7805,7 +7805,7 @@ function printOSColagem(){
         var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
         if(Lf>0&&Af>0){
           var _tipo=(el.querySelector(".fixo-tipo")||{value:"superior"}).value;
-          var fp=_tipo==="superior"?aprovFixoPieces(L,H,Lf,Af,ld,mod):[{label:"FX LATERAL",w:Lf,h:Af,qty:ld,color:APROV_COLORS[15]}];
+          var fp=_tipo==="superior"?aprovFixoPieces(L,H,Lf,Af,ld,mod):[{label:"FX LATERAL",w:Lf+100,h:Af+100,qty:ld,color:APROV_COLORS[15]}];
           if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
           pieces=pieces.concat(fp);
         }
@@ -13011,7 +13011,7 @@ function planUpd() {
         var tp=(el.querySelector('.fixo-tipo')||{value:'superior'}).value;
         if(Lf>0&&Af>0){
           var fp=tp==='superior'?aprovFixoPieces(Lv,Av,Lf,Af,ld,Mv||'01'):
-            [{label:'FX LATERAL',w:Lf,h:Af,qty:ld,color:'#bab0ac'}];
+            [{label:'FX LATERAL',w:Lf+100,h:Af+100,qty:ld,color:'#bab0ac'}];
           if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
           pieces=pieces.concat(fp);
         }
@@ -13164,7 +13164,7 @@ function _autoSelectAndRun(){
         var tp=(el.querySelector('.fixo-tipo')||{value:'superior'}).value;
         if(Lf>0&&Af>0){
           var fp=tp==='superior'?aprovFixoPieces(Lv,Av,Lf,Af,ld,Mv||'01'):
-            [{label:'FX LATERAL',w:Lf,h:Af,qty:ld,color:'#bab0ac'}];
+            [{label:'FX LATERAL',w:Lf+100,h:Af+100,qty:ld,color:'#bab0ac'}];
           if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
           pieces=pieces.concat(fp);
         }
@@ -15583,20 +15583,22 @@ function _calcFixosCompleto(sis, getPreco, barraMM){
 
     // ── CHAPA — usar peças reais do fixo (só superior) ──────────────
     var _tipoF=(el.querySelector('.fixo-tipo')||{value:'superior'}).value;
-    var _fxPcs=_tipoF==='superior'?aprovFixoPieces(Lp,Ap,L,A,lados,_modF):[{label:'FX LATERAL',w:L,h:A,qty:lados,color:'#bab0ac'}];
+    var _fxPcs=_tipoF==='superior'?aprovFixoPieces(Lp,Ap,L,A,lados,_modF):[{label:'FX LATERAL',w:L+100,h:A+100,qty:lados,color:'#bab0ac'}];
     var m2Pecas=0;
     _fxPcs.forEach(function(p){m2Pecas+=(p.w/1000)*(p.h/1000)*p.qty;});
     result.m2ChapaFixos += m2Pecas*qf;
 
-    // ── FITA / DOWSIL — cada peça TAMPA/CAVA gera perímetro ──
-    _fxPcs.forEach(function(p){
-      if(p.label.indexOf('TAMPA')>=0||p.label.indexOf('CAVA')>=0||p.label.indexOf('FRISO')>=0||p.label.indexOf('RIPA')>=0){
-        var perimP=2*(p.w+p.h)*p.qty*qf;
-        totFD12+=perimP;
-        totFD19+=perimP;
-        totDow+=perimP;
-      }
-    });
+    // ── FITA / DOWSIL — SÓ para fixo superior (lateral não tem acessórios) ──
+    if(_tipoF==='superior'){
+      _fxPcs.forEach(function(p){
+        if(p.label.indexOf('TAMPA')>=0||p.label.indexOf('CAVA')>=0||p.label.indexOf('FRISO')>=0||p.label.indexOf('RIPA')>=0){
+          var perimP=2*(p.w+p.h)*p.qty*qf;
+          totFD12+=perimP;
+          totFD19+=perimP;
+          totDow+=perimP;
+        }
+      });
+    }
 
     if(!temEstr) return;
 
