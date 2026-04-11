@@ -16464,20 +16464,34 @@ async function parseNFePDF(arrayBuffer, fileName){
   try{
     var pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
     var fullText='';
+    var rows=[];
     for(var i=1;i<=pdf.numPages;i++){
       var page=await pdf.getPage(i);
       var tc=await page.getTextContent();
-      var pageText=tc.items.map(function(it){return it.str;}).join(' ');
-      fullText+=pageText+'\n';
+      // Agrupar por Y (linha) para melhor extração de itens
+      var yMap={};
+      tc.items.forEach(function(it){
+        var y=Math.round(it.transform[5]); // Y position
+        if(!yMap[y])yMap[y]=[];
+        yMap[y].push({x:Math.round(it.transform[4]),str:it.str});
+      });
+      var ys=Object.keys(yMap).map(Number).sort(function(a,b){return b-a;});
+      ys.forEach(function(y){
+        var cells=yMap[y].sort(function(a,b){return a.x-b.x;});
+        var line=cells.map(function(c){return c.str;}).join(' ');
+        rows.push(line);
+        fullText+=line+'\n';
+      });
     }
-    parseDanfeText(fullText, fileName);
+    parseDanfeText(fullText, fileName, rows);
   }catch(e){
     console.error('Erro PDF:',e);
-    res.innerHTML='<div style="color:#c62828;padding:20px;text-align:center"><b>Erro ao ler PDF:</b> '+e.message+'<br><small>Tente usar o XML da NF-e para melhor precisão.</small></div>';
+    res.innerHTML='<div style="color:#c62828;padding:20px;text-align:center"><b>Erro ao ler PDF:</b> '+e.message+'</div>';
   }
 }
 
-function parseDanfeText(txt, fileName){
+function parseDanfeText(txt, fileName, rows){
+  rows=rows||[];
   // Extrair dados do texto do DANFE
   var find=function(regex){var m=txt.match(regex);return m?m[1].trim():'';};
   var findN=function(regex){var v=find(regex).replace(/\./g,'').replace(',','.');return parseFloat(v)||0;};
@@ -16540,6 +16554,45 @@ function parseDanfeText(txt, fileName){
     parseChaveNFe(chave);
   }
 
+  // ── Extrair ITENS das linhas do PDF ──
+  var itens=[];
+  if(rows.length>0){
+    var pctICMStot=vProd>0?(vICMS/vProd):0;
+    var pctIPItot=vProd>0?(vIPI/vProd):0;
+    var pctPIStot=vProd>0?(vPIS/vProd):0;
+    var pctCOFtot=vProd>0?(vCOFINS/vProd):0;
+    // Buscar linhas com CFOP (4 dígitos 1xxx-7xxx) e valores monetários
+    for(var ri=0;ri<rows.length;ri++){
+      var line=rows[ri];
+      // Detectar CFOP: 4 dígitos começando com 1-7
+      var cfopM=line.match(/\b([1-7]\d{3})\b/);
+      if(!cfopM) continue;
+      // Extrair valores monetários (formato BR: 1.234,56 ou 1234,56)
+      var vals=[];
+      var vm=line.match(/\d[\d\.]*,\d{2,4}/g);
+      if(vm) vm.forEach(function(v){vals.push(parseFloat(v.replace(/\./g,'').replace(',','.')));});
+      if(vals.length<2) continue; // precisa de pelo menos qtd e valor
+      // Extrair descrição: texto antes do CFOP ou entre código e CFOP
+      var descM=line.match(/^[\d\s]*([A-Za-zÀ-ÿ][\w\s\-\/\.\,\(\)]+)/);
+      var desc=descM?descM[1].trim().substring(0,60):'Item '+(itens.length+1);
+      // Tentar identificar: qtd, v.unit, v.total
+      var vTotal=vals[vals.length-1]||0; // último valor grande tende a ser total
+      var vUnit=vals.length>=3?vals[vals.length-2]:vTotal;
+      var qtd=vals.length>=3?vals[vals.length-3]:1;
+      // Se vTotal parece ser um valor de item (não % ou código)
+      if(vTotal>0&&vTotal<1000000){
+        var impEst=vTotal*(pctICMStot+pctIPItot+pctPIStot+pctCOFtot);
+        itens.push({
+          desc:desc,cfop:cfopM[1],qtd:qtd,vUnit:vUnit,vBruto:vTotal,
+          impEst:impEst,vLiq:vTotal-impEst
+        });
+      }
+    }
+    // Remover itens duplicados (mesmo desc+valor)
+    var seen={};
+    itens=itens.filter(function(it){var k=it.desc+it.vBruto;if(seen[k])return false;seen[k]=1;return true;});
+  }
+
   var h='<div style="background:#fff;border-radius:12px;border:1px solid #e0e0e0;overflow:hidden">';
   h+='<div style="background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:16px 20px">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center"><div>';
@@ -16575,6 +16628,37 @@ function parseDanfeText(txt, fileName){
   h+='<div style="background:#fce4ec;padding:14px;text-align:center"><div style="font-size:10px;color:#c62828;font-weight:600">TOTAL IMPOSTOS ('+pct(pctImp)+')</div><div style="font-size:18px;font-weight:800;color:#c62828">-'+brl(totalImp)+'</div></div>';
   h+='<div style="background:#e8f5e9;padding:14px;text-align:center"><div style="font-size:10px;color:#2e7d32;font-weight:600">VALOR LÍQUIDO REAL</div><div style="font-size:18px;font-weight:800;color:#2e7d32">'+brl(valorLiquido)+'</div></div>';
   h+='</div>';
+
+  // Tabela de itens
+  if(itens.length>0){
+    h+='<div style="padding:16px 20px;border-top:1px solid #e0e0e0">';
+    h+='<div style="font-size:12px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 Itens Extraídos ('+itens.length+')</div>';
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
+    h+='<tr style="background:#003144;color:#fff"><th style="padding:6px;text-align:left">Descrição</th><th>CFOP</th><th>Qtd</th><th>V.Unit</th><th>V.Bruto</th><th style="color:#ff8a80">Imp.Est.</th><th style="color:#69f0ae">V.Líquido</th></tr>';
+    itens.forEach(function(it,idx){
+      var bg=idx%2?'#f9f9f9':'#fff';
+      h+='<tr style="background:'+bg+'">';
+      h+='<td style="padding:5px 6px;border-bottom:1px solid #eee;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+it.desc+'">'+it.desc+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:center;font-weight:600">'+it.cfop+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+it.qtd.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:4})+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+brl(it.vUnit)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:600">'+brl(it.vBruto)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#c62828">-'+brl(it.impEst)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#2e7d32">'+brl(it.vLiq)+'</td>';
+      h+='</tr>';
+    });
+    // Total
+    var totBruto=itens.reduce(function(s,i){return s+i.vBruto;},0);
+    var totImpE=itens.reduce(function(s,i){return s+i.impEst;},0);
+    var totLiq=itens.reduce(function(s,i){return s+i.vLiq;},0);
+    h+='<tr style="background:#e8f5e9;font-weight:700"><td style="padding:6px" colspan="4">TOTAL</td>';
+    h+='<td style="padding:6px;text-align:right">'+brl(totBruto)+'</td>';
+    h+='<td style="padding:6px;text-align:right;color:#c62828">-'+brl(totImpE)+'</td>';
+    h+='<td style="padding:6px;text-align:right;color:#2e7d32">'+brl(totLiq)+'</td></tr>';
+    h+='</table></div>';
+    h+='<div style="font-size:9px;color:#888;margin-top:4px">* Impostos estimados proporcionalmente (ICMS+IPI+PIS+COFINS da NF ÷ valor produtos). Para valores exatos por item, use o XML.</div>';
+    h+='</div>';
+  }
 
   if(totalImp===0){
     h+='<div style="background:#fff3e0;padding:12px 16px;color:#e65100;font-size:12px;font-weight:600">⚠️ Nenhum imposto encontrado no PDF. Para maior precisão, use o <b>XML</b> da NF-e.</div>';
