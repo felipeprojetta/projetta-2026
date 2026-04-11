@@ -2507,21 +2507,25 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   </div>
   <div class="cb" style="padding:8px 12px">
     <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap">
-      <div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;text-align:center;flex:1;min-width:140px">
+      <div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;text-align:center;flex:1;min-width:160px">
         <div style="font-size:11px;font-weight:800;color:#1a3a4a;margin-bottom:4px">TECNOPERFIL</div>
-        <div style="display:flex;align-items:center;justify-content:center;gap:4px"><span style="font-size:11px">R$/kg</span><input type="number" id="pf-kg-tecnoperfil" value="31" min="0" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:75px;padding:5px;border:1px solid #c9c6bf;border-radius:6px;font-size:12px;font-weight:700;text-align:right"></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px"><span style="font-size:11px">R$/kg</span><input type="number" id="pf-kg-tecnoperfil" value="31" min="0" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:70px;padding:5px;border:1px solid #c9c6bf;border-radius:6px;font-size:12px;font-weight:700;text-align:right"></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:4px"><span style="font-size:9px;color:#c62828">Ded%</span><input type="number" id="pf-ded-tecnoperfil" value="0" min="0" max="50" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:50px;padding:3px;border:1px solid #ef9a9a;border-radius:4px;font-size:11px;font-weight:600;text-align:center;color:#c62828"><span style="font-size:9px;color:#2e7d32;font-weight:700" id="pf-liq-tecnoperfil"></span></div>
       </div>
-      <div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;text-align:center;flex:1;min-width:140px">
+      <div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;text-align:center;flex:1;min-width:160px">
         <div style="font-size:11px;font-weight:800;color:#666;margin-bottom:4px">MERCADO</div>
-        <div style="display:flex;align-items:center;justify-content:center;gap:4px"><span style="font-size:11px">R$/kg</span><input type="number" id="pf-kg-mercado" value="38" min="0" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:75px;padding:5px;border:1px solid #c9c6bf;border-radius:6px;font-size:12px;font-weight:700;text-align:right"></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px"><span style="font-size:11px">R$/kg</span><input type="number" id="pf-kg-mercado" value="38" min="0" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:70px;padding:5px;border:1px solid #c9c6bf;border-radius:6px;font-size:12px;font-weight:700;text-align:right"></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:4px"><span style="font-size:9px;color:#c62828">Ded%</span><input type="number" id="pf-ded-mercado" value="0" min="0" max="50" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:50px;padding:3px;border:1px solid #ef9a9a;border-radius:4px;font-size:11px;font-weight:600;text-align:center;color:#c62828"><span style="font-size:9px;color:#2e7d32;font-weight:700" id="pf-liq-mercado"></span></div>
       </div>
-      <div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;text-align:center;flex:1;min-width:140px">
+      <div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;text-align:center;flex:1;min-width:160px">
         <div style="font-size:11px;font-weight:800;color:var(--orange);margin-bottom:4px">WEIKU</div>
-        <div style="display:flex;align-items:center;justify-content:center;gap:4px"><span style="font-size:11px">R$/kg</span><input type="number" id="pf-kg-weiku" value="35" min="0" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:75px;padding:5px;border:1px solid #c9c6bf;border-radius:6px;font-size:12px;font-weight:700;text-align:right"></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px"><span style="font-size:11px">R$/kg</span><input type="number" id="pf-kg-weiku" value="35" min="0" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:70px;padding:5px;border:1px solid #c9c6bf;border-radius:6px;font-size:12px;font-weight:700;text-align:right"></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:4px"><span style="font-size:9px;color:#c62828">Ded%</span><input type="number" id="pf-ded-weiku" value="0" min="0" max="50" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:50px;padding:3px;border:1px solid #ef9a9a;border-radius:4px;font-size:11px;font-weight:600;text-align:center;color:#c62828"><span style="font-size:9px;color:#2e7d32;font-weight:700" id="pf-liq-weiku"></span></div>
       </div>
-      <div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;text-align:center;flex:1;min-width:140px">
+      <div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;text-align:center;flex:1;min-width:160px">
         <div style="font-size:11px;font-weight:800;color:#8e44ad;margin-bottom:4px">PINTURA</div>
-        <div style="display:flex;align-items:center;justify-content:center;gap:4px"><span style="font-size:11px">R$/kg</span><input type="number" id="pf-preco-pintura" value="18" min="0" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:75px;padding:5px;border:1px solid #c9c6bf;border-radius:6px;font-size:12px;font-weight:700;text-align:right"></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px"><span style="font-size:11px">R$/kg</span><input type="number" id="pf-preco-pintura" value="18" min="0" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:70px;padding:5px;border:1px solid #c9c6bf;border-radius:6px;font-size:12px;font-weight:700;text-align:right"></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:4px"><span style="font-size:9px;color:#c62828">Ded%</span><input type="number" id="pf-ded-pintura" value="0" min="0" max="50" step="0.5" oninput="salvarPerfisKg();renderPerfisDB();recalcPerfisAuto()" style="width:50px;padding:3px;border:1px solid #ef9a9a;border-radius:4px;font-size:11px;font-weight:600;text-align:center;color:#c62828"><span style="font-size:9px;color:#2e7d32;font-weight:700" id="pf-liq-pintura"></span></div>
       </div>
       <div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;text-align:center;flex:0 0 auto">
         <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px">BARRA</div>
@@ -6097,10 +6101,10 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   var sis = _p.sis;
   var C   = CONJUNTOS_PERFIS[sis];
 
-  var kgTecno   = parseFloat((document.getElementById('pf-kg-tecnoperfil')||{value:31}).value)||31;
-  var kgMerc    = parseFloat((document.getElementById('pf-kg-mercado')    ||{value:38}).value)||38;
-  var kgWeiku   = parseFloat((document.getElementById('pf-kg-weiku')      ||{value:35}).value)||35;
-  var precoPint = parseFloat((document.getElementById('pf-preco-pintura') ||{value:18}).value)||18;
+  var kgTecno   = typeof _getPfLiq==='function'?_getPfLiq('TECNOPERFIL'):(parseFloat((document.getElementById('pf-kg-tecnoperfil')||{value:31}).value)||31);
+  var kgMerc    = typeof _getPfLiq==='function'?_getPfLiq('MERCADO'):(parseFloat((document.getElementById('pf-kg-mercado')||{value:38}).value)||38);
+  var kgWeiku   = typeof _getPfLiq==='function'?_getPfLiq('WEIKU'):(parseFloat((document.getElementById('pf-kg-weiku')||{value:35}).value)||35);
+  var precoPint = typeof _getPintLiq==='function'?_getPintLiq():(parseFloat((document.getElementById('pf-preco-pintura')||{value:18}).value)||18);
 
   var FGA       = _p.FGA;   // Folga altura (padrão 10mm)
   var FGL       = _p.FGL;   // Folga largura esquerda (padrão 10mm)
@@ -11314,9 +11318,37 @@ function salvarPerfisKg(){
       tecnoperfil:$('pf-kg-tecnoperfil').value,
       mercado:$('pf-kg-mercado').value,
       weiku:$('pf-kg-weiku').value,
-      pintura:$('pf-preco-pintura').value
+      pintura:$('pf-preco-pintura').value,
+      ded_tecnoperfil:$('pf-ded-tecnoperfil').value,
+      ded_mercado:$('pf-ded-mercado').value,
+      ded_weiku:$('pf-ded-weiku').value,
+      ded_pintura:$('pf-ded-pintura').value
     }));
   }catch(e){}
+  _updateLiqPerfis();
+}
+function _updateLiqPerfis(){
+  ['tecnoperfil','mercado','weiku','pintura'].forEach(function(k){
+    var prId=k==='pintura'?'pf-preco-pintura':'pf-kg-'+k;
+    var pr=parseFloat(($(prId)||{value:0}).value)||0;
+    var ded=parseFloat(($('pf-ded-'+k)||{value:0}).value)||0;
+    var liq=pr*(1-ded/100);
+    var el=$('pf-liq-'+k);
+    if(el) el.textContent=ded>0?' Líq: '+liq.toFixed(2):'';
+  });
+}
+function _getPfLiq(tipo){
+  var map={TECNOPERFIL:'tecnoperfil',PROJETTA:'tecnoperfil',PERFISUD:'tecnoperfil',MERCADO:'mercado',WEIKU:'weiku'};
+  var k=map[tipo]||'mercado';
+  var prId=k==='pintura'?'pf-preco-pintura':'pf-kg-'+k;
+  var pr=parseFloat(($(prId)||{value:0}).value)||0;
+  var ded=parseFloat(($('pf-ded-'+k)||{value:0}).value)||0;
+  return pr*(1-ded/100);
+}
+function _getPintLiq(){
+  var pr=parseFloat(($('pf-preco-pintura')||{value:0}).value)||0;
+  var ded=parseFloat(($('pf-ded-pintura')||{value:0}).value)||0;
+  return pr*(1-ded/100);
 }
 function loadPrecoKg(){
   try{
@@ -11327,11 +11359,16 @@ function loadPrecoKg(){
       if(d.mercado) $('pf-kg-mercado').value=d.mercado;
       if(d.weiku) $('pf-kg-weiku').value=d.weiku;
       if(d.pintura) $('pf-preco-pintura').value=d.pintura;
+      if(d.ded_tecnoperfil) $('pf-ded-tecnoperfil').value=d.ded_tecnoperfil;
+      if(d.ded_mercado) $('pf-ded-mercado').value=d.ded_mercado;
+      if(d.ded_weiku) $('pf-ded-weiku').value=d.ded_weiku;
+      if(d.ded_pintura) $('pf-ded-pintura').value=d.ded_pintura;
     } else {
       var old=localStorage.getItem('projetta_preco_kg');
       if(old) $('pf-kg-mercado').value=old;
     }
   }catch(e){}
+  _updateLiqPerfis();
 }
 
 
