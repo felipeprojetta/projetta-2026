@@ -6050,7 +6050,8 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   // 1 FOLHA: L<2200=1 | 2201-3000=2 | >3001=3 | com cava: +2
   // 2 FOLHAS: mesma regra base | com cava: +4
   var _travBase = L > 3000 ? 3 : L > 2200 ? 2 : 1;
-  var _cavaTravAdd = temCava ? 2 : 0;  // +2 por folha quando cava (1 folha=+2, 2 folhas=+4 total)
+  var _distBorda=parseFloat((document.getElementById('carac-dist-borda-cava')||{value:210}).value)||210;
+  var _cavaTravAdd = temCava ? (_distBorda <= 158 ? 1 : 2) : 0;  // dist≤158mm: 1 trav, >158mm: 2 trav
   var TRAV_V_QTY_PF = _semModelo ? 0 : (_travBase + _cavaTravAdd);
   var TRAV_V_QTY    = TRAV_V_QTY_PF * nFolhas;
 
