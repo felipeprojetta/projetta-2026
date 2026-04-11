@@ -9581,18 +9581,25 @@ function orcItensFromCRM(itens, cliente){
     // Criar bloco para cada fixo do CRM
     fixoItens.forEach(function(fx, fi){
       var qty = parseInt(fx.qtd) || 1;
-      for(var q=0; q<qty; q++){
-        if(typeof addFixo === 'function') addFixo();
-        // Preencher o último fixo criado
-        var blks = document.querySelectorAll('.fixo-blk');
-        var last = blks[blks.length - 1];
-        if(last){
-          var larg = last.querySelector('.fixo-larg'); if(larg) larg.value = fx.largura || '';
-          var alt  = last.querySelector('.fixo-alt');  if(alt)  alt.value  = fx.altura  || '';
-          var lados= last.querySelector('.fixo-lados');if(lados)lados.value= fx.revestimento_lados || '2';
-          var estr = last.querySelector('.fixo-estr'); if(estr) estr.value = fx.tem_estrutura==='SIM' ? 'sim' : 'nao';
-          var lado = last.querySelector('.fixo-lado'); if(lado) lado.value = fx.tipo_fixacao==='BANDEIRA'?'ambos':'esquerdo';
+      if(typeof addFixo === 'function') addFixo();
+      var blks = document.querySelectorAll('.fixo-blk');
+      var last = blks[blks.length - 1];
+      if(last){
+        var larg = last.querySelector('.fixo-larg'); if(larg) larg.value = fx.largura || '';
+        var alt  = last.querySelector('.fixo-alt');  if(alt)  alt.value  = fx.altura  || '';
+        var lados= last.querySelector('.fixo-lados');if(lados)lados.value= fx.revestimento_lados || '2';
+        var estr = last.querySelector('.fixo-estr'); if(estr) estr.value = fx.tem_estrutura==='SIM' ? 'sim' : 'nao';
+        // Tipo: BANDEIRA → superior, LATERAL → lateral
+        var tipo = last.querySelector('.fixo-tipo');
+        if(tipo){
+          tipo.value = (fx.tipo_fixacao==='LATERAL')?'lateral':'superior';
+          toggleFixoTipo(tipo);
         }
+        // Lado: só para lateral
+        var lado = last.querySelector('.fixo-lado');
+        if(lado && fx.tipo_fixacao==='LATERAL') lado.value = 'esquerdo';
+        // Quantidade
+        var qtyEl = last.querySelector('.fixo-qty'); if(qtyEl) qtyEl.value = qty;
       }
     });
   }
