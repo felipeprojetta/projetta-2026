@@ -3570,7 +3570,12 @@ Equipe Projetta by Weiku</textarea>
       </div>
       <div id="nfe-chave-info" style="margin-top:8px;font-size:11px;color:#666"></div>
     </div>
-    <!-- Upload XML -->
+    <!-- Nome do Fornecedor -->
+    <div style="background:#fff;border:1.5px solid #e0e0e0;border-radius:10px;padding:12px 20px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:#003144;margin-bottom:6px">🏭 Nome do Fornecedor</div>
+      <input type="text" id="nfe-fornecedor" placeholder="Digite o nome do fornecedor..." style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;font-weight:600;outline:none;font-family:inherit;color:#003144">
+    </div>
+    <!-- Upload XML/PDF -->
     <div style="background:linear-gradient(135deg,#f5f7fa,#eef2f7);border:2px dashed #90caf9;border-radius:12px;padding:30px;text-align:center;margin-bottom:20px;cursor:pointer" onclick="document.getElementById('nfe-upload').click()" id="nfe-drop-zone">
       <div style="font-size:36px;margin-bottom:8px">📄</div>
       <div style="font-size:14px;font-weight:700;color:#1565c0">Arraste ou clique para enviar NF-e</div>
@@ -16494,6 +16499,10 @@ function parseDanfeText(txt, fileName){
   var emitNome=find(/RAZ[AÃ]O SOCIAL.*?:\s*(.+?)(?:\s{2,}|CNPJ)/i);
   if(!emitNome) emitNome=find(/NOME.*?EMITENTE.*?:\s*(.+?)(?:\s{2,})/i);
   var emitCNPJ=find(/CNPJ[:\s]*(\d{2}[\.\s]?\d{3}[\.\s]?\d{3}[\/\s]?\d{4}[\-\s]?\d{2})/i);
+  // Sync com campo fornecedor
+  var _fEl=document.getElementById('nfe-fornecedor');
+  if(_fEl&&_fEl.value.trim()) emitNome=_fEl.value.trim();
+  else if(_fEl&&emitNome) _fEl.value=emitNome;
 
   // Totais — buscar padrões comuns do DANFE
   var vProd=findN(/VAL(?:OR)?\.?\s*(?:TOTAL\s*)?(?:DOS?\s*)?PROD(?:UTOS)?[:\s]*([\d\.,]+)/i);
@@ -16600,6 +16609,10 @@ function parseNFeXML(xmlStr, fileName){
   var emit=doc.getElementsByTagName('emit')[0]||doc;
   var emitNome=gv(emit,'xNome');
   var emitCNPJ=gv(emit,'CNPJ');
+  // Sync com campo fornecedor
+  var _fEl2=document.getElementById('nfe-fornecedor');
+  if(_fEl2&&_fEl2.value.trim()) emitNome=_fEl2.value.trim();
+  else if(_fEl2&&emitNome) _fEl2.value=emitNome;
 
   // Destinatário
   var dest=doc.getElementsByTagName('dest')[0]||doc;
