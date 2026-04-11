@@ -9195,7 +9195,8 @@ window.crmInstCalcIntl=function(){
 
   var udiGru=gv('crm-o-inst-udigru');
   var passagem=gv('crm-o-inst-passagem')*pessoas;
-  var hotel=gv('crm-o-inst-hotel')*diasTotal;
+  var diasHotel=diasTotal-2;
+  var hotel=gv('crm-o-inst-hotel')*diasHotel;
   var alim=gv('crm-o-inst-alim')*pessoas*diasTotal;
   var seguro=gv('crm-o-inst-seguro')*pessoas;
   var carro=gv('crm-o-inst-carro')*diasTotal;
@@ -14503,7 +14504,8 @@ function calcInstIntl(){
 
   var udiGru=gv('inst-intl-udigru');
   var passagem=gv('inst-intl-passagem')*pessoas;
-  var hotel=gv('inst-intl-hotel')*diasTotal;
+  var diasHotel=diasTotal-2; // sem 1d ida carro + 1d volta carro
+  var hotel=gv('inst-intl-hotel')*diasHotel;
   var alim=gv('inst-intl-alim')*pessoas*diasTotal;
   var seguro=gv('inst-intl-seguro')*pessoas;
   var carro=gv('inst-intl-carro')*diasTotal;
