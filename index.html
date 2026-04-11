@@ -4660,19 +4660,21 @@ window.loadRevision=function(id,revIdx){
   var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='';
   var iqw=document.getElementById('inst-quem-wrap');if(iqw)iqw.style.display='';
   
-  // Trigger full recalculation to populate all display fields
+  // UI layout updates (não recalculam preços)
   setTimeout(function(){
     if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
     if(typeof planUpd==='function') try{planUpd();}catch(e){}
     if(typeof toggleInstQuem==='function') try{toggleInstQuem();}catch(e){}
-    // Full recalc: gerarCustoTotal includes gerarOS + aprovCalc + calc
-    if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
+    // SÓ recalcula se NÃO tiver snapshot congelado
+    if(!rev.snapshot){
+      if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
+    }
   }, 300);
   
-  // TRAVAR orçamento após recalcular — valores congelados
+  // TRAVAR orçamento — usar valores congelados do snapshot
   setTimeout(function(){
     _setOrcLock(true);
-  }, 2000);
+  }, 600);
   
   toggleHist();
 };
@@ -10722,8 +10724,10 @@ function _exportPropostaToCard(cardId, revLabel, callback){
     propostaTab.style.position='absolute';
     propostaTab.style.left='-9999px';
     propostaTab.style.top='0';
-    propostaTab.style.opacity='0';
+    propostaTab.style.opacity='1';
     propostaTab.style.pointerEvents='none';
+    propostaTab.style.visibility='visible';
+    propostaTab.style.width='210mm';
   }
   var pages=document.querySelectorAll('.proposta-page');
   if(!pages.length){
@@ -10763,7 +10767,9 @@ function _exportPropostaToCard(cardId, revLabel, callback){
       captureNext();
     });
   }
-  setTimeout(captureNext, 500);
+  // Forçar reflow antes de capturar
+  if(propostaTab) void propostaTab.offsetHeight;
+  setTimeout(captureNext, 800);
 }
 
 function populateProposta(){
@@ -14228,56 +14234,6 @@ function calcInstIntl(){
   return custoTotal; // retorna custo para calc() principal
 }
 
-function instIntlPorteChange(){
-  var porte=(document.getElementById('inst-intl-porte')||{value:'M'}).value;
-  var pEl=document.getElementById('inst-intl-pessoas');
-  var dEl=document.getElementById('inst-intl-dias');
-  if(porte==='P'){if(pEl)pEl.value=2;if(dEl)dEl.value=2;}
-  if(porte==='M'){if(pEl)pEl.value=3;if(dEl)dEl.value=3;}
-  if(porte==='G'){if(pEl)pEl.value=3;if(dEl)dEl.value=4;}
-}
-
-function calcInstIntl(){
-  var gv=function(id){return parseFloat((document.getElementById(id)||{value:0}).value)||0;};
-  var pessoas=gv('inst-intl-pessoas');
-  var diasInst=gv('inst-intl-dias');
-  var diasViagem=diasInst+2;
-
-  var udiGru=gv('inst-intl-udigru');
-  var passagem=gv('inst-intl-passagem')*pessoas;
-  var hotel=gv('inst-intl-hotel')*diasViagem;
-  var alim=gv('inst-intl-alim')*pessoas*diasViagem;
-  var seguro=gv('inst-intl-seguro')*pessoas;
-  var carro=gv('inst-intl-carro')*diasViagem;
-  var mo=gv('inst-intl-mo')*diasInst;
-  var margem=gv('inst-intl-margem')/100;
-
-  var custoTotal=udiGru+passagem+hotel+alim+seguro+carro+mo;
-  var comMargem=custoTotal*(1+margem);
-
-  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
-  var res=document.getElementById('inst-intl-result');
-  if(res){
-    res.innerHTML=
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:10px">'+
-      '<div>🛫 UDI→GRU: <b>'+brl(udiGru)+'</b></div>'+
-      '<div>✈️ Passagens ('+pessoas+'p): <b>'+brl(passagem)+'</b></div>'+
-      '<div>🏨 Hotel ('+diasViagem+'d): <b>'+brl(hotel)+'</b></div>'+
-      '<div>🍽️ Alimentação: <b>'+brl(alim)+'</b></div>'+
-      '<div>🏥 Seguro: <b>'+brl(seguro)+'</b></div>'+
-      '<div>🚗 Carro+Gasolina: <b>'+brl(carro)+'</b></div>'+
-      '<div>👷 Mão de Obra ('+diasInst+'d): <b>'+brl(mo)+'</b></div>'+
-      '<div></div>'+
-      '</div>'+
-      '<hr style="margin:6px 0;border:none;border-top:1px solid #90caf9">'+
-      '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700">'+
-      '<div>Custo: '+brl(custoTotal)+'</div>'+
-      '<div style="color:#1565c0">+'+Math.round(margem*100)+'% = '+brl(comMargem)+'</div>'+
-      '</div>'+
-      '<div style="font-size:9px;color:#888;margin-top:3px">'+pessoas+' pessoas × '+diasViagem+' dias ('+diasInst+' inst + 2 viagem)</div>';
-  }
-  return comMargem;
-}
 function togglePuxadorTam(){
   var pux=document.getElementById('carac-puxador');
   var row=document.getElementById('carac-pux-tam-row');
