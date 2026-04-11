@@ -960,6 +960,32 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
         </div><input type="hidden" id="crm-o-wrep">
       </div>
     </div>
+    <!-- ═══ INSTALAÇÃO ═══ -->
+    <div class="crm-section-label">🔧 Instalação</div>
+    <div class="crm-row">
+      <div class="crm-field"><label>Quem instala?</label>
+        <select id="crm-o-inst-quem" onchange="crmInstQuemChange()" style="padding:8px 10px;border:1.5px solid #4caf50;border-radius:8px;font-size:12px;font-weight:600;background:#e8f5e9;color:#2e7d32;cursor:pointer">
+          <option value="PROJETTA">🏗️ Projetta</option>
+          <option value="TERCEIROS">👷 Terceiros</option>
+          <option value="INTERNACIONAL">🌍 Internacional</option>
+        </select>
+      </div>
+    </div>
+    <div id="crm-inst-terceiros" style="display:none;margin-top:6px">
+      <div class="crm-row">
+        <div class="crm-field"><label>Custo Instalação (R$)</label><input type="number" id="crm-o-inst-valor" placeholder="0" min="0" step="100"></div>
+        <div class="crm-field"><label>Custo Transportadora (R$)</label><input type="number" id="crm-o-inst-transp" placeholder="0" min="0" step="100"></div>
+      </div>
+    </div>
+    <div id="crm-inst-internacional" style="display:none;margin-top:6px;background:#e3f2fd;border:1px solid #2196f3;border-radius:8px;padding:10px">
+      <div style="font-size:10px;font-weight:700;color:#1565c0;margin-bottom:4px">🌍 Instalação Internacional</div>
+      <div style="font-size:9px;color:#555">Configuração em breve — planilha de cálculo internacional será integrada.</div>
+      <div class="crm-row" style="margin-top:6px">
+        <div class="crm-field"><label>País</label><input type="text" id="crm-o-inst-pais" placeholder="ex: Portugal, EUA"></div>
+        <div class="crm-field"><label>Custo Estimado (R$)</label><input type="number" id="crm-o-inst-intl-valor" placeholder="0" min="0" step="100"></div>
+      </div>
+    </div>
+
     <!-- ═══ ITENS DO PEDIDO ═══ -->
     <div class="crm-section-label" style="display:flex;justify-content:space-between;align-items:center">
       <span>📦 Itens do Pedido</span>
@@ -1513,13 +1539,14 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div class="fv"><select id="carac-cor-int" onchange="calc()" style="width:100%;padding:5px 8px;border:0.5px solid #c9c6bf;border-radius:6px;font-size:12px;background:#fffef5;color:var(--navy);font-weight:600;outline:none"><option value="">— Selecione —</option></select></div>
     </div>
 
-    <!-- QUEM INSTALA -->
-    <div class="fr" style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:8px;padding:10px 14px;margin:8px 0">
+    <!-- QUEM INSTALA — movido para o CRM card -->
+    <div class="fr" id="inst-quem-wrap" style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:8px;padding:10px 14px;margin:8px 0;display:none">
       <span class="fl" style="font-weight:700;color:#2e7d32;font-size:12px">🔧 Quem instala?</span>
       <div class="fv"><select id="inst-quem" onchange="toggleInstQuem();calc();_osAutoUpdate()" style="width:100%;padding:5px 8px;border:0.5px solid #4caf50;border-radius:6px;font-size:12px;background:#fff;color:var(--navy);font-weight:600;outline:none">
         <option value="PROJETTA">Projetta</option>
         <option value="WEIKU">Weiku</option>
         <option value="TERCEIROS">Terceiros</option>
+        <option value="INTERNACIONAL">Internacional</option>
       </select></div>
     </div>
 
@@ -5285,6 +5312,8 @@ function newOrcamento(){
   var ibar=document.getElementById('orc-itens-bar');if(ibar)ibar.classList.remove('show');
   // Show GERAR CUSTO COMPLETO back
   var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='';
+  // Show inst-quem in orçamento for direct mode
+  var iqw=document.getElementById('inst-quem-wrap');if(iqw)iqw.style.display='';
 
   if(!confirm('Iniciar novo orçamento? O orçamento atual será salvo automaticamente.')) return;
   // Unlock form
@@ -8489,6 +8518,13 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-cor-ext',opp.cor_ext||'');setVal('crm-o-cor-int',opp.cor_int||'');
     setVal('crm-o-reserva',opp.reserva||'');setVal('crm-o-agp',opp.agp||'');
     setVal('crm-o-cep',opp.cep||'');
+    // Instalação
+    setVal('crm-o-inst-quem',opp.inst_quem||'PROJETTA');
+    setVal('crm-o-inst-valor',opp.inst_valor||'');
+    setVal('crm-o-inst-transp',opp.inst_transp||'');
+    setVal('crm-o-inst-pais',opp.inst_pais||'');
+    setVal('crm-o-inst-intl-valor',opp.inst_intl_valor||'');
+    if(typeof crmInstQuemChange==='function') crmInstQuemChange();
     var cepSt=el('crm-cep-status');if(cepSt)cepSt.textContent='';
     crmSetScope(opp.scope||'nacional');
     if(opp.scope==='internacional'){setVal('crm-o-pais',opp.pais);setVal('crm-o-cidade-intl',opp.cidade);}
@@ -8539,6 +8575,8 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-fechamento','');setVal('crm-o-prioridade','');setVal('crm-o-potencial','');
     setVal('crm-o-abertura','');setVal('crm-o-modelo','');setVal('crm-o-estado','');
     setVal('crm-o-folhas','');setVal('crm-o-reserva','');setVal('crm-o-agp','');setVal('crm-o-cor-ext','');setVal('crm-o-cor-int','');
+    setVal('crm-o-inst-quem','PROJETTA');setVal('crm-o-inst-valor','');setVal('crm-o-inst-transp','');setVal('crm-o-inst-pais','');setVal('crm-o-inst-intl-valor','');
+    if(typeof crmInstQuemChange==='function') crmInstQuemChange();
     var cepSt=el('crm-cep-status');if(cepSt)cepSt.textContent='';
     crmSetScope('nacional');showWeikunField(false);
     _modalAttachs=[];crmRenderAttachments();
@@ -8760,6 +8798,17 @@ window.crmItemFixoMaterial=function(id){
   var mat=(document.getElementById(pre+'tipo_material')||{value:''}).value;
   var wrap=document.getElementById(pre+'vidro_wrap');
   if(wrap) wrap.style.display=mat==='VIDRO'?'':'none';
+}
+
+// Show/hide instalação fields based on Quem instala
+window.crmInstQuemChange=function(){
+  var sel=document.getElementById('crm-o-inst-quem');
+  var terc=document.getElementById('crm-inst-terceiros');
+  var intl=document.getElementById('crm-inst-internacional');
+  if(!sel)return;
+  var v=sel.value;
+  if(terc) terc.style.display=(v==='TERCEIROS')?'':'none';
+  if(intl) intl.style.display=(v==='INTERNACIONAL')?'':'none';
 }
 
 window.crmItemDuplicate=function(id){
@@ -8987,6 +9036,11 @@ window.crmSaveOpp=function(){
     cor_int:   val('crm-o-cor-int'),
     reserva:   val('crm-o-reserva').trim(),
     itens:     _crmItensToCardData(),
+    inst_quem: val('crm-o-inst-quem')||'PROJETTA',
+    inst_valor: parseFloat(val('crm-o-inst-valor'))||0,
+    inst_transp: parseFloat(val('crm-o-inst-transp'))||0,
+    inst_pais: val('crm-o-inst-pais')||'',
+    inst_intl_valor: parseFloat(val('crm-o-inst-intl-valor'))||0,
     agp:       val('crm-o-agp').trim(),
     cep:       val('crm-o-cep'),
     scope:     scope,
@@ -9275,6 +9329,14 @@ window.crmFazerOrcamento=function(id){
       // Backward compat: single item
       orcItensFromCRM([{tipo:'porta_pivotante',qtd:1,largura:opp.largura,altura:opp.altura,modelo:opp.modelo||'',abertura:opp.abertura||'PIVOTANTE',folhas:opp.folhas||'1',cor_ext:opp.cor_ext||'',cor_int:opp.cor_int||''}], opp.cliente);
     }
+    // Transfer instalação
+    var instQuem=opp.inst_quem||'PROJETTA';
+    setF('inst-quem',instQuem);
+    if(instQuem==='TERCEIROS'){
+      setF('inst-terceiros-valor',opp.inst_valor||'');
+      setF('inst-terceiros-transp',opp.inst_transp||'');
+    }
+    if(typeof toggleInstQuem==='function') toggleInstQuem();
     setF('largura',opp.largura||'');
     setF('altura',opp.altura||'');
     // Responsavel (Thays/Felipe/Andressa) — map to the select
@@ -13709,7 +13771,7 @@ function toggleInstQuem(){
   var terc_div=document.getElementById('inst-terceiros-manual');
   if(!sel)return;
   var v=sel.value;
-  if(calc_div) calc_div.style.display=(v==='TERCEIROS')?'none':'';
+  if(calc_div) calc_div.style.display=(v==='TERCEIROS'||v==='INTERNACIONAL')?'none':'';
   if(terc_div) terc_div.style.display=(v==='TERCEIROS')?'':'none';
 }
 function togglePuxadorTam(){
