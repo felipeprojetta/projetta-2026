@@ -1838,6 +1838,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div class="dvdr"></div>
       <div class="fr"><span class="fl">💲 Câmbio USD <small>média 3 meses</small></span><div class="fv"><input type="number" id="inst-intl-cambio" value="5.20" min="1" max="10" step="0.01" oninput="calc()"></div></div>
       <div id="inst-intl-cambio-info" style="font-size:8px;color:#888;margin-bottom:4px"></div>
+      <div class="fr" style="background:#fff3e0;border-radius:6px;padding:6px 8px"><span class="fl" style="font-weight:700;color:#e65100">📋 Impostos NFS-e Exportação (%)</span><div class="fv"><input type="number" id="inst-intl-imp" value="8.65" min="0" max="30" step="0.01" oninput="calc()" style="border-color:#e65100;font-weight:800;color:#e65100"></div></div>
       <div class="fr" style="background:#e8f5e9;border-radius:6px;padding:6px 8px"><span class="fl" style="font-weight:700;color:#2e7d32">📊 Margem Líquida Instalação (%)</span><div class="fv"><input type="number" id="inst-intl-margem" value="10" min="0" max="50" step="1" oninput="calc()" style="border-color:#4caf50;font-weight:800;color:#2e7d32"></div></div>
       <!-- DRE RESULTADO -->
       <div id="inst-intl-result" style="margin-top:8px;background:#fff;border:1px solid #90caf9;border-radius:6px;padding:10px;font-size:11px"></div>
@@ -8935,16 +8936,12 @@ window.crmInstCalcIntl=function(){
 
   var custoTotal=udiGru+passagem+hotel+alim+seguro+carro+mo;
 
-  // DRE — mesmo markup da porta (buscar taxas do orçamento)
-  var _impEl=document.getElementById('imp');
-  var _comEl=document.getElementById('comissao');
-  var _repEl=document.getElementById('repasse');
-  var _gestEl=document.getElementById('gest');
-  var pctImp=_impEl?parseFloat(_impEl.value)||17:17; // impostos %
-  var pctCom=_comEl?parseFloat(_comEl.value)||0:0;    // comissão %
-  var pctRep=_repEl?parseFloat(_repEl.value)||0:0;    // repasse %
-  var pctGest=_gestEl?parseFloat(_gestEl.value)||0:0;  // gestão %
-  var pctMargemLiq=margemLiq*100; // margem líquida %
+  // DRE — impostos NFS-e exportação (próprio da instalação)
+  var pctImp=parseFloat((document.getElementById('inst-intl-imp')||{value:8.65}).value)||0;
+  var pctCom=0;
+  var pctRep=0;
+  var pctGest=0;
+  var pctMargemLiq=margemLiq*100;
 
   // Markup: Preço = Custo / (1 - imp% - com% - rep% - gest% - margem%)
   var totalDeduc=(pctImp+pctCom+pctRep+pctGest+pctMargemLiq)/100;
@@ -14161,11 +14158,11 @@ function calcInstIntl(){
 
   var custoTotal=udiGru+passagem+hotel+alim+seguro+carro+mo;
 
-  // DRE — buscar taxas do orçamento (mesmas da porta)
-  var pctImp=parseFloat((document.getElementById('imp')||{value:17}).value)||17;
-  var pctCom=parseFloat((document.getElementById('comissao')||{value:0}).value)||0;
-  var pctRep=parseFloat((document.getElementById('repasse')||{value:0}).value)||0;
-  var pctGest=parseFloat((document.getElementById('gest')||{value:0}).value)||0;
+  // DRE — impostos próprios da NFS-e exportação (NÃO usa imp da porta)
+  var pctImp=parseFloat((document.getElementById('inst-intl-imp')||{value:8.65}).value)||0;
+  var pctCom=0; // instalação não tem comissão/repasse/gestão
+  var pctRep=0;
+  var pctGest=0;
   var pctML=margemLiq*100;
 
   // Markup: Preço = Custo / (1 - imp% - com% - rep% - gest% - margem%)
@@ -14180,8 +14177,7 @@ function calcInstIntl(){
   var repasse=precoFat*(pctRep/100);
   var gestao=precoFat*(pctGest/100);
   var lucroBruto=precoFat-custoTotal-impostos-comissao-repasse-gestao;
-  var irpj=lucroBruto>0?lucroBruto*0.34:0;
-  var lucroLiq=lucroBruto-irpj;
+  var lucroLiq=lucroBruto; // Serviço exportação: sem IRPJ/CSLL no DRE instalação
   var mkp=custoTotal>0?((precoTabela/custoTotal-1)*100):0;
   var mlPct=precoFat>0?(lucroLiq/precoFat*100):0;
 
@@ -14220,7 +14216,6 @@ function calcInstIntl(){
       (pctGest>0?'<div>(−) Gestão '+pctGest+'%:</div><div style="color:#c0392b">-'+brl(gestao)+'</div><div style="color:#c0392b">-'+usd(gestao)+'</div>':'')+
       '<div>(−) Custo Total:</div><div>-'+brl(custoTotal)+'</div><div>-'+usd(custoTotal)+'</div>'+
       '<div style="font-weight:700">(=) Lucro Bruto:</div><div style="font-weight:700">'+brl(lucroBruto)+'</div><div style="font-weight:700">'+usd(lucroBruto)+'</div>'+
-      '<div>(−) IRPJ+CSLL 34%:</div><div style="color:#c0392b">-'+brl(irpj)+'</div><div style="color:#c0392b">-'+usd(irpj)+'</div>'+
       '</div>'+
       '<div style="background:#e8f5e9;border-radius:5px;padding:8px 10px;margin-top:8px;display:flex;justify-content:space-between;font-size:12px;font-weight:800;color:#2e7d32">'+
       '<span>(=) Lucro Líquido:</span><span>'+brl(lucroLiq)+' ('+mlPct.toFixed(1)+'%)</span>'+
