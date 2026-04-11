@@ -8808,14 +8808,14 @@ window.crmItemCreate=function(tipo){
     cor_ext:'',cor_int:''
   };
   if(tipo==='porta_pivotante'){
-    item.modelo='01';item.abertura='PIVOTANTE';item.folhas='1';
-    item.fech_mec='';item.fech_dig='NÃO SE APLICA';item.cilindro='KESO';item.puxador='CAVA';
+    item.modelo='';item.abertura='PIVOTANTE';item.folhas='';
+    item.fech_mec='';item.fech_dig='NÃO SE APLICA';item.cilindro='KESO';item.puxador='';
     item.dist_borda_cava='210';item.largura_cava='150';item.cantoneira_cava='30';
     item.tem_alisar=true;
   }
   if(tipo==='fixo'){
-    item.tipo_fixacao='LATERAL';item.revestimento_lados='2';item.tem_estrutura='SIM';
-    item.tipo_material='ACM';item.tipo_vidro='';
+    item.tipo_fixacao='';item.revestimento_lados='';item.tem_estrutura='';
+    item.tipo_material='';item.tipo_vidro='';
   }
   _crmItens.push(item);
   _crmItensRender();
@@ -8910,6 +8910,7 @@ window.crmInstCalcIntl=function(){
   var diasInst=gv('crm-o-inst-dias');
   var diasViagem=diasInst+2;
   var cambio=gv('crm-o-inst-cambio')||5.20;
+  var margemLiq=gv('crm-o-inst-margem')/100;
 
   var udiGru=gv('crm-o-inst-udigru');
   var passagem=gv('crm-o-inst-passagem')*pessoas;
@@ -8918,10 +8919,29 @@ window.crmInstCalcIntl=function(){
   var seguro=gv('crm-o-inst-seguro')*pessoas;
   var carro=gv('crm-o-inst-carro')*diasViagem;
   var mo=gv('crm-o-inst-mo')*diasInst;
-  var margem=gv('crm-o-inst-margem')/100;
 
   var custoTotal=udiGru+passagem+hotel+alim+seguro+carro+mo;
-  var comMargem=custoTotal*(1+margem);
+
+  // DRE — mesmo markup da porta (buscar taxas do orçamento)
+  var _impEl=document.getElementById('imp');
+  var _comEl=document.getElementById('comissao');
+  var _repEl=document.getElementById('repasse');
+  var _gestEl=document.getElementById('gest');
+  var pctImp=_impEl?parseFloat(_impEl.value)||17:17; // impostos %
+  var pctCom=_comEl?parseFloat(_comEl.value)||0:0;    // comissão %
+  var pctRep=_repEl?parseFloat(_repEl.value)||0:0;    // repasse %
+  var pctGest=_gestEl?parseFloat(_gestEl.value)||0:0;  // gestão %
+  var pctMargemLiq=margemLiq*100; // margem líquida %
+
+  // Markup: Preço = Custo / (1 - imp% - com% - rep% - gest% - margem%)
+  var totalDeduc=(pctImp+pctCom+pctRep+pctGest+pctMargemLiq)/100;
+  var divisor=Math.max(0.01, 1-totalDeduc);
+  var precoVenda=custoTotal/divisor;
+  var lucroLiq=precoVenda*margemLiq;
+  var impostos=precoVenda*(pctImp/100);
+  var comissao=precoVenda*(pctCom/100);
+  var repasse=precoVenda*(pctRep/100);
+  var gestao=precoVenda*(pctGest/100);
 
   var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
   var usd=function(v){return 'US$ '+(v/cambio).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
@@ -8940,16 +8960,28 @@ window.crmInstCalcIntl=function(){
     '<div>🏥 Seguro: '+dual(seguro)+'</div>'+
     '<div>🚗 Carro+Gas: '+dual(carro)+'</div>'+
     '<div>👷 Mão de Obra ('+diasInst+'d): '+dual(mo)+'</div>'+
-    '<div></div>'+
     '</div>'+
     '<hr style="margin:6px 0;border:none;border-top:1px solid #90caf9">'+
+    '<div style="font-size:9px;font-weight:700;color:#1565c0;margin-bottom:3px">📊 DRE INSTALAÇÃO</div>'+
+    '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:2px 8px;font-size:9.5px">'+
+    '<div>Custo Total:</div><div>'+brl(custoTotal)+'</div><div style="color:#1565c0">'+usd(custoTotal)+'</div>'+
+    '<div style="color:#c0392b">Impostos ('+pctImp.toFixed(1)+'%):</div><div style="color:#c0392b">- '+brl(impostos)+'</div><div style="color:#c0392b">- '+usd(impostos)+'</div>'+
+    (pctCom>0?'<div>Comissão ('+pctCom.toFixed(1)+'%):</div><div>- '+brl(comissao)+'</div><div>- '+usd(comissao)+'</div>':'')+
+    (pctRep>0?'<div>Repasse ('+pctRep.toFixed(1)+'%):</div><div>- '+brl(repasse)+'</div><div>- '+usd(repasse)+'</div>':'')+
+    (pctGest>0?'<div>Gestão ('+pctGest.toFixed(1)+'%):</div><div>- '+brl(gestao)+'</div><div>- '+usd(gestao)+'</div>':'')+
+    '</div>'+
+    '<hr style="margin:4px 0;border:none;border-top:1px dashed #90caf9">'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">'+
-    '<div><b>Custo:</b> '+brl(custoTotal)+'</div>'+
-    '<div><b>'+usd(custoTotal)+'</b></div>'+
-    '<div style="color:#1565c0;font-weight:700">+'+Math.round(margem*100)+'% = '+brl(comMargem)+'</div>'+
-    '<div style="color:#1565c0;font-weight:700">'+usd(comMargem)+'</div>'+
-    '</div>';
-  window._instIntlTotal=comMargem;
+    '<div style="color:#27ae60;font-weight:800">💰 Lucro Líq ('+pctMargemLiq.toFixed(0)+'%): '+brl(lucroLiq)+'</div>'+
+    '<div style="color:#27ae60;font-weight:700">'+usd(lucroLiq)+'</div>'+
+    '</div>'+
+    '<div style="background:#003144;color:#fff;padding:6px 10px;border-radius:5px;margin-top:6px;display:flex;justify-content:space-between;font-size:12px;font-weight:800">'+
+    '<span>PREÇO VENDA INSTALAÇÃO:</span>'+
+    '<span>'+brl(precoVenda)+'</span>'+
+    '</div>'+
+    '<div style="text-align:right;font-size:10px;color:#1565c0;font-weight:700;margin-top:2px">'+usd(precoVenda)+'</div>';
+
+  window._instIntlTotal=precoVenda;
   window._instIntlCusto=custoTotal;
 }
 
@@ -9059,8 +9091,8 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"><label>Abertura</label><select id="'+pre+'abertura"><option value="PIVOTANTE"'+(item.abertura==='PIVOTANTE'?' selected':'')+'>Pivotante</option><option value="DOBRADIÇA"'+(item.abertura==='DOBRADIÇA'?' selected':'')+'>Dobradiça</option></select></div>';
       h+='</div>';
       h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Modelo</label><select id="'+pre+'modelo" onchange="crmItemAutoSelect(\''+item.id+'\')">'+modeloOpts.replace('value="'+item.modelo+'"','value="'+item.modelo+'" selected')+'</select></div>';
-      h+='<div class="crm-field"><label>Folhas</label><select id="'+pre+'folhas"><option value="1"'+(item.folhas==='2'?'':' selected')+'>1 folha</option><option value="2"'+(item.folhas==='2'?' selected':'')+'>2 folhas</option></select></div>';
+      h+='<div class="crm-field"><label>Modelo</label><select id="'+pre+'modelo" onchange="crmItemAutoSelect(\''+item.id+'\')"><option value="">— Selecione —</option>'+modeloOpts.replace('value="'+item.modelo+'"','value="'+item.modelo+'" selected')+'</select></div>';
+      h+='<div class="crm-field"><label>Folhas</label><select id="'+pre+'folhas"><option value="">— Selecione —</option><option value="1"'+(item.folhas==='1'?' selected':'')+'>1 folha</option><option value="2"'+(item.folhas==='2'?' selected':'')+'>2 folhas</option></select></div>';
       h+='</div>';
       // Fechaduras
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🔐 Fechaduras</div>';
@@ -9072,26 +9104,30 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"><label>Cilindro</label><select id="'+pre+'cilindro"><option value="">— Selecione —</option><option value="KESO">Keso</option><option value="UDINESE">Udinese</option></select></div>';
       h+='<div class="crm-field"><label>Puxador <small style="color:#888">(auto por modelo)</small></label><select id="'+pre+'puxador"><option value="">— Selecione —</option><option value="CAVA">Cava</option><option value="EXTERNO">Puxador Externo</option></select></div>';
       h+='</div>';
-      // Config Cava
-      h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">⚙️ Configuração da Cava</div>';
+      // Config Cava — só aparece para modelos com cava (01-11, 24, 26)
+      var _modInt=parseInt(item.modelo)||0;
+      var _temCava=[1,2,3,4,5,6,7,8,9,10,11,24,26].indexOf(_modInt)>=0;
+      if(_temCava){
+        h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">⚙️ Configuração da Cava</div>';
+        h+='<div class="crm-row">';
+        h+='<div class="crm-field"><label>Dist. Borda Cava (mm)</label><input type="number" id="'+pre+'dist_borda_cava" value="'+(item.dist_borda_cava||210)+'" min="50" max="500"></div>';
+        h+='<div class="crm-field"><label>Largura Cava (mm)</label><input type="number" id="'+pre+'largura_cava" value="'+(item.largura_cava||150)+'" min="50" max="400"></div>';
+        h+='</div>';
+      }
       h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Dist. Borda Cava (mm)</label><input type="number" id="'+pre+'dist_borda_cava" value="'+(item.dist_borda_cava||210)+'" min="50" max="500"></div>';
-      h+='<div class="crm-field"><label>Largura Cava (mm)</label><input type="number" id="'+pre+'largura_cava" value="'+(item.largura_cava||150)+'" min="50" max="400"></div>';
-      h+='</div>';
-      h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Cantoneira (mm)</label><input type="number" id="'+pre+'cantoneira_cava" value="'+(item.cantoneira_cava||30)+'" min="10" max="60"></div>';
       h+='<div class="crm-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="'+pre+'tem_alisar"'+(item.tem_alisar?' checked':'')+' style="width:14px;height:14px"> Tem Alisar</label></div>';
+      h+='<div class="crm-field"></div>';
       h+='</div>';
     } else if(item.tipo==='fixo'){
-      h+='<div class="crm-field"><label>Posição</label><select id="'+pre+'tipo_fixacao"><option value="LATERAL"'+(item.tipo_fixacao==='LATERAL'?' selected':'')+'>Lateral</option><option value="BANDEIRA"'+(item.tipo_fixacao==='BANDEIRA'?' selected':'')+'>Bandeira (superior)</option><option value="INFERIOR"'+(item.tipo_fixacao==='INFERIOR'?' selected':'')+'>Inferior</option></select></div>';
+      h+='<div class="crm-field"><label>Posição</label><select id="'+pre+'tipo_fixacao"><option value="">— Selecione —</option><option value="LATERAL"'+(item.tipo_fixacao==='LATERAL'?' selected':'')+'>Lateral</option><option value="BANDEIRA"'+(item.tipo_fixacao==='BANDEIRA'?' selected':'')+'>Bandeira (superior)</option><option value="INFERIOR"'+(item.tipo_fixacao==='INFERIOR'?' selected':'')+'>Inferior</option></select></div>';
       h+='</div>';
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🔲 Configuração do Fixo</div>';
       h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Revestimento</label><select id="'+pre+'revestimento_lados"><option value="2"'+(item.revestimento_lados==='2'?' selected':'')+'>2 lados</option><option value="1"'+(item.revestimento_lados==='1'?' selected':'')+'>1 lado</option></select></div>';
-      h+='<div class="crm-field"><label>Estrutura Alumínio</label><select id="'+pre+'tem_estrutura"><option value="SIM"'+(item.tem_estrutura==='SIM'?' selected':'')+'>Sim</option><option value="NÃO"'+(item.tem_estrutura==='NÃO'?' selected':'')+'>Não</option></select></div>';
+      h+='<div class="crm-field"><label>Revestimento</label><select id="'+pre+'revestimento_lados"><option value="">— Selecione —</option><option value="2"'+(item.revestimento_lados==='2'?' selected':'')+'>2 lados</option><option value="1"'+(item.revestimento_lados==='1'?' selected':'')+'>1 lado</option></select></div>';
+      h+='<div class="crm-field"><label>Estrutura Alumínio</label><select id="'+pre+'tem_estrutura"><option value="">— Selecione —</option><option value="SIM"'+(item.tem_estrutura==='SIM'?' selected':'')+'>Sim</option><option value="NÃO"'+(item.tem_estrutura==='NÃO'?' selected':'')+'>Não</option></select></div>';
       h+='</div>';
       h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Tipo Material</label><select id="'+pre+'tipo_material" onchange="crmItemFixoMaterial(\''+item.id+'\')"><option value="ACM"'+(item.tipo_material==='ACM'?' selected':'')+'>ACM (Chapa)</option><option value="VIDRO"'+(item.tipo_material==='VIDRO'?' selected':'')+'>Vidro</option></select></div>';
+      h+='<div class="crm-field"><label>Tipo Material</label><select id="'+pre+'tipo_material" onchange="crmItemFixoMaterial(\''+item.id+'\')"><option value="">— Selecione —</option><option value="ACM"'+(item.tipo_material==='ACM'?' selected':'')+'>ACM (Chapa)</option><option value="VIDRO"'+(item.tipo_material==='VIDRO'?' selected':'')+'>Vidro</option></select></div>';
       h+='<div class="crm-field" id="'+pre+'vidro_wrap" style="'+(item.tipo_material==='VIDRO'?'':'display:none')+'"><label>Tipo de Vidro</label><select id="'+pre+'tipo_vidro"><option value="">— Selecione —</option><option value="TEMPERADO"'+(item.tipo_vidro==='TEMPERADO'?' selected':'')+'>Temperado</option><option value="LAMINADO"'+(item.tipo_vidro==='LAMINADO'?' selected':'')+'>Laminado</option><option value="INSULADO"'+(item.tipo_vidro==='INSULADO'?' selected':'')+'>Insulado</option><option value="PINAZO"'+(item.tipo_vidro==='PINAZO'?' selected':'')+'>Com Pinazo</option></select></div>';
       h+='</div>';
     } else {
