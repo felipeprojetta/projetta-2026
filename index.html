@@ -3812,6 +3812,8 @@ function sumBlocks(type,max){
 
 /* ══ MAIN CALC ════════════════════════════════════════════ */
 function calc(){
+  // Se snapshot congelado, não recalcular
+  if(window._snapshotLock) return;
   const W=n('largura')/1000,H=n('altura')/1000,m2=W*H;
   // Guard: sem dimensões → zerar resultados e sair
   if(W<=0||H<=0){
@@ -4640,6 +4642,9 @@ window.loadRevision=function(id,revIdx){
   window._pendingRevision=false;
   _persistSession();
   
+  // Se snapshot congelado, bloquear recálculos ANTES de restaurar form
+  window._snapshotLock=!!rev.snapshot;
+  
   // Restore form data (all fields from when it was saved)
   if(rev.data){
     restoreFormData(rev.data);
@@ -5007,6 +5012,7 @@ function salvarRapido(){
 
 function novaRevisao(){
   // Destravar orçamento para edição
+  window._snapshotLock=false;
   _setOrcLock(false);
   window._orcLocked=false;
   
@@ -6343,6 +6349,7 @@ function _osAutoGenerate(){
 
 /* ── GERAR CUSTO TOTAL (botao principal) ─────────────────────────────────── */
 function gerarCustoTotal(){
+  if(window._snapshotLock) return;
   var L=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
   var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
   var modelo=(document.getElementById('carac-modelo')||{value:''}).value||'';
