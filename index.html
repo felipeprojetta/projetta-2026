@@ -981,9 +981,44 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div style="font-size:10px;font-weight:700;color:#1565c0;margin-bottom:6px">🌍 Instalação Internacional</div>
       <div class="crm-row">
         <div class="crm-field"><label>País</label><input type="text" id="crm-o-inst-pais" placeholder="ex: Portugal, EUA"></div>
-        <div class="crm-field"><label>Aeroporto Destino</label><input type="text" id="crm-o-inst-aero" placeholder="ex: LIS, JFK, CDG"></div>
+        <div class="crm-field"><label>✈️ Aeroporto Destino</label><input type="text" id="crm-o-inst-aero" placeholder="ex: LIS, JFK, CDG"></div>
       </div>
-      <div style="font-size:9px;color:#555;margin-top:4px">⚙ Configuração completa de custos aparecerá na aba Orçamento → Custo de Instalação</div>
+      <div style="font-size:9px;color:#555;margin:-2px 0 6px;padding-left:2px">Origem fixa: <b>GRU — Guarulhos/SP</b></div>
+      <div class="crm-row">
+        <div class="crm-field"><label>Porte da Porta</label>
+          <select id="crm-o-inst-porte" onchange="crmInstPorteChange()">
+            <option value="P">Pequena (até 3m²) — 2 pess, 2 dias</option>
+            <option value="M" selected>Média (3-6m²) — 3 pess, 3 dias</option>
+            <option value="G">Grande (>6m²) — 3 pess, 4 dias</option>
+            <option value="C">Customizado</option>
+          </select>
+        </div>
+      </div>
+      <div class="crm-row">
+        <div class="crm-field"><label>Nº Pessoas</label><input type="number" id="crm-o-inst-pessoas" value="3" min="1" max="10" onchange="crmInstCalcIntl()"></div>
+        <div class="crm-field"><label>Dias Instalação</label><input type="number" id="crm-o-inst-dias" value="3" min="1" max="30" onchange="crmInstCalcIntl()"></div>
+      </div>
+      <div style="font-size:9px;font-weight:600;color:#1565c0;margin:6px 0 2px">💰 Custos (editáveis — em R$)</div>
+      <div class="crm-row">
+        <div class="crm-field"><label>UDI→GRU (R$) <small style="color:#888">fixo</small></label><input type="number" id="crm-o-inst-udigru" value="2000" min="0" step="100" onchange="crmInstCalcIntl()"></div>
+        <div class="crm-field"><label>Passagem GRU↔Destino/pess (R$)</label><input type="number" id="crm-o-inst-passagem" value="10000" min="0" step="500" onchange="crmInstCalcIntl()"></div>
+      </div>
+      <div class="crm-row">
+        <div class="crm-field"><label>Hotel/dia (R$)</label><input type="number" id="crm-o-inst-hotel" value="1700" min="0" step="100" onchange="crmInstCalcIntl()"></div>
+        <div class="crm-field"><label>Alimentação/pess/dia (R$)</label><input type="number" id="crm-o-inst-alim" value="300" min="0" step="50" onchange="crmInstCalcIntl()"></div>
+      </div>
+      <div class="crm-row">
+        <div class="crm-field"><label>Seguro Saúde/pessoa (R$)</label><input type="number" id="crm-o-inst-seguro" value="300" min="0" step="50" onchange="crmInstCalcIntl()"></div>
+        <div class="crm-field"><label>Carro+Gasolina/dia (R$)</label><input type="number" id="crm-o-inst-carro" value="850" min="0" step="50" onchange="crmInstCalcIntl()"></div>
+      </div>
+      <div class="crm-row">
+        <div class="crm-field"><label>Mão de Obra/dia inst (R$)</label><input type="number" id="crm-o-inst-mo" value="500" min="0" step="100" onchange="crmInstCalcIntl()"></div>
+        <div class="crm-field"><label>Margem Instalação (%)</label><input type="number" id="crm-o-inst-margem" value="10" min="0" max="50" step="1" onchange="crmInstCalcIntl()"></div>
+      </div>
+      <div class="crm-row">
+        <div class="crm-field"><label>💲 Câmbio USD (média 3 meses)</label><input type="number" id="crm-o-inst-cambio" value="5.20" min="1" max="10" step="0.01" onchange="crmInstCalcIntl()"><div id="crm-inst-cambio-info" style="font-size:8px;color:#888;margin-top:2px"></div></div>
+      </div>
+      <div id="crm-inst-intl-result" style="margin-top:8px;background:#fff;border:1px solid #90caf9;border-radius:6px;padding:8px;font-size:10px"></div>
     </div>
 
     <!-- ═══ ITENS DO PEDIDO ═══ -->
@@ -8554,6 +8589,18 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-inst-transp',opp.inst_transp||'');
     setVal('crm-o-inst-pais',opp.inst_pais||'');
     setVal('crm-o-inst-aero',opp.inst_aero||'');
+    setVal('crm-o-inst-porte',opp.inst_porte||'M');
+    setVal('crm-o-inst-pessoas',opp.inst_pessoas||3);
+    setVal('crm-o-inst-dias',opp.inst_dias||3);
+    setVal('crm-o-inst-udigru',opp.inst_udigru||2000);
+    setVal('crm-o-inst-passagem',opp.inst_passagem||10000);
+    setVal('crm-o-inst-hotel',opp.inst_hotel||1700);
+    setVal('crm-o-inst-alim',opp.inst_alim||300);
+    setVal('crm-o-inst-seguro',opp.inst_seguro||300);
+    setVal('crm-o-inst-carro',opp.inst_carro||850);
+    setVal('crm-o-inst-mo',opp.inst_mo||500);
+    setVal('crm-o-inst-margem',opp.inst_margem||10);
+    setVal('crm-o-inst-cambio',opp.inst_cambio||5.20);
     if(typeof crmInstQuemChange==='function') crmInstQuemChange();
     var cepSt=el('crm-cep-status');if(cepSt)cepSt.textContent='';
     crmSetScope(opp.scope||'nacional');
@@ -8606,7 +8653,11 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-abertura','');setVal('crm-o-modelo','');setVal('crm-o-estado','');
     setVal('crm-o-folhas','');setVal('crm-o-reserva','');setVal('crm-o-agp','');setVal('crm-o-cor-ext','');setVal('crm-o-cor-int','');
     setVal('crm-o-inst-quem','PROJETTA');setVal('crm-o-inst-valor','');setVal('crm-o-inst-transp','');
-    setVal('crm-o-inst-pais','');setVal('crm-o-inst-aero','');
+    setVal('crm-o-inst-pais','');setVal('crm-o-inst-aero','');setVal('crm-o-inst-porte','M');
+    setVal('crm-o-inst-pessoas',3);setVal('crm-o-inst-dias',3);setVal('crm-o-inst-udigru',2000);
+    setVal('crm-o-inst-passagem',10000);setVal('crm-o-inst-hotel',1700);setVal('crm-o-inst-alim',300);
+    setVal('crm-o-inst-seguro',300);setVal('crm-o-inst-carro',850);setVal('crm-o-inst-mo',500);
+    setVal('crm-o-inst-margem',10);setVal('crm-o-inst-cambio',5.20);
     if(typeof crmInstQuemChange==='function') crmInstQuemChange();
     var cepSt=el('crm-cep-status');if(cepSt)cepSt.textContent='';
     crmSetScope('nacional');showWeikunField(false);
@@ -8840,6 +8891,88 @@ window.crmInstQuemChange=function(){
   var v=sel.value;
   if(terc) terc.style.display=(v==='TERCEIROS')?'':'none';
   if(intl) intl.style.display=(v==='INTERNACIONAL')?'':'none';
+  if(v==='INTERNACIONAL'){ crmInstCalcIntl(); crmInstFetchCambio(); }
+}
+
+window.crmInstPorteChange=function(){
+  var porte=(document.getElementById('crm-o-inst-porte')||{value:'M'}).value;
+  var pEl=document.getElementById('crm-o-inst-pessoas');
+  var dEl=document.getElementById('crm-o-inst-dias');
+  if(porte==='P'){if(pEl)pEl.value=2;if(dEl)dEl.value=2;}
+  if(porte==='M'){if(pEl)pEl.value=3;if(dEl)dEl.value=3;}
+  if(porte==='G'){if(pEl)pEl.value=3;if(dEl)dEl.value=4;}
+  crmInstCalcIntl();
+}
+
+window.crmInstCalcIntl=function(){
+  var gv=function(id){return parseFloat((document.getElementById(id)||{value:0}).value)||0;};
+  var pessoas=gv('crm-o-inst-pessoas');
+  var diasInst=gv('crm-o-inst-dias');
+  var diasViagem=diasInst+2;
+  var cambio=gv('crm-o-inst-cambio')||5.20;
+
+  var udiGru=gv('crm-o-inst-udigru');
+  var passagem=gv('crm-o-inst-passagem')*pessoas;
+  var hotel=gv('crm-o-inst-hotel')*diasViagem;
+  var alim=gv('crm-o-inst-alim')*pessoas*diasViagem;
+  var seguro=gv('crm-o-inst-seguro')*pessoas;
+  var carro=gv('crm-o-inst-carro')*diasViagem;
+  var mo=gv('crm-o-inst-mo')*diasInst;
+  var margem=gv('crm-o-inst-margem')/100;
+
+  var custoTotal=udiGru+passagem+hotel+alim+seguro+carro+mo;
+  var comMargem=custoTotal*(1+margem);
+
+  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var usd=function(v){return 'US$ '+(v/cambio).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var dual=function(v){return brl(v)+' <small style="color:#1565c0">('+usd(v)+')</small>';};
+
+  var res=document.getElementById('crm-inst-intl-result');
+  if(!res)return;
+  var aero=(document.getElementById('crm-o-inst-aero')||{value:''}).value||'???';
+  res.innerHTML=
+    '<div style="font-size:9px;color:#666;margin-bottom:4px">GRU → <b>'+aero+'</b> · '+pessoas+' pess × '+diasViagem+' dias ('+diasInst+' inst + 2 viagem) · Câmbio: R$ '+cambio.toFixed(2)+'</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;font-size:9.5px">'+
+    '<div>🛫 UDI→GRU: '+dual(udiGru)+'</div>'+
+    '<div>✈️ Passagens ('+pessoas+'p): '+dual(passagem)+'</div>'+
+    '<div>🏨 Hotel ('+diasViagem+'d): '+dual(hotel)+'</div>'+
+    '<div>🍽️ Alimentação: '+dual(alim)+'</div>'+
+    '<div>🏥 Seguro: '+dual(seguro)+'</div>'+
+    '<div>🚗 Carro+Gas: '+dual(carro)+'</div>'+
+    '<div>👷 Mão de Obra ('+diasInst+'d): '+dual(mo)+'</div>'+
+    '<div></div>'+
+    '</div>'+
+    '<hr style="margin:6px 0;border:none;border-top:1px solid #90caf9">'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">'+
+    '<div><b>Custo:</b> '+brl(custoTotal)+'</div>'+
+    '<div><b>'+usd(custoTotal)+'</b></div>'+
+    '<div style="color:#1565c0;font-weight:700">+'+Math.round(margem*100)+'% = '+brl(comMargem)+'</div>'+
+    '<div style="color:#1565c0;font-weight:700">'+usd(comMargem)+'</div>'+
+    '</div>';
+  window._instIntlTotal=comMargem;
+  window._instIntlCusto=custoTotal;
+}
+
+window.crmInstFetchCambio=function(){
+  var info=document.getElementById('crm-inst-cambio-info');
+  if(info) info.textContent='Buscando cotação BCB...';
+  var end=new Date();var start=new Date();start.setDate(start.getDate()-90);
+  var fmt=function(d){var m=''+(d.getMonth()+1),dd=''+d.getDate(),y=d.getFullYear();return m+'/'+dd+'/'+y;};
+  fetch('https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@di,dataFinalCotacao=@df)?@di=%27'+fmt(start)+'%27&@df=%27'+fmt(end)+'%27&$format=json&$select=cotacaoVenda,dataHoraCotacao')
+  .then(function(r){return r.json();})
+  .then(function(data){
+    var vals=data.value||[];
+    if(vals.length>0){
+      var sum=0;vals.forEach(function(v){sum+=v.cotacaoVenda;});
+      var media=(sum/vals.length).toFixed(2);
+      var el=document.getElementById('crm-o-inst-cambio');
+      if(el)el.value=media;
+      if(info)info.textContent='✅ Média BCB ('+vals.length+' dias): R$ '+media;
+      crmInstCalcIntl();
+    }
+  }).catch(function(e){
+    if(info)info.textContent='⚠️ Erro API BCB. Usando default.';
+  });
 }
 
 window.crmItemDuplicate=function(id){
@@ -9072,6 +9205,19 @@ window.crmSaveOpp=function(){
     inst_transp: parseFloat(val('crm-o-inst-transp'))||0,
     inst_pais: val('crm-o-inst-pais')||'',
     inst_aero: val('crm-o-inst-aero')||'',
+    inst_porte: val('crm-o-inst-porte')||'M',
+    inst_pessoas: parseInt(val('crm-o-inst-pessoas'))||3,
+    inst_dias: parseInt(val('crm-o-inst-dias'))||3,
+    inst_udigru: parseFloat(val('crm-o-inst-udigru'))||2000,
+    inst_passagem: parseFloat(val('crm-o-inst-passagem'))||10000,
+    inst_hotel: parseFloat(val('crm-o-inst-hotel'))||1700,
+    inst_alim: parseFloat(val('crm-o-inst-alim'))||300,
+    inst_seguro: parseFloat(val('crm-o-inst-seguro'))||300,
+    inst_carro: parseFloat(val('crm-o-inst-carro'))||850,
+    inst_mo: parseFloat(val('crm-o-inst-mo'))||500,
+    inst_margem: parseFloat(val('crm-o-inst-margem'))||10,
+    inst_cambio: parseFloat(val('crm-o-inst-cambio'))||5.20,
+    inst_intl_total: window._instIntlTotal||0,
     agp:       val('crm-o-agp').trim(),
     cep:       val('crm-o-cep'),
     scope:     scope,
