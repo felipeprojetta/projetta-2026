@@ -7808,7 +7808,7 @@ function renderClientesTab(){
     if(dt>groups[cli].lastDate)groups[cli].lastDate=dt;
   });
 
-  // 2) Orçamentos salvos
+  // 2) Orçamentos salvos — SÓ associar a clientes que JÁ têm CRM card
   db.forEach(function(e){
     if(q){
       var text=(e.name||'')+' '+(e.client||'')+' '+(e.project||'');
@@ -7817,7 +7817,8 @@ function renderClientesTab(){
     }
     var cli=(e.client||'Sem cliente').trim();
     if(!cli)cli='Sem cliente';
-    if(!groups[cli])groups[cli]={name:cli,entries:[],crmCards:[],lastDate:'',totalVal:0};
+    // SÓ adicionar se o cliente já existe no CRM (groups já tem o nome)
+    if(!groups[cli]) return; // Sem CRM card = não aparece
     groups[cli].entries.push(e);
     var lastRev=e.revisions&&e.revisions.length?e.revisions[e.revisions.length-1]:null;
     if(lastRev&&lastRev.data){
@@ -9291,13 +9292,25 @@ window.crmSaveOpp=function(){
 
 window.crmDeleteOpp=function(id){
   if(!id)return;
-  if(!confirm('Excluir esta oportunidade permanentemente?'))return;
+  if(!confirm('Excluir esta oportunidade e todos os orçamentos associados?'))return;
   var data=cLoad();
+  var card=data.find(function(o){return o.id===id;});
+  var clienteName=card?card.cliente:'';
   var filtered=data.filter(function(o){return o.id!==id;});
   if(filtered.length===data.length){alert('Erro: oportunidade não encontrada.');return;}
   cSave(filtered);
-  crmDeleteAttachCloud(id); // Clean cloud attachments
+  crmDeleteAttachCloud(id);
+  // Também limpar orçamentos associados a este cliente
+  if(clienteName){
+    var db=loadDB();
+    var dbFiltered=db.filter(function(e){return(e.client||'').trim()!==clienteName.trim();});
+    if(dbFiltered.length<db.length){
+      saveDB(dbFiltered);
+      console.log('🗑 Removidos '+(db.length-dbFiltered.length)+' orçamento(s) de '+clienteName);
+    }
+  }
   crmRender();
+  if(typeof renderClientesTab==='function') renderClientesTab();
 };
 window.crmDeleteFromModal=function(){
   if(_editId){
