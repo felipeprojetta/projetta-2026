@@ -3577,6 +3577,29 @@ Equipe Projetta by Weiku</textarea>
       <div style="font-size:11px;color:#888;margin-top:4px">Formatos aceitos: <b>XML</b> (recomendado) ou <b>PDF</b></div>
       <input type="file" id="nfe-upload" accept=".xml,.pdf" style="display:none" onchange="parseNFe(this.files[0])">
     </div>
+    <!-- Calculadora Lucro Real -->
+    <div style="background:#fff;border:1.5px solid #2e7d32;border-radius:10px;padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:800;color:#2e7d32;margin-bottom:12px">📊 CUSTO REAL — LUCRO REAL (PIS/COFINS descontando ICMS)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Valor Produtos (R$)</label>
+          <input type="text" id="lr-valor" placeholder="0,00" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:14px;font-weight:700;text-align:right;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Frete (R$)</label>
+          <input type="text" id="lr-frete" placeholder="0,00" value="0" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:13px;text-align:right;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Qtd</label>
+          <input type="number" id="lr-qtd" value="1" min="1" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:13px;text-align:center;font-family:inherit;outline:none"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div><label style="font-size:10px;font-weight:600;color:#e65100;display:block;margin-bottom:3px">IPI %</label>
+          <input type="number" id="lr-ipi" value="3.25" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e65100;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#e65100;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#c62828;display:block;margin-bottom:3px">ICMS %</label>
+          <input type="number" id="lr-icms" value="12" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #c62828;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#c62828;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#1565c0;display:block;margin-bottom:3px">PIS %</label>
+          <input type="number" id="lr-pis" value="1.65" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #1565c0;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#1565c0;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#6a1b9a;display:block;margin-bottom:3px">COFINS %</label>
+          <input type="number" id="lr-cofins" value="7.60" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #6a1b9a;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#6a1b9a;font-family:inherit;outline:none"></div>
+      </div>
+      <div id="lr-result"></div>
+    </div>
     <div id="nfe-result" style="display:none"></div>
     <div id="nfe-historico" style="margin-top:20px"></div>
   </div>
@@ -16770,6 +16793,9 @@ function parseDanfeText(txt, fileName, rows){
   var res=document.getElementById('nfe-result');
   res.innerHTML=h;
   res.style.display='block';
+  // Auto-preencher calculadora Lucro Real
+  if(vProd>0){var _lrV=document.getElementById("lr-valor");if(_lrV){_lrV.value=vProd.toLocaleString("pt-BR",{minimumFractionDigits:2});calcLucroReal();}}
+  if(vFrete>0){var _lrF=document.getElementById("lr-frete");if(_lrF){_lrF.value=vFrete.toLocaleString("pt-BR",{minimumFractionDigits:2});calcLucroReal();}}
 
   // Histórico
   if(vNF>0){
@@ -16976,6 +17002,53 @@ function renderNFeHist(){
   h+='</table>';
   el.innerHTML=h;
 }
+function calcLucroReal(){
+  var parseBR=function(s){if(!s)return 0;return parseFloat(s.replace(/\./g,'').replace(',','.'))||0;};
+  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var valor=parseBR(document.getElementById('lr-valor').value);
+  var frete=parseBR(document.getElementById('lr-frete').value);
+  var qtd=parseInt(document.getElementById('lr-qtd').value)||1;
+  var pIPI=parseFloat(document.getElementById('lr-ipi').value)||0;
+  var pICMS=parseFloat(document.getElementById('lr-icms').value)||0;
+  var pPIS=parseFloat(document.getElementById('lr-pis').value)||0;
+  var pCOF=parseFloat(document.getElementById('lr-cofins').value)||0;
+  var res=document.getElementById('lr-result');
+  if(!valor){res.innerHTML='';return;}
+
+  // Fórmula Lucro Real: PIS/COFINS sobre base SEM ICMS
+  var base=valor; // valor dos produtos (sem IPI, sem frete)
+  var vIPI=base*(pIPI/100);
+  var totalComIPI=base+vIPI;
+  var vICMS=base*(pICMS/100);
+  var liqSemICMS=base-vICMS; // base para PIS/COFINS
+  var vPIS=liqSemICMS*(pPIS/100);
+  var vCOF=liqSemICMS*(pCOF/100);
+  var custoReal=liqSemICMS-vPIS-vCOF;
+  var custoTotal=custoReal+frete; // frete é custo
+  var totalCreditos=vICMS+vPIS+vCOF+vIPI;
+  var pctCred=valor>0?(totalCreditos/valor*100):0;
+
+  var h='<div style="border-top:1.5px solid #2e7d32;padding-top:12px">';
+  h+='<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:3px 12px;font-size:12px">';
+  h+='<div style="font-weight:700">(+) Valor Produtos:</div><div style="text-align:right;font-weight:700">'+brl(base)+'</div><div></div>';
+  h+='<div style="color:#e65100">(+) IPI '+pIPI+'%:</div><div style="text-align:right;color:#e65100">'+brl(vIPI)+'</div><div style="text-align:right;color:#888;font-size:10px">Total c/ IPI: '+brl(totalComIPI)+'</div>';
+  h+='<div style="color:#c62828;font-weight:600">(−) ICMS '+pICMS+'%:</div><div style="text-align:right;color:#c62828;font-weight:600">−'+brl(vICMS)+'</div><div style="text-align:right;font-size:10px;color:#888">'+pICMS+'% × '+brl(base)+'</div>';
+  h+='<div style="font-weight:600">(=) Líquido s/ ICMS:</div><div style="text-align:right;font-weight:600">'+brl(liqSemICMS)+'</div><div></div>';
+  h+='<div style="color:#1565c0">(−) PIS '+pPIS+'%:</div><div style="text-align:right;color:#1565c0">−'+brl(vPIS)+'</div><div style="text-align:right;font-size:10px;color:#888">'+pPIS+'% × '+brl(liqSemICMS)+'</div>';
+  h+='<div style="color:#6a1b9a">(−) COFINS '+pCOF+'%:</div><div style="text-align:right;color:#6a1b9a">−'+brl(vCOF)+'</div><div style="text-align:right;font-size:10px;color:#888">'+pCOF+'% × '+brl(liqSemICMS)+'</div>';
+  if(frete>0) h+='<div>(+) Frete (custo):</div><div style="text-align:right">'+brl(frete)+'</div><div></div>';
+  h+='</div>';
+  h+='<div style="background:#e8f5e9;border-radius:8px;padding:12px;margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center">';
+  h+='<div><div style="font-size:10px;color:#2e7d32;font-weight:600">CUSTO REAL LÍQUIDO</div><div style="font-size:22px;font-weight:800;color:#2e7d32">'+brl(custoTotal)+'</div></div>';
+  h+='<div><div style="font-size:10px;color:#c62828;font-weight:600">TOTAL CRÉDITOS ('+pctCred.toFixed(1)+'%)</div><div style="font-size:22px;font-weight:800;color:#c62828">−'+brl(totalCreditos)+'</div></div>';
+  h+='</div>';
+  if(qtd>1){
+    h+='<div style="text-align:center;margin-top:6px;font-size:11px;color:#888">Unitário: '+brl(custoTotal/qtd)+' ('+qtd+' un)</div>';
+  }
+  h+='</div>';
+  res.innerHTML=h;
+}
+
 function deleteNFeHist(idx){
   var hist=JSON.parse(localStorage.getItem('projetta_nfe_hist')||'[]');
   hist.splice(idx,1);
