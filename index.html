@@ -981,6 +981,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
           <option value="PROJETTA">🏗️ Projetta</option>
           <option value="TERCEIROS">👷 Terceiros</option>
           <option value="INTERNACIONAL">🌍 Internacional</option>
+          <option value="SEM">❌ Sem Instalação</option>
         </select>
       </div>
     </div>
@@ -1551,6 +1552,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
         <option value="WEIKU">Weiku</option>
         <option value="TERCEIROS">Terceiros</option>
         <option value="INTERNACIONAL">Internacional</option>
+        <option value="SEM">Sem Instalação</option>
       </select></div>
     </div>
 
@@ -14366,7 +14368,7 @@ function toggleInstQuem(){
   var intl_div=document.getElementById('inst-internacional-calc');
   if(!sel)return;
   var v=sel.value;
-  if(calc_div) calc_div.style.display=(v==='TERCEIROS'||v==='INTERNACIONAL')?'none':'';
+  if(calc_div) calc_div.style.display=(v==='PROJETTA'||v==='WEIKU')?'':'none';
   if(terc_div) terc_div.style.display=(v==='TERCEIROS')?'':'none';
   if(intl_div) intl_div.style.display=(v==='INTERNACIONAL')?'':'none';
   if(v==='INTERNACIONAL') instIntlFetchCambio();
