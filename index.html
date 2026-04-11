@@ -3588,6 +3588,8 @@ Equipe Projetta by Weiku</textarea>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -16438,12 +16440,150 @@ function parseNFe(file){
   if(!file) return;
   var ext=file.name.split('.').pop().toLowerCase();
   var reader=new FileReader();
-  reader.onload=function(e){
-    if(ext==='xml') parseNFeXML(e.target.result, file.name);
-    else if(ext==='pdf') alert('Para melhor precisão, use o XML da NF-e. O PDF não permite extração confiável dos impostos.\n\nVocê pode obter o XML no portal da SEFAZ ou no e-mail do fornecedor.');
-    else alert('Formato não suportado. Use .xml');
-  };
-  reader.readAsText(file);
+  if(ext==='xml'){
+    reader.onload=function(e){parseNFeXML(e.target.result, file.name);};
+    reader.readAsText(file);
+  } else if(ext==='pdf'){
+    reader.onload=function(e){parseNFePDF(e.target.result, file.name);};
+    reader.readAsArrayBuffer(file);
+  } else {
+    alert('Formato não suportado. Use .xml ou .pdf');
+  }
+}
+
+async function parseNFePDF(arrayBuffer, fileName){
+  if(!window.pdfjsLib){alert('Biblioteca PDF não carregou. Recarregue a página.');return;}
+  var res=document.getElementById('nfe-result');
+  res.innerHTML='<div style="text-align:center;padding:30px;color:#888"><div style="font-size:24px">⏳</div>Extraindo dados do PDF...</div>';
+  res.style.display='block';
+  try{
+    var pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    var fullText='';
+    for(var i=1;i<=pdf.numPages;i++){
+      var page=await pdf.getPage(i);
+      var tc=await page.getTextContent();
+      var pageText=tc.items.map(function(it){return it.str;}).join(' ');
+      fullText+=pageText+'\n';
+    }
+    parseDanfeText(fullText, fileName);
+  }catch(e){
+    console.error('Erro PDF:',e);
+    res.innerHTML='<div style="color:#c62828;padding:20px;text-align:center"><b>Erro ao ler PDF:</b> '+e.message+'<br><small>Tente usar o XML da NF-e para melhor precisão.</small></div>';
+  }
+}
+
+function parseDanfeText(txt, fileName){
+  // Extrair dados do texto do DANFE
+  var find=function(regex){var m=txt.match(regex);return m?m[1].trim():'';};
+  var findN=function(regex){var v=find(regex).replace(/\./g,'').replace(',','.');return parseFloat(v)||0;};
+
+  // Chave de acesso (44 dígitos)
+  var chaveMatch=txt.match(/(\d{4}\s*){11}/);
+  var chave='';
+  if(chaveMatch) chave=chaveMatch[0].replace(/\s/g,'');
+  if(!chave){var dm=txt.match(/\d{44}/);if(dm)chave=dm[0];}
+
+  // Número da NF
+  var nNF=find(/N[ºo°\.]\s*(\d[\d\.]+)/i)||find(/NOTA FISCAL.*?(\d{3,})/i);
+  nNF=nNF.replace(/\./g,'');
+
+  // Natureza da operação
+  var natOp=find(/NATUREZA DA OPERA[CÇ][AÃ]O\s*[:\-]?\s*(.+?)(?:\s{2,}|$)/i)||'';
+
+  // Emitente
+  var emitNome=find(/RAZ[AÃ]O SOCIAL.*?:\s*(.+?)(?:\s{2,}|CNPJ)/i);
+  if(!emitNome) emitNome=find(/NOME.*?EMITENTE.*?:\s*(.+?)(?:\s{2,})/i);
+  var emitCNPJ=find(/CNPJ[:\s]*(\d{2}[\.\s]?\d{3}[\.\s]?\d{3}[\/\s]?\d{4}[\-\s]?\d{2})/i);
+
+  // Totais — buscar padrões comuns do DANFE
+  var vProd=findN(/VAL(?:OR)?\.?\s*(?:TOTAL\s*)?(?:DOS?\s*)?PROD(?:UTOS)?[:\s]*([\d\.,]+)/i);
+  var vNF=findN(/VAL(?:OR)?\.?\s*TOTAL\s*(?:DA\s*)?(?:NOTA|NF)[:\s]*([\d\.,]+)/i);
+  var vFrete=findN(/(?:VALOR\s*(?:DO\s*)?)?FRETE[:\s]*([\d\.,]+)/i);
+  var vDesc=findN(/DESCONTO[:\s]*([\d\.,]+)/i);
+
+  // Impostos
+  var vBCICMS=findN(/BASE?\s*(?:DE\s*)?C[AÁ]LC(?:ULO)?\s*(?:DO?\s*)?ICMS[:\s]*([\d\.,]+)/i);
+  var vICMS=findN(/VAL(?:OR)?\.?\s*(?:DO?\s*)?ICMS[:\s]*([\d\.,]+)/i);
+  var vBCST=findN(/BASE?\s*(?:DE\s*)?C[AÁ]LC(?:ULO)?\s*(?:DO?\s*)?(?:ICMS\s*)?S\.?T\.?[:\s]*([\d\.,]+)/i);
+  var vICMSST=findN(/VAL(?:OR)?\.?\s*(?:DO?\s*)?(?:ICMS\s*)?S\.?T\.?[:\s]*([\d\.,]+)/i);
+  var vIPI=findN(/VAL(?:OR)?\.?\s*(?:TOTAL\s*)?(?:DO?\s*)?IPI[:\s]*([\d\.,]+)/i);
+  var vPIS=findN(/(?:VALOR\s*)?PIS[:\s]*([\d\.,]+)/i);
+  var vCOFINS=findN(/(?:VALOR\s*)?COFINS[:\s]*([\d\.,]+)/i);
+  var vOutro=findN(/OUTRAS\s*DESP(?:ESAS)?[:\s]*([\d\.,]+)/i);
+
+  if(!vNF&&vProd) vNF=vProd+vFrete+vOutro-vDesc+vIPI+vICMSST;
+
+  var totalImp=vICMS+vICMSST+vIPI+vPIS+vCOFINS;
+  var valorLiquido=vNF-totalImp;
+  var pctImp=vNF>0?(totalImp/vNF*100):0;
+
+  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var pct=function(v){return v.toFixed(2)+'%';};
+
+  // Parse chave de acesso info
+  var chaveInfo='';
+  if(chave.length===44){
+    var UFS={11:'RO',12:'AC',13:'AM',14:'RR',15:'PA',16:'AP',17:'TO',21:'MA',22:'PI',23:'CE',24:'RN',25:'PB',26:'PE',27:'AL',28:'SE',29:'BA',31:'MG',32:'ES',33:'RJ',35:'SP',41:'PR',42:'SC',43:'RS',50:'MS',51:'MT',52:'GO',53:'DF'};
+    var uf=UFS[chave.substring(0,2)]||chave.substring(0,2);
+    chaveInfo=' · UF: '+uf+' · CNPJ: '+chave.substring(6,20);
+    if(!nNF) nNF=''+parseInt(chave.substring(25,34));
+    document.getElementById('nfe-chave').value=chave;
+    parseChaveNFe(chave);
+  }
+
+  var h='<div style="background:#fff;border-radius:12px;border:1px solid #e0e0e0;overflow:hidden">';
+  h+='<div style="background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:16px 20px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center"><div>';
+  h+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;opacity:.7">Nota Fiscal — Extraída do PDF</div>';
+  h+='<div style="font-size:18px;font-weight:800">NF-e '+(nNF||'—')+'</div>';
+  if(natOp) h+='<div style="font-size:11px;opacity:.8">'+natOp+'</div>';
+  h+='</div><div style="font-size:9px;opacity:.6;text-align:right">'+fileName+chaveInfo+'</div></div></div>';
+
+  if(emitNome||emitCNPJ){
+    h+='<div style="padding:10px 16px;border-bottom:1px solid #e0e0e0;font-size:12px"><b>Emitente:</b> '+(emitNome||'—')+' · <b>CNPJ:</b> '+(emitCNPJ||'—')+'</div>';
+  }
+
+  // Chave
+  if(chave) h+='<div style="padding:8px 16px;border-bottom:1px solid #e0e0e0;font-size:10px;font-family:monospace;color:#888;word-break:break-all"><b>Chave:</b> '+chave+'</div>';
+
+  // Impostos
+  h+='<div style="padding:16px 20px;border-bottom:1px solid #e0e0e0">';
+  h+='<div style="font-size:12px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📊 Impostos Extraídos</div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">';
+  var taxes=[
+    ['Valor Produtos',vProd,'#1565c0'],['Frete',vFrete,'#666'],['Desconto',vDesc,'#c0392b'],['Outras Desp.',vOutro,'#795548'],
+    ['BC ICMS',vBCICMS,'#ff8f00'],['ICMS',vICMS,'#e65100'],['BC ICMS ST',vBCST,'#bf360c'],['ICMS ST',vICMSST,'#bf360c'],
+    ['IPI',vIPI,'#4a148c'],['PIS',vPIS,'#1b5e20'],['COFINS',vCOFINS,'#006064']
+  ];
+  taxes.forEach(function(t){
+    if(t[1]>0) h+='<div style="background:#f5f5f5;border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px">'+t[0]+'</div><div style="font-size:14px;font-weight:800;color:'+t[2]+'">'+brl(t[1])+'</div></div>';
+  });
+  h+='</div></div>';
+
+  // Resultado líquido
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:#e0e0e0">';
+  h+='<div style="background:#e3f2fd;padding:14px;text-align:center"><div style="font-size:10px;color:#1565c0;font-weight:600">VALOR NF-e</div><div style="font-size:18px;font-weight:800;color:#1565c0">'+brl(vNF)+'</div></div>';
+  h+='<div style="background:#fce4ec;padding:14px;text-align:center"><div style="font-size:10px;color:#c62828;font-weight:600">TOTAL IMPOSTOS ('+pct(pctImp)+')</div><div style="font-size:18px;font-weight:800;color:#c62828">-'+brl(totalImp)+'</div></div>';
+  h+='<div style="background:#e8f5e9;padding:14px;text-align:center"><div style="font-size:10px;color:#2e7d32;font-weight:600">VALOR LÍQUIDO REAL</div><div style="font-size:18px;font-weight:800;color:#2e7d32">'+brl(valorLiquido)+'</div></div>';
+  h+='</div>';
+
+  if(totalImp===0){
+    h+='<div style="background:#fff3e0;padding:12px 16px;color:#e65100;font-size:12px;font-weight:600">⚠️ Nenhum imposto encontrado no PDF. Para maior precisão, use o <b>XML</b> da NF-e.</div>';
+  }
+  h+='</div>';
+
+  var res=document.getElementById('nfe-result');
+  res.innerHTML=h;
+  res.style.display='block';
+
+  // Histórico
+  if(vNF>0){
+    var hist=JSON.parse(localStorage.getItem('projetta_nfe_hist')||'[]');
+    hist.unshift({nNF:nNF||'PDF',emit:emitNome||fileName,vNF:vNF,totalImp:totalImp,liq:valorLiquido,pctImp:pctImp,data:'',ts:new Date().toISOString(),itens:0,fonte:'PDF'});
+    if(hist.length>50) hist=hist.slice(0,50);
+    localStorage.setItem('projetta_nfe_hist',JSON.stringify(hist));
+    renderNFeHist();
+  }
 }
 
 function parseNFeXML(xmlStr, fileName){
