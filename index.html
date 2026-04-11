@@ -4416,9 +4416,13 @@ function captureFormData(){
     var lf=(bl.querySelector('.fixo-larg')||{value:''}).value;
     var af=(bl.querySelector('.fixo-alt') ||{value:''}).value;
     var ld=(bl.querySelector('.fixo-lados')||{value:''}).value;
+    var tp=(bl.querySelector('.fixo-tipo')||{value:'superior'}).value;
+    var lado=(bl.querySelector('.fixo-lado')||{value:''}).value;
     data['fixo-larg-'+fixoIdx]=lf;
     data['fixo-alt-'+fixoIdx]=af;
     data['fixo-lados-'+fixoIdx]=ld;
+    data['fixo-tipo-'+fixoIdx]=tp;
+    data['fixo-lado-'+fixoIdx]=lado;
     fixoIdx++;
   });
   // Salvar itens multi-porta
@@ -5846,7 +5850,8 @@ function aprovCalc(){
       var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
       var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
       if(Lf>0&&Af>0){
-        var fp=aprovFixoPieces(L,A,Lf,Af,ld,mod);
+        var _tipo=(el.querySelector(".fixo-tipo")||{value:"superior"}).value;
+        var fp=_tipo==="superior"?aprovFixoPieces(L,A,Lf,Af,ld,mod):[{label:"FX LATERAL",w:Lf,h:Af,qty:ld,color:APROV_COLORS[15]}];
         if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
         pieces=pieces.concat(fp);
       }
@@ -5912,7 +5917,8 @@ function aprovRun(){
       var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
       var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
       if(Lf>0&&Af>0){
-        var fp=aprovFixoPieces(L,A,Lf,Af,ld,mod);
+        var _tipo=(el.querySelector(".fixo-tipo")||{value:"superior"}).value;
+        var fp=_tipo==="superior"?aprovFixoPieces(L,A,Lf,Af,ld,mod):[{label:"FX LATERAL",w:Lf,h:Af,qty:ld,color:APROV_COLORS[15]}];
         if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
         pieces=pieces.concat(fp);
       }
@@ -7770,7 +7776,8 @@ function printOSColagem(){
         var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
         var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
         if(Lf>0&&Af>0){
-          var fp=aprovFixoPieces(L,H,Lf,Af,ld,mod);
+          var _tipo=(el.querySelector(".fixo-tipo")||{value:"superior"}).value;
+          var fp=_tipo==="superior"?aprovFixoPieces(L,H,Lf,Af,ld,mod):[{label:"FX LATERAL",w:Lf,h:Af,qty:ld,color:APROV_COLORS[15]}];
           if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
           pieces=pieces.concat(fp);
         }
@@ -14167,10 +14174,11 @@ function addFixo(){
   div.innerHTML=
     '<button onclick="removeFixo('+id+')" style="position:absolute;top:8px;right:10px;border:none;background:none;color:#b71c1c;font-size:16px;font-weight:700;cursor:pointer">×</button>'+
     '<div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Fixo '+id+'</div>'+
+    '<div class="fr"><span class="fl">Tipo</span><div class="fv"><select class="fixo-tipo" onchange="toggleFixoTipo(this);calc()" style="'+_S+'"><option value="superior">Superior</option><option value="lateral">Lateral</option></select></div></div>'+
     '<div class="fr"><span class="fl">Largura mm</span><div class="fv"><input type="number" class="fixo-larg" value="" min="100" step="1" style="'+_N+'" oninput="calc()"></div></div>'+
     '<div class="fr"><span class="fl">Altura mm</span><div class="fv"><input type="number" class="fixo-alt" value="" min="100" step="1" style="'+_N+'" oninput="calc()"></div></div>'+
     '<div class="fr" style="background:#fff3e0;border:1.5px solid #e67e22;border-radius:6px;padding:4px 8px"><span class="fl" style="font-weight:800;color:#e67e22">🔢 Quantidade</span><div class="fv"><input type="number" class="fixo-qty" value="1" min="1" max="10" step="1" style="width:60px;padding:5px 8px;border:1.5px solid #e67e22;border-radius:6px;font-size:14px;font-weight:800;text-align:center;color:#e67e22;background:#fff" oninput="calc()"></div></div>'+
-    '<div class="fr"><span class="fl">Lado</span><div class="fv"><select class="fixo-lado" onchange="calc()" style="'+_S+'"><option value="esquerdo">Esquerdo</option><option value="direito">Direito</option><option value="ambos">Ambos (E+D)</option></select></div></div>'+
+    '<div class="fr fixo-lado-row" style="display:none"><span class="fl">Lado</span><div class="fv"><select class="fixo-lado" onchange="calc()" style="'+_S+'"><option value="esquerdo">Esquerdo</option><option value="direito">Direito</option><option value="ambos">Ambos (E+D)</option></select></div></div>'+
     '<div class="fr"><span class="fl">Revestimento</span><div class="fv"><select class="fixo-lados" onchange="calc()" style="'+_S+'"><option value="1">1 lado</option><option value="2">2 lados</option></select></div></div>'+
     '<div class="fr"><span class="fl">Tem estrutura?</span><div class="fv"><select class="fixo-estr" onchange="calc()" style="'+_S+'"><option value="nao">Não</option><option value="sim">Sim</option></select></div></div>'+
     '<div class="fr" style="background:#f0f7ff;border-radius:5px;padding:4px 0;margin-top:2px">'+
@@ -14178,6 +14186,11 @@ function addFixo(){
       '<div class="fv c" style="font-size:11px;font-weight:700" id="fixo-m2-'+id+'">—</div>'+
     '</div>';
   document.getElementById('fixos-list').appendChild(div);calc();
+}
+function toggleFixoTipo(sel){
+  var blk=sel.closest('.fixo-blk');if(!blk)return;
+  var ladoRow=blk.querySelector('.fixo-lado-row');
+  if(ladoRow) ladoRow.style.display=sel.value==='lateral'?'':'none';
 }
 function removeFixo(id){var el=document.getElementById('fixo-blk-'+id);if(el){el.parentNode.removeChild(el);calc();}}
 function syncFolhas(val){
@@ -15499,8 +15512,9 @@ function _calcFixosCompleto(sis, getPreco, barraMM){
     var _modF=($('aprov-model')||{value:($('carac-modelo')||{value:'01'}).value}).value||'01';
     var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
 
-    // ── CHAPA — usar peças reais do fixo ──────────────────────────
-    var _fxPcs=aprovFixoPieces(Lp,Ap,L,A,lados,_modF);
+    // ── CHAPA — usar peças reais do fixo (só superior) ──────────────
+    var _tipoF=(el.querySelector('.fixo-tipo')||{value:'superior'}).value;
+    var _fxPcs=_tipoF==='superior'?aprovFixoPieces(Lp,Ap,L,A,lados,_modF):[{label:'FX LATERAL',w:L,h:A,qty:lados,color:'#bab0ac'}];
     var m2Pecas=0;
     _fxPcs.forEach(function(p){m2Pecas+=(p.w/1000)*(p.h/1000)*p.qty;});
     result.m2ChapaFixos += m2Pecas*qf;
