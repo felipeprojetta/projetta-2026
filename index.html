@@ -16761,37 +16761,6 @@ function parseDanfeText(txt, fileName, rows){
   h+='<div style="background:#e8f5e9;padding:14px;text-align:center"><div style="font-size:10px;color:#2e7d32;font-weight:600">VALOR LÍQUIDO REAL</div><div style="font-size:18px;font-weight:800;color:#2e7d32">'+brl(valorLiquido)+'</div></div>';
   h+='</div>';
 
-  // Tabela de itens
-  if(itens.length>0){
-    h+='<div style="padding:16px 20px;border-top:1px solid #e0e0e0">';
-    h+='<div style="font-size:12px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 Itens Extraídos ('+itens.length+')</div>';
-    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
-    h+='<tr style="background:#003144;color:#fff"><th style="padding:6px;text-align:left">Descrição</th><th>CFOP</th><th>Qtd</th><th>V.Unit</th><th>V.Bruto</th><th style="color:#ff8a80">Imp.Est.</th><th style="color:#69f0ae">V.Líquido</th></tr>';
-    itens.forEach(function(it,idx){
-      var bg=idx%2?'#f9f9f9':'#fff';
-      h+='<tr style="background:'+bg+'">';
-      h+='<td style="padding:5px 6px;border-bottom:1px solid #eee;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+it.desc+'">'+it.desc+'</td>';
-      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:center;font-weight:600">'+it.cfop+'</td>';
-      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+it.qtd.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:4})+'</td>';
-      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+brl(it.vUnit)+'</td>';
-      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:600">'+brl(it.vBruto)+'</td>';
-      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#c62828">-'+brl(it.impEst)+'</td>';
-      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#2e7d32">'+brl(it.vLiq)+'</td>';
-      h+='</tr>';
-    });
-    // Total
-    var totBruto=itens.reduce(function(s,i){return s+i.vBruto;},0);
-    var totImpE=itens.reduce(function(s,i){return s+i.impEst;},0);
-    var totLiq=itens.reduce(function(s,i){return s+i.vLiq;},0);
-    h+='<tr style="background:#e8f5e9;font-weight:700"><td style="padding:6px" colspan="4">TOTAL</td>';
-    h+='<td style="padding:6px;text-align:right">'+brl(totBruto)+'</td>';
-    h+='<td style="padding:6px;text-align:right;color:#c62828">-'+brl(totImpE)+'</td>';
-    h+='<td style="padding:6px;text-align:right;color:#2e7d32">'+brl(totLiq)+'</td></tr>';
-    h+='</table></div>';
-    h+='<div style="font-size:9px;color:#888;margin-top:4px">* Impostos estimados proporcionalmente (ICMS+IPI+PIS+COFINS da NF ÷ valor produtos). Para valores exatos por item, use o XML.</div>';
-    h+='</div>';
-  }
-
   if(totalImp===0){
     h+='<div style="background:#fff3e0;padding:12px 16px;color:#e65100;font-size:12px;font-weight:600">⚠️ Nenhum imposto encontrado no PDF. Para maior precisão, use o <b>XML</b> da NF-e.</div>';
     h+='<details style="padding:8px 16px;font-size:10px"><summary style="cursor:pointer;color:#888">🔍 Debug: texto extraído do PDF</summary><pre style="white-space:pre-wrap;word-break:break-all;max-height:300px;overflow:auto;background:#f5f5f5;padding:8px;border-radius:4px;margin-top:4px">'+txt.substring(0,5000).replace(/</g,'&lt;')+'</pre></details>';
