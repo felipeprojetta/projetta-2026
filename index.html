@@ -2063,6 +2063,26 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   </div>
 </div>
 
+<!-- ══ RESULTADO TOTAL INTERNACIONAL ══ -->
+<div class="rc" id="resultado-intl-total" style="margin-bottom:12px;display:none">
+  <div class="rh" style="background:#e65100">🌍 Total Internacional — Porta + Instalação</div>
+  <div style="padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+    <div style="background:#f5f5f5;border-radius:6px;padding:10px;text-align:center">
+      <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px">Preço Porta</div>
+      <div style="font-size:16px;font-weight:800;color:#003144" id="intl-preco-porta">R$ 0</div>
+    </div>
+    <div style="background:#f5f5f5;border-radius:6px;padding:10px;text-align:center">
+      <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px">Preço Instalação</div>
+      <div style="font-size:16px;font-weight:800;color:#1565c0" id="intl-preco-inst">R$ 0</div>
+      <div style="font-size:11px;color:#1565c0" id="intl-preco-inst-usd"></div>
+    </div>
+  </div>
+  <div style="background:#003144;padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;border-radius:0 0 8px 8px">
+    <div><div style="font-size:9px;color:#90caf9;text-transform:uppercase">Total Faturamento</div><div style="font-size:20px;font-weight:800;color:#fff" id="intl-total-fat">R$ 0</div></div>
+    <div><div style="font-size:9px;color:#90caf9;text-transform:uppercase">Total USD</div><div style="font-size:20px;font-weight:800;color:#90caf9" id="intl-total-usd">US$ 0</div></div>
+  </div>
+</div>
+
 <!-- ══ 2. DRE — abaixo de Resultado Porta ══ -->
 <div class="rc" style="margin-bottom:12px">
   <div class="dre">
@@ -4218,10 +4238,12 @@ function calc(){
 
   /* CUSTO TOTAL */
   const ov=n('overhead')/100;
-  // Só inclui fabricação e instalação no custo após OS gerada
   var _subFabEfetivo=window._osGeradoUmaVez?subFab:0;
   var _subInstEfetivo=window._osGeradoUmaVez?subInst:0;
-  const custo=_subFabEfetivo+_subInstEfetivo+(_subFabEfetivo+_subInstEfetivo)*ov;
+  // Internacional: instalação separada, não entra no custo da porta
+  var _isIntl=(document.getElementById('inst-quem')||{value:''}).value==='INTERNACIONAL';
+  var _subInstNoCusto=_isIntl?0:_subInstEfetivo;
+  const custo=_subFabEfetivo+_subInstNoCusto+(_subFabEfetivo+_subInstNoCusto)*ov;
   $('m-custo').textContent=brl(custo);
   $('m-custo-m2').textContent=m2>0?br2(custo/m2)+'/m²':'—';
 
@@ -4290,6 +4312,23 @@ function calc(){
   $('s-tm2').textContent=m2>0?br2(pTab/m2)+'/m²':'—';
   $('s-fm2').textContent=m2>0?br2(pFatReal/m2)+'/m²':'—';
   $('s-desc').textContent=pf(descPrj*100)+' → −'+brl(dVal);
+
+  // ══ RESULTADO TOTAL INTERNACIONAL ══
+  var _intlPanel=$('resultado-intl-total');
+  if(_intlPanel){
+    if(_isIntl && _subInstEfetivo>0){
+      _intlPanel.style.display='';
+      var _cambioIntl=parseFloat(($('inst-intl-cambio')||{value:5.20}).value)||5.20;
+      $('intl-preco-porta').textContent=brl(pFatReal);
+      $('intl-preco-inst').textContent=brl(_subInstEfetivo);
+      $('intl-preco-inst-usd').textContent='US$ '+Math.round(_subInstEfetivo/_cambioIntl).toLocaleString('en-US');
+      var _totalIntlFat=pFatReal+_subInstEfetivo;
+      $('intl-total-fat').textContent=brl(_totalIntlFat);
+      $('intl-total-usd').textContent='US$ '+Math.round(_totalIntlFat/_cambioIntl).toLocaleString('en-US');
+    } else {
+      _intlPanel.style.display='none';
+    }
+  }
 
   // Fechadura digital: custo já incluído em fab-custo-acess (sem cálculo separado)
   const custoAc=0, pFatAc=0, pTabAc=0;
