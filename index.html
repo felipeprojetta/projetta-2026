@@ -5445,7 +5445,8 @@ var APROV_RES=null, APROV_CSI=0, APROV_SD={w:1500,h:5000,mg:10};
 
 function aprovPieces(Lmm,Amm,fol,mod){
   var L=Math.round(Lmm),A=Math.round(Amm);
-  var TUB_SUP=A<4000?38:51;
+  var _sis=($('prod-sistema')||{value:''}).value||'';
+  var TUB_SUP=(_sis.indexOf('PA007')>=0)?51:38;
   var G4=A-10-TUB_SUP-28+8,G3=Math.round(L-20-343+218),G2=Math.round((L-20-343+256)/2);
   var fW=(fol==2)?G2:G3,bH=G4+116,nL=(fol==2)?4:2,r=[];
   if(mod==='10'||mod==='11'||mod==='15'||mod==='23acm'||mod==='23alu'){
@@ -5486,15 +5487,16 @@ function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
   if(!Lfixo||!Afixo) return [];
   var is2L=(lados===2);
   var FGA=10,FGLA=20,PIV=28,TPIV=8,REF=20;
-  var TUB=Aporta>4000?51:38;
+  var _sisF=($('prod-sistema')||{value:''}).value||'';
+  var TUB=(_sisF.indexOf('PA007')>=0)?51:38;
   // Door reference values
   var G3=Math.round(Lporta-FGLA-171.5-171.5+90+128); // LAR CH FRONTAL 1FLH
   var G4=Math.round(Aporta-FGA-TUB-PIV+TPIV);          // ALT CH FRONTAL
   var bH=G4+116; // batente height
 
   // Cava params from form (models 01,02,08)
-  var DC=parseInt(($('aprov-dim-cava')||{value:150}).value)||150;
-  var HC=parseInt(($('aprov-h-cava')||{value:210}).value)||210;
+  var DC=parseInt(($('carac-largura-cava')||$('aprov-dim-cava')||{value:150}).value)||150;
+  var HC=parseInt(($('carac-dist-borda-cava')||$('aprov-h-cava')||{value:210}).value)||210;
 
   // Door intermediate widths needed for fixo
   var CAVA_W=DC+116;          // PORTA_01 width = LAR_CAVA+23+23+35+35
@@ -15439,15 +15441,26 @@ function _calcFixosCompleto(sis, getPreco, barraMM){
     if(!L || !A) return;
 
     var fn = 'F'+(idx+1); // label do fixo
+    var Lp=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
+    var Ap=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
+    var _modF=($('aprov-model')||{value:($('carac-modelo')||{value:'01'}).value}).value||'01';
+    var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
 
-    // ── CHAPA ──────────────────────────────────────────────────────
-    result.m2ChapaFixos += (L/1000)*(A/1000)*lados;
+    // ── CHAPA — usar peças reais do fixo ──────────────────────────
+    var _fxPcs=aprovFixoPieces(Lp,Ap,L,A,lados,_modF);
+    var m2Pecas=0;
+    _fxPcs.forEach(function(p){m2Pecas+=(p.w/1000)*(p.h/1000)*p.qty;});
+    result.m2ChapaFixos += m2Pecas*qf;
 
-    // ── FITA / DOWSIL — PAINEL (lógica tampa = perímetro × lados) ──
-    var perim = 2*(L+A);
-    totFD12 += perim * lados;
-    totFD19 += perim * lados;
-    totDow  += perim * lados;
+    // ── FITA / DOWSIL — cada peça TAMPA/CAVA gera perímetro ──
+    _fxPcs.forEach(function(p){
+      if(p.label.indexOf('TAMPA')>=0||p.label.indexOf('CAVA')>=0||p.label.indexOf('FRISO')>=0||p.label.indexOf('RIPA')>=0){
+        var perimP=2*(p.w+p.h)*p.qty*qf;
+        totFD12+=perimP;
+        totFD19+=perimP;
+        totDow+=perimP;
+      }
+    });
 
     if(!temEstr) return;
 
