@@ -16501,25 +16501,27 @@ async function parseNFePDF(arrayBuffer, fileName){
   try{
     var pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
     var fullText='';
+    var flatText=''; // texto simples concatenado para regex de totais
     var rows=[];
     for(var i=1;i<=pdf.numPages;i++){
       var page=await pdf.getPage(i);
       var tc=await page.getTextContent();
-      // Agrupar por Y (linha) para melhor extração de itens
+      // Texto simples (para regex de impostos/totais)
+      flatText+=tc.items.map(function(it){return it.str;}).join(' ')+' ';
+      // Agrupar por Y (linha) para extração de itens
       var yMap={};
       tc.items.forEach(function(it){
-        var y=Math.round(it.transform[5]); // Y position
+        var y=Math.round(it.transform[5]);
         if(!yMap[y])yMap[y]=[];
         yMap[y].push({x:Math.round(it.transform[4]),str:it.str});
       });
       var ys=Object.keys(yMap).map(Number).sort(function(a,b){return b-a;});
       ys.forEach(function(y){
         var cells=yMap[y].sort(function(a,b){return a.x-b.x;});
-        var line=cells.map(function(c){return c.str;}).join(' ');
-        rows.push(line);
-        fullText+=line+'\n';
+        rows.push(cells.map(function(c){return c.str;}).join(' '));
       });
     }
+    fullText=flatText; // usar texto plano para regex
     parseDanfeText(fullText, fileName, rows);
   }catch(e){
     console.error('Erro PDF:',e);
