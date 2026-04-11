@@ -4188,6 +4188,12 @@ function calc(){
     $('sub-alim').textContent='—'; $('r-andaime').textContent='—'; $('sub-munk').textContent='—';
     $('sub-ped').textContent='—'; $('sub-terc').textContent='—';
     $('r-inst').textContent=window._osGeradoUmaVez?brl(subInst):'—';
+  } else if(instQuem==='SEM'){
+    subInst=0;
+    $('sub-sal').textContent='—'; $('r-diesel').textContent='—'; $('r-hotel').textContent='—';
+    $('sub-alim').textContent='—'; $('r-andaime').textContent='—'; $('sub-munk').textContent='—';
+    $('sub-ped').textContent='—'; $('sub-terc').textContent='—';
+    $('r-inst').textContent='R$ 0';
   } else {
   const subInst_calc=salarios+diesel+hotel+alimentacao+andaime+munk+pedagio+terceiros;
   subInst=subInst_calc;
@@ -5318,6 +5324,9 @@ window.openSaveNew=openSaveNew;
 window.openSaveModal=openSaveModal;
 
 function resetToDefaults(){
+  window._snapshotLock=false;
+  window._orcLocked=false;
+  try{_setOrcLock(false);}catch(e){}
   document.getElementById('acm-list').innerHTML='';
   document.getElementById('alu-list').innerHTML='';
   aC=0; lC=0;
