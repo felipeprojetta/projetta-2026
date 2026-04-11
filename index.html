@@ -960,6 +960,12 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
         </div><input type="hidden" id="crm-o-wrep">
       </div>
     </div>
+    <div id="crm-parceiro-field" style="display:none">
+      <div style="background:#f3e5f5;border:1.5px solid #9c27b0;border-radius:8px;padding:10px 14px;margin-top:6px">
+        <div style="font-size:11px;font-weight:700;color:#7b1fa2;margin-bottom:6px">🤝 Nome do Parceiro</div>
+        <input type="text" id="crm-o-parceiro-nome" placeholder="Digite o nome do parceiro..." style="width:100%;padding:8px 10px;border:1.5px solid #ce93d8;border-radius:6px;font-size:12px;font-weight:600;color:#4a148c;background:#fff;outline:none;font-family:inherit">
+      </div>
+    </div>
     <!-- ═══ INSTALAÇÃO ═══ -->
     <div class="crm-section-label">🔧 Instalação</div>
     <div class="crm-row">
@@ -8606,6 +8612,11 @@ function showWeikunField(show){
 }
 window.crmToggleWeikunField=showWeikunField; // expose
 
+function showParceiroField(show){
+  var f=el('crm-parceiro-field');if(!f)return;
+  f.style.display=show?'block':'none';
+}
+
 function buildSelects(opp){
   // Products
   buildDrop('crm-product-dd',gProducts(),function(v){setVal('crm-o-produto',v);el('crm-o-product-text').textContent=v;},opp?opp.produto:'');
@@ -8643,14 +8654,19 @@ function buildSelects(opp){
         if(el('crm-o-wrep-text'))el('crm-o-wrep-text').textContent='Selecione o representante...';
       }
       showWeikunField(orig==='Weiku do Brasil');
+      showParceiroField(orig==='Parceiro');
     };
     opts.appendChild(opt);
   });
   if(opp&&opp.origem){el('crm-o-orig-text').textContent=opp.origem;setVal('crm-o-origem',opp.origem);}
   else{el('crm-o-orig-text').textContent='Selecione...';setVal('crm-o-origem','');}
 
-  // Show Weiku field if needed
   showWeikunField(opp&&opp.origem==='Weiku do Brasil');
+  showParceiroField(opp&&opp.origem==='Parceiro');
+  if(opp&&opp.parceiro_nome){
+    var pnEl=document.getElementById('crm-o-parceiro-nome');
+    if(pnEl) pnEl.value=opp.parceiro_nome;
+  }
   if(opp&&opp.wrep){
     setVal('crm-o-wrep',opp.wrep);
     if(el('crm-o-wrep-text'))el('crm-o-wrep-text').textContent=opp.wrep;
@@ -9379,6 +9395,7 @@ window.crmSaveOpp=function(){
     responsavel: val('crm-o-resp'),
     origem:    val('crm-o-origem'),
     wrep:      val('crm-o-wrep'),          // Weiku rep
+    parceiro_nome: val('crm-o-parceiro-nome')||'',
     valor:     parseFloat(val('crm-o-valor'))||0,
     fechamento:val('crm-o-fechamento'),
     prioridade:val('crm-o-prioridade')||'',
