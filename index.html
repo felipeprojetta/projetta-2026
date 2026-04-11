@@ -4634,11 +4634,35 @@ window.loadRevision=function(id,revIdx){
   if(!rev) return;
   currentId=id; currentRev=revIdx;
   window._orcLocked=false;
+  window._pendingRevision=false;
   _persistSession();
-  restoreFormData(rev.data);
+  
+  // Restore form data
+  if(rev.data){
+    restoreFormData(rev.data);
+  }
   updateBanner(entry.name, rev.label);
   if(rev.snapshot) showMemorial(rev.snapshot, entry.name, rev.label);
-  _setOrcLock(false); // Campos livres — só trava após "Pronto para Envio"
+  
+  // Hide CRM items bar (loading from saved revision, not CRM)
+  var ibar=document.getElementById('orc-itens-bar');
+  if(ibar) ibar.classList.remove('show');
+  window._orcItens=[];window._orcItemAtual=-1;
+  
+  // Show Gerar Custo and Características back
+  var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='';
+  var iqw=document.getElementById('inst-quem-wrap');if(iqw)iqw.style.display='';
+  
+  _setOrcLock(false);
+  
+  // Trigger recalculation after data is restored
+  setTimeout(function(){
+    if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
+    if(typeof planUpd==='function') try{planUpd();}catch(e){}
+    if(typeof toggleInstQuem==='function') try{toggleInstQuem();}catch(e){}
+    if(typeof calc==='function') try{calc();}catch(e){}
+  }, 300);
+  
   toggleHist();
 };
 
