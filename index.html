@@ -9277,7 +9277,7 @@ window.crmInstCalcIntl=function(){
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;font-size:9.5px">'+
     '<div>🛫 UDI→GRU: '+dual(udiGru)+'</div>'+
     '<div>✈️ Passagens ('+pessoas+'p): '+dual(passagem)+'</div>'+
-    '<div>🏨 Hotel ('+diasViagem+'d): '+dual(hotel)+'</div>'+
+    '<div>🏨 Hotel ('+diasHotel+'d): '+dual(hotel)+'</div>'+
     '<div>🍽️ Alimentação: '+dual(alim)+'</div>'+
     '<div>🏥 Seguro: '+dual(seguro)+'</div>'+
     '<div>🚗 Carro+Gas: '+dual(carro)+'</div>'+
@@ -14598,11 +14598,14 @@ function calcInstIntl(){
       '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:3px 10px;font-size:11px">'+
       '<div>🛫 UDI→GRU:</div><div>'+brl(udiGru)+'</div><div style="color:#1565c0">'+usd(udiGru)+'</div>'+
       '<div>✈️ Passagens ('+pessoas+'p):</div><div>'+brl(passagem)+'</div><div style="color:#1565c0">'+usd(passagem)+'</div>'+
-      '<div>🏨 Hotel ('+diasTotal+'d):</div><div>'+brl(hotel)+'</div><div style="color:#1565c0">'+usd(hotel)+'</div>'+
+      '<div>🏨 Hotel ('+diasHotel+'d):</div><div>'+brl(hotel)+'</div><div style="color:#1565c0">'+usd(hotel)+'</div>'+
       '<div>🍽️ Alimentação:</div><div>'+brl(alim)+'</div><div style="color:#1565c0">'+usd(alim)+'</div>'+
       '<div>🏥 Seguro:</div><div>'+brl(seguro)+'</div><div style="color:#1565c0">'+usd(seguro)+'</div>'+
       '<div>🚗 Carro+Gas ('+diasTotal+'d):</div><div>'+brl(carro)+'</div><div style="color:#1565c0">'+usd(carro)+'</div>'+
       '<div>👷 M.O. ('+diasInst+'d × R$'+gv('inst-intl-mo')+'):</div><div>'+brl(mo)+'</div><div style="color:#1565c0">'+usd(mo)+'</div>'+
+      '</div>'+
+      '<div style="background:#f5f5f5;border-radius:6px;padding:8px 10px;margin-top:8px;display:grid;grid-template-columns:auto 1fr 1fr;gap:3px 10px;font-size:12px;font-weight:800;color:#003144">'+
+      '<div>💰 CUSTO TOTAL:</div><div style="text-align:right">'+brl(custoTotal)+'</div><div style="text-align:right;color:#1565c0">'+usd(custoTotal)+'</div>'+
       '</div>'+
       '<hr style="margin:8px 0;border:none;border-top:1.5px solid #003144">'+
       '<div style="font-size:12px;font-weight:800;color:#003144;margin-bottom:4px">📊 DRE — INSTALAÇÃO</div>'+
