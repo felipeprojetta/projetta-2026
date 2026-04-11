@@ -979,46 +979,8 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     </div>
     <div id="crm-inst-internacional" style="display:none;margin-top:6px;background:#e3f2fd;border:1px solid #2196f3;border-radius:8px;padding:10px">
       <div style="font-size:10px;font-weight:700;color:#1565c0;margin-bottom:6px">🌍 Instalação Internacional</div>
-      <div class="crm-row">
-        <div class="crm-field"><label>País</label><input type="text" id="crm-o-inst-pais" placeholder="ex: Portugal, EUA"></div>
-        <div class="crm-field"><label>✈️ Aeroporto Destino</label><input type="text" id="crm-o-inst-aero" placeholder="ex: LIS, JFK, CDG"></div>
-      </div>
-      <div style="font-size:9px;color:#555;margin:-2px 0 6px;padding-left:2px">Origem fixa: <b>GRU — Guarulhos/SP</b></div>
-      <div class="crm-row">
-        <div class="crm-field"><label>Porte da Porta</label>
-          <select id="crm-o-inst-porte" onchange="crmInstPorteChange()">
-            <option value="P">Pequena (até 3m²) — 2 pess, 2 dias</option>
-            <option value="M" selected>Média (3-6m²) — 3 pess, 3 dias</option>
-            <option value="G">Grande (>6m²) — 3 pess, 4 dias</option>
-            <option value="C">Customizado</option>
-          </select>
-        </div>
-      </div>
-      <div class="crm-row">
-        <div class="crm-field"><label>Nº Pessoas</label><input type="number" id="crm-o-inst-pessoas" value="3" min="1" max="10" onchange="crmInstCalcIntl()"></div>
-        <div class="crm-field"><label>Dias Instalação</label><input type="number" id="crm-o-inst-dias" value="3" min="1" max="30" onchange="crmInstCalcIntl()"></div>
-      </div>
-      <div style="font-size:9px;font-weight:600;color:#1565c0;margin:6px 0 2px">💰 Custos (editáveis — em R$)</div>
-      <div class="crm-row">
-        <div class="crm-field"><label>UDI→GRU (R$) <small style="color:#888">fixo</small></label><input type="number" id="crm-o-inst-udigru" value="2000" min="0" step="100" onchange="crmInstCalcIntl()"></div>
-        <div class="crm-field"><label>Passagem GRU↔Destino/pess (R$)</label><input type="number" id="crm-o-inst-passagem" value="10000" min="0" step="500" onchange="crmInstCalcIntl()"></div>
-      </div>
-      <div class="crm-row">
-        <div class="crm-field"><label>Hotel/dia (R$)</label><input type="number" id="crm-o-inst-hotel" value="1700" min="0" step="100" onchange="crmInstCalcIntl()"></div>
-        <div class="crm-field"><label>Alimentação/pess/dia (R$)</label><input type="number" id="crm-o-inst-alim" value="300" min="0" step="50" onchange="crmInstCalcIntl()"></div>
-      </div>
-      <div class="crm-row">
-        <div class="crm-field"><label>Seguro Saúde/pessoa (R$)</label><input type="number" id="crm-o-inst-seguro" value="300" min="0" step="50" onchange="crmInstCalcIntl()"></div>
-        <div class="crm-field"><label>Carro+Gasolina/dia (R$)</label><input type="number" id="crm-o-inst-carro" value="850" min="0" step="50" onchange="crmInstCalcIntl()"></div>
-      </div>
-      <div class="crm-row">
-        <div class="crm-field"><label>Mão de Obra/dia inst (R$)</label><input type="number" id="crm-o-inst-mo" value="500" min="0" step="100" onchange="crmInstCalcIntl()"></div>
-        <div class="crm-field"><label>Margem Instalação (%)</label><input type="number" id="crm-o-inst-margem" value="10" min="0" max="50" step="1" onchange="crmInstCalcIntl()"></div>
-      </div>
-      <div class="crm-row">
-        <div class="crm-field"><label>💲 Câmbio USD (média 3 meses)</label><input type="number" id="crm-o-inst-cambio" value="5.20" min="1" max="10" step="0.01" onchange="crmInstCalcIntl()"><div id="crm-inst-cambio-info" style="font-size:8px;color:#888;margin-top:2px"></div></div>
-      </div>
-      <div id="crm-inst-intl-result" style="margin-top:8px;background:#fff;border:1px solid #90caf9;border-radius:6px;padding:8px;font-size:10px"></div>
+      <div class="crm-field"><label>País de Destino</label><input type="text" id="crm-o-inst-pais" placeholder="ex: Portugal, EUA, Emirados Árabes"></div>
+      <div style="font-size:9px;color:#555;margin-top:4px">Configuração completa em <b>Orçamento → Custo de Instalação</b></div>
     </div>
 
     <!-- ═══ ITENS DO PEDIDO ═══ -->
@@ -1839,6 +1801,13 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     <!-- INTERNACIONAL -->
     <div id="inst-internacional-calc" style="display:none;background:#e3f2fd;border:1.5px solid #2196f3;border-radius:8px;padding:12px 14px;margin-bottom:8px">
       <div style="font-size:11px;font-weight:700;color:#1565c0;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">🌍 Instalação Internacional</div>
+      <!-- Rota -->
+      <div class="fr" style="background:#bbdefb;border-radius:6px;padding:6px 8px;margin-bottom:6px">
+        <span class="fl" style="font-weight:700;color:#1565c0;font-size:11px">✈️ GRU (Guarulhos) →</span>
+        <div class="fv"><input type="text" id="inst-intl-aero" placeholder="Aeroporto destino (ex: LIS, JFK)" oninput="calc()" style="border-color:#90caf9;font-weight:700;color:#1565c0"></div>
+      </div>
+      <div id="inst-intl-pais-info" style="font-size:9px;color:#1565c0;margin-bottom:6px;font-weight:600"></div>
+      <!-- Porte -->
       <div class="fr"><span class="fl" style="font-weight:700;color:#1565c0">Porte da Porta</span><div class="fv"><select id="inst-intl-porte" onchange="instIntlPorteChange();calc()" style="width:100%;padding:5px 8px;border:1px solid #90caf9;border-radius:6px;font-size:12px;background:#fff;color:var(--navy);font-weight:600">
         <option value="P">Pequena (até 3m²) — 2 pess, 2 dias</option>
         <option value="M" selected>Média (3-6m²) — 3 pess, 3 dias</option>
@@ -1848,16 +1817,27 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div class="fr"><span class="fl">Nº Pessoas</span><div class="fv"><input type="number" id="inst-intl-pessoas" value="3" min="1" max="10" oninput="calc()"></div></div>
       <div class="fr"><span class="fl">Dias Instalação</span><div class="fv"><input type="number" id="inst-intl-dias" value="3" min="1" max="30" oninput="calc()"></div></div>
       <div class="dvdr"></div>
-      <div style="font-size:10px;font-weight:700;color:#1565c0;margin-bottom:4px">💰 Custos (editáveis) — Dias totais = inst + 2 viagem</div>
+      <!-- Buscar preços -->
+      <div style="font-size:10px;font-weight:700;color:#1565c0;margin-bottom:6px">🔍 Buscar Preços Online</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <button onclick="instIntlBuscarDecolar()" style="padding:6px 12px;border-radius:6px;border:1px solid #e65100;background:#fff3e0;color:#e65100;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">✈️ Buscar Passagem — Decolar</button>
+        <button onclick="instIntlBuscarBooking()" style="padding:6px 12px;border-radius:6px;border:1px solid #003580;background:#e8eef6;color:#003580;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">🏨 Buscar Hotel — Booking</button>
+        <button onclick="instIntlBuscarCarro()" style="padding:6px 12px;border-radius:6px;border:1px solid #2e7d32;background:#e8f5e9;color:#2e7d32;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">🚗 Buscar Carro — RentCars</button>
+      </div>
+      <!-- Custos -->
+      <div style="font-size:10px;font-weight:700;color:#1565c0;margin-bottom:4px">💰 Custos (preencha após pesquisar)</div>
       <div class="fr"><span class="fl">🛫 UDI→GRU <small>fixo/viagem</small></span><div class="fv"><input type="number" id="inst-intl-udigru" value="2000" min="0" step="100" oninput="calc()"></div></div>
-      <div class="fr"><span class="fl">✈️ Passagem/pessoa <small>ida+volta</small></span><div class="fv"><input type="number" id="inst-intl-passagem" value="10000" min="0" step="500" oninput="calc()"></div></div>
-      <div class="fr"><span class="fl">🏨 Hotel/dia <small>total</small></span><div class="fv"><input type="number" id="inst-intl-hotel" value="1700" min="0" step="100" oninput="calc()"></div></div>
+      <div class="fr"><span class="fl">✈️ Passagem/pessoa <small>ida+volta</small></span><div class="fv"><input type="number" id="inst-intl-passagem" value="" min="0" step="500" oninput="calc()" placeholder="Buscar na Decolar"></div></div>
+      <div class="fr"><span class="fl">🏨 Hotel/dia</span><div class="fv"><input type="number" id="inst-intl-hotel" value="" min="0" step="100" oninput="calc()" placeholder="Buscar no Booking"></div></div>
       <div class="fr"><span class="fl">🍽️ Alimentação/pessoa/dia</span><div class="fv"><input type="number" id="inst-intl-alim" value="300" min="0" step="50" oninput="calc()"></div></div>
       <div class="fr"><span class="fl">🏥 Seguro Saúde/pessoa</span><div class="fv"><input type="number" id="inst-intl-seguro" value="300" min="0" step="50" oninput="calc()"></div></div>
-      <div class="fr"><span class="fl">🚗 Aluguel Carro+Gasolina/dia</span><div class="fv"><input type="number" id="inst-intl-carro" value="850" min="0" step="50" oninput="calc()"></div></div>
+      <div class="fr"><span class="fl">🚗 Aluguel Carro+Gasolina/dia</span><div class="fv"><input type="number" id="inst-intl-carro" value="" min="0" step="50" oninput="calc()" placeholder="Buscar na RentCars"></div></div>
       <div class="fr"><span class="fl">👷 Mão de Obra/dia inst.</span><div class="fv"><input type="number" id="inst-intl-mo" value="500" min="0" step="100" oninput="calc()"></div></div>
-      <div class="fr" style="background:#e8f5e9;border-radius:6px;padding:6px 8px"><span class="fl" style="font-weight:700;color:#2e7d32">📊 Margem Instalação (%)</span><div class="fv"><input type="number" id="inst-intl-margem" value="10" min="0" max="50" step="1" oninput="calc()" style="border-color:#4caf50;font-weight:800;color:#2e7d32"></div></div>
-      <!-- RESULTADO -->
+      <div class="dvdr"></div>
+      <div class="fr"><span class="fl">💲 Câmbio USD <small>média 3 meses</small></span><div class="fv"><input type="number" id="inst-intl-cambio" value="5.20" min="1" max="10" step="0.01" oninput="calc()"></div></div>
+      <div id="inst-intl-cambio-info" style="font-size:8px;color:#888;margin-bottom:4px"></div>
+      <div class="fr" style="background:#e8f5e9;border-radius:6px;padding:6px 8px"><span class="fl" style="font-weight:700;color:#2e7d32">📊 Margem Líquida Instalação (%)</span><div class="fv"><input type="number" id="inst-intl-margem" value="10" min="0" max="50" step="1" oninput="calc()" style="border-color:#4caf50;font-weight:800;color:#2e7d32"></div></div>
+      <!-- DRE RESULTADO -->
       <div id="inst-intl-result" style="margin-top:8px;background:#fff;border:1px solid #90caf9;border-radius:6px;padding:10px;font-size:11px"></div>
     </div>
     <!-- CAMPOS CÁLCULO PADRÃO (Projetta/Weiku) -->
@@ -13988,6 +13968,61 @@ function toggleInstQuem(){
   if(calc_div) calc_div.style.display=(v==='TERCEIROS'||v==='INTERNACIONAL')?'none':'';
   if(terc_div) terc_div.style.display=(v==='TERCEIROS')?'':'none';
   if(intl_div) intl_div.style.display=(v==='INTERNACIONAL')?'':'none';
+  if(v==='INTERNACIONAL') instIntlFetchCambio();
+}
+
+// ── Buscar na Decolar.com ──
+function instIntlBuscarDecolar(){
+  var aero=(document.getElementById('inst-intl-aero')||{value:''}).value||'LIS';
+  var pessoas=parseInt((document.getElementById('inst-intl-pessoas')||{value:3}).value)||3;
+  var dias=parseInt((document.getElementById('inst-intl-dias')||{value:3}).value)||3;
+  var dep=new Date();dep.setDate(dep.getDate()+30);
+  var ret=new Date(dep);ret.setDate(ret.getDate()+dias+2);
+  var fmt=function(d){return d.getFullYear()+'-'+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate();};
+  window.open('https://www.decolar.com/shop/flights/results/roundtrip/GRU/'+aero.toUpperCase()+'/'+fmt(dep)+'/'+fmt(ret)+'/'+pessoas+'/0/0','_blank');
+}
+// ── Buscar no Booking.com ──
+function instIntlBuscarBooking(){
+  var pais=(document.getElementById('inst-intl-pais-info')||{textContent:''}).textContent.replace('🌍 País: ','');
+  var aero=(document.getElementById('inst-intl-aero')||{value:''}).value||'';
+  var dias=parseInt((document.getElementById('inst-intl-dias')||{value:3}).value)||3;
+  var dep=new Date();dep.setDate(dep.getDate()+30);
+  var ret=new Date(dep);ret.setDate(ret.getDate()+dias+2);
+  var fmt=function(d){return d.getFullYear()+'-'+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate();};
+  window.open('https://www.booking.com/searchresults.html?ss='+encodeURIComponent(pais||aero)+'&checkin='+fmt(dep)+'&checkout='+fmt(ret)+'&group_adults=2&no_rooms=1','_blank');
+}
+// ── Buscar Carro RentCars ──
+function instIntlBuscarCarro(){
+  var aero=(document.getElementById('inst-intl-aero')||{value:''}).value||'';
+  var dias=parseInt((document.getElementById('inst-intl-dias')||{value:3}).value)||3;
+  var dep=new Date();dep.setDate(dep.getDate()+30);
+  var ret=new Date(dep);ret.setDate(ret.getDate()+dias+2);
+  var fmt=function(d){return d.getFullYear()+'-'+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate();};
+  window.open('https://www.rentcars.com/pt/pesquisa?location='+encodeURIComponent(aero+' airport')+'&pickupDate='+fmt(dep)+'&returnDate='+fmt(ret),'_blank');
+}
+// ── Porte auto-select ──
+function instIntlPorteChange(){
+  var porte=(document.getElementById('inst-intl-porte')||{value:'M'}).value;
+  var pEl=document.getElementById('inst-intl-pessoas'),dEl=document.getElementById('inst-intl-dias');
+  if(porte==='P'){if(pEl)pEl.value=2;if(dEl)dEl.value=2;}
+  if(porte==='M'){if(pEl)pEl.value=3;if(dEl)dEl.value=3;}
+  if(porte==='G'){if(pEl)pEl.value=3;if(dEl)dEl.value=4;}
+}
+// ── Fetch câmbio BCB ──
+function instIntlFetchCambio(){
+  var info=document.getElementById('inst-intl-cambio-info');
+  if(info)info.textContent='Buscando cotação BCB...';
+  var end=new Date(),start=new Date();start.setDate(start.getDate()-90);
+  var fmt=function(d){return(d.getMonth()+1)+'/'+d.getDate()+'/'+d.getFullYear();};
+  fetch('https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@di,dataFinalCotacao=@df)?@di=%27'+fmt(start)+'%27&@df=%27'+fmt(end)+'%27&$format=json&$select=cotacaoVenda')
+  .then(function(r){return r.json();}).then(function(data){
+    var vals=data.value||[];if(vals.length<1)return;
+    var sum=0;vals.forEach(function(v){sum+=v.cotacaoVenda;});
+    var media=(sum/vals.length).toFixed(2);
+    var el=document.getElementById('inst-intl-cambio');if(el)el.value=media;
+    if(info)info.textContent='✅ Média BCB ('+vals.length+' dias): R$ '+media;
+    calc();
+  }).catch(function(){if(info)info.textContent='⚠️ Erro. Usando default.';});
 }
 
 function instIntlPorteChange(){
