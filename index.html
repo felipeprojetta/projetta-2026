@@ -14172,12 +14172,12 @@ function calcInstIntl(){
   var pctGest=0;
   var pctML=margemLiq*100;
 
-  // Markup: Preço = Custo / (1 - imp% - com% - rep% - gest% - margem%)
+  // Markup: PreçoFat = Custo / (1 - imp% - margem%), Tabela compensa desconto
   var totalDeduc=(pctImp+pctCom+pctRep+pctGest+pctML)/100;
   var divisor=Math.max(0.01, 1-totalDeduc);
-  var precoTabela=custoTotal/divisor;
   var desconto=parseFloat((document.getElementById('desconto')||{value:0}).value)||0;
-  var precoFat=precoTabela*(1-desconto/100);
+  var precoFat=custoTotal/divisor;
+  var precoTabela=desconto>0?precoFat/(1-desconto/100):precoFat;
 
   var impostos=precoFat*(pctImp/100);
   var comissao=precoFat*(pctCom/100);
