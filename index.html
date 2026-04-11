@@ -1479,15 +1479,15 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       </div>
     </div>
     <div class="fr">
-      <span class="fl" style="text-transform:none">Fechadura mecânica</span>
-      <div class="fv"><select id="carac-fech-mec" onchange="calc();_osAutoUpdate()" style="width:100%;padding:5px 8px;border:0.5px solid #c9c6bf;border-radius:6px;font-size:12px;background:#fffef5;color:var(--navy);font-weight:600;outline:none">
+      <span class="fl" style="text-transform:none">Fechadura mecânica <small style="color:#888">(auto por altura)</small></span>
+      <div class="fv"><select id="carac-fech-mec" onchange="window._fechMecManual=true;_autoSelectFechadura();calc();_osAutoUpdate()" style="width:100%;padding:5px 8px;border:0.5px solid #c9c6bf;border-radius:6px;font-size:12px;background:#fffef5;color:var(--navy);font-weight:600;outline:none">
         <option value="">— Selecione —</option>
         <option value="04 PINOS">04 pinos</option>
         <option value="08 PINOS">08 pinos</option>
         <option value="12 PINOS">12 pinos</option>
         <option value="16 PINOS">16 pinos</option>
         <option value="24 PINOS">24 pinos</option>
-      </select></div>
+      </select><div id="fech-mec-warn" style="margin-top:2px"></div></div>
     </div>
     <div class="fr">
       <span class="fl" style="text-transform:none">Fechadura digital</span>
@@ -13160,36 +13160,30 @@ function _isModelReady(){
 function _autoSelectFechadura(){
   var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
   if(H<=0) return;
-
-  // PA_F = altura perfil da porta
   var TUB=H>=4000?50.8:38.1;
   var PA_F=Math.round(H-10-TUB-28+8);
-
-  // Inicio: Tedee/Emteco=1020, Philips=1380
   var fechDigEl=document.getElementById('carac-fech-dig');
   var fechDig=fechDigEl?(fechDigEl.value||'').toUpperCase():'';
   var inicio=1020;
   if(fechDig.indexOf('PHILIPS')>=0) inicio=1380;
-
-  // Tamanhos corretos (maior para menor)
   var opcoes=[
-    {val:'24 PINOS', comp:6000},
-    {val:'16 PINOS', comp:4000},
-    {val:'12 PINOS', comp:2000},
-    {val:'08 PINOS', comp:800},
-    {val:'04 PINOS', comp:400}
+    {val:'24 PINOS', comp:6000},{val:'16 PINOS', comp:4000},
+    {val:'12 PINOS', comp:2000},{val:'08 PINOS', comp:800},{val:'04 PINOS', comp:400}
   ];
-
   var sel=document.getElementById('carac-fech-mec');
   if(!sel) return;
-
-  for(var i=0;i<opcoes.length;i++){
-    if(inicio+opcoes[i].comp<=PA_F){
-      sel.value=opcoes[i].val;
-      return;
-    }
+  var autoVal='04 PINOS';
+  for(var i=0;i<opcoes.length;i++){if(inicio+opcoes[i].comp<=PA_F){autoVal=opcoes[i].val;break;}}
+  window._fechMecAuto=autoVal;
+  if(window._fechMecManual && sel.value!==autoVal){
+    var warn=document.getElementById('fech-mec-warn');
+    if(warn) warn.innerHTML='<span style="color:#e65100;font-size:9px;font-weight:600">\u26a0 Auto: '+autoVal+' | Selecionado: '+sel.value+'</span>';
+    return;
   }
-  sel.value='04 PINOS';
+  sel.value=autoVal;
+  window._fechMecManual=false;
+  var warn=document.getElementById('fech-mec-warn');
+  if(warn) warn.innerHTML='';
 }
 
 function _getACMPrice(colorCode, sheetH){
