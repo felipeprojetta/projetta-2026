@@ -3054,8 +3054,8 @@ Equipe Projetta by Weiku</textarea>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
       <span style="font-size:11px;color:var(--muted);font-weight:600">Layout:</span>
       <select id="plan-layout" onchange="this.dataset.manual='1'" style="padding:5px 10px;border:0.5px solid #c9c6bf;border-radius:6px;font-size:11px;background:#fffef5;color:var(--navy);font-weight:600;outline:none">
-        <option value="h" selected>Faixas horizontais (MaxCut)</option>
-        <option value="v">Faixas verticais (sobras compridas)</option>
+        <option value="h">Faixas horizontais (MaxCut)</option>
+        <option value="v" selected>Faixas verticais (sobras compridas)</option>
       </select>
     </div>
 
@@ -12675,9 +12675,9 @@ function _autoSelectAndRun(){
   var validas=chapas.filter(function(c){return c>=maxDim;});
   if(!validas.length) validas=[8000];
 
-  var layoutMode=(document.getElementById('plan-layout')||{value:'h'}).value||'h';
+  var layoutMode=(document.getElementById('plan-layout')||{value:'v'}).value||'v';
   // Forçar horizontal como padrão se não foi definido manualmente
-  if(!document.getElementById('plan-layout').dataset.manual) layoutMode='h';
+  if(!document.getElementById('plan-layout').dataset.manual) layoutMode='v';
   var corCode=_getCorCode();
   var melhor=null;
   var resultados=[];
@@ -12943,7 +12943,7 @@ function planRun() {
   var SW=parseInt(parts[0]),SH=parseInt(parts[1]);
   PLN_SD={w:SW,h:SH};
 
-  var layoutMode = (document.getElementById('plan-layout').value) || 'h';
+  var layoutMode = (document.getElementById('plan-layout').value) || 'v';
   PLN_RES=plnMaxRects(pieces,SW,SH,layoutMode);
   PLN_CSI=0;
 
