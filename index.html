@@ -16794,6 +16794,7 @@ function parseDanfeText(txt, fileName, rows){
 
   if(totalImp===0){
     h+='<div style="background:#fff3e0;padding:12px 16px;color:#e65100;font-size:12px;font-weight:600">⚠️ Nenhum imposto encontrado no PDF. Para maior precisão, use o <b>XML</b> da NF-e.</div>';
+    h+='<details style="padding:8px 16px;font-size:10px"><summary style="cursor:pointer;color:#888">🔍 Debug: texto extraído do PDF</summary><pre style="white-space:pre-wrap;word-break:break-all;max-height:300px;overflow:auto;background:#f5f5f5;padding:8px;border-radius:4px;margin-top:4px">'+txt.substring(0,5000).replace(/</g,'&lt;')+'</pre></details>';
   }
   h+='</div>';
 
