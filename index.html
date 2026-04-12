@@ -5637,7 +5637,9 @@ function aprovPieces(Lmm,Amm,fol,mod){
   }
   if(mod==='01'||mod==='02'||mod==='08'){
     var DC=parseInt($('aprov-dim-cava').value)||150,HC=parseInt($('aprov-h-cava').value)||210;
-    var cH=Math.max(0,G4-Math.round(HC*1.4));
+    var _VED2=35,_TLI2=(TUB_SUP>=51)?101.8:76.2;
+    var _TV2=Math.round(A-10-TUB_SUP-28-2*_VED2-2*_TLI2);
+    var cH=Math.max(0,_TV2-12);
     var cavaDeduc=DC+HC+2;
     r.push(['CAVA',DC+116,cH,(fol==2)?4:2],['TAMPA CAVA',DC+90,HC,4]);
     if(fol==1)r.push(['TAMPA MAIOR',fW+40-cavaDeduc,G4,2]);
@@ -12795,8 +12797,10 @@ function plnPecas(Lmm, Amm, fol, mod) {
   if (mod === '01' || mod === '02' || mod === '08') {
     var DIS_BOR_CAVA = parseInt(document.getElementById('plan-disborcava').value) || 210;
     var LARG_CAVA    = parseInt(document.getElementById('plan-largcava').value)   || 150;
-    var H_CAVA_CALC  = Math.round(DIS_BOR_CAVA * 1.4);
-    var cavaH = Math.max(0, G4 - H_CAVA_CALC);
+    // Cava altura = TRAV_V - 12mm
+    var _VED=35, _TUBO_LAR=(TUB_SUP>=51)?101.8:76.2;
+    var _TRAV_V=Math.round(A-FGA-TUB_SUP-PIV-2*_VED-2*_TUBO_LAR);
+    var cavaH = Math.max(0, _TRAV_V - 12);
     var cavaDeduc = LARG_CAVA + DIS_BOR_CAVA + 2;
     var frisoDeduc = 0;
     var LARG_FRISO = 0, DIS_BOR_FRI = 0;
