@@ -6400,6 +6400,15 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       barLenMM:g.barLenMM,pintado:g.pintado,barsDetail:barsDetail};
   });
 
+  // Peso líquido só da FOLHA (perfis da porta, sem portal/friso/fixo)
+  var pesoPerfisFolha=0;
+  cuts.forEach(function(c){
+    if(c.secao==='FOLHA' && c.perf){
+      pesoPerfisFolha+=(c.compMM/1000)*(c.perf.w||0)*c.qty;
+    }
+  });
+  window._pesoPerfisFolha=pesoPerfisFolha;
+
   return {cuts:cuts,groupRes:groupRes,seenKeys:seenKeys,sis:sis,N_H:N_H,
           temCava:temCava,larguraCava:LARGURA_CAVA,travCavaSize:TRAV_CAVA,
           vedaSize:VEDA_SIZE,vedaCode:VEDA_CODE,vedaQty:VEDA_QTY,folhaPAPA:FOLHA_PA_PA,
@@ -16287,9 +16296,10 @@ function _calcAcessoriosOS(d, nFolhas, sis){
 
 // ── OS ACESSÓRIOS TAB ─────────────────────────────────────────────────────────
 function _calcPesoPorta(d){
-  // Perfis: soma kgLiq de todos os perfis calculados
-  var pesoPerfis = 0;
-  if(d && d.seenKeys){
+  // Perfis: só da FOLHA (porta), sem portal/friso/fixo
+  var pesoPerfis = window._pesoPerfisFolha || 0;
+  // Fallback: se não tiver FOLHA calculado, usa total
+  if(!pesoPerfis && d && d.seenKeys){
     d.seenKeys.forEach(function(key){
       var r=d.groupRes[key]; if(!r) return;
       pesoPerfis += r.kgLiq||0;
