@@ -12853,113 +12853,140 @@ function plnPecas(Lmm, Amm, fol, mod) {
 /* mode='h': Faixas HORIZONTAIS — peças lado a lado, sobra embaixo
    mode='v': Faixas VERTICAIS — peças empilhadas, sobra na direita (comprida) */
 function plnMaxRects(pieces, SW, SH, mode) {
-  mode = mode || 'h';
-  var todo = [];
-  for (var i = 0; i < pieces.length; i++)
-    for (var j = 0; j < pieces[i].qty; j++)
-      todo.push({ label: pieces[i].label, w: pieces[i].w, h: pieces[i].h, color: pieces[i].color });
+  var MG=PLN_MG, KF=PLN_KERF;
+  var usW=SW-2*MG, usH=SH-2*MG;
 
-  var placed = [], failed = [];
-  var MG = PLN_MG, KF = PLN_KERF;
-  var usableW = SW - 2*MG, usableH = SH - 2*MG;
+  // Expand pieces into individual items with kerf
+  var todo=[];
+  for(var i=0;i<pieces.length;i++)
+    for(var j=0;j<pieces[i].qty;j++)
+      todo.push({label:pieces[i].label,w:pieces[i].w+KF,h:pieces[i].h+KF,ow:pieces[i].w,oh:pieces[i].h,color:pieces[i].color});
 
-  if (mode === 'h') {
-    // ═══ FAIXAS HORIZONTAIS ═══
-    todo.sort(function(a,b){ return b.h - a.h || b.w - a.w; });
-    var sheets = [{ strips: [], nextY: 0 }];
+  // Sort by max dimension descending (tall pieces first)
+  todo.sort(function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h)||(b.w*b.h)-(a.w*a.h);});
 
-    for (var k = 0; k < todo.length; k++) {
-      var p = todo[k], done = false;
-      // 1. Encaixar em faixa existente
-      for (var si = 0; si < sheets.length && !done; si++) {
-        var bestStrip = null, bestWaste = Infinity;
-        for (var ri = 0; ri < sheets[si].strips.length; ri++) {
-          var s = sheets[si].strips[ri];
-          if (p.h <= s.h && p.w <= usableW - s.usedW) {
-            var waste = s.h - p.h;
-            if (waste < bestWaste) { bestWaste = waste; bestStrip = ri; }
-          }
-        }
-        if (bestStrip !== null) {
-          var s = sheets[si].strips[bestStrip];
-          placed.push({ sheet:si, x:MG+s.usedW, y:MG+s.y, w:p.w, h:p.h, label:p.label, color:p.color });
-          s.usedW += p.w + KF; done = true;
-        }
+  // ── MaxRects single-bin packer ──
+  function MaxRectsBin(bw,bh){
+    this.w=bw;this.h=bh;
+    this.freeRects=[{x:0,y:0,w:bw,h:bh}];
+    this.used=[];
+  }
+  MaxRectsBin.prototype.scoreRect=function(pw,ph,fr,method){
+    var ss,ls;
+    if(pw>fr.w||ph>fr.h)return{score1:Infinity,score2:Infinity};
+    if(method==='BSSF'){ss=Math.min(fr.w-pw,fr.h-ph);ls=Math.max(fr.w-pw,fr.h-ph);return{score1:ss,score2:ls};}
+    if(method==='BLSF'){ls=Math.max(fr.w-pw,fr.h-ph);ss=Math.min(fr.w-pw,fr.h-ph);return{score1:ls,score2:ss};}
+    if(method==='BAF'){return{score1:fr.w*fr.h-pw*ph,score2:Math.min(fr.w-pw,fr.h-ph)};}
+    return{score1:Math.min(fr.w-pw,fr.h-ph),score2:0};
+  };
+  MaxRectsBin.prototype.findBest=function(pw,ph,method){
+    var best={score1:Infinity,score2:Infinity,idx:-1,rot:false};
+    for(var i=0;i<this.freeRects.length;i++){
+      var fr=this.freeRects[i];
+      // Normal
+      var s=this.scoreRect(pw,ph,fr,method);
+      if(s.score1<best.score1||(s.score1===best.score1&&s.score2<best.score2)){
+        best={score1:s.score1,score2:s.score2,idx:i,x:fr.x,y:fr.y,w:pw,h:ph,rot:false};
       }
-      // 2. Nova faixa
-      if (!done) {
-        for (var si = 0; si < sheets.length && !done; si++) {
-          if (p.h <= usableH - sheets[si].nextY && p.w <= usableW) {
-            var s = { y: sheets[si].nextY, h: p.h, usedW: p.w + KF };
-            sheets[si].strips.push(s); sheets[si].nextY += p.h + KF;
-            placed.push({ sheet:si, x:MG, y:MG+s.y, w:p.w, h:p.h, label:p.label, color:p.color }); done = true;
-          }
+      // Rotated (90°)
+      if(pw!==ph){
+        var sr=this.scoreRect(ph,pw,fr,method);
+        if(sr.score1<best.score1||(sr.score1===best.score1&&sr.score2<best.score2)){
+          best={score1:sr.score1,score2:sr.score2,idx:i,x:fr.x,y:fr.y,w:ph,h:pw,rot:true};
         }
-      }
-      // 3. Nova chapa
-      if (!done) {
-        var si2 = sheets.length; sheets.push({ strips: [], nextY: 0 });
-        if (p.h <= usableH && p.w <= usableW) {
-          var s = { y:0, h:p.h, usedW:p.w+KF };
-          sheets[si2].strips.push(s); sheets[si2].nextY = p.h+KF;
-          placed.push({ sheet:si2, x:MG, y:MG, w:p.w, h:p.h, label:p.label, color:p.color });
-        } else failed.push(p);
       }
     }
-  } else {
-    // ═══ FAIXAS VERTICAIS (sobras compridas) ═══
-    todo.sort(function(a,b){ return b.w - a.w || b.h - a.h; });
-    var sheets = [{ strips: [], nextX: 0 }];
+    return best.idx>=0?best:null;
+  };
+  MaxRectsBin.prototype.splitFreeRects=function(placed){
+    var px=placed.x,py=placed.y,pw=placed.w,ph=placed.h;
+    var newFree=[];
+    for(var i=this.freeRects.length-1;i>=0;i--){
+      var fr=this.freeRects[i];
+      // No overlap
+      if(px>=fr.x+fr.w||px+pw<=fr.x||py>=fr.y+fr.h||py+ph<=fr.y){newFree.push(fr);continue;}
+      // Overlap: split into up to 4 rects
+      if(px>fr.x) newFree.push({x:fr.x,y:fr.y,w:px-fr.x,h:fr.h}); // left
+      if(px+pw<fr.x+fr.w) newFree.push({x:px+pw,y:fr.y,w:fr.x+fr.w-px-pw,h:fr.h}); // right
+      if(py>fr.y) newFree.push({x:fr.x,y:fr.y,w:fr.w,h:py-fr.y}); // top
+      if(py+ph<fr.y+fr.h) newFree.push({x:fr.x,y:py+ph,w:fr.w,h:fr.y+fr.h-py-ph}); // bottom
+    }
+    // Prune: remove rects fully contained in another
+    this.freeRects=[];
+    for(var i=0;i<newFree.length;i++){
+      var contained=false;
+      for(var j=0;j<newFree.length;j++){
+        if(i===j)continue;
+        if(newFree[i].x>=newFree[j].x&&newFree[i].y>=newFree[j].y&&
+           newFree[i].x+newFree[i].w<=newFree[j].x+newFree[j].w&&
+           newFree[i].y+newFree[i].h<=newFree[j].y+newFree[j].h){contained=true;break;}
+      }
+      if(!contained)this.freeRects.push(newFree[i]);
+    }
+  };
+  MaxRectsBin.prototype.insert=function(pw,ph,method){
+    var best=this.findBest(pw,ph,method);
+    if(!best)return null;
+    var r={x:best.x,y:best.y,w:best.w,h:best.h,rot:best.rot};
+    this.splitFreeRects(r);
+    this.used.push(r);
+    return r;
+  };
 
-    for (var k = 0; k < todo.length; k++) {
-      var p = todo[k], done = false;
-      // 1. Encaixar em faixa vertical existente
-      for (var si = 0; si < sheets.length && !done; si++) {
-        var bestStrip = null, bestWaste = Infinity;
-        for (var ri = 0; ri < sheets[si].strips.length; ri++) {
-          var s = sheets[si].strips[ri];
-          if (p.w <= s.w && p.h <= usableH - s.usedH) {
-            var waste = s.w - p.w;
-            if (waste < bestWaste) { bestWaste = waste; bestStrip = ri; }
-          }
-        }
-        if (bestStrip !== null) {
-          var s = sheets[si].strips[bestStrip];
-          placed.push({ sheet:si, x:MG+s.x, y:MG+s.usedH, w:p.w, h:p.h, label:p.label, color:p.color });
-          s.usedH += p.h + KF; done = true;
-        }
-      }
-      // 2. Nova faixa vertical
-      if (!done) {
-        for (var si = 0; si < sheets.length && !done; si++) {
-          if (p.w <= usableW - sheets[si].nextX && p.h <= usableH) {
-            var s = { x: sheets[si].nextX, w: p.w, usedH: p.h + KF };
-            sheets[si].strips.push(s); sheets[si].nextX += p.w + KF;
-            placed.push({ sheet:si, x:MG+s.x, y:MG, w:p.w, h:p.h, label:p.label, color:p.color }); done = true;
-          }
+  // ── Run all 3 heuristics and pick best ──
+  var methods=['BSSF','BLSF','BAF'];
+  var bestResult=null, bestSheets=Infinity, bestAprov=0;
+
+  for(var mi=0;mi<methods.length;mi++){
+    var method=methods[mi];
+    var bins=[new MaxRectsBin(usW,usH)];
+    var placed=[],failed=[];
+
+    for(var k=0;k<todo.length;k++){
+      var p=todo[k],done=false;
+      // Try existing bins
+      for(var bi=0;bi<bins.length&&!done;bi++){
+        var r=bins[bi].insert(p.w,p.h,method);
+        if(r){
+          placed.push({sheet:bi,x:MG+r.x,y:MG+r.y,w:r.rot?p.oh:p.ow,h:r.rot?p.ow:p.oh,
+            label:p.label,color:p.color,rot:r.rot});
+          done=true;
         }
       }
-      // 3. Nova chapa
-      if (!done) {
-        var si2 = sheets.length; sheets.push({ strips: [], nextX: 0 });
-        if (p.w <= usableW && p.h <= usableH) {
-          var s = { x:0, w:p.w, usedH:p.h+KF };
-          sheets[si2].strips.push(s); sheets[si2].nextX = p.w+KF;
-          placed.push({ sheet:si2, x:MG, y:MG, w:p.w, h:p.h, label:p.label, color:p.color });
-        } else failed.push(p);
+      // New bin
+      if(!done){
+        var nb=new MaxRectsBin(usW,usH);
+        var r=nb.insert(p.w,p.h,method);
+        if(r){
+          var bi2=bins.length;bins.push(nb);
+          placed.push({sheet:bi2,x:MG+r.x,y:MG+r.y,w:r.rot?p.oh:p.ow,h:r.rot?p.ow:p.oh,
+            label:p.label,color:p.color,rot:r.rot});
+        } else {
+          failed.push(p);
+        }
       }
+    }
+
+    // Score this method
+    var ns=bins.length;
+    var totalUsed=placed.reduce(function(s,p){return s+p.w*p.h;},0);
+    var aprov=totalUsed/(ns*SW*SH)*100;
+
+    if(ns<bestSheets||(ns===bestSheets&&aprov>bestAprov)){
+      bestSheets=ns;bestAprov=aprov;
+      bestResult={placed:placed,failed:failed,numSheets:ns,method:method};
     }
   }
 
-  // Estatísticas
-  var nSheets = sheets.length;
-  var stats = [];
-  for (var i = 0; i < nSheets; i++) {
-    var ps = placed.filter(function(p){ return p.sheet === i; });
-    var used = ps.reduce(function(s,p){ return s + p.w * p.h; }, 0);
-    stats.push({ count: ps.length, used: used, total: SW*SH, pct: used/(SW*SH)*100 });
+  // Build stats
+  var stats=[];
+  for(var i=0;i<bestResult.numSheets;i++){
+    var ps=bestResult.placed.filter(function(p){return p.sheet===i;});
+    var used=ps.reduce(function(s,p){return s+p.w*p.h;},0);
+    stats.push({count:ps.length,used:used,total:SW*SH,pct:used/(SW*SH)*100});
   }
-  return { numSheets: nSheets, placed: placed, stats: stats, failed: failed };
+  bestResult.stats=stats;
+  return bestResult;
 }
 
 /* ── DESENHAR (VERTICAL como MaxCut) ───────────────── */
@@ -13019,13 +13046,13 @@ function plnDraw(si) {
         ctx.font='700 '+fs+'px Montserrat,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillStyle='rgba(0,0,0,.78)';
         ctx.fillText(p.label, 0, -(cw>fs*3?fs*.2:0));
-        if (cw>fs*2.5) { ctx.font='600 '+Math.max(6,fs-1)+'px Montserrat,Arial'; ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillText(p.w+'×'+p.h, 0, fs*.8); }
+        if (cw>fs*2.5) { ctx.font='600 '+Math.max(6,fs-1)+'px Montserrat,Arial'; ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillText(p.w+'×'+p.h+(p.rot?' ↻':''), 0, fs*.8); }
       } else {
         var fs=Math.max(7,Math.min(11,Math.min(cw/(p.label.length*.55),ch*.35)));
         ctx.font='700 '+fs+'px Montserrat,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillStyle='rgba(0,0,0,.78)';
         ctx.fillText(p.label, cx+cw/2, cy+ch/2-(ch>fs*3?fs*.3:0));
-        if (ch>fs*3) { ctx.font='600 '+Math.max(6,fs-1)+'px Montserrat,Arial'; ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillText(p.w+'×'+p.h, cx+cw/2, cy+ch/2+fs*.85); }
+        if (ch>fs*3) { ctx.font='600 '+Math.max(6,fs-1)+'px Montserrat,Arial'; ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillText(p.w+'×'+p.h+(p.rot?' ↻':''), cx+cw/2, cy+ch/2+fs*.85); }
       }
       ctx.restore();
     }
