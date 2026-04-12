@@ -6272,6 +6272,17 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   if(PA_F<=0||TRAV_V<=0||LAR_IS<=0||TRA_HM<=0)
     return {error:'Dimensoes invalidas para '+sis+'. Verifique L e H.'};
 
+  // ── ENCHIMENTOS (100mm × comprimento × 2 frente/costas) ──────────────────
+  var ENCH_W=100; // largura enchimento em mm
+  var enchVertArea=ENCH_W*TRAV_V*2*TRAV_V_QTY/1e6; // m² (frente+costas × qty)
+  var enchHorArea=ENCH_W*TRA_HM*2*(N_H*nFolhas)/1e6; // m²
+  // Enchimento fixo largura (cima+baixo, frente+costas): usa VEDA_SIZE como medida largura
+  var enchFixoArea=ENCH_W*VEDA_SIZE*2*2*nFolhas/1e6; // 2=cima+baixo, 2=frente+costas
+  var enchTotalArea=enchVertArea+enchHorArea+enchFixoArea;
+  var enchPeso=enchTotalArea*6.5; // kg (mesma densidade ACM)
+  window._enchimentoPeso=enchPeso;
+  window._enchimentoDetail={vert:enchVertArea,hor:enchHorArea,fixo:enchFixoArea,total:enchTotalArea,kg:enchPeso};
+
   var paFBarLen=selBar(PA_F), paPBarLen=selBar(PA_P);
 
   // ── LISTA DE CORTES ────────────────────────────────────────────────────────
@@ -16250,7 +16261,9 @@ function _calcPesoPorta(d){
   }
   // Chapas ACM: só peças da PORTA (sem U Portal, sem Fixo)
   var pesoChapas = window._planPesoPortaACM || window._planPesoLiqACM || 0;
-  return {pesoPerfis:pesoPerfis, pesoChapas:pesoChapas, total:pesoPerfis+pesoChapas};
+  // Enchimentos (100mm × comprimento travessas × 2 frente/costas)
+  var pesoEnchimento = window._enchimentoPeso || 0;
+  return {pesoPerfis:pesoPerfis, pesoChapas:pesoChapas, pesoEnchimento:pesoEnchimento, total:pesoPerfis+pesoChapas+pesoEnchimento};
 }
 
 function _renderOSAcess(d, acessRows, vedaInfo){
@@ -16301,7 +16314,7 @@ function _renderOSAcess(d, acessRows, vedaInfo){
     var pivotCode  = peso.total<=350?'PA-PIVOT 350 KG':'PA-PIVOT 600 KG';
     var pivotPreco = getPreco(pivotCode);
     var pivotDesc  = peso.total<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
-    hardwareRows.push({qty:1, code:pivotCode, desc:pivotDesc+' (porta: '+peso.total.toFixed(1)+'kg — perfis: '+peso.pesoPerfis.toFixed(1)+'kg + chapas: '+peso.pesoChapas.toFixed(1)+'kg)', preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
+    hardwareRows.push({qty:1, code:pivotCode, desc:pivotDesc+' (porta: '+peso.total.toFixed(1)+'kg — perfis: '+peso.pesoPerfis.toFixed(1)+'kg + chapas: '+peso.pesoChapas.toFixed(1)+'kg + enchim: '+peso.pesoEnchimento.toFixed(1)+'kg)', preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
   }
   // Se abertura não selecionada: sem pivô nem dobradiça
 
