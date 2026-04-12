@@ -13199,17 +13199,24 @@ function _plnPieceEdited(idx){
   _sR('TOTAL CHAPAS:',pesoPorta+pesoPortal+pesoFixo,'#003144','#fff');
 }
 
+function _plnResetOverrides(){
+  _plnManualOv={};
+  var btn=document.getElementById('plan-reset-ov-btn');if(btn)btn.style.display='none';
+  planUpd();
+}
+
 function plnPieceTable(pieces, placed) {
   _plnPiecesRef=[];
   var tb=document.getElementById('plan-piece-tbody'); tb.innerHTML='';
   // Ordenar maiores dimensões (área) primeiro
   var _portaPecas=['TAMPA MAIOR','TAMPA MAIOR 01','TAMPA MAIOR 02','TAMPA MAIOR 03','CAVA','TAMPA BOR CAVA','TAMPA CAVA','TAMPA MENOR','ACAB LAT 1','ACAB LAT 2','ACAB LAT Z','TAMPA FRISO','FRISO','FRISO VERT','DIST BOR FV','RIPAS'];
-  var _pSorted=pieces.slice().map(function(p){
+  var _pSorted=pieces.slice().map(function(p,idx){
     var _isP=false;for(var k=0;k<_portaPecas.length;k++){if(p.label===_portaPecas[k]){_isP=true;break;}}
     p._local=p.label.indexOf('FX ')===0?'FIXO':_isP?'PORTA':'PORTAL';
     p._localOrd=p._local==='PORTA'?0:p._local==='PORTAL'?1:2;
+    p._origIdx=idx;
     return p;
-  }).sort(function(a,b){return a._localOrd!==b._localOrd?a._localOrd-b._localOrd:(b.w*b.h)-(a.w*a.h);});
+  }).sort(function(a,b){return a._localOrd!==b._localOrd?a._localOrd-b._localOrd:a._origIdx-b._origIdx;});
   for(var i=0;i<_pSorted.length;i++){
     var p=_pSorted[i];
     _plnPiecesRef.push(p);
