@@ -12856,11 +12856,11 @@ function plnMaxRects(pieces, SW, SH, mode) {
   var MG=PLN_MG, KF=PLN_KERF;
   var usW=SW-2*MG, usH=SH-2*MG;
 
-  // Expand pieces into individual items with kerf
+  // Expand pieces into individual items (kerf handled in placement, not inflated)
   var todo=[];
   for(var i=0;i<pieces.length;i++)
     for(var j=0;j<pieces[i].qty;j++)
-      todo.push({label:pieces[i].label,w:pieces[i].w+KF,h:pieces[i].h+KF,ow:pieces[i].w,oh:pieces[i].h,color:pieces[i].color});
+      todo.push({label:pieces[i].label,w:pieces[i].w,h:pieces[i].h,color:pieces[i].color});
 
   // Sort by max dimension descending (tall pieces first)
   todo.sort(function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h)||(b.w*b.h)-(a.w*a.h);});
@@ -12871,26 +12871,25 @@ function plnMaxRects(pieces, SW, SH, mode) {
     this.freeRects=[{x:0,y:0,w:bw,h:bh}];
     this.used=[];
   }
-  MaxRectsBin.prototype.scoreRect=function(pw,ph,fr,method){
-    var ss,ls;
+  MaxRectsBin.prototype.scoreRect=function(pw,ph,fr){
+    // Check if piece fits (piece size only, kerf added as spacing after placement)
     if(pw>fr.w||ph>fr.h)return{score1:Infinity,score2:Infinity};
-    if(method==='BSSF'){ss=Math.min(fr.w-pw,fr.h-ph);ls=Math.max(fr.w-pw,fr.h-ph);return{score1:ss,score2:ls};}
-    if(method==='BLSF'){ls=Math.max(fr.w-pw,fr.h-ph);ss=Math.min(fr.w-pw,fr.h-ph);return{score1:ls,score2:ss};}
-    if(method==='BAF'){return{score1:fr.w*fr.h-pw*ph,score2:Math.min(fr.w-pw,fr.h-ph)};}
-    return{score1:Math.min(fr.w-pw,fr.h-ph),score2:0};
+    var ss=Math.min(fr.w-pw,fr.h-ph);
+    var ls=Math.max(fr.w-pw,fr.h-ph);
+    return{score1:ss,score2:ls}; // BSSF
   };
-  MaxRectsBin.prototype.findBest=function(pw,ph,method){
+  MaxRectsBin.prototype.findBest=function(pw,ph){
     var best={score1:Infinity,score2:Infinity,idx:-1,rot:false};
     for(var i=0;i<this.freeRects.length;i++){
       var fr=this.freeRects[i];
-      // Normal
-      var s=this.scoreRect(pw,ph,fr,method);
+      // Normal orientation
+      var s=this.scoreRect(pw,ph,fr);
       if(s.score1<best.score1||(s.score1===best.score1&&s.score2<best.score2)){
         best={score1:s.score1,score2:s.score2,idx:i,x:fr.x,y:fr.y,w:pw,h:ph,rot:false};
       }
-      // Rotated (90°)
+      // Rotated 90°
       if(pw!==ph){
-        var sr=this.scoreRect(ph,pw,fr,method);
+        var sr=this.scoreRect(ph,pw,fr);
         if(sr.score1<best.score1||(sr.score1===best.score1&&sr.score2<best.score2)){
           best={score1:sr.score1,score2:sr.score2,idx:i,x:fr.x,y:fr.y,w:ph,h:pw,rot:true};
         }
@@ -12898,18 +12897,19 @@ function plnMaxRects(pieces, SW, SH, mode) {
     }
     return best.idx>=0?best:null;
   };
-  MaxRectsBin.prototype.splitFreeRects=function(placed){
-    var px=placed.x,py=placed.y,pw=placed.w,ph=placed.h;
+  MaxRectsBin.prototype.splitFreeRects=function(px,py,pw,ph){
+    // Reserved area = piece + kerf spacing (4mm right and bottom)
+    var rw=pw+KF, rh=ph+KF;
     var newFree=[];
     for(var i=this.freeRects.length-1;i>=0;i--){
       var fr=this.freeRects[i];
-      // No overlap
-      if(px>=fr.x+fr.w||px+pw<=fr.x||py>=fr.y+fr.h||py+ph<=fr.y){newFree.push(fr);continue;}
+      // No overlap with reserved area
+      if(px>=fr.x+fr.w||px+rw<=fr.x||py>=fr.y+fr.h||py+rh<=fr.y){newFree.push(fr);continue;}
       // Overlap: split into up to 4 rects
       if(px>fr.x) newFree.push({x:fr.x,y:fr.y,w:px-fr.x,h:fr.h}); // left
-      if(px+pw<fr.x+fr.w) newFree.push({x:px+pw,y:fr.y,w:fr.x+fr.w-px-pw,h:fr.h}); // right
+      if(px+rw<fr.x+fr.w) newFree.push({x:px+rw,y:fr.y,w:fr.x+fr.w-px-rw,h:fr.h}); // right
       if(py>fr.y) newFree.push({x:fr.x,y:fr.y,w:fr.w,h:py-fr.y}); // top
-      if(py+ph<fr.y+fr.h) newFree.push({x:fr.x,y:py+ph,w:fr.w,h:fr.y+fr.h-py-ph}); // bottom
+      if(py+rh<fr.y+fr.h) newFree.push({x:fr.x,y:py+rh,w:fr.w,h:fr.y+fr.h-py-rh}); // bottom
     }
     // Prune: remove rects fully contained in another
     this.freeRects=[];
@@ -12924,42 +12924,45 @@ function plnMaxRects(pieces, SW, SH, mode) {
       if(!contained)this.freeRects.push(newFree[i]);
     }
   };
-  MaxRectsBin.prototype.insert=function(pw,ph,method){
-    var best=this.findBest(pw,ph,method);
+  MaxRectsBin.prototype.insert=function(pw,ph){
+    var best=this.findBest(pw,ph);
     if(!best)return null;
-    var r={x:best.x,y:best.y,w:best.w,h:best.h,rot:best.rot};
-    this.splitFreeRects(r);
-    this.used.push(r);
-    return r;
+    this.splitFreeRects(best.x,best.y,best.w,best.h);
+    this.used.push({x:best.x,y:best.y,w:best.w,h:best.h,rot:best.rot});
+    return best;
   };
 
-  // ── Run all 3 heuristics and pick best ──
-  var methods=['BSSF','BLSF','BAF'];
+  // ── Run 3 heuristics by sorting differently, pick best ──
+  var sortMethods=[
+    function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h)||(b.w*b.h)-(a.w*a.h);}, // max dim
+    function(a,b){return (b.w*b.h)-(a.w*a.h)||Math.max(b.w,b.h)-Math.max(a.w,a.h);}, // area
+    function(a,b){return b.h-a.h||b.w-a.w;} // height
+  ];
   var bestResult=null, bestSheets=Infinity, bestAprov=0;
 
-  for(var mi=0;mi<methods.length;mi++){
-    var method=methods[mi];
+  for(var mi=0;mi<sortMethods.length;mi++){
+    var sorted=todo.slice().sort(sortMethods[mi]);
     var bins=[new MaxRectsBin(usW,usH)];
     var placed=[],failed=[];
 
-    for(var k=0;k<todo.length;k++){
-      var p=todo[k],done=false;
-      // Try existing bins
+    for(var k=0;k<sorted.length;k++){
+      var p=sorted[k],done=false;
       for(var bi=0;bi<bins.length&&!done;bi++){
-        var r=bins[bi].insert(p.w,p.h,method);
+        var r=bins[bi].insert(p.w,p.h);
         if(r){
-          placed.push({sheet:bi,x:MG+r.x,y:MG+r.y,w:r.rot?p.oh:p.ow,h:r.rot?p.ow:p.oh,
+          placed.push({sheet:bi,x:MG+r.x,y:MG+r.y,
+            w:r.rot?p.h:p.w, h:r.rot?p.w:p.h,
             label:p.label,color:p.color,rot:r.rot});
           done=true;
         }
       }
-      // New bin
       if(!done){
         var nb=new MaxRectsBin(usW,usH);
-        var r=nb.insert(p.w,p.h,method);
+        var r=nb.insert(p.w,p.h);
         if(r){
-          var bi2=bins.length;bins.push(nb);
-          placed.push({sheet:bi2,x:MG+r.x,y:MG+r.y,w:r.rot?p.oh:p.ow,h:r.rot?p.ow:p.oh,
+          bins.push(nb);
+          placed.push({sheet:bins.length-1,x:MG+r.x,y:MG+r.y,
+            w:r.rot?p.h:p.w, h:r.rot?p.w:p.h,
             label:p.label,color:p.color,rot:r.rot});
         } else {
           failed.push(p);
@@ -12967,18 +12970,15 @@ function plnMaxRects(pieces, SW, SH, mode) {
       }
     }
 
-    // Score this method
     var ns=bins.length;
     var totalUsed=placed.reduce(function(s,p){return s+p.w*p.h;},0);
     var aprov=totalUsed/(ns*SW*SH)*100;
-
     if(ns<bestSheets||(ns===bestSheets&&aprov>bestAprov)){
       bestSheets=ns;bestAprov=aprov;
-      bestResult={placed:placed,failed:failed,numSheets:ns,method:method};
+      bestResult={placed:placed,failed:failed,numSheets:ns};
     }
   }
 
-  // Build stats
   var stats=[];
   for(var i=0;i<bestResult.numSheets;i++){
     var ps=bestResult.placed.filter(function(p){return p.sheet===i;});
