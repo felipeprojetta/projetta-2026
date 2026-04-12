@@ -6270,8 +6270,8 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   // TRAV VERT: ALTURA - FGA - TUBLPORTAL - ESPPIV - VEDPT - VEDPT - TUBLPORTA - TUBLPORTA
   var TRAV_V = Math.round(H - FGA - TUB - PIV - 2*VED_PORTA - 2*TUBO_LAR_INT);
 
-  // TUB CAVA = TRAV_V - 30 (cantoneira)
-  var TUB_CA  = Math.round(TRAV_V - 30);
+  // TUB CAVA = TRAV_V - 20 (cantoneira)
+  var TUB_CA  = Math.round(TRAV_V - 20);
   var CANT_CA = TRAV_V;
 
   // LAR INF & SUP: LARGURA - FGLD - FGLE - 171.7 - 171.5
@@ -12070,7 +12070,7 @@ function calcPerfis(){
   var PA_F=Math.round(H-FGA-TUB-PIV+TRANS);
 
   var TRAV_V=Math.round(H-FGA-TUB-PIV-2*VED-2*TUBO_LAR);
-  var TUB_CA=Math.round(TRAV_V-30);
+  var TUB_CA=Math.round(TRAV_V-20);
   var CANT_CA=TRAV_V;
   var LAR_IS=Math.round(L-FGL-FGR-171.7-171.5);
   var VED_IS=Math.round(LAR_IS+110+110);
@@ -15973,7 +15973,7 @@ function _calcFixosCompleto(sis, getPreco, barraMM){
 
     // ── CAVA: Tubo 38×38 (2 pçs) e Cantoneira 30×30 (4 pçs) ─────────────────
     if(temCavaFx){
-      var TUB_CA_FX  = Math.round(A_perf - 30);
+      var TUB_CA_FX  = Math.round(A_perf - 20);
       var CANT_CA_FX = A_perf;
       allCuts.push({code:'PA-38X38X1.58',      desc:'TUB CAVA — '+fn,  subcat:'PERFIL ALTURA', compMM:TUB_CA_FX,  qty:2, lh:'90/90 A', obs:fn+' BRUTO',     pintado:false});
       allCuts.push({code:'PA-CANT-30X30X2.0', desc:'CANT CAVA — '+fn, subcat:'PERFIL ALTURA', compMM:CANT_CA_FX, qty:4, lh:'90/90 A', obs:fn+' BNF-TECNO', pintado:true});
