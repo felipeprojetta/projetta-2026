@@ -5596,7 +5596,7 @@ var APROV_RES=null, APROV_CSI=0, APROV_SD={w:1500,h:5000,mg:10};
 function aprovPieces(Lmm,Amm,fol,mod){
   var L=Math.round(Lmm),A=Math.round(Amm);
   var _sis=($('prod-sistema')||{value:''}).value||'';
-  var TUB_SUP=(_sis.indexOf('PA007')>=0)?51:38;
+  var TUB_SUP=(_sis.indexOf('PA007')>=0||(typeof _isInternacional==='function'&&_isInternacional()))?51:38;
   var G4=A-10-TUB_SUP-28+8,G3=Math.round(L-20-343+218),G2=Math.round((L-20-343+256)/2);
   var fW=(fol==2)?G2:G3,bH=G4+116,nL=(fol==2)?4:2,r=[];
   if(mod==='10'||mod==='11'||mod==='15'||mod==='23acm'||mod==='23alu'){
@@ -5638,7 +5638,7 @@ function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
   var is2L=(lados===2);
   var FGA=10,FGLA=20,PIV=28,TPIV=8,REF=20;
   var _sisF=($('prod-sistema')||{value:''}).value||'';
-  var TUB=(_sisF.indexOf('PA007')>=0)?51:38;
+  var TUB=(_sisF.indexOf('PA007')>=0||(typeof _isInternacional==='function'&&_isInternacional()))?51:38;
   // Door reference values
   var G3=Math.round(Lporta-FGLA-171.5-171.5+90+128); // LAR CH FRONTAL 1FLH
   var G4=Math.round(Aporta-FGA-TUB-PIV+TPIV);          // ALT CH FRONTAL
@@ -6153,7 +6153,8 @@ const CONJUNTOS_PERFIS = {
 
 function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   // ── Parâmetros: lê da fase do projeto (Orçamento/Produção) ──────────────────
-  var _p = (typeof _getParams === 'function') ? _getParams() : {FGA:10,FGL:10,FGR:10,PIV:28,TRANS:8,VED:35,TUB:H>=4000?50.8:38.1,sis:H>=4000?'PA007':'PA006'};
+  var _isIntlSis=(document.getElementById('inst-quem')||{value:''}).value==='INTERNACIONAL';
+  var _p = (typeof _getParams === 'function') ? _getParams() : {FGA:10,FGL:10,FGR:10,PIV:28,TRANS:8,VED:35,TUB:_isIntlSis?50.8:(H>=4000?50.8:38.1),sis:_isIntlSis?'PA007':(H>=4000?'PA007':'PA006')};
   var TUB = _p.TUB;
   var sis = _p.sis;
   var C   = CONJUNTOS_PERFIS[sis];
@@ -6800,7 +6801,7 @@ function gerarOS(){
   el('os-cliente').textContent=cliente;
   el('os-obra').textContent=obra;
   el('os-vao').textContent=L+' × '+H+' mm';
-  el('os-sistema').textContent=d.sis+' (tubo '+(H>=4000?51:38)+'mm)';
+  el('os-sistema').textContent=d.sis+' (tubo '+(d.sis==='PA007'?51:38)+'mm)';
   el('os-folhas').textContent=nFolhas+' folha'+(nFolhas>1?'s':'');
   el('os-modelo').textContent=modelo?'Modelo '+modelo:'—';
 
@@ -7852,7 +7853,7 @@ function printOSColagem(){
   var nFolhas=parseInt(($('folhas-porta')||{value:1}).value)||1;
   var modelo=($('carac-modelo')||{value:''}).value||($('plan-modelo')||{value:''}).value||'01';
   var modeloNome={'01':'CAVA','02':'CAVA+FRISO','08':'CAVA+RIPAS','10':'LISA','11':'FRISO','15':'RIPAS','23acm':'MOLDURA ACM','23alu':'MOLDURA ALU'}[modelo]||modelo;
-  var TUB=H>=4000?51:38;
+  var TUB=(typeof _isInternacional==='function'&&_isInternacional())?51:(H>=4000?51:38);
   var sis=d.sis||($('prod-sistema')||{value:''}).value||'PA006';
 
   // Dimensões: Vão, Porta, Portal
@@ -9199,7 +9200,7 @@ window.crmItemAutoSelect=function(id){
 
   // Auto-select FECHADURA MECÂNICA por altura (mesma lógica de _autoSelectFechadura)
   if(H>0){
-    var TUB=H>=4000?50.8:38.1;
+    var TUB=(typeof _isInternacional==='function'&&_isInternacional())?50.8:(H>=4000?50.8:38.1);
     var PA_F=Math.round(H-10-TUB-28+8);
     var inicio=1020;
     if(fechDig.indexOf('PHILIPS')>=0) inicio=1380;
@@ -11765,7 +11766,7 @@ const COMP_DB=[
 {c:"PA-GUN ESPUMA EXP",d:"GUN E FOAM CLEANER 500ML/400G - ONU 1950 AEROSSOIS, 2.1",f:"SOLDAL",p:28.91,u:"PC",cat:"SELANTE"},
 {c:"PA-ISOPOR 100",d:"EPS CANALETA U MOD 04 100X50",f:"STYRO",p:0.0,u:"MT",cat:"EPS"},
 {c:"PA-ISOPOR 115",d:"EPS CANALETA U MOD 05 115X50 - P006",f:"STYRO",p:6.88,u:"MT",cat:"EPS"},
-{c:"PA-ISOPOR 125",d:"EPS CANALETA U MOD 06 125X50",f:"STYRO",p:6.96,u:"MT",cat:"EPS"},
+{c:"PA-ISOPOR 125",d:"EPS CANALETA U MOD 06 125X50",f:"STYRO",p:6.96,u:"MT",cat:"EMBALAGEM"},
 {c:"PA-ISOPOR 135",d:"EPS CANALETA U MOD 07 135X50",f:"STYRO",p:0.0,u:"MT",cat:"EPS"},
 {c:"PA-ISOPOR 165",d:"EPS CANALETA U MOD 08 165X50",f:"STYRO",p:0.0,u:"MT",cat:"EPS"},
 {c:"PA-PRIMER",d:"PRIMER FITA DUPLA FACE VHB 940ML - 9820.822.005",f:"UNIFORT",p:135.74,u:"L",cat:"FITA"},
@@ -11773,7 +11774,7 @@ const COMP_DB=[
 {c:"PA-ISOPOR PA006 ENC",d:"EPS CANALETA PA 006 2000X200X120MM - PA006 ENCAIXE",f:"STYRO",p:0.0,u:"MT",cat:"EPS"},
 {c:"PA-ISOPOR PA007 ENC",d:"EPS CANALETA PA 007 2000X225X120MM - PA007 ENCAIXE",f:"STYRO",p:0.0,u:"MT",cat:"EPS"},
 {c:"PA-LADEROCHA",d:"Lã de Rocha D32 placa 1200×600×50mm",f:"MERCADO",p:0,u:"M2",cat:"ISOLAMENTO"},
-{c:"PA-ISOPOR PRANC 50",d:"EPS Placa I 2000×1000×50mm",f:"STYRO",p:0,u:"M2",cat:"EPS"},
+{c:"PA-ISOPOR PRANC 50",d:"EPS Placa I 2000×1000×50mm",f:"STYRO",p:0,u:"M2",cat:"EMBALAGEM"},
 {c:"PA-ISOPOR PRANC 30",d:"EPS Placa I 2000×1000×30mm",f:"STYRO",p:0,u:"M2",cat:"EPS"},
 {c:"PA-MS BRA",d:"MS POLIMERO 40 BRANCO 230ML/400G - 0892101161",f:"WURTH",p:27.2,u:"PC",cat:"SELANTE"},
 {c:"PA-MS INC",d:"MS ULTRA CLEAR INCOLOR 280ML/285G - 0892412901",f:"WURTH",p:37.13,u:"PC",cat:"SELANTE"},
@@ -12013,7 +12014,7 @@ function calcPerfis(){
   var kgWeiku=parseFloat(document.getElementById('pf-kg-weiku').value)||35;
   var precoPint=parseFloat(document.getElementById('pf-preco-pintura').value)||18;
 
-  var TUB=H>=4000?50.8:38.1;
+  var TUB=(typeof _isInternacional==='function'&&_isInternacional())?50.8:(H>=4000?50.8:38.1);
   var sis=TUB===50.8?'PA007':'PA006';
 
   // ── Parâmetros (planilha FORMULAS_PARA_PERFIS) ─────────────────────────
@@ -12683,7 +12684,7 @@ var PLN_SD   = { w: 1500, h: 5000 };
 function plnPecas(Lmm, Amm, fol, mod) {
   var L  = Math.round(Lmm);
   var A  = Math.round(Amm);
-  var TUB_SUP = A < 4000 ? 38 : 51;
+  var TUB_SUP = (typeof _isInternacional==='function'&&_isInternacional())?51:(A < 4000 ? 38 : 51);
   var FGA = 10, PIV = 28, TRANS_PIV = 8, FGLA = 20, REF = 20;
   var G4 = A - FGA - TUB_SUP - PIV + TRANS_PIV;
   var G2total = L - FGLA - 343 + 256;
@@ -13262,10 +13263,11 @@ function _isModelReady(){
 }
 
 /* ── AUTO-SELECAO FECHADURA MECANICA ──────────────────────────────────────── */
+function _isInternacional(){return (document.getElementById('inst-quem')||{value:''}).value==='INTERNACIONAL';}
 function _autoSelectFechadura(){
   var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
   if(H<=0) return;
-  var TUB=H>=4000?50.8:38.1;
+  var TUB=(typeof _isInternacional==='function'&&_isInternacional())?50.8:(H>=4000?50.8:38.1);
   var PA_F=Math.round(H-10-TUB-28+8);
   var fechDigEl=document.getElementById('carac-fech-dig');
   var fechDig=fechDigEl?(fechDigEl.value||'').toUpperCase():'';
@@ -14846,7 +14848,7 @@ function _getParams(){
     var sistemaOv=(document.getElementById('prod-sistema')||{value:'auto'}).value;
     var L=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
     var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
-    var autoTub=H>=4000?50.8:38.1;
+    var autoTub=(typeof _isInternacional==='function'&&_isInternacional())?50.8:(H>=4000?50.8:38.1);
     var TUB=sistemaOv==='PA006'?38.1:sistemaOv==='PA007'?50.8:autoTub;
     return {
       FGA:   parseFloat((document.getElementById('prod-fga')||{value:10}).value)||10,
@@ -14861,8 +14863,8 @@ function _getParams(){
   } else {
     var L=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
     var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
-    var TUB=H>=4000?50.8:38.1;
-    // Carregar parâmetros do modelo selecionado
+    var _isIntlSys=(document.getElementById('inst-quem')||{value:''}).value==='INTERNACIONAL';
+    var TUB=_isIntlSys?50.8:(H>=4000?50.8:38.1);
     var mp=(typeof _getModeloParamsForCurrent==='function')?_getModeloParamsForCurrent():{};
     return {
       FGA:   mp.FGA!==undefined?mp.FGA:10,
@@ -16089,7 +16091,7 @@ function _calcAcessoriosOS(d, nFolhas, sis){
     });
     placaDesc += ' + fixos ('+_fxPrancParts.join(', ')+') = '+m2PlacaFixo.toFixed(2)+'m² → total '+m2Placa50Desc.toFixed(2)+'m²';
   }
-  rows.push({qty:m2Placa50,code:'PA-ISOPOR PRANC 50',desc:placaDesc,preco:getPreco('PA-ISOPOR PRANC 50'),apl:'FAB',grp:'ISOLAMENTO',obs:'EPS PLACA'});
+  rows.push({qty:m2Placa50,code:'PA-ISOPOR PRANC 50',desc:placaDesc,preco:getPreco('PA-ISOPOR PRANC 50'),apl:'FAB',grp:'EMBALAGEM',obs:'EPS PLACA'});
 
   // Isopor/EPS — selecionar por sistema e modelo
   // PA006 normal→115, PA007 normal→125, PA006 ripado→135, PA007 ripado→165
@@ -16123,7 +16125,8 @@ function _calcAcessoriosOS(d, nFolhas, sis){
     }
     isoDescTxt += ' + fixos: ('+_fxDescs.join(', ')+') = '+mFixoIso+'m → total '+mIso+'m';
   }
-  rows.push({qty:mIso,code:isoCode,desc:isoDescTxt,preco:getPreco(isoCode),apl:'FAB',grp:'ISOLAMENTO',obs:'EPS'});
+  var _isoGrp=(isoCode==='PA-ISOPOR 125')?'EMBALAGEM':'ISOLAMENTO';
+  rows.push({qty:mIso,code:isoCode,desc:isoDescTxt,preco:getPreco(isoCode),apl:'FAB',grp:_isoGrp,obs:'EPS'});
 
   // ── FABRICAÇÃO — DOWSIL 995 + FITA DFIX (sem fórmula por enquanto) ──────────
   rows.push((function(){
