@@ -12987,7 +12987,15 @@ function plnMaxRects(pieces, SW, SH, mode) {
   for(var i=0;i<bestResult.numSheets;i++){
     var ps=bestResult.placed.filter(function(p){return p.sheet===i;});
     var used=ps.reduce(function(s,p){return s+p.w*p.h;},0);
-    stats.push({count:ps.length,used:used,total:SW*SH,pct:used/(SW*SH)*100});
+    stats.push({idx:i,count:ps.length,used:used,total:SW*SH,pct:used/(SW*SH)*100});
+  }
+  // Sort sheets: most filled first (largest area used)
+  stats.sort(function(a,b){return b.used-a.used;});
+  // Remap sheet indices: old→new
+  var remap={};
+  for(var i=0;i<stats.length;i++){remap[stats[i].idx]=i;delete stats[i].idx;}
+  for(var i=0;i<bestResult.placed.length;i++){
+    bestResult.placed[i].sheet=remap[bestResult.placed[i].sheet];
   }
   bestResult.stats=stats;
   return bestResult;
