@@ -1851,6 +1851,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div class="fr" style="background:#e8f5e9;border-radius:6px;padding:6px 8px"><span class="fl" style="font-weight:700;color:#2e7d32">📊 Margem Líquida Instalação (%)</span><div class="fv"><input type="number" id="inst-intl-margem" value="10" min="0" max="50" step="1" oninput="calc()" style="border-color:#4caf50;font-weight:800;color:#2e7d32"></div></div>
       <!-- DRE RESULTADO -->
       <div id="inst-intl-result" style="margin-top:8px;background:#fff;border:1px solid #90caf9;border-radius:6px;padding:10px;font-size:11px"></div>
+      <button id="btn-intl-finalizar" onclick="window._instIntlFinalizado=true;calc();this.textContent='✅ Custo Enviado!';this.style.background='#27ae60';this.style.borderColor='#27ae60'" style="margin-top:8px;width:100%;padding:12px;border-radius:8px;border:2px solid #1565c0;background:#1565c0;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.03em">📤 FINALIZAR E ENVIAR CUSTO INSTALAÇÃO</button>
     </div>
     <!-- CAMPOS CÁLCULO PADRÃO (Projetta/Weiku) -->
     <div id="inst-calc-padrao">
@@ -4203,11 +4204,13 @@ function calc(){
     $('sub-ped').textContent='—'; $('sub-terc').textContent='—';
     $('r-inst').textContent=window._osGeradoUmaVez?brl(subInst):'—';
   } else if(instQuem==='INTERNACIONAL'){
-    subInst=typeof calcInstIntl==='function'?calcInstIntl():0;
+    var _intlCusto=typeof calcInstIntl==='function'?calcInstIntl():0;
+    // Só inclui no resultado quando botão FINALIZAR foi clicado
+    subInst=window._instIntlFinalizado?_intlCusto:0;
     $('sub-sal').textContent='—'; $('r-diesel').textContent='—'; $('r-hotel').textContent='—';
     $('sub-alim').textContent='—'; $('r-andaime').textContent='—'; $('sub-munk').textContent='—';
     $('sub-ped').textContent='—'; $('sub-terc').textContent='—';
-    $('r-inst').textContent=window._osGeradoUmaVez?brl(subInst):'—';
+    $('r-inst').textContent=window._instIntlFinalizado?brl(subInst):'⏳ Aguardando finalizar';
   } else if(instQuem==='SEM'){
     subInst=0;
     $('sub-sal').textContent='—'; $('r-diesel').textContent='—'; $('r-hotel').textContent='—';
@@ -14427,6 +14430,11 @@ function toggleInstQuem(){
   var intl_div=document.getElementById('inst-internacional-calc');
   if(!sel)return;
   var v=sel.value;
+  // Reset flag internacional ao mudar tipo
+  if(v!=='INTERNACIONAL'){window._instIntlFinalizado=false;
+    var _bi=document.getElementById('btn-intl-finalizar');
+    if(_bi){_bi.textContent='📤 FINALIZAR E ENVIAR CUSTO INSTALAÇÃO';_bi.style.background='#1565c0';_bi.style.borderColor='#1565c0';}
+  }
   if(calc_div) calc_div.style.display=(v==='PROJETTA'||v==='WEIKU')?'':'none';
   if(terc_div) terc_div.style.display=(v==='TERCEIROS')?'':'none';
   if(intl_div) intl_div.style.display=(v==='INTERNACIONAL')?'':'none';
