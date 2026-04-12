@@ -6283,6 +6283,13 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   window._enchimentoPeso=enchPeso;
   window._enchimentoDetail={vert:enchVertArea,hor:enchHorArea,fixo:enchFixoArea,total:enchTotalArea,kg:enchPeso};
 
+  // ── LÃ DE ROCHA (32 kg/m³) ──────────────────────────────────────────────
+  var espPorta=sis==='PA007'?110:90; // mm
+  var laVolume=(LAR_IS*TRAV_V*espPorta)/1e9; // m³
+  var laPeso=laVolume*32; // 32 kg/m³
+  window._laRochaPeso=laPeso;
+  window._laRochaDetail={largura:LAR_IS,altura:TRAV_V,esp:espPorta,vol:laVolume,kg:laPeso};
+
   var paFBarLen=selBar(PA_F), paPBarLen=selBar(PA_P);
 
   // ── LISTA DE CORTES ────────────────────────────────────────────────────────
@@ -16272,7 +16279,9 @@ function _calcPesoPorta(d){
   var pesoChapas = window._planPesoPortaACM || window._planPesoLiqACM || 0;
   // Enchimentos (100mm × comprimento travessas × 2 frente/costas)
   var pesoEnchimento = window._enchimentoPeso || 0;
-  return {pesoPerfis:pesoPerfis, pesoChapas:pesoChapas, pesoEnchimento:pesoEnchimento, total:pesoPerfis+pesoChapas+pesoEnchimento};
+  // Lã de rocha (32 kg/m³ × largura_interna × altura_interna × espessura porta)
+  var pesoLaRocha = window._laRochaPeso || 0;
+  return {pesoPerfis:pesoPerfis, pesoChapas:pesoChapas, pesoEnchimento:pesoEnchimento, pesoLaRocha:pesoLaRocha, total:pesoPerfis+pesoChapas+pesoEnchimento+pesoLaRocha};
 }
 
 function _renderOSAcess(d, acessRows, vedaInfo){
@@ -16323,7 +16332,7 @@ function _renderOSAcess(d, acessRows, vedaInfo){
     var pivotCode  = peso.total<=350?'PA-PIVOT 350 KG':'PA-PIVOT 600 KG';
     var pivotPreco = getPreco(pivotCode);
     var pivotDesc  = peso.total<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
-    hardwareRows.push({qty:1, code:pivotCode, desc:pivotDesc+' (porta: '+peso.total.toFixed(1)+'kg — perfis: '+peso.pesoPerfis.toFixed(1)+'kg + chapas: '+peso.pesoChapas.toFixed(1)+'kg + enchim: '+peso.pesoEnchimento.toFixed(1)+'kg)', preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
+    hardwareRows.push({qty:1, code:pivotCode, desc:pivotDesc+' (porta: '+peso.total.toFixed(1)+'kg — perfis: '+peso.pesoPerfis.toFixed(1)+'kg + chapas: '+peso.pesoChapas.toFixed(1)+'kg + enchim: '+peso.pesoEnchimento.toFixed(1)+'kg + lã: '+peso.pesoLaRocha.toFixed(1)+'kg)', preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
   }
   // Se abertura não selecionada: sem pivô nem dobradiça
 
