@@ -2008,13 +2008,22 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     </div>
     <div class="fr">
       <span class="fl">Tamanho da chapa</span>
-      <div class="fv" style="flex:0 0 180px"><select id="aprov-chapa">
-        <option value="1500|5000" selected>1500 × 5000 mm</option>
-        <option value="1500|6000">1500 × 6000 mm</option>
-        <option value="1500|7000">1500 × 7000 mm</option>
-        <option value="1500|8000">1500 × 8000 mm</option>
-        <option value="1250|5000">1250 × 5000 mm</option>
-      </select></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <div class="fv" style="flex:0 0 180px"><select id="aprov-chapa" onchange="_onAprovChapaChange()">
+          <option value="1500|5000" selected>1500 × 5000 mm</option>
+          <option value="1500|6000">1500 × 6000 mm</option>
+          <option value="1500|7000">1500 × 7000 mm</option>
+          <option value="1500|8000">1500 × 8000 mm</option>
+          <option value="1250|5000">1250 × 5000 mm</option>
+          <option value="custom">✏️ Personalizado</option>
+        </select></div>
+        <div id="aprov-chapa-custom" style="display:none;gap:4px;align-items:center">
+          <input type="number" id="aprov-chapa-larg" value="1500" min="500" max="2000" step="10" style="width:55px;padding:3px;border:1.5px solid #e65100;border-radius:4px;font-size:11px;font-weight:700;text-align:center;color:#e65100">
+          <span style="font-size:10px;color:#888">×</span>
+          <input type="number" id="aprov-chapa-alt" value="5000" min="1000" max="12000" step="100" style="width:60px;padding:3px;border:1.5px solid #e65100;border-radius:4px;font-size:11px;font-weight:700;text-align:center;color:#e65100">
+          <span style="font-size:10px;color:#888">mm</span>
+        </div>
+      </div>
     </div>
     <!-- resultado compacto -->
     <div class="aprov-result" id="aprov-result">
@@ -3068,13 +3077,22 @@ Equipe Projetta by Weiku</textarea>
       </div>
       <div class="fr" style="border:none;padding:3px 0">
         <span class="fl">Chapa</span>
-        <div style="flex:0 0 170px"><select id="plan-chapa" class="plan-sel" onchange="planUpd();filtrarChapasACM();_syncCorToChapa();_syncChapaToOrc();_osAutoUpdate()">
-          <option value="1500|5000" selected>1500 x 5000 mm</option>
-          <option value="1500|6000">1500 x 6000 mm</option>
-          <option value="1500|7000">1500 x 7000 mm</option>
-          <option value="1500|8000">1500 x 8000 mm</option>
-          <option value="1250|5000">1250 x 5000 mm</option>
-        </select></div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <select id="plan-chapa" class="plan-sel" style="flex:0 0 170px" onchange="_onChapaChange()">
+            <option value="1500|5000" selected>1500 x 5000 mm</option>
+            <option value="1500|6000">1500 x 6000 mm</option>
+            <option value="1500|7000">1500 x 7000 mm</option>
+            <option value="1500|8000">1500 x 8000 mm</option>
+            <option value="1250|5000">1250 x 5000 mm</option>
+            <option value="custom">✏️ Personalizado</option>
+          </select>
+          <div id="plan-chapa-custom" style="display:none;gap:4px;align-items:center">
+            <input type="number" id="plan-chapa-larg" value="1500" min="500" max="2000" step="10" style="width:60px;padding:4px;border:1.5px solid #e65100;border-radius:5px;font-size:11px;font-weight:700;text-align:center;color:#e65100" onchange="_onChapaCustomChange()">
+            <span style="font-size:10px;color:#888">×</span>
+            <input type="number" id="plan-chapa-alt" value="5000" min="1000" max="12000" step="100" style="width:65px;padding:4px;border:1.5px solid #e65100;border-radius:5px;font-size:11px;font-weight:700;text-align:center;color:#e65100" onchange="_onChapaCustomChange()">
+            <span style="font-size:10px;color:#888">mm</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -5942,6 +5960,22 @@ function aprovToggleCava(){
   if(mc) mc.className='cava-vars'+(isCava?' show':'');
 }
 
+function _onAprovChapaChange(){
+  var sel=document.getElementById('aprov-chapa');
+  var cust=document.getElementById('aprov-chapa-custom');
+  if(cust)cust.style.display=sel.value==='custom'?'flex':'none';
+}
+function _getAprovChapaSize(){
+  var sel=document.getElementById('aprov-chapa');
+  if(sel.value==='custom'){
+    var l=parseInt((document.getElementById('aprov-chapa-larg')||{value:1500}).value)||1500;
+    var a=parseInt((document.getElementById('aprov-chapa-alt')||{value:5000}).value)||5000;
+    return {w:l,h:a};
+  }
+  var parts=sel.value.split('|');
+  return {w:parseInt(parts[0]),h:parseInt(parts[1])};
+}
+
 function aprovCalc(){
   var L=n('largura'),A=n('altura');
   var fol=parseInt($('aprov-folhas').value)||1;
@@ -5949,8 +5983,8 @@ function aprovCalc(){
   var kerf=parseInt($('aprov-kerf').value)||4;
   var mg=parseInt($('aprov-mg').value)||0;
   var rot=$('aprov-rot').value==='1';
-  var parts=$('aprov-chapa').value.split('|');
-  var SW=parseInt(parts[0]),SH=parseInt(parts[1]);
+  var _acs=_getAprovChapaSize();
+  var SW=_acs.w,SH=_acs.h;
   APROV_SD={w:SW,h:SH,mg:mg};
   var pieces=aprovPieces(L,A,fol,mod);
   // Adicionar peças dos fixos
@@ -6017,8 +6051,8 @@ function aprovRun(){
   $('aprov-dims').textContent=Math.round(L)+' × '+Math.round(A)+' mm';
   var fol=parseInt($('aprov-folhas').value)||1;
   var mod=$('aprov-model').value;
-  var parts=$('aprov-chapa').value.split('|');
-  var SW=parseInt(parts[0]),SH=parseInt(parts[1]);
+  var _acs=_getAprovChapaSize();
+  var SW=_acs.w,SH=_acs.h;
   var pieces=aprovPieces(L,A,fol,mod);
   // Adicionar peças dos fixos
   var _tfR=document.getElementById('tem-fixo');
@@ -13665,6 +13699,30 @@ function getManualPieces(){
   return result;
 }
 
+function _onChapaChange(){
+  var sel=document.getElementById('plan-chapa');
+  var cust=document.getElementById('plan-chapa-custom');
+  if(sel.value==='custom'){
+    cust.style.display='flex';
+  } else {
+    cust.style.display='none';
+  }
+  planUpd();filtrarChapasACM();_syncCorToChapa();_syncChapaToOrc();_osAutoUpdate();
+}
+function _onChapaCustomChange(){
+  planUpd();_osAutoUpdate();
+}
+function _getChapaSize(){
+  var sel=document.getElementById('plan-chapa');
+  if(sel.value==='custom'){
+    var larg=parseInt((document.getElementById('plan-chapa-larg')||{value:1500}).value)||1500;
+    var alt=parseInt((document.getElementById('plan-chapa-alt')||{value:5000}).value)||5000;
+    return {w:larg,h:alt};
+  }
+  var parts=sel.value.split('|');
+  return {w:parseInt(parts[0]),h:parseInt(parts[1])};
+}
+
 function planRun() {
   var Lv=parseFloat(document.getElementById('largura').value)||0;
   var Av=parseFloat(document.getElementById('altura').value)||0;
@@ -13702,8 +13760,8 @@ function planRun() {
   }
   if(pieces.length===0){alert('Nenhuma peça para calcular. Selecione um modelo ou adicione peças manuais.');return;}
 
-  var parts=document.getElementById('plan-chapa').value.split('|');
-  var SW=parseInt(parts[0]),SH=parseInt(parts[1]);
+  var _cs=_getChapaSize();
+  var SW=_cs.w,SH=_cs.h;
   PLN_SD={w:SW,h:SH};
 
   var layoutMode = (document.getElementById('plan-layout').value) || 'v';
