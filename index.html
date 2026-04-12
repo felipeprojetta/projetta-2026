@@ -13183,7 +13183,7 @@ function plnPieceTable(pieces, placed) {
   _plnPiecesRef=[];
   var tb=document.getElementById('plan-piece-tbody'); tb.innerHTML='';
   // Ordenar maiores dimensões (área) primeiro
-  var _portaPecas=['TAMPA MAIOR','CAVA','TAMPA BOR CAVA','TAMPA CAVA'];
+  var _portaPecas=['TAMPA MAIOR','TAMPA MAIOR 01','TAMPA MAIOR 02','TAMPA MAIOR 03','CAVA','TAMPA BOR CAVA','TAMPA CAVA','TAMPA MENOR','ACAB LAT 1','ACAB LAT 2','ACAB LAT Z','TAMPA FRISO','FRISO','FRISO VERT','DIST BOR FV','RIPAS'];
   var _pSorted=pieces.slice().map(function(p){
     var _isP=false;for(var k=0;k<_portaPecas.length;k++){if(p.label===_portaPecas[k]){_isP=true;break;}}
     p._local=p.label.indexOf('FX ')===0?'FIXO':_isP?'PORTA':'PORTAL';
@@ -13750,7 +13750,7 @@ function _planRecalcEdited(){
   var KG_ACM=6.5;
   var pesoLiqACM=totPA/1e6*KG_ACM;
   var pesoBrutoACM=totSA/1e6*KG_ACM;
-  var _portaPecasN=['TAMPA MAIOR','CAVA','TAMPA BOR CAVA','TAMPA CAVA'];
+  var _portaPecasN=['TAMPA MAIOR','TAMPA MAIOR 01','TAMPA MAIOR 02','TAMPA MAIOR 03','CAVA','TAMPA BOR CAVA','TAMPA CAVA','TAMPA MENOR','ACAB LAT 1','ACAB LAT 2','ACAB LAT Z','TAMPA FRISO','FRISO','FRISO VERT','DIST BOR FV','RIPAS'];
   var pesoPortaACM=0;
   for(var i=0;i<pieces.length;i++){var lb=pieces[i].label;var isP=false;for(var k=0;k<_portaPecasN.length;k++){if(lb===_portaPecasN[k]){isP=true;break;}}if(isP)pesoPortaACM+=(pieces[i].w*pieces[i].h*pieces[i].qty)/1e6*KG_ACM;}
   window._planPesoLiqACM=pesoLiqACM;window._planPesoPortaACM=pesoPortaACM;window._planPesoBrutoACM=pesoBrutoACM;
@@ -13826,7 +13826,7 @@ function planRun() {
   var pesoLiqACM  = totPA / 1e6 * KG_ACM;           // m² líquido × 6.5
   var pesoBrutoACM= totSA / 1e6 * KG_ACM;           // m² bruto × 6.5
   // Peso só das peças da PORTA (folha: tampas e cava, exclui portal e fixo)
-  var _portaPecasNomes=['TAMPA MAIOR','CAVA','TAMPA BOR CAVA','TAMPA CAVA'];
+  var _portaPecasNomes=['TAMPA MAIOR','TAMPA MAIOR 01','TAMPA MAIOR 02','TAMPA MAIOR 03','CAVA','TAMPA BOR CAVA','TAMPA CAVA','TAMPA MENOR','ACAB LAT 1','ACAB LAT 2','ACAB LAT Z','TAMPA FRISO','FRISO','FRISO VERT','DIST BOR FV','RIPAS'];
   var pesoPortaACM=0;
   for(var i=0;i<pieces.length;i++){
     var lb=pieces[i].label||'';
