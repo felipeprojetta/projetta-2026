@@ -13104,7 +13104,43 @@ function plnLegend(pieces) {
   document.getElementById('plan-leg').innerHTML=html;
 }
 
+var _plnPiecesRef=[];
+function _plnPieceEdited(idx){
+  var p=_plnPiecesRef[idx];if(!p)return;
+  var el=function(s){return document.getElementById('pp-'+idx+'-'+s);};
+  var newW=parseFloat((el('w')||{value:0}).value)||0;
+  var newH=parseFloat((el('h')||{value:0}).value)||0;
+  var newQ=parseInt((el('q')||{value:0}).value)||0;
+  p.w=newW;p.h=newH;p.qty=newQ;
+  var a=(newW*newH*newQ/1e6).toFixed(4);
+  var kg=(newW*newH*newQ/1e6*6.5).toFixed(2);
+  var aEl=document.getElementById('pp-'+idx+'-a');if(aEl)aEl.textContent=a;
+  var kgEl=document.getElementById('pp-'+idx+'-kg');if(kgEl)kgEl.textContent=kg;
+  ['w','h','q'].forEach(function(fld){
+    var inp=el(fld);if(!inp)return;
+    var auto=parseFloat(inp.getAttribute('data-auto'))||0;
+    var cur=parseFloat(inp.value)||0;
+    var changed=Math.abs(cur-auto)>0.1;
+    inp.style.borderColor=changed?'#e65100':'#ddd';
+    inp.style.background=changed?'#fff3e0':'#fff';
+    inp.style.color=changed?'#e65100':'';
+    var warn=inp.nextElementSibling;
+    if(changed&&(!warn||warn.tagName!=='DIV')){warn=document.createElement('div');warn.style.cssText='font-size:8px;color:#e65100;font-weight:600';inp.parentNode.appendChild(warn);}
+    if(warn&&warn.tagName==='DIV')warn.textContent=changed?'auto:'+auto:'';
+    if(!changed&&warn&&warn.tagName==='DIV')warn.remove();
+  });
+  var tb=document.getElementById('plan-piece-tbody');
+  tb.querySelectorAll('tr[data-sum]').forEach(function(r){r.remove();});
+  var pesoPorta=0,pesoPortal=0,pesoFixo=0;
+  for(var j=0;j<_plnPiecesRef.length;j++){var pp=_plnPiecesRef[j];var k=pp.w*pp.h*pp.qty/1e6*6.5;if(pp._local==='PORTA')pesoPorta+=k;else if(pp._local==='FIXO')pesoFixo+=k;else pesoPortal+=k;}
+  function _sR(l,k,b,co){var tr=document.createElement('tr');tr.setAttribute('data-sum','1');tr.innerHTML='<td colspan="6" style="padding:5px 7px;background:'+b+';font-weight:700;font-size:11px;color:'+co+';text-align:right;border-top:1.5px solid '+co+'">'+l+'</td><td style="padding:5px 7px;background:'+b+';font-weight:800;font-size:12px;color:'+co+';text-align:right;border-top:1.5px solid '+co+'">'+k.toFixed(2)+'</td><td colspan="2" style="padding:5px 7px;background:'+b+';border-top:1.5px solid '+co+'"></td>';tb.appendChild(tr);}
+  _sR('Chapas PORTA:',pesoPorta,'#e8f5e9','#2e7d32');_sR('Chapas PORTAL:',pesoPortal,'#fff3e0','#e65100');
+  if(pesoFixo>0)_sR('Chapas FIXO:',pesoFixo,'#e3f2fd','#1565c0');
+  _sR('TOTAL CHAPAS:',pesoPorta+pesoPortal+pesoFixo,'#003144','#fff');
+}
+
 function plnPieceTable(pieces, placed) {
+  _plnPiecesRef=[];
   var tb=document.getElementById('plan-piece-tbody'); tb.innerHTML='';
   // Ordenar maiores dimensões (área) primeiro
   var _portaPecas=['TAMPA MAIOR','CAVA','TAMPA BOR CAVA','TAMPA CAVA'];
@@ -13116,6 +13152,7 @@ function plnPieceTable(pieces, placed) {
   }).sort(function(a,b){return a._localOrd!==b._localOrd?a._localOrd-b._localOrd:(b.w*b.h)-(a.w*a.h);});
   for(var i=0;i<_pSorted.length;i++){
     var p=_pSorted[i];
+    _plnPiecesRef.push(p);
     var a=(p.w*p.h*p.qty/1e6).toFixed(4);
     // which sheets this piece appears on
     var sheetsUsed={};
@@ -13126,13 +13163,22 @@ function plnPieceTable(pieces, placed) {
     var local=p._local||'PORTA';
     var lcl=local==='PORTA'?'<span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTA</span>':local==='PORTAL'?'<span style="background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTAL</span>':'<span style="background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">FIXO</span>';
     var bgRow=local==='PORTA'?'':'background:#fafafa;';
+    var _id='pp-'+i;
+    var _inSt='width:55px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:right;font-weight:600;font-family:inherit;outline:none;';
+    var _mkIn=function(fld,val,orig){
+      var changed=Math.abs(val-orig)>0.1;
+      var st=_inSt+(changed?'border-color:#e65100;background:#fff3e0;color:#e65100;':'');
+      var warn=changed?'<div style="font-size:8px;color:#e65100;font-weight:600">auto:'+orig+'</div>':'';
+      return '<input type="number" id="'+_id+'-'+fld+'" value="'+val+'" data-auto="'+orig+'" step="0.5" onchange="_plnPieceEdited('+i+')" style="'+st+'">'+warn;
+    };
+    p._autoW=p._autoW||p.w; p._autoH=p._autoH||p.h; p._autoQ=p._autoQ||p.qty;
     tr.innerHTML='<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'"><span style="width:11px;height:11px;border-radius:2px;display:inline-block;background:'+p.color+'"></span></td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+p.label+'</td>'+
-      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'">'+p.w+'</td>'+
-      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'">'+p.h+'</td>'+
-      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'"><strong>'+p.qty+'</strong></td>'+
-      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'">'+a+'</td>'+
-      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'font-weight:600">'+pesoKg+'</td>'+
+      '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('w',p.w,p._autoW)+'</td>'+
+      '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('h',p.h,p._autoH)+'</td>'+
+      '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('q',p.qty,p._autoQ)+'</td>'+
+      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'" id="'+_id+'-a">'+a+'</td>'+
+      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'font-weight:600" id="'+_id+'-kg">'+pesoKg+'</td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:center;'+bgRow+'">'+lcl+'</td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:center;color:var(--navy);font-weight:600;'+bgRow+'">'+sheetList+'</td>';
     tb.appendChild(tr);
