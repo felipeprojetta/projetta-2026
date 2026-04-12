@@ -15832,13 +15832,13 @@ function _calcFixosCompleto(sis, getPreco, barraMM){
     var rolosFD12 = Math.ceil(totFD12/1000/20);
     result.acessRows.push({qty:rolosFD12, code:'PA-FITDF 12X20X1.0',
       desc:'Fita DFix 12mm — fixos: '+(totFD12/1000).toFixed(1)+'m ÷ 20m = '+rolosFD12+' rolo(s)',
-      preco:getPreco('PA-FITDF 12X20X1.0'), apl:'FAB', grp:'VEDAÇÕES', obs:'FD12 FIXO'});
+      preco:getPreco('PA-FITDF 12X20X1.0'), apl:'FAB', grp:'FITA DUPLA FACE', obs:'FD12 FIXO'});
   }
   if(totFD19 > 0){
     var rolosFD19 = Math.ceil(totFD19/1000/20);
     result.acessRows.push({qty:rolosFD19, code:'PA-FITDF 19X20X1.0',
       desc:'Fita DFix 19mm — fixos: '+(totFD19/1000).toFixed(1)+'m ÷ 20m = '+rolosFD19+' rolo(s)',
-      preco:getPreco('PA-FITDF 19X20X1.0'), apl:'FAB', grp:'VEDAÇÕES', obs:'FD19 FIXO'});
+      preco:getPreco('PA-FITDF 19X20X1.0'), apl:'FAB', grp:'FITA DUPLA FACE', obs:'FD19 FIXO'});
   }
   if(totDow > 0){
     var tubosD = Math.ceil(totDow/1000/8);
@@ -16070,7 +16070,7 @@ function _calcAcessoriosOS(d, nFolhas, sis){
     var rolos=Math.ceil(mFD19/1000/20)||1;
     return {qty:rolos,code:'PA-FITDF 19X20X1.0',
       desc:'Fita DFix 1,0×19mm — '+(mFD19/1000).toFixed(1)+'m ÷ 20m/rolo = '+rolos+' rolo(s)',
-      preco:getPreco('PA-FITDF 19X20X1.0'),apl:'FAB',grp:'VEDAÇÕES',obs:'FITA DFIX'};
+      preco:getPreco('PA-FITDF 19X20X1.0'),apl:'FAB',grp:'FITA DUPLA FACE',obs:'FITA DFIX'};
   })());
   rows.push((function(){
     var A=parseFloat(document.getElementById('altura').value)||0;
@@ -16079,7 +16079,7 @@ function _calcAcessoriosOS(d, nFolhas, sis){
     var rolos=Math.ceil(mFD12/1000/20)||1;
     return {qty:rolos,code:'PA-FITDF 12X20X1.0',
       desc:'Fita DFix 1,0×12mm — '+(mFD12/1000).toFixed(1)+'m ÷ 20m/rolo = '+rolos+' rolo(s)',
-      preco:getPreco('PA-FITDF 12X20X1.0'),apl:'FAB',grp:'VEDAÇÕES',obs:'FITA DF12'};
+      preco:getPreco('PA-FITDF 12X20X1.0'),apl:'FAB',grp:'FITA DUPLA FACE',obs:'FITA DF12'};
   })());
 
   // ── OBRA — FECHO UNHA + PUSH&GO (só para 2 folhas) ───────────────────────
