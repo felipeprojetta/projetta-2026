@@ -5694,13 +5694,13 @@ function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
   var q1=is2L?2:1, q2=is2L?4:2;
 
   if(mod==='01'||mod==='02'||mod==='08'){
-    // Peças com CAVA
-    r.push(['FX CAVA SUP',CAVA_W,hCavaFix,q1]);
-    r.push(['FX L CAVA',L_CAVA_W,210,q2]);
+    // Peças com CAVA — TAMPAS primeiro (igual à porta)
     r.push(['FX TAMPA MAIOR',M_TAMPA+44+REF,hTampaFix,1]);
     if(is2L) r.push(['FX TAMPA MAIOR 2L',M_TAMPA+82+REF,hTampaFix,1]);
     r.push(['FX TAMPA BOR CAVA',M_BORDA+44+REF,hTampaFix,1]);
     if(is2L) r.push(['FX TAMPA BOR CAVA 2L',M_BORDA+82+REF,hTampaFix,1]);
+    r.push(['FX CAVA SUP',CAVA_W,hCavaFix,q1]);
+    r.push(['FX L CAVA',L_CAVA_W,210,q2]);
     r.push(['FX FIT ME',76.5,hFitFix,q1]);
     r.push(['FX FIT MA',114.5,hFitFix,q1]);
     r.push(['FX FIT FITA',101,hFitLar,q1]);
