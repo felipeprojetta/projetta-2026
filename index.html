@@ -3181,6 +3181,9 @@ Equipe Projetta by Weiku</textarea>
       <button onclick="planRun()" style="flex:1;padding:9px;border-radius:7px;border:none;background:var(--orange);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:Montserrat,Arial,sans-serif">
         Calcular aproveitamento
       </button>
+      <button id="plan-recalc-btn" onclick="_planRecalcEdited()" style="display:none;padding:9px 16px;border-radius:7px;border:2px solid #c62828;background:#ffebee;color:#c62828;font-size:12px;font-weight:700;cursor:pointer;font-family:Montserrat,Arial,sans-serif">
+        🔄 Recalcular com alterações
+      </button>
       <button id="plan-use-btn" onclick="planUsarResultado()" style="display:none;padding:9px 16px;border-radius:7px;border:none;background:var(--navy);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:Montserrat,Arial,sans-serif">
         Usar resultado nas chapas
       </button>
@@ -13163,6 +13166,9 @@ function _plnPieceEdited(idx){
     if(warn&&warn.tagName==='DIV')warn.textContent=changed?'auto:'+auto:'';
     if(!changed&&warn&&warn.tagName==='DIV')warn.remove();
   });
+  // Show recalculate button
+  var rb=document.getElementById('plan-recalc-btn');if(rb)rb.style.display='';
+  // Update summaries
   var tb=document.getElementById('plan-piece-tbody');
   tb.querySelectorAll('tr[data-sum]').forEach(function(r){r.remove();});
   var pesoPorta=0,pesoPortal=0,pesoFixo=0;
@@ -13192,11 +13198,14 @@ function plnPieceTable(pieces, placed) {
     var sheetsUsed={};
     for(var j=0;j<placed.length;j++) if(placed[j].label===p.label) sheetsUsed[placed[j].sheet+1]=true;
     var sheetList=Object.keys(sheetsUsed).sort().join(', ');
+    var isFailed=sheetList==='';
     var tr=document.createElement('tr');
+    if(isFailed) tr.setAttribute('data-failed','1');
     var pesoKg=(p.w*p.h*p.qty/1e6*6.5).toFixed(2);
     var local=p._local||'PORTA';
     var lcl=local==='PORTA'?'<span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTA</span>':local==='PORTAL'?'<span style="background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTAL</span>':'<span style="background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">FIXO</span>';
-    var bgRow=local==='PORTA'?'':'background:#fafafa;';
+    var bgRow=isFailed?'background:#ffebee;':(local==='PORTA'?'':'background:#fafafa;');
+    var failTag=isFailed?'<span style="background:#c62828;color:#fff;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">⚠ NÃO COUBE</span>':'';
     var _id='pp-'+i;
     var _inSt='width:55px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:right;font-weight:600;font-family:inherit;outline:none;';
     var _mkIn=function(fld,val,orig){
@@ -13214,7 +13223,7 @@ function plnPieceTable(pieces, placed) {
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'" id="'+_id+'-a">'+a+'</td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'font-weight:600" id="'+_id+'-kg">'+pesoKg+'</td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:center;'+bgRow+'">'+lcl+'</td>'+
-      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:center;color:var(--navy);font-weight:600;'+bgRow+'">'+sheetList+'</td>';
+      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:center;color:var(--navy);font-weight:600;'+bgRow+'">'+(isFailed?failTag:sheetList)+'</td>';
     tb.appendChild(tr);
   }
   // Sumário peso por local
@@ -13723,6 +13732,44 @@ function _getChapaSize(){
   return {w:parseInt(parts[0]),h:parseInt(parts[1])};
 }
 
+function _planRecalcEdited(){
+  if(!_plnPiecesRef.length) return;
+  var _cs=_getChapaSize();
+  var SW=_cs.w,SH=_cs.h;
+  PLN_SD={w:SW,h:SH};
+  var layoutMode=(document.getElementById('plan-layout').value)||'v';
+  // Use edited pieces
+  var pieces=_plnPiecesRef.map(function(p){return {label:p.label,w:p.w,h:p.h,qty:p.qty,color:p.color,_autoW:p._autoW,_autoH:p._autoH,_autoQ:p._autoQ};});
+  PLN_RES=plnMaxRects(pieces,SW,SH,layoutMode);
+  PLN_CSI=0;
+  var totPA=0;
+  for(var i=0;i<pieces.length;i++) totPA+=pieces[i].w*pieces[i].h*pieces[i].qty;
+  var totSA=PLN_RES.numSheets*SW*SH;
+  var util=(totPA/totSA*100).toFixed(1);
+  var usable=(SW-2*PLN_MG)*(SH-2*PLN_MG);
+  var KG_ACM=6.5;
+  var pesoLiqACM=totPA/1e6*KG_ACM;
+  var pesoBrutoACM=totSA/1e6*KG_ACM;
+  var _portaPecasN=['TAMPA MAIOR','CAVA','TAMPA BOR CAVA','TAMPA CAVA'];
+  var pesoPortaACM=0;
+  for(var i=0;i<pieces.length;i++){var lb=pieces[i].label;var isP=false;for(var k=0;k<_portaPecasN.length;k++){if(lb===_portaPecasN[k]){isP=true;break;}}if(isP)pesoPortaACM+=(pieces[i].w*pieces[i].h*pieces[i].qty)/1e6*KG_ACM;}
+  window._planPesoLiqACM=pesoLiqACM;window._planPesoPortaACM=pesoPortaACM;window._planPesoBrutoACM=pesoBrutoACM;
+  _updatePesoAcessorios();
+  var eff=(Math.ceil(totPA/Math.max(1,usable))/PLN_RES.numSheets*100).toFixed(0);
+  document.getElementById('plan-sN').textContent=PLN_RES.numSheets;
+  document.getElementById('plan-sU').textContent=util+'%';
+  document.getElementById('plan-sW').textContent=(100-parseFloat(util)).toFixed(1)+'%';
+  document.getElementById('plan-sE').textContent=eff+'%';
+  var wd=document.getElementById('plan-warn');
+  if(PLN_RES.failed.length>0){
+    var tags='';for(var i=0;i<PLN_RES.failed.length;i++)tags+='<span style="background:#ffcdd2;border-radius:4px;padding:2px 7px;display:inline-block;margin:2px;font-size:11px;font-weight:600">'+PLN_RES.failed[i].label+' ('+PLN_RES.failed[i].w+'x'+PLN_RES.failed[i].h+'mm)</span>';
+    wd.innerHTML='<strong>Atenção: '+PLN_RES.failed.length+' peça(s) não couberam!</strong> Ajuste as medidas e recalcule.<br>'+tags;wd.style.display='';
+  } else {wd.style.display='none';}
+  plnPieceTable(pieces,PLN_RES.placed);
+  plnBuildTabs();plnLegend(pieces);plnDraw(0);
+  var rb=document.getElementById('plan-recalc-btn');if(rb)rb.style.display='none';
+}
+
 function planRun() {
   var Lv=parseFloat(document.getElementById('largura').value)||0;
   var Av=parseFloat(document.getElementById('altura').value)||0;
@@ -13811,7 +13858,7 @@ function planRun() {
     var tags='';
     for(var i=0;i<PLN_RES.failed.length;i++)
       tags+='<span style="background:#ffcdd2;border-radius:4px;padding:2px 7px;display:inline-block;margin:2px;font-size:11px;font-weight:600">'+PLN_RES.failed[i].label+' ('+PLN_RES.failed[i].w+'x'+PLN_RES.failed[i].h+'mm)</span>';
-    wd.innerHTML='<strong>Atencao: '+PLN_RES.failed.length+' peca(s) nao couberam!</strong> Escolha uma chapa maior.<br>'+tags;
+    wd.innerHTML='<strong>Atenção: '+PLN_RES.failed.length+' peça(s) não couberam!</strong> Altere as medidas na tabela abaixo e clique Recalcular.<br>'+tags;
     wd.style.display='';
   } else { wd.style.display='none'; }
 
