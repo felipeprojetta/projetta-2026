@@ -13610,7 +13610,15 @@ function planRun() {
   var KG_ACM = 6.5; // kg por m²
   var pesoLiqACM  = totPA / 1e6 * KG_ACM;           // m² líquido × 6.5
   var pesoBrutoACM= totSA / 1e6 * KG_ACM;           // m² bruto × 6.5
+  // Peso só das peças da PORTA (exclui U PORTAL e FIXO)
+  var pesoPortaACM=0;
+  for(var i=0;i<pieces.length;i++){
+    var lb=pieces[i].label||'';
+    if(lb.indexOf('U PORTAL')>=0||lb.indexOf('FX ')===0) continue;
+    pesoPortaACM+=(pieces[i].w*pieces[i].h*pieces[i].qty)/1e6*KG_ACM;
+  }
   window._planPesoLiqACM   = pesoLiqACM;
+  window._planPesoPortaACM = pesoPortaACM;
   window._planPesoBrutoACM = pesoBrutoACM;
   // Show weights in planificador stats
   var elPLiq = document.getElementById('plan-peso-liq');
@@ -16232,9 +16240,8 @@ function _calcPesoPorta(d){
       pesoPerfis += r.kgLiq||0;
     });
   }
-  // Chapas ACM: usa peso líquido calculado pelo planificador (6.5 kg/m²)
-  // _planPesoLiqACM é atualizado automaticamente pelo planUpd()
-  var pesoChapas = window._planPesoLiqACM || 0;
+  // Chapas ACM: só peças da PORTA (sem U Portal, sem Fixo)
+  var pesoChapas = window._planPesoPortaACM || window._planPesoLiqACM || 0;
   return {pesoPerfis:pesoPerfis, pesoChapas:pesoChapas, total:pesoPerfis+pesoChapas};
 }
 
