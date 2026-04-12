@@ -13089,7 +13089,13 @@ function plnLegend(pieces) {
 function plnPieceTable(pieces, placed) {
   var tb=document.getElementById('plan-piece-tbody'); tb.innerHTML='';
   // Ordenar maiores dimensões (área) primeiro
-  var _pSorted=pieces.slice().sort(function(a,b){return (b.w*b.h)-(a.w*a.h);});
+  var _portaPecas=['TAMPA MAIOR','CAVA','TAMPA BOR CAVA','TAMPA CAVA'];
+  var _pSorted=pieces.slice().map(function(p){
+    var _isP=false;for(var k=0;k<_portaPecas.length;k++){if(p.label===_portaPecas[k]){_isP=true;break;}}
+    p._local=p.label.indexOf('FX ')===0?'FIXO':_isP?'PORTA':'PORTAL';
+    p._localOrd=p._local==='PORTA'?0:p._local==='PORTAL'?1:2;
+    return p;
+  }).sort(function(a,b){return a._localOrd!==b._localOrd?a._localOrd-b._localOrd:(b.w*b.h)-(a.w*a.h);});
   for(var i=0;i<_pSorted.length;i++){
     var p=_pSorted[i];
     var a=(p.w*p.h*p.qty/1e6).toFixed(4);
@@ -13099,7 +13105,7 @@ function plnPieceTable(pieces, placed) {
     var sheetList=Object.keys(sheetsUsed).sort().join(', ');
     var tr=document.createElement('tr');
     var pesoKg=(p.w*p.h*p.qty/1e6*6.5).toFixed(2);
-    var local=p.label.indexOf('FX ')===0?'FIXO':p.label.indexOf('U PORTAL')>=0?'PORTAL':'PORTA';
+    var local=p._local||'PORTA';
     var lcl=local==='PORTA'?'<span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTA</span>':local==='PORTAL'?'<span style="background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTAL</span>':'<span style="background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">FIXO</span>';
     var bgRow=local==='PORTA'?'':'background:#fafafa;';
     tr.innerHTML='<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'"><span style="width:11px;height:11px;border-radius:2px;display:inline-block;background:'+p.color+'"></span></td>'+
@@ -13629,11 +13635,14 @@ function planRun() {
   var KG_ACM = 6.5; // kg por m²
   var pesoLiqACM  = totPA / 1e6 * KG_ACM;           // m² líquido × 6.5
   var pesoBrutoACM= totSA / 1e6 * KG_ACM;           // m² bruto × 6.5
-  // Peso só das peças da PORTA (exclui U PORTAL e FIXO)
+  // Peso só das peças da PORTA (folha: tampas e cava, exclui portal e fixo)
+  var _portaPecasNomes=['TAMPA MAIOR','CAVA','TAMPA BOR CAVA','TAMPA CAVA'];
   var pesoPortaACM=0;
   for(var i=0;i<pieces.length;i++){
     var lb=pieces[i].label||'';
-    if(lb.indexOf('U PORTAL')>=0||lb.indexOf('FX ')===0) continue;
+    var isPorta=false;
+    for(var k=0;k<_portaPecasNomes.length;k++){if(lb===_portaPecasNomes[k]){isPorta=true;break;}}
+    if(!isPorta) continue;
     pesoPortaACM+=(pieces[i].w*pieces[i].h*pieces[i].qty)/1e6*KG_ACM;
   }
   window._planPesoLiqACM   = pesoLiqACM;
