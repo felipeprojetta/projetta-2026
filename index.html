@@ -6404,7 +6404,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   var pesoPerfisFolha=0;
   cuts.forEach(function(c){
     if((c.secao==='FOLHA'||c.secao==='FRISO') && c.perf){
-      pesoPerfisFolha+=(c.compMM/1000)*(c.perf.w||0)*c.qty;
+      pesoPerfisFolha+=(c.compMM/1000)*(c.perf.kg||0)*c.qty;
     }
   });
   window._pesoPerfisFolha=pesoPerfisFolha;
