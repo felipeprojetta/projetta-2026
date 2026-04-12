@@ -3184,6 +3184,9 @@ Equipe Projetta by Weiku</textarea>
       <button id="plan-recalc-btn" onclick="_planRecalcEdited()" style="display:none;padding:9px 16px;border-radius:7px;border:2px solid #c62828;background:#ffebee;color:#c62828;font-size:12px;font-weight:700;cursor:pointer;font-family:Montserrat,Arial,sans-serif">
         🔄 Recalcular com alterações
       </button>
+      <button id="plan-reset-ov-btn" onclick="_plnResetOverrides()" style="display:none;padding:9px 16px;border-radius:7px;border:2px solid #e65100;background:#fff3e0;color:#e65100;font-size:12px;font-weight:700;cursor:pointer;font-family:Montserrat,Arial,sans-serif">
+        🔓 Limpar alterações manuais
+      </button>
       <button id="plan-use-btn" onclick="planUsarResultado()" style="display:none;padding:9px 16px;border-radius:7px;border:none;background:var(--navy);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:Montserrat,Arial,sans-serif">
         Usar resultado nas chapas
       </button>
@@ -13159,6 +13162,13 @@ function _plnPieceEdited(idx){
   } else {
     delete _plnManualOv[p.label];
   }
+  // Show/hide reset button
+  var rstBtn=document.getElementById('plan-reset-ov-btn');
+  if(rstBtn){
+    var cnt=Object.keys(_plnManualOv).length;
+    rstBtn.style.display=cnt>0?'inline-block':'none';
+    rstBtn.textContent='🔓 Limpar '+cnt+' alteraç'+(cnt===1?'ão':'ões')+' manual'+(cnt===1?'':'is');
+  }
   var a=(newW*newH*newQ/1e6).toFixed(4);
   var kg=(newW*newH*newQ/1e6*6.5).toFixed(2);
   var aEl=document.getElementById('pp-'+idx+'-a');if(aEl)aEl.textContent=a;
@@ -16200,7 +16210,7 @@ function _calcAcessoriosOS(d, nFolhas, sis){
   // Fita escovinha: PA007=L×4, PA006=L×2 (metros) — unidade MT no cadastro
   var multFita = sis==='PA007' ? 4 : 2;
   var mFita = Math.ceil((L/1000)*multFita);
-  if(L>0&&mFita>0) rows.push({qty:mFita,code:'PA-FITA VED 5X20',desc:'Fita veda frestas 5×20mm — L('+Math.round(L)+'mm)×'+multFita+' = '+mFita+'m',preco:getPreco('PA-FITA VED 5X20'),apl:'FAB',grp:'VEDAÇÕES',obs:'ESCOVINHA'});
+  if(L>0&&mFita>0) rows.push({qty:mFita,code:'PA-FITA VED 5X20',desc:'Fita veda frestas 5×20mm — L('+Math.round(L)+'mm)×'+multFita+' = '+mFita+'m',preco:getPreco('PA-FITA VED 5X20'),apl:'OBRA',grp:'VEDAÇÕES',obs:'ESCOVINHA'});
 
   // ── FABRICAÇÃO — VEDA PORTA ──────────────────────────────────────────────────
   // Veda porta calculated from d (passed in from gerarOS via _lastOSData)
