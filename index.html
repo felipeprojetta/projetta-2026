@@ -13241,9 +13241,23 @@ function plnPieceTable(pieces, placed) {
     var _isP=false;for(var k=0;k<_portaPecas.length;k++){if(p.label===_portaPecas[k]){_isP=true;break;}}
     p._local=p.label.indexOf('FX ')===0?'FIXO':_isP?'PORTA':'PORTAL';
     p._localOrd=p._local==='PORTA'?0:p._local==='PORTAL'?1:2;
+    // Within PORTA: tampas first (by area desc), then others by original order
+    var isTampa=p.label.indexOf('TAMPA')===0;
+    p._subOrd=isTampa?0:1;
+    p._area=p.w*p.h;
     p._origIdx=idx;
     return p;
-  }).sort(function(a,b){return a._localOrd!==b._localOrd?a._localOrd-b._localOrd:a._origIdx-b._origIdx;});
+  }).sort(function(a,b){
+    if(a._localOrd!==b._localOrd) return a._localOrd-b._localOrd;
+    // Within same local group
+    if(a._local==='PORTA'){
+      // Tampas first, sorted by area descending
+      if(a._subOrd!==b._subOrd) return a._subOrd-b._subOrd;
+      if(a._subOrd===0) return b._area-a._area; // tampas: maior primeiro
+      return a._origIdx-b._origIdx; // other PORTA: original order
+    }
+    return a._origIdx-b._origIdx; // PORTAL/FIXO: original order
+  });
   for(var i=0;i<_pSorted.length;i++){
     var p=_pSorted[i];
     _plnPiecesRef.push(p);
@@ -13258,7 +13272,7 @@ function plnPieceTable(pieces, placed) {
     var pesoKg=(p.w*p.h*p.qty/1e6*6.5).toFixed(2);
     var local=p._local||'PORTA';
     var lcl=local==='PORTA'?'<span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTA</span>':local==='PORTAL'?'<span style="background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTAL</span>':'<span style="background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">FIXO</span>';
-    var bgRow=isFailed?'background:#ffebee;':(local==='PORTA'?'':'background:#fafafa;');
+    var bgRow=isFailed?'background:#ffebee;':(local==='PORTA'?'background:#e8f5e9;':local==='PORTAL'?'background:#fff3e0;':local==='FIXO'?'background:#e3f2fd;':'');
     var failTag=isFailed?'<span style="background:#c62828;color:#fff;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">⚠ NÃO COUBE</span>':'';
     var _id='pp-'+i;
     var _inSt='width:55px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:right;font-weight:600;font-family:inherit;outline:none;';
