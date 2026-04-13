@@ -2054,6 +2054,16 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     <div class="mt"><label>Preço tabela</label><div class="mv b" id="m-tab-porta">R$ 0</div><div class="ms" id="m-tab-porta-m2">—</div></div>
     <div class="mt"><label>Preço faturamento</label><div class="mv b" id="m-fat-porta">R$ 0</div><div class="ms" id="m-fat-porta-m2">—</div></div>
   </div>
+  <!-- Detalhamento Fab + Inst -->
+  <div class="rs" style="padding:8px 14px;border-top:1px solid #eee">
+    <div class="rst" style="color:#e65100;font-size:9px;margin-bottom:4px">Detalhamento</div>
+    <div class="rr"><span class="rl">Custo fabricação</span><span class="rv" id="d-custo-fab">—</span></div>
+    <div class="rr"><span class="rl">Custo instalação</span><span class="rv" id="d-custo-inst">—</span></div>
+    <div class="rr"><span class="rl">Tabela só porta</span><span class="rv" id="d-tab-sp">—</span></div>
+    <div class="rr"><span class="rl">Faturamento só porta</span><span class="rv" id="d-fat-sp">—</span></div>
+    <div class="rr"><span class="rl">Tabela instalação</span><span class="rv" id="d-tab-inst">—</span></div>
+    <div class="rr" style="border:none"><span class="rl">Faturamento instalação</span><span class="rv" id="d-fat-inst">—</span></div>
+  </div>
   <div class="bs">
     <div class="bl"><span>Margem bruta</span><span id="pct-mb-porta">0%</span></div>
     <div class="bw"><div class="bf" id="bar-mb-porta" style="background:var(--navy);width:0%"></div></div>
@@ -4360,6 +4370,17 @@ function calc(){
   $('s-tm2p').textContent=m2>0?br2(pTabSoPorta/m2)+'/m²':'—';
   $('s-fm2p').textContent=m2>0?br2(pFatSoPorta/m2)+'/m²':'—';
   $('s-desc').textContent=pf(descPrj*100)+' → −'+brl(dVal);
+  // Detalhamento fab + inst
+  var custoFabOv=_subFabEfetivo+_subFabEfetivo*ov;
+  var custoInstOv=_subInstNoCusto+_subInstNoCusto*ov;
+  var tabInst=custoInstOv*fT;
+  var fatInst=tabInst*(1-descPrj);
+  var dCF=$('d-custo-fab');if(dCF)dCF.textContent=brl(custoFabOv);
+  var dCI=$('d-custo-inst');if(dCI)dCI.textContent=brl(custoInstOv);
+  var dTSP=$('d-tab-sp');if(dTSP)dTSP.textContent=brl(pTabSoPorta);
+  var dFSP=$('d-fat-sp');if(dFSP)dFSP.textContent=brl(pFatSoPorta);
+  var dTI=$('d-tab-inst');if(dTI)dTI.textContent=brl(tabInst);
+  var dFI=$('d-fat-inst');if(dFI)dFI.textContent=brl(fatInst);
 
   // ══ RESULTADO TOTAL INTERNACIONAL ══
   var _intlPanel=$('resultado-intl-total');
