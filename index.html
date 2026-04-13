@@ -13921,21 +13921,44 @@ function _autoSelectAndRun(){
   var corName2=corEl?(corEl.value||'').trim().toUpperCase():'';
   var corCode2=_getCorCode();
   var planAcm=document.getElementById('plan-acm-cor');
-  if(planAcm && (corName2||corCode2)){
-    var found=false;
+
+  function _tryMatchCor(){
+    if(!planAcm||((!corName2)&&(!corCode2))) return false;
     for(var i=0;i<planAcm.options.length;i++){
       var optTxt=(planAcm.options[i].text||'').toUpperCase();
       var optName=optTxt.split('·')[0].trim();
       if((corName2 && (optName===corName2 || optTxt.indexOf(corName2)>=0)) ||
          (corCode2 && optTxt.indexOf(corCode2.toUpperCase())>=0)){
         planAcm.selectedIndex=i;
-        found=true;
         console.log('[AutoChapa] Cor ACM idx='+i+': '+planAcm.options[i].text);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  var found=_tryMatchCor();
+  // Se cor não encontrada na chapa selecionada, tentar outras chapas
+  if(!found && (corName2||corCode2) && resultados.length>0){
+    var sortedRes=resultados.slice().sort(function(a,b){return a.n-b.n||(b.aprov-a.aprov);});
+    for(var ri=0;ri<sortedRes.length;ri++){
+      var trySH=sortedRes[ri].sh;
+      if(trySH===melhor.sh) continue;
+      var selChapa=document.getElementById('plan-chapa');
+      if(selChapa){
+        var tryVal=SW+'|'+trySH;
+        for(var si=0;si<selChapa.options.length;si++){if(selChapa.options[si].value===tryVal){selChapa.value=tryVal;break;}}
+      }
+      if(typeof filtrarChapasACM==='function') filtrarChapasACM();
+      found=_tryMatchCor();
+      if(found){
+        melhor=sortedRes[ri];
+        console.log('[AutoChapa] Trocou chapa para '+trySH+' (cor disponível)');
         break;
       }
     }
-    if(!found) console.log('[AutoChapa] Cor '+(corName2||corCode2)+' NAO encontrada em '+planAcm.options.length+' opcoes');
   }
+  if(!found) console.log('[AutoChapa] Cor '+(corName2||corCode2)+' NAO encontrada em nenhuma chapa');
   // Se nenhuma cor selecionada, pegar primeira opção disponível como referência
   if(planAcm && planAcm.selectedIndex<=0 && planAcm.options.length>1){
     planAcm.selectedIndex=1;
