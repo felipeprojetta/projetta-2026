@@ -11617,10 +11617,12 @@ function populateProposta(){
   var mainLogo=document.querySelector('.header-brand img');
   var pg3Logo=document.getElementById('prop-pg3-logo');
   if(mainLogo&&pg3Logo) pg3Logo.src=mainLogo.src;
-  // Dimensões
+  // Dimensões — somente single-door (multi-door popula via _populatePropostaItens)
+  var _isMulti=window._mpItens&&window._mpItens.length>0;
   var larg=parseFloat(g('largura'))||0;
   var alt=parseFloat(g('altura'))||0;
   var area=Math.round(larg*alt/1e6*100)/100;
+  if(!_isMulti){
   document.getElementById('prop-larg').textContent=Math.round(larg);
   document.getElementById('prop-alt').textContent=Math.round(alt);
   document.getElementById('prop-area').textContent=area.toFixed(2);
@@ -11688,6 +11690,7 @@ function populateProposta(){
     document.getElementById('prop-cor-int').textContent=corAlu;
     document.getElementById('prop-linha').textContent='PORTA PROJETTA';
   }
+  } // end if(!_isMulti) — single-door element population
   // Quantidade (suporte multi-porta)
   var qtdPortas=parseInt(g('qtd-portas'))||1;
   if(window._mpItens&&window._mpItens.length>0){
@@ -11696,8 +11699,8 @@ function populateProposta(){
   // Popular tabela de itens da proposta (multi-porta)
   _populatePropostaItens();
   var qtdFech=parseInt(g('qtd-fechaduras'))||1;
-  document.getElementById('prop-qtd').textContent=qtdPortas;
-  document.getElementById('prop-qtd-porta').textContent=qtdPortas;
+  var _pq=document.getElementById('prop-qtd');if(_pq)_pq.textContent=qtdPortas;
+  var _pqp=document.getElementById('prop-qtd-porta');if(_pqp)_pqp.textContent=qtdPortas;
   // Medidas na proposta (single-door)
   var _propMed=document.getElementById('prop-medidas');
   if(_propMed&&(!window._mpItens||window._mpItens.length===0)){
