@@ -17603,6 +17603,12 @@ function parseDanfeText(txt, fileName, rows){
   var emitNome=find(/RAZ[AÃ]O SOCIAL.*?:\s*(.+?)(?:\s{2,}|CNPJ)/i);
   if(!emitNome) emitNome=find(/NOME.*?EMITENTE.*?:\s*(.+?)(?:\s{2,})/i);
   if(!emitNome) emitNome=find(/EMIT(?:ENTE)?[:\s]+([A-ZÀ-Ÿ][\w\s\.\-\&]+?)(?:\s{2,}|CNPJ|\d{2}\.\d{3})/i);
+  // Se emitNome parece hora (HH:MM) ou muito curto, extrair do nome do arquivo
+  if(!emitNome || /^\d{1,2}:\d{2}$/.test((emitNome||"").trim()) || (emitNome||"").trim().length<4){
+    var _fnParts=(fileName||"").replace(/\.pdf$/i,"").split(/[-–]/);
+    if(_fnParts.length>=3) emitNome=_fnParts.slice(2).join("-").trim();
+    else if(_fnParts.length>=2) emitNome=_fnParts[_fnParts.length-1].trim();
+  }
   var emitCNPJ=find(/CNPJ[:\s]*(\d{2}[\.\s]?\d{3}[\.\s]?\d{3}[\/\s]?\d{4}[\-\s]?\d{2})/i);
 
   // Totais — buscar padrões comuns do DANFE
