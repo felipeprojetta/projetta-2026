@@ -10079,6 +10079,45 @@ window.crmFazerOrcamento=function(id){
     setTimeout(function(){
       // Esconder botão GERAR CUSTO COMPLETO (auto-calculado)
       var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='none';
+      // ── Sincronizar itens CRM → multi-porta para cálculo combinado ──
+      if(window._orcItens && window._orcItens.length > 1){
+        window._mpItens=[];
+        window._orcItens.forEach(function(oi,idx){
+          if(oi.tipo!=='porta_pivotante') return;
+          var mp={id:'mp_crm_'+idx};
+          mp['largura']=oi.largura||'';
+          mp['altura']=oi.altura||'';
+          mp['qtd-portas']=oi.qtd||'1';
+          mp['folhas-porta']=oi.folhas||'1';
+          mp['carac-modelo']=oi.modelo||'01';
+          mp['carac-abertura']=oi.abertura||'PIVOTANTE';
+          mp['carac-cor-ext']=oi.cor_ext||'';
+          mp['carac-cor-int']=oi.cor_int||'';
+          mp['carac-fech-mec']=oi.fech_mec||'';
+          mp['carac-fech-dig']=oi.fech_dig||'';
+          mp['carac-cilindro']=oi.cilindro||'';
+          mp['carac-puxador']=oi.puxador||'';
+          mp['carac-dist-borda-cava']=oi.dist_borda_cava||'210';
+          mp['carac-largura-cava']=oi.largura_cava||'150';
+          mp['carac-dist-borda-friso']=oi.dist_borda_friso||'';
+          mp['carac-largura-friso']=oi.largura_friso||'';
+          mp['carac-friso-vert']=oi.friso_vert||'0';
+          mp['carac-friso-horiz']=oi.friso_horiz||'0';
+          mp['carac-tem-alisar']=oi.tem_alisar?'1':'0';
+          mp['tem-fixo']=false;
+          mp._fixos=[];
+          mp._modelo=oi.modelo||'01';
+          var modOpt=document.querySelector('#carac-modelo option[value="'+oi.modelo+'"]');
+          mp._modeloTxt=modOpt?modOpt.textContent:(oi.modelo||'');
+          mp._largura=parseFloat(oi.largura)||0;
+          mp._altura=parseFloat(oi.altura)||0;
+          mp._qtd=parseInt(oi.qtd)||1;
+          mp._folhas=parseInt(oi.folhas)||1;
+          window._mpItens.push(mp);
+        });
+        window._mpEditingIdx=window._mpItens.length-1;
+        if(typeof _mpRender==='function') _mpRender();
+      }
       window._osAutoMode=true;
       if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('auto-gerarCustoTotal:',e);}
       window._osAutoMode=false;
