@@ -11813,6 +11813,21 @@ function renderPerfisDB(){
   var kgWeiku=parseFloat($('pf-kg-weiku').value)||35;
   var precoPint=parseFloat($('pf-preco-pintura').value)||18;
   var barraM=parseFloat($('pf-barra-m').value)||6;
+  // Deduções fiscais (Lucro Real: ICMS+PIS+COFINS)
+  var dedTecno=parseFloat(($('pf-ded-tecnoperfil')||{value:0}).value)||0;
+  var dedMerc=parseFloat(($('pf-ded-mercado')||{value:0}).value)||0;
+  var dedWeiku=parseFloat(($('pf-ded-weiku')||{value:0}).value)||0;
+  var dedPint=parseFloat(($('pf-ded-pintura')||{value:0}).value)||0;
+  // Preços LÍQUIDOS (após dedução fiscal)
+  var liqTecno=kgTecno*(1-dedTecno/100);
+  var liqMerc=kgMerc*(1-dedMerc/100);
+  var liqWeiku=kgWeiku*(1-dedWeiku/100);
+  var liqPint=precoPint*(1-dedPint/100);
+  // Mostrar líquido nos labels
+  var _liqEl1=$('pf-liq-tecnoperfil');if(_liqEl1)_liqEl1.textContent='Líq: '+liqTecno.toFixed(2);
+  var _liqEl2=$('pf-liq-mercado');if(_liqEl2)_liqEl2.textContent='Líq: '+liqMerc.toFixed(2);
+  var _liqEl3=$('pf-liq-weiku');if(_liqEl3)_liqEl3.textContent='Líq: '+liqWeiku.toFixed(2);
+  var _liqEl4=$('pf-liq-pintura');if(_liqEl4)_liqEl4.textContent='Líq: '+liqPint.toFixed(2);
   // Perfis que recebem pintura
   var pintados=['PA-PA006F','PA-PA006P','PA-PA006V','PA-PA007F','PA-PA007P','PA-PA007V','PA-CANT-30X30X2.0'];
   function temPintura(cod){
@@ -11830,13 +11845,13 @@ function renderPerfisDB(){
     if(pfFDesc && (p.d||'').toUpperCase().indexOf(pfFDesc)<0) return;
     if(pfFForn && (p.f||'').toUpperCase().indexOf(pfFForn)<0) return;
     var effBarraM=barraM;if(p.c&&/-7M$/.test(p.c))effBarraM=7;else if(p.c&&/-8M$/.test(p.c))effBarraM=8;var kgBarra=(p.kg*effBarraM);
-    var precoKg=kgMerc;
-    if(p.f==='TECNOPERFIL') precoKg=kgTecno;
-    else if(p.f==='WEIKU') precoKg=kgWeiku;
-    else if(p.f==='PERFISUD') precoKg=kgTecno;
+    var precoKg=liqMerc;
+    if(p.f==='TECNOPERFIL') precoKg=liqTecno;
+    else if(p.f==='WEIKU') precoKg=liqWeiku;
+    else if(p.f==='PERFISUD') precoKg=liqTecno;
     var precoPerfil=kgBarra*precoKg;
     var pinta=temPintura(p.c);
-    var precoPintura=pinta?kgBarra*precoPint:0;
+    var precoPintura=pinta?kgBarra*liqPint:0;
     var precoTotal=precoPerfil+precoPintura;
     var bg=pinta?'#fef9f0':i%2===0?'#fff':'#f9f8f5';
     var fnColor=p.f==='TECNOPERFIL'?'font-weight:800;color:#1a3a4a':p.f==='WEIKU'?'font-weight:800;color:var(--orange)':p.f==='PERFISUD'?'font-weight:800;color:#1a3a4a':'color:#666';
@@ -12456,10 +12471,10 @@ function calcPerfis(){
   if(L<=0||H<=0){alert('Preencha Largura e Altura no Orçamento primeiro.');return;}
   var nFolhas=parseInt(document.getElementById('folhas-porta').value)||1;
   var barraMM=(parseFloat(document.getElementById('pf-barra-m').value)||6)*1000;
-  var kgTecno=parseFloat(document.getElementById('pf-kg-tecnoperfil').value)||31;
-  var kgMerc=parseFloat(document.getElementById('pf-kg-mercado').value)||38;
-  var kgWeiku=parseFloat(document.getElementById('pf-kg-weiku').value)||35;
-  var precoPint=parseFloat(document.getElementById('pf-preco-pintura').value)||18;
+  var kgTecno=typeof _getPfLiq==='function'?_getPfLiq('TECNOPERFIL'):(parseFloat(document.getElementById('pf-kg-tecnoperfil').value)||31);
+  var kgMerc=typeof _getPfLiq==='function'?_getPfLiq('MERCADO'):(parseFloat(document.getElementById('pf-kg-mercado').value)||38);
+  var kgWeiku=typeof _getPfLiq==='function'?_getPfLiq('WEIKU'):(parseFloat(document.getElementById('pf-kg-weiku').value)||35);
+  var precoPint=typeof _getPintLiq==='function'?_getPintLiq():(parseFloat(document.getElementById('pf-preco-pintura').value)||18);
 
   var TUB=(typeof _isInternacional==='function'&&_isInternacional())?50.8:(H>=4000?50.8:38.1);
   var sis=TUB===50.8?'PA007':'PA006';
@@ -19381,33 +19396,44 @@ function _mpCalcAllPiecesCombined(){
 function _populatePropostaItens(){
   var tbody=document.getElementById('prop-items-tbody');
   if(!tbody) return;
-  if(!window._mpItens||window._mpItens.length===0) return; // single-door: keep default
+  if(!window._mpItens||window._mpItens.length===0) return;
   var brl2=function(v){return v>0?'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';};
-  var totalQtd=0, totalOrc=0;
-  var custoTotal=parseFloat((document.getElementById('m-custo')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
-  var tabTotal=parseFloat((document.getElementById('m-tab')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
-  var totalPortas=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
-  var html='';
+  var parseVal=function(el){if(!el)return 0;var t=el.textContent||'';return parseFloat(t.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;};
+  var tabPorta=parseVal(document.getElementById('m-tab-porta'));
+  var tabInst=parseVal(document.getElementById('m-tab-inst'))||parseVal(document.getElementById('r-inst'));
+  var areas=[],totalArea=0;
+  window._mpItens.forEach(function(it){
+    var L=parseFloat(it._largura||it['largura'])||0;
+    var A=parseFloat(it._altura||it['altura'])||0;
+    var q=parseInt(it._qtd||it['qtd-portas'])||1;
+    var area=L*A/1e6*q;areas.push(area);totalArea+=area;
+  });
+  var totalQtd=0,html='';
   window._mpItens.forEach(function(it,i){
-    totalQtd+=it.qtd;
-    var proporcao=totalPortas>0?it.qtd/totalPortas:0;
-    var valorTotal=tabTotal*proporcao;
-    var valorUn=it.qtd>0?valorTotal/it.qtd:0;
-    totalOrc+=valorTotal;
+    var q=parseInt(it._qtd||it['qtd-portas'])||1;
+    totalQtd+=q;
+    var L=parseFloat(it._largura||it['largura'])||0;
+    var A=parseFloat(it._altura||it['altura'])||0;
+    var modTxt=it._modeloTxt||it['carac-modelo']||'Porta Pivotante';
+    var prop=totalArea>0?areas[i]/totalArea:0;
+    var valorPortaProp=tabPorta*prop;
+    var valorInstProp=tabInst*prop;
+    var valorTotal=valorPortaProp+valorInstProp;
+    var valorUn=q>0?valorTotal/q:0;
     html+='<tr>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+(i+1).toString().padStart(2,'0')+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc">'+it.modeloTxt+(it.temFixo?' + Fixo':'')+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">'+it.largura+' × '+it.altura+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+it.qtd+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc">'+modTxt+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">'+Math.round(L)+' \u00d7 '+Math.round(A)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+q+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+brl2(valorUn)+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+brl2(valorTotal)+'</td>'
       +'</tr>';
   });
   tbody.innerHTML=html;
-  // Atualizar totais
   var qtdEl=document.getElementById('prop-qtd');if(qtdEl)qtdEl.textContent=totalQtd;
   var qtdPEl=document.getElementById('prop-qtd-porta');if(qtdPEl)qtdPEl.textContent=totalQtd;
 }
+
 
 /* ══ ROMANEIO DE COMPRA — Lista consolidada para pedir material ══ */
 function gerarRomaneio(){
