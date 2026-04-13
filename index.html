@@ -17805,7 +17805,7 @@ function parseDanfeText(txt, fileName, rows){
   // Histórico
   if(vNF>0){
     var hist=JSON.parse(localStorage.getItem('projetta_nfe_hist')||'[]');
-    hist.unshift({nNF:nNF||'PDF',emit:emitNome||fileName,vNF:vNF,totalImp:totalImp,liq:valorLiquido,pctImp:pctImp,data:'',ts:new Date().toISOString(),itens:0,fonte:'PDF'});
+    hist.unshift({nNF:nNF||'PDF',emit:emitNome||fileName,vNF:vNF,totalImp:totalImp,liq:valorLiquido,pctImp:pctImp,data:'',ts:new Date().toISOString(),itens:0,fonte:'PDF',panelHTML:h});
     if(hist.length>50) hist=hist.slice(0,50);
     localStorage.setItem('projetta_nfe_hist',JSON.stringify(hist));
     renderNFeHist();
@@ -17975,7 +17975,7 @@ function parseNFeXML(xmlStr, fileName){
 
   // Salvar no histórico
   var hist=JSON.parse(localStorage.getItem('projetta_nfe_hist')||'[]');
-  hist.unshift({nNF:nNF,emit:emitNome,vNF:vNF,totalImp:totalImp,liq:valorLiquido,pctImp:pctImp,data:dhEmi,ts:new Date().toISOString(),itens:itens.length});
+  hist.unshift({nNF:nNF,emit:emitNome,vNF:vNF,totalImp:totalImp,liq:valorLiquido,pctImp:pctImp,data:dhEmi,ts:new Date().toISOString(),itens:itens.length,panelHTML:h});
   if(hist.length>50) hist=hist.slice(0,50);
   localStorage.setItem('projetta_nfe_hist',JSON.stringify(hist));
   renderNFeHist();
@@ -17993,19 +17993,35 @@ function renderNFeHist(){
   h+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
   h+='<tr style="background:#003144;color:#fff"><th style="padding:6px">NF-e</th><th>Fornecedor</th><th>Valor NF</th><th>Impostos</th><th>%</th><th>Líquido</th><th>Data</th><th></th></tr>';
   hist.forEach(function(n,i){
-    h+='<tr style="background:'+(i%2?'#f5f5f5':'#fff')+'">';
-    h+='<td style="padding:5px;border-bottom:1px solid #eee;font-weight:700">'+n.nNF+'</td>';
+    var hasPanel=!!n.panelHTML;
+    h+='<tr style="background:'+(i%2?'#f5f5f5':'#fff')+';'+(hasPanel?'cursor:pointer;':'')+'\" '+(hasPanel?'onclick="_nfeHistShowPanel('+i+')" title="Clique para ver detalhes"':'')+'>';
+    h+='<td style="padding:5px;border-bottom:1px solid #eee;font-weight:700">'+(hasPanel?'🔍 ':'')+n.nNF+'</td>';
     h+='<td style="padding:5px;border-bottom:1px solid #eee;font-weight:600;color:#003144;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(n.emit||'')+'">'+(n.emit||'—')+'</td>';
     h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+brl(n.vNF)+'</td>';
     h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#c62828">-'+brl(n.totalImp)+'</td>';
     h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:center;color:#e65100">'+n.pctImp.toFixed(1)+'%</td>';
     h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#2e7d32">'+brl(n.liq)+'</td>';
     h+='<td style="padding:5px;border-bottom:1px solid #eee;font-size:10px">'+new Date(n.ts).toLocaleDateString('pt-BR')+'</td>';
-    h+='<td style="padding:3px;border-bottom:1px solid #eee"><button onclick="deleteNFeHist('+i+')" style="border:none;background:none;color:#c62828;cursor:pointer;font-size:14px" title="Excluir">×</button></td>';
+    h+='<td style="padding:3px;border-bottom:1px solid #eee"><button onclick="event.stopPropagation();deleteNFeHist('+i+')" style="border:none;background:none;color:#c62828;cursor:pointer;font-size:14px" title="Excluir">×</button></td>';
     h+='</tr>';
   });
   h+='</table>';
   el.innerHTML=h;
+}
+function _nfeHistShowPanel(idx){
+  var hist=JSON.parse(localStorage.getItem('projetta_nfe_hist')||'[]');
+  if(!hist[idx]||!hist[idx].panelHTML) return;
+  var res=document.getElementById('nfe-result');
+  if(res){
+    res.innerHTML=hist[idx].panelHTML;
+    res.style.display='block';
+    res.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  // Auto-preencher calculadora Lucro Real com dados da nota
+  if(hist[idx].vNF>0){
+    var _lrV=document.getElementById('lr-valor');
+    if(_lrV){_lrV.value=(hist[idx].vNF-(hist[idx].totalImp||0)).toLocaleString('pt-BR',{minimumFractionDigits:2});calcLucroReal();}
+  }
 }
 function calcLucroReal(){
   var parseBR=function(s){if(!s)return 0;return parseFloat(s.replace(/\./g,'').replace(',','.'))||0;};
