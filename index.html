@@ -11272,12 +11272,14 @@ function _showToast(msg,color){
 
 function _onStageOrcamentoPronto(){
   _showToast('\u23F3 Gerando PDF da proposta...','#e67e22');
+  // Garantir cálculo atualizado antes de gerar proposta
+  if(typeof calc==='function') calc();
   setTimeout(function(){
     _gerarPropostaPDF(function(pdf,blob){
       pdf.save(_pdfFileName());
       _showToast('\u2705 PDF da proposta gerado e baixado!','#27ae60');
     });
-  },300);
+  },500);
 }
 
 function crmEnviarWhatsApp(){
@@ -19454,6 +19456,8 @@ function _populatePropostaItens(){
   if(propTotalEl) propTotalEl.textContent=brl2(totalValor);
   var propTotalOrcEl=document.getElementById('prop-total-orcamento');
   if(propTotalOrcEl) propTotalOrcEl.textContent=brl2(totalValor);
+  var propTotalOrcEl2=document.getElementById('prop-total-orc');
+  if(propTotalOrcEl2) propTotalOrcEl2.textContent=brl2(totalValor);
 }
 
 
