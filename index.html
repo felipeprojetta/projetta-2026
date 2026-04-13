@@ -10229,6 +10229,21 @@ window.crmFazerOrcamento=function(id){
           if(document.getElementById('carac-modelo'))document.getElementById('carac-modelo').value=_first['carac-modelo']||_first._modelo||'01';
           if(document.getElementById('folhas-porta'))document.getElementById('folhas-porta').value=_first['folhas-porta']||_first._folhas||'1';
           if(document.getElementById('plan-refilado'))document.getElementById('plan-refilado').value=_first['plan-refilado']||'20';
+          // Sync cor para planificador puxar chapa correta
+          if(document.getElementById('carac-cor-ext')&&_first['carac-cor-ext'])document.getElementById('carac-cor-ext').value=_first['carac-cor-ext'];
+          if(document.getElementById('carac-cor-int')&&_first['carac-cor-int'])document.getElementById('carac-cor-int').value=_first['carac-cor-int'];
+          // Sync planificador model/cava/friso
+          if(document.getElementById('plan-modelo'))document.getElementById('plan-modelo').value=_first['carac-modelo']||_first._modelo||'01';
+          if(document.getElementById('plan-folhas'))document.getElementById('plan-folhas').value=_first['folhas-porta']||_first._folhas||'1';
+          if(document.getElementById('plan-disborcava'))document.getElementById('plan-disborcava').value=_first['carac-dist-borda-cava']||'210';
+          if(document.getElementById('plan-largcava'))document.getElementById('plan-largcava').value=_first['carac-largura-cava']||'150';
+          if(document.getElementById('plan-disbordafriso'))document.getElementById('plan-disbordafriso').value=_first['carac-dist-borda-friso']||'';
+          if(document.getElementById('plan-largfriso'))document.getElementById('plan-largfriso').value=_first['carac-largura-friso']||'';
+          // Fech/cil/pux
+          if(document.getElementById('carac-fech-mec')&&_first['carac-fech-mec'])document.getElementById('carac-fech-mec').value=_first['carac-fech-mec'];
+          if(document.getElementById('carac-fech-dig')&&_first['carac-fech-dig'])document.getElementById('carac-fech-dig').value=_first['carac-fech-dig'];
+          if(document.getElementById('carac-cilindro')&&_first['carac-cilindro'])document.getElementById('carac-cilindro').value=_first['carac-cilindro'];
+          if(document.getElementById('carac-puxador')&&_first['carac-puxador'])document.getElementById('carac-puxador').value=_first['carac-puxador'];
           if(typeof onModeloChange==='function')try{onModeloChange();}catch(e){}
         }
       }
@@ -10238,11 +10253,20 @@ window.crmFazerOrcamento=function(id){
           gerarCustoTotal();
         }catch(e){
           console.warn('auto-gerarCustoTotal:',e);
-          // Fallback: tentar gerarOS direto
           try{if(typeof gerarOS==='function')gerarOS();}catch(e2){console.warn('fallback gerarOS:',e2);}
         }
       }
       window._osAutoMode=false;
+      // Auto-run planificador com todas as peças combinadas
+      setTimeout(function(){
+        try{
+          if(typeof planUpd==='function') planUpd();
+          if(typeof _autoSelectAndRun==='function') _autoSelectAndRun();
+          if(typeof _syncChapaToOrc==='function') _syncChapaToOrc();
+          if(typeof _updateFabChapaResumo==='function') _updateFabChapaResumo();
+          if(typeof calc==='function') calc();
+        }catch(e){console.warn('auto-plan:',e);}
+      },500);
     }, 1200);
     // Botões CRM: escondidos até o usuário SALVAR o orçamento
     var btn=document.getElementById('crm-orc-pronto-btn');
@@ -18691,7 +18715,7 @@ var _MP_ITEM_FIELDS=['largura','altura','qtd-portas','folhas-porta',
   'carac-largura-cava','carac-dist-borda-cava',
   'carac-largura-friso','carac-dist-borda-friso',
   'carac-friso-vert','carac-friso-horiz',
-  'carac-tem-alisar'];
+  'carac-tem-alisar','plan-refilado'];
 
 function _mpCaptureItem(){
   var data={};
@@ -18796,8 +18820,47 @@ function _mpCarregarItem(idx){
   _mpRestoreItem(window._mpItens[idx]);
   window._mpEditingIdx=idx;
   _mpRender();
-  // Scroll para o topo do formulário
-  document.getElementById('largura').scrollIntoView({behavior:'smooth',block:'center'});
+  // Sync planificador com dados do item
+  var it=window._mpItens[idx];
+  if(it){
+    var mod=it['carac-modelo']||it._modelo||'01';
+    if(document.getElementById('plan-modelo')) document.getElementById('plan-modelo').value=mod;
+    if(document.getElementById('plan-folhas')) document.getElementById('plan-folhas').value=it['folhas-porta']||it._folhas||'1';
+    if(document.getElementById('plan-refilado')) document.getElementById('plan-refilado').value=it['plan-refilado']||'20';
+    if(document.getElementById('plan-disborcava')) document.getElementById('plan-disborcava').value=it['carac-dist-borda-cava']||'210';
+    if(document.getElementById('plan-largcava')) document.getElementById('plan-largcava').value=it['carac-largura-cava']||'150';
+    if(document.getElementById('plan-disbordafriso')) document.getElementById('plan-disbordafriso').value=it['carac-dist-borda-friso']||'';
+    if(document.getElementById('plan-largfriso')) document.getElementById('plan-largfriso').value=it['carac-largura-friso']||'';
+    // Trigger onModeloChange para ativar cava/friso sections
+    if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
+    // Sync cor da chapa
+    var corExt=it['carac-cor-ext']||'';
+    if(corExt&&document.getElementById('carac-cor-ext')){
+      document.getElementById('carac-cor-ext').value=corExt;
+      if(typeof _syncCorToChapa==='function') try{_syncCorToChapa();}catch(e){}
+    }
+  }
+  // Abrir seção Características se fechada
+  var caracBody=document.getElementById('carac-body');
+  if(caracBody&&caracBody.style.display==='none'){
+    caracBody.style.display='';
+    var caracBadge=document.getElementById('carac-badge');
+    if(caracBadge) caracBadge.innerHTML='&#9650; fechar';
+  }
+  // Scroll para Características da Porta
+  var caracSec=document.getElementById('carac-body')||document.getElementById('largura');
+  if(caracSec) caracSec.scrollIntoView({behavior:'smooth',block:'start'});
+  // Toast indicando qual item está editando
+  var _tIt=document.createElement('div');
+  _tIt.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#e67e22;color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 3px 12px rgba(0,0,0,.2)';
+  _tIt.textContent='✏ Editando Item '+(idx+1)+': '+(it._largura||it['largura']||'?')+'×'+(it._altura||it['altura']||'?')+' mm';
+  document.body.appendChild(_tIt);setTimeout(function(){_tIt.remove();},2500);
+  // Auto-recalcular planificador e custo
+  setTimeout(function(){
+    if(typeof planUpd==='function') try{planUpd();}catch(e){}
+    if(typeof _autoSelectAndRun==='function') try{_autoSelectAndRun();}catch(e){}
+    if(typeof calc==='function') calc();
+  },300);
 }
 
 function _mpRender(){
@@ -19130,9 +19193,10 @@ function _mpCalcAllPiecesCombined(){
     }
     try{
       var pieces=plnPecas(it.largura, it.altura, it.folhas||1, it.modelo||'01');
+      var _iTag=' [P'+(idx+1)+' '+it.largura+'×'+it.altura+']';
       pieces.forEach(function(p){
-        var pc=Array.isArray(p)?{label:p[0],w:p[1],h:p[2],qty:(p[3]||1)*it.qtd,color:p[4]||''}
-          :{label:p.label,w:p.w,h:p.h,qty:(p.qty||1)*it.qtd,color:p.color||''};
+        var pc=Array.isArray(p)?{label:p[0]+_iTag,w:p[1],h:p[2],qty:(p[3]||1)*it.qtd,color:p[4]||''}
+          :{label:p.label+_iTag,w:p.w,h:p.h,qty:(p.qty||1)*it.qtd,color:p.color||''};
         pc._itemIdx=idx;
         allPieces.push(pc);
       });
