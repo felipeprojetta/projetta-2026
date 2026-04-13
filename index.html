@@ -10129,11 +10129,28 @@ window.crmFazerOrcamento=function(id){
         var mpSec=document.getElementById('multi-porta-section');
         if(mpSec) mpSec.style.display='';
         console.log('✅ _mpItens criados: '+window._mpItens.length+' itens → '+window._mpItens.map(function(m){return m._largura+'×'+m._altura;}).join(', '));
+        // Garantir form com dados do primeiro item para gerarCustoTotal
+        var _first=window._mpItens[0];
+        if(_first){
+          document.getElementById('largura').value=_first._largura||_first['largura']||'';
+          document.getElementById('altura').value=_first._altura||_first['altura']||'';
+          if(document.getElementById('carac-modelo'))document.getElementById('carac-modelo').value=_first['carac-modelo']||_first._modelo||'01';
+          if(document.getElementById('folhas-porta'))document.getElementById('folhas-porta').value=_first['folhas-porta']||_first._folhas||'1';
+          if(typeof onModeloChange==='function')try{onModeloChange();}catch(e){}
+        }
       }
       window._osAutoMode=true;
-      if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('auto-gerarCustoTotal:',e);}
+      if(typeof gerarCustoTotal==='function'){
+        try{
+          gerarCustoTotal();
+        }catch(e){
+          console.warn('auto-gerarCustoTotal:',e);
+          // Fallback: tentar gerarOS direto
+          try{if(typeof gerarOS==='function')gerarOS();}catch(e2){console.warn('fallback gerarOS:',e2);}
+        }
+      }
       window._osAutoMode=false;
-    }, 800);
+    }, 1200);
     // Botões CRM: escondidos até o usuário SALVAR o orçamento
     var btn=document.getElementById('crm-orc-pronto-btn');
     if(btn){btn.style.display='none';btn.setAttribute('data-id',id);}
