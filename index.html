@@ -8555,11 +8555,14 @@ function updateKPIs(all){
   var intl=all.filter(function(o){return o.scope==='internacional';});
   var pipe=ativos.reduce(function(s,o){return s+(parseFloat(o.valor)||0);},0);
   var gMes=ganhosMes.reduce(function(s,o){return s+(parseFloat(o.valor)||0);},0);
-  var ticket=ativos.length>0?pipe/ativos.length:0;
+  var ativosComValor=ativos.filter(function(o){return(parseFloat(o.valor)||0)>0;});
+  var ticket=ativosComValor.length>0?pipe/ativosComValor.length:0;
   var conv=(ganhos.length+perdidos.length)>0?Math.round(ganhos.length/(ganhos.length+perdidos.length)*100):0;
   if(el('ck-pipe')){el('ck-pipe').textContent=brl(pipe);el('ck-pipe-s').textContent=ativos.length+' ativas';}
   if(el('ck-gain')){el('ck-gain').textContent=brl(gMes);el('ck-gain-s').textContent=ganhosMes.length+' contratos';}
   if(el('ck-ticket'))el('ck-ticket').textContent=brl(ticket);
+  var ckTicketSub=document.querySelector('#ck-ticket')&&document.querySelector('#ck-ticket').parentNode?document.querySelector('#ck-ticket').parentNode.querySelector('.crm-kpi-sub'):null;
+  if(ckTicketSub) ckTicketSub.textContent=ativosComValor.length+' com valor';
   if(el('ck-conv'))el('ck-conv').textContent=conv+'%';
   if(el('ck-intl')){el('ck-intl').textContent=intl.length;el('ck-intl-s').textContent='internacional'+(intl.length!==1?'s':'');}
   // Total Tabela e Faturamento (todas ativas)
