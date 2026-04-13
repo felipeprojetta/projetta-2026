@@ -14907,6 +14907,8 @@ function buscaCep() {
               });
           });
       }
+      // Capitais brasileiras para fallback
+      var _CAPS={AC:[-9.97,-67.81],AL:[-9.66,-35.74],AP:[0.03,-51.06],AM:[-3.12,-60.02],BA:[-12.97,-38.51],CE:[-3.72,-38.52],DF:[-15.78,-47.93],ES:[-20.32,-40.34],GO:[-16.68,-49.25],MA:[-2.53,-44.28],MT:[-15.60,-56.10],MS:[-20.44,-54.65],MG:[-19.92,-43.94],PA:[-1.46,-48.50],PB:[-7.12,-34.86],PR:[-25.43,-49.27],PE:[-8.05,-34.87],PI:[-5.09,-42.80],RJ:[-22.91,-43.17],RN:[-5.79,-35.21],RS:[-30.03,-51.23],RO:[-8.76,-63.90],RR:[2.82,-60.67],SC:[-27.59,-48.55],SP:[-23.55,-46.63],SE:[-10.91,-37.07],TO:[-10.18,-48.33]};
       // Geocode attempt 1: Nominatim structured
       fetch(geoUrl1,{headers:_geoHeaders}).then(function(r){return r.json();}).then(function(geo){
         if(geo&&geo.length) _onGeoResult(parseFloat(geo[0].lat),parseFloat(geo[0].lon));
@@ -14920,9 +14922,12 @@ function buscaCep() {
           // Geocode attempt 3: geocode.maps.co
           fetch('https://geocode.maps.co/search?q='+encodeURIComponent(cidade+', '+uf+', Brazil')+'&format=json&limit=1').then(function(r){return r.json();}).then(function(geo3){
             if(geo3&&geo3.length) _onGeoResult(parseFloat(geo3[0].lat),parseFloat(geo3[0].lon));
-            else if(distEl) distEl.textContent='Geocodificação falhou — digite km manualmente';
+            else{var cap3=_CAPS[uf.toUpperCase()];if(cap3)_onGeoResult(cap3[0],cap3[1]);else if(distEl)distEl.textContent='Digite km manualmente';}
           }).catch(function(){
-            if(distEl) distEl.textContent='Geocodificação falhou — digite km manualmente';
+            // Fallback final: coordenadas da capital do estado
+            var cap=_CAPS[uf.toUpperCase()];
+            if(cap) _onGeoResult(cap[0],cap[1]);
+            else if(distEl) distEl.textContent='Digite km manualmente';
           });
         });
       });
