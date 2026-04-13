@@ -4092,7 +4092,7 @@ function calc(){
     var hQuadroEl=$('h-quadro');
     if(hQuadroEl) _setHoraAuto('h-quadro',_hQuadroTotal,'h-quadro-auto','(auto: '+_hQuadroDetail.join(' + ')+')');
     var hColagemEl=$('h-colagem');
-    if(hColagemEl && (hColagemEl.value==='' || hColagemEl.dataset.auto==='1' || hColagemEl.value==='0'))
+    if(hColagemEl)
       _setHoraAuto('h-colagem',_hColagemTotal,'h-colagem-auto','(auto: '+_hColagemDetail.join(' + ')+')');
     var hConfEl=$('h-conf');
     if(hConfEl) _setHoraAuto('h-conf',_hConfTotal,'h-conf-auto','(auto: '+_hConfDetail.join(' + ')+')');
@@ -14938,7 +14938,26 @@ function buscaCep() {
         });
     })
     .catch(function(e) {
-      if (cidadeEl) cidadeEl.textContent = 'Erro: ' + (e.message||'falha na busca');
+      // Fallback: tentar BrasilAPI
+      _fetchTimeout('https://brasilapi.com.br/api/cep/v1/'+cep,{},6000)
+        .then(function(r){return r.json();})
+        .then(function(data2){
+          if(!data2||data2.errors){if(cidadeEl)cidadeEl.textContent='CEP não encontrado';return;}
+          var cidade=data2.city,uf=data2.state;
+          if(cidadeEl)cidadeEl.textContent=cidade+' - '+uf;
+          if(distEl)distEl.textContent='Calculando distância...';
+          // Geocode e rota
+          var geoUrl2='https://nominatim.openstreetmap.org/search?city='+encodeURIComponent(cidade)+'&state='+encodeURIComponent(uf)+'&country=Brazil&format=json&limit=1';
+          return _fetchTimeout(geoUrl2,{headers:{'Accept-Language':'pt-BR','User-Agent':'Projetta-App/1.0'}},8000).then(function(r){return r.json();}).then(function(geo){
+            if(!geo||!geo.length){if(distEl)distEl.textContent='Cidade não geocodificada';return;}
+            var dLat=parseFloat(geo[0].lat),dLon=parseFloat(geo[0].lon);
+            var hav=_haversineKm(FACTORY_LAT,FACTORY_LON,dLat,dLon)*1.3;
+            _cepSetResult(cidade,uf,hav,false);
+          });
+        })
+        .catch(function(e2){
+          if(cidadeEl)cidadeEl.textContent='Erro: '+(e2.message||e.message||'falha na busca');
+        });
     });
   }).catch(function(){});
 }
