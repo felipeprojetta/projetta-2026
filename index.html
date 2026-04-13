@@ -4027,6 +4027,7 @@ function calc(){
     if(isRip){
       d += altMM <= 4000 ? 1 : 2;
     }
+    d = Math.max(2, d); // mínimo 2 dias de colagem sempre
     return nFol===2 ? d*2 : d;
   }
 
