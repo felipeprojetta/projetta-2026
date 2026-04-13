@@ -17128,6 +17128,7 @@ function _renderOSAcess(d, acessRows, vedaInfo){
 
   // ── Pivô ou Dobradiça conforme tipo de abertura ──
   var abertura = (document.getElementById('carac-abertura')||{value:''}).value||'';
+  var _qPHw=window._mpItens&&window._mpItens.length>0?window._mpItens.reduce(function(s,it){return s+(parseInt(it._qtd||it['qtd-portas'])||1);},0):parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
   var hardwareRows = [];
 
   // Limpar alerta anterior
@@ -17147,12 +17148,12 @@ function _renderOSAcess(d, acessRows, vedaInfo){
     var dobCode = 'PA-DOBKESO 4X3X3 PRE';
     var dobPreco = getPreco(dobCode);
     var dobDesc = 'Dobradiça Volper 4×3×3 Inox Preto';
-    hardwareRows.push({qty:qtyDob, code:dobCode, desc:dobDesc+' (porta: '+peso.total.toFixed(1)+'kg — '+qtyDob+' un.)', preco:dobPreco, apl:'FAB', grp:'DOBRADIÇAS', obs:'DOBRADIÇA'});
+    hardwareRows.push({qty:qtyDob*_qPHw, code:dobCode, desc:dobDesc+' (porta: '+peso.total.toFixed(1)+'kg — '+qtyDob+' un.×'+_qPHw+')', preco:dobPreco, apl:'FAB', grp:'DOBRADIÇAS', obs:'DOBRADIÇA'});
   } else if(abertura === 'PIVOTANTE'){
     var pivotCode  = peso.total<=350?'PA-PIVOT 350 KG':'PA-PIVOT 600 KG';
     var pivotPreco = getPreco(pivotCode);
     var pivotDesc  = peso.total<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
-    hardwareRows.push({qty:1, code:pivotCode, desc:pivotDesc+' (porta: '+peso.total.toFixed(1)+'kg — perfis: '+peso.pesoPerfis.toFixed(1)+'kg + chapas: '+peso.pesoChapas.toFixed(1)+'kg + enchim: '+peso.pesoEnchimento.toFixed(1)+'kg + lã: '+peso.pesoLaRocha.toFixed(1)+'kg)', preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
+    hardwareRows.push({qty:_qPHw, code:pivotCode, desc:pivotDesc+' (porta: '+peso.total.toFixed(1)+'kg — perfis: '+peso.pesoPerfis.toFixed(1)+'kg + chapas: '+peso.pesoChapas.toFixed(1)+'kg + enchim: '+peso.pesoEnchimento.toFixed(1)+'kg + lã: '+peso.pesoLaRocha.toFixed(1)+'kg)', preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
   }
   // Se abertura não selecionada: sem pivô nem dobradiça
 
