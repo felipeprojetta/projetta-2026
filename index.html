@@ -10990,7 +10990,9 @@ function _gerarPropostaPDF(cb){
 function _pdfFileName(){
   var agp=(document.getElementById('num-agp')||document.getElementById('crm-o-agp')||{value:''}).value||'';
   var reserva=(document.getElementById('numprojeto')||document.getElementById('crm-o-reserva')||{value:''}).value||'';
-  var cl=(document.getElementById('crm-o-cliente')||document.getElementById('cliente')||{value:''}).value||'Cliente';
+  var cl=(document.getElementById('cliente')||{value:''}).value
+    ||(document.getElementById('crm-o-cliente')||{value:''}).value
+    ||'';
   var parts=[agp,reserva,cl].filter(Boolean);
   var name=parts.join(' - ').replace(/[^a-zA-Z0-9\u00C0-\u017F \-]/g,'').replace(/ +/g,' ').trim();
   return (name||'Proposta_Projetta')+'.pdf';
