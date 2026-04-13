@@ -16882,7 +16882,9 @@ function _calcAcessoriosOS(d, nFolhas, sis){
 
 /* ── Helper: calcula acessórios para todos os itens multi-porta ── */
 function _calcAcessoriosAllItems(d, sis){
+  console.log('🔧 _calcAcessoriosAllItems chamada. _mpItens='+((window._mpItens&&window._mpItens.length)||0));
   if(!window._mpItens || window._mpItens.length === 0){
+    console.log('  → Single door mode');
     // Single door
     var nFol=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
     var rows=_calcAcessoriosOS(d, nFol, sis);
@@ -16891,6 +16893,7 @@ function _calcAcessoriosAllItems(d, sis){
     return rows;
   }
   // Multi-porta: iterar cada item
+  console.log('  → Multi-porta mode: '+window._mpItens.length+' itens');
   var allRows=[];
   var saved={};
   ['largura','altura','carac-modelo','folhas-porta','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam'].forEach(function(id){
@@ -16900,14 +16903,16 @@ function _calcAcessoriosAllItems(d, sis){
     ['largura','altura','carac-modelo','folhas-porta','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam'].forEach(function(id){
       var el=document.getElementById(id);
       if(el){
-        var mpKey=id; // _mpItens usa os mesmos nomes de campo
-        var altKey=id.replace('carac-','').replace(/-/g,'_'); // CRM usa underscores
+        var mpKey=id;
+        var altKey=id.replace('carac-','').replace(/-/g,'_');
         el.value=mpIt[mpKey]||mpIt['_'+altKey]||mpIt[altKey]||'';
       }
     });
     // Fallback: campos meta
     if(document.getElementById('largura'))document.getElementById('largura').value=mpIt['largura']||mpIt._largura||'';
     if(document.getElementById('altura'))document.getElementById('altura').value=mpIt['altura']||mpIt._altura||'';
+    var fmVal=(document.getElementById('carac-fech-mec')||{value:''}).value;
+    console.log('  Item '+(idx+1)+': L='+document.getElementById('largura').value+' A='+document.getElementById('altura').value+' fech='+fmVal+' mod='+((document.getElementById('carac-modelo')||{value:''}).value));
     var nFolI=parseInt(mpIt['folhas-porta']||mpIt._folhas)||1;
     try{
       var iRows=_calcAcessoriosOS(d, nFolI, sis);
@@ -16920,6 +16925,7 @@ function _calcAcessoriosAllItems(d, sis){
   });
   // Restaurar form
   Object.keys(saved).forEach(function(id){var el=document.getElementById(id);if(el)el.value=saved[id];});
+  console.log('  → Total acessórios rows: '+allRows.length+' (de '+window._mpItens.length+' itens)');
   return allRows;
 }
 
