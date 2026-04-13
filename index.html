@@ -4191,7 +4191,7 @@ function calc(){
     _maxAlt=0;window._mpItens.forEach(function(it){var a=parseFloat(it._altura||it['altura'])||0;if(a>_maxAlt)_maxAlt=a;});
   }
   if(_pessoasEl && _maxAlt>0 && (_pessoasEl.value==='' || _pessoasEl.dataset.auto==='1')){
-    var _pNum = _maxAlt>5000 ? 3 : 2;
+    var _pNum = (window._mpItens&&window._mpItens.length>1) ? 3 : (_maxAlt>5000 ? 3 : 2);
     _pessoasEl.value=_pNum;
     _pessoasEl.dataset.auto='1';
     var _pLbl=document.getElementById('pessoas-auto');
