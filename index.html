@@ -11678,7 +11678,7 @@ function populateProposta(){
   // Quantidade (suporte multi-porta)
   var qtdPortas=parseInt(g('qtd-portas'))||1;
   if(window._mpItens&&window._mpItens.length>0){
-    qtdPortas=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
+    qtdPortas=window._mpItens.reduce(function(s,it){return s+(parseInt(it._qtd||it['qtd-portas'])||1);},0);
   }
   // Popular tabela de itens da proposta (multi-porta)
   _populatePropostaItens();
@@ -19414,7 +19414,14 @@ function _populatePropostaItens(){
     totalQtd+=q;
     var L=parseFloat(it._largura||it['largura'])||0;
     var A=parseFloat(it._altura||it['altura'])||0;
-    var modTxt=it._modeloTxt||it['carac-modelo']||'Porta Pivotante';
+    var modTxt=it._modeloTxt||it._modelo||it['carac-modelo']||'';
+    if(!modTxt||modTxt==='undefined'){
+      // Tentar buscar texto do modelo pelo número
+      var modNum=it._modelo||it['carac-modelo']||'01';
+      var modSel=document.getElementById('carac-modelo');
+      if(modSel){for(var mi=0;mi<modSel.options.length;mi++){if(modSel.options[mi].value===modNum){modTxt=modSel.options[mi].text;break;}}}
+      if(!modTxt) modTxt='Porta Pivotante';
+    }
     var prop=totalArea>0?areas[i]/totalArea:0;
     var valorPortaProp=tabPorta*prop;
     var valorInstProp=tabInst*prop;
