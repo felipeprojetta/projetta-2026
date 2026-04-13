@@ -14881,10 +14881,13 @@ function buscaCep() {
       if(done)return;done=true;
       cidadeEl.textContent=cidade+' - '+uf;
       distEl.textContent='Calculando distância...';
-      var geoUrl='https://nominatim.openstreetmap.org/search?city='+encodeURIComponent(cidade)+'&state='+encodeURIComponent(uf)+'&country=Brazil&format=json&limit=1';
-      fetch(geoUrl).then(function(r){return r.json();}).then(function(geo){
-        if(!geo||!geo.length){distEl.textContent='Cidade não geocodificada';return;}
-        var dLat=parseFloat(geo[0].lat),dLon=parseFloat(geo[0].lon);
+      // Geocode: tentar Nominatim structured → Nominatim q → fallback coords capitais
+      var _geoHeaders={'Accept':'application/json'};
+      var geoUrl1='https://nominatim.openstreetmap.org/search?city='+encodeURIComponent(cidade)+'&state='+encodeURIComponent(uf)+'&country=Brazil&format=json&limit=1';
+      var geoUrl2='https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(cidade+', '+uf+', Brasil')+'&format=json&limit=1';
+      var _geoDone=false;
+      function _onGeoResult(dLat,dLon){
+        if(_geoDone)return;_geoDone=true;
         // Valhalla
         var vUrl='https://valhalla1.openstreetmap.de/route';
         var vBody=JSON.stringify({locations:[{lat:FACTORY_LAT,lon:FACTORY_LON},{lat:dLat,lon:dLon}],costing:'auto',units:'km'});
@@ -14903,7 +14906,26 @@ function buscaCep() {
                 _cepSetResult(cidade,uf,_haversineKm(FACTORY_LAT,FACTORY_LON,dLat,dLon)*1.3,false);
               });
           });
-      }).catch(function(){distEl.textContent='Geocodificação falhou';});
+      }
+      // Geocode attempt 1: Nominatim structured
+      fetch(geoUrl1,{headers:_geoHeaders}).then(function(r){return r.json();}).then(function(geo){
+        if(geo&&geo.length) _onGeoResult(parseFloat(geo[0].lat),parseFloat(geo[0].lon));
+        else throw new Error('empty');
+      }).catch(function(){
+        // Geocode attempt 2: Nominatim q= format
+        fetch(geoUrl2,{headers:_geoHeaders}).then(function(r){return r.json();}).then(function(geo2){
+          if(geo2&&geo2.length) _onGeoResult(parseFloat(geo2[0].lat),parseFloat(geo2[0].lon));
+          else throw new Error('empty2');
+        }).catch(function(){
+          // Geocode attempt 3: geocode.maps.co
+          fetch('https://geocode.maps.co/search?q='+encodeURIComponent(cidade+', '+uf+', Brazil')+'&format=json&limit=1').then(function(r){return r.json();}).then(function(geo3){
+            if(geo3&&geo3.length) _onGeoResult(parseFloat(geo3[0].lat),parseFloat(geo3[0].lon));
+            else if(distEl) distEl.textContent='Geocodificação falhou — digite km manualmente';
+          }).catch(function(){
+            if(distEl) distEl.textContent='Geocodificação falhou — digite km manualmente';
+          });
+        });
+      });
     }
     // API 1: ViaCEP
     fetch('https://viacep.com.br/ws/'+cep+'/json/').then(function(r){return r.json();}).then(function(d){
