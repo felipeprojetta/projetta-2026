@@ -9354,7 +9354,7 @@ window.crmItemAutoSelect=function(id){
       var _modSel2=document.getElementById(pre+'modelo');
       var _modTxt2=_modSel2&&_modSel2.selectedIndex>=0?(_modSel2.options[_modSel2.selectedIndex].text||'').toLowerCase():'';
       if(cavaWrap) cavaWrap.style.display=_modTxt2.indexOf('cava')>=0?'':'none';
-      if(frisoWrap) frisoWrap.style.display=_modTxt2.indexOf('friso')>=0?'':'none';
+      if(frisoWrap) frisoWrap.style.display=(_modTxt2.indexOf('friso')>=0||_modTxt2.indexOf('premium')>=0)?'':'none';
     }
   }
 }
@@ -9605,7 +9605,8 @@ window._crmItensRender=function(){
       h+='</div></div>';
       // Config Friso — visível quando modelo tem "friso" no nome
       var _temFriso=false;
-      if(_modOptMatch) _temFriso=_modOptMatch[1].toLowerCase().indexOf('friso')>=0;
+      if(_modOptMatch){var _modTxtLow=_modOptMatch[1].toLowerCase();_temFriso=_modTxtLow.indexOf('friso')>=0||_modTxtLow.indexOf('premium')>=0;}
+      if(item.modelo==='22') _temFriso=true;
       h+='<div id="'+pre+'friso_wrap" style="'+(_temFriso?'':'display:none')+'">';
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">📐 Configuração do Friso</div>';
       h+='<div class="crm-row">';
