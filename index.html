@@ -5661,7 +5661,7 @@ function aprovPieces(Lmm,Amm,fol,mod){
     r.push(['CAVA',DC+360,G4,(fol==2)?4:2]);
     if(fol==1)r.push(['TAMPA MAIOR',fW+40-cavaDeduc-68,G4,2]);
     else{var G2c=Math.round((fW+40-cavaDeduc-68)/2);r.push(['TAMPA F1',G2c+19,G4,1],['TAMPA F2',G2c,G4,2],['TAMPA F3',G2c-19,G4,1]);}
-    r.push(['TAMPA BOR CAVA',HC+38,G4,(fol==2)?4:2]);
+    r.push(['TAMPA BOR CAVA',HC+39,G4,(fol==2)?4:2]);
     r.push(['ACAB LAT 1',88.5,G4,nL],['ACAB LAT 2',90,G4,nL],['ACAB LAT Z',110,G4,nL]);
     r.push(['U PORTAL',221,L-20,1],['BAT 01',42,bH,2],['BAT 02Z',51,bH,2],['BAT 03',81,bH,2]);
     r.push(['TAP FURO',119,bH,3],['FIT ACAB ME',76.5,bH,2],['FIT ACAB MA',114.5,bH,2],['FIT ACAB FITA',101,bH,2]);
@@ -12895,9 +12895,9 @@ function plnPecas(Lmm, Amm, fol, mod) {
       r.push(['TAMPA MAIOR 03', T3, G4, 1]);
     }
     if (fol == 1) {
-      r.push(['TAMPA BOR CAVA', DIS_BOR_CAVA + 38, G4, 2]);
+      r.push(['TAMPA BOR CAVA', DIS_BOR_CAVA + 39, G4, 2]);
     } else {
-      r.push(['TAMPA MENOR', DIS_BOR_CAVA + REF*2 - 2, G4, 4]);
+      r.push(['TAMPA MENOR', DIS_BOR_CAVA + REF*2 - 1, G4, 4]);
     }
     r.push(['ACAB LAT 1', acabLat1, G4, nL], ['ACAB LAT 2', 90, G4, nL], ['ACAB LAT Z', 110, G4, nL]);
     r.push(['U PORTAL', 221, L-REF, 1]);
