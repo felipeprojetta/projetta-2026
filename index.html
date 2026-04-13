@@ -3119,6 +3119,12 @@ Equipe Projetta by Weiku</textarea>
     </div>
 
     <!-- cava variables - so aparece para modelos cava -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <label style="font-size:9px;color:#888;white-space:nowrap">Refilado tampas</label>
+      <select id="plan-refilado" onchange="if(typeof planUpd==='function')planUpd()" style="padding:4px 8px;border:1px solid #c9c6bf;border-radius:5px;font-size:11px;font-weight:700;color:var(--navy)">
+        <option value="20" selected>20 mm</option><option value="15">15 mm</option><option value="10">10 mm</option>
+      </select>
+    </div>
     <div id="plan-cava-row" style="display:none;background:#fff5f5;border:0.5px solid #ffcdd2;border-radius:7px;padding:9px 12px;margin-bottom:8px">
       <div style="font-size:10px;font-weight:700;color:#b71c1c;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:Lexend Zetta,Arial,sans-serif">Variaveis da Cava</div>
       <div style="display:flex;gap:20px;flex-wrap:wrap">
@@ -9522,7 +9528,7 @@ window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
     var fields=['qtd','largura','altura','cor_ext','cor_int'];
-    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso']);
+    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','refilado']);
     if(item.tipo==='fixo') fields=fields.concat(['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material']);
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
@@ -9600,6 +9606,8 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"><label>Puxador <small style="color:#888">(auto por modelo)</small></label><select id="'+pre+'puxador"><option value="">— Selecione —</option><option value="CAVA">Cava</option><option value="EXTERNO">Puxador Externo</option></select></div>';
       h+='</div>';
       // Config Cava — sempre renderiza, visibilidade controlada por id
+      h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">✂️ Refilado Tampas</div>';
+      h+='<div class="crm-row"><div class="crm-field"><label>Refilado (mm)</label><select id="'+pre+'refilado" style="width:100%"><option value="20"'+(item.refilado==='15'||item.refilado==='10'?'':' selected')+'>20 mm (padrão)</option><option value="15"'+(item.refilado==='15'?' selected':'')+'>15 mm</option><option value="10"'+(item.refilado==='10'?' selected':'')+'>10 mm</option></select></div></div>';
       var _modInt=parseInt(item.modelo)||0;
       var _temCava=false;
       var _modOptMatch=modeloOpts.match(new RegExp('value="'+item.modelo+'"[^>]*>([^<]+)'));
@@ -9662,7 +9670,7 @@ window._crmItensRender=function(){
   // Re-apply selected values for selects (the replace trick doesn't always work)
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
-    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','cor_ext','cor_int','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int'];
+    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','cor_ext','cor_int','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','refilado']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int'];
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el&&item[f]) el.value=item[f];
@@ -9693,7 +9701,7 @@ window._crmItensToCardData=function(){
       clean.modelo=item.modelo||'';clean.abertura=item.abertura||'PIVOTANTE';clean.folhas=item.folhas||'1';
       clean.fech_mec=item.fech_mec||'';clean.fech_dig=item.fech_dig||'';clean.cilindro=item.cilindro||'';clean.puxador=item.puxador||'';
       clean.dist_borda_cava=item.dist_borda_cava||'210';clean.largura_cava=item.largura_cava||'150';clean.cantoneira_cava=item.cantoneira_cava||'30';
-      clean.dist_borda_friso=item.dist_borda_friso||'';clean.largura_friso=item.largura_friso||'';
+      clean.dist_borda_friso=item.dist_borda_friso||'';clean.largura_friso=item.largura_friso||'';clean.refilado=item.refilado||'20';
       clean.friso_vert=item.friso_vert||'0';clean.friso_horiz=item.friso_horiz||'0';clean.tem_alisar=!!item.tem_alisar;
     }
     if(item.tipo==='fixo'){
@@ -10168,6 +10176,7 @@ window.crmFazerOrcamento=function(id){
           mp['carac-friso-vert']=oi.friso_vert||'0';
           mp['carac-friso-horiz']=oi.friso_horiz||'0';
           mp['carac-tem-alisar']=oi.tem_alisar?'1':'0';
+          mp['plan-refilado']=oi.refilado||'20';
           mp['tem-fixo']=false;
           mp._fixos=[];
           mp._modelo=oi.modelo||'01';
@@ -13020,7 +13029,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
   var L  = Math.round(Lmm);
   var A  = Math.round(Amm);
   var TUB_SUP = (typeof _isInternacional==='function'&&_isInternacional())?51:(A < 4000 ? 38 : 51);
-  var FGA = 10, PIV = 28, TRANS_PIV = 8, FGLA = 20, REF = 20;
+  var FGA = 10, PIV = 28, TRANS_PIV = 8, FGLA = 20, REF = parseInt((document.getElementById('plan-refilado')||{value:20}).value)||20;
   var G4 = A - FGA - TUB_SUP - PIV + TRANS_PIV;
   var G2total = L - FGLA - 343 + 256;
   var G3 = L - FGLA - 343 + 218;
@@ -13039,7 +13048,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
       frisoDeduc = DIS_BOR_FRI + LARG_FRISO;
     }
     if (fol == 1) {
-      r.push(['TAMPA MAIOR', fW + 40 - frisoDeduc, G4, 2]);
+      r.push(['TAMPA MAIOR', fW + 2*REF - frisoDeduc, G4, 2]);
     } else {
       var base2 = G2total / 2;
       var T1 = base2 + FGA + FGLA*2 - 1;
@@ -13050,7 +13059,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
       r.push(['TAMPA MAIOR 03', T3, G4, 1]);
     }
     if (mod === '11') {
-      r.push(['TAMPA FRISO', DIS_BOR_FRI + 39, G4, (fol==2) ? 4 : 2]);
+      r.push(['TAMPA FRISO', DIS_BOR_FRI + (2*REF-1), G4, (fol==2) ? 4 : 2]);
       r.push(['FRISO', LARG_FRISO + 100, G4, (fol==2) ? 4 : 2]);
     }
     r.push(['ACAB LAT 1', acabLat1, G4, nL], ['ACAB LAT 2', 90, G4, nL], ['ACAB LAT Z', 110, G4, nL]);
@@ -13105,7 +13114,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
     r.push(['CAVA', LARG_CAVA + 116, cavaH, (fol==2) ? 4 : 2]);
     r.push(['TAMPA CAVA', LARG_CAVA + 90, DIS_BOR_CAVA, (fol==2) ? 8 : 4]);
     if (fol == 1) {
-      var tampaW = fW + 40 - cavaDeduc - frisoDeduc;
+      var tampaW = fW + 2*REF - cavaDeduc - frisoDeduc;
       r.push(['TAMPA MAIOR', tampaW, G4, 2]);
     } else {
       var DBC = DIS_BOR_CAVA, LC = LARG_CAVA;
@@ -13119,12 +13128,12 @@ function plnPecas(Lmm, Amm, fol, mod) {
       r.push(['TAMPA MAIOR 03', T3, G4, 1]);
     }
     if (fol == 1) {
-      r.push(['TAMPA BOR CAVA', DIS_BOR_CAVA + 38, G4, 2]);
+      r.push(['TAMPA BOR CAVA', DIS_BOR_CAVA + (2*REF-2), G4, 2]);
     } else {
       r.push(['TAMPA MENOR', DIS_BOR_CAVA + REF*2 - 2, G4, 4]);
     }
     if (mod === '02') {
-      r.push(['TAMPA FRISO', DIS_BOR_FRI + 39, G4, (fol==2) ? 4 : 2]);
+      r.push(['TAMPA FRISO', DIS_BOR_FRI + (2*REF-1), G4, (fol==2) ? 4 : 2]);
       r.push(['FRISO', LARG_FRISO + 100, G4, (fol==2) ? 4 : 2]);
     }
     r.push(['ACAB LAT 1', acabLat1, G4, nL], ['ACAB LAT 2', 90, G4, nL], ['ACAB LAT Z', 110, G4, nL]);
@@ -13149,7 +13158,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
     var frisoDeduc = (LARG_FRISO > 0 && DIS_BOR_FRI > 0) ? DIS_BOR_FRI + LARG_FRISO : 0;
     r.push(['CAVA', LARG_CAVA + 360, G4, (fol==2) ? 4 : 2]);
     if (fol == 1) {
-      r.push(['TAMPA MAIOR', fW + 40 - cavaDeduc - 68 - frisoDeduc, G4, 2]);
+      r.push(['TAMPA MAIOR', fW + 2*REF - cavaDeduc - 68 - frisoDeduc, G4, 2]);
     } else {
       var DBC = DIS_BOR_CAVA, LC = LARG_CAVA;
       var baseA = (G2total - DBC*2 - LC*2) / 2;
@@ -13162,13 +13171,13 @@ function plnPecas(Lmm, Amm, fol, mod) {
       r.push(['TAMPA MAIOR 03', T3, G4, 1]);
     }
     if (fol == 1) {
-      r.push(['TAMPA BOR CAVA', DIS_BOR_CAVA + 39, G4, 2]);
+      r.push(['TAMPA BOR CAVA', DIS_BOR_CAVA + (2*REF-1), G4, 2]);
     } else {
       r.push(['TAMPA MENOR', DIS_BOR_CAVA + REF*2 - 1, G4, 4]);
     }
     // Friso vertical peças (se configurado)
     if (frisoDeduc > 0) {
-      r.push(['TAMPA FRISO', DIS_BOR_FRI + 39, G4, (fol==2) ? 4 : 2]);
+      r.push(['TAMPA FRISO', DIS_BOR_FRI + (2*REF-1), G4, (fol==2) ? 4 : 2]);
       r.push(['FRISO VERT', LARG_FRISO + 100, G4, (fol==2) ? 4 : 2]);
     }
     r.push(['ACAB LAT 1', acabLat1, G4, nL], ['ACAB LAT 2', 90, G4, nL], ['ACAB LAT Z', 110, G4, nL]);
@@ -19064,6 +19073,7 @@ function _mpCalcAllPiecesCombined(){
   var savedPLC=(document.getElementById('plan-largcava')||{value:''}).value;
   var savedPDF=(document.getElementById('plan-disbordafriso')||{value:''}).value;
   var savedPLF=(document.getElementById('plan-largfriso')||{value:''}).value;
+  var savedREF=(document.getElementById('plan-refilado')||{value:'20'}).value;
 
   itens.forEach(function(it,idx){
     if(it.largura<=0||it.altura<=0) return;
@@ -19076,6 +19086,7 @@ function _mpCalcAllPiecesCombined(){
       if(document.getElementById('plan-largcava')) document.getElementById('plan-largcava').value=_mpIt['carac-largura-cava']||'150';
       if(document.getElementById('plan-disbordafriso')) document.getElementById('plan-disbordafriso').value=_mpIt['carac-dist-borda-friso']||'';
       if(document.getElementById('plan-largfriso')) document.getElementById('plan-largfriso').value=_mpIt['carac-largura-friso']||'';
+      if(document.getElementById('plan-refilado')) document.getElementById('plan-refilado').value=_mpIt['plan-refilado']||'20';
     }
     try{
       var pieces=plnPecas(it.largura, it.altura, it.folhas||1, it.modelo||'01');
@@ -19095,6 +19106,7 @@ function _mpCalcAllPiecesCombined(){
   if(document.getElementById('plan-largcava')) document.getElementById('plan-largcava').value=savedPLC;
   if(document.getElementById('plan-disbordafriso')) document.getElementById('plan-disbordafriso').value=savedPDF;
   if(document.getElementById('plan-largfriso')) document.getElementById('plan-largfriso').value=savedPLF;
+  if(document.getElementById('plan-refilado')) document.getElementById('plan-refilado').value=savedREF;
   return allPieces;
 }
 /* ── Popula tabela de itens na proposta comercial (multi-porta) ── */
