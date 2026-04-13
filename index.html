@@ -1991,6 +1991,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
           <option value="01">01 - Cava</option>
           <option value="02">02 - Cava + 01 Friso Vertical</option>
           <option value="08">08 - Cava + Ripado</option>
+          <option value="22">22 - Cava Premium</option>
           <option value="10">10 - Puxador Externo Lisa</option>
           <option value="11">11 - Puxador Externo + 01 Friso Vertical</option>
           <option value="15">15 - Puxador Externo + Ripado</option>
@@ -3060,6 +3061,7 @@ Equipe Projetta by Weiku</textarea>
             <option value="01">01 - Cava</option>
             <option value="02">02 - Cava + 01 Friso Vertical</option>
             <option value="08">08 - Cava + Ripado</option>
+            <option value="22">22 - Cava Premium</option>
             <option value="10">10 - Puxador Externo Lisa</option>
             <option value="11">11 - Puxador Externo + 01 Friso Vertical</option>
             <option value="15">15 - Puxador Externo + Ripado</option>
@@ -5652,6 +5654,19 @@ function aprovPieces(Lmm,Amm,fol,mod){
     if(mod==='02')r.push(['FRISO VERT',100,G4,2],['TAMPA FRISO',39,G4,2]);
     if(mod==='08')r.push(['RIPAS',98,G4,Math.max(1,Math.round((fW-330)/90))*((fol==2)?2:1)]);
   }
+  /* MODELO 22 — cava larga (DC+360), altura=G4 (PA ALTURA), sem TAMPA CAVA, TAMPA MAIOR -68 */
+  if(mod==='22'){
+    var DC=parseInt($('aprov-dim-cava').value)||150,HC=parseInt($('aprov-h-cava').value)||210;
+    var cavaDeduc=DC+HC+2;
+    r.push(['CAVA',DC+360,G4,(fol==2)?4:2]);
+    if(fol==1)r.push(['TAMPA MAIOR',fW+40-cavaDeduc-68,G4,2]);
+    else{var G2c=Math.round((fW+40-cavaDeduc-68)/2);r.push(['TAMPA F1',G2c+19,G4,1],['TAMPA F2',G2c,G4,2],['TAMPA F3',G2c-19,G4,1]);}
+    r.push(['TAMPA BOR CAVA',HC+38,G4,(fol==2)?4:2]);
+    r.push(['ACAB LAT 1',88.5,G4,nL],['ACAB LAT 2',90,G4,nL],['ACAB LAT Z',110,G4,nL]);
+    r.push(['U PORTAL',221,L-20,1],['BAT 01',42,bH,2],['BAT 02Z',51,bH,2],['BAT 03',81,bH,2]);
+    r.push(['TAP FURO',119,bH,3],['FIT ACAB ME',76.5,bH,2],['FIT ACAB MA',114.5,bH,2],['FIT ACAB FITA',101,bH,2]);
+    if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT',225,A+150,5],['ALISAR LAR',225,L+300,2]);
+  }
   var res=[];
   for(var i=0;i<r.length;i++){var p=r[i];var w=Math.round(p[1]*2)/2,h=Math.round(p[2]*2)/2,q=p[3];
     if(w>0&&h>0&&q>0)res.push({label:p[0],w:w,h:h,qty:q,color:APROV_COLORS[i%APROV_COLORS.length]});}
@@ -5716,6 +5731,21 @@ function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
       var nRipas=Math.max(1,Math.round((Lfixo-330)/90));
       r.push(['FX RIPAS',98,hCavaFix,nRipas*q1]);
     }
+  }
+
+  if(mod==='22'){
+    // Modelo 22 — CAVA larga (DC+360), sem TAMPA CAVA/L CAVA, TAMPA MAIOR -68
+    var M_TAMPA22=M_TAMPA-68;
+    r.push(['FX TAMPA MAIOR',M_TAMPA22+44+REF,hTampaFix,1]);
+    if(is2L) r.push(['FX TAMPA MAIOR 2L',M_TAMPA22+82+REF,hTampaFix,1]);
+    r.push(['FX TAMPA BOR CAVA',M_BORDA+44+REF,hTampaFix,1]);
+    if(is2L) r.push(['FX TAMPA BOR CAVA 2L',M_BORDA+82+REF,hTampaFix,1]);
+    r.push(['FX CAVA SUP',DC+360,hCavaFix,q1]);
+    r.push(['FX FIT ME',76.5,hFitFix,q1]);
+    r.push(['FX FIT MA',114.5,hFitFix,q1]);
+    r.push(['FX FIT FITA',101,hFitLar,q1]);
+    r.push(['FX BAT 01',47,bH,q1]);
+    r.push(['FX BAT 03',70,bH,q1]);
   }
 
   if(mod==='10'||mod==='11'||mod==='15'||mod==='23acm'||mod==='23alu'){
@@ -5963,7 +5993,7 @@ function aprovBuildLegend(){
 }
 
 function aprovToggleCava(){
-  var mod=$('aprov-model').value, isCava=(mod==='01'||mod==='02'||mod==='08');
+  var mod=$('aprov-model').value, isCava=(mod==='01'||mod==='02'||mod==='08'||mod==='22');
   var mc=document.getElementById('modal-cava');
   if(mc) mc.className='cava-vars'+(isCava?' show':'');
 }
@@ -7894,7 +7924,7 @@ function printOSColagem(){
   var H=parseFloat(($('altura')||{value:0}).value)||0;
   var nFolhas=parseInt(($('folhas-porta')||{value:1}).value)||1;
   var modelo=($('carac-modelo')||{value:''}).value||($('plan-modelo')||{value:''}).value||'01';
-  var modeloNome={'01':'CAVA','02':'CAVA+FRISO','08':'CAVA+RIPAS','10':'LISA','11':'FRISO','15':'RIPAS','23acm':'MOLDURA ACM','23alu':'MOLDURA ALU'}[modelo]||modelo;
+  var modeloNome={'01':'CAVA','02':'CAVA+FRISO','08':'CAVA+RIPAS','10':'LISA','11':'FRISO','15':'RIPAS','22':'CAVA PREMIUM','23acm':'MOLDURA ACM','23alu':'MOLDURA ALU'}[modelo]||modelo;
   var TUB=(typeof _isInternacional==='function'&&_isInternacional())?51:(H>=4000?51:38);
   var sis=d.sis||($('prod-sistema')||{value:''}).value||'PA006';
 
@@ -12845,6 +12875,36 @@ function plnPecas(Lmm, Amm, fol, mod) {
     }
   }
 
+  /* MODELO 22 — cava larga (DC+360), altura=G4 (PA ALTURA), sem TAMPA CAVA, TAMPA MAIOR -68 */
+  if (mod === '22') {
+    var DIS_BOR_CAVA = parseInt(document.getElementById('plan-disborcava').value) || 210;
+    var LARG_CAVA    = parseInt(document.getElementById('plan-largcava').value)   || 150;
+    var cavaDeduc = LARG_CAVA + DIS_BOR_CAVA + 2;
+    r.push(['CAVA', LARG_CAVA + 360, G4, (fol==2) ? 4 : 2]);
+    if (fol == 1) {
+      r.push(['TAMPA MAIOR', fW + 40 - cavaDeduc - 68, G4, 2]);
+    } else {
+      var DBC = DIS_BOR_CAVA, LC = LARG_CAVA;
+      var baseA = (G2total - DBC*2 - LC*2) / 2;
+      var baseB = (G2total - 1 - DBC*2 - LC*2) / 2;
+      var T1 = baseA + FGA + FGLA*2 - 1 - 34;
+      var T2 = baseB + FGLA*2 - PIV - 1 - 34;
+      var T3 = T2 - TUB_SUP;
+      r.push(['TAMPA MAIOR 01', T1, G4, 1]);
+      r.push(['TAMPA MAIOR 02', T2, G4, 2]);
+      r.push(['TAMPA MAIOR 03', T3, G4, 1]);
+    }
+    if (fol == 1) {
+      r.push(['TAMPA BOR CAVA', DIS_BOR_CAVA + 38, G4, 2]);
+    } else {
+      r.push(['TAMPA MENOR', DIS_BOR_CAVA + REF*2 - 2, G4, 4]);
+    }
+    r.push(['ACAB LAT 1', acabLat1, G4, nL], ['ACAB LAT 2', 90, G4, nL], ['ACAB LAT Z', 110, G4, nL]);
+    r.push(['U PORTAL', 221, L-REF, 1]);
+    r.push(['BAT 01', 42, bH, 2], ['BAT 02Z', 51, bH, 2], ['BAT 03', 81, bH, 2]);
+    r.push(['TAP FURO', 119, bH, 3], ['FIT ACAB ME', 76.5, bH, 2], ['FIT ACAB MA', 114.5, bH, 2], ['FIT ACAB FITA', 101, bH, 2]);
+    if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
+  }
   var out = [];
   for (var i = 0; i < r.length; i++) {
     var p = r[i], w = Math.round(p[1]*2)/2, h = Math.round(p[2]*2)/2, q = p[3];
@@ -13346,7 +13406,7 @@ function planUpd() {
   else dims.textContent='preencha largura e altura acima';
 
   var Mv=document.getElementById('plan-modelo').value;
-  var isCava=(Mv==='01'||Mv==='02'||Mv==='08');
+  var isCava=(Mv==='01'||Mv==='02'||Mv==='08'||Mv==='22');
   var isFriso=(Mv==='02'||Mv==='11'||Mv==='23acm'||Mv==='23alu');
   document.getElementById('plan-cava-row').style.display=isCava?'':'none';
   document.getElementById('plan-friso-row').style.display=isFriso?'':'none';
