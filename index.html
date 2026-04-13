@@ -17680,21 +17680,17 @@ function parseDanfeText(txt, fileName, rows){
   if(!vNF&&vProd) vNF=vProd+vFrete+vOutro-vDesc+vIPI+vICMSST;
 
   var totalImp=vICMS+vICMSST+vIPI+vPIS+vCOFINS;
-  // Se PIS/COFINS não vieram no XML, usar taxas configuradas no Custo Real
-  if(vPIS<=0){
-    var _lrPis=parseFloat((document.getElementById('lr-pis')||{value:0}).value)||0;
-    var _lrBase=vProd+vFrete-vDesc;
-    var _lrLiqICMS=_lrBase-vICMS;
-    vPIS=_lrLiqICMS*_lrPis/100;
-    totalImp+=vPIS;
-  }
-  if(vCOFINS<=0){
-    var _lrCofins=parseFloat((document.getElementById('lr-cofins')||{value:0}).value)||0;
-    var _lrBase2=vProd+vFrete-vDesc;
-    var _lrLiqICMS2=_lrBase2-vICMS;
-    vCOFINS=_lrLiqICMS2*_lrCofins/100;
-    totalImp+=vCOFINS;
-  }
+  // Usar mesma lógica do Custo Real para TOTAL IMPOSTOS (créditos reais)
+  var _lrIcmsPct=parseFloat((document.getElementById('lr-icms')||{value:0}).value)||0;
+  var _lrPisPct=parseFloat((document.getElementById('lr-pis')||{value:0}).value)||0;
+  var _lrCofinsPct=parseFloat((document.getElementById('lr-cofins')||{value:0}).value)||0;
+  var _lrBase=vProd+vFrete-vDesc;
+  var _lrICMS=_lrBase*_lrIcmsPct/100;
+  var _lrLiq=_lrBase-_lrICMS;
+  var _lrPIS=_lrLiq*_lrPisPct/100;
+  var _lrCOFINS=_lrLiq*_lrCofinsPct/100;
+  var totalImpReal=_lrICMS+_lrPIS+_lrCOFINS; // créditos reais (sem IPI)
+  if(totalImpReal>0){ totalImp=totalImpReal; }
   var valorLiquido=vNF-totalImp;
   var pctImp=vNF>0?(totalImp/vNF*100):0;
 
