@@ -17916,8 +17916,12 @@ function parseNFeXML(xmlStr, fileName){
   h+='</div></div></div>';
 
   // Emitente/Dest
+  var crt=gv(emit,'CRT');
+  var regimeMap={'1':'Simples Nacional','2':'Lucro Presumido','3':'Lucro Real'};
+  var regimeNome=regimeMap[crt]||(crt?'CRT '+crt:'Não informado');
+  var regimeCor=crt==='1'?'#2e7d32':crt==='2'?'#e65100':crt==='3'?'#1565c0':'#888';
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#e0e0e0">';
-  h+='<div style="background:#fff;padding:12px 16px"><div style="font-size:9px;text-transform:uppercase;color:#888;letter-spacing:1px">Emitente</div><div style="font-size:13px;font-weight:700">'+emitNome+'</div><div style="font-size:10px;color:#888">CNPJ: '+emitCNPJ+'</div></div>';
+  h+='<div style="background:#fff;padding:12px 16px"><div style="font-size:9px;text-transform:uppercase;color:#888;letter-spacing:1px">Emitente</div><div style="font-size:13px;font-weight:700">'+emitNome+'</div><div style="font-size:10px;color:#888">CNPJ: '+emitCNPJ+'</div><div style="margin-top:4px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:#fff;background:'+regimeCor+'">'+regimeNome+'</div></div>';
   h+='<div style="background:#fff;padding:12px 16px"><div style="font-size:9px;text-transform:uppercase;color:#888;letter-spacing:1px">Destinatário</div><div style="font-size:13px;font-weight:700">'+destNome+'</div></div>';
   h+='</div>';
 
@@ -17942,28 +17946,41 @@ function parseNFeXML(xmlStr, fileName){
   h+='<div style="background:#e8f5e9;padding:14px;text-align:center"><div style="font-size:10px;color:#2e7d32;font-weight:600">VALOR LÍQUIDO REAL</div><div style="font-size:18px;font-weight:800;color:#2e7d32">'+brl(valorLiquido)+'</div></div>';
   h+='</div>';
 
+  // Taxas Custo Real para cálculo líquido
+  var _lrIcms=parseFloat((document.getElementById('lr-icms')||{value:12}).value)||12;
+  var _lrPis=parseFloat((document.getElementById('lr-pis')||{value:1.65}).value)||1.65;
+  var _lrCof=parseFloat((document.getElementById('lr-cofins')||{value:7.60}).value)||7.60;
+  // CFOP descriptions
+  var cfopMap={'1101':'Compra Industrialização','1102':'Compra Comercialização','1201':'Devolução Venda','1556':'Transferência','2101':'Compra Industrialização','2102':'Compra Comercialização','2201':'Devolução Venda','2556':'Transferência','5101':'Venda Industrialização','5102':'Venda Comercialização','5201':'Devolução Compra','5401':'Venda ST','5405':'Venda merc.ST','5556':'Transferência','6101':'Venda Industrialização','6102':'Venda Comercialização','6201':'Devolução Compra'};
+
   // Tabela itens
   if(itens.length>0){
     h+='<div style="padding:16px 20px">';
-    h+='<div style="font-size:12px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 Itens ('+itens.length+')</div>';
+    h+='<div style="font-size:12px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 Itens ('+itens.length+') — Valor Líquido Real (ICMS '+_lrIcms+'% + PIS '+_lrPis+'% + COFINS '+_lrCof+'%)</div>';
     h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px">';
-    h+='<tr style="background:#003144;color:#fff"><th style="padding:6px">Item</th><th>CFOP</th><th>Produto</th><th>Qtd</th><th>V.Unit</th><th>V.Total</th><th>ICMS</th><th>IPI</th><th>PIS</th><th>COFINS</th><th style="color:#4caf50">Líquido</th></tr>';
+    h+='<tr style="background:#003144;color:#fff"><th style="padding:6px">Item</th><th>CFOP</th><th>Produto</th><th>Qtd</th><th>V.Unit</th><th>V.Total</th><th>ICMS</th><th>IPI</th><th style="color:#4caf50">Líq.Real</th><th style="color:#4caf50">Unit.Líq</th></tr>';
     itens.forEach(function(it,idx){
-      var impItem=it.icms.val+it.ipi.val+it.pis.val+it.cofins.val;
-      var liqItem=it.vProd-impItem;
+      // Custo Real líquido: vProd - ICMS(%) - PIS(% s/liq) - COFINS(% s/liq)
+      var baseItem=it.vProd;
+      var icmsReal=baseItem*_lrIcms/100;
+      var liqSemICMS=baseItem-icmsReal;
+      var pisReal=liqSemICMS*_lrPis/100;
+      var cofReal=liqSemICMS*_lrCof/100;
+      var liqReal=baseItem-icmsReal-pisReal-cofReal;
+      var unitLiq=it.qCom>0?liqReal/it.qCom:0;
+      var cfopDesc=cfopMap[it.CFOP]||'';
       var bg=idx%2?'#f9f9f9':'#fff';
       h+='<tr style="background:'+bg+'">';
       h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:center">'+it.nItem+'</td>';
-      h+='<td style="padding:5px;border-bottom:1px solid #eee;font-weight:600">'+it.CFOP+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;font-weight:600" title="'+(cfopDesc||it.CFOP)+'">'+it.CFOP+(cfopDesc?'<br><small style=color:#888>'+cfopDesc+'</small>':'')+'</td>';
       h+='<td style="padding:5px;border-bottom:1px solid #eee;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+it.xProd+'">'+it.xProd+'</td>';
       h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+it.qCom.toFixed(2)+'</td>';
       h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+brl(it.vUnCom)+'</td>';
       h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:600">'+brl(it.vProd)+'</td>';
-      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#e65100">'+(it.icms.val>0?brl(it.icms.val)+'<br><small>'+pct(it.icms.aliq)+'</small>':'—')+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#e65100">'+(it.icms.val>0?brl(it.icms.val)+'<br><small>'+pct(it.icms.aliq)+'</small>':'-'+brl(icmsReal)+'<br><small>calc '+_lrIcms+'%</small>')+'</td>';
       h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#4a148c">'+(it.ipi.val>0?brl(it.ipi.val)+'<br><small>'+pct(it.ipi.aliq)+'</small>':'—')+'</td>';
-      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#1b5e20">'+(it.pis.val>0?brl(it.pis.val)+'<br><small>'+pct(it.pis.aliq)+'</small>':'—')+'</td>';
-      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#006064">'+(it.cofins.val>0?brl(it.cofins.val)+'<br><small>'+pct(it.cofins.aliq)+'</small>':'—')+'</td>';
-      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#2e7d32">'+brl(liqItem)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#2e7d32">'+brl(liqReal)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:800;color:#1565c0">'+brl(unitLiq)+'</td>';
       h+='</tr>';
     });
     h+='</table></div></div>';
