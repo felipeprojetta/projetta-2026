@@ -13920,7 +13920,10 @@ function _getCorCode(){
 }
 
 function _autoSelectAndRun(){
-  if(!_isModelReady()) return;
+  // Multi-porta: bypass _isModelReady (peças já calculadas por _mpCalcAllPiecesCombined)
+  if(!(window._mpItens&&window._mpItens.length>0)){
+    if(!_isModelReady()) return;
+  }
 
   var Lv=parseFloat(document.getElementById('largura').value)||0;
   var Av=parseFloat(document.getElementById('altura').value)||0;
@@ -19219,11 +19222,35 @@ function _mpCalcAllPiecesCombined(){
     try{
       var pieces=plnPecas(it.largura, it.altura, it.folhas||1, it.modelo||'01');
       var _iTag=' [P'+(idx+1)+' '+it.largura+'×'+it.altura+']';
+      // Cores do item
+      var _corExt=(_mpIt&&(_mpIt['carac-cor-ext']||''))||it.corExt||'';
+      var _corInt=(_mpIt&&(_mpIt['carac-cor-int']||''))||it.corInt||'';
+      var _sameCor=(!_corInt||_corExt===_corInt);
+      // Peças de superfície (frente+costas) vs estrutura (só ext)
+      var _surfaceLabels=['TAMPA','CAVA','ACAB LAT','FRISO','RIPAS'];
+      function _isSurface(lbl){var u=lbl.toUpperCase();for(var s=0;s<_surfaceLabels.length;s++){if(u.indexOf(_surfaceLabels[s])>=0)return true;}return false;}
+
       pieces.forEach(function(p){
-        var pc=Array.isArray(p)?{label:p[0]+_iTag,w:p[1],h:p[2],qty:(p[3]||1)*it.qtd,color:p[4]||''}
-          :{label:p.label+_iTag,w:p.w,h:p.h,qty:(p.qty||1)*it.qtd,color:p.color||''};
-        pc._itemIdx=idx;
-        allPieces.push(pc);
+        var lbl=Array.isArray(p)?p[0]:p.label;
+        var w=Array.isArray(p)?p[1]:p.w;
+        var h=Array.isArray(p)?p[2]:p.h;
+        var q=(Array.isArray(p)?(p[3]||1):(p.qty||1))*it.qtd;
+        var clr=Array.isArray(p)?p[4]||'':p.color||'';
+
+        if(_sameCor){
+          // Mesma cor ext/int: tudo junto
+          var pc={label:lbl+_iTag,w:w,h:h,qty:q,color:clr,_itemIdx:idx,_cor:_corExt};
+          allPieces.push(pc);
+        } else if(_isSurface(lbl)){
+          // Cores diferentes: split frente/costas
+          var qExt=Math.ceil(q/2);
+          var qInt=Math.floor(q/2);
+          if(qExt>0) allPieces.push({label:lbl+' EXT'+_iTag,w:w,h:h,qty:qExt,color:clr,_itemIdx:idx,_cor:_corExt});
+          if(qInt>0) allPieces.push({label:lbl+' INT'+_iTag,w:w,h:h,qty:qInt,color:clr,_itemIdx:idx,_cor:_corInt});
+        } else {
+          // Estrutura: tudo cor externa
+          allPieces.push({label:lbl+_iTag,w:w,h:h,qty:q,color:clr,_itemIdx:idx,_cor:_corExt});
+        }
       });
     }catch(e){console.warn('MP chapas item '+idx+':',e);}
   });
