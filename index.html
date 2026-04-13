@@ -11715,6 +11715,7 @@ function populateProposta(){
   };
   var brl2=function(v){return v>0?'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';};
   
+  if(!_isMulti){
   // Porta: PREÇO TABELA (valor cheio para o cliente)
   var tabPortaTotal=parseVal(document.getElementById('m-tab-porta'));
   var tabPortaUn=qtdPortas>0?tabPortaTotal/qtdPortas:0;
@@ -11745,6 +11746,7 @@ function populateProposta(){
   var tabGeral=parseVal(document.getElementById('m-tab'));
   document.getElementById('prop-total-orc').textContent=brl2(tabGeral);
   document.getElementById('prop-area-total').textContent=(area*qtdPortas).toFixed(1);
+  } // end if(!_isMulti) — single-door values
   // Logo no rodapé
   var headerLogo=document.querySelector('.header-brand img');
   var footerLogo=document.getElementById('prop-footer-logo-img');
