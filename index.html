@@ -14492,7 +14492,7 @@ function _fetchTimeout(url,opts,ms){
 function _cepSetResult(cidade,uf,distKm,isEstrada){
   var distEl=document.getElementById('cep-dist');
   var distArred=Math.ceil(distKm/100)*100;
-  var tipo=isEstrada?'estrada':'linha reta ×1.3';
+  var tipo=isEstrada?'rota carro':'aprox. linha reta ×1.3';
   distEl.textContent='Distância de Uberlândia: '+distArred+' km ('+tipo+', real '+Math.round(distKm)+' km)';
   distEl.style.color='var(--orange)';
   var kmEl=document.getElementById('km');
@@ -14535,7 +14535,8 @@ function buscaCep() {
             FACTORY_LON + ',' + FACTORY_LAT + ';' + destLon + ',' + destLat +
             '?overview=false';
 
-          _fetchTimeout(osrmUrl, {}, 8000)
+          // Tenta OSRM (rota real de carro)
+          _fetchTimeout(osrmUrl, {}, 12000)
             .then(function(r){ return r.json(); })
             .then(function(route) {
               if (route && route.routes && route.routes.length) {
@@ -14545,9 +14546,22 @@ function buscaCep() {
               }
             })
             .catch(function() {
-              // Fallback: Haversine × 1.3
-              var hav = _haversineKm(FACTORY_LAT, FACTORY_LON, destLat, destLon);
-              _cepSetResult(cidade, uf, hav * 1.3, false);
+              // Fallback 2: OSRM retry com endpoint alternativo
+              var osrmUrl2 = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/' +
+                FACTORY_LON + ',' + FACTORY_LAT + ';' + destLon + ',' + destLat +
+                '?overview=false';
+              _fetchTimeout(osrmUrl2, {}, 12000)
+                .then(function(r){ return r.json(); })
+                .then(function(route2) {
+                  if (route2 && route2.routes && route2.routes.length) {
+                    _cepSetResult(cidade, uf, route2.routes[0].distance / 1000, true);
+                  } else { throw new Error('no route2'); }
+                })
+                .catch(function() {
+                  // Fallback 3: Haversine × 1.3 (aproximado)
+                  var hav = _haversineKm(FACTORY_LAT, FACTORY_LON, destLat, destLon);
+                  _cepSetResult(cidade, uf, hav * 1.3, false);
+                });
             });
         });
     })
