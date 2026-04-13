@@ -10260,13 +10260,32 @@ window.crmFazerOrcamento=function(id){
       // Auto-run planificador com todas as peças combinadas
       setTimeout(function(){
         try{
+          // 1) Sync cor do primeiro item para carac-cor-ext (necessário para planificador)
+          var _f1=window._mpItens&&window._mpItens[0];
+          if(_f1){
+            var _corF=_f1['carac-cor-ext']||'';
+            if(_corF&&document.getElementById('carac-cor-ext'))document.getElementById('carac-cor-ext').value=_corF;
+          }
+          // 2) Atualizar peças
           if(typeof planUpd==='function') planUpd();
+          // 3) Simulação + seleção melhor chapa + cor
           if(typeof _autoSelectAndRun==='function') _autoSelectAndRun();
-          if(typeof _syncChapaToOrc==='function') _syncChapaToOrc();
-          if(typeof _updateFabChapaResumo==='function') _updateFabChapaResumo();
-          if(typeof calc==='function') calc();
+          // 4) Rodar planRun (Calcular aproveitamento) automático
+          setTimeout(function(){
+            try{
+              if(typeof planRun==='function') planRun();
+              // 5) Usar resultado nas chapas
+              setTimeout(function(){
+                try{
+                  if(typeof _syncChapaToOrc==='function') _syncChapaToOrc();
+                  if(typeof _updateFabChapaResumo==='function') _updateFabChapaResumo();
+                  if(typeof calc==='function') calc();
+                }catch(e3){console.warn('auto-sync:',e3);}
+              },300);
+            }catch(e2){console.warn('auto-planRun:',e2);}
+          },300);
         }catch(e){console.warn('auto-plan:',e);}
-      },500);
+      },600);
     }, 1200);
     // Botões CRM: escondidos até o usuário SALVAR o orçamento
     var btn=document.getElementById('crm-orc-pronto-btn');
@@ -18859,7 +18878,13 @@ function _mpCarregarItem(idx){
   setTimeout(function(){
     if(typeof planUpd==='function') try{planUpd();}catch(e){}
     if(typeof _autoSelectAndRun==='function') try{_autoSelectAndRun();}catch(e){}
-    if(typeof calc==='function') calc();
+    setTimeout(function(){
+      if(typeof planRun==='function') try{planRun();}catch(e){}
+      setTimeout(function(){
+        if(typeof _syncChapaToOrc==='function') try{_syncChapaToOrc();}catch(e){}
+        if(typeof calc==='function') calc();
+      },300);
+    },300);
   },300);
 }
 
