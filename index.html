@@ -6061,7 +6061,14 @@ function _getAprovChapaSize(){
     return {w:l,h:a};
   }
   var parts=sel.value.split('|');
-  return {w:parseInt(parts[0]),h:parseInt(parts[1])};
+  var w=parseInt(parts[0]),h=parseInt(parts[1]);
+  // Alusense (AS): forçar largura 1250mm
+  var planAcm=document.getElementById('plan-acm-cor');
+  if(planAcm&&planAcm.selectedIndex>0){
+    var acmTxt=(planAcm.options[planAcm.selectedIndex].text||'').toUpperCase();
+    if(acmTxt.indexOf('AS')===0||acmTxt.indexOf('ALUSENSE')>=0) w=1250;
+  }
+  return {w:w,h:h};
 }
 
 function aprovCalc(){
@@ -14184,7 +14191,14 @@ function _getChapaSize(){
     return {w:larg,h:alt};
   }
   var parts=sel.value.split('|');
-  return {w:parseInt(parts[0]),h:parseInt(parts[1])};
+  var w=parseInt(parts[0]),h=parseInt(parts[1]);
+  // Alusense (AS): forçar largura 1250mm
+  var planAcm=document.getElementById('plan-acm-cor');
+  if(planAcm&&planAcm.selectedIndex>0){
+    var acmTxt=(planAcm.options[planAcm.selectedIndex].text||'').toUpperCase();
+    if(acmTxt.indexOf('AS')===0||acmTxt.indexOf('ALUSENSE')>=0) w=1250;
+  }
+  return {w:w,h:h};
 }
 
 function _planRecalcEdited(){
