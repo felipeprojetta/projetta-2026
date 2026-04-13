@@ -4053,12 +4053,50 @@ function calc(){
   // ── Qtd portas para multiplicar horas de fabricação ──
   var _qPh;
   if(window._mpItens && window._mpItens.length > 0){
-    _qPh=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
+    _qPh=window._mpItens.reduce(function(s,it){return s+(parseInt(it._qtd||it['qtd-portas'])||1);},0);
   } else {
     _qPh=parseInt($('qtd-portas').value)||1;
   }
   var _qPnote=_qPh>1?' × '+_qPh+'p':'';
 
+  // ── Multi-porta: calcular horas por porta e somar ──
+  if(window._mpItens && window._mpItens.length > 0 && window._osGeradoUmaVez){
+    var _hPortalTotal=0,_hQuadroTotal=0,_hColagemTotal=0,_hConfTotal=0;
+    var _hPortalDetail=[],_hQuadroDetail=[],_hColagemDetail=[],_hConfDetail=[];
+    window._mpItens.forEach(function(mpIt,di){
+      var iA=parseFloat(mpIt._altura||mpIt['altura'])||0;
+      var iF=parseInt(mpIt._folhas||mpIt['folhas-porta'])||1;
+      var iQ=parseInt(mpIt._qtd||mpIt['qtd-portas'])||1;
+      var iMod=mpIt._modelo||mpIt['carac-modelo']||'01';
+      var iModNome=(mpIt._modeloTxt||'').toLowerCase();
+      var iCava=iModNome.indexOf('cava')>=0||['01','02','03','04','05','06','07','08','09','19','22','24'].indexOf(iMod)>=0;
+      var iRip=['08','15','20','21'].indexOf(iMod)>=0;
+      var tag='P'+(di+1);
+      // Portal
+      var hp=_horasPortal(iA,iF)*iQ;_hPortalTotal+=hp;
+      _hPortalDetail.push(tag+':'+hp+'h');
+      // Quadro
+      var hq=_horasQuadro(iA,iF)*iQ;_hQuadroTotal+=hq;
+      _hQuadroDetail.push(tag+':'+hq+'h');
+      // Colagem
+      var cd=_diasColagem(iA,iF,iCava,iRip);
+      var hc=cd*9*iQ;_hColagemTotal+=hc;
+      _hColagemDetail.push(tag+':'+cd+'d×9h='+(cd*9)+'h');
+      // Conf
+      var cfB=iA<6000?3:4;
+      var hcf=(iF===2?cfB*2:cfB)*iQ;_hConfTotal+=hcf;
+      _hConfDetail.push(tag+':'+hcf+'h');
+    });
+    var hPortalEl=$('h-portal');
+    if(hPortalEl) _setHoraAuto('h-portal',_hPortalTotal,'h-portal-auto','(auto: '+_hPortalDetail.join(' + ')+')');
+    var hQuadroEl=$('h-quadro');
+    if(hQuadroEl) _setHoraAuto('h-quadro',_hQuadroTotal,'h-quadro-auto','(auto: '+_hQuadroDetail.join(' + ')+')');
+    var hColagemEl=$('h-colagem');
+    if(hColagemEl && (hColagemEl.value==='' || hColagemEl.dataset.auto==='1' || hColagemEl.value==='0'))
+      _setHoraAuto('h-colagem',_hColagemTotal,'h-colagem-auto','(auto: '+_hColagemDetail.join(' + ')+')');
+    var hConfEl=$('h-conf');
+    if(hConfEl) _setHoraAuto('h-conf',_hConfTotal,'h-conf-auto','(auto: '+_hConfDetail.join(' + ')+')');
+  } else {
   // Aplicar Portal × qP (cada porta precisa ser montada)
   var hPortalEl=$('h-portal');
   if(hPortalEl && _altMM>0 && window._osGeradoUmaVez){
@@ -4086,6 +4124,7 @@ function calc(){
     var _cfAuto = (_nFol === 2 ? _cfBase * 2 : _cfBase)*_qPh;
     _setHoraAuto('h-conf',_cfAuto,'h-conf-auto','(auto: '+_cfAuto+'h'+_qPnote+')');
   }
+  } // end single-door
   // ══════════════════════════════════════════════════════════════════════
 
   // Auto-calc Corte e usinagem: aguardar planUpd (1s) depois calcular
