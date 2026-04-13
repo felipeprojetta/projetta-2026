@@ -17704,6 +17704,41 @@ function parseDanfeText(txt, fileName, rows){
   var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
   var pct=function(v){return v.toFixed(2)+'%';};
 
+  // Extrair itens do PDF (DADOS DOS PRODUTOS)
+  var pdfItens=[];
+  try{
+    var _dataStart=txt.indexOf('DADOS DOS PRODUTOS');
+    var _dataEnd=txt.indexOf('DADOS ADICIONAIS');
+    if(_dataStart<0) _dataStart=txt.indexOf('CÓDIGO PRODUTO');
+    if(_dataEnd<0) _dataEnd=txt.indexOf('INFORMAÇÕES COMPLEMENTARES');
+    if(_dataStart>=0){
+      var _itemTxt=txt.substring(_dataStart,_dataEnd>0?_dataEnd:txt.length);
+      var _itemRows=_itemTxt.split('\n');
+      _itemRows.forEach(function(row){
+        var m=row.match(/(\d{4})\s+(PC|UN|KG|MT|M2|CX|M|LT|PAR|JG|RL|CJ|SC|GL|BD|FD)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)/i);
+        if(m){
+          var cfop=m[1],un=m[2];
+          var qty=parseFloat(m[3].replace(/\./g,'').replace(',','.'))||0;
+          var vUn=parseFloat(m[4].replace(/\./g,'').replace(',','.'))||0;
+          var vTot=parseFloat(m[5].replace(/\./g,'').replace(',','.'))||0;
+          if(vUn>vTot){var t=vUn;vUn=vTot;vTot=t;}
+          if(Math.abs(qty*vUn-vTot)>1) vUn=qty>0?vTot/qty:0;
+          pdfItens.push({cfop:cfop,un:un,qty:qty,vUn:vUn,vTot:vTot,desc:''});
+        }
+        // Pegar descrição na mesma ou linha anterior
+        if(pdfItens.length>0 && !pdfItens[pdfItens.length-1].desc){
+          var descM=row.match(/([A-Z][\w\s\.\-\*\/]+(?:MM|PVDF|LUM|PRO|ACP|CHAPA|PERFIL|ALUMIN|INOX|ACM|PA\-|X\d)[\w\s\.\-\*\/]*)/i);
+          if(descM) pdfItens[pdfItens.length-1].desc=descM[1].trim();
+        }
+      });
+    }
+  }catch(e){console.warn('PDF item parse:',e);}
+  // Fallback: 1 item genérico com qtd do campo lr-qtd
+  var _lrQtd=parseInt((document.getElementById('lr-qtd')||{value:1}).value)||1;
+  if(pdfItens.length===0 && vProd>0){
+    pdfItens.push({cfop:'',un:'',qty:_lrQtd,vUn:vProd/_lrQtd,vTot:vProd,desc:'(produto da nota)'});
+  }
+
   // Parse chave de acesso info
   var chaveInfo='';
   if(chave.length===44){
@@ -17794,6 +17829,37 @@ function parseDanfeText(txt, fileName, rows){
     h+='<div style="background:#fff3e0;padding:12px 16px;color:#e65100;font-size:12px;font-weight:600">⚠️ Nenhum imposto encontrado no PDF. Para maior precisão, use o <b>XML</b> da NF-e.</div>';
     h+='<details style="padding:8px 16px;font-size:10px"><summary style="cursor:pointer;color:#888">🔍 Debug: texto extraído do PDF</summary><pre style="white-space:pre-wrap;word-break:break-all;max-height:300px;overflow:auto;background:#f5f5f5;padding:8px;border-radius:4px;margin-top:4px">'+txt.substring(0,5000).replace(/</g,'&lt;')+'</pre></details>';
   }
+  // Tabela itens com custo unitário líquido
+  if(pdfItens.length>0){
+    h+='<div style="padding:16px 20px;border-top:1px solid #e0e0e0">';
+    h+='<div style="font-size:12px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 Custo Unitário Líquido (ICMS '+_lrIcmsPct+'% + PIS '+_lrPisPct+'% + COFINS '+_lrCofinsPct+'%)</div>';
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
+    h+='<tr style="background:#003144;color:#fff"><th style="padding:6px">#</th><th>CFOP</th><th>Produto</th><th>UN</th><th>Qtd</th><th>V.Unit NF</th><th>V.Total</th><th style="color:#ff9800">Créditos</th><th style="color:#4caf50">Líq.Total</th><th style="color:#4caf50;font-size:12px">💰 UNIT.LÍQ</th></tr>';
+    pdfItens.forEach(function(it,idx){
+      var base=it.vTot;
+      var icmsR=base*_lrIcmsPct/100;
+      var liqSI=base-icmsR;
+      var pisR=liqSI*_lrPisPct/100;
+      var cofR=liqSI*_lrCofinsPct/100;
+      var creditos=icmsR+pisR+cofR;
+      var liqR=base-creditos;
+      var unitLiq=it.qty>0?liqR/it.qty:0;
+      var bg=idx%2?'#f9f9f9':'#fff';
+      h+='<tr style="background:'+bg+'">';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:center">'+(idx+1)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;font-weight:600">'+(it.cfop||'—')+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(it.desc||'')+'\">'+(it.desc||'—')+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:center">'+(it.un||'—')+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:600">'+it.qty+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+brl(it.vUn)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:600">'+brl(it.vTot)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#c62828">-'+brl(creditos)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#2e7d32">'+brl(liqR)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:900;font-size:13px;color:#1565c0;background:#e3f2fd">'+brl(unitLiq)+'</td>';
+      h+='</tr>';
+    });
+    h+='</table></div></div>';
+  }
   h+='</div>';
 
   var res=document.getElementById('nfe-result');
@@ -17802,6 +17868,8 @@ function parseDanfeText(txt, fileName, rows){
   // Auto-preencher calculadora Lucro Real
   if(vProd>0){var _lrV=document.getElementById("lr-valor");if(_lrV){_lrV.value=vProd.toLocaleString("pt-BR",{minimumFractionDigits:2});calcLucroReal();}}
   if(vFrete>0){var _lrF=document.getElementById("lr-frete");if(_lrF){_lrF.value=vFrete.toLocaleString("pt-BR",{minimumFractionDigits:2});calcLucroReal();}}
+  // Auto-preencher Qtd se extraiu itens
+  if(pdfItens.length===1 && pdfItens[0].qty>1){var _lrQ=document.getElementById("lr-qtd");if(_lrQ){_lrQ.value=pdfItens[0].qty;calcLucroReal();}}
 
   // Histórico
   if(vNF>0){
