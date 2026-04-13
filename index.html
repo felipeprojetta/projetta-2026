@@ -6750,8 +6750,9 @@ function gerarCustoTotal(){
   var L=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
   var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
   var modelo=(document.getElementById('carac-modelo')||{value:''}).value||'';
-  if(L<=0||H<=0){alert('Preencha Largura e Altura primeiro.');return;}
-  if(!modelo){alert('Selecione o Modelo da porta.');return;}
+  var _hasMP=window._mpItens&&window._mpItens.length>0;
+  if(L<=0||H<=0){if(!_hasMP&&!window._osAutoMode)alert('Preencha Largura e Altura primeiro.');if(!_hasMP)return;}
+  if(!modelo){if(!_hasMP&&!window._osAutoMode)alert('Selecione o Modelo da porta.');if(!_hasMP)return;}
 
   var btn=document.querySelector('[onclick="gerarCustoTotal()"]');
 
@@ -6763,7 +6764,7 @@ function gerarCustoTotal(){
   }
 
   // FASE 1 — imediato: OS de perfis e acessórios
-  if(typeof _syncCavaToPlano==='function') _syncCavaToPlano();
+  try{if(typeof _syncCavaToPlano==='function') _syncCavaToPlano();}catch(e){console.warn('syncCava:',e);}
   _autoSelectFechadura();
   window._osAutoMode = true;
   gerarOS();
@@ -13576,7 +13577,7 @@ function planUpd() {
 
   var pieces=[];
   if(window._mpItens && window._mpItens.length > 0){
-    pieces=_mpCalcAllPiecesCombined();
+    try{ pieces=_mpCalcAllPiecesCombined()||[]; }catch(e){console.warn('planUpd mp pieces:',e);pieces=[];}
   } else {
     if(Mv&&Lv>0&&Av>0){
       var Fv=parseInt(document.getElementById('plan-folhas').value)||1;
