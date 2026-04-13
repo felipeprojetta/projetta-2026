@@ -14875,92 +14875,49 @@ function buscaCep() {
   distEl.textContent = '';
 
   geocodeFactory().then(function(){
-  _fetchTimeout('https://viacep.com.br/ws/' + cep + '/json/',{},6000)
-    .then(function(r){ return r.json(); })
-    .then(function(data) {
-      if (data.erro) { cidadeEl.textContent = 'CEP não encontrado'; return; }
-      var cidade = data.localidade, uf = data.uf;
-      cidadeEl.textContent = cidade + ' - ' + uf;
-      distEl.textContent = 'Calculando distância...';
-
-      var geoUrl = 'https://nominatim.openstreetmap.org/search?city=' +
-        encodeURIComponent(cidade) + '&state=' + encodeURIComponent(uf) +
-        '&country=Brazil&format=json&limit=1';
-
-      return _fetchTimeout(geoUrl, { headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'Projetta-App/1.0' } }, 8000)
-        .then(function(r){ return r.json(); })
-        .then(function(geo) {
-          if (!geo || !geo.length) { distEl.textContent = 'Cidade não geocodificada'; return; }
-          var destLat = parseFloat(geo[0].lat);
-          var destLon = parseFloat(geo[0].lon);
-
-          // Tenta Valhalla (rota real de carro — mais confiável)
-          var valhallaUrl='https://valhalla1.openstreetmap.de/route';
-          var valhallaBody=JSON.stringify({locations:[{lat:FACTORY_LAT,lon:FACTORY_LON},{lat:destLat,lon:destLon}],costing:'auto',units:'km'});
-          _fetchTimeout(valhallaUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:valhallaBody},12000)
-            .then(function(r){return r.json();})
-            .then(function(vr){
-              if(vr&&vr.trip&&vr.trip.summary&&vr.trip.summary.length>0){
-                _cepSetResult(cidade,uf,vr.trip.summary.length,true);
-              } else { throw new Error('no valhalla'); }
-            })
-            .catch(function(){
-              // Fallback 2: OSRM principal
-              var osrmUrl = 'https://router.project-osrm.org/route/v1/driving/' +
-                FACTORY_LON + ',' + FACTORY_LAT + ';' + destLon + ',' + destLat +
-                '?overview=false';
-              _fetchTimeout(osrmUrl, {}, 12000)
-                .then(function(r){ return r.json(); })
-                .then(function(route) {
-                  if (route && route.routes && route.routes.length) {
-                    _cepSetResult(cidade, uf, route.routes[0].distance / 1000, true);
-                  } else { throw new Error('no route'); }
-                })
-                .catch(function() {
-                  // Fallback 3: OSRM alternativo
-                  var osrmUrl2 = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/' +
-                    FACTORY_LON + ',' + FACTORY_LAT + ';' + destLon + ',' + destLat +
-                    '?overview=false';
-                  _fetchTimeout(osrmUrl2, {}, 12000)
-                    .then(function(r){ return r.json(); })
-                    .then(function(route2) {
-                      if (route2 && route2.routes && route2.routes.length) {
-                        _cepSetResult(cidade, uf, route2.routes[0].distance / 1000, true);
-                      } else { throw new Error('no route2'); }
-                    })
-                    .catch(function() {
-                      // Fallback final: Haversine × 1.3
-                      var hav = _haversineKm(FACTORY_LAT, FACTORY_LON, destLat, destLon);
-                      _cepSetResult(cidade, uf, hav * 1.3, false);
-                    });
-                });
-            });
-        });
-    })
-    .catch(function(e) {
-      // Fallback: tentar BrasilAPI
-      _fetchTimeout('https://brasilapi.com.br/api/cep/v1/'+cep,{},6000)
-        .then(function(r){return r.json();})
-        .then(function(data2){
-          if(!data2||data2.errors){if(cidadeEl)cidadeEl.textContent='CEP não encontrado';return;}
-          var cidade=data2.city,uf=data2.state;
-          if(cidadeEl)cidadeEl.textContent=cidade+' - '+uf;
-          if(distEl)distEl.textContent='Calculando distância...';
-          // Geocode e rota
-          var geoUrl2='https://nominatim.openstreetmap.org/search?city='+encodeURIComponent(cidade)+'&state='+encodeURIComponent(uf)+'&country=Brazil&format=json&limit=1';
-          return _fetchTimeout(geoUrl2,{headers:{'Accept-Language':'pt-BR','User-Agent':'Projetta-App/1.0'}},8000).then(function(r){return r.json();}).then(function(geo){
-            if(!geo||!geo.length){if(distEl)distEl.textContent='Cidade não geocodificada';return;}
-            var dLat=parseFloat(geo[0].lat),dLon=parseFloat(geo[0].lon);
-            var hav=_haversineKm(FACTORY_LAT,FACTORY_LON,dLat,dLon)*1.3;
-            _cepSetResult(cidade,uf,hav,false);
+    // Tentar ViaCEP e BrasilAPI em paralelo
+    var done=false;
+    function _onCepFound(cidade,uf){
+      if(done)return;done=true;
+      cidadeEl.textContent=cidade+' - '+uf;
+      distEl.textContent='Calculando distância...';
+      var geoUrl='https://nominatim.openstreetmap.org/search?city='+encodeURIComponent(cidade)+'&state='+encodeURIComponent(uf)+'&country=Brazil&format=json&limit=1';
+      fetch(geoUrl).then(function(r){return r.json();}).then(function(geo){
+        if(!geo||!geo.length){distEl.textContent='Cidade não geocodificada';return;}
+        var dLat=parseFloat(geo[0].lat),dLon=parseFloat(geo[0].lon);
+        // Valhalla
+        var vUrl='https://valhalla1.openstreetmap.de/route';
+        var vBody=JSON.stringify({locations:[{lat:FACTORY_LAT,lon:FACTORY_LON},{lat:dLat,lon:dLon}],costing:'auto',units:'km'});
+        fetch(vUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:vBody})
+          .then(function(r){return r.json();}).then(function(vr){
+            if(vr&&vr.trip&&vr.trip.summary&&vr.trip.summary.length>0)_cepSetResult(cidade,uf,vr.trip.summary.length,true);
+            else throw new Error('x');
+          }).catch(function(){
+            // OSRM
+            fetch('https://router.project-osrm.org/route/v1/driving/'+FACTORY_LON+','+FACTORY_LAT+';'+dLon+','+dLat+'?overview=false')
+              .then(function(r){return r.json();}).then(function(rt){
+                if(rt&&rt.routes&&rt.routes.length)_cepSetResult(cidade,uf,rt.routes[0].distance/1000,true);
+                else throw new Error('x');
+              }).catch(function(){
+                // Haversine fallback
+                _cepSetResult(cidade,uf,_haversineKm(FACTORY_LAT,FACTORY_LON,dLat,dLon)*1.3,false);
+              });
           });
-        })
-        .catch(function(e2){
-          if(cidadeEl)cidadeEl.textContent='Erro: '+(e2.message||e.message||'falha na busca');
-        });
-    });
-  }).catch(function(){});
+      }).catch(function(){distEl.textContent='Geocodificação falhou';});
+    }
+    // API 1: ViaCEP
+    fetch('https://viacep.com.br/ws/'+cep+'/json/').then(function(r){return r.json();}).then(function(d){
+      if(d&&!d.erro&&d.localidade)_onCepFound(d.localidade,d.uf);
+    }).catch(function(){});
+    // API 2: BrasilAPI
+    fetch('https://brasilapi.com.br/api/cep/v1/'+cep).then(function(r){return r.json();}).then(function(d){
+      if(d&&d.city)_onCepFound(d.city,d.state);
+    }).catch(function(){});
+    // Timeout 8s
+    setTimeout(function(){if(!done){cidadeEl.textContent='CEP não encontrado (timeout)';done=true;}},8000);
+  }).catch(function(){cidadeEl.textContent='Erro geocodificação';});
 }
+
 
 
 /* ══ FILTRAR CHAPAS ACM POR TAMANHO ════════════════════
