@@ -12610,7 +12610,17 @@ function _updateFabChapaResumo(){
     var opt=acmSel.options[acmSel.selectedIndex]; var label=opt?opt.text:'—';
     var preco=0; var pm=label.match(/R\$\s*([\d.,]+)/); if(pm)preco=parseFloat(pm[1].replace('.','').replace(',','.'))||0;
     var sub=preco*acmQty;
-    acmTb.innerHTML='<tr><td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+label+'">'+label.split('·')[0].trim()+'</td>'
+    var _chapaSize='';
+    var _cSel=document.getElementById('plan-chapa');
+    if(_cSel&&_cSel.value==='custom'){
+      _chapaSize=((document.getElementById('plan-chapa-larg')||{value:1500}).value)+'×'+((document.getElementById('plan-chapa-alt')||{value:5000}).value)+'mm';
+    } else if(_cSel&&_cSel.value){
+      var _cp=_cSel.value.split('|');_chapaSize=_cp[0]+'×'+_cp[1]+'mm';
+    } else if(window.PLN_SD){
+      _chapaSize=PLN_SD.w+'×'+PLN_SD.h+'mm';
+    }
+    var _chapaSizeTag=_chapaSize?' <span style="font-size:9px;color:#888;font-weight:400">('+_chapaSize+')</span>':'';
+    acmTb.innerHTML='<tr><td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+label+'">'+label.split('·')[0].trim()+_chapaSizeTag+'</td>'
       +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;font-weight:700">'+acmQty+'</td>'
       +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+(preco>0?preco.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</td>'
       +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:var(--navy)">R$ '+sub.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td></tr>';
