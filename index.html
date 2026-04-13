@@ -12810,6 +12810,23 @@ function _syncChapasToCorte(){
 
 function _syncChapaToOrc(){
   var acmSel=document.getElementById('plan-acm-cor');
+  // Auto-switch chapa para 1250mm quando Alusense selecionado
+  if(acmSel&&acmSel.selectedIndex>0){
+    var _acmTxt=(acmSel.options[acmSel.selectedIndex].text||'').toUpperCase();
+    var _isAS=_acmTxt.indexOf('AS')===0||_acmTxt.indexOf('ALUSENSE')>=0;
+    var chapaSel=document.getElementById('plan-chapa');
+    if(chapaSel&&chapaSel.value!=='custom'){
+      var parts=chapaSel.value.split('|');
+      var curW=parseInt(parts[0])||1500,curH=parseInt(parts[1])||5000;
+      if(_isAS&&curW!==1250){
+        var newVal='1250|'+curH;
+        for(var i=0;i<chapaSel.options.length;i++){if(chapaSel.options[i].value===newVal){chapaSel.value=newVal;break;}}
+      } else if(!_isAS&&curW===1250){
+        var newVal2='1500|'+curH;
+        for(var i=0;i<chapaSel.options.length;i++){if(chapaSel.options[i].value===newVal2){chapaSel.value=newVal2;break;}}
+      }
+    }
+  }
   var acmQty=parseInt((document.getElementById('plan-acm-qty')||{value:0}).value)||0;
   var hiddenAcmSel=document.getElementById('acm-sel-1');
   if(hiddenAcmSel && acmSel){ hiddenAcmSel.value=acmSel.value; var qEl=document.getElementById('acm-qty-1'); if(qEl)qEl.value=acmQty; }
