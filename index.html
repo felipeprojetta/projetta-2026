@@ -17339,13 +17339,24 @@ function _renderOSAcess(d, acessRows, vedaInfo){
         var pivDesc=pTotal<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
         var L=mpIt._largura||mpIt['largura']||'?';
         var A=mpIt._altura||mpIt['altura']||'?';
-        hardwareRows.push({qty:qI,code:pivCode,desc:pivDesc+' P'+(di+1)+' '+L+'×'+A+' ('+pTotal.toFixed(1)+'kg — perfis:'+pPerfis.toFixed(1)+'kg + chapas:'+pChapas.toFixed(1)+'kg + enchim:'+pEnch.toFixed(1)+'kg + lã:'+pLa.toFixed(1)+'kg)',preco:pivPreco,apl:'FAB',grp:'PIVÔ',obs:'PIVÔ P'+(di+1)});
+        var detailHtml='<b>P'+(di+1)+' '+L+'×'+A+'</b>'
+          +'<br>├ Perfis folha: <b>'+pPerfis.toFixed(1)+'</b> kg'
+          +'<br>├ Chapas porta: <b>'+pChapas.toFixed(1)+'</b> kg'
+          +'<br>├ Enchimento: <b>'+pEnch.toFixed(1)+'</b> kg'
+          +'<br>├ Lã de rocha: <b>'+pLa.toFixed(1)+'</b> kg'
+          +'<br>└ <b style="color:#c0392b">TOTAL: '+pTotal.toFixed(1)+' kg</b> → '+pivCode;
+        hardwareRows.push({qty:qI,code:pivCode,desc:pivDesc+'<br>'+detailHtml,preco:pivPreco,apl:'FAB',grp:'PIVÔ',obs:'PIVÔ P'+(di+1)});
       });
     } else {
       var pivotCode  = peso.total<=350?'PA-PIVOT 350 KG':'PA-PIVOT 600 KG';
       var pivotPreco = getPreco(pivotCode);
       var pivotDesc  = peso.total<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
-      hardwareRows.push({qty:_qPHw, code:pivotCode, desc:pivotDesc+' (porta: '+peso.total.toFixed(1)+'kg — perfis: '+peso.pesoPerfis.toFixed(1)+'kg + chapas: '+peso.pesoChapas.toFixed(1)+'kg + enchim: '+peso.pesoEnchimento.toFixed(1)+'kg + lã: '+peso.pesoLaRocha.toFixed(1)+'kg)', preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
+      var singleDetail='<br>├ Perfis folha: <b>'+peso.pesoPerfis.toFixed(1)+'</b> kg'
+        +'<br>├ Chapas porta: <b>'+peso.pesoChapas.toFixed(1)+'</b> kg'
+        +'<br>├ Enchimento: <b>'+peso.pesoEnchimento.toFixed(1)+'</b> kg'
+        +'<br>├ Lã de rocha: <b>'+peso.pesoLaRocha.toFixed(1)+'</b> kg'
+        +'<br>└ <b style="color:#c0392b">TOTAL: '+peso.total.toFixed(1)+' kg</b>';
+      hardwareRows.push({qty:_qPHw, code:pivotCode, desc:pivotDesc+singleDetail, preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
     }
   }
   // Se abertura não selecionada: sem pivô nem dobradiça
