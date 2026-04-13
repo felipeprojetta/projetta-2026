@@ -13118,9 +13118,13 @@ function plnPecas(Lmm, Amm, fol, mod) {
     var DIS_BOR_CAVA = parseInt(document.getElementById('plan-disborcava').value) || 210;
     var LARG_CAVA    = parseInt(document.getElementById('plan-largcava').value)   || 150;
     var cavaDeduc = LARG_CAVA + DIS_BOR_CAVA + 2;
+    // Friso vertical (opcional)
+    var LARG_FRISO = parseInt(document.getElementById('plan-largfriso').value) || 0;
+    var DIS_BOR_FRI = parseInt(document.getElementById('plan-disbordafriso').value) || 0;
+    var frisoDeduc = (LARG_FRISO > 0 && DIS_BOR_FRI > 0) ? DIS_BOR_FRI + LARG_FRISO : 0;
     r.push(['CAVA', LARG_CAVA + 360, G4, (fol==2) ? 4 : 2]);
     if (fol == 1) {
-      r.push(['TAMPA MAIOR', fW + 40 - cavaDeduc - 68, G4, 2]);
+      r.push(['TAMPA MAIOR', fW + 40 - cavaDeduc - 68 - frisoDeduc, G4, 2]);
     } else {
       var DBC = DIS_BOR_CAVA, LC = LARG_CAVA;
       var baseA = (G2total - DBC*2 - LC*2) / 2;
@@ -13136,6 +13140,11 @@ function plnPecas(Lmm, Amm, fol, mod) {
       r.push(['TAMPA BOR CAVA', DIS_BOR_CAVA + 39, G4, 2]);
     } else {
       r.push(['TAMPA MENOR', DIS_BOR_CAVA + REF*2 - 1, G4, 4]);
+    }
+    // Friso vertical peças (se configurado)
+    if (frisoDeduc > 0) {
+      r.push(['TAMPA FRISO', DIS_BOR_FRI + 39, G4, (fol==2) ? 4 : 2]);
+      r.push(['FRISO VERT', LARG_FRISO + 100, G4, (fol==2) ? 4 : 2]);
     }
     r.push(['ACAB LAT 1', acabLat1, G4, nL], ['ACAB LAT 2', 90, G4, nL], ['ACAB LAT Z', 110, G4, nL]);
     r.push(['U PORTAL', 221, L-REF, 1]);
@@ -13645,7 +13654,7 @@ function planUpd() {
 
   var Mv=document.getElementById('plan-modelo').value;
   var isCava=(Mv==='01'||Mv==='02'||Mv==='08'||Mv==='22');
-  var isFriso=(Mv==='02'||Mv==='11'||Mv==='23acm'||Mv==='23alu');
+  var isFriso=(Mv==='02'||Mv==='11'||Mv==='22'||Mv==='23acm'||Mv==='23alu');
   document.getElementById('plan-cava-row').style.display=isCava?'':'none';
   document.getElementById('plan-friso-row').style.display=isFriso?'':'none';
 
@@ -13733,7 +13742,7 @@ function _isModelReady(){
            || parseFloat((document.getElementById('plan-largcava')||{value:''}).value)||0;
     if(distB<=0||largC<=0) return false;
   }
-  var isFriso=(Mv==='02'||Mv==='11');
+  var isFriso=(Mv==='02'||Mv==='11'||Mv==='22');
   if(isFriso){
     var distF=parseFloat((document.getElementById('plan-disbordafriso')||{value:''}).value)||0;
     var largF=parseFloat((document.getElementById('plan-largfriso')||{value:''}).value)||0;
@@ -15515,7 +15524,7 @@ function onModeloChange(){
     '19':[0,0],   // cava geométrica
     '20':[0,0],   // ripado horizontal
     '21':[0,0],   // ripado angular
-    '22':[0,0],   // cava premium
+    '22':[1,0],   // cava premium + friso vert opcional
     '23':[0,0],   // clássica moldura
     '24':[0,0]    // cava horizontal
   }
