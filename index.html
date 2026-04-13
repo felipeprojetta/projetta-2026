@@ -13845,6 +13845,18 @@ function _autoSelectAndRun(){
     }
   }
   var melhor=null;
+  // Fallback: pegar preço referência por tamanho de chapa (usa cor selecionada ou primeira disponível)
+  function _getRefPrice(SH){
+    if(corCode){var p=_getACMPrice(corCode,SH);if(p>0)return p;}
+    var sh=String(SH);
+    for(var gi=0;gi<ACM_DATA.length;gi++){
+      var opts=ACM_DATA[gi].o||[];
+      for(var oi=0;oi<opts.length;oi++){
+        if((opts[oi].l||'').indexOf(sh)>=0 && opts[oi].p>0) return opts[oi].p;
+      }
+    }
+    return 0;
+  }
   var resultados=[];
 
   validas.forEach(function(SH){
@@ -13854,7 +13866,7 @@ function _autoSelectAndRun(){
       pcsNorm.forEach(function(p){totalPecas+=p.w*p.h*p.qty;});
       var totalChapa=res.numSheets*SW*SH;
       var aprov=totalChapa>0?(totalPecas/totalChapa*100):0;
-      var precoUn=_getACMPrice(corCode,SH);
+      var precoUn=_getRefPrice(SH);
       var custoTotal=res.numSheets*precoUn;
 
       resultados.push({sh:SH,n:res.numSheets,aprov:aprov,precoUn:precoUn,custo:custoTotal});
