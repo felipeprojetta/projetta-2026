@@ -10080,13 +10080,15 @@ window.crmFazerOrcamento=function(id){
       // ── Sincronizar itens CRM → multi-porta para cálculo combinado ──
       if(window._orcItens && window._orcItens.length > 1){
         window._mpItens=[];
+        console.log('🔄 CRM→_mpItens sync: '+window._orcItens.length+' itens');
         window._orcItens.forEach(function(oi,idx){
           if(oi.tipo!=='porta_pivotante') return;
+          console.log('  Item '+(idx+1)+': '+oi.largura+'×'+oi.altura+' mod='+oi.modelo+' fech='+oi.fech_mec);
           var mp={id:'mp_crm_'+idx};
-          mp['largura']=oi.largura||'';
-          mp['altura']=oi.altura||'';
-          mp['qtd-portas']=oi.qtd||'1';
-          mp['folhas-porta']=oi.folhas||'1';
+          mp['largura']=String(oi.largura||'');
+          mp['altura']=String(oi.altura||'');
+          mp['qtd-portas']=String(oi.qtd||'1');
+          mp['folhas-porta']=String(oi.folhas||'1');
           mp['carac-modelo']=oi.modelo||'01';
           mp['carac-abertura']=oi.abertura||'PIVOTANTE';
           mp['carac-cor-ext']=oi.cor_ext||'';
@@ -10114,8 +10116,9 @@ window.crmFazerOrcamento=function(id){
           mp._folhas=parseInt(oi.folhas)||1;
           window._mpItens.push(mp);
         });
-        window._mpEditingIdx=-1; // NÃO editar nenhum — evita _mpSalvarItemAtual sobrescrever
+        window._mpEditingIdx=-1;
         if(typeof _mpRender==='function') _mpRender();
+        console.log('✅ _mpItens criados: '+window._mpItens.length+' itens → '+window._mpItens.map(function(m){return m._largura+'×'+m._altura;}).join(', '));
       }
       window._osAutoMode=true;
       if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('auto-gerarCustoTotal:',e);}
@@ -18534,7 +18537,7 @@ function _mpGetItens(){
   // Salvar item atual se editando
   if(window._mpEditingIdx>=0&&window._mpItens.length>0) _mpSalvarItemAtual();
   if(window._mpItens.length>0){
-    return window._mpItens.map(function(it){
+    var result=window._mpItens.map(function(it){
       return {
         id:it.id,
         modelo:it._modelo||it['carac-modelo']||'01',
@@ -18550,6 +18553,8 @@ function _mpGetItens(){
         corInt:it['carac-cor-int']||''
       };
     });
+    console.log('📋 _mpGetItens: '+result.length+' itens → '+result.map(function(r){return r.largura+'×'+r.altura;}).join(', '));
+    return result;
   }
   // Sem itens: usar formulário (compatibilidade)
   var modEl=document.getElementById('carac-modelo');
