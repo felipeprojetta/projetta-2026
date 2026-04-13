@@ -2229,8 +2229,10 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     <span>Validade: <span id="prop-validade">15 dias úteis</span></span>
   </div>
 
-  <!-- BLOCO PORTA -->
-  <div style="display:flex;gap:12px;border:1px solid #ccc;border-radius:3px;padding:8px;margin-bottom:6px">
+  <!-- BLOCOS POR PORTA (gerado dinamicamente) -->
+  <div id="prop-doors-container">
+  <!-- fallback single-door -->
+  <div id="prop-single-door-block" style="display:flex;gap:12px;border:1px solid #ccc;border-radius:3px;padding:8px;margin-bottom:6px">
     <div style="flex:0 0 240px;max-height:400px;border:1px solid #ddd;border-radius:3px;display:flex;align-items:center;justify-content:center;background:#f9f9f9;overflow:hidden" id="prop-img-porta-wrap">
       <img id="prop-img-porta" src="" style="max-width:100%;max-height:400px;display:none" alt="Modelo">
       <span id="prop-img-porta-ph" style="color:#aaa;font-size:9px;text-align:center">Imagem do<br>modelo</span>
@@ -2257,6 +2259,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
         <div><strong>CILINDRO</strong>: <span id="prop-cilindro">—</span></div>
       </div>
     </div>
+  </div>
   </div>
 
   <!-- TABELA DE PREÇO (dinâmica - suporta multi-porta) -->
@@ -19397,6 +19400,7 @@ function _mpCalcAllPiecesCombined(){
 /* ── Popula tabela de itens na proposta comercial (multi-porta) ── */
 function _populatePropostaItens(){
   var tbody=document.getElementById('prop-items-tbody');
+  var container=document.getElementById('prop-doors-container');
   if(!tbody) return;
   if(!window._mpItens||window._mpItens.length===0) return;
   var brl2=function(v){return v>0?'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2}):'\u2014';};
@@ -19406,58 +19410,102 @@ function _populatePropostaItens(){
   var freteEl=document.getElementById('lr-frete');
   var frete=0;
   if(freteEl){var fv=freteEl.value||'0';frete=parseFloat(fv.replace(/\./g,'').replace(',','.'))||0;}
-  var fatTotal=fatPorta+fatInst+frete;
-  var areas=[],totalArea=0;
-  window._mpItens.forEach(function(it){
-    var L=parseFloat(it._largura||it['largura'])||0;
-    var A=parseFloat(it._altura||it['altura'])||0;
-    var q=parseInt(it._qtd||it['qtd-portas'])||1;
-    var area=L*A/1e6*q;areas.push(area);totalArea+=area;
-  });
-  var totalQtd=0,totalValor=0,html='';
+  // Calcular áreas e proporções
+  var items=[];
+  var totalArea=0;
   window._mpItens.forEach(function(it,i){
-    var q=parseInt(it._qtd||it['qtd-portas'])||1;
-    totalQtd+=q;
     var L=parseFloat(it._largura||it['largura'])||0;
     var A=parseFloat(it._altura||it['altura'])||0;
-    var modTxt=it._modeloTxt||it._modelo||it['carac-modelo']||'';
+    var q=parseInt(it._qtd||it['qtd-portas'])||1;
+    var area=L*A/1e6*q;
+    var modNum=it._modelo||it['carac-modelo']||'01';
+    var modTxt=it._modeloTxt||'';
     if(!modTxt||modTxt==='undefined'){
-      var modNum=it._modelo||it['carac-modelo']||'01';
       var modSel=document.getElementById('carac-modelo');
       if(modSel){for(var mi=0;mi<modSel.options.length;mi++){if(modSel.options[mi].value===modNum){modTxt=modSel.options[mi].text;break;}}}
       if(!modTxt) modTxt='Porta Pivotante';
     }
-    var prop=totalArea>0?areas[i]/totalArea:0;
-    var valorPortaProp=fatPorta*prop;
-    var valorInstProp=fatInst*prop;
-    var valorFreteProp=frete*prop;
-    var valorTotal=valorPortaProp+valorInstProp+valorFreteProp;
-    totalValor+=valorTotal;
-    var valorUn=q>0?valorTotal/q:0;
-    html+='<tr>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+(i+1).toString().padStart(2,'0')+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc">'+modTxt+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">'+Math.round(L)+' \u00d7 '+Math.round(A)+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+q+'</td>'
+    var folhas=parseInt(it._folhas||it['folhas-porta'])||1;
+    var corExt=it['carac-cor-ext']||'—';
+    var corInt=it['carac-cor-int']||corExt;
+    var fechMec=it['carac-fech-mec']||'—';
+    var fechDig=it['carac-fech-dig']||'NÃO SE APLICA';
+    var puxador=it['carac-puxador']||'—';
+    var cilindro=it['carac-cilindro']||'—';
+    var sistema=A<4000?'PA006 NOVO':'PA007 NOVO';
+    var imgSrc=(typeof MODEL_IMGS!=='undefined'&&MODEL_IMGS[modNum])||'';
+    if(typeof _modeloImgCache!=='undefined'&&_modeloImgCache[modNum]) imgSrc=_modeloImgCache[modNum];
+    items.push({idx:i,L:L,A:A,q:q,area:area,modNum:modNum,modTxt:modTxt,folhas:folhas,corExt:corExt,corInt:corInt,fechMec:fechMec,fechDig:fechDig,puxador:puxador,cilindro:cilindro,sistema:sistema,imgSrc:imgSrc});
+    totalArea+=area;
+  });
+  // Ordenar por área (maior primeiro)
+  items.sort(function(a,b){return b.area-a.area;});
+  // Esconder bloco single-door
+  var singleBlock=document.getElementById('prop-single-door-block');
+  if(singleBlock) singleBlock.style.display='none';
+  // Gerar blocos por porta
+  var doorsHtml='';
+  var totalQtd=0,totalValor=0,tableHtml='';
+  items.forEach(function(it,sortIdx){
+    var prop=totalArea>0?it.area/totalArea:0;
+    var valorItem=(fatPorta+fatInst+frete)*prop;
+    totalValor+=valorItem;
+    totalQtd+=it.q;
+    var valorUn=it.q>0?valorItem/it.q:0;
+    var areaUn=it.L*it.A/1e6;
+    // Bloco visual da porta
+    doorsHtml+='<div style="display:flex;gap:12px;border:1px solid #ccc;border-radius:3px;padding:8px;margin-bottom:6px">';
+    doorsHtml+='<div style="flex:0 0 200px;max-height:320px;border:1px solid #ddd;border-radius:3px;display:flex;align-items:center;justify-content:center;background:#f9f9f9;overflow:hidden">';
+    if(it.imgSrc) doorsHtml+='<img src="'+it.imgSrc+'" style="max-width:100%;max-height:320px" alt="Modelo">';
+    else doorsHtml+='<span style="color:#aaa;font-size:9px;text-align:center">Imagem do<br>modelo</span>';
+    doorsHtml+='</div>';
+    doorsHtml+='<div style="flex:1">';
+    doorsHtml+='<div style="font-size:12px;font-weight:800;color:var(--navy);margin-bottom:4px">PORTA PROJETTA BY WEIKU</div>';
+    doorsHtml+='<div style="display:flex;gap:15px;font-size:10px;margin-bottom:2px"><span><b>Qtd:</b> '+it.q+'</span><span><b>L:</b> '+Math.round(it.L)+'</span><span><b>H:</b> '+Math.round(it.A)+'</span></div>';
+    doorsHtml+='<div style="font-size:10px;margin-bottom:4px"><b>Área Porta:</b> '+areaUn.toFixed(2)+'m²</div>';
+    doorsHtml+='<div style="font-size:9.5px;color:#444;line-height:1.5">';
+    doorsHtml+='<div><b>SISTEMA</b>: '+it.sistema+'</div>';
+    doorsHtml+='<div><b>TIPO DE ABERTURA</b>: PIVOTANTE</div>';
+    doorsHtml+='<div><b>NUMERO DE FOLHAS</b>: '+it.folhas+' FOLHA'+(it.folhas>1?'S':'')+'</div>';
+    doorsHtml+='<div><b>MODELO</b>: '+it.modTxt+'</div>';
+    doorsHtml+='<div><b>FECHADURA MECÂNICA</b>: '+it.fechMec+'</div>';
+    doorsHtml+='<div><b>FECHADURA DIGITAL</b>: '+it.fechDig+'</div>';
+    doorsHtml+='<div><b>PUXADOR</b>: '+it.puxador+'</div>';
+    doorsHtml+='<div><b>COR CHAPA EXTERNA</b>: '+it.corExt+'</div>';
+    doorsHtml+='<div><b>COR CHAPA INTERNA</b>: '+it.corInt+'</div>';
+    doorsHtml+='<div><b>CILINDRO</b>: '+it.cilindro+'</div>';
+    doorsHtml+='</div>';
+    doorsHtml+='<div style="margin-top:6px;padding:4px 8px;background:#f0ebe0;border-radius:3px;font-size:11px;font-weight:800;color:var(--navy);text-align:right">'+brl2(valorItem)+'</div>';
+    doorsHtml+='</div></div>';
+    // Linha da tabela de itens
+    tableHtml+='<tr>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+(sortIdx+1).toString().padStart(2,'0')+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc">'+it.modTxt+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">'+Math.round(it.L)+' \u00d7 '+Math.round(it.A)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+it.q+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+brl2(valorUn)+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+brl2(valorTotal)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+brl2(valorItem)+'</td>'
       +'</tr>';
   });
-  html+='<tr style="background:#f0ebe0;font-weight:800">'
-    +'<td colspan="3" style="padding:6px 8px;border:1px solid #ccc;text-align:right">Total \u00c1rea: '+(totalArea).toFixed(1)+' m\u00b2</td>'
+  // Total row
+  tableHtml+='<tr style="background:#f0ebe0;font-weight:800">'
+    +'<td colspan="3" style="padding:6px 8px;border:1px solid #ccc;text-align:right">Total \u00c1rea: '+totalArea.toFixed(1)+' m\u00b2</td>'
     +'<td style="padding:6px 8px;border:1px solid #ccc;text-align:center">'+totalQtd+'</td>'
     +'<td style="padding:6px 8px;border:1px solid #ccc"></td>'
     +'<td style="padding:6px 8px;border:1px solid #ccc;text-align:center;font-size:13px">'+brl2(totalValor)+'</td>'
     +'</tr>';
-  tbody.innerHTML=html;
+  // Inserir blocos de portas
+  if(container) container.innerHTML=doorsHtml;
+  tbody.innerHTML=tableHtml;
+  // Atualizar totais
   var qtdEl=document.getElementById('prop-qtd');if(qtdEl)qtdEl.textContent=totalQtd;
   var qtdPEl=document.getElementById('prop-qtd-porta');if(qtdPEl)qtdPEl.textContent=totalQtd;
-  var propTotalEl=document.getElementById('prop-valor-total');
-  if(propTotalEl) propTotalEl.textContent=brl2(totalValor);
   var propTotalOrcEl=document.getElementById('prop-total-orcamento');
   if(propTotalOrcEl) propTotalOrcEl.textContent=brl2(totalValor);
   var propTotalOrcEl2=document.getElementById('prop-total-orc');
   if(propTotalOrcEl2) propTotalOrcEl2.textContent=brl2(totalValor);
+  // Área total
+  var areaEl=document.getElementById('prop-area-total');if(areaEl)areaEl.textContent=totalArea.toFixed(1);
 }
 
 
