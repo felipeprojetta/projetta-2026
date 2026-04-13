@@ -18262,11 +18262,23 @@ function _mpRender(){
     var A=it._altura||parseFloat(it['altura'])||0;
     var temFixo=it['tem-fixo']||it.temFixo;
     var nFixos=it._fixos?it._fixos.length:0;
+    var _modNome2=(it._modeloTxt||'').toLowerCase();
+    var _isCavaCard=_modNome2.indexOf('cava')>=0;
+    var _dbCava=it['carac-dist-borda-cava']||'210';
+    var _lcCava=it['carac-largura-cava']||'150';
+    var corExt=it['carac-cor-ext']||'';
+    // Buscar texto da cor externa do select
+    var _corExtTxt='';
+    if(corExt){var _ceOpt=document.querySelector('#carac-cor-ext option[value=\"'+corExt+'\"]');_corExtTxt=_ceOpt?_ceOpt.textContent:corExt;}
     html+='<div style="padding:8px 14px;background:'+bg+';'+border+'border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="_mpCarregarItem('+i+')">';
     html+='<span style="font-size:16px;font-weight:800;color:'+(isEditing?'#e67e22':'#003144')+';min-width:28px">'+(i+1)+'</span>';
     html+='<div style="flex:1;min-width:0">';
     html+='<div style="font-size:12px;font-weight:700;color:#003144">'+modelo+'</div>';
-    html+='<div style="font-size:10px;color:#888">'+L+' × '+A+' mm'+(temFixo?' · '+nFixos+' fixo(s)':'')+'</div>';
+    html+='<div style="font-size:10px;color:#888">'+L+' × '+A+' mm';
+    if(_isCavaCard) html+=' · <b style="color:#e65100">Cava '+_dbCava+'×'+_lcCava+'</b>';
+    if(temFixo) html+=' · '+nFixos+' fixo(s)';
+    if(_corExtTxt) html+=' · '+_corExtTxt;
+    html+='</div>';
     html+='</div>';
     html+='<span style="background:#e67e22;color:#fff;font-size:12px;font-weight:800;padding:3px 10px;border-radius:12px;min-width:30px;text-align:center">×'+qtd+'</span>';
     if(isEditing) html+='<span style="font-size:10px;color:#e67e22;font-weight:700">✏ editando</span>';
