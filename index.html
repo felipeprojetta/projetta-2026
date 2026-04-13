@@ -10983,8 +10983,12 @@ function _gerarPropostaPDF(cb){
 }
 
 function _pdfFileName(){
-  var cl=(document.getElementById('crm-o-cliente')||document.getElementById('cliente')||{}).value||'Cliente';
-  return 'Proposta_Projetta_'+cl.replace(/[^a-zA-Z0-9\u00C0-\u017F ]/g,'').replace(/ +/g,'_')+'.pdf';
+  var agp=(document.getElementById('num-agp')||document.getElementById('crm-o-agp')||{value:''}).value||'';
+  var reserva=(document.getElementById('numprojeto')||document.getElementById('crm-o-reserva')||{value:''}).value||'';
+  var cl=(document.getElementById('crm-o-cliente')||document.getElementById('cliente')||{value:''}).value||'Cliente';
+  var parts=[agp,reserva,cl].filter(Boolean);
+  var name=parts.join(' - ').replace(/[^a-zA-Z0-9\u00C0-\u017F \-]/g,'').replace(/ +/g,' ').trim();
+  return (name||'Proposta_Projetta')+'.pdf';
 }
 
 function _showToast(msg,color){
