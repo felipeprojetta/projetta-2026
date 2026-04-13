@@ -5529,6 +5529,15 @@ function resetToDefaults(){
   var fabAluTbody=document.getElementById('fab-alu-tbody');if(fabAluTbody)fabAluTbody.innerHTML='';
   var fabAluTable=document.getElementById('fab-alu-table');if(fabAluTable)fabAluTable.style.display='none';
   var fabAluEmpty=document.getElementById('fab-alu-empty');if(fabAluEmpty)fabAluEmpty.style.display='';
+  // Limpar Resumo da Obra
+  var resumoObra=document.getElementById('resumo-obra');if(resumoObra)resumoObra.style.display='none';
+  ['ro-perfis-kg','ro-perfis-bruto','ro-perfis-val','ro-chapas-qty','ro-chapas-peso','ro-chapas-val','ro-inst-val','ro-custo-total'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent='—';});
+  ['ro-pecas','ro-comp-val','ro-mao-val'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent='—';});
+  // Esconder multi-porta section
+  var mpSec=document.getElementById('multi-porta-section');if(mpSec)mpSec.style.display='none';
+  // Reset flags de OS
+  window._osGeradoUmaVez=false;
+  window._lastOSData=null;
   // Limpar seleção de chapas no planificador
   var planAcmCor=document.getElementById('plan-acm-cor');if(planAcmCor)planAcmCor.selectedIndex=0;
   var planAluCor=document.getElementById('plan-alu-cor');if(planAluCor)planAluCor.selectedIndex=0;
