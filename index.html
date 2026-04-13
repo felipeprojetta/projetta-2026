@@ -19397,10 +19397,14 @@ function _populatePropostaItens(){
   var tbody=document.getElementById('prop-items-tbody');
   if(!tbody) return;
   if(!window._mpItens||window._mpItens.length===0) return;
-  var brl2=function(v){return v>0?'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';};
+  var brl2=function(v){return v>0?'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2}):'\u2014';};
   var parseVal=function(el){if(!el)return 0;var t=el.textContent||'';return parseFloat(t.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;};
-  var tabPorta=parseVal(document.getElementById('m-tab-porta'));
-  var tabInst=parseVal(document.getElementById('m-tab-inst'))||parseVal(document.getElementById('r-inst'));
+  var fatPorta=parseVal(document.getElementById('m-fat-porta'))||parseVal(document.getElementById('m-tab-porta'));
+  var fatInst=parseVal(document.getElementById('r-inst'));
+  var freteEl=document.getElementById('lr-frete');
+  var frete=0;
+  if(freteEl){var fv=freteEl.value||'0';frete=parseFloat(fv.replace(/\./g,'').replace(',','.'))||0;}
+  var fatTotal=fatPorta+fatInst+frete;
   var areas=[],totalArea=0;
   window._mpItens.forEach(function(it){
     var L=parseFloat(it._largura||it['largura'])||0;
@@ -19408,7 +19412,7 @@ function _populatePropostaItens(){
     var q=parseInt(it._qtd||it['qtd-portas'])||1;
     var area=L*A/1e6*q;areas.push(area);totalArea+=area;
   });
-  var totalQtd=0,html='';
+  var totalQtd=0,totalValor=0,html='';
   window._mpItens.forEach(function(it,i){
     var q=parseInt(it._qtd||it['qtd-portas'])||1;
     totalQtd+=q;
@@ -19416,16 +19420,17 @@ function _populatePropostaItens(){
     var A=parseFloat(it._altura||it['altura'])||0;
     var modTxt=it._modeloTxt||it._modelo||it['carac-modelo']||'';
     if(!modTxt||modTxt==='undefined'){
-      // Tentar buscar texto do modelo pelo número
       var modNum=it._modelo||it['carac-modelo']||'01';
       var modSel=document.getElementById('carac-modelo');
       if(modSel){for(var mi=0;mi<modSel.options.length;mi++){if(modSel.options[mi].value===modNum){modTxt=modSel.options[mi].text;break;}}}
       if(!modTxt) modTxt='Porta Pivotante';
     }
     var prop=totalArea>0?areas[i]/totalArea:0;
-    var valorPortaProp=tabPorta*prop;
-    var valorInstProp=tabInst*prop;
-    var valorTotal=valorPortaProp+valorInstProp;
+    var valorPortaProp=fatPorta*prop;
+    var valorInstProp=fatInst*prop;
+    var valorFreteProp=frete*prop;
+    var valorTotal=valorPortaProp+valorInstProp+valorFreteProp;
+    totalValor+=valorTotal;
     var valorUn=q>0?valorTotal/q:0;
     html+='<tr>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+(i+1).toString().padStart(2,'0')+'</td>'
@@ -19436,10 +19441,21 @@ function _populatePropostaItens(){
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+brl2(valorTotal)+'</td>'
       +'</tr>';
   });
+  html+='<tr style="background:#f0ebe0;font-weight:800">'
+    +'<td colspan="3" style="padding:6px 8px;border:1px solid #ccc;text-align:right">Total \u00c1rea: '+(totalArea).toFixed(1)+' m\u00b2</td>'
+    +'<td style="padding:6px 8px;border:1px solid #ccc;text-align:center">'+totalQtd+'</td>'
+    +'<td style="padding:6px 8px;border:1px solid #ccc"></td>'
+    +'<td style="padding:6px 8px;border:1px solid #ccc;text-align:center;font-size:13px">'+brl2(totalValor)+'</td>'
+    +'</tr>';
   tbody.innerHTML=html;
   var qtdEl=document.getElementById('prop-qtd');if(qtdEl)qtdEl.textContent=totalQtd;
   var qtdPEl=document.getElementById('prop-qtd-porta');if(qtdPEl)qtdPEl.textContent=totalQtd;
+  var propTotalEl=document.getElementById('prop-valor-total');
+  if(propTotalEl) propTotalEl.textContent=brl2(totalValor);
+  var propTotalOrcEl=document.getElementById('prop-total-orcamento');
+  if(propTotalOrcEl) propTotalOrcEl.textContent=brl2(totalValor);
 }
+
 
 
 /* ══ ROMANEIO DE COMPRA — Lista consolidada para pedir material ══ */
