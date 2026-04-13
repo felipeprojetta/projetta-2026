@@ -6942,10 +6942,11 @@ function gerarOS(){
       } else {
         var bg=ip?'#fef9f0':pos%2===0?'#fff':'#f9f8f5';
         var bl=ip?'border-left:3px solid #8e44ad;':'';
+        var _ilbl=c._itemLabel?'<span style="font-size:8px;color:#e65100;font-weight:600;margin-left:4px">'+c._itemLabel+'</span>':'';
         tbody.innerHTML+='<tr style="background:'+bg+';'+bl+'">'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;color:#888;font-size:10px">'+pos+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;font-weight:700;font-size:10px;white-space:nowrap;color:'+(ip?'#8e44ad':themeColor)+'">'+c.code+(ip?' 🎨':'')+'</td>'
-          +'<td style="padding:4px 8px;border:0.5px solid #ddd;font-size:10px">'+c.desc+'</td>'
+          +'<td style="padding:4px 8px;border:0.5px solid #ddd;font-size:10px">'+c.desc+_ilbl+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px;color:#888">'+c.lh+'</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px">'+barLen+'M</td>'
           +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-weight:700;font-size:11px">'+c.compMM+'</td>'
@@ -9970,6 +9971,9 @@ function restoreFormData(data){
 /* ── Fazer Orçamento ─────────────────────────────── */
 window._crmOrcCardId=null;
 window.crmFazerOrcamento=function(id){
+  // Salvar dados atuais do CRM antes de carregar
+  if(typeof _crmItensSaveFromDOM==='function') try{_crmItensSaveFromDOM();}catch(e){}
+  if(typeof crmSaveCard==='function') try{crmSaveCard();}catch(e){}
   var opp=cLoad().find(function(o){return o.id===id;});if(!opp)return;
   window._crmOrcCardId=id;
   if(typeof switchTab==='function')switchTab('orcamento');
@@ -10091,6 +10095,7 @@ window.crmFazerOrcamento=function(id){
           mp['carac-fech-dig']=oi.fech_dig||'';
           mp['carac-cilindro']=oi.cilindro||'';
           mp['carac-puxador']=oi.puxador||'';
+          mp['carac-pux-tam']=oi.pux_tam||'1.5';
           mp['carac-dist-borda-cava']=oi.dist_borda_cava||'210';
           mp['carac-largura-cava']=oi.largura_cava||'150';
           mp['carac-dist-borda-friso']=oi.dist_borda_friso||'';
