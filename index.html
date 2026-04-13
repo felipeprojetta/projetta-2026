@@ -13721,12 +13721,18 @@ function plnPieceTable(pieces, placed) {
   }
   // Sumário peso por local
   var pesoPorta=0,pesoPortal=0,pesoFixo=0;
+  var _pesoChapasPerDoor={};
   for(var i=0;i<_pSorted.length;i++){
     var kg=_pSorted[i].w*_pSorted[i].h*_pSorted[i].qty/1e6*6.5;
-    if(_pSorted[i]._local==='PORTA') pesoPorta+=kg;
+    if(_pSorted[i]._local==='PORTA'){
+      pesoPorta+=kg;
+      var _di=_pSorted[i]._itemIdx;
+      if(_di!==undefined){_pesoChapasPerDoor[_di]=(_pesoChapasPerDoor[_di]||0)+kg;}
+    }
     else if(_pSorted[i]._local==='FIXO') pesoFixo+=kg;
     else pesoPortal+=kg;
   }
+  window._pesoChapasPerDoor=_pesoChapasPerDoor;
   var pesoTotal=pesoPorta+pesoPortal+pesoFixo;
   function _sumRow(label,kg,bg,color){
     var tr=document.createElement('tr');
@@ -17282,10 +17288,28 @@ function _renderOSAcess(d, acessRows, vedaInfo){
     var dobDesc = 'Dobradiça Volper 4×3×3 Inox Preto';
     hardwareRows.push({qty:qtyDob*_qPHw, code:dobCode, desc:dobDesc+' (porta: '+peso.total.toFixed(1)+'kg — '+qtyDob+' un.×'+_qPHw+')', preco:dobPreco, apl:'FAB', grp:'DOBRADIÇAS', obs:'DOBRADIÇA'});
   } else if(abertura === 'PIVOTANTE'){
-    var pivotCode  = peso.total<=350?'PA-PIVOT 350 KG':'PA-PIVOT 600 KG';
-    var pivotPreco = getPreco(pivotCode);
-    var pivotDesc  = peso.total<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
-    hardwareRows.push({qty:_qPHw, code:pivotCode, desc:pivotDesc+' (porta: '+peso.total.toFixed(1)+'kg — perfis: '+peso.pesoPerfis.toFixed(1)+'kg + chapas: '+peso.pesoChapas.toFixed(1)+'kg + enchim: '+peso.pesoEnchimento.toFixed(1)+'kg + lã: '+peso.pesoLaRocha.toFixed(1)+'kg)', preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
+    if(window._mpItens&&window._mpItens.length>0){
+      // Multi-porta: pivô separado por porta com peso individual
+      window._mpItens.forEach(function(mpIt,di){
+        var qI=parseInt(mpIt._qtd||mpIt['qtd-portas'])||1;
+        var pPerfis=(window._perfisPerDoor&&window._perfisPerDoor[di])||0;
+        var pChapas=(window._pesoChapasPerDoor&&window._pesoChapasPerDoor[di])||0;
+        var pEnch=peso.pesoEnchimento/_qPHw*qI;
+        var pLa=peso.pesoLaRocha/_qPHw*qI;
+        var pTotal=pPerfis+pChapas+pEnch+pLa;
+        var pivCode=pTotal<=350?'PA-PIVOT 350 KG':'PA-PIVOT 600 KG';
+        var pivPreco=getPreco(pivCode);
+        var pivDesc=pTotal<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
+        var L=mpIt._largura||mpIt['largura']||'?';
+        var A=mpIt._altura||mpIt['altura']||'?';
+        hardwareRows.push({qty:qI,code:pivCode,desc:pivDesc+' P'+(di+1)+' '+L+'×'+A+' ('+pTotal.toFixed(1)+'kg — perfis:'+pPerfis.toFixed(1)+'kg + chapas:'+pChapas.toFixed(1)+'kg + enchim:'+pEnch.toFixed(1)+'kg + lã:'+pLa.toFixed(1)+'kg)',preco:pivPreco,apl:'FAB',grp:'PIVÔ',obs:'PIVÔ P'+(di+1)});
+      });
+    } else {
+      var pivotCode  = peso.total<=350?'PA-PIVOT 350 KG':'PA-PIVOT 600 KG';
+      var pivotPreco = getPreco(pivotCode);
+      var pivotDesc  = peso.total<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
+      hardwareRows.push({qty:_qPHw, code:pivotCode, desc:pivotDesc+' (porta: '+peso.total.toFixed(1)+'kg — perfis: '+peso.pesoPerfis.toFixed(1)+'kg + chapas: '+peso.pesoChapas.toFixed(1)+'kg + enchim: '+peso.pesoEnchimento.toFixed(1)+'kg + lã: '+peso.pesoLaRocha.toFixed(1)+'kg)', preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
+    }
   }
   // Se abertura não selecionada: sem pivô nem dobradiça
 
@@ -17293,7 +17317,7 @@ function _renderOSAcess(d, acessRows, vedaInfo){
   // Agregar itens iguais (mesmo código): somar quantidades
   var _aggMap={},_aggOrder=[];
   allRows.forEach(function(r){
-    var key=r.code+'|'+r.apl+'|'+r.grp;
+    var key=r.code+'|'+r.apl+'|'+r.grp+'|'+(r.obs||'');
     if(_aggMap[key]){
       _aggMap[key].qty+=r.qty;
     } else {
@@ -19191,6 +19215,19 @@ function _mpCalcCombinedPerfis(barraMM){
     isPintado:firstD.isPintado,
     _multiDoor:true, _itens:itens
   };
+  // Calcular peso perfis FOLHA por porta
+  var _perfisPerDoor={};
+  var _perfisTotalFolha=0;
+  allCuts.forEach(function(c){
+    if((c.secao==='FOLHA'||c.secao==='FRISO')&&c.perf){
+      var kg=(c.compMM/1000)*(c.perf.kg||0)*c.qty;
+      _perfisTotalFolha+=kg;
+      var di=c._itemIdx;
+      if(di!==undefined) _perfisPerDoor[di]=(_perfisPerDoor[di]||0)+kg;
+    }
+  });
+  window._pesoPerfisFolha=_perfisTotalFolha;
+  window._perfisPerDoor=_perfisPerDoor;
   return merged;
 }
 
