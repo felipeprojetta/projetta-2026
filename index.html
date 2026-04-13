@@ -6765,9 +6765,9 @@ function gerarCustoTotal(){
 
   // FASE 1 — imediato: OS de perfis e acessórios
   try{if(typeof _syncCavaToPlano==='function') _syncCavaToPlano();}catch(e){console.warn('syncCava:',e);}
-  _autoSelectFechadura();
+  try{_autoSelectFechadura();}catch(e){console.warn('autoFech:',e);}
   window._osAutoMode = true;
-  gerarOS();
+  try{gerarOS();}catch(e){console.warn('gerarOS error:',e);}
   window._osAutoMode = false;
 
   // FASE 2 — 500ms: planificador calcula chapas → captura quantidade
@@ -17218,12 +17218,10 @@ function _updatePesoAcessorios(){
   // Recalculate accessories with updated weight (chapas may have changed)
   var nFolhas = parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
   var sis = (d && d.sis) || (document.getElementById('prod-sistema')||{value:''}).value || 'PA006';
-  var acessRows = _calcAcessoriosOS(d, nFolhas, sis);
-  // Multiplicar quantidades por qtd portas
-  var _qPUpAc=window._qPOS||parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
-  if(window._mpItens&&window._mpItens.length>0) _qPUpAc=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
-  if(_qPUpAc>1){ acessRows.forEach(function(r){ r.qty=r.qty*_qPUpAc; }); }
-  var vedaInfo = d.vedaSize ? {qty:d.vedaQty*(window._qPOS||1), code:d.vedaCode, size:d.vedaSize} : null;
+  var acessRows = _calcAcessoriosAllItems(d, sis);
+  var _qPUpAc=1; // _calcAcessoriosAllItems já multiplica internamente
+  var _qPVeda=window._mpItens&&window._mpItens.length>0?window._mpItens.reduce(function(s,it){return s+(parseInt(it._qtd||it['qtd-portas'])||1);},0):(window._qPOS||parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1);
+  var vedaInfo = d.vedaSize ? {qty:d.vedaQty*_qPVeda, code:d.vedaCode, size:d.vedaSize} : null;
   _renderOSAcess(d, acessRows, vedaInfo);
 }
 
