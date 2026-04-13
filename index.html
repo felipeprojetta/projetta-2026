@@ -6377,8 +6377,8 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     // Modelo 22: 2 obrigatórias por folha em 101×101 (= lar_inf_sup), demais em 101×51
     {code:modeloSel==='22'?C.lar_inf_sup:C.trav_vert, desc:modeloSel==='22'?'TRAV VERT 101':'TRAV VERT', compMM:TRAV_V, qty:modeloSel==='22'?2*nFolhas:TRAV_V_QTY, pintado:false,secao:'FOLHA', barLenMM:barraMM, lh:'90/90 A', obs:'BRUTO'},
     {code:C.trav_vert,   desc:'TRAV VERT',     compMM:TRAV_V,        qty:modeloSel==='22'?Math.max(0,TRAV_V_QTY-2*nFolhas):0, pintado:false,secao:'FOLHA', barLenMM:barraMM, lh:'90/90 A', obs:'BRUTO'},
-    {code:C.tub_cava,    desc:'TUB CAVA',      compMM:TUB_CA,        qty:temCava?2*nFolhas:0, pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 A', obs:'BRUTO'},
-    {code:C.cant_cava,   desc:'CANT CAVA',     compMM:CANT_CA,       qty:temCava?4*nFolhas:0, pintado:true, secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 A', obs:'BNF-TECNO'},
+    {code:C.tub_cava,    desc:'TUB CAVA',      compMM:TUB_CA,        qty:(temCava&&modeloSel!=='22')?2*nFolhas:0, pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 A', obs:'BRUTO'},
+    {code:C.cant_cava,   desc:'CANT CAVA',     compMM:CANT_CA,       qty:(temCava&&modeloSel!=='22')?4*nFolhas:0, pintado:true, secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 A', obs:'BNF-TECNO'},
     // FOLHA — travessas estruturais (horizontais)
     {code:C.lar_inf_sup, desc:'LAR INF & SUP', compMM:LAR_IS,        qty:2*nFolhas,     pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
     {code:C.ved_inf_sup, desc:'VED INF & SUP', compMM:VED_IS,        qty:2*nFolhas,     pintado:true, secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 L', obs:'BNF-TECNO'},
@@ -12132,8 +12132,8 @@ function calcPerfis(){
     {code:'PA-'+SFX+'F-'+paFBarLen/1000+'M',desc:'PA ALTURA',compMM:PA_F,qty:2,obs:'BNF-TECNO',pintado:true,secao:'FOLHA',barLenMM:paFBarLen},
     // Modelo 22: 2 TRAV VERT obrigatórias em 101×101
     {code:_modCEM==='22'?'PA-101X101X2.5':'PA-101X51X2',desc:_modCEM==='22'?'TRAV VERT 101':'TRAV VERT',compMM:TRAV_V,qty:2,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
-    {code:'PA-38X38X1.58',desc:'TUB CAVA',compMM:TUB_CA,qty:2,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
-    {code:'PA-CANT-30X30X2.0',desc:'CANT CAVA',compMM:CANT_CA,qty:4,obs:'BNF-TECNO',pintado:true,secao:'FOLHA',barLenMM:barraMM},
+    {code:'PA-38X38X1.58',desc:'TUB CAVA',compMM:TUB_CA,qty:_modCEM==='22'?0:2,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
+    {code:'PA-CANT-30X30X2.0',desc:'CANT CAVA',compMM:CANT_CA,qty:_modCEM==='22'?0:4,obs:'BNF-TECNO',pintado:true,secao:'FOLHA',barLenMM:barraMM},
     {code:'PA-101X101X2.5',desc:'LAR INF & SUP',compMM:LAR_IS,qty:2,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
     {code:'PA-'+SFX+'V',desc:'VED INF & SUP',compMM:VED_IS,qty:2,obs:'BNF-TECNO',pintado:true,secao:'FOLHA',barLenMM:barraMM},
     {code:'PA-CHR908',desc:'CANAL ESC',compMM:CAN_E,qty:2,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
