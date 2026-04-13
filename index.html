@@ -14531,36 +14531,45 @@ function buscaCep() {
           var destLat = parseFloat(geo[0].lat);
           var destLon = parseFloat(geo[0].lon);
 
-          var osrmUrl = 'https://router.project-osrm.org/route/v1/driving/' +
-            FACTORY_LON + ',' + FACTORY_LAT + ';' + destLon + ',' + destLat +
-            '?overview=false';
-
-          // Tenta OSRM (rota real de carro)
-          _fetchTimeout(osrmUrl, {}, 12000)
-            .then(function(r){ return r.json(); })
-            .then(function(route) {
-              if (route && route.routes && route.routes.length) {
-                _cepSetResult(cidade, uf, route.routes[0].distance / 1000, true);
-              } else {
-                throw new Error('no route');
-              }
+          // Tenta Valhalla (rota real de carro — mais confiável)
+          var valhallaUrl='https://valhalla1.openstreetmap.de/route';
+          var valhallaBody=JSON.stringify({locations:[{lat:FACTORY_LAT,lon:FACTORY_LON},{lat:destLat,lon:destLon}],costing:'auto',units:'km'});
+          _fetchTimeout(valhallaUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:valhallaBody},12000)
+            .then(function(r){return r.json();})
+            .then(function(vr){
+              if(vr&&vr.trip&&vr.trip.summary&&vr.trip.summary.length>0){
+                _cepSetResult(cidade,uf,vr.trip.summary.length,true);
+              } else { throw new Error('no valhalla'); }
             })
-            .catch(function() {
-              // Fallback 2: OSRM retry com endpoint alternativo
-              var osrmUrl2 = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/' +
+            .catch(function(){
+              // Fallback 2: OSRM principal
+              var osrmUrl = 'https://router.project-osrm.org/route/v1/driving/' +
                 FACTORY_LON + ',' + FACTORY_LAT + ';' + destLon + ',' + destLat +
                 '?overview=false';
-              _fetchTimeout(osrmUrl2, {}, 12000)
+              _fetchTimeout(osrmUrl, {}, 12000)
                 .then(function(r){ return r.json(); })
-                .then(function(route2) {
-                  if (route2 && route2.routes && route2.routes.length) {
-                    _cepSetResult(cidade, uf, route2.routes[0].distance / 1000, true);
-                  } else { throw new Error('no route2'); }
+                .then(function(route) {
+                  if (route && route.routes && route.routes.length) {
+                    _cepSetResult(cidade, uf, route.routes[0].distance / 1000, true);
+                  } else { throw new Error('no route'); }
                 })
                 .catch(function() {
-                  // Fallback 3: Haversine × 1.3 (aproximado)
-                  var hav = _haversineKm(FACTORY_LAT, FACTORY_LON, destLat, destLon);
-                  _cepSetResult(cidade, uf, hav * 1.3, false);
+                  // Fallback 3: OSRM alternativo
+                  var osrmUrl2 = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/' +
+                    FACTORY_LON + ',' + FACTORY_LAT + ';' + destLon + ',' + destLat +
+                    '?overview=false';
+                  _fetchTimeout(osrmUrl2, {}, 12000)
+                    .then(function(r){ return r.json(); })
+                    .then(function(route2) {
+                      if (route2 && route2.routes && route2.routes.length) {
+                        _cepSetResult(cidade, uf, route2.routes[0].distance / 1000, true);
+                      } else { throw new Error('no route2'); }
+                    })
+                    .catch(function() {
+                      // Fallback final: Haversine × 1.3
+                      var hav = _haversineKm(FACTORY_LAT, FACTORY_LON, destLat, destLon);
+                      _cepSetResult(cidade, uf, hav * 1.3, false);
+                    });
                 });
             });
         });
