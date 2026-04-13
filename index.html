@@ -10271,6 +10271,7 @@ window.crmFazerOrcamento=function(id){
           mp['tem-fixo']=false;
           mp._fixos=[];
           mp._modelo=oi.modelo||'01';
+          mp._tipo=oi.tipo||'porta_pivotante';
           var modOpt=document.querySelector('#carac-modelo option[value="'+oi.modelo+'"]');
           mp._modeloTxt=modOpt?modOpt.textContent:(oi.modelo||'');
           mp._largura=parseFloat(oi.largura)||0;
@@ -19435,7 +19436,9 @@ function _populatePropostaItens(){
     var sistema=A<4000?'PA006 NOVO':'PA007 NOVO';
     var imgSrc=(typeof MODEL_IMGS!=='undefined'&&MODEL_IMGS[modNum])||'';
     if(typeof _modeloImgCache!=='undefined'&&_modeloImgCache[modNum]) imgSrc=_modeloImgCache[modNum];
-    items.push({idx:i,L:L,A:A,q:q,area:area,modNum:modNum,modTxt:modTxt,folhas:folhas,corExt:corExt,corInt:corInt,fechMec:fechMec,fechDig:fechDig,puxador:puxador,cilindro:cilindro,sistema:sistema,imgSrc:imgSrc});
+    var tipo=it._tipo||'porta_pivotante';
+    var descProposta=tipo==='fixo'?'Fixo Projetta by Weiku':tipo==='revestimento'?'Revestimento Projetta by Weiku':'Porta Projetta by Weiku';
+    items.push({idx:i,L:L,A:A,q:q,area:area,modNum:modNum,modTxt:modTxt,descProposta:descProposta,tipo:tipo,folhas:folhas,corExt:corExt,corInt:corInt,fechMec:fechMec,fechDig:fechDig,puxador:puxador,cilindro:cilindro,sistema:sistema,imgSrc:imgSrc});
     totalArea+=area;
   });
   // Ordenar por área (maior primeiro)
@@ -19460,7 +19463,7 @@ function _populatePropostaItens(){
     else doorsHtml+='<span style="color:#aaa;font-size:9px;text-align:center">Imagem do<br>modelo</span>';
     doorsHtml+='</div>';
     doorsHtml+='<div style="flex:1">';
-    doorsHtml+='<div style="font-size:12px;font-weight:800;color:var(--navy);margin-bottom:4px">PORTA PROJETTA BY WEIKU</div>';
+    doorsHtml+='<div style="font-size:12px;font-weight:800;color:var(--navy);margin-bottom:4px">'+it.descProposta.toUpperCase()+'</div>';
     doorsHtml+='<div style="display:flex;gap:15px;font-size:10px;margin-bottom:2px"><span><b>Qtd:</b> '+it.q+'</span><span><b>L:</b> '+Math.round(it.L)+'</span><span><b>H:</b> '+Math.round(it.A)+'</span></div>';
     doorsHtml+='<div style="font-size:10px;margin-bottom:4px"><b>Área Porta:</b> '+areaUn.toFixed(2)+'m²</div>';
     doorsHtml+='<div style="font-size:9.5px;color:#444;line-height:1.5">';
@@ -19480,7 +19483,7 @@ function _populatePropostaItens(){
     // Linha da tabela de itens
     tableHtml+='<tr>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+(sortIdx+1).toString().padStart(2,'0')+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc">'+it.modTxt+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc">'+it.descProposta+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">'+Math.round(it.L)+' \u00d7 '+Math.round(it.A)+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+it.q+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+brl2(valorUn)+'</td>'
