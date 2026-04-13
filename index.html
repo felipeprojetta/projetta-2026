@@ -17244,6 +17244,18 @@ function _renderOSAcess(d, acessRows, vedaInfo){
   // Se abertura não selecionada: sem pivô nem dobradiça
 
   var allRows = hardwareRows.concat(acessRows||[]);
+  // Agregar itens iguais (mesmo código): somar quantidades
+  var _aggMap={},_aggOrder=[];
+  allRows.forEach(function(r){
+    var key=r.code+'|'+r.apl+'|'+r.grp;
+    if(_aggMap[key]){
+      _aggMap[key].qty+=r.qty;
+    } else {
+      _aggMap[key]={code:r.code,desc:r.desc,qty:r.qty,preco:r.preco,apl:r.apl,grp:r.grp,obs:r.obs};
+      _aggOrder.push(key);
+    }
+  });
+  allRows=_aggOrder.map(function(k){return _aggMap[k];});
 
   if(!allRows||allRows.length===0){
     content_el.innerHTML='<div style="text-align:center;color:#aaa;padding:40px">Preencha as Características da Porta para gerar automaticamente.</div>';
