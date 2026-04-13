@@ -6811,11 +6811,55 @@ function gerarCustoTotal(){
           var _d=window._lastOSData;
           var _nFol=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
           var _sis=(_d&&_d.sis)||(document.getElementById('prod-sistema')||{value:''}).value||'PA006';
-          var _aRows=_calcAcessoriosOS(_d,_nFol,_sis);
-          var _qPGCT=window._qPOS||parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
-          if(window._mpItens&&window._mpItens.length>0) _qPGCT=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
-          if(_qPGCT>1){ _aRows.forEach(function(r){ r.qty=r.qty*_qPGCT; }); }
-          var _vInfo=_d&&_d.vedaSize?{qty:_d.vedaQty*_qPGCT,code:_d.vedaCode,size:_d.vedaSize}:null;
+          var _aRows=[];
+
+          if(window._mpItens&&window._mpItens.length>0){
+            // Multi-porta: calcular acessórios por item separadamente
+            var _savedL2=document.getElementById('largura').value;
+            var _savedA2=document.getElementById('altura').value;
+            var _savedMod2=(document.getElementById('carac-modelo')||{value:''}).value;
+            var _savedFol2=(document.getElementById('folhas-porta')||{value:'1'}).value;
+            var _savedFM=(document.getElementById('carac-fech-mec')||{value:''}).value;
+            var _savedFD=(document.getElementById('carac-fech-dig')||{value:''}).value;
+            var _savedCil=(document.getElementById('carac-cilindro')||{value:''}).value;
+            var _savedPux=(document.getElementById('carac-puxador')||{value:''}).value;
+            var _savedPuxT=(document.getElementById('carac-pux-tam')||{value:''}).value;
+
+            window._mpItens.forEach(function(mpIt){
+              // Setar form para este item
+              document.getElementById('largura').value=mpIt['largura']||mpIt._largura||'';
+              document.getElementById('altura').value=mpIt['altura']||mpIt._altura||'';
+              if(document.getElementById('carac-modelo')) document.getElementById('carac-modelo').value=mpIt['carac-modelo']||mpIt._modelo||'01';
+              if(document.getElementById('folhas-porta')) document.getElementById('folhas-porta').value=mpIt['folhas-porta']||mpIt._folhas||'1';
+              if(document.getElementById('carac-fech-mec')) document.getElementById('carac-fech-mec').value=mpIt['carac-fech-mec']||'';
+              if(document.getElementById('carac-fech-dig')) document.getElementById('carac-fech-dig').value=mpIt['carac-fech-dig']||'';
+              if(document.getElementById('carac-cilindro')) document.getElementById('carac-cilindro').value=mpIt['carac-cilindro']||'';
+              if(document.getElementById('carac-puxador')) document.getElementById('carac-puxador').value=mpIt['carac-puxador']||'';
+              if(document.getElementById('carac-pux-tam')) document.getElementById('carac-pux-tam').value=mpIt['carac-pux-tam']||'';
+              var nFolItem=parseInt(mpIt['folhas-porta']||mpIt._folhas)||1;
+              var itemRows=_calcAcessoriosOS(_d,nFolItem,_sis);
+              var qItem=parseInt(mpIt['qtd-portas']||mpIt._qtd)||1;
+              if(qItem>1) itemRows.forEach(function(r){r.qty=r.qty*qItem;});
+              _aRows=_aRows.concat(itemRows);
+            });
+
+            // Restaurar form
+            document.getElementById('largura').value=_savedL2;
+            document.getElementById('altura').value=_savedA2;
+            if(document.getElementById('carac-modelo')) document.getElementById('carac-modelo').value=_savedMod2;
+            if(document.getElementById('folhas-porta')) document.getElementById('folhas-porta').value=_savedFol2;
+            if(document.getElementById('carac-fech-mec')) document.getElementById('carac-fech-mec').value=_savedFM;
+            if(document.getElementById('carac-fech-dig')) document.getElementById('carac-fech-dig').value=_savedFD;
+            if(document.getElementById('carac-cilindro')) document.getElementById('carac-cilindro').value=_savedCil;
+            if(document.getElementById('carac-puxador')) document.getElementById('carac-puxador').value=_savedPux;
+            if(document.getElementById('carac-pux-tam')) document.getElementById('carac-pux-tam').value=_savedPuxT;
+          } else {
+            _aRows=_calcAcessoriosOS(_d,_nFol,_sis);
+            var _qPGCT=window._qPOS||parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+            if(_qPGCT>1){ _aRows.forEach(function(r){ r.qty=r.qty*_qPGCT; }); }
+          }
+
+          var _vInfo=_d&&_d.vedaSize?{qty:_d.vedaQty*(window._mpItens&&window._mpItens.length>0?window._mpItens.reduce(function(s,it){return s+(parseInt(it._qtd||it['qtd-portas'])||1);},0):parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1),code:_d.vedaCode,size:_d.vedaSize}:null;
           _renderOSAcess(_d,_aRows,_vInfo);
         }catch(_e){ console.warn('acess sync:',_e); }
         if(typeof calc==='function') calc();
@@ -7302,11 +7346,45 @@ function gerarOS(){
   }
 
   // ── Acessórios (fechadura, roseta, cilindro) ─────────────────────────────────
-  var _acessRows  = _calcAcessoriosOS(d, nFolhas, d.sis||sis);
-  // Multiplicar quantidades de acessórios por quantidade de portas
-  var _qPAc=window._qPOS||parseInt(($('qtd-portas')||{value:'1'}).value)||1;
-  if(window._mpItens&&window._mpItens.length>0) _qPAc=window._mpItens.reduce(function(s,it){return s+it.qtd;},0);
-  if(_qPAc>1){ _acessRows.forEach(function(r){ r.qty=r.qty*_qPAc; }); }
+  var _acessRows=[];
+  if(window._mpItens&&window._mpItens.length>0){
+    var _sL3=document.getElementById('largura').value,_sA3=document.getElementById('altura').value;
+    var _sMd3=(document.getElementById('carac-modelo')||{value:''}).value;
+    var _sFl3=(document.getElementById('folhas-porta')||{value:'1'}).value;
+    var _sFM3=(document.getElementById('carac-fech-mec')||{value:''}).value;
+    var _sFD3=(document.getElementById('carac-fech-dig')||{value:''}).value;
+    var _sCi3=(document.getElementById('carac-cilindro')||{value:''}).value;
+    var _sPx3=(document.getElementById('carac-puxador')||{value:''}).value;
+    var _sPT3=(document.getElementById('carac-pux-tam')||{value:''}).value;
+    window._mpItens.forEach(function(mpIt){
+      document.getElementById('largura').value=mpIt['largura']||mpIt._largura||'';
+      document.getElementById('altura').value=mpIt['altura']||mpIt._altura||'';
+      if(document.getElementById('carac-modelo'))document.getElementById('carac-modelo').value=mpIt['carac-modelo']||mpIt._modelo||'01';
+      if(document.getElementById('folhas-porta'))document.getElementById('folhas-porta').value=mpIt['folhas-porta']||mpIt._folhas||'1';
+      if(document.getElementById('carac-fech-mec'))document.getElementById('carac-fech-mec').value=mpIt['carac-fech-mec']||'';
+      if(document.getElementById('carac-fech-dig'))document.getElementById('carac-fech-dig').value=mpIt['carac-fech-dig']||'';
+      if(document.getElementById('carac-cilindro'))document.getElementById('carac-cilindro').value=mpIt['carac-cilindro']||'';
+      if(document.getElementById('carac-puxador'))document.getElementById('carac-puxador').value=mpIt['carac-puxador']||'';
+      if(document.getElementById('carac-pux-tam'))document.getElementById('carac-pux-tam').value=mpIt['carac-pux-tam']||'';
+      var nFolI=parseInt(mpIt['folhas-porta']||mpIt._folhas)||1;
+      var iRows=_calcAcessoriosOS(d,nFolI,d.sis||sis);
+      var qI=parseInt(mpIt['qtd-portas']||mpIt._qtd)||1;
+      if(qI>1)iRows.forEach(function(r){r.qty=r.qty*qI;});
+      _acessRows=_acessRows.concat(iRows);
+    });
+    document.getElementById('largura').value=_sL3;document.getElementById('altura').value=_sA3;
+    if(document.getElementById('carac-modelo'))document.getElementById('carac-modelo').value=_sMd3;
+    if(document.getElementById('folhas-porta'))document.getElementById('folhas-porta').value=_sFl3;
+    if(document.getElementById('carac-fech-mec'))document.getElementById('carac-fech-mec').value=_sFM3;
+    if(document.getElementById('carac-fech-dig'))document.getElementById('carac-fech-dig').value=_sFD3;
+    if(document.getElementById('carac-cilindro'))document.getElementById('carac-cilindro').value=_sCi3;
+    if(document.getElementById('carac-puxador'))document.getElementById('carac-puxador').value=_sPx3;
+    if(document.getElementById('carac-pux-tam'))document.getElementById('carac-pux-tam').value=_sPT3;
+  } else {
+    _acessRows=_calcAcessoriosOS(d, nFolhas, d.sis||sis);
+    var _qPAc=window._qPOS||parseInt(($('qtd-portas')||{value:'1'}).value)||1;
+    if(_qPAc>1){ _acessRows.forEach(function(r){ r.qty=r.qty*_qPAc; }); }
+  }
   var _totalAcess = _renderAcessoriosOS(_acessRows);
   // Nota: o valor total de acessórios será sincronizado com fab-custo-acess
   // pela função _renderOSAcess, que inclui o pivô no cálculo.
