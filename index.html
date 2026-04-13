@@ -19405,7 +19405,7 @@ function _populatePropostaItens(){
   if(!window._mpItens||window._mpItens.length===0) return;
   var brl2=function(v){return v>0?'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2}):'\u2014';};
   var parseVal=function(el){if(!el)return 0;var t=el.textContent||'';return parseFloat(t.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;};
-  var fatPorta=parseVal(document.getElementById('m-fat-porta'))||parseVal(document.getElementById('m-tab-porta'));
+  var fatPorta=parseVal(document.getElementById('m-tab-porta'))||parseVal(document.getElementById('m-fat-porta'));
   var fatInst=parseVal(document.getElementById('r-inst'));
   var freteEl=document.getElementById('lr-frete');
   var frete=0;
