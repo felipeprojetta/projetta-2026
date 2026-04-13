@@ -10516,6 +10516,7 @@ window.crmDeleteRevision=function(cardId,revIndex){
 };
 
 window.crmOrcamentoPronto=function(){
+  try{
   var id=window._crmOrcCardId;
   var revLabel='Original';
 
@@ -10576,6 +10577,12 @@ window.crmOrcamentoPronto=function(){
   // Travar orçamento — PDF salvo, valores devem bater. Para alterar, Nova Revisão.
   _setOrcLock(true);
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
+  }catch(err){
+    console.error('crmOrcamentoPronto erro:',err);
+    alert('Erro ao gerar proposta: '+err.message+'\n\nVerifique o console (F12) para detalhes.');
+    // Mesmo com erro, gerar PDF
+    if(typeof _onStageOrcamentoPronto==="function") _onStageOrcamentoPronto();
+  }
 };
 
 /* ── Atualizar Valor para Card (sem mudar etapa) ── */
