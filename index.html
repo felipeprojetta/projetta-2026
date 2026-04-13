@@ -9298,9 +9298,12 @@ window.crmItemAutoSelect=function(id){
   // Auto-select PUXADOR por modelo (modelos com cava = CAVA, lisa = EXTERNO)
   if(modelo){
     var modInt=parseInt(modelo)||0;
-    var cavaMods=[1,2,3,4,5,6,7,8,9,10,11,24,26];
+    var cavaMods=[1,2,3,4,5,6,7,8,9,10,11,19,22,24,26];
     var puxSel=document.getElementById(pre+'puxador');
     if(puxSel) puxSel.value=cavaMods.indexOf(modInt)>=0?'CAVA':'EXTERNO';
+    // Re-render para mostrar/esconder campos de cava ao trocar modelo
+    _crmItensSaveFromDOM();
+    _crmItensRender();
   }
 }
 
@@ -9539,7 +9542,7 @@ window._crmItensRender=function(){
       h+='</div>';
       // Config Cava — só aparece para modelos com cava (01-11, 24, 26)
       var _modInt=parseInt(item.modelo)||0;
-      var _temCava=[1,2,3,4,5,6,7,8,9,10,11,24,26].indexOf(_modInt)>=0;
+      var _temCava=[1,2,3,4,5,6,7,8,9,10,11,19,22,24,26].indexOf(_modInt)>=0;
       if(_temCava){
         h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">⚙️ Configuração da Cava</div>';
         h+='<div class="crm-row">';
