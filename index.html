@@ -10119,6 +10119,9 @@ window.crmFazerOrcamento=function(id){
         });
         window._mpEditingIdx=-1;
         if(typeof _mpRender==='function') _mpRender();
+        // Mostrar painel multi-porta no orçamento
+        var mpSec=document.getElementById('multi-porta-section');
+        if(mpSec) mpSec.style.display='';
         console.log('✅ _mpItens criados: '+window._mpItens.length+' itens → '+window._mpItens.map(function(m){return m._largura+'×'+m._altura;}).join(', '));
       }
       window._osAutoMode=true;
