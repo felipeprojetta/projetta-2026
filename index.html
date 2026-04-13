@@ -9999,6 +9999,7 @@ function orcItemSelecionar(idx){
     if(it.largura_friso) setF('carac-largura-friso', it.largura_friso);
     if(it.friso_vert) setF('carac-friso-vert', it.friso_vert);
     if(it.friso_horiz) setF('carac-friso-horiz', it.friso_horiz);
+    if(it.refilado) setF('plan-refilado', it.refilado);
     var _alisarEl = document.getElementById('carac-tem-alisar');
     if(_alisarEl) _alisarEl.checked = !!it.tem_alisar;
     if(typeof onModeloChange==='function' && it.modelo) try{onModeloChange();}catch(e){}
@@ -10201,6 +10202,7 @@ window.crmFazerOrcamento=function(id){
           document.getElementById('altura').value=_first._altura||_first['altura']||'';
           if(document.getElementById('carac-modelo'))document.getElementById('carac-modelo').value=_first['carac-modelo']||_first._modelo||'01';
           if(document.getElementById('folhas-porta'))document.getElementById('folhas-porta').value=_first['folhas-porta']||_first._folhas||'1';
+          if(document.getElementById('plan-refilado'))document.getElementById('plan-refilado').value=_first['plan-refilado']||'20';
           if(typeof onModeloChange==='function')try{onModeloChange();}catch(e){}
         }
       }
