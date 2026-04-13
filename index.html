@@ -13799,7 +13799,7 @@ function _getCorCode(){
   }
   var m=txt.match(/(PRO\w+)/);
   console.log('[AutoChapa] _getCorCode: txt="'+txt+'" → code="'+(m?m[1]:'')+'"');
-  return m?m[1]:'';
+  return m?m[1]:txt.trim();
 }
 
 function _autoSelectAndRun(){
