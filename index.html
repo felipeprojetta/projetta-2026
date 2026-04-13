@@ -3192,6 +3192,9 @@ Equipe Projetta by Weiku</textarea>
       <button id="plan-use-btn" onclick="planUsarResultado()" style="display:none;padding:9px 16px;border-radius:7px;border:none;background:var(--navy);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:Montserrat,Arial,sans-serif">
         Usar resultado nas chapas
       </button>
+      <button id="plan-print-btn" onclick="plnPrintAll()" style="display:none;padding:9px 16px;border-radius:7px;border:none;background:#4e79a7;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:Montserrat,Arial,sans-serif">
+        🖨 Imprimir chapas
+      </button>
     </div>
 
     <!-- aviso -->
@@ -14034,9 +14037,121 @@ function planRun() {
   plnPieceTable(pieces, PLN_RES.placed);
   document.getElementById('plan-result').style.display='';
   document.getElementById('plan-use-btn').style.display='';
+  document.getElementById('plan-print-btn').style.display='';
   plnBuildTabs();
   plnLegend(pieces);
   plnDraw(0);
+}
+
+function plnPrintAll(){
+  if(!PLN_RES||!PLN_RES.placed.length){alert('Calcule o aproveitamento primeiro.');return;}
+  var SW=PLN_SD.w, SH=PLN_SD.h, NS=PLN_RES.numSheets;
+  var w=window.open('','_blank','width=1100,height=800');
+  // Header info
+  var cli=document.getElementById('nome-cliente');
+  var cliTxt=cli?cli.value:'—';
+  var Lmm=Math.round(parseFloat(document.getElementById('largura').value)||0);
+  var Amm=Math.round(parseFloat(document.getElementById('altura').value)||0);
+  var modEl=document.getElementById('plan-modelo')||document.getElementById('carac-modelo');
+  var modTxt=modEl&&modEl.selectedIndex>=0?(modEl.options[modEl.selectedIndex].text||''):'';
+  var folTxt=(document.getElementById('plan-folhas')||{value:'1'}).value+' folha(s)';
+  var qtdP=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+  // Legend
+  var seen={},legItems=[];
+  PLN_RES.placed.forEach(function(p){if(!seen[p.label]){seen[p.label]=p.color;legItems.push({l:p.label,c:p.color});}});
+  // Piece summary table
+  var pMap={};
+  PLN_RES.placed.forEach(function(p){
+    var k=p.label;
+    if(!pMap[k])pMap[k]={label:k,w:p.w,h:p.h,qty:0,color:p.color};
+    pMap[k].qty++;
+  });
+  var pArr=Object.values(pMap);
+  // Build HTML
+  var html='<!DOCTYPE html><html><head><title>Plano de Corte — '+cliTxt+'</title>';
+  html+='<style>';
+  html+='body{font-family:Arial,Helvetica,sans-serif;margin:20px;color:#1a3a4a}';
+  html+='h1{font-size:16px;margin:0 0 4px}';
+  html+='.info{font-size:11px;color:#555;margin-bottom:10px}';
+  html+='.sheet{page-break-inside:avoid;margin-bottom:24px;border:1px solid #ddd;border-radius:6px;padding:12px}';
+  html+='.sheet h2{font-size:13px;margin:0 0 8px;color:#e65100}';
+  html+='.legend{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}';
+  html+='.leg-item{display:flex;align-items:center;gap:4px;font-size:9px;font-weight:700}';
+  html+='.leg-sq{width:12px;height:12px;border-radius:2px;border:1px solid rgba(0,0,0,.15)}';
+  html+='table{border-collapse:collapse;font-size:10px;margin-top:8px;width:100%}';
+  html+='th{background:#f0ede8;padding:4px 6px;text-align:left;border-bottom:1px solid #ccc;font-size:9px;text-transform:uppercase}';
+  html+='td{padding:3px 6px;border-bottom:1px solid #eee}';
+  html+='canvas{display:block;margin:0 auto}';
+  html+='@media print{body{margin:10px}.sheet{border:none;page-break-after:always}}';
+  html+='</style></head><body>';
+  html+='<h1>Plano de Corte — Chapas ACM</h1>';
+  html+='<div class="info">Cliente: <b>'+cliTxt+'</b> &nbsp;|&nbsp; '+Lmm+'×'+Amm+'mm &nbsp;|&nbsp; '+modTxt+' &nbsp;|&nbsp; '+folTxt+' &nbsp;|&nbsp; '+qtdP+' porta(s) &nbsp;|&nbsp; Chapa: '+SW+'×'+SH+'mm &nbsp;|&nbsp; <b>'+NS+' chapa(s)</b></div>';
+  // Legend
+  html+='<div class="legend">';
+  legItems.forEach(function(it){html+='<span class="leg-item"><span class="leg-sq" style="background:'+it.c+'"></span>'+it.l+'</span>';});
+  html+='</div>';
+  // Summary table
+  html+='<table><thead><tr><th>Peça</th><th style="text-align:right">L (mm)</th><th style="text-align:right">A (mm)</th><th style="text-align:center">Qtd</th><th style="text-align:right">Área m²</th></tr></thead><tbody>';
+  var totA=0;
+  pArr.forEach(function(p){
+    var a=p.w*p.h*p.qty/1e6;totA+=a;
+    html+='<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+p.color+';vertical-align:middle;margin-right:4px"></span>'+p.label+'</td><td style="text-align:right">'+p.w+'</td><td style="text-align:right">'+p.h+'</td><td style="text-align:center">'+p.qty+'</td><td style="text-align:right">'+a.toFixed(3)+'</td></tr>';
+  });
+  html+='<tr style="font-weight:700"><td colspan="4">TOTAL</td><td style="text-align:right">'+totA.toFixed(3)+'</td></tr>';
+  html+='</tbody></table>';
+  // Each sheet
+  for(var si=0;si<NS;si++){
+    html+='<div class="sheet"><h2>Chapa '+(si+1)+' de '+NS+' — '+SW+'×'+SH+'mm</h2>';
+    html+='<canvas id="pc'+si+'" width="1050" height="300"></canvas>';
+    // piece list for this sheet
+    var sps=PLN_RES.placed.filter(function(p){return p.sheet===si;});
+    var sCounts={};
+    sps.forEach(function(p){if(!sCounts[p.label])sCounts[p.label]={l:p.label,w:p.w,h:p.h,q:0,c:p.color};sCounts[p.label].q++;});
+    html+='<div style="font-size:9px;color:#888;margin-top:6px">';
+    Object.values(sCounts).forEach(function(c){html+='<span style="margin-right:10px"><b style="color:'+c.c+'">■</b> '+c.l+' '+c.w+'×'+c.h+' ×'+c.q+'</span>';});
+    // Stats
+    var st=PLN_RES.stats?PLN_RES.stats[si]:null;
+    if(st) html+=' &nbsp;— <b>'+st.pct.toFixed(1)+'% aproveit.</b>';
+    html+='</div></div>';
+  }
+  html+='<script>';
+  html+='var PLN_RES='+JSON.stringify(PLN_RES)+';';
+  html+='var SW='+SW+',SH='+SH+',MG='+PLN_MG+',KF='+PLN_KERF+',NS='+NS+';';
+  html+='for(var si=0;si<NS;si++){';
+  html+='  var cv=document.getElementById("pc"+si);if(!cv)continue;';
+  html+='  var ctx=cv.getContext("2d");';
+  html+='  var PAD=15,sc=Math.min((cv.width-PAD*2)/SH,(cv.height-PAD*2)/SW);';
+  html+='  cv.width=Math.round(SH*sc+PAD*2);cv.height=Math.round(SW*sc+PAD*2);';
+  html+='  ctx.fillStyle="#e8e5e0";ctx.fillRect(0,0,cv.width,cv.height);';
+  html+='  ctx.fillStyle="#f8f8f6";ctx.fillRect(PAD,PAD,SH*sc,SW*sc);';
+  html+='  var kv=Math.max(1,Math.round(KF/2*sc));';
+  html+='  var ps=PLN_RES.placed.filter(function(p){return p.sheet===si;});';
+  html+='  for(var i=0;i<ps.length;i++){';
+  html+='    var p=ps[i];';
+  html+='    var cx=PAD+p.y*sc+kv,cy=PAD+p.x*sc+kv,cw=p.h*sc-kv*2,ch=p.w*sc-kv*2;';
+  html+='    if(cw<2||ch<2)continue;';
+  html+='    ctx.globalAlpha=0.85;ctx.fillStyle=p.color;ctx.fillRect(cx,cy,cw,ch);';
+  html+='    ctx.globalAlpha=1;ctx.strokeStyle="rgba(0,0,0,.25)";ctx.lineWidth=1;ctx.strokeRect(cx+.5,cy+.5,cw-1,ch-1);';
+  html+='    if(cw>12&&ch>12){';
+  html+='      ctx.save();ctx.beginPath();ctx.rect(cx+1,cy+1,cw-2,ch-2);ctx.clip();';
+  html+='      var isV=ch>cw*1.8;';
+  html+='      if(isV){ctx.translate(cx+cw/2,cy+ch/2);ctx.rotate(-Math.PI/2);';
+  html+='        var fs=Math.max(7,Math.min(11,Math.min(ch/(p.label.length*.55),cw*.4)));';
+  html+='        ctx.font="700 "+fs+"px Arial";ctx.textAlign="center";ctx.textBaseline="middle";';
+  html+='        ctx.fillStyle="rgba(0,0,0,.8)";ctx.fillText(p.label,0,-(cw>fs*3?fs*.2:0));';
+  html+='        if(cw>fs*2.5){ctx.font="600 "+Math.max(6,fs-1)+"px Arial";ctx.fillStyle="rgba(0,0,0,.4)";ctx.fillText(p.w+"x"+p.h,0,fs*.8);}';
+  html+='      }else{';
+  html+='        var fs=Math.max(7,Math.min(11,Math.min(cw/(p.label.length*.55),ch*.3)));';
+  html+='        ctx.font="700 "+fs+"px Arial";ctx.textAlign="center";ctx.textBaseline="middle";';
+  html+='        ctx.fillStyle="rgba(0,0,0,.8)";ctx.fillText(p.label,cx+cw/2,cy+ch/2-(ch>fs*3?fs*.3:0));';
+  html+='        if(ch>fs*3){ctx.font="600 "+Math.max(6,fs-1)+"px Arial";ctx.fillStyle="rgba(0,0,0,.4)";ctx.fillText(p.w+"x"+p.h,cx+cw/2,cy+ch/2+fs*.85);}';
+  html+='      }ctx.restore();';
+  html+='    }';
+  html+='  }';
+  html+='}';
+  html+='setTimeout(function(){window.print();},400);';
+  html+='<\/script></body></html>';
+  w.document.write(html);w.document.close();
 }
 
 function planUsarResultado() {
