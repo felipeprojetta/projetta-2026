@@ -9307,12 +9307,16 @@ window.crmItemAutoSelect=function(id){
   // Auto-select PUXADOR por modelo (modelos com cava = CAVA, lisa = EXTERNO)
   if(modelo){
     var modInt=parseInt(modelo)||0;
-    var cavaMods=[1,2,3,4,5,6,7,8,9,10,11,19,22,24,26];
+    var cavaMods=[1,2,3,4,5,6,7,8,9,19,22,24]; // modelos com nome "cava"
     var puxSel=document.getElementById(pre+'puxador');
     if(puxSel) puxSel.value=cavaMods.indexOf(modInt)>=0?'CAVA':'EXTERNO';
     // Mostrar/esconder campos de cava ao trocar modelo
     var cavaWrap=document.getElementById(pre+'cava_wrap');
-    if(cavaWrap) cavaWrap.style.display=cavaMods.indexOf(modInt)>=0?'':'none';
+    if(cavaWrap){
+      var _modSel2=document.getElementById(pre+'modelo');
+      var _modTxt2=_modSel2&&_modSel2.selectedIndex>=0?(_modSel2.options[_modSel2.selectedIndex].text||'').toLowerCase():'';
+      cavaWrap.style.display=_modTxt2.indexOf('cava')>=0?'':'none';
+    }
   }
 }
 
@@ -9551,7 +9555,9 @@ window._crmItensRender=function(){
       h+='</div>';
       // Config Cava — sempre renderiza, visibilidade controlada por id
       var _modInt=parseInt(item.modelo)||0;
-      var _temCava=[1,2,3,4,5,6,7,8,9,10,11,19,22,24,26].indexOf(_modInt)>=0;
+      var _temCava=false;
+      var _modOptMatch=modeloOpts.match(new RegExp('value="'+item.modelo+'"[^>]*>([^<]+)'));
+      if(_modOptMatch) _temCava=_modOptMatch[1].toLowerCase().indexOf('cava')>=0;
       h+='<div id="'+pre+'cava_wrap" style="'+(_temCava?'':'display:none')+'">';
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">⚙️ Configuração da Cava</div>';
       h+='<div class="crm-row">';
