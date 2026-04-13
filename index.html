@@ -18579,16 +18579,28 @@ function _mpCalcCombinedPerfis(barraMM){
   var savedA=document.getElementById('altura').value;
   var savedMod=document.getElementById('carac-modelo')?document.getElementById('carac-modelo').value:'';
   var savedFol=document.getElementById('folhas-porta')?document.getElementById('folhas-porta').value:'1';
+  var savedCavaDist=(document.getElementById('carac-dist-borda-cava')||{value:''}).value;
+  var savedCavaLarg=(document.getElementById('carac-largura-cava')||{value:''}).value;
+  var savedFrisoDist=(document.getElementById('carac-dist-borda-friso')||{value:''}).value;
+  var savedFrisoLarg=(document.getElementById('carac-largura-friso')||{value:''}).value;
   // Desligar qP (cada item tem sua qtd)
   document.getElementById('qtd-portas').value='1';
 
   itens.forEach(function(it,idx){
     if(it.largura<=0||it.altura<=0) return;
-    // Setar form para este item
+    // Setar form para este item (todos os campos que _calcularDadosPerfis lê)
     document.getElementById('largura').value=it.largura;
     document.getElementById('altura').value=it.altura;
     if(document.getElementById('carac-modelo')) document.getElementById('carac-modelo').value=it.modelo||'01';
     if(document.getElementById('folhas-porta')) document.getElementById('folhas-porta').value=it.folhas||'1';
+    // Setar cava/friso do item (lidos pelo _calcularDadosPerfis)
+    var _mpIt=window._mpItens&&window._mpItens[idx]?window._mpItens[idx]:null;
+    if(_mpIt){
+      if(document.getElementById('carac-dist-borda-cava')) document.getElementById('carac-dist-borda-cava').value=_mpIt['carac-dist-borda-cava']||'210';
+      if(document.getElementById('carac-largura-cava')) document.getElementById('carac-largura-cava').value=_mpIt['carac-largura-cava']||'150';
+      if(document.getElementById('carac-dist-borda-friso')) document.getElementById('carac-dist-borda-friso').value=_mpIt['carac-dist-borda-friso']||'';
+      if(document.getElementById('carac-largura-friso')) document.getElementById('carac-largura-friso').value=_mpIt['carac-largura-friso']||'';
+    }
     // Calcular cortes deste item
     try{
       var d=_calcularDadosPerfis(it.largura,it.altura,it.folhas||1,barraMM);
@@ -18616,6 +18628,10 @@ function _mpCalcCombinedPerfis(barraMM){
   document.getElementById('altura').value=savedA;
   if(document.getElementById('carac-modelo')) document.getElementById('carac-modelo').value=savedMod;
   if(document.getElementById('folhas-porta')) document.getElementById('folhas-porta').value=savedFol;
+  if(document.getElementById('carac-dist-borda-cava')) document.getElementById('carac-dist-borda-cava').value=savedCavaDist;
+  if(document.getElementById('carac-largura-cava')) document.getElementById('carac-largura-cava').value=savedCavaLarg;
+  if(document.getElementById('carac-dist-borda-friso')) document.getElementById('carac-dist-borda-friso').value=savedFrisoDist;
+  if(document.getElementById('carac-largura-friso')) document.getElementById('carac-largura-friso').value=savedFrisoLarg;
 
   if(!firstD) return {error:'Nenhum item válido na tabela multi-porta'};
 
@@ -18702,11 +18718,23 @@ function _mpCalcAllPiecesCombined(){
   var allPieces=[];
   var savedMod=document.getElementById('plan-modelo')?document.getElementById('plan-modelo').value:'';
   var savedFol=document.getElementById('plan-folhas')?document.getElementById('plan-folhas').value:'1';
+  var savedPDC=(document.getElementById('plan-disborcava')||{value:''}).value;
+  var savedPLC=(document.getElementById('plan-largcava')||{value:''}).value;
+  var savedPDF=(document.getElementById('plan-disbordafriso')||{value:''}).value;
+  var savedPLF=(document.getElementById('plan-largfriso')||{value:''}).value;
 
   itens.forEach(function(it,idx){
     if(it.largura<=0||it.altura<=0) return;
     if(document.getElementById('plan-modelo')) document.getElementById('plan-modelo').value=it.modelo||'01';
     if(document.getElementById('plan-folhas')) document.getElementById('plan-folhas').value=it.folhas||'1';
+    // Setar cava/friso do item para plnPecas
+    var _mpIt=window._mpItens&&window._mpItens[idx]?window._mpItens[idx]:null;
+    if(_mpIt){
+      if(document.getElementById('plan-disborcava')) document.getElementById('plan-disborcava').value=_mpIt['carac-dist-borda-cava']||'210';
+      if(document.getElementById('plan-largcava')) document.getElementById('plan-largcava').value=_mpIt['carac-largura-cava']||'150';
+      if(document.getElementById('plan-disbordafriso')) document.getElementById('plan-disbordafriso').value=_mpIt['carac-dist-borda-friso']||'';
+      if(document.getElementById('plan-largfriso')) document.getElementById('plan-largfriso').value=_mpIt['carac-largura-friso']||'';
+    }
     try{
       var pieces=plnPecas(it.largura, it.altura, it.folhas||1, it.modelo||'01');
       pieces.forEach(function(p){
@@ -18721,6 +18749,10 @@ function _mpCalcAllPiecesCombined(){
   // Restaurar
   if(document.getElementById('plan-modelo')) document.getElementById('plan-modelo').value=savedMod;
   if(document.getElementById('plan-folhas')) document.getElementById('plan-folhas').value=savedFol;
+  if(document.getElementById('plan-disborcava')) document.getElementById('plan-disborcava').value=savedPDC;
+  if(document.getElementById('plan-largcava')) document.getElementById('plan-largcava').value=savedPLC;
+  if(document.getElementById('plan-disbordafriso')) document.getElementById('plan-disbordafriso').value=savedPDF;
+  if(document.getElementById('plan-largfriso')) document.getElementById('plan-largfriso').value=savedPLF;
   return allPieces;
 }
 /* ── Popula tabela de itens na proposta comercial (multi-porta) ── */
