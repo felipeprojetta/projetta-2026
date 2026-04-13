@@ -9312,10 +9312,12 @@ window.crmItemAutoSelect=function(id){
     if(puxSel) puxSel.value=cavaMods.indexOf(modInt)>=0?'CAVA':'EXTERNO';
     // Mostrar/esconder campos de cava ao trocar modelo
     var cavaWrap=document.getElementById(pre+'cava_wrap');
-    if(cavaWrap){
+    var frisoWrap=document.getElementById(pre+'friso_wrap');
+    if(cavaWrap||frisoWrap){
       var _modSel2=document.getElementById(pre+'modelo');
       var _modTxt2=_modSel2&&_modSel2.selectedIndex>=0?(_modSel2.options[_modSel2.selectedIndex].text||'').toLowerCase():'';
-      cavaWrap.style.display=_modTxt2.indexOf('cava')>=0?'':'none';
+      if(cavaWrap) cavaWrap.style.display=_modTxt2.indexOf('cava')>=0?'':'none';
+      if(frisoWrap) frisoWrap.style.display=_modTxt2.indexOf('friso')>=0?'':'none';
     }
   }
 }
@@ -9476,7 +9478,7 @@ window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
     var fields=['qtd','largura','altura','cor_ext','cor_int'];
-    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','dist_borda_cava','largura_cava','cantoneira_cava']);
+    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso']);
     if(item.tipo==='fixo') fields=fields.concat(['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material']);
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
@@ -9564,6 +9566,15 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"><label>Dist. Borda Cava (mm)</label><input type="number" id="'+pre+'dist_borda_cava" value="'+(item.dist_borda_cava||210)+'" min="50" max="500"></div>';
       h+='<div class="crm-field"><label>Largura Cava (mm)</label><input type="number" id="'+pre+'largura_cava" value="'+(item.largura_cava||150)+'" min="50" max="400"></div>';
       h+='</div></div>';
+      // Config Friso — visível quando modelo tem "friso" no nome
+      var _temFriso=false;
+      if(_modOptMatch) _temFriso=_modOptMatch[1].toLowerCase().indexOf('friso')>=0;
+      h+='<div id="'+pre+'friso_wrap" style="'+(_temFriso?'':'display:none')+'">';
+      h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">📐 Configuração do Friso</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Dist. Borda Friso (mm)</label><input type="number" id="'+pre+'dist_borda_friso" value="'+(item.dist_borda_friso||150)+'" min="0" max="500"></div>';
+      h+='<div class="crm-field"><label>Espessura Friso (mm)</label><input type="number" id="'+pre+'largura_friso" value="'+(item.largura_friso||10)+'" min="1" max="200"></div>';
+      h+='</div></div>';
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="'+pre+'tem_alisar"'+(item.tem_alisar?' checked':'')+' style="width:14px;height:14px"> Tem Alisar</label></div>';
       h+='<div class="crm-field"></div>';
@@ -9606,7 +9617,7 @@ window._crmItensRender=function(){
   // Re-apply selected values for selects (the replace trick doesn't always work)
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
-    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','cor_ext','cor_int','dist_borda_cava','largura_cava','cantoneira_cava']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int'];
+    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','cor_ext','cor_int','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int'];
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el&&item[f]) el.value=item[f];
