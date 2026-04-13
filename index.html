@@ -13834,6 +13834,15 @@ function _autoSelectAndRun(){
   // Forçar horizontal como padrão se não foi definido manualmente
   if(!document.getElementById('plan-layout').dataset.manual) layoutMode='v';
   var corCode=_getCorCode();
+  // Fallback: extrair código da cor do dropdown do planificador
+  if(!corCode){
+    var planCor=document.getElementById('plan-acm-cor');
+    if(planCor&&planCor.selectedIndex>0){
+      var planTxt=(planCor.options[planCor.selectedIndex].text||'').toUpperCase();
+      var pm=planTxt.match(/(PRO\w+)/);
+      if(pm) corCode=pm[1];
+    }
+  }
   var melhor=null;
   var resultados=[];
 
