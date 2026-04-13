@@ -2059,8 +2059,10 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   <div class="rs" style="padding-top:8px;padding-bottom:8px">
     <div class="rst">Por m²</div>
     <div class="rr"><span class="rl">Custo/m²</span><span class="rv" id="s-cm2">—</span></div>
-    <div class="rr"><span class="rl">Preço tabela/m²</span><span class="rv" id="s-tm2">—</span></div>
-    <div class="rr"><span class="rl">Preço fat./m²</span><span class="rv" id="s-fm2">—</span></div>
+    <div class="rr"><span class="rl">Preço tabela/m² <small style="color:#e65100">porta+inst</small></span><span class="rv" id="s-tm2">—</span></div>
+    <div class="rr"><span class="rl">Preço fat./m² <small style="color:#e65100">porta+inst</small></span><span class="rv" id="s-fm2">—</span></div>
+    <div class="rr"><span class="rl">Preço tabela/m² <small style="color:#4e79a7">só porta</small></span><span class="rv" id="s-tm2p">—</span></div>
+    <div class="rr"><span class="rl">Preço fat./m² <small style="color:#4e79a7">só porta</small></span><span class="rv" id="s-fm2p">—</span></div>
     <div class="rr" style="border:none"><span class="rl">Desconto aplicado</span><span class="rv" id="s-desc">—</span></div>
   </div>
   <!-- IDs do Resultado Geral mantidos ocultos para compatibilidade com o JS -->
@@ -4345,6 +4347,12 @@ function calc(){
   $('s-cm2').textContent=m2>0?br2(custo/m2)+'/m²':'—';
   $('s-tm2').textContent=m2>0?br2(pTab/m2)+'/m²':'—';
   $('s-fm2').textContent=m2>0?br2(pFatReal/m2)+'/m²':'—';
+  // Só porta (sem instalação)
+  var custoSoPorta=_subFabEfetivo+_subFabEfetivo*ov;
+  var pTabSoPorta=custoSoPorta*fT;
+  var pFatSoPorta=pTabSoPorta*(1-descPrj);
+  $('s-tm2p').textContent=m2>0?br2(pTabSoPorta/m2)+'/m²':'—';
+  $('s-fm2p').textContent=m2>0?br2(pFatSoPorta/m2)+'/m²':'—';
   $('s-desc').textContent=pf(descPrj*100)+' → −'+brl(dVal);
 
   // ══ RESULTADO TOTAL INTERNACIONAL ══
