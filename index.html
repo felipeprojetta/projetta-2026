@@ -10114,7 +10114,7 @@ window.crmFazerOrcamento=function(id){
           mp._folhas=parseInt(oi.folhas)||1;
           window._mpItens.push(mp);
         });
-        window._mpEditingIdx=window._mpItens.length-1;
+        window._mpEditingIdx=-1; // NÃO editar nenhum — evita _mpSalvarItemAtual sobrescrever
         if(typeof _mpRender==='function') _mpRender();
       }
       window._osAutoMode=true;
