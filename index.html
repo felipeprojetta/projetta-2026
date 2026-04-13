@@ -9171,86 +9171,111 @@ window.crmBuscarReservaWeiku=function(){
   var num=(numEl?numEl.value:'').trim();
   var status=document.getElementById('crm-reserva-status');
   if(!num){if(status){status.textContent='⚠ Digite o nº da reserva';status.style.color='#b71c1c';}return;}
-  if(status){status.textContent='⏳ Buscando reserva '+num+'...';status.style.color='var(--orange)';}
-  
-  var SB='https://plmliavuwlgpwaizfeds.supabase.co';
-  var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
-  
-  Promise.all([
-    fetch(SB+'/rest/v1/configuracoes?chave=eq.weiku_reservas_detalhe&select=valor&limit=1',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}),
-    fetch(SB+'/rest/v1/configuracoes?chave=eq.weiku_reservas&select=valor&limit=1',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();})
-  ]).then(function(results){
-    var detalhes=(results[0]&&results[0][0]&&results[0][0].valor)?results[0][0].valor.reservas:[];
-    var basicas=(results[1]&&results[1][0]&&results[1][0].valor)?results[1][0].valor.reservas:[];
-    
-    var found=detalhes.find(function(r){return r.reserva===num;});
-    var isDetailed=!!found;
-    if(!found) found=basicas.find(function(r){return r.reserva===num||r.ag===num;});
-    
-    if(!found){
-      if(status){status.textContent='⚠ Reserva '+num+' não encontrada. Sync a Weiku!';status.style.color='#b71c1c';}
-      return;
-    }
-    
-    // Preencher campos do CRM modal
-    var nome=document.getElementById('crm-o-cliente');if(nome)nome.value=found.nome||found.cliente||'';
-    var email=document.getElementById('crm-o-email');if(email&&found.email)email.value=found.email;
-    var tel=document.getElementById('crm-o-contato');if(tel&&found.telefone)tel.value=found.telefone;
-    var cep=document.getElementById('crm-o-cep');if(cep&&found.cep&&found.cep!=='XXX'){cep.value=found.cep;if(typeof crmBuscarCep==='function')setTimeout(crmBuscarCep,300);}
-    var agp=document.getElementById('crm-o-agp');if(agp&&found.ag)agp.value=found.ag;
-    
+  if(status){status.textContent='⏳ Buscando reserva '+num+' na Weiku...';status.style.color='var(--orange)';}
+
+  // Helper: preencher campos do CRM modal a partir dos dados encontrados
+  function _preencherCRM(found){
+    var nome=found.nome||found.cliente||found.name||found.razao_social||'';
+    var email=found.email||found.e_mail||'';
+    var tel=found.telefone||found.fone||found.whatsapp||found.celular||found.phone||'';
+    var cep=found.cep||found.zip||'';
+    var agp=found.agp||found.ag||found.num_agp||found.codigo_agp||'';
+    var cidade=found.cidade||found.city||'';
+    var uf=found.uf||found.estado||found.state||'';
+    var cidadeUf=found.cidade_uf||(cidade&&uf?cidade+'/'+uf:cidade||'');
+    var rep=found.representante||found.rep||found.vendedor||found.follow_up||'';
+    var produto=found.produto||found.product||found.reserva_para||'';
+
+    var nEl=document.getElementById('crm-o-cliente');if(nEl&&nome)nEl.value=nome;
+    var eEl=document.getElementById('crm-o-email');if(eEl&&email)eEl.value=email;
+    var tEl=document.getElementById('crm-o-contato');if(tEl&&tel)tEl.value=tel;
+    if(cep&&cep!=='XXX'){var cEl=document.getElementById('crm-o-cep');if(cEl){cEl.value=cep;if(typeof crmBuscarCep==='function')setTimeout(crmBuscarCep,300);}}
+    var aEl=document.getElementById('crm-o-agp');if(aEl&&agp)aEl.value=agp;
+
     // Cidade/UF
-    var cidadeUf=found.cidade_uf||found.cidade||'';
     if(cidadeUf){
       var parts=cidadeUf.split('/');
       var crmCidade=document.getElementById('crm-o-cidade');if(crmCidade)crmCidade.value=(parts[0]||'').trim();
       var crmUf=document.getElementById('crm-o-estado');
-      if(crmUf&&parts[1]){
-        var uf=(parts[1]||'').trim().toUpperCase();
+      if(crmUf&&(parts[1]||uf)){
+        var ufVal=(parts[1]||uf||'').trim().toUpperCase();
         for(var i=0;i<crmUf.options.length;i++){
-          if(crmUf.options[i].value===uf||crmUf.options[i].text.toUpperCase().indexOf(uf)>=0){crmUf.selectedIndex=i;break;}
+          if(crmUf.options[i].value===ufVal||crmUf.options[i].text.toUpperCase().indexOf(ufVal)>=0){crmUf.selectedIndex=i;break;}
         }
       }
     }
-    
+
     // Representante Weiku
-    if(found.representante){
-      var repW=document.getElementById('crm-o-rep-weiku');
+    if(rep){
+      var repW=document.getElementById('crm-o-wrep');
+      if(!repW) repW=document.getElementById('crm-o-rep-weiku');
       if(repW){
-        var rn=found.representante.toUpperCase();
+        var rn=rep.toUpperCase();
         for(var i=0;i<repW.options.length;i++){
           if(repW.options[i].text.toUpperCase().indexOf(rn)>=0){repW.selectedIndex=i;break;}
         }
       }
     }
-    
+
     // Produto
-    if(found.produto){
+    if(produto){
       var prodHidden=document.getElementById('crm-o-produto');
       var prodText=document.getElementById('crm-o-product-text');
       if(prodHidden){
-        var pn=found.produto.toUpperCase();
+        var pn=produto.toUpperCase();
         var products=gProducts();
         var pm=products.find(function(p){return p.toUpperCase().indexOf(pn)>=0;});
         if(pm){prodHidden.value=pm;if(prodText)prodText.textContent=pm;}
       }
     }
-    
+
     // Status
     var campos=[];
-    if(found.nome||found.cliente)campos.push('Nome');
-    if(found.email)campos.push('Email');
-    if(found.telefone)campos.push('WhatsApp');
-    if(found.cep&&found.cep!=='XXX')campos.push('CEP');
-    if(cidadeUf)campos.push('Cidade');
-    if(found.representante)campos.push('Rep');
-    
+    if(nome)campos.push('Nome');if(email)campos.push('Email');if(tel)campos.push('WhatsApp');
+    if(cep&&cep!=='XXX')campos.push('CEP');if(cidadeUf)campos.push('Cidade');if(rep)campos.push('Rep');if(agp)campos.push('AGP');
     if(status){
-      status.innerHTML='✅ <b>'+num+'</b> — '+(found.nome||found.cliente)+' | '+cidadeUf+' <span style="color:#888">('+campos.join(', ')+')</span>';
+      status.innerHTML='✅ <b>'+num+'</b> — '+nome+(cidadeUf?' | '+cidadeUf:'')+(agp?' | <span style="color:#c0392b;font-weight:800">'+agp+'</span>':'')+' <span style="color:#888">('+campos.join(', ')+')</span>';
       status.style.color='#27ae60';
     }
-  }).catch(function(e){
-    if(status){status.textContent='❌ Erro: '+e.message;status.style.color='#b71c1c';}
+  }
+
+  // 1) Tentar API Weiku direta
+  fetch('https://intranet.weiku.com.br/v2/api/reservas/reserva/'+num,{
+    method:'GET',headers:{'Accept':'application/json'},mode:'cors'
+  }).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(data){
+    // API pode retornar objeto direto ou {data: {...}} ou array
+    var found=data;
+    if(data.data) found=data.data;
+    if(Array.isArray(found)) found=found[0];
+    if(!found||(!found.nome&&!found.cliente&&!found.name&&!found.razao_social)){
+      throw new Error('Reserva não encontrada na API');
+    }
+    console.log('[WeikuAPI] Reserva '+num+' encontrada:', found);
+    _preencherCRM(found);
+  }).catch(function(apiErr){
+    console.warn('[WeikuAPI] Falha, tentando Supabase:', apiErr.message);
+    if(status){status.textContent='⏳ API indisponível, buscando no cache...';status.style.color='var(--orange)';}
+    // 2) Fallback: Supabase cache
+    var SB='https://plmliavuwlgpwaizfeds.supabase.co';
+    var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
+    Promise.all([
+      fetch(SB+'/rest/v1/configuracoes?chave=eq.weiku_reservas_detalhe&select=valor&limit=1',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}),
+      fetch(SB+'/rest/v1/configuracoes?chave=eq.weiku_reservas&select=valor&limit=1',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();})
+    ]).then(function(results){
+      var detalhes=(results[0]&&results[0][0]&&results[0][0].valor)?results[0][0].valor.reservas:[];
+      var basicas=(results[1]&&results[1][0]&&results[1][0].valor)?results[1][0].valor.reservas:[];
+      var found=detalhes.find(function(r){return r.reserva===num;})||basicas.find(function(r){return r.reserva===num||r.ag===num;});
+      if(!found){
+        if(status){status.textContent='⚠ Reserva '+num+' não encontrada (API offline + cache vazio)';status.style.color='#b71c1c';}
+        return;
+      }
+      _preencherCRM(found);
+    }).catch(function(e){
+      if(status){status.textContent='❌ Erro: '+e.message;status.style.color='#b71c1c';}
+    });
   });
 };
 
