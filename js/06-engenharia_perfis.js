@@ -83,6 +83,11 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   var kgMerc    = typeof _getPfLiq==='function'?_getPfLiq('MERCADO'):(parseFloat((document.getElementById('pf-kg-mercado')||{value:0}).value)||0);
   var kgWeiku   = typeof _getPfLiq==='function'?_getPfLiq('WEIKU'):(parseFloat((document.getElementById('pf-kg-weiku')||{value:0}).value)||0);
   var precoPint = typeof _getPintLiq==='function'?_getPintLiq():(parseFloat((document.getElementById('pf-preco-pintura')||{value:0}).value)||0);
+  // Preços BRUTOS (sem dedução) para exibição
+  var kgTecnoBru = parseFloat((document.getElementById('pf-kg-tecnoperfil')||{value:0}).value)||0;
+  var kgMercBru  = parseFloat((document.getElementById('pf-kg-mercado')||{value:0}).value)||0;
+  var kgWeikuBru = parseFloat((document.getElementById('pf-kg-weiku')||{value:0}).value)||0;
+  var precoPintBru = parseFloat((document.getElementById('pf-preco-pintura')||{value:0}).value)||0;
 
   var FGA       = _p.FGA;   // Folga altura (padrão 10mm)
   var FGL       = _p.FGL;   // Folga largura esquerda (padrão 10mm)
@@ -156,6 +161,14 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     if(f==='WEIKU')return kgWeiku;
     if(f==='PERFISUD')return kgTecno;
     return kgMerc;
+  }
+  function getPrecoKgBru(p){
+    if(!p)return kgMercBru;
+    var f=p.f||'';
+    if(f==='TECNOPERFIL'||f==='PROJETTA')return kgTecnoBru;
+    if(f==='WEIKU')return kgWeikuBru;
+    if(f==='PERFISUD')return kgTecnoBru;
+    return kgMercBru;
   }
 
   // ── FÓRMULAS PROJETTA (planilha FORMULAS_PARA_PERFIS.xlsx) ────────────────
@@ -297,7 +310,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   var groups={},seenKeys=[];
   cuts.forEach(function(c){
     var key=c.code;
-    if(!groups[key]){groups[key]={code:key,allCuts:[],pintado:c.pintado,barLenMM:c.barLenMM,perf:c.perf,precoKg:getPrecoKg(c.perf)};seenKeys.push(key);}
+    if(!groups[key]){groups[key]={code:key,allCuts:[],pintado:c.pintado,barLenMM:c.barLenMM,perf:c.perf,precoKg:getPrecoKg(c.perf),precoKgBru:getPrecoKgBru(c.perf)};seenKeys.push(key);}
     for(var i=0;i<c.qty;i++){
       // Se é emenda: inserir as peças individualmente no FFD
       if(c.isSplit && c.splitPieces){
@@ -322,6 +335,8 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     var kgBruto =totBruto/1000*kgM;
     var custoPerfil =kgBruto*g.precoKg;
     var custoPintura=g.pintado?kgBruto*precoPint:0;
+    var custoPerfilBru =kgBruto*g.precoKgBru;
+    var custoPinturaBru=g.pintado?kgBruto*precoPintBru:0;
     var barsDetail=bars.map(function(b){
       return {len:b.barLen,items:b.items.slice().sort(function(a,x){return x-a;}),
               remaining:b.remaining,sobra:b.sobra!=null?b.sobra:b.remaining};
@@ -329,6 +344,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     groupRes[key]={nBars:nBars,totUsed:totUsed,totBruto:totBruto,aprov:aprov,
       kgLiq:kgLiq,kgBruto:kgBruto,precoKg:g.precoKg,
       custoPerfil:custoPerfil,custoPintura:custoPintura,custoTotal:custoPerfil+custoPintura,
+      custoPerfilBru:custoPerfilBru,custoPinturaBru:custoPinturaBru,custoTotalBru:custoPerfilBru+custoPinturaBru,
       barLenMM:g.barLenMM,pintado:g.pintado,barsDetail:barsDetail};
   });
 

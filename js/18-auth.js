@@ -1274,14 +1274,16 @@ function _updateResumoObra(){
   // Perfis
   var d=window._lastOSData;
   if(d){
-    var kgLiq=0,kgBru=0,custoPerfis=0;
+    var kgLiq=0,kgBru=0,custoPerfis=0,custoBru=0;
     d.seenKeys.forEach(function(key){
       var r=d.groupRes[key];if(!r)return;
-      kgLiq+=r.kgLiq||0;kgBru+=r.kgBruto||0;custoPerfis+=r.custoTotal||0;
+      kgLiq+=r.kgLiq||0;kgBru+=r.kgBruto||0;
+      custoPerfis+=r.custoTotal||0;
+      custoBru+=r.custoTotalBru||0;
     });
-    document.getElementById('ro-perfis-kg').textContent=kgLiq.toFixed(1)+' kg líq';
-    document.getElementById('ro-perfis-bruto').textContent='bruto: '+kgBru.toFixed(1)+' kg';
-    document.getElementById('ro-perfis-val').textContent=brl(custoPerfis);
+    document.getElementById('ro-perfis-kg').textContent=kgBru.toFixed(1)+' / '+kgLiq.toFixed(1)+' kg';
+    document.getElementById('ro-perfis-bruto').textContent='bruto / líquido';
+    document.getElementById('ro-perfis-val').textContent=brl(custoBru)+' / '+brl(custoPerfis);
   }
 
   // Chapas
