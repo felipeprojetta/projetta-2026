@@ -11069,19 +11069,15 @@ window.crmOrcamentoPronto=function(){
     window._onCustoCompleto=_salvarSnapshotECRM;
     if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
   }
-  if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
   }catch(err){
     console.error('crmOrcamentoPronto erro:',err);
-    alert('Erro ao gerar proposta: '+err.message+'\n\nVerifique o console (F12) para detalhes.');
-    // Mesmo com erro, gerar PDF
-    if(typeof _onStageOrcamentoPronto==="function") _onStageOrcamentoPronto();
+    alert('Erro ao salvar: '+err.message);
   }
 };
 
 /* ── Gerar PDF da Proposta (botão separado) ── */
 window.crmGerarPDF=function(){
   var id=window._crmOrcCardId;
-  // Determinar label da revisão
   var revLabel='Original';
   if(id){
     var data=JSON.parse(localStorage.getItem('projetta_crm_v1')||'[]');
@@ -11092,9 +11088,14 @@ window.crmGerarPDF=function(){
   }
   var btn=document.getElementById('crm-gerar-pdf-btn');
   if(btn){btn.textContent='⏳ Gerando PDF...';btn.disabled=true;}
+  // 1. Gerar PDF para download
+  if(typeof _onStageOrcamentoPronto==='function'){
+    try{_onStageOrcamentoPronto();}catch(e){}
+  }
+  // 2. Salvar imagens da proposta no card CRM
   _exportPropostaToCard(id, revLabel, function(captures){
     var nPages=captures?captures.length:0;
-    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#8e44ad;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='📄 PDF gerado! '+nPages+' página(s) salvas.';document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
+    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#8e44ad;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='📄 PDF gerado e salvo! '+nPages+' página(s).';document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
     if(btn){btn.textContent='📄 Gerar PDF';btn.disabled=false;}
     if(typeof crmRender==='function') crmRender();
   });
