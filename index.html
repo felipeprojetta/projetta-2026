@@ -10969,43 +10969,59 @@ window.crmOrcamentoPronto=function(){
       currentId=_existente.id; currentRev=_existente.revisions.length-1;
     }
   }
-  // PASSO 2: Salvar orçamento COM SNAPSHOT DO QUE ESTÁ NA TELA AGORA
-  // NÃO recalcular — o usuário já gerou o custo antes de clicar Pronto
+  // PASSO 2: Salvar entry primeiro (garante currentId)
   if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){console.warn('salvarRapido:',e);}
-  // PASSO 3: Vincular crmCardId + snapshot definitivo IMEDIATAMENTE
+  // PASSO 3: Vincular crmCardId IMEDIATAMENTE
   if(currentId){
     var _db2=loadDB();var _oi=_db2.findIndex(function(e){return e.id===currentId;});
     if(_oi>=0){
       _db2[_oi].crmCardId=id;
       var _rev=_db2[_oi].revisions[currentRev];
-      if(_rev){
-        _rev.crmPronto=true;
-        // Snapshot DO QUE ESTÁ NA TELA — valores que o usuário vê e aprovou
-        try{_rev.snapshot=captureSnapshot();}catch(e){}
-        _rev.savedAt=new Date().toISOString().replace('T',' ').substring(0,16);
-      }
+      if(_rev) _rev.crmPronto=true;
       saveDB(_db2);
     }
-    // Sincronizar valores do CRM card com os MESMOS valores da tela
-    var _valsAgora=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
+  }
+  // PASSO 4: Recalcular custo completo (garante chapas, perfis, tudo)
+  window._snapshotLock=false;
+  window._onCustoCompleto=function(){
+    // TUDO calculado — capturar snapshot AGORA
+    var _snapFinal=null;
+    try{_snapFinal=captureSnapshot();}catch(e){}
+    var _valsFinal=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
+    // Salvar snapshot no orçamento
+    if(currentId){
+      var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
+      if(_oi3>=0){
+        var _rev3=_db3[_oi3].revisions[currentRev];
+        if(_rev3){
+          _rev3.snapshot=_snapFinal;
+          _rev3.savedAt=new Date().toISOString().replace('T',' ').substring(0,16);
+        }
+        saveDB(_db3);
+      }
+    }
+    // Salvar MESMOS valores no CRM card
     if(id){
       var _crmD=cLoad();var _ci=_crmD.findIndex(function(o){return o.id===id;});
       if(_ci>=0){
-        _crmD[_ci].valor=_valsAgora.fat;
-        _crmD[_ci].valorTabela=_valsAgora.tab;
-        _crmD[_ci].valorFaturamento=_valsAgora.fat;
+        _crmD[_ci].valor=_valsFinal.fat;
+        _crmD[_ci].valorTabela=_valsFinal.tab;
+        _crmD[_ci].valorFaturamento=_valsFinal.fat;
         if(_crmD[_ci].revisoes&&_crmD[_ci].revisoes.length>0){
-          var _lastRev=_crmD[_ci].revisoes[_crmD[_ci].revisoes.length-1];
-          _lastRev.valorTabela=_valsAgora.tab;
-          _lastRev.valorFaturamento=_valsAgora.fat;
+          var _lr=_crmD[_ci].revisoes[_crmD[_ci].revisoes.length-1];
+          _lr.valorTabela=_valsFinal.tab;
+          _lr.valorFaturamento=_valsFinal.fat;
         }
         cSave(_crmD);
+        if(typeof crmRender==='function') crmRender();
       }
     }
-  }
-  // PASSO 4: Travar orçamento — valores congelados
-  window._snapshotLock=true;
-  _setOrcLock(true);
+    // TRAVAR
+    window._snapshotLock=true;
+    _setOrcLock(true);
+    console.log('✅ Completo — Tab:'+_valsFinal.tab+' Fat:'+_valsFinal.fat);
+  };
+  if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
   }catch(err){
     console.error('crmOrcamentoPronto erro:',err);
