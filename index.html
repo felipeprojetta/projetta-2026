@@ -11988,13 +11988,14 @@ function _exportPropostaToCard(cardId, revLabel, callback){
       // Salvar PDF dentro da ÚLTIMA REVISÃO do card
       if(cardId){
         try{
-          var data=cLoad();
+          var CK_PDF='projetta_crm_v1';
+          var data=JSON.parse(localStorage.getItem(CK_PDF)||'[]');
           var ci=data.findIndex(function(o){return o.id===cardId;});
           if(ci>=0 && data[ci].revisoes && data[ci].revisoes.length>0){
             var lastRev=data[ci].revisoes[data[ci].revisoes.length-1];
             lastRev.pdfPages=captures;
             lastRev.pdfDate=new Date().toISOString();
-            cSave(data);
+            localStorage.setItem(CK_PDF,JSON.stringify(data));
             console.log('✅ PDF salvo na revisão: '+lastRev.label+' ('+captures.length+' páginas)');
           }
         }catch(e){console.warn('Erro ao salvar PDF no card:',e);}
