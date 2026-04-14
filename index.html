@@ -6192,9 +6192,8 @@ function aprovMaxRects(pieces,SW,SH,kerf,rot,mg){
   var todo=[];
   for(var i=0;i<pieces.length;i++)for(var j=0;j<pieces[i].qty;j++){
     var p=pieces[i];
-    // Se rotação permitida, escolher orientação que alinha melhor (maior dimensão como h)
-    if(rot&&p.w>p.h) todo.push({label:p.label,w:p.h,h:p.w,color:p.color,rotated:true});
-    else todo.push({label:p.label,w:p.w,h:p.h,color:p.color,rotated:false});
+    // Rotação DESATIVADA — chapas ACM nunca devem ser rotacionadas
+    todo.push({label:p.label,w:p.w,h:p.h,color:p.color,rotated:false});
   }
   // Agrupar peças iguais juntas (por label), depois por altura desc
   var PIECE_PRIORITY={'TAMPA MAIOR':1,'TAMPA BOR CAVA':1,'TAMPA CAVA':1,'CAVA':2,
@@ -13763,13 +13762,7 @@ function plnMaxRects(pieces, SW, SH, mode) {
       if(s.score1<best.score1||(s.score1===best.score1&&s.score2<best.score2)){
         best={score1:s.score1,score2:s.score2,idx:i,x:fr.x,y:fr.y,w:pw,h:ph,rot:false};
       }
-      // Rotated 90°
-      if(pw!==ph){
-        var sr=this.scoreRect(ph,pw,fr);
-        if(sr.score1<best.score1||(sr.score1===best.score1&&sr.score2<best.score2)){
-          best={score1:sr.score1,score2:sr.score2,idx:i,x:fr.x,y:fr.y,w:ph,h:pw,rot:true};
-        }
-      }
+      // Rotação DESATIVADA — chapas ACM nunca devem ser rotacionadas
     }
     return best.idx>=0?best:null;
   };
