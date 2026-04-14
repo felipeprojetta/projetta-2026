@@ -9973,6 +9973,26 @@ window.crmItemToggle=function(id){
   if(el)el.classList.toggle('open');
 }
 
+/* ── Salvar Item e abrir próximo ── */
+window.crmItemSaveAndNext=function(id){
+  // 1. Salvar dados do item atual
+  _crmItensSaveFromDOM();
+  // 2. Fechar item atual
+  var el=document.getElementById('crm-item-'+id);
+  if(el) el.classList.remove('open');
+  // 3. Encontrar próximo item e abrir
+  var idx=_crmItens.findIndex(function(it){return it.id===id;});
+  if(idx>=0 && idx<_crmItens.length-1){
+    var nextId=_crmItens[idx+1].id;
+    var nextEl=document.getElementById('crm-item-'+nextId);
+    if(nextEl){nextEl.classList.add('open');nextEl.scrollIntoView({behavior:'smooth',block:'start'});}
+  }
+  // Toast
+  var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:8px 18px;border-radius:16px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+  toast.textContent='💾 Item '+(idx+1)+' salvo!'+(idx<_crmItens.length-1?' → Item '+(idx+2):'');
+  document.body.appendChild(toast);setTimeout(function(){toast.remove();},2000);
+}
+
 window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
@@ -10112,6 +10132,7 @@ window._crmItensRender=function(){
     
     // Actions
     h+='<div class="crm-item-actions">';
+    h+='<button class="dup" onclick="event.stopPropagation();crmItemSaveAndNext(\''+item.id+'\')" style="background:#27ae60;color:#fff;border-color:#27ae60">💾 Salvar Item</button>';
     h+='<button class="dup" onclick="event.stopPropagation();crmItemDuplicate(\''+item.id+'\')">📋 Duplicar</button>';
     h+='<button class="del" onclick="event.stopPropagation();crmItemRemove(\''+item.id+'\')">🗑 Remover</button>';
     h+='</div>';
