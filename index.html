@@ -8737,6 +8737,13 @@ function renderClientesTab(){
       h+='</div>';
       h+='<div class="cli-orc-actions">';
       h+='<button onclick="crmEditOpp(\''+card.id+'\');switchTab(\'crm\')" title="Abrir no CRM">📊 CRM</button>';
+      // Se tem orçamento vinculado, mostrar botões de revisão
+      var _linkedEntry=grp.entries.find(function(e){return e.crmCardId===card.id;});
+      if(_linkedEntry){
+        h+='<button onclick="loadRevisionMemorial(\''+_linkedEntry.id+'\',0)" title="Ver memorial de cálculo" style="background:#e67e22;color:#fff;border-color:#e67e22">📋 Memorial</button>';
+        h+='<button onclick="loadRevision(\''+_linkedEntry.id+'\',0);switchTab(\'orcamento\')" title="Abrir versão original">📂 Original</button>';
+        h+='<button onclick="loadRevision(\''+_linkedEntry.id+'\','+(_linkedEntry.revisions.length-1)+');switchTab(\'orcamento\');setTimeout(novaRevisao,300)" title="Nova revisão">➕ Nova Rev</button>';
+      }
       h+='</div>';
       h+='</div>';
     });
