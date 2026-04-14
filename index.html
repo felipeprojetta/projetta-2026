@@ -10867,30 +10867,32 @@ window.crmOrcamentoPronto=function(){
   // Esconder botões após envio e TRAVAR orçamento
   var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
-  // FORÇAR recálculo antes de salvar para garantir snapshot com valores
+  // PASSO 1: Garantir orçamento salvo ANTES de recalcular
+  if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){console.warn('salvarRapido:',e);}
+  // PASSO 2: Recalcular custo completo
   window._snapshotLock=false;
-  if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
-  // Salvar orçamento (snapshot capturado aqui terá valores calculados)
-  if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){}
-  // Marcar orçamento como vinculado ao card CRM + travar revisão + garantir snapshot
-  if(currentId){
-    var _db2=loadDB();var _oi=_db2.findIndex(function(e){return e.id===currentId;});
-    if(_oi>=0){
-      _db2[_oi].crmCardId=id;
-      var _rev=_db2[_oi].revisions[currentRev];
-      if(_rev){
-        _rev.crmPronto=true;
-        // Re-capturar snapshot AGORA (após gerarCustoTotal)
-        try{_rev.snapshot=captureSnapshot();}catch(e){}
+  if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
+  // PASSO 3: Após 2s (tempo do gerarCustoTotal terminar), re-salvar com snapshot atualizado
+  setTimeout(function(){
+    if(currentId){
+      var _db2=loadDB();var _oi=_db2.findIndex(function(e){return e.id===currentId;});
+      if(_oi>=0){
+        _db2[_oi].crmCardId=id;
+        var _rev=_db2[_oi].revisions[currentRev];
+        if(_rev){
+          _rev.crmPronto=true;
+          try{_rev.snapshot=captureSnapshot();}catch(e){}
+          _rev.savedAt=new Date().toISOString().replace('T',' ').substring(0,16);
+        }
+        saveDB(_db2);
       }
-      saveDB(_db2);
     }
-  }
-  // Atualizar lista Clientes
-  if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
-  // Travar orçamento — PDF salvo, valores devem bater. Para alterar, Nova Revisão.
-  window._snapshotLock=true;
-  _setOrcLock(true);
+    // PASSO 4: Atualizar lista Clientes
+    if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
+    // Travar orçamento
+    window._snapshotLock=true;
+    _setOrcLock(true);
+  }, 2500);
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
   }catch(err){
     console.error('crmOrcamentoPronto erro:',err);
