@@ -10969,14 +10969,12 @@ window.crmOrcamentoPronto=function(){
       saveDB(_db2);
     }
   }
-  // PASSO 4: Recalcular custo completo (garante chapas, perfis, tudo)
-  window._snapshotLock=false;
-  window._onCustoCompleto=function(){
-    // TUDO calculado — capturar snapshot AGORA
+  // PASSO 4: Capturar snapshot + atualizar CRM
+  // Função única que salva tudo de uma vez
+  var _salvarSnapshotECRM=function(){
     var _snapFinal=null;
     try{_snapFinal=captureSnapshot();}catch(e){}
     var _valsFinal=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
-    // Salvar snapshot no orçamento
     if(currentId){
       var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
       if(_oi3>=0){
@@ -10988,7 +10986,6 @@ window.crmOrcamentoPronto=function(){
         saveDB(_db3);
       }
     }
-    // Salvar MESMOS valores no CRM card
     if(id){
       var _crmD=cLoad();var _ci=_crmD.findIndex(function(o){return o.id===id;});
       if(_ci>=0){
@@ -11004,12 +11001,18 @@ window.crmOrcamentoPronto=function(){
         if(typeof crmRender==='function') crmRender();
       }
     }
-    // TRAVAR
     window._snapshotLock=true;
     _setOrcLock(true);
-    console.log('✅ Completo — Tab:'+_valsFinal.tab+' Fat:'+_valsFinal.fat);
   };
-  if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
+  // Se custo já foi gerado (usuário clicou Gerar Custo antes) → salvar DIRETO sem recalcular
+  if(window._osGeradoUmaVez && window._custoCalculado){
+    _salvarSnapshotECRM();
+  } else {
+    // Custo não foi gerado → calcular primeiro, depois salvar via callback
+    window._snapshotLock=false;
+    window._onCustoCompleto=_salvarSnapshotECRM;
+    if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
+  }
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
   }catch(err){
     console.error('crmOrcamentoPronto erro:',err);
