@@ -1656,11 +1656,11 @@ function buscarReserva() {
     // Preencher campos do ORÇAMENTO
     var np=$('numprojeto');if(np)np.value=found.reserva||num;
     var agp=$('num-agp');if(agp&&found.codigo)agp.value=found.codigo;
-    var c=$('cliente');if(c&&found.cliente&&!c.value)c.value=found.cliente.toUpperCase();
+    var c=$('cliente');if(c&&found.cliente&&!c.value)c.value=_toTitleCase(found.cliente);
     // Preencher campos do CRM modal
     var crmReserva=$('crm-o-reserva');if(crmReserva)crmReserva.value=found.reserva||num;
     var crmAgp=$('crm-o-agp');if(crmAgp&&found.codigo)crmAgp.value=found.codigo;
-    var crmCliente=$('crm-o-cliente');if(crmCliente&&found.cliente)crmCliente.value=found.cliente.toUpperCase();
+    var crmCliente=$('crm-o-cliente');if(crmCliente&&found.cliente)crmCliente.value=_toTitleCase(found.cliente);
     var crmEmail=$('crm-o-email');if(crmEmail&&found.email)crmEmail.value=found.email;
     var crmCep=$('crm-o-cep');if(crmCep&&found.cep)crmCep.value=found.cep;
     // CEP do orçamento

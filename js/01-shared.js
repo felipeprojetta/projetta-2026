@@ -217,4 +217,10 @@ const br2=v=>'R$ '+(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFracti
 const pf=v=>(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%';
 const fmtBRL=v=>v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 
+/* ── Title Case: "RICARDO PORTOLAN ARQ." → "Ricardo Portolan Arq." ── */
+function _toTitleCase(str){
+  if(!str) return '';
+  return str.toLowerCase().replace(/(?:^|\s|\.)\S/g, function(c){return c.toUpperCase();});
+}
+
 /* ══ END MODULE: SHARED ══ */
