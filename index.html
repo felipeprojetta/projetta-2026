@@ -18035,6 +18035,14 @@ function _calcAcessoriosAllItems(d, sis){
     }
   });
 
+  // Ordenar por grupo para manter categorias juntas (VEDAÇÕES, FECHADURAS, etc.)
+  var grpOrder={'FECHADURAS':1,'VEDAÇÕES':2,'ISOLAMENTO':3,'SELANTES':4,'EMBALAGEM':5,'FITA DUPLA FACE':6,'PARAFUSOS':7,'FIXO':8};
+  merged.sort(function(a,b){
+    var ga=grpOrder[a.grp]||99, gb=grpOrder[b.grp]||99;
+    if(ga!==gb) return ga-gb;
+    return (a.code||'').localeCompare(b.code||'');
+  });
+
   console.log('  → Total acessórios: '+allRows.length+' raw → '+merged.length+' merged (de '+window._mpItens.length+' itens)');
   return merged;
 }
