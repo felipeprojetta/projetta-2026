@@ -11088,17 +11088,27 @@ window.crmGerarPDF=function(){
   }
   var btn=document.getElementById('crm-gerar-pdf-btn');
   if(btn){btn.textContent='⏳ Gerando PDF...';btn.disabled=true;}
-  // 1. Gerar PDF para download
-  if(typeof _onStageOrcamentoPronto==='function'){
-    try{_onStageOrcamentoPronto();}catch(e){}
-  }
-  // 2. Salvar imagens da proposta no card CRM
-  _exportPropostaToCard(id, revLabel, function(captures){
-    var nPages=captures?captures.length:0;
-    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#8e44ad;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='📄 PDF gerado e salvo! '+nPages+' página(s).';document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
-    if(btn){btn.textContent='📄 Gerar PDF';btn.disabled=false;}
-    if(typeof crmRender==='function') crmRender();
-  });
+  // Temporariamente desbloquear para calc() e populateProposta() funcionarem
+  var wasLocked=window._snapshotLock;
+  window._snapshotLock=false;
+  if(typeof calc==='function') try{calc();}catch(e){}
+  // 1. Gerar PDF download
+  _showToast('⏳ Gerando PDF...','#e67e22');
+  setTimeout(function(){
+    _gerarPropostaPDF(function(pdf,blob){
+      pdf.save(_pdfFileName());
+      _showToast('✅ PDF baixado!','#27ae60');
+      // 2. Salvar imagens no card CRM
+      _exportPropostaToCard(id, revLabel, function(captures){
+        var nPages=captures?captures.length:0;
+        _showToast('📄 '+nPages+' página(s) salvas no card','#8e44ad');
+        if(btn){btn.textContent='📄 Gerar PDF';btn.disabled=false;}
+        if(typeof crmRender==='function') crmRender();
+        // Re-travar se estava travado
+        if(wasLocked) window._snapshotLock=true;
+      });
+    });
+  },300);
 };
 
 /* ── Atualizar Valor para Card (sem mudar etapa) ── */
@@ -12114,7 +12124,7 @@ function _exportPropostaToCard(cardId, revLabel, callback){
       if(callback) callback(captures);
       return;
     }
-    html2canvas(pages[idx],{scale:0.5,useCORS:true,logging:false,backgroundColor:'#ffffff'}).then(function(canvas){
+    html2canvas(pages[idx],{scale:1.5,useCORS:true,logging:false,backgroundColor:'#ffffff'}).then(function(canvas){
       captures.push(canvas.toDataURL('image/jpeg',0.45));
       idx++;
       captureNext();
