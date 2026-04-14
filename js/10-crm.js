@@ -957,6 +957,27 @@ window.crmItemAutoSelect=function(id){
       if(cavaWrap) cavaWrap.style.display=_modTxt2.indexOf('cava')>=0?'':'none';
       if(frisoWrap) frisoWrap.style.display=(_modTxt2.indexOf('friso')>=0||_modTxt2.indexOf('premium')>=0)?'':'none';
     }
+    // Tamanho puxador: setar 1.5 default e mostrar/esconder
+    var puxTamRow=document.getElementById(pre+'pux_tam_row');
+    var puxTamSel=document.getElementById(pre+'pux_tam');
+    if(cavaMods.indexOf(modInt)<0){
+      if(puxTamRow) puxTamRow.style.display='';
+      if(puxTamSel&&!puxTamSel.value) puxTamSel.value='1.5';
+    } else {
+      if(puxTamRow) puxTamRow.style.display='none';
+    }
+  }
+}
+
+// Toggle puxador tamanho visibility no CRM item
+window.crmItemPuxChange=function(id){
+  var pre='crmit-'+id+'-';
+  var pux=(document.getElementById(pre+'puxador')||{value:''}).value;
+  var row=document.getElementById(pre+'pux_tam_row');
+  if(row) row.style.display=pux==='EXTERNO'?'':'none';
+  if(pux==='EXTERNO'){
+    var tam=document.getElementById(pre+'pux_tam');
+    if(tam&&!tam.value) tam.value='1.5';
   }
 }
 
@@ -1136,7 +1157,7 @@ window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
     var fields=['qtd','largura','altura','cor_ext','cor_int'];
-    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado']);
+    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado']);
     if(item.tipo==='fixo') fields=fields.concat(['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material']);
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
@@ -1211,7 +1232,12 @@ window._crmItensRender=function(){
       h+='</div>';
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Cilindro</label><select id="'+pre+'cilindro"><option value="">— Selecione —</option><option value="KESO">Keso</option><option value="UDINESE">Udinese</option></select></div>';
-      h+='<div class="crm-field"><label>Puxador <small style="color:#888">(auto por modelo)</small></label><select id="'+pre+'puxador"><option value="">— Selecione —</option><option value="CAVA">Cava</option><option value="EXTERNO">Puxador Externo</option></select></div>';
+      h+='<div class="crm-field"><label>Puxador <small style="color:#888">(auto por modelo)</small></label><select id="'+pre+'puxador" onchange="crmItemPuxChange(\''+item.id+'\')"><option value="">— Selecione —</option><option value="CAVA">Cava</option><option value="EXTERNO">Puxador Externo</option></select></div>';
+      h+='</div>';
+      // Tamanho puxador externo
+      var _isExt=item.puxador==='EXTERNO'||(!_temCava&&item.modelo);
+      h+='<div id="'+pre+'pux_tam_row" class="crm-row" style="'+(_isExt?'':'display:none')+'">';
+      h+='<div class="crm-field"><label>Tamanho Puxador</label><select id="'+pre+'pux_tam"><option value="1.0"'+(item.pux_tam==='1.0'?' selected':'')+'>1.0 m (1000mm)</option><option value="1.5"'+(!item.pux_tam||item.pux_tam==='1.5'?' selected':'')+'>1.5 m (1500mm)</option><option value="1.8"'+(item.pux_tam==='1.8'?' selected':'')+'>1.8 m (1800mm)</option><option value="2.0"'+(item.pux_tam==='2.0'?' selected':'')+'>2.0 m (2000mm)</option></select></div>';
       h+='</div>';
       // Config Cava — sempre renderiza, visibilidade controlada por id
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">✂️ Refilado Tampas</div>';
@@ -1285,7 +1311,7 @@ window._crmItensRender=function(){
   // Re-apply selected values for selects (the replace trick doesn't always work)
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
-    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','cor_ext','cor_int','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int'];
+    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int'];
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el&&item[f]) el.value=item[f];
@@ -1314,7 +1340,7 @@ window._crmItensToCardData=function(){
     var clean={id:item.id,tipo:item.tipo,qtd:parseInt(item.qtd)||1,largura:parseInt(item.largura)||0,altura:parseInt(item.altura)||0,cor_ext:item.cor_ext||'',cor_int:item.cor_int||''};
     if(item.tipo==='porta_pivotante'){
       clean.modelo=item.modelo||'';clean.abertura=item.abertura||'PIVOTANTE';clean.folhas=item.folhas||'1';
-      clean.fech_mec=item.fech_mec||'';clean.fech_dig=item.fech_dig||'';clean.cilindro=item.cilindro||'';clean.puxador=item.puxador||'';
+      clean.fech_mec=item.fech_mec||'';clean.fech_dig=item.fech_dig||'';clean.cilindro=item.cilindro||'';clean.puxador=item.puxador||'';clean.pux_tam=item.pux_tam||'1.5';
       clean.dist_borda_cava=item.dist_borda_cava||'210';clean.largura_cava=item.largura_cava||'150';clean.cantoneira_cava=item.cantoneira_cava||'30';
       clean.dist_borda_friso=item.dist_borda_friso||'';clean.largura_friso=item.largura_friso||'';clean.refilado=item.refilado||'20';
       clean.friso_vert=item.friso_vert||'0';clean.friso_horiz=item.friso_horiz||'0';clean.friso_h_qty=item.friso_h_qty||'3';clean.friso_h_esp=item.friso_h_esp||'10';clean.tem_alisar=!!item.tem_alisar;
