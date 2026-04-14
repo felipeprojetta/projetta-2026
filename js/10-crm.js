@@ -738,7 +738,7 @@ window.crmBuscarReservaWeiku=function(){
     var rep=found.representante||found.rep||found.vendedor||found.follow_up||'';
     var produto=found.produto||found.product||found.reserva_para||'';
 
-    var nEl=document.getElementById('crm-o-cliente');if(nEl&&nome)nEl.value=nome;
+    var nEl=document.getElementById('crm-o-cliente');if(nEl&&nome)nEl.value=typeof _toTitleCase==='function'?_toTitleCase(nome):nome;
     var eEl=document.getElementById('crm-o-email');if(eEl&&email)eEl.value=email;
     var tEl=document.getElementById('crm-o-contato');if(tEl&&tel)tEl.value=tel;
     if(cep&&cep!=='XXX'){var cEl=document.getElementById('crm-o-cep');if(cEl){cEl.value=cep;if(typeof crmBuscarCep==='function')setTimeout(crmBuscarCep,300);}}
@@ -786,7 +786,7 @@ window.crmBuscarReservaWeiku=function(){
     if(nome)campos.push('Nome');if(email)campos.push('Email');if(tel)campos.push('WhatsApp');
     if(cep&&cep!=='XXX')campos.push('CEP');if(cidadeUf)campos.push('Cidade');if(rep)campos.push('Rep');if(agp)campos.push('AGP');
     if(status){
-      status.innerHTML='✅ <b>'+num+'</b> — '+nome+(cidadeUf?' | '+cidadeUf:'')+(agp?' | <span style="color:#c0392b;font-weight:800">'+agp+'</span>':'')+' <span style="color:#888">('+campos.join(', ')+')</span>';
+      status.innerHTML='✅ <b>'+num+'</b> — '+(typeof _toTitleCase==='function'?_toTitleCase(nome):nome)+(cidadeUf?' | '+cidadeUf:'')+(agp?' | <span style="color:#c0392b;font-weight:800">'+agp+'</span>':'')+' <span style="color:#888">('+campos.join(', ')+')</span>';
       status.style.color='#27ae60';
     }
   }

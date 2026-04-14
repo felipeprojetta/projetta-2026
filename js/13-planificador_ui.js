@@ -1672,7 +1672,7 @@ function buscarReserva() {
     if(found.tipo) campos.push('Tipo: '+found.tipo);
     if(found.email) campos.push('Email: '+found.email);
     if(status){
-      status.innerHTML='✅ <b>'+found.reserva+'</b> | '+(found.cliente||'')+(found.representante?' | Rep: '+found.representante:'')+(found.tipo?' | '+found.tipo:'');
+      status.innerHTML='✅ <b>'+found.reserva+'</b> | '+_toTitleCase(found.cliente||'')+(found.representante?' | Rep: '+found.representante:'')+(found.tipo?' | '+found.tipo:'');
       status.style.color='#27ae60';
     }
   }).catch(function(e){
