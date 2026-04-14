@@ -1188,6 +1188,10 @@ window.openSaveModal=openSaveModal;
 function resetToDefaults(){
   window._snapshotLock=false;
   window._orcLocked=false;
+  window._pendingRevision=false;
+  window._forceUnlockAfterLoad=false;
+  window._custoCalculado=false;
+  window._osGeradoUmaVez=false;
   try{_setOrcLock(false);}catch(e){}
   document.getElementById('acm-list').innerHTML='';
   document.getElementById('alu-list').innerHTML='';
@@ -1203,11 +1207,13 @@ function resetToDefaults(){
   // folhas
   var fol=$('folhas-porta');if(fol)fol.selectedIndex=0;
   // fabricação — vazio exceto custo-hora fixo
-  ['fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf'].forEach(f=>{var el=$(f);if(el)el.value='';});
+  ['fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf'].forEach(f=>{var el=$(f);if(el){el.value='';el.dataset.auto='';el.dataset.manual='';el.style.cssText='';}});
   // Reset fab manual overrides
   if(window._fabManual){window._fabManual={mat:false,pin:false,acess:false};}
   // Reset manual alerts
   ['fab-mat-alert','fab-pin-alert','fab-acess-alert'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
+  // Reset auto labels
+  ['h-portal-auto','h-quadro-auto','h-colagem-auto','h-conf-auto','dias-auto'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent='';});
   // Reset sistema produção
   var prodSis=$('prod-sistema');if(prodSis)prodSis.value='auto';
   // Quantidade portas e fechaduras
@@ -1215,7 +1221,7 @@ function resetToDefaults(){
   var qtdF=$('qtd-fechaduras');if(qtdF)qtdF.value='';
   $('custo-hora').value=110;
   // instalação — vazio exceto valores fixos
-  ['dias','pessoas','km','carros','munk','terceiros','pedagio','inst-terceiros-valor','inst-terceiros-transp'].forEach(f=>{var el=$(f);if(el)el.value='';});
+  ['dias','pessoas','km','carros','munk','terceiros','pedagio','inst-terceiros-valor','inst-terceiros-transp'].forEach(f=>{var el=$(f);if(el){el.value='';el.dataset.auto='';el.dataset.manual='';}});
   var _iqEl=document.getElementById('inst-quem');if(_iqEl){_iqEl.value='PROJETTA';toggleInstQuem();}
   var _dEl=document.getElementById('desconto');if(_dEl)_dEl.dataset.manual='';
   $('diaria').value=550;
