@@ -17694,12 +17694,16 @@ function _calcAcessoriosOS(d, nFolhas, sis){
   if(L>0&&mFita>0) rows.push({qty:mFita,code:'PA-FITA VED 5X20',desc:'Fita veda frestas 5×20mm — L('+Math.round(L)+'mm)×'+multFita+' = '+mFita+'m',preco:getPreco('PA-FITA VED 5X20'),apl:'OBRA',grp:'VEDAÇÕES',obs:'ESCOVINHA'});
 
   // ── FABRICAÇÃO — VEDA PORTA ──────────────────────────────────────────────────
-  // Veda porta calculated from d (passed in from gerarOS via _lastOSData)
-  var _ved = window._lastVedaInfo;
-  if(_ved && _ved.size){
-    rows.push({qty:_ved.qty, code:_ved.code,
-      desc:'Veda porta '+_ved.size+'mm — folha PA-PA: '+Math.round(_ved.folhaPAPA||0)+'mm',
-      preco:getPreco(_ved.code), apl:'FAB', grp:'VEDAÇÕES', obs:'VEDA PORTA'});
+  // Calcular veda porta a partir das dimensões ATUAIS (L e nFolhas do form)
+  if(L > 0){
+    var _vedFolha = L - 2.5 - 2.5 - 125; // FOLHA_PA_PA = L - FGL - FGR - 125
+    var _vedSize = Math.max(720, (Math.ceil((_vedFolha - 620) / 100) * 100) + 620);
+    if(_vedSize > 1820) _vedSize = 1820;
+    var _vedCode = 'PA-VED' + String(_vedSize).padStart(4, '0');
+    var _vedQty = nFolhas === 2 ? 4 : 2;
+    rows.push({qty:_vedQty, code:_vedCode,
+      desc:'Veda porta '+_vedSize+'mm — folha PA-PA: '+Math.round(_vedFolha)+'mm',
+      preco:getPreco(_vedCode), apl:'FAB', grp:'VEDAÇÕES', obs:'VEDA PORTA'});
   }
 
   // ── FABRICAÇÃO — Q-LON VEDAÇÃO ─────────────────────────────────────────────
