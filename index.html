@@ -6693,9 +6693,15 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   function _readFriso(id,def){var el=document.getElementById(id);return el?Math.max(0,parseInt(el.value)||0):def;}
   var QTY_FRISO_VERT  = _readFriso('carac-friso-vert',  0);
   var QTY_FRISO_HORIZ = _readFriso('carac-friso-horiz', 0);
+  // Modelo 06/16: garantir leitura direta do planificador (sync pode não ter rodado)
+  if((modeloSel==='06'||modeloSel==='16') && QTY_FRISO_HORIZ<=0){
+    QTY_FRISO_HORIZ = parseInt((document.getElementById('plan-friso-h-qty')||{value:3}).value)||3;
+  }
 
   // ── TRA HOR quantidade = floor(H/1000) por folha (planilha) ─────────────
-  var TRA_HOR_QTY_PF = _semModelo ? 0 : N_H;
+  // Modelo 06/16: travessas horizontais anuladas (substituídas por frisos horizontais)
+  var _isFrisoHMod = (modeloSel==='06'||modeloSel==='16');
+  var TRA_HOR_QTY_PF = _semModelo ? 0 : (_isFrisoHMod ? 0 : N_H);
   var TRA_HOR_QTY    = TRA_HOR_QTY_PF * nFolhas;
 
   function selBar(c){return c<=6000?6000:c<=7000?7000:8000;}
@@ -13675,6 +13681,11 @@ function plnPecas(Lmm, Amm, fol, mod) {
     r.push(['BAT 01', 42, bH, 2], ['BAT 02Z', 51, bH, 2], ['BAT 03', 81, bH, 2]);
     r.push(['TAP FURO', 119, bH, 3], ['FIT ACAB ME', 76.5, bH, 2], ['FIT ACAB MA', 114.5, bH, 2], ['FIT ACAB FITA', 101, bH, 2]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
+    // CHAPAS FRISO HORIZONTAL — largura=medida veda porta, altura=espessura+100, qty=frisos×2 (frente+verso)
+    var _LAR_IS_06 = Math.round(L - 10 - 10 - 171.7 - 171.5);
+    var _frisoW06 = Math.round(_LAR_IS_06 + 110 + 110); // mesma medida VEDA PORTA
+    var _frisoH06 = ESP_FRISO + 100;
+    r.push(['FRISO HORIZ', _frisoW06, _frisoH06, N_FRISOS * 2]);
   }
 
   /* MODELO 22 — cava larga (DC+360), altura=G4 (PA ALTURA), sem TAMPA CAVA, TAMPA MAIOR -68 */
