@@ -654,12 +654,12 @@ function onModeloChange(){
   var puxEl = document.getElementById('carac-puxador');
   var puxTamEl = document.getElementById('carac-pux-tam');
   if(puxEl){
-    var _temExterno = _mNome.indexOf('puxador externo') >= 0;
-    if(_temCava && !_temExterno){
+    if(_temCava){
       puxEl.value = 'CAVA';
-    } else if(_temExterno){
+    } else {
+      // Qualquer modelo sem cava = puxador EXTERNO + tamanho 1.5 default
       puxEl.value = 'EXTERNO';
-      if(puxTamEl && !puxTamEl.value) puxTamEl.value = '1.5';
+      if(puxTamEl && (!puxTamEl.value || puxTamEl.value==='CAVA')) puxTamEl.value = '1.5';
     }
     if(typeof togglePuxadorTam === 'function') togglePuxadorTam();
   }
