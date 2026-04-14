@@ -15381,59 +15381,68 @@ function buscarReserva() {
   if (!num) { if(status){status.textContent = '⚠ digite o nº da reserva'; status.style.color = '#b71c1c';} return; }
   if(status){status.textContent = '⏳ buscando reserva ' + num + '...'; status.style.color = 'var(--orange)';}
 
-  // Buscar na tabela weiku_reservas do Supabase
-  var url = RESERVA_API_URL+'/rest/v1/weiku_reservas?';
-  // Buscar por num_reserva OU por agp
-  if(/^\d+$/.test(num)){
-    url += 'num_reserva=eq.'+num;
-  } else if(/^AGP/i.test(num)){
-    url += 'agp=ilike.*'+num+'*';
-  } else {
-    url += 'or=(followup.ilike.*'+num+'*,reserva_interna.ilike.*'+num+'*)';
-  }
-  url += '&limit=1';
-
-  fetch(url, {headers:{'apikey':RESERVA_API_KEY,'Authorization':'Bearer '+RESERVA_API_KEY}})
-  .then(function(r){return r.json();})
-  .then(function(data){
-    if(!data||!data.length){
-      if(status){status.textContent='⚠ Reserva '+num+' não encontrada no banco. Use "📤 Importar JSON" na aba Cadastro → Reservas Weiku.';status.style.color='#b71c1c';}
-      return;
-    }
-    var found=data[0];
-    
+  // ══ 1. Tentar API Weiku (homologação) ══
+  var weikuUrl='https://homologacao.weiku.com.br/v2/api/reservas/reserva/'+encodeURIComponent(num);
+  fetch(weikuUrl,{method:'GET',headers:{'Accept':'application/json'}})
+  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+  .then(function(found){
+    if(!found||!found.reserva){throw new Error('vazio');}
     // Preencher campos do ORÇAMENTO
-    var np=$('numprojeto');if(np)np.value=found.num_reserva||num;
-    var agp=$('num-agp');if(agp&&found.agp)agp.value=found.agp;
-    
+    var np=$('numprojeto');if(np)np.value=found.reserva||num;
+    var agp=$('num-agp');if(agp&&found.codigo)agp.value=found.codigo;
+    var c=$('cliente');if(c&&found.cliente&&!c.value)c.value=found.cliente.toUpperCase();
     // Preencher campos do CRM modal
-    var crmReserva=$('crm-o-reserva');if(crmReserva)crmReserva.value=found.num_reserva||num;
-    var crmAgp=$('crm-o-agp');if(crmAgp&&found.agp)crmAgp.value=found.agp;
-    
-    // Região → tentar mapear follow-up como nome do cliente temporário
-    var clienteName=found.followup||found.reserva_interna||'';
-    // Limpar nome (remover prefixos de região)
-    clienteName=clienteName.replace(/^(SP_|MG_|PR_|RS_|SC_|RJ_|ES_|GO_|MT_|MS_)/i,'').replace(/_/g,' ');
-    var c=$('cliente');if(c&&clienteName&&!c.value)c.value=clienteName;
-    var crmNome=$('crm-o-nome');if(crmNome&&clienteName)crmNome.value=clienteName;
-    
-    // Data da reserva
-    var dataRes=found.data_reserva?new Date(found.data_reserva+'T12:00:00').toLocaleDateString('pt-BR'):'';
-
-    // Status
-    var campos=['Reserva: '+found.num_reserva];
-    if(found.agp) campos.push('AGP: '+found.agp);
-    if(found.atp) campos.push('ATP: '+found.atp);
-    campos.push('Região: '+found.regiao);
-    if(dataRes) campos.push('Data: '+dataRes);
-    campos.push('Follow-up: '+(found.followup||'—'));
-    
+    var crmReserva=$('crm-o-reserva');if(crmReserva)crmReserva.value=found.reserva||num;
+    var crmAgp=$('crm-o-agp');if(crmAgp&&found.codigo)crmAgp.value=found.codigo;
+    var crmCliente=$('crm-o-cliente');if(crmCliente&&found.cliente)crmCliente.value=found.cliente.toUpperCase();
+    var crmEmail=$('crm-o-email');if(crmEmail&&found.email)crmEmail.value=found.email;
+    var crmCep=$('crm-o-cep');if(crmCep&&found.cep)crmCep.value=found.cep;
+    // CEP do orçamento
+    var cepOrc=$('cep-cliente');if(cepOrc&&found.cep)cepOrc.value=found.cep;
+    // Status visual
+    var campos=['Reserva: '+found.reserva];
+    if(found.codigo) campos.push('AGP: '+found.codigo);
+    if(found.representante) campos.push('Rep: '+found.representante);
+    if(found.tipo) campos.push('Tipo: '+found.tipo);
+    if(found.email) campos.push('Email: '+found.email);
     if(status){
-      status.innerHTML='✅ <b>'+found.num_reserva+'</b> | '+found.regiao+' | '+(found.followup||'—')+' | '+dataRes;
+      status.innerHTML='✅ <b>'+found.reserva+'</b> | '+(found.cliente||'')+(found.representante?' | Rep: '+found.representante:'')+(found.tipo?' | '+found.tipo:'');
       status.style.color='#27ae60';
     }
   }).catch(function(e){
-    if(status){status.textContent='❌ Erro: '+e.message;status.style.color='#b71c1c';}
+    // ══ 2. Fallback: Supabase ══
+    var url = RESERVA_API_URL+'/rest/v1/weiku_reservas?';
+    if(/^\d+$/.test(num)){
+      url += 'num_reserva=eq.'+num;
+    } else if(/^AGP/i.test(num)){
+      url += 'agp=ilike.*'+num+'*';
+    } else {
+      url += 'or=(followup.ilike.*'+num+'*,reserva_interna.ilike.*'+num+'*)';
+    }
+    url += '&limit=1';
+    fetch(url, {headers:{'apikey':RESERVA_API_KEY,'Authorization':'Bearer '+RESERVA_API_KEY}})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(!data||!data.length){
+        if(status){status.textContent='⚠ Reserva '+num+' não encontrada.';status.style.color='#b71c1c';}
+        return;
+      }
+      var found=data[0];
+      var np=$('numprojeto');if(np)np.value=found.num_reserva||num;
+      var agp=$('num-agp');if(agp&&found.agp)agp.value=found.agp;
+      var crmReserva=$('crm-o-reserva');if(crmReserva)crmReserva.value=found.num_reserva||num;
+      var crmAgp=$('crm-o-agp');if(crmAgp&&found.agp)crmAgp.value=found.agp;
+      var clienteName=found.followup||found.reserva_interna||'';
+      clienteName=clienteName.replace(/^(SP_|MG_|PR_|RS_|SC_|RJ_|ES_|GO_|MT_|MS_)/i,'').replace(/_/g,' ');
+      var c=$('cliente');if(c&&clienteName&&!c.value)c.value=clienteName;
+      var dataRes=found.data_reserva?new Date(found.data_reserva+'T12:00:00').toLocaleDateString('pt-BR'):'';
+      if(status){
+        status.innerHTML='✅ <b>'+found.num_reserva+'</b> | '+found.regiao+' | '+(found.followup||'—')+' | '+dataRes;
+        status.style.color='#27ae60';
+      }
+    }).catch(function(e2){
+      if(status){status.textContent='❌ Erro: '+e2.message;status.style.color='#b71c1c';}
+    });
   });
 }
 
