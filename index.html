@@ -15403,7 +15403,7 @@ function buscarReserva() {
   if(status){status.textContent = '⏳ buscando reserva ' + num + '...'; status.style.color = 'var(--orange)';}
 
   // ══ 1. Tentar API Weiku (homologação) ══
-  var weikuUrl='https://homologacao.weiku.com.br/v2/api/reservas/reserva/'+encodeURIComponent(num);
+  var weikuUrl='https://intranet.weiku.com.br/v2/api/reservas/reserva/'+encodeURIComponent(num);
   fetch(weikuUrl,{method:'GET',headers:{'Accept':'application/json'}})
   .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
   .then(function(found){
