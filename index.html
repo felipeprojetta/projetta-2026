@@ -872,6 +872,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <option value="BRA04">BRA04 MT</option><option value="BRA04.01">BRA04.01</option>
     </select>
     <select class="crm-sel" id="crm-f-gerente-filter" onchange="crmRender()"><option value="">👔 Gerente</option></select>
+    <select class="crm-sel" id="crm-f-wrep-filter" onchange="crmRender()"><option value="">🏢 Representante</option></select>
     <div class="crm-view-toggle">
       <button class="crm-view-btn active" id="crm-vk" onclick="crmSetView('kanban')">⊞ Kanban</button>
       <button class="crm-view-btn" id="crm-vl" onclick="crmSetView('list')">☰ Lista</button>
@@ -9019,6 +9020,9 @@ function updateKPIs(all){
   var rs=el('crm-f-resp-filter');if(rs){var cv=rs.value;rs.innerHTML='<option value="">👤 Todos</option>';resps.forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;if(r===cv)o.selected=true;rs.appendChild(o);});}
   var origs=[...new Set(all.map(function(o){return o.origem;}).filter(Boolean))];
   var os=el('crm-f-origin-filter');if(os){var cv2=os.value;os.innerHTML='<option value="">🔖 Origem</option>';origs.forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;if(r===cv2)o.selected=true;os.appendChild(o);});}
+  // Representante Weiku filter
+  var wreps=[...new Set(all.map(function(o){return o.wrep;}).filter(Boolean))].sort();
+  var ws=el('crm-f-wrep-filter');if(ws){var cv3=ws.value;ws.innerHTML='<option value="">🏢 Representante</option>';wreps.forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;if(r===cv3)o.selected=true;ws.appendChild(o);});}
 }
 
 /* ── Render ──────────────────────────────────────── */
@@ -9026,12 +9030,13 @@ window.crmRender=function(){
   var all=cLoad();
   var q=(val('crm-search')).toLowerCase();
   var fR=val('crm-f-resp-filter'),fO=val('crm-f-origin-filter'),fS=val('crm-f-scope-filter');
-  var fReg=val('crm-f-regiao-filter'),fGer=val('crm-f-gerente-filter');
+  var fReg=val('crm-f-regiao-filter'),fGer=val('crm-f-gerente-filter'),fWrep=val('crm-f-wrep-filter');
   var fil=all.filter(function(o){
     if(q&&!(o.cliente||'').toLowerCase().includes(q)&&!(o.produto||'').toLowerCase().includes(q)&&!(o.cidade||'').toLowerCase().includes(q)&&!(o.wrep||'').toLowerCase().includes(q))return false;
     if(fR&&o.responsavel!==fR)return false;
     if(fO&&o.origem!==fO)return false;
     if(fS&&o.scope!==fS)return false;
+    if(fWrep&&(o.wrep||'')!==fWrep)return false;
     if(fReg){
       var oreg=getRepRegiao(o.wrep);
       if(!oreg)return false;
