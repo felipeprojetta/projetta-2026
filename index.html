@@ -6807,9 +6807,9 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     {code:C.tra_hor,     desc:'TRAVESSA HORIZONTAL',  compMM:TRA_HM,        qty:TRA_HOR_QTY,   pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
     {code:C.travamento,  desc:'TRAVAMENTO CAVA',compMM:TRAV_CAVA,    qty:(temCava && sis==='PA007')?N_H*nFolhas:0,   pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
     // FOLHA — frisos (friso vert = mesmo corte que trav vert)
-    {code:C.friso_vert,  desc:'FRISO VERT',    compMM:TRAV_V,        qty:QTY_FRISO_VERT,  pintado:false,secao:'FRISO', barLenMM:barraMM,   lh:'90/90 A', obs:'BRUTO'},
+    {code:C.friso_vert,  desc:'FRISO VERT',    compMM:TRAV_V,        qty:QTY_FRISO_VERT,  pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 A', obs:'BRUTO'},
     // FOLHA — friso horiz = mesmo corte que LAR INF & SUP
-    {code:C.friso_horiz, desc:'FRISO HORIZ',   compMM:FRISO_H,       qty:QTY_FRISO_HORIZ, pintado:false,secao:'FRISO', barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
+    {code:C.friso_horiz, desc:'FRISO HORIZ',   compMM:FRISO_H,       qty:QTY_FRISO_HORIZ, pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
     // PORTAL
     {code:C.lar_portal,  desc:'LAR PORTAL',    compMM:LAR_PO,        qty:1,             pintado:false,secao:'PORTAL',barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
     {code:C.alt_portal+'-'+paPBarLen/1000+'M',desc:'ALT PORTAL',     compMM:PA_P,       qty:2,         pintado:true, secao:'PORTAL',barLenMM:paPBarLen, lh:'90/90 A', obs:'BNF-TECNO'},
