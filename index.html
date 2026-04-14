@@ -4924,6 +4924,12 @@ window.loadRevision=function(id,revIdx){
   window._pendingRevision=false;
   _persistSession();
   
+  // PRIMEIRO: destravar tudo para permitir restoreFormData funcionar
+  window._snapshotLock=false;
+  _setOrcLock(false);
+  if(window._lockTimeout) clearTimeout(window._lockTimeout);
+  if(window._layoutTimeout) clearTimeout(window._layoutTimeout);
+  
   // Bloquear recálculo se tem snapshot OU se foi enviado via CRM Pronto
   var hasSnap=!!rev.snapshot;
   window._snapshotLock=hasSnap||!!rev.crmPronto;
@@ -4954,7 +4960,7 @@ window.loadRevision=function(id,revIdx){
   var iqw=document.getElementById('inst-quem-wrap');if(iqw)iqw.style.display='';
   
   // UI layout updates (não recalculam preços)
-  setTimeout(function(){
+  window._layoutTimeout=setTimeout(function(){
     if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
     if(typeof planUpd==='function') try{planUpd();}catch(e){}
     if(typeof toggleInstQuem==='function') try{toggleInstQuem();}catch(e){}
@@ -4966,7 +4972,7 @@ window.loadRevision=function(id,revIdx){
   
   // TRAVAR orçamento se tem snapshot ou CRM Pronto
   if(hasSnap||rev.crmPronto){
-    setTimeout(function(){
+    window._lockTimeout=setTimeout(function(){
       _setOrcLock(true);
       // Ajustar mensagem do banner conforme contexto
       var lockBanner=document.getElementById('orc-lock-banner');
