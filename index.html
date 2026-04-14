@@ -7326,7 +7326,12 @@ function gerarOS(){
   el('os-data').textContent=dataStr;
   el('os-cliente').textContent=cliente;
   el('os-obra').textContent=obra;
-  el('os-vao').textContent=L+' × '+H+' mm';
+  // VÃO ACABADO: mostrar todas as portas quando multi-porta
+  var _vaoTxt=L+' × '+H+' mm';
+  if(window._mpItens && window._mpItens.length>1){
+    _vaoTxt=window._mpItens.map(function(it,i){return 'P'+(i+1)+': '+it.largura+'×'+it.altura;}).join('  |  ')+' mm';
+  }
+  el('os-vao').textContent=_vaoTxt;
   el('os-sistema').textContent=d.sis+' (tubo '+(d.sis==='PA007'?51:38)+'mm)';
   el('os-folhas').textContent=nFolhas+' folha'+(nFolhas>1?'s':'');
   el('os-modelo').textContent=modelo?'Modelo '+modelo:'—';
