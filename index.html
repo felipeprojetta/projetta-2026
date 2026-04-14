@@ -10901,13 +10901,19 @@ window.crmNovaRevisao=function(cardId){
   // Esperar loadRevision terminar (restaura form + locks), depois desbloquear
   setTimeout(function(){
     novaRevisao();
-    // Forçar desbloqueio extra caso loadRevision tenha re-travado
+    // Forçar desbloqueio completo
     window._snapshotLock=false;
     window._orcLocked=false;
     _setOrcLock(false);
     _hideMemorial();
     var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='';
     var lockBanner=document.getElementById('orc-lock-banner');if(lockBanner)lockBanner.style.display='none';
+    var btnPdf=document.getElementById('crm-gerar-pdf-btn');if(btnPdf)btnPdf.style.display='none';
+    // Recalcular — calc() foi bloqueado durante loadRevision
+    if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
+    if(typeof planUpd==='function') try{planUpd();}catch(e){}
+    if(typeof calc==='function') try{calc();}catch(e){}
+  }, 800);
   }, 800);
 };
 
