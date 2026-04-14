@@ -4613,6 +4613,43 @@ function calc(){
   else if(diff>=-0.1){bd.className='badge ok';bd.textContent='Meta atingida ✓ '+pf(ml);}
   else if(diff>=-2){bd.className='badge wn';bd.textContent='Próximo da meta '+pf(ml);}
   else{bd.className='badge bd';bd.textContent='Abaixo da meta '+pf(ml);}
+
+  // ══ SALVAR VALORES NUMÉRICOS — fonte única para snapshot/CRM ══
+  window._calcResult={
+    ts: new Date().toISOString(),
+    // Numéricos (para CRM)
+    _custoTotal: custoTotal, _tabTotal: pTabTotal, _fatTotal: pFatTotal,
+    _subFab: subFab, _subInst: subInst,
+    // Formatados (para snapshot/memorial)
+    custoTotal: brl(custoTotal), custoM2: m2>0?br2(custoTotal/m2)+'/m²':'—',
+    custoPorta: brl(custo), custoPortaM2: m2>0?br2(custo/m2)+'/m²':'—',
+    tabTotal: brl(pTabTotal), tabM2: m2>0?br2(pTabTotal/m2)+'/m²':'—',
+    tabPorta: brl(pTab), tabPortaM2: m2>0?br2(pTab/m2)+'/m²':'—',
+    fatTotal: brl(pFatTotal), fatM2: m2>0?br2(pFatTotal/m2)+'/m²':'—',
+    fatPorta: brl(pFatReal), fatPortaM2: m2>0?br2(pFatReal/m2)+'/m²':'—',
+    mkp: pf(mkpTotal), mkpPorta: pf(custoTotal>0?(pTab/custo-1)*100:0),
+    mbPorta: pf(mb_p||0), mlPorta: pf(ml_p||0), mb: pf(mb), ml: pf(ml),
+    metaLucro: pf(lu*100), badge: bd.textContent,
+    // DRE
+    dreTab: brl(pTabTotal), dreDescVal: dDescTotal>0?'−'+brl(dDescTotal):'R$ 0',
+    dreDescPct: descPrj>0?pf(descPrj*100)+' aplicado':'sem desconto',
+    dreFat: brl(pFatRealTotal||pFatTotal),
+    dreImp: '−'+brl(vI), dreImpPct: pf(imp*100),
+    dreRep: '−'+brl(vR), dreRepPct: pf(rep*100),
+    dreRt: '−'+brl(vT), dreRtPct: pf(rt*100),
+    dreGest: '−'+brl(vG), dreGestPct: pf(gest*100),
+    dreCusto: '−'+brl(custoTotal), dreLb: brl(lb), dreIrpj: '−'+brl(vi), dreLl: brl(ll),
+    // Fabricação
+    subFab: brl(subFab),
+    subAcm: brl(subAcm), subAlu: brl(subAlu),
+    matPerfis: (document.getElementById('fab-mat-perfis')||{}).value||'',
+    custoPintura: (document.getElementById('fab-custo-pintura')||{}).value||'',
+    custoAcess: (document.getElementById('fab-custo-acess')||{}).value||'',
+    subInst: brl(subInst),
+    subMO: brl(subMO||0), subSal: brl(salarios||0),
+    m2: m2>0?(Math.round(m2*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' m²':'—',
+  };
+
   autoSave();
   _updatePesoAcessorios();
   if(typeof _updateResumoObra==='function') _updateResumoObra();
@@ -4739,57 +4776,49 @@ function captureFormData(){
 /* ── SNAPSHOT: congela todos os valores calculados ── */
 function captureSnapshot(){
   var _t=function(id){var e=document.getElementById(id);return e?e.textContent:'';};
+  var cr=window._calcResult||{};
   var snap={
-    ts: new Date().toISOString(),
-    // Dimensões
+    ts: cr.ts||new Date().toISOString(),
     largura: (document.getElementById('largura')||{}).value||'',
     altura: (document.getElementById('altura')||{}).value||'',
-    m2: _t('r-m2'),
+    m2: cr.m2||_t('r-m2'),
     qtdPortas: (document.getElementById('qtd-portas')||{}).value||'1',
-    // Custo
-    custoTotal: _t('m-custo'),
-    custoM2: _t('m-custo-m2'),
-    custoPorta: _t('m-custo-porta'),
-    // Tabela
-    tabTotal: _t('m-tab'),
-    tabM2: _t('m-tab-m2'),
-    tabPorta: _t('m-tab-porta'),
-    tabPortaM2: _t('m-tab-porta-m2'),
-    // Faturamento
-    fatTotal: _t('m-fat'),
-    fatM2: _t('m-fat-m2'),
-    fatPorta: _t('m-fat-porta'),
-    fatPortaM2: _t('m-fat-porta-m2'),
-    // Markup
-    mkp: _t('m-mkp'),
-    mkpPorta: _t('m-mkp-porta'),
-    // Margens
-    mbPorta: _t('pct-mb-porta'),
-    mlPorta: _t('pct-ml-porta'),
-    mb: _t('pct-mb'),
-    ml: _t('pct-ml'),
-    metaLucro: _t('pct-meta'),
-    badge: _t('badge-st'),
-    // DRE
-    dreTab: _t('d-tab'),
-    dreDescVal: _t('d-desc-val'),
-    dreDescPct: _t('d-desc-pct'),
-    dreFat: _t('d-fat'),
-    dreImp: _t('d-imp'), dreImpPct: _t('d-imp-pct'),
-    dreRep: _t('d-rep'), dreRepPct: _t('d-rep-pct'),
-    dreRt: _t('d-rt'), dreRtPct: _t('d-rt-pct'),
-    dreGest: _t('d-gest'), dreGestPct: _t('d-gest-pct'),
-    dreCusto: _t('d-custo'),
-    dreLb: _t('d-lb'),
-    dreIrpj: _t('d-irpj'),
-    dreLl: _t('d-ll'),
-    // Fabricação
-    subFab: _t('r-fab'),
-    matPerfis: (document.getElementById('fab-mat-perfis')||{}).value||'',
-    custoPintura: (document.getElementById('fab-custo-pintura')||{}).value||'',
-    custoAcess: (document.getElementById('fab-custo-acess')||{}).value||'',
-    // Instalação
-    subInst: _t('r-inst'),
+    custoTotal: cr.custoTotal||_t('m-custo'),
+    custoM2: cr.custoM2||_t('m-custo-m2'),
+    custoPorta: cr.custoPorta||_t('m-custo-porta'),
+    tabTotal: cr.tabTotal||_t('m-tab'),
+    tabM2: cr.tabM2||_t('m-tab-m2'),
+    tabPorta: cr.tabPorta||_t('m-tab-porta'),
+    tabPortaM2: cr.tabPortaM2||_t('m-tab-porta-m2'),
+    fatTotal: cr.fatTotal||_t('m-fat'),
+    fatM2: cr.fatM2||_t('m-fat-m2'),
+    fatPorta: cr.fatPorta||_t('m-fat-porta'),
+    fatPortaM2: cr.fatPortaM2||_t('m-fat-porta-m2'),
+    mkp: cr.mkp||_t('m-mkp'),
+    mkpPorta: cr.mkpPorta||_t('m-mkp-porta'),
+    mbPorta: cr.mbPorta||_t('pct-mb-porta'),
+    mlPorta: cr.mlPorta||_t('pct-ml-porta'),
+    mb: cr.mb||_t('pct-mb'),
+    ml: cr.ml||_t('pct-ml'),
+    metaLucro: cr.metaLucro||_t('pct-meta'),
+    badge: cr.badge||_t('badge-st'),
+    dreTab: cr.dreTab||_t('d-tab'),
+    dreDescVal: cr.dreDescVal||_t('d-desc-val'),
+    dreDescPct: cr.dreDescPct||_t('d-desc-pct'),
+    dreFat: cr.dreFat||_t('d-fat'),
+    dreImp: cr.dreImp||_t('d-imp'), dreImpPct: cr.dreImpPct||_t('d-imp-pct'),
+    dreRep: cr.dreRep||_t('d-rep'), dreRepPct: cr.dreRepPct||_t('d-rep-pct'),
+    dreRt: cr.dreRt||_t('d-rt'), dreRtPct: cr.dreRtPct||_t('d-rt-pct'),
+    dreGest: cr.dreGest||_t('d-gest'), dreGestPct: cr.dreGestPct||_t('d-gest-pct'),
+    dreCusto: cr.dreCusto||_t('d-custo'),
+    dreLb: cr.dreLb||_t('d-lb'),
+    dreIrpj: cr.dreIrpj||_t('d-irpj'),
+    dreLl: cr.dreLl||_t('d-ll'),
+    subFab: cr.subFab||_t('r-fab'),
+    matPerfis: cr.matPerfis||(document.getElementById('fab-mat-perfis')||{}).value||'',
+    custoPintura: cr.custoPintura||(document.getElementById('fab-custo-pintura')||{}).value||'',
+    custoAcess: cr.custoAcess||(document.getElementById('fab-custo-acess')||{}).value||'',
+    subInst: cr.subInst||_t('r-inst'),
     // Horas
     hPortal: (document.getElementById('h-portal')||{}).value||'',
     hQuadro: (document.getElementById('h-quadro')||{}).value||'',
@@ -10898,12 +10927,6 @@ window.crmOrcamentoPronto=function(){
   var id=window._crmOrcCardId;
   var revLabel='Original';
 
-  // ══ CAPTURA IMEDIATA — antes de QUALQUER operação que possa mudar a tela ══
-  var _snapImediato=null;
-  try{_snapImediato=captureSnapshot();}catch(e){}
-  var _valsImediato=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
-  console.log('📸 Snapshot imediato: Tab='+_valsImediato.tab+' Fat='+_valsImediato.fat);
-
   // Se tem card CRM vinculado: mover card para Orçamento Pronto (sem salvar valores ainda)
   if(id){
     var data=cLoad();var idx=data.findIndex(function(o){return o.id===id;});
@@ -10957,13 +10980,16 @@ window.crmOrcamentoPronto=function(){
   // PASSO 4: Capturar snapshot + atualizar CRM
   // Função única que salva tudo de uma vez
   var _salvarSnapshotECRM=function(){
-    // Usar snapshot capturado ANTES de qualquer operação
+    // captureSnapshot() e _captureOrcValues() agora leem de window._calcResult
+    var _snap=null;
+    try{_snap=captureSnapshot();}catch(e){}
+    var _vals=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
     if(currentId){
       var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
       if(_oi3>=0){
         var _rev3=_db3[_oi3].revisions[currentRev];
         if(_rev3){
-          _rev3.snapshot=_snapImediato;
+          _rev3.snapshot=_snap;
           _rev3.savedAt=new Date().toISOString().replace('T',' ').substring(0,16);
         }
         saveDB(_db3);
@@ -10972,13 +10998,13 @@ window.crmOrcamentoPronto=function(){
     if(id){
       var _crmD=cLoad();var _ci=_crmD.findIndex(function(o){return o.id===id;});
       if(_ci>=0){
-        _crmD[_ci].valor=_valsImediato.fat;
-        _crmD[_ci].valorTabela=_valsImediato.tab;
-        _crmD[_ci].valorFaturamento=_valsImediato.fat;
+        _crmD[_ci].valor=_vals.fat;
+        _crmD[_ci].valorTabela=_vals.tab;
+        _crmD[_ci].valorFaturamento=_vals.fat;
         if(_crmD[_ci].revisoes&&_crmD[_ci].revisoes.length>0){
           var _lr=_crmD[_ci].revisoes[_crmD[_ci].revisoes.length-1];
-          _lr.valorTabela=_valsImediato.tab;
-          _lr.valorFaturamento=_valsImediato.fat;
+          _lr.valorTabela=_vals.tab;
+          _lr.valorFaturamento=_vals.fat;
         }
         cSave(_crmD);
         if(typeof crmRender==='function') crmRender();
@@ -10999,13 +11025,9 @@ window.crmOrcamentoPronto=function(){
     _salvarSnapshotECRM();
   } else {
     // Custo não foi gerado → calcular primeiro, depois salvar
+    // gerarCustoTotal atualiza window._calcResult → captureSnapshot/captureOrcValues leem dele
     window._snapshotLock=false;
-    window._onCustoCompleto=function(){
-      // Recapturar snapshot AGORA (pós-cálculo) e sobrescrever o imediato
-      try{_snapImediato=captureSnapshot();}catch(e){}
-      _valsImediato=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
-      _salvarSnapshotECRM();
-    };
+    window._onCustoCompleto=_salvarSnapshotECRM;
     if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
   }
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
@@ -11096,6 +11118,8 @@ window.crmVerProposta=function(cardId, revIndex){
 };
 
 function _captureOrcValues(){
+  var cr=window._calcResult;
+  if(cr&&cr._tabTotal>0) return{tab:cr._tabTotal,fat:cr._fatTotal};
   var valorFatEl=document.getElementById('d-fat')||document.getElementById('prop-total-orc');
   var valorFat=0;
   if(valorFatEl){var vt=valorFatEl.textContent.replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.');valorFat=parseFloat(vt)||0;}
