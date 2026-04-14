@@ -5721,6 +5721,8 @@ function resetToDefaults(){
   // representante e cep
   var repSel=$('rep-sel');if(repSel)repSel.selectedIndex=0;
   var cep=$('cep-cliente');if(cep)cep.value='';
+  var cepInfo=document.getElementById('cep-info');if(cepInfo)cepInfo.style.display='none';
+  var cepCidade=document.getElementById('cep-cidade');if(cepCidade)cepCidade.textContent='';
   // acessorios
   var acFech=$('ac-fechadura');if(acFech)acFech.selectedIndex=0;
   // características da porta — reset ALL selects AND friso inputs
@@ -5810,6 +5812,7 @@ function resetToDefaults(){
   calc();
   // Force-zero ALL cost fields and result displays after calc
   setTimeout(function(){
+    _clearResultDisplay();
     ['fab-mat-perfis','fab-custo-pintura','fab-custo-acess'].forEach(function(id){
       var e=document.getElementById(id);if(e)e.value='';
     });
@@ -5847,10 +5850,31 @@ function resetToDefaults(){
 <script>
 /* ══ MODULE: ORCAMENTO_UI ══ */
 function zerarValores(){
-  if(!confirm('Zerar todos os valores? (mantém custo-hora, diárias e o vínculo com o orçamento salvo)')) return;
+  if(!confirm('Zerar TUDO? O orçamento volta ao estado inicial, sem cliente e sem vínculo.')) return;
+  // 1. Cancelar timers e destravar
+  _revClearTimers();
+  window._snapshotLock=false;
+  window._orcLocked=false;
+  _setOrcLock(false);
+  _hideMemorial();
+  _clearResultDisplay();
+  // 2. Desconectar do orçamento salvo
+  currentId=null; currentRev=null;
+  window._pendingRevision=false;
+  _persistSession();
+  window._crmOrcCardId=null;
+  // 3. Esconder banner
+  var curBanner=document.getElementById('cur-banner');
+  if(curBanner) curBanner.classList.remove('show');
+  var lockBanner=document.getElementById('orc-lock-banner');
+  if(lockBanner) lockBanner.style.display='none';
+  // 4. Esconder botões CRM
+  var btnP=document.getElementById('crm-orc-pronto-btn');if(btnP)btnP.style.display='none';
+  var btnA=document.getElementById('crm-atualizar-btn');if(btnA)btnA.style.display='none';
+  // 5. Reset formulário
   resetToDefaults();
   var ind=document.getElementById('autosave-ind');
-  if(ind){ind.textContent='✓ Zerado';ind.style.opacity='1';setTimeout(function(){ind.style.opacity='0';},2000);}
+  if(ind){ind.textContent='✓ Zerado — novo orçamento';ind.style.opacity='1';setTimeout(function(){ind.style.opacity='0';},3000);}
 }
 function newOrcamento(){
   // Hide CRM items bar
