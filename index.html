@@ -4724,44 +4724,44 @@ function captureSnapshot(){
     ts: cr.ts||new Date().toISOString(),
     largura: (document.getElementById('largura')||{}).value||'',
     altura: (document.getElementById('altura')||{}).value||'',
-    m2: cr.m2||_t('r-m2'),
+    m2: _t('r-m2')||cr.m2||'',
     qtdPortas: (document.getElementById('qtd-portas')||{}).value||'1',
-    custoTotal: cr.custoTotal||_t('m-custo'),
-    custoM2: cr.custoM2||_t('m-custo-m2'),
-    custoPorta: cr.custoPorta||_t('m-custo-porta'),
-    tabTotal: cr.tabTotal||_t('m-tab'),
-    tabM2: cr.tabM2||_t('m-tab-m2'),
-    tabPorta: cr.tabPorta||_t('m-tab-porta'),
-    tabPortaM2: cr.tabPortaM2||_t('m-tab-porta-m2'),
-    fatTotal: cr.fatTotal||_t('m-fat'),
-    fatM2: cr.fatM2||_t('m-fat-m2'),
-    fatPorta: cr.fatPorta||_t('m-fat-porta'),
-    fatPortaM2: cr.fatPortaM2||_t('m-fat-porta-m2'),
-    mkp: cr.mkp||_t('m-mkp'),
-    mkpPorta: cr.mkpPorta||_t('m-mkp-porta'),
-    mbPorta: cr.mbPorta||_t('pct-mb-porta'),
-    mlPorta: cr.mlPorta||_t('pct-ml-porta'),
-    mb: cr.mb||_t('pct-mb'),
-    ml: cr.ml||_t('pct-ml'),
-    metaLucro: cr.metaLucro||_t('pct-meta'),
-    badge: cr.badge||_t('badge-st'),
-    dreTab: cr.dreTab||_t('d-tab'),
-    dreDescVal: cr.dreDescVal||_t('d-desc-val'),
-    dreDescPct: cr.dreDescPct||_t('d-desc-pct'),
-    dreFat: cr.dreFat||_t('d-fat'),
-    dreImp: cr.dreImp||_t('d-imp'), dreImpPct: cr.dreImpPct||_t('d-imp-pct'),
-    dreRep: cr.dreRep||_t('d-rep'), dreRepPct: cr.dreRepPct||_t('d-rep-pct'),
-    dreRt: cr.dreRt||_t('d-rt'), dreRtPct: cr.dreRtPct||_t('d-rt-pct'),
-    dreGest: cr.dreGest||_t('d-gest'), dreGestPct: cr.dreGestPct||_t('d-gest-pct'),
-    dreCusto: cr.dreCusto||_t('d-custo'),
-    dreLb: cr.dreLb||_t('d-lb'),
-    dreIrpj: cr.dreIrpj||_t('d-irpj'),
-    dreLl: cr.dreLl||_t('d-ll'),
-    subFab: cr.subFab||_t('r-fab'),
-    matPerfis: cr.matPerfis||(document.getElementById('fab-mat-perfis')||{}).value||'',
-    custoPintura: cr.custoPintura||(document.getElementById('fab-custo-pintura')||{}).value||'',
-    custoAcess: cr.custoAcess||(document.getElementById('fab-custo-acess')||{}).value||'',
-    subInst: cr.subInst||_t('r-inst'),
+    custoTotal: _t('m-custo')||cr.custoTotal||'',
+    custoM2: _t('m-custo-m2')||cr.custoM2||'',
+    custoPorta: _t('m-custo-porta')||cr.custoPorta||'',
+    tabTotal: _t('m-tab')||cr.tabTotal||'',
+    tabM2: _t('m-tab-m2')||cr.tabM2||'',
+    tabPorta: _t('m-tab-porta')||cr.tabPorta||'',
+    tabPortaM2: _t('m-tab-porta-m2')||cr.tabPortaM2||'',
+    fatTotal: _t('m-fat')||cr.fatTotal||'',
+    fatM2: _t('m-fat-m2')||cr.fatM2||'',
+    fatPorta: _t('m-fat-porta')||cr.fatPorta||'',
+    fatPortaM2: _t('m-fat-porta-m2')||cr.fatPortaM2||'',
+    mkp: _t('m-mkp')||cr.mkp||'',
+    mkpPorta: _t('m-mkp-porta')||cr.mkpPorta||'',
+    mbPorta: _t('pct-mb-porta')||cr.mbPorta||'',
+    mlPorta: _t('pct-ml-porta')||cr.mlPorta||'',
+    mb: _t('pct-mb')||cr.mb||'',
+    ml: _t('pct-ml')||cr.ml||'',
+    metaLucro: _t('pct-meta')||cr.metaLucro||'',
+    badge: _t('badge-st')||cr.badge||'',
+    dreTab: _t('d-tab')||cr.dreTab||'',
+    dreDescVal: _t('d-desc-val')||cr.dreDescVal||'',
+    dreDescPct: _t('d-desc-pct')||cr.dreDescPct||'',
+    dreFat: _t('d-fat')||cr.dreFat||'',
+    dreImp: _t('d-imp')||cr.dreImp||'', dreImpPct: _t('d-imp-pct')||cr.dreImpPct||'',
+    dreRep: _t('d-rep')||cr.dreRep||'', dreRepPct: _t('d-rep-pct')||cr.dreRepPct||'',
+    dreRt: _t('d-rt')||cr.dreRt||'', dreRtPct: _t('d-rt-pct')||cr.dreRtPct||'',
+    dreGest: _t('d-gest')||cr.dreGest||'', dreGestPct: _t('d-gest-pct')||cr.dreGestPct||'',
+    dreCusto: _t('d-custo')||cr.dreCusto||'',
+    dreLb: _t('d-lb')||cr.dreLb||'',
+    dreIrpj: _t('d-irpj')||cr.dreIrpj||'',
+    dreLl: _t('d-ll')||cr.dreLl||'',
+    subFab: _t('r-fab')||cr.subFab||'',
+    matPerfis: (document.getElementById('fab-mat-perfis')||{}).value||cr.matPerfis||'',
+    custoPintura: (document.getElementById('fab-custo-pintura')||{}).value||cr.custoPintura||'',
+    custoAcess: (document.getElementById('fab-custo-acess')||{}).value||cr.custoAcess||'',
+    subInst: _t('r-inst')||cr.subInst||'',
     // Horas
     hPortal: (document.getElementById('h-portal')||{}).value||'',
     hQuadro: (document.getElementById('h-quadro')||{}).value||'',
@@ -11073,14 +11073,18 @@ window.crmVerProposta=function(cardId, revIndex){
 };
 
 function _captureOrcValues(){
-  var cr=window._calcResult;
-  if(cr&&cr._tabTotal>0) return{tab:cr._tabTotal,fat:cr._fatTotal};
-  var valorFatEl=document.getElementById('d-fat')||document.getElementById('prop-total-orc');
-  var valorFat=0;
-  if(valorFatEl){var vt=valorFatEl.textContent.replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.');valorFat=parseFloat(vt)||0;}
+  // LER DO DOM — é o que o usuário VÊ na tela
   var valorTabEl=document.getElementById('m-tab');
   var valorTab=0;
   if(valorTabEl){var vb=valorTabEl.textContent.replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.');valorTab=parseFloat(vb)||0;}
+  var valorFatEl=document.getElementById('d-fat');
+  var valorFat=0;
+  if(valorFatEl){var vt=valorFatEl.textContent.replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.');valorFat=parseFloat(vt)||0;}
+  // Fallback: _calcResult (se DOM vazio)
+  if(valorTab===0&&valorFat===0){
+    var cr=window._calcResult;
+    if(cr&&cr._tabTotal>0) return{tab:cr._tabTotal,fat:cr._fatTotal};
+  }
   return{tab:valorTab,fat:valorFat};
 }
 
