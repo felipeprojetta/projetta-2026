@@ -10912,37 +10912,25 @@ window.crmOrcamentoPronto=function(){
   var id=window._crmOrcCardId;
   var revLabel='Original';
 
-  // Se tem card CRM vinculado: salvar valores e mover card
+  // Se tem card CRM vinculado: mover card para Orçamento Pronto (sem salvar valores ainda)
   if(id){
     var data=cLoad();var idx=data.findIndex(function(o){return o.id===id;});
     if(idx>=0){
       var isFirst=!data[idx].revisoes||data[idx].revisoes.length===0;
-      // Mover card para Orçamento Pronto
       var stages=gStages();
       var enviarStage=stages.find(function(s){return s.id==='s3b';})||stages.find(function(s){return/pronto|feito|enviar/i.test(s.label);});
-      if(enviarStage){
-        data[idx].stage=enviarStage.id;
-        console.log('✅ Card movido para: '+enviarStage.label+' ('+enviarStage.id+')');
-      }
+      if(enviarStage) data[idx].stage=enviarStage.id;
       data[idx].updatedAt=new Date().toISOString();
-      var vals=_captureOrcValues();
-      data[idx].valor=vals.fat;
-      data[idx].valorTabela=vals.tab;
-      data[idx].valorFaturamento=vals.fat;
-      if(!data[idx].revisoes) data[idx].revisoes=[];
-      var revNum=data[idx].revisoes.length;
-      revLabel=isFirst?'Original':'Revisão '+revNum;
-      data[idx].revisoes.push({
-        rev:revNum, label:revLabel,
-        data:new Date().toISOString(),
-        valorTabela:vals.tab, valorFaturamento:vals.fat
-      });
       var agpEl=document.getElementById('num-agp');
       if(agpEl&&agpEl.value.trim()) data[idx].agp=agpEl.value.trim();
       var resEl=document.getElementById('numprojeto');
       if(resEl&&resEl.value.trim()) data[idx].reserva=resEl.value.trim();
+      if(!data[idx].revisoes) data[idx].revisoes=[];
+      var revNum=data[idx].revisoes.length;
+      revLabel=isFirst?'Original':'Revisão '+revNum;
+      // NÃO salvar valores aqui — serão salvos no callback _onCustoCompleto
+      data[idx].revisoes.push({rev:revNum, label:revLabel, data:new Date().toISOString(), valorTabela:0, valorFaturamento:0});
       cSave(data);
-      if(typeof crmRender==='function') crmRender();
     }
   }
   // Exportar proposta silenciosamente e salvar no card (sem abrir impressão)
