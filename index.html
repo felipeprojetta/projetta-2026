@@ -10512,7 +10512,7 @@ window.crmDeleteRevision=function(cardId,revIndex){
   }
   data[idx].updatedAt=new Date().toISOString();
   cSave(data);
-  crmOpenModal(cardId);
+  crmOpenModal(null, cardId);
 };
 
 window.crmOrcamentoPronto=function(){
