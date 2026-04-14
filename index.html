@@ -795,6 +795,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
         <button class="hbtn" onclick="abrirModalATP()" id="btn-gerar-atp" style="background:#1a5276;color:#fff;border-color:#1a5276;font-weight:800">📋 Gerar ATP</button>
         <button class="hbtn" onclick="salvarRapido()" style="color:#fff;background:#e67e22;border-color:#e67e22;font-size:13px;padding:7px 20px;font-weight:800">💾 SALVAR</button>
         <button class="hbtn" id="crm-orc-pronto-btn" onclick="crmOrcamentoPronto()" style="display:none;background:#27ae60;border-color:#27ae60;color:#fff;font-weight:800;animation:pulse 1.5s infinite">✅ Orçamento Pronto para Envio</button>
+        <button class="hbtn" id="crm-gerar-pdf-btn" onclick="crmGerarPDF()" style="display:none;background:#8e44ad;border-color:#8e44ad;color:#fff;font-weight:800">📄 Gerar PDF</button>
         <button class="hbtn" id="crm-atualizar-btn" onclick="crmAtualizarValorCard()" style="display:none;background:#2980b9;border-color:#2980b9;color:#fff;font-weight:800">🔄 Atualizar Valor p/ Card</button>
         <span id="autosave-ind" style="font-size:10px;color:#1a7a20;font-weight:600;opacity:0;transition:opacity .3s"></span>
       </div>
@@ -5589,6 +5590,7 @@ function novaRevisao(){
   // Esconder botões CRM (só aparecem após SALVAR)
   var btnPronto=document.getElementById('crm-orc-pronto-btn');if(btnPronto)btnPronto.style.display='none';
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
+  var btnPdf=document.getElementById('crm-gerar-pdf-btn');if(btnPdf)btnPdf.style.display='none';
   
   // Visual feedback
   var ind=document.getElementById('autosave-ind');
@@ -10999,13 +11001,11 @@ window.crmOrcamentoPronto=function(){
     }
     window._snapshotLock=true;
     _setOrcLock(true);
-    // Exportar proposta DEPOIS do snapshot (para não mudar valores da tela)
-    _exportPropostaToCard(id, revLabel, function(captures){
-      var nPages=captures?captures.length:0;
-      var msg=id?'✅ '+revLabel+' salva! '+nPages+' página(s) anexadas ao card.':'✅ Proposta exportada!';
-      var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent=msg;document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
-      if(typeof crmRender==='function') crmRender();
-    });
+    // Mostrar botão Gerar PDF
+    var pdfBtn=document.getElementById('crm-gerar-pdf-btn');if(pdfBtn)pdfBtn.style.display='inline-flex';
+    // Toast
+    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='✅ '+revLabel+' congelada! Valores salvos no card. Clique "Gerar PDF" para proposta.';document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
+    if(typeof crmRender==='function') crmRender();
   };
   // Se custo já foi gerado (usuário clicou Gerar Custo antes) → salvar DIRETO sem recalcular
   if(window._osGeradoUmaVez && window._custoCalculado){
@@ -11024,6 +11024,28 @@ window.crmOrcamentoPronto=function(){
     // Mesmo com erro, gerar PDF
     if(typeof _onStageOrcamentoPronto==="function") _onStageOrcamentoPronto();
   }
+};
+
+/* ── Gerar PDF da Proposta (botão separado) ── */
+window.crmGerarPDF=function(){
+  var id=window._crmOrcCardId;
+  // Determinar label da revisão
+  var revLabel='Original';
+  if(id){
+    var data=JSON.parse(localStorage.getItem('projetta_crm_v1')||'[]');
+    var idx=data.findIndex(function(o){return o.id===id;});
+    if(idx>=0&&data[idx].revisoes&&data[idx].revisoes.length>0){
+      revLabel=data[idx].revisoes[data[idx].revisoes.length-1].label||'Original';
+    }
+  }
+  var btn=document.getElementById('crm-gerar-pdf-btn');
+  if(btn){btn.textContent='⏳ Gerando PDF...';btn.disabled=true;}
+  _exportPropostaToCard(id, revLabel, function(captures){
+    var nPages=captures?captures.length:0;
+    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#8e44ad;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='📄 PDF gerado! '+nPages+' página(s) salvas.';document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
+    if(btn){btn.textContent='📄 Gerar PDF';btn.disabled=false;}
+    if(typeof crmRender==='function') crmRender();
+  });
 };
 
 /* ── Atualizar Valor para Card (sem mudar etapa) ── */
