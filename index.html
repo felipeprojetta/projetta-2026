@@ -13645,8 +13645,8 @@ function plnPecas(Lmm, Amm, fol, mod) {
     var medidaCorte = medidaBruta + 2 * REF; // +20 refilado cada lado
     // CAVA (mesma lógica do modelo 01)
     r.push(['CAVA', LARG_CAVA + 116, cavaH06, (fol==2) ? 4 : 2]);
-    // TAMPA CAVA (dist borda cava — também dividida em faixas)
-    r.push(['TAMPA CAVA', LARG_CAVA + 90, medidaCorte, (fol==2) ? N_PARTS*4 : N_PARTS*2]);
+    // TAMPA CAVA — NÃO dividida (peça pequena, mesma do modelo 01)
+    r.push(['TAMPA CAVA', LARG_CAVA + 90, DIS_BOR_CAVA, (fol==2) ? 8 : 4]);
     // TAMPA MAIOR — dividida em N_PARTS faixas horizontais
     if (fol == 1) {
       var tampaW06 = fW + 2*REF - cavaDeduc06;
