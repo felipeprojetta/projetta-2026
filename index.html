@@ -9494,15 +9494,32 @@ window.crmOpenModal=function(defaultStage,editId){
         revSec.style.display='block';
         var rh='<table style="width:100%;border-collapse:collapse;font-size:13px">';
         rh+='<tr style="border-bottom:2px solid var(--border-light)"><th style="padding:8px 10px;text-align:left;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Rev</th><th style="padding:8px 10px;text-align:left;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Data</th><th style="padding:8px 10px;text-align:right;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Tabela</th><th style="padding:8px 10px;text-align:right;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Faturamento</th><th style="width:40px"></th></tr>';
+        // Buscar entry do orçamento para usar valores do SNAPSHOT (fonte verdadeira)
+        var _orcDB=loadDB();
+        var _orcEntry=_orcDB.find(function(e){return e.crmCardId===editId;});
+        if(!_orcEntry&&opp.cliente) _orcEntry=_orcDB.find(function(e){return e.client&&e.client.toUpperCase().trim()===opp.cliente.toUpperCase().trim();});
+        if(!_orcEntry&&opp.reserva) _orcEntry=_orcDB.find(function(e){return e.project&&e.project===opp.reserva;});
+
         opp.revisoes.forEach(function(rv,ri){
           var isLast=ri===opp.revisoes.length-1;
           var bg=isLast?'background:rgba(0,49,68,.06)':'';
           var revDisplay=ri===0?(rv.label||'Original'):(rv.label||'Revisão '+ri);
+          // Valores: prioridade SNAPSHOT > CRM revision
+          var _snapTab=rv.valorTabela||0, _snapFat=rv.valorFaturamento||0;
+          if(_orcEntry&&_orcEntry.revisions&&_orcEntry.revisions[ri]){
+            var _snap=_orcEntry.revisions[ri].snapshot;
+            if(_snap){
+              var _st=(_snap.tabTotal||'').replace(/[^\d,\.]/g,'').replace(',','.');
+              var _sf=(_snap.fatTotal||'').replace(/[^\d,\.]/g,'').replace(',','.');
+              if(parseFloat(_st)>0) _snapTab=parseFloat(_st);
+              if(parseFloat(_sf)>0) _snapFat=parseFloat(_sf);
+            }
+          }
           rh+='<tr style="border-bottom:1px solid var(--border-light);'+bg+'">';
           rh+='<td style="padding:8px 10px;font-weight:700;font-size:13px;color:'+(ri===0?'#27ae60':'#9b59b6')+';cursor:pointer;text-decoration:underline" onclick="crmAbrirRevisao(\''+editId+'\','+ri+')" title="Clique para abrir Memorial e carregar no Orçamento">'+revDisplay+(isLast?' ✓':'')+'</td>';
           rh+='<td style="padding:8px 10px;color:var(--muted);font-size:13px">'+new Date(rv.data).toLocaleDateString('pt-BR')+'</td>';
-          rh+='<td style="padding:8px 10px;text-align:right;font-weight:700;font-size:13px;color:var(--navy)">'+brl(rv.valorTabela||0)+'</td>';
-          rh+='<td style="padding:8px 10px;text-align:right;font-weight:800;font-size:13px;color:#e67e22">'+brl(rv.valorFaturamento||0)+'</td>';
+          rh+='<td style="padding:8px 10px;text-align:right;font-weight:700;font-size:13px;color:var(--navy)">'+brl(_snapTab)+'</td>';
+          rh+='<td style="padding:8px 10px;text-align:right;font-weight:800;font-size:13px;color:#e67e22">'+brl(_snapFat)+'</td>';
           var hasProposal=opp.revisoes[ri].pdfPages&&opp.revisoes[ri].pdfPages.length>0;
           rh+='<td style="padding:4px 6px;text-align:center;white-space:nowrap">';
           if(hasProposal) rh+='<button onclick="event.stopPropagation();crmVerProposta(\''+editId+'\','+ri+')" style="background:none;border:1px solid #27ae60;color:#27ae60;border-radius:6px;font-size:10px;cursor:pointer;padding:3px 6px;font-weight:700;margin-right:3px" title="Ver proposta salva">📄</button>';
