@@ -10897,6 +10897,24 @@ window.crmAbrirRevisao=function(cardId, revIdx){
   }
   if(!entry){alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');return;}
   var ri=Math.min(revIdx||0, entry.revisions.length-1);
+  // Sincronizar valores do CRM card com snapshot (corrige cards antigos)
+  var _snapSync=entry.revisions[ri]?entry.revisions[ri].snapshot:null;
+  if(_snapSync&&cardId){
+    var _pBrl=function(s){if(!s)return 0;s=String(s).replace(/[R$\s]/g,'');var p=s.split(',');var i=(p[0]||'0').replace(/\./g,'');return parseFloat(i+'.'+(p[1]||'0'))||0;};
+    var _sTab=_pBrl(_snapSync.tabTotal);
+    var _sFat=_pBrl(_snapSync.fatTotal);
+    if(_sTab>0||_sFat>0){
+      var _cd=cLoad();var _ci=_cd.findIndex(function(o){return o.id===cardId;});
+      if(_ci>=0){
+        _cd[_ci].valorTabela=_sTab;_cd[_ci].valorFaturamento=_sFat;_cd[_ci].valor=_sFat;
+        if(_cd[_ci].revisoes&&_cd[_ci].revisoes[ri]){
+          _cd[_ci].revisoes[ri].valorTabela=_sTab;
+          _cd[_ci].revisoes[ri].valorFaturamento=_sFat;
+        }
+        cSave(_cd);
+      }
+    }
+  }
   // Fechar modal CRM
   var modal=document.getElementById('crm-modal');if(modal)modal.style.display='none';
   // Carregar revisão e mostrar memorial
