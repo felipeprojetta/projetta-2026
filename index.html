@@ -10508,6 +10508,15 @@ window.crmFazerOrcamento=function(id){
     if(typeof window._isATP!=='undefined')window._isATP=false;
     var curBanner=document.getElementById('cur-banner');if(curBanner)curBanner.classList.remove('show');
     // Zerar tudo
+    window._snapshotLock=false;
+    window._orcLocked=false;
+    window._pendingRevision=false;
+    window._forceUnlockAfterLoad=false;
+    window._custoCalculado=false;
+    window._osGeradoUmaVez=false;
+    try{_setOrcLock(false);}catch(e){}
+    try{_hideMemorial();}catch(e){}
+    var lockBanner=document.getElementById('orc-lock-banner');if(lockBanner)lockBanner.style.display='none';
     if(typeof resetToDefaults==='function')try{resetToDefaults();}catch(e){}
     // Reset visual ATP
     var badge=document.getElementById('status-badge');if(badge){badge.textContent='ORÇAMENTO';badge.style.background='#e67e22';}
