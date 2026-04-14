@@ -3049,6 +3049,65 @@ Equipe Projetta by Weiku</textarea>
 
   </div><!-- close admin-panel -->
 
+  <!-- ═══ RESERVAS WEIKU — SINCRONIZAÇÃO ═══ -->
+  <div class="card" style="margin-top:12px">
+    <div class="card-hd toggle" onclick="toggleSection('wrk-body','wrk-badge');wrkLoadStats()">
+      <span>🔄 Reservas Weiku — Base de Dados</span>
+      <span class="toggle-badge" id="wrk-badge">&#9660; clique para abrir</span>
+    </div>
+    <div class="card-bd" id="wrk-body" style="display:none;padding:14px">
+
+      <!-- Stats -->
+      <div id="wrk-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <div style="background:#003144;color:#fff;padding:12px 20px;border-radius:10px;text-align:center;min-width:120px">
+          <div style="font-size:22px;font-weight:900" id="wrk-total">—</div>
+          <div style="font-size:9px;text-transform:uppercase;opacity:.7;letter-spacing:1px">Total Reservas</div>
+        </div>
+        <div style="background:#e67e22;color:#fff;padding:12px 20px;border-radius:10px;text-align:center;min-width:120px">
+          <div style="font-size:22px;font-weight:900" id="wrk-mes">—</div>
+          <div style="font-size:9px;text-transform:uppercase;opacity:.7;letter-spacing:1px">Este Mês</div>
+        </div>
+        <div style="background:#27ae60;color:#fff;padding:12px 20px;border-radius:10px;text-align:center;min-width:120px">
+          <div style="font-size:22px;font-weight:900" id="wrk-ultima">—</div>
+          <div style="font-size:9px;text-transform:uppercase;opacity:.7;letter-spacing:1px">Última Reserva</div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+        <input type="text" id="wrk-search" placeholder="🔍 Buscar nº reserva, AGP, região..." oninput="wrkSearch()" style="padding:8px 14px;border:1px solid #ccc;border-radius:8px;font-size:12px;flex:1;min-width:200px;font-family:inherit">
+        <select id="wrk-regiao-filter" onchange="wrkSearch()" style="padding:8px;border:1px solid #ccc;border-radius:8px;font-size:11px;font-family:inherit">
+          <option value="">Todas regiões</option>
+          <option value="BRA01">BRA01</option><option value="BRA02">BRA02</option><option value="BRA03">BRA03</option><option value="BRA04">BRA04</option>
+        </select>
+        <button onclick="wrkSyncFromWeiku()" style="padding:8px 16px;background:linear-gradient(135deg,#003144,#00526b);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🔄 Sincronizar Weiku</button>
+        <label style="padding:8px 16px;background:#e67e22;color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          📤 Importar JSON
+          <input type="file" accept=".json" onchange="wrkImportJSON(this)" style="display:none">
+        </label>
+      </div>
+
+      <!-- Results table -->
+      <div id="wrk-result" style="max-height:500px;overflow-y:auto;border:1px solid #eee;border-radius:8px">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead style="position:sticky;top:0;background:#003144;color:#fff">
+            <tr>
+              <th style="padding:8px 6px;text-align:left">Reserva</th>
+              <th style="padding:8px 6px;text-align:left">Data</th>
+              <th style="padding:8px 6px;text-align:left">Região</th>
+              <th style="padding:8px 6px;text-align:left">AGP</th>
+              <th style="padding:8px 6px;text-align:left">ATP</th>
+              <th style="padding:8px 6px;text-align:left">Follow-up</th>
+              <th style="padding:8px 6px;text-align:left">Interno</th>
+            </tr>
+          </thead>
+          <tbody id="wrk-tbody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:#888" id="wrk-info">Carregue a seção para ver as reservas.</div>
+    </div>
+  </div>
+
 </div>
 </div>
 
@@ -3146,7 +3205,7 @@ Equipe Projetta by Weiku</textarea>
 
     <!-- friso variables - aparece para modelos 02 e 11 -->
     <div id="plan-friso-row" style="display:none;background:#f0f0ff;border:0.5px solid #b0b0e0;border-radius:7px;padding:9px 12px;margin-bottom:8px">
-      <div style="font-size:10px;font-weight:700;color:#3333aa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:Lexend Zetta,Arial,sans-serif">Variaveis do Friso</div>
+      <div style="font-size:10px;font-weight:700;color:#3333aa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:Lexend Zetta,Arial,sans-serif">Variaveis do Friso Vertical</div>
       <div style="display:flex;gap:20px;flex-wrap:wrap">
         <div class="fr" style="border:none;padding:0;gap:8px;flex:1;min-width:180px">
           <span class="fl" style="font-size:12px">DIS BORDA FRISO <small>mm</small></span>
@@ -3157,6 +3216,26 @@ Equipe Projetta by Weiku</textarea>
           <span class="fl" style="font-size:12px">LARGURA FRISO <small>mm</small></span>
           <input type="number" id="plan-largfriso" value="" min="5" max="100" step="1" oninput="planUpd();_osAutoUpdate()"
             style="width:75px;padding:5px 8px;border:0.5px solid #b0b0e0;border-radius:6px;font-size:12px;background:#fffef5;color:var(--navy);font-weight:700;outline:none;text-align:right">
+        </div>
+      </div>
+    </div>
+
+    <!-- FRISO HORIZONTAL variables - modelo 06 e 16 -->
+    <div id="plan-friso-h-row" style="display:none;background:#fff3e0;border:1.5px solid #ff9800;border-radius:7px;padding:9px 12px;margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;color:#e65100;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:Lexend Zetta,Arial,sans-serif">🔥 Modelo 06 — Frisos Horizontais</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end">
+        <div class="fr" style="border:none;padding:0;gap:8px;flex:1;min-width:160px">
+          <span class="fl" style="font-size:12px;font-weight:700">Nº Frisos <small>horizontais</small></span>
+          <input type="number" id="plan-friso-h-qty" value="3" min="1" max="20" step="1" oninput="planUpd();_osAutoUpdate()"
+            style="width:60px;padding:5px 8px;border:1.5px solid #ff9800;border-radius:6px;font-size:14px;background:#fff8e1;color:#e65100;font-weight:900;outline:none;text-align:center">
+        </div>
+        <div class="fr" style="border:none;padding:0;gap:8px;flex:1;min-width:160px">
+          <span class="fl" style="font-size:12px;font-weight:700">Espessura Friso <small>mm (gap)</small></span>
+          <input type="number" id="plan-friso-h-esp" value="10" min="1" max="50" step="1" oninput="planUpd();_osAutoUpdate()"
+            style="width:60px;padding:5px 8px;border:1.5px solid #ff9800;border-radius:6px;font-size:14px;background:#fff8e1;color:#e65100;font-weight:900;outline:none;text-align:center">
+        </div>
+        <div id="plan-friso-h-info" style="flex:2;min-width:250px;font-size:11px;color:#555;background:#fffde7;padding:6px 10px;border-radius:6px;border:1px solid #ffe082">
+          <b>Cálculo:</b> <span id="plan-friso-h-calc">—</span>
         </div>
       </div>
     </div>
@@ -4116,6 +4195,8 @@ function calc(){
   var hColagemEl=$('h-colagem');
   if(hColagemEl && _altMM>0 && window._osGeradoUmaVez && (hColagemEl.value==='' || hColagemEl.dataset.auto==='1' || hColagemEl.value==='0')){
     var _cDias=_diasColagem(_altMM,_nFol,_isCava,_isRip);
+    // Modelo 06 (Frisos Horizontais): +1 dia de colagem por causa das junções
+    if(_modSel==='06') _cDias+=1;
     var _cHoras=_cDias*9*_qPh;
     var _cTipo=_isCava?'cava':(_isRip?'ripado':'lisa');
     _setHoraAuto('h-colagem',_cHoras>0?_cHoras:'','h-colagem-auto',_cHoras>0?'(auto '+_cTipo+': '+_cDias+'d×9h×'+_qPh+'p='+_cHoras+'h)':'');
@@ -13541,6 +13622,56 @@ function plnPecas(Lmm, Amm, fol, mod) {
     }
   }
 
+  /* MODELO 06 — Cava + Frisos Horizontais (chapa dividida em faixas) */
+  if (mod === '06') {
+    var DIS_BOR_CAVA = parseInt(document.getElementById('plan-disborcava').value) || 210;
+    var LARG_CAVA    = parseInt(document.getElementById('plan-largcava').value)   || 150;
+    var _VED06=35, _TUBO_LAR06=(TUB_SUP>=51)?101.8:76.2;
+    var _TRAV_V06=Math.round(A-FGA-TUB_SUP-PIV-2*_VED06-2*_TUBO_LAR06);
+    var cavaH06 = Math.max(0, _TRAV_V06 - 12);
+    var cavaDeduc06 = LARG_CAVA + DIS_BOR_CAVA + 2;
+    // Parâmetros do friso horizontal
+    var N_FRISOS = parseInt((document.getElementById('plan-friso-h-qty')||{value:3}).value) || 3;
+    var ESP_FRISO = parseInt((document.getElementById('plan-friso-h-esp')||{value:10}).value) || 10;
+    var N_PARTS = N_FRISOS + 1;
+    var LIMITE_CHAPA = 1450; // largura útil máxima da chapa (1500 - 20ref - 20ref)
+    // Medida bruta de cada faixa = (G4 - gaps dos frisos) / nº partes
+    var altUtil = G4 - (N_FRISOS * ESP_FRISO);
+    var medidaBruta = altUtil / N_PARTS;
+    var medidaCorte = medidaBruta + 2 * REF; // +20 refilado cada lado
+    // CAVA (mesma lógica do modelo 01)
+    r.push(['CAVA', LARG_CAVA + 116, cavaH06, (fol==2) ? 4 : 2]);
+    // TAMPA CAVA (dist borda cava — também dividida em faixas)
+    r.push(['TAMPA CAVA', LARG_CAVA + 90, medidaCorte, (fol==2) ? N_PARTS*4 : N_PARTS*2]);
+    // TAMPA MAIOR — dividida em N_PARTS faixas horizontais
+    if (fol == 1) {
+      var tampaW06 = fW + 2*REF - cavaDeduc06;
+      r.push(['TAMPA MAIOR', tampaW06, medidaCorte, N_PARTS * 2]);
+    } else {
+      var DBC06 = DIS_BOR_CAVA, LC06 = LARG_CAVA;
+      var baseA06 = (G2total - DBC06*2 - LC06*2) / 2;
+      var baseB06 = (G2total - 1 - DBC06*2 - LC06*2) / 2;
+      var T1_06 = baseA06 + FGA + FGLA*2 - 1;
+      var T2_06 = baseB06 + FGLA*2 - PIV - 1;
+      var T3_06 = T2_06 - TUB_SUP;
+      r.push(['TAMPA MAIOR 01', T1_06, medidaCorte, N_PARTS * 1]);
+      r.push(['TAMPA MAIOR 02', T2_06, medidaCorte, N_PARTS * 2]);
+      r.push(['TAMPA MAIOR 03', T3_06, medidaCorte, N_PARTS * 1]);
+    }
+    // TAMPA BOR CAVA — também dividida em faixas
+    if (fol == 1) {
+      r.push(['TAMPA BOR CAVA', DIS_BOR_CAVA + (2*REF-2), medidaCorte, N_PARTS * 2]);
+    } else {
+      r.push(['TAMPA MENOR', DIS_BOR_CAVA + REF*2 - 2, medidaCorte, N_PARTS * 4]);
+    }
+    // Peças padrão (mesma do modelo 01)
+    r.push(['ACAB LAT 1', acabLat1, G4, nL], ['ACAB LAT 2', 90, G4, nL], ['ACAB LAT Z', 110, G4, nL]);
+    r.push(['U PORTAL', 221, L-REF, 1]);
+    r.push(['BAT 01', 42, bH, 2], ['BAT 02Z', 51, bH, 2], ['BAT 03', 81, bH, 2]);
+    r.push(['TAP FURO', 119, bH, 3], ['FIT ACAB ME', 76.5, bH, 2], ['FIT ACAB MA', 114.5, bH, 2], ['FIT ACAB FITA', 101, bH, 2]);
+    if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
+  }
+
   /* MODELO 22 — cava larga (DC+360), altura=G4 (PA ALTURA), sem TAMPA CAVA, TAMPA MAIOR -68 */
   if (mod === '22') {
     var DIS_BOR_CAVA = parseInt(document.getElementById('plan-disborcava').value) || 210;
@@ -14088,10 +14219,26 @@ function planUpd() {
   else dims.textContent='preencha largura e altura acima';
 
   var Mv=document.getElementById('plan-modelo').value;
-  var isCava=(Mv==='01'||Mv==='02'||Mv==='08'||Mv==='22');
+  var isCava=(Mv==='01'||Mv==='02'||Mv==='06'||Mv==='08'||Mv==='22');
   var isFriso=(Mv==='02'||Mv==='11'||Mv==='22'||Mv==='23acm'||Mv==='23alu');
+  var isFrisoH=(Mv==='06'||Mv==='16');
   document.getElementById('plan-cava-row').style.display=isCava?'':'none';
   document.getElementById('plan-friso-row').style.display=isFriso?'':'none';
+  var frisoHRow=document.getElementById('plan-friso-h-row');
+  if(frisoHRow) frisoHRow.style.display=isFrisoH?'':'none';
+  // Update friso-h calc preview
+  if(isFrisoH&&Lv>0&&Av>0){
+    var _nf=parseInt((document.getElementById('plan-friso-h-qty')||{value:3}).value)||3;
+    var _ef=parseInt((document.getElementById('plan-friso-h-esp')||{value:10}).value)||10;
+    var _REF2=parseInt((document.getElementById('plan-refilado')||{value:20}).value)||20;
+    var _TUB2=(typeof _isInternacional==='function'&&_isInternacional())?51:(Av<4000?38:51);
+    var _G4c=Av-10-_TUB2-28+8;
+    var _parts=_nf+1;
+    var _bruta=(_G4c-_nf*_ef)/_parts;
+    var _corte=_bruta+2*_REF2;
+    var calcEl=document.getElementById('plan-friso-h-calc');
+    if(calcEl) calcEl.innerHTML=_parts+' partes × '+Math.round(_bruta)+'mm bruta ('+Math.round(_corte)+'mm corte) '+(_corte>1450?'<b style="color:red">⚠️ EXCEDE 1450!</b>':'<b style="color:green">✓ OK</b>');
+  }
 
   var pieces=[];
   if(window._mpItens && window._mpItens.length > 0){
@@ -20660,5 +20807,155 @@ function _onMarkupDescManual(el){
     document.addEventListener('DOMContentLoaded',function(){setTimeout(_syncAllFromCloud,800);});
   }
   console.log('☁️ Cloud Sync init loaded');
+})();
+</script>
+
+<!-- ═══ MODULE: RESERVAS WEIKU ═══ -->
+<script>
+(function(){
+var SB='https://plmliavuwlgpwaizfeds.supabase.co';
+var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
+var H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
+var _cache=null;
+
+/* ── Carregar stats ── */
+window.wrkLoadStats=function(){
+  var infoEl=document.getElementById('wrk-info');
+  if(infoEl) infoEl.textContent='Carregando...';
+  // Total count
+  fetch(SB+'/rest/v1/weiku_reservas?select=num_reserva&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact'})})
+  .then(function(r){
+    var range=r.headers.get('content-range')||'';
+    var total=range.split('/')[1]||'0';
+    document.getElementById('wrk-total').textContent=total;
+    return r.json();
+  }).catch(function(e){document.getElementById('wrk-total').textContent='Erro';});
+  // This month
+  var now=new Date();
+  var ym=now.getFullYear()+'-'+(now.getMonth()+1<10?'0':'')+(now.getMonth()+1);
+  fetch(SB+'/rest/v1/weiku_reservas?select=num_reserva&data_reserva=gte.'+ym+'-01&limit=1',{headers:Object.assign({},H,{'Prefer':'count=exact'})})
+  .then(function(r){
+    var range=r.headers.get('content-range')||'';
+    var mes=range.split('/')[1]||'0';
+    document.getElementById('wrk-mes').textContent=mes;
+  }).catch(function(){});
+  // Last reservation
+  fetch(SB+'/rest/v1/weiku_reservas?select=num_reserva,data_reserva&order=num_reserva.desc&limit=1',{headers:H})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d&&d[0]) document.getElementById('wrk-ultima').textContent=d[0].num_reserva;
+  }).catch(function(){});
+  // Load first 200 for table
+  wrkSearch();
+};
+
+/* ── Buscar reservas ── */
+window.wrkSearch=function(){
+  var q=(document.getElementById('wrk-search')||{}).value||'';
+  var reg=(document.getElementById('wrk-regiao-filter')||{}).value||'';
+  var url=SB+'/rest/v1/weiku_reservas?select=*&order=data_reserva.desc,num_reserva.desc&limit=200';
+  if(q){
+    // Search by num_reserva or agp
+    if(/^\d+$/.test(q.trim())){
+      url+='&num_reserva=eq.'+q.trim();
+    } else if(/^AGP/i.test(q.trim())){
+      url+='&agp=ilike.*'+q.trim()+'*';
+    } else {
+      url+='&or=(followup.ilike.*'+q.trim()+'*,reserva_interna.ilike.*'+q.trim()+'*,regiao.ilike.*'+q.trim()+'*,agp.ilike.*'+q.trim()+'*)';
+    }
+  }
+  if(reg) url+='&regiao=like.'+reg+'*';
+  fetch(url,{headers:Object.assign({},H,{'Prefer':'count=exact'})})
+  .then(function(r){
+    var range=r.headers.get('content-range')||'';
+    var total=range.split('/')[1]||'?';
+    var info=document.getElementById('wrk-info');
+    if(info) info.textContent='Mostrando até 200 de '+total+' resultado(s)'+(q?' para "'+q+'"':'');
+    return r.json();
+  })
+  .then(function(data){
+    var tbody=document.getElementById('wrk-tbody');if(!tbody)return;
+    if(!data||!data.length){tbody.innerHTML='<tr><td colspan="7" style="padding:20px;text-align:center;color:#888">Nenhuma reserva encontrada</td></tr>';return;}
+    var html='';
+    data.forEach(function(r){
+      var dt=r.data_reserva?new Date(r.data_reserva+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+      html+='<tr style="border-bottom:1px solid #f0f0f0">';
+      html+='<td style="padding:6px;font-weight:700;color:#003144">'+r.num_reserva+'</td>';
+      html+='<td style="padding:6px">'+dt+'</td>';
+      html+='<td style="padding:6px"><span style="background:#e8f4fd;color:#1a5276;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600">'+r.regiao+'</span></td>';
+      html+='<td style="padding:6px;color:'+(r.agp?'#27ae60':'#ccc')+'">'+( r.agp||'—')+'</td>';
+      html+='<td style="padding:6px;color:'+(r.atp?'#8e44ad':'#ccc')+'">'+(r.atp||'—')+'</td>';
+      html+='<td style="padding:6px;font-size:10px">'+r.followup+'</td>';
+      html+='<td style="padding:6px;font-size:10px">'+r.reserva_interna+'</td>';
+      html+='</tr>';
+    });
+    tbody.innerHTML=html;
+  }).catch(function(e){
+    var tbody=document.getElementById('wrk-tbody');
+    if(tbody) tbody.innerHTML='<tr><td colspan="7" style="padding:20px;text-align:center;color:#e74c3c">Erro: '+e.message+'</td></tr>';
+  });
+};
+
+/* ── Importar JSON ── */
+window.wrkImportJSON=function(input){
+  if(!input.files||!input.files[0])return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=JSON.parse(e.target.result);
+      if(!Array.isArray(data)||!data.length){alert('JSON inválido ou vazio.');return;}
+      if(!confirm('Importar '+data.length+' reservas para o Supabase?\n\nRegistros duplicados serão ignorados.')){input.value='';return;}
+      // Upload in batches of 200
+      var batches=[];
+      for(var i=0;i<data.length;i+=200) batches.push(data.slice(i,i+200));
+      var done=0,errors=0;
+      var info=document.getElementById('wrk-info');
+      if(info) info.textContent='Importando... 0/'+batches.length+' lotes';
+      batches.reduce(function(chain,batch,bi){
+        return chain.then(function(){
+          return fetch(SB+'/rest/v1/weiku_reservas',{
+            method:'POST',
+            headers:Object.assign({},H,{'Prefer':'return=minimal,resolution=merge-duplicates'}),
+            body:JSON.stringify(batch)
+          }).then(function(r){
+            done++;
+            if(!r.ok) errors++;
+            if(info) info.textContent='Importando... '+done+'/'+batches.length+' lotes'+(errors?' ('+errors+' erros)':'');
+          });
+        });
+      },Promise.resolve()).then(function(){
+        alert('Importação concluída!\n\n'+done+' lotes processados'+(errors?'\n'+errors+' erros':''));
+        wrkLoadStats();
+        input.value='';
+      });
+    }catch(err){alert('Erro ao ler JSON: '+err.message);}
+  };
+  reader.readAsText(input.files[0]);
+};
+
+/* ── Sincronizar da Weiku (instruções) ── */
+window.wrkSyncFromWeiku=function(){
+  var overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:16px;padding:24px;max-width:500px;width:90%;font-family:inherit;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+  box.innerHTML='<div style="font-size:16px;font-weight:800;color:#003144;margin-bottom:12px">🔄 Sincronizar Reservas da Weiku</div>'
+    +'<div style="font-size:12px;line-height:1.6;color:#444;margin-bottom:16px">'
+    +'<b>Passo 1:</b> Abra a intranet Weiku → Comercial<br>'
+    +'<b>Passo 2:</b> Use o Claude para extrair dados (como fizemos hoje)<br>'
+    +'<b>Passo 3:</b> O JSON será baixado automaticamente<br>'
+    +'<b>Passo 4:</b> Use o botão <b>"📤 Importar JSON"</b> acima para subir<br><br>'
+    +'<span style="color:#e67e22;font-weight:700">💡 Dica:</span> Registros duplicados são ignorados automaticamente (merge por nº reserva).'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end">'
+    +'<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:8px 20px;background:#003144;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit">Entendi</button>'
+    +'<a href="https://intranet.weiku.com.br/v2/main/?location=new-dashboard/dashboard-comercial[]/" target="_blank" style="padding:8px 20px;background:#e67e22;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;font-size:13px">Abrir Weiku</a>'
+    +'</div>';
+  overlay.appendChild(box);
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+  document.body.appendChild(overlay);
+};
+
+console.log('🔄 Reservas Weiku module loaded');
 })();
 </script>
