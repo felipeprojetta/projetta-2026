@@ -827,7 +827,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <!-- TAB NAVIGATION -->
 <div class="main-tabs">
   <button class="main-tab on" onclick="switchTab('crm')" id="btn-tab-crm">📊 CRM</button>
-  <button class="main-tab" onclick="switchTab('clientes')" id="btn-tab-clientes">📂 Clientes</button>
+  <button class="main-tab" onclick="switchTab('clientes')" id="btn-tab-clientes" style="display:none">📂 Clientes</button>
   <button class="main-tab" onclick="switchTab('orcamento')">Orçamento</button>
   <button class="main-tab" onclick="switchTab('proposta')">Proposta Comercial</button>
   <button class="main-tab" onclick="switchTab('cadastro')">Cadastro</button>
@@ -9499,7 +9499,7 @@ window.crmOpenModal=function(defaultStage,editId){
           var bg=isLast?'background:rgba(0,49,68,.06)':'';
           var revDisplay=ri===0?(rv.label||'Original'):(rv.label||'Revisão '+ri);
           rh+='<tr style="border-bottom:1px solid var(--border-light);'+bg+'">';
-          rh+='<td style="padding:8px 10px;font-weight:700;font-size:13px;color:'+(ri===0?'#27ae60':'#9b59b6')+'">'+revDisplay+(isLast?' ✓':'')+'</td>';
+          rh+='<td style="padding:8px 10px;font-weight:700;font-size:13px;color:'+(ri===0?'#27ae60':'#9b59b6')+';cursor:pointer;text-decoration:underline" onclick="crmAbrirRevisao(\''+editId+'\','+ri+')" title="Clique para abrir Memorial e carregar no Orçamento">'+revDisplay+(isLast?' ✓':'')+'</td>';
           rh+='<td style="padding:8px 10px;color:var(--muted);font-size:13px">'+new Date(rv.data).toLocaleDateString('pt-BR')+'</td>';
           rh+='<td style="padding:8px 10px;text-align:right;font-weight:700;font-size:13px;color:var(--navy)">'+brl(rv.valorTabela||0)+'</td>';
           rh+='<td style="padding:8px 10px;text-align:right;font-weight:800;font-size:13px;color:#e67e22">'+brl(rv.valorFaturamento||0)+'</td>';
@@ -9510,6 +9510,10 @@ window.crmOpenModal=function(defaultStage,editId){
           rh+='</tr>';
         });
         rh+='</table>';
+        rh+='<div style="margin-top:10px;display:flex;gap:8px">';
+        rh+='<button onclick="crmAbrirRevisao(\''+editId+'\','+(opp.revisoes.length-1)+')" style="background:#e67e22;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer">📋 Abrir Memorial</button>';
+        rh+='<button onclick="crmNovaRevisao(\''+editId+'\')" style="background:#003144;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer">➕ Nova Revisão</button>';
+        rh+='</div>';
         revList.innerHTML=rh;
       } else {
         revSec.style.display='none';
@@ -10835,6 +10839,54 @@ window.crmDeleteRevision=function(cardId,revIndex){
   data[idx].updatedAt=new Date().toISOString();
   cSave(data);
   crmOpenModal(null, cardId);
+};
+
+/* ── Abrir Revisão do CRM: carrega orçamento + mostra Memorial ── */
+window.crmAbrirRevisao=function(cardId, revIdx){
+  // Buscar entry do orçamento vinculado a este card
+  var db=loadDB();
+  var entry=db.find(function(e){return e.crmCardId===cardId;});
+  // Fallback: buscar por nome do card CRM
+  if(!entry){
+    var crmData=cLoad();var card=crmData.find(function(o){return o.id===cardId;});
+    if(card&&card.cliente){
+      var nome=card.cliente.toUpperCase().trim();
+      entry=db.find(function(e){return e.client&&e.client.toUpperCase().trim()===nome;});
+    }
+    if(!entry&&card&&card.reserva){
+      entry=db.find(function(e){return e.project&&e.project===card.reserva;});
+    }
+  }
+  if(!entry){alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');return;}
+  var ri=Math.min(revIdx||0, entry.revisions.length-1);
+  // Fechar modal CRM
+  var modal=document.getElementById('crm-modal');if(modal)modal.style.display='none';
+  // Carregar revisão e mostrar memorial
+  if(typeof loadRevisionMemorial==='function'){
+    loadRevisionMemorial(entry.id, ri);
+  } else {
+    loadRevision(entry.id, ri);
+    switchTab('orcamento');
+  }
+};
+
+/* ── Nova Revisão a partir do CRM ── */
+window.crmNovaRevisao=function(cardId){
+  var db=loadDB();
+  var entry=db.find(function(e){return e.crmCardId===cardId;});
+  if(!entry){
+    var crmData=cLoad();var card=crmData.find(function(o){return o.id===cardId;});
+    if(card&&card.cliente){
+      var nome=card.cliente.toUpperCase().trim();
+      entry=db.find(function(e){return e.client&&e.client.toUpperCase().trim()===nome;});
+    }
+  }
+  if(!entry){alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');return;}
+  var modal=document.getElementById('crm-modal');if(modal)modal.style.display='none';
+  var lastRev=entry.revisions.length-1;
+  loadRevision(entry.id, lastRev);
+  switchTab('orcamento');
+  setTimeout(novaRevisao, 300);
 };
 
 window.crmOrcamentoPronto=function(){
