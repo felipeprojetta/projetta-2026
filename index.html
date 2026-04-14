@@ -5461,6 +5461,7 @@ function renderHistory(){
 
 /* ── SALVAR RAPIDO ────────────────────────────────────── */
 function salvarRapido(){
+  var _wasPendingRevision=!!window._pendingRevision;
   if(!currentId){
     // Primeiro salvamento: criar entry automático com nome do cliente
     var cliente=$('cliente').value.trim()||'Sem nome';
@@ -5525,7 +5526,26 @@ function salvarRapido(){
           _cd[_ci].valor=_sv.fat;
           _cd[_ci].valorTabela=_sv.tab;
           _cd[_ci].valorFaturamento=_sv.fat;
+          _cd[_ci].updatedAt=new Date().toISOString();
+          // Se foi nova revisão (pendingRevision acabou de ser processada): criar revisão CRM
+          if(_wasPendingRevision){
+            if(!_cd[_ci].revisoes) _cd[_ci].revisoes=[];
+            var _revNum=_cd[_ci].revisoes.length;
+            var _revLabel=_revNum===0?'Original':'Revisão '+_revNum;
+            _cd[_ci].revisoes.push({
+              rev:_revNum, label:_revLabel,
+              data:new Date().toISOString(),
+              valorTabela:_sv.tab, valorFaturamento:_sv.fat
+            });
+          } else if(_cd[_ci].revisoes&&_cd[_ci].revisoes.length>0){
+            // Atualizar última revisão com valores atuais
+            var _lastR=_cd[_ci].revisoes[_cd[_ci].revisoes.length-1];
+            _lastR.valorTabela=_sv.tab;
+            _lastR.valorFaturamento=_sv.fat;
+          }
           localStorage.setItem('projetta_crm_v1',JSON.stringify(_cd));
+          // Cloud sync CRM
+          if(typeof cSave==='function'){try{cSave(_cd);}catch(e){}}
           if(typeof crmRender==='function') crmRender();
         }
       }
