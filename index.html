@@ -17993,28 +17993,45 @@ function _calcAcessoriosAllItems(d, sis){
   // Restaurar form
   Object.keys(saved).forEach(function(id){var el=document.getElementById(id);if(el)el.value=saved[id];});
 
-  // ── MERGE: somar itens iguais (mesmo código + mesma descrição) ──
+  // ── MERGE: somar itens iguais (mesmo código) ──
   var merged=[];
   var mergeMap={};
   allRows.forEach(function(r){
-    var key=r.code+'|||'+r.desc+'|||'+(r.preco||0);
+    // Merge key: código + preço (desc pode variar por porta)
+    var key=r.code+'|||'+(r.preco||0);
     if(mergeMap[key]!==undefined){
-      merged[mergeMap[key]].qty+=r.qty;
-      // Acumular labels das portas
-      if(r._itemLabel && merged[mergeMap[key]]._itemLabels.indexOf(r._itemLabel)<0){
-        merged[mergeMap[key]]._itemLabels.push(r._itemLabel);
+      var existing=merged[mergeMap[key]];
+      existing.qty+=r.qty;
+      // Acumular detalhes de cada porta
+      if(r._itemLabel){
+        existing._perDoor.push({label:r._itemLabel,qty:r.qty,desc:r.desc});
       }
     } else {
       mergeMap[key]=merged.length;
       var nr=Object.assign({},r);
-      nr._itemLabels=[r._itemLabel||''];
+      nr._perDoor=[{label:r._itemLabel||'',qty:r.qty,desc:r.desc}];
       merged.push(nr);
     }
   });
-  // Atualizar desc com info multi-porta para itens que vieram de portas diferentes
+  // Atualizar descrição para mostrar fórmula de cada porta
   merged.forEach(function(r){
-    if(r._itemLabels && r._itemLabels.length>1){
-      r.desc=r.desc+' ('+r._itemLabels.map(function(l){return l.split(':')[0];}).join('+')+')';
+    if(r._perDoor && r._perDoor.length>1){
+      // Verificar se todas as descrições são iguais
+      var allSame=r._perDoor.every(function(d){return d.desc===r._perDoor[0].desc;});
+      if(allSame){
+        // Mesmo cálculo para todas as portas — só adicionar (P1+P2)
+        var labels=r._perDoor.map(function(d){return d.label.split(':')[0];}).join('+');
+        r.desc=r._perDoor[0].desc+' ('+labels+')';
+      } else {
+        // Fórmulas diferentes — mostrar cada uma e total
+        var parts=r._perDoor.map(function(d){
+          var pLabel=d.label.split(':')[0]; // "P1" ou "P2"
+          // Extrair a parte da fórmula da descrição
+          var formulaPart=d.desc.replace(r.code,'').replace(/^[\s—-]+/,'');
+          return pLabel+': '+formulaPart+' (×'+d.qty+')';
+        });
+        r.desc=r.desc.split('—')[0].trim()+' — '+parts.join(' + ')+' = '+r.qty+' total';
+      }
     }
   });
 
