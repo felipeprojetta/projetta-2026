@@ -17985,8 +17985,34 @@ function _calcAcessoriosAllItems(d, sis){
   });
   // Restaurar form
   Object.keys(saved).forEach(function(id){var el=document.getElementById(id);if(el)el.value=saved[id];});
-  console.log('  → Total acessórios rows: '+allRows.length+' (de '+window._mpItens.length+' itens)');
-  return allRows;
+
+  // ── MERGE: somar itens iguais (mesmo código + mesma descrição) ──
+  var merged=[];
+  var mergeMap={};
+  allRows.forEach(function(r){
+    var key=r.code+'|||'+r.desc+'|||'+(r.preco||0);
+    if(mergeMap[key]!==undefined){
+      merged[mergeMap[key]].qty+=r.qty;
+      // Acumular labels das portas
+      if(r._itemLabel && merged[mergeMap[key]]._itemLabels.indexOf(r._itemLabel)<0){
+        merged[mergeMap[key]]._itemLabels.push(r._itemLabel);
+      }
+    } else {
+      mergeMap[key]=merged.length;
+      var nr=Object.assign({},r);
+      nr._itemLabels=[r._itemLabel||''];
+      merged.push(nr);
+    }
+  });
+  // Atualizar desc com info multi-porta para itens que vieram de portas diferentes
+  merged.forEach(function(r){
+    if(r._itemLabels && r._itemLabels.length>1){
+      r.desc=r.desc+' ('+r._itemLabels.map(function(l){return l.split(':')[0];}).join('+')+')';
+    }
+  });
+
+  console.log('  → Total acessórios: '+allRows.length+' raw → '+merged.length+' merged (de '+window._mpItens.length+' itens)');
+  return merged;
 }
 
 function _renderAcessoriosOS(rows){
