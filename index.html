@@ -7252,18 +7252,15 @@ function gerarCustoTotal(){
               var _mpL=parseInt(mpIt.largura||mpIt._largura)||0;
               if(_mpL<=0) return;
               var _mpQty=parseInt(mpIt._qtd||mpIt['qtd-portas'])||1;
-              // Calcular LAR_IS e FOLHA_PA_PA para esta porta
               var _mpFolhas=parseInt(mpIt.folhas||mpIt._folhas||mpIt['folhas-porta'])||1;
-              var _mpSis=_d?_d.sis:'PA006';
-              var _mpTubMM=_mpSis==='PA007'?51:38;
-              var _mpLAR_IS=_mpL-2*_mpTubMM;
-              var _mpFOLHA=(_mpLAR_IS/_mpFolhas);
-              var _mpVedaRaw=_mpFOLHA-15; // folha PA-PA - ajuste
-              var _mpVedaSize=Math.round(_mpVedaRaw/100)*100+20; // arredondar para tamanho comercial
-              if(_mpVedaSize<720) _mpVedaSize=720;
+              // Fórmula original: FOLHA_PA_PA = L - FGL - FGR - 125 (FGL=FGR=2.5)
+              var _mpFOLHA=_mpL-2.5-2.5-125;
+              // VEDA_SIZE = max(720, ceil((FOLHA-620)/100)*100 + 620)
+              var _mpVedaSize=Math.max(720, (Math.ceil((_mpFOLHA-620)/100)*100)+620);
               if(_mpVedaSize>1820) _mpVedaSize=1820;
               var _mpVedaCode='PA-VED'+String(_mpVedaSize).padStart(4,'0');
-              _vedaList.push({size:_mpVedaSize,code:_mpVedaCode,qty:_mpQty*_mpFolhas,label:'P'+(mpIdx+1)+': '+_mpL+'mm',folhaPAPA:Math.round(_mpFOLHA)});
+              var _mpVedaQty=_mpFolhas===2?4:2;
+              _vedaList.push({size:_mpVedaSize,code:_mpVedaCode,qty:_mpVedaQty*_mpQty,label:'P'+(mpIdx+1)+': '+_mpL+'mm',folhaPAPA:Math.round(_mpFOLHA)});
             });
             if(_vedaList.length>0) _vInfo={multi:true,list:_vedaList};
           } else {
