@@ -10881,7 +10881,21 @@ window.crmOrcamentoPronto=function(){
   // Esconder botões após envio e TRAVAR orçamento
   var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
-  // PASSO 1: Garantir orçamento salvo ANTES de tudo
+  // PASSO 1: Verificar se entry atual pertence a ESTE card CRM
+  // Se currentId aponta para outro cliente, forçar criação de novo entry
+  if(currentId && id){
+    var _dbCheck=loadDB();var _oiCheck=_dbCheck.findIndex(function(e){return e.id===currentId;});
+    if(_oiCheck>=0 && _dbCheck[_oiCheck].crmCardId && _dbCheck[_oiCheck].crmCardId!==id){
+      // Entry atual é de OUTRO card — forçar novo
+      currentId=null; currentRev=null;
+    }
+    // Também verificar se já existe entry vinculado a ESTE card
+    var _existente=_dbCheck.find(function(e){return e.crmCardId===id;});
+    if(_existente){
+      currentId=_existente.id; currentRev=_existente.revisions.length-1;
+    }
+  }
+  // PASSO 2: Salvar orçamento
   if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){console.warn('salvarRapido:',e);}
   // PASSO 2: Vincular crmCardId IMEDIATAMENTE (não esperar timeout)
   if(currentId){
