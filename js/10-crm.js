@@ -220,7 +220,7 @@ function buildCard(o,st,isFazerOrc){
   if(locStr) html+='<div class="crm-card-sub">📍 '+locStr+'</div>';
   if(o.produto) html+='<div class="crm-card-sub">'+escH(o.produto)+'</div>';
   if(o.largura||o.altura) html+='<div class="crm-card-dims">📐 '+(o.largura||'?')+'×'+(o.altura||'?')+' mm'+(o.abertura?' · '+o.abertura.charAt(0)+o.abertura.slice(1).toLowerCase():'')+'</div>';
-  // Mostrar info de cada item (modelo, folhas, digital)
+  // Mostrar info de cada item (modelo, folhas, digital, cor)
   if(o.itens&&o.itens.length>0){
     var _itemInfo=o.itens.filter(function(it){return it.tipo==='porta_pivotante';}).map(function(it,i){
       var parts=[];
@@ -228,14 +228,16 @@ function buildCard(o,st,isFazerOrc){
       if(it.modelo) parts.push('Mod.'+it.modelo);
       if(it.folhas&&it.folhas!=='1') parts.push(it.folhas+'fls');
       if(it.fech_dig&&it.fech_dig!==''&&it.fech_dig!=='Nenhuma') parts.push('🔒'+it.fech_dig);
+      if(it.cor_ext) parts.push('🎨'+it.cor_ext);
       return parts.length?('P'+(i+1)+': '+parts.join(' · ')):'';
     }).filter(Boolean);
-    if(_itemInfo.length) html+='<div class="crm-card-sub" style="font-size:9px;line-height:1.4">'+_itemInfo.join('<br>')+'</div>';
+    if(_itemInfo.length) html+='<div class="crm-card-sub" style="font-size:10px;line-height:1.5;font-weight:600">'+_itemInfo.join('<br>')+'</div>';
   } else {
     var _singleParts=[];
     if(o.modelo) _singleParts.push('Mod. '+o.modelo);
     if(o.folhas&&o.folhas!=='1') _singleParts.push(o.folhas+' folhas');
-    if(_singleParts.length) html+='<div class="crm-card-sub" style="font-size:9px">'+_singleParts.join(' · ')+'</div>';
+    if(o.cor_ext) _singleParts.push('🎨'+o.cor_ext);
+    if(_singleParts.length) html+='<div class="crm-card-sub" style="font-size:10px;font-weight:600">'+_singleParts.join(' · ')+'</div>';
   }
   if(o.wrep) html+='<div class="crm-card-sub" style="color:#2980b9;font-weight:700;font-size:9px">👤 Rep: '+escH(o.wrep)+'</div>';
   if(o.reserva) html+='<div class="crm-card-sub" style="font-size:9px;color:#1a5276;font-weight:700">📋 Reserva: '+escH(o.reserva)+'</div>';
