@@ -10874,29 +10874,37 @@ window.crmOrcamentoPronto=function(){
   // Esconder botões após envio e TRAVAR orçamento
   var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
-  // PASSO 1: Garantir orçamento salvo ANTES de recalcular
+  // PASSO 1: Garantir orçamento salvo ANTES de tudo
   if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){console.warn('salvarRapido:',e);}
-  // PASSO 2: Recalcular custo completo
+  // PASSO 2: Vincular crmCardId IMEDIATAMENTE (não esperar timeout)
+  if(currentId){
+    var _db2=loadDB();var _oi=_db2.findIndex(function(e){return e.id===currentId;});
+    if(_oi>=0){
+      _db2[_oi].crmCardId=id;
+      var _rev=_db2[_oi].revisions[currentRev];
+      if(_rev) _rev.crmPronto=true;
+      saveDB(_db2);
+    }
+  }
+  // PASSO 3: Atualizar Clientes AGORA (entry já existe e vinculado)
+  if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
+  // PASSO 4: Recalcular custo completo (async)
   window._snapshotLock=false;
   if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
-  // PASSO 3: Após 2s (tempo do gerarCustoTotal terminar), re-salvar com snapshot atualizado
+  // PASSO 5: Após 2.5s, re-salvar snapshot atualizado + travar
   setTimeout(function(){
     if(currentId){
-      var _db2=loadDB();var _oi=_db2.findIndex(function(e){return e.id===currentId;});
-      if(_oi>=0){
-        _db2[_oi].crmCardId=id;
-        var _rev=_db2[_oi].revisions[currentRev];
-        if(_rev){
-          _rev.crmPronto=true;
-          try{_rev.snapshot=captureSnapshot();}catch(e){}
-          _rev.savedAt=new Date().toISOString().replace('T',' ').substring(0,16);
+      var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
+      if(_oi3>=0){
+        var _rev3=_db3[_oi3].revisions[currentRev];
+        if(_rev3){
+          try{_rev3.snapshot=captureSnapshot();}catch(e){}
+          _rev3.savedAt=new Date().toISOString().replace('T',' ').substring(0,16);
         }
-        saveDB(_db2);
+        saveDB(_db3);
       }
     }
-    // PASSO 4: Atualizar lista Clientes
     if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
-    // Travar orçamento
     window._snapshotLock=true;
     _setOrcLock(true);
   }, 2500);
