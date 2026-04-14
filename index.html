@@ -5863,10 +5863,12 @@ function newOrcamento(){
 
   if(!confirm('Iniciar novo orçamento? O orçamento atual será salvo automaticamente.')) return;
   // Unlock form
+  _revClearTimers();
+  window._snapshotLock=false;
   window._orcLocked=false;
   try{_setOrcLock(false);}catch(e){}
-  var mem=document.getElementById('memorial-panel');if(mem)mem.style.display='none';
-  var lb=document.getElementById('orc-lock-badge');if(lb)lb.style.display='none';
+  _hideMemorial();
+  _clearResultDisplay();
   // Salvar o orçamento atual se existem dados
   var clienteAtual=($('cliente')||{}).value;
   if(clienteAtual && clienteAtual.trim()){
@@ -10731,22 +10733,29 @@ window.crmOrcamentoPronto=function(){
   // Esconder botões após envio e TRAVAR orçamento
   var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
-  // Salvar orçamento antes de travar
+  // FORÇAR recálculo antes de salvar para garantir snapshot com valores
+  window._snapshotLock=false;
+  if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
+  // Salvar orçamento (snapshot capturado aqui terá valores calculados)
   if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){}
-  // Atualizar lista Clientes
-  if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
-  // Marcar orçamento como vinculado ao card CRM + travar revisão
+  // Marcar orçamento como vinculado ao card CRM + travar revisão + garantir snapshot
   if(currentId){
     var _db2=loadDB();var _oi=_db2.findIndex(function(e){return e.id===currentId;});
     if(_oi>=0){
       _db2[_oi].crmCardId=id;
-      // Marcar revisão atual como "pronto" (trava edição)
       var _rev=_db2[_oi].revisions[currentRev];
-      if(_rev) _rev.crmPronto=true;
+      if(_rev){
+        _rev.crmPronto=true;
+        // Re-capturar snapshot AGORA (após gerarCustoTotal)
+        try{_rev.snapshot=captureSnapshot();}catch(e){}
+      }
       saveDB(_db2);
     }
   }
+  // Atualizar lista Clientes
+  if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
   // Travar orçamento — PDF salvo, valores devem bater. Para alterar, Nova Revisão.
+  window._snapshotLock=true;
   _setOrcLock(true);
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
   }catch(err){
@@ -10762,6 +10771,9 @@ window.crmAtualizarValorCard=function(){
   var id=window._crmOrcCardId;if(!id){alert('Nenhum card vinculado. Use "Fazer Orçamento" no CRM primeiro.');return;}
   var data=cLoad();var idx=data.findIndex(function(o){return o.id===id;});
   if(idx<0){alert('Card não encontrado no CRM.');window._crmOrcCardId=null;return;}
+  // FORÇAR recálculo antes de capturar valores
+  window._snapshotLock=false;
+  if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
   data[idx].updatedAt=new Date().toISOString();
   // Capturar valores atuais
   var vals=_captureOrcValues();
@@ -10795,6 +10807,18 @@ window.crmAtualizarValorCard=function(){
   // Esconder o botão após atualizar e TRAVAR
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
   var btnPronto=document.getElementById('crm-orc-pronto-btn');if(btnPronto)btnPronto.style.display='none';
+  // Salvar snapshot no orçamento
+  if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){}
+  if(currentId){
+    var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
+    if(_oi3>=0&&_db3[_oi3].revisions[currentRev]){
+      _db3[_oi3].revisions[currentRev].crmPronto=true;
+      try{_db3[_oi3].revisions[currentRev].snapshot=captureSnapshot();}catch(e){}
+      saveDB(_db3);
+    }
+  }
+  if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
+  window._snapshotLock=true;
   _setOrcLock(true);
 };
 
