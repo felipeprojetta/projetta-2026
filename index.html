@@ -10565,6 +10565,8 @@ window.crmOrcamentoPronto=function(){
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
   // Salvar orçamento antes de travar
   if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){}
+  // Atualizar lista Clientes
+  if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
   // Marcar orçamento como vinculado ao card CRM + travar revisão
   if(currentId){
     var _db2=loadDB();var _oi=_db2.findIndex(function(e){return e.id===currentId;});
