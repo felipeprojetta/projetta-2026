@@ -10324,7 +10324,12 @@ window.crmSaveOpp=function(){
   // Save full attachments (with base64 data) to cloud
   if(_modalAttachs.length>0)crmSaveAttachCloud(dealId,_modalAttachs);
   _modalAttachs=[];
-  crmCloseModal();crmRender();
+  // NÃO fechar modal — só salvar e mostrar confirmação
+  crmRender();
+  // Atualizar revisões no modal se existem
+  if(_editId) crmOpenModal(null, _editId);
+  var _svToast=document.createElement('div');_svToast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:8px 18px;border-radius:16px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+  _svToast.textContent='💾 Card salvo!';document.body.appendChild(_svToast);setTimeout(function(){_svToast.remove();},2000);
 };
 
 window.crmDeleteOpp=function(id){
