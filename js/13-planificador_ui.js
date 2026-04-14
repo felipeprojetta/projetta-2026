@@ -361,16 +361,21 @@ function plnMaxRects(pieces, SW, SH, mode) {
       }
     }
 
-    // Consolidar placed de todas as chapas
+    // Consolidar placed de todas as chapas E remover chapas vazias
     var allPlaced=[];
+    var nonEmptySheets=[];
     sheets.forEach(function(s,si){
-      s.placed.forEach(function(pp){
-        pp.sheet=si;
-        allPlaced.push(pp);
-      });
+      if(s.placed.length>0){
+        var newIdx=nonEmptySheets.length;
+        s.placed.forEach(function(pp){
+          pp.sheet=newIdx;
+          allPlaced.push(pp);
+        });
+        nonEmptySheets.push(s);
+      }
     });
 
-    return {placed:allPlaced,failed:failed,numSheets:sheets.length};
+    return {placed:allPlaced,failed:failed,numSheets:nonEmptySheets.length};
   }
 
   // ── Rodar 2 estratégias de ordenação, pegar melhor ──
