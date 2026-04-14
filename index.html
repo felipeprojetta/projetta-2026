@@ -19612,10 +19612,11 @@ function _populatePropostaItens(){
   var container=document.getElementById('prop-doors-container');
   if(!tbody) return;
   if(!window._mpItens||window._mpItens.length===0) return;
-  var brl2=function(v){return v>0?'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2}):'\u2014';};
+  var brl2=function(v){return v>0?'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'\u2014';};
   var parseVal=function(el){if(!el)return 0;var t=el.textContent||'';return parseFloat(t.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;};
-  var fatPorta=parseVal(document.getElementById('m-tab-porta'))||parseVal(document.getElementById('m-fat-porta'));
-  var fatInst=parseVal(document.getElementById('r-inst'));
+  // Usar PREÇO TABELA TOTAL (m-tab) — já inclui fabricação + instalação + overhead com markup
+  // NÃO somar r-inst separadamente pois m-tab já contém tudo
+  var tabTotal=parseVal(document.getElementById('m-tab'))||parseVal(document.getElementById('m-tab-porta'));
   var freteEl=document.getElementById('lr-frete');
   var frete=0;
   if(freteEl){var fv=freteEl.value||'0';frete=parseFloat(fv.replace(/\./g,'').replace(',','.'))||0;}
@@ -19659,7 +19660,7 @@ function _populatePropostaItens(){
   var totalQtd=0,totalValor=0,tableHtml='';
   items.forEach(function(it,sortIdx){
     var prop=totalArea>0?it.area/totalArea:0;
-    var valorItem=(fatPorta+fatInst+frete)*prop;
+    var valorItem=(tabTotal+frete)*prop;
     totalValor+=valorItem;
     totalQtd+=it.q;
     var valorUn=it.q>0?valorItem/it.q:0;
