@@ -13903,132 +13903,143 @@ function plnMaxRects(pieces, SW, SH, mode) {
   var MG=PLN_MG, KF=PLN_KERF;
   var usW=SW-2*MG, usH=SH-2*MG;
 
-  // Expand pieces into individual items (kerf handled in placement, not inflated)
+  // ── Expandir peças individuais ──
   var todo=[];
   for(var i=0;i<pieces.length;i++)
     for(var j=0;j<pieces[i].qty;j++)
       todo.push({label:pieces[i].label,w:pieces[i].w,h:pieces[i].h,color:pieces[i].color});
 
-  // Sort by max dimension descending (tall pieces first)
-  todo.sort(function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h)||(b.w*b.h)-(a.w*a.h);});
+  if(!todo.length) return {numSheets:0,placed:[],failed:[],stats:[]};
 
-  // ── MaxRects single-bin packer ──
-  function MaxRectsBin(bw,bh){
-    this.w=bw;this.h=bh;
-    this.freeRects=[{x:0,y:0,w:bw,h:bh}];
-    this.used=[];
+  // ── SORTING CNC: agrupar peças iguais, maiores primeiro ──
+  // 1) Por altura desc (faixas mais altas primeiro → sobra no fundo)
+  // 2) Por label (peças iguais juntas → menos deslocamento CNC)
+  // 3) Por largura desc (preencher faixa da esquerda p/ direita)
+  todo.sort(function(a,b){
+    if(a.h!==b.h) return b.h-a.h;
+    if(a.label!==b.label) return a.label<b.label?-1:1;
+    return b.w-a.w;
+  });
+
+  // ── GUILLOTINE SHELF PACKING (otimizado CNC Router) ──
+  // Faixas horizontais empilhadas de cima para baixo
+  // Dentro de cada faixa: peças lado a lado da esquerda p/ direita
+  // Sobra fica no FUNDO da chapa (comprimento) = peça grande reutilizável
+
+  function packSheets(items){
+    var sheets=[], curSheet=null;
+
+    function newSheet(){
+      return {shelves:[],placed:[],nextY:0};
+    }
+
+    function tryFitInShelf(sheet,piece){
+      // Tentar encaixar em faixa existente com mesma altura (±kerf)
+      for(var si=0;si<sheet.shelves.length;si++){
+        var sh=sheet.shelves[si];
+        // Peça cabe na faixa se: altura ≤ altura da faixa E largura cabe no espaço restante
+        if(piece.h<=sh.h && sh.usedW+piece.w+KF<=usW){
+          var px=sh.usedW;
+          sh.usedW+=piece.w+KF;
+          return {x:MG+px, y:MG+sh.y, w:piece.w, h:piece.h};
+        }
+      }
+      return null;
+    }
+
+    function addNewShelf(sheet,piece){
+      // Nova faixa: altura = altura da peça
+      if(sheet.nextY+piece.h>usH) return null; // não cabe mais nesta chapa
+      if(piece.w>usW) return null; // peça mais larga que a chapa
+      var sh={y:sheet.nextY, h:piece.h, usedW:piece.w+KF};
+      sheet.shelves.push(sh);
+      var pos={x:MG, y:MG+sheet.nextY, w:piece.w, h:piece.h};
+      sheet.nextY+=piece.h+KF;
+      return pos;
+    }
+
+    curSheet=newSheet();
+    sheets.push(curSheet);
+
+    var failed=[];
+
+    for(var i=0;i<items.length;i++){
+      var p=items[i];
+      var pos=null;
+      var targetSheet=sheets.length-1; // chapa atual
+
+      // 1) Tentar faixa existente na chapa atual
+      pos=tryFitInShelf(curSheet,p);
+
+      // 2) Nova faixa na chapa atual
+      if(!pos) pos=addNewShelf(curSheet,p);
+
+      // 3) Tentar faixas em chapas anteriores (otimizar aproveitamento)
+      if(!pos){
+        for(var si=0;si<sheets.length-1;si++){
+          pos=tryFitInShelf(sheets[si],p);
+          if(pos){ targetSheet=si; break; }
+        }
+      }
+
+      // 4) Nova chapa
+      if(!pos){
+        curSheet=newSheet();
+        sheets.push(curSheet);
+        targetSheet=sheets.length-1;
+        pos=addNewShelf(curSheet,p);
+      }
+
+      if(pos){
+        sheets[targetSheet].placed.push({
+          sheet:targetSheet, x:pos.x, y:pos.y, w:pos.w, h:pos.h,
+          label:p.label, color:p.color, rot:false
+        });
+      } else {
+        failed.push(p);
+      }
+    }
+
+    // Consolidar placed de todas as chapas
+    var allPlaced=[];
+    sheets.forEach(function(s,si){
+      s.placed.forEach(function(pp){
+        pp.sheet=si;
+        allPlaced.push(pp);
+      });
+    });
+
+    return {placed:allPlaced,failed:failed,numSheets:sheets.length};
   }
-  MaxRectsBin.prototype.scoreRect=function(pw,ph,fr){
-    // Check if piece fits (piece size only, kerf added as spacing after placement)
-    if(pw>fr.w||ph>fr.h)return{score1:Infinity,score2:Infinity};
-    var ss=Math.min(fr.w-pw,fr.h-ph);
-    var ls=Math.max(fr.w-pw,fr.h-ph);
-    return{score1:ss,score2:ls}; // BSSF
-  };
-  MaxRectsBin.prototype.findBest=function(pw,ph){
-    var best={score1:Infinity,score2:Infinity,idx:-1,rot:false};
-    for(var i=0;i<this.freeRects.length;i++){
-      var fr=this.freeRects[i];
-      // Normal orientation
-      var s=this.scoreRect(pw,ph,fr);
-      if(s.score1<best.score1||(s.score1===best.score1&&s.score2<best.score2)){
-        best={score1:s.score1,score2:s.score2,idx:i,x:fr.x,y:fr.y,w:pw,h:ph,rot:false};
-      }
-      // Rotação DESATIVADA — chapas ACM nunca devem ser rotacionadas
-    }
-    return best.idx>=0?best:null;
-  };
-  MaxRectsBin.prototype.splitFreeRects=function(px,py,pw,ph){
-    // Reserved area = piece + kerf spacing (4mm right and bottom)
-    var rw=pw+KF, rh=ph+KF;
-    var newFree=[];
-    for(var i=this.freeRects.length-1;i>=0;i--){
-      var fr=this.freeRects[i];
-      // No overlap with reserved area
-      if(px>=fr.x+fr.w||px+rw<=fr.x||py>=fr.y+fr.h||py+rh<=fr.y){newFree.push(fr);continue;}
-      // Overlap: split into up to 4 rects
-      if(px>fr.x) newFree.push({x:fr.x,y:fr.y,w:px-fr.x,h:fr.h}); // left
-      if(px+rw<fr.x+fr.w) newFree.push({x:px+rw,y:fr.y,w:fr.x+fr.w-px-rw,h:fr.h}); // right
-      if(py>fr.y) newFree.push({x:fr.x,y:fr.y,w:fr.w,h:py-fr.y}); // top
-      if(py+rh<fr.y+fr.h) newFree.push({x:fr.x,y:py+rh,w:fr.w,h:fr.y+fr.h-py-rh}); // bottom
-    }
-    // Prune: remove rects fully contained in another
-    this.freeRects=[];
-    for(var i=0;i<newFree.length;i++){
-      var contained=false;
-      for(var j=0;j<newFree.length;j++){
-        if(i===j)continue;
-        if(newFree[i].x>=newFree[j].x&&newFree[i].y>=newFree[j].y&&
-           newFree[i].x+newFree[i].w<=newFree[j].x+newFree[j].w&&
-           newFree[i].y+newFree[i].h<=newFree[j].y+newFree[j].h){contained=true;break;}
-      }
-      if(!contained)this.freeRects.push(newFree[i]);
-    }
-  };
-  MaxRectsBin.prototype.insert=function(pw,ph){
-    var best=this.findBest(pw,ph);
-    if(!best)return null;
-    this.splitFreeRects(best.x,best.y,best.w,best.h);
-    this.used.push({x:best.x,y:best.y,w:best.w,h:best.h,rot:best.rot});
-    return best;
-  };
 
-  // ── Run 3 heuristics by sorting differently, pick best ──
-  var sortMethods=[
-    function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h)||(b.w*b.h)-(a.w*a.h);}, // max dim
-    function(a,b){return (b.w*b.h)-(a.w*a.h)||Math.max(b.w,b.h)-Math.max(a.w,a.h);}, // area
-    function(a,b){return b.h-a.h||b.w-a.w;} // height
+  // ── Rodar 2 estratégias de ordenação, pegar melhor ──
+  var strategies=[
+    // Estratégia 1: altura desc → label → largura desc (agrupa por faixa)
+    function(a,b){if(a.h!==b.h)return b.h-a.h;if(a.label!==b.label)return a.label<b.label?-1:1;return b.w-a.w;},
+    // Estratégia 2: área desc → altura desc (peças grandes primeiro)
+    function(a,b){return(b.w*b.h)-(a.w*a.h)||b.h-a.h||b.w-a.w;}
   ];
-  var bestResult=null, bestSheets=Infinity, bestAprov=0;
 
-  for(var mi=0;mi<sortMethods.length;mi++){
-    var sorted=todo.slice().sort(sortMethods[mi]);
-    var bins=[new MaxRectsBin(usW,usH)];
-    var placed=[],failed=[];
+  var bestResult=null,bestSheets=Infinity,bestAprov=0;
 
-    for(var k=0;k<sorted.length;k++){
-      var p=sorted[k],done=false;
-      for(var bi=0;bi<bins.length&&!done;bi++){
-        var r=bins[bi].insert(p.w,p.h);
-        if(r){
-          placed.push({sheet:bi,x:MG+r.x,y:MG+r.y,
-            w:r.rot?p.h:p.w, h:r.rot?p.w:p.h,
-            label:p.label,color:p.color,rot:r.rot});
-          done=true;
-        }
-      }
-      if(!done){
-        var nb=new MaxRectsBin(usW,usH);
-        var r=nb.insert(p.w,p.h);
-        if(r){
-          bins.push(nb);
-          placed.push({sheet:bins.length-1,x:MG+r.x,y:MG+r.y,
-            w:r.rot?p.h:p.w, h:r.rot?p.w:p.h,
-            label:p.label,color:p.color,rot:r.rot});
-        } else {
-          failed.push(p);
-        }
-      }
-    }
-
-    var ns=bins.length;
-    var totalUsed=placed.reduce(function(s,p){return s+p.w*p.h;},0);
-    var aprov=totalUsed/(ns*SW*SH)*100;
-    if(ns<bestSheets||(ns===bestSheets&&aprov>bestAprov)){
-      bestSheets=ns;bestAprov=aprov;
-      bestResult={placed:placed,failed:failed,numSheets:ns};
+  for(var mi=0;mi<strategies.length;mi++){
+    var sorted=todo.slice().sort(strategies[mi]);
+    var res=packSheets(sorted);
+    var totalUsed=res.placed.reduce(function(s,p){return s+p.w*p.h;},0);
+    var aprov=totalUsed/(res.numSheets*SW*SH)*100;
+    if(res.numSheets<bestSheets||(res.numSheets===bestSheets&&aprov>bestAprov)){
+      bestSheets=res.numSheets;bestAprov=aprov;bestResult=res;
     }
   }
 
+  // ── Stats por chapa ──
   var stats=[];
   for(var i=0;i<bestResult.numSheets;i++){
     var ps=bestResult.placed.filter(function(p){return p.sheet===i;});
     var used=ps.reduce(function(s,p){return s+p.w*p.h;},0);
     stats.push({idx:i,count:ps.length,used:used,total:SW*SH,pct:used/(SW*SH)*100});
   }
-  // Sort sheets: most filled first (largest area used)
   stats.sort(function(a,b){return b.used-a.used;});
-  // Remap sheet indices: old→new
   var remap={};
   for(var i=0;i<stats.length;i++){remap[stats[i].idx]=i;delete stats[i].idx;}
   for(var i=0;i<bestResult.placed.length;i++){
