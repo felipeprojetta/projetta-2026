@@ -4924,15 +4924,24 @@ var _DISPLAY_IDS={
   margens:['pct-mb-porta','pct-ml-porta','pct-mb','pct-ml','pct-meta','badge-st'],
   dre:['d-tab','d-tab-porta','d-desc-val','d-desc-pct','d-fat','d-fat-porta','d-imp','d-imp-pct','d-rep','d-rep-pct','d-rt','d-rt-pct','d-gest','d-gest-pct','d-custo','d-custo-porta','d-lb','d-irpj','d-ll'],
   subtotais:['r-m2','r-fab','r-inst'],
-  detalhamento:['d-custo-fab','d-custo-inst','d-tab-porta-only','d-fat-porta-only','d-tab-inst','d-fat-inst']
+  detalhamento:['d-custo-fab','d-custo-inst','d-tab-sp','d-fat-sp','d-tab-inst','d-fat-inst'],
+  porm2:['s-cm2','s-tm2','s-fm2','s-tm2p','s-fm2p','s-desc']
 };
 
 /* Limpar TODOS os elementos de display para evitar resíduos */
 function _clearResultDisplay(){
-  var all=[].concat(_DISPLAY_IDS.resultado,_DISPLAY_IDS.margens,_DISPLAY_IDS.dre,_DISPLAY_IDS.subtotais,_DISPLAY_IDS.detalhamento);
+  var resetDash=['badge-st','m-mkp','m-mkp-porta','m-custo-m2','m-custo-porta-m2','m-tab-m2','m-tab-porta-m2','m-fat-m2','m-fat-porta-m2','r-m2',
+    'd-custo-fab','d-custo-inst','d-tab-sp','d-fat-sp','d-tab-inst','d-fat-inst',
+    's-cm2','s-tm2','s-fm2','s-tm2p','s-fm2p','s-desc',
+    'd-desc-pct','d-imp-pct','d-rep-pct','d-rt-pct','d-gest-pct','pct-meta'];
+  var all=[].concat(_DISPLAY_IDS.resultado,_DISPLAY_IDS.margens,_DISPLAY_IDS.dre,_DISPLAY_IDS.subtotais,_DISPLAY_IDS.detalhamento,_DISPLAY_IDS.porm2);
   all.forEach(function(id){
     var el=document.getElementById(id);
-    if(el) el.textContent=id==='badge-st'?'—':'R$ 0';
+    if(el) el.textContent=resetDash.indexOf(id)>=0?'—':'R$ 0';
+  });
+  // Zerar barras de margem
+  ['bar-mb-porta','bar-ml-porta','bar-mb','bar-ml','bar-meta'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.style.width='0%';
   });
 }
 
