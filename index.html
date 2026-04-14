@@ -13694,7 +13694,15 @@ function plnPecas(Lmm, Amm, fol, mod) {
     var _LAR_IS_06 = Math.round(L - 10 - 10 - 171.7 - 171.5);
     var _frisoW06 = Math.round(_LAR_IS_06 + 110 + 110); // mesma medida VEDA PORTA
     var _frisoH06 = ESP_FRISO + 100;
-    r.push(['FRISO HORIZ', _frisoW06, _frisoH06, N_FRISOS * 2]);
+    var _MAX_CHAPA_UTIL = 1490; // 1500 - 2×5mm margem
+    if (_frisoW06 > _MAX_CHAPA_UTIL) {
+      // Quebra/emenda: peça 1 = 1490, peça 2 = restante
+      var _frisoResto = _frisoW06 - _MAX_CHAPA_UTIL;
+      r.push(['FRISO HORIZ 1', _MAX_CHAPA_UTIL, _frisoH06, N_FRISOS * 2]);
+      r.push(['FRISO HORIZ 2', _frisoResto, _frisoH06, N_FRISOS * 2]);
+    } else {
+      r.push(['FRISO HORIZ', _frisoW06, _frisoH06, N_FRISOS * 2]);
+    }
   }
 
   /* MODELO 22 — cava larga (DC+360), altura=G4 (PA ALTURA), sem TAMPA CAVA, TAMPA MAIOR -68 */
