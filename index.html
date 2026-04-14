@@ -5065,7 +5065,7 @@ window.loadRevision=function(id,revIdx){
   if(snapValid){
     _restoreSnapshotDisplay(rev.snapshot);
     showMemorial(rev.snapshot, entry.name, rev.label);
-    window._snapshotLock=true;
+    if(!window._forceUnlockAfterLoad) window._snapshotLock=true;
   }
   
   // 8. Reset UI
@@ -5085,8 +5085,8 @@ window.loadRevision=function(id,revIdx){
       window._snapshotLock=false;
       if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
     }
-    // Travar se necessário
-    if(shouldLock){
+    // Travar se necessário (MAS NÃO se forceUnlock está ativo)
+    if(shouldLock && !window._forceUnlockAfterLoad){
       _setOrcLock(true);
       var lb=document.getElementById('orc-lock-banner');
       if(lb){
@@ -10895,25 +10895,43 @@ window.crmNovaRevisao=function(cardId){
   }
   if(!entry){alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');return;}
   var modal=document.getElementById('crm-modal');if(modal)modal.style.display='none';
+  // Flag: próximo loadRevision NÃO deve travar (será desbloqueado para edição)
+  window._forceUnlockAfterLoad=true;
   var lastRev=entry.revisions.length-1;
   loadRevision(entry.id, lastRev);
   switchTab('orcamento');
-  // Esperar loadRevision terminar (restaura form + locks), depois desbloquear
-  setTimeout(function(){
-    novaRevisao();
-    // Forçar desbloqueio completo
+  // Desbloquear em 3 etapas para garantir
+  function _forceUnlock(){
     window._snapshotLock=false;
     window._orcLocked=false;
-    _setOrcLock(false);
+    window._forceUnlockAfterLoad=false;
+    // Desabilitar TODOS inputs forçadamente (bypass wasDisabled)
+    var orcTab=document.getElementById('tab-orcamento');
+    if(orcTab){
+      orcTab.querySelectorAll('input,select,textarea').forEach(function(el){
+        el.disabled=false;
+        el.style.opacity='';
+        el.style.pointerEvents='';
+        delete el.dataset.wasDisabled;
+      });
+    }
     _hideMemorial();
+    var lb=document.getElementById('orc-lock-banner');if(lb)lb.style.display='none';
     var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='';
-    var lockBanner=document.getElementById('orc-lock-banner');if(lockBanner)lockBanner.style.display='none';
     var btnPdf=document.getElementById('crm-gerar-pdf-btn');if(btnPdf)btnPdf.style.display='none';
-    // Recalcular — calc() foi bloqueado durante loadRevision
+    // Nova revisão
+    window._pendingRevision=true;
+    var ind=document.getElementById('autosave-ind');
+    if(ind){ind.textContent='📝 Editando nova revisão...';ind.style.opacity='1';ind.style.color='#e67e22';}
+  }
+  setTimeout(function(){
+    _forceUnlock();
     if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
     if(typeof planUpd==='function') try{planUpd();}catch(e){}
     if(typeof calc==='function') try{calc();}catch(e){}
-  }, 800);
+  }, 1000);
+  // Segurança: desbloquear de novo em 2s caso algo tenha re-travado
+  setTimeout(_forceUnlock, 2000);
 };
 
 window.crmOrcamentoPronto=function(){
