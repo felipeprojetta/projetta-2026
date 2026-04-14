@@ -8977,7 +8977,7 @@ function buildCard(o,st,isFazerOrc){
   // Prioridade + Potencial badges
   if(o.prioridade==='alta') html+='<div style="font-size:9px;font-weight:800;color:#e74c3c;background:#fde;padding:2px 6px;border-radius:4px;display:inline-block;margin:2px 0">🔴 PRIORIDADE ALTA</div>';
   else if(o.prioridade==='baixa') html+='<div style="font-size:9px;color:#27ae60;margin:1px 0">🟢 Prioridade baixa</div>';
-  if(o.potencial==='alto') html+='<div style="font-size:9px;font-weight:700;color:#e67e22;margin:1px 0">🔥 Alto Potencial</div>';
+  if(o.potencial==='alto') html+='<div style="font-size:11px;font-weight:900;color:#fff;background:linear-gradient(135deg,#ff6b00,#e74c3c);padding:5px 14px;border-radius:20px;display:inline-block;margin:4px 0;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(231,76,60,.4);text-transform:uppercase">🔥 ALTO POTENCIAL</div>';
   else if(o.potencial==='medio') html+='<div style="font-size:9px;color:#f39c12;margin:1px 0">⚡ Médio Potencial</div>';
   else if(o.potencial==='baixo') html+='<div style="font-size:9px;color:#95a5a6;margin:1px 0">💤 Baixo Potencial</div>';
   if(o.anexos&&o.anexos.length>0) html+='<div class="crm-card-attach-badge">📎 '+o.anexos.length+' anexo'+(o.anexos.length>1?'s':'')+'</div>';
