@@ -4691,7 +4691,7 @@ function captureFormData(){
     'folhas-porta','rep-sel','cep-cliente','ac-fechadura','qtd-fechaduras',
     'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
-    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-acm-cor','plan-acm-qty',
+    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-acm-cor','plan-acm-qty',
     'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
     'dias','pessoas','diaria','km','carros','desl-override','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp',
     'overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto','markup-desc'];
@@ -4843,7 +4843,7 @@ function restoreFormData(data){
     'folhas-porta','rep-sel','cep-cliente','ac-fechadura','qtd-fechaduras',
     'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
-    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-acm-cor','plan-acm-qty',
+    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-acm-cor','plan-acm-qty',
     'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
     'dias','pessoas','diaria','km','carros','desl-override','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp',
     'overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto'];
@@ -6028,7 +6028,7 @@ function aprovPieces(Lmm,Amm,fol,mod){
   var TUB_SUP=(_sis.indexOf('PA007')>=0||(typeof _isInternacional==='function'&&_isInternacional()))?51:38;
   var G4=A-10-TUB_SUP-28+8,G3=Math.round(L-20-343+218),G2=Math.round((L-20-343+256)/2);
   var fW=(fol==2)?G2:G3,bH=G4+116,nL=(fol==2)?4:2,r=[];
-  if(mod==='10'||mod==='11'||mod==='15'||mod==='23acm'||mod==='23alu'){
+  if(mod==='10'||mod==='11'||mod==='12'||mod==='13'||mod==='14'||mod==='15'||mod==='16'||mod==='17'||mod==='18'||mod==='20'||mod==='21'||mod==='23acm'||mod==='23alu'){
     if(fol==1)r.push(['TAMPA MAIOR',fW+40,G4,2]);
     else{r.push(['TAMPA F1',G2+32,G4,1],['TAMPA F2',G2+14,G4,2],['TAMPA F3',G2-4,G4,1]);}
     r.push(['ACAB LAT 1',88.5,G4,nL],['ACAB LAT 2',90,G4,nL],['ACAB LAT Z',110,G4,nL]);
@@ -6040,7 +6040,7 @@ function aprovPieces(Lmm,Amm,fol,mod){
     if(mod==='11')r.push(['FRISO VERT',100,G4,2],['DIST BOR FV',Math.round(fW*.28),G4,2]);
     if(mod==='15')r.push(['RIPAS',98,G4,Math.max(1,Math.round((fW-180)/90))*((fol==2)?2:1)]);
   }
-  if(mod==='01'||mod==='02'||mod==='08'){
+  if(mod==='01'||mod==='02'||mod==='03'||mod==='04'||mod==='05'||mod==='06'||mod==='07'||mod==='08'||mod==='09'||mod==='19'||mod==='24'){
     var DC=parseInt($('aprov-dim-cava').value)||150,HC=parseInt($('aprov-h-cava').value)||210;
     var _VED2=35,_TLI2=(TUB_SUP>=51)?101.8:76.2;
     var _TV2=Math.round(A-10-TUB_SUP-28-2*_VED2-2*_TLI2);
@@ -6111,7 +6111,11 @@ function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
   var r=[];
   var q1=is2L?2:1, q2=is2L?4:2;
 
-  if(mod==='01'||mod==='02'||mod==='08'){
+  // Categorizar modelo: CAVA ou LISA
+  var _isCavaMod=['01','02','03','04','05','06','07','08','09','19','22','24'].indexOf(mod)>=0;
+  var _isLisaMod=['10','11','12','13','14','15','16','17','18','20','21','23acm','23alu'].indexOf(mod)>=0;
+
+  if(_isCavaMod && mod!=='22'){
     // Peças com CAVA — TAMPAS primeiro (igual à porta)
     r.push(['FX TAMPA MAIOR',M_TAMPA+44+REF,hTampaFix,1]);
     if(is2L) r.push(['FX TAMPA MAIOR 2L',M_TAMPA+82+REF,hTampaFix,1]);
@@ -6151,7 +6155,7 @@ function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
     r.push(['FX BAT 03',70,bH,q1]);
   }
 
-  if(mod==='10'||mod==='11'||mod==='15'||mod==='23acm'||mod==='23alu'){
+  if(_isLisaMod){
     // Lisa — sem cava, tampa cobre toda largura
     // Door TAMPA_MAIOR for Lisa: G3+40 (approx)
     var lisaTW=G3+40;
@@ -14238,6 +14242,9 @@ function planUpd() {
     var _corte=_bruta+2*_REF2;
     var calcEl=document.getElementById('plan-friso-h-calc');
     if(calcEl) calcEl.innerHTML=_parts+' partes × '+Math.round(_bruta)+'mm bruta ('+Math.round(_corte)+'mm corte) '+(_corte>1450?'<b style="color:red">⚠️ EXCEDE 1450!</b>':'<b style="color:green">✓ OK</b>');
+    // Sync friso horizontal qty → carac-friso-horiz (para cálculo de perfis)
+    var _fhSync=document.getElementById('carac-friso-horiz');
+    if(_fhSync) _fhSync.value=_nf;
   }
 
   var pieces=[];
@@ -14315,7 +14322,7 @@ function _isModelReady(){
   // Sync cava do orcamento → planificador antes de verificar
   if(typeof _syncCavaToPlano==='function') _syncCavaToPlano();
 
-  var isCava=(Mv==='01'||Mv==='02'||Mv==='08'||Mv==='09'||Mv==='19'||Mv==='22'||Mv==='24');
+  var isCava=(Mv==='01'||Mv==='02'||Mv==='03'||Mv==='04'||Mv==='05'||Mv==='06'||Mv==='07'||Mv==='08'||Mv==='09'||Mv==='19'||Mv==='22'||Mv==='24');
   if(isCava){
     // Checa primeiro no orcamento (fonte), fallback para planificador
     var distB=parseFloat((document.getElementById('carac-dist-borda-cava')||{value:''}).value)
@@ -14444,6 +14451,17 @@ function _autoSelectAndRun(){
   var maxDim=0;
   pcsNorm.forEach(function(p){var d=Math.max(p.w,p.h);if(d>maxDim)maxDim=d;});
 
+  var corCode=_getCorCode();
+  // Fallback: extrair código da cor do dropdown do planificador
+  if(!corCode){
+    var planCor=document.getElementById('plan-acm-cor');
+    if(planCor&&planCor.selectedIndex>0){
+      var planTxt=(planCor.options[planCor.selectedIndex].text||'').toUpperCase();
+      var pm=planTxt.match(/(PRO\w+)/);
+      if(pm) corCode=pm[1];
+    }
+  }
+
   var SW=1500;
   // ALUSENSE (código AS) usa largura 1250mm
   var _isAlusense=corCode&&corCode.toUpperCase().indexOf('AS')===0;
@@ -14455,16 +14473,6 @@ function _autoSelectAndRun(){
   var layoutMode=(document.getElementById('plan-layout')||{value:'v'}).value||'v';
   // Forçar horizontal como padrão se não foi definido manualmente
   if(!document.getElementById('plan-layout').dataset.manual) layoutMode='v';
-  var corCode=_getCorCode();
-  // Fallback: extrair código da cor do dropdown do planificador
-  if(!corCode){
-    var planCor=document.getElementById('plan-acm-cor');
-    if(planCor&&planCor.selectedIndex>0){
-      var planTxt=(planCor.options[planCor.selectedIndex].text||'').toUpperCase();
-      var pm=planTxt.match(/(PRO\w+)/);
-      if(pm) corCode=pm[1];
-    }
-  }
   var melhor=null;
   // Fallback: pegar preço referência por tamanho de chapa (usa cor selecionada ou primeira disponível)
   function _getRefPrice(SH){
@@ -16072,6 +16080,11 @@ function onModeloChange(){
   var p = presets[val] || [0,0];
   if(p[0] >= 0){ fv.value = p[0]; } // valor fixo
   if(p[1] >= 0){ fh.value = p[1]; } // valor fixo
+  // Modelo 06/16: friso horiz variável — sync do planificador
+  if(p[1]===-1){
+    var _fhQty=parseInt((document.getElementById('plan-friso-h-qty')||{value:3}).value)||3;
+    fh.value=_fhQty;
+  }
   // Destaque visual: modelos variáveis pedem atenção do usuário
   var isVar   = (p[0]===-1 || p[1]===-1);
   var hasVert = (p[0]!==0);
