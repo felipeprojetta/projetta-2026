@@ -1401,10 +1401,17 @@ window.crmSaveOpp=function(){
     var idx=data.findIndex(function(o){return o.id===_editId;});
     if(idx>=0){
       opp.anexos=_modalAttachs.map(function(a){return{name:a.name,type:a.type,date:a.date};});
+      // Preservar campos que não estão no modal (revisoes, valorTabela etc)
+      var existing=data[idx];
+      ['revisoes','revPipeline','valorTabela','valorFaturamento','createdAt'].forEach(function(k){
+        if(existing[k]!==undefined && opp[k]===undefined) opp[k]=existing[k];
+      });
       data[idx]=Object.assign(data[idx],opp);
     }
   } else {
     dealId=uuid();opp.id=dealId;opp.createdAt=now;data.unshift(opp);
+    // CRÍTICO: atualizar _editId para que próximos saves atualizem em vez de criar duplicata
+    _editId=dealId;
   }
   cSave(data);
   // Save full attachments (with base64 data) to cloud
