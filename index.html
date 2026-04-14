@@ -3982,6 +3982,12 @@ function sumBlocks(type,max){
 /* ══ MAIN CALC ════════════════════════════════════════════ */
 function calc(){
   // Se snapshot congelado, não recalcular
+  // Segurança: se não tem orçamento ativo, desbloquear (lock fantasma de sessão anterior)
+  if(window._snapshotLock && !currentId && !window._pendingRevision){
+    window._snapshotLock=false;
+    window._orcLocked=false;
+    try{_setOrcLock(false);}catch(e){}
+  }
   if(window._snapshotLock) return;
   const W=n('largura')/1000,H=n('altura')/1000,m2=W*H;
   // Guard: sem dimensões → zerar resultados e sair
