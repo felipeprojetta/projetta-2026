@@ -13788,7 +13788,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
     var LARG_FRISO = 0, DIS_BOR_FRI = 0, frisoDeduc = 0;
     if (mod === '11') {
       LARG_FRISO  = parseInt(document.getElementById('plan-largfriso').value) || 10;
-      DIS_BOR_FRI = parseInt(document.getElementById('plan-disbordafriso').value) || 150;
+      DIS_BOR_FRI = parseInt(document.getElementById('plan-disbordafriso').value) || 210;
       frisoDeduc = DIS_BOR_FRI + LARG_FRISO;
     }
     if (fol == 1) {
@@ -13812,7 +13812,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
     r.push(['TAP FURO', 119, bH, 3], ['FIT ACAB ME', 76.5, bH, 2], ['FIT ACAB MA', 114.5, bH, 2], ['FIT ACAB FITA', 101, bH, 2]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
     if (mod === '23acm' || mod === '23alu') {
-      var DIS_BOR_M = parseInt(document.getElementById('plan-disbordafriso').value) || 150;
+      var DIS_BOR_M = parseInt(document.getElementById('plan-disbordafriso').value) || 210;
       var moldAlt1 = 1020 + PIV - DIS_BOR_M/2 - DIS_BOR_M; // = 1048 - 1.5*DIS_BOR = 823
       var moldAlt2 = G4 - DIS_BOR_M*3 - moldAlt1;           // = 2932 - 450 - 823 = 1659
       if (fol == 1) {
@@ -13852,7 +13852,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
     var LARG_FRISO = 0, DIS_BOR_FRI = 0;
     if (mod === '02') {
       LARG_FRISO  = parseInt(document.getElementById('plan-largfriso').value) || 50;
-      DIS_BOR_FRI = parseInt(document.getElementById('plan-disbordafriso').value) || 200;
+      DIS_BOR_FRI = parseInt(document.getElementById('plan-disbordafriso').value) || 210;
       frisoDeduc = DIS_BOR_FRI + LARG_FRISO;
     }
     r.push(['CAVA', LARG_CAVA + 116, cavaH, (fol==2) ? 4 : 2]);
@@ -16365,7 +16365,7 @@ function onModeloChange(){
     '19':[0,0],   // cava geométrica
     '20':[0,0],   // ripado horizontal
     '21':[0,0],   // ripado angular
-    '22':[1,0],   // cava premium + friso vert opcional
+    '22':[0,0],   // cava premium — friso opcional (começa zerado)
     '23':[0,0],   // clássica moldura
     '24':[0,0]    // cava horizontal
   }
@@ -16383,11 +16383,14 @@ function onModeloChange(){
   var hasHoriz= (p[1]!==0);
   var hasFriso= (hasVert || hasHoriz);
 
+  // Modelo 22: sempre mostra seção friso (opcional)
+  if(val==='22') hasFriso=true;
+
   var sec  = document.getElementById('friso-section');
   var rowV = document.getElementById('row-friso-vert');
   var rowH = document.getElementById('row-friso-horiz');
   if(sec)  sec.style.display  = hasFriso ? 'block' : 'none';
-  if(rowV) rowV.style.display = hasVert  ? ''      : 'none';
+  if(rowV) rowV.style.display = (hasVert||val==='22')  ? ''      : 'none';
   if(rowH) rowH.style.display = hasHoriz ? ''      : 'none';
 
   if(tip){
