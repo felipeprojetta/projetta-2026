@@ -5121,8 +5121,6 @@ window.loadRevisionMemorial=function(id,revIdx){
       window._snapshotLock=false;
       window._custoCalculado=false;
       window._osGeradoUmaVez=false;
-      if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
-      // Esperar gerarCustoTotal terminar (~2s), depois restaurar snapshot
       window._onCustoCompleto=function(){
         _restoreSnapshotDisplay(_savedSnap);
         showMemorial(_savedSnap, _eName, _rLabel);
@@ -5130,6 +5128,8 @@ window.loadRevisionMemorial=function(id,revIdx){
         _setOrcLock(true);
         _openSectionsAndScroll();
       };
+      if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
+      // Callback já definido ANTES de gerarCustoTotal rodar
     },500);
   } else {
     // Snapshot vazio: recalcular → capturar → salvar → mostrar memorial
