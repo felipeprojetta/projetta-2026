@@ -10525,11 +10525,12 @@ window.crmOrcamentoPronto=function(){
     var data=cLoad();var idx=data.findIndex(function(o){return o.id===id;});
     if(idx>=0){
       var isFirst=!data[idx].revisoes||data[idx].revisoes.length===0;
-      // Mover card apenas na PRIMEIRA vez (Original)
-      if(isFirst){
-        var stages=gStages();
-        var enviarStage=stages.find(function(s){return s.id==='s3b';})||stages.find(function(s){return/pronto|feito|enviar/i.test(s.label);});
-        data[idx].stage=enviarStage?enviarStage.id:'s3b';
+      // Mover card para Orçamento Pronto
+      var stages=gStages();
+      var enviarStage=stages.find(function(s){return s.id==='s3b';})||stages.find(function(s){return/pronto|feito|enviar/i.test(s.label);});
+      if(enviarStage){
+        data[idx].stage=enviarStage.id;
+        console.log('✅ Card movido para: '+enviarStage.label+' ('+enviarStage.id+')');
       }
       data[idx].updatedAt=new Date().toISOString();
       var vals=_captureOrcValues();
@@ -10557,6 +10558,7 @@ window.crmOrcamentoPronto=function(){
     var nPages=captures?captures.length:0;
     var msg=id?'✅ '+revLabel+' salva! '+nPages+' página(s) anexadas ao card.'+(revLabel==='Original'?' Card movido.':''):'✅ Proposta exportada! '+nPages+' página(s).';
     var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent=msg;document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
+    if(typeof crmRender==='function') crmRender();
   });
   // Esconder botões após envio e TRAVAR orçamento
   var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
