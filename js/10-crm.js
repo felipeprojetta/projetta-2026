@@ -937,6 +937,17 @@ window.crmItemAutoSelect=function(id){
     var cavaMods=[1,2,3,4,5,6,7,8,9,19,22,24]; // modelos com nome "cava"
     var puxSel=document.getElementById(pre+'puxador');
     if(puxSel) puxSel.value=cavaMods.indexOf(modInt)>=0?'CAVA':'EXTERNO';
+    // Modelo 22: defaults cava 250/250, friso 0/0
+    if(modelo==='22'){
+      var dcEl=document.getElementById(pre+'dist_borda_cava');
+      var lcEl=document.getElementById(pre+'largura_cava');
+      var dfEl=document.getElementById(pre+'dist_borda_friso');
+      var lfEl=document.getElementById(pre+'largura_friso');
+      if(dcEl&&(!dcEl.value||dcEl.value==='210')) dcEl.value='250';
+      if(lcEl&&(!lcEl.value||lcEl.value==='150')) lcEl.value='250';
+      if(dfEl&&(!dfEl.value||dfEl.value==='150')) dfEl.value='0';
+      if(lfEl&&(!lfEl.value||lfEl.value==='10')) lfEl.value='0';
+    }
     // Mostrar/esconder campos de cava ao trocar modelo
     var cavaWrap=document.getElementById(pre+'cava_wrap');
     var frisoWrap=document.getElementById(pre+'friso_wrap');
@@ -1183,7 +1194,7 @@ window._crmItensRender=function(){
     h+='<div class="crm-field"><label>Largura (mm)</label><input type="number" id="'+pre+'largura" value="'+(item.largura||'')+'" placeholder="ex: 1996" min="200" max="5000"></div>';
     h+='</div>';
     h+='<div class="crm-row">';
-    h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 6174" min="200" max="8000" onchange="crmItemAutoSelect(\''+item.id+'\')" oninput="crmItemAutoSelect(\''+item.id+'\')"></div>';
+    h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 6174" min="200" max="8000" onchange="crmItemAutoSelect(\''+item.id+'\')"></div>';
     
     if(item.tipo==='porta_pivotante'){
       h+='<div class="crm-field"><label>Abertura</label><select id="'+pre+'abertura"><option value="PIVOTANTE"'+(item.abertura==='PIVOTANTE'?' selected':'')+'>Pivotante</option><option value="DOBRADIÇA"'+(item.abertura==='DOBRADIÇA'?' selected':'')+'>Dobradiça</option></select></div>';
@@ -1400,9 +1411,8 @@ window.crmSaveOpp=function(){
   if(_modalAttachs.length>0)crmSaveAttachCloud(dealId,_modalAttachs);
   _modalAttachs=[];
   // NÃO fechar modal — só salvar e mostrar confirmação
+  // NÃO re-abrir modal (colapsa items abertos). Só atualizar kanban.
   crmRender();
-  // Atualizar revisões no modal se existem
-  if(_editId) crmOpenModal(null, _editId);
   var _svToast=document.createElement('div');_svToast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:8px 18px;border-radius:16px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2)';
   _svToast.textContent='💾 Card salvo!';document.body.appendChild(_svToast);setTimeout(function(){_svToast.remove();},2000);
 };
