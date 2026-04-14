@@ -10919,13 +10919,6 @@ window.crmOrcamentoPronto=function(){
       cSave(data);
     }
   }
-  // Exportar proposta silenciosamente e salvar no card (sem abrir impressão)
-  _exportPropostaToCard(id, revLabel, function(captures){
-    var nPages=captures?captures.length:0;
-    var msg=id?'✅ '+revLabel+' salva! '+nPages+' página(s) anexadas ao card.'+(revLabel==='Original'?' Card movido.':''):'✅ Proposta exportada! '+nPages+' página(s).';
-    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent=msg;document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
-    if(typeof crmRender==='function') crmRender();
-  });
   // Esconder botões após envio e TRAVAR orçamento
   var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
   var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
@@ -10989,6 +10982,13 @@ window.crmOrcamentoPronto=function(){
     }
     window._snapshotLock=true;
     _setOrcLock(true);
+    // Exportar proposta DEPOIS do snapshot (para não mudar valores da tela)
+    _exportPropostaToCard(id, revLabel, function(captures){
+      var nPages=captures?captures.length:0;
+      var msg=id?'✅ '+revLabel+' salva! '+nPages+' página(s) anexadas ao card.':'✅ Proposta exportada!';
+      var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent=msg;document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
+      if(typeof crmRender==='function') crmRender();
+    });
   };
   // Se custo já foi gerado (usuário clicou Gerar Custo antes) → salvar DIRETO sem recalcular
   if(window._osGeradoUmaVez && window._custoCalculado){
