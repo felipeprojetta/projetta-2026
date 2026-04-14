@@ -7223,6 +7223,13 @@ function gerarCustoTotal(){
         }catch(_e){ console.warn('acess sync:',_e); }
         if(typeof calc==='function') calc();
 
+        // Sinalizar conclusão — snapshot seguro agora
+        window._custoCalculado=true;
+        if(typeof window._onCustoCompleto==='function'){
+          try{window._onCustoCompleto();}catch(e){}
+          window._onCustoCompleto=null;
+        }
+
         if(btn){
           btn.innerHTML='✅ Custo gerado!';
           btn.style.background='linear-gradient(135deg,#1a7a20,#27ae60)';
@@ -10890,9 +10897,9 @@ window.crmOrcamentoPronto=function(){
   if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
   // PASSO 4: Recalcular custo completo (async)
   window._snapshotLock=false;
-  if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
-  // PASSO 5: Após 2.5s, re-salvar snapshot atualizado + travar
-  setTimeout(function(){
+  window._custoCalculado=false;
+  // Callback: quando gerarCustoTotal TERMINAR, capturar snapshot e travar
+  window._onCustoCompleto=function(){
     if(currentId){
       var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
       if(_oi3>=0){
@@ -10907,7 +10914,9 @@ window.crmOrcamentoPronto=function(){
     if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
     window._snapshotLock=true;
     _setOrcLock(true);
-  }, 2500);
+    console.log('✅ Snapshot capturado APÓS cálculo completo');
+  };
+  if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
   }catch(err){
     console.error('crmOrcamentoPronto erro:',err);
