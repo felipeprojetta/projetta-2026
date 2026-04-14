@@ -3051,64 +3051,6 @@ Equipe Projetta by Weiku</textarea>
 
   </div><!-- close admin-panel -->
 
-  <!-- ═══ RESERVAS WEIKU — SINCRONIZAÇÃO ═══ -->
-  <div class="card" style="margin-top:12px">
-    <div class="card-hd toggle" onclick="toggleSection('wrk-body','wrk-badge');wrkLoadStats()">
-      <span>🔄 Reservas Weiku — Base de Dados</span>
-      <span class="toggle-badge" id="wrk-badge">&#9660; clique para abrir</span>
-    </div>
-    <div class="card-bd" id="wrk-body" style="display:none;padding:14px">
-
-      <!-- Stats -->
-      <div id="wrk-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
-        <div style="background:#003144;color:#fff;padding:12px 20px;border-radius:10px;text-align:center;min-width:120px">
-          <div style="font-size:22px;font-weight:900" id="wrk-total">—</div>
-          <div style="font-size:9px;text-transform:uppercase;opacity:.7;letter-spacing:1px">Total Reservas</div>
-        </div>
-        <div style="background:#e67e22;color:#fff;padding:12px 20px;border-radius:10px;text-align:center;min-width:120px">
-          <div style="font-size:22px;font-weight:900" id="wrk-mes">—</div>
-          <div style="font-size:9px;text-transform:uppercase;opacity:.7;letter-spacing:1px">Este Mês</div>
-        </div>
-        <div style="background:#27ae60;color:#fff;padding:12px 20px;border-radius:10px;text-align:center;min-width:120px">
-          <div style="font-size:22px;font-weight:900" id="wrk-ultima">—</div>
-          <div style="font-size:9px;text-transform:uppercase;opacity:.7;letter-spacing:1px">Última Reserva</div>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-        <input type="text" id="wrk-search" placeholder="🔍 Buscar nº reserva, AGP, região..." oninput="wrkSearch()" style="padding:8px 14px;border:1px solid #ccc;border-radius:8px;font-size:12px;flex:1;min-width:200px;font-family:inherit">
-        <select id="wrk-regiao-filter" onchange="wrkSearch()" style="padding:8px;border:1px solid #ccc;border-radius:8px;font-size:11px;font-family:inherit">
-          <option value="">Todas regiões</option>
-          <option value="BRA01">BRA01</option><option value="BRA02">BRA02</option><option value="BRA03">BRA03</option><option value="BRA04">BRA04</option>
-        </select>
-        <button onclick="wrkSyncFromWeiku()" style="padding:8px 16px;background:linear-gradient(135deg,#003144,#00526b);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🔄 Sincronizar Weiku</button>
-        <label style="padding:8px 16px;background:#e67e22;color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
-          📤 Importar JSON
-          <input type="file" accept=".json" onchange="wrkImportJSON(this)" style="display:none">
-        </label>
-      </div>
-
-      <!-- Results table -->
-      <div id="wrk-result" style="max-height:500px;overflow-y:auto;border:1px solid #eee;border-radius:8px">
-        <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <thead style="position:sticky;top:0;background:#003144;color:#fff">
-            <tr>
-              <th style="padding:8px 6px;text-align:left">Reserva</th>
-              <th style="padding:8px 6px;text-align:left">Data</th>
-              <th style="padding:8px 6px;text-align:left">Região</th>
-              <th style="padding:8px 6px;text-align:left">AGP</th>
-              <th style="padding:8px 6px;text-align:left">ATP</th>
-              <th style="padding:8px 6px;text-align:left">Follow-up</th>
-              <th style="padding:8px 6px;text-align:left">Interno</th>
-            </tr>
-          </thead>
-          <tbody id="wrk-tbody"></tbody>
-        </table>
-      </div>
-      <div style="margin-top:8px;font-size:10px;color:#888" id="wrk-info">Carregue a seção para ver as reservas.</div>
-    </div>
-  </div>
 
 </div>
 </div>
