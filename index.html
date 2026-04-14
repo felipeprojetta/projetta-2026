@@ -4992,7 +4992,32 @@ window.loadRevision=function(id,revIdx){
   toggleHist();
 };
 
-/* ── Restaurar valores visuais do snapshot nos elementos DOM ── */
+/* ── Abrir revisão com Memorial de Cálculo completo ── */
+window.loadRevisionMemorial=function(id,revIdx){
+  // 1. Carregar revisão (destrava, restaura dados, trava, mostra memorial)
+  loadRevision(id,revIdx);
+  // 2. Mudar para aba orçamento
+  switchTab('orcamento');
+  // 3. Após carregar, abrir todas as seções e scroll para DRE
+  setTimeout(function(){
+    // Abrir seções colapsáveis: parâmetros, fabricação, instalação, características
+    var sections=[
+      {body:'param-body',badge:'param-badge'},
+      {body:'fab-body',badge:'fab-badge'},
+      {body:'inst-body',badge:'inst-badge'},
+      {body:'carac-body',badge:'carac-badge'}
+    ];
+    sections.forEach(function(s){
+      var b=document.getElementById(s.body);
+      var bg=document.getElementById(s.badge);
+      if(b) b.style.display='block';
+      if(bg) bg.innerHTML='&#9650; fechar';
+    });
+    // 4. Scroll suave até a DRE
+    var dreEl=document.querySelector('.dre');
+    if(dreEl) dreEl.scrollIntoView({behavior:'smooth',block:'center'});
+  }, 800);
+};
 function _restoreSnapshotDisplay(snap){
   if(!snap) return;
   var _s=function(id,val){var el=document.getElementById(id);if(el&&val) el.textContent=val;};
@@ -8577,6 +8602,7 @@ function renderClientesTab(){
       h+='</div>'; // cli-orc-info
 
       h+='<div class="cli-orc-actions">';
+      h+='<button onclick="loadRevisionMemorial(\''+e.id+'\',0)" title="Ver memorial de cálculo congelado" style="background:#e67e22;color:#fff;border-color:#e67e22">📋 Memorial</button>';
       h+='<button onclick="loadRevision(\''+e.id+'\',0);switchTab(\'orcamento\')" title="Abrir versão original">📂 Original</button>';
       if(e.revisions.length>1) h+='<button onclick="loadRevision(\''+e.id+'\','+(e.revisions.length-1)+');switchTab(\'orcamento\')" title="Abrir última revisão">📝 Última Rev</button>';
       h+='<button onclick="loadRevision(\''+e.id+'\','+(e.revisions.length-1)+');switchTab(\'orcamento\');setTimeout(novaRevisao,300)" title="Criar nova revisão a partir da última">➕ Nova Rev</button>';
