@@ -875,7 +875,12 @@ function _isModelReady(){
            || parseFloat((document.getElementById('plan-largcava')||{value:''}).value)||0;
     if(distB<=0||largC<=0) return false;
   }
-  var isFriso=(Mv==='02'||Mv==='11'||Mv==='22');
+  var isFriso=(Mv==='02'||Mv==='11');
+  // Modelo 22: friso é OPCIONAL (só valida se friso qty > 0)
+  if(Mv==='22'){
+    var _fqV=parseInt((document.getElementById('carac-friso-vert')||{value:0}).value)||0;
+    if(_fqV>0) isFriso=true;
+  }
   if(isFriso){
     var distF=parseFloat((document.getElementById('plan-disbordafriso')||{value:''}).value)||0;
     var largF=parseFloat((document.getElementById('plan-largfriso')||{value:''}).value)||0;
