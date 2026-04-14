@@ -10898,6 +10898,12 @@ window.crmOrcamentoPronto=function(){
   var id=window._crmOrcCardId;
   var revLabel='Original';
 
+  // ══ CAPTURA IMEDIATA — antes de QUALQUER operação que possa mudar a tela ══
+  var _snapImediato=null;
+  try{_snapImediato=captureSnapshot();}catch(e){}
+  var _valsImediato=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
+  console.log('📸 Snapshot imediato: Tab='+_valsImediato.tab+' Fat='+_valsImediato.fat);
+
   // Se tem card CRM vinculado: mover card para Orçamento Pronto (sem salvar valores ainda)
   if(id){
     var data=cLoad();var idx=data.findIndex(function(o){return o.id===id;});
@@ -10951,15 +10957,13 @@ window.crmOrcamentoPronto=function(){
   // PASSO 4: Capturar snapshot + atualizar CRM
   // Função única que salva tudo de uma vez
   var _salvarSnapshotECRM=function(){
-    var _snapFinal=null;
-    try{_snapFinal=captureSnapshot();}catch(e){}
-    var _valsFinal=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
+    // Usar snapshot capturado ANTES de qualquer operação
     if(currentId){
       var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
       if(_oi3>=0){
         var _rev3=_db3[_oi3].revisions[currentRev];
         if(_rev3){
-          _rev3.snapshot=_snapFinal;
+          _rev3.snapshot=_snapImediato;
           _rev3.savedAt=new Date().toISOString().replace('T',' ').substring(0,16);
         }
         saveDB(_db3);
@@ -10968,13 +10972,13 @@ window.crmOrcamentoPronto=function(){
     if(id){
       var _crmD=cLoad();var _ci=_crmD.findIndex(function(o){return o.id===id;});
       if(_ci>=0){
-        _crmD[_ci].valor=_valsFinal.fat;
-        _crmD[_ci].valorTabela=_valsFinal.tab;
-        _crmD[_ci].valorFaturamento=_valsFinal.fat;
+        _crmD[_ci].valor=_valsImediato.fat;
+        _crmD[_ci].valorTabela=_valsImediato.tab;
+        _crmD[_ci].valorFaturamento=_valsImediato.fat;
         if(_crmD[_ci].revisoes&&_crmD[_ci].revisoes.length>0){
           var _lr=_crmD[_ci].revisoes[_crmD[_ci].revisoes.length-1];
-          _lr.valorTabela=_valsFinal.tab;
-          _lr.valorFaturamento=_valsFinal.fat;
+          _lr.valorTabela=_valsImediato.tab;
+          _lr.valorFaturamento=_valsImediato.fat;
         }
         cSave(_crmD);
         if(typeof crmRender==='function') crmRender();
@@ -10994,9 +10998,14 @@ window.crmOrcamentoPronto=function(){
   if(window._osGeradoUmaVez && window._custoCalculado){
     _salvarSnapshotECRM();
   } else {
-    // Custo não foi gerado → calcular primeiro, depois salvar via callback
+    // Custo não foi gerado → calcular primeiro, depois salvar
     window._snapshotLock=false;
-    window._onCustoCompleto=_salvarSnapshotECRM;
+    window._onCustoCompleto=function(){
+      // Recapturar snapshot AGORA (pós-cálculo) e sobrescrever o imediato
+      try{_snapImediato=captureSnapshot();}catch(e){}
+      _valsImediato=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
+      _salvarSnapshotECRM();
+    };
     if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
   }
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
