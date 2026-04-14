@@ -10970,6 +10970,8 @@ window.crmOrcamentoPronto=function(){
   window._custoCalculado=false;
   // Callback: quando gerarCustoTotal TERMINAR, capturar snapshot e travar
   window._onCustoCompleto=function(){
+    // Capturar valores FINAIS (após calc completo)
+    var _valsFinal=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
     if(currentId){
       var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
       if(_oi3>=0){
@@ -10981,10 +10983,26 @@ window.crmOrcamentoPronto=function(){
         saveDB(_db3);
       }
     }
-    if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
+    // SINCRONIZAR valores do CRM card com valores FINAIS
+    if(id){
+      var _crmD=cLoad();var _ci=_crmD.findIndex(function(o){return o.id===id;});
+      if(_ci>=0){
+        _crmD[_ci].valor=_valsFinal.fat;
+        _crmD[_ci].valorTabela=_valsFinal.tab;
+        _crmD[_ci].valorFaturamento=_valsFinal.fat;
+        // Atualizar última revisão do CRM com valores finais
+        if(_crmD[_ci].revisoes&&_crmD[_ci].revisoes.length>0){
+          var _lastRev=_crmD[_ci].revisoes[_crmD[_ci].revisoes.length-1];
+          _lastRev.valorTabela=_valsFinal.tab;
+          _lastRev.valorFaturamento=_valsFinal.fat;
+        }
+        cSave(_crmD);
+        if(typeof crmRender==='function') crmRender();
+      }
+    }
     window._snapshotLock=true;
     _setOrcLock(true);
-    console.log('✅ Snapshot capturado APÓS cálculo completo');
+    console.log('✅ Snapshot + CRM sincronizados — Tab:'+_valsFinal.tab+' Fat:'+_valsFinal.fat);
   };
   if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
   if(typeof _onStageOrcamentoPronto==="function") setTimeout(_onStageOrcamentoPronto,1500);
