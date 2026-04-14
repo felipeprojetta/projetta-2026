@@ -5498,6 +5498,23 @@ function salvarRapido(){
     if(ind){ind.textContent='✓ Salvo!';ind.style.opacity='1';ind.style.color='#1a7a20';setTimeout(function(){ind.style.opacity='0';},2000);}
   }
   $('hist-count').textContent=loadDB().length;
+  // ══ Sincronizar valores com card CRM vinculado ao SALVAR ══
+  if(window._crmOrcCardId && typeof _captureOrcValues==='function'){
+    try{
+      var _sv=_captureOrcValues();
+      if(_sv.tab>0||_sv.fat>0){
+        var _cd=JSON.parse(localStorage.getItem('projetta_crm_v1')||'[]');
+        var _ci=_cd.findIndex(function(o){return o.id===window._crmOrcCardId;});
+        if(_ci>=0){
+          _cd[_ci].valor=_sv.fat;
+          _cd[_ci].valorTabela=_sv.tab;
+          _cd[_ci].valorFaturamento=_sv.fat;
+          localStorage.setItem('projetta_crm_v1',JSON.stringify(_cd));
+          if(typeof crmRender==='function') crmRender();
+        }
+      }
+    }catch(e){}
+  }
   // Após salvar: SEMPRE mostrar botão "Pronto para Envio"
   // Verificar se é primeiro envio ou revisão
   var _temEnvioAnterior=false;
