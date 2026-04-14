@@ -9470,49 +9470,12 @@ window.crmOpenModal=function(defaultStage,editId){
         revSec.style.display='block';
         var rh='<table style="width:100%;border-collapse:collapse;font-size:13px">';
         rh+='<tr style="border-bottom:2px solid var(--border-light)"><th style="padding:8px 10px;text-align:left;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Rev</th><th style="padding:8px 10px;text-align:left;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Data</th><th style="padding:8px 10px;text-align:right;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Tabela</th><th style="padding:8px 10px;text-align:right;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Faturamento</th><th style="width:40px"></th></tr>';
-        // Buscar entry vinculado para ler valores do SNAPSHOT (fonte verdadeira)
-        var _orcDB=loadDB();
-        var _orcEntry=_orcDB.find(function(e){return e.crmCardId===editId;});
-        if(!_orcEntry&&opp.cliente) _orcEntry=_orcDB.find(function(e){return e.client&&e.client.toUpperCase().trim()===opp.cliente.toUpperCase().trim();});
-        if(!_orcEntry&&opp.reserva) _orcEntry=_orcDB.find(function(e){return e.project&&e.project===String(opp.reserva);});
-        // Fallback: buscar pelo nome no campo name do entry (pode ter formato "NOME — RESERVA")
-        if(!_orcEntry&&opp.cliente){
-          var _cn=opp.cliente.toUpperCase().trim();
-          _orcEntry=_orcDB.find(function(e){return e.name&&e.name.toUpperCase().indexOf(_cn)>=0;});
-        }
-        // Fallback: entry único no DB
-        if(!_orcEntry&&_orcDB.length===1) _orcEntry=_orcDB[0];
-        console.log('[CRM Rev] Entry lookup: '+(!!_orcEntry?'FOUND id='+_orcEntry.id+' revs='+_orcEntry.revisions.length:'NOT FOUND')+' | cardId='+editId+' cliente='+(opp.cliente||''));
-        var _pBrl=function(s){if(!s)return 0;s=String(s).replace(/[R$\s]/g,'');var p=s.split(',');var i=(p[0]||'0').replace(/\./g,'');return parseFloat(i+'.'+(p[1]||'0'))||0;};
-
         opp.revisoes.forEach(function(rv,ri){
           var isLast=ri===opp.revisoes.length-1;
           var bg=isLast?'background:rgba(0,49,68,.06)':'';
           var revDisplay=ri===0?(rv.label||'Original'):(rv.label||'Revisão '+ri);
-          // Ler valores do SNAPSHOT do orçamento (fonte verdadeira)
+          // Valores: CRM revision é autoritativo (usuario aprovou esses valores)
           var _dispTab=rv.valorTabela||0, _dispFat=rv.valorFaturamento||0;
-          if(_orcEntry&&_orcEntry.revisions&&_orcEntry.revisions[ri]){
-            var _snap=_orcEntry.revisions[ri].snapshot;
-            if(_snap){
-              var _st=_pBrl(_snap.tabTotal);
-              var _sf=_pBrl(_snap.fatTotal);
-              console.log('[CRM Rev] ri='+ri+' snap.tabTotal="'+_snap.tabTotal+'" → '+_st+' | snap.fatTotal="'+_snap.fatTotal+'" → '+_sf);
-              if(_st>0) _dispTab=_st;
-              if(_sf>0) _dispFat=_sf;
-            } else { console.log('[CRM Rev] ri='+ri+' snapshot is NULL'); }
-          } else {
-            // Fallback: usar última revisão do orçamento se indices não batem
-            if(_orcEntry&&_orcEntry.revisions&&_orcEntry.revisions.length>0){
-              var _snapLast=_orcEntry.revisions[_orcEntry.revisions.length-1].snapshot;
-              if(_snapLast){
-                var _stL=_pBrl(_snapLast.tabTotal);
-                var _sfL=_pBrl(_snapLast.fatTotal);
-                if(_stL>0) _dispTab=_stL;
-                if(_sfL>0) _dispFat=_sfL;
-                console.log('[CRM Rev] ri='+ri+' index mismatch, using last snapshot: tab='+_stL+' fat='+_sfL);
-              }
-            } else { console.log('[CRM Rev] ri='+ri+' no matching revision in orcamento'); }
-          }
           rh+='<tr style="border-bottom:1px solid var(--border-light);'+bg+'">';
           rh+='<td style="padding:8px 10px;font-weight:700;font-size:13px;color:'+(ri===0?'#27ae60':'#9b59b6')+';cursor:pointer;text-decoration:underline" onclick="crmAbrirRevisao(\''+editId+'\','+ri+')" title="Clique para abrir Memorial e carregar no Orçamento">'+revDisplay+(isLast?' ✓':'')+'</td>';
           rh+='<td style="padding:8px 10px;color:var(--muted);font-size:13px">'+new Date(rv.data).toLocaleDateString('pt-BR')+'</td>';
@@ -9524,20 +9487,6 @@ window.crmOpenModal=function(defaultStage,editId){
           rh+='<button onclick="crmDeleteRevision(\''+editId+'\','+ri+')" style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:6px;font-size:10px;cursor:pointer;padding:3px 6px;font-weight:700" title="Excluir revisão">✕</button></td>';
           rh+='</tr>';
         });
-        // Auto-sync: atualizar CRM card com valores do snapshot da última revisão
-        if(_orcEntry&&_orcEntry.revisions&&_orcEntry.revisions.length>0){
-          var _lastSnap=_orcEntry.revisions[_orcEntry.revisions.length-1].snapshot;
-          if(_lastSnap){
-            var _lstTab=_pBrl(_lastSnap.tabTotal),_lstFat=_pBrl(_lastSnap.fatTotal);
-            if((_lstTab>0||_lstFat>0)&&(opp.valorTabela!==_lstTab||opp.valorFaturamento!==_lstFat)){
-              opp.valorTabela=_lstTab;opp.valorFaturamento=_lstFat;opp.valor=_lstFat;
-              var _lastRi=opp.revisoes.length-1;
-              if(opp.revisoes[_lastRi]){opp.revisoes[_lastRi].valorTabela=_lstTab;opp.revisoes[_lastRi].valorFaturamento=_lstFat;}
-              var _allCrm=cLoad();var _ci2=_allCrm.findIndex(function(o){return o.id===editId;});
-              if(_ci2>=0){_allCrm[_ci2]=opp;cSave(_allCrm);}
-            }
-          }
-        }
         rh+='</table>';
         rh+='<div style="margin-top:10px;display:flex;gap:8px">';
         rh+='<button onclick="crmAbrirRevisao(\''+editId+'\','+(opp.revisoes.length-1)+')" style="background:#e67e22;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer">📋 Abrir Memorial</button>';
@@ -10888,24 +10837,6 @@ window.crmAbrirRevisao=function(cardId, revIdx){
   }
   if(!entry){alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');return;}
   var ri=Math.min(revIdx||0, entry.revisions.length-1);
-  // Sincronizar valores do CRM card com snapshot (corrige cards antigos)
-  var _snapSync=entry.revisions[ri]?entry.revisions[ri].snapshot:null;
-  if(_snapSync&&cardId){
-    var _pBrl=function(s){if(!s)return 0;s=String(s).replace(/[R$\s]/g,'');var p=s.split(',');var i=(p[0]||'0').replace(/\./g,'');return parseFloat(i+'.'+(p[1]||'0'))||0;};
-    var _sTab=_pBrl(_snapSync.tabTotal);
-    var _sFat=_pBrl(_snapSync.fatTotal);
-    if(_sTab>0||_sFat>0){
-      var _cd=cLoad();var _ci=_cd.findIndex(function(o){return o.id===cardId;});
-      if(_ci>=0){
-        _cd[_ci].valorTabela=_sTab;_cd[_ci].valorFaturamento=_sFat;_cd[_ci].valor=_sFat;
-        if(_cd[_ci].revisoes&&_cd[_ci].revisoes[ri]){
-          _cd[_ci].revisoes[ri].valorTabela=_sTab;
-          _cd[_ci].revisoes[ri].valorFaturamento=_sFat;
-        }
-        cSave(_cd);
-      }
-    }
-  }
   // Fechar modal CRM
   var modal=document.getElementById('crm-modal');if(modal)modal.style.display='none';
   // Carregar revisão e mostrar memorial
