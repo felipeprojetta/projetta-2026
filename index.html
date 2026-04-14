@@ -4924,15 +4924,25 @@ window.loadRevision=function(id,revIdx){
   window._pendingRevision=false;
   _persistSession();
   
-  // SÓ bloquear se foi enviado via Orçamento Pronto (não por salvar normal)
-  window._snapshotLock=!!rev.crmPronto;
+  // Bloquear recálculo se tem snapshot OU se foi enviado via CRM Pronto
+  var hasSnap=!!rev.snapshot;
+  window._snapshotLock=hasSnap||!!rev.crmPronto;
   
   // Restore form data (all fields from when it was saved)
   if(rev.data){
     restoreFormData(rev.data);
   }
   updateBanner(entry.name, rev.label);
-  if(rev.snapshot) showMemorial(rev.snapshot, entry.name, rev.label);
+  
+  // Memorial de cálculo: mostrar se snapshot, esconder se não
+  if(hasSnap){
+    showMemorial(rev.snapshot, entry.name, rev.label);
+    // Restaurar valores DRE/custos/preços do snapshot nos elementos DOM
+    _restoreSnapshotDisplay(rev.snapshot);
+  } else {
+    var memP=document.getElementById('memorial-panel');
+    if(memP) memP.style.display='none';
+  }
   
   // Hide CRM items bar
   var ibar=document.getElementById('orc-itens-bar');
@@ -4949,20 +4959,80 @@ window.loadRevision=function(id,revIdx){
     if(typeof planUpd==='function') try{planUpd();}catch(e){}
     if(typeof toggleInstQuem==='function') try{toggleInstQuem();}catch(e){}
     // SÓ recalcula se NÃO tiver snapshot congelado
-    if(!rev.snapshot){
+    if(!hasSnap){
       if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
     }
   }, 300);
   
-  // TRAVAR orçamento SOMENTE se foi enviado via Orçamento Pronto
-  if(rev.crmPronto){
+  // TRAVAR orçamento se tem snapshot ou CRM Pronto
+  if(hasSnap||rev.crmPronto){
     setTimeout(function(){
       _setOrcLock(true);
+      // Ajustar mensagem do banner conforme contexto
+      var lockBanner=document.getElementById('orc-lock-banner');
+      if(lockBanner){
+        if(rev.crmPronto){
+          lockBanner.innerHTML='🔒 Orçamento travado — PDF salvo no card. Para alterar, clique em <b>Nova Revisão</b>.';
+        } else {
+          lockBanner.innerHTML='🔒 CONGELADO — valores salvos em '+(rev.snapshot&&rev.snapshot.ts?new Date(rev.snapshot.ts).toLocaleString("pt-BR"):rev.savedAt||'')+'. Para editar, clique em <b>Nova Revisão</b>.';
+        }
+      }
     }, 600);
+  } else {
+    // Destravar se revisão sem snapshot (ex: revisão em edição)
+    _setOrcLock(false);
   }
   
   toggleHist();
 };
+
+/* ── Restaurar valores visuais do snapshot nos elementos DOM ── */
+function _restoreSnapshotDisplay(snap){
+  if(!snap) return;
+  var _s=function(id,val){var el=document.getElementById(id);if(el&&val) el.textContent=val;};
+  // Custos
+  _s('m-custo',snap.custoTotal);
+  _s('m-custo-m2',snap.custoM2);
+  _s('m-custo-porta',snap.custoPorta);
+  // Tabela
+  _s('m-tab',snap.tabTotal);
+  _s('m-tab-m2',snap.tabM2);
+  _s('m-tab-porta',snap.tabPorta);
+  _s('m-tab-porta-m2',snap.tabPortaM2);
+  // Faturamento
+  _s('m-fat',snap.fatTotal);
+  _s('m-fat-m2',snap.fatM2);
+  _s('m-fat-porta',snap.fatPorta);
+  _s('m-fat-porta-m2',snap.fatPortaM2);
+  // Markup
+  _s('m-mkp',snap.mkp);
+  _s('m-mkp-porta',snap.mkpPorta);
+  // Margens
+  _s('pct-mb-porta',snap.mbPorta);
+  _s('pct-ml-porta',snap.mlPorta);
+  _s('pct-mb',snap.mb);
+  _s('pct-ml',snap.ml);
+  _s('pct-meta',snap.metaLucro);
+  _s('badge-st',snap.badge);
+  // DRE
+  _s('d-tab',snap.dreTab);
+  _s('d-desc-val',snap.dreDescVal);
+  _s('d-desc-pct',snap.dreDescPct);
+  _s('d-fat',snap.dreFat);
+  _s('d-imp',snap.dreImp); _s('d-imp-pct',snap.dreImpPct);
+  _s('d-rep',snap.dreRep); _s('d-rep-pct',snap.dreRepPct);
+  _s('d-rt',snap.dreRt); _s('d-rt-pct',snap.dreRtPct);
+  _s('d-gest',snap.dreGest); _s('d-gest-pct',snap.dreGestPct);
+  _s('d-custo',snap.dreCusto);
+  _s('d-lb',snap.dreLb);
+  _s('d-irpj',snap.dreIrpj);
+  _s('d-ll',snap.dreLl);
+  // M²
+  _s('r-m2',snap.m2);
+  // Sub-totais
+  _s('r-fab',snap.subFab);
+  _s('r-inst',snap.subInst);
+}
 
 /* ── Lock/Unlock orçamento ── */
 function _setOrcLock(locked){
@@ -5299,6 +5369,9 @@ function novaRevisao(){
   window._snapshotLock=false;
   _setOrcLock(false);
   window._orcLocked=false;
+  
+  // Esconder memorial de cálculo
+  var memP=document.getElementById('memorial-panel');if(memP)memP.style.display='none';
   
   // Mostrar botão GERAR CUSTO COMPLETO para recalcular
   var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='';
