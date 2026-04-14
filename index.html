@@ -16536,6 +16536,8 @@ var autoSaveTimer=null;
 var AUTOSAVE_KEY='projetta_auto_v10';
 function autoSave(){
   if(!currentId) return; // Só salva se tem orçamento nomeado
+  if(window._pendingRevision) return; // NÃO salvar enquanto edita nova revisão (senão sobrescreve Original)
+  if(window._snapshotLock) return; // NÃO salvar quando orçamento está congelado
   clearTimeout(autoSaveTimer);
   autoSaveTimer=setTimeout(function(){
     try{
