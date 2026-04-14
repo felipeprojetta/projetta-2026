@@ -5112,20 +5112,24 @@ window.loadRevisionMemorial=function(id,revIdx){
   var snapValid=_isSnapshotValid(rev?rev.snapshot:null);
   
   if(snapValid){
+    // Rodar gerarCustoTotal para preencher perfis/chapas/OS completo
+    // DEPOIS restaurar valores financeiros do SNAPSHOT por cima
     var _savedSnap=rev.snapshot;
-    // Snapshot válido: rodar gerarCustoTotal para preencher OS/perfis/chapas
-    // MAS restaurar valores do snapshot por cima depois
+    var _eName=entry?entry.name:'';
+    var _rLabel=rev?rev.label:'';
     _revDelay(function(){
       window._snapshotLock=false;
+      window._custoCalculado=false;
+      window._osGeradoUmaVez=false;
       if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
-      _revDelay(function(){
-        // Restaurar valores CONGELADOS do snapshot por cima dos recalculados
+      // Esperar gerarCustoTotal terminar (~2s), depois restaurar snapshot
+      window._onCustoCompleto=function(){
         _restoreSnapshotDisplay(_savedSnap);
-        showMemorial(_savedSnap, entry?entry.name:'', rev?rev.label:'');
+        showMemorial(_savedSnap, _eName, _rLabel);
         window._snapshotLock=true;
         _setOrcLock(true);
         _openSectionsAndScroll();
-      },2000);
+      };
     },500);
   } else {
     // Snapshot vazio: recalcular → capturar → salvar → mostrar memorial
