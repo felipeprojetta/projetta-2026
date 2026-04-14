@@ -1218,10 +1218,10 @@ window._crmItensRender=function(){
     // Common fields: Qtd, Largura, Altura
     h+='<div class="crm-row">';
     h+='<div class="crm-field"><label>Quantidade</label><input type="number" id="'+pre+'qtd" value="'+(item.qtd||1)+'" min="1" max="50"></div>';
-    h+='<div class="crm-field"><label>Largura (mm)</label><input type="number" id="'+pre+'largura" value="'+(item.largura||'')+'" placeholder="ex: 1996" min="200" max="5000" onwheel="this.blur()"></div>';
+    h+='<div class="crm-field"><label>Largura (mm)</label><input type="number" id="'+pre+'largura" value="'+(item.largura||'')+'" placeholder="ex: 1996" min="200" max="5000" onwheel="event.preventDefault()"></div>';
     h+='</div>';
     h+='<div class="crm-row">';
-    h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 6174" min="200" max="8000" onchange="crmItemAutoSelect(\''+item.id+'\')" onwheel="this.blur()"></div>';
+    h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 6174" min="200" max="8000" onchange="crmItemAutoSelect(\''+item.id+'\')" onwheel="event.preventDefault()"></div>';
     
     if(item.tipo==='porta_pivotante'){
       h+='<div class="crm-field"><label>Abertura</label><select id="'+pre+'abertura"><option value="PIVOTANTE"'+(item.abertura==='PIVOTANTE'?' selected':'')+'>Pivotante</option><option value="DOBRADIÇA"'+(item.abertura==='DOBRADIÇA'?' selected':'')+'>Dobradiça</option></select></div>';
