@@ -6804,7 +6804,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     {code:C.lar_inf_sup, desc:'LAR INF & SUP', compMM:LAR_IS,        qty:2*nFolhas,     pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
     {code:C.ved_inf_sup, desc:'VED INF & SUP', compMM:VED_IS,        qty:2*nFolhas,     pintado:true, secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 L', obs:'BNF-TECNO'},
     {code:C.canal_esc,   desc:'CANAL ESC',     compMM:CAN_E,         qty:2*nFolhas,     pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
-    {code:C.tra_hor,     desc:'TRAVESSA HORIZONTAL',  compMM:TRA_HM,        qty:N_H*nFolhas,   pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'}, // qty=ceil(H/1000) por folha
+    {code:C.tra_hor,     desc:'TRAVESSA HORIZONTAL',  compMM:TRA_HM,        qty:TRA_HOR_QTY,   pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
     {code:C.travamento,  desc:'TRAVAMENTO CAVA',compMM:TRAV_CAVA,    qty:(temCava && sis==='PA007')?N_H*nFolhas:0,   pintado:false,secao:'FOLHA', barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
     // FOLHA — frisos (friso vert = mesmo corte que trav vert)
     {code:C.friso_vert,  desc:'FRISO VERT',    compMM:TRAV_V,        qty:QTY_FRISO_VERT,  pintado:false,secao:'FRISO', barLenMM:barraMM,   lh:'90/90 A', obs:'BRUTO'},
