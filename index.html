@@ -4930,9 +4930,19 @@ window.loadRevision=function(id,revIdx){
   if(window._lockTimeout) clearTimeout(window._lockTimeout);
   if(window._layoutTimeout) clearTimeout(window._layoutTimeout);
   
-  // Bloquear recálculo se tem snapshot OU se foi enviado via CRM Pronto
+  // Bloquear recálculo se tem snapshot COM VALORES VÁLIDOS
   var hasSnap=!!rev.snapshot;
-  window._snapshotLock=hasSnap||!!rev.crmPronto;
+  // Detectar snapshot vazio (salvo antes de gerar custo)
+  var snapEmpty=false;
+  if(hasSnap){
+    var _sn=rev.snapshot;
+    var _cv=(_sn.custoTotal||'').replace(/[^\d]/g,'');
+    var _fv=(_sn.fatTotal||'').replace(/[^\d]/g,'');
+    var _tv=(_sn.tabTotal||'').replace(/[^\d]/g,'');
+    snapEmpty=(!_cv||_cv==='0')&&(!_fv||_fv==='0')&&(!_tv||_tv==='0');
+  }
+  var useSnap=hasSnap&&!snapEmpty;
+  window._snapshotLock=useSnap||!!rev.crmPronto;
   
   // Restore form data (all fields from when it was saved)
   if(rev.data){
@@ -4940,10 +4950,9 @@ window.loadRevision=function(id,revIdx){
   }
   updateBanner(entry.name, rev.label);
   
-  // Memorial de cálculo: mostrar se snapshot, esconder se não
-  if(hasSnap){
+  // Memorial de cálculo: mostrar se snapshot válido, esconder se não
+  if(useSnap){
     showMemorial(rev.snapshot, entry.name, rev.label);
-    // Restaurar valores DRE/custos/preços do snapshot nos elementos DOM
     _restoreSnapshotDisplay(rev.snapshot);
   } else {
     var memP=document.getElementById('memorial-panel');
@@ -4964,17 +4973,16 @@ window.loadRevision=function(id,revIdx){
     if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
     if(typeof planUpd==='function') try{planUpd();}catch(e){}
     if(typeof toggleInstQuem==='function') try{toggleInstQuem();}catch(e){}
-    // SÓ recalcula se NÃO tiver snapshot congelado
-    if(!hasSnap){
+    // SÓ recalcula se NÃO tiver snapshot válido congelado
+    if(!useSnap){
       if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
     }
   }, 300);
   
-  // TRAVAR orçamento se tem snapshot ou CRM Pronto
-  if(hasSnap||rev.crmPronto){
+  // TRAVAR orçamento se tem snapshot válido ou CRM Pronto
+  if(useSnap||rev.crmPronto){
     window._lockTimeout=setTimeout(function(){
       _setOrcLock(true);
-      // Ajustar mensagem do banner conforme contexto
       var lockBanner=document.getElementById('orc-lock-banner');
       if(lockBanner){
         if(rev.crmPronto){
@@ -4994,30 +5002,77 @@ window.loadRevision=function(id,revIdx){
 
 /* ── Abrir revisão com Memorial de Cálculo completo ── */
 window.loadRevisionMemorial=function(id,revIdx){
-  // 1. Carregar revisão (destrava, restaura dados, trava, mostra memorial)
+  // 1. Carregar revisão (destrava, restaura dados)
   loadRevision(id,revIdx);
   // 2. Mudar para aba orçamento
   switchTab('orcamento');
-  // 3. Após carregar, abrir todas as seções e scroll para DRE
-  setTimeout(function(){
-    // Abrir seções colapsáveis: parâmetros, fabricação, instalação, características
-    var sections=[
-      {body:'param-body',badge:'param-badge'},
-      {body:'fab-body',badge:'fab-badge'},
-      {body:'inst-body',badge:'inst-badge'},
-      {body:'carac-body',badge:'carac-badge'}
-    ];
-    sections.forEach(function(s){
-      var b=document.getElementById(s.body);
-      var bg=document.getElementById(s.badge);
-      if(b) b.style.display='block';
-      if(bg) bg.innerHTML='&#9650; fechar';
-    });
-    // 4. Scroll suave até a DRE
-    var dreEl=document.querySelector('.dre');
-    if(dreEl) dreEl.scrollIntoView({behavior:'smooth',block:'center'});
-  }, 800);
+  
+  // 3. Verificar se snapshot está vazio e precisa recalcular
+  var db=loadDB();
+  var entry=db.find(function(e){return e.id===id;});
+  var rev=entry?entry.revisions[revIdx]:null;
+  var snap=rev?rev.snapshot:null;
+  var snapEmpty=false;
+  if(snap){
+    var _cv=(snap.custoTotal||'').replace(/[^\d]/g,'');
+    var _fv=(snap.fatTotal||'').replace(/[^\d]/g,'');
+    snapEmpty=(!_cv||_cv==='0')&&(!_fv||_fv==='0');
+  }
+  
+  // 4. Se snapshot vazio ou sem snapshot: recalcular, re-capturar e travar
+  if(!snap||snapEmpty){
+    setTimeout(function(){
+      // Destravar temporariamente para recalcular
+      window._snapshotLock=false;
+      if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
+      
+      // Aguardar cálculo terminar e re-capturar
+      setTimeout(function(){
+        var newSnap=captureSnapshot();
+        // Salvar snapshot atualizado no banco
+        var db2=loadDB();
+        var ent2=db2.find(function(e){return e.id===id;});
+        if(ent2&&ent2.revisions[revIdx]){
+          ent2.revisions[revIdx].snapshot=newSnap;
+          saveDB(db2);
+        }
+        // Mostrar memorial com valores recalculados
+        var eName=ent2?ent2.name:'';
+        var rLabel=ent2&&ent2.revisions[revIdx]?ent2.revisions[revIdx].label:'';
+        showMemorial(newSnap, eName, rLabel);
+        _restoreSnapshotDisplay(newSnap);
+        // Travar
+        window._snapshotLock=true;
+        _setOrcLock(true);
+        var lockBanner=document.getElementById('orc-lock-banner');
+        if(lockBanner) lockBanner.innerHTML='🔒 CONGELADO — valores recalculados e salvos. Para editar, clique em <b>Nova Revisão</b>.';
+        
+        // Abrir seções e scroll
+        _openSectionsAndScroll();
+      }, 500);
+    }, 400);
+  } else {
+    // Snapshot válido — só abrir seções e scroll
+    setTimeout(_openSectionsAndScroll, 800);
+  }
 };
+
+function _openSectionsAndScroll(){
+  var sections=[
+    {body:'param-body',badge:'param-badge'},
+    {body:'fab-body',badge:'fab-badge'},
+    {body:'inst-body',badge:'inst-badge'},
+    {body:'carac-body',badge:'carac-badge'}
+  ];
+  sections.forEach(function(s){
+    var b=document.getElementById(s.body);
+    var bg=document.getElementById(s.badge);
+    if(b) b.style.display='block';
+    if(bg) bg.innerHTML='&#9650; fechar';
+  });
+  var dreEl=document.querySelector('.dre');
+  if(dreEl) dreEl.scrollIntoView({behavior:'smooth',block:'center'});
+}
 function _restoreSnapshotDisplay(snap){
   if(!snap) return;
   var _s=function(id,val){var el=document.getElementById(id);if(el&&val) el.textContent=val;};
