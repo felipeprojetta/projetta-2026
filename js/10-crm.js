@@ -956,6 +956,12 @@ window.crmItemAutoSelect=function(id){
       var _modTxt2=_modSel2&&_modSel2.selectedIndex>=0?(_modSel2.options[_modSel2.selectedIndex].text||'').toLowerCase():'';
       if(cavaWrap) cavaWrap.style.display=_modTxt2.indexOf('cava')>=0?'':'none';
       if(frisoWrap) frisoWrap.style.display=(_modTxt2.indexOf('friso')>=0||_modTxt2.indexOf('premium')>=0)?'':'none';
+      // Toggle friso horizontal vs vertical
+      var _isFH=(modelo==='06'||modelo==='16');
+      var fhWrap=document.getElementById(pre+'friso_h_wrap');
+      var fvWrap=document.getElementById(pre+'friso_v_wrap');
+      if(fhWrap) fhWrap.style.display=_isFH?'':'none';
+      if(fvWrap) fvWrap.style.display=_isFH?'none':'';
     }
     // Tamanho puxador: setar 1.5 default e mostrar/esconder
     var puxTamRow=document.getElementById(pre+'pux_tam_row');
@@ -1212,10 +1218,10 @@ window._crmItensRender=function(){
     // Common fields: Qtd, Largura, Altura
     h+='<div class="crm-row">';
     h+='<div class="crm-field"><label>Quantidade</label><input type="number" id="'+pre+'qtd" value="'+(item.qtd||1)+'" min="1" max="50"></div>';
-    h+='<div class="crm-field"><label>Largura (mm)</label><input type="number" id="'+pre+'largura" value="'+(item.largura||'')+'" placeholder="ex: 1996" min="200" max="5000"></div>';
+    h+='<div class="crm-field"><label>Largura (mm)</label><input type="number" id="'+pre+'largura" value="'+(item.largura||'')+'" placeholder="ex: 1996" min="200" max="5000" onwheel="this.blur()"></div>';
     h+='</div>';
     h+='<div class="crm-row">';
-    h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 6174" min="200" max="8000" onchange="crmItemAutoSelect(\''+item.id+'\')"></div>';
+    h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 6174" min="200" max="8000" onchange="crmItemAutoSelect(\''+item.id+'\')" onwheel="this.blur()"></div>';
     
     if(item.tipo==='porta_pivotante'){
       h+='<div class="crm-field"><label>Abertura</label><select id="'+pre+'abertura"><option value="PIVOTANTE"'+(item.abertura==='PIVOTANTE'?' selected':'')+'>Pivotante</option><option value="DOBRADIÇA"'+(item.abertura==='DOBRADIÇA'?' selected':'')+'>Dobradiça</option></select></div>';
@@ -1259,15 +1265,17 @@ window._crmItensRender=function(){
       var _isFrisoHoriz=(item.modelo==='06'||item.modelo==='16');
       h+='<div id="'+pre+'friso_wrap" style="'+(_temFriso?'':'display:none')+'">';
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">📐 Configuração do Friso</div>';
-      h+='<div class="crm-row">';
-      if(_isFrisoHoriz){
-        h+='<div class="crm-field"><label>Quantidade Frisos</label><input type="number" id="'+pre+'friso_h_qty" value="'+(item.friso_h_qty||3)+'" min="1" max="20"></div>';
-        h+='<div class="crm-field"><label>Espessura Friso (mm)</label><input type="number" id="'+pre+'friso_h_esp" value="'+(item.friso_h_esp||10)+'" min="1" max="50"></div>';
-      } else {
-        h+='<div class="crm-field"><label>Dist. Borda Friso (mm)</label><input type="number" id="'+pre+'dist_borda_friso" value="'+(item.dist_borda_friso||150)+'" min="0" max="500"></div>';
-        h+='<div class="crm-field"><label>Espessura Friso (mm)</label><input type="number" id="'+pre+'largura_friso" value="'+(item.largura_friso||10)+'" min="1" max="200"></div>';
-      }
-      h+='</div></div>';
+      // Friso HORIZONTAL (modelo 06/16): Quantidade + Espessura
+      h+='<div id="'+pre+'friso_h_wrap" class="crm-row" style="'+(_isFrisoHoriz?'':'display:none')+'">';
+      h+='<div class="crm-field"><label>Quantidade Frisos</label><input type="number" id="'+pre+'friso_h_qty" value="'+(item.friso_h_qty||3)+'" min="1" max="20"></div>';
+      h+='<div class="crm-field"><label>Espessura Friso (mm)</label><input type="number" id="'+pre+'friso_h_esp" value="'+(item.friso_h_esp||10)+'" min="1" max="50"></div>';
+      h+='</div>';
+      // Friso VERTICAL (outros modelos): Dist. Borda + Espessura
+      h+='<div id="'+pre+'friso_v_wrap" class="crm-row" style="'+(!_isFrisoHoriz?'':'display:none')+'">';
+      h+='<div class="crm-field"><label>Dist. Borda Friso (mm)</label><input type="number" id="'+pre+'dist_borda_friso" value="'+(item.dist_borda_friso||150)+'" min="0" max="500"></div>';
+      h+='<div class="crm-field"><label>Espessura Friso (mm)</label><input type="number" id="'+pre+'largura_friso" value="'+(item.largura_friso||10)+'" min="1" max="200"></div>';
+      h+='</div>';
+      h+='</div>';
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="'+pre+'tem_alisar"'+(item.tem_alisar?' checked':'')+' style="width:14px;height:14px"> Tem Alisar</label></div>';
       h+='<div class="crm-field"></div>';
