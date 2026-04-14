@@ -225,10 +225,29 @@ function populateProposta(){
     propImg.style.display='none';
     propPh.style.display='';
   }
-  // Fechadura mecânica
-  document.getElementById('prop-fech-mec').textContent=g('carac-fech-mec')||'—';
-  // Fechadura digital
-  document.getElementById('prop-fech-dig').textContent=g('carac-fech-dig')||'—';
+  // Fechadura mecânica — mostrar com destaque de pinos
+  var _fechMecVal=g('carac-fech-mec')||'—';
+  var _fechMecEl=document.getElementById('prop-fech-mec');
+  if(_fechMecEl){
+    if(_fechMecVal&&_fechMecVal!=='—'){
+      _fechMecEl.innerHTML='<strong style="color:#003144;font-size:105%">'+_fechMecVal.toUpperCase()+'</strong> — KESO';
+    } else {
+      _fechMecEl.textContent='—';
+    }
+  }
+  // Fechadura digital — destaque quando ativa
+  var _fechDigVal=g('carac-fech-dig')||'—';
+  var _fechDigEl=document.getElementById('prop-fech-dig');
+  var _fechDigLine=document.getElementById('prop-fech-dig-line');
+  if(_fechDigEl&&_fechDigLine){
+    if(_fechDigVal&&_fechDigVal!=='—'&&_fechDigVal!=='NÃO SE APLICA'&&_fechDigVal!=='Nenhuma'){
+      _fechDigEl.innerHTML='<strong style="color:#8e44ad;font-size:110%">✅ '+_fechDigVal.toUpperCase()+'</strong>';
+      _fechDigLine.style.cssText='background:#f3e8ff;border:2px solid #8e44ad;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700';
+    } else {
+      _fechDigEl.textContent='NÃO SE APLICA';
+      _fechDigLine.style.cssText='color:#aaa';
+    }
+  }
   // Puxador
   var puxVal=g('carac-puxador')||'—';
   document.getElementById('prop-puxador').textContent=puxVal;
