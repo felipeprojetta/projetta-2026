@@ -1560,10 +1560,7 @@ function applyPerfisToOrc(){
 
 
 /* ══ ATUALIZAR PRECOS DE CHAPAS ACM ═════════════════════ */
-var PRECO_IPI=3.25, PRECO_FRETE=3.0;
-var PRECO_FATOR=(100+PRECO_IPI+PRECO_FRETE)/100;
-var DEDUC_ACM=17.55;
-var DEDUC_ALU=15.62;
+/* Variáveis de preço removidas — chapas usam valor líquido direto */
 
 /* ══ ADICIONAR NOVA CHAPA MANUALMENTE ═══════════════════════ */
 function _addNewChapa(){
@@ -1764,53 +1761,41 @@ function _updateFabChapaResumo(){
   } else { if(aluTb)aluTb.innerHTML=''; if(aluTbl)aluTbl.style.display='none'; if(aluE)aluE.style.display=''; }
 }
 
+/* ══ PREÇOS SIMPLIFICADOS — SOMENTE LÍQUIDO FINAL ═══════════ */
+
 function renderPrecosACM(){
   var container=document.getElementById('precos-acm-container');
   if(!container) return;
-  var html='<div style="display:flex;gap:10px;margin-bottom:12px;padding:10px;background:#f8f6f0;border-radius:8px;flex-wrap:wrap">';
-  html+='<div style="flex:1;min-width:120px"><label style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted)">IPI %</label><input type="number" id="prc-ipi" value="'+PRECO_IPI+'" step="0.01" style="width:100%;padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-weight:600;text-align:right" onchange="updatePrcVars()"></div>';
-  html+='<div style="flex:1;min-width:120px"><label style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted)">Frete %</label><input type="number" id="prc-frete" value="'+PRECO_FRETE+'" step="0.01" style="width:100%;padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-weight:600;text-align:right" onchange="updatePrcVars()"></div>';
-  html+='<div style="flex:1;min-width:120px"><label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#b71c1c">Dedução ACM %</label><input type="number" id="prc-ded-acm" value="'+DEDUC_ACM+'" step="0.01" style="width:100%;padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-weight:600;text-align:right" onchange="updatePrcVars()"></div>';
-  html+='<div style="flex:1;min-width:120px"><label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#b71c1c">Dedução ALU %</label><input type="number" id="prc-ded-alu" value="'+DEDUC_ALU+'" step="0.01" style="width:100%;padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-weight:600;text-align:right" onchange="updatePrcVars()"></div>';
-  html+='</div>';
-  var allSec=[{title:'CHAPAS ACM',data:ACM_DATA,si:0,ded:DEDUC_ACM,baseA:7.5,cor:'var(--orange)',sizes:[{n:'5.0',a:7.5},{n:'6.0',a:9},{n:'7.0',a:10.5},{n:'8.0',a:12}]},
-              {title:'CHAPAS ALUMÍNIO MACIÇO',data:ALU_DATA,si:1,ded:DEDUC_ALU,baseA:4.5,cor:'var(--navy)',sizes:[{n:'3.0',a:4.5},{n:'5.0',a:7.5},{n:'6.0',a:9},{n:'6.6',a:9.9}]}];
+  var html='';
+  var allSec=[{title:'CHAPAS ACM',data:ACM_DATA,si:0,cor:'var(--orange)',sizes:[{n:'5.0',a:7.5},{n:'6.0',a:9},{n:'7.0',a:10.5},{n:'8.0',a:12}]},
+              {title:'CHAPAS ALUMÍNIO MACIÇO',data:ALU_DATA,si:1,cor:'var(--navy)',sizes:[{n:'3.0',a:4.5},{n:'5.0',a:7.5},{n:'6.0',a:9},{n:'6.6',a:9.9}]}];
   allSec.forEach(function(sec){
     html+='<div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;padding:6px 0;border-bottom:2px solid '+sec.cor+';margin:8px 0 4px">'+sec.title+'</div>';
     sec.data.forEach(function(grp,gi){
-      var noFrete=(grp.frete===false);
-      var fator=noFrete?(100+PRECO_IPI)/100:PRECO_FATOR;
-      var freteTag=noFrete?' <span style="color:#b71c1c;font-size:8px">(frete incluso)</span>':'';
       var cores={};
       grp.o.forEach(function(item){var cor=item.l.split(' · ')[0];if(!cores[cor])cores[cor]={items:[]};cores[cor].items.push(item);});
-      html+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0"><span style="font-size:11px;font-weight:700;color:#666;text-transform:uppercase">'+grp.g+freteTag+'</span>'
+      html+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0"><span style="font-size:11px;font-weight:700;color:#666;text-transform:uppercase">'+grp.g+'</span>'
         +'<button onclick="_deleteChapa('+sec.si+','+gi+')" title="Excluir grupo" style="border:none;background:none;color:#ccc;font-size:15px;cursor:pointer;padding:0 4px;line-height:1" onmouseover="this.style.color=\'#b71c1c\'" onmouseout="this.style.color=\'#ccc\'">×</button></div>';
       html+='<table style="width:100%;border-collapse:collapse;font-size:10px"><tr style="background:#f0ede8">';
       html+='<th style="padding:5px 8px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--muted)">Cor</th>';
-      html+='<th style="padding:5px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:var(--orange)">Seco (G)</th>';
-      html+='<th style="padding:5px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:var(--muted)">'+(noFrete?'+IPI (H)':'+IPI+Frt (H)')+'</th>';
-      html+='<th style="padding:5px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:var(--muted)">R$/m²</th>';
-      sec.sizes.forEach(function(sz){
-        html+='<th style="padding:5px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:#006600">Líq.'+sz.n+'</th>';
+      sec.sizes.forEach(function(sz,szi){
+        html+='<th style="padding:5px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:#006600">'+(szi===0?'Líq. ':'')+'1500×'+Math.round(sz.a/1.5*1000)+'</th>';
       });
       html+='</tr>';
       var ci=0;
       for(var cor in cores){
         var c=cores[cor]; var id='prc-'+sec.si+'-'+gi+'-'+ci;
-        var base=c.items[0]; var bA=sec.baseA;
-        var ded=sec.ded/100;
-        var G=grp.seco||0;
-        if(!G){var E5=base.p/(1-ded);G=Math.round(E5/fator*100)/100;}
-        var H=G*fator; var pm2=H/bA;
+        var base=c.items[0]; var baseA=sec.sizes[0].a;
         html+='<tr style="border-bottom:0.5px solid #e8e5e0">';
-        html+='<td style="padding:5px 8px;font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="'+cor+'">'+cor+'</td>';
-        html+='<td style="padding:2px 3px;text-align:right"><input type="number" id="'+id+'" data-si="'+sec.si+'" data-gi="'+gi+'" data-ci="'+ci+'" data-ba="'+bA+'" data-nf="'+(noFrete?1:0)+'" value="'+G.toFixed(2)+'" step="0.01" min="0" style="width:85px;padding:4px 6px;border:0.5px solid #c9c6bf;border-radius:4px;font-size:12px;text-align:right;background:#fff8f0;color:var(--orange);font-weight:700" oninput="recalcPrecoLinha(this)"></td>';
-        html+='<td style="padding:5px 8px;text-align:right;color:var(--muted);font-size:11px" id="'+id+'-h">'+H.toFixed(2)+'</td>';
-        html+='<td style="padding:5px 8px;text-align:right;color:var(--muted);font-size:11px" id="'+id+'-m2">'+pm2.toFixed(2)+'</td>';
+        html+='<td style="padding:5px 8px;font-weight:600;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="'+cor+'">'+cor+'</td>';
         sec.sizes.forEach(function(sz,szi){
-          var liq=pm2*sz.a*(1-ded);
-          var bold=szi===0?' font-weight:700;':'';
-          html+='<td style="padding:5px 8px;text-align:right;color:#006600;font-size:11px;'+bold+'" id="'+id+'-l'+szi+'">'+liq.toFixed(2)+'</td>';
+          var item=c.items[szi];
+          var val=item?item.p:Math.round(base.p*(sz.a/baseA)*100)/100;
+          if(szi===0){
+            html+='<td style="padding:2px 3px;text-align:right"><input type="number" id="'+id+'" data-si="'+sec.si+'" data-gi="'+gi+'" data-ci="'+ci+'" value="'+val.toFixed(2)+'" step="0.01" min="0" style="width:95px;padding:4px 6px;border:0.5px solid #c9c6bf;border-radius:4px;font-size:12px;text-align:right;background:#f0fff0;color:#006600;font-weight:700" oninput="_recalcLiq(this)"></td>';
+          } else {
+            html+='<td style="padding:5px 8px;text-align:right;color:#006600;font-size:11px" id="'+id+'-l'+szi+'">'+val.toFixed(2)+'</td>';
+          }
         });
         html+='</tr>'; ci++;
       }
@@ -1819,54 +1804,35 @@ function renderPrecosACM(){
   });
   container.innerHTML=html;
 }
-function updatePrcVars(){
-  PRECO_IPI=parseFloat(document.getElementById('prc-ipi').value)||3.25;
-  PRECO_FRETE=parseFloat(document.getElementById('prc-frete').value)||3;
-  PRECO_FATOR=(100+PRECO_IPI+PRECO_FRETE)/100;
-  DEDUC_ACM=parseFloat(document.getElementById('prc-ded-acm').value)||17.55;
-  DEDUC_ALU=parseFloat(document.getElementById('prc-ded-alu').value)||15.62;
-  document.querySelectorAll('input[data-si]').forEach(function(inp){recalcPrecoLinha(inp);});
-}
-function recalcPrecoLinha(inp){
-  var id=inp.id,si=parseInt(inp.dataset.si),bA=parseFloat(inp.dataset.ba)||7.5;
-  var noFrete=inp.dataset.nf==='1';
-  var G=parseFloat(inp.value)||0;
-  var ded=(si===0?DEDUC_ACM:DEDUC_ALU)/100;
-  var fator=noFrete?(100+PRECO_IPI)/100:PRECO_FATOR;
-  var H=G*fator,pm2=H/bA;
-  var el=function(s){return document.getElementById(id+s);};
-  if(el('-h'))el('-h').textContent=H.toFixed(2);
-  if(el('-m2'))el('-m2').textContent=pm2.toFixed(2);
-  // Update líquidos for each size column (l0, l1, l2, l3)
+function _recalcLiq(inp){
+  var id=inp.id,si=parseInt(inp.dataset.si);
+  var baseVal=parseFloat(inp.value)||0;
   var sizes=si===0?[7.5,9,10.5,12]:[4.5,7.5,9,9.9];
-  sizes.forEach(function(a,i){
-    if(el('-l'+i))el('-l'+i).textContent=(pm2*a*(1-ded)).toFixed(2);
-  });
+  var baseA=sizes[0];
+  for(var i=1;i<sizes.length;i++){
+    var el=document.getElementById(id+'-l'+i);
+    if(el) el.textContent=(baseVal*(sizes[i]/baseA)).toFixed(2);
+  }
 }
 function salvarPrecos(){
   var updated=0;
-  [{data:ACM_DATA,si:0,ded:DEDUC_ACM/100,bA:7.5},{data:ALU_DATA,si:1,ded:DEDUC_ALU/100,bA:4.5}].forEach(function(sec){
+  [{data:ACM_DATA,si:0,sizes:[7.5,9,10.5,12]},{data:ALU_DATA,si:1,sizes:[4.5,7.5,9,9.9]}].forEach(function(sec){
     sec.data.forEach(function(grp,gi){
-      var noFrete=(grp.frete===false);
-      var fator=noFrete?(100+PRECO_IPI)/100:PRECO_FATOR;
       var cores={};var ci=0;
       grp.o.forEach(function(item){var cor=item.l.split(' · ')[0];if(!cores[cor]){cores[cor]=ci;ci++;}});
-      grp.o.forEach(function(item){
+      grp.o.forEach(function(item,oi){
         var cor=item.l.split(' · ')[0],idx=cores[cor];
         var inp=document.getElementById('prc-'+sec.si+'-'+gi+'-'+idx);
         if(!inp)return;
-        var G=parseFloat(inp.value)||0;
-        var H=G*fator,pm2=H/sec.bA;
-        item.p=Math.round(pm2*item.a*(1-sec.ded)*100)/100;
+        var baseVal=parseFloat(inp.value)||0;
+        var baseA=sec.sizes[0];
+        item.p=Math.round(baseVal*(item.a/baseA)*100)/100;
         updated++;
       });
     });
   });
-  for(var i=0;i<20;i++){
-    var s1=document.getElementById('acm-sel-'+i);if(s1){var v1=s1.value;s1.innerHTML=mkOpts(ACM_DATA);s1.value=v1;}
-    var s2=document.getElementById('alu-sel-'+i);if(s2){var v2=s2.value;s2.innerHTML=mkOpts(ALU_DATA);s2.value=v2;}
-  }
-  alert(updated+' preços atualizados!\nFluxo: Seco(G) × '+(PRECO_FATOR).toFixed(4)+' = H → R$/m² → × área → -'+DEDUC_ACM+'%(ACM) / -'+DEDUC_ALU+'%(ALU) = LÍQUIDO (custo)\nSelects do orçamento atualizados.');
+  _refreshChapaSelects();
+  alert(updated+' preços líquidos atualizados!');
 }
 
 /* ══ INIT ════════════════════════════════════════════════ */
