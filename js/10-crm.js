@@ -1243,7 +1243,7 @@ window._crmItensRender=function(){
       // Tamanho puxador externo
       var _isExt=item.puxador==='EXTERNO'||(!_temCava&&item.modelo);
       h+='<div id="'+pre+'pux_tam_row" class="crm-row" style="'+(_isExt?'':'display:none')+'">';
-      h+='<div class="crm-field"><label>Tamanho Puxador</label><select id="'+pre+'pux_tam"><option value="1.0"'+(item.pux_tam==='1.0'?' selected':'')+'>1.0 m (1000mm)</option><option value="1.5"'+(!item.pux_tam||item.pux_tam==='1.5'?' selected':'')+'>1.5 m (1500mm)</option><option value="1.8"'+(item.pux_tam==='1.8'?' selected':'')+'>1.8 m (1800mm)</option><option value="2.0"'+(item.pux_tam==='2.0'?' selected':'')+'>2.0 m (2000mm)</option></select></div>';
+      h+='<div class="crm-field"><label>Tamanho Puxador</label><select id="'+pre+'pux_tam"><option value="1.0"'+(item.pux_tam==='1.0'?' selected':'')+'>1.0 m (1000mm)</option><option value="1.5"'+(!item.pux_tam||item.pux_tam==='1.5'?' selected':'')+'>1.5 m (1500mm)</option><option value="1.8"'+(item.pux_tam==='1.8'?' selected':'')+'>1.8 m (1800mm)</option><option value="2.0"'+(item.pux_tam==='2.0'?' selected':'')+'>2.0 m (2000mm)</option><option value="CLIENTE"'+(item.pux_tam==='CLIENTE'?' selected':'')+'>Envio pelo Cliente</option></select></div>';
       h+='</div>';
       // Config Cava — sempre renderiza, visibilidade controlada por id
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">✂️ Refilado Tampas</div>';
