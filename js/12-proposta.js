@@ -235,7 +235,7 @@ function populateProposta(){
       _fechMecEl.textContent='—';
     }
   }
-  // Fechadura digital — destaque quando ativa
+  // Fechadura digital — destaque quando ativa, fundo cinza quando não aplica
   var _fechDigVal=g('carac-fech-dig')||'—';
   var _fechDigEl=document.getElementById('prop-fech-dig');
   var _fechDigLine=document.getElementById('prop-fech-dig-line');
@@ -244,8 +244,8 @@ function populateProposta(){
       _fechDigEl.innerHTML='<strong style="color:#8e44ad;font-size:110%">✅ '+_fechDigVal.toUpperCase()+'</strong>';
       _fechDigLine.style.cssText='background:#f3e8ff;border:2px solid #8e44ad;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700';
     } else {
-      _fechDigEl.textContent='NÃO SE APLICA';
-      _fechDigLine.style.cssText='color:#aaa';
+      _fechDigEl.innerHTML='<span style="color:#999;font-weight:700">NÃO SE APLICA</span>';
+      _fechDigLine.style.cssText='background:#f0f0f0;border:1.5px solid #ccc;border-radius:6px;padding:6px 10px;margin:4px 0';
     }
   }
   // Puxador
@@ -260,6 +260,19 @@ function populateProposta(){
   }
   // Cilindro
   document.getElementById('prop-cilindro').textContent=g('carac-cilindro')||'—';
+  // Alisar — destaque
+  var _alisarCb=document.getElementById('carac-tem-alisar');
+  var _alisarEl=document.getElementById('prop-alisar');
+  var _alisarLine=document.getElementById('prop-alisar-line');
+  if(_alisarEl&&_alisarLine){
+    if(_alisarCb&&_alisarCb.checked){
+      _alisarEl.innerHTML='<strong style="color:#27ae60;font-size:110%">✅ SIM — COM ALISAR</strong>';
+      _alisarLine.style.cssText='background:#e8f5e9;border:2px solid #27ae60;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700';
+    } else {
+      _alisarEl.innerHTML='<span style="color:#999;font-weight:700">SEM ALISAR</span>';
+      _alisarLine.style.cssText='background:#f0f0f0;border:1.5px solid #ccc;border-radius:6px;padding:6px 10px;margin:4px 0';
+    }
+  }
   // Cor da chapa — from Características fields
   var corExt=g('carac-cor-ext');
   var corInt=g('carac-cor-int');
