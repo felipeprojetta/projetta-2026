@@ -51,25 +51,52 @@ function plnPecas(Lmm, Amm, fol, mod) {
       frisoDeduc = DIS_BOR_FRI + LARG_FRISO;
     }
     if (fol == 1) {
-      r.push(['TAMPA MAIOR', fW + 2*REF - frisoDeduc, G4, 2, _mAlu]);
+      if(_isMacico){
+        // Maciço 1FLH: TAMPA = L - 140 (ref Excel)
+        var _tamMac1 = L - 140;
+        r.push(['TAMPA MAIOR', _tamMac1, G4, 2, _mAlu]);
+      } else {
+        r.push(['TAMPA MAIOR', fW + 2*REF - frisoDeduc, G4, 2, _mAlu]);
+      }
     } else {
-      var base2 = G2total / 2;
-      var T1 = base2 + FGA + FGLA*2 - 1;
-      var T2 = base2 + FGLA*2 - PIV;
-      var T3 = T2 - TUB_SUP;
-      r.push(['TAMPA MAIOR 01', T1, G4, 1, _mAlu]);
-      r.push(['TAMPA MAIOR 02', T2, G4, 2, _mAlu]);
-      r.push(['TAMPA MAIOR 03', T3, G4, 1, _mAlu]);
+      if(_isMacico){
+        // Maciço 2FLH: base = (L-97)/2, T1=base+16, T2=base-PIV, T3=T2-TUB+TRANS
+        var _base2Mac = (L - 97) / 2;
+        var _T1m = _base2Mac + 16;
+        var _T2m = _base2Mac - PIV;
+        var _T3m = _T2m - TUB_SUP + TRANS_PIV;
+        r.push(['TAMPA MAIOR 01', _T1m, G4, 1, _mAlu]);
+        r.push(['TAMPA MAIOR 02', _T2m, G4, 2, _mAlu]);
+        r.push(['TAMPA MAIOR 03', _T3m, G4, 1, _mAlu]);
+      } else {
+        var base2 = G2total / 2;
+        var T1 = base2 + FGA + FGLA*2 - 1;
+        var T2 = base2 + FGLA*2 - PIV;
+        var T3 = T2 - TUB_SUP;
+        r.push(['TAMPA MAIOR 01', T1, G4, 1, _mAlu]);
+        r.push(['TAMPA MAIOR 02', T2, G4, 2, _mAlu]);
+        r.push(['TAMPA MAIOR 03', T3, G4, 1, _mAlu]);
+      }
     }
     if (mod === '11') {
       r.push(['TAMPA FRISO', DIS_BOR_FRI + (2*REF-1), G4, (fol==2) ? 4 : 2]);
       r.push(['FRISO', LARG_FRISO + 100, G4, (fol==2) ? 4 : 2]);
     }
-    r.push(['ACAB LAT 1', acabLat1, G4, nL], ['ACAB LAT 2', 90, G4, nL], ['ACAB LAT Z', 110, G4, nL]);
+    if(_isMacico){
+      // Maciço: só ACAB_LAT_Z (sem LAT_1 e LAT_2)
+      r.push(['ACAB LAT Z', 110, G4, nL]);
+    } else {
+      r.push(['ACAB LAT 1', acabLat1, G4, nL], ['ACAB LAT 2', 90, G4, nL], ['ACAB LAT Z', 110, G4, nL]);
+    }
     r.push(['U PORTAL', 221, L-REF, 1]);
     r.push(['BAT 01', 42, bH, 2], ['BAT 02Z', 51, bH, 2], ['BAT 03', 81, bH, 2]);
-    r.push(['TAP FURO', 119, bH, 3]);
-    r.push(['FIT ACAB ME', 76.5, bH, 2, _mAlu], ['FIT ACAB MA', 114.5, bH, 2, _mAlu], ['FIT ACAB FITA', 101, bH, 2, _mAlu]);
+    r.push(['TAP FURO', 119, bH, _isMacico?4:3]);
+    if(_isMacico){
+      // FIT maciço: dimensões do Excel (35, 75, 60)
+      r.push(['FIT ACAB ME', 35, bH, 2, _mAlu], ['FIT ACAB MA', 75, bH, 2, _mAlu], ['FIT ACAB FITA', 60, bH, 2, _mAlu]);
+    } else {
+      r.push(['FIT ACAB ME', 76.5, bH, 2, _mAlu], ['FIT ACAB MA', 114.5, bH, 2, _mAlu], ['FIT ACAB FITA', 101, bH, 2, _mAlu]);
+    }
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
     if (mod === '23acm' || mod === '23alu') {
       var _moldRev = (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value;
