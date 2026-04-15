@@ -291,14 +291,13 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       var _moldInf=_CENTRO-_DIS_BOR_B-_FRAME_B; // 823mm
       var _moldSup=Math.round(PA_F-_CENTRO-_DIS_BOR_B-_FRAME_B);
 
-      // Larguras das tampas (para calcular boiserie = tampa - 300)
-      var _FGLA_B=20;
-      var _G2total=L-_FGLA_B-343+256;
-      var _G3_B=L-_FGLA_B-343+218;
+      // Larguras MACIÇO (do CAD MACICO.xlsx):
+      // 1FLH: TAMPA = L - 140
+      // 2FLH: base = (L-97)/2, T1=base+16, T2=base-PIV, T3=T2-(TUB-TRANS)
+      // MOLDURA = TAMPA - 150 cada lado = TAMPA - 300
 
       if(nFolhas===1){
-        // 1 folha: 1 largura de tampa × 2 faces (frente+verso)
-        var _tampaW=_G3_B+2*_REF_B;
+        var _tampaW=L-140;
         var _boisH=Math.round(_tampaW-300);
         cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE HORIZ', compMM:_boisH,
           qty:_N_ROW*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
@@ -313,11 +312,11 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
             perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
         }
       } else {
-        // 2 folhas: 3 larguras de tampa (T1×1 face, T2×2 faces, T3×1 face)
-        var _base2=_G2total/2;
-        var _T1=Math.round(_base2+FGA+_FGLA_B*2-1);
-        var _T2=Math.round(_base2+_FGLA_B*2-PIV);
-        var _T3=Math.round(_T2-TUB);
+        // 2 folhas: fórmulas MACIÇO do CAD
+        var _baseMac=(L-97)/2;
+        var _T1=Math.round(_baseMac+16);
+        var _T2=Math.round(_baseMac-PIV);
+        var _T3=Math.round(_T2-TUB+TRANS);
         var _bH1=Math.round(_T1-300);
         var _bH2=Math.round(_T2-300);
         var _bH3=Math.round(_T3-300);
