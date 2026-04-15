@@ -2353,8 +2353,13 @@ window.crmGerarPDF=function(){
   setTimeout(function(){
     _gerarPropostaPDF(function(pdf,blob){
       pdf.save(_pdfFileName());
-      _showToast('✅ PDF baixado!','#27ae60');
-      // 2. Salvar imagens no card CRM
+      _showToast('✅ Proposta PDF baixada!','#27ae60');
+      // 2. Gerar RC (Resultado Porta) PDF download
+      setTimeout(function(){
+        if(typeof printPainelRep==='function') printPainelRep();
+        _showToast('✅ RC + Proposta baixados!','#27ae60');
+      },500);
+      // 3. Salvar imagens no card CRM
       _exportPropostaToCard(id, revLabel, function(captures){
         var nPages=captures?captures.length:0;
         _showToast('📄 '+nPages+' página(s) salvas no card','#8e44ad');
