@@ -175,8 +175,13 @@ function _checkCorMode(){
   var mod=modEl?modEl.value:'';
   var revEl=document.getElementById('plan-moldura-rev');
   var rev=revEl?revEl.value:'ACM';
-  var need=(mod==='23'&&rev==='MACICO')?'alu':'acm';
-  if(window._corMode!==need) _populateCorSelects(need);
+  var isMacico=(mod==='23'&&rev==='MACICO');
+  // Sempre manter cor ACM nos selects
+  if(window._corMode==='alu') _populateCorSelects('acm');
+  // Mostrar/esconder campo Cor Maciço
+  var macRow=document.getElementById('carac-cor-macico-row');
+  if(macRow) macRow.style.display=isMacico?'':'none';
+  window._corMode='acm';
 }
 
 /* ══ DYNAMIC BLOCKS ══════════════════════════════════════ */

@@ -43,7 +43,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
   if (mod === '10' || mod === '11' || mod === '15' || mod === '23acm' || mod === '23alu') {
     // Detectar MACICO para modelo 23
     var _isMacico = (mod === '23acm' || mod === '23alu') && (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value === 'MACICO';
-    var _mAlu = _isMacico ? 'alu' : 'acm';  // material das tampas e fits
+    var _mAlu = 'acm';  // todas peças vão no nesting ACM
     var LARG_FRISO = 0, DIS_BOR_FRI = 0, frisoDeduc = 0;
     if (mod === '11') {
       LARG_FRISO  = parseInt(document.getElementById('plan-largfriso').value) || 10;

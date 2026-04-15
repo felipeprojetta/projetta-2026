@@ -1851,27 +1851,10 @@ function _syncChapaToOrc(){
   }
   // ACM → hidden block
   var acmQty=parseInt((document.getElementById('plan-acm-qty')||{value:0}).value)||0;
-  if(window._chapasACM!==undefined&&window._chapasACM>=0) acmQty=window._chapasACM;
   var hiddenAcmSel=document.getElementById('acm-sel-1');
   if(hiddenAcmSel && acmSel){ hiddenAcmSel.value=acmSel.value; }
   var hiddenAcmQty=document.getElementById('acm-qty-1');
   if(hiddenAcmQty) hiddenAcmQty.value=acmQty;
-
-  // ALU MACIÇO → hidden block (usa plan-alu-cor e plan-alu-qty diretamente)
-  var aluSel=document.getElementById('plan-alu-cor');
-  var aluQtyEl=document.getElementById('plan-alu-qty');
-  var aluQty=aluQtyEl?parseInt(aluQtyEl.value)||0:0;
-  // Se planificador calculou _chapasALU, atualizar qty
-  if(window._chapasALU!==undefined&&window._chapasALU>=0){
-    aluQty=window._chapasALU;
-    if(aluQtyEl) aluQtyEl.value=aluQty;
-  }
-  // Garantir bloco ALU hidden existe
-  if(aluQty>0&&!document.getElementById('alu-blk-1')&&typeof addALU==='function') addALU(null,1);
-  var hiddenAluSel=document.getElementById('alu-sel-1');
-  var hiddenAluQty=document.getElementById('alu-qty-1');
-  if(hiddenAluSel && aluSel && aluSel.value) hiddenAluSel.value=aluSel.value;
-  if(hiddenAluQty) hiddenAluQty.value=aluQty;
 
   _updateFabChapaResumo();
   calc();

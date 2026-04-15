@@ -238,6 +238,7 @@ function buildCard(o,st,isFazerOrc){
       if(it.folhas&&it.folhas!=='1') parts.push(it.folhas+'fls');
       if(it.fech_dig&&it.fech_dig!==''&&it.fech_dig!=='Nenhuma') parts.push('🔒'+it.fech_dig);
       if(it.cor_ext) parts.push('🎨'+it.cor_ext);
+      if(it.cor_macico) parts.push('🔷'+it.cor_macico);
       return parts.length?('P'+(i+1)+': '+parts.join(' · ')):'';
     }).filter(Boolean);
     if(_itemInfo.length) html+='<div class="crm-card-sub" style="font-size:10px;line-height:1.5;font-weight:600">'+_itemInfo.join('<br>')+'</div>';
@@ -246,6 +247,7 @@ function buildCard(o,st,isFazerOrc){
     if(o.modelo) _singleParts.push('Mod. '+o.modelo);
     if(o.folhas&&o.folhas!=='1') _singleParts.push(o.folhas+' folhas');
     if(o.cor_ext) _singleParts.push('🎨'+o.cor_ext);
+    if(o.cor_macico) _singleParts.push('🔷'+o.cor_macico);
     if(_singleParts.length) html+='<div class="crm-card-sub" style="font-size:10px;font-weight:600">'+_singleParts.join(' · ')+'</div>';
   }
   if(o.wrep) html+='<div class="crm-card-sub" style="color:#2980b9;font-weight:700;font-size:9px">👤 Rep: '+escH(o.wrep)+'</div>';
@@ -618,7 +620,7 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-largura',opp.largura||'');setVal('crm-o-altura',opp.altura||'');
     setVal('crm-o-abertura',opp.abertura||'');setVal('crm-o-modelo',opp.modelo||'');
     setVal('crm-o-folhas',opp.folhas||'1');
-    setVal('crm-o-cor-ext',opp.cor_ext||'');setVal('crm-o-cor-int',opp.cor_int||'');
+    setVal('crm-o-cor-ext',opp.cor_ext||'');setVal('crm-o-cor-int',opp.cor_int||'');setVal('crm-o-cor-macico',opp.cor_macico||'');
     setVal('crm-o-reserva',opp.reserva||'');setVal('crm-o-agp',opp.agp||'');
     setVal('crm-o-cep',opp.cep||'');
     // Instalação
@@ -873,7 +875,7 @@ window._crmSwitchCorMode=function(itemId){
   var rev=revEl?revEl.value:'ACM';
   var mode=(mod==='23'&&rev==='MACICO')?'alu':'acm';
   var opts=_crmGetCorOptions(mode);
-  ['cor_ext','cor_int'].forEach(function(f){
+  ['cor_ext','cor_int','cor_macico'].forEach(function(f){
     var sel=document.getElementById(pre+f);
     if(sel){var v=sel.value;sel.innerHTML=opts;if(v)sel.value=v;}
   });
@@ -902,7 +904,7 @@ window.crmItemCreate=function(tipo){
     tipo:tipo,
     qtd:1,
     largura:'',altura:'',
-    cor_ext:'',cor_int:''
+    cor_ext:'',cor_int:'',cor_macico:''
   };
   if(tipo==='porta_pivotante'){
     item.modelo='';item.abertura='PIVOTANTE';item.folhas='';
@@ -1196,7 +1198,7 @@ window.crmItemSaveAndNext=function(id){
 window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
-    var fields=['qtd','largura','altura','cor_ext','cor_int'];
+    var fields=['qtd','largura','altura','cor_ext','cor_int','cor_macico'];
     if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','ripado_total','ripado_2lados']);
     if(item.tipo==='fixo') fields=fields.concat(['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material']);
     fields.forEach(function(f){
@@ -1355,6 +1357,7 @@ window._crmItensRender=function(){
     h+='<div class="crm-row">';
     h+='<div class="crm-field"><label>Cor Externa</label><select id="'+pre+'cor_ext" style="font-size:10px">'+corOpts.replace('value="'+item.cor_ext+'"','value="'+item.cor_ext+'" selected')+'</select></div>';
     h+='<div class="crm-field"><label>Cor Interna</label><select id="'+pre+'cor_int" style="font-size:10px">'+corOpts.replace('value="'+item.cor_int+'"','value="'+item.cor_int+'" selected')+'</select></div>';
+    h+='<div class="crm-field"><label>🔷 Cor Maciço</label><select id="'+pre+'cor_macico" style="font-size:10px"><option value="">— N/A —</option><option value="ALU SOLIDA METALIZADA"'+(item.cor_macico==='ALU SOLIDA METALIZADA'?' selected':'')+'>Sólida / Metalizada</option><option value="ALU MADEIRA"'+(item.cor_macico==='ALU MADEIRA'?' selected':'')+'>Madeira</option></select></div>';
     h+='</div>';
     
     // Actions
@@ -1373,7 +1376,7 @@ window._crmItensRender=function(){
   // Re-apply selected values for selects (the replace trick doesn't always work)
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
-    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','ripado_total','ripado_2lados']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int'];
+    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','cor_macico','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','ripado_total','ripado_2lados']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int','cor_macico'];
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el&&item[f]) el.value=item[f];
@@ -1458,6 +1461,7 @@ window.crmSaveOpp=function(){
     folhas:    val('crm-o-folhas')||'1',
     cor_ext:   val('crm-o-cor-ext'),
     cor_int:   val('crm-o-cor-int'),
+    cor_macico: val('crm-o-cor-macico'),
     reserva:   val('crm-o-reserva').trim(),
     itens:     _crmItensToCardData(),
     inst_quem: val('crm-o-inst-quem')||'PROJETTA',
@@ -1708,6 +1712,7 @@ function orcItemSelecionar(idx){
     setF('carac-folhas', it.folhas || '1');
     if(it.cor_ext) setF('carac-cor-ext', it.cor_ext);
     if(it.cor_int) setF('carac-cor-int', it.cor_int);
+    if(it.cor_macico) setF('carac-cor-macico', it.cor_macico);
     if(it.fech_mec) setF('carac-fech-mec', it.fech_mec);
     if(it.fech_dig) setF('carac-fech-dig', it.fech_dig);
     if(it.cilindro) setF('carac-cilindro', it.cilindro);
