@@ -346,42 +346,36 @@ function plnMaxRects(pieces, SW, SH, mode) {
     var failed=[];
     for(var i=0;i<items.length;i++){
       var p=items[i], placed=false;
-      var oris=[[p.w,p.h,false]];
-      if(p.w!==p.h && p.h<=usW && p.w<=usH) oris.push([p.h,p.w,true]);
+      // SEM ROTAÇÃO — direção do veio (todas peças mesma orientação)
 
-      // Try all existing sheets (best fit across ALL sheets)
-      var bestFit=null, bestSheet=-1, bestRot=false, bestScore=Infinity;
+      // Try all existing sheets — BSSF best fit
+      var bestFit=null, bestSheet=-1, bestScore=Infinity;
       for(var si=0;si<sheets.length;si++){
-        for(var oi=0;oi<oris.length;oi++){
-          var pw=oris[oi][0],ph=oris[oi][1],ir=oris[oi][2];
-          var fit=sheets[si].findBest(pw,ph);
-          if(fit){
-            var leftW=fit.w?0:Infinity, leftH=fit.h?0:Infinity;
-            // Score: prefer filling current sheet better
-            var score=Math.min(usW-pw,usH-ph)+si*1000;
-            for(var fi=0;fi<sheets[si].freeRects.length;fi++){
-              var r=sheets[si].freeRects[fi];
-              if(pw<=r.w&&ph<=r.h){score=Math.min(r.w-pw,r.h-ph)+si*1000;break;}
-            }
-            if(score<bestScore){bestScore=score;bestFit=fit;bestSheet=si;bestRot=ir;}
+        var fit=sheets[si].findBest(p.w,p.h);
+        if(fit){
+          // Score: minimize wasted space in the free rect
+          var freeRect=null;
+          for(var fi=0;fi<sheets[si].freeRects.length;fi++){
+            var r=sheets[si].freeRects[fi];
+            if(p.w<=r.w&&p.h<=r.h){freeRect=r;break;}
           }
+          var score=freeRect?Math.min(freeRect.w-p.w,freeRect.h-p.h):0;
+          score+=si*10000; // strongly prefer filling current sheet first
+          if(score<bestScore){bestScore=score;bestFit=fit;bestSheet=si;}
         }
       }
       if(bestFit){
-        bestFit.label=p.label;bestFit.color=p.color;bestFit.rot=bestRot;bestFit.sheet=bestSheet;
+        bestFit.label=p.label;bestFit.color=p.color;bestFit.rot=false;bestFit.sheet=bestSheet;
         sheets[bestSheet].place(bestFit);
         placed=true;
       }
       // New sheet if needed
       if(!placed){
         var ns=new MaxRectsSheet();sheets.push(ns);
-        for(var oi2=0;oi2<oris.length;oi2++){
-          var pw2=oris[oi2][0],ph2=oris[oi2][1],ir2=oris[oi2][2];
-          var fit2=ns.findBest(pw2,ph2);
-          if(fit2){
-            fit2.label=p.label;fit2.color=p.color;fit2.rot=ir2;fit2.sheet=sheets.length-1;
-            ns.place(fit2);placed=true;break;
-          }
+        var fit2=ns.findBest(p.w,p.h);
+        if(fit2){
+          fit2.label=p.label;fit2.color=p.color;fit2.rot=false;fit2.sheet=sheets.length-1;
+          ns.place(fit2);placed=true;
         }
         if(!placed) failed.push(p);
       }
@@ -400,16 +394,26 @@ function plnMaxRects(pieces, SW, SH, mode) {
     return {placed:allPlaced,failed:failed,numSheets:nonEmpty.length,aprov:aprov};
   }
 
-  // Múltiplas estratégias de ordenação
+  // Múltiplas estratégias de ordenação (SEM ROTAÇÃO)
   var strategies=[
     function(a,b){return(b.w*b.h)-(a.w*a.h);}, // area desc
-    function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h)||(b.w*b.h)-(a.w*a.h);}, // max dim desc
+    function(a,b){return b.w-a.w||b.h-a.h;}, // width desc → fills columns
     function(a,b){return b.h-a.h||b.w-a.w;}, // height desc
-    function(a,b){return b.w-a.w||b.h-a.h;}, // width desc
+    function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h)||(b.w*b.h)-(a.w*a.h);}, // max dim
     function(a,b){return(b.w+b.h)-(a.w+a.h);}, // perimeter desc
-    function(a,b){var ra=b.w/b.h,rb=a.w/a.h;return ra-rb;}, // aspect ratio
-    function(a,b){return Math.min(b.w,b.h)-Math.min(a.w,a.h)||(b.w*b.h)-(a.w*a.h);}, // min dim desc
-    function(a,b){if(a.h!==b.h)return b.h-a.h;return b.w-a.w;} // strict height
+    function(a,b){return Math.min(b.w,b.h)-Math.min(a.w,a.h)||(b.w*b.h)-(a.w*a.h);}, // min dim
+    // Height-banding: group by similar height, then width desc
+    function(a,b){var ha=Math.round(a.h/100)*100,hb=Math.round(b.h/100)*100;if(ha!==hb)return hb-ha;return b.w-a.w;},
+    // Width-banding: group by similar width, then height desc
+    function(a,b){var wa=Math.round(a.w/100)*100,wb=Math.round(b.w/100)*100;if(wa!==wb)return wb-wa;return b.h-a.h;},
+    // Tall+wide first (column packing like MaxCut)
+    function(a,b){if(a.h!==b.h)return b.h-a.h;return b.w-a.w;},
+    // Wide+tall first
+    function(a,b){if(a.w!==b.w)return b.w-a.w;return b.h-a.h;},
+    // Aspect ratio desc
+    function(a,b){return(b.w/b.h)-(a.w/a.h);},
+    // Aspect ratio asc (tall skinny first)
+    function(a,b){return(a.w/a.h)-(b.w/b.h);}
   ];
 
   var bestResult=null,bestSheets=Infinity,bestAprov=0;
@@ -418,16 +422,6 @@ function plnMaxRects(pieces, SW, SH, mode) {
     var res=packWithOrder(sorted);
     if(res.numSheets<bestSheets||(res.numSheets===bestSheets&&res.aprov>bestAprov)){
       bestSheets=res.numSheets;bestAprov=res.aprov;bestResult=res;
-    }
-    // Also try pre-rotated
-    var rotated=todo.map(function(p){
-      if(p.h>p.w&&p.h<=usW&&p.w<=usH) return {label:p.label,w:p.h,h:p.w,color:p.color};
-      return {label:p.label,w:p.w,h:p.h,color:p.color};
-    });
-    rotated.sort(strategies[si]);
-    var res2=packWithOrder(rotated);
-    if(res2.numSheets<bestSheets||(res2.numSheets===bestSheets&&res2.aprov>bestAprov)){
-      bestSheets=res2.numSheets;bestAprov=res2.aprov;bestResult=res2;
     }
   }
   if(!bestResult) bestResult={placed:[],failed:todo,numSheets:0,aprov:0};
