@@ -3101,12 +3101,27 @@ function _gerarPropostaPDF(cb){
 function _pdfFileName(){
   var agp=(document.getElementById('num-agp')||document.getElementById('crm-o-agp')||{value:''}).value||'';
   var reserva=(document.getElementById('numprojeto')||document.getElementById('crm-o-reserva')||{value:''}).value||'';
-  var cl=(document.getElementById('cliente')||{value:''}).value
-    ||(document.getElementById('crm-o-cliente')||{value:''}).value
-    ||'';
+  var cl=_getBestClientName();
   var parts=[agp,reserva,cl].filter(Boolean);
   var name=parts.join(' - ').replace(/[^a-zA-Z0-9\u00C0-\u017F \-]/g,'').replace(/ +/g,' ').trim();
   return (name||'Proposta_Projetta')+'.pdf';
+}
+
+// Fonte unificada do nome do cliente (usada por PDF e PNG)
+function _getBestClientName(){
+  // 1. Se tem card CRM vinculado, usar nome do card (mais confiável)
+  if(window._crmOrcCardId){
+    try{
+      var data=JSON.parse(localStorage.getItem('projetta_crm_v1')||'[]');
+      var card=data.find(function(o){return o.id===window._crmOrcCardId;});
+      if(card&&card.cliente) return card.cliente;
+    }catch(e){}
+  }
+  // 2. Campo CRM modal (se aberto)
+  var crmCli=(document.getElementById('crm-o-cliente')||{value:''}).value;
+  if(crmCli) return crmCli;
+  // 3. Campo orçamento
+  return (document.getElementById('cliente')||{value:''}).value||'';
 }
 
 function _showToast(msg,color){
