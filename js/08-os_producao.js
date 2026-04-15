@@ -161,7 +161,6 @@ function gerarOS(){
     return;
   }
   var nFolhas=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
-  if(nFolhas!==1){if(!window._osAutoMode)alert('OS para 2 folhas em desenvolvimento. Calculando para 1 folha.');nFolhas=1;}
   var barraMM=(parseFloat((document.getElementById('pf-barra-m')||{value:6}).value)||6)*1000;
 
   var d;
