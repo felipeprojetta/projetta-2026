@@ -1305,15 +1305,21 @@ function _autoSelectAndRun(){
           }
         }
       }
-      // ALU cor match (baseado em carac-cor-macico)
+      // ALU cor match (baseado em carac-cor-macico ou _pendingCorMacico)
       var palu=document.getElementById('plan-alu-cor');
-      var _corMacico=(document.getElementById('carac-cor-macico')||{value:''}).value.toUpperCase();
-      if(palu && _corMacico){
-        for(var ai=0;ai<palu.options.length;ai++){
-          if((palu.options[ai].text||'').toUpperCase().indexOf(_corMacico)>=0){
-            palu.selectedIndex=ai; break;
+      if(palu && palu.options.length>1){
+        var _corMacico=(document.getElementById('carac-cor-macico')||{value:''}).value.toUpperCase();
+        if(!_corMacico && window._pendingCorMacico) _corMacico=window._pendingCorMacico.toUpperCase();
+        var _aluMatched=false;
+        if(_corMacico){
+          for(var ai=0;ai<palu.options.length;ai++){
+            if((palu.options[ai].text||'').toUpperCase().indexOf(_corMacico)>=0){
+              palu.selectedIndex=ai; _aluMatched=true; break;
+            }
           }
         }
+        // Fallback: selecionar primeira opção válida
+        if(!_aluMatched && palu.selectedIndex<=0) palu.selectedIndex=1;
       }
       // Qty ACM: usar _chapasACM (planRun já separou)
       var qe=document.getElementById('plan-acm-qty');
