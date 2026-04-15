@@ -2386,8 +2386,12 @@ window.crmGerarPDF=function(){
         // 2b. Gerar Memorial de Cálculo (Resumo da Obra) PNG
         setTimeout(function(){
           if(typeof printMemorialCalculo==='function') printMemorialCalculo();
-          _showToast('✅ PDF + RC + Memorial baixados!','#27ae60');
-          delete window._pdfClienteOverride;
+          // 2c. Gerar Margens PNG
+          setTimeout(function(){
+            if(typeof printMargens==='function') printMargens();
+            _showToast('✅ PDF + RC + MC + MR baixados!','#27ae60');
+            delete window._pdfClienteOverride;
+          },700);
         },700);
       },500);
       // 3. Salvar imagens no card CRM

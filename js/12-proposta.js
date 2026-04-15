@@ -144,6 +144,114 @@ function printMemorialCalculo(){
   });
 }
 
+/* ── Margens PNG (DRE + parâmetros) ── */
+function printMargens(){
+  var cli=window._pdfClienteOverride||(typeof _getBestClientName==='function'?_getBestClientName():'—');
+  var agp=($('num-agp')||$('crm-o-agp')||{value:''}).value||'';
+  var reserva=($('numprojeto')||$('crm-o-reserva')||{value:''}).value||'';
+  var _parts=[];
+  if(agp) _parts.push(agp.replace(/\s+/g,''));
+  if(reserva) _parts.push(reserva);
+  if(cli&&cli!=='—') _parts.push(cli.replace(/[^\w\sÀ-ú]/g,'').replace(/\s+/g,'_').substring(0,30));
+  _parts.push('MR');
+  var _fname=_parts.join(' - ')+'.png';
+
+  var L=Math.round(parseFloat(($('largura')||{value:0}).value)||0);
+  var A=Math.round(parseFloat(($('altura')||{value:0}).value)||0);
+  var modEl=$('carac-modelo')||$('plan-modelo');
+  var modTxt=modEl&&modEl.selectedIndex>=0?(modEl.options[modEl.selectedIndex].text||''):'—';
+  var folTxt=($('folhas-porta')||{value:'1'}).value+' folha(s)';
+  var qtdP=parseInt(($('qtd-portas')||{value:1}).value)||1;
+
+  // Ler parâmetros de margem
+  var ov=($('overhead')||{value:'5'}).value;
+  var imp=($('impostos')||{value:'18'}).value;
+  var rep=($('com-rep')||{value:'7'}).value;
+  var rt=($('com-rt')||{value:'5'}).value;
+  var gest=($('com-gest')||{value:'1'}).value;
+  var lucro=($('lucro-alvo')||{value:'15'}).value;
+  var mkup=($('markup-desc')||{value:'20'}).value;
+  var desc=($('desconto')||{value:'20'}).value;
+
+  // Ler DRE do DOM
+  function gT(id){var el=document.getElementById(id);return el?el.textContent:'—';}
+
+  var tmp=document.createElement('div');
+  tmp.style.cssText='position:absolute;left:-9999px;top:0;width:600px;background:#fff;padding:30px;font-family:Arial,Helvetica,sans-serif;color:#1a3a4a';
+  var h='';
+  h+='<div style="background:#003144;color:#fff;padding:16px 20px;border-radius:10px 10px 0 0;text-align:center">';
+  h+='<h1 style="margin:0;font-size:18px;letter-spacing:1px">PROJETTA by WEIKU</h1>';
+  h+='<div style="font-size:11px;opacity:.7;margin-top:4px">Painel de Margens</div></div>';
+  h+='<div style="border:1px solid #ddd;border-top:none;border-radius:0 0 10px 10px;padding:20px">';
+  // Info cliente
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px 20px;margin-bottom:16px;font-size:11px;color:#555">';
+  h+='<span>Cliente: <b style="color:#003144">'+cli+'</b></span>';
+  if(agp) h+='<span>AGP: <b style="color:#003144">'+agp+'</b></span>';
+  if(reserva) h+='<span>Reserva: <b style="color:#003144">'+reserva+'</b></span>';
+  h+='<span>'+L+' × '+A+' mm · '+modTxt+' · '+folTxt+' · '+qtdP+' porta(s)</span>';
+  h+='</div>';
+  // Tabela parâmetros
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px">';
+  h+='<tr style="background:#f0ede8"><th colspan="2" style="padding:6px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#888">Parâmetros de Margem</th></tr>';
+  var params=[
+    ['Overhead (custos indiretos)',ov+'%'],
+    ['Impostos sobre receita',imp+'%'],
+    ['Comissão representante',rep+'%'],
+    ['Comissão RT / arquiteto',rt+'%'],
+    ['Comissão gestão interna',gest+'%'],
+    ['Lucro líquido alvo',lucro+'%'],
+    ['Markup de desconto',mkup+'%'],
+    ['Desconto negociado',desc+'%']
+  ];
+  params.forEach(function(p){
+    h+='<tr><td style="padding:5px 10px;border-bottom:1px solid #eee">'+p[0]+'</td>';
+    h+='<td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#003144">'+p[1]+'</td></tr>';
+  });
+  h+='</table>';
+  // DRE resumida
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h+='<tr style="background:#003144;color:#fff"><th colspan="2" style="padding:6px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em">DRE Simplificada</th></tr>';
+  var dre=[
+    ['(+) Preço tabela',gT('d-tab'),'#003144'],
+    ['(−) Desconto',gT('d-desc-val'),'#c0392b'],
+    ['(=) Receita faturamento',gT('d-fat'),'#e67e22'],
+    ['(−) Impostos',gT('d-imp'),'#c0392b'],
+    ['(−) Comissão rep.',gT('d-rep'),'#c0392b'],
+    ['(−) Comissão RT',gT('d-rt'),'#c0392b'],
+    ['(−) Comissão gestão',gT('d-gest'),'#c0392b'],
+    ['(−) Custo total',gT('d-custo'),'#c0392b'],
+    ['(=) Lucro bruto',gT('d-lb'),'#1a5276'],
+    ['(−) IRPJ+CSLL 34%',gT('d-irpj'),'#c0392b'],
+    ['(=) LUCRO LÍQUIDO',gT('d-ll'),'#27ae60']
+  ];
+  dre.forEach(function(d,i){
+    var bg=i===dre.length-1?'#f0fff0':(i===2?'#fff8f0':'#fff');
+    var fw=i===dre.length-1||i===2||i===8?'800':'400';
+    var fs=i===dre.length-1?'14px':'12px';
+    h+='<tr style="background:'+bg+'"><td style="padding:5px 10px;border-bottom:1px solid #eee;font-weight:'+fw+'">'+d[0]+'</td>';
+    h+='<td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;font-size:'+fs+';color:'+d[2]+'">'+d[1]+'</td></tr>';
+  });
+  h+='</table>';
+  h+='<div style="margin-top:16px;font-size:9px;color:#aaa;text-align:center">Gerado em '+new Date().toLocaleString('pt-BR')+' — Projetta 2026</div>';
+  h+='</div>';
+  tmp.innerHTML=h;
+  document.body.appendChild(tmp);
+
+  html2canvas(tmp,{scale:3,useCORS:true,backgroundColor:'#ffffff'}).then(function(canvas){
+    document.body.removeChild(tmp);
+    canvas.toBlob(function(blob){
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement('a');
+      a.href=url;a.download=_fname;
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(url);},1000);
+    },'image/png');
+  }).catch(function(err){
+    document.body.removeChild(tmp);
+    console.error('Erro ao gerar Margens PNG:',err);
+  });
+}
+
 function printProposta(){
   populateProposta();
   switchTab('proposta');
