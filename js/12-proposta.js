@@ -567,7 +567,7 @@ function renderPerfisDB(){
     if(pfFCod  && (p.c||'').toUpperCase().indexOf(pfFCod)<0)  return;
     if(pfFDesc && (p.d||'').toUpperCase().indexOf(pfFDesc)<0) return;
     if(pfFForn && (p.f||'').toUpperCase().indexOf(pfFForn)<0) return;
-    var effBarraM=barraM;if(p.c&&/-7M$/.test(p.c))effBarraM=7;else if(p.c&&/-8M$/.test(p.c))effBarraM=8;var kgBarra=(p.kg*effBarraM);
+    var effBarraM=barraM;if(p.c&&/-7M$/.test(p.c))effBarraM=7;else if(p.c&&/-8M$/.test(p.c))effBarraM=8;var kgBarra=Math.round(p.kg*effBarraM*100)/100;
     var precoKg=liqMerc;
     if(p.f==='TECNOPERFIL') precoKg=liqTecno;
     else if(p.f==='WEIKU') precoKg=liqWeiku;
