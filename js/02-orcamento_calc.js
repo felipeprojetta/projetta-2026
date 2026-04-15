@@ -269,6 +269,7 @@ function calc(){
       _diasEl.dataset.auto='1';
       var _dLbl=document.getElementById('dias-auto');
       if(_dLbl) _dLbl.textContent=_qPh>1?'(auto: '+_dPerDoor+'d × '+_qPh+'p = '+_dAuto+'d)':'(auto: '+_dAuto+' dia'+(_dAuto>1?'s':'')+')';
+    }
   }
   // Auto-calc Quantidade de pessoas — só quando OS foi gerada e altura preenchida
   var _maxAlt=_altMM2;
