@@ -209,6 +209,38 @@ function gerarOS(){
   el('os-folhas').textContent=nFolhas+' folha'+(nFolhas>1?'s':'');
   el('os-modelo').textContent=modelo?'Modelo '+modelo:'—';
 
+  // ── Chapa Frontal — referência para conferência manual ──
+  var _cfDiv=el('os-chapa-frontal');
+  if(_cfDiv){
+    var _cfTUB=(d.sis==='PA007')?51:38;
+    var _cfRows='';
+    if(window._mpItens && window._mpItens.length>1){
+      window._mpItens.forEach(function(it,idx){
+        var _mL=parseInt(it.largura)||0, _mA=parseInt(it.altura)||0;
+        var _mG4=Math.round(_mA-10-_cfTUB-28+8);
+        var _mG3=Math.round(_mL-20-343+218);
+        var _mG2=Math.round((_mL-20-343+256)/2);
+        _cfRows+='<div style="display:flex;gap:16px;align-items:center;padding:2px 0">'
+          +'<span style="font-size:10px;font-weight:800;color:#003144">P'+(idx+1)+' ('+_mL+'×'+_mA+')</span>'
+          +'<span style="font-size:11px">ALT: <b>'+_mG4+'</b></span>'
+          +'<span style="font-size:11px;color:#1a5276">LAR 1flh: <b>'+_mG3+'</b></span>'
+          +'<span style="font-size:11px;color:#6c3483">LAR 2flh: <b>'+_mG2+'</b></span></div>';
+      });
+    } else {
+      var _cfG4=Math.round(H-10-_cfTUB-28+8);
+      var _cfG3=Math.round(L-20-343+218);
+      var _cfG2=Math.round((L-20-343+256)/2);
+      _cfRows='<div style="display:flex;gap:16px;align-items:center">'
+        +'<span style="font-size:11px">ALT: <b>'+_cfG4+'</b> mm</span>'
+        +'<span style="font-size:11px;color:#1a5276">LAR 1 folha: <b>'+_cfG3+'</b> mm</span>'
+        +'<span style="font-size:11px;color:#6c3483">LAR 2 folhas: <b>'+_cfG2+'</b> mm</span></div>';
+    }
+    _cfDiv.style.display='';
+    _cfDiv.innerHTML='<div style="background:#f0f7ff;border:1px solid #b0cfe0;border-radius:6px;padding:8px 14px">'
+      +'<span style="font-size:10px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:.04em">📐 Chapa Frontal (ref.)</span>'
+      +_cfRows+'</div>';
+  }
+
   // ── Render seção genérica ────────────────────────────────────────────────
   function renderSecao(secao,tbodyId,tfootId,themeColor){
     var tbody=el(tbodyId); if(!tbody)return;
