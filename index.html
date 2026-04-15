@@ -3188,6 +3188,28 @@ Equipe Projetta by Weiku</textarea>
       </div>
     </div>
 
+    <!-- MOLDURAS (modelo 23) -->
+    <div id="plan-moldura-row" style="display:none;background:#f3e5f5;border:1.5px solid #9c27b0;border-radius:7px;padding:9px 12px;margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;color:#6a1b9a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🏛️ Modelo 23 — Molduras</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end">
+        <div class="fr" style="border:none;padding:0;gap:8px;flex:1;min-width:140px">
+          <span class="fl" style="font-size:12px;font-weight:700">Revestimento</span>
+          <select id="plan-moldura-rev" onchange="planUpd();_osAutoUpdate()" style="padding:5px 8px;border:1.5px solid #9c27b0;border-radius:6px;font-size:12px;background:#fce4ec;color:#6a1b9a;font-weight:700">
+            <option value="ACM">ACM 4mm</option>
+            <option value="MACICO">Maciço 2.5mm (Boiserie)</option>
+          </select>
+        </div>
+        <div class="fr" style="border:none;padding:0;gap:8px;flex:0 0 100px">
+          <span class="fl" style="font-size:12px;font-weight:700">Molduras Larg.</span>
+          <input type="number" id="plan-moldura-larg-qty" value="2" min="1" max="6" step="1" onchange="planUpd();_osAutoUpdate()" style="width:50px;padding:5px 8px;border:1.5px solid #9c27b0;border-radius:6px;font-size:14px;background:#fce4ec;color:#6a1b9a;font-weight:900;text-align:center">
+        </div>
+        <div class="fr" style="border:none;padding:0;gap:8px;flex:0 0 100px">
+          <span class="fl" style="font-size:12px;font-weight:700">Molduras Alt.</span>
+          <input type="number" id="plan-moldura-alt-qty" value="2" min="1" max="6" step="1" onchange="planUpd();_osAutoUpdate()" style="width:50px;padding:5px 8px;border:1.5px solid #9c27b0;border-radius:6px;font-size:14px;background:#fce4ec;color:#6a1b9a;font-weight:900;text-align:center">
+        </div>
+      </div>
+    </div>
+
     <!-- SELEÇÃO DE COR DA CHAPA -->
     <div style="margin-bottom:10px;border:1px solid var(--orange);border-radius:8px;padding:10px 12px;background:#fff8f0">
       <div style="font-size:10px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Cor da chapa e quantidade para orçamento</div>

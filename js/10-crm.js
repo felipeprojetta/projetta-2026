@@ -962,6 +962,9 @@ window.crmItemAutoSelect=function(id){
       var fvWrap=document.getElementById(pre+'friso_v_wrap');
       if(fhWrap) fhWrap.style.display=_isFH?'':'none';
       if(fvWrap) fvWrap.style.display=_isFH?'none':'';
+      // Toggle moldura section for modelo 23
+      var moldWrap=document.getElementById(pre+'moldura_wrap');
+      if(moldWrap) moldWrap.style.display=(modelo==='23')?'':'none';
     }
     // Tamanho puxador: setar 1.5 default e mostrar/esconder
     var puxTamRow=document.getElementById(pre+'pux_tam_row');
@@ -1163,7 +1166,7 @@ window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
     var fields=['qtd','largura','altura','cor_ext','cor_int'];
-    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado']);
+    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty']);
     if(item.tipo==='fixo') fields=fields.concat(['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material']);
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
@@ -1276,6 +1279,18 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"><label>Espessura Friso (mm)</label><input type="number" id="'+pre+'largura_friso" value="'+(item.largura_friso||10)+'" min="1" max="200"></div>';
       h+='</div>';
       h+='</div>';
+      // Config Molduras — visível apenas para modelo 23
+      var _isMoldura=(item.modelo==='23');
+      h+='<div id="'+pre+'moldura_wrap" style="'+(_isMoldura?'':'display:none')+'">';
+      h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🏛️ Configuração de Molduras</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Revestimento</label><select id="'+pre+'moldura_rev"><option value="ACM"'+(item.moldura_rev==='ACM'||!item.moldura_rev?' selected':'')+'>ACM 4mm</option><option value="MACICO"'+(item.moldura_rev==='MACICO'?' selected':'')+'>Maciço 2.5mm (Boiserie)</option></select></div>';
+      h+='</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Molduras na Largura</label><input type="number" id="'+pre+'moldura_larg_qty" value="'+(item.moldura_larg_qty||2)+'" min="1" max="6" onwheel="event.preventDefault()"></div>';
+      h+='<div class="crm-field"><label>Molduras na Altura</label><input type="number" id="'+pre+'moldura_alt_qty" value="'+(item.moldura_alt_qty||2)+'" min="1" max="6" onwheel="event.preventDefault()"></div>';
+      h+='</div>';
+      h+='</div>';
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="'+pre+'tem_alisar"'+(item.tem_alisar?' checked':'')+' style="width:14px;height:14px"> Tem Alisar</label></div>';
       h+='<div class="crm-field"></div>';
@@ -1319,7 +1334,7 @@ window._crmItensRender=function(){
   // Re-apply selected values for selects (the replace trick doesn't always work)
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
-    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int'];
+    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int'];
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el&&item[f]) el.value=item[f];
@@ -1352,6 +1367,7 @@ window._crmItensToCardData=function(){
       clean.dist_borda_cava=item.dist_borda_cava||'210';clean.largura_cava=item.largura_cava||'150';clean.cantoneira_cava=item.cantoneira_cava||'30';
       clean.dist_borda_friso=item.dist_borda_friso||'';clean.largura_friso=item.largura_friso||'';clean.refilado=item.refilado||'20';
       clean.friso_vert=item.friso_vert||'0';clean.friso_horiz=item.friso_horiz||'0';clean.friso_h_qty=item.friso_h_qty||'3';clean.friso_h_esp=item.friso_h_esp||'10';clean.tem_alisar=!!item.tem_alisar;
+      clean.moldura_rev=item.moldura_rev||'ACM';clean.moldura_larg_qty=item.moldura_larg_qty||'2';clean.moldura_alt_qty=item.moldura_alt_qty||'2';
     }
     if(item.tipo==='fixo'){
       clean.tipo_vidro=item.tipo_vidro||'';clean.tipo_fixacao=item.tipo_fixacao||'';clean.revestimento_lados=item.revestimento_lados||'2';clean.tem_estrutura=item.tem_estrutura||'SIM';clean.tipo_material=item.tipo_material||'ACM';
@@ -1662,6 +1678,10 @@ function orcItemSelecionar(idx){
     // Modelo 06/16: carregar quantidade e espessura friso horizontal
     if(it.friso_h_qty) setF('plan-friso-h-qty', it.friso_h_qty);
     if(it.friso_h_esp) setF('plan-friso-h-esp', it.friso_h_esp);
+    // Modelo 23: carregar configuração de molduras
+    if(it.moldura_rev) setF('plan-moldura-rev', it.moldura_rev);
+    if(it.moldura_larg_qty) setF('plan-moldura-larg-qty', it.moldura_larg_qty);
+    if(it.moldura_alt_qty) setF('plan-moldura-alt-qty', it.moldura_alt_qty);
     if(it.refilado) setF('plan-refilado', it.refilado);
     var _alisarEl = document.getElementById('carac-tem-alisar');
     if(_alisarEl) _alisarEl.checked = !!it.tem_alisar;

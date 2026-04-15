@@ -265,7 +265,43 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     {code:C.tra_portal,  desc:'TRA PORTAL',    compMM:TRA_PO,        qty:3,             pintado:false,secao:'PORTAL',barLenMM:barraMM,   lh:'90/90 L', obs:'BRUTO'},
   ];
 
-  cuts.forEach(function(c){c.perf=getPerf(c.code);c.kgM=c.perf?c.perf.kg:0;});
+  // ── MODELO 23 MACIÇO: adicionar barras PA-PERFILBOISERIE ──────────────────
+  if(modeloSel==='23'){
+    var _moldRev=(document.getElementById('plan-moldura-rev')||{value:'ACM'}).value;
+    if(_moldRev==='MACICO'){
+      var _DIS_BOR=150, _FRAME=75, _CENTRO=1048;
+      var _N_COL=parseInt((document.getElementById('plan-moldura-larg-qty')||{value:2}).value)||2;
+      var _N_ROW=parseInt((document.getElementById('plan-moldura-alt-qty')||{value:2}).value)||2;
+      var _folhaMult=nFolhas===2?4:2; // frente+verso × folhas
+
+      // Alturas molduras
+      var _moldInf=_CENTRO-_DIS_BOR-_FRAME; // 823mm
+      var _moldSup=Math.round(PA_F-_CENTRO-_DIS_BOR-_FRAME);
+
+      // Largura painéis (usar LAR_IS como base da largura visível da folha)
+      var _visW=LAR_IS+110+110; // ≈ VED_IS = largura visível interna
+      var _panelW=Math.round((_visW-2*_DIS_BOR-(_N_COL+1)*_FRAME)/_N_COL);
+
+      // Barras horizontais: comprimento = largura painel
+      cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE HORIZ', compMM:_panelW,
+        qty:_N_COL*(_N_ROW+1)*_folhaMult, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'BNF-TECNO',
+        perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
+
+      // Barras verticais inferiores: comprimento = 823mm
+      cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT INF', compMM:_moldInf,
+        qty:(_N_COL+1)*_folhaMult, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'BNF-TECNO',
+        perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
+
+      // Barras verticais superiores (se N_ROW >= 2)
+      if(_N_ROW>=2 && _moldSup>50){
+        cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT SUP', compMM:_moldSup,
+          qty:(_N_COL+1)*_folhaMult, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'BNF-TECNO',
+          perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
+      }
+    }
+  }
+
+  cuts.forEach(function(c){if(!c.perf){c.perf=getPerf(c.code);c.kgM=c.perf?c.perf.kg:0;}else{c.kgM=c.perf.kg||0;}});
 
   // ── Regra de emenda: corte > barLen-10mm → split em peças ──────────────────
   // PA007P/F/V podem usar 7m e 8m. Todos os outros: max 6m.
@@ -310,7 +346,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   var groups={},seenKeys=[];
   cuts.forEach(function(c){
     var key=c.code;
-    if(!groups[key]){groups[key]={code:key,allCuts:[],pintado:c.pintado,barLenMM:c.barLenMM,perf:c.perf,precoKg:getPrecoKg(c.perf),precoKgBru:getPrecoKgBru(c.perf)};seenKeys.push(key);}
+    if(!groups[key]){groups[key]={code:key,allCuts:[],pintado:c.pintado,barLenMM:c.barLenMM,perf:c.perf,precoKg:getPrecoKg(c.perf),precoKgBru:getPrecoKgBru(c.perf),_isBoiserie:!!c._isBoiserie,_barPrice:c._barPrice||0};seenKeys.push(key);}
     for(var i=0;i<c.qty;i++){
       // Se é emenda: inserir as peças individualmente no FFD
       if(c.isSplit && c.splitPieces){
@@ -337,6 +373,11 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     var custoPintura=g.pintado?kgBruto*precoPint:0;
     var custoPerfilBru =kgBruto*g.precoKgBru;
     var custoPinturaBru=g.pintado?kgBruto*precoPintBru:0;
+    // Boiserie: preço fixo por barra (R$150), não por kg
+    if(g._isBoiserie && g._barPrice){
+      custoPerfil=nBars*g._barPrice;
+      custoPerfilBru=nBars*g._barPrice;
+    }
     var barsDetail=bars.map(function(b){
       return {len:b.barLen,items:b.items.slice().sort(function(a,x){return x-a;}),
               remaining:b.remaining,sobra:b.sobra!=null?b.sobra:b.remaining};

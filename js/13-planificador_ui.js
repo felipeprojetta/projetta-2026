@@ -68,26 +68,45 @@ function plnPecas(Lmm, Amm, fol, mod) {
     r.push(['TAP FURO', 119, bH, 3], ['FIT ACAB ME', 76.5, bH, 2], ['FIT ACAB MA', 114.5, bH, 2], ['FIT ACAB FITA', 101, bH, 2]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
     if (mod === '23acm' || mod === '23alu') {
-      var DIS_BOR_M = parseInt(document.getElementById('plan-disbordafriso').value) || 210;
-      var moldAlt1 = 1020 + PIV - DIS_BOR_M/2 - DIS_BOR_M; // = 1048 - 1.5*DIS_BOR = 823
-      var moldAlt2 = G4 - DIS_BOR_M*3 - moldAlt1;           // = 2932 - 450 - 823 = 1659
+      var _moldRev = (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value;
+      // Molduras só geram peças ACM quando revestimento = ACM
+      if (_moldRev !== 'MACICO') {
+      var DIS_BOR_M = 150; // fixo: distância borda moldura
+      var FRAME_W = 75;    // largura do frame moldura
+      var CENTRO = 1048;   // centro fixo (base da fechadura)
+      var N_COL = parseInt((document.getElementById('plan-moldura-larg-qty')||{value:2}).value)||2;
+      var N_ROW = parseInt((document.getElementById('plan-moldura-alt-qty')||{value:2}).value)||2;
+      var folhaMult = fol == 2 ? 4 : 2; // frente+verso × folhas
+
+      // Alturas dos painéis
+      var moldAltInf = CENTRO - DIS_BOR_M - FRAME_W; // 823mm (inferior)
+      var moldAltSup = G4 - CENTRO - DIS_BOR_M - FRAME_W; // superior
+
+      // Largura dos painéis (1 folha)
       if (fol == 1) {
-        var moldLar = G3 - DIS_BOR_M*2;                     // = 1355 - 300 = 1055
-        r.push(['MOLD LAR', 143, moldLar, 8]);
-        r.push(['MOLD ALT1', 143, moldAlt1, 4]);
-        if (moldAlt2 > 50) r.push(['MOLD ALT2', 143, moldAlt2, 4]);
+        var panelW = (G3 - 2*DIS_BOR_M - (N_COL+1)*FRAME_W) / N_COL;
+        // Horizontal: por coluna × (linhas+1) barras
+        r.push(['MOLD LAR', 143, Math.round(panelW), N_COL * (N_ROW+1) * folhaMult]);
       } else {
-        // 2FLH: 3 tamanhos de MOLD LAR baseados nas TAMPAS visíveis
+        // 2 folhas: cada folha tem largura diferente
         var b2 = G2total / 2;
-        var vis1 = b2 + FGA + FGLA*2 - 1 - REF*2;  // T1 visible = 705.5
-        var vis2 = b2 + FGLA*2 - PIV - REF*2;       // T2 visible = 668.5
-        var vis3 = vis2 - TUB_SUP;                   // T3 visible = 630.5
-        r.push(['MOLD LAR 01', 143, vis1 - DIS_BOR_M*2, 4]);
-        r.push(['MOLD LAR 02', 143, vis2 - DIS_BOR_M*2, 8]);
-        r.push(['MOLD LAR 03', 143, vis3 - DIS_BOR_M*2, 4]);
-        r.push(['MOLD ALT1', 143, moldAlt1, 8]);
-        if (moldAlt2 > 50) r.push(['MOLD ALT2', 143, moldAlt2, 8]);
+        var vis1 = b2 + FGA + FGLA*2 - 1 - REF*2;
+        var vis2 = b2 + FGLA*2 - PIV - REF*2;
+        var vis3 = vis2 - TUB_SUP;
+        var panelW1 = (vis1 - 2*DIS_BOR_M - (N_COL+1)*FRAME_W) / N_COL;
+        var panelW2 = (vis2 - 2*DIS_BOR_M - (N_COL+1)*FRAME_W) / N_COL;
+        var panelW3 = (vis3 - 2*DIS_BOR_M - (N_COL+1)*FRAME_W) / N_COL;
+        r.push(['MOLD LAR 01', 143, Math.round(panelW1), N_COL * (N_ROW+1) * 2]); // folha 1 frente+verso
+        r.push(['MOLD LAR 02', 143, Math.round(panelW2), N_COL * (N_ROW+1) * 4]); // folha 2 (×2 tampas)
+        r.push(['MOLD LAR 03', 143, Math.round(panelW3), N_COL * (N_ROW+1) * 2]); // folha 2 menor
       }
+      // Vertical inferior (823mm)
+      r.push(['MOLD ALT INF', 143, moldAltInf, (N_COL+1) * folhaMult]);
+      // Vertical superior (se N_ROW >= 2)
+      if (N_ROW >= 2 && moldAltSup > 50) {
+        r.push(['MOLD ALT SUP', 143, Math.round(moldAltSup), (N_COL+1) * folhaMult]);
+      }
+      } // end if not MACICO
     }
     if (mod === '15') {
       var qtdRipas15 = Math.ceil((fW - acabLat1*2 - 90 - 110) / 90);
@@ -774,6 +793,9 @@ function planUpd() {
   document.getElementById('plan-friso-row').style.display=isFriso?'':'none';
   var frisoHRow=document.getElementById('plan-friso-h-row');
   if(frisoHRow) frisoHRow.style.display=isFrisoH?'':'none';
+  // Moldura row (modelo 23)
+  var moldRow=document.getElementById('plan-moldura-row');
+  if(moldRow) moldRow.style.display=(Mv==='23acm'||Mv==='23alu')?'':'none';
   // Update friso-h calc preview
   if(isFrisoH&&Lv>0&&Av>0){
     var _nf=parseInt((document.getElementById('plan-friso-h-qty')||{value:3}).value)||3;

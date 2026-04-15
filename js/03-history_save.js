@@ -70,7 +70,7 @@ function captureFormData(){
     'folhas-porta','rep-sel','cep-cliente','ac-fechadura','qtd-fechaduras',
     'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
-    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-acm-cor','plan-acm-qty',
+    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-acm-cor','plan-acm-qty',
     'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
     'dias','pessoas','diaria','km','carros','desl-override','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp',
     'overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto','markup-desc'];
@@ -214,7 +214,7 @@ function restoreFormData(data){
     'folhas-porta','rep-sel','cep-cliente','ac-fechadura','qtd-fechaduras',
     'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
-    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-acm-cor','plan-acm-qty',
+    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-acm-cor','plan-acm-qty',
     'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
     'dias','pessoas','diaria','km','carros','desl-override','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp',
     'overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto'];
