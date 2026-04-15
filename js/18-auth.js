@@ -1296,6 +1296,22 @@ function _updateResumoObra(){
   var subAcm=parseFloat((document.getElementById('sub-acm')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
   var pesoChapa=window._planPesoBrutoACM||0;
   document.getElementById('ro-chapas-qty').textContent=chapasQty+' chapa(s)';
+  // Tamanho e cor da chapa
+  var _chapaInfo=[];
+  var _acmCorEl=document.getElementById('plan-acm-cor');
+  if(_acmCorEl&&_acmCorEl.selectedIndex>=0){
+    var _corTxt=_acmCorEl.options[_acmCorEl.selectedIndex].text||'';
+    if(_corTxt) _chapaInfo.push(_corTxt);
+  }
+  var _chapaTam='';
+  if(window.PLN_SD){_chapaTam=(window.PLN_SD.w||1500)+'×'+(window.PLN_SD.h||6000)+'mm';}
+  else{
+    var _csEl=document.getElementById('plan-tamanho');
+    if(_csEl&&_csEl.value) _chapaTam=_csEl.value.replace('x','×')+'mm';
+  }
+  if(_chapaTam) _chapaInfo.push(_chapaTam);
+  var _infoEl=document.getElementById('ro-chapas-info');
+  if(_infoEl) _infoEl.textContent=_chapaInfo.join(' | ')||'';
   document.getElementById('ro-chapas-peso').textContent=pesoChapa>0?pesoChapa.toFixed(1)+' kg':'';
   document.getElementById('ro-chapas-val').textContent=brl(subAcm);
 
