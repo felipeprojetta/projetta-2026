@@ -333,8 +333,8 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     }
     var _ripMult = (_rip2L ? 2 : 1) * nFolhas;
     var _totalRipas = _nRipas * _ripMult;
-    // Suporte: tubo 51×25, comprimento 500mm, qty = ceil(PA_F/500) × total ripas
-    var _nSupPorRipa = Math.ceil(PA_F / 500);
+    // Suporte: tubo 51×25, comprimento 500mm, qty = round(PA_F/1000) × total ripas (500 colado + 500 vão)
+    var _nSupPorRipa = Math.max(1, Math.round(PA_F / 1000));
     var _totalSup = _nSupPorRipa * _totalRipas;
     cuts.push({code:'PA-51X25X1.5', desc:'SUPORTE RIPA 51×25', compMM:500,
       qty:_totalSup, pintado:false, secao:'FOLHA', barLenMM:barraMM,

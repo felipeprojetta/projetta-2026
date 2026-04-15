@@ -31,7 +31,7 @@ function aprovPieces(Lmm,Amm,fol,mod){
       var _nRipas=_ripTotal?Math.max(1,Math.round(fW/90)):Math.max(1,Math.round((fW-180)/90));
       var _ripMult=(_rip2L?2:1)*((fol==2)?2:1);
       r.push(['RIPAS',98,G4,_nRipas*_ripMult]);
-      var _nSuportes=Math.ceil(G4/500)*_nRipas*_ripMult;
+      var _nSuportes=Math.max(1,Math.round(G4/1000))*_nRipas*_ripMult;
       r.push(['SUPORTE RIPA',51,500,_nSuportes]);
     }
   }
@@ -56,7 +56,7 @@ function aprovPieces(Lmm,Amm,fol,mod){
       var _nRipas=_ripTotal?Math.max(1,Math.round(fW/90)):Math.max(1,Math.round((fW-330)/90));
       var _ripMult=(_rip2L?2:1)*((fol==2)?2:1);
       r.push(['RIPAS',98,G4,_nRipas*_ripMult]);
-      var _nSuportes=Math.ceil(G4/500)*_nRipas*_ripMult;
+      var _nSuportes=Math.max(1,Math.round(G4/1000))*_nRipas*_ripMult;
       r.push(['SUPORTE RIPA',51,500,_nSuportes]);
     }
   }
