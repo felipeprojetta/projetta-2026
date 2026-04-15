@@ -33,7 +33,7 @@ function printPainelRep(){
   if(reserva) _pdfParts.push(reserva);
   if(cli&&cli!=='—') _pdfParts.push(cli.replace(/[^\w\sÀ-ú]/g,'').replace(/\s+/g,'_').substring(0,30));
   _pdfParts.push('RC');
-  var _pdfName=_pdfParts.join(' - ')+'.pdf';
+  var _pdfName=_pdfParts.join(' - ')+'.png';
 
   // Criar div temporário para captura
   var tmp=document.createElement('div');
@@ -73,23 +73,23 @@ function printPainelRep(){
   tmp.innerHTML=h;
   document.body.appendChild(tmp);
 
-  // Capturar e gerar PDF com download direto
-  html2canvas(tmp,{scale:2,useCORS:true,backgroundColor:'#ffffff'}).then(function(canvas){
+  // Capturar e gerar PNG de alta resolução com download direto
+  html2canvas(tmp,{scale:3,useCORS:true,backgroundColor:'#ffffff'}).then(function(canvas){
     document.body.removeChild(tmp);
-    var imgData=canvas.toDataURL('image/jpeg',0.95);
-    var pdf=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    var pW=pdf.internal.pageSize.getWidth();
-    var pH=pdf.internal.pageSize.getHeight();
-    var ratio=canvas.width/canvas.height;
-    var imgW=pW-20;
-    var imgH=imgW/ratio;
-    if(imgH>pH-20){imgH=pH-20;imgW=imgH*ratio;}
-    pdf.addImage(imgData,'JPEG',10,10,imgW,imgH);
-    pdf.save(_pdfName);
+    canvas.toBlob(function(blob){
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement('a');
+      a.href=url;
+      a.download=_pdfName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(url);},1000);
+    },'image/png');
   }).catch(function(err){
     document.body.removeChild(tmp);
-    console.error('Erro ao gerar PDF:',err);
-    alert('Erro ao gerar PDF. Tente novamente.');
+    console.error('Erro ao gerar PNG:',err);
+    alert('Erro ao gerar imagem. Tente novamente.');
   });
 }
 
