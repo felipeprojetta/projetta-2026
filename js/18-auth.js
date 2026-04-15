@@ -1286,34 +1286,48 @@ function _updateResumoObra(){
     document.getElementById('ro-perfis-val').textContent=brl(custoPerfis);
   }
 
-  // Chapas
-  var chapasQty=0;
-  if(window._chapasCalculadas) chapasQty=window._chapasCalculadas;
-  else{
-    var qEl=document.getElementById('plan-acm-qty');
-    if(qEl) chapasQty=parseInt(qEl.value)||0;
-  }
+  // Chapas — separar ACM e ALU
+  var _nACM=window._chapasACM||0;
+  var _nALU=window._chapasALU||0;
+  if(!_nACM){var qEl=document.getElementById('plan-acm-qty');if(qEl)_nACM=parseInt(qEl.value)||0;}
   var subAcm=parseFloat((document.getElementById('sub-acm')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
+  var subAlu=parseFloat((document.getElementById('sub-alu')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
   var pesoChapa=window._planPesoBrutoACM||0;
-  document.getElementById('ro-chapas-qty').textContent=chapasQty+' chapa(s)';
-  // Tamanho e cor da chapa
-  var _chapaInfo=[];
+
+  // Info ACM
   var _acmCorEl=document.getElementById('plan-acm-cor');
-  if(_acmCorEl&&_acmCorEl.selectedIndex>=0){
-    var _corTxt=_acmCorEl.options[_acmCorEl.selectedIndex].text||'';
-    if(_corTxt) _chapaInfo.push(_corTxt);
+  var _acmCorTxt=(_acmCorEl&&_acmCorEl.selectedIndex>0)?_acmCorEl.options[_acmCorEl.selectedIndex].text.split('·')[0].trim():'';
+  var _acmTam='';
+  if(window.PLN_SD) _acmTam=(window.PLN_SD.w||1500)+'×'+(window.PLN_SD.h||6000)+'mm';
+
+  // Info ALU
+  var _aluCorEl=document.getElementById('plan-alu-cor');
+  var _aluCorTxt=(_aluCorEl&&_aluCorEl.selectedIndex>0)?_aluCorEl.options[_aluCorEl.selectedIndex].text.split('·')[0].trim():'';
+  var _aluTam='';
+  var _aluCSel=document.getElementById('plan-chapa-alu');
+  if(_aluCSel&&_aluCSel.value){var _ap=_aluCSel.value.split('|');_aluTam=_ap[0]+'×'+_ap[1]+'mm';}
+
+  if(_nALU>0){
+    // Mostrar separado: ACM + ALU
+    document.getElementById('ro-chapas-qty').innerHTML=_nACM+' ACM + '+_nALU+' ALU';
+    var _infoLines=[];
+    if(_acmCorTxt) _infoLines.push(_acmCorTxt+' · '+_acmTam);
+    if(_aluCorTxt) _infoLines.push('🔷 '+_aluCorTxt+' · '+_aluTam);
+    var _infoEl=document.getElementById('ro-chapas-info');
+    if(_infoEl) _infoEl.innerHTML=_infoLines.join('<br>')||'';
+    document.getElementById('ro-chapas-peso').textContent=pesoChapa>0?pesoChapa.toFixed(1)+' kg':'';
+    document.getElementById('ro-chapas-val').innerHTML='ACM '+brl(subAcm)+'<br>🔷 ALU '+brl(subAlu)+'<br><b>Total '+brl(subAcm+subAlu)+'</b>';
+  } else {
+    // Só ACM
+    document.getElementById('ro-chapas-qty').textContent=_nACM+' chapa(s)';
+    var _chapaInfo=[];
+    if(_acmCorTxt) _chapaInfo.push(_acmCorTxt);
+    if(_acmTam) _chapaInfo.push(_acmTam);
+    var _infoEl=document.getElementById('ro-chapas-info');
+    if(_infoEl) _infoEl.textContent=_chapaInfo.join(' · ')||'';
+    document.getElementById('ro-chapas-peso').textContent=pesoChapa>0?pesoChapa.toFixed(1)+' kg':'';
+    document.getElementById('ro-chapas-val').textContent=brl(subAcm);
   }
-  var _chapaTam='';
-  if(window.PLN_SD){_chapaTam=(window.PLN_SD.w||1500)+'×'+(window.PLN_SD.h||6000)+'mm';}
-  else{
-    var _csEl=document.getElementById('plan-tamanho');
-    if(_csEl&&_csEl.value) _chapaTam=_csEl.value.replace('x','×')+'mm';
-  }
-  if(_chapaTam) _chapaInfo.push(_chapaTam);
-  var _infoEl=document.getElementById('ro-chapas-info');
-  if(_infoEl) _infoEl.textContent=_chapaInfo.join(' | ')||'';
-  document.getElementById('ro-chapas-peso').textContent=pesoChapa>0?pesoChapa.toFixed(1)+' kg':'';
-  document.getElementById('ro-chapas-val').textContent=brl(subAcm);
 
   // Acessórios
   var fabAcess=parseFloat((document.getElementById('fab-custo-acess')||{value:'0'}).value.replace(/\./g,'').replace(',','.'))||0;
