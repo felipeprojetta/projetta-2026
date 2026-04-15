@@ -30,7 +30,15 @@ var D_TEAM=[
 /* ── Settings ───────────────────────────────────── */
 function gS(){try{return JSON.parse(localStorage.getItem(SK))||{};}catch(e){return{};}}
 function sS(s){localStorage.setItem(SK,JSON.stringify(s));}
-function gStages(){var s=gS();return(s.stages||[]).length?s.stages:D_STAGES;}
+function gStages(){
+  var s=gS();
+  var st=(s.stages||[]).length?s.stages:D_STAGES;
+  // Migrar: remover Prospecção (s1) se ainda existir nos salvos
+  var had=st.length;
+  st=st.filter(function(x){return x.id!=='s1';});
+  if(st.length<had){s.stages=st;sS(s);}
+  return st;
+}
 function gOrigins(){var s=gS();return(s.origins||[]).length?s.origins:D_ORIGINS;}
 function gProducts(){var s=gS();return(s.products||[]).length?s.products:D_PRODUCTS;}
 function gTeam(){var s=gS();return(s.team||[]).length?s.team:D_TEAM;}
