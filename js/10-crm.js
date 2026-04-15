@@ -11,7 +11,6 @@ var _editId=null, _view='kanban', _scope='nacional', _stageId=null, _dragId=null
 
 /* ── Defaults ──────────────────────────────────── */
 var D_STAGES=[
-  {id:'s1',label:'Prospecção',color:'#95a5a6',icon:'🎯'},
   {id:'s2',label:'Qualificação',color:'#3498db',icon:'🔍'},
   {id:'s3',label:'Fazer Orçamento',color:'#e67e22',icon:'📋'},
   {id:'s3b',label:'Orçamento Pronto',color:'#f39c12',icon:'📧'},
@@ -134,6 +133,8 @@ function updateKPIs(all){
 /* ── Render ──────────────────────────────────────── */
 window.crmRender=function(){
   var all=cLoad();
+  // Migrar cards s1 (Prospecção removida) → s2 (Qualificação)
+  var _mig=false;all.forEach(function(o){if(o.stage==='s1'){o.stage='s2';_mig=true;}});if(_mig)cSave(all);
   var q=(val('crm-search')).toLowerCase();
   var fR=val('crm-f-resp-filter'),fO=val('crm-f-origin-filter'),fS=val('crm-f-scope-filter');
   var fReg=val('crm-f-regiao-filter'),fGer=val('crm-f-gerente-filter'),fWrep=val('crm-f-wrep-filter');
