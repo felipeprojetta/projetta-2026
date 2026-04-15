@@ -1767,68 +1767,86 @@ function renderPrecosACM(){
   var container=document.getElementById('precos-acm-container');
   if(!container) return;
   var html='';
-  var allSec=[{title:'CHAPAS ACM',data:ACM_DATA,si:0,cor:'var(--orange)',sizes:[{n:'5.0',a:7.5},{n:'6.0',a:9},{n:'7.0',a:10.5},{n:'8.0',a:12}]},
-              {title:'CHAPAS ALUMÍNIO MACIÇO',data:ALU_DATA,si:1,cor:'var(--navy)',sizes:[{n:'3.0',a:4.5},{n:'5.0',a:7.5},{n:'6.0',a:9},{n:'6.6',a:9.9}]}];
+  var allSec=[{title:'CHAPAS ACM',data:ACM_DATA,si:0,cor:'var(--orange)'},
+              {title:'CHAPAS ALUMÍNIO MACIÇO',data:ALU_DATA,si:1,cor:'var(--navy)'}];
   allSec.forEach(function(sec){
     html+='<div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;padding:6px 0;border-bottom:2px solid '+sec.cor+';margin:8px 0 4px">'+sec.title+'</div>';
     sec.data.forEach(function(grp,gi){
-      var cores={};
-      grp.o.forEach(function(item){var cor=item.l.split(' · ')[0];if(!cores[cor])cores[cor]={items:[]};cores[cor].items.push(item);});
+      // Agrupar itens por cor
+      var cores={};var corOrder=[];
+      grp.o.forEach(function(item){
+        var cor=item.l.split(' · ')[0];
+        if(!cores[cor]){cores[cor]={items:[]};corOrder.push(cor);}
+        cores[cor].items.push(item);
+      });
+      // Extrair tamanhos reais do primeiro grupo de cor
+      var firstCor=corOrder[0];
+      var grpSizes=cores[firstCor].items.map(function(it){
+        var m=it.l.match(/(\d{3,4})×(\d{4,})/);
+        var w=m?parseInt(m[1]):1500, h=m?parseInt(m[2]):5000;
+        return {w:w,h:h,a:it.a};
+      });
+
       html+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0"><span style="font-size:11px;font-weight:700;color:#666;text-transform:uppercase">'+grp.g+'</span>'
         +'<button onclick="_deleteChapa('+sec.si+','+gi+')" title="Excluir grupo" style="border:none;background:none;color:#ccc;font-size:15px;cursor:pointer;padding:0 4px;line-height:1" onmouseover="this.style.color=\'#b71c1c\'" onmouseout="this.style.color=\'#ccc\'">×</button></div>';
       html+='<table style="width:100%;border-collapse:collapse;font-size:10px"><tr style="background:#f0ede8">';
       html+='<th style="padding:5px 8px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--muted)">Cor</th>';
-      sec.sizes.forEach(function(sz,szi){
-        html+='<th style="padding:5px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:#006600">'+(szi===0?'Líq. ':'')+'1500×'+Math.round(sz.a/1.5*1000)+'</th>';
+      grpSizes.forEach(function(sz,szi){
+        html+='<th style="padding:5px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:#006600">'+sz.w+'×'+sz.h+'</th>';
       });
       html+='</tr>';
       var ci=0;
-      for(var cor in cores){
+      corOrder.forEach(function(cor){
         var c=cores[cor]; var id='prc-'+sec.si+'-'+gi+'-'+ci;
-        var base=c.items[0]; var baseA=sec.sizes[0].a;
         html+='<tr style="border-bottom:0.5px solid #e8e5e0">';
         html+='<td style="padding:5px 8px;font-weight:600;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="'+cor+'">'+cor+'</td>';
-        sec.sizes.forEach(function(sz,szi){
+        grpSizes.forEach(function(sz,szi){
           var item=c.items[szi];
-          var val=item?item.p:Math.round(base.p*(sz.a/baseA)*100)/100;
+          var val=item?item.p:(c.items[0].p*(sz.a/grpSizes[0].a));
           if(szi===0){
-            html+='<td style="padding:2px 3px;text-align:right"><input type="number" id="'+id+'" data-si="'+sec.si+'" data-gi="'+gi+'" data-ci="'+ci+'" value="'+val.toFixed(2)+'" step="0.01" min="0" style="width:95px;padding:4px 6px;border:0.5px solid #c9c6bf;border-radius:4px;font-size:12px;text-align:right;background:#f0fff0;color:#006600;font-weight:700" oninput="_recalcLiq(this)"></td>';
+            html+='<td style="padding:2px 3px;text-align:right"><input type="number" id="'+id+'" data-si="'+sec.si+'" data-gi="'+gi+'" data-ci="'+ci+'" data-nsizes="'+grpSizes.length+'" value="'+val.toFixed(2)+'" step="0.01" min="0" style="width:95px;padding:4px 6px;border:0.5px solid #c9c6bf;border-radius:4px;font-size:12px;text-align:right;background:#f0fff0;color:#006600;font-weight:700" oninput="_recalcLiq(this)"></td>';
           } else {
             html+='<td style="padding:5px 8px;text-align:right;color:#006600;font-size:11px" id="'+id+'-l'+szi+'">'+val.toFixed(2)+'</td>';
           }
         });
         html+='</tr>'; ci++;
-      }
+      });
       html+='</table></div>';
     });
   });
   container.innerHTML=html;
 }
 function _recalcLiq(inp){
-  var id=inp.id,si=parseInt(inp.dataset.si);
+  var id=inp.id,si=parseInt(inp.dataset.si),gi=parseInt(inp.dataset.gi);
   var baseVal=parseFloat(inp.value)||0;
-  var sizes=si===0?[7.5,9,10.5,12]:[4.5,7.5,9,9.9];
-  var baseA=sizes[0];
-  for(var i=1;i<sizes.length;i++){
+  var data=si===0?ACM_DATA:ALU_DATA;
+  var grp=data[gi];if(!grp)return;
+  // Pegar áreas reais dos itens do grupo
+  var firstCor=grp.o[0].l.split(' · ')[0];
+  var items=grp.o.filter(function(it){return it.l.split(' · ')[0]===firstCor;});
+  var baseA=items[0]?items[0].a:7.5;
+  for(var i=1;i<items.length;i++){
     var el=document.getElementById(id+'-l'+i);
-    if(el) el.textContent=(baseVal*(sizes[i]/baseA)).toFixed(2);
+    if(el) el.textContent=(baseVal*(items[i].a/baseA)).toFixed(2);
   }
 }
 function salvarPrecos(){
   var updated=0;
-  [{data:ACM_DATA,si:0,sizes:[7.5,9,10.5,12]},{data:ALU_DATA,si:1,sizes:[4.5,7.5,9,9.9]}].forEach(function(sec){
+  [{data:ACM_DATA,si:0},{data:ALU_DATA,si:1}].forEach(function(sec){
     sec.data.forEach(function(grp,gi){
       var cores={};var ci=0;
-      grp.o.forEach(function(item){var cor=item.l.split(' · ')[0];if(!cores[cor]){cores[cor]=ci;ci++;}});
-      grp.o.forEach(function(item,oi){
-        var cor=item.l.split(' · ')[0],idx=cores[cor];
-        var inp=document.getElementById('prc-'+sec.si+'-'+gi+'-'+idx);
-        if(!inp)return;
+      grp.o.forEach(function(item){var cor=item.l.split(' · ')[0];if(!cores[cor]){cores[cor]={ci:ci,items:[]};ci++;}cores[cor].items.push(item);});
+      for(var cor in cores){
+        var info=cores[cor];
+        var inp=document.getElementById('prc-'+sec.si+'-'+gi+'-'+info.ci);
+        if(!inp)continue;
         var baseVal=parseFloat(inp.value)||0;
-        var baseA=sec.sizes[0];
-        item.p=Math.round(baseVal*(item.a/baseA)*100)/100;
-        updated++;
-      });
+        var baseA=info.items[0].a;
+        info.items.forEach(function(item){
+          item.p=Math.round(baseVal*(item.a/baseA)*100)/100;
+          updated++;
+        });
+      }
     });
   });
   _refreshChapaSelects();
