@@ -138,7 +138,7 @@ window.crmRender=function(){
   var fR=val('crm-f-resp-filter'),fO=val('crm-f-origin-filter'),fS=val('crm-f-scope-filter');
   var fReg=val('crm-f-regiao-filter'),fGer=val('crm-f-gerente-filter'),fWrep=val('crm-f-wrep-filter');
   var fil=all.filter(function(o){
-    if(q&&!(o.cliente||'').toLowerCase().includes(q)&&!(o.produto||'').toLowerCase().includes(q)&&!(o.cidade||'').toLowerCase().includes(q)&&!(o.wrep||'').toLowerCase().includes(q))return false;
+    if(q&&!(o.cliente||'').toLowerCase().includes(q)&&!(o.produto||'').toLowerCase().includes(q)&&!(o.cidade||'').toLowerCase().includes(q)&&!(o.wrep||'').toLowerCase().includes(q)&&!(o.agp||'').toLowerCase().includes(q)&&!(o.reserva||'').toLowerCase().includes(q))return false;
     if(fR&&o.responsavel!==fR)return false;
     if(fO&&o.origem!==fO)return false;
     if(fS&&o.scope!==fS)return false;
