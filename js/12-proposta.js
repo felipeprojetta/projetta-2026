@@ -244,8 +244,8 @@ function populateProposta(){
       _fechDigEl.innerHTML='<strong style="color:#8e44ad;font-size:110%">✅ '+_fechDigVal.toUpperCase()+'</strong>';
       _fechDigLine.style.cssText='background:#f3e8ff;border:2px solid #8e44ad;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700';
     } else {
-      _fechDigEl.innerHTML='<span style="color:#999;font-weight:700">NÃO SE APLICA</span>';
-      _fechDigLine.style.cssText='background:#f0f0f0;border:1.5px solid #ccc;border-radius:6px;padding:6px 10px;margin:4px 0';
+      _fechDigEl.innerHTML='<span style="color:#c0392b;font-weight:700">NÃO SE APLICA</span>';
+      _fechDigLine.style.cssText='background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0';
     }
   }
   // Puxador
@@ -280,8 +280,8 @@ function populateProposta(){
       _alisarEl.innerHTML='<strong style="color:#27ae60;font-size:110%">✅ SIM — COM ALISAR</strong>';
       _alisarLine.style.cssText='background:#e8f5e9;border:2px solid #27ae60;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700';
     } else {
-      _alisarEl.innerHTML='<span style="color:#999;font-weight:700">SEM ALISAR</span>';
-      _alisarLine.style.cssText='background:#f0f0f0;border:1.5px solid #ccc;border-radius:6px;padding:6px 10px;margin:4px 0';
+      _alisarEl.innerHTML='<span style="color:#c0392b;font-weight:700">SEM ALISAR</span>';
+      _alisarLine.style.cssText='background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0';
     }
   }
   // Cor da chapa — from Características fields
