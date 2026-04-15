@@ -109,8 +109,14 @@ function plnPecas(Lmm, Amm, fol, mod) {
       } // end if not MACICO
     }
     if (mod === '15') {
-      var qtdRipas15 = Math.ceil((fW - acabLat1*2 - 90 - 110) / 90);
-      r.push(['RIPAS', 98, G4, qtdRipas15 * 2]);
+      var _rip2L15=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
+      var _ripTotal15=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
+      var qtdRipas15 = _ripTotal15
+        ? Math.ceil(fW / 90)
+        : Math.ceil((fW - acabLat1*2 - 90 - 110) / 90);
+      var qtdRipasTotal15 = qtdRipas15 * (_rip2L15 ? 2 : 1);
+      window._qtdRipasTotal = qtdRipasTotal15;
+      r.push(['RIPAS', 98, G4, qtdRipasTotal15]);
     }
   }
 
@@ -161,8 +167,14 @@ function plnPecas(Lmm, Amm, fol, mod) {
     r.push(['TAP FURO', 119, bH, 3], ['FIT ACAB ME', 76.5, bH, 2], ['FIT ACAB MA', 114.5, bH, 2], ['FIT ACAB FITA', 101, bH, 2]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
     if (mod === '08') {
-      var qtdRipas = Math.ceil((fW - DIS_BOR_CAVA*2 - LARG_CAVA) / 90);
-      r.push(['RIPAS', 98, G4, qtdRipas * 2]);
+      var _rip2L08=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
+      var _ripTotal08=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
+      var qtdRipas = _ripTotal08
+        ? Math.ceil(fW / 90)
+        : Math.ceil((fW - DIS_BOR_CAVA*2 - LARG_CAVA) / 90);
+      var qtdRipasTotal = qtdRipas * (_rip2L08 ? 2 : 1);
+      window._qtdRipasTotal = qtdRipasTotal;
+      r.push(['RIPAS', 98, G4, qtdRipasTotal]);
     }
   }
 

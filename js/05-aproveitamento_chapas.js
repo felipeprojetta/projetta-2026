@@ -28,11 +28,10 @@ function aprovPieces(Lmm,Amm,fol,mod){
     if(mod==='15'){
       var _ripTotal=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
       var _rip2L=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
-      var _nRipas=_ripTotal?Math.max(1,Math.round(fW/90)):Math.max(1,Math.round((fW-180)/90));
+      var _nRipas=_ripTotal?Math.max(1,Math.ceil(fW/90)):Math.max(1,Math.ceil((fW-88.5*2-90-110)/90));
       var _ripMult=(_rip2L?2:1)*((fol==2)?2:1);
+      window._qtdRipasTotal=_nRipas*_ripMult;
       r.push(['RIPAS',98,G4,_nRipas*_ripMult]);
-      var _nSuportes=Math.max(1,Math.round(G4/1000))*_nRipas*_ripMult;
-      r.push(['SUPORTE RIPA',51,500,_nSuportes]);
     }
   }
   if(mod==='01'||mod==='02'||mod==='03'||mod==='04'||mod==='05'||mod==='06'||mod==='07'||mod==='08'||mod==='09'||mod==='19'||mod==='24'){
@@ -53,11 +52,10 @@ function aprovPieces(Lmm,Amm,fol,mod){
     if(mod==='08'){
       var _ripTotal=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
       var _rip2L=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
-      var _nRipas=_ripTotal?Math.max(1,Math.round(fW/90)):Math.max(1,Math.round((fW-330)/90));
+      var _nRipas=_ripTotal?Math.max(1,Math.ceil(fW/90)):Math.max(1,Math.ceil((fW-HC*2-DC)/90));
       var _ripMult=(_rip2L?2:1)*((fol==2)?2:1);
+      window._qtdRipasTotal=_nRipas*_ripMult;
       r.push(['RIPAS',98,G4,_nRipas*_ripMult]);
-      var _nSuportes=Math.max(1,Math.round(G4/1000))*_nRipas*_ripMult;
-      r.push(['SUPORTE RIPA',51,500,_nSuportes]);
     }
   }
   /* MODELO 22 — cava larga (DC+360), altura=G4 (PA ALTURA), sem TAMPA CAVA, TAMPA MAIOR -68 */

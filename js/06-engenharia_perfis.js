@@ -316,24 +316,10 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
 
   // ── RIPADO: tubo PA-51X25X1.5 suporte das ripas ──────────────────────────
   var _isRipMod = ['08','15','20','21'].indexOf(modeloSel) >= 0;
-  if(_isRipMod){
-    var _ripTotal = (document.getElementById('carac-ripado-total')||{value:'NAO'}).value === 'SIM';
-    var _rip2L = (document.getElementById('carac-ripado-2lados')||{value:'SIM'}).value === 'SIM';
-    // Calcular largura frontal da chapa (G3 1folha, G2 2folhas)
-    var _cfG3 = Math.round(L - 20 - 343 + 218);
-    var _cfG2 = Math.round((L - 20 - 343 + 256) / 2);
-    var _fW = (nFolhas === 2) ? _cfG2 : _cfG3;
-    // Dedução para cava (mod 08) ou lisa (mod 15/20/21)
-    var _nRipas;
-    if(_ripTotal){
-      _nRipas = Math.max(1, Math.round(_fW / 90));
-    } else {
-      var _ripDeduc = (modeloSel === '08') ? 330 : 180;
-      _nRipas = Math.max(1, Math.round((_fW - _ripDeduc) / 90));
-    }
-    var _ripMult = (_rip2L ? 2 : 1) * nFolhas;
-    var _totalRipas = _nRipas * _ripMult;
-    // Suporte: tubo 51×25, comprimento 500mm, qty = round(PA_F/1000) × total ripas (500 colado + 500 vão)
+  if(_isRipMod && window._qtdRipasTotal > 0){
+    // Qty ripas vem do planificador (window._qtdRipasTotal) — já inclui 2 lados e folhas
+    var _totalRipas = window._qtdRipasTotal * nFolhas;
+    // Suporte: tubo 51×25, comprimento 500mm, qty = round(PA_F/1000) × total ripas
     var _nSupPorRipa = Math.max(1, Math.round(PA_F / 1000));
     var _totalSup = _nSupPorRipa * _totalRipas;
     cuts.push({code:'PA-51X25X1.5', desc:'SUPORTE RIPA 51×25', compMM:500,
