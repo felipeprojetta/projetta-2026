@@ -41,6 +41,9 @@ function plnPecas(Lmm, Amm, fol, mod) {
 
   /* MODELOS LISA (10, 11, 15, 23) */
   if (mod === '10' || mod === '11' || mod === '15' || mod === '23acm' || mod === '23alu') {
+    // Detectar MACICO para modelo 23
+    var _isMacico = (mod === '23acm' || mod === '23alu') && (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value === 'MACICO';
+    var _mAlu = _isMacico ? 'alu' : 'acm';  // material das tampas e fits
     var LARG_FRISO = 0, DIS_BOR_FRI = 0, frisoDeduc = 0;
     if (mod === '11') {
       LARG_FRISO  = parseInt(document.getElementById('plan-largfriso').value) || 10;
@@ -48,15 +51,15 @@ function plnPecas(Lmm, Amm, fol, mod) {
       frisoDeduc = DIS_BOR_FRI + LARG_FRISO;
     }
     if (fol == 1) {
-      r.push(['TAMPA MAIOR', fW + 2*REF - frisoDeduc, G4, 2]);
+      r.push(['TAMPA MAIOR', fW + 2*REF - frisoDeduc, G4, 2, _mAlu]);
     } else {
       var base2 = G2total / 2;
       var T1 = base2 + FGA + FGLA*2 - 1;
       var T2 = base2 + FGLA*2 - PIV;
       var T3 = T2 - TUB_SUP;
-      r.push(['TAMPA MAIOR 01', T1, G4, 1]);
-      r.push(['TAMPA MAIOR 02', T2, G4, 2]);
-      r.push(['TAMPA MAIOR 03', T3, G4, 1]);
+      r.push(['TAMPA MAIOR 01', T1, G4, 1, _mAlu]);
+      r.push(['TAMPA MAIOR 02', T2, G4, 2, _mAlu]);
+      r.push(['TAMPA MAIOR 03', T3, G4, 1, _mAlu]);
     }
     if (mod === '11') {
       r.push(['TAMPA FRISO', DIS_BOR_FRI + (2*REF-1), G4, (fol==2) ? 4 : 2]);
@@ -65,7 +68,8 @@ function plnPecas(Lmm, Amm, fol, mod) {
     r.push(['ACAB LAT 1', acabLat1, G4, nL], ['ACAB LAT 2', 90, G4, nL], ['ACAB LAT Z', 110, G4, nL]);
     r.push(['U PORTAL', 221, L-REF, 1]);
     r.push(['BAT 01', 42, bH, 2], ['BAT 02Z', 51, bH, 2], ['BAT 03', 81, bH, 2]);
-    r.push(['TAP FURO', 119, bH, 3], ['FIT ACAB ME', 76.5, bH, 2], ['FIT ACAB MA', 114.5, bH, 2], ['FIT ACAB FITA', 101, bH, 2]);
+    r.push(['TAP FURO', 119, bH, 3]);
+    r.push(['FIT ACAB ME', 76.5, bH, 2, _mAlu], ['FIT ACAB MA', 114.5, bH, 2, _mAlu], ['FIT ACAB FITA', 101, bH, 2, _mAlu]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
     if (mod === '23acm' || mod === '23alu') {
       var _moldRev = (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value;
@@ -283,7 +287,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
   var out = [];
   for (var i = 0; i < r.length; i++) {
     var p = r[i], w = Math.round(p[1]*2)/2, h = Math.round(p[2]*2)/2, q = p[3];
-    if (w > 0 && h > 0 && q > 0) out.push({ label: p[0], w: w, h: h, qty: q, color: PLN_COLORS[i % PLN_COLORS.length] });
+    if (w > 0 && h > 0 && q > 0) out.push({ label: p[0], w: w, h: h, qty: q, color: PLN_COLORS[i % PLN_COLORS.length], mat: p[4] || 'acm' });
   }
   return out;
 }
@@ -672,11 +676,16 @@ function plnDraw(si) {
 
 function plnBuildTabs() {
   var el = document.getElementById('plan-tabs'); el.innerHTML='';
+  var _nACM = window._chapasACM || PLN_RES.numSheets;
   for (var i=0; i<PLN_RES.numSheets; i++) {
     (function(idx){
+      var isALU = idx >= _nACM;
+      var lbl = isALU ? 'ALU '+(idx-_nACM+1) : 'Chapa '+(idx+1);
+      var bg = isALU ? 'background:#e8f0fe;border-color:#1a5276;color:#1a5276' : '';
       var b=document.createElement('button');
       b.className='tab'+(idx===PLN_CSI?' on':'');
-      b.innerHTML='Chapa '+(idx+1)+' <span style="font-size:10px;opacity:.7">'+PLN_RES.stats[idx].pct.toFixed(0)+'%</span>';
+      if(bg) b.style.cssText=bg;
+      b.innerHTML=lbl+' <span style="font-size:10px;opacity:.7">'+PLN_RES.stats[idx].pct.toFixed(0)+'%</span>';
       b.onclick=function(){
         PLN_CSI=idx;
         var tabs=document.getElementById('plan-tabs').querySelectorAll('button');
@@ -796,8 +805,10 @@ function plnPieceTable(pieces, placed) {
     var isFailed=sheetList==='';
     var tr=document.createElement('tr');
     if(isFailed) tr.setAttribute('data-failed','1');
-    var pesoKg=(p.w*p.h*p.qty/1e6*6.5).toFixed(2);
+    var _kgPerM2 = (p.mat==='alu') ? 10.125 : 6.5;
+    var pesoKg=(p.w*p.h*p.qty/1e6*_kgPerM2).toFixed(2);
     var local=p._local||'PORTA';
+    var matBadge = (p.mat==='alu') ? ' <span style="background:#1a5276;color:#fff;padding:1px 4px;border-radius:3px;font-size:7px;font-weight:700">ALU</span>' : '';
     var lcl=local==='PORTA'?'<span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTA</span>':local==='PORTAL'?'<span style="background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTAL</span>':'<span style="background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">FIXO</span>';
     var bgRow=isFailed?'background:#ffebee;':(local==='PORTA'?'background:#e8f5e9;':local==='PORTAL'?'background:#fff3e0;':local==='FIXO'?'background:#e3f2fd;':'');
     var failTag=isFailed?'<span style="background:#c62828;color:#fff;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">⚠ NÃO COUBE</span>':'';
@@ -811,7 +822,7 @@ function plnPieceTable(pieces, placed) {
     };
     p._autoW=p._autoW||p.w; p._autoH=p._autoH||p.h; p._autoQ=p._autoQ||p.qty;
     tr.innerHTML='<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'"><span style="width:11px;height:11px;border-radius:2px;display:inline-block;background:'+p.color+'"></span></td>'+
-      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+p.label+'</td>'+
+      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+p.label+matBadge+'</td>'+
       '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('w',p.w,p._autoW)+'</td>'+
       '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('h',p.h,p._autoH)+'</td>'+
       '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('q',p.qty,p._autoQ)+'</td>'+
@@ -1529,58 +1540,119 @@ function planRun() {
   var _cs=_getChapaSize();
   var SW=_cs.w,SH=_cs.h;
   PLN_SD={w:SW,h:SH};
-
   var layoutMode = (document.getElementById('plan-layout').value) || 'v';
-  PLN_RES=plnMaxRects(pieces,SW,SH,layoutMode);
+
+  // ── Separar peças ALU e ACM ────────────────────────────────────────────────
+  var piecesACM=[], piecesALU=[];
+  for(var pi=0;pi<pieces.length;pi++){
+    if(pieces[pi].mat==='alu') piecesALU.push(pieces[pi]);
+    else piecesACM.push(pieces[pi]);
+  }
+
+  // ── Nesting ACM (principal) ────────────────────────────────────────────────
+  var hasALU=piecesALU.length>0;
+  PLN_RES = piecesACM.length>0 ? plnMaxRects(piecesACM,SW,SH,layoutMode) : {numSheets:0,placed:[],failed:[],stats:[]};
   PLN_CSI=0;
 
-  var totPA=0;
-  for(var i=0;i<pieces.length;i++) totPA+=pieces[i].w*pieces[i].h*pieces[i].qty;
-  var totSA=PLN_RES.numSheets*SW*SH;
-  var util=(totPA/totSA*100).toFixed(1);
+  // ── Nesting ALU (se houver) ────────────────────────────────────────────────
+  var PLN_RES_ALU = hasALU ? plnMaxRects(piecesALU,SW,SH,layoutMode) : {numSheets:0,placed:[],failed:[],stats:[]};
+  window._plnResALU = PLN_RES_ALU;
+
+  // Merge ALU into PLN_RES for unified display (tabs/canvas)
+  if(hasALU && PLN_RES_ALU.numSheets > 0){
+    for(var ai=0;ai<PLN_RES_ALU.placed.length;ai++){
+      var ap=Object.assign({},PLN_RES_ALU.placed[ai]);
+      ap.sheet = ap.sheet + PLN_RES.numSheets;
+      PLN_RES.placed.push(ap);
+    }
+    for(var si=0;si<PLN_RES_ALU.stats.length;si++){
+      var st2=Object.assign({},PLN_RES_ALU.stats[si]);
+      st2._isALU=true;
+      PLN_RES.stats.push(st2);
+    }
+    PLN_RES.numSheets += PLN_RES_ALU.numSheets;
+    PLN_RES.failed = PLN_RES.failed.concat(PLN_RES_ALU.failed);
+  }
+
+  var numSheetsACM = PLN_RES.numSheets;
+  var numSheetsALU = PLN_RES_ALU.numSheets;
+  var numSheetsTotal = numSheetsACM + numSheetsALU;
+
+  // Área peças
+  var totPA_ACM=0, totPA_ALU=0;
+  for(var i=0;i<piecesACM.length;i++) totPA_ACM+=piecesACM[i].w*piecesACM[i].h*piecesACM[i].qty;
+  for(var i=0;i<piecesALU.length;i++) totPA_ALU+=piecesALU[i].w*piecesALU[i].h*piecesALU[i].qty;
+  var totPA=totPA_ACM+totPA_ALU;
+  var totSA_ACM=numSheetsACM*SW*SH;
+  var totSA_ALU=numSheetsALU*SW*SH;
+  var totSA=totSA_ACM+totSA_ALU;
+  var util=totSA>0?(totPA/totSA*100).toFixed(1):'0';
   var usable=(SW-2*PLN_MG)*(SH-2*PLN_MG);
 
-  // ── PESO CHAPAS ACM (6.5 kg/m²) ─────────────────────────────────────────────
-  var KG_ACM = 6.5; // kg por m²
-  var pesoLiqACM  = totPA / 1e6 * KG_ACM;           // m² líquido × 6.5
-  var pesoBrutoACM= totSA / 1e6 * KG_ACM;           // m² bruto × 6.5
-  // Peso só das peças da PORTA (folha: tampas e cava, exclui portal e fixo)
-  var _portaPecasNomes=['TAMPA MAIOR','TAMPA MAIOR 01','TAMPA MAIOR 02','TAMPA MAIOR 03','CAVA','TAMPA BOR CAVA','TAMPA CAVA','TAMPA MENOR','ACAB LAT 1','ACAB LAT 2','ACAB LAT Z','TAMPA FRISO','FRISO','FRISO VERT','DIST BOR FV','RIPAS'];
+  // ── PESO CHAPAS ──────────────────────────────────────────────────────────────
+  var KG_ACM = 6.5, KG_ALU = 10.125; // kg/m²: ACM 4mm=6.5, ALU 2.5mm=10.125
+  var pesoLiqACM  = totPA_ACM / 1e6 * KG_ACM;
+  var pesoBrutoACM= totSA_ACM / 1e6 * KG_ACM;
+  var pesoLiqALU  = totPA_ALU / 1e6 * KG_ALU;
+  var pesoBrutoALU= totSA_ALU / 1e6 * KG_ALU;
+  var _portaPecasNomes=['TAMPA MAIOR','TAMPA MAIOR 01','TAMPA MAIOR 02','TAMPA MAIOR 03','CAVA','TAMPA BOR CAVA','TAMPA CAVA','TAMPA MENOR','ACAB LAT 1','ACAB LAT 2','ACAB LAT Z','TAMPA FRISO','FRISO','FRISO VERT','DIST BOR FV','RIPAS','FIT ACAB ME','FIT ACAB MA','FIT ACAB FITA'];
   function _isPPN2(lbl){var base=(lbl||'').split('[')[0].split('EXT')[0].split('INT')[0].trim();for(var k=0;k<_portaPecasNomes.length;k++){if(base===_portaPecasNomes[k])return true;}return false;}
-  var pesoPortaACM=0;
-  for(var i=0;i<pieces.length;i++){
-    if(!_isPPN2(pieces[i].label||'')) continue;
-    pesoPortaACM+=(pieces[i].w*pieces[i].h*pieces[i].qty)/1e6*KG_ACM;
-  }
-  window._planPesoLiqACM   = pesoLiqACM;
-  window._planPesoPortaACM = pesoPortaACM;
-  window._planPesoBrutoACM = pesoBrutoACM;
-  // Show weights in planificador stats
+  var pesoPortaACM=0, pesoPortaALU=0;
+  for(var i=0;i<piecesACM.length;i++){if(_isPPN2(piecesACM[i].label))pesoPortaACM+=(piecesACM[i].w*piecesACM[i].h*piecesACM[i].qty)/1e6*KG_ACM;}
+  for(var i=0;i<piecesALU.length;i++){if(_isPPN2(piecesALU[i].label))pesoPortaALU+=(piecesALU[i].w*piecesALU[i].h*piecesALU[i].qty)/1e6*KG_ALU;}
+  window._planPesoLiqACM   = pesoLiqACM + pesoLiqALU;
+  window._planPesoPortaACM = pesoPortaACM + pesoPortaALU;
+  window._planPesoBrutoACM = pesoBrutoACM + pesoBrutoALU;
+  // Separados para custo
+  window._chapasACM = numSheetsACM;
+  window._chapasALU = numSheetsALU;
+  window._chapasCalculadas = numSheetsTotal;
+  // Show weights
   var elPLiq = document.getElementById('plan-peso-liq');
   var elPBrt = document.getElementById('plan-peso-bruto');
-  if(elPLiq)  elPLiq.textContent  = pesoLiqACM.toFixed(2)+' kg';
-  if(elPBrt)  elPBrt.textContent  = pesoBrutoACM.toFixed(2)+' kg';
-  // Trigger pivot recalc
+  if(elPLiq) elPLiq.textContent = (pesoLiqACM+pesoLiqALU).toFixed(2)+' kg';
+  if(elPBrt) elPBrt.textContent = (pesoBrutoACM+pesoBrutoALU).toFixed(2)+' kg';
   _updatePesoAcessorios();
 
-  var eff=(Math.ceil(totPA/Math.max(1,usable))/PLN_RES.numSheets*100).toFixed(0);
+  var eff=numSheetsTotal>0?(Math.ceil(totPA/Math.max(1,usable))/numSheetsTotal*100).toFixed(0):'0';
 
-  document.getElementById('plan-sN').textContent=PLN_RES.numSheets;
+  // Stats display
+  var sNTxt = hasALU ? numSheetsTotal+' ('+numSheetsACM+' ACM + '+numSheetsALU+' ALU)' : String(numSheetsTotal);
+  document.getElementById('plan-sN').textContent=sNTxt;
   document.getElementById('plan-sU').textContent=util+'%';
   document.getElementById('plan-sW').textContent=(100-parseFloat(util)).toFixed(1)+'%';
   document.getElementById('plan-sE').textContent=eff+'%';
 
+  // Combined failures already in PLN_RES.failed
+  var _allFailed = PLN_RES.failed.concat(PLN_RES_ALU.failed);
   var wd=document.getElementById('plan-warn');
-  if (PLN_RES.failed.length>0) {
+  if (_allFailed.length>0) {
     var tags='';
-    for(var i=0;i<PLN_RES.failed.length;i++)
-      tags+='<span style="background:#ffcdd2;border-radius:4px;padding:2px 7px;display:inline-block;margin:2px;font-size:11px;font-weight:600">'+PLN_RES.failed[i].label+' ('+PLN_RES.failed[i].w+'x'+PLN_RES.failed[i].h+'mm)</span>';
-    wd.innerHTML='<strong>Atenção: '+PLN_RES.failed.length+' peça(s) não couberam!</strong> Altere as medidas na tabela abaixo e clique Recalcular.<br>'+tags;
+    for(var i=0;i<_allFailed.length;i++)
+      tags+='<span style="background:#ffcdd2;border-radius:4px;padding:2px 7px;display:inline-block;margin:2px;font-size:11px;font-weight:600">'+_allFailed[i].label+' ('+_allFailed[i].w+'x'+_allFailed[i].h+'mm)</span>';
+    wd.innerHTML='<strong>Atenção: '+_allFailed.length+' peça(s) não couberam!</strong> Altere as medidas na tabela abaixo e clique Recalcular.<br>'+tags;
     wd.style.display='';
   } else { wd.style.display='none'; }
 
-  plnPieceTable(pieces, PLN_RES.placed);
+  // Combinar placed de ACM + ALU (shift sheet index para ALU)
+  var _allPlaced = PLN_RES.placed.slice();
+  PLN_RES_ALU.placed.forEach(function(p){
+    _allPlaced.push({sheet:p.sheet+numSheetsACM,x:p.x,y:p.y,w:p.w,h:p.h,label:p.label,color:p.color,rot:p.rot,_isALU:true});
+  });
+
+  plnPieceTable(pieces, _allPlaced);
   document.getElementById('plan-result').style.display='';
+
+  // Merge ALU sheets into PLN_RES for unified tab/canvas display
+  if(hasALU && PLN_RES_ALU.numSheets > 0){
+    PLN_RES_ALU.placed.forEach(function(p){
+      PLN_RES.placed.push({sheet:p.sheet+numSheetsACM,x:p.x,y:p.y,w:p.w,h:p.h,label:'🔷'+p.label,color:p.color,rot:p.rot});
+    });
+    for(var si=0;si<PLN_RES_ALU.numSheets;si++){
+      PLN_RES.stats.push({pct:PLN_RES_ALU.stats[si]?PLN_RES_ALU.stats[si].pct:0, _isALU:true});
+    }
+    PLN_RES.numSheets = numSheetsTotal;
+  }
 
   // ── Chapa Frontal — referência no planificador ──
   var _pfDiv=document.getElementById('plan-chapa-frontal');
