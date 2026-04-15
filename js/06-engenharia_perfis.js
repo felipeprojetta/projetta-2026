@@ -404,7 +404,6 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     var key=c.code;
     if(!groups[key]){groups[key]={code:key,allCuts:[],pintado:c.pintado,barLenMM:c.barLenMM,perf:c.perf,precoKg:getPrecoKg(c.perf),precoKgBru:getPrecoKgBru(c.perf),_isBoiserie:!!c._isBoiserie,_barPrice:c._barPrice||0};seenKeys.push(key);}
     for(var i=0;i<c.qty;i++){
-      // Se é emenda: inserir as peças individualmente no FFD
       if(c.isSplit && c.splitPieces){
         c.splitPieces.forEach(function(p){ groups[key].allCuts.push(p); });
       } else {
@@ -412,7 +411,6 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       }
     }
   });
-  // DEBUG: verificar allCuts
 
   var groupRes={};
   seenKeys.forEach(function(key){
@@ -429,7 +427,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     var custoPintura=g.pintado?kgBruto*precoPint:0;
     var custoPerfilBru =kgBruto*g.precoKgBru;
     var custoPinturaBru=g.pintado?kgBruto*precoPintBru:0;
-    // Boiserie: preço fixo por barra (R$150 já inclui pintura), não por kg
+    // Boiserie: preço fixo R$150/barra (já inclui pintura)
     if(g._isBoiserie && g._barPrice){
       custoPerfil=nBars*g._barPrice;
       custoPerfilBru=nBars*g._barPrice;
@@ -444,8 +442,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       kgLiq:kgLiq,kgBruto:kgBruto,precoKg:g.precoKg,
       custoPerfil:custoPerfil,custoPintura:custoPintura,custoTotal:custoPerfil+custoPintura,
       custoPerfilBru:custoPerfilBru,custoPinturaBru:custoPinturaBru,custoTotalBru:custoPerfilBru+custoPinturaBru,
-      barLenMM:g.barLenMM,pintado:g.pintado,barsDetail:barsDetail,
-      _isBoiserie:!!g._isBoiserie,_barPrice:g._barPrice||0};
+      barLenMM:g.barLenMM,pintado:g.pintado,barsDetail:barsDetail};
   });
 
   // Peso líquido só da FOLHA + FRISO (perfis da porta, sem portal/fixo)
