@@ -21,12 +21,13 @@ function relatorioBarras(){
   if(!window._lastOSData){alert('Gere o levantamento de perfis primeiro.');return;}
   var d=window._lastOSData;
   var groups={};
+  var precoPintLiq=d.precoPint||0;
   d.seenKeys.forEach(function(key){
     var r=d.groupRes[key];if(!r||r.nBars===0)return;
     var perfil=null;for(var i=0;i<PERFIS_DB.length;i++){if(PERFIS_DB[i].c===key){perfil=PERFIS_DB[i];break;}}
     var forn=perfil?perfil.f:'BRUTO';
     if(!groups[forn])groups[forn]=[];
-    groups[forn].push({code:key,desc:perfil?perfil.d:key,qty:r.nBars,barra:r.barLenMM||6000,kgBruto:r.kgBruto||0,precoKg:r.precoKg||0,custo:r.custoTotal||0,pintado:r.pintado});
+    groups[forn].push({code:key,desc:perfil?perfil.d:key,qty:r.nBars,barra:r.barLenMM||6000,kgBruto:r.kgBruto||0,precoKg:r.precoKg||0,custo:r.custoTotal||0,pintado:r.pintado,precoKgPint:r.pintado?precoPintLiq:0});
   });
   var h='';
   var grandKg=0,grandCusto=0,n=0;
@@ -37,8 +38,8 @@ function relatorioBarras(){
     h+='<table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr style="background:#eee"><th style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;width:30px">PR</th><th style="padding:4px 8px;border:0.5px solid #ddd;text-align:left">Perfil</th><th style="padding:4px 8px;border:0.5px solid #ddd;text-align:center">Qtde</th><th style="padding:4px 8px;border:0.5px solid #ddd;text-align:center">Barra</th><th style="padding:4px 8px;border:0.5px solid #ddd;text-align:right">Peso Bruto (kg)</th><th style="padding:4px 8px;border:0.5px solid #ddd;text-align:right">R$/kg</th><th style="padding:4px 8px;border:0.5px solid #ddd;text-align:right">Custo R$</th><th style="padding:4px 8px;border:0.5px solid #ddd;text-align:left">Obs.</th></tr></thead><tbody>';
     items.forEach(function(it){
       n++;subKg+=it.kgBruto;subCusto+=it.custo;
-      var obs=it.pintado?'Pintura R$'+it.precoKg.toFixed(0)+'/kg':'';
-      h+='<tr><td style="padding:4px 8px;border:0.5px solid #eee;text-align:center;color:#888">'+n+'</td><td style="padding:4px 8px;border:0.5px solid #eee;font-weight:600;color:#003144">'+it.code+'</td><td style="padding:4px 8px;border:0.5px solid #eee;text-align:center">'+it.qty+'</td><td style="padding:4px 8px;border:0.5px solid #eee;text-align:center">'+it.barra+'</td><td style="padding:4px 8px;border:0.5px solid #eee;text-align:right">'+it.kgBruto.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td><td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;color:#888">R$ '+it.precoKg.toFixed(0)+'</td><td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;font-weight:700;color:#003144">R$ '+it.custo.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</td><td style="padding:4px 8px;border:0.5px solid #eee;font-size:9px;color:#888">'+obs+'</td></tr>';
+      var obs=it.pintado?'+ R$ '+(it.precoKgPint||0).toFixed(2)+'/kg pint.':'';
+      h+='<tr><td style="padding:4px 8px;border:0.5px solid #eee;text-align:center;color:#888">'+n+'</td><td style="padding:4px 8px;border:0.5px solid #eee;font-weight:600;color:#003144">'+it.code+'</td><td style="padding:4px 8px;border:0.5px solid #eee;text-align:center">'+it.qty+'</td><td style="padding:4px 8px;border:0.5px solid #eee;text-align:center">'+it.barra+'</td><td style="padding:4px 8px;border:0.5px solid #eee;text-align:right">'+it.kgBruto.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td><td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;color:#888">R$ '+(it.precoKg||0).toFixed(2)+'</td><td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;font-weight:700;color:#003144">R$ '+it.custo.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</td><td style="padding:4px 8px;border:0.5px solid #eee;font-size:9px;color:#888">'+obs+'</td></tr>';
     });
     h+='<tr style="background:#f8f8f8"><td colspan="4" style="padding:4px 8px;text-align:right;font-weight:700;font-size:10px;color:#1a3a4a">Subtotal '+forn+'</td><td style="padding:4px 8px;text-align:right;font-weight:700">'+subKg.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td><td></td><td style="padding:4px 8px;text-align:right;font-weight:700;color:#1a5276">R$ '+subCusto.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</td><td></td></tr>';
     h+='</tbody></table></div>';

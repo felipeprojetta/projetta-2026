@@ -587,9 +587,8 @@ function gerarOS(){
     rows.forEach(function(row){
       subtotalKg+=row.pesoBruto;
       subtotalCusto+=row.custo;
-      var safePrecoKgPint=row.precoKgPint||0;
       var pintaStr=row.pintado
-        ?'+ R$ '+safePrecoKgPint.toFixed(0)+'/kg pintura'
+        ?'+ R$ '+((row.precoKgPint||0).toFixed(2))+'/kg pint.'
         :'';
       html+='<tr style="background:#fff">'
         +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:center;color:#aaa;font-size:10px">'+pr+'</td>'
@@ -598,7 +597,7 @@ function gerarOS(){
         +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:center;font-size:10px">'+row.barLen+'</td>'
         +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;font-weight:700;font-size:11px">'+((row.pesoBruto||0).toFixed(3)).replace('.',',')+'</td>'
         +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:center;border-right:2px dashed #ccc;color:#ddd">___</td>'
-        +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;font-size:10px;color:#555">R$ '+((row.precoTotal||0).toFixed(0))+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;font-size:10px;color:#555">R$ '+((row.precoKgMat||0).toFixed(2))+'</td>'
         +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;font-weight:700;font-size:11px;color:#003144">R$ '+((row.custo||0).toFixed(2)).replace('.',',')+'</td>'
         +'<td style="padding:4px 8px;border:0.5px solid #eee;font-size:9px;color:#888">'+pintaStr+'</td>'
         +'</tr>';

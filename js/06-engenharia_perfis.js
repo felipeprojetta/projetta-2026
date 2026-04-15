@@ -79,15 +79,24 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   var sis = _p.sis;
   var C   = CONJUNTOS_PERFIS[sis];
 
-  var kgTecno   = typeof _getPfLiq==='function'?_getPfLiq('TECNOPERFIL'):(parseFloat((document.getElementById('pf-kg-tecnoperfil')||{value:0}).value)||0);
-  var kgMerc    = typeof _getPfLiq==='function'?_getPfLiq('MERCADO'):(parseFloat((document.getElementById('pf-kg-mercado')||{value:0}).value)||0);
-  var kgWeiku   = typeof _getPfLiq==='function'?_getPfLiq('WEIKU'):(parseFloat((document.getElementById('pf-kg-weiku')||{value:0}).value)||0);
-  var precoPint = typeof _getPintLiq==='function'?_getPintLiq():(parseFloat((document.getElementById('pf-preco-pintura')||{value:0}).value)||0);
-  // Preços BRUTOS (sem dedução) para exibição
+  // Preços BRUTOS (valor digitado no cadastro)
   var kgTecnoBru = parseFloat((document.getElementById('pf-kg-tecnoperfil')||{value:0}).value)||0;
   var kgMercBru  = parseFloat((document.getElementById('pf-kg-mercado')||{value:0}).value)||0;
   var kgWeikuBru = parseFloat((document.getElementById('pf-kg-weiku')||{value:0}).value)||0;
   var precoPintBru = parseFloat((document.getElementById('pf-preco-pintura')||{value:0}).value)||0;
+
+  // Deduções (%) — lê direto do DOM para não depender de arquivo externo
+  var dedTecno = parseFloat((document.getElementById('pf-ded-tecnoperfil')||{value:0}).value)||0;
+  var dedMerc  = parseFloat((document.getElementById('pf-ded-mercado')||{value:0}).value)||0;
+  var dedWeiku = parseFloat((document.getElementById('pf-ded-weiku')||{value:0}).value)||0;
+  var dedPint  = parseFloat((document.getElementById('pf-ded-pintura')||{value:0}).value)||0;
+
+  // Preços LÍQUIDOS (após dedução) — base para cálculo de custo
+  var kgTecno   = kgTecnoBru * (1 - dedTecno/100);
+  var kgMerc    = kgMercBru  * (1 - dedMerc/100);
+  var kgWeiku   = kgWeikuBru * (1 - dedWeiku/100);
+  var precoPint = precoPintBru * (1 - dedPint/100);
+
 
   var FGA       = _p.FGA;   // Folga altura (padrão 10mm)
   var FGL       = _p.FGL;   // Folga largura esquerda (padrão 10mm)
@@ -405,7 +414,9 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   return {cuts:cuts,groupRes:groupRes,seenKeys:seenKeys,sis:sis,N_H:N_H,
           temCava:temCava,larguraCava:LARGURA_CAVA,travCavaSize:TRAV_CAVA,
           vedaSize:VEDA_SIZE,vedaCode:VEDA_CODE,vedaQty:VEDA_QTY,folhaPAPA:FOLHA_PA_PA,
-          kgTecno:kgTecno,kgMerc:kgMerc,precoPint:precoPint,isPintado:isPintado};
+          kgTecno:kgTecno,kgMerc:kgMerc,precoPint:precoPint,isPintado:isPintado,
+          kgTecnoBru:kgTecnoBru,kgMercBru:kgMercBru,kgWeikuBru:kgWeikuBru,precoPintBru:precoPintBru,
+          dedTecno:dedTecno,dedMerc:dedMerc,dedWeiku:dedWeiku,dedPint:dedPint};
 }
 
 // ── BAR VISUAL HELPERS ─────────────────────────────────────────────────────────

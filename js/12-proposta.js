@@ -1194,10 +1194,18 @@ function calcPerfis(){
   if(L<=0||H<=0){alert('Preencha Largura e Altura no Orçamento primeiro.');return;}
   var nFolhas=parseInt(document.getElementById('folhas-porta').value)||1;
   var barraMM=(parseFloat(document.getElementById('pf-barra-m').value)||6)*1000;
-  var kgTecno=typeof _getPfLiq==='function'?_getPfLiq('TECNOPERFIL'):(parseFloat(document.getElementById('pf-kg-tecnoperfil').value)||31);
-  var kgMerc=typeof _getPfLiq==='function'?_getPfLiq('MERCADO'):(parseFloat(document.getElementById('pf-kg-mercado').value)||38);
-  var kgWeiku=typeof _getPfLiq==='function'?_getPfLiq('WEIKU'):(parseFloat(document.getElementById('pf-kg-weiku').value)||35);
-  var precoPint=typeof _getPintLiq==='function'?_getPintLiq():(parseFloat(document.getElementById('pf-preco-pintura').value)||5.7);
+  var kgTecnoBru=parseFloat(document.getElementById('pf-kg-tecnoperfil').value)||31;
+  var kgMercBru=parseFloat(document.getElementById('pf-kg-mercado').value)||38;
+  var kgWeikuBru=parseFloat(document.getElementById('pf-kg-weiku').value)||35;
+  var precoPintBru=parseFloat(document.getElementById('pf-preco-pintura').value)||5.7;
+  var dedTecno=parseFloat((document.getElementById('pf-ded-tecnoperfil')||{value:0}).value)||0;
+  var dedMerc=parseFloat((document.getElementById('pf-ded-mercado')||{value:0}).value)||0;
+  var dedWeiku=parseFloat((document.getElementById('pf-ded-weiku')||{value:0}).value)||0;
+  var dedPint=parseFloat((document.getElementById('pf-ded-pintura')||{value:0}).value)||0;
+  var kgTecno=kgTecnoBru*(1-dedTecno/100);
+  var kgMerc=kgMercBru*(1-dedMerc/100);
+  var kgWeiku=kgWeikuBru*(1-dedWeiku/100);
+  var precoPint=precoPintBru*(1-dedPint/100);
 
   var TUB=(typeof _isInternacional==='function'&&_isInternacional())?50.8:(H>=4000?50.8:38.1);
   var sis=TUB===50.8?'PA007':'PA006';
