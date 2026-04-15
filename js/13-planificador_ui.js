@@ -43,7 +43,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
   if (mod === '10' || mod === '11' || mod === '15' || mod === '23acm' || mod === '23alu') {
     // Detectar MACICO para modelo 23
     var _isMacico = (mod === '23acm' || mod === '23alu') && (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value === 'MACICO';
-    var _mAlu = 'acm';  // todas peças vão no nesting ACM
+    var _mAlu = _isMacico ? 'alu' : 'acm';  // TAMPA+FIT → chapa ALU separada
     var LARG_FRISO = 0, DIS_BOR_FRI = 0, frisoDeduc = 0;
     if (mod === '11') {
       LARG_FRISO  = parseInt(document.getElementById('plan-largfriso').value) || 10;
@@ -1276,13 +1276,12 @@ function _autoSelectAndRun(){
           }
         }
       }
-      // ALU cor match (baseado em carac-cor-ext: ALU SOLIDA METALIZADA ou ALU MADEIRA)
+      // ALU cor match (baseado em carac-cor-macico)
       var palu=document.getElementById('plan-alu-cor');
-      if(palu && _corName){
-        var _isMad=_corName.indexOf('MADEIRA')>=0;
-        var _aluKey=_isMad?'MADEIRA':'SÓLIDA';
+      var _corMacico=(document.getElementById('carac-cor-macico')||{value:''}).value.toUpperCase();
+      if(palu && _corMacico){
         for(var ai=0;ai<palu.options.length;ai++){
-          if((palu.options[ai].text||'').toUpperCase().indexOf(_aluKey)>=0){
+          if((palu.options[ai].text||'').toUpperCase().indexOf(_corMacico)>=0){
             palu.selectedIndex=ai; break;
           }
         }

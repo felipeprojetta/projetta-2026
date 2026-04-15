@@ -1856,6 +1856,18 @@ function _syncChapaToOrc(){
   var hiddenAcmQty=document.getElementById('acm-qty-1');
   if(hiddenAcmQty) hiddenAcmQty.value=acmQty;
 
+  // ALU MACIÇO → hidden block (usa plan-alu-cor e plan-alu-qty)
+  var aluSel=document.getElementById('plan-alu-cor');
+  var aluQtyEl=document.getElementById('plan-alu-qty');
+  var aluQty=aluQtyEl?parseInt(aluQtyEl.value)||0:0;
+  if(aluQty>0){
+    if(!document.getElementById('alu-blk-1')&&typeof addALU==='function') addALU(null,1);
+    var hiddenAluSel=document.getElementById('alu-sel-1');
+    var hiddenAluQty=document.getElementById('alu-qty-1');
+    if(hiddenAluSel && aluSel && aluSel.value) hiddenAluSel.value=aluSel.value;
+    if(hiddenAluQty) hiddenAluQty.value=aluQty;
+  }
+
   _updateFabChapaResumo();
   calc();
 }
