@@ -3154,7 +3154,7 @@ Equipe Projetta by Weiku</textarea>
       <div id="plan-chapa-alu-row" class="fr" style="display:none;border:none;padding:6px 10px;background:#f0f0ff;border-radius:6px;margin-top:4px">
         <span class="fl" style="color:#6c3483">🔷 Chapa ALU Maciço</span>
         <div style="display:flex;gap:6px;align-items:center">
-          <select id="plan-chapa-alu" class="plan-sel" style="flex:0 0 170px;border-color:#6c3483;color:#6c3483" onchange="if(typeof planRun==='function')planRun()">
+          <select id="plan-chapa-alu" class="plan-sel" style="flex:0 0 170px;border-color:#6c3483;color:#6c3483" onchange="if(typeof filtrarChapasACM==='function')filtrarChapasACM();if(typeof planRun==='function')planRun();if(typeof _syncChapaToOrc==='function')_syncChapaToOrc()">
             <option value="1500|3000" selected>1500 x 3000 mm</option>
             <option value="1500|5000">1500 x 5000 mm</option>
             <option value="1500|6000">1500 x 6000 mm</option>

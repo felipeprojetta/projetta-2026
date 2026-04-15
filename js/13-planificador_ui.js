@@ -2117,7 +2117,10 @@ function getCurrentPlanSize() {
 function filtrarChapasACM() {
   const size = getCurrentPlanSize();
   const filteredACM = acmOptsFiltered(size);
-  const filteredALU = aluOptsFiltered(size);
+  // ALU: usar tamanho da chapa ALU (não da ACM)
+  var aluSizeSel=document.getElementById('plan-chapa-alu');
+  var aluSize=aluSizeSel&&aluSizeSel.value?(aluSizeSel.value.split('|')[1]||'3000'):'3000';
+  const filteredALU = aluOptsFiltered(aluSize);
   // Atualiza blocos ACM ocultos
   for (let i = 1; i <= aC; i++) {
     const sel = document.getElementById('acm-sel-' + i);

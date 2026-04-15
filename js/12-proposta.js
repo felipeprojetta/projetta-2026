@@ -1853,39 +1853,27 @@ function _syncChapaToOrc(){
   }
   // ACM → hidden block
   var acmQty=parseInt((document.getElementById('plan-acm-qty')||{value:0}).value)||0;
-  // Se tem _chapasACM do planificador, usar esse
-  if(window._chapasACM!==undefined) acmQty=window._chapasACM;
+  if(window._chapasACM!==undefined&&window._chapasACM>=0) acmQty=window._chapasACM;
   var hiddenAcmSel=document.getElementById('acm-sel-1');
-  if(hiddenAcmSel && acmSel){ hiddenAcmSel.value=acmSel.value; var qEl=document.getElementById('acm-qty-1'); if(qEl)qEl.value=acmQty; }
+  if(hiddenAcmSel && acmSel){ hiddenAcmSel.value=acmSel.value; }
+  var hiddenAcmQty=document.getElementById('acm-qty-1');
+  if(hiddenAcmQty) hiddenAcmQty.value=acmQty;
 
-  // ALU MACIÇO — auto-sync baseado na cor selecionada + tamanho chapa ALU
-  var _chapasALU=window._chapasALU||0;
-  if(_chapasALU>0){
-    var corExt=(document.getElementById('carac-cor-ext')||{value:''}).value;
-    var _isMadeira=(corExt||'').toUpperCase().indexOf('MADEIRA')>=0;
-    var aluChapaSel=document.getElementById('plan-chapa-alu');
-    var _aluSH=3000;
-    if(aluChapaSel&&aluChapaSel.value){var _ap=aluChapaSel.value.split('|');_aluSH=parseInt(_ap[1])||3000;}
-    // Procurar preço na ALU_DATA
-    var _aluGrpIdx=_isMadeira?1:0; // 0=Sólida, 1=Madeira
-    var _aluPrice=0, _aluArea=0;
-    if(typeof ALU_DATA!=='undefined'&&ALU_DATA[_aluGrpIdx]){
-      var _aluOpts=ALU_DATA[_aluGrpIdx].o||[];
-      for(var ai=0;ai<_aluOpts.length;ai++){
-        if((_aluOpts[ai].l||'').indexOf(String(_aluSH))>=0){_aluPrice=_aluOpts[ai].p;_aluArea=_aluOpts[ai].a;break;}
-      }
-    }
-    // Garantir que existe ao menos 1 bloco ALU
-    if(!document.getElementById('alu-blk-1')&&typeof addALU==='function') addALU(null,1);
-    var hiddenAluSel=document.getElementById('alu-sel-1');
-    var hiddenAluQty=document.getElementById('alu-qty-1');
-    if(hiddenAluSel&&_aluPrice>0) hiddenAluSel.value=_aluPrice+'|'+_aluArea;
-    if(hiddenAluQty) hiddenAluQty.value=_chapasALU;
-  } else {
-    // Sem ALU: limpar bloco se existir
-    var _existAlu=document.getElementById('alu-blk-1');
-    if(_existAlu&&window._corMode==='alu'){/* manter */}
+  // ALU MACIÇO → hidden block (usa plan-alu-cor e plan-alu-qty diretamente)
+  var aluSel=document.getElementById('plan-alu-cor');
+  var aluQtyEl=document.getElementById('plan-alu-qty');
+  var aluQty=aluQtyEl?parseInt(aluQtyEl.value)||0:0;
+  // Se planificador calculou _chapasALU, atualizar qty
+  if(window._chapasALU!==undefined&&window._chapasALU>=0){
+    aluQty=window._chapasALU;
+    if(aluQtyEl) aluQtyEl.value=aluQty;
   }
+  // Garantir bloco ALU hidden existe
+  if(aluQty>0&&!document.getElementById('alu-blk-1')&&typeof addALU==='function') addALU(null,1);
+  var hiddenAluSel=document.getElementById('alu-sel-1');
+  var hiddenAluQty=document.getElementById('alu-qty-1');
+  if(hiddenAluSel && aluSel && aluSel.value) hiddenAluSel.value=aluSel.value;
+  if(hiddenAluQty) hiddenAluQty.value=aluQty;
 
   _updateFabChapaResumo();
   calc();
@@ -1917,28 +1905,24 @@ function _updateFabChapaResumo(){
   } else { if(acmTb)acmTb.innerHTML=''; if(acmTbl)acmTbl.style.display='none'; if(acmE)acmE.style.display=''; }
   // ALU
   var aluTb=document.getElementById('fab-alu-tbody'), aluTbl=document.getElementById('fab-alu-table'), aluE=document.getElementById('fab-alu-empty');
-  var _chapasALUn=window._chapasALU||0;
-  // Ler do hidden block ou dos globals
-  var _aluHidSel=document.getElementById('alu-sel-1');
-  var _aluHidQty=document.getElementById('alu-qty-1');
-  var _aluQShow=_aluHidQty?parseInt(_aluHidQty.value)||0:_chapasALUn;
-  var _aluPrShow=0, _aluAShow=0, _aluLblShow='ALU Maciço 2.5mm';
-  if(_aluHidSel&&_aluHidSel.value){
-    var _avp=_aluHidSel.value.split('|');
-    _aluPrShow=parseFloat(_avp[0])||0;
-    _aluAShow=parseFloat(_avp[1])||0;
-    // Label from selected option text
-    var _aopt=_aluHidSel.options[_aluHidSel.selectedIndex];
-    if(_aopt&&_aopt.text&&_aopt.text!=='— Selecionar —') _aluLblShow=_aopt.text.split('·')[0].trim();
+  var aluCorSel=document.getElementById('plan-alu-cor');
+  var aluQtyEl2=document.getElementById('plan-alu-qty');
+  var _aluQ=aluQtyEl2?parseInt(aluQtyEl2.value)||0:0;
+  var _aluPr=0, _aluLbl='ALU Maciço 2.5mm';
+  if(aluCorSel&&aluCorSel.selectedIndex>0){
+    var _aluOpt=aluCorSel.options[aluCorSel.selectedIndex];
+    _aluLbl=_aluOpt?_aluOpt.text.split('·')[0].trim():'ALU Maciço';
+    var _aluVP=aluCorSel.value.split('|');
+    _aluPr=parseFloat(_aluVP[0])||0;
   }
-  if(aluTb && _aluQShow>0 && _aluPrShow>0){
-    var _aluSub=_aluPrShow*_aluQShow;
+  if(aluTb && _aluQ>0 && _aluPr>0){
+    var _aluSub=_aluPr*_aluQ;
     var _aluSzTag='';
-    var _aCSel=document.getElementById('plan-chapa-alu');
-    if(_aCSel&&_aCSel.value){var _acp=_aCSel.value.split('|');_aluSzTag=' <span style="font-size:9px;color:#6c3483;font-weight:400">('+_acp[0]+'×'+_acp[1]+'mm)</span>';}
-    aluTb.innerHTML='<tr><td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🔷 '+_aluLblShow+_aluSzTag+'</td>'
-      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;font-weight:700">'+_aluQShow+'</td>'
-      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+_aluPrShow.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+    var _aCSel2=document.getElementById('plan-chapa-alu');
+    if(_aCSel2&&_aCSel2.value){var _acp2=_aCSel2.value.split('|');_aluSzTag=' <span style="font-size:9px;color:#6c3483;font-weight:400">('+_acp2[0]+'×'+_acp2[1]+'mm)</span>';}
+    aluTb.innerHTML='<tr><td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🔷 '+_aluLbl+_aluSzTag+'</td>'
+      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;font-weight:700">'+_aluQ+'</td>'
+      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+_aluPr.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
       +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#1a5276">R$ '+_aluSub.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td></tr>';
     if(aluTbl)aluTbl.style.display=''; if(aluE)aluE.style.display='none';
   } else { if(aluTb)aluTb.innerHTML=''; if(aluTbl)aluTbl.style.display='none'; if(aluE)aluE.style.display=''; }
