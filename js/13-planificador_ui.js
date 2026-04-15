@@ -1569,6 +1569,27 @@ function planRun() {
 
   plnPieceTable(pieces, PLN_RES.placed);
   document.getElementById('plan-result').style.display='';
+
+  // ── Chapa Frontal — referência no planificador ──
+  var _pfDiv=document.getElementById('plan-chapa-frontal');
+  if(_pfDiv){
+    var _pfL=Math.round(parseFloat((document.getElementById('largura')||{value:0}).value)||0);
+    var _pfA=Math.round(parseFloat((document.getElementById('altura')||{value:0}).value)||0);
+    var _pfSis=(document.getElementById('prod-sistema')||{value:''}).value||'';
+    var _pfTUB=(_pfSis.indexOf('PA007')>=0||_pfA>=4000)?51:38;
+    var _pfG4=Math.round(_pfA-10-_pfTUB-28+8);
+    var _pfG3=Math.round(_pfL-20-343+218);
+    var _pfG2=Math.round(_pfL-20-343+256);
+    if(_pfL>0&&_pfA>0){
+      _pfDiv.style.display='';
+      _pfDiv.innerHTML='<div style="background:#f0f7ff;border:1px solid #b0cfe0;border-radius:6px;padding:8px 14px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
+        +'<span style="font-size:10px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:.04em">📐 Chapa Frontal</span>'
+        +'<span style="font-size:11px"><b>ALT:</b> '+_pfG4+'</span>'
+        +'<span style="font-size:11px;color:#1a5276"><b>LAR 1flh:</b> '+_pfG3+'</span>'
+        +'<span style="font-size:11px;color:#6c3483"><b>LAR 2flh:</b> '+_pfG2+'</span>'
+        +'</div>';
+    }
+  }
   document.getElementById('plan-use-btn').style.display='';
   document.getElementById('plan-print-btn').style.display='';
   plnBuildTabs();
