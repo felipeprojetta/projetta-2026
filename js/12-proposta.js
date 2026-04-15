@@ -264,7 +264,7 @@ function populateProposta(){
   var _cilLine=document.getElementById('prop-cilindro-line');
   if(_cilEl&&_cilLine){
     if(_cilVal.toUpperCase().indexOf('UDINESE')>=0){
-      _cilEl.innerHTML='<strong style="color:#e67e22;font-size:110%">⚠️ UDINESE</strong>';
+      _cilEl.innerHTML='<strong style="color:#e67e22;font-size:110%">UDINESE</strong>';
       _cilLine.style.cssText='background:#fff3e0;border:2px solid #e67e22;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700';
     } else {
       _cilEl.textContent=_cilVal;
