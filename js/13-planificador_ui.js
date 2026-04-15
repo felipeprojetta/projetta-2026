@@ -1111,8 +1111,15 @@ function _autoSelectAndRun(){
   }
   if(!pcsNorm||!pcsNorm.length) return;
 
+  // Separar peças ACM e ALU para otimização independente
+  var _pcsACM=[], _pcsALU=[];
+  pcsNorm.forEach(function(p){
+    if(p.mat==='alu') _pcsALU.push(p); else _pcsACM.push(p);
+  });
+  var _hasALU=_pcsALU.length>0;
+
   var maxDim=0;
-  pcsNorm.forEach(function(p){var d=Math.max(p.w,p.h);if(d>maxDim)maxDim=d;});
+  _pcsACM.forEach(function(p){var d=Math.max(p.w,p.h);if(d>maxDim)maxDim=d;});
 
   var corCode=_getCorCode();
   // Fallback: extrair código da cor do dropdown do planificador
@@ -1153,9 +1160,9 @@ function _autoSelectAndRun(){
 
   validas.forEach(function(SH){
     try{
-      var res=plnMaxRects(pcsNorm, SW, SH, layoutMode);
+      var res=plnMaxRects(_pcsACM, SW, SH, layoutMode);
       var totalPecas=0;
-      pcsNorm.forEach(function(p){totalPecas+=p.w*p.h*p.qty;});
+      _pcsACM.forEach(function(p){totalPecas+=p.w*p.h*p.qty;});
       var totalChapa=res.numSheets*SW*SH;
       var aprov=totalChapa>0?(totalPecas/totalChapa*100):0;
       var precoUn=_getRefPrice(SH);
@@ -1268,8 +1275,9 @@ function _autoSelectAndRun(){
           }
         }
       }
+      // Qty ACM: usar _chapasACM (planRun já separou)
       var qe=document.getElementById('plan-acm-qty');
-      if(qe) qe.value=_bestN;
+      if(qe) qe.value=window._chapasACM||_bestN;
       if(typeof _syncChapaToOrc==='function') _syncChapaToOrc();
       if(typeof _updateFabChapaResumo==='function') _updateFabChapaResumo();
       if(typeof calc==='function') calc();
@@ -1551,11 +1559,18 @@ function planRun() {
 
   // ── Nesting ACM (principal) ────────────────────────────────────────────────
   var hasALU=piecesALU.length>0;
+  // Show/hide ALU row
+  var _aluRow=document.getElementById('plan-chapa-alu-row');
+  if(_aluRow) _aluRow.style.display=hasALU?'':'none';
+
   PLN_RES = piecesACM.length>0 ? plnMaxRects(piecesACM,SW,SH,layoutMode) : {numSheets:0,placed:[],failed:[],stats:[]};
   PLN_CSI=0;
 
-  // ── Nesting ALU (se houver) ────────────────────────────────────────────────
-  var PLN_RES_ALU = hasALU ? plnMaxRects(piecesALU,SW,SH,layoutMode) : {numSheets:0,placed:[],failed:[],stats:[]};
+  // ── Nesting ALU (se houver) — usa tamanho de chapa ALU separado ──────────
+  var SW_ALU=SW, SH_ALU=SH;
+  var _aluSel=document.getElementById('plan-chapa-alu');
+  if(_aluSel&&_aluSel.value){var _ap=_aluSel.value.split('|');SW_ALU=parseInt(_ap[0])||1500;SH_ALU=parseInt(_ap[1])||3000;}
+  var PLN_RES_ALU = hasALU ? plnMaxRects(piecesALU,SW_ALU,SH_ALU,layoutMode) : {numSheets:0,placed:[],failed:[],stats:[]};
   window._plnResALU = PLN_RES_ALU;
 
   // Merge ALU into PLN_RES for unified display (tabs/canvas)

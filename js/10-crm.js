@@ -1733,6 +1733,8 @@ function orcItemSelecionar(idx){
     var _alisarEl = document.getElementById('carac-tem-alisar');
     if(_alisarEl) _alisarEl.checked = !!it.tem_alisar;
     if(typeof onModeloChange==='function' && it.modelo) try{onModeloChange();}catch(e){}
+    // Forçar verificação cor ALU/ACM após todos campos carregados
+    if(typeof _checkCorMode==='function') setTimeout(_checkCorMode, 200);
   }
   
   if(it.tipo === 'fixo'){
@@ -1746,6 +1748,7 @@ function orcItemSelecionar(idx){
     // Sync planificador and model
     if(typeof planUpd==='function') try{planUpd();}catch(e){}
     if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
+    if(typeof _checkCorMode==='function') setTimeout(_checkCorMode, 200);
     if(typeof _osAutoGenerate==='function') try{window._osAutoMode=true;_osAutoGenerate();window._osAutoMode=false;}catch(e){}
   }, 300);
 }
@@ -2267,6 +2270,7 @@ window.crmNovaRevisao=function(cardId){
   setTimeout(function(){
     _forceUnlock();
     if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
+    if(typeof _checkCorMode==='function') setTimeout(_checkCorMode, 200);
     if(typeof planUpd==='function') try{planUpd();}catch(e){}
     if(typeof calc==='function') try{calc();}catch(e){}
   }, 1000);

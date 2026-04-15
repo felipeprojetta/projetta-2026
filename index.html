@@ -3150,9 +3150,19 @@ Equipe Projetta by Weiku</textarea>
           </div>
         </div>
       </div>
+      <!-- ALU sheet selector (visible only for modelo 23 MACICO) -->
+      <div id="plan-chapa-alu-row" class="fr" style="display:none;border:none;padding:6px 10px;background:#f0f0ff;border-radius:6px;margin-top:4px">
+        <span class="fl" style="color:#6c3483">🔷 Chapa ALU Maciço</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select id="plan-chapa-alu" class="plan-sel" style="flex:0 0 170px;border-color:#6c3483;color:#6c3483" onchange="if(typeof planRun==='function')planRun()">
+            <option value="1500|3000" selected>1500 x 3000 mm</option>
+            <option value="1500|5000">1500 x 5000 mm</option>
+            <option value="1500|6000">1500 x 6000 mm</option>
+          </select>
+          <span style="font-size:10px;color:#6c3483;font-weight:700" id="plan-alu-qty-lbl"></span>
+        </div>
+      </div>
     </div>
-
-    <!-- cava variables - so aparece para modelos cava -->
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
       <label style="font-size:9px;color:#888;white-space:nowrap">Refilado tampas</label>
       <select id="plan-refilado" onchange="if(typeof planUpd==='function')planUpd()" style="padding:4px 8px;border:1px solid #c9c6bf;border-radius:5px;font-size:11px;font-weight:700;color:var(--navy)">
