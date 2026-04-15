@@ -609,7 +609,7 @@ window.crmOpenModal=function(defaultStage,editId){
       _crmItensFromCardData(opp.itens);
     } else if(opp.largura&&opp.altura){
       // Backward compat: convert old single-item to itens array
-      _crmItensFromCardData([{tipo:'porta_pivotante',qtd:1,largura:opp.largura,altura:opp.altura,modelo:opp.modelo||'',abertura:opp.abertura||'PIVOTANTE',folhas:opp.folhas||'1',cor_ext:opp.cor_ext||'',cor_int:opp.cor_int||''}]);
+      _crmItensFromCardData([{tipo:'porta_pivotante',qtd:1,largura:opp.largura,altura:opp.altura,modelo:opp.modelo||'',abertura:opp.abertura||'PIVOTANTE',folhas:opp.folhas||'1',cor_ext:opp.cor_ext||'',cor_int:opp.cor_int||'',cor_macico:opp.cor_macico||''}]);
     } else {
       _crmItens=[];_crmItensRender();
     }
@@ -875,7 +875,7 @@ window._crmSwitchCorMode=function(itemId){
   var rev=revEl?revEl.value:'ACM';
   var mode=(mod==='23'&&rev==='MACICO')?'alu':'acm';
   var opts=_crmGetCorOptions(mode);
-  ['cor_ext','cor_int','cor_macico'].forEach(function(f){
+  ['cor_ext','cor_int'].forEach(function(f){
     var sel=document.getElementById(pre+f);
     if(sel){var v=sel.value;sel.innerHTML=opts;if(v)sel.value=v;}
   });
@@ -1975,6 +1975,7 @@ window.crmFazerOrcamento=function(id){
           // Sync cor para planificador puxar chapa correta
           if(document.getElementById('carac-cor-ext')&&_first['carac-cor-ext'])document.getElementById('carac-cor-ext').value=_first['carac-cor-ext'];
           if(document.getElementById('carac-cor-int')&&_first['carac-cor-int'])document.getElementById('carac-cor-int').value=_first['carac-cor-int'];
+          if(document.getElementById('carac-cor-macico')&&_first['carac-cor-macico'])document.getElementById('carac-cor-macico').value=_first['carac-cor-macico'];
           // Sync planificador model/cava/friso
           if(document.getElementById('plan-modelo'))document.getElementById('plan-modelo').value=_first['carac-modelo']||_first._modelo||'01';
           if(document.getElementById('plan-folhas'))document.getElementById('plan-folhas').value=_first['folhas-porta']||_first._folhas||'1';
