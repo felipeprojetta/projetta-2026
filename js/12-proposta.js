@@ -27,73 +27,70 @@ function printPainelRep(){
   var m2=((L/1000)*(A/1000)*qtdP).toFixed(2);
   var corExt='';var ceEl=$('carac-cor-ext');if(ceEl&&ceEl.selectedIndex>=0)corExt=(ceEl.options[ceEl.selectedIndex].text||'');
 
-  var w=window.open('','_blank','width=700,height=900');
-  // Nome do arquivo: AGP_RESERVA_CLIENTE_RC
+  // Nome do arquivo: AGP - RESERVA - CLIENTE - RC
   var _pdfParts=[];
   if(agp) _pdfParts.push(agp.replace(/\s+/g,''));
   if(reserva) _pdfParts.push(reserva);
   if(cli&&cli!=='—') _pdfParts.push(cli.replace(/[^\w\sÀ-ú]/g,'').replace(/\s+/g,'_').substring(0,30));
   _pdfParts.push('RC');
-  var _pdfName=_pdfParts.join('_');
-  var h='<!DOCTYPE html><html><head><title>'+_pdfName+'</title><style>';
-  h+='body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:30px;color:#1a3a4a;max-width:600px;margin:0 auto}';
-  h+='.hdr{background:#003144;color:#fff;padding:16px 20px;border-radius:10px 10px 0 0;text-align:center}';
-  h+='.hdr h1{margin:0;font-size:18px;letter-spacing:1px}';
-  h+='.hdr .sub{font-size:11px;opacity:.7;margin-top:4px}';
-  h+='.body{border:1px solid #ddd;border-top:none;border-radius:0 0 10px 10px;padding:20px}';
-  h+='.info{display:flex;flex-wrap:wrap;gap:6px 20px;margin-bottom:16px;font-size:11px;color:#555}';
-  h+='.info b{color:#003144}';
-  h+='.prices{display:flex;gap:16px;margin-bottom:20px}';
-  h+='.pbox{flex:1;background:#f8f6f0;border-radius:8px;padding:14px;text-align:center}';
-  h+='.pbox .lbl{font-size:10px;text-transform:uppercase;color:#888;font-weight:700;letter-spacing:.5px}';
-  h+='.pbox .val{font-size:22px;font-weight:800;color:#003144;margin-top:4px}';
-  h+='.pbox.fat .val{color:#e65100}';
-  h+='table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px}';
-  h+='th{background:#f0ede8;padding:6px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#888}';
-  h+='td{padding:6px 10px;border-bottom:1px solid #eee}';
-  h+='td.v{text-align:right;font-weight:700;color:#003144}';
-  h+='.comms{display:flex;gap:12px;margin-top:16px}';
-  h+='.cbox{flex:1;background:#f0f7ff;border-radius:8px;padding:10px;text-align:center}';
-  h+='.cbox .cl{font-size:10px;text-transform:uppercase;color:#888;font-weight:700}';
-  h+='.cbox .cv{font-size:18px;font-weight:800;color:#1a5276;margin-top:2px}';
-  h+='.footer{margin-top:20px;font-size:9px;color:#aaa;text-align:center}';
-  h+='@media print{body{padding:20px}}';
-  h+='</style></head><body>';
-  h+='<div class="hdr"><h1>PROJETTA by WEIKU</h1><div class="sub">Painel Comercial — Representante</div></div>';
-  h+='<div class="body">';
-  h+='<div class="info">';
-  h+='<span>Cliente: <b>'+cli+'</b></span>';
-  if(agp) h+='<span>AGP: <b>'+agp+'</b></span>';
-  if(reserva) h+='<span>Reserva: <b>'+reserva+'</b></span>';
-  h+='<span>Dimensão: <b>'+L+' × '+A+' mm</b></span>';
-  h+='<span>Modelo: <b>'+modTxt+'</b></span>';
+  var _pdfName=_pdfParts.join(' - ')+'.pdf';
+
+  // Criar div temporário para captura
+  var tmp=document.createElement('div');
+  tmp.style.cssText='position:absolute;left:-9999px;top:0;width:600px;background:#fff;padding:30px;font-family:Arial,Helvetica,sans-serif;color:#1a3a4a';
+  var h='';
+  h+='<div style="background:#003144;color:#fff;padding:16px 20px;border-radius:10px 10px 0 0;text-align:center">';
+  h+='<h1 style="margin:0;font-size:18px;letter-spacing:1px">PROJETTA by WEIKU</h1>';
+  h+='<div style="font-size:11px;opacity:.7;margin-top:4px">Painel Comercial — Representante</div></div>';
+  h+='<div style="border:1px solid #ddd;border-top:none;border-radius:0 0 10px 10px;padding:20px">';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px 20px;margin-bottom:16px;font-size:11px;color:#555">';
+  h+='<span>Cliente: <b style="color:#003144">'+cli+'</b></span>';
+  if(agp) h+='<span>AGP: <b style="color:#003144">'+agp+'</b></span>';
+  if(reserva) h+='<span>Reserva: <b style="color:#003144">'+reserva+'</b></span>';
+  h+='<span>Dimensão: <b style="color:#003144">'+L+' × '+A+' mm</b></span>';
+  h+='<span>Modelo: <b style="color:#003144">'+modTxt+'</b></span>';
   h+='<span>'+folTxt+' · '+qtdP+' porta(s) · '+m2+' m²</span>';
-  if(corExt) h+='<span>Cor: <b>'+corExt+'</b></span>';
+  if(corExt) h+='<span>Cor: <b style="color:#003144">'+corExt+'</b></span>';
   h+='</div>';
-  // Prices
-  h+='<div class="prices">';
-  h+='<div class="pbox"><div class="lbl">Preço Tabela</div><div class="val">'+pTab+'</div></div>';
-  h+='<div class="pbox fat"><div class="lbl">Preço Faturamento</div><div class="val">'+pFat+'</div></div>';
+  h+='<div style="display:flex;gap:16px;margin-bottom:20px">';
+  h+='<div style="flex:1;background:#f8f6f0;border-radius:8px;padding:14px;text-align:center"><div style="font-size:10px;text-transform:uppercase;color:#888;font-weight:700">Preço Tabela</div><div style="font-size:22px;font-weight:800;color:#003144;margin-top:4px">'+pTab+'</div></div>';
+  h+='<div style="flex:1;background:#f8f6f0;border-radius:8px;padding:14px;text-align:center"><div style="font-size:10px;text-transform:uppercase;color:#888;font-weight:700">Preço Faturamento</div><div style="font-size:22px;font-weight:800;color:#e65100;margin-top:4px">'+pFat+'</div></div>';
   h+='</div>';
-  // m² table
-  h+='<table>';
-  h+='<tr><th colspan="2">Valores por m²</th></tr>';
-  h+='<tr><td>Preço tabela/m² <b>porta+inst</b></td><td class="v">'+tm2+'</td></tr>';
-  h+='<tr><td>Preço fat./m² <b>porta+inst</b></td><td class="v">'+fm2+'</td></tr>';
-  h+='<tr><td>Preço tabela/m² <b>só porta</b></td><td class="v">'+tm2p+'</td></tr>';
-  h+='<tr><td>Preço fat./m² <b>só porta</b></td><td class="v">'+fm2p+'</td></tr>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px">';
+  h+='<tr><th colspan="2" style="background:#f0ede8;padding:6px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#888">Valores por m²</th></tr>';
+  h+='<tr><td style="padding:6px 10px;border-bottom:1px solid #eee">Preço tabela/m² <b>porta+inst</b></td><td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#003144">'+tm2+'</td></tr>';
+  h+='<tr><td style="padding:6px 10px;border-bottom:1px solid #eee">Preço fat./m² <b>porta+inst</b></td><td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#003144">'+fm2+'</td></tr>';
+  h+='<tr><td style="padding:6px 10px;border-bottom:1px solid #eee">Preço tabela/m² <b>só porta</b></td><td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#003144">'+tm2p+'</td></tr>';
+  h+='<tr><td style="padding:6px 10px;border-bottom:1px solid #eee">Preço fat./m² <b>só porta</b></td><td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#003144">'+fm2p+'</td></tr>';
   h+='</table>';
-  // Commissions
-  h+='<div class="comms">';
-  h+='<div class="cbox"><div class="cl">Comissão Representante</div><div class="cv">'+comRep+'%</div></div>';
-  h+='<div class="cbox"><div class="cl">Comissão Arquiteto</div><div class="cv">'+comRt+'%</div></div>';
-  h+='<div class="cbox"><div class="cl">Desconto Aplicado</div><div class="cv">'+desc+'%</div></div>';
+  h+='<div style="display:flex;gap:12px;margin-top:16px">';
+  h+='<div style="flex:1;background:#f0f7ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;text-transform:uppercase;color:#888;font-weight:700">Comissão Rep.</div><div style="font-size:18px;font-weight:800;color:#1a5276;margin-top:2px">'+comRep+'%</div></div>';
+  h+='<div style="flex:1;background:#f0f7ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;text-transform:uppercase;color:#888;font-weight:700">Comissão Arq.</div><div style="font-size:18px;font-weight:800;color:#1a5276;margin-top:2px">'+comRt+'%</div></div>';
+  h+='<div style="flex:1;background:#f0f7ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;text-transform:uppercase;color:#888;font-weight:700">Desconto</div><div style="font-size:18px;font-weight:800;color:#1a5276;margin-top:2px">'+desc+'%</div></div>';
   h+='</div>';
-  h+='<div class="footer">Gerado em '+new Date().toLocaleString('pt-BR')+' — Projetta 2026</div>';
+  h+='<div style="margin-top:20px;font-size:9px;color:#aaa;text-align:center">Gerado em '+new Date().toLocaleString('pt-BR')+' — Projetta 2026</div>';
   h+='</div>';
-  h+='<script>setTimeout(function(){window.print();},400);<\/script>';
-  h+='</body></html>';
-  w.document.write(h);w.document.close();
+  tmp.innerHTML=h;
+  document.body.appendChild(tmp);
+
+  // Capturar e gerar PDF com download direto
+  html2canvas(tmp,{scale:2,useCORS:true,backgroundColor:'#ffffff'}).then(function(canvas){
+    document.body.removeChild(tmp);
+    var imgData=canvas.toDataURL('image/jpeg',0.95);
+    var pdf=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    var pW=pdf.internal.pageSize.getWidth();
+    var pH=pdf.internal.pageSize.getHeight();
+    var ratio=canvas.width/canvas.height;
+    var imgW=pW-20;
+    var imgH=imgW/ratio;
+    if(imgH>pH-20){imgH=pH-20;imgW=imgH*ratio;}
+    pdf.addImage(imgData,'JPEG',10,10,imgW,imgH);
+    pdf.save(_pdfName);
+  }).catch(function(err){
+    document.body.removeChild(tmp);
+    console.error('Erro ao gerar PDF:',err);
+    alert('Erro ao gerar PDF. Tente novamente.');
+  });
 }
 
 function printProposta(){
