@@ -183,13 +183,13 @@ function calc(){
   var hPortalEl=$('h-portal');
   if(hPortalEl && _altMM>0 && window._osGeradoUmaVez){
     var _pAuto=_horasPortal(_altMM,_nFol)*_qPh;
-    _setHoraAuto('h-portal',_pAuto,'h-portal-auto','(auto'+_qPnote+')');
+    _setHoraAuto('h-portal',_pAuto,'h-portal-auto',_qPh>1?'(auto: '+_horasPortal(_altMM,_nFol)+'h × '+_qPh+'p = '+_pAuto+'h)':'(auto: '+_pAuto+'h)');
   }
   // Aplicar Quadro × qP
   var hQuadroEl=$('h-quadro');
   if(hQuadroEl && _altMM>0 && window._osGeradoUmaVez){
     var _qAuto=_horasQuadro(_altMM,_nFol)*_qPh;
-    _setHoraAuto('h-quadro',_qAuto,'h-quadro-auto','(auto'+_qPnote+')');
+    _setHoraAuto('h-quadro',_qAuto,'h-quadro-auto',_qPh>1?'(auto: '+_horasQuadro(_altMM,_nFol)+'h × '+_qPh+'p = '+_qAuto+'h)':'(auto: '+_qAuto+'h)');
   }
   // Aplicar Colagem × qP (9h por dia × qP)
   var hColagemEl=$('h-colagem');
@@ -205,8 +205,9 @@ function calc(){
   var hConfEl=$('h-conf');
   if(hConfEl && _altMM>0 && window._osGeradoUmaVez){
     var _cfBase = _altMM < 6000 ? 3 : 4;
-    var _cfAuto = (_nFol === 2 ? _cfBase * 2 : _cfBase)*_qPh;
-    _setHoraAuto('h-conf',_cfAuto,'h-conf-auto','(auto: '+_cfAuto+'h'+_qPnote+')');
+    var _cfPer = _nFol === 2 ? _cfBase * 2 : _cfBase;
+    var _cfAuto = _cfPer*_qPh;
+    _setHoraAuto('h-conf',_cfAuto,'h-conf-auto',_qPh>1?'(auto: '+_cfPer+'h × '+_qPh+'p = '+_cfAuto+'h)':'(auto: '+_cfAuto+'h)');
   }
   } // end single-door
   // ══════════════════════════════════════════════════════════════════════
@@ -262,12 +263,12 @@ function calc(){
       if(_dLbl) _dLbl.textContent='(auto: '+_dDetail.join(' + ')+' = '+_dTotal+'d)';
     } else if(_altMM2>0){
       var _dBase = _altMM2<=3800?1 : _altMM2<=5500?2 : 3;
-      var _dAuto = _nFol2===2 ? _dBase+1 : _dBase;
+      var _dPerDoor = _nFol2===2 ? _dBase+1 : _dBase;
+      var _dAuto = _dPerDoor * _qPh; // multiplicar por quantidade de portas
       _diasEl.value=_dAuto;
       _diasEl.dataset.auto='1';
       var _dLbl=document.getElementById('dias-auto');
-      if(_dLbl) _dLbl.textContent='(auto: '+_dAuto+' dia'+((_dAuto>1)?'s':'')+')';
-    }
+      if(_dLbl) _dLbl.textContent=_qPh>1?'(auto: '+_dPerDoor+'d × '+_qPh+'p = '+_dAuto+'d)':'(auto: '+_dAuto+' dia'+(_dAuto>1?'s':'')+')';
   }
   // Auto-calc Quantidade de pessoas — só quando OS foi gerada e altura preenchida
   var _maxAlt=_altMM2;
