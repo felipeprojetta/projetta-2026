@@ -28,7 +28,7 @@ const CONJUNTOS_PERFIS = {
 
     // Frisos (decorativos/acabamento) — 101×101 para PA007
     friso_vert:     'PA-101X101X2.5',     // FRISO VERTICAL (101×101) ← mesmo que LAR
-    friso_horiz:    'PA-101X101X2.5',     // FRISO HORIZONTAL (101×101) ← corrigido de 101×51
+    friso_horiz:    'PA-101X51X2',        // FRISO HORIZONTAL (101×51) — retangular (horizontal)
 
     // Portal
     lar_portal:     'PA-101X51X2',        // LAR PORTAL — travessa horiz do portal (101×51)
@@ -57,7 +57,7 @@ const CONJUNTOS_PERFIS = {
 
     // Frisos (decorativos/acabamento) — 76×76 para PA006
     friso_vert:     'PA-76X76X2.0',       // FRISO VERTICAL (76×76) ← mesmo que LAR
-    friso_horiz:    'PA-76X76X2.0',       // FRISO HORIZONTAL (76×76) ← corrigido de 76×38
+    friso_horiz:    'PA-76X38X1.98',      // FRISO HORIZONTAL (76×38) — retangular (horizontal)
 
     // Portal
     lar_portal:     'PA-76X38X1.98',      // LAR PORTAL — travessa horiz do portal (76×38)
