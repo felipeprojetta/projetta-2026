@@ -93,6 +93,57 @@ function printPainelRep(){
   });
 }
 
+/* ── Memorial de Cálculo PNG (Resumo da Obra) ── */
+function printMemorialCalculo(){
+  var cli=window._pdfClienteOverride||(typeof _getBestClientName==='function'?_getBestClientName():'—');
+  var agp=($('num-agp')||$('crm-o-agp')||{value:''}).value||'';
+  var reserva=($('numprojeto')||$('crm-o-reserva')||{value:''}).value||'';
+  var _parts=[];
+  if(agp) _parts.push(agp.replace(/\s+/g,''));
+  if(reserva) _parts.push(reserva);
+  if(cli&&cli!=='—') _parts.push(cli.replace(/[^\w\sÀ-ú]/g,'').replace(/\s+/g,'_').substring(0,30));
+  _parts.push('MC');
+  var _fname=_parts.join(' - ')+'.png';
+
+  var src=document.getElementById('resumo-obra');
+  if(!src){console.warn('resumo-obra não encontrado');return;}
+
+  // Garantir visibilidade para captura
+  var wasHidden=src.style.display==='none';
+  var body=document.getElementById('resumo-obra-body');
+  var bodyWasHidden=body&&body.style.display==='none';
+  if(wasHidden) src.style.display='';
+  if(body&&bodyWasHidden) body.style.display='';
+
+  // Clone off-screen para captura limpa
+  var clone=src.cloneNode(true);
+  clone.style.cssText='position:absolute;left:-9999px;top:0;width:1100px;background:#fff;font-family:Arial,Helvetica,sans-serif';
+  clone.style.display='';
+  var cb=clone.querySelector('#resumo-obra-body');
+  if(cb) cb.style.display='flex';
+  var hdr=clone.querySelector('[onclick]');
+  if(hdr) hdr.removeAttribute('onclick');
+  document.body.appendChild(clone);
+
+  html2canvas(clone,{scale:3,useCORS:true,backgroundColor:'#ffffff'}).then(function(canvas){
+    document.body.removeChild(clone);
+    if(wasHidden) src.style.display='none';
+    if(body&&bodyWasHidden) body.style.display='none';
+    canvas.toBlob(function(blob){
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement('a');
+      a.href=url;a.download=_fname;
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(url);},1000);
+    },'image/png');
+  }).catch(function(err){
+    document.body.removeChild(clone);
+    if(wasHidden) src.style.display='none';
+    if(body&&bodyWasHidden) body.style.display='none';
+    console.error('Erro ao gerar Memorial de Cálculo PNG:',err);
+  });
+}
+
 function printProposta(){
   populateProposta();
   switchTab('proposta');

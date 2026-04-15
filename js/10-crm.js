@@ -2365,8 +2365,12 @@ window.crmGerarPDF=function(){
       // 2. Gerar RC (Resultado Porta) PNG download
       setTimeout(function(){
         if(typeof printPainelRep==='function') printPainelRep();
-        _showToast('✅ RC + Proposta baixados!','#27ae60');
-        delete window._pdfClienteOverride;
+        // 2b. Gerar Memorial de Cálculo (Resumo da Obra) PNG
+        setTimeout(function(){
+          if(typeof printMemorialCalculo==='function') printMemorialCalculo();
+          _showToast('✅ PDF + RC + Memorial baixados!','#27ae60');
+          delete window._pdfClienteOverride;
+        },700);
       },500);
       // 3. Salvar imagens no card CRM
       _exportPropostaToCard(id, revLabel, function(captures){
