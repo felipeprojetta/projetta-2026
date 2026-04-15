@@ -1667,11 +1667,9 @@ function recalcPerfisAuto(){
       totalPin+=r.custoPintura||0;
     });
 
-    // Atualizar campos de fabricação
-    var elMat=document.getElementById('fab-mat-perfis');
-    var elPin=document.getElementById('fab-custo-pintura');
-    if(elMat) elMat.value=Math.round(totalMat).toLocaleString('pt-BR');
-    if(elPin) elPin.value=Math.round(totalPin).toLocaleString('pt-BR');
+    // Atualizar campos de fabricação via sistema (não direto, para não disparar flag manual)
+    _fabSetSysValue('mat', totalMat);
+    _fabSetSysValue('pin', totalPin);
 
     // Guardar dados para o OS drawer
     window._lastPadroesHTML = _renderPadroesContent(d,9);

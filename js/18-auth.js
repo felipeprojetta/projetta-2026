@@ -1281,9 +1281,9 @@ function _updateResumoObra(){
       custoPerfis+=r.custoTotal||0;
       custoBru+=r.custoTotalBru||0;
     });
-    document.getElementById('ro-perfis-kg').textContent=kgBru.toFixed(1)+' / '+kgLiq.toFixed(1)+' kg';
-    document.getElementById('ro-perfis-bruto').textContent='bruto / líquido';
-    document.getElementById('ro-perfis-val').textContent=brl(custoBru)+' / '+brl(custoPerfis);
+    document.getElementById('ro-perfis-kg').textContent=kgBru.toFixed(1)+' kg';
+    document.getElementById('ro-perfis-bruto').textContent='peso bruto';
+    document.getElementById('ro-perfis-val').textContent=brl(custoPerfis);
   }
 
   // Chapas
