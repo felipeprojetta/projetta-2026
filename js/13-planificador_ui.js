@@ -276,14 +276,12 @@ function plnPecas(Lmm, Amm, fol, mod) {
   return out;
 }
 
-/* ── GUILLOTINE STRIP PACKING (estilo MaxCut) ──────── */
-/* mode='h': Faixas HORIZONTAIS — peças lado a lado, sobra embaixo
-   mode='v': Faixas VERTICAIS — peças empilhadas, sobra na direita (comprida) */
+/* ── ADVANCED GUILLOTINE NESTING (multi-strategy, rotation, backfill) ──────── */
 function plnMaxRects(pieces, SW, SH, mode) {
   var MG=PLN_MG, KF=PLN_KERF;
   var usW=SW-2*MG, usH=SH-2*MG;
 
-  // ── Expandir peças individuais ──
+  // Expandir peças individuais
   var todo=[];
   for(var i=0;i<pieces.length;i++)
     for(var j=0;j<pieces[i].qty;j++)
@@ -291,131 +289,100 @@ function plnMaxRects(pieces, SW, SH, mode) {
 
   if(!todo.length) return {numSheets:0,placed:[],failed:[],stats:[]};
 
-  // ── SORTING CNC: agrupar peças iguais, maiores primeiro ──
-  // 1) Por altura desc (faixas mais altas primeiro → sobra no fundo)
-  // 2) Por label (peças iguais juntas → menos deslocamento CNC)
-  // 3) Por largura desc (preencher faixa da esquerda p/ direita)
-  todo.sort(function(a,b){
-    if(a.h!==b.h) return b.h-a.h;
-    if(a.label!==b.label) return a.label<b.label?-1:1;
-    return b.w-a.w;
-  });
-
-  // ── GUILLOTINE SHELF PACKING (otimizado CNC Router) ──
-  // Faixas horizontais empilhadas de cima para baixo
-  // Dentro de cada faixa: peças lado a lado da esquerda p/ direita
-  // Sobra fica no FUNDO da chapa (comprimento) = peça grande reutilizável
-
-  function packSheets(items){
+  // Pack com uma ordenação específica (com rotação e backfill)
+  function packWithOrder(items){
     var sheets=[], curSheet=null;
-
-    function newSheet(){
-      return {shelves:[],placed:[],nextY:0};
-    }
-
-    function tryFitInShelf(sheet,piece){
-      // Tentar encaixar em faixa existente com mesma altura (±kerf)
+    function newSheet(){return {shelves:[],placed:[],nextY:0};}
+    function tryFitInShelf(sheet,pw,ph){
       for(var si=0;si<sheet.shelves.length;si++){
         var sh=sheet.shelves[si];
-        // Peça cabe na faixa se: altura ≤ altura da faixa E largura cabe no espaço restante
-        if(piece.h<=sh.h && sh.usedW+piece.w+KF<=usW){
-          var px=sh.usedW;
-          sh.usedW+=piece.w+KF;
-          return {x:MG+px, y:MG+sh.y, w:piece.w, h:piece.h};
+        if(ph<=sh.h+1 && sh.usedW+pw+KF<=usW){
+          var px=sh.usedW; sh.usedW+=pw+KF;
+          return {x:MG+px, y:MG+sh.y, w:pw, h:ph};
         }
       }
       return null;
     }
-
-    function addNewShelf(sheet,piece){
-      // Nova faixa: altura = altura da peça
-      if(sheet.nextY+piece.h>usH) return null; // não cabe mais nesta chapa
-      if(piece.w>usW) return null; // peça mais larga que a chapa
-      var sh={y:sheet.nextY, h:piece.h, usedW:piece.w+KF};
+    function addNewShelf(sheet,pw,ph){
+      if(sheet.nextY+ph+KF>usH) return null;
+      if(pw>usW) return null;
+      var sh={y:sheet.nextY, h:ph, usedW:pw+KF};
       sheet.shelves.push(sh);
-      var pos={x:MG, y:MG+sheet.nextY, w:piece.w, h:piece.h};
-      sheet.nextY+=piece.h+KF;
+      var pos={x:MG, y:MG+sheet.nextY, w:pw, h:ph};
+      sheet.nextY+=ph+KF;
       return pos;
     }
-
-    curSheet=newSheet();
-    sheets.push(curSheet);
-
+    curSheet=newSheet(); sheets.push(curSheet);
     var failed=[];
-
     for(var i=0;i<items.length;i++){
-      var p=items[i];
-      var pos=null;
-      var targetSheet=sheets.length-1; // chapa atual
-
-      // 1) Tentar faixa existente na chapa atual
-      pos=tryFitInShelf(curSheet,p);
-
-      // 2) Nova faixa na chapa atual
-      if(!pos) pos=addNewShelf(curSheet,p);
-
-      // 3) Tentar faixas em chapas anteriores (otimizar aproveitamento)
-      if(!pos){
-        for(var si=0;si<sheets.length-1;si++){
-          pos=tryFitInShelf(sheets[si],p);
-          if(pos){ targetSheet=si; break; }
+      var p=items[i], pos=null, rot=false, targetSheet=sheets.length-1;
+      var oris=[[p.w,p.h,false]];
+      if(p.w!==p.h && p.h<=usW && p.w<=usH) oris.push([p.h,p.w,true]);
+      // 1-3: chapa atual e anteriores
+      for(var oi=0;oi<oris.length&&!pos;oi++){
+        var pw=oris[oi][0],ph=oris[oi][1],ir=oris[oi][2];
+        pos=tryFitInShelf(curSheet,pw,ph);
+        if(pos){rot=ir;break;}
+        pos=addNewShelf(curSheet,pw,ph);
+        if(pos){rot=ir;break;}
+        for(var si=0;si<sheets.length-1&&!pos;si++){
+          pos=tryFitInShelf(sheets[si],pw,ph);
+          if(pos){targetSheet=si;rot=ir;break;}
+          pos=addNewShelf(sheets[si],pw,ph);
+          if(pos){targetSheet=si;rot=ir;break;}
         }
       }
-
-      // 4) Nova chapa
+      // 4: nova chapa
       if(!pos){
-        curSheet=newSheet();
-        sheets.push(curSheet);
-        targetSheet=sheets.length-1;
-        pos=addNewShelf(curSheet,p);
+        curSheet=newSheet(); sheets.push(curSheet); targetSheet=sheets.length-1;
+        for(var oi2=0;oi2<oris.length&&!pos;oi2++){
+          pos=addNewShelf(curSheet,oris[oi2][0],oris[oi2][1]);
+          if(pos){rot=oris[oi2][2];break;}
+        }
       }
-
-      if(pos){
-        sheets[targetSheet].placed.push({
-          sheet:targetSheet, x:pos.x, y:pos.y, w:pos.w, h:pos.h,
-          label:p.label, color:p.color, rot:false
-        });
-      } else {
-        failed.push(p);
-      }
+      if(pos) sheets[targetSheet].placed.push({sheet:targetSheet,x:pos.x,y:pos.y,w:pos.w,h:pos.h,label:p.label,color:p.color,rot:rot});
+      else failed.push(p);
     }
-
-    // Consolidar placed de todas as chapas E remover chapas vazias
-    var allPlaced=[];
-    var nonEmptySheets=[];
-    sheets.forEach(function(s,si){
-      if(s.placed.length>0){
-        var newIdx=nonEmptySheets.length;
-        s.placed.forEach(function(pp){
-          pp.sheet=newIdx;
-          allPlaced.push(pp);
-        });
-        nonEmptySheets.push(s);
-      }
-    });
-
-    return {placed:allPlaced,failed:failed,numSheets:nonEmptySheets.length};
+    var allPlaced=[],nonEmpty=[];
+    sheets.forEach(function(s){if(s.placed.length>0){var ni=nonEmpty.length;s.placed.forEach(function(pp){pp.sheet=ni;allPlaced.push(pp);});nonEmpty.push(s);}});
+    var totalUsed=allPlaced.reduce(function(s,pp){return s+pp.w*pp.h;},0);
+    var aprov=nonEmpty.length>0?totalUsed/(nonEmpty.length*usW*usH)*100:0;
+    return {placed:allPlaced,failed:failed,numSheets:nonEmpty.length,aprov:aprov};
   }
 
-  // ── Rodar 2 estratégias de ordenação, pegar melhor ──
+  // Múltiplas estratégias
   var strategies=[
-    // Estratégia 1: altura desc → label → largura desc (agrupa por faixa)
+    function(a,b){return b.h-a.h||b.w-a.w;},
+    function(a,b){return b.w-a.w||b.h-a.h;},
+    function(a,b){return(b.w*b.h)-(a.w*a.h);},
+    function(a,b){return(b.w+b.h)-(a.w+a.h);},
+    function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h);},
     function(a,b){if(a.h!==b.h)return b.h-a.h;if(a.label!==b.label)return a.label<b.label?-1:1;return b.w-a.w;},
-    // Estratégia 2: área desc → altura desc (peças grandes primeiro)
-    function(a,b){return(b.w*b.h)-(a.w*a.h)||b.h-a.h||b.w-a.w;}
+    function(a,b){if(a.w!==b.w)return b.w-a.w;if(a.label!==b.label)return a.label<b.label?-1:1;return b.h-a.h;},
+    function(a,b){var ma=Math.max(a.w,a.h),mb=Math.max(b.w,b.h);return mb-ma||(b.w*b.h)-(a.w*a.h);}
   ];
 
   var bestResult=null,bestSheets=Infinity,bestAprov=0;
-
-  for(var mi=0;mi<strategies.length;mi++){
-    var sorted=todo.slice().sort(strategies[mi]);
-    var res=packSheets(sorted);
-    var totalUsed=res.placed.reduce(function(s,p){return s+p.w*p.h;},0);
-    var aprov=totalUsed/(res.numSheets*SW*SH)*100;
-    if(res.numSheets<bestSheets||(res.numSheets===bestSheets&&aprov>bestAprov)){
-      bestSheets=res.numSheets;bestAprov=aprov;bestResult=res;
+  for(var si=0;si<strategies.length;si++){
+    var sorted=todo.slice().sort(strategies[si]);
+    var res=packWithOrder(sorted);
+    if(res.numSheets<bestSheets||(res.numSheets===bestSheets&&res.aprov>bestAprov)){
+      bestSheets=res.numSheets;bestAprov=res.aprov;bestResult=res;
     }
   }
+  // Também com peças pré-rotacionadas
+  for(var si2=0;si2<4;si2++){
+    var rotated=todo.map(function(p){
+      if(p.h>p.w&&p.h<=usW&&p.w<=usH) return {label:p.label,w:p.h,h:p.w,color:p.color};
+      return {label:p.label,w:p.w,h:p.h,color:p.color};
+    });
+    rotated.sort(strategies[si2]);
+    var res2=packWithOrder(rotated);
+    if(res2.numSheets<bestSheets||(res2.numSheets===bestSheets&&res2.aprov>bestAprov)){
+      bestSheets=res2.numSheets;bestAprov=res2.aprov;bestResult=res2;
+    }
+  }
+  if(!bestResult) bestResult={placed:[],failed:todo,numSheets:0,aprov:0};
 
   // ── Stats por chapa ──
   var stats=[];
