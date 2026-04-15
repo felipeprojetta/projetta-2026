@@ -28,7 +28,14 @@ function printPainelRep(){
   var corExt='';var ceEl=$('carac-cor-ext');if(ceEl&&ceEl.selectedIndex>=0)corExt=(ceEl.options[ceEl.selectedIndex].text||'');
 
   var w=window.open('','_blank','width=700,height=900');
-  var h='<!DOCTYPE html><html><head><title>Painel Representante</title><style>';
+  // Nome do arquivo: AGP_RESERVA_CLIENTE_RC
+  var _pdfParts=[];
+  if(agp) _pdfParts.push(agp.replace(/\s+/g,''));
+  if(reserva) _pdfParts.push(reserva);
+  if(cli&&cli!=='—') _pdfParts.push(cli.replace(/[^\w\sÀ-ú]/g,'').replace(/\s+/g,'_').substring(0,30));
+  _pdfParts.push('RC');
+  var _pdfName=_pdfParts.join('_');
+  var h='<!DOCTYPE html><html><head><title>'+_pdfName+'</title><style>';
   h+='body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:30px;color:#1a3a4a;max-width:600px;margin:0 auto}';
   h+='.hdr{background:#003144;color:#fff;padding:16px 20px;border-radius:10px 10px 0 0;text-align:center}';
   h+='.hdr h1{margin:0;font-size:18px;letter-spacing:1px}';
@@ -95,7 +102,19 @@ function printProposta(){
   var ad=document.getElementById('aprov-drawer');if(ad)ad.style.display='none';
   var ab=document.getElementById('aprov-backdrop');if(ab)ab.style.display='none';
   var origTitle=document.title;
-  document.title='Proposta Comercial — Projetta by Weiku';
+  // Nome PDF: RESERVA_DATA_AGP_RESERVA_CLIENTE
+  var _cli=($('crm-o-cliente')||$('cliente')||{value:''}).value||'';
+  var _agp=($('num-agp')||$('crm-o-agp')||{value:''}).value||'';
+  var _res=($('numprojeto')||$('crm-o-reserva')||{value:''}).value||'';
+  var _dt=new Date().toLocaleDateString('pt-BR').replace(/\//g,'');
+  var _pp=[];
+  if(_res) _pp.push(_res);
+  _pp.push(_dt);
+  if(_agp) _pp.push(_agp.replace(/\s+/g,''));
+  if(_res) _pp.push(_res);
+  if(_cli) _pp.push(_cli.replace(/[^\w\sÀ-ú]/g,'').replace(/\s+/g,'_').substring(0,30));
+  _pp.push('pdf');
+  document.title=_pp.join('_');
   setTimeout(function(){
     window.print();
     document.title=origTitle;
