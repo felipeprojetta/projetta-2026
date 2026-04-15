@@ -182,8 +182,12 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   var TUB_CA  = Math.round(TRAV_V - 20);
   var CANT_CA = TRAV_V;
 
-  // LAR INF & SUP: LARGURA - FGLD - FGLE - 171.7 - 171.5
-  var LAR_IS = Math.round(L - FGL - FGR - 171.7 - 171.5);
+  // LAR INF & SUP: 
+  // 1 folha: LARGURA - FGLD - FGLE - 171.7 - 171.5
+  // 2 folhas: (LARGURA - FGLD - FGLE - 171.7 - 171.5 - 235) / 2
+  var LAR_IS = nFolhas === 2
+    ? Math.round((L - FGL - FGR - 171.7 - 171.5 - 235) / 2)
+    : Math.round(L - FGL - FGR - 171.7 - 171.5);
 
   // VEDA PORTA (VED INF & SUP): LAR_IS + 110 + 110
   var VED_IS = Math.round(LAR_IS + 110 + 110);
