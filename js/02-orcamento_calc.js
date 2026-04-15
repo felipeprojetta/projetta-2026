@@ -145,6 +145,9 @@ function calc(){
   if(window._mpItens && window._mpItens.length > 0 && window._osGeradoUmaVez){
     var _hPortalTotal=0,_hQuadroTotal=0,_hColagemTotal=0,_hConfTotal=0;
     var _hPortalDetail=[],_hQuadroDetail=[],_hColagemDetail=[],_hConfDetail=[];
+    var _mpAcmSel=document.getElementById('plan-acm-cor');
+    var _mpAcmTxt=_mpAcmSel&&_mpAcmSel.selectedIndex>0?(_mpAcmSel.options[_mpAcmSel.selectedIndex].text||'').toUpperCase():'';
+    var _isAlusense=_mpAcmTxt.indexOf('AS')===0||_mpAcmTxt.indexOf('ALUSENSE')>=0;
     window._mpItens.forEach(function(mpIt,di){
       var iA=parseFloat(mpIt._altura||mpIt['altura'])||0;
       var iF=parseInt(mpIt._folhas||mpIt['folhas-porta'])||1;
@@ -162,6 +165,8 @@ function calc(){
       _hQuadroDetail.push(tag+':'+hq+'h');
       // Colagem
       var cd=_diasColagem(iA,iF,iCava,iRip);
+      if(iMod==='06') cd+=1; // Modelo 06: +1d frisos
+      if(_isAlusense) cd+=1; // Alusense: +1d secagem
       var hc=cd*9*iQ;_hColagemTotal+=hc;
       _hColagemDetail.push(tag+':'+cd+'d×9h='+(cd*9)+'h');
       // Conf
@@ -197,9 +202,15 @@ function calc(){
     var _cDias=_diasColagem(_altMM,_nFol,_isCava,_isRip);
     // Modelo 06 (Frisos Horizontais): +1 dia de colagem por causa das junções
     if(_modSel==='06') _cDias+=1;
+    // Alusense: +1 dia de colagem (secagem mais lenta)
+    var _acmSel=document.getElementById('plan-acm-cor');
+    var _acmTxt=_acmSel&&_acmSel.selectedIndex>0?(_acmSel.options[_acmSel.selectedIndex].text||'').toUpperCase():'';
+    var _isAlusense=_acmTxt.indexOf('AS')===0||_acmTxt.indexOf('ALUSENSE')>=0;
+    if(_isAlusense) _cDias+=1;
     var _cHoras=_cDias*9*_qPh;
     var _cTipo=_isCava?'cava':(_isRip?'ripado':'lisa');
-    _setHoraAuto('h-colagem',_cHoras>0?_cHoras:'','h-colagem-auto',_cHoras>0?'(auto '+_cTipo+': '+_cDias+'d×9h×'+_qPh+'p='+_cHoras+'h)':'');
+    var _cExtra=(_modSel==='06'?'+1d friso':'') + (_isAlusense?'+1d alusense':'');
+    _setHoraAuto('h-colagem',_cHoras>0?_cHoras:'','h-colagem-auto',_cHoras>0?'(auto '+_cTipo+(_cExtra?' '+_cExtra:'')+': '+_cDias+'d×9h×'+_qPh+'p='+_cHoras+'h)':'');
   }
   // Aplicar Conf & Bem × qP (conferência e embalagem)
   var hConfEl=$('h-conf');
