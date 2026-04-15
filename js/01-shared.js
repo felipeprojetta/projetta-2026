@@ -178,9 +178,34 @@ function _checkCorMode(){
   var isMacico=(mod==='23'&&rev==='MACICO');
   // Sempre manter cor ACM nos selects
   if(window._corMode==='alu') _populateCorSelects('acm');
-  // Mostrar/esconder campo Cor Maciço
+  // Mostrar/esconder campo Cor Maciço + esconder cor interna quando maciço
   var macRow=document.getElementById('carac-cor-macico-row');
   if(macRow) macRow.style.display=isMacico?'':'none';
+  var intRow=document.getElementById('carac-cor-int');
+  if(intRow) intRow.closest('.fr').style.display=isMacico?'none':'';
+  // Label cor externa
+  var extLbl=document.getElementById('carac-cor-ext-label');
+  if(extLbl) extLbl.textContent=isMacico?'Cor ACM':'Cor chapa externa';
+  // Populate cor maciço com opções do ALU_DATA (cadastro)
+  if(isMacico){
+    var macSel=document.getElementById('carac-cor-macico');
+    if(macSel && macSel.options.length<=3){
+      var oldVal=macSel.value;
+      var html='<option value="">— Selecione —</option>';
+      if(typeof ALU_DATA!=='undefined'){
+        ALU_DATA.forEach(function(g){
+          html+='<optgroup label="'+g.g+'">';
+          // Pegar cores únicas do grupo
+          var cores={};
+          g.o.forEach(function(it){var nm=it.l.split('·')[0].split('×')[0].trim();if(!cores[nm])cores[nm]=it.l.split('·')[0].trim();});
+          Object.keys(cores).forEach(function(c){html+='<option value="'+cores[c]+'">'+cores[c]+'</option>';});
+          html+='</optgroup>';
+        });
+      }
+      macSel.innerHTML=html;
+      if(oldVal) macSel.value=oldVal;
+    }
+  }
   window._corMode='acm';
 }
 
