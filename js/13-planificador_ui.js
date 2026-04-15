@@ -289,77 +289,127 @@ function plnMaxRects(pieces, SW, SH, mode) {
 
   if(!todo.length) return {numSheets:0,placed:[],failed:[],stats:[]};
 
-  // Pack com uma ordenação específica (com rotação e backfill)
-  function packWithOrder(items){
-    var sheets=[], curSheet=null;
-    function newSheet(){return {shelves:[],placed:[],nextY:0};}
-    function tryFitInShelf(sheet,pw,ph){
-      for(var si=0;si<sheet.shelves.length;si++){
-        var sh=sheet.shelves[si];
-        if(ph<=sh.h+1 && sh.usedW+pw+KF<=usW){
-          var px=sh.usedW; sh.usedW+=pw+KF;
-          return {x:MG+px, y:MG+sh.y, w:pw, h:ph};
+  // ── MaxRects Free-Rectangle Packing ──
+  function MaxRectsSheet(){
+    this.freeRects=[{x:0,y:0,w:usW,h:usH}];
+    this.placed=[];
+  }
+  MaxRectsSheet.prototype.findBest=function(pw,ph){
+    var bestScore=Infinity,bestIdx=-1,bestX=0,bestY=0;
+    for(var i=0;i<this.freeRects.length;i++){
+      var r=this.freeRects[i];
+      if(pw<=r.w && ph<=r.h){
+        // BSSF: minimize leftover on short side
+        var leftW=r.w-pw, leftH=r.h-ph;
+        var score=Math.min(leftW,leftH);
+        if(score<bestScore||(score===bestScore&&Math.max(leftW,leftH)<Math.max(this.freeRects[bestIdx].w-pw,this.freeRects[bestIdx].h-ph))){
+          bestScore=score;bestIdx=i;bestX=r.x;bestY=r.y;
         }
       }
-      return null;
     }
-    function addNewShelf(sheet,pw,ph){
-      if(sheet.nextY+ph+KF>usH) return null;
-      if(pw>usW) return null;
-      var sh={y:sheet.nextY, h:ph, usedW:pw+KF};
-      sheet.shelves.push(sh);
-      var pos={x:MG, y:MG+sheet.nextY, w:pw, h:ph};
-      sheet.nextY+=ph+KF;
-      return pos;
+    if(bestIdx<0) return null;
+    return {x:bestX,y:bestY,w:pw,h:ph};
+  };
+  MaxRectsSheet.prototype.place=function(rect){
+    // Split free rects that overlap with placed rect
+    var pw=rect.w+KF, ph=rect.h+KF; // add kerf
+    var newFree=[];
+    for(var i=0;i<this.freeRects.length;i++){
+      var r=this.freeRects[i];
+      // Check overlap
+      if(rect.x>=r.x+r.w || rect.x+pw<=r.x || rect.y>=r.y+r.h || rect.y+ph<=r.y){
+        newFree.push(r); continue; // no overlap
+      }
+      // Split into up to 4 rects
+      if(rect.x>r.x) newFree.push({x:r.x,y:r.y,w:rect.x-r.x,h:r.h}); // left
+      if(rect.x+pw<r.x+r.w) newFree.push({x:rect.x+pw,y:r.y,w:r.x+r.w-rect.x-pw,h:r.h}); // right
+      if(rect.y>r.y) newFree.push({x:r.x,y:r.y,w:r.w,h:rect.y-r.y}); // top
+      if(rect.y+ph<r.y+r.h) newFree.push({x:r.x,y:rect.y+ph,w:r.w,h:r.y+r.h-rect.y-ph}); // bottom
     }
-    curSheet=newSheet(); sheets.push(curSheet);
+    // Prune: remove rects contained within others
+    this.freeRects=[];
+    for(var i=0;i<newFree.length;i++){
+      var a=newFree[i]; if(a.w<10||a.h<10) continue; // skip tiny
+      var contained=false;
+      for(var j=0;j<newFree.length;j++){
+        if(i===j) continue;
+        var b=newFree[j];
+        if(a.x>=b.x && a.y>=b.y && a.x+a.w<=b.x+b.w && a.y+a.h<=b.y+b.h){contained=true;break;}
+      }
+      if(!contained) this.freeRects.push(a);
+    }
+    this.placed.push(rect);
+  };
+
+  function packWithOrder(items){
+    var sheets=[new MaxRectsSheet()];
     var failed=[];
     for(var i=0;i<items.length;i++){
-      var p=items[i], pos=null, rot=false, targetSheet=sheets.length-1;
+      var p=items[i], placed=false;
       var oris=[[p.w,p.h,false]];
       if(p.w!==p.h && p.h<=usW && p.w<=usH) oris.push([p.h,p.w,true]);
-      // 1-3: chapa atual e anteriores
-      for(var oi=0;oi<oris.length&&!pos;oi++){
-        var pw=oris[oi][0],ph=oris[oi][1],ir=oris[oi][2];
-        pos=tryFitInShelf(curSheet,pw,ph);
-        if(pos){rot=ir;break;}
-        pos=addNewShelf(curSheet,pw,ph);
-        if(pos){rot=ir;break;}
-        for(var si=0;si<sheets.length-1&&!pos;si++){
-          pos=tryFitInShelf(sheets[si],pw,ph);
-          if(pos){targetSheet=si;rot=ir;break;}
-          pos=addNewShelf(sheets[si],pw,ph);
-          if(pos){targetSheet=si;rot=ir;break;}
+
+      // Try all existing sheets (best fit across ALL sheets)
+      var bestFit=null, bestSheet=-1, bestRot=false, bestScore=Infinity;
+      for(var si=0;si<sheets.length;si++){
+        for(var oi=0;oi<oris.length;oi++){
+          var pw=oris[oi][0],ph=oris[oi][1],ir=oris[oi][2];
+          var fit=sheets[si].findBest(pw,ph);
+          if(fit){
+            var leftW=fit.w?0:Infinity, leftH=fit.h?0:Infinity;
+            // Score: prefer filling current sheet better
+            var score=Math.min(usW-pw,usH-ph)+si*1000;
+            for(var fi=0;fi<sheets[si].freeRects.length;fi++){
+              var r=sheets[si].freeRects[fi];
+              if(pw<=r.w&&ph<=r.h){score=Math.min(r.w-pw,r.h-ph)+si*1000;break;}
+            }
+            if(score<bestScore){bestScore=score;bestFit=fit;bestSheet=si;bestRot=ir;}
+          }
         }
       }
-      // 4: nova chapa
-      if(!pos){
-        curSheet=newSheet(); sheets.push(curSheet); targetSheet=sheets.length-1;
-        for(var oi2=0;oi2<oris.length&&!pos;oi2++){
-          pos=addNewShelf(curSheet,oris[oi2][0],oris[oi2][1]);
-          if(pos){rot=oris[oi2][2];break;}
-        }
+      if(bestFit){
+        bestFit.label=p.label;bestFit.color=p.color;bestFit.rot=bestRot;bestFit.sheet=bestSheet;
+        sheets[bestSheet].place(bestFit);
+        placed=true;
       }
-      if(pos) sheets[targetSheet].placed.push({sheet:targetSheet,x:pos.x,y:pos.y,w:pos.w,h:pos.h,label:p.label,color:p.color,rot:rot});
-      else failed.push(p);
+      // New sheet if needed
+      if(!placed){
+        var ns=new MaxRectsSheet();sheets.push(ns);
+        for(var oi2=0;oi2<oris.length;oi2++){
+          var pw2=oris[oi2][0],ph2=oris[oi2][1],ir2=oris[oi2][2];
+          var fit2=ns.findBest(pw2,ph2);
+          if(fit2){
+            fit2.label=p.label;fit2.color=p.color;fit2.rot=ir2;fit2.sheet=sheets.length-1;
+            ns.place(fit2);placed=true;break;
+          }
+        }
+        if(!placed) failed.push(p);
+      }
     }
+    // Collect results
     var allPlaced=[],nonEmpty=[];
-    sheets.forEach(function(s){if(s.placed.length>0){var ni=nonEmpty.length;s.placed.forEach(function(pp){pp.sheet=ni;allPlaced.push(pp);});nonEmpty.push(s);}});
+    sheets.forEach(function(s,idx){
+      if(s.placed.length>0){
+        var ni=nonEmpty.length;
+        s.placed.forEach(function(pp){pp.sheet=ni;pp.x+=MG;pp.y+=MG;allPlaced.push(pp);});
+        nonEmpty.push(s);
+      }
+    });
     var totalUsed=allPlaced.reduce(function(s,pp){return s+pp.w*pp.h;},0);
     var aprov=nonEmpty.length>0?totalUsed/(nonEmpty.length*usW*usH)*100:0;
     return {placed:allPlaced,failed:failed,numSheets:nonEmpty.length,aprov:aprov};
   }
 
-  // Múltiplas estratégias
+  // Múltiplas estratégias de ordenação
   var strategies=[
-    function(a,b){return b.h-a.h||b.w-a.w;},
-    function(a,b){return b.w-a.w||b.h-a.h;},
-    function(a,b){return(b.w*b.h)-(a.w*a.h);},
-    function(a,b){return(b.w+b.h)-(a.w+a.h);},
-    function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h);},
-    function(a,b){if(a.h!==b.h)return b.h-a.h;if(a.label!==b.label)return a.label<b.label?-1:1;return b.w-a.w;},
-    function(a,b){if(a.w!==b.w)return b.w-a.w;if(a.label!==b.label)return a.label<b.label?-1:1;return b.h-a.h;},
-    function(a,b){var ma=Math.max(a.w,a.h),mb=Math.max(b.w,b.h);return mb-ma||(b.w*b.h)-(a.w*a.h);}
+    function(a,b){return(b.w*b.h)-(a.w*a.h);}, // area desc
+    function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h)||(b.w*b.h)-(a.w*a.h);}, // max dim desc
+    function(a,b){return b.h-a.h||b.w-a.w;}, // height desc
+    function(a,b){return b.w-a.w||b.h-a.h;}, // width desc
+    function(a,b){return(b.w+b.h)-(a.w+a.h);}, // perimeter desc
+    function(a,b){var ra=b.w/b.h,rb=a.w/a.h;return ra-rb;}, // aspect ratio
+    function(a,b){return Math.min(b.w,b.h)-Math.min(a.w,a.h)||(b.w*b.h)-(a.w*a.h);}, // min dim desc
+    function(a,b){if(a.h!==b.h)return b.h-a.h;return b.w-a.w;} // strict height
   ];
 
   var bestResult=null,bestSheets=Infinity,bestAprov=0;
@@ -369,14 +419,12 @@ function plnMaxRects(pieces, SW, SH, mode) {
     if(res.numSheets<bestSheets||(res.numSheets===bestSheets&&res.aprov>bestAprov)){
       bestSheets=res.numSheets;bestAprov=res.aprov;bestResult=res;
     }
-  }
-  // Também com peças pré-rotacionadas
-  for(var si2=0;si2<4;si2++){
+    // Also try pre-rotated
     var rotated=todo.map(function(p){
       if(p.h>p.w&&p.h<=usW&&p.w<=usH) return {label:p.label,w:p.h,h:p.w,color:p.color};
       return {label:p.label,w:p.w,h:p.h,color:p.color};
     });
-    rotated.sort(strategies[si2]);
+    rotated.sort(strategies[si]);
     var res2=packWithOrder(rotated);
     if(res2.numSheets<bestSheets||(res2.numSheets===bestSheets&&res2.aprov>bestAprov)){
       bestSheets=res2.numSheets;bestAprov=res2.aprov;bestResult=res2;
