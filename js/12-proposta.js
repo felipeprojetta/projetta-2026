@@ -1767,52 +1767,54 @@ function renderPrecosACM(){
   var container=document.getElementById('precos-acm-container');
   if(!container) return;
   var html='';
-  var allSec=[{title:'CHAPAS ACM',data:ACM_DATA,si:0,cor:'var(--orange)'},
-              {title:'CHAPAS ALUMÍNIO MACIÇO',data:ALU_DATA,si:1,cor:'var(--navy)'}];
+  var allSec=[{title:'CHAPAS ACM',data:ACM_DATA,si:0,cor:'#e67e22'},
+              {title:'CHAPAS ALUMÍNIO MACIÇO',data:ALU_DATA,si:1,cor:'#003144'}];
   allSec.forEach(function(sec){
-    html+='<div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;padding:6px 0;border-bottom:2px solid '+sec.cor+';margin:8px 0 4px">'+sec.title+'</div>';
+    html+='<div style="font-size:12px;font-weight:800;color:#fff;background:'+sec.cor+';padding:8px 12px;border-radius:6px 6px 0 0;margin-top:12px;letter-spacing:.04em">'+sec.title+'</div>';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:11px;border:1px solid #ddd;border-top:none;margin-bottom:8px">';
     sec.data.forEach(function(grp,gi){
-      // Agrupar itens por cor
       var cores={};var corOrder=[];
       grp.o.forEach(function(item){
         var cor=item.l.split(' · ')[0];
         if(!cores[cor]){cores[cor]={items:[]};corOrder.push(cor);}
         cores[cor].items.push(item);
       });
-      // Extrair tamanhos reais do primeiro grupo de cor
       var firstCor=corOrder[0];
       var grpSizes=cores[firstCor].items.map(function(it){
         var m=it.l.match(/(\d{3,4})×(\d{4,})/);
-        var w=m?parseInt(m[1]):1500, h=m?parseInt(m[2]):5000;
-        return {w:w,h:h,a:it.a};
+        return {w:m?parseInt(m[1]):1500,h:m?parseInt(m[2]):5000,a:it.a};
       });
-
-      html+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0"><span style="font-size:11px;font-weight:700;color:#666;text-transform:uppercase">'+grp.g+'</span>'
-        +'<button onclick="_deleteChapa('+sec.si+','+gi+')" title="Excluir grupo" style="border:none;background:none;color:#ccc;font-size:15px;cursor:pointer;padding:0 4px;line-height:1" onmouseover="this.style.color=\'#b71c1c\'" onmouseout="this.style.color=\'#ccc\'">×</button></div>';
-      html+='<table style="width:100%;border-collapse:collapse;font-size:10px"><tr style="background:#f0ede8">';
-      html+='<th style="padding:5px 8px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--muted)">Cor</th>';
-      grpSizes.forEach(function(sz,szi){
-        html+='<th style="padding:5px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:#006600">'+sz.w+'×'+sz.h+'</th>';
+      // Group header row
+      html+='<tr style="background:#f5f3ee;border-top:2px solid #ddd">'
+        +'<td style="padding:6px 10px;font-weight:700;font-size:11px;color:#555;letter-spacing:.03em">'+grp.g+'</td>';
+      grpSizes.forEach(function(sz){
+        html+='<td style="padding:6px 8px;text-align:center;font-weight:700;font-size:10px;color:#006600;width:120px">'+sz.w+'×'+sz.h+'</td>';
       });
-      html+='</tr>';
+      // Pad if fewer than 4 columns
+      for(var pad=grpSizes.length;pad<4;pad++) html+='<td style="width:120px"></td>';
+      html+='<td style="width:30px;padding:0 4px;text-align:center"><button onclick="_deleteChapa('+sec.si+','+gi+')" title="Excluir" style="border:none;background:none;color:#ccc;font-size:13px;cursor:pointer" onmouseover="this.style.color=\'#b71c1c\'" onmouseout="this.style.color=\'#ccc\'">×</button></td></tr>';
+      // Data rows
       var ci=0;
       corOrder.forEach(function(cor){
         var c=cores[cor]; var id='prc-'+sec.si+'-'+gi+'-'+ci;
-        html+='<tr style="border-bottom:0.5px solid #e8e5e0">';
-        html+='<td style="padding:5px 8px;font-weight:600;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="'+cor+'">'+cor+'</td>';
+        var bg=ci%2===0?'#fff':'#fafaf7';
+        html+='<tr style="background:'+bg+'">';
+        html+='<td style="padding:5px 10px;font-weight:600;font-size:11px;border-bottom:0.5px solid #eee;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+cor+'">'+cor+'</td>';
         grpSizes.forEach(function(sz,szi){
           var item=c.items[szi];
           var val=item?item.p:(c.items[0].p*(sz.a/grpSizes[0].a));
           if(szi===0){
-            html+='<td style="padding:2px 3px;text-align:right"><input type="number" id="'+id+'" data-si="'+sec.si+'" data-gi="'+gi+'" data-ci="'+ci+'" data-nsizes="'+grpSizes.length+'" value="'+val.toFixed(2)+'" step="0.01" min="0" style="width:95px;padding:4px 6px;border:0.5px solid #c9c6bf;border-radius:4px;font-size:12px;text-align:right;background:#f0fff0;color:#006600;font-weight:700" oninput="_recalcLiq(this)"></td>';
+            html+='<td style="padding:3px 4px;text-align:right;border-bottom:0.5px solid #eee"><input type="number" id="'+id+'" data-si="'+sec.si+'" data-gi="'+gi+'" data-ci="'+ci+'" value="'+val.toFixed(2)+'" step="0.01" min="0" style="width:90px;padding:4px 6px;border:1px solid #c5e1c5;border-radius:4px;font-size:11px;text-align:right;background:#f5fff5;color:#006600;font-weight:700" oninput="_recalcLiq(this)"></td>';
           } else {
-            html+='<td style="padding:5px 8px;text-align:right;color:#006600;font-size:11px" id="'+id+'-l'+szi+'">'+val.toFixed(2)+'</td>';
+            html+='<td style="padding:5px 8px;text-align:right;color:#006600;font-size:11px;border-bottom:0.5px solid #eee" id="'+id+'-l'+szi+'">'+val.toFixed(2)+'</td>';
           }
         });
-        html+='</tr>'; ci++;
+        for(var pad=grpSizes.length;pad<4;pad++) html+='<td style="border-bottom:0.5px solid #eee"></td>';
+        html+='<td style="border-bottom:0.5px solid #eee"></td></tr>';
+        ci++;
       });
-      html+='</table></div>';
     });
+    html+='</table>';
   });
   container.innerHTML=html;
 }
