@@ -6,7 +6,7 @@
  */
 /* ══ MODULE: PROPOSTA ══ */
 function printPainelRep(){
-  var cli=($('crm-o-cliente')||$('cliente')||{value:''}).value||'—';
+  var cli=($('cliente')||{value:''}).value||($('crm-o-cliente')||{value:''}).value||'—';
   var agp=($('num-agp')||$('crm-o-agp')||{value:''}).value||'';
   var reserva=($('numprojeto')||$('crm-o-reserva')||{value:''}).value||'';
   var L=Math.round(parseFloat(($('largura')||{value:0}).value)||0);
