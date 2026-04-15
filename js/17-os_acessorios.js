@@ -193,42 +193,39 @@ function _calcAcessoriosOS(d, nFolhas, sis){
   var H = parseFloat((document.getElementById('altura')||{value:0}).value)||0;
   var L = parseFloat((document.getElementById('largura')||{value:0}).value)||0;
 
-  // ── FABRICAÇÃO — FECHADURA KESO ────────────────────────────────────────────
+  // ── FABRICAÇÃO — FECHADURA KESO (1 por porta, folha ativa) ──────────────────
   var fechTipo = (document.getElementById('carac-fech-mec')||{value:''}).value||'';
   var fechMap  = {'04 PINOS':'PA-KESO04P','08 PINOS':'PA-KESO08P','12 PINOS':'PA-KESO12','16 PINOS':'PA-KESO16','24 PINOS':'PA-KESO24P'};
   if(fechTipo && fechMap[fechTipo]){
     var fech = maxPrecoByPrefix(fechMap[fechTipo]);
-    if(fech.code) rows.push({qty:1*nFolhas,code:fech.code,desc:'Fechadura '+fechTipo+' KESO — maior valor',preco:fech.preco,apl:'FAB',grp:'FECHADURAS',obs:'FECHADURA'});
+    if(fech.code) rows.push({qty:1,code:fech.code,desc:'Fechadura '+fechTipo+' KESO',preco:fech.preco,apl:'FAB',grp:'FECHADURAS',obs:'FECHADURA'});
   }
 
-  // ── FABRICAÇÃO — ROSETA KESO ───────────────────────────────────────────────
+  // ── FABRICAÇÃO — ROSETA KESO (2 por porta: frente+verso) ──────────────────
   if(fechTipo){
     var ros = maxPrecoByPrefix('PA-KESO ROS');
-    if(ros.code) rows.push({qty:2*nFolhas,code:ros.code,desc:'Roseta KESO — maior valor',preco:ros.preco,apl:'FAB',grp:'FECHADURAS',obs:'ROSETA'});
+    if(ros.code) rows.push({qty:2,code:ros.code,desc:'Roseta KESO',preco:ros.preco,apl:'FAB',grp:'FECHADURAS',obs:'ROSETA'});
   }
 
-  // ── FABRICAÇÃO — CILINDRO (KESO ou UDINESE) ───────────────────────────────
+  // ── FABRICAÇÃO — CILINDRO (1 por porta) ───────────────────────────────────
   if(fechTipo){
     var _marcaCil = (document.getElementById('carac-cilindro')||{value:''}).value||'KESO';
     var cil, cilDesc;
     if(_marcaCil === 'UDINESE'){
-      // UDINESE: PA006=130mm BL (mais caro), PA007=150mm BL (mais caro)
       var cilUdPrefix = sis==='PA006' ? 'PA-CIL UDINE 130 BL' : 'PA-CIL UDINE 150 BL';
       cil = {code:cilUdPrefix, desc:'', preco:getPreco(cilUdPrefix)};
-      // Pegar o mais caro dentro do prefixo (BL ou CR)
       var cilUdAll = maxPrecoByPrefix(sis==='PA006' ? 'PA-CIL UDINE 130' : 'PA-CIL UDINE 150');
       if(cilUdAll.code) cil = cilUdAll;
-      cilDesc = 'Cilindro UDINESE '+(sis==='PA006'?'130':'150')+'mm Preto — maior valor';
+      cilDesc = 'Cilindro UDINESE '+(sis==='PA006'?'130':'150')+'mm Preto';
     } else {
-      // KESO (padrão)
       var cilPrefix = sis==='PA006' ? 'PA-KESOCIL130 BT' : 'PA-KESOCIL150 BT';
       cil = maxPrecoByPrefix(cilPrefix);
-      cilDesc = 'Cilindro KESO chave-botão '+(sis==='PA006'?'130':'150')+'mm — maior valor';
+      cilDesc = 'Cilindro KESO chave-botão '+(sis==='PA006'?'130':'150')+'mm';
     }
-    if(cil.code) rows.push({qty:1*nFolhas,code:cil.code,desc:cilDesc,preco:cil.preco,apl:'FAB',grp:'FECHADURAS',obs:'CILINDRO'});
+    if(cil.code) rows.push({qty:1,code:cil.code,desc:cilDesc,preco:cil.preco,apl:'FAB',grp:'FECHADURAS',obs:'CILINDRO'});
   }
 
-  // ── FABRICAÇÃO — PUXADOR EXTERNO ──────────────────────────────────────────
+  // ── FABRICAÇÃO — PUXADOR EXTERNO (1 por porta) ────────────────────────────
   var puxTipo = (document.getElementById('carac-puxador')||{value:''}).value||'';
   if(puxTipo === 'EXTERNO'){
     var puxTam = (document.getElementById('carac-pux-tam')||{value:''}).value||'';
@@ -238,14 +235,12 @@ function _calcAcessoriosOS(d, nFolhas, sis){
       if(tamCode){
         var puxPrefix = 'PA-PUX-' + tamCode;
         var pux = maxPrecoByPrefix(puxPrefix);
-        if(pux.code){
-          rows.push({qty:1*nFolhas, code:pux.code, desc:'Puxador externo '+puxTam.replace('.',',')+' m — maior valor', preco:pux.preco, apl:'FAB', grp:'PUXADORES', obs:'PUXADOR'});
-        }
+        if(pux.code) rows.push({qty:1, code:pux.code, desc:'Puxador externo '+puxTam.replace('.',',')+' m', preco:pux.preco, apl:'FAB', grp:'PUXADORES', obs:'PUXADOR'});
       }
     }
   }
 
-  // ── FABRICAÇÃO — BUCHA 06 + PARAFUSO PIVÔ ─────────────────────────────────
+  // ── FABRICAÇÃO — BUCHA 06 + PARAFUSO PIVÔ (12 por folha) ──────────────────
   var qtyPivo = 12 * nFolhas;
   rows.push({qty:qtyPivo,code:'PA-CHA AA PHS 4,8X50',desc:'Parafuso chata AA PHS 4,8×50 DIN7982 A2 — pivô',preco:getPreco('PA-CHA AA PHS 4,8X50'),apl:'FAB',grp:'PARAFUSOS',obs:'PAR PIVO'});
   rows.push({qty:qtyPivo,code:'PA-BUCHA 06',desc:'Bucha Fisher Duopower 6 SC1500 — pivô',preco:getPreco('PA-BUCHA 06'),apl:'FAB',grp:'PARAFUSOS',obs:'BUC FISHER PIVO'});
@@ -259,15 +254,20 @@ function _calcAcessoriosOS(d, nFolhas, sis){
   if(L>0&&mFita>0) rows.push({qty:mFita,code:'PA-FITA VED 5X20',desc:'Fita veda frestas 5×20mm — L('+Math.round(L)+'mm)×'+multFita+' = '+mFita+'m',preco:getPreco('PA-FITA VED 5X20'),apl:'OBRA',grp:'VEDAÇÕES',obs:'ESCOVINHA'});
 
   // ── FABRICAÇÃO — VEDA PORTA ──────────────────────────────────────────────────
-  // Calcular veda porta a partir das dimensões ATUAIS (L e nFolhas do form)
   if(L > 0){
-    var _vedFolha = L - 2.5 - 2.5 - 125; // FOLHA_PA_PA = L - FGL - FGR - 125
+    var _vedFolha;
+    if(nFolhas === 2){
+      // 2 folhas: largura por folha (descontando encontro central 235mm)
+      _vedFolha = (L - 2.5 - 2.5 - 125 - 235) / 2;
+    } else {
+      _vedFolha = L - 2.5 - 2.5 - 125;
+    }
     var _vedSize = Math.max(720, (Math.ceil((_vedFolha - 620) / 100) * 100) + 620);
     if(_vedSize > 1820) _vedSize = 1820;
     var _vedCode = 'PA-VED' + String(_vedSize).padStart(4, '0');
     var _vedQty = nFolhas === 2 ? 4 : 2;
     rows.push({qty:_vedQty, code:_vedCode,
-      desc:'Veda porta '+_vedSize+'mm — folha PA-PA: '+Math.round(_vedFolha)+'mm',
+      desc:'Veda porta '+_vedSize+'mm — folha PA-PA: '+Math.round(_vedFolha)+'mm'+(nFolhas===2?' (por folha)':''),
       preco:getPreco(_vedCode), apl:'FAB', grp:'VEDAÇÕES', obs:'VEDA PORTA'});
   }
 
@@ -691,6 +691,7 @@ function _renderOSAcess(d, acessRows, vedaInfo){
   // ── Pivô ou Dobradiça conforme tipo de abertura ──
   var abertura = (document.getElementById('carac-abertura')||{value:''}).value||'';
   var _qPHw=window._mpItens&&window._mpItens.length>0?window._mpItens.reduce(function(s,it){return s+(parseInt(it._qtd||it['qtd-portas'])||1);},0):parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
+  var _nFolHw=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
   var hardwareRows = [];
 
   // Limpar alerta anterior
@@ -743,7 +744,7 @@ function _renderOSAcess(d, acessRows, vedaInfo){
         +'<br>├ Enchimento: <b>'+peso.pesoEnchimento.toFixed(1)+'</b> kg'
         +'<br>├ Lã de rocha: <b>'+peso.pesoLaRocha.toFixed(1)+'</b> kg'
         +'<br>└ <b style="color:#c0392b">TOTAL: '+peso.total.toFixed(1)+' kg</b>';
-      hardwareRows.push({qty:_qPHw, code:pivotCode, desc:pivotDesc+singleDetail, preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
+      hardwareRows.push({qty:_qPHw*_nFolHw, code:pivotCode, desc:pivotDesc+singleDetail, preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
     }
   }
   // Se abertura não selecionada: sem pivô nem dobradiça
