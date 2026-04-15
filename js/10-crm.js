@@ -2353,16 +2353,20 @@ window.crmGerarPDF=function(){
   var wasLocked=window._snapshotLock;
   window._snapshotLock=false;
   if(typeof calc==='function') try{calc();}catch(e){}
+  // Capturar nome do cliente UMA VEZ (evita nomes diferentes entre PDF e PNG)
+  var _clienteFixo=_getBestClientName();
+  window._pdfClienteOverride=_clienteFixo;
   // 1. Gerar PDF download
   _showToast('⏳ Gerando PDF...','#e67e22');
   setTimeout(function(){
     _gerarPropostaPDF(function(pdf,blob){
       pdf.save(_pdfFileName());
       _showToast('✅ Proposta PDF baixada!','#27ae60');
-      // 2. Gerar RC (Resultado Porta) PDF download
+      // 2. Gerar RC (Resultado Porta) PNG download
       setTimeout(function(){
         if(typeof printPainelRep==='function') printPainelRep();
         _showToast('✅ RC + Proposta baixados!','#27ae60');
+        delete window._pdfClienteOverride;
       },500);
       // 3. Salvar imagens no card CRM
       _exportPropostaToCard(id, revLabel, function(captures){
@@ -3109,6 +3113,8 @@ function _pdfFileName(){
 
 // Fonte unificada do nome do cliente (usada por PDF e PNG)
 function _getBestClientName(){
+  // 0. Override global (usado quando PDF+PNG gerados juntos)
+  if(window._pdfClienteOverride) return window._pdfClienteOverride;
   // 1. Se tem card CRM vinculado, usar nome do card (mais confiável)
   if(window._crmOrcCardId){
     try{
