@@ -251,7 +251,7 @@ function calc(){
         var iA=parseFloat(mpIt._altura||mpIt['altura'])||0;
         var iF=parseInt(mpIt._folhas||mpIt['folhas-porta'])||1;
         var iQ=parseInt(mpIt._qtd||mpIt['qtd-portas'])||1;
-        var dB=iA<=3000?1:iA<=5000?2:3;
+        var dB=iA<=3800?1:iA<=5500?2:3;
         var dI=iF===2?dB+1:dB;
         _dTotal+=dI*iQ;
         _dDetail.push('P'+(di+1)+':'+dI+'d');
@@ -261,7 +261,7 @@ function calc(){
       var _dLbl=document.getElementById('dias-auto');
       if(_dLbl) _dLbl.textContent='(auto: '+_dDetail.join(' + ')+' = '+_dTotal+'d)';
     } else if(_altMM2>0){
-      var _dBase = _altMM2<=3000?1 : _altMM2<=5000?2 : 3;
+      var _dBase = _altMM2<=3800?1 : _altMM2<=5500?2 : 3;
       var _dAuto = _nFol2===2 ? _dBase+1 : _dBase;
       _diasEl.value=_dAuto;
       _diasEl.dataset.auto='1';
@@ -275,7 +275,7 @@ function calc(){
     _maxAlt=0;window._mpItens.forEach(function(it){var a=parseFloat(it._altura||it['altura'])||0;if(a>_maxAlt)_maxAlt=a;});
   }
   if(_pessoasEl && _maxAlt>0 && (_pessoasEl.value==='' || _pessoasEl.dataset.auto==='1')){
-    var _pNum = (window._mpItens&&window._mpItens.length>1) ? 3 : (_maxAlt>5000 ? 3 : 2);
+    var _pNum = (window._mpItens&&window._mpItens.length>1) ? 3 : (_maxAlt>5500 ? 3 : 2);
     _pessoasEl.value=_pNum;
     _pessoasEl.dataset.auto='1';
     var _pLbl=document.getElementById('pessoas-auto');
