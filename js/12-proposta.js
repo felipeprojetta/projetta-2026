@@ -1851,13 +1851,42 @@ function _syncChapaToOrc(){
       }
     }
   }
+  // ACM → hidden block
   var acmQty=parseInt((document.getElementById('plan-acm-qty')||{value:0}).value)||0;
+  // Se tem _chapasACM do planificador, usar esse
+  if(window._chapasACM!==undefined) acmQty=window._chapasACM;
   var hiddenAcmSel=document.getElementById('acm-sel-1');
   if(hiddenAcmSel && acmSel){ hiddenAcmSel.value=acmSel.value; var qEl=document.getElementById('acm-qty-1'); if(qEl)qEl.value=acmQty; }
-  var aluSel=document.getElementById('plan-alu-cor');
-  var aluQty=parseInt((document.getElementById('plan-alu-qty')||{value:0}).value)||0;
-  var hiddenAluSel=document.getElementById('alu-sel-1');
-  if(hiddenAluSel && aluSel){ hiddenAluSel.value=aluSel.value; var qEl2=document.getElementById('alu-qty-1'); if(qEl2)qEl2.value=aluQty; }
+
+  // ALU MACIÇO — auto-sync baseado na cor selecionada + tamanho chapa ALU
+  var _chapasALU=window._chapasALU||0;
+  if(_chapasALU>0){
+    var corExt=(document.getElementById('carac-cor-ext')||{value:''}).value;
+    var _isMadeira=(corExt||'').toUpperCase().indexOf('MADEIRA')>=0;
+    var aluChapaSel=document.getElementById('plan-chapa-alu');
+    var _aluSH=3000;
+    if(aluChapaSel&&aluChapaSel.value){var _ap=aluChapaSel.value.split('|');_aluSH=parseInt(_ap[1])||3000;}
+    // Procurar preço na ALU_DATA
+    var _aluGrpIdx=_isMadeira?1:0; // 0=Sólida, 1=Madeira
+    var _aluPrice=0, _aluArea=0;
+    if(typeof ALU_DATA!=='undefined'&&ALU_DATA[_aluGrpIdx]){
+      var _aluOpts=ALU_DATA[_aluGrpIdx].o||[];
+      for(var ai=0;ai<_aluOpts.length;ai++){
+        if((_aluOpts[ai].l||'').indexOf(String(_aluSH))>=0){_aluPrice=_aluOpts[ai].p;_aluArea=_aluOpts[ai].a;break;}
+      }
+    }
+    // Garantir que existe ao menos 1 bloco ALU
+    if(!document.getElementById('alu-blk-1')&&typeof addALU==='function') addALU(null,1);
+    var hiddenAluSel=document.getElementById('alu-sel-1');
+    var hiddenAluQty=document.getElementById('alu-qty-1');
+    if(hiddenAluSel&&_aluPrice>0) hiddenAluSel.value=_aluPrice+'|'+_aluArea;
+    if(hiddenAluQty) hiddenAluQty.value=_chapasALU;
+  } else {
+    // Sem ALU: limpar bloco se existir
+    var _existAlu=document.getElementById('alu-blk-1');
+    if(_existAlu&&window._corMode==='alu'){/* manter */}
+  }
+
   _updateFabChapaResumo();
   calc();
 }
@@ -1888,15 +1917,29 @@ function _updateFabChapaResumo(){
   } else { if(acmTb)acmTb.innerHTML=''; if(acmTbl)acmTbl.style.display='none'; if(acmE)acmE.style.display=''; }
   // ALU
   var aluTb=document.getElementById('fab-alu-tbody'), aluTbl=document.getElementById('fab-alu-table'), aluE=document.getElementById('fab-alu-empty');
-  var aluSel=document.getElementById('plan-alu-cor'), aluQty=parseInt((document.getElementById('plan-alu-qty')||{value:0}).value)||0;
-  if(aluTb && aluSel && aluSel.value && aluQty>0){
-    var opt2=aluSel.options[aluSel.selectedIndex]; var label2=opt2?opt2.text:'—';
-    var preco2=0; var pm2=label2.match(/R\$\s*([\d.,]+)/); if(pm2)preco2=parseFloat(pm2[1].replace('.','').replace(',','.'))||0;
-    var sub2=preco2*aluQty;
-    aluTb.innerHTML='<tr><td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+label2+'">'+label2.split('·')[0].trim()+'</td>'
-      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;font-weight:700">'+aluQty+'</td>'
-      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+(preco2>0?preco2.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</td>'
-      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:var(--navy)">R$ '+sub2.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td></tr>';
+  var _chapasALUn=window._chapasALU||0;
+  // Ler do hidden block ou dos globals
+  var _aluHidSel=document.getElementById('alu-sel-1');
+  var _aluHidQty=document.getElementById('alu-qty-1');
+  var _aluQShow=_aluHidQty?parseInt(_aluHidQty.value)||0:_chapasALUn;
+  var _aluPrShow=0, _aluAShow=0, _aluLblShow='ALU Maciço 2.5mm';
+  if(_aluHidSel&&_aluHidSel.value){
+    var _avp=_aluHidSel.value.split('|');
+    _aluPrShow=parseFloat(_avp[0])||0;
+    _aluAShow=parseFloat(_avp[1])||0;
+    // Label from selected option text
+    var _aopt=_aluHidSel.options[_aluHidSel.selectedIndex];
+    if(_aopt&&_aopt.text&&_aopt.text!=='— Selecionar —') _aluLblShow=_aopt.text.split('·')[0].trim();
+  }
+  if(aluTb && _aluQShow>0 && _aluPrShow>0){
+    var _aluSub=_aluPrShow*_aluQShow;
+    var _aluSzTag='';
+    var _aCSel=document.getElementById('plan-chapa-alu');
+    if(_aCSel&&_aCSel.value){var _acp=_aCSel.value.split('|');_aluSzTag=' <span style="font-size:9px;color:#6c3483;font-weight:400">('+_acp[0]+'×'+_acp[1]+'mm)</span>';}
+    aluTb.innerHTML='<tr><td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🔷 '+_aluLblShow+_aluSzTag+'</td>'
+      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;font-weight:700">'+_aluQShow+'</td>'
+      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+_aluPrShow.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#1a5276">R$ '+_aluSub.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td></tr>';
     if(aluTbl)aluTbl.style.display=''; if(aluE)aluE.style.display='none';
   } else { if(aluTb)aluTb.innerHTML=''; if(aluTbl)aluTbl.style.display='none'; if(aluE)aluE.style.display=''; }
 }
