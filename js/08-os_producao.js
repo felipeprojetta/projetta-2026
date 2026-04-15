@@ -597,10 +597,16 @@ function gerarOS(){
     var precoKgPint=r.pintado?(precoPint||0):0;
     var precoTotal=precoKgMat+precoKgPint;
     var custoLinha=Math.round(pesoBrutoRnd*precoTotal*100)/100;
+    var _isBois=!!(r._isBoiserie||r._barPrice);
+    // Boiserie: custo = nBars × R$150 (não por kg)
+    if(_isBois && r._barPrice){
+      custoLinha=r.nBars*(r._barPrice||150);
+      precoKgMat=0; precoKgPint=0; precoTotal=0;
+    }
     var row={
       code:key, nBars:r.nBars, barLen:r.barLenMM, barLenM:barLenM,
       kgPerBarRnd:kgPerBarRnd, pesoBruto:pesoBrutoRnd||0,
-      pintado:r.pintado,
+      pintado:r.pintado, _isBoiserie:_isBois, _barPrice:r._barPrice||0,
       precoKgMat:precoKgMat, precoKgPint:precoKgPint, precoTotal:precoTotal,
       custo:custoLinha||0, kgLiq:r.kgLiq||0
     };
@@ -621,6 +627,12 @@ function gerarOS(){
       var pintaStr=row.pintado
         ?'+ R$ '+((row.precoKgPint||0).toFixed(2))+'/kg pint.'
         :'';
+      var precoColStr='R$ '+((row.precoKgMat||0).toFixed(2));
+      // Boiserie: mostrar preço por barra
+      if(row._isBoiserie && row._barPrice){
+        pintaStr='';
+        precoColStr='R$ '+row._barPrice+'/barra';
+      }
       html+='<tr style="background:#fff">'
         +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:center;color:#aaa;font-size:10px">'+pr+'</td>'
         +'<td style="padding:4px 8px;border:0.5px solid #eee;font-weight:700;font-size:10.5px;color:'+(row.pintado?'#6c3483':'#003144')+'">'+row.code+(row.pintado?' 🎨':'')+'</td>'
@@ -628,7 +640,7 @@ function gerarOS(){
         +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:center;font-size:10px">'+row.barLen+'</td>'
         +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;font-weight:700;font-size:11px">'+((row.pesoBruto||0).toFixed(3)).replace('.',',')+'</td>'
         +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:center;border-right:2px dashed #ccc;color:#ddd">___</td>'
-        +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;font-size:10px;color:#555">R$ '+((row.precoKgMat||0).toFixed(2))+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;font-size:10px;color:#555">'+precoColStr+'</td>'
         +'<td style="padding:4px 8px;border:0.5px solid #eee;text-align:right;font-weight:700;font-size:11px;color:#003144">R$ '+((row.custo||0).toFixed(2)).replace('.',',')+'</td>'
         +'<td style="padding:4px 8px;border:0.5px solid #eee;font-size:9px;color:#888">'+pintaStr+'</td>'
         +'</tr>';

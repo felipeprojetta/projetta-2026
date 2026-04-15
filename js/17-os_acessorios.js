@@ -407,15 +407,19 @@ function _calcAcessoriosOS(d, nFolhas, sis){
 
   // ── OBRA — FECHO UNHA + PUSH&GO (só para 2 folhas) ───────────────────────
   if(nFolhas >= 2){
-    // Fecho unha: sempre 2 unidades para 2 folhas
-    rows.push({qty:2, code:'PA-FECHUNHA',
-      desc:'Fecho unha porta 2 folhas — 2 un.',
-      preco:getPreco('PA-FECHUNHA'), apl:'OBRA', grp:'FECHADURAS', obs:'FECHO FOLHA'});
-    // Push & Go: 1 unidade somente para H > 4000mm
     if(H > 4000){
+      // H > 4000: 1 fecho unha + 1 push & go
       rows.push({qty:1, code:'PA-FECHUNHA',
+        desc:'Fecho unha porta 2 folhas',
+        preco:getPreco('PA-FECHUNHA'), apl:'OBRA', grp:'FECHADURAS', obs:'FECHO FOLHA'});
+      rows.push({qty:1, code:'PA-PUSHGO',
         desc:'Push & Go amortecedor — H='+Math.round(H)+'mm > 4000mm',
-        preco:getPreco('PA-FECHUNHA'), apl:'OBRA', grp:'FECHADURAS', obs:'PUSH GO'});
+        preco:getPreco('PA-PUSHGO'), apl:'OBRA', grp:'FECHADURAS', obs:'PUSH GO'});
+    } else {
+      // H <= 4000: 2 fecho unha
+      rows.push({qty:2, code:'PA-FECHUNHA',
+        desc:'Fecho unha porta 2 folhas — 2 un.',
+        preco:getPreco('PA-FECHUNHA'), apl:'OBRA', grp:'FECHADURAS', obs:'FECHO FOLHA'});
     }
   }
 
