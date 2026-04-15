@@ -1573,11 +1573,17 @@ function planRun() {
   var PLN_RES_ALU = hasALU ? plnMaxRects(piecesALU,SW_ALU,SH_ALU,layoutMode) : {numSheets:0,placed:[],failed:[],stats:[]};
   window._plnResALU = PLN_RES_ALU;
 
+  // Save ACM count BEFORE merge
+  var numSheetsACM = PLN_RES.numSheets;
+  var numSheetsALU = PLN_RES_ALU.numSheets;
+  var numSheetsTotal = numSheetsACM + numSheetsALU;
+
   // Merge ALU into PLN_RES for unified display (tabs/canvas)
-  if(hasALU && PLN_RES_ALU.numSheets > 0){
+  if(hasALU && numSheetsALU > 0){
     for(var ai=0;ai<PLN_RES_ALU.placed.length;ai++){
       var ap=Object.assign({},PLN_RES_ALU.placed[ai]);
-      ap.sheet = ap.sheet + PLN_RES.numSheets;
+      ap.sheet = ap.sheet + numSheetsACM;
+      ap.label = '🔷'+ap.label;
       PLN_RES.placed.push(ap);
     }
     for(var si=0;si<PLN_RES_ALU.stats.length;si++){
@@ -1585,13 +1591,9 @@ function planRun() {
       st2._isALU=true;
       PLN_RES.stats.push(st2);
     }
-    PLN_RES.numSheets += PLN_RES_ALU.numSheets;
+    PLN_RES.numSheets = numSheetsTotal;
     PLN_RES.failed = PLN_RES.failed.concat(PLN_RES_ALU.failed);
   }
-
-  var numSheetsACM = PLN_RES.numSheets;
-  var numSheetsALU = PLN_RES_ALU.numSheets;
-  var numSheetsTotal = numSheetsACM + numSheetsALU;
 
   // Área peças
   var totPA_ACM=0, totPA_ALU=0;
@@ -1599,7 +1601,7 @@ function planRun() {
   for(var i=0;i<piecesALU.length;i++) totPA_ALU+=piecesALU[i].w*piecesALU[i].h*piecesALU[i].qty;
   var totPA=totPA_ACM+totPA_ALU;
   var totSA_ACM=numSheetsACM*SW*SH;
-  var totSA_ALU=numSheetsALU*SW*SH;
+  var totSA_ALU=numSheetsALU*SW_ALU*SH_ALU;
   var totSA=totSA_ACM+totSA_ALU;
   var util=totSA>0?(totPA/totSA*100).toFixed(1):'0';
   var usable=(SW-2*PLN_MG)*(SH-2*PLN_MG);
@@ -1622,11 +1624,16 @@ function planRun() {
   window._chapasACM = numSheetsACM;
   window._chapasALU = numSheetsALU;
   window._chapasCalculadas = numSheetsTotal;
+  window._chapaALU_SW = SW_ALU;
+  window._chapaALU_SH = SH_ALU;
   // Show weights
   var elPLiq = document.getElementById('plan-peso-liq');
   var elPBrt = document.getElementById('plan-peso-bruto');
   if(elPLiq) elPLiq.textContent = (pesoLiqACM+pesoLiqALU).toFixed(2)+' kg';
   if(elPBrt) elPBrt.textContent = (pesoBrutoACM+pesoBrutoALU).toFixed(2)+' kg';
+  // ALU qty label
+  var _aluLbl=document.getElementById('plan-alu-qty-lbl');
+  if(_aluLbl) _aluLbl.textContent=hasALU?numSheetsALU+' chapa'+(numSheetsALU>1?'s':'')+' ALU ('+SW_ALU+'×'+SH_ALU+')':'';
   _updatePesoAcessorios();
 
   var eff=numSheetsTotal>0?(Math.ceil(totPA/Math.max(1,usable))/numSheetsTotal*100).toFixed(0):'0';
@@ -1649,25 +1656,8 @@ function planRun() {
     wd.style.display='';
   } else { wd.style.display='none'; }
 
-  // Combinar placed de ACM + ALU (shift sheet index para ALU)
-  var _allPlaced = PLN_RES.placed.slice();
-  PLN_RES_ALU.placed.forEach(function(p){
-    _allPlaced.push({sheet:p.sheet+numSheetsACM,x:p.x,y:p.y,w:p.w,h:p.h,label:p.label,color:p.color,rot:p.rot,_isALU:true});
-  });
-
-  plnPieceTable(pieces, _allPlaced);
+  plnPieceTable(pieces, PLN_RES.placed);
   document.getElementById('plan-result').style.display='';
-
-  // Merge ALU sheets into PLN_RES for unified tab/canvas display
-  if(hasALU && PLN_RES_ALU.numSheets > 0){
-    PLN_RES_ALU.placed.forEach(function(p){
-      PLN_RES.placed.push({sheet:p.sheet+numSheetsACM,x:p.x,y:p.y,w:p.w,h:p.h,label:'🔷'+p.label,color:p.color,rot:p.rot});
-    });
-    for(var si=0;si<PLN_RES_ALU.numSheets;si++){
-      PLN_RES.stats.push({pct:PLN_RES_ALU.stats[si]?PLN_RES_ALU.stats[si].pct:0, _isALU:true});
-    }
-    PLN_RES.numSheets = numSheetsTotal;
-  }
 
   // ── Chapa Frontal — referência no planificador ──
   var _pfDiv=document.getElementById('plan-chapa-frontal');
