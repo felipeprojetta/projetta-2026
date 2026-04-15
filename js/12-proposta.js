@@ -148,45 +148,41 @@ function _exportPropostaToCard(cardId, revLabel, callback){
       if(propostaTab) propostaTab.setAttribute('style',origStyle||'display:none');
       // Salvar PDF dentro da ÚLTIMA REVISÃO do card
       if(cardId){
+        // Salvar imagens na NUVEM (Supabase) em vez de localStorage
+        var _sbUrl=window._SB_URL, _sbKey=window._SB_KEY;
+        if(_sbUrl && _sbKey && captures.length>0){
+          var _imgKey='proposta_img_'+cardId;
+          fetch(_sbUrl+'/rest/v1/configuracoes',{
+            method:'POST',
+            headers:{'apikey':_sbKey,'Authorization':'Bearer '+_sbKey,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+            body:JSON.stringify({chave:_imgKey,valor:{pages:captures,date:new Date().toISOString(),label:revLabel||'Original'}})
+          }).then(function(r){
+            if(r.ok) console.log('☁️ Proposta salva na nuvem: '+captures.length+' páginas');
+            else console.warn('☁️ Erro salvar proposta:',r.status);
+          }).catch(function(e){console.warn('☁️ Rede err proposta:',e);});
+        }
+        // Também salvar referência leve no card (sem imagens pesadas)
         try{
           var CK_PDF='projetta_crm_v1';
           var data=JSON.parse(localStorage.getItem(CK_PDF)||'[]');
           var ci=data.findIndex(function(o){return o.id===cardId;});
           if(ci>=0 && data[ci].revisoes && data[ci].revisoes.length>0){
             var lastRev=data[ci].revisoes[data[ci].revisoes.length-1];
-            lastRev.pdfPages=captures;
             lastRev.pdfDate=new Date().toISOString();
-            try{
-              localStorage.setItem(CK_PDF,JSON.stringify(data));
-              console.log('✅ PDF salvo na revisão: '+lastRev.label+' ('+captures.length+' páginas)');
-            }catch(quotaErr){
-              // localStorage cheio — tentar com qualidade menor
-              console.warn('⚠ localStorage cheio, reduzindo qualidade das imagens...');
-              lastRev.pdfPages=captures.map(function(img){
-                // Comprimir mais: reduzir base64 string
-                var c=document.createElement('canvas');
-                var im=new Image();im.src=img;
-                c.width=im.width/2;c.height=im.height/2;
-                var ctx=c.getContext('2d');ctx.drawImage(im,0,0,c.width,c.height);
-                return c.toDataURL('image/jpeg',0.25);
-              });
-              try{
-                localStorage.setItem(CK_PDF,JSON.stringify(data));
-                console.log('✅ PDF salvo (comprimido) na revisão: '+lastRev.label);
-              }catch(e2){
-                // Ultima tentativa: remover imagens de revisões antigas
-                console.warn('⚠ Ainda cheio, removendo imagens de revisões anteriores...');
-                data[ci].revisoes.forEach(function(rv,ri){
-                  if(ri<data[ci].revisoes.length-1) delete rv.pdfPages;
-                });
-                try{localStorage.setItem(CK_PDF,JSON.stringify(data));}catch(e3){
-                  console.error('❌ Impossível salvar imagens no card — localStorage lotado');
-                  _showToast('⚠ Card CRM cheio — imagens não salvas','#e74c3c');
-                }
-              }
+            lastRev.pdfCloud=true; // flag: imagens estão na nuvem
+            lastRev.pdfPagesCount=captures.length;
+            // Guardar apenas thumbnail pequeno no localStorage (1 página, baixa qualidade)
+            if(captures[0]){
+              var _tn=document.createElement('canvas');var _ti=new Image();_ti.src=captures[0];
+              _tn.width=Math.round(_ti.width/3);_tn.height=Math.round(_ti.height/3);
+              var _tc=_tn.getContext('2d');_tc.drawImage(_ti,0,0,_tn.width,_tn.height);
+              lastRev.pdfThumb=_tn.toDataURL('image/jpeg',0.2);
             }
+            delete lastRev.pdfPages; // remover imagens pesadas do localStorage
+            localStorage.setItem(CK_PDF,JSON.stringify(data));
+            console.log('✅ Referência salva no card (imagens na nuvem)');
           }
-        }catch(e){console.warn('Erro ao salvar PDF no card:',e);}
+        }catch(e){console.warn('Erro ao salvar referência no card:',e);}
       }
       if(callback) callback(captures);
       return;

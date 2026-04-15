@@ -663,7 +663,7 @@ window.crmOpenModal=function(defaultStage,editId){
           rh+='<td style="padding:8px 10px;color:var(--muted);font-size:13px">'+new Date(rv.data).toLocaleDateString('pt-BR')+'</td>';
           rh+='<td style="padding:8px 10px;text-align:right;font-weight:700;font-size:13px;color:var(--navy)">'+brl(_dispTab)+'</td>';
           rh+='<td style="padding:8px 10px;text-align:right;font-weight:800;font-size:13px;color:#e67e22">'+brl(_dispFat)+'</td>';
-          var hasProposal=opp.revisoes[ri].pdfPages&&opp.revisoes[ri].pdfPages.length>0;
+          var hasProposal=opp.revisoes[ri].pdfCloud||(opp.revisoes[ri].pdfPages&&opp.revisoes[ri].pdfPages.length>0);
           rh+='<td style="padding:4px 6px;text-align:center;white-space:nowrap">';
           if(hasProposal) rh+='<button onclick="event.stopPropagation();crmVerProposta(\''+editId+'\','+ri+')" style="background:none;border:1px solid #27ae60;color:#27ae60;border-radius:6px;font-size:10px;cursor:pointer;padding:3px 6px;font-weight:700;margin-right:3px" title="Ver proposta salva">📄</button>';
           rh+='<button onclick="crmDeleteRevision(\''+editId+'\','+ri+')" style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:6px;font-size:10px;cursor:pointer;padding:3px 6px;font-weight:700" title="Excluir revisão">✕</button></td>';
@@ -2017,7 +2017,7 @@ window.crmCompartilharCard=function(cardId){
   html+='<button onclick="navigator.clipboard.writeText(\''+copyText.replace(/'/g,"\\'").replace(/\n/g,"\\n")+'\').then(function(){this.textContent=\'✅ Copiado!\'}.bind(this))" style="padding:12px 16px;border-radius:8px;background:#f0f0f0;border:1px solid #ddd;color:#333;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;text-align:left">📋 Copiar Texto da Proposta</button>';
 
   // Ver proposta salva (se tiver PDF)
-  if(lastRev&&lastRev.pdfPages&&lastRev.pdfPages.length>0){
+  if(lastRev&&(lastRev.pdfCloud||(lastRev.pdfPages&&lastRev.pdfPages.length>0))){
     html+='<button onclick="document.querySelector(\'div[style*=fixed]\').remove();crmVerProposta(\''+cardId+'\','+(card.revisoes.length-1)+')" style="padding:12px 16px;border-radius:8px;background:#8e44ad;color:#fff;border:none;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">📄 Ver PDF da Proposta</button>';
   }
 
@@ -2083,12 +2083,17 @@ function _gerarPaginaProposta(cardId){
     });
     w.document.write('</div>');
   }
-  // PDF pages
-  if(lastRev&&lastRev.pdfPages){
+  // PDF pages (thumbnail ou local)
+  if(lastRev&&(lastRev.pdfThumb||lastRev.pdfPages)){
     w.document.write('<div class="card"><div class="card-t">Proposta Visual</div>');
-    lastRev.pdfPages.forEach(function(pg,i){
-      w.document.write('<img src="'+pg+'" alt="Página '+(i+1)+'">');
-    });
+    if(lastRev.pdfPages){
+      lastRev.pdfPages.forEach(function(pg,i){
+        w.document.write('<img src="'+pg+'" alt="Página '+(i+1)+'">');
+      });
+    } else if(lastRev.pdfThumb){
+      w.document.write('<img src="'+lastRev.pdfThumb+'" alt="Thumbnail proposta">');
+      w.document.write('<p style="color:#888;font-size:10px">Imagem reduzida — versão completa na nuvem</p>');
+    }
     w.document.write('</div>');
   }
   w.document.write('<div class="foot">Gerado em '+new Date().toLocaleString('pt-BR')+'<br>Projetta Portas Exclusivas — projetta.com.br</div>');
@@ -2435,19 +2440,41 @@ window.crmVerProposta=function(cardId, revIndex){
   var card=data.find(function(o){return o.id===cardId;});
   if(!card||!card.revisoes||!card.revisoes[revIndex]){alert('Revisão não encontrada.');return;}
   var rev=card.revisoes[revIndex];
-  if(!rev.pdfPages||!rev.pdfPages.length){alert('Nenhuma proposta salva nesta revisão.');return;}
-  var ov=document.createElement('div');
-  ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:99999;overflow-y:auto;padding:20px;cursor:pointer';
-  ov.onclick=function(e){if(e.target===ov)ov.remove();};
-  var inner='<div style="max-width:800px;margin:0 auto;text-align:center">';
-  inner+='<div style="color:#fff;font-size:14px;font-weight:700;margin-bottom:12px">📄 '+(rev.label||'Proposta')+' — '+(card.cliente||'')+'<br><span style="font-size:11px;opacity:.6">'+(rev.pdfDate?new Date(rev.pdfDate).toLocaleString('pt-BR'):'')+'</span></div>';
-  inner+='<div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#e74c3c;color:#fff;font-weight:700;cursor:pointer;font-size:13px">✕ Fechar</button></div>';
-  for(var i=0;i<rev.pdfPages.length;i++){
-    inner+='<div style="margin-bottom:16px"><img src="'+rev.pdfPages[i]+'" style="width:100%;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.5)"><div style="color:#888;font-size:10px;margin-top:4px">Página '+(i+1)+' de '+rev.pdfPages.length+'</div></div>';
+
+  function _showPages(pages){
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:99999;overflow-y:auto;padding:20px;cursor:pointer';
+    ov.onclick=function(e){if(e.target===ov)ov.remove();};
+    var inner='<div style="max-width:800px;margin:0 auto;text-align:center">';
+    inner+='<div style="color:#fff;font-size:14px;font-weight:700;margin-bottom:12px">📄 '+(rev.label||'Proposta')+' — '+(card.cliente||'')+'<br><span style="font-size:11px;opacity:.6">'+(rev.pdfDate?new Date(rev.pdfDate).toLocaleString('pt-BR'):'')+'</span></div>';
+    inner+='<div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#e74c3c;color:#fff;font-weight:700;cursor:pointer;font-size:13px">✕ Fechar</button></div>';
+    for(var i=0;i<pages.length;i++){
+      inner+='<div style="margin-bottom:16px"><img src="'+pages[i]+'" style="width:100%;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.5)"><div style="color:#888;font-size:10px;margin-top:4px">Página '+(i+1)+' de '+pages.length+'</div></div>';
+    }
+    inner+='</div>';
+    ov.innerHTML=inner;
+    document.body.appendChild(ov);
   }
-  inner+='</div>';
-  ov.innerHTML=inner;
-  document.body.appendChild(ov);
+
+  // Se imagens estão na nuvem, buscar do Supabase
+  if(rev.pdfCloud){
+    var _sbUrl=window._SB_URL, _sbKey=window._SB_KEY;
+    var _imgKey='proposta_img_'+cardId;
+    _showToast('☁️ Carregando proposta da nuvem...','#3498db');
+    fetch(_sbUrl+'/rest/v1/configuracoes?chave=eq.'+_imgKey+'&select=valor&limit=1',{
+      headers:{'apikey':_sbKey,'Authorization':'Bearer '+_sbKey}
+    }).then(function(r){return r.json();}).then(function(rows){
+      if(rows&&rows[0]&&rows[0].valor&&rows[0].valor.pages){
+        _showPages(rows[0].valor.pages);
+      } else {
+        alert('Imagens não encontradas na nuvem.');
+      }
+    }).catch(function(e){alert('Erro ao carregar da nuvem: '+e.message);});
+    return;
+  }
+  // Fallback: localStorage (compatibilidade com dados antigos)
+  if(!rev.pdfPages||!rev.pdfPages.length){alert('Nenhuma proposta salva nesta revisão.');return;}
+  _showPages(rev.pdfPages);
 };
 
 function _captureOrcValues(){
