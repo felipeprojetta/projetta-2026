@@ -2212,6 +2212,7 @@ window.crmNovaRevisao=function(cardId){
     window._snapshotLock=false;
     window._orcLocked=false;
     window._forceUnlockAfterLoad=false;
+    window._custoCalculado=false; // FORÇAR recálculo ao apertar Pronto
     // Desabilitar TODOS inputs forçadamente (bypass wasDisabled)
     var orcTab=document.getElementById('tab-orcamento');
     if(orcTab){
@@ -2407,55 +2408,56 @@ window.crmAtualizarValorCard=function(){
   var id=window._crmOrcCardId;if(!id){alert('Nenhum card vinculado. Use "Fazer Orçamento" no CRM primeiro.');return;}
   var data=cLoad();var idx=data.findIndex(function(o){return o.id===id;});
   if(idx<0){alert('Card não encontrado no CRM.');window._crmOrcCardId=null;return;}
-  // FORÇAR recálculo antes de capturar valores
-  window._snapshotLock=false;
-  if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
-  data[idx].updatedAt=new Date().toISOString();
-  // Capturar valores atuais
-  var vals=_captureOrcValues();
-  if(vals.fat<=0&&vals.tab<=0){alert('Preencha o orçamento primeiro — valores estão zerados.');return;}
-  data[idx].valor=vals.fat;
-  data[idx].valorTabela=vals.tab;
-  data[idx].valorFaturamento=vals.fat;
-  // Nova revisão no card
-  if(!data[idx].revisoes) data[idx].revisoes=[];
-  var revNum=data[idx].revisoes.length;
-  var revLabel='Revisão '+revNum;
-  data[idx].revisoes.push({
-    rev:revNum,
-    label:revLabel,
-    data:new Date().toISOString(),
-    valorTabela:vals.tab,
-    valorFaturamento:vals.fat
-  });
-  // AGP e Reserva
-  var agpEl=document.getElementById('num-agp');
-  if(agpEl&&agpEl.value.trim()) data[idx].agp=agpEl.value.trim();
-  var resEl=document.getElementById('numprojeto');
-  if(resEl&&resEl.value.trim()) data[idx].reserva=resEl.value.trim();
-  cSave(data);
-  crmRender();
-  // Exportar proposta silenciosamente e salvar no card
-  _exportPropostaToCard(id, revLabel, function(captures){
-    var nPages=captures?captures.length:0;
-    var toast2=document.createElement('div');toast2.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2980b9;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast2.textContent='🔄 '+revLabel+' atualizada! '+nPages+' pág. anexadas. Tab: '+brl(vals.tab)+' | Fat: '+brl(vals.fat);document.body.appendChild(toast2);setTimeout(function(){toast2.remove();},5000);
-  });
-  // Esconder o botão após atualizar e TRAVAR
-  var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
-  var btnPronto=document.getElementById('crm-orc-pronto-btn');if(btnPronto)btnPronto.style.display='none';
-  // Salvar snapshot no orçamento
-  if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){}
-  if(currentId){
-    var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
-    if(_oi3>=0&&_db3[_oi3].revisions[currentRev]){
-      _db3[_oi3].revisions[currentRev].crmPronto=true;
-      try{_db3[_oi3].revisions[currentRev].snapshot=captureSnapshot();}catch(e){}
-      saveDB(_db3);
+
+  // Callback: salvar valores DEPOIS do cálculo completo
+  var _salvarValores=function(){
+    var data2=cLoad();var idx2=data2.findIndex(function(o){return o.id===id;});
+    if(idx2<0) return;
+    var vals=_captureOrcValues();
+    if(vals.fat<=0&&vals.tab<=0){alert('Valores zerados — verifique o orçamento.');return;}
+    data2[idx2].updatedAt=new Date().toISOString();
+    data2[idx2].valor=vals.fat;
+    data2[idx2].valorTabela=vals.tab;
+    data2[idx2].valorFaturamento=vals.fat;
+    // Nova revisão no card
+    if(!data2[idx2].revisoes) data2[idx2].revisoes=[];
+    var revNum=data2[idx2].revisoes.length;
+    var revLabel='Revisão '+revNum;
+    data2[idx2].revisoes.push({rev:revNum,label:revLabel,data:new Date().toISOString(),valorTabela:vals.tab,valorFaturamento:vals.fat});
+    // AGP e Reserva
+    var agpEl=document.getElementById('num-agp');
+    if(agpEl&&agpEl.value.trim()) data2[idx2].agp=agpEl.value.trim();
+    var resEl=document.getElementById('numprojeto');
+    if(resEl&&resEl.value.trim()) data2[idx2].reserva=resEl.value.trim();
+    cSave(data2);
+    crmRender();
+    // Exportar proposta silenciosamente
+    _exportPropostaToCard(id, revLabel, function(captures){
+      var nPages=captures?captures.length:0;
+      var toast2=document.createElement('div');toast2.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2980b9;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast2.textContent='🔄 '+revLabel+' atualizada! '+nPages+' pág. Tab: '+brl(vals.tab)+' | Fat: '+brl(vals.fat);document.body.appendChild(toast2);setTimeout(function(){toast2.remove();},5000);
+    });
+    // Esconder botões e travar
+    var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
+    var btnPronto=document.getElementById('crm-orc-pronto-btn');if(btnPronto)btnPronto.style.display='none';
+    if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){}
+    if(currentId){
+      var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
+      if(_oi3>=0&&_db3[_oi3].revisions[currentRev]){
+        _db3[_oi3].revisions[currentRev].crmPronto=true;
+        try{_db3[_oi3].revisions[currentRev].snapshot=captureSnapshot();}catch(e){}
+        saveDB(_db3);
+      }
     }
-  }
-  if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
-  window._snapshotLock=true;
-  _setOrcLock(true);
+    if(typeof renderClientesTab==='function') try{renderClientesTab();}catch(e){}
+    window._snapshotLock=true;
+    _setOrcLock(true);
+  };
+
+  // FORÇAR recálculo antes de capturar valores (async — callback salva depois)
+  window._snapshotLock=false;
+  window._custoCalculado=false;
+  window._onCustoCompleto=_salvarValores;
+  if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){_salvarValores();}
 };
 
 /* ── Helper: capturar valores do orçamento ──────── */
