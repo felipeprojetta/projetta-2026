@@ -1720,7 +1720,10 @@ function orcItemSelecionar(idx){
     setF('carac-folhas', it.folhas || '1');
     if(it.cor_ext) setF('carac-cor-ext', it.cor_ext);
     if(it.cor_int) setF('carac-cor-int', it.cor_int);
-    if(it.cor_macico) setF('carac-cor-macico', it.cor_macico);
+    if(it.cor_macico){
+      // Guardar para setar depois de _checkCorMode popular as opções
+      window._pendingCorMacico = it.cor_macico;
+    }
     if(it.fech_mec) setF('carac-fech-mec', it.fech_mec);
     if(it.fech_dig) setF('carac-fech-dig', it.fech_dig);
     if(it.cilindro) setF('carac-cilindro', it.cilindro);
@@ -1747,7 +1750,14 @@ function orcItemSelecionar(idx){
     if(_alisarEl) _alisarEl.checked = !!it.tem_alisar;
     if(typeof onModeloChange==='function' && it.modelo) try{onModeloChange();}catch(e){}
     // Forçar verificação cor ALU/ACM após todos campos carregados
-    if(typeof _checkCorMode==='function') setTimeout(_checkCorMode, 200);
+    if(typeof _checkCorMode==='function') setTimeout(function(){
+      _checkCorMode();
+      // Agora setar cor maciço (opções já populadas)
+      if(window._pendingCorMacico){
+        setF('carac-cor-macico', window._pendingCorMacico);
+        window._pendingCorMacico=null;
+      }
+    }, 200);
   }
   
   if(it.tipo === 'fixo'){

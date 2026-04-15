@@ -186,16 +186,15 @@ function _checkCorMode(){
   // Label cor externa
   var extLbl=document.getElementById('carac-cor-ext-label');
   if(extLbl) extLbl.textContent=isMacico?'Cor ACM':'Cor chapa externa';
-  // Populate cor maciço com opções do ALU_DATA (cadastro)
+  // Populate cor maciço com opções do ALU_DATA (cadastro) — sempre atualizar
   if(isMacico){
     var macSel=document.getElementById('carac-cor-macico');
-    if(macSel && macSel.options.length<=3){
+    if(macSel){
       var oldVal=macSel.value;
       var html='<option value="">— Selecione —</option>';
       if(typeof ALU_DATA!=='undefined'){
         ALU_DATA.forEach(function(g){
           html+='<optgroup label="'+g.g+'">';
-          // Pegar cores únicas do grupo
           var cores={};
           g.o.forEach(function(it){var nm=it.l.split('·')[0].split('×')[0].trim();if(!cores[nm])cores[nm]=it.l.split('·')[0].trim();});
           Object.keys(cores).forEach(function(c){html+='<option value="'+cores[c]+'">'+cores[c]+'</option>';});
