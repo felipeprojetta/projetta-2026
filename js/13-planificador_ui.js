@@ -551,7 +551,18 @@ function plnDraw(si) {
   var cv  = document.getElementById('plan-canvas');
   if (!cv) return;
   var ctx = cv.getContext('2d');
-  var SW  = PLN_SD.w, SH = PLN_SD.h, PAD = 20;
+  // Detectar se é chapa ALU (index >= _chapasACM)
+  var _nACMd = window._chapasACM || PLN_RES.numSheets;
+  var _isALUSheet = si >= _nACMd && window._chapasALU > 0;
+  var SW, SH;
+  if(_isALUSheet && window._chapaALU_SW && window._chapaALU_SH){
+    SW = window._chapaALU_SW;
+    SH = window._chapaALU_SH;
+  } else {
+    SW = PLN_SD.w;
+    SH = PLN_SD.h;
+  }
+  var PAD = 20;
   // HORIZONTAL: comprimento (SH) no eixo X, largura (SW) no eixo Y
   var maxCW = 1100, maxCH = 280;
   var sc  = Math.min((maxCW-PAD*2)/SH, (maxCH-PAD*2)/SW);
@@ -676,7 +687,8 @@ function plnDraw(si) {
   // labels do cabeçalho e rodapé
   ctx.fillStyle='#333'; ctx.font='bold 10px Montserrat,Arial';
   ctx.textAlign='left'; ctx.textBaseline='top';
-  ctx.fillText('Chapa '+(si+1)+'  |  '+SW+'×'+SH+' mm  |  kerf 4mm',PAD,4);
+  var _sheetLabel=_isALUSheet?'🔷 ALU '+(si-_nACMd+1):'Chapa '+(si+1);
+  ctx.fillText(_sheetLabel+'  |  '+SW+'×'+SH+' mm  |  kerf 4mm',PAD,4);
   // cota da largura total no topo
   ctx.textAlign='center';
   ctx.fillText(SH+' mm', PAD+SH*sc/2, PAD+SW*sc+4);
