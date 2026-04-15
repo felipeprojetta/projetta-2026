@@ -1473,6 +1473,27 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       ⚠ Este modelo tem frisos variáveis — informe a quantidade nos campos acima.
     </div>
     </div>
+    <!-- RIPADO CONFIG -->
+    <div id="ripado-section" style="display:none;background:#fdf5e6;border:1.5px solid #c47012;border-radius:8px;padding:10px 14px;margin-top:6px;margin-bottom:6px">
+      <div style="font-size:11px;font-weight:700;color:#c47012;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">🔲 Configuração do Ripado</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div class="fr" style="flex:1;min-width:140px">
+          <span class="fl" style="text-transform:none;font-size:11px">Ripado Total?</span>
+          <div class="fv"><select id="carac-ripado-total" onchange="calc();_osAutoUpdate()" style="width:100%;padding:5px 8px;border:0.5px solid #c9c6bf;border-radius:6px;font-size:12px;background:#fffef5;color:var(--navy);font-weight:600;outline:none">
+            <option value="NAO" selected>Não (descontando cava/bordas)</option>
+            <option value="SIM">Sim (largura total da chapa)</option>
+          </select></div>
+        </div>
+        <div class="fr" style="flex:1;min-width:140px">
+          <span class="fl" style="text-transform:none;font-size:11px">Ripado dos 2 lados?</span>
+          <div class="fv"><select id="carac-ripado-2lados" onchange="calc();_osAutoUpdate()" style="width:100%;padding:5px 8px;border:0.5px solid #c9c6bf;border-radius:6px;font-size:12px;background:#fffef5;color:var(--navy);font-weight:600;outline:none">
+            <option value="SIM" selected>Sim (frente + verso)</option>
+            <option value="NAO">Não (somente 1 lado)</option>
+          </select></div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#888;margin-top:4px">Total: largura chapa frontal ÷ 90. Não: desconta cava e bordas. Tubo 51×25 (suporte) calculado automaticamente.</div>
+    </div>
     <div class="fr">
       <span class="fl" style="text-transform:none">Alisar (acabamento lateral)</span>
       <div class="fv" style="display:flex;align-items:center;gap:8px">

@@ -68,7 +68,7 @@ function captureFormData(){
   }}
   const fields=['cliente','numprojeto','num-agp','num-atp','dataprojeto','responsavel','largura','altura','qtd-portas',
     'folhas-porta','rep-sel','cep-cliente','ac-fechadura','qtd-fechaduras',
-    'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso',
+    'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso','carac-ripado-total','carac-ripado-2lados',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
     'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-acm-cor','plan-acm-qty',
     'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
@@ -212,7 +212,7 @@ function restoreFormData(data){
 
   const fields=['cliente','numprojeto','num-agp','num-atp','dataprojeto','responsavel','largura','altura','qtd-portas',
     'folhas-porta','rep-sel','cep-cliente','ac-fechadura','qtd-fechaduras',
-    'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso',
+    'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso','carac-ripado-total','carac-ripado-2lados',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
     'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-acm-cor','plan-acm-qty',
     'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
@@ -1096,7 +1096,7 @@ function confirmarATP(){
 
   // 4. Zerar tudo
   ['largura','altura','qtd-portas','folhas-porta','ac-fechadura','qtd-fechaduras',
-   'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso',
+   'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso','carac-ripado-total','carac-ripado-2lados',
    'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf',
    'dias','pessoas','km','carros','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp','desconto'
   ].forEach(function(f){var el=$(f);if(el)el.value='';});
@@ -1259,6 +1259,10 @@ function resetToDefaults(){
   ['carac-friso-vert','carac-friso-horiz','carac-dist-borda-friso','carac-largura-friso'].forEach(function(id){
     var el=$(id);if(el)el.value='0';
   });
+  // Reset ripado fields
+  var _rtEl=$('carac-ripado-total');if(_rtEl)_rtEl.value='NAO';
+  var _r2El=$('carac-ripado-2lados');if(_r2El)_r2El.value='SIM';
+  var _ripSec=document.getElementById('ripado-section');if(_ripSec)_ripSec.style.display='none';
   // Force-hide fechadura panel and accessory info
   var rcFech=document.getElementById('rc-fechadura');if(rcFech)rcFech.style.display='none';
   var aiPanel=document.getElementById('acess-info');if(aiPanel)aiPanel.style.display='none';

@@ -643,6 +643,10 @@ function onModeloChange(){
       if(fh) fh.style.border = '';
     }
   }
+  // ── Toggle ripado section (modelos 08, 15, 20, 21) ──
+  var _isRipMod = ['08','15','20','21'].indexOf(val) >= 0;
+  var ripSec = document.getElementById('ripado-section');
+  if(ripSec) ripSec.style.display = _isRipMod ? '' : 'none';
   // ── Sync model image to proposta instantly ──
   if(typeof _syncModeloImgProposta === 'function') _syncModeloImgProposta();
   // ── Toggle cava fields visibility ──

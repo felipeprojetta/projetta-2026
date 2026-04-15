@@ -25,7 +25,15 @@ function aprovPieces(Lmm,Amm,fol,mod){
     if(mod==='23acm'||mod==='23alu'){var ml=Math.max(0,fW-300),ma=823,mb=Math.max(0,G4-675-ma);
       r.push(['MOLD LAR',143,ml,8],['MOLD ALT1',143,ma,(fol==2)?8:4]);if(mb>50)r.push(['MOLD ALT2',143,mb,(fol==2)?8:4]);}
     if(mod==='11')r.push(['FRISO VERT',100,G4,2],['DIST BOR FV',Math.round(fW*.28),G4,2]);
-    if(mod==='15')r.push(['RIPAS',98,G4,Math.max(1,Math.round((fW-180)/90))*((fol==2)?2:1)]);
+    if(mod==='15'){
+      var _ripTotal=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
+      var _rip2L=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
+      var _nRipas=_ripTotal?Math.max(1,Math.round(fW/90)):Math.max(1,Math.round((fW-180)/90));
+      var _ripMult=(_rip2L?2:1)*((fol==2)?2:1);
+      r.push(['RIPAS',98,G4,_nRipas*_ripMult]);
+      var _nSuportes=Math.ceil(G4/500)*_nRipas*_ripMult;
+      r.push(['SUPORTE RIPA',51,500,_nSuportes]);
+    }
   }
   if(mod==='01'||mod==='02'||mod==='03'||mod==='04'||mod==='05'||mod==='06'||mod==='07'||mod==='08'||mod==='09'||mod==='19'||mod==='24'){
     var DC=parseInt($('aprov-dim-cava').value)||150,HC=parseInt($('aprov-h-cava').value)||210;
@@ -42,7 +50,15 @@ function aprovPieces(Lmm,Amm,fol,mod){
     r.push(['TAP FURO',119,bH,3],['FIT ACAB ME',76.5,bH,2],['FIT ACAB MA',114.5,bH,2],['FIT ACAB FITA',101,bH,2]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT',225,A+150,5],['ALISAR LAR',225,L+300,2]);
     if(mod==='02')r.push(['FRISO VERT',100,G4,2],['TAMPA FRISO',39,G4,2]);
-    if(mod==='08')r.push(['RIPAS',98,G4,Math.max(1,Math.round((fW-330)/90))*((fol==2)?2:1)]);
+    if(mod==='08'){
+      var _ripTotal=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
+      var _rip2L=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
+      var _nRipas=_ripTotal?Math.max(1,Math.round(fW/90)):Math.max(1,Math.round((fW-330)/90));
+      var _ripMult=(_rip2L?2:1)*((fol==2)?2:1);
+      r.push(['RIPAS',98,G4,_nRipas*_ripMult]);
+      var _nSuportes=Math.ceil(G4/500)*_nRipas*_ripMult;
+      r.push(['SUPORTE RIPA',51,500,_nSuportes]);
+    }
   }
   /* MODELO 22 — cava larga (DC+360), altura=G4 (PA ALTURA), sem TAMPA CAVA, TAMPA MAIOR -68 */
   if(mod==='22'){
@@ -122,8 +138,11 @@ function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
     }
     // Modelo 08: ripado no fixo (peças estreitas repetidas)
     if(mod==='08'){
-      var nRipas=Math.max(1,Math.round((Lfixo-330)/90));
-      r.push(['FX RIPAS',98,hCavaFix,nRipas*q1]);
+      var _fxRipTotal=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
+      var _fxRip2L=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
+      var nRipas=_fxRipTotal?Math.max(1,Math.round(Lfixo/90)):Math.max(1,Math.round((Lfixo-330)/90));
+      var _fxRipMult=(_fxRip2L?2:1)*q1;
+      r.push(['FX RIPAS',98,hCavaFix,nRipas*_fxRipMult]);
     }
   }
 
@@ -161,8 +180,11 @@ function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
     }
     // Modelo 15: ripas
     if(mod==='15'){
-      var nRipas15=Math.max(1,Math.round((Lfixo-180)/90));
-      r.push(['FX RIPAS',98,hCavaFix||Afixo-TUB*2,nRipas15*q1]);
+      var _fxRipTotal15=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
+      var _fxRip2L15=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
+      var nRipas15=_fxRipTotal15?Math.max(1,Math.round(Lfixo/90)):Math.max(1,Math.round((Lfixo-180)/90));
+      var _fxRipMult15=(_fxRip2L15?2:1)*q1;
+      r.push(['FX RIPAS',98,hCavaFix||Afixo-TUB*2,nRipas15*_fxRipMult15]);
     }
   }
 
