@@ -1254,6 +1254,35 @@ function _autoSelectAndRun(){
   // Salvar resultados globalmente para re-render
   window._simData={resultados:resultados,chapas:chapas,maxDim:maxDim,selSH:melhor.sh,corCode:corCode,sw:SW};
 
+  // ── Otimização ALU Maciço (se houver peças ALU) ─────────────────────────
+  if(_hasALU && _pcsALU.length>0){
+    var aluSizes=[3000,5000,6000];
+    var maxDimALU=0;
+    _pcsALU.forEach(function(p){var d=Math.max(p.w,p.h);if(d>maxDimALU)maxDimALU=d;});
+    var aluValidas=aluSizes.filter(function(s){return s>=maxDimALU;});
+    if(!aluValidas.length) aluValidas=[6000];
+    var melhorALU=null;
+    aluValidas.forEach(function(SH){
+      try{
+        var res=plnMaxRects(_pcsALU, 1500, SH, layoutMode);
+        var totP=0; _pcsALU.forEach(function(p){totP+=p.w*p.h*p.qty;});
+        var totC=res.numSheets*1500*SH;
+        var apv=totC>0?(totP/totC*100):0;
+        if(!melhorALU || res.numSheets<melhorALU.n || (res.numSheets===melhorALU.n && apv>melhorALU.aprov)){
+          melhorALU={sh:SH,n:res.numSheets,aprov:apv};
+        }
+      }catch(e){}
+    });
+    if(melhorALU){
+      var aluSel2=document.getElementById('plan-chapa-alu');
+      if(aluSel2){
+        var aluVal='1500|'+melhorALU.sh;
+        for(var ai2=0;ai2<aluSel2.options.length;ai2++){if(aluSel2.options[ai2].value===aluVal){aluSel2.value=aluVal;break;}}
+      }
+      if(typeof filtrarChapasACM==='function') filtrarChapasACM();
+    }
+  }
+
   // Renderizar cards horizontais
   _renderSimCards(melhor.sh);
 
