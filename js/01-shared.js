@@ -137,30 +137,46 @@ function mkOpts(data){
 const ACM_OPTS=mkOpts(ACM_DATA);
 const ALU_OPTS=mkOpts(ALU_DATA);
 
-function _populateCorSelects(){
-  var cores={};
-  ACM_DATA.forEach(function(g){
-    g.o.forEach(function(item){
-      var nome=item.l.split('·')[0].trim();
-      if(!cores[nome])cores[nome]=g.g;
-    });
-  });
+function _populateCorSelects(mode){
+  // mode: 'acm' (default) = todas as cores ACM | 'alu' = só categorias alumínio maciço
   var html='<option value="">— Selecione —</option>';
-  var lastGroup='';
-  Object.keys(cores).forEach(function(cor){
-    var grp=cores[cor];
-    if(grp!==lastGroup){
-      if(lastGroup)html+='</optgroup>';
-      html+='<optgroup label="'+grp+'">';
-      lastGroup=grp;
-    }
-    html+='<option value="'+cor+'">'+cor+'</option>';
-  });
-  if(lastGroup)html+='</optgroup>';
-  // Popular selects de cor com todas as opções
+  if(mode==='alu'){
+    // ALU: mostrar só as 2 categorias (Sólida/Metalizada e Madeira)
+    html+='<option value="ALU SOLIDA METALIZADA">Sólida / Metalizada</option>';
+    html+='<option value="ALU MADEIRA">Madeira</option>';
+  } else {
+    var cores={};
+    ACM_DATA.forEach(function(g){
+      g.o.forEach(function(item){
+        var nome=item.l.split('·')[0].trim();
+        if(!cores[nome])cores[nome]=g.g;
+      });
+    });
+    var lastGroup='';
+    Object.keys(cores).forEach(function(cor){
+      var grp=cores[cor];
+      if(grp!==lastGroup){
+        if(lastGroup)html+='</optgroup>';
+        html+='<optgroup label="'+grp+'">';
+        lastGroup=grp;
+      }
+      html+='<option value="'+cor+'">'+cor+'</option>';
+    });
+    if(lastGroup)html+='</optgroup>';
+  }
   var ids=['carac-cor-ext','carac-cor-int','crm-o-cor-ext','crm-o-cor-int'];
-  ids.forEach(function(id){var s=document.getElementById(id);if(s)s.innerHTML=html;});
-  window._corListaGlobal = Object.keys(cores);
+  ids.forEach(function(id){var s=document.getElementById(id);if(s){var v=s.value;s.innerHTML=html;if(v)s.value=v;}});
+  window._corListaGlobal = mode==='alu'?['ALU SOLIDA METALIZADA','ALU MADEIRA']:Object.keys(cores||{});
+  window._corMode=mode||'acm';
+}
+
+function _checkCorMode(){
+  var modEl=document.getElementById('carac-modelo');
+  var mod=modEl?modEl.value:'';
+  var revEl=document.getElementById('plan-moldura-rev');
+  var rev=revEl?revEl.value:'ACM';
+  var need=(mod==='23'&&rev==='MACICO')?'alu':'acm';
+  if(window._corMode!==need) _populateCorSelects(need);
 }
 
 /* ══ DYNAMIC BLOCKS ══════════════════════════════════════ */

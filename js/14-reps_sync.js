@@ -669,6 +669,8 @@ function onModeloChange(){
   }
   // Sync friso dimensions to planificador
   if(hasFriso && typeof _syncFrisoToPlano === 'function') setTimeout(_syncFrisoToPlano, 100);
+  // Switch cor options: modelo 23 MACICO → ALU only
+  if(typeof _checkCorMode === 'function') _checkCorMode();
 }
 
 // Sincroniza modelo em ambas as direções

@@ -851,8 +851,11 @@ var CRM_ITEM_TYPES = {
   revestimento:    {label:'Revestimento',     icon:'🧱', desc:'Em breve', disabled:true}
 };
 
-window._crmGetCorOptions=function(){
-  // Reuse cor options from the main system
+window._crmGetCorOptions=function(mode){
+  // mode: 'alu' = ALU categories only; default = ACM full list
+  if(mode==='alu'){
+    return '<option value="">— Selecione —</option><option value="ALU SOLIDA METALIZADA">Sólida / Metalizada</option><option value="ALU MADEIRA">Madeira</option>';
+  }
   var mainSel=document.getElementById('carac-cor-ext');
   if(mainSel&&mainSel.options.length>1){
     var h='<option value="">— Selecione —</option>';
@@ -860,6 +863,20 @@ window._crmGetCorOptions=function(){
     return h;
   }
   return '<option value="">— Selecione —</option>';
+}
+
+window._crmSwitchCorMode=function(itemId){
+  var pre='crm-item-'+itemId+'-';
+  var modEl=document.getElementById(pre+'modelo');
+  var revEl=document.getElementById(pre+'moldura_rev');
+  var mod=modEl?modEl.value:'';
+  var rev=revEl?revEl.value:'ACM';
+  var mode=(mod==='23'&&rev==='MACICO')?'alu':'acm';
+  var opts=_crmGetCorOptions(mode);
+  ['cor_ext','cor_int'].forEach(function(f){
+    var sel=document.getElementById(pre+f);
+    if(sel){var v=sel.value;sel.innerHTML=opts;if(v)sel.value=v;}
+  });
 }
 
 window.crmItemAdd=function(){
@@ -978,6 +995,8 @@ window.crmItemAutoSelect=function(id){
       var ripWrap=document.getElementById(pre+'ripado_wrap');
       if(ripWrap) ripWrap.style.display=(['08','15','20','21'].indexOf(modelo)>=0)?'':'none';
     }
+    // Switch cor options: modelo 23 MACICO → ALU only
+    if(typeof _crmSwitchCorMode==='function') _crmSwitchCorMode(id);
     // Tamanho puxador: setar 1.5 default e mostrar/esconder
     var puxTamRow=document.getElementById(pre+'pux_tam_row');
     var puxTamSel=document.getElementById(pre+'pux_tam');
@@ -1296,7 +1315,7 @@ window._crmItensRender=function(){
       h+='<div id="'+pre+'moldura_wrap" style="'+(_isMoldura?'':'display:none')+'">';
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🏛️ Configuração de Molduras</div>';
       h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Revestimento</label><select id="'+pre+'moldura_rev"><option value="ACM"'+(item.moldura_rev==='ACM'||!item.moldura_rev?' selected':'')+'>ACM 4mm</option><option value="MACICO"'+(item.moldura_rev==='MACICO'?' selected':'')+'>Maciço 2.5mm (Boiserie)</option></select></div>';
+      h+='<div class="crm-field"><label>Revestimento</label><select id="'+pre+'moldura_rev" onchange="_crmSwitchCorMode(\''+item.id+'\')"><option value="ACM"'+(item.moldura_rev==='ACM'||!item.moldura_rev?' selected':'')+'>ACM 4mm</option><option value="MACICO"'+(item.moldura_rev==='MACICO'?' selected':'')+'>Maciço 2.5mm (Boiserie)</option></select></div>';
       h+='</div>';
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Molduras na Largura</label><input type="number" id="'+pre+'moldura_larg_qty" value="'+(item.moldura_larg_qty||2)+'" min="1" max="6" onwheel="event.preventDefault()"></div>';
@@ -1373,6 +1392,10 @@ window._crmItensRender=function(){
       if(item.tipo==='fixo'){
         crmItemFixoMaterial(item.id);
       }
+      // Re-apply cor values after mode switch (ALU values won't stick on ACM selects)
+      var pre='crmit-'+item.id+'-';
+      if(item.cor_ext){var ce=document.getElementById(pre+'cor_ext');if(ce)ce.value=item.cor_ext;}
+      if(item.cor_int){var ci=document.getElementById(pre+'cor_int');if(ci)ci.value=item.cor_int;}
     });
   }, 100);
 }
