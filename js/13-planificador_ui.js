@@ -1264,6 +1264,7 @@ function _autoSelectAndRun(){
   setTimeout(function(){
     planRun();
     setTimeout(function(){
+      // ACM cor match
       var pa=document.getElementById('plan-acm-cor');
       if(pa && (_corName||_corCC)){
         for(var i=0;i<pa.options.length;i++){
@@ -1272,6 +1273,17 @@ function _autoSelectAndRun(){
           if((_corName && (on===_corName||ot.indexOf(_corName)>=0))||
              (_corCC && ot.indexOf(_corCC.toUpperCase())>=0)){
             pa.selectedIndex=i; break;
+          }
+        }
+      }
+      // ALU cor match (baseado em carac-cor-ext: ALU SOLIDA METALIZADA ou ALU MADEIRA)
+      var palu=document.getElementById('plan-alu-cor');
+      if(palu && _corName){
+        var _isMad=_corName.indexOf('MADEIRA')>=0;
+        var _aluKey=_isMad?'MADEIRA':'SÓLIDA';
+        for(var ai=0;ai<palu.options.length;ai++){
+          if((palu.options[ai].text||'').toUpperCase().indexOf(_aluKey)>=0){
+            palu.selectedIndex=ai; break;
           }
         }
       }
@@ -1626,6 +1638,11 @@ function planRun() {
   window._chapasCalculadas = numSheetsTotal;
   window._chapaALU_SW = SW_ALU;
   window._chapaALU_SH = SH_ALU;
+  // Atualizar campos qty ACM e ALU separadamente
+  var _qACMel=document.getElementById('plan-acm-qty');
+  if(_qACMel) _qACMel.value=numSheetsACM;
+  var _qALUel=document.getElementById('plan-alu-qty');
+  if(_qALUel) _qALUel.value=numSheetsALU;
   // Show weights
   var elPLiq = document.getElementById('plan-peso-liq');
   var elPBrt = document.getElementById('plan-peso-bruto');
