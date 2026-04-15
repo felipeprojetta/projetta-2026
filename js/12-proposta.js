@@ -156,16 +156,43 @@ function _exportPropostaToCard(cardId, revLabel, callback){
             var lastRev=data[ci].revisoes[data[ci].revisoes.length-1];
             lastRev.pdfPages=captures;
             lastRev.pdfDate=new Date().toISOString();
-            localStorage.setItem(CK_PDF,JSON.stringify(data));
-            console.log('✅ PDF salvo na revisão: '+lastRev.label+' ('+captures.length+' páginas)');
+            try{
+              localStorage.setItem(CK_PDF,JSON.stringify(data));
+              console.log('✅ PDF salvo na revisão: '+lastRev.label+' ('+captures.length+' páginas)');
+            }catch(quotaErr){
+              // localStorage cheio — tentar com qualidade menor
+              console.warn('⚠ localStorage cheio, reduzindo qualidade das imagens...');
+              lastRev.pdfPages=captures.map(function(img){
+                // Comprimir mais: reduzir base64 string
+                var c=document.createElement('canvas');
+                var im=new Image();im.src=img;
+                c.width=im.width/2;c.height=im.height/2;
+                var ctx=c.getContext('2d');ctx.drawImage(im,0,0,c.width,c.height);
+                return c.toDataURL('image/jpeg',0.25);
+              });
+              try{
+                localStorage.setItem(CK_PDF,JSON.stringify(data));
+                console.log('✅ PDF salvo (comprimido) na revisão: '+lastRev.label);
+              }catch(e2){
+                // Ultima tentativa: remover imagens de revisões antigas
+                console.warn('⚠ Ainda cheio, removendo imagens de revisões anteriores...');
+                data[ci].revisoes.forEach(function(rv,ri){
+                  if(ri<data[ci].revisoes.length-1) delete rv.pdfPages;
+                });
+                try{localStorage.setItem(CK_PDF,JSON.stringify(data));}catch(e3){
+                  console.error('❌ Impossível salvar imagens no card — localStorage lotado');
+                  _showToast('⚠ Card CRM cheio — imagens não salvas','#e74c3c');
+                }
+              }
+            }
           }
         }catch(e){console.warn('Erro ao salvar PDF no card:',e);}
       }
       if(callback) callback(captures);
       return;
     }
-    html2canvas(pages[idx],{scale:1.5,useCORS:true,logging:false,backgroundColor:'#ffffff'}).then(function(canvas){
-      captures.push(canvas.toDataURL('image/jpeg',0.45));
+    html2canvas(pages[idx],{scale:1.2,useCORS:true,logging:false,backgroundColor:'#ffffff'}).then(function(canvas){
+      captures.push(canvas.toDataURL('image/jpeg',0.35));
       idx++;
       captureNext();
     }).catch(function(e){
