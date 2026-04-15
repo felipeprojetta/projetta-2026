@@ -444,7 +444,8 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       kgLiq:kgLiq,kgBruto:kgBruto,precoKg:g.precoKg,
       custoPerfil:custoPerfil,custoPintura:custoPintura,custoTotal:custoPerfil+custoPintura,
       custoPerfilBru:custoPerfilBru,custoPinturaBru:custoPinturaBru,custoTotalBru:custoPerfilBru+custoPinturaBru,
-      barLenMM:g.barLenMM,pintado:g.pintado,barsDetail:barsDetail};
+      barLenMM:g.barLenMM,pintado:g.pintado,barsDetail:barsDetail,
+      _isBoiserie:!!g._isBoiserie,_barPrice:g._barPrice||0};
   });
 
   // Peso líquido só da FOLHA + FRISO (perfis da porta, sem portal/fixo)
