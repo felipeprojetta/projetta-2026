@@ -289,7 +289,88 @@ function plnMaxRects(pieces, SW, SH, mode) {
 
   if(!todo.length) return {numSheets:0,placed:[],failed:[],stats:[]};
 
-  // ── MaxRects Free-Rectangle Packing ──
+  // ══ ALGORITMO 1: STRIP PACKING (estilo MaxCut — guilhotina) ══
+  // Agrupa peças em faixas horizontais de altura similar
+  function stripPack(items){
+    var sheets=[],failed=[];
+    var remaining=items.slice();
+
+    while(remaining.length>0){
+      var strip_y=0;
+      var placed=[];
+      var leftover=[];
+
+      // Fase 1: criar faixas com as peças mais altas primeiro
+      var strips=[];
+      for(var i=0;i<remaining.length;i++){
+        var p=remaining[i], fitted=false;
+        // Tentar encaixar em faixa existente
+        for(var s=0;s<strips.length;s++){
+          if(p.h<=strips[s].h+2 && strips[s].usedW+p.w+KF<=usW){
+            strips[s].pieces.push({x:strips[s].usedW,p:p});
+            strips[s].usedW+=p.w+KF;
+            fitted=true;break;
+          }
+        }
+        // Criar nova faixa se cabe na chapa
+        if(!fitted){
+          var nextY=strips.reduce(function(s,st){return s+st.h+KF;},0);
+          if(nextY+p.h<=usH && p.w<=usW){
+            strips.push({y:nextY,h:p.h,usedW:p.w+KF,pieces:[{x:0,p:p}]});
+            fitted=true;
+          }
+        }
+        if(fitted) placed.push(p);
+        else leftover.push(p);
+      }
+
+      // Fase 2: BACKFILL — preencher gaps verticais entre faixas
+      var newLeftover=[];
+      for(var li=0;li<leftover.length;li++){
+        var lp=leftover[li],backfilled=false;
+        for(var s=0;s<strips.length&&!backfilled;s++){
+          // Gap vertical acima de peças mais baixas nesta faixa
+          var gapW=usW-strips[s].usedW;
+          if(lp.w<=gapW && lp.h<=strips[s].h+2){
+            strips[s].pieces.push({x:strips[s].usedW,p:lp});
+            strips[s].usedW+=lp.w+KF;
+            placed.push(lp);backfilled=true;
+          }
+        }
+        // Tentar criar mini-faixa no espaço restante
+        if(!backfilled){
+          var totalStripH=strips.reduce(function(s,st){return s+st.h+KF;},0);
+          var remainH=usH-totalStripH;
+          if(lp.h<=remainH && lp.w<=usW){
+            strips.push({y:totalStripH,h:lp.h,usedW:lp.w+KF,pieces:[{x:0,p:lp}]});
+            placed.push(lp);backfilled=true;
+          }
+        }
+        if(!backfilled) newLeftover.push(lp);
+      }
+
+      // Registrar esta chapa
+      if(placed.length>0){
+        var sheetIdx=sheets.length;
+        var sheetPlaced=[];
+        strips.forEach(function(st){
+          st.pieces.forEach(function(sp){
+            sheetPlaced.push({sheet:sheetIdx,x:MG+sp.x,y:MG+st.y,w:sp.p.w,h:sp.p.h,label:sp.p.label,color:sp.p.color,rot:false});
+          });
+        });
+        sheets.push(sheetPlaced);
+      }
+      remaining=newLeftover;
+      if(placed.length===0){failed=remaining;break;} // nenhuma peça coube
+    }
+    var allPlaced=[];
+    sheets.forEach(function(s){s.forEach(function(p){allPlaced.push(p);});});
+    var totalUsed=allPlaced.reduce(function(s,p){return s+p.w*p.h;},0);
+    var aprov=sheets.length>0?totalUsed/(sheets.length*usW*usH)*100:0;
+    return {placed:allPlaced,failed:failed,numSheets:sheets.length,aprov:aprov};
+  }
+
+  // ══ ALGORITMO 2: MAXRECTS FREE-RECT (melhor para peças irregulares) ══
   function MaxRectsSheet(){
     this.freeRects=[{x:0,y:0,w:usW,h:usH}];
     this.placed=[];
@@ -299,37 +380,30 @@ function plnMaxRects(pieces, SW, SH, mode) {
     for(var i=0;i<this.freeRects.length;i++){
       var r=this.freeRects[i];
       if(pw<=r.w && ph<=r.h){
-        // BSSF: minimize leftover on short side
         var leftW=r.w-pw, leftH=r.h-ph;
         var score=Math.min(leftW,leftH);
-        if(score<bestScore||(score===bestScore&&Math.max(leftW,leftH)<Math.max(this.freeRects[bestIdx].w-pw,this.freeRects[bestIdx].h-ph))){
-          bestScore=score;bestIdx=i;bestX=r.x;bestY=r.y;
-        }
+        if(score<bestScore){bestScore=score;bestIdx=i;bestX=r.x;bestY=r.y;}
       }
     }
     if(bestIdx<0) return null;
     return {x:bestX,y:bestY,w:pw,h:ph};
   };
   MaxRectsSheet.prototype.place=function(rect){
-    // Split free rects that overlap with placed rect
-    var pw=rect.w+KF, ph=rect.h+KF; // add kerf
+    var pw=rect.w+KF, ph=rect.h+KF;
     var newFree=[];
     for(var i=0;i<this.freeRects.length;i++){
       var r=this.freeRects[i];
-      // Check overlap
       if(rect.x>=r.x+r.w || rect.x+pw<=r.x || rect.y>=r.y+r.h || rect.y+ph<=r.y){
-        newFree.push(r); continue; // no overlap
+        newFree.push(r); continue;
       }
-      // Split into up to 4 rects
-      if(rect.x>r.x) newFree.push({x:r.x,y:r.y,w:rect.x-r.x,h:r.h}); // left
-      if(rect.x+pw<r.x+r.w) newFree.push({x:rect.x+pw,y:r.y,w:r.x+r.w-rect.x-pw,h:r.h}); // right
-      if(rect.y>r.y) newFree.push({x:r.x,y:r.y,w:r.w,h:rect.y-r.y}); // top
-      if(rect.y+ph<r.y+r.h) newFree.push({x:r.x,y:rect.y+ph,w:r.w,h:r.y+r.h-rect.y-ph}); // bottom
+      if(rect.x>r.x) newFree.push({x:r.x,y:r.y,w:rect.x-r.x,h:r.h});
+      if(rect.x+pw<r.x+r.w) newFree.push({x:rect.x+pw,y:r.y,w:r.x+r.w-rect.x-pw,h:r.h});
+      if(rect.y>r.y) newFree.push({x:r.x,y:r.y,w:r.w,h:rect.y-r.y});
+      if(rect.y+ph<r.y+r.h) newFree.push({x:r.x,y:rect.y+ph,w:r.w,h:r.y+r.h-rect.y-ph});
     }
-    // Prune: remove rects contained within others
     this.freeRects=[];
     for(var i=0;i<newFree.length;i++){
-      var a=newFree[i]; if(a.w<10||a.h<10) continue; // skip tiny
+      var a=newFree[i]; if(a.w<10||a.h<10) continue;
       var contained=false;
       for(var j=0;j<newFree.length;j++){
         if(i===j) continue;
@@ -341,87 +415,73 @@ function plnMaxRects(pieces, SW, SH, mode) {
     this.placed.push(rect);
   };
 
-  function packWithOrder(items){
+  function maxRectsPack(items){
     var sheets=[new MaxRectsSheet()];
     var failed=[];
     for(var i=0;i<items.length;i++){
       var p=items[i], placed=false;
-      // SEM ROTAÇÃO — direção do veio (todas peças mesma orientação)
-
-      // Try all existing sheets — BSSF best fit
       var bestFit=null, bestSheet=-1, bestScore=Infinity;
       for(var si=0;si<sheets.length;si++){
         var fit=sheets[si].findBest(p.w,p.h);
         if(fit){
-          // Score: minimize wasted space in the free rect
           var freeRect=null;
           for(var fi=0;fi<sheets[si].freeRects.length;fi++){
             var r=sheets[si].freeRects[fi];
             if(p.w<=r.w&&p.h<=r.h){freeRect=r;break;}
           }
           var score=freeRect?Math.min(freeRect.w-p.w,freeRect.h-p.h):0;
-          score+=si*10000; // strongly prefer filling current sheet first
+          score+=si*10000;
           if(score<bestScore){bestScore=score;bestFit=fit;bestSheet=si;}
         }
       }
       if(bestFit){
         bestFit.label=p.label;bestFit.color=p.color;bestFit.rot=false;bestFit.sheet=bestSheet;
-        sheets[bestSheet].place(bestFit);
-        placed=true;
+        sheets[bestSheet].place(bestFit);placed=true;
       }
-      // New sheet if needed
       if(!placed){
         var ns=new MaxRectsSheet();sheets.push(ns);
         var fit2=ns.findBest(p.w,p.h);
-        if(fit2){
-          fit2.label=p.label;fit2.color=p.color;fit2.rot=false;fit2.sheet=sheets.length-1;
-          ns.place(fit2);placed=true;
-        }
+        if(fit2){fit2.label=p.label;fit2.color=p.color;fit2.rot=false;fit2.sheet=sheets.length-1;ns.place(fit2);placed=true;}
         if(!placed) failed.push(p);
       }
     }
-    // Collect results
     var allPlaced=[],nonEmpty=[];
     sheets.forEach(function(s,idx){
-      if(s.placed.length>0){
-        var ni=nonEmpty.length;
-        s.placed.forEach(function(pp){pp.sheet=ni;pp.x+=MG;pp.y+=MG;allPlaced.push(pp);});
-        nonEmpty.push(s);
-      }
+      if(s.placed.length>0){var ni=nonEmpty.length;s.placed.forEach(function(pp){pp.sheet=ni;pp.x+=MG;pp.y+=MG;allPlaced.push(pp);});nonEmpty.push(s);}
     });
     var totalUsed=allPlaced.reduce(function(s,pp){return s+pp.w*pp.h;},0);
     var aprov=nonEmpty.length>0?totalUsed/(nonEmpty.length*usW*usH)*100:0;
     return {placed:allPlaced,failed:failed,numSheets:nonEmpty.length,aprov:aprov};
   }
 
-  // Múltiplas estratégias de ordenação (SEM ROTAÇÃO)
+  // ══ MULTI-SEED: testar MUITAS ordenações com AMBOS algoritmos ══
   var strategies=[
-    function(a,b){return(b.w*b.h)-(a.w*a.h);}, // area desc
-    function(a,b){return b.w-a.w||b.h-a.h;}, // width desc → fills columns
-    function(a,b){return b.h-a.h||b.w-a.w;}, // height desc
-    function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h)||(b.w*b.h)-(a.w*a.h);}, // max dim
-    function(a,b){return(b.w+b.h)-(a.w+a.h);}, // perimeter desc
-    function(a,b){return Math.min(b.w,b.h)-Math.min(a.w,a.h)||(b.w*b.h)-(a.w*a.h);}, // min dim
-    // Height-banding: group by similar height, then width desc
+    function(a,b){return(b.w*b.h)-(a.w*a.h);},
+    function(a,b){return b.w-a.w||b.h-a.h;},
+    function(a,b){return b.h-a.h||b.w-a.w;},
+    function(a,b){return Math.max(b.w,b.h)-Math.max(a.w,a.h)||(b.w*b.h)-(a.w*a.h);},
+    function(a,b){return(b.w+b.h)-(a.w+a.h);},
+    function(a,b){return Math.min(b.w,b.h)-Math.min(a.w,a.h)||(b.w*b.h)-(a.w*a.h);},
     function(a,b){var ha=Math.round(a.h/100)*100,hb=Math.round(b.h/100)*100;if(ha!==hb)return hb-ha;return b.w-a.w;},
-    // Width-banding: group by similar width, then height desc
-    function(a,b){var wa=Math.round(a.w/100)*100,wb=Math.round(b.w/100)*100;if(wa!==wb)return wb-wa;return b.h-a.h;},
-    // Tall+wide first (column packing like MaxCut)
+    function(a,b){var wa=Math.round(a.w/50)*50,wb=Math.round(b.w/50)*50;if(wa!==wb)return wb-wa;return b.h-a.h;},
     function(a,b){if(a.h!==b.h)return b.h-a.h;return b.w-a.w;},
-    // Wide+tall first
     function(a,b){if(a.w!==b.w)return b.w-a.w;return b.h-a.h;},
-    // Aspect ratio desc
     function(a,b){return(b.w/b.h)-(a.w/a.h);},
-    // Aspect ratio asc (tall skinny first)
     function(a,b){return(a.w/a.h)-(b.w/b.h);}
   ];
 
   var bestResult=null,bestSheets=Infinity,bestAprov=0;
   for(var si=0;si<strategies.length;si++){
     var sorted=todo.slice().sort(strategies[si]);
-    var res=packWithOrder(sorted);
-    if(res.numSheets<bestSheets||(res.numSheets===bestSheets&&res.aprov>bestAprov)){
-      bestSheets=res.numSheets;bestAprov=res.aprov;bestResult=res;
+    // Testar Strip Packing
+    var res1=stripPack(sorted);
+    if(res1.numSheets<bestSheets||(res1.numSheets===bestSheets&&res1.aprov>bestAprov)){
+      bestSheets=res1.numSheets;bestAprov=res1.aprov;bestResult=res1;
+    }
+    // Testar MaxRects
+    var res2=maxRectsPack(sorted);
+    if(res2.numSheets<bestSheets||(res2.numSheets===bestSheets&&res2.aprov>bestAprov)){
+      bestSheets=res2.numSheets;bestAprov=res2.aprov;bestResult=res2;
     }
   }
   if(!bestResult) bestResult={placed:[],failed:todo,numSheets:0,aprov:0};
