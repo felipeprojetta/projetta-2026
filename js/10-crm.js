@@ -561,12 +561,12 @@ window.crmUpdateStageDisplay=function(){
   // Previsão de Fechamento: hide on Prospecção (index 0)
   var fechField=el('crm-fechamento-field');
   if(fechField) fechField.style.display=(idx>=1)?'block':'none';
-  // Reserva: show from Fazer Orçamento (index 2) onwards
+  // Reserva: show from Fazer Orçamento (index 1) onwards
   var resRow=el('crm-reserva-agp-row');
-  if(resRow) resRow.style.display=(idx>=2)?'grid':'none';
-  // AGP: show from Fazer Orçamento (index 2) onwards
+  if(resRow) resRow.style.display=(idx>=1)?'grid':'none';
+  // AGP: show from Fazer Orçamento (index 1) onwards
   var agpField=el('crm-agp-field');
-  if(agpField) agpField.style.display=(idx>=2)?'block':'none';
+  if(agpField) agpField.style.display=(idx>=1)?'block':'none';
   // Update field highlights
   crmCheckFieldHighlights();
 };
