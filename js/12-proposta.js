@@ -1224,17 +1224,23 @@ function calcPerfis(){
   function isPintado(cod){return PINTADOS.some(function(p){return cod.indexOf(p)===0;});}
 
   // PA ALTURA: H - folga - tuboPortal - pivô + transpasse
-  //   PA007 (tubo=51): H-10-51-28+8 = H-81 ✓ validado CEM Nilde
-  //   PA006 (tubo=38): H-10-38-28+8 = H-68 (aguardando validação)
   var PA_F=Math.round(H-FGA-TUB-PIV+TRANS);
 
   var TRAV_V=Math.round(H-FGA-TUB-PIV-2*VED-2*TUBO_LAR);
   var TUB_CA=Math.round(TRAV_V-20);
   var CANT_CA=TRAV_V;
-  var LAR_IS=Math.round(L-FGL-FGR-171.7-171.5);
+
+  // LAR INF & SUP:
+  // 1 folha: LARGURA - FGLD - FGLE - 171.7 - 171.5
+  // 2 folhas: (LARGURA - FGLD - FGLE - 171.7 - 171.5 - 235) / 2
+  var LAR_IS = nFolhas === 2
+    ? Math.round((L - FGL - FGR - 171.7 - 171.5 - 235) / 2)
+    : Math.round(L - FGL - FGR - 171.7 - 171.5);
+
   var VED_IS=Math.round(LAR_IS+110+110);
   var CAN_E=Math.round(VED_IS+10);
   var TRA_HM=LAR_IS;
+  var FRISO_H=LAR_IS;
   var PA_P=Math.round(H-FGA-TUB-ESPACM);
   var LAR_PO=Math.round(L-FGL-FGR);
   var TRA_PO=Math.round(L-FGL-FGR-46.5-46.5);
@@ -1243,24 +1249,50 @@ function calcPerfis(){
     alert('Dimensões inválidas para '+sis+'. Verifique L e H.');return;
   }
 
+  // Qty travessas verticais (mesma lógica do _calcularDadosPerfis)
+  var _selEl=document.getElementById('carac-modelo');
+  var modeloSel=_selEl?(_selEl.value||''):'';
+  var _modeloNome=_selEl&&_selEl.selectedIndex>=0?(_selEl.options[_selEl.selectedIndex].text||'').toLowerCase():'';
+  var temCava=_modeloNome.indexOf('cava')>=0;
+  var _travBase=L>3000?3:L>2200?2:1;
+  var _distBorda=parseFloat((document.getElementById('carac-dist-borda-cava')||{value:210}).value)||210;
+  var _cavaTravAdd=temCava?(_distBorda<=158?1:2):0;
+  var TRAV_V_QTY=(_travBase+_cavaTravAdd)*nFolhas;
+
+  // Qty frisos
+  var QTY_FRISO_VERT=parseInt((document.getElementById('carac-friso-vert')||{value:0}).value)||0;
+  var QTY_FRISO_HORIZ=parseInt((document.getElementById('carac-friso-horiz')||{value:0}).value)||0;
+  if((modeloSel==='06'||modeloSel==='16')&&QTY_FRISO_HORIZ<=0)
+    QTY_FRISO_HORIZ=parseInt((document.getElementById('plan-friso-h-qty')||{value:3}).value)||3;
+
+  // Qty travessas horizontais
+  var _isFrisoHMod=(modeloSel==='06'||modeloSel==='16');
+  var TRA_HOR_QTY=(_isFrisoHMod?0:N_H)*nFolhas;
+
   var paFBarLen=selBar(PA_F);
   var paPBarLen=selBar(PA_P);
-  var _modCEM=(document.getElementById('carac-modelo')||{value:''}).value;
+  var _modCEM=modeloSel;
 
   var cuts=[
-    {code:'PA-'+SFX+'F-'+paFBarLen/1000+'M',desc:'PA ALTURA',compMM:PA_F,qty:2,obs:'BNF-TECNO',pintado:true,secao:'FOLHA',barLenMM:paFBarLen},
-    // Modelo 22: 2 TRAV VERT obrigatórias em 101×101
-    {code:_modCEM==='22'?'PA-101X101X2.5':'PA-101X51X2',desc:_modCEM==='22'?'TRAV VERT 101':'TRAV VERT',compMM:TRAV_V,qty:2,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
-    {code:'PA-38X38X1.58',desc:'TUB CAVA',compMM:TUB_CA,qty:_modCEM==='22'?0:2,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
-    {code:'PA-CANT-30X30X2.0',desc:'CANT CAVA',compMM:CANT_CA,qty:_modCEM==='22'?0:4,obs:'BNF-TECNO',pintado:true,secao:'FOLHA',barLenMM:barraMM},
-    {code:'PA-101X101X2.5',desc:'LAR INF & SUP',compMM:LAR_IS,qty:2,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
-    {code:'PA-'+SFX+'V',desc:'VED INF & SUP',compMM:VED_IS,qty:2,obs:'BNF-TECNO',pintado:true,secao:'FOLHA',barLenMM:barraMM},
-    {code:'PA-CHR908',desc:'CANAL ESC',compMM:CAN_E,qty:2,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
-    {code:'PA-101X51X2',desc:'TRAVESSA HORIZONTAL',compMM:TRA_HM,qty:N_H*2,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
-    {code:'PA-51X12X1.58',desc:'TRAVAMENTO CAVA',compMM:TRAVAMENTO_CAVA,qty:N_H,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
-    {code:'PA-101X51X2',desc:'LAR PORTAL',compMM:LAR_PO,qty:1,obs:'BRUTO',pintado:false,secao:'PORTAL',barLenMM:barraMM},
-    {code:'PA-'+SFX+'P-'+paPBarLen/1000+'M',desc:'ALT PORTAL',compMM:PA_P,qty:2,obs:'BNF-TECNO',pintado:true,secao:'PORTAL',barLenMM:paPBarLen},
-    {code:'PA-35X25-OLHAL',desc:'TRA PORTAL',compMM:TRA_PO,qty:3,obs:'BRUTO',pintado:false,secao:'PORTAL',barLenMM:barraMM},
+    // FOLHA — perfis especiais
+    {code:C.pa_altura+'-'+paFBarLen/1000+'M',desc:'PA ALTURA',compMM:PA_F,qty:2*nFolhas,obs:'BNF-TECNO',pintado:true,secao:'FOLHA',barLenMM:paFBarLen},
+    // FOLHA — travessas verticais
+    {code:_modCEM==='22'?C.lar_inf_sup:C.trav_vert,desc:_modCEM==='22'?'TRAV VERT 101':'TRAV VERT',compMM:TRAV_V,qty:TRAV_V_QTY,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
+    {code:C.tub_cava,desc:'TUB CAVA',compMM:TUB_CA,qty:(temCava&&_modCEM!=='22')?2*nFolhas:0,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
+    {code:C.cant_cava,desc:'CANT CAVA',compMM:CANT_CA,qty:(temCava&&_modCEM!=='22')?4*nFolhas:0,obs:'BNF-TECNO',pintado:true,secao:'FOLHA',barLenMM:barraMM},
+    // FOLHA — horizontais
+    {code:C.lar_inf_sup,desc:'LAR INF & SUP',compMM:LAR_IS,qty:2*nFolhas,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
+    {code:C.ved_inf_sup,desc:'VED INF & SUP',compMM:VED_IS,qty:2*nFolhas,obs:'BNF-TECNO',pintado:true,secao:'FOLHA',barLenMM:barraMM},
+    {code:C.canal_esc,desc:'CANAL ESC',compMM:CAN_E,qty:2*nFolhas,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
+    {code:C.tra_hor,desc:'TRAVESSA HORIZONTAL',compMM:TRA_HM,qty:TRA_HOR_QTY,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
+    {code:C.travamento,desc:'TRAVAMENTO CAVA',compMM:TRAVAMENTO_CAVA,qty:(temCava&&sis==='PA007')?N_H*nFolhas:0,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
+    // FOLHA — frisos
+    {code:C.friso_vert,desc:'FRISO VERT',compMM:TRAV_V,qty:QTY_FRISO_VERT,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
+    {code:C.friso_horiz,desc:'FRISO HORIZ',compMM:FRISO_H,qty:QTY_FRISO_HORIZ,obs:'BRUTO',pintado:false,secao:'FOLHA',barLenMM:barraMM},
+    // PORTAL (não multiplica por nFolhas — portal é único)
+    {code:C.lar_portal,desc:'LAR PORTAL',compMM:LAR_PO,qty:1,obs:'BRUTO',pintado:false,secao:'PORTAL',barLenMM:barraMM},
+    {code:C.alt_portal+'-'+paPBarLen/1000+'M',desc:'ALT PORTAL',compMM:PA_P,qty:2,obs:'BNF-TECNO',pintado:true,secao:'PORTAL',barLenMM:paPBarLen},
+    {code:C.tra_portal,desc:'TRA PORTAL',compMM:TRA_PO,qty:3,obs:'BRUTO',pintado:false,secao:'PORTAL',barLenMM:barraMM},
   ];
 
   // ── PERFIS_DB lookup ────────────────────────────────────────────────────
