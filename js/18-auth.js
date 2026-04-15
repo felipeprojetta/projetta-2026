@@ -12,7 +12,7 @@ var SESSION_KEY='projetta_auth_session';
 var ONLINE_KEY='projetta_online_v1';
 var PERMS_KEY='projetta_perms_v1';
 var ADMIN_USER='felipe.projetta';
-var ADMIN_PASS='fp2026';
+var ADMIN_PASS='12345';
 
 var TABS=['crm','orcamento','proposta','cadastro','os','os-acess','planificador','relatorios'];
 var TAB_LABELS={crm:'CRM',orcamento:'Orçamento',proposta:'Proposta',cadastro:'Cadastro',os:'Perfis','os-acess':'Acessórios',planificador:'Superfícies',relatorios:'Relatórios',custoreal:'Custo Real NFE'};
