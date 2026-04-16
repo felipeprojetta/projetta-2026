@@ -52,15 +52,18 @@ function plnPecas(Lmm, Amm, fol, mod) {
     }
     if (fol == 1) {
       if(_isMacico){
-        // Maciço 1FLH: TAMPA = L - 140 (ref Excel)
+        // Maciço 1FLH: TAMPA = L - 140 (ref Excel MACICO)
         var _tamMac1 = L - 140;
         r.push(['TAMPA MAIOR', _tamMac1, G4, 2, _mAlu]);
+      } else if(mod === '23acm' || mod === '23alu'){
+        // ACM 1FLH mod23: TAMPA = L - 105 (ref Excel ACM)
+        r.push(['TAMPA MAIOR', L - 105, G4, 2]);
       } else {
         r.push(['TAMPA MAIOR', fW + 2*REF - frisoDeduc, G4, 2, _mAlu]);
       }
     } else {
       if(_isMacico){
-        // Maciço 2FLH: base = (L-97)/2, T1=base+16, T2=base-PIV, T3=T2-TUB+TRANS
+        // Maciço 2FLH: base = (L-97)/2
         var _base2Mac = (L - 97) / 2;
         var _T1m = _base2Mac + 16;
         var _T2m = _base2Mac - PIV;
@@ -68,6 +71,15 @@ function plnPecas(Lmm, Amm, fol, mod) {
         r.push(['TAMPA MAIOR 01', _T1m, G4, 1, _mAlu]);
         r.push(['TAMPA MAIOR 02', _T2m, G4, 2, _mAlu]);
         r.push(['TAMPA MAIOR 03', _T3m, G4, 1, _mAlu]);
+      } else if(mod === '23acm' || mod === '23alu'){
+        // ACM 2FLH mod23: base = (L-107)/2 (ref Excel ACM)
+        var _base2Acm = (L - 2*FGL - 2*TUB_SUP) / 2;
+        var _T1a = _base2Acm + FGA + FGLA*2 - 1;
+        var _T2a = _base2Acm + FGLA*2 - PIV;
+        var _T3a = _T2a - 38; // deducção fixa 38mm para ACM mod23
+        r.push(['TAMPA MAIOR 01', _T1a, G4, 1]);
+        r.push(['TAMPA MAIOR 02', _T2a, G4, 2]);
+        r.push(['TAMPA MAIOR 03', _T3a, G4, 1]);
       } else {
         var base2 = G2total / 2;
         var T1 = base2 + FGA + FGLA*2 - 1;
@@ -118,17 +130,20 @@ function plnPecas(Lmm, Amm, fol, mod) {
           for(var _dj=0;_dj<=_nvP;_dj++) _dedP+=_disArrP[_dj]*2;
           var _nvL=_nNiveisP>1?' N'+(_nvP+1):'';
 
-          // ── HORIZONTAIS: comprimento = TAMPA(MACICO) - dedução (ref DXF/CAD) ──
+          // ── HORIZONTAIS: MOLD = TAMPA_ACM - 2*REF - DIS×2 (ref Excel ACM) ──
           if(fol==1){
-            var _tW=L-140; // TAMPA maciço 1flh
-            var _mH=Math.round(_tW-_dedP);
+            var _tAcm=L-105; // TAMPA ACM 1FLH
+            var _mH=Math.round(_tAcm-2*REF-_dedP);
             if(_mH>50) r.push(['MOLD HORIZ'+_nvL, _MW, _mH, _N_ROW_P*2]);
           } else {
-            // 2flh: usar fórmulas MACICO (base=(L-97)/2) para moldura = TAMPA-DIS
-            var _baseMold=(L-97)/2;
-            var _mT1=Math.round(_baseMold+16-_dedP);
-            var _mT2=Math.round(_baseMold-PIV-_dedP);
-            var _mT3=Math.round(_mT2-TUB_SUP+TRANS_PIV);
+            // 2flh: usar fórmulas ACM mod23 (base=(L-107)/2)
+            var _bAcm=(L-2*FGL-2*TUB_SUP)/2;
+            var _aT1=_bAcm+FGA+FGLA*2-1;
+            var _aT2=_bAcm+FGLA*2-PIV;
+            var _aT3=_aT2-38;
+            var _mT1=Math.round(_aT1-2*REF-_dedP);
+            var _mT2=Math.round(_aT2-2*REF-_dedP);
+            var _mT3=Math.round(_aT3-2*REF-_dedP);
             if(_mT1>50) r.push(['MOLD H (T1)'+_nvL, _MW, _mT1, _N_ROW_P*2]);
             if(_mT2>50) r.push(['MOLD H (T2)'+_nvL, _MW, _mT2, _N_ROW_P*4]);
             if(_mT3>50) r.push(['MOLD H (T3)'+_nvL, _MW, _mT3, _N_ROW_P*2]);
