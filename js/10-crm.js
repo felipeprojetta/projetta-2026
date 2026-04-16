@@ -2260,20 +2260,25 @@ window.crmDeleteRevision=function(cardId,revIndex){
 
 /* ── Abrir Revisão do CRM: carrega orçamento + mostra Memorial ── */
 window.crmAbrirRevisao=function(cardId, revIdx){
-  // Buscar entry do orçamento vinculado a este card
   var db=loadDB();
+  var crmData=cLoad();var card=crmData.find(function(o){return o.id===cardId;});
   var entry=db.find(function(e){return e.crmCardId===cardId;});
-  // Fallback: buscar por nome do card CRM
-  if(!entry){
-    var crmData=cLoad();var card=crmData.find(function(o){return o.id===cardId;});
-    if(card&&card.cliente){
-      var nome=card.cliente.toUpperCase().trim();
-      entry=db.find(function(e){return e.client&&e.client.toUpperCase().trim()===nome;});
-    }
-    if(!entry&&card&&card.reserva){
-      entry=db.find(function(e){return e.project&&e.project===card.reserva;});
-    }
+  if(!entry&&card&&card.cliente){
+    var nome=card.cliente.toUpperCase().trim();
+    entry=db.find(function(e){return e.client&&e.client.toUpperCase().trim()===nome;});
   }
+  if(!entry&&card&&card.reserva){
+    entry=db.find(function(e){return e.project&&e.project===card.reserva;});
+  }
+  // Auto-link: se card tem revisões mas DB não tem entry, criar link
+  if(!entry&&card&&card.revisoes&&card.revisoes.length>0){
+    var newEntry={id:'orc_'+Date.now(),crmCardId:cardId,client:card.cliente||'',project:card.reserva||'',
+      revisions:card.revisoes.map(function(r,i){return{label:r.label||('Rev '+(i+1)),date:r.date||new Date().toISOString(),valorTabela:r.valorTabela||0,valorFaturamento:r.valorFaturamento||0,snapshot:r.snapshot||null};})};
+    db.push(newEntry);saveDB(db);entry=newEntry;
+    console.log('[CRM] Auto-link criado para '+card.cliente);
+  }
+  // Link crmCardId se faltava
+  if(entry&&!entry.crmCardId){entry.crmCardId=cardId;saveDB(db);}
   if(!entry){alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');return;}
   var ri=Math.min(revIdx||0, entry.revisions.length-1);
   // Fechar modal CRM
@@ -2297,6 +2302,16 @@ window.crmNovaRevisao=function(cardId){
       var nome=card.cliente.toUpperCase().trim();
       entry=db.find(function(e){return e.client&&e.client.toUpperCase().trim()===nome;});
     }
+    if(!entry&&card&&card.reserva){
+      entry=db.find(function(e){return e.project&&e.project===card.reserva;});
+    }
+    // Auto-link
+    if(!entry&&card&&card.revisoes&&card.revisoes.length>0){
+      var newE={id:'orc_'+Date.now(),crmCardId:cardId,client:card.cliente||'',project:card.reserva||'',
+        revisions:card.revisoes.map(function(r,i){return{label:r.label||('Rev '+(i+1)),date:r.date||new Date().toISOString(),valorTabela:r.valorTabela||0,valorFaturamento:r.valorFaturamento||0,snapshot:r.snapshot||null};})};
+      db.push(newE);saveDB(db);entry=newE;
+    }
+    if(entry&&!entry.crmCardId){entry.crmCardId=cardId;saveDB(db);}
   }
   if(!entry){alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');return;}
   var modal=document.getElementById('crm-modal');if(modal)modal.style.display='none';
