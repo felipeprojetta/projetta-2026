@@ -1315,6 +1315,16 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"><label>Espessura Friso (mm)</label><input type="number" id="'+pre+'largura_friso" value="'+(item.largura_friso||10)+'" min="1" max="200"></div>';
       h+='</div>';
       h+='</div>';
+      // 🎨 Cores — render right after friso config
+      var _isMacItem = item.moldura_rev === 'MACICO';
+      h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🎨 Cores</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>'+(_isMacItem?'Cor ACM':'Cor Externa')+'</label><select id="'+pre+'cor_ext" style="font-size:10px">'+corOpts.replace('value="'+item.cor_ext+'"','value="'+item.cor_ext+'" selected')+'</select></div>';
+      h+='<div class="crm-field" style="'+(_isMacItem?'display:none':'')+'"><label>Cor Interna</label><select id="'+pre+'cor_int" style="font-size:10px">'+corOpts.replace('value="'+item.cor_int+'"','value="'+item.cor_int+'" selected')+'</select></div>';
+      var _aluCorHtml='<option value="">— Selecione —</option>';
+      if(typeof ALU_DATA!=='undefined'){ALU_DATA.forEach(function(g){_aluCorHtml+='<optgroup label="'+g.g+'">';var _cs={};g.o.forEach(function(it){var nm=it.l.split('·')[0].split('×')[0].trim();if(!_cs[nm])_cs[nm]=it.l.split('·')[0].trim();});Object.keys(_cs).forEach(function(c){_aluCorHtml+='<option value="'+_cs[c]+'"'+(_cs[c]===item.cor_macico?' selected':'')+'>'+_cs[c]+'</option>';});_aluCorHtml+='</optgroup>';});}
+      h+='<div class="crm-field" style="'+(_isMacItem?'':'display:none')+'"><label>🔷 Cor Maciço</label><select id="'+pre+'cor_macico" style="font-size:10px;border-color:#6c3483;color:#6c3483">'+_aluCorHtml+'</select></div>';
+      h+='</div>';
       // Config Molduras — visível apenas para modelo 23
       var _isMoldura=(item.modelo==='23');
       h+='<div id="'+pre+'moldura_wrap" style="'+(_isMoldura?'':'display:none')+'">';
@@ -1363,18 +1373,15 @@ window._crmItensRender=function(){
     } else {
       h+='<div class="crm-field"></div></div>';
     }
-    
-    // Cores: sempre renderizar ext + int + macico, toggle visibilidade
-    var _isMacItem = item.moldura_rev === 'MACICO';
-    h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🎨 Cores</div>';
-    h+='<div class="crm-row">';
-    h+='<div class="crm-field"><label>'+(_isMacItem?'Cor ACM':'Cor Externa')+'</label><select id="'+pre+'cor_ext" style="font-size:10px">'+corOpts.replace('value="'+item.cor_ext+'"','value="'+item.cor_ext+'" selected')+'</select></div>';
-    h+='<div class="crm-field" style="'+(_isMacItem?'display:none':'')+'"><label>Cor Interna</label><select id="'+pre+'cor_int" style="font-size:10px">'+corOpts.replace('value="'+item.cor_int+'"','value="'+item.cor_int+'" selected')+'</select></div>';
-    // Cor Maciço com opções do ALU_DATA
-    var _aluCorHtml='<option value="">— Selecione —</option>';
-    if(typeof ALU_DATA!=='undefined'){ALU_DATA.forEach(function(g){_aluCorHtml+='<optgroup label="'+g.g+'">';var _cs={};g.o.forEach(function(it){var nm=it.l.split('·')[0].split('×')[0].trim();if(!_cs[nm])_cs[nm]=it.l.split('·')[0].trim();});Object.keys(_cs).forEach(function(c){_aluCorHtml+='<option value="'+_cs[c]+'"'+(_cs[c]===item.cor_macico?' selected':'')+'>'+_cs[c]+'</option>';});_aluCorHtml+='</optgroup>';});}
-    h+='<div class="crm-field" style="'+(_isMacItem?'':'display:none')+'"><label>🔷 Cor Maciço</label><select id="'+pre+'cor_macico" style="font-size:10px;border-color:#6c3483;color:#6c3483">'+_aluCorHtml+'</select></div>';
-    h+='</div>';
+    // Cores for fixo and else types (porta_pivotante renders its own above)
+    if(item.tipo!=='porta_pivotante'){
+      h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🎨 Cores</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Cor Externa</label><select id="'+pre+'cor_ext" style="font-size:10px">'+corOpts.replace('value="'+item.cor_ext+'"','value="'+item.cor_ext+'" selected')+'</select></div>';
+      h+='<div class="crm-field"><label>Cor Interna</label><select id="'+pre+'cor_int" style="font-size:10px">'+corOpts.replace('value="'+item.cor_int+'"','value="'+item.cor_int+'" selected')+'</select></div>';
+      h+='<input type="hidden" id="'+pre+'cor_macico" value="'+(item.cor_macico||'')+'">';
+      h+='</div>';
+    }
     
     // Actions
     h+='<div class="crm-item-actions">';
