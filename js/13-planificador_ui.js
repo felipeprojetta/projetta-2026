@@ -118,19 +118,20 @@ function plnPecas(Lmm, Amm, fol, mod) {
           for(var _dj=0;_dj<=_nvP;_dj++) _dedP+=_disArrP[_dj]*2;
           var _nvL=_nNiveisP>1?' N'+(_nvP+1):'';
 
-          // ── HORIZONTAIS: comprimento = TAMPA - dedução ──
+          // ── HORIZONTAIS: comprimento = TAMPA(MACICO) - dedução (ref DXF/CAD) ──
           if(fol==1){
-            var _tW=fW+2*REF; // TAMPA standard ACM
+            var _tW=L-140; // TAMPA maciço 1flh
             var _mH=Math.round(_tW-_dedP);
             if(_mH>50) r.push(['MOLD HORIZ'+_nvL, _MW, _mH, _N_ROW_P*2]);
           } else {
-            var _b2P=G2total/2;
-            var _T1P=Math.round(_b2P+FGA+FGLA*2-1-_dedP);
-            var _T2P=Math.round(_b2P+FGLA*2-PIV-_dedP);
-            var _T3P=Math.round(_T2P-TUB_SUP);
-            if(_T1P>50) r.push(['MOLD H (T1)'+_nvL, _MW, _T1P, _N_ROW_P*2]);
-            if(_T2P>50) r.push(['MOLD H (T2)'+_nvL, _MW, _T2P, _N_ROW_P*4]);
-            if(_T3P>50) r.push(['MOLD H (T3)'+_nvL, _MW, _T3P, _N_ROW_P*2]);
+            // 2flh: usar fórmulas MACICO (base=(L-97)/2) para moldura = TAMPA-DIS
+            var _baseMold=(L-97)/2;
+            var _mT1=Math.round(_baseMold+16-_dedP);
+            var _mT2=Math.round(_baseMold-PIV-_dedP);
+            var _mT3=Math.round(_mT2-TUB_SUP+TRANS_PIV);
+            if(_mT1>50) r.push(['MOLD H (T1)'+_nvL, _MW, _mT1, _N_ROW_P*2]);
+            if(_mT2>50) r.push(['MOLD H (T2)'+_nvL, _MW, _mT2, _N_ROW_P*4]);
+            if(_mT3>50) r.push(['MOLD H (T3)'+_nvL, _MW, _mT3, _N_ROW_P*2]);
           }
 
           // ── VERTICAIS: altura por bloco ──
@@ -1709,7 +1710,7 @@ function planRun() {
   var pesoLiqALU  = totPA_ALU / 1e6 * KG_ALU;
   var pesoBrutoALU= totSA_ALU / 1e6 * KG_ALU;
   var _portaPecasNomes=['TAMPA MAIOR','TAMPA MAIOR 01','TAMPA MAIOR 02','TAMPA MAIOR 03','CAVA','TAMPA BOR CAVA','TAMPA CAVA','TAMPA MENOR','ACAB LAT 1','ACAB LAT 2','ACAB LAT Z','TAMPA FRISO','FRISO','FRISO VERT','DIST BOR FV','RIPAS','FIT ACAB ME','FIT ACAB MA','FIT ACAB FITA'];
-  function _isPPN2(lbl){var base=(lbl||'').split('[')[0].split('EXT')[0].split('INT')[0].trim();for(var k=0;k<_portaPecasNomes.length;k++){if(base===_portaPecasNomes[k])return true;}return false;}
+  function _isPPN2(lbl){var base=(lbl||'').split('[')[0].split('EXT')[0].split('INT')[0].trim();if(base.indexOf('MOLD ')===0)return true;for(var k=0;k<_portaPecasNomes.length;k++){if(base===_portaPecasNomes[k])return true;}return false;}
   var pesoPortaACM=0, pesoPortaALU=0;
   for(var i=0;i<piecesACM.length;i++){if(_isPPN2(piecesACM[i].label))pesoPortaACM+=(piecesACM[i].w*piecesACM[i].h*piecesACM[i].qty)/1e6*KG_ACM;}
   for(var i=0;i<piecesALU.length;i++){if(_isPPN2(piecesALU[i].label))pesoPortaALU+=(piecesALU[i].w*piecesALU[i].h*piecesALU[i].qty)/1e6*KG_ALU;}
