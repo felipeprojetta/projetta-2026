@@ -1201,7 +1201,7 @@ window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
     var fields=['qtd','largura','altura','cor_ext','cor_int','cor_macico'];
-    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','ripado_total','ripado_2lados']);
+    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','moldura_divisao','ripado_total','ripado_2lados']);
     if(item.tipo==='fixo') fields=fields.concat(['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material']);
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
@@ -1324,6 +1324,7 @@ window._crmItensRender=function(){
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Molduras na Largura</label><input type="number" id="'+pre+'moldura_larg_qty" value="'+(item.moldura_larg_qty||2)+'" min="1" max="6" onwheel="event.preventDefault()"></div>';
       h+='<div class="crm-field"><label>Molduras na Altura</label><input type="number" id="'+pre+'moldura_alt_qty" value="'+(item.moldura_alt_qty||2)+'" min="1" max="6" onwheel="event.preventDefault()"></div>';
+      h+='<div class="crm-field"><label>Divisão Altura</label><select id="'+pre+'moldura_divisao" onchange="var v=this.value;var p=\''+pre+'\';var br=document.getElementById(p+\'moldura_alt_qty\');if(v===\'classica\'&&br)br.value=2;"><option value="classica"'+(item.moldura_divisao==='classica'||!item.moldura_divisao?' selected':'')+'>Clássica (1048mm)</option><option value="igual"'+(item.moldura_divisao==='igual'?' selected':'')+'>Divisão Igual</option></select></div>';
       h+='<div class="crm-field"><label>Tipo Moldura</label><select id="'+pre+'moldura_tipo" onchange="var t=parseInt(this.value)||1;var p=\''+pre+'\';var d2=document.getElementById(p+\'moldura_dis2\');var d3=document.getElementById(p+\'moldura_dis3\');if(d2)d2.closest(\'.crm-field\').style.display=t>=2?\'\':\'none\';if(d3)d3.closest(\'.crm-field\').style.display=t>=3?\'\':\'none\';"><option value="1"'+(item.moldura_tipo==='1'||!item.moldura_tipo?' selected':'')+'>Simples</option><option value="2"'+(item.moldura_tipo==='2'?' selected':'')+'>Dupla</option><option value="3"'+(item.moldura_tipo==='3'?' selected':'')+'>Tripla</option></select></div>';
       h+='<div class="crm-field"><label>Dist. 1ª (mm)</label><input type="number" id="'+pre+'moldura_dis1" value="'+(item.moldura_dis1||150)+'" min="50" max="400" step="10"></div>';
       var _showD2=(item.moldura_tipo==='2'||item.moldura_tipo==='3');
@@ -1392,7 +1393,7 @@ window._crmItensRender=function(){
   // Re-apply selected values for selects (the replace trick doesn't always work)
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
-    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','cor_macico','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','ripado_total','ripado_2lados']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int','cor_macico'];
+    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','cor_macico','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','moldura_divisao','ripado_total','ripado_2lados']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int','cor_macico'];
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el&&item[f]) el.value=item[f];
@@ -1422,7 +1423,7 @@ window._crmItensRender=function(){
 window._crmItensToCardData=function(){
   _crmItensSaveFromDOM();
   return _crmItens.map(function(item){
-    var clean={id:item.id,tipo:item.tipo,qtd:parseInt(item.qtd)||1,largura:parseInt(item.largura)||0,altura:parseInt(item.altura)||0,cor_ext:item.cor_ext||'',cor_int:item.cor_int||''};
+    var clean={id:item.id,tipo:item.tipo,qtd:parseInt(item.qtd)||1,largura:parseInt(item.largura)||0,altura:parseInt(item.altura)||0,cor_ext:item.cor_ext||'',cor_int:item.cor_int||'',cor_macico:item.cor_macico||''};
     if(item.tipo==='porta_pivotante'){
       clean.modelo=item.modelo||'';clean.abertura=item.abertura||'PIVOTANTE';clean.folhas=item.folhas||'1';
       clean.fech_mec=item.fech_mec||'';clean.fech_dig=item.fech_dig||'';clean.cilindro=item.cilindro||'';clean.puxador=item.puxador||'';clean.pux_tam=item.pux_tam||'1.5';
@@ -1430,7 +1431,7 @@ window._crmItensToCardData=function(){
       clean.dist_borda_friso=item.dist_borda_friso||'';clean.largura_friso=item.largura_friso||'';clean.refilado=item.refilado||'20';
       clean.friso_vert=item.friso_vert||'0';clean.friso_horiz=item.friso_horiz||'0';clean.friso_h_qty=item.friso_h_qty||'3';clean.friso_h_esp=item.friso_h_esp||'10';clean.tem_alisar=!!item.tem_alisar;
       clean.moldura_rev=item.moldura_rev||'ACM';clean.moldura_larg_qty=item.moldura_larg_qty||'2';clean.moldura_alt_qty=item.moldura_alt_qty||'2';
-      clean.moldura_tipo=item.moldura_tipo||'1';clean.moldura_dis1=item.moldura_dis1||'150';clean.moldura_dis2=item.moldura_dis2||'150';clean.moldura_dis3=item.moldura_dis3||'150';
+      clean.moldura_tipo=item.moldura_tipo||'1';clean.moldura_dis1=item.moldura_dis1||'150';clean.moldura_dis2=item.moldura_dis2||'150';clean.moldura_dis3=item.moldura_dis3||'150';clean.moldura_divisao=item.moldura_divisao||'classica';
       clean.ripado_total=item.ripado_total||'NAO';clean.ripado_2lados=item.ripado_2lados||'SIM';
     }
     if(item.tipo==='fixo'){
@@ -1763,7 +1764,9 @@ function orcItemSelecionar(idx){
     if(it.moldura_dis1) setF('plan-moldura-dis1', it.moldura_dis1);
     if(it.moldura_dis2) setF('plan-moldura-dis2', it.moldura_dis2);
     if(it.moldura_dis3) setF('plan-moldura-dis3', it.moldura_dis3);
+    if(it.moldura_divisao) setF('plan-moldura-divisao', it.moldura_divisao);
     if(typeof _toggleMolduraNiveis==='function') setTimeout(_toggleMolduraNiveis,100);
+    if(typeof _toggleMolduraDivisao==='function') setTimeout(_toggleMolduraDivisao,100);
     if(it.refilado) setF('plan-refilado', it.refilado);
     // Ripado config
     if(it.ripado_total) setF('carac-ripado-total', it.ripado_total);

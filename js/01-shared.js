@@ -218,7 +218,21 @@ function _toggleMolduraNiveis(){
   if(d2) d2.style.display=tipo>=2?'':'none';
   if(d3) d3.style.display=tipo>=3?'':'none';
 }
+function _toggleMolduraDivisao(){
+  var div=(document.getElementById('plan-moldura-divisao')||{value:'classica'}).value;
+  var blocosRow=document.getElementById('plan-moldura-blocos-row');
+  if(blocosRow) blocosRow.style.display=div==='igual'?'':'none';
+  // Sync: Clássica → forçar 2 blocos, Igual → usar campo blocos
+  var altQty=document.getElementById('plan-moldura-alt-qty');
+  if(div==='classica'){
+    if(altQty) altQty.value=2;
+  } else {
+    var blocos=parseInt((document.getElementById('plan-moldura-blocos')||{value:3}).value)||3;
+    if(altQty) altQty.value=blocos;
+  }
+}
 window._toggleMolduraNiveis=_toggleMolduraNiveis;
+window._toggleMolduraDivisao=_toggleMolduraDivisao;
 
 /* ══ DYNAMIC BLOCKS ══════════════════════════════════════ */
 let aC=0,lC=0;

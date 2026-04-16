@@ -3258,6 +3258,19 @@ Equipe Projetta by Weiku</textarea>
       </div>
       <!-- Tipo e distância moldura (só maciço) -->
       <div id="plan-moldura-nivel-row" style="display:none;margin-top:8px;border-top:1px dashed #ce93d8;padding-top:8px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px">
+          <div class="fr" style="border:none;padding:0;gap:4px;flex:0 0 140px">
+            <span class="fl" style="font-size:10px;font-weight:700;color:#6a1b9a">Divisão Altura</span>
+            <select id="plan-moldura-divisao" onchange="_toggleMolduraDivisao();planUpd();_osAutoUpdate()" style="padding:4px 6px;border:1.5px solid #9c27b0;border-radius:5px;font-size:11px;background:#fce4ec;color:#6a1b9a;font-weight:700">
+              <option value="classica">Clássica (1048mm)</option>
+              <option value="igual">Divisão Igual</option>
+            </select>
+          </div>
+          <div class="fr" id="plan-moldura-blocos-row" style="display:none;border:none;padding:0;gap:4px;flex:0 0 100px">
+            <span class="fl" style="font-size:10px;font-weight:700;color:#6a1b9a">Qtd Blocos</span>
+            <input type="number" id="plan-moldura-blocos" value="3" min="2" max="8" step="1" onchange="var a=document.getElementById('plan-moldura-alt-qty');if(a)a.value=this.value;planUpd();_osAutoUpdate()" style="width:50px;padding:4px 6px;border:1.5px solid #9c27b0;border-radius:5px;font-size:12px;background:#fce4ec;color:#6a1b9a;font-weight:700;text-align:center">
+          </div>
+        </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
           <div class="fr" style="border:none;padding:0;gap:4px;flex:0 0 120px">
             <span class="fl" style="font-size:10px;font-weight:700;color:#6a1b9a">Tipo Moldura</span>
