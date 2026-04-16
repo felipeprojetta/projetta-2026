@@ -144,6 +144,21 @@ function getGerenteDaRegiao(reg){
 }
 
 
+// ── Comissão editável: salvar/carregar do localStorage ──
+function _loadRepComms(){
+  try{var s=localStorage.getItem('projetta_rep_comms');return s?JSON.parse(s):{};}catch(e){return {};}
+}
+function _saveRepComm(nome,val){
+  var comms=_loadRepComms();
+  comms[nome]=parseFloat(val)||0;
+  localStorage.setItem('projetta_rep_comms',JSON.stringify(comms));
+  // Atualizar REPS array em memória
+  for(var i=0;i<REPS.length;i++){if(REPS[i].nome===nome){REPS[i].comm=comms[nome];break;}}
+}
+window._saveRepComm=_saveRepComm;
+// Aplicar comissões salvas ao carregar
+(function(){var comms=_loadRepComms();if(Object.keys(comms).length){REPS.forEach(function(r){if(comms[r.nome]!==undefined)r.comm=comms[r.nome];});}})();
+
 /* ── Cadastro Representantes Weiku render (self-contained) ── */
 window.cadRenderRepsWeiku=function(){
   var _e=function(id){return document.getElementById(id);};
@@ -214,7 +229,7 @@ window.cadRenderRepsWeiku=function(){
       html+='<td style="'+_td+';color:var(--muted);font-size:10px">'+r.cargo+'</td>';
       html+='<td style="'+_td+'">'+r.tel+'</td>';
       html+='<td style="'+_td+';color:#2563eb;font-size:10px">'+r.email+'</td>';
-      html+='<td style="'+_td+';text-align:center;font-weight:700">'+r.comm+'</td>';
+      html+='<td style="'+_td+';text-align:center;font-weight:700"><input type="number" value="'+r.comm+'" min="0" max="20" step="0.5" style="width:50px;text-align:center;border:1px solid #ddd;border-radius:4px;padding:2px 4px;font-size:11px;font-weight:700;background:#fff" onchange="_saveRepComm(\''+r.nome.replace(/'/g,"\\'")+'\',this.value)"></td>';
       html+='</tr>';
     });
     html+='</tbody></table></div></div>';
