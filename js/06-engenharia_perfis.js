@@ -336,8 +336,9 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
             qty:_N_COL*_facesMult1, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
             perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
         } else {
-          // 3+ blocos: dividir igualmente
-          var _usableH=PA_F-_dedTotal;
+          // 3+ blocos: dividir igualmente — (N+1) espaçamentos de DIS entre blocos
+          var _disPerGap=_dedTotal/2; // DIS por gap (ex: 150mm)
+          var _usableH=PA_F-(_N_ROW+1)*_disPerGap;
           var _blockH=Math.round(_usableH/_N_ROW);
           if(_blockH>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT'+_nvLabel, compMM:_blockH,
             qty:_N_COL*_facesMult1*_N_ROW, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
