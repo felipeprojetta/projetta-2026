@@ -838,7 +838,7 @@ function plnPieceTable(pieces, placed) {
   var tb=document.getElementById('plan-piece-tbody'); tb.innerHTML='';
   // Ordenar maiores dimensões (área) primeiro
   var _portaPecas=['TAMPA MAIOR','TAMPA MAIOR 01','TAMPA MAIOR 02','TAMPA MAIOR 03','CAVA','TAMPA BOR CAVA','TAMPA CAVA','TAMPA MENOR','ACAB LAT 1','ACAB LAT 2','ACAB LAT Z','TAMPA FRISO','FRISO','FRISO VERT','DIST BOR FV','RIPAS'];
-  function _isPortaPiece(lbl){var base=lbl.split('[')[0].split('EXT')[0].split('INT')[0].trim();for(var k=0;k<_portaPecas.length;k++){if(base===_portaPecas[k])return true;}return false;}
+  function _isPortaPiece(lbl){var base=lbl.split('[')[0].split('EXT')[0].split('INT')[0].trim();if(base.indexOf('MOLD ')===0)return true;for(var k=0;k<_portaPecas.length;k++){if(base===_portaPecas[k])return true;}return false;}
   var _pSorted=pieces.slice().map(function(p,idx){
     var _isP=_isPortaPiece(p.label);
     p._local=p.label.indexOf('FX ')===0?'FIXO':_isP?'PORTA':'PORTAL';
