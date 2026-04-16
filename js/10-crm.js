@@ -1469,7 +1469,8 @@ window.crmSaveOpp=function(){
     folhas:    val('crm-o-folhas')||'1',
     cor_ext:   val('crm-o-cor-ext'),
     cor_int:   val('crm-o-cor-int'),
-    cor_macico: val('crm-o-cor-macico'),
+    cor_macico: val('crm-o-cor-macico')||((_crmItens&&_crmItens[0])?_crmItens[0].cor_macico||'':''),
+    moldura_rev: (_crmItens&&_crmItens[0])?_crmItens[0].moldura_rev||'':'',
     reserva:   val('crm-o-reserva').trim(),
     itens:     _crmItensToCardData(),
     inst_quem: val('crm-o-inst-quem')||'PROJETTA',
@@ -1843,7 +1844,7 @@ window.crmFazerOrcamento=function(id){
       orcItensFromCRM(opp.itens, opp.cliente);
     } else if(opp.largura && opp.altura){
       // Backward compat: single item
-      orcItensFromCRM([{tipo:'porta_pivotante',qtd:1,largura:opp.largura,altura:opp.altura,modelo:opp.modelo||'',abertura:opp.abertura||'PIVOTANTE',folhas:opp.folhas||'1',cor_ext:opp.cor_ext||'',cor_int:opp.cor_int||''}], opp.cliente);
+      orcItensFromCRM([{tipo:'porta_pivotante',qtd:1,largura:opp.largura,altura:opp.altura,modelo:opp.modelo||'',abertura:opp.abertura||'PIVOTANTE',folhas:opp.folhas||'1',cor_ext:opp.cor_ext||'',cor_int:opp.cor_int||'',cor_macico:opp.cor_macico||'',moldura_rev:opp.moldura_rev||''}], opp.cliente);
     }
     // Transfer instalação — internacional auto-seleciona instalação internacional
     var instQuem=opp.inst_quem||'PROJETTA';
@@ -1865,6 +1866,22 @@ window.crmFazerOrcamento=function(id){
     // Cores da chapa
     if(opp.cor_ext)setF('carac-cor-ext',opp.cor_ext);
     if(opp.cor_int)setF('carac-cor-int',opp.cor_int);
+    // Moldura rev e cor maciço: pegar do card ou do primeiro item
+    var _firstItem=(opp.itens&&opp.itens.length>0)?opp.itens[0]:{};
+    var _moldRev=opp.moldura_rev||_firstItem.moldura_rev||'';
+    var _corMac=opp.cor_macico||_firstItem.cor_macico||'';
+    if(_moldRev)setF('plan-moldura-rev',_moldRev);
+    if(_corMac) window._pendingCorMacico=_corMac;
+    // Forçar _checkCorMode + planRun após carregamento
+    setTimeout(function(){
+      if(typeof _checkCorMode==='function') _checkCorMode();
+      if(window._pendingCorMacico){
+        var macSel=document.getElementById('carac-cor-macico');
+        if(macSel){macSel.value=window._pendingCorMacico;window._pendingCorMacico=null;}
+      }
+      if(typeof planUpd==='function') try{planUpd();}catch(e){}
+      if(typeof _autoSelectAndRun==='function') try{_autoSelectAndRun();}catch(e){}
+    },500);
     // Número da Reserva
     if(opp.reserva){setF('numprojeto',opp.reserva);}
     if(opp.agp){setF('num-agp',opp.agp);}
