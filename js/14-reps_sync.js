@@ -152,12 +152,22 @@ function _saveRepComm(nome,val){
   var comms=_loadRepComms();
   comms[nome]=parseFloat(val)||0;
   localStorage.setItem('projetta_rep_comms',JSON.stringify(comms));
-  // Atualizar REPS array em memória
   for(var i=0;i<REPS.length;i++){if(REPS[i].nome===nome){REPS[i].comm=comms[nome];break;}}
 }
+function _saveRepCargo(nome,val){
+  var cargos={}; try{var s=localStorage.getItem('projetta_rep_cargos');if(s)cargos=JSON.parse(s);}catch(e){}
+  cargos[nome]=val;
+  localStorage.setItem('projetta_rep_cargos',JSON.stringify(cargos));
+  for(var i=0;i<REPS.length;i++){if(REPS[i].nome===nome){REPS[i].cargo=val;break;}}
+}
 window._saveRepComm=_saveRepComm;
-// Aplicar comissões salvas ao carregar
-(function(){var comms=_loadRepComms();if(Object.keys(comms).length){REPS.forEach(function(r){if(comms[r.nome]!==undefined)r.comm=comms[r.nome];});}})();
+window._saveRepCargo=_saveRepCargo;
+// Aplicar comissões e cargos salvos ao carregar
+(function(){
+  var comms=_loadRepComms();
+  if(Object.keys(comms).length){REPS.forEach(function(r){if(comms[r.nome]!==undefined)r.comm=comms[r.nome];});}
+  try{var cs=localStorage.getItem('projetta_rep_cargos');if(cs){var cargos=JSON.parse(cs);REPS.forEach(function(r){if(cargos[r.nome])r.cargo=cargos[r.nome];});}}catch(e){}
+})();
 
 /* ── Cadastro Representantes Weiku render (self-contained) ── */
 window.cadRenderRepsWeiku=function(){
@@ -226,7 +236,11 @@ window.cadRenderRepsWeiku=function(){
       var _td='padding:5px 8px;border-bottom:1px solid #f0eeea;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
       html+='<tr style="background:'+bg+'">';
       html+='<td style="'+_td+';font-weight:600">'+r.nome+'</td>';
-      html+='<td style="'+_td+';color:var(--muted);font-size:10px">'+r.cargo+'</td>';
+      var _cargoOpts=['REPRESENTANTE','SHOWROOM','COMERCIAL INTERNO','VENDA DIRETA','CLIMAGLASS','COMERCIAL INTERNO CORSTONE','GERENTE COMERCIAL','GERENTE COMERCIAL CORSTONE','COORDENADOR DE VENDAS','SUPERVISOR DE VENDAS','GESTOR COMERCIAL'];
+      var _cSel='<select onchange="_saveRepCargo(\''+r.nome.replace(/'/g,"\\'")+'\',this.value)" style="width:100%;border:1px solid #ddd;border-radius:4px;padding:2px 4px;font-size:9px;color:var(--muted);background:#fff">';
+      _cargoOpts.forEach(function(c){_cSel+='<option value="'+c+'"'+(r.cargo.toUpperCase()===c?' selected':'')+'>'+c+'</option>';});
+      _cSel+='</select>';
+      html+='<td style="'+_td+'">'+_cSel+'</td>';
       html+='<td style="'+_td+'">'+r.tel+'</td>';
       html+='<td style="'+_td+';color:#2563eb;font-size:10px">'+r.email+'</td>';
       html+='<td style="'+_td+';text-align:center;font-weight:700"><input type="number" value="'+r.comm+'" min="0" max="20" step="0.5" style="width:50px;text-align:center;border:1px solid #ddd;border-radius:4px;padding:2px 4px;font-size:11px;font-weight:700;background:#fff" onchange="_saveRepComm(\''+r.nome.replace(/'/g,"\\'")+'\',this.value)"></td>';
