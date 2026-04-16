@@ -179,7 +179,32 @@ function _repToast(msg){
   var t=document.createElement('div');
   t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:8px 18px;border-radius:16px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2)';
   t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove();},2000);
+  // Mostrar indicador "Salvo"
+  var sv=document.getElementById('cad-wrep-saved');
+  if(sv){sv.style.display='';setTimeout(function(){sv.style.display='none';},3000);}
 }
+function _saveAllReps(){
+  // Ler todos os inputs da tabela e salvar
+  var comms=_loadRepComms();
+  var cargos={}; try{var s=localStorage.getItem('projetta_rep_cargos');if(s)cargos=JSON.parse(s);}catch(e){}
+  var rows=document.querySelectorAll('#cad-wrep-list tr');
+  var count=0;
+  rows.forEach(function(tr){
+    var tds=tr.querySelectorAll('td');
+    if(tds.length<5) return;
+    var nome=tds[0].textContent.trim();
+    if(!nome) return;
+    var cargoSel=tds[1].querySelector('select');
+    var commInp=tds[4].querySelector('input');
+    if(cargoSel){cargos[nome]=cargoSel.value;for(var i=0;i<REPS.length;i++){if(REPS[i].nome===nome){REPS[i].cargo=cargoSel.value;break;}}}
+    if(commInp){var v=parseFloat(commInp.value)||0;comms[nome]=v;for(var i=0;i<REPS.length;i++){if(REPS[i].nome===nome){REPS[i].comm=v;break;}}}
+    count++;
+  });
+  localStorage.setItem('projetta_rep_comms',JSON.stringify(comms));
+  localStorage.setItem('projetta_rep_cargos',JSON.stringify(cargos));
+  _repToast('💾 '+count+' representantes salvos!');
+}
+window._saveAllReps=_saveAllReps;
 window._saveRepComm=_saveRepComm;
 window._saveRepCargo=_saveRepCargo;
 // Aplicar comissões e cargos salvos ao carregar

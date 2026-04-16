@@ -3078,7 +3078,13 @@ Equipe Projetta by Weiku</textarea>
         <div id="cad-wrep-coord-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px"></div>
       </div>
 
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px" id="cad-wrep-count"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:12px;color:var(--muted)" id="cad-wrep-count"></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="cad-wrep-saved" style="font-size:10px;color:#27ae60;font-weight:700;display:none">✅ Salvo</span>
+          <button onclick="_saveAllReps()" style="padding:5px 14px;background:#27ae60;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">💾 Salvar Alterações</button>
+        </div>
+      </div>
       <div id="cad-wrep-list"></div>
 
     </div>
