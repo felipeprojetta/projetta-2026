@@ -3308,3 +3308,85 @@ function crmEnviarEmail(){
   window.open('mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(msg),'_blank');
 }
 /* ══ END MODULE: MESSAGING ══ */
+
+/* ══ RELATÓRIO POR REPRESENTANTE/GERENTE ══ */
+window.crmGerarRelatorio=function(){
+  var fGer=((document.getElementById('crm-f-gerente-filter')||{}).value||'');
+  var fWrep=((document.getElementById('crm-f-wrep-filter')||{}).value||'');
+  var fReg=((document.getElementById('crm-f-regiao-filter')||{}).value||'');
+  var fResp=((document.getElementById('crm-f-resp-filter')||{}).value||'');
+  if(!fGer&&!fWrep&&!fReg&&!fResp){alert('Selecione um filtro no pipeline (Gerente, Representante ou Região) antes de gerar o relatório.');return;}
+  var titulo=fWrep||fGer||fReg||fResp||'Geral';
+
+  var data=cLoad();var stages=gStages();
+  // Filtrar cards usando mesma lógica do pipeline
+  var filtered=data.filter(function(o){
+    if(o.stage==='lost')return false;
+    if(fResp&&(o.responsavel||'')!==fResp)return false;
+    if(fWrep&&(o.wrep||'')!==fWrep)return false;
+    if(fGer){var oreg=typeof getRepRegiao==='function'?getRepRegiao(o.wrep):'';var ger=typeof getGerenteDaRegiao==='function'?getGerenteDaRegiao(oreg):'';if(ger!==fGer)return false;}
+    if(fReg){var oreg2=typeof getRepRegiao==='function'?getRepRegiao(o.wrep):'';if(fReg.length<=5?!oreg2.startsWith(fReg):oreg2!==fReg)return false;}
+    return true;
+  });
+
+  // Agrupar por etapa
+  var grupos={};stages.forEach(function(s){grupos[s.id]={label:s.label,icon:s.icon||'',cards:[]};});
+  filtered.forEach(function(o){if(grupos[o.stage])grupos[o.stage].cards.push(o);});
+
+  // Calcular totais
+  var totalCards=filtered.length;
+  var totalValor=0;filtered.forEach(function(o){totalValor+=(o.valor||0);});
+
+  // Gerar HTML do relatório
+  var brl=function(v){return'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});};
+  var hoje=new Date().toLocaleDateString('pt-BR');
+  var h='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório '+titulo+' — '+hoje+'</title>';
+  h+='<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#333;padding:20px}';
+  h+='.header{text-align:center;margin-bottom:20px;border-bottom:2px solid #1a5276;padding-bottom:10px}';
+  h+='.header h1{font-size:16px;color:#1a5276}.header .sub{font-size:11px;color:#666;margin-top:4px}';
+  h+='.kpis{display:flex;gap:12px;margin-bottom:16px;justify-content:center}';
+  h+='.kpi{background:#f5f5f5;border-radius:6px;padding:8px 16px;text-align:center;border-left:3px solid #1a5276}';
+  h+='.kpi .v{font-size:16px;font-weight:800;color:#1a5276}.kpi .l{font-size:9px;color:#888;text-transform:uppercase}';
+  h+='.stage{margin-bottom:14px;page-break-inside:avoid}.stage-hdr{background:#1a5276;color:#fff;padding:6px 12px;font-size:12px;font-weight:700;border-radius:4px 4px 0 0;display:flex;justify-content:space-between}';
+  h+='table{width:100%;border-collapse:collapse}th{background:#f0f0f0;padding:4px 6px;text-align:left;font-size:9px;text-transform:uppercase;border-bottom:1px solid #ddd}';
+  h+='td{padding:4px 6px;border-bottom:1px solid #eee;font-size:10px}tr:nth-child(even){background:#fafafa}';
+  h+='.val{text-align:right;font-weight:700;color:#1a5276}.tot{text-align:right;font-weight:800;font-size:11px;color:#1a5276;padding:6px}';
+  h+='@media print{body{padding:10px}.stage{page-break-inside:avoid}}</style></head><body>';
+
+  h+='<div class="header"><h1>📋 Relatório Pipeline — '+titulo+'</h1>';
+  h+='<div class="sub">Projetta Alumínio · Gerado em '+hoje+'</div></div>';
+
+  h+='<div class="kpis">';
+  h+='<div class="kpi"><div class="v">'+totalCards+'</div><div class="l">Oportunidades</div></div>';
+  h+='<div class="kpi"><div class="v">'+brl(totalValor)+'</div><div class="l">Valor Total</div></div>';
+  h+='</div>';
+
+  stages.forEach(function(s){
+    var g=grupos[s.id];if(!g||!g.cards.length)return;
+    var stVal=0;g.cards.forEach(function(c){stVal+=(c.valor||0);});
+    h+='<div class="stage">';
+    h+='<div class="stage-hdr"><span>'+(g.icon||'')+' '+g.label+' ('+g.cards.length+')</span><span>'+brl(stVal)+'</span></div>';
+    h+='<table><thead><tr><th>Cliente</th><th>Produto</th><th>Medidas</th><th>Rep</th><th>Cidade</th><th>Reserva</th><th>AGP</th><th style="text-align:right">Valor</th></tr></thead><tbody>';
+    g.cards.sort(function(a,b){return(b.valor||0)-(a.valor||0);});
+    g.cards.forEach(function(c){
+      var dims=(c.largura&&c.altura)?(c.largura+'×'+c.altura):'';
+      h+='<tr><td style="font-weight:700">'+escH(c.cliente||'')+'</td>';
+      h+='<td>'+escH(c.produto||'')+'</td>';
+      h+='<td>'+dims+'</td>';
+      h+='<td>'+escH((c.wrep||'').split('(')[0].trim().split(' ').slice(0,2).join(' '))+'</td>';
+      h+='<td>'+escH(c.cidade||'')+'</td>';
+      h+='<td>'+escH(c.reserva||'')+'</td>';
+      h+='<td>'+escH(c.agp||'')+'</td>';
+      h+='<td class="val">'+brl(c.valor)+'</td></tr>';
+    });
+    h+='<tr><td colspan="7" class="tot">Subtotal '+g.label+'</td><td class="tot">'+brl(stVal)+'</td></tr>';
+    h+='</tbody></table></div>';
+  });
+
+  h+='<div style="margin-top:20px;text-align:center;font-size:9px;color:#999">Projetta Alumínio by Weiku do Brasil — relatório automático</div>';
+  h+='</body></html>';
+
+  var w=window.open('','_blank','width=900,height=700');
+  w.document.write(h);w.document.close();
+  setTimeout(function(){w.print();},500);
+};
