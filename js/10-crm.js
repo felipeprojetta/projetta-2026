@@ -3311,6 +3311,7 @@ function crmEnviarEmail(){
 
 /* ══ RELATÓRIO POR REPRESENTANTE/GERENTE ══ */
 window.crmGerarRelatorio=function(){
+  try{
   var fGer=((document.getElementById('crm-f-gerente-filter')||{}).value||'');
   var fWrep=((document.getElementById('crm-f-wrep-filter')||{}).value||'');
   var fReg=((document.getElementById('crm-f-regiao-filter')||{}).value||'');
@@ -3387,6 +3388,8 @@ window.crmGerarRelatorio=function(){
   h+='</body></html>';
 
   var w=window.open('','_blank','width=900,height=700');
+  if(!w){alert('Popup bloqueado! Permita popups para gerar o relatório.');return;}
   w.document.write(h);w.document.close();
-  setTimeout(function(){w.print();},500);
+  setTimeout(function(){try{w.print();}catch(e){}},500);
+  }catch(err){alert('Erro ao gerar relatório: '+err.message);console.error(err);}
 };
