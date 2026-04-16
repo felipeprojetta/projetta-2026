@@ -1324,10 +1324,12 @@ window._crmItensRender=function(){
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Molduras na Largura</label><input type="number" id="'+pre+'moldura_larg_qty" value="'+(item.moldura_larg_qty||2)+'" min="1" max="6" onwheel="event.preventDefault()"></div>';
       h+='<div class="crm-field"><label>Molduras na Altura</label><input type="number" id="'+pre+'moldura_alt_qty" value="'+(item.moldura_alt_qty||2)+'" min="1" max="6" onwheel="event.preventDefault()"></div>';
-      h+='<div class="crm-field"><label>Tipo Moldura</label><select id="'+pre+'moldura_tipo"><option value="1"'+(item.moldura_tipo==='1'||!item.moldura_tipo?' selected':'')+'>Simples</option><option value="2"'+(item.moldura_tipo==='2'?' selected':'')+'>Dupla</option><option value="3"'+(item.moldura_tipo==='3'?' selected':'')+'>Tripla</option></select></div>';
+      h+='<div class="crm-field"><label>Tipo Moldura</label><select id="'+pre+'moldura_tipo" onchange="var t=parseInt(this.value)||1;var p=\''+pre+'\';var d2=document.getElementById(p+\'moldura_dis2\');var d3=document.getElementById(p+\'moldura_dis3\');if(d2)d2.closest(\'.crm-field\').style.display=t>=2?\'\':\'none\';if(d3)d3.closest(\'.crm-field\').style.display=t>=3?\'\':\'none\';"><option value="1"'+(item.moldura_tipo==='1'||!item.moldura_tipo?' selected':'')+'>Simples</option><option value="2"'+(item.moldura_tipo==='2'?' selected':'')+'>Dupla</option><option value="3"'+(item.moldura_tipo==='3'?' selected':'')+'>Tripla</option></select></div>';
       h+='<div class="crm-field"><label>Dist. 1ª (mm)</label><input type="number" id="'+pre+'moldura_dis1" value="'+(item.moldura_dis1||150)+'" min="50" max="400" step="10"></div>';
-      h+='<div class="crm-field"><label>Dist. 2ª (mm)</label><input type="number" id="'+pre+'moldura_dis2" value="'+(item.moldura_dis2||150)+'" min="50" max="400" step="10"></div>';
-      h+='<div class="crm-field"><label>Dist. 3ª (mm)</label><input type="number" id="'+pre+'moldura_dis3" value="'+(item.moldura_dis3||150)+'" min="50" max="400" step="10"></div>';
+      var _showD2=(item.moldura_tipo==='2'||item.moldura_tipo==='3');
+      var _showD3=(item.moldura_tipo==='3');
+      h+='<div class="crm-field" style="'+(_showD2?'':'display:none')+'"><label>Dist. 2ª (mm)</label><input type="number" id="'+pre+'moldura_dis2" value="'+(item.moldura_dis2||150)+'" min="50" max="400" step="10"></div>';
+      h+='<div class="crm-field" style="'+(_showD3?'':'display:none')+'"><label>Dist. 3ª (mm)</label><input type="number" id="'+pre+'moldura_dis3" value="'+(item.moldura_dis3||150)+'" min="50" max="400" step="10"></div>';
       h+='</div>';
       h+='</div>';
       // Config Ripado — visível para modelos 08, 15, 20, 21
@@ -1536,6 +1538,13 @@ window.crmSaveOpp=function(){
   crmRender();
   var _svToast=document.createElement('div');_svToast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:8px 18px;border-radius:16px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2)';
   _svToast.textContent='💾 Card salvo!';document.body.appendChild(_svToast);setTimeout(function(){_svToast.remove();},2000);
+};
+
+// crmSaveCard: salva items no card (chamado por Salvar Item)
+window.crmSaveCard=function(){
+  if(_editId && typeof crmSaveOpp==='function'){
+    try{crmSaveOpp();}catch(e){console.warn('crmSaveCard:',e);}
+  }
 };
 
 window.crmDeleteOpp=function(id){
