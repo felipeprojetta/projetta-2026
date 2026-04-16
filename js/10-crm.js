@@ -1179,6 +1179,8 @@ window.crmItemToggle=function(id){
 window.crmItemSaveAndNext=function(id){
   // 1. Salvar dados do item atual
   _crmItensSaveFromDOM();
+  // 1b. Persistir no localStorage (sem isso, perde ao fechar/reabrir)
+  if(typeof crmSaveCard==='function') try{crmSaveCard();}catch(e){}
   // 2. Fechar item atual
   var el=document.getElementById('crm-item-'+id);
   if(el) el.classList.remove('open');
