@@ -257,8 +257,8 @@ function _calcAcessoriosOS(d, nFolhas, sis){
   if(L > 0){
     var _vedFolha;
     if(nFolhas === 2){
-      // 2 folhas: largura por folha (descontando encontro central 235mm)
-      _vedFolha = (L - 2.5 - 2.5 - 125 - 235) / 2;
+      // 2 folhas: LARGURA FOLHA (VEDA) = (L - 158) / 2 (ref DWG modelo 23)
+      _vedFolha = (L - 158) / 2;
     } else {
       _vedFolha = L - 2.5 - 2.5 - 125;
     }
