@@ -153,12 +153,19 @@ function _saveRepComm(nome,val){
   comms[nome]=parseFloat(val)||0;
   localStorage.setItem('projetta_rep_comms',JSON.stringify(comms));
   for(var i=0;i<REPS.length;i++){if(REPS[i].nome===nome){REPS[i].comm=comms[nome];break;}}
+  _repToast('💾 Comissão de '+nome.split(' ')[0]+' atualizada para '+val+'%');
 }
 function _saveRepCargo(nome,val){
   var cargos={}; try{var s=localStorage.getItem('projetta_rep_cargos');if(s)cargos=JSON.parse(s);}catch(e){}
   cargos[nome]=val;
   localStorage.setItem('projetta_rep_cargos',JSON.stringify(cargos));
   for(var i=0;i<REPS.length;i++){if(REPS[i].nome===nome){REPS[i].cargo=val;break;}}
+  _repToast('💾 Cargo de '+nome.split(' ')[0]+' atualizado');
+}
+function _repToast(msg){
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:8px 18px;border-radius:16px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+  t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove();},2000);
 }
 window._saveRepComm=_saveRepComm;
 window._saveRepCargo=_saveRepCargo;

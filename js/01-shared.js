@@ -186,6 +186,9 @@ function _checkCorMode(){
   // Label cor externa
   var extLbl=document.getElementById('carac-cor-ext-label');
   if(extLbl) extLbl.textContent=isMacico?'Cor ACM':'Cor chapa externa';
+  // Mostrar/esconder config moldura níveis
+  var nivelRow=document.getElementById('plan-moldura-nivel-row');
+  if(nivelRow) nivelRow.style.display=isMacico?'':'none';
   // Populate cor maciço com opções do ALU_DATA (cadastro) — sempre atualizar
   if(isMacico){
     var macSel=document.getElementById('carac-cor-macico');
@@ -207,6 +210,15 @@ function _checkCorMode(){
   }
   window._corMode='acm';
 }
+
+function _toggleMolduraNiveis(){
+  var tipo=parseInt((document.getElementById('plan-moldura-tipo')||{value:'1'}).value)||1;
+  var d2=document.getElementById('plan-moldura-dis2-row');
+  var d3=document.getElementById('plan-moldura-dis3-row');
+  if(d2) d2.style.display=tipo>=2?'':'none';
+  if(d3) d3.style.display=tipo>=3?'':'none';
+}
+window._toggleMolduraNiveis=_toggleMolduraNiveis;
 
 /* ══ DYNAMIC BLOCKS ══════════════════════════════════════ */
 let aC=0,lC=0;

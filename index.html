@@ -3250,6 +3250,31 @@ Equipe Projetta by Weiku</textarea>
           <input type="number" id="plan-moldura-alt-qty" value="2" min="1" max="6" step="1" onchange="planUpd();_osAutoUpdate()" style="width:50px;padding:5px 8px;border:1.5px solid #9c27b0;border-radius:6px;font-size:14px;background:#fce4ec;color:#6a1b9a;font-weight:900;text-align:center">
         </div>
       </div>
+      <!-- Tipo e distância moldura (só maciço) -->
+      <div id="plan-moldura-nivel-row" style="display:none;margin-top:8px;border-top:1px dashed #ce93d8;padding-top:8px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fr" style="border:none;padding:0;gap:4px;flex:0 0 120px">
+            <span class="fl" style="font-size:10px;font-weight:700;color:#6a1b9a">Tipo Moldura</span>
+            <select id="plan-moldura-tipo" onchange="_toggleMolduraNiveis();planUpd();_osAutoUpdate()" style="padding:4px 6px;border:1.5px solid #9c27b0;border-radius:5px;font-size:11px;background:#fce4ec;color:#6a1b9a;font-weight:700">
+              <option value="1">Simples</option>
+              <option value="2">Dupla</option>
+              <option value="3">Tripla</option>
+            </select>
+          </div>
+          <div class="fr" style="border:none;padding:0;gap:4px;flex:0 0 100px">
+            <span class="fl" style="font-size:10px;font-weight:700;color:#6a1b9a">Dist. 1ª (mm)</span>
+            <input type="number" id="plan-moldura-dis1" value="150" min="50" max="400" step="10" onchange="planUpd();_osAutoUpdate()" style="width:60px;padding:4px 6px;border:1.5px solid #9c27b0;border-radius:5px;font-size:12px;background:#fce4ec;color:#6a1b9a;font-weight:700;text-align:center">
+          </div>
+          <div class="fr" id="plan-moldura-dis2-row" style="display:none;border:none;padding:0;gap:4px;flex:0 0 100px">
+            <span class="fl" style="font-size:10px;font-weight:700;color:#8e24aa">Dist. 2ª (mm)</span>
+            <input type="number" id="plan-moldura-dis2" value="150" min="50" max="400" step="10" onchange="planUpd();_osAutoUpdate()" style="width:60px;padding:4px 6px;border:1.5px solid #8e24aa;border-radius:5px;font-size:12px;background:#f3e5f5;color:#8e24aa;font-weight:700;text-align:center">
+          </div>
+          <div class="fr" id="plan-moldura-dis3-row" style="display:none;border:none;padding:0;gap:4px;flex:0 0 100px">
+            <span class="fl" style="font-size:10px;font-weight:700;color:#6a1b9a">Dist. 3ª (mm)</span>
+            <input type="number" id="plan-moldura-dis3" value="150" min="50" max="400" step="10" onchange="planUpd();_osAutoUpdate()" style="width:60px;padding:4px 6px;border:1.5px solid #6a1b9a;border-radius:5px;font-size:12px;background:#e1bee7;color:#6a1b9a;font-weight:700;text-align:center">
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- SELEÇÃO DE COR DA CHAPA -->

@@ -284,58 +284,56 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     if(_moldRev==='MACICO'){
       var _N_COL=parseInt((document.getElementById('plan-moldura-larg-qty')||{value:2}).value)||2;
       var _N_ROW=parseInt((document.getElementById('plan-moldura-alt-qty')||{value:2}).value)||2;
-      var _CENTRO=1048, _DIS_BOR_B=150, _FRAME_B=75;
-      var _REF_B=parseInt((document.getElementById('plan-refilado')||{value:20}).value)||20;
+      var _CENTRO=1048, _FRAME_B=75;
+      var _nNiveis=parseInt((document.getElementById('plan-moldura-tipo')||{value:1}).value)||1;
+      var _dis1=parseInt((document.getElementById('plan-moldura-dis1')||{value:150}).value)||150;
+      var _dis2=parseInt((document.getElementById('plan-moldura-dis2')||{value:150}).value)||150;
+      var _dis3=parseInt((document.getElementById('plan-moldura-dis3')||{value:150}).value)||150;
+      var _disArr=[_dis1,_dis2,_dis3];
 
-      // Alturas boiserie
-      var _moldInf=_CENTRO-_DIS_BOR_B-_FRAME_B; // 823mm
-      var _moldSup=Math.round(PA_F-_CENTRO-_DIS_BOR_B-_FRAME_B);
+      // Gerar boiserie para cada nível de moldura
+      for(var _nv=0;_nv<_nNiveis;_nv++){
+        var _dedTotal=0;
+        for(var _di=0;_di<=_nv;_di++) _dedTotal+=_disArr[_di]*2;
+        var _nvLabel=_nNiveis>1?' N'+(_nv+1):'';
 
-      // Larguras MACIÇO (do CAD MACICO.xlsx):
-      // 1FLH: TAMPA = L - 140
-      // 2FLH: base = (L-97)/2, T1=base+16, T2=base-PIV, T3=T2-(TUB-TRANS)
-      // MOLDURA = TAMPA - 150 cada lado = TAMPA - 300
+        // Alturas boiserie (reduzem com cada nível)
+        var _moldInf=_CENTRO-_dedTotal/2-_FRAME_B;
+        var _moldSup=Math.round(PA_F-_CENTRO-_dedTotal/2-_FRAME_B);
 
-      if(nFolhas===1){
-        var _tampaW=L-140;
-        var _boisH=Math.round(_tampaW-300);
-        cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE HORIZ', compMM:_boisH,
-          qty:_N_ROW*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
-          perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
-        // Verticais: N_COL por face × 2 faces
-        cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT INF', compMM:_moldInf,
-          qty:_N_COL*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
-          perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
-        if(_N_ROW>=2 && _moldSup>50){
-          cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT SUP', compMM:_moldSup,
+        if(nFolhas===1){
+          var _tampaW=L-140;
+          var _boisH=Math.round(_tampaW-_dedTotal);
+          if(_boisH>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE HORIZ'+_nvLabel, compMM:_boisH,
+            qty:_N_ROW*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
+            perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
+          if(_moldInf>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT INF'+_nvLabel, compMM:Math.round(_moldInf),
             qty:_N_COL*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
             perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
-        }
-      } else {
-        // 2 folhas: fórmulas MACIÇO do CAD
-        var _baseMac=(L-97)/2;
-        var _T1=Math.round(_baseMac+16);
-        var _T2=Math.round(_baseMac-PIV);
-        var _T3=Math.round(_T2-TUB+TRANS);
-        var _bH1=Math.round(_T1-300);
-        var _bH2=Math.round(_T2-300);
-        var _bH3=Math.round(_T3-300);
-        // Horizontais: N_ROW barras × faces (T1=2faces, T2=4faces, T3=2faces)
-        cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE H (T1)', compMM:_bH1,
-          qty:_N_ROW*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
-          perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
-        cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE H (T2)', compMM:_bH2,
-          qty:_N_ROW*4, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
-          perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
-        cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE H (T3)', compMM:_bH3,
-          qty:_N_ROW*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
-          perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
-        // Verticais: N_COL por face × 4 faces (2 folhas × 2 lados)
-        cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT INF', compMM:_moldInf,
-          qty:_N_COL*4, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
-          perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
-        if(_N_ROW>=2 && _moldSup>50){
-          cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT SUP', compMM:_moldSup,
+          if(_N_ROW>=2 && _moldSup>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT SUP'+_nvLabel, compMM:_moldSup,
+            qty:_N_COL*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
+            perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
+        } else {
+          var _baseMac=(L-97)/2;
+          var _T1=Math.round(_baseMac+16);
+          var _T2=Math.round(_baseMac-PIV);
+          var _T3=Math.round(_T2-TUB+TRANS);
+          var _bH1=Math.round(_T1-_dedTotal);
+          var _bH2=Math.round(_T2-_dedTotal);
+          var _bH3=Math.round(_T3-_dedTotal);
+          if(_bH1>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE H (T1)'+_nvLabel, compMM:_bH1,
+            qty:_N_ROW*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
+            perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
+          if(_bH2>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE H (T2)'+_nvLabel, compMM:_bH2,
+            qty:_N_ROW*4, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
+            perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
+          if(_bH3>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE H (T3)'+_nvLabel, compMM:_bH3,
+            qty:_N_ROW*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
+            perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
+          if(_moldInf>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT INF'+_nvLabel, compMM:Math.round(_moldInf),
+            qty:_N_COL*4, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
+            perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
+          if(_N_ROW>=2 && _moldSup>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT SUP'+_nvLabel, compMM:_moldSup,
             qty:_N_COL*4, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
             perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
         }

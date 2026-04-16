@@ -1201,7 +1201,7 @@ window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
     var fields=['qtd','largura','altura','cor_ext','cor_int','cor_macico'];
-    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','ripado_total','ripado_2lados']);
+    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','ripado_total','ripado_2lados']);
     if(item.tipo==='fixo') fields=fields.concat(['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material']);
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
@@ -1324,6 +1324,10 @@ window._crmItensRender=function(){
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Molduras na Largura</label><input type="number" id="'+pre+'moldura_larg_qty" value="'+(item.moldura_larg_qty||2)+'" min="1" max="6" onwheel="event.preventDefault()"></div>';
       h+='<div class="crm-field"><label>Molduras na Altura</label><input type="number" id="'+pre+'moldura_alt_qty" value="'+(item.moldura_alt_qty||2)+'" min="1" max="6" onwheel="event.preventDefault()"></div>';
+      h+='<div class="crm-field"><label>Tipo Moldura</label><select id="'+pre+'moldura_tipo"><option value="1"'+(item.moldura_tipo==='1'||!item.moldura_tipo?' selected':'')+'>Simples</option><option value="2"'+(item.moldura_tipo==='2'?' selected':'')+'>Dupla</option><option value="3"'+(item.moldura_tipo==='3'?' selected':'')+'>Tripla</option></select></div>';
+      h+='<div class="crm-field"><label>Dist. 1ª (mm)</label><input type="number" id="'+pre+'moldura_dis1" value="'+(item.moldura_dis1||150)+'" min="50" max="400" step="10"></div>';
+      h+='<div class="crm-field"><label>Dist. 2ª (mm)</label><input type="number" id="'+pre+'moldura_dis2" value="'+(item.moldura_dis2||150)+'" min="50" max="400" step="10"></div>';
+      h+='<div class="crm-field"><label>Dist. 3ª (mm)</label><input type="number" id="'+pre+'moldura_dis3" value="'+(item.moldura_dis3||150)+'" min="50" max="400" step="10"></div>';
       h+='</div>';
       h+='</div>';
       // Config Ripado — visível para modelos 08, 15, 20, 21
@@ -1386,7 +1390,7 @@ window._crmItensRender=function(){
   // Re-apply selected values for selects (the replace trick doesn't always work)
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
-    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','cor_macico','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','ripado_total','ripado_2lados']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int','cor_macico'];
+    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','cor_macico','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','ripado_total','ripado_2lados']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int','cor_macico'];
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el&&item[f]) el.value=item[f];
@@ -1424,6 +1428,7 @@ window._crmItensToCardData=function(){
       clean.dist_borda_friso=item.dist_borda_friso||'';clean.largura_friso=item.largura_friso||'';clean.refilado=item.refilado||'20';
       clean.friso_vert=item.friso_vert||'0';clean.friso_horiz=item.friso_horiz||'0';clean.friso_h_qty=item.friso_h_qty||'3';clean.friso_h_esp=item.friso_h_esp||'10';clean.tem_alisar=!!item.tem_alisar;
       clean.moldura_rev=item.moldura_rev||'ACM';clean.moldura_larg_qty=item.moldura_larg_qty||'2';clean.moldura_alt_qty=item.moldura_alt_qty||'2';
+      clean.moldura_tipo=item.moldura_tipo||'1';clean.moldura_dis1=item.moldura_dis1||'150';clean.moldura_dis2=item.moldura_dis2||'150';clean.moldura_dis3=item.moldura_dis3||'150';
       clean.ripado_total=item.ripado_total||'NAO';clean.ripado_2lados=item.ripado_2lados||'SIM';
     }
     if(item.tipo==='fixo'){
@@ -1745,6 +1750,11 @@ function orcItemSelecionar(idx){
     if(it.moldura_rev) setF('plan-moldura-rev', it.moldura_rev);
     if(it.moldura_larg_qty) setF('plan-moldura-larg-qty', it.moldura_larg_qty);
     if(it.moldura_alt_qty) setF('plan-moldura-alt-qty', it.moldura_alt_qty);
+    if(it.moldura_tipo) setF('plan-moldura-tipo', it.moldura_tipo);
+    if(it.moldura_dis1) setF('plan-moldura-dis1', it.moldura_dis1);
+    if(it.moldura_dis2) setF('plan-moldura-dis2', it.moldura_dis2);
+    if(it.moldura_dis3) setF('plan-moldura-dis3', it.moldura_dis3);
+    if(typeof _toggleMolduraNiveis==='function') setTimeout(_toggleMolduraNiveis,100);
     if(it.refilado) setF('plan-refilado', it.refilado);
     // Ripado config
     if(it.ripado_total) setF('carac-ripado-total', it.ripado_total);
