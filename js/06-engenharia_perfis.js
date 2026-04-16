@@ -290,28 +290,20 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       var _dis2=parseInt((document.getElementById('plan-moldura-dis2')||{value:150}).value)||150;
       var _dis3=parseInt((document.getElementById('plan-moldura-dis3')||{value:150}).value)||150;
       var _disArr=[_dis1,_dis2,_dis3];
+      var _facesMult1=nFolhas===1?2:4; // faces para vert (1flh=2, 2flh=4)
 
-      // Gerar boiserie para cada nível de moldura
+      // Gerar boiserie para cada nível de moldura (Simples/Dupla/Tripla)
       for(var _nv=0;_nv<_nNiveis;_nv++){
         var _dedTotal=0;
         for(var _di=0;_di<=_nv;_di++) _dedTotal+=_disArr[_di]*2;
         var _nvLabel=_nNiveis>1?' N'+(_nv+1):'';
 
-        // Alturas boiserie (reduzem com cada nível)
-        var _moldInf=_CENTRO-_dedTotal/2-_FRAME_B;
-        var _moldSup=Math.round(PA_F-_CENTRO-_dedTotal/2-_FRAME_B);
-
+        // ── HORIZONTAIS (largura = TAMPA - dedução) ──
         if(nFolhas===1){
           var _tampaW=L-140;
           var _boisH=Math.round(_tampaW-_dedTotal);
           if(_boisH>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE HORIZ'+_nvLabel, compMM:_boisH,
             qty:_N_ROW*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
-            perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
-          if(_moldInf>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT INF'+_nvLabel, compMM:Math.round(_moldInf),
-            qty:_N_COL*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
-            perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
-          if(_N_ROW>=2 && _moldSup>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT SUP'+_nvLabel, compMM:_moldSup,
-            qty:_N_COL*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
             perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
         } else {
           var _baseMac=(L-97)/2;
@@ -330,11 +322,25 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
           if(_bH3>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE H (T3)'+_nvLabel, compMM:_bH3,
             qty:_N_ROW*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
             perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
+        }
+
+        // ── VERTICAIS (altura por bloco) ──
+        if(_N_ROW===2){
+          // 2 blocos: fixo no CENTRO=1048 (compatível com CAD)
+          var _moldInf=_CENTRO-_dedTotal/2-_FRAME_B;
+          var _moldSup=Math.round(PA_F-_CENTRO-_dedTotal/2-_FRAME_B);
           if(_moldInf>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT INF'+_nvLabel, compMM:Math.round(_moldInf),
-            qty:_N_COL*4, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
+            qty:_N_COL*_facesMult1, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
             perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
-          if(_N_ROW>=2 && _moldSup>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT SUP'+_nvLabel, compMM:_moldSup,
-            qty:_N_COL*4, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
+          if(_moldSup>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT SUP'+_nvLabel, compMM:_moldSup,
+            qty:_N_COL*_facesMult1, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
+            perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
+        } else {
+          // 3+ blocos: dividir igualmente
+          var _usableH=PA_F-_dedTotal;
+          var _blockH=Math.round(_usableH/_N_ROW);
+          if(_blockH>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE VERT'+_nvLabel, compMM:_blockH,
+            qty:_N_COL*_facesMult1*_N_ROW, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 A', obs:'R$150/BARRA',
             perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
         }
       }
