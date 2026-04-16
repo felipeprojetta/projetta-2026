@@ -1335,6 +1335,7 @@ window._crmItensRender=function(){
       h+='<div class="crm-field" style="'+(_showD2?'':'display:none')+'"><label>Dist. 2ª (mm)</label><input type="number" id="'+pre+'moldura_dis2" value="'+(item.moldura_dis2||150)+'" min="50" max="400" step="10"></div>';
       h+='<div class="crm-field" style="'+(_showD3?'':'display:none')+'"><label>Dist. 3ª (mm)</label><input type="number" id="'+pre+'moldura_dis3" value="'+(item.moldura_dis3||150)+'" min="50" max="400" step="10"></div>';
       h+='</div>';
+      h+='</div>'; // fechar moldura_wrap
       // Config Ripado — visível para modelos 08, 15, 20, 21
       var _isRipMod=['08','15','20','21'].indexOf(item.modelo)>=0;
       h+='<div id="'+pre+'ripado_wrap" style="'+(_isRipMod?'':'display:none')+'">';
