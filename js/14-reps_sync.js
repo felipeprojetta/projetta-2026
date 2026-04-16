@@ -160,7 +160,20 @@ function _saveRepCargo(nome,val){
   cargos[nome]=val;
   localStorage.setItem('projetta_rep_cargos',JSON.stringify(cargos));
   for(var i=0;i<REPS.length;i++){if(REPS[i].nome===nome){REPS[i].cargo=val;break;}}
-  _repToast('💾 Cargo de '+nome.split(' ')[0]+' atualizado');
+  // Auto-atualizar comissão pelo cargo
+  var _autoComm={'SHOWROOM':7,'REPRESENTANTE':6,'COMERCIAL INTERNO':6,'VENDA DIRETA':6,'CLIMAGLASS':6,'COMERCIAL INTERNO CORSTONE':6,'GERENTE COMERCIAL':6,'GERENTE COMERCIAL CORSTONE':6,'COORDENADOR DE VENDAS':6,'SUPERVISOR DE VENDAS':6,'GESTOR COMERCIAL':6};
+  var newComm=_autoComm[val]||6;
+  _saveRepComm(nome, newComm);
+  // Atualizar input de comissão na tela
+  var rows=document.querySelectorAll('tr');
+  rows.forEach(function(tr){
+    var td=tr.querySelector('td:first-child');
+    if(td&&td.textContent.trim()===nome){
+      var commInput=tr.querySelector('input[type="number"]');
+      if(commInput) commInput.value=newComm;
+    }
+  });
+  _repToast('💾 '+nome.split(' ')[0]+' → '+val+' ('+newComm+'%)');
 }
 function _repToast(msg){
   var t=document.createElement('div');
