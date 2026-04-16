@@ -100,43 +100,54 @@ function plnPecas(Lmm, Amm, fol, mod) {
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
     if (mod === '23acm' || mod === '23alu') {
       var _moldRev = (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value;
-      // Molduras só geram peças ACM quando revestimento = ACM
+      // Molduras ACM: peças 143mm largura no planificador (mesmas fórmulas da boiserie)
       if (_moldRev !== 'MACICO') {
-      var DIS_BOR_M = 150; // fixo: distância borda moldura
-      var FRAME_W = 75;    // largura do frame moldura
-      var CENTRO = 1048;   // centro fixo (base da fechadura)
-      var N_COL = parseInt((document.getElementById('plan-moldura-larg-qty')||{value:2}).value)||2;
-      var N_ROW = parseInt((document.getElementById('plan-moldura-alt-qty')||{value:2}).value)||2;
-      var folhaMult = fol == 2 ? 4 : 2; // frente+verso × folhas
+        var _MW=143; // largura fixa moldura ACM
+        var _N_COL_P=parseInt((document.getElementById('plan-moldura-larg-qty')||{value:2}).value)||2;
+        var _N_ROW_P=parseInt((document.getElementById('plan-moldura-alt-qty')||{value:2}).value)||2;
+        var _nNiveisP=parseInt((document.getElementById('plan-moldura-tipo')||{value:1}).value)||1;
+        var _dis1P=parseInt((document.getElementById('plan-moldura-dis1')||{value:150}).value)||150;
+        var _dis2P=parseInt((document.getElementById('plan-moldura-dis2')||{value:150}).value)||150;
+        var _dis3P=parseInt((document.getElementById('plan-moldura-dis3')||{value:150}).value)||150;
+        var _disArrP=[_dis1P,_dis2P,_dis3P];
+        var _CENTRO_P=1048;
+        var _fmP=fol==2?4:2; // faces (frente+verso × folhas)
 
-      // Alturas dos painéis
-      var moldAltInf = CENTRO - DIS_BOR_M - FRAME_W; // 823mm (inferior)
-      var moldAltSup = G4 - CENTRO - DIS_BOR_M - FRAME_W; // superior
+        for(var _nvP=0;_nvP<_nNiveisP;_nvP++){
+          var _dedP=0;
+          for(var _dj=0;_dj<=_nvP;_dj++) _dedP+=_disArrP[_dj]*2;
+          var _nvL=_nNiveisP>1?' N'+(_nvP+1):'';
 
-      // Largura dos painéis (1 folha)
-      if (fol == 1) {
-        var panelW = (G3 - 2*DIS_BOR_M - (N_COL+1)*FRAME_W) / N_COL;
-        // Horizontal: por coluna × (linhas+1) barras
-        r.push(['MOLD LAR', 143, Math.round(panelW), N_COL * (N_ROW+1) * folhaMult]);
-      } else {
-        // 2 folhas: cada folha tem largura diferente
-        var b2 = G2total / 2;
-        var vis1 = b2 + FGA + FGLA*2 - 1 - REF*2;
-        var vis2 = b2 + FGLA*2 - PIV - REF*2;
-        var vis3 = vis2 - TUB_SUP;
-        var panelW1 = (vis1 - 2*DIS_BOR_M - (N_COL+1)*FRAME_W) / N_COL;
-        var panelW2 = (vis2 - 2*DIS_BOR_M - (N_COL+1)*FRAME_W) / N_COL;
-        var panelW3 = (vis3 - 2*DIS_BOR_M - (N_COL+1)*FRAME_W) / N_COL;
-        r.push(['MOLD LAR 01', 143, Math.round(panelW1), N_COL * (N_ROW+1) * 2]); // folha 1 frente+verso
-        r.push(['MOLD LAR 02', 143, Math.round(panelW2), N_COL * (N_ROW+1) * 4]); // folha 2 (×2 tampas)
-        r.push(['MOLD LAR 03', 143, Math.round(panelW3), N_COL * (N_ROW+1) * 2]); // folha 2 menor
-      }
-      // Vertical inferior (823mm)
-      r.push(['MOLD ALT INF', 143, moldAltInf, (N_COL+1) * folhaMult]);
-      // Vertical superior (se N_ROW >= 2)
-      if (N_ROW >= 2 && moldAltSup > 50) {
-        r.push(['MOLD ALT SUP', 143, Math.round(moldAltSup), (N_COL+1) * folhaMult]);
-      }
+          // ── HORIZONTAIS: comprimento = TAMPA - dedução ──
+          if(fol==1){
+            var _tW=fW+2*REF; // TAMPA standard ACM
+            var _mH=Math.round(_tW-_dedP);
+            if(_mH>50) r.push(['MOLD HORIZ'+_nvL, _MW, _mH, _N_ROW_P*2]);
+          } else {
+            var _b2P=G2total/2;
+            var _T1P=Math.round(_b2P+FGA+FGLA*2-1-_dedP);
+            var _T2P=Math.round(_b2P+FGLA*2-PIV-_dedP);
+            var _T3P=Math.round(_T2P-TUB_SUP);
+            if(_T1P>50) r.push(['MOLD H (T1)'+_nvL, _MW, _T1P, _N_ROW_P*2]);
+            if(_T2P>50) r.push(['MOLD H (T2)'+_nvL, _MW, _T2P, _N_ROW_P*4]);
+            if(_T3P>50) r.push(['MOLD H (T3)'+_nvL, _MW, _T3P, _N_ROW_P*2]);
+          }
+
+          // ── VERTICAIS: altura por bloco ──
+          if(_N_ROW_P===2){
+            // Clássica: 2 blocos fixos no CENTRO
+            var _vInf=_CENTRO_P-_dedP/2-75;
+            var _vSup=Math.round(G4-_CENTRO_P-_dedP/2-75);
+            if(_vInf>50) r.push(['MOLD VERT INF'+_nvL, _MW, Math.round(_vInf), _N_COL_P*_fmP]);
+            if(_vSup>50) r.push(['MOLD VERT SUP'+_nvL, _MW, _vSup, _N_COL_P*_fmP]);
+          } else {
+            // Igual: N blocos
+            var _disGapP=_dedP/2;
+            var _usH=G4-(_N_ROW_P+1)*_disGapP;
+            var _blH=Math.round(_usH/_N_ROW_P);
+            if(_blH>50) r.push(['MOLD VERT'+_nvL, _MW, _blH, _N_COL_P*_fmP*_N_ROW_P]);
+          }
+        }
       } // end if not MACICO
     }
     if (mod === '15') {
