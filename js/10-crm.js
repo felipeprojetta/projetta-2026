@@ -868,17 +868,18 @@ window._crmGetCorOptions=function(mode){
 }
 
 window._crmSwitchCorMode=function(itemId){
-  var pre='crm-item-'+itemId+'-';
-  var modEl=document.getElementById(pre+'modelo');
+  var pre='crmit-'+itemId+'-';
   var revEl=document.getElementById(pre+'moldura_rev');
-  var mod=modEl?modEl.value:'';
   var rev=revEl?revEl.value:'ACM';
-  var mode=(mod==='23'&&rev==='MACICO')?'alu':'acm';
-  var opts=_crmGetCorOptions(mode);
-  ['cor_ext','cor_int'].forEach(function(f){
-    var sel=document.getElementById(pre+f);
-    if(sel){var v=sel.value;sel.innerHTML=opts;if(v)sel.value=v;}
-  });
+  var isMac=(rev==='MACICO');
+  // Toggle cor_int (ACM only) vs cor_macico (MACICO only)
+  var corIntEl=document.getElementById(pre+'cor_int');
+  var corMacEl=document.getElementById(pre+'cor_macico');
+  if(corIntEl){var f=corIntEl.closest('.crm-field');if(f)f.style.display=isMac?'none':'';}
+  if(corMacEl){var f=corMacEl.closest('.crm-field');if(f)f.style.display=isMac?'':'none';}
+  // Label cor_ext
+  var corExtLbl=document.getElementById(pre+'cor_ext');
+  if(corExtLbl){var lbl=corExtLbl.closest('.crm-field');if(lbl){var lb=lbl.querySelector('label');if(lb)lb.textContent=isMac?'Cor ACM':'Cor Externa';}}
 }
 
 window.crmItemAdd=function(){
@@ -1321,6 +1322,7 @@ window._crmItensRender=function(){
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Revestimento</label><select id="'+pre+'moldura_rev" onchange="_crmSwitchCorMode(\''+item.id+'\')"><option value="ACM"'+(item.moldura_rev==='ACM'||!item.moldura_rev?' selected':'')+'>ACM 4mm</option><option value="MACICO"'+(item.moldura_rev==='MACICO'?' selected':'')+'>Maciço 2.5mm (Boiserie)</option></select></div>';
       h+='</div>';
+      // Config moldura para modelo 23 (ACM e MACICO)
       h+='<div class="crm-row">';
       h+='<input type="hidden" id="'+pre+'moldura_larg_qty" value="'+(item.moldura_larg_qty||2)+'">';
       var _isIgual=item.moldura_divisao==='igual';
@@ -1332,7 +1334,6 @@ window._crmItensRender=function(){
       var _showD3=(item.moldura_tipo==='3');
       h+='<div class="crm-field" style="'+(_showD2?'':'display:none')+'"><label>Dist. 2ª (mm)</label><input type="number" id="'+pre+'moldura_dis2" value="'+(item.moldura_dis2||150)+'" min="50" max="400" step="10"></div>';
       h+='<div class="crm-field" style="'+(_showD3?'':'display:none')+'"><label>Dist. 3ª (mm)</label><input type="number" id="'+pre+'moldura_dis3" value="'+(item.moldura_dis3||150)+'" min="50" max="400" step="10"></div>';
-      h+='</div>';
       h+='</div>';
       // Config Ripado — visível para modelos 08, 15, 20, 21
       var _isRipMod=['08','15','20','21'].indexOf(item.modelo)>=0;
@@ -1362,20 +1363,16 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"></div></div>';
     }
     
-    // Cores: Maciço → 1 ACM + Cor Maciço (ALU_DATA) | ACM → Ext + Int
+    // Cores: sempre renderizar ext + int + macico, toggle visibilidade
     var _isMacItem = item.moldura_rev === 'MACICO';
     h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🎨 Cores</div>';
     h+='<div class="crm-row">';
-    if(_isMacItem){
-      h+='<div class="crm-field"><label>Cor ACM</label><select id="'+pre+'cor_ext" style="font-size:10px">'+corOpts.replace('value="'+item.cor_ext+'"','value="'+item.cor_ext+'" selected')+'</select></div>';
-      // Cor Maciço com opções do ALU_DATA
-      var _aluCorHtml='<option value="">— Selecione —</option>';
-      if(typeof ALU_DATA!=='undefined'){ALU_DATA.forEach(function(g){_aluCorHtml+='<optgroup label="'+g.g+'">';var _cs={};g.o.forEach(function(it){var nm=it.l.split('·')[0].split('×')[0].trim();if(!_cs[nm])_cs[nm]=it.l.split('·')[0].trim();});Object.keys(_cs).forEach(function(c){_aluCorHtml+='<option value="'+_cs[c]+'"'+(_cs[c]===item.cor_macico?' selected':'')+'>'+_cs[c]+'</option>';});_aluCorHtml+='</optgroup>';});}
-      h+='<div class="crm-field"><label>🔷 Cor Maciço</label><select id="'+pre+'cor_macico" style="font-size:10px;border-color:#6c3483;color:#6c3483">'+_aluCorHtml+'</select></div>';
-    } else {
-      h+='<div class="crm-field"><label>Cor Externa</label><select id="'+pre+'cor_ext" style="font-size:10px">'+corOpts.replace('value="'+item.cor_ext+'"','value="'+item.cor_ext+'" selected')+'</select></div>';
-      h+='<div class="crm-field"><label>Cor Interna</label><select id="'+pre+'cor_int" style="font-size:10px">'+corOpts.replace('value="'+item.cor_int+'"','value="'+item.cor_int+'" selected')+'</select></div>';
-    }
+    h+='<div class="crm-field"><label>'+(_isMacItem?'Cor ACM':'Cor Externa')+'</label><select id="'+pre+'cor_ext" style="font-size:10px">'+corOpts.replace('value="'+item.cor_ext+'"','value="'+item.cor_ext+'" selected')+'</select></div>';
+    h+='<div class="crm-field" style="'+(_isMacItem?'display:none':'')+'"><label>Cor Interna</label><select id="'+pre+'cor_int" style="font-size:10px">'+corOpts.replace('value="'+item.cor_int+'"','value="'+item.cor_int+'" selected')+'</select></div>';
+    // Cor Maciço com opções do ALU_DATA
+    var _aluCorHtml='<option value="">— Selecione —</option>';
+    if(typeof ALU_DATA!=='undefined'){ALU_DATA.forEach(function(g){_aluCorHtml+='<optgroup label="'+g.g+'">';var _cs={};g.o.forEach(function(it){var nm=it.l.split('·')[0].split('×')[0].trim();if(!_cs[nm])_cs[nm]=it.l.split('·')[0].trim();});Object.keys(_cs).forEach(function(c){_aluCorHtml+='<option value="'+_cs[c]+'"'+(_cs[c]===item.cor_macico?' selected':'')+'>'+_cs[c]+'</option>';});_aluCorHtml+='</optgroup>';});}
+    h+='<div class="crm-field" style="'+(_isMacItem?'':'display:none')+'"><label>🔷 Cor Maciço</label><select id="'+pre+'cor_macico" style="font-size:10px;border-color:#6c3483;color:#6c3483">'+_aluCorHtml+'</select></div>';
     h+='</div>';
     
     // Actions
