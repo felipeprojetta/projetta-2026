@@ -72,8 +72,8 @@ function plnPecas(Lmm, Amm, fol, mod) {
         r.push(['TAMPA MAIOR 02', _T2m, G4, 2, _mAlu]);
         r.push(['TAMPA MAIOR 03', _T3m, G4, 1, _mAlu]);
       } else if(mod === '23acm' || mod === '23alu'){
-        // ACM 2FLH mod23: base = (L-107)/2 (ref Excel ACM)
-        var _base2Acm = (L - 2*FGL - 2*TUB_SUP) / 2;
+        // ACM 2FLH mod23: base = (L-107)/2 (ref Excel ACM) [107 = 2*FGL(2.5) + 2*TUB]
+        var _base2Acm = (L - 5 - 2*TUB_SUP) / 2;
         var _T1a = _base2Acm + FGA + FGLA*2 - 1;
         var _T2a = _base2Acm + FGLA*2 - PIV;
         var _T3a = _T2a - 38; // deducção fixa 38mm para ACM mod23
@@ -137,7 +137,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
             if(_mH>50) r.push(['MOLD HORIZ'+_nvL, _MW, _mH, _N_ROW_P*2]);
           } else {
             // 2flh: usar fórmulas ACM mod23 (base=(L-107)/2)
-            var _bAcm=(L-2*FGL-2*TUB_SUP)/2;
+            var _bAcm=(L-5-2*TUB_SUP)/2;
             var _aT1=_bAcm+FGA+FGLA*2-1;
             var _aT2=_bAcm+FGLA*2-PIV;
             var _aT3=_aT2-38;
