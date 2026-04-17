@@ -136,6 +136,20 @@ function updateKPIs(all){
   // Representante Weiku filter
   var wreps=[...new Set(all.map(function(o){return o.wrep;}).filter(Boolean))].sort();
   var ws=el('crm-f-wrep-filter');if(ws){var cv3=ws.value;ws.innerHTML='<option value="">🏢 Representante</option>';wreps.forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;if(r===cv3)o.selected=true;ws.appendChild(o);});}
+  // Cidade filter
+  var cidades=[...new Set(all.map(function(o){return o.cidade;}).filter(Boolean))].sort();
+  var cs=el('crm-f-cidade-filter');if(cs){var cv4=cs.value;cs.innerHTML='<option value="">🏙 Cidade</option>';cidades.forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;if(c===cv4)o.selected=true;cs.appendChild(o);});}
+  // Estado filter
+  var estados=[...new Set(all.map(function(o){return o.estado;}).filter(Boolean))].sort();
+  var es=el('crm-f-estado-filter');if(es){var cv5=es.value;es.innerHTML='<option value="">📍 Estado</option>';estados.forEach(function(e){var o=document.createElement('option');o.value=e;o.textContent=e;if(e===cv5)o.selected=true;es.appendChild(o);});}
+  // Cor filter (from itens cor_ext)
+  var cores=[];all.forEach(function(o){if(o.cor_ext)cores.push(o.cor_ext);if(o.itens)o.itens.forEach(function(it){if(it.cor_ext)cores.push(it.cor_ext);});});
+  cores=[...new Set(cores)].sort();
+  var crs=el('crm-f-cor-filter');if(crs){var cv6=crs.value;crs.innerHTML='<option value="">🎨 Cor</option>';cores.forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;if(c===cv6)o.selected=true;crs.appendChild(o);});}
+  // Modelo filter (from itens modelo)
+  var modelos=[];all.forEach(function(o){if(o.modelo)modelos.push(o.modelo);if(o.itens)o.itens.forEach(function(it){if(it.modelo)modelos.push(it.modelo);});});
+  modelos=[...new Set(modelos)].sort(function(a,b){return(parseInt(a)||99)-(parseInt(b)||99);});
+  var ms=el('crm-f-modelo-filter');if(ms){var cv7=ms.value;ms.innerHTML='<option value="">📐 Modelo</option>';modelos.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent='Mod. '+m;if(m===cv7)o.selected=true;ms.appendChild(o);});}
 }
 
 /* ── Render ──────────────────────────────────────── */
@@ -146,12 +160,17 @@ window.crmRender=function(){
   var q=(val('crm-search')).toLowerCase();
   var fR=val('crm-f-resp-filter'),fO=val('crm-f-origin-filter'),fS=val('crm-f-scope-filter');
   var fReg=val('crm-f-regiao-filter'),fGer=val('crm-f-gerente-filter'),fWrep=val('crm-f-wrep-filter');
+  var fCidade=val('crm-f-cidade-filter'),fEstado=val('crm-f-estado-filter'),fCor=val('crm-f-cor-filter'),fModelo=val('crm-f-modelo-filter');
   var fil=all.filter(function(o){
     if(q&&!(o.cliente||'').toLowerCase().includes(q)&&!(o.produto||'').toLowerCase().includes(q)&&!(o.cidade||'').toLowerCase().includes(q)&&!(o.wrep||'').toLowerCase().includes(q)&&!(o.agp||'').toLowerCase().includes(q)&&!(o.reserva||'').toLowerCase().includes(q))return false;
     if(fR&&o.responsavel!==fR)return false;
     if(fO&&o.origem!==fO)return false;
     if(fS&&o.scope!==fS)return false;
     if(fWrep&&(o.wrep||'')!==fWrep)return false;
+    if(fCidade&&(o.cidade||'')!==fCidade)return false;
+    if(fEstado&&(o.estado||'')!==fEstado)return false;
+    if(fCor){var _hasC=false;if((o.cor_ext||'')===fCor)_hasC=true;if(!_hasC&&o.itens)o.itens.forEach(function(it){if((it.cor_ext||'')===fCor)_hasC=true;});if(!_hasC)return false;}
+    if(fModelo){var _hasM=false;if((o.modelo||'')===fModelo)_hasM=true;if(!_hasM&&o.itens)o.itens.forEach(function(it){if((it.modelo||'')===fModelo)_hasM=true;});if(!_hasM)return false;}
     if(fReg){
       var oreg=getRepRegiao(o.wrep);
       if(!oreg)return false;
