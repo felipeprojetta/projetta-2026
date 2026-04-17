@@ -1558,7 +1558,7 @@ function calcPerfis(){
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px">'+aprovStr+'</td>'
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px">'+r.kgLiq.toFixed(3).replace('.',',')+'</td>'
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-weight:600;font-size:10px">'+r.kgBruto.toFixed(3).replace('.',',')+'</td>'
-      +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px;color:#666">R$ '+r.precoKg.toFixed(0)+'</td>'
+      +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px;color:#666">R$ '+r.precoKg.toFixed(2)+'</td>'
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px;color:'+(ip?'#8e44ad':'#bbb')+'">'+(ip?'R$ '+r.custoPintura.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</td>'
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-weight:700;font-size:11px;color:var(--navy)">R$ '+r.custoTotal.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
       +'</tr>';
@@ -1633,10 +1633,10 @@ function _fabSetSysValue(field, value){
   var m = _fabFieldMap[field];
   if(!m) return;
   var sysEl = document.getElementById(m.sysval);
-  if(sysEl) sysEl.textContent = 'R$ ' + v.toLocaleString('pt-BR');
+  if(sysEl) sysEl.textContent = 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   if(!window._fabManual[field]){
     var inp = document.getElementById(m.input);
-    if(inp) inp.value = v.toLocaleString('pt-BR');
+    if(inp) inp.value = v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
     var alertEl = document.getElementById(m.alert);
     if(alertEl) alertEl.style.display = 'none';
   } else {
@@ -1687,7 +1687,7 @@ function _fabRestore(field){
   if(!m) return;
   window._fabManual[field] = false;
   var inp = document.getElementById(m.input);
-  if(inp) inp.value = (window._fabSysValues[field]||0).toLocaleString('pt-BR');
+  if(inp) inp.value = (window._fabSysValues[field]||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   _fabRestoreInputStyle(field);
   var alertEl = document.getElementById(m.alert);
   if(alertEl) alertEl.style.display = 'none';

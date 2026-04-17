@@ -3444,7 +3444,7 @@ window.crmGerarRelatorio=function(){
   });
 
   // Gerar HTML do relatório
-  var brl=function(v){return'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});};
+  var brl=function(v){return'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
   var _esc=function(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;};
   var hoje=new Date().toLocaleDateString('pt-BR');
   var h='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório '+titulo+' — '+hoje+'</title>';

@@ -85,7 +85,7 @@ function _renderPins(filterStage){
         if(!c)return;
         var d=item.deal;
         var color=STAGE_COLORS[d.stage]||'#003144';
-        var valor=d.valor?'R$ '+Number(d.valor).toLocaleString('pt-BR',{minimumFractionDigits:0}):'—';
+        var valor=d.valor?'R$ '+Number(d.valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
         var popup='<div style="font-size:12px;line-height:1.6;min-width:160px"><b>'+_esc(d.cliente||'Sem nome')+'</b><br>'
           +'📍 '+(d.cidade||'')+(d.estado?' – '+d.estado:'')+'<br>'
           +'📦 '+(d.produto||'—')+'<br>'

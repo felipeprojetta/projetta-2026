@@ -283,7 +283,7 @@ function rm(t,id){document.getElementById(t+'-blk-'+id).remove();calc();}
 const $=id=>document.getElementById(id);
 window.$=$; // Ensure $ is globally accessible
 const n=id=>{var v=$(id).value;if(typeof v==='string')v=v.replace(/\./g,'').replace(',','.');return parseFloat(v)||0;};
-const brl=v=>'R$ '+Math.round(v).toLocaleString('pt-BR');
+const brl=v=>'R$ '+(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const br2=v=>'R$ '+(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const pf=v=>(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%';
 const fmtBRL=v=>v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});

@@ -589,8 +589,8 @@ function calcInstIntl(){
   var mkp=custoTotal>0?((precoTabela/custoTotal-1)*100):0;
   var mlPct=precoFat>0?(lucroLiq/precoFat*100):0;
 
-  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});};
-  var usd=function(v){return 'US$ '+(v/cambio).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});};
+  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var usd=function(v){return 'US$ '+(v/cambio).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
 
   var res=document.getElementById('inst-intl-result');
   if(res && custoTotal>0){
