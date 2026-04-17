@@ -70,7 +70,7 @@ function captureFormData(){
     'folhas-porta','rep-sel','cep-cliente','ac-fechadura','qtd-fechaduras',
     'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso','carac-ripado-total','carac-ripado-2lados',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
-    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-acm-cor','plan-acm-qty',
+    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-moldura-tipo','plan-moldura-dis1','plan-moldura-dis2','plan-moldura-dis3','plan-moldura-divisao','plan-acm-cor','plan-acm-qty','plan-alu-cor','plan-alu-qty','plan-chapa-alu','plan-refilado','carac-cor-macico',
     'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
     'dias','pessoas','diaria','km','carros','desl-override','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp',
     'overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto','markup-desc'];
@@ -222,7 +222,7 @@ function restoreFormData(data){
     'folhas-porta','rep-sel','cep-cliente','ac-fechadura','qtd-fechaduras',
     'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso','carac-ripado-total','carac-ripado-2lados',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
-    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-acm-cor','plan-acm-qty',
+    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-moldura-tipo','plan-moldura-dis1','plan-moldura-dis2','plan-moldura-dis3','plan-moldura-divisao','plan-acm-cor','plan-acm-qty','plan-alu-cor','plan-alu-qty','plan-chapa-alu','plan-refilado','carac-cor-macico',
     'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
     'dias','pessoas','diaria','km','carros','desl-override','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp',
     'overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto'];
@@ -231,7 +231,7 @@ function restoreFormData(data){
   // Restaurar visibilidade puxador externo e modelo preview
   togglePuxadorTam();
   toggleInstQuem();
-  onModeloChange();
+  if(!window._suppressAutoSelect) onModeloChange();
   // Restaurar alisar
   var _rAlEl=document.getElementById('carac-tem-alisar');
   if(_rAlEl&&data['carac-tem-alisar']!==undefined) _rAlEl.checked=(data['carac-tem-alisar']==='1');
@@ -255,11 +255,13 @@ function restoreFormData(data){
     });
   }
 
-  // Disparar eventos dependentes
-  if(typeof onRepChange==='function') try{onRepChange();}catch(e){}
-  if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
-  if(typeof syncFolhas==='function'&&data['folhas-porta']) try{syncFolhas(data['folhas-porta']);}catch(e){}
-  if(typeof planUpd==='function') try{planUpd();}catch(e){}
+  // Disparar eventos dependentes (NÃO quando restaurando snapshot válido)
+  if(!window._suppressAutoSelect){
+    if(typeof onRepChange==='function') try{onRepChange();}catch(e){}
+    if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
+    if(typeof syncFolhas==='function'&&data['folhas-porta']) try{syncFolhas(data['folhas-porta']);}catch(e){}
+    if(typeof planUpd==='function') try{planUpd();}catch(e){}
+  }
   // Restaurar ATP status
   if(data._isATP){
     window._isATP = true;
@@ -458,7 +460,12 @@ window.loadRevision=function(id,revIdx){
   _clearResultDisplay();
   
   // 5. Restaurar dados do formulário
-  if(rev.data) restoreFormData(rev.data);
+  if(rev.data){
+    // Flag para evitar auto-seleção durante restore quando snapshot válido
+    if(snapValid) window._suppressAutoSelect=true;
+    restoreFormData(rev.data);
+    window._suppressAutoSelect=false;
+  }
   updateBanner(entry.name, rev.label);
   
   // 6. Avaliar snapshot
