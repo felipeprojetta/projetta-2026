@@ -289,7 +289,7 @@ function buildCard(o,st,isFazerOrc){
     '<div class="crm-card-resp">'+
       (o.responsavel?'<div class="crm-avatar" style="background:'+nameColor(o.responsavel)+'">'+o.responsavel.charAt(0)+'</div><span>'+escH(o.responsavel.split(' ')[0])+'</span>':'<span style="color:var(--hint)">Sem resp.</span>')+
     '</div>'+
-    (o.fechamento?'<div class="crm-card-date" style="color:'+(urgente?'#e74c3c':'var(--hint)')+'">'+dateLabel(o.fechamento)+'</div>':'')+
+    (o.fechamento&&o.stage==='won'?'<div class="crm-card-date" style="color:#27ae60;font-weight:700">📅 Fechado: '+dateLabel(o.fechamento)+'</div>':'')+
   '</div>';
 
   // Fazer Orçamento button
@@ -351,7 +351,10 @@ window.crmQuickMove=function(id){
 };
 window.crmMoveStage=function(id,sid){
   var data=cLoad();var i=data.findIndex(function(o){return o.id===id;});
-  if(i>=0){data[i].stage=sid;data[i].updatedAt=new Date().toISOString();cSave(data);crmRender();
+  if(i>=0){data[i].stage=sid;data[i].updatedAt=new Date().toISOString();
+    // Auto-set data fechamento quando mover para Ganho
+    if(sid==='won'&&!data[i].fechamento){data[i].fechamento=new Date().toISOString().slice(0,10);}
+    cSave(data);crmRender();
     if(sid==='s3b'&&typeof _onStageOrcamentoPronto==='function')_onStageOrcamentoPronto();
   }
 };
@@ -568,9 +571,9 @@ window.crmUpdateStageDisplay=function(){
   // Prioridade + Potencial: show from Qualificação (index 1) onwards
   var priField=el('crm-prioridade-field');
   if(priField) priField.style.display=(idx>=1)?'grid':'none';
-  // Previsão de Fechamento: hide on Prospecção (index 0)
+  // Data do Fechamento: só quando Fechado Ganho
   var fechField=el('crm-fechamento-field');
-  if(fechField) fechField.style.display=(idx>=1)?'block':'none';
+  if(fechField) fechField.style.display=(sid==='won')?'block':'none';
   // Reserva: show from Fazer Orçamento (index 1) onwards
   var resRow=el('crm-reserva-agp-row');
   if(resRow) resRow.style.display=(idx>=1)?'grid':'none';
