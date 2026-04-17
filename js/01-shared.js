@@ -282,7 +282,11 @@ function rm(t,id){document.getElementById(t+'-blk-'+id).remove();calc();}
 /* ══ HELPERS ═════════════════════════════════════════════ */
 const $=id=>document.getElementById(id);
 window.$=$; // Ensure $ is globally accessible
-const n=id=>{var v=$(id).value;if(typeof v==='string')v=v.replace(/\./g,'').replace(',','.');return parseFloat(v)||0;};
+const n=id=>{var v=$(id).value;if(typeof v==='string'){
+  // Se tem vírgula: formato BR (1.234,56) → remover pontos, vírgula→ponto
+  if(v.indexOf(',')>=0) v=v.replace(/\./g,'').replace(',','.');
+  // Se só tem ponto: já é decimal (3.5) → não mexer
+}return parseFloat(v)||0;};
 const brl=v=>'R$ '+(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const br2=v=>'R$ '+(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const pf=v=>(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%';
