@@ -2476,6 +2476,18 @@ window.crmOrcamentoPronto=function(){
     var _snap=null;
     try{_snap=captureSnapshot();}catch(e){}
     var _vals=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
+    // Fallback extra: ler direto do _calcResult se DOM falhou
+    if(_vals.tab===0&&_vals.fat===0&&window._calcResult){
+      _vals.tab=window._calcResult._tabTotal||0;
+      _vals.fat=window._calcResult._fatTotal||0;
+    }
+    // Fallback: ler do snapshot
+    if(_vals.tab===0&&_vals.fat===0&&_snap){
+      var _parseSnap=function(s){return parseFloat((s||'0').toString().replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.'))||0;};
+      _vals.tab=_parseSnap(_snap.tabTotal);
+      _vals.fat=_parseSnap(_snap.fatTotal);
+    }
+    console.log('💾 _salvarSnapshotECRM: tab='+_vals.tab+' fat='+_vals.fat);
     if(currentId){
       var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
       if(_oi3>=0){
@@ -2490,13 +2502,14 @@ window.crmOrcamentoPronto=function(){
     if(id){
       var _crmD=cLoad();var _ci=_crmD.findIndex(function(o){return o.id===id;});
       if(_ci>=0){
-        _crmD[_ci].valor=_vals.fat;
+        _crmD[_ci].valor=_vals.fat||_vals.tab;
         _crmD[_ci].valorTabela=_vals.tab;
         _crmD[_ci].valorFaturamento=_vals.fat;
         if(_crmD[_ci].revisoes&&_crmD[_ci].revisoes.length>0){
           var _lr=_crmD[_ci].revisoes[_crmD[_ci].revisoes.length-1];
           _lr.valorTabela=_vals.tab;
           _lr.valorFaturamento=_vals.fat;
+          console.log('📊 Revisão '+((_crmD[_ci].revisoes.length-1))+' atualizada: Tab='+_vals.tab+' Fat='+_vals.fat);
         }
         cSave(_crmD);
         if(typeof crmRender==='function') crmRender();
@@ -2507,11 +2520,19 @@ window.crmOrcamentoPronto=function(){
     // Mostrar botão Gerar PDF
     var pdfBtn=document.getElementById('crm-gerar-pdf-btn');if(pdfBtn)pdfBtn.style.display='inline-flex';
     // Toast
-    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='✅ '+revLabel+' congelada! Valores salvos no card. Clique "Gerar PDF" para proposta.';document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
+    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='✅ '+revLabel+' congelada! Tab: '+brl(_vals.tab)+' Fat: '+brl(_vals.fat);document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
     if(typeof crmRender==='function') crmRender();
   };
-  // Se custo já foi gerado (usuário clicou Gerar Custo antes) → salvar DIRETO sem recalcular
-  if(window._osGeradoUmaVez && window._custoCalculado){
+  // Se custo já foi gerado → salvar DIRETO
+  // SEMPRE tenta salvar direto primeiro (valores podem estar no DOM)
+  var _hasValues=false;
+  var _checkTab=document.getElementById('m-tab');
+  var _checkFat=document.getElementById('d-fat');
+  if(_checkTab&&_checkTab.textContent&&_checkTab.textContent!=='—'&&_checkTab.textContent!=='R$ 0,00') _hasValues=true;
+  if(_checkFat&&_checkFat.textContent&&_checkFat.textContent!=='—'&&_checkFat.textContent!=='R$ 0,00') _hasValues=true;
+  if(window._calcResult&&(window._calcResult._tabTotal>0||window._calcResult._fatTotal>0)) _hasValues=true;
+
+  if(_hasValues){
     _salvarSnapshotECRM();
   } else {
     // Custo não foi gerado → calcular primeiro, depois salvar
@@ -2682,16 +2703,22 @@ window.crmVerProposta=function(cardId, revIndex){
 
 function _captureOrcValues(){
   // LER DO DOM — é o que o usuário VÊ na tela
-  var valorTabEl=document.getElementById('m-tab');
-  var valorTab=0;
-  if(valorTabEl){var vb=valorTabEl.textContent.replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.');valorTab=parseFloat(vb)||0;}
-  var valorFatEl=document.getElementById('d-fat');
-  var valorFat=0;
-  if(valorFatEl){var vt=valorFatEl.textContent.replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.');valorFat=parseFloat(vt)||0;}
-  // Fallback: _calcResult (se DOM vazio)
-  if(valorTab===0&&valorFat===0){
-    var cr=window._calcResult;
-    if(cr&&cr._tabTotal>0) return{tab:cr._tabTotal,fat:cr._fatTotal};
+  var _parse=function(el){
+    if(!el||!el.textContent)return 0;
+    var v=el.textContent.replace(/[^\d,.]/g,'');
+    if(!v)return 0;
+    // Se tem vírgula → BR format
+    if(v.indexOf(',')>=0) v=v.replace(/\./g,'').replace(',','.');
+    return parseFloat(v)||0;
+  };
+  var valorTab=_parse(document.getElementById('m-tab'));
+  var valorFat=_parse(document.getElementById('d-fat'));
+  // Fallback 1: outros elementos
+  if(valorFat===0) valorFat=_parse(document.getElementById('m-fat'));
+  // Fallback 2: _calcResult
+  if(valorTab===0&&valorFat===0&&window._calcResult){
+    valorTab=window._calcResult._tabTotal||0;
+    valorFat=window._calcResult._fatTotal||0;
   }
   return{tab:valorTab,fat:valorFat};
 }
