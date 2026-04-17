@@ -481,10 +481,10 @@ window.loadRevision=function(id,revIdx){
   
   // 9. Layout + recalc (único timeout)
   _revDelay(function(){
-    if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
     if(typeof toggleInstQuem==='function') try{toggleInstQuem();}catch(e){}
     // Se snapshot válido: NÃO recalcular — preservar valores salvos
     if(snapValid && !window._forceUnlockAfterLoad){
+      // onModeloChange NÃO roda (dispara _autoSelectAndRun → sobrescreve cor/chapa)
       // Apenas restaurar comissão e horas do snapshot
       if(rev.snapshot){
         var s=rev.snapshot;
@@ -504,6 +504,7 @@ window.loadRevision=function(id,revIdx){
       }
     } else {
       // Sem snapshot ou forceUnlock: recalcular tudo
+      if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
       if(typeof planUpd==='function') try{planUpd();}catch(e){}
       if(!snapValid){
         window._snapshotLock=false;
