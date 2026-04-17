@@ -1914,6 +1914,10 @@ window.crmFazerOrcamento=function(id){
       // Backward compat: single item
       orcItensFromCRM([{tipo:'porta_pivotante',qtd:1,largura:opp.largura,altura:opp.altura,modelo:opp.modelo||'',abertura:opp.abertura||'PIVOTANTE',folhas:opp.folhas||'1',cor_ext:opp.cor_ext||'',cor_int:opp.cor_int||'',cor_macico:opp.cor_macico||'',moldura_rev:opp.moldura_rev||''}], opp.cliente);
     }
+    // Sync multi-porta para planificador
+    if(window._orcItens && window._orcItens.length > 1){
+      if(typeof _syncOrcToMpItens==='function') setTimeout(_syncOrcToMpItens, 300);
+    }
     // Transfer instalação — internacional auto-seleciona instalação internacional
     var instQuem=opp.inst_quem||'PROJETTA';
     if(opp.scope==='internacional') instQuem='INTERNACIONAL';
@@ -2002,79 +2006,7 @@ window.crmFazerOrcamento=function(id){
       var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='none';
       // ── Sincronizar itens CRM → multi-porta para cálculo combinado ──
       if(window._orcItens && window._orcItens.length > 1){
-        window._mpItens=[];
-        console.log('🔄 CRM→_mpItens sync: '+window._orcItens.length+' itens');
-        window._orcItens.forEach(function(oi,idx){
-          if(oi.tipo!=='porta_pivotante') return;
-          console.log('  Item '+(idx+1)+': '+oi.largura+'×'+oi.altura+' mod='+oi.modelo+' fech='+oi.fech_mec);
-          var mp={id:'mp_crm_'+idx};
-          mp['largura']=String(oi.largura||'');
-          mp['altura']=String(oi.altura||'');
-          mp['qtd-portas']=String(oi.qtd||'1');
-          mp['folhas-porta']=String(oi.folhas||'1');
-          mp['carac-modelo']=oi.modelo||'01';
-          mp['carac-abertura']=oi.abertura||'PIVOTANTE';
-          mp['carac-cor-ext']=oi.cor_ext||'';
-          mp['carac-cor-int']=oi.cor_int||'';
-          mp['carac-fech-mec']=oi.fech_mec||'';
-          mp['carac-fech-dig']=oi.fech_dig||'';
-          mp['carac-cilindro']=oi.cilindro||'';
-          mp['carac-puxador']=oi.puxador||'';
-          mp['carac-pux-tam']=oi.pux_tam||'1.5';
-          mp['carac-dist-borda-cava']=oi.dist_borda_cava||'210';
-          mp['carac-largura-cava']=oi.largura_cava||'150';
-          mp['carac-dist-borda-friso']=oi.dist_borda_friso||'';
-          mp['carac-largura-friso']=oi.largura_friso||'';
-          mp['carac-friso-vert']=oi.friso_vert||'0';
-          mp['carac-friso-horiz']=oi.friso_horiz||'0';
-          mp['carac-tem-alisar']=oi.tem_alisar?'1':'0';
-          mp['carac-ripado-total']=oi.ripado_total||'NAO';
-          mp['carac-ripado-2lados']=oi.ripado_2lados||'SIM';
-          mp['plan-refilado']=oi.refilado||'20';
-          mp['tem-fixo']=false;
-          mp._fixos=[];
-          mp._modelo=oi.modelo||'01';
-          mp._tipo=oi.tipo||'porta_pivotante';
-          var modOpt=document.querySelector('#carac-modelo option[value="'+oi.modelo+'"]');
-          mp._modeloTxt=modOpt?modOpt.textContent:(oi.modelo||'');
-          mp._largura=parseFloat(oi.largura)||0;
-          mp._altura=parseFloat(oi.altura)||0;
-          mp._qtd=parseInt(oi.qtd)||1;
-          mp._folhas=parseInt(oi.folhas)||1;
-          window._mpItens.push(mp);
-        });
-        window._mpEditingIdx=-1;
-        if(typeof _mpRender==='function') _mpRender();
-        // Mostrar painel multi-porta no orçamento
-        var mpSec=document.getElementById('multi-porta-section');
-        if(mpSec) mpSec.style.display='';
-        console.log('✅ _mpItens criados: '+window._mpItens.length+' itens → '+window._mpItens.map(function(m){return m._largura+'×'+m._altura;}).join(', '));
-        // Garantir form com dados do primeiro item para gerarCustoTotal
-        var _first=window._mpItens[0];
-        if(_first){
-          document.getElementById('largura').value=_first._largura||_first['largura']||'';
-          document.getElementById('altura').value=_first._altura||_first['altura']||'';
-          if(document.getElementById('carac-modelo'))document.getElementById('carac-modelo').value=_first['carac-modelo']||_first._modelo||'01';
-          if(document.getElementById('folhas-porta'))document.getElementById('folhas-porta').value=_first['folhas-porta']||_first._folhas||'1';
-          if(document.getElementById('plan-refilado'))document.getElementById('plan-refilado').value=_first['plan-refilado']||'20';
-          // Sync cor para planificador puxar chapa correta
-          if(document.getElementById('carac-cor-ext')&&_first['carac-cor-ext'])document.getElementById('carac-cor-ext').value=_first['carac-cor-ext'];
-          if(document.getElementById('carac-cor-int')&&_first['carac-cor-int'])document.getElementById('carac-cor-int').value=_first['carac-cor-int'];
-          if(document.getElementById('carac-cor-macico')&&_first['carac-cor-macico'])document.getElementById('carac-cor-macico').value=_first['carac-cor-macico'];
-          // Sync planificador model/cava/friso
-          if(document.getElementById('plan-modelo'))document.getElementById('plan-modelo').value=_first['carac-modelo']||_first._modelo||'01';
-          if(document.getElementById('plan-folhas'))document.getElementById('plan-folhas').value=_first['folhas-porta']||_first._folhas||'1';
-          if(document.getElementById('plan-disborcava'))document.getElementById('plan-disborcava').value=_first['carac-dist-borda-cava']||'210';
-          if(document.getElementById('plan-largcava'))document.getElementById('plan-largcava').value=_first['carac-largura-cava']||'150';
-          if(document.getElementById('plan-disbordafriso'))document.getElementById('plan-disbordafriso').value=_first['carac-dist-borda-friso']||'';
-          if(document.getElementById('plan-largfriso'))document.getElementById('plan-largfriso').value=_first['carac-largura-friso']||'';
-          // Fech/cil/pux
-          if(document.getElementById('carac-fech-mec')&&_first['carac-fech-mec'])document.getElementById('carac-fech-mec').value=_first['carac-fech-mec'];
-          if(document.getElementById('carac-fech-dig')&&_first['carac-fech-dig'])document.getElementById('carac-fech-dig').value=_first['carac-fech-dig'];
-          if(document.getElementById('carac-cilindro')&&_first['carac-cilindro'])document.getElementById('carac-cilindro').value=_first['carac-cilindro'];
-          if(document.getElementById('carac-puxador')&&_first['carac-puxador'])document.getElementById('carac-puxador').value=_first['carac-puxador'];
-          if(typeof onModeloChange==='function')try{onModeloChange();}catch(e){}
-        }
+        _syncOrcToMpItens();
       }
       window._osAutoMode=true;
       if(typeof gerarCustoTotal==='function'){
@@ -2400,6 +2332,58 @@ window.crmNovaRevisao=function(cardId){
   }, 1000);
   // Segurança: desbloquear de novo em 2s caso algo tenha re-travado
   setTimeout(_forceUnlock, 2000);
+};
+
+/* ── Sync _orcItens → _mpItens para planificador multi-porta ── */
+window._syncOrcToMpItens=function(){
+  if(!window._orcItens||window._orcItens.length<=1) return;
+  window._mpItens=[];
+  window._orcItens.forEach(function(oi,idx){
+    if(oi.tipo!=='porta_pivotante') return;
+    var mp={id:'mp_crm_'+idx};
+    mp['largura']=String(oi.largura||'');mp['altura']=String(oi.altura||'');
+    mp['qtd-portas']=String(oi.qtd||'1');mp['folhas-porta']=String(oi.folhas||'1');
+    mp['carac-modelo']=oi.modelo||'01';mp['carac-abertura']=oi.abertura||'PIVOTANTE';
+    mp['carac-cor-ext']=oi.cor_ext||'';mp['carac-cor-int']=oi.cor_int||'';
+    mp['carac-fech-mec']=oi.fech_mec||'';mp['carac-fech-dig']=oi.fech_dig||'';
+    mp['carac-cilindro']=oi.cilindro||'';mp['carac-puxador']=oi.puxador||'';mp['carac-pux-tam']=oi.pux_tam||'1.5';
+    mp['carac-dist-borda-cava']=oi.dist_borda_cava||'210';mp['carac-largura-cava']=oi.largura_cava||'150';
+    mp['carac-dist-borda-friso']=oi.dist_borda_friso||'';mp['carac-largura-friso']=oi.largura_friso||'';
+    mp['carac-friso-vert']=oi.friso_vert||'0';mp['carac-friso-horiz']=oi.friso_horiz||'0';
+    mp['carac-tem-alisar']=oi.tem_alisar?'1':'0';
+    mp['carac-ripado-total']=oi.ripado_total||'NAO';mp['carac-ripado-2lados']=oi.ripado_2lados||'SIM';
+    mp['plan-refilado']=oi.refilado||'20';mp['tem-fixo']=false;mp._fixos=[];
+    mp._modelo=oi.modelo||'01';mp._tipo=oi.tipo||'porta_pivotante';
+    var modOpt=document.querySelector('#carac-modelo option[value="'+oi.modelo+'"]');
+    mp._modeloTxt=modOpt?modOpt.textContent:(oi.modelo||'');
+    mp._largura=parseFloat(oi.largura)||0;mp._altura=parseFloat(oi.altura)||0;
+    mp._qtd=parseInt(oi.qtd)||1;mp._folhas=parseInt(oi.folhas)||1;
+    window._mpItens.push(mp);
+  });
+  window._mpEditingIdx=-1;
+  if(typeof _mpRender==='function') _mpRender();
+  var mpSec=document.getElementById('multi-porta-section');if(mpSec) mpSec.style.display='';
+  // Sync form com primeiro item
+  var _first=window._mpItens[0];
+  if(_first){
+    document.getElementById('largura').value=_first._largura||'';
+    document.getElementById('altura').value=_first._altura||'';
+    if(document.getElementById('carac-modelo'))document.getElementById('carac-modelo').value=_first['carac-modelo']||'01';
+    if(document.getElementById('folhas-porta'))document.getElementById('folhas-porta').value=_first['folhas-porta']||'1';
+    if(document.getElementById('plan-refilado'))document.getElementById('plan-refilado').value=_first['plan-refilado']||'20';
+    if(document.getElementById('carac-cor-ext')&&_first['carac-cor-ext'])document.getElementById('carac-cor-ext').value=_first['carac-cor-ext'];
+    if(document.getElementById('carac-cor-int')&&_first['carac-cor-int'])document.getElementById('carac-cor-int').value=_first['carac-cor-int'];
+    if(document.getElementById('plan-modelo'))document.getElementById('plan-modelo').value=_first['carac-modelo']||'01';
+    if(document.getElementById('plan-folhas'))document.getElementById('plan-folhas').value=_first['folhas-porta']||'1';
+    if(document.getElementById('plan-disborcava'))document.getElementById('plan-disborcava').value=_first['carac-dist-borda-cava']||'210';
+    if(document.getElementById('plan-largcava'))document.getElementById('plan-largcava').value=_first['carac-largura-cava']||'150';
+    if(typeof onModeloChange==='function')try{onModeloChange();}catch(e){}
+  }
+  // Auto-run planificador
+  setTimeout(function(){
+    if(typeof planUpd==='function') try{planUpd();}catch(e){}
+    if(typeof _autoSelectAndRun==='function') try{_autoSelectAndRun();}catch(e){}
+  },400);
 };
 
 window.crmOrcamentoPronto=function(){
