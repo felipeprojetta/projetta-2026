@@ -195,6 +195,11 @@ function captureSnapshot(){
     aluQty: (document.getElementById('plan-alu-qty')||{}).value||'0',
     subAcm: (document.getElementById('sub-acm')||{textContent:'0'}).textContent||'',
     subAlu: (document.getElementById('sub-alu')||{textContent:'0'}).textContent||'',
+    subPerf: _t('sub-perf')||'',
+    subPerfMat: _t('sub-perf-mat')||'',
+    subPerfPin: _t('sub-perf-pin')||'',
+    subPerfAcess: _t('sub-perf-acess')||'',
+    subMO: _t('sub-mo')||'',
   };
   // Levantamento de material: capturar HTML das tabelas OS
   var osTab=document.getElementById('tab-os');
@@ -519,6 +524,17 @@ window.loadRevision=function(id,revIdx){
         if(s.custoHora){var ch=document.getElementById('custo-hora');if(ch)ch.value=s.custoHora;}
         if(s.overhead){var oh=document.getElementById('overhead');if(oh)oh.value=s.overhead;}
         if(s.lucroAlvo){var la=document.getElementById('lucro-alvo');if(la)la.value=s.lucroAlvo;}
+        /* ╔══════════════════════════════════════════════════════════════╗
+           ║  CONGELAMENTO: restaurar HTML das abas OS do snapshot.      ║
+           ║  Isso garante que perfis, acessórios e chapas mostrem      ║
+           ║  os valores da ÉPOCA do orçamento, não os preços atuais.   ║
+           ╚══════════════════════════════════════════════════════════════╝ */
+        if(s.levantamentoHTML){var _osT=document.getElementById('tab-os');if(_osT)_osT.innerHTML=s.levantamentoHTML;}
+        if(s.osAcessHTML){var _osA=document.getElementById('tab-os-acess');if(_osA)_osA.innerHTML=s.osAcessHTML;}
+        // Restaurar valores de fabricação do snapshot
+        if(s.matPerfis){var mp=document.getElementById('fab-mat-perfis');if(mp)mp.value=s.matPerfis;}
+        if(s.custoPintura){var cp=document.getElementById('fab-custo-pintura');if(cp)cp.value=s.custoPintura;}
+        if(s.custoAcess){var ca=document.getElementById('fab-custo-acess');if(ca)ca.value=s.custoAcess;}
       }
     } else {
       // Sem snapshot ou forceUnlock: recalcular tudo
@@ -557,24 +573,16 @@ window.loadRevisionMemorial=function(id,revIdx){
   var snapValid=_isSnapshotValid(rev?rev.snapshot:null);
   
   if(snapValid){
-    // Rodar gerarCustoTotal para preencher perfis/chapas/OS completo
-    // DEPOIS restaurar valores financeiros do SNAPSHOT por cima
+    // Snapshot válido: NÃO recalcular NADA — apenas exibir valores congelados
     var _savedSnap=rev.snapshot;
     var _eName=entry?entry.name:'';
     var _rLabel=rev?rev.label:'';
     _revDelay(function(){
-      window._snapshotLock=false;
-      window._custoCalculado=false;
-      window._osGeradoUmaVez=false;
-      window._onCustoCompleto=function(){
-        _restoreSnapshotDisplay(_savedSnap);
-        showMemorial(_savedSnap, _eName, _rLabel);
-        window._snapshotLock=true;
-        _setOrcLock(true);
-        _openSectionsAndScroll();
-      };
-      if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
-      // Callback já definido ANTES de gerarCustoTotal rodar
+      _restoreSnapshotDisplay(_savedSnap);
+      showMemorial(_savedSnap, _eName, _rLabel);
+      window._snapshotLock=true;
+      _setOrcLock(true);
+      _openSectionsAndScroll();
     },500);
   } else {
     // Snapshot vazio: recalcular → capturar → salvar → mostrar memorial
@@ -650,6 +658,14 @@ function _restoreSnapshotDisplay(snap){
   _s('d-irpj',snap.dreIrpj); _s('d-ll',snap.dreLl);
   // M² e Sub-totais
   _b('r-m2',snap.m2); _s('r-fab',snap.subFab); _s('r-inst',snap.subInst);
+  // Sub-totais fabricação
+  if(snap.subAcm) _s('sub-acm',snap.subAcm);
+  if(snap.subAlu) _s('sub-alu',snap.subAlu);
+  if(snap.subPerf) _s('sub-perf',snap.subPerf);
+  if(snap.subPerfMat) _s('sub-perf-mat',snap.subPerfMat);
+  if(snap.subPerfPin) _s('sub-perf-pin',snap.subPerfPin);
+  if(snap.subPerfAcess) _s('sub-perf-acess',snap.subPerfAcess);
+  if(snap.subMO) _s('sub-mo',snap.subMO);
   // Resumo da Obra — Chapas (restaurar cor e qty do snapshot)
   if(snap.chapaCorLabel){
     var roQ=document.getElementById('ro-chapas-qty');
