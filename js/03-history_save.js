@@ -187,6 +187,14 @@ function captureSnapshot(){
     fechDig: (document.getElementById('carac-fech-dig')||{}).value||'',
     cilindro: (document.getElementById('carac-cilindro')||{}).value||'',
     puxador: (document.getElementById('carac-puxador')||{}).value||'',
+    // Chapas info
+    chapaCorLabel: (function(){var s=document.getElementById('plan-acm-cor');return s&&s.selectedIndex>0?s.options[s.selectedIndex].text:'';})(),
+    chapaQty: (document.getElementById('plan-acm-qty')||{}).value||'',
+    chapaSize: (function(){var s=document.getElementById('plan-chapa');return s?s.value:'';})(),
+    aluCorLabel: (function(){var s=document.getElementById('plan-alu-cor');return s&&s.selectedIndex>0?s.options[s.selectedIndex].text:'';})(),
+    aluQty: (document.getElementById('plan-alu-qty')||{}).value||'0',
+    subAcm: (document.getElementById('sub-acm')||{textContent:'0'}).textContent||'',
+    subAlu: (document.getElementById('sub-alu')||{textContent:'0'}).textContent||'',
   };
   // Levantamento de material: capturar HTML das tabelas OS
   var osTab=document.getElementById('tab-os');
@@ -474,12 +482,33 @@ window.loadRevision=function(id,revIdx){
   // 9. Layout + recalc (único timeout)
   _revDelay(function(){
     if(typeof onModeloChange==='function') try{onModeloChange();}catch(e){}
-    if(typeof planUpd==='function') try{planUpd();}catch(e){}
     if(typeof toggleInstQuem==='function') try{toggleInstQuem();}catch(e){}
-    // Recalcular se snapshot vazio
-    if(!snapValid){
-      window._snapshotLock=false;
-      if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
+    // Se snapshot válido: NÃO recalcular — preservar valores salvos
+    if(snapValid && !window._forceUnlockAfterLoad){
+      // Apenas restaurar comissão e horas do snapshot
+      if(rev.snapshot){
+        var s=rev.snapshot;
+        if(s.comRep){var cr=document.getElementById('com-rep');if(cr)cr.value=s.comRep;}
+        if(s.comRt){var crt=document.getElementById('com-rt');if(crt)crt.value=s.comRt;}
+        if(s.comGest){var cg=document.getElementById('com-gest');if(cg)cg.value=s.comGest;}
+        if(s.hPortal){var hp=document.getElementById('h-portal');if(hp)hp.value=s.hPortal;}
+        if(s.hQuadro){var hq=document.getElementById('h-quadro');if(hq)hq.value=s.hQuadro;}
+        if(s.hCorte){var hc=document.getElementById('h-corte');if(hc)hc.value=s.hCorte;}
+        if(s.hColagem){var hcol=document.getElementById('h-colagem');if(hcol)hcol.value=s.hColagem;}
+        if(s.hConf){var hcnf=document.getElementById('h-conf');if(hcnf)hcnf.value=s.hConf;}
+        if(s.desconto){var dsc=document.getElementById('desconto');if(dsc)dsc.value=s.desconto;}
+        if(s.impostos){var imp=document.getElementById('impostos');if(imp)imp.value=s.impostos;}
+        if(s.custoHora){var ch=document.getElementById('custo-hora');if(ch)ch.value=s.custoHora;}
+        if(s.overhead){var oh=document.getElementById('overhead');if(oh)oh.value=s.overhead;}
+        if(s.lucroAlvo){var la=document.getElementById('lucro-alvo');if(la)la.value=s.lucroAlvo;}
+      }
+    } else {
+      // Sem snapshot ou forceUnlock: recalcular tudo
+      if(typeof planUpd==='function') try{planUpd();}catch(e){}
+      if(!snapValid){
+        window._snapshotLock=false;
+        if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
+      }
     }
     // Travar se necessário (MAS NÃO se forceUnlock está ativo)
     if(shouldLock && !window._forceUnlockAfterLoad){
@@ -602,6 +631,17 @@ function _restoreSnapshotDisplay(snap){
   _s('d-irpj',snap.dreIrpj); _s('d-ll',snap.dreLl);
   // M² e Sub-totais
   _b('r-m2',snap.m2); _s('r-fab',snap.subFab); _s('r-inst',snap.subInst);
+  // Resumo da Obra — Chapas (restaurar cor e qty do snapshot)
+  if(snap.chapaCorLabel){
+    var roQ=document.getElementById('ro-chapas-qty');
+    var roI=document.getElementById('ro-chapas-info');
+    var roV=document.getElementById('ro-chapas-val');
+    var _nAcm=parseInt(snap.chapaQty)||0;
+    var _nAlu=parseInt(snap.aluQty)||0;
+    if(roQ) roQ.textContent=_nAlu>0?(_nAcm+' ACM + '+_nAlu+' ALU'):(_nAcm+' chapa(s)');
+    if(roI) roI.textContent=snap.chapaCorLabel.split('·')[0].trim();
+    if(roV) roV.textContent=snap.subAcm||'';
+  }
 }
 
 
