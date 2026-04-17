@@ -2344,7 +2344,7 @@ window._syncOrcToMpItens=function(){
     mp['largura']=String(oi.largura||'');mp['altura']=String(oi.altura||'');
     mp['qtd-portas']=String(oi.qtd||'1');mp['folhas-porta']=String(oi.folhas||'1');
     mp['carac-modelo']=oi.modelo||'01';mp['carac-abertura']=oi.abertura||'PIVOTANTE';
-    mp['carac-cor-ext']=oi.cor_ext||'';mp['carac-cor-int']=oi.cor_int||'';
+    mp['carac-cor-ext']=oi.cor_ext||'';mp['carac-cor-int']=oi.cor_int||'';mp['carac-cor-macico']=oi.cor_macico||'';
     mp['carac-fech-mec']=oi.fech_mec||'';mp['carac-fech-dig']=oi.fech_dig||'';
     mp['carac-cilindro']=oi.cilindro||'';mp['carac-puxador']=oi.puxador||'';mp['carac-pux-tam']=oi.pux_tam||'1.5';
     mp['carac-dist-borda-cava']=oi.dist_borda_cava||'210';mp['carac-largura-cava']=oi.largura_cava||'150';
@@ -2353,6 +2353,15 @@ window._syncOrcToMpItens=function(){
     mp['carac-tem-alisar']=oi.tem_alisar?'1':'0';
     mp['carac-ripado-total']=oi.ripado_total||'NAO';mp['carac-ripado-2lados']=oi.ripado_2lados||'SIM';
     mp['plan-refilado']=oi.refilado||'20';mp['tem-fixo']=false;mp._fixos=[];
+    // Modelo 23 moldura config
+    mp['plan-moldura-rev']=oi.moldura_rev||'ACM';
+    mp['plan-moldura-tipo']=oi.moldura_tipo||'1';
+    mp['plan-moldura-dis1']=oi.moldura_dis1||'150';
+    mp['plan-moldura-dis2']=oi.moldura_dis2||'150';
+    mp['plan-moldura-dis3']=oi.moldura_dis3||'150';
+    mp['plan-moldura-larg-qty']=oi.moldura_larg_qty||'2';
+    mp['plan-moldura-alt-qty']=oi.moldura_alt_qty||'2';
+    mp['plan-moldura-divisao']=oi.moldura_divisao||'classica';
     mp._modelo=oi.modelo||'01';mp._tipo=oi.tipo||'porta_pivotante';
     var modOpt=document.querySelector('#carac-modelo option[value="'+oi.modelo+'"]');
     mp._modeloTxt=modOpt?modOpt.textContent:(oi.modelo||'');

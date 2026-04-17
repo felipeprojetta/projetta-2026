@@ -878,12 +878,17 @@ function _mpCalcAllPiecesCombined(){
   var savedPDF=(document.getElementById('plan-disbordafriso')||{value:''}).value;
   var savedPLF=(document.getElementById('plan-largfriso')||{value:''}).value;
   var savedREF=(document.getElementById('plan-refilado')||{value:'20'}).value;
+  var savedMRev=(document.getElementById('plan-moldura-rev')||{value:'ACM'}).value;
+  var savedMTipo=(document.getElementById('plan-moldura-tipo')||{value:'1'}).value;
+  var savedMDis1=(document.getElementById('plan-moldura-dis1')||{value:'150'}).value;
+  var savedMLQ=(document.getElementById('plan-moldura-larg-qty')||{value:'2'}).value;
+  var savedMAQ=(document.getElementById('plan-moldura-alt-qty')||{value:'2'}).value;
 
   itens.forEach(function(it,idx){
     if(it.largura<=0||it.altura<=0) return;
     if(document.getElementById('plan-modelo')) document.getElementById('plan-modelo').value=it.modelo||'01';
     if(document.getElementById('plan-folhas')) document.getElementById('plan-folhas').value=it.folhas||'1';
-    // Setar cava/friso do item para plnPecas
+    // Setar cava/friso/moldura do item para plnPecas
     var _mpIt=window._mpItens&&window._mpItens[idx]?window._mpItens[idx]:null;
     if(_mpIt){
       if(document.getElementById('plan-disborcava')) document.getElementById('plan-disborcava').value=_mpIt['carac-dist-borda-cava']||'210';
@@ -891,6 +896,12 @@ function _mpCalcAllPiecesCombined(){
       if(document.getElementById('plan-disbordafriso')) document.getElementById('plan-disbordafriso').value=_mpIt['carac-dist-borda-friso']||'';
       if(document.getElementById('plan-largfriso')) document.getElementById('plan-largfriso').value=_mpIt['carac-largura-friso']||'';
       if(document.getElementById('plan-refilado')) document.getElementById('plan-refilado').value=_mpIt['plan-refilado']||'20';
+      // Modelo 23: moldura config
+      if(document.getElementById('plan-moldura-rev')) document.getElementById('plan-moldura-rev').value=_mpIt['plan-moldura-rev']||'ACM';
+      if(document.getElementById('plan-moldura-tipo')) document.getElementById('plan-moldura-tipo').value=_mpIt['plan-moldura-tipo']||'1';
+      if(document.getElementById('plan-moldura-dis1')) document.getElementById('plan-moldura-dis1').value=_mpIt['plan-moldura-dis1']||'150';
+      if(document.getElementById('plan-moldura-larg-qty')) document.getElementById('plan-moldura-larg-qty').value=_mpIt['plan-moldura-larg-qty']||'2';
+      if(document.getElementById('plan-moldura-alt-qty')) document.getElementById('plan-moldura-alt-qty').value=_mpIt['plan-moldura-alt-qty']||'2';
     }
     try{
       var pieces=plnPecas(it.largura, it.altura, it.folhas||1, it.modelo||'01');
@@ -908,21 +919,24 @@ function _mpCalcAllPiecesCombined(){
         var w=Array.isArray(p)?p[1]:p.w;
         var h=Array.isArray(p)?p[2]:p.h;
         var q=(Array.isArray(p)?(p[3]||1):(p.qty||1))*it.qtd;
-        var clr=Array.isArray(p)?p[4]||'':p.color||'';
+        var mat=Array.isArray(p)?(p[4]||''):(p.mat||p.color||'');
+        // mat can be 'alu' (ALU maciço) or color string
+        var isAlu=(mat==='alu');
+        var clr=isAlu?'':mat;
 
         if(_sameCor){
-          // Mesma cor ext/int: tudo junto
           var pc={label:lbl+_iTag,w:w,h:h,qty:q,color:clr,_itemIdx:idx,_cor:_corExt};
+          if(isAlu) pc.mat='alu';
           allPieces.push(pc);
         } else if(_isSurface(lbl)){
-          // Cores diferentes: split frente/costas
           var qExt=Math.ceil(q/2);
           var qInt=Math.floor(q/2);
-          if(qExt>0) allPieces.push({label:lbl+' EXT'+_iTag,w:w,h:h,qty:qExt,color:clr,_itemIdx:idx,_cor:_corExt});
-          if(qInt>0) allPieces.push({label:lbl+' INT'+_iTag,w:w,h:h,qty:qInt,color:clr,_itemIdx:idx,_cor:_corInt});
+          if(qExt>0){var pe={label:lbl+' EXT'+_iTag,w:w,h:h,qty:qExt,color:clr,_itemIdx:idx,_cor:_corExt};if(isAlu)pe.mat='alu';allPieces.push(pe);}
+          if(qInt>0){var pi={label:lbl+' INT'+_iTag,w:w,h:h,qty:qInt,color:clr,_itemIdx:idx,_cor:_corInt};if(isAlu)pi.mat='alu';allPieces.push(pi);}
         } else {
-          // Estrutura: tudo cor externa
-          allPieces.push({label:lbl+_iTag,w:w,h:h,qty:q,color:clr,_itemIdx:idx,_cor:_corExt});
+          var ps={label:lbl+_iTag,w:w,h:h,qty:q,color:clr,_itemIdx:idx,_cor:_corExt};
+          if(isAlu) ps.mat='alu';
+          allPieces.push(ps);
         }
       });
     }catch(e){console.warn('MP chapas item '+idx+':',e);}
@@ -936,6 +950,11 @@ function _mpCalcAllPiecesCombined(){
   if(document.getElementById('plan-disbordafriso')) document.getElementById('plan-disbordafriso').value=savedPDF;
   if(document.getElementById('plan-largfriso')) document.getElementById('plan-largfriso').value=savedPLF;
   if(document.getElementById('plan-refilado')) document.getElementById('plan-refilado').value=savedREF;
+  if(document.getElementById('plan-moldura-rev')) document.getElementById('plan-moldura-rev').value=savedMRev;
+  if(document.getElementById('plan-moldura-tipo')) document.getElementById('plan-moldura-tipo').value=savedMTipo;
+  if(document.getElementById('plan-moldura-dis1')) document.getElementById('plan-moldura-dis1').value=savedMDis1;
+  if(document.getElementById('plan-moldura-larg-qty')) document.getElementById('plan-moldura-larg-qty').value=savedMLQ;
+  if(document.getElementById('plan-moldura-alt-qty')) document.getElementById('plan-moldura-alt-qty').value=savedMAQ;
   return allPieces;
 }
 /* ── Popula tabela de itens na proposta comercial (multi-porta) ── */
