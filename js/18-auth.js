@@ -886,10 +886,16 @@ function _mpCalcAllPiecesCombined(){
 
   itens.forEach(function(it,idx){
     if(it.largura<=0||it.altura<=0) return;
-    if(document.getElementById('plan-modelo')) document.getElementById('plan-modelo').value=it.modelo||'01';
+    var _mpIt=window._mpItens&&window._mpItens[idx]?window._mpItens[idx]:null;
+    // Modelo 23: converter para 23acm ou 23alu conforme revestimento
+    var _planMod=it.modelo||'01';
+    if(_planMod==='23'){
+      var _rev=_mpIt?(_mpIt['plan-moldura-rev']||'ACM'):'ACM';
+      _planMod=(_rev==='MACICO')?'23alu':'23acm';
+    }
+    if(document.getElementById('plan-modelo')) document.getElementById('plan-modelo').value=_planMod;
     if(document.getElementById('plan-folhas')) document.getElementById('plan-folhas').value=it.folhas||'1';
     // Setar cava/friso/moldura do item para plnPecas
-    var _mpIt=window._mpItens&&window._mpItens[idx]?window._mpItens[idx]:null;
     if(_mpIt){
       if(document.getElementById('plan-disborcava')) document.getElementById('plan-disborcava').value=_mpIt['carac-dist-borda-cava']||'210';
       if(document.getElementById('plan-largcava')) document.getElementById('plan-largcava').value=_mpIt['carac-largura-cava']||'150';
@@ -904,7 +910,7 @@ function _mpCalcAllPiecesCombined(){
       if(document.getElementById('plan-moldura-alt-qty')) document.getElementById('plan-moldura-alt-qty').value=_mpIt['plan-moldura-alt-qty']||'2';
     }
     try{
-      var pieces=plnPecas(it.largura, it.altura, it.folhas||1, it.modelo||'01');
+      var pieces=plnPecas(it.largura, it.altura, it.folhas||1, _planMod);
       var _iTag=' [P'+(idx+1)+' '+it.largura+'×'+it.altura+']';
       // Cores do item
       var _corExt=(_mpIt&&(_mpIt['carac-cor-ext']||''))||it.corExt||'';
