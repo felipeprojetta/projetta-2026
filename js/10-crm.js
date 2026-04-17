@@ -2458,6 +2458,8 @@ window.crmOrcamentoPronto=function(){
     }
   }
   // PASSO 2: Salvar entry primeiro (garante currentId)
+  // Se NÃO é primeira revisão, FORÇAR criação de nova revisão no histórico
+  if(!isFirst) window._pendingRevision=true;
   if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){console.warn('salvarRapido:',e);}
   // PASSO 3: Vincular crmCardId IMEDIATAMENTE
   if(currentId){
