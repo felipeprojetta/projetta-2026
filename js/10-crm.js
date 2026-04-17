@@ -1040,6 +1040,14 @@ window.crmItemFixoMaterial=function(id){
   var mat=(document.getElementById(pre+'tipo_material')||{value:''}).value;
   var wrap=document.getElementById(pre+'vidro_wrap');
   if(wrap) wrap.style.display=mat==='VIDRO'?'':'none';
+  // Toggle cor: MACICO → Cor ACM + Cor Maciço | outros → Cor Ext + Cor Int
+  var isMac=mat==='MACICO';
+  var corIntW=document.getElementById(pre+'cor_int_wrap');
+  var corMacW=document.getElementById(pre+'cor_mac_wrap');
+  if(corIntW) corIntW.style.display=isMac?'none':'';
+  if(corMacW) corMacW.style.display=isMac?'':'none';
+  var corExtLbl=document.getElementById(pre+'cor_ext');
+  if(corExtLbl){var lbl=corExtLbl.closest('.crm-field');if(lbl){var lb=lbl.querySelector('label');if(lb)lb.textContent=isMac?'Cor ACM':'Cor Externa';}}
 }
 
 // Show/hide instalação fields based on Quem instala
@@ -1388,11 +1396,14 @@ window._crmItensRender=function(){
     }
     // Cores for fixo and else types (porta_pivotante renders its own above)
     if(item.tipo!=='porta_pivotante'){
+      var _isFixoMac=item.tipo_material==='MACICO';
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🎨 Cores</div>';
-      h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Cor Externa</label><select id="'+pre+'cor_ext" style="font-size:10px">'+corOpts.replace('value="'+item.cor_ext+'"','value="'+item.cor_ext+'" selected')+'</select></div>';
-      h+='<div class="crm-field"><label>Cor Interna</label><select id="'+pre+'cor_int" style="font-size:10px">'+corOpts.replace('value="'+item.cor_int+'"','value="'+item.cor_int+'" selected')+'</select></div>';
-      h+='<input type="hidden" id="'+pre+'cor_macico" value="'+(item.cor_macico||'')+'">';
+      h+='<div class="crm-row" id="'+pre+'cor_row">';
+      h+='<div class="crm-field"><label>'+(_isFixoMac?'Cor ACM':'Cor Externa')+'</label><select id="'+pre+'cor_ext" style="font-size:10px">'+corOpts.replace('value="'+item.cor_ext+'"','value="'+item.cor_ext+'" selected')+'</select></div>';
+      h+='<div class="crm-field" id="'+pre+'cor_int_wrap" style="'+(_isFixoMac?'display:none':'')+'"><label>Cor Interna</label><select id="'+pre+'cor_int" style="font-size:10px">'+corOpts.replace('value="'+item.cor_int+'"','value="'+item.cor_int+'" selected')+'</select></div>';
+      var _aluCorFixo='<option value="">— Selecione —</option>';
+      if(typeof ALU_DATA!=='undefined'){ALU_DATA.forEach(function(g){_aluCorFixo+='<optgroup label="'+g.g+'">';var _cs={};g.o.forEach(function(it){var nm=it.l.split('·')[0].split('×')[0].trim();if(!_cs[nm])_cs[nm]=it.l.split('·')[0].trim();});Object.keys(_cs).forEach(function(c){_aluCorFixo+='<option value="'+_cs[c]+'"'+(_cs[c]===item.cor_macico?' selected':'')+'>'+_cs[c]+'</option>';});_aluCorFixo+='</optgroup>';});}
+      h+='<div class="crm-field" id="'+pre+'cor_mac_wrap" style="'+(_isFixoMac?'':'display:none')+'"><label>🔷 Cor Maciço</label><select id="'+pre+'cor_macico" style="font-size:10px;border-color:#6c3483;color:#6c3483">'+_aluCorFixo+'</select></div>';
       h+='</div>';
     }
     
