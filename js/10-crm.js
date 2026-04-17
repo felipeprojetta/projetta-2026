@@ -3413,7 +3413,12 @@ window.crmGerarRelatorio=function(){
 
   // Calcular totais
   var totalCards=filtered.length;
-  var totalValor=0;filtered.forEach(function(o){totalValor+=(o.valor||0);});
+  var totalValor=0,totalTab=0,totalFat=0;
+  filtered.forEach(function(o){
+    totalValor+=(o.valor||0);
+    totalTab+=(o.valorTabela||((o.revisoes&&o.revisoes.length)?o.revisoes[o.revisoes.length-1].valorTabela:0)||o.valor||0);
+    totalFat+=(o.valorFaturamento||((o.revisoes&&o.revisoes.length)?o.revisoes[o.revisoes.length-1].valorFaturamento:0)||0);
+  });
 
   // Gerar HTML do relatório
   var brl=function(v){return'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});};
@@ -3437,7 +3442,8 @@ window.crmGerarRelatorio=function(){
 
   h+='<div class="kpis">';
   h+='<div class="kpi"><div class="v">'+totalCards+'</div><div class="l">Oportunidades</div></div>';
-  h+='<div class="kpi"><div class="v">'+brl(totalValor)+'</div><div class="l">Valor Total</div></div>';
+  h+='<div class="kpi"><div class="v">'+brl(totalTab)+'</div><div class="l">Total Tabela</div></div>';
+  h+='<div class="kpi" style="border-color:#e67e22"><div class="v" style="color:#e67e22">'+brl(totalFat)+'</div><div class="l">Total Faturamento</div></div>';
   h+='</div>';
 
   stages.forEach(function(s){
@@ -3445,10 +3451,14 @@ window.crmGerarRelatorio=function(){
     var stVal=0;g.cards.forEach(function(c){stVal+=(c.valor||0);});
     h+='<div class="stage">';
     h+='<div class="stage-hdr"><span>'+(g.icon||'')+' '+g.label+' ('+g.cards.length+')</span><span>'+brl(stVal)+'</span></div>';
-    h+='<table><thead><tr><th>Cliente</th><th>Produto</th><th>Medidas</th><th>Rep</th><th>Cidade</th><th>Reserva</th><th>AGP</th><th style="text-align:right">Valor</th></tr></thead><tbody>';
+    h+='<table><thead><tr><th>Cliente</th><th>Produto</th><th>Medidas</th><th>Rep</th><th>Cidade</th><th>Reserva</th><th>AGP</th><th style="text-align:right">Tabela</th><th style="text-align:right">Faturamento</th></tr></thead><tbody>';
     g.cards.sort(function(a,b){return(b.valor||0)-(a.valor||0);});
+    var stTab=0,stFat=0;
     g.cards.forEach(function(c){
       var dims=(c.largura&&c.altura)?(c.largura+'×'+c.altura):'';
+      var vTab=c.valorTabela||((c.revisoes&&c.revisoes.length)?c.revisoes[c.revisoes.length-1].valorTabela:0)||c.valor||0;
+      var vFat=c.valorFaturamento||((c.revisoes&&c.revisoes.length)?c.revisoes[c.revisoes.length-1].valorFaturamento:0)||0;
+      stTab+=vTab;stFat+=vFat;
       h+='<tr><td style="font-weight:700">'+_esc(c.cliente||'')+'</td>';
       h+='<td>'+_esc(c.produto||'')+'</td>';
       h+='<td>'+dims+'</td>';
@@ -3456,9 +3466,10 @@ window.crmGerarRelatorio=function(){
       h+='<td>'+_esc(c.cidade||'')+'</td>';
       h+='<td>'+_esc(c.reserva||'')+'</td>';
       h+='<td>'+_esc(c.agp||'')+'</td>';
-      h+='<td class="val">'+brl(c.valor)+'</td></tr>';
+      h+='<td class="val">'+brl(vTab)+'</td>';
+      h+='<td class="val" style="color:#e67e22">'+brl(vFat)+'</td></tr>';
     });
-    h+='<tr><td colspan="7" class="tot">Subtotal '+g.label+'</td><td class="tot">'+brl(stVal)+'</td></tr>';
+    h+='<tr><td colspan="7" class="tot">Subtotal '+g.label+'</td><td class="tot">'+brl(stTab)+'</td><td class="tot" style="color:#e67e22">'+brl(stFat)+'</td></tr>';
     h+='</tbody></table></div>';
   });
 
