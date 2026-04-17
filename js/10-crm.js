@@ -313,22 +313,31 @@ function buildCard(o,st,isFazerOrc){
 function renderList(fil){
   var tb=el('crm-list-body');if(!tb)return;
   var stages=gStages();tb.innerHTML='';
-  if(!fil.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--hint)">Nenhuma oportunidade encontrada</td></tr>';return;}
+  if(!fil.length){tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--hint)">Nenhuma oportunidade encontrada</td></tr>';return;}
+  var _totVal=0,_totTab=0,_totFat=0;
   fil.forEach(function(o){
     var st=stages.find(function(s){return s.id===o.stage;})||stages[0];
     var locStr=o.scope==='internacional'?(o.cidade||'')+(o.pais?', '+o.pais:''):(o.cidade||'')+(o.estado?' – '+o.estado:'');
+    var vTab=o.valorTabela||((o.revisoes&&o.revisoes.length)?o.revisoes[o.revisoes.length-1].valorTabela:0)||0;
+    var vFat=o.valorFaturamento||((o.revisoes&&o.revisoes.length)?o.revisoes[o.revisoes.length-1].valorFaturamento:0)||0;
+    _totVal+=(o.valor||0);_totTab+=vTab;_totFat+=vFat;
     var tr=document.createElement('tr');
     tr.onclick=function(){crmOpenModal(null,o.id);};
     tr.innerHTML='<td><b style="color:var(--navy)">'+(o.scope==='internacional'?'🌍 ':'')+escH(o.cliente||'—')+'</b>'+(locStr?'<br><small style="color:var(--muted)">'+escH(locStr)+'</small>':'')+'</td>'+
       '<td style="font-size:11px;color:var(--muted)">'+escH(o.produto||'—')+'</td>'+
       '<td style="font-size:11px;font-family:monospace">'+(o.largura?o.largura+'×'+(o.altura||'?')+'mm':'—')+(o.reserva?' <small style="color:#1a5276">Res:'+o.reserva+'</small>':'')+(o.agp?' <small style="color:#c0392b;font-weight:700">AGP:'+o.agp+'</small>':'')+'</td>'+
       '<td style="font-weight:700;color:#e67e22">'+brl(o.valor)+'</td>'+
+      '<td style="text-align:right;font-weight:700;color:var(--navy)">'+brl(vTab)+'</td>'+
+      '<td style="text-align:right;font-weight:700;color:#e67e22">'+brl(vFat)+'</td>'+
       '<td><span class="crm-stage-badge" style="background:'+st.color+'22;color:'+st.color+'">'+st.icon+' '+escH(st.label)+'</span></td>'+
       '<td style="font-size:11px">'+escH(o.responsavel||'—')+(o.wrep?'<br><small style="color:#2980b9">'+escH(o.wrep)+'</small>':'')+'</td>'+
       '<td style="font-size:11px;color:var(--hint)">'+dateLabel(o.fechamento)+'</td>'+
       '<td><button class="crm-btn-ghost" style="padding:4px 8px;font-size:10px" onclick="event.stopPropagation();crmOpenModal(null,\''+o.id+'\')">✏</button></td>';
     tb.appendChild(tr);
   });
+  // Totals row
+  var ft=el('crm-list-foot');
+  if(ft) ft.innerHTML='<tr style="background:#f5f3ee;font-weight:800"><td colspan="3" style="padding:10px 12px;font-size:12px;color:var(--navy)">TOTAL ('+fil.length+' oportunidades)</td><td style="padding:10px 12px;color:#e67e22;font-size:12px">'+brl(_totVal)+'</td><td style="padding:10px 12px;text-align:right;color:var(--navy);font-size:12px">'+brl(_totTab)+'</td><td style="padding:10px 12px;text-align:right;color:#e67e22;font-size:12px">'+brl(_totFat)+'</td><td colspan="4"></td></tr>';
 }
 
 /* ── Quick Move ──────────────────────────────────── */
