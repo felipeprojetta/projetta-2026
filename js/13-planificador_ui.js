@@ -2130,7 +2130,7 @@ function _cepSetResult(cidade,uf,distKm,isEstrada){
   distEl.textContent='Distância de Uberlândia: '+distArred+' km ('+tipo+', real '+Math.round(distKm)+' km)';
   distEl.style.color='var(--orange)';
   var kmEl=document.getElementById('km');
-  if(kmEl){kmEl.value=distArred;calc();}
+  if(kmEl&&!kmEl.dataset.manual){kmEl.value=distArred;calc();}
   var mapsUrl='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(FACTORY_ADDR)+'&destination='+encodeURIComponent(cidade+', '+uf+', Brasil')+'&travelmode=driving';
   var linksEl=document.getElementById('cep-links');
   if(linksEl){linksEl.innerHTML='<a href="'+mapsUrl+'" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:#003144;color:#fff;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;margin-top:4px">&#x1F5FA; Ver rota no Google Maps</a>';linksEl.style.display='';}

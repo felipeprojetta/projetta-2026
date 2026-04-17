@@ -666,4 +666,26 @@ function calc(){
   if(typeof _updateResumoObra==='function') _updateResumoObra();
 }
 
+/* ── Zerar Instalação: limpa todos campos de instalação ── */
+window.zerarInstalacao=function(){
+  ['km','dias','pessoas','carros','desl-override','hotel-dia','alim','munk','terceiros','pedagio','inst-terceiros-valor','inst-terceiros-transp'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el){el.value='';el.dataset.auto='';el.dataset.manual='';}
+  });
+  var dEl=document.getElementById('diaria');if(dEl)dEl.value='0';
+  var kmEl=document.getElementById('km');if(kmEl)kmEl.dataset.manual='1'; // impede auto-fill CEP
+  calc();
+  var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#e74c3c;color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999';toast.textContent='🗑 Instalação zerada!';document.body.appendChild(toast);setTimeout(function(){toast.remove();},2000);
+};
+
+/* ── Modo Manual: desativa auto-calc de dias/pessoas/carros ── */
+window.instManual=function(){
+  ['dias','pessoas','carros'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el){el.dataset.auto='';el.dataset.manual='1';}
+  });
+  var kmEl=document.getElementById('km');if(kmEl)kmEl.dataset.manual='1';
+  var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999';toast.textContent='✏️ Modo manual ativado — preencha os campos!';document.body.appendChild(toast);setTimeout(function(){toast.remove();},2000);
+};
+
 /* ══ END MODULE: ORCAMENTO_CALC ══ */

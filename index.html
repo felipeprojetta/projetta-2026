@@ -1896,7 +1896,11 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     </div>
     <!-- CAMPOS CÁLCULO PADRÃO (Projetta/Weiku) -->
     <div id="inst-calc-padrao">
-    <div class="fr"><span class="fl">Distância entre cidades <small>km — preenchido pelo CEP automaticamente</small></span><div class="fv"><input type="number" id="km" value="" min="0" step="10" oninput="calc()"></div></div>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <button onclick="zerarInstalacao()" style="padding:6px 14px;border-radius:6px;border:1.5px solid #e74c3c;background:#fff;color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑 Zerar Instalação</button>
+      <button onclick="instManual()" style="padding:6px 14px;border-radius:6px;border:1.5px solid var(--navy);background:#fff;color:var(--navy);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ Modo Manual</button>
+    </div>
+    <div class="fr"><span class="fl">Distância entre cidades <small>km — preenchido pelo CEP automaticamente</small></span><div class="fv"><input type="number" id="km" value="" min="0" step="10" oninput="this.dataset.manual='1';calc()"></div></div>
 
     <!-- ALERTA CAMINHÃO: largura > 2400mm -->
     <div id="alerta-caminhao" style="display:none;background:#fff0f0;border:2px solid #e74c3c;border-radius:8px;padding:10px 14px;margin:6px 0">
