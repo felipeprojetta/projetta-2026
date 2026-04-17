@@ -596,7 +596,11 @@ function gerarOS(){
     var precoKgMat=r.precoKg||0;
     var precoKgPint=r.pintado?(precoPint||0):0;
     var precoTotal=precoKgMat+precoKgPint;
-    var custoLinha=Math.round(pesoBrutoRnd*precoTotal*100)/100;
+    /* ╔══════════════════════════════════════════════════════════════╗
+       ║  REGRA DE PREÇO PERFIS: SEMPRE por KG LÍQUIDO (NÃO BRUTO) ║
+       ║  NÃO ALTERE esta lógica! custoLinha = kgLiq × preçoTotal   ║
+       ╚══════════════════════════════════════════════════════════════╝ */
+    var custoLinha=Math.round((r.kgLiq||0)*precoTotal*100)/100;
     var _isBois=!!(r._isBoiserie||r._barPrice);
     // Boiserie: custo = nBars × R$150 (não por kg)
     if(_isBois && r._barPrice){
