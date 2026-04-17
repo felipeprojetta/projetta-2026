@@ -532,11 +532,11 @@ function _calcAcessoriosAllItems(d, sis){
   console.log('  → Multi-porta mode: '+window._mpItens.length+' itens');
   var allRows=[];
   var saved={};
-  ['largura','altura','carac-modelo','folhas-porta','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam'].forEach(function(id){
+  ['largura','altura','carac-modelo','carac-abertura','folhas-porta','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam'].forEach(function(id){
     var el=document.getElementById(id);saved[id]=el?el.value:'';
   });
   window._mpItens.forEach(function(mpIt,idx){
-    ['largura','altura','carac-modelo','folhas-porta','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam'].forEach(function(id){
+    ['largura','altura','carac-modelo','carac-abertura','folhas-porta','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam'].forEach(function(id){
       var el=document.getElementById(id);
       if(el){
         var mpKey=id;
@@ -702,7 +702,39 @@ function _renderOSAcess(d, acessRows, vedaInfo){
   var oldAlert = document.getElementById('osa-dob-alert');
   if(oldAlert) oldAlert.remove();
 
-  if(abertura === 'DOBRADIÇA'){
+  if(window._mpItens&&window._mpItens.length>0){
+    // Multi-porta: abertura PER ITEM
+    window._mpItens.forEach(function(mpIt,di){
+      var itemAbertura=mpIt['carac-abertura']||abertura||'PIVOTANTE';
+      var qI=parseInt(mpIt._qtd||mpIt['qtd-portas'])||1;
+      var pPerfis=(window._perfisPerDoor&&window._perfisPerDoor[di])||0;
+      var pChapas=(window._pesoChapasPerDoor&&window._pesoChapasPerDoor[di])||0;
+      var pEnch=peso.pesoEnchimento/_qPHw*qI;
+      var pLa=peso.pesoLaRocha/_qPHw*qI;
+      var pTotal=pPerfis+pChapas+pEnch+pLa;
+      var L=mpIt._largura||mpIt['largura']||'?';
+      var A=mpIt._altura||mpIt['altura']||'?';
+
+      if(itemAbertura==='DOBRADIÇA'){
+        var qtyDob=pTotal<=100?3:4;
+        var dobCode='PA-DOBKESO 4X3X3 PRE';
+        var dobPreco=getPreco(dobCode);
+        var detailDob='<b>P'+(di+1)+' '+L+'×'+A+'</b> ('+pTotal.toFixed(1)+' kg — '+qtyDob+' un.)';
+        hardwareRows.push({qty:qtyDob*qI,code:dobCode,desc:'Dobradiça Volper 4×3×3 Inox Preto<br>'+detailDob,preco:dobPreco,apl:'FAB',grp:'DOBRADIÇAS',obs:'DOBRADIÇA P'+(di+1)});
+      } else {
+        var pivCode=pTotal<=350?'PA-PIVOT 350 KG':'PA-PIVOT 600 KG';
+        var pivPreco=getPreco(pivCode);
+        var pivDesc=pTotal<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
+        var detailHtml='<b>P'+(di+1)+' '+L+'×'+A+'</b>'
+          +'<br>├ Perfis folha: <b>'+pPerfis.toFixed(1)+'</b> kg'
+          +'<br>├ Chapas porta: <b>'+pChapas.toFixed(1)+'</b> kg'
+          +'<br>├ Enchimento: <b>'+pEnch.toFixed(1)+'</b> kg'
+          +'<br>├ Lã de rocha: <b>'+pLa.toFixed(1)+'</b> kg'
+          +'<br>└ <b style="color:#c0392b">TOTAL: '+pTotal.toFixed(1)+' kg</b> → '+pivCode;
+        hardwareRows.push({qty:qI,code:pivCode,desc:pivDesc+'<br>'+detailHtml,preco:pivPreco,apl:'FAB',grp:'PIVÔ',obs:'PIVÔ P'+(di+1)});
+      }
+    });
+  } else if(abertura === 'DOBRADIÇA'){
     if(peso.total > 150){
       var alertDiv = document.createElement('div');
       alertDiv.id = 'osa-dob-alert';
@@ -717,39 +749,15 @@ function _renderOSAcess(d, acessRows, vedaInfo){
     var dobDesc = 'Dobradiça Volper 4×3×3 Inox Preto';
     hardwareRows.push({qty:qtyDob*_qPHw, code:dobCode, desc:dobDesc+' (porta: '+peso.total.toFixed(1)+'kg — '+qtyDob+' un.×'+_qPHw+')', preco:dobPreco, apl:'FAB', grp:'DOBRADIÇAS', obs:'DOBRADIÇA'});
   } else if(abertura === 'PIVOTANTE'){
-    if(window._mpItens&&window._mpItens.length>0){
-      // Multi-porta: pivô separado por porta com peso individual
-      window._mpItens.forEach(function(mpIt,di){
-        var qI=parseInt(mpIt._qtd||mpIt['qtd-portas'])||1;
-        var pPerfis=(window._perfisPerDoor&&window._perfisPerDoor[di])||0;
-        var pChapas=(window._pesoChapasPerDoor&&window._pesoChapasPerDoor[di])||0;
-        var pEnch=peso.pesoEnchimento/_qPHw*qI;
-        var pLa=peso.pesoLaRocha/_qPHw*qI;
-        var pTotal=pPerfis+pChapas+pEnch+pLa;
-        var pivCode=pTotal<=350?'PA-PIVOT 350 KG':'PA-PIVOT 600 KG';
-        var pivPreco=getPreco(pivCode);
-        var pivDesc=pTotal<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
-        var L=mpIt._largura||mpIt['largura']||'?';
-        var A=mpIt._altura||mpIt['altura']||'?';
-        var detailHtml='<b>P'+(di+1)+' '+L+'×'+A+'</b>'
-          +'<br>├ Perfis folha: <b>'+pPerfis.toFixed(1)+'</b> kg'
-          +'<br>├ Chapas porta: <b>'+pChapas.toFixed(1)+'</b> kg'
-          +'<br>├ Enchimento: <b>'+pEnch.toFixed(1)+'</b> kg'
-          +'<br>├ Lã de rocha: <b>'+pLa.toFixed(1)+'</b> kg'
-          +'<br>└ <b style="color:#c0392b">TOTAL: '+pTotal.toFixed(1)+' kg</b> → '+pivCode;
-        hardwareRows.push({qty:qI,code:pivCode,desc:pivDesc+'<br>'+detailHtml,preco:pivPreco,apl:'FAB',grp:'PIVÔ',obs:'PIVÔ P'+(di+1)});
-      });
-    } else {
-      var pivotCode  = peso.total<=350?'PA-PIVOT 350 KG':'PA-PIVOT 600 KG';
-      var pivotPreco = getPreco(pivotCode);
-      var pivotDesc  = peso.total<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
-      var singleDetail='<br>├ Perfis folha: <b>'+peso.pesoPerfis.toFixed(1)+'</b> kg'
-        +'<br>├ Chapas porta: <b>'+peso.pesoChapas.toFixed(1)+'</b> kg'
-        +'<br>├ Enchimento: <b>'+peso.pesoEnchimento.toFixed(1)+'</b> kg'
-        +'<br>├ Lã de rocha: <b>'+peso.pesoLaRocha.toFixed(1)+'</b> kg'
-        +'<br>└ <b style="color:#c0392b">TOTAL: '+peso.total.toFixed(1)+' kg</b>';
-      hardwareRows.push({qty:_qPHw*_nFolHw, code:pivotCode, desc:pivotDesc+singleDetail, preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
-    }
+    var pivotCode  = peso.total<=350?'PA-PIVOT 350 KG':'PA-PIVOT 600 KG';
+    var pivotPreco = getPreco(pivotCode);
+    var pivotDesc  = peso.total<=350?'Pivô conj. sup/inf 350kg inox 304':'Pivô conj. sup/inf 650kg inox';
+    var singleDetail='<br>├ Perfis folha: <b>'+peso.pesoPerfis.toFixed(1)+'</b> kg'
+      +'<br>├ Chapas porta: <b>'+peso.pesoChapas.toFixed(1)+'</b> kg'
+      +'<br>├ Enchimento: <b>'+peso.pesoEnchimento.toFixed(1)+'</b> kg'
+      +'<br>├ Lã de rocha: <b>'+peso.pesoLaRocha.toFixed(1)+'</b> kg'
+      +'<br>└ <b style="color:#c0392b">TOTAL: '+peso.total.toFixed(1)+' kg</b>';
+    hardwareRows.push({qty:_qPHw*_nFolHw, code:pivotCode, desc:pivotDesc+singleDetail, preco:pivotPreco, apl:'FAB', grp:'PIVÔ', obs:'PIVÔ'});
   }
   // Se abertura não selecionada: sem pivô nem dobradiça
 
