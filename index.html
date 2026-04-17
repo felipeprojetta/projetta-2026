@@ -3129,6 +3129,7 @@ Equipe Projetta by Weiku</textarea>
             <option value="" selected>— Auto —</option>
             <option value="01">01 - Cava</option>
             <option value="02">02 - Cava + Friso Vertical</option>
+            <option value="07">07 - Cava + Frisos Múltiplos</option>
             <option value="06">06 - Cava + Friso Horizontal</option>
             <option value="08">08 - Cava + Ripado</option>
             <option value="22">22 - Cava Premium</option>
@@ -3217,6 +3218,31 @@ Equipe Projetta by Weiku</textarea>
           <span class="fl" style="font-size:12px">LARGURA FRISO <small>mm</small></span>
           <input type="number" id="plan-largfriso" value="" min="5" max="100" step="1" oninput="planUpd();_osAutoUpdate()"
             style="width:75px;padding:5px 8px;border:0.5px solid #b0b0e0;border-radius:6px;font-size:12px;background:#fffef5;color:var(--navy);font-weight:700;outline:none;text-align:right">
+        </div>
+      </div>
+    </div>
+
+    <!-- MODELO 07 — Cava + Frisos Múltiplos (ripas rebaixadas) -->
+    <div id="plan-ripa-row" style="display:none;background:#e8f5e9;border:1.5px solid #4caf50;border-radius:7px;padding:9px 12px;margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;color:#2e7d32;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:Lexend Zetta,Arial,sans-serif">📐 Modelo 07 — Ripas Rebaixadas</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end">
+        <div class="fr" style="border:none;padding:0;gap:8px;flex:1;min-width:160px">
+          <span class="fl" style="font-size:12px;font-weight:700">Nº Ripas</span>
+          <input type="number" id="plan-ripa-qty" value="5" min="1" max="20" step="1" oninput="planUpd();_osAutoUpdate()"
+            style="width:60px;padding:5px 8px;border:1.5px solid #4caf50;border-radius:6px;font-size:14px;background:#e8f5e9;color:#2e7d32;font-weight:900;outline:none;text-align:center">
+        </div>
+        <div class="fr" style="border:none;padding:0;gap:8px;flex:1;min-width:160px">
+          <span class="fl" style="font-size:12px;font-weight:700">Largura Ripa <small>mm</small></span>
+          <input type="number" id="plan-ripa-larg" value="50" min="10" max="200" step="5" oninput="planUpd();_osAutoUpdate()"
+            style="width:60px;padding:5px 8px;border:1.5px solid #4caf50;border-radius:6px;font-size:14px;background:#e8f5e9;color:#2e7d32;font-weight:900;outline:none;text-align:center">
+        </div>
+        <div class="fr" style="border:none;padding:0;gap:8px;flex:1;min-width:160px">
+          <span class="fl" style="font-size:12px;font-weight:700">Dist. Friso <small>mm (gap entre ripa)</small></span>
+          <input type="number" id="plan-ripa-dist" value="10" min="1" max="50" step="1" oninput="planUpd();_osAutoUpdate()"
+            style="width:60px;padding:5px 8px;border:1.5px solid #4caf50;border-radius:6px;font-size:14px;background:#e8f5e9;color:#2e7d32;font-weight:900;outline:none;text-align:center">
+        </div>
+        <div id="plan-ripa-info" style="flex:2;min-width:250px;font-size:11px;color:#555;background:#f1f8e9;padding:6px 10px;border-radius:6px;border:1px solid #c8e6c9">
+          <b>Cálculo:</b> <span id="plan-ripa-calc">—</span>
         </div>
       </div>
     </div>

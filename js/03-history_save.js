@@ -70,7 +70,7 @@ function captureFormData(){
     'folhas-porta','rep-sel','cep-cliente','ac-fechadura','qtd-fechaduras',
     'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso','carac-ripado-total','carac-ripado-2lados',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
-    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-moldura-tipo','plan-moldura-dis1','plan-moldura-dis2','plan-moldura-dis3','plan-moldura-divisao','plan-acm-cor','plan-acm-qty','plan-alu-cor','plan-alu-qty','plan-chapa-alu','plan-refilado','carac-cor-macico',
+    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-ripa-qty','plan-ripa-larg','plan-ripa-dist','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-moldura-tipo','plan-moldura-dis1','plan-moldura-dis2','plan-moldura-dis3','plan-moldura-divisao','plan-acm-cor','plan-acm-qty','plan-alu-cor','plan-alu-qty','plan-chapa-alu','plan-refilado','carac-cor-macico',
     'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
     'dias','pessoas','diaria','km','carros','desl-override','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp',
     'overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto','markup-desc'];
@@ -222,7 +222,7 @@ function restoreFormData(data){
     'folhas-porta','rep-sel','cep-cliente','ac-fechadura','qtd-fechaduras',
     'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso','carac-ripado-total','carac-ripado-2lados',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
-    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-moldura-tipo','plan-moldura-dis1','plan-moldura-dis2','plan-moldura-dis3','plan-moldura-divisao','plan-acm-cor','plan-acm-qty','plan-alu-cor','plan-alu-qty','plan-chapa-alu','plan-refilado','carac-cor-macico',
+    'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-ripa-qty','plan-ripa-larg','plan-ripa-dist','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-moldura-tipo','plan-moldura-dis1','plan-moldura-dis2','plan-moldura-dis3','plan-moldura-divisao','plan-acm-cor','plan-acm-qty','plan-alu-cor','plan-alu-qty','plan-chapa-alu','plan-refilado','carac-cor-macico',
     'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
     'dias','pessoas','diaria','km','carros','desl-override','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp',
     'overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto'];

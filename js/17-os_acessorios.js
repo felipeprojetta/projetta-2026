@@ -399,9 +399,15 @@ function _calcAcessoriosOS(d, nFolhas, sis){
     var A=parseFloat(document.getElementById('altura').value)||0;
     var L=parseFloat(document.getElementById('largura').value)||0;
     var mFD12=sis==='PA006'?(A*6+L*4):(A*2+L*4);
+    // Modelo 07: +4 fitas por ripa × altura (2 por friso × frente+verso)
+    var _mod07=((document.getElementById('carac-modelo')||{value:''}).value==='07'||(document.getElementById('plan-modelo')||{value:''}).value==='07');
+    if(_mod07){
+      var _nRip07=parseInt((document.getElementById('plan-ripa-qty')||{value:0}).value)||0;
+      mFD12+=4*_nRip07*A;
+    }
     var rolos=Math.ceil(mFD12/1000/20)||1;
     return {qty:rolos,code:'PA-FITDF 12X20X1.0',
-      desc:'Fita DFix 1,0×12mm — '+(mFD12/1000).toFixed(1)+'m ÷ 20m/rolo = '+rolos+' rolo(s)',
+      desc:'Fita DFix 1,0×12mm — '+(mFD12/1000).toFixed(1)+'m ÷ 20m/rolo = '+rolos+' rolo(s)'+(_mod07?' (incl. '+_nRip07+' ripas)':''),
       preco:getPreco('PA-FITDF 12X20X1.0'),apl:'FAB',grp:'FITA DUPLA FACE',obs:'FITA DF12'};
   })());
 

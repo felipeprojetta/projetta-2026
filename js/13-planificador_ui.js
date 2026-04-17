@@ -179,7 +179,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
   }
 
   /* MODELOS CAVA (01, 02, 08) */
-  if (mod === '01' || mod === '02' || mod === '08') {
+  if (mod === '01' || mod === '02' || mod === '07' || mod === '08') {
     var DIS_BOR_CAVA = parseInt(document.getElementById('plan-disborcava').value) || 210;
     var LARG_CAVA    = parseInt(document.getElementById('plan-largcava').value)   || 150;
     // Cava altura = TRAV_V - 12mm
@@ -193,6 +193,15 @@ function plnPecas(Lmm, Amm, fol, mod) {
       LARG_FRISO  = parseInt(document.getElementById('plan-largfriso').value) || 50;
       DIS_BOR_FRI = parseInt(document.getElementById('plan-disbordafriso').value) || 210;
       frisoDeduc = DIS_BOR_FRI + LARG_FRISO;
+    }
+    // Modelo 07: múltiplas ripas rebaixadas
+    var _nRipas07=0, _largRipa07=0, _distRipa07=0;
+    if (mod === '07') {
+      _nRipas07 = parseInt((document.getElementById('plan-ripa-qty')||{value:5}).value) || 5;
+      _largRipa07 = parseInt((document.getElementById('plan-ripa-larg')||{value:50}).value) || 50;
+      _distRipa07 = parseInt((document.getElementById('plan-ripa-dist')||{value:10}).value) || 10;
+      // Deduz: nRipas × larguraRipa + nRipas × distFriso
+      frisoDeduc = _nRipas07 * _largRipa07 + _nRipas07 * _distRipa07;
     }
     r.push(['CAVA', LARG_CAVA + 116, cavaH, (fol==2) ? 4 : 2]);
     r.push(['TAMPA CAVA', LARG_CAVA + 90, DIS_BOR_CAVA, (fol==2) ? 8 : 4]);
@@ -218,6 +227,12 @@ function plnPecas(Lmm, Amm, fol, mod) {
     if (mod === '02') {
       r.push(['TAMPA FRISO', DIS_BOR_FRI + (2*REF-1), G4, (fol==2) ? 4 : 2]);
       r.push(['FRISO', LARG_FRISO + 100, G4, (fol==2) ? 4 : 2]);
+    }
+    if (mod === '07') {
+      // Cada ripa: FRISO peça = largRipa + 2×REF (refilado)
+      var _frisoW07 = _largRipa07 + 2*REF;
+      var _qFriso07 = _nRipas07 * (fol==2 ? 4 : 2);
+      r.push(['FRISO RIPA', _frisoW07, G4, _qFriso07]);
     }
     r.push(['ACAB LAT 1', acabLat1, G4, nL], ['ACAB LAT 2', 90, G4, nL], ['ACAB LAT Z', 110, G4, nL]);
     r.push(['U PORTAL', 221, L-REF, 1]);
@@ -944,11 +959,14 @@ function planUpd() {
   else dims.textContent='preencha largura e altura acima';
 
   var Mv=document.getElementById('plan-modelo').value;
-  var isCava=(Mv==='01'||Mv==='02'||Mv==='06'||Mv==='08'||Mv==='22');
+  var isCava=(Mv==='01'||Mv==='02'||Mv==='06'||Mv==='07'||Mv==='08'||Mv==='22');
   var isFriso=(Mv==='02'||Mv==='11'||Mv==='22'||Mv==='23acm'||Mv==='23alu');
   var isFrisoH=(Mv==='06'||Mv==='16');
+  var isRipa07=(Mv==='07');
   document.getElementById('plan-cava-row').style.display=isCava?'':'none';
   document.getElementById('plan-friso-row').style.display=isFriso?'':'none';
+  var ripaRow=document.getElementById('plan-ripa-row');
+  if(ripaRow) ripaRow.style.display=isRipa07?'':'none';
   var frisoHRow=document.getElementById('plan-friso-h-row');
   if(frisoHRow) frisoHRow.style.display=isFrisoH?'':'none';
   // Moldura row (modelo 23)
@@ -969,6 +987,15 @@ function planUpd() {
     // Sync friso horizontal qty → carac-friso-horiz (para cálculo de perfis)
     var _fhSync=document.getElementById('carac-friso-horiz');
     if(_fhSync) _fhSync.value=_nf;
+  }
+  // Ripa calc preview (mod 07)
+  if(isRipa07&&Lv>0&&Av>0){
+    var _nRip=parseInt((document.getElementById('plan-ripa-qty')||{value:5}).value)||5;
+    var _lRip=parseInt((document.getElementById('plan-ripa-larg')||{value:50}).value)||50;
+    var _dRip=parseInt((document.getElementById('plan-ripa-dist')||{value:10}).value)||10;
+    var _ripaCalcEl=document.getElementById('plan-ripa-calc');
+    var _ripaDeducTotal=_nRip*_lRip+_nRip*_dRip;
+    if(_ripaCalcEl) _ripaCalcEl.innerHTML=_nRip+' ripas × '+_lRip+'mm = '+(_nRip*_lRip)+'mm + '+_nRip+' frisos × '+_dRip+'mm = '+(_nRip*_dRip)+'mm — <b>deduz '+_ripaDeducTotal+'mm da tampa</b>';
   }
 
   var pieces=[];
