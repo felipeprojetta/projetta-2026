@@ -303,7 +303,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
           var _tampaW=L-140;
           var _boisH=Math.round(_tampaW-_dedTotal);
           if(_boisH>50) cuts.push({code:'PA-PERFILBOISERIE', desc:'BOISERIE HORIZ'+_nvLabel, compMM:_boisH,
-            qty:_N_ROW*2, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
+            qty:_N_ROW*4, pintado:true, secao:'FOLHA', barLenMM:6000, lh:'90/90 L', obs:'R$150/BARRA',
             perf:{c:'PA-PERFILBOISERIE',kg:0.293,f:'MERCADO',p:0}, _isBoiserie:true, _barPrice:150});
         } else {
           var _baseMac=(L-97)/2;
