@@ -970,10 +970,20 @@ function salvarRapido(){
     var db=loadDB();
     var idx=db.findIndex(function(e){return e.id===currentId;});
     if(idx<0) return;
+    var rev=db[idx].revisions[currentRev];
+    /* ╔══════════════════════════════════════════════════════════════════╗
+       ║  PROTEÇÃO: NUNCA sobrescrever snapshot de revisão TRAVADA.     ║
+       ║  Se crmPronto=true ou snapshot já tem valores financeiros,     ║
+       ║  o snapshot é SAGRADO — NÃO TOQUE!                            ║
+       ╚══════════════════════════════════════════════════════════════════╝ */
+    var _snapProtegido=!!(rev.crmPronto || (rev.snapshot && rev.snapshot.custoTotal && rev.snapshot.custoTotal!=='R$ 0'));
     var data=captureFormData();
-    db[idx].revisions[currentRev].data=data;
-    db[idx].revisions[currentRev].savedAt=now();
-    try{db[idx].revisions[currentRev].snapshot=captureSnapshot();}catch(e){}
+    rev.data=data;
+    rev.savedAt=now();
+    // Só atualiza snapshot se NÃO protegido
+    if(!_snapProtegido){
+      try{rev.snapshot=captureSnapshot();}catch(e){}
+    }
     db[idx].client=data['cliente']||db[idx].client;
     db[idx].project=data['numprojeto']||db[idx].project;
     var cliente=data['cliente']||'';
