@@ -3395,7 +3395,8 @@ window.crmGerarRelatorio=function(){
   if(!fGer&&!fWrep&&!fReg&&!fResp){alert('Selecione um filtro no pipeline (Gerente, Representante ou Região) antes de gerar o relatório.');return;}
   var titulo=fWrep||fGer||fReg||fResp||'Geral';
 
-  var data=cLoad();var stages=gStages();
+  var data=(function(){try{return JSON.parse(localStorage.getItem('projetta_crm_v1'))||[];}catch(e){return[];}})();
+  var stages=(function(){try{var s=JSON.parse(localStorage.getItem('projetta_crm_settings_v1'))||{};return(s.stages||[]).length?s.stages:[{id:'s2',label:'Qualificação',color:'#3498db',icon:'🔍'},{id:'s3',label:'Fazer Orçamento',color:'#e67e22',icon:'📋'},{id:'s3b',label:'Orçamento Pronto',color:'#f39c12',icon:'📧'},{id:'s4',label:'Proposta Enviada',color:'#9b59b6',icon:'📩'},{id:'s5',label:'Negociação',color:'#f1c40f',icon:'💬'},{id:'won',label:'Fechado Ganho',color:'#27ae60',icon:'🏆'}];}catch(e){return[];}})();
   // Filtrar cards usando mesma lógica do pipeline
   var filtered=data.filter(function(o){
     if(o.stage==='lost')return false;
@@ -3416,6 +3417,7 @@ window.crmGerarRelatorio=function(){
 
   // Gerar HTML do relatório
   var brl=function(v){return'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});};
+  var _esc=function(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;};
   var hoje=new Date().toLocaleDateString('pt-BR');
   var h='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório '+titulo+' — '+hoje+'</title>';
   h+='<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#333;padding:20px}';
@@ -3447,13 +3449,13 @@ window.crmGerarRelatorio=function(){
     g.cards.sort(function(a,b){return(b.valor||0)-(a.valor||0);});
     g.cards.forEach(function(c){
       var dims=(c.largura&&c.altura)?(c.largura+'×'+c.altura):'';
-      h+='<tr><td style="font-weight:700">'+escH(c.cliente||'')+'</td>';
-      h+='<td>'+escH(c.produto||'')+'</td>';
+      h+='<tr><td style="font-weight:700">'+_esc(c.cliente||'')+'</td>';
+      h+='<td>'+_esc(c.produto||'')+'</td>';
       h+='<td>'+dims+'</td>';
-      h+='<td>'+escH((c.wrep||'').split('(')[0].trim().split(' ').slice(0,2).join(' '))+'</td>';
-      h+='<td>'+escH(c.cidade||'')+'</td>';
-      h+='<td>'+escH(c.reserva||'')+'</td>';
-      h+='<td>'+escH(c.agp||'')+'</td>';
+      h+='<td>'+_esc((c.wrep||'').split('(')[0].trim().split(' ').slice(0,2).join(' '))+'</td>';
+      h+='<td>'+_esc(c.cidade||'')+'</td>';
+      h+='<td>'+_esc(c.reserva||'')+'</td>';
+      h+='<td>'+_esc(c.agp||'')+'</td>';
       h+='<td class="val">'+brl(c.valor)+'</td></tr>';
     });
     h+='<tr><td colspan="7" class="tot">Subtotal '+g.label+'</td><td class="tot">'+brl(stVal)+'</td></tr>';
