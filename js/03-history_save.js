@@ -241,6 +241,17 @@ function restoreFormData(data){
   if(!data.acmBlocks||!data.acmBlocks.length) addACM();
   if(!data.aluBlocks||!data.aluBlocks.length) addALU();
 
+  // Re-aplicar campos do planificador DEPOIS de addACM/addALU (que repopulam opções)
+  if(window._suppressAutoSelect){
+    // Forçar filtro de opções pelo tamanho de chapa salvo
+    if(typeof filtrarChapasACM==='function') try{filtrarChapasACM();}catch(e){}
+    // Re-setar valores que foram perdidos pelo repopulate
+    ['plan-acm-cor','plan-acm-qty','plan-alu-cor','plan-alu-qty','plan-chapa-alu'].forEach(function(fid){
+      var el=document.getElementById(fid);
+      if(el&&data[fid]!==undefined&&data[fid]!=='') el.value=data[fid];
+    });
+  }
+
   // Restaurar peças manuais
   if(data.manualPcs&&data.manualPcs.length){
     document.getElementById('plan-manual-tbody').innerHTML='';
