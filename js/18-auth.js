@@ -778,10 +778,22 @@ function _mpCalcCombinedPerfis(barraMM){
   if(!firstD) return {error:'Nenhum item válido na tabela multi-porta'};
 
   // ── Re-otimizar barras com TODOS os cortes combinados ──
-  var kgTecno=parseFloat((document.getElementById('pf-kg-tecnoperfil')||{value:0}).value)||0;
-  var kgMerc=parseFloat((document.getElementById('pf-kg-mercado')||{value:0}).value)||0;
-  var kgWeiku=parseFloat((document.getElementById('pf-kg-weiku')||{value:0}).value)||0;
-  var precoPint=parseFloat((document.getElementById('pf-preco-pintura')||{value:0}).value)||0;
+  var kgTecnoBru=parseFloat((document.getElementById('pf-kg-tecnoperfil')||{value:0}).value)||0;
+  var kgMercBru=parseFloat((document.getElementById('pf-kg-mercado')||{value:0}).value)||0;
+  var kgWeikuBru=parseFloat((document.getElementById('pf-kg-weiku')||{value:0}).value)||0;
+  var dedTecno=parseFloat((document.getElementById('pf-ded-tecnoperfil')||{value:0}).value)||0;
+  var dedMerc=parseFloat((document.getElementById('pf-ded-mercado')||{value:0}).value)||0;
+  var dedWeiku=parseFloat((document.getElementById('pf-ded-weiku')||{value:0}).value)||0;
+  /* ╔══════════════════════════════════════════════════════════════════╗
+     ║  PREÇO LÍQUIDO = BRUTO × (1 - dedução%)                        ║
+     ║  NÃO use kgBru direto! Sempre aplicar dedução.                  ║
+     ╚══════════════════════════════════════════════════════════════════╝ */
+  var kgTecno=kgTecnoBru*(1-dedTecno/100);
+  var kgMerc=kgMercBru*(1-dedMerc/100);
+  var kgWeiku=kgWeikuBru*(1-dedWeiku/100);
+  var precoPintBru=parseFloat((document.getElementById('pf-preco-pintura')||{value:0}).value)||0;
+  var dedPint=parseFloat((document.getElementById('pf-ded-pintura')||{value:0}).value)||0;
+  var precoPint=precoPintBru*(1-dedPint/100);
 
   function _getPerf(code){
     for(var i=0;i<PERFIS_DB.length;i++){if(PERFIS_DB[i].c===code)return PERFIS_DB[i];}
