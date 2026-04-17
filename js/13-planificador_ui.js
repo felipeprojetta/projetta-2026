@@ -1656,6 +1656,10 @@ function planRun() {
     }
   }
   if(pieces.length===0){alert('Nenhuma peça para calcular. Selecione um modelo ou adicione peças manuais.');return;}
+  // Garantir cor em todas as peças
+  for(var ci=0;ci<pieces.length;ci++){
+    if(!pieces[ci].color) pieces[ci].color=PLN_COLORS[ci%PLN_COLORS.length];
+  }
 
   var _cs=_getChapaSize();
   var SW=_cs.w,SH=_cs.h;
