@@ -703,17 +703,29 @@ function renderPerfisDB(){
   tb.innerHTML=rows;
 }
 function salvarPerfisKg(){
+  /* ╔══════════════════════════════════════════════════════════════════╗
+     ║  PROTEÇÃO: Nunca salvar se todos os campos estão vazios/zero.   ║
+     ║  Isso evita que um bug zere os preços salvos no localStorage.   ║
+     ╚══════════════════════════════════════════════════════════════════╝ */
   try{
+    var t=$('pf-kg-tecnoperfil').value;
+    var m=$('pf-kg-mercado').value;
+    var w=$('pf-kg-weiku').value;
+    var p=$('pf-preco-pintura').value;
+    // Se TODOS vazios, não salvar (proteção contra reset acidental)
+    if(!t&&!m&&!w&&!p) return;
     localStorage.setItem('projetta_perfis_kg',JSON.stringify({
-      tecnoperfil:$('pf-kg-tecnoperfil').value,
-      mercado:$('pf-kg-mercado').value,
-      weiku:$('pf-kg-weiku').value,
-      pintura:$('pf-preco-pintura').value,
+      tecnoperfil:t,
+      mercado:m,
+      weiku:w,
+      pintura:p,
       ded_tecnoperfil:$('pf-ded-tecnoperfil').value,
       ded_mercado:$('pf-ded-mercado').value,
       ded_weiku:$('pf-ded-weiku').value,
       ded_pintura:$('pf-ded-pintura').value
     }));
+    // Backup na nuvem
+    if(typeof _savePerfisCloud==='function') _savePerfisCloud();
   }catch(e){}
   _updateLiqPerfis();
 }
@@ -757,8 +769,52 @@ function loadPrecoKg(){
       var old=localStorage.getItem('projetta_preco_kg');
       if(old) $('pf-kg-mercado').value=old;
     }
+    // Se localStorage vazio, tentar carregar do Supabase
+    if(!s || (!$('pf-kg-tecnoperfil').value && !$('pf-kg-mercado').value)){
+      _loadPerfisCloud();
+    }
   }catch(e){}
   _updateLiqPerfis();
+}
+// Cloud backup/restore para preços de perfis
+function _savePerfisCloud(){
+  try{
+    var data={
+      tecnoperfil:$('pf-kg-tecnoperfil').value,mercado:$('pf-kg-mercado').value,
+      weiku:$('pf-kg-weiku').value,pintura:$('pf-preco-pintura').value,
+      ded_tecnoperfil:$('pf-ded-tecnoperfil').value,ded_mercado:$('pf-ded-mercado').value,
+      ded_weiku:$('pf-ded-weiku').value,ded_pintura:$('pf-ded-pintura').value
+    };
+    if(!data.tecnoperfil&&!data.mercado)return;
+    fetch(window._SB_URL+'/rest/v1/configuracoes',{method:'POST',
+      headers:{'apikey':window._SB_KEY,'Authorization':'Bearer '+window._SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({chave:'precos_perfis',valor:data})
+    }).catch(function(){});
+  }catch(e){}
+}
+function _loadPerfisCloud(){
+  try{
+    fetch(window._SB_URL+'/rest/v1/configuracoes?chave=eq.precos_perfis&select=valor&limit=1',
+      {headers:{'apikey':window._SB_KEY,'Authorization':'Bearer '+window._SB_KEY}})
+      .then(function(r){return r.json();})
+      .then(function(rows){
+        if(rows&&rows.length&&rows[0].valor){
+          var d=rows[0].valor;
+          if(d.tecnoperfil){$('pf-kg-tecnoperfil').value=d.tecnoperfil;}
+          if(d.mercado){$('pf-kg-mercado').value=d.mercado;}
+          if(d.weiku){$('pf-kg-weiku').value=d.weiku;}
+          if(d.pintura){$('pf-preco-pintura').value=d.pintura;}
+          if(d.ded_tecnoperfil){$('pf-ded-tecnoperfil').value=d.ded_tecnoperfil;}
+          if(d.ded_mercado){$('pf-ded-mercado').value=d.ded_mercado;}
+          if(d.ded_weiku){$('pf-ded-weiku').value=d.ded_weiku;}
+          if(d.ded_pintura){$('pf-ded-pintura').value=d.ded_pintura;}
+          // Salvar no localStorage também
+          localStorage.setItem('projetta_perfis_kg',JSON.stringify(d));
+          _updateLiqPerfis();
+          console.log('✅ Preços perfis restaurados do Supabase');
+        }
+      }).catch(function(){});
+  }catch(e){}
 }
 
 
