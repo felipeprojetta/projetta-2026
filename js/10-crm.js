@@ -1360,7 +1360,7 @@ window._crmItensRender=function(){
       h+='</div>';
       h+='</div>';
       // 🎨 Cores — render right after friso config
-      var _isMacItem = item.moldura_rev === 'MACICO';
+      var _isMacItem = item.modelo==='23' && item.moldura_rev === 'MACICO';
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🎨 Cores</div>';
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>'+(_isMacItem?'Cor ACM':'Cor Externa')+'</label><select id="'+pre+'cor_ext" style="font-size:10px">'+corOpts.replace('value="'+item.cor_ext+'"','value="'+item.cor_ext+'" selected')+'</select></div>';
