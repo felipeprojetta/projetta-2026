@@ -1010,13 +1010,16 @@ function _populatePropostaItens(){
     var fechMec=it['carac-fech-mec']||'—';
     var fechDig=it['carac-fech-dig']||'NÃO SE APLICA';
     var puxador=it['carac-puxador']||'—';
+    var puxTam=it['carac-pux-tam']||'1.5';
     var cilindro=it['carac-cilindro']||'—';
+    var abertura=it['carac-abertura']||'PIVOTANTE';
+    var temAlisar=it['carac-tem-alisar']==='1';
     var sistema=A<4000?'PA006 NOVO':'PA007 NOVO';
     var imgSrc=(typeof MODEL_IMGS!=='undefined'&&MODEL_IMGS[modNum])||'';
     if(typeof _modeloImgCache!=='undefined'&&_modeloImgCache[modNum]) imgSrc=_modeloImgCache[modNum];
     var tipo=it._tipo||'porta_pivotante';
     var descProposta=tipo==='fixo'?'Fixo Projetta by Weiku':tipo==='revestimento'?'Revestimento Projetta by Weiku':'Porta Projetta by Weiku';
-    items.push({idx:i,L:L,A:A,q:q,area:area,modNum:modNum,modTxt:modTxt,descProposta:descProposta,tipo:tipo,folhas:folhas,corExt:corExt,corInt:corInt,fechMec:fechMec,fechDig:fechDig,puxador:puxador,cilindro:cilindro,sistema:sistema,imgSrc:imgSrc});
+    items.push({idx:i,L:L,A:A,q:q,area:area,modNum:modNum,modTxt:modTxt,descProposta:descProposta,tipo:tipo,folhas:folhas,corExt:corExt,corInt:corInt,fechMec:fechMec,fechDig:fechDig,puxador:puxador,puxTam:puxTam,cilindro:cilindro,abertura:abertura,temAlisar:temAlisar,sistema:sistema,imgSrc:imgSrc});
     totalArea+=area;
   });
   // Ordenar por área (maior primeiro)
@@ -1046,16 +1049,31 @@ function _populatePropostaItens(){
     doorsHtml+='<div style="font-size:10px;margin-bottom:4px"><b>Área Porta:</b> '+areaUn.toFixed(2)+'m²</div>';
     doorsHtml+='<div style="font-size:9.5px;color:#444;line-height:1.5">';
     doorsHtml+='<div><b>SISTEMA</b>: '+it.sistema+'</div>';
-    doorsHtml+='<div><b>TIPO DE ABERTURA</b>: PIVOTANTE</div>';
+    doorsHtml+='<div><b>TIPO DE ABERTURA</b>: '+it.abertura+'</div>';
     doorsHtml+='<div><b>NUMERO DE FOLHAS</b>: '+it.folhas+' FOLHA'+(it.folhas>1?'S':'')+'</div>';
     doorsHtml+='<div><b>MODELO</b>: '+it.modTxt+'</div>';
-    doorsHtml+='<div><b>FECHADURA MECÂNICA</b>: '+it.fechMec+'</div>';
-    doorsHtml+='<div><b>FECHADURA DIGITAL</b>: '+it.fechDig+'</div>';
+    // Fechadura mecânica com cilindro inline
+    var _fmStr=it.fechMec||'—';
+    if(it.cilindro&&it.cilindro!=='—') _fmStr+=' — '+it.cilindro;
+    doorsHtml+='<div><b>FECHADURA MECÂNICA</b>: <b>'+_fmStr+'</b></div>';
+    // Fechadura digital com highlight
+    var _fdVal=it.fechDig||'NÃO SE APLICA';
+    var _fdNA=(_fdVal==='NÃO SE APLICA'||_fdVal==='Nenhuma'||!_fdVal);
+    if(!_fdNA){
+      doorsHtml+='<div style="background:#f3e8ff;border:2px solid #8e44ad;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>FECHADURA DIGITAL:</b> <strong style="color:#8e44ad;font-size:110%">✅ '+_fdVal.toUpperCase()+'</strong></div>';
+    } else {
+      doorsHtml+='<div style="background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0"><b>FECHADURA DIGITAL:</b> <span style="color:#c0392b;font-weight:700">NÃO SE APLICA</span></div>';
+    }
     doorsHtml+='<div><b>PUXADOR</b>: '+it.puxador+'</div>';
+    if(it.puxador==='EXTERNO'&&it.puxTam) doorsHtml+='<div><b>TAMANHO PUXADOR EXTERNO</b>: '+it.puxTam+'</div>';
     doorsHtml+='<div><b>COR CHAPA EXTERNA</b>: '+it.corExt+'</div>';
     doorsHtml+='<div><b>COR CHAPA INTERNA</b>: '+it.corInt+'</div>';
     doorsHtml+='<div><b>CILINDRO</b>: '+it.cilindro+'</div>';
     doorsHtml+='</div>';
+    // Alisar highlight
+    if(it.temAlisar){
+      doorsHtml+='<div style="background:#e8f5e9;border:2px solid #27ae60;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>ALISAR:</b> <strong style="color:#27ae60;font-size:110%">✅ SIM — COM ALISAR</strong></div>';
+    }
     doorsHtml+='<div style="margin-top:6px;padding:4px 8px;background:#f0ebe0;border-radius:3px;font-size:11px;font-weight:800;color:var(--navy);text-align:right">'+brl2(valorItem)+'</div>';
     doorsHtml+='</div></div>';
     // Linha da tabela de itens
