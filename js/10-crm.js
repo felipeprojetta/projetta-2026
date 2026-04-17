@@ -231,11 +231,13 @@ function buildCard(o,st,isFazerOrc){
   if(o.largura||o.altura) html+='<div class="crm-card-dims">📐 '+(o.largura||'?')+'×'+(o.altura||'?')+' mm'+(o.abertura?' · '+o.abertura.charAt(0)+o.abertura.slice(1).toLowerCase():'')+'</div>';
   // Mostrar info de cada item (modelo, folhas, digital, cor)
   if(o.itens&&o.itens.length>0){
-    var _itemInfo=o.itens.filter(function(it){return it.tipo==='porta_pivotante';}).map(function(it,i){
+    var _itemInfo=o.itens.filter(function(it){return it.tipo==='porta_pivotante'||it.tipo==='porta_interna';}).map(function(it,i){
       var parts=[];
       if(it.largura&&it.altura) parts.push(it.largura+'×'+it.altura);
+      if(it.tipo==='porta_interna') parts.push('INT '+(it.sistema_pi||'GIRO'));
       if(it.modelo) parts.push('Mod.'+it.modelo);
       if(it.folhas&&it.folhas!=='1') parts.push(it.folhas+'fls');
+      if(it.folhas_pi&&it.folhas_pi!=='1') parts.push(it.folhas_pi+'fls');
       if(it.fech_dig&&it.fech_dig!==''&&it.fech_dig!=='Nenhuma') parts.push('🔒'+it.fech_dig);
       if(it.cor_ext) parts.push('🎨'+it.cor_ext);
       if(it.cor_macico) parts.push('🔷'+it.cor_macico);
@@ -849,7 +851,7 @@ window._crmItens = [];
 var CRM_ITEM_TYPES = {
   porta_pivotante: {label:'Porta Pivotante', icon:'🚪', desc:'Porta de entrada com pivô'},
   fixo:            {label:'Fixo / Lateral',   icon:'🔲', desc:'Vidro fixo, lateral ou bandeira'},
-  porta_interna:   {label:'Porta Interna',    icon:'🚪', desc:'Em breve', disabled:true},
+  porta_interna:   {label:'Porta Interna',    icon:'🚪', desc:'Porta interna giro ou correr'},
   revestimento:    {label:'Revestimento',     icon:'🧱', desc:'Em breve', disabled:true}
 };
 
@@ -916,6 +918,9 @@ window.crmItemCreate=function(tipo){
   if(tipo==='fixo'){
     item.tipo_fixacao='';item.revestimento_lados='';item.tem_estrutura='';
     item.tipo_material='';item.tipo_vidro='';
+  }
+  if(tipo==='porta_interna'){
+    item.sistema_pi='GIRO';item.folhas_pi='1';
   }
   _crmItens.push(item);
   _crmItensRender();
@@ -1204,6 +1209,7 @@ window._crmItensSaveFromDOM=function(){
     var fields=['qtd','largura','altura','cor_ext','cor_int','cor_macico'];
     if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','moldura_divisao','ripado_total','ripado_2lados']);
     if(item.tipo==='fixo') fields=fields.concat(['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material']);
+    if(item.tipo==='porta_interna') fields=fields.concat(['sistema_pi','folhas_pi']);
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el) item[f]=el.value;
@@ -1370,6 +1376,13 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"><label>Tipo Material</label><select id="'+pre+'tipo_material" onchange="crmItemFixoMaterial(\''+item.id+'\')"><option value="">— Selecione —</option><option value="ACM"'+(item.tipo_material==='ACM'?' selected':'')+'>ACM (Chapa)</option><option value="VIDRO"'+(item.tipo_material==='VIDRO'?' selected':'')+'>Vidro</option></select></div>';
       h+='<div class="crm-field" id="'+pre+'vidro_wrap" style="'+(item.tipo_material==='VIDRO'?'':'display:none')+'"><label>Tipo de Vidro</label><select id="'+pre+'tipo_vidro"><option value="">— Selecione —</option><option value="TEMPERADO"'+(item.tipo_vidro==='TEMPERADO'?' selected':'')+'>Temperado</option><option value="LAMINADO"'+(item.tipo_vidro==='LAMINADO'?' selected':'')+'>Laminado</option><option value="INSULADO"'+(item.tipo_vidro==='INSULADO'?' selected':'')+'>Insulado</option><option value="PINAZO"'+(item.tipo_vidro==='PINAZO'?' selected':'')+'>Com Pinazo</option></select></div>';
       h+='</div>';
+    } else if(item.tipo==='porta_interna'){
+      h+='<div class="crm-field"><label>Sistema</label><select id="'+pre+'sistema_pi"><option value="GIRO"'+(item.sistema_pi==='GIRO'||!item.sistema_pi?' selected':'')+'>Giro (dobradiça)</option><option value="CORRER"'+(item.sistema_pi==='CORRER'?' selected':'')+'>De Correr</option></select></div>';
+      h+='</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Folhas</label><select id="'+pre+'folhas_pi"><option value="1"'+(item.folhas_pi==='1'||!item.folhas_pi?' selected':'')+'>1 folha</option><option value="2"'+(item.folhas_pi==='2'?' selected':'')+'>2 folhas</option><option value="3"'+(item.folhas_pi==='3'?' selected':'')+'>3 folhas</option></select></div>';
+      h+='<div class="crm-field"></div>';
+      h+='</div>';
     } else {
       h+='<div class="crm-field"></div></div>';
     }
@@ -1399,7 +1412,7 @@ window._crmItensRender=function(){
   // Re-apply selected values for selects (the replace trick doesn't always work)
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
-    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','cor_macico','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','moldura_divisao','ripado_total','ripado_2lados']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int','cor_macico'];
+    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','cor_macico','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','moldura_divisao','ripado_total','ripado_2lados']:item.tipo==='porta_interna'?['sistema_pi','folhas_pi','cor_ext','cor_int','cor_macico']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int','cor_macico'];
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el&&item[f]) el.value=item[f];
@@ -1442,6 +1455,9 @@ window._crmItensToCardData=function(){
     }
     if(item.tipo==='fixo'){
       clean.tipo_vidro=item.tipo_vidro||'';clean.tipo_fixacao=item.tipo_fixacao||'';clean.revestimento_lados=item.revestimento_lados||'2';clean.tem_estrutura=item.tem_estrutura||'SIM';clean.tipo_material=item.tipo_material||'ACM';
+    }
+    if(item.tipo==='porta_interna'){
+      clean.sistema_pi=item.sistema_pi||'GIRO';clean.folhas_pi=item.folhas_pi||'1';
     }
     return clean;
   });
