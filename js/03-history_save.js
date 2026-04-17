@@ -470,7 +470,11 @@ window.loadRevision=function(id,revIdx){
   // 4. Limpar displays antigos (evita resíduos de outro orçamento)
   _clearResultDisplay();
   
-  // 5. Restaurar dados do formulário
+  // 5. Avaliar snapshot ANTES de restaurar form (precisa do flag _suppressAutoSelect)
+  var snapValid=_isSnapshotValid(rev.snapshot);
+  var shouldLock=snapValid||!!rev.crmPronto;
+  
+  // 6. Restaurar dados do formulário
   if(rev.data){
     // Flag para evitar auto-seleção durante restore quando snapshot válido
     if(snapValid) window._suppressAutoSelect=true;
@@ -478,10 +482,6 @@ window.loadRevision=function(id,revIdx){
     window._suppressAutoSelect=false;
   }
   updateBanner(entry.name, rev.label);
-  
-  // 6. Avaliar snapshot
-  var snapValid=_isSnapshotValid(rev.snapshot);
-  var shouldLock=snapValid||!!rev.crmPronto;
   
   // 7. Se snapshot válido: restaurar display e memorial
   if(snapValid){
