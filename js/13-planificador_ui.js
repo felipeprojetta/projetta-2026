@@ -860,6 +860,25 @@ function _plnResetOverrides(){
 function plnPieceTable(pieces, placed) {
   _plnPiecesRef=[];
   var tb=document.getElementById('plan-piece-tbody'); tb.innerHTML='';
+  // Mapa de refilado (largura) por peça — usado apenas para exibição do "L sem refilado"
+  // Não afeta nenhum cálculo; somente anotação visual abaixo do input L(mm).
+  var _REFval = parseInt((document.getElementById('plan-refilado')||{value:20}).value)||20;
+  var _REF_POR_PECA = {
+    'TAMPA MAIOR': 2*_REFval,
+    'TAMPA MAIOR 01': 40, 'TAMPA MAIOR 02': 40, 'TAMPA MAIOR 03': 40,
+    'TAMPA BOR CAVA': 2*_REFval - 2,
+    'TAMPA MENOR': 2*_REFval - 2,
+    'TAMPA FRISO': 2*_REFval - 1,
+    'FRISO': 100,
+    'FRISO RIPA': 2*_REFval,
+    'FIT ACAB ME': 2*_REFval,
+    'FIT ACAB MA': 2*_REFval,
+    'FIT ACAB FITA': 2*_REFval
+  };
+  function _refLatDaPeca(label){
+    var base = (label||'').split('[')[0].split('EXT')[0].split('INT')[0].trim();
+    return _REF_POR_PECA[base] || 0;
+  }
   // Ordenar maiores dimensões (área) primeiro
   var _portaPecas=['TAMPA MAIOR','TAMPA MAIOR 01','TAMPA MAIOR 02','TAMPA MAIOR 03','CAVA','TAMPA BOR CAVA','TAMPA CAVA','TAMPA MENOR','ACAB LAT 1','ACAB LAT 2','ACAB LAT Z','TAMPA FRISO','FRISO','FRISO VERT','DIST BOR FV','RIPAS'];
   function _isPortaPiece(lbl){var base=lbl.split('[')[0].split('EXT')[0].split('INT')[0].trim();if(base.indexOf('MOLD ')===0)return true;for(var k=0;k<_portaPecas.length;k++){if(base===_portaPecas[k])return true;}return false;}
@@ -911,9 +930,11 @@ function plnPieceTable(pieces, placed) {
       return '<input type="number" id="'+_id+'-'+fld+'" value="'+val+'" data-auto="'+orig+'" step="0.5" onchange="_plnPieceEdited('+i+')" style="'+st+'">'+warn;
     };
     p._autoW=p._autoW||p.w; p._autoH=p._autoH||p.h; p._autoQ=p._autoQ||p.qty;
+    var _refLat = _refLatDaPeca(p.label);
+    var _netWHtml = (_refLat>0 && p.w>_refLat) ? '<div style="font-size:8px;color:#888;margin-top:1px;text-align:right;font-weight:600">s/ref: '+(p.w-_refLat).toFixed(1).replace(/\.0$/,'')+'</div>' : '';
     tr.innerHTML='<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'"><span style="width:11px;height:11px;border-radius:2px;display:inline-block;background:'+p.color+'"></span></td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+p.label+matBadge+'</td>'+
-      '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('w',p.w,p._autoW)+'</td>'+
+      '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('w',p.w,p._autoW)+_netWHtml+'</td>'+
       '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('h',p.h,p._autoH)+'</td>'+
       '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('q',p.qty,p._autoQ)+'</td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'" id="'+_id+'-a">'+a+'</td>'+
