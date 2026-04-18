@@ -48,7 +48,11 @@ function aprovPieces(Lmm,Amm,fol,mod){
     r.push(['U PORTAL',221,L-20,1],['BAT 01',42,bH,2],['BAT 02Z',51,bH,2],['BAT 03',81,bH,2]);
     r.push(['TAP FURO',119,bH,3],['FIT ACAB ME',76.5,bH,2],['FIT ACAB MA',114.5,bH,2],['FIT ACAB FITA',101,bH,2]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT',225,A+150,5],['ALISAR LAR',225,L+300,2]);
-    if(mod==='02')r.push(['FRISO VERT',100,G4,2],['TAMPA FRISO',39,G4,2]);
+    if(mod==='02'){
+      var _qV02ap=parseInt((document.getElementById('plan-friso-v-qty')||{value:1}).value)||1;
+      if(_qV02ap<1)_qV02ap=1;
+      r.push(['FRISO VERT',100,G4,2*_qV02ap],['TAMPA FRISO',39,G4,2*_qV02ap]);
+    }
     if(mod==='08'){
       var _ripTotal=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
       var _rip2L=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
@@ -132,7 +136,9 @@ function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
     // Modelo 02: friso no fixo
     if(mod==='02'){
       var larFriso=parseInt((document.getElementById('carac-friso-larg')||{value:50}).value)||50;
-      r.push(['FX FRISO',larFriso+100,hTampaFix,q1]);
+      var _qV02fx=parseInt((document.getElementById('plan-friso-v-qty')||{value:1}).value)||1;
+      if(_qV02fx<1)_qV02fx=1;
+      r.push(['FX FRISO',larFriso+100,hTampaFix,q1*_qV02fx]);
     }
     // Modelo 08: ripado no fixo (peças estreitas repetidas)
     if(mod==='08'){

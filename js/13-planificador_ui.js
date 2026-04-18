@@ -192,7 +192,9 @@ function plnPecas(Lmm, Amm, fol, mod) {
     if (mod === '02') {
       LARG_FRISO  = parseInt(document.getElementById('plan-largfriso').value) || 50;
       DIS_BOR_FRI = parseInt(document.getElementById('plan-disbordafriso').value) || 210;
-      frisoDeduc = DIS_BOR_FRI + LARG_FRISO;
+      var QTY_FRISO_V = parseInt((document.getElementById('plan-friso-v-qty')||{value:1}).value) || 1;
+      if (QTY_FRISO_V < 1) QTY_FRISO_V = 1;
+      frisoDeduc = QTY_FRISO_V * (DIS_BOR_FRI + LARG_FRISO);
     }
     // Modelo 07: múltiplas ripas rebaixadas
     var _nRipas07=0, _largRipa07=0, _distRipa07=0;
@@ -225,8 +227,10 @@ function plnPecas(Lmm, Amm, fol, mod) {
       r.push(['TAMPA MENOR', DIS_BOR_CAVA + REF*2 - 2, G4, 4]);
     }
     if (mod === '02') {
-      r.push(['TAMPA FRISO', DIS_BOR_FRI + (2*REF-1), G4, (fol==2) ? 4 : 2]);
-      r.push(['FRISO', LARG_FRISO + 100, G4, (fol==2) ? 4 : 2]);
+      var _qV02 = parseInt((document.getElementById('plan-friso-v-qty')||{value:1}).value) || 1;
+      if (_qV02 < 1) _qV02 = 1;
+      r.push(['TAMPA FRISO', DIS_BOR_FRI + (2*REF-1), G4, ((fol==2) ? 4 : 2) * _qV02]);
+      r.push(['FRISO', LARG_FRISO + 100, G4, ((fol==2) ? 4 : 2) * _qV02]);
     }
     if (mod === '07') {
       // Cada ripa: FRISO peça = largRipa + 2×REF (refilado)
