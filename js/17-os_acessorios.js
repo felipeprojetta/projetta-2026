@@ -263,7 +263,8 @@ function _calcAcessoriosOS(d, nFolhas, sis){
       _vedFolha = L - 2.5 - 2.5 - 125;
     }
     var _vedSize = Math.max(720, (Math.ceil((_vedFolha - 620) / 100) * 100) + 620);
-    if(_vedSize > 1820) _vedSize = 1820;
+    // Catálogo vai até PA-VED3520 (maior tamanho disponível)
+    if(_vedSize > 3520) _vedSize = 3520;
     var _vedCode = 'PA-VED' + String(_vedSize).padStart(4, '0');
     var _vedQty = nFolhas === 2 ? 4 : 2;
     rows.push({qty:_vedQty, code:_vedCode,

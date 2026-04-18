@@ -109,7 +109,8 @@ function gerarCustoTotal(){
               var _mpFOLHA=_mpL-2.5-2.5-125;
               // VEDA_SIZE = max(720, ceil((FOLHA-620)/100)*100 + 620)
               var _mpVedaSize=Math.max(720, (Math.ceil((_mpFOLHA-620)/100)*100)+620);
-              if(_mpVedaSize>1820) _mpVedaSize=1820;
+              // Catálogo vai até PA-VED3520 (maior tamanho disponível)
+              if(_mpVedaSize>3520) _mpVedaSize=3520;
               var _mpVedaCode='PA-VED'+String(_mpVedaSize).padStart(4,'0');
               var _mpVedaQty=_mpFolhas===2?4:2;
               _vedaList.push({size:_mpVedaSize,code:_mpVedaCode,qty:_mpVedaQty*_mpQty,label:'P'+(mpIdx+1)+': '+_mpL+'mm',folhaPAPA:Math.round(_mpFOLHA)});
