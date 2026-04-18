@@ -15,15 +15,18 @@
       try{
         var id = window._crmOrcCardId || null;
         var crmKey = 'projetta_crm_v1';
-        var dbKey = 'projetta_orc_db_v1';
+        var dbKey = 'projetta_v3';
         var crmData = [];
         var orcDb = [];
-        try{ crmData = JSON.parse(localStorage.getItem(crmKey)||'[]'); }catch(e){}
-        try{ var obj = JSON.parse(localStorage.getItem(dbKey)||'{}'); orcDb = obj.sessions || obj || []; }catch(e){}
+        try{ crmData = JSON.parse(localStorage.getItem(crmKey)||'[]'); if(!Array.isArray(crmData)) crmData = []; }catch(e){}
+        try{
+          var raw = JSON.parse(localStorage.getItem(dbKey)||'[]');
+          orcDb = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.sessions) ? raw.sessions : []);
+        }catch(e){}
 
         var card = crmData.find(function(o){return o.id===id;});
         var entry = null;
-        if(typeof currentId !== 'undefined' && currentId){
+        if(typeof currentId !== 'undefined' && currentId && Array.isArray(orcDb)){
           entry = orcDb.find(function(e){return e.id===currentId;});
         }
 
@@ -79,6 +82,22 @@
           txt += '(entry não encontrado no DB)\n';
         }
 
+        txt += '\n--- LOG DO CLIQUE ---\n';
+        var log = window._diagLog || [];
+        if(log.length === 0){
+          txt += '(nenhum clique no botão verde capturado ainda)\n';
+          txt += 'Clique no botão verde COM o hook carregado!\n';
+        } else {
+          log.forEach(function(e,i){
+            txt += '['+i+'] ' + (e.momento||'?') + '\n';
+            Object.keys(e).forEach(function(k){
+              if(k!=='momento' && k!=='t'){
+                txt += '   ' + k + ' = ' + JSON.stringify(e[k]) + '\n';
+              }
+            });
+          });
+        }
+
         // Também copia pra clipboard se possível
         try{
           if(navigator.clipboard){
@@ -112,4 +131,69 @@
   } else {
     setTimeout(makeDiagButton, 500);
   }
+
+  // ── HOOK: interceptar crmOrcamentoPronto para capturar estado no clique ──
+  // 100% READ-ONLY — só copia valores antes/depois, não interfere no fluxo original
+  setTimeout(function installHook(){
+    if(typeof window.crmOrcamentoPronto !== 'function'){
+      // ainda não carregou, tenta de novo
+      setTimeout(installHook, 500);
+      return;
+    }
+    if(window._orcamentoProntoOriginal) return; // já hookado
+    window._orcamentoProntoOriginal = window.crmOrcamentoPronto;
+    window._diagLog = [];
+
+    window.crmOrcamentoPronto = function(){
+      var snap = {
+        t: new Date().toISOString(),
+        momento: 'ANTES do crmOrcamentoPronto',
+        crmOrcCardId: window._crmOrcCardId || null,
+        currentId: (typeof currentId !== 'undefined') ? currentId : 'undef',
+        currentRev: (typeof currentRev !== 'undefined') ? currentRev : 'undef',
+        pendingRevision: !!window._pendingRevision,
+        snapshotLock: !!window._snapshotLock,
+        orcLocked: !!window._orcLocked,
+        m_tab: (document.getElementById('m-tab')||{}).textContent || '',
+        d_fat: (document.getElementById('d-fat')||{}).textContent || '',
+        calc_tab: window._calcResult ? window._calcResult._tabTotal : null,
+        calc_fat: window._calcResult ? window._calcResult._fatTotal : null
+      };
+      window._diagLog.push(snap);
+
+      // Executa original intocado
+      var result = window._orcamentoProntoOriginal.apply(this, arguments);
+
+      // Agenda capturas em 300ms, 1s, 3s, 6s para ver quando os valores mudam
+      [300, 1000, 3000, 6000].forEach(function(delay){
+        setTimeout(function(){
+          try{
+            var cardNow = null;
+            var id = window._crmOrcCardId;
+            if(id){
+              var cd = JSON.parse(localStorage.getItem('projetta_crm_v1')||'[]');
+              cardNow = cd.find(function(o){return o.id===id;});
+            }
+            window._diagLog.push({
+              t: new Date().toISOString(),
+              momento: 'DEPOIS +'+delay+'ms',
+              card_valor: cardNow ? cardNow.valor : '(sem card)',
+              card_valorTabela: cardNow ? cardNow.valorTabela : '(sem card)',
+              card_valorFaturamento: cardNow ? cardNow.valorFaturamento : '(sem card)',
+              card_nRev: cardNow && cardNow.revisoes ? cardNow.revisoes.length : 0,
+              ultimaRev_tab: cardNow && cardNow.revisoes && cardNow.revisoes.length>0 ? cardNow.revisoes[cardNow.revisoes.length-1].valorTabela : null,
+              ultimaRev_fat: cardNow && cardNow.revisoes && cardNow.revisoes.length>0 ? cardNow.revisoes[cardNow.revisoes.length-1].valorFaturamento : null,
+              _calcResult_tab: window._calcResult ? window._calcResult._tabTotal : null,
+              _calcResult_fat: window._calcResult ? window._calcResult._fatTotal : null,
+              m_tab: (document.getElementById('m-tab')||{}).textContent || '',
+              d_fat: (document.getElementById('d-fat')||{}).textContent || ''
+            });
+          }catch(e){ window._diagLog.push({erro: e.message}); }
+        }, delay);
+      });
+
+      return result;
+    };
+    console.log('[DIAG] hook crmOrcamentoPronto instalado');
+  }, 1500);
 })();
