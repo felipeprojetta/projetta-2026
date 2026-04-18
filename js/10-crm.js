@@ -1037,6 +1037,9 @@ window.crmItemAutoSelect=function(id){
       var fvWrap=document.getElementById(pre+'friso_v_wrap');
       if(fhWrap) fhWrap.style.display=_isFH?'':'none';
       if(fvWrap) fvWrap.style.display=_isFH?'none':'';
+      // Toggle campo "Nº Frisos Verticais" (só Modelo 02)
+      var fvqWrap=document.getElementById(pre+'friso_v_qty_wrap');
+      if(fvqWrap) fvqWrap.style.display=(modelo==='02')?'':'none';
       // Toggle moldura section for modelo 23
       var moldWrap=document.getElementById(pre+'moldura_wrap');
       if(moldWrap) moldWrap.style.display=(modelo==='23')?'':'none';
@@ -1256,7 +1259,7 @@ window._crmItensSaveFromDOM=function(){
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
     var fields=['qtd','largura','altura','cor_ext','cor_int','cor_macico'];
-    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','moldura_divisao','ripado_total','ripado_2lados']);
+    if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','friso_v_qty','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','moldura_divisao','ripado_total','ripado_2lados']);
     if(item.tipo==='fixo') fields=fields.concat(['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material']);
     if(item.tipo==='porta_interna') fields=fields.concat(['sistema_pi','folhas_pi']);
     fields.forEach(function(f){
@@ -1368,6 +1371,7 @@ window._crmItensRender=function(){
       h+='<div id="'+pre+'friso_v_wrap" class="crm-row" style="'+(!_isFrisoHoriz?'':'display:none')+'">';
       h+='<div class="crm-field"><label>Dist. Borda Friso (mm)</label><input type="number" id="'+pre+'dist_borda_friso" value="'+(item.dist_borda_friso||150)+'" min="0" max="500"></div>';
       h+='<div class="crm-field"><label>Espessura Friso (mm)</label><input type="number" id="'+pre+'largura_friso" value="'+(item.largura_friso||10)+'" min="1" max="200"></div>';
+      h+='<div class="crm-field" id="'+pre+'friso_v_qty_wrap" style="'+(item.modelo==='02'?'':'display:none')+'"><label>Nº Frisos Verticais</label><input type="number" id="'+pre+'friso_v_qty" value="'+(item.friso_v_qty||1)+'" min="1" max="20"></div>';
       h+='</div>';
       h+='</div>';
       // 🎨 Cores — render right after friso config
@@ -1464,7 +1468,7 @@ window._crmItensRender=function(){
   // Re-apply selected values for selects (the replace trick doesn't always work)
   _crmItens.forEach(function(item){
     var pre='crmit-'+item.id+'-';
-    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','cor_macico','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','moldura_divisao','ripado_total','ripado_2lados']:item.tipo==='porta_interna'?['sistema_pi','folhas_pi','cor_ext','cor_int','cor_macico']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int','cor_macico'];
+    var fields=item.tipo==='porta_pivotante'?['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','cor_ext','cor_int','cor_macico','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','friso_v_qty','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','moldura_divisao','ripado_total','ripado_2lados']:item.tipo==='porta_interna'?['sistema_pi','folhas_pi','cor_ext','cor_int','cor_macico']:['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material','cor_ext','cor_int','cor_macico'];
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el&&item[f]) el.value=item[f];
@@ -1500,7 +1504,7 @@ window._crmItensToCardData=function(){
       clean.fech_mec=item.fech_mec||'';clean.fech_dig=item.fech_dig||'';clean.cilindro=item.cilindro||'';clean.puxador=item.puxador||'';clean.pux_tam=item.pux_tam||'1.5';
       clean.dist_borda_cava=item.dist_borda_cava||'210';clean.largura_cava=item.largura_cava||'150';clean.cantoneira_cava=item.cantoneira_cava||'30';
       clean.dist_borda_friso=item.dist_borda_friso||'';clean.largura_friso=item.largura_friso||'';clean.refilado=item.refilado||'20';
-      clean.friso_vert=item.friso_vert||'0';clean.friso_horiz=item.friso_horiz||'0';clean.friso_h_qty=item.friso_h_qty||'3';clean.friso_h_esp=item.friso_h_esp||'10';clean.tem_alisar=!!item.tem_alisar;
+      clean.friso_vert=item.friso_vert||'0';clean.friso_horiz=item.friso_horiz||'0';clean.friso_h_qty=item.friso_h_qty||'3';clean.friso_h_esp=item.friso_h_esp||'10';clean.friso_v_qty=item.friso_v_qty||'1';clean.tem_alisar=!!item.tem_alisar;
       clean.moldura_rev=item.moldura_rev||'ACM';clean.moldura_larg_qty=item.moldura_larg_qty||'2';clean.moldura_alt_qty=item.moldura_alt_qty||'2';
       clean.moldura_tipo=item.moldura_tipo||'1';clean.moldura_dis1=item.moldura_dis1||'150';clean.moldura_dis2=item.moldura_dis2||'150';clean.moldura_dis3=item.moldura_dis3||'150';clean.moldura_divisao=item.moldura_divisao||'classica';
       clean.ripado_total=item.ripado_total||'NAO';clean.ripado_2lados=item.ripado_2lados||'SIM';
@@ -1830,6 +1834,8 @@ function orcItemSelecionar(idx){
     // Modelo 06/16: carregar quantidade e espessura friso horizontal
     if(it.friso_h_qty) setF('plan-friso-h-qty', it.friso_h_qty);
     if(it.friso_h_esp) setF('plan-friso-h-esp', it.friso_h_esp);
+    // Modelo 02: quantidade de frisos verticais
+    if(it.friso_v_qty) setF('plan-friso-v-qty', it.friso_v_qty);
     // Modelo 23: carregar configuração de molduras
     if(it.moldura_rev) setF('plan-moldura-rev', it.moldura_rev);
     if(it.moldura_larg_qty) setF('plan-moldura-larg-qty', it.moldura_larg_qty);
@@ -2380,6 +2386,7 @@ window._syncOrcToMpItens=function(){
     mp['carac-dist-borda-cava']=oi.dist_borda_cava||'210';mp['carac-largura-cava']=oi.largura_cava||'150';
     mp['carac-dist-borda-friso']=oi.dist_borda_friso||'';mp['carac-largura-friso']=oi.largura_friso||'';
     mp['carac-friso-vert']=oi.friso_vert||'0';mp['carac-friso-horiz']=oi.friso_horiz||'0';
+    mp['plan-friso-v-qty']=oi.friso_v_qty||'1';
     mp['carac-tem-alisar']=oi.tem_alisar?'1':'0';
     mp['carac-ripado-total']=oi.ripado_total||'NAO';mp['carac-ripado-2lados']=oi.ripado_2lados||'SIM';
     mp['plan-refilado']=oi.refilado||'20';mp['tem-fixo']=false;mp._fixos=[];
