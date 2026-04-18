@@ -214,6 +214,11 @@ function plnPecas(Lmm, Amm, fol, mod) {
       var DBC = DIS_BOR_CAVA, LC = LARG_CAVA;
       var baseA = (G2total - DBC*2 - LC*2) / 2;
       var baseB = (G2total - 1 - DBC*2 - LC*2) / 2;
+      // Modelo 02: descontar N frisos verticais das tampas (T1, T2, T3 via base)
+      if (mod === '02') {
+        baseA -= frisoDeduc;
+        baseB -= frisoDeduc;
+      }
       var T1 = baseA + FGA + FGLA*2 - 1;
       var T2 = baseB + FGLA*2 - PIV - 1;
       var T3 = T2 - TUB_SUP;
