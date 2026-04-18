@@ -69,10 +69,21 @@ function cSave(d){
   // Cloud sync — Supabase Projetta
   var SB='https://plmliavuwlgpwaizfeds.supabase.co',KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
   var cloudData=d.map(function(o){var c=Object.assign({},o);delete c.anexos;return c;});
+  // [LEGADO] Blob único — mantido como fallback durante transição para schema relacional
   fetch(SB+'/rest/v1/configuracoes',{method:'POST',
     headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
     body:JSON.stringify({chave:CK,valor:{db:cloudData,ts:new Date().toISOString()}})
   }).catch(function(){});
+  // [NOVO] Writes granulares para crm_oportunidades / crm_revisoes / crm_eventos
+  // Debounce para não disparar a cada pequena mudança dentro de uma mesma operação
+  try{
+    if(window.crmDB&&window.crmDB.syncFromBlob){
+      clearTimeout(window._crmDB_syncTimer);
+      window._crmDB_syncTimer=setTimeout(function(){
+        window.crmDB.syncFromBlob(d).catch(function(e){console.warn('crmDB sync:',e);});
+      },400);
+    }
+  }catch(e){console.warn('crmDB hook:',e);}
 }
 function cCloudLoad(cb){
   var SB='https://plmliavuwlgpwaizfeds.supabase.co',KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
