@@ -562,10 +562,27 @@ window.loadRevision=function(id,revIdx){
 
 /* ── ABRIR MEMORIAL DE CÁLCULO (botão dedicado na aba Clientes) ── */
 window.loadRevisionMemorial=function(id,revIdx){
+  // 0. BACKUP parâmetros financeiros ANTES de qualquer carregamento
+  //    Memorial é READ-ONLY — não deve alterar a tela global
+  var _MEM_PARAMS_IDS = ['overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto','markup-desc'];
+  var _paramsBackup = {};
+  _MEM_PARAMS_IDS.forEach(function(pid){
+    var _e = document.getElementById(pid);
+    if(_e) _paramsBackup[pid] = _e.value;
+  });
+
   // 1. Carregar revisão (limpa tudo, restaura dados)
   loadRevision(id,revIdx);
   switchTab('orcamento');
-  
+
+  // 1b. RESTORE parâmetros financeiros — memorial NÃO sobrescreve valores atuais
+  _MEM_PARAMS_IDS.forEach(function(pid){
+    if(_paramsBackup[pid] !== undefined){
+      var _e = document.getElementById(pid);
+      if(_e && _e.value !== _paramsBackup[pid]) _e.value = _paramsBackup[pid];
+    }
+  });
+
   // 2. Ler snapshot do DB
   var db=loadDB();
   var entry=db.find(function(e){return e.id===id;});
