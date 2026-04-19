@@ -838,6 +838,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   <button class="main-tab" onclick="switchTab('planificador')" id="btn-tab-plan">Levantamento de Superfícies</button>
   <button class="main-tab" onclick="switchTab('relatorios')" id="btn-tab-rel">Relatórios</button>
   <button class="main-tab" onclick="switchTab('custoreal')" id="btn-tab-custoreal">Custo Real NFE</button>
+  <button class="main-tab" onclick="switchTab('estoque-omie')" id="btn-tab-estoque-omie">📦 Estoque Omie</button>
 </div>
 
 <!-- TAB: ORCAMENTO -->
@@ -3873,6 +3874,69 @@ Equipe Projetta by Weiku</textarea>
   </div>
 </div>
 
+<!-- ═══ TAB: ESTOQUE OMIE — Consulta em Tempo Real ═══ -->
+<div class="tab-panel" id="tab-estoque-omie">
+  <div class="sec">📦 Estoque Omie — Consulta em Tempo Real</div>
+  <div style="max-width:1200px;margin:0 auto;padding:0 16px">
+
+    <!-- Toolbar: busca + refresh + status -->
+    <div style="background:#fff;border:1.5px solid #e0e0e0;border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="eomie-search" placeholder="🔍 Buscar por código ou descrição…"
+        style="flex:1;min-width:260px;padding:10px 14px;border:1.5px solid #90caf9;border-radius:8px;font-size:13px;outline:none;font-family:inherit"
+        oninput="eomieFiltrar()">
+      <button onclick="eomieCarregar(true)" id="eomie-btn-refresh"
+        style="padding:10px 18px;border-radius:8px;border:none;background:#1565c0;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">
+        🔄 Atualizar
+      </button>
+      <div id="eomie-status" style="font-size:11px;color:#666;min-width:120px;text-align:right"></div>
+    </div>
+
+    <!-- Filtros rápidos -->
+    <div style="background:#f5f9ff;border:1px solid #c5e1f5;border-radius:8px;padding:8px 14px;margin-bottom:12px;display:flex;gap:14px;align-items:center;font-size:11px;color:#003144">
+      <label style="cursor:pointer;font-weight:600"><input type="checkbox" id="eomie-f-com-saldo" onchange="eomieFiltrar()" style="vertical-align:middle;margin-right:4px"> Apenas com saldo &gt; 0</label>
+      <label style="cursor:pointer;font-weight:600"><input type="checkbox" id="eomie-f-abaixo-min" onchange="eomieFiltrar()" style="vertical-align:middle;margin-right:4px"> Apenas abaixo do mínimo</label>
+      <span style="margin-left:auto;color:#888">Data posição: <b id="eomie-data-pos">—</b></span>
+    </div>
+
+    <!-- Loader / mensagem -->
+    <div id="eomie-loading" style="display:none;text-align:center;padding:40px;color:#1565c0;font-size:13px">
+      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e0e0e0;border-top-color:#1565c0;border-radius:50%;animation:eomieSpin 0.8s linear infinite;margin-bottom:10px"></div>
+      <div id="eomie-loading-msg">Carregando estoque da Omie…</div>
+    </div>
+    <style>@keyframes eomieSpin { to { transform: rotate(360deg); } }</style>
+
+    <!-- Tabela -->
+    <div id="eomie-tabela-wrap" style="background:#fff;border:1.5px solid #e0e0e0;border-radius:10px;overflow:hidden;display:none">
+      <div style="max-height:600px;overflow-y:auto">
+        <table id="eomie-tabela" style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead style="background:#003144;color:#fff;position:sticky;top:0;z-index:2">
+            <tr>
+              <th style="padding:10px 12px;text-align:left;font-weight:700;font-size:11px">Código</th>
+              <th style="padding:10px 12px;text-align:left;font-weight:700;font-size:11px">Descrição</th>
+              <th style="padding:10px 12px;text-align:right;font-weight:700;font-size:11px">Saldo</th>
+              <th style="padding:10px 12px;text-align:right;font-weight:700;font-size:11px">Mínimo</th>
+              <th style="padding:10px 12px;text-align:center;font-weight:700;font-size:11px">Un</th>
+              <th style="padding:10px 12px;text-align:center;font-weight:700;font-size:11px">Status</th>
+            </tr>
+          </thead>
+          <tbody id="eomie-tbody"></tbody>
+        </table>
+      </div>
+      <div style="background:#f5f5f5;padding:8px 14px;font-size:11px;color:#666;border-top:1px solid #e0e0e0">
+        Exibindo <b id="eomie-count-view">0</b> de <b id="eomie-count-total">0</b> itens
+      </div>
+    </div>
+
+    <!-- Estado inicial -->
+    <div id="eomie-empty" style="text-align:center;padding:60px 20px;color:#888">
+      <div style="font-size:48px;margin-bottom:10px">📦</div>
+      <div style="font-size:14px;font-weight:600;color:#555;margin-bottom:6px">Clique em <b style="color:#1565c0">🔄 Atualizar</b> para carregar o estoque da Omie</div>
+      <div style="font-size:11px">Dados obtidos em tempo real via API Omie (app.omie.com.br)</div>
+    </div>
+
+  </div>
+</div>
+
 
 </div><!-- /wrap -->
 
@@ -4084,5 +4148,9 @@ Equipe Projetta by Weiku</textarea>
 
 <!-- ═══ MODULE: PRECOS-LOCK (guardião de preços de perfis/pintura) ═══ -->
 <script src="js/25-precos-lock.js"></script>
+
+<!-- ═══ MODULE: ESTOQUE OMIE (consulta em tempo real via Edge Function) ═══ -->
+<script src="js/26-estoque-omie.js"></script>
+
 <script src="js/99-diag-temp.js"></script>
 
