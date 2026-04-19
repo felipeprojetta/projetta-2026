@@ -282,7 +282,15 @@ function buildCard(o,st,isFazerOrc){
     if(o.cor_macico) _singleParts.push('🔷'+o.cor_macico);
     if(_singleParts.length) html+='<div class="crm-card-sub" style="font-size:10px;font-weight:600">'+_singleParts.join(' · ')+'</div>';
   }
-  if(o.wrep) html+='<div class="crm-card-sub" style="color:#2980b9;font-weight:700;font-size:9px">👤 Rep: '+escH(o.wrep)+'</div>';
+  // Exibir responsável comercial conforme origem:
+  //   - Weiku do Brasil → 👤 Rep: wrep
+  //   - Parceiro        → 🤝 Parceiro: parceiro_nome
+  //   - Outras origens  → não exibe
+  if(o.origem==='Weiku do Brasil' && o.wrep){
+    html+='<div class="crm-card-sub" style="color:#2980b9;font-weight:700;font-size:9px">👤 Rep: '+escH(o.wrep)+'</div>';
+  } else if(o.origem==='Parceiro' && o.parceiro_nome){
+    html+='<div class="crm-card-sub" style="color:#8e44ad;font-weight:700;font-size:9px">🤝 Parceiro: '+escH(o.parceiro_nome)+'</div>';
+  }
   if(o.reserva) html+='<div class="crm-card-sub" style="font-size:9px;color:#1a5276;font-weight:700">📋 Reserva: '+escH(o.reserva)+'</div>';
   if(o.agp) html+='<div class="crm-card-sub" style="font-size:9px;color:#c0392b;font-weight:800">📋 AGP: '+escH(o.agp)+'</div>';
   // Prioridade + Potencial badges
@@ -359,7 +367,11 @@ function renderList(fil){
       '<td style="text-align:right;font-weight:700;color:var(--navy)">'+brl(vTab)+'</td>'+
       '<td style="text-align:right;font-weight:700;color:#e67e22">'+brl(vFat)+'</td>'+
       '<td><span class="crm-stage-badge" style="background:'+st.color+'22;color:'+st.color+'">'+st.icon+' '+escH(st.label)+'</span></td>'+
-      '<td style="font-size:11px">'+escH(o.responsavel||'—')+(o.wrep?'<br><small style="color:#2980b9">'+escH(o.wrep)+'</small>':'')+'</td>'+
+      '<td style="font-size:11px">'+escH(o.responsavel||'—')+(
+        (o.origem==='Weiku do Brasil' && o.wrep) ? '<br><small style="color:#2980b9">'+escH(o.wrep)+'</small>'
+        : (o.origem==='Parceiro' && o.parceiro_nome) ? '<br><small style="color:#8e44ad">🤝 '+escH(o.parceiro_nome)+'</small>'
+        : ''
+      )+'</td>'+
       '<td style="font-size:11px;color:var(--hint)">'+dateLabel(o.fechamento)+'</td>'+
       '<td><button class="crm-btn-ghost" style="padding:4px 8px;font-size:10px" onclick="event.stopPropagation();crmOpenModal(null,\''+o.id+'\')">✏</button></td>';
     tb.appendChild(tr);
@@ -555,10 +567,14 @@ function buildSelects(opp){
       setVal('crm-o-origem',orig);
       el('crm-o-orig-text').textContent=icon+orig;
       dd.classList.remove('open');
-      // Reset Weiku rep when changing origin
-      if(orig==='Weiku do Brasil'){
+      // Limpar campos dependentes conforme origem (evita dados inconsistentes no card)
+      if(orig!=='Weiku do Brasil'){
         setVal('crm-o-wrep','');
         if(el('crm-o-wrep-text'))el('crm-o-wrep-text').textContent='Selecione o representante...';
+      }
+      if(orig!=='Parceiro'){
+        var _pnEl=document.getElementById('crm-o-parceiro-nome');
+        if(_pnEl)_pnEl.value='';
       }
       showWeikunField(orig==='Weiku do Brasil');
       showParceiroField(orig==='Parceiro');
@@ -3241,6 +3257,21 @@ document.addEventListener('DOMContentLoaded',function(){
     var data=cLoad();var changed=false;
     data.forEach(function(o){if(o.origem==='Representante Weiku'){o.origem='Weiku do Brasil';changed=true;}});
     if(changed)cSave(data);
+  }
+
+  // Migrate: limpar campos dependentes de origem que ficaram sujos (cards antigos)
+  //   wrep só faz sentido se origem='Weiku do Brasil'
+  //   parceiro_nome só faz sentido se origem='Parceiro'
+  if(!_crmJustCleared){
+    var data2=cLoad();var changed2=false;
+    data2.forEach(function(o){
+      if(o.wrep && o.origem!=='Weiku do Brasil'){ o.wrep=''; changed2=true; }
+      if(o.parceiro_nome && o.origem!=='Parceiro'){ o.parceiro_nome=''; changed2=true; }
+    });
+    if(changed2){
+      cSave(data2);
+      console.log('[CRM migrate] Limpos campos wrep/parceiro_nome inconsistentes com origem');
+    }
   }
 
   // Helper: merge cloud data
