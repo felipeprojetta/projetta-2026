@@ -2436,12 +2436,13 @@ window.crmOrcamentoPronto=function(){
   try{
   var id=window._crmOrcCardId;
   var revLabel='Original';
+  var isFirst=true;  // ← declarado no escopo externo para usar em _salvarSnapshotECRM
 
   // Se tem card CRM vinculado: mover card para Orçamento Pronto (sem salvar valores ainda)
   if(id){
     var data=cLoad();var idx=data.findIndex(function(o){return o.id===id;});
     if(idx>=0){
-      var isFirst=!data[idx].revisoes||data[idx].revisoes.length===0;
+      isFirst=!data[idx].revisoes||data[idx].revisoes.length===0;
       var stages=gStages();
       var enviarStage=stages.find(function(s){return s.id==='s3b';})||stages.find(function(s){return/pronto|feito|enviar/i.test(s.label);});
       if(enviarStage) data[idx].stage=enviarStage.id;
@@ -2453,8 +2454,9 @@ window.crmOrcamentoPronto=function(){
       if(!data[idx].revisoes) data[idx].revisoes=[];
       var revNum=data[idx].revisoes.length;
       revLabel=isFirst?'Original':'Revisão '+revNum;
-      // NÃO salvar valores aqui — serão salvos no callback _onCustoCompleto
-      data[idx].revisoes.push({rev:revNum, label:revLabel, data:new Date().toISOString(), valorTabela:0, valorFaturamento:0});
+      // ⚠️ NÃO fazer push aqui — foi movido para _salvarSnapshotECRM
+      //    (evita gravar revisão com valor ZERO quando gerarCustoTotal é assíncrono
+      //     e o callback falha — antes: 1º clique zerava 'Original', 2º clique virava 'Revisão 1')
       cSave(data);
     }
   }
@@ -2525,12 +2527,20 @@ window.crmOrcamentoPronto=function(){
         _crmD[_ci].valor=_vals.fat||_vals.tab;
         _crmD[_ci].valorTabela=_vals.tab;
         _crmD[_ci].valorFaturamento=_vals.fat;
-        if(_crmD[_ci].revisoes&&_crmD[_ci].revisoes.length>0){
-          var _lr=_crmD[_ci].revisoes[_crmD[_ci].revisoes.length-1];
-          _lr.valorTabela=_vals.tab;
-          _lr.valorFaturamento=_vals.fat;
-          console.log('📊 Revisão '+((_crmD[_ci].revisoes.length-1))+' atualizada: Tab='+_vals.tab+' Fat='+_vals.fat);
-        }
+        if(!_crmD[_ci].revisoes) _crmD[_ci].revisoes=[];
+        // ✅ CRIAR revisão AQUI — só quando temos os valores reais em mãos
+        //    Evita gravar revisão zerada no card quando gerarCustoTotal é assíncrono
+        var _revNum=_crmD[_ci].revisoes.length;
+        var _revLabelFinal=isFirst?'Original':'Revisão '+_revNum;
+        _crmD[_ci].revisoes.push({
+          rev:_revNum,
+          label:_revLabelFinal,
+          data:new Date().toISOString(),
+          valorTabela:_vals.tab,
+          valorFaturamento:_vals.fat
+        });
+        revLabel=_revLabelFinal; // atualiza label externo para o toast
+        console.log('📊 '+_revLabelFinal+' criada: Tab='+_vals.tab+' Fat='+_vals.fat);
         cSave(_crmD);
         if(typeof crmRender==='function') crmRender();
       }
