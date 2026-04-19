@@ -1,12 +1,18 @@
 // ═══════════════════════════════════════════════════════════════════════
-// Edge Function: omie-proxy (v3)
+// Edge Function: omie-proxy (v4 — endpoints corrigidos)
 // ─────────────────────────────────────────────────────────────────────
 // Proxy seguro entre o frontend Projetta e a API Omie.
 // Credenciais OMIE_APP_KEY/OMIE_APP_SECRET ficam em env vars do Supabase.
 //
-// v3: whitelist expandida para permitir investigar qual método retorna
-// o estoque correto (ListarPosEstoque estava retornando 0 mesmo com 11
-// visíveis no portal Omie).
+// USO DO FRONTEND:
+//   POST https://<proj>.supabase.co/functions/v1/omie-proxy
+//   headers: { 'Content-Type': 'application/json',
+//              'Authorization': 'Bearer <SUPABASE_ANON_KEY>',
+//              'apikey': <SUPABASE_ANON_KEY> }
+//   body: { "endpoint": "estoque/consulta",
+//           "call": "ListarPosEstoque",
+//           "param": [{ nPagina:1, nRegPorPagina:50, cExibeTodos:'S',
+//                       codigo_local_estoque:5528735611 }] }
 // ═══════════════════════════════════════════════════════════════════════
 
 const CORS = {
@@ -15,37 +21,34 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Endpoints permitidos (apenas leitura de produtos/estoque/família)
+// Endpoints reais da API Omie (baseado em developer.omie.com.br/service-list)
 const ALLOWED_ENDPOINTS = new Set([
-  "geral/produtos",
-  "estoque/consulta",
-  "estoque/movestoque",
-  "estoque/local",
-  "geral/familias",
+  "geral/produtos",        // Produtos
+  "estoque/consulta",      // Consulta Estoque (ListarPosEstoque)
+  "estoque/resumo",        // Resumo do Estoque (ObterEstoqueProduto)
+  "estoque/local",         // Locais de Estoque
+  "estoque/movestoque",    // Movimento Estoque
+  "geral/familias",        // Famílias
 ]);
 
-// Calls permitidas (apenas leitura; nada de gravação/exclusão)
+// Calls permitidas (apenas leitura)
 const ALLOWED_CALLS = new Set([
-  // Produtos
+  // produtos
   "ListarProdutos",
   "ConsultarProduto",
   "PesquisarProduto",
-  // Estoque - múltiplos métodos pra investigar qual retorna o saldo correto
+  // estoque — múltiplos métodos
   "ListarPosEstoque",
-  "ConsultarPosEstoque",
-  "ListarTotalPosEstoque",
-  "ObterEstoqueProduto",
-  "ConsultarProdutoEstoque",
-  "ConsultarPosicaoEstoqueFisico",
+  "ObterEstoqueProduto",       // retorna saldo real por local
   "PosicaoEstoque",
-  // Locais de estoque (pra ver se há múltiplos locais)
+  // locais de estoque
   "ListarLocalEstoque",
-  "ListarEstLocal",
+  "ListarLocaisEstoque",
   "ConsultarLocalEstoque",
-  // Movimentações (pra eventualmente calcular estoque via soma)
-  "ListarMovimentos",
+  // movimentação
   "ListarMovEstoque",
-  // Famílias
+  "ListarMovimentacaoEstoque",
+  // famílias
   "ListarFamilias",
 ]);
 

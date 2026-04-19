@@ -11,6 +11,12 @@
 var PROXY_URL = (window._SB_URL || 'https://plmliavuwlgpwaizfeds.supabase.co') + '/functions/v1/omie-proxy';
 var REG_POR_PAGINA = 50;
 
+// Local de estoque padrão Projetta Aluminio (Estoque de Revestimentos).
+// Sem esse parâmetro, a Omie retorna saldos do local default (5560440416)
+// que NÃO é onde os produtos ficam. Com este ID, os saldos físicos batem
+// com o que aparece no portal da Omie.
+var CODIGO_LOCAL_ESTOQUE = 5528735611;
+
 // Cache em memória (perdura durante a sessão do browser, não persiste em LS)
 var _cache = {
   produtos: null,           // array com todos os produtos carregados
@@ -73,7 +79,8 @@ async function carregarTodasPaginas(){
     var resp = await omieProxy('estoque/consulta', 'ListarPosEstoque', [{
       nPagina: pagina,
       nRegPorPagina: REG_POR_PAGINA,
-      cExibeTodos: 'S'
+      cExibeTodos: 'S',
+      codigo_local_estoque: CODIGO_LOCAL_ESTOQUE
     }]);
     totalPaginas = resp.nTotPaginas || 1;
     dataPosicao = resp.dDataPosicao || dataPosicao;
