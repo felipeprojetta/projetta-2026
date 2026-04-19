@@ -1241,6 +1241,10 @@ window.newOrcamento=newOrcamento;
 window.abrirModalATP=abrirModalATP;
 window.confirmarATP=confirmarATP;
 window.fecharModalATP=fecharModalATP;
+
+// Expõe funções do Memorial legacy pro Memorial V2 reaproveitar valores formatados
+window.captureSnapshot = captureSnapshot;
+window._restoreSnapshotDisplay = _restoreSnapshotDisplay;
 window.confirmSave=confirmSave;
 window.closeModal=closeModal;
 window.openSaveNew=openSaveNew;

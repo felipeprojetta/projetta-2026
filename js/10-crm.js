@@ -2290,6 +2290,31 @@ window.crmDeleteRevision=function(cardId,revIndex){
 
 /* ── Abrir Revisão do CRM: carrega orçamento + mostra Memorial ── */
 window.crmAbrirRevisao=function(cardId, revIdx){
+  // ─── Memorial V2: tenta abrir via Supabase primeiro ───
+  // Se a revisão tem memorialV2Id, puxa tudo do banco e restaura sem recalcular.
+  try {
+    var _crmDataV2 = cLoad();
+    var _cardV2 = _crmDataV2.find(function(o){return o.id===cardId;});
+    if(_cardV2 && _cardV2.revisoes && _cardV2.revisoes[revIdx||0]){
+      var _rV2 = _cardV2.revisoes[revIdx||0];
+      if(_rV2.memorialV2Id && window.MemorialV2 && typeof window.MemorialV2.abrir === 'function'){
+        var _modalV2 = document.getElementById('crm-modal'); if(_modalV2) _modalV2.style.display='none';
+        window.MemorialV2.abrir(_rV2.memorialV2Id, { readOnly: true })
+          .then(function(row){ console.log('[MemorialV2] aberta revisão:', row.rev_label); })
+          .catch(function(err){
+            console.warn('[MemorialV2] falha ao abrir, caindo no memorial antigo:', err);
+            _crmAbrirRevisaoLegacy(cardId, revIdx);
+          });
+        return;
+      }
+    }
+  } catch(e){ console.warn('[MemorialV2] erro ao tentar abrir V2:', e); }
+
+  // Fallback: memorial antigo (revisões criadas antes do V2)
+  _crmAbrirRevisaoLegacy(cardId, revIdx);
+};
+
+function _crmAbrirRevisaoLegacy(cardId, revIdx){
   var db=loadDB();
   var crmData=cLoad();var card=crmData.find(function(o){return o.id===cardId;});
 
@@ -2356,7 +2381,7 @@ window.crmAbrirRevisao=function(cardId, revIdx){
     loadRevision(entry.id, ri);
     switchTab('orcamento');
   }
-};
+}
 
 /* ── Memorial simplificado para cards órfãos (sem snapshot no DB) ──
    Mostra um painel lateral somente-leitura com valores básicos do card.
@@ -2696,6 +2721,45 @@ window.crmOrcamentoPronto=function(){
     // Toast
     var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='✅ '+revLabel+' congelada! Tab: '+brl(_vals.tab)+' Fat: '+brl(_vals.fat);document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
     if(typeof crmRender==='function') crmRender();
+
+    // ─── Memorial V2: salva em paralelo no banco Supabase ───
+    // Não bloqueia o fluxo se falhar — só loga. Sistema antigo continua funcionando.
+    if(id && window.MemorialV2 && typeof window.MemorialV2.salvar === 'function'){
+      var _v2RevNum = 0;
+      try {
+        var _crmD2 = cLoad();
+        var _cix = _crmD2.findIndex(function(o){return o.id===id;});
+        if(_cix>=0 && _crmD2[_cix].revisoes) _v2RevNum = _crmD2[_cix].revisoes.length - 1;
+      } catch(e){}
+      window.MemorialV2.salvar({
+        crmCardId: id,
+        revNum: _v2RevNum,
+        revLabel: revLabel,
+        tipo: 'AGP',
+        status: 'pronto',
+        valorTabela: _vals.tab,
+        valorFaturamento: _vals.fat
+      }).then(function(row){
+        console.log('[MemorialV2] salvo:', row && row.id, '|', revLabel);
+        // Guardar o id v2 na revisão do card (pra abrir depois via banco)
+        try {
+          var _crmD3 = cLoad();
+          var _cix2 = _crmD3.findIndex(function(o){return o.id===id;});
+          if(_cix2>=0 && _crmD3[_cix2].revisoes && _crmD3[_cix2].revisoes.length>0){
+            var _lastRev = _crmD3[_cix2].revisoes[_crmD3[_cix2].revisoes.length-1];
+            _lastRev.memorialV2Id = row && row.id;
+            cSave(_crmD3);
+          }
+        } catch(e){ console.warn('[MemorialV2] falhou ao linkar memorialV2Id:', e); }
+      }).catch(function(err){
+        console.error('[MemorialV2] ERRO salvando:', err);
+        var warn = document.createElement('div');
+        warn.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:#c0392b;color:#fff;padding:8px 16px;border-radius:16px;font-size:11px;z-index:9998';
+        warn.textContent = '⚠ Backup Supabase falhou: ' + (err.message||err);
+        document.body.appendChild(warn);
+        setTimeout(function(){ warn.remove(); }, 6000);
+      });
+    }
   };
   // Se custo já foi gerado → salvar DIRETO
   // SEMPRE tenta salvar direto primeiro (valores podem estar no DOM)
