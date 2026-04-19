@@ -562,77 +562,36 @@ window.loadRevision=function(id,revIdx){
 
 /* ── ABRIR MEMORIAL DE CÁLCULO (botão dedicado na aba Clientes) ── */
 window.loadRevisionMemorial=function(id,revIdx){
-  // 0. BACKUP parâmetros financeiros ANTES de qualquer carregamento
-  //    Memorial é READ-ONLY — não deve alterar a tela global
-  var _MEM_PARAMS_IDS = ['overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto','markup-desc'];
-  var _paramsBackup = {};
-  _MEM_PARAMS_IDS.forEach(function(pid){
-    var _e = document.getElementById(pid);
-    if(_e) _paramsBackup[pid] = _e.value;
-  });
-
-  // 1. Carregar revisão (limpa tudo, restaura dados)
-  loadRevision(id,revIdx);
-  switchTab('orcamento');
-
-  // 1b. RESTORE parâmetros financeiros — memorial NÃO sobrescreve valores atuais
-  _MEM_PARAMS_IDS.forEach(function(pid){
-    if(_paramsBackup[pid] !== undefined){
-      var _e = document.getElementById(pid);
-      if(_e && _e.value !== _paramsBackup[pid]) _e.value = _paramsBackup[pid];
-    }
-  });
-
-  // 2. Ler snapshot do DB
+  // ═══════════════════════════════════════════════════════════════════
+  // MEMORIAL = 100% READ-ONLY
+  //   - NÃO chama loadRevision (que chamava restoreFormData e sobrescrevia form)
+  //   - NÃO chama switchTab (fica onde o usuário está)
+  //   - NÃO chama gerarCustoTotal (não recalcula nada)
+  //   - NÃO toca em NENHUM campo do form global
+  //   - NÃO seta flags de lock/snapshot
+  //   - APENAS lê o snapshot do DB e mostra o painel lateral direito
+  // ═══════════════════════════════════════════════════════════════════
   var db=loadDB();
   var entry=db.find(function(e){return e.id===id;});
-  var rev=entry?entry.revisions[revIdx]:null;
-  var snapValid=_isSnapshotValid(rev?rev.snapshot:null);
-  
-  if(snapValid){
-    // Snapshot válido: NÃO recalcular NADA — apenas exibir valores congelados
-    var _savedSnap=rev.snapshot;
-    var _eName=entry?entry.name:'';
-    var _rLabel=rev?rev.label:'';
-    _revDelay(function(){
-      _restoreSnapshotDisplay(_savedSnap);
-      showMemorial(_savedSnap, _eName, _rLabel);
-      window._snapshotLock=true;
-      _setOrcLock(true);
-      _openSectionsAndScroll();
-    },500);
-  } else {
-    // Snapshot vazio: recalcular → capturar → salvar → mostrar memorial
-    _revDelay(function(){
-      // Garantir recálculo
-      window._snapshotLock=false;
-      if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){}
-      
-      _revDelay(function(){
-        // Capturar snapshot novo com valores calculados
-        var newSnap=captureSnapshot();
-        // Salvar no DB
-        var db2=loadDB();
-        var ent2=db2.find(function(e){return e.id===id;});
-        if(ent2&&ent2.revisions[revIdx]){
-          ent2.revisions[revIdx].snapshot=newSnap;
-          saveDB(db2);
-        }
-        // Mostrar memorial
-        var eName=ent2?ent2.name:'';
-        var rLabel=ent2&&ent2.revisions[revIdx]?ent2.revisions[revIdx].label:'';
-        showMemorial(newSnap, eName, rLabel);
-        _restoreSnapshotDisplay(newSnap);
-        // Travar
-        window._snapshotLock=true;
-        _setOrcLock(true);
-        var lb=document.getElementById('orc-lock-banner');
-        if(lb) lb.innerHTML='🔒 CONGELADO — valores calculados e salvos. Para editar, clique em <b>Nova Revisão</b>.';
-        
-        _openSectionsAndScroll();
-      },600);
-    },500);
+  if(!entry){ alert('Orçamento não encontrado.'); return; }
+  var ri=Math.min(revIdx||0, entry.revisions.length-1);
+  var rev=entry.revisions[ri];
+  if(!rev){ alert('Revisão não encontrada.'); return; }
+
+  var snapValid=_isSnapshotValid(rev.snapshot);
+  if(!snapValid){
+    alert('Memorial não disponível — snapshot vazio ou inválido.\n\nClique em "Nova Revisão" no card para recalcular e gerar um memorial completo.');
+    return;
   }
+
+  // Mostrar painel lateral — showMemorial é auto-suficiente, só usa o snapshot
+  var name = entry.client || entry.name || '';
+  var label = rev.label || ('Rev '+(ri+1));
+  showMemorial(rev.snapshot, name, label);
+
+  // Forçar exibição do panel (caso tenha sido escondido)
+  var panel=document.getElementById('memorial-panel');
+  if(panel) panel.style.display='';
 };
 
 /* ── Abrir seções colapsáveis e scroll até DRE ── */
