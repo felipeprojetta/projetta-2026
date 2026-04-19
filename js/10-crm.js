@@ -2292,28 +2292,64 @@ window.crmDeleteRevision=function(cardId,revIndex){
 window.crmAbrirRevisao=function(cardId, revIdx){
   var db=loadDB();
   var crmData=cLoad();var card=crmData.find(function(o){return o.id===cardId;});
+
+  // 1) Busca match EXATO por crmCardId (único 100% confiável)
   var entry=db.find(function(e){return e.crmCardId===cardId;});
-  if(!entry&&card&&card.cliente){
+
+  // 2) Fallback por nome — SÓ se match ÚNICO (Fix C: evita linkar errado em duplicatas)
+  if(!entry && card && card.cliente){
     var nome=card.cliente.toUpperCase().trim();
-    entry=db.find(function(e){return e.client&&e.client.toUpperCase().trim()===nome;});
+    var matches=db.filter(function(e){return e.client && e.client.toUpperCase().trim()===nome;});
+    if(matches.length===1){
+      entry=matches[0];
+      console.log('[CRM] link por nome (único match):', card.cliente);
+    } else if(matches.length>1){
+      console.warn('[CRM] nome duplicado — '+matches.length+' matches — NÃO vinculando automaticamente');
+    }
   }
-  if(!entry&&card&&card.reserva){
-    entry=db.find(function(e){return e.project&&e.project===card.reserva;});
+
+  // 3) Fallback por reserva — SÓ se match ÚNICO
+  if(!entry && card && card.reserva){
+    var matches2=db.filter(function(e){return e.project && e.project===card.reserva;});
+    if(matches2.length===1){
+      entry=matches2[0];
+      console.log('[CRM] link por reserva (único match):', card.reserva);
+    } else if(matches2.length>1){
+      console.warn('[CRM] reserva duplicada — NÃO vinculando automaticamente');
+    }
   }
-  // Auto-link: se card tem revisões mas DB não tem entry, criar link
-  if(!entry&&card&&card.revisoes&&card.revisoes.length>0){
-    var newEntry={id:'orc_'+Date.now(),crmCardId:cardId,client:card.cliente||'',project:card.reserva||'',
-      revisions:card.revisoes.map(function(r,i){return{label:r.label||('Rev '+(i+1)),date:r.date||new Date().toISOString(),valorTabela:r.valorTabela||0,valorFaturamento:r.valorFaturamento||0,snapshot:r.snapshot||null};})};
-    db.push(newEntry);saveDB(db);entry=newEntry;
-    console.log('[CRM] Auto-link criado para '+card.cliente);
+
+  // 4) Link crmCardId se faltava (one-shot — só uma vez por card+entry)
+  if(entry && !entry.crmCardId){ entry.crmCardId=cardId; saveDB(db); }
+
+  // 5) Fix A+B: se não achou entry no DB histórico, mostrar memorial SIMPLIFICADO
+  //    com os dados salvos no próprio card (sem recalcular — evita usar valores do último orçamento aberto)
+  if(!entry){
+    if(card && card.revisoes && card.revisoes.length>0){
+      // Fecha modal CRM e mostra memorial simplificado (só leitura, sem contaminar form)
+      var modal=document.getElementById('crm-modal'); if(modal) modal.style.display='none';
+      _showMemorialSimplified(card, revIdx||0);
+      return;
+    }
+    alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');
+    return;
   }
-  // Link crmCardId se faltava
-  if(entry&&!entry.crmCardId){entry.crmCardId=cardId;saveDB(db);}
-  if(!entry){alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');return;}
+
+  // 6) Entry achado mas sem snapshot válido na revisão → também usar memorial simplificado
+  //    (evita recalcular com valores do último orçamento aberto)
   var ri=Math.min(revIdx||0, entry.revisions.length-1);
-  // Fechar modal CRM
-  var modal=document.getElementById('crm-modal');if(modal)modal.style.display='none';
-  // Carregar revisão e mostrar memorial
+  var rev=entry.revisions[ri];
+  var snapOk = rev && rev.snapshot && typeof _isSnapshotValid==='function' ? _isSnapshotValid(rev.snapshot) : !!(rev && rev.snapshot);
+  if(!snapOk){
+    if(card && card.revisoes && card.revisoes.length>0){
+      var modal2=document.getElementById('crm-modal'); if(modal2) modal2.style.display='none';
+      _showMemorialSimplified(card, ri);
+      return;
+    }
+  }
+
+  // 7) Entry + snapshot válido → fluxo original (memorial completo com custos detalhados)
+  var modal3=document.getElementById('crm-modal'); if(modal3) modal3.style.display='none';
   if(typeof loadRevisionMemorial==='function'){
     loadRevisionMemorial(entry.id, ri);
   } else {
@@ -2322,20 +2358,112 @@ window.crmAbrirRevisao=function(cardId, revIdx){
   }
 };
 
+/* ── Memorial simplificado para cards órfãos (sem snapshot no DB) ──
+   Mostra um painel lateral somente-leitura com valores básicos do card.
+   Não toca no form global (bug conhecido), não recalcula, não cria entry falso. */
+function _showMemorialSimplified(card, revIdx){
+  var revs=card.revisoes||[];
+  var ri=Math.min(revIdx||0, revs.length-1);
+  var rev=revs[ri]||{};
+
+  var mem=document.getElementById('memorial-panel');
+  if(!mem){
+    mem=document.createElement('div'); mem.id='memorial-panel';
+    mem.style.cssText='position:fixed;top:0;right:0;width:420px;height:100vh;background:#fff;box-shadow:-4px 0 20px rgba(0,0,0,0.15);z-index:9998;overflow-y:auto;font-family:inherit;transition:transform 0.3s';
+    document.body.appendChild(mem);
+  }
+  mem.style.display='';
+
+  var _brl=function(v){return 'R$ '+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var dLabel=rev.data?new Date(rev.data).toLocaleString('pt-BR'):'—';
+
+  var html='';
+  html+='<div style="padding:16px;border-bottom:2px solid #e67e22;background:linear-gradient(135deg,#fef9f0,#fff)">';
+  html+='<div style="display:flex;justify-content:space-between;align-items:center"><div>';
+  html+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#e67e22;font-weight:700">Memorial Simplificado</div>';
+  html+='<div style="font-size:16px;font-weight:700;color:#1a3c5e">'+(card.cliente||'—')+'</div>';
+  html+='<div style="font-size:11px;color:#888">'+(rev.label||'Revisão')+' · '+dLabel+'</div>';
+  html+='</div><button onclick="document.getElementById(\'memorial-panel\').style.display=\'none\'" style="border:none;background:none;font-size:20px;cursor:pointer;color:#999">✕</button></div></div>';
+
+  // Aviso de memorial incompleto
+  html+='<div style="margin:14px 16px;padding:12px;background:#fff8e1;border-left:3px solid #f39c12;border-radius:6px;font-size:11px;color:#7a5a00;line-height:1.5">';
+  html+='<b>⚠ Memorial detalhado indisponível</b><br>';
+  html+='Este orçamento foi criado em outra sessão ou dispositivo, e os dados completos de custos, DRE e acessórios não estão disponíveis no seu histórico local. ';
+  html+='Para gerar um memorial completo, clique em <b>+ Nova Revisão</b> no card.';
+  html+='</div>';
+
+  // Dados básicos do card
+  html+='<div style="padding:10px 16px;border-bottom:1px solid #eee">';
+  html+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#1a3c5e;margin-bottom:8px">📐 Dados do Card</div>';
+  html+='<table style="width:100%;font-size:12px;border-collapse:collapse">';
+  var _r=function(l,v){return '<tr><td style="padding:3px 0;color:#888;width:45%">'+l+'</td><td style="padding:3px 0;font-weight:600">'+(v||'—')+'</td></tr>';};
+  html+=_r('Cliente',card.cliente);
+  html+=_r('Produto',card.produto);
+  if(card.largura&&card.altura) html+=_r('Dimensões',card.largura+'×'+card.altura+' mm');
+  if(card.modelo) html+=_r('Modelo',card.modelo);
+  if(card.abertura) html+=_r('Abertura',card.abertura);
+  if(card.folhas) html+=_r('Folhas',card.folhas);
+  if(card.cor_ext) html+=_r('Cor externa',card.cor_ext);
+  if(card.cor_int) html+=_r('Cor interna',card.cor_int);
+  if(card.cidade) html+=_r('Cidade',card.cidade+(card.estado?' – '+card.estado:''));
+  if(card.reserva) html+=_r('Reserva',card.reserva);
+  if(card.agp) html+=_r('AGP',card.agp);
+  html+='</table></div>';
+
+  // Valores da revisão
+  html+='<div style="padding:14px 16px;border-bottom:1px solid #eee">';
+  html+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#1a3c5e;margin-bottom:8px">💰 Valores (congelados no card)</div>';
+  html+='<table style="width:100%;font-size:12px;border-collapse:collapse">';
+  html+=_r('Preço Tabela','<span style="color:#1a3c5e;font-weight:700">'+_brl(rev.valorTabela)+'</span>');
+  html+=_r('Faturamento','<span style="color:#27ae60;font-weight:700">'+_brl(rev.valorFaturamento)+'</span>');
+  html+='</table></div>';
+
+  // Lista de todas as revisões se tiver mais de uma
+  if(revs.length>1){
+    html+='<div style="padding:14px 16px;border-bottom:1px solid #eee">';
+    html+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#1a3c5e;margin-bottom:8px">📋 Histórico de revisões</div>';
+    html+='<table style="width:100%;font-size:11px;border-collapse:collapse">';
+    html+='<tr style="color:#888;border-bottom:1px solid #eee"><th style="text-align:left;padding:4px 0">Rev</th><th style="text-align:right">Tabela</th><th style="text-align:right">Fat</th></tr>';
+    revs.forEach(function(r,i){
+      var _bg=i===ri?'background:#fef9f0;':'';
+      html+='<tr style="'+_bg+'border-bottom:0.5px solid #f5f2ee">';
+      html+='<td style="padding:4px 0;font-weight:'+(i===ri?'700':'500')+'">'+(r.label||'Rev '+i)+'</td>';
+      html+='<td style="text-align:right;padding:4px 0">'+_brl(r.valorTabela)+'</td>';
+      html+='<td style="text-align:right;padding:4px 0;color:#27ae60">'+_brl(r.valorFaturamento)+'</td>';
+      html+='</tr>';
+    });
+    html+='</table></div>';
+  }
+
+  // Botão Nova Revisão
+  html+='<div style="padding:14px 16px">';
+  html+='<button onclick="document.getElementById(\'memorial-panel\').style.display=\'none\';crmNovaRevisao(\''+card.id+'\');" style="width:100%;padding:10px;background:#e67e22;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">➕ Nova Revisão (gerar memorial completo)</button>';
+  html+='</div>';
+
+  mem.innerHTML=html;
+}
+
 /* ── Nova Revisão a partir do CRM ── */
 window.crmNovaRevisao=function(cardId){
   var db=loadDB();
   var entry=db.find(function(e){return e.crmCardId===cardId;});
   if(!entry){
     var crmData=cLoad();var card=crmData.find(function(o){return o.id===cardId;});
+    // Fallback por nome — SÓ se match único (evita linkar em card duplicado)
     if(card&&card.cliente){
       var nome=card.cliente.toUpperCase().trim();
-      entry=db.find(function(e){return e.client&&e.client.toUpperCase().trim()===nome;});
+      var matches=db.filter(function(e){return e.client && e.client.toUpperCase().trim()===nome;});
+      if(matches.length===1) entry=matches[0];
+      else if(matches.length>1) console.warn('[CRM novaRev] nome duplicado — não vinculando automaticamente');
     }
+    // Fallback por reserva — SÓ se match único
     if(!entry&&card&&card.reserva){
-      entry=db.find(function(e){return e.project&&e.project===card.reserva;});
+      var matches2=db.filter(function(e){return e.project && e.project===card.reserva;});
+      if(matches2.length===1) entry=matches2[0];
+      else if(matches2.length>1) console.warn('[CRM novaRev] reserva duplicada — não vinculando automaticamente');
     }
-    // Auto-link
+    // Auto-link: se card tem revisões mas DB não tem entry, criar link
+    //   (aqui é OK criar entry — estamos iniciando uma NOVA revisão editável)
     if(!entry&&card&&card.revisoes&&card.revisoes.length>0){
       var newE={id:'orc_'+Date.now(),crmCardId:cardId,client:card.cliente||'',project:card.reserva||'',
         revisions:card.revisoes.map(function(r,i){return{label:r.label||('Rev '+(i+1)),date:r.date||new Date().toISOString(),valorTabela:r.valorTabela||0,valorFaturamento:r.valorFaturamento||0,snapshot:r.snapshot||null};})};
