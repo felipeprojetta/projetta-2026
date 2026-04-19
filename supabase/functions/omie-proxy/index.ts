@@ -1,17 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════
-// Edge Function: omie-proxy
+// Edge Function: omie-proxy (v3)
 // ─────────────────────────────────────────────────────────────────────
 // Proxy seguro entre o frontend Projetta e a API Omie.
 // Credenciais OMIE_APP_KEY/OMIE_APP_SECRET ficam em env vars do Supabase.
 //
-// USO DO FRONTEND:
-//   POST https://<proj>.supabase.co/functions/v1/omie-proxy
-//   headers: { 'Content-Type': 'application/json',
-//              'Authorization': 'Bearer <SUPABASE_ANON_KEY>',
-//              'apikey': <SUPABASE_ANON_KEY> }
-//   body: { "endpoint": "estoque/consulta", "call": "ListarPosEstoque", "param": [...] }
-//
-// Whitelist de endpoints e calls (só leitura).
+// v3: whitelist expandida para permitir investigar qual método retorna
+// o estoque correto (ListarPosEstoque estava retornando 0 mesmo com 11
+// visíveis no portal Omie).
 // ═══════════════════════════════════════════════════════════════════════
 
 const CORS = {
@@ -20,18 +15,37 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Endpoints permitidos (apenas leitura de produtos/estoque/família)
 const ALLOWED_ENDPOINTS = new Set([
   "geral/produtos",
   "estoque/consulta",
+  "estoque/movestoque",
+  "estoque/local",
   "geral/familias",
 ]);
 
+// Calls permitidas (apenas leitura; nada de gravação/exclusão)
 const ALLOWED_CALLS = new Set([
+  // Produtos
   "ListarProdutos",
   "ConsultarProduto",
   "PesquisarProduto",
+  // Estoque - múltiplos métodos pra investigar qual retorna o saldo correto
   "ListarPosEstoque",
-  "ListarEstPosicao",
+  "ConsultarPosEstoque",
+  "ListarTotalPosEstoque",
+  "ObterEstoqueProduto",
+  "ConsultarProdutoEstoque",
+  "ConsultarPosicaoEstoqueFisico",
+  "PosicaoEstoque",
+  // Locais de estoque (pra ver se há múltiplos locais)
+  "ListarLocalEstoque",
+  "ListarEstLocal",
+  "ConsultarLocalEstoque",
+  // Movimentações (pra eventualmente calcular estoque via soma)
+  "ListarMovimentos",
+  "ListarMovEstoque",
+  // Famílias
   "ListarFamilias",
 ]);
 
