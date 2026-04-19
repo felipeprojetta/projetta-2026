@@ -1017,6 +1017,8 @@ function _populatePropostaItens(){
     var sistema=A<4000?'PA006 NOVO':'PA007 NOVO';
     var imgSrc=(typeof MODEL_IMGS!=='undefined'&&MODEL_IMGS[modNum])||'';
     if(typeof _modeloImgCache!=='undefined'&&_modeloImgCache[modNum]) imgSrc=_modeloImgCache[modNum];
+    // Se porta de 2 folhas e existe foto 2fls → usa
+    if(folhas===2 && typeof _modeloImgCache2fls!=='undefined' && _modeloImgCache2fls[modNum]) imgSrc=_modeloImgCache2fls[modNum];
     var tipo=it._tipo||'porta_pivotante';
     var descProposta=tipo==='fixo'?'Fixo Projetta by Weiku':tipo==='revestimento'?'Revestimento Projetta by Weiku':'Porta Projetta by Weiku';
     items.push({idx:i,L:L,A:A,q:q,area:area,modNum:modNum,modTxt:modTxt,descProposta:descProposta,tipo:tipo,folhas:folhas,corExt:corExt,corInt:corInt,fechMec:fechMec,fechDig:fechDig,puxador:puxador,puxTam:puxTam,cilindro:cilindro,abertura:abertura,temAlisar:temAlisar,sistema:sistema,imgSrc:imgSrc});

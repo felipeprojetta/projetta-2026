@@ -5,7 +5,8 @@
  * NÃO EDITE index.html — edite este arquivo.
  */
 /* ══ MODULE: MODELOS ══ */
-var _modeloImgCache={};
+var _modeloImgCache={};        // foto 1 folha (retrocompatível)
+var _modeloImgCache2fls={};    // foto 2 folhas (nova)
 var _MODELOS_DEFAULT = {
   '01':'Cava','02':'Cava + 01 Friso Vertical','03':'Cava + 02 Friso Horizontal',
   '04':'Cava + 01 Friso Vertical & 01 Friso Horizontal','05':'Cava + 01 Friso Vertical & 02 Friso Horizontal',
@@ -117,16 +118,35 @@ function _renderModeloRow(code,name){
     +'style="padding:5px 8px;border-radius:6px;border:1px solid #b71c1c;color:#b71c1c;font-size:11px;cursor:pointer;background:#fff;font-family:inherit" title="Excluir modelo">🗑</button>';
   return '<div id="mod-row-'+code+'" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid #eee;flex-wrap:wrap">'
     +'<span style="font-size:13px;font-weight:700;color:var(--navy);min-width:32px">'+code+'</span>'
+    // ── Slot 1 folha (existente)
+    +'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
+    +'<div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px">1 folha</div>'
     +'<img id="mod-img-'+code+'" src="" alt="" onclick="zoomModelImg(this)" '
     +'style="width:120px;height:220px;object-fit:contain;border-radius:8px;border:1px solid #ddd;background:#f9f8f5;display:none;cursor:pointer">'
     +'<div id="mod-img-placeholder-'+code+'" '
     +'style="width:120px;height:220px;border-radius:8px;border:1.5px dashed #c9c6bf;background:#f9f8f5;'
     +'display:flex;align-items:center;justify-content:center;font-size:18px;color:#ccc;flex-shrink:0">🖼</div>'
+    +'<div style="display:flex;gap:4px">'
+    +'<label style="cursor:pointer;padding:3px 8px;border-radius:6px;border:1px solid #c47012;color:#c47012;font-size:10px;font-weight:700;white-space:nowrap;font-family:inherit;background:#fff;display:inline-block" title="Carregar imagem 1 folha">'
+    +'📷<input type="file" accept="image/*" style="display:none" onchange="carregarImagemModelo(\''+code+'\',this,\'1fl\')"></label>'
+    +'<button onclick="removerImagemModelo(\''+code+'\',\'1fl\')" id="mod-img-del-'+code+'" '
+    +'style="display:none;padding:3px 6px;border-radius:6px;border:1px solid #e74c3c;color:#e74c3c;font-size:10px;cursor:pointer;background:#fff;font-family:inherit" title="Remover imagem">✕</button>'
+    +'</div></div>'
+    // ── Slot 2 folhas (novo)
+    +'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
+    +'<div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px">2 folhas</div>'
+    +'<img id="mod-img-2fls-'+code+'" src="" alt="" onclick="zoomModelImg(this)" '
+    +'style="width:120px;height:220px;object-fit:contain;border-radius:8px;border:1px solid #ddd;background:#f9f8f5;display:none;cursor:pointer">'
+    +'<div id="mod-img-placeholder-2fls-'+code+'" '
+    +'style="width:120px;height:220px;border-radius:8px;border:1.5px dashed #c9c6bf;background:#f9f8f5;'
+    +'display:flex;align-items:center;justify-content:center;font-size:18px;color:#ccc;flex-shrink:0">🖼</div>'
+    +'<div style="display:flex;gap:4px">'
+    +'<label style="cursor:pointer;padding:3px 8px;border-radius:6px;border:1px solid #c47012;color:#c47012;font-size:10px;font-weight:700;white-space:nowrap;font-family:inherit;background:#fff;display:inline-block" title="Carregar imagem 2 folhas">'
+    +'📷<input type="file" accept="image/*" style="display:none" onchange="carregarImagemModelo(\''+code+'\',this,\'2fls\')"></label>'
+    +'<button onclick="removerImagemModelo(\''+code+'\',\'2fls\')" id="mod-img-del-2fls-'+code+'" '
+    +'style="display:none;padding:3px 6px;border-radius:6px;border:1px solid #e74c3c;color:#e74c3c;font-size:10px;cursor:pointer;background:#fff;font-family:inherit" title="Remover imagem">✕</button>'
+    +'</div></div>'
     +nameHtml
-    +'<label style="cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid #c47012;color:#c47012;font-size:11px;font-weight:700;white-space:nowrap;font-family:inherit;background:#fff;display:inline-block" title="Carregar imagem">'
-    +'📷 Imagem<input type="file" accept="image/*" style="display:none" onchange="carregarImagemModelo(\''+code+'\',this)"></label>'
-    +'<button onclick="removerImagemModelo(\''+code+'\')" id="mod-img-del-'+code+'" '
-    +'style="display:none;padding:5px 8px;border-radius:6px;border:1px solid #e74c3c;color:#e74c3c;font-size:11px;cursor:pointer;background:#fff;font-family:inherit" title="Remover imagem">✕ Img</button>'
     +delHtml
     +'<button onclick="_abrirParamsModelo(\''+code+'\',\''+_escAttr(name).replace(/'/g,'')+'\')" '
     +'style="padding:5px 12px;border-radius:6px;border:1px solid #8e44ad;color:#8e44ad;font-size:11px;cursor:pointer;background:#fff;font-family:inherit;font-weight:700;white-space:nowrap" title="Configurar parâmetros deste modelo">⚙ Fórmulas</button>'
@@ -145,9 +165,10 @@ function renderModelos(){
   // Aplicar cache em memória imediatamente
   var cached=0;
   codes.forEach(function(c){
-    if(_modeloImgCache[c]){_aplicarImagemModelo(c,_modeloImgCache[c]);cached++;}
+    if(_modeloImgCache[c]){_aplicarImagemModelo(c,_modeloImgCache[c],'1fl');cached++;}
+    if(_modeloImgCache2fls[c]){_aplicarImagemModelo(c,_modeloImgCache2fls[c],'2fls');cached++;}
   });
-  console.log('🔄 renderModelos: '+codes.length+' modelos, '+cached+' imagens do cache, keys no cache: '+Object.keys(_modeloImgCache).join(','));
+  console.log('🔄 renderModelos: '+codes.length+' modelos, '+cached+' imagens do cache');
   _loadAllModeloImgsCloud(codes);
 }
 
@@ -206,8 +227,12 @@ function deletarModelo(code){
   try{
     localStorage.setItem('projetta_modelos',JSON.stringify(nomes));
     localStorage.removeItem('projetta_modelo_img_'+code);
+    localStorage.removeItem('projetta_modelo_img_'+code+'_2fls');
     delete _modeloImgCache[code];
+    delete _modeloImgCache2fls[code];
     fetch(_SB_URL+'/rest/v1/configuracoes?chave=eq.modelo_img_'+code,{method:'DELETE',
+      headers:{'apikey':_SB_KEY,'Authorization':'Bearer '+_SB_KEY}}).catch(function(){});
+    fetch(_SB_URL+'/rest/v1/configuracoes?chave=eq.modelo_img_'+code+'_2fls',{method:'DELETE',
       headers:{'apikey':_SB_KEY,'Authorization':'Bearer '+_SB_KEY}}).catch(function(){});
   }catch(e){}
   renderModelos();
@@ -215,8 +240,9 @@ function deletarModelo(code){
 }
 
 // ── IMAGENS DOS MODELOS ──
-function carregarImagemModelo(code,input){
-  console.log('📷 carregarImagemModelo chamado, code='+code);
+function carregarImagemModelo(code,input,variant){
+  variant = variant || '1fl';  // retrocompatível: sem variant = 1fl
+  console.log('📷 carregarImagemModelo code='+code+' variant='+variant);
   var file=input.files[0];if(!file)return;
   var reader=new FileReader();
   reader.onload=function(e){
@@ -230,10 +256,11 @@ function carregarImagemModelo(code,input){
       canvas.width=w;canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
       var dataUrl=canvas.toDataURL('image/jpeg',0.7);
-      console.log('📷 Imagem comprimida: '+Math.round(dataUrl.length/1024)+'KB, salvando no cache e Supabase...');
-      _modeloImgCache[code]=dataUrl;
-      _aplicarImagemModelo(code,dataUrl);
-      _saveModeloImgCloud(code,dataUrl);
+      console.log('📷 Imagem comprimida: '+Math.round(dataUrl.length/1024)+'KB ('+variant+')');
+      if(variant==='2fls'){ _modeloImgCache2fls[code]=dataUrl; }
+      else                { _modeloImgCache[code]=dataUrl; }
+      _aplicarImagemModelo(code,dataUrl,variant);
+      _saveModeloImgCloud(code,dataUrl,variant);
       var sel=document.getElementById('carac-modelo');
       if(sel&&sel.value===code)_atualizarImagemCarac(code);
       _syncModeloImgProposta();
@@ -245,15 +272,16 @@ function carregarImagemModelo(code,input){
 }
 
 // ── Supabase: salvar imagem ──
-function _saveModeloImgCloud(code,dataUrl){
-  var key='modelo_img_'+code;
+function _saveModeloImgCloud(code,dataUrl,variant){
+  variant = variant || '1fl';
+  var key = 'modelo_img_'+code + (variant==='2fls' ? '_2fls' : '');
   fetch(_SB_URL+'/rest/v1/configuracoes',{method:'POST',
     headers:{'apikey':_SB_KEY,'Authorization':'Bearer '+_SB_KEY,
       'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
     body:JSON.stringify({chave:key,valor:{img:dataUrl,ts:new Date().toISOString()}})
   }).then(function(r){
-    if(!r.ok) console.warn('Erro salvar img modelo '+code+':',r.status);
-    else console.log('✅ Img modelo '+code+' salva no Supabase');
+    if(!r.ok) console.warn('Erro salvar img modelo '+code+' ('+variant+'):',r.status);
+    else console.log('✅ Img modelo '+code+' ('+variant+') salva no Supabase');
   }).catch(function(e){console.warn('Erro rede img modelo:',e);});
 }
 
@@ -268,17 +296,23 @@ function _loadAllModeloImgsCloud(codes){
     if(rows&&rows.length){
       rows.forEach(function(row){
         if(!row.chave||!row.valor||!row.valor.img)return;
-        var c=row.chave.replace('modelo_img_','');
-        _modeloImgCache[c]=row.valor.img;
-        _aplicarImagemModelo(c,row.valor.img);
+        // chave pode ser 'modelo_img_02' (1fl) ou 'modelo_img_02_2fls' (2fls)
+        var raw = row.chave.replace('modelo_img_','');
+        var is2fls = /_2fls$/.test(raw);
+        var c = is2fls ? raw.replace(/_2fls$/,'') : raw;
+        if(is2fls){ _modeloImgCache2fls[c]=row.valor.img; _aplicarImagemModelo(c,row.valor.img,'2fls'); }
+        else     { _modeloImgCache[c]=row.valor.img;     _aplicarImagemModelo(c,row.valor.img,'1fl'); }
       });
     }
     _migrateLocalImgsToCloud(codes);
   }).catch(function(e){
     console.warn('Erro carregar imgs Supabase:',e);
     codes.forEach(function(c){
-      try{var d=localStorage.getItem('projetta_modelo_img_'+c);
-        if(d){_modeloImgCache[c]=d;_aplicarImagemModelo(c,d);}
+      try{
+        var d=localStorage.getItem('projetta_modelo_img_'+c);
+        if(d){_modeloImgCache[c]=d;_aplicarImagemModelo(c,d,'1fl');}
+        var d2=localStorage.getItem('projetta_modelo_img_'+c+'_2fls');
+        if(d2){_modeloImgCache2fls[c]=d2;_aplicarImagemModelo(c,d2,'2fls');}
       }catch(ex){}
     });
   });
@@ -290,20 +324,31 @@ function _migrateLocalImgsToCloud(codes){
     try{
       var d=localStorage.getItem('projetta_modelo_img_'+c);
       if(d&&!_modeloImgCache[c]){
-        _modeloImgCache[c]=d;_aplicarImagemModelo(c,d);
-        _saveModeloImgCloud(c,d);
-        console.log('Migrado img modelo '+c+' → Supabase');
+        _modeloImgCache[c]=d;_aplicarImagemModelo(c,d,'1fl');
+        _saveModeloImgCloud(c,d,'1fl');
+        console.log('Migrado img modelo '+c+' (1fl) → Supabase');
       }
       if(d) localStorage.removeItem('projetta_modelo_img_'+c);
+      // 2 folhas
+      var d2=localStorage.getItem('projetta_modelo_img_'+c+'_2fls');
+      if(d2&&!_modeloImgCache2fls[c]){
+        _modeloImgCache2fls[c]=d2;_aplicarImagemModelo(c,d2,'2fls');
+        _saveModeloImgCloud(c,d2,'2fls');
+        console.log('Migrado img modelo '+c+' (2fls) → Supabase');
+      }
+      if(d2) localStorage.removeItem('projetta_modelo_img_'+c+'_2fls');
     }catch(ex){}
   });
 }
 
-function removerImagemModelo(code){
-  delete _modeloImgCache[code];
-  try{localStorage.removeItem('projetta_modelo_img_'+code);}catch(e){}
-  _aplicarImagemModelo(code,null);
-  fetch(_SB_URL+'/rest/v1/configuracoes?chave=eq.modelo_img_'+code,{method:'DELETE',
+function removerImagemModelo(code,variant){
+  variant = variant || '1fl';
+  var sufix = variant==='2fls' ? '_2fls' : '';
+  if(variant==='2fls') delete _modeloImgCache2fls[code];
+  else                 delete _modeloImgCache[code];
+  try{localStorage.removeItem('projetta_modelo_img_'+code+sufix);}catch(e){}
+  _aplicarImagemModelo(code,null,variant);
+  fetch(_SB_URL+'/rest/v1/configuracoes?chave=eq.modelo_img_'+code+sufix,{method:'DELETE',
     headers:{'apikey':_SB_KEY,'Authorization':'Bearer '+_SB_KEY}}).catch(function(){});
   var sel=document.getElementById('carac-modelo');
   if(sel&&sel.value===code)_atualizarImagemCarac(code);
@@ -316,17 +361,20 @@ function _syncModeloImgProposta(){
   var propImg=document.getElementById('prop-img-porta');
   var propPh=document.getElementById('prop-img-porta-ph');
   if(!propImg||!propPh)return;
-  var customImg=_modeloImgCache[modVal]||null;
+  var nFol=parseInt((document.getElementById('folhas-porta')||{value:'1'}).value)||1;
+  var customImg = (nFol===2 && _modeloImgCache2fls[modVal]) ? _modeloImgCache2fls[modVal] : (_modeloImgCache[modVal]||null);
   if(modVal&&(customImg||(typeof MODEL_IMGS!=='undefined'&&MODEL_IMGS[modVal]))){
     propImg.src=customImg||(typeof MODEL_IMGS!=='undefined'?MODEL_IMGS[modVal]:'');
     propImg.style.display='';propPh.style.display='none';
   }else{propImg.style.display='none';propPh.style.display='';}
 }
 
-function _aplicarImagemModelo(code,dataUrl){
-  var img=document.getElementById('mod-img-'+code);
-  var ph=document.getElementById('mod-img-placeholder-'+code);
-  var del=document.getElementById('mod-img-del-'+code);
+function _aplicarImagemModelo(code,dataUrl,variant){
+  variant = variant || '1fl';
+  var sufixId = variant==='2fls' ? '-2fls' : '';
+  var img=document.getElementById('mod-img'+sufixId+'-'+code);
+  var ph =document.getElementById('mod-img-placeholder'+sufixId+'-'+code);
+  var del=document.getElementById('mod-img-del'+sufixId+'-'+code);
   if(!img)return;
   if(dataUrl){img.src=dataUrl;img.style.display='block';if(ph)ph.style.display='none';if(del)del.style.display='';}
   else{img.src='';img.style.display='none';if(ph)ph.style.display='flex';if(del)del.style.display='none';}
@@ -334,7 +382,9 @@ function _aplicarImagemModelo(code,dataUrl){
 
 function _atualizarImagemCarac(code){
   var el=document.getElementById('carac-modelo-img');if(!el)return;
-  var d=_modeloImgCache[code]||null;
+  var nFol=parseInt((document.getElementById('folhas-porta')||{value:'1'}).value)||1;
+  // Prioriza 2fls se porta de 2 folhas e existe; fallback para 1fl
+  var d = (nFol===2 && _modeloImgCache2fls[code]) ? _modeloImgCache2fls[code] : (_modeloImgCache[code]||null);
   if(d){el.src=d;el.style.display='';}else{el.src='';el.style.display='none';}
 }
 

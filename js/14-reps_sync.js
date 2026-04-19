@@ -386,11 +386,19 @@ function syncFolhas(val){
   var fp=document.getElementById('folhas-porta'),pf=document.getElementById('plan-folhas'),cf=document.getElementById('carac-folhas');
   if(fp&&fp.value!==val)fp.value=val;if(pf&&pf.value!==val)pf.value=val;if(cf&&cf.value!==val)cf.value=val;
   if(typeof planUpd==='function')planUpd();calc();
+  // Atualiza a foto do modelo (pode trocar 1fl ↔ 2fls)
+  var sel=document.getElementById('carac-modelo');
+  if(sel&&sel.value&&typeof _atualizarImagemCarac==='function')_atualizarImagemCarac(sel.value);
+  if(typeof _syncModeloImgProposta==='function')_syncModeloImgProposta();
 }
 function syncFolhasCarac(val){
   var fp=document.getElementById('folhas-porta'),pf=document.getElementById('plan-folhas');
   if(fp)fp.value=val;if(pf)pf.value=val;
   if(typeof planUpd==='function')planUpd();calc();
+  // Atualiza a foto do modelo (pode trocar 1fl ↔ 2fls)
+  var sel=document.getElementById('carac-modelo');
+  if(sel&&sel.value&&typeof _atualizarImagemCarac==='function')_atualizarImagemCarac(sel.value);
+  if(typeof _syncModeloImgProposta==='function')_syncModeloImgProposta();
 }
 function syncFechDigital(){
   var dig=document.getElementById('carac-fech-dig');
