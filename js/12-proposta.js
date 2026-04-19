@@ -412,9 +412,16 @@ function populateProposta(){
   var modTxt=caracMod&&caracMod.selectedIndex>0?caracMod.options[caracMod.selectedIndex].text:'—';
   document.getElementById('prop-modelo').textContent=modTxt.toUpperCase();
   // Model image on proposal — check Supabase cache first, then default MODEL_IMGS
+  //   Se folhas=2 e existe foto 2fls cadastrada, prioriza; senão fallback para 1fl
   var propImg=document.getElementById('prop-img-porta');
   var propPh=document.getElementById('prop-img-porta-ph');
-  var _customModelImg = (typeof _modeloImgCache!=='undefined'&&_modeloImgCache[modVal])||null;
+  var _nFolProp = parseInt((document.getElementById('folhas-porta')||{value:'1'}).value)||1;
+  var _customModelImg = null;
+  if(_nFolProp===2 && typeof _modeloImgCache2fls!=='undefined' && _modeloImgCache2fls[modVal]){
+    _customModelImg = _modeloImgCache2fls[modVal];
+  } else if(typeof _modeloImgCache!=='undefined' && _modeloImgCache[modVal]){
+    _customModelImg = _modeloImgCache[modVal];
+  }
   if(modVal && (_customModelImg || MODEL_IMGS[modVal])){
     propImg.src = _customModelImg || MODEL_IMGS[modVal];
     propImg.style.display='';
