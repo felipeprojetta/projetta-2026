@@ -1040,6 +1040,30 @@ function salvarRapido(){
           _cd[_ci].valorTabela=_sv.tab;
           _cd[_ci].valorFaturamento=_sv.fat;
           _cd[_ci].updatedAt=new Date().toISOString();
+          // ★ Felipe 20/04: persistir tambem instalacao intl + CIF no card
+          //   pra o breakdown no kanban pegar os valores corretos sem
+          //   depender de runtime. Soh sobrescreve se capturou valor > 0
+          //   pra nao zerar dados preenchidos manualmente no modal do card.
+          if(_sv.instIntlFat>0)  _cd[_ci].inst_intl_fat   = _sv.instIntlFat;
+          if(_sv.instQuem)       _cd[_ci].inst_quem       = _sv.instQuem;
+          if(_sv.incoterm)       _cd[_ci].inst_incoterm   = _sv.incoterm;
+          if(_sv.cifCaixaL>0)    _cd[_ci].cif_caixa_l     = _sv.cifCaixaL;
+          if(_sv.cifCaixaA>0)    _cd[_ci].cif_caixa_a     = _sv.cifCaixaA;
+          if(_sv.cifCaixaE>0)    _cd[_ci].cif_caixa_e     = _sv.cifCaixaE;
+          if(_sv.cifCaixaTaxa>0) _cd[_ci].cif_caixa_taxa  = _sv.cifCaixaTaxa;
+          if(_sv.cifFreteTerr>0) _cd[_ci].cif_frete_terrestre = _sv.cifFreteTerr;
+          if(_sv.cifFreteMar>0)  _cd[_ci].cif_frete_maritimo  = _sv.cifFreteMar;
+          if(_sv.instPassagem>0) _cd[_ci].inst_passagem   = _sv.instPassagem;
+          if(_sv.instHotel>0)    _cd[_ci].inst_hotel      = _sv.instHotel;
+          if(_sv.instAlim>0)     _cd[_ci].inst_alim       = _sv.instAlim;
+          if(_sv.instUdigru>0)   _cd[_ci].inst_udigru     = _sv.instUdigru;
+          if(_sv.instSeguro>0)   _cd[_ci].inst_seguro     = _sv.instSeguro;
+          if(_sv.instCarro>0)    _cd[_ci].inst_carro      = _sv.instCarro;
+          if(_sv.instMO>0)       _cd[_ci].inst_mo         = _sv.instMO;
+          if(_sv.instPessoas>0)  _cd[_ci].inst_pessoas    = _sv.instPessoas;
+          if(_sv.instDias>0)     _cd[_ci].inst_dias       = _sv.instDias;
+          if(_sv.instMargem>0)   _cd[_ci].inst_margem     = _sv.instMargem;
+          if(_sv.instCambio>0)   _cd[_ci].inst_cambio     = _sv.instCambio;
           // Se foi nova revisão (pendingRevision acabou de ser processada): criar revisão CRM
           if(_wasPendingRevision){
             if(!_cd[_ci].revisoes) _cd[_ci].revisoes=[];
@@ -1048,13 +1072,15 @@ function salvarRapido(){
             _cd[_ci].revisoes.push({
               rev:_revNum, label:_revLabel,
               data:new Date().toISOString(),
-              valorTabela:_sv.tab, valorFaturamento:_sv.fat
+              valorTabela:_sv.tab, valorFaturamento:_sv.fat,
+              inst_intl_fat:_sv.instIntlFat||0
             });
           } else if(_cd[_ci].revisoes&&_cd[_ci].revisoes.length>0){
             // Atualizar última revisão com valores atuais
             var _lastR=_cd[_ci].revisoes[_cd[_ci].revisoes.length-1];
             _lastR.valorTabela=_sv.tab;
             _lastR.valorFaturamento=_sv.fat;
+            if(_sv.instIntlFat>0) _lastR.inst_intl_fat=_sv.instIntlFat;
           }
           localStorage.setItem('projetta_crm_v1',JSON.stringify(_cd));
           // Cloud sync CRM

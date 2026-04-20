@@ -265,6 +265,53 @@ function nameColor(name){
   return c[Math.abs(h)%c.length];
 }
 
+/* ★ Felipe 20/04: valor REAL do card em R$.
+   - Nacional: retorna valorFaturamento (ou fallback).
+   - Internacional: soma Porta + Instalação + Logística (caixa+fretes).
+   Usado no breakdown do card, header das colunas e KPIs. */
+function _valorRealCardBRL(o){
+  if(!o) return 0;
+  var _vPorta = parseFloat(o.valorFaturamento) || parseFloat(o.valorTabela) || parseFloat(o.valor) || 0;
+  if(o.scope !== 'internacional') return _vPorta;
+  // Internacional
+  var _cambio = parseFloat(o.inst_cambio) || 5.20;
+  // Instalação: valor salvo OU recalcular
+  var _vInst = parseFloat(o.inst_intl_fat) || 0;
+  if(_vInst === 0){
+    var _passagem = parseFloat(o.inst_passagem) || 0;
+    var _hotel = parseFloat(o.inst_hotel) || 0;
+    var _alim = parseFloat(o.inst_alim) || 0;
+    var _udigru = parseFloat(o.inst_udigru) || 0;
+    if((_passagem + _hotel + _alim + _udigru) > 0){
+      var _seg = parseFloat(o.inst_seguro) || 0;
+      var _carro = parseFloat(o.inst_carro) || 0;
+      var _mo = parseFloat(o.inst_mo) || 0;
+      var _pes = parseInt(o.inst_pessoas) || 3;
+      var _di = parseInt(o.inst_dias) || 3;
+      var _dT = _di + 4; var _dH = _dT - 2;
+      var _mg = parseFloat(o.inst_margem) || 10;
+      var _custo = _udigru + (_passagem*_pes) + (_hotel*_dH) + (_alim*_pes*_dT) + (_seg*_pes) + (_carro*_dT) + (_mo*_dT);
+      _vInst = _custo / Math.max(0.01, 1 - _mg/100);
+    }
+  }
+  // Logística
+  var _inc = (o.inst_incoterm||'').toUpperCase();
+  var _logUsd = 0;
+  if(_inc==='CIF' || _inc==='FOB'){
+    var _L = parseFloat(o.cif_caixa_l)||0;
+    var _A = parseFloat(o.cif_caixa_a)||0;
+    var _E = parseFloat(o.cif_caixa_e)||0;
+    var _tx = parseFloat(o.cif_caixa_taxa)||100;
+    _logUsd += (_L/1000)*(_A/1000)*(_E/1000) * _tx;
+    _logUsd += parseFloat(o.cif_frete_terrestre)||0;
+  }
+  if(_inc==='CIF'){
+    _logUsd += parseFloat(o.cif_frete_maritimo)||0;
+  }
+  return _vPorta + _vInst + (_logUsd * _cambio);
+}
+window._valorRealCardBRL = _valorRealCardBRL;
+
 /* ── KPIs ────────────────────────────────────────── */
 function updateKPIs(all){
   var stages=gStages();
@@ -299,7 +346,7 @@ function updateKPIs(all){
   if(el('ck-intl')){el('ck-intl').textContent=intl.length;el('ck-intl-s').textContent='internacional'+(intl.length!==1?'s':'');}
   // Total Tabela e Faturamento (todas ativas)
   var totTab=ativos.reduce(function(s,o){return s+(parseFloat(o.valorTabela)||0);},0);
-  var totFat=ativos.reduce(function(s,o){return s+(parseFloat(o.valorFaturamento)||parseFloat(o.valor)||0);},0);
+  var totFat=ativos.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
   if(el('ck-tot-tab')){el('ck-tot-tab').textContent=brl(totTab);el('ck-tot-tab-s').textContent=ativos.filter(function(o){return o.valorTabela>0;}).length+' com tabela';}
   if(el('ck-tot-fat')){el('ck-tot-fat').textContent=brl(totFat);el('ck-tot-fat-s').textContent=ativos.filter(function(o){return(o.valorFaturamento||o.valor)>0;}).length+' com faturamento';}
   // Filters
@@ -369,7 +416,8 @@ function renderKanban(fil){
   var stages=gStages();board.innerHTML='';
   stages.forEach(function(st){
     var cards=fil.filter(function(o){return o.stage===st.id;});
-    var tv=cards.reduce(function(s,o){return s+(parseFloat(o.valorFaturamento)||parseFloat(o.valor)||0);},0);
+    // ★ Felipe 20/04: Fat da coluna agora inclui inst+logistica pros intl
+    var tv=cards.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
     var tvTab=cards.reduce(function(s,o){return s+(parseFloat(o.valorTabela)||0);},0);
     var isFazerOrc=/fazer.*or|orcamento/i.test(st.label);
     var col=document.createElement('div');col.className='crm-stage';col.setAttribute('data-stage',st.id);
@@ -510,32 +558,34 @@ function buildCard(o,st,isFazerOrc){
       // --- Cálculo do breakdown ---
       var _vPorta = parseFloat(o.valorFaturamento) || parseFloat(o.valorTabela) || parseFloat(o.valor) || 0;
 
-      // Instalação: calcular custo × markup simplificado. Se não tem dados
-      // de instalação preenchidos no card, fica 0.
-      var _vInst = 0;
+      // Instalação: preferir valor ja salvo no card (_sv.instIntlFat persistido
+      // pelo 03-history_save ao clicar Gerar Custo). Fallback: recalcular a
+      // partir dos campos inst_* se nao houver valor salvo mas houver base.
+      var _vInst = parseFloat(o.inst_intl_fat) || 0;
       var _cambio = parseFloat(o.inst_cambio) || 5.20; // default; atualizado se card tiver
-      // Heurística: se tem passagem OU hotel preenchido, assume que vai calcular inst
-      var _passagemPorPessoa = parseFloat(o.inst_passagem) || 0;
-      var _hotelDia = parseFloat(o.inst_hotel) || 0;
-      var _alimDia = parseFloat(o.inst_alim) || 0;
-      var _udigru = parseFloat(o.inst_udigru) || 0;
-      var _seguroPP = parseFloat(o.inst_seguro) || 0;
-      var _carroDia = parseFloat(o.inst_carro) || 0;
-      var _moDia = parseFloat(o.inst_mo) || 0;
-      var _pessoas = parseInt(o.inst_pessoas) || 3;
-      var _diasInst = parseInt(o.inst_dias) || 3;
-      var _diasViagem = 4;
-      var _diasTotal = _diasInst + _diasViagem;
-      var _diasHotel = _diasTotal - 2;
-      var _margemInstPct = parseFloat(o.inst_margem) || 10;
-      var _temDadosInst = (_passagemPorPessoa + _hotelDia + _alimDia + _udigru) > 0;
-      if(_temDadosInst){
-        var _custoInst = _udigru + (_passagemPorPessoa*_pessoas) + (_hotelDia*_diasHotel) +
-                         (_alimDia*_pessoas*_diasTotal) + (_seguroPP*_pessoas) +
-                         (_carroDia*_diasTotal) + (_moDia*_diasTotal);
-        // Preco Fat = Custo / (1 - margem%)
-        var _divisor = Math.max(0.01, 1 - _margemInstPct/100);
-        _vInst = _custoInst / _divisor;
+      if(_vInst === 0){
+        // Fallback — recalcular
+        var _passagemPorPessoa = parseFloat(o.inst_passagem) || 0;
+        var _hotelDia = parseFloat(o.inst_hotel) || 0;
+        var _alimDia = parseFloat(o.inst_alim) || 0;
+        var _udigru = parseFloat(o.inst_udigru) || 0;
+        var _seguroPP = parseFloat(o.inst_seguro) || 0;
+        var _carroDia = parseFloat(o.inst_carro) || 0;
+        var _moDia = parseFloat(o.inst_mo) || 0;
+        var _pessoas = parseInt(o.inst_pessoas) || 3;
+        var _diasInst = parseInt(o.inst_dias) || 3;
+        var _diasViagem = 4;
+        var _diasTotal = _diasInst + _diasViagem;
+        var _diasHotel = _diasTotal - 2;
+        var _margemInstPct = parseFloat(o.inst_margem) || 10;
+        var _temDadosInst = (_passagemPorPessoa + _hotelDia + _alimDia + _udigru) > 0;
+        if(_temDadosInst){
+          var _custoInst = _udigru + (_passagemPorPessoa*_pessoas) + (_hotelDia*_diasHotel) +
+                           (_alimDia*_pessoas*_diasTotal) + (_seguroPP*_pessoas) +
+                           (_carroDia*_diasTotal) + (_moDia*_diasTotal);
+          var _divisor = Math.max(0.01, 1 - _margemInstPct/100);
+          _vInst = _custoInst / _divisor;
+        }
       }
 
       // Logística (caixa + fretes) — depende do incoterm
@@ -916,9 +966,10 @@ window.crmUpdateStageDisplay=function(){
   // Prioridade + Potencial: show from Qualificação (index 1) onwards
   var priField=el('crm-prioridade-field');
   if(priField) priField.style.display=(idx>=1)?'grid':'none';
-  // Data do Fechamento: só quando Fechado Ganho
-  var fechField=el('crm-fechamento-field');
-  if(fechField) fechField.style.display=(sid==='won')?'block':'none';
+  // Data do Fechamento: SEMPRE visivel agora (Felipe 20/04: ao lado do Data Primeiro Contato)
+  // Mantemos o elemento pra compat, mas nao escondemos mais.
+  // var fechField=el('crm-fechamento-field');
+  // if(fechField) fechField.style.display=(sid==='won')?'block':'none';
   // Reserva: show from Fazer Orçamento (index 1) onwards
   var resRow=el('crm-reserva-agp-row');
   if(resRow) resRow.style.display=(idx>=1)?'grid':'none';
@@ -973,7 +1024,7 @@ window.crmOpenModal=function(defaultStage,editId){
     }
     setVal('crm-o-cliente',opp.cliente);setVal('crm-o-contato',opp.contato);setVal('crm-o-email',opp.email||'');
     setVal('crm-o-data-contato',opp.dataContato||opp.createdAt?(opp.dataContato||opp.createdAt.slice(0,10)):'');
-    setVal('crm-o-valor',opp.valor||'');setVal('crm-o-fechamento',opp.fechamento);
+    setVal('crm-o-valor',opp.valor||'');setVal('crm-o-fechamento',opp.fechamento_real||opp.fechamento||'');
     setVal('crm-o-prioridade',opp.prioridade||'');setVal('crm-o-potencial',opp.potencial||'');setVal('crm-o-notas',opp.notas);
     setVal('crm-o-largura',opp.largura||'');setVal('crm-o-altura',opp.altura||'');
     setVal('crm-o-abertura',opp.abertura||'');setVal('crm-o-modelo',opp.modelo||'');
@@ -2152,6 +2203,8 @@ window.crmSaveOpp=function(){
     wrep:      val('crm-o-wrep'),          // Weiku rep
     parceiro_nome: val('crm-o-parceiro-nome')||'',
     valor:     parseFloat(val('crm-o-valor'))||0,
+    // ★ Felipe 20/04: salvar em AMBOS (fechamento_real novo + fechamento legado)
+    fechamento_real: val('crm-o-fechamento')||'',
     fechamento:val('crm-o-fechamento'),
     prioridade:val('crm-o-prioridade')||'',
     potencial: val('crm-o-potencial')||'',
@@ -4144,7 +4197,38 @@ function _captureOrcValues(){
     valorTab=window._calcResult._tabTotal||0;
     valorFat=window._calcResult._fatTotal||0;
   }
-  return{tab:valorTab,fat:valorFat};
+  // ★ Felipe 20/04: capturar tambem instalacao internacional + campos CIF
+  //   pra persistir no card e o breakdown funcionar mesmo sem o orc aberto.
+  var _v = function(id){ var e=document.getElementById(id); return e? (parseFloat(e.value)||0) : 0; };
+  var _vStr = function(id){ var e=document.getElementById(id); return e? (e.value||'') : ''; };
+  var _instIntlFat = (typeof window._instIntlFat === 'number') ? window._instIntlFat : 0;
+  var _instQuem = _vStr('inst-quem');
+  return {
+    tab: valorTab,
+    fat: valorFat,
+    instIntlFat: _instIntlFat,          // Instalação internacional em R$ (faturamento com margem)
+    instQuem: _instQuem,                 // PROJETTA / WEIKU / TERCEIROS / INTERNACIONAL
+    // Campos logistica CIF — em USD, convertidos em runtime pra R$
+    incoterm:         _vStr('inst-incoterm'),
+    cifCaixaL:        _v('inst-cif-caixa-l')   || _v('crm-o-cif-caixa-l'),
+    cifCaixaA:        _v('inst-cif-caixa-a')   || _v('crm-o-cif-caixa-a'),
+    cifCaixaE:        _v('inst-cif-caixa-e')   || _v('crm-o-cif-caixa-e'),
+    cifCaixaTaxa:     _v('inst-cif-caixa-taxa')|| _v('crm-o-cif-caixa-taxa') || 100,
+    cifFreteTerr:     _v('inst-cif-frete-terrestre')||_v('crm-o-cif-frete-terrestre') || 0,
+    cifFreteMar:      _v('inst-cif-frete-maritimo')||_v('crm-o-cif-frete-maritimo') || 0,
+    // Campos base de instalacao internacional (pra o breakdown conseguir recalcular)
+    instPassagem:     _v('inst-intl-passagem'),
+    instHotel:        _v('inst-intl-hotel'),
+    instAlim:         _v('inst-intl-alim'),
+    instUdigru:       _v('inst-intl-udigru'),
+    instSeguro:       _v('inst-intl-seguro'),
+    instCarro:        _v('inst-intl-carro'),
+    instMO:           _v('inst-intl-mo'),
+    instPessoas:      _v('inst-intl-pessoas'),
+    instDias:         _v('inst-intl-dias'),
+    instMargem:       _v('inst-intl-margem'),
+    instCambio:       _v('inst-intl-cambio') || 5.20
+  };
 }
 
 /* ── Export CSV ──────────────────────────────────── */
