@@ -1485,7 +1485,6 @@ window._crmItensRender=function(){
     return;
   }
   if(empty)empty.style.display='none';
-  
   var corOpts=_crmGetCorOptions();
   var modeloOpts='<option value="">— Selecione —</option><option value="01">01 - Cava</option><option value="02">02 - Cava + Friso</option><option value="03">03 - Cava + 2 Frisos H</option><option value="04">04 - Cava + Friso V&H</option><option value="05">05 - Cava + Friso V & 2H</option><option value="06">06 - Cava + Frisos H Variável</option><option value="07">07 - Cava + Frisos V Múltiplo</option><option value="08">08 - Cava + Ripado</option><option value="09">09 - Cava Dupla</option><option value="10">10 - Lisa</option><option value="11">11 - Friso Vertical</option><option value="12">12 - Pux Ext + Friso V&H</option><option value="13">13 - Pux Ext + Friso V & 2H</option><option value="14">14 - Pux Ext + Frisos V Múltiplo</option><option value="15">15 - Ripado</option><option value="16">16 - Pux Ext + Frisos H Variável</option><option value="17">17 - Pux Ext + Frisos H Inclinado</option><option value="18">18 - Pux Ext + Geométricos</option><option value="19">19 - Cava + Geométricos</option><option value="20">20 - Pux Ext + Ripas H</option><option value="21">21 - Friso Angular</option><option value="22">22 - Cava Premium</option><option value="23">23 - Molduras</option><option value="24">24 - Cava Horizontal</option>';
   
@@ -1691,8 +1690,92 @@ window._crmItensRender=function(){
       if(item.cor_ext){var ce=document.getElementById(pre+'cor_ext');if(ce)ce.value=item.cor_ext;}
       if(item.cor_int){var ci=document.getElementById(pre+'cor_int');if(ci)ci.value=item.cor_int;}
     });
+    // ★ Aplica freeze-lock DEPOIS do auto-select/cores pra não ser sobrescrito
+    _crmItensAplicarLock();
   }, 100);
 }
+
+/* ═════════════════════════════════════════════════════════════════════
+   FREEZE-LOCK de itens (Felipe 20/04):
+   "uma opção com revisão finalizada NÃO deve mais ser editável. Se
+   precisar alterar: usa Nova Revisão ou Nova Opção."
+
+   Regra: se a opção ATIVA já tem pelo menos 1 revisão, todos os inputs
+   dos itens ficam read-only/disabled. Banner de aviso aparece no topo
+   da lista explicando como desbloquear.
+
+   Botão "Salvar Item" também some (não faz sentido editar).
+   "Duplicar" mantido (cópia nova fica editável na mesma opção).
+   "Remover" some (não pode remover item com orçamento).
+   ═════════════════════════════════════════════════════════════════════ */
+window._crmItensAplicarLock=function(){
+  var list = document.getElementById('crm-itens-list');
+  if(!list) return;
+
+  // Detectar se a opção ativa tem revisões
+  var ehLocked = false;
+  try {
+    if(_editId && window.OrcamentoOpcoes){
+      var data = cLoad();
+      var card = data.find(function(o){return o.id===_editId;});
+      if(card){
+        var opAtiva = window.OrcamentoOpcoes.ativa(card);
+        if(opAtiva && Array.isArray(opAtiva.revisoes) && opAtiva.revisoes.length>0){
+          ehLocked = true;
+        }
+      }
+    }
+  } catch(e){ console.warn('[_crmItensAplicarLock]',e); }
+
+  // Remove banner antigo (caso troca de opção)
+  var oldBanner = document.getElementById('crm-itens-lock-banner');
+  if(oldBanner) oldBanner.remove();
+
+  var addBtn = document.getElementById('crm-itens-add-btn');
+
+  if(!ehLocked){
+    // Destrava tudo (caso tenha vindo de opção locked)
+    list.querySelectorAll('input, select, textarea').forEach(function(el){
+      if(el.dataset._lockedByRev){
+        el.disabled = false;
+        el.readOnly = false;
+        el.style.cursor = '';
+        el.style.opacity = '';
+        delete el.dataset._lockedByRev;
+      }
+    });
+    list.querySelectorAll('button.dup, button.del').forEach(function(btn){
+      btn.style.display = '';
+    });
+    if(addBtn) addBtn.style.display = '';
+    return;
+  }
+
+  // Adiciona banner NO TOPO da lista
+  var banner = document.createElement('div');
+  banner.id = 'crm-itens-lock-banner';
+  banner.style.cssText = 'margin:0 0 10px;padding:10px 14px;background:linear-gradient(135deg,#fff3e0,#fffaf0);border:1.5px solid #e67e22;border-radius:8px;font-size:12px;color:#8a4b00;line-height:1.5';
+  banner.innerHTML =
+    '🔒 <b>Esta opção já tem orçamento finalizado</b> — itens travados pra evitar alteração indevida.<br>' +
+    '<span style="font-size:11px">Pra fazer mudanças: clique em <b>+ Nova Revisão</b> (mesma opção) ou <b>+ Nova opção</b> (opção separada) no histórico de revisões abaixo.</span>';
+  list.insertBefore(banner, list.firstChild);
+
+  // Disable todos os inputs dentro dos items
+  list.querySelectorAll('.crm-item input, .crm-item select, .crm-item textarea').forEach(function(el){
+    el.disabled = true;
+    el.dataset._lockedByRev = '1';
+    el.style.cursor = 'not-allowed';
+    el.style.opacity = '0.75';
+  });
+
+  // Esconde botões de Salvar / Duplicar / Remover dentro dos items
+  list.querySelectorAll('.crm-item button.dup, .crm-item button.del').forEach(function(btn){
+    btn.style.display = 'none';
+  });
+
+  // Esconde botão "+ Adicionar Item" (não faz sentido com orçamento finalizado)
+  if(addBtn) addBtn.style.display = 'none';
+};
 
 window._crmItensToCardData=function(){
   _crmItensSaveFromDOM();
@@ -1719,8 +1802,15 @@ window._crmItensToCardData=function(){
 }
 
 window._crmItensFromCardData=function(itens){
+  // ★ DEEP-CLONE (Felipe 20/04): shallow clone antes permitia que mutacoes
+  //   em props aninhadas vazassem entre opcoes. Usar JSON clone garante
+  //   que os itens sao 100% independentes da fonte.
   _crmItens=(itens||[]).map(function(it){
-    return Object.assign({},it,{id:it.id||('ci_'+Date.now()+'_'+Math.random().toString(36).substr(2,4))});
+    var copy;
+    try { copy = JSON.parse(JSON.stringify(it||{})); }
+    catch(e){ copy = Object.assign({},it); }
+    if(!copy.id) copy.id = 'ci_'+Date.now()+'_'+Math.random().toString(36).substr(2,4);
+    return copy;
   });
   _crmItensRender();
 }
@@ -1729,6 +1819,36 @@ window._crmItensFromCardData=function(itens){
 window.crmSaveOpp=function(){
   var cliente=val('crm-o-cliente').trim();
   if(!cliente){var c=el('crm-o-cliente');if(c)c.focus();return;}
+
+  // ★ SAFEGUARD (Felipe 20/04): se a opção ativa ja tem revisoes, NAO
+  //   sobrescrever itens/campos-derivados dela. Só atualizar metadata do
+  //   card (cliente, contato, cidade, notas, etc). Evita que edições
+  //   acidentais nos inputs (mesmo que deveriam estar locked) persistam.
+  var _lockedItensSnapshot = null;
+  try {
+    if(_editId && window.OrcamentoOpcoes){
+      var _chk = cLoad();
+      var _chkIdx = _chk.findIndex(function(o){return o.id===_editId;});
+      if(_chkIdx>=0){
+        var _opChk = window.OrcamentoOpcoes.ativa(_chk[_chkIdx]);
+        if(_opChk && Array.isArray(_opChk.revisoes) && _opChk.revisoes.length>0){
+          // Snapshot pra reinstalar depois do save
+          _lockedItensSnapshot = {
+            itens:       JSON.parse(JSON.stringify(_opChk.itens||[])),
+            largura:     _opChk.largura,
+            altura:      _opChk.altura,
+            modelo:      _opChk.modelo,
+            abertura:    _opChk.abertura,
+            folhas:      _opChk.folhas,
+            cor_ext:     _opChk.cor_ext,
+            cor_int:     _opChk.cor_int,
+            cor_macico:  _opChk.cor_macico,
+            moldura_rev: _opChk.moldura_rev
+          };
+        }
+      }
+    }
+  } catch(_e){ /* best-effort */ }
 
   var scope=_scope;
   var cidade=scope==='internacional'?val('crm-o-cidade-intl').trim():val('crm-o-cidade-nac').trim();
@@ -1808,6 +1928,21 @@ window.crmSaveOpp=function(){
         if(existing[k]!==undefined && opp[k]===undefined) opp[k]=existing[k];
       });
       data[idx]=Object.assign(data[idx],opp);
+
+      // ★ SAFEGUARD pt2: se opção ATIVA tinha revisões (locked), restaurar
+      //   itens e campos-derivados do snapshot ANTES do save consolidar.
+      //   Isso evita que edições no form (mesmo locked visualmente) vazem.
+      if(_lockedItensSnapshot && window.OrcamentoOpcoes){
+        var _opRestore = window.OrcamentoOpcoes.ativa(data[idx]);
+        if(_opRestore){
+          _opRestore.itens = _lockedItensSnapshot.itens;
+          ['largura','altura','modelo','abertura','folhas','cor_ext','cor_int','cor_macico','moldura_rev'].forEach(function(f){
+            if(_lockedItensSnapshot[f] !== undefined) _opRestore[f] = _lockedItensSnapshot[f];
+          });
+          // Re-sincroniza card-level pra espelhar os valores da opção ativa
+          window.OrcamentoOpcoes.sincronizar(data[idx]);
+        }
+      }
     }
   } else {
     dealId=uuid();opp.id=dealId;opp.createdAt=now;data.unshift(opp);
