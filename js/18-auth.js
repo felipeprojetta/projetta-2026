@@ -1038,7 +1038,7 @@ function _populatePropostaItens(){
     var _descEn = tipo==='fixo'?'Projetta Fixed Panel by Weiku':tipo==='revestimento'?'Projetta Cladding by Weiku':'Projetta Door by Weiku';
     var _descPt = tipo==='fixo'?'Fixo Projetta by Weiku':tipo==='revestimento'?'Revestimento Projetta by Weiku':'Porta Projetta by Weiku';
     var descProposta = (_LANG==='en') ? _descEn : _descPt;
-    items.push({idx:i,L:L,A:A,q:q,area:area,modNum:modNum,modTxt:modTxt,descProposta:descProposta,tipo:tipo,folhas:folhas,corExt:corExt,corInt:corInt,fechMec:fechMec,fechDig:fechDig,puxador:puxador,puxTam:puxTam,cilindro:cilindro,abertura:abertura,temAlisar:temAlisar,sistema:sistema,imgSrc:imgSrc});
+    items.push({idx:i,L:L,A:A,q:q,area:area,modNum:modNum,modTxt:modTxt,descProposta:descProposta,tipo:tipo,folhas:folhas,corExt:corExt,corInt:corInt,fechMec:fechMec,fechDig:fechDig,puxador:puxador,puxTam:puxTam,cilindro:cilindro,abertura:abertura,temAlisar:temAlisar,sistema:sistema,imgSrc:imgSrc,fixos:it._fixos||null,temFixo:!!(it['tem-fixo'])});
     totalArea+=area;
   });
   // Ordenar por área (maior primeiro)
@@ -1090,7 +1090,25 @@ function _populatePropostaItens(){
     doorsHtml+='</div>';
     doorsHtml+='<div style="flex:1">';
     doorsHtml+='<div style="font-size:12px;font-weight:800;color:var(--navy);margin-bottom:4px">'+it.descProposta.toUpperCase()+'</div>';
-    doorsHtml+='<div style="display:flex;gap:15px;font-size:10px;margin-bottom:2px"><span><b>'+_L_QTD+':</b> '+it.q+'</span><span><b>'+_L_L+':</b> '+Math.round(it.L)+'</span><span><b>'+_L_H+':</b> '+Math.round(it.A)+'</span></div>';
+    // ★ DIMENSÕES: quando tem fixo, mostrar linha da PORTA + linha(s) do FIXO
+    //   Cada fixo vira uma linha adicional de dimensão. Label "Porta" vs "Fixo" pra diferenciar.
+    var _hasFixos = it.temFixo && it.fixos && it.fixos.length>0;
+    if(_hasFixos){
+      var _L_PORTA = (_LANG==='en' ? 'Door' : 'Porta');
+      var _L_FIXO  = (_LANG==='en' ? 'Fixed Panel' : 'Fixo');
+      doorsHtml+='<div style="display:flex;gap:15px;font-size:10px;margin-bottom:2px"><span><b>'+_L_QTD+':</b> '+it.q+'</span><span><b>'+_L_PORTA+':</b> '+Math.round(it.L)+' \u00d7 '+Math.round(it.A)+'mm</span></div>';
+      it.fixos.forEach(function(fx){
+        var fL = parseFloat(fx.larg)||0;
+        var fA = parseFloat(fx.alt)||0;
+        var fQ = parseInt(fx.qty)||1;
+        if(fL>0 && fA>0){
+          var _qtyTxt = fQ>1 ? ' ('+fQ+'x)' : '';
+          doorsHtml+='<div style="font-size:10px;margin-bottom:2px;padding-left:8px;color:#444"><b>'+_L_FIXO+_qtyTxt+':</b> '+Math.round(fL)+' \u00d7 '+Math.round(fA)+'mm</div>';
+        }
+      });
+    } else {
+      doorsHtml+='<div style="display:flex;gap:15px;font-size:10px;margin-bottom:2px"><span><b>'+_L_QTD+':</b> '+it.q+'</span><span><b>'+_L_L+':</b> '+Math.round(it.L)+'</span><span><b>'+_L_H+':</b> '+Math.round(it.A)+'</span></div>';
+    }
     doorsHtml+='<div style="font-size:10px;margin-bottom:4px"><b>'+_L_AREA+':</b> '+areaUn.toFixed(2)+'m²</div>';
     doorsHtml+='<div style="font-size:9.5px;color:#444;line-height:1.5">';
     doorsHtml+='<div><b>'+_L_SIS+'</b>: '+it.sistema+'</div>';
@@ -1121,11 +1139,29 @@ function _populatePropostaItens(){
     }
     doorsHtml+='<div style="margin-top:6px;padding:4px 8px;background:#f0ebe0;border-radius:3px;font-size:11px;font-weight:800;color:var(--navy);text-align:right">'+fmt(valorItem)+'</div>';
     doorsHtml+='</div></div>';
+    // Célula de dimensões na tabela: porta + fixos (se houver)
+    var _dimCell;
+    if(it.temFixo && it.fixos && it.fixos.length>0){
+      var _L_PORTA_T = (_LANG==='en' ? 'Door' : 'Porta');
+      var _L_FIXO_T  = (_LANG==='en' ? 'Fixed' : 'Fixo');
+      _dimCell = '<div style="font-size:9px"><b>'+_L_PORTA_T+':</b> '+Math.round(it.L)+' \u00d7 '+Math.round(it.A)+'</div>';
+      it.fixos.forEach(function(fx){
+        var fL = parseFloat(fx.larg)||0;
+        var fA = parseFloat(fx.alt)||0;
+        var fQ = parseInt(fx.qty)||1;
+        if(fL>0 && fA>0){
+          var _qtyTxt = fQ>1 ? ' ('+fQ+'x)' : '';
+          _dimCell += '<div style="font-size:9px;color:#555"><b>'+_L_FIXO_T+_qtyTxt+':</b> '+Math.round(fL)+' \u00d7 '+Math.round(fA)+'</div>';
+        }
+      });
+    } else {
+      _dimCell = Math.round(it.L)+' \u00d7 '+Math.round(it.A);
+    }
     // Linha da tabela de itens
     tableHtml+='<tr>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+(sortIdx+1).toString().padStart(2,'0')+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc">'+it.descProposta+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">'+Math.round(it.L)+' \u00d7 '+Math.round(it.A)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">'+_dimCell+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+it.q+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(valorUn)+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(valorItem)+'</td>'
