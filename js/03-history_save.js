@@ -1520,6 +1520,9 @@ function resetToDefaults(){
   window._forceUnlockAfterLoad=false;
   window._custoCalculado=false;
   window._osGeradoUmaVez=false;
+  // ★ Reset flag de defaults intl (Felipe 20/04): permite que ao abrir
+  //   novo card/orcamento internacional os defaults sejam reaplicados.
+  window._intlDefaultsAplicado=false;
   try{_setOrcLock(false);}catch(e){}
   document.getElementById('acm-list').innerHTML='';
   document.getElementById('alu-list').innerHTML='';
