@@ -408,6 +408,16 @@
       var _sbUrl = window._SB_URL, _sbKey = window._SB_KEY;
       if(!_sbUrl || !_sbKey) return reject(new Error('Supabase não configurado'));
       var body = { chave: chave, valor: pacote };
+
+      // ★ Timeout de 20s via AbortController: sem isso, se o Supabase estiver
+      //   com rate limit ou fora do ar, a Promise fica pendurada pra sempre
+      //   e o toast "Congelando revisão completa..." nunca some.
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timeoutId = setTimeout(function(){
+        if(ctrl) ctrl.abort();
+        reject(new Error('Timeout 20s — Supabase não respondeu. Pode ser rate limit, tente de novo em 1 minuto.'));
+      }, 20000);
+
       fetch(_sbUrl+'/rest/v1/configuracoes', {
         method: 'POST',
         headers: {
@@ -416,11 +426,17 @@
           'Content-Type': 'application/json',
           'Prefer': 'resolution=merge-duplicates'
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: ctrl ? ctrl.signal : undefined
       }).then(function(r){
+        clearTimeout(timeoutId);
         if(r.ok){ resolve(chave); }
         else { reject(new Error('Upload HTTP '+r.status)); }
-      }).catch(reject);
+      }).catch(function(err){
+        clearTimeout(timeoutId);
+        if(err && err.name === 'AbortError') return; // já rejeitou via timeout
+        reject(err);
+      });
     });
   }
 
@@ -428,13 +444,24 @@
     return new Promise(function(resolve, reject){
       var _sbUrl = window._SB_URL, _sbKey = window._SB_KEY;
       if(!_sbUrl || !_sbKey) return reject(new Error('Supabase não configurado'));
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timeoutId = setTimeout(function(){
+        if(ctrl) ctrl.abort();
+        reject(new Error('Timeout 20s — Supabase não respondeu. Tente de novo em 1 minuto.'));
+      }, 20000);
       fetch(_sbUrl+'/rest/v1/configuracoes?chave=eq.'+encodeURIComponent(chave)+'&select=valor', {
-        headers: { 'apikey':_sbKey, 'Authorization':'Bearer '+_sbKey }
+        headers: { 'apikey':_sbKey, 'Authorization':'Bearer '+_sbKey },
+        signal: ctrl ? ctrl.signal : undefined
       }).then(function(r){ return r.json(); })
         .then(function(arr){
+          clearTimeout(timeoutId);
           if(!arr || !arr.length) return reject(new Error('Freeze não encontrado: '+chave));
           resolve(arr[0].valor);
-        }).catch(reject);
+        }).catch(function(err){
+          clearTimeout(timeoutId);
+          if(err && err.name === 'AbortError') return;
+          reject(err);
+        });
     });
   }
 
