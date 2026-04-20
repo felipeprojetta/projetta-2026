@@ -852,7 +852,55 @@ window.crmOpenModal=function(defaultStage,editId){
   modal.classList.add('open');
   setTimeout(function(){var c=el('crm-o-cliente');if(c)c.focus();crmCheckFieldHighlights();},120);
 };
-window.crmCloseModal=function(){el('crm-opp-modal').classList.remove('open');_editId=null;};
+window.crmCloseModal=function(_reason){
+  var m = el('crm-opp-modal');
+  if(m) m.classList.remove('open');
+  _editId=null;
+  // Log com stack pra diagnosticar fechamentos espúrios
+  try { console.log('[crm] crmCloseModal('+(_reason||'?')+')', new Error().stack); } catch(e){}
+};
+
+// ═════════════════════════════════════════════════════════════════════
+// Safe bg-close: só fecha se mousedown E mouseup foram NO BACKGROUND.
+// Evita fechar quando usuário:
+//  - começa clique dentro de input e arrasta/solta fora (seleção de texto)
+//  - usa scroll/touch longo que acaba disparando click no bg
+//  - interage com dropdown nativo que se desmonta e deixa target=bg
+// Padrão usado em Bootstrap, Material-UI, etc.
+// ═════════════════════════════════════════════════════════════════════
+(function installBgClose(){
+  function _setup(){
+    var bg = document.getElementById('crm-opp-modal');
+    if(!bg){ setTimeout(_setup, 100); return; }
+    if(bg._bgCloseInstalled) return;
+    bg._bgCloseInstalled = true;
+    var downOnBg = false;
+    bg.addEventListener('mousedown', function(e){
+      downOnBg = (e.target === bg);
+    });
+    bg.addEventListener('mouseup', function(e){
+      if(downOnBg && e.target === bg){
+        window.crmCloseModal('click-bg');
+      }
+      downOnBg = false;
+    });
+    // Touch equivalents (mobile)
+    bg.addEventListener('touchstart', function(e){
+      downOnBg = (e.target === bg);
+    }, { passive: true });
+    bg.addEventListener('touchend', function(e){
+      if(downOnBg && e.target === bg){
+        window.crmCloseModal('touch-bg');
+      }
+      downOnBg = false;
+    });
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _setup);
+  } else {
+    _setup();
+  }
+})();
 
 /* ── SAVE — captura TODOS os campos diretamente ──── */
 // Buscar Reserva Weiku no CRM modal

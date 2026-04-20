@@ -906,7 +906,10 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 </div>
 
 <!-- Modal Oportunidade -->
-<div class="crm-modal-bg" id="crm-opp-modal" onclick="if(event.target===this)crmCloseModal()">
+<!-- onclick removido; fechamento via mousedown+mouseup (evita fechar se usuário
+     começa clique dentro de um input e solta fora). Ver crmInstallBgClose()
+     em js/10-crm.js. -->
+<div class="crm-modal-bg" id="crm-opp-modal">
 <div class="crm-modal">
   <div class="crm-modal-header">
     <div><h3 id="crm-modal-title">Nova Oportunidade</h3><div class="crm-modal-sub" id="crm-modal-sub"></div></div>
