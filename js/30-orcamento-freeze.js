@@ -591,6 +591,33 @@
       if(typeof window._plnRenderCoresPainel === 'function') window._plnRenderCoresPainel();
     } catch(e){}
 
+    // ★ 8B) ABRIR TODOS os accordions (bodies) pra usuário ver tudo.
+    //       Bug descoberto: plan-body e outros accordions ficam display:none
+    //       por padrão. Ao abrir revisão, a aba Levantamento de Superfícies
+    //       aparecia vazia (só o título "PLANIFICAR CHAPAS") porque o
+    //       plan-body estava oculto.
+    //       Solução: abrir ident-body, dim-body, carac-body, param-body,
+    //       fab-body, acess-body, inst-body, plan-body — todos display:block.
+    var _bodies = ['ident-body','dim-body','carac-body','param-body','fab-body','acess-body','inst-body','plan-body'];
+    _bodies.forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.style.display = 'block';
+    });
+    // Atualizar badges dos accordions ("▲ fechar" ao invés de "▼ abrir")
+    var _badges = ['ident-badge','dim-badge','carac-badge','param-badge','fab-badge','inst-badge','plan-badge'];
+    _badges.forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.innerHTML = '&#9650; fechar';
+    });
+    // Forçar plan-result visível (tabela de resultado do planificador)
+    var planResult = document.getElementById('plan-result');
+    if(planResult) planResult.style.display = '';
+    // Forçar os-doc visível (documento OS na aba Levantamento de Perfis)
+    var osDoc = document.getElementById('os-doc');
+    if(osDoc) osDoc.style.display = '';
+    var osEmpty = document.getElementById('os-empty');
+    if(osEmpty) osEmpty.style.display = 'none';
+
     // 9) Travar form em somente-leitura + banner amarelo
     _aplicarReadOnly(true, card.cliente || '—', rev.label || ('Revisão '+revNum), rev.data || pacote.capturadoEm);
 
