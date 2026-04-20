@@ -292,11 +292,11 @@ function _calcAcessoriosOS(d, nFolhas, sis){
     });
   }
 
-  // Lã de Rocha: L×H (unidade M2) + fixos (Lf×Af por fixo)
-  var m2RochaPorta = Math.round((L/1000)*(H/1000)*100)/100;
+  // Lã de Rocha: L×H×2 (2 camadas instaladas) + fixos (Lf×Af×lados por fixo)
+  var m2RochaPorta = Math.round((L/1000)*(H/1000)*2*100)/100;
   var m2RochaDesc = Math.round((m2RochaPorta + m2FixoRocha)*100)/100; // com decimal para descrição
   var m2Rocha = Math.round(m2RochaDesc); // qty arredondado inteiro
-  var rochaDesc = 'Lã de Rocha D32 — L×H = '+m2RochaPorta.toFixed(2)+'m²';
+  var rochaDesc = 'Lã de Rocha D32 — L×H×2 = '+m2RochaPorta.toFixed(2)+'m²';
   if(m2FixoRocha>0){
     var _fxRochaParts=[];
     if(tfElIso && tfElIso.checked){
