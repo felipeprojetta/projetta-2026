@@ -569,7 +569,7 @@ function calcInstIntl(){
   var alim=gv('inst-intl-alim')*pessoas*diasTotal;
   var seguro=gv('inst-intl-seguro')*pessoas;
   var carro=gv('inst-intl-carro')*diasTotal;
-  var mo=gv('inst-intl-mo')*diasInst;
+  var mo=gv('inst-intl-mo')*diasTotal;
   var margemLiq=gv('inst-intl-margem')/100;
 
   var custoTotal=udiGru+passagem+hotel+alim+seguro+carro+mo;
@@ -624,7 +624,7 @@ function calcInstIntl(){
       '<div>🍽️ Alimentação:</div><div>'+brl(alim)+'</div><div style="color:#1565c0">'+usd(alim)+'</div>'+
       '<div>🏥 Seguro:</div><div>'+brl(seguro)+'</div><div style="color:#1565c0">'+usd(seguro)+'</div>'+
       '<div>🚗 Carro+Gas ('+diasTotal+'d):</div><div>'+brl(carro)+'</div><div style="color:#1565c0">'+usd(carro)+'</div>'+
-      '<div>👷 M.O. ('+diasInst+'d × R$'+gv('inst-intl-mo')+'):</div><div>'+brl(mo)+'</div><div style="color:#1565c0">'+usd(mo)+'</div>'+
+      '<div>👷 M.O. ('+diasTotal+'d × R$'+gv('inst-intl-mo')+'):</div><div>'+brl(mo)+'</div><div style="color:#1565c0">'+usd(mo)+'</div>'+
       '</div>'+
       '<div style="background:#f5f5f5;border-radius:6px;padding:8px 10px;margin-top:8px;display:grid;grid-template-columns:auto 1fr 1fr;gap:3px 10px;font-size:12px;font-weight:800;color:#003144">'+
       '<div>💰 CUSTO TOTAL:</div><div style="text-align:right">'+brl(custoTotal)+'</div><div style="text-align:right;color:#1565c0">'+usd(custoTotal)+'</div>'+

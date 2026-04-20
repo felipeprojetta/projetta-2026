@@ -1148,7 +1148,7 @@ window.crmInstCalcIntl=function(){
   var alim=gv('crm-o-inst-alim')*pessoas*diasTotal;
   var seguro=gv('crm-o-inst-seguro')*pessoas;
   var carro=gv('crm-o-inst-carro')*diasTotal;
-  var mo=gv('crm-o-inst-mo')*diasInst;
+  var mo=gv('crm-o-inst-mo')*diasTotal;
 
   var custoTotal=udiGru+passagem+hotel+alim+seguro+carro+mo;
 
@@ -1185,7 +1185,7 @@ window.crmInstCalcIntl=function(){
     '<div>🍽️ Alimentação: '+dual(alim)+'</div>'+
     '<div>🏥 Seguro: '+dual(seguro)+'</div>'+
     '<div>🚗 Carro+Gas: '+dual(carro)+'</div>'+
-    '<div>👷 Mão de Obra ('+diasInst+'d): '+dual(mo)+'</div>'+
+    '<div>👷 Mão de Obra ('+diasTotal+'d): '+dual(mo)+'</div>'+
     '</div>'+
     '<hr style="margin:6px 0;border:none;border-top:1px solid #90caf9">'+
     '<div style="font-size:9px;font-weight:700;color:#1565c0;margin-bottom:3px">📊 DRE INSTALAÇÃO</div>'+
