@@ -1588,7 +1588,7 @@ window._crmItensRender=function(){
       h+='<div id="'+pre+'moldura_wrap" style="'+(_isMoldura?'':'display:none')+'">';
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">🏛️ Configuração de Molduras</div>';
       h+='<div class="crm-row">';
-      h+='<div class="crm-field"><label>Revestimento</label><select id="'+pre+'moldura_rev" onchange="_crmSwitchCorMode(\''+item.id+'\')"><option value="ACM"'+(item.moldura_rev==='ACM'||!item.moldura_rev?' selected':'')+'>ACM 4mm</option><option value="MACICO"'+(item.moldura_rev==='MACICO'?' selected':'')+'>Maciço 2.5mm (Boiserie)</option></select></div>';
+      h+='<div class="crm-field"><label>Revestimento</label><select id="'+pre+'moldura_rev" onchange="_crmSwitchCorMode(\''+item.id+'\')"><option value=""'+(!item.moldura_rev?' selected':'')+'>— Selecione —</option><option value="ACM"'+(item.moldura_rev==='ACM'?' selected':'')+'>ACM 4mm</option><option value="MACICO"'+(item.moldura_rev==='MACICO'?' selected':'')+'>Maciço 2.5mm (Boiserie)</option></select></div>';
       h+='</div>';
       // Config moldura para modelo 23 (ACM e MACICO)
       h+='<div class="crm-row">';
