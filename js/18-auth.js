@@ -1165,14 +1165,15 @@ function _populatePropostaItens(){
     } else {
       _dimCell = Math.round(it.L)+' \u00d7 '+Math.round(it.A);
     }
-    // Linha da tabela de itens
+    // Linha da tabela de itens — label 'Porta' no Total pra bloco de
+    // conferencia em R\$ (Felipe 20/04).
     tableHtml+='<tr>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+(sortIdx+1).toString().padStart(2,'0')+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc">'+it.descProposta+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">'+_dimCell+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+it.q+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(valorUn)+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(valorItem)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(valorItem, 'Porta')+'</td>'
       +'</tr>';
   });
   // Linha de INSTALAÇÃO INTERNACIONAL (antes do total)
@@ -1185,7 +1186,7 @@ function _populatePropostaItens(){
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">—</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">1</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_INSTFAT)+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_INSTFAT)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_INSTFAT, 'Instalação')+'</td>'
       +'</tr>';
     _grandTotal += _INSTFAT;
   }
@@ -1250,7 +1251,7 @@ function _populatePropostaItens(){
     +'<td colspan="3" style="padding:6px 8px;border:1px solid #ccc;text-align:right">'+_L_TOTAREA+': '+totalArea.toFixed(1)+' m\u00b2</td>'
     +'<td style="padding:6px 8px;border:1px solid #ccc;text-align:center">'+totalQtd+'</td>'
     +'<td style="padding:6px 8px;border:1px solid #ccc"></td>'
-    +'<td style="padding:6px 8px;border:1px solid #ccc;text-align:center;font-size:13px">'+fmt(_grandTotal)+'</td>'
+    +'<td style="padding:6px 8px;border:1px solid #ccc;text-align:center;font-size:13px">'+fmt(_grandTotal, 'TOTAL')+'</td>'
     +'</tr>';
   // Inserir blocos de portas
   if(container) container.innerHTML=doorsHtml;
