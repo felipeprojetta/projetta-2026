@@ -739,7 +739,7 @@ window.crmOpenModal=function(defaultStage,editId){
           // Valores: CRM revision é autoritativo (usuario aprovou esses valores)
           var _dispTab=rv.valorTabela||0, _dispFat=rv.valorFaturamento||0;
           rh+='<tr style="border-bottom:1px solid var(--border-light);'+bg+'">';
-          rh+='<td style="padding:8px 10px;font-weight:700;font-size:13px;color:'+(ri===0?'#27ae60':'#9b59b6')+';cursor:pointer;text-decoration:underline" onclick="crmAbrirRevisao(\''+editId+'\','+ri+')" title="Clique para abrir Memorial e carregar no Orçamento">'+revDisplay+(isLast?' ✓':'')+'</td>';
+          rh+='<td style="padding:8px 10px;font-weight:700;font-size:13px;color:'+(ri===0?'#27ae60':'#9b59b6')+';cursor:pointer;text-decoration:underline" ondblclick="crmAbrirRevisao(\''+editId+'\','+ri+')" title="Duplo-clique para abrir o orçamento desta revisão">'+revDisplay+(isLast?' ✓':'')+'</td>';
           rh+='<td style="padding:8px 10px;color:var(--muted);font-size:13px">'+new Date(rv.data).toLocaleDateString('pt-BR')+'</td>';
           rh+='<td style="padding:8px 10px;text-align:right;font-weight:700;font-size:13px;color:var(--navy)">'+brl(_dispTab)+'</td>';
           rh+='<td style="padding:8px 10px;text-align:right;font-weight:800;font-size:13px;color:#e67e22">'+brl(_dispFat)+'</td>';
@@ -761,8 +761,8 @@ window.crmOpenModal=function(defaultStage,editId){
         });
         rh+='</select>';
         rh+='</div>';
+        rh+='<div style="margin-top:8px;padding:8px 10px;background:#fff9e6;border:1px dashed #ffc107;border-radius:6px;font-size:11px;color:#7a5901">💡 <b>Dê duplo-clique em uma revisão</b> acima para abrir o orçamento completo com todos os valores, inclusive para gerar ATP.</div>';
         rh+='<div style="margin-top:10px;display:flex;gap:8px">';
-        rh+='<button onclick="crmAbrirRevisao(\''+editId+'\','+(opp.revisoes.length-1)+')" style="background:#e67e22;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer">📋 Abrir Memorial</button>';
         rh+='<button onclick="crmNovaRevisao(\''+editId+'\')" style="background:#003144;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer">➕ Nova Revisão</button>';
         rh+='</div>';
         revList.innerHTML=rh;
@@ -2346,9 +2346,35 @@ window.crmDeleteRevision=function(cardId,revIndex){
 
 /* ── Abrir Revisão do CRM: carrega orçamento + mostra Memorial ── */
 window.crmAbrirRevisao=function(cardId, revIdx){
-  // ─── MemorialCem (PNG-based, v1.0) — PRIORIDADE MÁXIMA ───
-  // Se a revisão tem memorialCemKey, abre o viewer de PNGs (mais confiável).
-  // Sem restauração de estado JS — apenas mostra imagens salvas.
+  // ═══ OrcamentoFreeze v1.0 — PRIORIDADE ABSOLUTA ═══
+  // Se a revisão tem freezeKey, abre o orçamento inteiro (todas as abas
+  // populadas com valores da revisão) em modo somente-leitura com banner.
+  // Felipe (20/04/2026): "abrir ele em todas as abas com seus valores".
+  try {
+    var _crmDataFz = cLoad();
+    var _cardFz = _crmDataFz.find(function(o){return o.id===cardId;});
+    if(_cardFz && _cardFz.revisoes && _cardFz.revisoes[revIdx||0]){
+      var _rFz = _cardFz.revisoes[revIdx||0];
+      if(_rFz.freezeKey && window.OrcamentoFreeze && typeof window.OrcamentoFreeze.abrir === 'function'){
+        var _modalFz = document.getElementById('crm-modal');
+        if(_modalFz) _modalFz.style.display='none';
+        window.OrcamentoFreeze.abrir(cardId, revIdx||0)
+          .catch(function(err){
+            console.error('[Freeze] abrir falhou:', err);
+            alert('Erro ao abrir revisão: '+(err.message||err));
+          });
+        return;
+      }
+    }
+  } catch(e){ console.warn('[Freeze] erro:', e); }
+
+  // Fallback: sistemas antigos (MemorialCem PNG, MemorialV2, legacy)
+  // SÓ para revisões CRIADAS antes do Freeze v1.0
+  _crmAbrirRevisaoFallback(cardId, revIdx);
+};
+
+function _crmAbrirRevisaoFallback(cardId, revIdx){
+  // ─── MemorialCem (PNG) ───
   try {
     var _crmDataCem = cLoad();
     var _cardCem = _crmDataCem.find(function(o){return o.id===cardId;});
@@ -2363,11 +2389,9 @@ window.crmAbrirRevisao=function(cardId, revIdx){
         return;
       }
     }
-  } catch(e){ console.warn('[MemorialCem] erro, caindo em V2/legacy:', e); }
-
-  // Fallback: tenta V2 (Supabase) ou legacy (snapshot JS)
+  } catch(e){ console.warn('[MemorialCem] erro:', e); }
   _crmAbrirRevisaoV2OuLegacy(cardId, revIdx);
-};
+}
 
 function _crmAbrirRevisaoV2OuLegacy(cardId, revIdx){
   // ─── Memorial V2: tenta abrir via Supabase primeiro ───
@@ -2841,44 +2865,37 @@ window.crmOrcamentoPronto=function(){
       });
     }
 
-    // ─── MemorialCem (PNG-based, v1.0) — captura em paralelo ─────────
-    // Captura PNG de cada aba (orçamento/perfis/acess/superf/proposta) e
-    // salva no Supabase. Quando usuário abre memorial, mostra PNG salvo
-    // (sem restaurar estado JS). Abordagem "igual CEM" — Felipe, 20/04/2026.
-    if(id && window.MemorialCem && typeof window.MemorialCem.capturar === 'function'){
-      var _cemRevNum = 0;
+    // ─── OrcamentoFreeze v1.0 — CAPTURA COMPLETA (substitui MemorialCem PNG) ───
+    // Felipe: "um orçamento não pode ser perdido informações. Abrir ele
+    // em todas as abas com seus valores".
+    // Captura TUDO (inputs + selectedIndex + blocos dinâmicos + globals +
+    // displaySnap + HTMLs + canvas) num pacote único e envia ao Supabase.
+    if(id && window.OrcamentoFreeze && typeof window.OrcamentoFreeze.capturar === 'function'){
+      var _fzRevNum = 0;
       try {
-        var _crmCem = cLoad();
-        var _ciCem = _crmCem.findIndex(function(o){return o.id===id;});
-        if(_ciCem>=0 && _crmCem[_ciCem].revisoes) _cemRevNum = _crmCem[_ciCem].revisoes.length - 1;
+        var _crmFz = cLoad();
+        var _ciFz = _crmFz.findIndex(function(o){return o.id===id;});
+        if(_ciFz>=0 && _crmFz[_ciFz].revisoes) _fzRevNum = _crmFz[_ciFz].revisoes.length - 1;
       } catch(e){}
 
-      // Toast de progresso
-      var _cemToast = document.createElement('div');
-      _cemToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#003144;color:#fff;padding:12px 18px;border-radius:12px;font-size:12px;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,.3);min-width:240px';
-      _cemToast.innerHTML = '📸 Capturando memorial...<div id="_cemProg" style="font-size:10px;opacity:.85;margin-top:4px">iniciando</div>';
-      document.body.appendChild(_cemToast);
+      var _fzToast = document.createElement('div');
+      _fzToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#003144;color:#fff;padding:12px 18px;border-radius:12px;font-size:12px;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,.3);min-width:240px';
+      _fzToast.innerHTML = '💾 Congelando revisão completa...';
+      document.body.appendChild(_fzToast);
 
-      window.MemorialCem.capturar(id, _cemRevNum, {
-        onProgress: function(p){
-          var prog = document.getElementById('_cemProg');
-          if(!prog) return;
-          if(p.status === 'capturando') prog.textContent = '('+p.step+'/'+p.total+') '+p.nome;
-          else if(p.status === 'uploading') prog.textContent = 'enviando ao banco...';
-          else if(p.status === 'done') prog.textContent = '✅ '+p.chave;
-          else if(p.status === 'erro') prog.textContent = '⚠ falha em '+p.nome;
-        }
-      }).then(function(result){
-        _cemToast.style.background = '#27ae60';
-        _cemToast.innerHTML = '✅ Memorial salvo: '+result.abas.length+' abas';
-        setTimeout(function(){ _cemToast.remove(); }, 4000);
-        if(typeof crmRender === 'function') crmRender();
-      }).catch(function(err){
-        console.error('[MemorialCem] ERRO:', err);
-        _cemToast.style.background = '#c0392b';
-        _cemToast.innerHTML = '⚠ Memorial falhou: '+(err.message||err);
-        setTimeout(function(){ _cemToast.remove(); }, 6000);
-      });
+      window.OrcamentoFreeze.capturar(id, _fzRevNum, revLabel)
+        .then(function(r){
+          _fzToast.style.background = '#27ae60';
+          _fzToast.innerHTML = '✅ '+revLabel+' congelada ('+Math.round(r.tamanho/1024)+' KB)';
+          setTimeout(function(){ _fzToast.remove(); }, 4000);
+          if(typeof crmRender === 'function') crmRender();
+        })
+        .catch(function(err){
+          console.error('[Freeze] ERRO:', err);
+          _fzToast.style.background = '#c0392b';
+          _fzToast.innerHTML = '⚠ Congelar falhou: '+(err.message||err);
+          setTimeout(function(){ _fzToast.remove(); }, 6000);
+        });
     }
   };
   // Se custo já foi gerado → salvar DIRETO
@@ -2992,30 +3009,23 @@ window.crmAtualizarValorCard=function(){
       var toast2=document.createElement('div');toast2.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2980b9;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast2.textContent='🔄 '+revLabel+' atualizada! '+nPages+' pág. Tab: '+brl(vals.tab)+' | Fat: '+brl(vals.fat);document.body.appendChild(toast2);setTimeout(function(){toast2.remove();},5000);
     });
 
-    // ─── MemorialCem: capturar PNGs da nova revisão ───
-    if(window.MemorialCem && typeof window.MemorialCem.capturar === 'function'){
-      var _cemToast2 = document.createElement('div');
-      _cemToast2.style.cssText = 'position:fixed;top:20px;right:20px;background:#003144;color:#fff;padding:12px 18px;border-radius:12px;font-size:12px;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,.3);min-width:240px';
-      _cemToast2.innerHTML = '📸 Capturando memorial da '+revLabel+'...<div id="_cemProg2" style="font-size:10px;opacity:.85;margin-top:4px">iniciando</div>';
-      document.body.appendChild(_cemToast2);
-      window.MemorialCem.capturar(id, revNum, {
-        onProgress: function(p){
-          var prog = document.getElementById('_cemProg2');
-          if(!prog) return;
-          if(p.status === 'capturando') prog.textContent = '('+p.step+'/'+p.total+') '+p.nome;
-          else if(p.status === 'uploading') prog.textContent = 'enviando ao banco...';
-          else if(p.status === 'done') prog.textContent = '✅ pronto';
-        }
-      }).then(function(result){
-        _cemToast2.style.background = '#27ae60';
-        _cemToast2.innerHTML = '✅ Memorial salvo: '+result.abas.length+' abas';
-        setTimeout(function(){ _cemToast2.remove(); }, 4000);
-      }).catch(function(err){
-        console.error('[MemorialCem] ERRO:', err);
-        _cemToast2.style.background = '#c0392b';
-        _cemToast2.innerHTML = '⚠ Memorial falhou: '+(err.message||err);
-        setTimeout(function(){ _cemToast2.remove(); }, 6000);
-      });
+    // ─── OrcamentoFreeze: capturar pacote completo da nova revisão ───
+    if(window.OrcamentoFreeze && typeof window.OrcamentoFreeze.capturar === 'function'){
+      var _fzToast2 = document.createElement('div');
+      _fzToast2.style.cssText = 'position:fixed;top:20px;right:20px;background:#003144;color:#fff;padding:12px 18px;border-radius:12px;font-size:12px;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,.3);min-width:240px';
+      _fzToast2.innerHTML = '💾 Congelando '+revLabel+'...';
+      document.body.appendChild(_fzToast2);
+      window.OrcamentoFreeze.capturar(id, revNum, revLabel)
+        .then(function(r){
+          _fzToast2.style.background = '#27ae60';
+          _fzToast2.innerHTML = '✅ '+revLabel+' congelada ('+Math.round(r.tamanho/1024)+' KB)';
+          setTimeout(function(){ _fzToast2.remove(); }, 4000);
+        }).catch(function(err){
+          console.error('[Freeze] ERRO:', err);
+          _fzToast2.style.background = '#c0392b';
+          _fzToast2.innerHTML = '⚠ Congelar falhou: '+(err.message||err);
+          setTimeout(function(){ _fzToast2.remove(); }, 6000);
+        });
     }
     // Esconder botões e travar
     var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
