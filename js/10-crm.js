@@ -469,14 +469,97 @@ function buildCard(o,st,isFazerOrc){
   else if(o.potencial==='medio') html+='<div style="font-size:9px;color:#f39c12;margin:1px 0">⚡ Médio Potencial</div>';
   else if(o.potencial==='baixo') html+='<div style="font-size:9px;color:#95a5a6;margin:1px 0">💤 Baixo Potencial</div>';
   if(o.anexos&&o.anexos.length>0) html+='<div class="crm-card-attach-badge">📎 '+o.anexos.length+' anexo'+(o.anexos.length>1?'s':'')+'</div>';
-  // Valores: Tabela e Faturamento
-  if(o.valorTabela>0||o.valorFaturamento>0){
-    html+='<div style="margin:4px 0 2px;padding:5px 7px;background:rgba(0,49,68,.04);border-radius:6px;font-size:10px">';
-    if(o.valorTabela>0) html+='<div style="display:flex;justify-content:space-between;align-items:center"><span style="color:#888">Tabela:</span><span style="font-weight:700;color:var(--navy)">'+brl(o.valorTabela)+'</span></div>';
-    if(o.valorFaturamento>0) html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:1px"><span style="color:#888">Faturamento:</span><span style="font-weight:800;color:#e67e22">'+brl(o.valorFaturamento)+'</span></div>';
-    html+='</div>';
-  } else if(o.valor>0) {
-    html+='<div class="crm-card-value">'+brl(o.valor)+'</div>';
+  // Valores: Tabela e Faturamento (nacional: simples; internacional: breakdown)
+  // ★ Felipe 20/04: obras internacionais mostram breakdown completo no card:
+  //   Porta + Instalação + Logística (Caixa+Fretes) = Total. Em R$ e USD.
+  var _ehIntl = o.scope === 'internacional';
+  if(o.valorTabela>0 || o.valorFaturamento>0 || o.valor>0){
+    if(_ehIntl){
+      // --- Cálculo do breakdown ---
+      var _vPorta = parseFloat(o.valorFaturamento) || parseFloat(o.valorTabela) || parseFloat(o.valor) || 0;
+
+      // Instalação: calcular custo × markup simplificado. Se não tem dados
+      // de instalação preenchidos no card, fica 0.
+      var _vInst = 0;
+      var _cambio = parseFloat(o.inst_cambio) || 5.20; // default; atualizado se card tiver
+      // Heurística: se tem passagem OU hotel preenchido, assume que vai calcular inst
+      var _passagemPorPessoa = parseFloat(o.inst_passagem) || 0;
+      var _hotelDia = parseFloat(o.inst_hotel) || 0;
+      var _alimDia = parseFloat(o.inst_alim) || 0;
+      var _udigru = parseFloat(o.inst_udigru) || 0;
+      var _seguroPP = parseFloat(o.inst_seguro) || 0;
+      var _carroDia = parseFloat(o.inst_carro) || 0;
+      var _moDia = parseFloat(o.inst_mo) || 0;
+      var _pessoas = parseInt(o.inst_pessoas) || 3;
+      var _diasInst = parseInt(o.inst_dias) || 3;
+      var _diasViagem = 4;
+      var _diasTotal = _diasInst + _diasViagem;
+      var _diasHotel = _diasTotal - 2;
+      var _margemInstPct = parseFloat(o.inst_margem) || 10;
+      var _temDadosInst = (_passagemPorPessoa + _hotelDia + _alimDia + _udigru) > 0;
+      if(_temDadosInst){
+        var _custoInst = _udigru + (_passagemPorPessoa*_pessoas) + (_hotelDia*_diasHotel) +
+                         (_alimDia*_pessoas*_diasTotal) + (_seguroPP*_pessoas) +
+                         (_carroDia*_diasTotal) + (_moDia*_diasTotal);
+        // Preco Fat = Custo / (1 - margem%)
+        var _divisor = Math.max(0.01, 1 - _margemInstPct/100);
+        _vInst = _custoInst / _divisor;
+      }
+
+      // Logística (caixa + fretes) — depende do incoterm
+      var _incoterm = (o.inst_incoterm||'').toUpperCase();
+      var _incluirCaixa = _incoterm==='CIF' || _incoterm==='FOB';
+      var _incluirTerrestre = _incoterm==='CIF' || _incoterm==='FOB';
+      var _incluirMaritimo = _incoterm==='CIF';
+
+      var _caixaUsd = 0;
+      if(_incluirCaixa){
+        var _L = parseFloat(o.cif_caixa_l)||0;
+        var _A = parseFloat(o.cif_caixa_a)||0;
+        var _E = parseFloat(o.cif_caixa_e)||0;
+        var _taxa = parseFloat(o.cif_caixa_taxa)||100;
+        var _vol = (_L/1000)*(_A/1000)*(_E/1000);
+        _caixaUsd = _vol * _taxa;
+      }
+      var _fTerrestreUsd = _incluirTerrestre ? (parseFloat(o.cif_frete_terrestre)||0) : 0;
+      var _fMaritimoUsd  = _incluirMaritimo  ? (parseFloat(o.cif_frete_maritimo)||0)  : 0;
+      var _logisticaUsd = _caixaUsd + _fTerrestreUsd + _fMaritimoUsd;
+      var _logisticaBrl = _logisticaUsd * _cambio;
+
+      var _totalBrl = _vPorta + _vInst + _logisticaBrl;
+      var _totalUsd = _cambio > 0 ? _totalBrl / _cambio : 0;
+
+      // --- Render ---
+      // Formatters
+      var _fBrl = function(v){ return 'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0, maximumFractionDigits:0}); };
+      var _fUsd = function(v){ return 'US$ '+(v||0).toLocaleString('en-US',{minimumFractionDigits:0, maximumFractionDigits:0}); };
+
+      html += '<div style="margin:4px 0 2px;padding:6px 8px;background:linear-gradient(135deg,rgba(230,81,0,.06),rgba(21,101,192,.04));border-radius:6px;border:0.5px solid rgba(230,81,0,.15);font-size:10px">';
+      // Breakdown lines — só mostra se tiver valor
+      if(_vPorta>0){
+        html += '<div style="display:flex;justify-content:space-between;color:#555"><span>🚪 Porta:</span><span style="font-weight:600">'+_fBrl(_vPorta)+' · '+_fUsd(_vPorta/_cambio)+'</span></div>';
+      }
+      if(_vInst>0){
+        html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>🔧 Instalação:</span><span style="font-weight:600">'+_fBrl(_vInst)+' · '+_fUsd(_vInst/_cambio)+'</span></div>';
+      }
+      if(_logisticaUsd>0){
+        var _logLabel = _incoterm==='CIF' ? '🚢 Caixa+Fretes' : _incoterm==='FOB' ? '📦 Caixa+Terrestre' : '📦 Logística';
+        html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>'+_logLabel+':</span><span style="font-weight:600">'+_fBrl(_logisticaBrl)+' · '+_fUsd(_logisticaUsd)+'</span></div>';
+      }
+      // Total — destaque
+      html += '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed rgba(230,81,0,.3)"><span style="color:#003144;font-weight:800">TOTAL:</span><span style="color:#e65100;font-weight:800;font-size:11px">'+_fBrl(_totalBrl)+'</span></div>';
+      html += '<div style="text-align:right;color:#1565c0;font-weight:700;font-size:10px">'+_fUsd(_totalUsd)+'</div>';
+      html += '</div>';
+    } else {
+      // Nacional: Tabela + Faturamento (comportamento antigo)
+      html+='<div style="margin:4px 0 2px;padding:5px 7px;background:rgba(0,49,68,.04);border-radius:6px;font-size:10px">';
+      if(o.valorTabela>0) html+='<div style="display:flex;justify-content:space-between;align-items:center"><span style="color:#888">Tabela:</span><span style="font-weight:700;color:var(--navy)">'+brl(o.valorTabela)+'</span></div>';
+      if(o.valorFaturamento>0) html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:1px"><span style="color:#888">Faturamento:</span><span style="font-weight:800;color:#e67e22">'+brl(o.valorFaturamento)+'</span></div>';
+      if(!(o.valorTabela>0 || o.valorFaturamento>0) && o.valor>0){
+        html+='<div class="crm-card-value">'+brl(o.valor)+'</div>';
+      }
+      html+='</div>';
+    }
   }
   // Revisões badge
   if(o.revisoes&&o.revisoes.length>0){
