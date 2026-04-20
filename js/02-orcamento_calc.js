@@ -609,16 +609,32 @@ function calc(){
   // ══ RESULTADO TOTAL INTERNACIONAL ══
   var _intlPanel=$('resultado-intl-total');
   if(_intlPanel){
-    if(_isIntl && _subInstEfetivo>0){
+    // ★ Felipe 20/04: painel agora aparece SEMPRE que e internacional,
+    //   mesmo sem instalacao cotada. Antes exigia _subInstEfetivo>0 —
+    //   isso escondia o painel quando o cliente nao pedia instalacao.
+    //   Agora: se for internacional e tiver preco de porta, mostra.
+    //   USD da porta e preenchido desde o inicio (nao espera frete).
+    if(_isIntl && pFatReal>0){
       _intlPanel.style.display='';
       var _cambioIntl=parseFloat(($('inst-intl-cambio')||{value:5.20}).value)||5.20;
-      // BUG FIX: usar faturamento (com margem + impostos + desconto aplicado),
-      // não o custo. precoFat = custo / (1 - imp% - margem%), depois desconto.
-      // _instIntlFat é setado por calcInstIntl() em 14-reps_sync.js.
-      var _precoInstIntl = window._instIntlFat || _subInstEfetivo;
+      // _instIntlFat é setado por calcInstIntl() em 14-reps_sync.js — se nao
+      // tem instalacao, fica 0 (nao aparece na linha instalacao).
+      var _precoInstIntl = window._instIntlFat || 0;
+
+      // Porta em R$ e USD (sempre aparece)
       $('intl-preco-porta').textContent=brl(pFatReal);
-      $('intl-preco-inst').textContent=brl(_precoInstIntl);
-      $('intl-preco-inst-usd').textContent='US$ '+Math.round(_precoInstIntl/_cambioIntl).toLocaleString('en-US');
+      var _portaUsdEl=$('intl-preco-porta-usd');
+      if(_portaUsdEl) _portaUsdEl.textContent='US$ '+Math.round(pFatReal/_cambioIntl).toLocaleString('en-US');
+
+      // Instalacao so se > 0
+      if(_precoInstIntl>0){
+        $('intl-preco-inst').textContent=brl(_precoInstIntl);
+        $('intl-preco-inst-usd').textContent='US$ '+Math.round(_precoInstIntl/_cambioIntl).toLocaleString('en-US');
+      } else {
+        $('intl-preco-inst').textContent='—';
+        $('intl-preco-inst-usd').textContent='';
+      }
+
       var _totalIntlFat=pFatReal+_precoInstIntl;
       $('intl-total-fat').textContent=brl(_totalIntlFat);
       $('intl-total-usd').textContent='US$ '+Math.round(_totalIntlFat/_cambioIntl).toLocaleString('en-US');
