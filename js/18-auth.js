@@ -1211,8 +1211,8 @@ function _populatePropostaItens(){
         +'<td style="padding:4px 8px;border:1px solid #ccc">🚢 '+_L_CAIXA+' <span style="font-size:9px;color:#666">('+_cifData.volM3.toFixed(3)+' m³)</span></td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-size:9px">'+_caixaDim+'</td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">1</td>'
-        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_caixaBRL)+'</td>'
-        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_caixaBRL)+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_caixaBRL, 'Caixa')+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_caixaBRL, 'Caixa')+'</td>'
         +'</tr>';
       _grandTotal += _caixaBRL;
       _nextIdx++;
@@ -1225,8 +1225,8 @@ function _populatePropostaItens(){
         +'<td style="padding:4px 8px;border:1px solid #ccc">🚛 '+_L_FRETE_T+'</td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">—</td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">1</td>'
-        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fTBRL)+'</td>'
-        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fTBRL)+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fTBRL, 'Frete Terrestre')+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fTBRL, 'Frete Terrestre')+'</td>'
         +'</tr>';
       _grandTotal += _fTBRL;
       _nextIdx++;
@@ -1239,8 +1239,8 @@ function _populatePropostaItens(){
         +'<td style="padding:4px 8px;border:1px solid #ccc">⚓ '+_L_FRETE_M+'</td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">—</td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">1</td>'
-        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fMBRL)+'</td>'
-        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fMBRL)+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fMBRL, 'Frete Marítimo')+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fMBRL, 'Frete Marítimo')+'</td>'
         +'</tr>';
       _grandTotal += _fMBRL;
     }

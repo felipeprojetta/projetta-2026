@@ -489,7 +489,7 @@ function populateProposta(){
     'spec-cor-ext':     {pt:'COR CHAPA EXTERNA',      en:'EXTERNAL PANEL COLOR'},
     'spec-cor-int':     {pt:'COR CHAPA INTERNA',      en:'INTERNAL PANEL COLOR'},
     'spec-cilindro':    {pt:'CILINDRO',               en:'CYLINDER'},
-    'spec-alisar':      {pt:'ALISAR',                 en:'TRIM'},
+    'spec-alisar':      {pt:'ALISAR',                 en:'ARCHITRAVE'},
     // Tabela preços
     'tbl-item':         {pt:'Item',                   en:'Item'},
     'tbl-desc':         {pt:'Descrição',              en:'Description'},
@@ -527,15 +527,28 @@ function populateProposta(){
     var _descExtraHTML = _descExtra ? _descExtra.outerHTML : '';
     _tituloEl.innerHTML = (_PROP_LANG==='en' ? 'PROJETTA DOOR BY WEIKU ' : 'PORTA PROJETTA BY WEIKU ') + _descExtraHTML;
   }
-  // Helper brl+usd — só usa USD se internacional
-  var brlUsd = function(v){
+  // ★ Helper (Felipe 20/04): quando INTERNACIONAL, proposta mostra SO
+  //   USD nas tabelas/totais (cliente estrangeiro nao precisa ver R$ —
+  //   pode confundir). Os R$ equivalentes vao num bloco discreto no
+  //   rodape da proposta, so pra conferencia interna.
+  //   Quando NACIONAL, mostra so R$ (comportamento anterior ja era assim).
+  var _rsConferencia = {}; // { label: valor em R$, ... } pra bloco footer
+  var brlUsd = function(v, label){
     if(!v || v<=0) return '—';
-    var brlPart = 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-    if(!_isIntlProp) return brlPart;
+    if(!_isIntlProp){
+      // Nacional: só R$
+      return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+    // Internacional: só USD visível; R$ guardado pro bloco conferência.
     var usdVal = v/_cambioProp;
-    var usdPart = 'US$ '+Math.round(usdVal).toLocaleString('en-US');
-    return brlPart+' · '+usdPart;
+    if(label){
+      _rsConferencia[label] = v; // guarda em R$ pra mostrar depois
+    }
+    return 'US$ '+Math.round(usdVal).toLocaleString('en-US');
   };
+  // Exposto pra outros módulos (18-auth.js _populatePropostaItens) terem
+  // acesso ao mapa de conferência em R$
+  window._propRsConferencia = _rsConferencia;
 
   // Expor contexto para _populatePropostaItens (em 18-auth.js) usar em modo multi-produto
   // ★ CIF: ler incoterm + campos da caixa/fretes do card CRM (estão no DOM se o modal
@@ -692,16 +705,18 @@ function populateProposta(){
       _cilLine.style.cssText='';
     }
   }
-  // Alisar — destaque
+  // Alisar / Architrave — destaque
   var _alisarCb=document.getElementById('carac-tem-alisar');
   var _alisarEl=document.getElementById('prop-alisar');
   var _alisarLine=document.getElementById('prop-alisar-line');
   if(_alisarEl&&_alisarLine){
+    var _comAl = (_PROP_LANG==='en') ? '✅ YES — WITH ARCHITRAVE' : '✅ SIM — COM ALISAR';
+    var _semAl = (_PROP_LANG==='en') ? 'NO ARCHITRAVE' : 'SEM ALISAR';
     if(_alisarCb&&_alisarCb.checked){
-      _alisarEl.innerHTML='<strong style="color:#27ae60;font-size:110%">✅ SIM — COM ALISAR</strong>';
+      _alisarEl.innerHTML='<strong style="color:#27ae60;font-size:110%">'+_comAl+'</strong>';
       _alisarLine.style.cssText='background:#e8f5e9;border:2px solid #27ae60;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700';
     } else {
-      _alisarEl.innerHTML='<span style="color:#c0392b;font-weight:700">SEM ALISAR</span>';
+      _alisarEl.innerHTML='<span style="color:#c0392b;font-weight:700">'+_semAl+'</span>';
       _alisarLine.style.cssText='background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0';
     }
   }
@@ -756,7 +771,7 @@ function populateProposta(){
   var tabPortaTotal=parseVal(document.getElementById('m-tab-porta'));
   var tabPortaUn=qtdPortas>0?tabPortaTotal/qtdPortas:0;
   document.getElementById('prop-valor-un').textContent=brlUsd(tabPortaUn);
-  document.getElementById('prop-valor-total-porta').textContent=brlUsd(tabPortaTotal);
+  document.getElementById('prop-valor-total-porta').textContent=brlUsd(tabPortaTotal, 'Porta');
   // Traduzir nome da porta na linha 01
   var _propLinha = document.getElementById('prop-linha');
   if(_propLinha) _propLinha.textContent = _PROP_LANG==='en' ? 'PROJETTA DOOR' : 'PORTA PROJETTA';
@@ -769,7 +784,7 @@ function populateProposta(){
     document.getElementById('prop-qtd-fech').textContent=qtdFech;
     var tabFechUn=qtdFech>0?tabFechTotal/qtdFech/qtdPortas:0;
     document.getElementById('prop-valor-un-fech').textContent=brlUsd(tabFechUn);
-    document.getElementById('prop-valor-total-fech').textContent=brlUsd(tabFechTotal);
+    document.getElementById('prop-valor-total-fech').textContent=brlUsd(tabFechTotal, 'Fechadura');
     // Nome do acessório (TEDEE, PHILIPS 9300, EMTECO...)
     var digSel=document.getElementById('carac-fech-dig');
     var acSel=document.getElementById('ac-fechadura');
@@ -792,7 +807,7 @@ function populateProposta(){
       var _instNum = document.getElementById('prop-inst-num');
       if(_instNum) _instNum.textContent = tabFechTotal>0 ? '03' : '02';
       document.getElementById('prop-valor-un-inst').textContent = brlUsd(tabInstIntl);
-      document.getElementById('prop-valor-total-inst').textContent = brlUsd(tabInstIntl);
+      document.getElementById('prop-valor-total-inst').textContent = brlUsd(tabInstIntl, 'Instalação');
       var _nomeInst = document.getElementById('prop-nome-inst');
       if(_nomeInst) _nomeInst.textContent = _PROP_LANG==='en' ? 'INTERNATIONAL INSTALLATION' : 'INSTALAÇÃO INTERNACIONAL';
     }
@@ -802,7 +817,7 @@ function populateProposta(){
 
   // Total geral = Preço Tabela da porta + fechadura + (instalação se internacional)
   var tabGeral = parseVal(document.getElementById('m-tab')) + tabInstIntl;
-  document.getElementById('prop-total-orc').textContent=brlUsd(tabGeral);
+  document.getElementById('prop-total-orc').textContent=brlUsd(tabGeral, 'TOTAL');
   document.getElementById('prop-area-total').textContent=(area*qtdPortas).toFixed(1);
 
   // Traduzir valores dinâmicos que foram setados antes no HTML:
@@ -845,6 +860,39 @@ function populateProposta(){
   var headerLogo=document.querySelector('.header-brand img');
   var footerLogo=document.getElementById('prop-footer-logo-img');
   if(headerLogo&&footerLogo) footerLogo.src=headerLogo.src;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // BLOCO DE CONFERÊNCIA INTERNA EM R$ (Felipe 20/04)
+  // Só aparece em proposta INTERNACIONAL. Tabela agora mostra só USD
+  // pra não confundir cliente estrangeiro — este bloco discreto no
+  // rodapé lista o equivalente em R$ de cada linha, só pra conferência
+  // interna. Fonte cinza clara italic, tamanho pequeno.
+  // ═══════════════════════════════════════════════════════════════════
+  var _confEl = document.getElementById('prop-conferencia-rs');
+  if(_confEl){
+    if(_isIntlProp && _rsConferencia && Object.keys(_rsConferencia).length>0){
+      var _ordem = ['Porta','Fechadura','Instalação','Caixa','Frete Terrestre','Frete Marítimo','TOTAL'];
+      var _html = '<span style="font-weight:600;color:#888">📋 Conferência interna (R$ · equivalência câmbio '+_cambioProp.toFixed(2)+'):</span>';
+      var _linhas = [];
+      _ordem.forEach(function(lbl){
+        var v = _rsConferencia[lbl];
+        if(v && v>0){
+          var brlFmt = 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+          var usdFmt = 'US$ '+Math.round(v/_cambioProp).toLocaleString('en-US');
+          if(lbl==='TOTAL'){
+            _linhas.push('<span style="color:#777;font-weight:600"> Total: '+usdFmt+' · '+brlFmt+'</span>');
+          } else {
+            _linhas.push(lbl+' '+usdFmt+' ('+brlFmt+')');
+          }
+        }
+      });
+      _confEl.innerHTML = _html + '<br>' + _linhas.join(' · ');
+      _confEl.style.display = '';
+    } else {
+      _confEl.style.display = 'none';
+      _confEl.innerHTML = '';
+    }
+  }
 }
 
 /* ══ CADASTRO DE PERFIS ══ */
