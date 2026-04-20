@@ -468,6 +468,13 @@
   // ═══════════════════════════════════════════════════════════════
   // API: capturarCompleto
   // ═══════════════════════════════════════════════════════════════
+  //
+  // ARQUITETURA v1.1 (20/04/2026 — após diagnóstico de Supabase travando):
+  // - localStorage é a STORAGE PRIMÁRIA (rápido, síncrono, sempre funciona)
+  // - Supabase é BACKUP em background (sem await, não bloqueia UI)
+  // - Se Supabase estiver down/rate-limitado, fluxo não trava
+  // - Abrir revisão tenta localStorage primeiro → só usa Supabase se
+  //   localStorage não tiver o freeze (ex: outro dispositivo)
   async function capturarCompleto(cardId, revNum, revLabel){
     console.log('[Freeze] 📸 Capturando card='+cardId+' rev='+revNum);
     if(!cardId) throw new Error('cardId obrigatório');
@@ -501,47 +508,88 @@
       (pacote.htmls.planCanvas?'canvas✓':''));
 
     var chave = _chaveDoFreeze(cardId, revNum);
-    await _uploadFreeze(chave, pacote);
 
-    // ★ Persistir freezeKey no card de forma ROBUSTA.
-    //    Bug anteriormente observado: o cloud sync do CRM pode sobrescrever
-    //    o localStorage entre o cSave() do chamador e este setItem,
-    //    perdendo a freezeKey.
-    //    Solução: aplicar em 3 momentos (imediato, +1s, +3s) e chamar cSave
-    //    (se disponível) pra que o sync propague o freezeKey pra nuvem.
+    // ★ PRIMÁRIO: salvar no localStorage (instantâneo).
+    //   Se quota estourar, mostra erro claro pro usuário.
+    try {
+      localStorage.setItem(chave, JSON.stringify(pacote));
+      console.log('[Freeze] 💾 Salvo em localStorage: '+chave+' ('+Math.round(tam/1024)+' KB)');
+    } catch(e){
+      // QuotaExceededError — tentar limpar freezes antigos e tentar de novo
+      if(e.name === 'QuotaExceededError' || /quota/i.test(e.message||'')){
+        console.warn('[Freeze] Quota estourou, limpando freezes de cards deletados...');
+        _limparFreezesOrfaos();
+        try {
+          localStorage.setItem(chave, JSON.stringify(pacote));
+          console.log('[Freeze] 💾 Salvo após limpeza');
+        } catch(e2){
+          throw new Error('Espaço local insuficiente. Delete revisões antigas ou cards não usados.');
+        }
+      } else { throw e; }
+    }
+
+    // ★ Persistir freezeKey na revisão do card (via cSave se disponível,
+    //   pra propagar pro CRM sync).
     function _aplicarFreezeKey(tentativa){
       try {
         var CK = 'projetta_crm_v1';
         var data = JSON.parse(localStorage.getItem(CK) || '[]');
         var ci = data.findIndex(function(o){ return o.id === cardId; });
         if(ci < 0 || !data[ci].revisoes || !data[ci].revisoes[revNum]) return false;
-        // Se já está aplicado, nada a fazer
         if(data[ci].revisoes[revNum].freezeKey === chave) return true;
         data[ci].revisoes[revNum].freezeKey     = chave;
         data[ci].revisoes[revNum].freezeDate    = new Date().toISOString();
         data[ci].revisoes[revNum].freezeVersion = '1.0';
-        // Se existe cSave global (expõe sync bidirecional do CRM), usar;
-        // senão, setItem direto.
         if(typeof window.cSave === 'function'){
-          try { window.cSave(data); console.log('[Freeze] freezeKey aplicada via cSave (tentativa '+tentativa+')'); return true; }
-          catch(e){ console.warn('[Freeze] cSave falhou, usando setItem direto:', e); }
+          try { window.cSave(data); return true; }
+          catch(e){}
         }
         localStorage.setItem(CK, JSON.stringify(data));
-        console.log('[Freeze] freezeKey aplicada via localStorage (tentativa '+tentativa+')');
         return true;
-      } catch(e){ console.warn('[Freeze] _aplicarFreezeKey tentativa '+tentativa+' falhou:', e); return false; }
+      } catch(e){ return false; }
     }
     _aplicarFreezeKey(1);
-    // Retries pra vencer race condition com cloud sync
     setTimeout(function(){ _aplicarFreezeKey(2); }, 1200);
     setTimeout(function(){ _aplicarFreezeKey(3); }, 3500);
 
-    console.log('[Freeze] ✅ Salvo em '+chave);
+    // ★ BACKUP: upload ao Supabase em background, SEM await.
+    //   Se falhar (rate limit, rede, etc), não afeta o usuário — apenas
+    //   fica só em localStorage. Abrir continuará funcionando via local.
+    _uploadFreeze(chave, pacote).then(function(){
+      console.log('[Freeze] ☁️ Backup Supabase OK');
+    }).catch(function(err){
+      console.warn('[Freeze] ☁️ Backup Supabase falhou (não crítico):', err.message);
+    });
+
+    console.log('[Freeze] ✅ Congelado: '+chave);
     return { chave: chave, tamanho: tam };
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // API: abrirRevisao
+  // Limpeza de freezes de cards que já foram deletados do CRM
+  // ═══════════════════════════════════════════════════════════════
+  function _limparFreezesOrfaos(){
+    var crm = [];
+    try { crm = JSON.parse(localStorage.getItem('projetta_crm_v1') || '[]'); } catch(e){}
+    var cardIds = crm.map(function(c){ return c.id; });
+    var removidos = 0;
+    for(var i=localStorage.length-1; i>=0; i--){
+      var k = localStorage.key(i);
+      if(!/^freeze_/.test(k)) continue;
+      var m = k.match(/^freeze_(.+)_rev\d+$/);
+      if(!m) continue;
+      if(cardIds.indexOf(m[1]) < 0){
+        localStorage.removeItem(k);
+        removidos++;
+      }
+    }
+    console.log('[Freeze] 🗑 '+removidos+' freezes órfãos removidos');
+    return removidos;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // API: abrirRevisao (v1.1)
+  // LocalStorage primário, Supabase fallback apenas
   // ═══════════════════════════════════════════════════════════════
   async function abrirRevisao(cardId, revNum){
     console.log('[Freeze] 📂 Abrindo card='+cardId+' rev='+revNum);
@@ -556,8 +604,22 @@
     var chave = rev.freezeKey;
     if(!chave) throw new Error('Esta revisão não tem freeze (foi salva com sistema antigo). Refaça o orçamento e clique "Orçamento Pronto" para criar um freeze novo.');
 
-    // Baixar
-    var pacote = await _downloadFreeze(chave);
+    // ★ LOCALSTORAGE PRIMEIRO (instantâneo, sem rede)
+    var pacote = null;
+    try {
+      var local = localStorage.getItem(chave);
+      if(local){
+        pacote = JSON.parse(local);
+        console.log('[Freeze] 📦 Carregado do localStorage (instantâneo)');
+      }
+    } catch(e){ console.warn('[Freeze] localStorage parse falhou:', e); }
+
+    // ★ Se não tinha local, tentar Supabase (backup de outro dispositivo)
+    if(!pacote){
+      console.log('[Freeze] ☁️ localStorage vazio, tentando Supabase...');
+      pacote = await _downloadFreeze(chave);
+    }
+
     if(!pacote || pacote.version !== '1.0') throw new Error('Freeze formato inválido');
 
     // Fechar modal CRM se aberto
