@@ -343,8 +343,16 @@ function onRepChange(){
   document.getElementById('rep-comm').textContent=r.comm;
   if(info)info.style.display='flex';
   var cr=document.getElementById('com-rep'),cg=document.getElementById('com-gest');
-  if(r.nome==='PROJETTA PORTAS EXCLUSIVAS LTDA'){if(cr)cr.value=6;if(cg)cg.value=1;}
-  else{if(cr)cr.value=r.comm;if(cg)cg.value=1;}
+  // ★ Felipe 20/04: NAO sobrescrever comissoes quando obra e internacional.
+  //   Em internacional, os defaults sao: com-rep=1, com-gest=0 (setados em
+  //   toggleInstQuem). Se o usuario selecionar um representante aqui, nao
+  //   pode voltar aos 6/1 nacionais.
+  var _instQuemVal = (document.getElementById('inst-quem')||{value:''}).value;
+  var _ehIntl = _instQuemVal === 'INTERNACIONAL';
+  if(!_ehIntl){
+    if(r.nome==='PROJETTA PORTAS EXCLUSIVAS LTDA'){if(cr)cr.value=6;if(cg)cg.value=1;}
+    else{if(cr)cr.value=r.comm;if(cg)cg.value=1;}
+  }
   calc();
 }
 var fixoCount=0;

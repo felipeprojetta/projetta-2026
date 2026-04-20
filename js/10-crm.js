@@ -2919,6 +2919,20 @@ window.crmFazerOrcamentoOpcao=function(cardId){
     setTimeout(function(){
       _aplicarParamsFinanceiros(pendingParams);
       console.log('[crmFazerOrcamento] params financeiros da rev anterior restaurados');
+
+      // ★ Felipe 20/04: se a obra e INTERNACIONAL, os defaults intl
+      //   tem prioridade sobre params salvos. Re-dispara toggleInstQuem
+      //   apos restaurar params pra garantir que imp=0, rep=1, gest=0,
+      //   lucro=45 etc sejam aplicados. Reseta a flag primeiro pra
+      //   permitir a reaplicacao (senao pula por ja ter aplicado antes).
+      setTimeout(function(){
+        var _iq = (document.getElementById('inst-quem')||{value:''}).value;
+        if(_iq === 'INTERNACIONAL'){
+          window._intlDefaultsAplicado = false;
+          if(typeof toggleInstQuem === 'function') try { toggleInstQuem(); } catch(e){}
+          console.log('[crmFazerOrcamento] defaults intl reaplicados apos restauracao de params');
+        }
+      }, 100);
     }, 800);
   }
 };
