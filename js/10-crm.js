@@ -2594,80 +2594,57 @@ window.crmRemoverOpcao=function(cardId, opcaoId){
 
 /* ═════════════════════════════════════════════════════════════════════
    "Fazer Orçamento" da OPÇÃO ativa.
-   - Se a opção tem revisão com freeze: abre o freeze + destrava pra editar.
-     Próximo "Orçamento Pronto" → cria rev NOVA na opção ativa.
-   - Se a opção é vazia (sem revisões ou sem freezeKey): chama
-     crmFazerOrcamento() que carrega dados do CARD.
-   Substitui o antigo "Nova Revisão" que dependia do DB legado projetta_v3.
+
+   SEMPRE carrega dados do CARD (ITENS DO PEDIDO, medidas, modelo do
+   topo do modal), não do freeze duplicado. Motivação (Felipe 20/04):
+   ao criar Opção 2 via duplicação e depois editar o item do card
+   pra Modelo 01 Cava, o "Fazer Orçamento" precisa respeitar o item
+   ATUALIZADO do card — não o modelo antigo congelado no freeze.
+
+   Quem quiser CONTINUAR de uma revisão congelada específica da opção
+   usa o duplo-clique na linha da revisão + "Nova Revisão" dentro.
+
+   Ao clicar "Orçamento Pronto" no final, o OrcamentoFreeze descobre
+   a opção ativa via _opcaoAtivaDoCard() e salva a rev no lugar certo.
    ═════════════════════════════════════════════════════════════════════ */
 window.crmFazerOrcamentoOpcao=function(cardId){
   if(!cardId){ alert('Card inválido'); return; }
-  var data=cLoad();
-  var card=data.find(function(o){return o.id===cardId;});
-  if(!card){ alert('Card não encontrado'); return; }
+  if(typeof crmFazerOrcamento !== 'function'){
+    alert('Função crmFazerOrcamento não carregada');
+    return;
+  }
 
-  // Descobrir última rev com freeze na OPÇÃO ATIVA
-  var lastIdx = -1;
+  // Toast orientativo: deixa claro em QUAL opção estamos trabalhando
+  try {
+    var data=cLoad();
+    var card=data.find(function(o){return o.id===cardId;});
+    var opLabel='opção atual';
+    if(card && window.OrcamentoOpcoes){
+      var op=window.OrcamentoOpcoes.ativa(card);
+      if(op && op.label) opLabel=op.label;
+    }
+    var t=document.createElement('div');
+    t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#e67e22;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';
+    t.textContent='📋 Fazendo orçamento de '+opLabel+' — dados do card carregados';
+    document.body.appendChild(t);
+    setTimeout(function(){t.remove();}, 4500);
+  } catch(e){ /* toast é opcional */ }
+
+  // Marca pra próximo "Orçamento Pronto" criar rev nova nessa opção
+  // (sem isso, se já existia rev, poderia sobrescrever a 0)
   if(window.OrcamentoOpcoes){
-    var opAtiva = window.OrcamentoOpcoes.ativa(card);
-    var revs = (opAtiva && opAtiva.revisoes) || [];
-    for(var i=revs.length-1; i>=0; i--){
-      if(revs[i] && revs[i].freezeKey){ lastIdx=i; break; }
-    }
-  } else {
-    // Fallback legado
-    var legacyRevs = card.revisoes || [];
-    for(var j=legacyRevs.length-1; j>=0; j--){
-      if(legacyRevs[j] && legacyRevs[j].freezeKey){ lastIdx=j; break; }
-    }
-  }
-
-  // Fechar modal do CRM
-  var modal=document.getElementById('crm-opp-modal');
-  if(modal) modal.classList.remove('open');
-
-  if(lastIdx < 0){
-    // Sem rev congelada → começa fresh do card
-    if(typeof crmFazerOrcamento === 'function'){
-      crmFazerOrcamento(cardId);
-    } else {
-      alert('Função crmFazerOrcamento não carregada');
-    }
-    return;
-  }
-
-  // Tem rev congelada → abrir + destravar pra editar
-  window._crmOrcCardId = cardId;
-  window._pendingRevision = true; // próximo "Orçamento Pronto" = NOVA rev
-
-  if(!window.OrcamentoFreeze || typeof window.OrcamentoFreeze.abrir !== 'function'){
-    alert('Sistema OrcamentoFreeze não carregado');
-    return;
-  }
-
-  window.OrcamentoFreeze.abrir(cardId, lastIdx)
-    .then(function(){
-      // Destravar imediatamente (sem confirm dialog do novaRevisao)
-      if(window.OrcamentoFreeze.destravar) window.OrcamentoFreeze.destravar();
-      // Marcar contexto aberto pro OrcamentoFreeze saber
-      window._freezeOpen = { cardId: cardId, revNum: lastIdx };
-      // Toast de orientação
-      var t=document.createElement('div');
-      t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#e67e22;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';
-      var opLabel = (window.OrcamentoOpcoes && window.OrcamentoOpcoes.ativa(card) && window.OrcamentoOpcoes.ativa(card).label) || 'opção';
-      t.textContent='✏️ Editando '+opLabel+' — clique em "Orçamento Pronto" quando terminar';
-      document.body.appendChild(t);
-      setTimeout(function(){t.remove();}, 5000);
-    })
-    .catch(function(err){
-      console.error('[crmFazerOrcamentoOpcao] falha ao abrir freeze:', err);
-      // Fallback: tentar começar fresh do card se abrir falhou
-      if(confirm('Não consegui abrir a revisão congelada ('+(err.message||err)+').\n\nQuer começar um orçamento novo a partir dos dados do card?')){
-        if(typeof crmFazerOrcamento === 'function'){
-          crmFazerOrcamento(cardId);
-        }
+    var d2=cLoad();
+    var c2=d2.find(function(o){return o.id===cardId;});
+    if(c2){
+      var op2=window.OrcamentoOpcoes.ativa(c2);
+      if(op2 && op2.revisoes && op2.revisoes.length>0){
+        window._pendingRevision = true;
       }
-    });
+    }
+  }
+
+  // Delega pro crmFazerOrcamento que já faz toda a limpeza + carrega card
+  crmFazerOrcamento(cardId);
 };
 
 /* ── Abrir Revisão do CRM: carrega orçamento + mostra Memorial ── */
