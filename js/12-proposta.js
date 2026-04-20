@@ -566,9 +566,34 @@ function populateProposta(){
   //   proposta gerada sem o modal CRM aberto), le direto do card persistido.
   //   Isso evita o bug de CIF sumir da proposta quando o usuario abre a
   //   proposta direto sem passar pelo modal do card.
-  if(!_incotermDom && window._crmOrcCardId && typeof cLoad === 'function'){
+  //
+  //   Ordem de busca do card:
+  //   1) window._crmOrcCardId (setado pelo Fazer Orcamento)
+  //   2) busca por num-agp no form (pra orcamentos abertos do historico)
+  //   3) busca pelo cliente se ambos acima falharem
+  if(!_incotermDom && typeof cLoad === 'function'){
     try {
-      var _card = cLoad().find(function(o){return o.id===window._crmOrcCardId;});
+      var _cards = cLoad();
+      var _card = null;
+      if(window._crmOrcCardId){
+        _card = _cards.find(function(o){return o.id===window._crmOrcCardId;});
+      }
+      if(!_card){
+        var _agpForm = (document.getElementById('num-agp')||{value:''}).value.trim();
+        if(_agpForm){
+          _card = _cards.find(function(o){
+            return (o.agp||'').trim().toUpperCase() === _agpForm.toUpperCase();
+          });
+        }
+      }
+      if(!_card){
+        var _cliForm = (document.getElementById('cliente')||{value:''}).value.trim();
+        if(_cliForm){
+          _card = _cards.find(function(o){
+            return (o.cliente||'').trim().toUpperCase() === _cliForm.toUpperCase();
+          });
+        }
+      }
       if(_card){
         _incotermDom = _card.inst_incoterm || _incotermDom;
         if(_cifCaixaL<=0) _cifCaixaL = parseFloat(_card.cif_caixa_l)||0;
@@ -584,17 +609,31 @@ function populateProposta(){
   var _cifVolM3  = (_cifCaixaL/1000)*(_cifCaixaA/1000)*(_cifCaixaE/1000);
   var _cifCaixaUSD = _cifVolM3 * _cifCaixaTaxa;
 
-  // Diagnóstico pra debug: loga estado CIF no console
-  console.log('[proposta CIF]', {
-    incoterm: _incotermDom,
-    isCif: _incotermDom === 'CIF',
+  // Diagnóstico pra debug: loga estado de logistica no console
+  console.log('[proposta logistica]', {
+    incoterm: _incotermDom || 'VAZIO',
     caixa: _cifCaixaL+'×'+_cifCaixaA+'×'+_cifCaixaE+'mm',
     volM3: _cifVolM3.toFixed(3),
     caixaUSD: _cifCaixaUSD.toFixed(2),
     freteTerrestre: _cifFreteT,
-    freteMaritimo: _cifFreteM,
-    origem: _incotermDom ? 'DOM/card' : 'VAZIO'
+    freteMaritimo: _cifFreteM
   });
+
+  // ★ Regras de logística por Incoterm (Felipe 20/04):
+  //   - EXW (Ex Works): cliente coleta na fabrica — NAO inclui nada
+  //   - FOB (Free On Board): inclui caixa fumigada + frete terrestre
+  //     ate porto Santos. Maritimo e por conta do cliente.
+  //   - CIF (Cost/Insurance/Freight): inclui tudo — caixa + terrestre +
+  //     maritimo
+  //   - Vazio / outros: comportamento legado (sem logistica)
+  var _incUpper = (_incotermDom||'').trim().toUpperCase();
+  var _incCIF = _incUpper === 'CIF';
+  var _incFOB = _incUpper === 'FOB';
+  var _incEXW = _incUpper === 'EXW';
+  // incluir_* controla se a linha aparece na proposta
+  var _incluirCaixa      = _incCIF || _incFOB;
+  var _incluirTerrestre  = _incCIF || _incFOB;
+  var _incluirMaritimo   = _incCIF;
 
   window._propLangCtx = {
     lang: _PROP_LANG,
@@ -603,9 +642,15 @@ function populateProposta(){
     instFat: (_isIntlProp && typeof window._instIntlFat === 'number') ? window._instIntlFat : 0,
     brlUsd: brlUsd,
     i18n: _PROP_I18N,
-    incoterm: _incotermDom,
+    incoterm: _incUpper,
     cif: {
-      isCif: _incotermDom === 'CIF',
+      // Mantido 'isCif' pra retrocompatibilidade; flag geral "tem algo a renderizar"
+      isCif: _incluirCaixa || _incluirTerrestre || _incluirMaritimo,
+      incoterm: _incUpper,
+      // Flags por linha — 18-auth.js agora checa cada uma separadamente
+      incluirCaixa: _incluirCaixa,
+      incluirTerrestre: _incluirTerrestre,
+      incluirMaritimo: _incluirMaritimo,
       caixaL: _cifCaixaL,
       caixaA: _cifCaixaA,
       caixaE: _cifCaixaE,
@@ -613,7 +658,9 @@ function populateProposta(){
       caixaUSD: _cifCaixaUSD,
       freteTerrestreUSD: _cifFreteT,
       freteMaritimoUSD: _cifFreteM,
-      totalUSD: _cifCaixaUSD + _cifFreteT + _cifFreteM
+      totalUSD: (_incluirCaixa ? _cifCaixaUSD : 0)
+              + (_incluirTerrestre ? _cifFreteT : 0)
+              + (_incluirMaritimo ? _cifFreteM : 0)
     }
   };
 
