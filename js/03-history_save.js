@@ -1282,6 +1282,109 @@ function confirmSave(){
 $('modal-name').addEventListener('keydown',e=>{if(e.key==='Enter')confirmSave();});
 $('save-modal').addEventListener('click',e=>{if(e.target===$('save-modal'))closeModal();});
 
+/* ═════════════════════════════════════════════════════════════════════
+   AUTOSAVE — Orçamento (Felipe 20/04)
+   "Qualquer coisa que eu digite na aba Orçamento já fique salvo.
+   Posso mudar passagens, hotel, etc e fechar sem apertar botão verde.
+   Depois volto e os dados continuam lá."
+
+   Design:
+   - Escuta input/change em TODOS os inputs/selects/textareas dentro de
+     #tab-orcamento
+   - Debounce 1500ms — evita salvar a cada tecla digitada, espera o
+     usuário parar de digitar
+   - Só salva se tem currentId OU se tem cliente preenchido
+     (senão salvarRapido cria entry "Sem nome" poluindo histórico)
+   - Não dispara se _snapshotLock ou _orcLocked (revisão travada —
+     readonly)
+   - Não dispara se _pendingRevision (usuário está criando nova rev e
+     ainda não apertou Salvar — comportamento oficial dessa feature)
+   - Mostra indicador "💾 salvando..." durante debounce, depois "✓"
+   - Skip silencioso em caso de erro pra não perturbar o user
+   ═════════════════════════════════════════════════════════════════════ */
+(function installOrcamentoAutosave(){
+  var _autoSaveTimer = null;
+  var _ORC_TAB_ID = 'tab-orcamento';
+
+  function _ehEditavel(){
+    // Não salvar se orçamento está travado (snapshot protegido)
+    if(window._snapshotLock || window._orcLocked) return false;
+    // Se usuário está em "nova revisão pendente", deixa o fluxo oficial
+    // lidar com o save — senão cria rev zerada
+    if(window._pendingRevision) return false;
+    return true;
+  }
+
+  function _temConteudo(){
+    // Exige cliente preenchido pra não criar entry "Sem nome" toa
+    if(currentId) return true;
+    var cli = ($('cliente')||{value:''}).value;
+    return !!(cli && cli.trim());
+  }
+
+  function _marcarSalvando(){
+    var ind = document.getElementById('autosave-ind');
+    if(ind){
+      ind.textContent = '💾 salvando...';
+      ind.style.opacity = '1';
+      ind.style.color = '#e67e22';
+    }
+  }
+
+  function _marcarSalvo(){
+    var ind = document.getElementById('autosave-ind');
+    if(ind){
+      ind.textContent = '✓ salvo';
+      ind.style.opacity = '1';
+      ind.style.color = '#1a7a20';
+      setTimeout(function(){
+        if(ind.textContent === '✓ salvo') ind.style.opacity = '0';
+      }, 1800);
+    }
+  }
+
+  function _agendarSave(){
+    if(!_ehEditavel() || !_temConteudo()) return;
+    clearTimeout(_autoSaveTimer);
+    _marcarSalvando();
+    _autoSaveTimer = setTimeout(function(){
+      try {
+        salvarRapido();
+        // salvarRapido já atualiza o indicador na maioria dos casos,
+        // mas garantimos o visual "✓ salvo" aqui também
+        _marcarSalvo();
+      } catch(e){
+        console.warn('[autosave orçamento] falhou:', e);
+        var ind = document.getElementById('autosave-ind');
+        if(ind){ ind.textContent = '⚠ erro ao salvar'; ind.style.color = '#c0392b'; }
+      }
+    }, 1500);
+  }
+
+  // Listener delegado no container — pega inputs inclusive adicionados
+  // dinamicamente (blocos de ACM, ALU, fixo, etc.) sem precisar re-ligar.
+  var orcTab = document.getElementById(_ORC_TAB_ID);
+  if(!orcTab){
+    // Tentar de novo após DOM carregado
+    document.addEventListener('DOMContentLoaded', installOrcamentoAutosave);
+    return;
+  }
+
+  var handler = function(ev){
+    var t = ev.target;
+    if(!t) return;
+    // Só reagir a inputs/selects/textareas — ignorar cliques em botões
+    if(t.tagName !== 'INPUT' && t.tagName !== 'SELECT' && t.tagName !== 'TEXTAREA') return;
+    // Ignorar campos puramente de display/readonly
+    if(t.readOnly || t.disabled) return;
+    _agendarSave();
+  };
+
+  orcTab.addEventListener('input', handler, true);
+  orcTab.addEventListener('change', handler, true);
+  console.log('[autosave] Orçamento autosave ativo (debounce 1500ms)');
+})();
+
 window.toggleHist=function(){
   var p=$('hist-panel');
   p.classList.toggle('open');
