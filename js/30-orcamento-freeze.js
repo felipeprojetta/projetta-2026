@@ -476,18 +476,38 @@
     var chave = _chaveDoFreeze(cardId, revNum);
     await _uploadFreeze(chave, pacote);
 
-    // Atualizar card com flag
-    try {
-      var CK = 'projetta_crm_v1';
-      var data = JSON.parse(localStorage.getItem(CK) || '[]');
-      var ci = data.findIndex(function(o){ return o.id === cardId; });
-      if(ci >= 0 && data[ci].revisoes && data[ci].revisoes[revNum]){
-        data[ci].revisoes[revNum].freezeKey = chave;
-        data[ci].revisoes[revNum].freezeDate = new Date().toISOString();
+    // ★ Persistir freezeKey no card de forma ROBUSTA.
+    //    Bug anteriormente observado: o cloud sync do CRM pode sobrescrever
+    //    o localStorage entre o cSave() do chamador e este setItem,
+    //    perdendo a freezeKey.
+    //    Solução: aplicar em 3 momentos (imediato, +1s, +3s) e chamar cSave
+    //    (se disponível) pra que o sync propague o freezeKey pra nuvem.
+    function _aplicarFreezeKey(tentativa){
+      try {
+        var CK = 'projetta_crm_v1';
+        var data = JSON.parse(localStorage.getItem(CK) || '[]');
+        var ci = data.findIndex(function(o){ return o.id === cardId; });
+        if(ci < 0 || !data[ci].revisoes || !data[ci].revisoes[revNum]) return false;
+        // Se já está aplicado, nada a fazer
+        if(data[ci].revisoes[revNum].freezeKey === chave) return true;
+        data[ci].revisoes[revNum].freezeKey     = chave;
+        data[ci].revisoes[revNum].freezeDate    = new Date().toISOString();
         data[ci].revisoes[revNum].freezeVersion = '1.0';
+        // Se existe cSave global (expõe sync bidirecional do CRM), usar;
+        // senão, setItem direto.
+        if(typeof window.cSave === 'function'){
+          try { window.cSave(data); console.log('[Freeze] freezeKey aplicada via cSave (tentativa '+tentativa+')'); return true; }
+          catch(e){ console.warn('[Freeze] cSave falhou, usando setItem direto:', e); }
+        }
         localStorage.setItem(CK, JSON.stringify(data));
-      }
-    } catch(e){ console.warn('[Freeze] erro atualizar card:', e); }
+        console.log('[Freeze] freezeKey aplicada via localStorage (tentativa '+tentativa+')');
+        return true;
+      } catch(e){ console.warn('[Freeze] _aplicarFreezeKey tentativa '+tentativa+' falhou:', e); return false; }
+    }
+    _aplicarFreezeKey(1);
+    // Retries pra vencer race condition com cloud sync
+    setTimeout(function(){ _aplicarFreezeKey(2); }, 1200);
+    setTimeout(function(){ _aplicarFreezeKey(3); }, 3500);
 
     console.log('[Freeze] ✅ Salvo em '+chave);
     return { chave: chave, tamanho: tam };
