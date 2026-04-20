@@ -4,8 +4,20 @@
    Sistema novo de salvamento/restauração de orçamentos usando
    tabela Supabase `orcamentos_salvos` (versus blob jsonb antigo).
 
-   Grava TUDO de TODAS as abas (inputs + state globals).
+   Grava TUDO de TODAS as abas (inputs + state globals + blocos dinâmicos).
    Ao abrir, restaura 100% do estado SEM recalcular.
+
+   O QUE É CAPTURADO (solução definitiva - 2026-04):
+   - Inputs com ID de 4 abas (orçamento, planificador, OS, OS acessórios)
+   - BLOCOS DINÂMICOS (acm-blk, alu-blk, fixo-blk) com seus valores
+   - GLOBALS de multi-produto e multi-cor:
+       _mpItens, _PLN_COLOR_KEYS, _PLN_RES_BY_COLOR, _PLN_CHAPA_SIZE_BY_COLOR,
+       _PLN_SIZE_BY_COLOR_USED, _plnResALU, PLN_RES, PLN_SD
+   - CÁLCULOS globais: _chapasACM, _chapasALU, _chapasCalculadas,
+       _planPesoLiqACM, _planPesoBrutoACM, _planPesoPortaACM, _simData,
+       _calcResult, _osGeradoUmaVez
+   - HTML das tabelas geradas (fallback visual)
+   - CANVAS do planificador como dataURL (layout de corte)
 
    API pública:
      window.MemorialV2.capturar()           → object com tudo
@@ -54,6 +66,140 @@ function _setarValor(el, val){
 }
 
 // ─────────────────────────────────────────────────────────────────
+// CAPTURAR BLOCOS DINÂMICOS (acm-blk, alu-blk, fixo-blk)
+// Estes blocos são criados por addACM/addALU/addFixo e seus inputs
+// têm IDs (acm-sel-N, acm-qty-N) ou classes (.fixo-larg, .fixo-alt).
+// ─────────────────────────────────────────────────────────────────
+function _capturarBlocosDinamicos(){
+  var out = { acm: [], alu: [], fixo: [] };
+
+  // ACM blocks
+  document.querySelectorAll('#acm-list .cbl').forEach(function(blk){
+    var id = blk.id.replace('acm-blk-','');
+    var sel = blk.querySelector('select');
+    var qty = blk.querySelector('input[type=number]');
+    out.acm.push({
+      id: id,
+      selectedIndex: sel ? sel.selectedIndex : 0,
+      selValue: sel ? sel.value : '',
+      selText: sel && sel.selectedIndex >= 0 ? (sel.options[sel.selectedIndex]||{}).text : '',
+      qty: qty ? qty.value : '1'
+    });
+  });
+
+  // ALU blocks
+  document.querySelectorAll('#alu-list .cbl').forEach(function(blk){
+    var id = blk.id.replace('alu-blk-','');
+    var sel = blk.querySelector('select');
+    var qty = blk.querySelector('input[type=number]');
+    out.alu.push({
+      id: id,
+      selectedIndex: sel ? sel.selectedIndex : 0,
+      selValue: sel ? sel.value : '',
+      selText: sel && sel.selectedIndex >= 0 ? (sel.options[sel.selectedIndex]||{}).text : '',
+      qty: qty ? qty.value : '1'
+    });
+  });
+
+  // Fixo blocks (inputs por CLASSE — sem ID único)
+  document.querySelectorAll('#fixos-list .fixo-blk').forEach(function(blk){
+    var id = blk.id.replace('fixo-blk-','');
+    var _q = function(cls){var e=blk.querySelector('.'+cls);return e?e.value:'';};
+    out.fixo.push({
+      id: id,
+      tipo: _q('fixo-tipo')||'superior',
+      larg: _q('fixo-larg')||'',
+      alt: _q('fixo-alt')||'',
+      qty: _q('fixo-qty')||'1',
+      lado: _q('fixo-lado')||'esquerdo',
+      lados: _q('fixo-lados')||'1',
+      estr: _q('fixo-estr')||'nao'
+    });
+  });
+
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RESTAURAR BLOCOS DINÂMICOS (antes de setar inputs)
+// ─────────────────────────────────────────────────────────────────
+function _restaurarBlocosDinamicos(dyn){
+  if(!dyn) return;
+
+  // Limpa blocos ACM existentes, recria via addACM com cor/qty
+  if(Array.isArray(dyn.acm)){
+    var acmList = document.getElementById('acm-list');
+    if(acmList) acmList.innerHTML = '';
+    // resetar contador global aC (declarado em 01-shared.js)
+    if(typeof window.aC !== 'undefined') window.aC = 0;
+    dyn.acm.forEach(function(b){
+      if(typeof window.addACM === 'function'){
+        window.addACM('', b.qty || '1');
+        // Setar selectedIndex depois (values duplicados, usar index)
+        var sel = document.getElementById('acm-sel-'+(dyn.acm.indexOf(b)+1));
+        if(sel){
+          if(typeof b.selectedIndex === 'number' && b.selectedIndex >= 0 && b.selectedIndex < sel.options.length){
+            sel.selectedIndex = b.selectedIndex;
+          } else if(b.selValue){
+            sel.value = b.selValue;
+          }
+        }
+      }
+    });
+  }
+
+  // ALU idem
+  if(Array.isArray(dyn.alu)){
+    var aluList = document.getElementById('alu-list');
+    if(aluList) aluList.innerHTML = '';
+    if(typeof window.lC !== 'undefined') window.lC = 0;
+    dyn.alu.forEach(function(b){
+      if(typeof window.addALU === 'function'){
+        window.addALU('', b.qty || '1');
+        var sel = document.getElementById('alu-sel-'+(dyn.alu.indexOf(b)+1));
+        if(sel){
+          if(typeof b.selectedIndex === 'number' && b.selectedIndex >= 0 && b.selectedIndex < sel.options.length){
+            sel.selectedIndex = b.selectedIndex;
+          } else if(b.selValue){
+            sel.value = b.selValue;
+          }
+        }
+      }
+    });
+  }
+
+  // Fixos
+  if(Array.isArray(dyn.fixo)){
+    var fixosList = document.getElementById('fixos-list');
+    if(fixosList) fixosList.innerHTML = '';
+    if(typeof window.fixoCount !== 'undefined') window.fixoCount = 0;
+    dyn.fixo.forEach(function(fx){
+      if(typeof window.addFixo === 'function'){
+        window.addFixo();
+        // Pegar último fixo-blk adicionado
+        var blks = document.querySelectorAll('#fixos-list .fixo-blk');
+        var last = blks[blks.length-1];
+        if(last){
+          var setCls = function(cls, v){var e=last.querySelector('.'+cls);if(e) e.value = v;};
+          setCls('fixo-tipo', fx.tipo||'superior');
+          setCls('fixo-larg', fx.larg||'');
+          setCls('fixo-alt',  fx.alt||'');
+          setCls('fixo-qty',  fx.qty||'1');
+          setCls('fixo-lado', fx.lado||'esquerdo');
+          setCls('fixo-lados',fx.lados||'1');
+          setCls('fixo-estr', fx.estr||'nao');
+          // Mostrar lado row se lateral
+          if(fx.tipo === 'lateral'){
+            var ladoRow = last.querySelector('.fixo-lado-row');
+            if(ladoRow) ladoRow.style.display = '';
+          }
+        }
+      }
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
 // CAPTURA COMPLETA — todos os inputs + globals + HTML das abas
 // ─────────────────────────────────────────────────────────────────
 window.MemorialV2 = window.MemorialV2 || {};
@@ -61,14 +207,14 @@ window.MemorialV2 = window.MemorialV2 || {};
 window.MemorialV2.capturar = function(){
   var snap = {
     meta: {
-      versao: 'v2.0',
+      versao: 'v2.1',   // bumped: agora captura blocos dinâmicos + multi-produto + multi-cor
       salvo_em: new Date().toISOString(),
       ua: navigator.userAgent.substring(0, 120)
     },
     abas: {}
   };
 
-  // Inputs por aba
+  // Inputs por aba (com IDs)
   TABS_RELEVANTES.forEach(function(abaId){
     var ids = _coletarIdsDeAba(abaId);
     var inputs = {};
@@ -79,6 +225,44 @@ window.MemorialV2.capturar = function(){
     });
     snap.abas[abaId] = { inputs: inputs };
   });
+
+  // ★ BLOCOS DINÂMICOS (acm-blk, alu-blk, fixo-blk)
+  try { snap.dynBlocks = _capturarBlocosDinamicos(); } catch(e){ console.warn('[MemorialV2] dynBlocks falhou:', e); }
+
+  // ★ STATE GLOBALS — multi-produto, multi-cor, cálculos
+  var _state = {};
+  try {
+    // Multi-produto
+    if(window._mpItens) _state.mpItens = JSON.parse(JSON.stringify(window._mpItens));
+    // Multi-cor (planificador)
+    if(window._PLN_COLOR_KEYS)       _state.plnColorKeys      = JSON.parse(JSON.stringify(window._PLN_COLOR_KEYS));
+    if(window._PLN_RES_BY_COLOR)     _state.plnResByColor     = JSON.parse(JSON.stringify(window._PLN_RES_BY_COLOR));
+    if(window._PLN_CHAPA_SIZE_BY_COLOR) _state.plnChapaSizeByColor = JSON.parse(JSON.stringify(window._PLN_CHAPA_SIZE_BY_COLOR));
+    if(window._PLN_SIZE_BY_COLOR_USED)  _state.plnSizeByColorUsed  = JSON.parse(JSON.stringify(window._PLN_SIZE_BY_COLOR_USED));
+    if(window._PLN_ACTIVE_COLOR)     _state.plnActiveColor    = window._PLN_ACTIVE_COLOR;
+    // Estado planificador
+    if(window.PLN_RES)               _state.plnRes            = JSON.parse(JSON.stringify(window.PLN_RES));
+    if(window.PLN_SD)                _state.plnSd             = JSON.parse(JSON.stringify(window.PLN_SD));
+    if(window._plnResALU)            _state.plnResALU         = JSON.parse(JSON.stringify(window._plnResALU));
+    if(window._simData)              _state.simData           = JSON.parse(JSON.stringify(window._simData));
+    // Valores de chapas
+    _state.chapasACM         = window._chapasACM || 0;
+    _state.chapasALU         = window._chapasALU || 0;
+    _state.chapasCalculadas  = window._chapasCalculadas || 0;
+    _state.chapaALU_SW       = window._chapaALU_SW || 0;
+    _state.chapaALU_SH       = window._chapaALU_SH || 0;
+    _state.planPesoLiqACM    = window._planPesoLiqACM || 0;
+    _state.planPesoBrutoACM  = window._planPesoBrutoACM || 0;
+    _state.planPesoPortaACM  = window._planPesoPortaACM || 0;
+    _state.pesoChapasPerDoor = window._pesoChapasPerDoor ? JSON.parse(JSON.stringify(window._pesoChapasPerDoor)) : null;
+    // Peças do planificador (ordem)
+    if(window._plnPiecesRef && Array.isArray(window._plnPiecesRef)){
+      _state.plnPiecesRef = JSON.parse(JSON.stringify(window._plnPiecesRef));
+    }
+    // Flag OS gerada uma vez (controla se spans mostram valores ou "—")
+    _state.osGeradoUmaVez = !!window._osGeradoUmaVez;
+  } catch(e){ console.warn('[MemorialV2] state serialização falhou:', e); }
+  snap.state = _state;
 
   // Estado global do cálculo (valores finais já computados)
   try {
@@ -97,13 +281,6 @@ window.MemorialV2.capturar = function(){
   try {
     if(window._lastFixosPerfisRows){
       snap.lastFixosPerfisRows = JSON.parse(JSON.stringify(window._lastFixosPerfisRows));
-    }
-  } catch(e){}
-
-  // Planificador
-  try {
-    if(window.plnPecas){
-      snap.plnPecas = JSON.parse(JSON.stringify(window.plnPecas));
     }
   } catch(e){}
 
@@ -137,17 +314,22 @@ window.MemorialV2.capturar = function(){
     if(parts2.length) snap.planTabelasHTML = parts2.join('\n');
   }
 
+  // ★ CANVAS do planificador (layout de corte) — dataURL.
+  //   Sem isso, o aproveitamento aparece em branco ao restaurar.
+  var planCanvas = document.getElementById('plan-canvas');
+  if(planCanvas && planCanvas.toDataURL){
+    try {
+      var dataURL = planCanvas.toDataURL('image/png');
+      // Só guarda se o canvas tem conteúdo (evita dataURL de canvas em branco)
+      if(dataURL && dataURL.length > 200) snap.planCanvasDataURL = dataURL;
+    } catch(e){ console.warn('[MemorialV2] plan-canvas toDataURL falhou:', e); }
+  }
+
   // Aba Proposta (PDF preview gerado)
   var tabProp = document.getElementById('tab-proposta');
   if(tabProp && tabProp.innerHTML){
     // Só guarda se tem conteúdo gerado (não o template vazio)
     if(tabProp.innerHTML.length > 500) snap.propostaHTML = tabProp.innerHTML;
-  }
-
-  // Mapa refilado (canvas do aproveitamento de chapas)
-  var mapaCanvas = document.querySelector('#tab-planificador canvas');
-  if(mapaCanvas){
-    try { snap.mapaRefilado = mapaCanvas.toDataURL('image/png'); } catch(e){}
   }
 
   return snap;
@@ -231,7 +413,12 @@ window.MemorialV2.restaurar = function(dados, options){
   options = options || {};
   if(!dados || !dados.abas) throw new Error('dados inválidos');
 
-  // 1) Restaurar inputs de cada aba (SEM disparar eventos)
+  // ★ 1) Restaurar BLOCOS DINÂMICOS antes dos inputs (cria DOM novo)
+  //    Assim os ids acm-sel-N/acm-qty-N existem para o próximo passo.
+  try { _restaurarBlocosDinamicos(dados.dynBlocks); }
+  catch(e){ console.warn('[MemorialV2] _restaurarBlocosDinamicos falhou:', e); }
+
+  // 2) Restaurar inputs de cada aba (SEM disparar eventos)
   Object.keys(dados.abas).forEach(function(abaId){
     var inputs = (dados.abas[abaId] && dados.abas[abaId].inputs) || {};
     Object.keys(inputs).forEach(function(id){
@@ -240,19 +427,45 @@ window.MemorialV2.restaurar = function(dados, options){
     });
   });
 
-  // 2) Restaurar state globals
+  // ★ 3) Restaurar STATE GLOBALS (multi-produto + multi-cor + cálculos)
+  if(dados.state){
+    var s = dados.state;
+    if(s.mpItens)                 window._mpItens                 = s.mpItens;
+    if(s.plnColorKeys)            window._PLN_COLOR_KEYS          = s.plnColorKeys;
+    if(s.plnResByColor)           window._PLN_RES_BY_COLOR        = s.plnResByColor;
+    if(s.plnChapaSizeByColor)     window._PLN_CHAPA_SIZE_BY_COLOR = s.plnChapaSizeByColor;
+    if(s.plnSizeByColorUsed)      window._PLN_SIZE_BY_COLOR_USED  = s.plnSizeByColorUsed;
+    if(s.plnActiveColor)          window._PLN_ACTIVE_COLOR        = s.plnActiveColor;
+    if(s.plnRes)                  window.PLN_RES                  = s.plnRes;
+    if(s.plnSd)                   window.PLN_SD                   = s.plnSd;
+    if(s.plnResALU)               window._plnResALU               = s.plnResALU;
+    if(s.simData)                 window._simData                 = s.simData;
+    if(typeof s.chapasACM === 'number')        window._chapasACM         = s.chapasACM;
+    if(typeof s.chapasALU === 'number')        window._chapasALU         = s.chapasALU;
+    if(typeof s.chapasCalculadas === 'number') window._chapasCalculadas  = s.chapasCalculadas;
+    if(typeof s.chapaALU_SW === 'number')      window._chapaALU_SW       = s.chapaALU_SW;
+    if(typeof s.chapaALU_SH === 'number')      window._chapaALU_SH       = s.chapaALU_SH;
+    if(typeof s.planPesoLiqACM === 'number')   window._planPesoLiqACM    = s.planPesoLiqACM;
+    if(typeof s.planPesoBrutoACM === 'number') window._planPesoBrutoACM  = s.planPesoBrutoACM;
+    if(typeof s.planPesoPortaACM === 'number') window._planPesoPortaACM  = s.planPesoPortaACM;
+    if(s.pesoChapasPerDoor)       window._pesoChapasPerDoor       = s.pesoChapasPerDoor;
+    if(s.plnPiecesRef)            window._plnPiecesRef            = s.plnPiecesRef;
+    // Flag OS gerada — IMPORTANTE: sem isso, spans mostram "—" mesmo com valores salvos
+    if(typeof s.osGeradoUmaVez === 'boolean') window._osGeradoUmaVez = s.osGeradoUmaVez;
+  }
+
+  // 4) Restaurar state globals adicionais
   if(dados.calcResult) window._calcResult = dados.calcResult;
   if(dados.lastOSData) window._lastOSData = dados.lastOSData;
   if(dados.lastFixosPerfisRows) window._lastFixosPerfisRows = dados.lastFixosPerfisRows;
-  if(dados.plnPecas) window.plnPecas = dados.plnPecas;
 
-  // 3) Restaurar tabelas/HTML gerado (se existe)
+  // 5) Restaurar tabelas/HTML gerado (se existe)
   if(dados.osaContentHTML){
     var osaContent = document.getElementById('osa-content');
     if(osaContent) osaContent.innerHTML = dados.osaContentHTML;
   }
 
-  // 4) Restaurar painéis de resultado do orçamento (valores finais já calculados)
+  // 6) Restaurar painéis de resultado do orçamento (valores finais já calculados)
   //    displaySnap contém custoTotal, tabTotal, fatTotal, DRE, margens como strings formatadas.
   //    _restoreSnapshotDisplay (exposta por 03-history_save.js) popula os spans sem recalcular.
   if(dados.displaySnap && typeof window._restoreSnapshotDisplay === 'function'){
@@ -260,7 +473,35 @@ window.MemorialV2.restaurar = function(dados, options){
     catch(e){ console.warn('[MemorialV2] _restoreSnapshotDisplay falhou:', e); }
   }
 
-  // 5) Modo read-only
+  // ★ 7) Restaurar CANVAS do planificador (layout de corte) como imagem
+  if(dados.planCanvasDataURL){
+    var planCanvas = document.getElementById('plan-canvas');
+    if(planCanvas && planCanvas.getContext){
+      try {
+        var img = new Image();
+        img.onload = function(){
+          var w = img.naturalWidth || img.width;
+          var h = img.naturalHeight || img.height;
+          if(w > 0 && h > 0){
+            planCanvas.width = w;
+            planCanvas.height = h;
+            planCanvas.getContext('2d').drawImage(img, 0, 0);
+          }
+        };
+        img.src = dados.planCanvasDataURL;
+      } catch(e){ console.warn('[MemorialV2] canvas restore falhou:', e); }
+    }
+  }
+
+  // ★ 8) Re-renderizar painéis multi-cor (sem recalcular bin-packing)
+  //    Os globals _PLN_* já foram restaurados acima, então essas funções só
+  //    pintam a UI com os valores salvos.
+  try {
+    if(typeof window._plnRenderColorTabs === 'function') window._plnRenderColorTabs();
+    if(typeof window._plnRenderCoresPainel === 'function') window._plnRenderCoresPainel();
+  } catch(e){ console.warn('[MemorialV2] re-render multi-cor falhou:', e); }
+
+  // 9) Modo read-only
   if(options.readOnly){
     _aplicarReadOnly(true);
   } else {
@@ -337,6 +578,6 @@ window.MemorialV2.abrir = async function(id, options){
   return row;
 };
 
-console.log('[MemorialV2] módulo carregado');
+console.log('[MemorialV2] módulo carregado (v2.1 — captura completa de blocos dinâmicos + multi-produto + multi-cor + canvas)');
 
 })();
