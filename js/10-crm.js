@@ -769,8 +769,13 @@ window.crmOpenModal=function(defaultStage,editId){
               'style="padding:6px 12px;border-radius:8px 8px 0 0;background:'+bg+';color:'+fg+';border:none;border-bottom:'+borda+';font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">' +
               escH(opc.label) +
               '<span style="opacity:.7;font-weight:500;margin-left:4px">('+nRevs+')</span>';
-        if(isAtiva && temMultiplasOpcoes){
-          ah += ' <span onclick="event.stopPropagation();crmRemoverOpcao(\''+editId+'\',\''+opc.id+'\')" title="Remover opção" style="margin-left:6px;opacity:.7;cursor:pointer">✕</span>';
+        if(isAtiva){
+          // Ícone editar (lápis) — sempre visível na aba ativa
+          ah += ' <span onclick="event.stopPropagation();crmRenomearOpcao(\''+editId+'\',\''+opc.id+'\')" title="Renomear opção" style="margin-left:8px;opacity:.85;cursor:pointer;font-size:11px">✏️</span>';
+          // Ícone remover (X) — só se há 2+ opções
+          if(temMultiplasOpcoes){
+            ah += ' <span onclick="event.stopPropagation();crmRemoverOpcao(\''+editId+'\',\''+opc.id+'\')" title="Remover opção" style="margin-left:6px;opacity:.7;cursor:pointer">✕</span>';
+          }
         }
         ah += '</button>';
       });
