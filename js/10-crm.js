@@ -2821,8 +2821,9 @@ function _coletarParamsFinanceiros(cardId){
   // ★ Ordem de prioridade (Felipe 20/04):
   //   1) opcao ATIVA.paramsFinanceiros    (setada por crmNovaOpcao ou Orçamento Pronto)
   //   2) última rev da opção ATIVA.paramsFinanceiros
-  //   3) entry legado projetta_v3 ligado ao card (fallback atual)
-  //   4) null → defaults do form
+  //   3) rev.data (snapshot de form) de qualquer rev com paramsFin
+  //   4) entry legado projetta_v3 ligado ao card
+  //   5) null → defaults do form
   try {
     var cdata = (typeof cLoad === 'function') ? cLoad() : [];
     var card = cdata.find(function(o){return o.id===cardId;});
@@ -2833,40 +2834,50 @@ function _coletarParamsFinanceiros(cardId){
       if(opAtiva && opAtiva.paramsFinanceiros){
         return Object.assign({}, opAtiva.paramsFinanceiros);
       }
-      // 2) Última rev da opção ativa
+      // 2) Última rev da opção ativa - paramsFinanceiros explícito
       if(opAtiva && Array.isArray(opAtiva.revisoes) && opAtiva.revisoes.length){
-        var ultRev = opAtiva.revisoes[opAtiva.revisoes.length-1];
-        if(ultRev && ultRev.paramsFinanceiros){
-          return Object.assign({}, ultRev.paramsFinanceiros);
+        // Procurar DE TRÁS PRA FRENTE por qualquer rev que tenha paramsFin
+        for(var i=opAtiva.revisoes.length-1; i>=0; i--){
+          var r = opAtiva.revisoes[i];
+          if(r && r.paramsFinanceiros){
+            return Object.assign({}, r.paramsFinanceiros);
+          }
         }
       }
     }
 
-    // 3) Fallback: DB legado projetta_v3
+    // 3) rev.data (snapshot de form) em qualquer revisão do entry legado
+    //    vinculado ao card. Útil pra cards legados que não tem paramsFinanceiros.
     if(typeof loadDB !== 'function') return null;
     var db = loadDB();
     var entry = db.find(function(e){ return e.crmCardId === cardId; });
     if(!entry){
-      // Por nome de cliente (match único)
       if(card && card.cliente){
         var nome = card.cliente.toUpperCase().trim();
         var matches = db.filter(function(e){ return e.client && e.client.toUpperCase().trim()===nome; });
         if(matches.length===1) entry = matches[0];
       }
     }
-    if(!entry || !entry.revisions || !entry.revisions.length) return null;
-    var lastRev = entry.revisions[entry.revisions.length-1];
-    var data = (lastRev && lastRev.data) || null;
-    if(!data) return null;
-    var out = {};
-    var found = false;
-    _FIN_PARAM_IDS.forEach(function(id){
-      if(data[id] !== undefined && data[id] !== ''){
-        out[id] = data[id];
-        found = true;
-      }
-    });
-    return found ? out : null;
+    if(!entry || !Array.isArray(entry.revisions) || !entry.revisions.length) return null;
+
+    // Procurar DE TRÁS PRA FRENTE pela rev mais recente que tenha data com
+    // pelo menos algum param não-default (lucro-alvo != 20 ou desconto != 20)
+    for(var k=entry.revisions.length-1; k>=0; k--){
+      var rev = entry.revisions[k];
+      var data = (rev && rev.data) || null;
+      if(!data) continue;
+      var out = {};
+      var found = false;
+      _FIN_PARAM_IDS.forEach(function(id){
+        if(data[id] !== undefined && data[id] !== ''){
+          out[id] = data[id];
+          found = true;
+        }
+      });
+      if(found) return out;
+    }
+
+    return null;
   } catch(e){
     console.warn('[_coletarParamsFinanceiros] falhou:', e);
     return null;
@@ -2918,6 +2929,24 @@ window.crmFazerOrcamentoOpcao=function(cardId){
 
   // Coletar parâmetros financeiros ANTES do reset (são perdidos no reset)
   var pendingParams = _coletarParamsFinanceiros(cardId);
+
+  // ★ PERSISTIR OS PARAMS NA OPÇÃO ATIVA (Felipe 20/04):
+  //   Se achou via fallback (rev.data ou DB legado), gravar pra próxima
+  //   vez não precisar fallback. Isso garante que opções antigas criadas
+  //   antes do commit cd8d4fd ganhem paramsFinanceiros retroativamente.
+  if(pendingParams && window.OrcamentoOpcoes){
+    try {
+      var _dPers = cLoad();
+      var _iPers = _dPers.findIndex(function(o){return o.id===cardId;});
+      if(_iPers>=0){
+        var _opPers = window.OrcamentoOpcoes.ativa(_dPers[_iPers]);
+        if(_opPers && !_opPers.paramsFinanceiros){
+          _opPers.paramsFinanceiros = Object.assign({}, pendingParams);
+          cSave(_dPers);
+        }
+      }
+    } catch(_e){ /* best-effort */ }
+  }
 
   // Toast orientativo: deixa claro em QUAL opção estamos trabalhando
   try {

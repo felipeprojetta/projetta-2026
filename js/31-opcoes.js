@@ -53,7 +53,7 @@
 (function(){
   'use strict';
 
-  var VERSION = '1.1';
+  var VERSION = '1.2';
 
   // Campos derivados dos itens (primeiro item) que precisam ser espelhados
   // no nível do card pra compatibilidade com leitores legados (proposta,
@@ -90,10 +90,8 @@
                  card.opcoes.some(function(o){return o.id===card.opcaoAtivaId;});
       if(!idOk) card.opcaoAtivaId = card.opcoes[0].id;
 
-      // Backfill: se a opção ativa ainda não tem itens próprios mas o card
-      // sim (primeira migração do schema v1.0 → v1.1), copiar do card pra
-      // opção. Cards que NÃO passaram por esse backfill vão ter todos os
-      // itens sincronizados com a opção ativa — preservando dados existentes.
+      // Backfill itens: se a opção ativa ainda não tem itens próprios mas o card
+      // sim (primeira migração do schema v1.0 → v1.1), copiar do card pra opção.
       var atual = ativa(card);
       if(atual && !Array.isArray(atual.itens) && Array.isArray(card.itens)){
         atual.itens = card.itens;
@@ -101,6 +99,34 @@
           if(card[f] !== undefined && atual[f] === undefined) atual[f] = card[f];
         });
       }
+
+      // ★ Backfill paramsFinanceiros (v1.2 — Felipe 20/04):
+      //   Opções criadas antes do commit cd8d4fd não têm paramsFinanceiros.
+      //   Procurar entre todas as opções a primeira que tenha (direto na
+      //   opção ou na última rev dela) e propagar pras que não têm.
+      //   Isso garante que TODAS as opções respeitem os params da Opção 1.
+      var paramsCanonical = null;
+      for(var pi=0; pi<card.opcoes.length; pi++){
+        var op = card.opcoes[pi];
+        if(op.paramsFinanceiros){ paramsCanonical = op.paramsFinanceiros; break; }
+        if(Array.isArray(op.revisoes)){
+          for(var ri=op.revisoes.length-1; ri>=0; ri--){
+            if(op.revisoes[ri] && op.revisoes[ri].paramsFinanceiros){
+              paramsCanonical = op.revisoes[ri].paramsFinanceiros;
+              break;
+            }
+          }
+          if(paramsCanonical) break;
+        }
+      }
+      if(paramsCanonical){
+        card.opcoes.forEach(function(op){
+          if(!op.paramsFinanceiros){
+            op.paramsFinanceiros = Object.assign({}, paramsCanonical);
+          }
+        });
+      }
+
       sincronizar(card);
       return card;
     }
