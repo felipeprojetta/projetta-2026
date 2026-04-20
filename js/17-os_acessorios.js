@@ -557,8 +557,14 @@ function _calcAcessoriosAllItems(d, sis){
     var fmVal=(document.getElementById('carac-fech-mec')||{value:''}).value;
     console.log('  Item '+(idx+1)+': L='+document.getElementById('largura').value+' A='+document.getElementById('altura').value+' fech='+fmVal+' mod='+((document.getElementById('carac-modelo')||{value:''}).value));
     var nFolI=parseInt(mpIt['folhas-porta']||mpIt._folhas)||1;
+    // ★ FIX CILINDRO: recalcular sistema PA006/PA007 POR PORTA baseado na altura desta porta
+    //   antes o parâmetro sis era fixo → cilindros vinham todos 150mm mesmo quando
+    //   porta menor precisava 130mm (PA006). Agora: < 4000mm → PA006 (130mm),
+    //   >= 4000mm → PA007 (150mm). Mesma regra usada em outros cálculos (tubo, fita, etc).
+    var _altPorta = parseFloat(mpIt['altura']||mpIt._altura)||0;
+    var sisPorta = _altPorta < 4000 ? 'PA006' : 'PA007';
     try{
-      var iRows=_calcAcessoriosOS(d, nFolI, sis);
+      var iRows=_calcAcessoriosOS(d, nFolI, sisPorta);
       var qI=parseInt(mpIt['qtd-portas']||mpIt._qtd)||1;
       if(qI>1) iRows.forEach(function(r){r.qty=r.qty*qI;});
       // Marcar de qual item veio
