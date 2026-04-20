@@ -868,6 +868,20 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   </div>
   <div class="crm-toolbar">
     <div class="crm-search"><span class="crm-search-icon">🔍</span><input type="text" id="crm-search" placeholder="Buscar cliente, produto, cidade, AGP, reserva..." oninput="crmRender()"></div>
+    <select class="crm-sel" id="crm-f-periodo-filter" onchange="crmOnPeriodoChange()" title="Filtro de periodo fiscal Projetta (mes fecha dia 15 do mes seguinte)">
+      <option value="total" selected>📅 Todo histórico</option>
+      <option value="mes-atual">📆 Mês atual (fiscal 16→15)</option>
+      <option value="mes-anterior">⏪ Mês anterior</option>
+      <option value="ult3">3 últimos meses</option>
+      <option value="ano-atual">🗓️ Este ano</option>
+      <option value="ano-anterior">📋 Ano anterior</option>
+      <option value="personalizado">🎯 Personalizado (de/até)</option>
+    </select>
+    <div id="crm-f-periodo-custom" style="display:none;gap:4px;align-items:center;background:#fff3e0;padding:3px 8px;border-radius:6px;border:1px solid #e67e22">
+      <input type="date" id="crm-f-periodo-de" onchange="crmRender()" style="padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-family:inherit" title="Data inicial">
+      <span style="font-size:10px;color:#555">até</span>
+      <input type="date" id="crm-f-periodo-ate" onchange="crmRender()" style="padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-family:inherit" title="Data final">
+    </div>
     <select class="crm-sel" id="crm-f-resp-filter" onchange="crmRender()"><option value="">👤 Todos</option></select>
     <select class="crm-sel" id="crm-f-origin-filter" onchange="crmRender()"><option value="">🔖 Origem</option></select>
     <select class="crm-sel" id="crm-f-scope-filter" onchange="crmRender()"><option value="">🌐 Todos</option><option value="nacional">🇧🇷 Nacional</option><option value="internacional">🌍 Internacional</option></select>

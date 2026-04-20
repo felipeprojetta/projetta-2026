@@ -177,6 +177,113 @@ function brToIso(br){
   return m[3]+'-'+m[2]+'-'+m[1];
 }
 
+/* ★ MES FISCAL PROJETTA (Felipe 20/04):
+   O mes fiscal comeca dia 16 e termina dia 15 do mes seguinte.
+   Ex: "Mes fiscal Abril" = 16/04 até 15/05.
+   Usado pra filtrar Pipeline, Ganhos Mes, etc. */
+function _mesFiscalAtual(){
+  var hoje = new Date();
+  var dia = hoje.getDate();
+  var mes = hoje.getMonth(); // 0-11
+  var ano = hoje.getFullYear();
+  // Se estamos do dia 16 ao final do mes, o mes fiscal e o mes atual.
+  // Se estamos do dia 1 ao 15, ainda estamos no mes fiscal ANTERIOR.
+  if(dia < 16){
+    mes -= 1;
+    if(mes < 0){ mes = 11; ano -= 1; }
+  }
+  return {mes: mes, ano: ano};
+}
+
+/* Retorna intervalo ISO {de, ate} (inclusivo) do mes fiscal dado.
+   mesFiscal: objeto {mes: 0-11, ano: YYYY}
+   Ex: abril/2026 → de=2026-04-16, ate=2026-05-15 */
+function _intervaloMesFiscal(mesFiscal){
+  var m = mesFiscal.mes;
+  var a = mesFiscal.ano;
+  var de = new Date(a, m, 16);
+  var mNext = m + 1, aNext = a;
+  if(mNext > 11){ mNext = 0; aNext = a + 1; }
+  var ate = new Date(aNext, mNext, 15);
+  var pad = function(n){ return n<10 ? '0'+n : ''+n; };
+  return {
+    de:  de.getFullYear()+'-'+pad(de.getMonth()+1)+'-'+pad(de.getDate()),
+    ate: ate.getFullYear()+'-'+pad(ate.getMonth()+1)+'-'+pad(ate.getDate())
+  };
+}
+
+/* Retorna {de, ate} conforme filtro selecionado. Null se 'total'. */
+function _intervaloPeriodoFiltro(){
+  var sel = el('crm-f-periodo-filter');
+  var v = sel ? sel.value : 'total';
+  var hoje = new Date();
+  var pad = function(n){ return n<10 ? '0'+n : ''+n; };
+  var iso = function(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+
+  if(v === 'total') return null;
+
+  if(v === 'mes-atual'){
+    return _intervaloMesFiscal(_mesFiscalAtual());
+  }
+  if(v === 'mes-anterior'){
+    var mf = _mesFiscalAtual();
+    mf.mes -= 1;
+    if(mf.mes < 0){ mf.mes = 11; mf.ano -= 1; }
+    return _intervaloMesFiscal(mf);
+  }
+  if(v === 'ult3'){
+    // 3 meses fiscais: comeco do mes-2 até fim do mes atual fiscal
+    var mfAtual = _mesFiscalAtual();
+    var mfInicio = {mes: mfAtual.mes - 2, ano: mfAtual.ano};
+    while(mfInicio.mes < 0){ mfInicio.mes += 12; mfInicio.ano -= 1; }
+    var iInicio = _intervaloMesFiscal(mfInicio);
+    var iFim = _intervaloMesFiscal(mfAtual);
+    return {de: iInicio.de, ate: iFim.ate};
+  }
+  if(v === 'ano-atual'){
+    return {de: hoje.getFullYear()+'-01-01', ate: hoje.getFullYear()+'-12-31'};
+  }
+  if(v === 'ano-anterior'){
+    var ya = hoje.getFullYear()-1;
+    return {de: ya+'-01-01', ate: ya+'-12-31'};
+  }
+  if(v === 'personalizado'){
+    var de = (el('crm-f-periodo-de')||{value:''}).value || '';
+    var ate = (el('crm-f-periodo-ate')||{value:''}).value || '';
+    if(!de && !ate) return null;
+    return {de: de || '1900-01-01', ate: ate || '2099-12-31'};
+  }
+  return null;
+}
+
+/* Testa se uma data (ISO ou ISO com time) cai dentro de um intervalo. */
+function _dataDentroDe(dataStr, intervalo){
+  if(!intervalo) return true;
+  if(!dataStr) return false;
+  var d = String(dataStr).slice(0,10);
+  return d >= intervalo.de && d <= intervalo.ate;
+}
+
+window.crmOnPeriodoChange = function(){
+  var sel = el('crm-f-periodo-filter');
+  var cust = el('crm-f-periodo-custom');
+  if(sel && cust){
+    cust.style.display = (sel.value === 'personalizado') ? 'flex' : 'none';
+    // Pre-popular datas se personalizado ficou vazio
+    if(sel.value === 'personalizado'){
+      var deEl = el('crm-f-periodo-de');
+      var ateEl = el('crm-f-periodo-ate');
+      if(deEl && !deEl.value){
+        // default: inicio do mes fiscal atual
+        var mf = _intervaloMesFiscal(_mesFiscalAtual());
+        deEl.value = mf.de;
+        if(ateEl && !ateEl.value) ateEl.value = mf.ate;
+      }
+    }
+  }
+  crmRender();
+};
+
 /* ★ Modal de data de fechamento — usado ao arrastar card pra Ganho.
    Usa <input type="date"> nativo: browser mostra calendario localizado
    (pt-BR → DD/MM/AAAA) mas valor interno permanece ISO.
@@ -317,34 +424,67 @@ function updateKPIs(all){
   var stages=gStages();
   var wonIds=stages.filter(function(s){return/gan|won/i.test(s.label);}).map(function(s){return s.id;});
   var lostIds=stages.filter(function(s){return/perd|lost/i.test(s.label);}).map(function(s){return s.id;});
-  var ativos=all.filter(function(o){return wonIds.indexOf(o.stage)<0&&lostIds.indexOf(o.stage)<0;});
-  var ganhos=all.filter(function(o){return wonIds.indexOf(o.stage)>=0;});
-  var perdidos=all.filter(function(o){return lostIds.indexOf(o.stage)>=0;});
-  // ★ Felipe 20/04: 'Ganhos Mes' deve considerar a data real do
-  //   fechamento, nao o updatedAt do card (que reflete qualquer
-  //   edicao posterior). Ordem de prioridade:
-  //     1) fechamento_real (novo campo, setado no drop pra Ganho)
-  //     2) fechamento     (campo legado do modal)
-  //     3) updatedAt      (fallback pra cards antigos sem data real)
-  //     4) createdAt
-  var ganhosMes=ganhos.filter(function(o){
-    var dataRef = o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt;
-    return isThisMonth(dataRef);
-  });
+
+  // ★ Felipe 20/04: filtro de periodo (mes fiscal 16→15, ano, personalizado).
+  //   - Ganhos filtram por fechamento_real (data real do contrato).
+  //   - Ativos/pipeline filtram por createdAt (quando a oportunidade foi criada).
+  //   - Se periodo='total', intervalo=null e tudo passa.
+  var _intervalo = typeof _intervaloPeriodoFiltro === 'function' ? _intervaloPeriodoFiltro() : null;
+  var _labelPeriodo = '';
+  if(_intervalo){
+    _labelPeriodo = isoToBR(_intervalo.de)+'–'+isoToBR(_intervalo.ate);
+  }
+
+  var ativosTodos=all.filter(function(o){return wonIds.indexOf(o.stage)<0&&lostIds.indexOf(o.stage)<0;});
+  var ganhosTodos=all.filter(function(o){return wonIds.indexOf(o.stage)>=0;});
+  var perdidosTodos=all.filter(function(o){return lostIds.indexOf(o.stage)>=0;});
+
+  // Aplicar filtro de periodo
+  var ativos = _intervalo
+    ? ativosTodos.filter(function(o){return _dataDentroDe(o.createdAt||o.updatedAt, _intervalo);})
+    : ativosTodos;
+  var ganhos = _intervalo
+    ? ganhosTodos.filter(function(o){
+        var dt = o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt;
+        return _dataDentroDe(dt, _intervalo);
+      })
+    : ganhosTodos;
+  var perdidos = _intervalo
+    ? perdidosTodos.filter(function(o){return _dataDentroDe(o.updatedAt||o.createdAt, _intervalo);})
+    : perdidosTodos;
+
+  // Ganhos "do mes fiscal atual" — usado no KPI 'Ganhos Mes'. Se ja tem periodo
+  // selecionado diferente de total, reflete o periodo escolhido. Senao, mostra
+  // so o mes fiscal atual.
+  var ganhosMes;
+  if(_intervalo){
+    ganhosMes = ganhos; // mesmo filtro ja aplicado
+  } else {
+    // total: filtrar ganhos apenas do mes fiscal atual
+    var _intervaloMesAtual = _intervaloMesFiscal(_mesFiscalAtual());
+    ganhosMes = ganhosTodos.filter(function(o){
+      var dt = o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt;
+      return _dataDentroDe(dt, _intervaloMesAtual);
+    });
+  }
+
   var intl=all.filter(function(o){return o.scope==='internacional';});
   var pipe=ativos.reduce(function(s,o){return s+(parseFloat(o.valor)||0);},0);
   var gMes=ganhosMes.reduce(function(s,o){return s+(parseFloat(o.valor)||0);},0);
   var ativosComValor=ativos.filter(function(o){return(parseFloat(o.valor)||0)>0;});
   var ticket=ativosComValor.length>0?pipe/ativosComValor.length:0;
   var conv=(ganhos.length+perdidos.length)>0?Math.round(ganhos.length/(ganhos.length+perdidos.length)*100):0;
-  if(el('ck-pipe')){el('ck-pipe').textContent=brl(pipe);el('ck-pipe-s').textContent=ativos.length+' ativas';}
-  if(el('ck-gain')){el('ck-gain').textContent=brl(gMes);el('ck-gain-s').textContent=ganhosMes.length+' contratos';}
+  if(el('ck-pipe')){el('ck-pipe').textContent=brl(pipe);el('ck-pipe-s').textContent=ativos.length+' ativas'+(_labelPeriodo?' · '+_labelPeriodo:'');}
+  if(el('ck-gain')){
+    el('ck-gain').textContent=brl(gMes);
+    el('ck-gain-s').textContent=ganhosMes.length+' contratos'+(_intervalo?' · '+_labelPeriodo:' · mês fiscal atual');
+  }
   if(el('ck-ticket'))el('ck-ticket').textContent=brl(ticket);
   var ckTicketSub=document.querySelector('#ck-ticket')&&document.querySelector('#ck-ticket').parentNode?document.querySelector('#ck-ticket').parentNode.querySelector('.crm-kpi-sub'):null;
   if(ckTicketSub) ckTicketSub.textContent=ativosComValor.length+' com valor';
   if(el('ck-conv'))el('ck-conv').textContent=conv+'%';
   if(el('ck-intl')){el('ck-intl').textContent=intl.length;el('ck-intl-s').textContent='internacional'+(intl.length!==1?'s':'');}
-  // Total Tabela e Faturamento (todas ativas)
+  // Total Tabela e Faturamento (ativas do periodo)
   var totTab=ativos.reduce(function(s,o){return s+(parseFloat(o.valorTabela)||0);},0);
   var totFat=ativos.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
   if(el('ck-tot-tab')){el('ck-tot-tab').textContent=brl(totTab);el('ck-tot-tab-s').textContent=ativos.filter(function(o){return o.valorTabela>0;}).length+' com tabela';}
@@ -382,6 +522,10 @@ window.crmRender=function(){
   var fR=val('crm-f-resp-filter'),fO=val('crm-f-origin-filter'),fS=val('crm-f-scope-filter');
   var fReg=val('crm-f-regiao-filter'),fGer=val('crm-f-gerente-filter'),fWrep=val('crm-f-wrep-filter');
   var fCidade=val('crm-f-cidade-filter'),fEstado=val('crm-f-estado-filter'),fCor=val('crm-f-cor-filter'),fModelo=val('crm-f-modelo-filter');
+  // ★ Filtro de periodo (fiscal 16→15 ou personalizado)
+  var _intervaloFP = typeof _intervaloPeriodoFiltro === 'function' ? _intervaloPeriodoFiltro() : null;
+  var _stagesFP = gStages();
+  var wonIdsFP = _stagesFP.filter(function(s){return /gan|won/i.test(s.label);}).map(function(s){return s.id;});
   var fil=all.filter(function(o){
     if(q&&!(o.cliente||'').toLowerCase().includes(q)&&!(o.produto||'').toLowerCase().includes(q)&&!(o.cidade||'').toLowerCase().includes(q)&&!(o.wrep||'').toLowerCase().includes(q)&&!(o.agp||'').toLowerCase().includes(q)&&!(o.reserva||'').toLowerCase().includes(q))return false;
     if(fR&&o.responsavel!==fR)return false;
@@ -402,6 +546,15 @@ window.crmRender=function(){
       var oreg2=getRepRegiao(o.wrep);
       var gn=getGerenteDaRegiao(oreg2);
       if(gn.toUpperCase()!==fGer.toUpperCase())return false;
+    }
+    // ★ Felipe 20/04: filtro de periodo. Ganho usa fechamento, ativo/perdido
+    //   usa createdAt/updatedAt.
+    if(_intervaloFP){
+      var _ehGanhoCard = wonIdsFP.indexOf(o.stage) >= 0;
+      var _dt = _ehGanhoCard
+        ? (o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt)
+        : (o.createdAt || o.updatedAt);
+      if(!_dataDentroDe(_dt, _intervaloFP)) return false;
     }
     return true;
   });
