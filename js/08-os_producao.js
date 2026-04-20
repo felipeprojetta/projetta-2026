@@ -417,11 +417,11 @@ function gerarOS(){
     +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:center;font-size:10px">—</td>'
     +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:center;font-weight:700;font-size:12px">'+totBarsCount+'</td>'
     +'<td style="padding:6px 8px;border:0.5px solid #444;font-size:10px;opacity:.7">barras a comprar</td>'
-    +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-size:11px">'+totKgLiq.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
-    +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-weight:700;font-size:11px">'+totKgBruto.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+    +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-size:11px">'+totKgLiq.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
+    +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-weight:700;font-size:11px">'+totKgBruto.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
     +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:center;font-size:10px;opacity:.7">—</td>'
-    +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-size:11px">'+totKgLiq.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
-    +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-weight:700;font-size:12px">'+totKgBruto.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+    +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-size:11px">'+totKgLiq.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
+    +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-weight:700;font-size:12px">'+totKgBruto.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
     +'</tr>';
 
   // ── FIXO: adicionar barras do fixo ao aproveitamento de barras ──────────────
@@ -476,24 +476,24 @@ function gerarOS(){
       +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:center;font-size:10px">—</td>'
       +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:center;font-weight:700;font-size:12px">'+totBarsCount+'</td>'
       +'<td style="padding:6px 8px;border:0.5px solid #444;font-size:10px;opacity:.7">barras a comprar</td>'
-      +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-size:11px">'+totKgLiq.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
-      +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-weight:700;font-size:11px">'+totKgBruto.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+      +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-size:11px">'+totKgLiq.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
+      +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-weight:700;font-size:11px">'+totKgBruto.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
       +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:center;font-size:10px;opacity:.7">—</td>'
-      +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-size:11px">'+totKgLiq.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
-      +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-weight:700;font-size:12px">'+totKgBruto.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+      +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-size:11px">'+totKgLiq.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
+      +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-weight:700;font-size:12px">'+totKgBruto.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
       +'</tr>';
   }
 
   var aprovGlobal=totKgLiq>0?(totKgLiq/totKgBruto*100).toFixed(1).replace('.',','):'—';
-  var perdaKg=(totKgBruto-totKgLiq).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  var perdaKg=(totKgBruto-totKgLiq).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
   el('os-resumo').innerHTML=
     '<div style="flex:1;min-width:120px;border:1.5px solid #003144;border-radius:6px;padding:10px 12px;text-align:center">'
       +'<div style="font-size:9px;font-weight:700;color:#003144;letter-spacing:.04em;margin-bottom:3px">KG LÍQUIDO</div>'
-      +'<div style="font-size:16px;font-weight:700;color:#003144">'+totKgLiq.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
+      +'<div style="font-size:16px;font-weight:700;color:#003144">'+totKgLiq.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</div>'
       +'<div style="font-size:9px;color:#888">peso real das peças</div></div>'
     +'<div style="flex:1;min-width:120px;border:1.5px solid #c47012;border-radius:6px;padding:10px 12px;text-align:center;background:#fff8f0">'
       +'<div style="font-size:9px;font-weight:700;color:#c47012;letter-spacing:.04em;margin-bottom:3px">KG BRUTO ★</div>'
-      +'<div style="font-size:16px;font-weight:700;color:#003144">'+totKgBruto.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
+      +'<div style="font-size:16px;font-weight:700;color:#003144">'+totKgBruto.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</div>'
       +'<div style="font-size:9px;color:#888">barras inteiras — base precificação</div></div>'
     +'<div style="flex:1;min-width:100px;border:1px solid #ddd;border-radius:6px;padding:10px 12px;text-align:center">'
       +'<div style="font-size:9px;font-weight:700;color:#666;letter-spacing:.04em;margin-bottom:3px">APROVEITAMENTO</div>'
