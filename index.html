@@ -3345,8 +3345,20 @@ Equipe Projetta by Weiku</textarea>
       </div>
     </div>
 
+    <!-- PAINEL MULTI-COR: uma linha por cor com tamanho de chapa editável + qty calculada.
+         Só aparece quando há 2+ cores detectadas. Em single-cor fica oculto (display:none). -->
+    <div id="plan-cores-panel" style="display:none;margin-bottom:10px;border:1px solid #003144;border-radius:8px;padding:10px 12px;background:#f4f9fb">
+      <div style="font-size:10px;font-weight:700;color:#003144;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">
+        Chapas por cor — tamanho e quantidade para orçamento
+      </div>
+      <div id="plan-cores-panel-list"></div>
+      <div style="font-size:9px;color:var(--muted);margin-top:6px;font-style:italic">
+        Escolha o tamanho de chapa independentemente para cada cor (estoque local). Ao alterar o tamanho, o layout é recalculado.
+      </div>
+    </div>
+
     <!-- SELEÇÃO DE COR DA CHAPA -->
-    <div style="margin-bottom:10px;border:1px solid var(--orange);border-radius:8px;padding:10px 12px;background:#fff8f0">
+    <div id="plan-cor-single-panel" style="margin-bottom:10px;border:1px solid var(--orange);border-radius:8px;padding:10px 12px;background:#fff8f0">
       <div style="font-size:10px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Cor da chapa e quantidade para orçamento</div>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">
         <div style="flex:1;min-width:250px"><label style="font-size:9px;color:#888;display:block">Chapa ACM</label><select id="plan-acm-cor" onchange="_syncChapaToOrc()" style="width:100%;padding:5px 8px;border:1px solid #c9c6bf;border-radius:5px;font-size:10px;color:var(--navy);font-weight:600"></select></div>

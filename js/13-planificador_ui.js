@@ -18,6 +18,12 @@ var PLN_COLORS = [
   '#a0c4e0','#e0a0c0','#98d498','#c8b060','#edc948'
 ];
 
+// ★ MULTI-COR: armazena tamanho de chapa escolhido POR COR.
+//   Estrutura: { 'BLACK DOOR': {w: 1500, h: 5000}, 'DARK GREY': {w: 1500, h: 7000} }
+//   Quando vazio/ausente, usa o tamanho padrão do plan-chapa (retrocompat).
+//   Atualizado pela UI #plan-cores-panel-list.
+window._PLN_CHAPA_SIZE_BY_COLOR = window._PLN_CHAPA_SIZE_BY_COLOR || {};
+
 var PLN_KERF = 4;    // 4mm fresa por corte
 var PLN_MG   = 5;    // 5mm folga de borda cada lado
 var PLN_RES  = null;
@@ -609,6 +615,11 @@ function plnDraw(si) {
   if(_isALUSheet && window._chapaALU_SW && window._chapaALU_SH){
     SW = window._chapaALU_SW;
     SH = window._chapaALU_SH;
+  } else if(window._PLN_ACTIVE_COLOR && window._PLN_SIZE_BY_COLOR_USED && window._PLN_SIZE_BY_COLOR_USED[window._PLN_ACTIVE_COLOR]){
+    // ★ MULTI-COR: usar tamanho específico da cor ativa (pode ser diferente do padrão)
+    var _sz = window._PLN_SIZE_BY_COLOR_USED[window._PLN_ACTIVE_COLOR];
+    SW = _sz.w;
+    SH = _sz.h;
   } else {
     SW = PLN_SD.w;
     SH = PLN_SD.h;
@@ -837,6 +848,140 @@ function _plnRenderColorTabs(){
     el.appendChild(b);
   });
 }
+
+// ★ PAINEL MULTI-COR: Renderiza lista de cores + tamanho editável + qty
+//   calculada. Aparece só quando há 2+ cores. Troca com o painel single-cor
+//   (#plan-cor-single-panel).
+function _plnRenderCoresPainel(){
+  var panel = document.getElementById('plan-cores-panel');
+  var single = document.getElementById('plan-cor-single-panel');
+  var list   = document.getElementById('plan-cores-panel-list');
+  if(!panel || !list) return;
+
+  var keys = window._PLN_COLOR_KEYS || [];
+  if(keys.length < 2){
+    // Modo single-cor: mostra painel antigo, esconde o novo
+    panel.style.display='none';
+    if(single) single.style.display='';
+    return;
+  }
+
+  // Modo multi-cor
+  panel.style.display='';
+  if(single) single.style.display='none';
+
+  // Opções de tamanho (padrão ACM)
+  var SIZE_OPTIONS = [
+    {v:'1500|5000', l:'1500×5000mm'},
+    {v:'1500|6000', l:'1500×6000mm'},
+    {v:'1500|7000', l:'1500×7000mm'},
+    {v:'1500|8000', l:'1500×8000mm'},
+    {v:'1250|5000', l:'1250×5000mm (Alusense)'},
+    {v:'1250|6000', l:'1250×6000mm (Alusense)'}
+  ];
+
+  // Helper: pega ACM_DATA pra achar preço por cor+tamanho
+  var _findPriceForColor = function(corLabel, w, h){
+    try{
+      if(!Array.isArray(ACM_DATA)) return 0;
+      var upper = (corLabel||'').toUpperCase();
+      var mProC = upper.match(/PRO\w+/);
+      var proCode = mProC ? mProC[0] : '';
+      var sufixo = w+'×'+h;
+      for(var g=0; g<ACM_DATA.length; g++){
+        var grp = ACM_DATA[g].o||[];
+        for(var o=0; o<grp.length; o++){
+          var L = (grp[o].l||'').toUpperCase();
+          if(L.indexOf(sufixo)<0) continue;
+          if(proCode && L.indexOf(proCode)>=0) return grp[o].p||0;
+        }
+      }
+      // sem match por PRO → tenta por nome parcial
+      var nameOnly = proCode ? upper.replace(proCode,'').trim() : upper.trim();
+      for(var g2=0; g2<ACM_DATA.length; g2++){
+        var grp2 = ACM_DATA[g2].o||[];
+        for(var o2=0; o2<grp2.length; o2++){
+          var L2 = (grp2[o2].l||'').toUpperCase();
+          if(L2.indexOf(sufixo)>=0 && nameOnly && nameOnly.length>3 && L2.indexOf(nameOnly)>=0) return grp2[o2].p||0;
+        }
+      }
+    }catch(e){}
+    return 0;
+  };
+
+  var byColor = window._PLN_RES_BY_COLOR || {};
+  var sizeByColor = window._PLN_CHAPA_SIZE_BY_COLOR || {};
+  var sizeUsed = window._PLN_SIZE_BY_COLOR_USED || {};
+  var totalAll = 0;
+
+  // Cabeçalho
+  var html = '<div style="display:grid;grid-template-columns:2fr 1.3fr 0.7fr 1fr 1.2fr;gap:8px;padding:3px 0 6px 0;border-bottom:1px solid rgba(0,49,68,.15);font-size:9px;font-weight:700;color:#003144;text-transform:uppercase;letter-spacing:.05em">'+
+    '<div>Cor</div>'+
+    '<div>Tamanho da chapa</div>'+
+    '<div style="text-align:center">Chapas</div>'+
+    '<div style="text-align:right">Preço/chapa</div>'+
+    '<div style="text-align:right">Subtotal</div>'+
+    '</div>';
+
+  keys.forEach(function(ck, idx){
+    var res = byColor[ck];
+    var qty = res ? (res.numSheets||0) : 0;
+    var usedSize = sizeUsed[ck] || sizeByColor[ck] || {w: PLN_SD.w, h: PLN_SD.h};
+    var currentVal = usedSize.w + '|' + usedSize.h;
+    var price = _findPriceForColor(ck, usedSize.w, usedSize.h);
+    var sub = price * qty;
+    totalAll += sub;
+
+    // Options HTML
+    var optsHtml = SIZE_OPTIONS.map(function(o){
+      var sel = (o.v === currentVal) ? ' selected' : '';
+      return '<option value="'+o.v+'"'+sel+'>'+o.l+'</option>';
+    }).join('');
+
+    // Se currentVal não está nas padrões, adiciona
+    if(!SIZE_OPTIONS.some(function(o){return o.v===currentVal;})){
+      optsHtml = '<option value="'+currentVal+'" selected>'+usedSize.w+'×'+usedSize.h+'mm (custom)</option>' + optsHtml;
+    }
+
+    var colorSwatch = PLN_COLORS[idx % PLN_COLORS.length];
+    html += '<div style="display:grid;grid-template-columns:2fr 1.3fr 0.7fr 1fr 1.2fr;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dotted rgba(0,49,68,.1);font-size:11px">'
+      +'<div style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:'+colorSwatch+';display:inline-block;flex-shrink:0"></span><span style="font-weight:700;color:#003144;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+ck+'">'+ck+'</span></div>'
+      +'<select data-cor="'+ck+'" onchange="_plnCorSizeChanged(this)" style="width:100%;padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:10px;background:#fff">'+optsHtml+'</select>'
+      +'<div style="text-align:center;font-weight:700;color:#003144">'+qty+'</div>'
+      +'<div style="text-align:right;color:#444">'+(price>0?'R$ '+price.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</div>'
+      +'<div style="text-align:right;font-weight:700;color:#003144">R$ '+sub.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
+      +'</div>';
+  });
+
+  // Linha total
+  if(keys.length > 1){
+    html += '<div style="display:grid;grid-template-columns:2fr 1.3fr 0.7fr 1fr 1.2fr;gap:8px;align-items:center;padding:6px 0;margin-top:2px;border-top:1.5px solid #003144;font-size:11px">'
+      +'<div></div><div></div><div></div>'
+      +'<div style="text-align:right;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:.05em">Total ACM:</div>'
+      +'<div style="text-align:right;font-weight:800;color:#003144">R$ '+totalAll.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
+      +'</div>';
+  }
+
+  list.innerHTML = html;
+}
+
+// ★ Handler: usuário mudou tamanho da chapa de uma cor no painel multi-cor.
+//   Atualiza _PLN_CHAPA_SIZE_BY_COLOR e dispara re-cálculo do planificador.
+window._plnCorSizeChanged = function(selEl){
+  if(!selEl) return;
+  var cor = selEl.getAttribute('data-cor');
+  var val = selEl.value;
+  if(!cor || !val) return;
+  var parts = val.split('|');
+  var w = parseInt(parts[0])||1500;
+  var h = parseInt(parts[1])||6000;
+  if(!window._PLN_CHAPA_SIZE_BY_COLOR) window._PLN_CHAPA_SIZE_BY_COLOR = {};
+  window._PLN_CHAPA_SIZE_BY_COLOR[cor] = {w: w, h: h};
+  // Re-executar planRun pra recalcular com tamanho novo
+  if(typeof planRun === 'function'){
+    planRun();
+  }
+};
 
 var _plnPiecesRef=[];
 var _plnManualOv={}; // {label: {w:X, h:Y, qty:Z}}
@@ -1840,15 +1985,24 @@ function planRun() {
     return a.localeCompare(b);
   });
   // Rodar bin-packing separado POR COR
+  // ★ Cada cor pode ter um tamanho de chapa DIFERENTE (usuário escolhe via painel
+  //   multi-cor). Se cor não tem override em _PLN_CHAPA_SIZE_BY_COLOR, usa o
+  //   tamanho padrão (SW, SH) do plan-chapa.
   var _resByColor = {};
+  var _sizeByColorUsed = {}; // pra a UI mostrar o tamanho usado por cor
   for(var ki=0; ki<_colorKeys.length; ki++){
     var _ck = _colorKeys[ki];
-    _resByColor[_ck] = plnMaxRects(_acmByColor[_ck], SW, SH, layoutMode);
+    var _override = (window._PLN_CHAPA_SIZE_BY_COLOR||{})[_ck];
+    var _corSW = (_override && _override.w) ? _override.w : SW;
+    var _corSH = (_override && _override.h) ? _override.h : SH;
+    _resByColor[_ck] = plnMaxRects(_acmByColor[_ck], _corSW, _corSH, layoutMode);
+    _sizeByColorUsed[_ck] = {w: _corSW, h: _corSH};
   }
   // Expor globalmente para Etapa 2 (UI de tabs) e Etapa 3/4 (aproveitamento + OS)
   window._PLN_RES_BY_COLOR = _resByColor;
   window._PLN_COLOR_KEYS = _colorKeys;
   window._PLN_ACTIVE_COLOR = _colorKeys[0] || null;
+  window._PLN_SIZE_BY_COLOR_USED = _sizeByColorUsed;
 
   // COMPAT: PLN_RES aponta para a primeira cor (para não quebrar código existente
   // que acessa PLN_RES.placed, PLN_RES.stats, PLN_RES.numSheets diretamente).
@@ -2004,6 +2158,7 @@ function planRun() {
   document.getElementById('plan-print-btn').style.display='';
   plnBuildTabs();
   _plnRenderColorTabs();  // ★ Etapa 2: barra de cores (só mostra se >1 cor)
+  _plnRenderCoresPainel(); // ★ Feature B: painel multi-cor (tamanho+qty editável)
   plnLegend(pieces);
   plnDraw(0);
 }
