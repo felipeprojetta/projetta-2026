@@ -465,6 +465,58 @@ window.MemorialV2.restaurar = function(dados, options){
     if(osaContent) osaContent.innerHTML = dados.osaContentHTML;
   }
 
+  // ★ 5B) Restaurar HTMLs das outras abas que estavam perdidos até então.
+  //       O capturar() salva tabelas de tab-os, tab-planificador e o innerHTML
+  //       inteiro de tab-proposta. Antes esses dados ficavam salvos mas nunca
+  //       eram aplicados → abas apareciam vazias ao puxar memorial.
+  //
+  //       Para tab-os e tab-planificador: substitui as <table> existentes
+  //       pelas tabelas salvas (outerHTML). A função _substituirTabelas faz
+  //       isso de forma segura usando a 1ª tabela existente como ponto de
+  //       ancoragem.
+  function _substituirTabelas(abaId, htmlSalvo){
+    try {
+      var aba = document.getElementById(abaId);
+      if(!aba || !htmlSalvo) return;
+      // Parse HTML salvo num container temporário
+      var tmp = document.createElement('div');
+      tmp.innerHTML = htmlSalvo;
+      var tabelasSalvas = Array.prototype.slice.call(tmp.querySelectorAll('table'));
+      if(!tabelasSalvas.length) return;
+      // Pega tabelas existentes na aba + o parent/ponto de ancoragem da 1ª
+      var tabelasExistentes = Array.prototype.slice.call(aba.querySelectorAll('table'));
+      if(tabelasExistentes.length){
+        // Insere tabelas salvas antes da 1ª existente, depois remove existentes
+        var primeira = tabelasExistentes[0];
+        var parent = primeira.parentNode;
+        tabelasSalvas.forEach(function(t){ parent.insertBefore(t, primeira); });
+        tabelasExistentes.forEach(function(t){ if(t.parentNode) t.parentNode.removeChild(t); });
+      } else {
+        // Não tem tabelas → apenas anexa no fim da aba
+        tabelasSalvas.forEach(function(t){ aba.appendChild(t); });
+      }
+    } catch(e){ console.warn('[MemorialV2] _substituirTabelas falhou em '+abaId+':', e); }
+  }
+
+  if(dados.osTabelasHTML) _substituirTabelas('tab-os', dados.osTabelasHTML);
+  if(dados.planTabelasHTML) _substituirTabelas('tab-planificador', dados.planTabelasHTML);
+
+  // tab-proposta: o capturar salva o innerHTML inteiro (só se > 500 chars).
+  // Injeta direto porque a aba Proposta é template-based e o HTML salvo
+  // tem tudo necessário (pg1, pg2, pg3).
+  if(dados.propostaHTML){
+    var tabProp = document.getElementById('tab-proposta');
+    if(tabProp) tabProp.innerHTML = dados.propostaHTML;
+  }
+
+  // ★ 5C) Aplicar toggleInstQuem pra mostrar/esconder os blocos corretos
+  //       de instalação (PROJETTA × TERCEIROS × INTERNACIONAL). Sem isso,
+  //       após restaurar inst-quem=TERCEIROS, os campos de km/pessoas/diaria
+  //       continuam aparecendo (embora não afetem cálculo, confundem o usuário).
+  try {
+    if(typeof window.toggleInstQuem === 'function') window.toggleInstQuem();
+  } catch(e){ console.warn('[MemorialV2] toggleInstQuem falhou:', e); }
+
   // 6) Restaurar painéis de resultado do orçamento (valores finais já calculados)
   //    displaySnap contém custoTotal, tabTotal, fatTotal, DRE, margens como strings formatadas.
   //    _restoreSnapshotDisplay (exposta por 03-history_save.js) popula os spans sem recalcular.
