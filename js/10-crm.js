@@ -1295,26 +1295,71 @@ window.crmCifRecalc=function(){
   var L=parseFloat((document.getElementById('crm-o-cif-caixa-l')||{value:0}).value)||0;
   var A=parseFloat((document.getElementById('crm-o-cif-caixa-a')||{value:0}).value)||0;
   var E=parseFloat((document.getElementById('crm-o-cif-caixa-e')||{value:0}).value)||0;
-  // ★ Taxa USD/m³ agora editavel (Felipe 20/04): default 100, pode
-  //   ajustar conforme cotação do fornecedor. Antes era hard-coded 110.
   var taxa=parseFloat((document.getElementById('crm-o-cif-caixa-taxa')||{value:100}).value)||100;
   // Volume em m³ (mm→m = /1000 cada dimensão)
   var vol=(L/1000)*(A/1000)*(E/1000);
   var caixaUSD=vol*taxa;
+
+  // ★ Câmbio USD→BRL: pega do campo inst-intl-cambio se preenchido,
+  //   senão 5.0 (fallback conservador). Usado só pra mostrar equivalente
+  //   em R$ em linha cinza italic abaixo (so pra Felipe ver em reais,
+  //   sem destacar — proposta sai so em USD).
+  var cambio = parseFloat((document.getElementById('inst-intl-cambio')||{value:0}).value)||0;
+  if(!cambio || cambio<=0) cambio = 5.0;
+  var _fmtBRL = function(v){ return v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+
   var infoCaixa=document.getElementById('crm-cif-caixa-info');
   if(infoCaixa){
-    if(vol>0) infoCaixa.innerHTML='Volume: <b>'+vol.toFixed(3)+' m³</b> × <b>US$ '+taxa+'/m³</b> · Caixa: <b>US$ '+caixaUSD.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b>';
-    else infoCaixa.innerHTML='Volume: — m³ · Caixa: US$ —';
+    if(vol>0){
+      infoCaixa.innerHTML='Volume: <b>'+vol.toFixed(3)+' m³</b> × <b>US$ '+taxa+'/m³</b> · Caixa: <b>US$ '+caixaUSD.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b>';
+    } else {
+      infoCaixa.innerHTML='Volume: — m³ · Caixa: US$ —';
+    }
   }
   var fT=parseFloat((document.getElementById('crm-o-cif-frete-terrestre')||{value:0}).value)||0;
   var fM=parseFloat((document.getElementById('crm-o-cif-frete-maritimo')||{value:0}).value)||0;
   var total=caixaUSD+fT+fM;
   var infoTot=document.getElementById('crm-cif-total-info');
   if(infoTot){
-    if(total>0) infoTot.innerHTML='Total CIF (caixa + fretes): <b style="color:#c47012">US$ '+total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b>';
-    else infoTot.innerHTML='Total CIF (caixa + fretes): US$ —';
+    if(total>0){
+      infoTot.innerHTML='Total CIF (caixa + fretes): <b style="color:#c47012">US$ '+total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b>';
+    } else {
+      infoTot.innerHTML='Total CIF (caixa + fretes): US$ —';
+    }
+  }
+
+  // ★ Linha extra em R$ — só pra Felipe ver equivalente em reais.
+  //   NÃO aparece na proposta (ali só USD). Estilo cinza claro italic
+  //   pra ficar discreto.
+  var infoBRL = document.getElementById('crm-cif-brl-info');
+  if(!infoBRL && infoTot && infoTot.parentNode){
+    infoBRL = document.createElement('div');
+    infoBRL.id = 'crm-cif-brl-info';
+    infoBRL.style.cssText = 'font-size:10px;color:#999;margin-top:4px;font-style:italic;font-weight:400';
+    infoTot.parentNode.insertBefore(infoBRL, infoTot.nextSibling);
+  }
+  if(infoBRL){
+    if(total>0){
+      var caixaBRL = caixaUSD * cambio;
+      var fTBRL    = fT * cambio;
+      var fMBRL    = fM * cambio;
+      var totalBRL = total * cambio;
+      var partes = [];
+      if(caixaUSD>0) partes.push('caixa R$ '+_fmtBRL(caixaBRL));
+      if(fT>0)       partes.push('terrestre R$ '+_fmtBRL(fTBRL));
+      if(fM>0)       partes.push('marítimo R$ '+_fmtBRL(fMBRL));
+      infoBRL.innerHTML = '≈ em R$ (câmbio '+cambio.toFixed(2)+'): ' + partes.join(' · ') +
+                          ' &nbsp;—&nbsp; <span style="color:#777">Total: R$ '+_fmtBRL(totalBRL)+'</span>';
+    } else {
+      infoBRL.innerHTML = '';
+    }
   }
 }
+
+// Recalcular valores em R$ da CIF quando o câmbio muda
+window.crmCifRecalcBRL = function(){
+  if(typeof window.crmCifRecalc === 'function') window.crmCifRecalc();
+};
 
 window.crmInstPorteChange=function(){
   var porte=(document.getElementById('crm-o-inst-porte')||{value:'M'}).value;
@@ -2341,6 +2386,19 @@ window.crmFazerOrcamento=function(id){
       }, 600); // aguardar campos preenchidos
     }
     var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';t.textContent='✅ '+opp.cliente+' — calculando orçamento...';document.body.appendChild(t);setTimeout(function(){t.remove();},4000);
+
+    // ★ RESTAURAR scratch de dados da aba Orçamento (Felipe 20/04):
+    //   Dados como passagens/hotel/câmbio/CIF são digitados na aba
+    //   Orçamento. O autosave os persiste em card.orcData. Ao clicar
+    //   Fazer Orçamento de novo, restauramos pro usuário continuar
+    //   de onde parou.
+    setTimeout(function(){
+      if(typeof window._restaurarCamposOrcDoCard === 'function'){
+        try { window._restaurarCamposOrcDoCard(id); }
+        catch(e){ console.warn('restaurar orcData:', e); }
+      }
+    }, 900); // antes do auto-gerar-custo (1200ms)
+
     // Auto-gerar OS e calcular tudo
     setTimeout(function(){
       // Esconder botão GERAR CUSTO COMPLETO (auto-calculado)

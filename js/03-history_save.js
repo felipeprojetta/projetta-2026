@@ -1283,40 +1283,135 @@ $('modal-name').addEventListener('keydown',e=>{if(e.key==='Enter')confirmSave();
 $('save-modal').addEventListener('click',e=>{if(e.target===$('save-modal'))closeModal();});
 
 /* ═════════════════════════════════════════════════════════════════════
-   AUTOSAVE — Orçamento (Felipe 20/04)
-   "Qualquer coisa que eu digite na aba Orçamento já fique salvo.
-   Posso mudar passagens, hotel, etc e fechar sem apertar botão verde.
-   Depois volto e os dados continuam lá."
+   AUTOSAVE — Orçamento (Felipe 20/04, ampliado 20/04 tarde)
+   "Qualquer coisa que eu digite na aba Orçamento já fique salvo no
+   CARD. Quando eu clicar Fazer Orçamento de novo, quero continuar de
+   onde parei (passagens, hotel, câmbio, CIF etc) — mesmo que o
+   orçamento esteja travado."
 
-   Design:
-   - Escuta input/change em TODOS os inputs/selects/textareas dentro de
-     #tab-orcamento
-   - Debounce 1500ms — evita salvar a cada tecla digitada, espera o
-     usuário parar de digitar
-   - Só salva se tem currentId OU se tem cliente preenchido
-     (senão salvarRapido cria entry "Sem nome" poluindo histórico)
-   - Não dispara se _snapshotLock ou _orcLocked (revisão travada —
-     readonly)
-   - Não dispara se _pendingRevision (usuário está criando nova rev e
-     ainda não apertou Salvar — comportamento oficial dessa feature)
-   - Mostra indicador "💾 salvando..." durante debounce, depois "✓"
-   - Skip silencioso em caso de erro pra não perturbar o user
+   Comportamento:
+   - Debounce 1500ms ao digitar/mudar qualquer input/select/textarea
+     dentro de #tab-orcamento
+   - Dois saves paralelos:
+     A) salvarRapido → grava no projetta_v3 (DB de revisões, se
+        editável e não-pending-revision)
+     B) _salvarCamposOrcNoCard → SEMPRE grava no card.orcData
+        (mesmo se travado). Isso garante que Fazer Orçamento de
+        novo restaura tudo que o usuário digitou.
+   - card.orcData é um "scratch" de parâmetros da aba Orçamento que
+     não fazem parte do item do CRM. Usado só pra continuar edição.
    ═════════════════════════════════════════════════════════════════════ */
+
+// Campos da aba Orçamento que devem ser persistidos no card pro
+// usuário não perder a entrada ao fechar o navegador.
+// Não inclui campos de PEÇA (que já vêm dos itens do CRM como modelo,
+// largura, cor etc) — só parâmetros de processo/instalação/cambio/CIF.
+var _ORC_PERSIST_IDS = [
+  // Parâmetros financeiros
+  'overhead','impostos','com-rep','com-rt','com-gest',
+  'lucro-alvo','markup-desc','desconto',
+  // Instalação NACIONAL (básico)
+  'inst-quem','dias','pessoas','km','carros','munk',
+  'diaria','hotel-dia','alim','pedagio',
+  'inst-terceiros-valor','inst-terceiros-transp',
+  // Instalação INTERNACIONAL
+  'inst-intl-cidade','inst-intl-aero','inst-intl-pessoas','inst-intl-dias',
+  'inst-intl-udigru','inst-intl-passagem','inst-intl-hotel','inst-intl-alim',
+  'inst-intl-seguro','inst-intl-carro','inst-intl-mo','inst-intl-cambio',
+  'inst-intl-imp','inst-intl-margem',
+  // CIF (caixa madeira + fretes)
+  'cif-caixa-l','cif-caixa-a','cif-caixa-e','cif-caixa-taxa',
+  'cif-frete-terrestre','cif-frete-maritimo',
+  // Custo extra, observações
+  'fab-custo-extra','obs-internas',
+  // Reserva, AGP, cliente, datas
+  'numprojeto','num-agp','cep-cliente'
+];
+
+function _salvarCamposOrcNoCard(){
+  // Gravar no card CRM vinculado (se houver)
+  var cardId = window._crmOrcCardId;
+  if(!cardId || typeof cLoad !== 'function') return false;
+
+  var crmData = cLoad();
+  var idx = crmData.findIndex(function(o){return o.id===cardId;});
+  if(idx<0) return false;
+
+  // Coletar valores do form
+  var orcData = {};
+  _ORC_PERSIST_IDS.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) orcData[id] = el.value;
+  });
+  // Checkbox especial
+  var tf = document.getElementById('tem-fixo');
+  if(tf) orcData['tem-fixo'] = tf.checked;
+  // Data ficou preenchida?
+  orcData._savedAt = new Date().toISOString();
+
+  // Gravar no card
+  crmData[idx].orcData = orcData;
+  crmData[idx].updatedAt = new Date().toISOString();
+  try {
+    cSave(crmData);
+    return true;
+  } catch(e){
+    console.warn('[autosave orc→card] falhou:', e);
+    return false;
+  }
+}
+
+// Helper pra restaurar: chamado pelo crmFazerOrcamento após setTimeout
+// interno de carga (500ms). Popula os campos com orcData salvo.
+window._restaurarCamposOrcDoCard = function(cardId){
+  if(!cardId || typeof cLoad !== 'function') return;
+  var crmData = cLoad();
+  var card = crmData.find(function(o){return o.id===cardId;});
+  if(!card || !card.orcData) return;
+  var restaurados = 0;
+  _ORC_PERSIST_IDS.forEach(function(id){
+    if(card.orcData[id] !== undefined && card.orcData[id] !== ''){
+      var el = document.getElementById(id);
+      if(el){
+        el.value = card.orcData[id];
+        // Disparar eventos pra triggers de recálculo reagirem
+        try {
+          ['input','change'].forEach(function(ev){
+            el.dispatchEvent(new Event(ev,{bubbles:true}));
+          });
+        } catch(e){}
+        restaurados++;
+      }
+    }
+  });
+  // Checkbox fixo
+  if(card.orcData['tem-fixo'] !== undefined){
+    var tf = document.getElementById('tem-fixo');
+    if(tf){
+      tf.checked = !!card.orcData['tem-fixo'];
+      try { tf.dispatchEvent(new Event('change',{bubbles:true})); } catch(e){}
+    }
+  }
+  if(restaurados > 0){
+    console.log('[orc→card] '+restaurados+' campos restaurados do card');
+    // Recalcular com os valores restaurados
+    if(typeof calc === 'function') try { calc(); } catch(e){}
+    if(typeof crmCifRecalc === 'function') try { crmCifRecalc(); } catch(e){}
+  }
+};
+
 (function installOrcamentoAutosave(){
   var _autoSaveTimer = null;
   var _ORC_TAB_ID = 'tab-orcamento';
 
-  function _ehEditavel(){
-    // Não salvar se orçamento está travado (snapshot protegido)
+  function _ehEditavelHistDB(){
+    // Não salvar no projetta_v3 se orçamento está travado ou em pending rev
     if(window._snapshotLock || window._orcLocked) return false;
-    // Se usuário está em "nova revisão pendente", deixa o fluxo oficial
-    // lidar com o save — senão cria rev zerada
     if(window._pendingRevision) return false;
     return true;
   }
 
   function _temConteudo(){
-    // Exige cliente preenchido pra não criar entry "Sem nome" toa
     if(currentId) return true;
     var cli = ($('cliente')||{value:''}).value;
     return !!(cli && cli.trim());
@@ -1331,41 +1426,43 @@ $('save-modal').addEventListener('click',e=>{if(e.target===$('save-modal'))close
     }
   }
 
-  function _marcarSalvo(){
+  function _marcarSalvo(extra){
     var ind = document.getElementById('autosave-ind');
     if(ind){
-      ind.textContent = '✓ salvo';
+      ind.textContent = '✓ salvo' + (extra ? ' '+extra : '');
       ind.style.opacity = '1';
       ind.style.color = '#1a7a20';
       setTimeout(function(){
-        if(ind.textContent === '✓ salvo') ind.style.opacity = '0';
+        if(ind.textContent.indexOf('✓ salvo')===0) ind.style.opacity = '0';
       }, 1800);
     }
   }
 
   function _agendarSave(){
-    if(!_ehEditavel() || !_temConteudo()) return;
     clearTimeout(_autoSaveTimer);
     _marcarSalvando();
     _autoSaveTimer = setTimeout(function(){
+      var cardSalvo = false;
+      // A) Sempre grava no CARD (mesmo se travado)
       try {
-        salvarRapido();
-        // salvarRapido já atualiza o indicador na maioria dos casos,
-        // mas garantimos o visual "✓ salvo" aqui também
-        _marcarSalvo();
-      } catch(e){
-        console.warn('[autosave orçamento] falhou:', e);
-        var ind = document.getElementById('autosave-ind');
-        if(ind){ ind.textContent = '⚠ erro ao salvar'; ind.style.color = '#c0392b'; }
+        cardSalvo = _salvarCamposOrcNoCard();
+      } catch(e){ console.warn('[autosave card] falhou:', e); }
+
+      // B) Grava no projetta_v3 só se editável e tem conteúdo
+      if(_ehEditavelHistDB() && _temConteudo()){
+        try {
+          salvarRapido();
+        } catch(e){
+          console.warn('[autosave projeto v3] falhou:', e);
+        }
       }
+
+      _marcarSalvo(cardSalvo ? '(card)' : '');
     }, 1500);
   }
 
-  // Listener delegado no container — pega inputs inclusive adicionados
-  // dinamicamente (blocos de ACM, ALU, fixo, etc.) sem precisar re-ligar.
   var orcTab = document.getElementById(_ORC_TAB_ID);
   if(!orcTab){
-    // Tentar de novo após DOM carregado
     document.addEventListener('DOMContentLoaded', installOrcamentoAutosave);
     return;
   }
@@ -1373,16 +1470,14 @@ $('save-modal').addEventListener('click',e=>{if(e.target===$('save-modal'))close
   var handler = function(ev){
     var t = ev.target;
     if(!t) return;
-    // Só reagir a inputs/selects/textareas — ignorar cliques em botões
     if(t.tagName !== 'INPUT' && t.tagName !== 'SELECT' && t.tagName !== 'TEXTAREA') return;
-    // Ignorar campos puramente de display/readonly
     if(t.readOnly || t.disabled) return;
     _agendarSave();
   };
 
   orcTab.addEventListener('input', handler, true);
   orcTab.addEventListener('change', handler, true);
-  console.log('[autosave] Orçamento autosave ativo (debounce 1500ms)');
+  console.log('[autosave] Orçamento autosave ativo (debounce 1500ms, salva no card + projeto_v3)');
 })();
 
 window.toggleHist=function(){
