@@ -1820,6 +1820,12 @@ window.crmSaveOpp=function(){
   var cliente=val('crm-o-cliente').trim();
   if(!cliente){var c=el('crm-o-cliente');if(c)c.focus();return;}
 
+  // ★ SEMPRE capturar DOM dos itens pra _crmItens ANTES de qualquer leitura.
+  //   Senão edições recém-feitas no item (ex: modelo mudado de 23 pra 01)
+  //   não refletem em _crmItens[0] e opp.* vai ficar com valor velho.
+  try { if(typeof _crmItensSaveFromDOM==='function') _crmItensSaveFromDOM(); }
+  catch(e){ console.warn('[crmSaveOpp] _crmItensSaveFromDOM falhou:', e); }
+
   // ★ SAFEGUARD (Felipe 20/04): se a opção ativa ja tem revisoes, NAO
   //   sobrescrever itens/campos-derivados dela. Só atualizar metadata do
   //   card (cliente, contato, cidade, notas, etc). Evita que edições
@@ -1854,6 +1860,21 @@ window.crmSaveOpp=function(){
   var cidade=scope==='internacional'?val('crm-o-cidade-intl').trim():val('crm-o-cidade-nac').trim();
   var now=new Date().toISOString();
 
+  // ★ CRÍTICO (Felipe 20/04): opp.* (campos top-level) devem refletir
+  //   _crmItens[0].* sempre que houver item. Antes lia de inputs legacy
+  //   do topo do modal que não são mais editados, resultando em opp.modelo
+  //   dessincronizado com o modelo REAL editado no bloco do item.
+  //   Bug reportado: "alterei modelo no card pra 01, ao fazer orçamento
+  //   trouxe modelo 23 da Opção original".
+  var _it0 = (_crmItens && _crmItens[0]) || {};
+  var _pickItem = function(itemField, legacyInputId, fallback){
+    // Prioridade: item.field > input legacy > fallback
+    if(_it0[itemField] !== undefined && _it0[itemField] !== '') return _it0[itemField];
+    var v = val(legacyInputId);
+    if(v) return v;
+    return fallback || '';
+  };
+
   var opp={
     cliente:   cliente,
     contato:   val('crm-o-contato').trim(),
@@ -1869,15 +1890,15 @@ window.crmSaveOpp=function(){
     prioridade:val('crm-o-prioridade')||'',
     potencial: val('crm-o-potencial')||'',
     notas:     val('crm-o-notas').trim(),
-    largura:   (_crmItens.length?parseInt(_crmItens[0].largura):parseInt(val('crm-o-largura')))||0,
-    altura:    (_crmItens.length?parseInt(_crmItens[0].altura):parseInt(val('crm-o-altura')))||0,
-    abertura:  val('crm-o-abertura'),
-    modelo:    val('crm-o-modelo'),
-    folhas:    val('crm-o-folhas')||'1',
-    cor_ext:   val('crm-o-cor-ext'),
-    cor_int:   val('crm-o-cor-int'),
-    cor_macico: val('crm-o-cor-macico')||((_crmItens&&_crmItens[0])?_crmItens[0].cor_macico||'':''),
-    moldura_rev: (_crmItens&&_crmItens[0])?_crmItens[0].moldura_rev||'':'',
+    largura:   parseInt(_pickItem('largura','crm-o-largura',0))||0,
+    altura:    parseInt(_pickItem('altura', 'crm-o-altura', 0))||0,
+    abertura:  _pickItem('abertura','crm-o-abertura',''),
+    modelo:    _pickItem('modelo',  'crm-o-modelo',  ''),
+    folhas:    _pickItem('folhas',  'crm-o-folhas', '1'),
+    cor_ext:   _pickItem('cor_ext', 'crm-o-cor-ext',''),
+    cor_int:   _pickItem('cor_int', 'crm-o-cor-int',''),
+    cor_macico:  _pickItem('cor_macico',  'crm-o-cor-macico',''),
+    moldura_rev: _pickItem('moldura_rev', '',                 ''),
     reserva:   val('crm-o-reserva').trim(),
     itens:     _crmItensToCardData(),
     inst_quem: val('crm-o-inst-quem')||'PROJETTA',
@@ -2304,21 +2325,33 @@ window.crmFazerOrcamento=function(id){
       setF('inst-terceiros-transp',opp.inst_transp||'');
     }
     if(typeof toggleInstQuem==='function') toggleInstQuem();
-    setF('largura',opp.largura||'');
-    setF('altura',opp.altura||'');
+
+    // ★ CRÍTICO (Felipe 20/04): preferir opp.itens[0].* sobre opp.* quando
+    //   houver. O ITEM do pedido (editado no card) é a fonte de verdade.
+    //   opp.* pode estar desatualizado se o usuário editou só no item
+    //   e o espelhamento pro nível card não rodou.
+    var _firstItem=(opp.itens&&opp.itens.length>0)?opp.itens[0]:{};
+    var _pick = function(field, fallback){
+      if(_firstItem && _firstItem[field] !== undefined && _firstItem[field] !== '') return _firstItem[field];
+      if(opp[field] !== undefined && opp[field] !== '') return opp[field];
+      return fallback || '';
+    };
+
+    setF('largura', _pick('largura',''));
+    setF('altura',  _pick('altura',''));
     // Responsavel (Thays/Felipe/Andressa) — map to the select
     if(opp.responsavel){setF('responsavel',opp.responsavel);}
-    setF('carac-abertura',opp.abertura);
-    setF('carac-modelo',opp.modelo);
+    setF('carac-abertura', _pick('abertura',''));
+    setF('carac-modelo',   _pick('modelo',''));
     // Número de Folhas
-    if(opp.folhas){setF('folhas-porta',opp.folhas);setF('carac-folhas',opp.folhas);}
+    var _folhas = _pick('folhas','1');
+    if(_folhas){setF('folhas-porta',_folhas);setF('carac-folhas',_folhas);}
     // Cores da chapa
-    if(opp.cor_ext)setF('carac-cor-ext',opp.cor_ext);
-    if(opp.cor_int)setF('carac-cor-int',opp.cor_int);
-    // Moldura rev e cor maciço: pegar do card ou do primeiro item
-    var _firstItem=(opp.itens&&opp.itens.length>0)?opp.itens[0]:{};
-    var _moldRev=opp.moldura_rev||_firstItem.moldura_rev||'';
-    var _corMac=opp.cor_macico||_firstItem.cor_macico||'';
+    var _corExt = _pick('cor_ext',''); if(_corExt) setF('carac-cor-ext',_corExt);
+    var _corInt = _pick('cor_int',''); if(_corInt) setF('carac-cor-int',_corInt);
+    // Moldura rev e cor maciço
+    var _moldRev=_pick('moldura_rev','');
+    var _corMac=_pick('cor_macico','');
     if(_moldRev)setF('plan-moldura-rev',_moldRev);
     if(_corMac) window._pendingCorMacico=_corMac;
     // Forçar _checkCorMode + planRun após carregamento
