@@ -364,6 +364,91 @@ function _exportPropostaToCard(cardId, revLabel, callback){
 function populateProposta(){
   var g=function(id){var el=document.getElementById(id);if(!el)return '—';if(el.tagName==='SELECT'||el.tagName==='INPUT'||el.tagName==='TEXTAREA')return el.value||'—';return el.textContent||'—';};
   var brl=function(v){return 'R$ '+(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2});};
+
+  // ═══════════════════════════════════════════════════════════════════
+  // INTERNACIONAL: detecção + tradução + formato BRL+USD
+  // Quando inst-quem==='INTERNACIONAL', proposta sai completamente em
+  // inglês com valores "R$ X · US$ Y".
+  // ═══════════════════════════════════════════════════════════════════
+  var _isIntlProp = (document.getElementById('inst-quem')||{value:''}).value === 'INTERNACIONAL';
+  var _PROP_LANG = _isIntlProp ? 'en' : 'pt';
+  // Câmbio (usado só quando internacional)
+  var _cambioProp = parseFloat((document.getElementById('inst-intl-cambio')||{value:5.20}).value)||5.20;
+
+  // Dicionário de traduções (só entradas 'en' — o default/pt vem do HTML original)
+  var _PROP_I18N = {
+    // Labels INFO GRID
+    'lbl-obra':         {pt:'Obra:',                  en:'Project:'},
+    'lbl-reserva':      {pt:'Reserva:',               en:'Reservation:'},
+    'lbl-cliente':      {pt:'Cliente:',               en:'Client:'},
+    'lbl-cidade':       {pt:'Cidade:',                en:'City:'},
+    'lbl-representante':{pt:'Representante:',         en:'Representative:'},
+    'lbl-validade':     {pt:'Validade:',              en:'Validity:'},
+    // Bloco da porta
+    'lbl-qtd':          {pt:'Qtd:',                   en:'Qty:'},
+    'lbl-l':            {pt:'L:',                     en:'W:'},
+    'lbl-h':            {pt:'H:',                     en:'H:'},
+    'lbl-area':         {pt:'Área Porta:',            en:'Door Area:'},
+    // Specs
+    'spec-sistema':     {pt:'SISTEMA',                en:'SYSTEM'},
+    'spec-abertura':    {pt:'TIPO DE ABERTURA',       en:'OPENING TYPE'},
+    'spec-folhas':      {pt:'NUMERO DE FOLHAS',       en:'NUMBER OF LEAVES'},
+    'spec-modelo':      {pt:'MODELO',                 en:'MODEL'},
+    'spec-fech-mec':    {pt:'FECHADURA MECÂNICA',     en:'MECHANICAL LOCK'},
+    'spec-fech-dig':    {pt:'FECHADURA DIGITAL',      en:'DIGITAL LOCK'},
+    'spec-puxador':     {pt:'PUXADOR',                en:'HANDLE'},
+    'spec-pux-tam':     {pt:'TAMANHO PUXADOR EXTERNO',en:'EXTERNAL HANDLE SIZE'},
+    'spec-cor-ext':     {pt:'COR CHAPA EXTERNA',      en:'EXTERNAL PANEL COLOR'},
+    'spec-cor-int':     {pt:'COR CHAPA INTERNA',      en:'INTERNAL PANEL COLOR'},
+    'spec-cilindro':    {pt:'CILINDRO',               en:'CYLINDER'},
+    'spec-alisar':      {pt:'ALISAR',                 en:'TRIM'},
+    // Tabela preços
+    'tbl-item':         {pt:'Item',                   en:'Item'},
+    'tbl-desc':         {pt:'Descrição',              en:'Description'},
+    'tbl-med':          {pt:'Medidas',                en:'Dimensions'},
+    'tbl-qtd':          {pt:'Qtd',                    en:'Qty'},
+    'tbl-val-un':       {pt:'Valor (un.)',            en:'Unit Price'},
+    'tbl-val-total':    {pt:'Valor Total',            en:'Total'},
+    // Totais
+    'lbl-total-area':   {pt:'Total Área Portas:',     en:'Total Door Area:'},
+    'lbl-total-orc':    {pt:'Total Orçamento:',       en:'Total Quote:'},
+    // Observações
+    'lbl-obs':          {pt:'Observações:',           en:'Remarks:'},
+    'obs-1':            {pt:'- Chapa 4 mm com pintura Kynar - 15 anos pró-rata',       en:'- 4mm panel with Kynar paint - 15-year pro-rata'},
+    'obs-2':            {pt:'- Fechaduras de segurança KESO',                          en:'- KESO security locks'},
+    'obs-3':            {pt:'- Pivô em aço inox 304 / 316 L',                          en:'- 304 / 316L stainless steel pivot'},
+    'obs-4':            {pt:'- Vedação da porta automática superior e inferior',       en:'- Automatic top and bottom door sealing'},
+    'obs-5':            {pt:'- Vedação dupla (folha e batente) por Q-LON',             en:'- Double sealing (leaf and frame) by Q-LON'},
+    'obs-frete':        {pt:'*** INCLUSO FRETE E INSTALAÇÃO',                          en:'*** FREIGHT INCLUDED — INSTALLATION PRICED SEPARATELY'},
+    // Condições
+    'lbl-cond-pgto':    {pt:'Condições de Pagamento:',en:'Payment Terms:'},
+    'lbl-forma-pgto':   {pt:'Forma de Pagamento:',    en:'Payment Method:'},
+    'lbl-prazo':        {pt:'Prazo de Entrega:',      en:'Delivery Time:'}
+  };
+  // Aplicar traduções em todos os elementos com data-i18n
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var key = el.getAttribute('data-i18n');
+    var entry = _PROP_I18N[key];
+    if(entry && entry[_PROP_LANG]) el.textContent = entry[_PROP_LANG];
+  });
+  // Título "PORTA PROJETTA BY WEIKU" → "PROJETTA DOOR BY WEIKU"
+  var _tituloEl = document.querySelector('[data-i18n-prefix="titulo-porta"]');
+  if(_tituloEl){
+    // preserva o span interno #prop-desc-extra
+    var _descExtra = document.getElementById('prop-desc-extra');
+    var _descExtraHTML = _descExtra ? _descExtra.outerHTML : '';
+    _tituloEl.innerHTML = (_PROP_LANG==='en' ? 'PROJETTA DOOR BY WEIKU ' : 'PORTA PROJETTA BY WEIKU ') + _descExtraHTML;
+  }
+  // Helper brl+usd — só usa USD se internacional
+  var brlUsd = function(v){
+    if(!v || v<=0) return '—';
+    var brlPart = 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    if(!_isIntlProp) return brlPart;
+    var usdVal = v/_cambioProp;
+    var usdPart = 'US$ '+Math.round(usdVal).toLocaleString('en-US');
+    return brlPart+' · '+usdPart;
+  };
+
   // Dados do cliente
   var cliente=g('cliente')||'—';
   var agp=g('num-agp')||'—';
@@ -539,8 +624,11 @@ function populateProposta(){
   // Porta: PREÇO TABELA (valor cheio para o cliente)
   var tabPortaTotal=parseVal(document.getElementById('m-tab-porta'));
   var tabPortaUn=qtdPortas>0?tabPortaTotal/qtdPortas:0;
-  document.getElementById('prop-valor-un').textContent=brl2(tabPortaUn);
-  document.getElementById('prop-valor-total-porta').textContent=brl2(tabPortaTotal);
+  document.getElementById('prop-valor-un').textContent=brlUsd(tabPortaUn);
+  document.getElementById('prop-valor-total-porta').textContent=brlUsd(tabPortaTotal);
+  // Traduzir nome da porta na linha 01
+  var _propLinha = document.getElementById('prop-linha');
+  if(_propLinha) _propLinha.textContent = _PROP_LANG==='en' ? 'PROJETTA DOOR' : 'PORTA PROJETTA';
   
   // Fechadura/Acessório - PREÇO TABELA
   var tabFechTotal=parseVal(document.getElementById('m-tab-fech'));
@@ -549,23 +637,73 @@ function populateProposta(){
     rowFech.style.display='';
     document.getElementById('prop-qtd-fech').textContent=qtdFech;
     var tabFechUn=qtdFech>0?tabFechTotal/qtdFech/qtdPortas:0;
-    document.getElementById('prop-valor-un-fech').textContent=brl2(tabFechUn);
-    document.getElementById('prop-valor-total-fech').textContent=brl2(tabFechTotal);
+    document.getElementById('prop-valor-un-fech').textContent=brlUsd(tabFechUn);
+    document.getElementById('prop-valor-total-fech').textContent=brlUsd(tabFechTotal);
     // Nome do acessório (TEDEE, PHILIPS 9300, EMTECO...)
     var digSel=document.getElementById('carac-fech-dig');
     var acSel=document.getElementById('ac-fechadura');
     var nomeFech='';
     if(digSel&&digSel.value&&digSel.value!=='NÃO SE APLICA') nomeFech=digSel.value;
     else if(acSel&&acSel.selectedIndex>0) nomeFech=acSel.options[acSel.selectedIndex].text;
-    document.getElementById('prop-nome-fech').textContent=nomeFech||'Fechadura Digital';
+    document.getElementById('prop-nome-fech').textContent=nomeFech||(_PROP_LANG==='en'?'Digital Lock':'Fechadura Digital');
   } else {
     rowFech.style.display='none';
   }
-  
-  // Total geral = Preço Tabela Total do painel
-  var tabGeral=parseVal(document.getElementById('m-tab'));
-  document.getElementById('prop-total-orc').textContent=brl2(tabGeral);
+
+  // ── INSTALAÇÃO INTERNACIONAL (linha 03 quando internacional) ──
+  // Usa window._instIntlFat (faturamento, não custo) calculado em 14-reps_sync.js
+  var rowInst = document.getElementById('prop-row-inst');
+  var tabInstIntl = 0;
+  if(_isIntlProp && typeof window._instIntlFat === 'number' && window._instIntlFat > 0){
+    tabInstIntl = window._instIntlFat;
+    if(rowInst){
+      rowInst.style.display='';
+      var _instNum = document.getElementById('prop-inst-num');
+      if(_instNum) _instNum.textContent = tabFechTotal>0 ? '03' : '02';
+      document.getElementById('prop-valor-un-inst').textContent = brlUsd(tabInstIntl);
+      document.getElementById('prop-valor-total-inst').textContent = brlUsd(tabInstIntl);
+      var _nomeInst = document.getElementById('prop-nome-inst');
+      if(_nomeInst) _nomeInst.textContent = _PROP_LANG==='en' ? 'INTERNATIONAL INSTALLATION' : 'INSTALAÇÃO INTERNACIONAL';
+    }
+  } else if(rowInst){
+    rowInst.style.display='none';
+  }
+
+  // Total geral = Preço Tabela da porta + fechadura + (instalação se internacional)
+  var tabGeral = parseVal(document.getElementById('m-tab')) + tabInstIntl;
+  document.getElementById('prop-total-orc').textContent=brlUsd(tabGeral);
   document.getElementById('prop-area-total').textContent=(area*qtdPortas).toFixed(1);
+
+  // Traduzir valores dinâmicos que foram setados antes no HTML:
+  // - Folhas: "1 FOLHA"/"2 FOLHAS" → "1 LEAF"/"2 LEAVES"
+  // - Abertura: "PIVOTANTE" → "PIVOTING"
+  // - Validade: "15 dias úteis" → "15 working days"
+  if(_PROP_LANG==='en'){
+    var _folEl=document.getElementById('prop-folhas');
+    if(_folEl){
+      var _txt=(_folEl.textContent||'').toUpperCase();
+      if(_txt.indexOf('2 FOLHAS')>=0) _folEl.textContent='2 LEAVES';
+      else if(_txt.indexOf('1 FOLHA')>=0) _folEl.textContent='1 LEAF';
+    }
+    var _abEl=document.getElementById('prop-abertura');
+    if(_abEl && /PIVOTANTE/i.test(_abEl.textContent||'')) _abEl.textContent='PIVOTING';
+    var _valEl=document.getElementById('prop-validade');
+    if(_valEl){
+      var _vtxt=(_valEl.textContent||'').replace(/dias\s+úteis/i,'working days');
+      _valEl.textContent=_vtxt;
+    }
+    // Prazo: "90 dias após aprovação do recálculo." → "90 days after recalculation approval."
+    var _prazoEl=document.getElementById('prop-prazo');
+    if(_prazoEl){
+      var _ptxt=(_prazoEl.textContent||'')
+        .replace(/dias\s+após\s+aprovação\s+do\s+recálculo/i,'days after recalculation approval')
+        .replace(/dias\s+úteis\s+após\s+aprovação/i,'working days after approval');
+      _prazoEl.textContent=_ptxt;
+    }
+    // Forma de pagamento: "Boleto" → "Wire transfer / Boleto"
+    var _formaEl=document.getElementById('prop-forma-pgto');
+    if(_formaEl && /boleto/i.test(_formaEl.textContent||'')) _formaEl.textContent='Wire transfer';
+  }
   } // end if(!_isMulti) — single-door values
   // Logo no rodapé
   var headerLogo=document.querySelector('.header-brand img');

@@ -2251,19 +2251,19 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   <!-- INFO GRID -->
   <table style="width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:2px">
     <tr>
-      <td style="padding:3px 6px;border:1px solid #ccc;font-weight:700;width:11%;background:#f5f5f5">Obra:</td>
+      <td style="padding:3px 6px;border:1px solid #ccc;font-weight:700;width:11%;background:#f5f5f5" data-i18n="lbl-obra">Obra:</td>
       <td style="padding:3px 6px;border:1px solid #ccc;width:39%" id="prop-obra">—</td>
-      <td style="padding:3px 6px;border:1px solid #ccc;font-weight:700;width:11%;background:#f5f5f5">Reserva:</td>
+      <td style="padding:3px 6px;border:1px solid #ccc;font-weight:700;width:11%;background:#f5f5f5" data-i18n="lbl-reserva">Reserva:</td>
       <td style="padding:3px 6px;border:1px solid #ccc;width:39%" id="prop-reserva">—</td>
     </tr>
     <tr>
-      <td style="padding:3px 6px;border:1px solid #ccc;font-weight:700;background:#f5f5f5">Cliente:</td>
+      <td style="padding:3px 6px;border:1px solid #ccc;font-weight:700;background:#f5f5f5" data-i18n="lbl-cliente">Cliente:</td>
       <td style="padding:3px 6px;border:1px solid #ccc" colspan="3" id="prop-cliente">—</td>
     </tr>
     <tr>
-      <td style="padding:3px 6px;border:1px solid #ccc;font-weight:700;background:#f5f5f5">Cidade:</td>
+      <td style="padding:3px 6px;border:1px solid #ccc;font-weight:700;background:#f5f5f5" data-i18n="lbl-cidade">Cidade:</td>
       <td style="padding:3px 6px;border:1px solid #ccc" id="prop-cidade">—</td>
-      <td style="padding:3px 6px;border:1px solid #ccc;font-weight:700;background:#f5f5f5">Representante:</td>
+      <td style="padding:3px 6px;border:1px solid #ccc;font-weight:700;background:#f5f5f5" data-i18n="lbl-representante">Representante:</td>
       <td style="padding:3px 6px;border:1px solid #ccc" id="prop-representante">—</td>
     </tr>
   </table>
@@ -2272,7 +2272,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 
   <!-- BARRA VALIDADE -->
   <div style="display:flex;justify-content:flex-end;background:var(--navy);color:#fff;padding:4px 10px;border-radius:3px;font-size:10px;font-weight:700;margin-bottom:8px">
-    <span>Validade: <span id="prop-validade">15 dias úteis</span></span>
+    <span><span data-i18n="lbl-validade">Validade:</span> <span id="prop-validade">15 dias úteis</span></span>
   </div>
 
   <!-- BLOCOS POR PORTA (gerado dinamicamente) -->
@@ -2284,26 +2284,26 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <span id="prop-img-porta-ph" style="color:#aaa;font-size:9px;text-align:center">Imagem do<br>modelo</span>
     </div>
     <div style="flex:1">
-      <div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:4px;overflow:hidden">PORTA PROJETTA BY WEIKU <span id="prop-desc-extra" contenteditable="true" style="font-weight:800;color:var(--navy);outline:none;border-bottom:1px dashed #ccc;word-break:break-word;overflow-wrap:break-word;max-height:160px;overflow:hidden;display:inline" oninput="if(this.scrollHeight>160){this.textContent=this.textContent.substring(0,this.textContent.length-1);}"></span></div>
+      <div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:4px;overflow:hidden" data-i18n-prefix="titulo-porta">PORTA PROJETTA BY WEIKU <span id="prop-desc-extra" contenteditable="true" style="font-weight:800;color:var(--navy);outline:none;border-bottom:1px dashed #ccc;word-break:break-word;overflow-wrap:break-word;max-height:160px;overflow:hidden;display:inline" oninput="if(this.scrollHeight>160){this.textContent=this.textContent.substring(0,this.textContent.length-1);}"></span></div>
       <div style="display:flex;gap:20px;font-size:10.5px;margin-bottom:2px">
-        <span><strong>Qtd:</strong> <span id="prop-qtd">1</span></span>
-        <span><strong>L:</strong> <span id="prop-larg">—</span></span>
-        <span><strong>H:</strong> <span id="prop-alt">—</span></span>
+        <span><strong data-i18n="lbl-qtd">Qtd:</strong> <span id="prop-qtd">1</span></span>
+        <span><strong data-i18n="lbl-l">L:</strong> <span id="prop-larg">—</span></span>
+        <span><strong data-i18n="lbl-h">H:</strong> <span id="prop-alt">—</span></span>
       </div>
-      <div style="font-size:10.5px;margin-bottom:4px"><strong>Área Porta:</strong> <span id="prop-area">—</span>m²</div>
+      <div style="font-size:10.5px;margin-bottom:4px"><strong data-i18n="lbl-area">Área Porta:</strong> <span id="prop-area">—</span>m²</div>
       <div style="font-size:10px;color:#444;line-height:1.5" id="prop-specs">
-        <div><strong>SISTEMA</strong>: <span id="prop-sistema">—</span></div>
-        <div><strong>TIPO DE ABERTURA</strong>: <span id="prop-abertura">PIVOTANTE</span></div>
-        <div><strong>NUMERO DE FOLHAS</strong>: <span id="prop-folhas">—</span></div>
-        <div><strong>MODELO</strong>: <span id="prop-modelo">—</span></div>
-        <div><strong>FECHADURA MECÂNICA</strong>: <span id="prop-fech-mec">—</span></div>
-        <div id="prop-fech-dig-line"><strong>FECHADURA DIGITAL</strong>: <span id="prop-fech-dig">—</span></div>
-        <div><strong>PUXADOR</strong>: <span id="prop-puxador">—</span></div>
-        <div id="prop-pux-tam-line" style="display:none"><strong>TAMANHO PUXADOR EXTERNO</strong>: <span id="prop-pux-tam">—</span></div>
-        <div><strong>COR CHAPA EXTERNA</strong>: <span id="prop-cor-ext">—</span></div>
-        <div><strong>COR CHAPA INTERNA</strong>: <span id="prop-cor-int">—</span></div>
-        <div id="prop-cilindro-line"><strong>CILINDRO</strong>: <span id="prop-cilindro">—</span></div>
-        <div id="prop-alisar-line"><strong>ALISAR</strong>: <span id="prop-alisar">—</span></div>
+        <div><strong data-i18n="spec-sistema">SISTEMA</strong>: <span id="prop-sistema">—</span></div>
+        <div><strong data-i18n="spec-abertura">TIPO DE ABERTURA</strong>: <span id="prop-abertura">PIVOTANTE</span></div>
+        <div><strong data-i18n="spec-folhas">NUMERO DE FOLHAS</strong>: <span id="prop-folhas">—</span></div>
+        <div><strong data-i18n="spec-modelo">MODELO</strong>: <span id="prop-modelo">—</span></div>
+        <div><strong data-i18n="spec-fech-mec">FECHADURA MECÂNICA</strong>: <span id="prop-fech-mec">—</span></div>
+        <div id="prop-fech-dig-line"><strong data-i18n="spec-fech-dig">FECHADURA DIGITAL</strong>: <span id="prop-fech-dig">—</span></div>
+        <div><strong data-i18n="spec-puxador">PUXADOR</strong>: <span id="prop-puxador">—</span></div>
+        <div id="prop-pux-tam-line" style="display:none"><strong data-i18n="spec-pux-tam">TAMANHO PUXADOR EXTERNO</strong>: <span id="prop-pux-tam">—</span></div>
+        <div><strong data-i18n="spec-cor-ext">COR CHAPA EXTERNA</strong>: <span id="prop-cor-ext">—</span></div>
+        <div><strong data-i18n="spec-cor-int">COR CHAPA INTERNA</strong>: <span id="prop-cor-int">—</span></div>
+        <div id="prop-cilindro-line"><strong data-i18n="spec-cilindro">CILINDRO</strong>: <span id="prop-cilindro">—</span></div>
+        <div id="prop-alisar-line"><strong data-i18n="spec-alisar">ALISAR</strong>: <span id="prop-alisar">—</span></div>
       </div>
     </div>
   </div>
@@ -2313,12 +2313,12 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   <table style="width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:4px">
     <thead>
     <tr style="background:#f0f0f0">
-      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:6%">Item</th>
-      <th style="padding:4px 8px;border:1px solid #ccc;text-align:left;width:28%">Descrição</th>
-      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:14%">Medidas</th>
-      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:6%">Qtd</th>
-      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:18%">Valor (un.)</th>
-      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:18%">Valor Total</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:6%" data-i18n="tbl-item">Item</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:left;width:28%" data-i18n="tbl-desc">Descrição</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:14%" data-i18n="tbl-med">Medidas</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:6%" data-i18n="tbl-qtd">Qtd</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:18%" data-i18n="tbl-val-un">Valor (un.)</th>
+      <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;width:18%" data-i18n="tbl-val-total">Valor Total</th>
     </tr>
     </thead>
     <tbody id="prop-items-tbody">
@@ -2338,31 +2338,39 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700" id="prop-valor-un-fech">—</td>
       <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700" id="prop-valor-total-fech">—</td>
     </tr>
+    <tr id="prop-row-inst" style="display:none">
+      <td style="padding:4px 8px;border:1px solid #ccc;text-align:center" id="prop-inst-num">03</td>
+      <td style="padding:4px 8px;border:1px solid #ccc" id="prop-nome-inst">INTERNATIONAL INSTALLATION</td>
+      <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">—</td>
+      <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">1</td>
+      <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700" id="prop-valor-un-inst">—</td>
+      <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700" id="prop-valor-total-inst">—</td>
+    </tr>
     </tbody>
   </table>
 
   <!-- TOTAIS -->
   <div style="display:flex;justify-content:space-between;border:2px solid var(--navy);padding:5px 10px;font-size:11px;font-weight:700;margin-bottom:6px;border-radius:3px">
-    <span>Total Área Portas: <span id="prop-area-total">—</span> m²</span>
-    <span>Total Orçamento: <span style="color:var(--navy);font-size:13px" id="prop-total-orc">—</span></span>
+    <span><span data-i18n="lbl-total-area">Total Área Portas:</span> <span id="prop-area-total">—</span> m²</span>
+    <span><span data-i18n="lbl-total-orc">Total Orçamento:</span> <span style="color:var(--navy);font-size:13px" id="prop-total-orc">—</span></span>
   </div>
 
   <!-- OBSERVAÇÕES -->
   <div style="border:1px solid #ccc;padding:6px 10px;border-radius:3px;margin-bottom:6px;font-size:9.5px;line-height:1.5">
-    <div style="font-weight:700;margin-bottom:2px">Observações:</div>
-    <div>- Chapa 4 mm com pintura Kynar - 15 anos pró-rata</div>
-    <div>- Fechaduras de segurança KESO</div>
-    <div>- Pivô em aço inox 304 / 316 L</div>
-    <div>- Vedação da porta automática superior e inferior</div>
-    <div>- Vedação dupla (folha e batente) por Q-LON</div>
-    <div style="margin-top:3px;font-weight:700">*** INCLUSO FRETE E INSTALAÇÃO</div>
+    <div style="font-weight:700;margin-bottom:2px" data-i18n="lbl-obs">Observações:</div>
+    <div data-i18n="obs-1">- Chapa 4 mm com pintura Kynar - 15 anos pró-rata</div>
+    <div data-i18n="obs-2">- Fechaduras de segurança KESO</div>
+    <div data-i18n="obs-3">- Pivô em aço inox 304 / 316 L</div>
+    <div data-i18n="obs-4">- Vedação da porta automática superior e inferior</div>
+    <div data-i18n="obs-5">- Vedação dupla (folha e batente) por Q-LON</div>
+    <div style="margin-top:3px;font-weight:700" data-i18n="obs-frete">*** INCLUSO FRETE E INSTALAÇÃO</div>
   </div>
 
   <!-- CONDIÇÕES -->
   <div style="font-size:10px;line-height:1.5;margin-bottom:6px">
-    <div><strong>Condições de Pagamento:</strong> <span id="prop-cond-pgto">6X</span></div>
-    <div><strong>Forma de Pagamento:</strong> <span id="prop-forma-pgto">Boleto</span></div>
-    <div><strong>Prazo de Entrega:</strong> <span id="prop-prazo">90 dias após aprovação do recálculo.</span></div>
+    <div><strong data-i18n="lbl-cond-pgto">Condições de Pagamento:</strong> <span id="prop-cond-pgto">6X</span></div>
+    <div><strong data-i18n="lbl-forma-pgto">Forma de Pagamento:</strong> <span id="prop-forma-pgto">Boleto</span></div>
+    <div><strong data-i18n="lbl-prazo">Prazo de Entrega:</strong> <span id="prop-prazo">90 dias após aprovação do recálculo.</span></div>
   </div>
 
   <!-- ASSINATURAS com espaço -->
