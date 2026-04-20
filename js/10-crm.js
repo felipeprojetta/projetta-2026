@@ -2485,6 +2485,18 @@ window.crmDeleteRevision=function(cardId,revIndex){
    ═════════════════════════════════════════════════════════════════════ */
 window.crmTrocarOpcao=function(cardId, opcaoId){
   if(!window.OrcamentoOpcoes) return;
+
+  // ★ CRÍTICO (Felipe 20/04): antes de trocar, PERSISTIR o estado atual
+  //   do form (itens editados mas não salvos) na opção CURRENT — senão
+  //   edições somem ou vazam pra opção destino. O crmSaveOpp salva TUDO
+  //   do modal (incluindo itens via _crmItensToCardData) e roda cSave,
+  //   que chama OrcamentoOpcoes.persistir automaticamente.
+  try {
+    if(typeof crmSaveOpp === 'function' && _editId === cardId){
+      crmSaveOpp();
+    }
+  } catch(e){ console.warn('[crmTrocarOpcao] save-before-switch falhou:', e); }
+
   var data=cLoad();
   var idx=data.findIndex(function(o){return o.id===cardId;});
   if(idx<0) return;

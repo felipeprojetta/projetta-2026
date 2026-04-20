@@ -53,7 +53,16 @@
 (function(){
   'use strict';
 
-  var VERSION = '1.0';
+  var VERSION = '1.1';
+
+  // Campos derivados dos itens (primeiro item) que precisam ser espelhados
+  // no nível do card pra compatibilidade com leitores legados (proposta,
+  // planificador, etc). Cada opção tem seus PRÓPRIOS valores desses campos.
+  // Quando troca de opção, esses campos são re-espelhados pro card.
+  var ITEM_DERIVED_FIELDS = [
+    'largura','altura','modelo','abertura','folhas',
+    'cor_ext','cor_int','cor_macico','moldura_rev'
+  ];
 
   // ───────────────────────────────────────────────────────────────
   // Gerador de IDs sequenciais: opt1, opt2, opt3...
@@ -80,17 +89,34 @@
       var idOk = card.opcaoAtivaId &&
                  card.opcoes.some(function(o){return o.id===card.opcaoAtivaId;});
       if(!idOk) card.opcaoAtivaId = card.opcoes[0].id;
+
+      // Backfill: se a opção ativa ainda não tem itens próprios mas o card
+      // sim (primeira migração do schema v1.0 → v1.1), copiar do card pra
+      // opção. Cards que NÃO passaram por esse backfill vão ter todos os
+      // itens sincronizados com a opção ativa — preservando dados existentes.
+      var atual = ativa(card);
+      if(atual && !Array.isArray(atual.itens) && Array.isArray(card.itens)){
+        atual.itens = card.itens;
+        ITEM_DERIVED_FIELDS.forEach(function(f){
+          if(card[f] !== undefined && atual[f] === undefined) atual[f] = card[f];
+        });
+      }
       sincronizar(card);
       return card;
     }
 
-    // Caminho B: card legado — wrap card.revisoes em opt1
-    card.opcoes = [{
+    // Caminho B: card legado — wrap em opt1 com itens + campos derivados
+    var opt1 = {
       id:       'opt1',
       label:    'Opção 1',
       revisoes: Array.isArray(card.revisoes) ? card.revisoes : [],
+      itens:    Array.isArray(card.itens) ? card.itens : [],
       criadoEm: card.createdAt || new Date().toISOString()
-    }];
+    };
+    ITEM_DERIVED_FIELDS.forEach(function(f){
+      if(card[f] !== undefined) opt1[f] = card[f];
+    });
+    card.opcoes = [opt1];
     card.opcaoAtivaId = 'opt1';
     sincronizar(card);
     return card;
@@ -109,27 +135,39 @@
   }
 
   // ───────────────────────────────────────────────────────────────
-  // sincronizar: card.revisoes APONTA (por referência) pro array da
-  // opção ativa. Mutações em card.revisoes são mutações na opção.
+  // sincronizar: card.revisoes e card.itens APONTAM (por referência)
+  // pros arrays da opção ativa. Mutações via card.* = mutações na opção.
+  // Campos derivados (modelo, largura, etc) são COPIADOS pro card pra
+  // leitores legados enxergarem o valor da opção ativa.
   // ───────────────────────────────────────────────────────────────
   function sincronizar(card){
     var a = ativa(card);
     if(a){
       if(!Array.isArray(a.revisoes)) a.revisoes = [];
+      if(!Array.isArray(a.itens))    a.itens    = [];
       card.revisoes = a.revisoes;
+      card.itens    = a.itens;
+      // Espelha campos derivados pra o card (leitores legados)
+      ITEM_DERIVED_FIELDS.forEach(function(f){
+        card[f] = (a[f] !== undefined) ? a[f] : '';
+      });
     }
     return card;
   }
 
   // ───────────────────────────────────────────────────────────────
-  // persistir: antes de serializar, garante que opcoes[ativa].revisoes
-  // contém o conteúdo de card.revisoes. Necessário quando alguém
-  // REATRIBUI card.revisoes = [...] (quebra a referência compartilhada).
+  // persistir: antes de serializar, puxa card.revisoes, card.itens e
+  // campos derivados pra opção ativa. Necessário se alguém reatribuiu
+  // card.* = [...] em vez de mutar a referência.
   // ───────────────────────────────────────────────────────────────
   function persistir(card){
     var a = ativa(card);
-    if(a && Array.isArray(card.revisoes)){
-      a.revisoes = card.revisoes;
+    if(a){
+      if(Array.isArray(card.revisoes)) a.revisoes = card.revisoes;
+      if(Array.isArray(card.itens))    a.itens    = card.itens;
+      ITEM_DERIVED_FIELDS.forEach(function(f){
+        if(card[f] !== undefined) a[f] = card[f];
+      });
     }
     return card;
   }
@@ -184,12 +222,34 @@
       revs.push(nv);
     }
 
+    // ★ CRÍTICO (Felipe 20/04 — bug "editei Opção 2, alterou Opção 1"):
+    //   DEEP-CLONE dos itens da opção origem. Sem isso, a nova opção
+    //   compartilharia a MESMA REFERÊNCIA de array com a origem, e toda
+    //   edição na Opção 2 refletiria na Opção 1 (e vice-versa).
+    //   Novo ID por item evita conflito de DOM quando se abre o modal.
+    var clonedItens = [];
+    if(atual && Array.isArray(atual.itens) && atual.itens.length){
+      clonedItens = JSON.parse(JSON.stringify(atual.itens));
+      clonedItens.forEach(function(it){
+        if(it && typeof it === 'object'){
+          it.id = 'it-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+        }
+      });
+    }
+
     var nova = {
       id:       novoId,
       label:    lbl,
       revisoes: revs,
+      itens:    clonedItens,
       criadoEm: new Date().toISOString()
     };
+    // Copia campos derivados da origem pra nova opção
+    ITEM_DERIVED_FIELDS.forEach(function(f){
+      if(atual && atual[f] !== undefined) nova[f] = atual[f];
+      else if(card[f] !== undefined) nova[f] = card[f];
+    });
+
     card.opcoes.push(nova);
     card.opcaoAtivaId = novoId;
     sincronizar(card);
