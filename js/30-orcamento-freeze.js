@@ -547,36 +547,54 @@
     // 1) Restaurar globals PRIMEIRO (pra funções que dependem deles funcionarem)
     _restoreGlobals(pacote.globals);
 
-    // 2) Restaurar blocos dinâmicos (recria DOM)
-    _restoreDynBlocks(pacote.dynBlocks);
-
-    // 3) Restaurar inputs (precisa dos blocos já criados)
+    // ★ 2) Restaurar INPUTS ANTES dos blocos dinâmicos (ORDEM CRÍTICA).
+    //     Bug descoberto: antes eu restaurava blocos dinâmicos primeiro → ao
+    //     setar selectedIndex do select ACM, as options do select ainda
+    //     estavam filtradas pra outro tamanho de chapa (default 1500×7000).
+    //     O selectedIndex apontava pra posição errada (ex: salvo 1500×5000
+    //     R$ 1.214,24, mas options só tinham 1500×7000 R$ 1.699,94).
+    //     Agora: restaurar plan-chapa/plan-chapa-larg/plan-chapa-alt/aprov-chapa*
+    //     PRIMEIRO, depois refiltrar ACM options, depois criar blocos.
     _restoreInputs(pacote.inputs);
 
-    // 4) Restaurar HTMLs gerados das abas
+    // ★ 3) Refiltrar options do ACM com o tamanho de chapa correto.
+    //     plan-chapa foi restaurado no passo 2 com valor "1500|5000" por ex.
+    //     filtrarChapasACM lê plan-chapa + plan-chapa-larg/alt e repopula
+    //     os selects de todos os blocos ACM com as chapas daquele tamanho.
+    //     Sem isso, selectedIndex posterior aponta pra option errada.
+    try {
+      if(typeof window.filtrarChapasACM === 'function') window.filtrarChapasACM();
+    } catch(e){ console.warn('[Freeze] filtrarChapasACM falhou:', e); }
+
+    // 4) Restaurar blocos dinâmicos (recria DOM + aplica selectedIndex).
+    //    Agora as options já estão filtradas pelo tamanho correto →
+    //    selectedIndex e fallback por texto funcionam certinho.
+    _restoreDynBlocks(pacote.dynBlocks);
+
+    // 5) Restaurar HTMLs gerados das abas (tabelas, proposta, canvas)
     _restoreHTMLs(pacote.htmls);
 
-    // 5) Aplicar handlers de show/hide baseados em inputs restaurados
+    // 6) Aplicar handlers de show/hide baseados em inputs restaurados
     //    (toggleInstQuem mostra/esconde bloco PROJETTA/TERCEIROS/INTERNACIONAL)
     try { if(typeof window.toggleInstQuem === 'function') window.toggleInstQuem(); } catch(e){}
     try { if(typeof window.toggleFixosVisibility === 'function') window.toggleFixosVisibility(); } catch(e){}
 
-    // 6) Restaurar displaySnap (spans formatados com R$) — POR ÚLTIMO
+    // 7) Restaurar displaySnap (spans formatados com R$) — POR ÚLTIMO
     if(pacote.display && typeof window._restoreSnapshotDisplay === 'function'){
       try { window._restoreSnapshotDisplay(pacote.display); }
       catch(e){ console.warn('[Freeze] _restoreSnapshotDisplay falhou:', e); }
     }
 
-    // 7) Re-renderizar painéis multi-cor (sem recalcular bin-packing)
+    // 8) Re-renderizar painéis multi-cor (sem recalcular bin-packing)
     try {
       if(typeof window._plnRenderColorTabs === 'function') window._plnRenderColorTabs();
       if(typeof window._plnRenderCoresPainel === 'function') window._plnRenderCoresPainel();
     } catch(e){}
 
-    // 8) Travar form em somente-leitura + banner amarelo
+    // 9) Travar form em somente-leitura + banner amarelo
     _aplicarReadOnly(true, card.cliente || '—', rev.label || ('Revisão '+revNum), rev.data || pacote.capturadoEm);
 
-    // 9) Marcar ID da revisão atual pra "Nova Revisão" saber de qual duplicar
+    // 10) Marcar ID da revisão atual pra "Nova Revisão" saber de qual duplicar
     window._freezeOpen = { cardId: cardId, revNum: revNum };
 
     console.log('[Freeze] ✅ Revisão carregada no orçamento — '+rev.label);
