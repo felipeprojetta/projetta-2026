@@ -399,8 +399,32 @@
   // ───────────────────────────────────────────────────────────────
   // SUPABASE — tabela configuracoes (chave/valor JSON)
   // ───────────────────────────────────────────────────────────────
-  function _chaveDoFreeze(cardId, revNum){
+  function _chaveDoFreeze(cardId, opcaoId, revNum){
+    // Back-compat: se chamado com 2 args (cardId, revNum) sem opcaoId,
+    // assume opt1 (formato antigo).
+    if(typeof opcaoId === 'number' && typeof revNum === 'undefined'){
+      revNum = opcaoId;
+      opcaoId = 'opt1';
+    }
+    if(window.OrcamentoOpcoes && typeof window.OrcamentoOpcoes.freezeKey === 'function'){
+      return window.OrcamentoOpcoes.freezeKey(cardId, opcaoId||'opt1', revNum);
+    }
     return 'freeze_'+cardId+'_rev'+revNum;
+  }
+
+  // Descobre a opção ativa do card lendo projetta_crm_v1.
+  // Retorna 'opt1' como fallback (cards legados / sem opções).
+  function _opcaoAtivaDoCard(cardId){
+    try {
+      var data = JSON.parse(localStorage.getItem('projetta_crm_v1') || '[]');
+      var card = data.find(function(o){ return o.id===cardId; });
+      if(!card) return 'opt1';
+      if(window.OrcamentoOpcoes && typeof window.OrcamentoOpcoes.migrar === 'function'){
+        window.OrcamentoOpcoes.migrar(card);
+        return card.opcaoAtivaId || 'opt1';
+      }
+      return 'opt1';
+    } catch(e){ return 'opt1'; }
   }
 
   function _uploadFreeze(chave, pacote){
@@ -466,6 +490,52 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // duplicarFreeze: copia o pacote salvo em `chaveOrigem` para
+  // `chaveDestino`. Usado ao criar uma nova Opção a partir de outra
+  // (Felipe: "criar nova opção duplica a anterior como base").
+  //
+  // Tenta localStorage primeiro (rápido), cai em Supabase se não tem
+  // local. Grava no destino em Supabase + localStorage (best-effort).
+  // ═══════════════════════════════════════════════════════════════
+  async function duplicarFreeze(chaveOrigem, chaveDestino, novoCardId, novoRevNum, novoOpcaoId){
+    if(!chaveOrigem || !chaveDestino) throw new Error('chaves origem/destino obrigatórias');
+    if(chaveOrigem === chaveDestino) throw new Error('chaves origem e destino iguais');
+
+    // 1) Buscar pacote origem
+    var pacote = null;
+    try {
+      var local = localStorage.getItem(chaveOrigem);
+      if(local){
+        pacote = JSON.parse(local);
+        console.log('[Freeze] 📦 Duplicando de localStorage: '+chaveOrigem);
+      }
+    } catch(e){}
+    if(!pacote){
+      pacote = await _downloadFreeze(chaveOrigem);
+      console.log('[Freeze] 📦 Duplicando de Supabase: '+chaveOrigem);
+    }
+    if(!pacote || pacote.version !== '1.0') throw new Error('Pacote origem inválido');
+
+    // 2) Ajustar metadados do pacote pro destino
+    pacote.cardId      = novoCardId || pacote.cardId;
+    pacote.revNum      = (typeof novoRevNum === 'number') ? novoRevNum : 0;
+    pacote.opcaoId     = novoOpcaoId || pacote.opcaoId || 'opt1';
+    pacote.revLabel    = 'Original';
+    pacote.capturadoEm = new Date().toISOString();
+    pacote.duplicadoDe = chaveOrigem;
+
+    // 3) Gravar no destino — Supabase primário
+    await _uploadFreeze(chaveDestino, pacote);
+    console.log('[Freeze] ☁️ Duplicado pra Supabase: '+chaveDestino);
+
+    // 4) Backup em localStorage (best-effort, não quebra se quota)
+    try { localStorage.setItem(chaveDestino, JSON.stringify(pacote)); }
+    catch(e){ console.warn('[Freeze] Duplicado local falhou (quota):', e.message); }
+
+    return { chave: chaveDestino, origem: chaveOrigem };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // API: capturarCompleto
   // ═══════════════════════════════════════════════════════════════
   //
@@ -507,7 +577,9 @@
       (pacote.htmls.planTabelas?'plan✓ ':'')+
       (pacote.htmls.planCanvas?'canvas✓':''));
 
-    var chave = _chaveDoFreeze(cardId, revNum);
+    var opcaoId = _opcaoAtivaDoCard(cardId);
+    var chave   = _chaveDoFreeze(cardId, opcaoId, revNum);
+    pacote.opcaoId = opcaoId;
 
     // ═══════════════════════════════════════════════════════════════
     // ARQUITETURA v1.2 (20/04/2026 tarde — Supabase voltou saudável):
@@ -573,7 +645,10 @@
         var CK = 'projetta_crm_v1';
         var data = JSON.parse(localStorage.getItem(CK) || '[]');
         var ci = data.findIndex(function(o){ return o.id === cardId; });
-        if(ci < 0 || !data[ci].revisoes || !data[ci].revisoes[revNum]) return false;
+        if(ci < 0) return false;
+        // Garante estrutura opcoes[] e card.revisoes apontando pra ativa.
+        if(window.OrcamentoOpcoes) window.OrcamentoOpcoes.migrar(data[ci]);
+        if(!data[ci].revisoes || !data[ci].revisoes[revNum]) return false;
         if(data[ci].revisoes[revNum].freezeKey === chave) return true;
         data[ci].revisoes[revNum].freezeKey     = chave;
         data[ci].revisoes[revNum].freezeDate    = new Date().toISOString();
@@ -582,6 +657,8 @@
           try { window.cSave(data); return true; }
           catch(e){}
         }
+        // Fallback direto: precisa persistir opcoes[ativa].revisoes ← card.revisoes
+        if(window.OrcamentoOpcoes) window.OrcamentoOpcoes.persistir(data[ci]);
         localStorage.setItem(CK, JSON.stringify(data));
         return true;
       } catch(e){ return false; }
@@ -628,6 +705,8 @@
     var data = JSON.parse(localStorage.getItem('projetta_crm_v1') || '[]');
     var card = data.find(function(o){ return o.id === cardId; });
     if(!card) throw new Error('Card não encontrado');
+    // Garante estrutura opcoes[] e card.revisoes apontando pra opção ativa.
+    if(window.OrcamentoOpcoes) window.OrcamentoOpcoes.migrar(card);
     if(!card.revisoes || !card.revisoes[revNum]) throw new Error('Revisão não encontrada');
     var rev = card.revisoes[revNum];
     var chave = rev.freezeKey;
@@ -880,7 +959,8 @@
     abrir:    abrirRevisao,
     destravar: function(){ _aplicarReadOnly(false); },
     voltarAoCrm: _voltarAoCrm,
-    novaRevisao: _novaRevisao
+    novaRevisao: _novaRevisao,
+    duplicar: duplicarFreeze
   };
 
   console.log('[OrcamentoFreeze] v1.0 carregado');

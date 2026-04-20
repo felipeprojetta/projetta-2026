@@ -46,9 +46,29 @@ function gWReps(){var s=gS();return(s.wreps||[]).length?s.wreps:D_WREPS;}
 var D_WREPS=['Adalberto Fanderuff','Adriana Karen de Souza','Adriano Dorigon','Alessandra R. Wihby (MT_ARWC)','Ampliar GO','Camila Vitorassi Preve','Carina Ap. Kazahaya (KAR)','Centenário SP','CRJ','D&A','Diego Luiz Frigeri (Solaris)','Dion Lenon Hernandes','Ericson Venancio dos Santos','Felipe Xavier','Gervásio Santa Rosa','Gustavo Guarenghi (Qualitá 4)','Igor Lopes de Almeida (Lidere MT)','Emily Rocha (Qualitá 3)','João de Lara (Qualitá 5)','Jhonathan S. Matos (Central Coberturas)','Julia Lemes','Leonardo Guarenghi','Luana F. Silveira','Luciane C. de Grabalos (Euro)','Luiz Fernando Starke','Luiz Severino Moretto','Marcelo Abarca de Oliveira','Márcio Daniel Gnigler (MDG)','Nelson E. Colantuano','Primeira Linha MS','Rafael C. Jung Sperotto (Fazsol)','Rodrigo Aguiar Diniz','Ronei de Jesus Lyra','Rosa Madeiras Limeira','Rubens A. Grando Postali (Elo Forte)','Simone Fraga / Deise (Tuti)','Thays (Comercial)'];
 
 /* ── CRM Data ────────────────────────────────────── */
-function cLoad(){try{return JSON.parse(localStorage.getItem(CK))||[];}catch(e){return[];}}
+function cLoad(){
+  try{
+    var data = JSON.parse(localStorage.getItem(CK))||[];
+    // Migração silenciosa p/ estrutura opcoes[]. Idempotente, não-destrutiva.
+    // Cards sem opcoes[] ganham opt1 contendo suas revisoes atuais.
+    if(window.OrcamentoOpcoes){
+      for(var i=0;i<data.length;i++){
+        try{ window.OrcamentoOpcoes.migrar(data[i]); }catch(e){}
+      }
+    }
+    return data;
+  }catch(e){ return []; }
+}
 function cSave(d){
   try{
+    // Antes de serializar: garante que opcoes[ativa].revisoes contém
+    // o conteúdo atual de card.revisoes (caso alguém tenha feito
+    // reatribuição total ao invés de push/splice na referência).
+    if(window.OrcamentoOpcoes && Array.isArray(d)){
+      for(var pi=0;pi<d.length;pi++){
+        try{ window.OrcamentoOpcoes.persistir(d[pi]); }catch(e){}
+      }
+    }
     localStorage.setItem(CK,JSON.stringify(d));
   }catch(e){
     // localStorage full — try removing attachment data to free space
@@ -728,9 +748,40 @@ window.crmOpenModal=function(defaultStage,editId){
     var revSec=el('crm-revisoes-section');
     var revList=el('crm-revisoes-list');
     if(revSec&&revList){
+      // ═══ Abas de Opções (Opção 1 | Opção 2 | +) ═══════════════════════
+      // Cada card pode ter múltiplas opções (ex: cliente quer cotar dois
+      // modelos). Cada opção tem seu próprio histórico de revisões.
+      var opcoes = opp.opcoes || [];
+      var ativaId = opp.opcaoAtivaId;
+      var temMultiplasOpcoes = opcoes.length > 1;
+      revSec.style.display='block';
+
+      var ah = '<div id="crm-opcoes-tabs" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border-light)">';
+      opcoes.forEach(function(opc){
+        var isAtiva = opc.id === ativaId;
+        var nRevs   = (opc.revisoes||[]).length;
+        var bg      = isAtiva ? '#003144' : '#f0f0f0';
+        var fg      = isAtiva ? '#fff'    : '#555';
+        var borda   = isAtiva ? '2px solid #003144' : '2px solid transparent';
+        ah += '<button onclick="crmTrocarOpcao(\''+editId+'\',\''+opc.id+'\')" ' +
+              'ondblclick="crmRenomearOpcao(\''+editId+'\',\''+opc.id+'\')" ' +
+              'title="Clique pra trocar. Duplo-clique pra renomear." ' +
+              'style="padding:6px 12px;border-radius:8px 8px 0 0;background:'+bg+';color:'+fg+';border:none;border-bottom:'+borda+';font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">' +
+              escH(opc.label) +
+              '<span style="opacity:.7;font-weight:500;margin-left:4px">('+nRevs+')</span>';
+        if(isAtiva && temMultiplasOpcoes){
+          ah += ' <span onclick="event.stopPropagation();crmRemoverOpcao(\''+editId+'\',\''+opc.id+'\')" title="Remover opção" style="margin-left:6px;opacity:.7;cursor:pointer">✕</span>';
+        }
+        ah += '</button>';
+      });
+      ah += '<button onclick="crmNovaOpcao(\''+editId+'\')" ' +
+            'title="Criar nova opção duplicando a atual" ' +
+            'style="padding:6px 12px;border-radius:8px;background:#27ae60;color:#fff;border:none;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;margin-left:4px">➕ Nova opção</button>';
+      ah += '</div>';
+
       if(opp.revisoes&&opp.revisoes.length>0){
-        revSec.style.display='block';
-        var rh='<table style="width:100%;border-collapse:collapse;font-size:13px">';
+        var rh = ah;
+        rh+='<table style="width:100%;border-collapse:collapse;font-size:13px">';
         rh+='<tr style="border-bottom:2px solid var(--border-light)"><th style="padding:8px 10px;text-align:left;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Rev</th><th style="padding:8px 10px;text-align:left;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Data</th><th style="padding:8px 10px;text-align:right;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Tabela</th><th style="padding:8px 10px;text-align:right;color:var(--hint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">Faturamento</th><th style="width:40px"></th></tr>';
         opp.revisoes.forEach(function(rv,ri){
           var isLast=ri===opp.revisoes.length-1;
@@ -767,8 +818,11 @@ window.crmOpenModal=function(defaultStage,editId){
         rh+='</div>';
         revList.innerHTML=rh;
       } else {
-        revSec.style.display='none';
-        revList.innerHTML='';
+        // Opção sem revisões ainda (ex.: opção recém criada sem duplicação bem-sucedida)
+        revList.innerHTML = ah +
+          '<div style="padding:16px 12px;background:#fff9e6;border:1px dashed #ffc107;border-radius:6px;font-size:12px;color:#7a5901">' +
+          'Esta opção ainda não tem revisões. Gere um orçamento e clique em "Orçamento Pronto" pra criar a primeira.' +
+          '</div>';
       }
     }
   } else {
@@ -2340,6 +2394,150 @@ window.crmDeleteRevision=function(cardId,revIndex){
     data[idx].valor=0;data[idx].valorTabela=0;data[idx].valorFaturamento=0;
   }
   data[idx].updatedAt=new Date().toISOString();
+  cSave(data);
+  crmOpenModal(null, cardId);
+};
+
+/* ═════════════════════════════════════════════════════════════════════
+   OPÇÕES MÚLTIPLAS POR CARD (v1.0)
+   API window.crmTrocarOpcao / crmNovaOpcao / crmRenomearOpcao / crmRemoverOpcao.
+   Depende de window.OrcamentoOpcoes (js/31-opcoes.js).
+   ═════════════════════════════════════════════════════════════════════ */
+window.crmTrocarOpcao=function(cardId, opcaoId){
+  if(!window.OrcamentoOpcoes) return;
+  var data=cLoad();
+  var idx=data.findIndex(function(o){return o.id===cardId;});
+  if(idx<0) return;
+  window.OrcamentoOpcoes.trocar(data[idx], opcaoId);
+  data[idx].updatedAt=new Date().toISOString();
+  // Reset do pipeline rev (última da opção nova)
+  if(data[idx].revisoes && data[idx].revisoes.length){
+    var last = data[idx].revisoes[data[idx].revisoes.length-1];
+    data[idx].valor           = last.valorFaturamento || last.valorTabela || 0;
+    data[idx].valorTabela     = last.valorTabela || 0;
+    data[idx].valorFaturamento= last.valorFaturamento || 0;
+    data[idx].revPipeline     = data[idx].revisoes.length-1;
+  }
+  cSave(data);
+  crmOpenModal(null, cardId);
+};
+
+window.crmNovaOpcao=function(cardId){
+  if(!window.OrcamentoOpcoes){ alert('Sistema de opções não carregado.'); return; }
+  var label = prompt('Nome da nova opção (ex.: "Modelo 23 Bronze"):', '');
+  if(label === null) return; // cancelou
+  label = (label||'').trim();
+
+  var data=cLoad();
+  var idx=data.findIndex(function(o){return o.id===cardId;});
+  if(idx<0) return;
+
+  // Guarda referência ao freeze origem ANTES de criar a nova opção
+  var origemOpcao = window.OrcamentoOpcoes.ativa(data[idx]);
+  var ultimaRevOrigem = origemOpcao && origemOpcao.revisoes && origemOpcao.revisoes.length
+                        ? origemOpcao.revisoes[origemOpcao.revisoes.length-1]
+                        : null;
+  var freezeKeyOrigem = ultimaRevOrigem ? ultimaRevOrigem.freezeKey : null;
+
+  var nova = window.OrcamentoOpcoes.novaOpcao(data[idx], label);
+  if(!nova){ alert('Falha ao criar opção.'); return; }
+
+  // Se a opção origem tinha um freeze, vamos duplicá-lo no Supabase pro
+  // novo freezeKey e gravar a chave na rev duplicada.
+  if(freezeKeyOrigem && nova.revisoes && nova.revisoes.length){
+    var revNova = nova.revisoes[0];
+    var novoFreezeKey = window.OrcamentoOpcoes.freezeKey(cardId, nova.id, 0);
+
+    // Persiste o card primeiro com a rev sem freezeKey (estado válido)
+    cSave(data);
+    crmOpenModal(null, cardId);
+
+    // Toast de progresso
+    var tst = document.createElement('div');
+    tst.style.cssText='position:fixed;top:20px;right:20px;background:#003144;color:#fff;padding:12px 18px;border-radius:12px;font-size:12px;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+    tst.textContent='📦 Duplicando orçamento pra '+nova.label+'...';
+    document.body.appendChild(tst);
+
+    if(window.OrcamentoFreeze && typeof window.OrcamentoFreeze.duplicar === 'function'){
+      window.OrcamentoFreeze.duplicar(freezeKeyOrigem, novoFreezeKey, cardId, 0, nova.id)
+        .then(function(){
+          // Grava freezeKey na rev da nova opção
+          var d2=cLoad();
+          var i2=d2.findIndex(function(o){return o.id===cardId;});
+          if(i2>=0){
+            var opNv = window.OrcamentoOpcoes.ativa(d2[i2]);
+            if(opNv && opNv.revisoes && opNv.revisoes[0]){
+              opNv.revisoes[0].freezeKey     = novoFreezeKey;
+              opNv.revisoes[0].freezeDate    = new Date().toISOString();
+              opNv.revisoes[0].freezeVersion = '1.0';
+              cSave(d2);
+            }
+          }
+          tst.style.background='#27ae60';
+          tst.textContent='✅ '+nova.label+' criada';
+          setTimeout(function(){ tst.remove(); crmOpenModal(null, cardId); }, 1500);
+        })
+        .catch(function(err){
+          console.error('[crmNovaOpcao] duplicar freeze falhou:', err);
+          tst.style.background='#c0392b';
+          tst.textContent='⚠ Duplicação do orçamento falhou: '+(err.message||err)+'. A opção foi criada vazia.';
+          setTimeout(function(){ tst.remove(); }, 6000);
+          // Remove a rev placeholder (sem freezeKey) pra evitar duplo-clique quebrado
+          var d3=cLoad();
+          var i3=d3.findIndex(function(o){return o.id===cardId;});
+          if(i3>=0){
+            var opNv2 = window.OrcamentoOpcoes.ativa(d3[i3]);
+            if(opNv2 && opNv2.revisoes) opNv2.revisoes.length = 0;
+            cSave(d3);
+            crmOpenModal(null, cardId);
+          }
+        });
+    } else {
+      tst.remove();
+      alert('Sistema OrcamentoFreeze não disponível — opção criada vazia.');
+    }
+  } else {
+    // Nenhum freeze origem (opção origem sem revisões) → cria opção vazia
+    cSave(data);
+    crmOpenModal(null, cardId);
+  }
+};
+
+window.crmRenomearOpcao=function(cardId, opcaoId){
+  if(!window.OrcamentoOpcoes) return;
+  var data=cLoad();
+  var idx=data.findIndex(function(o){return o.id===cardId;});
+  if(idx<0) return;
+  var opc = (data[idx].opcoes||[]).find(function(o){return o.id===opcaoId;});
+  if(!opc) return;
+  var novo = prompt('Novo nome da opção:', opc.label || '');
+  if(novo === null) return;
+  novo = (novo||'').trim();
+  if(!novo) return;
+  opc.label = novo;
+  data[idx].updatedAt = new Date().toISOString();
+  cSave(data);
+  crmOpenModal(null, cardId);
+};
+
+window.crmRemoverOpcao=function(cardId, opcaoId){
+  if(!window.OrcamentoOpcoes) return;
+  var data=cLoad();
+  var idx=data.findIndex(function(o){return o.id===cardId;});
+  if(idx<0) return;
+  if(!data[idx].opcoes || data[idx].opcoes.length <= 1){
+    alert('Não é possível remover a única opção do card.');
+    return;
+  }
+  var opc = data[idx].opcoes.find(function(o){return o.id===opcaoId;});
+  if(!opc) return;
+  var nRevs = (opc.revisoes||[]).length;
+  var msg = 'Remover "'+(opc.label||opcaoId)+'"'+(nRevs?' ('+nRevs+' revisão/revisões)':'')+'?\n\n'+
+            'Os freezes no Supabase/localStorage NÃO serão apagados (segurança) — ' +
+            'só a referência do card é removida.';
+  if(!confirm(msg)) return;
+  window.OrcamentoOpcoes.removerOpcao(data[idx], opcaoId);
+  data[idx].updatedAt = new Date().toISOString();
   cSave(data);
   crmOpenModal(null, cardId);
 };
