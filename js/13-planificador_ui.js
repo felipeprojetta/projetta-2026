@@ -1736,7 +1736,46 @@ function planRun() {
   var _aluRow=document.getElementById('plan-chapa-alu-row');
   if(_aluRow) _aluRow.style.display=hasALU?'':'none';
 
-  PLN_RES = piecesACM.length>0 ? plnMaxRects(piecesACM,SW,SH,layoutMode) : {numSheets:0,placed:[],failed:[],stats:[]};
+  // ★ ETAPA 1: AGRUPAR PEÇAS ACM POR COR ────────────────────────────────────
+  // Objetivo: cada cor precisa ser cortada em chapas separadas (impossível
+  // misturar BLACK com DARK GREY na mesma chapa).
+  //
+  // _cor vem populado em _mpCalcAllPiecesCombined() (js/18-auth.js):
+  //   - Para peças de superfície com cor EXT≠INT, há peças "EXT" com _cor=corExt
+  //     e "INT" com _cor=corInt (labels terminam em EXT/INT).
+  //   - Para peças de estrutura ou cor única, _cor=corExt.
+  //
+  // Quando só há 1 cor (ou single-door sem _cor), comportamento é idêntico ao
+  // antigo: 1 único grupo ACM.
+  var _acmByColor = {};
+  for(var pci=0; pci<piecesACM.length; pci++){
+    var _p = piecesACM[pci];
+    var _corKey = (_p._cor || '').toString().trim().toUpperCase() || 'SEM COR';
+    if(!_acmByColor[_corKey]) _acmByColor[_corKey] = [];
+    _acmByColor[_corKey].push(_p);
+  }
+  var _colorKeys = Object.keys(_acmByColor);
+  // Ordem determinística: cor com mais peças primeiro, depois alfabética
+  _colorKeys.sort(function(a,b){
+    var da=_acmByColor[a].length, db=_acmByColor[b].length;
+    if(da!==db) return db-da;
+    return a.localeCompare(b);
+  });
+  // Rodar bin-packing separado POR COR
+  var _resByColor = {};
+  for(var ki=0; ki<_colorKeys.length; ki++){
+    var _ck = _colorKeys[ki];
+    _resByColor[_ck] = plnMaxRects(_acmByColor[_ck], SW, SH, layoutMode);
+  }
+  // Expor globalmente para Etapa 2 (UI de tabs) e Etapa 3/4 (aproveitamento + OS)
+  window._PLN_RES_BY_COLOR = _resByColor;
+  window._PLN_COLOR_KEYS = _colorKeys;
+  window._PLN_ACTIVE_COLOR = _colorKeys[0] || null;
+
+  // COMPAT: PLN_RES aponta para a primeira cor (para não quebrar código existente
+  // que acessa PLN_RES.placed, PLN_RES.stats, PLN_RES.numSheets diretamente).
+  // Nas Etapas 2+ a UI vai trocar dinamicamente qual cor está ativa.
+  PLN_RES = _colorKeys.length>0 ? _resByColor[_colorKeys[0]] : {numSheets:0,placed:[],failed:[],stats:[]};
   PLN_CSI=0;
 
   // ── Nesting ALU (se houver) — usa tamanho de chapa ALU separado ──────────
