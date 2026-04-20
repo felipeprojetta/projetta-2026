@@ -653,6 +653,17 @@ function _restoreSnapshotDisplay(snap){
     if(roI) roI.textContent=snap.chapaCorLabel.split('·')[0].trim();
     if(roV) roV.textContent=snap.subAcm||'';
   }
+
+  // ★ Propagar valores restaurados pro painel "Resumo da Obra" (ro-custo-total,
+  //   ro-tab, ro-fat, ro-perfis-val, ro-mo-val, ro-inst-val, ro-acess-val, etc).
+  //   Sem isso esses campos ficam STALE com valores de outro orçamento/cálculo.
+  //   Bug Felipe 20/04: "custo fabricacao do campo de cima nao somou certo" —
+  //   m-custo restaurava certo (R$74k) mas ro-custo-total ficava travado em
+  //   valor antigo (R$57k). _updateResumoObra copia m-custo → ro-custo-total
+  //   e recalcula os outros campos a partir dos spans sub-* e globals restaurados.
+  try {
+    if(typeof _updateResumoObra === 'function') _updateResumoObra();
+  } catch(e){ console.warn('[history] _updateResumoObra falhou:', e); }
 }
 
 
