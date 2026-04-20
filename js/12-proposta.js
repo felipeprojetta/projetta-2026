@@ -2097,19 +2097,17 @@ function _syncChapaToOrc(){
     // pra ter a lista de options disponíveis filtrada pelo tamanho.
     var _refSel = document.getElementById('acm-sel-1') || acmSel;
 
-    var _findOption = function(corLabel){
-      if(!corLabel || !_refSel || !_refSel.options) return null;
+    // ★ CRÍTICO: o atributo value do <option> NÃO é único — todas as cores
+    //   de um mesmo grupo (ex: KYNAR 4300) têm "preco|area" IGUAL. Então
+    //   setar .value='1214.24|7.5' seleciona sempre a PRIMEIRA option com
+    //   esse value (BRANCO RAL9003) mesmo querendo BLACK DOOR.
+    //   Solução: retornar o ÍNDICE da option (único) e usar .selectedIndex.
+    var _findOptionIndex = function(corLabel){
+      if(!corLabel || !_refSel || !_refSel.options) return -1;
       var upper = (corLabel||'').toString().toUpperCase();
-      // 1) Extrair código PRO
       var match = upper.match(/PRO\w+/);
       var proCode = match ? match[0] : '';
-      // 2) Extrair nome (depois do código PRO)
       var nameOnly = proCode ? upper.replace(proCode,'').trim() : upper.trim();
-      // 3) Tentar várias estratégias de match, da mais específica pra menos
-      //    a) código PRO + tamanho exato
-      //    b) código PRO (qualquer tamanho)
-      //    c) nome parcial + tamanho exato
-      //    d) nome parcial (qualquer tamanho)
       var strategies = [
         function(txt){ return proCode && txt.indexOf(proCode)>=0 && txt.indexOf(_pcSufixo)>=0; },
         function(txt){ return proCode && txt.indexOf(proCode)>=0; },
@@ -2119,12 +2117,12 @@ function _syncChapaToOrc(){
       for(var si=0; si<strategies.length; si++){
         for(var oi=0; oi<_refSel.options.length; oi++){
           var opt = _refSel.options[oi];
-          if(!opt.value || opt.value==='0|0' || opt.value==='') continue; // pula vazias
+          if(!opt.value || opt.value==='0|0' || opt.value==='') continue;
           var txt = (opt.text||'').toUpperCase();
-          if(strategies[si](txt)) return opt.value;
+          if(strategies[si](txt)) return oi;
         }
       }
-      return null;
+      return -1;
     };
 
     // Remover blocos ACM extras (além do número de cores)
@@ -2137,7 +2135,7 @@ function _syncChapaToOrc(){
 
     // Criar/atualizar um bloco por cor
     _colorKeys.forEach(function(ck, idx){
-      var corOpt = _findOption(ck);
+      var corIdx = _findOptionIndex(ck);
       var res = _byColor[ck];
       var qty = res ? (res.numSheets||0) : 0;
       var blkId = idx + 1;
@@ -2146,13 +2144,22 @@ function _syncChapaToOrc(){
       var existingQty = document.getElementById('acm-qty-'+blkId);
 
       if(!existingSel){
-        if(typeof addACM === 'function') addACM(corOpt || '', qty);
-      } else {
-        // Sempre atualizar (não só criar): força a cor certa
-        if(corOpt) existingSel.value = corOpt;
-        else existingSel.value = ''; // evita fallback pra primeira option
-        if(existingQty) existingQty.value = qty;
+        if(typeof addACM === 'function'){
+          // addACM recebe selVal; passamos '' e setamos selectedIndex depois
+          addACM('', qty);
+          existingSel = document.getElementById('acm-sel-'+blkId);
+        }
       }
+      if(existingSel){
+        // Usar selectedIndex pra garantir a option CORRETA (values são duplicados)
+        if(corIdx >= 0 && corIdx < existingSel.options.length){
+          existingSel.selectedIndex = corIdx;
+        } else {
+          // Sem match: deixar no default (index 0 = "Selecionar chapa")
+          existingSel.selectedIndex = 0;
+        }
+      }
+      if(existingQty) existingQty.value = qty;
     });
 
     // plan-acm-qty com total
