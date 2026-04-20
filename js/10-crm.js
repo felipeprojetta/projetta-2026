@@ -3139,11 +3139,13 @@ window.crmOrcamentoPronto=function(){
   var id=window._crmOrcCardId;
   var revLabel='Original';
   var isFirst=true;  // ← declarado no escopo externo para usar em _salvarSnapshotECRM
+  var _origStage=null; // ★ stage anterior — usado pra ROLLBACK se save sair zerado
 
   // Se tem card CRM vinculado: mover card para Orçamento Pronto (sem salvar valores ainda)
   if(id){
     var data=cLoad();var idx=data.findIndex(function(o){return o.id===id;});
     if(idx>=0){
+      _origStage=data[idx].stage; // guarda pra eventual rollback
       isFirst=!data[idx].revisoes||data[idx].revisoes.length===0;
       var stages=gStages();
       var enviarStage=stages.find(function(s){return s.id==='s3b';})||stages.find(function(s){return/pronto|feito|enviar/i.test(s.label);});
@@ -3247,21 +3249,75 @@ window.crmOrcamentoPronto=function(){
         if(typeof crmRender==='function') crmRender();
       }
     }
-    window._snapshotLock=true;
-    _setOrcLock(true);
-    // Mostrar botão Gerar PDF
-    var pdfBtn=document.getElementById('crm-gerar-pdf-btn');if(pdfBtn)pdfBtn.style.display='inline-flex';
     // Toast — amarelo se valores zerados (failsafe provavelmente disparou)
     var _zerado=(!_vals.tab && !_vals.fat);
-    var toast=document.createElement('div');
-    toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:'+(_zerado?'#e67e22':'#27ae60')+';color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:520px;text-align:center';
+
+    // ★ RECUPERAÇÃO (Felipe 20/04): se salvou com valor zero, NÃO travar
+    //   o orçamento e NÃO esconder o botão Orçamento Pronto. Assim o user
+    //   pode gerar custo de novo e re-clicar SEM ter que refazer tudo.
+    //   Também REMOVER a revisão zerada (evita acumular revs R$0 no card).
     if(_zerado){
-      toast.innerHTML='⚠️ '+revLabel+' criada com <u>valor zero</u>.<br><span style="font-weight:400;font-size:11px">Gere o Custo Completo e clique Orçamento Pronto de novo</span>';
+      // Desfazer o travamento pra permitir retry
+      window._snapshotLock=false;
+      _setOrcLock(false);
+
+      // Reexibir botões de Orçamento Pronto e Atualizar
+      var _btnRetry=document.getElementById('crm-orc-pronto-btn');
+      if(_btnRetry){ _btnRetry.style.display=''; _btnRetry.disabled=false; }
+      var _btnAttRetry=document.getElementById('crm-atualizar-btn');
+      if(_btnAttRetry){ _btnAttRetry.style.display=''; }
+
+      // Remover a revisão zerada recém-criada (a última do card)
+      // E FAZER ROLLBACK do stage (voltar pra Fazer Orçamento) — assim o
+      // card não fica preso em "Orçamento Pronto" sem valor.
+      if(id){
+        try {
+          var _crmDZ=cLoad();
+          var _ciZ=_crmDZ.findIndex(function(o){return o.id===id;});
+          if(_ciZ>=0){
+            // Remover a revisão zerada recém-criada (a última do card)
+            if(_crmDZ[_ciZ].revisoes && _crmDZ[_ciZ].revisoes.length>0){
+              var _lastRevZ = _crmDZ[_ciZ].revisoes[_crmDZ[_ciZ].revisoes.length-1];
+              if((_lastRevZ.valorTabela||0)===0 && (_lastRevZ.valorFaturamento||0)===0){
+                _crmDZ[_ciZ].revisoes.pop();
+                _crmDZ[_ciZ].valor=0;
+                _crmDZ[_ciZ].valorTabela=0;
+                _crmDZ[_ciZ].valorFaturamento=0;
+              }
+            }
+            // Rollback do stage pro anterior (ou Fazer Orçamento se não tinha)
+            if(_origStage){
+              _crmDZ[_ciZ].stage=_origStage;
+            } else {
+              var _stagesZ=gStages();
+              var _fazerZ=_stagesZ.find(function(s){return s.id==='s3a';})||
+                          _stagesZ.find(function(s){return/fazer|orca|preparar/i.test(s.label);});
+              if(_fazerZ) _crmDZ[_ciZ].stage=_fazerZ.id;
+            }
+            cSave(_crmDZ);
+          }
+        } catch(e){ console.warn('[OrcPronto] rollback falhou:', e); }
+      }
+    } else {
+      window._snapshotLock=true;
+      _setOrcLock(true);
+    }
+
+    // Mostrar botão Gerar PDF (só se não zerado)
+    if(!_zerado){
+      var pdfBtn=document.getElementById('crm-gerar-pdf-btn');
+      if(pdfBtn)pdfBtn.style.display='inline-flex';
+    }
+
+    var toast=document.createElement('div');
+    toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:'+(_zerado?'#e67e22':'#27ae60')+';color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:560px;text-align:center';
+    if(_zerado){
+      toast.innerHTML='⚠️ Custo não gerado — orçamento NÃO foi congelado.<br><span style="font-weight:400;font-size:11px">Clique em <b>⚙ GERAR CUSTO COMPLETO</b> primeiro, depois em <b>Orçamento Pronto</b> de novo. Seus dados estão preservados.</span>';
     } else {
       toast.textContent='✅ '+revLabel+' congelada! Tab: '+brl(_vals.tab)+' Fat: '+brl(_vals.fat);
     }
     document.body.appendChild(toast);
-    setTimeout(function(){toast.remove();}, _zerado?8000:5000);
+    setTimeout(function(){toast.remove();}, _zerado?10000:5000);
     if(typeof crmRender==='function') crmRender();
 
     // ─── Memorial V2: salva em paralelo no banco Supabase ───
