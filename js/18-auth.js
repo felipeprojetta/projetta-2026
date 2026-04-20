@@ -981,7 +981,19 @@ function _populatePropostaItens(){
   var container=document.getElementById('prop-doors-container');
   if(!tbody) return;
   if(!window._mpItens||window._mpItens.length===0) return;
+  // Contexto internacional (setado por populateProposta em 12-proposta.js)
+  var _ctx = window._propLangCtx || {lang:'pt', isIntl:false, cambio:5.20, instFat:0, brlUsd:null, i18n:{}};
+  var _LANG = _ctx.lang;
+  var _ISINTL = _ctx.isIntl;
+  var _INSTFAT = _ctx.instFat || 0;
+  // Tradutor simples: lê _ctx.i18n, volta pt se inglês não existir
+  var _tL = function(key, fallback){
+    var e = _ctx.i18n && _ctx.i18n[key];
+    return e ? (e[_LANG] || e.pt || fallback) : fallback;
+  };
   var brl2=function(v){return v>0?'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'\u2014';};
+  // Formato BRL·USD quando internacional, senão só BRL
+  var fmt = (typeof _ctx.brlUsd === 'function') ? _ctx.brlUsd : brl2;
   var parseVal=function(el){if(!el)return 0;var t=el.textContent||'';return parseFloat(t.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;};
   // Usar PREÇO TABELA TOTAL (m-tab) — já inclui fabricação + instalação + overhead com markup
   // NÃO somar r-inst separadamente pois m-tab já contém tudo
@@ -1020,7 +1032,10 @@ function _populatePropostaItens(){
     // Se porta de 2 folhas e existe foto 2fls → usa
     if(folhas===2 && typeof _modeloImgCache2fls!=='undefined' && _modeloImgCache2fls[modNum]) imgSrc=_modeloImgCache2fls[modNum];
     var tipo=it._tipo||'porta_pivotante';
-    var descProposta=tipo==='fixo'?'Fixo Projetta by Weiku':tipo==='revestimento'?'Revestimento Projetta by Weiku':'Porta Projetta by Weiku';
+    // Descrição em PT ou EN
+    var _descEn = tipo==='fixo'?'Projetta Fixed Panel by Weiku':tipo==='revestimento'?'Projetta Cladding by Weiku':'Projetta Door by Weiku';
+    var _descPt = tipo==='fixo'?'Fixo Projetta by Weiku':tipo==='revestimento'?'Revestimento Projetta by Weiku':'Porta Projetta by Weiku';
+    var descProposta = (_LANG==='en') ? _descEn : _descPt;
     items.push({idx:i,L:L,A:A,q:q,area:area,modNum:modNum,modTxt:modTxt,descProposta:descProposta,tipo:tipo,folhas:folhas,corExt:corExt,corInt:corInt,fechMec:fechMec,fechDig:fechDig,puxador:puxador,puxTam:puxTam,cilindro:cilindro,abertura:abertura,temAlisar:temAlisar,sistema:sistema,imgSrc:imgSrc});
     totalArea+=area;
   });
@@ -1029,6 +1044,30 @@ function _populatePropostaItens(){
   // Esconder bloco single-door
   var singleBlock=document.getElementById('prop-single-door-block');
   if(singleBlock) singleBlock.style.display='none';
+  // Labels EN/PT para o bloco visual
+  var _L_QTD      = _LANG==='en'?'Qty':'Qtd';
+  var _L_L        = _LANG==='en'?'W':'L';
+  var _L_H        = 'H';
+  var _L_AREA     = _LANG==='en'?'Door Area':'Área Porta';
+  var _L_SIS      = _LANG==='en'?'SYSTEM':'SISTEMA';
+  var _L_ABERT    = _LANG==='en'?'OPENING TYPE':'TIPO DE ABERTURA';
+  var _L_FOLHAS   = _LANG==='en'?'NUMBER OF LEAVES':'NUMERO DE FOLHAS';
+  var _L_MODELO   = _LANG==='en'?'MODEL':'MODELO';
+  var _L_FECHMEC  = _LANG==='en'?'MECHANICAL LOCK':'FECHADURA MECÂNICA';
+  var _L_FECHDIG  = _LANG==='en'?'DIGITAL LOCK':'FECHADURA DIGITAL';
+  var _L_PUX      = _LANG==='en'?'HANDLE':'PUXADOR';
+  var _L_PUXTAM   = _LANG==='en'?'EXTERNAL HANDLE SIZE':'TAMANHO PUXADOR EXTERNO';
+  var _L_COREXT   = _LANG==='en'?'EXTERNAL PANEL COLOR':'COR CHAPA EXTERNA';
+  var _L_CORINT   = _LANG==='en'?'INTERNAL PANEL COLOR':'COR CHAPA INTERNA';
+  var _L_CIL      = _LANG==='en'?'CYLINDER':'CILINDRO';
+  var _L_ALISAR   = _LANG==='en'?'TRIM':'ALISAR';
+  var _L_NA       = _LANG==='en'?'NOT APPLICABLE':'NÃO SE APLICA';
+  var _L_WITHTRIM = _LANG==='en'?'✅ YES — WITH TRIM':'✅ SIM — COM ALISAR';
+  var _L_LEAF     = _LANG==='en'?'LEAF':'FOLHA';
+  var _L_LEAVES   = _LANG==='en'?'LEAVES':'FOLHAS';
+  var _L_PIVOT    = _LANG==='en'?'PIVOTING':'PIVOTANTE';
+  var _L_TOTAREA  = _LANG==='en'?'Total Area':'Total Área';
+  var _L_INST     = _LANG==='en'?'INTERNATIONAL INSTALLATION':'INSTALAÇÃO INTERNACIONAL';
   // Gerar blocos por porta
   var doorsHtml='';
   var totalQtd=0,totalValor=0,tableHtml='';
@@ -1039,6 +1078,8 @@ function _populatePropostaItens(){
     totalQtd+=it.q;
     var valorUn=it.q>0?valorItem/it.q:0;
     var areaUn=it.L*it.A/1e6;
+    // Traduzir "PIVOTANTE" → "PIVOTING"
+    var _aberturaTxt = (_LANG==='en' && /PIVOTANTE/i.test(it.abertura)) ? _L_PIVOT : it.abertura;
     // Bloco visual da porta
     doorsHtml+='<div style="display:flex;gap:12px;border:1px solid #ccc;border-radius:3px;padding:8px;margin-bottom:6px">';
     doorsHtml+='<div style="flex:0 0 200px;max-height:320px;border:1px solid #ddd;border-radius:3px;display:flex;align-items:center;justify-content:center;background:#f9f9f9;overflow:hidden">';
@@ -1047,36 +1088,36 @@ function _populatePropostaItens(){
     doorsHtml+='</div>';
     doorsHtml+='<div style="flex:1">';
     doorsHtml+='<div style="font-size:12px;font-weight:800;color:var(--navy);margin-bottom:4px">'+it.descProposta.toUpperCase()+'</div>';
-    doorsHtml+='<div style="display:flex;gap:15px;font-size:10px;margin-bottom:2px"><span><b>Qtd:</b> '+it.q+'</span><span><b>L:</b> '+Math.round(it.L)+'</span><span><b>H:</b> '+Math.round(it.A)+'</span></div>';
-    doorsHtml+='<div style="font-size:10px;margin-bottom:4px"><b>Área Porta:</b> '+areaUn.toFixed(2)+'m²</div>';
+    doorsHtml+='<div style="display:flex;gap:15px;font-size:10px;margin-bottom:2px"><span><b>'+_L_QTD+':</b> '+it.q+'</span><span><b>'+_L_L+':</b> '+Math.round(it.L)+'</span><span><b>'+_L_H+':</b> '+Math.round(it.A)+'</span></div>';
+    doorsHtml+='<div style="font-size:10px;margin-bottom:4px"><b>'+_L_AREA+':</b> '+areaUn.toFixed(2)+'m²</div>';
     doorsHtml+='<div style="font-size:9.5px;color:#444;line-height:1.5">';
-    doorsHtml+='<div><b>SISTEMA</b>: '+it.sistema+'</div>';
-    doorsHtml+='<div><b>TIPO DE ABERTURA</b>: '+it.abertura+'</div>';
-    doorsHtml+='<div><b>NUMERO DE FOLHAS</b>: '+it.folhas+' FOLHA'+(it.folhas>1?'S':'')+'</div>';
-    doorsHtml+='<div><b>MODELO</b>: '+it.modTxt+'</div>';
+    doorsHtml+='<div><b>'+_L_SIS+'</b>: '+it.sistema+'</div>';
+    doorsHtml+='<div><b>'+_L_ABERT+'</b>: '+_aberturaTxt+'</div>';
+    doorsHtml+='<div><b>'+_L_FOLHAS+'</b>: '+it.folhas+' '+(it.folhas>1?_L_LEAVES:_L_LEAF)+'</div>';
+    doorsHtml+='<div><b>'+_L_MODELO+'</b>: '+it.modTxt+'</div>';
     // Fechadura mecânica com cilindro inline
     var _fmStr=it.fechMec||'—';
     if(it.cilindro&&it.cilindro!=='—') _fmStr+=' — '+it.cilindro;
-    doorsHtml+='<div><b>FECHADURA MECÂNICA</b>: <b>'+_fmStr+'</b></div>';
+    doorsHtml+='<div><b>'+_L_FECHMEC+'</b>: <b>'+_fmStr+'</b></div>';
     // Fechadura digital com highlight
     var _fdVal=it.fechDig||'NÃO SE APLICA';
     var _fdNA=(_fdVal==='NÃO SE APLICA'||_fdVal==='Nenhuma'||!_fdVal);
     if(!_fdNA){
-      doorsHtml+='<div style="background:#f3e8ff;border:2px solid #8e44ad;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>FECHADURA DIGITAL:</b> <strong style="color:#8e44ad;font-size:110%">✅ '+_fdVal.toUpperCase()+'</strong></div>';
+      doorsHtml+='<div style="background:#f3e8ff;border:2px solid #8e44ad;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>'+_L_FECHDIG+':</b> <strong style="color:#8e44ad;font-size:110%">✅ '+_fdVal.toUpperCase()+'</strong></div>';
     } else {
-      doorsHtml+='<div style="background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0"><b>FECHADURA DIGITAL:</b> <span style="color:#c0392b;font-weight:700">NÃO SE APLICA</span></div>';
+      doorsHtml+='<div style="background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0"><b>'+_L_FECHDIG+':</b> <span style="color:#c0392b;font-weight:700">'+_L_NA+'</span></div>';
     }
-    doorsHtml+='<div><b>PUXADOR</b>: '+it.puxador+'</div>';
-    if(it.puxador==='EXTERNO'&&it.puxTam) doorsHtml+='<div><b>TAMANHO PUXADOR EXTERNO</b>: '+it.puxTam+'</div>';
-    doorsHtml+='<div><b>COR CHAPA EXTERNA</b>: '+it.corExt+'</div>';
-    doorsHtml+='<div><b>COR CHAPA INTERNA</b>: '+it.corInt+'</div>';
-    doorsHtml+='<div><b>CILINDRO</b>: '+it.cilindro+'</div>';
+    doorsHtml+='<div><b>'+_L_PUX+'</b>: '+it.puxador+'</div>';
+    if(it.puxador==='EXTERNO'&&it.puxTam) doorsHtml+='<div><b>'+_L_PUXTAM+'</b>: '+it.puxTam+'</div>';
+    doorsHtml+='<div><b>'+_L_COREXT+'</b>: '+it.corExt+'</div>';
+    doorsHtml+='<div><b>'+_L_CORINT+'</b>: '+it.corInt+'</div>';
+    doorsHtml+='<div><b>'+_L_CIL+'</b>: '+it.cilindro+'</div>';
     doorsHtml+='</div>';
     // Alisar highlight
     if(it.temAlisar){
-      doorsHtml+='<div style="background:#e8f5e9;border:2px solid #27ae60;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>ALISAR:</b> <strong style="color:#27ae60;font-size:110%">✅ SIM — COM ALISAR</strong></div>';
+      doorsHtml+='<div style="background:#e8f5e9;border:2px solid #27ae60;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>'+_L_ALISAR+':</b> <strong style="color:#27ae60;font-size:110%">'+_L_WITHTRIM+'</strong></div>';
     }
-    doorsHtml+='<div style="margin-top:6px;padding:4px 8px;background:#f0ebe0;border-radius:3px;font-size:11px;font-weight:800;color:var(--navy);text-align:right">'+brl2(valorItem)+'</div>';
+    doorsHtml+='<div style="margin-top:6px;padding:4px 8px;background:#f0ebe0;border-radius:3px;font-size:11px;font-weight:800;color:var(--navy);text-align:right">'+fmt(valorItem)+'</div>';
     doorsHtml+='</div></div>';
     // Linha da tabela de itens
     tableHtml+='<tr>'
@@ -1084,16 +1125,30 @@ function _populatePropostaItens(){
       +'<td style="padding:4px 8px;border:1px solid #ccc">'+it.descProposta+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">'+Math.round(it.L)+' \u00d7 '+Math.round(it.A)+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+it.q+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+brl2(valorUn)+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+brl2(valorItem)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(valorUn)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(valorItem)+'</td>'
       +'</tr>';
   });
+  // Linha de INSTALAÇÃO INTERNACIONAL (antes do total)
+  var _grandTotal = totalValor;
+  if(_ISINTL && _INSTFAT > 0){
+    var _instIdx = (items.length + 1).toString().padStart(2,'0');
+    tableHtml+='<tr>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+_instIdx+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc">'+_L_INST+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">—</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">1</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_INSTFAT)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_INSTFAT)+'</td>'
+      +'</tr>';
+    _grandTotal += _INSTFAT;
+  }
   // Total row
   tableHtml+='<tr style="background:#f0ebe0;font-weight:800">'
-    +'<td colspan="3" style="padding:6px 8px;border:1px solid #ccc;text-align:right">Total \u00c1rea: '+totalArea.toFixed(1)+' m\u00b2</td>'
+    +'<td colspan="3" style="padding:6px 8px;border:1px solid #ccc;text-align:right">'+_L_TOTAREA+': '+totalArea.toFixed(1)+' m\u00b2</td>'
     +'<td style="padding:6px 8px;border:1px solid #ccc;text-align:center">'+totalQtd+'</td>'
     +'<td style="padding:6px 8px;border:1px solid #ccc"></td>'
-    +'<td style="padding:6px 8px;border:1px solid #ccc;text-align:center;font-size:13px">'+brl2(totalValor)+'</td>'
+    +'<td style="padding:6px 8px;border:1px solid #ccc;text-align:center;font-size:13px">'+fmt(_grandTotal)+'</td>'
     +'</tr>';
   // Inserir blocos de portas
   if(container) container.innerHTML=doorsHtml;
@@ -1102,9 +1157,9 @@ function _populatePropostaItens(){
   var qtdEl=document.getElementById('prop-qtd');if(qtdEl)qtdEl.textContent=totalQtd;
   var qtdPEl=document.getElementById('prop-qtd-porta');if(qtdPEl)qtdPEl.textContent=totalQtd;
   var propTotalOrcEl=document.getElementById('prop-total-orcamento');
-  if(propTotalOrcEl) propTotalOrcEl.textContent=brl2(totalValor);
+  if(propTotalOrcEl) propTotalOrcEl.textContent=fmt(_grandTotal);
   var propTotalOrcEl2=document.getElementById('prop-total-orc');
-  if(propTotalOrcEl2) propTotalOrcEl2.textContent=brl2(totalValor);
+  if(propTotalOrcEl2) propTotalOrcEl2.textContent=fmt(_grandTotal);
   // Área total
   var areaEl=document.getElementById('prop-area-total');if(areaEl)areaEl.textContent=totalArea.toFixed(1);
 }

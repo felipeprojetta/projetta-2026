@@ -449,6 +449,16 @@ function populateProposta(){
     return brlPart+' · '+usdPart;
   };
 
+  // Expor contexto para _populatePropostaItens (em 18-auth.js) usar em modo multi-produto
+  window._propLangCtx = {
+    lang: _PROP_LANG,
+    isIntl: _isIntlProp,
+    cambio: _cambioProp,
+    instFat: (_isIntlProp && typeof window._instIntlFat === 'number') ? window._instIntlFat : 0,
+    brlUsd: brlUsd,
+    i18n: _PROP_I18N
+  };
+
   // Dados do cliente
   var cliente=g('cliente')||'—';
   var agp=g('num-agp')||'—';
