@@ -53,7 +53,7 @@
 (function(){
   'use strict';
 
-  var VERSION = '1.3';
+  var VERSION = '1.4';
 
   // Campos derivados dos itens (primeiro item) que precisam ser espelhados
   // no nível do card pra compatibilidade com leitores legados (proposta,
@@ -78,17 +78,28 @@
 
   // ───────────────────────────────────────────────────────────────
   // migrar: idempotente. Garante que o card tem estrutura opcoes[].
-  // Se já tem, só corrige opcaoAtivaId (caso referencie opção removida)
-  // e re-sincroniza card.revisoes.
+  // v1.4 (Felipe 20/04 — rollback de opções múltiplas):
+  //   Após decisão de voltar a "1 card = 1 orçamento + revisões",
+  //   qualquer card com opcoes.length > 1 fica reduzido à primeira
+  //   opção. As outras opções (criadas em testes) são descartadas.
+  //   A opção 1 continua como contêiner estrutural (invisível pro user)
+  //   — sincronizar() espelha card.revisoes = opt1.revisoes.
   // ───────────────────────────────────────────────────────────────
   function migrar(card){
     if(!card) return card;
 
     // Caminho A: já tem opcoes válido
     if(Array.isArray(card.opcoes) && card.opcoes.length > 0){
-      var idOk = card.opcaoAtivaId &&
-                 card.opcoes.some(function(o){return o.id===card.opcaoAtivaId;});
-      if(!idOk) card.opcaoAtivaId = card.opcoes[0].id;
+      // v1.4 CONSOLIDAÇÃO: se tem mais de uma opção, mantém só a primeira
+      // (que é a com as revisões reais). Opções extras viram descartadas.
+      if(card.opcoes.length > 1){
+        card.opcoes = [card.opcoes[0]];
+      }
+
+      // Garante opcaoAtivaId aponta pra opt existente
+      if(!card.opcaoAtivaId || !card.opcoes.some(function(o){return o.id===card.opcaoAtivaId;})){
+        card.opcaoAtivaId = card.opcoes[0].id;
+      }
 
       // Backfill itens: se a opção ativa ainda não tem itens próprios mas o card
       // sim (primeira migração do schema v1.0 → v1.1), copiar do card pra opção.
@@ -100,40 +111,8 @@
         });
       }
 
-      // ★ Backfill paramsFinanceiros (v1.2 — Felipe 20/04):
-      //   Opções criadas antes do commit cd8d4fd não têm paramsFinanceiros.
-      //   Procurar entre todas as opções a primeira que tenha (direto na
-      //   opção ou na última rev dela) e propagar pras que não têm.
-      //   Isso garante que TODAS as opções respeitem os params da Opção 1.
-      var paramsCanonical = null;
-      for(var pi=0; pi<card.opcoes.length; pi++){
-        var op = card.opcoes[pi];
-        if(op.paramsFinanceiros){ paramsCanonical = op.paramsFinanceiros; break; }
-        if(Array.isArray(op.revisoes)){
-          for(var ri=op.revisoes.length-1; ri>=0; ri--){
-            if(op.revisoes[ri] && op.revisoes[ri].paramsFinanceiros){
-              paramsCanonical = op.revisoes[ri].paramsFinanceiros;
-              break;
-            }
-          }
-          if(paramsCanonical) break;
-        }
-      }
-      if(paramsCanonical){
-        card.opcoes.forEach(function(op){
-          if(!op.paramsFinanceiros){
-            op.paramsFinanceiros = Object.assign({}, paramsCanonical);
-          }
-        });
-      }
-
-      // ★ Limpeza retroativa v1.3 (Felipe 20/04 — "opção nova vem travada"):
-      //   novaOpcao antigo copiava a última rev da origem como placeholder
-      //   na nova opção. Isso disparava o lock automático imediatamente.
-      //   Detectar essas revisões-fantasma e remover:
-      //     - rev.duplicadoDe existe (marcada como cópia duplicada)
-      //     - AND rev.freezeKey ausente (nunca foi realmente congelada)
-      //   Depois dessa limpeza, a opção volta a estar editável.
+      // Limpeza retroativa: revisões-fantasma (placeholder sem freeze)
+      // eram criadas pelo novaOpcao antigo e travavam edição.
       card.opcoes.forEach(function(op){
         if(!Array.isArray(op.revisoes) || !op.revisoes.length) return;
         op.revisoes = op.revisoes.filter(function(rv){

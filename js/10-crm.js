@@ -60,6 +60,8 @@ function cLoad(){
   }catch(e){ return []; }
 }
 function cSave(d){
+  // ★ Cloud-first (Felipe 20/04): Supabase é fonte da verdade, localStorage
+  //   é cache rápido. Se quota estourar, descarta pesados progressivamente.
   try{
     // Antes de serializar: garante que opcoes[ativa].revisoes contém
     // o conteúdo atual de card.revisoes (caso alguém tenha feito
@@ -71,22 +73,53 @@ function cSave(d){
     }
     localStorage.setItem(CK,JSON.stringify(d));
   }catch(e){
-    // localStorage full — try removing attachment data to free space
-    if(e.name==='QuotaExceededError'||e.code===22||e.code===1014){
-      console.warn('localStorage cheio, tentando salvar sem anexos grandes...');
-      var lite=d.map(function(o){
-        var copy=Object.assign({},o);
-        if(copy.anexos&&copy.anexos.length>0){
-          copy.anexos=copy.anexos.map(function(a){return{name:a.name,type:a.type,date:a.date,data:a.type&&a.type.startsWith('image/')?a.data.slice(0,200)+'...':a.data};});
-        }
-        return copy;
+    if(e && (e.name==='QuotaExceededError' || e.code===22 || e.code===1014 || /quota/i.test(e.message||''))){
+      console.warn('[cSave] quota estourou — tentando descarte em camadas');
+
+      // CAMADA 1: remover pdfThumbs (pesados, tem cópia no Supabase como pdfCloud)
+      var lite1 = d.map(function(o){
+        var c = JSON.parse(JSON.stringify(o));
+        if(Array.isArray(c.revisoes)) c.revisoes.forEach(function(r){ delete r.pdfThumb; });
+        if(Array.isArray(c.opcoes)) c.opcoes.forEach(function(op){
+          if(Array.isArray(op.revisoes)) op.revisoes.forEach(function(r){ delete r.pdfThumb; });
+        });
+        return c;
       });
-      try{localStorage.setItem(CK,JSON.stringify(lite));}catch(e2){
-        alert('⚠ Armazenamento cheio! Remova anexos ou exclua oportunidades antigas.');
+      try { localStorage.setItem(CK, JSON.stringify(lite1)); }
+      catch(e2){
+        // CAMADA 2: remover anexos pesados também
+        console.warn('[cSave] camada 1 não bastou — descartando anexos');
+        var lite2 = lite1.map(function(o){
+          var c = Object.assign({}, o);
+          if(c.anexos && c.anexos.length>0){
+            c.anexos = c.anexos.map(function(a){ return {name:a.name, type:a.type, date:a.date}; });
+          }
+          return c;
+        });
+        try { localStorage.setItem(CK, JSON.stringify(lite2)); }
+        catch(e3){
+          // CAMADA 3: limpar projetta_v3 (5MB legado) + retry
+          console.warn('[cSave] camada 2 não bastou — removendo projetta_v3 legado');
+          try { localStorage.removeItem('projetta_v3'); } catch(e){}
+          // E qualquer freeze_* local (estão no Supabase)
+          try {
+            for(var i=localStorage.length-1; i>=0; i--){
+              var k = localStorage.key(i);
+              if(k && (/^freeze_/.test(k) || /^proposta_img_/.test(k))){
+                localStorage.removeItem(k);
+              }
+            }
+          } catch(e){}
+          try { localStorage.setItem(CK, JSON.stringify(lite2)); }
+          catch(e4){
+            console.error('[cSave] nem descartando tudo coube. Dados continuam no Supabase.');
+          }
+        }
       }
     }
   }
-  // Cloud sync — Supabase Projetta
+
+  // Cloud sync — Supabase Projetta (SEMPRE, independente de sucesso local)
   var SB='https://plmliavuwlgpwaizfeds.supabase.co',KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
   var cloudData=d.map(function(o){var c=Object.assign({},o);delete c.anexos;return c;});
   // [LEGADO] Blob único — mantido como fallback durante transição para schema relacional
@@ -752,38 +785,11 @@ window.crmOpenModal=function(defaultStage,editId){
       // ═══ Abas de Opções (Opção 1 | Opção 2 | +) ═══════════════════════
       // Cada card pode ter múltiplas opções (ex: cliente quer cotar dois
       // modelos). Cada opção tem seu próprio histórico de revisões.
-      var opcoes = opp.opcoes || [];
-      var ativaId = opp.opcaoAtivaId;
-      var temMultiplasOpcoes = opcoes.length > 1;
       revSec.style.display='block';
 
-      var ah = '<div id="crm-opcoes-tabs" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border-light)">';
-      opcoes.forEach(function(opc){
-        var isAtiva = opc.id === ativaId;
-        var nRevs   = (opc.revisoes||[]).length;
-        var bg      = isAtiva ? '#003144' : '#f0f0f0';
-        var fg      = isAtiva ? '#fff'    : '#555';
-        var borda   = isAtiva ? '2px solid #003144' : '2px solid transparent';
-        ah += '<button onclick="crmTrocarOpcao(\''+editId+'\',\''+opc.id+'\')" ' +
-              'ondblclick="crmRenomearOpcao(\''+editId+'\',\''+opc.id+'\')" ' +
-              'title="Clique pra trocar. Duplo-clique pra renomear." ' +
-              'style="padding:6px 12px;border-radius:8px 8px 0 0;background:'+bg+';color:'+fg+';border:none;border-bottom:'+borda+';font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">' +
-              escH(opc.label) +
-              '<span style="opacity:.7;font-weight:500;margin-left:4px">('+nRevs+')</span>';
-        if(isAtiva){
-          // Ícone editar (lápis) — sempre visível na aba ativa
-          ah += ' <span onclick="event.stopPropagation();crmRenomearOpcao(\''+editId+'\',\''+opc.id+'\')" title="Renomear opção" style="margin-left:8px;opacity:.85;cursor:pointer;font-size:11px">✏️</span>';
-          // Ícone remover (X) — só se há 2+ opções
-          if(temMultiplasOpcoes){
-            ah += ' <span onclick="event.stopPropagation();crmRemoverOpcao(\''+editId+'\',\''+opc.id+'\')" title="Remover opção" style="margin-left:6px;opacity:.7;cursor:pointer">✕</span>';
-          }
-        }
-        ah += '</button>';
-      });
-      ah += '<button onclick="crmNovaOpcao(\''+editId+'\')" ' +
-            'title="Criar nova opção duplicando a atual" ' +
-            'style="padding:6px 12px;border-radius:8px;background:#27ae60;color:#fff;border:none;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;margin-left:4px">➕ Nova opção</button>';
-      ah += '</div>';
+      // ROLLBACK Felipe 20/04: opções multi-camada removidas. Cada card
+      // volta a ter um único orçamento com revisões. UI simples.
+      var ah = '';
 
       if(opp.revisoes&&opp.revisoes.length>0){
         var rh = ah;
@@ -820,7 +826,7 @@ window.crmOpenModal=function(defaultStage,editId){
         rh+='</div>';
         rh+='<div style="margin-top:8px;padding:8px 10px;background:#fff9e6;border:1px dashed #ffc107;border-radius:6px;font-size:11px;color:#7a5901">💡 <b>Dê duplo-clique em uma revisão</b> acima para abrir o orçamento completo com todos os valores, inclusive para gerar ATP.</div>';
         rh+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">';
-        rh+='<button onclick="crmFazerOrcamentoOpcao(\''+editId+'\')" style="background:#e67e22;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(230,126,34,.3)" title="Abre o orçamento da opção ativa pra editar. Salva como nova revisão ao clicar Orçamento Pronto.">📋 Fazer Orçamento</button>';
+        rh+='<button onclick="crmFazerOrcamento(\''+editId+'\')" style="background:#e67e22;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(230,126,34,.3)" title="Abre o orçamento da opção ativa pra editar. Salva como nova revisão ao clicar Orçamento Pronto.">📋 Fazer Orçamento</button>';
         rh+='<button onclick="crmNovaRevisao(\''+editId+'\')" style="background:#003144;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer" title="[legado] Abre via DB de histórico">➕ Nova Revisão</button>';
         rh+='</div>';
         revList.innerHTML=rh;
@@ -830,7 +836,7 @@ window.crmOpenModal=function(defaultStage,editId){
           '<div style="padding:16px 12px;background:#fff9e6;border:1px dashed #ffc107;border-radius:6px;font-size:12px;color:#7a5901;margin-bottom:10px">' +
           'Esta opção ainda não tem revisões. Clique em <b>Fazer Orçamento</b> pra criar a primeira.' +
           '</div>' +
-          '<button onclick="crmFazerOrcamentoOpcao(\''+editId+'\')" style="background:#e67e22;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(230,126,34,.3)">📋 Fazer Orçamento</button>';
+          '<button onclick="crmFazerOrcamento(\''+editId+'\')" style="background:#e67e22;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(230,126,34,.3)">📋 Fazer Orçamento</button>';
       }
     }
   } else {
@@ -1709,73 +1715,31 @@ window._crmItensRender=function(){
    "Duplicar" mantido (cópia nova fica editável na mesma opção).
    "Remover" some (não pode remover item com orçamento).
    ═════════════════════════════════════════════════════════════════════ */
+// ROLLBACK Felipe 20/04: lock automático por revisão removido.
+// Card com revisões finalizadas continua editável; se o usuário quer
+// guardar histórico, clica "Nova Revisão" manualmente. Função mantida
+// como no-op pra não quebrar chamadas existentes.
 window._crmItensAplicarLock=function(){
+  // Garantir que nada esteja travado de sessões anteriores (limpa
+  // banner/inputs locked caso alguém tenha sido pego pela versão antiga).
   var list = document.getElementById('crm-itens-list');
   if(!list) return;
-
-  // Detectar se a opção ativa tem revisões
-  var ehLocked = false;
-  try {
-    if(_editId && window.OrcamentoOpcoes){
-      var data = cLoad();
-      var card = data.find(function(o){return o.id===_editId;});
-      if(card){
-        var opAtiva = window.OrcamentoOpcoes.ativa(card);
-        if(opAtiva && Array.isArray(opAtiva.revisoes) && opAtiva.revisoes.length>0){
-          ehLocked = true;
-        }
-      }
-    }
-  } catch(e){ console.warn('[_crmItensAplicarLock]',e); }
-
-  // Remove banner antigo (caso troca de opção)
   var oldBanner = document.getElementById('crm-itens-lock-banner');
   if(oldBanner) oldBanner.remove();
-
+  list.querySelectorAll('input, select, textarea').forEach(function(el){
+    if(el.dataset._lockedByRev){
+      el.disabled = false;
+      el.readOnly = false;
+      el.style.cursor = '';
+      el.style.opacity = '';
+      delete el.dataset._lockedByRev;
+    }
+  });
+  list.querySelectorAll('button.dup, button.del').forEach(function(btn){
+    btn.style.display = '';
+  });
   var addBtn = document.getElementById('crm-itens-add-btn');
-
-  if(!ehLocked){
-    // Destrava tudo (caso tenha vindo de opção locked)
-    list.querySelectorAll('input, select, textarea').forEach(function(el){
-      if(el.dataset._lockedByRev){
-        el.disabled = false;
-        el.readOnly = false;
-        el.style.cursor = '';
-        el.style.opacity = '';
-        delete el.dataset._lockedByRev;
-      }
-    });
-    list.querySelectorAll('button.dup, button.del').forEach(function(btn){
-      btn.style.display = '';
-    });
-    if(addBtn) addBtn.style.display = '';
-    return;
-  }
-
-  // Adiciona banner NO TOPO da lista
-  var banner = document.createElement('div');
-  banner.id = 'crm-itens-lock-banner';
-  banner.style.cssText = 'margin:0 0 10px;padding:10px 14px;background:linear-gradient(135deg,#fff3e0,#fffaf0);border:1.5px solid #e67e22;border-radius:8px;font-size:12px;color:#8a4b00;line-height:1.5';
-  banner.innerHTML =
-    '🔒 <b>Esta opção já tem orçamento finalizado</b> — itens travados pra evitar alteração indevida.<br>' +
-    '<span style="font-size:11px">Pra fazer mudanças: clique em <b>+ Nova Revisão</b> (mesma opção) ou <b>+ Nova opção</b> (opção separada) no histórico de revisões abaixo.</span>';
-  list.insertBefore(banner, list.firstChild);
-
-  // Disable todos os inputs dentro dos items
-  list.querySelectorAll('.crm-item input, .crm-item select, .crm-item textarea').forEach(function(el){
-    el.disabled = true;
-    el.dataset._lockedByRev = '1';
-    el.style.cursor = 'not-allowed';
-    el.style.opacity = '0.75';
-  });
-
-  // Esconde botões de Salvar / Duplicar / Remover dentro dos items
-  list.querySelectorAll('.crm-item button.dup, .crm-item button.del').forEach(function(btn){
-    btn.style.display = 'none';
-  });
-
-  // Esconde botão "+ Adicionar Item" (não faz sentido com orçamento finalizado)
-  if(addBtn) addBtn.style.display = 'none';
+  if(addBtn) addBtn.style.display = '';
 };
 
 window._crmItensToCardData=function(){
@@ -1826,36 +1790,6 @@ window.crmSaveOpp=function(){
   //   não refletem em _crmItens[0] e opp.* vai ficar com valor velho.
   try { if(typeof _crmItensSaveFromDOM==='function') _crmItensSaveFromDOM(); }
   catch(e){ console.warn('[crmSaveOpp] _crmItensSaveFromDOM falhou:', e); }
-
-  // ★ SAFEGUARD (Felipe 20/04): se a opção ativa ja tem revisoes, NAO
-  //   sobrescrever itens/campos-derivados dela. Só atualizar metadata do
-  //   card (cliente, contato, cidade, notas, etc). Evita que edições
-  //   acidentais nos inputs (mesmo que deveriam estar locked) persistam.
-  var _lockedItensSnapshot = null;
-  try {
-    if(_editId && window.OrcamentoOpcoes){
-      var _chk = cLoad();
-      var _chkIdx = _chk.findIndex(function(o){return o.id===_editId;});
-      if(_chkIdx>=0){
-        var _opChk = window.OrcamentoOpcoes.ativa(_chk[_chkIdx]);
-        if(_opChk && Array.isArray(_opChk.revisoes) && _opChk.revisoes.length>0){
-          // Snapshot pra reinstalar depois do save
-          _lockedItensSnapshot = {
-            itens:       JSON.parse(JSON.stringify(_opChk.itens||[])),
-            largura:     _opChk.largura,
-            altura:      _opChk.altura,
-            modelo:      _opChk.modelo,
-            abertura:    _opChk.abertura,
-            folhas:      _opChk.folhas,
-            cor_ext:     _opChk.cor_ext,
-            cor_int:     _opChk.cor_int,
-            cor_macico:  _opChk.cor_macico,
-            moldura_rev: _opChk.moldura_rev
-          };
-        }
-      }
-    }
-  } catch(_e){ /* best-effort */ }
 
   var scope=_scope;
   var cidade=scope==='internacional'?val('crm-o-cidade-intl').trim():val('crm-o-cidade-nac').trim();
@@ -1950,21 +1884,6 @@ window.crmSaveOpp=function(){
         if(existing[k]!==undefined && opp[k]===undefined) opp[k]=existing[k];
       });
       data[idx]=Object.assign(data[idx],opp);
-
-      // ★ SAFEGUARD pt2: se opção ATIVA tinha revisões (locked), restaurar
-      //   itens e campos-derivados do snapshot ANTES do save consolidar.
-      //   Isso evita que edições no form (mesmo locked visualmente) vazem.
-      if(_lockedItensSnapshot && window.OrcamentoOpcoes){
-        var _opRestore = window.OrcamentoOpcoes.ativa(data[idx]);
-        if(_opRestore){
-          _opRestore.itens = _lockedItensSnapshot.itens;
-          ['largura','altura','modelo','abertura','folhas','cor_ext','cor_int','cor_macico','moldura_rev'].forEach(function(f){
-            if(_lockedItensSnapshot[f] !== undefined) _opRestore[f] = _lockedItensSnapshot[f];
-          });
-          // Re-sincroniza card-level pra espelhar os valores da opção ativa
-          window.OrcamentoOpcoes.sincronizar(data[idx]);
-        }
-      }
     }
   } else {
     dealId=uuid();opp.id=dealId;opp.createdAt=now;data.unshift(opp);
@@ -2899,6 +2818,9 @@ function _aplicarParamsFinanceiros(params){
   }
 }
 
+// Mantida como alias por compatibilidade com HTML cacheado.
+// Internamente só chama crmFazerOrcamento + restaura params financeiros
+// da última revisão do card (feature que funciona bem e vale preservar).
 window.crmFazerOrcamentoOpcao=function(cardId){
   if(!cardId){ alert('Card inválido'); return; }
   if(typeof crmFazerOrcamento !== 'function'){
@@ -2906,67 +2828,16 @@ window.crmFazerOrcamentoOpcao=function(cardId){
     return;
   }
 
-  // Coletar parâmetros financeiros ANTES do reset (são perdidos no reset)
+  // Coletar parâmetros financeiros ANTES do reset
   var pendingParams = _coletarParamsFinanceiros(cardId);
 
-  // ★ PERSISTIR OS PARAMS NA OPÇÃO ATIVA (Felipe 20/04):
-  //   Se achou via fallback (rev.data ou DB legado), gravar pra próxima
-  //   vez não precisar fallback. Isso garante que opções antigas criadas
-  //   antes do commit cd8d4fd ganhem paramsFinanceiros retroativamente.
-  if(pendingParams && window.OrcamentoOpcoes){
-    try {
-      var _dPers = cLoad();
-      var _iPers = _dPers.findIndex(function(o){return o.id===cardId;});
-      if(_iPers>=0){
-        var _opPers = window.OrcamentoOpcoes.ativa(_dPers[_iPers]);
-        if(_opPers && !_opPers.paramsFinanceiros){
-          _opPers.paramsFinanceiros = Object.assign({}, pendingParams);
-          cSave(_dPers);
-        }
-      }
-    } catch(_e){ /* best-effort */ }
-  }
-
-  // Toast orientativo: deixa claro em QUAL opção estamos trabalhando
-  try {
-    var data=cLoad();
-    var card=data.find(function(o){return o.id===cardId;});
-    var opLabel='opção atual';
-    if(card && window.OrcamentoOpcoes){
-      var op=window.OrcamentoOpcoes.ativa(card);
-      if(op && op.label) opLabel=op.label;
-    }
-    var t=document.createElement('div');
-    t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#e67e22;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';
-    var extraTxt = pendingParams ? ' + parâmetros financeiros preservados' : '';
-    t.textContent='📋 Fazendo orçamento de '+opLabel+' — dados do card carregados'+extraTxt;
-    document.body.appendChild(t);
-    setTimeout(function(){t.remove();}, 4500);
-  } catch(e){ /* toast é opcional */ }
-
-  // Marca pra próximo "Orçamento Pronto" criar rev nova nessa opção
-  // (sem isso, se já existia rev, poderia sobrescrever a 0)
-  if(window.OrcamentoOpcoes){
-    var d2=cLoad();
-    var c2=d2.find(function(o){return o.id===cardId;});
-    if(c2){
-      var op2=window.OrcamentoOpcoes.ativa(c2);
-      if(op2 && op2.revisoes && op2.revisoes.length>0){
-        window._pendingRevision = true;
-      }
-    }
-  }
-
-  // Delega pro crmFazerOrcamento que já faz toda a limpeza + carrega card.
-  // Ele tem um setTimeout(500) interno que preenche os campos do card.
   crmFazerOrcamento(cardId);
 
-  // Re-aplicar parâmetros financeiros APÓS o setTimeout interno do
-  // crmFazerOrcamento terminar (reset + carga do card ~500ms).
+  // Re-aplicar params APÓS setTimeout interno do crmFazerOrcamento (~500ms)
   if(pendingParams){
     setTimeout(function(){
       _aplicarParamsFinanceiros(pendingParams);
-      console.log('[crmFazerOrcamentoOpcao] Parâmetros financeiros restaurados:', pendingParams);
+      console.log('[crmFazerOrcamento] params financeiros da rev anterior restaurados');
     }, 800);
   }
 };

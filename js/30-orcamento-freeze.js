@@ -429,7 +429,12 @@
 
   function _uploadFreeze(chave, pacote){
     return new Promise(function(resolve, reject){
-      var _sbUrl = window._SB_URL, _sbKey = window._SB_KEY;
+      // ★ FALLBACK HARD-CODED (Felipe 20/04): _SB_URL/_SB_KEY podem não
+      //   estar definidos se 10-crm.js ainda não carregou quando este
+      //   roda. Sem isso, upload falha com "Supabase não configurado" e
+      //   cai no localStorage que estoura quota → erro catastrófico.
+      var _sbUrl = window._SB_URL || 'https://plmliavuwlgpwaizfeds.supabase.co';
+      var _sbKey = window._SB_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
       if(!_sbUrl || !_sbKey) return reject(new Error('Supabase não configurado'));
       var body = { chave: chave, valor: pacote };
 
@@ -466,7 +471,8 @@
 
   function _downloadFreeze(chave){
     return new Promise(function(resolve, reject){
-      var _sbUrl = window._SB_URL, _sbKey = window._SB_KEY;
+      var _sbUrl = window._SB_URL || 'https://plmliavuwlgpwaizfeds.supabase.co';
+      var _sbKey = window._SB_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
       if(!_sbUrl || !_sbKey) return reject(new Error('Supabase não configurado'));
       var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       var timeoutId = setTimeout(function(){
@@ -606,10 +612,16 @@
         console.log('[Freeze] 💾 Salvo em localStorage (fallback, Supabase caiu)');
       } catch(e2){
         if(e2.name === 'QuotaExceededError' || /quota/i.test(e2.message||'')){
+          // Limpeza em 2 etapas: órfãos primeiro, depois agressiva
           _limparFreezesOrfaos();
           try { localStorage.setItem(chave, JSON.stringify(pacote)); }
           catch(e3){
-            throw new Error('Supabase indisponível e localStorage cheio. Aguarde 1 minuto e tente novamente.');
+            // Ainda cheio → limpeza agressiva (remove projetta_v3, thumbs, freezes)
+            _limparAgressivo();
+            try { localStorage.setItem(chave, JSON.stringify(pacote)); }
+            catch(e4){
+              throw new Error('Supabase indisponível e localStorage cheio. Aguarde 1 minuto e tente novamente.');
+            }
           }
         } else {
           throw new Error('Supabase falhou ('+e.message+') e localStorage deu erro ('+e2.message+').');
@@ -624,7 +636,7 @@
         localStorage.setItem(chave, JSON.stringify(pacote));
         console.log('[Freeze] 💾 Backup local OK');
       } catch(e){
-        // Quota estourou? limpa órfãos e tenta de novo silenciosamente
+        // Quota estourou? limpeza em 2 etapas, senão desiste (Supabase já tem)
         if(e.name === 'QuotaExceededError' || /quota/i.test(e.message||'')){
           try {
             _limparFreezesOrfaos();
@@ -679,18 +691,83 @@
     try { crm = JSON.parse(localStorage.getItem('projetta_crm_v1') || '[]'); } catch(e){}
     var cardIds = crm.map(function(c){ return c.id; });
     var removidos = 0;
+
+    // FASE 1: Remover freezes órfãos (card não existe mais)
     for(var i=localStorage.length-1; i>=0; i--){
       var k = localStorage.key(i);
-      if(!/^freeze_/.test(k)) continue;
-      var m = k.match(/^freeze_(.+)_rev\d+$/);
+      if(!/^freeze_/.test(k||'')) continue;
+      var m = k.match(/^freeze_(.+?)(?:_opt\d+)?_rev\d+$/);
       if(!m) continue;
       if(cardIds.indexOf(m[1]) < 0){
         localStorage.removeItem(k);
         removidos++;
       }
     }
-    console.log('[Freeze] 🗑 '+removidos+' freezes órfãos removidos');
+    console.log('[Freeze] 🗑 FASE 1: '+removidos+' freezes órfãos removidos');
     return removidos;
+  }
+
+  // ★ Limpeza AGRESSIVA (Felipe 20/04): quando quota estoura no notebook
+  //   de Felipe (4.89MB ocupados por projetta_v3 + freezes + thumbs), a
+  //   função _limparFreezesOrfaos sozinha não resolve. Esta função remove
+  //   backup-de-conforto do localStorage — dados continuam no Supabase.
+  function _limparAgressivo(){
+    var liberou = 0;
+
+    // FASE A: TODOS os freezes locais (ficam no Supabase, reconstrói depois)
+    for(var i=localStorage.length-1; i>=0; i--){
+      var k = localStorage.key(i);
+      if(!k) continue;
+      if(/^freeze_/.test(k) || /^proposta_img_/.test(k)){
+        var tam = (localStorage.getItem(k)||'').length;
+        localStorage.removeItem(k);
+        liberou += tam;
+      }
+    }
+    console.log('[Freeze] 🗑 FASE A: '+(liberou/1024).toFixed(0)+' KB de freeze/propostas locais removidos');
+
+    // FASE B: projetta_v3 (DB legado pré-CRM — 4.89MB no notebook de Felipe)
+    //         Esses dados são histórico pré-migração para opções. Hoje as
+    //         revisões reais vivem em card.opcoes[].revisoes[]. O v3 serve
+    //         só de fallback pra auto-link que migra on-demand. Remover é
+    //         seguro — e recupera enormes blocos de memória.
+    try {
+      var v3 = localStorage.getItem('projetta_v3');
+      if(v3){
+        console.log('[Freeze] 🗑 FASE B: removendo projetta_v3 ('+(v3.length/1024/1024).toFixed(2)+' MB)');
+        localStorage.removeItem('projetta_v3');
+        liberou += v3.length;
+      }
+    } catch(e){ console.warn('Remove v3 falhou:', e); }
+
+    // FASE C: pdfThumb pesados no CRM (mantém refs, só remove o base64)
+    try {
+      var crm = JSON.parse(localStorage.getItem('projetta_crm_v1') || '[]');
+      var thumbsRem = 0;
+      crm.forEach(function(card){
+        if(Array.isArray(card.revisoes)){
+          card.revisoes.forEach(function(rv){
+            if(rv.pdfThumb){ delete rv.pdfThumb; thumbsRem++; }
+          });
+        }
+        if(Array.isArray(card.opcoes)){
+          card.opcoes.forEach(function(op){
+            if(Array.isArray(op.revisoes)){
+              op.revisoes.forEach(function(rv){
+                if(rv.pdfThumb){ delete rv.pdfThumb; thumbsRem++; }
+              });
+            }
+          });
+        }
+      });
+      if(thumbsRem > 0){
+        localStorage.setItem('projetta_crm_v1', JSON.stringify(crm));
+        console.log('[Freeze] 🗑 FASE C: '+thumbsRem+' pdfThumbs removidos (PNGs continuam no Supabase)');
+      }
+    } catch(e){ console.warn('Limpeza thumbs falhou:', e); }
+
+    console.log('[Freeze] ✅ Liberação total: '+(liberou/1024).toFixed(0)+' KB');
+    return liberou;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -960,8 +1037,26 @@
     destravar: function(){ _aplicarReadOnly(false); },
     voltarAoCrm: _voltarAoCrm,
     novaRevisao: _novaRevisao,
-    duplicar: duplicarFreeze
+    duplicar: duplicarFreeze,
+    limparAgressivo: _limparAgressivo,  // exposta pra debug manual
+    limparOrfaos:    _limparFreezesOrfaos
   };
 
-  console.log('[OrcamentoFreeze] v1.0 carregado');
+  // ★ Limpeza proativa no BOOT (Felipe 20/04):
+  //   localStorage tem limite de ~5MB. Se projetta_v3 (DB legado pré-CRM)
+  //   estiver ocupando mais de 1MB, remover automaticamente. Esses dados
+  //   são histórico de orçamentos pré-CRM; o CRM já tem sua própria
+  //   persistência em card.revisoes (e Supabase como fonte primária).
+  //   Sem isso, cada Orçamento Pronto novo estoura a quota.
+  try {
+    var v3 = localStorage.getItem('projetta_v3');
+    if(v3 && v3.length > 1024 * 1024){
+      console.warn('[Freeze] 🧹 BOOT: projetta_v3 legado ocupa '+(v3.length/1024/1024).toFixed(2)+' MB — removendo automaticamente');
+      localStorage.removeItem('projetta_v3');
+    }
+    // Também limpar freezes órfãos silenciosamente
+    _limparFreezesOrfaos();
+  } catch(e){ console.warn('[Freeze] boot cleanup falhou:', e); }
+
+  console.log('[OrcamentoFreeze] v1.1 — cloud-first arquitetura carregada');
 })();

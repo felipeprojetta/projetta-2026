@@ -34,7 +34,48 @@ function _autoRestoreSession(){
 }
 
 function loadDB(){ try{return JSON.parse(localStorage.getItem(LS_KEY))||[];}catch{return [];} }
-function saveDB(db){ localStorage.setItem(LS_KEY,JSON.stringify(db)); window._cloudPush("projetta_v3",db); }
+
+// ★ Cloud-first arquitetura (Felipe 20/04): Supabase é a fonte primária.
+//   localStorage serve SÓ como cache rápido, rotacionado em 50 entries
+//   mais recentes. Se quota estourar, descarta silenciosamente — o dado
+//   completo continua no Supabase e é puxado via _syncOrcFromCloud.
+function saveDB(db){
+  // 1) SEMPRE manda pra nuvem primeiro (fonte da verdade)
+  try { window._cloudPush("projetta_v3", db); } catch(e){ console.warn('[saveDB] cloud push falhou:',e); }
+
+  // 2) Cache local: só as 50 mais recentes pra não estourar quota.
+  //    Ordena por data mais recente (updatedAt → lastAccess → createdAt)
+  //    e mantém as top 50.
+  var cache;
+  if(Array.isArray(db) && db.length > 50){
+    cache = db.slice().sort(function(a,b){
+      var da = new Date(a.updatedAt||a.lastAccess||a.createdAt||0).getTime();
+      var dbt= new Date(b.updatedAt||b.lastAccess||b.createdAt||0).getTime();
+      return dbt - da;
+    }).slice(0, 50);
+  } else {
+    cache = db;
+  }
+
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(cache));
+  } catch(e){
+    if(e && (e.name === 'QuotaExceededError' || /quota/i.test(e.message||''))){
+      // Cache estourou mesmo com rotação — descarta silenciosamente.
+      // Tenta com só 20 entries. Se ainda não couber, remove tudo.
+      console.warn('[saveDB] quota estourou com 50 entries, tentando 20');
+      try {
+        var menor = cache.slice(0, 20);
+        localStorage.setItem(LS_KEY, JSON.stringify(menor));
+      } catch(e2){
+        console.warn('[saveDB] quota ainda estourou — descartando cache local. Dados seguros no Supabase.');
+        try { localStorage.removeItem(LS_KEY); } catch(e3){}
+      }
+    } else {
+      console.warn('[saveDB] erro não-quota:', e);
+    }
+  }
+}
 function _syncOrcFromCloud(){
   window._cloudPull("projetta_v3",function(data){
     if(!data)return;
