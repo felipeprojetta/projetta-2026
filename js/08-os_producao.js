@@ -547,26 +547,41 @@ function gerarOS(){
                 remaining:b.remaining,sobra:b.sobra!=null?b.sobra:b.remaining};
       });
       if(d.groupRes[key]){
-        // Perfil já existe na porta — apenas adicionar os cortes ao groupRes existente
+        // Perfil já existe na porta — SOMAR os valores de fixo (mesma lógica da
+        // tabela Aproveitamento de Barras, que mostra porta e fixo em linhas
+        // separadas). NÃO re-empacotar: isso geraria um n° de barras menor
+        // (packing conjunto otimizado), mas não corresponde à quantidade real
+        // de barras a comprar — a produção vê porta e fixo separadamente.
+        //
+        // Antes (BUG): `existing.nBars=cBars.length` (re-pack combinado = 8)
+        // Agora (correto): `existing.nBars = porta.nBars + fixo.bars.length` (= 9)
+        //
+        // Isso mantém a consistência: Aprov = Relação CEM = Resumo da Obra.
         var existing=d.groupRes[key];
-        // Reconstruir allCuts originais da porta a partir do barsDetail
-        var allOrigCuts=[];
-        if(existing.barsDetail){
-          existing.barsDetail.forEach(function(b){
-            b.items.forEach(function(p){allOrigCuts.push(p);});
-          });
+        existing.nBars   += bars.length;
+        existing.totUsed += fUsed;
+        existing.totBruto+= fBruto;
+        existing.aprov    = existing.totBruto>0 ? existing.totUsed/existing.totBruto*100 : 0;
+        existing.kgLiq   += fKgLiq;
+        existing.kgBruto += fKgBru;
+        // Custo do fixo: kgBruto × precoKg da porta (+ pintura se pintado).
+        // Usa o mesmo preço/pintura do perfil da porta — fixo não tem precoKg próprio.
+        if(existing.precoKg){
+          var _precoPint = d.precoPint || 0;
+          var _precoPintBru = d.precoPintBru || 0;
+          var _custoFixoMat = fKgBru * existing.precoKg;
+          var _custoFixoMatBru = fKgBru * (existing.precoKgBru || existing.precoKg);
+          var _custoFixoPint = existing.pintado ? fKgBru * _precoPint : 0;
+          var _custoFixoPintBru = existing.pintado ? fKgBru * _precoPintBru : 0;
+          existing.custoPerfil  = (existing.custoPerfil||0)  + _custoFixoMat;
+          existing.custoPintura = (existing.custoPintura||0) + _custoFixoPint;
+          existing.custoTotal   = (existing.custoTotal||0)   + _custoFixoMat + _custoFixoPint;
+          existing.custoPerfilBru  = (existing.custoPerfilBru||0)  + _custoFixoMatBru;
+          existing.custoPinturaBru = (existing.custoPinturaBru||0) + _custoFixoPintBru;
+          existing.custoTotalBru   = (existing.custoTotalBru||0)   + _custoFixoMatBru + _custoFixoPintBru;
         }
-        var allCombined=allOrigCuts.concat(fg.allCuts); // porta(já split) + fixo(já split)
-        var kgM=fg.kgM||(existing.totUsed>0?existing.kgLiq/(existing.totUsed/1000):0)||0;
-        var cBars=binPackFFD(allCombined,existing.barLenMM);
-        var cUsed=allCombined.reduce(function(s,x){return s+x;},0);
-        var cBruto=cBars.reduce(function(s,b){return s+b.barLen;},0);
-        existing.nBars=cBars.length;
-        existing.totUsed=cUsed; existing.totBruto=cBruto;
-        existing.aprov=cBruto>0?cUsed/cBruto*100:0;
-        existing.kgLiq=cUsed/1000*kgM;
-        existing.kgBruto=cBruto/1000*kgM;
-        existing.barsDetail=cBars.map(function(b){return {len:b.barLen,items:b.items.slice().sort(function(a,x){return x-a;}),remaining:b.remaining,sobra:b.sobra!=null?b.sobra:b.remaining};});
+        // Concatena barsDetail (drawer mostra padrões de porta + padrões de fixo em sequência)
+        existing.barsDetail = (existing.barsDetail||[]).concat(fBarsDetail);
       } else {
         // Perfil novo (só no fixo) — adicionar ao groupRes e seenKeys
         d.groupRes[key]={nBars:bars.length,totUsed:fUsed,totBruto:fBruto,aprov:fAprov,
