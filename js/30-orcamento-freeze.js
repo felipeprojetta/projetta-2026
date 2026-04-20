@@ -597,6 +597,23 @@
     // 10) Marcar ID da revisão atual pra "Nova Revisão" saber de qual duplicar
     window._freezeOpen = { cardId: cardId, revNum: revNum };
 
+    // ★ 11) Mostrar botão "Gerar ATP" APENAS se card está em etapa "Ganho".
+    //       Felipe: "só faça botão de Gerar ATP aparecer se você clicar 2
+    //       vezes em alguma versão (original ou revisão) de um card que
+    //       estiver em GANHO".
+    //       Detecta etapa won pela label (mesmo padrão do crmStats: /gan|won/i).
+    try {
+      var atpBtn = document.getElementById('btn-gerar-atp');
+      if(atpBtn){
+        var settings = JSON.parse(localStorage.getItem('projetta_crm_settings_v1') || '{}');
+        var stages = (settings.stages || []);
+        var stage = stages.find(function(s){ return s.id === card.stage; });
+        var isGanho = stage && /gan|won/i.test(stage.label || '');
+        atpBtn.style.display = isGanho ? '' : 'none';
+        console.log('[Freeze] ATP btn: card stage="'+(stage?stage.label:'?')+'" → '+(isGanho?'VISIVEL':'oculto'));
+      }
+    } catch(e){ console.warn('[Freeze] erro ao condicionar ATP:', e); }
+
     console.log('[Freeze] ✅ Revisão carregada no orçamento — '+rev.label);
     return pacote;
   }
@@ -617,6 +634,10 @@
         el.removeAttribute('data-freeze-locked');
       });
       window._freezeOpen = null;
+      // ★ Esconder botão ATP ao sair do modo freeze (Felipe: ATP só aparece
+      //    com duplo-clique em revisão de card em etapa Ganho).
+      var atpBtn = document.getElementById('btn-gerar-atp');
+      if(atpBtn) atpBtn.style.display = 'none';
       return;
     }
 
