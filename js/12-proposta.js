@@ -697,24 +697,29 @@ function populateProposta(){
     }
     var _abEl=document.getElementById('prop-abertura');
     if(_abEl && /PIVOTANTE/i.test(_abEl.textContent||'')) _abEl.textContent='PIVOTING';
+  }
+  } // end if(!_isMulti) — single-door values
+
+  // Traduções GLOBAIS (fora do if !_isMulti) — valem pra single E multi
+  // Validade, prazo de entrega, forma de pagamento — esses campos aparecem
+  // em qualquer modo de proposta.
+  if(_PROP_LANG==='en'){
     var _valEl=document.getElementById('prop-validade');
     if(_valEl){
       var _vtxt=(_valEl.textContent||'').replace(/dias\s+úteis/i,'working days');
       _valEl.textContent=_vtxt;
     }
-    // Prazo: "90 dias após aprovação do recálculo." → "90 days after recalculation approval."
     var _prazoEl=document.getElementById('prop-prazo');
     if(_prazoEl){
       var _ptxt=(_prazoEl.textContent||'')
         .replace(/dias\s+após\s+aprovação\s+do\s+recálculo/i,'days after recalculation approval')
-        .replace(/dias\s+úteis\s+após\s+aprovação/i,'working days after approval');
+        .replace(/dias\s+úteis\s+após\s+aprovação/i,'working days after approval')
+        .replace(/dias\s+úteis/i,'working days');
       _prazoEl.textContent=_ptxt;
     }
-    // Forma de pagamento: "Boleto" → "Wire transfer / Boleto"
     var _formaEl=document.getElementById('prop-forma-pgto');
     if(_formaEl && /boleto/i.test(_formaEl.textContent||'')) _formaEl.textContent='Wire transfer';
   }
-  } // end if(!_isMulti) — single-door values
   // Logo no rodapé
   var headerLogo=document.querySelector('.header-brand img');
   var footerLogo=document.getElementById('prop-footer-logo-img');
