@@ -575,11 +575,19 @@ function populateProposta(){
   var puxVal=g('carac-puxador')||'—';
   document.getElementById('prop-puxador').textContent=puxVal;
   var puxTamLine=document.getElementById('prop-pux-tam-line');
+  var puxTamEl  =document.getElementById('prop-pux-tam');
   if(puxVal==='EXTERNO'){
-    puxTamLine.style.display='';
-    document.getElementById('prop-pux-tam').textContent=g('carac-pux-tam')||'—';
+    var _puxTamVal=g('carac-pux-tam')||'—';
+    // Puxador fornecido pelo cliente: destacar igual cilindro/alisar (vermelho)
+    if(String(_puxTamVal).toUpperCase()==='CLIENTE'){
+      if(puxTamEl) puxTamEl.innerHTML='<strong style="color:#c0392b;font-size:110%">POR CONTA DO CLIENTE</strong>';
+      if(puxTamLine) puxTamLine.style.cssText='background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700';
+    } else {
+      if(puxTamEl) puxTamEl.textContent=_puxTamVal;
+      if(puxTamLine) puxTamLine.style.cssText=''; // reset (caso estava com destaque)
+    }
   } else {
-    puxTamLine.style.display='none';
+    if(puxTamLine) puxTamLine.style.cssText='display:none';
   }
   // Cilindro — destaque quando Udinese
   var _cilVal=g('carac-cilindro')||'—';

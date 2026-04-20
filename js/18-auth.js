@@ -1128,7 +1128,15 @@ function _populatePropostaItens(){
       doorsHtml+='<div style="background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0"><b>'+_L_FECHDIG+':</b> <span style="color:#c0392b;font-weight:700">'+_L_NA+'</span></div>';
     }
     doorsHtml+='<div><b>'+_L_PUX+'</b>: '+it.puxador+'</div>';
-    if(it.puxador==='EXTERNO'&&it.puxTam) doorsHtml+='<div><b>'+_L_PUXTAM+'</b>: '+it.puxTam+'</div>';
+    if(it.puxador==='EXTERNO'&&it.puxTam){
+      // Puxador fornecido pelo cliente: destacar igual cilindro/alisar (vermelho)
+      if(String(it.puxTam).toUpperCase()==='CLIENTE'){
+        var _L_CLI_CLIENT = _LANG==='en' ? 'SUPPLIED BY CLIENT' : 'POR CONTA DO CLIENTE';
+        doorsHtml+='<div style="background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>'+_L_PUXTAM+':</b> <strong style="color:#c0392b;font-size:110%">'+_L_CLI_CLIENT+'</strong></div>';
+      } else {
+        doorsHtml+='<div><b>'+_L_PUXTAM+'</b>: '+it.puxTam+'</div>';
+      }
+    }
     doorsHtml+='<div><b>'+_L_COREXT+'</b>: '+it.corExt+'</div>';
     doorsHtml+='<div><b>'+_L_CORINT+'</b>: '+it.corInt+'</div>';
     doorsHtml+='<div><b>'+_L_CIL+'</b>: '+it.cilindro+'</div>';
