@@ -157,6 +157,83 @@ function escH(s){var d=document.createElement('div');d.textContent=s||'';return 
 function el(id){return document.getElementById(id);}
 function val(id){return(el(id)||{}).value||'';}
 function setVal(id,v){var e=el(id);if(e)e.value=v||'';}
+
+/* ★ Helpers de data BR (Felipe 20/04) ─────────────────────────────────
+   ISO = 'YYYY-MM-DD' (interno, compat com input type=date)
+   BR  = 'DD/MM/AAAA' (display)
+   Aceita tb input com time (ISO8601) — so leva em conta a data.
+   ─────────────────────────────────────────────────────────────────── */
+function isoToBR(iso){
+  if(!iso) return '';
+  var s = String(iso).slice(0,10); // pega YYYY-MM-DD mesmo se vier com time
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '';
+  var p = s.split('-');
+  return p[2]+'/'+p[1]+'/'+p[0];
+}
+function brToIso(br){
+  if(!br) return '';
+  var m = String(br).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return '';
+  return m[3]+'-'+m[2]+'-'+m[1];
+}
+
+/* ★ Modal de data de fechamento — usado ao arrastar card pra Ganho.
+   Usa <input type="date"> nativo: browser mostra calendario localizado
+   (pt-BR → DD/MM/AAAA) mas valor interno permanece ISO. */
+function _abrirModalDataFechamento(clienteNome, onOk, onCancel){
+  // Remover modal anterior se existir
+  var prev = document.getElementById('modal-data-fech');
+  if(prev) prev.remove();
+
+  var hoje = new Date().toISOString().slice(0,10);
+  var overlay = document.createElement('div');
+  overlay.id = 'modal-data-fech';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:3200;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);animation:fadeIn .15s';
+
+  overlay.innerHTML =
+    '<div style="background:#fff;border-radius:12px;padding:24px 28px;max-width:440px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25)">'+
+      '<div style="font-size:18px;font-weight:800;color:#003144;margin-bottom:4px">🏆 Fechado Ganho</div>'+
+      '<div style="font-size:13px;color:#666;margin-bottom:16px">'+escH(clienteNome)+'</div>'+
+      '<label style="font-size:12px;font-weight:700;color:#003144;text-transform:uppercase;letter-spacing:.04em">Data do Fechamento</label>'+
+      '<input type="date" id="md-data-in" value="'+hoje+'" max="'+hoje+'" style="width:100%;padding:10px 12px;margin-top:6px;border:1.5px solid #c9c6bf;border-radius:8px;font-size:15px;font-family:inherit;color:#003144;outline:none">'+
+      '<div style="font-size:10px;color:#888;margin-top:4px;font-style:italic">Data real em que o contrato foi fechado (formato DD/MM/AAAA)</div>'+
+      '<div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">'+
+        '<button id="md-cancel" style="padding:9px 18px;border-radius:8px;border:1.5px solid #ccc;background:#fff;color:#555;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Cancelar</button>'+
+        '<button id="md-ok" style="padding:9px 22px;border-radius:8px;border:none;background:#27ae60;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">✓ Confirmar</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(overlay);
+
+  var inp = document.getElementById('md-data-in');
+  var btnOk = document.getElementById('md-ok');
+  var btnCc = document.getElementById('md-cancel');
+  // Focus auto pro user poder digitar / abrir calendario
+  setTimeout(function(){ if(inp) inp.focus(); }, 50);
+
+  function fechar(){ overlay.remove(); }
+  function confirmar(){
+    var v = (inp.value||'').trim();
+    if(!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)){
+      alert('Por favor selecione uma data valida.');
+      return;
+    }
+    fechar();
+    if(typeof onOk === 'function') onOk(v);
+  }
+  function cancelar(){
+    fechar();
+    if(typeof onCancel === 'function') onCancel();
+  }
+  btnOk.addEventListener('click', confirmar);
+  btnCc.addEventListener('click', cancelar);
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) cancelar(); });
+  // Enter = confirmar, Esc = cancelar
+  overlay.addEventListener('keydown', function(e){
+    if(e.key==='Enter') confirmar();
+    if(e.key==='Escape') cancelar();
+  });
+}
+
 function nameColor(name){
   var t=gTeam();var m=t.find(function(x){return x.name===name;});
   if(m)return m.color;
@@ -173,7 +250,17 @@ function updateKPIs(all){
   var ativos=all.filter(function(o){return wonIds.indexOf(o.stage)<0&&lostIds.indexOf(o.stage)<0;});
   var ganhos=all.filter(function(o){return wonIds.indexOf(o.stage)>=0;});
   var perdidos=all.filter(function(o){return lostIds.indexOf(o.stage)>=0;});
-  var ganhosMes=ganhos.filter(function(o){return isThisMonth(o.updatedAt||o.createdAt);});
+  // ★ Felipe 20/04: 'Ganhos Mes' deve considerar a data real do
+  //   fechamento, nao o updatedAt do card (que reflete qualquer
+  //   edicao posterior). Ordem de prioridade:
+  //     1) fechamento_real (novo campo, setado no drop pra Ganho)
+  //     2) fechamento     (campo legado do modal)
+  //     3) updatedAt      (fallback pra cards antigos sem data real)
+  //     4) createdAt
+  var ganhosMes=ganhos.filter(function(o){
+    var dataRef = o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt;
+    return isThisMonth(dataRef);
+  });
   var intl=all.filter(function(o){return o.scope==='internacional';});
   var pipe=ativos.reduce(function(s,o){return s+(parseFloat(o.valor)||0);},0);
   var gMes=ganhosMes.reduce(function(s,o){return s+(parseFloat(o.valor)||0);},0);
@@ -282,45 +369,31 @@ function renderKanban(fil){
     body.addEventListener('drop',function(e){
       e.preventDefault();body.classList.remove('drag-over');
       if(!_dragId)return;
-      var dragIdLocal = _dragId; // capturar antes de zerar
+      var dragIdLocal = _dragId;
       _dragId=null;
       var data=cLoad();var idx=data.findIndex(function(o){return o.id===dragIdLocal;});
       if(idx<0) return;
 
       var destStage = st;
-      // ★ Felipe 20/04: ao arrastar para 'Fechado Ganho', abrir prompt de
-      //   data do fechamento. Se o usuario cancelar, volta pro stage
-      //   anterior. Se ja tem data, nao pergunta de novo.
       var _ehGanho = /ganho|won/i.test(destStage.label||'');
-      if(_ehGanho){
-        var hoje = new Date().toISOString().slice(0,10); // YYYY-MM-DD
-        var jaTemFechamento = data[idx].fechamento_real && data[idx].fechamento_real.trim();
-        if(!jaTemFechamento){
-          var dataEscolhida = prompt(
-            '🏆 Fechado Ganho — ' + (data[idx].cliente||'Cliente') + '\n\n' +
-            'Qual a data do fechamento?\n(formato AAAA-MM-DD, ex: ' + hoje + ')',
-            hoje
-          );
-          if(dataEscolhida === null){
-            // Cancelou → nao move
-            crmRender();
-            return;
-          }
-          dataEscolhida = (dataEscolhida||'').trim();
-          if(!dataEscolhida){
-            alert('Data nao informada. Mantendo stage anterior.');
-            crmRender();
-            return;
-          }
-          // Validar formato basico YYYY-MM-DD
-          if(!/^\d{4}-\d{2}-\d{2}$/.test(dataEscolhida)){
-            alert('Formato invalido. Use AAAA-MM-DD (ex: ' + hoje + ').');
-            crmRender();
-            return;
-          }
-          data[idx].fechamento_real = dataEscolhida;
-          data[idx].fechamento = dataEscolhida; // campo legacy compatibilidade
-        }
+
+      if(_ehGanho && !(data[idx].fechamento_real && data[idx].fechamento_real.trim())){
+        // ★ Modal nativo com <input type="date"> — calendario do browser
+        //   exibe no formato local (BR: DD/MM/AAAA). Valor interno continua
+        //   ISO (YYYY-MM-DD) pra compatibilidade.
+        _abrirModalDataFechamento(data[idx].cliente||'Cliente', function(dataIso){
+          if(!dataIso) return; // cancelou
+          data[idx].fechamento_real = dataIso;
+          data[idx].fechamento = dataIso; // compat legado
+          data[idx].stage = destStage.id;
+          data[idx].updatedAt = new Date().toISOString();
+          cSave(data);
+          crmRender();
+        }, function(){
+          // Cancelou → volta pro stage anterior
+          crmRender();
+        });
+        return; // aguarda callback do modal
       }
 
       data[idx].stage = destStage.id;
@@ -417,13 +490,22 @@ function buildCard(o,st,isFazerOrc){
   }
   if(o.dataContato) html+='<div style="font-size:9px;color:var(--hint);margin-top:2px">📅 1º contato: '+dateLabel(o.dataContato)+'</div>';
 
+  // ★ Data de fechamento — Felipe 20/04: usa o campo real (fechamento_real)
+  //   quando disponivel, senao cai pro legado (fechamento). Formato BR
+  //   completo DD/MM/AAAA pra clareza (dateLabel so mostra "20 de abr.",
+  //   pouco util pra ganho que as vezes e de outro ano).
+  var _dataFech = o.fechamento_real || o.fechamento || '';
+  var _ehWon = /ganho|won/i.test(st.label||'') || o.stage==='won' || o.stage==='s6';
+  if(_dataFech && _ehWon){
+    html+='<div style="font-size:9px;color:#27ae60;margin-top:2px;font-weight:700">🏆 Fechado: '+isoToBR(_dataFech)+'</div>';
+  }
+
   var days=daysFrom(o.fechamento);
   var urgente=days<=3&&o.fechamento&&!/(gan|won|perd|lost)/i.test(st.label);
   html+='<div class="crm-card-footer">'+
     '<div class="crm-card-resp">'+
       (o.responsavel?'<div class="crm-avatar" style="background:'+nameColor(o.responsavel)+'">'+o.responsavel.charAt(0)+'</div><span>'+escH(o.responsavel.split(' ')[0])+'</span>':'<span style="color:var(--hint)">Sem resp.</span>')+
     '</div>'+
-    (o.fechamento&&o.stage==='won'?'<div class="crm-card-date" style="color:#27ae60;font-weight:700">📅 Fechado: '+dateLabel(o.fechamento)+'</div>':'')+
   '</div>';
 
   // Fazer Orçamento button
