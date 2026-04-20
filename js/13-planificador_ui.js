@@ -989,7 +989,11 @@ window._plnCorSizeChanged = function(selEl){
     if(typeof _syncChapaToOrc === 'function') _syncChapaToOrc();
     // _syncChapaToOrc já chama calc() no final, mas garantir
     if(typeof calc === 'function') calc();
-  }, 100);
+    // Re-renderizar simulação pra refletir o destaque no novo tamanho
+    if(typeof _renderSimCards === 'function' && window._simData){
+      _renderSimCards(window._simData.selSH);
+    }
+  }, 120);
 };
 
 var _plnPiecesRef=[];
@@ -1848,7 +1852,13 @@ window._selectChapaSimByCor = function(corKey, sw, sh){
   setTimeout(function(){
     if(typeof _syncChapaToOrc === 'function') _syncChapaToOrc();
     if(typeof calc === 'function') calc();
-  }, 100);
+    // ★ Re-renderizar simulação pra atualizar o destaque (selecionado) no card novo.
+    //    Sem isso, o border laranja + "✅ SELECIONADO" fica no card antigo
+    //    mesmo depois do tamanho efetivamente mudar.
+    if(typeof _renderSimCards === 'function' && window._simData){
+      _renderSimCards(window._simData.selSH);
+    }
+  }, 120);
 };
 
 function _selectChapaSim(sheetH, numChapas){
