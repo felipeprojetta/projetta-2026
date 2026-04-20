@@ -282,9 +282,51 @@ function renderKanban(fil){
     body.addEventListener('drop',function(e){
       e.preventDefault();body.classList.remove('drag-over');
       if(!_dragId)return;
-      var data=cLoad();var idx=data.findIndex(function(o){return o.id===_dragId;});
-      if(idx>=0){data[idx].stage=st.id;data[idx].updatedAt=new Date().toISOString();cSave(data);crmRender();}
+      var dragIdLocal = _dragId; // capturar antes de zerar
       _dragId=null;
+      var data=cLoad();var idx=data.findIndex(function(o){return o.id===dragIdLocal;});
+      if(idx<0) return;
+
+      var destStage = st;
+      // ★ Felipe 20/04: ao arrastar para 'Fechado Ganho', abrir prompt de
+      //   data do fechamento. Se o usuario cancelar, volta pro stage
+      //   anterior. Se ja tem data, nao pergunta de novo.
+      var _ehGanho = /ganho|won/i.test(destStage.label||'');
+      if(_ehGanho){
+        var hoje = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+        var jaTemFechamento = data[idx].fechamento_real && data[idx].fechamento_real.trim();
+        if(!jaTemFechamento){
+          var dataEscolhida = prompt(
+            '🏆 Fechado Ganho — ' + (data[idx].cliente||'Cliente') + '\n\n' +
+            'Qual a data do fechamento?\n(formato AAAA-MM-DD, ex: ' + hoje + ')',
+            hoje
+          );
+          if(dataEscolhida === null){
+            // Cancelou → nao move
+            crmRender();
+            return;
+          }
+          dataEscolhida = (dataEscolhida||'').trim();
+          if(!dataEscolhida){
+            alert('Data nao informada. Mantendo stage anterior.');
+            crmRender();
+            return;
+          }
+          // Validar formato basico YYYY-MM-DD
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(dataEscolhida)){
+            alert('Formato invalido. Use AAAA-MM-DD (ex: ' + hoje + ').');
+            crmRender();
+            return;
+          }
+          data[idx].fechamento_real = dataEscolhida;
+          data[idx].fechamento = dataEscolhida; // campo legacy compatibilidade
+        }
+      }
+
+      data[idx].stage = destStage.id;
+      data[idx].updatedAt = new Date().toISOString();
+      cSave(data);
+      crmRender();
     });
     if(!cards.length){
       body.innerHTML='<div class="crm-empty"><div class="crm-empty-icon">📭</div>Nenhuma oportunidade</div>';
