@@ -2601,18 +2601,91 @@ window.crmRemoverOpcao=function(cardId, opcaoId){
    pra Modelo 01 Cava, o "Fazer Orçamento" precisa respeitar o item
    ATUALIZADO do card — não o modelo antigo congelado no freeze.
 
+   MAS preserva os PARÂMETROS FINANCEIROS (overhead, impostos, comissões,
+   lucro, markup, desconto) do último orçamento salvo. Felipe 20/04:
+   "ao fazer Opção 1 deve trazer mesmo parâmetros financeiros".
+   Fonte: projetta_v3 (DB legado) — sempre atualizado em cada
+   "Orçamento Pronto" via salvarRapido().
+
    Quem quiser CONTINUAR de uma revisão congelada específica da opção
    usa o duplo-clique na linha da revisão + "Nova Revisão" dentro.
 
    Ao clicar "Orçamento Pronto" no final, o OrcamentoFreeze descobre
    a opção ativa via _opcaoAtivaDoCard() e salva a rev no lugar certo.
    ═════════════════════════════════════════════════════════════════════ */
+
+// Campos financeiros a preservar entre Fazer Orçamento.
+// Ficam no painel "Parâmetros Financeiros" do orçamento.
+var _FIN_PARAM_IDS = ['overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto','markup-desc'];
+
+function _coletarParamsFinanceiros(cardId){
+  // Busca o último estado salvo no DB legado (projetta_v3). Ele é atualizado
+  // a cada "Orçamento Pronto" via salvarRapido(). Retorna null se não achou.
+  try {
+    if(typeof loadDB !== 'function') return null;
+    var db = loadDB();
+    // 1) Entry vinculado a ESTE card
+    var entry = db.find(function(e){ return e.crmCardId === cardId; });
+    // 2) Fallback: por nome de cliente
+    if(!entry){
+      var cdata = cLoad();
+      var card = cdata.find(function(o){return o.id===cardId;});
+      if(card && card.cliente){
+        var nome = card.cliente.toUpperCase().trim();
+        var matches = db.filter(function(e){ return e.client && e.client.toUpperCase().trim()===nome; });
+        if(matches.length===1) entry = matches[0];
+      }
+    }
+    if(!entry || !entry.revisions || !entry.revisions.length) return null;
+    var lastRev = entry.revisions[entry.revisions.length-1];
+    var data = (lastRev && lastRev.data) || null;
+    if(!data) return null;
+    var out = {};
+    var found = false;
+    _FIN_PARAM_IDS.forEach(function(id){
+      if(data[id] !== undefined && data[id] !== ''){
+        out[id] = data[id];
+        found = true;
+      }
+    });
+    return found ? out : null;
+  } catch(e){
+    console.warn('[crmFazerOrcamentoOpcao] coletarParamsFinanceiros falhou:', e);
+    return null;
+  }
+}
+
+function _aplicarParamsFinanceiros(params){
+  if(!params) return;
+  Object.keys(params).forEach(function(id){
+    var el = document.getElementById(id);
+    if(el && params[id] !== undefined && params[id] !== ''){
+      el.value = params[id];
+      // Marcar markup-desc como manual pra auto-calc não sobrescrever
+      if(id === 'markup-desc') el.dataset.manual = '1';
+      // Disparar eventos pra calc() reagir
+      try {
+        ['input','change'].forEach(function(evt){
+          el.dispatchEvent(new Event(evt,{bubbles:true}));
+        });
+      } catch(e){}
+    }
+  });
+  // Recalcular se custo já foi gerado
+  if(typeof calc === 'function'){
+    try { calc(); } catch(e){}
+  }
+}
+
 window.crmFazerOrcamentoOpcao=function(cardId){
   if(!cardId){ alert('Card inválido'); return; }
   if(typeof crmFazerOrcamento !== 'function'){
     alert('Função crmFazerOrcamento não carregada');
     return;
   }
+
+  // Coletar parâmetros financeiros ANTES do reset (são perdidos no reset)
+  var pendingParams = _coletarParamsFinanceiros(cardId);
 
   // Toast orientativo: deixa claro em QUAL opção estamos trabalhando
   try {
@@ -2625,7 +2698,8 @@ window.crmFazerOrcamentoOpcao=function(cardId){
     }
     var t=document.createElement('div');
     t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#e67e22;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';
-    t.textContent='📋 Fazendo orçamento de '+opLabel+' — dados do card carregados';
+    var extraTxt = pendingParams ? ' + parâmetros financeiros preservados' : '';
+    t.textContent='📋 Fazendo orçamento de '+opLabel+' — dados do card carregados'+extraTxt;
     document.body.appendChild(t);
     setTimeout(function(){t.remove();}, 4500);
   } catch(e){ /* toast é opcional */ }
@@ -2643,8 +2717,18 @@ window.crmFazerOrcamentoOpcao=function(cardId){
     }
   }
 
-  // Delega pro crmFazerOrcamento que já faz toda a limpeza + carrega card
+  // Delega pro crmFazerOrcamento que já faz toda a limpeza + carrega card.
+  // Ele tem um setTimeout(500) interno que preenche os campos do card.
   crmFazerOrcamento(cardId);
+
+  // Re-aplicar parâmetros financeiros APÓS o setTimeout interno do
+  // crmFazerOrcamento terminar (reset + carga do card ~500ms).
+  if(pendingParams){
+    setTimeout(function(){
+      _aplicarParamsFinanceiros(pendingParams);
+      console.log('[crmFazerOrcamentoOpcao] Parâmetros financeiros restaurados:', pendingParams);
+    }, 800);
+  }
 };
 
 /* ── Abrir Revisão do CRM: carrega orçamento + mostra Memorial ── */
