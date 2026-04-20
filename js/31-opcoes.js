@@ -53,7 +53,7 @@
 (function(){
   'use strict';
 
-  var VERSION = '1.2';
+  var VERSION = '1.3';
 
   // Campos derivados dos itens (primeiro item) que precisam ser espelhados
   // no nível do card pra compatibilidade com leitores legados (proposta,
@@ -126,6 +126,21 @@
           }
         });
       }
+
+      // ★ Limpeza retroativa v1.3 (Felipe 20/04 — "opção nova vem travada"):
+      //   novaOpcao antigo copiava a última rev da origem como placeholder
+      //   na nova opção. Isso disparava o lock automático imediatamente.
+      //   Detectar essas revisões-fantasma e remover:
+      //     - rev.duplicadoDe existe (marcada como cópia duplicada)
+      //     - AND rev.freezeKey ausente (nunca foi realmente congelada)
+      //   Depois dessa limpeza, a opção volta a estar editável.
+      card.opcoes.forEach(function(op){
+        if(!Array.isArray(op.revisoes) || !op.revisoes.length) return;
+        op.revisoes = op.revisoes.filter(function(rv){
+          var ehFantasma = rv && rv.duplicadoDe && !rv.freezeKey;
+          return !ehFantasma;
+        });
+      });
 
       sincronizar(card);
       return card;
@@ -209,11 +224,16 @@
   }
 
   // ───────────────────────────────────────────────────────────────
-  // novaOpcao: cria uma opção nova duplicando SÓ a última revisão
-  // da opção ativa (decisão Felipe 20/04/2026). A nova opção vira
-  // a opção ativa. ATENÇÃO: o freezeKey da rev duplicada fica
-  // pendente — o caller precisa copiar o freeze no Supabase e
-  // atribuir o novo freezeKey à rev retornada.
+  // novaOpcao: cria uma opção nova vazia (sem revisões) com os ITENS
+  // clonados da opção origem pra servirem como template editável.
+  //
+  // Felipe 20/04: "opção nova é NOVA, deve trazer tudo da original
+  // mas editável". Se copiássemos a última revisão, o lock automático
+  // travava a opção nova — usuário não conseguia editar nada.
+  //
+  // Comportamento: a nova opção vira a opção ativa. Felipe edita à
+  // vontade (modelo, cores, dimensões). Quando clicar Orçamento Pronto,
+  // a PRIMEIRA revisão é criada aí — aí sim trava.
   // ───────────────────────────────────────────────────────────────
   function novaOpcao(card, label){
     if(!card) return null;
@@ -224,34 +244,10 @@
     var n      = card.opcoes.length + 1;
     var lbl    = (label && String(label).trim()) || ('Opção '+n);
     var atual  = ativa(card);
-    var ultima = atual && Array.isArray(atual.revisoes) && atual.revisoes.length
-                 ? atual.revisoes[atual.revisoes.length-1]
-                 : null;
 
-    var revs = [];
-    if(ultima){
-      // Clone profundo pra não compartilhar refs.
-      var nv = JSON.parse(JSON.stringify(ultima));
-      nv.label       = 'Original';
-      nv.rev         = 0;
-      nv.data        = new Date().toISOString();
-      nv.duplicadoDe = {
-        opcaoId: atual.id,
-        revNum:  atual.revisoes.length-1,
-        freezeKeyOriginal: ultima.freezeKey || null
-      };
-      // freezeKey NÃO é preenchida aqui — o caller precisa copiar o
-      // freeze no Supabase antes e gravar a chave nova.
-      delete nv.freezeKey;
-      delete nv.freezeDate;
-      delete nv.freezeVersion;
-      revs.push(nv);
-    }
-
-    // ★ CRÍTICO (Felipe 20/04 — bug "editei Opção 2, alterou Opção 1"):
-    //   DEEP-CLONE dos itens da opção origem. Sem isso, a nova opção
-    //   compartilharia a MESMA REFERÊNCIA de array com a origem, e toda
-    //   edição na Opção 2 refletiria na Opção 1 (e vice-versa).
+    // ★ CRÍTICO (Felipe 20/04 — bug "opção nova vem travada"):
+    //   DEEP-CLONE dos itens da opção origem servem como TEMPLATE editável.
+    //   Sem clone: mesma referência vazaria edições entre opções.
     //   Novo ID por item evita conflito de DOM quando se abre o modal.
     var clonedItens = [];
     if(atual && Array.isArray(atual.itens) && atual.itens.length){
@@ -266,11 +262,12 @@
     var nova = {
       id:       novoId,
       label:    lbl,
-      revisoes: revs,
+      revisoes: [], // ★ SEM revisões — nasce editável. Primeira rev cria em Orçamento Pronto.
       itens:    clonedItens,
       criadoEm: new Date().toISOString()
     };
-    // Copia campos derivados da origem pra nova opção
+    // Copia campos derivados da origem pra nova opção (largura, altura,
+    // modelo, cor etc servem como valor inicial — podem ser editados)
     ITEM_DERIVED_FIELDS.forEach(function(f){
       if(atual && atual[f] !== undefined) nova[f] = atual[f];
       else if(card[f] !== undefined) nova[f] = card[f];

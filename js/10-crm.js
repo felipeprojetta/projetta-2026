@@ -2693,97 +2693,42 @@ window.crmNovaOpcao=function(cardId){
   var idx=data.findIndex(function(o){return o.id===cardId;});
   if(idx<0) return;
 
-  // Guarda referência ao freeze origem ANTES de criar a nova opção
+  // Captura params financeiros da opção origem ANTES de criar a nova
+  // (prioridade: opcao.paramsFin → últimaRev.paramsFin → DB legado)
   var origemOpcao = window.OrcamentoOpcoes.ativa(data[idx]);
   var ultimaRevOrigem = origemOpcao && origemOpcao.revisoes && origemOpcao.revisoes.length
                         ? origemOpcao.revisoes[origemOpcao.revisoes.length-1]
                         : null;
-  var freezeKeyOrigem = ultimaRevOrigem ? ultimaRevOrigem.freezeKey : null;
-
-  // ★ Captura params financeiros da opção origem (Felipe 20/04): quero
-  //   que Nova Opção já venha com overhead/impostos/comissões/lucro/etc
-  //   da origem pra não refazer configuração. Prioridade: opcao.paramsFin
-  //   → últimaRev.paramsFin → entry legado projetta_v3.
   var paramsFinOrigem = null;
   if(origemOpcao && origemOpcao.paramsFinanceiros){
     paramsFinOrigem = Object.assign({}, origemOpcao.paramsFinanceiros);
   } else if(ultimaRevOrigem && ultimaRevOrigem.paramsFinanceiros){
     paramsFinOrigem = Object.assign({}, ultimaRevOrigem.paramsFinanceiros);
   } else {
-    // Fallback: tentar DB legado do card
     paramsFinOrigem = _coletarParamsFinanceiros(cardId);
   }
 
+  // ★ Cria nova opção SEM revisões (editável desde o início).
+  //   Itens são deep-clonados da origem como template.
   var nova = window.OrcamentoOpcoes.novaOpcao(data[idx], label);
   if(!nova){ alert('Falha ao criar opção.'); return; }
 
-  // Copiar params pra nova opção (ficam disponíveis pra próximos Fazer Orçamento)
+  // Copia params financeiros (serão usados quando Felipe clicar Fazer
+  // Orçamento nessa nova opção)
   if(paramsFinOrigem){
     nova.paramsFinanceiros = paramsFinOrigem;
-    if(nova.revisoes && nova.revisoes[0]){
-      nova.revisoes[0].paramsFinanceiros = paramsFinOrigem;
-    }
   }
 
-  // Se a opção origem tinha um freeze, vamos duplicá-lo no Supabase pro
-  // novo freezeKey e gravar a chave na rev duplicada.
-  if(freezeKeyOrigem && nova.revisoes && nova.revisoes.length){
-    var revNova = nova.revisoes[0];
-    var novoFreezeKey = window.OrcamentoOpcoes.freezeKey(cardId, nova.id, 0);
+  cSave(data);
 
-    // Persiste o card primeiro com a rev sem freezeKey (estado válido)
-    cSave(data);
-    crmOpenModal(null, cardId);
+  // Toast explicativo
+  var tst = document.createElement('div');
+  tst.style.cssText='position:fixed;top:20px;right:20px;background:#27ae60;color:#fff;padding:12px 18px;border-radius:12px;font-size:12px;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:340px';
+  tst.innerHTML='✅ <b>'+escH(nova.label)+'</b> criada<br><span style="font-weight:400;font-size:11px">Itens e parâmetros herdados da opção anterior. Edite à vontade.</span>';
+  document.body.appendChild(tst);
+  setTimeout(function(){ tst.remove(); }, 4000);
 
-    // Toast de progresso
-    var tst = document.createElement('div');
-    tst.style.cssText='position:fixed;top:20px;right:20px;background:#003144;color:#fff;padding:12px 18px;border-radius:12px;font-size:12px;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,.3)';
-    tst.textContent='📦 Duplicando orçamento pra '+nova.label+'...';
-    document.body.appendChild(tst);
-
-    if(window.OrcamentoFreeze && typeof window.OrcamentoFreeze.duplicar === 'function'){
-      window.OrcamentoFreeze.duplicar(freezeKeyOrigem, novoFreezeKey, cardId, 0, nova.id)
-        .then(function(){
-          // Grava freezeKey na rev da nova opção
-          var d2=cLoad();
-          var i2=d2.findIndex(function(o){return o.id===cardId;});
-          if(i2>=0){
-            var opNv = window.OrcamentoOpcoes.ativa(d2[i2]);
-            if(opNv && opNv.revisoes && opNv.revisoes[0]){
-              opNv.revisoes[0].freezeKey     = novoFreezeKey;
-              opNv.revisoes[0].freezeDate    = new Date().toISOString();
-              opNv.revisoes[0].freezeVersion = '1.0';
-              cSave(d2);
-            }
-          }
-          tst.style.background='#27ae60';
-          tst.textContent='✅ '+nova.label+' criada';
-          setTimeout(function(){ tst.remove(); crmOpenModal(null, cardId); }, 1500);
-        })
-        .catch(function(err){
-          console.error('[crmNovaOpcao] duplicar freeze falhou:', err);
-          tst.style.background='#c0392b';
-          tst.textContent='⚠ Duplicação do orçamento falhou: '+(err.message||err)+'. A opção foi criada vazia.';
-          setTimeout(function(){ tst.remove(); }, 6000);
-          // Remove a rev placeholder (sem freezeKey) pra evitar duplo-clique quebrado
-          var d3=cLoad();
-          var i3=d3.findIndex(function(o){return o.id===cardId;});
-          if(i3>=0){
-            var opNv2 = window.OrcamentoOpcoes.ativa(d3[i3]);
-            if(opNv2 && opNv2.revisoes) opNv2.revisoes.length = 0;
-            cSave(d3);
-            crmOpenModal(null, cardId);
-          }
-        });
-    } else {
-      tst.remove();
-      alert('Sistema OrcamentoFreeze não disponível — opção criada vazia.');
-    }
-  } else {
-    // Nenhum freeze origem (opção origem sem revisões) → cria opção vazia
-    cSave(data);
-    crmOpenModal(null, cardId);
-  }
+  crmOpenModal(null, cardId);
 };
 
 window.crmRenomearOpcao=function(cardId, opcaoId){
