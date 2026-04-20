@@ -2068,12 +2068,84 @@ function _syncChapaToOrc(){
       }
     }
   }
-  // ACM → hidden block
-  var acmQty=parseInt((document.getElementById('plan-acm-qty')||{value:0}).value)||0;
-  var hiddenAcmSel=document.getElementById('acm-sel-1');
-  if(hiddenAcmSel && acmSel){ hiddenAcmSel.value=acmSel.value; }
-  var hiddenAcmQty=document.getElementById('acm-qty-1');
-  if(hiddenAcmQty) hiddenAcmQty.value=acmQty;
+
+  // ★ MULTI-COR: criar UM bloco ACM por cor (com sua qty) em vez de só
+  //    preencher o bloco 1 com a cor ativa. Isso garante que o custo soma
+  //    TODAS as cores, não só uma.
+  var _colorKeys = window._PLN_COLOR_KEYS || [];
+  var _byColor   = window._PLN_RES_BY_COLOR || {};
+  var _isMultiCor = _colorKeys.length >= 2;
+
+  if(_isMultiCor && acmSel && acmSel.options && acmSel.options.length > 1){
+    // Determinar tamanho de chapa atual para escolher option certa (PRO... · 1500×6000)
+    var _planChapaSel = document.getElementById('plan-chapa');
+    var _pcVal = _planChapaSel ? _planChapaSel.value : '1500|6000';
+    var _pcParts = _pcVal.split('|');
+    var _pcW = parseInt(_pcParts[0])||1500;
+    var _pcH = parseInt(_pcParts[1])||6000;
+    var _pcSufixo = _pcW+'×'+_pcH;
+
+    // Helper: encontra option no select que contém o código da cor (ex: "PRO1874")
+    //   e também o tamanho correto (ex: "1500×6000"). Retorna o value ("preco|area") ou null.
+    var _findOption = function(corLabel){
+      if(!corLabel) return null;
+      // Pegar código PRO... (primeiro token)
+      var match = corLabel.match(/^(PRO\w+)/i);
+      var proCode = match ? match[1].toUpperCase() : corLabel.split(' ')[0].toUpperCase();
+      for(var oi=0; oi<acmSel.options.length; oi++){
+        var opt = acmSel.options[oi];
+        var txt = (opt.text||'').toUpperCase();
+        if(txt.indexOf(proCode) >= 0 && txt.indexOf(_pcSufixo) >= 0){
+          return opt.value;
+        }
+      }
+      return null;
+    };
+
+    // Passo 1: remover blocos ACM existentes além dos necessários
+    var _currentBlocks = document.querySelectorAll('#acm-list .cbl');
+    for(var cbi = _currentBlocks.length - 1; cbi >= _colorKeys.length; cbi--){
+      var bId = _currentBlocks[cbi].id.replace('acm-blk-','');
+      if(typeof rm === 'function') rm('acm', parseInt(bId));
+      else if(_currentBlocks[cbi].parentNode) _currentBlocks[cbi].parentNode.removeChild(_currentBlocks[cbi]);
+    }
+
+    // Passo 2: criar/atualizar um bloco por cor
+    _colorKeys.forEach(function(ck, idx){
+      var corOpt = _findOption(ck);
+      var res = _byColor[ck];
+      var qty = res ? (res.numSheets||0) : 0;
+      var blkId = idx + 1; // ids dos blocos começam em 1
+
+      var existingSel = document.getElementById('acm-sel-'+blkId);
+      var existingQty = document.getElementById('acm-qty-'+blkId);
+
+      if(!existingSel){
+        // Criar bloco novo via addACM
+        if(typeof addACM === 'function') addACM(corOpt || '', qty);
+        // Depois de criar, existingSel/Qty devem existir
+      } else {
+        if(corOpt) existingSel.value = corOpt;
+        if(existingQty) existingQty.value = qty;
+      }
+    });
+
+    // Sincronizar plan-acm-qty com total (somando todas cores)
+    var _totalAcmQty = 0;
+    _colorKeys.forEach(function(ck){
+      var r = _byColor[ck];
+      if(r) _totalAcmQty += (r.numSheets||0);
+    });
+    var pqEl = document.getElementById('plan-acm-qty');
+    if(pqEl) pqEl.value = _totalAcmQty;
+  } else {
+    // SINGLE COR: comportamento original — preenche só o bloco 1
+    var acmQty=parseInt((document.getElementById('plan-acm-qty')||{value:0}).value)||0;
+    var hiddenAcmSel=document.getElementById('acm-sel-1');
+    if(hiddenAcmSel && acmSel){ hiddenAcmSel.value=acmSel.value; }
+    var hiddenAcmQty=document.getElementById('acm-qty-1');
+    if(hiddenAcmQty) hiddenAcmQty.value=acmQty;
+  }
 
   // ALU MACIÇO → hidden block (usa plan-alu-cor e plan-alu-qty)
   var aluSel=document.getElementById('plan-alu-cor');
@@ -2094,27 +2166,83 @@ function _syncChapaToOrc(){
 function _updateFabChapaResumo(){
   // ACM
   var acmTb=document.getElementById('fab-acm-tbody'), acmTbl=document.getElementById('fab-acm-table'), acmE=document.getElementById('fab-acm-empty');
-  var acmSel=document.getElementById('plan-acm-cor'), acmQty=parseInt((document.getElementById('plan-acm-qty')||{value:0}).value)||0;
-  if(acmTb && acmSel && acmSel.value && acmQty>0){
-    var opt=acmSel.options[acmSel.selectedIndex]; var label=opt?opt.text:'—';
-    var preco=0; var pm=label.match(/R\$\s*([\d.,]+)/); if(pm)preco=parseFloat(pm[1].replace('.','').replace(',','.'))||0;
-    var sub=preco*acmQty;
-    var _chapaSize='';
-    var _cSel=document.getElementById('plan-chapa');
-    if(_cSel&&_cSel.value==='custom'){
-      _chapaSize=((document.getElementById('plan-chapa-larg')||{value:1500}).value)+'×'+((document.getElementById('plan-chapa-alt')||{value:5000}).value)+'mm';
-    } else if(_cSel&&_cSel.value){
-      var _cp=_cSel.value.split('|');_chapaSize=_cp[0]+'×'+_cp[1]+'mm';
-    } else if(window.PLN_SD){
-      _chapaSize=PLN_SD.w+'×'+PLN_SD.h+'mm';
+
+  // ★ MULTI-COR: uma linha por cor, somando tudo no final.
+  var _colorKeysFR = window._PLN_COLOR_KEYS || [];
+  var _byColorFR   = window._PLN_RES_BY_COLOR || {};
+  var _isMultiFR = _colorKeysFR.length >= 2;
+
+  // Detectar tamanho da chapa corrente (usado tanto single como multi)
+  var _chapaSize='';
+  var _cSel=document.getElementById('plan-chapa');
+  if(_cSel&&_cSel.value==='custom'){
+    _chapaSize=((document.getElementById('plan-chapa-larg')||{value:1500}).value)+'×'+((document.getElementById('plan-chapa-alt')||{value:5000}).value)+'mm';
+  } else if(_cSel&&_cSel.value){
+    var _cp=_cSel.value.split('|');_chapaSize=_cp[0]+'×'+_cp[1]+'mm';
+  } else if(window.PLN_SD){
+    _chapaSize=PLN_SD.w+'×'+PLN_SD.h+'mm';
+  }
+  var _chapaSizeTag=_chapaSize?' <span style="font-size:9px;color:#888;font-weight:400">('+_chapaSize+')</span>':'';
+
+  if(_isMultiFR && acmTb){
+    // Renderizar UMA linha por cor. Para cada cor, iterar blocos acm-blk-N
+    // encontrando o que tem aquela cor (compara PRO... code).
+    var _rowsHtml = '';
+    var _totalAcmRes = 0;
+    _colorKeysFR.forEach(function(ck, idx){
+      var res = _byColorFR[ck];
+      var qty = res ? (res.numSheets||0) : 0;
+      // Buscar no bloco acm-blk-{idx+1} (criado por _syncChapaToOrc) o preço
+      var blkSel = document.getElementById('acm-sel-'+(idx+1));
+      var preco = 0;
+      var optLabel = ck;
+      if(blkSel && blkSel.selectedIndex >= 0){
+        var blkOpt = blkSel.options[blkSel.selectedIndex];
+        if(blkOpt && blkOpt.value){
+          var blkTxt = blkOpt.text || '';
+          var pm = blkTxt.match(/R\$\s*([\d.,]+)/);
+          if(pm) preco = parseFloat(pm[1].replace('.','').replace(',','.'))||0;
+          if(blkTxt) optLabel = blkTxt.split('·')[0].trim();
+          if(!preco){
+            // value do option geralmente é "preco|area"
+            var vParts = (blkOpt.value||'').split('|');
+            preco = parseFloat(vParts[0])||0;
+          }
+        }
+      }
+      var sub = preco * qty;
+      _totalAcmRes += sub;
+      _rowsHtml += '<tr>'
+        +'<td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+optLabel+'">'+optLabel+_chapaSizeTag+'</td>'
+        +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;font-weight:700">'+qty+'</td>'
+        +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+(preco>0?preco.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</td>'
+        +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:var(--navy)">R$ '+sub.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+        +'</tr>';
+    });
+    // Linha de TOTAL
+    if(_colorKeysFR.length > 1){
+      _rowsHtml += '<tr style="background:#f0ebe0">'
+        +'<td colspan="3" style="padding:5px 6px;border-top:1.5px solid #003144;text-align:right;font-weight:800;font-size:11px;color:#003144">TOTAL CHAPAS ACM:</td>'
+        +'<td style="padding:5px 6px;border-top:1.5px solid #003144;text-align:right;font-weight:800;color:#003144">R$ '+_totalAcmRes.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+        +'</tr>';
     }
-    var _chapaSizeTag=_chapaSize?' <span style="font-size:9px;color:#888;font-weight:400">('+_chapaSize+')</span>':'';
-    acmTb.innerHTML='<tr><td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+label+'">'+label.split('·')[0].trim()+_chapaSizeTag+'</td>'
-      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;font-weight:700">'+acmQty+'</td>'
-      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+(preco>0?preco.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</td>'
-      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:var(--navy)">R$ '+sub.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td></tr>';
-    if(acmTbl)acmTbl.style.display=''; if(acmE)acmE.style.display='none';
-  } else { if(acmTb)acmTb.innerHTML=''; if(acmTbl)acmTbl.style.display='none'; if(acmE)acmE.style.display=''; }
+    acmTb.innerHTML = _rowsHtml;
+    if(acmTbl) acmTbl.style.display='';
+    if(acmE) acmE.style.display='none';
+  } else {
+    // SINGLE COR: comportamento original
+    var acmSel=document.getElementById('plan-acm-cor'), acmQty=parseInt((document.getElementById('plan-acm-qty')||{value:0}).value)||0;
+    if(acmTb && acmSel && acmSel.value && acmQty>0){
+      var opt=acmSel.options[acmSel.selectedIndex]; var label=opt?opt.text:'—';
+      var preco=0; var pm=label.match(/R\$\s*([\d.,]+)/); if(pm)preco=parseFloat(pm[1].replace('.','').replace(',','.'))||0;
+      var sub=preco*acmQty;
+      acmTb.innerHTML='<tr><td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+label+'">'+label.split('·')[0].trim()+_chapaSizeTag+'</td>'
+        +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;font-weight:700">'+acmQty+'</td>'
+        +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+(preco>0?preco.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</td>'
+        +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:var(--navy)">R$ '+sub.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td></tr>';
+      if(acmTbl)acmTbl.style.display=''; if(acmE)acmE.style.display='none';
+    } else { if(acmTb)acmTb.innerHTML=''; if(acmTbl)acmTbl.style.display='none'; if(acmE)acmE.style.display=''; }
+  }
   // ALU
   var aluTb=document.getElementById('fab-alu-tbody'), aluTbl=document.getElementById('fab-alu-table'), aluE=document.getElementById('fab-alu-empty');
   var aluCorSel=document.getElementById('plan-alu-cor');

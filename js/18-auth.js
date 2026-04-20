@@ -937,22 +937,24 @@ function _mpCalcAllPiecesCombined(){
         var w=Array.isArray(p)?p[1]:p.w;
         var h=Array.isArray(p)?p[2]:p.h;
         var q=(Array.isArray(p)?(p[3]||1):(p.qty||1))*it.qtd;
-        var mat=Array.isArray(p)?(p[4]||''):(p.mat||p.color||'');
-        // mat can be 'alu' (ALU maciço) or color string
+        var mat=Array.isArray(p)?(p[4]||''):(p.mat||'');
+        // mat é apenas 'alu' para peças ALU macico — não usar como cor CSS
         var isAlu=(mat==='alu');
-        var clr=isAlu?'':mat;
+        // NÃO setar color aqui: deixar fallback em planRun (PLN_COLORS[i % len])
+        // atribuir cor CSS válida. Setar color com string como 'BLACK DOOR' (cor da
+        // porta, não CSS) quebra o desenho do canvas (peças ficam sem cor).
 
         if(_sameCor){
-          var pc={label:lbl+_iTag,w:w,h:h,qty:q,color:clr,_itemIdx:idx,_cor:_corExt};
+          var pc={label:lbl+_iTag,w:w,h:h,qty:q,_itemIdx:idx,_cor:_corExt};
           if(isAlu) pc.mat='alu';
           allPieces.push(pc);
         } else if(_isSurface(lbl)){
           var qExt=Math.ceil(q/2);
           var qInt=Math.floor(q/2);
-          if(qExt>0){var pe={label:lbl+' EXT'+_iTag,w:w,h:h,qty:qExt,color:clr,_itemIdx:idx,_cor:_corExt};if(isAlu)pe.mat='alu';allPieces.push(pe);}
-          if(qInt>0){var pi={label:lbl+' INT'+_iTag,w:w,h:h,qty:qInt,color:clr,_itemIdx:idx,_cor:_corInt};if(isAlu)pi.mat='alu';allPieces.push(pi);}
+          if(qExt>0){var pe={label:lbl+' EXT'+_iTag,w:w,h:h,qty:qExt,_itemIdx:idx,_cor:_corExt};if(isAlu)pe.mat='alu';allPieces.push(pe);}
+          if(qInt>0){var pi={label:lbl+' INT'+_iTag,w:w,h:h,qty:qInt,_itemIdx:idx,_cor:_corInt};if(isAlu)pi.mat='alu';allPieces.push(pi);}
         } else {
-          var ps={label:lbl+_iTag,w:w,h:h,qty:q,color:clr,_itemIdx:idx,_cor:_corExt};
+          var ps={label:lbl+_iTag,w:w,h:h,qty:q,_itemIdx:idx,_cor:_corExt};
           if(isAlu) ps.mat='alu';
           allPieces.push(ps);
         }
@@ -1407,10 +1409,26 @@ function _updateResumoObra(){
   var pesoChapa=window._planPesoBrutoACM||0;
 
   // Info ACM
+  // ★ MULTI-COR: em vez de só mostrar a cor ativa do plan-acm-cor, listar
+  //    todas as cores com suas quantidades (BLACK DOOR · 5 chapas / DARK GREY · 5 chapas).
   var _acmCorEl=document.getElementById('plan-acm-cor');
   var _acmCorTxt=(_acmCorEl&&_acmCorEl.selectedIndex>0)?_acmCorEl.options[_acmCorEl.selectedIndex].text.split('·')[0].trim():'';
   var _acmTam='';
   if(window.PLN_SD) _acmTam=(window.PLN_SD.w||1500)+'×'+(window.PLN_SD.h||6000)+'mm';
+  // Versão multi-cor do texto ACM (usado quando >=2 cores)
+  var _colorKeysRO = window._PLN_COLOR_KEYS || [];
+  var _byColorRO   = window._PLN_RES_BY_COLOR || {};
+  var _acmCorInfoHTML = '';
+  var _isMultiRO = _colorKeysRO.length >= 2;
+  if(_isMultiRO){
+    var _lines=[];
+    _colorKeysRO.forEach(function(ck){
+      var r = _byColorRO[ck];
+      var q = r ? (r.numSheets||0) : 0;
+      _lines.push(ck+': '+q+' chapa'+(q!==1?'s':''));
+    });
+    _acmCorInfoHTML = _lines.join(' · ')+(_acmTam?' · '+_acmTam:'');
+  }
 
   // Info ALU
   var _aluCorEl=document.getElementById('plan-alu-cor');
@@ -1423,7 +1441,8 @@ function _updateResumoObra(){
     // Mostrar separado: ACM + ALU
     document.getElementById('ro-chapas-qty').innerHTML=_nACM+' ACM + '+_nALU+' ALU';
     var _infoLines=[];
-    if(_acmCorTxt) _infoLines.push(_acmCorTxt+' · '+_acmTam);
+    if(_isMultiRO) _infoLines.push(_acmCorInfoHTML);
+    else if(_acmCorTxt) _infoLines.push(_acmCorTxt+' · '+_acmTam);
     if(_aluCorTxt) _infoLines.push('🔷 '+_aluCorTxt+' · '+_aluTam);
     var _infoEl=document.getElementById('ro-chapas-info');
     if(_infoEl) _infoEl.innerHTML=_infoLines.join('<br>')||'';
@@ -1432,11 +1451,15 @@ function _updateResumoObra(){
   } else {
     // Só ACM
     document.getElementById('ro-chapas-qty').textContent=_nACM+' chapa(s)';
-    var _chapaInfo=[];
-    if(_acmCorTxt) _chapaInfo.push(_acmCorTxt);
-    if(_acmTam) _chapaInfo.push(_acmTam);
     var _infoEl=document.getElementById('ro-chapas-info');
-    if(_infoEl) _infoEl.textContent=_chapaInfo.join(' · ')||'';
+    if(_isMultiRO && _infoEl){
+      _infoEl.textContent=_acmCorInfoHTML;
+    } else {
+      var _chapaInfo=[];
+      if(_acmCorTxt) _chapaInfo.push(_acmCorTxt);
+      if(_acmTam) _chapaInfo.push(_acmTam);
+      if(_infoEl) _infoEl.textContent=_chapaInfo.join(' · ')||'';
+    }
     document.getElementById('ro-chapas-peso').textContent=pesoChapa>0?pesoChapa.toFixed(1)+' kg':'';
     document.getElementById('ro-chapas-val').textContent=brl(subAcm);
   }

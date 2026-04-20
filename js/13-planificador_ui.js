@@ -887,7 +887,7 @@ function _plnPieceEdited(idx){
   tb.querySelectorAll('tr[data-sum]').forEach(function(r){r.remove();});
   var pesoPorta=0,pesoPortal=0,pesoFixo=0;
   for(var j=0;j<_plnPiecesRef.length;j++){var pp=_plnPiecesRef[j];var k=pp.w*pp.h*pp.qty/1e6*6.5;if(pp._local==='PORTA')pesoPorta+=k;else if(pp._local==='FIXO')pesoFixo+=k;else pesoPortal+=k;}
-  function _sR(l,k,b,co){var tr=document.createElement('tr');tr.setAttribute('data-sum','1');tr.innerHTML='<td colspan="6" style="padding:5px 7px;background:'+b+';font-weight:700;font-size:11px;color:'+co+';text-align:right;border-top:1.5px solid '+co+'">'+l+'</td><td style="padding:5px 7px;background:'+b+';font-weight:800;font-size:12px;color:'+co+';text-align:right;border-top:1.5px solid '+co+'">'+k.toFixed(2)+'</td><td colspan="2" style="padding:5px 7px;background:'+b+';border-top:1.5px solid '+co+'"></td>';tb.appendChild(tr);}
+  function _sR(l,k,b,co){var tr=document.createElement('tr');tr.setAttribute('data-sum','1');tr.innerHTML='<td colspan="6" style="padding:5px 7px;background:'+b+';font-weight:700;font-size:11px;color:'+co+';text-align:right;border-top:1.5px solid '+co+'">'+l+'</td><td style="padding:5px 7px;background:'+b+';font-weight:800;font-size:12px;color:'+co+';text-align:right;border-top:1.5px solid '+co+'">'+k.toFixed(2)+'</td><td colspan="3" style="padding:5px 7px;background:'+b+';border-top:1.5px solid '+co+'"></td>';tb.appendChild(tr);}
   _sR('Chapas PORTA:',pesoPorta,'#e8f5e9','#2e7d32');_sR('Chapas PORTAL:',pesoPortal,'#fff3e0','#e65100');
   if(pesoFixo>0)_sR('Chapas FIXO:',pesoFixo,'#e3f2fd','#1565c0');
   _sR('TOTAL CHAPAS:',pesoPorta+pesoPortal+pesoFixo,'#003144','#fff');
@@ -897,6 +897,27 @@ function _plnResetOverrides(){
   _plnManualOv={};
   var btn=document.getElementById('plan-reset-ov-btn');if(btn)btn.style.display='none';
   planUpd();
+}
+
+// ★ Helper: retorna todas as peças colocadas (placed) em TODAS as cores.
+// Usado em plnPieceTable para que peças de cor não-ativa não apareçam como
+// "NÃO COUBE" (elas foram colocadas, apenas em outra PLN_RES_BY_COLOR[cor]).
+// Também inclui ALU (em _plnResALU).
+function _plnAllPlaced(){
+  var out = [];
+  if(window._PLN_RES_BY_COLOR){
+    var ks = Object.keys(window._PLN_RES_BY_COLOR);
+    for(var ki=0; ki<ks.length; ki++){
+      var r = window._PLN_RES_BY_COLOR[ks[ki]];
+      if(r && r.placed) out = out.concat(r.placed);
+    }
+  } else if(typeof PLN_RES !== 'undefined' && PLN_RES && PLN_RES.placed){
+    out = out.concat(PLN_RES.placed);
+  }
+  if(window._plnResALU && window._plnResALU.placed){
+    out = out.concat(window._plnResALU.placed);
+  }
+  return out;
 }
 
 function plnPieceTable(pieces, placed) {
@@ -974,6 +995,18 @@ function plnPieceTable(pieces, placed) {
     p._autoW=p._autoW||p.w; p._autoH=p._autoH||p.h; p._autoQ=p._autoQ||p.qty;
     var _refLat = _refLatDaPeca(p.label);
     var _netWHtml = (_refLat>0 && p.w>_refLat) ? '<div style="font-size:8px;color:#888;margin-top:1px;text-align:right;font-weight:600">s/ref: '+(p.w-_refLat).toFixed(1).replace(/\.0$/,'')+'</div>' : '';
+    // ★ Coluna "Cor Chapa": mostra a cor real da porta (_cor). Se ALU, mostra badge ALU.
+    var _corPorta = (p._cor||'').toString().trim();
+    var _corBadge;
+    if(p.mat==='alu'){
+      _corBadge = '<span style="background:#1a5276;color:#fff;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">🔷 ALU</span>';
+    } else if(_corPorta){
+      // Cor curta (primeiras 2 palavras significativas) pra caber
+      var _corShort = _corPorta.replace(/^PRO\w+\s*/,'').replace(/\s+(JLR|MET)\b/gi,'').trim() || _corPorta;
+      _corBadge = '<span style="background:#fff;border:1px solid #ccc;color:#333;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap" title="'+_corPorta+'">'+_corShort+'</span>';
+    } else {
+      _corBadge = '<span style="color:#999;font-size:9px">—</span>';
+    }
     tr.innerHTML='<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'"><span style="width:11px;height:11px;border-radius:2px;display:inline-block;background:'+p.color+'"></span></td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+p.label+matBadge+'</td>'+
       '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('w',p.w,p._autoW)+_netWHtml+'</td>'+
@@ -981,6 +1014,7 @@ function plnPieceTable(pieces, placed) {
       '<td style="padding:3px 4px;border-bottom:0.5px solid #f5f2ee;'+bgRow+'">'+_mkIn('q',p.qty,p._autoQ)+'</td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'" id="'+_id+'-a">'+a+'</td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:right;'+bgRow+'font-weight:600" id="'+_id+'-kg">'+pesoKg+'</td>'+
+      '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:center;'+bgRow+'">'+_corBadge+'</td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:center;'+bgRow+'">'+lcl+'</td>'+
       '<td style="padding:5px 7px;border-bottom:0.5px solid #f5f2ee;text-align:center;color:var(--navy);font-weight:600;'+bgRow+'">'+(isFailed?failTag:sheetList)+'</td>';
     tb.appendChild(tr);
@@ -1002,9 +1036,11 @@ function plnPieceTable(pieces, placed) {
   var pesoTotal=pesoPorta+pesoPortal+pesoFixo;
   function _sumRow(label,kg,bg,color){
     var tr=document.createElement('tr');
+    // ★ Ajustado pra 10 colunas totais (adicionada coluna "Cor Chapa"):
+    //   colspan 6 antes do peso + 1 peso + colspan 3 depois (cor, local, chapas) = 10
     tr.innerHTML='<td colspan="6" style="padding:5px 7px;background:'+bg+';font-weight:700;font-size:11px;color:'+color+';text-align:right;border-top:1.5px solid '+color+'">'+label+'</td>'+
       '<td style="padding:5px 7px;background:'+bg+';font-weight:800;font-size:12px;color:'+color+';text-align:right;border-top:1.5px solid '+color+'">'+kg.toFixed(2)+'</td>'+
-      '<td colspan="2" style="padding:5px 7px;background:'+bg+';border-top:1.5px solid '+color+'"></td>';
+      '<td colspan="3" style="padding:5px 7px;background:'+bg+';border-top:1.5px solid '+color+'"></td>';
     tb.appendChild(tr);
   }
   _sumRow('Chapas PORTA:',pesoPorta,'#e8f5e9','#2e7d32');
@@ -1702,7 +1738,7 @@ function _planRecalcEdited(){
     var tags='';for(var i=0;i<PLN_RES.failed.length;i++)tags+='<span style="background:#ffcdd2;border-radius:4px;padding:2px 7px;display:inline-block;margin:2px;font-size:11px;font-weight:600">'+PLN_RES.failed[i].label+' ('+PLN_RES.failed[i].w+'x'+PLN_RES.failed[i].h+'mm)</span>';
     wd.innerHTML='<strong>Atenção: '+PLN_RES.failed.length+' peça(s) não couberam!</strong> Ajuste as medidas e recalcule.<br>'+tags;wd.style.display='';
   } else {wd.style.display='none';}
-  plnPieceTable(pieces,PLN_RES.placed);
+  plnPieceTable(pieces,_plnAllPlaced());
   plnBuildTabs();plnLegend(pieces);plnDraw(0);
   var rb=document.getElementById('plan-recalc-btn');if(rb)rb.style.display='none';
 }
@@ -1828,7 +1864,19 @@ function planRun() {
   window._plnResALU = PLN_RES_ALU;
 
   // Save ACM count BEFORE merge
-  var numSheetsACM = PLN_RES.numSheets;
+  // ★ FIX MULTI-COR: PLN_RES aponta pra primeira cor, então PLN_RES.numSheets
+  //    é só dela. numSheetsACM precisa ser SOMA de TODAS as cores pra que
+  //    o custo de fabricação (sub-acm) seja calculado corretamente.
+  var numSheetsACM = 0;
+  if(window._PLN_RES_BY_COLOR){
+    var _keysAll = Object.keys(window._PLN_RES_BY_COLOR);
+    for(var _ki=0; _ki<_keysAll.length; _ki++){
+      var _r = window._PLN_RES_BY_COLOR[_keysAll[_ki]];
+      if(_r) numSheetsACM += (_r.numSheets||0);
+    }
+  } else {
+    numSheetsACM = PLN_RES.numSheets;
+  }
   var numSheetsALU = PLN_RES_ALU.numSheets;
   var numSheetsTotal = numSheetsACM + numSheetsALU;
 
@@ -1929,7 +1977,7 @@ function planRun() {
     wd.style.display='';
   } else { wd.style.display='none'; }
 
-  plnPieceTable(pieces, PLN_RES.placed);
+  plnPieceTable(pieces, _plnAllPlaced());
   document.getElementById('plan-result').style.display='';
 
   // ── Chapa Frontal — referência no planificador ──
