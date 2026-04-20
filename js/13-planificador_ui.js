@@ -966,7 +966,8 @@ function _plnRenderCoresPainel(){
 }
 
 // ★ Handler: usuário mudou tamanho da chapa de uma cor no painel multi-cor.
-//   Atualiza _PLN_CHAPA_SIZE_BY_COLOR e dispara re-cálculo do planificador.
+//   Atualiza _PLN_CHAPA_SIZE_BY_COLOR, dispara re-cálculo e PROPAGA para
+//   orçamento (custo de fabricação, sub-acm, resumo da obra).
 window._plnCorSizeChanged = function(selEl){
   if(!selEl) return;
   var cor = selEl.getAttribute('data-cor');
@@ -977,10 +978,18 @@ window._plnCorSizeChanged = function(selEl){
   var h = parseInt(parts[1])||6000;
   if(!window._PLN_CHAPA_SIZE_BY_COLOR) window._PLN_CHAPA_SIZE_BY_COLOR = {};
   window._PLN_CHAPA_SIZE_BY_COLOR[cor] = {w: w, h: h};
-  // Re-executar planRun pra recalcular com tamanho novo
+  // Re-executar planRun pra recalcular bin-packing com tamanho novo
   if(typeof planRun === 'function'){
     planRun();
   }
+  // ★ CRÍTICO: planRun() NÃO propaga sozinho pro custo. Precisamos chamar
+  //   _syncChapaToOrc (que cria/atualiza blocos ACM com preços novos) e
+  //   calc() (que recalcula sub-acm, total, resumo da obra).
+  setTimeout(function(){
+    if(typeof _syncChapaToOrc === 'function') _syncChapaToOrc();
+    // _syncChapaToOrc já chama calc() no final, mas garantir
+    if(typeof calc === 'function') calc();
+  }, 100);
 };
 
 var _plnPiecesRef=[];
@@ -1598,7 +1607,7 @@ function _autoSelectAndRun(){
   if(typeof _updateFabChapaResumo==='function') _updateFabChapaResumo();
 
   // Salvar resultados globalmente para re-render
-  window._simData={resultados:resultados,chapas:chapas,maxDim:maxDim,selSH:melhor.sh,corCode:corCode,sw:SW};
+  window._simData={resultados:resultados,chapas:chapas,maxDim:maxDim,selSH:melhor.sh,corCode:corCode,sw:SW,piecesACM:_pcsACM};
 
   // ── Otimização ALU Maciço (se houver peças ALU) ─────────────────────────
   if(_hasALU && _pcsALU.length>0){
@@ -1684,6 +1693,120 @@ function _renderSimCards(selSH){
   d.selSH=selSH;
   var SW=d.sw||1500;
   var brl=function(v){return'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+
+  // ★ MULTI-COR: simulação POR COR (em vez de tratar tudo como uma cor só).
+  //   Quando há 2+ cores, calculamos bin-packing separado pra cada grupo de
+  //   peças por cor e mostramos um bloco de simulação pra cada.
+  var _colorKeys = window._PLN_COLOR_KEYS || [];
+  var _byColor = window._PLN_RES_BY_COLOR || {};
+  var _isMulti = _colorKeys.length >= 2;
+
+  if(_isMulti){
+    // Agrupar peças por cor (usa _mpItens + plnPecas recalc OU re-usa resultados já existentes)
+    // Estratégia simples: usar as peças do d (window._simData) e agrupar pelo campo _cor de cada uma.
+    // Se peças não tem _cor, não dá pra agrupar → fallback pra versão antiga.
+    var piecesAll = d.piecesACM || [];
+    var byColor = {};
+    for(var pi=0; pi<piecesAll.length; pi++){
+      var _p = piecesAll[pi];
+      var _ck = (_p._cor || '').toString().trim().toUpperCase() || 'SEM COR';
+      if(!byColor[_ck]) byColor[_ck] = [];
+      byColor[_ck].push(_p);
+    }
+
+    if(Object.keys(byColor).length < 2){
+      // fallback: peças sem _cor, usa modo single
+    } else {
+      var layoutMode=(document.getElementById('plan-layout')||{value:'v'}).value||'v';
+      var chapasOpts = [5000, 6000, 7000, 8000];
+
+      var h = '<div style="font-size:11px;font-weight:800;color:#003144;margin-bottom:10px;text-transform:uppercase;letter-spacing:.03em">Simulação de Chapas — POR COR <span style="font-size:9px;color:#c47012;font-weight:600;text-transform:none">(escolha o melhor tamanho independentemente pra cada cor)</span></div>';
+
+      _colorKeys.forEach(function(ck){
+        var pecasCor = byColor[ck] || [];
+        if(!pecasCor.length) return;
+
+        // Descobrir maxDim pra filtrar chapas válidas
+        var maxDim = 0;
+        pecasCor.forEach(function(p){var dd = Math.max(p.w, p.h); if(dd>maxDim) maxDim=dd;});
+
+        // Tamanho atualmente SELECIONADO pra essa cor (override do painel)
+        var _over = (window._PLN_CHAPA_SIZE_BY_COLOR||{})[ck];
+        var selSHCor = _over ? _over.h : (d.selSH || 6000);
+
+        // PRO code dessa cor pra pegar preço
+        var _match = ck.match(/PRO\w+/);
+        var _proCode = _match ? _match[0] : '';
+
+        function _priceForSH(SH){
+          // Busca em ACM_DATA preço do PRO + tamanho
+          if(!Array.isArray(ACM_DATA)) return 0;
+          var sufix = SW+'×'+SH;
+          for(var gi=0; gi<ACM_DATA.length; gi++){
+            var opts = ACM_DATA[gi].o || [];
+            for(var oi=0; oi<opts.length; oi++){
+              var L = (opts[oi].l||'').toUpperCase();
+              if(_proCode && L.indexOf(_proCode)>=0 && L.indexOf(sufix)>=0) return opts[oi].p||0;
+            }
+          }
+          return 0;
+        }
+
+        // Calcular pra cada tamanho de chapa
+        var resultsCor = [];
+        chapasOpts.forEach(function(SH){
+          if(SH < maxDim){
+            resultsCor.push({sh: SH, n: 0, aprov: 0, invalid: true, precoUn: 0, custo: 0});
+            return;
+          }
+          try {
+            var res = plnMaxRects(pecasCor, SW, SH, layoutMode);
+            var totalPecas = 0;
+            pecasCor.forEach(function(p){totalPecas += p.w*p.h*p.qty;});
+            var totalChapa = res.numSheets * SW * SH;
+            var aprov = totalChapa > 0 ? (totalPecas / totalChapa * 100) : 0;
+            var precoUn = _priceForSH(SH);
+            var custo = res.numSheets * precoUn;
+            resultsCor.push({sh: SH, n: res.numSheets, aprov: aprov, invalid: false, precoUn: precoUn, custo: custo});
+          } catch(e){
+            resultsCor.push({sh: SH, n: 0, aprov: 0, invalid: true, precoUn: 0, custo: 0});
+          }
+        });
+
+        // Bloco de UI pra essa cor
+        h += '<div style="margin-bottom:10px;padding:8px 10px;background:#f4f9fb;border:1px solid rgba(0,49,68,.15);border-radius:8px">';
+        h += '<div style="font-size:10px;font-weight:700;color:#003144;margin-bottom:6px">🎨 '+ck+'</div>';
+        h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+        resultsCor.forEach(function(r){
+          var isSel = (r.sh === selSHCor);
+          var bg = isSel ? '#003144' : (r.invalid ? '#f5e6e6' : '#fff');
+          var fg = isSel ? '#fff' : (r.invalid ? '#aaa' : '#003144');
+          var bdr = isSel ? '2px solid #c47012' : '1px solid #ddd';
+          var cur = r.invalid ? 'default' : 'pointer';
+          var click = r.invalid ? '' : ('onclick="_selectChapaSimByCor(\''+ck.replace(/'/g,"\\'")+'\','+SW+','+r.sh+')"');
+          h += '<div style="flex:1;min-width:130px;background:'+bg+';color:'+fg+';border:'+bdr+';border-radius:8px;padding:8px 10px;cursor:'+cur+'" '+click+'>';
+          h += '<div style="font-size:10px;font-weight:800;opacity:.8">'+SW+' × '+r.sh+'</div>';
+          if(r.invalid){
+            h += '<div style="font-size:10px;margin-top:4px;font-style:italic">Não cabe</div>';
+          } else {
+            h += '<div style="font-size:18px;font-weight:900;margin:2px 0">'+r.n+' <span style="font-size:10px;font-weight:600">chapas</span></div>';
+            h += '<div style="font-size:9px;opacity:.8">Aprov. '+r.aprov.toFixed(0)+'%</div>';
+            if(r.precoUn > 0){
+              h += '<div style="font-size:10px;font-weight:800;margin-top:2px">'+brl(r.custo)+'</div>';
+            }
+            if(isSel) h += '<div style="font-size:8px;margin-top:2px;color:#f0c040;font-weight:700">✅ SELECIONADO</div>';
+          }
+          h += '</div>';
+        });
+        h += '</div></div>';
+      });
+
+      infoEl.innerHTML = h;
+      return;
+    }
+  }
+
+  // SINGLE-COR: comportamento original
   var h='<div style="font-size:11px;font-weight:800;color:#003144;margin-bottom:8px;text-transform:uppercase;letter-spacing:.03em">Simulação de Chapas'+(d.corCode?' — '+d.corCode:'')+'</div>';
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
   d.chapas.forEach(function(SH){
@@ -1714,6 +1837,19 @@ function _renderSimCards(selSH){
   h+='</div>';
   infoEl.innerHTML=h;
 }
+
+// ★ Handler: simulação por cor — usuário clicou em um card de tamanho
+//   específico de uma cor. Atualiza _PLN_CHAPA_SIZE_BY_COLOR e propaga.
+window._selectChapaSimByCor = function(corKey, sw, sh){
+  if(!corKey) return;
+  if(!window._PLN_CHAPA_SIZE_BY_COLOR) window._PLN_CHAPA_SIZE_BY_COLOR = {};
+  window._PLN_CHAPA_SIZE_BY_COLOR[corKey] = {w: sw, h: sh};
+  if(typeof planRun === 'function') planRun();
+  setTimeout(function(){
+    if(typeof _syncChapaToOrc === 'function') _syncChapaToOrc();
+    if(typeof calc === 'function') calc();
+  }, 100);
+};
 
 function _selectChapaSim(sheetH, numChapas){
   // 1) Atualizar destaque visual
