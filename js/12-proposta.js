@@ -307,41 +307,129 @@ function _exportPropostaToCard(cardId, revLabel, callback){
       if(propostaTab) propostaTab.setAttribute('style',origStyle||'display:none');
       // Salvar PDF dentro da ÚLTIMA REVISÃO do card
       if(cardId){
-        // Salvar imagens na NUVEM (Supabase) em vez de localStorage
-        var _sbUrl=window._SB_URL, _sbKey=window._SB_KEY;
-        if(_sbUrl && _sbKey && captures.length>0){
+        // ★ CRÍTICO (Felipe 20/04 — bug "PDF não aparece no card"):
+        //   Supabase URL/KEY podem não estar em window._SB_URL/_SB_KEY se o
+        //   12-proposta.js rodar antes do 10-crm.js que seta essas globais.
+        //   Hard-code aqui pra garantir que o upload sempre roda.
+        var _sbUrl = window._SB_URL || 'https://plmliavuwlgpwaizfeds.supabase.co';
+        var _sbKey = window._SB_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
+
+        // _finalizarCard: atualiza o card com thumbnail + flags + trigger re-render.
+        // Declarado ANTES de uso pra evitar surpresas de hoisting em strict mode.
+        var _finalizarCard = function(cloudOk){
+          try {
+            var data = (typeof cLoad === 'function') ? cLoad() :
+                       JSON.parse(localStorage.getItem('projetta_crm_v1')||'[]');
+            var ci = data.findIndex(function(o){return o.id===cardId;});
+            if(ci>=0){
+              // Se a revisão não existe ainda (timing), cria uma placeholder
+              if(!data[ci].revisoes) data[ci].revisoes=[];
+              if(data[ci].revisoes.length===0){
+                data[ci].revisoes.push({
+                  rev: 0,
+                  label: revLabel || 'Original',
+                  data: new Date().toISOString(),
+                  valorTabela: data[ci].valorTabela || 0,
+                  valorFaturamento: data[ci].valorFaturamento || 0
+                });
+              }
+              var lastRev = data[ci].revisoes[data[ci].revisoes.length-1];
+              lastRev.pdfDate = new Date().toISOString();
+              lastRev.pdfCloud = !!cloudOk;
+              lastRev.pdfPagesCount = captures.length;
+              // Thumbnail base64 pequeno pro preview no modal
+              if(captures[0]){
+                try {
+                  var _tn=document.createElement('canvas');
+                  var _ti=new Image(); _ti.src=captures[0];
+                  _tn.width=Math.round((_ti.width||800)/3);
+                  _tn.height=Math.round((_ti.height||1100)/3);
+                  var _tc=_tn.getContext('2d');
+                  _tc.drawImage(_ti,0,0,_tn.width,_tn.height);
+                  lastRev.pdfThumb=_tn.toDataURL('image/jpeg',0.2);
+                } catch(thumbErr){
+                  console.warn('Thumb gen falhou:', thumbErr);
+                }
+              }
+              delete lastRev.pdfPages;
+              // ★ USAR cSave se existir (sincroniza Supabase + OrcamentoOpcoes)
+              if(typeof cSave === 'function'){
+                try { cSave(data); }
+                catch(csvErr){
+                  console.warn('cSave falhou, fallback localStorage:', csvErr);
+                  localStorage.setItem('projetta_crm_v1', JSON.stringify(data));
+                }
+              } else {
+                localStorage.setItem('projetta_crm_v1', JSON.stringify(data));
+              }
+              console.log('✅ Referência salva no card ('+(cloudOk?'cloud OK':'LOCAL ONLY')+')');
+              // Re-render do kanban pra ver o 📄 badge no card
+              if(typeof crmRender === 'function') crmRender();
+            } else {
+              console.warn('_exportPropostaToCard: card '+cardId+' não encontrado');
+            }
+          } catch(err){
+            // Se der quota excedida, tentar remover thumbnails antigos
+            if(err && (err.name==='QuotaExceededError' || err.code===22 || err.code===1014)){
+              console.warn('localStorage cheio — removendo thumbnails antigos');
+              try {
+                var d2 = JSON.parse(localStorage.getItem('projetta_crm_v1')||'[]');
+                d2.forEach(function(c){
+                  if(c.revisoes){
+                    c.revisoes.forEach(function(rv){
+                      if(c.id !== cardId) delete rv.pdfThumb;
+                    });
+                  }
+                });
+                localStorage.setItem('projetta_crm_v1', JSON.stringify(d2));
+              } catch(retryErr){
+                console.error('Retry falhou:', retryErr);
+              }
+            } else {
+              console.error('Erro ao salvar referência no card:', err);
+            }
+          }
+          if(callback) callback(captures);
+        };
+
+        var _pdfCloudOk = false;
+        if(captures.length>0){
           var _imgKey='proposta_img_'+cardId;
+          // Toast progressivo enquanto sobe
+          var _upTst = document.createElement('div');
+          _upTst.style.cssText='position:fixed;top:60px;right:20px;background:#8e44ad;color:#fff;padding:10px 14px;border-radius:10px;font-size:11px;font-weight:600;z-index:9998;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+          _upTst.textContent='☁️ Enviando '+captures.length+' página(s) pra nuvem...';
+          document.body.appendChild(_upTst);
+
+          // Upload SÍNCRONO (aguarda terminar antes de marcar pdfCloud)
           fetch(_sbUrl+'/rest/v1/configuracoes',{
             method:'POST',
             headers:{'apikey':_sbKey,'Authorization':'Bearer '+_sbKey,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
             body:JSON.stringify({chave:_imgKey,valor:{pages:captures,date:new Date().toISOString(),label:revLabel||'Original'}})
           }).then(function(r){
-            if(r.ok) console.log('☁️ Proposta salva na nuvem: '+captures.length+' páginas');
-            else console.warn('☁️ Erro salvar proposta:',r.status);
-          }).catch(function(e){console.warn('☁️ Rede err proposta:',e);});
-        }
-        // Também salvar referência leve no card (sem imagens pesadas)
-        try{
-          var CK_PDF='projetta_crm_v1';
-          var data=JSON.parse(localStorage.getItem(CK_PDF)||'[]');
-          var ci=data.findIndex(function(o){return o.id===cardId;});
-          if(ci>=0 && data[ci].revisoes && data[ci].revisoes.length>0){
-            var lastRev=data[ci].revisoes[data[ci].revisoes.length-1];
-            lastRev.pdfDate=new Date().toISOString();
-            lastRev.pdfCloud=true; // flag: imagens estão na nuvem
-            lastRev.pdfPagesCount=captures.length;
-            // Guardar apenas thumbnail pequeno no localStorage (1 página, baixa qualidade)
-            if(captures[0]){
-              var _tn=document.createElement('canvas');var _ti=new Image();_ti.src=captures[0];
-              _tn.width=Math.round(_ti.width/3);_tn.height=Math.round(_ti.height/3);
-              var _tc=_tn.getContext('2d');_tc.drawImage(_ti,0,0,_tn.width,_tn.height);
-              lastRev.pdfThumb=_tn.toDataURL('image/jpeg',0.2);
+            if(r.ok){
+              _pdfCloudOk = true;
+              console.log('☁️ Proposta salva na nuvem: '+captures.length+' páginas');
+              _upTst.style.background='#27ae60';
+              _upTst.innerHTML='✅ '+captures.length+' página(s) salvas na nuvem';
+            } else {
+              console.error('☁️ ERRO HTTP salvar proposta:', r.status);
+              _upTst.style.background='#c0392b';
+              _upTst.innerHTML='⚠ Upload falhou (HTTP '+r.status+')';
             }
-            delete lastRev.pdfPages; // remover imagens pesadas do localStorage
-            localStorage.setItem(CK_PDF,JSON.stringify(data));
-            console.log('✅ Referência salva no card (imagens na nuvem)');
-          }
-        }catch(e){console.warn('Erro ao salvar referência no card:',e);}
+            setTimeout(function(){ _upTst.remove(); }, 4000);
+            _finalizarCard(_pdfCloudOk);
+          }).catch(function(e){
+            console.error('☁️ Rede ERR proposta:', e);
+            _upTst.style.background='#c0392b';
+            _upTst.innerHTML='⚠ Upload falhou: '+(e.message||e);
+            setTimeout(function(){ _upTst.remove(); }, 5000);
+            _finalizarCard(false);
+          });
+        } else {
+          _finalizarCard(false);
+        }
+        return; // _finalizarCard vai chamar callback
       }
       if(callback) callback(captures);
       return;
