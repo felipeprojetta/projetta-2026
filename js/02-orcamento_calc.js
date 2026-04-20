@@ -83,8 +83,63 @@ function calc(){
     _qPcalc=parseInt($('qtd-portas').value)||1;
   }
   // Chapas: NÃO multiplicar por qP — planificador já calculou com todas as peças
-  const subAcm=sumBlocks('acm',aC);
-  const subAlu=sumBlocks('alu',lC);
+  var subAcm=sumBlocks('acm',aC);
+  var subAlu=sumBlocks('alu',lC);
+
+  // ★ FALLBACK CRÍTICO (Felipe 20/04 — bug "prejuízo" Resumo/Custo Total):
+  //   Se sumBlocks retornou 0 (bloco escondido alu-sel-1/acm-sel-1 não foi
+  //   sincronizado corretamente com plan-*-cor), ler direto de
+  //   plan-*-cor × plan-*-qty. Mesma fonte que _updateFabChapaResumo usa
+  //   pra tabela do CUSTO DE FABRICAÇÃO — sempre consistente.
+  //   Sem esse fallback, subFab (=subAcm+subAlu+perfis+subMO) subestima,
+  //   Tab/Fat são calculados pra menos e a venda sai com prejuízo.
+  if(subAlu===0){
+    var _paCor=document.getElementById('plan-alu-cor');
+    var _paQty=document.getElementById('plan-alu-qty');
+    if(_paCor && _paCor.value && _paQty){
+      var _ppA=parseFloat((_paCor.value.split('|')[0]))||0;
+      var _pqA=parseInt(_paQty.value)||0;
+      if(_ppA>0 && _pqA>0){
+        subAlu = _ppA*_pqA;
+        // Alinhar bloco escondido para próximas leituras (evita divergências)
+        var _hs=document.getElementById('alu-sel-1');
+        var _hq=document.getElementById('alu-qty-1');
+        if(_hs && _hs.options.length>1) _hs.value=_paCor.value;
+        if(_hq) _hq.value=_pqA;
+      }
+    }
+  }
+  if(subAcm===0){
+    // Multi-cor: somar de cada bloco (cada cor tem preço e qtd próprios)
+    if(window._PLN_COLOR_KEYS && window._PLN_COLOR_KEYS.length>=2){
+      var _colorKeysCalc = window._PLN_COLOR_KEYS;
+      var _byColorCalc = window._PLN_RES_BY_COLOR || {};
+      _colorKeysCalc.forEach(function(ck, idx){
+        var res = _byColorCalc[ck];
+        var qBlk = res ? (res.numSheets||0) : 0;
+        var selBlk = document.getElementById('acm-sel-'+(idx+1));
+        if(selBlk && selBlk.value && qBlk>0){
+          var pBlk = parseFloat((selBlk.value.split('|')[0]))||0;
+          subAcm += pBlk*qBlk;
+        }
+      });
+    } else {
+      // Single-cor: plan-acm-cor × plan-acm-qty
+      var _pcCor=document.getElementById('plan-acm-cor');
+      var _pcQty=document.getElementById('plan-acm-qty');
+      if(_pcCor && _pcCor.value && _pcQty){
+        var _ppC=parseFloat((_pcCor.value.split('|')[0]))||0;
+        var _pqC=parseInt(_pcQty.value)||0;
+        if(_ppC>0 && _pqC>0){
+          subAcm = _ppC*_pqC;
+          var _hsC=document.getElementById('acm-sel-1');
+          var _hqC=document.getElementById('acm-qty-1');
+          if(_hsC && _hsC.options.length>1) _hsC.value=_pcCor.value;
+          if(_hqC) _hqC.value=_pqC;
+        }
+      }
+    }
+  }
   const fabMatPerf=n('fab-mat-perfis')||0;
   const fabPintura=n('fab-custo-pintura')||0;
   const fabAcess=n('fab-custo-acess')||0;

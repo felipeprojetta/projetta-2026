@@ -1504,9 +1504,64 @@ function _updateResumoObra(){
   var _nACM=window._chapasACM||0;
   var _nALU=window._chapasALU||0;
   if(!_nACM){var qEl=document.getElementById('plan-acm-qty');if(qEl)_nACM=parseInt(qEl.value)||0;}
-  var subAcm=parseFloat((document.getElementById('sub-acm')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
-  var subAlu=parseFloat((document.getElementById('sub-alu')||{textContent:'0'}).textContent.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
+
+  // ★ CRÍTICO (Felipe 20/04 — bug Resumo da Obra mostrando "◆ ALU —"):
+  //   Ler subAcm/subAlu de MÚLTIPLAS fontes em ordem de confiabilidade:
+  //   1) plan-*-cor.value (formato "preço|área") × plan-*-qty.value
+  //      — mesma fonte que _updateFabChapaResumo usa pra tabela de
+  //        CUSTO DE FABRICAÇÃO (foto 1 do Felipe mostrava valor certo aqui)
+  //   2) Span sub-* (pode ter "—" se _osGeradoUmaVez=false quando calc() rodou)
+  //   3) window._calcResult.subAcm/subAlu (BRL string do último calc)
+  //   Antes só usávamos fonte 2, que falhava silenciosamente → subAlu=0 →
+  //   brl local retorna "—" (linha 1465: v ? R$… : '—'). Resultado: ALU
+  //   "sumiu" do resumo mesmo estando correto no Custo de Fabricação.
+  var _parseBRL=function(s){return parseFloat((s||'0').toString().replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;};
+  var _getChapaSub=function(corElId, qtyElId, spanId, calcKey){
+    // Fonte 1: plan-cor × plan-qty
+    var corEl=document.getElementById(corElId);
+    var qtyEl=document.getElementById(qtyElId);
+    if(corEl && corEl.value && qtyEl){
+      var parts=corEl.value.split('|');
+      var preco=parseFloat(parts[0])||0;
+      var qtd=parseInt(qtyEl.value)||0;
+      if(preco>0 && qtd>0) return preco*qtd;
+    }
+    // Fonte 2: span sub-*
+    var spanEl=document.getElementById(spanId);
+    if(spanEl){
+      var v=_parseBRL(spanEl.textContent);
+      if(v>0) return v;
+    }
+    // Fonte 3: window._calcResult (string BRL)
+    if(window._calcResult && window._calcResult[calcKey]){
+      var v3=_parseBRL(window._calcResult[calcKey]);
+      if(v3>0) return v3;
+    }
+    return 0;
+  };
+  var subAcm=_getChapaSub('plan-acm-cor','plan-acm-qty','sub-acm','subAcm');
+  var subAlu=_getChapaSub('plan-alu-cor','plan-alu-qty','sub-alu','subAlu');
+
+  // MULTI-COR ACM: se tem múltiplas cores, somar de cada bloco acm-blk-N
+  // (cada cor tem seu próprio preço e qtd — plan-acm-cor só reflete a cor ativa)
+  if(window._PLN_COLOR_KEYS && window._PLN_COLOR_KEYS.length>=2){
+    var _acmTotalMulti=0;
+    var _colorKeysMC = window._PLN_COLOR_KEYS;
+    var _byColorMC = window._PLN_RES_BY_COLOR || {};
+    _colorKeysMC.forEach(function(ck, idx){
+      var res = _byColorMC[ck];
+      var qBlk = res ? (res.numSheets||0) : 0;
+      var selBlk = document.getElementById('acm-sel-'+(idx+1));
+      if(selBlk && selBlk.value && qBlk>0){
+        var pBlk = parseFloat((selBlk.value.split('|')[0]))||0;
+        _acmTotalMulti += pBlk * qBlk;
+      }
+    });
+    if(_acmTotalMulti>0) subAcm = _acmTotalMulti;
+  }
+
   var pesoChapa=window._planPesoBrutoACM||0;
+
 
   // Info ACM
   // ★ MULTI-COR: em vez de só mostrar a cor ativa do plan-acm-cor, listar
@@ -1547,7 +1602,16 @@ function _updateResumoObra(){
     var _infoEl=document.getElementById('ro-chapas-info');
     if(_infoEl) _infoEl.innerHTML=_infoLines.join('<br>')||'';
     document.getElementById('ro-chapas-peso').textContent=pesoChapa>0?pesoChapa.toFixed(1)+' kg':'';
-    document.getElementById('ro-chapas-val').innerHTML='ACM '+brl(subAcm)+'<br>🔷 ALU '+brl(subAlu)+'<br><b>Total '+brl(subAcm+subAlu)+'</b>';
+    // ★ Se subAlu ficou 0 apesar de _nALU>0, alertar visualmente em vez de
+    //    "—" silencioso. Ajuda Felipe perceber o bug em vez de prejuizo oculto.
+    var _aluDisplay;
+    if(subAlu>0){
+      _aluDisplay = brl(subAlu);
+    } else {
+      _aluDisplay = '<span style="color:#c0392b;background:#fef2f2;padding:1px 6px;border-radius:4px;font-weight:800" title="Valor ALU não encontrado. Abra a aba Planificar Chapas e re-selecione a cor ALU Maciço, depois clique Gerar Custo Completo.">⚠ VER ABA PLANIFICAR</span>';
+      console.error('[ResumoObra] ALU com qty='+_nALU+' mas subAlu=0. Fontes: plan-alu-cor.value='+((_aluCorEl||{}).value)+', plan-alu-qty.value='+((document.getElementById('plan-alu-qty')||{}).value)+', sub-alu.textContent='+((document.getElementById('sub-alu')||{}).textContent));
+    }
+    document.getElementById('ro-chapas-val').innerHTML='ACM '+brl(subAcm)+'<br>🔷 ALU '+_aluDisplay+'<br><b>Total '+brl(subAcm+subAlu)+'</b>';
   } else {
     // Só ACM
     document.getElementById('ro-chapas-qty').textContent=_nACM+' chapa(s)';
