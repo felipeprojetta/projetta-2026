@@ -1491,7 +1491,10 @@ window.renderHistory=renderHistory;
 window.salvarRapido=salvarRapido;
 window.novaRevisao=novaRevisao;
 // window.zerarValores=zerarValores; // moved to MODULE ORCAMENTO_UI
-window.newOrcamento=newOrcamento;
+// newOrcamento é definida em js/04-orcamento_ui.js (carregado DEPOIS
+// deste arquivo). Proteger com typeof pra nao quebrar. O expose real
+// acontece no proprio 04-orcamento_ui.js, nao precisa duplicar aqui.
+if(typeof newOrcamento !== 'undefined') window.newOrcamento=newOrcamento;
 window.abrirModalATP=abrirModalATP;
 window.confirmarATP=confirmarATP;
 window.fecharModalATP=fecharModalATP;
