@@ -709,16 +709,16 @@ function populateProposta(){
       var _vtxt=(_valEl.textContent||'').replace(/dias\s+úteis/i,'working days');
       _valEl.textContent=_vtxt;
     }
-    var _prazoEl=document.getElementById('prop-prazo');
-    if(_prazoEl){
-      var _ptxt=(_prazoEl.textContent||'')
-        .replace(/dias\s+após\s+aprovação\s+do\s+recálculo/i,'days after recalculation approval')
-        .replace(/dias\s+úteis\s+após\s+aprovação/i,'working days after approval')
-        .replace(/dias\s+úteis/i,'working days');
-      _prazoEl.textContent=_ptxt;
-    }
+    // Condições/Forma/Prazo INTERNACIONAL — valores fixos pedidos pelo Felipe:
+    //   Payment Terms: 70% upfront and 30% before shipping
+    //   Payment Method: Bank transfer
+    //   Delivery Time: 3 to 4 months
+    var _condEl=document.getElementById('prop-cond-pgto');
+    if(_condEl) _condEl.textContent='70% upfront and 30% before shipping';
     var _formaEl=document.getElementById('prop-forma-pgto');
-    if(_formaEl && /boleto/i.test(_formaEl.textContent||'')) _formaEl.textContent='Wire transfer';
+    if(_formaEl) _formaEl.textContent='Bank transfer';
+    var _prazoEl=document.getElementById('prop-prazo');
+    if(_prazoEl) _prazoEl.textContent='3 to 4 months';
   }
   // Logo no rodapé
   var headerLogo=document.querySelector('.header-brand img');
