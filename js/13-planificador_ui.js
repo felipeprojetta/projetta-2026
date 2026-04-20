@@ -1898,7 +1898,21 @@ function planRun() {
   var eff=numSheetsTotal>0?(Math.ceil(totPA/Math.max(1,usable))/numSheetsTotal*100).toFixed(0):'0';
 
   // Stats display
-  var sNTxt = hasALU ? numSheetsTotal+' ('+numSheetsACM+' ACM + '+numSheetsALU+' ALU)' : String(numSheetsTotal);
+  // ★ ETAPA 3 (resumo): breakdown por cor quando há >= 2 cores ACM,
+  //   pra que a área de compras saiba quantas chapas de cada cor pedir.
+  var sNTxt;
+  var _colorKeysR = window._PLN_COLOR_KEYS || [];
+  if(_colorKeysR.length >= 2){
+    // Multi-cor: "12 (4 BLACK DOOR + 8 DARK GREY" + (ALU se houver)
+    var _parts = _colorKeysR.map(function(ck){
+      var r = window._PLN_RES_BY_COLOR && window._PLN_RES_BY_COLOR[ck];
+      return (r ? r.numSheets : 0) + ' ' + ck;
+    });
+    if(hasALU) _parts.push(numSheetsALU+' ALU');
+    sNTxt = numSheetsTotal + ' (' + _parts.join(' + ') + ')';
+  } else {
+    sNTxt = hasALU ? numSheetsTotal+' ('+numSheetsACM+' ACM + '+numSheetsALU+' ALU)' : String(numSheetsTotal);
+  }
   document.getElementById('plan-sN').textContent=sNTxt;
   document.getElementById('plan-sU').textContent=util+'%';
   document.getElementById('plan-sW').textContent=(100-parseFloat(util)).toFixed(1)+'%';
