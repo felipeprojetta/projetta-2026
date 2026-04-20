@@ -2069,40 +2069,65 @@ function _syncChapaToOrc(){
     }
   }
 
-  // ★ MULTI-COR: criar UM bloco ACM por cor (com sua qty) em vez de só
-  //    preencher o bloco 1 com a cor ativa. Isso garante que o custo soma
-  //    TODAS as cores, não só uma.
+  // Garantir que os blocos ACM tenham a lista filtrada pelo tamanho atual
+  if(typeof filtrarChapasACM === 'function') try{ filtrarChapasACM(); }catch(e){}
+
+  // ★ MULTI-COR ROBUSTO: criar UM bloco ACM por cor com a chapa correta.
+  //   - Busca por código PRO (ex PRO1874) E tamanho correto.
+  //   - Se não achar PRO no tamanho, tenta match por nome parcial
+  //     (ex "BLACK DOOR" em "PRO0157 BLACK DOOR").
+  //   - Se ainda assim nada, NÃO faz fallback pra primeira option (evita
+  //     virar BRANCO ou CORTEN errado); deixa o bloco vazio com alert visual.
   var _colorKeys = window._PLN_COLOR_KEYS || [];
   var _byColor   = window._PLN_RES_BY_COLOR || {};
   var _isMultiCor = _colorKeys.length >= 2;
 
-  if(_isMultiCor && acmSel && acmSel.options && acmSel.options.length > 1){
-    // Determinar tamanho de chapa atual para escolher option certa (PRO... · 1500×6000)
-    var _planChapaSel = document.getElementById('plan-chapa');
-    var _pcVal = _planChapaSel ? _planChapaSel.value : '1500|6000';
+  if(_isMultiCor){
+    // Tamanho da chapa corrente → sufixo usado na busca
+    var _pcVal = (document.getElementById('plan-chapa')||{value:'1500|6000'}).value;
+    if(_pcVal === 'custom'){
+      _pcVal = ((document.getElementById('plan-chapa-larg')||{value:1500}).value)+'|'+((document.getElementById('plan-chapa-alt')||{value:6000}).value);
+    }
     var _pcParts = _pcVal.split('|');
     var _pcW = parseInt(_pcParts[0])||1500;
     var _pcH = parseInt(_pcParts[1])||6000;
     var _pcSufixo = _pcW+'×'+_pcH;
 
-    // Helper: encontra option no select que contém o código da cor (ex: "PRO1874")
-    //   e também o tamanho correto (ex: "1500×6000"). Retorna o value ("preco|area") ou null.
+    // Pegar um select ACM de referência (qualquer bloco ou o plan-acm-cor)
+    // pra ter a lista de options disponíveis filtrada pelo tamanho.
+    var _refSel = document.getElementById('acm-sel-1') || acmSel;
+
     var _findOption = function(corLabel){
-      if(!corLabel) return null;
-      // Pegar código PRO... (primeiro token)
-      var match = corLabel.match(/^(PRO\w+)/i);
-      var proCode = match ? match[1].toUpperCase() : corLabel.split(' ')[0].toUpperCase();
-      for(var oi=0; oi<acmSel.options.length; oi++){
-        var opt = acmSel.options[oi];
-        var txt = (opt.text||'').toUpperCase();
-        if(txt.indexOf(proCode) >= 0 && txt.indexOf(_pcSufixo) >= 0){
-          return opt.value;
+      if(!corLabel || !_refSel || !_refSel.options) return null;
+      var upper = (corLabel||'').toString().toUpperCase();
+      // 1) Extrair código PRO
+      var match = upper.match(/PRO\w+/);
+      var proCode = match ? match[0] : '';
+      // 2) Extrair nome (depois do código PRO)
+      var nameOnly = proCode ? upper.replace(proCode,'').trim() : upper.trim();
+      // 3) Tentar várias estratégias de match, da mais específica pra menos
+      //    a) código PRO + tamanho exato
+      //    b) código PRO (qualquer tamanho)
+      //    c) nome parcial + tamanho exato
+      //    d) nome parcial (qualquer tamanho)
+      var strategies = [
+        function(txt){ return proCode && txt.indexOf(proCode)>=0 && txt.indexOf(_pcSufixo)>=0; },
+        function(txt){ return proCode && txt.indexOf(proCode)>=0; },
+        function(txt){ return nameOnly && nameOnly.length>3 && txt.indexOf(nameOnly)>=0 && txt.indexOf(_pcSufixo)>=0; },
+        function(txt){ return nameOnly && nameOnly.length>3 && txt.indexOf(nameOnly)>=0; }
+      ];
+      for(var si=0; si<strategies.length; si++){
+        for(var oi=0; oi<_refSel.options.length; oi++){
+          var opt = _refSel.options[oi];
+          if(!opt.value || opt.value==='0|0' || opt.value==='') continue; // pula vazias
+          var txt = (opt.text||'').toUpperCase();
+          if(strategies[si](txt)) return opt.value;
         }
       }
       return null;
     };
 
-    // Passo 1: remover blocos ACM existentes além dos necessários
+    // Remover blocos ACM extras (além do número de cores)
     var _currentBlocks = document.querySelectorAll('#acm-list .cbl');
     for(var cbi = _currentBlocks.length - 1; cbi >= _colorKeys.length; cbi--){
       var bId = _currentBlocks[cbi].id.replace('acm-blk-','');
@@ -2110,27 +2135,27 @@ function _syncChapaToOrc(){
       else if(_currentBlocks[cbi].parentNode) _currentBlocks[cbi].parentNode.removeChild(_currentBlocks[cbi]);
     }
 
-    // Passo 2: criar/atualizar um bloco por cor
+    // Criar/atualizar um bloco por cor
     _colorKeys.forEach(function(ck, idx){
       var corOpt = _findOption(ck);
       var res = _byColor[ck];
       var qty = res ? (res.numSheets||0) : 0;
-      var blkId = idx + 1; // ids dos blocos começam em 1
+      var blkId = idx + 1;
 
       var existingSel = document.getElementById('acm-sel-'+blkId);
       var existingQty = document.getElementById('acm-qty-'+blkId);
 
       if(!existingSel){
-        // Criar bloco novo via addACM
         if(typeof addACM === 'function') addACM(corOpt || '', qty);
-        // Depois de criar, existingSel/Qty devem existir
       } else {
+        // Sempre atualizar (não só criar): força a cor certa
         if(corOpt) existingSel.value = corOpt;
+        else existingSel.value = ''; // evita fallback pra primeira option
         if(existingQty) existingQty.value = qty;
       }
     });
 
-    // Sincronizar plan-acm-qty com total (somando todas cores)
+    // plan-acm-qty com total
     var _totalAcmQty = 0;
     _colorKeys.forEach(function(ck){
       var r = _byColor[ck];
@@ -2139,24 +2164,45 @@ function _syncChapaToOrc(){
     var pqEl = document.getElementById('plan-acm-qty');
     if(pqEl) pqEl.value = _totalAcmQty;
   } else {
-    // SINGLE COR: comportamento original — preenche só o bloco 1
+    // SINGLE COR: comportamento original
     var acmQty=parseInt((document.getElementById('plan-acm-qty')||{value:0}).value)||0;
     var hiddenAcmSel=document.getElementById('acm-sel-1');
     if(hiddenAcmSel && acmSel){ hiddenAcmSel.value=acmSel.value; }
     var hiddenAcmQty=document.getElementById('acm-qty-1');
     if(hiddenAcmQty) hiddenAcmQty.value=acmQty;
+    // Remover blocos extras (2,3,...) se single-cor mas existiam antes
+    var _existingExtra = document.querySelectorAll('#acm-list .cbl');
+    for(var cbiS = _existingExtra.length - 1; cbiS >= 1; cbiS--){
+      var bIdS = _existingExtra[cbiS].id.replace('acm-blk-','');
+      if(typeof rm === 'function') rm('acm', parseInt(bIdS));
+    }
   }
 
-  // ALU MACIÇO → hidden block (usa plan-alu-cor e plan-alu-qty)
-  var aluSel=document.getElementById('plan-alu-cor');
-  var aluQtyEl=document.getElementById('plan-alu-qty');
-  var aluQty=aluQtyEl?parseInt(aluQtyEl.value)||0:0;
-  if(aluQty>0){
-    if(!document.getElementById('alu-blk-1')&&typeof addALU==='function') addALU(null,1);
-    var hiddenAluSel=document.getElementById('alu-sel-1');
-    var hiddenAluQty=document.getElementById('alu-qty-1');
-    if(hiddenAluSel && aluSel && aluSel.value) hiddenAluSel.value=aluSel.value;
-    if(hiddenAluQty) hiddenAluQty.value=aluQty;
+  // ★ LIMPAR BLOCOS ALU ÓRFÃOS: se não há peças ALU reais no planificador,
+  //    remover blocos alu-blk-N para não aparecer "Chapa Alumínio Maciço"
+  //    falsamente no Custo de Fabricação.
+  var _hasRealALU = (window._plnResALU && window._plnResALU.numSheets > 0) ||
+                    (window._chapasALU && window._chapasALU > 0);
+  if(!_hasRealALU){
+    document.querySelectorAll('#alu-list .cbl').forEach(function(blk){
+      var bIdA = blk.id.replace('alu-blk-','');
+      if(typeof rm === 'function') rm('alu', parseInt(bIdA));
+      else if(blk.parentNode) blk.parentNode.removeChild(blk);
+    });
+    var aqEl = document.getElementById('plan-alu-qty');
+    if(aqEl) aqEl.value = '0';
+  } else {
+    // ALU MACIÇO → hidden block
+    var aluSel=document.getElementById('plan-alu-cor');
+    var aluQtyEl=document.getElementById('plan-alu-qty');
+    var aluQty=aluQtyEl?parseInt(aluQtyEl.value)||0:0;
+    if(aluQty>0){
+      if(!document.getElementById('alu-blk-1')&&typeof addALU==='function') addALU(null,1);
+      var hiddenAluSel=document.getElementById('alu-sel-1');
+      var hiddenAluQty=document.getElementById('alu-qty-1');
+      if(hiddenAluSel && aluSel && aluSel.value) hiddenAluSel.value=aluSel.value;
+      if(hiddenAluQty) hiddenAluQty.value=aluQty;
+    }
   }
 
   _updateFabChapaResumo();
