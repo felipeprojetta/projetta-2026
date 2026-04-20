@@ -1046,9 +1046,21 @@ window._crmGetCorOptions=function(mode){
 
 window._crmSwitchCorMode=function(itemId){
   var pre='crmit-'+itemId+'-';
+  // ★ Maciço (boiserie) só é aplicável em MODELO 23. Se modelo != 23,
+  //   força ACM e esconde cor_macico — mesmo se moldura_rev tiver valor
+  //   "MACICO" residual de quando o item estava em modelo 23.
+  //   Bug Felipe 20/04: ao trocar modelo 23→01, cor_macico ficava grudado
+  //   porque moldura_rev ainda estava "MACICO" no DOM (bloco escondido).
+  var modEl=document.getElementById(pre+'modelo');
+  var modelo=modEl?modEl.value:'';
   var revEl=document.getElementById(pre+'moldura_rev');
   var rev=revEl?revEl.value:'ACM';
-  var isMac=(rev==='MACICO');
+  var isMac = (modelo==='23' && rev==='MACICO');
+  // Se modelo não é 23, normaliza moldura_rev pra ACM (evita bug ao voltar
+  // pro modelo 23 e achar MACICO travado sem o usuário ter re-escolhido)
+  if(modelo !== '23' && revEl && revEl.value !== 'ACM'){
+    revEl.value = 'ACM';
+  }
   // Toggle cor_int (ACM only) vs cor_macico (MACICO only)
   var corIntEl=document.getElementById(pre+'cor_int');
   var corMacEl=document.getElementById(pre+'cor_macico');
