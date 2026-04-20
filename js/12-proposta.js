@@ -1794,7 +1794,9 @@ function syncFabPerfisTotal(){
   var mat=parseFloat((document.getElementById('fab-mat-perfis').value||'0').replace(/\./g,'').replace(',','.'))||0;
   var pin=parseFloat((document.getElementById('fab-custo-pintura').value||'0').replace(/\./g,'').replace(',','.'))||0;
   var ac =parseFloat((document.getElementById('fab-custo-acess').value||'0').replace(/\./g,'').replace(',','.'))||0;
-  var tot=mat+pin+ac;
+  var _extEl=document.getElementById('fab-custo-extra');
+  var ext=_extEl?(parseFloat((_extEl.value||'0').replace(/\./g,'').replace(',','.'))||0):0;
+  var tot=mat+pin+ac+ext;
   var el=document.getElementById('fab-total-perfis');
   if(el) el.textContent='R$ '+tot.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   var ph=document.getElementById('perfis');

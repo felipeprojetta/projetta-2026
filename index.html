@@ -1801,8 +1801,16 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
         <button onclick="_fabRestore('acess')" style="padding:3px 10px;border-radius:5px;border:1px solid #c47012;background:#fff;color:#c47012;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">↩ Usar valor do sistema</button>
       </div>
     </div>
+    <div class="fr" style="flex-wrap:wrap;gap:4px">
+      <span class="fl">Custo extra <small>R$ — manual (imprevistos, upgrades, customizações)</small></span>
+      <div class="fv" style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap">R$</span>
+        <input type="text" id="fab-custo-extra" value="" oninput="if(typeof syncFabPerfisTotal==='function')syncFabPerfisTotal();if(typeof calc==='function')calc();" placeholder="0"
+               style="text-align:right">
+      </div>
+    </div>
     <div class="fr" style="background:#f8f4ee;border-radius:4px;padding:4px 0">
-      <span class="fl" style="font-weight:700">Total perfis + pintura + acessórios</span>
+      <span class="fl" style="font-weight:700">Total perfis + pintura + acessórios + extra</span>
       <div class="fv c cb2" id="fab-total-perfis" style="font-weight:700">R$ 0</div>
     </div>
     <!-- Campo legado oculto para compatibilidade com calc() -->
@@ -1827,7 +1835,8 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div class="sub-row"><span class="sub-lbl">Perfis — material</span><span class="sub-val" id="sub-perf-mat">R$ 0</span></div>
       <div class="sub-row"><span class="sub-lbl">Perfis — pintura</span><span class="sub-val" id="sub-perf-pin">R$ 0</span></div>
       <div class="sub-row"><span class="sub-lbl">Acessórios e fechaduras</span><span class="sub-val" id="sub-perf-acess">R$ 0</span></div>
-      <div class="sub-row" style="border-top:1px dashed #ddd;padding-top:4px"><span class="sub-lbl" style="font-weight:600">Subtotal perfis+pin+acess</span><span class="sub-val" id="sub-perf">R$ 0</span></div>
+      <div class="sub-row"><span class="sub-lbl">Custo extra</span><span class="sub-val" id="sub-perf-extra">R$ 0</span></div>
+      <div class="sub-row" style="border-top:1px dashed #ddd;padding-top:4px"><span class="sub-lbl" style="font-weight:600">Subtotal perfis+pin+acess+extra</span><span class="sub-val" id="sub-perf">R$ 0</span></div>
       <div class="sub-row"><span class="sub-lbl">Mão de obra (<span id="sub-h">0</span> h × R$ <span id="sub-ch">110</span>/h)</span><span class="sub-val" id="sub-mo">R$ 0</span></div>
     </div>
     <div class="tot-box tot-fab" style="display:flex;justify-content:space-between;align-items:center">

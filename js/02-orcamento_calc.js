@@ -88,7 +88,8 @@ function calc(){
   const fabMatPerf=n('fab-mat-perfis')||0;
   const fabPintura=n('fab-custo-pintura')||0;
   const fabAcess=n('fab-custo-acess')||0;
-  const perfis=fabMatPerf+fabPintura+fabAcess;
+  const fabExtra=n('fab-custo-extra')||0;
+  const perfis=fabMatPerf+fabPintura+fabAcess+fabExtra;
   // Sync hidden #perfis for compatibility
   var _ph=document.getElementById('perfis'); if(_ph) _ph.value=perfis;
   
@@ -245,6 +246,7 @@ function calc(){
   $('sub-perf-mat').textContent=_brlOS(fabMatPerf);
   $('sub-perf-pin').textContent=_brlOS(fabPintura);
   $('sub-perf-acess').textContent=_brlOS(fabAcess);
+  var _spExt=$('sub-perf-extra'); if(_spExt) _spExt.textContent=_brlOS(fabExtra);
   $('sub-perf').textContent=_brlOS(perfis);
   $('sub-mo').textContent=_brlOS(subMO);
   $('sub-h').textContent=totalH;

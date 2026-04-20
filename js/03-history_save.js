@@ -71,7 +71,7 @@ function captureFormData(){
     'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso','carac-ripado-total','carac-ripado-2lados',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
     'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-ripa-qty','plan-ripa-larg','plan-ripa-dist','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-moldura-tipo','plan-moldura-dis1','plan-moldura-dis2','plan-moldura-dis3','plan-moldura-divisao','plan-acm-cor','plan-acm-qty','plan-alu-cor','plan-alu-qty','plan-chapa-alu','plan-refilado','carac-cor-macico',
-    'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
+    'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','fab-custo-extra','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
     'dias','pessoas','diaria','km','carros','desl-override','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp',
     'overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto','markup-desc'];
   const data={acmBlocks,aluBlocks,manualPcs,_isATP:window._isATP,_osGeradoUmaVez:!!window._osGeradoUmaVez};
@@ -158,6 +158,7 @@ function captureSnapshot(){
     matPerfis: (document.getElementById('fab-mat-perfis')||{}).value||cr.matPerfis||'',
     custoPintura: (document.getElementById('fab-custo-pintura')||{}).value||cr.custoPintura||'',
     custoAcess: (document.getElementById('fab-custo-acess')||{}).value||cr.custoAcess||'',
+    custoExtra: (document.getElementById('fab-custo-extra')||{}).value||cr.custoExtra||'',
     subInst: _t('r-inst')||cr.subInst||'',
     // Horas
     hPortal: (document.getElementById('h-portal')||{}).value||'',
@@ -199,6 +200,7 @@ function captureSnapshot(){
     subPerfMat: _t('sub-perf-mat')||'',
     subPerfPin: _t('sub-perf-pin')||'',
     subPerfAcess: _t('sub-perf-acess')||'',
+    subPerfExtra: _t('sub-perf-extra')||'',
     subMO: _t('sub-mo')||'',
   };
   // Levantamento de material: capturar HTML das tabelas OS
@@ -228,7 +230,7 @@ function restoreFormData(data){
     'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso','carac-ripado-total','carac-ripado-2lados',
     'plan-modelo','plan-folhas','plan-chapa','plan-layout',
     'plan-disborcava','plan-largcava','plan-disbordafriso','plan-largfriso','plan-friso-h-qty','plan-friso-h-esp','plan-ripa-qty','plan-ripa-larg','plan-ripa-dist','plan-moldura-rev','plan-moldura-larg-qty','plan-moldura-alt-qty','plan-moldura-tipo','plan-moldura-dis1','plan-moldura-dis2','plan-moldura-dis3','plan-moldura-divisao','plan-acm-cor','plan-acm-qty','plan-alu-cor','plan-alu-qty','plan-chapa-alu','plan-refilado','carac-cor-macico',
-    'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
+    'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','fab-custo-extra','h-portal','h-quadro','h-corte','h-colagem','h-conf','custo-hora',
     'dias','pessoas','diaria','km','carros','desl-override','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp',
     'overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto'];
   fields.forEach(f=>{const el=$(f);if(el&&data[f]!==undefined&&data[f]!=='')el.value=data[f];});
@@ -535,6 +537,7 @@ window.loadRevision=function(id,revIdx){
         if(s.matPerfis){var mp=document.getElementById('fab-mat-perfis');if(mp)mp.value=s.matPerfis;}
         if(s.custoPintura){var cp=document.getElementById('fab-custo-pintura');if(cp)cp.value=s.custoPintura;}
         if(s.custoAcess){var ca=document.getElementById('fab-custo-acess');if(ca)ca.value=s.custoAcess;}
+        if(s.custoExtra){var cx=document.getElementById('fab-custo-extra');if(cx)cx.value=s.custoExtra;}
       }
     } else {
       // Sem snapshot ou forceUnlock: recalcular tudo
@@ -641,6 +644,7 @@ function _restoreSnapshotDisplay(snap){
   if(snap.subPerfMat) _s('sub-perf-mat',snap.subPerfMat);
   if(snap.subPerfPin) _s('sub-perf-pin',snap.subPerfPin);
   if(snap.subPerfAcess) _s('sub-perf-acess',snap.subPerfAcess);
+  if(snap.subPerfExtra) _s('sub-perf-extra',snap.subPerfExtra);
   if(snap.subMO) _s('sub-mo',snap.subMO);
   // Resumo da Obra — Chapas (restaurar cor e qty do snapshot)
   if(snap.chapaCorLabel){
@@ -1169,7 +1173,7 @@ function confirmarATP(){
   // 4. Zerar tudo
   ['largura','altura','qtd-portas','folhas-porta','ac-fechadura','qtd-fechaduras',
    'carac-abertura','carac-folhas','carac-fech-mec','carac-fech-dig','carac-cilindro','carac-puxador','carac-pux-tam','carac-cor-ext','carac-cor-int','carac-modelo','carac-dist-borda-cava','carac-largura-cava','carac-dist-borda-friso','carac-largura-friso','carac-ripado-total','carac-ripado-2lados',
-   'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf',
+   'fab-mat-perfis','fab-custo-pintura','fab-custo-acess','fab-custo-extra','h-portal','h-quadro','h-corte','h-colagem','h-conf',
    'dias','pessoas','km','carros','hotel-dia','alim','munk','terceiros','inst-quem','inst-terceiros-valor','inst-terceiros-transp','desconto'
   ].forEach(function(f){var el=$(f);if(el)el.value='';});
 
@@ -1283,7 +1287,7 @@ function resetToDefaults(){
   // folhas
   var fol=$('folhas-porta');if(fol)fol.selectedIndex=0;
   // fabricação — vazio exceto custo-hora fixo
-  ['fab-mat-perfis','fab-custo-pintura','fab-custo-acess','h-portal','h-quadro','h-corte','h-colagem','h-conf'].forEach(f=>{var el=$(f);if(el){el.value='';el.dataset.auto='';el.dataset.manual='';el.style.cssText='';}});
+  ['fab-mat-perfis','fab-custo-pintura','fab-custo-acess','fab-custo-extra','h-portal','h-quadro','h-corte','h-colagem','h-conf'].forEach(f=>{var el=$(f);if(el){el.value='';el.dataset.auto='';el.dataset.manual='';el.style.cssText='';}});
   // Reset fab manual overrides
   if(window._fabManual){window._fabManual={mat:false,pin:false,acess:false};}
   // Reset manual alerts
@@ -1413,7 +1417,7 @@ function resetToDefaults(){
   // Force-zero ALL cost fields and result displays after calc
   setTimeout(function(){
     _clearResultDisplay();
-    ['fab-mat-perfis','fab-custo-pintura','fab-custo-acess'].forEach(function(id){
+    ['fab-mat-perfis','fab-custo-pintura','fab-custo-acess','fab-custo-extra'].forEach(function(id){
       var e=document.getElementById(id);if(e)e.value='';
     });
     if(window._fabManual){window._fabManual={mat:false,pin:false,acess:false};}
@@ -1421,7 +1425,7 @@ function resetToDefaults(){
       var e=document.getElementById(id);if(e)e.style.display='none';
     });
     // Zero all sub-* result spans
-    ['sub-acm','sub-alu','sub-perf-mat','sub-perf-pin','sub-perf-acess','sub-perf','sub-mo','sub-sal',
+    ['sub-acm','sub-alu','sub-perf-mat','sub-perf-pin','sub-perf-acess','sub-perf-extra','sub-perf','sub-mo','sub-sal',
      'r-hotel','sub-alim','sub-munk','sub-ped','sub-terc','osa-total-geral',
      'acess-custo','acess-pfat','m-custo-fech','m-tab-fech','m-fat-fech',
      'd-fat-fech','d-custo-fech','m-custo','m-tab','m-fat','d-fat','d-custo','d-lb','d-ll',
