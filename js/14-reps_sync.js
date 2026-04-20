@@ -574,8 +574,9 @@ function calcInstIntl(){
 
   var custoTotal=udiGru+passagem+hotel+alim+seguro+carro+mo;
 
-  // DRE — impostos próprios da NFS-e exportação (NÃO usa imp da porta)
-  var pctImp=parseFloat((document.getElementById('inst-intl-imp')||{value:8.65}).value)||0;
+  // DRE — impostos NFS-e removidos (Felipe 20/04: nao pagamos imposto
+  // na NFS-e). Default 0 mesmo se input nao existir.
+  var pctImp=parseFloat((document.getElementById('inst-intl-imp')||{value:0}).value)||0;
   var pctCom=0; // instalação não tem comissão/repasse/gestão
   var pctRep=0;
   var pctGest=0;
@@ -635,7 +636,7 @@ function calcInstIntl(){
       '<div style="font-weight:700">(+) Preço Tabela:</div><div style="font-weight:700">'+brl(precoTabela)+'</div><div style="color:#1565c0;font-weight:700">'+usd(precoTabela)+'</div>'+
       (desconto>0?'<div>(−) Desconto '+desconto.toFixed(1)+'%:</div><div style="color:#c0392b">-'+brl(precoTabela-precoFat)+'</div><div style="color:#c0392b">-'+usd(precoTabela-precoFat)+'</div>':'')+
       '<div style="font-weight:700">(=) Receita Fat.:</div><div style="font-weight:700">'+brl(precoFat)+'</div><div style="color:#1565c0;font-weight:700">'+usd(precoFat)+'</div>'+
-      '<div style="color:#c0392b">(−) Impostos '+pctImp+'%:</div><div style="color:#c0392b">-'+brl(impostos)+'</div><div style="color:#c0392b">-'+usd(impostos)+'</div>'+
+      (pctImp>0?'<div style="color:#c0392b">(−) Impostos '+pctImp+'%:</div><div style="color:#c0392b">-'+brl(impostos)+'</div><div style="color:#c0392b">-'+usd(impostos)+'</div>':'')+
       (pctCom>0?'<div>(−) Comissão '+pctCom+'%:</div><div style="color:#c0392b">-'+brl(comissao)+'</div><div style="color:#c0392b">-'+usd(comissao)+'</div>':'')+
       (pctRep>0?'<div>(−) Repasse '+pctRep+'%:</div><div style="color:#c0392b">-'+brl(repasse)+'</div><div style="color:#c0392b">-'+usd(repasse)+'</div>':'')+
       (pctGest>0?'<div>(−) Gestão '+pctGest+'%:</div><div style="color:#c0392b">-'+brl(gestao)+'</div><div style="color:#c0392b">-'+usd(gestao)+'</div>':'')+

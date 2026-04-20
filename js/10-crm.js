@@ -1391,8 +1391,10 @@ window.crmInstCalcIntl=function(){
 
   var custoTotal=udiGru+passagem+hotel+alim+seguro+carro+mo;
 
-  // DRE — impostos NFS-e exportação (próprio da instalação)
-  var pctImp=parseFloat((document.getElementById('inst-intl-imp')||{value:8.65}).value)||0;
+  // DRE — impostos NFS-e exportação REMOVIDOS (Felipe 20/04: não pagamos
+  // imposto na NFS-e). Campo ainda existe como hidden=0 pra compat;
+  // default aqui tambem e 0 caso o DOM nao tenha o input.
+  var pctImp=parseFloat((document.getElementById('inst-intl-imp')||{value:0}).value)||0;
   var pctCom=0;
   var pctRep=0;
   var pctGest=0;
@@ -1430,7 +1432,7 @@ window.crmInstCalcIntl=function(){
     '<div style="font-size:9px;font-weight:700;color:#1565c0;margin-bottom:3px">📊 DRE INSTALAÇÃO</div>'+
     '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:2px 8px;font-size:9.5px">'+
     '<div>Custo Total:</div><div>'+brl(custoTotal)+'</div><div style="color:#1565c0">'+usd(custoTotal)+'</div>'+
-    '<div style="color:#c0392b">Impostos ('+pctImp.toFixed(1)+'%):</div><div style="color:#c0392b">- '+brl(impostos)+'</div><div style="color:#c0392b">- '+usd(impostos)+'</div>'+
+    (pctImp>0?'<div style="color:#c0392b">Impostos ('+pctImp.toFixed(1)+'%):</div><div style="color:#c0392b">- '+brl(impostos)+'</div><div style="color:#c0392b">- '+usd(impostos)+'</div>':'')+
     (pctCom>0?'<div>Comissão ('+pctCom.toFixed(1)+'%):</div><div>- '+brl(comissao)+'</div><div>- '+usd(comissao)+'</div>':'')+
     (pctRep>0?'<div>Repasse ('+pctRep.toFixed(1)+'%):</div><div>- '+brl(repasse)+'</div><div>- '+usd(repasse)+'</div>':'')+
     (pctGest>0?'<div>Gestão ('+pctGest.toFixed(1)+'%):</div><div>- '+brl(gestao)+'</div><div>- '+usd(gestao)+'</div>':'')+
