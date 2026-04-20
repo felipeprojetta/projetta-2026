@@ -489,7 +489,7 @@ function populateProposta(){
     'spec-cor-ext':     {pt:'COR CHAPA EXTERNA',      en:'EXTERNAL PANEL COLOR'},
     'spec-cor-int':     {pt:'COR CHAPA INTERNA',      en:'INTERNAL PANEL COLOR'},
     'spec-cilindro':    {pt:'CILINDRO',               en:'CYLINDER'},
-    'spec-alisar':      {pt:'ALISAR',                 en:'ARCHITRAVE'},
+    'spec-alisar':      {pt:'ALISAR',                 en:'CASING'},
     // Tabela preços
     'tbl-item':         {pt:'Item',                   en:'Item'},
     'tbl-desc':         {pt:'Descrição',              en:'Description'},
@@ -710,8 +710,8 @@ function populateProposta(){
   var _alisarEl=document.getElementById('prop-alisar');
   var _alisarLine=document.getElementById('prop-alisar-line');
   if(_alisarEl&&_alisarLine){
-    var _comAl = (_PROP_LANG==='en') ? '✅ YES — WITH ARCHITRAVE' : '✅ SIM — COM ALISAR';
-    var _semAl = (_PROP_LANG==='en') ? 'NO ARCHITRAVE' : 'SEM ALISAR';
+    var _comAl = (_PROP_LANG==='en') ? '✅ YES — WITH CASING' : '✅ SIM — COM ALISAR';
+    var _semAl = (_PROP_LANG==='en') ? 'NO CASING' : 'SEM ALISAR';
     if(_alisarCb&&_alisarCb.checked){
       _alisarEl.innerHTML='<strong style="color:#27ae60;font-size:110%">'+_comAl+'</strong>';
       _alisarLine.style.cssText='background:#e8f5e9;border:2px solid #27ae60;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700';

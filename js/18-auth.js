@@ -1062,9 +1062,9 @@ function _populatePropostaItens(){
   var _L_COREXT   = _LANG==='en'?'EXTERNAL PANEL COLOR':'COR CHAPA EXTERNA';
   var _L_CORINT   = _LANG==='en'?'INTERNAL PANEL COLOR':'COR CHAPA INTERNA';
   var _L_CIL      = _LANG==='en'?'CYLINDER':'CILINDRO';
-  var _L_ALISAR   = _LANG==='en'?'TRIM':'ALISAR';
+  var _L_ALISAR   = _LANG==='en'?'CASING':'ALISAR';
   var _L_NA       = _LANG==='en'?'NOT APPLICABLE':'NÃO SE APLICA';
-  var _L_WITHTRIM = _LANG==='en'?'✅ YES — WITH TRIM':'✅ SIM — COM ALISAR';
+  var _L_WITHTRIM = _LANG==='en'?'✅ YES — WITH CASING':'✅ SIM — COM ALISAR';
   var _L_LEAF     = _LANG==='en'?'LEAF':'FOLHA';
   var _L_LEAVES   = _LANG==='en'?'LEAVES':'FOLHAS';
   var _L_PIVOT    = _LANG==='en'?'PIVOTING':'PIVOTANTE';
