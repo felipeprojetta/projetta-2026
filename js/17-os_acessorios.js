@@ -431,9 +431,10 @@ function _calcAcessoriosOS(d, nFolhas, sis){
   }
 
   // ── OBRA — BUCHA 08 + PARAFUSO PORTAL ─────────────────────────────────────
-  var qtyBucha8 = Math.ceil(H/300);
-  rows.push({qty:qtyBucha8,code:'PA-BUCHA 08',desc:'Bucha Duopower 8 SC750 — portal (ceil H÷300) = '+qtyBucha8+' un.',preco:getPreco('PA-BUCHA 08'),apl:'OBRA',grp:'PARAFUSOS',obs:'BUC FISHER PORTAL'});
-  rows.push({qty:qtyBucha8,code:'PA-PAR SOB M6X65',desc:'Parafuso sext sob M6×65 DIN571 A2 — portal',preco:getPreco('PA-PAR SOB M6X65'),apl:'OBRA',grp:'PARAFUSOS',obs:'PAR SEXT'});
+  // × 2 porque vai nos dois lados (esquerdo + direito) do portal
+  var qtyBucha8 = Math.ceil(H/300) * 2;
+  rows.push({qty:qtyBucha8,code:'PA-BUCHA 08',desc:'Bucha Duopower 8 SC750 — portal (ceil H÷300 × 2 lados) = '+qtyBucha8+' un.',preco:getPreco('PA-BUCHA 08'),apl:'OBRA',grp:'PARAFUSOS',obs:'BUC FISHER PORTAL'});
+  rows.push({qty:qtyBucha8,code:'PA-PAR SOB M6X65',desc:'Parafuso sext sob M6×65 DIN571 A2 — portal (× 2 lados)',preco:getPreco('PA-PAR SOB M6X65'),apl:'OBRA',grp:'PARAFUSOS',obs:'PAR SEXT'});
 
   // ── OBRA — CONTRA TESTA + CAIXETA + PARAFUSOS ─────────────────────────────
   if(fechTipo){
