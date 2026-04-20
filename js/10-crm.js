@@ -687,6 +687,13 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-inst-valor',opp.inst_valor||'');
     setVal('crm-o-inst-transp',opp.inst_transp||'');
     setVal('crm-o-inst-pais',opp.inst_pais||'');
+    // ★ INCOTERM + CIF load
+    setVal('crm-o-inst-incoterm',opp.inst_incoterm||'');
+    setVal('crm-o-cif-caixa-l',opp.cif_caixa_l||'');
+    setVal('crm-o-cif-caixa-a',opp.cif_caixa_a||'');
+    setVal('crm-o-cif-caixa-e',opp.cif_caixa_e||'');
+    setVal('crm-o-cif-frete-terrestre',opp.cif_frete_terrestre||1700);
+    setVal('crm-o-cif-frete-maritimo',opp.cif_frete_maritimo||'');
     setVal('crm-o-inst-aero',opp.inst_aero||'');
     setVal('crm-o-inst-porte',opp.inst_porte||'M');
     setVal('crm-o-inst-pessoas',opp.inst_pessoas||3);
@@ -701,6 +708,9 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-inst-margem',opp.inst_margem||10);
     setVal('crm-o-inst-cambio',opp.inst_cambio||5.20);
     if(typeof crmInstQuemChange==='function') crmInstQuemChange();
+    // ★ Após restaurar inst_quem e inst_incoterm, garantir que bloco CIF
+    //   aparece se for CIF (e recalcula total).
+    if(typeof crmIncotermChange==='function') crmIncotermChange();
     var cepSt=el('crm-cep-status');if(cepSt)cepSt.textContent='';
     crmSetScope(opp.scope||'nacional');
     if(opp.scope==='internacional'){setVal('crm-o-pais',opp.pais);setVal('crm-o-cidade-intl',opp.cidade);}
@@ -770,6 +780,10 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-folhas','');setVal('crm-o-reserva','');setVal('crm-o-agp','');setVal('crm-o-cor-ext','');setVal('crm-o-cor-int','');
     setVal('crm-o-inst-quem','PROJETTA');setVal('crm-o-inst-valor','');setVal('crm-o-inst-transp','');
     setVal('crm-o-inst-pais','');setVal('crm-o-inst-aero','');setVal('crm-o-inst-porte','M');
+    // ★ Reset incoterm + CIF
+    setVal('crm-o-inst-incoterm','');
+    setVal('crm-o-cif-caixa-l','');setVal('crm-o-cif-caixa-a','');setVal('crm-o-cif-caixa-e','');
+    setVal('crm-o-cif-frete-terrestre',1700);setVal('crm-o-cif-frete-maritimo','');
     setVal('crm-o-inst-pessoas',3);setVal('crm-o-inst-dias',3);setVal('crm-o-inst-udigru',2000);
     setVal('crm-o-inst-passagem',10000);setVal('crm-o-inst-hotel',1700);setVal('crm-o-inst-alim',300);
     setVal('crm-o-inst-seguro',300);setVal('crm-o-inst-carro',850);setVal('crm-o-inst-mo',500);
@@ -1120,6 +1134,41 @@ window.crmInstQuemChange=function(){
   if(terc) terc.style.display=(v==='TERCEIROS')?'':'none';
   if(intl) intl.style.display=(v==='INTERNACIONAL')?'':'none';
   if(v==='INTERNACIONAL'){ crmInstCalcIntl(); crmInstFetchCambio(); }
+}
+
+// ★ Handler: mudança no dropdown Incoterm no card CRM. Quando CIF, mostrar
+//   bloco com campos de caixa madeira fumigada (L×A×E), frete terrestre e marítimo.
+//   Outros incoterms escondem o bloco.
+window.crmIncotermChange=function(){
+  var sel=document.getElementById('crm-o-inst-incoterm');
+  var box=document.getElementById('crm-inst-cif-box');
+  if(!sel||!box)return;
+  box.style.display=(sel.value==='CIF')?'':'none';
+  if(sel.value==='CIF') crmCifRecalc();
+}
+
+// ★ Recalcular custos CIF: volume da caixa (L×A×E em mm → m³) × US$ 110 +
+//   frete terrestre + frete marítimo = total CIF em USD.
+window.crmCifRecalc=function(){
+  var L=parseFloat((document.getElementById('crm-o-cif-caixa-l')||{value:0}).value)||0;
+  var A=parseFloat((document.getElementById('crm-o-cif-caixa-a')||{value:0}).value)||0;
+  var E=parseFloat((document.getElementById('crm-o-cif-caixa-e')||{value:0}).value)||0;
+  // Volume em m³ (mm→m = /1000 cada dimensão)
+  var vol=(L/1000)*(A/1000)*(E/1000);
+  var caixaUSD=vol*110; // US$ 110/m³ (valor confirmado pelo Felipe)
+  var infoCaixa=document.getElementById('crm-cif-caixa-info');
+  if(infoCaixa){
+    if(vol>0) infoCaixa.innerHTML='Volume: <b>'+vol.toFixed(3)+' m³</b> · Caixa: <b>US$ '+caixaUSD.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b>';
+    else infoCaixa.innerHTML='Volume: — m³ · Caixa: US$ —';
+  }
+  var fT=parseFloat((document.getElementById('crm-o-cif-frete-terrestre')||{value:0}).value)||0;
+  var fM=parseFloat((document.getElementById('crm-o-cif-frete-maritimo')||{value:0}).value)||0;
+  var total=caixaUSD+fT+fM;
+  var infoTot=document.getElementById('crm-cif-total-info');
+  if(infoTot){
+    if(total>0) infoTot.innerHTML='Total CIF (caixa + fretes): <b style="color:#c47012">US$ '+total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b>';
+    else infoTot.innerHTML='Total CIF (caixa + fretes): US$ —';
+  }
 }
 
 window.crmInstPorteChange=function(){
@@ -1581,6 +1630,13 @@ window.crmSaveOpp=function(){
     inst_valor: parseFloat(val('crm-o-inst-valor'))||0,
     inst_transp: parseFloat(val('crm-o-inst-transp'))||0,
     inst_pais: val('crm-o-inst-pais')||'',
+    // ★ INCOTERM + CIF: campos usados na proposta CIF (caixa madeira + fretes)
+    inst_incoterm: val('crm-o-inst-incoterm')||'',
+    cif_caixa_l: parseFloat(val('crm-o-cif-caixa-l'))||0,
+    cif_caixa_a: parseFloat(val('crm-o-cif-caixa-a'))||0,
+    cif_caixa_e: parseFloat(val('crm-o-cif-caixa-e'))||0,
+    cif_frete_terrestre: parseFloat(val('crm-o-cif-frete-terrestre'))||1700,
+    cif_frete_maritimo: parseFloat(val('crm-o-cif-frete-maritimo'))||0,
     inst_aero: val('crm-o-inst-aero')||'',
     inst_porte: val('crm-o-inst-porte')||'M',
     inst_pessoas: parseInt(val('crm-o-inst-pessoas'))||3,

@@ -1004,7 +1004,45 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     <div id="crm-inst-internacional" style="display:none;margin-top:6px;background:#e3f2fd;border:1px solid #2196f3;border-radius:8px;padding:10px">
       <div style="font-size:10px;font-weight:700;color:#1565c0;margin-bottom:6px">🌍 Instalação Internacional</div>
       <div class="crm-field"><label>País de Destino</label><input type="text" id="crm-o-inst-pais" placeholder="ex: Portugal, EUA, Emirados Árabes"></div>
-      <div style="font-size:9px;color:#555;margin-top:4px">Configuração completa em <b>Orçamento → Custo de Instalação</b></div>
+      <!-- ★ INCOTERM: termo comercial internacional. Siglas em inglês + significado PT.
+           Referência: ICC Incoterms 2020. Os 4 mais usados pra porta marítima. -->
+      <div class="crm-field" style="margin-top:8px">
+        <label>🚢 Incoterm</label>
+        <select id="crm-o-inst-incoterm" onchange="crmIncotermChange()" class="crm-sel" style="max-width:100%;width:100%">
+          <option value="">— Selecione —</option>
+          <option value="EXW">EXW — Ex Works (Na Fábrica — comprador arca com todo transporte)</option>
+          <option value="FOB">FOB — Free On Board (Livre a Bordo — Projetta entrega até porto de embarque)</option>
+          <option value="CIF">CIF — Cost, Insurance &amp; Freight (Custo, Seguro e Frete — Projetta paga caixa + frete até porto destino)</option>
+          <option value="DAP">DAP — Delivered At Place (Entregue no Local — Projetta paga tudo até endereço final)</option>
+        </select>
+      </div>
+
+      <!-- Bloco CIF: caixa de madeira fumigada + fretes (só aparece quando CIF) -->
+      <div id="crm-inst-cif-box" style="display:none;margin-top:8px;background:#fff3e0;border:1px solid #ff9800;border-radius:6px;padding:8px">
+        <div style="font-size:10px;font-weight:700;color:#e65100;margin-bottom:6px">📦 Embalagem e Frete CIF (valores em USD)</div>
+        <div style="font-size:9px;color:#666;margin-bottom:6px;font-style:italic">Informe as dimensões da caixa de madeira fumigada. Volume (m³) × US$ 110 = custo da caixa.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <div class="crm-field" style="flex:1;min-width:75px"><label>Caixa L (mm)</label><input type="number" id="crm-o-cif-caixa-l" placeholder="2000" min="0" step="1" oninput="crmCifRecalc()"></div>
+          <div class="crm-field" style="flex:1;min-width:75px"><label>Caixa A (mm)</label><input type="number" id="crm-o-cif-caixa-a" placeholder="3500" min="0" step="1" oninput="crmCifRecalc()"></div>
+          <div class="crm-field" style="flex:1;min-width:75px"><label>Caixa Esp (mm)</label><input type="number" id="crm-o-cif-caixa-e" placeholder="200" min="0" step="1" oninput="crmCifRecalc()"></div>
+        </div>
+        <div id="crm-cif-caixa-info" style="font-size:10px;color:#333;margin-top:4px;font-weight:600">Volume: — m³ · Caixa: US$ —</div>
+
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+          <div class="crm-field" style="flex:1;min-width:120px">
+            <label>🚛 Frete terrestre Uberlândia→Santos (US$)</label>
+            <input type="number" id="crm-o-cif-frete-terrestre" placeholder="1700" min="0" step="1" value="1700" oninput="crmCifRecalc()">
+          </div>
+          <div class="crm-field" style="flex:1;min-width:120px">
+            <label>🚢 Frete marítimo (US$) — cotação manual</label>
+            <input type="number" id="crm-o-cif-frete-maritimo" placeholder="ex: 3500" min="0" step="1" oninput="crmCifRecalc()">
+          </div>
+        </div>
+        <div id="crm-cif-total-info" style="font-size:11px;color:#003144;margin-top:6px;font-weight:700;padding-top:6px;border-top:1px dashed #ff9800">Total CIF (caixa + fretes): US$ —</div>
+        <div style="font-size:9px;color:#888;margin-top:4px;font-style:italic">💡 Futuro: cotação automática de frete marítimo via API de brokers.</div>
+      </div>
+
+      <div style="font-size:9px;color:#555;margin-top:8px">Configuração completa em <b>Orçamento → Custo de Instalação</b></div>
     </div>
 
     <!-- ═══ ITENS DO PEDIDO ═══ -->
