@@ -1181,6 +1181,62 @@ function _populatePropostaItens(){
       +'</tr>';
     _grandTotal += _INSTFAT;
   }
+
+  // ★ Linhas CIF: quando incoterm=CIF, somar caixa madeira + frete terrestre + marítimo.
+  //   Valores no card estão em USD. Convertemos pra BRL usando o câmbio do contexto
+  //   (mesma lógica da instalação intl). Aparecem como itens separados na tabela.
+  var _cifData = _ctx.cif || null;
+  if(_cifData && _cifData.isCif && _ISINTL){
+    var _cambioCif = _ctx.cambio || 5.20;
+    var _nextIdx = items.length + (_INSTFAT > 0 ? 2 : 1);
+    var _L_CAIXA   = (_LANG==='en' ? 'Wooden Fumigated Crate' : 'Caixa de Madeira Fumigada');
+    var _L_FRETE_T = (_LANG==='en' ? 'Land Freight Uberlândia→Santos' : 'Frete Terrestre Uberlândia→Santos');
+    var _L_FRETE_M = (_LANG==='en' ? 'Sea Freight' : 'Frete Marítimo');
+    var _L_DIMS    = (_LANG==='en' ? 'Dims' : 'Dim');
+
+    // Linha CAIXA (só se tem volume > 0)
+    if(_cifData.caixaUSD > 0){
+      var _caixaBRL = _cifData.caixaUSD * _cambioCif;
+      var _caixaDim = Math.round(_cifData.caixaL)+'×'+Math.round(_cifData.caixaA)+'×'+Math.round(_cifData.caixaE)+'mm';
+      tableHtml+='<tr style="background:#fff8f0">'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+_nextIdx.toString().padStart(2,'0')+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc">🚢 '+_L_CAIXA+' <span style="font-size:9px;color:#666">('+_cifData.volM3.toFixed(3)+' m³)</span></td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-size:9px">'+_caixaDim+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">1</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_caixaBRL)+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_caixaBRL)+'</td>'
+        +'</tr>';
+      _grandTotal += _caixaBRL;
+      _nextIdx++;
+    }
+    // Linha FRETE TERRESTRE
+    if(_cifData.freteTerrestreUSD > 0){
+      var _fTBRL = _cifData.freteTerrestreUSD * _cambioCif;
+      tableHtml+='<tr style="background:#fff8f0">'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+_nextIdx.toString().padStart(2,'0')+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc">🚛 '+_L_FRETE_T+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">—</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">1</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fTBRL)+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fTBRL)+'</td>'
+        +'</tr>';
+      _grandTotal += _fTBRL;
+      _nextIdx++;
+    }
+    // Linha FRETE MARÍTIMO
+    if(_cifData.freteMaritimoUSD > 0){
+      var _fMBRL = _cifData.freteMaritimoUSD * _cambioCif;
+      tableHtml+='<tr style="background:#fff8f0">'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+_nextIdx.toString().padStart(2,'0')+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc">⚓ '+_L_FRETE_M+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">—</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">1</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fMBRL)+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fMBRL)+'</td>'
+        +'</tr>';
+      _grandTotal += _fMBRL;
+    }
+  }
   // Total row
   tableHtml+='<tr style="background:#f0ebe0;font-weight:800">'
     +'<td colspan="3" style="padding:6px 8px;border:1px solid #ccc;text-align:right">'+_L_TOTAREA+': '+totalArea.toFixed(1)+' m\u00b2</td>'

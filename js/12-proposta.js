@@ -450,13 +450,36 @@ function populateProposta(){
   };
 
   // Expor contexto para _populatePropostaItens (em 18-auth.js) usar em modo multi-produto
+  // ★ CIF: ler incoterm + campos da caixa/fretes do card CRM (estão no DOM se o modal
+  //    foi aberto). Quando CIF, adiciona seção separada na proposta.
+  var _incotermDom = (document.getElementById('crm-o-inst-incoterm')||{value:''}).value||'';
+  var _cifCaixaL = parseFloat((document.getElementById('crm-o-cif-caixa-l')||{value:0}).value)||0;
+  var _cifCaixaA = parseFloat((document.getElementById('crm-o-cif-caixa-a')||{value:0}).value)||0;
+  var _cifCaixaE = parseFloat((document.getElementById('crm-o-cif-caixa-e')||{value:0}).value)||0;
+  var _cifFreteT = parseFloat((document.getElementById('crm-o-cif-frete-terrestre')||{value:0}).value)||0;
+  var _cifFreteM = parseFloat((document.getElementById('crm-o-cif-frete-maritimo')||{value:0}).value)||0;
+  var _cifVolM3  = (_cifCaixaL/1000)*(_cifCaixaA/1000)*(_cifCaixaE/1000);
+  var _cifCaixaUSD = _cifVolM3 * 110;
+
   window._propLangCtx = {
     lang: _PROP_LANG,
     isIntl: _isIntlProp,
     cambio: _cambioProp,
     instFat: (_isIntlProp && typeof window._instIntlFat === 'number') ? window._instIntlFat : 0,
     brlUsd: brlUsd,
-    i18n: _PROP_I18N
+    i18n: _PROP_I18N,
+    incoterm: _incotermDom,
+    cif: {
+      isCif: _incotermDom === 'CIF',
+      caixaL: _cifCaixaL,
+      caixaA: _cifCaixaA,
+      caixaE: _cifCaixaE,
+      volM3: _cifVolM3,
+      caixaUSD: _cifCaixaUSD,
+      freteTerrestreUSD: _cifFreteT,
+      freteMaritimoUSD: _cifFreteM,
+      totalUSD: _cifCaixaUSD + _cifFreteT + _cifFreteM
+    }
   };
 
   // Dados do cliente
