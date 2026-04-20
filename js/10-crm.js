@@ -1861,6 +1861,41 @@ window.crmSaveOpp=function(){
     return fallback || '';
   };
 
+  // ★ PRESERVAÇÃO DE LOGÍSTICA (Felipe 20/04):
+  //   crmSaveCard() é chamado de varios lugares (ex: Fazer Orcamento).
+  //   Se o modal CRM nao esta aberto, os inputs 'crm-o-inst-incoterm' etc
+  //   nao existem ou estao vazios — e crmSaveOpp SOBRESCREVERIA os campos
+  //   de logistica do card com '' / 0. Bug: toda vez que apertava Fazer
+  //   Orcamento, os dados CIF se apagavam.
+  //
+  //   Solucao: carregar card existente e usar valores dele como fallback
+  //   quando o input do modal nao tiver valor. Helper:
+  //     _preserveInput(inputId, cardField, parseType)
+  //   Se input tem valor → usa input. Senao → usa card (se _editId existir).
+  var _existingCard = null;
+  if(_editId && typeof cLoad === 'function'){
+    try { _existingCard = cLoad().find(function(o){return o.id===_editId;}) || null; }
+    catch(e){}
+  }
+  var _preserveInput = function(inputId, cardField, parseType){
+    var inputEl = document.getElementById(inputId);
+    var inputVal = inputEl ? inputEl.value : '';
+    // Se input existe E tem valor → usa input (comportamento normal)
+    if(inputEl && inputVal !== '' && inputVal !== null && inputVal !== undefined){
+      if(parseType === 'float') return parseFloat(inputVal)||0;
+      if(parseType === 'int')   return parseInt(inputVal)||0;
+      return inputVal;
+    }
+    // Senao → usa valor do card persistido (nao deixa sobrescrever com '')
+    if(_existingCard && _existingCard[cardField] !== undefined && _existingCard[cardField] !== null){
+      return _existingCard[cardField];
+    }
+    // Ultimo recurso: tipos defaults
+    if(parseType === 'float') return 0;
+    if(parseType === 'int')   return 0;
+    return '';
+  };
+
   var opp={
     cliente:   cliente,
     contato:   val('crm-o-contato').trim(),
@@ -1892,13 +1927,16 @@ window.crmSaveOpp=function(){
     inst_transp: parseFloat(val('crm-o-inst-transp'))||0,
     inst_pais: val('crm-o-inst-pais')||'',
     // ★ INCOTERM + CIF: campos usados na proposta CIF (caixa madeira + fretes)
-    inst_incoterm: val('crm-o-inst-incoterm')||'',
-    cif_caixa_l: parseFloat(val('crm-o-cif-caixa-l'))||0,
-    cif_caixa_a: parseFloat(val('crm-o-cif-caixa-a'))||0,
-    cif_caixa_e: parseFloat(val('crm-o-cif-caixa-e'))||0,
-    cif_caixa_taxa: parseFloat(val('crm-o-cif-caixa-taxa'))||100,
-    cif_frete_terrestre: parseFloat(val('crm-o-cif-frete-terrestre'))||1700,
-    cif_frete_maritimo: parseFloat(val('crm-o-cif-frete-maritimo'))||0,
+    //   _preserveInput: se input do modal nao tem valor (modal fechado),
+    //   mantem o valor existente no card — evita apagar a logistica toda
+    //   vez que crmSaveCard() e chamado de fora do modal.
+    inst_incoterm:        _preserveInput('crm-o-inst-incoterm',        'inst_incoterm',        'str'),
+    cif_caixa_l:          _preserveInput('crm-o-cif-caixa-l',          'cif_caixa_l',          'float'),
+    cif_caixa_a:          _preserveInput('crm-o-cif-caixa-a',          'cif_caixa_a',          'float'),
+    cif_caixa_e:          _preserveInput('crm-o-cif-caixa-e',          'cif_caixa_e',          'float'),
+    cif_caixa_taxa:       _preserveInput('crm-o-cif-caixa-taxa',       'cif_caixa_taxa',       'float') || 100,
+    cif_frete_terrestre:  _preserveInput('crm-o-cif-frete-terrestre',  'cif_frete_terrestre',  'float') || 1700,
+    cif_frete_maritimo:   _preserveInput('crm-o-cif-frete-maritimo',   'cif_frete_maritimo',   'float'),
     inst_aero: val('crm-o-inst-aero')||'',
     inst_porte: val('crm-o-inst-porte')||'M',
     inst_pessoas: parseInt(val('crm-o-inst-pessoas'))||3,
