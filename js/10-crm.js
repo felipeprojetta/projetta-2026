@@ -813,16 +813,18 @@ window.crmOpenModal=function(defaultStage,editId){
         rh+='</select>';
         rh+='</div>';
         rh+='<div style="margin-top:8px;padding:8px 10px;background:#fff9e6;border:1px dashed #ffc107;border-radius:6px;font-size:11px;color:#7a5901">💡 <b>Dê duplo-clique em uma revisão</b> acima para abrir o orçamento completo com todos os valores, inclusive para gerar ATP.</div>';
-        rh+='<div style="margin-top:10px;display:flex;gap:8px">';
-        rh+='<button onclick="crmNovaRevisao(\''+editId+'\')" style="background:#003144;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer">➕ Nova Revisão</button>';
+        rh+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">';
+        rh+='<button onclick="crmFazerOrcamentoOpcao(\''+editId+'\')" style="background:#e67e22;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(230,126,34,.3)" title="Abre o orçamento da opção ativa pra editar. Salva como nova revisão ao clicar Orçamento Pronto.">📋 Fazer Orçamento</button>';
+        rh+='<button onclick="crmNovaRevisao(\''+editId+'\')" style="background:#003144;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer" title="[legado] Abre via DB de histórico">➕ Nova Revisão</button>';
         rh+='</div>';
         revList.innerHTML=rh;
       } else {
         // Opção sem revisões ainda (ex.: opção recém criada sem duplicação bem-sucedida)
         revList.innerHTML = ah +
-          '<div style="padding:16px 12px;background:#fff9e6;border:1px dashed #ffc107;border-radius:6px;font-size:12px;color:#7a5901">' +
-          'Esta opção ainda não tem revisões. Gere um orçamento e clique em "Orçamento Pronto" pra criar a primeira.' +
-          '</div>';
+          '<div style="padding:16px 12px;background:#fff9e6;border:1px dashed #ffc107;border-radius:6px;font-size:12px;color:#7a5901;margin-bottom:10px">' +
+          'Esta opção ainda não tem revisões. Clique em <b>Fazer Orçamento</b> pra criar a primeira.' +
+          '</div>' +
+          '<button onclick="crmFazerOrcamentoOpcao(\''+editId+'\')" style="background:#e67e22;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(230,126,34,.3)">📋 Fazer Orçamento</button>';
       }
     }
   } else {
@@ -2588,6 +2590,84 @@ window.crmRemoverOpcao=function(cardId, opcaoId){
   data[idx].updatedAt = new Date().toISOString();
   cSave(data);
   crmOpenModal(null, cardId);
+};
+
+/* ═════════════════════════════════════════════════════════════════════
+   "Fazer Orçamento" da OPÇÃO ativa.
+   - Se a opção tem revisão com freeze: abre o freeze + destrava pra editar.
+     Próximo "Orçamento Pronto" → cria rev NOVA na opção ativa.
+   - Se a opção é vazia (sem revisões ou sem freezeKey): chama
+     crmFazerOrcamento() que carrega dados do CARD.
+   Substitui o antigo "Nova Revisão" que dependia do DB legado projetta_v3.
+   ═════════════════════════════════════════════════════════════════════ */
+window.crmFazerOrcamentoOpcao=function(cardId){
+  if(!cardId){ alert('Card inválido'); return; }
+  var data=cLoad();
+  var card=data.find(function(o){return o.id===cardId;});
+  if(!card){ alert('Card não encontrado'); return; }
+
+  // Descobrir última rev com freeze na OPÇÃO ATIVA
+  var lastIdx = -1;
+  if(window.OrcamentoOpcoes){
+    var opAtiva = window.OrcamentoOpcoes.ativa(card);
+    var revs = (opAtiva && opAtiva.revisoes) || [];
+    for(var i=revs.length-1; i>=0; i--){
+      if(revs[i] && revs[i].freezeKey){ lastIdx=i; break; }
+    }
+  } else {
+    // Fallback legado
+    var legacyRevs = card.revisoes || [];
+    for(var j=legacyRevs.length-1; j>=0; j--){
+      if(legacyRevs[j] && legacyRevs[j].freezeKey){ lastIdx=j; break; }
+    }
+  }
+
+  // Fechar modal do CRM
+  var modal=document.getElementById('crm-opp-modal');
+  if(modal) modal.classList.remove('open');
+
+  if(lastIdx < 0){
+    // Sem rev congelada → começa fresh do card
+    if(typeof crmFazerOrcamento === 'function'){
+      crmFazerOrcamento(cardId);
+    } else {
+      alert('Função crmFazerOrcamento não carregada');
+    }
+    return;
+  }
+
+  // Tem rev congelada → abrir + destravar pra editar
+  window._crmOrcCardId = cardId;
+  window._pendingRevision = true; // próximo "Orçamento Pronto" = NOVA rev
+
+  if(!window.OrcamentoFreeze || typeof window.OrcamentoFreeze.abrir !== 'function'){
+    alert('Sistema OrcamentoFreeze não carregado');
+    return;
+  }
+
+  window.OrcamentoFreeze.abrir(cardId, lastIdx)
+    .then(function(){
+      // Destravar imediatamente (sem confirm dialog do novaRevisao)
+      if(window.OrcamentoFreeze.destravar) window.OrcamentoFreeze.destravar();
+      // Marcar contexto aberto pro OrcamentoFreeze saber
+      window._freezeOpen = { cardId: cardId, revNum: lastIdx };
+      // Toast de orientação
+      var t=document.createElement('div');
+      t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#e67e22;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';
+      var opLabel = (window.OrcamentoOpcoes && window.OrcamentoOpcoes.ativa(card) && window.OrcamentoOpcoes.ativa(card).label) || 'opção';
+      t.textContent='✏️ Editando '+opLabel+' — clique em "Orçamento Pronto" quando terminar';
+      document.body.appendChild(t);
+      setTimeout(function(){t.remove();}, 5000);
+    })
+    .catch(function(err){
+      console.error('[crmFazerOrcamentoOpcao] falha ao abrir freeze:', err);
+      // Fallback: tentar começar fresh do card se abrir falhou
+      if(confirm('Não consegui abrir a revisão congelada ('+(err.message||err)+').\n\nQuer começar um orçamento novo a partir dos dados do card?')){
+        if(typeof crmFazerOrcamento === 'function'){
+          crmFazerOrcamento(cardId);
+        }
+      }
+    });
 };
 
 /* ── Abrir Revisão do CRM: carrega orçamento + mostra Memorial ── */
