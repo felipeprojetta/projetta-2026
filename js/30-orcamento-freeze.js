@@ -415,8 +415,8 @@
       var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       var timeoutId = setTimeout(function(){
         if(ctrl) ctrl.abort();
-        reject(new Error('Timeout 20s — Supabase não respondeu. Pode ser rate limit, tente de novo em 1 minuto.'));
-      }, 20000);
+        reject(new Error('Timeout 10s — Supabase não respondeu.'));
+      }, 10000);
 
       fetch(_sbUrl+'/rest/v1/configuracoes', {
         method: 'POST',
@@ -447,8 +447,8 @@
       var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       var timeoutId = setTimeout(function(){
         if(ctrl) ctrl.abort();
-        reject(new Error('Timeout 20s — Supabase não respondeu. Tente de novo em 1 minuto.'));
-      }, 20000);
+        reject(new Error('Timeout 10s — Supabase não respondeu.'));
+      }, 10000);
       fetch(_sbUrl+'/rest/v1/configuracoes?chave=eq.'+encodeURIComponent(chave)+'&select=valor', {
         headers: { 'apikey':_sbKey, 'Authorization':'Bearer '+_sbKey },
         signal: ctrl ? ctrl.signal : undefined
@@ -509,23 +509,61 @@
 
     var chave = _chaveDoFreeze(cardId, revNum);
 
-    // ★ PRIMÁRIO: salvar no localStorage (instantâneo).
-    //   Se quota estourar, mostra erro claro pro usuário.
+    // ═══════════════════════════════════════════════════════════════
+    // ARQUITETURA v1.2 (20/04/2026 tarde — Supabase voltou saudável):
+    // - Supabase é a STORAGE PRIMÁRIA (fonte da verdade, multi-device).
+    // - localStorage é BACKUP opcional (acelera reabrir, sem quebrar se
+    //   quota estourar).
+    // Motivação: no notebook de Felipe, projetta_v3 ocupava 4.89MB do
+    // localStorage (histórico antigo pré-CRM). Qualquer freeze adicional
+    // estourava quota e bloqueava salvar. Agora Supabase é fonte
+    // primária e localStorage só acelera — se não couber, tudo bem.
+    // ═══════════════════════════════════════════════════════════════
+
+    // ★ PRIMÁRIO: Supabase (com timeout 10s). Bloqueia até confirmar.
+    var supabaseOk = false;
     try {
-      localStorage.setItem(chave, JSON.stringify(pacote));
-      console.log('[Freeze] 💾 Salvo em localStorage: '+chave+' ('+Math.round(tam/1024)+' KB)');
+      await _uploadFreeze(chave, pacote);
+      supabaseOk = true;
+      console.log('[Freeze] ☁️ Salvo no Supabase: '+chave+' ('+Math.round(tam/1024)+' KB)');
     } catch(e){
-      // QuotaExceededError — tentar limpar freezes antigos e tentar de novo
-      if(e.name === 'QuotaExceededError' || /quota/i.test(e.message||'')){
-        console.warn('[Freeze] Quota estourou, limpando freezes de cards deletados...');
-        _limparFreezesOrfaos();
-        try {
-          localStorage.setItem(chave, JSON.stringify(pacote));
-          console.log('[Freeze] 💾 Salvo após limpeza');
-        } catch(e2){
-          throw new Error('Espaço local insuficiente. Delete revisões antigas ou cards não usados.');
+      console.warn('[Freeze] ☁️ Supabase falhou:', e.message);
+      // Se Supabase falhou, tenta localStorage como última opção
+      try {
+        localStorage.setItem(chave, JSON.stringify(pacote));
+        console.log('[Freeze] 💾 Salvo em localStorage (fallback, Supabase caiu)');
+      } catch(e2){
+        if(e2.name === 'QuotaExceededError' || /quota/i.test(e2.message||'')){
+          _limparFreezesOrfaos();
+          try { localStorage.setItem(chave, JSON.stringify(pacote)); }
+          catch(e3){
+            throw new Error('Supabase indisponível e localStorage cheio. Aguarde 1 minuto e tente novamente.');
+          }
+        } else {
+          throw new Error('Supabase falhou ('+e.message+') e localStorage deu erro ('+e2.message+').');
         }
-      } else { throw e; }
+      }
+    }
+
+    // ★ BACKUP: se Supabase OK, tenta salvar também em localStorage (melhor-esforço).
+    //   Se quota estourar, NÃO propaga erro — Supabase já tem a verdade.
+    if(supabaseOk){
+      try {
+        localStorage.setItem(chave, JSON.stringify(pacote));
+        console.log('[Freeze] 💾 Backup local OK');
+      } catch(e){
+        // Quota estourou? limpa órfãos e tenta de novo silenciosamente
+        if(e.name === 'QuotaExceededError' || /quota/i.test(e.message||'')){
+          try {
+            _limparFreezesOrfaos();
+            localStorage.setItem(chave, JSON.stringify(pacote));
+          } catch(e2){
+            console.warn('[Freeze] 💾 Backup local não coube (quota cheia) — OK, Supabase tem.');
+          }
+        } else {
+          console.warn('[Freeze] 💾 Backup local falhou (não crítico):', e.message);
+        }
+      }
     }
 
     // ★ Persistir freezeKey na revisão do card (via cSave se disponível,
@@ -551,15 +589,6 @@
     _aplicarFreezeKey(1);
     setTimeout(function(){ _aplicarFreezeKey(2); }, 1200);
     setTimeout(function(){ _aplicarFreezeKey(3); }, 3500);
-
-    // ★ BACKUP: upload ao Supabase em background, SEM await.
-    //   Se falhar (rate limit, rede, etc), não afeta o usuário — apenas
-    //   fica só em localStorage. Abrir continuará funcionando via local.
-    _uploadFreeze(chave, pacote).then(function(){
-      console.log('[Freeze] ☁️ Backup Supabase OK');
-    }).catch(function(err){
-      console.warn('[Freeze] ☁️ Backup Supabase falhou (não crítico):', err.message);
-    });
 
     console.log('[Freeze] ✅ Congelado: '+chave);
     return { chave: chave, tamanho: tam };
