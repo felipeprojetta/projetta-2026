@@ -1741,16 +1741,33 @@ function _renderSimCards(selSH){
         // PRO code dessa cor pra pegar preço
         var _match = ck.match(/PRO\w+/);
         var _proCode = _match ? _match[0] : '';
+        var _ckUpper = (ck||'').toUpperCase();
+        var _nameOnly = _proCode ? _ckUpper.replace(_proCode,'').trim() : _ckUpper.trim();
 
         function _priceForSH(SH){
-          // Busca em ACM_DATA preço do PRO + tamanho
+          // ★ Busca em ACM_DATA preço pra TAMANHO específico, com fallback:
+          //   1) PRO code exato + sufixo do tamanho (caso ideal)
+          //   2) nome parcial + sufixo do tamanho (ex: "BLACK DOOR" em "PRO0157T PRETO WXL TEX"
+          //      se o usuário cadastrou cor que não existe literalmente no catálogo)
+          //   Se nada achar, retorna 0 (melhor que mostrar preço errado).
           if(!Array.isArray(ACM_DATA)) return 0;
           var sufix = SW+'×'+SH;
+          // 1) PRO code + sufix
           for(var gi=0; gi<ACM_DATA.length; gi++){
             var opts = ACM_DATA[gi].o || [];
             for(var oi=0; oi<opts.length; oi++){
               var L = (opts[oi].l||'').toUpperCase();
               if(_proCode && L.indexOf(_proCode)>=0 && L.indexOf(sufix)>=0) return opts[oi].p||0;
+            }
+          }
+          // 2) nome parcial + sufix
+          if(_nameOnly && _nameOnly.length > 3){
+            for(var gi2=0; gi2<ACM_DATA.length; gi2++){
+              var opts2 = ACM_DATA[gi2].o || [];
+              for(var oi2=0; oi2<opts2.length; oi2++){
+                var L2 = (opts2[oi2].l||'').toUpperCase();
+                if(L2.indexOf(_nameOnly)>=0 && L2.indexOf(sufix)>=0) return opts2[oi2].p||0;
+              }
             }
           }
           return 0;
