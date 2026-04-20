@@ -546,8 +546,10 @@ function populateProposta(){
   var _cifCaixaE = parseFloat((document.getElementById('crm-o-cif-caixa-e')||{value:0}).value)||0;
   var _cifFreteT = parseFloat((document.getElementById('crm-o-cif-frete-terrestre')||{value:0}).value)||0;
   var _cifFreteM = parseFloat((document.getElementById('crm-o-cif-frete-maritimo')||{value:0}).value)||0;
+  // ★ Taxa editavel (Felipe 20/04): le do input, default 100 USD/m³
+  var _cifCaixaTaxa = parseFloat((document.getElementById('crm-o-cif-caixa-taxa')||{value:100}).value)||100;
   var _cifVolM3  = (_cifCaixaL/1000)*(_cifCaixaA/1000)*(_cifCaixaE/1000);
-  var _cifCaixaUSD = _cifVolM3 * 110;
+  var _cifCaixaUSD = _cifVolM3 * _cifCaixaTaxa;
 
   window._propLangCtx = {
     lang: _PROP_LANG,

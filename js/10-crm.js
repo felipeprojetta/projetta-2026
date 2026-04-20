@@ -746,6 +746,7 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-cif-caixa-l',opp.cif_caixa_l||'');
     setVal('crm-o-cif-caixa-a',opp.cif_caixa_a||'');
     setVal('crm-o-cif-caixa-e',opp.cif_caixa_e||'');
+    setVal('crm-o-cif-caixa-taxa',opp.cif_caixa_taxa||100);
     setVal('crm-o-cif-frete-terrestre',opp.cif_frete_terrestre||1700);
     setVal('crm-o-cif-frete-maritimo',opp.cif_frete_maritimo||'');
     setVal('crm-o-inst-aero',opp.inst_aero||'');
@@ -850,7 +851,7 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-inst-pais','');setVal('crm-o-inst-aero','');setVal('crm-o-inst-porte','M');
     // ★ Reset incoterm + CIF
     setVal('crm-o-inst-incoterm','');
-    setVal('crm-o-cif-caixa-l','');setVal('crm-o-cif-caixa-a','');setVal('crm-o-cif-caixa-e','');
+    setVal('crm-o-cif-caixa-l','');setVal('crm-o-cif-caixa-a','');setVal('crm-o-cif-caixa-e','');setVal('crm-o-cif-caixa-taxa',100);
     setVal('crm-o-cif-frete-terrestre',1700);setVal('crm-o-cif-frete-maritimo','');
     setVal('crm-o-inst-pessoas',3);setVal('crm-o-inst-dias',3);setVal('crm-o-inst-udigru',2000);
     setVal('crm-o-inst-passagem',10000);setVal('crm-o-inst-hotel',1700);setVal('crm-o-inst-alim',300);
@@ -1294,12 +1295,15 @@ window.crmCifRecalc=function(){
   var L=parseFloat((document.getElementById('crm-o-cif-caixa-l')||{value:0}).value)||0;
   var A=parseFloat((document.getElementById('crm-o-cif-caixa-a')||{value:0}).value)||0;
   var E=parseFloat((document.getElementById('crm-o-cif-caixa-e')||{value:0}).value)||0;
+  // ★ Taxa USD/m³ agora editavel (Felipe 20/04): default 100, pode
+  //   ajustar conforme cotação do fornecedor. Antes era hard-coded 110.
+  var taxa=parseFloat((document.getElementById('crm-o-cif-caixa-taxa')||{value:100}).value)||100;
   // Volume em m³ (mm→m = /1000 cada dimensão)
   var vol=(L/1000)*(A/1000)*(E/1000);
-  var caixaUSD=vol*110; // US$ 110/m³ (valor confirmado pelo Felipe)
+  var caixaUSD=vol*taxa;
   var infoCaixa=document.getElementById('crm-cif-caixa-info');
   if(infoCaixa){
-    if(vol>0) infoCaixa.innerHTML='Volume: <b>'+vol.toFixed(3)+' m³</b> · Caixa: <b>US$ '+caixaUSD.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b>';
+    if(vol>0) infoCaixa.innerHTML='Volume: <b>'+vol.toFixed(3)+' m³</b> × <b>US$ '+taxa+'/m³</b> · Caixa: <b>US$ '+caixaUSD.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b>';
     else infoCaixa.innerHTML='Volume: — m³ · Caixa: US$ —';
   }
   var fT=parseFloat((document.getElementById('crm-o-cif-frete-terrestre')||{value:0}).value)||0;
@@ -1845,6 +1849,7 @@ window.crmSaveOpp=function(){
     cif_caixa_l: parseFloat(val('crm-o-cif-caixa-l'))||0,
     cif_caixa_a: parseFloat(val('crm-o-cif-caixa-a'))||0,
     cif_caixa_e: parseFloat(val('crm-o-cif-caixa-e'))||0,
+    cif_caixa_taxa: parseFloat(val('crm-o-cif-caixa-taxa'))||100,
     cif_frete_terrestre: parseFloat(val('crm-o-cif-frete-terrestre'))||1700,
     cif_frete_maritimo: parseFloat(val('crm-o-cif-frete-maritimo'))||0,
     inst_aero: val('crm-o-inst-aero')||'',
