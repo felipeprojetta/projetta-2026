@@ -235,6 +235,7 @@ function renderKanban(fil){
         '<div class="crm-stage-title-row">'+
           '<div class="crm-stage-title"><div class="crm-stage-dot" style="background:'+st.color+'"></div><span>'+st.icon+' '+escH(st.label)+'</span></div>'+
           '<span class="crm-stage-count">'+cards.length+'</span>'+
+          '<button class="crm-stage-add-top" onclick="crmOpenModal(\''+st.id+'\')" title="Adicionar nova oportunidade nesta coluna" aria-label="Adicionar">+</button>'+
         '</div>'+
         (tvTab>0?'<div class="crm-stage-val" style="color:var(--navy)">Tab: '+brl(tvTab)+'</div>':'')+
         (tv>0?'<div class="crm-stage-val" style="color:#e67e22;font-weight:700">Fat: '+brl(tv)+'</div>':'')+
