@@ -2083,7 +2083,7 @@ function _syncChapaToOrc(){
   var _isMultiCor = _colorKeys.length >= 2;
 
   if(_isMultiCor){
-    // Tamanho da chapa corrente → sufixo usado na busca
+    // Tamanho da chapa GLOBAL (usado como fallback se a cor não tem override)
     var _pcVal = (document.getElementById('plan-chapa')||{value:'1500|6000'}).value;
     if(_pcVal === 'custom'){
       _pcVal = ((document.getElementById('plan-chapa-larg')||{value:1500}).value)+'|'+((document.getElementById('plan-chapa-alt')||{value:6000}).value);
@@ -2091,27 +2091,49 @@ function _syncChapaToOrc(){
     var _pcParts = _pcVal.split('|');
     var _pcW = parseInt(_pcParts[0])||1500;
     var _pcH = parseInt(_pcParts[1])||6000;
-    var _pcSufixo = _pcW+'×'+_pcH;
 
-    // Pegar um select ACM de referência (qualquer bloco ou o plan-acm-cor)
-    // pra ter a lista de options disponíveis filtrada pelo tamanho.
+    // ★ MULTI-COR com tamanho POR COR: cada cor pode ter seu tamanho próprio
+    //   em _PLN_CHAPA_SIZE_BY_COLOR. Se filtrarmos acm-sel-N pelo tamanho
+    //   global, as options de cores com tamanhos diferentes somem. Solução:
+    //   popular cada bloco acm-sel-N com TODAS as options (sem filtro),
+    //   depois selecionar por selectedIndex.
+    var _sizeByColor = window._PLN_CHAPA_SIZE_BY_COLOR || {};
+
+    // Reference select com TODAS as options (não filtrado).
+    // ACM_OPTS é global em 01-shared.js com mkOpts(ACM_DATA) — contém todas
+    // as variações de tamanho e cor. Aplicamos em TODOS os blocos ACM pra
+    // que cada bloco possa ter seu tamanho independente.
     var _refSel = document.getElementById('acm-sel-1') || acmSel;
+    if(typeof ACM_OPTS === 'string' && ACM_OPTS.length > 100){
+      try {
+        var _allAcmSels = document.querySelectorAll('[id^="acm-sel-"]');
+        _allAcmSels.forEach(function(s){
+          var prevIdx = s.selectedIndex;
+          s.innerHTML = ACM_OPTS;
+          if(prevIdx >= 0 && prevIdx < s.options.length) s.selectedIndex = prevIdx;
+        });
+      } catch(e){ console.warn('Erro ao aplicar ACM_OPTS:', e); }
+    }
 
     // ★ CRÍTICO: o atributo value do <option> NÃO é único — todas as cores
-    //   de um mesmo grupo (ex: KYNAR 4300) têm "preco|area" IGUAL. Então
-    //   setar .value='1214.24|7.5' seleciona sempre a PRIMEIRA option com
-    //   esse value (BRANCO RAL9003) mesmo querendo BLACK DOOR.
+    //   de um mesmo grupo (ex: KYNAR 4300) têm "preco|area" IGUAL.
     //   Solução: retornar o ÍNDICE da option (único) e usar .selectedIndex.
-    var _findOptionIndex = function(corLabel){
+    //   AGORA recebe (corLabel, sizeOverride) para buscar option com o tamanho
+    //   específico daquela cor.
+    var _findOptionIndex = function(corLabel, sizeOverride){
       if(!corLabel || !_refSel || !_refSel.options) return -1;
       var upper = (corLabel||'').toString().toUpperCase();
       var match = upper.match(/PRO\w+/);
       var proCode = match ? match[0] : '';
       var nameOnly = proCode ? upper.replace(proCode,'').trim() : upper.trim();
+      // Tamanho específico desta cor, senão global
+      var targetW = (sizeOverride && sizeOverride.w) ? sizeOverride.w : _pcW;
+      var targetH = (sizeOverride && sizeOverride.h) ? sizeOverride.h : _pcH;
+      var sufixo = targetW+'×'+targetH;
       var strategies = [
-        function(txt){ return proCode && txt.indexOf(proCode)>=0 && txt.indexOf(_pcSufixo)>=0; },
+        function(txt){ return proCode && txt.indexOf(proCode)>=0 && txt.indexOf(sufixo)>=0; },
         function(txt){ return proCode && txt.indexOf(proCode)>=0; },
-        function(txt){ return nameOnly && nameOnly.length>3 && txt.indexOf(nameOnly)>=0 && txt.indexOf(_pcSufixo)>=0; },
+        function(txt){ return nameOnly && nameOnly.length>3 && txt.indexOf(nameOnly)>=0 && txt.indexOf(sufixo)>=0; },
         function(txt){ return nameOnly && nameOnly.length>3 && txt.indexOf(nameOnly)>=0; }
       ];
       for(var si=0; si<strategies.length; si++){
@@ -2133,9 +2155,10 @@ function _syncChapaToOrc(){
       else if(_currentBlocks[cbi].parentNode) _currentBlocks[cbi].parentNode.removeChild(_currentBlocks[cbi]);
     }
 
-    // Criar/atualizar um bloco por cor
+    // Criar/atualizar um bloco por cor (usando tamanho override da cor)
     _colorKeys.forEach(function(ck, idx){
-      var corIdx = _findOptionIndex(ck);
+      var corSize = _sizeByColor[ck]; // override ou undefined
+      var corIdx = _findOptionIndex(ck, corSize);
       var res = _byColor[ck];
       var qty = res ? (res.numSheets||0) : 0;
       var blkId = idx + 1;
@@ -2145,17 +2168,18 @@ function _syncChapaToOrc(){
 
       if(!existingSel){
         if(typeof addACM === 'function'){
-          // addACM recebe selVal; passamos '' e setamos selectedIndex depois
           addACM('', qty);
           existingSel = document.getElementById('acm-sel-'+blkId);
+          // Bloco novo vem com options filtradas — re-aplicar ACM_OPTS sem filtro
+          if(existingSel && typeof ACM_OPTS === 'string' && ACM_OPTS.length > 100){
+            existingSel.innerHTML = ACM_OPTS;
+          }
         }
       }
       if(existingSel){
-        // Usar selectedIndex pra garantir a option CORRETA (values são duplicados)
         if(corIdx >= 0 && corIdx < existingSel.options.length){
           existingSel.selectedIndex = corIdx;
         } else {
-          // Sem match: deixar no default (index 0 = "Selecionar chapa")
           existingSel.selectedIndex = 0;
         }
       }
