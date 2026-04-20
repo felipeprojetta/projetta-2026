@@ -1097,7 +1097,14 @@ function plnPieceTable(pieces, placed) {
     'FIT ACAB FITA': 2*_REFval
   };
   function _refLatDaPeca(label){
+    // Remove prefixos EXT/INT e o prefixo FX (fixo) + sufixo 2L (segundo lado
+    // de revestimento duplo). Felipe 20/04: "toda tampa do fixo faz igual a
+    // tampa da porta — me traga valor sem refilado". Ou seja, as variantes
+    // FX TAMPA MAIOR, FX TAMPA MAIOR 2L, FX TAMPA BOR CAVA, FX TAMPA BOR
+    // CAVA 2L devem usar o mesmo refilado das tampas da porta.
     var base = (label||'').split('[')[0].split('EXT')[0].split('INT')[0].trim();
+    if(base.indexOf('FX ')===0) base = base.substring(3); // remove 'FX '
+    base = base.replace(/\s+2L\s*$/,'').trim();           // remove ' 2L' final
     return _REF_POR_PECA[base] || 0;
   }
   // Ordenar maiores dimensões (área) primeiro
