@@ -796,6 +796,48 @@ function plnLegend(pieces) {
   document.getElementById('plan-leg').innerHTML=html;
 }
 
+// ★ ETAPA 2: Barra de tabs POR COR (acima das tabs de chapa)
+// Só aparece quando há >= 2 cores em window._PLN_COLOR_KEYS.
+// Ao clicar: troca PLN_RES para _PLN_RES_BY_COLOR[cor], zera PLN_CSI,
+// e redesenha as tabs de chapa + canvas.
+function _plnRenderColorTabs(){
+  var el = document.getElementById('plan-color-tabs');
+  if(!el) return;
+  var keys = window._PLN_COLOR_KEYS || [];
+  if(keys.length < 2){
+    el.style.display='none';
+    el.innerHTML='';
+    return;
+  }
+  el.style.display='flex';
+  el.innerHTML='';
+  var active = window._PLN_ACTIVE_COLOR || keys[0];
+  // Label de legenda antes dos botões
+  var lbl=document.createElement('span');
+  lbl.style.cssText='font-size:9px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;align-self:center;margin-right:4px;opacity:.75';
+  lbl.textContent='Cor da chapa:';
+  el.appendChild(lbl);
+  keys.forEach(function(ck){
+    var res = window._PLN_RES_BY_COLOR && window._PLN_RES_BY_COLOR[ck];
+    var nChapas = res ? (res.numSheets || 0) : 0;
+    var b=document.createElement('button');
+    var isActive = (ck===active);
+    b.className='tab'+(isActive?' on':'');
+    b.style.cssText = 'font-size:10px;padding:4px 10px;'+(isActive?'background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700':'');
+    b.innerHTML='🎨 '+ck+' <span style="font-size:9px;opacity:.7">('+nChapas+' chapa'+(nChapas!==1?'s':'')+')</span>';
+    b.onclick=function(){
+      if(!window._PLN_RES_BY_COLOR || !window._PLN_RES_BY_COLOR[ck]) return;
+      window._PLN_ACTIVE_COLOR = ck;
+      PLN_RES = window._PLN_RES_BY_COLOR[ck];
+      PLN_CSI = 0;
+      _plnRenderColorTabs();   // atualiza estado on/off
+      plnBuildTabs();          // re-renderiza tabs de chapa
+      plnDraw(0);              // redesenha canvas
+    };
+    el.appendChild(b);
+  });
+}
+
 var _plnPiecesRef=[];
 var _plnManualOv={}; // {label: {w:X, h:Y, qty:Z}}
 function _plnPieceEdited(idx){
@@ -1899,6 +1941,7 @@ function planRun() {
   document.getElementById('plan-use-btn').style.display='';
   document.getElementById('plan-print-btn').style.display='';
   plnBuildTabs();
+  _plnRenderColorTabs();  // ★ Etapa 2: barra de cores (só mostra se >1 cor)
   plnLegend(pieces);
   plnDraw(0);
 }
