@@ -588,6 +588,12 @@ function calcInstIntl(){
   var precoFat=custoTotal/divisor;
   var precoTabela=desconto>0?precoFat/(1-desconto/100):precoFat;
 
+  // Expor valores globalmente pro painel TOTAL INTERNACIONAL usar
+  // (antes só o custoTotal era retornado — painel mostrava custo onde deveria
+  // mostrar faturamento; Felipe apontou o bug em 19/04/2026)
+  window._instIntlFat = precoFat;
+  window._instIntlTabela = precoTabela;
+
   var impostos=precoFat*(pctImp/100);
   var comissao=precoFat*(pctCom/100);
   var repasse=precoFat*(pctRep/100);

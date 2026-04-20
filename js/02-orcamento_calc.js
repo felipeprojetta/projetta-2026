@@ -555,10 +555,14 @@ function calc(){
     if(_isIntl && _subInstEfetivo>0){
       _intlPanel.style.display='';
       var _cambioIntl=parseFloat(($('inst-intl-cambio')||{value:5.20}).value)||5.20;
+      // BUG FIX: usar faturamento (com margem + impostos + desconto aplicado),
+      // não o custo. precoFat = custo / (1 - imp% - margem%), depois desconto.
+      // _instIntlFat é setado por calcInstIntl() em 14-reps_sync.js.
+      var _precoInstIntl = window._instIntlFat || _subInstEfetivo;
       $('intl-preco-porta').textContent=brl(pFatReal);
-      $('intl-preco-inst').textContent=brl(_subInstEfetivo);
-      $('intl-preco-inst-usd').textContent='US$ '+Math.round(_subInstEfetivo/_cambioIntl).toLocaleString('en-US');
-      var _totalIntlFat=pFatReal+_subInstEfetivo;
+      $('intl-preco-inst').textContent=brl(_precoInstIntl);
+      $('intl-preco-inst-usd').textContent='US$ '+Math.round(_precoInstIntl/_cambioIntl).toLocaleString('en-US');
+      var _totalIntlFat=pFatReal+_precoInstIntl;
       $('intl-total-fat').textContent=brl(_totalIntlFat);
       $('intl-total-usd').textContent='US$ '+Math.round(_totalIntlFat/_cambioIntl).toLocaleString('en-US');
     } else {
