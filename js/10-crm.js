@@ -2666,8 +2666,30 @@ window.crmNovaOpcao=function(cardId){
                         : null;
   var freezeKeyOrigem = ultimaRevOrigem ? ultimaRevOrigem.freezeKey : null;
 
+  // ★ Captura params financeiros da opção origem (Felipe 20/04): quero
+  //   que Nova Opção já venha com overhead/impostos/comissões/lucro/etc
+  //   da origem pra não refazer configuração. Prioridade: opcao.paramsFin
+  //   → últimaRev.paramsFin → entry legado projetta_v3.
+  var paramsFinOrigem = null;
+  if(origemOpcao && origemOpcao.paramsFinanceiros){
+    paramsFinOrigem = Object.assign({}, origemOpcao.paramsFinanceiros);
+  } else if(ultimaRevOrigem && ultimaRevOrigem.paramsFinanceiros){
+    paramsFinOrigem = Object.assign({}, ultimaRevOrigem.paramsFinanceiros);
+  } else {
+    // Fallback: tentar DB legado do card
+    paramsFinOrigem = _coletarParamsFinanceiros(cardId);
+  }
+
   var nova = window.OrcamentoOpcoes.novaOpcao(data[idx], label);
   if(!nova){ alert('Falha ao criar opção.'); return; }
+
+  // Copiar params pra nova opção (ficam disponíveis pra próximos Fazer Orçamento)
+  if(paramsFinOrigem){
+    nova.paramsFinanceiros = paramsFinOrigem;
+    if(nova.revisoes && nova.revisoes[0]){
+      nova.revisoes[0].paramsFinanceiros = paramsFinOrigem;
+    }
+  }
 
   // Se a opção origem tinha um freeze, vamos duplicá-lo no Supabase pro
   // novo freezeKey e gravar a chave na rev duplicada.
@@ -2796,17 +2818,36 @@ window.crmRemoverOpcao=function(cardId, opcaoId){
 var _FIN_PARAM_IDS = ['overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','desconto','markup-desc'];
 
 function _coletarParamsFinanceiros(cardId){
-  // Busca o último estado salvo no DB legado (projetta_v3). Ele é atualizado
-  // a cada "Orçamento Pronto" via salvarRapido(). Retorna null se não achou.
+  // ★ Ordem de prioridade (Felipe 20/04):
+  //   1) opcao ATIVA.paramsFinanceiros    (setada por crmNovaOpcao ou Orçamento Pronto)
+  //   2) última rev da opção ATIVA.paramsFinanceiros
+  //   3) entry legado projetta_v3 ligado ao card (fallback atual)
+  //   4) null → defaults do form
   try {
+    var cdata = (typeof cLoad === 'function') ? cLoad() : [];
+    var card = cdata.find(function(o){return o.id===cardId;});
+
+    // 1) Opção ativa
+    if(card && window.OrcamentoOpcoes){
+      var opAtiva = window.OrcamentoOpcoes.ativa(card);
+      if(opAtiva && opAtiva.paramsFinanceiros){
+        return Object.assign({}, opAtiva.paramsFinanceiros);
+      }
+      // 2) Última rev da opção ativa
+      if(opAtiva && Array.isArray(opAtiva.revisoes) && opAtiva.revisoes.length){
+        var ultRev = opAtiva.revisoes[opAtiva.revisoes.length-1];
+        if(ultRev && ultRev.paramsFinanceiros){
+          return Object.assign({}, ultRev.paramsFinanceiros);
+        }
+      }
+    }
+
+    // 3) Fallback: DB legado projetta_v3
     if(typeof loadDB !== 'function') return null;
     var db = loadDB();
-    // 1) Entry vinculado a ESTE card
     var entry = db.find(function(e){ return e.crmCardId === cardId; });
-    // 2) Fallback: por nome de cliente
     if(!entry){
-      var cdata = cLoad();
-      var card = cdata.find(function(o){return o.id===cardId;});
+      // Por nome de cliente (match único)
       if(card && card.cliente){
         var nome = card.cliente.toUpperCase().trim();
         var matches = db.filter(function(e){ return e.client && e.client.toUpperCase().trim()===nome; });
@@ -2827,9 +2868,23 @@ function _coletarParamsFinanceiros(cardId){
     });
     return found ? out : null;
   } catch(e){
-    console.warn('[crmFazerOrcamentoOpcao] coletarParamsFinanceiros falhou:', e);
+    console.warn('[_coletarParamsFinanceiros] falhou:', e);
     return null;
   }
+}
+
+// Helper: captura params do form atual (tela do orçamento)
+function _snapshotParamsDoForm(){
+  var out = {};
+  var qualquer = false;
+  _FIN_PARAM_IDS.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el && el.value !== undefined && el.value !== ''){
+      out[id] = el.value;
+      qualquer = true;
+    }
+  });
+  return qualquer ? out : null;
 }
 
 function _aplicarParamsFinanceiros(params){
@@ -3202,6 +3257,13 @@ window.crmNovaRevisao=function(cardId){
     if(typeof _checkCorMode==='function') setTimeout(_checkCorMode, 200);
     if(typeof planUpd==='function') try{planUpd();}catch(e){}
     if(typeof calc==='function') try{calc();}catch(e){}
+
+    // Toast Felipe 20/04: deixar claro que params financeiros vieram da rev
+    var _rvTst=document.createElement('div');
+    _rvTst.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#8e44ad;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:560px;text-align:center';
+    _rvTst.innerHTML='📋 Nova Revisão — <b>parâmetros financeiros preservados</b><br><span style="font-weight:400;font-size:11px">overhead, impostos, comissões, lucro e desconto da revisão anterior. Edite o que precisar.</span>';
+    document.body.appendChild(_rvTst);
+    setTimeout(function(){_rvTst.remove();}, 5500);
   }, 1000);
   // Segurança: desbloquear de novo em 2s caso algo tenha re-travado
   setTimeout(_forceUnlock, 2000);
@@ -3371,15 +3433,31 @@ window.crmOrcamentoPronto=function(){
         //    Evita gravar revisão zerada no card quando gerarCustoTotal é assíncrono
         var _revNum=_crmD[_ci].revisoes.length;
         var _revLabelFinal=isFirst?'Original':'Revisão '+_revNum;
+
+        // ★ Capturar params financeiros atuais do form pra salvar na rev E
+        //   na opção ativa. Assim Nova Revisão / Nova Opção podem puxar.
+        var _paramsNow = (typeof _snapshotParamsDoForm==='function') ? _snapshotParamsDoForm() : null;
+
         _crmD[_ci].revisoes.push({
           rev:_revNum,
           label:_revLabelFinal,
           data:new Date().toISOString(),
           valorTabela:_vals.tab,
-          valorFaturamento:_vals.fat
+          valorFaturamento:_vals.fat,
+          paramsFinanceiros: _paramsNow
         });
+
+        // Também salva no nível da OPÇÃO ativa (fonte primária pra novas
+        // opções duplicadas e também pra reload do modal)
+        if(_paramsNow && window.OrcamentoOpcoes){
+          var _opAtivaNow = window.OrcamentoOpcoes.ativa(_crmD[_ci]);
+          if(_opAtivaNow){
+            _opAtivaNow.paramsFinanceiros = _paramsNow;
+          }
+        }
+
         revLabel=_revLabelFinal; // atualiza label externo para o toast
-        console.log('📊 '+_revLabelFinal+' criada: Tab='+_vals.tab+' Fat='+_vals.fat);
+        console.log('📊 '+_revLabelFinal+' criada: Tab='+_vals.tab+' Fat='+_vals.fat+(_paramsNow?' + paramsFin':''));
         cSave(_crmD);
         if(typeof crmRender==='function') crmRender();
       }
