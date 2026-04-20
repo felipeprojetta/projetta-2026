@@ -2346,6 +2346,30 @@ window.crmDeleteRevision=function(cardId,revIndex){
 
 /* ── Abrir Revisão do CRM: carrega orçamento + mostra Memorial ── */
 window.crmAbrirRevisao=function(cardId, revIdx){
+  // ─── MemorialCem (PNG-based, v1.0) — PRIORIDADE MÁXIMA ───
+  // Se a revisão tem memorialCemKey, abre o viewer de PNGs (mais confiável).
+  // Sem restauração de estado JS — apenas mostra imagens salvas.
+  try {
+    var _crmDataCem = cLoad();
+    var _cardCem = _crmDataCem.find(function(o){return o.id===cardId;});
+    if(_cardCem && _cardCem.revisoes && _cardCem.revisoes[revIdx||0]){
+      var _rCem = _cardCem.revisoes[revIdx||0];
+      if(_rCem.memorialCemKey && window.MemorialCem && typeof window.MemorialCem.abrir === 'function'){
+        window.MemorialCem.abrir(cardId, revIdx||0)
+          .catch(function(err){
+            console.warn('[MemorialCem] falha, tentando V2/legacy:', err);
+            _crmAbrirRevisaoV2OuLegacy(cardId, revIdx);
+          });
+        return;
+      }
+    }
+  } catch(e){ console.warn('[MemorialCem] erro, caindo em V2/legacy:', e); }
+
+  // Fallback: tenta V2 (Supabase) ou legacy (snapshot JS)
+  _crmAbrirRevisaoV2OuLegacy(cardId, revIdx);
+};
+
+function _crmAbrirRevisaoV2OuLegacy(cardId, revIdx){
   // ─── Memorial V2: tenta abrir via Supabase primeiro ───
   // Se a revisão tem memorialV2Id, puxa tudo do banco e restaura sem recalcular.
   try {
@@ -2368,7 +2392,7 @@ window.crmAbrirRevisao=function(cardId, revIdx){
 
   // Fallback: memorial antigo (revisões criadas antes do V2)
   _crmAbrirRevisaoLegacy(cardId, revIdx);
-};
+}
 
 function _crmAbrirRevisaoLegacy(cardId, revIdx){
   var db=loadDB();
@@ -2816,6 +2840,46 @@ window.crmOrcamentoPronto=function(){
         setTimeout(function(){ warn.remove(); }, 6000);
       });
     }
+
+    // ─── MemorialCem (PNG-based, v1.0) — captura em paralelo ─────────
+    // Captura PNG de cada aba (orçamento/perfis/acess/superf/proposta) e
+    // salva no Supabase. Quando usuário abre memorial, mostra PNG salvo
+    // (sem restaurar estado JS). Abordagem "igual CEM" — Felipe, 20/04/2026.
+    if(id && window.MemorialCem && typeof window.MemorialCem.capturar === 'function'){
+      var _cemRevNum = 0;
+      try {
+        var _crmCem = cLoad();
+        var _ciCem = _crmCem.findIndex(function(o){return o.id===id;});
+        if(_ciCem>=0 && _crmCem[_ciCem].revisoes) _cemRevNum = _crmCem[_ciCem].revisoes.length - 1;
+      } catch(e){}
+
+      // Toast de progresso
+      var _cemToast = document.createElement('div');
+      _cemToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#003144;color:#fff;padding:12px 18px;border-radius:12px;font-size:12px;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,.3);min-width:240px';
+      _cemToast.innerHTML = '📸 Capturando memorial...<div id="_cemProg" style="font-size:10px;opacity:.85;margin-top:4px">iniciando</div>';
+      document.body.appendChild(_cemToast);
+
+      window.MemorialCem.capturar(id, _cemRevNum, {
+        onProgress: function(p){
+          var prog = document.getElementById('_cemProg');
+          if(!prog) return;
+          if(p.status === 'capturando') prog.textContent = '('+p.step+'/'+p.total+') '+p.nome;
+          else if(p.status === 'uploading') prog.textContent = 'enviando ao banco...';
+          else if(p.status === 'done') prog.textContent = '✅ '+p.chave;
+          else if(p.status === 'erro') prog.textContent = '⚠ falha em '+p.nome;
+        }
+      }).then(function(result){
+        _cemToast.style.background = '#27ae60';
+        _cemToast.innerHTML = '✅ Memorial salvo: '+result.abas.length+' abas';
+        setTimeout(function(){ _cemToast.remove(); }, 4000);
+        if(typeof crmRender === 'function') crmRender();
+      }).catch(function(err){
+        console.error('[MemorialCem] ERRO:', err);
+        _cemToast.style.background = '#c0392b';
+        _cemToast.innerHTML = '⚠ Memorial falhou: '+(err.message||err);
+        setTimeout(function(){ _cemToast.remove(); }, 6000);
+      });
+    }
   };
   // Se custo já foi gerado → salvar DIRETO
   // SEMPRE tenta salvar direto primeiro (valores podem estar no DOM)
@@ -2927,6 +2991,32 @@ window.crmAtualizarValorCard=function(){
       var nPages=captures?captures.length:0;
       var toast2=document.createElement('div');toast2.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2980b9;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast2.textContent='🔄 '+revLabel+' atualizada! '+nPages+' pág. Tab: '+brl(vals.tab)+' | Fat: '+brl(vals.fat);document.body.appendChild(toast2);setTimeout(function(){toast2.remove();},5000);
     });
+
+    // ─── MemorialCem: capturar PNGs da nova revisão ───
+    if(window.MemorialCem && typeof window.MemorialCem.capturar === 'function'){
+      var _cemToast2 = document.createElement('div');
+      _cemToast2.style.cssText = 'position:fixed;top:20px;right:20px;background:#003144;color:#fff;padding:12px 18px;border-radius:12px;font-size:12px;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,.3);min-width:240px';
+      _cemToast2.innerHTML = '📸 Capturando memorial da '+revLabel+'...<div id="_cemProg2" style="font-size:10px;opacity:.85;margin-top:4px">iniciando</div>';
+      document.body.appendChild(_cemToast2);
+      window.MemorialCem.capturar(id, revNum, {
+        onProgress: function(p){
+          var prog = document.getElementById('_cemProg2');
+          if(!prog) return;
+          if(p.status === 'capturando') prog.textContent = '('+p.step+'/'+p.total+') '+p.nome;
+          else if(p.status === 'uploading') prog.textContent = 'enviando ao banco...';
+          else if(p.status === 'done') prog.textContent = '✅ pronto';
+        }
+      }).then(function(result){
+        _cemToast2.style.background = '#27ae60';
+        _cemToast2.innerHTML = '✅ Memorial salvo: '+result.abas.length+' abas';
+        setTimeout(function(){ _cemToast2.remove(); }, 4000);
+      }).catch(function(err){
+        console.error('[MemorialCem] ERRO:', err);
+        _cemToast2.style.background = '#c0392b';
+        _cemToast2.innerHTML = '⚠ Memorial falhou: '+(err.message||err);
+        setTimeout(function(){ _cemToast2.remove(); }, 6000);
+      });
+    }
     // Esconder botões e travar
     var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
     var btnPronto=document.getElementById('crm-orc-pronto-btn');if(btnPronto)btnPronto.style.display='none';
