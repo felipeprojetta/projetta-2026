@@ -561,8 +561,40 @@ function populateProposta(){
   var _cifFreteM = parseFloat((document.getElementById('crm-o-cif-frete-maritimo')||{value:0}).value)||0;
   // ★ Taxa editavel (Felipe 20/04): le do input, default 100 USD/m³
   var _cifCaixaTaxa = parseFloat((document.getElementById('crm-o-cif-caixa-taxa')||{value:100}).value)||100;
+
+  // ★ FALLBACK (Felipe 20/04): se os campos DOM estao vazios (caso tipico:
+  //   proposta gerada sem o modal CRM aberto), le direto do card persistido.
+  //   Isso evita o bug de CIF sumir da proposta quando o usuario abre a
+  //   proposta direto sem passar pelo modal do card.
+  if(!_incotermDom && window._crmOrcCardId && typeof cLoad === 'function'){
+    try {
+      var _card = cLoad().find(function(o){return o.id===window._crmOrcCardId;});
+      if(_card){
+        _incotermDom = _card.inst_incoterm || _incotermDom;
+        if(_cifCaixaL<=0) _cifCaixaL = parseFloat(_card.cif_caixa_l)||0;
+        if(_cifCaixaA<=0) _cifCaixaA = parseFloat(_card.cif_caixa_a)||0;
+        if(_cifCaixaE<=0) _cifCaixaE = parseFloat(_card.cif_caixa_e)||0;
+        if(_cifFreteT<=0) _cifFreteT = parseFloat(_card.cif_frete_terrestre)||0;
+        if(_cifFreteM<=0) _cifFreteM = parseFloat(_card.cif_frete_maritimo)||0;
+        if(_cifCaixaTaxa===100 && _card.cif_caixa_taxa) _cifCaixaTaxa = parseFloat(_card.cif_caixa_taxa)||100;
+      }
+    } catch(e){ console.warn('[proposta CIF fallback]', e); }
+  }
+
   var _cifVolM3  = (_cifCaixaL/1000)*(_cifCaixaA/1000)*(_cifCaixaE/1000);
   var _cifCaixaUSD = _cifVolM3 * _cifCaixaTaxa;
+
+  // Diagnóstico pra debug: loga estado CIF no console
+  console.log('[proposta CIF]', {
+    incoterm: _incotermDom,
+    isCif: _incotermDom === 'CIF',
+    caixa: _cifCaixaL+'×'+_cifCaixaA+'×'+_cifCaixaE+'mm',
+    volM3: _cifVolM3.toFixed(3),
+    caixaUSD: _cifCaixaUSD.toFixed(2),
+    freteTerrestre: _cifFreteT,
+    freteMaritimo: _cifFreteM,
+    origem: _incotermDom ? 'DOM/card' : 'VAZIO'
+  });
 
   window._propLangCtx = {
     lang: _PROP_LANG,
