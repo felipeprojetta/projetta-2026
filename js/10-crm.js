@@ -3239,8 +3239,17 @@ window.crmOrcamentoPronto=function(){
     _setOrcLock(true);
     // Mostrar botão Gerar PDF
     var pdfBtn=document.getElementById('crm-gerar-pdf-btn');if(pdfBtn)pdfBtn.style.display='inline-flex';
-    // Toast
-    var toast=document.createElement('div');toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2)';toast.textContent='✅ '+revLabel+' congelada! Tab: '+brl(_vals.tab)+' Fat: '+brl(_vals.fat);document.body.appendChild(toast);setTimeout(function(){toast.remove();},5000);
+    // Toast — amarelo se valores zerados (failsafe provavelmente disparou)
+    var _zerado=(!_vals.tab && !_vals.fat);
+    var toast=document.createElement('div');
+    toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:'+(_zerado?'#e67e22':'#27ae60')+';color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:520px;text-align:center';
+    if(_zerado){
+      toast.innerHTML='⚠️ '+revLabel+' criada com <u>valor zero</u>.<br><span style="font-weight:400;font-size:11px">Gere o Custo Completo e clique Orçamento Pronto de novo</span>';
+    } else {
+      toast.textContent='✅ '+revLabel+' congelada! Tab: '+brl(_vals.tab)+' Fat: '+brl(_vals.fat);
+    }
+    document.body.appendChild(toast);
+    setTimeout(function(){toast.remove();}, _zerado?8000:5000);
     if(typeof crmRender==='function') crmRender();
 
     // ─── Memorial V2: salva em paralelo no banco Supabase ───
@@ -3330,8 +3339,43 @@ window.crmOrcamentoPronto=function(){
     // Custo não foi gerado → calcular primeiro, depois salvar
     // gerarCustoTotal atualiza window._calcResult → captureSnapshot/captureOrcValues leem dele
     window._snapshotLock=false;
-    window._onCustoCompleto=_salvarSnapshotECRM;
-    if(typeof gerarCustoTotal==='function') try{gerarCustoTotal();}catch(e){console.warn('gerarCusto:',e);}
+
+    // Wrapper idempotente: garante que _salvarSnapshotECRM rode UMA vez só,
+    // seja disparado pelo callback (sucesso) seja pelo timeout (failsafe).
+    var _jaSalvou=false;
+    var _salvarUmaVez=function(origem){
+      if(_jaSalvou) return;
+      _jaSalvou=true;
+      console.log('[crmOrcamentoPronto] salvando via '+origem);
+      try { _salvarSnapshotECRM(); }
+      catch(e){ console.error('[crmOrcamentoPronto] erro em _salvarSnapshotECRM:', e); }
+    };
+    window._onCustoCompleto=function(){ _salvarUmaVez('callback_gerarCustoTotal'); };
+
+    // FAILSAFE: gerarCustoTotal tem 1.8s de setTimeouts. Se ele errar/abortar
+    // silenciosamente (ex: bug num modelo específico, early-return por lock),
+    // _onCustoCompleto nunca dispara → card moveu mas revisão não foi criada.
+    // Felipe 20/04: "apertei botão verde, moveu o card mas não enviou valor".
+    // Depois de 3s, força salvamento mesmo que com valores zerados —
+    // melhor ter uma revisão com 0 (corrigível) do que card órfão.
+    setTimeout(function(){
+      if(!_jaSalvou){
+        console.warn('[crmOrcamentoPronto] FAILSAFE 3s — gerarCustoTotal não finalizou, forçando save');
+        _salvarUmaVez('failsafe_timeout_3s');
+      }
+    }, 3000);
+
+    if(typeof gerarCustoTotal==='function'){
+      try{ gerarCustoTotal(); }
+      catch(e){
+        console.error('[crmOrcamentoPronto] gerarCustoTotal lançou:', e);
+        // Falha síncrona → não adianta esperar callback. Salva já com o que tiver.
+        _salvarUmaVez('catch_gerarCusto_throw');
+      }
+    } else {
+      // gerarCustoTotal nem existe — salva direto com o que tiver
+      _salvarUmaVez('gerarCustoTotal_ausente');
+    }
   }
   }catch(err){
     console.error('crmOrcamentoPronto erro:',err);
