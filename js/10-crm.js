@@ -2394,15 +2394,24 @@ window.crmFazerOrcamento=function(id){
     //   Orçamento. O autosave os persiste em card.orcData. Ao clicar
     //   Fazer Orçamento de novo, restauramos pro usuário continuar
     //   de onde parou.
+    //
+    //   IMPORTANTE: precisa rodar ANTES de gerarCustoTotal (senao o
+    //   calculo inicial usa campos vazios). Antes estava em
+    //   setTimeout(900ms) paralelo ao de 1200ms — se o 900 demorasse
+    //   um pouco, caia DEPOIS do 1200 e os valores restaurados eram
+    //   sobrescritos pelo calc(). Agora encadeamos:
+    //     1) setTimeout 800ms → restaurar
+    //     2) dentro DESSE, setTimeout 400ms → gerarCustoTotal
+    //   Assim a ordem é deterministica.
     setTimeout(function(){
+      // Passo 1: restaurar
       if(typeof window._restaurarCamposOrcDoCard === 'function'){
         try { window._restaurarCamposOrcDoCard(id); }
         catch(e){ console.warn('restaurar orcData:', e); }
       }
-    }, 900); // antes do auto-gerar-custo (1200ms)
 
-    // Auto-gerar OS e calcular tudo
-    setTimeout(function(){
+      // Passo 2: depois gerar custo total (campos ja populados)
+      setTimeout(function(){
       // Esconder botão GERAR CUSTO COMPLETO (auto-calculado)
       var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='none';
       // ── Sincronizar itens CRM → multi-porta para cálculo combinado ──
@@ -2448,7 +2457,8 @@ window.crmFazerOrcamento=function(id){
           },300);
         }catch(e){console.warn('auto-plan:',e);}
       },600);
-    }, 1200);
+      }, 400); // Passo 2 (gerar custo total): roda 400ms apos restaurar
+    }, 800); // Passo 1 (restaurar scratch do card)
     // Botões CRM: escondidos até o usuário SALVAR o orçamento
     var btn=document.getElementById('crm-orc-pronto-btn');
     if(btn){btn.style.display='none';btn.setAttribute('data-id',id);}

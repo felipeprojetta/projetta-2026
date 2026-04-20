@@ -1064,6 +1064,12 @@ function salvarRapido(){
       }
     }catch(e){}
   }
+  // ★ Garantir que o scratch da aba Orcamento (passagens, hotel, cambio,
+  //   CIF etc) tambem seja persistido no card mesmo quando o usuario
+  //   aperta SALVAR manual (sem esperar o debounce do autosave).
+  if(window._crmOrcCardId && typeof _salvarCamposOrcNoCard === 'function'){
+    try{ _salvarCamposOrcNoCard(); }catch(e){}
+  }
   // Após salvar: SEMPRE mostrar botão "Pronto para Envio"
   // Verificar se é primeiro envio ou revisão
   var _temEnvioAnterior=false;
