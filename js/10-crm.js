@@ -1990,6 +1990,12 @@ function orcItensFromCRM(itens, cliente){
         if(lado && fx.tipo_fixacao==='LATERAL') lado.value = 'esquerdo';
         // Quantidade
         var qtyEl = last.querySelector('.fixo-qty'); if(qtyEl) qtyEl.value = qty;
+
+        // ★ Cores do item fixo (Felipe 20/04): guardar como dataset no
+        //   bloco. O planificador le esses atributos ao iterar .fixo-blk
+        //   e atribui _cor às peças FX, evitando que saiam "SEM COR".
+        last.dataset.corExt = fx.cor_ext || '';
+        last.dataset.corInt = fx.cor_int || '';
       }
     });
   }

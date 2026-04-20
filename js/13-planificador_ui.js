@@ -1217,6 +1217,47 @@ function togglePlan() {
 
 
 
+// ═══════════════════════════════════════════════════════════════════════
+// _coletarPecasFixo (Felipe 20/04): itera todos os .fixo-blk do DOM e
+// retorna array de peças FX com `._cor` anexado (lido do dataset do bloco,
+// que foi populado em js/10-crm.js com o cor_ext do item CRM).
+// Sem o _cor, a tabela do planificador mostra "SEM COR" na coluna Cor
+// Chapa das peças do fixo.
+// ═══════════════════════════════════════════════════════════════════════
+function _coletarPecasFixo(Lporta, Aporta, modelo){
+  var _tf = document.getElementById('tem-fixo');
+  if(!_tf || !_tf.checked) return [];
+  var result = [];
+  document.querySelectorAll('.fixo-blk').forEach(function(el){
+    var Lf = parseFloat((el.querySelector('.fixo-larg')||{value:0}).value)||0;
+    var Af = parseFloat((el.querySelector('.fixo-alt') ||{value:0}).value)||0;
+    var ld = parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
+    var qf = parseInt((el.querySelector('.fixo-qty')  ||{value:1}).value)||1;
+    var tp = (el.querySelector('.fixo-tipo')||{value:'superior'}).value;
+    if(Lf<=0 || Af<=0) return;
+
+    // Cor do item fixo — gravada no dataset em crm orcItensFromCRM
+    var corExt = (el.dataset && el.dataset.corExt) || '';
+    // Fallback: se nao tem corExt no dataset, usa a cor da porta
+    //   (document.getElementById('carac-cor-ext')) — melhor mostrar
+    //   algo do que "SEM COR".
+    if(!corExt){
+      var _caracCor = document.getElementById('carac-cor-ext');
+      if(_caracCor && _caracCor.value) corExt = _caracCor.value;
+    }
+
+    var fp = tp==='superior'
+      ? aprovFixoPieces(Lporta, Aporta, Lf, Af, ld, modelo||'01')
+      : [{label:'FX LATERAL', w:Lf+100, h:Af+100, qty:ld, color:'#bab0ac'}];
+
+    if(qf>1) fp.forEach(function(p){ p.qty = p.qty*qf; });
+    // Anexa _cor pra cada peça (lido pela tabela em _corBadge)
+    fp.forEach(function(p){ p._cor = corExt; });
+    result = result.concat(fp);
+  });
+  return result;
+}
+
 function planUpd() {
   var Lv=parseFloat(document.getElementById('largura').value)||0;
   var Av=parseFloat(document.getElementById('altura').value)||0;
@@ -1276,45 +1317,15 @@ function planUpd() {
     // ★ Fixos no caminho multi-porta (Felipe 20/04): antes, fixos só
     //   eram adicionados no caminho single-porta. Se havia _mpItens (ex:
     //   auto-sync de 1 porta + 1 fixo vira _mpItens=1), o fixo era
-    //   ignorado. Adicionar aqui também.
-    var _tfMp=document.getElementById('tem-fixo');
-    if(_tfMp && _tfMp.checked){
-      document.querySelectorAll('.fixo-blk').forEach(function(el){
-        var Lf=parseFloat((el.querySelector('.fixo-larg')||{value:0}).value)||0;
-        var Af=parseFloat((el.querySelector('.fixo-alt')||{value:0}).value)||0;
-        var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
-        var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
-        var tp=(el.querySelector('.fixo-tipo')||{value:'superior'}).value;
-        if(Lf>0&&Af>0){
-          var fp=tp==='superior'?aprovFixoPieces(Lv,Av,Lf,Af,ld,Mv||'01'):
-            [{label:'FX LATERAL',w:Lf+100,h:Af+100,qty:ld,color:'#bab0ac'}];
-          if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
-          pieces=pieces.concat(fp);
-        }
-      });
-    }
+    //   ignorado. Agora usa _coletarPecasFixo que já anexa _cor.
+    pieces = pieces.concat(_coletarPecasFixo(Lv, Av, Mv));
   } else {
     if(Mv&&Lv>0&&Av>0){
       var Fv=parseInt(document.getElementById('plan-folhas').value)||1;
       pieces=plnPecas(Lv,Av,Fv,Mv);
     }
-    // Adicionar peças dos fixos ao planificador
-    var _tfPln=document.getElementById('tem-fixo');
-    if(_tfPln&&_tfPln.checked){
-      document.querySelectorAll('.fixo-blk').forEach(function(el){
-        var Lf=parseFloat((el.querySelector('.fixo-larg')||{value:0}).value)||0;
-        var Af=parseFloat((el.querySelector('.fixo-alt')||{value:0}).value)||0;
-        var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
-        var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
-        var tp=(el.querySelector('.fixo-tipo')||{value:'superior'}).value;
-        if(Lf>0&&Af>0){
-          var fp=tp==='superior'?aprovFixoPieces(Lv,Av,Lf,Af,ld,Mv||'01'):
-            [{label:'FX LATERAL',w:Lf+100,h:Af+100,qty:ld,color:'#bab0ac'}];
-          if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
-          pieces=pieces.concat(fp);
-        }
-      });
-    }
+    // Peças dos fixos (com cor herdada do item CRM)
+    pieces = pieces.concat(_coletarPecasFixo(Lv, Av, Mv));
     manualP=(typeof getManualPieces==='function')?getManualPieces():[];
     for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
     var _qPUpd=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
@@ -1466,43 +1477,13 @@ function _autoSelectAndRun(){
   if(window._mpItens && window._mpItens.length > 0){
     pcsNorm=_mpCalcAllPiecesCombined();
 
-    // ★ Fixos no caminho multi-porta (Felipe 20/04): espelha correção do
-    //   planUpd. pcsNorm pode vir como array de objetos {label,w,h,qty}.
-    var _tfMp2=document.getElementById('tem-fixo');
-    if(pcsNorm && _tfMp2 && _tfMp2.checked){
-      document.querySelectorAll('.fixo-blk').forEach(function(el){
-        var Lf=parseFloat((el.querySelector('.fixo-larg')||{value:0}).value)||0;
-        var Af=parseFloat((el.querySelector('.fixo-alt')||{value:0}).value)||0;
-        var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
-        var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
-        var tp=(el.querySelector('.fixo-tipo')||{value:'superior'}).value;
-        if(Lf>0&&Af>0){
-          var fp=tp==='superior'?aprovFixoPieces(Lv,Av,Lf,Af,ld,Mv||'01'):
-            [{label:'FX LATERAL',w:Lf+100,h:Af+100,qty:ld,color:'#bab0ac'}];
-          if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
-          pcsNorm=pcsNorm.concat(fp);
-        }
-      });
-    }
+    // ★ Fixos no caminho multi-porta (Felipe 20/04): peças FX com _cor
+    //   anexado (herdado do item CRM via _coletarPecasFixo).
+    if(pcsNorm) pcsNorm = pcsNorm.concat(_coletarPecasFixo(Lv, Av, Mv));
   } else {
     pieces=plnPecas(Lv,Av,Fv,Mv);
-    // Fixo pieces
-    var _tfPln2=document.getElementById('tem-fixo');
-    if(_tfPln2&&_tfPln2.checked){
-      document.querySelectorAll('.fixo-blk').forEach(function(el){
-        var Lf=parseFloat((el.querySelector('.fixo-larg')||{value:0}).value)||0;
-        var Af=parseFloat((el.querySelector('.fixo-alt')||{value:0}).value)||0;
-        var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
-        var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
-        var tp=(el.querySelector('.fixo-tipo')||{value:'superior'}).value;
-        if(Lf>0&&Af>0){
-          var fp=tp==='superior'?aprovFixoPieces(Lv,Av,Lf,Af,ld,Mv||'01'):
-            [{label:'FX LATERAL',w:Lf+100,h:Af+100,qty:ld,color:'#bab0ac'}];
-          if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
-          pieces=pieces.concat(fp);
-        }
-      });
-    }
+    // Fixo pieces (com _cor)
+    pieces = pieces.concat(_coletarPecasFixo(Lv, Av, Mv));
     var manualP=(typeof getManualPieces==='function')?getManualPieces():[];
     for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
     if(!pieces.length) return;
@@ -2104,47 +2085,15 @@ function planRun() {
   // ── Multi-porta: usar peças combinadas ──
   if(window._mpItens && window._mpItens.length > 0){
     pieces=_mpCalcAllPiecesCombined();
-
-    // ★ Fixos no caminho multi-porta (Felipe 20/04): espelha correção
-    //   aplicada em planUpd e autoPlanRun.
-    var _tfPR0=document.getElementById('tem-fixo');
-    if(pieces && _tfPR0 && _tfPR0.checked){
-      document.querySelectorAll('.fixo-blk').forEach(function(el){
-        var Lf=parseFloat((el.querySelector('.fixo-larg')||{value:0}).value)||0;
-        var Af=parseFloat((el.querySelector('.fixo-alt')||{value:0}).value)||0;
-        var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
-        var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
-        var tp=(el.querySelector('.fixo-tipo')||{value:'superior'}).value;
-        if(Lf>0&&Af>0){
-          var fp=tp==='superior'?aprovFixoPieces(Lv,Av,Lf,Af,ld,Mv||'01'):
-            [{label:'FX LATERAL',w:Lf+100,h:Af+100,qty:ld,color:'#bab0ac'}];
-          if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
-          pieces=pieces.concat(fp);
-        }
-      });
-    }
+    // Fixos com cor
+    if(pieces) pieces = pieces.concat(_coletarPecasFixo(Lv, Av, Mv));
   } else {
     if(Mv&&Lv>0&&Av>0){
       var Fv=parseInt(document.getElementById('plan-folhas').value)||1;
       pieces=plnPecas(Lv,Av,Fv,Mv);
     }
-    // Fixo pieces para planRun
-    var _tfPR=document.getElementById('tem-fixo');
-    if(_tfPR&&_tfPR.checked){
-      document.querySelectorAll('.fixo-blk').forEach(function(el){
-        var Lf=parseFloat((el.querySelector('.fixo-larg')||{value:0}).value)||0;
-        var Af=parseFloat((el.querySelector('.fixo-alt')||{value:0}).value)||0;
-        var ld=parseInt((el.querySelector('.fixo-lados')||{value:1}).value)||1;
-        var qf=parseInt((el.querySelector('.fixo-qty')||{value:1}).value)||1;
-        var tp=(el.querySelector('.fixo-tipo')||{value:'superior'}).value;
-        if(Lf>0&&Af>0){
-          var fp=tp==='superior'?aprovFixoPieces(Lv,Av,Lf,Af,ld,Mv||'01'):
-            [{label:'FX LATERAL',w:Lf+100,h:Af+100,qty:ld,color:'#bab0ac'}];
-          if(qf>1) fp.forEach(function(p){p.qty=p.qty*qf;});
-          pieces=pieces.concat(fp);
-        }
-      });
-    }
+    // Fixos com cor
+    pieces = pieces.concat(_coletarPecasFixo(Lv, Av, Mv));
     var manualP=getManualPieces();
     for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
     var _qPlan=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
