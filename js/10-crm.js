@@ -1200,12 +1200,25 @@ window.crmItemAutoSelect=function(id){
     }
     // Switch cor options: modelo 23 MACICO → ALU only
     if(typeof _crmSwitchCorMode==='function') _crmSwitchCorMode(id);
-    // Tamanho puxador: setar 1.5 default e mostrar/esconder
+    // Tamanho puxador: setar default e mostrar/esconder
     var puxTamRow=document.getElementById(pre+'pux_tam_row');
     var puxTamSel=document.getElementById(pre+'pux_tam');
     if(cavaMods.indexOf(modInt)<0){
       if(puxTamRow) puxTamRow.style.display='';
-      if(puxTamSel&&!puxTamSel.value) puxTamSel.value='1.5';
+      // Modelo 23 (Molduras/Boiserie) = puxador enviado pelo CLIENTE por
+      // padrão (peça decorativa, cliente harmoniza com hardware escolhido).
+      // Outros modelos com puxador externo = default 1.5m.
+      // Só auto-seta se usuário ainda não escolheu manualmente (vazio ou
+      // no default 1.5); se usuário escolheu outro tamanho, respeita.
+      if(puxTamSel){
+        var _isVazio = !puxTamSel.value;
+        var _isDefault15 = puxTamSel.value === '1.5';
+        if(modelo === '23' && (_isVazio || _isDefault15)){
+          puxTamSel.value = 'CLIENTE';
+        } else if(modelo !== '23' && _isVazio){
+          puxTamSel.value = '1.5';
+        }
+      }
     } else {
       if(puxTamRow) puxTamRow.style.display='none';
     }
