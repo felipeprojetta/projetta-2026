@@ -3232,6 +3232,30 @@ window.crmNovaRevisao=function(cardId){
 /* ── Sync _orcItens → _mpItens para planificador multi-porta ── */
 window._syncOrcToMpItens=function(){
   if(!window._orcItens||window._orcItens.length<=1) return;
+
+  // ★ Fixos sao itens independentes em _orcItens com tipo='fixo'.
+  //   Coletar todos os fixos e anexar em cada porta do _mpItens, pra
+  //   que a proposta mostre 'Porta: LxA / Fixo: LxA'. Felipe 20/04:
+  //   "sempre que tiver fixo deve aparecer tbm medidas do fixo em
+  //   dimensions".
+  var _fixosDoCard = window._orcItens.filter(function(it){
+    return it.tipo === 'fixo' &&
+           parseFloat(it.largura)>0 &&
+           parseFloat(it.altura)>0;
+  }).map(function(fx){
+    return {
+      larg: parseFloat(fx.largura)||0,
+      alt:  parseFloat(fx.altura)||0,
+      qty:  parseInt(fx.qtd)||1,
+      tipo_fixacao: fx.tipo_fixacao || 'BANDEIRA',
+      revestimento_lados: fx.revestimento_lados || '2',
+      tem_estrutura: fx.tem_estrutura || 'SIM',
+      tipo_material: fx.tipo_material || 'ACM',
+      cor_ext: fx.cor_ext || '',
+      cor_int: fx.cor_int || ''
+    };
+  });
+
   window._mpItens=[];
   window._orcItens.forEach(function(oi,idx){
     if(oi.tipo!=='porta_pivotante') return;
@@ -3248,7 +3272,14 @@ window._syncOrcToMpItens=function(){
     mp['plan-friso-v-qty']=oi.friso_v_qty||'1';
     mp['carac-tem-alisar']=oi.tem_alisar?'1':'0';
     mp['carac-ripado-total']=oi.ripado_total||'NAO';mp['carac-ripado-2lados']=oi.ripado_2lados||'SIM';
-    mp['plan-refilado']=oi.refilado||'20';mp['tem-fixo']=false;mp._fixos=[];
+    mp['plan-refilado']=oi.refilado||'20';
+    // ★ Fixos anexados na PRIMEIRA porta somente, pra evitar contar
+    //   duplicado no grand total da proposta. Visualmente aparece como
+    //   "Porta: L×A / Fixo: L×A" na coluna Dimensions dessa primeira porta.
+    //   Portas subsequentes mostram apenas suas proprias medidas.
+    var _ehPrimeiraPorta = window._mpItens.length === 0;
+    mp['tem-fixo']= _ehPrimeiraPorta && _fixosDoCard.length>0;
+    mp._fixos    = _ehPrimeiraPorta ? _fixosDoCard : [];
     // Modelo 23 moldura config
     mp['plan-moldura-rev']=oi.moldura_rev||'ACM';
     mp['plan-moldura-tipo']=oi.moldura_tipo||'1';
