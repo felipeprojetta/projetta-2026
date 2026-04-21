@@ -510,29 +510,39 @@ function updateKPIs(all){
     ? perdidosTodos.filter(function(o){return _dataDentroDe(_dataRefCard(o), _intervalo);})
     : perdidosTodos;
 
-  // Ganhos "do mes fiscal atual" — usado no KPI 'Ganhos Mes'. Se ja tem periodo
-  // selecionado diferente de total, reflete o periodo escolhido. Senao, mostra
-  // so o mes fiscal atual, usando o modo de data atual.
-  var ganhosMes;
-  if(_intervalo){
-    ganhosMes = ganhos;
-  } else {
-    var _intervaloMesAtual = _intervaloMesFiscal(_mesFiscalAtual());
-    ganhosMes = ganhosTodos.filter(function(o){
-      return _dataDentroDe(_dataRefCard(o), _intervaloMesAtual);
-    });
-  }
+  // ★ Felipe 20/04: 'Ganho Mês' e 'Ganho Ano' SEMPRE FIXOS — NAO reagem ao
+  //   filtro de periodo. Usam SEMPRE fechamento_real (data real do contrato).
+  //   Garante que no topo sempre ficam visiveis os numeros do mes fiscal
+  //   atual (16→15) e do ano corrente, independente do filtro selecionado.
+  var _hoje = new Date();
+  var _anoAtual = _hoje.getFullYear();
+  var _intervaloMesFisc = _intervaloMesFiscal(_mesFiscalAtual());
+  var _intervaloAno = {de: _anoAtual+'-01-01', ate: _anoAtual+'-12-31'};
+
+  var ganhosMes = ganhosTodos.filter(function(o){
+    var dt = o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt;
+    return _dataDentroDe(dt, _intervaloMesFisc);
+  });
+  var ganhosAno = ganhosTodos.filter(function(o){
+    var dt = o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt;
+    return _dataDentroDe(dt, _intervaloAno);
+  });
 
   var intl=all.filter(function(o){return o.scope==='internacional';});
   var pipe=ativos.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
   var gMes=ganhosMes.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
+  var gAno=ganhosAno.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
   var ativosComValor=ativos.filter(function(o){return _valorRealCardBRL(o)>0;});
   var ticket=ativosComValor.length>0?pipe/ativosComValor.length:0;
   var conv=(ganhos.length+perdidos.length)>0?Math.round(ganhos.length/(ganhos.length+perdidos.length)*100):0;
   if(el('ck-pipe')){el('ck-pipe').textContent=brl(pipe);el('ck-pipe-s').textContent=ativos.length+' ativas'+(_labelPeriodo?' · '+_labelPeriodo:'');}
   if(el('ck-gain')){
     el('ck-gain').textContent=brl(gMes);
-    el('ck-gain-s').textContent=ganhosMes.length+' contratos'+(_intervalo?' · '+_labelPeriodo:' · mês fiscal atual');
+    el('ck-gain-s').textContent=ganhosMes.length+' contratos · mês fiscal atual';
+  }
+  if(el('ck-gain-ano')){
+    el('ck-gain-ano').textContent=brl(gAno);
+    el('ck-gain-ano-s').textContent=ganhosAno.length+' contratos · ano '+_anoAtual;
   }
   if(el('ck-ticket'))el('ck-ticket').textContent=brl(ticket);
   var ckTicketSub=document.querySelector('#ck-ticket')&&document.querySelector('#ck-ticket').parentNode?document.querySelector('#ck-ticket').parentNode.querySelector('.crm-kpi-sub'):null;

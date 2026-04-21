@@ -857,13 +857,14 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <button class="crm-btn-orange" onclick="crmOpenModal()">＋ Nova Oportunidade</button>
     </div>
   </div>
-  <div class="crm-kpis" style="grid-template-columns:repeat(7,1fr)">
+  <div class="crm-kpis" style="grid-template-columns:repeat(8,1fr)">
     <div class="crm-kpi kpi-blue"><div class="crm-kpi-label">Pipeline</div><div class="crm-kpi-val" id="ck-pipe" style="color:#3498db">R$ 0</div><div class="crm-kpi-sub" id="ck-pipe-s">0 ativas</div></div>
-    <div class="crm-kpi kpi-green"><div class="crm-kpi-label">Ganhos Mês</div><div class="crm-kpi-val" id="ck-gain" style="color:#27ae60">R$ 0</div><div class="crm-kpi-sub" id="ck-gain-s">0 contratos</div></div>
+    <div class="crm-kpi kpi-green" title="Ganhos do mês fiscal atual (16→15) · sempre fixo, não reage ao filtro"><div class="crm-kpi-label">🏆 Ganho Mês <span style="font-size:8px;color:#888;font-weight:400">(fixo)</span></div><div class="crm-kpi-val" id="ck-gain" style="color:#27ae60">R$ 0</div><div class="crm-kpi-sub" id="ck-gain-s">0 contratos</div></div>
+    <div class="crm-kpi" style="border-left:3px solid #1e8449" title="Ganhos do ano atual · sempre fixo, não reage ao filtro"><div class="crm-kpi-label">🏆 Ganho Ano <span style="font-size:8px;color:#888;font-weight:400">(fixo)</span></div><div class="crm-kpi-val" id="ck-gain-ano" style="color:#1e8449;font-size:15px">R$ 0</div><div class="crm-kpi-sub" id="ck-gain-ano-s">0 contratos</div></div>
     <div class="crm-kpi kpi-orange"><div class="crm-kpi-label">Ticket Médio</div><div class="crm-kpi-val" id="ck-ticket" style="color:#e67e22">R$ 0</div><div class="crm-kpi-sub">por ativa</div></div>
     <div class="crm-kpi kpi-purple"><div class="crm-kpi-label">Conversão</div><div class="crm-kpi-val" id="ck-conv" style="color:#9b59b6">0%</div><div class="crm-kpi-sub">ganhos vs perdidos</div></div>
-    <div class="crm-kpi" style="border-left:3px solid var(--navy)"><div class="crm-kpi-label">Total Tabela</div><div class="crm-kpi-val" id="ck-tot-tab" style="color:var(--navy);font-size:15px">R$ 0</div><div class="crm-kpi-sub" id="ck-tot-tab-s">todas ativas</div></div>
-    <div class="crm-kpi" style="border-left:3px solid #e67e22"><div class="crm-kpi-label">Total Faturamento</div><div class="crm-kpi-val" id="ck-tot-fat" style="color:#e67e22;font-size:15px">R$ 0</div><div class="crm-kpi-sub" id="ck-tot-fat-s">todas ativas</div></div>
+    <div class="crm-kpi" style="border-left:3px solid var(--navy)"><div class="crm-kpi-label">Total Tabela</div><div class="crm-kpi-val" id="ck-tot-tab" style="color:var(--navy);font-size:14px">R$ 0</div><div class="crm-kpi-sub" id="ck-tot-tab-s">todas ativas</div></div>
+    <div class="crm-kpi" style="border-left:3px solid #e67e22"><div class="crm-kpi-label">Total Faturam.</div><div class="crm-kpi-val" id="ck-tot-fat" style="color:#e67e22;font-size:14px">R$ 0</div><div class="crm-kpi-sub" id="ck-tot-fat-s">todas ativas</div></div>
     <div class="crm-kpi kpi-intl"><div class="crm-kpi-label">🌍 Internacional</div><div class="crm-kpi-val" id="ck-intl" style="color:#f39c12">0</div><div class="crm-kpi-sub" id="ck-intl-s">oportunidades</div></div>
   </div>
   <div class="crm-toolbar">
