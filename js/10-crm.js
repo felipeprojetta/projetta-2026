@@ -2292,8 +2292,109 @@ window._crmItensRender=function(){
     });
     // ★ Aplica freeze-lock DEPOIS do auto-select/cores pra não ser sobrescrito
     _crmItensAplicarLock();
+    // ★ Felipe 20/04: attach search input em cada select de cor (igual
+    //   Representante). Roda em 3 selects por item: cor_ext, cor_int,
+    //   cor_macico.
+    _crmItens.forEach(function(item){
+      var pre='crmit-'+item.id+'-';
+      ['cor_ext','cor_int','cor_macico'].forEach(function(f){
+        _crmAttachColorSearch(pre+f);
+      });
+    });
   }, 100);
 }
+
+/* ★ Felipe 20/04: adiciona um input de busca acima de um <select>
+   pra filtrar as <option> por texto. Usado nos selects de cor
+   (PRO111 CHAMPAGNE MET, PRO157 PRETO WXL etc — muitas opcoes).
+   Idempotente: se ja foi attachado, nao duplica. */
+function _crmAttachColorSearch(selectId){
+  var sel = document.getElementById(selectId);
+  if(!sel) return;
+  // Nao duplicar: se ja tem wrapper, sair
+  if(sel.parentNode && sel.parentNode.hasAttribute('data-color-search')) return;
+
+  // Criar wrapper
+  var wrap = document.createElement('div');
+  wrap.setAttribute('data-color-search','1');
+  wrap.style.cssText = 'position:relative';
+
+  // Input de busca
+  var inp = document.createElement('input');
+  inp.type = 'text';
+  inp.placeholder = '🔍 Buscar cor...';
+  inp.className = 'crm-color-search';
+  inp.style.cssText = 'width:100%;padding:4px 8px;margin-bottom:3px;font-size:10px;border:1px solid #ddd;border-radius:6px;outline:none;font-family:inherit;background:#fafafa';
+
+  // Inserir no lugar do select, depois colocar o select dentro do wrapper
+  sel.parentNode.insertBefore(wrap, sel);
+  wrap.appendChild(inp);
+  wrap.appendChild(sel);
+
+  // Salvar opcoes originais (texto + value) pra restauracao
+  var originalHTML = sel.innerHTML;
+  sel.setAttribute('data-original-options', originalHTML);
+
+  // Handler de busca: filtrar opcoes via visibilidade
+  // <select> nativo nao deixa esconder options em todos browsers
+  // (funciona no Chrome via display:none mas pode variar). Pra ser
+  // robusto, trocar o innerHTML filtrado.
+  inp.addEventListener('input', function(){
+    var q = (this.value||'').trim().toLowerCase();
+    if(!q){
+      // Restaurar todas
+      var current = sel.value;
+      sel.innerHTML = originalHTML;
+      sel.value = current;
+      return;
+    }
+    // Filtrar: parsear originalHTML, manter apenas options cujo text bate
+    var tmp = document.createElement('div');
+    tmp.innerHTML = originalHTML;
+    var origSelect = tmp; // raiz
+    var novoHTML = '';
+    var primeiraOpcao = null;
+    // Itera optgroups + options soltos
+    Array.from(origSelect.childNodes).forEach(function(node){
+      if(node.nodeType !== 1) return;
+      if(node.tagName === 'OPTGROUP'){
+        var groupOpts = Array.from(node.querySelectorAll('option')).filter(function(op){
+          return (op.textContent||'').toLowerCase().includes(q);
+        });
+        if(groupOpts.length){
+          novoHTML += '<optgroup label="'+(node.getAttribute('label')||'')+'">';
+          groupOpts.forEach(function(op){
+            novoHTML += op.outerHTML;
+            if(!primeiraOpcao) primeiraOpcao = op.getAttribute('value');
+          });
+          novoHTML += '</optgroup>';
+        }
+      } else if(node.tagName === 'OPTION'){
+        if(!node.value || (node.textContent||'').toLowerCase().includes(q)){
+          novoHTML += node.outerHTML;
+          if(!primeiraOpcao && node.value) primeiraOpcao = node.getAttribute('value');
+        }
+      }
+    });
+    if(!novoHTML){
+      novoHTML = '<option value="">— Nenhum resultado —</option>';
+    }
+    sel.innerHTML = novoHTML;
+    // Selecionar a primeira opcao filtrada (pra user ver imediato)
+    if(primeiraOpcao) sel.value = primeiraOpcao;
+  });
+
+  // Ao escolher uma opcao, limpar a busca pra mostrar o select cheio
+  sel.addEventListener('change', function(){
+    if(inp.value){
+      var current = sel.value;
+      sel.innerHTML = originalHTML;
+      sel.value = current;
+      inp.value = '';
+    }
+  });
+}
+window._crmAttachColorSearch = _crmAttachColorSearch;
 
 /* ═════════════════════════════════════════════════════════════════════
    FREEZE-LOCK de itens (Felipe 20/04):
