@@ -1205,10 +1205,17 @@ window.crmUpdateStageDisplay=function(){
   // Prioridade + Potencial: show from Qualificação (index 1) onwards
   var priField=el('crm-prioridade-field');
   if(priField) priField.style.display=(idx>=1)?'grid':'none';
-  // Data do Fechamento: SEMPRE visivel agora (Felipe 20/04: ao lado do Data Primeiro Contato)
-  // Mantemos o elemento pra compat, mas nao escondemos mais.
-  // var fechField=el('crm-fechamento-field');
-  // if(fechField) fechField.style.display=(sid==='won')?'block':'none';
+  // ★ Felipe 20/04 (ajuste): Data Fechamento so aparece no modal quando o
+  //   card esta em stage 'Fechado Ganho'. Nao faz sentido preencher data
+  //   de fechamento em cards ainda ativos (Qualificacao, Fazer Orcamento,
+  //   Proposta Enviada, Negociacao).
+  var fechField=el('crm-fechamento-field');
+  if(fechField){
+    var _ehGanhoStage = false;
+    if(st) _ehGanhoStage = /ganho|won/i.test(st.label||'');
+    if(!_ehGanhoStage && (sid==='won' || sid==='s6')) _ehGanhoStage = true;
+    fechField.style.display = _ehGanhoStage ? 'block' : 'none';
+  }
   // Reserva: show from Fazer Orçamento (index 1) onwards
   var resRow=el('crm-reserva-agp-row');
   if(resRow) resRow.style.display=(idx>=1)?'grid':'none';
