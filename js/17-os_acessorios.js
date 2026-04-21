@@ -226,18 +226,27 @@ function _calcAcessoriosOS(d, nFolhas, sis){
   }
 
   // ── FABRICAÇÃO — PUXADOR EXTERNO (1 por porta) ────────────────────────────
+  // ★ Felipe 21/04: so adiciona o puxador SE:
+  //   1. Tipo de puxador = EXTERNO (nao CAVA)
+  //   2. Tamanho tem valor CONCRETO (1.0, 1.5, 1.8, 2.0, 2.5, 3.0...)
+  //   3. Tamanho NAO e 'CLIENTE' (envio pelo cliente — cliente traz peca)
+  //   4. Tamanho NAO e vazio
+  //   Modelo 23 (Molduras) por padrao usa CLIENTE, entao nao deve ter
+  //   puxador em acessorios.
   var puxTipo = (document.getElementById('carac-puxador')||{value:''}).value||'';
-  if(puxTipo === 'EXTERNO'){
-    var puxTam = (document.getElementById('carac-pux-tam')||{value:''}).value||'';
-    if(puxTam){
-      var tamMap = {'1.0':'1MT','1.5':'1,5MT','2.0':'2MT','2.5':'3MT','3.0':'3MT','3.5':'4MT','4.0':'4MT','4.5':'5MT','5.0':'5MT'};
-      var tamCode = tamMap[puxTam] || '';
-      if(tamCode){
-        var puxPrefix = 'PA-PUX-' + tamCode;
-        var pux = maxPrecoByPrefix(puxPrefix);
-        if(pux.code) rows.push({qty:1, code:pux.code, desc:'Puxador externo '+puxTam.replace('.',',')+' m', preco:pux.preco, apl:'FAB', grp:'PUXADORES', obs:'PUXADOR'});
-      }
+  var puxTam = (document.getElementById('carac-pux-tam')||{value:''}).value||'';
+  var _puxTamUpper = String(puxTam).toUpperCase().trim();
+  var _skipPuxador = !puxTam || _puxTamUpper === 'CLIENTE' || _puxTamUpper === 'ENVIO PELO CLIENTE';
+  if(puxTipo === 'EXTERNO' && !_skipPuxador){
+    var tamMap = {'1.0':'1MT','1.5':'1,5MT','2.0':'2MT','2.5':'3MT','3.0':'3MT','3.5':'4MT','4.0':'4MT','4.5':'5MT','5.0':'5MT'};
+    var tamCode = tamMap[puxTam] || '';
+    if(tamCode){
+      var puxPrefix = 'PA-PUX-' + tamCode;
+      var pux = maxPrecoByPrefix(puxPrefix);
+      if(pux.code) rows.push({qty:1, code:pux.code, desc:'Puxador externo '+puxTam.replace('.',',')+' m', preco:pux.preco, apl:'FAB', grp:'PUXADORES', obs:'PUXADOR'});
     }
+  } else if(puxTipo === 'EXTERNO' && _skipPuxador){
+    console.log('[OS Acessorios] Puxador externo pulado (tamanho = "'+puxTam+'") — provavelmente envio pelo cliente');
   }
 
   // ── FABRICAÇÃO — BUCHA 06 + PARAFUSO PIVÔ (12 por folha) ──────────────────

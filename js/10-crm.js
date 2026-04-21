@@ -4013,7 +4013,14 @@ window._syncOrcToMpItens=function(){
     mp['carac-modelo']=oi.modelo||'01';mp['carac-abertura']=oi.abertura||'PIVOTANTE';
     mp['carac-cor-ext']=oi.cor_ext||'';mp['carac-cor-int']=oi.cor_int||'';mp['carac-cor-macico']=oi.cor_macico||'';
     mp['carac-fech-mec']=oi.fech_mec||'';mp['carac-fech-dig']=oi.fech_dig||'';
-    mp['carac-cilindro']=oi.cilindro||'';mp['carac-puxador']=oi.puxador||'';mp['carac-pux-tam']=oi.pux_tam||'1.5';
+    mp['carac-cilindro']=oi.cilindro||'';mp['carac-puxador']=oi.puxador||'';
+    // ★ Felipe 21/04: pux_tam NAO pode ter fallback '1.5'. Se o usuario
+    //   escolheu 'CLIENTE' (Envio pelo Cliente) ou deixou vazio, deve
+    //   permanecer assim — o acessorio de puxador so deve entrar se tem
+    //   tamanho concreto (1.0, 1.5, 1.8, 2.0, 2.5, 3.0...). O fallback
+    //   anterior '||1.5' estava adicionando puxador 1,5m indevidamente
+    //   em modelos 23 (Molduras) cujo padrao e CLIENTE.
+    mp['carac-pux-tam']=oi.pux_tam||'';
     mp['carac-dist-borda-cava']=oi.dist_borda_cava||'210';mp['carac-largura-cava']=oi.largura_cava||'150';
     mp['carac-dist-borda-friso']=oi.dist_borda_friso||'';mp['carac-largura-friso']=oi.largura_friso||'';
     mp['carac-friso-vert']=oi.friso_vert||'0';mp['carac-friso-horiz']=oi.friso_horiz||'0';
