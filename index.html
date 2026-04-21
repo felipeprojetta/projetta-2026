@@ -841,6 +841,8 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   <button class="main-tab" onclick="switchTab('relatorios')" id="btn-tab-rel">Relatórios</button>
   <button class="main-tab" onclick="switchTab('custoreal')" id="btn-tab-custoreal">Custo Real NFE</button>
   <button class="main-tab" onclick="switchTab('estoque-omie')" id="btn-tab-estoque-omie">📦 Estoque Omie</button>
+  <button class="main-tab" onclick="switchTab('email')" id="btn-tab-email">📧 Email</button>
+  <button class="main-tab" onclick="switchTab('email')" id="btn-tab-email">📧 Email</button>
 </div>
 
 <!-- TAB: ORCAMENTO -->
@@ -4046,6 +4048,14 @@ Equipe Projetta by Weiku</textarea>
 </div>
 
 
+<!-- ═══ TAB: EMAIL (Outlook via Microsoft Graph) ═══ -->
+<div class="tab-panel" id="tab-email">
+  <div id="outlook-tab-content">
+    <!-- Conteudo renderizado dinamicamente por js/35-outlook.js -->
+    <div style="padding:40px;text-align:center;color:#999">🔄 Inicializando...</div>
+  </div>
+</div>
+
 </div><!-- /wrap -->
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -4265,6 +4275,7 @@ Equipe Projetta by Weiku</textarea>
 <script src="js/29-memorial-cem.js"></script>
 <script src="js/30-orcamento-freeze.js"></script>
 <script src="js/31-opcoes.js"></script>
+<script src="js/35-outlook.js"></script>
 
 <script src="js/99-diag-temp.js"></script>
 

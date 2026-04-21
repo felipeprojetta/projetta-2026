@@ -982,6 +982,9 @@ function switchTab(tabId) {
   if (tabId==='os') { _osAutoGenerate(); }
   if (tabId==='planificador') { /* planificador loaded */ }
   if (tabId==='os-acess') { _osAutoGenerate(); }
+  if (tabId==='email' && typeof window.outlookRenderTab === 'function') {
+    window.outlookRenderTab();
+  }
 }
 
 
