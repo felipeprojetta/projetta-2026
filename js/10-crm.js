@@ -301,6 +301,44 @@ window.crmOnPeriodoChange = function(){
   crmRender();
 };
 
+/* ★ Felipe 20/04: helper pra pegar a 'data de referencia' de um card
+   conforme o modo do select #crm-f-data-ref:
+   - auto: fechamento_real p/ ganhos, createdAt p/ resto (padrao antigo)
+   - chegada: sempre createdAt (quando o card foi criado no pipeline)
+   - orcamento: data da ULTIMA revisao (quando o orc foi feito/atualizado)
+   - contato: dataContato (1º contato com o cliente)
+   - fechamento: fechamento_real (so faz sentido pra ganhos)
+   Retorna string ISO ou '' se nao aplicavel. */
+function _dataRefCard(o, modoOverride){
+  if(!o) return '';
+  var modo = modoOverride || (el('crm-f-data-ref')||{value:'auto'}).value;
+  if(modo === 'chegada') return o.createdAt || o.updatedAt || '';
+  if(modo === 'contato') return o.dataContato || o.createdAt || '';
+  if(modo === 'fechamento') return o.fechamento_real || o.fechamento || '';
+  if(modo === 'orcamento'){
+    // ultima revisao da opcao ativa OU revisao mais recente
+    var dt = '';
+    if(Array.isArray(o.opcoes)){
+      var opAtiva = o.opcoes.find(function(op){return op.ativa;}) || o.opcoes[0];
+      if(opAtiva && Array.isArray(opAtiva.revisoes) && opAtiva.revisoes.length){
+        dt = opAtiva.revisoes[opAtiva.revisoes.length-1].data || '';
+      }
+    }
+    if(!dt && Array.isArray(o.revisoes) && o.revisoes.length){
+      dt = o.revisoes[o.revisoes.length-1].data || '';
+    }
+    return dt || o.updatedAt || o.createdAt || '';
+  }
+  // auto (default)
+  var stages = gStages();
+  var wonIds = stages.filter(function(s){return /gan|won/i.test(s.label);}).map(function(s){return s.id;});
+  if(wonIds.indexOf(o.stage) >= 0){
+    return o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt || '';
+  }
+  return o.createdAt || o.updatedAt || '';
+}
+window._dataRefCard = _dataRefCard;
+
 /* ★ Modal de data de fechamento — usado ao arrastar card pra Ganho.
    Usa <input type="date"> nativo: browser mostra calendario localizado
    (pt-BR → DD/MM/AAAA) mas valor interno permanece ISO.
@@ -461,32 +499,27 @@ function updateKPIs(all){
   var ganhosTodos=all.filter(function(o){return wonIds.indexOf(o.stage)>=0;});
   var perdidosTodos=all.filter(function(o){return lostIds.indexOf(o.stage)>=0;});
 
-  // Aplicar filtro de periodo
+  // Aplicar filtro de periodo usando data de referencia do select
   var ativos = _intervalo
-    ? ativosTodos.filter(function(o){return _dataDentroDe(o.createdAt||o.updatedAt, _intervalo);})
+    ? ativosTodos.filter(function(o){return _dataDentroDe(_dataRefCard(o), _intervalo);})
     : ativosTodos;
   var ganhos = _intervalo
-    ? ganhosTodos.filter(function(o){
-        var dt = o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt;
-        return _dataDentroDe(dt, _intervalo);
-      })
+    ? ganhosTodos.filter(function(o){return _dataDentroDe(_dataRefCard(o), _intervalo);})
     : ganhosTodos;
   var perdidos = _intervalo
-    ? perdidosTodos.filter(function(o){return _dataDentroDe(o.updatedAt||o.createdAt, _intervalo);})
+    ? perdidosTodos.filter(function(o){return _dataDentroDe(_dataRefCard(o), _intervalo);})
     : perdidosTodos;
 
   // Ganhos "do mes fiscal atual" — usado no KPI 'Ganhos Mes'. Se ja tem periodo
   // selecionado diferente de total, reflete o periodo escolhido. Senao, mostra
-  // so o mes fiscal atual.
+  // so o mes fiscal atual, usando o modo de data atual.
   var ganhosMes;
   if(_intervalo){
-    ganhosMes = ganhos; // mesmo filtro ja aplicado
+    ganhosMes = ganhos;
   } else {
-    // total: filtrar ganhos apenas do mes fiscal atual
     var _intervaloMesAtual = _intervaloMesFiscal(_mesFiscalAtual());
     ganhosMes = ganhosTodos.filter(function(o){
-      var dt = o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt;
-      return _dataDentroDe(dt, _intervaloMesAtual);
+      return _dataDentroDe(_dataRefCard(o), _intervaloMesAtual);
     });
   }
 
@@ -569,13 +602,11 @@ window.crmRender=function(){
       var gn=getGerenteDaRegiao(oreg2);
       if(gn.toUpperCase()!==fGer.toUpperCase())return false;
     }
-    // ★ Felipe 20/04: filtro de periodo. Ganho usa fechamento, ativo/perdido
-    //   usa createdAt/updatedAt.
+    // ★ Felipe 20/04: filtro de periodo. Usa data de referencia conforme
+    //   o select 'Por qual data' (#crm-f-data-ref): auto/chegada/orcamento/
+    //   contato/fechamento.
     if(_intervaloFP){
-      var _ehGanhoCard = wonIdsFP.indexOf(o.stage) >= 0;
-      var _dt = _ehGanhoCard
-        ? (o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt)
-        : (o.createdAt || o.updatedAt);
+      var _dt = _dataRefCard(o);
       if(!_dataDentroDe(_dt, _intervaloFP)) return false;
     }
     return true;
@@ -834,6 +865,24 @@ function buildCard(o,st,isFazerOrc){
     html+='</div>';
   }
   if(o.dataContato) html+='<div style="font-size:9px;color:var(--hint);margin-top:2px">📅 1º contato: '+dateLabel(o.dataContato)+'</div>';
+  // ★ Felipe 20/04: data/hora da ultima revisao do orcamento (se houver)
+  var _ultimaRev = null;
+  if(Array.isArray(o.opcoes)){
+    var _opAtiva = o.opcoes.find(function(op){return op.ativa;}) || o.opcoes[0];
+    if(_opAtiva && Array.isArray(_opAtiva.revisoes) && _opAtiva.revisoes.length){
+      _ultimaRev = _opAtiva.revisoes[_opAtiva.revisoes.length-1];
+    }
+  }
+  if(!_ultimaRev && Array.isArray(o.revisoes) && o.revisoes.length){
+    _ultimaRev = o.revisoes[o.revisoes.length-1];
+  }
+  if(_ultimaRev && _ultimaRev.data){
+    try {
+      var _dOrc = new Date(_ultimaRev.data);
+      var _dOrcTxt = _dOrc.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+      html+='<div style="font-size:9px;color:#8e44ad;margin-top:2px;font-weight:600" title="Data e hora do ultimo orcamento gerado">📝 Orçamento: '+_dOrcTxt+'</div>';
+    } catch(e){}
+  }
 
   // ★ Data de fechamento — Felipe 20/04: usa o campo real (fechamento_real)
   //   quando disponivel, senao cai pro legado (fechamento). Formato BR

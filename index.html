@@ -877,6 +877,13 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <option value="ano-anterior">📋 Ano anterior</option>
       <option value="personalizado">🎯 Personalizado (de/até)</option>
     </select>
+    <select class="crm-sel" id="crm-f-data-ref" onchange="crmRender()" title="Qual data aplicar o filtro de período" style="background:#f5f5dc;border:2px solid #8e44ad;font-weight:700;color:#003144">
+      <option value="auto" selected>🎯 Auto (criação/fechamento)</option>
+      <option value="chegada">🆕 Data chegada (criação card)</option>
+      <option value="orcamento">📝 Data do orçamento</option>
+      <option value="contato">📞 1º contato</option>
+      <option value="fechamento">🏆 Data fechamento</option>
+    </select>
     <div id="crm-f-periodo-custom" style="display:none;gap:4px;align-items:center;background:#fff3e0;padding:3px 8px;border-radius:6px;border:1px solid #e67e22">
       <input type="date" id="crm-f-periodo-de" onchange="crmRender()" style="padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-family:inherit" title="Data inicial">
       <span style="font-size:10px;color:#555">até</span>
