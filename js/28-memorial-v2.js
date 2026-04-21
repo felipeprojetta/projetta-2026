@@ -553,6 +553,25 @@ window.MemorialV2.restaurar = function(dados, options){
     if(typeof window._plnRenderCoresPainel === 'function') window._plnRenderCoresPainel();
   } catch(e){ console.warn('[MemorialV2] re-render multi-cor falhou:', e); }
 
+  // ★ 8B) Felipe 21/04: re-rodar planificador pra recriar tabs de chapa
+  //       + popular Levantamento de Superficies.
+  //       Bug reportado: 'Revisão 01 abre memorial ok, mas levantamento
+  //       de superficies esta zerado' e 'layout trava na chapa 1'.
+  //       Causa: state._PLN_* e PLN_RES sao restaurados, mas os botoes
+  //       (#plan-tabs) e as tabelas da aba Levantamento nao sao
+  //       reconstruidas. _autoSelectAndRun roda bin-packing novamente
+  //       com os inputs restaurados (mesmos pieces → mesmo resultado
+  //       deterministico) e chama plnBuildTabs + preenche tabelas.
+  //       Delay 250ms pra DOM estabilizar.
+  setTimeout(function(){
+    try {
+      if(typeof window._autoSelectAndRun === 'function'){
+        window._autoSelectAndRun();
+        console.log('[MemorialV2] _autoSelectAndRun executado apos restore');
+      }
+    } catch(e){ console.warn('[MemorialV2] _autoSelectAndRun falhou:', e); }
+  }, 250);
+
   // 9) Modo read-only
   if(options.readOnly){
     _aplicarReadOnly(true);

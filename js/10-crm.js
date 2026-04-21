@@ -3727,11 +3727,48 @@ function _crmAbrirRevisaoLegacy(cardId, revIdx){
   // 4) Link crmCardId se faltava (one-shot — só uma vez por card+entry)
   if(entry && !entry.crmCardId){ entry.crmCardId=cardId; saveDB(db); }
 
-  // 5) Fix A+B: se não achou entry no DB histórico, mostrar memorial SIMPLIFICADO
-  //    com os dados salvos no próprio card (sem recalcular — evita usar valores do último orçamento aberto)
+  // ★ 5) FALLBACK ESPERTO (Felipe 21/04): se a revisao tem paramsFinanceiros
+  //    mas nao tem snapshot nem freezeKey nem memorialV2Id, reconstruir o
+  //    orcamento via crmFazerOrcamento + aplicar params da rev especifica.
+  //    Isso evita cair no painel simplificado que so mostra valores.
+  //    Funciona bem pra 'Original' que foi criada antes do sistema V2.
+  var _ri0 = Math.min(revIdx||0, (card.revisoes||[]).length-1);
+  var _revAlvo = (card.revisoes||[])[_ri0];
+  var _entryHasSnap = false;
+  if(entry && entry.revisions && entry.revisions[_ri0]){
+    var _r = entry.revisions[_ri0];
+    _entryHasSnap = !!(_r.snapshot);
+  }
+  if(!_entryHasSnap && _revAlvo && _revAlvo.paramsFinanceiros){
+    console.log('[Revisao] sem snapshot — reconstruindo via crmFazerOrcamento + paramsFinanceiros da rev', _ri0);
+    var _modalCrm = document.getElementById('crm-modal'); if(_modalCrm) _modalCrm.style.display='none';
+    // Carregar orcamento do card (dados atuais = estrutura)
+    try {
+      if(typeof crmFazerOrcamento === 'function') crmFazerOrcamento(cardId);
+    } catch(e){ console.warn('[Revisao] crmFazerOrcamento falhou:', e); }
+    // Aplicar params financeiros DA REVISAO especifica (nao da ultima)
+    setTimeout(function(){
+      try {
+        if(typeof _aplicarParamsFinanceiros === 'function'){
+          _aplicarParamsFinanceiros(_revAlvo.paramsFinanceiros);
+        }
+      } catch(e){ console.warn('[Revisao] _aplicarParamsFinanceiros falhou:', e); }
+      // Mostrar banner indicando modo leitura
+      _mostrarBannerRevisao(card, _ri0, _revAlvo);
+      // Recalcular e re-rodar planificador pra tudo aparecer
+      setTimeout(function(){
+        try { if(typeof calc==='function') calc(); } catch(e){}
+        try {
+          if(typeof window._autoSelectAndRun==='function') window._autoSelectAndRun();
+        } catch(e){}
+      }, 300);
+    }, 900);
+    return;
+  }
+
+  // 5.5) Sem paramsFinanceiros na rev — caminho antigo (painel simplificado)
   if(!entry){
     if(card && card.revisoes && card.revisoes.length>0){
-      // Fecha modal CRM e mostra memorial simplificado (só leitura, sem contaminar form)
       var modal=document.getElementById('crm-modal'); if(modal) modal.style.display='none';
       _showMemorialSimplified(card, revIdx||0);
       return;
@@ -3761,6 +3798,20 @@ function _crmAbrirRevisaoLegacy(cardId, revIdx){
     loadRevision(entry.id, ri);
     switchTab('orcamento');
   }
+}
+
+/* ★ Banner fixo mostrando qual revisao esta sendo visualizada */
+function _mostrarBannerRevisao(card, ri, rev){
+  var prev = document.getElementById('rev-view-banner');
+  if(prev) prev.remove();
+  var banner = document.createElement('div');
+  banner.id = 'rev-view-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:linear-gradient(90deg,#e67e22,#9b59b6);color:#fff;padding:10px 16px;z-index:9998;font-weight:700;font-size:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15)';
+  var dLabel = rev && rev.data ? new Date(rev.data).toLocaleString('pt-BR') : '—';
+  banner.innerHTML = '📋 Visualizando <b>'+(rev.label||'Revisão '+ri)+'</b> — '+(card.cliente||'')+' · '+dLabel+
+    ' · <a href="#" onclick="(function(){var b=document.getElementById(\'rev-view-banner\');if(b)b.remove();document.body.style.paddingTop=\'\';})();return false;" style="color:#fff;text-decoration:underline">Fechar</a>';
+  document.body.appendChild(banner);
+  document.body.style.paddingTop = '42px';
 }
 
 /* ── Memorial simplificado para cards órfãos (sem snapshot no DB) ──
