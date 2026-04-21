@@ -865,6 +865,23 @@
       if(typeof window._plnRenderCoresPainel === 'function') window._plnRenderCoresPainel();
     } catch(e){}
 
+    // ★ 8A) Re-rodar planificador pra recriar tabs de chapa (Felipe 20/04).
+    //       Bug reportado: ao abrir revisao do historico, o layout fica
+    //       travado na "Chapa 1" — nao consegue navegar pelas 11 chapas.
+    //       Causa: plan-canvas e capturado como PNG unico no capturar();
+    //       as tabs (#plan-tabs) nao sao salvas.
+    //       Solucao: com os inputs ja restaurados (passos 1-4), rodar
+    //       _autoSelectAndRun() recalcula pieces + bin-packing e constroi
+    //       as tabs chamando plnBuildTabs internamente. PLN_RES fica
+    //       populado e o usuario pode navegar entre as 11 chapas normalmente.
+    //       Delay 200ms pra dar tempo do DOM estabilizar apos restore de
+    //       blocos dinamicos.
+    setTimeout(function(){
+      try {
+        if(typeof window._autoSelectAndRun === 'function') window._autoSelectAndRun();
+      } catch(e){ console.warn('[Freeze] _autoSelectAndRun pos-restore falhou:', e); }
+    }, 200);
+
     // ★ 8B) ABRIR TODOS os accordions (bodies) pra usuário ver tudo.
     //       Bug descoberto: plan-body e outros accordions ficam display:none
     //       por padrão. Ao abrir revisão, a aba Levantamento de Superfícies
