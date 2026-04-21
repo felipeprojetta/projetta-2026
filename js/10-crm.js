@@ -4524,55 +4524,124 @@ window.crmOrcamentoPronto=function(){
 };
 
 /* ── Gerar PDF da Proposta (botão separado) ── */
+/* ★ Felipe 21/04/2026: bug 'fica escrito gerando PDF e nada acontece'.
+   Fix defensivo: failsafe timeout de 60s restaura o botao mesmo se
+   alguma etapa travar (erro silencioso em html2canvas, upload cloud,
+   etc). Adiciona tambem try/catch em cada callback pra capturar erros
+   individuais sem quebrar o fluxo inteiro. Log persistido em
+   localStorage ('projetta_pdf_log') ajuda debug futuro. */
 window.crmGerarPDF=function(){
   var id=window._crmOrcCardId;
   var revLabel='Original';
   if(id){
-    var data=JSON.parse(localStorage.getItem('projetta_crm_v1')||'[]');
-    var idx=data.findIndex(function(o){return o.id===id;});
-    if(idx>=0&&data[idx].revisoes&&data[idx].revisoes.length>0){
-      revLabel=data[idx].revisoes[data[idx].revisoes.length-1].label||'Original';
-    }
+    try {
+      var data=JSON.parse(localStorage.getItem('projetta_crm_v1')||'[]');
+      var idx=data.findIndex(function(o){return o.id===id;});
+      if(idx>=0&&data[idx].revisoes&&data[idx].revisoes.length>0){
+        revLabel=data[idx].revisoes[data[idx].revisoes.length-1].label||'Original';
+      }
+    } catch(e){ console.warn('[PDF] erro lendo revisoes:', e); }
   }
   var btn=document.getElementById('crm-gerar-pdf-btn');
   if(btn){btn.textContent='⏳ Gerando PDF...';btn.disabled=true;}
+
+  // ═══ FAILSAFE: restaurar botao + limpar estado se travar > 60s ═══
+  var _pdfDone = false;
+  var _pdfLog = [];
+  function _logPdf(step, extra){
+    var entry = {t: Date.now(), step: step};
+    if(extra !== undefined) entry.extra = extra;
+    _pdfLog.push(entry);
+    console.log('[PDF]', step, extra||'');
+  }
+  function _finalizarPDF(sucessoMsg){
+    if(_pdfDone) return;
+    _pdfDone = true;
+    clearTimeout(_failsafeTimer);
+    if(btn){btn.textContent='📄 Gerar PDF';btn.disabled=false;}
+    delete window._pdfClienteOverride;
+    if(wasLocked) window._snapshotLock=true;
+    // Salvar log pra debug futuro
+    try {
+      localStorage.setItem('projetta_pdf_log', JSON.stringify({
+        ts: Date.now(),
+        cardId: id,
+        revLabel: revLabel,
+        steps: _pdfLog,
+        sucesso: !!sucessoMsg,
+        msg: sucessoMsg || 'timeout/erro'
+      }));
+    } catch(e){}
+    try { if(typeof crmRender==='function') crmRender(); } catch(e){}
+  }
+  var _failsafeTimer = setTimeout(function(){
+    if(_pdfDone) return;
+    _logPdf('FAILSAFE TIMEOUT 60s');
+    _showToast('⚠️ PDF demorou muito. Abra F12 > Console pra ver erro. Tente novamente.','#c0392b');
+    _finalizarPDF(null);
+  }, 60000);
+
+  _logPdf('inicio', {cardId:id, revLabel:revLabel});
+
   // Temporariamente desbloquear para calc() e populateProposta() funcionarem
   var wasLocked=window._snapshotLock;
   window._snapshotLock=false;
-  if(typeof calc==='function') try{calc();}catch(e){}
+  if(typeof calc==='function') try{calc();_logPdf('calc ok');}catch(e){_logPdf('calc ERRO', e.message);}
   // Capturar nome do cliente UMA VEZ (evita nomes diferentes entre PDF e PNG)
   var _clienteFixo=_getBestClientName();
   window._pdfClienteOverride=_clienteFixo;
   // 1. Gerar PDF download
   _showToast('⏳ Gerando PDF...','#e67e22');
   setTimeout(function(){
-    _gerarPropostaPDF(function(pdf,blob){
-      pdf.save(_pdfFileName());
-      _showToast('✅ Proposta PDF baixada!','#27ae60');
-      // 2. Gerar RC (Resultado Porta) PNG download
-      setTimeout(function(){
-        if(typeof printPainelRep==='function') printPainelRep();
-        // 2b. Gerar Memorial de Cálculo (Resumo da Obra) PNG
+    try {
+      _logPdf('chamando _gerarPropostaPDF');
+      _gerarPropostaPDF(function(pdf,blob){
+        _logPdf('_gerarPropostaPDF callback', {hasPdf: !!pdf});
+        try {
+          pdf.save(_pdfFileName());
+          _logPdf('pdf.save ok');
+          _showToast('✅ Proposta PDF baixada!','#27ae60');
+        } catch(e){
+          _logPdf('pdf.save ERRO', e.message);
+          _showToast('⚠️ Download bloqueado pelo navegador. Permita downloads.','#e67e22');
+        }
+        // 2. Gerar RC/MC/MR PNGs (cada um isolado em try/catch)
         setTimeout(function(){
-          if(typeof printMemorialCalculo==='function') printMemorialCalculo();
-          // 2c. Gerar Margens PNG
+          try {
+            if(typeof printPainelRep==='function') {printPainelRep(); _logPdf('printPainelRep ok');}
+          } catch(e){ _logPdf('printPainelRep ERRO', e.message); }
           setTimeout(function(){
-            if(typeof printMargens==='function') printMargens();
-            _showToast('✅ PDF + RC + MC + MR baixados!','#27ae60');
-            delete window._pdfClienteOverride;
+            try {
+              if(typeof printMemorialCalculo==='function') {printMemorialCalculo(); _logPdf('printMemorialCalculo ok');}
+            } catch(e){ _logPdf('printMemorialCalculo ERRO', e.message); }
+            setTimeout(function(){
+              try {
+                if(typeof printMargens==='function') {printMargens(); _logPdf('printMargens ok');}
+              } catch(e){ _logPdf('printMargens ERRO', e.message); }
+              _showToast('✅ PDF + RC + MC + MR baixados!','#27ae60');
+            },700);
           },700);
-        },700);
-      },500);
-      // 3. Salvar imagens no card CRM
-      _exportPropostaToCard(id, revLabel, function(captures){
-        var nPages=captures?captures.length:0;
-        _showToast('📄 '+nPages+' página(s) salvas no card','#8e44ad');
-        if(btn){btn.textContent='📄 Gerar PDF';btn.disabled=false;}
-        if(typeof crmRender==='function') crmRender();
-        // Re-travar se estava travado
-        if(wasLocked) window._snapshotLock=true;
+        },500);
+        // 3. Salvar imagens no card CRM (com failsafe proprio: se travar, finaliza em 40s)
+        try {
+          _logPdf('chamando _exportPropostaToCard');
+          _exportPropostaToCard(id, revLabel, function(captures){
+            var nPages=captures?captures.length:0;
+            _logPdf('_exportPropostaToCard callback', {nPages: nPages});
+            _showToast('📄 '+nPages+' página(s) salvas no card','#8e44ad');
+            _finalizarPDF('ok '+nPages+' paginas');
+          });
+        } catch(e){
+          _logPdf('_exportPropostaToCard ERRO', e.message);
+          _showToast('⚠️ Erro ao salvar no card: '+e.message,'#c0392b');
+          _finalizarPDF(null);
+        }
       });
-    });
+    } catch(e){
+      _logPdf('_gerarPropostaPDF ERRO sincrono', e.message);
+      _showToast('❌ Erro ao gerar PDF: '+e.message,'#c0392b');
+      _finalizarPDF(null);
+    }
   },300);
 };
 
