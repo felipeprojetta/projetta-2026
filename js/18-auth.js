@@ -1499,7 +1499,7 @@ function _updateResumoObra(){
       custoPerfis+=r.custoTotal||0;
       custoBru+=r.custoTotalBru||0;
     });
-    document.getElementById('ro-perfis-kg').textContent=kgBru.toFixed(1)+' / '+kgLiq.toFixed(1)+' kg';
+    document.getElementById('ro-perfis-kg').textContent=kgBru.toFixed(2)+' / '+kgLiq.toFixed(2)+' kg';
     document.getElementById('ro-perfis-bruto').textContent='bruto / líquido';
     document.getElementById('ro-perfis-val').textContent=brl(custoPerfis);
   }
@@ -1605,7 +1605,7 @@ function _updateResumoObra(){
     if(_aluCorTxt) _infoLines.push('🔷 '+_aluCorTxt+' · '+_aluTam);
     var _infoEl=document.getElementById('ro-chapas-info');
     if(_infoEl) _infoEl.innerHTML=_infoLines.join('<br>')||'';
-    document.getElementById('ro-chapas-peso').textContent=pesoChapa>0?pesoChapa.toFixed(1)+' kg':'';
+    document.getElementById('ro-chapas-peso').textContent=pesoChapa>0?pesoChapa.toFixed(2)+' kg':'';
     // ★ Se subAlu ficou 0 apesar de _nALU>0, alertar visualmente em vez de
     //    "—" silencioso. Ajuda Felipe perceber o bug em vez de prejuizo oculto.
     var _aluDisplay;
@@ -1628,7 +1628,7 @@ function _updateResumoObra(){
       if(_acmTam) _chapaInfo.push(_acmTam);
       if(_infoEl) _infoEl.textContent=_chapaInfo.join(' · ')||'';
     }
-    document.getElementById('ro-chapas-peso').textContent=pesoChapa>0?pesoChapa.toFixed(1)+' kg':'';
+    document.getElementById('ro-chapas-peso').textContent=pesoChapa>0?pesoChapa.toFixed(2)+' kg':'';
     document.getElementById('ro-chapas-val').textContent=brl(subAcm);
   }
 
