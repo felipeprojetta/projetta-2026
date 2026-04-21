@@ -1876,7 +1876,36 @@ window.crmItemAutoSelect=function(id){
       if(puxTamRow) puxTamRow.style.display='none';
     }
   }
+
+  // ★ Felipe 21/04/26: 'sempre que tiver fechadura tedee trave para keso,
+  //   nao podera ser mudado para udinese no cilindro'. Fechadura Tedee
+  //   requer cilindro Keso por compatibilidade tecnica.
+  _tedeeLockCilindro(pre+'fech_dig', pre+'cilindro');
 }
+
+/* ★ Trava cilindro em KESO quando fechadura digital e TEDEE.
+   Idempotente, funciona tanto no orcamento (carac-*) quanto no CRM
+   modal (crmit-ID-*). Forca value='KESO' + disabled=true + visual
+   de travado (cinza, cursor not-allowed, tooltip).
+   Se fech_dig != TEDEE, re-habilita o select normalmente. */
+window._tedeeLockCilindro = function(fechDigId, cilindroId){
+  var fd = document.getElementById(fechDigId);
+  var ci = document.getElementById(cilindroId);
+  if(!fd || !ci) return;
+  var isTedee = (fd.value || '').toUpperCase() === 'TEDEE';
+  if(isTedee){
+    ci.value = 'KESO';
+    ci.disabled = true;
+    ci.style.background = '#f0f0f0';
+    ci.style.cursor = 'not-allowed';
+    ci.title = '🔒 Travado em KESO — fechadura Tedee requer cilindro Keso';
+  } else {
+    ci.disabled = false;
+    ci.style.background = '';
+    ci.style.cursor = '';
+    ci.title = '';
+  }
+};
 
 // Toggle puxador tamanho visibility no CRM item
 window.crmItemPuxChange=function(id){
@@ -2382,6 +2411,8 @@ window._crmItensRender=function(){
       var el=document.getElementById(pre+f);
       if(el&&item[f]) el.value=item[f];
     });
+    // ★ Felipe 21/04/26: aplicar trava Tedee→Keso apos popular valores
+    _tedeeLockCilindro(pre+'fech_dig', pre+'cilindro');
     // Checkbox
     var _cbA=document.getElementById(pre+'tem_alisar');
     if(_cbA) _cbA.checked=!!item.tem_alisar;
@@ -2959,6 +2990,8 @@ function orcItemSelecionar(idx){
     if(it.fech_mec) setF('carac-fech-mec', it.fech_mec);
     if(it.fech_dig) setF('carac-fech-dig', it.fech_dig);
     if(it.cilindro) setF('carac-cilindro', it.cilindro);
+    // ★ Felipe 21/04/26: aplicar trava Tedee→Keso apos restore
+    _tedeeLockCilindro('carac-fech-dig','carac-cilindro');
     if(it.puxador) setF('carac-puxador', it.puxador);
     // Cava config
     if(it.dist_borda_cava) setF('carac-dist-borda-cava', it.dist_borda_cava);
