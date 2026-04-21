@@ -812,9 +812,20 @@ function onModeloChange(){
     if(_temCava){
       puxEl.value = 'CAVA';
     } else {
-      // Qualquer modelo sem cava = puxador EXTERNO + tamanho 1.5 default
+      // Qualquer modelo sem cava = puxador EXTERNO
       puxEl.value = 'EXTERNO';
-      if(puxTamEl && (!puxTamEl.value || puxTamEl.value==='CAVA')) puxTamEl.value = '1.5';
+      // ★ Felipe 21/04: regras de default pro tamanho:
+      //   - Modelo 23 (Molduras/Boiserie) → default CLIENTE (cliente envia peça)
+      //   - Outros modelos sem cava → default 1.5
+      //   Se ja tem valor valido (incluindo CLIENTE), preserva. So reseta
+      //   quando o valor atual e vazio ou 'CAVA' (herdado de outro modelo).
+      if(puxTamEl){
+        var _jaTemValor = puxTamEl.value && puxTamEl.value !== 'CAVA';
+        if(!_jaTemValor){
+          var _modVal = (sel.value||'').toString();
+          puxTamEl.value = (_modVal === '23') ? 'CLIENTE' : '1.5';
+        }
+      }
     }
     if(typeof togglePuxadorTam === 'function') togglePuxadorTam();
   }

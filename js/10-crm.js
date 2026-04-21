@@ -1783,7 +1783,12 @@ window.crmItemPuxChange=function(id){
   if(row) row.style.display=pux==='EXTERNO'?'':'none';
   if(pux==='EXTERNO'){
     var tam=document.getElementById(pre+'pux_tam');
-    if(tam&&!tam.value) tam.value='1.5';
+    if(tam&&!tam.value){
+      // ★ Felipe 21/04: Modelo 23 (Molduras) → CLIENTE default.
+      //   Outros modelos com externo → 1.5 default.
+      var mod=(document.getElementById(pre+'modelo')||{value:''}).value;
+      tam.value = (mod === '23') ? 'CLIENTE' : '1.5';
+    }
   }
 }
 
@@ -2138,7 +2143,10 @@ window._crmItensRender=function(){
       // Tamanho puxador externo
       var _isExt=item.puxador==='EXTERNO'||(!_temCava&&item.modelo);
       h+='<div id="'+pre+'pux_tam_row" class="crm-row" style="'+(_isExt?'':'display:none')+'">';
-      h+='<div class="crm-field"><label>Tamanho Puxador</label><select id="'+pre+'pux_tam"><option value="1.0"'+(item.pux_tam==='1.0'?' selected':'')+'>1.0 m (1000mm)</option><option value="1.5"'+(!item.pux_tam||item.pux_tam==='1.5'?' selected':'')+'>1.5 m (1500mm)</option><option value="1.8"'+(item.pux_tam==='1.8'?' selected':'')+'>1.8 m (1800mm)</option><option value="2.0"'+(item.pux_tam==='2.0'?' selected':'')+'>2.0 m (2000mm)</option><option value="CLIENTE"'+(item.pux_tam==='CLIENTE'?' selected':'')+'>Envio pelo Cliente</option></select></div>';
+      // ★ Felipe 21/04: selected reflete APENAS o valor real do item.
+      //   Nao forca '1.5' quando vazio — a _crmItemAutoSelect trata de
+      //   setar CLIENTE (mod 23) ou 1.5 (outros) conforme o caso.
+      h+='<div class="crm-field"><label>Tamanho Puxador</label><select id="'+pre+'pux_tam"><option value=""'+(!item.pux_tam?' selected':'')+'>— Selecione —</option><option value="1.0"'+(item.pux_tam==='1.0'?' selected':'')+'>1.0 m (1000mm)</option><option value="1.5"'+(item.pux_tam==='1.5'?' selected':'')+'>1.5 m (1500mm)</option><option value="1.8"'+(item.pux_tam==='1.8'?' selected':'')+'>1.8 m (1800mm)</option><option value="2.0"'+(item.pux_tam==='2.0'?' selected':'')+'>2.0 m (2000mm)</option><option value="2.5"'+(item.pux_tam==='2.5'?' selected':'')+'>2.5 m (2500mm)</option><option value="3.0"'+(item.pux_tam==='3.0'?' selected':'')+'>3.0 m (3000mm)</option><option value="CLIENTE"'+(item.pux_tam==='CLIENTE'?' selected':'')+'>Envio pelo Cliente</option></select></div>';
       h+='</div>';
       // Config Cava — sempre renderiza, visibilidade controlada por id
       h+='<div style="font-size:10px;font-weight:700;color:var(--navy);margin:8px 0 4px">✂️ Refilado Tampas</div>';
@@ -2442,7 +2450,9 @@ window._crmItensToCardData=function(){
     var clean={id:item.id,tipo:item.tipo,qtd:parseInt(item.qtd)||1,largura:parseInt(item.largura)||0,altura:parseInt(item.altura)||0,cor_ext:item.cor_ext||'',cor_int:item.cor_int||'',cor_macico:item.cor_macico||''};
     if(item.tipo==='porta_pivotante'){
       clean.modelo=item.modelo||'';clean.abertura=item.abertura||'PIVOTANTE';clean.folhas=item.folhas||'1';
-      clean.fech_mec=item.fech_mec||'';clean.fech_dig=item.fech_dig||'';clean.cilindro=item.cilindro||'';clean.puxador=item.puxador||'';clean.pux_tam=item.pux_tam||'1.5';
+      clean.fech_mec=item.fech_mec||'';clean.fech_dig=item.fech_dig||'';clean.cilindro=item.cilindro||'';clean.puxador=item.puxador||'';
+      // ★ Felipe 21/04: sem fallback '1.5'. Preserva valor real (CLIENTE ou vazio).
+      clean.pux_tam=item.pux_tam||'';
       clean.dist_borda_cava=item.dist_borda_cava||'210';clean.largura_cava=item.largura_cava||'150';clean.cantoneira_cava=item.cantoneira_cava||'30';
       clean.dist_borda_friso=item.dist_borda_friso||'';clean.largura_friso=item.largura_friso||'';clean.refilado=item.refilado||'20';
       clean.friso_vert=item.friso_vert||'0';clean.friso_horiz=item.friso_horiz||'0';clean.friso_h_qty=item.friso_h_qty||'3';clean.friso_h_esp=item.friso_h_esp||'10';clean.friso_v_qty=item.friso_v_qty||'1';clean.tem_alisar=!!item.tem_alisar;

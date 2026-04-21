@@ -1024,7 +1024,9 @@ function _populatePropostaItens(){
     var fechMec=it['carac-fech-mec']||'—';
     var fechDig=it['carac-fech-dig']||'NÃO SE APLICA';
     var puxador=it['carac-puxador']||'—';
-    var puxTam=it['carac-pux-tam']||'1.5';
+    // ★ Felipe 21/04: sem fallback pra '1.5'. Se vazio ou CLIENTE, a
+    //   renderizacao abaixo (linha ~1131-1138) trata corretamente.
+    var puxTam=it['carac-pux-tam']||'';
     var cilindro=it['carac-cilindro']||'—';
     var abertura=it['carac-abertura']||'PIVOTANTE';
     var temAlisar=it['carac-tem-alisar']==='1';
