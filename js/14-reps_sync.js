@@ -339,6 +339,23 @@ function onRepChange(){
   var sel=document.getElementById('rep-sel'),info=document.getElementById('rep-info');
   if(!sel||sel.value===''){if(info)info.style.display='none';return;}
   var r=REPS[parseInt(sel.value)];
+
+  // ★ Felipe 21/04: sempre ler comissao + cargo direto do localStorage
+  //   (fonte da verdade - 'projetta_rep_comms' e 'projetta_rep_cargos').
+  //   O array REPS em memoria e sincronizado no load, mas se o usuario
+  //   editou comissao em outra aba/sessao e o array ficou stale, aqui
+  //   garantimos que o valor aplicado e sempre o mais recente.
+  try {
+    var _comms = JSON.parse(localStorage.getItem('projetta_rep_comms')||'{}');
+    if(_comms[r.nome] !== undefined){
+      r.comm = _comms[r.nome];
+    }
+    var _cargos = JSON.parse(localStorage.getItem('projetta_rep_cargos')||'{}');
+    if(_cargos[r.nome]){
+      r.cargo = _cargos[r.nome];
+    }
+  } catch(e){ console.warn('[onRepChange] leitura localStorage falhou:', e); }
+
   document.getElementById('rep-tel').textContent=r.tel;
   document.getElementById('rep-comm').textContent=r.comm;
   if(info)info.style.display='flex';
