@@ -229,6 +229,85 @@ function _intervaloMesFiscal(mesFiscal){
   };
 }
 
+/* ★ Felipe 21/04: label PT-BR curto de um mes fiscal {mes,ano}.
+   Ex: {mes:0, ano:2026} → 'jan/26' */
+function _mesFiscalBR(mf){
+  var NOMES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  return NOMES[mf.mes] + '/' + String(mf.ano).slice(-2);
+}
+
+/* ★ Popular o <select id=ck-gain-mes-sel> com os ultimos 24 meses
+   fiscais (passado → presente + futuro-1). Idempotente: re-popula so
+   se estiver vazio. */
+function _popularGanhoMesSelect(mesAtual){
+  var sel = el('ck-gain-mes-sel');
+  if(!sel) return;
+  if(sel.options.length > 0) return;
+  // Gerar 24 meses: 18 passados + atual + 5 futuros
+  var opcoes = [];
+  var base = new Date(mesAtual.ano, mesAtual.mes, 1);
+  for(var i = -18; i <= 5; i++){
+    var d = new Date(base.getFullYear(), base.getMonth()+i, 1);
+    var val = d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1);
+    var lbl = _mesFiscalBR({mes: d.getMonth(), ano: d.getFullYear()});
+    opcoes.push({val: val, lbl: lbl, isAtual: i===0});
+  }
+  // Ordem: mais recente primeiro
+  opcoes.reverse();
+  // Construir options
+  var _escolhido = localStorage.getItem('projetta_ganho_mes_sel') || '';
+  opcoes.forEach(function(op){
+    var o = document.createElement('option');
+    o.value = op.val;
+    o.textContent = op.lbl + (op.isAtual ? ' (atual)' : '');
+    if(op.val === _escolhido || (!_escolhido && op.isAtual)) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+/* ★ Popular o <select id=ck-gain-ano-sel> com anos de 2022 ao atual+1. */
+function _popularGanhoAnoSelect(anoAtual){
+  var sel = el('ck-gain-ano-sel');
+  if(!sel) return;
+  if(sel.options.length > 0) return;
+  var _escolhido = parseInt(localStorage.getItem('projetta_ganho_ano_sel'))||0;
+  var anos = [];
+  for(var y = anoAtual+1; y >= 2022; y--) anos.push(y);
+  anos.forEach(function(a){
+    var o = document.createElement('option');
+    o.value = a;
+    o.textContent = a + (a===anoAtual ? ' (atual)' : '');
+    if(a === _escolhido || (!_escolhido && a===anoAtual)) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+/* ★ Handlers onchange dos dropdowns de Ganho Mes/Ano. Salvam no
+   localStorage e re-renderizam os KPIs. */
+window.crmGainMesChange = function(){
+  var sel = el('ck-gain-mes-sel');
+  if(!sel) return;
+  var v = sel.value;
+  if(v){
+    localStorage.setItem('projetta_ganho_mes_sel', v);
+  } else {
+    localStorage.removeItem('projetta_ganho_mes_sel');
+  }
+  // Re-render KPIs apenas (sem re-render do kanban completo)
+  try { crmRender(); } catch(e){}
+};
+window.crmGainAnoChange = function(){
+  var sel = el('ck-gain-ano-sel');
+  if(!sel) return;
+  var v = parseInt(sel.value)||0;
+  if(v){
+    localStorage.setItem('projetta_ganho_ano_sel', v);
+  } else {
+    localStorage.removeItem('projetta_ganho_ano_sel');
+  }
+  try { crmRender(); } catch(e){}
+};
+
 /* Retorna {de, ate} conforme filtro selecionado. Null se 'total'. */
 function _intervaloPeriodoFiltro(){
   var sel = el('crm-f-periodo-filter');
@@ -514,10 +593,32 @@ function updateKPIs(all){
   //   filtro de periodo. Usam SEMPRE fechamento_real (data real do contrato).
   //   Garante que no topo sempre ficam visiveis os numeros do mes fiscal
   //   atual (16→15) e do ano corrente, independente do filtro selecionado.
+  // ★ Felipe 21/04: agora o usuario pode ESCOLHER qual mes/ano ver via
+  //   dropdown no proprio card (localStorage persiste a escolha). Se a
+  //   key nao existir, usa mes fiscal atual / ano atual (padrao).
   var _hoje = new Date();
   var _anoAtual = _hoje.getFullYear();
-  var _intervaloMesFisc = _intervaloMesFiscal(_mesFiscalAtual());
-  var _intervaloAno = {de: _anoAtual+'-01-01', ate: _anoAtual+'-12-31'};
+  var _mesFiscAtual = _mesFiscalAtual();
+
+  // Popular dropdowns se ainda vazios
+  _popularGanhoMesSelect(_mesFiscAtual);
+  _popularGanhoAnoSelect(_anoAtual);
+
+  // Ler escolha do usuario (ou usar atual como default)
+  var _mesEscolhidoStr = localStorage.getItem('projetta_ganho_mes_sel') || '';
+  var _anoEscolhido    = parseInt(localStorage.getItem('projetta_ganho_ano_sel'))||0;
+
+  var _mesFiscUsado;
+  if(_mesEscolhidoStr && /^\d{4}-\d{2}$/.test(_mesEscolhidoStr)){
+    var _parts = _mesEscolhidoStr.split('-');
+    _mesFiscUsado = {mes: parseInt(_parts[1])-1, ano: parseInt(_parts[0])};
+  } else {
+    _mesFiscUsado = _mesFiscAtual;
+  }
+  if(!_anoEscolhido) _anoEscolhido = _anoAtual;
+
+  var _intervaloMesFisc = _intervaloMesFiscal(_mesFiscUsado);
+  var _intervaloAno = {de: _anoEscolhido+'-01-01', ate: _anoEscolhido+'-12-31'};
 
   var ganhosMes = ganhosTodos.filter(function(o){
     var dt = o.fechamento_real || o.fechamento || o.updatedAt || o.createdAt;
@@ -538,11 +639,13 @@ function updateKPIs(all){
   if(el('ck-pipe')){el('ck-pipe').textContent=brl(pipe);el('ck-pipe-s').textContent=ativos.length+' ativas'+(_labelPeriodo?' · '+_labelPeriodo:'');}
   if(el('ck-gain')){
     el('ck-gain').textContent=brl(gMes);
-    el('ck-gain-s').textContent=ganhosMes.length+' contratos · mês fiscal atual';
+    var _isAtual = _mesFiscUsado.mes === _mesFiscAtual.mes && _mesFiscUsado.ano === _mesFiscAtual.ano;
+    var _labelM = _isAtual ? 'mês fiscal atual' : _mesFiscalBR(_mesFiscUsado);
+    el('ck-gain-s').textContent=ganhosMes.length+' contratos · '+_labelM;
   }
   if(el('ck-gain-ano')){
     el('ck-gain-ano').textContent=brl(gAno);
-    el('ck-gain-ano-s').textContent=ganhosAno.length+' contratos · ano '+_anoAtual;
+    el('ck-gain-ano-s').textContent=ganhosAno.length+' contratos · ano '+_anoEscolhido;
   }
   if(el('ck-ticket'))el('ck-ticket').textContent=brl(ticket);
   var ckTicketSub=document.querySelector('#ck-ticket')&&document.querySelector('#ck-ticket').parentNode?document.querySelector('#ck-ticket').parentNode.querySelector('.crm-kpi-sub'):null;
