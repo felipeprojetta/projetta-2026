@@ -56,6 +56,23 @@ function cLoad(){
         try{ window.OrcamentoOpcoes.migrar(data[i]); }catch(e){}
       }
     }
+    // ★ Auto-corrigir scope (Felipe 20/04): cards com sinais fortes de intl
+    //   mas scope!='internacional' recebem o scope certo. Idempotente.
+    //   Evita bug de kanban/KPI/filtro tratarem como nacional.
+    var _mig = false;
+    for(var j=0;j<data.length;j++){
+      var o = data[j];
+      if(!o) continue;
+      var _sinalIntl = (o.inst_quem||'').toUpperCase()==='INTERNACIONAL'
+                    || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toUpperCase())>=0;
+      if(_sinalIntl && o.scope!=='internacional'){
+        o.scope='internacional';
+        _mig=true;
+      }
+    }
+    if(_mig){
+      try{ localStorage.setItem(CK, JSON.stringify(data)); }catch(e){}
+    }
     return data;
   }catch(e){ return []; }
 }
