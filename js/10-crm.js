@@ -379,7 +379,12 @@ function nameColor(name){
 function _valorRealCardBRL(o){
   if(!o) return 0;
   var _vPorta = parseFloat(o.valorFaturamento) || parseFloat(o.valorTabela) || parseFloat(o.valor) || 0;
-  if(o.scope !== 'internacional') return _vPorta;
+  // Detectar intl por multiplos sinais (scope pode nao estar salvo em cards antigos)
+  var _ehIntl = o.scope === 'internacional'
+             || (o.inst_quem||'').toUpperCase() === 'INTERNACIONAL'
+             || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toUpperCase()) >= 0
+             || !!(o.pais||'').trim();
+  if(!_ehIntl) return _vPorta;
   // Internacional
   var _cambio = parseFloat(o.inst_cambio) || 5.20;
   // Instalação: valor salvo OU recalcular
@@ -469,9 +474,9 @@ function updateKPIs(all){
   }
 
   var intl=all.filter(function(o){return o.scope==='internacional';});
-  var pipe=ativos.reduce(function(s,o){return s+(parseFloat(o.valor)||0);},0);
-  var gMes=ganhosMes.reduce(function(s,o){return s+(parseFloat(o.valor)||0);},0);
-  var ativosComValor=ativos.filter(function(o){return(parseFloat(o.valor)||0)>0;});
+  var pipe=ativos.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
+  var gMes=ganhosMes.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
+  var ativosComValor=ativos.filter(function(o){return _valorRealCardBRL(o)>0;});
   var ticket=ativosComValor.length>0?pipe/ativosComValor.length:0;
   var conv=(ganhos.length+perdidos.length)>0?Math.round(ganhos.length/(ganhos.length+perdidos.length)*100):0;
   if(el('ck-pipe')){el('ck-pipe').textContent=brl(pipe);el('ck-pipe-s').textContent=ativos.length+' ativas'+(_labelPeriodo?' · '+_labelPeriodo:'');}
@@ -705,7 +710,12 @@ function buildCard(o,st,isFazerOrc){
   // Valores: Tabela e Faturamento (nacional: simples; internacional: breakdown)
   // ★ Felipe 20/04: obras internacionais mostram breakdown completo no card:
   //   Porta + Instalação + Logística (Caixa+Fretes) = Total. Em R$ e USD.
-  var _ehIntl = o.scope === 'internacional';
+  //   Detecta intl por qualquer sinal forte (evita bug de scope nao salvo):
+  //   scope OU inst_quem=INTERNACIONAL OU tem incoterm (CIF/FOB/EXW) OU tem pais
+  var _ehIntl = o.scope === 'internacional'
+             || (o.inst_quem||'').toUpperCase() === 'INTERNACIONAL'
+             || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toUpperCase()) >= 0
+             || !!(o.pais||'').trim();
   if(o.valorTabela>0 || o.valorFaturamento>0 || o.valor>0){
     if(_ehIntl){
       // --- Cálculo do breakdown ---
