@@ -2290,11 +2290,33 @@ function _syncChapasToCorte(){
   var _isRip=['08','15','20','21'].indexOf(_mVal)>=0;
   var corteAuto=nChapas>0?(_isRip?nChapas+2:nChapas+1):0;
   var hCorteEl=document.getElementById('h-corte');
-  if(hCorteEl && corteAuto>0 && hCorteEl.dataset.manual!=='1'){
+  // ★ Felipe 21/04/26: 'horas corte nao atualiza quando muda qtd de chapas'.
+  //    BUG anterior: se h-corte tinha dataset.manual='1' (porque usuario
+  //    clicou/digitou antes), este bloco era PULADO e o valor ficava
+  //    desatualizado (ex: 2 chapas=3h, muda pra 5 chapas, deveria ser 6h
+  //    mas continuava 3h).
+  //    FIX: mudar qtd de chapas = usuario quer valor correto → limpa manual
+  //    e recalcula. Se precisar editar manualmente depois, faz de novo
+  //    (o oninput chama _onHoraManual que remarca).
+  if(hCorteEl && corteAuto>0){
     hCorteEl.value=corteAuto;
     hCorteEl.dataset.auto='1';
+    hCorteEl.dataset.manual=''; // ★ reseta flag manual ao mudar chapas
+    if(typeof HORA_STYLE_AUTO !== 'undefined') hCorteEl.style.cssText=HORA_STYLE_AUTO;
+    else hCorteEl.style.cssText='';
+    // Esconder msg "alterado manualmente" se tava visivel
+    var msg=document.getElementById('h-corte-manual-msg');
+    if(msg) msg.style.display='none';
+    // Atualizar label auto
     var lbl=document.getElementById('h-corte-auto');
     if(lbl) lbl.textContent='(auto: '+nChapas+' chapas '+(_isRip?'+2 ripado':'+1')+' = '+corteAuto+'h)';
+    // Sincronizar campo 'dias' (h-corte-dias = horas/9, arredondado)
+    var diasEl=document.getElementById('h-corte-dias');
+    if(diasEl){
+      var diasCalc=corteAuto/9;
+      // Mostrar como inteiro se for inteiro, senao 1 decimal
+      diasEl.value = (diasCalc===Math.floor(diasCalc))?diasCalc:diasCalc.toFixed(1);
+    }
   }
   calc();
 }
