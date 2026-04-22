@@ -1840,6 +1840,42 @@ window.crmItemRevCalc=function(itemId){
   info.innerHTML=lines.join('<br>');
 };
 
+/* ★ crmItemRevAddChapa (Felipe 22/04) ───────────────────────────────
+   Duplica um item de revestimento abaixo, mantendo a configuracao
+   (Tipo CHAPA/RIPADO, Estrutura SIM/NAO, Tubo, Cor interna/externa).
+   Zera dimensoes e qtd pra user preencher o proximo revestimento
+   rapidamente. Scrolla e foca no campo Largura do novo item.
+*/
+window.crmItemRevAddChapa=function(origId){
+  // Persistir valores atuais antes de rerenderizar
+  if(typeof _crmItensSaveFromDOM==='function') _crmItensSaveFromDOM();
+  var orig=_crmItens.find(function(i){return i.id===origId;});
+  if(!orig) return;
+  var item={
+    id:'ci_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
+    tipo:'revestimento',
+    qtd:1, largura:'', altura:'',
+    // Herdar configuracao (Felipe: "mesma configuracao")
+    rev_tipo: orig.rev_tipo||'CHAPA',
+    rev_estrutura: orig.rev_estrutura||'NAO',
+    rev_tubo: orig.rev_tubo||'PA-51X25X1.5',
+    tipo_material: orig.tipo_material||'ACM',
+    revestimento_lados: orig.revestimento_lados||'1',
+    tem_estrutura: orig.tem_estrutura||'NÃO',
+    cor_ext: orig.cor_ext||'',
+    cor_int: orig.cor_int||'',
+    cor_macico: orig.cor_macico||''
+  };
+  _crmItens.push(item);
+  _crmItensRender();
+  setTimeout(function(){
+    var el=document.getElementById('crm-item-'+item.id);
+    if(el){ el.classList.add('open'); el.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+    var larg=document.getElementById('crmit-'+item.id+'-largura');
+    if(larg) larg.focus();
+  },100);
+};
+
 window._crmSwitchCorMode=function(itemId){
   var pre='crmit-'+itemId+'-';
   // ★ Maciço (boiserie) só é aplicável em MODELO 23. Se modelo != 23,
@@ -2430,10 +2466,18 @@ window._crmItensRender=function(){
     // ★ Felipe 22/04: inputs comuns ganham oninput que dispara crmItemAutoSelect
     //   — em revestimento isso delega pra crmItemRevCalc (ver crmItemAutoSelect).
     //   Pra outros tipos o handler e no-op rapido.
-    h+='<div class="crm-row">';
+    // ★ Felipe 22/04 (2): revestimento tem layout com 3 campos na primeira
+    //   linha (Qtd + Largura + Altura) via classe crm-row-3. Os demais tipos
+    //   mantem o layout 2+2 tradicional.
+    var _isRev=(item.tipo==='revestimento');
+    h+='<div class="'+(_isRev?'crm-row-3':'crm-row')+'">';
     h+='<div class="crm-field"><label>Quantidade</label><input type="number" id="'+pre+'qtd" value="'+(item.qtd||1)+'" min="1" max="50" oninput="crmItemAutoSelect(\''+item.id+'\')"></div>';
     h+='<div class="crm-field"><label>Largura (mm)</label><input type="number" id="'+pre+'largura" value="'+(item.largura||'')+'" placeholder="ex: 1996" min="200" max="5000" oninput="crmItemAutoSelect(\''+item.id+'\')" onwheel="event.preventDefault()"></div>';
+    if(_isRev) h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 4878" min="200" max="8000" oninput="crmItemAutoSelect(\''+item.id+'\')" onwheel="event.preventDefault()"></div>';
     h+='</div>';
+    // Segunda row: pra nao-revestimento, abre com altura + branch.
+    //              pra revestimento, abre rows proprias (tipo, estrutura, info, botao).
+    if(!_isRev){
     h+='<div class="crm-row">';
     h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 6174" min="200" max="8000" onchange="crmItemAutoSelect(\''+item.id+'\')" onwheel="event.preventDefault()"></div>';
     
@@ -2556,18 +2600,23 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"><label>Folhas</label><select id="'+pre+'folhas_pi"><option value="1"'+(item.folhas_pi==='1'||!item.folhas_pi?' selected':'')+'>1 folha</option><option value="2"'+(item.folhas_pi==='2'?' selected':'')+'>2 folhas</option><option value="3"'+(item.folhas_pi==='3'?' selected':'')+'>3 folhas</option></select></div>';
       h+='<div class="crm-field"></div>';
       h+='</div>';
-    } else if(item.tipo==='revestimento'){
-      // ★ Revestimento de parede (Felipe 22/04) — CHAPA ACM 4mm ou RIPADO
+    } else {
+      h+='<div class="crm-field"></div></div>';
+    }
+    } else {
+      // ★ Revestimento (Felipe 22/04) — campos proprios: Tipo, Estrutura,
+      //   Tubo, info box calculado e botao "+ Adicionar chapa".
+      h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Tipo</label><select id="'+pre+'rev_tipo" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="CHAPA"'+(item.rev_tipo==='CHAPA'||!item.rev_tipo?' selected':'')+'>Chapa ACM 4mm</option><option value="RIPADO"'+(item.rev_tipo==='RIPADO'?' selected':'')+'>Ripado</option></select></div>';
+      h+='<div class="crm-field"></div>';
       h+='</div>';
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Estrutura de Alumínio?</label><select id="'+pre+'rev_estrutura" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="NAO"'+(item.rev_estrutura!=='SIM'?' selected':'')+'>Não</option><option value="SIM"'+(item.rev_estrutura==='SIM'?' selected':'')+'>Sim</option></select></div>';
       h+='<div class="crm-field" id="'+pre+'rev_tubo_wrap" style="'+(item.rev_estrutura==='SIM'?'':'display:none')+'"><label>Tubo Estrutura</label><select id="'+pre+'rev_tubo" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="PA-51X25X1.5"'+(item.rev_tubo==='PA-51X25X1.5'||!item.rev_tubo?' selected':'')+'>51×25×1.5 (padrão ripado)</option><option value="PA-51X25X2.0"'+(item.rev_tubo==='PA-51X25X2.0'?' selected':'')+'>51×25×2.0</option><option value="PA-51X38X1.98"'+(item.rev_tubo==='PA-51X38X1.98'?' selected':'')+'>51×38×1.98</option><option value="PA-51X51X1.98"'+(item.rev_tubo==='PA-51X51X1.98'?' selected':'')+'>51×51×1.98</option><option value="PA-76X25X2.0"'+(item.rev_tubo==='PA-76X25X2.0'?' selected':'')+'>76×25×2.0</option><option value="PA-76X38X1.98"'+(item.rev_tubo==='PA-76X38X1.98'?' selected':'')+'>76×38×1.98</option></select></div>';
       h+='</div>';
-      // Info box calculado em tempo real
       h+='<div id="'+pre+'rev_info" style="margin-top:8px;background:#f0fbf0;border:1px solid #27ae60;border-radius:6px;padding:8px;font-size:10px;color:#1a5e1a;line-height:1.6;font-weight:600">— Preencha Largura e Altura para calcular —</div>';
-    } else {
-      h+='<div class="crm-field"></div></div>';
+      // Botao duplicar mantendo configuracao
+      h+='<div style="margin-top:10px;text-align:center"><button type="button" onclick="crmItemRevAddChapa(\''+item.id+'\')" style="padding:8px 18px;border-radius:8px;border:1.5px solid #27ae60;background:#e8f5e9;color:#1a7a20;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit" title="Adiciona nova peça de revestimento abaixo mantendo Tipo, Estrutura, Tubo e Cor">+ Adicionar chapa (mesma config)</button></div>';
     }
     // Cores for fixo and else types (porta_pivotante renders its own above)
     if(item.tipo!=='porta_pivotante'){
