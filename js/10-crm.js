@@ -1784,6 +1784,31 @@ window.crmItemRevCalc=function(itemId){
     var totRipas=nRipas*Q;
     lines.push('<b>📋 Ripas (90mm cada):</b> '+nRipas+' un × '+A+'mm de altura'+(Q>1?'  (por peça, total ×'+Q+')':''));
     lines.push('<b>🪵 Total ripas ACM:</b> '+totRipas+' un');
+    // ★ Felipe 22/04: calcular quantas CHAPAS saem dessas ripas.
+    //   Chapa 1500mm largura, util 1490mm. Ripas de 90mm cabem 16 na largura
+    //   (1490/90=16,55 → 16 ripas inteiras). Altura da chapa precisa comportar
+    //   a altura da ripa (A): usa 5000, 6000 ou 7000 conforme A. Quantas ripas
+    //   empilhadas verticalmente cabem = floor(chapaAlt/A).
+    var _chapaAlt=5000;
+    if(A>4990) _chapaAlt=6000;
+    if(A>5990) _chapaAlt=7000;
+    if(A>6990) _chapaAlt=0; // excede
+    if(_chapaAlt===0){
+      lines.push('<span style="color:#c62828">⚠ Altura da ripa '+A+'mm excede 7000mm — fora do padrão de chapa</span>');
+    } else {
+      var _ripasLarg=Math.floor(1490/90); // 16
+      var _ripasAlt=Math.floor(_chapaAlt/A);
+      var _ripasPorChapa=_ripasLarg*_ripasAlt;
+      var _nChapas=Math.ceil(totRipas/_ripasPorChapa);
+      lines.push('<b>🪟 Chapas ACM 4mm (1500×'+_chapaAlt+'mm):</b> '+_nChapas+' un · '+
+                 _ripasPorChapa+' ripa(s) por chapa ('+_ripasLarg+' na largura × '+_ripasAlt+' na altura)');
+      // Fita e silicone — mesma regra da CHAPA, usando area util do revestimento
+      var _fitaRip=((L*A*Q)/1e6)*12;
+      lines.push('<b>🔖 Fita dupla face 3M VHB:</b> '+_fitaRip.toFixed(1)+' m');
+      var _silMLRip=((L*A*Q)/1e6)*25;
+      var _silTubRip=Math.ceil(_silMLRip/300);
+      lines.push('<b>🧴 Silicone Dow Corning 995 PRIME:</b> '+_silMLRip.toFixed(0)+' ml ('+_silTubRip+' tubo(s) 300ml)');
+    }
   }
 
   // Estrutura de aluminio (aplicavel a ambos tipos)
