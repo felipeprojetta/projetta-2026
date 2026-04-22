@@ -3451,6 +3451,19 @@ window._orcRevSyncPlanificador=function(){
       if(nRipas>0) _addRow('REV '+revNum+' RIPA', 90, A, nRipas*Q);
     }
   });
+  // ★ Felipe 22/04 v3 (fix accordion fechado): crmFazerOrcamento chama
+  //   resetToDefaults() ANTES de carregar itens, que fecha TODOS os
+  //   accordions inclusive plan-body (js/03-history_save.js:1648). Sem
+  //   reabrir, a aba Levantamento de Superfícies aparece só com o titulo
+  //   "PLANIFICAR CHAPAS" e o user acha que as peças não foram
+  //   sincronizadas quando na verdade estão escondidas dentro do
+  //   accordion fechado. Reabrir quando ha revestimentos + peças geradas.
+  if(revs.length > 0){
+    var pb = document.getElementById('plan-body');
+    if(pb) pb.style.display = 'block';
+    var pbadge = document.getElementById('plan-badge');
+    if(pbadge) pbadge.innerHTML = '&#9650; fechar';
+  }
   // Trigger planUpd uma unica vez
   if(typeof planUpd==='function') try{planUpd();}catch(e){}
   // Esconder texto de empty se ha peças
