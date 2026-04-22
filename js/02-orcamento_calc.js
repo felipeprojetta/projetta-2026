@@ -37,9 +37,33 @@ function calc(){
     try{_setOrcLock(false);}catch(e){}
   }
   if(window._snapshotLock) return;
-  const W=n('largura')/1000,H=n('altura')/1000,m2=W*H;
-  // Guard: sem dimensões → zerar resultados e sair
+  var W=n('largura')/1000,H=n('altura')/1000,m2=W*H;
+  // ★ Felipe 22/04 v4 (fix revestimento-only): quando o orcamento tem SO
+  //   itens revestimento (sem porta/fixo), os inputs gerais 'largura' e
+  //   'altura' (que sao da porta) ficam vazios → W=H=0 e o guard abaixo
+  //   zerava tudo e retornava. Resultado: aba Levantamento populava
+  //   11 chapas ACM = R$ 18.085,40 corretamente, mas 'RESULTADO — PORTA'
+  //   ficava R$ 0,00 porque calc() nunca consolidava subFab/Tab/Fat.
+  //
+  //   Detectar cenario revestimento-only: usar somatorio de areas dos
+  //   revestimentos como m2 de referencia e setar W/H ficticios (sqrt(m2))
+  //   pra evitar divisoes por zero a jusante. subAcm vai vir do fab-acm-tbody
+  //   ja populado pelo planificador → subFab = subAcm → markup/impostos rodam
+  //   normalmente sobre esse valor.
+  var _revOnly=false;
   if(W<=0||H<=0){
+    if(window._orcItens && window._orcItens.length>0){
+      var _revsChk=window._orcItens.filter(function(it){return it.tipo==='revestimento' && (it.largura||0)>0 && (it.altura||0)>0;});
+      var _hasPortaOuFixo=window._orcItens.some(function(it){return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';});
+      if(_revsChk.length>0 && !_hasPortaOuFixo){
+        _revOnly=true;
+        m2=_revsChk.reduce(function(s,it){return s+((it.largura||0)*(it.altura||0)*(it.qtd||1)/1e6);},0);
+        if(m2>0){ W=Math.sqrt(m2); H=Math.sqrt(m2); }
+      }
+    }
+  }
+  // Guard: sem dimensões E sem revestimentos → zerar resultados e sair
+  if((W<=0||H<=0) && !_revOnly){
     var zeros=['m-custo-porta','m-tab-porta','m-fat-porta','m-custo','m-tab','m-fat','d-tab','d-tab-porta','d-desc-val',
                'd-fat','d-imp','d-rep','d-rt','d-gest','d-custo','d-lb','d-irpj','d-ll',
                'r-fab','r-inst','sub-sal','r-diesel','sub-hotel','sub-alim','r-inst'];
@@ -51,6 +75,8 @@ function calc(){
     });
     return; // não calcular nada sem dimensões
   }
+  // Exportar flag pra outras funcoes detectarem revestimento-only
+  window._revOnlyMode=_revOnly;
   if(!window._osGeradoUmaVez){
     ['h-portal','h-quadro','h-corte','h-colagem','h-conf'].forEach(function(id){
       var el=document.getElementById(id);

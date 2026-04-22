@@ -3210,6 +3210,16 @@ function orcItemSelecionar(idx){
     _orcRevPopularCard(it);
     // Sync automatico pro planificador (ao trocar pra revestimento)
     if(typeof _orcRevSyncPlanificador==='function') _orcRevSyncPlanificador();
+    // ★ Felipe 22/04 v4: chamar calc() apos sync pra consolidar custo ACM
+    //   no painel RESULTADO. Sem isso, as chapas ACM ficavam populadas em
+    //   fab-acm-tbody (R$ 18.085,40) mas subFab/Tab/Fat no card lateral
+    //   direito ficavam R$ 0,00 porque calc() so roda quando algum evento
+    //   dispara — e selecionar item revestimento nao disparava nenhum.
+    //   Delay 200ms pra dar tempo de planUpd rodar e _syncChapaToOrc
+    //   popular os blocos escondidos acm-sel-1 que o sumBlocks('acm') le.
+    setTimeout(function(){
+      if(typeof calc==='function') try{calc();}catch(e){console.warn('[revcalc]',e);}
+    }, 300);
     return; // revestimento nao precisa do fluxo de restoreFormData/setF
   }
   
