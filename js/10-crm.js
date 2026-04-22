@@ -3335,10 +3335,22 @@ window._orcRevPopularCard=function(it){
   _v('rev-orc-largura', it.largura);
   _v('rev-orc-altura', it.altura);
   _v('rev-orc-qtd', it.qtd||1);
-  // Area
+  // Area — mostra do item atual + total do orcamento (quando ha >1 revestimento)
   var _L=parseFloat(it.largura)||0, _A=parseFloat(it.altura)||0, _Q=parseInt(it.qtd)||1;
-  var _area=(_L&&_A)?((_L*_A*_Q)/1e6).toFixed(2)+' m²':'—';
-  _t('rev-orc-area', _area);
+  var _areaItem=(_L&&_A)?((_L*_A*_Q)/1e6):0;
+  var _revsAll=(window._orcItens||[]).filter(function(r){return r.tipo==='revestimento' && (r.largura||0)>0 && (r.altura||0)>0;});
+  var _areaGeral=_revsAll.reduce(function(s,r){return s+((r.largura||0)*(r.altura||0)*(r.qtd||1)/1e6);},0);
+  var _areaTxt;
+  if(_areaItem>0){
+    _areaTxt=_areaItem.toFixed(2)+' m²';
+    if(_revsAll.length>1 && _areaGeral>0){
+      _areaTxt+='  <small style="color:#1a7a20;font-weight:600">· total orçamento: '+_areaGeral.toFixed(2)+' m²</small>';
+    }
+  } else {
+    _areaTxt='—';
+  }
+  var _areaEl=document.getElementById('rev-orc-area');
+  if(_areaEl) _areaEl.innerHTML=_areaTxt;
   // Config (readonly)
   var _tipoTxt=it.rev_tipo==='RIPADO'?'🪵 Ripado':'🪟 Chapa ACM 4mm';
   _t('rev-orc-tipo-info', _tipoTxt);
@@ -3357,32 +3369,92 @@ window._orcRevPopularCard=function(it){
 };
 
 window._orcRevRenderCalc=function(it){
+  // ★ Felipe 22/04 v5 (MATERIAIS CALCULADOS consolidado): antes mostrava so
+  //   os dados do item selecionado (ex: 11.15 m² se Item 1 era 1143×4877×2).
+  //   Felipe: "nao adianta trazer so de um, traga a somatoria do m2 total
+  //   de revestimento". Agora: totaliza area, chapas ACM, chapas pra ripado,
+  //   fita e silicone de TODOS os revestimentos do _orcItens — o usuario
+  //   precisa ver o consolidado pra validar contra o planificador e o custo.
+  //   O item selecionado (argumento 'it') ainda serve pra dar feedback de
+  //   preenchimento rapido (mensagem "preencha L/A" se o atual nao tem).
   var calcEl=document.getElementById('rev-orc-calc');
   if(!calcEl) return;
-  var L=parseFloat(it.largura)||0, A=parseFloat(it.altura)||0, Q=parseInt(it.qtd)||1;
-  if(!L||!A){calcEl.innerHTML='— Preencha Largura e Altura —';return;}
-  var lines=[];
-  var areaTot=(L*A*Q)/1e6;
-  lines.push('<b>📐 Area total:</b> '+areaTot.toFixed(2)+' m²  <small style="color:#888">('+Q+' peça(s) de '+L+'×'+A+'mm)</small>');
-  if(it.rev_tipo==='RIPADO'){
-    var nRipas=Math.ceil(L/90), totRipas=nRipas*Q;
-    lines.push('<b>🪵 Ripas (90mm):</b> '+nRipas+' por peça · '+totRipas+' total');
-    var _chAlt=5000; if(A>4990) _chAlt=6000; if(A>5990) _chAlt=7000;
-    if(A<=6990){
-      var _rPChapa=Math.floor(1490/90)*Math.floor(_chAlt/A);
-      var _nCh=Math.ceil(totRipas/_rPChapa);
-      lines.push('<b>🪟 Chapas (1500×'+_chAlt+'mm):</b> '+_nCh+' un');
+  var _Lit=parseFloat(it&&it.largura)||0, _Ait=parseFloat(it&&it.altura)||0;
+  if(!_Lit||!_Ait){calcEl.innerHTML='— Preencha Largura e Altura —';return;}
+
+  var revs=(window._orcItens||[]).filter(function(r){return r.tipo==='revestimento' && (r.largura||0)>0 && (r.altura||0)>0;});
+  if(!revs.length) revs=[it]; // fallback: _orcItens ainda nao carregado
+
+  // Acumuladores
+  var areaTotGeral=0, totChapasACM=0, totRipas=0, totChapasRipado=0;
+  var breakdown=[]; // linha compacta por item
+
+  revs.forEach(function(r,i){
+    var L=parseFloat(r.largura)||0, A=parseFloat(r.altura)||0, Q=parseInt(r.qtd)||1;
+    if(!L||!A) return;
+    var aItem=(L*A*Q)/1e6;
+    areaTotGeral+=aItem;
+
+    var tipo=r.rev_tipo||'CHAPA';
+    var chInfo='';
+    if(tipo==='RIPADO'){
+      var nRipasItem=Math.ceil(L/90);
+      var ripasTotItem=nRipasItem*Q;
+      totRipas+=ripasTotItem;
+      var _chAltR=5000; if(A>4990) _chAltR=6000; if(A>5990) _chAltR=7000;
+      if(A<=6990){
+        var _rPChapaR=Math.floor(1490/90)*Math.floor(_chAltR/A);
+        var _nChR=Math.ceil(ripasTotItem/_rPChapaR);
+        totChapasRipado+=_nChR;
+        chInfo=ripasTotItem+' ripas / '+_nChR+' ch 1500×'+_chAltR;
+      } else {
+        chInfo=ripasTotItem+' ripas <span style="color:#c62828">(A>6990 excede)</span>';
+      }
+    } else {
+      var nInt=Math.floor(L/1490);
+      var sobra=L-(nInt*1490);
+      var pedaco=sobra>5?sobra:0;
+      var ch=(nInt+(pedaco>0?1:0))*Q;
+      totChapasACM+=ch;
+      chInfo=ch+' ch · '+nInt+'×1490'+(pedaco>0?'+1×'+Math.round(pedaco):'');
     }
-  } else {
-    var nInt=Math.floor(L/1490), sobra=L-(nInt*1490), pedaco=sobra>5?sobra:0;
-    var totCh=(nInt+(pedaco>0?1:0))*Q;
-    var det=nInt+'×(1490×'+A+')'+(pedaco>0?' + 1×('+Math.round(pedaco)+'×'+A+')':'');
-    lines.push('<b>🪟 Chapas ACM 4mm:</b> '+totCh+' un  <small style="color:#888">('+det+')</small>');
+    breakdown.push({
+      idx:(i+1),
+      lbl:L+'×'+A+(Q>1?' ×'+Q:''),
+      area:aItem,
+      tipo:tipo,
+      ch:chInfo
+    });
+  });
+
+  var fitaTot=areaTotGeral*12;
+  var silMLTot=areaTotGeral*25;
+  var silTubTot=Math.ceil(silMLTot/300);
+
+  var lines=[];
+  lines.push('<b>📐 Área total do orçamento:</b> '+areaTotGeral.toFixed(2)+' m²  <small style="color:#888">('+revs.length+' item(s) de revestimento)</small>');
+
+  if(totChapasACM>0){
+    lines.push('<b>🪟 Chapas ACM 4mm (total):</b> '+totChapasACM+' un');
   }
-  var fitaM=areaTot*12;
-  lines.push('<b>🔖 Fita 3M VHB:</b> '+fitaM.toFixed(1)+' m');
-  var silML=areaTot*25, silTub=Math.ceil(silML/300);
-  lines.push('<b>🧴 Silicone Dow 995 PRIME:</b> '+silML.toFixed(0)+' ml ('+silTub+' tubo(s) 300ml)');
+  if(totRipas>0){
+    lines.push('<b>🪵 Ripas 90mm (total):</b> '+totRipas+' un'+(totChapasRipado>0?'  <small style="color:#888">(saem de '+totChapasRipado+' chapa(s) ACM)</small>':''));
+  }
+  lines.push('<b>🔖 Fita 3M VHB (total):</b> '+fitaTot.toFixed(1)+' m');
+  lines.push('<b>🧴 Silicone Dow 995 PRIME (total):</b> '+silMLTot.toFixed(0)+' ml ('+silTubTot+' tubo(s) 300ml)');
+
+  // Breakdown compacto (apenas se mais de 1 item, senao ja viu tudo acima)
+  if(breakdown.length>1){
+    var bl=['<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #c9c6bf"><b style="color:#666;font-size:11px">📋 Breakdown por item:</b></div>'];
+    bl.push('<div style="font-size:11px;color:#555;line-height:1.55">');
+    breakdown.forEach(function(b){
+      var tipoBadge=b.tipo==='RIPADO'?'🪵':'🪟';
+      bl.push('<div style="display:flex;gap:8px"><span style="min-width:28px;color:#888">#'+b.idx+'</span><span style="min-width:120px">'+tipoBadge+' '+b.lbl+'</span><span style="min-width:70px;color:#1a7a20;font-weight:600">'+b.area.toFixed(2)+' m²</span><span style="color:#666">'+b.ch+'</span></div>');
+    });
+    bl.push('</div>');
+    lines.push(bl.join(''));
+  }
+
   calcEl.innerHTML=lines.join('<br>');
 };
 
@@ -3394,15 +3466,28 @@ window._orcRevSync=function(){
   var A=parseFloat((document.getElementById('rev-orc-altura')||{value:0}).value)||0;
   var Q=parseInt((document.getElementById('rev-orc-qtd')||{value:1}).value)||1;
   it.largura=L; it.altura=A; it.qtd=Q;
-  // Atualiza area + recalcula
-  var _t=function(id,txt){var e=document.getElementById(id);if(e)e.textContent=txt;};
-  var _area=(L&&A)?((L*A*Q)/1e6).toFixed(2)+' m²':'—';
-  _t('rev-orc-area', _area);
+  // Atualiza area do item + total orcamento (consolidado Felipe 22/04 v5)
+  var _areaItem=(L&&A)?((L*A*Q)/1e6):0;
+  var _revsAll=(window._orcItens||[]).filter(function(r){return r.tipo==='revestimento' && (r.largura||0)>0 && (r.altura||0)>0;});
+  var _areaGeral=_revsAll.reduce(function(s,r){return s+((r.largura||0)*(r.altura||0)*(r.qtd||1)/1e6);},0);
+  var _areaTxt;
+  if(_areaItem>0){
+    _areaTxt=_areaItem.toFixed(2)+' m²';
+    if(_revsAll.length>1 && _areaGeral>0){
+      _areaTxt+='  <small style="color:#1a7a20;font-weight:600">· total orçamento: '+_areaGeral.toFixed(2)+' m²</small>';
+    }
+  } else {
+    _areaTxt='—';
+  }
+  var _areaEl=document.getElementById('rev-orc-area');
+  if(_areaEl) _areaEl.innerHTML=_areaTxt;
   _orcRevRenderCalc(it);
   // Sync bar de itens no topo (pra mostrar dimensoes novas)
   if(typeof orcItensRender==='function') orcItensRender();
   // Sync planificador
   _orcRevSyncPlanificador();
+  // Re-disparar calc() pro resultado consolidar a area total
+  setTimeout(function(){ if(typeof calc==='function') try{calc();}catch(e){} }, 250);
 };
 
 window._orcRevSyncPlanificador=function(){

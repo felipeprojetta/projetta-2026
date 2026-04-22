@@ -320,7 +320,13 @@ function calc(){
   const subFab=subAcm+subAlu+perfis+subMO;
 
   $('r-horas').textContent=totalH+' h';
-  var _osOK=window._osGeradoUmaVez;
+  // ★ Felipe 22/04 v5 (fix revestimento-only RESULTADO): _osGeradoUmaVez
+  //   só vira true ao clicar "Gerar OS" (Ordem de Servico de porta).
+  //   Revestimento nao tem OS, entao a flag nunca vira true e subFab/Tab/Fat
+  //   ficavam todos R$ 0,00 mesmo com R$ 18.085,40 em chapas calculadas.
+  //   Fix: _osOK inclui _revOnly — pra revestimento, exibir resultados
+  //   direto sem precisar de "Gerar OS".
+  var _osOK = window._osGeradoUmaVez || _revOnly;
   var _brlOS=function(v){return _osOK?brl(v):'—';};
   $('sub-acm').textContent=_brlOS(subAcm);
   $('sub-alu').textContent=_brlOS(subAlu);
@@ -332,7 +338,7 @@ function calc(){
   $('sub-mo').textContent=_brlOS(subMO);
   $('sub-h').textContent=totalH;
   $('sub-ch').textContent=cH;
-  $('r-fab').textContent=window._osGeradoUmaVez?brl(subFab):'—';
+  $('r-fab').textContent=_osOK?brl(subFab):'—';
 
   /* INSTALAÇÃO */
   // Auto-calc Dias de instalação — só quando OS foi gerada e altura preenchida
@@ -501,7 +507,7 @@ function calc(){
     $('sub-sal').textContent='—'; $('r-diesel').textContent='—'; $('r-hotel').textContent='—';
     $('sub-alim').textContent='—'; $('r-andaime').textContent='—'; $('sub-munk').textContent='—';
     $('sub-ped').textContent='—'; $('sub-terc').textContent='—';
-    $('r-inst').textContent=window._osGeradoUmaVez?brl(subInst):'—';
+    $('r-inst').textContent=_osOK?brl(subInst):'—';
   } else if(instQuem==='INTERNACIONAL'){
     var _intlCusto=typeof calcInstIntl==='function'?calcInstIntl():0;
     // Só inclui no resultado quando botão FINALIZAR foi clicado
@@ -520,28 +526,29 @@ function calc(){
   const subInst_calc=salarios+diesel+hotel+alimentacao+andaime+munk+pedagio+terceiros;
   subInst=subInst_calc;
 
-  $('sub-sal').textContent=window._osGeradoUmaVez?brl(salarios):'—';
+  $('sub-sal').textContent=_osOK?brl(salarios):'—';
   $('sub-desl').textContent=deslTotal; $('sub-dinst').textContent=diasInst; $('sub-dtot').textContent=diasTotal;
   $('sub-p').textContent=pessoas; $('sub-di').textContent=diaria;
-  $('r-diesel').textContent=window._osGeradoUmaVez?brl(diesel):'—';
-  $('r-hotel').textContent=window._osGeradoUmaVez?brl(hotel):'—';
+  $('r-diesel').textContent=_osOK?brl(diesel):'—';
+  $('r-hotel').textContent=_osOK?brl(hotel):'—';
   $('sub-noites').textContent=noites; $('sub-hdia').textContent=hotelDia; $('sub-qts').textContent=quartos;
-  $('sub-alim').textContent=window._osGeradoUmaVez?brl(alimentacao):'—';
+  $('sub-alim').textContent=_osOK?brl(alimentacao):'—';
   $('sub-ad').textContent=diasTotal; $('sub-ap').textContent=pessoas; $('sub-av').textContent=alimVal;
   $('sub-noites').textContent=noites;
   $('r-andaime').textContent=brl(andaime);
   $('andaime-note').textContent=andaime?'auto — altura > 3m':'não aplicável';
-  $('sub-munk').textContent=window._osGeradoUmaVez?brl(munk):'—';
-  $('sub-ped').textContent=window._osGeradoUmaVez?brl(pedagio):'—';
+  $('sub-munk').textContent=_osOK?brl(munk):'—';
+  $('sub-ped').textContent=_osOK?brl(pedagio):'—';
   if($('sub-ped-desc')) $('sub-ped-desc').textContent=pedagio>0?`R$0,15/km × ${km}km × 2`:'campo manual acima';
-  $('sub-terc').textContent=window._osGeradoUmaVez?brl(terceiros):'—';
-  $('r-inst').textContent=window._osGeradoUmaVez?brl(subInst):'—';
+  $('sub-terc').textContent=_osOK?brl(terceiros):'—';
+  $('r-inst').textContent=_osOK?brl(subInst):'—';
   } // close else (Projetta/Weiku)
 
   /* CUSTO TOTAL */
   const ov=n('overhead')/100;
-  var _subFabEfetivo=window._osGeradoUmaVez?subFab:0;
-  var _subInstEfetivo=window._osGeradoUmaVez?subInst:0;
+  // ★ _osOK (OS gerada OU revestimento-only) permite consolidar custo mesmo sem "Gerar OS"
+  var _subFabEfetivo=_osOK?subFab:0;
+  var _subInstEfetivo=_osOK?subInst:0;
   // Internacional: instalação separada, não entra no custo da porta
   var _isIntl=(document.getElementById('inst-quem')||{value:''}).value==='INTERNACIONAL';
   var _subInstNoCusto=_isIntl?0:_subInstEfetivo;
