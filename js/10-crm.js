@@ -1103,6 +1103,23 @@ window.crmSetView=function(v){
 };
 
 /* ── Nacional/Internacional ──────────────────────── */
+// ★ Helper (Felipe 22/04): o bloco crm-inst-internacional (pais + incoterm +
+//   caixa/fretes) tem que aparecer em qualquer uma das 2 situacoes:
+//   (a) scope da obra = internacional — clique no botao Internacional ja abre
+//       o Incoterm pra user escolher, mesmo que Quem Instala ainda nao esteja
+//       definido ou seja PROJETTA/TERCEIROS/SEM (a obra e internacional e
+//       precisa de incoterm/embalagem independente de quem executa)
+//   (b) Quem Instala = INTERNACIONAL — fluxo antigo preservado
+//   Chamada por crmSetScope e crmInstQuemChange.
+window._crmUpdateIntlVisibility=function(){
+  var intl=document.getElementById('crm-inst-internacional');
+  if(!intl) return;
+  var isScopeIntl=(_scope==='internacional');
+  var quemSel=document.getElementById('crm-o-inst-quem');
+  var isQuemIntl=quemSel && quemSel.value==='INTERNACIONAL';
+  intl.style.display=(isScopeIntl||isQuemIntl)?'':'none';
+};
+
 window.crmSetScope=function(scope){
   _scope=scope;
   var btnNac=el('crm-btn-nac');
@@ -1111,6 +1128,9 @@ window.crmSetScope=function(scope){
   if(btnIntl){btnIntl.style.background=scope==='internacional'?'#fff3e0':'#fff';btnIntl.style.fontWeight=scope==='internacional'?'800':'600';}
   var locNac=el('crm-loc-nacional');if(locNac)locNac.style.display=scope==='nacional'?'block':'none';
   var locIntl=el('crm-loc-internacional');if(locIntl)locIntl.style.display=scope==='internacional'?'block':'none';
+  // ★ Sincronizar visibilidade do bloco pais+incoterm+caixa com o scope,
+  //   sem alterar o valor escolhido em Quem Instala.
+  window._crmUpdateIntlVisibility();
 };
 
 /* ── CEP ─────────────────────────────────────────── */
@@ -1949,11 +1969,13 @@ window.crmItemFixoMaterial=function(id){
 window.crmInstQuemChange=function(){
   var sel=document.getElementById('crm-o-inst-quem');
   var terc=document.getElementById('crm-inst-terceiros');
-  var intl=document.getElementById('crm-inst-internacional');
   if(!sel)return;
   var v=sel.value;
   if(terc) terc.style.display=(v==='TERCEIROS')?'':'none';
-  if(intl) intl.style.display=(v==='INTERNACIONAL')?'':'none';
+  // Visibilidade do bloco internacional agora e OR(scope, quemInstala) — ver
+  // _crmUpdateIntlVisibility. Clique em botao Internacional tambem abre este
+  // bloco, sem precisar passar por Quem Instala.
+  window._crmUpdateIntlVisibility();
   if(v==='INTERNACIONAL'){ crmInstCalcIntl(); crmInstFetchCambio(); }
 }
 
