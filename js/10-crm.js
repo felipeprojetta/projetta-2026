@@ -1957,15 +1957,33 @@ window.crmInstQuemChange=function(){
   if(v==='INTERNACIONAL'){ crmInstCalcIntl(); crmInstFetchCambio(); }
 }
 
-// ★ Handler: mudança no dropdown Incoterm no card CRM. Quando CIF, mostrar
-//   bloco com campos de caixa madeira fumigada (L×A×E), frete terrestre e marítimo.
-//   Outros incoterms escondem o bloco.
+// ★ Handler: mudança no dropdown Incoterm no card CRM.
+//   CIF → mostrar caixa + frete terrestre + frete marítimo.
+//   FOB → mostrar caixa + frete terrestre (comprador paga marítimo, fica oculto).
+//   EXW/DAP/vazio → esconder bloco todo.
 window.crmIncotermChange=function(){
   var sel=document.getElementById('crm-o-inst-incoterm');
   var box=document.getElementById('crm-inst-cif-box');
   if(!sel||!box)return;
-  box.style.display=(sel.value==='CIF')?'':'none';
-  if(sel.value==='CIF') crmCifRecalc();
+  var v=sel.value;
+  var showBox=(v==='CIF'||v==='FOB');
+  box.style.display=showBox?'':'none';
+  if(!showBox) return;
+
+  // Ajustar título e rótulo do total conforme incoterm
+  var title=document.getElementById('crm-cif-box-title');
+  var totLbl=document.getElementById('crm-cif-total-label');
+  var marWrap=document.getElementById('crm-cif-maritimo-wrap');
+  if(v==='FOB'){
+    if(title) title.innerHTML='📦 Embalagem e Frete FOB (valores em USD)';
+    if(totLbl) totLbl.textContent='Total FOB (caixa + frete terrestre):';
+    if(marWrap) marWrap.style.display='none';
+  } else { // CIF
+    if(title) title.innerHTML='📦 Embalagem e Frete CIF (valores em USD)';
+    if(totLbl) totLbl.textContent='Total CIF (caixa + fretes):';
+    if(marWrap) marWrap.style.display='';
+  }
+  crmCifRecalc();
 }
 
 // ★ Recalcular custos CIF: volume da caixa (L×A×E em mm → m³) × US$ 110 +
@@ -1997,13 +2015,19 @@ window.crmCifRecalc=function(){
   }
   var fT=parseFloat((document.getElementById('crm-o-cif-frete-terrestre')||{value:0}).value)||0;
   var fM=parseFloat((document.getElementById('crm-o-cif-frete-maritimo')||{value:0}).value)||0;
+  // ★ Em FOB o comprador paga o marítimo, então zera aqui mesmo que o campo
+  //   tenha valor residual de quando estava em CIF.
+  var _incoterm=(document.getElementById('crm-o-inst-incoterm')||{value:''}).value;
+  if(_incoterm==='FOB') fM=0;
   var total=caixaUSD+fT+fM;
   var infoTot=document.getElementById('crm-cif-total-info');
   if(infoTot){
+    // Rótulo depende do incoterm: FOB não tem marítimo.
+    var _totLbl=(_incoterm==='FOB')?'Total FOB (caixa + frete terrestre):':'Total CIF (caixa + fretes):';
     if(total>0){
-      infoTot.innerHTML='Total CIF (caixa + fretes): <b style="color:#c47012">US$ '+total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b>';
+      infoTot.innerHTML=_totLbl+' <b style="color:#c47012">US$ '+total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b>';
     } else {
-      infoTot.innerHTML='Total CIF (caixa + fretes): US$ —';
+      infoTot.innerHTML=_totLbl+' US$ —';
     }
   }
 
