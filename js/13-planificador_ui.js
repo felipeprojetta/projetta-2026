@@ -2000,6 +2000,58 @@ function removeManualPiece(id){
   if(tb.children.length===0) document.getElementById('plan-manual-empty').style.display='';
   planUpd();
 }
+/* ★ Import Excel (Felipe 22/04) ────────────────────────────────────────
+   Planilha .xlsx/.xls/.csv com colunas PEÇA | LARGURA | ALTURA | QTD.
+   Primeira linha pode ser header (detectado por texto "peça"/"nome"/
+   "peca"/"descri"). Ignora linhas vazias ou com larg/alt <= 0. Usa
+   SheetJS (window.XLSX) já carregado pelo CDN no index.html. */
+window.importManualPiecesXLS=function(inp){
+  var f=inp.files&&inp.files[0]; if(!f) return;
+  if(typeof XLSX==='undefined'){alert('Biblioteca XLSX não carregada. Recarregue a página.');inp.value='';return;}
+  var reader=new FileReader();
+  reader.onerror=function(){alert('Erro ao ler o arquivo.');inp.value='';};
+  reader.onload=function(ev){
+    try{
+      var data=new Uint8Array(ev.target.result);
+      var wb=XLSX.read(data,{type:'array'});
+      var sheet=wb.Sheets[wb.SheetNames[0]];
+      if(!sheet){alert('Planilha vazia.');inp.value='';return;}
+      var rows=XLSX.utils.sheet_to_json(sheet,{header:1,raw:false,defval:''});
+      var headerSkipped=false, imported=0, skipped=0;
+      for(var i=0;i<rows.length;i++){
+        var r=rows[i]; if(!r||r.length===0) continue;
+        if(!headerSkipped){
+          headerSkipped=true;
+          var c0=(r[0]||'').toString().toLowerCase();
+          if(c0.indexOf('peç')>-1||c0.indexOf('peca')>-1||c0.indexOf('nome')>-1||c0.indexOf('descri')>-1) continue;
+        }
+        var nome=(r[0]||'').toString().trim();
+        var L=parseFloat((r[1]||'').toString().replace(',','.'))||0;
+        var A=parseFloat((r[2]||'').toString().replace(',','.'))||0;
+        var Q=parseInt((r[3]||1).toString().replace(/[^0-9]/g,''))||1;
+        if(L<=0||A<=0){skipped++;continue;}
+        addManualPiece();
+        var tbRows=document.getElementById('plan-manual-tbody').children;
+        var last=tbRows[tbRows.length-1], id=last.id;
+        document.getElementById(id+'-n').value=nome||('Peça '+(imported+1));
+        document.getElementById(id+'-w').value=L;
+        document.getElementById(id+'-h').value=A;
+        document.getElementById(id+'-q').value=Q;
+        imported++;
+      }
+      planUpd();
+      inp.value='';
+      var msg='✅ '+imported+' peça(s) importada(s).';
+      if(skipped>0) msg+='\n⚠ '+skipped+' linha(s) ignorada(s) (larg/alt inválidas).';
+      alert(msg);
+    }catch(err){
+      console.error('[importManualPiecesXLS]',err);
+      alert('Erro ao processar planilha: '+err.message+'\n\nFormato esperado:\nCol A = Nome · Col B = Largura (mm) · Col C = Altura (mm) · Col D = Qtd');
+      inp.value='';
+    }
+  };
+  reader.readAsArrayBuffer(f);
+};
 function getManualPieces(){
   var result=[];
   var rows=document.getElementById('plan-manual-tbody').children;

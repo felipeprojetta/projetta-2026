@@ -1722,6 +1722,99 @@ window._crmGetCorOptions=function(mode){
   return '<option value="">— Selecione —</option>';
 }
 
+/* ★ crmItemRevCalc (Felipe 22/04) ─────────────────────────────────────
+   Calculo ao vivo de Revestimento de Parede.
+   Regras:
+   - Chapa ACM 4mm: largura util 1490mm (limite 1500mm). Divide largura
+     em N chapas inteiras de 1490 + pedaço restante. Exemplo Felipe:
+     4500×3000 → 3×(1490×3000) + 1×(30×3000). Pedaço <= 5mm é ignorado
+     (inutilizável). Altura passa direto ate 3200mm; acima disso avisa.
+   - Ripado: cada ripa tem 90mm largura. Qtd ripas = ceil(largura/90).
+     Altura de cada ripa = altura do revestimento. Tubo padrão PA-51X25.
+   - Estrutura Alumínio: barras verticais a cada ~500mm + horizontais
+     topo e base. Tubo escolhido pelo user (dropdown).
+   - Fita dupla face 3M VHB: ~12m por m² de chapa (linha dupla).
+   - Silicone estrutural Dow Corning PRIME 995: ~25ml por m² chapa.
+   Ainda preliminar — Felipe vai refinar as formulas depois.
+*/
+window.crmItemRevCalc=function(itemId){
+  var pre='crmit-'+itemId+'-';
+  var _v=function(id){var e=document.getElementById(id);return e?(e.value||'').trim():'';};
+  var _n=function(id){return parseFloat(_v(id))||0;};
+
+  // Sync visibility do wrap do tubo com estrutura SIM/NAO
+  var estrutura=_v(pre+'rev_estrutura');
+  var wrap=document.getElementById(pre+'rev_tubo_wrap');
+  if(wrap) wrap.style.display=(estrutura==='SIM')?'':'none';
+
+  var L=_n(pre+'largura');
+  var A=_n(pre+'altura');
+  var Q=parseInt(_v(pre+'qtd'))||1;
+  var tipo=_v(pre+'rev_tipo')||'CHAPA';
+  var tubo=_v(pre+'rev_tubo')||'PA-51X25X1.5';
+
+  var info=document.getElementById(pre+'rev_info');
+  if(!info) return;
+  if(!L||!A){info.innerHTML='— Preencha Largura e Altura para calcular —';return;}
+
+  var LARG_CHAPA=1500, LARG_UTIL=1490;
+  var lines=[];
+  lines.push('<b>📐 Medidas:</b> '+L+'×'+A+'mm · Qtd: '+Q+' · Área unit: '+((L*A)/1e6).toFixed(2)+'m²');
+  lines.push('<b>📐 Área total:</b> '+((L*A*Q)/1e6).toFixed(2)+'m²');
+
+  if(tipo==='CHAPA'){
+    var nInt=Math.floor(L/LARG_UTIL);
+    var sobra=L-(nInt*LARG_UTIL);
+    var pedaco=sobra>5?sobra:0; // <=5mm considerado inutilizavel
+    var totChapas=(nInt+(pedaco>0?1:0))*Q;
+    var detalhe=nInt+'×(1490×'+A+')';
+    if(pedaco>0) detalhe+=' + 1×('+Math.round(pedaco)+'×'+A+')';
+    lines.push('<b>📋 Divisão de chapa:</b> '+detalhe+(Q>1?'  (por peça, total ×'+Q+')':''));
+    lines.push('<b>🪟 Chapas ACM 4mm:</b> '+totChapas+' un');
+    if(A>3200) lines.push('<span style="color:#c62828">⚠ Altura '+A+'mm excede 3200 — revisar divisão vertical</span>');
+    // Fita dupla face 3M VHB — estimativa 12m/m² (linhas paralelas a cada 300mm)
+    var fitaM=((L*A*Q)/1e6)*12;
+    lines.push('<b>🔖 Fita dupla face 3M VHB:</b> '+fitaM.toFixed(1)+' m');
+    // Silicone estrutural Dow Corning 995 PRIME — 25ml/m²
+    var silML=((L*A*Q)/1e6)*25;
+    var silTubos=Math.ceil(silML/300); // tubos de 300ml
+    lines.push('<b>🧴 Silicone Dow Corning 995 PRIME:</b> '+silML.toFixed(0)+' ml ('+silTubos+' tubo(s) 300ml)');
+  } else if(tipo==='RIPADO'){
+    var nRipas=Math.ceil(L/90);
+    var totRipas=nRipas*Q;
+    lines.push('<b>📋 Ripas (90mm cada):</b> '+nRipas+' un × '+A+'mm de altura'+(Q>1?'  (por peça, total ×'+Q+')':''));
+    lines.push('<b>🪵 Total ripas ACM:</b> '+totRipas+' un');
+  }
+
+  // Estrutura de aluminio (aplicavel a ambos tipos)
+  if(estrutura==='SIM'){
+    var tuboLabel=tubo.replace('PA-','').replace(/X/g,'×');
+    if(tipo==='RIPADO'){
+      // Montante vertical atras de cada 3a ripa (~270mm) + travessas topo e base
+      var nMontantes=Math.max(2, Math.ceil(L/270));
+      var metrosMontantes=(nMontantes*A/1000)*Q;
+      var metrosTravessas=(2*L/1000)*Q;
+      var totM=metrosMontantes+metrosTravessas;
+      var barras6m=Math.ceil(totM/6);
+      lines.push('<b>🏗️ Estrutura '+tuboLabel+':</b> '+nMontantes+' montante(s) × '+A+'mm + 2 travessas × '+L+'mm');
+      lines.push('&nbsp;&nbsp;&nbsp; → '+totM.toFixed(1)+'m total ('+barras6m+' barra(s) de 6m)');
+    } else { // CHAPA
+      // Quadro fixo: perimetro + divisoes verticais a cada 500mm
+      var nDiv=Math.max(0,Math.ceil(L/500)-1);
+      var metrosPerim=(2*(L+A)/1000)*Q;
+      var metrosDiv=(nDiv*A/1000)*Q;
+      var totM=metrosPerim+metrosDiv;
+      var barras6m=Math.ceil(totM/6);
+      lines.push('<b>🏗️ Estrutura '+tuboLabel+':</b> perímetro + '+nDiv+' divisão(ões) vertical a cada 500mm');
+      lines.push('&nbsp;&nbsp;&nbsp; → '+totM.toFixed(1)+'m total ('+barras6m+' barra(s) de 6m)');
+    }
+  } else {
+    lines.push('<span style="color:#888">ℹ Sem estrutura de alumínio — colagem direta na parede</span>');
+  }
+
+  info.innerHTML=lines.join('<br>');
+};
+
 window._crmSwitchCorMode=function(itemId){
   var pre='crmit-'+itemId+'-';
   // ★ Maciço (boiserie) só é aplicável em MODELO 23. Se modelo != 23,
@@ -1813,7 +1906,13 @@ window.crmItemRemove=function(id){
 // ── Auto-seleção por altura, modelo e fechadura digital ──
 window.crmItemAutoSelect=function(id){
   var item=_crmItens.find(function(i){return i.id===id;});
-  if(!item||item.tipo!=='porta_pivotante')return;
+  if(!item)return;
+  // ★ Se revestimento, delega para calculo especifico e sai.
+  if(item.tipo==='revestimento'){
+    if(typeof crmItemRevCalc==='function') crmItemRevCalc(id);
+    return;
+  }
+  if(item.tipo!=='porta_pivotante')return;
   var pre='crmit-'+id+'-';
   var H=parseInt((document.getElementById(pre+'altura')||{value:0}).value)||0;
   var modelo=(document.getElementById(pre+'modelo')||{value:''}).value;
@@ -2303,9 +2402,12 @@ window._crmItensRender=function(){
     h+='<div class="crm-item-body">';
     
     // Common fields: Qtd, Largura, Altura
+    // ★ Felipe 22/04: inputs comuns ganham oninput que dispara crmItemAutoSelect
+    //   — em revestimento isso delega pra crmItemRevCalc (ver crmItemAutoSelect).
+    //   Pra outros tipos o handler e no-op rapido.
     h+='<div class="crm-row">';
-    h+='<div class="crm-field"><label>Quantidade</label><input type="number" id="'+pre+'qtd" value="'+(item.qtd||1)+'" min="1" max="50"></div>';
-    h+='<div class="crm-field"><label>Largura (mm)</label><input type="number" id="'+pre+'largura" value="'+(item.largura||'')+'" placeholder="ex: 1996" min="200" max="5000" onwheel="event.preventDefault()"></div>';
+    h+='<div class="crm-field"><label>Quantidade</label><input type="number" id="'+pre+'qtd" value="'+(item.qtd||1)+'" min="1" max="50" oninput="crmItemAutoSelect(\''+item.id+'\')"></div>';
+    h+='<div class="crm-field"><label>Largura (mm)</label><input type="number" id="'+pre+'largura" value="'+(item.largura||'')+'" placeholder="ex: 1996" min="200" max="5000" oninput="crmItemAutoSelect(\''+item.id+'\')" onwheel="event.preventDefault()"></div>';
     h+='</div>';
     h+='<div class="crm-row">';
     h+='<div class="crm-field"><label>Altura (mm)</label><input type="number" id="'+pre+'altura" value="'+(item.altura||'')+'" placeholder="ex: 6174" min="200" max="8000" onchange="crmItemAutoSelect(\''+item.id+'\')" onwheel="event.preventDefault()"></div>';
@@ -2429,6 +2531,16 @@ window._crmItensRender=function(){
       h+='<div class="crm-field"><label>Folhas</label><select id="'+pre+'folhas_pi"><option value="1"'+(item.folhas_pi==='1'||!item.folhas_pi?' selected':'')+'>1 folha</option><option value="2"'+(item.folhas_pi==='2'?' selected':'')+'>2 folhas</option><option value="3"'+(item.folhas_pi==='3'?' selected':'')+'>3 folhas</option></select></div>';
       h+='<div class="crm-field"></div>';
       h+='</div>';
+    } else if(item.tipo==='revestimento'){
+      // ★ Revestimento de parede (Felipe 22/04) — CHAPA ACM 4mm ou RIPADO
+      h+='<div class="crm-field"><label>Tipo</label><select id="'+pre+'rev_tipo" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="CHAPA"'+(item.rev_tipo==='CHAPA'||!item.rev_tipo?' selected':'')+'>Chapa ACM 4mm</option><option value="RIPADO"'+(item.rev_tipo==='RIPADO'?' selected':'')+'>Ripado</option></select></div>';
+      h+='</div>';
+      h+='<div class="crm-row">';
+      h+='<div class="crm-field"><label>Estrutura de Alumínio?</label><select id="'+pre+'rev_estrutura" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="NAO"'+(item.rev_estrutura!=='SIM'?' selected':'')+'>Não</option><option value="SIM"'+(item.rev_estrutura==='SIM'?' selected':'')+'>Sim</option></select></div>';
+      h+='<div class="crm-field" id="'+pre+'rev_tubo_wrap" style="'+(item.rev_estrutura==='SIM'?'':'display:none')+'"><label>Tubo Estrutura</label><select id="'+pre+'rev_tubo" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="PA-51X25X1.5"'+(item.rev_tubo==='PA-51X25X1.5'||!item.rev_tubo?' selected':'')+'>51×25×1.5 (padrão ripado)</option><option value="PA-51X25X2.0"'+(item.rev_tubo==='PA-51X25X2.0'?' selected':'')+'>51×25×2.0</option><option value="PA-51X38X1.98"'+(item.rev_tubo==='PA-51X38X1.98'?' selected':'')+'>51×38×1.98</option><option value="PA-51X51X1.98"'+(item.rev_tubo==='PA-51X51X1.98'?' selected':'')+'>51×51×1.98</option><option value="PA-76X25X2.0"'+(item.rev_tubo==='PA-76X25X2.0'?' selected':'')+'>76×25×2.0</option><option value="PA-76X38X1.98"'+(item.rev_tubo==='PA-76X38X1.98'?' selected':'')+'>76×38×1.98</option></select></div>';
+      h+='</div>';
+      // Info box calculado em tempo real
+      h+='<div id="'+pre+'rev_info" style="margin-top:8px;background:#f0fbf0;border:1px solid #27ae60;border-radius:6px;padding:8px;font-size:10px;color:#1a5e1a;line-height:1.6;font-weight:600">— Preencha Largura e Altura para calcular —</div>';
     } else {
       h+='<div class="crm-field"></div></div>';
     }
