@@ -3198,6 +3198,21 @@ function orcItemSelecionar(idx){
   var it = window._orcItens[idx];
   orcItensRender();
   
+  // ★ Felipe 22/04: alternar card "Caracteristicas da porta" ↔ "Caracteristicas
+  //   do revestimento" conforme tipo do item. Para revestimento, tambem sincroniza
+  //   peças manuais do planificador automaticamente (_orcRevSyncPlanificador).
+  var _isRevSel = (it.tipo === 'revestimento');
+  var _cardPorta = document.getElementById('card-carac-porta');
+  var _cardRev = document.getElementById('card-carac-revestimento');
+  if(_cardPorta) _cardPorta.style.display = _isRevSel ? 'none' : '';
+  if(_cardRev)   _cardRev.style.display   = _isRevSel ? '' : 'none';
+  if(_isRevSel){
+    _orcRevPopularCard(it);
+    // Sync automatico pro planificador (ao trocar pra revestimento)
+    if(typeof _orcRevSyncPlanificador==='function') _orcRevSyncPlanificador();
+    return; // revestimento nao precisa do fluxo de restoreFormData/setF
+  }
+  
   // If item has saved form data, restore it
   if(it._formData && typeof restoreFormData === 'function'){
     restoreFormData(it._formData);
@@ -3293,6 +3308,129 @@ function orcItemSelecionar(idx){
     if(typeof _osAutoGenerate==='function') try{window._osAutoMode=true;_osAutoGenerate();window._osAutoMode=false;}catch(e){}
   }, 300);
 }
+
+/* ★ Helpers Revestimento no Orcamento (Felipe 22/04) ────────────────
+   _orcRevPopularCard(it): preenche os campos readonly + inputs do card
+     "Caracteristicas do Revestimento" com dados do item selecionado.
+   _orcRevSync(): disparado quando user edita Largura/Altura/Qtd no
+     card Orcamento — escreve de volta no _orcItens[idx] e re-sync
+     planificador.
+   _orcRevSyncPlanificador(): percorre todos _orcItens.tipo==='revestimento'
+     e adiciona/atualiza peças manuais na seção Peças Manuais do planificador.
+*/
+window._orcRevPopularCard=function(it){
+  if(!it) return;
+  var _v=function(id,val){var e=document.getElementById(id);if(e)e.value=(val==null?'':val);};
+  var _t=function(id,txt){var e=document.getElementById(id);if(e)e.textContent=txt;};
+  _v('rev-orc-largura', it.largura);
+  _v('rev-orc-altura', it.altura);
+  _v('rev-orc-qtd', it.qtd||1);
+  // Area
+  var _L=parseFloat(it.largura)||0, _A=parseFloat(it.altura)||0, _Q=parseInt(it.qtd)||1;
+  var _area=(_L&&_A)?((_L*_A*_Q)/1e6).toFixed(2)+' m²':'—';
+  _t('rev-orc-area', _area);
+  // Config (readonly)
+  var _tipoTxt=it.rev_tipo==='RIPADO'?'🪵 Ripado':'🪟 Chapa ACM 4mm';
+  _t('rev-orc-tipo-info', _tipoTxt);
+  var _estTxt=it.rev_estrutura==='SIM'?'✅ Sim':'❌ Não';
+  _t('rev-orc-estrutura-info', _estTxt);
+  var _tuboRow=document.getElementById('rev-orc-tubo-row');
+  if(_tuboRow) _tuboRow.style.display=(it.rev_estrutura==='SIM')?'':'none';
+  if(it.rev_estrutura==='SIM'){
+    var _tuboLbl=(it.rev_tubo||'PA-51X25X1.5').replace('PA-','').replace(/X/g,'×');
+    _t('rev-orc-tubo-info', _tuboLbl);
+  }
+  _t('rev-orc-cor-info', it.cor_ext||'—');
+  // Calculo detalhado: reusa a mesma logica do CRM (crmItemRevCalc grava no
+  // info div do card CRM). Aqui vamos renderizar um resumo simplificado.
+  _orcRevRenderCalc(it);
+};
+
+window._orcRevRenderCalc=function(it){
+  var calcEl=document.getElementById('rev-orc-calc');
+  if(!calcEl) return;
+  var L=parseFloat(it.largura)||0, A=parseFloat(it.altura)||0, Q=parseInt(it.qtd)||1;
+  if(!L||!A){calcEl.innerHTML='— Preencha Largura e Altura —';return;}
+  var lines=[];
+  var areaTot=(L*A*Q)/1e6;
+  lines.push('<b>📐 Area total:</b> '+areaTot.toFixed(2)+' m²  <small style="color:#888">('+Q+' peça(s) de '+L+'×'+A+'mm)</small>');
+  if(it.rev_tipo==='RIPADO'){
+    var nRipas=Math.ceil(L/90), totRipas=nRipas*Q;
+    lines.push('<b>🪵 Ripas (90mm):</b> '+nRipas+' por peça · '+totRipas+' total');
+    var _chAlt=5000; if(A>4990) _chAlt=6000; if(A>5990) _chAlt=7000;
+    if(A<=6990){
+      var _rPChapa=Math.floor(1490/90)*Math.floor(_chAlt/A);
+      var _nCh=Math.ceil(totRipas/_rPChapa);
+      lines.push('<b>🪟 Chapas (1500×'+_chAlt+'mm):</b> '+_nCh+' un');
+    }
+  } else {
+    var nInt=Math.floor(L/1490), sobra=L-(nInt*1490), pedaco=sobra>5?sobra:0;
+    var totCh=(nInt+(pedaco>0?1:0))*Q;
+    var det=nInt+'×(1490×'+A+')'+(pedaco>0?' + 1×('+Math.round(pedaco)+'×'+A+')':'');
+    lines.push('<b>🪟 Chapas ACM 4mm:</b> '+totCh+' un  <small style="color:#888">('+det+')</small>');
+  }
+  var fitaM=areaTot*12;
+  lines.push('<b>🔖 Fita 3M VHB:</b> '+fitaM.toFixed(1)+' m');
+  var silML=areaTot*25, silTub=Math.ceil(silML/300);
+  lines.push('<b>🧴 Silicone Dow 995 PRIME:</b> '+silML.toFixed(0)+' ml ('+silTub+' tubo(s) 300ml)');
+  calcEl.innerHTML=lines.join('<br>');
+};
+
+window._orcRevSync=function(){
+  if(window._orcItemAtual==null || window._orcItemAtual<0) return;
+  var it=window._orcItens[window._orcItemAtual];
+  if(!it || it.tipo!=='revestimento') return;
+  var L=parseFloat((document.getElementById('rev-orc-largura')||{value:0}).value)||0;
+  var A=parseFloat((document.getElementById('rev-orc-altura')||{value:0}).value)||0;
+  var Q=parseInt((document.getElementById('rev-orc-qtd')||{value:1}).value)||1;
+  it.largura=L; it.altura=A; it.qtd=Q;
+  // Atualiza area + recalcula
+  var _t=function(id,txt){var e=document.getElementById(id);if(e)e.textContent=txt;};
+  var _area=(L&&A)?((L*A*Q)/1e6).toFixed(2)+' m²':'—';
+  _t('rev-orc-area', _area);
+  _orcRevRenderCalc(it);
+  // Sync bar de itens no topo (pra mostrar dimensoes novas)
+  if(typeof orcItensRender==='function') orcItensRender();
+  // Sync planificador
+  _orcRevSyncPlanificador();
+};
+
+window._orcRevSyncPlanificador=function(){
+  // ★ Felipe 22/04: popular peças manuais do planificador com as medidas
+  //   de TODOS os itens revestimento do orcamento. Rotula cada peca com
+  //   'REV Nn' para facilitar identificacao. Remove peças REV residuais
+  //   antes de reinserir (idempotente).
+  if(!window._orcItens) return;
+  var tbody=document.getElementById('plan-manual-tbody');
+  if(!tbody) return;
+  // Limpar linhas REV* existentes (mantendo as demais peças manuais do user)
+  var rows=Array.from(tbody.children);
+  rows.forEach(function(r){
+    var nameInput=r.querySelector('input[id$="-n"]');
+    if(nameInput && /^REV\s/i.test(nameInput.value||'')){
+      r.remove();
+    }
+  });
+  // Adicionar peças revestimento atuais
+  var revs=window._orcItens.filter(function(it){return it.tipo==='revestimento' && it.largura>0 && it.altura>0;});
+  revs.forEach(function(it,i){
+    if(typeof addManualPiece==='function') addManualPiece();
+    var tbRows=tbody.children;
+    var last=tbRows[tbRows.length-1];
+    if(!last) return;
+    var id=last.id;
+    var _setVal=function(suf,v){var e=document.getElementById(id+suf);if(e)e.value=v;};
+    _setVal('-n','REV '+(i+1));
+    _setVal('-w',it.largura);
+    _setVal('-h',it.altura);
+    _setVal('-q',it.qtd||1);
+  });
+  // Trigger planUpd uma unica vez
+  if(typeof planUpd==='function') try{planUpd();}catch(e){}
+  // Esconder texto de empty se ha peças
+  var empty=document.getElementById('plan-manual-empty');
+  if(empty) empty.style.display=(tbody.children.length>0)?'none':'';
+};
 
 // Backward compat: restore form data
 function restoreFormData(data){
