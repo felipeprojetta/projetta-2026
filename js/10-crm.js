@@ -3396,10 +3396,19 @@ window._orcRevSync=function(){
 };
 
 window._orcRevSyncPlanificador=function(){
-  // ★ Felipe 22/04: popular peças manuais do planificador com as medidas
-  //   de TODOS os itens revestimento do orcamento. Rotula cada peca com
-  //   'REV Nn' para facilitar identificacao. Remove peças REV residuais
-  //   antes de reinserir (idempotente).
+  // ★ Felipe 22/04 v2 (fix pre-cut): popular peças manuais do planificador
+  //   com as PEÇAS DE CORTE REAIS de cada revestimento — não com as dimensões
+  //   brutas do painel. Sem esse pre-cut, um revestimento 4500×3000 virava
+  //   1 peça 4500×3000 que não cabia em chapa 1500×3000 → planificador
+  //   silenciava, nada era nestado.
+  //
+  //   Regra de corte (mesma do crmItemRevCalc):
+  //   • CHAPA ACM 4mm: divide L por 1490 (largura útil). N chapas inteiras
+  //     de 1490×A + 1 pedaço (L−N×1490)×A quando sobra >5mm.
+  //   • RIPADO: ripas de 90mm × A. Total de ripas = ceil(L/90).
+  //
+  //   Rótulos 'REV N CHAPA', 'REV N SOBRA', 'REV N RIPA' — filtro idempotente
+  //   /^REV\s/ cobre todos. Cada revestimento vira 1-2 linhas em Peças Manuais.
   if(!window._orcItens) return;
   var tbody=document.getElementById('plan-manual-tbody');
   if(!tbody) return;
@@ -3411,19 +3420,36 @@ window._orcRevSyncPlanificador=function(){
       r.remove();
     }
   });
-  // Adicionar peças revestimento atuais
-  var revs=window._orcItens.filter(function(it){return it.tipo==='revestimento' && it.largura>0 && it.altura>0;});
-  revs.forEach(function(it,i){
-    if(typeof addManualPiece==='function') addManualPiece();
+  // Adicionar peças revestimento atuais — pre-cut conforme tipo
+  var LARG_UTIL=1490;
+  function _addRow(nome, w, h, qty){
+    if(typeof addManualPiece!=='function' || !(w>0) || !(h>0) || !(qty>0)) return;
+    addManualPiece();
     var tbRows=tbody.children;
     var last=tbRows[tbRows.length-1];
     if(!last) return;
     var id=last.id;
     var _setVal=function(suf,v){var e=document.getElementById(id+suf);if(e)e.value=v;};
-    _setVal('-n','REV '+(i+1));
-    _setVal('-w',it.largura);
-    _setVal('-h',it.altura);
-    _setVal('-q',it.qtd||1);
+    _setVal('-n', nome);
+    _setVal('-w', w);
+    _setVal('-h', h);
+    _setVal('-q', qty);
+  }
+  var revs=window._orcItens.filter(function(it){return it.tipo==='revestimento' && it.largura>0 && it.altura>0;});
+  revs.forEach(function(it,i){
+    var L=parseFloat(it.largura)||0, A=parseFloat(it.altura)||0, Q=parseInt(it.qtd)||1;
+    var tipo=it.rev_tipo||'CHAPA';
+    var revNum=i+1;
+    if(tipo==='CHAPA'){
+      var nInt=Math.floor(L/LARG_UTIL);
+      var sobra=L-(nInt*LARG_UTIL);
+      var pedaco=sobra>5?sobra:0;
+      if(nInt>0) _addRow('REV '+revNum+' CHAPA', LARG_UTIL, A, nInt*Q);
+      if(pedaco>0) _addRow('REV '+revNum+' SOBRA', Math.round(pedaco), A, Q);
+    } else if(tipo==='RIPADO'){
+      var nRipas=Math.ceil(L/90);
+      if(nRipas>0) _addRow('REV '+revNum+' RIPA', 90, A, nRipas*Q);
+    }
   });
   // Trigger planUpd uma unica vez
   if(typeof planUpd==='function') try{planUpd();}catch(e){}

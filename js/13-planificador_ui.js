@@ -1326,6 +1326,15 @@ function planUpd() {
     //   auto-sync de 1 porta + 1 fixo vira _mpItens=1), o fixo era
     //   ignorado. Agora usa _coletarPecasFixo que já anexa _cor.
     pieces = pieces.concat(_coletarPecasFixo(Lv, Av, Mv));
+
+    // ★ Felipe 22/04 (fix revestimento no multi-porta): peças manuais
+    //   inseridas via _orcRevSyncPlanificador (revestimentos pre-cut) OU
+    //   qualquer peça manual adicionada pelo user também precisa entrar
+    //   no branch multi-porta. Antes eram silenciosamente descartadas
+    //   quando _mpItens>0 e os revestimentos nunca chegavam a nestar
+    //   na aba Levantamento de Superfícies.
+    manualP=(typeof getManualPieces==='function')?getManualPieces():[];
+    for(var _mi=0;_mi<manualP.length;_mi++) pieces.push(manualP[_mi]);
   } else {
     if(Mv&&Lv>0&&Av>0){
       var Fv=parseInt(document.getElementById('plan-folhas').value)||1;
