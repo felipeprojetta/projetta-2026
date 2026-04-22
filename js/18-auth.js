@@ -1212,7 +1212,7 @@ function _populatePropostaItens(){
       var _caixaDim = Math.round(_cifData.caixaL)+'×'+Math.round(_cifData.caixaA)+'×'+Math.round(_cifData.caixaE)+'mm';
       tableHtml+='<tr style="background:#fff8f0">'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+_nextIdx.toString().padStart(2,'0')+'</td>'
-        +'<td style="padding:4px 8px;border:1px solid #ccc">🚢 '+_L_CAIXA+' <span style="font-size:9px;color:#666">('+_cifData.volM3.toFixed(3)+' m³)</span></td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc">📦 '+_L_CAIXA+' <span style="font-size:9px;color:#666">('+_cifData.volM3.toFixed(3)+' m³)</span></td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-size:9px">'+_caixaDim+'</td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">1</td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_caixaBRL, 'Caixa')+'</td>'
@@ -1240,7 +1240,7 @@ function _populatePropostaItens(){
       var _fMBRL = _cifData.freteMaritimoUSD * _cambioCif;
       tableHtml+='<tr style="background:#fff8f0">'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+_nextIdx.toString().padStart(2,'0')+'</td>'
-        +'<td style="padding:4px 8px;border:1px solid #ccc">⚓ '+_L_FRETE_M+'</td>'
+        +'<td style="padding:4px 8px;border:1px solid #ccc">🚢 '+_L_FRETE_M+'</td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">—</td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">1</td>'
         +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_fMBRL, 'Frete Marítimo')+'</td>'

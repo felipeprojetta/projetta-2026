@@ -1041,7 +1041,6 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
           <option value="EXW">EXW — Ex Works (Na Fábrica — comprador arca com todo transporte)</option>
           <option value="FOB">FOB — Free On Board (Livre a Bordo — Projetta entrega até porto de embarque)</option>
           <option value="CIF">CIF — Cost, Insurance &amp; Freight (Custo, Seguro e Frete — Projetta paga caixa + frete até porto destino)</option>
-          <option value="DAP">DAP — Delivered At Place (Entregue no Local — Projetta paga tudo até endereço final)</option>
         </select>
       </div>
 
@@ -1052,9 +1051,9 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
         <div id="crm-cif-box-title" style="font-size:10px;font-weight:700;color:#e65100;margin-bottom:6px">📦 Embalagem e Frete CIF (valores em USD)</div>
         <div style="font-size:9px;color:#666;margin-bottom:6px;font-style:italic">Informe as dimensões da caixa de madeira fumigada. Volume (m³) × taxa USD/m³ = custo da caixa.</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <div class="crm-field" style="flex:1;min-width:70px"><label>Caixa A (mm)</label><input type="number" id="crm-o-cif-caixa-a" placeholder="3500" min="0" step="1" oninput="crmCifRecalc()"></div>
-          <div class="crm-field" style="flex:1;min-width:70px"><label>Caixa L (mm)</label><input type="number" id="crm-o-cif-caixa-l" placeholder="2000" min="0" step="1" oninput="crmCifRecalc()"></div>
-          <div class="crm-field" style="flex:1;min-width:70px"><label>Caixa Esp (mm)</label><input type="number" id="crm-o-cif-caixa-e" placeholder="200" min="0" step="1" oninput="crmCifRecalc()"></div>
+          <div class="crm-field" style="flex:1;min-width:90px"><label>Altura (mm)</label><input type="number" id="crm-o-cif-caixa-a" placeholder="3500" min="0" step="1" oninput="crmCifRecalc()"></div>
+          <div class="crm-field" style="flex:1;min-width:90px"><label>Largura (mm)</label><input type="number" id="crm-o-cif-caixa-l" placeholder="2000" min="0" step="1" oninput="crmCifRecalc()"></div>
+          <div class="crm-field" style="flex:1;min-width:90px"><label>Espessura (mm)</label><input type="number" id="crm-o-cif-caixa-e" placeholder="200" min="0" step="1" oninput="crmCifRecalc()"></div>
           <div class="crm-field" style="flex:1;min-width:70px"><label>US$/m³</label><input type="number" id="crm-o-cif-caixa-taxa" placeholder="100" min="0" step="1" value="100" oninput="crmCifRecalc()" title="Taxa USD por m³ da caixa — ajuste conforme cotação do fornecedor"></div>
         </div>
         <div id="crm-cif-caixa-info" style="font-size:10px;color:#333;margin-top:4px;font-weight:600">Volume: — m³ · Caixa: US$ —</div>

@@ -1705,7 +1705,7 @@ var CRM_ITEM_TYPES = {
   porta_pivotante: {label:'Porta Pivotante', icon:'🚪', desc:'Porta de entrada com pivô'},
   fixo:            {label:'Fixo / Lateral',   icon:'🔲', desc:'Vidro fixo, lateral ou bandeira'},
   porta_interna:   {label:'Porta Interna',    icon:'🚪', desc:'Porta interna giro ou correr'},
-  revestimento:    {label:'Revestimento',     icon:'🧱', desc:'Em breve', disabled:true}
+  revestimento:    {label:'Revestimento',     icon:'🧱', desc:'Painel de revestimento ACM/Alumínio'}
 };
 
 window._crmGetCorOptions=function(mode){
@@ -1786,6 +1786,15 @@ window.crmItemCreate=function(tipo){
   }
   if(tipo==='porta_interna'){
     item.sistema_pi='GIRO';item.folhas_pi='1';
+  }
+  if(tipo==='revestimento'){
+    // ★ Revestimento (Felipe 22/04): painel independente de ACM ou Aluminio
+    //   Maciço. Defaults conservadores — ACM 4mm, 1 lado, sem estrutura.
+    //   Campos especificos ainda a definir; usa o mesmo branch 'else' do
+    //   renderer por enquanto (qtd + dimensoes + cor).
+    item.tipo_material='ACM';
+    item.revestimento_lados='1';
+    item.tem_estrutura='NÃO';
   }
   _crmItens.push(item);
   _crmItensRender();
