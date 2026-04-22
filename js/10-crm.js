@@ -2413,6 +2413,9 @@ window._crmItensSaveFromDOM=function(){
     if(item.tipo==='porta_pivotante') fields=fields.concat(['modelo','abertura','folhas','fech_mec','fech_dig','cilindro','puxador','pux_tam','dist_borda_cava','largura_cava','cantoneira_cava','dist_borda_friso','largura_friso','friso_h_qty','friso_h_esp','friso_v_qty','refilado','moldura_rev','moldura_larg_qty','moldura_alt_qty','moldura_tipo','moldura_dis1','moldura_dis2','moldura_dis3','moldura_divisao','ripado_total','ripado_2lados']);
     if(item.tipo==='fixo') fields=fields.concat(['tipo_fixacao','tipo_vidro','revestimento_lados','tem_estrutura','tipo_material']);
     if(item.tipo==='porta_interna') fields=fields.concat(['sistema_pi','folhas_pi']);
+    // ★ Felipe 22/04: campos especificos do revestimento — sem isso o
+    //   crmItemRevAddChapa nao preserva a config ao duplicar.
+    if(item.tipo==='revestimento') fields=fields.concat(['rev_tipo','rev_estrutura','rev_tubo']);
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el) item[f]=el.value;
