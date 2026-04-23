@@ -1481,7 +1481,18 @@ function _getCorCode(){
 function _autoSelectAndRun(){
   // Multi-porta: bypass _isModelReady (peças já calculadas por _mpCalcAllPiecesCombined)
   if(!(window._mpItens&&window._mpItens.length>0)){
-    if(!_isModelReady()) return;
+    // ★ Felipe 23/04: bypass também quando só tem revestimentos (sem porta).
+    //   Sem porta, L/H inputs e plan-modelo ficam vazios -> _isModelReady
+    //   retorna false -> _autoSelectAndRun abortava -> simulação de chapas
+    //   não aparecia. Pieces serão apenas os manuais (REV N RIPA/FUNDO).
+    var _temRevAtivo = (window._orcItens||[]).some(function(it){
+      return it.tipo==='revestimento' && (it.largura||0)>0 && (it.altura||0)>0;
+    });
+    var _temPortaFixoAuto = (window._orcItens||[]).some(function(it){
+      return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';
+    });
+    var _isRevOnlyAuto = !_temPortaFixoAuto && _temRevAtivo;
+    if(!_isRevOnlyAuto && !_isModelReady()) return;
   }
 
   var Lv=parseFloat(document.getElementById('largura').value)||0;
@@ -1917,6 +1928,12 @@ window._selectChapaSimByCor = function(corKey, sw, sh){
     if(typeof _renderSimCards === 'function' && window._simData){
       _renderSimCards(window._simData.selSH);
     }
+    // ★ Felipe 23/04: propagar troca pros widgets dependentes
+    if(typeof _updateResumoObra==='function') try{_updateResumoObra();}catch(e){}
+    if(typeof window._orcRevRenderCalc==='function' && window._orcItens){
+      var _curIt = window._orcItens[window._orcItemAtual] || window._orcItens[0];
+      if(_curIt) try{window._orcRevRenderCalc(_curIt);}catch(e){}
+    }
   }, 120);
 };
 
@@ -1959,6 +1976,15 @@ function _selectChapaSim(sheetH, numChapas){
     if(typeof _syncChapaToOrc==='function') _syncChapaToOrc();
     if(typeof _updateFabChapaResumo==='function') _updateFabChapaResumo();
     if(typeof calc==='function') calc();
+    // ★ Felipe 23/04: após troca de tamanho, atualizar TODAS as abas/widgets
+    //   dependentes (sem precisar fazer manual):
+    //   - Materiais Calculados do revestimento (rev-orc-calc)
+    //   - Resumo da Obra (esquadrias, chapas, custo)
+    if(typeof _updateResumoObra==='function') try{_updateResumoObra();}catch(e){}
+    if(typeof window._orcRevRenderCalc==='function' && window._orcItens){
+      var _curIt = window._orcItens[window._orcItemAtual] || window._orcItens[0];
+      if(_curIt) try{window._orcRevRenderCalc(_curIt);}catch(e){}
+    }
   },200);
 }
 

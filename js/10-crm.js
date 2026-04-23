@@ -3514,6 +3514,13 @@ window._orcRevRenderCalc=function(it){
   var fitaTot=areaTotGeral*12;
   var silMLTot=areaTotGeral*25;
   var silTubTot=Math.ceil(silMLTot/300);
+  // ★ Felipe 23/04: Fita dupla face ESPECÍFICA pros tubos PA-51×25×1.5 das
+  //   ripas. Fórmula: (qtd_tubos × comp_tubo_em_metros × 2 lados) / 20m/rolo.
+  //   Ex: 68 tubos × 0.5m × 2 = 68m / 20 = 3.4 → 4 rolos.
+  //   Soma ao fitaTot (área) pra o custo/material aparecer consolidado.
+  var fitaTubosM=totTubos5112Rip*0.5*2; // metros lineares
+  var fitaTotComTubos=fitaTot+fitaTubosM;
+  var fitaRolos=Math.ceil(fitaTotComTubos/20);
 
   var lines=[];
   lines.push('<b>📐 Área total do orçamento:</b> '+areaTotGeral.toFixed(2)+' m²  <small style="color:#888">('+revs.length+' item(s) de revestimento)</small>');
@@ -3533,7 +3540,12 @@ window._orcRevRenderCalc=function(it){
   if(totTubos5112Rip>0){
     lines.push('<b>🔩 Tubos PA-51×25 (total):</b> '+totTubos5112Rip+' un × 500mm');
   }
-  lines.push('<b>🔖 Fita 3M VHB (total):</b> '+fitaTot.toFixed(1)+' m');
+  if(totTubos5112Rip>0){
+    var _linhasFita='<b>🔖 Fita 3M VHB (total):</b> '+fitaRolos+' rolo'+(fitaRolos!==1?'s':'')+' × 20m <small style="color:#888">('+fitaTot.toFixed(1)+'m área + '+fitaTubosM.toFixed(1)+'m tubos = '+fitaTotComTubos.toFixed(1)+'m)</small>';
+    lines.push(_linhasFita);
+  } else {
+    lines.push('<b>🔖 Fita 3M VHB (total):</b> '+fitaRolos+' rolo'+(fitaRolos!==1?'s':'')+' × 20m <small style="color:#888">('+fitaTot.toFixed(1)+'m)</small>');
+  }
   lines.push('<b>🧴 Silicone Dow 995 PRIME (total):</b> '+silMLTot.toFixed(0)+' ml ('+silTubTot+' tubo(s) 300ml)');
 
   // Breakdown compacto (apenas se mais de 1 item, senao ja viu tudo acima)
