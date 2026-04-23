@@ -531,7 +531,10 @@ window.freteOpenCalc=function(){
       $('frete-calc-fcl-wrap').style.display = (tipoSel.value === 'FCL') ? '' : 'none';
       buildRotaOptions(cfg);
       $('frete-calc-rota').value = stored.rotaId;
-      if(stored.cbm) $('frete-calc-cbm').value = stored.cbm;
+      // Felipe 24/04: CBM vem SEMPRE da caixa atual (nao do localStorage antigo).
+      // cbmDaCaixa() reflete as dimensoes auto-calculadas; sobrescrever com stored.cbm
+      // trazia o valor de uma sessao anterior. Fallback pra stored so se caixa=0.
+      if(cbmAuto <= 0 && stored.cbm) $('frete-calc-cbm').value = stored.cbm;
       if(stored.dap != null) $('frete-calc-dap').value = stored.dap;
       if(stored.oversize != null) $('frete-calc-oversize').value = stored.oversize;
       if(stored.iofOn != null) $('frete-calc-iof-on').checked = stored.iofOn;
