@@ -19,6 +19,9 @@ function zerarValores(){
   window._pendingRevision=false;
   _persistSession();
   window._crmOrcCardId=null;
+  // ★ Felipe 23/04: resetar scope do card pra não ficar travado em internacional
+  window._crmScope=null;
+  if(document.body) document.body.removeAttribute('data-scope');
   // 3. Esconder banner
   var curBanner=document.getElementById('cur-banner');
   if(curBanner) curBanner.classList.remove('show');
@@ -66,6 +69,9 @@ function newOrcamento(){
   try{localStorage.removeItem(AUTOSAVE_KEY);}catch(e){}
   // Limpar vínculo CRM
   window._crmOrcCardId=null;
+  // ★ Felipe 23/04: resetar scope do card
+  window._crmScope=null;
+  if(document.body) document.body.removeAttribute('data-scope');
   var crmBtn=document.getElementById('crm-orc-pronto-btn');if(crmBtn)crmBtn.style.display='none';
   resetToDefaults();
   var ind=document.getElementById('autosave-ind');

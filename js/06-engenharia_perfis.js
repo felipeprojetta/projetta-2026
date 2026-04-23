@@ -73,7 +73,8 @@ const CONJUNTOS_PERFIS = {
 
 function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   // ── Parâmetros: lê da fase do projeto (Orçamento/Produção) ──────────────────
-  var _isIntlSis=(document.getElementById('inst-quem')||{value:''}).value==='INTERNACIONAL';
+  // ★ Felipe 23/04: _isInternacional() (scope card CRM, fallback inst-quem)
+  var _isIntlSis=(typeof _isInternacional==='function')?_isInternacional():((document.getElementById('inst-quem')||{value:''}).value==='INTERNACIONAL');
   var _p = (typeof _getParams === 'function') ? _getParams() : {FGA:10,FGL:10,FGR:10,PIV:28,TRANS:8,VED:35,TUB:_isIntlSis?50.8:(H>=4000?50.8:38.1),sis:_isIntlSis?'PA007':(H>=4000?'PA007':'PA006')};
   var TUB = _p.TUB;
   var sis = _p.sis;

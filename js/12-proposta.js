@@ -455,10 +455,14 @@ function populateProposta(){
 
   // ═══════════════════════════════════════════════════════════════════
   // INTERNACIONAL: detecção + tradução + formato BRL+USD
-  // Quando inst-quem==='INTERNACIONAL', proposta sai completamente em
-  // inglês com valores "R$ X · US$ Y".
+  // ★ Felipe 23/04: fonte da verdade e o SCOPE do card CRM (botão BR Nacional
+  // / 🌍 Internacional no modal Editar Oportunidade). NÃO o "quem vai
+  // instalar" — pois pode vender pra fora sem a Projetta instalar
+  // (inst-quem=SEM/TERCEIROS mas ainda internacional).
   // ═══════════════════════════════════════════════════════════════════
-  var _isIntlProp = (document.getElementById('inst-quem')||{value:''}).value === 'INTERNACIONAL';
+  var _isIntlProp = (typeof _isInternacional==='function')
+    ? _isInternacional()
+    : (window._crmScope === 'internacional' || (document.getElementById('inst-quem')||{value:''}).value === 'INTERNACIONAL');
   var _PROP_LANG = _isIntlProp ? 'en' : 'pt';
   // Câmbio (usado só quando internacional)
   var _cambioProp = parseFloat((document.getElementById('inst-intl-cambio')||{value:5.20}).value)||5.20;
@@ -2351,10 +2355,68 @@ function _populatePlanChapaSelects(){
   if(typeof filtrarChapasACM==='function') filtrarChapasACM();
 }
 
+/* ★ Felipe 23/04: Filtrar dropdown plan-chapa pelos tamanhos QUE EXISTEM na
+   cor selecionada em carac-cor-ext. Antes mostrava tamanhos fixos (hardcoded
+   no HTML) incluindo Alusense, mesmo quando a cor escolhida era WOOD CASTANHA
+   COSTAL (que só tem 1500×5000/5100/6000/7000). Agora o dropdown mostra APENAS
+   os tamanhos disponíveis pra cor atual. */
+function _filterPlanChapaByCor(){
+  var corEl = document.getElementById('carac-cor-ext');
+  var planChapa = document.getElementById('plan-chapa');
+  if(!planChapa || typeof ACM_DATA === 'undefined') return;
+  if(!corEl || !corEl.value){ return; /* sem cor: mantém options do HTML */ }
+  var corFull = corEl.value.trim().toUpperCase();
+  // Buscar todos os tamanhos de ACM_DATA que pertencem a essa cor (nome completo)
+  var sizes = [];
+  var seen = {};
+  ACM_DATA.forEach(function(grp){
+    (grp.o || []).forEach(function(entry){
+      var label = (entry.l || '').toUpperCase();
+      var parts = label.split('·');
+      var name = (parts[0]||'').trim();
+      if(name === corFull && parts[1]){
+        var m = parts[1].trim().match(/(\d+)\s*[×xX]\s*(\d+)/);
+        if(m){
+          var key = m[1]+'|'+m[2];
+          if(!seen[key]){ sizes.push({w:m[1],h:m[2],key:key}); seen[key]=1; }
+        }
+      }
+    });
+  });
+  if(sizes.length === 0){
+    console.log('[PlanChapa] Cor "'+corFull+'" sem tamanhos em ACM_DATA — dropdown mantido');
+    return;
+  }
+  // Preservar valor atual
+  var currentVal = planChapa.value;
+  // Reconstruir options
+  var html = '';
+  sizes.forEach(function(s){
+    html += '<option value="'+s.key+'">'+s.w+' × '+s.h+' mm</option>';
+  });
+  html += '<option value="custom">✏️ Personalizado</option>';
+  planChapa.innerHTML = html;
+  // Restaurar seleção se válida, senão primeira
+  var found = false;
+  for(var i=0;i<planChapa.options.length;i++){
+    if(planChapa.options[i].value === currentVal){
+      planChapa.selectedIndex = i;
+      found = true;
+      break;
+    }
+  }
+  if(!found) planChapa.selectedIndex = 0;
+  console.log('[PlanChapa] Filtrado pela cor "'+corFull+'": '+sizes.length+' tamanhos');
+}
+window._filterPlanChapaByCor = _filterPlanChapaByCor;
+
 function _syncCorToChapa(){
   var el=document.getElementById('carac-cor-ext');
   if(!el||!el.value) return;
   var corName=el.value.trim().toUpperCase();
+  // ★ Felipe 23/04: FILTRAR dropdown plan-chapa pelos tamanhos disponíveis
+  //   na cor selecionada (remove Alusense, cores sem esse tamanho, etc.)
+  if(typeof _filterPlanChapaByCor==='function') try{ _filterPlanChapaByCor(); }catch(e){}
   // Ensure ACM options are filtered for current sheet size
   if(typeof filtrarChapasACM==='function') filtrarChapasACM();
   var planAcm=document.getElementById('plan-acm-cor');

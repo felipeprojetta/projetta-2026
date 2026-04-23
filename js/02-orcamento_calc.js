@@ -572,7 +572,8 @@ function calc(){
   var _subFabEfetivo=_osOK?subFab:0;
   var _subInstEfetivo=_osOK?subInst:0;
   // Internacional: instalação separada, não entra no custo da porta
-  var _isIntl=(document.getElementById('inst-quem')||{value:''}).value==='INTERNACIONAL';
+  // ★ Felipe 23/04: fonte da verdade = scope do card CRM, via _isInternacional()
+  var _isIntl=(typeof _isInternacional==='function')?_isInternacional():((document.getElementById('inst-quem')||{value:''}).value==='INTERNACIONAL');
   var _subInstNoCusto=_isIntl?0:_subInstEfetivo;
   const custo=_subFabEfetivo+_subInstNoCusto+(_subFabEfetivo+_subInstNoCusto)*ov;
   $('m-custo').textContent=brl(custo);

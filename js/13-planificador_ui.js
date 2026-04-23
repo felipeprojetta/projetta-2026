@@ -1416,7 +1416,21 @@ function _isModelReady(){
 }
 
 /* ── AUTO-SELECAO FECHADURA MECANICA ──────────────────────────────────────── */
-function _isInternacional(){return (document.getElementById('inst-quem')||{value:''}).value==='INTERNACIONAL';}
+/* ★ Felipe 23/04: fonte da verdade do "é internacional?" é o SCOPE do card CRM
+   (botão BR Nacional / 🌍 Internacional no modal Editar Oportunidade), NÃO a
+   escolha de quem vai instalar. Um card pode ser internacional mas com
+   instalação SEM/TERCEIROS (venda pra fora do Brasil sem Projetta instalar).
+   Ordem de prioridade:
+   1. window._crmScope === 'internacional' → true  (card CRM)
+   2. data-scope do body ou HTML root           → true  (set ao carregar card)
+   3. fallback legado: inst-quem === 'INTERNACIONAL' (pra orçamentos sem card) */
+function _isInternacional(){
+  if(window._crmScope === 'internacional') return true;
+  var bodyScope=document.body&&document.body.getAttribute('data-scope');
+  if(bodyScope==='internacional') return true;
+  return (document.getElementById('inst-quem')||{value:''}).value==='INTERNACIONAL';
+}
+window._isInternacional=_isInternacional;
 function _autoSelectFechadura(){
   var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
   if(H<=0) return;

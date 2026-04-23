@@ -3280,6 +3280,14 @@ function orcItemSelecionar(idx){
     if(_revBadge) _revBadge.innerHTML='&#9650; fechar';
     // Log de debug pra rastrear troca de item (ver console ao clicar)
     try{console.log('[orcItemSelecionar] idx='+idx+' tipo='+it.tipo+' L='+it.largura+' A='+it.altura+' Q='+it.qtd+' rev_tipo='+(it.rev_tipo||'CHAPA'));}catch(e){}
+    // ★ Felipe 23/04: tambem setar carac-cor-ext pro revestimento (antes so
+    //   setava em porta/fixo). Sem isso, _filterPlanChapaByCor nao sabe qual
+    //   cor foi escolhida e o dropdown plan-chapa continua mostrando TODAS
+    //   as opcoes (inclusive Alusense de outras cores).
+    if(it.cor_ext && typeof setF==='function') try{ setF('carac-cor-ext', it.cor_ext); }catch(e){}
+    if(it.cor_int && typeof setF==='function') try{ setF('carac-cor-int', it.cor_int); }catch(e){}
+    // Filtrar dropdown plan-chapa pelos tamanhos disponiveis nessa cor
+    if(typeof _filterPlanChapaByCor==='function') try{ _filterPlanChapaByCor(); }catch(e){}
     _orcRevPopularCard(it);
     // Sync automatico pro planificador (ao trocar pra revestimento)
     if(typeof _orcRevSyncPlanificador==='function') _orcRevSyncPlanificador();
@@ -3848,6 +3856,13 @@ window.crmFazerOrcamento=function(id){
   if(typeof crmSaveCard==='function') try{crmSaveCard();}catch(e){}
   var opp=cLoad().find(function(o){return o.id===id;});if(!opp)return;
   window._crmOrcCardId=id;
+  // ★ Felipe 23/04: armazenar scope do card CRM globalmente. Isso e a fonte
+  //   da verdade pro "é internacional?" em toda a aba Orçamento (idioma da
+  //   proposta, moeda, blocos FOB/CIF, tubo 51mm vs 38mm, etc.). O botao
+  //   BR Nacional / Internacional do modal Editar Oportunidade é o que define,
+  //   independente de quem vai instalar (SEM/PROJETTA/TERCEIROS).
+  window._crmScope = opp.scope || 'nacional';
+  if(document.body) document.body.setAttribute('data-scope', window._crmScope);
   if(typeof switchTab==='function')switchTab('orcamento');
   setTimeout(function(){
     // Salvar orçamento atual se tem dados e iniciar novo
