@@ -408,34 +408,49 @@ function gerarOS(){
   var L=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
   var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
 
-  // ★ Felipe 23/04: detectar "só revestimento ripado". Nesse caso L=H=0 (inputs
-  //   legacy da porta vazios — é o comportamento correto porque não há porta),
-  //   mas _calcularDadosPerfis tem short-circuit que retorna só o grupo de
-  //   tubos PA-51X25X1.5. Renderiza uma OS minimalista focada em aproveitamento
-  //   de barras dos tubos (não tem seção FOLHA/PORTAL/FRISO da porta).
+  // ★ Felipe 23/04 REFATORADO: "UM sistema só. Perfil, Acessórios e Planificador
+  //   têm SEMPRE a mesma estrutura. Só muda a LÓGICA (quais cortes entram) por
+  //   tipo de item." Antes tinha caminho duplicado (_gerarOSRevestimentoOnly vs
+  //   gerarOS) que causava valores divergentes entre abas. Agora rev-only passa
+  //   pelo MESMO fluxo do gerarOS — _calcularDadosPerfis no short-circuit
+  //   retorna só PA-51X25X1.5, e o resto do gerarOS popula as tabelas normais.
+  //   Só pulamos os blocos específicos de porta (fixo, veda, chapa frontal,
+  //   acessórios de hardware) via flag window._isRevOnlyOS.
   var _temPortaFixo = (window._orcItens||[]).some(function(it){
     return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';
   });
   var _temRevRip = (window._orcItens||[]).some(function(it){
     return it.tipo==='revestimento' && it.rev_tipo==='RIPADO' && (it.largura||0)>0 && (it.altura||0)>0;
   });
-  var _isRevOnlyOS = (L<=0||H<=0) && (!_temPortaFixo) && _temRevRip;
+  var _isRevOnlyOS = (!_temPortaFixo) && _temRevRip;
+  window._isRevOnlyOS = _isRevOnlyOS;
 
-  if(_isRevOnlyOS){
-    _gerarOSRevestimentoOnly();
-    return;
-  }
-
-  if(L<=0||H<=0){
+  if(!_isRevOnlyOS && (L<=0||H<=0)){
     if(_emEl){_emEl.innerHTML='<div style="color:#e67e22;padding:16px;text-align:center;font-size:13px"><b>⚠ Preencha Largura e Altura no Orçamento primeiro.</b></div>';}
     return;
   }
+  // Rev-only: forçar L/H = 0 pra _calcularDadosPerfis cair no short-circuit
+  //   _revOnlyMode. Assim só retorna o grupo PA-51X25X1.5 (tubos do ripado).
+  if(_isRevOnlyOS){ L=0; H=0; }
   var nFolhas=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
   var barraMM=(parseFloat((document.getElementById('pf-barra-m')||{value:6}).value)||6)*1000;
 
   var d;
   // ── Multi-porta: calcular combinado ──
-  if(window._mpItens && window._mpItens.length > 0){
+  // ★ Felipe 23/04: rev-only IGNORA _mpItens mesmo que esteja populado.
+  //   _mpItens pode ter lixo residual de carta anterior com portas, o que
+  //   fazia _mpCalcCombinedPerfis rodar e gerar perfis de portas fantasma
+  //   (PA-PA006F-6M, PA-76X38X1.98, etc) mesmo em orçamento só-revestimento.
+  //   Limpar mpItens aqui se detectou rev-only:
+  if(_isRevOnlyOS){
+    window._mpItens = [];
+    d=_calcularDadosPerfis(0,0,1,barraMM);
+    if(d.error){
+      if(!window._osAutoMode) alert(d.error);
+      return;
+    }
+    window._qPOS=1;
+  } else if(window._mpItens && window._mpItens.length > 0){
     d=_mpCalcCombinedPerfis(barraMM);
     if(d.error){
       if(!window._osAutoMode) alert(d.error);
@@ -461,26 +476,35 @@ function gerarOS(){
   var modelo=(document.getElementById('plan-modelo')||{value:''}).value||'01-CAVA';
   var now=new Date();
   var dataStr=now.toLocaleDateString('pt-BR')+' '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  var osNum='OS-'+now.getFullYear()+(now.getMonth()+1+'').padStart(2,'0')+(now.getDate()+'').padStart(2,'0')+'-'+L+'x'+H;
+  var osNum=_isRevOnlyOS
+    ? 'OS-REV-'+now.getFullYear()+(now.getMonth()+1+'').padStart(2,'0')+(now.getDate()+'').padStart(2,'0')
+    : 'OS-'+now.getFullYear()+(now.getMonth()+1+'').padStart(2,'0')+(now.getDate()+'').padStart(2,'0')+'-'+L+'x'+H;
 
   var el=function(id){return document.getElementById(id);};
   el('os-numero').textContent=osNum;
   el('os-data').textContent=dataStr;
   el('os-cliente').textContent=cliente;
-  el('os-obra').textContent=obra;
-  // VÃO ACABADO: mostrar todas as portas quando multi-porta
+  el('os-obra').textContent=_isRevOnlyOS?'Revestimento Ripado':obra;
+  // VÃO ACABADO: rev-only lista todos revestimentos; multi-porta lista todas portas
   var _vaoTxt=L+' × '+H+' mm';
-  if(window._mpItens && window._mpItens.length>1){
+  if(_isRevOnlyOS){
+    var _revs=(window._orcItens||[]).filter(function(it){
+      return it.tipo==='revestimento' && (it.largura||0)>0 && (it.altura||0)>0;
+    });
+    _vaoTxt = _revs.map(function(r,i){return 'R'+(i+1)+': '+r.largura+'×'+r.altura+(r.qtd>1?' ×'+r.qtd:'');}).join('  |  ')+' mm';
+  } else if(window._mpItens && window._mpItens.length>1){
     _vaoTxt=window._mpItens.map(function(it,i){return 'P'+(i+1)+': '+it.largura+'×'+it.altura;}).join('  |  ')+' mm';
   }
   el('os-vao').textContent=_vaoTxt;
-  el('os-sistema').textContent=d.sis+' (tubo '+(d.sis==='PA007'?51:38)+'mm)';
-  el('os-folhas').textContent=nFolhas+' folha'+(nFolhas>1?'s':'');
-  el('os-modelo').textContent=modelo?'Modelo '+modelo:'—';
+  el('os-sistema').textContent=_isRevOnlyOS?'REVESTIMENTO RIPADO (tubos PA-51×25×1.5)':(d.sis+' (tubo '+(d.sis==='PA007'?51:38)+'mm)');
+  el('os-folhas').textContent=_isRevOnlyOS?'—':(nFolhas+' folha'+(nFolhas>1?'s':''));
+  el('os-modelo').textContent=_isRevOnlyOS?'Ripas 90mm':(modelo?'Modelo '+modelo:'—');
 
-  // ── Chapa Frontal — referência para conferência manual ──
+  // ── Chapa Frontal — referência para conferência manual (só porta) ──
   var _cfDiv=el('os-chapa-frontal');
-  if(_cfDiv){
+  if(_cfDiv && _isRevOnlyOS){
+    _cfDiv.style.display='none';
+  } else if(_cfDiv){
     var _cfTUB=(d.sis==='PA007')?51:38;
     var _cfRows='';
     if(window._mpItens && window._mpItens.length>1){
@@ -588,8 +612,13 @@ function gerarOS(){
   var kgFolha=renderSecao('FOLHA','os-folha-tbody','os-folha-tfoot','#003144');
   var kgPortal=renderSecao('PORTAL','os-portal-tbody','os-portal-tfoot','#444');
 
-  // ── QUADRO FIXO — injetar cuts e renderizar ──────────────────────────────
-  var _fixosD = _calcFixosCompleto(d.sis, function(code){
+  // ── QUADRO FIXO — injetar cuts e renderizar (só porta) ───────────────────
+  var _fixosD;
+  if(_isRevOnlyOS){
+    // Rev-only: sem fixo. Objeto vazio pra não quebrar código downstream.
+    _fixosD = {cuts:[], acessRows:[], m2ChapaFixos:0};
+  } else {
+  _fixosD = _calcFixosCompleto(d.sis, function(code){
     var sp={}; try{var _s=localStorage.getItem('projetta_comp_precos');if(_s)sp=JSON.parse(_s);}catch(e){}
     if(sp[code]!==undefined) return sp[code];
     for(var ci=0;ci<COMP_DB.length;ci++){if(COMP_DB[ci].c===code)return COMP_DB[ci].p||0;}
@@ -644,6 +673,7 @@ function gerarOS(){
     if(fixoTb) fixoTb.innerHTML = '';
     if(fixoTf) fixoTf.innerHTML = '';
   }
+  } // fecha else (não rev-only) — bloco do fixo só pra porta
 
   // ── Tabela de barras ─────────────────────────────────────────────────────
   var barrasTbody=el('os-barras-tbody'); if(!barrasTbody)return;
@@ -948,16 +978,26 @@ function gerarOS(){
     return {html:html,kg:subtotalKg,custo:subtotalCusto,pr:pr};
   }
 
-  // ── Acessórios (fechadura, roseta, cilindro) ─────────────────────────────────
-  var _acessRows=_calcAcessoriosAllItems(d, d.sis||sis);
+  // ── Acessórios — rev-only usa só 3 itens (fita 12mm, Dowsil 995, Primer) ──
+  var _acessRows, _totalAcess;
+  if(_isRevOnlyOS && typeof window._revCalcAcessoriosGlobal==='function'){
+    _acessRows = window._revCalcAcessoriosGlobal();
+    _totalAcess = _acessRows.reduce(function(s,r){return s+(r.preco*r.qty);},0);
+  } else {
+    _acessRows=_calcAcessoriosAllItems(d, d.sis||sis);
+    _totalAcess = _renderAcessoriosOS(_acessRows);
+  }
   var _qPAc=window._mpItens&&window._mpItens.length>0?window._mpItens.reduce(function(s,it){return s+(parseInt(it._qtd||it['qtd-portas'])||1);},0):window._qPOS||parseInt(($('qtd-portas')||{value:'1'}).value)||1;
-  var _totalAcess = _renderAcessoriosOS(_acessRows);
   // Nota: o valor total de acessórios será sincronizado com fab-custo-acess
   // pela função _renderOSAcess, que inclui o pivô no cálculo.
 
-  // ── Veda Porta ──────────────────────────────────────────────────────────────
+  // ── Veda Porta (só porta — rev-only skip) ──────────────────────────────────
   var vedaTbody = el('osa-veda-tbody');
-  if(vedaTbody && (d.vedaSize || (vedaInfo&&vedaInfo.multi))){
+  if(_isRevOnlyOS){
+    if(vedaTbody) vedaTbody.innerHTML='';
+    var _phRev = document.getElementById('osa-veda-placeholder');
+    if(_phRev) _phRev.style.display = '';
+  } else if(vedaTbody && (d.vedaSize || (vedaInfo&&vedaInfo.multi))){
     var phRow = document.getElementById('osa-veda-placeholder');
     if(phRow) phRow.style.display = 'none';
     var savedPrecos = {};

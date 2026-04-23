@@ -3094,6 +3094,34 @@ function orcItensFromCRM(itens, cliente){
     return Object.assign({}, it, {_idx:i, _configured:false, _formData:null});
   });
   window._orcItemAtual = -1;
+
+  // ★ Felipe 23/04: LIMPAR state residual de card anterior quando o novo card
+  //   é só-revestimento. Antes, _mpItens e _lastOSData guardavam dados de
+  //   porta anterior, e _mpCalcCombinedPerfis rodava em cima deles gerando
+  //   perfis fantasma (PA-PA006F, PA-76X38, etc) em orçamento de revestimento.
+  var _temPortaFixoClear = window._orcItens.some(function(it){
+    return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';
+  });
+  var _temRevClear = window._orcItens.some(function(it){
+    return it.tipo==='revestimento' && (it.largura||0)>0 && (it.altura||0)>0;
+  });
+  if(!_temPortaFixoClear && _temRevClear){
+    // Rev-only: zerar state de portas anteriores
+    window._mpItens = [];
+    window._lastOSData = null;
+    window._lastPadroesHTML = '';
+    window._lastPerfisTotal = 0;
+    window._perfisPerDoor = [];
+    window._pesoChapasPerDoor = [];
+    // Limpar tabelas de perfis (serão repopuladas corretamente depois)
+    ['os-folha-tbody','os-folha-tfoot','os-portal-tbody','os-portal-tfoot',
+     'os-fixo-tbody','os-fixo-tfoot','os-barras-tbody','os-barras-tfoot',
+     'os-relacao-tbody','os-relacao-tfoot','fab-acm-tbody'].forEach(function(id){
+      var _e=document.getElementById(id);
+      if(_e) _e.innerHTML='';
+    });
+  }
+
   var bar = document.getElementById('orc-itens-bar');
   if(bar){
     bar.classList.toggle('show', window._orcItens.length > 0);
