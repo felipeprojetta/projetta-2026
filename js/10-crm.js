@@ -3077,7 +3077,27 @@ window.crmDeleteOpp=function(id){
   if(filtered.length===data.length){alert('Erro: oportunidade não encontrada.');return;}
   cSave(filtered);
   crmDeleteAttachCloud(id);
-  // Também limpar orçamentos associados a este cliente
+  // Felipe 24/04: SOFT-DELETE no cloud (crm_oportunidades.deleted_at).
+  //   Sem isso, o card voltava na proxima sync do localStorage.
+  try {
+    var SUPA_URL='https://plmliavuwlgpwaizfeds.supabase.co';
+    var SUPA_KEY=(typeof _SB_KEY==='string' && _SB_KEY) ||
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
+    fetch(SUPA_URL+'/rest/v1/crm_oportunidades?id=eq.'+encodeURIComponent(id), {
+      method:'PATCH',
+      headers:{
+        'apikey':SUPA_KEY,
+        'Authorization':'Bearer '+SUPA_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'return=minimal'
+      },
+      body: JSON.stringify({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    }).then(function(r){
+      if(r.ok){ console.log('[crmDeleteOpp] soft-delete cloud OK:', id); }
+      else { console.warn('[crmDeleteOpp] soft-delete cloud falhou, status:', r.status); }
+    }).catch(function(e){ console.warn('[crmDeleteOpp] erro soft-delete cloud:', e); });
+  } catch(e){ console.warn('[crmDeleteOpp] excecao:', e); }
+  // Limpar orcamentos associados a este cliente (localStorage local)
   if(clienteName){
     var db=loadDB();
     var dbFiltered=db.filter(function(e){return(e.client||'').trim()!==clienteName.trim();});
