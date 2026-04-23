@@ -3207,6 +3207,16 @@ function orcItemSelecionar(idx){
   if(_cardPorta) _cardPorta.style.display = _isRevSel ? 'none' : '';
   if(_cardRev)   _cardRev.style.display   = _isRevSel ? '' : 'none';
   if(_isRevSel){
+    // ★ Felipe 22/04 v6: garantir que accordion do revestimento (rev-body)
+    //   fique ABERTO ao selecionar item. Sem isso, clicar em outro item de
+    //   revestimento nao atualiza visualmente porque o accordion esta
+    //   fechado (ou estava fechado na carga inicial).
+    var _revBody=document.getElementById('rev-body');
+    if(_revBody) _revBody.style.display='block';
+    var _revBadge=document.getElementById('rev-badge');
+    if(_revBadge) _revBadge.innerHTML='&#9650; fechar';
+    // Log de debug pra rastrear troca de item (ver console ao clicar)
+    try{console.log('[orcItemSelecionar] idx='+idx+' tipo='+it.tipo+' L='+it.largura+' A='+it.altura+' Q='+it.qtd+' rev_tipo='+(it.rev_tipo||'CHAPA'));}catch(e){}
     _orcRevPopularCard(it);
     // Sync automatico pro planificador (ao trocar pra revestimento)
     if(typeof _orcRevSyncPlanificador==='function') _orcRevSyncPlanificador();
@@ -3219,7 +3229,10 @@ function orcItemSelecionar(idx){
     //   popular os blocos escondidos acm-sel-1 que o sumBlocks('acm') le.
     setTimeout(function(){
       if(typeof calc==='function') try{calc();}catch(e){console.warn('[revcalc]',e);}
-    }, 300);
+      // Re-popular card depois do calc pra garantir que values certos
+      // (algum codigo downstream de calc pode ter sobrescrito inputs)
+      try{_orcRevPopularCard(window._orcItens[window._orcItemAtual]);}catch(e){}
+    }, 350);
     return; // revestimento nao precisa do fluxo de restoreFormData/setF
   }
   

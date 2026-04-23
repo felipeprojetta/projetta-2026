@@ -166,6 +166,28 @@ function calc(){
       }
     }
   }
+  // ★ Felipe 22/04 v6 (FALLBACK FINAL): se ainda subAcm===0 mas fab-acm-tbody
+  //   ja tem linhas renderizadas (Custo Fabricacao > Chapas ACM mostra qtd
+  //   e subtotal na tela), ler direto dali. Isso cobre o cenario revestimento-
+  //   only onde plan-acm-cor/qty pode nao estar sincronizado mas o
+  //   _updateFabChapaResumo ja populou a tabela visivel. Evita R$ 0,00 no
+  //   RESULTADO quando a tabela de custo mostra valor real.
+  if(subAcm===0){
+    var _acmTb=document.getElementById('fab-acm-tbody');
+    if(_acmTb && _acmTb.children.length>0){
+      for(var _ri=0; _ri<_acmTb.children.length; _ri++){
+        var _row=_acmTb.children[_ri];
+        var _cells=_row.querySelectorAll('td');
+        if(_cells.length>=4){
+          // Subtotal na ultima celula, formato "R$ 21.702,48"
+          var _subTxt=(_cells[_cells.length-1].textContent||'').trim();
+          var _subVal=parseFloat(_subTxt.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
+          if(_subVal>0) subAcm+=_subVal;
+        }
+      }
+      if(subAcm>0 && typeof console!=='undefined') console.log('[calc] subAcm fallback fab-acm-tbody:',subAcm);
+    }
+  }
   const fabMatPerf=n('fab-mat-perfis')||0;
   const fabPintura=n('fab-custo-pintura')||0;
   const fabAcess=n('fab-custo-acess')||0;
