@@ -2844,6 +2844,17 @@ window._crmItensToCardData=function(){
     if(item.tipo==='porta_interna'){
       clean.sistema_pi=item.sistema_pi||'GIRO';clean.folhas_pi=item.folhas_pi||'1';
     }
+    // ★ Felipe 23/04: BUG CRÍTICO corrigido. Sem este bloco, itens de
+    //   revestimento perdiam rev_tipo/rev_estrutura/rev_tubo ao serializar
+    //   pro card. Consequência: TIPO="Ripado" selecionado no dropdown do CRM
+    //   era dropado silenciosamente e o Orçamento achava que era CHAPA (default).
+    //   A Característica do Revestimento mostrava "🪟 Chapa ACM 4mm" mesmo
+    //   com Ripado marcado, e o planificador calculava chapas em vez de ripas.
+    if(item.tipo==='revestimento'){
+      clean.rev_tipo=item.rev_tipo||'CHAPA';
+      clean.rev_estrutura=item.rev_estrutura||'NAO';
+      clean.rev_tubo=item.rev_tubo||'PA-51X25X1.5';
+    }
     return clean;
   });
 }
