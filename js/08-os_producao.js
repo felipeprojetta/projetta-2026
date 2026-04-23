@@ -199,19 +199,62 @@ function _gerarOSRevestimentoOnly(){
   if(el('os-folhas'))  el('os-folhas').textContent='—';
   if(el('os-modelo'))  el('os-modelo').textContent='Ripas 90mm';
 
-  // Esconder bloco Chapa Frontal (não aplicável)
+  // Esconder bloco Chapa Frontal (não aplicável a revestimento)
   var _cfDiv=el('os-chapa-frontal'); if(_cfDiv){ _cfDiv.style.display='none'; }
 
-  // Limpar tbodys da porta (FOLHA/PORTAL/FRISO vazios)
-  ['pa-folha-tbody','pa-portal-tbody','pa-frisos-tbody','os-perfis-table tbody'].forEach(function(sel){
-    var tb=document.getElementById(sel);
-    if(tb) tb.innerHTML='';
+  // ★ Felipe 23/04: POPULAR os-folha-tbody com renderSecao IGUAL à porta, em
+  //   vez de container dedicado. Isso garante visual 100% idêntico.
+  //   Seções PORTAL/QUADRO FIXO escondidas (só revestimento usa FOLHA).
+  //   Esconder headers de seções vazias:
+  ['os-portal-header-row','os-portal-tbody','os-portal-tfoot',
+   'os-fixo-header-row','os-fixo-tbody','os-fixo-tfoot'].forEach(function(id){
+    var _e=document.getElementById(id);
+    if(_e) _e.style.display='none';
   });
-  // Limpar TODOS tbodys dentro de os-perfis-table
-  var _osPerf=el('os-perfis-table');
-  if(_osPerf){
-    var _tbs=_osPerf.querySelectorAll('tbody');
-    _tbs.forEach(function(t){t.innerHTML='';});
+  // Header FOLHA adaptado para "TUBOS DE FIXAÇÃO"
+  var _hdrFolha=document.getElementById('os-folha-header-row');
+  if(_hdrFolha){
+    _hdrFolha.style.display='';
+    _hdrFolha.innerHTML='<tr><td colspan="10" style="padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:.06em;background:#003144;color:#fff">TUBOS DE FIXAÇÃO RIPAS — Perfis de Corte</td></tr>';
+  }
+
+  // Renderizar seção FOLHA (tubos PA-51×25×1.5) no tbody usando o MESMO
+  //   formato da porta (Pos, Código, Descrição, L/H, Tamanho, Corte, Qtd, kg/m, Peso, Obs)
+  var _tbFolha=document.getElementById('os-folha-tbody');
+  var _tfFolha=document.getElementById('os-folha-tfoot');
+  if(_tbFolha){
+    _tbFolha.innerHTML='';
+    var _themeColor='#1a5276';
+    var secCuts=d.cuts.filter(function(c){return c.secao==='FOLHA' && c.qty>0;});
+    var pos=1,totKg=0;
+    secCuts.forEach(function(c){
+      var kgLiq=c.compMM/1000*c.kgM*c.qty;
+      totKg+=kgLiq;
+      var barLen=c.barLenMM/1000;
+      var bg=pos%2===0?'#fff':'#f9f8f5';
+      _tbFolha.innerHTML+='<tr style="background:'+bg+'">'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;color:#888;font-size:10px">'+pos+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;font-weight:700;font-size:10px;white-space:nowrap;color:'+_themeColor+'">'+c.code+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;font-size:10px">'+c.desc+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px;color:#888">'+(c.lh||'—')+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px">'+barLen+'M</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-weight:700;font-size:11px">'+c.compMM+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px">'+c.qty+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px;color:#666">'+c.kgM.toFixed(3).replace('.',',')+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-weight:700;font-size:11px">'+kgLiq.toFixed(3).replace('.',',')+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;font-size:9px;color:#888;white-space:nowrap">'+(c.obs||'')+'</td>'
+        +'</tr>';
+      pos++;
+    });
+  }
+  if(_tfFolha){
+    _tfFolha.innerHTML='';
+    var _totKgLiq=0, _totKgBru=0;
+    d.seenKeys.forEach(function(k){
+      var r=d.groupRes[k]; if(!r) return;
+      _totKgLiq+=r.kgLiq||0; _totKgBru+=r.kgBruto||0;
+    });
+    _tfFolha.innerHTML='<tr style="background:#eef3f8;font-weight:700"><td colspan="8" style="padding:5px 10px;text-align:right;font-size:10px;color:#003144">TOTAL TUBOS</td><td style="padding:5px 10px;text-align:right;font-size:11px;color:#003144;border:0.5px solid #ccd">'+_totKgLiq.toFixed(2).replace('.',',')+' kg</td><td style="padding:5px 10px;font-size:9px;color:#888">bruto: '+_totKgBru.toFixed(2).replace('.',',')+'</td></tr>';
   }
 
   // Agregar totais pra injeção de custo
@@ -222,30 +265,15 @@ function _gerarOSRevestimentoOnly(){
     totalPinRev+=r.custoPintura||0;
   });
 
-  // Renderizar aproveitamento de barras como conteúdo principal
+  // Renderizar aproveitamento de barras (drawer Aproveitamento de Barras)
   var padraoHTML=_renderPadroesContent(d, 9);
   window._lastPadroesHTML=padraoHTML;
   window._lastPerfisTotal=totalMatRev+totalPinRev;
-  // ★ Felipe 23/04: salvar _lastOSData pra _updateResumoObra e relatórios
-  //   lerem os perfis. Sem isso, Resumo da Obra fica com Perfis="—".
   window._lastOSData = d;
 
-  // Injetar no os-doc: criar/atualizar container dedicado pra rev-only
-  if(_docEl){
-    var _revCont=document.getElementById('os-rev-only-cont');
-    if(!_revCont){
-      _revCont=document.createElement('div');
-      _revCont.id='os-rev-only-cont';
-      _revCont.style.cssText='margin-top:14px';
-      _docEl.appendChild(_revCont);
-    }
-    _revCont.innerHTML =
-      '<div style="background:#fff7ed;border:1px solid #e67e22;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#555;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
-      +'<span>🧱 <b>Orçamento Revestimento Ripado</b> — '+revs.length+' item(s). Perfis: '+d.groupRes['PA-51X25X1.5'].nBars+' barra(s) × '+Math.round(d.groupRes['PA-51X25X1.5'].barLenMM/1000)+'m de PA-51×25×1.5.</span>'
-      +'<span style="font-weight:700;color:#003144">Custo perfis: R$ '+totalMatRev.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>'
-      +'</div>'
-      +padraoHTML;
-  }
+  // Remover container custom antigo (se existir de deploy anterior)
+  var _oldRevCont=document.getElementById('os-rev-only-cont');
+  if(_oldRevCont && _oldRevCont.parentNode) _oldRevCont.parentNode.removeChild(_oldRevCont);
 
   // Atualizar custos
   try { _fabSetSysValue('mat', totalMatRev); } catch(e){}
