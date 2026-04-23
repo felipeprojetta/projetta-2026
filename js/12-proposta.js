@@ -1166,7 +1166,13 @@ function populateProposta(){
   // incoterm FOB ou CIF, mostrar breakdown da caixa de madeira fumigada
   // + frete terrestre + frete marítimo (se CIF). Valores em USD.
   // ═══════════════════════════════════════════════════════════════════
-  _injectPropostaFobCif(_isIntlProp, _PROP_LANG, _cambioProp);
+  // ★ Felipe 23/04: bloco FOB/CIF breakdown SUPRIMIDO — as linhas de
+  //   caixa+frete terrestre+frete maritimo ja aparecem na tabela
+  //   principal (Items 03/04/05 em _populatePropostaItens). O bloco
+  //   laranja separado era redundante. Felipe: 'delete essa parte vermelha'.
+  var _fobCifEl = document.getElementById('prop-fob-cif-block');
+  if(_fobCifEl){ _fobCifEl.style.display='none'; _fobCifEl.innerHTML=''; }
+  // (linha original era: _injectPropostaFobCif(_isIntlProp, _PROP_LANG, _cambioProp);)
 }
 
 function _injectPropostaFobCif(isIntl, lang, cambio){
