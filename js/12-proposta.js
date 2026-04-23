@@ -524,12 +524,27 @@ function populateProposta(){
     if(entry && entry[_PROP_LANG]) el.textContent = entry[_PROP_LANG];
   });
   // Título "PORTA PROJETTA BY WEIKU" → "PROJETTA DOOR BY WEIKU"
+  // ★ Felipe 23/04: se rev-only ou fixo-only, ajustar título.
   var _tituloEl = document.querySelector('[data-i18n-prefix="titulo-porta"]');
   if(_tituloEl){
     // preserva o span interno #prop-desc-extra
     var _descExtra = document.getElementById('prop-desc-extra');
     var _descExtraHTML = _descExtra ? _descExtra.outerHTML : '';
-    _tituloEl.innerHTML = (_PROP_LANG==='en' ? 'PROJETTA DOOR BY WEIKU ' : 'PORTA PROJETTA BY WEIKU ') + _descExtraHTML;
+    // Detectar tipo predominante
+    var _isRevOnly = false, _isFixoOnly = false;
+    if(window._tipoRegistry && window._mpItens && window._mpItens.length>0){
+      _isRevOnly = window._mpItens.every(function(it){return (it._tipo||'porta_pivotante')==='revestimento';});
+      _isFixoOnly = window._mpItens.every(function(it){return (it._tipo||'porta_pivotante')==='fixo';});
+    }
+    var _tituloTxt;
+    if(_isRevOnly){
+      _tituloTxt = (_PROP_LANG==='en' ? 'PROJETTA CLADDING BY WEIKU ' : 'REVESTIMENTO PROJETTA BY WEIKU ');
+    } else if(_isFixoOnly){
+      _tituloTxt = (_PROP_LANG==='en' ? 'PROJETTA FIXED PANELS BY WEIKU ' : 'FIXOS PROJETTA BY WEIKU ');
+    } else {
+      _tituloTxt = (_PROP_LANG==='en' ? 'PROJETTA DOOR BY WEIKU ' : 'PORTA PROJETTA BY WEIKU ');
+    }
+    _tituloEl.innerHTML = _tituloTxt + _descExtraHTML;
   }
   // ★ Helper (Felipe 20/04): quando INTERNACIONAL, proposta mostra SO
   //   USD nas tabelas/totais (cliente estrangeiro nao precisa ver R$ —
@@ -553,6 +568,45 @@ function populateProposta(){
   // Exposto pra outros módulos (18-auth.js _populatePropostaItens) terem
   // acesso ao mapa de conferência em R$
   window._propRsConferencia = _rsConferencia;
+
+  // ★ Felipe 23/04: em rev-only, adaptar Total Area label e Remarks
+  //   (removendo textos específicos de porta: Kynar, KESO, pivot, sealing).
+  try {
+    if(window._mpItens && window._mpItens.length>0){
+      var _isRevOnlyProp = window._mpItens.every(function(it){return (it._tipo||'porta_pivotante')==='revestimento';});
+      if(_isRevOnlyProp){
+        // Trocar Total Area label
+        var _totAreaEls = document.querySelectorAll('[data-i18n="lbl-total-area"]');
+        _totAreaEls.forEach(function(el){
+          el.textContent = (_PROP_LANG==='en' ? 'Total Cladding Area:' : 'Total Área Revestimento:');
+        });
+        // Substituir Remarks por lista apropriada para revestimento
+        var _obsRevEn = [
+          '- 4mm ACM panel with Kynar paint — 15-year pro-rata',
+          '- Direct gluing to wall with Dowsil 995 structural silicone',
+          '- Aluminum support tube (PA-51×12×1.58) — when structure required',
+          '- Horizontal ribbed option: 90mm slats with 15mm gap',
+          '- Pre-cut and labeled panels for installation'
+        ];
+        var _obsRevPt = [
+          '- Chapa ACM 4mm com pintura Kynar — 15 anos pró-rata',
+          '- Colagem direta na parede com Dowsil 995 (silicone estrutural)',
+          '- Tubo de alumínio (PA-51×12×1.58) — quando estrutura requerida',
+          '- Opção ripada horizontal: ripas 90mm com gap de 15mm',
+          '- Chapas pré-cortadas e identificadas para instalação'
+        ];
+        var _obsRev = (_PROP_LANG==='en') ? _obsRevEn : _obsRevPt;
+        ['obs-1','obs-2','obs-3','obs-4','obs-5'].forEach(function(key, i){
+          var _el = document.querySelector('[data-i18n="'+key+'"]');
+          if(_el) _el.textContent = _obsRev[i] || '';
+        });
+        // Remover "FREIGHT INCLUDED — INSTALLATION PRICED SEPARATELY" em rev
+        //  (instalação de revestimento é diferente, pode vir junto)
+        var _obsFr = document.querySelector('[data-i18n="obs-frete"]');
+        if(_obsFr) _obsFr.textContent = (_PROP_LANG==='en' ? '*** FREIGHT INCLUDED' : '*** INCLUSO FRETE');
+      }
+    }
+  } catch(e){ console.warn('[proposta rev-only adaptation] erro:', e); }
 
   // Expor contexto para _populatePropostaItens (em 18-auth.js) usar em modo multi-produto
   // ★ CIF: ler incoterm + campos da caixa/fretes do card CRM (estão no DOM se o modal

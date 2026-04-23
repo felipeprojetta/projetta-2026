@@ -1166,10 +1166,14 @@ function _populatePropostaItens(){
     var _aberturaTxt = (_LANG==='en' && /PIVOTANTE/i.test(it.abertura)) ? _L_PIVOT : it.abertura;
     // Bloco visual da porta
     doorsHtml+='<div style="display:flex;gap:12px;border:1px solid #ccc;border-radius:3px;padding:8px;margin-bottom:6px">';
-    doorsHtml+='<div style="flex:0 0 200px;max-height:320px;border:1px solid #ddd;border-radius:3px;display:flex;align-items:center;justify-content:center;background:#f9f9f9;overflow:hidden">';
-    if(it.imgSrc) doorsHtml+='<img src="'+it.imgSrc+'" style="max-width:100%;max-height:320px" alt="Modelo">';
-    else doorsHtml+='<span style="color:#aaa;font-size:9px;text-align:center">Imagem do<br>modelo</span>';
-    doorsHtml+='</div>';
+    // ★ Felipe 23/04: revestimento NÃO tem imagem de porta. Fixo também não.
+    //   Só porta mostra imagem do modelo.
+    if(it.tipo === 'porta_pivotante' || it.tipo === 'porta_interna' || !it.tipo){
+      doorsHtml+='<div style="flex:0 0 200px;max-height:320px;border:1px solid #ddd;border-radius:3px;display:flex;align-items:center;justify-content:center;background:#f9f9f9;overflow:hidden">';
+      if(it.imgSrc) doorsHtml+='<img src="'+it.imgSrc+'" style="max-width:100%;max-height:320px" alt="Modelo">';
+      else doorsHtml+='<span style="color:#aaa;font-size:9px;text-align:center">Imagem do<br>modelo</span>';
+      doorsHtml+='</div>';
+    }
     doorsHtml+='<div style="flex:1">';
     doorsHtml+='<div style="font-size:12px;font-weight:800;color:var(--navy);margin-bottom:4px">'+it.descProposta.toUpperCase()+'</div>';
     // ★ DIMENSÕES: quando tem fixo, mostrar linha da PORTA + linha(s) do FIXO
@@ -1191,7 +1195,12 @@ function _populatePropostaItens(){
     } else {
       doorsHtml+='<div style="display:flex;gap:15px;font-size:10px;margin-bottom:2px"><span><b>'+_L_QTD+':</b> '+it.q+'</span><span><b>'+_L_L+':</b> '+Math.round(it.L)+'</span><span><b>'+_L_H+':</b> '+Math.round(it.A)+'</span></div>';
     }
-    doorsHtml+='<div style="font-size:10px;margin-bottom:4px"><b>'+_L_AREA+':</b> '+areaUn.toFixed(2)+'m²</div>';
+    // ★ Felipe 23/04: label "Area" depende do tipo do item
+    var _L_AREA_TIPO;
+    if(it.tipo==='revestimento') _L_AREA_TIPO = (_LANG==='en' ? 'Cladding Area' : 'Área Revestimento');
+    else if(it.tipo==='fixo')    _L_AREA_TIPO = (_LANG==='en' ? 'Fixed Area'    : 'Área Fixo');
+    else                          _L_AREA_TIPO = _L_AREA; // Door Area / Área Porta
+    doorsHtml+='<div style="font-size:10px;margin-bottom:4px"><b>'+_L_AREA_TIPO+':</b> '+areaUn.toFixed(2)+'m²</div>';
     doorsHtml+='<div style="font-size:9.5px;color:#444;line-height:1.5">';
     // ★ Felipe 23/04: branch por TIPO. Revestimento tem campos bem diferentes
     //   de porta — sem fechadura/puxador/modelo/abertura. Mostrar:
