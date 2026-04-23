@@ -746,7 +746,15 @@ function populateProposta(){
   //   1) window._crmOrcCardId (setado pelo Fazer Orcamento)
   //   2) busca por num-agp no form (pra orcamentos abertos do historico)
   //   3) busca pelo cliente se ambos acima falharem
-  if(!_incotermDom && typeof cLoad === 'function'){
+  // ★ Felipe 23/04: busca do card SEMPRE (nao so quando incoterm vazio).
+  //   Antes: 'if(!_incotermDom && cLoad)'. Felipe reportou que quando
+  //   inst-quem != INTERNACIONAL os valores CIF sumiam da proposta —
+  //   mesmo scope=intl + incoterm=CIF no card. Causa: os campos DOM
+  //   crm-o-cif-* podiam estar zerados/stale. Se incoterm ainda esta
+  //   'CIF', o fallback antigo nao rodava e os valores iam 0.
+  //   Agora sempre tenta completar do card persistido (so sobrescreve
+  //   os campos zerados).
+  if(typeof cLoad === 'function'){
     try {
       var _cards = cLoad();
       var _card = null;
@@ -770,13 +778,16 @@ function populateProposta(){
         }
       }
       if(_card){
-        _incotermDom = _card.inst_incoterm || _incotermDom;
+        // Incoterm: card tem prioridade se DOM vazio
+        if(!_incotermDom) _incotermDom = _card.inst_incoterm || '';
         if(_cifCaixaL<=0) _cifCaixaL = parseFloat(_card.cif_caixa_l)||0;
         if(_cifCaixaA<=0) _cifCaixaA = parseFloat(_card.cif_caixa_a)||0;
         if(_cifCaixaE<=0) _cifCaixaE = parseFloat(_card.cif_caixa_e)||0;
         if(_cifFreteT<=0) _cifFreteT = parseFloat(_card.cif_frete_terrestre)||0;
         if(_cifFreteM<=0) _cifFreteM = parseFloat(_card.cif_frete_maritimo)||0;
         if(_cifCaixaTaxa===100 && _card.cif_caixa_taxa) _cifCaixaTaxa = parseFloat(_card.cif_caixa_taxa)||100;
+        console.log('%c[proposta CIF] valores completados do card: incoterm='+_incotermDom+' caixa='+_cifCaixaL+'x'+_cifCaixaA+'x'+_cifCaixaE+' terr='+_cifFreteT+' mar='+_cifFreteM,
+          'background:#00695c;color:#fff;padding:2px 6px;border-radius:3px');
       }
     } catch(e){ console.warn('[proposta CIF fallback]', e); }
   }
