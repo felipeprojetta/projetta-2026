@@ -331,6 +331,16 @@ const br2=v=>'R$ '+(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFracti
 const pf=v=>(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%';
 const fmtBRL=v=>v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 
+// Felipe 24/04: formatador BRL arredondando PRA CIMA sem decimais.
+// Usado na proposta comercial, cards e painel de resultado.
+// Ex: 41225.97 -> "41.226" (sem casas decimais, arredondado pra cima).
+// Math.ceil favorece o vendedor (nunca perde centavos).
+window._fmtBRLCeil = function(v){
+  var n = (typeof v === 'number') ? v : parseFloat(v);
+  if(!isFinite(n)) n = 0;
+  return Math.ceil(n).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+};
+
 /* ── Title Case: "RICARDO PORTOLAN ARQ." → "Ricardo Portolan Arq." ── */
 function _toTitleCase(str){
   if(!str) return '';
