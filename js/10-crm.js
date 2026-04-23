@@ -6205,19 +6205,39 @@ document.addEventListener('DOMContentLoaded',function(){
     });
   }
 
-  // Poll for changes every 5s (skip if just cleared)
+  // ★ Felipe 23/04: Poll de sincronização entre devices/tabs.
+  //   Se hydrateLocal funcionou (tabela relacional OK), usa ela como fonte de
+  //   verdade — evita que o blob legado (cCloudLoad) traga cards já deletados
+  //   no Supabase e sobrescreva o localStorage (bug do "card fantasma que
+  //   aparece e some" no F5). Fallback pro cCloudLoad só quando relacional
+  //   falha (offline ou tabela vazia).
   var _lastTs=null;
+  var _lastHydrateHash=null;
   setInterval(function(){
     if(_crmJustCleared) return; // Don't re-import during clear session
-    cCloudLoad(function(val){
-      if(!val||val.ts===_lastTs){if(!_lastTs&&val)_lastTs=val.ts;return;}
-      _lastTs=val.ts;
-      if(val.db){
-        var merged=mergeCloudLocal(val.db);
-        localStorage.setItem(CK,JSON.stringify(merged));
-        crmRender();
-      }
-    });
+    if(_hydratedOK && window.crmDB && typeof window.crmDB.hydrateLocal==='function'){
+      // Polling via tabela relacional (fonte de verdade)
+      window.crmDB.hydrateLocal({rerender:false, verbose:false}).then(function(opps){
+        if(!opps) return;
+        // Hash simples pra detectar mudanças e evitar re-render desnecessário
+        var h = opps.length+':'+opps.map(function(o){return (o.id||'')+(o.updatedAt||'');}).join(',');
+        if(h !== _lastHydrateHash){
+          _lastHydrateHash = h;
+          crmRender();
+        }
+      }).catch(function(){});
+    } else {
+      // Fallback: blob legado (só se relacional falhou)
+      cCloudLoad(function(val){
+        if(!val||val.ts===_lastTs){if(!_lastTs&&val)_lastTs=val.ts;return;}
+        _lastTs=val.ts;
+        if(val.db){
+          var merged=mergeCloudLocal(val.db);
+          localStorage.setItem(CK,JSON.stringify(merged));
+          crmRender();
+        }
+      });
+    }
   },5000);
 });
 
