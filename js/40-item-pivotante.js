@@ -63,11 +63,32 @@ window.PROJETTA.pivotante = {
     if(item.moldura_dis1 != null)         _set('plan-moldura-dis1', item.moldura_dis1);
     if(item.moldura_dis2 != null)         _set('plan-moldura-dis2', item.moldura_dis2);
     if(item.moldura_dis3 != null)         _set('plan-moldura-dis3', item.moldura_dis3);
+
+    // ═══ ISOLAMENTO DE ITENS (Felipe 24/04) ═══════════════════════════════
+    // Garantia estrita de que NENHUM outro item (fixo, revestimento, multi-porta)
+    // vaze no cálculo desta porta pivotante. Felipe: "nao quero nada misturado".
+    //  - Desliga tem-fixo (impede _calcFixosCompleto de calcular fixos no DOM)
+    //  - Zera _mpItens e _orcItens (impede loops multi-porta e rev-only)
+    var _tfEl = document.getElementById('tem-fixo');
+    if(_tfEl){ _backup['_chk:tem-fixo'] = _tfEl.checked; _tfEl.checked = false; }
+    _backup['_var:_mpItens']  = window._mpItens;   window._mpItens  = [];
+    _backup['_var:_orcItens'] = window._orcItens;  window._orcItens = [];
+
     return _backup;
   },
 
   _restaurarDOM: function(backup){
     Object.keys(backup||{}).forEach(function(id){
+      // Checkbox (ISOLAMENTO — Felipe 24/04)
+      if(id.indexOf('_chk:') === 0){
+        var elC = document.getElementById(id.slice(5));
+        if(elC) elC.checked = backup[id];
+        return;
+      }
+      // Variável global
+      if(id === '_var:_mpItens'){  window._mpItens  = backup[id]; return; }
+      if(id === '_var:_orcItens'){ window._orcItens = backup[id]; return; }
+      // Input normal
       var el = document.getElementById(id);
       if(el) el.value = backup[id];
     });
@@ -172,20 +193,23 @@ window.PROJETTA.pivotante = {
       this._restaurarDOM(backup);
     }
 
-    return rows.map(function(r){
-      return {
-        codigo:     r.code,
-        descricao:  r.desc,
-        qtd:        r.qty,
-        unidade:    'un',
-        preco_unit: r.preco || 0,
-        aplicacao:  r.apl,
-        grupo:      r.grp || '',
-        obs:        r.obs || '',
-        _origem:    'porta_pivotante',
-        _item_id:   item.id || null
-      };
-    });
+    // ISOLAMENTO: garantia extra — descartar qualquer linha que tenha vazado de FIXO
+    return (rows||[])
+      .filter(function(r){ return (r.grp || '') !== 'FIXO'; })
+      .map(function(r){
+        return {
+          codigo:     r.code,
+          descricao:  r.desc,
+          qtd:        r.qty,
+          unidade:    'un',
+          preco_unit: r.preco || 0,
+          aplicacao:  r.apl,
+          grupo:      r.grp || '',
+          obs:        r.obs || '',
+          _origem:    'porta_pivotante',
+          _item_id:   item.id || null
+        };
+      });
   },
 
   _calcularAcessoriosViaDOM: function(){
@@ -199,13 +223,15 @@ window.PROJETTA.pivotante = {
     try {
       var d = _calcularDadosPerfis(L, H, nFolhas, 6000);
       var rows = _calcAcessoriosOS(d, nFolhas, sis) || [];
-      return rows.map(function(r){
-        return {
-          codigo: r.code, descricao: r.desc, qtd: r.qty, unidade: 'un',
-          preco_unit: r.preco||0, aplicacao: r.apl, grupo: r.grp||'', obs: r.obs||'',
-          _origem: 'porta_pivotante'
-        };
-      });
+      return (rows||[])
+        .filter(function(r){ return (r.grp || '') !== 'FIXO'; })
+        .map(function(r){
+          return {
+            codigo: r.code, descricao: r.desc, qtd: r.qty, unidade: 'un',
+            preco_unit: r.preco||0, aplicacao: r.apl, grupo: r.grp||'', obs: r.obs||'',
+            _origem: 'porta_pivotante'
+          };
+        });
     } catch(e){ return []; }
   },
 
