@@ -1193,9 +1193,178 @@ function populateProposta(){
   //   caixa+frete terrestre+frete maritimo ja aparecem na tabela
   //   principal (Items 03/04/05 em _populatePropostaItens). O bloco
   //   laranja separado era redundante. Felipe: 'delete essa parte vermelha'.
-  var _fobCifEl = document.getElementById('prop-fob-cif-block');
-  if(_fobCifEl){ _fobCifEl.style.display='none'; _fobCifEl.innerHTML=''; }
-  // (linha original era: _injectPropostaFobCif(_isIntlProp, _PROP_LANG, _cambioProp);)
+  // Felipe 24/04: bloco agora mostra EXPLICACAO do INCOTERM (nao mais breakdown
+  // de custos, que continua desativado por pedido anterior). So aparece se for
+  // proposta internacional COM incoterm reconhecido (EXW/FOB/CIF/DAP).
+  if(typeof _injectPropostaIncotermBox === 'function'){
+    _injectPropostaIncotermBox(_isIntlProp, _PROP_LANG);
+  } else {
+    var _fobCifEl = document.getElementById('prop-fob-cif-block');
+    if(_fobCifEl){ _fobCifEl.style.display='none'; _fobCifEl.innerHTML=''; }
+  }
+}
+
+function _injectPropostaIncotermBox(isIntl, lang){
+  /* Felipe 24/04: bloco educacional destacando o INCOTERM da proposta com
+     responsabilidades do Vendedor (Projetta) e do Comprador (cliente).
+     So aparece em proposta internacional com incoterm reconhecido. */
+  var el = document.getElementById('prop-fob-cif-block');
+  if(!el) return;
+  var data = window._crmIntlData;
+  var incoterm = data && data.incoterm ? String(data.incoterm).toUpperCase() : '';
+  var RECOGNIZED = ['EXW','FOB','CIF','DAP'];
+  if(!isIntl || RECOGNIZED.indexOf(incoterm) < 0){
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  var isEn = (lang === 'en');
+
+  var NOMES = {
+    'EXW': isEn ? 'Ex Works'                  : 'Na Fabrica (Ex Works)',
+    'FOB': isEn ? 'Free On Board'             : 'Livre a Bordo',
+    'CIF': isEn ? 'Cost, Insurance & Freight' : 'Custo, Seguro e Frete',
+    'DAP': isEn ? 'Delivered At Place'        : 'Entregue no Local'
+  };
+
+  var RESP = {
+    'EXW': {
+      seller: isEn
+        ? ['Manufacturing, finishing, KESO locks & QC',
+           'Wooden fumigated crate (ISPM-15)',
+           'Cargo ready for pickup at factory (Uberlandia, MG, Brazil)']
+        : ['Fabricacao, acabamento, fechaduras KESO e controle de qualidade',
+           'Caixa de madeira fumigada (ISPM-15)',
+           'Carga pronta para retirada na fabrica (Uberlandia, MG, Brasil)'],
+      buyer: isEn
+        ? ['Pickup at factory and all ground freight',
+           'Export clearance, documentation & local taxes',
+           'Ocean freight and cargo insurance',
+           'Import clearance, duties & taxes',
+           'Delivery from destination port to final site',
+           'Installation (quoted separately)']
+        : ['Retirada na fabrica e todos os fretes terrestres',
+           'Desembaraco de exportacao, documentacao e taxas locais',
+           'Frete maritimo e seguro da carga',
+           'Desembaraco de importacao, impostos e tributos',
+           'Entrega do porto de destino ao local final',
+           'Instalacao (orcada separadamente)']
+    },
+    'FOB': {
+      seller: isEn
+        ? ['Manufacturing, finishing, KESO locks & QC',
+           'Wooden fumigated crate (ISPM-15)',
+           'Ground freight Uberlandia to Port of Santos',
+           'Export clearance & documentation',
+           'Cargo loaded on board at Port of Santos']
+        : ['Fabricacao, acabamento, fechaduras KESO e controle de qualidade',
+           'Caixa de madeira fumigada (ISPM-15)',
+           'Frete terrestre Uberlandia -> Porto de Santos',
+           'Desembaraco de exportacao e documentacao',
+           'Carga embarcada a bordo no Porto de Santos'],
+      buyer: isEn
+        ? ['Ocean freight from Port of Santos onwards',
+           'Cargo insurance during transit',
+           'Import clearance, duties & taxes',
+           'Port handling at destination',
+           'Delivery from destination port to final site',
+           'Installation (quoted separately)']
+        : ['Frete maritimo a partir do Porto de Santos',
+           'Seguro da carga durante o transporte',
+           'Desembaraco de importacao, impostos e tributos',
+           'Movimentacao no porto de destino',
+           'Entrega do porto de destino ao local final',
+           'Instalacao (orcada separadamente)']
+    },
+    'CIF': {
+      seller: isEn
+        ? ['Manufacturing, finishing, KESO locks & QC',
+           'Wooden fumigated crate (ISPM-15)',
+           'Ground freight Uberlandia to Port of Santos',
+           'Export clearance & documentation',
+           'Ocean freight to destination port',
+           'Cargo insurance during transit']
+        : ['Fabricacao, acabamento, fechaduras KESO e controle de qualidade',
+           'Caixa de madeira fumigada (ISPM-15)',
+           'Frete terrestre Uberlandia -> Porto de Santos',
+           'Desembaraco de exportacao e documentacao',
+           'Frete maritimo ate o porto de destino',
+           'Seguro da carga durante o transporte'],
+      buyer: isEn
+        ? ['Import clearance, duties & taxes',
+           'Port handling at destination',
+           'Delivery from destination port to final site',
+           'Installation (quoted separately)']
+        : ['Desembaraco de importacao, impostos e tributos',
+           'Movimentacao no porto de destino',
+           'Entrega do porto de destino ao local final',
+           'Instalacao (orcada separadamente)']
+    },
+    'DAP': {
+      seller: isEn
+        ? ['Manufacturing, finishing, KESO locks & QC',
+           'Wooden fumigated crate (ISPM-15)',
+           'Ground freight Uberlandia to Port of Santos',
+           'Export clearance & documentation',
+           'Ocean freight to destination port',
+           'Cargo insurance during transit',
+           'Delivery from destination port to agreed place']
+        : ['Fabricacao, acabamento, fechaduras KESO e controle de qualidade',
+           'Caixa de madeira fumigada (ISPM-15)',
+           'Frete terrestre Uberlandia -> Porto de Santos',
+           'Desembaraco de exportacao e documentacao',
+           'Frete maritimo ate o porto de destino',
+           'Seguro da carga durante o transporte',
+           'Entrega do porto de destino ao local combinado'],
+      buyer: isEn
+        ? ['Import duties, taxes and local fees only',
+           'Installation (quoted separately)']
+        : ['Impostos de importacao, tributos e taxas locais',
+           'Instalacao (orcada separadamente)']
+    }
+  };
+
+  var r = RESP[incoterm];
+  var txtSellerHead = isEn ? 'Seller (Projetta) - Included' : 'Responsabilidade Projetta (Inclusos)';
+  var txtBuyerHead  = isEn ? 'Buyer - Not included'          : 'Responsabilidade Cliente (Nao inclusos)';
+  var txtFooter = isEn
+    ? 'Based on Incoterms(R) 2020 rules of the International Chamber of Commerce (ICC). Risk and cost transfer as per ICC definitions.'
+    : 'Baseado nas regras Incoterms(R) 2020 da Camara de Comercio Internacional (ICC). Transferencia de risco e custo conforme definicao ICC.';
+
+  var esc = function(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+
+  var html = '';
+  // Cabecalho com selo do incoterm
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #90caf9;padding-bottom:4px;margin-bottom:6px">';
+  html +=   '<div style="font-weight:800;color:#0d47a1;font-size:12.5px;letter-spacing:0.3px">INCOTERM 2020 &nbsp;-&nbsp; <span style="background:#1565c0;color:#fff;padding:2px 8px;border-radius:3px;letter-spacing:1px">'+incoterm+'</span></div>';
+  html +=   '<div style="color:#555;font-size:9.5px;font-style:italic">'+esc(NOMES[incoterm])+'</div>';
+  html += '</div>';
+
+  // 2 colunas: Seller (verde) / Buyer (laranja)
+  html += '<div style="display:flex;gap:8px">';
+  html +=   '<div style="flex:1;background:#f1f8e9;padding:5px 8px;border-radius:3px;border-left:3px solid #2e7d32">';
+  html +=     '<div style="font-weight:700;color:#2e7d32;margin-bottom:3px;font-size:10px">'+esc(txtSellerHead)+'</div>';
+  html +=     '<ul style="margin:0;padding-left:14px;font-size:9px;color:#333;line-height:1.45">';
+  r.seller.forEach(function(s){ html += '<li>'+esc(s)+'</li>'; });
+  html +=     '</ul>';
+  html +=   '</div>';
+  html +=   '<div style="flex:1;background:#fff3e0;padding:5px 8px;border-radius:3px;border-left:3px solid #e65100">';
+  html +=     '<div style="font-weight:700;color:#e65100;margin-bottom:3px;font-size:10px">'+esc(txtBuyerHead)+'</div>';
+  html +=     '<ul style="margin:0;padding-left:14px;font-size:9px;color:#333;line-height:1.45">';
+  r.buyer.forEach(function(s){ html += '<li>'+esc(s)+'</li>'; });
+  html +=     '</ul>';
+  html +=   '</div>';
+  html += '</div>';
+
+  html += '<div style="font-size:8.5px;color:#888;font-style:italic;margin-top:4px;text-align:center">'+esc(txtFooter)+'</div>';
+
+  el.style.display = 'block';
+  el.style.border = '1.5px solid #1565c0';
+  el.style.background = '#fff';
+  el.style.padding = '8px 10px';
+  el.style.borderRadius = '4px';
+  el.style.marginBottom = '6px';
+  el.innerHTML = html;
 }
 
 function _injectPropostaFobCif(isIntl, lang, cambio){
