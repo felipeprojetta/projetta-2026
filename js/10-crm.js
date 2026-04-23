@@ -167,7 +167,7 @@ function cCloudLoad(cb){
 /* ── Helpers ────────────────────────────────────── */
 function uuid(){return 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function brl(v){return('R$ '+_fmtBRLCeil(v));}
-function dateLabel(s){if(!s)return'';var d=new Date(s+'T00:00:00');return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});}
+function dateLabel(s){if(!s)return'';var d=new Date(s+'T00:00:00');var base=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});var yy=(d.getFullYear()%100).toString().padStart(2,'0');return base+' '+yy;}
 function isThisMonth(s){if(!s)return false;var d=new Date(s),n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();}
 function daysFrom(s){if(!s)return 999;return Math.ceil((new Date(s+'T00:00:00')-new Date())/(1000*86400));}
 function escH(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
