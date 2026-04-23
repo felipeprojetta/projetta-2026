@@ -3804,30 +3804,17 @@ window._orcRevSyncPlanificador=function(){
     _setVal('-q', qty);
   }
   var revs=window._orcItens.filter(function(it){return it.tipo==='revestimento' && it.largura>0 && it.altura>0;});
+  // ★ Felipe 23/04: JOGAR NO PLANIFICADOR EXATAMENTE O QUE ESTÁ NO CARD,
+  //   SEM pre-cut, SEM quebrar em RIPA/FUNDO/SOBRA/CHAPA. Cada item =
+  //   UMA linha com largura×altura×qtd do card. Se Felipe tem 23 items
+  //   de revestimento no card, o planificador terá EXATAMENTE 23 linhas
+  //   REV 1, REV 2, ..., REV 23. O bin-packing decide como alocar nas
+  //   chapas — pre-cut NÃO era pedido e gerava confusão visual (40+
+  //   sub-peças quando o card só tem 23 items).
   revs.forEach(function(it,i){
     var L=parseFloat(it.largura)||0, A=parseFloat(it.altura)||0, Q=parseInt(it.qtd)||1;
-    var tipo=it.rev_tipo||'CHAPA';
-    var revNum=i+1;
-    if(tipo==='CHAPA'){
-      var nInt=Math.floor(L/LARG_UTIL);
-      var sobra=L-(nInt*LARG_UTIL);
-      var pedaco=sobra>5?sobra:0;
-      if(nInt>0) _addRow('REV '+revNum+' CHAPA', LARG_UTIL, A, nInt*Q);
-      if(pedaco>0) _addRow('REV '+revNum+' SOBRA', Math.round(pedaco), A, Q);
-    } else if(tipo==='RIPADO'){
-      // ★ Felipe 23/04: largura peça RIPA = 98mm (era 90). Suporte 2 lados ×2.
-      var _mult2L = (it.rev_2lados==='SIM' || it.ripado_2lados==='SIM') ? 2 : 1;
-      var nRipas=Math.ceil(L/98);
-      if(nRipas>0) _addRow('REV '+revNum+' RIPA', 98, A, nRipas*Q*_mult2L);
-      // ★ Felipe 23/04: CHAPA DE FUNDO do painel ripado (L×A).
-      //   Mesma lógica de pre-cut da CHAPA: nInt chapas 1490×A + pedaço se sobra>5.
-      //   Se 2 lados: ×2 (uma chapa de fundo por face).
-      var nIntFundo=Math.floor(L/LARG_UTIL);
-      var sobraFundo=L-(nIntFundo*LARG_UTIL);
-      var pedacoFundo=sobraFundo>5?sobraFundo:0;
-      if(nIntFundo>0) _addRow('REV '+revNum+' FUNDO', LARG_UTIL, A, nIntFundo*Q*_mult2L);
-      if(pedacoFundo>0) _addRow('REV '+revNum+' FUNDO S', Math.round(pedacoFundo), A, Q*_mult2L);
-    }
+    var _mult2L = (it.rev_2lados==='SIM' || it.ripado_2lados==='SIM') ? 2 : 1;
+    _addRow('REV '+(i+1), L, A, Q*_mult2L);
   });
   // ★ Felipe 22/04 v3 (fix accordion fechado): crmFazerOrcamento chama
   //   resetToDefaults() ANTES de carregar itens, que fecha TODOS os

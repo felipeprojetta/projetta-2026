@@ -32,6 +32,16 @@ var PLN_SD   = { w: 1500, h: 5000 };
 
 /* ── CALCULAR PECAS ─────────────────────────────────── */
 function plnPecas(Lmm, Amm, fol, mod) {
+  // ★ Felipe 23/04 GUARD: plnPecas gera EXCLUSIVAMENTE peças de porta
+  //   (TAMPA MAIOR, CAVA, ACAB LAT, U PORTAL, BAT, TAP FURO, FIT ACAB,
+  //   ALISAR, FRISO, RIPAS, MOLD, TAMPA F1/F2/F3 etc). Se o orçamento é
+  //   100% revestimento, NENHUMA dessas peças pode aparecer no Levantamento
+  //   de Superfícies. Retorna array vazio e quem chamar usa só as peças
+  //   adicionadas por _orcRevSyncPlanificador / _mpCalcAllPiecesCombined
+  //   (que tem branch próprio pra revestimento).
+  if(typeof window._isOrcRevOnly==='function' && window._isOrcRevOnly()){
+    return [];
+  }
   var L  = Math.round(Lmm);
   var A  = Math.round(Amm);
   var TUB_SUP = (typeof _isInternacional==='function'&&_isInternacional())?51:(A < 4000 ? 38 : 51);
@@ -2305,6 +2315,34 @@ function planRun() {
     for(var i=0;i<manualP.length;i++) pieces.push(manualP[i]);
     var _qPlan=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
     if(_qPlan>1){ pieces.forEach(function(p){ p.qty=p.qty*_qPlan; }); }
+  }
+  // ★ Felipe 23/04: FILTRO DEFENSIVO CONTRA VAZAMENTO DE PEÇAS DE PORTA
+  //   Se o orçamento tem SOMENTE revestimentos (sem porta), qualquer peça
+  //   de porta (TAMPA MAIOR, CAVA, ACAB LAT, U PORTAL, BAT, TAP FURO,
+  //   FIT ACAB, ALISAR, MOLD, FRISO, RIPAS genéricas) que tenha vazado por
+  //   qualquer caminho (legacy, cache, race condition) é DESCARTADA aqui.
+  //   Mantém APENAS peças com prefixo 'REV ' (revestimento) ou 'FX ' (fixo).
+  if(window._mpItens && window._mpItens.length > 0){
+    var _temPorta = window._mpItens.some(function(it){return (it._tipo||'porta_pivotante')==='porta_pivotante';});
+    if(!_temPorta){
+      var _PORTA_LABELS=['TAMPA','CAVA','ACAB LAT','U PORTAL','BAT ','TAP FURO','FIT ACAB','ALISAR','MOLD ','FRISO','DIST BOR'];
+      var _before=pieces.length;
+      pieces=pieces.filter(function(p){
+        var lbl=(p.label||'').toUpperCase().trim();
+        // Sempre manter revestimento e fixo
+        if(lbl.indexOf('REV ')===0) return true;
+        if(lbl.indexOf('FX ')===0) return true;
+        // RIPAS (sem REV) é peça de porta ripada — descartar em rev-only
+        for(var k=0;k<_PORTA_LABELS.length;k++){
+          if(lbl.indexOf(_PORTA_LABELS[k])===0 || lbl.indexOf(' '+_PORTA_LABELS[k])>=0) return false;
+        }
+        if(lbl==='RIPAS' || lbl.indexOf('RIPAS ')===0) return false;
+        return true;
+      });
+      if(pieces.length < _before){
+        console.warn('🔒 planRun: filtradas '+(_before-pieces.length)+' peça(s) de porta em orçamento rev-only (eram '+_before+', agora '+pieces.length+')');
+      }
+    }
   }
   // Apply manual overrides (user-edited piece dimensions persist across sheet changes)
   for(var oi=0;oi<pieces.length;oi++){

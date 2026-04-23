@@ -10,6 +10,10 @@ var APROV_COLORS=['#4e79a7','#e8851a','#59a14f','#76b7b2','#e15759','#b07aa1','#
 var APROV_RES=null, APROV_CSI=0, APROV_SD={w:1500,h:5000,mg:10};
 
 function aprovPieces(Lmm,Amm,fol,mod){
+  // ★ Felipe 23/04 GUARD: aprovPieces gera só peças de porta. Rev-only → [].
+  if(typeof window._isOrcRevOnly==='function' && window._isOrcRevOnly()){
+    return [];
+  }
   var L=Math.round(Lmm),A=Math.round(Amm);
   var _sis=($('prod-sistema')||{value:''}).value||'';
   var TUB_SUP=(_sis.indexOf('PA007')>=0||(typeof _isInternacional==='function'&&_isInternacional()))?51:38;

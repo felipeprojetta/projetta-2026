@@ -308,4 +308,28 @@ function _toTitleCase(str){
   return str.toLowerCase().replace(/(?:^|\s|\.)\S/g, function(c){return c.toUpperCase();});
 }
 
+/* ★ Felipe 23/04: GUARD GLOBAL — detecta se o orçamento atual é 100%
+ *   revestimento (sem porta e sem fixo). Usado em plnPecas, aprovPieces,
+ *   _coletarPecasFixo etc para BLOQUEAR geração de peças de porta.
+ *
+ *   Felipe: "eliminie toda chapa de porta do revestimento, so e pra sair
+ *   o que tiver no card, e o teste que estamos fazendo pvt door so tem
+ *   revestimento".
+ *
+ *   Retorna true SOMENTE se houver pelo menos 1 revestimento E nenhuma
+ *   porta/fixo. Se _orcItens estiver vazio, retorna false (comportamento
+ *   legado — p/ orçamentos manuais sem card CRM).
+ */
+window._isOrcRevOnly = function(){
+  var itens = window._orcItens || [];
+  if(!itens.length) return false;
+  var temRev = false, temPortaOuFixo = false;
+  for(var i=0;i<itens.length;i++){
+    var t = itens[i].tipo || 'porta_pivotante';
+    if(t === 'revestimento') temRev = true;
+    else if(t === 'porta_pivotante' || t === 'porta_interna' || t === 'fixo') temPortaOuFixo = true;
+  }
+  return temRev && !temPortaOuFixo;
+};
+
 /* ══ END MODULE: SHARED ══ */
