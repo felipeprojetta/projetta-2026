@@ -1339,8 +1339,11 @@ function _populatePropostaItens(){
   //   FOB → caixa fumigada + frete terrestre ate porto Santos
   //   CIF → caixa + terrestre + maritimo
   //   Cada linha tem flag separada no contexto (_cifData.incluirX).
+  // ★ Felipe 23/04: removido check _ISINTL — linhas CIF aparecem se
+  //   tem VALOR, independente de card ser intl ou inst-quem=INTERNACIONAL.
+  //   Felipe: 'independente de quem instala deve ir custos CIF ou FOB'.
   var _cifData = _ctx.cif || null;
-  if(_cifData && _ISINTL){
+  if(_cifData){
     var _cambioCif = _ctx.cambio || 5.20;
     var _nextIdx = items.length + 2; // inst agora SEMPRE aparece (valor ou 'Not included')
     var _L_CAIXA   = (_LANG==='en' ? 'Wooden Fumigated Crate' : 'Caixa de Madeira Fumigada');
