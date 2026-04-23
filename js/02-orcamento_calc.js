@@ -307,6 +307,36 @@ function calc(){
     var hConfEl=$('h-conf');
     if(hConfEl) _setHoraAuto('h-conf',_hConfTotal,'h-conf-auto','(auto: '+_hConfDetail.join(' + ')+')');
   } else {
+  // ★ Felipe 23/04: CHECK rev-only — se _mpItens só tem revestimento/fixo,
+  //   ZERAR horas de porta (Portal/Quadro/Colagem/Conf). Essas etapas são
+  //   EXCLUSIVAS de porta. Em rev-only não tem portal nem quadro nem cava.
+  //   Corte tem lógica própria (chapas + ripado) que serve pra rev também.
+  var _revOnlyH = false;
+  if(window._mpItens && window._mpItens.length > 0){
+    _revOnlyH = window._mpItens.every(function(it){
+      var _t = it._tipo || 'porta_pivotante';
+      return _t === 'revestimento' || _t === 'fixo';
+    });
+  } else if(window._orcItens && window._orcItens.length > 0){
+    // Fallback: olhar _orcItens diretamente
+    _revOnlyH = window._orcItens.every(function(it){
+      var _t = it.tipo || 'porta_pivotante';
+      return _t === 'revestimento' || _t === 'fixo';
+    });
+  }
+  if(_revOnlyH){
+    // Forçar zero em todas as horas de porta
+    var _zerarH = ['h-portal','h-quadro','h-colagem','h-conf'];
+    _zerarH.forEach(function(id){
+      var el=$(id);
+      if(el){
+        el.value = 0;
+        el.dataset.auto = '1';
+        var lbl=$(id+'-auto');
+        if(lbl) lbl.textContent='(auto: 0h — revestimento)';
+      }
+    });
+  } else {
   // Aplicar Portal × qP (cada porta precisa ser montada)
   var hPortalEl=$('h-portal');
   if(hPortalEl && _altMM>0 && window._osGeradoUmaVez){
@@ -343,6 +373,7 @@ function calc(){
     var _cfAuto = _cfPer*_qPh;
     _setHoraAuto('h-conf',_cfAuto,'h-conf-auto',_qPh>1?'(auto: '+_cfPer+'h × '+_qPh+'p = '+_cfAuto+'h)':'(auto: '+_cfAuto+'h)');
   }
+  } // end !revOnlyH
   } // end single-door
   // ══════════════════════════════════════════════════════════════════════
 
