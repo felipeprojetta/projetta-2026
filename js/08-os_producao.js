@@ -82,19 +82,38 @@ function gerarCustoTotal(){
         }
         if(!nChapas) nChapas=parseInt((document.getElementById('plan-acm-qty')||{value:0}).value)||0;
       }
-      // Modelo ripado?
+      // Modelo ripado (porta)?
       var _mSel=document.getElementById('carac-modelo')||document.getElementById('plan-modelo');
       var _mVal=_mSel?_mSel.value:'';
       var _isRip=['08','15','20','21'].indexOf(_mVal)>=0;
+      // ★ Felipe 23/04: detectar revestimento-only pra aplicar regra específica:
+      //   "quantidade de chapas + 1 e se for ripado +1 hora por chapa que tiver
+      //   ripado". No rev-only sem carac-modelo definido, precisamos checar
+      //   _orcItens pra saber se tem ripados.
+      var _revOnlyHora = (window._orcItens||[]).length > 0 &&
+        !(window._orcItens||[]).some(function(it){ return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo'; }) &&
+        (window._orcItens||[]).some(function(it){ return it.tipo==='revestimento' && (it.largura||0)>0 && (it.altura||0)>0; });
+      var _revTemRipado = (window._orcItens||[]).some(function(it){
+        return it.tipo==='revestimento' && it.rev_tipo==='RIPADO';
+      });
       // nChapas já inclui todas as portas (nesting rodou com peças multiplicadas)
       var nChapasTotal=nChapas;
-      var corteAuto=nChapasTotal>0?(_isRip?nChapasTotal+2:nChapasTotal+1):0;
+      var corteAuto, _corteLbl;
+      if(_revOnlyHora){
+        // Rev-only: (nChapas + 1) + (nChapas se ripado)
+        var _revRipH = _revTemRipado ? nChapasTotal : 0;
+        corteAuto = nChapasTotal>0 ? nChapasTotal + 1 + _revRipH : 0;
+        _corteLbl = '(auto: '+nChapas+' chapas +1'+(_revTemRipado?' +'+nChapasTotal+' ripado':'')+' = '+corteAuto+'h)';
+      } else {
+        corteAuto = nChapasTotal>0?(_isRip?nChapasTotal+2:nChapasTotal+1):0;
+        _corteLbl = '(auto: '+nChapas+' chapas '+(_isRip?'+2 ripado':'+1')+' = '+corteAuto+'h)';
+      }
       var hCorteEl=document.getElementById('h-corte');
       if(hCorteEl && corteAuto>0 && hCorteEl.dataset.manual!=='1'){
         hCorteEl.value=corteAuto;
         hCorteEl.dataset.auto='1';
         var lbl=document.getElementById('h-corte-auto');
-        if(lbl) lbl.textContent='(auto: '+nChapas+' chapas '+(_isRip?'+2 ripado':'+1')+' = '+corteAuto+'h)';
+        if(lbl) lbl.textContent=_corteLbl;
       }
 
       // FASE 3 — 1500ms total: liberar tela com todos os dados de fabricação e instalação

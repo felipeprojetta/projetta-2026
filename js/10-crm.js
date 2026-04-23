@@ -3523,6 +3523,11 @@ window._revCalcAcessoriosGlobal = function(){
   // ── Primer: 1 un por obra (frasco 940ml serve pra toda a fita)
   var primerQty = 1;
 
+  // ── Parafusos PA-CHA AA PHS 4,2X19: 3 parafusos por tubo PA-51X12 de 500mm.
+  //   Felipe 23/04: "quando for ripado vamos colocar esse parafuso — 3
+  //   parafuso por tubo de 500mm. Se tem 1054 tubos de 0.5 então 3162".
+  var parafusoQty = totTubos5112Rip * 3;
+
   var rows=[];
   if(fitaRolos>0){
     rows.push({
@@ -3544,6 +3549,17 @@ window._revCalcAcessoriosGlobal = function(){
       apl: 'FAB',
       grp: 'SELANTES',
       obs: silMLTot.toFixed(0)+'ml ÷ 591ml = '+silSachets+' sachê(s)'
+    });
+  }
+  if(parafusoQty>0){
+    rows.push({
+      qty: parafusoQty,
+      code: 'PA-CHA AA PHS 4,2X19',
+      desc: getDesc('PA-CHA AA PHS 4,2X19'),
+      preco: getPreco('PA-CHA AA PHS 4,2X19'),
+      apl: 'FAB',
+      grp: 'PARAFUSOS',
+      obs: totTubos5112Rip+' tubos × 3 parafusos/tubo = '+parafusoQty+' un'
     });
   }
   rows.push({
