@@ -4916,27 +4916,16 @@ function _crmAbrirRevisaoLegacy(cardId, revIdx){
     return;
   }
 
-  // 5.5) Sem entry no localStorage: tentar hidratar do cloud (orcamentos_salvos) antes de cair no simplified
+  // 5.5) Sem entry no localStorage — caminho antigo (painel simplificado)
+  // ★ Felipe 24/04: a tentativa de hidratar do cloud + re-invocar loadRevision foi
+  //   REVERTIDA porque passar um d.state possivelmente incompleto em entry.revisions[0].data
+  //   estava fazendo o sistema recalcular com valores divergentes dos originais salvos.
+  //   Os valores CORRETOS estao em orcamentos_salvos.dados.displaySnap (salvos intactos).
+  //   Melhor deixar cair no painel simplificado do que exibir valores que nao batem.
   if(!entry){
     if(card && card.revisoes && card.revisoes.length>0){
       var modal=document.getElementById('crm-modal'); if(modal) modal.style.display='none';
-      // Felipe 24/04: antes de mostrar painel simplificado, buscar no cloud
-      _hidratarMemorialDoCloud(card, revIdx||0, function(hydratedEntry){
-        if(hydratedEntry){
-          // Achou no cloud -> recarregar o memorial usando o entry hidratado
-          if(typeof loadRevisionMemorial === 'function'){
-            loadRevisionMemorial(hydratedEntry.id, 0);
-          } else if(typeof loadRevision === 'function'){
-            loadRevision(hydratedEntry.id, 0);
-            if(typeof switchTab === 'function') switchTab('orcamento');
-          } else {
-            _showMemorialSimplified(card, revIdx||0);
-          }
-        } else {
-          // Nao achou no cloud -> fallback pro simplificado
-          _showMemorialSimplified(card, revIdx||0);
-        }
-      });
+      _showMemorialSimplified(card, revIdx||0);
       return;
     }
     alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');

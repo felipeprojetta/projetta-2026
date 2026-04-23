@@ -18,7 +18,7 @@ function sumBlocks(type,max){
     if(inf){
       const sp=inf.querySelectorAll('span');
       if(p>0){
-        sp[0].textContent='R$ '+_fmtBRLCeil(p)+'/chapa';
+        sp[0].textContent='R$ '+p.toLocaleString('pt-BR',{minimumFractionDigits:2})+'/chapa';
         sp[1].textContent=a+' m²/chapa';
         sp[2].textContent=qty>0?'Subtotal: '+brl(sub):'';
       } else {sp[0].textContent='—';sp[1].textContent='';sp[2].textContent='';}
