@@ -1729,7 +1729,7 @@ window._crmGetCorOptions=function(mode){
      em N chapas inteiras de 1490 + pedaço restante. Exemplo Felipe:
      4500×3000 → 3×(1490×3000) + 1×(30×3000). Pedaço <= 5mm é ignorado
      (inutilizável). Altura passa direto ate 3200mm; acima disso avisa.
-   - Ripado: cada ripa tem 90mm largura. Qtd ripas = ceil(largura/90).
+   - Ripado: cada ripa tem 98mm largura. Qtd ripas = ceil(largura/98).
      Altura de cada ripa = altura do revestimento. Tubo padrão PA-51X25.
    - Estrutura Alumínio: barras verticais a cada ~500mm + horizontais
      topo e base. Tubo escolhido pelo user (dropdown).
@@ -1780,9 +1780,9 @@ window.crmItemRevCalc=function(itemId){
     var silTubos=Math.ceil(silML/300); // tubos de 300ml
     lines.push('<b>🧴 Silicone Dow Corning 995 PRIME:</b> '+silML.toFixed(0)+' ml ('+silTubos+' tubo(s) 300ml)');
   } else if(tipo==='RIPADO'){
-    var nRipas=Math.ceil(L/90);
+    var nRipas=Math.ceil(L/98);
     var totRipas=nRipas*Q;
-    lines.push('<b>📋 Ripas (90mm cada):</b> '+nRipas+' un × '+A+'mm de altura'+(Q>1?'  (por peça, total ×'+Q+')':''));
+    lines.push('<b>📋 Ripas (98mm cada):</b> '+nRipas+' un × '+A+'mm de altura'+(Q>1?'  (por peça, total ×'+Q+')':''));
     lines.push('<b>🪵 Total ripas ACM:</b> '+totRipas+' un');
     // ★ Felipe 23/04: CHAPA DE FUNDO (L×A). Divide L por 1490 util + pedaço se sobra>5.
     var _nIntFundo=Math.floor(L/1490);
@@ -1809,7 +1809,7 @@ window.crmItemRevCalc=function(itemId){
     if(_chapaAlt===0){
       lines.push('<span style="color:#c62828">⚠ Altura da ripa '+A+'mm excede 7000mm — fora do padrão de chapa</span>');
     } else {
-      var _ripasLarg=Math.floor(1490/90); // 16
+      var _ripasLarg=Math.floor(1490/98); // 15 (1490÷98=15.2 → 15 ripas de 98mm por chapa)
       var _ripasAlt=Math.floor(_chapaAlt/A);
       var _ripasPorChapa=_ripasLarg*_ripasAlt;
       var _nChapas=Math.ceil(totRipas/_ripasPorChapa);
@@ -2428,7 +2428,7 @@ window._crmItensSaveFromDOM=function(){
     if(item.tipo==='porta_interna') fields=fields.concat(['sistema_pi','folhas_pi']);
     // ★ Felipe 22/04: campos especificos do revestimento — sem isso o
     //   crmItemRevAddChapa nao preserva a config ao duplicar.
-    if(item.tipo==='revestimento') fields=fields.concat(['rev_tipo','rev_estrutura','rev_tubo']);
+    if(item.tipo==='revestimento') fields=fields.concat(['rev_tipo','rev_estrutura','rev_tubo','rev_2lados']);
     fields.forEach(function(f){
       var el=document.getElementById(pre+f);
       if(el) item[f]=el.value;
@@ -2624,7 +2624,10 @@ window._crmItensRender=function(){
       //   Tubo, info box calculado e botao "+ Adicionar chapa".
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Tipo</label><select id="'+pre+'rev_tipo" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="CHAPA"'+(item.rev_tipo==='CHAPA'||!item.rev_tipo?' selected':'')+'>Chapa ACM 4mm</option><option value="RIPADO"'+(item.rev_tipo==='RIPADO'?' selected':'')+'>Ripado</option></select></div>';
-      h+='<div class="crm-field"></div>';
+      // ★ Felipe 23/04: campo "2 lados" — quando marcado SIM, multiplica por 2:
+      //   ripas, chapa de fundo, tubos, chapas que produzem ripas. Útil pra
+      //   divisórias/biombos com ripas dos 2 lados.
+      h+='<div class="crm-field"><label>Revestir 2 lados?</label><select id="'+pre+'rev_2lados" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="NAO"'+(item.rev_2lados!=='SIM'?' selected':'')+'>Não (1 face)</option><option value="SIM"'+(item.rev_2lados==='SIM'?' selected':'')+'>Sim (2 faces — tudo ×2)</option></select></div>';
       h+='</div>';
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Estrutura de Alumínio?</label><select id="'+pre+'rev_estrutura" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="NAO"'+(item.rev_estrutura!=='SIM'?' selected':'')+'>Não</option><option value="SIM"'+(item.rev_estrutura==='SIM'?' selected':'')+'>Sim</option></select></div>';
@@ -2867,6 +2870,7 @@ window._crmItensToCardData=function(){
       clean.rev_tipo=item.rev_tipo||'CHAPA';
       clean.rev_estrutura=item.rev_estrutura||'NAO';
       clean.rev_tubo=item.rev_tubo||'PA-51X12X1.58';
+      clean.rev_2lados=item.rev_2lados||'NAO';
     }
     return clean;
   });
@@ -3503,12 +3507,14 @@ window._revCalcAcessoriosGlobal = function(){
   revs.forEach(function(r){
     var L=parseFloat(r.largura)||0, A=parseFloat(r.altura)||0, Q=parseInt(r.qtd)||1;
     if(!L||!A) return;
-    areaTotGeral += (L*A*Q)/1e6;
+    // ★ Felipe 23/04: suporte 2 lados → multiplicador global do item
+    var _mult2L = (r.ripado_2lados==='SIM' || r.rev_2lados==='SIM') ? 2 : 1;
+    areaTotGeral += (L*A*Q*_mult2L)/1e6;
     // Só ripado tem tubos
     if(r.rev_tipo==='RIPADO'){
-      var nRipas = Math.floor(L/90);
+      var nRipas = Math.floor(L/98);
       var tubosPorRipa = Math.max(1, Math.ceil(A/1000));
-      totTubos5112Rip += tubosPorRipa * nRipas * Q;
+      totTubos5112Rip += tubosPorRipa * nRipas * Q * _mult2L;
     }
   });
 
@@ -3616,31 +3622,40 @@ window._orcRevRenderCalc=function(it){
     var tipo=r.rev_tipo||'CHAPA';
     var chInfo='';
     if(tipo==='RIPADO'){
-      var nRipasItem=Math.ceil(L/90);
-      var ripasTotItem=nRipasItem*Q;
+      // ★ Felipe 23/04: suporte a revestimento em 2 lados (ripado_2lados='SIM').
+      //   Se o item tem ripas nos 2 lados (ex: divisória com ripas dos 2 lados),
+      //   todas as quantidades devem ser ×2: ripas, chapa de fundo, tubos,
+      //   chapas que produzem as ripas.
+      var _rev2L = (r.ripado_2lados==='SIM' || r.rev_2lados==='SIM');
+      var _mult2L = _rev2L ? 2 : 1;
+      var nRipasItem=Math.ceil(L/98);
+      var ripasTotItem=nRipasItem*Q*_mult2L;
       totRipas+=ripasTotItem;
       // ★ Felipe 23/04: CHAPA DE FUNDO do painel ripado (L×A).
       //   As ripas de ACM são coladas sobre uma chapa ACM inteira (painel de fundo).
       //   Usa a mesma lógica de CHAPA: divide L por 1490 (largura útil) + pedaço se sobra>5.
+      //   Se 2 lados: ×2 (uma chapa de fundo por face).
       var nIntFundo=Math.floor(L/1490);
       var sobraFundo=L-(nIntFundo*1490);
       var pedFundo=sobraFundo>5?sobraFundo:0;
-      var chFundoItem=(nIntFundo+(pedFundo>0?1:0))*Q;
+      var chFundoItem=(nIntFundo+(pedFundo>0?1:0))*Q*_mult2L;
       totChapasFundoRip+=chFundoItem;
       // ★ Felipe 23/04: TUBOS PA-51X12X1.58 de 500mm p/ fixação das ripas.
       //   MESMO perfil que a porta com ripado usa (PA-51X12X1.58, kg 0.595).
-      //   Qty = ceil(altura/1000) por ripa × total de ripas (já com Q).
-      //   Ex: 1490×4000, Q=1 → 4 × 17 = 68 tubos.
+      //   Qty = ceil(altura/1000) por ripa × total de ripas (já com Q×2L se 2 lados).
+      //   Ex: 1490×4000, Q=1 → 4 × 17 = 68 tubos. Se 2 lados: 136 tubos.
       var nTubosPorRipa=Math.max(1, Math.ceil(A/1000));
       var tubosItem=nTubosPorRipa*ripasTotItem;
       totTubos5112Rip+=tubosItem;
       // Mantém cálculo de chapas que PRODUZEM as ripas (processo de fabricação)
+      //   ripasTotItem já inclui ×2 se 2 lados, então _nChR também dobra automaticamente
       var _chAltR=5000; if(A>4990) _chAltR=6000; if(A>5990) _chAltR=7000;
       if(A<=6990){
-        var _rPChapaR=Math.floor(1490/90)*Math.floor(_chAltR/A);
+        var _rPChapaR=Math.floor(1490/98)*Math.floor(_chAltR/A);
         var _nChR=Math.ceil(ripasTotItem/_rPChapaR);
         totChapasRipado+=_nChR;
-        chInfo=ripasTotItem+' ripas + '+chFundoItem+' ch fundo + '+tubosItem+' tubos 51×25';
+        var _chapaInfo2L = _rev2L?' <span style="color:#e67e22">(2 lados)</span>':'';
+        chInfo=ripasTotItem+' ripas + '+chFundoItem+' ch fundo + '+tubosItem+' tubos'+_chapaInfo2L;
       } else {
         chInfo=ripasTotItem+' ripas <span style="color:#c62828">(A>6990 excede)</span>';
       }
@@ -3684,7 +3699,7 @@ window._orcRevRenderCalc=function(it){
     lines.push('<b>🪟 Chapas ACM 4mm (total):</b> '+totChapasACMFinal+' un'+(_deta.length>1?'  <small style="color:#888">('+_deta.join(' + ')+')</small>':''));
   }
   if(totRipas>0){
-    lines.push('<b>🪵 Ripas 90mm (total):</b> '+totRipas+' un'+(totChapasRipado>0?'  <small style="color:#888">(saem de '+totChapasRipado+' chapa(s) ACM)</small>':''));
+    lines.push('<b>🪵 Ripas 98mm (total):</b> '+totRipas+' un'+(totChapasRipado>0?'  <small style="color:#888">(saem de '+totChapasRipado+' chapa(s) ACM)</small>':''));
   }
   // ★ 23/04: Tubos PA-51×25×1.5 × 500mm para fixação das ripas (mesmo da porta)
   if(totTubos5112Rip>0){
@@ -3758,7 +3773,7 @@ window._orcRevSyncPlanificador=function(){
   //   Regra de corte (mesma do crmItemRevCalc):
   //   • CHAPA ACM 4mm: divide L por 1490 (largura útil). N chapas inteiras
   //     de 1490×A + 1 pedaço (L−N×1490)×A quando sobra >5mm.
-  //   • RIPADO: ripas de 90mm × A. Total de ripas = ceil(L/90).
+  //   • RIPADO: ripas de 98mm × A. Total de ripas = ceil(L/98).
   //
   //   Rótulos 'REV N CHAPA', 'REV N SOBRA', 'REV N RIPA' — filtro idempotente
   //   /^REV\s/ cobre todos. Cada revestimento vira 1-2 linhas em Peças Manuais.
@@ -3800,7 +3815,7 @@ window._orcRevSyncPlanificador=function(){
       if(nInt>0) _addRow('REV '+revNum+' CHAPA', LARG_UTIL, A, nInt*Q);
       if(pedaco>0) _addRow('REV '+revNum+' SOBRA', Math.round(pedaco), A, Q);
     } else if(tipo==='RIPADO'){
-      var nRipas=Math.ceil(L/90);
+      var nRipas=Math.ceil(L/98);
       if(nRipas>0) _addRow('REV '+revNum+' RIPA', 90, A, nRipas*Q);
       // ★ Felipe 23/04: CHAPA DE FUNDO do painel ripado (L×A).
       //   Mesma lógica de pre-cut da CHAPA: nInt chapas 1490×A + pedaço se sobra>5.

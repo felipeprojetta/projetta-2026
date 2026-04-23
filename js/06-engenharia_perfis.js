@@ -123,7 +123,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     var _totalTubosRev=0, _descDetalhes=[];
     _revRipSoOnly.forEach(function(it, idx){
       var _Lr=parseFloat(it.largura)||0, _Ar=parseFloat(it.altura)||0, _Qr=parseInt(it.qtd)||1;
-      var _nRipas=Math.ceil(_Lr/90);
+      var _nRipas=Math.ceil(_Lr/98);
       var _nTubosRipa=Math.max(1,Math.ceil(_Ar/1000));
       var _qtyItem=_nRipas*_nTubosRipa*_Qr;
       _totalTubosRev+=_qtyItem;
@@ -454,7 +454,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       var _Ar = parseFloat(it.altura)||0;
       var _Qr = parseInt(it.qtd)||1;
       if(!_Lr || !_Ar) return;
-      var _nRipas = Math.ceil(_Lr/90);
+      var _nRipas = Math.ceil(_Lr/98);
       var _nTubosRipa = Math.max(1, Math.ceil(_Ar/1000));
       var _qtyItem = _nRipas * _nTubosRipa * _Qr;
       _totalTubosRev += _qtyItem;

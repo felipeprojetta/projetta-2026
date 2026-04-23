@@ -216,7 +216,7 @@ function _gerarOSRevestimentoOnly(){
   if(el('os-vao'))     el('os-vao').textContent=vaoTxt;
   if(el('os-sistema')) el('os-sistema').textContent='REVESTIMENTO RIPADO (ACM + tubos PA-51×25×1.5)';
   if(el('os-folhas'))  el('os-folhas').textContent='—';
-  if(el('os-modelo'))  el('os-modelo').textContent='Ripas 90mm';
+  if(el('os-modelo'))  el('os-modelo').textContent='Ripas 98mm';
 
   // Esconder bloco Chapa Frontal (não aplicável a revestimento)
   var _cfDiv=el('os-chapa-frontal'); if(_cfDiv){ _cfDiv.style.display='none'; }
@@ -517,7 +517,7 @@ function gerarOS(){
   el('os-vao').textContent=_vaoTxt;
   el('os-sistema').textContent=_isRevOnlyOS?'REVESTIMENTO RIPADO (tubos PA-51×25×1.5)':(d.sis+' (tubo '+(d.sis==='PA007'?51:38)+'mm)');
   el('os-folhas').textContent=_isRevOnlyOS?'—':(nFolhas+' folha'+(nFolhas>1?'s':''));
-  el('os-modelo').textContent=_isRevOnlyOS?'Ripas 90mm':(modelo?'Modelo '+modelo:'—');
+  el('os-modelo').textContent=_isRevOnlyOS?'Ripas 98mm':(modelo?'Modelo '+modelo:'—');
 
   // ── Chapa Frontal — referência para conferência manual (só porta) ──
   var _cfDiv=el('os-chapa-frontal');

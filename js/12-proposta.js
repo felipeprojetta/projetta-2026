@@ -2227,7 +2227,7 @@ function _calcCustoTubosRev(){
   revs.forEach(function(r){
     var L=parseFloat(r.largura)||0, A=parseFloat(r.altura)||0, Q=parseInt(r.qtd)||1;
     if(!L||!A) return;
-    var nRipas=Math.ceil(L/90);
+    var nRipas=Math.ceil(L/98);
     var nTubosPorRipa=Math.max(1, Math.ceil(A/1000));
     totalTubos += nTubosPorRipa * nRipas * Q;
   });

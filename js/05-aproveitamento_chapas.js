@@ -28,7 +28,7 @@ function aprovPieces(Lmm,Amm,fol,mod){
     if(mod==='15'){
       var _ripTotal=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
       var _rip2L=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
-      var _nRipas=_ripTotal?Math.max(1,Math.ceil(fW/90)):Math.max(1,Math.ceil((fW-88.5*2-90-110)/90));
+      var _nRipas=_ripTotal?Math.max(1,Math.ceil(fW/98)):Math.max(1,Math.ceil((fW-88.5*2-90-110)/98));
       var _ripMult=(_rip2L?2:1)*((fol==2)?2:1);
       window._qtdRipasTotal=_nRipas*_ripMult;
       r.push(['RIPAS',98,G4,_nRipas*_ripMult]);
@@ -56,7 +56,7 @@ function aprovPieces(Lmm,Amm,fol,mod){
     if(mod==='08'){
       var _ripTotal=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
       var _rip2L=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
-      var _nRipas=_ripTotal?Math.max(1,Math.ceil(fW/90)):Math.max(1,Math.ceil((fW-HC*2-DC)/90));
+      var _nRipas=_ripTotal?Math.max(1,Math.ceil(fW/98)):Math.max(1,Math.ceil((fW-HC*2-DC)/98));
       var _ripMult=(_rip2L?2:1)*((fol==2)?2:1);
       window._qtdRipasTotal=_nRipas*_ripMult;
       r.push(['RIPAS',98,G4,_nRipas*_ripMult]);
@@ -144,7 +144,7 @@ function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
     if(mod==='08'){
       var _fxRipTotal=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
       var _fxRip2L=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
-      var nRipas=_fxRipTotal?Math.max(1,Math.round(Lfixo/90)):Math.max(1,Math.round((Lfixo-330)/90));
+      var nRipas=_fxRipTotal?Math.max(1,Math.round(Lfixo/98)):Math.max(1,Math.round((Lfixo-330)/98));
       var _fxRipMult=(_fxRip2L?2:1)*q1;
       r.push(['FX RIPAS',98,hCavaFix,nRipas*_fxRipMult]);
     }
@@ -186,7 +186,7 @@ function aprovFixoPieces(Lporta,Aporta,Lfixo,Afixo,lados,mod){
     if(mod==='15'){
       var _fxRipTotal15=($('carac-ripado-total')||{value:'NAO'}).value==='SIM';
       var _fxRip2L15=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
-      var nRipas15=_fxRipTotal15?Math.max(1,Math.round(Lfixo/90)):Math.max(1,Math.round((Lfixo-180)/90));
+      var nRipas15=_fxRipTotal15?Math.max(1,Math.round(Lfixo/98)):Math.max(1,Math.round((Lfixo-180)/98));
       var _fxRipMult15=(_fxRip2L15?2:1)*q1;
       r.push(['FX RIPAS',98,hCavaFix||Afixo-TUB*2,nRipas15*_fxRipMult15]);
     }
