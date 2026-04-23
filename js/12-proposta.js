@@ -522,6 +522,54 @@ function populateProposta(){
     }
   } catch(e){ console.warn('[populateProposta fix mpItens] erro:', e); }
 
+  // ★★★ Felipe 23/04 v8: FALLBACK pra garantir multi-door sempre que
+  //   card tem pelo menos dimensoes preenchidas. Se _orcItens vazio mas
+  //   form tem largura/altura (single door legacy), cria 1 item fake
+  //   em _mpItens pra forcar fluxo multi-door com tabela integrada.
+  try {
+    if(!window._mpItens || window._mpItens.length === 0){
+      var _formL = parseFloat((document.getElementById('largura')||{value:0}).value) || 0;
+      var _formA = parseFloat((document.getElementById('altura')||{value:0}).value) || 0;
+      if(_formL > 0 && _formA > 0){
+        var _qdP = parseInt((document.getElementById('qtd-portas')||{value:1}).value) || 1;
+        var _fld = parseInt((document.getElementById('folhas-porta')||{value:1}).value) || 1;
+        var _gv = function(id){var el=document.getElementById(id); return el?(el.value||''):'';};
+        var _modN = _gv('carac-modelo');
+        var _modT = '';
+        var _msel = document.getElementById('carac-modelo');
+        if(_msel) for(var _mi=0;_mi<_msel.options.length;_mi++){
+          if(_msel.options[_mi].value===_modN){ _modT = _msel.options[_mi].text; break; }
+        }
+        window._mpItens = [{
+          id: 'mp_fallback',
+          'largura': String(_formL),
+          'altura': String(_formA),
+          'qtd-portas': String(_qdP),
+          'folhas-porta': String(_fld),
+          'carac-modelo': _modN,
+          'carac-abertura': _gv('carac-abertura') || 'PIVOTANTE',
+          'carac-cor-ext': _gv('carac-cor-ext'),
+          'carac-cor-int': _gv('carac-cor-int') || _gv('carac-cor-ext'),
+          'carac-fech-mec': _gv('carac-fech-mec'),
+          'carac-fech-dig': _gv('carac-fech-dig') || 'NÃO SE APLICA',
+          'carac-puxador': _gv('carac-puxador'),
+          'carac-pux-tam': _gv('carac-pux-tam'),
+          'carac-cilindro': _gv('carac-cilindro') || 'KESO',
+          'carac-tem-alisar': _gv('carac-tem-alisar') || '0',
+          _largura: _formL,
+          _altura: _formA,
+          _qtd: _qdP,
+          _folhas: _fld,
+          _tipo: 'porta_pivotante',
+          _modelo: _modN,
+          _modeloTxt: _modT || 'Porta Pivotante'
+        }];
+        console.log('%c[populateProposta v8] FALLBACK _mpItens criado do form (L='+_formL+' A='+_formA+')',
+          'background:#8e44ad;color:#fff;padding:3px 8px;border-radius:4px;font-weight:800');
+      }
+    }
+  } catch(e){ console.warn('[populateProposta v8 fallback] erro:', e); }
+
   // ═══════════════════════════════════════════════════════════════════
   // INTERNACIONAL: detecção + tradução + formato BRL+USD
   // ★ Felipe 23/04: fonte da verdade e o SCOPE do card CRM (botão BR Nacional

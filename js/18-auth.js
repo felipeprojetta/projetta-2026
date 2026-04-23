@@ -1311,18 +1311,27 @@ function _populatePropostaItens(){
       +'</tr>';
   });
   // Linha de INSTALAÇÃO INTERNACIONAL (antes do total)
+  // ★ Felipe 23/04: SEMPRE mostra linha de instalacao em card intl.
+  //   Se _INSTFAT=0 → 'Not included' / 'Nao inclusa'. Se >0 → valor
+  //   somado ao Total. Felipe: 'se nao tiver instalacao coloque
+  //   instalacao nao inclusa e pronto'.
   var _grandTotal = totalValor;
-  if(_ISINTL && _INSTFAT > 0){
+  if(_ISINTL){
     var _instIdx = (items.length + 1).toString().padStart(2,'0');
-    tableHtml+='<tr>'
+    var _instHasValue = (_INSTFAT > 0);
+    var _L_NOTINC = (_LANG==='en' ? 'Not included' : 'Não inclusa');
+    var _instPriceCell = _instHasValue ? fmt(_INSTFAT) : '<span style="color:#c0392b;font-style:italic">'+_L_NOTINC+'</span>';
+    var _instTotalCell = _instHasValue ? fmt(_INSTFAT, 'Instalação') : '<span style="color:#c0392b;font-style:italic">'+_L_NOTINC+'</span>';
+    var _instQtyCell = _instHasValue ? '1' : '—';
+    tableHtml+='<tr'+(!_instHasValue?' style="background:#fafafa"':'')+'>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+_instIdx+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc">'+_L_INST+'</td>'
       +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center">—</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">1</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_INSTFAT)+'</td>'
-      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+fmt(_INSTFAT, 'Instalação')+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+_instQtyCell+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+_instPriceCell+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-weight:700">'+_instTotalCell+'</td>'
       +'</tr>';
-    _grandTotal += _INSTFAT;
+    if(_instHasValue) _grandTotal += _INSTFAT;
   }
 
   // ★ Linhas de logistica (Felipe 20/04):
@@ -1333,7 +1342,7 @@ function _populatePropostaItens(){
   var _cifData = _ctx.cif || null;
   if(_cifData && _ISINTL){
     var _cambioCif = _ctx.cambio || 5.20;
-    var _nextIdx = items.length + (_INSTFAT > 0 ? 2 : 1);
+    var _nextIdx = items.length + 2; // inst agora SEMPRE aparece (valor ou 'Not included')
     var _L_CAIXA   = (_LANG==='en' ? 'Wooden Fumigated Crate' : 'Caixa de Madeira Fumigada');
     var _L_FRETE_T = (_LANG==='en' ? 'Land Freight Uberlândia→Santos' : 'Frete Terrestre Uberlândia→Santos');
     var _L_FRETE_M = (_LANG==='en' ? 'Sea Freight' : 'Frete Marítimo');
