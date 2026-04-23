@@ -1132,19 +1132,25 @@ function plnPieceTable(pieces, placed) {
   function _isPortaPiece(lbl){var base=lbl.split('[')[0].split('EXT')[0].split('INT')[0].trim();if(base.indexOf('MOLD ')===0)return true;for(var k=0;k<_portaPecas.length;k++){if(base===_portaPecas[k])return true;}return false;}
   var _pSorted=pieces.slice().map(function(p,idx){
     var _isP=_isPortaPiece(p.label);
-    // ★ Felipe 23/04: LOCAL pra peças REV * (revestimento) é REVESTIMENTO,
-    //   não PORTAL. PORTAL é batente/marco da porta, não faz sentido em rev.
-    //   Felipe 23/04 v2: FORÇAR REVESTIMENTO se label começa com 'REV ',
-    //   ignorando qualquer _local prévio (pode ter vindo 'PORTAL' de caller
-    //   legado). Mesmo tratamento pra FX (FIXO).
-    var _isRev = (typeof p.label==='string' && p.label.indexOf('REV ')===0);
-    var _isFx  = (typeof p.label==='string' && p.label.indexOf('FX ')===0);
-    if(_isRev){
+    // ★ Felipe 23/04 v3: LOCAL vem do _tipo do ITEM DO CARD (não do nome
+    //   da peça). Regra final, com Felipe:
+    //     • item revestimento  → LOCAL = REVESTIMENTO (tudo: FUNDO, RIPA)
+    //     • item fixo          → LOCAL = FIXO (tudo)
+    //     • item porta_pivotante → LOCAL = PORTA (tampa/cava/acab/friso/ripa)
+    //                              ou PORTAL (u portal/bat do marco)
+    //   Fallback se peça não tem _tipo (peça manual do usuário, legado):
+    //     decide pelo prefixo do label (REV*, FX*) + _isPortaPiece.
+    var _itemTipo = p._tipo || '';
+    if(_itemTipo === 'revestimento'){
       p._local = 'REVESTIMENTO';
-    } else if(_isFx){
+    } else if(_itemTipo === 'fixo' || (typeof p.label==='string' && p.label.indexOf('FX ')===0)){
       p._local = 'FIXO';
-    } else if(!p._local){
+    } else if(_itemTipo === 'porta_pivotante'){
       p._local = _isP ? 'PORTA' : 'PORTAL';
+    } else {
+      // Fallback legado — decide pelo label
+      var _isRev = (typeof p.label==='string' && p.label.indexOf('REV ')===0);
+      p._local = _isRev ? 'REVESTIMENTO' : _isP ? 'PORTA' : 'PORTAL';
     }
     p._localOrd = p._local==='PORTA' ? 0
                 : p._local==='PORTAL' ? 1
@@ -1295,7 +1301,9 @@ function _coletarPecasFixo(Lporta, Aporta, modelo){
 
     if(qf>1) fp.forEach(function(p){ p.qty = p.qty*qf; });
     // Anexa _cor pra cada peça (lido pela tabela em _corBadge)
-    fp.forEach(function(p){ p._cor = corExt; });
+    // ★ Felipe 23/04: _tipo='fixo' em todas as peças do item fixo, pra
+    //   classificar LOCAL corretamente (FIXO, não PORTAL).
+    fp.forEach(function(p){ p._cor = corExt; p._tipo = 'fixo'; });
     result = result.concat(fp);
   });
   return result;

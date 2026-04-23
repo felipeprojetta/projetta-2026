@@ -944,7 +944,7 @@ function _mpCalcAllPiecesCombined(){
           label: 'REV ' + (idx+1) + ' FUNDO',
           w: _L, h: _A,
           qty: _Qtot,
-          mat: 'acm', _cor: _cor, _local: 'REVESTIMENTO',
+          mat: 'acm', _cor: _cor, _tipo: 'revestimento',
           color: PLN_COLORS[idx % PLN_COLORS.length]
         });
         // Ripas 98mm × A, qtd = ceil(L/90) × Qtot
@@ -954,7 +954,7 @@ function _mpCalcAllPiecesCombined(){
             label: 'REV ' + (idx+1) + ' RIPA',
             w: 98, h: _A,
             qty: _nRipas * _Qtot,
-            mat: 'acm', _cor: _cor, _local: 'REVESTIMENTO',
+            mat: 'acm', _cor: _cor, _tipo: 'revestimento',
             color: PLN_COLORS[idx % PLN_COLORS.length]
           });
         }
@@ -964,7 +964,7 @@ function _mpCalcAllPiecesCombined(){
           label: 'REV ' + (idx+1),
           w: _L, h: _A,
           qty: _Qtot,
-          mat: 'acm', _cor: _cor, _local: 'REVESTIMENTO',
+          mat: 'acm', _cor: _cor, _tipo: 'revestimento',
           color: PLN_COLORS[idx % PLN_COLORS.length]
         });
       }
@@ -1020,16 +1020,16 @@ function _mpCalcAllPiecesCombined(){
         // porta, não CSS) quebra o desenho do canvas (peças ficam sem cor).
 
         if(_sameCor){
-          var pc={label:lbl+_iTag,w:w,h:h,qty:q,_itemIdx:idx,_cor:_corExt};
+          var pc={label:lbl+_iTag,w:w,h:h,qty:q,_itemIdx:idx,_cor:_corExt,_tipo:'porta_pivotante'};
           if(isAlu) pc.mat='alu';
           allPieces.push(pc);
         } else if(_isSurface(lbl)){
           var qExt=Math.ceil(q/2);
           var qInt=Math.floor(q/2);
-          if(qExt>0){var pe={label:lbl+' EXT'+_iTag,w:w,h:h,qty:qExt,_itemIdx:idx,_cor:_corExt};if(isAlu)pe.mat='alu';allPieces.push(pe);}
-          if(qInt>0){var pi={label:lbl+' INT'+_iTag,w:w,h:h,qty:qInt,_itemIdx:idx,_cor:_corInt};if(isAlu)pi.mat='alu';allPieces.push(pi);}
+          if(qExt>0){var pe={label:lbl+' EXT'+_iTag,w:w,h:h,qty:qExt,_itemIdx:idx,_cor:_corExt,_tipo:'porta_pivotante'};if(isAlu)pe.mat='alu';allPieces.push(pe);}
+          if(qInt>0){var pi={label:lbl+' INT'+_iTag,w:w,h:h,qty:qInt,_itemIdx:idx,_cor:_corInt,_tipo:'porta_pivotante'};if(isAlu)pi.mat='alu';allPieces.push(pi);}
         } else {
-          var ps={label:lbl+_iTag,w:w,h:h,qty:q,_itemIdx:idx,_cor:_corExt};
+          var ps={label:lbl+_iTag,w:w,h:h,qty:q,_itemIdx:idx,_cor:_corExt,_tipo:'porta_pivotante'};
           if(isAlu) ps.mat='alu';
           allPieces.push(ps);
         }
