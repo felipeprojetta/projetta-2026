@@ -155,6 +155,46 @@ var API = {
       });
   },
 
+  /* ── Hidratar localStorage a partir da tabela normalizada ──
+     Uso: chama no startup OU após edições diretas no Supabase (ex: corrigir dados via MCP).
+     Baixa crm_oportunidades + crm_revisoes → sobrescreve projetta_crm_v1 local
+     → atualiza snapshot (evita re-enviar os mesmos dados como "mudança local"). */
+  hydrateLocal: function(opts){
+    opts=opts||{};
+    return API.loadAll().then(function(opps){
+      if(!opps||!Array.isArray(opps)) return [];
+      // Preserva campos locais que não estão na tabela (anexos grandes, drafts) via merge leve
+      try{
+        var localRaw=localStorage.getItem(CK_OLD);
+        var local = localRaw ? JSON.parse(localRaw) : [];
+        var localMap={};
+        (local||[]).forEach(function(o){ if(o&&o.id) localMap[o.id]=o; });
+        opps.forEach(function(co){
+          var lo=localMap[co.id];
+          // Mantém anexos locais (base64 grandes) e dataContato legado se não veio do cloud
+          if(lo){
+            if(lo.anexos && lo.anexos.length>0 && (!co.anexos||co.anexos.length===0)) co.anexos=lo.anexos;
+            if(lo.dataContato && !co.dataContato) co.dataContato=lo.dataContato;
+          }
+        });
+      }catch(e){ /* se falhar o merge, usa direto do cloud */ }
+      // Sobrescreve blob local
+      try{ localStorage.setItem(CK_OLD, JSON.stringify(opps)); }
+      catch(e){ console.warn('[crmDB] hydrateLocal: falha salvar localStorage', e); }
+      // Atualiza snapshot para NÃO re-enviar esses dados como "mudança local"
+      try{ sessionStorage.setItem(SNAP_KEY, _hash(opps)); }catch(e){}
+      if(opts.verbose!==false) console.log('[crmDB] hydrateLocal: '+opps.length+' opps sincronizadas do Supabase');
+      // Re-render se CRM já está montado
+      if(opts.rerender!==false && typeof window.crmRender==='function'){
+        try{ window.crmRender(); }catch(e){}
+      }
+      return opps;
+    }).catch(function(e){
+      console.warn('[crmDB] hydrateLocal falhou (app continua com localStorage existente):', e.message||e);
+      return null;
+    });
+  },
+
   /* ── Salvar (upsert) 1 oportunidade ── */
   saveOpp: function(opp, opts){
     opts=opts||{};

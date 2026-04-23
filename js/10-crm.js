@@ -5906,16 +5906,36 @@ document.addEventListener('DOMContentLoaded',function(){
     fetch(SB+'/rest/v1/configuracoes?chave=eq.'+SK+'&select=valor&limit=1',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}})
       .then(function(r){return r.json();}).then(function(rows){if(rows&&rows.length&&rows[0].valor&&rows[0].valor.data){sS(rows[0].valor.data);}}).catch(function(){});
 
-    // Load CRM data from cloud
-    cCloudLoad(function(val){
-      if(val&&val.db&&val.db.length>0){
-        var local=cLoad();
-        if(val.db.length>=local.length){
-          var merged=mergeCloudLocal(val.db);
-          localStorage.setItem(CK,JSON.stringify(merged));
-        }
+    // ★ Sync bidirecional (Felipe 23/04): hidrata localStorage a partir da tabela
+    //   relacional crm_oportunidades + crm_revisoes ANTES de ler o blob legado.
+    //   Isso garante que edições diretas no Supabase (MCP/SQL) sempre chegam no app.
+    //   Se hydrateLocal falhar (offline ou tabela vazia), cai no cCloudLoad (blob).
+    var _hydratedOK = false;
+    var _hydratePromise = (window.crmDB && typeof window.crmDB.hydrateLocal==='function')
+      ? window.crmDB.hydrateLocal({rerender:false, verbose:true}).then(function(opps){
+          if(opps && opps.length>0){ _hydratedOK = true; }
+          return opps;
+        })
+      : Promise.resolve(null);
+
+    _hydratePromise.then(function(){
+      // Se hydrate funcionou, já temos dados frescos em localStorage — renderiza direto.
+      // Senão (fallback), usa o blob legado via cCloudLoad.
+      if(_hydratedOK){
+        crmRender();
+      } else {
+        // Load CRM data from cloud (blob legado)
+        cCloudLoad(function(val){
+          if(val&&val.db&&val.db.length>0){
+            var local=cLoad();
+            if(val.db.length>=local.length){
+              var merged=mergeCloudLocal(val.db);
+              localStorage.setItem(CK,JSON.stringify(merged));
+            }
+          }
+          crmRender();
+        });
       }
-      crmRender();
     });
   }
 
