@@ -3636,8 +3636,16 @@ window._revCalcAcessoriosGlobal = function(){
   });
   var compTotalM = compTotalMM / 1000;
 
-  // Fita Dupla Face 12mm: rendimento 20 m/rolo
-  var fitaRolos = compTotalM > 0 ? Math.ceil(compTotalM / 20) : 0;
+  // ── Fita dupla face: SOMA de 2 componentes ──
+  //   1) Fita chapa ↔ parede: mesma fórmula do Dowsil (comp_total_m)
+  //   2) Fita tubo ↔ ripa (ripado): tubos × 0.5m × 2 lados
+  //      Felipe 23/04: 'voce tirou as fitas dos ripados que era os
+  //      500 x 2 x quantidade de perfis do ripado'.
+  //   Ambos dividem por 20 (rendimento 20m/rolo).
+  var fitaChapaParedeM = compTotalM;
+  var fitaRipadoM      = totTubos5112Rip * 0.5 * 2;
+  var fitaTotalM       = fitaChapaParedeM + fitaRipadoM;
+  var fitaRolos        = fitaTotalM > 0 ? Math.ceil(fitaTotalM / 20) : 0;
 
   // Dowsil 995 sachê 591ml: rendimento 8 m/sachê
   var silSachets = compTotalM > 0 ? Math.ceil(compTotalM / 8) : 0;
@@ -3653,6 +3661,9 @@ window._revCalcAcessoriosGlobal = function(){
 
   var rows=[];
   if(fitaRolos>0){
+    var _fitaObs = 'Chapa↔parede: '+fitaChapaParedeM.toFixed(2)+'m';
+    if(fitaRipadoM > 0) _fitaObs += ' + Ripado ('+totTubos5112Rip+' tubos × 0.5 × 2): '+fitaRipadoM.toFixed(2)+'m';
+    _fitaObs += ' = '+fitaTotalM.toFixed(2)+'m ÷ 20m/rolo = '+fitaRolos+' rolo(s)';
     rows.push({
       qty: fitaRolos,
       code: 'PA-FITDF 12X20X1.0',
@@ -3660,7 +3671,7 @@ window._revCalcAcessoriosGlobal = function(){
       preco: getPreco('PA-FITDF 12X20X1.0'),
       apl: 'FAB',
       grp: 'FITA DUPLA FACE',
-      obs: 'Comp.total: '+compTotalM.toFixed(2)+'m ÷ 20m/rolo = '+fitaRolos+' rolo(s)'
+      obs: _fitaObs
     });
   }
   if(silSachets>0){
