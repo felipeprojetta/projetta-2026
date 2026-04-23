@@ -4896,11 +4896,27 @@ function _crmAbrirRevisaoLegacy(cardId, revIdx){
     return;
   }
 
-  // 5.5) Sem paramsFinanceiros na rev — caminho antigo (painel simplificado)
+  // 5.5) Sem entry no localStorage: tentar hidratar do cloud (orcamentos_salvos) antes de cair no simplified
   if(!entry){
     if(card && card.revisoes && card.revisoes.length>0){
       var modal=document.getElementById('crm-modal'); if(modal) modal.style.display='none';
-      _showMemorialSimplified(card, revIdx||0);
+      // Felipe 24/04: antes de mostrar painel simplificado, buscar no cloud
+      _hidratarMemorialDoCloud(card, revIdx||0, function(hydratedEntry){
+        if(hydratedEntry){
+          // Achou no cloud -> recarregar o memorial usando o entry hidratado
+          if(typeof loadRevisionMemorial === 'function'){
+            loadRevisionMemorial(hydratedEntry.id, 0);
+          } else if(typeof loadRevision === 'function'){
+            loadRevision(hydratedEntry.id, 0);
+            if(typeof switchTab === 'function') switchTab('orcamento');
+          } else {
+            _showMemorialSimplified(card, revIdx||0);
+          }
+        } else {
+          // Nao achou no cloud -> fallback pro simplificado
+          _showMemorialSimplified(card, revIdx||0);
+        }
+      });
       return;
     }
     alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');
@@ -4942,6 +4958,92 @@ function _mostrarBannerRevisao(card, ri, rev){
     ' · <a href="#" onclick="(function(){var b=document.getElementById(\'rev-view-banner\');if(b)b.remove();document.body.style.paddingTop=\'\';})();return false;" style="color:#fff;text-decoration:underline">Fechar</a>';
   document.body.appendChild(banner);
   document.body.style.paddingTop = '42px';
+}
+
+/* ── Hidratacao do memorial a partir do cloud (orcamentos_salvos) ──
+   Felipe 24/04: Antes de cair no painel simplificado, tentar buscar o orcamento
+   completo no Supabase (orcamentos_salvos). Se achar, salva no localStorage local
+   (hidratando o cache) e invoca loadRevisionMemorial normalmente.
+   Se nao achar, callback(null) -> cai no simplified como fallback. */
+function _hidratarMemorialDoCloud(card, revIdx, callback){
+  try {
+    if(!card || !card.id){ callback(null); return; }
+    var SUPA_URL = 'https://plmliavuwlgpwaizfeds.supabase.co';
+    var SUPA_KEY = (typeof window._SUPA_KEY === 'string' && window._SUPA_KEY) ||
+                   (typeof window.SUPABASE_ANON_KEY === 'string' && window.SUPABASE_ANON_KEY) ||
+                   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
+    var url = SUPA_URL + '/rest/v1/orcamentos_salvos?crm_card_id=eq.' + encodeURIComponent(card.id)
+            + '&select=id,rev_num,rev_label,dados,valor_tabela,valor_faturamento,criado_em'
+            + '&order=criado_em.desc&limit=10';
+    console.log('[memorial-hidratar] buscando cloud para card', card.id, 'rev', revIdx);
+    fetch(url, {headers:{'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY}})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(arr){
+        if(!arr || arr.length===0){
+          console.log('[memorial-hidratar] nada no cloud para', card.id);
+          callback(null); return;
+        }
+        // Preferir o rev_num solicitado; se nao achar, usar o mais recente
+        var target = arr.find(function(x){ return x.rev_num === (revIdx||0); }) || arr[0];
+        if(!target || !target.dados){ callback(null); return; }
+        var d = target.dados || {};
+        // Montar entry compativel com o formato do localStorage "orcamentos"
+        // (loadRevisionMemorial espera entry.revisions[ri] com o snapshot)
+        var snapshot = {
+          state: d.state || {},
+          calcResult: d.calcResult || null,
+          abas: d.abas || null,
+          dynBlocks: d.dynBlocks || null,
+          displaySnap: d.displaySnap || null,
+          propostaHTML: d.propostaHTML || '',
+          osTabelasHTML: d.osTabelasHTML || '',
+          osaContentHTML: d.osaContentHTML || '',
+          planTabelasHTML: d.planTabelasHTML || '',
+          planCanvasDataURL: d.planCanvasDataURL || '',
+          lastOSData: d.lastOSData || null,
+          lastFixosPerfisRows: d.lastFixosPerfisRows || null,
+          meta: d.meta || {},
+          valorTabela: target.valor_tabela,
+          valorFaturamento: target.valor_faturamento,
+          data: target.criado_em,
+          label: target.rev_label || 'Original'
+        };
+        var entry = {
+          id: 'hidratado_' + target.id,
+          crm_card_id: card.id,
+          name: (card.cliente||'') + ' — hidratado',
+          ts: new Date(target.criado_em).getTime(),
+          revisions: [snapshot]
+        };
+        // Salvar no localStorage (com trim de canvas grande se necessario)
+        try {
+          var lst = JSON.parse(localStorage.getItem('orcamentos') || '[]');
+          lst.push(entry);
+          localStorage.setItem('orcamentos', JSON.stringify(lst));
+          console.log('[memorial-hidratar] hidratado OK, id=', entry.id);
+        } catch(errQuota){
+          console.warn('[memorial-hidratar] quota cheia, tentando sem canvas:', errQuota);
+          try {
+            // Tentar de novo sem o canvas do plano de corte (o maior item)
+            var snap2 = Object.assign({}, snapshot); snap2.planCanvasDataURL = '';
+            var entry2 = Object.assign({}, entry); entry2.revisions = [snap2];
+            var lst2 = JSON.parse(localStorage.getItem('orcamentos') || '[]');
+            lst2.push(entry2);
+            localStorage.setItem('orcamentos', JSON.stringify(lst2));
+            entry = entry2;
+          } catch(err2){
+            console.warn('[memorial-hidratar] falhou tambem sem canvas:', err2);
+            // Ultimo recurso: guardar em memoria global pra uso imediato
+            window._tmpHidratadoEntry = entry;
+          }
+        }
+        callback(entry);
+      })
+      .catch(function(e){
+        console.warn('[memorial-hidratar] erro fetch:', e);
+        callback(null);
+      });
+  } catch(e){ console.warn('[memorial-hidratar] excecao:', e); callback(null); }
 }
 
 /* ── Memorial simplificado para cards órfãos (sem snapshot no DB) ──
