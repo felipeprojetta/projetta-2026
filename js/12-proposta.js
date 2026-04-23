@@ -2114,16 +2114,80 @@ function _fabRestoreInputStyle(field){
   if(inp){ inp.style.background = ''; inp.style.borderColor = ''; }
 }
 
+// ── TUBOS PA-51X25X1.5 de REVESTIMENTOS RIPADOS ────────────────────────────
+// ★ Felipe 23/04: Revestimentos de parede com TIPO=RIPADO consomem tubos
+// PA-51X25X1.5 de 500mm cada (mesmos da porta ripada). Qty por item:
+//   ripas × ceil(altura/1000) × qtd
+// Esta função agrega todos os revestimentos ripados de window._orcItens,
+// empacota os cortes em barras de 6m e devolve o custo usando o mesmo
+// pf-kg-mercado da aba Perfis (com as deduções aplicadas). Resultado:
+// o custo dos tubos entra em fab-mat-perfis (input de custo) — NÃO apenas
+// no visual de Materiais Calculados do card revestimento.
+function _calcCustoTubosRev(){
+  var _zero={totalTubos:0, custoPerfil:0, custoPerfilBru:0, kgLiq:0, kgBruto:0, nBars:0, compMM:500, code:'PA-51X25X1.5'};
+  var revs=(window._orcItens||[]).filter(function(r){
+    return r.tipo==='revestimento' && r.rev_tipo==='RIPADO' && (r.largura||0)>0 && (r.altura||0)>0;
+  });
+  if(!revs.length) return _zero;
+  // Total de tubos agregado
+  var totalTubos=0;
+  revs.forEach(function(r){
+    var L=parseFloat(r.largura)||0, A=parseFloat(r.altura)||0, Q=parseInt(r.qtd)||1;
+    if(!L||!A) return;
+    var nRipas=Math.ceil(L/90);
+    var nTubosPorRipa=Math.max(1, Math.ceil(A/1000));
+    totalTubos += nTubosPorRipa * nRipas * Q;
+  });
+  if(!totalTubos) return _zero;
+  // Preços do mercado (líquido e bruto) — mesma lógica de _calcularDadosPerfis
+  var kgMercBru=parseFloat((document.getElementById('pf-kg-mercado')||{value:0}).value)||0;
+  var dedMerc=parseFloat((document.getElementById('pf-ded-mercado')||{value:0}).value)||0;
+  var kgMerc=kgMercBru*(1-dedMerc/100);
+  // Empacotar em barras de 6m (usable 5990mm após end-waste de 10mm)
+  var compMM=500;
+  var barLen=6000, usable=barLen-10;
+  var perBar=Math.floor(usable/compMM); // 11 tubos de 500mm em barra 6m
+  var nBars=Math.ceil(totalTubos/perBar);
+  // Peso e custo
+  var kgM=0.595; // PA-51X25X1.5
+  var totUsed=totalTubos*compMM; // mm lineares utilizados
+  var totBruto=nBars*barLen;     // mm lineares brutos (barras inteiras)
+  var kgLiq=(totUsed/1000)*kgM;
+  var kgBruto=(totBruto/1000)*kgM;
+  var custoPerfil=kgBruto*kgMerc;
+  var custoPerfilBru=kgBruto*kgMercBru;
+  return {totalTubos:totalTubos, custoPerfil:custoPerfil, custoPerfilBru:custoPerfilBru,
+          kgLiq:kgLiq, kgBruto:kgBruto, nBars:nBars, compMM:compMM, perBar:perBar,
+          code:'PA-51X25X1.5', kgM:kgM, precoKg:kgMerc};
+}
+window._calcCustoTubosRev=_calcCustoTubosRev;
+
 // ── RECALCULA CUSTOS DOS PERFIS AUTOMATICAMENTE ───────────────────────────────
 // Chamado quando: preços mudam na aba Perfis, ou ao gerar OS
 function recalcPerfisAuto(){
   var L=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
   var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
-  if(L<=0||H<=0) return; // sem dimensões, não recalcula
   var barraMM=(parseFloat((document.getElementById('pf-barra-m')||{value:6}).value)||6)*1000;
   var nFolhas=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
-  // 2 folhas: suportado (quantidades × 2, larguras provisórias)
 
+  // ★ Felipe 23/04: Tubos PA-51X25X1.5 de revestimentos ripados.
+  //   Calcula SEMPRE (independe de ter porta ou não). Se orçamento
+  //   é só revestimento, vira o único custo de perfil. Se tem porta,
+  //   soma ao custo dos perfis da porta.
+  var tubosRev=_calcCustoTubosRev();
+
+  // Caso 1: SÓ revestimento (sem porta). _calcularDadosPerfis não roda.
+  //   Escrevemos direto o custo dos tubos (zero se não houver ripados).
+  if(L<=0||H<=0){
+    _fabSetSysValue('mat', tubosRev.custoPerfil||0);
+    _fabSetSysValue('pin', 0);
+    window._lastPerfisTotal = tubosRev.custoPerfil||0;
+    try{ syncFabPerfisTotal(); }catch(e){}
+    try{ calc(); }catch(e){}
+    return;
+  }
+
+  // Caso 2: tem porta. Calcula perfis da porta + soma tubos do rev.
   try {
     var d=_calcularDadosPerfis(L,H,nFolhas,barraMM);
     if(d.error) return;
@@ -2136,6 +2200,9 @@ function recalcPerfisAuto(){
       totalPin+=r.custoPintura||0;
     });
 
+    // ★ Soma tubos do revestimento ripado ao custo de material (não pintura)
+    totalMat += tubosRev.custoPerfil||0;
+
     // Atualizar campos de fabricação via sistema (não direto, para não disparar flag manual)
     _fabSetSysValue('mat', totalMat);
     _fabSetSysValue('pin', totalPin);
@@ -2143,6 +2210,7 @@ function recalcPerfisAuto(){
     // Guardar dados para o OS drawer
     window._lastPadroesHTML = _renderPadroesContent(d,9);
     window._lastPerfisTotal = totalMat+totalPin;
+    window._lastTubosRevData = tubosRev; // exposto p/ debug / OS futuro
 
     syncFabPerfisTotal();
     calc();

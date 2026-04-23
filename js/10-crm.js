@@ -1791,11 +1791,12 @@ window.crmItemRevCalc=function(itemId){
     var _chFundoUn=(_nIntFundo+(_pedFundo>0?1:0))*Q;
     var _detFundo=_nIntFundo+'×(1490×'+A+')'+(_pedFundo>0?' + 1×('+Math.round(_pedFundo)+'×'+A+')':'');
     lines.push('<b>🪟 Chapa ACM fundo (atrás das ripas):</b> '+_chFundoUn+' un · '+_detFundo);
-    // ★ Felipe 23/04: TUBOS PA-51×12 de 500mm p/ fixação.
+    // ★ Felipe 23/04: TUBOS PA-51X25X1.5 de 500mm p/ fixação das ripas.
+    //   MESMO perfil que a porta com ripado usa (PA-51X25X1.5).
     //   Qty = ceil(altura/1000) por ripa × total de ripas.
     var _nTubosPorRipa=Math.max(1, Math.ceil(A/1000));
     var _totTubos=_nTubosPorRipa*totRipas;
-    lines.push('<b>🔩 Tubos PA-51×12 (500mm):</b> '+_totTubos+' un <small style="color:#888">('+_nTubosPorRipa+' por ripa × '+totRipas+' ripas)</small>');
+    lines.push('<b>🔩 Tubos PA-51×25×1.5 (500mm):</b> '+_totTubos+' un <small style="color:#888">('+_nTubosPorRipa+' por ripa × '+totRipas+' ripas)</small>');
     // ★ Felipe 22/04: calcular quantas CHAPAS saem dessas ripas.
     //   Chapa 1500mm largura, util 1490mm. Ripas de 90mm cabem 16 na largura
     //   (1490/90=16,55 → 16 ripas inteiras). Altura da chapa precisa comportar
@@ -3151,6 +3152,17 @@ function orcItensFromCRM(itens, cliente){
       var _caracBody = document.getElementById('carac-body');
       if(_caracBody) _caracBody.style.display = '';
     }, 400);
+    // ★ Felipe 23/04: se há revestimentos ripados, disparar cálculo de
+    //   perfis pra incluir tubos PA-51×25×1.5 no custo (fab-mat-perfis).
+    //   Funciona com ou sem porta (recalcPerfisAuto cobre ambos os casos).
+    var _temRipado = window._orcItens.some(function(it){
+      return it.tipo==='revestimento' && it.rev_tipo==='RIPADO';
+    });
+    if(_temRipado){
+      setTimeout(function(){
+        try{ if(typeof recalcPerfisAuto==='function') recalcPerfisAuto(); }catch(e){}
+      }, 600);
+    }
   }
 }
 
@@ -3447,7 +3459,8 @@ window._orcRevRenderCalc=function(it){
       var pedFundo=sobraFundo>5?sobraFundo:0;
       var chFundoItem=(nIntFundo+(pedFundo>0?1:0))*Q;
       totChapasFundoRip+=chFundoItem;
-      // ★ Felipe 23/04: TUBOS PA-51X12 de 500mm p/ fixação das ripas.
+      // ★ Felipe 23/04: TUBOS PA-51X25X1.5 de 500mm p/ fixação das ripas.
+      //   MESMO perfil que a porta com ripado usa (PA-51X25X1.5, kg 0.595).
       //   Qty = ceil(altura/1000) por ripa × total de ripas (já com Q).
       //   Ex: 1490×4000, Q=1 → 4 × 17 = 68 tubos.
       var nTubosPorRipa=Math.max(1, Math.ceil(A/1000));
@@ -3459,7 +3472,7 @@ window._orcRevRenderCalc=function(it){
         var _rPChapaR=Math.floor(1490/90)*Math.floor(_chAltR/A);
         var _nChR=Math.ceil(ripasTotItem/_rPChapaR);
         totChapasRipado+=_nChR;
-        chInfo=ripasTotItem+' ripas + '+chFundoItem+' ch fundo + '+tubosItem+' tubos 51×12';
+        chInfo=ripasTotItem+' ripas + '+chFundoItem+' ch fundo + '+tubosItem+' tubos 51×25';
       } else {
         chInfo=ripasTotItem+' ripas <span style="color:#c62828">(A>6990 excede)</span>';
       }
@@ -3498,9 +3511,9 @@ window._orcRevRenderCalc=function(it){
   if(totRipas>0){
     lines.push('<b>🪵 Ripas 90mm (total):</b> '+totRipas+' un'+(totChapasRipado>0?'  <small style="color:#888">(saem de '+totChapasRipado+' chapa(s) ACM)</small>':''));
   }
-  // ★ 23/04: Tubos PA-51×12 × 500mm para fixação das ripas
+  // ★ 23/04: Tubos PA-51×25×1.5 × 500mm para fixação das ripas (mesmo da porta)
   if(totTubos5112Rip>0){
-    lines.push('<b>🔩 Tubos PA-51×12 (total):</b> '+totTubos5112Rip+' un × 500mm');
+    lines.push('<b>🔩 Tubos PA-51×25 (total):</b> '+totTubos5112Rip+' un × 500mm');
   }
   lines.push('<b>🔖 Fita 3M VHB (total):</b> '+fitaTot.toFixed(1)+' m');
   lines.push('<b>🧴 Silicone Dow 995 PRIME (total):</b> '+silMLTot.toFixed(0)+' ml ('+silTubTot+' tubo(s) 300ml)');
@@ -3548,8 +3561,13 @@ window._orcRevSync=function(){
   if(typeof orcItensRender==='function') orcItensRender();
   // Sync planificador
   _orcRevSyncPlanificador();
+  // ★ Felipe 23/04: Recalcular tubos PA-51×25 do revestimento ripado e
+  //   injetar no custo (fab-mat-perfis). Roda com ou sem porta.
+  setTimeout(function(){
+    try{ if(typeof recalcPerfisAuto==='function') recalcPerfisAuto(); }catch(e){}
+  }, 200);
   // Re-disparar calc() pro resultado consolidar a area total
-  setTimeout(function(){ if(typeof calc==='function') try{calc();}catch(e){} }, 250);
+  setTimeout(function(){ if(typeof calc==='function') try{calc();}catch(e){} }, 350);
 };
 
 window._orcRevSyncPlanificador=function(){
