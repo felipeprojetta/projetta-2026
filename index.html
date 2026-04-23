@@ -1043,6 +1043,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
           <option value="EXW">EXW — Ex Works (Na Fábrica — comprador arca com todo transporte)</option>
           <option value="FOB">FOB — Free On Board (Livre a Bordo — Projetta entrega até porto de embarque)</option>
           <option value="CIF">CIF — Cost, Insurance &amp; Freight (Custo, Seguro e Frete — Projetta paga caixa + frete até porto destino)</option>
+          <option value="DAP">DAP — Delivered At Place (Entrega no Local — Projetta paga tudo até destino final do cliente)</option>
         </select>
       </div>
 
@@ -3233,6 +3234,67 @@ Equipe Projetta by Weiku</textarea>
     </div>
   </div>
 
+  <!-- ── CADASTRO DE FRETE INTERNACIONAL ────────────────────────────────────── -->
+  <div class="card" style="margin-bottom:10px">
+    <div class="card-hd toggle" onclick="toggleSection('cad-frete-body','cad-frete-badge'); if(typeof freteAdminLoad==='function') freteAdminLoad();">
+      <div class="dot" style="background:#ff9800"></div>
+      <span>Cadastro de Frete Internacional — Rotas LCL e FCL</span>
+      <span class="badge" id="cad-frete-badge">&#9660; clique para abrir</span>
+    </div>
+    <div id="cad-frete-body" class="cb" style="display:none">
+      <div style="padding:8px 14px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:#fffaf3;border:1px solid #ffd694;border-radius:6px">
+          💡 Rotas disponíveis na calculadora do card CIF/DAP. Valores calibrados contra ND''s reais da TPLProvider. Alterações só persistem depois que você clicar em <b>Salvar Alterações</b>.
+        </div>
+        <div style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:13px;font-weight:700;color:var(--navy)">📦 Rotas LCL (por CBM)</div>
+            <button type="button" onclick="freteAdminNew('LCL')" style="padding:4px 10px;border-radius:6px;border:1px solid #27ae60;background:#fff;color:#27ae60;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Nova LCL</button>
+          </div>
+          <div style="border:1px solid #e0e0e0;border-radius:6px;overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead style="background:#f5f5f5"><tr>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;color:#666;text-transform:uppercase;font-size:10px;letter-spacing:.4px">Destino</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;color:#666;text-transform:uppercase;font-size:10px;letter-spacing:.4px">País/UF</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;color:#666;text-transform:uppercase;font-size:10px;letter-spacing:.4px">Preço</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;color:#666;text-transform:uppercase;font-size:10px;letter-spacing:.4px">Extras</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;color:#666;text-transform:uppercase;font-size:10px;letter-spacing:.4px">Validade</th>
+                <th style="padding:6px 8px"></th>
+              </tr></thead>
+              <tbody id="cad-frete-lcl-tbody"><tr><td colspan="6" style="text-align:center;color:#888;padding:12px;font-style:italic">Carregando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:13px;font-weight:700;color:var(--navy)">📦 Rotas FCL (container 40HC)</div>
+            <button type="button" onclick="freteAdminNew('FCL_40HC')" style="padding:4px 10px;border-radius:6px;border:1px solid #27ae60;background:#fff;color:#27ae60;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Nova FCL</button>
+          </div>
+          <div style="border:1px solid #e0e0e0;border-radius:6px;overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead style="background:#f5f5f5"><tr>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;color:#666;text-transform:uppercase;font-size:10px;letter-spacing:.4px">Destino</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;color:#666;text-transform:uppercase;font-size:10px;letter-spacing:.4px">País/UF</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;color:#666;text-transform:uppercase;font-size:10px;letter-spacing:.4px">Preço</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;color:#666;text-transform:uppercase;font-size:10px;letter-spacing:.4px">Extras</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;color:#666;text-transform:uppercase;font-size:10px;letter-spacing:.4px">Validade</th>
+                <th style="padding:6px 8px"></th>
+              </tr></thead>
+              <tbody id="cad-frete-fcl-tbody"><tr><td colspan="6" style="text-align:center;color:#888;padding:12px;font-style:italic">Carregando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid #e0e0e0">
+          <div id="cad-frete-dirty" style="font-size:11px;color:#888"></div>
+          <div style="display:flex;gap:8px">
+            <button type="button" onclick="freteAdminDiscard()" style="padding:5px 12px;border-radius:6px;border:1px solid #ccc;background:#fff;color:#666;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">↩️ Descartar</button>
+            <button type="button" id="cad-frete-save-btn" onclick="freteAdminSaveAll()" style="padding:5px 14px;border-radius:6px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💾 Salvar Alterações</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   </div><!-- close admin-panel -->
 
 
@@ -4135,7 +4197,7 @@ Equipe Projetta by Weiku</textarea>
       <div class="crm-field"><label>📦 CBM (m³)</label><input type="number" id="frete-calc-cbm" step="0.001" placeholder="auto da caixa"></div>
       <div class="crm-field"><label>⚖️ Peso (kg)</label><input type="number" id="frete-calc-peso" step="1" placeholder="opcional"></div>
       <div class="crm-field"><label>💱 Câmbio USD→BRL</label><input type="number" id="frete-calc-cambio" step="0.0001"></div>
-      <div class="crm-field"><label>🚚 DAP Charges (US$)</label><input type="number" id="frete-calc-dap" step="0.01" placeholder="0"></div>
+      <div class="crm-field" id="frete-calc-dap-wrap"><label>🚚 DAP Charges (US$)</label><input type="number" id="frete-calc-dap" step="0.01" placeholder="0"></div>
       <div class="crm-field"><label>⚠️ Over Weight (US$)</label><input type="number" id="frete-calc-oversize" step="0.01" placeholder="0"></div>
       <div class="crm-field" style="grid-column:1/-1">
         <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
@@ -4168,6 +4230,58 @@ Equipe Projetta by Weiku</textarea>
     <div class="crm-modal-footer-right">
       <button class="crm-btn-secondary" onclick="freteCloseCalc()">Cancelar</button>
       <button class="crm-btn-primary" onclick="freteAplicar()">✓ Aplicar ao orçamento</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ MODAL: EDITAR ROTA (admin frete — Felipe 23/04) ═══ -->
+<div class="crm-modal-bg" id="frete-admin-modal-bg" onclick="if(event.target===this)freteAdminClose()">
+<div class="crm-modal" style="max-width:680px">
+  <div class="crm-modal-header">
+    <div><h3 id="frete-admin-modal-title">Editar Rota</h3><div class="crm-modal-sub">Configuração usada na calculadora do card CIF/DAP</div></div>
+    <button class="crm-modal-close" onclick="freteAdminClose()">✕</button>
+  </div>
+  <div class="crm-modal-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="crm-field"><label>ID único <span style="color:#e67e22">*</span></label><input type="text" id="frete-admin-id" placeholder="ex: tokyo_lcl" pattern="[a-z0-9_]+"></div>
+      <div class="crm-field"><label>Modal <span style="color:#e67e22">*</span></label><select id="frete-admin-modal" onchange="if(typeof _freteAdminModalChange===''function'')_freteAdminModalChange()" class="crm-sel"><option value="LCL">LCL (menos que container)</option><option value="FCL_40HC">FCL 40HC (container completo)</option></select></div>
+      <div class="crm-field" style="grid-column:1/-1"><label>Destino (nome) <span style="color:#e67e22">*</span></label><input type="text" id="frete-admin-destino-nome" placeholder="ex: Tokyo"></div>
+      <div class="crm-field"><label>País (código 2-3 letras)</label><input type="text" id="frete-admin-destino-pais" placeholder="JP, US, BR..." maxlength="3"></div>
+      <div class="crm-field"><label>UF/Estado (opcional)</label><input type="text" id="frete-admin-destino-uf" placeholder="ex: TX, FL..." maxlength="3"></div>
+      <div class="crm-field" style="grid-column:1/-1"><label>Validade (data-limite da tarifa)</label><input type="date" id="frete-admin-validade"></div>
+    </div>
+    <div id="frete-admin-lcl-fields" style="margin-top:12px;padding:10px;background:#f8f6f0;border-radius:6px">
+      <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">⚙️ Configuração LCL</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="crm-field"><label>US$/CBM <span style="color:#e67e22">*</span></label><input type="number" id="frete-admin-usd-cbm" step="0.01" placeholder="ex: 193"></div>
+        <div class="crm-field"><label>DAP Charges (US$)</label><input type="number" id="frete-admin-dap" step="0.01" placeholder="0 = sem DAP"></div>
+        <div class="crm-field"><label>THC override/CBM</label><input type="number" id="frete-admin-thc-override" step="0.01" placeholder="vazio = padrão 14"></div>
+        <div class="crm-field"><label>Loading override/CBM</label><input type="number" id="frete-admin-loading-override" step="0.01" placeholder="vazio = padrão 14"></div>
+      </div>
+      <div style="margin-top:10px;font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.3px;font-weight:600">Extras destino (US$, só LCL)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px">
+        <div class="crm-field"><label>Handling</label><input type="number" id="frete-admin-ex-handling" step="0.01" placeholder="ex: 80"></div>
+        <div class="crm-field"><label>Customs Clear.</label><input type="number" id="frete-admin-ex-customs-lcl" step="0.01" placeholder="ex: 110"></div>
+        <div class="crm-field"><label>AMS Transmit.</label><input type="number" id="frete-admin-ex-ams" step="0.01" placeholder="ex: 50"></div>
+      </div>
+    </div>
+    <div id="frete-admin-fcl-fields" style="margin-top:12px;padding:10px;background:#f8f6f0;border-radius:6px;display:none">
+      <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">⚙️ Configuração FCL 40HC</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="crm-field"><label>US$ flat (frete total) <span style="color:#e67e22">*</span></label><input type="number" id="frete-admin-usd-flat" step="0.01" placeholder="ex: 4070"></div>
+        <div class="crm-field"><label>Customs Clearance (US$)</label><input type="number" id="frete-admin-ex-customs-fcl" step="0.01" placeholder="ex: 170"></div>
+        <div class="crm-field"><label>Ad-Valorem (%)</label><input type="number" id="frete-admin-ad-valorem" step="0.01" placeholder="ex: 3.51"></div>
+        <div class="crm-field"><label>Pre-stacking (BRL)</label><input type="number" id="frete-admin-ex-prestacking" step="0.01" placeholder="ex: 9500"></div>
+      </div>
+    </div>
+    <div class="crm-field" style="margin-top:12px"><label>Observações</label><textarea id="frete-admin-obs" rows="2" placeholder="Notas sobre a rota, ND de referência, overrides..." style="width:100%;padding:6px 8px;border:1px solid #c9c6bf;border-radius:6px;font-size:11px;font-family:inherit;resize:vertical"></textarea></div>
+  </div>
+  <div class="crm-modal-footer">
+    <div></div>
+    <div class="crm-modal-footer-right">
+      <button class="crm-btn-secondary" onclick="freteAdminClose()">Cancelar</button>
+      <button class="crm-btn-primary" onclick="freteAdminSaveRota()">✓ Aplicar</button>
     </div>
   </div>
 </div>
@@ -4389,6 +4503,8 @@ Equipe Projetta by Weiku</textarea>
 
 <!-- ═══ MODULE 37: FRETE CALC (calculadora de frete internacional — Felipe 23/04) ═══ -->
 <script src="js/37-frete-calc.js?v=b08d423-1776929347"></script>
+<!-- ═══ MODULE 38: FRETE ADMIN (cadastro de rotas + patches DAP — Felipe 23/04) ═══ -->
+<script src="js/38-frete-admin.js?v=b08d423-1776929347"></script>
 
 <script src="js/99-diag-temp.js?v=b08d423-1776929347"></script>
 
