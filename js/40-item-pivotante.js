@@ -3,18 +3,13 @@
  * PROJETTA.pivotante — FACHADA ÚNICA da PORTA PIVOTANTE
  *
  * REGRA DE OURO (Felipe 24/04):
- *   Código de cálculo/lógica da PORTA PIVOTANTE só pode ser alterado
- *   quando Felipe autorizar EXPLICITAMENTE:
+ *   Alterar codigo de pivotante so com autorizacao EXPLICITA:
  *     "vamos mexer na porta pivotante"
- *   Fora disso, NÃO TOCAR em nada daqui.
  *
- * HOJE (Etapa 2 Perfis):
- *   calcularPerfis(item) está IMPLEMENTADA — chama _calcularDadosPerfis()
- *   (definida em 06-engenharia_perfis.js) injetando os dados do item.
- *   Para itens com campos ausentes, usa valores padrão.
- *   Retorna lista consolidada de perfis no formato unificado.
- *
- *   calcularAcessorios e calcularChapas ainda são fachada (Etapa 3/4).
+ * ESTADO:
+ *   [x] calcularPerfis(item)      — Etapa 2 (Felipe autorizou)
+ *   [x] calcularAcessorios(item)  — Etapa 3 (Felipe autorizou)
+ *   [ ] calcularChapas(item)      — Etapa 4 pendente
  */
 window.PROJETTA = window.PROJETTA || {};
 
@@ -27,117 +22,91 @@ window.PROJETTA.pivotante = {
     modelosSuportados: ['01','02','03','04','05','06','10','16','22','23']
   },
 
-  /**
-   * Calcula a lista de perfis de UMA porta pivotante.
-   * @param {Object} item - dados da porta (largura, altura, folhas, modelo, ...)
-   * @returns {Array} lista de perfis no formato unificado
-   */
+  // ═══════════════════════════════════════════════════════════════
+  // INJEÇÃO DE DADOS DO ITEM NO DOM (backup + restore)
+  // Usada por calcularPerfis E calcularAcessorios
+  // ═══════════════════════════════════════════════════════════════
+  _injetarNoDOM: function(item){
+    var _backup = {};
+    var _set = function(id, val){
+      if(val === undefined || val === null) return;
+      var el = document.getElementById(id);
+      if(el){ _backup[id] = el.value; el.value = String(val); }
+    };
+    _set('largura', item.largura);
+    _set('altura',  item.altura);
+    _set('folhas-porta', parseInt(item.folhas)||1);
+    _set('qtd-portas',   item.qtd || 1);
+    _set('carac-modelo', item.modelo || '01');
+    _set('plan-modelo',  item.modelo || '01');
+    if(item.cava_largura != null)    _set('carac-largura-cava', item.cava_largura);
+    if(item.dist_borda != null)      _set('carac-dist-borda-cava', item.dist_borda);
+    if(item.friso_vert_qty != null)  _set('carac-friso-vert', item.friso_vert_qty);
+    if(item.friso_horiz_qty != null){
+      _set('carac-friso-horiz', item.friso_horiz_qty);
+      _set('plan-friso-h-qty', item.friso_horiz_qty);
+    }
+    // Campos de acessórios/fechadura/puxador
+    if(item.fech_mecanica != null)     _set('carac-fech-mec', item.fech_mecanica);
+    if(item.fechadura_mecanica != null) _set('carac-fech-mec', item.fechadura_mecanica);
+    if(item.fech_digital != null)      _set('carac-fech-dig', item.fech_digital);
+    if(item.fechadura_digital != null)  _set('carac-fech-dig', item.fechadura_digital);
+    if(item.cilindro != null)          _set('carac-cilindro', item.cilindro);
+    if(item.puxador != null)           _set('carac-puxador', item.puxador);
+    if(item.pux_tam != null)           _set('carac-pux-tam', item.pux_tam);
+    if(item.puxador_tamanho != null)    _set('carac-pux-tam', item.puxador_tamanho);
+    // Modelo 23 (Boiserie)
+    if(item.moldura_revestimento)        _set('plan-moldura-rev', item.moldura_revestimento);
+    if(item.moldura_qtd_largura != null)  _set('plan-moldura-larg-qty', item.moldura_qtd_largura);
+    if(item.moldura_qtd_altura != null)   _set('plan-moldura-alt-qty', item.moldura_qtd_altura);
+    if(item.moldura_tipo != null)         _set('plan-moldura-tipo', item.moldura_tipo);
+    if(item.moldura_dis1 != null)         _set('plan-moldura-dis1', item.moldura_dis1);
+    if(item.moldura_dis2 != null)         _set('plan-moldura-dis2', item.moldura_dis2);
+    if(item.moldura_dis3 != null)         _set('plan-moldura-dis3', item.moldura_dis3);
+    return _backup;
+  },
+
+  _restaurarDOM: function(backup){
+    Object.keys(backup||{}).forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.value = backup[id];
+    });
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // PERFIS (Etapa 2)
+  // ═══════════════════════════════════════════════════════════════
   calcularPerfis: function(item){
-    if(!item){
-      // Sem item: usa dados atuais do DOM (comportamento atual do sistema)
-      return this._calcularViaDOM();
-    }
+    if(!item) return this._calcularPerfisViaDOM();
     var tipo = (item.tipo||'').toLowerCase();
-    if(tipo !== 'porta_pivotante' && tipo !== 'pivotante'){
-      console.warn('[PROJETTA.pivotante.calcularPerfis] tipo nao-pivotante:', item.tipo);
-      return [];
-    }
-    if(typeof _calcularDadosPerfis !== 'function'){
-      console.warn('[PROJETTA.pivotante.calcularPerfis] _calcularDadosPerfis nao disponivel');
-      return [];
-    }
+    if(tipo !== 'porta_pivotante' && tipo !== 'pivotante') return [];
+    if(typeof _calcularDadosPerfis !== 'function') return [];
 
     var L = parseFloat(item.largura) || 0;
     var H = parseFloat(item.altura) || 0;
     var nFolhas = parseInt(item.folhas) || 1;
     var barraMM = parseFloat(item.barra_mm) || 6000;
+    if(L <= 0 || H <= 0) return [];
 
-    if(L <= 0 || H <= 0){
-      console.warn('[PROJETTA.pivotante.calcularPerfis] L/H invalidos:', L, H);
-      return [];
-    }
-
-    // ─── Injecao dos dados do item no DOM (backup + restore) ───
-    var _backup = {};
-    var _setVal = function(id, val){
-      if(val === undefined || val === null) return;
-      var el = document.getElementById(id);
-      if(el){
-        _backup[id] = el.value;
-        el.value = String(val);
-      }
-    };
-    var _setSelect = function(id, val){
-      if(val === undefined || val === null) return;
-      var el = document.getElementById(id);
-      if(el){
-        _backup[id] = el.value;
-        el.value = String(val);
-      }
-    };
-
-    _setVal('largura', item.largura);
-    _setVal('altura', item.altura);
-    _setVal('folhas-porta', nFolhas);
-    _setVal('qtd-portas', item.qtd || 1);
-    _setSelect('carac-modelo', item.modelo || '01');
-    _setSelect('plan-modelo', item.modelo || '01');
-    if(item.cava_largura != null)    _setVal('carac-largura-cava', item.cava_largura);
-    if(item.dist_borda != null)      _setVal('carac-dist-borda-cava', item.dist_borda);
-    if(item.friso_vert_qty != null)  _setVal('carac-friso-vert', item.friso_vert_qty);
-    if(item.friso_horiz_qty != null) _setVal('carac-friso-horiz', item.friso_horiz_qty);
-    if(item.friso_horiz_qty != null) _setVal('plan-friso-h-qty', item.friso_horiz_qty);
-    // Modelo 23 (Boiserie)
-    if(item.moldura_revestimento)         _setSelect('plan-moldura-rev', item.moldura_revestimento);
-    if(item.moldura_qtd_largura != null)  _setVal('plan-moldura-larg-qty', item.moldura_qtd_largura);
-    if(item.moldura_qtd_altura != null)   _setVal('plan-moldura-alt-qty', item.moldura_qtd_altura);
-    if(item.moldura_tipo != null)         _setVal('plan-moldura-tipo', item.moldura_tipo);
-    if(item.moldura_dis1 != null)         _setVal('plan-moldura-dis1', item.moldura_dis1);
-    if(item.moldura_dis2 != null)         _setVal('plan-moldura-dis2', item.moldura_dis2);
-    if(item.moldura_dis3 != null)         _setVal('plan-moldura-dis3', item.moldura_dis3);
-
+    var backup = this._injetarNoDOM(item);
     var result = null;
-    try {
-      result = _calcularDadosPerfis(L, H, nFolhas, barraMM);
-    } catch(e){
-      console.error('[PROJETTA.pivotante.calcularPerfis] erro:', e);
-      result = null;
-    } finally {
-      // ─── Restaurar valores do DOM ───
-      Object.keys(_backup).forEach(function(id){
-        var el = document.getElementById(id);
-        if(el) el.value = _backup[id];
-      });
-    }
+    try { result = _calcularDadosPerfis(L, H, nFolhas, barraMM); }
+    catch(e){ console.error('[pvt.calcularPerfis] erro:', e); }
+    finally { this._restaurarDOM(backup); }
 
-    if(!result || result.error){
-      console.warn('[PROJETTA.pivotante.calcularPerfis]', result && result.error ? result.error : 'sem resultado');
-      return [];
-    }
-
-    // ─── Converter cuts -> formato unificado ───
+    if(!result || result.error) return [];
     return (result.cuts || []).map(function(c){
       var pesoKg = c.perf ? ((c.compMM/1000) * (c.perf.kg||0) * c.qty) : 0;
       return {
-        codigo:      c.code,
-        descricao:   c.desc,
-        comp_mm:     c.compMM,
-        qtd:         c.qty,
-        secao:       c.secao,
-        pintado:     !!c.pintado,
-        lh:          c.lh,
-        obs:         c.obs,
-        bar_len_mm:  c.barLenMM,
-        peso_kg:     pesoKg,
-        _perf:       c.perf || null,
-        _origem:     'porta_pivotante',
-        _item_id:    item.id || null
+        codigo: c.code, descricao: c.desc, comp_mm: c.compMM, qtd: c.qty,
+        secao: c.secao, pintado: !!c.pintado, lh: c.lh, obs: c.obs,
+        bar_len_mm: c.barLenMM, peso_kg: pesoKg,
+        _perf: c.perf || null, _origem: 'porta_pivotante', _item_id: item.id || null
       };
     });
   },
 
-  // Helper: calcula usando dados atuais do DOM (sem item)
-  _calcularViaDOM: function(){
+  _calcularPerfisViaDOM: function(){
     if(typeof _calcularDadosPerfis !== 'function') return [];
     var L = parseFloat((document.getElementById('largura')||{value:0}).value)||0;
     var H = parseFloat((document.getElementById('altura')||{value:0}).value)||0;
@@ -159,15 +128,90 @@ window.PROJETTA.pivotante = {
     } catch(e){ return []; }
   },
 
-  // ─── ACESSÓRIOS (Etapa 3 — ainda fachada) ───
+  // ═══════════════════════════════════════════════════════════════
+  // ACESSÓRIOS (Etapa 3 — Felipe autorizou 24/04)
+  // Delega a _calcAcessoriosOS (definida em 17-os_acessorios.js)
+  // via injeção DOM — mesma estratégia de calcularPerfis.
+  //
+  // Acessórios da porta pivotante incluem:
+  //   FABRICAÇÃO: Fechadura KESO, Roseta, Cilindro (KESO/UDINESE),
+  //     Puxador externo, Parafuso+Bucha pivô (12×nFolhas),
+  //     Fita veda frestas escovinha, Veda porta (PA-VEDxxxx),
+  //     Q-LON 48800/48700, Lã de Rocha, EPS Placa 50mm,
+  //     EPS Canaleta (115/125/135/165 conforme sistema+modelo),
+  //     DOWSIL 995, Fita DFix 12mm, Fita DFix 19mm.
+  //   OBRA: Fecho unha (2 folhas), Push & Go (H>4m + 2f),
+  //     Bucha+Parafuso portal, Contra testa, Caixeta, Primer,
+  //     Espuma poliuretano, High Tack, Fechadura digital
+  //     (TEDEE/EMTECO/PHILIPS/NUKI conforme seleção).
+  // ═══════════════════════════════════════════════════════════════
   calcularAcessorios: function(item){
-    if(typeof window._pvtCalcularAcessorios === 'function'){
-      return window._pvtCalcularAcessorios(item) || [];
+    if(!item) return this._calcularAcessoriosViaDOM();
+    var tipo = (item.tipo||'').toLowerCase();
+    if(tipo !== 'porta_pivotante' && tipo !== 'pivotante') return [];
+    if(typeof _calcAcessoriosOS !== 'function') return [];
+    if(typeof _calcularDadosPerfis !== 'function') return [];
+
+    var L = parseFloat(item.largura)||0;
+    var H = parseFloat(item.altura)||0;
+    var nFolhas = parseInt(item.folhas)||1;
+    if(L<=0 || H<=0) return [];
+
+    var sis = H >= 4000 ? 'PA007' : 'PA006';
+    if(item.sis) sis = item.sis;
+
+    var backup = this._injetarNoDOM(item);
+    var d = null, rows = [];
+    try {
+      d = _calcularDadosPerfis(L, H, nFolhas, 6000);
+      rows = _calcAcessoriosOS(d, nFolhas, sis) || [];
+    } catch(e){
+      console.error('[pvt.calcularAcessorios] erro:', e);
+      rows = [];
+    } finally {
+      this._restaurarDOM(backup);
     }
-    return [];
+
+    return rows.map(function(r){
+      return {
+        codigo:     r.code,
+        descricao:  r.desc,
+        qtd:        r.qty,
+        unidade:    'un',
+        preco_unit: r.preco || 0,
+        aplicacao:  r.apl,
+        grupo:      r.grp || '',
+        obs:        r.obs || '',
+        _origem:    'porta_pivotante',
+        _item_id:   item.id || null
+      };
+    });
   },
 
-  // ─── CHAPAS (Etapa 4 — ainda fachada) ───
+  _calcularAcessoriosViaDOM: function(){
+    if(typeof _calcAcessoriosOS !== 'function') return [];
+    if(typeof _calcularDadosPerfis !== 'function') return [];
+    var L = parseFloat((document.getElementById('largura')||{value:0}).value)||0;
+    var H = parseFloat((document.getElementById('altura')||{value:0}).value)||0;
+    var nFolhas = parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
+    if(L<=0 || H<=0) return [];
+    var sis = H >= 4000 ? 'PA007' : 'PA006';
+    try {
+      var d = _calcularDadosPerfis(L, H, nFolhas, 6000);
+      var rows = _calcAcessoriosOS(d, nFolhas, sis) || [];
+      return rows.map(function(r){
+        return {
+          codigo: r.code, descricao: r.desc, qtd: r.qty, unidade: 'un',
+          preco_unit: r.preco||0, aplicacao: r.apl, grupo: r.grp||'', obs: r.obs||'',
+          _origem: 'porta_pivotante'
+        };
+      });
+    } catch(e){ return []; }
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // CHAPAS (Etapa 4 — ainda fachada)
+  // ═══════════════════════════════════════════════════════════════
   calcularChapas: function(item){
     if(typeof window._pvtCalcularChapas === 'function'){
       return window._pvtCalcularChapas(item) || [];
@@ -175,7 +219,6 @@ window.PROJETTA.pivotante = {
     return [];
   },
 
-  // ─── CAMPOS VISÍVEIS POR MODELO ───
   camposVisiveis: function(modelo){
     var base = ['largura','altura','modelo','abertura','folhas',
                 'cor_ext','cor_int','puxador',
@@ -189,4 +232,4 @@ window.PROJETTA.pivotante = {
   }
 };
 
-console.log('[PROJETTA.pivotante] módulo carregado — calcularPerfis() IMPLEMENTADO');
+console.log('[PROJETTA.pivotante] módulo carregado — calcularPerfis + calcularAcessorios IMPLEMENTADOS');

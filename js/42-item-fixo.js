@@ -3,37 +3,25 @@
  * PROJETTA.fixo — FACHADA ÚNICA do FIXO
  *
  * REGRA DE OURO (Felipe 24/04):
- *   Código do FIXO só pode ser alterado quando Felipe autorizar
- *   EXPLICITAMENTE:
+ *   Alterar codigo do FIXO so com autorizacao EXPLICITA:
  *     "vamos mexer no fixo"
- *   Fora disso, NÃO TOCAR em nada daqui.
  *
- * HOJE (Etapa 2 Perfis):
- *   calcularPerfis(item) está IMPLEMENTADA com LÓGICA AUTOCONTIDA.
- *   TODA a lógica de perfis do fixo vive aqui dentro — extraída de
- *   _calcFixosCompleto de 17-os_acessorios.js (Felipe 24/04).
+ * ESTADO:
+ *   [x] calcularPerfis(item)     — lógica autocontida (Etapa 2)
+ *   [x] calcularAcessorios(item) — lógica autocontida (Etapa 3 — Felipe 24/04)
+ *   [ ] calcularChapas(item)     — Etapa 4 pendente
  *
- *   calcularAcessorios (fita dupla face + dowsil) é ETAPA 3.
- *   calcularChapas (aprovFixoPieces) é ETAPA 4.
+ * PERFIS DO FIXO: quadro de alumínio se item.tem_estrutura=true
+ *   Sistema: PA006 (< 4000mm) ou PA007 (>= 4000mm)
+ *   Cortes: PERF ALTURA (2), PERF LARGURA (2), TRAV HORIZ (ceil(A/1000)),
+ *           TRAV VERT (max(0,ceil(L/800)-1)+2cava), TUB/CANT CAVA (se cava)
  *
- * PERFIS DO FIXO — explicação da lógica:
- *   Se item.tem_estrutura = false → SEM perfis (só chapa). Retorna [].
- *   Se item.tem_estrutura = true → calcula quadro de alumínio.
- *
- *   Sistema de perfis (depende da altura):
- *     PA006 (< 4000mm): PA-76X38X1.98, tubo 38.1mm
- *     PA007 (>= 4000mm): PA-101X51X2, tubo 50.8mm
- *
- *   Cortes:
- *     - PERF ALTURA:  2 pçs, comp = A - 2×TUBO
- *     - PERF LARGURA: 2 pçs, comp = L - 20 (folga 10+10)
- *     - TRAV HORIZ:   ceil(A/1000) pçs, comp = (L-20) - 2×TUBO
- *     - TRAV VERT:    max(0, ceil((L-20)/800) - 1) pçs, comp = A - 2×TUBO
- *                     + 2 pçs extras se modelo tiver cava
- *     - TUB CAVA (só se cava): 2 pçs, PA-38X38X1.58, comp = A_perf - 20
- *     - CANT CAVA (só se cava): 4 pçs, PA-CANT-30X30X2.0, comp = A_perf
- *
- *   Todos os cortes são multiplicados por item.qtd (quantidade de fixos iguais).
+ * ACESSÓRIOS DO FIXO (só fixo SUPERIOR, por perímetro da chapa):
+ *   - Fita DFix 12mm (PA-FITDF 12X20X1.0) — rolos (20m/rolo)
+ *   - Fita DFix 19mm (PA-FITDF 19X20X1.0) — rolos (20m/rolo)
+ *   - Dowsil 995   (PA-DOWSIL 995 ESTR SH) — tubos (8m/tubo)
+ *   Perímetro = 2×(L+A) × qtd × lados (chapa com folga +100mm)
+ *   Fixos LATERAIS não têm acessórios.
  */
 window.PROJETTA = window.PROJETTA || {};
 
@@ -42,21 +30,16 @@ window.PROJETTA.fixo = {
     tipo: 'fixo',
     label: 'Fixo',
     icon: '🔲',
-    posicoes: ['LATERAL_DIREITO','LATERAL_ESQUERDO','BANDEIRA_SUPERIOR'],
+    posicoes: ['LATERAL_DIREITO','LATERAL_ESQUERDO','BANDEIRA_SUPERIOR','SUPERIOR','LATERAL'],
     materiais: ['ACM','VIDRO_TEMPERADO','VIDRO_LAMINADO'],
     revestimentoLados: [1, 2]
   },
 
-  /**
-   * Calcula lista de perfis de UM fixo.
-   * @param {Object} item - {tipo:'fixo', largura, altura, tem_estrutura, qtd, sis?, tem_cava?, seq?}
-   * @returns {Array} lista de perfis no formato unificado
-   */
+  // ═══════════════════════════════════════════════════════════════
+  // PERFIS (Etapa 2 — lógica autocontida)
+  // ═══════════════════════════════════════════════════════════════
   calcularPerfis: function(item){
-    if(!item) return [];
-    if(item.tipo !== 'fixo') return [];
-
-    // ─── Parâmetros do item ───
+    if(!item || item.tipo !== 'fixo') return [];
     var L = parseFloat(item.largura) || 0;
     var A = parseFloat(item.altura)  || 0;
     var qtd = parseInt(item.qtd) || 1;
@@ -64,125 +47,141 @@ window.PROJETTA.fixo = {
     var temCava = (item.tem_cava === true || item.tem_cava === 'sim' || item.tem_cava === 'SIM');
     var seq = item.seq || 1;
     var fn = 'F' + seq;
-
-    // Validação básica: fixo sem dimensão ou sem estrutura → não tem perfis
     if(!L || !A) return [];
     if(!temEstr) return [];
 
-    // ─── Sistema: PA006 (< 4000) ou PA007 (>= 4000) ───
-    // Pode ser sobrescrito por item.sis
     var sis = item.sis || (A >= 4000 ? 'PA007' : 'PA006');
     var COD_PERF = sis === 'PA006' ? 'PA-76X38X1.98' : 'PA-101X51X2';
-    var TUBO     = sis === 'PA006' ? 38.1 : 50.8;
-    var DESC     = Math.round(2 * TUBO);   // 76mm (PA006) ou 102mm (PA007)
-    var FOLGA    = 20;                      // 10mm por lado
+    var TUBO = sis === 'PA006' ? 38.1 : 50.8;
+    var DESC = Math.round(2 * TUBO);
+    var FOLGA = 20;
+    var L_ext = Math.round(L - FOLGA);
+    var A_perf = Math.round(A - DESC);
+    var L_trav = Math.round(L_ext - DESC);
 
-    // ─── Dimensões dos cortes ───
-    var L_ext  = Math.round(L - FOLGA);     // largura c/ folga (frame externo)
-    var A_perf = Math.round(A - DESC);      // altura por dentro topo+base
-    var L_trav = Math.round(L_ext - DESC);  // trav horiz por dentro verticais
-
-    // ─── Buscar kg/m em PERFIS_DB ───
     var getKgM = function(code){
       if(typeof PERFIS_DB === 'undefined') return 0;
       var base = code.replace(/-[678]M$/,'');
       for(var i=0; i<PERFIS_DB.length; i++){
-        if(PERFIS_DB[i].c === code || PERFIS_DB[i].c === base){
-          return PERFIS_DB[i].kg || 0;
-        }
+        if(PERFIS_DB[i].c === code || PERFIS_DB[i].c === base) return PERFIS_DB[i].kg || 0;
       }
       return 0;
     };
-    var KG_M      = getKgM(COD_PERF);
-    var KG_TUBCA  = getKgM('PA-38X38X1.58');
+    var KG_M = getKgM(COD_PERF);
+    var KG_TUBCA = getKgM('PA-38X38X1.58');
     var KG_CANTCA = getKgM('PA-CANT-30X30X2.0');
 
-    // ─── MONTAR LISTA DE CORTES ───
     var cuts = [];
-
-    // PERFIL ALTURA — 2 pçs por fixo
-    cuts.push({
-      code: COD_PERF, desc: 'PERF ALTURA — ' + fn + ' (' + A + '-' + DESC + ')',
-      subcat: 'PERFIL ALTURA', compMM: A_perf, qty: 2 * qtd, kgM: KG_M,
-      pintado: false, lh: '90/90 A', obs: fn
-    });
-
-    // PERFIL LARGURA — 2 pçs por fixo
-    cuts.push({
-      code: COD_PERF, desc: 'PERF LARGURA — ' + fn + ' (' + L + '-' + FOLGA + ')',
-      subcat: 'PERFIL LARGURA', compMM: L_ext, qty: 2 * qtd, kgM: KG_M,
-      pintado: false, lh: '90/90 L', obs: fn
-    });
-
-    // TRAV HORIZ — ceil(A/1000) pçs por fixo
+    cuts.push({code:COD_PERF, desc:'PERF ALTURA — '+fn+' ('+A+'-'+DESC+')',
+               subcat:'PERFIL ALTURA', compMM:A_perf, qty:2*qtd, kgM:KG_M,
+               pintado:false, lh:'90/90 A', obs:fn});
+    cuts.push({code:COD_PERF, desc:'PERF LARGURA — '+fn+' ('+L+'-'+FOLGA+')',
+               subcat:'PERFIL LARGURA', compMM:L_ext, qty:2*qtd, kgM:KG_M,
+               pintado:false, lh:'90/90 L', obs:fn});
     var qtdTravH = Math.ceil(A / 1000);
     if(qtdTravH > 0){
-      cuts.push({
-        code: COD_PERF, desc: 'TRAV HORIZ (' + qtdTravH + '×) — ' + fn + ' (' + L_ext + '-' + DESC + ')',
-        subcat: 'TRAVESSA HORIZONTAL', compMM: L_trav, qty: qtdTravH * qtd, kgM: KG_M,
-        pintado: false, lh: '90/90 L', obs: fn
-      });
+      cuts.push({code:COD_PERF, desc:'TRAV HORIZ ('+qtdTravH+'×) — '+fn+' ('+L_ext+'-'+DESC+')',
+                 subcat:'TRAVESSA HORIZONTAL', compMM:L_trav, qty:qtdTravH*qtd, kgM:KG_M,
+                 pintado:false, lh:'90/90 L', obs:fn});
     }
-
-    // TRAV VERT — max(0, ceil(L_ext/800) - 1) pçs (+2 se cava)
     var qtdTravV = Math.max(0, Math.ceil(L_ext / 800) - 1);
     if(temCava) qtdTravV += 2;
     if(qtdTravV > 0){
-      cuts.push({
-        code: COD_PERF,
-        desc: 'TRAV VERT (' + qtdTravV + '×' + (temCava ? ' +cava' : '') + ') — ' + fn + ' (' + A + '-' + DESC + ')',
-        subcat: 'TRAVESSA VERTICAL', compMM: A_perf, qty: qtdTravV * qtd, kgM: KG_M,
-        pintado: false, lh: '90/90 A', obs: fn
-      });
+      cuts.push({code:COD_PERF,
+                 desc:'TRAV VERT ('+qtdTravV+'×'+(temCava?' +cava':'')+') — '+fn+' ('+A+'-'+DESC+')',
+                 subcat:'TRAVESSA VERTICAL', compMM:A_perf, qty:qtdTravV*qtd, kgM:KG_M,
+                 pintado:false, lh:'90/90 A', obs:fn});
     }
-
-    // CAVA — TUB CAVA (2 pçs) + CANT CAVA (4 pçs)
     if(temCava){
-      var TUB_CA_FX  = Math.round(A_perf - 20);
+      var TUB_CA_FX = Math.round(A_perf - 20);
       var CANT_CA_FX = A_perf;
-      cuts.push({
-        code: 'PA-38X38X1.58', desc: 'TUB CAVA — ' + fn,
-        subcat: 'PERFIL ALTURA', compMM: TUB_CA_FX, qty: 2 * qtd, kgM: KG_TUBCA,
-        pintado: false, lh: '90/90 A', obs: fn + ' BRUTO'
-      });
-      cuts.push({
-        code: 'PA-CANT-30X30X2.0', desc: 'CANT CAVA — ' + fn,
-        subcat: 'PERFIL ALTURA', compMM: CANT_CA_FX, qty: 4 * qtd, kgM: KG_CANTCA,
-        pintado: true, lh: '90/90 A', obs: fn + ' BNF-TECNO'
-      });
+      cuts.push({code:'PA-38X38X1.58', desc:'TUB CAVA — '+fn,
+                 subcat:'PERFIL ALTURA', compMM:TUB_CA_FX, qty:2*qtd, kgM:KG_TUBCA,
+                 pintado:false, lh:'90/90 A', obs:fn+' BRUTO'});
+      cuts.push({code:'PA-CANT-30X30X2.0', desc:'CANT CAVA — '+fn,
+                 subcat:'PERFIL ALTURA', compMM:CANT_CA_FX, qty:4*qtd, kgM:KG_CANTCA,
+                 pintado:true, lh:'90/90 A', obs:fn+' BNF-TECNO'});
     }
 
-    // ─── Converter pro formato unificado ───
     return cuts.map(function(c){
       return {
-        codigo:      c.code,
-        descricao:   c.desc,
-        comp_mm:     c.compMM,
-        qtd:         c.qty,
-        secao:       'FIXO',
-        subcat:      c.subcat,
-        pintado:     c.pintado,
-        lh:          c.lh,
-        obs:         c.obs,
-        bar_len_mm:  6000,
-        peso_kg:     (c.compMM / 1000) * c.kgM * c.qty,
-        _perf:       { c: c.code, kg: c.kgM },
-        _origem:     'fixo',
-        _item_id:    item.id || null,
-        _sis:        sis
+        codigo: c.code, descricao: c.desc, comp_mm: c.compMM, qtd: c.qty,
+        secao: 'FIXO', subcat: c.subcat, pintado: c.pintado,
+        lh: c.lh, obs: c.obs, bar_len_mm: 6000,
+        peso_kg: (c.compMM/1000) * c.kgM * c.qty,
+        _perf: {c:c.code, kg:c.kgM},
+        _origem: 'fixo', _item_id: item.id||null, _sis: sis
       };
     });
   },
 
-  // ─── ACESSÓRIOS (Etapa 3 — ainda fachada) ───
+  // ═══════════════════════════════════════════════════════════════
+  // ACESSÓRIOS (Etapa 3 — Felipe autorizou 24/04)
+  // Lógica autocontida — extraída de _calcFixosCompleto (17-os_acessorios.js)
+  //
+  // Regras:
+  //   - Só fixo SUPERIOR tem fita/dowsil. LATERAL retorna [].
+  //   - Perímetro = 2*(L+100 + A+100) × qtd × lados (mm)
+  //     (+100mm em cada dimensão pra folga de corte da chapa)
+  //   - Fita DFIX 12mm: ceil(perim/1000/20) rolos
+  //   - Fita DFIX 19mm: ceil(perim/1000/20) rolos
+  //   - Dowsil 995:     ceil(perim/1000/8)  tubos
+  // ═══════════════════════════════════════════════════════════════
   calcularAcessorios: function(item){
-    if(typeof window._fxCalcularAcessorios === 'function'){
-      return window._fxCalcularAcessorios(item) || [];
+    if(!item || item.tipo !== 'fixo') return [];
+    var L = parseFloat(item.largura) || 0;
+    var A = parseFloat(item.altura) || 0;
+    var qtd = parseInt(item.qtd) || 1;
+    var lados = parseInt(item.revestimento_lados || item.lados || 1) || 1;
+    if(!L || !A) return [];
+
+    // Normalizar posição do fixo: superior/bandeira → tem acessórios; lateral → não
+    var posicao = String(item.posicao || item.posicao_fixo || item.tipo_fixo || 'SUPERIOR').toUpperCase();
+    var eSuperior = (posicao.indexOf('SUPERIOR') >= 0 || posicao.indexOf('BANDEIRA') >= 0);
+    if(!eSuperior) return [];
+
+    // Perímetro da chapa (com folga +100mm em cada dimensão), por unidade × qtd × lados
+    var wPc = L + 100;
+    var hPc = A + 100;
+    var perimMM = 2 * (wPc + hPc) * qtd * lados;
+
+    var rolosFD12 = Math.ceil(perimMM / 1000 / 20);
+    var rolosFD19 = Math.ceil(perimMM / 1000 / 20);
+    var tubosDow  = Math.ceil(perimMM / 1000 / 8);
+
+    var fn = 'F' + (item.seq || 1);
+    var out = [];
+    var _push = function(codigo, descricao, qtd, grupo, obs){
+      if(qtd <= 0) return;
+      out.push({
+        codigo: codigo, descricao: descricao, qtd: qtd, unidade: 'un',
+        preco_unit: 0, aplicacao: 'FAB', grupo: grupo, obs: obs,
+        _origem: 'fixo', _item_id: item.id || null
+      });
+    };
+
+    if(rolosFD12 > 0){
+      _push('PA-FITDF 12X20X1.0',
+            'Fita DFix 12mm — '+fn+' (perím '+(perimMM/1000).toFixed(1)+'m)',
+            rolosFD12, 'FITA DUPLA FACE', 'FD12 FIXO');
     }
-    return [];
+    if(rolosFD19 > 0){
+      _push('PA-FITDF 19X20X1.0',
+            'Fita DFix 19mm — '+fn+' (perím '+(perimMM/1000).toFixed(1)+'m)',
+            rolosFD19, 'FITA DUPLA FACE', 'FD19 FIXO');
+    }
+    if(tubosDow > 0){
+      _push('PA-DOWSIL 995 ESTR SH',
+            'Dowsil 995 — '+fn+' (perím '+(perimMM/1000).toFixed(1)+'m ÷ 8m/tubo)',
+            tubosDow, 'SELANTES', 'DOWSIL FIXO');
+    }
+
+    return out;
   },
 
-  // ─── CHAPAS (Etapa 4 — ainda fachada) ───
+  // ═══════════════════════════════════════════════════════════════
+  // CHAPAS (Etapa 4 — ainda fachada)
+  // ═══════════════════════════════════════════════════════════════
   calcularChapas: function(item){
     if(typeof window._fxCalcularChapas === 'function'){
       return window._fxCalcularChapas(item) || [];
@@ -204,4 +203,4 @@ window.PROJETTA.fixo = {
   }
 };
 
-console.log('[PROJETTA.fixo] módulo carregado — calcularPerfis() IMPLEMENTADO (lógica autocontida)');
+console.log('[PROJETTA.fixo] módulo carregado — calcularPerfis + calcularAcessorios IMPLEMENTADOS (autocontidos)');
