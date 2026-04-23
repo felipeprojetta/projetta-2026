@@ -1132,25 +1132,27 @@ function plnPieceTable(pieces, placed) {
   function _isPortaPiece(lbl){var base=lbl.split('[')[0].split('EXT')[0].split('INT')[0].trim();if(base.indexOf('MOLD ')===0)return true;for(var k=0;k<_portaPecas.length;k++){if(base===_portaPecas[k])return true;}return false;}
   var _pSorted=pieces.slice().map(function(p,idx){
     var _isP=_isPortaPiece(p.label);
-    // ★ Felipe 23/04 v3: LOCAL vem do _tipo do ITEM DO CARD (não do nome
-    //   da peça). Regra final, com Felipe:
-    //     • item revestimento  → LOCAL = REVESTIMENTO (tudo: FUNDO, RIPA)
-    //     • item fixo          → LOCAL = FIXO (tudo)
-    //     • item porta_pivotante → LOCAL = PORTA (tampa/cava/acab/friso/ripa)
-    //                              ou PORTAL (u portal/bat do marco)
-    //   Fallback se peça não tem _tipo (peça manual do usuário, legado):
-    //     decide pelo prefixo do label (REV*, FX*) + _isPortaPiece.
+    // ★ Felipe 23/04 v4 DEFENSIVO: prefixo do LABEL vence SEMPRE sobre _tipo.
+    //   Label "REV ..." → REVESTIMENTO. Label "FX ..." → FIXO.
+    //   Isso garante que mesmo se algum caminho criar peça sem _tipo correto
+    //   (ex: manual piece adicionada pelo usuário com nome REV), o LOCAL
+    //   final é o que o NOME indica. Se não tem prefixo conhecido, cai no
+    //   _tipo, e se nem isso, no heurístico _isPortaPiece.
+    var _lbl = (typeof p.label==='string') ? p.label : '';
     var _itemTipo = p._tipo || '';
-    if(_itemTipo === 'revestimento'){
+    if(_lbl.indexOf('REV ')===0){
       p._local = 'REVESTIMENTO';
-    } else if(_itemTipo === 'fixo' || (typeof p.label==='string' && p.label.indexOf('FX ')===0)){
+    } else if(_lbl.indexOf('FX ')===0){
+      p._local = 'FIXO';
+    } else if(_itemTipo === 'revestimento'){
+      p._local = 'REVESTIMENTO';
+    } else if(_itemTipo === 'fixo'){
       p._local = 'FIXO';
     } else if(_itemTipo === 'porta_pivotante'){
       p._local = _isP ? 'PORTA' : 'PORTAL';
     } else {
-      // Fallback legado — decide pelo label
-      var _isRev = (typeof p.label==='string' && p.label.indexOf('REV ')===0);
-      p._local = _isRev ? 'REVESTIMENTO' : _isP ? 'PORTA' : 'PORTAL';
+      // Fallback final: heurística pelo nome da peça
+      p._local = _isP ? 'PORTA' : 'PORTAL';
     }
     p._localOrd = p._local==='PORTA' ? 0
                 : p._local==='PORTAL' ? 1

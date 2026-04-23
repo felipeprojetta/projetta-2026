@@ -4,6 +4,35 @@
  * Extraído automaticamente de index.html
  * NÃO EDITE index.html — edite este arquivo.
  */
+
+// ═══════════════════════════════════════════════════════════════════
+// ★ Felipe 23/04: INDICADOR DE VERSÃO.
+//   Substituído a cada commit pelo script pre-commit.
+//   Se o console mostra "[projetta build]" com hash antigo, o browser
+//   está em cache. Badge no canto inferior direito mostra a versão.
+// ═══════════════════════════════════════════════════════════════════
+window.__PROJETTA_BUILD__ = '04d694d-1776921640';
+try {
+  console.log('%c[projetta build] v=' + window.__PROJETTA_BUILD__,
+    'background:#003144;color:#fff;padding:2px 8px;border-radius:4px;font-weight:700');
+} catch(e){}
+// Badge visível
+(function(){
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', _addBadge);
+  } else { _addBadge(); }
+  function _addBadge(){
+    try{
+      if(document.getElementById('__build_badge__')) return;
+      var b=document.createElement('div');
+      b.id='__build_badge__';
+      b.textContent='build '+window.__PROJETTA_BUILD__;
+      b.style.cssText='position:fixed;bottom:4px;right:4px;background:rgba(0,49,68,.7);color:#fff;font-size:9px;padding:2px 6px;border-radius:3px;font-family:monospace;z-index:99999;pointer-events:none';
+      document.body.appendChild(b);
+    } catch(e){}
+  }
+})();
+
 /* ══ CLOUD SYNC HELPERS ══ */
 window._cloudPush=function(key,data){
   var u=window._SB_URL,k=window._SB_KEY;if(!u||!k)return;
