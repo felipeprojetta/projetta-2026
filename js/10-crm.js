@@ -4981,7 +4981,8 @@ function _hidratarMemorialDoCloud(card, revIdx, callback){
       tentativas.push({ tag:'AGP', url: SUPA_URL + '/rest/v1/orcamentos_salvos?numero_atp=eq.' + encodeURIComponent(card.agp) });
     }
     if(card.cliente){
-      tentativas.push({ tag:'cliente', url: SUPA_URL + '/rest/v1/orcamentos_salvos?cliente=ilike.*' + encodeURIComponent(card.cliente) + '*' });
+      // eq (case-sensitive igualdade) evita falsos positivos tipo "Fabio Silva" != "Fabio Shindi Tashima"
+      tentativas.push({ tag:'cliente', url: SUPA_URL + '/rest/v1/orcamentos_salvos?cliente=eq.' + encodeURIComponent(card.cliente) });
     }
     function _processar(arr){
       if(!arr || arr.length===0){ callback(null); return; }
