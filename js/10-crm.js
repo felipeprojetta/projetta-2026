@@ -3521,12 +3521,13 @@ window._revCalcAcessoriosGlobal = function(){
   var fitaTubosM = totTubos5112Rip * 0.5 * 2;
   var fitaRolos = Math.ceil(fitaTubosM / 20);
 
-  // ── Dowsil 995 (sachê 591ml): FÓRMULA PROVISÓRIA
+  // ── Dowsil 995 (sachê 591ml): AGUARDANDO FÓRMULA DO FELIPE.
   //   Felipe 23/04: "o dowsil não é essa conta, te darei mais tarde o cálculo".
-  //   Por enquanto mantém estimativa ~25ml/m² até Felipe passar a fórmula.
-  //   TODO: substituir pela fórmula correta quando Felipe enviar.
-  var silMLTot = areaTotGeral * 25;
-  var silSachets = Math.ceil(silMLTot / 591);
+  //   Até Felipe passar a fórmula correta, SUSPENDO o cálculo (silSachets=0).
+  //   A linha não aparece na lista (melhor não mostrar valor errado). Quando
+  //   Felipe passar a fórmula, substituir aqui.
+  var silMLTot = 0;
+  var silSachets = 0;
 
   // ── Primer: 1 un por obra (frasco 940ml serve pra toda a fita)
   var primerQty = 1;
@@ -3660,8 +3661,10 @@ window._orcRevRenderCalc=function(it){
     });
   });
 
-  var silMLTot=areaTotGeral*25;
-  var silTubTot=Math.ceil(silMLTot/591); // sachês 591ml (código PA-DOWSIL 995 ESTR SH)
+  // ★ Felipe 23/04: Dowsil SUSPENSO até Felipe passar fórmula correta.
+  //   Antes: areaTotGeral*25/591 (estimativa errada).
+  var silMLTot=0;
+  var silTubTot=0;
   // ★ Felipe 23/04 (atualizado): Fita dupla face 12mm vai APENAS entre tubo
   //   e ripa. Fórmula: (qtd_tubos × 0.5m × 2 lados) / 20m/rolo.
   //   NÃO incluir área de revestimento (diferente da porta, onde cola chapa
@@ -3690,8 +3693,8 @@ window._orcRevRenderCalc=function(it){
   if(totTubos5112Rip>0){
     lines.push('<b>🔖 Fita 3M VHB 12mm (total):</b> '+fitaRolos+' rolo'+(fitaRolos!==1?'s':'')+' × 20m <small style="color:#888">('+totTubos5112Rip+' tubos × 0.5m × 2 lados = '+fitaTubosM.toFixed(1)+'m)</small>');
   }
-  // ⚠ Dowsil: fórmula provisória — Felipe vai passar cálculo correto
-  lines.push('<b>🧴 Dowsil 995 (total):</b> '+silTubTot+' sachê'+(silTubTot!==1?'s':'')+' × 591ml <small style="color:#888">('+silMLTot.toFixed(0)+'ml estimado — regra provisória)</small>');
+  // ⚠ Dowsil SUSPENSO até Felipe passar fórmula correta
+  lines.push('<b>🧴 Dowsil 995:</b> <span style="color:#c62828;font-style:italic">⏳ aguardando fórmula</span>');
 
   // Breakdown compacto (apenas se mais de 1 item, senao ja viu tudo acima)
   if(breakdown.length>1){
@@ -3863,6 +3866,20 @@ window.crmFazerOrcamento=function(id){
   //   independente de quem vai instalar (SEM/PROJETTA/TERCEIROS).
   window._crmScope = opp.scope || 'nacional';
   if(document.body) document.body.setAttribute('data-scope', window._crmScope);
+  // ★ Felipe 23/04: dados de logistica internacional (incoterm, caixa, fretes).
+  //   Lidos do card e usados na proposta pra gerar bloco FOB/CIF com breakdown
+  //   de caixa de madeira fumigada + frete terrestre + frete maritimo (se CIF).
+  window._crmIntlData = {
+    incoterm:        (opp.inst_incoterm || '').toUpperCase(),
+    caixa_a:         parseFloat(opp.cif_caixa_a)||0,
+    caixa_l:         parseFloat(opp.cif_caixa_l)||0,
+    caixa_e:         parseFloat(opp.cif_caixa_e)||0,
+    caixa_taxa:      parseFloat(opp.cif_caixa_taxa)||100,
+    frete_terrestre: parseFloat(opp.cif_frete_terrestre)||0,
+    frete_maritimo:  parseFloat(opp.cif_frete_maritimo)||0,
+    pais:            opp.pais || '',
+    cidade:          opp.cidade || ''
+  };
   if(typeof switchTab==='function')switchTab('orcamento');
   setTimeout(function(){
     // Salvar orçamento atual se tem dados e iniciar novo

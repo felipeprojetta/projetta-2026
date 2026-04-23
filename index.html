@@ -2458,6 +2458,10 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     </tbody>
   </table>
 
+  <!-- ★ Felipe 23/04: Bloco FOB/CIF — só aparece quando internacional com
+       incoterm FOB ou CIF. Populado por _injectPropostaFobCif() em 12-proposta.js. -->
+  <div id="prop-fob-cif-block" style="display:none;border:1.5px solid #ff9800;background:#fff8e1;border-radius:4px;padding:8px 10px;margin-bottom:6px;font-size:10px;line-height:1.5"></div>
+
   <!-- TOTAIS -->
   <div style="display:flex;justify-content:space-between;border:2px solid var(--navy);padding:5px 10px;font-size:11px;font-weight:700;margin-bottom:6px;border-radius:3px">
     <span><span data-i18n="lbl-total-area">Total Área Portas:</span> <span id="prop-area-total">—</span> m²</span>

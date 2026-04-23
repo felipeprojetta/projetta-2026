@@ -976,6 +976,95 @@ function populateProposta(){
       _confEl.innerHTML = '';
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ★ BLOCO FOB/CIF (Felipe 23/04): quando orçamento é internacional com
+  // incoterm FOB ou CIF, mostrar breakdown da caixa de madeira fumigada
+  // + frete terrestre + frete marítimo (se CIF). Valores em USD.
+  // ═══════════════════════════════════════════════════════════════════
+  _injectPropostaFobCif(_isIntlProp, _PROP_LANG, _cambioProp);
+}
+
+function _injectPropostaFobCif(isIntl, lang, cambio){
+  var el = document.getElementById('prop-fob-cif-block');
+  if(!el) return;
+  var data = window._crmIntlData;
+  var incoterm = data && data.incoterm ? data.incoterm : '';
+  // Só mostra se é internacional E incoterm é FOB ou CIF (EXW = cliente
+  // cuida de tudo, não tem breakdown).
+  if(!isIntl || (incoterm !== 'FOB' && incoterm !== 'CIF') || !data){
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  // Calcular custos em USD
+  var caixaM3 = (data.caixa_l/1000) * (data.caixa_a/1000) * (data.caixa_e/1000);
+  var caixaUsd = caixaM3 * data.caixa_taxa;
+  var freteTerrUsd = data.frete_terrestre || 0;
+  var freteMarUsd  = (incoterm === 'CIF') ? (data.frete_maritimo || 0) : 0;
+  var totalUsd = caixaUsd + freteTerrUsd + freteMarUsd;
+  // Formatador USD
+  var fmtUsd = function(v){
+    return 'US$ ' + (Math.round(v*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  };
+  // Labels PT/EN
+  var L = (lang === 'en') ? {
+    titulo: '🚢 '+incoterm+' — SHIPPING COSTS BREAKDOWN (USD)',
+    caixa: 'Wooden fumigated crate',
+    dim:   'Dimensions',
+    vol:   'Volume',
+    rate:  'Rate',
+    freteT: 'Ground freight (Uberlândia → Santos)',
+    freteM: 'Ocean freight (Santos → destination port)',
+    total:  'TOTAL '+incoterm,
+    notaFob: 'Note: FOB — Buyer covers ocean freight and insurance from port of origin onwards.',
+    notaCif: 'Note: CIF — Projetta covers crate + ground freight + ocean freight up to destination port.'
+  } : {
+    titulo: '🚢 '+incoterm+' — BREAKDOWN DE CUSTOS DE EMBARQUE (USD)',
+    caixa: 'Caixa de madeira fumigada',
+    dim:   'Dimensões',
+    vol:   'Volume',
+    rate:  'Taxa',
+    freteT: 'Frete terrestre (Uberlândia → Santos)',
+    freteM: 'Frete marítimo (Santos → porto destino)',
+    total:  'TOTAL '+incoterm,
+    notaFob: 'Nota: FOB — Comprador arca com frete marítimo e seguro a partir do porto de embarque.',
+    notaCif: 'Nota: CIF — Projetta arca com caixa + frete terrestre + frete marítimo até porto destino.'
+  };
+  // Montar HTML
+  var h = '<div style="font-weight:800;color:#e65100;margin-bottom:6px;font-size:11px">'+L.titulo+'</div>';
+  // Linha caixa
+  if(caixaM3 > 0){
+    h += '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #ffcc80">';
+    h += '<span><b>📦 '+L.caixa+'</b>: '+L.dim+' '+Math.round(data.caixa_l)+'×'+Math.round(data.caixa_a)+'×'+Math.round(data.caixa_e)+'mm · '+L.vol+' '+caixaM3.toFixed(3)+'m³ × '+L.rate+' US$'+data.caixa_taxa+'/m³</span>';
+    h += '<span style="font-weight:700">'+fmtUsd(caixaUsd)+'</span>';
+    h += '</div>';
+  }
+  // Frete terrestre
+  if(freteTerrUsd > 0){
+    h += '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #ffcc80">';
+    h += '<span><b>🚛 '+L.freteT+'</b></span>';
+    h += '<span style="font-weight:700">'+fmtUsd(freteTerrUsd)+'</span>';
+    h += '</div>';
+  }
+  // Frete marítimo (só CIF)
+  if(freteMarUsd > 0){
+    h += '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #ffcc80">';
+    h += '<span><b>🚢 '+L.freteM+'</b></span>';
+    h += '<span style="font-weight:700">'+fmtUsd(freteMarUsd)+'</span>';
+    h += '</div>';
+  }
+  // Total
+  h += '<div style="display:flex;justify-content:space-between;padding:6px 0 3px 0;font-weight:800;color:#003144;font-size:11px;border-top:2px solid #e65100;margin-top:4px">';
+  h += '<span>'+L.total+'</span>';
+  h += '<span>'+fmtUsd(totalUsd)+'</span>';
+  h += '</div>';
+  // Nota explicativa
+  h += '<div style="margin-top:6px;font-size:9px;color:#666;font-style:italic">';
+  h += (incoterm === 'CIF') ? L.notaCif : L.notaFob;
+  h += '</div>';
+  el.innerHTML = h;
+  el.style.display = '';
 }
 
 /* ══ CADASTRO DE PERFIS ══ */
