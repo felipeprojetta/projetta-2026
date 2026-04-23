@@ -3804,17 +3804,33 @@ window._orcRevSyncPlanificador=function(){
     _setVal('-q', qty);
   }
   var revs=window._orcItens.filter(function(it){return it.tipo==='revestimento' && it.largura>0 && it.altura>0;});
-  // ★ Felipe 23/04: JOGAR NO PLANIFICADOR EXATAMENTE O QUE ESTÁ NO CARD,
-  //   SEM pre-cut, SEM quebrar em RIPA/FUNDO/SOBRA/CHAPA. Cada item =
-  //   UMA linha com largura×altura×qtd do card. Se Felipe tem 23 items
-  //   de revestimento no card, o planificador terá EXATAMENTE 23 linhas
-  //   REV 1, REV 2, ..., REV 23. O bin-packing decide como alocar nas
-  //   chapas — pre-cut NÃO era pedido e gerava confusão visual (40+
-  //   sub-peças quando o card só tem 23 items).
+  // ★ Felipe 23/04 v3: gerar EXATAMENTE o que está no card.
+  //
+  //   CARD RIPADO → 2 linhas por item:
+  //     • REV N FUNDO — chapa inteira L×A×Q (a chapa de fundo do painel)
+  //     • REV N RIPA  — 98×A, qtd = ceil(L/90)×Q (ripa largura 98, mas
+  //       divisor 90 porque cada ripa ocupa 90mm no painel com gap)
+  //
+  //   CARD CHAPA → 1 linha por item:
+  //     • REV N — chapa L×A×Q
+  //
+  //   Se 2 lados: Q×2 em tudo.
   revs.forEach(function(it,i){
     var L=parseFloat(it.largura)||0, A=parseFloat(it.altura)||0, Q=parseInt(it.qtd)||1;
     var _mult2L = (it.rev_2lados==='SIM' || it.ripado_2lados==='SIM') ? 2 : 1;
-    _addRow('REV '+(i+1), L, A, Q*_mult2L);
+    var _Qtot = Q * _mult2L;
+    var tipo = it.rev_tipo || 'CHAPA';
+    var revNum = i+1;
+    if(tipo === 'RIPADO'){
+      // 1. Chapa de fundo (peça inteira do painel)
+      _addRow('REV '+revNum+' FUNDO', L, A, _Qtot);
+      // 2. Ripas — largura 98mm, altura A, qtd = ceil(L/90) × Q
+      var nRipas = Math.ceil(L / 90);
+      if(nRipas > 0) _addRow('REV '+revNum+' RIPA', 98, A, nRipas * _Qtot);
+    } else {
+      // CHAPA lisa: 1 peça L×A
+      _addRow('REV '+revNum, L, A, _Qtot);
+    }
   });
   // ★ Felipe 22/04 v3 (fix accordion fechado): crmFazerOrcamento chama
   //   resetToDefaults() ANTES de carregar itens, que fecha TODOS os

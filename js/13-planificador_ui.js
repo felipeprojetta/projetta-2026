@@ -1053,12 +1053,22 @@ function _plnPieceEdited(idx){
   // Update summaries
   var tb=document.getElementById('plan-piece-tbody');
   tb.querySelectorAll('tr[data-sum]').forEach(function(r){r.remove();});
-  var pesoPorta=0,pesoPortal=0,pesoFixo=0;
-  for(var j=0;j<_plnPiecesRef.length;j++){var pp=_plnPiecesRef[j];var k=pp.w*pp.h*pp.qty/1e6*6.5;if(pp._local==='PORTA')pesoPorta+=k;else if(pp._local==='FIXO')pesoFixo+=k;else pesoPortal+=k;}
+  var pesoPorta=0,pesoPortal=0,pesoFixo=0,pesoRev=0;
+  for(var j=0;j<_plnPiecesRef.length;j++){
+    var pp=_plnPiecesRef[j];
+    var _kgPerM2 = (pp.mat==='alu') ? 10.125 : 6.5;
+    var k=pp.w*pp.h*pp.qty/1e6*_kgPerM2;
+    if(pp._local==='PORTA')pesoPorta+=k;
+    else if(pp._local==='FIXO')pesoFixo+=k;
+    else if(pp._local==='REVESTIMENTO')pesoRev+=k;
+    else pesoPortal+=k;
+  }
   function _sR(l,k,b,co){var tr=document.createElement('tr');tr.setAttribute('data-sum','1');tr.innerHTML='<td colspan="6" style="padding:5px 7px;background:'+b+';font-weight:700;font-size:11px;color:'+co+';text-align:right;border-top:1.5px solid '+co+'">'+l+'</td><td style="padding:5px 7px;background:'+b+';font-weight:800;font-size:12px;color:'+co+';text-align:right;border-top:1.5px solid '+co+'">'+k.toFixed(2)+'</td><td colspan="3" style="padding:5px 7px;background:'+b+';border-top:1.5px solid '+co+'"></td>';tb.appendChild(tr);}
-  _sR('Chapas PORTA:',pesoPorta,'#e8f5e9','#2e7d32');_sR('Chapas PORTAL:',pesoPortal,'#fff3e0','#e65100');
+  if(pesoPorta>0) _sR('Chapas PORTA:',pesoPorta,'#e8f5e9','#2e7d32');
+  if(pesoPortal>0) _sR('Chapas PORTAL:',pesoPortal,'#fff3e0','#e65100');
+  if(pesoRev>0) _sR('Chapas REVESTIMENTO:',pesoRev,'#f3e5f5','#6a1b9a');
   if(pesoFixo>0)_sR('Chapas FIXO:',pesoFixo,'#e3f2fd','#1565c0');
-  _sR('TOTAL CHAPAS:',pesoPorta+pesoPortal+pesoFixo,'#003144','#fff');
+  _sR('TOTAL CHAPAS:',pesoPorta+pesoPortal+pesoFixo+pesoRev,'#003144','#fff');
 }
 
 function _plnResetOverrides(){
@@ -1122,8 +1132,17 @@ function plnPieceTable(pieces, placed) {
   function _isPortaPiece(lbl){var base=lbl.split('[')[0].split('EXT')[0].split('INT')[0].trim();if(base.indexOf('MOLD ')===0)return true;for(var k=0;k<_portaPecas.length;k++){if(base===_portaPecas[k])return true;}return false;}
   var _pSorted=pieces.slice().map(function(p,idx){
     var _isP=_isPortaPiece(p.label);
-    p._local=p.label.indexOf('FX ')===0?'FIXO':_isP?'PORTA':'PORTAL';
-    p._localOrd=p._local==='PORTA'?0:p._local==='PORTAL'?1:2;
+    // ★ Felipe 23/04: LOCAL pra peças REV * (revestimento) é REVESTIMENTO,
+    //   não PORTAL. PORTAL é batente/marco da porta, não faz sentido em rev.
+    var _isRev = (typeof p.label==='string' && p.label.indexOf('REV ')===0);
+    p._local = p.label.indexOf('FX ')===0 ? 'FIXO'
+             : _isRev ? 'REVESTIMENTO'
+             : _isP ? 'PORTA'
+             : 'PORTAL';
+    p._localOrd = p._local==='PORTA' ? 0
+                : p._local==='PORTAL' ? 1
+                : p._local==='REVESTIMENTO' ? 2
+                : 3; // FIXO
     // Within PORTA: tampas first (by area desc), then others by original order
     var isTampa=p.label.indexOf('TAMPA')===0;
     p._subOrd=isTampa?0:1;
@@ -1156,8 +1175,8 @@ function plnPieceTable(pieces, placed) {
     var pesoKg=(p.w*p.h*p.qty/1e6*_kgPerM2).toFixed(2);
     var local=p._local||'PORTA';
     var matBadge = (p.mat==='alu') ? ' <span style="background:#1a5276;color:#fff;padding:1px 4px;border-radius:3px;font-size:7px;font-weight:700">ALU</span>' : '';
-    var lcl=local==='PORTA'?'<span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTA</span>':local==='PORTAL'?'<span style="background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTAL</span>':'<span style="background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">FIXO</span>';
-    var bgRow=isFailed?'background:#ffebee;':(local==='PORTA'?'background:#e8f5e9;':local==='PORTAL'?'background:#fff3e0;':local==='FIXO'?'background:#e3f2fd;':'');
+    var lcl=local==='PORTA'?'<span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTA</span>':local==='PORTAL'?'<span style="background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">PORTAL</span>':local==='REVESTIMENTO'?'<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">REVESTIMENTO</span>':'<span style="background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">FIXO</span>';
+    var bgRow=isFailed?'background:#ffebee;':(local==='PORTA'?'background:#e8f5e9;':local==='PORTAL'?'background:#fff3e0;':local==='REVESTIMENTO'?'background:#f3e5f5;':local==='FIXO'?'background:#e3f2fd;':'');
     var failTag=isFailed?'<span style="background:#c62828;color:#fff;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700">⚠ NÃO COUBE</span>':'';
     var _id='pp-'+i;
     var _inSt='width:55px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:right;font-weight:600;font-family:inherit;outline:none;';

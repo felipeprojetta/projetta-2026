@@ -920,16 +920,45 @@ function _mpCalcAllPiecesCombined(){
     //   • fixo: tratado em _coletarPecasFixo (chamado separadamente).
     //   • porta_pivotante: comportamento antigo (plnPecas).
     if(it.tipo === 'revestimento'){
+      // ★ Felipe 23/04 v3: espelhar _orcRevSyncPlanificador
+      //   • RIPADO: FUNDO L×A + RIPA 98×A qty=ceil(L/90)
+      //   • CHAPA:  1 peça L×A
+      //   • 2 lados: multiplica qty×2
       var _L = it.largura, _A = it.altura, _Q = it.qtd || 1;
       var _mult2L = (it.rev_2lados === 'SIM') ? 2 : 1;
+      var _Qtot = _Q * _mult2L;
+      var _tipoRev = it.rev_tipo || 'CHAPA';
       var _cor = it.corExt || '';
-      allPieces.push({
-        label: 'REV ' + (idx+1),
-        w: _L, h: _A,
-        qty: _Q * _mult2L,
-        mat: 'acm', _cor: _cor,
-        color: PLN_COLORS[idx % PLN_COLORS.length]
-      });
+      if(_tipoRev === 'RIPADO'){
+        // Chapa de fundo
+        allPieces.push({
+          label: 'REV ' + (idx+1) + ' FUNDO',
+          w: _L, h: _A,
+          qty: _Qtot,
+          mat: 'acm', _cor: _cor,
+          color: PLN_COLORS[idx % PLN_COLORS.length]
+        });
+        // Ripas 98mm × A, qtd = ceil(L/90) × Qtot
+        var _nRipas = Math.ceil(_L / 90);
+        if(_nRipas > 0){
+          allPieces.push({
+            label: 'REV ' + (idx+1) + ' RIPA',
+            w: 98, h: _A,
+            qty: _nRipas * _Qtot,
+            mat: 'acm', _cor: _cor,
+            color: PLN_COLORS[idx % PLN_COLORS.length]
+          });
+        }
+      } else {
+        // CHAPA lisa: 1 peça L×A
+        allPieces.push({
+          label: 'REV ' + (idx+1),
+          w: _L, h: _A,
+          qty: _Qtot,
+          mat: 'acm', _cor: _cor,
+          color: PLN_COLORS[idx % PLN_COLORS.length]
+        });
+      }
       return; // IMPORTANTE: não cai no plnPecas abaixo
     }
     if(it.tipo === 'fixo'){
