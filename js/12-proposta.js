@@ -2200,6 +2200,9 @@ function recalcPerfisAuto(){
       }
       try{ syncFabPerfisTotal(); }catch(e){}
       try{ calc(); }catch(e){}
+      // ★ Felipe 23/04: Popular a aba "Levantamento de Perfis" com o
+      //   aproveitamento de barras dos tubos (branch _gerarOSRevestimentoOnly).
+      try{ if(typeof _osAutoGenerate==='function') _osAutoGenerate(); }catch(e){}
     } catch(e){ console.warn('recalcPerfisAuto revOnly:', e); }
     return;
   }

@@ -21,7 +21,16 @@ function _osAutoGenerate(){
   var L=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
   var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
   var modelo=(document.getElementById('carac-modelo')||{value:''}).value||'';
-  if(L<=0||H<=0||!modelo) return;
+  // ★ Felipe 23/04: em orcamento so-revestimento ripado, L=H=0 e modelo=''
+  //   e mesmo assim deve disparar gerarOS (que tem branch _gerarOSRevestimentoOnly).
+  var _temRevRip = (window._orcItens||[]).some(function(it){
+    return it.tipo==='revestimento' && it.rev_tipo==='RIPADO' && (it.largura||0)>0 && (it.altura||0)>0;
+  });
+  var _temPortaFixo = (window._orcItens||[]).some(function(it){
+    return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';
+  });
+  var _isRevOnly = (!_temPortaFixo) && _temRevRip;
+  if(!_isRevOnly && (L<=0||H<=0||!modelo)) return;
   window._osAutoMode=true;
   try{gerarOS();}catch(e){console.warn('_osAutoGenerate:',e);}
   window._osAutoMode=false;
@@ -144,6 +153,113 @@ function gerarCustoTotal(){
   }, 500); // fase 2 em 500ms
 }
 
+/* ── OS REVESTIMENTO-ONLY (Felipe 23/04) ───────────────────────────────────
+   Renderização alternativa do Levantamento de Perfis quando o orçamento
+   tem APENAS revestimentos ripados (sem porta, sem fixo). Não há seções
+   FOLHA/PORTAL/FRISO da porta — só o grupo PA-51X25X1.5 (tubos de
+   fixação das ripas) + aproveitamento de barras.
+   Usa a mesma pipeline _calcularDadosPerfis (short-circuit _revOnlyMode)
+   e o mesmo renderer _renderPadroesContent da porta pra manter o visual
+   de aproveitamento idêntico. */
+function _gerarOSRevestimentoOnly(){
+  var _emEl=document.getElementById('os-empty');
+  var _docEl=document.getElementById('os-doc');
+  var el=function(id){return document.getElementById(id);};
+
+  // Pipeline unificada — retorna grupo PA-51X25X1.5 populado
+  var barraMM=(parseFloat((document.getElementById('pf-barra-m')||{value:6}).value)||6)*1000;
+  var d;
+  try { d=_calcularDadosPerfis(0,0,1,barraMM); }
+  catch(e){
+    if(_emEl){ _emEl.innerHTML='<div style="color:#c0392b;padding:16px;text-align:center;font-size:12px"><b>Erro:</b> '+e.message+'</div>'; }
+    return;
+  }
+  if(!d || d.error || !d.seenKeys || !d.seenKeys.length){
+    if(_emEl){ _emEl.innerHTML='<div style="color:#e67e22;padding:16px;text-align:center;font-size:13px"><b>⚠ Nenhum revestimento ripado válido no orçamento.</b></div>'; }
+    return;
+  }
+
+  // Cabeçalho adaptado (sem porta — descrição do revestimento)
+  var revs=(window._orcItens||[]).filter(function(it){
+    return it.tipo==='revestimento' && it.rev_tipo==='RIPADO' && (it.largura||0)>0 && (it.altura||0)>0;
+  });
+  var cliente=(document.getElementById('nome-cliente')||{value:''}).value
+           ||(document.getElementById('cli-nome')||{value:''}).value||'—';
+  var now=new Date();
+  var dataStr=now.toLocaleDateString('pt-BR')+' '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  var osNum='OS-REV-'+now.getFullYear()+(now.getMonth()+1+'').padStart(2,'0')+(now.getDate()+'').padStart(2,'0');
+  var vaoTxt=revs.map(function(r,i){return 'R'+(i+1)+': '+r.largura+'×'+r.altura+(r.qtd>1?' ×'+r.qtd:'');}).join('  |  ')+' mm';
+
+  if(el('os-numero')) el('os-numero').textContent=osNum;
+  if(el('os-data'))   el('os-data').textContent=dataStr;
+  if(el('os-cliente')) el('os-cliente').textContent=cliente;
+  if(el('os-obra'))    el('os-obra').textContent='Revestimento Ripado';
+  if(el('os-vao'))     el('os-vao').textContent=vaoTxt;
+  if(el('os-sistema')) el('os-sistema').textContent='REVESTIMENTO RIPADO (ACM + tubos PA-51×25×1.5)';
+  if(el('os-folhas'))  el('os-folhas').textContent='—';
+  if(el('os-modelo'))  el('os-modelo').textContent='Ripas 90mm';
+
+  // Esconder bloco Chapa Frontal (não aplicável)
+  var _cfDiv=el('os-chapa-frontal'); if(_cfDiv){ _cfDiv.style.display='none'; }
+
+  // Limpar tbodys da porta (FOLHA/PORTAL/FRISO vazios)
+  ['pa-folha-tbody','pa-portal-tbody','pa-frisos-tbody','os-perfis-table tbody'].forEach(function(sel){
+    var tb=document.getElementById(sel);
+    if(tb) tb.innerHTML='';
+  });
+  // Limpar TODOS tbodys dentro de os-perfis-table
+  var _osPerf=el('os-perfis-table');
+  if(_osPerf){
+    var _tbs=_osPerf.querySelectorAll('tbody');
+    _tbs.forEach(function(t){t.innerHTML='';});
+  }
+
+  // Agregar totais pra injeção de custo
+  var totalMatRev=0, totalPinRev=0;
+  d.seenKeys.forEach(function(k){
+    var r=d.groupRes[k]; if(!r) return;
+    totalMatRev+=r.custoPerfil||0;
+    totalPinRev+=r.custoPintura||0;
+  });
+
+  // Renderizar aproveitamento de barras como conteúdo principal
+  var padraoHTML=_renderPadroesContent(d, 9);
+  window._lastPadroesHTML=padraoHTML;
+  window._lastPerfisTotal=totalMatRev+totalPinRev;
+
+  // Injetar no os-doc: criar/atualizar container dedicado pra rev-only
+  if(_docEl){
+    var _revCont=document.getElementById('os-rev-only-cont');
+    if(!_revCont){
+      _revCont=document.createElement('div');
+      _revCont.id='os-rev-only-cont';
+      _revCont.style.cssText='margin-top:14px';
+      _docEl.appendChild(_revCont);
+    }
+    _revCont.innerHTML =
+      '<div style="background:#fff7ed;border:1px solid #e67e22;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#555;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
+      +'<span>🧱 <b>Orçamento Revestimento Ripado</b> — '+revs.length+' item(s). Perfis: '+d.groupRes['PA-51X25X1.5'].nBars+' barra(s) × '+Math.round(d.groupRes['PA-51X25X1.5'].barLenMM/1000)+'m de PA-51×25×1.5.</span>'
+      +'<span style="font-weight:700;color:#003144">Custo perfis: R$ '+totalMatRev.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>'
+      +'</div>'
+      +padraoHTML;
+  }
+
+  // Atualizar custos
+  try { _fabSetSysValue('mat', totalMatRev); } catch(e){}
+  try { _fabSetSysValue('pin', 0); } catch(e){} // revestimento não pinta tubos
+  try { syncFabPerfisTotal(); } catch(e){}
+  try { calc(); } catch(e){}
+
+  if(_emEl) _emEl.style.display='none';
+  _docEl.style.display='';
+
+  // Botão de aproveitamento (drawer)
+  var btnAprov=document.getElementById('btn-aproveitamento');
+  if(btnAprov) btnAprov.style.display='';
+
+  if(!window._osAutoMode) switchTab('os');
+}
+
 function gerarOS(){
   var _foiPrimeiraOS = !window._osGeradoUmaVez;
   window._osGeradoUmaVez = true; // marca que o usuário gerou a OS
@@ -157,6 +273,25 @@ function gerarOS(){
   try {
   var L=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
   var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
+
+  // ★ Felipe 23/04: detectar "só revestimento ripado". Nesse caso L=H=0 (inputs
+  //   legacy da porta vazios — é o comportamento correto porque não há porta),
+  //   mas _calcularDadosPerfis tem short-circuit que retorna só o grupo de
+  //   tubos PA-51X25X1.5. Renderiza uma OS minimalista focada em aproveitamento
+  //   de barras dos tubos (não tem seção FOLHA/PORTAL/FRISO da porta).
+  var _temPortaFixo = (window._orcItens||[]).some(function(it){
+    return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';
+  });
+  var _temRevRip = (window._orcItens||[]).some(function(it){
+    return it.tipo==='revestimento' && it.rev_tipo==='RIPADO' && (it.largura||0)>0 && (it.altura||0)>0;
+  });
+  var _isRevOnlyOS = (L<=0||H<=0) && (!_temPortaFixo) && _temRevRip;
+
+  if(_isRevOnlyOS){
+    _gerarOSRevestimentoOnly();
+    return;
+  }
+
   if(L<=0||H<=0){
     if(_emEl){_emEl.innerHTML='<div style="color:#e67e22;padding:16px;text-align:center;font-size:13px"><b>⚠ Preencha Largura e Altura no Orçamento primeiro.</b></div>';}
     return;
