@@ -5009,48 +5009,52 @@ function _hidratarMemorialDoCloud(card, revIdx, callback){
       var target = arr.find(function(x){ return x.rev_num === (revIdx||0); }) || arr[0];
       if(!target || !target.dados){ callback(null); return; }
       var d = target.dados || {};
-      var snapshot = {
-        state: d.state || {},
-        calcResult: d.calcResult || null,
-        abas: d.abas || null,
-        dynBlocks: d.dynBlocks || null,
-        displaySnap: d.displaySnap || null,
-        propostaHTML: d.propostaHTML || '',
-        osTabelasHTML: d.osTabelasHTML || '',
-        osaContentHTML: d.osaContentHTML || '',
-        planTabelasHTML: d.planTabelasHTML || '',
-        planCanvasDataURL: d.planCanvasDataURL || '',
-        lastOSData: d.lastOSData || null,
-        lastFixosPerfisRows: d.lastFixosPerfisRows || null,
-        meta: d.meta || {},
-        valorTabela: target.valor_tabela,
-        valorFaturamento: target.valor_faturamento,
-        data: target.criado_em,
-        label: target.rev_label || 'Original'
-      };
+      // loadRevisionMemorial em 03-history_save.js usa:
+      //   var db = loadDB();                        -> localStorage["projetta_v3"]
+      //   var entry = db.find(e => e.id === id);
+      //   var rev = entry.revisions[ri];
+      //   if(!_isSnapshotValid(rev.snapshot)) alert(...);
+      //   showMemorial(rev.snapshot, ...);
+      // _isSnapshotValid checa rev.snapshot.custoTotal/fatTotal/tabTotal.
+      // Em orcamentos_salvos.dados, esses campos estao em dados.displaySnap.
+      var entryId = 'hidratado_' + target.id;
       var entry = {
-        id: 'hidratado_' + target.id,
-        crm_card_id: card.id,
-        name: (card.cliente||'') + ' — hidratado',
-        ts: new Date(target.criado_em).getTime(),
-        revisions: [snapshot]
+        id: entryId,
+        client: card.cliente || '',
+        name: (card.cliente||'') + ' — hidratado do cloud',
+        project: card.produto || '',
+        created: new Date(target.criado_em).toISOString(),
+        updated: new Date(target.criado_em).toISOString(),
+        revisions: [{
+          rev: 0,
+          label: target.rev_label || 'Original',
+          savedAt: new Date(target.criado_em).toISOString(),
+          data: d.state || {},           // form data placeholder (nao eh usado em memorial)
+          snapshot: d.displaySnap || {}  // o snapshot VISUAL que o memorial renderiza
+        }]
       };
+      var LS_KEY_HIST = 'projetta_v3';
+      function _saveEntryLS(e){
+        var db = JSON.parse(localStorage.getItem(LS_KEY_HIST) || '[]');
+        // dedupe: remove entry ja hidratado com mesmo id
+        db = db.filter(function(x){ return x.id !== e.id; });
+        db.unshift(e);
+        // Limitar tamanho: manter 50 ultimos (alinhado com rotacao existente)
+        if(db.length > 50) db = db.slice(0, 50);
+        localStorage.setItem(LS_KEY_HIST, JSON.stringify(db));
+      }
       try {
-        var lst = JSON.parse(localStorage.getItem('orcamentos') || '[]');
-        lst.push(entry);
-        localStorage.setItem('orcamentos', JSON.stringify(lst));
-        console.log('[memorial-hidratar] hidratado OK, id=', entry.id);
+        _saveEntryLS(entry);
+        console.log('[memorial-hidratar] hidratado OK em projetta_v3, id=', entryId);
       } catch(errQuota){
-        console.warn('[memorial-hidratar] quota cheia, tentando sem canvas:', errQuota);
+        console.warn('[memorial-hidratar] quota cheia, tentando trim:', errQuota);
         try {
-          var snap2 = Object.assign({}, snapshot); snap2.planCanvasDataURL = '';
-          var entry2 = Object.assign({}, entry); entry2.revisions = [snap2];
-          var lst2 = JSON.parse(localStorage.getItem('orcamentos') || '[]');
-          lst2.push(entry2);
-          localStorage.setItem('orcamentos', JSON.stringify(lst2));
-          entry = entry2;
+          // Fallback: manter apenas este entry (descarta o cache antigo)
+          localStorage.setItem(LS_KEY_HIST, JSON.stringify([entry]));
+          console.log('[memorial-hidratar] salvo com cache limpo');
         } catch(err2){
-          console.warn('[memorial-hidratar] falhou tambem sem canvas:', err2);
+          console.warn('[memorial-hidratar] falhou mesmo com cache limpo:', err2);
+          // Ultimo recurso: guardar em memoria global (nao persiste entre paginas)
           window._tmpHidratadoEntry = entry;
         }
       }
