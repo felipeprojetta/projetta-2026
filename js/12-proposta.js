@@ -453,52 +453,65 @@ function populateProposta(){
   var g=function(id){var el=document.getElementById(id);if(!el)return '—';if(el.tagName==='SELECT'||el.tagName==='INPUT'||el.tagName==='TEXTAREA')return el.value||'—';return el.textContent||'—';};
   var brl=function(v){return 'R$ '+(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2});};
 
-  // ★★★ Felipe 23/04 v6: FORÇAR POPULAÇÃO DE _mpItens a partir de _orcItens.
-  //   Sem isso, se _mpItens está vazio (caminhos variados: snapshot
-  //   restaurado, novo card sem passar por orcItensFromCRM, etc), o código
-  //   abaixo cai no fallback single-door e renderiza como PORTA mesmo em
-  //   card 100% revestimento. Isso é a causa raiz do bug crítico que o
-  //   Felipe reportou 15+ vezes.
+  // ★★★ Felipe 23/04 v7: FORÇAR POPULAÇÃO DE _mpItens a partir de _orcItens
+  //   PRA QUALQUER TIPO (não só rev-only). Isso garante que populateProposta
+  //   SEMPRE use o fluxo multi-door (_populatePropostaItens em 18-auth.js),
+  //   que já tem a lógica de CIF/fretes integrada no Total Quote.
+  //
+  //   Causa raiz: single-door mode (_isMulti=false) em js/12-proposta.js
+  //   linha 1006 fazia:
+  //     var tabGeral = m-tab + tabInstIntl;  // NAO soma CIF!
+  //   Por isso Felipe via Total Quote=US$25,008 sem somar CIF US$6,534.90.
+  //
+  //   Em multi-door (_populatePropostaItens), a tabela tem as linhas de
+  //   caixa+frete terrestre+frete maritimo integradas E o Total soma tudo.
   try {
     if(window._orcItens && window._orcItens.length > 0){
-      var _hasRevOrc = window._orcItens.some(function(it){
-        return it.tipo === 'revestimento' && (it.largura||0) > 0 && (it.altura||0) > 0;
-      });
-      var _hasNonRevOrc = window._orcItens.some(function(it){
-        var t = it.tipo || 'porta_pivotante';
-        return t === 'porta_pivotante' || t === 'porta_interna';
-      });
-      // Se é rev-only e _mpItens está vazio OU desatualizado, repopular
-      if(_hasRevOrc && !_hasNonRevOrc){
-        var _revOrcLen = window._orcItens.filter(function(it){return it.tipo==='revestimento';}).length;
-        if(!window._mpItens || window._mpItens.length < _revOrcLen){
-          window._mpItens = [];
-          window._orcItens.forEach(function(oi, idx){
-            if(oi.tipo !== 'revestimento') return;
-            if(!oi.largura || !oi.altura) return;
-            var mp = {id: 'mp_prop_'+idx};
-            mp['largura']      = String(oi.largura||'');
-            mp['altura']       = String(oi.altura||'');
-            mp['qtd-portas']   = String(oi.qtd||'1');
-            mp['folhas-porta'] = '1';
-            mp['carac-cor-ext']= oi.cor_ext || '';
-            mp['carac-cor-int']= oi.cor_int || oi.cor_ext || '';
-            mp._largura = parseFloat(oi.largura) || 0;
-            mp._altura  = parseFloat(oi.altura)  || 0;
-            mp._qtd     = parseInt(oi.qtd) || 1;
-            mp._folhas  = 1;
-            mp._tipo    = 'revestimento';
-            mp._rev_tipo      = oi.rev_tipo || '';
-            mp._rev_estrutura = oi.rev_estrutura || '';
-            mp._rev_tubo      = oi.rev_tubo || '';
-            mp._rev_2lados    = oi.rev_2lados || '';
-            mp._modelo    = '';
-            mp._modeloTxt = 'Revestimento ' + (oi.rev_tipo || 'CHAPA');
-            window._mpItens.push(mp);
-          });
-          console.log('%c[populateProposta] REPOPULOU _mpItens com '+window._mpItens.length+' revestimentos (antes: vazio/stale)',
-            'background:#c0392b;color:#fff;padding:3px 8px;border-radius:4px;font-weight:800');
-        }
+      // Se _mpItens vazio OU menor que _orcItens válido, repopular
+      var _validOrcLen = window._orcItens.filter(function(it){
+        return (it.tipo==='revestimento' || it.tipo==='porta_pivotante' || it.tipo==='porta_interna') 
+               && (it.largura||0)>0 && (it.altura||0)>0;
+      }).length;
+      if(_validOrcLen>0 && (!window._mpItens || window._mpItens.length < _validOrcLen)){
+        window._mpItens = [];
+        window._orcItens.forEach(function(oi, idx){
+          var _t = oi.tipo || 'porta_pivotante';
+          if(_t !== 'revestimento' && _t !== 'porta_pivotante' && _t !== 'porta_interna') return;
+          if(!oi.largura || !oi.altura) return;
+          var mp = {id: 'mp_prop_'+idx};
+          mp['largura']      = String(oi.largura||'');
+          mp['altura']       = String(oi.altura||'');
+          mp['qtd-portas']   = String(oi.qtd||'1');
+          mp['folhas-porta'] = String(oi.folhas||'1');
+          mp['carac-modelo']     = oi.modelo || '';
+          mp['carac-abertura']   = oi.abertura || 'PIVOTANTE';
+          mp['carac-cor-ext']    = oi.cor_ext || '';
+          mp['carac-cor-int']    = oi.cor_int || oi.cor_ext || '';
+          mp['carac-fech-mec']   = oi.fech_mec || '';
+          mp['carac-fech-dig']   = oi.fech_dig || 'NÃO SE APLICA';
+          mp['carac-puxador']    = oi.puxador || '';
+          mp['carac-pux-tam']    = oi.pux_tam || '';
+          mp['carac-cilindro']   = oi.cilindro || 'KESO';
+          mp['carac-tem-alisar'] = oi.tem_alisar ? '1' : '0';
+          mp._largura = parseFloat(oi.largura) || 0;
+          mp._altura  = parseFloat(oi.altura)  || 0;
+          mp._qtd     = parseInt(oi.qtd) || 1;
+          mp._folhas  = parseInt(oi.folhas) || 1;
+          mp._tipo    = _t;
+          mp._modelo    = oi.modelo || '';
+          mp._rev_tipo      = oi.rev_tipo || '';
+          mp._rev_estrutura = oi.rev_estrutura || '';
+          mp._rev_tubo      = oi.rev_tubo || '';
+          mp._rev_2lados    = oi.rev_2lados || '';
+          // Descobrir nome do modelo
+          var modOpt = document.querySelector('#carac-modelo option[value="'+(oi.modelo||'')+'"]');
+          if(modOpt) mp._modeloTxt = modOpt.textContent;
+          else if(_t==='revestimento') mp._modeloTxt = 'Revestimento ' + (oi.rev_tipo || 'CHAPA');
+          else mp._modeloTxt = 'Porta Pivotante';
+          window._mpItens.push(mp);
+        });
+        console.log('%c[populateProposta] REPOPULOU _mpItens com '+window._mpItens.length+' items',
+          'background:#c0392b;color:#fff;padding:3px 8px;border-radius:4px;font-weight:800');
       }
     }
   } catch(e){ console.warn('[populateProposta fix mpItens] erro:', e); }
@@ -1002,8 +1015,21 @@ function populateProposta(){
     rowInst.style.display='none';
   }
 
-  // Total geral = Preço Tabela da porta + fechadura + (instalação se internacional)
+  // Total geral = Preço Tabela da porta + fechadura + (instalação se internacional) + CIF (caixa+fretes)
   var tabGeral = parseVal(document.getElementById('m-tab')) + tabInstIntl;
+  // ★ Felipe 23/04: somar CIF/FOB (caixa+frete terrestre+frete marítimo) no
+  //   Total Quote em single-door também. Antes só somava em multi-door via
+  //   _populatePropostaItens, deixando Total Quote = 25,008 enquanto CIF
+  //   breakdown mostrava 6,534.90 separado — sem somar.
+  try {
+    if(_isIntlProp && window._propLangCtx && window._propLangCtx.cif){
+      var _cf = window._propLangCtx.cif;
+      var _cambioCf = _cambioProp || 5.20;
+      if(_cf.incluirCaixa    && _cf.caixaUSD>0)          tabGeral += _cf.caixaUSD * _cambioCf;
+      if(_cf.incluirTerrestre&& _cf.freteTerrestreUSD>0) tabGeral += _cf.freteTerrestreUSD * _cambioCf;
+      if(_cf.incluirMaritimo && _cf.freteMaritimoUSD>0)  tabGeral += _cf.freteMaritimoUSD * _cambioCf;
+    }
+  } catch(e){ console.warn('[single-door CIF sum] erro:', e); }
   document.getElementById('prop-total-orc').textContent=brlUsd(tabGeral, 'TOTAL');
   document.getElementById('prop-area-total').textContent=(area*qtdPortas).toFixed(1);
 

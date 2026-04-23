@@ -11,7 +11,7 @@
 //   Se o console mostra "[projetta build]" com hash antigo, o browser
 //   está em cache. Badge no canto inferior direito mostra a versão.
 // ═══════════════════════════════════════════════════════════════════
-window.__PROJETTA_BUILD__ = '78d3fa9-1776925529';
+window.__PROJETTA_BUILD__ = '11d8fe9-1776925814';
 try {
   console.log('%c[projetta build] v=' + window.__PROJETTA_BUILD__,
     'background:#003144;color:#fff;padding:2px 8px;border-radius:4px;font-weight:700');
