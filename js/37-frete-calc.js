@@ -287,12 +287,52 @@ function onEditBaseValue(ev){
   var newVal = parseFloat(el.value);
   if(isNaN(newVal) || newVal < 0){ delete window._freteOverrides[key]; }
   else { window._freteOverrides[key] = newVal; }
-  recomputeAndRender();
-  // foco perdido ao recomputar — refocar no input
-  setTimeout(function(){
-    var again = document.querySelector('.frete-calc-edit[data-key="'+key+'"]');
-    if(again){ again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+  // ★ Felipe 24/04: NAO re-renderizar o body todo durante digitacao.
+  // A re-renderizacao destruia o <input> que user estava editando e o foco
+  // se perdia. Agora atualiza apenas celulas BRL + footer, deixando o input
+  // intocado (usuario continua digitando sem interrupcao).
+  updateTotalsInPlace();
+}
+
+// Atualiza totais sem mexer nos inputs. Usada durante digitacao (evento input).
+// O re-render completo so acontece em 'change' (blur) pra atualizar visual
+// de override (borda laranja + icone reset).
+function updateTotalsInPlace(){
+  if(!window._FRETE_CFG) return;
+  var tipo = val('frete-calc-tipo');
+  if(tipo === 'AEREO') return;
+  var inp = currentInput();
+  if(!inp) return;
+  var r = calcFrete(inp, window._FRETE_CFG);
+  window._freteCalcPending = r;
+
+  var body = $('frete-calc-body'); if(!body) return;
+  // Atualiza celulas BRL de cada linha (sem tocar nos inputs)
+  r.lines.forEach(function(l){
+    if(!l.key) return;
+    var input = body.querySelector('.frete-calc-edit[data-key="'+l.key+'"]');
+    if(!input) return;
+    var row = input.closest('tr');
+    if(!row || !row.cells) return;
+    var brlCell = row.cells[row.cells.length-1];
+    if(brlCell){
+      brlCell.innerHTML = l.noSum
+        ? ('<span style="color:#999;font-style:italic">'+fmtBRL(l.brl)+' *</span>')
+        : ('<b>'+fmtBRL(l.brl)+'</b>');
+    }
+  });
+
+  // Atualiza footer
+  var e;
+  e=$('frete-calc-sum-usd'); if(e) e.textContent = fmtUSD(r.usdSum);
+  e=$('frete-calc-sum-brl'); if(e) e.textContent = fmtBRL(r.usdSum * r.cambio);
+  var brlDirect = r.lines.reduce(function(acc,l){
+    return acc + (l.moeda==='BRL' && !l.noSum && l.key!=='iof' ? l.brl : 0);
   }, 0);
+  e=$('frete-calc-sum-direct'); if(e) e.textContent = fmtBRL(brlDirect);
+  e=$('frete-calc-sum-iof'); if(e) e.textContent = fmtBRL(r.iof||0);
+  e=$('frete-calc-sum-total'); if(e) e.textContent = fmtBRL(r.totalBRL||0);
+  e=$('frete-calc-sum-total-usd'); if(e) e.textContent = fmtUSD(r.totalUSDEquiv||0);
 }
 
 function renderBreakdown(r){
@@ -342,16 +382,35 @@ function renderBreakdown(r){
   });
   body.innerHTML = html;
 
-  Array.prototype.forEach.call(body.querySelectorAll('.frete-calc-edit'), function(el){
-    el.addEventListener('input', onEditBaseValue);
-  });
-  Array.prototype.forEach.call(body.querySelectorAll('[data-reset]'), function(el){
-    el.addEventListener('click', function(ev){
-      var k = ev.target.getAttribute('data-reset');
-      delete window._freteOverrides[k];
-      recomputeAndRender();
+  // ★ Felipe 24/04: event delegation no body (elemento persistente entre
+  // re-renders, apenas innerHTML muda). Antes os listeners eram adicionados
+  // em cada input individual a cada render, mas isso nao sobrevive ao
+  // body.innerHTML = html, e os inputs recriados nao tinham handler consistente.
+  if(!body._freteDelegBound){
+    body._freteDelegBound = true;
+    // Evento 'input': dispara a cada tecla. Atualiza total em tempo real
+    // SEM re-renderizar (deixando o input intocado).
+    body.addEventListener('input', function(ev){
+      if(ev.target && ev.target.classList && ev.target.classList.contains('frete-calc-edit')){
+        onEditBaseValue(ev);
+      }
     });
-  });
+    // Evento 'change': dispara em blur ou Enter com mudanca. Aqui sim re-renderiza
+    // pra atualizar o visual de override (borda laranja + icone reset).
+    body.addEventListener('change', function(ev){
+      if(ev.target && ev.target.classList && ev.target.classList.contains('frete-calc-edit')){
+        recomputeAndRender();
+      }
+    });
+    // Clique no icone de reset (↺)
+    body.addEventListener('click', function(ev){
+      var resetKey = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-reset');
+      if(resetKey){
+        delete window._freteOverrides[resetKey];
+        recomputeAndRender();
+      }
+    });
+  }
 
   $('frete-calc-sum-usd').textContent = fmtUSD(r.usdSum);
   $('frete-calc-sum-brl').textContent = fmtBRL(r.usdSum * r.cambio);
