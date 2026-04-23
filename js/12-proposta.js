@@ -673,7 +673,7 @@ function populateProposta(){
     if(!v || v<=0) return '—';
     if(!_isIntlProp){
       // Nacional: só R$
-      return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+      return 'R$ '+_fmtBRLCeil(v);
     }
     // Internacional: só USD visível; R$ guardado pro bloco conferência.
     var usdVal = v/_cambioProp;
@@ -1041,7 +1041,7 @@ function populateProposta(){
     var t=el.textContent||'';
     return parseFloat(t.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'))||0;
   };
-  var brl2=function(v){return v>0?'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';};
+  var brl2=function(v){return v>0?'R$ '+_fmtBRLCeil(v):'—';};
   
   if(!_isMulti){
   // Porta: PREÇO TABELA (valor cheio para o cliente)
@@ -1167,7 +1167,7 @@ function populateProposta(){
       _ordem.forEach(function(lbl){
         var v = _rsConferencia[lbl];
         if(v && v>0){
-          var brlFmt = 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+          var brlFmt = 'R$ '+_fmtBRLCeil(v);
           var usdFmt = 'US$ '+Math.round(v/_cambioProp).toLocaleString('en-US');
           if(lbl==='TOTAL'){
             _linhas.push('<span style="color:#777;font-weight:600"> Total: '+usdFmt+' · '+brlFmt+'</span>');
@@ -1579,7 +1579,7 @@ function renderPerfisDB(){
       +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:right;font-size:11px">'+kgBarra.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
       +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:right;font-size:11px;color:var(--navy)">'+precoPerfil.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
       +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:right;font-size:11px;color:'+(pinta?'#8e44ad':'#ccc')+';'+(pinta?'font-weight:700':'')+'">'+(pinta?precoPintura.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:right;font-weight:700;font-size:12px;color:var(--navy)">R$ '+precoTotal.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:0.5px solid #eee;text-align:right;font-weight:700;font-size:12px;color:var(--navy)">R$ '+_fmtBRLCeil(precoTotal)+'</td>'
       +'<td style="padding:2px 2px;border-bottom:0.5px solid #eee;text-align:center"><button onclick="_deletePerfil('+i+')" title="Excluir perfil" style="border:none;background:none;color:#ccc;font-size:13px;cursor:pointer;padding:0 2px;line-height:1" onmouseover="this.style.color=\'#b71c1c\'" onmouseout="this.style.color=\'#ccc\'">×</button></td>'
       +'</tr>';
   });
@@ -2445,8 +2445,8 @@ function calcPerfis(){
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px">'+r.kgLiq.toFixed(3).replace('.',',')+'</td>'
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-weight:600;font-size:10px">'+r.kgBruto.toFixed(3).replace('.',',')+'</td>'
       +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px;color:#666">R$ '+r.precoKg.toFixed(2)+'</td>'
-      +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px;color:'+(ip?'#8e44ad':'#bbb')+'">'+(ip?'R$ '+r.custoPintura.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</td>'
-      +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-weight:700;font-size:11px;color:var(--navy)">R$ '+r.custoTotal.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+      +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-size:10px;color:'+(ip?'#8e44ad':'#bbb')+'">'+(ip?'R$ '+_fmtBRLCeil(r.custoPintura):'—')+'</td>'
+      +'<td style="padding:4px 7px;border-bottom:0.5px solid #eee;text-align:right;font-weight:700;font-size:11px;color:var(--navy)">R$ '+_fmtBRLCeil(r.custoTotal)+'</td>'
       +'</tr>';
   });
 
@@ -2456,7 +2456,7 @@ function calcPerfis(){
     +'<td style="padding:6px 8px;text-align:right;font-size:11px">'+totKgLiq.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
     +'<td style="padding:6px 8px;text-align:right;font-size:11px">'+totKgBruto.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
     +'<td colspan="2" style="padding:6px 8px;text-align:right;font-size:10px;opacity:.8">pintura incl.</td>'
-    +'<td style="padding:6px 8px;text-align:right;font-weight:700;font-size:14px">R$ '+totCusto.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+    +'<td style="padding:6px 8px;text-align:right;font-weight:700;font-size:14px">R$ '+_fmtBRLCeil(totCusto)+'</td>'
     +'</tr>';
 
   // ── Sistema info ────────────────────────────────────────────────────────
@@ -2480,7 +2480,7 @@ function calcPerfis(){
       +'<div style="font-size:9px;color:#999">barras inteiras compradas</div></div>'
     +'<div style="flex:2;min-width:160px;border:2px solid #e67e22;border-radius:6px;padding:8px 10px;text-align:center;background:#fff8f0">'
       +'<div style="font-size:9px;color:#e67e22;font-weight:700;margin-bottom:2px">CUSTO TOTAL PERFIS</div>'
-      +'<div style="font-size:16px;font-weight:700;color:#1a3a4a">R$ '+totCusto.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
+      +'<div style="font-size:16px;font-weight:700;color:#1a3a4a">R$ '+_fmtBRLCeil(totCusto)+'</div>'
       +'<div style="font-size:9px;color:#999">material + pintura (bruto)</div></div>';
 
   window._lastPerfisTotal=totCusto;
@@ -2498,7 +2498,7 @@ function syncFabPerfisTotal(){
   var ext=_extEl?(parseFloat((_extEl.value||'0').replace(/\./g,'').replace(',','.'))||0):0;
   var tot=mat+pin+ac+ext;
   var el=document.getElementById('fab-total-perfis');
-  if(el) el.textContent='R$ '+tot.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(el) el.textContent='R$ '+_fmtBRLCeil(tot);
   var ph=document.getElementById('perfis');
   if(ph){ph.value=tot;}
 }
@@ -2521,7 +2521,7 @@ function _fabSetSysValue(field, value){
   var m = _fabFieldMap[field];
   if(!m) return;
   var sysEl = document.getElementById(m.sysval);
-  if(sysEl) sysEl.textContent = 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(sysEl) sysEl.textContent = 'R$ '+_fmtBRLCeil(v);
   if(!window._fabManual[field]){
     var inp = document.getElementById(m.input);
     if(inp) inp.value = v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -3197,14 +3197,14 @@ function _updateFabChapaResumo(){
         +'<td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+optLabel+'">'+optLabel+_chapaSizeTag+'</td>'
         +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;font-weight:700">'+qty+'</td>'
         +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+(preco>0?preco.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</td>'
-        +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:var(--navy)">R$ '+sub.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+        +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:var(--navy)">R$ '+_fmtBRLCeil(sub)+'</td>'
         +'</tr>';
     });
     // Linha de TOTAL
     if(_colorKeysFR.length > 1){
       _rowsHtml += '<tr style="background:#f0ebe0">'
         +'<td colspan="3" style="padding:5px 6px;border-top:1.5px solid #003144;text-align:right;font-weight:800;font-size:11px;color:#003144">TOTAL CHAPAS ACM:</td>'
-        +'<td style="padding:5px 6px;border-top:1.5px solid #003144;text-align:right;font-weight:800;color:#003144">R$ '+_totalAcmRes.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+        +'<td style="padding:5px 6px;border-top:1.5px solid #003144;text-align:right;font-weight:800;color:#003144">R$ '+_fmtBRLCeil(_totalAcmRes)+'</td>'
         +'</tr>';
     }
     acmTb.innerHTML = _rowsHtml;
@@ -3220,7 +3220,7 @@ function _updateFabChapaResumo(){
       acmTb.innerHTML='<tr><td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+label+'">'+label.split('·')[0].trim()+_chapaSizeTag+'</td>'
         +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;font-weight:700">'+acmQty+'</td>'
         +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+(preco>0?preco.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</td>'
-        +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:var(--navy)">R$ '+sub.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td></tr>';
+        +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:var(--navy)">R$ '+_fmtBRLCeil(sub)+'</td></tr>';
       if(acmTbl)acmTbl.style.display=''; if(acmE)acmE.style.display='none';
     } else { if(acmTb)acmTb.innerHTML=''; if(acmTbl)acmTbl.style.display='none'; if(acmE)acmE.style.display=''; }
   }
@@ -3243,8 +3243,8 @@ function _updateFabChapaResumo(){
     if(_aCSel2&&_aCSel2.value){var _acp2=_aCSel2.value.split('|');_aluSzTag=' <span style="font-size:9px;color:#6c3483;font-weight:400">('+_acp2[0]+'×'+_acp2[1]+'mm)</span>';}
     aluTb.innerHTML='<tr><td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🔷 '+_aluLbl+_aluSzTag+'</td>'
       +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;font-weight:700">'+_aluQ+'</td>'
-      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+_aluPr.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
-      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#1a5276">R$ '+_aluSub.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td></tr>';
+      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right">R$ '+_fmtBRLCeil(_aluPr)+'</td>'
+      +'<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#1a5276">R$ '+_fmtBRLCeil(_aluSub)+'</td></tr>';
     if(aluTbl)aluTbl.style.display=''; if(aluE)aluE.style.display='none';
   } else { if(aluTb)aluTb.innerHTML=''; if(aluTbl)aluTbl.style.display='none'; if(aluE)aluE.style.display=''; }
 }
