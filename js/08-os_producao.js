@@ -265,6 +265,98 @@ function _gerarOSRevestimentoOnly(){
     totalPinRev+=r.custoPintura||0;
   });
 
+  // ★ Felipe 23/04: POPULAR TABELA "APROVEITAMENTO DE BARRAS — Lista de Compra"
+  //   (os-barras-tbody/tfoot). Mesmo formato da porta, usando d.seenKeys/groupRes.
+  var _barrasTbody=el('os-barras-tbody');
+  if(_barrasTbody){
+    _barrasTbody.innerHTML='';
+    var _tKgL=0,_tKgB=0,_tBars=0;
+    d.seenKeys.forEach(function(key){
+      var r=d.groupRes[key]; if(!r||r.nBars===0) return;
+      _tKgL+=r.kgLiq; _tKgB+=r.kgBruto; _tBars+=r.nBars;
+      var barDetail='';
+      if(r.barsDetail && r.barsDetail.length){
+        barDetail = r.barsDetail.map(function(b,bi){
+          var counts={};
+          (b.items||[]).forEach(function(x){counts[x]=(counts[x]||0)+1;});
+          var parts=Object.keys(counts).map(function(k){return counts[k]>1?counts[k]+'×'+k:k;});
+          var aprovBar=b.len>0?Math.round((b.len-(b.sobra!=null?b.sobra:b.remaining||0))/b.len*100):0;
+          return 'B'+(bi+1)+': ['+parts.join(', ')+'] → sobra '+(b.remaining||0)+'mm ('+aprovBar+'%)';
+        }).join(' | ');
+      }
+      var aprovStr=r.aprov>0?r.aprov.toFixed(1).replace('.',',')+'%':'—';
+      var bg=_tBars%2===0?'#fff':'#f9f8f5';
+      _barrasTbody.innerHTML+='<tr style="background:'+bg+'">'
+        +'<td style="padding:5px 8px;border:0.5px solid #ccc;font-weight:700;font-size:10px;white-space:nowrap;color:#003144">'+key+'</td>'
+        +'<td style="padding:5px 8px;border:0.5px solid #ccc;text-align:center;font-size:10px">'+(r.barLenMM/1000)+'m</td>'
+        +'<td style="padding:5px 8px;border:0.5px solid #ccc;text-align:center;font-weight:700;font-size:12px;color:#e67e22">'+r.nBars+'</td>'
+        +'<td style="padding:5px 8px;border:0.5px solid #ccc;font-size:9px;color:#666;max-width:340px;word-break:break-all;overflow-wrap:break-word;white-space:normal;line-height:1.4">'+barDetail+'</td>'
+        +'<td style="padding:5px 8px;border:0.5px solid #ccc;text-align:right;font-size:10px">'+r.kgLiq.toFixed(3).replace('.',',')+'</td>'
+        +'<td style="padding:5px 8px;border:0.5px solid #ccc;text-align:right;font-weight:600;font-size:10px">'+r.kgBruto.toFixed(3).replace('.',',')+'</td>'
+        +'<td style="padding:5px 8px;border:0.5px solid #ccc;text-align:center;font-size:10px;color:'+(r.aprov<70?'#e74c3c':r.aprov<85?'#e67e22':'#27ae60')+'">'+aprovStr+'</td>'
+        +'<td style="padding:5px 8px;border:0.5px solid #ccc;text-align:right;font-size:10px">'+r.kgLiq.toFixed(3).replace('.',',')+'</td>'
+        +'<td style="padding:5px 8px;border:0.5px solid #ccc;text-align:right;font-weight:700;font-size:11px;color:#003144">'+r.kgBruto.toFixed(3).replace('.',',')+'</td>'
+        +'</tr>';
+    });
+    var _tf=el('os-barras-tfoot');
+    if(_tf){
+      _tf.innerHTML='<tr style="background:#2c3e50;color:#fff">'
+        +'<td style="padding:6px 8px;border:0.5px solid #444;font-weight:700;font-size:11px">TOTAL</td>'
+        +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:center;font-size:10px">—</td>'
+        +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:center;font-weight:700;font-size:12px">'+_tBars+'</td>'
+        +'<td style="padding:6px 8px;border:0.5px solid #444;font-size:10px;opacity:.7">barras a comprar</td>'
+        +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-size:11px">'+_tKgL.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
+        +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-weight:700;font-size:11px">'+_tKgB.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
+        +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:center;font-size:10px;opacity:.7">—</td>'
+        +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-size:11px">'+_tKgL.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
+        +'<td style="padding:6px 8px;border:0.5px solid #444;text-align:right;font-weight:700;font-size:12px">'+_tKgB.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</td>'
+        +'</tr>';
+    }
+  }
+
+  // ★ POPULAR TABELA "Relação de Barras — Protocolo CEM" (os-relacao-tbody)
+  var _relTbody=el('os-relacao-tbody');
+  if(_relTbody){
+    _relTbody.innerHTML='';
+    var _prRev=1;
+    var _tBrutoKg=0, _tBrutoCusto=0;
+    var _rowsHTML='<tr style="background:#f5f5f2"><td colspan="9" style="padding:5px 10px;border:0.5px solid #ddd;font-weight:700;font-size:11px;color:#444">BRUTO — Alumínio Mercado</td></tr>';
+    d.seenKeys.forEach(function(key){
+      var r=d.groupRes[key]; if(!r||r.nBars===0) return;
+      var barLenM=r.barLenMM/1000;
+      var kgPerBar = Math.round((r.kgM||0.595)*barLenM*100)/100;
+      var pesoBruto = Math.round(kgPerBar*r.nBars*1000)/1000;
+      var precoKg = r.precoKg || 0;
+      var custoLinha = Math.round(pesoBruto*precoKg*100)/100;
+      _tBrutoKg += pesoBruto;
+      _tBrutoCusto += custoLinha;
+      _rowsHTML+='<tr style="background:#fafaf7">'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px;color:#666">'+_prRev+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;font-weight:700;font-size:10px;white-space:nowrap;color:#003144">'+key+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-weight:700;font-size:11px;color:#e67e22">'+r.nBars+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px">'+barLenM+'m</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-weight:700;font-size:11px">'+pesoBruto.toFixed(3).replace('.',',')+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:center;font-size:10px;color:#888">—</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-size:10px">R$ '+precoKg.toFixed(2)+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;text-align:right;font-weight:700;font-size:11px;color:#003144">R$ '+custoLinha.toFixed(2)+'</td>'
+        +'<td style="padding:4px 8px;border:0.5px solid #ddd;font-size:9px;color:#888">TUBOS REV</td>'
+        +'</tr>';
+      _prRev++;
+    });
+    _relTbody.innerHTML=_rowsHTML;
+    var _relTf=el('os-relacao-tfoot');
+    if(_relTf){
+      _relTf.innerHTML='<tr style="background:#003144;color:#fff">'
+        +'<td colspan="4" style="padding:6px 10px;border:0.5px solid #555;font-weight:700;font-size:11px;letter-spacing:.04em">TOTAL:</td>'
+        +'<td style="padding:6px 10px;border:0.5px solid #555;text-align:right;font-weight:700;font-size:12px">'+_tBrutoKg.toFixed(3).replace('.',',')+'</td>'
+        +'<td style="padding:6px 10px;border:0.5px solid #555;text-align:center">—</td>'
+        +'<td style="padding:6px 10px;border:0.5px solid #555;text-align:right;font-size:11px">—</td>'
+        +'<td style="padding:6px 10px;border:0.5px solid #555;text-align:right;font-weight:700;font-size:12px">R$ '+_tBrutoCusto.toFixed(2)+'</td>'
+        +'<td style="padding:6px 10px;border:0.5px solid #555;font-size:10px;opacity:.7">Rev. Ripado</td>'
+        +'</tr>';
+    }
+  }
+
   // Renderizar aproveitamento de barras (drawer Aproveitamento de Barras)
   var padraoHTML=_renderPadroesContent(d, 9);
   window._lastPadroesHTML=padraoHTML;

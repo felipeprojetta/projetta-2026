@@ -3474,9 +3474,11 @@ window._revCalcAcessoriosGlobal = function(){
   var fitaTotComTubos = fitaTot + fitaTubosM;
   var fitaRolos = Math.ceil(fitaTotComTubos / 20);
 
-  // ── Dowsil 995: 25ml/m² ÷ 300ml/tubo = tubos
+  // ── Dowsil 995 (sachê 591ml): rendimento 1 sachê ≈ 8m de cordão.
+  //   Pra revestimento, estimamos 25ml/m² → converte pra sachês.
+  //   Produto: PA-DOWSIL 995 ESTR SH, descrição "DOWSIL 995 PRETO SACHE 591ML".
   var silMLTot = areaTotGeral * 25;
-  var silTubos = Math.ceil(silMLTot / 300);
+  var silSachets = Math.ceil(silMLTot / 591);
 
   // ── Primer: 1 un por obra (frasco 940ml serve pra toda a fita)
   var primerQty = 1;
@@ -3493,15 +3495,15 @@ window._revCalcAcessoriosGlobal = function(){
       obs: 'REV RIPADO'
     });
   }
-  if(silTubos>0){
+  if(silSachets>0){
     rows.push({
-      qty: silTubos,
+      qty: silSachets,
       code: 'PA-DOWSIL 995 ESTR SH',
-      desc: 'Dowsil 995 Structural (tubo 300ml)<br><small style="color:#888">'+silMLTot.toFixed(0)+'ml total ('+areaTotGeral.toFixed(2)+'m² × 25ml/m²)</small>',
+      desc: 'Dowsil 995 preto sachê 591ml<br><small style="color:#888">'+silMLTot.toFixed(0)+'ml total ('+areaTotGeral.toFixed(2)+'m² × 25ml/m²) ÷ 591ml/sachê</small>',
       preco: getPreco('PA-DOWSIL 995 ESTR SH'),
       apl: 'FAB',
       grp: 'SELANTES',
-      obs: 'REV'
+      obs: 'DOWSIL REV'
     });
   }
   rows.push({

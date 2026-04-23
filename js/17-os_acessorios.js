@@ -989,6 +989,25 @@ function _updatePesoAcessorios(){
   if(!window._osGeradoUmaVez) return; // só atualiza se OS já foi gerada
   var d = window._lastOSData;
   if(!d) return;
+
+  // ★ Felipe 23/04: detectar rev-only. Antes, calc() chamava essa função
+  //   que gerava acessRows completos (parafusos, vedações, isolamento, etc)
+  //   via _calcAcessoriosAllItems e sobrescrevia meu render de 3 linhas
+  //   (fita 12mm, Dowsil, Primer) feito em _gerarOSRevestimentoOnly.
+  var _temPortaFixoUp = (window._orcItens||[]).some(function(it){
+    return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';
+  });
+  var _temRevUp = (window._orcItens||[]).some(function(it){
+    return it.tipo==='revestimento' && (it.largura||0)>0 && (it.altura||0)>0;
+  });
+  if(!_temPortaFixoUp && _temRevUp){
+    if(typeof window._revCalcAcessoriosGlobal==='function'){
+      var _revRows = window._revCalcAcessoriosGlobal();
+      _renderOSAcess(d, _revRows, null);
+    }
+    return;
+  }
+
   // Recalculate accessories with updated weight (chapas may have changed)
   var nFolhas = parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
   var sis = (d && d.sis) || (document.getElementById('prod-sistema')||{value:''}).value || 'PA006';
