@@ -80,48 +80,52 @@ console.log('[03-history_save] KILL-SWITCH ATIVO: salvamento minimo via _SAVE_MI
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// ONE-SHOT RESET — Felipe 24/04
-// Zera valores + revisões de TODOS os cards do CRM no localStorage.
-// Executa UMA única vez por navegador (flag projetta_reset_24_04_v1).
-// Pra rodar de novo: delete localStorage.projetta_reset_24_04_v1 no console.
+// ONE-SHOT RESET V2 — Felipe 24/04 (reset total: valores, revisoes, opcoes).
+// Executa uma unica vez por navegador. Flag: projetta_reset_24_04_v2.
 // ═══════════════════════════════════════════════════════════════════════
 (function(){
-  var FLAG = 'projetta_reset_24_04_v1';
+  var FLAG = 'projetta_reset_24_04_v2';
   if(localStorage.getItem(FLAG)) return;
-
   var CK = 'projetta_crm_v1';
   try {
     var data = JSON.parse(localStorage.getItem(CK)) || [];
-    var zerados = 0;
+    var zerados = 0, total = data.length;
     data.forEach(function(c){
       var tinha = (+c.valor||0) > 0 || (+c.tabela||0) > 0 || (+c.faturamento||0) > 0
                || (+c.valor_tabela||0) > 0 || (+c.valor_faturamento||0) > 0
-               || (c.revisoes && c.revisoes.length > 0);
+               || (c.revisoes && c.revisoes.length > 0)
+               || (c.opcoes && c.opcoes.length > 0);
       if(tinha) zerados++;
-      c.valor = 0;
-      c.tabela = 0;
-      c.faturamento = 0;
-      c.valor_tabela = 0;
-      c.valor_faturamento = 0;
+      c.valor = 0; c.tabela = 0; c.faturamento = 0;
+      c.valor_tabela = 0; c.valor_faturamento = 0;
       c.revisoes = [];
+      // Zerar tambem as OPCOES (estrutura multi-opcao que contem revisoes)
+      if(c.opcoes && c.opcoes.length){
+        c.opcoes.forEach(function(opt){
+          opt.valor = 0; opt.tabela = 0; opt.faturamento = 0;
+          opt.valor_tabela = 0; opt.valor_faturamento = 0;
+          if(opt.revisoes) opt.revisoes = [];
+        });
+      }
       delete c.crmPronto;
       delete c.snapshot;
+      delete c.valorPipelineRev;
+      delete c.pipelineRev;
+      delete c.revSel;
     });
     localStorage.setItem(CK, JSON.stringify(data));
-
-    // Limpar caches legados
-    ['projetta_v3','orcamentos'].forEach(function(k){
+    // Limpar caches legados + flag antiga v1
+    ['projetta_v3','orcamentos','projetta_pdf_log','projetta_reset_24_04_v1'].forEach(function(k){
       try { localStorage.removeItem(k); } catch(e){}
     });
     Object.keys(localStorage).filter(function(k){
-      return /^freeze_|^proposta_img_|^projetta_hotpatch/.test(k);
+      return /^freeze_|^proposta_img_|^projetta_hotpatch|^projetta_snapshot/.test(k);
     }).forEach(function(k){
       try { localStorage.removeItem(k); } catch(e){}
     });
-
     localStorage.setItem(FLAG, new Date().toISOString());
-    console.log('[RESET 24/04] Zerados ' + zerados + ' de ' + data.length + ' cards. Flag=' + FLAG);
+    console.log('%c[RESET V2 24/04] ' + zerados + '/' + total + ' cards zerados (valores + revisoes + opcoes)', 'color:#27ae60;font-weight:bold');
   } catch(e){
-    console.error('[RESET 24/04] erro:', e);
+    console.error('[RESET V2 24/04] erro:', e);
   }
 })();
