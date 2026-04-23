@@ -512,7 +512,21 @@ function nameColor(name){
    Usado no breakdown do card, header das colunas e KPIs. */
 function _valorRealCardBRL(o){
   if(!o) return 0;
-  var _vPorta = parseFloat(o.valorFaturamento) || parseFloat(o.valorTabela) || parseFloat(o.valor) || 0;
+  // ★ Felipe 24/04: card sem revisao calculada nao entra no pipeline.
+  // Vale tanto pra nacional (que ja retorna 0 via _vPorta) quanto pra
+  // internacional (que somaria inst+cif mesmo sem orcamento feito).
+  var _temRev = false;
+  if(o.revisoes && o.revisoes.length > 0) _temRev = true;
+  if(!_temRev && o.opcoes){
+    for(var _i=0; _i<o.opcoes.length; _i++){
+      if(o.opcoes[_i] && o.opcoes[_i].revisoes && o.opcoes[_i].revisoes.length > 0){
+        _temRev = true; break;
+      }
+    }
+  }
+  var _vDireto = parseFloat(o.valorFaturamento) || parseFloat(o.valorTabela) || parseFloat(o.valor) || 0;
+  if(!_temRev && _vDireto === 0) return 0;
+  var _vPorta = _vDireto;
   // Detectar intl por multiplos sinais (scope pode nao estar salvo em cards antigos)
   var _ehIntl = o.scope === 'internacional'
              || (o.inst_quem||'').toUpperCase() === 'INTERNACIONAL'
