@@ -3434,6 +3434,89 @@ window._orcRevPopularCard=function(it){
   _orcRevRenderCalc(it);
 };
 
+// ★ Felipe 23/04: Helper pra aba Acessórios em orçamento só-revestimento.
+//   Retorna array com APENAS 3 itens (fita dupla 12mm, Dowsil 995, Primer)
+//   consolidados de todos os revestimentos. Usado por
+//   _gerarOSRevestimentoOnly(js/08-os_producao.js) ao chamar _renderOSAcess.
+window._revCalcAcessoriosGlobal = function(){
+  var revs=(window._orcItens||[]).filter(function(r){
+    return r.tipo==='revestimento' && (r.largura||0)>0 && (r.altura||0)>0;
+  });
+  if(!revs.length) return [];
+
+  var savedP={};
+  try{var _s=localStorage.getItem('projetta_comp_precos');if(_s)savedP=JSON.parse(_s);}catch(e){}
+  function getPreco(code){
+    if(savedP[code]!==undefined) return savedP[code];
+    if(typeof COMP_DB!=='undefined'){
+      for(var i=0;i<COMP_DB.length;i++){if(COMP_DB[i].c===code) return COMP_DB[i].p||0;}
+    }
+    return 0;
+  }
+
+  // Reproduzir lógica do _orcRevRenderCalc pra acumular área + tubos
+  var areaTotGeral=0, totTubos5112Rip=0;
+  revs.forEach(function(r){
+    var L=parseFloat(r.largura)||0, A=parseFloat(r.altura)||0, Q=parseInt(r.qtd)||1;
+    if(!L||!A) return;
+    areaTotGeral += (L*A*Q)/1e6;
+    // Só ripado tem tubos
+    if(r.rev_tipo==='RIPADO'){
+      var nRipas = Math.floor(L/90);
+      var tubosPorRipa = Math.max(1, Math.ceil(A/1000));
+      totTubos5112Rip += tubosPorRipa * nRipas * Q;
+    }
+  });
+
+  // ── Fita Dupla Face 12mm: área(×12m/m²) + tubos(×0.5m×2lados) ÷ 20m/rolo
+  var fitaTot = areaTotGeral * 12;
+  var fitaTubosM = totTubos5112Rip * 0.5 * 2;
+  var fitaTotComTubos = fitaTot + fitaTubosM;
+  var fitaRolos = Math.ceil(fitaTotComTubos / 20);
+
+  // ── Dowsil 995: 25ml/m² ÷ 300ml/tubo = tubos
+  var silMLTot = areaTotGeral * 25;
+  var silTubos = Math.ceil(silMLTot / 300);
+
+  // ── Primer: 1 un por obra (frasco 940ml serve pra toda a fita)
+  var primerQty = 1;
+
+  var rows=[];
+  if(fitaRolos>0){
+    rows.push({
+      qty: fitaRolos,
+      code: 'PA-FITDF 12X20X1.0',
+      desc: 'Fita dupla face 3M VHB 12×20×1.0 — rolo 20m<br><small style="color:#888">'+fitaTotComTubos.toFixed(1)+'m total ('+fitaTot.toFixed(1)+'m área + '+fitaTubosM.toFixed(1)+'m tubos)</small>',
+      preco: getPreco('PA-FITDF 12X20X1.0'),
+      apl: 'FAB',
+      grp: 'FITA DUPLA FACE',
+      obs: 'REV RIPADO'
+    });
+  }
+  if(silTubos>0){
+    rows.push({
+      qty: silTubos,
+      code: 'PA-DOWSIL 995 ESTR SH',
+      desc: 'Dowsil 995 Structural (tubo 300ml)<br><small style="color:#888">'+silMLTot.toFixed(0)+'ml total ('+areaTotGeral.toFixed(2)+'m² × 25ml/m²)</small>',
+      preco: getPreco('PA-DOWSIL 995 ESTR SH'),
+      apl: 'FAB',
+      grp: 'SELANTES',
+      obs: 'REV'
+    });
+  }
+  rows.push({
+    qty: primerQty,
+    code: 'PA-PRIMER',
+    desc: 'Primer fita dupla face VHB 940ml',
+    preco: getPreco('PA-PRIMER'),
+    apl: 'OBRA',
+    grp: 'SELANTES',
+    obs: 'PRIMER FITA'
+  });
+
+  return rows;
+};
+
 window._orcRevRenderCalc=function(it){
   // ★ Felipe 22/04 v5 (MATERIAIS CALCULADOS consolidado): antes mostrava so
   //   os dados do item selecionado (ex: 11.15 m² se Item 1 era 1143×4877×2).

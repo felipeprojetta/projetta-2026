@@ -279,6 +279,17 @@ function _gerarOSRevestimentoOnly(){
   try { _fabSetSysValue('mat', totalMatRev); } catch(e){}
   try { _fabSetSysValue('pin', 0); } catch(e){} // revestimento não pinta tubos
   try { syncFabPerfisTotal(); } catch(e){}
+
+  // ★ Felipe 23/04: aba Levantamento de Acessórios — SÓ 3 itens pro revestimento:
+  //   Fita dupla face 12mm (PA-FITDF 12X20X1.0), Dowsil 995 (PA-DOWSIL 995 ESTR SH),
+  //   Primer (PA-PRIMER). Restante (fechaduras, dobradiças, pivô, etc) não se aplica.
+  try {
+    if(typeof _renderOSAcess==='function' && typeof window._revCalcAcessoriosGlobal==='function'){
+      var _revAcessRows = window._revCalcAcessoriosGlobal();
+      _renderOSAcess(d, _revAcessRows, null);
+    }
+  } catch(e){ console.warn('[revOnly] _renderOSAcess:', e); }
+
   try { calc(); } catch(e){}
 
   if(_emEl) _emEl.style.display='none';

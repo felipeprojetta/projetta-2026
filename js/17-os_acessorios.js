@@ -698,6 +698,18 @@ function _renderOSAcess(d, acessRows, vedaInfo){
   var totalWrap  = document.getElementById('osa-total-wrap');
   if(!content_el) return;
 
+  // ★ Felipe 23/04: em orçamento só-revestimento, pular cálculo de pivô/
+  //   dobradiça/fechadura — só devem aparecer as 3 linhas já passadas em
+  //   acessRows (fita 12mm, Dowsil 995, Primer). Evita herança acidental
+  //   de carac-abertura='PIVOTANTE' de card anterior.
+  var _temPortaFixo_rv = (window._orcItens||[]).some(function(it){
+    return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';
+  });
+  var _temRev_rv = (window._orcItens||[]).some(function(it){
+    return it.tipo==='revestimento' && (it.largura||0)>0 && (it.altura||0)>0;
+  });
+  var _isRevOnlyRender = !_temPortaFixo_rv && _temRev_rv;
+
   var savedP={};
   try{var _s=localStorage.getItem('projetta_comp_precos');if(_s)savedP=JSON.parse(_s);}catch(e){}
   function getPreco(code){
@@ -717,6 +729,8 @@ function _renderOSAcess(d, acessRows, vedaInfo){
 
   // ── Pivô ou Dobradiça conforme tipo de abertura ──
   var abertura = (document.getElementById('carac-abertura')||{value:''}).value||'';
+  // ★ Felipe 23/04: em rev-only, forçar abertura vazia pra não gerar pivô/dobradiça
+  if(_isRevOnlyRender) abertura = '';
   var _qPHw=window._mpItens&&window._mpItens.length>0?window._mpItens.reduce(function(s,it){return s+(parseInt(it._qtd||it['qtd-portas'])||1);},0):parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
   var _nFolHw=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
   var hardwareRows = [];
