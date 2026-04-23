@@ -453,6 +453,56 @@ function populateProposta(){
   var g=function(id){var el=document.getElementById(id);if(!el)return '—';if(el.tagName==='SELECT'||el.tagName==='INPUT'||el.tagName==='TEXTAREA')return el.value||'—';return el.textContent||'—';};
   var brl=function(v){return 'R$ '+(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2});};
 
+  // ★★★ Felipe 23/04 v6: FORÇAR POPULAÇÃO DE _mpItens a partir de _orcItens.
+  //   Sem isso, se _mpItens está vazio (caminhos variados: snapshot
+  //   restaurado, novo card sem passar por orcItensFromCRM, etc), o código
+  //   abaixo cai no fallback single-door e renderiza como PORTA mesmo em
+  //   card 100% revestimento. Isso é a causa raiz do bug crítico que o
+  //   Felipe reportou 15+ vezes.
+  try {
+    if(window._orcItens && window._orcItens.length > 0){
+      var _hasRevOrc = window._orcItens.some(function(it){
+        return it.tipo === 'revestimento' && (it.largura||0) > 0 && (it.altura||0) > 0;
+      });
+      var _hasNonRevOrc = window._orcItens.some(function(it){
+        var t = it.tipo || 'porta_pivotante';
+        return t === 'porta_pivotante' || t === 'porta_interna';
+      });
+      // Se é rev-only e _mpItens está vazio OU desatualizado, repopular
+      if(_hasRevOrc && !_hasNonRevOrc){
+        var _revOrcLen = window._orcItens.filter(function(it){return it.tipo==='revestimento';}).length;
+        if(!window._mpItens || window._mpItens.length < _revOrcLen){
+          window._mpItens = [];
+          window._orcItens.forEach(function(oi, idx){
+            if(oi.tipo !== 'revestimento') return;
+            if(!oi.largura || !oi.altura) return;
+            var mp = {id: 'mp_prop_'+idx};
+            mp['largura']      = String(oi.largura||'');
+            mp['altura']       = String(oi.altura||'');
+            mp['qtd-portas']   = String(oi.qtd||'1');
+            mp['folhas-porta'] = '1';
+            mp['carac-cor-ext']= oi.cor_ext || '';
+            mp['carac-cor-int']= oi.cor_int || oi.cor_ext || '';
+            mp._largura = parseFloat(oi.largura) || 0;
+            mp._altura  = parseFloat(oi.altura)  || 0;
+            mp._qtd     = parseInt(oi.qtd) || 1;
+            mp._folhas  = 1;
+            mp._tipo    = 'revestimento';
+            mp._rev_tipo      = oi.rev_tipo || '';
+            mp._rev_estrutura = oi.rev_estrutura || '';
+            mp._rev_tubo      = oi.rev_tubo || '';
+            mp._rev_2lados    = oi.rev_2lados || '';
+            mp._modelo    = '';
+            mp._modeloTxt = 'Revestimento ' + (oi.rev_tipo || 'CHAPA');
+            window._mpItens.push(mp);
+          });
+          console.log('%c[populateProposta] REPOPULOU _mpItens com '+window._mpItens.length+' revestimentos (antes: vazio/stale)',
+            'background:#c0392b;color:#fff;padding:3px 8px;border-radius:4px;font-weight:800');
+        }
+      }
+    }
+  } catch(e){ console.warn('[populateProposta fix mpItens] erro:', e); }
+
   // ═══════════════════════════════════════════════════════════════════
   // INTERNACIONAL: detecção + tradução + formato BRL+USD
   // ★ Felipe 23/04: fonte da verdade e o SCOPE do card CRM (botão BR Nacional
