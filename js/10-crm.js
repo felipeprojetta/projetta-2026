@@ -3124,6 +3124,37 @@ function orcItensFromCRM(itens, cliente){
       var _e=document.getElementById(id);
       if(_e) _e.innerHTML='';
     });
+    // ★ Felipe 23/04: POPULAR _mpItens com os revestimentos. Sem isso, a
+    //   proposta comercial cai no fallback single-door (mostra UMA porta
+    //   com largura/altura do campo 'largura'), e _populatePropostaItens
+    //   fica sem dados para iterar. Também MO, DRE, etc precisam disso.
+    window._orcItens.forEach(function(oi, idx){
+      if(oi.tipo !== 'revestimento') return;
+      if(!oi.largura || !oi.altura) return;
+      var mp = {id:'mp_crm_'+idx};
+      mp['largura']    = String(oi.largura||'');
+      mp['altura']     = String(oi.altura||'');
+      mp['qtd-portas'] = String(oi.qtd||'1');
+      mp['folhas-porta']='1';
+      mp['carac-cor-ext']= oi.cor_ext || '';
+      mp['carac-cor-int']= oi.cor_int || oi.cor_ext || '';
+      mp._largura = parseFloat(oi.largura)||0;
+      mp._altura  = parseFloat(oi.altura)||0;
+      mp._qtd     = parseInt(oi.qtd)||1;
+      mp._folhas  = 1;
+      mp._tipo    = 'revestimento';
+      mp._rev_tipo      = oi.rev_tipo || '';
+      mp._rev_estrutura = oi.rev_estrutura || '';
+      mp._rev_tubo      = oi.rev_tubo || '';
+      mp._rev_2lados    = oi.rev_2lados || '';
+      mp._modelo        = '';
+      mp._modeloTxt     = 'Revestimento ' + (oi.rev_tipo || 'CHAPA');
+      window._mpItens.push(mp);
+    });
+    try{
+      console.log('%c[orcItensFromCRM] rev-only: _mpItens populado com '+window._mpItens.length+' revestimento(s)',
+        'background:#6a1b9a;color:#fff;padding:2px 6px;border-radius:3px;font-weight:700');
+    }catch(e){}
   }
 
   var bar = document.getElementById('orc-itens-bar');
