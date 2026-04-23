@@ -226,6 +226,9 @@ function _gerarOSRevestimentoOnly(){
   var padraoHTML=_renderPadroesContent(d, 9);
   window._lastPadroesHTML=padraoHTML;
   window._lastPerfisTotal=totalMatRev+totalPinRev;
+  // ★ Felipe 23/04: salvar _lastOSData pra _updateResumoObra e relatórios
+  //   lerem os perfis. Sem isso, Resumo da Obra fica com Perfis="—".
+  window._lastOSData = d;
 
   // Injetar no os-doc: criar/atualizar container dedicado pra rev-only
   if(_docEl){

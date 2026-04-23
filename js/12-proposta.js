@@ -2193,16 +2193,19 @@ function recalcPerfisAuto(){
         _fabSetSysValue('pin', 0); // rev não pinta
         window._lastPadroesHTML = _renderPadroesContent(dr,9);
         window._lastPerfisTotal = totMatR;
+        window._lastOSData = dr; // pra _updateResumoObra e relatórios lerem
       } else {
         _fabSetSysValue('mat', 0);
         _fabSetSysValue('pin', 0);
         window._lastPerfisTotal = 0;
       }
       try{ syncFabPerfisTotal(); }catch(e){}
-      try{ calc(); }catch(e){}
-      // ★ Felipe 23/04: Popular a aba "Levantamento de Perfis" com o
-      //   aproveitamento de barras dos tubos (branch _gerarOSRevestimentoOnly).
+      // ★ Felipe 23/04: ORDEM IMPORTA. _osAutoGenerate() seta
+      //   window._osGeradoUmaVez=true, que _updateResumoObra (chamado por
+      //   calc()) verifica pra exibir o painel Resumo da Obra. Se calc rodar
+      //   antes, a flag ainda é false e o painel fica escondido.
       try{ if(typeof _osAutoGenerate==='function') _osAutoGenerate(); }catch(e){}
+      try{ calc(); }catch(e){}
     } catch(e){ console.warn('recalcPerfisAuto revOnly:', e); }
     return;
   }

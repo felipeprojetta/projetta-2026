@@ -1471,12 +1471,34 @@ function _updateResumoObra(){
   if(!window._osGeradoUmaVez){panel.style.display='none';return;}
   panel.style.display='';
 
+  // ★ Felipe 23/04: detectar orçamento só-revestimento pra usar m² e qtd
+  //   do revestimento em vez de inputs legacy da porta (que ficam vazios).
+  var _revItens = (window._orcItens||[]).filter(function(it){
+    return it.tipo==='revestimento' && (it.largura||0)>0 && (it.altura||0)>0;
+  });
+  var _temPortaFixo = (window._orcItens||[]).some(function(it){
+    return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';
+  });
+  var _isRevOnly = !_temPortaFixo && _revItens.length>0;
+
   // Área
   var W=parseFloat((document.getElementById('largura')||{value:0}).value)||0;
   var H=parseFloat((document.getElementById('altura')||{value:0}).value)||0;
   var m2=(W/1000)*(H/1000);
   var qP=parseInt((document.getElementById('qtd-portas')||{value:1}).value)||1;
-  if(window._mpItens&&window._mpItens.length>0){
+  if(_isRevOnly){
+    // Revestimento-only: m² = soma (L×A×Q) de cada item; "peças" = total qtd
+    m2 = 0; qP = 0;
+    _revItens.forEach(function(it){
+      var lr=(parseFloat(it.largura)||0)/1000;
+      var ar=(parseFloat(it.altura)||0)/1000;
+      var qr=parseInt(it.qtd)||1;
+      m2 += lr*ar*qr;
+      qP += qr;
+    });
+    document.getElementById('ro-area').textContent=m2.toFixed(2)+' m²';
+    document.getElementById('ro-pecas').textContent=qP+' revestimento(s)'+(_revItens.length>1?' · '+_revItens.length+' itens':'');
+  } else if(window._mpItens&&window._mpItens.length>0){
     qP=window._mpItens.reduce(function(s,it){return s+(parseInt(it._qtd||it['qtd-portas'])||1);},0);
     m2=0;
     window._mpItens.forEach(function(it){
@@ -1485,9 +1507,13 @@ function _updateResumoObra(){
       var q=parseInt(it._qtd||it['qtd-portas'])||1;
       m2+=(l/1000)*(a/1000)*q;
     });
-  } else { m2=m2*qP; }
-  document.getElementById('ro-area').textContent=m2.toFixed(2)+' m²';
-  document.getElementById('ro-pecas').textContent=qP+' porta(s)'+(window._mpItens&&window._mpItens.length>1?' · '+window._mpItens.length+' itens':'');
+    document.getElementById('ro-area').textContent=m2.toFixed(2)+' m²';
+    document.getElementById('ro-pecas').textContent=qP+' porta(s)'+(window._mpItens&&window._mpItens.length>1?' · '+window._mpItens.length+' itens':'');
+  } else {
+    m2=m2*qP;
+    document.getElementById('ro-area').textContent=m2.toFixed(2)+' m²';
+    document.getElementById('ro-pecas').textContent=qP+' porta(s)';
+  }
 
   // Perfis
   var d=window._lastOSData;
