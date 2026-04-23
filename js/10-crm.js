@@ -1751,7 +1751,7 @@ window.crmItemRevCalc=function(itemId){
   var A=_n(pre+'altura');
   var Q=parseInt(_v(pre+'qtd'))||1;
   var tipo=_v(pre+'rev_tipo')||'CHAPA';
-  var tubo=_v(pre+'rev_tubo')||'PA-51X25X1.5';
+  var tubo=_v(pre+'rev_tubo')||'PA-51X12X1.58';
 
   var info=document.getElementById(pre+'rev_info');
   if(!info) return;
@@ -1791,8 +1791,8 @@ window.crmItemRevCalc=function(itemId){
     var _chFundoUn=(_nIntFundo+(_pedFundo>0?1:0))*Q;
     var _detFundo=_nIntFundo+'×(1490×'+A+')'+(_pedFundo>0?' + 1×('+Math.round(_pedFundo)+'×'+A+')':'');
     lines.push('<b>🪟 Chapa ACM fundo (atrás das ripas):</b> '+_chFundoUn+' un · '+_detFundo);
-    // ★ Felipe 23/04: TUBOS PA-51X25X1.5 de 500mm p/ fixação das ripas.
-    //   MESMO perfil que a porta com ripado usa (PA-51X25X1.5).
+    // ★ Felipe 23/04: TUBOS PA-51X12X1.58 de 500mm p/ fixação das ripas.
+    //   MESMO perfil que a porta com ripado usa (PA-51X12X1.58).
     //   Qty = ceil(altura/1000) por ripa × total de ripas.
     var _nTubosPorRipa=Math.max(1, Math.ceil(A/1000));
     var _totTubos=_nTubosPorRipa*totRipas;
@@ -1871,7 +1871,7 @@ window.crmItemRevAddChapa=function(origId){
     // Herdar configuracao (Felipe: "mesma configuracao")
     rev_tipo: orig.rev_tipo||'CHAPA',
     rev_estrutura: orig.rev_estrutura||'NAO',
-    rev_tubo: orig.rev_tubo||'PA-51X25X1.5',
+    rev_tubo: orig.rev_tubo||'PA-51X12X1.58',
     tipo_material: orig.tipo_material||'ACM',
     revestimento_lados: orig.revestimento_lados||'1',
     tem_estrutura: orig.tem_estrutura||'NÃO',
@@ -2628,7 +2628,7 @@ window._crmItensRender=function(){
       h+='</div>';
       h+='<div class="crm-row">';
       h+='<div class="crm-field"><label>Estrutura de Alumínio?</label><select id="'+pre+'rev_estrutura" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="NAO"'+(item.rev_estrutura!=='SIM'?' selected':'')+'>Não</option><option value="SIM"'+(item.rev_estrutura==='SIM'?' selected':'')+'>Sim</option></select></div>';
-      h+='<div class="crm-field" id="'+pre+'rev_tubo_wrap" style="'+(item.rev_estrutura==='SIM'?'':'display:none')+'"><label>Tubo Estrutura</label><select id="'+pre+'rev_tubo" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="PA-51X25X1.5"'+(item.rev_tubo==='PA-51X25X1.5'||!item.rev_tubo?' selected':'')+'>51×25×1.5 (padrão ripado)</option><option value="PA-51X25X2.0"'+(item.rev_tubo==='PA-51X25X2.0'?' selected':'')+'>51×25×2.0</option><option value="PA-51X38X1.98"'+(item.rev_tubo==='PA-51X38X1.98'?' selected':'')+'>51×38×1.98</option><option value="PA-51X51X1.98"'+(item.rev_tubo==='PA-51X51X1.98'?' selected':'')+'>51×51×1.98</option><option value="PA-76X25X2.0"'+(item.rev_tubo==='PA-76X25X2.0'?' selected':'')+'>76×25×2.0</option><option value="PA-76X38X1.98"'+(item.rev_tubo==='PA-76X38X1.98'?' selected':'')+'>76×38×1.98</option></select></div>';
+      h+='<div class="crm-field" id="'+pre+'rev_tubo_wrap" style="'+(item.rev_estrutura==='SIM'?'':'display:none')+'"><label>Tubo Estrutura</label><select id="'+pre+'rev_tubo" onchange="crmItemRevCalc(\''+item.id+'\')"><option value="PA-51X12X1.58"'+(item.rev_tubo==='PA-51X12X1.58'||!item.rev_tubo?' selected':'')+'>51×25×1.5 (padrão ripado)</option><option value="PA-51X25X2.0"'+(item.rev_tubo==='PA-51X25X2.0'?' selected':'')+'>51×25×2.0</option><option value="PA-51X38X1.98"'+(item.rev_tubo==='PA-51X38X1.98'?' selected':'')+'>51×38×1.98</option><option value="PA-51X51X1.98"'+(item.rev_tubo==='PA-51X51X1.98'?' selected':'')+'>51×51×1.98</option><option value="PA-76X25X2.0"'+(item.rev_tubo==='PA-76X25X2.0'?' selected':'')+'>76×25×2.0</option><option value="PA-76X38X1.98"'+(item.rev_tubo==='PA-76X38X1.98'?' selected':'')+'>76×38×1.98</option></select></div>';
       h+='</div>';
       h+='<div id="'+pre+'rev_info" style="margin-top:8px;background:#f0fbf0;border:1px solid #27ae60;border-radius:6px;padding:8px;font-size:10px;color:#1a5e1a;line-height:1.6;font-weight:600">— Preencha Largura e Altura para calcular —</div>';
       // Botao duplicar mantendo configuracao
@@ -2866,7 +2866,7 @@ window._crmItensToCardData=function(){
     if(item.tipo==='revestimento'){
       clean.rev_tipo=item.rev_tipo||'CHAPA';
       clean.rev_estrutura=item.rev_estrutura||'NAO';
-      clean.rev_tubo=item.rev_tubo||'PA-51X25X1.5';
+      clean.rev_tubo=item.rev_tubo||'PA-51X12X1.58';
     }
     return clean;
   });
@@ -3453,7 +3453,7 @@ window._orcRevPopularCard=function(it){
   var _tuboRow=document.getElementById('rev-orc-tubo-row');
   if(_tuboRow) _tuboRow.style.display=(it.rev_estrutura==='SIM')?'':'none';
   if(it.rev_estrutura==='SIM'){
-    var _tuboLbl=(it.rev_tubo||'PA-51X25X1.5').replace('PA-','').replace(/X/g,'×');
+    var _tuboLbl=(it.rev_tubo||'PA-51X12X1.58').replace('PA-','').replace(/X/g,'×');
     _t('rev-orc-tubo-info', _tuboLbl);
   }
   _t('rev-orc-cor-info', it.cor_ext||'—');
@@ -3481,6 +3481,14 @@ window._revCalcAcessoriosGlobal = function(){
     }
     return 0;
   }
+  // ★ Felipe 23/04: descrições DEVEM vir exclusivamente do cadastro (COMP_DB).
+  //   Nunca inventar. Se um código novo for necessário, cadastrar primeiro.
+  function getDesc(code){
+    if(typeof COMP_DB!=='undefined'){
+      for(var i=0;i<COMP_DB.length;i++){if(COMP_DB[i].c===code) return COMP_DB[i].d||code;}
+    }
+    return code;
+  }
 
   // Reproduzir lógica do _orcRevRenderCalc pra acumular área + tubos
   var areaTotGeral=0, totTubos5112Rip=0;
@@ -3504,7 +3512,6 @@ window._revCalcAcessoriosGlobal = function(){
 
   // ── Dowsil 995 (sachê 591ml): rendimento 1 sachê ≈ 8m de cordão.
   //   Pra revestimento, estimamos 25ml/m² → converte pra sachês.
-  //   Produto: PA-DOWSIL 995 ESTR SH, descrição "DOWSIL 995 PRETO SACHE 591ML".
   var silMLTot = areaTotGeral * 25;
   var silSachets = Math.ceil(silMLTot / 591);
 
@@ -3516,32 +3523,32 @@ window._revCalcAcessoriosGlobal = function(){
     rows.push({
       qty: fitaRolos,
       code: 'PA-FITDF 12X20X1.0',
-      desc: 'Fita dupla face 3M VHB 12×20×1.0 — rolo 20m<br><small style="color:#888">'+fitaTotComTubos.toFixed(1)+'m total ('+fitaTot.toFixed(1)+'m área + '+fitaTubosM.toFixed(1)+'m tubos)</small>',
+      desc: getDesc('PA-FITDF 12X20X1.0'),
       preco: getPreco('PA-FITDF 12X20X1.0'),
       apl: 'FAB',
       grp: 'FITA DUPLA FACE',
-      obs: 'REV RIPADO'
+      obs: fitaTotComTubos.toFixed(1)+'m ÷ 20m = '+fitaRolos+' rolo(s)'
     });
   }
   if(silSachets>0){
     rows.push({
       qty: silSachets,
       code: 'PA-DOWSIL 995 ESTR SH',
-      desc: 'Dowsil 995 preto sachê 591ml<br><small style="color:#888">'+silMLTot.toFixed(0)+'ml total ('+areaTotGeral.toFixed(2)+'m² × 25ml/m²) ÷ 591ml/sachê</small>',
+      desc: getDesc('PA-DOWSIL 995 ESTR SH'),
       preco: getPreco('PA-DOWSIL 995 ESTR SH'),
       apl: 'FAB',
       grp: 'SELANTES',
-      obs: 'DOWSIL REV'
+      obs: silMLTot.toFixed(0)+'ml ÷ 591ml = '+silSachets+' sachê(s)'
     });
   }
   rows.push({
     qty: primerQty,
     code: 'PA-PRIMER',
-    desc: 'Primer fita dupla face VHB 940ml',
+    desc: getDesc('PA-PRIMER'),
     preco: getPreco('PA-PRIMER'),
     apl: 'OBRA',
     grp: 'SELANTES',
-    obs: 'PRIMER FITA'
+    obs: '1 frasco/obra'
   });
 
   return rows;
@@ -3590,8 +3597,8 @@ window._orcRevRenderCalc=function(it){
       var pedFundo=sobraFundo>5?sobraFundo:0;
       var chFundoItem=(nIntFundo+(pedFundo>0?1:0))*Q;
       totChapasFundoRip+=chFundoItem;
-      // ★ Felipe 23/04: TUBOS PA-51X25X1.5 de 500mm p/ fixação das ripas.
-      //   MESMO perfil que a porta com ripado usa (PA-51X25X1.5, kg 0.595).
+      // ★ Felipe 23/04: TUBOS PA-51X12X1.58 de 500mm p/ fixação das ripas.
+      //   MESMO perfil que a porta com ripado usa (PA-51X12X1.58, kg 0.595).
       //   Qty = ceil(altura/1000) por ripa × total de ripas (já com Q).
       //   Ex: 1490×4000, Q=1 → 4 × 17 = 68 tubos.
       var nTubosPorRipa=Math.max(1, Math.ceil(A/1000));

@@ -99,7 +99,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
 
   // ★ Felipe 23/04: Detectar "só revestimento" (sem porta/fixo).
   //   Nesse caso, pular TODA a geração de perfis da porta (PA007, PA-CANT,
-  //   VEDA, BOISERIE, etc.) e processar SOMENTE os tubos PA-51X25X1.5 de
+  //   VEDA, BOISERIE, etc.) e processar SOMENTE os tubos PA-51X12X1.58 de
   //   fixação das ripas do revestimento. Antes, esse branch não existia e
   //   quando o user abria o orçamento, os inputs legacy 'largura'/'altura'
   //   eram setados com as dimensões do REVESTIMENTO (ex: 1490×4000),
@@ -131,7 +131,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     if(_totalTubosRev<=0) return {error:'Revestimento ripado sem dimensoes validas'};
 
     // Monta single-cut pra entrar na mesma pipeline de groupRes/barras
-    var _cuts=[{code:'PA-51X25X1.5',
+    var _cuts=[{code:'PA-51X12X1.58',
       desc:'FIXAÇÃO RIPAS REVESTIMENTO ('+_descDetalhes.join(' ')+')',
       compMM:500, qty:_totalTubosRev, pintado:false, secao:'FOLHA',
       barLenMM:6000, lh:'90/90 L', obs:'BRUTO REV'}];
@@ -145,7 +145,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     var _totUsed=_allCuts.reduce(function(s,x){return s+x;},0);
     var _totBruto=_nBars*_barLen;
     var _aprov=_totBruto>0?(_totUsed/_totBruto*100):0;
-    var _kgM=0.595;
+    var _kgM=0.517; // PA-51X12X1.58 — Tubular 50.8×12.7×1.58 TG-004
     var _kgLiq=(_totUsed/1000)*_kgM;
     var _kgBruto=(_totBruto/1000)*_kgM;
     var _custoPerfil=_kgBruto*kgMerc;
@@ -154,7 +154,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       return {len:b.barLen, items:b.items.slice().sort(function(a,x){return x-a;}),
               remaining:b.remaining, sobra:b.sobra!=null?b.sobra:b.remaining};
     }) : [];
-    var _groupRes={'PA-51X25X1.5':{
+    var _groupRes={'PA-51X12X1.58':{
       nBars:_nBars, totUsed:_totUsed, totBruto:_totBruto, aprov:_aprov,
       kgLiq:_kgLiq, kgBruto:_kgBruto, precoKg:kgMerc,
       custoPerfil:_custoPerfil, custoPintura:0, custoTotal:_custoPerfil,
@@ -162,7 +162,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       barLenMM:_barLen, pintado:false, barsDetail:_barsDetail,
       _isBoiserie:false, _barPrice:0
     }};
-    return {cuts:_cuts, groupRes:_groupRes, seenKeys:['PA-51X25X1.5'],
+    return {cuts:_cuts, groupRes:_groupRes, seenKeys:['PA-51X12X1.58'],
             sis:'REV_ONLY', N_H:0, temCava:false, larguraCava:0, travCavaSize:0,
             vedaSize:0, vedaCode:'', vedaQty:0, folhaPAPA:0,
             kgTecno:kgTecno, kgMerc:kgMerc, precoPint:precoPint,
@@ -423,7 +423,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     }
   }
 
-  // ── RIPADO: tubo PA-51X25X1.5 suporte das ripas ──────────────────────────
+  // ── RIPADO: tubo PA-51X12X1.58 suporte das ripas ──────────────────────────
   var _isRipMod = ['08','15','20','21'].indexOf(modeloSel) >= 0;
   if(_isRipMod && window._qtdRipasTotal > 0){
     // Qty ripas vem do planificador (window._qtdRipasTotal) — já inclui 2 lados e folhas
@@ -431,16 +431,16 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
     // Suporte: tubo 51×25, comprimento 500mm, qty = round(PA_F/1000) × total ripas
     var _nSupPorRipa = Math.max(1, Math.round(PA_F / 1000));
     var _totalSup = _nSupPorRipa * _totalRipas;
-    cuts.push({code:'PA-51X25X1.5', desc:'SUPORTE RIPA 51×25', compMM:500,
+    cuts.push({code:'PA-51X12X1.58', desc:'SUPORTE RIPA 51×25', compMM:500,
       qty:_totalSup, pintado:false, secao:'FOLHA', barLenMM:barraMM,
       lh:'90/90 L', obs:'BRUTO'});
   }
 
-  // ── REVESTIMENTO RIPADO: tubos PA-51X25X1.5 de fixação das ripas de parede ─
+  // ── REVESTIMENTO RIPADO: tubos PA-51X12X1.58 de fixação das ripas de parede ─
   // ★ Felipe 23/04: quando o orçamento tem revestimentos ripados (parede),
   //   cada ripa precisa de tubos horizontais de 500mm a cada 1000mm de altura.
   //   Qty por item = ceil(L/90) ripas × ceil(A/1000) tubos × qtd. Agrupa no
-  //   mesmo código PA-51X25X1.5 da porta — somam no mesmo groupRes e aparecem
+  //   mesmo código PA-51X12X1.58 da porta — somam no mesmo groupRes e aparecem
   //   como 1 único bloco no visual do Levantamento de Perfis.
   var _revRip = (window._orcItens||[]).filter(function(it){
     return it.tipo==='revestimento' && it.rev_tipo==='RIPADO' && (it.largura||0)>0 && (it.altura||0)>0;
@@ -460,7 +460,7 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       _descDetalhes.push('REV'+(idx+1)+':'+_qtyItem);
     });
     if(_totalTubosRev > 0){
-      cuts.push({code:'PA-51X25X1.5',
+      cuts.push({code:'PA-51X12X1.58',
         desc:'FIXAÇÃO RIPAS REVESTIMENTO ('+_descDetalhes.join(' ')+')',
         compMM:500, qty:_totalTubosRev, pintado:false, secao:'FOLHA',
         barLenMM:barraMM, lh:'90/90 L', obs:'BRUTO REV'});

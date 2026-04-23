@@ -156,7 +156,7 @@ function gerarCustoTotal(){
 /* ── OS REVESTIMENTO-ONLY (Felipe 23/04) ───────────────────────────────────
    Renderização alternativa do Levantamento de Perfis quando o orçamento
    tem APENAS revestimentos ripados (sem porta, sem fixo). Não há seções
-   FOLHA/PORTAL/FRISO da porta — só o grupo PA-51X25X1.5 (tubos de
+   FOLHA/PORTAL/FRISO da porta — só o grupo PA-51X12X1.58 (tubos de
    fixação das ripas) + aproveitamento de barras.
    Usa a mesma pipeline _calcularDadosPerfis (short-circuit _revOnlyMode)
    e o mesmo renderer _renderPadroesContent da porta pra manter o visual
@@ -166,7 +166,7 @@ function _gerarOSRevestimentoOnly(){
   var _docEl=document.getElementById('os-doc');
   var el=function(id){return document.getElementById(id);};
 
-  // Pipeline unificada — retorna grupo PA-51X25X1.5 populado
+  // Pipeline unificada — retorna grupo PA-51X12X1.58 populado
   var barraMM=(parseFloat((document.getElementById('pf-barra-m')||{value:6}).value)||6)*1000;
   var d;
   try { d=_calcularDadosPerfis(0,0,1,barraMM); }
@@ -413,7 +413,7 @@ function gerarOS(){
   //   tipo de item." Antes tinha caminho duplicado (_gerarOSRevestimentoOnly vs
   //   gerarOS) que causava valores divergentes entre abas. Agora rev-only passa
   //   pelo MESMO fluxo do gerarOS — _calcularDadosPerfis no short-circuit
-  //   retorna só PA-51X25X1.5, e o resto do gerarOS popula as tabelas normais.
+  //   retorna só PA-51X12X1.58, e o resto do gerarOS popula as tabelas normais.
   //   Só pulamos os blocos específicos de porta (fixo, veda, chapa frontal,
   //   acessórios de hardware) via flag window._isRevOnlyOS.
   var _temPortaFixo = (window._orcItens||[]).some(function(it){
@@ -430,7 +430,7 @@ function gerarOS(){
     return;
   }
   // Rev-only: forçar L/H = 0 pra _calcularDadosPerfis cair no short-circuit
-  //   _revOnlyMode. Assim só retorna o grupo PA-51X25X1.5 (tubos do ripado).
+  //   _revOnlyMode. Assim só retorna o grupo PA-51X12X1.58 (tubos do ripado).
   if(_isRevOnlyOS){ L=0; H=0; }
   var nFolhas=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
   var barraMM=(parseFloat((document.getElementById('pf-barra-m')||{value:6}).value)||6)*1000;
