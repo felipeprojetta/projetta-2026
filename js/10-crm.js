@@ -4972,77 +4972,87 @@ function _hidratarMemorialDoCloud(card, revIdx, callback){
     var SUPA_KEY = (typeof window._SUPA_KEY === 'string' && window._SUPA_KEY) ||
                    (typeof window.SUPABASE_ANON_KEY === 'string' && window.SUPABASE_ANON_KEY) ||
                    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
-    var url = SUPA_URL + '/rest/v1/orcamentos_salvos?crm_card_id=eq.' + encodeURIComponent(card.id)
-            + '&select=id,rev_num,rev_label,dados,valor_tabela,valor_faturamento,criado_em'
-            + '&order=criado_em.desc&limit=10';
-    console.log('[memorial-hidratar] buscando cloud para card', card.id, 'rev', revIdx);
-    fetch(url, {headers:{'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY}})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(arr){
-        if(!arr || arr.length===0){
-          console.log('[memorial-hidratar] nada no cloud para', card.id);
-          callback(null); return;
-        }
-        // Preferir o rev_num solicitado; se nao achar, usar o mais recente
-        var target = arr.find(function(x){ return x.rev_num === (revIdx||0); }) || arr[0];
-        if(!target || !target.dados){ callback(null); return; }
-        var d = target.dados || {};
-        // Montar entry compativel com o formato do localStorage "orcamentos"
-        // (loadRevisionMemorial espera entry.revisions[ri] com o snapshot)
-        var snapshot = {
-          state: d.state || {},
-          calcResult: d.calcResult || null,
-          abas: d.abas || null,
-          dynBlocks: d.dynBlocks || null,
-          displaySnap: d.displaySnap || null,
-          propostaHTML: d.propostaHTML || '',
-          osTabelasHTML: d.osTabelasHTML || '',
-          osaContentHTML: d.osaContentHTML || '',
-          planTabelasHTML: d.planTabelasHTML || '',
-          planCanvasDataURL: d.planCanvasDataURL || '',
-          lastOSData: d.lastOSData || null,
-          lastFixosPerfisRows: d.lastFixosPerfisRows || null,
-          meta: d.meta || {},
-          valorTabela: target.valor_tabela,
-          valorFaturamento: target.valor_faturamento,
-          data: target.criado_em,
-          label: target.rev_label || 'Original'
-        };
-        var entry = {
-          id: 'hidratado_' + target.id,
-          crm_card_id: card.id,
-          name: (card.cliente||'') + ' — hidratado',
-          ts: new Date(target.criado_em).getTime(),
-          revisions: [snapshot]
-        };
-        // Salvar no localStorage (com trim de canvas grande se necessario)
+    // Busca em cascata: card_id → AGP → nome cliente. Cobre duplicatas.
+    var selectFields = 'id,crm_card_id,rev_num,rev_label,dados,valor_tabela,valor_faturamento,criado_em,numero_atp';
+    var tentativas = [
+      { tag:'card_id', url: SUPA_URL + '/rest/v1/orcamentos_salvos?crm_card_id=eq.' + encodeURIComponent(card.id) }
+    ];
+    if(card.agp){
+      tentativas.push({ tag:'AGP', url: SUPA_URL + '/rest/v1/orcamentos_salvos?numero_atp=eq.' + encodeURIComponent(card.agp) });
+    }
+    if(card.cliente){
+      tentativas.push({ tag:'cliente', url: SUPA_URL + '/rest/v1/orcamentos_salvos?cliente=ilike.*' + encodeURIComponent(card.cliente) + '*' });
+    }
+    function _processar(arr){
+      if(!arr || arr.length===0){ callback(null); return; }
+      var target = arr.find(function(x){ return x.rev_num === (revIdx||0); }) || arr[0];
+      if(!target || !target.dados){ callback(null); return; }
+      var d = target.dados || {};
+      var snapshot = {
+        state: d.state || {},
+        calcResult: d.calcResult || null,
+        abas: d.abas || null,
+        dynBlocks: d.dynBlocks || null,
+        displaySnap: d.displaySnap || null,
+        propostaHTML: d.propostaHTML || '',
+        osTabelasHTML: d.osTabelasHTML || '',
+        osaContentHTML: d.osaContentHTML || '',
+        planTabelasHTML: d.planTabelasHTML || '',
+        planCanvasDataURL: d.planCanvasDataURL || '',
+        lastOSData: d.lastOSData || null,
+        lastFixosPerfisRows: d.lastFixosPerfisRows || null,
+        meta: d.meta || {},
+        valorTabela: target.valor_tabela,
+        valorFaturamento: target.valor_faturamento,
+        data: target.criado_em,
+        label: target.rev_label || 'Original'
+      };
+      var entry = {
+        id: 'hidratado_' + target.id,
+        crm_card_id: card.id,
+        name: (card.cliente||'') + ' — hidratado',
+        ts: new Date(target.criado_em).getTime(),
+        revisions: [snapshot]
+      };
+      try {
+        var lst = JSON.parse(localStorage.getItem('orcamentos') || '[]');
+        lst.push(entry);
+        localStorage.setItem('orcamentos', JSON.stringify(lst));
+        console.log('[memorial-hidratar] hidratado OK, id=', entry.id);
+      } catch(errQuota){
+        console.warn('[memorial-hidratar] quota cheia, tentando sem canvas:', errQuota);
         try {
-          var lst = JSON.parse(localStorage.getItem('orcamentos') || '[]');
-          lst.push(entry);
-          localStorage.setItem('orcamentos', JSON.stringify(lst));
-          console.log('[memorial-hidratar] hidratado OK, id=', entry.id);
-        } catch(errQuota){
-          console.warn('[memorial-hidratar] quota cheia, tentando sem canvas:', errQuota);
-          try {
-            // Tentar de novo sem o canvas do plano de corte (o maior item)
-            var snap2 = Object.assign({}, snapshot); snap2.planCanvasDataURL = '';
-            var entry2 = Object.assign({}, entry); entry2.revisions = [snap2];
-            var lst2 = JSON.parse(localStorage.getItem('orcamentos') || '[]');
-            lst2.push(entry2);
-            localStorage.setItem('orcamentos', JSON.stringify(lst2));
-            entry = entry2;
-          } catch(err2){
-            console.warn('[memorial-hidratar] falhou tambem sem canvas:', err2);
-            // Ultimo recurso: guardar em memoria global pra uso imediato
-            window._tmpHidratadoEntry = entry;
-          }
+          var snap2 = Object.assign({}, snapshot); snap2.planCanvasDataURL = '';
+          var entry2 = Object.assign({}, entry); entry2.revisions = [snap2];
+          var lst2 = JSON.parse(localStorage.getItem('orcamentos') || '[]');
+          lst2.push(entry2);
+          localStorage.setItem('orcamentos', JSON.stringify(lst2));
+          entry = entry2;
+        } catch(err2){
+          console.warn('[memorial-hidratar] falhou tambem sem canvas:', err2);
+          window._tmpHidratadoEntry = entry;
         }
-        callback(entry);
-      })
-      .catch(function(e){
-        console.warn('[memorial-hidratar] erro fetch:', e);
-        callback(null);
-      });
+      }
+      callback(entry);
+    }
+    function _tentar(i){
+      if(i >= tentativas.length){
+        console.log('[memorial-hidratar] nada no cloud para', card.id, '(tentei:', tentativas.map(function(t){return t.tag;}).join(','), ')');
+        callback(null); return;
+      }
+      var t = tentativas[i];
+      console.log('[memorial-hidratar] tentando', t.tag, 'para card', card.id);
+      fetch(t.url + '&select=' + selectFields + '&order=criado_em.desc&limit=10',
+            {headers:{'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY}})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(arr){
+          if(!arr || arr.length===0){ _tentar(i+1); return; }
+          console.log('[memorial-hidratar] achou via', t.tag, '—', arr.length, 'orcs');
+          _processar(arr);
+        })
+        .catch(function(e){ console.warn('[memorial-hidratar] erro', t.tag, e); _tentar(i+1); });
+    }
+    _tentar(0);
   } catch(e){ console.warn('[memorial-hidratar] excecao:', e); callback(null); }
 }
 
