@@ -1229,20 +1229,22 @@ function plnPieceTable(pieces, placed) {
     tb.appendChild(tr);
   }
   // Sumário peso por local
-  var pesoPorta=0,pesoPortal=0,pesoFixo=0;
+  var pesoPorta=0,pesoPortal=0,pesoFixo=0,pesoRev=0;
   var _pesoChapasPerDoor={};
   for(var i=0;i<_pSorted.length;i++){
-    var kg=_pSorted[i].w*_pSorted[i].h*_pSorted[i].qty/1e6*6.5;
+    var _kgPerM2 = (_pSorted[i].mat==='alu') ? 10.125 : 6.5;
+    var kg=_pSorted[i].w*_pSorted[i].h*_pSorted[i].qty/1e6*_kgPerM2;
     if(_pSorted[i]._local==='PORTA'){
       pesoPorta+=kg;
       var _di=_pSorted[i]._itemIdx;
       if(_di!==undefined){_pesoChapasPerDoor[_di]=(_pesoChapasPerDoor[_di]||0)+kg;}
     }
     else if(_pSorted[i]._local==='FIXO') pesoFixo+=kg;
+    else if(_pSorted[i]._local==='REVESTIMENTO') pesoRev+=kg;
     else pesoPortal+=kg;
   }
   window._pesoChapasPerDoor=_pesoChapasPerDoor;
-  var pesoTotal=pesoPorta+pesoPortal+pesoFixo;
+  var pesoTotal=pesoPorta+pesoPortal+pesoFixo+pesoRev;
   function _sumRow(label,kg,bg,color){
     var tr=document.createElement('tr');
     // ★ Ajustado pra 10 colunas totais (adicionada coluna "Cor Chapa"):
@@ -1252,9 +1254,12 @@ function plnPieceTable(pieces, placed) {
       '<td colspan="3" style="padding:5px 7px;background:'+bg+';border-top:1.5px solid '+color+'"></td>';
     tb.appendChild(tr);
   }
-  _sumRow('Chapas PORTA:',pesoPorta,'#e8f5e9','#2e7d32');
-  _sumRow('Chapas PORTAL:',pesoPortal,'#fff3e0','#e65100');
-  if(pesoFixo>0) _sumRow('Chapas FIXO:',pesoFixo,'#e3f2fd','#1565c0');
+  // ★ Felipe 23/04: só mostra linha do local se tem peso > 0. Antes sempre
+  //   mostrava "Chapas PORTA: 0.00 / Chapas PORTAL: X,XX" mesmo em rev-only.
+  if(pesoPorta>0)  _sumRow('Chapas PORTA:',pesoPorta,'#e8f5e9','#2e7d32');
+  if(pesoPortal>0) _sumRow('Chapas PORTAL:',pesoPortal,'#fff3e0','#e65100');
+  if(pesoRev>0)    _sumRow('Chapas REVESTIMENTO:',pesoRev,'#f3e5f5','#6a1b9a');
+  if(pesoFixo>0)   _sumRow('Chapas FIXO:',pesoFixo,'#e3f2fd','#1565c0');
   _sumRow('TOTAL CHAPAS:',pesoTotal,'#003144','#fff');
 }
 
@@ -1315,22 +1320,37 @@ function planUpd() {
   var Lv=parseFloat(document.getElementById('largura').value)||0;
   var Av=parseFloat(document.getElementById('altura').value)||0;
   var dims=document.getElementById('plan-dims');
-  // ★ Felipe 23/04: label dinâmico "Porta:" / "Revestimento(s):" conforme
-  //   tipo do orçamento. Quando _mpItens só tem revestimentos (sem porta),
-  //   o header do planificador não deve chamar de "Porta: 1295 x 3658" —
-  //   deve ser "Revestimento(s): N peça(s) · X m²".
+  // ★ Felipe 23/04 v4: label dinâmico Porta/Revestimento. Usa _orcItens
+  //   (fonte primária do CRM) + fallback _mpItens. Se é rev-only, mostra
+  //   somatório de áreas em vez de W×H do 1º item.
   var _lbl=document.getElementById('plan-dims-label');
-  var _hasPorta=false, _hasRev=false;
-  if(window._mpItens && window._mpItens.length>0){
+  var _hasPorta=false, _hasRev=false, _revsItems=[];
+  // 1) tentar _orcItens (primária)
+  if(window._orcItens && window._orcItens.length>0){
+    _hasPorta = window._orcItens.some(function(it){
+      var t = it.tipo || 'porta_pivotante';
+      return t==='porta_pivotante' || t==='porta_interna' || t==='fixo';
+    });
+    _revsItems = window._orcItens.filter(function(it){return it.tipo==='revestimento' && (it.largura||0)>0 && (it.altura||0)>0;});
+    _hasRev = _revsItems.length > 0;
+  }
+  // 2) fallback _mpItens
+  if(!_hasRev && !_hasPorta && window._mpItens && window._mpItens.length>0){
     _hasPorta = window._mpItens.some(function(it){return (it._tipo||'porta_pivotante')==='porta_pivotante';});
-    _hasRev   = window._mpItens.some(function(it){return it._tipo==='revestimento';});
+    window._mpItens.forEach(function(it){
+      if(it._tipo==='revestimento' && (parseFloat(it._largura)||0)>0 && (parseFloat(it._altura)||0)>0){
+        _revsItems.push({largura:parseFloat(it._largura), altura:parseFloat(it._altura), qtd:parseInt(it._qtd)||1});
+      }
+    });
+    _hasRev = _revsItems.length > 0;
   }
   if(_lbl && !_hasPorta && _hasRev){
     _lbl.textContent='Revestimento(s):';
     var _totalA=0, _totalQ=0;
-    window._mpItens.forEach(function(it){
-      if(it._tipo!=='revestimento') return;
-      var L=parseFloat(it._largura)||0, A=parseFloat(it._altura)||0, Q=parseInt(it._qtd)||1;
+    _revsItems.forEach(function(it){
+      var L=parseFloat(it.largura||it._largura)||0;
+      var A=parseFloat(it.altura||it._altura)||0;
+      var Q=parseInt(it.qtd||it._qtd)||1;
       _totalA += (L*A*Q)/1e6;
       _totalQ += Q;
     });
