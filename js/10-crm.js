@@ -3289,9 +3289,27 @@ function orcItemSelecionar(idx){
     }
   }
   
-  setF('largura', it.largura);
-  setF('altura', it.altura);
   setF('qtd-portas', it.qtd || 1);
+
+  // ★ Felipe 23/04: se o item selecionado é REVESTIMENTO, NÃO setar
+  //   largura/altura nos inputs da porta — caso contrário, os inputs
+  //   legacy de porta recebem dimensões do revestimento e _calcularDadosPerfis
+  //   calcula uma 'porta fantasma' 1490×4000, gerando custos errados.
+  //   Revestimento usa rev-orc-largura/altura no próprio card.
+  if(it.tipo !== 'revestimento'){
+    setF('largura', it.largura);
+    setF('altura', it.altura);
+  } else {
+    // Se ÚNICO tipo no orçamento é revestimento, zera os inputs de porta
+    // pra forçar calc() a detectar _revOnly (W=H=0).
+    var _hasPortaOuFixo = (window._orcItens||[]).some(function(ix){
+      return ix.tipo==='porta_pivotante' || ix.tipo==='porta_interna' || ix.tipo==='fixo';
+    });
+    if(!_hasPortaOuFixo){
+      var _elL=document.getElementById('largura'); if(_elL){_elL.value='';_elL.dispatchEvent(new Event('input',{bubbles:true}));}
+      var _elA=document.getElementById('altura');  if(_elA){_elA.value='';_elA.dispatchEvent(new Event('input',{bubbles:true}));}
+    }
+  }
   
   if(it.tipo === 'porta_pivotante'){
     setF('carac-abertura', it.abertura || 'PIVOTANTE');
@@ -3747,8 +3765,27 @@ window.crmFazerOrcamento=function(id){
       return fallback || '';
     };
 
-    setF('largura', _pick('largura',''));
-    setF('altura',  _pick('altura',''));
+    // ★ Felipe 23/04: só setar largura/altura nos inputs LEGACY da porta se
+    //   o orçamento TIVER item porta/fixo. Se for só revestimento, esses
+    //   inputs precisam ficar VAZIOS pro calc() detectar _revOnly e rodar
+    //   a lógica correta (sem simular uma porta fantasma com dimensões do
+    //   revestimento, o que fazia _calcularDadosPerfis retornar perfis
+    //   de porta pintados por R$ 14.629 indevidamente).
+    var _temPortaFixo = (opp.itens||[]).some(function(ix){
+      return ix.tipo==='porta_pivotante' || ix.tipo==='porta_interna' || ix.tipo==='fixo';
+    });
+    if(_temPortaFixo){
+      // Pegar PRIMEIRO item porta/fixo pra popular L/A (não um revestimento qualquer)
+      var _primeiraPorta = (opp.itens||[]).find(function(ix){
+        return ix.tipo==='porta_pivotante' || ix.tipo==='porta_interna' || ix.tipo==='fixo';
+      });
+      setF('largura', (_primeiraPorta && _primeiraPorta.largura) || _pick('largura',''));
+      setF('altura',  (_primeiraPorta && _primeiraPorta.altura)  || _pick('altura',''));
+    } else {
+      // Orçamento SÓ revestimento: limpar inputs legacy da porta
+      var _elL2=document.getElementById('largura'); if(_elL2) _elL2.value='';
+      var _elA2=document.getElementById('altura');  if(_elA2) _elA2.value='';
+    }
     // Responsavel (Thays/Felipe/Andressa) — map to the select
     if(opp.responsavel){setF('responsavel',opp.responsavel);}
     setF('carac-abertura', _pick('abertura',''));

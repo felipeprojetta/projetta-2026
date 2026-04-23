@@ -2170,24 +2170,53 @@ function recalcPerfisAuto(){
   var barraMM=(parseFloat((document.getElementById('pf-barra-m')||{value:6}).value)||6)*1000;
   var nFolhas=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
 
-  // Caso 1: SÓ revestimento (sem porta). _calcularDadosPerfis não roda.
-  //   ★ Felipe 23/04: usa helper standalone _calcCustoTubosRev() pra computar
-  //   os tubos PA-51X25X1.5 do revestimento ripado e escrever em fab-mat-perfis.
+  // ★ Felipe 23/04: detectar "só revestimento". Nesse caso _calcularDadosPerfis
+  //   entra em modo _revOnly e retorna apenas o grupo PA-51X25X1.5 (tubos).
+  //   Não há porta fantasma, pintura fica 0, visual exibe 1 bloco só.
+  var _temPortaFixo = (window._orcItens||[]).some(function(it){
+    return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';
+  });
+  var _temRevRip = (window._orcItens||[]).some(function(it){
+    return it.tipo==='revestimento' && it.rev_tipo==='RIPADO' && (it.largura||0)>0 && (it.altura||0)>0;
+  });
+  var _revOnlyCase = (!_temPortaFixo) && _temRevRip;
+
+  // Caso 1: SÓ revestimento (sem porta, sem L/H). Roda _calcularDadosPerfis
+  //   que agora tem short-circuit _revOnlyMode. L/H passam como 0 mesmo.
+  if((L<=0||H<=0) && _revOnlyCase){
+    try {
+      var dr=_calcularDadosPerfis(0, 0, 1, barraMM);
+      if(dr && !dr.error){
+        var totMatR=0;
+        dr.seenKeys.forEach(function(k){ var r=dr.groupRes[k]; if(r) totMatR+=r.custoPerfil||0; });
+        _fabSetSysValue('mat', totMatR);
+        _fabSetSysValue('pin', 0); // rev não pinta
+        window._lastPadroesHTML = _renderPadroesContent(dr,9);
+        window._lastPerfisTotal = totMatR;
+      } else {
+        _fabSetSysValue('mat', 0);
+        _fabSetSysValue('pin', 0);
+        window._lastPerfisTotal = 0;
+      }
+      try{ syncFabPerfisTotal(); }catch(e){}
+      try{ calc(); }catch(e){}
+    } catch(e){ console.warn('recalcPerfisAuto revOnly:', e); }
+    return;
+  }
+
+  // Sem porta E sem revestimento ripado → não há perfis a calcular.
   if(L<=0||H<=0){
-    var tubosRev=_calcCustoTubosRev();
-    _fabSetSysValue('mat', tubosRev.custoPerfil||0);
+    _fabSetSysValue('mat', 0);
     _fabSetSysValue('pin', 0);
-    window._lastPerfisTotal = tubosRev.custoPerfil||0;
-    window._lastTubosRevData = tubosRev;
+    window._lastPerfisTotal = 0;
     try{ syncFabPerfisTotal(); }catch(e){}
     try{ calc(); }catch(e){}
     return;
   }
 
-  // Caso 2: tem porta. _calcularDadosPerfis agora já injeta os tubos do
-  //   revestimento ripado diretamente no cuts/groupRes (mesmo código
-  //   PA-51X25X1.5 que os suportes de porta ripada). O totalMat abaixo
-  //   já inclui o custo dos tubos do revestimento — NÃO somar de novo.
+  // Caso 2: tem porta. _calcularDadosPerfis injeta os tubos do revestimento
+  //   ripado diretamente no cuts/groupRes quando detecta rev_tipo=RIPADO
+  //   em window._orcItens.
   try {
     var d=_calcularDadosPerfis(L,H,nFolhas,barraMM);
     if(d.error) return;

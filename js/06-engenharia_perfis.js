@@ -97,6 +97,81 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
   var kgWeiku   = kgWeikuBru * (1 - dedWeiku/100);
   var precoPint = precoPintBru * (1 - dedPint/100);
 
+  // ★ Felipe 23/04: Detectar "só revestimento" (sem porta/fixo).
+  //   Nesse caso, pular TODA a geração de perfis da porta (PA007, PA-CANT,
+  //   VEDA, BOISERIE, etc.) e processar SOMENTE os tubos PA-51X25X1.5 de
+  //   fixação das ripas do revestimento. Antes, esse branch não existia e
+  //   quando o user abria o orçamento, os inputs legacy 'largura'/'altura'
+  //   eram setados com as dimensões do REVESTIMENTO (ex: 1490×4000),
+  //   fazendo _calcularDadosPerfis tratar como uma porta fantasma de
+  //   1490×4000 e gerar R$ 14.629 em material + R$ 624 em pintura.
+  var _revRipSoOnly = (window._orcItens||[]).filter(function(it){
+    return it.tipo==='revestimento' && it.rev_tipo==='RIPADO' && (it.largura||0)>0 && (it.altura||0)>0;
+  });
+  var _temPortaFixo = (window._orcItens||[]).some(function(it){
+    return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';
+  });
+  var _revOnlyMode = (!_temPortaFixo) && _revRipSoOnly.length>0;
+
+  if(_revOnlyMode){
+    function _getPerfRev(code){
+      for(var i=0;i<PERFIS_DB.length;i++){if(PERFIS_DB[i].c===code)return PERFIS_DB[i];}
+      return null;
+    }
+    // Acumular total de tubos de todos os itens ripados
+    var _totalTubosRev=0, _descDetalhes=[];
+    _revRipSoOnly.forEach(function(it, idx){
+      var _Lr=parseFloat(it.largura)||0, _Ar=parseFloat(it.altura)||0, _Qr=parseInt(it.qtd)||1;
+      var _nRipas=Math.ceil(_Lr/90);
+      var _nTubosRipa=Math.max(1,Math.ceil(_Ar/1000));
+      var _qtyItem=_nRipas*_nTubosRipa*_Qr;
+      _totalTubosRev+=_qtyItem;
+      _descDetalhes.push('REV'+(idx+1)+':'+_qtyItem);
+    });
+    if(_totalTubosRev<=0) return {error:'Revestimento ripado sem dimensoes validas'};
+
+    // Monta single-cut pra entrar na mesma pipeline de groupRes/barras
+    var _cuts=[{code:'PA-51X25X1.5',
+      desc:'FIXAÇÃO RIPAS REVESTIMENTO ('+_descDetalhes.join(' ')+')',
+      compMM:500, qty:_totalTubosRev, pintado:false, secao:'FOLHA',
+      barLenMM:6000, lh:'90/90 L', obs:'BRUTO REV'}];
+    _cuts.forEach(function(c){ c.perf=_getPerfRev(c.code); c.kgM=c.perf?c.perf.kg:0; });
+    // Bin pack (inline, igual lógica do caller)
+    var _barLen=6000, _usable=5990;
+    var _allCuts=[];
+    for(var _i=0;_i<_totalTubosRev;_i++) _allCuts.push(500);
+    var _bars=(typeof binPackFFD==='function')?binPackFFD(_allCuts,_barLen):[];
+    var _nBars=_bars.length || Math.ceil(_totalTubosRev/11); // fallback: 11 tubos/barra 6m
+    var _totUsed=_allCuts.reduce(function(s,x){return s+x;},0);
+    var _totBruto=_nBars*_barLen;
+    var _aprov=_totBruto>0?(_totUsed/_totBruto*100):0;
+    var _kgM=0.595;
+    var _kgLiq=(_totUsed/1000)*_kgM;
+    var _kgBruto=(_totBruto/1000)*_kgM;
+    var _custoPerfil=_kgBruto*kgMerc;
+    var _custoPerfilBru=_kgBruto*kgMercBru;
+    var _barsDetail=_bars.length>0 ? _bars.map(function(b){
+      return {len:b.barLen, items:b.items.slice().sort(function(a,x){return x-a;}),
+              remaining:b.remaining, sobra:b.sobra!=null?b.sobra:b.remaining};
+    }) : [];
+    var _groupRes={'PA-51X25X1.5':{
+      nBars:_nBars, totUsed:_totUsed, totBruto:_totBruto, aprov:_aprov,
+      kgLiq:_kgLiq, kgBruto:_kgBruto, precoKg:kgMerc,
+      custoPerfil:_custoPerfil, custoPintura:0, custoTotal:_custoPerfil,
+      custoPerfilBru:_custoPerfilBru, custoPinturaBru:0, custoTotalBru:_custoPerfilBru,
+      barLenMM:_barLen, pintado:false, barsDetail:_barsDetail,
+      _isBoiserie:false, _barPrice:0
+    }};
+    return {cuts:_cuts, groupRes:_groupRes, seenKeys:['PA-51X25X1.5'],
+            sis:'REV_ONLY', N_H:0, temCava:false, larguraCava:0, travCavaSize:0,
+            vedaSize:0, vedaCode:'', vedaQty:0, folhaPAPA:0,
+            kgTecno:kgTecno, kgMerc:kgMerc, precoPint:precoPint,
+            isPintado:function(){return false;},
+            kgTecnoBru:kgTecnoBru, kgMercBru:kgMercBru, kgWeikuBru:kgWeikuBru, precoPintBru:precoPintBru,
+            dedTecno:dedTecno, dedMerc:dedMerc, dedWeiku:dedWeiku, dedPint:dedPint,
+            _revOnly:true};
+  }
+
 
   var FGA       = _p.FGA;   // Folga altura (padrão 10mm)
   var FGL       = _p.FGL;   // Folga largura esquerda (padrão 10mm)
