@@ -499,7 +499,29 @@ window.MemorialV2.restaurar = function(dados, options){
   }
 
   if(dados.osTabelasHTML) _substituirTabelas('tab-os', dados.osTabelasHTML);
-  if(dados.planTabelasHTML) _substituirTabelas('tab-planificador', dados.planTabelasHTML);
+  // ★ Felipe 23/04 v5: NÃO restaurar planTabelasHTML se há items NOVOS no
+  //   card CRM (_orcItens). O HTML salvo é do snapshot antigo e pode conter
+  //   classificações LOCAL antigas (PORTAL em vez de REVESTIMENTO) que
+  //   contradizem a nova lógica de plnPieceTable. Se temos items, o
+  //   planificador VAI ser re-renderizado com a classificação nova —
+  //   preservar o HTML antigo só atrapalha.
+  var _temItensNovos = (window._orcItens && window._orcItens.length>0) ||
+                       (window._mpItens && window._mpItens.length>0);
+  if(dados.planTabelasHTML && !_temItensNovos){
+    _substituirTabelas('tab-planificador', dados.planTabelasHTML);
+  } else if(dados.planTabelasHTML && _temItensNovos){
+    try{
+      console.log('%c[MemorialV2] planTabelasHTML IGNORADO — card tem items novos, planificador vai re-renderizar',
+        'background:#6a1b9a;color:#fff;padding:2px 6px;border-radius:3px;font-weight:700');
+    }catch(e){}
+    // Forçar re-render do planificador após pequeno delay pra DOM se estabilizar
+    setTimeout(function(){
+      try{
+        if(typeof window.planUpd==='function') window.planUpd();
+        if(typeof window.planRun==='function') window.planRun();
+      }catch(e){ console.warn('[MemorialV2] planRun falhou:', e); }
+    }, 200);
+  }
 
   // tab-proposta: o capturar salva o innerHTML inteiro (só se > 500 chars).
   // Injeta direto porque a aba Proposta é template-based e o HTML salvo

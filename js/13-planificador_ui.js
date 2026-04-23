@@ -1387,6 +1387,34 @@ function planUpd() {
     }
   }
 
+  // ★ Felipe 23/04 v5: em rev-only, esconder Modelo, Folhas, Cava, Friso,
+  //   Ripa, Moldura — nada disso é relevante pra revestimento puro.
+  var _revOnly = (!_hasPorta && _hasRev);
+  if(_revOnly){
+    var _modRow = document.getElementById('plan-modelo');
+    if(_modRow && _modRow.closest('.fr')) _modRow.closest('.fr').style.display='none';
+    var _folRow = document.getElementById('plan-folhas');
+    if(_folRow && _folRow.closest('.fr')) _folRow.closest('.fr').style.display='none';
+    var _cavaR  = document.getElementById('plan-cava-row');   if(_cavaR)  _cavaR.style.display='none';
+    var _frisoR = document.getElementById('plan-friso-row');  if(_frisoR) _frisoR.style.display='none';
+    var _ripaR  = document.getElementById('plan-ripa-row');   if(_ripaR)  _ripaR.style.display='none';
+    var _frHR   = document.getElementById('plan-friso-h-row');if(_frHR)   _frHR.style.display='none';
+    var _moldR  = document.getElementById('plan-moldura-row');if(_moldR)  _moldR.style.display='none';
+    // Esconder também o refilado (só pra porta)
+    var _refLbl = document.querySelector('label[for="plan-refilado"]') || null;
+    var _refSel = document.getElementById('plan-refilado');
+    if(_refSel && _refSel.parentElement) _refSel.parentElement.style.display='none';
+    return; // pula resto (lógica específica de porta)
+  } else {
+    // Mostrar de volta se não é rev-only (ex: mudou o card)
+    var _modRowS = document.getElementById('plan-modelo');
+    if(_modRowS && _modRowS.closest('.fr')) _modRowS.closest('.fr').style.display='';
+    var _folRowS = document.getElementById('plan-folhas');
+    if(_folRowS && _folRowS.closest('.fr')) _folRowS.closest('.fr').style.display='';
+    var _refSelS = document.getElementById('plan-refilado');
+    if(_refSelS && _refSelS.parentElement) _refSelS.parentElement.style.display='';
+  }
+
   var Mv=document.getElementById('plan-modelo').value;
   var isCava=(Mv==='01'||Mv==='02'||Mv==='06'||Mv==='07'||Mv==='08'||Mv==='22');
   var isFriso=(Mv==='02'||Mv==='11'||Mv==='22'||Mv==='23acm'||Mv==='23alu');
