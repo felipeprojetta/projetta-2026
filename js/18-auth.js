@@ -633,6 +633,14 @@ function _mpGetItens(){
     var result=window._mpItens.map(function(it){
       return {
         id:it.id,
+        // ★ Felipe 23/04: propagar tipo + campos de revestimento pra
+        //   _mpCalcAllPiecesCombined poder rotear e não chamar plnPecas
+        //   (que gera peças de porta) em items tipo='revestimento'.
+        tipo: it._tipo || 'porta_pivotante',
+        rev_tipo: it._rev_tipo || '',
+        rev_estrutura: it._rev_estrutura || '',
+        rev_tubo: it._rev_tubo || '',
+        rev_2lados: (it._rev_2lados==='SIM'||it.rev_2lados==='SIM'||it['rev_2lados']==='SIM') ? 'SIM' : 'NAO',
         modelo:it._modelo||it['carac-modelo']||'01',
         modeloTxt:it._modeloTxt||'',
         largura:parseFloat(it._largura||it['largura'])||0,
@@ -899,6 +907,86 @@ function _mpCalcAllPiecesCombined(){
   itens.forEach(function(it,idx){
     if(it.largura<=0||it.altura<=0) return;
     var _mpIt=window._mpItens&&window._mpItens[idx]?window._mpItens[idx]:null;
+    // ★ Felipe 23/04: BRANCH POR TIPO — evitar vazar peças de PORTA
+    //   (TAMPA MAIOR, CAVA, U PORTAL, BAT, etc, geradas por plnPecas) para
+    //   items de revestimento ou fixo. plnPecas é EXCLUSIVO de porta_pivotante.
+    //
+    //   • revestimento: geramos peças REV (RIPA/FUNDO/SOBRA) direto.
+    //     Tubos PA-51X12X1.58 são perfis e não entram no nesting de chapas.
+    //   • fixo: tratado em _coletarPecasFixo (chamado separadamente).
+    //   • porta_pivotante: comportamento antigo (plnPecas).
+    if(it.tipo === 'revestimento'){
+      var _LARG_UTIL = 1490;
+      var _L = it.largura, _A = it.altura, _Q = it.qtd || 1;
+      var _mult2L = (it.rev_2lados === 'SIM') ? 2 : 1;
+      var _tipoRev = it.rev_tipo || 'CHAPA';
+      var _itemLbl = ' [R' + (idx+1) + ' ' + _L + '×' + _A + ']';
+      var _cor = it.corExt || '';
+      var _corMat = 'acm';
+      if(_tipoRev === 'RIPADO'){
+        // Ripas 98mm × A (n ripas por item × Q × 2L)
+        var _nRipas = Math.ceil(_L / 98);
+        if(_nRipas > 0){
+          allPieces.push({
+            label: 'REV ' + (idx+1) + ' RIPA' + _itemLbl,
+            w: 98, h: _A,
+            qty: _nRipas * _Q * _mult2L,
+            mat: _corMat, _cor: _cor,
+            color: PLN_COLORS[idx % PLN_COLORS.length]
+          });
+        }
+        // Chapa de fundo: peças 1490×A (nInt) + pedaço se sobra>5
+        var _nIntFundo = Math.floor(_L / _LARG_UTIL);
+        var _sobraF = _L - (_nIntFundo * _LARG_UTIL);
+        var _pedFundo = _sobraF > 5 ? _sobraF : 0;
+        if(_nIntFundo > 0){
+          allPieces.push({
+            label: 'REV ' + (idx+1) + ' FUNDO' + _itemLbl,
+            w: _LARG_UTIL, h: _A,
+            qty: _nIntFundo * _Q * _mult2L,
+            mat: _corMat, _cor: _cor,
+            color: PLN_COLORS[idx % PLN_COLORS.length]
+          });
+        }
+        if(_pedFundo > 0){
+          allPieces.push({
+            label: 'REV ' + (idx+1) + ' FUNDO S' + _itemLbl,
+            w: Math.round(_pedFundo), h: _A,
+            qty: _Q * _mult2L,
+            mat: _corMat, _cor: _cor,
+            color: PLN_COLORS[idx % PLN_COLORS.length]
+          });
+        }
+      } else {
+        // CHAPA lisa: peças 1490×A (nInt) + pedaço
+        var _nInt = Math.floor(_L / _LARG_UTIL);
+        var _sobra = _L - (_nInt * _LARG_UTIL);
+        var _pedaco = _sobra > 5 ? _sobra : 0;
+        if(_nInt > 0){
+          allPieces.push({
+            label: 'REV ' + (idx+1) + ' CHAPA' + _itemLbl,
+            w: _LARG_UTIL, h: _A,
+            qty: _nInt * _Q * _mult2L,
+            mat: _corMat, _cor: _cor,
+            color: PLN_COLORS[idx % PLN_COLORS.length]
+          });
+        }
+        if(_pedaco > 0){
+          allPieces.push({
+            label: 'REV ' + (idx+1) + ' SOBRA' + _itemLbl,
+            w: Math.round(_pedaco), h: _A,
+            qty: _Q * _mult2L,
+            mat: _corMat, _cor: _cor,
+            color: PLN_COLORS[idx % PLN_COLORS.length]
+          });
+        }
+      }
+      return; // IMPORTANTE: não cai no plnPecas abaixo
+    }
+    if(it.tipo === 'fixo'){
+      // Fixos: tratamento próprio em _coletarPecasFixo
+      return;
+    }
     // Modelo 23: converter para 23acm ou 23alu conforme revestimento
     var _planMod=it.modelo||'01';
     if(_planMod==='23'){

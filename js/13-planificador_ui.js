@@ -1269,8 +1269,35 @@ function planUpd() {
   var Lv=parseFloat(document.getElementById('largura').value)||0;
   var Av=parseFloat(document.getElementById('altura').value)||0;
   var dims=document.getElementById('plan-dims');
-  if (Lv>0&&Av>0) dims.textContent=Math.round(Lv)+' x '+Math.round(Av)+' mm = '+(Lv/1000*Av/1000).toFixed(2)+' m2';
-  else dims.textContent='preencha largura e altura acima';
+  // ★ Felipe 23/04: label dinâmico "Porta:" / "Revestimento(s):" conforme
+  //   tipo do orçamento. Quando _mpItens só tem revestimentos (sem porta),
+  //   o header do planificador não deve chamar de "Porta: 1295 x 3658" —
+  //   deve ser "Revestimento(s): N peça(s) · X m²".
+  var _lbl=document.getElementById('plan-dims-label');
+  var _hasPorta=false, _hasRev=false;
+  if(window._mpItens && window._mpItens.length>0){
+    _hasPorta = window._mpItens.some(function(it){return (it._tipo||'porta_pivotante')==='porta_pivotante';});
+    _hasRev   = window._mpItens.some(function(it){return it._tipo==='revestimento';});
+  }
+  if(_lbl && !_hasPorta && _hasRev){
+    _lbl.textContent='Revestimento(s):';
+    var _totalA=0, _totalQ=0;
+    window._mpItens.forEach(function(it){
+      if(it._tipo!=='revestimento') return;
+      var L=parseFloat(it._largura)||0, A=parseFloat(it._altura)||0, Q=parseInt(it._qtd)||1;
+      _totalA += (L*A*Q)/1e6;
+      _totalQ += Q;
+    });
+    if(dims){
+      dims.textContent = (_totalA>0) ? (_totalQ+' peça(s) · '+_totalA.toFixed(2)+' m²') : '—';
+    }
+  } else {
+    if(_lbl) _lbl.textContent='Porta:';
+    if(dims){
+      if (Lv>0&&Av>0) dims.textContent=Math.round(Lv)+' x '+Math.round(Av)+' mm = '+(Lv/1000*Av/1000).toFixed(2)+' m2';
+      else dims.textContent='preencha largura e altura acima';
+    }
+  }
 
   var Mv=document.getElementById('plan-modelo').value;
   var isCava=(Mv==='01'||Mv==='02'||Mv==='06'||Mv==='07'||Mv==='08'||Mv==='22');

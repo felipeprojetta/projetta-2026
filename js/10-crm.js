@@ -1733,7 +1733,7 @@ window._crmGetCorOptions=function(mode){
      Altura de cada ripa = altura do revestimento. Tubo padrão PA-51X25.
    - Estrutura Alumínio: barras verticais a cada ~500mm + horizontais
      topo e base. Tubo escolhido pelo user (dropdown).
-   - Fita dupla face 3M VHB: ~12m por m² de chapa (linha dupla).
+   - Fita DFIX Transp 1,0mm×12mm×20m (PA-FITDF 12X20X1.0): ~12m por m² de chapa (linha dupla).
    - Silicone estrutural Dow Corning PRIME 995: ~25ml por m² chapa.
    Ainda preliminar — Felipe vai refinar as formulas depois.
 */
@@ -1772,9 +1772,9 @@ window.crmItemRevCalc=function(itemId){
     lines.push('<b>📋 Divisão de chapa:</b> '+detalhe+(Q>1?'  (por peça, total ×'+Q+')':''));
     lines.push('<b>🪟 Chapas ACM 4mm:</b> '+totChapas+' un');
     if(A>3200) lines.push('<span style="color:#c62828">⚠ Altura '+A+'mm excede 3200 — revisar divisão vertical</span>');
-    // Fita dupla face 3M VHB — estimativa 12m/m² (linhas paralelas a cada 300mm)
+    // Fita DFIX Transp 1,0mm×12mm×20m (PA-FITDF 12X20X1.0) — estimativa 12m/m² (linhas paralelas a cada 300mm)
     var fitaM=((L*A*Q)/1e6)*12;
-    lines.push('<b>🔖 Fita dupla face 3M VHB:</b> '+fitaM.toFixed(1)+' m');
+    lines.push('<b>🔖 Fita DFIX Transp 1,0mm×12mm×20m (PA-FITDF 12X20X1.0):</b> '+fitaM.toFixed(1)+' m');
     // Silicone estrutural Dow Corning 995 PRIME — 25ml/m²
     var silML=((L*A*Q)/1e6)*25;
     var silTubos=Math.ceil(silML/300); // tubos de 300ml
@@ -1817,7 +1817,7 @@ window.crmItemRevCalc=function(itemId){
                  _ripasPorChapa+' ripa(s) por chapa ('+_ripasLarg+' na largura × '+_ripasAlt+' na altura)');
       // Fita e silicone — mesma regra da CHAPA, usando area util do revestimento
       var _fitaRip=((L*A*Q)/1e6)*12;
-      lines.push('<b>🔖 Fita dupla face 3M VHB:</b> '+_fitaRip.toFixed(1)+' m');
+      lines.push('<b>🔖 Fita DFIX Transp 1,0mm×12mm×20m (PA-FITDF 12X20X1.0):</b> '+_fitaRip.toFixed(1)+' m');
       var _silMLRip=((L*A*Q)/1e6)*25;
       var _silTubRip=Math.ceil(_silMLRip/300);
       lines.push('<b>🧴 Silicone Dow Corning 995 PRIME:</b> '+_silMLRip.toFixed(0)+' ml ('+_silTubRip+' tubo(s) 300ml)');
@@ -3706,7 +3706,7 @@ window._orcRevRenderCalc=function(it){
     lines.push('<b>🔩 Tubos PA-51×12 (total):</b> '+totTubos5112Rip+' un × 500mm');
   }
   if(totTubos5112Rip>0){
-    lines.push('<b>🔖 Fita 3M VHB 12mm (total):</b> '+fitaRolos+' rolo'+(fitaRolos!==1?'s':'')+' × 20m <small style="color:#888">('+totTubos5112Rip+' tubos × 0.5m × 2 lados = '+fitaTubosM.toFixed(1)+'m)</small>');
+    lines.push('<b>🔖 Fita DFIX 1,0mm×12mm×20m (PA-FITDF 12X20X1.0) (total):</b> '+fitaRolos+' rolo'+(fitaRolos!==1?'s':'')+' × 20m <small style="color:#888">('+totTubos5112Rip+' tubos × 0.5m × 2 lados = '+fitaTubosM.toFixed(1)+'m)</small>');
   }
   // ⚠ Dowsil SUSPENSO até Felipe passar fórmula correta
   lines.push('<b>🧴 Dowsil 995:</b> <span style="color:#c62828;font-style:italic">⏳ aguardando fórmula</span>');
@@ -3815,15 +3815,18 @@ window._orcRevSyncPlanificador=function(){
       if(nInt>0) _addRow('REV '+revNum+' CHAPA', LARG_UTIL, A, nInt*Q);
       if(pedaco>0) _addRow('REV '+revNum+' SOBRA', Math.round(pedaco), A, Q);
     } else if(tipo==='RIPADO'){
+      // ★ Felipe 23/04: largura peça RIPA = 98mm (era 90). Suporte 2 lados ×2.
+      var _mult2L = (it.rev_2lados==='SIM' || it.ripado_2lados==='SIM') ? 2 : 1;
       var nRipas=Math.ceil(L/98);
-      if(nRipas>0) _addRow('REV '+revNum+' RIPA', 90, A, nRipas*Q);
+      if(nRipas>0) _addRow('REV '+revNum+' RIPA', 98, A, nRipas*Q*_mult2L);
       // ★ Felipe 23/04: CHAPA DE FUNDO do painel ripado (L×A).
       //   Mesma lógica de pre-cut da CHAPA: nInt chapas 1490×A + pedaço se sobra>5.
+      //   Se 2 lados: ×2 (uma chapa de fundo por face).
       var nIntFundo=Math.floor(L/LARG_UTIL);
       var sobraFundo=L-(nIntFundo*LARG_UTIL);
       var pedacoFundo=sobraFundo>5?sobraFundo:0;
-      if(nIntFundo>0) _addRow('REV '+revNum+' FUNDO', LARG_UTIL, A, nIntFundo*Q);
-      if(pedacoFundo>0) _addRow('REV '+revNum+' FUNDO S', Math.round(pedacoFundo), A, Q);
+      if(nIntFundo>0) _addRow('REV '+revNum+' FUNDO', LARG_UTIL, A, nIntFundo*Q*_mult2L);
+      if(pedacoFundo>0) _addRow('REV '+revNum+' FUNDO S', Math.round(pedacoFundo), A, Q*_mult2L);
     }
   });
   // ★ Felipe 22/04 v3 (fix accordion fechado): crmFazerOrcamento chama
