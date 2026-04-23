@@ -1614,14 +1614,42 @@ function _autoSelectAndRun(){
 
   function _tryMatchCor(){
     if(!planAcm||((!corName2)&&(!corCode2))) return false;
-    for(var i=0;i<planAcm.options.length;i++){
-      var optTxt=(planAcm.options[i].text||'').toUpperCase();
-      var optName=optTxt.split('·')[0].trim();
-      if((corName2 && (optName===corName2 || optTxt.indexOf(corName2)>=0)) ||
-         (corCode2 && optTxt.indexOf(corCode2.toUpperCase())>=0)){
-        planAcm.selectedIndex=i;
-        console.log('[AutoChapa] Cor ACM idx='+i+': '+planAcm.options[i].text);
-        return true;
+    // ★ Felipe 23/04: match em 3 PASSADAS (antes era OR — pegava qualquer PRO37373,
+    //   errando entre "WOOD CASTANHA" e "WOOD CASTANHA COSTAL" que compartilham
+    //   mesmo código PRO37373). Agora:
+    //   1. Passada 1: match EXATO pelo nome completo (optName === corName2)
+    //   2. Passada 2: substring do nome completo (optTxt.indexOf(corName2))
+    //   3. Passada 3 (fallback): só código PRO37373
+    if(corName2){
+      // Passada 1: exato
+      for(var i=0;i<planAcm.options.length;i++){
+        var optTxt=(planAcm.options[i].text||'').toUpperCase();
+        var optName=optTxt.split('·')[0].trim();
+        if(optName===corName2){
+          planAcm.selectedIndex=i;
+          console.log('[AutoChapa] Cor ACM idx='+i+' (match exato): '+planAcm.options[i].text);
+          return true;
+        }
+      }
+      // Passada 2: substring (nome completo dentro do texto)
+      for(var i=0;i<planAcm.options.length;i++){
+        var optTxt=(planAcm.options[i].text||'').toUpperCase();
+        if(optTxt.indexOf(corName2)>=0){
+          planAcm.selectedIndex=i;
+          console.log('[AutoChapa] Cor ACM idx='+i+' (match substring): '+planAcm.options[i].text);
+          return true;
+        }
+      }
+    }
+    // Passada 3: fallback pelo código
+    if(corCode2){
+      for(var i=0;i<planAcm.options.length;i++){
+        var optTxt=(planAcm.options[i].text||'').toUpperCase();
+        if(optTxt.indexOf(corCode2.toUpperCase())>=0){
+          planAcm.selectedIndex=i;
+          console.log('[AutoChapa] Cor ACM idx='+i+' (match código fallback): '+planAcm.options[i].text);
+          return true;
+        }
       }
     }
     return false;
@@ -1950,14 +1978,36 @@ function _selectChapaSim(sheetH, numChapas){
   // 3) Filtrar cores pela nova chapa
   if(typeof filtrarChapasACM==='function') filtrarChapasACM();
   // 4) Setar cor e qty
+  // ★ Felipe 23/04: priorizar MATCH por nome completo (carac-cor-ext.value) antes
+  //   do código. Duas cores podem ter mesmo código PRO37373 (ex: WOOD CASTANHA
+  //   vs WOOD CASTANHA COSTAL), então match só por código pegava a errada.
+  var _cen=(document.getElementById('carac-cor-ext')||{value:''}).value.trim().toUpperCase();
   var cc=_getCorCode();
   var pa=document.getElementById('plan-acm-cor');
-  if(pa && cc){
-    var cu=cc.toUpperCase();
-    for(var i=0;i<pa.options.length;i++){
-      if((pa.options[i].text||'').toUpperCase().indexOf(cu)>=0){pa.selectedIndex=i;break;}
+  function _setCorMatch(){
+    if(!pa) return;
+    // Passada 1: nome completo exato
+    if(_cen){
+      for(var i=0;i<pa.options.length;i++){
+        var optTxt=(pa.options[i].text||'').toUpperCase();
+        var optName=optTxt.split('·')[0].trim();
+        if(optName===_cen){pa.selectedIndex=i;return;}
+      }
+      // Passada 2: substring
+      for(var i=0;i<pa.options.length;i++){
+        var optTxt=(pa.options[i].text||'').toUpperCase();
+        if(optTxt.indexOf(_cen)>=0){pa.selectedIndex=i;return;}
+      }
+    }
+    // Passada 3: código fallback
+    if(cc){
+      var cu=cc.toUpperCase();
+      for(var i=0;i<pa.options.length;i++){
+        if((pa.options[i].text||'').toUpperCase().indexOf(cu)>=0){pa.selectedIndex=i;return;}
+      }
     }
   }
+  _setCorMatch();
   var qe=document.getElementById('plan-acm-qty');
   if(qe) qe.value=numChapas;
   window._chapasCalculadas=numChapas; // global para h-corte
@@ -1965,12 +2015,7 @@ function _selectChapaSim(sheetH, numChapas){
   planRun();
   // 6) Sync apos render
   setTimeout(function(){
-    if(pa && cc){
-      var cu=cc.toUpperCase();
-      for(var i=0;i<pa.options.length;i++){
-        if((pa.options[i].text||'').toUpperCase().indexOf(cu)>=0){pa.selectedIndex=i;break;}
-      }
-    }
+    _setCorMatch();
     if(qe) qe.value=numChapas;
     window._chapasCalculadas=numChapas;
     if(typeof _syncChapaToOrc==='function') _syncChapaToOrc();
@@ -1991,15 +2036,42 @@ function _selectChapaSim(sheetH, numChapas){
 function _autoSelectCorACM(){
   var corExtEl=document.getElementById('carac-cor-ext');
   if(!corExtEl||!corExtEl.value) return;
+  // ★ Felipe 23/04: usar NOME COMPLETO (value) antes do código (primeira palavra).
+  //   Antes só usava codeCor=split(' ')[0] = "PRO37373", que matchava na primeira
+  //   cor com esse código — errando se houver 2 cores com mesmo código
+  //   (ex: "WOOD CASTANHA" vs "WOOD CASTANHA COSTAL").
+  var corNomeFull=(corExtEl.value||'').trim().toUpperCase();
   var corNome=(corExtEl.options[corExtEl.selectedIndex]||{text:''}).text.toUpperCase();
   if(!corNome) return;
   var codeCor=corNome.split(' ')[0].split('-')[0].trim();
   if(codeCor.length<3) return;
   var planAcm=document.getElementById('plan-acm-cor');
   if(!planAcm) return;
+  // Passada 1: match exato pelo nome completo
+  if(corNomeFull){
+    for(var i=0;i<planAcm.options.length;i++){
+      var optTxt=(planAcm.options[i].text||'').toUpperCase();
+      var optName=optTxt.split('·')[0].trim();
+      if(optName===corNomeFull){
+        planAcm.selectedIndex=i;
+        if(typeof _syncChapaToOrc==='function') _syncChapaToOrc();
+        return;
+      }
+    }
+    // Passada 2: substring do nome completo
+    for(var i=0;i<planAcm.options.length;i++){
+      var optTxt=(planAcm.options[i].text||'').toUpperCase();
+      if(optTxt.indexOf(corNomeFull)>=0){
+        planAcm.selectedIndex=i;
+        if(typeof _syncChapaToOrc==='function') _syncChapaToOrc();
+        return;
+      }
+    }
+  }
+  // Passada 3: fallback pelo código
   for(var i=0;i<planAcm.options.length;i++){
     if((planAcm.options[i].text||'').toUpperCase().indexOf(codeCor)>=0){
-      planAcm.selectedIndex=i;  // ONLY selectedIndex
+      planAcm.selectedIndex=i;
       if(typeof _syncChapaToOrc==='function') _syncChapaToOrc();
       break;
     }
