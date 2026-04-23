@@ -3251,20 +3251,40 @@ function orcItemSalvarAtual(){
 function orcItemSelecionar(idx){
   if(idx < 0 || idx >= window._orcItens.length) return;
   
+  // ★ Felipe 23/04: log visual no console pra confirmar que clique disparou.
+  try{
+    console.log('%c[orcItemSelecionar] Item '+(idx+1)+' clicado',
+      'background:#e67e22;color:#fff;padding:2px 8px;border-radius:4px;font-weight:700');
+  }catch(e){}
+  
   // Save current item before switching
   if(window._orcItemAtual >= 0 && window._orcItemAtual !== idx){
     var cur = window._orcItens[window._orcItemAtual];
     if(cur && typeof captureFormData === 'function'){
       cur._formData = captureFormData();
-      cur.largura = parseInt((document.getElementById('largura')||{value:0}).value) || cur.largura;
-      cur.altura = parseInt((document.getElementById('altura')||{value:0}).value) || cur.altura;
+      // ★ Só salvar largura/altura do form se o item atual é PORTA (campos
+      //   'largura' e 'altura' são do card porta). Se é revestimento, usa
+      //   rev-orc-* que é salvo em _orcRevSync.
+      if(cur.tipo === 'porta_pivotante' || cur.tipo === 'porta_interna' || cur.tipo === 'fixo' || !cur.tipo){
+        cur.largura = parseInt((document.getElementById('largura')||{value:0}).value) || cur.largura;
+        cur.altura = parseInt((document.getElementById('altura')||{value:0}).value) || cur.altura;
+      }
     }
   }
   
   window._orcItemAtual = idx;
   var it = window._orcItens[idx];
   orcItensRender();
-  
+
+  // ★ Felipe 23/04: atualizar título do card PORTA (se visível)
+  var _portaTitle = document.getElementById('porta-card-title');
+  if(_portaTitle){
+    var _tipoLabel = 'Porta';
+    if(it.tipo === 'porta_interna') _tipoLabel = 'Porta Interna';
+    else if(it.tipo === 'fixo') _tipoLabel = 'Fixo';
+    _portaTitle.innerHTML = 'Características <span style="background:#003144;color:#fff;padding:1px 8px;border-radius:10px;font-size:10px;margin-left:6px">Item '+(idx+1)+'</span> <small style="color:#666;font-weight:400">'+_tipoLabel+'</small>';
+  }
+
   // ★ Felipe 22/04: alternar card "Caracteristicas da porta" ↔ "Caracteristicas
   //   do revestimento" conforme tipo do item. Para revestimento, tambem sincroniza
   //   peças manuais do planificador automaticamente (_orcRevSyncPlanificador).
@@ -3273,6 +3293,15 @@ function orcItemSelecionar(idx){
   var _cardRev = document.getElementById('card-carac-revestimento');
   if(_cardPorta) _cardPorta.style.display = _isRevSel ? 'none' : '';
   if(_cardRev)   _cardRev.style.display   = _isRevSel ? '' : 'none';
+  
+  // ★ Felipe 23/04: scroll suave até o card de características (UX: usuário
+  //   clica no item e vê imediatamente onde foram os dados).
+  setTimeout(function(){
+    var _targetCard = _isRevSel ? _cardRev : _cardPorta;
+    if(_targetCard && _targetCard.scrollIntoView){
+      _targetCard.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+  }, 100);
   if(_isRevSel){
     // ★ Felipe 22/04 v6: garantir que accordion do revestimento (rev-body)
     //   fique ABERTO ao selecionar item. Sem isso, clicar em outro item de
@@ -3438,6 +3467,12 @@ window._orcRevPopularCard=function(it){
   if(!it) return;
   var _v=function(id,val){var e=document.getElementById(id);if(e)e.value=(val==null?'':val);};
   var _t=function(id,txt){var e=document.getElementById(id);if(e)e.textContent=txt;};
+  // ★ Felipe 23/04: título do card mostra item selecionado ("Item 3" etc)
+  var _idxDisplay = (window._orcItemAtual != null) ? (window._orcItemAtual + 1) : '?';
+  var _titleEl = document.getElementById('rev-card-title');
+  if(_titleEl){
+    _titleEl.innerHTML = 'Características <span style="background:#27ae60;color:#fff;padding:1px 8px;border-radius:10px;font-size:10px;margin-left:6px">Item '+_idxDisplay+'</span> <small style="color:#666;font-weight:400">Revestimento</small>';
+  }
   _v('rev-orc-largura', it.largura);
   _v('rev-orc-altura', it.altura);
   _v('rev-orc-qtd', it.qtd||1);
