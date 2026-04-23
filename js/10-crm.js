@@ -6837,3 +6837,85 @@ window.crmGerarRelatorio=function(){
   setTimeout(function(){try{w.print();}catch(e){}},500);
   }catch(err){alert('Erro ao gerar relatório: '+err.message);console.error(err);}
 };
+
+
+// ===============================================================
+// [Felipe 24/04] NOVA crmOrcamentoPronto MINIMALISTA
+// Sobrescreve a versao antiga acima. Fluxo novo:
+//   1. Disparar gerarCustoTotal (recalcula tudo)
+//   2. Ler valor-tabela e valor-faturamento do _calcResult
+//   3. PATCH no Supabase (so 2 colunas do card)
+//   4. Atualizar card local + re-render + mover stage pra Pronto
+// SEM: salvar snapshot, salvar revisao, salvar no localStorage, memorial, freeze, lock
+// ===============================================================
+window.crmOrcamentoPronto = function(){
+  var id = window._crmOrcCardId;
+  if(!id){ console.warn('[orc-pronto] sem card vinculado'); return; }
+
+  // Disparar recalculo completo
+  if(typeof gerarCustoTotal === 'function'){
+    try { gerarCustoTotal(); } catch(e){ console.warn('gerarCustoTotal:',e); }
+  }
+
+  // Aguardar 600ms pra _calcResult popular
+  setTimeout(function(){
+    // Ler valores do _calcResult (fonte canonica)
+    var tab = 0, fat = 0;
+    if(window._calcResult){
+      tab = parseFloat(window._calcResult._tabTotal) || 0;
+      fat = parseFloat(window._calcResult._fatTotal) || 0;
+    }
+    // Fallback: ler do DOM
+    if(tab === 0 && fat === 0){
+      var _parseNum = function(el){
+        if(!el) return 0;
+        var s = (el.textContent || el.innerText || '').replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.');
+        return parseFloat(s) || 0;
+      };
+      tab = _parseNum(document.getElementById('m-tab')) || _parseNum(document.getElementById('d-tab'));
+      fat = _parseNum(document.getElementById('m-fat')) || _parseNum(document.getElementById('d-fat'));
+    }
+
+    if(tab === 0 && fat === 0){
+      alert('Valores ainda nao calculados.\n\nClique em "Gerar Custo Total" primeiro e aguarde o calculo terminar.');
+      return;
+    }
+
+    // Salvar no banco (2 colunas + auditoria)
+    window._SAVE_MIN.salvarValoresNoCard(id, tab, fat).then(function(ok){
+      if(!ok){
+        alert('Erro ao salvar no banco. Abra o console (F12) para detalhes.');
+        return;
+      }
+
+      // Atualizar card local
+      try {
+        var data = (typeof cLoad === 'function') ? cLoad() : [];
+        var idx = data.findIndex(function(o){ return o.id === id; });
+        if(idx >= 0){
+          data[idx].tabela = tab;
+          data[idx].faturamento = fat;
+          data[idx].valor = fat;
+          var stages = (typeof gStages === 'function') ? gStages() : [];
+          var prontoStage = stages.find(function(s){ return s.id === 's3b'; }) ||
+                            stages.find(function(s){ return /pronto|feito|enviar/i.test(s.label); });
+          if(prontoStage) data[idx].stage = prontoStage.id;
+          data[idx].updatedAt = new Date().toISOString();
+          var agpEl = document.getElementById('num-agp');
+          if(agpEl && agpEl.value.trim()) data[idx].agp = agpEl.value.trim();
+          var resEl = document.getElementById('numprojeto');
+          if(resEl && resEl.value.trim()) data[idx].reserva = resEl.value.trim();
+          if(typeof cSave === 'function') cSave(data);
+        }
+      } catch(e){ console.warn('[orc-pronto] atualizar card local:',e); }
+
+      // Re-render + fechar modal
+      if(typeof crmFecharModal === 'function') try { crmFecharModal(); } catch(e){}
+      if(typeof crmRenderAll === 'function') try { crmRenderAll(); } catch(e){}
+
+      var brl = function(v){ return 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+      alert('Orcamento salvo no card:\n\nTabela:      ' + brl(tab) + '\nFaturamento: ' + brl(fat));
+    });
+  }, 600);
+};
+console.log('[10-crm] nova crmOrcamentoPronto minimalista ativa');
