@@ -3504,14 +3504,19 @@ window._revCalcAcessoriosGlobal = function(){
     }
   });
 
-  // ── Fita Dupla Face 12mm: área(×12m/m²) + tubos(×0.5m×2lados) ÷ 20m/rolo
-  var fitaTot = areaTotGeral * 12;
+  // ── Fita Dupla Face 12mm: APENAS fita entre tubo e ripa (fixação).
+  //   Felipe 23/04: "a quantidade de tubos que temos x comprimento tubo x 2
+  //   e se divide por 20 pois é quantos mts vem por rolo de fita".
+  //   SEM termo de área — ao contrário da porta, no revestimento a fita NÃO
+  //   cola a chapa na parede inteira (isso é função do silicone). A fita só
+  //   fixa a ripa no tubo, então o consumo é proporcional aos tubos.
   var fitaTubosM = totTubos5112Rip * 0.5 * 2;
-  var fitaTotComTubos = fitaTot + fitaTubosM;
-  var fitaRolos = Math.ceil(fitaTotComTubos / 20);
+  var fitaRolos = Math.ceil(fitaTubosM / 20);
 
-  // ── Dowsil 995 (sachê 591ml): rendimento 1 sachê ≈ 8m de cordão.
-  //   Pra revestimento, estimamos 25ml/m² → converte pra sachês.
+  // ── Dowsil 995 (sachê 591ml): FÓRMULA PROVISÓRIA
+  //   Felipe 23/04: "o dowsil não é essa conta, te darei mais tarde o cálculo".
+  //   Por enquanto mantém estimativa ~25ml/m² até Felipe passar a fórmula.
+  //   TODO: substituir pela fórmula correta quando Felipe enviar.
   var silMLTot = areaTotGeral * 25;
   var silSachets = Math.ceil(silMLTot / 591);
 
@@ -3527,7 +3532,7 @@ window._revCalcAcessoriosGlobal = function(){
       preco: getPreco('PA-FITDF 12X20X1.0'),
       apl: 'FAB',
       grp: 'FITA DUPLA FACE',
-      obs: fitaTotComTubos.toFixed(1)+'m ÷ 20m = '+fitaRolos+' rolo(s)'
+      obs: totTubos5112Rip+' tubos × 0.5m × 2 = '+fitaTubosM.toFixed(1)+'m ÷ 20m = '+fitaRolos+' rolo(s)'
     });
   }
   if(silSachets>0){
@@ -3631,16 +3636,14 @@ window._orcRevRenderCalc=function(it){
     });
   });
 
-  var fitaTot=areaTotGeral*12;
   var silMLTot=areaTotGeral*25;
-  var silTubTot=Math.ceil(silMLTot/300);
-  // ★ Felipe 23/04: Fita dupla face ESPECÍFICA pros tubos PA-51×25×1.5 das
-  //   ripas. Fórmula: (qtd_tubos × comp_tubo_em_metros × 2 lados) / 20m/rolo.
-  //   Ex: 68 tubos × 0.5m × 2 = 68m / 20 = 3.4 → 4 rolos.
-  //   Soma ao fitaTot (área) pra o custo/material aparecer consolidado.
+  var silTubTot=Math.ceil(silMLTot/591); // sachês 591ml (código PA-DOWSIL 995 ESTR SH)
+  // ★ Felipe 23/04 (atualizado): Fita dupla face 12mm vai APENAS entre tubo
+  //   e ripa. Fórmula: (qtd_tubos × 0.5m × 2 lados) / 20m/rolo.
+  //   NÃO incluir área de revestimento (diferente da porta, onde cola chapa
+  //   em toda a face — aqui a colagem da chapa/parede é por silicone, não fita).
   var fitaTubosM=totTubos5112Rip*0.5*2; // metros lineares
-  var fitaTotComTubos=fitaTot+fitaTubosM;
-  var fitaRolos=Math.ceil(fitaTotComTubos/20);
+  var fitaRolos=Math.ceil(fitaTubosM/20);
 
   var lines=[];
   lines.push('<b>📐 Área total do orçamento:</b> '+areaTotGeral.toFixed(2)+' m²  <small style="color:#888">('+revs.length+' item(s) de revestimento)</small>');
@@ -3658,15 +3661,13 @@ window._orcRevRenderCalc=function(it){
   }
   // ★ 23/04: Tubos PA-51×25×1.5 × 500mm para fixação das ripas (mesmo da porta)
   if(totTubos5112Rip>0){
-    lines.push('<b>🔩 Tubos PA-51×25 (total):</b> '+totTubos5112Rip+' un × 500mm');
+    lines.push('<b>🔩 Tubos PA-51×12 (total):</b> '+totTubos5112Rip+' un × 500mm');
   }
   if(totTubos5112Rip>0){
-    var _linhasFita='<b>🔖 Fita 3M VHB (total):</b> '+fitaRolos+' rolo'+(fitaRolos!==1?'s':'')+' × 20m <small style="color:#888">('+fitaTot.toFixed(1)+'m área + '+fitaTubosM.toFixed(1)+'m tubos = '+fitaTotComTubos.toFixed(1)+'m)</small>';
-    lines.push(_linhasFita);
-  } else {
-    lines.push('<b>🔖 Fita 3M VHB (total):</b> '+fitaRolos+' rolo'+(fitaRolos!==1?'s':'')+' × 20m <small style="color:#888">('+fitaTot.toFixed(1)+'m)</small>');
+    lines.push('<b>🔖 Fita 3M VHB 12mm (total):</b> '+fitaRolos+' rolo'+(fitaRolos!==1?'s':'')+' × 20m <small style="color:#888">('+totTubos5112Rip+' tubos × 0.5m × 2 lados = '+fitaTubosM.toFixed(1)+'m)</small>');
   }
-  lines.push('<b>🧴 Silicone Dow 995 PRIME (total):</b> '+silMLTot.toFixed(0)+' ml ('+silTubTot+' tubo(s) 300ml)');
+  // ⚠ Dowsil: fórmula provisória — Felipe vai passar cálculo correto
+  lines.push('<b>🧴 Dowsil 995 (total):</b> '+silTubTot+' sachê'+(silTubTot!==1?'s':'')+' × 591ml <small style="color:#888">('+silMLTot.toFixed(0)+'ml estimado — regra provisória)</small>');
 
   // Breakdown compacto (apenas se mais de 1 item, senao ja viu tudo acima)
   if(breakdown.length>1){
