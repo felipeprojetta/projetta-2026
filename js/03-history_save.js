@@ -1609,9 +1609,11 @@ function resetToDefaults(){
     $('com-gest').value=0;
     $('lucro-alvo').value=45;
     var _mkEl=document.getElementById('markup-desc');
-    if(_mkEl){_mkEl.value=0;_mkEl.dataset.manual='';}
+    // ★ Felipe 23/04: keepManual='1' em intl pra calc() NÃO sobrescrever com
+    //   auto (markup-auto=20 quando rt=0). Isso forca markup=0 fixo em intl.
+    if(_mkEl){_mkEl.value=0;_mkEl.dataset.manual='1';}
     var _dcEl=document.getElementById('desconto');
-    if(_dcEl){_dcEl.value=0;_dcEl.dataset.manual='';}
+    if(_dcEl){_dcEl.value=0;_dcEl.dataset.manual='1';}
     // Marcar flag pra _aplicarDefaultsIntl não reaplicar
     window._intlDefaultsAplicado=true;
     try{ console.log('%c[resetToDefaults] Card intl detectado — defaults INTL aplicados (imp=0 rep=1 rt=0 gest=0 lucro=45 markup=0 desconto=0)', 'background:#6a1b9a;color:#fff;padding:2px 6px;border-radius:3px;font-weight:700'); }catch(e){}

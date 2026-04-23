@@ -360,12 +360,12 @@ function onRepChange(){
   document.getElementById('rep-comm').textContent=r.comm;
   if(info)info.style.display='flex';
   var cr=document.getElementById('com-rep'),cg=document.getElementById('com-gest');
-  // ★ Felipe 20/04: NAO sobrescrever comissoes quando obra e internacional.
-  //   Em internacional, os defaults sao: com-rep=1, com-gest=0 (setados em
-  //   toggleInstQuem). Se o usuario selecionar um representante aqui, nao
-  //   pode voltar aos 6/1 nacionais.
+  // ★ Felipe 20/04 + 23/04: NAO sobrescrever comissoes quando obra e internacional.
+  //   Checa TANTO inst-quem quanto _crmScope (fonte da verdade do card CRM).
+  //   Se inst-quem ainda nao foi setado pra INTERNACIONAL mas o card é intl,
+  //   o check de inst-quem falharia e voltaria aos 6/1 nacionais.
   var _instQuemVal = (document.getElementById('inst-quem')||{value:''}).value;
-  var _ehIntl = _instQuemVal === 'INTERNACIONAL';
+  var _ehIntl = _instQuemVal === 'INTERNACIONAL' || window._crmScope === 'internacional';
   if(!_ehIntl){
     if(r.nome==='PROJETTA PORTAS EXCLUSIVAS LTDA'){if(cr)cr.value=6;if(cg)cg.value=1;}
     else{if(cr)cr.value=r.comm;if(cg)cg.value=1;}
@@ -488,12 +488,14 @@ function toggleInstQuem(){
 window._aplicarDefaultsIntl = function(){
   if(window._intlDefaultsAplicado) return;
   window._intlDefaultsAplicado = true;
-  var _setVal = function(id, novoVal){
+  var _setVal = function(id, novoVal, keepManual){
     var el = document.getElementById(id);
     if(el){
       el.value = novoVal;
-      // Limpar flag manual pra permitir que campo volte a ser editado
-      if(el.dataset) el.dataset.manual = '';
+      // ★ Felipe 23/04: se keepManual=true, MARCA como manual pra calc()
+      //   não sobrescrever com auto (ex: markup auto=20 quando rt=0).
+      //   Senão limpa flag manual pra permitir que campo volte a ser editado.
+      if(el.dataset) el.dataset.manual = keepManual ? '1' : '';
       try { el.dispatchEvent(new Event('input', {bubbles:true})); } catch(e){}
     }
   };
@@ -502,8 +504,10 @@ window._aplicarDefaultsIntl = function(){
   _setVal('com-rt',      '0');
   _setVal('com-gest',    '0');
   _setVal('lucro-alvo',  '45');
-  _setVal('markup-desc', '0');
-  _setVal('desconto',    '0');
+  // markup-desc e desconto precisam keepManual=true senão calc() sobrescreve
+  // pra 20 (auto) porque rt=0.
+  _setVal('markup-desc', '0', true);
+  _setVal('desconto',    '0', true);
   if(typeof calc === 'function') try { calc(); } catch(e){}
   console.log('[intl] defaults financeiros aplicados: imp=0 rep=1 rt=0 gest=0 lucro=45 markup=0 desconto=0');
 };
