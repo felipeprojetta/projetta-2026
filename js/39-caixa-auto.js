@@ -55,9 +55,13 @@ function crmCaixaAutoCalc(){
   // Nao tem dados ainda — nao sobrescreve com zero
   if(qtdItens === 0 || maxLargura <= 0 || maxAltura <= 0) return false;
 
-  var caixaAltura    = Math.round(maxLargura + 350);   // largura_vao + 100 + 250
-  var caixaLargura   = Math.round(maxAltura + 250);    // altura_vao + 250
-  var caixaEspessura = (qtdItens === 1) ? 600 : 0;
+  // Felipe 24/04: arredondar pra cima no proximo multiplo de 50
+  // (caixa de madeira: arredondar pra cima garante que peca cabe com folga)
+  function roundUp50(x){ return Math.ceil(x / 50) * 50; }
+
+  var caixaAltura    = roundUp50(maxLargura + 350);    // largura_vao + 100 + 250
+  var caixaLargura   = roundUp50(maxAltura + 250);     // altura_vao + 250
+  var caixaEspessura = (qtdItens === 1) ? 600 : 0;     // ja e multiplo de 50
 
   var elA = $('crm-o-cif-caixa-a');
   var elL = $('crm-o-cif-caixa-l');
@@ -77,8 +81,8 @@ window.crmCaixaAutoCalc = crmCaixaAutoCalc;
 function markReadonly(){
   var ids = ['crm-o-cif-caixa-a','crm-o-cif-caixa-l','crm-o-cif-caixa-e'];
   var titles = {
-    'crm-o-cif-caixa-a': 'Auto: largura do vao + 100 + 250',
-    'crm-o-cif-caixa-l': 'Auto: altura do vao + 250',
+    'crm-o-cif-caixa-a': 'Auto: largura do vao + 350, arredondado pra cima em multiplos de 50mm',
+    'crm-o-cif-caixa-l': 'Auto: altura do vao + 250, arredondado pra cima em multiplos de 50mm',
     'crm-o-cif-caixa-e': 'Auto: 600 se 1 item, 0 se mais itens'
   };
   ids.forEach(function(id){
