@@ -1784,6 +1784,18 @@ window.crmItemRevCalc=function(itemId){
     var totRipas=nRipas*Q;
     lines.push('<b>📋 Ripas (90mm cada):</b> '+nRipas+' un × '+A+'mm de altura'+(Q>1?'  (por peça, total ×'+Q+')':''));
     lines.push('<b>🪵 Total ripas ACM:</b> '+totRipas+' un');
+    // ★ Felipe 23/04: CHAPA DE FUNDO (L×A). Divide L por 1490 util + pedaço se sobra>5.
+    var _nIntFundo=Math.floor(L/1490);
+    var _sobraFundo=L-(_nIntFundo*1490);
+    var _pedFundo=_sobraFundo>5?_sobraFundo:0;
+    var _chFundoUn=(_nIntFundo+(_pedFundo>0?1:0))*Q;
+    var _detFundo=_nIntFundo+'×(1490×'+A+')'+(_pedFundo>0?' + 1×('+Math.round(_pedFundo)+'×'+A+')':'');
+    lines.push('<b>🪟 Chapa ACM fundo (atrás das ripas):</b> '+_chFundoUn+' un · '+_detFundo);
+    // ★ Felipe 23/04: TUBOS PA-51×12 de 500mm p/ fixação.
+    //   Qty = ceil(altura/1000) por ripa × total de ripas.
+    var _nTubosPorRipa=Math.max(1, Math.ceil(A/1000));
+    var _totTubos=_nTubosPorRipa*totRipas;
+    lines.push('<b>🔩 Tubos PA-51×12 (500mm):</b> '+_totTubos+' un <small style="color:#888">('+_nTubosPorRipa+' por ripa × '+totRipas+' ripas)</small>');
     // ★ Felipe 22/04: calcular quantas CHAPAS saem dessas ripas.
     //   Chapa 1500mm largura, util 1490mm. Ripas de 90mm cabem 16 na largura
     //   (1490/90=16,55 → 16 ripas inteiras). Altura da chapa precisa comportar
@@ -1800,7 +1812,7 @@ window.crmItemRevCalc=function(itemId){
       var _ripasAlt=Math.floor(_chapaAlt/A);
       var _ripasPorChapa=_ripasLarg*_ripasAlt;
       var _nChapas=Math.ceil(totRipas/_ripasPorChapa);
-      lines.push('<b>🪟 Chapas ACM 4mm (1500×'+_chapaAlt+'mm):</b> '+_nChapas+' un · '+
+      lines.push('<b>🪟 Chapas ACM p/ produzir ripas (1500×'+_chapaAlt+'mm):</b> '+_nChapas+' un · '+
                  _ripasPorChapa+' ripa(s) por chapa ('+_ripasLarg+' na largura × '+_ripasAlt+' na altura)');
       // Fita e silicone — mesma regra da CHAPA, usando area util do revestimento
       var _fitaRip=((L*A*Q)/1e6)*12;
@@ -3411,6 +3423,8 @@ window._orcRevRenderCalc=function(it){
 
   // Acumuladores
   var areaTotGeral=0, totChapasACM=0, totRipas=0, totChapasRipado=0;
+  var totChapasFundoRip=0;     // ★ 23/04: chapa ACM de fundo do ripado (L×A)
+  var totTubos5112Rip=0;       // ★ 23/04: tubos PA-51X12 500mm (ceil(A/1000) × ripas × Q)
   var breakdown=[]; // linha compacta por item
 
   revs.forEach(function(r,i){
@@ -3425,12 +3439,27 @@ window._orcRevRenderCalc=function(it){
       var nRipasItem=Math.ceil(L/90);
       var ripasTotItem=nRipasItem*Q;
       totRipas+=ripasTotItem;
+      // ★ Felipe 23/04: CHAPA DE FUNDO do painel ripado (L×A).
+      //   As ripas de ACM são coladas sobre uma chapa ACM inteira (painel de fundo).
+      //   Usa a mesma lógica de CHAPA: divide L por 1490 (largura útil) + pedaço se sobra>5.
+      var nIntFundo=Math.floor(L/1490);
+      var sobraFundo=L-(nIntFundo*1490);
+      var pedFundo=sobraFundo>5?sobraFundo:0;
+      var chFundoItem=(nIntFundo+(pedFundo>0?1:0))*Q;
+      totChapasFundoRip+=chFundoItem;
+      // ★ Felipe 23/04: TUBOS PA-51X12 de 500mm p/ fixação das ripas.
+      //   Qty = ceil(altura/1000) por ripa × total de ripas (já com Q).
+      //   Ex: 1490×4000, Q=1 → 4 × 17 = 68 tubos.
+      var nTubosPorRipa=Math.max(1, Math.ceil(A/1000));
+      var tubosItem=nTubosPorRipa*ripasTotItem;
+      totTubos5112Rip+=tubosItem;
+      // Mantém cálculo de chapas que PRODUZEM as ripas (processo de fabricação)
       var _chAltR=5000; if(A>4990) _chAltR=6000; if(A>5990) _chAltR=7000;
       if(A<=6990){
         var _rPChapaR=Math.floor(1490/90)*Math.floor(_chAltR/A);
         var _nChR=Math.ceil(ripasTotItem/_rPChapaR);
         totChapasRipado+=_nChR;
-        chInfo=ripasTotItem+' ripas / '+_nChR+' ch 1500×'+_chAltR;
+        chInfo=ripasTotItem+' ripas + '+chFundoItem+' ch fundo + '+tubosItem+' tubos 51×12';
       } else {
         chInfo=ripasTotItem+' ripas <span style="color:#c62828">(A>6990 excede)</span>';
       }
@@ -3458,11 +3487,20 @@ window._orcRevRenderCalc=function(it){
   var lines=[];
   lines.push('<b>📐 Área total do orçamento:</b> '+areaTotGeral.toFixed(2)+' m²  <small style="color:#888">('+revs.length+' item(s) de revestimento)</small>');
 
-  if(totChapasACM>0){
-    lines.push('<b>🪟 Chapas ACM 4mm (total):</b> '+totChapasACM+' un');
+  // ★ 23/04: Chapas ACM consolidadas = parede lisa + fundo do ripado
+  var totChapasACMFinal=totChapasACM+totChapasFundoRip;
+  if(totChapasACMFinal>0){
+    var _deta=[];
+    if(totChapasACM>0) _deta.push(totChapasACM+' parede');
+    if(totChapasFundoRip>0) _deta.push(totChapasFundoRip+' fundo ripado');
+    lines.push('<b>🪟 Chapas ACM 4mm (total):</b> '+totChapasACMFinal+' un'+(_deta.length>1?'  <small style="color:#888">('+_deta.join(' + ')+')</small>':''));
   }
   if(totRipas>0){
     lines.push('<b>🪵 Ripas 90mm (total):</b> '+totRipas+' un'+(totChapasRipado>0?'  <small style="color:#888">(saem de '+totChapasRipado+' chapa(s) ACM)</small>':''));
+  }
+  // ★ 23/04: Tubos PA-51×12 × 500mm para fixação das ripas
+  if(totTubos5112Rip>0){
+    lines.push('<b>🔩 Tubos PA-51×12 (total):</b> '+totTubos5112Rip+' un × 500mm');
   }
   lines.push('<b>🔖 Fita 3M VHB (total):</b> '+fitaTot.toFixed(1)+' m');
   lines.push('<b>🧴 Silicone Dow 995 PRIME (total):</b> '+silMLTot.toFixed(0)+' ml ('+silTubTot+' tubo(s) 300ml)');
@@ -3568,6 +3606,13 @@ window._orcRevSyncPlanificador=function(){
     } else if(tipo==='RIPADO'){
       var nRipas=Math.ceil(L/90);
       if(nRipas>0) _addRow('REV '+revNum+' RIPA', 90, A, nRipas*Q);
+      // ★ Felipe 23/04: CHAPA DE FUNDO do painel ripado (L×A).
+      //   Mesma lógica de pre-cut da CHAPA: nInt chapas 1490×A + pedaço se sobra>5.
+      var nIntFundo=Math.floor(L/LARG_UTIL);
+      var sobraFundo=L-(nIntFundo*LARG_UTIL);
+      var pedacoFundo=sobraFundo>5?sobraFundo:0;
+      if(nIntFundo>0) _addRow('REV '+revNum+' FUNDO', LARG_UTIL, A, nIntFundo*Q);
+      if(pedacoFundo>0) _addRow('REV '+revNum+' FUNDO S', Math.round(pedacoFundo), A, Q);
     }
   });
   // ★ Felipe 22/04 v3 (fix accordion fechado): crmFazerOrcamento chama
