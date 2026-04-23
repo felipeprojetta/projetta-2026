@@ -1130,19 +1130,23 @@ function plnPieceTable(pieces, placed) {
   // Ordenar maiores dimensões (área) primeiro
   var _portaPecas=['TAMPA MAIOR','TAMPA MAIOR 01','TAMPA MAIOR 02','TAMPA MAIOR 03','CAVA','TAMPA BOR CAVA','TAMPA CAVA','TAMPA MENOR','ACAB LAT 1','ACAB LAT 2','ACAB LAT Z','TAMPA FRISO','FRISO','FRISO VERT','DIST BOR FV','RIPAS'];
   function _isPortaPiece(lbl){var base=lbl.split('[')[0].split('EXT')[0].split('INT')[0].trim();if(base.indexOf('MOLD ')===0)return true;for(var k=0;k<_portaPecas.length;k++){if(base===_portaPecas[k])return true;}return false;}
+  // ★ Felipe 23/04 v5: LOG DIAGNÓSTICO no topo — se não aparecer no console,
+  //   plnPieceTable nao está sendo chamado (há outra rota renderizando a tabela).
+  try{
+    console.log('%c[plnPieceTable v5] '+pieces.length+' peças → classificando LOCAL por LABEL',
+      'background:#003144;color:#fff;padding:2px 6px;border-radius:3px;font-weight:700');
+  }catch(e){}
+  var _dbgLocais={PORTA:0,PORTAL:0,REVESTIMENTO:0,FIXO:0};
   var _pSorted=pieces.slice().map(function(p,idx){
     var _isP=_isPortaPiece(p.label);
-    // ★ Felipe 23/04 v4 DEFENSIVO: prefixo do LABEL vence SEMPRE sobre _tipo.
-    //   Label "REV ..." → REVESTIMENTO. Label "FX ..." → FIXO.
-    //   Isso garante que mesmo se algum caminho criar peça sem _tipo correto
-    //   (ex: manual piece adicionada pelo usuário com nome REV), o LOCAL
-    //   final é o que o NOME indica. Se não tem prefixo conhecido, cai no
-    //   _tipo, e se nem isso, no heurístico _isPortaPiece.
+    // ★ Felipe 23/04 v5 DEFENSIVO: prefixo do LABEL vence SEMPRE sobre _tipo.
+    //   UPPERCASE para ser case-insensitive por segurança.
     var _lbl = (typeof p.label==='string') ? p.label : '';
-    var _itemTipo = p._tipo || '';
-    if(_lbl.indexOf('REV ')===0){
+    var _lblUC = _lbl.toUpperCase();
+    var _itemTipo = (p._tipo || '').toLowerCase();
+    if(_lblUC.indexOf('REV ')===0){
       p._local = 'REVESTIMENTO';
-    } else if(_lbl.indexOf('FX ')===0){
+    } else if(_lblUC.indexOf('FX ')===0){
       p._local = 'FIXO';
     } else if(_itemTipo === 'revestimento'){
       p._local = 'REVESTIMENTO';
@@ -1154,6 +1158,7 @@ function plnPieceTable(pieces, placed) {
       // Fallback final: heurística pelo nome da peça
       p._local = _isP ? 'PORTA' : 'PORTAL';
     }
+    _dbgLocais[p._local]=(_dbgLocais[p._local]||0)+1;
     p._localOrd = p._local==='PORTA' ? 0
                 : p._local==='PORTAL' ? 1
                 : p._local==='REVESTIMENTO' ? 2
@@ -1261,6 +1266,23 @@ function plnPieceTable(pieces, placed) {
   if(pesoRev>0)    _sumRow('Chapas REVESTIMENTO:',pesoRev,'#f3e5f5','#6a1b9a');
   if(pesoFixo>0)   _sumRow('Chapas FIXO:',pesoFixo,'#e3f2fd','#1565c0');
   _sumRow('TOTAL CHAPAS:',pesoTotal,'#003144','#fff');
+  // ★ Felipe 23/04 v5: log resumo pra diagnóstico
+  try{
+    console.log('%c[plnPieceTable v5] classificação final: '+
+      'PORTA='+_dbgLocais.PORTA+' PORTAL='+_dbgLocais.PORTAL+
+      ' REVESTIMENTO='+_dbgLocais.REVESTIMENTO+' FIXO='+_dbgLocais.FIXO+
+      ' | pesos: porta='+pesoPorta.toFixed(1)+' portal='+pesoPortal.toFixed(1)+
+      ' rev='+pesoRev.toFixed(1)+' fixo='+pesoFixo.toFixed(1),
+      'background:#003144;color:#ffb;padding:2px 6px;border-radius:3px;font-weight:700');
+    // Se há peças classificadas como PORTAL e algumas devem ser REV, logar as 3 primeiras
+    if(_dbgLocais.PORTAL > 0){
+      var _amostra = _pSorted.filter(function(p){return p._local==='PORTAL';}).slice(0,3).map(function(p){
+        return p.label+' (_tipo='+(p._tipo||'???')+')';
+      });
+      console.log('%c[plnPieceTable v5] amostra PORTAL: '+_amostra.join(' | '),
+        'color:#e65100;font-weight:600');
+    }
+  }catch(e){}
 }
 
 /* ── UI ─────────────────────────────────────────────── */

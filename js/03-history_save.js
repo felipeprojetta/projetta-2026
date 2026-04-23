@@ -1579,22 +1579,53 @@ function resetToDefaults(){
   $('custo-hora').value=110;
   // instalação — vazio exceto valores fixos
   ['dias','pessoas','km','carros','munk','terceiros','pedagio','inst-terceiros-valor','inst-terceiros-transp'].forEach(f=>{var el=$(f);if(el){el.value='';el.dataset.auto='';el.dataset.manual='';}});
-  var _iqEl=document.getElementById('inst-quem');if(_iqEl){_iqEl.value='PROJETTA';toggleInstQuem();}
+  // ★ Felipe 23/04: CRÍTICO — se o card CRM é internacional, não sobrescrever
+  //   com defaults nacionais. Caso contrário resetToDefaults vai anular o
+  //   _aplicarDefaultsIntl() que rodou antes (imp=0, rep=1, rt=0, gest=0,
+  //   lucro=45, markup=0, desconto=0) e Felipe vê imp=18, rep=7, rt=5.
+  var _isIntlCard = (window._crmScope === 'internacional');
+  var _iqEl=document.getElementById('inst-quem');
+  if(_iqEl){
+    if(_isIntlCard){
+      _iqEl.value='INTERNACIONAL';
+      // toggleInstQuem cuida de reaplicar defaults intl em cascata
+      if(typeof toggleInstQuem==='function') toggleInstQuem();
+    } else {
+      _iqEl.value='PROJETTA';
+      if(typeof toggleInstQuem==='function') toggleInstQuem();
+    }
+  }
   var _dEl=document.getElementById('desconto');if(_dEl)_dEl.dataset.manual='';
   $('diaria').value=550;
   $('hotel-dia').value=350;
   $('alim').value=90;
   // parâmetros financeiros — defaults
   $('overhead').value=5;
-  $('impostos').value=18;
-  $('com-rep').value=7;
-  $('com-rt').value=5;
-  $('com-gest').value=1;
-  $('lucro-alvo').value=15;   // margem inicial sempre 15%
-  var _mkEl=document.getElementById('markup-desc');
-  if(_mkEl){_mkEl.value=20;_mkEl.dataset.manual='';} // markup auto 20%
-  var _dcEl=document.getElementById('desconto');
-  if(_dcEl){_dcEl.value=20;_dcEl.dataset.manual='';} // desconto auto 20%
+  if(_isIntlCard){
+    // Defaults INTERNACIONAIS (Felipe 23/04): imp=0, rep=1, rt=0, gest=0, lucro=45, markup=0, desconto=0
+    $('impostos').value=0;
+    $('com-rep').value=1;
+    $('com-rt').value=0;
+    $('com-gest').value=0;
+    $('lucro-alvo').value=45;
+    var _mkEl=document.getElementById('markup-desc');
+    if(_mkEl){_mkEl.value=0;_mkEl.dataset.manual='';}
+    var _dcEl=document.getElementById('desconto');
+    if(_dcEl){_dcEl.value=0;_dcEl.dataset.manual='';}
+    // Marcar flag pra _aplicarDefaultsIntl não reaplicar
+    window._intlDefaultsAplicado=true;
+    try{ console.log('%c[resetToDefaults] Card intl detectado — defaults INTL aplicados (imp=0 rep=1 rt=0 gest=0 lucro=45 markup=0 desconto=0)', 'background:#6a1b9a;color:#fff;padding:2px 6px;border-radius:3px;font-weight:700'); }catch(e){}
+  } else {
+    $('impostos').value=18;
+    $('com-rep').value=7;
+    $('com-rt').value=5;
+    $('com-gest').value=1;
+    $('lucro-alvo').value=15;   // margem inicial sempre 15%
+    var _mkEl=document.getElementById('markup-desc');
+    if(_mkEl){_mkEl.value=20;_mkEl.dataset.manual='';} // markup auto 20%
+    var _dcEl=document.getElementById('desconto');
+    if(_dcEl){_dcEl.value=20;_dcEl.dataset.manual='';} // desconto auto 20%
+  }
   // representante e cep
   var repSel=$('rep-sel');if(repSel)repSel.selectedIndex=0;
   var cep=$('cep-cliente');if(cep)cep.value='';
