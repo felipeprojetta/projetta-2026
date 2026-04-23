@@ -3887,6 +3887,15 @@ window.crmFazerOrcamento=function(id){
   //   independente de quem vai instalar (SEM/PROJETTA/TERCEIROS).
   window._crmScope = opp.scope || 'nacional';
   if(document.body) document.body.setAttribute('data-scope', window._crmScope);
+  // ★ Felipe 23/04: aplicar defaults financeiros intl quando scope='internacional'.
+  //   Antes só aplicava quando user mudava inst-quem='INTERNACIONAL'. Agora
+  //   que scope vem do CRM (botão "Internacional" no modal Editar
+  //   Oportunidade), precisa aplicar aqui tb. Reseta flag pra garantir
+  //   que aplica (cada card carregado redefine o estado financeiro).
+  if(window._crmScope === 'internacional'){
+    window._intlDefaultsAplicado = false; // força reaplicar
+    if(typeof window._aplicarDefaultsIntl === 'function') window._aplicarDefaultsIntl();
+  }
   // ★ Felipe 23/04: dados de logistica internacional (incoterm, caixa, fretes).
   //   Lidos do card e usados na proposta pra gerar bloco FOB/CIF com breakdown
   //   de caixa de madeira fumigada + frete terrestre + frete maritimo (se CIF).

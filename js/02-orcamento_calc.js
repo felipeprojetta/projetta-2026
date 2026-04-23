@@ -38,27 +38,32 @@ function calc(){
   }
   if(window._snapshotLock) return;
   var W=n('largura')/1000,H=n('altura')/1000,m2=W*H;
-  // ★ Felipe 22/04 v4 (fix revestimento-only): quando o orcamento tem SO
-  //   itens revestimento (sem porta/fixo), os inputs gerais 'largura' e
-  //   'altura' (que sao da porta) ficam vazios → W=H=0 e o guard abaixo
-  //   zerava tudo e retornava. Resultado: aba Levantamento populava
-  //   11 chapas ACM = R$ 18.085,40 corretamente, mas 'RESULTADO — PORTA'
-  //   ficava R$ 0,00 porque calc() nunca consolidava subFab/Tab/Fat.
+  // ★ Felipe 23/04 v4: SE há items no CRM card, m² do painel Resultado
+  //   deve ser a SOMA de TODOS os items (not só W×H do 1º). Antes só
+  //   fazia a soma quando W=H=0 (rev-only com inputs gerais vazios), mas
+  //   se o sistema populava os inputs com o 1º item (ex 1295×3658), o
+  //   Custo/m² dividia pelo 4.74 m² em vez de 85.27 m² total.
   //
-  //   Detectar cenario revestimento-only: usar somatorio de areas dos
-  //   revestimentos como m2 de referencia e setar W/H ficticios (sqrt(m2))
-  //   pra evitar divisoes por zero a jusante. subAcm vai vir do fab-acm-tbody
-  //   ja populado pelo planificador → subFab = subAcm → markup/impostos rodam
-  //   normalmente sobre esse valor.
+  //   Regra final:
+  //     - Se _orcItens com pelo menos 1 item válido → m² = Σ L×A×Q
+  //     - Senão → m² = W×H (inputs gerais)
+  //   _revOnly=true se tem só revestimento (sem porta/fixo) — usado
+  //   pra outros branches (ex: esconder campos de porta).
   var _revOnly=false;
-  if(W<=0||H<=0){
-    if(window._orcItens && window._orcItens.length>0){
-      var _revsChk=window._orcItens.filter(function(it){return it.tipo==='revestimento' && (it.largura||0)>0 && (it.altura||0)>0;});
-      var _hasPortaOuFixo=window._orcItens.some(function(it){return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';});
-      if(_revsChk.length>0 && !_hasPortaOuFixo){
-        _revOnly=true;
-        m2=_revsChk.reduce(function(s,it){return s+((it.largura||0)*(it.altura||0)*(it.qtd||1)/1e6);},0);
-        if(m2>0){ W=Math.sqrt(m2); H=Math.sqrt(m2); }
+  if(window._orcItens && window._orcItens.length>0){
+    var _itemsValidos=window._orcItens.filter(function(it){return (it.largura||0)>0 && (it.altura||0)>0;});
+    if(_itemsValidos.length>0){
+      var _m2Soma = _itemsValidos.reduce(function(s,it){
+        return s + ((it.largura||0)*(it.altura||0)*(it.qtd||1)/1e6);
+      }, 0);
+      if(_m2Soma>0){
+        m2 = _m2Soma;
+        // Detectar rev-only pra flags auxiliares
+        var _hasPortaOuFixo = window._orcItens.some(function(it){return it.tipo==='porta_pivotante' || it.tipo==='porta_interna' || it.tipo==='fixo';});
+        var _hasRev = window._orcItens.some(function(it){return it.tipo==='revestimento';});
+        _revOnly = _hasRev && !_hasPortaOuFixo;
+        // Se rev-only sem largura/altura geral, setar W/H fictícios (sqrt)
+        if(_revOnly && (W<=0 || H<=0)){ W=Math.sqrt(m2); H=Math.sqrt(m2); }
       }
     }
   }

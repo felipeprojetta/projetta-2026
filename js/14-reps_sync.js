@@ -456,43 +456,57 @@ function toggleInstQuem(){
   if(intl_div) intl_div.style.display=(v==='INTERNACIONAL')?'':'none';
   if(v==='INTERNACIONAL'){
     instIntlFetchCambio();
-
-    // ★ Felipe 20/04: defaults financeiros pra obras internacionais:
-    //   Impostos 0 · Com. Repres. 1 · Com. Arquiteto 0 · Com. Gestao 0
-    //   Lucro alvo 45 · Markup desconto 0 · Desconto negociado 0
-    // Aplica APENAS se o usuario ainda nao marcou manualmente qualquer
-    // valor diferente do default nacional (evita sobrescrever entrada
-    // ja feita). Dispara um flag _intlDefaultsAplicado por card pra
-    // nao aplicar duas vezes se o usuario mudar inst-quem→outro→voltar.
-    if(!window._intlDefaultsAplicado){
-      window._intlDefaultsAplicado = true;
-      var _setVal = function(id, novoVal){
-        var el = document.getElementById(id);
-        if(el){ el.value = novoVal; }
-      };
-      _setVal('impostos',    '0');
-      _setVal('com-rep',     '1');
-      _setVal('com-rt',      '0');
-      _setVal('com-gest',    '0');
-      _setVal('lucro-alvo',  '45');
-      _setVal('markup-desc', '0');
-      _setVal('desconto',    '0');
-      // Disparar 'input' em cada um pra calc() e handlers reagirem
-      ['impostos','com-rep','com-rt','com-gest','lucro-alvo','markup-desc','desconto'].forEach(function(id){
-        var el = document.getElementById(id);
-        if(el){
-          try { el.dispatchEvent(new Event('input', {bubbles:true})); } catch(e){}
-        }
-      });
-      if(typeof calc === 'function') try { calc(); } catch(e){}
-      console.log('[intl] defaults financeiros aplicados: imp=0 rep=1 rt=0 gest=0 lucro=45 markup=0 desconto=0');
-    }
+    // ★ Felipe 20/04: aplicar defaults financeiros intl (função separada)
+    if(typeof window._aplicarDefaultsIntl === 'function') window._aplicarDefaultsIntl();
   } else {
     // Reset flag quando sair de INTERNACIONAL — assim se voltar depois
     // os defaults reaplicam
     window._intlDefaultsAplicado = false;
   }
 }
+
+/* ★ Felipe 23/04: aplicar defaults financeiros de obras internacionais.
+ *   Antes estava inline dentro de toggleInstQuem (só rodava se user
+ *   mudasse inst-quem='INTERNACIONAL'). Agora é função separada chamada
+ *   tanto por toggleInstQuem quanto por crmFazerOrcamento (quando o
+ *   card é carregado com scope='internacional' — botão Internacional
+ *   do modal Editar Oportunidade).
+ *
+ *   Felipe 23/04: "ja te passei a logica e parametros do internacional
+ *   mais uma vez voce deletou fica tudo zerado exceto comissao
+ *   representante 1 e margem de lucro 45%".
+ *
+ *   Defaults:
+ *     Impostos     = 0    (antes 18)
+ *     Com. Rep.    = 1    (antes 6)
+ *     Com. RT      = 0    (antes 5)
+ *     Com. Gestão  = 0    (antes 1)
+ *     Lucro alvo   = 45   (antes 15)
+ *     Markup desc. = 0    (antes 15)
+ *     Desc. neg.   = 0    (antes 15)
+ *   Overhead fica como está (depende da obra). */
+window._aplicarDefaultsIntl = function(){
+  if(window._intlDefaultsAplicado) return;
+  window._intlDefaultsAplicado = true;
+  var _setVal = function(id, novoVal){
+    var el = document.getElementById(id);
+    if(el){
+      el.value = novoVal;
+      // Limpar flag manual pra permitir que campo volte a ser editado
+      if(el.dataset) el.dataset.manual = '';
+      try { el.dispatchEvent(new Event('input', {bubbles:true})); } catch(e){}
+    }
+  };
+  _setVal('impostos',    '0');
+  _setVal('com-rep',     '1');
+  _setVal('com-rt',      '0');
+  _setVal('com-gest',    '0');
+  _setVal('lucro-alvo',  '45');
+  _setVal('markup-desc', '0');
+  _setVal('desconto',    '0');
+  if(typeof calc === 'function') try { calc(); } catch(e){}
+  console.log('[intl] defaults financeiros aplicados: imp=0 rep=1 rt=0 gest=0 lucro=45 markup=0 desconto=0');
+};
 
 // ── Buscar na Decolar.com ──
 function instIntlBuscarDecolar(){
