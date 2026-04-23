@@ -77,14 +77,14 @@ function buildBreakdownLCL(input, cfg){
   var lines=[];
 
   var oceanUsdCbm = ov('ocean_freight_usd_cbm', rota.usd_cbm);
-  lines.push({key:'ocean_freight', desc:'Ocean Freight LCL', section:'Frete maritimo',
+  lines.push({key:'ocean_freight_usd_cbm', desc:'Ocean Freight LCL', section:'Frete maritimo',
               moeda:'USD', base:oceanUsdCbm, mult:cbm, multLabel:'x '+cbm.toFixed(3)+' m3',
               brl:oceanUsdCbm*cbm*cambio, tipo:'por_m3', editable:true});
 
-  lines.push({key:'oes', desc:'Origin Equipament Surcharge', section:'Taxas de origem',
+  lines.push({key:'oes_usd', desc:'Origin Equipament Surcharge', section:'Taxas de origem',
               moeda:'USD', base:ov('oes_usd', tf.origin_equipament_surcharge_usd), mult:1,
               brl:ov('oes_usd', tf.origin_equipament_surcharge_usd)*cambio, tipo:'fixo', editable:true});
-  lines.push({key:'bl', desc:'B/L Fee', section:'Taxas de origem',
+  lines.push({key:'bl_fee_usd', desc:'B/L Fee', section:'Taxas de origem',
               moeda:'USD', base:ov('bl_fee_usd', tf.bl_fee_usd), mult:1,
               brl:ov('bl_fee_usd', tf.bl_fee_usd)*cambio, tipo:'fixo', editable:true});
   var thcRate = ov('thc_usd_cbm', rota.thc_override_usd_per_cbm || tf.thc_origin_usd_per_cbm);
@@ -95,17 +95,17 @@ function buildBreakdownLCL(input, cfg){
   lines.push({key:'loading_usd_cbm', desc:'Loading Fee (TEC)'+(rota.loading_override_usd_per_cbm?' [rota]':''), section:'Taxas de origem',
               moeda:'USD', base:loadRate, mult:cbm, multLabel:'x '+cbm.toFixed(3)+' m3',
               brl:loadRate*cbm*cambio, tipo:'por_m3', editable:true});
-  lines.push({key:'vgm', desc:'VGM (Verified Gross Mass)', section:'Taxas de origem',
+  lines.push({key:'vgm_usd', desc:'VGM (Verified Gross Mass)', section:'Taxas de origem',
               moeda:'USD', base:ov('vgm_usd', tf.vgm_usd), mult:1,
               brl:ov('vgm_usd', tf.vgm_usd)*cambio, tipo:'fixo', editable:true});
   var scannerRate = ov('scanner_usd_cbm', tf.scanner_usd_per_cbm);
   lines.push({key:'scanner_usd_cbm', desc:'Scanner / X-Ray', section:'Taxas de origem',
               moeda:'USD', base:scannerRate, mult:cbm, multLabel:'x '+cbm.toFixed(3)+' m3',
               brl:scannerRate*cbm*cambio, tipo:'por_m3', editable:true});
-  lines.push({key:'handling', desc:'Handling', section:'Taxas de origem',
+  lines.push({key:'handling_usd', desc:'Handling', section:'Taxas de origem',
               moeda:'USD', base:ov('handling_usd', tf.handling_usd || 80), mult:1,
               brl:ov('handling_usd', tf.handling_usd || 80)*cambio, tipo:'fixo', editable:true});
-  lines.push({key:'ams', desc:'Transmissao A.M.S.', section:'Taxas de origem',
+  lines.push({key:'ams_usd', desc:'Transmissao A.M.S.', section:'Taxas de origem',
               moeda:'USD', base:ov('ams_usd', tf.transmissao_ams_usd || 50), mult:1,
               brl:ov('ams_usd', tf.transmissao_ams_usd || 50)*cambio, tipo:'fixo', editable:true});
   if(input.oversize > 0){
@@ -116,17 +116,17 @@ function buildBreakdownLCL(input, cfg){
 
   var ex = rota.extras_usd || {};
   if(ex.customs_clearence){
-    lines.push({key:'customs', desc:'Customs Clearence', section:'Destino '+rota.destino_pais,
+    lines.push({key:'customs_usd', desc:'Customs Clearence', section:'Destino '+rota.destino_pais,
                 moeda:'USD', base:ov('customs_usd', ex.customs_clearence), mult:1,
                 brl:ov('customs_usd', ex.customs_clearence)*cambio, tipo:'fixo', editable:true});
   }
   if(ex.handling){
-    lines.push({key:'handling_dest', desc:'Handling (Destino)', section:'Destino '+rota.destino_pais,
+    lines.push({key:'handling_dest_usd', desc:'Handling (Destino)', section:'Destino '+rota.destino_pais,
                 moeda:'USD', base:ov('handling_dest_usd', ex.handling), mult:1,
                 brl:ov('handling_dest_usd', ex.handling)*cambio, tipo:'fixo', editable:true});
   }
   if(ex.transmissao_ams){
-    lines.push({key:'ams_dest', desc:'A.M.S. Destino', section:'Destino '+rota.destino_pais,
+    lines.push({key:'ams_dest_usd', desc:'A.M.S. Destino', section:'Destino '+rota.destino_pais,
                 moeda:'USD', base:ov('ams_dest_usd', ex.transmissao_ams), mult:1,
                 brl:ov('ams_dest_usd', ex.transmissao_ams)*cambio, tipo:'fixo', editable:true});
   }
@@ -152,7 +152,7 @@ function buildBreakdownFCL(input, cfg, modal){
   lines.push({key:'ocean_freight_flat_usd', desc:'Ocean Freight '+contLbl, section:'Frete maritimo',
               moeda:'USD', base:oceanFlat, mult:1,
               brl:oceanFlat*cambio, tipo:'fixo', editable:true});
-  lines.push({key:'lacre', desc:'LACRE / SEAL', section:'Frete maritimo',
+  lines.push({key:'lacre_usd', desc:'LACRE / SEAL', section:'Frete maritimo',
               moeda:'USD', base:ov('lacre_usd', tf.lacre_seal_usd || 11), mult:1,
               brl:ov('lacre_usd', tf.lacre_seal_usd || 11)*cambio, tipo:'fixo', editable:true});
 
@@ -162,33 +162,33 @@ function buildBreakdownFCL(input, cfg, modal){
   lines.push({key:'bl_brl', desc:'B/L Fee', section:'Taxas de origem',
               moeda:'BRL', base:ov('bl_brl', tf.bl_fee_brl || 700), mult:1,
               brl:ov('bl_brl', tf.bl_fee_brl || 700), tipo:'fixo', editable:true});
-  lines.push({key:'tss', desc:'Terminal Security Surcharge', section:'Taxas de origem',
+  lines.push({key:'tss_usd', desc:'Terminal Security Surcharge', section:'Taxas de origem',
               moeda:'USD', base:ov('tss_usd', tf.terminal_security_surcharge_usd || 38), mult:1,
               brl:ov('tss_usd', tf.terminal_security_surcharge_usd || 38)*cambio, tipo:'fixo', editable:true});
-  lines.push({key:'vgm', desc:'VGM (Verified Gross Mass)', section:'Taxas de origem',
+  lines.push({key:'vgm_usd', desc:'VGM (Verified Gross Mass)', section:'Taxas de origem',
               moeda:'USD', base:ov('vgm_usd', tf.vgm_usd || 26), mult:1,
               brl:ov('vgm_usd', tf.vgm_usd || 26)*cambio, tipo:'fixo', editable:true});
-  lines.push({key:'local_log', desc:'Local Logistics Fee', section:'Taxas de origem',
+  lines.push({key:'local_log_usd', desc:'Local Logistics Fee', section:'Taxas de origem',
               moeda:'USD', base:ov('local_log_usd', tf.local_logistics_fee_usd || 50), mult:1,
               brl:ov('local_log_usd', tf.local_logistics_fee_usd || 50)*cambio, tipo:'fixo', editable:true});
-  lines.push({key:'handling', desc:'Handling', section:'Taxas de origem',
+  lines.push({key:'handling_usd', desc:'Handling', section:'Taxas de origem',
               moeda:'USD', base:ov('handling_usd', tf.handling_usd || 80), mult:1,
               brl:ov('handling_usd', tf.handling_usd || 80)*cambio, tipo:'fixo', editable:true});
-  lines.push({key:'ams', desc:'Transmissao A.M.S.', section:'Taxas de origem',
+  lines.push({key:'ams_usd', desc:'Transmissao A.M.S.', section:'Taxas de origem',
               moeda:'USD', base:ov('ams_usd', tf.transmissao_ams_usd || 50), mult:1,
               brl:ov('ams_usd', tf.transmissao_ams_usd || 50)*cambio, tipo:'fixo', editable:true});
 
   var psBRLDefault = (rota.extras_brl||{}).pre_stacking || tf.pre_stacking_brl_default || 0;
   var psBRL = ov('pre_stacking_brl', psBRLDefault);
   if(psBRL > 0){
-    lines.push({key:'pre_stacking', desc:'Pre-Stacking (retirada container + estufagem)', section:'Operacao container',
+    lines.push({key:'pre_stacking_brl', desc:'Pre-Stacking (retirada container + estufagem)', section:'Operacao container',
                 moeda:'BRL', base:psBRL, mult:1,
                 brl:psBRL, tipo:'fixo', editable:true});
   }
 
   var exU = rota.extras_usd || {};
   if(exU.customs_clearence){
-    lines.push({key:'customs', desc:'Customs Clearence', section:'Destino '+rota.destino_pais,
+    lines.push({key:'customs_usd', desc:'Customs Clearence', section:'Destino '+rota.destino_pais,
                 moeda:'USD', base:ov('customs_usd', exU.customs_clearence), mult:1,
                 brl:ov('customs_usd', exU.customs_clearence)*cambio, tipo:'fixo', editable:true});
   }
@@ -215,7 +215,7 @@ function calcFrete(input, cfg){
 
   var imp = cfg.frete_impostos_v1;
   var cambio = bd.cambio;
-  var oceanLine = bd.lines.filter(function(l){return l.key==='ocean_freight'||l.key==='ocean_freight_flat_usd';})[0];
+  var oceanLine = bd.lines.filter(function(l){return l.key==='ocean_freight_usd_cbm'||l.key==='ocean_freight_flat_usd';})[0];
   var oceanBRL = oceanLine ? oceanLine.brl : 0;
   var dapLine = bd.lines.filter(function(l){return l.key==='dap';})[0];
   var dapBRL = dapLine ? dapLine.brl : 0;
