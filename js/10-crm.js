@@ -834,8 +834,12 @@ function buildCard(o,st,isFazerOrc){
       if(it.largura&&it.altura) parts.push(it.largura+'×'+it.altura);
       if(it.tipo==='porta_interna') parts.push('INT '+(it.sistema_pi||'GIRO'));
       if(it.modelo) parts.push('Mod.'+it.modelo);
-      if(it.folhas&&it.folhas!=='1') parts.push(it.folhas+'fls');
-      if(it.folhas_pi&&it.folhas_pi!=='1') parts.push(it.folhas_pi+'fls');
+      // Felipe 24/04: folhas visiveis sempre (1 folha ou N folhas)
+      var _flhIt = it.folhas || it.folhas_pi;
+      if(_flhIt){
+        var _flhN = parseInt(_flhIt,10);
+        if(_flhN >= 1) parts.push(_flhN === 1 ? '1 folha' : _flhN + ' folhas');
+      }
       if(it.fech_dig&&it.fech_dig!==''&&it.fech_dig!=='Nenhuma') parts.push('🔒'+it.fech_dig);
       if(it.cor_ext) parts.push('🎨'+it.cor_ext);
       if(it.cor_macico) parts.push('🔷'+it.cor_macico);
@@ -845,7 +849,11 @@ function buildCard(o,st,isFazerOrc){
   } else {
     var _singleParts=[];
     if(o.modelo) _singleParts.push('Mod. '+o.modelo);
-    if(o.folhas&&o.folhas!=='1') _singleParts.push(o.folhas+' folhas');
+    // Felipe 24/04: folhas visiveis sempre (1 folha ou N folhas)
+    if(o.folhas){
+      var _flhSn = parseInt(o.folhas,10);
+      if(_flhSn >= 1) _singleParts.push(_flhSn === 1 ? '1 folha' : _flhSn + ' folhas');
+    }
     if(o.cor_ext) _singleParts.push('🎨'+o.cor_ext);
     if(o.cor_macico) _singleParts.push('🔷'+o.cor_macico);
     if(_singleParts.length) html+='<div class="crm-card-sub" style="font-size:10px;font-weight:600">'+_singleParts.join(' · ')+'</div>';
