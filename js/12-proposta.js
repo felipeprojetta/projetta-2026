@@ -824,9 +824,14 @@ function populateProposta(){
   var _temCaixaValor = _cifCaixaL>0 && _cifCaixaA>0 && _cifCaixaE>0 && _cifCaixaTaxa>0;
   var _temFreteT     = _cifFreteT>0;
   var _temFreteM     = _cifFreteM>0;
-  var _incluirCaixa      = (!_incEXW) && _temCaixaValor;
-  var _incluirTerrestre  = (!_incEXW) && _temFreteT;
-  var _incluirMaritimo   = (!_incEXW) && _temFreteM;
+  // ★ FIX Felipe 23/04: frete/caixa SO em proposta INTERNACIONAL.
+  //   Proposta nacional nao tem Frete Uberlandia->Santos (esse e o porto de embarque
+  //   maritimo, so faz sentido em exportacao). O commit 451af8d4 anterior removeu o
+  //   gate _ISINTL/_isIntlProp pra consertar um bug no intl, mas com isso nacionais
+  //   com valores residuais de frete salvos passaram a exibir essas linhas.
+  var _incluirCaixa      = _isIntlProp && (!_incEXW) && _temCaixaValor;
+  var _incluirTerrestre  = _isIntlProp && (!_incEXW) && _temFreteT;
+  var _incluirMaritimo   = _isIntlProp && (!_incEXW) && _temFreteM;
 
   window._propLangCtx = {
     lang: _PROP_LANG,
