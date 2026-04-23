@@ -360,6 +360,18 @@ window.switchTab=function(tabId){
     _renderAdminPerms();
     try{cadRenderRepsWeiku();}catch(e){}
   }
+  // ★ Felipe 23/04: ao abrir aba Proposta Comercial, chamar populateProposta
+  //   pra re-gerar com dados atuais. Sem isso, aba mostra HTML velho do
+  //   snapshot (com "PROJETTA DOOR BY WEIKU", imagem de porta, MODEL/OPENING
+  //   etc) mesmo em card de revestimento.
+  if(tabId==='proposta'){
+    try{
+      if(typeof window.populateProposta==='function'){
+        console.log('%c[switchTab proposta] populateProposta chamado','background:#27ae60;color:#fff;padding:2px 6px;border-radius:3px');
+        window.populateProposta();
+      }
+    }catch(e){ console.warn('[switchTab proposta] populateProposta falhou:', e); }
+  }
 };
 
 // Periodically update online list

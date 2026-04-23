@@ -524,11 +524,27 @@ window.MemorialV2.restaurar = function(dados, options){
   }
 
   // tab-proposta: o capturar salva o innerHTML inteiro (só se > 500 chars).
-  // Injeta direto porque a aba Proposta é template-based e o HTML salvo
-  // tem tudo necessário (pg1, pg2, pg3).
-  if(dados.propostaHTML){
+  // ★ Felipe 23/04 v5: NÃO restaurar propostaHTML se há items NOVOS no card.
+  //   O HTML salvo é do snapshot antigo — com título "PROJETTA DOOR BY WEIKU",
+  //   imagem de porta, campos MODEL/OPENING/LEAVES/LOCK etc. Em rev-only,
+  //   isso é tudo errado. Se temos items, a proposta DEVE ser re-gerada
+  //   via populateProposta() pra refletir o tipo correto (rev/fixo/porta).
+  var _temItensNovosProp = (window._orcItens && window._orcItens.length>0) ||
+                           (window._mpItens && window._mpItens.length>0);
+  if(dados.propostaHTML && !_temItensNovosProp){
     var tabProp = document.getElementById('tab-proposta');
     if(tabProp) tabProp.innerHTML = dados.propostaHTML;
+  } else if(dados.propostaHTML && _temItensNovosProp){
+    try{
+      console.log('%c[MemorialV2] propostaHTML IGNORADO — card tem items novos, proposta vai re-gerar no switchTab(proposta)',
+        'background:#6a1b9a;color:#fff;padding:2px 6px;border-radius:3px;font-weight:700');
+    }catch(e){}
+    // Forçar re-gerar proposta se função disponível (timing depois da inicialização)
+    setTimeout(function(){
+      try{
+        if(typeof window.populateProposta==='function') window.populateProposta();
+      }catch(e){ console.warn('[MemorialV2] populateProposta falhou:', e); }
+    }, 400);
   }
 
   // ★ 5C) Aplicar toggleInstQuem pra mostrar/esconder os blocos corretos
