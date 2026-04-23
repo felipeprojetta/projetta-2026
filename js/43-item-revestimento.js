@@ -145,11 +145,83 @@ window.PROJETTA.revestimento = {
   // ═══════════════════════════════════════════════════════════════
   // CHAPAS (Etapa 4 — ainda fachada)
   // ═══════════════════════════════════════════════════════════════
+  /**
+   * Chapas do REVESTIMENTO (Etapa 4 — Felipe 24/04).
+   * Lógica AUTOCONTIDA. Zero dependência de DOM ou outros módulos.
+   *
+   * CHAPA (liso):
+   *   nInt = floor(L / 1490)
+   *   sobra = L - (nInt × 1490)
+   *   Se sobra > 5mm: +1 peça pedaço × A
+   *   Total = (nInt + pedaco?) × Q peças de ACM 4mm
+   *
+   * RIPADO:
+   *   a) Chapa de FUNDO: mesma divisão do CHAPA liso
+   *   b) Chapas pra produzir RIPAS:
+   *      totRipas = ceil(L/98) × Q
+   *      chapaAlt = 5000 (A<=4990) | 6000 (A<=5990) | 7000 (A<=6990)
+   *      ripasPorChapa = 15 × floor(chapaAlt / A)
+   *      nChapasRipa = ceil(totRipas / ripasPorChapa)
+   */
   calcularChapas: function(item){
-    if(typeof window._revCalcularChapas === 'function'){
-      return window._revCalcularChapas(item) || [];
+    if(!item || item.tipo !== 'revestimento') return [];
+    var L = parseFloat(item.largura) || 0;
+    var A = parseFloat(item.altura) || 0;
+    var Q = parseInt(item.qtd) || 1;
+    if(L <= 0 || A <= 0) return [];
+
+    var revTipo = String(item.rev_tipo || 'CHAPA').toUpperCase();
+    var cor     = item.cor_ext || item.cor_chapa || null;
+    var mat     = item.material || 'ACM_4MM';
+    var UTIL    = 1490; // largura util da chapa ACM
+
+    var out = [];
+    var _pushChapa = function(label, w, h, qtd){
+      if(w <= 0 || h <= 0 || qtd <= 0) return;
+      out.push({
+        label:      label,
+        w:          Math.round(w),
+        h:          Math.round(h),
+        qtd:        qtd,
+        material:   mat,
+        cor:        cor,
+        _origem:    'revestimento',
+        _item_id:   item.id || null,
+        _rev_tipo:  revTipo
+      });
+    };
+
+    // ─── CHAPA (liso) ou FUNDO do RIPADO ───
+    var nInt   = Math.floor(L / UTIL);
+    var sobra  = L - (nInt * UTIL);
+    var pedaco = sobra > 5 ? sobra : 0;
+
+    var labelPrincipal = revTipo === 'RIPADO' ? 'CHAPA FUNDO REV' : 'CHAPA REV';
+    if(nInt > 0)  _pushChapa(labelPrincipal,        UTIL,   A, nInt * Q);
+    if(pedaco>0)  _pushChapa(labelPrincipal+' (pedaco)', pedaco, A, 1 * Q);
+
+    // ─── RIPADO: chapas pra produzir as ripas ───
+    if(revTipo === 'RIPADO'){
+      var nRipas   = Math.ceil(L / 98);
+      var totRipas = nRipas * Q;
+
+      var chapaAlt = 0;
+      if(A <= 4990)       chapaAlt = 5000;
+      else if(A <= 5990)  chapaAlt = 6000;
+      else if(A <= 6990)  chapaAlt = 7000;
+
+      if(chapaAlt > 0){
+        var ripasLarg     = Math.floor(UTIL / 98); // 15
+        var ripasAlt      = Math.floor(chapaAlt / A);
+        var ripasPorChapa = ripasLarg * ripasAlt;
+        if(ripasPorChapa > 0){
+          var nChapasRipa = Math.ceil(totRipas / ripasPorChapa);
+          _pushChapa('CHAPA PRODUZIR RIPAS (1500x'+chapaAlt+')', 1500, chapaAlt, nChapasRipa);
+        }
+      }
     }
-    return [];
+
+    return out;
   },
 
   camposVisiveis: function(cfg){
