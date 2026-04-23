@@ -361,6 +361,37 @@ function _calcularDadosPerfis(L, H, nFolhas, barraMM) {
       lh:'90/90 L', obs:'BRUTO'});
   }
 
+  // ── REVESTIMENTO RIPADO: tubos PA-51X25X1.5 de fixação das ripas de parede ─
+  // ★ Felipe 23/04: quando o orçamento tem revestimentos ripados (parede),
+  //   cada ripa precisa de tubos horizontais de 500mm a cada 1000mm de altura.
+  //   Qty por item = ceil(L/90) ripas × ceil(A/1000) tubos × qtd. Agrupa no
+  //   mesmo código PA-51X25X1.5 da porta — somam no mesmo groupRes e aparecem
+  //   como 1 único bloco no visual do Levantamento de Perfis.
+  var _revRip = (window._orcItens||[]).filter(function(it){
+    return it.tipo==='revestimento' && it.rev_tipo==='RIPADO' && (it.largura||0)>0 && (it.altura||0)>0;
+  });
+  if(_revRip.length > 0){
+    var _totalTubosRev = 0;
+    var _descDetalhes = [];
+    _revRip.forEach(function(it, idx){
+      var _Lr = parseFloat(it.largura)||0;
+      var _Ar = parseFloat(it.altura)||0;
+      var _Qr = parseInt(it.qtd)||1;
+      if(!_Lr || !_Ar) return;
+      var _nRipas = Math.ceil(_Lr/90);
+      var _nTubosRipa = Math.max(1, Math.ceil(_Ar/1000));
+      var _qtyItem = _nRipas * _nTubosRipa * _Qr;
+      _totalTubosRev += _qtyItem;
+      _descDetalhes.push('REV'+(idx+1)+':'+_qtyItem);
+    });
+    if(_totalTubosRev > 0){
+      cuts.push({code:'PA-51X25X1.5',
+        desc:'FIXAÇÃO RIPAS REVESTIMENTO ('+_descDetalhes.join(' ')+')',
+        compMM:500, qty:_totalTubosRev, pintado:false, secao:'FOLHA',
+        barLenMM:barraMM, lh:'90/90 L', obs:'BRUTO REV'});
+    }
+  }
+
   cuts.forEach(function(c){if(!c.perf){c.perf=getPerf(c.code);c.kgM=c.perf?c.perf.kg:0;}else{c.kgM=c.perf.kg||0;}});
 
   // ── Regra de emenda: corte > barLen-10mm → split em peças ──────────────────

@@ -2170,24 +2170,24 @@ function recalcPerfisAuto(){
   var barraMM=(parseFloat((document.getElementById('pf-barra-m')||{value:6}).value)||6)*1000;
   var nFolhas=parseInt((document.getElementById('folhas-porta')||{value:1}).value)||1;
 
-  // ★ Felipe 23/04: Tubos PA-51X25X1.5 de revestimentos ripados.
-  //   Calcula SEMPRE (independe de ter porta ou não). Se orçamento
-  //   é só revestimento, vira o único custo de perfil. Se tem porta,
-  //   soma ao custo dos perfis da porta.
-  var tubosRev=_calcCustoTubosRev();
-
   // Caso 1: SÓ revestimento (sem porta). _calcularDadosPerfis não roda.
-  //   Escrevemos direto o custo dos tubos (zero se não houver ripados).
+  //   ★ Felipe 23/04: usa helper standalone _calcCustoTubosRev() pra computar
+  //   os tubos PA-51X25X1.5 do revestimento ripado e escrever em fab-mat-perfis.
   if(L<=0||H<=0){
+    var tubosRev=_calcCustoTubosRev();
     _fabSetSysValue('mat', tubosRev.custoPerfil||0);
     _fabSetSysValue('pin', 0);
     window._lastPerfisTotal = tubosRev.custoPerfil||0;
+    window._lastTubosRevData = tubosRev;
     try{ syncFabPerfisTotal(); }catch(e){}
     try{ calc(); }catch(e){}
     return;
   }
 
-  // Caso 2: tem porta. Calcula perfis da porta + soma tubos do rev.
+  // Caso 2: tem porta. _calcularDadosPerfis agora já injeta os tubos do
+  //   revestimento ripado diretamente no cuts/groupRes (mesmo código
+  //   PA-51X25X1.5 que os suportes de porta ripada). O totalMat abaixo
+  //   já inclui o custo dos tubos do revestimento — NÃO somar de novo.
   try {
     var d=_calcularDadosPerfis(L,H,nFolhas,barraMM);
     if(d.error) return;
@@ -2200,9 +2200,6 @@ function recalcPerfisAuto(){
       totalPin+=r.custoPintura||0;
     });
 
-    // ★ Soma tubos do revestimento ripado ao custo de material (não pintura)
-    totalMat += tubosRev.custoPerfil||0;
-
     // Atualizar campos de fabricação via sistema (não direto, para não disparar flag manual)
     _fabSetSysValue('mat', totalMat);
     _fabSetSysValue('pin', totalPin);
@@ -2210,7 +2207,6 @@ function recalcPerfisAuto(){
     // Guardar dados para o OS drawer
     window._lastPadroesHTML = _renderPadroesContent(d,9);
     window._lastPerfisTotal = totalMat+totalPin;
-    window._lastTubosRevData = tubosRev; // exposto p/ debug / OS futuro
 
     syncFabPerfisTotal();
     calc();
