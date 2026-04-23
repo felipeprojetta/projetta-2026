@@ -1134,11 +1134,15 @@ function plnPieceTable(pieces, placed) {
     var _isP=_isPortaPiece(p.label);
     // ★ Felipe 23/04: LOCAL pra peças REV * (revestimento) é REVESTIMENTO,
     //   não PORTAL. PORTAL é batente/marco da porta, não faz sentido em rev.
+    //   Prioridade: se a peça já vem com _local pré-setado (de
+    //   _mpCalcAllPiecesCombined), respeita. Senão, detecta pelo label.
     var _isRev = (typeof p.label==='string' && p.label.indexOf('REV ')===0);
-    p._local = p.label.indexOf('FX ')===0 ? 'FIXO'
-             : _isRev ? 'REVESTIMENTO'
-             : _isP ? 'PORTA'
-             : 'PORTAL';
+    if(!p._local){
+      p._local = p.label.indexOf('FX ')===0 ? 'FIXO'
+               : _isRev ? 'REVESTIMENTO'
+               : _isP ? 'PORTA'
+               : 'PORTAL';
+    }
     p._localOrd = p._local==='PORTA' ? 0
                 : p._local==='PORTAL' ? 1
                 : p._local==='REVESTIMENTO' ? 2

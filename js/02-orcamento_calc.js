@@ -239,7 +239,13 @@ function calc(){
   // ── Qtd portas para multiplicar horas de fabricação ──
   var _qPh;
   if(window._mpItens && window._mpItens.length > 0){
-    _qPh=window._mpItens.reduce(function(s,it){return s+(parseInt(it._qtd||it['qtd-portas'])||1);},0);
+    // ★ Felipe 23/04: contar SOMENTE portas (não revestimento/fixo)
+    _qPh=window._mpItens.reduce(function(s,it){
+      var _t = it._tipo || 'porta_pivotante';
+      if(_t==='revestimento' || _t==='fixo') return s;
+      return s+(parseInt(it._qtd||it['qtd-portas'])||1);
+    },0);
+    if(_qPh===0) _qPh=1; // fallback — se rev-only, evita divisão por zero em outros lugares
   } else {
     _qPh=parseInt($('qtd-portas').value)||1;
   }
@@ -253,6 +259,14 @@ function calc(){
     var _mpAcmTxt=_mpAcmSel&&_mpAcmSel.selectedIndex>0?(_mpAcmSel.options[_mpAcmSel.selectedIndex].text||'').toUpperCase():'';
     var _isAlusense=_mpAcmTxt.indexOf('AS')===0||_mpAcmTxt.indexOf('ALUSENSE')>=0;
     window._mpItens.forEach(function(mpIt,di){
+      // ★ Felipe 23/04: horas de trabalho (Portal/Quadro/Colagem/Conf)
+      //   são EXCLUSIVAS de porta. Items de revestimento/fixo não geram
+      //   horas dessas etapas — a fabricação do revestimento é diferente.
+      //   Pular para não somar horas de porta fantasma.
+      var _mpTipo = mpIt._tipo || 'porta_pivotante';
+      if(_mpTipo === 'revestimento' || _mpTipo === 'fixo'){
+        return;
+      }
       var iA=parseFloat(mpIt._altura||mpIt['altura'])||0;
       var iF=parseInt(mpIt._folhas||mpIt['folhas-porta'])||1;
       var iQ=parseInt(mpIt._qtd||mpIt['qtd-portas'])||1;

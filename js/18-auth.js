@@ -630,17 +630,26 @@ function _mpGetItens(){
   // Salvar item atual se editando
   if(window._mpEditingIdx>=0&&window._mpItens.length>0) _mpSalvarItemAtual();
   if(window._mpItens.length>0){
-    var result=window._mpItens.map(function(it){
+    var result=window._mpItens.map(function(it,idx){
+      // ★ Felipe 23/04: fallback de cor — se _mpItens não tem carac-cor-ext
+      //   (pode acontecer em cards de revestimento sincronizados sem
+      //   passar por _syncOrcToMpItens), busca direto em _orcItens[idx].
+      var _corExtFallback = '';
+      var _corIntFallback = '';
+      if(window._orcItens && window._orcItens[idx]){
+        _corExtFallback = window._orcItens[idx].cor_ext || '';
+        _corIntFallback = window._orcItens[idx].cor_int || '';
+      }
       return {
         id:it.id,
         // ★ Felipe 23/04: propagar tipo + campos de revestimento pra
         //   _mpCalcAllPiecesCombined poder rotear e não chamar plnPecas
         //   (que gera peças de porta) em items tipo='revestimento'.
-        tipo: it._tipo || 'porta_pivotante',
-        rev_tipo: it._rev_tipo || '',
+        tipo: it._tipo || (window._orcItens&&window._orcItens[idx]?window._orcItens[idx].tipo:'') || 'porta_pivotante',
+        rev_tipo: it._rev_tipo || (window._orcItens&&window._orcItens[idx]?window._orcItens[idx].rev_tipo:'') || '',
         rev_estrutura: it._rev_estrutura || '',
         rev_tubo: it._rev_tubo || '',
-        rev_2lados: (it._rev_2lados==='SIM'||it.rev_2lados==='SIM'||it['rev_2lados']==='SIM') ? 'SIM' : 'NAO',
+        rev_2lados: (it._rev_2lados==='SIM'||it.rev_2lados==='SIM'||it['rev_2lados']==='SIM'||(window._orcItens&&window._orcItens[idx]&&window._orcItens[idx].rev_2lados==='SIM')) ? 'SIM' : 'NAO',
         modelo:it._modelo||it['carac-modelo']||'01',
         modeloTxt:it._modeloTxt||'',
         largura:parseFloat(it._largura||it['largura'])||0,
@@ -650,11 +659,11 @@ function _mpGetItens(){
         abertura:it['carac-abertura']||'',
         temFixo:!!(it['tem-fixo']),
         fixos:it._fixos||null,
-        corExt:it['carac-cor-ext']||'',
-        corInt:it['carac-cor-int']||''
+        corExt:it['carac-cor-ext']||_corExtFallback||'',
+        corInt:it['carac-cor-int']||_corIntFallback||''
       };
     });
-    console.log('📋 _mpGetItens: '+result.length+' itens → '+result.map(function(r){return r.largura+'×'+r.altura;}).join(', '));
+    console.log('📋 _mpGetItens: '+result.length+' itens → '+result.map(function(r){return r.largura+'×'+r.altura+(r.tipo==='revestimento'?' [REV]':'');}).join(', '));
     return result;
   }
   // Sem itens: usar formulário (compatibilidade)
@@ -935,7 +944,7 @@ function _mpCalcAllPiecesCombined(){
           label: 'REV ' + (idx+1) + ' FUNDO',
           w: _L, h: _A,
           qty: _Qtot,
-          mat: 'acm', _cor: _cor,
+          mat: 'acm', _cor: _cor, _local: 'REVESTIMENTO',
           color: PLN_COLORS[idx % PLN_COLORS.length]
         });
         // Ripas 98mm × A, qtd = ceil(L/90) × Qtot
@@ -945,7 +954,7 @@ function _mpCalcAllPiecesCombined(){
             label: 'REV ' + (idx+1) + ' RIPA',
             w: 98, h: _A,
             qty: _nRipas * _Qtot,
-            mat: 'acm', _cor: _cor,
+            mat: 'acm', _cor: _cor, _local: 'REVESTIMENTO',
             color: PLN_COLORS[idx % PLN_COLORS.length]
           });
         }
@@ -955,7 +964,7 @@ function _mpCalcAllPiecesCombined(){
           label: 'REV ' + (idx+1),
           w: _L, h: _A,
           qty: _Qtot,
-          mat: 'acm', _cor: _cor,
+          mat: 'acm', _cor: _cor, _local: 'REVESTIMENTO',
           color: PLN_COLORS[idx % PLN_COLORS.length]
         });
       }
