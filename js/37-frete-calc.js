@@ -262,10 +262,18 @@ function buildRotaOptions(cfg){
   });
   sel.innerHTML='<option value="">— Selecione a rota —</option>';
   rotas.forEach(function(r){
-    var base = (r.modal === 'LCL') ? ('US$ '+r.usd_cbm+'/m3')
-             : (r.modal === 'FCL_20DRY' || r.modal === 'FCL_40HC') ? ('US$ '+r.usd_flat+' flat')
-             : '—';
-    var lbl = r.destino_nome + ' (' + r.destino_pais + ') · ' + base;
+    // Felipe 24/04: se rota for regional (valor_manual=true) ou usd_cbm/usd_flat = 0,
+    // mostrar '⚡ valor manual' em vez de 'US$ 0/m3' no dropdown. Usuario edita
+    // ocean freight manualmente no breakdown (input 'Valor base' com editable:true).
+    var _val = (r.modal === 'LCL') ? (r.usd_cbm||0)
+             : ((r.modal === 'FCL_20DRY' || r.modal === 'FCL_40HC') ? (r.usd_flat||0) : 0);
+    var _isManual = (r.valor_manual === true) || (_val === 0);
+    var _unit = (r.modal === 'LCL') ? '/m3' : ' flat';
+    var base = _isManual ? '⚡ valor manual' : ('US$ ' + _val + _unit);
+    // So exibir codigo de pais entre parenteses se for ISO curto (US, NG, BR). Nao
+    // mostrar pseudo-codigos regionais (AMER_SUL, AMER_NORTE, OR_MED) que ficariam feios.
+    var _paisTxt = (r.destino_pais && r.destino_pais.length <= 3) ? (' (' + r.destino_pais + ')') : '';
+    var lbl = r.destino_nome + _paisTxt + ' · ' + base;
     var o=document.createElement('option'); o.value=r.id; o.textContent=lbl;
     sel.appendChild(o);
   });
