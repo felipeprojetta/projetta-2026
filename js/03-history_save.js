@@ -80,42 +80,20 @@ console.log('[03-history_save] KILL-SWITCH ATIVO: salvamento minimo via _SAVE_MI
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// ONE-SHOT RESET V2 — Felipe 24/04 (reset total: valores, revisoes, opcoes).
-// Executa uma unica vez por navegador. Flag: projetta_reset_24_04_v2.
+// ONE-SHOT RESET V3 NUCLEAR — Felipe 24/04 (banco tambem zerado em extras).
+// Apaga localStorage.projetta_crm_v1 INTEIRO. No proximo tick o 23-crm-db
+// faz hydrate do Supabase (que ja esta limpo) e o LS fica correto.
 // ═══════════════════════════════════════════════════════════════════════
 (function(){
-  var FLAG = 'projetta_reset_24_04_v2';
+  var FLAG = 'projetta_reset_24_04_v3';
   if(localStorage.getItem(FLAG)) return;
-  var CK = 'projetta_crm_v1';
   try {
-    var data = JSON.parse(localStorage.getItem(CK)) || [];
-    var zerados = 0, total = data.length;
-    data.forEach(function(c){
-      var tinha = (+c.valor||0) > 0 || (+c.tabela||0) > 0 || (+c.faturamento||0) > 0
-               || (+c.valor_tabela||0) > 0 || (+c.valor_faturamento||0) > 0
-               || (c.revisoes && c.revisoes.length > 0)
-               || (c.opcoes && c.opcoes.length > 0);
-      if(tinha) zerados++;
-      c.valor = 0; c.tabela = 0; c.faturamento = 0;
-      c.valor_tabela = 0; c.valor_faturamento = 0;
-      c.revisoes = [];
-      // Zerar tambem as OPCOES (estrutura multi-opcao que contem revisoes)
-      if(c.opcoes && c.opcoes.length){
-        c.opcoes.forEach(function(opt){
-          opt.valor = 0; opt.tabela = 0; opt.faturamento = 0;
-          opt.valor_tabela = 0; opt.valor_faturamento = 0;
-          if(opt.revisoes) opt.revisoes = [];
-        });
-      }
-      delete c.crmPronto;
-      delete c.snapshot;
-      delete c.valorPipelineRev;
-      delete c.pipelineRev;
-      delete c.revSel;
-    });
-    localStorage.setItem(CK, JSON.stringify(data));
-    // Limpar caches legados + flag antiga v1
-    ['projetta_v3','orcamentos','projetta_pdf_log','projetta_reset_24_04_v1'].forEach(function(k){
+    // Apagar TOTALMENTE o cache do CRM. Hydrate do banco (que esta
+    // com extras.opcoes[].revisoes=[] e valores=0) vai repovoar correto.
+    localStorage.removeItem('projetta_crm_v1');
+    // Limpar qualquer outra coisa relacionada
+    ['projetta_v3','orcamentos','projetta_pdf_log',
+     'projetta_reset_24_04_v1','projetta_reset_24_04_v2'].forEach(function(k){
       try { localStorage.removeItem(k); } catch(e){}
     });
     Object.keys(localStorage).filter(function(k){
@@ -124,8 +102,8 @@ console.log('[03-history_save] KILL-SWITCH ATIVO: salvamento minimo via _SAVE_MI
       try { localStorage.removeItem(k); } catch(e){}
     });
     localStorage.setItem(FLAG, new Date().toISOString());
-    console.log('%c[RESET V2 24/04] ' + zerados + '/' + total + ' cards zerados (valores + revisoes + opcoes)', 'color:#27ae60;font-weight:bold');
+    console.log('%c[RESET V3 NUCLEAR 24/04] LS do CRM apagado. Hydrate do Supabase vai repovoar limpo.', 'color:#c0392b;font-weight:bold;background:#fff3cd;padding:4px 8px');
   } catch(e){
-    console.error('[RESET V2 24/04] erro:', e);
+    console.error('[RESET V3] erro:', e);
   }
 })();
