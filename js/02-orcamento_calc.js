@@ -673,13 +673,45 @@ function calc(){
   const qP=parseInt($('qtd-portas').value)||1;
   // pFatReal = preço que o cliente paga = tabela × (1 − desconto negociado)
   const pFatReal=pTab*(1-descPrj);
-  $('m-custo-porta').textContent=brl(custo);
-  $('m-custo-porta-m2').textContent=m2>0?br2(custo/m2)+'/m²':'—';
+
+  // ★ Felipe 23/04: helper pra exibir BRL + USD quando card é internacional.
+  //   Recebe valor em BRL, retorna "R$ X.XXX,XX" (nacional) ou
+  //   "R$ X.XXX,XX <span>· US$ Y.YYY</span>" (intl).
+  //   Em campos "por m²" também adiciona /m² após cada.
+  var _isIntlResult = (typeof _isInternacional==='function') ? _isInternacional() : false;
+  var _cambioResult = parseFloat(($('inst-intl-cambio')||{value:5.20}).value) || 5.20;
+  function _brlUsd(v){
+    var s = brl(v);
+    if(!_isIntlResult || !(_cambioResult>0)) return s;
+    var usd = v / _cambioResult;
+    var usdTxt = 'US$ '+Math.round(usd).toLocaleString('en-US');
+    return s + ' <span style="font-size:10px;color:#1565c0;font-weight:600">· '+usdTxt+'</span>';
+  }
+  function _brlUsdM2(v){
+    // valor por m² (já vem dividido por m2 nos callers)
+    var s = br2(v)+'/m²';
+    if(!_isIntlResult || !(_cambioResult>0)) return s;
+    var usd = v / _cambioResult;
+    var usdTxt = 'US$ '+(Math.round(usd*100)/100).toLocaleString('en-US',{minimumFractionDigits:2});
+    return s + ' <span style="font-size:9px;color:#1565c0;font-weight:600">· '+usdTxt+'/m²</span>';
+  }
+  // Usa innerHTML porque _brlUsd retorna HTML com <span>
+  var _setBU = function(id, v){
+    var el=$(id); if(!el) return;
+    el.innerHTML = _brlUsd(v);
+  };
+  var _setBUm2 = function(id, vPerM2){
+    var el=$(id); if(!el) return;
+    el.innerHTML = m2>0 ? _brlUsdM2(vPerM2) : '—';
+  };
+
+  _setBU('m-custo-porta', custo);
+  _setBUm2('m-custo-porta-m2', m2>0?custo/m2:0);
   $('m-mkp-porta').textContent=pf(mkp);
-  $('m-tab-porta').textContent=brl(pTab);
-  $('m-fat-porta').textContent=brl(pFatReal);
-  $('m-tab-porta-m2').textContent=m2>0?br2(pTab/m2)+'/m²':'—';
-  $('m-fat-porta-m2').textContent=m2>0?br2(pFatReal/m2)+'/m²':'—';
+  _setBU('m-tab-porta', pTab);
+  _setBU('m-fat-porta', pFatReal);
+  _setBUm2('m-tab-porta-m2', m2>0?pTab/m2:0);
+  _setBUm2('m-fat-porta-m2', m2>0?pFatReal/m2:0);
 
   // Margens porta
   const vI_p=pFatReal*imp,vR_p=pFatReal*rep,vT_p=pFatReal*rt,vG_p=pFatReal*gest;
@@ -690,27 +722,36 @@ function calc(){
   $('pct-ml-porta').textContent=pf(ml_p);$('bar-ml-porta').style.width=Math.min(Math.max(ml_p*1.5,0),100)+'%';
 
   // m² porta
-  $('s-cm2').textContent=m2>0?br2(custo/m2)+'/m²':'—';
-  $('s-tm2').textContent=m2>0?br2(pTab/m2)+'/m²':'—';
-  $('s-fm2').textContent=m2>0?br2(pFatReal/m2)+'/m²':'—';
+  _setBUm2('s-cm2', m2>0?custo/m2:0);
+  _setBUm2('s-tm2', m2>0?pTab/m2:0);
+  _setBUm2('s-fm2', m2>0?pFatReal/m2:0);
   // Só porta (sem instalação)
   var custoSoPorta=_subFabEfetivo+_subFabEfetivo*ov;
   var pTabSoPorta=custoSoPorta*fT;
   var pFatSoPorta=pTabSoPorta*(1-descPrj);
-  $('s-tm2p').textContent=m2>0?br2(pTabSoPorta/m2)+'/m²':'—';
-  $('s-fm2p').textContent=m2>0?br2(pFatSoPorta/m2)+'/m²':'—';
-  $('s-desc').textContent=pf(descPrj*100)+' → −'+brl(dVal);
+  _setBUm2('s-tm2p', m2>0?pTabSoPorta/m2:0);
+  _setBUm2('s-fm2p', m2>0?pFatSoPorta/m2:0);
+  // s-desc mostra % → -R$ (e -US$ quando intl)
+  var _sDescEl=$('s-desc');
+  if(_sDescEl){
+    var _sDescBase = pf(descPrj*100)+' → −'+brl(dVal);
+    if(_isIntlResult && _cambioResult>0 && dVal>0){
+      _sDescEl.innerHTML = _sDescBase + ' <span style="font-size:10px;color:#1565c0;font-weight:600">· −US$ '+Math.round(dVal/_cambioResult).toLocaleString('en-US')+'</span>';
+    } else {
+      _sDescEl.textContent = _sDescBase;
+    }
+  }
   // Detalhamento fab + inst
   var custoFabOv=_subFabEfetivo+_subFabEfetivo*ov;
   var custoInstOv=_subInstNoCusto+_subInstNoCusto*ov;
   var tabInst=custoInstOv*fT;
   var fatInst=tabInst*(1-descPrj);
-  var dCF=$('d-custo-fab');if(dCF)dCF.textContent=brl(custoFabOv);
-  var dCI=$('d-custo-inst');if(dCI)dCI.textContent=brl(custoInstOv);
-  var dTSP=$('d-tab-sp');if(dTSP)dTSP.textContent=brl(pTabSoPorta);
-  var dFSP=$('d-fat-sp');if(dFSP)dFSP.textContent=brl(pFatSoPorta);
-  var dTI=$('d-tab-inst');if(dTI)dTI.textContent=brl(tabInst);
-  var dFI=$('d-fat-inst');if(dFI)dFI.textContent=brl(fatInst);
+  _setBU('d-custo-fab', custoFabOv);
+  _setBU('d-custo-inst', custoInstOv);
+  _setBU('d-tab-sp', pTabSoPorta);
+  _setBU('d-fat-sp', pFatSoPorta);
+  _setBU('d-tab-inst', tabInst);
+  _setBU('d-fat-inst', fatInst);
 
   // ══ RESULTADO TOTAL INTERNACIONAL ══
   var _intlPanel=$('resultado-intl-total');
@@ -777,25 +818,41 @@ function calc(){
   // Desconto = desconto negociado (dVal = pTab * descPrj)
   var dDescTotal=dVal; // desconto sobre preço tabela da porta
   var pFatRealTotal=pTabTotal-dDescTotal; // receita faturamento = tabela - desconto negociado
-  $('d-tab').textContent=brl(pTabTotal);
-  $('d-tab-porta').textContent=brl(pTab);
-  if(custoAc>0&&$('d-tab-fech')) $('d-tab-fech').textContent=brl(pTabAc);
+  // ★ Felipe 23/04: DRE com BRL + USD em todos os campos quando intl.
+  //   Helper pra valor negativo (despesa): retorna "−R$ X · −US$ Y"
+  function _brlUsdNeg(v){
+    var s = '−'+brl(v);
+    if(!_isIntlResult || !(_cambioResult>0) || !(v>0)) return s;
+    var usdTxt = '−US$ '+Math.round(v/_cambioResult).toLocaleString('en-US');
+    return s + ' <span style="font-size:10px;color:#1565c0;font-weight:600">· '+usdTxt+'</span>';
+  }
+  var _setBUNeg = function(id, v){
+    var el=$(id); if(!el) return;
+    el.innerHTML = _brlUsdNeg(v);
+  };
+  _setBU('d-tab', pTabTotal);
+  _setBU('d-tab-porta', pTab);
+  if(custoAc>0&&$('d-tab-fech')) _setBU('d-tab-fech', pTabAc);
   if($('d-tab-fech-row')) $('d-tab-fech-row').style.display=custoAc>0?'':'none';
-  $('d-desc-val').textContent=dDescTotal>0?'−'+brl(dDescTotal):'R$ 0';
+  if(dDescTotal>0){
+    _setBUNeg('d-desc-val', dDescTotal);
+  } else {
+    $('d-desc-val').textContent='R$ 0';
+  }
   $('d-desc-pct').textContent=descPrj>0?pf(descPrj*100)+' aplicado':'sem desconto';
-  $('d-fat').textContent=brl(pFatRealTotal);
-  $('d-fat-porta').textContent=brl(pTab-dVal);
-  if(custoAc>0) $('d-fat-fech').textContent=brl(pTabAc*(1-descPrj));
-  $('d-imp').textContent='−'+brl(vI);$('d-imp-pct').textContent=pf(imp*100);
-  $('d-rep').textContent='−'+brl(vR);$('d-rep-pct').textContent=pf(rep*100);
-  $('d-rt').textContent='−'+brl(vT);$('d-rt-pct').textContent=pf(rt*100);
-  $('d-gest').textContent='−'+brl(vG);$('d-gest-pct').textContent=pf(gest*100);
-  $('d-custo').textContent='−'+brl(custoTotal);
-  $('d-custo-porta').textContent='−'+brl(custo);
-  if(custoAc>0) $('d-custo-fech').textContent='−'+brl(custoAc);
-  $('d-lb').textContent=brl(lb);
-  $('d-irpj').textContent='−'+brl(vi);
-  $('d-ll').textContent=brl(ll);
+  _setBU('d-fat', pFatRealTotal);
+  _setBU('d-fat-porta', pTab-dVal);
+  if(custoAc>0) _setBU('d-fat-fech', pTabAc*(1-descPrj));
+  _setBUNeg('d-imp', vI);  $('d-imp-pct').textContent=pf(imp*100);
+  _setBUNeg('d-rep', vR);  $('d-rep-pct').textContent=pf(rep*100);
+  _setBUNeg('d-rt',  vT);  $('d-rt-pct').textContent=pf(rt*100);
+  _setBUNeg('d-gest',vG);  $('d-gest-pct').textContent=pf(gest*100);
+  _setBUNeg('d-custo', custoTotal);
+  _setBUNeg('d-custo-porta', custo);
+  if(custoAc>0) _setBUNeg('d-custo-fech', custoAc);
+  _setBU('d-lb', lb);
+  _setBUNeg('d-irpj', vi);
+  _setBU('d-ll', ll);
 
   const cl=v=>Math.min(Math.max(v,0),100)+'%';
   $('pct-mb').textContent=pf(mb);$('bar-mb').style.width=cl(mb*1.5);
