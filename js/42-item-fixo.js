@@ -182,11 +182,69 @@ window.PROJETTA.fixo = {
   // ═══════════════════════════════════════════════════════════════
   // CHAPAS (Etapa 4 — ainda fachada)
   // ═══════════════════════════════════════════════════════════════
+  /**
+   * Chapas do FIXO (Etapa 4 — Felipe 24/04).
+   * Delega a aprovFixoPieces (05-aproveitamento_chapas.js).
+   *
+   * IMPORTANTE: as tampas do fixo (TAMPA MAIOR, TAMPA BOR CAVA, FIT ACAB)
+   * usam dimensões da PORTA como referência. Por isso o item do fixo
+   * precisa trazer porta_largura/porta_altura/porta_modelo quando possível.
+   * Se ausentes, cai em fallback (lê do DOM legado — porta atual no form).
+   *
+   * ISOLAMENTO: esta função NÃO lê _orcItens nem .fixo-blk. Opera
+   * exclusivamente nos dados do item passado.
+   */
   calcularChapas: function(item){
-    if(typeof window._fxCalcularChapas === 'function'){
-      return window._fxCalcularChapas(item) || [];
+    if(!item || item.tipo !== 'fixo') return [];
+    if(typeof aprovFixoPieces !== 'function'){
+      console.warn('[fx.calcularChapas] aprovFixoPieces indisponivel');
+      return [];
     }
-    return [];
+
+    var L = parseFloat(item.largura) || 0;
+    var A = parseFloat(item.altura)  || 0;
+    var qtd = parseInt(item.qtd) || 1;
+    var lados = parseInt(item.revestimento_lados || item.lados || 1) || 1;
+    if(!L || !A) return [];
+
+    // Posições LATERAL_DIR/ESQ → sem tampas compartilhadas com porta
+    var posicao = String(item.posicao || item.posicao_fixo || 'SUPERIOR').toUpperCase();
+
+    // Dimensões da porta referência (necessárias para TAMPA MAIOR e variantes)
+    var Lporta = parseFloat(item.porta_largura) ||
+                 parseFloat((document.getElementById('largura')||{value:0}).value) || 0;
+    var Aporta = parseFloat(item.porta_altura) ||
+                 parseFloat((document.getElementById('altura')||{value:0}).value) || 0;
+    var mod    = item.porta_modelo ||
+                 (document.getElementById('carac-modelo')||{value:'01'}).value || '01';
+    if(mod === '23'){
+      mod = (item.moldura_revestimento === 'MACICO' || item.moldura_revestimento === 'ALU')
+              ? '23alu' : '23acm';
+    }
+
+    var pieces = [];
+    try {
+      pieces = aprovFixoPieces(Lporta, Aporta, L, A, lados, mod) || [];
+    } catch(e){
+      console.error('[fx.calcularChapas] erro:', e);
+      return [];
+    }
+
+    // Multiplicar por qtd de fixos iguais + converter pro formato unificado
+    return pieces.map(function(p){
+      return {
+        label:       p.label,
+        w:           Math.round(p.w),
+        h:           Math.round(p.h),
+        qtd:         (p.qty || 1) * qtd,
+        material:    item.tipo_material || 'ACM_4MM',
+        cor:         item.cor_ext || null,
+        _origem:     'fixo',
+        _item_id:    item.id || null,
+        _posicao:    posicao,
+        _porta_ref:  { L: Lporta, A: Aporta, mod: mod }
+      };
+    });
   },
 
   camposVisiveis: function(cfg){
