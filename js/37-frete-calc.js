@@ -1,26 +1,26 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   MODULE 37: FRETE CALC — Calculadora automática de frete internacional
+   MODULE 37: FRETE CALC — Calculadora de Frete Internacional (v2)
    ═══════════════════════════════════════════════════════════════════════════
-   Felipe 23/04/2026
+   Felipe 23/04/2026 — v2 (tarde)
 
-   Integra com o bloco CIF existente (#crm-inst-cif-box). Botão "🧮 Calcular"
-   abre modal que computa frete marítimo completo (ocean + taxas origem +
-   destino + impostos BR) baseado em rotas cadastradas na nuvem.
+   v2 — Reescrita. Felipe: "primeira coisa ali tem que falar se e FCL ou LCL
+   ou aereo; se for FCL se e container de 20 dry ou 40 HC; nessa aba rota
+   deixe valor por m3 se for LCL ou valor por container se for FCL; posso
+   colocar manual ou buscar no banco; alguns itens sao por m3 — mostre o que
+   e fixo e o que varia por m3; FCL tem taxa de retirar container pra
+   armazem pra estufagem (Pre-Stacking)".
 
-   DEPENDÊNCIAS:
-   - Supabase tabela `configuracoes` com chaves:
-       frete_taxas_fixas_v1, frete_rotas_v1, frete_impostos_v1
-   - DOM: #crm-o-cif-frete-maritimo (destino do total USD)
-   - DOM: #crm-o-cif-caixa-l / -a / -e (origem do CBM automático)
-   - Função global: crmCifRecalc()
+   FLUXO:
+     1. TIPO: LCL / FCL / AEREO
+     2. (se FCL) CONTAINER: 20'Dry / 40'HC
+     3. ROTA: select filtrado por (tipo, container)
+     4. CBM (auto da caixa) + outros inputs
+     5. BREAKDOWN com cada linha editavel (override temporario)
+     6. TOTAIS + Aplicar ao orcamento
 
-   NÃO MODIFICA: captureSnapshot, _captureOrcValues, _salvarSnapshotECRM,
-   crmOrcamentoPronto — apenas escreve no campo `crm-o-cif-frete-maritimo`
-   que já é lido por _captureOrcValues naturalmente.
-
-   PERSISTÊNCIA DO BREAKDOWN:
-   - window._freteCalc (session)
-   - localStorage['frete_calc_' + cardId] (entre sessões)
+   PERSISTENCIA:
+     - window._freteCalc (sessao)
+     - localStorage['frete_calc_'+cardId] (entre sessoes, inclui overrides)
    ═══════════════════════════════════════════════════════════════════════════ */
 (function(){
 'use strict';
@@ -39,13 +39,13 @@ function loadConfig(cb){
       var cfg={};
       (rows||[]).forEach(function(r){ cfg[r.chave]=r.valor; });
       if(!cfg.frete_taxas_fixas_v1||!cfg.frete_rotas_v1||!cfg.frete_impostos_v1){
-        console.warn('[frete-calc] config incompleta:',Object.keys(cfg));
+        console.warn('[frete-calc v2] config incompleta:',Object.keys(cfg));
         cb(null); return;
       }
       window._FRETE_CFG=cfg;
       cb(cfg);
     })
-    .catch(function(e){ console.error('[frete-calc] erro load:',e); cb(null); });
+    .catch(function(e){ console.error('[frete-calc v2] erro load:',e); cb(null); });
 }
 
 function $(id){ return document.getElementById(id); }
@@ -60,133 +60,356 @@ function cbmDaCaixa(){
   return (L/1000)*(A/1000)*(E/1000);
 }
 
-function calcFrete(input, cfg){
-  var rotas=cfg.frete_rotas_v1.rotas;
-  var rota=rotas.filter(function(r){return r.id===input.rotaId;})[0];
+/* OVERRIDES: { fieldKey: valorNovo } */
+window._freteOverrides = window._freteOverrides || {};
+
+function ov(key, defaultValue){
+  var o = window._freteOverrides;
+  if(Object.prototype.hasOwnProperty.call(o, key)) return parseFloat(o[key])||0;
+  return defaultValue;
+}
+
+function buildBreakdownLCL(input, cfg){
+  var rota=(cfg.frete_rotas_v1.rotas||[]).filter(function(r){return r.id===input.rotaId;})[0];
   if(!rota) return null;
-
-  var tf=cfg.frete_taxas_fixas_v1[rota.modal];
-  var imp=cfg.frete_impostos_v1;
-  var lines=[], usdSum=0, brlDir=0;
+  var tf=cfg.frete_taxas_fixas_v1.LCL;
   var cambio=input.cambio||5, cbm=input.cbm||0;
+  var lines=[];
 
-  function au(desc,v){ if(!v) return; lines.push({desc:desc, moeda:'USD', valor:v, brl:v*cambio}); usdSum+=v; }
-  function ab(desc,v){ if(!v) return; lines.push({desc:desc, moeda:'BRL', valor:v, brl:v}); brlDir+=v; }
-  function sec(t){ lines.push({section:t}); }
+  var oceanUsdCbm = ov('ocean_freight_usd_cbm', rota.usd_cbm);
+  lines.push({key:'ocean_freight', desc:'Ocean Freight LCL', section:'Frete maritimo',
+              moeda:'USD', base:oceanUsdCbm, mult:cbm, multLabel:'x '+cbm.toFixed(3)+' m3',
+              brl:oceanUsdCbm*cbm*cambio, tipo:'por_m3', editable:true});
 
-  if(rota.modal==='LCL'){
-    sec('Frete marítimo');
-    au('Ocean Freight LCL (US$ '+rota.usd_cbm+'/CBM × '+cbm.toFixed(3)+' m³)', cbm*rota.usd_cbm);
-    sec('Taxas de origem');
-    au('Origin Equipament Surcharge', tf.origin_equipament_surcharge_usd);
-    au('B/L Fee', tf.bl_fee_usd);
-    var thcRate=rota.thc_override_usd_per_cbm||tf.thc_origin_usd_per_cbm;
-    var loadRate=rota.loading_override_usd_per_cbm||tf.loading_fee_usd_per_cbm;
-    au('THC (Origin)'+(rota.thc_override_usd_per_cbm?' [rota override]':''), cbm*thcRate);
-    au('Loading Fee'+(rota.loading_override_usd_per_cbm?' [rota override]':''), cbm*loadRate);
-    au('VGM (Verified Gross Mass)', tf.vgm_usd);
-    au('Scanner', cbm*tf.scanner_usd_per_cbm);
-    if(input.oversize>0) au('Over Weight Surcharge', input.oversize);
-    var ex=rota.extras_usd||{};
-    if(ex.handling||ex.customs_clearence||ex.transmissao_ams){
-      sec('Destino '+rota.destino_pais);
-      if(ex.handling) au('Handling', ex.handling);
-      if(ex.customs_clearence) au('Customs Clearence', ex.customs_clearence);
-      if(ex.transmissao_ams) au('Transmissão AMS', ex.transmissao_ams);
-    }
-    if(input.dap>0){ sec('DAP (entrega no destino)'); au('DAP Charges', input.dap); }
-  } else if(rota.modal==='FCL_40HC'){
-    sec('Frete marítimo');
-    au('Frete marítimo container 40HC', rota.usd_flat);
-    au('LACRE / SEAL', tf.lacre_seal_usd);
-    sec('Taxas de origem');
-    ab('Terminal Handling Fee', tf.terminal_handling_fee_brl);
-    ab('B/L Fee', tf.bl_fee_brl);
-    au('Terminal Security Surcharge', tf.terminal_security_surcharge_usd);
-    au('VGM (Verified Gross Mass)', tf.vgm_usd);
-    au('Local Logistics Fee', tf.local_logistics_fee_usd);
-    au('Handling', tf.handling_usd);
-    var exU=rota.extras_usd||{}, exB=rota.extras_brl||{};
-    if(exU.customs_clearence||exB.pre_stacking||rota.ad_valorem_pct){
-      sec('Destino '+rota.destino_pais);
-      if(exU.customs_clearence) au('Customs Clearence', exU.customs_clearence);
-      if(exB.pre_stacking) ab('Recebimento Antecipado — Pre Stacking', exB.pre_stacking);
-      if(rota.ad_valorem_pct) au('Ad-Valorem ('+(rota.ad_valorem_pct*100).toFixed(2)+'%)', rota.usd_flat*rota.ad_valorem_pct);
-    }
+  lines.push({key:'oes', desc:'Origin Equipament Surcharge', section:'Taxas de origem',
+              moeda:'USD', base:ov('oes_usd', tf.origin_equipament_surcharge_usd), mult:1,
+              brl:ov('oes_usd', tf.origin_equipament_surcharge_usd)*cambio, tipo:'fixo', editable:true});
+  lines.push({key:'bl', desc:'B/L Fee', section:'Taxas de origem',
+              moeda:'USD', base:ov('bl_fee_usd', tf.bl_fee_usd), mult:1,
+              brl:ov('bl_fee_usd', tf.bl_fee_usd)*cambio, tipo:'fixo', editable:true});
+  var thcRate = ov('thc_usd_cbm', rota.thc_override_usd_per_cbm || tf.thc_origin_usd_per_cbm);
+  lines.push({key:'thc_usd_cbm', desc:'THC Origin'+(rota.thc_override_usd_per_cbm?' [rota]':''), section:'Taxas de origem',
+              moeda:'USD', base:thcRate, mult:cbm, multLabel:'x '+cbm.toFixed(3)+' m3',
+              brl:thcRate*cbm*cambio, tipo:'por_m3', editable:true});
+  var loadRate = ov('loading_usd_cbm', rota.loading_override_usd_per_cbm || tf.loading_fee_usd_per_cbm);
+  lines.push({key:'loading_usd_cbm', desc:'Loading Fee (TEC)'+(rota.loading_override_usd_per_cbm?' [rota]':''), section:'Taxas de origem',
+              moeda:'USD', base:loadRate, mult:cbm, multLabel:'x '+cbm.toFixed(3)+' m3',
+              brl:loadRate*cbm*cambio, tipo:'por_m3', editable:true});
+  lines.push({key:'vgm', desc:'VGM (Verified Gross Mass)', section:'Taxas de origem',
+              moeda:'USD', base:ov('vgm_usd', tf.vgm_usd), mult:1,
+              brl:ov('vgm_usd', tf.vgm_usd)*cambio, tipo:'fixo', editable:true});
+  var scannerRate = ov('scanner_usd_cbm', tf.scanner_usd_per_cbm);
+  lines.push({key:'scanner_usd_cbm', desc:'Scanner / X-Ray', section:'Taxas de origem',
+              moeda:'USD', base:scannerRate, mult:cbm, multLabel:'x '+cbm.toFixed(3)+' m3',
+              brl:scannerRate*cbm*cambio, tipo:'por_m3', editable:true});
+  lines.push({key:'handling', desc:'Handling', section:'Taxas de origem',
+              moeda:'USD', base:ov('handling_usd', tf.handling_usd || 80), mult:1,
+              brl:ov('handling_usd', tf.handling_usd || 80)*cambio, tipo:'fixo', editable:true});
+  lines.push({key:'ams', desc:'Transmissao A.M.S.', section:'Taxas de origem',
+              moeda:'USD', base:ov('ams_usd', tf.transmissao_ams_usd || 50), mult:1,
+              brl:ov('ams_usd', tf.transmissao_ams_usd || 50)*cambio, tipo:'fixo', editable:true});
+  if(input.oversize > 0){
+    lines.push({key:'oversize', desc:'Oversize / Over Weight Surcharge', section:'Taxas de origem',
+                moeda:'USD', base:input.oversize, mult:1,
+                brl:input.oversize*cambio, tipo:'fixo', editable:true});
   }
 
-  var oceanForIof=(rota.modal==='LCL'? cbm*rota.usd_cbm : rota.usd_flat)+(input.dap||0);
-  var iofBrl=input.iofOn? oceanForIof*imp.iof.percentual*cambio : 0;
-  var issBrl=imp.iss.valor_brl_aprox||0;
-
-  if(iofBrl||issBrl){
-    sec('Impostos BR');
-    if(iofBrl) ab('IOF ('+(imp.iof.percentual*100).toFixed(1)+'% s/ frete internacional)', iofBrl);
-    if(issBrl){ lines.push({desc:'ISS (reportado — não soma no total)', moeda:'BRL', valor:issBrl, brl:issBrl, noSum:true}); }
+  var ex = rota.extras_usd || {};
+  if(ex.customs_clearence){
+    lines.push({key:'customs', desc:'Customs Clearence', section:'Destino '+rota.destino_pais,
+                moeda:'USD', base:ov('customs_usd', ex.customs_clearence), mult:1,
+                brl:ov('customs_usd', ex.customs_clearence)*cambio, tipo:'fixo', editable:true});
+  }
+  if(ex.handling){
+    lines.push({key:'handling_dest', desc:'Handling (Destino)', section:'Destino '+rota.destino_pais,
+                moeda:'USD', base:ov('handling_dest_usd', ex.handling), mult:1,
+                brl:ov('handling_dest_usd', ex.handling)*cambio, tipo:'fixo', editable:true});
+  }
+  if(ex.transmissao_ams){
+    lines.push({key:'ams_dest', desc:'A.M.S. Destino', section:'Destino '+rota.destino_pais,
+                moeda:'USD', base:ov('ams_dest_usd', ex.transmissao_ams), mult:1,
+                brl:ov('ams_dest_usd', ex.transmissao_ams)*cambio, tipo:'fixo', editable:true});
   }
 
-  var totalBRL=usdSum*cambio + brlDir + iofBrl;
-  return {
-    lines:lines, usdSum:usdSum, brlDirect:brlDir, iof:iofBrl, iss:issBrl,
-    totalBRL:totalBRL, totalUSDEquiv:totalBRL/cambio,
-    rota:rota, cbm:cbm, cambio:cambio, dap:input.dap, oversize:input.oversize,
-    iofOn:input.iofOn, timestamp:new Date().toISOString()
-  };
+  if(input.dap > 0){
+    lines.push({key:'dap', desc:'DAP Charges', section:'DAP (entrega destino)',
+                moeda:'USD', base:input.dap, mult:1,
+                brl:input.dap*cambio, tipo:'fixo', editable:true});
+  }
+
+  return {lines:lines, rota:rota, cbm:cbm, cambio:cambio};
+}
+
+function buildBreakdownFCL(input, cfg, modal){
+  var rota=(cfg.frete_rotas_v1.rotas||[]).filter(function(r){return r.id===input.rotaId;})[0];
+  if(!rota) return null;
+  var tf=cfg.frete_taxas_fixas_v1[modal] || cfg.frete_taxas_fixas_v1.FCL_40HC;
+  var cambio=input.cambio||5;
+  var lines=[];
+
+  var oceanFlat = ov('ocean_freight_flat_usd', rota.usd_flat);
+  var contLbl = modal === 'FCL_20DRY' ? '20\'Dry' : '40\'HC';
+  lines.push({key:'ocean_freight_flat_usd', desc:'Ocean Freight '+contLbl, section:'Frete maritimo',
+              moeda:'USD', base:oceanFlat, mult:1,
+              brl:oceanFlat*cambio, tipo:'fixo', editable:true});
+  lines.push({key:'lacre', desc:'LACRE / SEAL', section:'Frete maritimo',
+              moeda:'USD', base:ov('lacre_usd', tf.lacre_seal_usd || 11), mult:1,
+              brl:ov('lacre_usd', tf.lacre_seal_usd || 11)*cambio, tipo:'fixo', editable:true});
+
+  lines.push({key:'thc_brl', desc:'Origin THC / Terminal Handling', section:'Taxas de origem',
+              moeda:'BRL', base:ov('thc_brl', tf.terminal_handling_fee_brl || 1550), mult:1,
+              brl:ov('thc_brl', tf.terminal_handling_fee_brl || 1550), tipo:'fixo', editable:true});
+  lines.push({key:'bl_brl', desc:'B/L Fee', section:'Taxas de origem',
+              moeda:'BRL', base:ov('bl_brl', tf.bl_fee_brl || 700), mult:1,
+              brl:ov('bl_brl', tf.bl_fee_brl || 700), tipo:'fixo', editable:true});
+  lines.push({key:'tss', desc:'Terminal Security Surcharge', section:'Taxas de origem',
+              moeda:'USD', base:ov('tss_usd', tf.terminal_security_surcharge_usd || 38), mult:1,
+              brl:ov('tss_usd', tf.terminal_security_surcharge_usd || 38)*cambio, tipo:'fixo', editable:true});
+  lines.push({key:'vgm', desc:'VGM (Verified Gross Mass)', section:'Taxas de origem',
+              moeda:'USD', base:ov('vgm_usd', tf.vgm_usd || 26), mult:1,
+              brl:ov('vgm_usd', tf.vgm_usd || 26)*cambio, tipo:'fixo', editable:true});
+  lines.push({key:'local_log', desc:'Local Logistics Fee', section:'Taxas de origem',
+              moeda:'USD', base:ov('local_log_usd', tf.local_logistics_fee_usd || 50), mult:1,
+              brl:ov('local_log_usd', tf.local_logistics_fee_usd || 50)*cambio, tipo:'fixo', editable:true});
+  lines.push({key:'handling', desc:'Handling', section:'Taxas de origem',
+              moeda:'USD', base:ov('handling_usd', tf.handling_usd || 80), mult:1,
+              brl:ov('handling_usd', tf.handling_usd || 80)*cambio, tipo:'fixo', editable:true});
+  lines.push({key:'ams', desc:'Transmissao A.M.S.', section:'Taxas de origem',
+              moeda:'USD', base:ov('ams_usd', tf.transmissao_ams_usd || 50), mult:1,
+              brl:ov('ams_usd', tf.transmissao_ams_usd || 50)*cambio, tipo:'fixo', editable:true});
+
+  var psBRLDefault = (rota.extras_brl||{}).pre_stacking || tf.pre_stacking_brl_default || 0;
+  var psBRL = ov('pre_stacking_brl', psBRLDefault);
+  if(psBRL > 0){
+    lines.push({key:'pre_stacking', desc:'Pre-Stacking (retirada container + estufagem)', section:'Operacao container',
+                moeda:'BRL', base:psBRL, mult:1,
+                brl:psBRL, tipo:'fixo', editable:true});
+  }
+
+  var exU = rota.extras_usd || {};
+  if(exU.customs_clearence){
+    lines.push({key:'customs', desc:'Customs Clearence', section:'Destino '+rota.destino_pais,
+                moeda:'USD', base:ov('customs_usd', exU.customs_clearence), mult:1,
+                brl:ov('customs_usd', exU.customs_clearence)*cambio, tipo:'fixo', editable:true});
+  }
+  if(rota.ad_valorem_pct){
+    var adV = oceanFlat * rota.ad_valorem_pct;
+    lines.push({key:'ad_valorem', desc:'Ad-Valorem ('+(rota.ad_valorem_pct*100).toFixed(2)+'%)', section:'Destino '+rota.destino_pais,
+                moeda:'USD', base:adV, mult:1,
+                brl:adV*cambio, tipo:'calc', editable:false});
+  }
+
+  return {lines:lines, rota:rota, cbm:input.cbm||0, cambio:cambio};
+}
+
+function calcFrete(input, cfg){
+  var sel=$('frete-calc-tipo'); if(!sel) return null;
+  var tipo=sel.value;
+  if(!input.rotaId || tipo==='AEREO') return null;
+
+  var bd;
+  if(tipo === 'LCL')      bd = buildBreakdownLCL(input, cfg);
+  else if(tipo === 'FCL') bd = buildBreakdownFCL(input, cfg, val('frete-calc-fcl-modal')||'FCL_40HC');
+  else return null;
+  if(!bd) return null;
+
+  var imp = cfg.frete_impostos_v1;
+  var cambio = bd.cambio;
+  var oceanLine = bd.lines.filter(function(l){return l.key==='ocean_freight'||l.key==='ocean_freight_flat_usd';})[0];
+  var oceanBRL = oceanLine ? oceanLine.brl : 0;
+  var dapLine = bd.lines.filter(function(l){return l.key==='dap';})[0];
+  var dapBRL = dapLine ? dapLine.brl : 0;
+  var iofBase = oceanBRL + dapBRL;
+  var iofBRL = input.iofOn ? iofBase * imp.iof.percentual : 0;
+  if(iofBRL > 0){
+    bd.lines.push({key:'iof', desc:'IOF ('+(imp.iof.percentual*100).toFixed(1)+'% s/ frete+DAP)', section:'Impostos BR',
+                   moeda:'BRL', base:iofBRL, mult:1,
+                   brl:iofBRL, tipo:'calc', editable:false});
+  }
+  var issBRL = imp.iss.valor_brl_aprox || 0;
+  if(issBRL > 0){
+    bd.lines.push({key:'iss', desc:'ISS (reportado — nao soma)', section:'Impostos BR',
+                   moeda:'BRL', base:issBRL, mult:1,
+                   brl:issBRL, tipo:'calc', editable:false, noSum:true});
+  }
+
+  var usdSum = 0, brlSum = 0;
+  bd.lines.forEach(function(l){
+    if(l.noSum) return;
+    if(l.moeda === 'USD') usdSum += (l.base * (l.mult||1));
+    brlSum += l.brl;
+  });
+  bd.usdSum = usdSum;
+  bd.totalBRL = brlSum;
+  bd.totalUSDEquiv = brlSum / cambio;
+  bd.iof = iofBRL;
+  bd.iss = issBRL;
+  bd.timestamp = new Date().toISOString();
+  bd.tipo = tipo;
+  bd.modal = tipo === 'FCL' ? (val('frete-calc-fcl-modal')||'FCL_40HC') : tipo;
+  return bd;
 }
 
 function buildRotaOptions(cfg){
   var sel=$('frete-calc-rota'); if(!sel) return;
+  var tipo=val('frete-calc-tipo');
+  var fclModal=val('frete-calc-fcl-modal');
+  var rotas = (cfg.frete_rotas_v1.rotas||[]).filter(function(r){
+    if(tipo === 'LCL')   return r.modal === 'LCL';
+    if(tipo === 'FCL')   return r.modal === (fclModal||'FCL_40HC');
+    if(tipo === 'AEREO') return r.modal === 'AEREO';
+    return false;
+  });
   sel.innerHTML='<option value="">— Selecione a rota —</option>';
-  cfg.frete_rotas_v1.rotas.forEach(function(r){
-    var lbl=r.destino_nome+' ('+r.destino_pais+') · '+r.modal+' · '+(r.modal==='LCL'?('US$ '+r.usd_cbm+'/CBM'):('US$ '+r.usd_flat+' flat'));
+  rotas.forEach(function(r){
+    var base = (r.modal === 'LCL') ? ('US$ '+r.usd_cbm+'/m3')
+             : (r.modal === 'FCL_20DRY' || r.modal === 'FCL_40HC') ? ('US$ '+r.usd_flat+' flat')
+             : '—';
+    var lbl = r.destino_nome + ' (' + r.destino_pais + ') · ' + base;
     var o=document.createElement('option'); o.value=r.id; o.textContent=lbl;
     sel.appendChild(o);
   });
+  var obs=$('frete-calc-obs-rota'); if(obs) obs.innerHTML='';
+}
+
+function onEditBaseValue(ev){
+  var el = ev.target;
+  var key = el.getAttribute('data-key');
+  if(!key) return;
+  var newVal = parseFloat(el.value);
+  if(isNaN(newVal) || newVal < 0){ delete window._freteOverrides[key]; }
+  else { window._freteOverrides[key] = newVal; }
+  recomputeAndRender();
+  // foco perdido ao recomputar — refocar no input
+  setTimeout(function(){
+    var again = document.querySelector('.frete-calc-edit[data-key="'+key+'"]');
+    if(again){ again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+  }, 0);
 }
 
 function renderBreakdown(r){
   var body=$('frete-calc-body'); if(!body) return;
-  if(!r){ body.innerHTML='<tr><td colspan="4" style="text-align:center;color:#888;padding:20px;font-style:italic">Selecione uma rota para ver o breakdown</td></tr>'; return; }
+  if(!r){
+    body.innerHTML='<tr><td colspan="6" style="text-align:center;color:#888;padding:20px;font-style:italic">Selecione tipo e rota para ver o breakdown</td></tr>';
+    return;
+  }
   var html='';
+  var lastSection='';
   r.lines.forEach(function(l){
-    if(l.section){
-      html+='<tr><td colspan="4" style="background:#f5f5f5;font-weight:700;font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.4px;padding:5px 8px">'+escH(l.section)+'</td></tr>';
-    } else {
-      var origin = l.moeda==='USD' ? fmtUSD(l.valor) : 'BRL';
-      var mult = l.moeda==='USD' ? ('× '+r.cambio.toFixed(4)) : '';
-      var brlDisplay = l.noSum ? ('<span style="color:#999;font-style:italic">'+fmtBRL(l.brl)+' *</span>') : ('<b>'+fmtBRL(l.brl)+'</b>');
-      html+='<tr><td style="padding:5px 8px;color:#555;font-size:11px">'+escH(l.desc)+'</td><td style="padding:5px 8px;text-align:right;color:#888;font-size:10px;font-variant-numeric:tabular-nums">'+origin+'</td><td style="padding:5px 8px;text-align:right;color:#888;font-size:10px">'+mult+'</td><td style="padding:5px 8px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px">'+brlDisplay+'</td></tr>';
+    if(l.section && l.section !== lastSection){
+      html+='<tr><td colspan="6" style="background:#f5f5f5;font-weight:700;font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.4px;padding:5px 8px">'+escH(l.section)+'</td></tr>';
+      lastSection = l.section;
     }
+    var tipoBadge = l.tipo==='fixo'   ? '<span title="Valor fixo">🔒</span>'
+                  : l.tipo==='por_m3' ? '<span title="Varia por m3" style="color:#1565c0">📐</span>'
+                  :                     '<span title="Calculado" style="color:#999">∫</span>';
+    var isOverridden = Object.prototype.hasOwnProperty.call(window._freteOverrides, l.key);
+    var baseCell;
+    if(l.editable){
+      baseCell = '<input type="number" step="0.01" data-key="'+l.key+'" value="'+l.base+'" class="frete-calc-edit" '
+        + 'style="width:70px;padding:3px 5px;border:1px solid '+(isOverridden?'#ff9800':'#ddd')+';'
+        + 'background:'+(isOverridden?'#fff3e0':'#fff')+';border-radius:3px;font-size:10px;text-align:right;'
+        + 'font-variant-numeric:tabular-nums">'
+        + (isOverridden?' <span title="Resetar ao padrao" style="cursor:pointer;color:#ff9800;font-size:12px" data-reset="'+l.key+'">↺</span>':'');
+    } else {
+      baseCell = '<span style="color:#888;font-size:10px;font-variant-numeric:tabular-nums">'+(l.base||0).toFixed(2)+'</span>';
+    }
+    var moedaCell = l.moeda==='USD'
+      ? '<span style="color:#1565c0;font-weight:600;font-size:10px">USD</span>'
+      : '<span style="color:#8e44ad;font-weight:600;font-size:10px">BRL</span>';
+    var multCell = l.multLabel
+      ? ('<span style="color:#888;font-size:9px">'+escH(l.multLabel)+'</span>')
+      : (l.moeda==='USD' ? ('<span style="color:#888;font-size:9px">x '+(r.cambio).toFixed(4)+'</span>') : '');
+    var brlCell = l.noSum
+      ? ('<span style="color:#999;font-style:italic">'+fmtBRL(l.brl)+' *</span>')
+      : ('<b>'+fmtBRL(l.brl)+'</b>');
+    html+='<tr>'
+      +'<td style="padding:4px 6px;text-align:center;font-size:11px">'+tipoBadge+'</td>'
+      +'<td style="padding:4px 8px;color:#555;font-size:11px">'+escH(l.desc)+'</td>'
+      +'<td style="padding:4px 6px;text-align:center">'+moedaCell+'</td>'
+      +'<td style="padding:4px 6px;text-align:right">'+baseCell+'</td>'
+      +'<td style="padding:4px 6px;text-align:right">'+multCell+'</td>'
+      +'<td style="padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px">'+brlCell+'</td>'
+      +'</tr>';
   });
-  body.innerHTML=html;
-  $('frete-calc-sum-usd').textContent=fmtUSD(r.usdSum);
-  $('frete-calc-sum-brl').textContent=fmtBRL(r.usdSum*r.cambio);
-  $('frete-calc-sum-direct').textContent=fmtBRL(r.brlDirect);
-  $('frete-calc-sum-iof').textContent=fmtBRL(r.iof);
-  $('frete-calc-sum-total').textContent=fmtBRL(r.totalBRL);
-  $('frete-calc-sum-total-usd').textContent=fmtUSD(r.totalUSDEquiv);
+  body.innerHTML = html;
+
+  Array.prototype.forEach.call(body.querySelectorAll('.frete-calc-edit'), function(el){
+    el.addEventListener('input', onEditBaseValue);
+  });
+  Array.prototype.forEach.call(body.querySelectorAll('[data-reset]'), function(el){
+    el.addEventListener('click', function(ev){
+      var k = ev.target.getAttribute('data-reset');
+      delete window._freteOverrides[k];
+      recomputeAndRender();
+    });
+  });
+
+  $('frete-calc-sum-usd').textContent = fmtUSD(r.usdSum);
+  $('frete-calc-sum-brl').textContent = fmtBRL(r.usdSum * r.cambio);
+  var brlDirect = r.lines.reduce(function(acc,l){
+    return acc + (l.moeda==='BRL' && !l.noSum && l.key!=='iof' ? l.brl : 0);
+  }, 0);
+  $('frete-calc-sum-direct').textContent = fmtBRL(brlDirect);
+  $('frete-calc-sum-iof').textContent = fmtBRL(r.iof||0);
+  $('frete-calc-sum-total').textContent = fmtBRL(r.totalBRL||0);
+  $('frete-calc-sum-total-usd').textContent = fmtUSD(r.totalUSDEquiv||0);
   var obs=$('frete-calc-obs-rota');
-  if(obs) obs.innerHTML = r.rota.obs ? '💡 '+escH(r.rota.obs) : '';
+  if(obs) obs.innerHTML = r.rota && r.rota.obs ? '💡 '+escH(r.rota.obs) : '';
 }
 
 function currentInput(){
   var sel=$('frete-calc-rota'); if(!sel) return null;
   var rotaId=sel.value; if(!rotaId) return null;
   return {
-    rotaId:rotaId, cbm:numVal('frete-calc-cbm'), peso:numVal('frete-calc-peso'),
-    incoterm:val('crm-o-inst-incoterm')||'CIF', cambio:numVal('frete-calc-cambio')||5,
-    dap:numVal('frete-calc-dap'), oversize:numVal('frete-calc-oversize'),
+    rotaId: rotaId,
+    cbm: numVal('frete-calc-cbm'),
+    peso: numVal('frete-calc-peso'),
+    incoterm: val('crm-o-inst-incoterm') || 'CIF',
+    cambio: numVal('frete-calc-cambio') || 5,
+    dap: numVal('frete-calc-dap'),
+    oversize: numVal('frete-calc-oversize'),
     iofOn: $('frete-calc-iof-on') ? $('frete-calc-iof-on').checked : true
   };
 }
 
 function recomputeAndRender(){
   if(!window._FRETE_CFG){ renderBreakdown(null); return; }
-  var inp=currentInput();
+  var tipo = val('frete-calc-tipo');
+  if(tipo === 'AEREO'){
+    var body=$('frete-calc-body');
+    if(body) body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:30px;font-style:italic">'
+      + '✈️ Modal AEREO em breve — aguardando cotacao.<br>'
+      + 'Por enquanto preencha manualmente o campo "Frete Maritimo" no card CRM.</td></tr>';
+    $('frete-calc-sum-usd').textContent = '—';
+    $('frete-calc-sum-brl').textContent = '—';
+    $('frete-calc-sum-direct').textContent = '—';
+    $('frete-calc-sum-iof').textContent = '—';
+    $('frete-calc-sum-total').textContent = '—';
+    $('frete-calc-sum-total-usd').textContent = '—';
+    window._freteCalcPending = null;
+    return;
+  }
+  var inp = currentInput();
   if(!inp){ renderBreakdown(null); return; }
-  var r=calcFrete(inp, window._FRETE_CFG);
-  window._freteCalcPending=r;
+  var r = calcFrete(inp, window._FRETE_CFG);
+  window._freteCalcPending = r;
   renderBreakdown(r);
+}
+
+function onTipoChange(){
+  var tipo = val('frete-calc-tipo');
+  var fclWrap = $('frete-calc-fcl-wrap');
+  if(fclWrap) fclWrap.style.display = (tipo === 'FCL') ? '' : 'none';
+  window._freteOverrides = {};
+  buildRotaOptions(window._FRETE_CFG);
+  recomputeAndRender();
+}
+
+function onFclModalChange(){
+  window._freteOverrides = {};
+  buildRotaOptions(window._FRETE_CFG);
+  recomputeAndRender();
 }
 
 function onRotaChange(){
@@ -195,29 +418,44 @@ function onRotaChange(){
   var rotaId=sel.value; if(!rotaId){ recomputeAndRender(); return; }
   var rota=window._FRETE_CFG.frete_rotas_v1.rotas.filter(function(r){return r.id===rotaId;})[0];
   if(!rota) return;
-  if(rota.dap_charges_usd!==undefined) $('frete-calc-dap').value=rota.dap_charges_usd||0;
+  if(rota.dap_charges_usd!==undefined) $('frete-calc-dap').value = rota.dap_charges_usd||0;
+  window._freteOverrides = {};
   recomputeAndRender();
 }
 
 window.freteOpenCalc=function(){
   loadConfig(function(cfg){
-    if(!cfg){ alert('Erro: não foi possível carregar a configuração de frete da nuvem.'); return; }
+    if(!cfg){ alert('Erro: nao foi possivel carregar a configuracao de frete da nuvem.'); return; }
+    var tipoSel = $('frete-calc-tipo');
+    if(tipoSel && !tipoSel.value) tipoSel.value = 'LCL';
+    var fclModalSel = $('frete-calc-fcl-modal');
+    if(fclModalSel && !fclModalSel.value) fclModalSel.value = 'FCL_40HC';
+    $('frete-calc-fcl-wrap').style.display = (tipoSel && tipoSel.value === 'FCL') ? '' : 'none';
     buildRotaOptions(cfg);
-    var cbmAuto=cbmDaCaixa();
-    if(cbmAuto>0) $('frete-calc-cbm').value=cbmAuto.toFixed(3);
-    var cambio=numVal('inst-intl-cambio')||5.20;
-    $('frete-calc-cambio').value=cambio;
-    $('frete-calc-dap').value=0; $('frete-calc-oversize').value=0; $('frete-calc-peso').value='';
-    $('frete-calc-iof-on').checked=true;
-    var cardId=window._crmOrcCardId||'_novo';
-    var stored=null;
-    try{ stored=JSON.parse(localStorage.getItem('frete_calc_'+cardId)||'null'); }catch(e){}
+    var cbmAuto = cbmDaCaixa();
+    if(cbmAuto > 0) $('frete-calc-cbm').value = cbmAuto.toFixed(3);
+    var cambio = numVal('inst-intl-cambio') || 5.20;
+    $('frete-calc-cambio').value = cambio;
+    $('frete-calc-dap').value = 0;
+    $('frete-calc-oversize').value = 0;
+    $('frete-calc-peso').value = '';
+    $('frete-calc-iof-on').checked = true;
+    var cardId = window._crmOrcCardId || '_novo';
+    var stored = null;
+    try { stored = JSON.parse(localStorage.getItem('frete_calc_'+cardId) || 'null'); } catch(e){}
     if(stored && stored.rotaId){
-      $('frete-calc-rota').value=stored.rotaId;
-      if(stored.cbm) $('frete-calc-cbm').value=stored.cbm;
-      if(stored.dap!=null) $('frete-calc-dap').value=stored.dap;
-      if(stored.oversize!=null) $('frete-calc-oversize').value=stored.oversize;
-      if(stored.iofOn!=null) $('frete-calc-iof-on').checked=stored.iofOn;
+      if(stored.tipo) tipoSel.value = stored.tipo;
+      if(stored.modal && stored.modal !== stored.tipo) fclModalSel.value = stored.modal;
+      $('frete-calc-fcl-wrap').style.display = (tipoSel.value === 'FCL') ? '' : 'none';
+      buildRotaOptions(cfg);
+      $('frete-calc-rota').value = stored.rotaId;
+      if(stored.cbm) $('frete-calc-cbm').value = stored.cbm;
+      if(stored.dap != null) $('frete-calc-dap').value = stored.dap;
+      if(stored.oversize != null) $('frete-calc-oversize').value = stored.oversize;
+      if(stored.iofOn != null) $('frete-calc-iof-on').checked = stored.iofOn;
+      window._freteOverrides = stored.overrides || {};
+    } else {
+      window._freteOverrides = {};
     }
     recomputeAndRender();
     var bg=$('frete-calc-modal'); if(bg) bg.classList.add('open');
@@ -229,37 +467,53 @@ window.freteCloseCalc=function(){
 };
 
 window.freteAplicar=function(){
-  var r=window._freteCalcPending;
-  if(!r){ alert('Selecione uma rota primeiro.'); return; }
-  var totalUSD=Math.round(r.totalUSDEquiv);
-  var fm=$('crm-o-cif-frete-maritimo');
-  if(fm){ fm.value=totalUSD; fm.dispatchEvent(new Event('input',{bubbles:true})); }
-  window._freteCalc=r;
-  try{
-    var cardId=window._crmOrcCardId||'_novo';
-    var inp=currentInput();
+  var r = window._freteCalcPending;
+  if(!r){ alert('Selecione tipo e rota primeiro.'); return; }
+  var totalUSD = Math.round(r.totalUSDEquiv);
+  var fm = $('crm-o-cif-frete-maritimo');
+  if(fm){ fm.value = totalUSD; fm.dispatchEvent(new Event('input', {bubbles:true})); }
+  window._freteCalc = r;
+  try {
+    var cardId = window._crmOrcCardId || '_novo';
+    var inp = currentInput();
     localStorage.setItem('frete_calc_'+cardId, JSON.stringify({
-      rotaId:inp.rotaId, cbm:inp.cbm, dap:inp.dap, oversize:inp.oversize, iofOn:inp.iofOn,
-      totalBRL:r.totalBRL, totalUSD:totalUSD, appliedAt:new Date().toISOString()
+      tipo: r.tipo, modal: r.modal,
+      rotaId: inp.rotaId, cbm: inp.cbm, dap: inp.dap, oversize: inp.oversize, iofOn: inp.iofOn,
+      overrides: window._freteOverrides || {},
+      totalBRL: r.totalBRL, totalUSD: totalUSD, appliedAt: new Date().toISOString()
     }));
-  }catch(e){ console.warn('[frete-calc] localStorage save:',e); }
-  if(typeof window.crmCifRecalc==='function') window.crmCifRecalc();
+  } catch(e){ console.warn('[frete-calc] localStorage save:', e); }
+  if(typeof window.crmCifRecalc === 'function') window.crmCifRecalc();
   window.freteCloseCalc();
 };
 
+window.freteResetOverrides = function(){
+  if(Object.keys(window._freteOverrides||{}).length === 0){
+    alert('Nenhum override ativo.');
+    return;
+  }
+  window._freteOverrides = {};
+  recomputeAndRender();
+};
+
 function wireModalInputs(){
-  var ids=['frete-calc-rota','frete-calc-cbm','frete-calc-peso','frete-calc-cambio','frete-calc-dap','frete-calc-oversize','frete-calc-iof-on'];
+  var ids = ['frete-calc-rota','frete-calc-cbm','frete-calc-peso',
+             'frete-calc-cambio','frete-calc-dap','frete-calc-oversize','frete-calc-iof-on'];
   ids.forEach(function(id){
-    var el=$(id); if(!el) return;
-    if(id==='frete-calc-rota') el.addEventListener('change', onRotaChange);
+    var el = $(id); if(!el) return;
+    if(id === 'frete-calc-rota') el.addEventListener('change', onRotaChange);
     else el.addEventListener('input', recomputeAndRender);
   });
+  var tipoSel = $('frete-calc-tipo');
+  if(tipoSel) tipoSel.addEventListener('change', onTipoChange);
+  var fclSel = $('frete-calc-fcl-modal');
+  if(fclSel) fclSel.addEventListener('change', onFclModalChange);
 }
 
 function init(){
   wireModalInputs();
   loadConfig(function(cfg){
-    if(cfg) console.log('[frete-calc] config carregada · '+cfg.frete_rotas_v1.rotas.length+' rotas');
+    if(cfg) console.log('[frete-calc v2] config carregada · '+cfg.frete_rotas_v1.rotas.length+' rotas');
   });
 }
 
