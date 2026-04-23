@@ -322,15 +322,19 @@ function updateTotalsInPlace(){
     }
   });
 
-  // Atualiza footer
+  // Atualiza footer (Felipe 24/04: BRL + USD equivalente em cada card)
   var e;
+  var _dualBU = function(brl){
+    var usdEq = r.cambio > 0 ? (brl / r.cambio) : 0;
+    return fmtBRL(brl) + '<div style="font-size:9px;color:#888;font-weight:400;margin-top:2px;font-variant-numeric:tabular-nums">= '+fmtUSD(usdEq)+'</div>';
+  };
   e=$('frete-calc-sum-usd'); if(e) e.textContent = fmtUSD(r.usdSum);
-  e=$('frete-calc-sum-brl'); if(e) e.textContent = fmtBRL(r.usdSum * r.cambio);
+  e=$('frete-calc-sum-brl'); if(e) e.innerHTML = _dualBU(r.usdSum * r.cambio);
   var brlDirect = r.lines.reduce(function(acc,l){
     return acc + (l.moeda==='BRL' && !l.noSum && l.key!=='iof' ? l.brl : 0);
   }, 0);
-  e=$('frete-calc-sum-direct'); if(e) e.textContent = fmtBRL(brlDirect);
-  e=$('frete-calc-sum-iof'); if(e) e.textContent = fmtBRL(r.iof||0);
+  e=$('frete-calc-sum-direct'); if(e) e.innerHTML = _dualBU(brlDirect);
+  e=$('frete-calc-sum-iof'); if(e) e.innerHTML = _dualBU(r.iof||0);
   e=$('frete-calc-sum-total'); if(e) e.textContent = fmtBRL(r.totalBRL||0);
   e=$('frete-calc-sum-total-usd'); if(e) e.textContent = fmtUSD(r.totalUSDEquiv||0);
 }
@@ -412,13 +416,18 @@ function renderBreakdown(r){
     });
   }
 
+  // Felipe 24/04: BRL + USD equivalente em cada card
+  var _dualBU2 = function(brl){
+    var usdEq = r.cambio > 0 ? (brl / r.cambio) : 0;
+    return fmtBRL(brl) + '<div style="font-size:9px;color:#888;font-weight:400;margin-top:2px;font-variant-numeric:tabular-nums">= '+fmtUSD(usdEq)+'</div>';
+  };
   $('frete-calc-sum-usd').textContent = fmtUSD(r.usdSum);
-  $('frete-calc-sum-brl').textContent = fmtBRL(r.usdSum * r.cambio);
+  $('frete-calc-sum-brl').innerHTML = _dualBU2(r.usdSum * r.cambio);
   var brlDirect = r.lines.reduce(function(acc,l){
     return acc + (l.moeda==='BRL' && !l.noSum && l.key!=='iof' ? l.brl : 0);
   }, 0);
-  $('frete-calc-sum-direct').textContent = fmtBRL(brlDirect);
-  $('frete-calc-sum-iof').textContent = fmtBRL(r.iof||0);
+  $('frete-calc-sum-direct').innerHTML = _dualBU2(brlDirect);
+  $('frete-calc-sum-iof').innerHTML = _dualBU2(r.iof||0);
   $('frete-calc-sum-total').textContent = fmtBRL(r.totalBRL||0);
   $('frete-calc-sum-total-usd').textContent = fmtUSD(r.totalUSDEquiv||0);
   var obs=$('frete-calc-obs-rota');
