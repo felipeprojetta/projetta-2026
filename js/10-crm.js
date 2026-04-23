@@ -166,7 +166,7 @@ function cCloudLoad(cb){
 
 /* ── Helpers ────────────────────────────────────── */
 function uuid(){return 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
-function brl(v){return(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2,maximumFractionDigits:2});}
+function brl(v){return('R$ '+_fmtBRLCeil(v));}
 function dateLabel(s){if(!s)return'';var d=new Date(s+'T00:00:00');return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});}
 function isThisMonth(s){if(!s)return false;var d=new Date(s),n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();}
 function daysFrom(s){if(!s)return 999;return Math.ceil((new Date(s+'T00:00:00')-new Date())/(1000*86400));}
@@ -937,7 +937,7 @@ function buildCard(o,st,isFazerOrc){
 
       // --- Render ---
       // Formatters
-      var _fBrl = function(v){ return 'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0, maximumFractionDigits:0}); };
+      var _fBrl = function(v){ return 'R$ '+_fmtBRLCeil(v);};
       var _fUsd = function(v){ return 'US$ '+(v||0).toLocaleString('en-US',{minimumFractionDigits:0, maximumFractionDigits:0}); };
 
       html += '<div style="margin:4px 0 2px;padding:6px 8px;background:linear-gradient(135deg,rgba(230,81,0,.06),rgba(21,101,192,.04));border-radius:6px;border:0.5px solid rgba(230,81,0,.15);font-size:10px">';
@@ -2317,7 +2317,7 @@ window.crmInstCalcIntl=function(){
   var repasse=precoVenda*(pctRep/100);
   var gestao=precoVenda*(pctGest/100);
 
-  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var brl=function(v){return 'R$ '+_fmtBRLCeil(v);};
   var usd=function(v){return 'US$ '+(v/cambio).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
   var dual=function(v){return brl(v)+' <small style="color:#1565c0">('+usd(v)+')</small>';};
 
@@ -4276,7 +4276,7 @@ window.crmCompartilharCard=function(cardId){
   var data=cLoad();
   var card=data.find(function(o){return o.id===cardId;});
   if(!card){alert('Card não encontrado.');return;}
-  var brl=function(v){return v?'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';};
+  var brl=function(v){return v?'R$ '+_fmtBRLCeil(v):'—';};
   var lastRev=card.revisoes&&card.revisoes.length>0?card.revisoes[card.revisoes.length-1]:null;
   var valorTab=lastRev?brl(lastRev.valorTabela):brl(card.valorTabela||card.valor);
   var valorFat=lastRev?brl(lastRev.valorFaturamento):brl(card.valorFaturamento||card.valor);
@@ -4344,7 +4344,7 @@ function _gerarPaginaProposta(cardId){
   var data=cLoad();
   var card=data.find(function(o){return o.id===cardId;});
   if(!card)return;
-  var brl=function(v){return v?'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';};
+  var brl=function(v){return v?'R$ '+_fmtBRLCeil(v):'—';};
   var lastRev=card.revisoes&&card.revisoes.length>0?card.revisoes[card.revisoes.length-1]:null;
   var w=window.open('','_blank');
   w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">');
@@ -4952,7 +4952,7 @@ function _showMemorialSimplified(card, revIdx){
   }
   mem.style.display='';
 
-  var _brl=function(v){return 'R$ '+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var _brl=function(v){return 'R$ '+_fmtBRLCeil(v);};
   var dLabel=rev.data?new Date(rev.data).toLocaleString('pt-BR'):'—';
 
   var html='';
@@ -6471,7 +6471,7 @@ function _buildMsg(){
   var cliente=(document.getElementById('crm-o-cliente')||{}).value||'';
   var produto=(document.getElementById('crm-o-produto')||{}).value||'';
   var valorEl=document.getElementById('crm-o-valor');
-  var valor=valorEl&&valorEl.value?'R$ '+Number(valorEl.value).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
+  var valor=valorEl&&valorEl.value?'R$ '+_fmtBRLCeil(valorEl.value):'—';
   // Details from budget
   var larg=(document.getElementById('largura')||{}).value||(document.getElementById('crm-o-largura')||{}).value||'';
   var alt=(document.getElementById('altura')||{}).value||(document.getElementById('crm-o-altura')||{}).value||'';
@@ -6642,7 +6642,7 @@ window.crmGerarRelatorio=function(){
   });
 
   // Gerar HTML do relatório
-  var brl=function(v){return'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var brl=function(v){return'R$ '+_fmtBRLCeil(v);};
   var _esc=function(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;};
   var hoje=new Date().toLocaleDateString('pt-BR');
   var h='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório '+titulo+' — '+hoje+'</title>';
