@@ -3841,7 +3841,13 @@ window.crmFazerOrcamento=function(id){
     }
     // Transfer instalação — internacional auto-seleciona instalação internacional
     var instQuem=opp.inst_quem||'PROJETTA';
-    if(opp.scope==='internacional') instQuem='INTERNACIONAL';
+    // ★ Felipe 23/04: RESPEITAR 'SEM Instalação' acima do scope=internacional.
+    //   Antes: 'if(opp.scope==="internacional") instQuem="INTERNACIONAL"'
+    //   sobrepunha qualquer valor, inclusive SEM. Resultado: Felipe marcava
+    //   'Sem Instalação' no CRM e ainda via o bloco Instalação Internacional
+    //   (passagem, hotel, câmbio) no orçamento. Agora só força INTERNACIONAL
+    //   se o usuário NÃO escolheu explicitamente SEM.
+    if(opp.scope==='internacional' && instQuem!=='SEM') instQuem='INTERNACIONAL';
     setF('inst-quem',instQuem);
     if(instQuem==='TERCEIROS'){
       setF('inst-terceiros-valor',opp.inst_valor||'');
