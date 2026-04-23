@@ -1040,7 +1040,12 @@ function _populatePropostaItens(){
     var _descEn = tipo==='fixo'?'Projetta Fixed Panel by Weiku':tipo==='revestimento'?'Projetta Cladding by Weiku':'Projetta Door by Weiku';
     var _descPt = tipo==='fixo'?'Fixo Projetta by Weiku':tipo==='revestimento'?'Revestimento Projetta by Weiku':'Porta Projetta by Weiku';
     var descProposta = (_LANG==='en') ? _descEn : _descPt;
-    items.push({idx:i,L:L,A:A,q:q,area:area,modNum:modNum,modTxt:modTxt,descProposta:descProposta,tipo:tipo,folhas:folhas,corExt:corExt,corInt:corInt,fechMec:fechMec,fechDig:fechDig,puxador:puxador,puxTam:puxTam,cilindro:cilindro,abertura:abertura,temAlisar:temAlisar,sistema:sistema,imgSrc:imgSrc,fixos:it._fixos||null,temFixo:!!(it['tem-fixo'])});
+    // ★ Felipe 23/04: capturar campos específicos de revestimento pra renderizar
+    //   bloco diferente (sem fechadura/puxador/modelo etc).
+    var revTipo = it._rev_tipo || '';       // 'RIPADO' ou '' (liso)
+    var revEstrutura = it._rev_estrutura||'';// 'SIM'/'NAO'
+    var revTubo = it._rev_tubo||'';         // perfil tubular
+    items.push({idx:i,L:L,A:A,q:q,area:area,modNum:modNum,modTxt:modTxt,descProposta:descProposta,tipo:tipo,folhas:folhas,corExt:corExt,corInt:corInt,fechMec:fechMec,fechDig:fechDig,puxador:puxador,puxTam:puxTam,cilindro:cilindro,abertura:abertura,temAlisar:temAlisar,sistema:sistema,imgSrc:imgSrc,fixos:it._fixos||null,temFixo:!!(it['tem-fixo']),revTipo:revTipo,revEstrutura:revEstrutura,revTubo:revTubo});
     totalArea+=area;
   });
   // Ordenar por área (maior primeiro)
@@ -1113,38 +1118,69 @@ function _populatePropostaItens(){
     }
     doorsHtml+='<div style="font-size:10px;margin-bottom:4px"><b>'+_L_AREA+':</b> '+areaUn.toFixed(2)+'m²</div>';
     doorsHtml+='<div style="font-size:9.5px;color:#444;line-height:1.5">';
-    doorsHtml+='<div><b>'+_L_SIS+'</b>: '+it.sistema+'</div>';
-    doorsHtml+='<div><b>'+_L_ABERT+'</b>: '+_aberturaTxt+'</div>';
-    doorsHtml+='<div><b>'+_L_FOLHAS+'</b>: '+it.folhas+' '+(it.folhas>1?_L_LEAVES:_L_LEAF)+'</div>';
-    doorsHtml+='<div><b>'+_L_MODELO+'</b>: '+it.modTxt+'</div>';
-    // Fechadura mecânica com cilindro inline
-    var _fmStr=it.fechMec||'—';
-    if(it.cilindro&&it.cilindro!=='—') _fmStr+=' — '+it.cilindro;
-    doorsHtml+='<div><b>'+_L_FECHMEC+'</b>: <b>'+_fmStr+'</b></div>';
-    // Fechadura digital com highlight
-    var _fdVal=it.fechDig||'NÃO SE APLICA';
-    var _fdNA=(_fdVal==='NÃO SE APLICA'||_fdVal==='Nenhuma'||!_fdVal);
-    if(!_fdNA){
-      doorsHtml+='<div style="background:#f3e8ff;border:2px solid #8e44ad;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>'+_L_FECHDIG+':</b> <strong style="color:#8e44ad;font-size:110%">✅ '+_fdVal.toUpperCase()+'</strong></div>';
-    } else {
-      doorsHtml+='<div style="background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0"><b>'+_L_FECHDIG+':</b> <span style="color:#c0392b;font-weight:700">'+_L_NA+'</span></div>';
-    }
-    doorsHtml+='<div><b>'+_L_PUX+'</b>: '+it.puxador+'</div>';
-    if(it.puxador==='EXTERNO'&&it.puxTam){
-      // Puxador fornecido pelo cliente: destacar igual cilindro/alisar (vermelho)
-      if(String(it.puxTam).toUpperCase()==='CLIENTE'){
-        var _L_CLI_CLIENT = _LANG==='en' ? 'SUPPLIED BY CLIENT' : 'POR CONTA DO CLIENTE';
-        doorsHtml+='<div style="background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>'+_L_PUXTAM+':</b> <strong style="color:#c0392b;font-size:110%">'+_L_CLI_CLIENT+'</strong></div>';
-      } else {
-        doorsHtml+='<div><b>'+_L_PUXTAM+'</b>: '+it.puxTam+'</div>';
+    // ★ Felipe 23/04: branch por TIPO. Revestimento tem campos bem diferentes
+    //   de porta — sem fechadura/puxador/modelo/abertura. Mostrar:
+    //   - TIPO (RIPADO / CHAPA ACM 4mm LISA)
+    //   - COR ACM
+    //   - ESTRUTURA (tubo de alumínio) se ripado
+    if(it.tipo==='revestimento'){
+      var _L_TIPOREV = _LANG==='en'?'TYPE':'TIPO';
+      var _L_EST     = _LANG==='en'?'STRUCTURE':'ESTRUTURA';
+      var _L_RIP     = _LANG==='en'?'RIBBED (90mm SLATS + BACKING)':'RIPADO (RIPAS 90mm + CHAPA DE FUNDO)';
+      var _L_CHA     = _LANG==='en'?'FLAT ACM PANEL 4mm':'CHAPA ACM 4mm LISA';
+      var _L_TUBO_AL = _LANG==='en'?'ALUMINUM TUBE':'TUBO DE ALUMÍNIO';
+      var _L_TUBO_NA = _LANG==='en'?'N/A (glued directly to wall)':'NÃO SE APLICA (colado direto na parede)';
+      var _tipoTxt = (it.revTipo==='RIPADO') ? _L_RIP : _L_CHA;
+      doorsHtml+='<div><b>'+_L_TIPOREV+'</b>: '+_tipoTxt+'</div>';
+      doorsHtml+='<div><b>'+_L_COREXT+'</b>: '+it.corExt+'</div>';
+      if(it.revTipo==='RIPADO'){
+        var _tuboLabel = it.revTubo ? it.revTubo.replace('PA-','').replace(/X/g,'×') : '50.8×12.7×1.58';
+        if(it.revEstrutura==='SIM'){
+          doorsHtml+='<div><b>'+_L_EST+'</b>: '+_L_TUBO_AL+' '+_tuboLabel+'mm</div>';
+        } else {
+          doorsHtml+='<div><b>'+_L_EST+'</b>: '+_L_TUBO_NA+'</div>';
+        }
       }
+    } else if(it.tipo==='fixo'){
+      // Fixo: tipo minimalista — dimensões + cor
+      doorsHtml+='<div><b>'+_L_SIS+'</b>: '+it.sistema+'</div>';
+      doorsHtml+='<div><b>'+_L_COREXT+'</b>: '+it.corExt+'</div>';
+      doorsHtml+='<div><b>'+_L_CORINT+'</b>: '+it.corInt+'</div>';
+    } else {
+      // Porta pivotante (comportamento anterior) — todos os campos
+      doorsHtml+='<div><b>'+_L_SIS+'</b>: '+it.sistema+'</div>';
+      doorsHtml+='<div><b>'+_L_ABERT+'</b>: '+_aberturaTxt+'</div>';
+      doorsHtml+='<div><b>'+_L_FOLHAS+'</b>: '+it.folhas+' '+(it.folhas>1?_L_LEAVES:_L_LEAF)+'</div>';
+      doorsHtml+='<div><b>'+_L_MODELO+'</b>: '+it.modTxt+'</div>';
+      // Fechadura mecânica com cilindro inline
+      var _fmStr=it.fechMec||'—';
+      if(it.cilindro&&it.cilindro!=='—') _fmStr+=' — '+it.cilindro;
+      doorsHtml+='<div><b>'+_L_FECHMEC+'</b>: <b>'+_fmStr+'</b></div>';
+      // Fechadura digital com highlight
+      var _fdVal=it.fechDig||'NÃO SE APLICA';
+      var _fdNA=(_fdVal==='NÃO SE APLICA'||_fdVal==='Nenhuma'||!_fdVal);
+      if(!_fdNA){
+        doorsHtml+='<div style="background:#f3e8ff;border:2px solid #8e44ad;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>'+_L_FECHDIG+':</b> <strong style="color:#8e44ad;font-size:110%">✅ '+_fdVal.toUpperCase()+'</strong></div>';
+      } else {
+        doorsHtml+='<div style="background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0"><b>'+_L_FECHDIG+':</b> <span style="color:#c0392b;font-weight:700">'+_L_NA+'</span></div>';
+      }
+      doorsHtml+='<div><b>'+_L_PUX+'</b>: '+it.puxador+'</div>';
+      if(it.puxador==='EXTERNO'&&it.puxTam){
+        // Puxador fornecido pelo cliente: destacar igual cilindro/alisar (vermelho)
+        if(String(it.puxTam).toUpperCase()==='CLIENTE'){
+          var _L_CLI_CLIENT = _LANG==='en' ? 'SUPPLIED BY CLIENT' : 'POR CONTA DO CLIENTE';
+          doorsHtml+='<div style="background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.3);border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>'+_L_PUXTAM+':</b> <strong style="color:#c0392b;font-size:110%">'+_L_CLI_CLIENT+'</strong></div>';
+        } else {
+          doorsHtml+='<div><b>'+_L_PUXTAM+'</b>: '+it.puxTam+'</div>';
+        }
+      }
+      doorsHtml+='<div><b>'+_L_COREXT+'</b>: '+it.corExt+'</div>';
+      doorsHtml+='<div><b>'+_L_CORINT+'</b>: '+it.corInt+'</div>';
+      doorsHtml+='<div><b>'+_L_CIL+'</b>: '+it.cilindro+'</div>';
     }
-    doorsHtml+='<div><b>'+_L_COREXT+'</b>: '+it.corExt+'</div>';
-    doorsHtml+='<div><b>'+_L_CORINT+'</b>: '+it.corInt+'</div>';
-    doorsHtml+='<div><b>'+_L_CIL+'</b>: '+it.cilindro+'</div>';
     doorsHtml+='</div>';
-    // Alisar highlight
-    if(it.temAlisar){
+    // Alisar highlight (somente porta)
+    if(it.tipo!=='revestimento' && it.tipo!=='fixo' && it.temAlisar){
       doorsHtml+='<div style="background:#e8f5e9;border:2px solid #27ae60;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700"><b>'+_L_ALISAR+':</b> <strong style="color:#27ae60;font-size:110%">'+_L_WITHTRIM+'</strong></div>';
     }
     doorsHtml+='<div style="margin-top:6px;padding:4px 8px;background:#f0ebe0;border-radius:3px;font-size:11px;font-weight:800;color:var(--navy);text-align:right">'+fmt(valorItem)+'</div>';

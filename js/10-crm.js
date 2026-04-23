@@ -4962,7 +4962,15 @@ window._syncOrcToMpItens=function(){
 
   window._mpItens=[];
   window._orcItens.forEach(function(oi,idx){
-    if(oi.tipo!=='porta_pivotante') return;
+    // ★ Felipe 23/04: antes o código pulava tudo que não fosse porta_pivotante.
+    //   Com isso, revestimentos NUNCA apareciam no _mpItens e a proposta caía
+    //   no fallback de single-door mostrando campos irrelevantes de porta
+    //   (SISTEMA, ABERTURA, FECHADURA, etc). Agora aceita revestimento também
+    //   e _populatePropostaItens distingue por mp._tipo pra renderizar os
+    //   campos certos (tipo RIPADO/LISO, cor ACM, estrutura — sem fechadura
+    //   nem modelo).
+    if(oi.tipo==='fixo') return; // fixo é anexado em outra porta
+    if(oi.tipo!=='porta_pivotante' && oi.tipo!=='revestimento') return;
     var mp={id:'mp_crm_'+idx};
     mp['largura']=String(oi.largura||'');mp['altura']=String(oi.altura||'');
     mp['qtd-portas']=String(oi.qtd||'1');mp['folhas-porta']=String(oi.folhas||'1');
@@ -4988,7 +4996,7 @@ window._syncOrcToMpItens=function(){
     //   duplicado no grand total da proposta. Visualmente aparece como
     //   "Porta: L×A / Fixo: L×A" na coluna Dimensions dessa primeira porta.
     //   Portas subsequentes mostram apenas suas proprias medidas.
-    var _ehPrimeiraPorta = window._mpItens.length === 0;
+    var _ehPrimeiraPorta = window._mpItens.length === 0 && oi.tipo==='porta_pivotante';
     mp['tem-fixo']= _ehPrimeiraPorta && _fixosDoCard.length>0;
     mp._fixos    = _ehPrimeiraPorta ? _fixosDoCard : [];
     // Modelo 23 moldura config
@@ -5001,6 +5009,10 @@ window._syncOrcToMpItens=function(){
     mp['plan-moldura-alt-qty']=oi.moldura_alt_qty||'2';
     mp['plan-moldura-divisao']=oi.moldura_divisao||'classica';
     mp._modelo=oi.modelo||'01';mp._tipo=oi.tipo||'porta_pivotante';
+    // ★ Campos específicos de revestimento (usados por _populatePropostaItens)
+    mp._rev_tipo      = oi.rev_tipo || '';      // 'RIPADO' ou ''
+    mp._rev_estrutura = oi.rev_estrutura || ''; // 'SIM'/'NAO'
+    mp._rev_tubo      = oi.rev_tubo || '';      // ex: 'PA-51X12X1.58'
     var modOpt=document.querySelector('#carac-modelo option[value="'+oi.modelo+'"]');
     mp._modeloTxt=modOpt?modOpt.textContent:(oi.modelo||'');
     mp._largura=parseFloat(oi.largura)||0;mp._altura=parseFloat(oi.altura)||0;
