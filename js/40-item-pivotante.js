@@ -238,11 +238,81 @@ window.PROJETTA.pivotante = {
   // ═══════════════════════════════════════════════════════════════
   // CHAPAS (Etapa 4 — ainda fachada)
   // ═══════════════════════════════════════════════════════════════
+  /**
+   * Chapas da PORTA PIVOTANTE (Etapa 4 — Felipe 24/04).
+   * Delega a aprovPieces (05-aproveitamento_chapas.js) via injeção DOM
+   * com ISOLAMENTO ESTRITO (mesmo padrão de calcularPerfis/calcularAcessorios):
+   *  - Desliga tem-fixo
+   *  - Zera _mpItens, _orcItens
+   *  - Restaura tudo ao final
+   *
+   * Retorna lista de peças de chapa ACM 4mm da porta (frente+verso).
+   * Cada peça: {label, w, h, qtd, material, cor, _origem, _item_id}
+   */
   calcularChapas: function(item){
-    if(typeof window._pvtCalcularChapas === 'function'){
-      return window._pvtCalcularChapas(item) || [];
+    if(!item) return this._calcularChapasViaDOM();
+    var tipo = (item.tipo||'').toLowerCase();
+    if(tipo !== 'porta_pivotante' && tipo !== 'pivotante') return [];
+    if(typeof aprovPieces !== 'function'){
+      console.warn('[pvt.calcularChapas] aprovPieces indisponivel');
+      return [];
     }
-    return [];
+
+    var L = parseFloat(item.largura) || 0;
+    var A = parseFloat(item.altura)  || 0;
+    var fol = parseInt(item.folhas) || 1;
+    if(L <= 0 || A <= 0) return [];
+
+    // Normalizar modelo: 23 -> 23acm | 23alu (conforme revestimento da moldura)
+    var mod = String(item.modelo || '01');
+    if(mod === '23'){
+      mod = (item.moldura_revestimento === 'MACICO' || item.moldura_revestimento === 'ALU')
+              ? '23alu' : '23acm';
+    }
+
+    var backup = this._injetarNoDOM(item);
+    var pieces = [];
+    try {
+      pieces = aprovPieces(L, A, fol, mod) || [];
+    } catch(e){
+      console.error('[pvt.calcularChapas] erro:', e);
+      pieces = [];
+    } finally {
+      this._restaurarDOM(backup);
+    }
+
+    var qtd = parseInt(item.qtd) || 1;
+    return pieces.map(function(p){
+      return {
+        label:    p.label,
+        w:        Math.round(p.w),
+        h:        Math.round(p.h),
+        qtd:      (p.qty || 1) * qtd,
+        material: 'ACM_4MM',
+        cor:      item.cor_ext || null,
+        _origem:  'porta_pivotante',
+        _item_id: item.id || null,
+        _modelo:  mod
+      };
+    });
+  },
+
+  _calcularChapasViaDOM: function(){
+    if(typeof aprovPieces !== 'function') return [];
+    var L = parseFloat((document.getElementById('largura')||{value:0}).value) || 0;
+    var A = parseFloat((document.getElementById('altura') ||{value:0}).value) || 0;
+    var fol = parseInt((document.getElementById('folhas-porta')||{value:1}).value) || 1;
+    var mod = (document.getElementById('carac-modelo')||{value:'01'}).value || '01';
+    if(L <= 0 || A <= 0) return [];
+    try {
+      var pieces = aprovPieces(L, A, fol, mod) || [];
+      return pieces.map(function(p){
+        return {
+          label: p.label, w: Math.round(p.w), h: Math.round(p.h),
+          qtd: p.qty || 1, material:'ACM_4MM', _origem:'porta_pivotante'
+        };
+      });
+    } catch(e){ return []; }
   },
 
   camposVisiveis: function(modelo){
