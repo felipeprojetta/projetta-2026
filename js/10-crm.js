@@ -3606,22 +3606,42 @@ window._revCalcAcessoriosGlobal = function(){
     }
   });
 
-  // ── Fita Dupla Face 12mm: APENAS fita entre tubo e ripa (fixação).
-  //   Felipe 23/04: "a quantidade de tubos que temos x comprimento tubo x 2
-  //   e se divide por 20 pois é quantos mts vem por rolo de fita".
-  //   SEM termo de área — ao contrário da porta, no revestimento a fita NÃO
-  //   cola a chapa na parede inteira (isso é função do silicone). A fita só
-  //   fixa a ripa no tubo, então o consumo é proporcional aos tubos.
-  var fitaTubosM = totTubos5112Rip * 0.5 * 2;
-  var fitaRolos = Math.ceil(fitaTubosM / 20);
+  // ── Fórmula Dowsil 995 + Fita Dupla Face (Felipe 23/04) ──
+  //   Felipe: "largura x 2 altura x 3 fixos, e na largura ainda teremos
+  //   h/800 para a quantidade arredondando, para não ficar sem silicone
+  //   com mais de 800 mm. Rendimento do dowsil 8m. Fita dupla face:
+  //   mesma conta porém rendimento dividido por 20".
+  //
+  //   Comprimento total de cordão (mm) por peça de revestimento:
+  //     Horizontais = 2 + ceil(H / 800)
+  //     Verticais   = 3
+  //     Comp (mm)   = (L × horizontais + A × 3) × qtd × mult_2lados
+  //
+  //   Dowsil: 1 sachê (591ml) rende 8m de cordão
+  //     unidades = ceil(comp_total_m / 8)
+  //
+  //   Fita dupla face 12mm: 1 rolo rende 20m
+  //     unidades = ceil(comp_total_m / 20)
+  var compTotalMM = 0;
+  revs.forEach(function(r){
+    var L = parseFloat(r.largura) || 0;
+    var A = parseFloat(r.altura)  || 0;
+    var Q = parseInt(r.qtd) || 1;
+    if(!L || !A) return;
+    var _mult2L = (r.ripado_2lados==='SIM' || r.rev_2lados==='SIM') ? 2 : 1;
+    var horiz = 2 + Math.ceil(A / 800);
+    var vert  = 3;
+    var compPorPeca = (L * horiz) + (A * vert);
+    compTotalMM += compPorPeca * Q * _mult2L;
+  });
+  var compTotalM = compTotalMM / 1000;
 
-  // ── Dowsil 995 (sachê 591ml): AGUARDANDO FÓRMULA DO FELIPE.
-  //   Felipe 23/04: "o dowsil não é essa conta, te darei mais tarde o cálculo".
-  //   Até Felipe passar a fórmula correta, SUSPENDO o cálculo (silSachets=0).
-  //   A linha não aparece na lista (melhor não mostrar valor errado). Quando
-  //   Felipe passar a fórmula, substituir aqui.
-  var silMLTot = 0;
-  var silSachets = 0;
+  // Fita Dupla Face 12mm: rendimento 20 m/rolo
+  var fitaRolos = compTotalM > 0 ? Math.ceil(compTotalM / 20) : 0;
+
+  // Dowsil 995 sachê 591ml: rendimento 8 m/sachê
+  var silSachets = compTotalM > 0 ? Math.ceil(compTotalM / 8) : 0;
+  var silMLTot   = silSachets * 591;
 
   // ── Primer: 1 un por obra (frasco 940ml serve pra toda a fita)
   var primerQty = 1;
@@ -3640,7 +3660,7 @@ window._revCalcAcessoriosGlobal = function(){
       preco: getPreco('PA-FITDF 12X20X1.0'),
       apl: 'FAB',
       grp: 'FITA DUPLA FACE',
-      obs: totTubos5112Rip+' tubos × 0.5m × 2 = '+fitaTubosM.toFixed(1)+'m ÷ 20m = '+fitaRolos+' rolo(s)'
+      obs: 'Comp.total: '+compTotalM.toFixed(2)+'m ÷ 20m/rolo = '+fitaRolos+' rolo(s)'
     });
   }
   if(silSachets>0){
@@ -3651,7 +3671,7 @@ window._revCalcAcessoriosGlobal = function(){
       preco: getPreco('PA-DOWSIL 995 ESTR SH'),
       apl: 'FAB',
       grp: 'SELANTES',
-      obs: silMLTot.toFixed(0)+'ml ÷ 591ml = '+silSachets+' sachê(s)'
+      obs: 'Comp.total: '+compTotalM.toFixed(2)+'m ÷ 8m/sachê = '+silSachets+' sachê(s) · '+silMLTot+'ml'
     });
   }
   if(parafusoQty>0){
