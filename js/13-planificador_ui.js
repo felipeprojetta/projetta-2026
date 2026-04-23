@@ -1139,14 +1139,22 @@ function plnPieceTable(pieces, placed) {
   var _dbgLocais={PORTA:0,PORTAL:0,REVESTIMENTO:0,FIXO:0};
   var _pSorted=pieces.slice().map(function(p,idx){
     var _isP=_isPortaPiece(p.label);
-    // ★ Felipe 23/04 v5 DEFENSIVO: prefixo do LABEL vence SEMPRE sobre _tipo.
-    //   UPPERCASE para ser case-insensitive por segurança.
+    // ★ Felipe 23/04 v5 DEFENSIVO: strip qualquer prefixo de símbolo (✱, ❋, *)
+    //   antes de checar o label. getManualPieces adiciona '✱ ' no começo do
+    //   label, o que quebrava o match 'REV ' anterior.
+    //   Ordem: _rawName > label sem prefixo símbolo > _tipo > _isPortaPiece.
     var _lbl = (typeof p.label==='string') ? p.label : '';
+    var _rawN = (typeof p._rawName==='string') ? p._rawName : '';
+    // Uppercase + strip todo caractere não-alfanumérico do começo
     var _lblUC = _lbl.toUpperCase();
+    var _lblClean = _lblUC.replace(/^[^A-Z0-9]+/,'');  // remove ✱,*,espaço,etc
+    var _rawUC = _rawN.toUpperCase().replace(/^[^A-Z0-9]+/,'');
+    // Usa _rawName se existir, senão label limpo
+    var _check = _rawUC || _lblClean;
     var _itemTipo = (p._tipo || '').toLowerCase();
-    if(_lblUC.indexOf('REV ')===0){
+    if(_check.indexOf('REV ')===0 || _check.indexOf('REV')===0 && _check.charAt(3)===' '){
       p._local = 'REVESTIMENTO';
-    } else if(_lblUC.indexOf('FX ')===0){
+    } else if(_check.indexOf('FX ')===0){
       p._local = 'FIXO';
     } else if(_itemTipo === 'revestimento'){
       p._local = 'REVESTIMENTO';
@@ -2325,7 +2333,19 @@ function getManualPieces(){
     var w=parseFloat(document.getElementById(id+'-w').value)||0;
     var h=parseFloat(document.getElementById(id+'-h').value)||0;
     var q=parseInt(document.getElementById(id+'-q').value)||1;
-    if(w>0&&h>0) result.push({label:'✱ '+n,w:w,h:h,qty:q});
+    // ★ Felipe 23/04 v5: deduzir _tipo pelo NOME do item. Nome "REV 1 FUNDO"
+    //   → _tipo='revestimento'. "FX TAMPA" → _tipo='fixo'. Caso contrário
+    //   fica indefinido (classificador cai no heurístico).
+    var _nUC = (n||'').toUpperCase().trim();
+    var _tipoDed = '';
+    if(_nUC.indexOf('REV ')===0 || _nUC.indexOf('REV')===0) _tipoDed='revestimento';
+    else if(_nUC.indexOf('FX ')===0 || _nUC.indexOf('FX')===0) _tipoDed='fixo';
+    if(w>0&&h>0) result.push({
+      label:'✱ '+n,
+      w:w, h:h, qty:q,
+      _tipo: _tipoDed,
+      _rawName: n  // nome sem prefixo, pra classificador usar se quiser
+    });
   }
   return result;
 }
