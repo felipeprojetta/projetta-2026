@@ -472,7 +472,13 @@ function populateProposta(){
         return (it.tipo==='revestimento' || it.tipo==='porta_pivotante' || it.tipo==='porta_interna') 
                && (it.largura||0)>0 && (it.altura||0)>0;
       }).length;
-      if(_validOrcLen>0 && (!window._mpItens || window._mpItens.length < _validOrcLen)){
+      if(_validOrcLen>0){
+        // ★★★ SEMPRE repopula — se só verificasse length, _mpItens stale
+        // (de card anterior com modelo/dimensões diferentes) passaria.
+        // Felipe reportou: orçamento Mod 01 BLACK DOOR 1800×5000 mas
+        // proposta mostrava Modelo 23 Clássica com Molduras 2880×5340
+        // porque _mpItens.length=1 e _orcItens.length=1 — meu check
+        // "length<len" era false.
         window._mpItens = [];
         window._orcItens.forEach(function(oi, idx){
           var _t = oi.tipo || 'porta_pivotante';
