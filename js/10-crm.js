@@ -3241,7 +3241,8 @@ function orcItensRender(){
     var t = TIPOS[it.tipo] || {icon:'📦',label:it.tipo};
     var isActive = idx === window._orcItemAtual;
     var isDone = it._configured;
-    h += '<div class="orc-item-card'+(isActive?' active':'')+(isDone?' done':'')+'" onclick="orcItemSelecionar('+idx+')">';
+    // ★ Felipe 23/04: data-idx pra event delegation (fallback caso inline onclick falhe)
+    h += '<div class="orc-item-card'+(isActive?' active':'')+(isDone?' done':'')+'" data-idx="'+idx+'" onclick="orcItemSelecionar('+idx+')">';
     h += '<span class="oic-check">✅</span>';
     if(it.qtd > 1) h += '<span class="oic-qty">×'+it.qtd+'</span>';
     h += '<div class="oic-num">Item '+(idx+1)+'</div>';
@@ -3255,6 +3256,25 @@ function orcItensRender(){
     h += '</div>';
   });
   grid.innerHTML = h;
+  // ★ Felipe 23/04: event delegation COMO BACKUP — se o inline onclick falhar
+  //   por qualquer razão (CSP, propagação, etc), o delegation captura via
+  //   event bubbling no container. Flag _delegBound evita registrar 2x.
+  if(!grid._delegBound){
+    grid._delegBound = true;
+    grid.addEventListener('click', function(e){
+      var card = e.target.closest('.orc-item-card');
+      if(!card) return;
+      var idx = parseInt(card.getAttribute('data-idx'));
+      if(!isNaN(idx) && idx >= 0){
+        // Só chama se _orcItemAtual != idx (evita loops)
+        if(window._orcItemAtual !== idx){
+          console.log('%c[delegation] click Item '+(idx+1)+' (atual era '+(window._orcItemAtual+1)+')',
+            'background:#16a085;color:#fff;padding:2px 8px;border-radius:4px;font-weight:700');
+          orcItemSelecionar(idx);
+        }
+      }
+    });
+  }
 }
 
 function orcItemSalvarAtual(){
@@ -3280,13 +3300,15 @@ function orcItemSalvarAtual(){
 }
 
 function orcItemSelecionar(idx){
-  if(idx < 0 || idx >= window._orcItens.length) return;
+  if(idx < 0 || idx >= window._orcItens.length) {
+    console.warn('[orcItemSelecionar] idx invalido: '+idx+' (total items: '+(window._orcItens||[]).length+')');
+    return;
+  }
   
-  // ★ Felipe 23/04: log visual no console pra confirmar que clique disparou.
-  try{
-    console.log('%c[orcItemSelecionar] Item '+(idx+1)+' clicado',
-      'background:#e67e22;color:#fff;padding:2px 8px;border-radius:4px;font-weight:700');
-  }catch(e){}
+  // ★ Felipe 23/04 v2: log MUITO visível pra confirmar que clique disparou.
+  var _itDbg = window._orcItens[idx];
+  console.log('%c[orcItemSelecionar] Item '+(idx+1)+' clicado | tipo='+((_itDbg||{}).tipo||'?')+' L='+((_itDbg||{}).largura||'?')+' A='+((_itDbg||{}).altura||'?'),
+    'background:#e67e22;color:#fff;padding:3px 12px;border-radius:6px;font-weight:800;font-size:13px');
   
   // Save current item before switching
   if(window._orcItemAtual >= 0 && window._orcItemAtual !== idx){
