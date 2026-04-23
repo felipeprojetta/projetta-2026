@@ -316,9 +316,12 @@ function updateTotalsInPlace(){
     if(!row || !row.cells) return;
     var brlCell = row.cells[row.cells.length-1];
     if(brlCell){
+      // Felipe 24/04: BRL + USD equivalente embaixo (match com renderBreakdown)
+      var _usdEqLn = r.cambio > 0 ? (l.brl / r.cambio) : 0;
+      var _usdSub2 = '<div style="font-size:9px;color:#888;font-weight:400;margin-top:1px;font-variant-numeric:tabular-nums">= '+fmtUSD(_usdEqLn)+'</div>';
       brlCell.innerHTML = l.noSum
-        ? ('<span style="color:#999;font-style:italic">'+fmtBRL(l.brl)+' *</span>')
-        : ('<b>'+fmtBRL(l.brl)+'</b>');
+        ? ('<span style="color:#999;font-style:italic">'+fmtBRL(l.brl)+' *</span>'+_usdSub2)
+        : ('<b>'+fmtBRL(l.brl)+'</b>'+_usdSub2);
     }
   });
 
@@ -372,9 +375,12 @@ function renderBreakdown(r){
     var multCell = l.multLabel
       ? ('<span style="color:#888;font-size:9px">'+escH(l.multLabel)+'</span>')
       : (l.moeda==='USD' ? ('<span style="color:#888;font-size:9px">x '+(r.cambio).toFixed(4)+'</span>') : '');
+    // Felipe 24/04: cada linha mostra BRL + USD equivalente embaixo
+    var _usdEqLine = r.cambio > 0 ? (l.brl / r.cambio) : 0;
+    var _usdSub = '<div style="font-size:9px;color:#888;font-weight:400;margin-top:1px;font-variant-numeric:tabular-nums">= '+fmtUSD(_usdEqLine)+'</div>';
     var brlCell = l.noSum
-      ? ('<span style="color:#999;font-style:italic">'+fmtBRL(l.brl)+' *</span>')
-      : ('<b>'+fmtBRL(l.brl)+'</b>');
+      ? ('<span style="color:#999;font-style:italic">'+fmtBRL(l.brl)+' *</span>'+_usdSub)
+      : ('<b>'+fmtBRL(l.brl)+'</b>'+_usdSub);
     html+='<tr>'
       +'<td style="padding:4px 6px;text-align:center;font-size:11px">'+tipoBadge+'</td>'
       +'<td style="padding:4px 8px;color:#555;font-size:11px">'+escH(l.desc)+'</td>'
