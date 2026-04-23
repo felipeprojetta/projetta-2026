@@ -28,6 +28,20 @@
 function $(id){ return document.getElementById(id); }
 function num(v){ var n = parseFloat(v); return isNaN(n) ? 0 : n; }
 
+function hasFixoMarked(){
+  var el = document.getElementById('tem-fixo');
+  return !!(el && el.checked);
+}
+
+function hasRevestimentoVisible(){
+  var el = document.getElementById('card-carac-revestimento');
+  if(!el) return false;
+  try {
+    var cs = window.getComputedStyle(el).display;
+    return cs && cs !== 'none';
+  } catch(e){ return false; }
+}
+
 function crmCaixaAutoCalc(){
   // 1) Tentar _orcItens primeiro
   var items = Array.isArray(window._orcItens) ? window._orcItens : [];
@@ -52,24 +66,67 @@ function crmCaixaAutoCalc(){
     if(qtdItens === 0 && maxLargura > 0 && maxAltura > 0) qtdItens = 1;
   }
 
-  // Nao tem dados ainda — nao sobrescreve com zero
   if(qtdItens === 0 || maxLargura <= 0 || maxAltura <= 0) return false;
 
-  // Felipe 24/04: arredondar pra cima no proximo multiplo de 50
-  // (caixa de madeira: arredondar pra cima garante que peca cabe com folga)
   function roundUp50(x){ return Math.ceil(x / 50) * 50; }
 
-  var caixaAltura    = roundUp50(maxLargura + 350);    // largura_vao + 100 + 250
-  var caixaLargura   = roundUp50(maxAltura + 250);     // altura_vao + 250
-  var caixaEspessura = (qtdItens === 1) ? 600 : 0;     // ja e multiplo de 50
+  // Altura e comprimento (largura da caixa) sempre auto, arredondados em 50
+  var caixaAltura     = roundUp50(maxLargura + 350);   // largura_vao + 100 + 250
+  var caixaComprimento = roundUp50(maxAltura + 250);   // altura_vao  + 250
+
+  // Espessura: so 600 automatico se:
+  //   - apenas 1 item
+  //   - NAO tem fixo marcado
+  //   - NAO tem revestimento visivel
+  // Em qualquer outro caso: manual (user digita)
+  var temFixo = hasFixoMarked();
+  var temRev  = hasRevestimentoVisible();
+  var espessuraAuto = (qtdItens === 1) && !temFixo && !temRev;
 
   var elA = $('crm-o-cif-caixa-a');
   var elL = $('crm-o-cif-caixa-l');
   var elE = $('crm-o-cif-caixa-e');
   var changed = false;
-  if(elA && elA.value !== String(caixaAltura))   { elA.value = caixaAltura;    changed = true; }
-  if(elL && elL.value !== String(caixaLargura))  { elL.value = caixaLargura;   changed = true; }
-  if(elE && elE.value !== String(caixaEspessura)){ elE.value = caixaEspessura; changed = true; }
+
+  if(elA && elA.value !== String(caixaAltura))      { elA.value = caixaAltura;      changed = true; }
+  if(elL && elL.value !== String(caixaComprimento)){ elL.value = caixaComprimento;  changed = true; }
+
+  if(elE){
+    if(espessuraAuto){
+      // Modo AUTO: forca 600, readonly, bege
+      if(elE.value !== '600'){ elE.value = '600'; changed = true; }
+      elE.readOnly = true;
+      elE.style.background = '#fffaf3';
+      elE.style.color = '#555';
+      elE.style.borderStyle = 'dashed';
+      elE.style.borderColor = '';
+      elE.style.fontWeight = '';
+      elE.style.cursor = 'not-allowed';
+      elE.placeholder = '600';
+      elE.title = 'Auto: 600 para 1 item unico sem fixo e sem revestimento';
+      elE._caixaMode = 'auto';
+    } else {
+      // Modo MANUAL: editavel, borda laranja, alerta visual
+      // Transicao auto→manual: se tinha 600 (auto), limpar pra user digitar
+      if(elE._caixaMode !== 'manual'){
+        if(elE.value === '600' || elE.value === '0') { elE.value = ''; changed = true; }
+        elE._caixaMode = 'manual';
+      }
+      elE.readOnly = false;
+      elE.style.background = '#fff8ec';
+      elE.style.color = '#c47012';
+      elE.style.borderStyle = 'solid';
+      elE.style.borderColor = '#e67e22';
+      elE.style.fontWeight = '700';
+      elE.style.cursor = 'text';
+      elE.placeholder = 'inserir manual';
+      var motivo = [];
+      if(qtdItens > 1) motivo.push('mais de 1 item');
+      if(temFixo) motivo.push('item com fixo');
+      if(temRev)  motivo.push('item com revestimento');
+      elE.title = 'Inserir manualmente — ' + motivo.join(', ');
+    }
+  }
 
   if(changed && typeof window.crmCifRecalc === 'function'){
     window.crmCifRecalc();
@@ -79,11 +136,12 @@ function crmCaixaAutoCalc(){
 window.crmCaixaAutoCalc = crmCaixaAutoCalc;
 
 function markReadonly(){
-  var ids = ['crm-o-cif-caixa-a','crm-o-cif-caixa-l','crm-o-cif-caixa-e'];
+  // Altura e Comprimento sao SEMPRE readonly (auto-calculados).
+  // Espessura e dinamica: estilo/readonly controlados em crmCaixaAutoCalc.
+  var ids = ['crm-o-cif-caixa-a','crm-o-cif-caixa-l'];
   var titles = {
     'crm-o-cif-caixa-a': 'Auto: largura do vao + 350, arredondado pra cima em multiplos de 50mm',
-    'crm-o-cif-caixa-l': 'Auto: altura do vao + 250, arredondado pra cima em multiplos de 50mm',
-    'crm-o-cif-caixa-e': 'Auto: 600 se 1 item, 0 se mais itens'
+    'crm-o-cif-caixa-l': 'Auto: altura do vao + 250, arredondado pra cima em multiplos de 50mm'
   };
   ids.forEach(function(id){
     var el = $(id);
@@ -100,19 +158,26 @@ function markReadonly(){
 }
 
 function attachInputHooks(){
-  var ids = ['largura','altura','qtd-portas','folhas-porta'];
+  var ids = ['largura','altura','qtd-portas','folhas-porta','tem-fixo','carac-modelo'];
   ids.forEach(function(id){
     var el = $(id);
     if(el && !el._caixaAutoHooked){
       el._caixaAutoHooked = true;
-      el.addEventListener('input', function(){
-        setTimeout(crmCaixaAutoCalc, 30);
-      });
-      el.addEventListener('change', function(){
-        setTimeout(crmCaixaAutoCalc, 30);
-      });
+      el.addEventListener('input',  function(){ setTimeout(crmCaixaAutoCalc, 30); });
+      el.addEventListener('change', function(){ setTimeout(crmCaixaAutoCalc, 30); });
     }
   });
+
+  // Card de revestimento: nao ha evento quando display muda via JS externo,
+  // entao usamos MutationObserver no style/attributes pra reagir.
+  var revCard = document.getElementById('card-carac-revestimento');
+  if(revCard && !revCard._caixaAutoObserved && typeof MutationObserver === 'function'){
+    revCard._caixaAutoObserved = true;
+    var mo = new MutationObserver(function(){
+      setTimeout(crmCaixaAutoCalc, 30);
+    });
+    mo.observe(revCard, { attributes: true, attributeFilter: ['style','class'] });
+  }
 }
 
 function patchGlobalFns(){
