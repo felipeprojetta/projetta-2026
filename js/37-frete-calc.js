@@ -115,11 +115,11 @@ function buildBreakdownLCL(input, cfg){
   }
 
   var ex = rota.extras_usd || {};
-  if(ex.customs_clearence){
-    lines.push({key:'customs_usd', desc:'Customs Clearence', section:'Destino '+rota.destino_pais,
-                moeda:'USD', base:ov('customs_usd', ex.customs_clearence), mult:1,
-                brl:ov('customs_usd', ex.customs_clearence)*cambio, tipo:'fixo', editable:true});
-  }
+  // Customs Clearance: SEMPRE adicionar, default USD 110 (solicitado 24/04).
+  var customsBase = ov('customs_usd', ex.customs_clearence || 110);
+  lines.push({key:'customs_usd', desc:'Customs Clearence', section:'Destino '+rota.destino_pais,
+              moeda:'USD', base: customsBase, mult:1,
+              brl: customsBase*cambio, tipo:'fixo', editable:true});
   if(ex.handling){
     lines.push({key:'handling_dest_usd', desc:'Handling (Destino)', section:'Destino '+rota.destino_pais,
                 moeda:'USD', base:ov('handling_dest_usd', ex.handling), mult:1,
@@ -187,11 +187,11 @@ function buildBreakdownFCL(input, cfg, modal){
   }
 
   var exU = rota.extras_usd || {};
-  if(exU.customs_clearence){
-    lines.push({key:'customs_usd', desc:'Customs Clearence', section:'Destino '+rota.destino_pais,
-                moeda:'USD', base:ov('customs_usd', exU.customs_clearence), mult:1,
-                brl:ov('customs_usd', exU.customs_clearence)*cambio, tipo:'fixo', editable:true});
-  }
+  // Customs Clearance: SEMPRE adicionar, default USD 110 (solicitado 24/04).
+  var customsBaseFcl = ov('customs_usd', exU.customs_clearence || 110);
+  lines.push({key:'customs_usd', desc:'Customs Clearence', section:'Destino '+rota.destino_pais,
+              moeda:'USD', base: customsBaseFcl, mult:1,
+              brl: customsBaseFcl*cambio, tipo:'fixo', editable:true});
   if(rota.ad_valorem_pct){
     var adV = oceanFlat * rota.ad_valorem_pct;
     lines.push({key:'ad_valorem', desc:'Ad-Valorem ('+(rota.ad_valorem_pct*100).toFixed(2)+'%)', section:'Destino '+rota.destino_pais,
