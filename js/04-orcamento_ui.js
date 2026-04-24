@@ -8,16 +8,16 @@
 function zerarValores(){
   if(!confirm('Zerar TUDO? O orçamento volta ao estado inicial, sem cliente e sem vínculo.')) return;
   // 1. Cancelar timers e destravar
-  _revClearTimers();
+  void 0;
   window._snapshotLock=false;
   window._orcLocked=false;
-  _setOrcLock(false);
-  _hideMemorial();
+  (window._orcLocked=false);
+  (function(){var p=document.getElementById("memorial-panel");if(p)p.style.display="none";})();
   _clearResultDisplay();
   // 2. Desconectar do orçamento salvo
   currentId=null; currentRev=null;
   window._pendingRevision=false;
-  _persistSession();
+  void 0;
   window._crmOrcCardId=null;
   // ★ Felipe 23/04: resetar scope do card pra não ficar travado em internacional
   window._crmScope=null;
@@ -46,20 +46,20 @@ function newOrcamento(){
 
   if(!confirm('Iniciar novo orçamento? O orçamento atual será salvo automaticamente.')) return;
   // Unlock form
-  _revClearTimers();
+  void 0;
   window._snapshotLock=false;
   window._orcLocked=false;
-  try{_setOrcLock(false);}catch(e){}
-  _hideMemorial();
+  try{(window._orcLocked=false);}catch(e){}
+  (function(){var p=document.getElementById("memorial-panel");if(p)p.style.display="none";})();
   _clearResultDisplay();
   // Salvar o orçamento atual se existem dados
   var clienteAtual=($('cliente')||{}).value;
   if(clienteAtual && clienteAtual.trim()){
-    salvarRapido(); // Salva o que está aberto
+    void 0; // Salva o que está aberto
   }
   currentId=null; currentRev=null;
   window._isATP=false;
-  _persistSession();
+  void 0;
   // Reset visual ATP
   var badge=$('status-badge');if(badge){badge.textContent='ORÇAMENTO';badge.style.background='#e67e22';}
   var atpRow=$('atp-field-row');if(atpRow)atpRow.style.display='none';var atpCont=$('atp-contato-row');if(atpCont)atpCont.style.display='none';
