@@ -85,6 +85,26 @@
     }
   };
 
+  // ─── Zerar valores (tabela/faturamento/valor) do card ─────────────────
+  window.zerarValoresCardCRM = async function(cardId){
+    if(!confirm('🧹 ZERAR valores deste card?\n\nIsto apaga:\n  • valor_tabela\n  • valor_faturamento\n  • valor\n\nAs revisões da tabela crm_revisoes NÃO serão afetadas — só os campos diretos do card.\n\nContinuar?')) return;
+    try {
+      await fetch(SUPA+'/rest/v1/crm_oportunidades?id=eq.'+encodeURIComponent(cardId), {
+        method:'PATCH',
+        headers:Object.assign({},_hdrs(),{Prefer:'return=minimal'}),
+        body: JSON.stringify({ valor_tabela:null, valor_faturamento:null, valor:null, updated_at: new Date().toISOString() })
+      });
+      _toast('🧹 Valores do card zerados','#27ae60');
+      // Recarregar kanban se a função existir
+      setTimeout(function(){
+        if(typeof window.renderCRM === 'function') try { window.renderCRM(); } catch(e){}
+        if(typeof window._crmRender === 'function') try { window._crmRender(); } catch(e){}
+      }, 400);
+    } catch(err){
+      _toast('❌ Erro: '+err.message,'#c0392b');
+    }
+  };
+
   // ─── Renderizar seção ────────────────────────────────────────────────
   async function _renderSecaoRevisoes(cardId){
     var containerId = 'rev-section-render';
@@ -156,8 +176,9 @@
     var sec = document.createElement('div');
     sec.style.cssText = 'margin-top:14px;padding-top:10px;border-top:2px solid #0C447C';
     sec.innerHTML =
-      '<div style="font-size:12px;font-weight:800;color:#0C447C;margin-bottom:8px;letter-spacing:.03em">' +
-        '📑 REVISÕES APROVADAS' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        '<span style="font-size:12px;font-weight:800;color:#0C447C;letter-spacing:.03em">📑 REVISÕES APROVADAS</span>' +
+        '<button onclick="zerarValoresCardCRM(\'' + cardId + '\')" title="Apaga valor_tabela/faturamento/valor do card. Útil quando quer limpar manualmente." style="padding:6px 10px;border-radius:6px;border:1.5px solid #e67e22;background:#fff;color:#e67e22;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">🧹 Zerar valores do card</button>' +
       '</div>' +
       '<div id="rev-section-render"></div>';
     body.appendChild(sec);
