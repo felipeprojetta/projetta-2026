@@ -5359,340 +5359,152 @@ window._syncOrcToMpItens=function(){
   },400);
 };
 
-window.crmOrcamentoPronto=function(){
-  try{
-  var id=window._crmOrcCardId;
-  var revLabel='Original';
-  var isFirst=true;  // ← declarado no escopo externo para usar em _salvarSnapshotECRM
-  var _origStage=null; // ★ stage anterior — usado pra ROLLBACK se save sair zerado
-
-  // Se tem card CRM vinculado: mover card para Orçamento Pronto (sem salvar valores ainda)
-  if(id){
-    var data=cLoad();var idx=data.findIndex(function(o){return o.id===id;});
-    if(idx>=0){
-      _origStage=data[idx].stage; // guarda pra eventual rollback
-      isFirst=!data[idx].revisoes||data[idx].revisoes.length===0;
-      var stages=gStages();
-      var enviarStage=stages.find(function(s){return s.id==='s3b';})||stages.find(function(s){return/pronto|feito|enviar/i.test(s.label);});
-      if(enviarStage) data[idx].stage=enviarStage.id;
-      data[idx].updatedAt=new Date().toISOString();
-      var agpEl=document.getElementById('num-agp');
-      if(agpEl&&agpEl.value.trim()) data[idx].agp=agpEl.value.trim();
-      var resEl=document.getElementById('numprojeto');
-      if(resEl&&resEl.value.trim()) data[idx].reserva=resEl.value.trim();
-      if(!data[idx].revisoes) data[idx].revisoes=[];
-      var revNum=data[idx].revisoes.length;
-      revLabel=isFirst?'Original':'Revisão '+revNum;
-      // ⚠️ NÃO fazer push aqui — foi movido para _salvarSnapshotECRM
-      //    (evita gravar revisão com valor ZERO quando gerarCustoTotal é assíncrono
-      //     e o callback falha — antes: 1º clique zerava 'Original', 2º clique virava 'Revisão 1')
-      cSave(data);
-    }
+window.crmOrcamentoPronto = async function(){
+  // ─────────────────────────────────────────────────────────────────
+  // PROJETTA PERSIST V1 — versao limpa (Felipe 24/04)
+  // Usa window.Persist como fonte unica. Nada de loadDB/saveDB/freeze.
+  // Fluxo:
+  //   1) Garante que gerarCustoTotal rodou (valores no DOM / _calcResult)
+  //   2) Captura snapshot do formulario + memorial
+  //   3) Chama Persist.salvarOrcamento (await — sync confirmada por HTTP)
+  //   4) Atualiza UI: move card pro stage 'Orcamento Pronto', mostra rev
+  //   5) Qualquer falha → toast vermelho, UI intacta, valores preservados
+  // ─────────────────────────────────────────────────────────────────
+  var cardId = window._crmOrcCardId;
+  if(!cardId){
+    alert('Nenhum card CRM vinculado a este orcamento. Abra o orcamento a partir de um card.');
+    return;
   }
-  // Esconder botões após envio e TRAVAR orçamento
-  var btn=document.getElementById('crm-orc-pronto-btn');if(btn)btn.style.display='none';
-  var btnAtt=document.getElementById('crm-atualizar-btn');if(btnAtt)btnAtt.style.display='none';
-  // PASSO 1: Verificar se entry atual pertence a ESTE card CRM
-  // Se currentId aponta para outro cliente, forçar criação de novo entry
-  if(currentId && id){
-    var _dbCheck=loadDB();var _oiCheck=_dbCheck.findIndex(function(e){return e.id===currentId;});
-    if(_oiCheck>=0 && _dbCheck[_oiCheck].crmCardId && _dbCheck[_oiCheck].crmCardId!==id){
-      // Entry atual é de OUTRO card — forçar novo
-      currentId=null; currentRev=null;
-    }
-    // Também verificar se já existe entry vinculado a ESTE card
-    var _existente=_dbCheck.find(function(e){return e.crmCardId===id;});
-    if(_existente){
-      currentId=_existente.id; currentRev=_existente.revisions.length-1;
-    }
+  if(!window.Persist || typeof window.Persist.salvarOrcamento !== 'function'){
+    alert('Modulo Persist nao carregou. Recarregue a pagina (Ctrl+Shift+R).');
+    return;
   }
-  // PASSO 2: Salvar entry primeiro (garante currentId)
-  // Se NÃO é primeira revisão, FORÇAR criação de nova revisão no histórico
-  if(!isFirst) window._pendingRevision=true;
-  if(typeof salvarRapido==='function') try{salvarRapido();}catch(e){console.warn('salvarRapido:',e);}
-  // PASSO 3: Vincular crmCardId IMEDIATAMENTE
-  if(currentId){
-    var _db2=loadDB();var _oi=_db2.findIndex(function(e){return e.id===currentId;});
-    if(_oi>=0){
-      _db2[_oi].crmCardId=id;
-      var _rev=_db2[_oi].revisions[currentRev];
-      if(_rev) _rev.crmPronto=true;
-      saveDB(_db2);
-    }
-  }
-  // PASSO 4: Capturar snapshot + atualizar CRM
-  // Função única que salva tudo de uma vez
-  var _salvarSnapshotECRM=function(){
-    // captureSnapshot() e _captureOrcValues() agora leem de window._calcResult
-    var _snap=null;
-    try{_snap=captureSnapshot();}catch(e){}
-    var _vals=typeof _captureOrcValues==='function'?_captureOrcValues():{tab:0,fat:0};
-    // Fallback extra: ler direto do _calcResult se DOM falhou
-    if(_vals.tab===0&&_vals.fat===0&&window._calcResult){
-      _vals.tab=window._calcResult._tabTotal||0;
-      _vals.fat=window._calcResult._fatTotal||0;
-    }
-    // Fallback: ler do snapshot
-    if(_vals.tab===0&&_vals.fat===0&&_snap){
-      var _parseSnap=function(s){return parseFloat((s||'0').toString().replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.'))||0;};
-      _vals.tab=_parseSnap(_snap.tabTotal);
-      _vals.fat=_parseSnap(_snap.fatTotal);
-    }
-    console.log('💾 _salvarSnapshotECRM: tab='+_vals.tab+' fat='+_vals.fat);
-    if(currentId){
-      var _db3=loadDB();var _oi3=_db3.findIndex(function(e){return e.id===currentId;});
-      if(_oi3>=0){
-        var _rev3=_db3[_oi3].revisions[currentRev];
-        if(_rev3){
-          _rev3.snapshot=_snap;
-          _rev3.savedAt=new Date().toISOString().replace('T',' ').substring(0,16);
-        }
-        saveDB(_db3);
-      }
-    }
-    if(id){
-      var _crmD=cLoad();var _ci=_crmD.findIndex(function(o){return o.id===id;});
-      if(_ci>=0){
-        _crmD[_ci].valor=_vals.fat||_vals.tab;
-        _crmD[_ci].valorTabela=_vals.tab;
-        _crmD[_ci].valorFaturamento=_vals.fat;
-        if(!_crmD[_ci].revisoes) _crmD[_ci].revisoes=[];
-        // ✅ CRIAR revisão AQUI — só quando temos os valores reais em mãos
-        //    Evita gravar revisão zerada no card quando gerarCustoTotal é assíncrono
-        var _revNum=_crmD[_ci].revisoes.length;
-        var _revLabelFinal=isFirst?'Original':'Revisão '+_revNum;
 
-        // ★ Capturar params financeiros atuais do form pra salvar na rev E
-        //   na opção ativa. Assim Nova Revisão / Nova Opção podem puxar.
-        var _paramsNow = (typeof _snapshotParamsDoForm==='function') ? _snapshotParamsDoForm() : null;
+  var btn    = document.getElementById('crm-orc-pronto-btn');
+  var btnAtt = document.getElementById('crm-atualizar-btn');
+  var pdfBtn = document.getElementById('crm-gerar-pdf-btn');
 
-        _crmD[_ci].revisoes.push({
-          rev:_revNum,
-          label:_revLabelFinal,
-          data:new Date().toISOString(),
-          valorTabela:_vals.tab,
-          valorFaturamento:_vals.fat,
-          paramsFinanceiros: _paramsNow
-        });
-
-        // Também salva no nível da OPÇÃO ativa (fonte primária pra novas
-        // opções duplicadas e também pra reload do modal)
-        if(_paramsNow && window.OrcamentoOpcoes){
-          var _opAtivaNow = window.OrcamentoOpcoes.ativa(_crmD[_ci]);
-          if(_opAtivaNow){
-            _opAtivaNow.paramsFinanceiros = _paramsNow;
-          }
-        }
-
-        revLabel=_revLabelFinal; // atualiza label externo para o toast
-        console.log('📊 '+_revLabelFinal+' criada: Tab='+_vals.tab+' Fat='+_vals.fat+(_paramsNow?' + paramsFin':''));
-        cSave(_crmD);
-        if(typeof crmRender==='function') crmRender();
-      }
-    }
-    // Toast — amarelo se valores zerados (failsafe provavelmente disparou)
-    var _zerado=(!_vals.tab && !_vals.fat);
-
-    // ★ RECUPERAÇÃO (Felipe 20/04): se salvou com valor zero, NÃO travar
-    //   o orçamento e NÃO esconder o botão Orçamento Pronto. Assim o user
-    //   pode gerar custo de novo e re-clicar SEM ter que refazer tudo.
-    //   Também REMOVER a revisão zerada (evita acumular revs R$0 no card).
-    if(_zerado){
-      // Desfazer o travamento pra permitir retry
-      window._snapshotLock=false;
-      _setOrcLock(false);
-
-      // Reexibir botões de Orçamento Pronto e Atualizar
-      var _btnRetry=document.getElementById('crm-orc-pronto-btn');
-      if(_btnRetry){ _btnRetry.style.display=''; _btnRetry.disabled=false; }
-      var _btnAttRetry=document.getElementById('crm-atualizar-btn');
-      if(_btnAttRetry){ _btnAttRetry.style.display=''; }
-
-      // Remover a revisão zerada recém-criada (a última do card)
-      // E FAZER ROLLBACK do stage (voltar pra Fazer Orçamento) — assim o
-      // card não fica preso em "Orçamento Pronto" sem valor.
-      if(id){
-        try {
-          var _crmDZ=cLoad();
-          var _ciZ=_crmDZ.findIndex(function(o){return o.id===id;});
-          if(_ciZ>=0){
-            // Remover a revisão zerada recém-criada (a última do card)
-            if(_crmDZ[_ciZ].revisoes && _crmDZ[_ciZ].revisoes.length>0){
-              var _lastRevZ = _crmDZ[_ciZ].revisoes[_crmDZ[_ciZ].revisoes.length-1];
-              if((_lastRevZ.valorTabela||0)===0 && (_lastRevZ.valorFaturamento||0)===0){
-                _crmDZ[_ciZ].revisoes.pop();
-                _crmDZ[_ciZ].valor=0;
-                _crmDZ[_ciZ].valorTabela=0;
-                _crmDZ[_ciZ].valorFaturamento=0;
-              }
-            }
-            // Rollback do stage pro anterior (ou Fazer Orçamento se não tinha)
-            if(_origStage){
-              _crmDZ[_ciZ].stage=_origStage;
-            } else {
-              var _stagesZ=gStages();
-              var _fazerZ=_stagesZ.find(function(s){return s.id==='s3a';})||
-                          _stagesZ.find(function(s){return/fazer|orca|preparar/i.test(s.label);});
-              if(_fazerZ) _crmDZ[_ciZ].stage=_fazerZ.id;
-            }
-            cSave(_crmDZ);
-          }
-        } catch(e){ console.warn('[OrcPronto] rollback falhou:', e); }
-      }
+  function _setBtnLoading(loading){
+    if(!btn) return;
+    if(loading){
+      btn.dataset.origText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '⏳ Salvando...';
     } else {
-      window._snapshotLock=true;
-      _setOrcLock(true);
+      btn.disabled = false;
+      if(btn.dataset.origText) btn.innerHTML = btn.dataset.origText;
     }
+  }
+  function _toast(msg, cor, ms){
+    var t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:'
+      + cor + ';color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;'
+      + 'box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:560px;text-align:center';
+    t.innerHTML = msg;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, ms || 5000);
+  }
 
-    // Mostrar botão Gerar PDF (só se não zerado)
-    if(!_zerado){
-      var pdfBtn=document.getElementById('crm-gerar-pdf-btn');
-      if(pdfBtn)pdfBtn.style.display='inline-flex';
-    }
+  _setBtnLoading(true);
 
-    var toast=document.createElement('div');
-    toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:'+(_zerado?'#e67e22':'#27ae60')+';color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:560px;text-align:center';
-    if(_zerado){
-      toast.innerHTML='⚠️ Custo não gerado — orçamento NÃO foi congelado.<br><span style="font-weight:400;font-size:11px">Clique em <b>⚙ GERAR CUSTO COMPLETO</b> primeiro, depois em <b>Orçamento Pronto</b> de novo. Seus dados estão preservados.</span>';
-    } else {
-      toast.textContent='✅ '+revLabel+' congelada! Tab: '+brl(_vals.tab)+' Fat: '+brl(_vals.fat);
-    }
-    document.body.appendChild(toast);
-    setTimeout(function(){toast.remove();}, _zerado?10000:5000);
-    if(typeof crmRender==='function') crmRender();
+  try {
+    // ─── PASSO 1: garantir valores calculados ───
+    var temVals = !!(window._calcResult && 
+      (window._calcResult._tabTotal > 0 || window._calcResult._fatTotal > 0));
 
-    // ─── Memorial V2: salva em paralelo no banco Supabase ───
-    // Não bloqueia o fluxo se falhar — só loga. Sistema antigo continua funcionando.
-    if(id && window.MemorialV2 && typeof window.MemorialV2.salvar === 'function'){
-      var _v2RevNum = 0;
-      try {
-        var _crmD2 = cLoad();
-        var _cix = _crmD2.findIndex(function(o){return o.id===id;});
-        if(_cix>=0 && _crmD2[_cix].revisoes) _v2RevNum = _crmD2[_cix].revisoes.length - 1;
-      } catch(e){}
-      window.MemorialV2.salvar({
-        crmCardId: id,
-        revNum: _v2RevNum,
-        revLabel: revLabel,
-        tipo: 'AGP',
-        status: 'pronto',
-        valorTabela: _vals.tab,
-        valorFaturamento: _vals.fat
-      }).then(function(row){
-        console.log('[MemorialV2] salvo:', row && row.id, '|', revLabel);
-        // Guardar o id v2 na revisão do card (pra abrir depois via banco)
-        try {
-          var _crmD3 = cLoad();
-          var _cix2 = _crmD3.findIndex(function(o){return o.id===id;});
-          if(_cix2>=0 && _crmD3[_cix2].revisoes && _crmD3[_cix2].revisoes.length>0){
-            var _lastRev = _crmD3[_cix2].revisoes[_crmD3[_cix2].revisoes.length-1];
-            _lastRev.memorialV2Id = row && row.id;
-            cSave(_crmD3);
-          }
-        } catch(e){ console.warn('[MemorialV2] falhou ao linkar memorialV2Id:', e); }
-      }).catch(function(err){
-        console.error('[MemorialV2] ERRO salvando:', err);
-        var warn = document.createElement('div');
-        warn.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:#c0392b;color:#fff;padding:8px 16px;border-radius:16px;font-size:11px;z-index:9998';
-        warn.textContent = '⚠ Backup Supabase falhou: ' + (err.message||err);
-        document.body.appendChild(warn);
-        setTimeout(function(){ warn.remove(); }, 6000);
+    if(!temVals && typeof gerarCustoTotal === 'function'){
+      // Dispara calculo e aguarda via promise (gerarCustoTotal e assincrono)
+      await new Promise(function(resolve, reject){
+        var done = false;
+        window._onCustoCompleto = function(){ if(!done){ done=true; resolve(); } };
+        setTimeout(function(){ if(!done){ done=true; resolve(); } }, 4000); // failsafe
+        try { gerarCustoTotal(); } catch(e){ if(!done){ done=true; reject(e); } }
       });
     }
 
-    // ─── OrcamentoFreeze v1.0 — CAPTURA COMPLETA (substitui MemorialCem PNG) ───
-    // Felipe: "um orçamento não pode ser perdido informações. Abrir ele
-    // em todas as abas com seus valores".
-    // Captura TUDO (inputs + selectedIndex + blocos dinâmicos + globals +
-    // displaySnap + HTMLs + canvas) num pacote único e envia ao Supabase.
-    if(id && window.OrcamentoFreeze && typeof window.OrcamentoFreeze.capturar === 'function'){
-      var _fzRevNum = 0;
-      try {
-        var _crmFz = cLoad();
-        var _ciFz = _crmFz.findIndex(function(o){return o.id===id;});
-        if(_ciFz>=0 && _crmFz[_ciFz].revisoes) _fzRevNum = _crmFz[_ciFz].revisoes.length - 1;
-      } catch(e){}
+    // ─── PASSO 2: extrair valores ───
+    var vTab = (window._calcResult && parseFloat(window._calcResult._tabTotal)) || 0;
+    var vFat = (window._calcResult && parseFloat(window._calcResult._fatTotal)) || 0;
 
-      var _fzToast = document.createElement('div');
-      _fzToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#003144;color:#fff;padding:12px 18px;border-radius:12px;font-size:12px;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,.3);min-width:240px';
-      _fzToast.innerHTML = '💾 Congelando revisão completa...';
-      document.body.appendChild(_fzToast);
-
-      window.OrcamentoFreeze.capturar(id, _fzRevNum, revLabel)
-        .then(function(r){
-          _fzToast.style.background = '#27ae60';
-          _fzToast.innerHTML = '✅ '+revLabel+' congelada ('+Math.round(r.tamanho/1024)+' KB)';
-          setTimeout(function(){ _fzToast.remove(); }, 4000);
-          if(typeof crmRender === 'function') crmRender();
-        })
-        .catch(function(err){
-          console.error('[Freeze] ERRO:', err);
-          _fzToast.style.background = '#c0392b';
-          _fzToast.innerHTML = '⚠ Congelar falhou: '+(err.message||err);
-          setTimeout(function(){ _fzToast.remove(); }, 6000);
-        });
-    }
-  };
-  // Se custo já foi gerado → salvar DIRETO
-  // SEMPRE tenta salvar direto primeiro (valores podem estar no DOM)
-  var _hasValues=false;
-  var _checkTab=document.getElementById('m-tab');
-  var _checkFat=document.getElementById('d-fat');
-  if(_checkTab&&_checkTab.textContent&&_checkTab.textContent!=='—'&&_checkTab.textContent!=='R$ 0,00') _hasValues=true;
-  if(_checkFat&&_checkFat.textContent&&_checkFat.textContent!=='—'&&_checkFat.textContent!=='R$ 0,00') _hasValues=true;
-  if(window._calcResult&&(window._calcResult._tabTotal>0||window._calcResult._fatTotal>0)) _hasValues=true;
-
-  if(_hasValues){
-    _salvarSnapshotECRM();
-  } else {
-    // Custo não foi gerado → calcular primeiro, depois salvar
-    // gerarCustoTotal atualiza window._calcResult → captureSnapshot/captureOrcValues leem dele
-    window._snapshotLock=false;
-
-    // Wrapper idempotente: garante que _salvarSnapshotECRM rode UMA vez só,
-    // seja disparado pelo callback (sucesso) seja pelo timeout (failsafe).
-    var _jaSalvou=false;
-    var _salvarUmaVez=function(origem){
-      if(_jaSalvou) return;
-      _jaSalvou=true;
-      console.log('[crmOrcamentoPronto] salvando via '+origem);
-      try { _salvarSnapshotECRM(); }
-      catch(e){ console.error('[crmOrcamentoPronto] erro em _salvarSnapshotECRM:', e); }
-    };
-    window._onCustoCompleto=function(){ _salvarUmaVez('callback_gerarCustoTotal'); };
-
-    // FAILSAFE: gerarCustoTotal tem 1.8s de setTimeouts. Se ele errar/abortar
-    // silenciosamente (ex: bug num modelo específico, early-return por lock),
-    // _onCustoCompleto nunca dispara → card moveu mas revisão não foi criada.
-    // Felipe 20/04: "apertei botão verde, moveu o card mas não enviou valor".
-    // Depois de 3s, força salvamento mesmo que com valores zerados —
-    // melhor ter uma revisão com 0 (corrigível) do que card órfão.
-    setTimeout(function(){
-      if(!_jaSalvou){
-        console.warn('[crmOrcamentoPronto] FAILSAFE 3s — gerarCustoTotal não finalizou, forçando save');
-        _salvarUmaVez('failsafe_timeout_3s');
+    // Fallback DOM
+    if(vTab === 0 || vFat === 0){
+      var parseBR = function(s){
+        if(!s) return 0;
+        s = String(s).replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.');
+        return parseFloat(s) || 0;
+      };
+      if(vTab === 0){
+        var elT = document.getElementById('m-tab');
+        if(elT) vTab = parseBR(elT.textContent);
       }
-    }, 3000);
-
-    if(typeof gerarCustoTotal==='function'){
-      try{ gerarCustoTotal(); }
-      catch(e){
-        console.error('[crmOrcamentoPronto] gerarCustoTotal lançou:', e);
-        // Falha síncrona → não adianta esperar callback. Salva já com o que tiver.
-        _salvarUmaVez('catch_gerarCusto_throw');
+      if(vFat === 0){
+        var elF = document.getElementById('d-fat');
+        if(elF) vFat = parseBR(elF.textContent);
       }
-    } else {
-      // gerarCustoTotal nem existe — salva direto com o que tiver
-      _salvarUmaVez('gerarCustoTotal_ausente');
     }
-  }
-  }catch(err){
-    console.error('crmOrcamentoPronto erro:',err);
-    alert('Erro ao salvar: '+err.message);
-  }
-};
 
-/* ── Gerar PDF da Proposta (botão separado) ── */
+    if(vTab === 0 && vFat === 0){
+      _setBtnLoading(false);
+      _toast('⚠️ Valores zerados. Clique em <b>⚙ GERAR CUSTO COMPLETO</b> primeiro.', '#e67e22', 8000);
+      return;
+    }
+
+    // ─── PASSO 3: capturar snapshot ───
+    var snapshot = window.Persist.capturarSnapshot();
+
+    // ─── PASSO 4: capturar memorial (se existe) ───
+    var memorial = null;
+    try {
+      if(window._calcResult){
+        memorial = {
+          calculos: JSON.parse(JSON.stringify(window._calcResult)),
+          gerado_em: new Date().toISOString()
+        };
+      }
+    } catch(e){ console.warn('[OrcPronto] sem memorial:', e); }
+
+    // ─── PASSO 5: SALVAR (unica chamada, await) ───
+    var resultado = await window.Persist.salvarOrcamento(cardId, {
+      valorTabela:      vTab,
+      valorFaturamento: vFat,
+      snapshot:         snapshot,
+      memorial:         memorial,
+      crmPronto:        true
+    });
+
+    // ─── PASSO 6: atualizar UI (stage + botoes) ───
+    try {
+      var cache = (typeof cLoad === 'function') ? cLoad() : [];
+      var ix = cache.findIndex(function(o){return o.id === cardId;});
+      if(ix >= 0){
+        var stages = gStages();
+        var enviar = stages.find(function(s){return s.id === 's3b';}) 
+                  || stages.find(function(s){return /pronto|enviar|feito/i.test(s.label);});
+        if(enviar) cache[ix].stage = enviar.id;
+        cache[ix].updatedAt = new Date().toISOString();
+        cache[ix].valor             = vFat;
+        cache[ix].valorTabela       = vTab;
+        cache[ix].valorFaturamento  = vFat;
+        cache[ix].rev_pipeline_id   = resultado.id;
+        if(typeof cSave === 'function') cSave(cache);
+      }
+    } catch(e){ console.warn('[OrcPronto] atualizacao cache:', e); }
+
+    if(btn)    btn.style.display    = 'none';
+    if(btnAtt) btnAtt.style.display = 'none';
+    if(pdfBtn) pdfBtn.style.display = 'inline-flex';
+    _setBtnLoading(false);
+
+    _toast('✅ ' + resultado.label + ' salva! Tab: ' + brl(vTab) + ' · Fat: ' + brl(vFat), '#27ae60');
+
+    if(typeof crmRender === 'function') crmRender();
+
+  } catch(err) {
+    console.error('[crmOrcamentoPronto] erro:', err);
+    _setBtnLoading(false);
+    _toast('❌ Erro ao salvar: ' + (err.message || err) + '<br><span style="font-weight:400;font-size:11px">Seus valores NAO foram perdidos — clique de novo.</span>', '#c0392b', 12000);
+  }
+};/* ── Gerar PDF da Proposta (botão separado) ── */
 /* ★ Felipe 21/04/2026: bug 'fica escrito gerando PDF e nada acontece'.
    Fix defensivo: failsafe timeout de 60s restaura o botao mesmo se
    alguma etapa travar (erro silencioso em html2canvas, upload cloud,
