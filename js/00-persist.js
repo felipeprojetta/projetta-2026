@@ -322,3 +322,82 @@
   console.log('%c[Persist] v' + VERSION + ' carregado — fonte unica de salvamento', 
               'color:#0C447C;font-weight:500;background:#E6F1FB;padding:2px 6px;border-radius:3px');
 })();
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// SHIM DE COMPATIBILIDADE TEMPORARIO (Felipe 24/04)
+// ─────────────────────────────────────────────────────────────────────
+// O 03-history_save.js foi deletado. 10 arquivos legados ainda chamam
+// suas funcoes. Este shim declara todas como no-op pra nao quebrar em
+// runtime. Cada chamada sera REMOVIDA do seu arquivo em commits seguintes.
+// Quando a ultima for removida, este shim desce.
+//
+// Tambem define OrcamentoOpcoes como stub — 31-opcoes.js morreu junto.
+// ═══════════════════════════════════════════════════════════════════════
+(function(){
+  function _noop(){}
+  function _noopArr(){ return []; }
+  function _noopObj(){ return {}; }
+  function _noopFalse(){ return false; }
+
+  // Funcoes de salvamento legado
+  window.loadDB               = _noopArr;
+  window.saveDB               = _noop;
+  window.saveNew              = _noop;
+  window.saveRevision         = _noop;
+  window.salvarRapido         = _noop;
+  window.novaRevisao          = _noop;
+  window.loadRevision         = _noop;
+  window.loadRevisionMemorial = _noop;
+
+  // Captura/restore legado
+  window.captureSnapshot       = _noopObj;
+  window.captureFormData       = _noopObj;
+  window.restoreFormData       = _noop;
+
+  // UI de historico legado
+  window.renderHistory       = _noop;
+  window.updateBanner        = _noop;
+  window.toggleHist          = _noop;
+  window.showMemorial        = _noop;
+  window._hideMemorial       = function(){
+    var p = document.getElementById('memorial-panel');
+    if(p) p.style.display = 'none';
+  };
+  window._restoreSnapshotDisplay = _noop;
+  window._openSectionsAndScroll  = _noop;
+
+  // Locks globais legados
+  window._setOrcLock     = function(v){ window._orcLocked = !!v; };
+  window._isSnapshotValid= _noopFalse;
+  window._revClearTimers = _noop;
+  window._revDelay       = function(fn, ms){ return setTimeout(fn, ms); };
+  window._persistSession = _noop;
+  window._restoreSession = _noopFalse;
+
+  // Estado global legado — sempre "liberado"
+  window._snapshotLock    = false;
+  window._orcLocked       = false;
+  window._pendingRevision = false;
+
+  // 31-opcoes.js morreu — stub pra quem ainda chama
+  // v1.4 rollback ja reduzia a 1 opcao, entao comportamento: no-op total
+  window.OrcamentoOpcoes = {
+    version:      '0.0-SHIM',
+    migrar:       function(card){ return card; },
+    ativa:        function(card){
+      // Retorna objeto minimo pra getters que fazem o?.revisoes funcionarem
+      return card ? { id:'opt1', revisoes: card.revisoes || [], itens: card.itens || [] } : null;
+    },
+    indexAtiva:   function(){ return 0; },
+    sincronizar:  function(card){ return card; },
+    persistir:    function(card){ return card; },
+    trocar:       function(card){ return card; },
+    novaOpcao:    function(){ return null; },
+    removerOpcao: _noopFalse,
+    freezeKey:    function(cardId, opcaoId, revNum){ return 'freeze_'+cardId+'_rev'+revNum; }
+  };
+
+  console.log('%c[Persist] shim de compat ativo (sera removido conforme consumidores migrarem)',
+              'color:#888780;font-style:italic');
+})();
