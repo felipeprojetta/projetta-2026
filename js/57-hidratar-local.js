@@ -121,14 +121,24 @@
     }
   };
 
-  // Execução automática no carregamento (só se localStorage vazio)
+  // v2: Execução automática SEMPRE força sync (banco é fonte da verdade).
+  // Motivo: triggers no Supabase travam o stage automaticamente. Se localStorage
+  // ficasse divergente, o kanban mostraria stage errado mesmo após banco corrigir.
+  // Agora todo F5 sincroniza do banco.
+  function _autoSync(){
+    setTimeout(function(){
+      window.hidratarCrmLocal({forcar: true}).then(function(r){
+        if(r && r.status === 'ok'){
+          console.log('[hidratar v2] auto-sync feito (' + r.count + ' cards do banco)');
+        }
+      });
+    }, 500);
+  }
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', function(){
-      setTimeout(function(){ window.hidratarCrmLocal(); }, 500);
-    });
+    document.addEventListener('DOMContentLoaded', _autoSync);
   } else {
-    setTimeout(function(){ window.hidratarCrmLocal(); }, 500);
+    _autoSync();
   }
 
-  console.log('[57-hidratar-local] v1.0 carregado — fn: window.hidratarCrmLocal()');
+  console.log('[57-hidratar-local] v2 carregado — auto-sync forcado do Supabase');
 })();
