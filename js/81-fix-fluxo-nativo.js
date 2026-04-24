@@ -77,8 +77,8 @@
         contato:  _v('contato') || _v('crm-o-contato'),
         telefone: _v('telefone'),
         email:    _v('email') || _v('crm-o-email'),
-        cep:      _v('cep') || _v('crm-o-cep'),
-        cidade:   _v('cidade') || _v('crm-o-cidade-nac'),
+        cep:      _v('cep-cliente') || _v('cep') || _v('crm-o-cep'),
+        cidade:   _t('cep-cidade') || _v('cidade') || _v('crm-o-cidade-nac'),
         estado:   _v('estado') || _v('crm-o-estado'),
         pais:     _v('pais'),
         endereco: _v('endereco')
@@ -378,8 +378,11 @@
     _setVal('contato', dc.contato); _setVal('crm-o-contato', dc.contato);
     _setVal('telefone', dc.telefone);
     _setVal('email', dc.email); _setVal('crm-o-email', dc.email);
-    _setVal('cep', dc.cep); _setVal('crm-o-cep', dc.cep);
+    _setVal('cep-cliente', dc.cep); _setVal('cep', dc.cep); _setVal('crm-o-cep', dc.cep);
     _setVal('cidade', dc.cidade); _setVal('crm-o-cidade-nac', dc.cidade);
+    // Reexibir cidade/distância no span do CEP
+    var cepCidEl = document.getElementById('cep-cidade');
+    if(cepCidEl && dc.cidade) cepCidEl.textContent = dc.cidade + (dc.estado ? ' - '+dc.estado : '');
     _setVal('estado', dc.estado); _setVal('crm-o-estado', dc.estado);
     _setVal('pais', dc.pais);
     _setVal('endereco', dc.endereco);
