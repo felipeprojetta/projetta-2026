@@ -1404,26 +1404,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     <div class="fr"><span class="fl">Área calculada</span><div class="fv c cb2" id="r-m2">—</div></div>
     <div class="fr" style="background:#fff3e0;border:2px solid #e67e22;border-radius:8px;padding:6px 12px;margin:6px 0"><span class="fl" style="font-weight:800;color:#e67e22">🚪 Quantidade de portas</span><div class="fv"><input type="number" id="qtd-portas" value="1" min="1" max="20" step="1" oninput="calc();_osAutoUpdate()" style="width:70px;font-size:16px;font-weight:800;text-align:center;border:2px solid #e67e22;border-radius:6px;background:#fff;color:#e67e22"></div></div>
 
-    <!-- ITENS DA PROPOSTA (multi-porta) — DESATIVADO: substituído por itens do CRM -->
-    <div id="multi-porta-section" style="display:none;margin:10px 0;border:2px solid #1a5276;border-radius:10px;overflow:hidden">
-      <div style="background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-        <span style="font-size:12px;font-weight:800;letter-spacing:.04em">📋 ITENS DA PROPOSTA</span>
-        <div style="display:flex;gap:6px">
-          <button onclick="_mpSalvarItemAtual()" id="mp-btn-salvar" style="display:none;padding:5px 12px;border-radius:6px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💾 Salvar Item Atual</button>
-          <button onclick="_mpNovoItem()" style="padding:5px 12px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ Novo Item</button>
-        </div>
-      </div>
-      <!-- Banner do item em edição -->
-      <div id="mp-editing-banner" style="display:none;background:#fff3e0;border-bottom:1px solid #e67e22;padding:8px 14px;font-size:12px;font-weight:700;color:#e67e22;display:flex;align-items:center;gap:8px">
-        <span>✏️ Editando:</span> <span id="mp-editing-label">—</span>
-        <button onclick="_mpSalvarItemAtual()" style="margin-left:auto;padding:4px 12px;border-radius:6px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💾 Salvar</button>
-      </div>
-      <!-- Lista de itens -->
-      <div id="mp-list" style="padding:0"></div>
-      <div id="mp-empty" style="padding:12px;text-align:center;font-size:11px;color:#999">
-        Para orçar <b>portas diferentes</b>, clique <b>"+ Novo Item"</b>. Configure cada porta separadamente usando o formulário completo abaixo.
-      </div>
-    </div>
+    <!-- [REMOVIDO 24/04 Felipe: seção "ITENS DA PROPOSTA" duplicada - usar apenas "Itens do Pedido" acima] -->
     <div class="sec" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">
       <span>Fixos laterais</span>
       <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;cursor:pointer">
