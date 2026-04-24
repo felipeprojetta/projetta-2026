@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v17 — fluxo automatico CRM (s3->s3b->s3c->s4)
+ * 81-fix-fluxo-nativo.js v18 — sync robusto localStorage <-> Supabase
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -1428,7 +1428,48 @@
   // Tentar instalar em varios momentos (depende de quando o settings carrega)
   [800, 2500, 5500].forEach(function(ms){ setTimeout(_garantirStageRevisado, ms); });
 
-  // Mover card entre stages via PATCH no Supabase
+  // v18: Sync 1 card do Supabase para o localStorage (insert OR update).
+  // Usado apos cada mutacao pra garantir kanban em sync. Quebra snapshot
+  // pra nao re-enviar como "mudanca local".
+  async function _syncCardFromCloudParaLocal(cardId){
+    if(!cardId) return false;
+    try {
+      var r = await fetch(SUPA+'/rest/v1/crm_oportunidades?id=eq.'+encodeURIComponent(cardId)+'&select=*', { headers: _hdrs() });
+      if(!r.ok) return false;
+      var arr = await r.json();
+      var row = arr && arr[0];
+      if(!row) return false;
+
+      // Normalizar shape pra formato que o CRM usa internamente
+      var card = {};
+      Object.keys(row).forEach(function(k){ card[k] = row[k]; });
+      // Campos comuns mapeados (evitar nome diferente)
+      if(row.data_criacao && !card.dataCriacao) card.dataCriacao = row.data_criacao;
+
+      var raw = localStorage.getItem('projetta_crm_v1');
+      var local = raw ? JSON.parse(raw) : [];
+      var ci = local.findIndex(function(c){ return c && c.id === cardId; });
+      if(ci >= 0){
+        // Preservar campos locais grandes (anexos) + merge do resto vindo do cloud
+        var localAnx = local[ci].anexos;
+        local[ci] = Object.assign({}, local[ci], card);
+        if(localAnx && localAnx.length && (!card.anexos || !card.anexos.length)){
+          local[ci].anexos = localAnx;
+        }
+      } else {
+        local.push(card);
+      }
+      localStorage.setItem('projetta_crm_v1', JSON.stringify(local));
+      // Resetar snapshot do crmDB pra evitar re-envio
+      try { sessionStorage.removeItem('_crmDB_lastSnapshot'); } catch(e){}
+      return true;
+    } catch(err){
+      console.warn('[syncCardFromCloud]', err);
+      return false;
+    }
+  }
+
+  // Mover card entre stages via PATCH no Supabase + sync localStorage
   async function _moverCardStage(cardId, novoStage, extraFields){
     if(!cardId || !novoStage) return false;
     try {
@@ -1442,20 +1483,11 @@
         body: JSON.stringify(body)
       });
       if(!r.ok){ console.warn('[moverCard]', r.status, await r.text()); return false; }
-      // Tambem atualizar localStorage pra re-render funcionar
-      try {
-        var raw = localStorage.getItem('projetta_crm_v1');
-        if(raw){
-          var arr = JSON.parse(raw);
-          var ci = arr.findIndex(function(c){return c.id === cardId;});
-          if(ci >= 0){
-            arr[ci].stage = novoStage;
-            Object.keys(extraFields || {}).forEach(function(k){ arr[ci][k] = extraFields[k]; });
-            arr[ci].updated_at = new Date().toISOString();
-            localStorage.setItem('projetta_crm_v1', JSON.stringify(arr));
-          }
-        }
-      } catch(e){ /* silenciar — sync Supabase eh autoritativo */ }
+
+      // v18: sync forte localStorage <- cloud (cobre cards orfaos que nao
+      // estavam no localStorage — antes a transicao nao aparecia no kanban)
+      await _syncCardFromCloudParaLocal(cardId);
+
       try { if(typeof window.crmRender === 'function') window.crmRender(); } catch(e){}
       return true;
     } catch(err){
@@ -1507,5 +1539,5 @@
     }
   });
 
-  console.log('%c[81 v17] fluxo auto CRM + reimprimir + chave estavel — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v18] sync robusto CRM + fluxo auto — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
