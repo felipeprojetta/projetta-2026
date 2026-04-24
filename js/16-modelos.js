@@ -5,6 +5,9 @@
  * NÃO EDITE index.html — edite este arquivo.
  */
 /* ══ MODULE: MODELOS ══ */
+// Constantes Supabase (recuperado após estaca zero — Felipe 24/04)
+var _SB_URL = 'https://plmliavuwlgpwaizfeds.supabase.co';
+var _SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
 var _modeloImgCache={};        // foto 1 folha (retrocompatível)
 var _modeloImgCache2fls={};    // foto 2 folhas (nova)
 var _MODELOS_DEFAULT = {
