@@ -4542,7 +4542,7 @@ window.crmNovaOpcao=function(cardId){
 
   // Captura params financeiros da opção origem ANTES de criar a nova
   // (prioridade: opcao.paramsFin → últimaRev.paramsFin → DB legado)
-  var origemOpcao = window.((data[idx])?{revisoes:(data[idx]).revisoes||[],itens:(data[idx]).itens||[]}:null);
+  var origemOpcao = ((data[idx])?{revisoes:(data[idx]).revisoes||[],itens:(data[idx]).itens||[]}:null);
   var ultimaRevOrigem = origemOpcao && origemOpcao.revisoes && origemOpcao.revisoes.length
                         ? origemOpcao.revisoes[origemOpcao.revisoes.length-1]
                         : null;
@@ -4656,7 +4656,7 @@ function _coletarParamsFinanceiros(cardId){
 
     // 1) Opção ativa
     if(card && window.OrcamentoOpcoes){
-      var opAtiva = window.((card)?{revisoes:(card).revisoes||[],itens:(card).itens||[]}:null);
+      var opAtiva = ((card)?{revisoes:(card).revisoes||[],itens:(card).itens||[]}:null);
       if(opAtiva && opAtiva.paramsFinanceiros){
         return Object.assign({}, opAtiva.paramsFinanceiros);
       }
