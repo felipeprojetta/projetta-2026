@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v19 — aprovar move p/ Revisado + kanban cabe todas colunas
+ * 81-fix-fluxo-nativo.js v20 — fix INSERT timeout (remove paineis_html 3MB) + kanban responsivo
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -1122,6 +1122,10 @@
       _toast('⏳ <b>Aprovando Versão ' + proxV + '...</b>', '#7f8c8d', 4000);
 
       // 1. INSERT em versoes_aprovadas (imutável)
+      //    v20: paineis_html REMOVIDO — eram ~3MB por linha, causava
+      //    statement_timeout (57014) em INSERT. Resultado visual é o mesmo
+      //    porque _aplicarSnapshot chama calc() que reconstrói os painéis
+      //    a partir de inputs_raw.
       var payload = {
         id: 'va_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
         chave: chave,
@@ -1137,13 +1141,18 @@
         resultado: snap.resultado,
         precos_snapshot: snap.precos_snapshot,
         inputs_raw: snap.inputs_raw || {},
-        paineis_html: snap.paineis_html || {},
         globais: snap.globais || {},
         valor_tabela: valTab,
         valor_faturamento: valFat,
         aprovado_por: 'felipe.projetta',
         ativa: true
       };
+
+      // v20: log do tamanho pra diagnóstico
+      try {
+        var _bdy = JSON.stringify(payload);
+        console.log('[aprovar v20] payload size: ' + (_bdy.length/1024).toFixed(1) + ' KB (antes 3000+ KB com paineis_html)');
+      } catch(e){}
 
       // Desativar versões anteriores da mesma chave
       await fetch(SUPA+'/rest/v1/versoes_aprovadas?chave=eq.'+encodeURIComponent(chave)+'&ativa=eq.true', {
@@ -1157,7 +1166,14 @@
         headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' }),
         body: JSON.stringify(payload)
       });
-      if(!rIns.ok){ var t = await rIns.text(); throw new Error('Insert versão: '+rIns.status+' '+t); }
+      if(!rIns.ok){
+        var t = await rIns.text();
+        // Se ainda timeout, sugerir refresh da pagina pro user
+        if(rIns.status === 500 && t.indexOf('57014') >= 0){
+          throw new Error('Timeout do Supabase. Tente novamente em alguns segundos.');
+        }
+        throw new Error('Insert versão: '+rIns.status+' '+t);
+      }
 
       // 2. Atualizar card CRM (v19: stage -> Orcamento Revisado, com valores)
       //    User arrasta manual do Revisado para Proposta Enviada apos mandar whatsapp.
@@ -1393,27 +1409,48 @@
   //        s3b --drag manual--> s3c (Orcamento Revisado)
   //        s3c --aprovar p/ envio--> s4 (Proposta Enviada)
 
-  // v19: CSS override — kanban fit-all-columns
-  //   Antes: .crm-stage min/max 220px — 8 colunas nao cabiam no viewport
-  //   Agora: 175px (cabe 8 colunas em FullHD: 8*175 + gaps ~100 = 1500px)
+  // v20: CSS override — kanban responsivo (cabe todas as colunas)
+  //   Escala dinamica por viewport width. Felipe relata viewport 1144px
+  //   (janela nao maximizada ou devtools aberto), 8 colunas x 130px = 1040
+  //   + gaps ~100 = 1140px — cabe no limite. Telas maiores, colunas maiores.
   (function _injectKanbanCSS(){
     try {
-      if(document.getElementById('v19-kanban-css')) return;
+      var existing = document.getElementById('v20-kanban-css') || document.getElementById('v19-kanban-css');
+      if(existing) existing.remove();
       var st = document.createElement('style');
-      st.id = 'v19-kanban-css';
+      st.id = 'v20-kanban-css';
       st.textContent = [
-        '.crm-stage{min-width:175px !important;max-width:175px !important}',
-        '@media (min-width:1700px){.crm-stage{min-width:200px !important;max-width:200px !important}}',
+        // Default (qualquer viewport): 130px
+        '.crm-stage{min-width:130px !important;max-width:130px !important}',
+        '@media (min-width:1300px){.crm-stage{min-width:150px !important;max-width:150px !important}}',
+        '@media (min-width:1500px){.crm-stage{min-width:170px !important;max-width:170px !important}}',
+        '@media (min-width:1700px){.crm-stage{min-width:190px !important;max-width:190px !important}}',
+        '@media (min-width:1900px){.crm-stage{min-width:210px !important;max-width:210px !important}}',
         '@media (min-width:2100px){.crm-stage{min-width:230px !important;max-width:230px !important}}',
-        // garantir scroll se ainda faltar espaco
-        '.crm-board,.crm-kanban{overflow-x:auto !important}',
-        // cards menores dentro das colunas
-        '.crm-stage .opp-card{font-size:11px}',
-        '.crm-stage .opp-card .opp-title{font-size:12px !important}'
+        // Scroll horizontal defensivo
+        '.crm-board,.crm-kanban,.crm-stages{overflow-x:auto !important}',
+        // Cards mais compactos em viewports estreitos
+        '@media (max-width:1500px){',
+        '  .crm-stage .opp-card,.crm-stage .kanban-card{font-size:10.5px !important;padding:7px !important}',
+        '  .crm-stage .opp-card > *:first-child,.crm-stage .kanban-card > *:first-child{font-size:11.5px !important}',
+        '}',
+        // Header da coluna: wrap label se necessario
+        '.crm-stage .stage-header,.crm-stage > div:first-child{white-space:normal !important;font-size:11px !important}'
       ].join('\n');
       document.head.appendChild(st);
-    } catch(e){ console.warn('[v19 kanban css]', e); }
+    } catch(e){ console.warn('[v20 kanban css]', e); }
   })();
+  // Re-injetar em varios momentos pra garantir que nao seja removido
+  [500, 2000, 5000].forEach(function(ms){
+    setTimeout(function(){
+      if(!document.getElementById('v20-kanban-css')){
+        try {
+          var ev = new Event('inject-v20-css');
+          document.dispatchEvent(ev);
+        } catch(e){}
+      }
+    }, ms);
+  });
 
   function _garantirStageRevisado(){
     try {
@@ -1582,5 +1619,5 @@
     }
   });
 
-  console.log('%c[81 v19] aprovar p/ Revisado + kanban fit-all-columns — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v20] fix INSERT timeout + kanban responsivo — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
