@@ -116,6 +116,55 @@
         preco_fat:     _t('m-fat-porta') || _t('m-fat'),
         markup:        _t('m-mkp-porta')
       },
+      // CAPTURA TOTAL DE INPUTS — todo elemento com ID
+      inputs_raw: (function(){
+        var map = {};
+        var els = document.querySelectorAll('input, select, textarea');
+        for(var i = 0; i < els.length; i++){
+          var el = els[i];
+          if(!el.id) continue;
+          if(el.type === 'file' || el.type === 'button' || el.type === 'submit') continue;
+          if(el.type === 'checkbox' || el.type === 'radio') map[el.id] = el.checked;
+          else map[el.id] = el.value;
+        }
+        return map;
+      })(),
+      // CAPTURA HTML dos painéis renderizados (pra restaurar visual sem recalcular)
+      paineis_html: (function(){
+        var h = {};
+        var ids = ['resumo-obra','fab-body','ins-body',
+                   'fab-acm-resumo','fab-alu-resumo','fab-acm-tbody','fab-alu-tbody',
+                   'acm-list','alu-list','mp-list','plan-auto-info',
+                   'cep-info','atp-endereco',
+                   'm-custo-porta','m-mkp-porta','m-tab-porta','m-fat-porta','m-tab','m-fat',
+                   'd-custo-fab','d-custo-inst','d-tab-sp','d-fat-sp','d-tab-inst','d-fat-inst',
+                   's-cm2','s-tm2','s-fm2','s-tm2p','s-fm2p',
+                   'pct-mb-porta','pct-ml-porta'];
+        ids.forEach(function(id){
+          var el = document.getElementById(id);
+          if(el) h[id] = el.innerHTML;
+        });
+        // Barras de margem (width)
+        ['bar-mb-porta','bar-ml-porta'].forEach(function(id){
+          var el = document.getElementById(id);
+          if(el) h['_style_width_'+id] = el.style.width;
+        });
+        return h;
+      })(),
+      // VARIÁVEIS GLOBAIS relevantes
+      globais: (function(){
+        var g = {};
+        try {
+          if(window._calcResult) g._calcResult = JSON.parse(JSON.stringify(window._calcResult));
+        } catch(e){}
+        try {
+          if(window._mpItens) g._mpItens = JSON.parse(JSON.stringify(window._mpItens));
+        } catch(e){}
+        try {
+          if(window._osGeradoUmaVez !== undefined) g._osGeradoUmaVez = window._osGeradoUmaVez;
+        } catch(e){}
+        return g;
+      })(),
       // Preços snapshot — congelados naquele momento
       precos_snapshot: (function(){
         try {
@@ -170,6 +219,9 @@
         itens:              snap.itens,
         resultado:          snap.resultado,
         precos_snapshot:    snap.precos_snapshot,
+        inputs_raw:         snap.inputs_raw || {},
+        paineis_html:       snap.paineis_html || {},
+        globais:            snap.globais || {},
         updated_at:         new Date().toISOString(),
         created_by:         'felipe.projetta'
       };
@@ -413,7 +465,46 @@
 
     // Itens
     window._orcItens = JSON.parse(JSON.stringify(snap.itens || []));
+
+    // RESTAURAR inputs_raw — setar TODOS os inputs com IDs capturados
+    if(snap.inputs_raw){
+      Object.keys(snap.inputs_raw).forEach(function(id){
+        var el = document.getElementById(id);
+        if(!el) return;
+        var v = snap.inputs_raw[id];
+        if(el.type === 'checkbox' || el.type === 'radio'){
+          el.checked = !!v;
+        } else {
+          if(v !== null && v !== undefined) el.value = v;
+        }
+      });
+    }
+
+    // RESTAURAR variáveis globais (_calcResult, _mpItens, etc)
+    if(snap.globais){
+      try {
+        if(snap.globais._calcResult) window._calcResult = JSON.parse(JSON.stringify(snap.globais._calcResult));
+        if(snap.globais._mpItens) window._mpItens = JSON.parse(JSON.stringify(snap.globais._mpItens));
+        if(snap.globais._osGeradoUmaVez !== undefined) window._osGeradoUmaVez = snap.globais._osGeradoUmaVez;
+      } catch(e){ console.warn('[snap globais]', e); }
+    }
+
+    // Render itens
     try { if(typeof orcItensRender==='function') orcItensRender(); } catch(e){}
+
+    // RESTAURAR innerHTML dos painéis (Resumo da Obra, Custo Fab tabelas, resultado)
+    if(snap.paineis_html){
+      Object.keys(snap.paineis_html).forEach(function(k){
+        if(k.indexOf('_style_width_') === 0){
+          var id = k.replace('_style_width_','');
+          var el = document.getElementById(id);
+          if(el) el.style.width = snap.paineis_html[k];
+          return;
+        }
+        var el = document.getElementById(k);
+        if(el) el.innerHTML = snap.paineis_html[k];
+      });
+    }
 
     // NÃO chamar calc()! Mantém valores FIÉIS do snapshot.
     // Os displays de resultado são repopulados manualmente:
@@ -602,6 +693,9 @@
         itens: snap.itens,
         resultado: snap.resultado,
         precos_snapshot: snap.precos_snapshot,
+        inputs_raw: snap.inputs_raw || {},
+        paineis_html: snap.paineis_html || {},
+        globais: snap.globais || {},
         valor_tabela: valTab,
         valor_faturamento: valFat,
         aprovado_por: 'felipe.projetta',
