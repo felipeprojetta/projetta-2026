@@ -504,8 +504,22 @@ function _mpSalvarItemAtual(){
   window._mpItens[window._mpEditingIdx]=data;
   _mpRender();
   var t=document.createElement('div');t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 3px 12px rgba(0,0,0,.2)';
-  t.textContent='💾 Item '+(window._mpEditingIdx+1)+' atualizado!';
+  t.textContent='💾 Item '+(window._mpEditingIdx+1)+' atualizado — recalculando...';
   document.body.appendChild(t);setTimeout(function(){t.remove();},2000);
+
+  // ══════════════════════════════════════════════════════════════════
+  // FIX LINK DE VARIÁVEIS (Felipe 24/04): ao salvar item, recalcular
+  // automaticamente todas as abas (Perfis, Acessórios, Chapas, Resultado)
+  // pra garantir que mudança em qualquer campo propaga por todo lugar.
+  // ══════════════════════════════════════════════════════════════════
+  try {
+    window._osAutoMode = true;
+    if(typeof gerarCustoTotal === 'function') gerarCustoTotal();
+  } catch(e){
+    console.warn('[_mpSalvarItemAtual] recálculo automático falhou:', e);
+  } finally {
+    setTimeout(function(){ window._osAutoMode = false; }, 100);
+  }
 }
 
 function _mpCarregarItem(idx){
