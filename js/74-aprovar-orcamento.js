@@ -149,22 +149,18 @@
     // Preferir download direto se a função estiver disponível
     var temDownload = typeof window.downloadProposta === 'function';
     if(temDownload){
-      try {
-        await window.downloadProposta(baseNome);
-        out.push('✓ Proposta.pdf (download direto)');
-      } catch(e){ out.push('⚠ Proposta erro: '+e.message); }
-      try {
-        if(typeof window.downloadMargens === 'function'){
-          await window.downloadMargens(baseNome);
-          out.push('✓ Margens.png');
-        }
-      } catch(e){}
-      try {
-        if(typeof window.downloadMemorial === 'function'){
-          await window.downloadMemorial(baseNome);
-          out.push('✓ Memorial.png');
-        }
-      } catch(e){}
+      function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+      try { await window.downloadProposta(baseNome); out.push('✓ Proposta Comercial.pdf');
+      } catch(e){ out.push('⚠ Proposta: '+e.message); console.error(e); }
+      await sleep(1500);
+      try { if(typeof window.downloadMargens === 'function'){ await window.downloadMargens(baseNome); out.push('✓ MR - Margens.png'); }
+      } catch(e){ out.push('⚠ Margens: '+e.message); console.error(e); }
+      await sleep(1500);
+      try { if(typeof window.downloadMemorial === 'function'){ await window.downloadMemorial(baseNome); out.push('✓ MC - Memorial.png'); }
+      } catch(e){ out.push('⚠ Memorial: '+e.message); console.error(e); }
+      await sleep(1500);
+      try { if(typeof window.downloadPainelRep === 'function'){ await window.downloadPainelRep(baseNome); out.push('✓ RC - Representante.png'); }
+      } catch(e){ out.push('⚠ Representante: '+e.message); console.error(e); }
     } else {
       // Fallback: funções print antigas
       var fns = [
