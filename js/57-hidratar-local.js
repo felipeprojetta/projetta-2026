@@ -96,19 +96,25 @@
       try { atualArr = JSON.parse(atual) || []; } catch(e) { atualArr = []; }
 
       if(atualArr.length > 0 && !forcar){
-        console.log('[hidratar] localStorage já tem ' + atualArr.length +
-                    ' cards — pulando (use hidratarCrmLocal({forcar:true}) pra sobrescrever)');
+        if(opcoes.verbose !== false){
+          console.log('[hidratar] localStorage já tem ' + atualArr.length +
+                      ' cards — pulando (use hidratarCrmLocal({forcar:true}) pra sobrescrever)');
+        }
         return { status: 'skipped', count: atualArr.length };
       }
 
-      console.log('[hidratar] localStorage vazio ou forçado — sincronizando do Supabase...');
+      if(opcoes.verbose !== false){
+        console.log('[hidratar] localStorage vazio ou forçado — sincronizando do Supabase...');
+      }
       var rows = await _fetchCardsSupabase();
       var cards = rows.map(_rowToCard);
 
       localStorage.setItem(CK, JSON.stringify(cards));
 
-      console.log('%c[hidratar] ✓ ' + cards.length + ' cards gravados no localStorage',
-                  'color:#27ae60;font-weight:600');
+      if(opcoes.verbose !== false){
+        console.log('%c[hidratar] ✓ ' + cards.length + ' cards gravados no localStorage',
+                    'color:#27ae60;font-weight:600');
+      }
 
       // Re-renderizar UIs que leem do localStorage
       try { if(typeof window.crmRender === 'function') window.crmRender(); } catch(e){}
@@ -121,24 +127,59 @@
     }
   };
 
-  // v2: Execução automática SEMPRE força sync (banco é fonte da verdade).
-  // Motivo: triggers no Supabase travam o stage automaticamente. Se localStorage
-  // ficasse divergente, o kanban mostraria stage errado mesmo após banco corrigir.
-  // Agora todo F5 sincroniza do banco.
-  function _autoSync(){
-    setTimeout(function(){
-      window.hidratarCrmLocal({forcar: true}).then(function(r){
-        if(r && r.status === 'ok'){
-          console.log('[hidratar v2] auto-sync feito (' + r.count + ' cards do banco)');
-        }
-      });
-    }, 500);
-  }
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', _autoSync);
-  } else {
-    _autoSync();
+  // v3: Sync CONTINUO do Supabase (banco e fonte unica da verdade)
+  //  - Inicial: ao carregar a pagina (forcado)
+  //  - Quando aba volta a ser visivel (Alt-Tab, trocar de aba)
+  //  - A cada 8 segundos enquanto a aba estiver visivel
+  //
+  // Motivo: multiplos navegadores/abas tinham localStorage divergentes.
+  // Agora todos convergem automaticamente em ~8s sem acao do usuario.
+
+  var _ultimoSync = 0;
+  var SYNC_INTERVAL_MS = 8000;
+  var SYNC_MIN_GAP_MS = 2500; // nao fazer 2 syncs em menos de 2.5s
+
+  function _syncSilencioso(motivo){
+    var agora = Date.now();
+    if(agora - _ultimoSync < SYNC_MIN_GAP_MS) return;
+    _ultimoSync = agora;
+    // Pular se user esta editando modal (evita reset de campos)
+    var modalAberto = document.querySelector('#crm-opp-modal.open, #modal-escolha-opcao-bg');
+    if(modalAberto){ return; }
+    window.hidratarCrmLocal({forcar: true, verbose: false}).catch(function(e){
+      console.warn('[hidratar v3] sync ' + motivo + ' falhou:', e && e.message);
+    });
   }
 
-  console.log('[57-hidratar-local] v2 carregado — auto-sync forcado do Supabase');
+  function _startContinuousSync(){
+    // Sync inicial
+    setTimeout(function(){ _syncSilencioso('inicial'); }, 500);
+
+    // Sync quando aba volta a ser visivel
+    document.addEventListener('visibilitychange', function(){
+      if(document.visibilityState === 'visible'){
+        _syncSilencioso('foco-aba');
+      }
+    });
+
+    // Sync quando janela ganha foco
+    window.addEventListener('focus', function(){
+      _syncSilencioso('focus-janela');
+    });
+
+    // Sync periodico
+    setInterval(function(){
+      if(document.visibilityState === 'visible'){
+        _syncSilencioso('periodico');
+      }
+    }, SYNC_INTERVAL_MS);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _startContinuousSync);
+  } else {
+    _startContinuousSync();
+  }
+
+  console.log('[57-hidratar-local] v3 carregado — sync continuo (foco + ' + (SYNC_INTERVAL_MS/1000) + 's)');
 })();
