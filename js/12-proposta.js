@@ -3345,6 +3345,6 @@ function salvarPrecos(){
 
 /* ══ INIT ════════════════════════════════════════════════ */
 // Init is handled by DOMContentLoaded → autoRestore() → resetToDefaults() fallback
-try{$('hist-count').textContent=loadDB().length;}catch(e){}
+try{$('hist-count').textContent=[].length;}catch(e){}
 
 /* ══ END MODULE: PROPOSTA ══ */
