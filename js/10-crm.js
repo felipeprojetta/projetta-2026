@@ -907,9 +907,14 @@ function buildCard(o,st,isFazerOrc){
       // Instalação: preferir valor ja salvo no card (_sv.instIntlFat persistido
       // pelo 03-history_save ao clicar Gerar Custo). Fallback: recalcular a
       // partir dos campos inst_* se nao houver valor salvo mas houver base.
-      var _vInst = parseFloat(o.inst_intl_fat) || 0;
+      // ★ Felipe 24/04: so mostra instalacao quando inst_quem = INTERNACIONAL.
+      //   Se SEM/TERCEIROS/WEIKU, zera (campos inst_* antigos no banco nao
+      //   devem gerar valor fantasma no card).
+      var _instQuem = (o.inst_quem||'').toUpperCase();
+      var _instAtiva = _instQuem === 'INTERNACIONAL';
+      var _vInst = _instAtiva ? (parseFloat(o.inst_intl_fat) || 0) : 0;
       var _cambio = parseFloat(o.inst_cambio) || 5.20; // default; atualizado se card tiver
-      if(_vInst === 0){
+      if(_vInst === 0 && _instAtiva){
         // Fallback — recalcular
         var _passagemPorPessoa = parseFloat(o.inst_passagem) || 0;
         var _hotelDia = parseFloat(o.inst_hotel) || 0;
