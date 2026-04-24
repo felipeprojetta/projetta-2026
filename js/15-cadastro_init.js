@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded',function(){
   loadPrecoKg();
   loadModelos();
   if(typeof _populateCorSelects==='function')_populateCorSelects();
-  resetToDefaults();
+  if(typeof resetToDefaults==='function')resetToDefaults();
   _populateManualAcessSelect();
   _populateManualPerfilSelect();
   _populatePlanChapaSelects();
