@@ -913,7 +913,12 @@ function buildCard(o,st,isFazerOrc){
       var _instQuem = (o.inst_quem||'').toUpperCase();
       var _instAtiva = _instQuem === 'INTERNACIONAL';
       var _vInst = _instAtiva ? (parseFloat(o.inst_intl_fat) || 0) : 0;
-      var _cambio = parseFloat(o.inst_cambio) || 5.20; // default; atualizado se card tiver
+      // v29: usar cambio MASTER (window.projettaCambio) em vez de 5.20 fixo.
+      //       Se o card tem inst_cambio salvo (override por card), usa ele;
+      //       senao usa o master global; fallback 5.20.
+      var _cambio = parseFloat(o.inst_cambio) ||
+                    (window.projettaCambio && typeof window.projettaCambio.get === 'function' ? window.projettaCambio.get() : 0) ||
+                    5.20;
       if(_vInst === 0 && _instAtiva){
         // Fallback — recalcular
         var _passagemPorPessoa = parseFloat(o.inst_passagem) || 0;

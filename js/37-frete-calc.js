@@ -575,9 +575,12 @@ window.freteOpenCalc=function(){
     buildRotaOptions(cfg);
     var cbmAuto = cbmDaCaixa();
     if(cbmAuto > 0) $('frete-calc-cbm').value = cbmAuto.toFixed(3);
-    var cambio = numVal('inst-intl-cambio') || 5.20;
+    // v29: usar cambio MASTER (window.projettaCambio) como fonte de verdade.
+    //      Se master nao carregou ainda, cai no inst-intl-cambio legado.
+    var cambio = (window.projettaCambio && typeof window.projettaCambio.get === 'function')
+                 ? window.projettaCambio.get()
+                 : (numVal('inst-intl-cambio') || 5.20);
     $('frete-calc-cambio').value = cambio;
-    // v28: buscar media 30 dias em background e atualizar campo
     _aplicarCambioAuto();
     $('frete-calc-dap').value = 0;
     $('frete-calc-oversize').value = 0;

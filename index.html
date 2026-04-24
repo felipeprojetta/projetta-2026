@@ -2187,6 +2187,32 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <!-- RESULTADO SEPARADO: PORTA + FECHADURA + GERAL -->
 <div>
 
+<!-- ══ CAMBIO MASTER USD->BRL ══ (variavel global que alimenta frete, card e proposta) -->
+<div class="rc" id="cambio-master-box" style="position:sticky;top:16px;margin-bottom:12px;border:2px solid #27ae60;background:linear-gradient(135deg,#f4fdf7,#e8f8ef);box-shadow:0 2px 8px rgba(39,174,96,.15)">
+  <div class="rh" style="background:linear-gradient(135deg,#27ae60,#1e8449);display:flex;justify-content:space-between;align-items:center">
+    <span>💵 Câmbio USD → BRL</span>
+    <span id="cambio-master-badge" style="font-size:9px;font-weight:600;background:rgba(255,255,255,.25);padding:2px 8px;border-radius:10px">Default</span>
+  </div>
+  <div style="padding:12px 14px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <label style="font-size:11px;color:#555;white-space:nowrap;font-weight:600">R$ / US$</label>
+      <input type="number" id="cambio-master-input" step="0.0001" value="5.2000"
+             style="flex:1;font-size:18px;font-weight:800;padding:8px 12px;border:2px solid #27ae60;border-radius:6px;text-align:center;color:#003144;background:#fff;outline:none">
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#555;margin-bottom:4px">
+      <div>📊 Média 30d: <b id="cambio-master-media" style="color:#1e8449">R$ —</b></div>
+      <div style="display:flex;gap:8px">
+        <a href="#" id="cambio-master-usar-media" style="color:#1565c0;text-decoration:underline;font-weight:600">🔄 Usar média</a>
+        <a href="#" id="cambio-master-refresh" title="Atualizar da API" style="color:#888;text-decoration:underline">↻</a>
+      </div>
+    </div>
+    <div id="cambio-master-extra" style="font-size:10px;color:#888;margin-top:4px">—</div>
+    <div style="font-size:10px;color:#666;margin-top:8px;padding-top:8px;border-top:1px dashed #c8e6c9;line-height:1.4">
+      🔗 Aplica em: <b>proposta comercial</b>, <b>calculadora de frete</b>, <b>card CRM</b>
+    </div>
+  </div>
+</div>
+
 <!-- ══ 1. RESULTADO PORTA ══ -->
 <div class="rc" style="position:sticky;top:16px;margin-bottom:12px">
   <div class="rh" style="background:var(--navy);display:flex;justify-content:space-between;align-items:center">
@@ -4378,6 +4404,7 @@ Equipe Projetta by Weiku</textarea>
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 5829-7170
 ═══════════════════════════════════════════════════════ -->
+<script src="js/92-cambio-master.js?v=cambio-m1"></script>
 <script src="js/57-hidratar-local.js?v=hidr3"></script>
 
 <!-- ═══ SYNC DE ITENS ENTRE ABAS (_mpItens <-> _crmItens + banco) ═══ -->
@@ -4554,7 +4581,7 @@ Equipe Projetta by Weiku</textarea>
 <script src="js/35-outlook.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══ MODULE 37: FRETE CALC (calculadora de frete internacional — Felipe 23/04) ═══ -->
-<script src="js/37-frete-calc.js?v=cambio-auto"></script>
+<script src="js/37-frete-calc.js?v=cambio-master"></script>
 <script src="js/99-cambio-master.js?v=cambio-master1"></script>
 <!-- ═══ MODULE 38: FRETE ADMIN (cadastro de rotas + patches DAP — Felipe 23/04) ═══ -->
 <script src="js/38-frete-admin.js?v=54c75a1-1776930665"></script>
