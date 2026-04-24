@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v27 — paineis_html em background pra reabrir versao aprovada completa
+ * 81-fix-fluxo-nativo.js v28 — restaurar _crmScope ao abrir snapshot (fix proposta PT/EN)
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -867,6 +867,25 @@
     window._snapKey = snap.chave || null;
     window._snapCardId = snap.card_id || null;
     window._currentOpcaoNome = snap.opcao_nome || 'Principal'; // v26
+
+    // v28: restaurar _crmScope e _crmOrcCardId do card original (se existe).
+    // Sem isso, _isInternacional() retorna false e proposta gera em PT para cards intl.
+    if(snap.card_id){
+      try {
+        var _cards = JSON.parse(localStorage.getItem('projetta_crm_v1')||'[]');
+        var _cardOrig = _cards.find(function(c){ return c.id === snap.card_id; });
+        if(_cardOrig){
+          window._crmScope = _cardOrig.scope || 'nacional';
+          window._crmOrcCardId = snap.card_id;
+          if(_cardOrig.scope === 'internacional'){
+            document.body.setAttribute('data-scope','internacional');
+          } else {
+            document.body.removeAttribute('data-scope');
+          }
+          console.log('[81 v28] scope restaurado:', window._crmScope, '(card:', snap.card_id+')');
+        }
+      } catch(e){ console.warn('[81 v28] restore scope falhou:', e && e.message); }
+    }
 
     // 8º — ATIVAR MODO LEITURA (read-only) em todos os inputs das abas operacionais
     //      Usuário precisa clicar "✏️ Editar" pra habilitar edição
@@ -1790,5 +1809,5 @@
     }
   });
 
-  console.log('%c[81 v27] paineis_html em background — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v28] restaurar _crmScope em snapshot — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
