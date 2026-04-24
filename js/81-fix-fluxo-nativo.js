@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v15 — aprovar: chave estavel + MC/RC + delete versao
+ * 81-fix-fluxo-nativo.js v16 — reimprimir versao (sem gerar nova)
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -448,8 +448,9 @@
             (v.ativa ? '<span style="background:#27ae60;color:#fff;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700">ATIVA</span>' : '<button onclick="ativarVersao(\''+v.id+'\',\''+v.chave+'\')" style="padding:3px 8px;border-radius:10px;border:1px solid #27ae60;background:#fff;color:#27ae60;font-size:10px;font-weight:700;cursor:pointer">Ativar</button>') +
           '</td>' +
           '<td style="padding:10px;text-align:center;white-space:nowrap">' +
-            '<button onclick="carregarVersao(\''+v.id+'\')" style="padding:6px 12px;border-radius:6px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px">📂 Ver</button>' +
-            '<button onclick="excluirVersao(\''+v.id+'\',\''+v.versao+'\',\''+(v.cliente||'').replace(/\'/g,"\\\'")+'\',this)" style="padding:6px 10px;border-radius:6px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer" title="Excluir versao">🗑</button>' +
+            '<button onclick="carregarVersao(\''+v.id+'\')" style="padding:6px 10px;border-radius:6px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;margin-right:3px" title="Ver valores congelados desta versao">📂 Ver</button>' +
+            '<button onclick="reimprimirVersao(\''+v.id+'\')" style="padding:6px 10px;border-radius:6px;border:none;background:#0C447C;color:#fff;font-size:11px;font-weight:700;cursor:pointer;margin-right:3px" title="Baixa PDF + PNGs novamente sem criar nova versao">🖨️ Reimprimir</button>' +
+            '<button onclick="excluirVersao(\''+v.id+'\',\''+v.versao+'\',\''+(v.cliente||'').replace(/\'/g,"\\\'")+'\',this)" style="padding:6px 8px;border-radius:6px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer" title="Excluir versao">🗑</button>' +
           '</td></tr>';
       });
       html += '</tbody></table></div>';
@@ -1010,6 +1011,60 @@
     }
   };
 
+  // v16: REIMPRIMIR versao aprovada — baixa PDF + PNGs sem criar nova versao
+  // Fluxo: busca versao -> aplica snapshot congelado -> aguarda render ->
+  // _gerarDownloadsDiretos. Pula INSERT em versoes_aprovadas e PATCH no card.
+  window.reimprimirVersao = async function(id){
+    try {
+      var r = await fetch(SUPA+'/rest/v1/versoes_aprovadas?id=eq.'+encodeURIComponent(id), { headers: _hdrs() });
+      var arr = await r.json();
+      var v = arr && arr[0];
+      if(!v){ alert('❌ Versão não encontrada'); return; }
+
+      var vTab = v.valor_tabela ? 'R$ '+Number(v.valor_tabela).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+      var vFat = v.valor_faturamento ? 'R$ '+Number(v.valor_faturamento).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+
+      if(!confirm('🖨️ REIMPRIMIR VERSÃO ' + v.versao + '?\n\n' +
+                  '• Baixa novamente 1 PDF + 3 PNGs\n' +
+                  '• NÃO cria nova versão\n' +
+                  '• NÃO altera o card CRM\n\n' +
+                  'Cliente: ' + (v.cliente||'—') + '\n' +
+                  'AGP: ' + (v.agp||'—') + '\n' +
+                  'Tabela: ' + vTab + '\n' +
+                  'Faturamento: ' + vFat + '\n\n' +
+                  'Prosseguir?')) return;
+
+      // Fecha modal pra o usuario ver a tela com os dados
+      var poModal = document.getElementById('po-modal-bg'); if(poModal) poModal.remove();
+
+      _toast('⏳ <b>Carregando V' + v.versao + '...</b><br><span style="font-size:11px;font-weight:400">Aguarde a renderização antes do download</span>', '#7f8c8d', 3500);
+
+      // Aplicar snapshot congelado — popula todos os campos pra captura
+      await _aplicarSnapshot(v, true);
+      _mostrarBarraRecalcular(v, true);
+
+      // Aguardar DOM renderizar valores
+      await new Promise(function(r){ setTimeout(r, 2200); });
+
+      // Nome base identico ao do Aprovar — assim sobrescreve/substitui arquivos apagados
+      var nomeBase = (v.agp || (v.dados_projeto && v.dados_projeto.agp) || 'orcamento') + ' - ' +
+                     (v.reserva || (v.dados_projeto && v.dados_projeto.reserva) || '') + ' - ' +
+                     (v.cliente || '').replace(/[^\w\s-]/g,'') + ' - V' + v.versao;
+
+      _toast('📥 <b>Baixando arquivos...</b>', '#0C447C', 4000);
+      var ok = await _gerarDownloadsDiretos(nomeBase);
+
+      _toast('🖨️ <b>V' + v.versao + ' reimpressa!</b><br>' +
+             '<span style="font-size:11px;font-weight:400;line-height:1.6">' +
+             (ok.length ? ok.map(function(x){return '✓ '+x;}).join('<br>') : 'Nenhum arquivo gerado — verifique console') +
+             '<br><i style="opacity:.7">Nenhuma nova versão foi criada.</i></span>',
+             '#27ae60', 12000);
+    } catch(err){
+      console.error('[reimprimirVersao]', err);
+      alert('❌ Erro na reimpressão: ' + err.message);
+    }
+  };
+
   // ═══════════════════════════════════════════════════════════════════
   // 7. 🏆 APROVAR PARA ENVIO — cria Versão N congelada + downloads
   // ═══════════════════════════════════════════════════════════════════
@@ -1357,5 +1412,5 @@
     }
   });
 
-  console.log('%c[81 v15] aprovar: chave estavel + MC/RC + delete — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v16] reimprimir versao + chave estavel + MC/RC + delete — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
