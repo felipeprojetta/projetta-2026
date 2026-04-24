@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v7 — readonly + redraw + edit mode
+ * 81-fix-fluxo-nativo.js v8 — plan-redraw + edit-mode-safe + auto-close
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -179,6 +179,19 @@
         try {
           if(window._osGeradoUmaVez !== undefined) g._osGeradoUmaVez = window._osGeradoUmaVez;
         } catch(e){}
+        // PLANIFICADOR (v8): salvar resultado calculado pra redesenhar layout
+        try {
+          if(window.PLN_RES) g.PLN_RES = JSON.parse(JSON.stringify(window.PLN_RES));
+        } catch(e){}
+        try {
+          if(window.PLN_SD) g.PLN_SD = JSON.parse(JSON.stringify(window.PLN_SD));
+        } catch(e){}
+        try {
+          if(window.PLN_CSI !== undefined) g.PLN_CSI = window.PLN_CSI;
+        } catch(e){}
+        try {
+          if(window._PLN_RES_BY_COLOR) g._PLN_RES_BY_COLOR = JSON.parse(JSON.stringify(window._PLN_RES_BY_COLOR));
+        } catch(e){}
         return g;
       })(),
       // Preços snapshot — congelados naquele momento
@@ -266,6 +279,10 @@
              '<span style="font-size:11px;font-weight:400">' + payload.cliente + (payload.agp ? ' · '+payload.agp : '') +
              ' · ' + qtdItens + ' item(ns)</span>',
              '#1a5276', 4000);
+      // v8: se estava em modo edição de snapshot, fechar snapshot após salvar
+      if(window._modoFielAtivo){
+        setTimeout(function(){ try { window.fecharSnapshot(); } catch(e){} }, 800);
+      }
     } catch(err){
       console.error('[salvarPreOrcamento]', err);
       _toast('❌ <b>Erro ao salvar</b><br><span style="font-size:11px;font-weight:400">'+err.message+'</span>', '#c0392b', 6000);
@@ -501,6 +518,11 @@
         if(snap.globais._calcResult) window._calcResult = JSON.parse(JSON.stringify(snap.globais._calcResult));
         if(snap.globais._mpItens) window._mpItens = JSON.parse(JSON.stringify(snap.globais._mpItens));
         if(snap.globais._osGeradoUmaVez !== undefined) window._osGeradoUmaVez = snap.globais._osGeradoUmaVez;
+        // PLANIFICADOR (v8)
+        if(snap.globais.PLN_RES) window.PLN_RES = JSON.parse(JSON.stringify(snap.globais.PLN_RES));
+        if(snap.globais.PLN_SD)  window.PLN_SD  = JSON.parse(JSON.stringify(snap.globais.PLN_SD));
+        if(snap.globais.PLN_CSI !== undefined) window.PLN_CSI = snap.globais.PLN_CSI;
+        if(snap.globais._PLN_RES_BY_COLOR) window._PLN_RES_BY_COLOR = JSON.parse(JSON.stringify(snap.globais._PLN_RES_BY_COLOR));
       } catch(e){ console.warn('[snap globais]', e); }
     }
 
@@ -553,15 +575,25 @@
     // 6º — Re-render itens + re-desenho do planificador (layout das chapas)
     try { if(typeof orcItensRender==='function') orcItensRender(); } catch(e){}
 
-    // Redesenho do planificador (só visual — não mexe em preço do orçamento)
-    // Vários delays pra cobrir scripts que rodam depois do innerHTML
-    [400, 900, 1800].forEach(function(ms){
-      setTimeout(function(){
-        try {
-          if(typeof planUpd === 'function') planUpd();
-        } catch(e){ /* silenciar */ }
-      }, ms);
-    });
+    // Redesenho do planificador (v8 — só visual, não mexe em preço do orçamento)
+    // Se temos PLN_RES no snapshot, usa direto (desenha sem recalcular layout).
+    // Caso contrário, chama planUpd() pra recalcular do zero.
+    var _plnRedraw = function(){
+      try {
+        if(window.PLN_RES && window.PLN_RES.placed && window.PLN_RES.placed.length > 0 &&
+           typeof plnBuildTabs === 'function' && typeof plnDraw === 'function'){
+          // Rota fiel: usa resultado congelado
+          try { plnBuildTabs(); } catch(e){}
+          try { if(typeof _plnRenderColorTabs === 'function') _plnRenderColorTabs(); } catch(e){}
+          try { if(typeof _plnRenderCoresPainel === 'function') _plnRenderCoresPainel(); } catch(e){}
+          try { plnDraw(window.PLN_CSI || 0); } catch(e){}
+        } else if(typeof planUpd === 'function'){
+          // Fallback: recalcular layout do zero
+          planUpd();
+        }
+      } catch(e){ /* silenciar */ }
+    };
+    [500, 1200, 2400].forEach(function(ms){ setTimeout(_plnRedraw, ms); });
 
     // 7º — Ativar MODO FIEL + snapshot ref
     window._modoFielAtivo = true;
@@ -594,9 +626,19 @@
                 }
                 // Re-aplicar read-only (se ainda ativo)
                 if(window._modoLeituraAtivo) _setReadOnlyGlobal(true);
-                // Re-desenhar planificador se caiu nessa aba
+                // Re-desenhar planificador se caiu nessa aba (v8)
                 if(tabName === 'planificador'){
-                  try { if(typeof planUpd === 'function') planUpd(); } catch(e){}
+                  try {
+                    if(window.PLN_RES && window.PLN_RES.placed && window.PLN_RES.placed.length > 0 &&
+                       typeof plnBuildTabs === 'function' && typeof plnDraw === 'function'){
+                      plnBuildTabs();
+                      try { if(typeof _plnRenderColorTabs === 'function') _plnRenderColorTabs(); } catch(e){}
+                      try { if(typeof _plnRenderCoresPainel === 'function') _plnRenderCoresPainel(); } catch(e){}
+                      plnDraw(window.PLN_CSI || 0);
+                    } else if(typeof planUpd === 'function'){
+                      planUpd();
+                    }
+                  } catch(e){}
                 }
               }, ms);
             });
@@ -638,29 +680,25 @@
   function _setReadOnlyGlobal(on){
     window._modoLeituraAtivo = !!on;
     var TABS = ['tab-orcamento','tab-proposta','tab-planificador','tab-os','tab-os-acess','tab-levantamento-perfis','tab-levantamento-acess'];
+    // v8: NÃO trava buttons (botões de navegação/zerar/salvar precisam funcionar sempre)
+    //     Trava só inputs/selects/textareas pra impedir edição de dados do snapshot.
     TABS.forEach(function(tabId){
       var tab = document.getElementById(tabId);
       if(!tab) return;
       if(on){
         tab.setAttribute('data-readonly-snapshot','1');
-        // inputs, selects, textareas
-        var els = tab.querySelectorAll('input, select, textarea, button');
+        var els = tab.querySelectorAll('input, select, textarea');
         for(var i=0; i<els.length; i++){
           var el = els[i];
-          // Salvar estado original no primeiro bloqueio
           if(!el.hasAttribute('data-ro-orig')){
             el.setAttribute('data-ro-orig', el.disabled ? '1' : '0');
           }
-          // Botões de navegação/visualização não bloqueia (identifica por classe/id comuns)
-          var keep = (el.className && /\b(ro-keep|btn-nav|tab-btn|accordion|toggle-btn)\b/i.test(el.className))
-                  || (el.id && /^(btn-|nav-|tab-|accordion-)/i.test(el.id));
-          if(keep) continue;
           el.disabled = true;
           el.style.cursor = 'not-allowed';
         }
       } else {
         tab.removeAttribute('data-readonly-snapshot');
-        var els2 = tab.querySelectorAll('input, select, textarea, button');
+        var els2 = tab.querySelectorAll('input, select, textarea');
         for(var j=0; j<els2.length; j++){
           var el2 = els2[j];
           var orig = el2.getAttribute('data-ro-orig');
@@ -674,13 +712,12 @@
         }
       }
     });
-    // CSS global de "read-only" (leve tint)
     var styleId = 'ro-snap-style';
     var st = document.getElementById(styleId);
     if(on){
       if(!st){
         st = document.createElement('style'); st.id = styleId;
-        st.textContent = '[data-readonly-snapshot="1"] input:disabled,[data-readonly-snapshot="1"] select:disabled,[data-readonly-snapshot="1"] textarea:disabled{background:#f5f2eb !important;color:#5f5e5a !important;opacity:.85}[data-readonly-snapshot="1"] button:disabled{opacity:.5;filter:grayscale(.4)}';
+        st.textContent = '[data-readonly-snapshot="1"] input:disabled,[data-readonly-snapshot="1"] select:disabled,[data-readonly-snapshot="1"] textarea:disabled{background:#f5f2eb !important;color:#5f5e5a !important;opacity:.85;cursor:not-allowed !important}';
         document.head.appendChild(st);
       }
     } else {
@@ -711,7 +748,7 @@
       botoes =
         '<button onclick="recalcularComPrecosAtuais()" style="padding:7px 14px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔄 Recalcular</button>' +
         '<button onclick="salvarPreOrcamento()" style="padding:7px 14px;border-radius:6px;border:none;background:#1a5276;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💾 Salvar (sobrescreve)</button>' +
-        '<button onclick="fecharSnapshot()" style="padding:7px 12px;border-radius:6px;border:1px solid #7a8794;background:#fff;color:#5f5e5a;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✕ Fechar</button>';
+        '<button onclick="fecharSnapshot()" style="padding:7px 14px;border-radius:6px;border:2px solid #c0392b;background:#c0392b;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✕ SAIR</button>';
     } else {
       info = '👁️ <b>MODO VISUALIZAÇÃO</b> — ' +
              (isVersao
@@ -720,8 +757,8 @@
       botoes =
         (isVersao
           ? '<span style="font-size:10px;color:#196f3d;padding:5px 10px;background:rgba(39,174,96,.15);border-radius:6px">🔒 Imutável — criar nova versão se quiser editar</span>'
-          : '<button onclick="ativarEdicaoSnapshot()" style="padding:7px 14px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ Editar</button>') +
-        '<button onclick="fecharSnapshot()" style="padding:7px 12px;border-radius:6px;border:1px solid #7a8794;background:#fff;color:#5f5e5a;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✕ Fechar</button>';
+          : '<button onclick="ativarEdicaoSnapshot()" style="padding:7px 14px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ Revisar / Editar</button>') +
+        '<button onclick="fecharSnapshot()" style="padding:7px 14px;border-radius:6px;border:2px solid #c0392b;background:#c0392b;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✕ SAIR da revisão</button>';
     }
     bar.innerHTML =
       '<div style="font-size:12px;color:#003144;flex:1;min-width:280px">' + info + '</div>' +
@@ -1019,5 +1056,38 @@
     return out;
   }
 
-  console.log('%c[81 v7] readonly + redraw + edit mode — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  // v8: Hook em zerarTudo pra auto-fechar snapshot. Evita ficar preso em modo fiel
+  //     quando user zera pra começar novo orçamento.
+  function _installZerarHook(){
+    if(typeof window.zerarTudo === 'function' && !window.zerarTudo._snapHook){
+      var orig = window.zerarTudo;
+      window.zerarTudo = function(){
+        if(window._modoFielAtivo){
+          try { window.fecharSnapshot(); } catch(e){}
+        }
+        return orig.apply(this, arguments);
+      };
+      window.zerarTudo._snapHook = true;
+      return true;
+    }
+    return false;
+  }
+  // Tentar instalar agora; se zerarTudo ainda não foi definido, tenta em intervalos
+  if(!_installZerarHook()){
+    var tries = 0;
+    var iv = setInterval(function(){
+      if(_installZerarHook() || ++tries > 20) clearInterval(iv);
+    }, 500);
+  }
+
+  // v8: Tecla ESC como escape rápido do modo fiel
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && window._modoFielAtivo && !document.querySelector('#po-modal-bg, .modal-open, dialog[open]')){
+      if(confirm('Sair do modo revisão?')){
+        try { window.fecharSnapshot(); } catch(err){}
+      }
+    }
+  });
+
+  console.log('%c[81 v8] plan-redraw + edit-mode-safe + auto-close — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
