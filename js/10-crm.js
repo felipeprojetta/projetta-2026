@@ -1724,7 +1724,7 @@ window.crmBuscarReservaWeiku=function(){
 window._crmItens = [];
 
 var CRM_ITEM_TYPES = {
-  porta_pivotante: {label:'Porta Pivotante', icon:'🚪', desc:'Porta de entrada com pivô'},
+  porta_pivotante: {label:'Porta de Entrada', icon:'🚪', desc:'Pivotante ou dobradiça'},
   fixo:            {label:'Fixo / Lateral',   icon:'🔲', desc:'Vidro fixo, lateral ou bandeira'},
   porta_interna:   {label:'Porta Interna',    icon:'🚪', desc:'Porta interna giro ou correr'},
   revestimento:    {label:'Revestimento',     icon:'🧱', desc:'Painel de revestimento ACM/Alumínio'}
@@ -3276,7 +3276,7 @@ function orcItensRender(){
   if(!grid) return;
   if(!window._orcItens.length){ grid.innerHTML=''; return; }
   
-  var TIPOS = {porta_pivotante:{icon:'🚪',label:'Porta Pivotante'},fixo:{icon:'🔲',label:'Fixo'},porta_interna:{icon:'🚪',label:'Porta Interna'},revestimento:{icon:'🧱',label:'Revestimento'}};
+  var TIPOS = {porta_pivotante:{icon:'🚪',label:'Porta de Entrada'},fixo:{icon:'🔲',label:'Fixo'},porta_interna:{icon:'🚪',label:'Porta Interna'},revestimento:{icon:'🧱',label:'Revestimento'}};
   
   var h = '';
   window._orcItens.forEach(function(it, idx){
