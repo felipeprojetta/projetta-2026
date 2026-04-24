@@ -1030,13 +1030,13 @@ function autoSave(){
   clearTimeout(autoSaveTimer);
   autoSaveTimer=setTimeout(function(){
     try{
-      var db=loadDB(),idx=db.findIndex(function(e){return e.id===currentId;});
+      var db=[],idx=db.findIndex(function(e){return e.id===currentId;});
       if(idx<0) return;
-      var data=captureFormData();
+      var data=({});
       db[idx].revisions[currentRev].data=data;db[idx].revisions[currentRev].savedAt=now();
       db[idx].client=data['cliente']||db[idx].client;
       db[idx].project=data['numprojeto']||db[idx].project;
-      saveDB(db);
+      void 0;
       var ind=document.getElementById('autosave-ind');
       if(ind){ind.textContent='✓ Salvo';ind.style.opacity='1';setTimeout(function(){ind.style.opacity='0';},2000);}
     }catch(e){console.log('autoSave error:',e);}
