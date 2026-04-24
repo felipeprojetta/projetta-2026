@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v22 — kanban escapa do wrap max-width + debug auto-move
+ * 81-fix-fluxo-nativo.js v23 — kanban full-width via body.crm-active (fix cards sumindo)
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -1421,60 +1421,52 @@
   //        s3b --drag manual--> s3c (Orcamento Revisado)
   //        s3c --aprovar p/ envio--> s4 (Proposta Enviada)
 
-  // v22: CSS kanban — escapar do .wrap max-width:1520px.
-  //   Descoberta: .wrap limita TODA a aplicacao a 1520px. Kanban precisa
-  //   'escapar' usando margin negativo calculado pra alcancar viewport inteiro.
+  // v23: CSS kanban — body.crm-active ataca o .wrap direto.
+  //   Abordagem simples e robusta. Quando tab CRM ativo, body recebe class
+  //   'crm-active' e o .wrap (max-width:1520px que limita TUDO) fica 100vw.
+  //   Colunas com flex:1 puro dividem o espaco igualmente.
+  //   FIX CRITICO: align-items:flex-start + height:auto nas colunas pra
+  //   nao ficar com altura 0 (bug que fez cards sumirem na v22 inicial).
   function _injectKanbanCSS(){
     try {
-      ['v19-kanban-css','v20-kanban-css','v21-kanban-css','v22-kanban-css'].forEach(function(id){
+      ['v19-kanban-css','v20-kanban-css','v21-kanban-css','v22-kanban-css','v23-kanban-css','v23-simple'].forEach(function(id){
         var old = document.getElementById(id); if(old) old.remove();
       });
       var st = document.createElement('style');
-      st.id = 'v22-kanban-css';
+      st.id = 'v23-kanban-css';
       st.textContent = [
-        // 1. ESCAPAR do .wrap — kanban ocupa viewport inteiro
-        //    margin-left calcula a distancia entre o wrap e a borda esquerda do viewport
-        '#tab-crm #crm-kanban-view,#tab-crm .crm-pipeline-wrap{',
-        '  margin-left: calc(-50vw + 50%) !important;',
-        '  margin-right: calc(-50vw + 50%) !important;',
-        '  max-width: 100vw !important;',
-        '  width: 100vw !important;',
-        '  padding-left: 12px !important;',
-        '  padding-right: 12px !important;',
-        '  box-sizing: border-box !important;',
-        '}',
-        // 2. Pipeline flexivel sem max-width, gap pequeno
-        '.crm-pipeline{',
-        '  padding-left: 0 !important;',
-        '  padding-right: 0 !important;',
-        '  gap: 6px !important;',
-        '  max-width: none !important;',
-        '  width: 100% !important;',
-        '}',
-        // 3. Colunas FLEX-GROW — dividem espaco igualmente por todas, ate um maximo
-        '.crm-stage{',
-        '  flex: 1 1 0 !important;',
-        '  min-width: 140px !important;',
-        '  max-width: 320px !important;',
-        '  border-width: 1px !important;',
-        '  border-radius: 10px !important;',
-        '}',
-        // 4. Scroll horizontal de seguranca
-        '.crm-pipeline-wrap,#crm-kanban-view{overflow-x: auto !important}',
-        // 5. Cards compactos em telas estreitas
-        '@media (max-width:1500px){',
-        '  .crm-stage .opp-card,.crm-stage .kanban-card{font-size: 10.5px !important; padding: 6px !important}',
-        '}',
-        // 6. Header da coluna
-        '.crm-stage .stage-header,.crm-stage > div:first-child{white-space: normal !important; font-size: 11px !important}'
+        // 1. Wrap vira full-viewport quando CRM ativo
+        'body.crm-active .wrap{max-width:100vw !important;padding-left:8px !important;padding-right:8px !important}',
+        // 2. Pipeline: altura auto pra altura do conteudo
+        'body.crm-active .crm-pipeline{gap:6px !important;padding:0 !important;width:100% !important;max-width:none !important;align-items:flex-start !important;height:auto !important}',
+        'body.crm-active .crm-pipeline-wrap{max-width:none !important;padding:0 !important;overflow-x:auto !important;height:auto !important}',
+        // 3. Colunas flex puro, SEM max-width, com altura automatica
+        'body.crm-active .crm-stage{flex:1 1 0 !important;min-width:140px !important;max-width:none !important;align-self:stretch !important;height:auto !important;border-width:1px !important;border-radius:10px !important}',
+        // 4. Cards compactos em viewports estreitos
+        '@media (max-width:1500px){body.crm-active .crm-stage .opp-card,body.crm-active .crm-stage .kanban-card{font-size:10.5px !important;padding:6px !important}}',
+        // 5. Header coluna
+        'body.crm-active .crm-stage .stage-header,body.crm-active .crm-stage > div:first-child{white-space:normal !important;font-size:11px !important}'
       ].join('\n');
       document.head.appendChild(st);
-    } catch(e){ console.warn('[v22 kanban css]', e); }
+      // Aplicar class no body quando tab CRM ativo + observar mudancas
+      _updateCrmActiveClass();
+    } catch(e){ console.warn('[v23 kanban css]', e); }
+  }
+  function _updateCrmActiveClass(){
+    try {
+      var tabCrm = document.getElementById('tab-crm');
+      var isActive = tabCrm && (tabCrm.classList.contains('on') || getComputedStyle(tabCrm).display !== 'none');
+      document.body.classList.toggle('crm-active', !!isActive);
+    } catch(e){}
   }
   _injectKanbanCSS();
+  // Observar mudancas de aba
+  document.addEventListener('click', function(){ setTimeout(_updateCrmActiveClass, 100); });
+  // Re-aplicar periodicamente se algo remover
   [500, 2000, 5000, 10000].forEach(function(ms){
     setTimeout(function(){
-      if(!document.getElementById('v22-kanban-css')) _injectKanbanCSS();
+      _updateCrmActiveClass();
+      if(!document.getElementById('v23-kanban-css')) _injectKanbanCSS();
     }, ms);
   });
 
@@ -1645,5 +1637,5 @@
     }
   });
 
-  console.log('%c[81 v22] kanban full-viewport + debug auto-move — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v23] kanban full-width + fix altura auto — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
