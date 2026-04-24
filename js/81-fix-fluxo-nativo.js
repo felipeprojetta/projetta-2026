@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v14 — PDF multi-pagina na proposta
+ * 81-fix-fluxo-nativo.js v15 — aprovar: chave estavel + MC/RC + delete versao
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -69,9 +69,14 @@
   // CHAVE DE IDENTIFICAÇÃO — cliente + agp (ou só cliente)
   // ═══════════════════════════════════════════════════════════════════
   function _gerarChave(){
+    // v15: se houver snapshot carregado, usar a chave FIEL (nao recalcular).
+    // Assim reabrir via lista nao muda a chave -> aprovacoes viram versoes
+    // sequenciais da mesma chave, nao V1 duplicadas.
+    if(window._snapKey) return window._snapKey;
+
     var cliente = (_v('cliente') || _v('crm-o-cliente') || '').trim().toUpperCase();
     var agp     = (_v('agp') || _v('num-agp') || '').trim().toUpperCase();
-    var cardId  = window._crmOrcCardId || '';
+    var cardId  = window._crmOrcCardId || window._snapCardId || '';
     if(cardId) return 'card_' + cardId;
     if(agp && cliente) return 'agp_' + agp + '__' + cliente.replace(/\s+/g,'_');
     if(cliente) return 'cli_' + cliente.replace(/\s+/g,'_');
@@ -443,7 +448,8 @@
             (v.ativa ? '<span style="background:#27ae60;color:#fff;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700">ATIVA</span>' : '<button onclick="ativarVersao(\''+v.id+'\',\''+v.chave+'\')" style="padding:3px 8px;border-radius:10px;border:1px solid #27ae60;background:#fff;color:#27ae60;font-size:10px;font-weight:700;cursor:pointer">Ativar</button>') +
           '</td>' +
           '<td style="padding:10px;text-align:center;white-space:nowrap">' +
-            '<button onclick="carregarVersao(\''+v.id+'\')" style="padding:6px 12px;border-radius:6px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer">📂 Ver (congelada)</button>' +
+            '<button onclick="carregarVersao(\''+v.id+'\')" style="padding:6px 12px;border-radius:6px;border:none;background:#27ae60;color:#fff;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px">📂 Ver</button>' +
+            '<button onclick="excluirVersao(\''+v.id+'\',\''+v.versao+'\',\''+(v.cliente||'').replace(/\'/g,"\\\'")+'\',this)" style="padding:6px 10px;border-radius:6px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer" title="Excluir versao">🗑</button>' +
           '</td></tr>';
       });
       html += '</tbody></table></div>';
@@ -728,6 +734,10 @@
       versao: snap.versao,
       isVersao: isVersaoCongelada
     };
+    // v15: guardar chave fiel e card_id pra garantir que Aprovar use os
+    // valores corretos mesmo quando _crmOrcCardId nao esta setado
+    window._snapKey = snap.chave || null;
+    window._snapCardId = snap.card_id || null;
 
     // 8º — ATIVAR MODO LEITURA (read-only) em todos os inputs das abas operacionais
     //      Usuário precisa clicar "✏️ Editar" pra habilitar edição
@@ -893,6 +903,8 @@
     window._modoFielAtivo = false;
     window._snapshotFielCarregado = null;
     window._snapFielPlan = null;
+    window._snapKey = null; // v15
+    window._snapCardId = null; // v15
     _setReadOnlyGlobal(false);
 
     // v13: ao SAIR da revisão, já zera tudo pra iniciar orçamento do zero.
@@ -973,6 +985,31 @@
     }
   };
 
+  // v15: excluir versao aprovada (DELETE real — RLS off + trigger so bloqueia UPDATE)
+  window.excluirVersao = async function(id, versao, cliente, btn){
+    if(!confirm('⚠ EXCLUIR VERSÃO ' + versao + ' de ' + (cliente||'cliente') + '?\n\n' +
+                'Esta ação é PERMANENTE. A versão aprovada será removida do histórico.\n' +
+                'O rascunho e outras versões não serão afetados.\n\n' +
+                'Continuar?')) return;
+    try {
+      var r = await fetch(SUPA+'/rest/v1/versoes_aprovadas?id=eq.'+encodeURIComponent(id), {
+        method:'DELETE',
+        headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' })
+      });
+      if(!r.ok){
+        var t = await r.text();
+        throw new Error('HTTP '+r.status+': '+t);
+      }
+      var tr = btn.closest('tr'); if(tr) tr.remove();
+      _toast('🗑️ Versão ' + versao + ' excluída','#e67e22', 2500);
+      // Recarregar modal pra atualizar contadores
+      setTimeout(function(){ try { window.abrirModalPreOrcamentos(); } catch(e){} }, 800);
+    } catch(err){
+      console.error('[excluirVersao]', err);
+      alert('❌ Erro ao excluir versão: '+err.message);
+    }
+  };
+
   // ═══════════════════════════════════════════════════════════════════
   // 7. 🏆 APROVAR PARA ENVIO — cria Versão N congelada + downloads
   // ═══════════════════════════════════════════════════════════════════
@@ -1020,7 +1057,7 @@
         id: 'va_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
         chave: chave,
         versao: proxV,
-        card_id: window._crmOrcCardId || null,
+        card_id: window._crmOrcCardId || window._snapCardId || null,
         cliente: snap.dados_cliente.nome || '(sem cliente)',
         agp: snap.dados_projeto.agp || null,
         reserva: snap.dados_projeto.reserva || null,
@@ -1053,19 +1090,27 @@
       });
       if(!rIns.ok){ var t = await rIns.text(); throw new Error('Insert versão: '+rIns.status+' '+t); }
 
-      // 2. Atualizar card CRM (se vinculado)
-      if(window._crmOrcCardId){
-        await fetch(SUPA+'/rest/v1/crm_oportunidades?id=eq.'+encodeURIComponent(window._crmOrcCardId), {
-          method:'PATCH',
-          headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' }),
-          body: JSON.stringify({
-            stage: 's3b',
-            valor: valFat || valTab,
-            valor_tabela: valTab,
-            valor_faturamento: valFat,
-            updated_at: new Date().toISOString()
-          })
-        });
+      // 2. Atualizar card CRM (v15: fallback pra snap.card_id se _crmOrcCardId null)
+      var _cardIdToPatch = window._crmOrcCardId || window._snapCardId || null;
+      if(_cardIdToPatch){
+        try {
+          var _rc = await fetch(SUPA+'/rest/v1/crm_oportunidades?id=eq.'+encodeURIComponent(_cardIdToPatch), {
+            method:'PATCH',
+            headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' }),
+            body: JSON.stringify({
+              stage: 's3b',
+              valor: valFat || valTab,
+              valor_tabela: valTab,
+              valor_faturamento: valFat,
+              updated_at: new Date().toISOString()
+            })
+          });
+          if(!_rc.ok) console.warn('[card patch]', _rc.status, await _rc.text());
+          // Atualizar tambem o card_id na versao aprovada (se foi aprovado sem cardid no insert)
+          if(!payload.card_id){
+            payload.card_id = _cardIdToPatch;
+          }
+        } catch(cerr){ console.warn('[card patch]', cerr); }
       }
 
       // 3. Downloads diretos
@@ -1213,26 +1258,69 @@
     } catch(e){ console.warn('[proposta v14]', e); }
     await sleep(1000);
 
-    // 2-4. PNGs via html2canvas + <a download>
-    var alvos = [
-      { seletor: '.rc', sufixo: 'MC - Margens', outlabel: 'MC.png' },
-      { seletor: '#resumo-obra', sufixo: 'MR - Memorial', outlabel: 'MR.png' },
-      { seletor: '.rc', sufixo: 'RC - Representante', outlabel: 'RC.png' }
-    ];
-    for(var i = 0; i < alvos.length; i++){
-      try {
-        var el = document.querySelector(alvos[i].seletor);
-        if(!el || !window.html2canvas) continue;
-        var canvas = await window.html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
-        var a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = nomeBase + ' - ' + alvos[i].sufixo + '.png';
-        document.body.appendChild(a); a.click();
-        setTimeout(function(){ if(a.parentNode) a.parentNode.removeChild(a); }, 100);
-        out.push(alvos[i].outlabel);
-        await sleep(600);
-      } catch(e){ console.warn('['+alvos[i].outlabel+']', e); }
-    }
+    // 2. PNG MC — Margens + DRE (v15: clona Resultado Porta + DRE num wrapper)
+    try {
+      if(window.html2canvas){
+        var rcs = document.querySelectorAll('.rc');
+        var mcElems = [];
+        for(var ri = 0; ri < rcs.length; ri++){
+          var rcEl = rcs[ri];
+          if(rcEl.id === 'resultado-intl-total') continue; // pular internacional
+          // Pega Resultado Porta (tem m-custo-porta dentro) e DRE (tem .dre)
+          if(rcEl.querySelector('#m-custo-porta') || rcEl.querySelector('.dre')){
+            mcElems.push(rcEl);
+          }
+        }
+        if(mcElems.length){
+          var wrap = document.createElement('div');
+          wrap.style.cssText = 'position:absolute;left:-9999px;top:0;width:420px;background:#fff;padding:12px;font-family:inherit';
+          mcElems.forEach(function(el){
+            var c = el.cloneNode(true);
+            c.style.marginBottom = '12px';
+            c.style.position = 'static';
+            c.style.top = 'auto';
+            wrap.appendChild(c);
+          });
+          document.body.appendChild(wrap);
+          await sleep(200);
+          var cv = await window.html2canvas(wrap, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+          document.body.removeChild(wrap);
+          var a1 = document.createElement('a');
+          a1.href = cv.toDataURL('image/png');
+          a1.download = nomeBase + ' - MC - Margens + DRE.png';
+          document.body.appendChild(a1); a1.click();
+          setTimeout(function(){ if(a1.parentNode) a1.parentNode.removeChild(a1); }, 100);
+          out.push('MC.png');
+        }
+      }
+    } catch(e){ console.warn('[MC v15]', e); }
+    await sleep(600);
+
+    // 3. PNG MR — Memorial / Resumo da obra (selector unico, inalterado)
+    try {
+      var elMR = document.getElementById('resumo-obra');
+      if(elMR && window.html2canvas){
+        var cvMR = await window.html2canvas(elMR, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+        var a2 = document.createElement('a');
+        a2.href = cvMR.toDataURL('image/png');
+        a2.download = nomeBase + ' - MR - Memorial.png';
+        document.body.appendChild(a2); a2.click();
+        setTimeout(function(){ if(a2.parentNode) a2.parentNode.removeChild(a2); }, 100);
+        out.push('MR.png');
+      }
+    } catch(e){ console.warn('[MR v15]', e); }
+    await sleep(600);
+
+    // 4. PNG RC — Painel Representante (v15: usa printPainelRep nativo)
+    //    Essa funcao em 12-proposta.js ja gera o PNG com layout proprio
+    //    (card purpura com comissoes, valores por m2, etc) e faz download automatico.
+    try {
+      if(typeof window.printPainelRep === 'function'){
+        window.printPainelRep();
+        out.push('RC.png (via painel-rep)');
+        await sleep(1200); // aguarda geracao async do PNG dele
+      }
+    } catch(e){ console.warn('[RC v15]', e); }
     return out;
   }
 
@@ -1269,5 +1357,5 @@
     }
   });
 
-  console.log('%c[81 v14] PDF multi-pagina (Aprovar para Envio) — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v15] aprovar: chave estavel + MC/RC + delete — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
