@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v13 — SAIR também zera tudo
+ * 81-fix-fluxo-nativo.js v14 — PDF multi-pagina na proposta
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -1107,27 +1107,110 @@
 
     function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
 
-    // 1. PROPOSTA → PDF (multi-página)
+    // 1. PROPOSTA → PDF MULTI-PÁGINA (v14)
+    //    Itera cada .proposta-page, captura com html2canvas, compila
+    //    em PDF multi-página via jsPDF. Replica o padrão do fluxo
+    //    nativo _exportPropostaToCard (js/12-proposta.js).
     try {
-      var propEl = document.querySelector('#tab-proposta .proposta-page')
-                 || document.querySelector('.proposta-page')
-                 || document.getElementById('tab-proposta');
-      if(propEl && window.html2pdf){
-        var origDisp = propEl.style.display;
-        if(origDisp === 'none') propEl.style.display = '';
-        await window.html2pdf()
-          .set({
-            margin: [6,6,6,6],
-            filename: nomeBase + ' - Proposta Comercial.pdf',
-            image: { type:'jpeg', quality: 0.95 },
-            html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-            jsPDF: { unit:'mm', format:'a4', orientation:'portrait', compress: true },
-            pagebreak: { mode: ['avoid-all','css','legacy'] }
-          }).from(propEl).save();
-        propEl.style.display = origDisp;
-        out.push('Proposta.pdf');
+      // 1.1 Popular conteúdo da proposta (caso não esteja populado)
+      if(typeof populateProposta === 'function'){
+        try { populateProposta(); } catch(e){ console.warn('[populateProposta]', e); }
       }
-    } catch(e){ console.warn('[proposta]', e); }
+      await sleep(400);
+
+      // 1.2 Tornar aba visível off-screen pra html2canvas conseguir renderizar
+      var propostaTab = document.getElementById('tab-proposta');
+      var origStyle = propostaTab ? propostaTab.getAttribute('style') : '';
+      if(propostaTab){
+        propostaTab.style.display       = 'block';
+        propostaTab.style.position      = 'absolute';
+        propostaTab.style.left          = '-9999px';
+        propostaTab.style.top           = '0';
+        propostaTab.style.opacity       = '1';
+        propostaTab.style.pointerEvents = 'none';
+        propostaTab.style.visibility    = 'visible';
+        propostaTab.style.width         = '210mm';
+      }
+
+      // Forçar reflow e aguardar layout estabilizar
+      if(propostaTab) void propostaTab.offsetHeight;
+      await sleep(600);
+
+      var pages = document.querySelectorAll('.proposta-page');
+      if(pages.length && window.html2canvas){
+        // 1.3 Capturar cada página sequencialmente
+        var capturas = [];
+        for(var pi = 0; pi < pages.length; pi++){
+          try {
+            var canvas = await window.html2canvas(pages[pi], {
+              scale: 1.6,
+              useCORS: true,
+              logging: false,
+              backgroundColor: '#ffffff'
+            });
+            capturas.push({
+              dataUrl: canvas.toDataURL('image/jpeg', 0.88),
+              w: canvas.width,
+              h: canvas.height
+            });
+            await sleep(120);
+          } catch(capErr){
+            console.warn('[captura pg '+pi+']', capErr);
+          }
+        }
+
+        // 1.4 Restaurar estilo original da aba
+        if(propostaTab) propostaTab.setAttribute('style', origStyle || 'display:none');
+
+        // 1.5 Compilar PDF multi-página via jsPDF
+        if(capturas.length){
+          var _jsPDF = (window.jspdf && window.jspdf.jsPDF)
+                    || (window.html2pdf && window.html2pdf().getPdf && null) // fallback indireto
+                    || window.jsPDF;
+          if(_jsPDF){
+            var pdf = new _jsPDF({ unit:'mm', format:'a4', orientation:'portrait', compress: true });
+            var PW = 210, PH = 297; // A4 mm
+            for(var ci = 0; ci < capturas.length; ci++){
+              var cap = capturas[ci];
+              if(ci > 0) pdf.addPage();
+              // Fit proporcional mantendo aspect ratio, centralizado
+              var wRatio = PW / cap.w;
+              var hRatio = PH / cap.h;
+              var ratio  = Math.min(wRatio, hRatio);
+              var drawW  = cap.w * ratio;
+              var drawH  = cap.h * ratio;
+              var offX   = (PW - drawW) / 2;
+              var offY   = (PH - drawH) / 2;
+              pdf.addImage(cap.dataUrl, 'JPEG', offX, offY, drawW, drawH);
+            }
+            pdf.save(nomeBase + ' - Proposta Comercial.pdf');
+            out.push('Proposta.pdf (' + capturas.length + ' pág.)');
+          } else {
+            // Fallback: se jsPDF não estiver disponível, tenta html2pdf com a aba INTEIRA
+            // (melhor que só capa). pagebreak no CSS das .proposta-page cuida do resto.
+            if(propostaTab && window.html2pdf){
+              propostaTab.style.display = 'block';
+              propostaTab.style.position = 'absolute';
+              propostaTab.style.left = '-9999px';
+              await window.html2pdf()
+                .set({
+                  margin: 0,
+                  filename: nomeBase + ' - Proposta Comercial.pdf',
+                  image: { type:'jpeg', quality: 0.9 },
+                  html2canvas: { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' },
+                  jsPDF: { unit:'mm', format:'a4', orientation:'portrait', compress: true },
+                  pagebreak: { mode: ['css','legacy'], before: '.proposta-page' }
+                }).from(propostaTab).save();
+              propostaTab.setAttribute('style', origStyle || 'display:none');
+              out.push('Proposta.pdf (fallback)');
+            }
+          }
+        }
+      } else if(propostaTab){
+        // Nenhuma .proposta-page encontrada — restaura mesmo assim
+        propostaTab.setAttribute('style', origStyle || 'display:none');
+      }
+    } catch(e){ console.warn('[proposta v14]', e); }
     await sleep(1000);
 
     // 2-4. PNGs via html2canvas + <a download>
@@ -1186,5 +1269,5 @@
     }
   });
 
-  console.log('%c[81 v13] SAIR tb zera + restore financ defaults — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v14] PDF multi-pagina (Aprovar para Envio) — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
