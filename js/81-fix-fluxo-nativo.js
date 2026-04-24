@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v18 — sync robusto localStorage <-> Supabase
+ * 81-fix-fluxo-nativo.js v19 — aprovar move p/ Revisado + kanban cabe todas colunas
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -1159,11 +1159,13 @@
       });
       if(!rIns.ok){ var t = await rIns.text(); throw new Error('Insert versão: '+rIns.status+' '+t); }
 
-      // 2. Atualizar card CRM (v17: stage -> s4 Proposta Enviada, com valores)
+      // 2. Atualizar card CRM (v19: stage -> Orcamento Revisado, com valores)
+      //    User arrasta manual do Revisado para Proposta Enviada apos mandar whatsapp.
       var _cardIdToPatch = window._crmOrcCardId || window._snapCardId || null;
       if(_cardIdToPatch){
         try {
-          var _okAprov = await _moverCardStage(_cardIdToPatch, 's4', {
+          var _stageRevisado = _getStageIdRevisado();
+          var _okAprov = await _moverCardStage(_cardIdToPatch, _stageRevisado, {
             valor: valFat || valTab,
             valor_tabela: valTab,
             valor_faturamento: valFat
@@ -1391,6 +1393,28 @@
   //        s3b --drag manual--> s3c (Orcamento Revisado)
   //        s3c --aprovar p/ envio--> s4 (Proposta Enviada)
 
+  // v19: CSS override — kanban fit-all-columns
+  //   Antes: .crm-stage min/max 220px — 8 colunas nao cabiam no viewport
+  //   Agora: 175px (cabe 8 colunas em FullHD: 8*175 + gaps ~100 = 1500px)
+  (function _injectKanbanCSS(){
+    try {
+      if(document.getElementById('v19-kanban-css')) return;
+      var st = document.createElement('style');
+      st.id = 'v19-kanban-css';
+      st.textContent = [
+        '.crm-stage{min-width:175px !important;max-width:175px !important}',
+        '@media (min-width:1700px){.crm-stage{min-width:200px !important;max-width:200px !important}}',
+        '@media (min-width:2100px){.crm-stage{min-width:230px !important;max-width:230px !important}}',
+        // garantir scroll se ainda faltar espaco
+        '.crm-board,.crm-kanban{overflow-x:auto !important}',
+        // cards menores dentro das colunas
+        '.crm-stage .opp-card{font-size:11px}',
+        '.crm-stage .opp-card .opp-title{font-size:12px !important}'
+      ].join('\n');
+      document.head.appendChild(st);
+    } catch(e){ console.warn('[v19 kanban css]', e); }
+  })();
+
   function _garantirStageRevisado(){
     try {
       var raw = localStorage.getItem('projetta_crm_settings_v1');
@@ -1496,6 +1520,25 @@
     }
   }
 
+  // v19: achar ID do stage "Orcamento Revisado" dinamicamente.
+  // Felipe criou com id custom (s1777050576466). Outros users podem ter IDs
+  // diferentes. Busca pelo label ou pelo id convencional 's3c'.
+  function _getStageIdRevisado(){
+    try {
+      var raw = localStorage.getItem('projetta_crm_settings_v1');
+      if(!raw) return 's3c'; // fallback
+      var s = JSON.parse(raw) || {};
+      var stages = s.stages || [];
+      // Prioridade: id === 's3c'
+      var match = stages.find(function(x){ return x.id === 's3c'; });
+      if(match) return match.id;
+      // Senao: primeiro stage com 'revis' no label
+      match = stages.find(function(x){ return /revis/i.test(x.label || ''); });
+      if(match) return match.id;
+      return 's3c';
+    } catch(e){ return 's3c'; }
+  }
+
   // Buscar stage atual de um card
   async function _getCardStage(cardId){
     if(!cardId) return null;
@@ -1539,5 +1582,5 @@
     }
   });
 
-  console.log('%c[81 v18] sync robusto CRM + fluxo auto — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v19] aprovar p/ Revisado + kanban fit-all-columns — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
