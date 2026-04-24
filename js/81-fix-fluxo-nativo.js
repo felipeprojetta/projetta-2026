@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v8 — plan-redraw + edit-mode-safe + auto-close
+ * 81-fix-fluxo-nativo.js v9 — barra fixa global (persiste entre abas)
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -733,10 +733,16 @@
     var bar = document.createElement('div');
     bar.id = 'snapshot-bar';
     bar.dataset.isVersao = isVersao ? '1' : '0';
-    bar.style.cssText = 'position:sticky;top:0;z-index:100;background:' + (isVersao?'#d5efdc':'#d6e9f2') + ';border-bottom:2px solid ' + (isVersao?'#27ae60':'#1a5276') + ';padding:10px 20px;display:flex;justify-content:space-between;align-items:center;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,.08);gap:12px;flex-wrap:wrap';
-    _renderBarraConteudo(bar, snap, isVersao, false /* não em edição */);
-    var tabOrc = document.getElementById('tab-orcamento') || document.querySelector('[data-tab="orcamento"]') || document.body;
-    tabOrc.insertBefore(bar, tabOrc.firstChild);
+    // v9: FIXED no topo do viewport, fora das tabs — não some ao trocar de aba
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9995;background:' + (isVersao?'#d5efdc':'#d6e9f2') + ';border-bottom:3px solid ' + (isVersao?'#27ae60':'#1a5276') + ';padding:9px 20px;display:flex;justify-content:space-between;align-items:center;font-family:inherit;box-shadow:0 3px 12px rgba(0,0,0,.2);gap:12px;flex-wrap:wrap';
+    _renderBarraConteudo(bar, snap, isVersao, false);
+    document.body.appendChild(bar);
+    // Empurrar conteúdo pra baixo pra barra não sobrepor o header
+    requestAnimationFrame(function(){
+      var h = bar.offsetHeight || 48;
+      document.body.style.paddingTop = (h + 4) + 'px';
+      document.body.setAttribute('data-snap-padding','1');
+    });
   }
 
   function _renderBarraConteudo(bar, snap, isVersao, emEdicao){
@@ -784,6 +790,11 @@
     _renderBarraConteudo(bar, snap, isVersao, true /* em edição */);
     bar.style.background = '#fff3e0';
     bar.style.borderBottomColor = '#e67e22';
+    // v9: re-calcular padding (conteúdo da barra pode ter mudado de altura)
+    requestAnimationFrame(function(){
+      var h = bar.offsetHeight || 48;
+      document.body.style.paddingTop = (h + 4) + 'px';
+    });
     _toast('✏️ <b>Modo Edição ativado</b><br><span style="font-size:11px">Edite os campos necessários e clique em 🔄 Recalcular.</span>','#e67e22',5000);
   };
 
@@ -808,11 +819,16 @@
 
   window.fecharSnapshot = function(){
     var bar = document.getElementById('snapshot-bar'); if(bar) bar.remove();
+    // v9: restaurar padding do body
+    if(document.body.getAttribute('data-snap-padding')){
+      document.body.style.paddingTop = '';
+      document.body.removeAttribute('data-snap-padding');
+    }
     window._snapshotCarregado = null;
     window._modoFielAtivo = false;
     window._snapshotFielCarregado = null;
     _setReadOnlyGlobal(false);
-    _toast('🚪 Snapshot fechado','#7f8c8d', 2500);
+    _toast('🚪 Revisão encerrada','#7f8c8d', 2500);
   };
 
   // ═══════════════════════════════════════════════════════════════════
@@ -1089,5 +1105,5 @@
     }
   });
 
-  console.log('%c[81 v8] plan-redraw + edit-mode-safe + auto-close — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v9] barra fixa global + persiste entre abas — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
