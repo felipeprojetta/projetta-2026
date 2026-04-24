@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v20 — fix INSERT timeout (remove paineis_html 3MB) + kanban responsivo
+ * 81-fix-fluxo-nativo.js v21 — kanban: cortar padding/gap + colunas cabem todas
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -1409,46 +1409,50 @@
   //        s3b --drag manual--> s3c (Orcamento Revisado)
   //        s3c --aprovar p/ envio--> s4 (Proposta Enviada)
 
-  // v20: CSS override — kanban responsivo (cabe todas as colunas)
-  //   Escala dinamica por viewport width. Felipe relata viewport 1144px
-  //   (janela nao maximizada ou devtools aberto), 8 colunas x 130px = 1040
-  //   + gaps ~100 = 1140px — cabe no limite. Telas maiores, colunas maiores.
-  (function _injectKanbanCSS(){
+  // v21: CSS kanban compacto — ATACA padding/gap do container (nao a coluna).
+  //   Felipe: 'diminuir borda visual' 3x. Analise real (viewport 1144px):
+  //     padding pai 16+16 = 32px + gaps 10x7 = 70px + margin = 122px DESPERDICIO
+  //   Fix: padding 2+2, gap 4, colunas sobem pra 135px (cabem 8 em 1144 com folga)
+  function _injectKanbanCSS(){
     try {
-      var existing = document.getElementById('v20-kanban-css') || document.getElementById('v19-kanban-css');
-      if(existing) existing.remove();
+      // Remove CSS antigo (v19, v20, v21 anterior)
+      ['v19-kanban-css','v20-kanban-css','v21-kanban-css'].forEach(function(id){
+        var old = document.getElementById(id); if(old) old.remove();
+      });
       var st = document.createElement('style');
-      st.id = 'v20-kanban-css';
+      st.id = 'v21-kanban-css';
       st.textContent = [
-        // Default (qualquer viewport): 130px
-        '.crm-stage{min-width:130px !important;max-width:130px !important}',
-        '@media (min-width:1300px){.crm-stage{min-width:150px !important;max-width:150px !important}}',
-        '@media (min-width:1500px){.crm-stage{min-width:170px !important;max-width:170px !important}}',
-        '@media (min-width:1700px){.crm-stage{min-width:190px !important;max-width:190px !important}}',
-        '@media (min-width:1900px){.crm-stage{min-width:210px !important;max-width:210px !important}}',
-        '@media (min-width:2100px){.crm-stage{min-width:230px !important;max-width:230px !important}}',
-        // Scroll horizontal defensivo
-        '.crm-board,.crm-kanban,.crm-stages{overflow-x:auto !important}',
-        // Cards mais compactos em viewports estreitos
+        // 1. ELIMINAR desperdicio de espaco do container
+        '.crm-pipeline{padding-left:2px !important;padding-right:2px !important;gap:4px !important}',
+        '.crm-pipeline-wrap{padding:0 !important;margin:0 !important;overflow-x:auto !important}',
+        // 2. Colunas compactas — crescem em telas maiores
+        '.crm-stage{min-width:135px !important;max-width:135px !important}',
+        '@media (min-width:1300px){.crm-stage{min-width:160px !important;max-width:160px !important}}',
+        '@media (min-width:1500px){.crm-stage{min-width:185px !important;max-width:185px !important}}',
+        '@media (min-width:1700px){.crm-stage{min-width:210px !important;max-width:210px !important}}',
+        '@media (min-width:1900px){.crm-stage{min-width:230px !important;max-width:230px !important}}',
+        // 3. Borda das colunas mais fina (era 1px completo)
+        '.crm-stage{border-width:1px !important;border-radius:10px !important}',
+        // 4. Conteudo interno mais compacto
+        '.crm-stage > *{padding:6px 8px !important}',
+        // 5. Cards internos apertados
         '@media (max-width:1500px){',
-        '  .crm-stage .opp-card,.crm-stage .kanban-card{font-size:10.5px !important;padding:7px !important}',
-        '  .crm-stage .opp-card > *:first-child,.crm-stage .kanban-card > *:first-child{font-size:11.5px !important}',
+        '  .crm-stage .opp-card,.crm-stage .kanban-card{font-size:10.5px !important;padding:6px !important;margin-bottom:6px !important}',
+        '  .crm-stage .opp-card > *:first-child,.crm-stage .kanban-card > *:first-child{font-size:11px !important}',
         '}',
-        // Header da coluna: wrap label se necessario
-        '.crm-stage .stage-header,.crm-stage > div:first-child{white-space:normal !important;font-size:11px !important}'
+        // 6. Scroll defensivo
+        '.crm-board,.crm-kanban,.crm-stages{overflow-x:auto !important}',
+        // 7. Header coluna compacto
+        '.crm-stage .stage-header,.crm-stage > div:first-child{white-space:normal !important;font-size:11px !important;padding:6px 8px !important}'
       ].join('\n');
       document.head.appendChild(st);
-    } catch(e){ console.warn('[v20 kanban css]', e); }
-  })();
-  // Re-injetar em varios momentos pra garantir que nao seja removido
-  [500, 2000, 5000].forEach(function(ms){
+    } catch(e){ console.warn('[v21 kanban css]', e); }
+  }
+  _injectKanbanCSS();
+  // Re-injetar periodicamente caso algo remova
+  [500, 2000, 5000, 10000].forEach(function(ms){
     setTimeout(function(){
-      if(!document.getElementById('v20-kanban-css')){
-        try {
-          var ev = new Event('inject-v20-css');
-          document.dispatchEvent(ev);
-        } catch(e){}
-      }
+      if(!document.getElementById('v21-kanban-css')) _injectKanbanCSS();
     }, ms);
   });
 
@@ -1619,5 +1623,5 @@
     }
   });
 
-  console.log('%c[81 v20] fix INSERT timeout + kanban responsivo — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v21] kanban compacto: padding/gap minimo — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
