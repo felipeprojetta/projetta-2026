@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v16 — reimprimir versao (sem gerar nova)
+ * 81-fix-fluxo-nativo.js v17 — fluxo automatico CRM (s3->s3b->s3c->s4)
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -320,11 +320,25 @@
       if(!res.ok){ var txt = await res.text(); throw new Error('HTTP '+res.status+': '+txt); }
 
       var acao = existente ? 'atualizado' : 'salvo';
+      // v17: Auto-mover card de s3 (Fazer Orcamento) -> s3b (Orcamento Pronto)
+      // Somente se tiver card vinculado E stage atual for s3. Nao mexe em cards
+      // que ja avancaram (s3b/s3c/s4+).
+      var _cidAtual = window._crmOrcCardId || window._snapCardId || payload.card_id || null;
+      var _movidoStage = false;
+      if(_cidAtual){
+        try {
+          var _curStage = await _getCardStage(_cidAtual);
+          if(_curStage === 's3'){
+            var _okMove = await _moverCardStage(_cidAtual, 's3b');
+            if(_okMove) _movidoStage = true;
+          }
+        } catch(e){ console.warn('[auto-move s3->s3b]', e); }
+      }
       _toast('💾 <b>Pré-orçamento ' + acao + '!</b><br>' +
              '<span style="font-size:11px;font-weight:400">' + payload.cliente + (payload.agp ? ' · '+payload.agp : '') +
-             ' · ' + qtdItens + ' item(ns)</span>',
-             '#1a5276', 4000);
-      // v8: se estava em modo edição de snapshot, fechar snapshot após salvar
+             ' · ' + qtdItens + ' item(ns)</span>' +
+             (_movidoStage ? '<br><span style="font-size:10px;opacity:.85">📧 Card movido para <b>Orçamento Pronto</b></span>' : ''),
+             '#1a5276', 4500);
       if(window._modoFielAtivo){
         setTimeout(function(){ try { window.fecharSnapshot(); } catch(e){} }, 800);
       }
@@ -1145,27 +1159,18 @@
       });
       if(!rIns.ok){ var t = await rIns.text(); throw new Error('Insert versão: '+rIns.status+' '+t); }
 
-      // 2. Atualizar card CRM (v15: fallback pra snap.card_id se _crmOrcCardId null)
+      // 2. Atualizar card CRM (v17: stage -> s4 Proposta Enviada, com valores)
       var _cardIdToPatch = window._crmOrcCardId || window._snapCardId || null;
       if(_cardIdToPatch){
         try {
-          var _rc = await fetch(SUPA+'/rest/v1/crm_oportunidades?id=eq.'+encodeURIComponent(_cardIdToPatch), {
-            method:'PATCH',
-            headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' }),
-            body: JSON.stringify({
-              stage: 's3b',
-              valor: valFat || valTab,
-              valor_tabela: valTab,
-              valor_faturamento: valFat,
-              updated_at: new Date().toISOString()
-            })
+          var _okAprov = await _moverCardStage(_cardIdToPatch, 's4', {
+            valor: valFat || valTab,
+            valor_tabela: valTab,
+            valor_faturamento: valFat
           });
-          if(!_rc.ok) console.warn('[card patch]', _rc.status, await _rc.text());
-          // Atualizar tambem o card_id na versao aprovada (se foi aprovado sem cardid no insert)
-          if(!payload.card_id){
-            payload.card_id = _cardIdToPatch;
-          }
-        } catch(cerr){ console.warn('[card patch]', cerr); }
+          if(!_okAprov) console.warn('[aprov card patch] PATCH falhou');
+          if(!payload.card_id) payload.card_id = _cardIdToPatch;
+        } catch(cerr){ console.warn('[aprov card patch]', cerr); }
       }
 
       // 3. Downloads diretos
@@ -1379,6 +1384,96 @@
     return out;
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // v17: PIPELINE CRM — garantir stage Orcamento Revisado + transicoes
+  // ═══════════════════════════════════════════════════════════════════
+  // Fluxo: s3 (Fazer Orcamento) --salvar--> s3b (Orcamento Pronto)
+  //        s3b --drag manual--> s3c (Orcamento Revisado)
+  //        s3c --aprovar p/ envio--> s4 (Proposta Enviada)
+
+  function _garantirStageRevisado(){
+    try {
+      var raw = localStorage.getItem('projetta_crm_settings_v1');
+      if(!raw) return false;
+      var s = JSON.parse(raw) || {};
+      var stages = s.stages || [];
+      if(!stages.length) return false;
+      // Se ja existe s3c ou algum stage com label 'Revisado', skip
+      if(stages.find(function(x){return x.id==='s3c' || /revis/i.test(x.label||'');})){
+        return false;
+      }
+      // Inserir APOS s3b, ou antes de s4
+      var idxProntoB = stages.findIndex(function(x){return x.id==='s3b';});
+      var idxEnviada = stages.findIndex(function(x){return x.id==='s4';});
+      var insertPos = (idxProntoB >= 0) ? (idxProntoB + 1)
+                   : (idxEnviada >= 0) ? idxEnviada
+                   : stages.length;
+      stages.splice(insertPos, 0, {
+        id: 's3c',
+        label: 'Orçamento Revisado',
+        color: '#8e44ad',
+        icon: '✏️'
+      });
+      s.stages = stages;
+      localStorage.setItem('projetta_crm_settings_v1', JSON.stringify(s));
+      console.log('%c[81 v17] stage s3c (Orçamento Revisado) adicionado ao pipeline', 'color:#8e44ad;font-weight:700');
+      // Re-render kanban se ja disponivel
+      try { if(typeof window.crmRender === 'function') window.crmRender(); } catch(e){}
+      return true;
+    } catch(err){
+      console.warn('[garantirStageRevisado]', err);
+      return false;
+    }
+  }
+  // Tentar instalar em varios momentos (depende de quando o settings carrega)
+  [800, 2500, 5500].forEach(function(ms){ setTimeout(_garantirStageRevisado, ms); });
+
+  // Mover card entre stages via PATCH no Supabase
+  async function _moverCardStage(cardId, novoStage, extraFields){
+    if(!cardId || !novoStage) return false;
+    try {
+      var body = Object.assign({
+        stage: novoStage,
+        updated_at: new Date().toISOString()
+      }, extraFields || {});
+      var r = await fetch(SUPA+'/rest/v1/crm_oportunidades?id=eq.'+encodeURIComponent(cardId), {
+        method:'PATCH',
+        headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' }),
+        body: JSON.stringify(body)
+      });
+      if(!r.ok){ console.warn('[moverCard]', r.status, await r.text()); return false; }
+      // Tambem atualizar localStorage pra re-render funcionar
+      try {
+        var raw = localStorage.getItem('projetta_crm_v1');
+        if(raw){
+          var arr = JSON.parse(raw);
+          var ci = arr.findIndex(function(c){return c.id === cardId;});
+          if(ci >= 0){
+            arr[ci].stage = novoStage;
+            Object.keys(extraFields || {}).forEach(function(k){ arr[ci][k] = extraFields[k]; });
+            arr[ci].updated_at = new Date().toISOString();
+            localStorage.setItem('projetta_crm_v1', JSON.stringify(arr));
+          }
+        }
+      } catch(e){ /* silenciar — sync Supabase eh autoritativo */ }
+      try { if(typeof window.crmRender === 'function') window.crmRender(); } catch(e){}
+      return true;
+    } catch(err){
+      console.warn('[moverCard]', err);
+      return false;
+    }
+  }
+
+  // Buscar stage atual de um card
+  async function _getCardStage(cardId){
+    if(!cardId) return null;
+    try {
+      var r = await fetch(SUPA+'/rest/v1/crm_oportunidades?id=eq.'+encodeURIComponent(cardId)+'&select=stage', { headers: _hdrs() });
+      var arr = await r.json();
+      return arr && arr[0] ? arr[0].stage : null;
+    } catch(e){ return null; }
+  }
+
   // v8: Hook em zerarTudo pra auto-fechar snapshot. Evita ficar preso em modo fiel
   //     quando user zera pra começar novo orçamento.
   function _installZerarHook(){
@@ -1412,5 +1507,5 @@
     }
   });
 
-  console.log('%c[81 v16] reimprimir versao + chave estavel + MC/RC + delete — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v17] fluxo auto CRM + reimprimir + chave estavel — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
