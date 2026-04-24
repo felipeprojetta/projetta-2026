@@ -36,8 +36,8 @@
     window.saveDB=function(db){_p(db);_w=true;save(db);setTimeout(function(){_w=false;},3000);};
     window.addEventListener('DOMContentLoaded',function(){
       load(function(val){if(!val){var l=JSON.parse(localStorage.getItem('projetta_v3')||'[]');if(l.length>0)save(l);}
-        else{var c=val.db||[],l=JSON.parse(localStorage.getItem('projetta_v3')||'[]');if(c.length>=l.length){localStorage.setItem('projetta_v3',JSON.stringify(c));try{renderHistory();}catch(e){}}else save(l);_lt=val.ts;}});
-      setInterval(function(){if(_w)return;load(function(val){if(!val||val.ts===_lt){if(!_lt&&val)_lt=val.ts;return;}_lt=val.ts;var c=val.db||[];localStorage.setItem('projetta_v3',JSON.stringify(c));try{renderHistory();}catch(e){}try{refreshHistCount();}catch(e){};});},4000);
+        else{var c=val.db||[],l=JSON.parse(localStorage.getItem('projetta_v3')||'[]');if(c.length>=l.length){localStorage.setItem('projetta_v3',JSON.stringify(c));try{void 0;}catch(e){}}else save(l);_lt=val.ts;}});
+      setInterval(function(){if(_w)return;load(function(val){if(!val||val.ts===_lt){if(!_lt&&val)_lt=val.ts;return;}_lt=val.ts;var c=val.db||[];localStorage.setItem('projetta_v3',JSON.stringify(c));try{void 0;}catch(e){}try{refreshHistCount();}catch(e){};});},4000);
     });
     window.addEventListener('load',function(){});
   })();
@@ -81,13 +81,13 @@
             try { _autoRestoreSession(); } catch (ex) {}
           }
           if (typeof renderHistory === 'function') {
-            try { renderHistory(); } catch (ex) {}
+            try { void 0; } catch (ex) {}
           }
         }, 120);
       } else {
         // Just refresh history list
         setTimeout(function () {
-          if (typeof renderHistory === 'function') try { renderHistory(); } catch (ex) {}
+          if (typeof renderHistory === 'function') try { void 0; } catch (ex) {}
         }, 80);
       }
       _bridgeReady = true;
@@ -97,7 +97,7 @@
     if (d.type === 'PROJETTA_REQUEST_SNAPSHOT') {
       var snap = null;
       try {
-        snap = typeof captureFormData === 'function' ? captureFormData() : null;
+        snap = typeof captureFormData === 'function' ? ({}) : null;
       } catch (ex) {}
       toParent({ type: 'PROJETTA_SNAPSHOT', snapshot: snap, requestId: d.requestId });
     }
