@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v25 — remove CSS custom + fix valores camelCase
+ * 81-fix-fluxo-nativo.js v26 — multiplas opcoes por cliente (Principal/Preta/Marrom)
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -260,7 +260,74 @@
     // ═══════════════════════════════════════════════════════════════════
   // 1. 💾 SALVAR PRÉ-ORÇAMENTO — UPSERT no rascunho (sobrescreve sempre)
   // ═══════════════════════════════════════════════════════════════════
-  window.salvarPreOrcamento = async function(){
+  // v26: MÚLTIPLAS OPÇÕES (Principal/Preta/Marrom)
+  function _fmtBRL_v26(v){
+    if(v == null) return 'R$ 0,00';
+    return 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function _escHtml_v26(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function _escAttr_v26(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+  async function _decidirOpcaoParaSalvar(opcoesExistentes, clienteNome){
+    if(!opcoesExistentes || opcoesExistentes.length === 0) return 'Principal';
+    if(window._currentOpcaoNome && opcoesExistentes.find(function(o){ return o.opcao_nome === window._currentOpcaoNome; })){
+      return window._currentOpcaoNome;
+    }
+    return await _abrirModalEscolhaOpcao(opcoesExistentes, clienteNome);
+  }
+
+  function _abrirModalEscolhaOpcao(opcoesExistentes, clienteNome){
+    return new Promise(function(resolve){
+      var bg = document.createElement('div');
+      bg.id = 'modal-escolha-opcao-bg';
+      bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100000;display:flex;align-items:center;justify-content:center;font-family:inherit';
+      var modal = document.createElement('div');
+      modal.style.cssText = 'background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.35);width:min(560px,90vw);max-height:85vh;overflow-y:auto';
+      var html = '<div style="background:linear-gradient(135deg,#0C447C,#003144);color:#fff;padding:18px 22px;border-radius:14px 14px 0 0">' +
+                 '<div style="font-size:16px;font-weight:700;margin-bottom:4px">💾 Salvar Pré-Orçamento</div>' +
+                 '<div style="font-size:12px;opacity:.85">' + _escHtml_v26(clienteNome||'Cliente') + '</div></div>';
+      html += '<div style="padding:18px 22px">' +
+              '<div style="font-size:13px;color:#555;margin-bottom:14px">Já existe(m) <b>' + opcoesExistentes.length + '</b> opção(ões) salvas deste cliente. Escolha:</div>' +
+              '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px">';
+      opcoesExistentes.forEach(function(o){
+        html += '<button data-opcao="' + _escAttr_v26(o.opcao_nome) + '" class="btn-sobrescrever" ' +
+                'style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid #0C447C;border-radius:10px;background:#fff;color:#0C447C;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;text-align:left">' +
+                '<span>💾 Sobrescrever <b>' + _escHtml_v26(o.opcao_nome) + '</b></span>' +
+                '<span style="font-size:11px;color:#888;font-weight:500">' + _fmtBRL_v26(o.valor_tabela) + '</span></button>';
+      });
+      html += '</div><div style="border-top:1px solid #eee;padding-top:16px">' +
+              '<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px">➕ OU criar nova opção:</div>' +
+              '<div style="display:flex;gap:8px">' +
+              '<input type="text" id="input-nova-opcao" placeholder="Ex: Preta, Marrom, Opção 2..." style="flex:1;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;outline:none" maxlength="40">' +
+              '<button id="btn-criar-opcao" style="padding:10px 18px;background:#27ae60;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Criar</button>' +
+              '</div><div style="font-size:10px;color:#999;margin-top:6px">Para variações (cores, modelos, etc). Permite aprovar todas juntas.</div></div>' +
+              '<div style="display:flex;justify-content:flex-end;margin-top:18px">' +
+              '<button id="btn-cancelar-opcao" style="padding:8px 18px;background:transparent;color:#888;border:1px solid #ddd;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">Cancelar</button>' +
+              '</div></div>';
+      modal.innerHTML = html;
+      bg.appendChild(modal);
+      document.body.appendChild(bg);
+      setTimeout(function(){ var inp=document.getElementById('input-nova-opcao'); if(inp) inp.focus(); }, 50);
+      function fechar(r){ if(bg.parentNode) bg.parentNode.removeChild(bg); resolve(r); }
+      modal.querySelectorAll('.btn-sobrescrever').forEach(function(btn){
+        btn.addEventListener('click', function(){ fechar(btn.getAttribute('data-opcao')); });
+      });
+      document.getElementById('btn-criar-opcao').addEventListener('click', function(){
+        var nome = (document.getElementById('input-nova-opcao').value || '').trim();
+        if(!nome){ alert('Digite o nome da nova opção.'); return; }
+        var dup = opcoesExistentes.find(function(o){ return o.opcao_nome.toLowerCase() === nome.toLowerCase(); });
+        if(dup){ alert('Já existe "' + dup.opcao_nome + '". Escolha outro nome.'); return; }
+        fechar(nome);
+      });
+      document.getElementById('input-nova-opcao').addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('btn-criar-opcao').click(); }
+      });
+      document.getElementById('btn-cancelar-opcao').addEventListener('click', function(){ fechar(null); });
+      bg.addEventListener('click', function(e){ if(e.target === bg) fechar(null); });
+    });
+  }
+
+    window.salvarPreOrcamento = async function(){
     var chave = _gerarChave();
     if(!chave){
       _toast('⚠ <b>Preencha o cliente</b><br><span style="font-size:11px;font-weight:400">Precisa de cliente ou AGP pra gerar identificação.</span>', '#c0392b', 5000);
@@ -275,10 +342,20 @@
     }
 
     try {
-      // Primeiro buscar se já existe rascunho com essa chave
-      var r = await fetch(SUPA+'/rest/v1/pre_orcamentos?chave=eq.'+encodeURIComponent(chave)+'&deleted_at=is.null', { headers: _hdrs() });
-      var existentes = await r.json();
-      var existente = existentes && existentes[0];
+      // v26: Ver TODAS as opcoes existentes da chave (ativas)
+      var r = await fetch(SUPA+'/rest/v1/pre_orcamentos?chave=eq.'+encodeURIComponent(chave)+'&deleted_at=is.null&select=id,opcao_nome,valor_tabela,valor_faturamento,updated_at&order=updated_at.desc', { headers: _hdrs() });
+      var opcoesExistentes = await r.json();
+      if(!Array.isArray(opcoesExistentes)) opcoesExistentes = [];
+
+      // Decidir qual opcao salvar (pode abrir modal)
+      var opcaoEscolhida = await _decidirOpcaoParaSalvar(opcoesExistentes, (snap.dados_cliente && snap.dados_cliente.nome) || '(sem cliente)');
+      if(opcaoEscolhida === null){
+        _toast('Operação cancelada', '#7f8c8d', 1500);
+        return;
+      }
+
+      // existente = opcao com mesmo nome escolhido (pra fazer UPDATE)
+      var existente = opcoesExistentes.find(function(o){ return o.opcao_nome === opcaoEscolhida; }) || null;
 
       var payload = {
         chave:              chave,
@@ -296,6 +373,7 @@
         inputs_raw:         snap.inputs_raw || {},
         paineis_html:       snap.paineis_html || {},
         globais:            snap.globais || {},
+        opcao_nome:         opcaoEscolhida || 'Principal',
         updated_at:         new Date().toISOString(),
         created_by:         'felipe.projetta'
       };
@@ -320,6 +398,7 @@
       if(!res.ok){ var txt = await res.text(); throw new Error('HTTP '+res.status+': '+txt); }
 
       var acao = existente ? 'atualizado' : 'salvo';
+      window._currentOpcaoNome = opcaoEscolhida || 'Principal'; // v26
       // v24: Auto-move + sync forcado APOS salvar pre-orcamento
       // Garante 3 coisas:
       //   1. Se stage=s3, move pra s3b (PATCH Supabase)
@@ -364,8 +443,9 @@
         console.warn('[auto-move v24] NAO move — rascunho nao tem card vinculado (abriu direto, sem passar pelo CRM)');
       }
       _toast('💾 <b>Pré-orçamento ' + acao + '!</b><br>' +
-             '<span style="font-size:11px;font-weight:400">' + payload.cliente + (payload.agp ? ' · '+payload.agp : '') +
-             ' · ' + qtdItens + ' item(ns)</span>' +
+             '<span style="font-size:11px;font-weight:400">' + payload.cliente +
+             ' · <b>Opção: ' + (opcaoEscolhida||'Principal') + '</b>' +
+             (payload.agp ? ' · '+payload.agp : '') + ' · ' + qtdItens + ' item(ns)</span>' +
              (_movidoStage ? '<br><span style="font-size:10px;opacity:.85">📧 Card movido para <b>Orçamento Pronto</b></span>' : ''),
              '#1a5276', 4500);
       if(window._modoFielAtivo){
@@ -435,6 +515,7 @@
         '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
         '<thead><tr style="background:#eaf2f7;border-bottom:2px solid #c4d8e3">' +
           '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">Cliente</th>' +
+          '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">Opção</th>' +
           '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">AGP</th>' +
           '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">Atualizado</th>' +
           '<th style="padding:10px;text-align:right;font-weight:700;color:#003144">Tabela</th>' +
@@ -450,6 +531,7 @@
         var qtdV = (versoesPorChave[po.chave] || []).length;
         html += '<tr style="border-bottom:1px solid #eae7e1">' +
           '<td style="padding:10px;font-weight:600">' + (po.cliente||'—') + '</td>' +
+          '<td style="padding:10px"><span style="background:#e8f4f8;color:#0C447C;padding:2px 8px;border-radius:10px;font-weight:700;font-size:11px">' + (po.opcao_nome||'Principal') + '</span></td>' +
           '<td style="padding:10px;font-size:11px;color:#5f5e5a">' + (po.agp || '—') + '</td>' +
           '<td style="padding:10px;font-size:11px;color:#5f5e5a">' + _fmtData(po.updated_at) + '</td>' +
           '<td style="padding:10px;text-align:right;font-weight:700;color:#003144">' + (res.preco_tabela || '—') + '</td>' +
@@ -471,6 +553,7 @@
         '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
         '<thead><tr style="background:#eaf7ec;border-bottom:2px solid #a7dcb0">' +
           '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">Cliente</th>' +
+          '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">Opção</th>' +
           '<th style="padding:10px;text-align:center;font-weight:700;color:#003144">Versão</th>' +
           '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">AGP</th>' +
           '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">Aprovado em</th>' +
@@ -482,6 +565,7 @@
       versoes.forEach(function(v){
         html += '<tr style="border-bottom:1px solid #e0ece3' + (v.ativa ? ';background:rgba(39,174,96,.05)' : '') + '">' +
           '<td style="padding:10px;font-weight:600">' + v.cliente + '</td>' +
+          '<td style="padding:10px"><span style="background:#e8f4f8;color:#0C447C;padding:2px 8px;border-radius:10px;font-weight:700;font-size:11px">' + (v.opcao_nome||'Principal') + '</span></td>' +
           '<td style="padding:10px;text-align:center;font-weight:800;color:#27ae60;font-size:13px">V' + v.versao + (v.ativa ? ' ⭐' : '') + '</td>' +
           '<td style="padding:10px;font-size:11px;color:#5f5e5a">' + (v.agp || '—') + '</td>' +
           '<td style="padding:10px;font-size:11px;color:#5f5e5a">' + _fmtData(v.aprovado_em) + '</td>' +
@@ -782,6 +866,7 @@
     // valores corretos mesmo quando _crmOrcCardId nao esta setado
     window._snapKey = snap.chave || null;
     window._snapCardId = snap.card_id || null;
+    window._currentOpcaoNome = snap.opcao_nome || 'Principal'; // v26
 
     // 8º — ATIVAR MODO LEITURA (read-only) em todos os inputs das abas operacionais
     //      Usuário precisa clicar "✏️ Editar" pra habilitar edição
@@ -949,6 +1034,7 @@
     window._snapFielPlan = null;
     window._snapKey = null; // v15
     window._snapCardId = null; // v15
+    window._currentOpcaoNome = null; // v26
     _setReadOnlyGlobal(false);
 
     // v13: ao SAIR da revisão, já zera tudo pra iniciar orçamento do zero.
@@ -1148,61 +1234,83 @@
         'Faturamento: R$ ' + (valFat ? valFat.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—') + '\n\n' +
         'Prosseguir?')) return;
 
-      _toast('⏳ <b>Aprovando Versão ' + proxV + '...</b>', '#7f8c8d', 4000);
-
-      // 1. INSERT em versoes_aprovadas (imutável)
-      //    v20: paineis_html REMOVIDO — eram ~3MB por linha, causava
-      //    statement_timeout (57014) em INSERT. Resultado visual é o mesmo
-      //    porque _aplicarSnapshot chama calc() que reconstrói os painéis
-      //    a partir de inputs_raw.
-      var payload = {
-        id: 'va_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
-        chave: chave,
-        versao: proxV,
-        card_id: window._crmOrcCardId || window._snapCardId || null,
-        cliente: snap.dados_cliente.nome || '(sem cliente)',
-        agp: snap.dados_projeto.agp || null,
-        reserva: snap.dados_projeto.reserva || null,
-        dados_cliente: snap.dados_cliente,
-        dados_projeto: snap.dados_projeto,
-        params_financeiros: snap.params_financeiros,
-        itens: snap.itens,
-        resultado: snap.resultado,
-        precos_snapshot: snap.precos_snapshot,
-        inputs_raw: snap.inputs_raw || {},
-        globais: snap.globais || {},
-        valor_tabela: valTab,
-        valor_faturamento: valFat,
-        aprovado_por: 'felipe.projetta',
-        ativa: true
-      };
-
-      // v20: log do tamanho pra diagnóstico
+      // v26: buscar TODAS as opcoes da chave e aprovar TODAS juntas
+      var todasOpcoes = [];
       try {
-        var _bdy = JSON.stringify(payload);
-        console.log('[aprovar v20] payload size: ' + (_bdy.length/1024).toFixed(1) + ' KB (antes 3000+ KB com paineis_html)');
-      } catch(e){}
+        var rTodas = await fetch(SUPA+'/rest/v1/pre_orcamentos?chave=eq.'+encodeURIComponent(chave)+'&deleted_at=is.null&select=*&order=opcao_nome.asc', { headers: _hdrs() });
+        if(rTodas.ok) todasOpcoes = await rTodas.json();
+        if(!Array.isArray(todasOpcoes)) todasOpcoes = [];
+      } catch(e){ console.warn('[aprov v26 busca opcoes]', e); }
 
-      // Desativar versões anteriores da mesma chave
+      // Fallback se nao achou nada (modo antigo ou rascunho nao veio do banco)
+      if(todasOpcoes.length === 0){
+        todasOpcoes = [{
+          opcao_nome: (window._currentOpcaoNome || 'Principal'),
+          dados_cliente: snap.dados_cliente, dados_projeto: snap.dados_projeto,
+          params_financeiros: snap.params_financeiros, itens: snap.itens,
+          resultado: snap.resultado, precos_snapshot: snap.precos_snapshot,
+          inputs_raw: snap.inputs_raw || {}, globais: snap.globais || {},
+          valor_tabela: valTab, valor_faturamento: valFat
+        }];
+      }
+
+      _toast('⏳ <b>Aprovando ' + todasOpcoes.length + ' opção(ões) como V' + proxV + '...</b>', '#7f8c8d', 5000);
+
+      // Desativar TODAS versoes anteriores da chave (de todas opcoes)
       await fetch(SUPA+'/rest/v1/versoes_aprovadas?chave=eq.'+encodeURIComponent(chave)+'&ativa=eq.true', {
         method:'PATCH',
         headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' }),
         body: JSON.stringify({ ativa: false })
       });
 
-      var rIns = await fetch(SUPA+'/rest/v1/versoes_aprovadas', {
-        method:'POST',
-        headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' }),
-        body: JSON.stringify(payload)
-      });
-      if(!rIns.ok){
-        var t = await rIns.text();
-        // Se ainda timeout, sugerir refresh da pagina pro user
-        if(rIns.status === 500 && t.indexOf('57014') >= 0){
-          throw new Error('Timeout do Supabase. Tente novamente em alguns segundos.');
+      // INSERT pra cada opcao (sequencial pra evitar race)
+      var versoesInseridas = [];
+      for(var iop = 0; iop < todasOpcoes.length; iop++){
+        var op = todasOpcoes[iop];
+        var opNome = op.opcao_nome || 'Principal';
+        var payloadOp = {
+          id: 'va_'+Date.now()+'_'+iop+'_'+Math.random().toString(36).slice(2,6),
+          chave: chave,
+          opcao_nome: opNome,
+          versao: proxV,
+          card_id: window._crmOrcCardId || window._snapCardId || null,
+          cliente: (op.dados_cliente && op.dados_cliente.nome) || snap.dados_cliente.nome || '(sem cliente)',
+          agp: (op.dados_projeto && op.dados_projeto.agp) || snap.dados_projeto.agp || null,
+          reserva: (op.dados_projeto && op.dados_projeto.reserva) || snap.dados_projeto.reserva || null,
+          dados_cliente: op.dados_cliente || snap.dados_cliente,
+          dados_projeto: op.dados_projeto || snap.dados_projeto,
+          params_financeiros: op.params_financeiros || snap.params_financeiros,
+          itens: op.itens || snap.itens,
+          resultado: op.resultado || snap.resultado,
+          precos_snapshot: op.precos_snapshot || snap.precos_snapshot,
+          inputs_raw: op.inputs_raw || snap.inputs_raw || {},
+          globais: op.globais || snap.globais || {},
+          valor_tabela: (op.valor_tabela != null ? op.valor_tabela : valTab),
+          valor_faturamento: (op.valor_faturamento != null ? op.valor_faturamento : valFat),
+          aprovado_por: 'felipe.projetta',
+          ativa: true
+        };
+        try {
+          console.log('[aprovar v26] ' + opNome + ' payload=' + (JSON.stringify(payloadOp).length/1024).toFixed(1) + ' KB');
+        } catch(e){}
+        var rInsOp = await fetch(SUPA+'/rest/v1/versoes_aprovadas', {
+          method:'POST',
+          headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' }),
+          body: JSON.stringify(payloadOp)
+        });
+        if(!rInsOp.ok){
+          var tOp = await rInsOp.text();
+          if(rInsOp.status === 500 && tOp.indexOf('57014') >= 0){
+            throw new Error('Timeout no insert da opção ' + opNome + '. Tente novamente em alguns segundos.');
+          }
+          throw new Error('Insert versão ' + opNome + ': ' + rInsOp.status + ' ' + tOp);
         }
-        throw new Error('Insert versão: '+rIns.status+' '+t);
+        versoesInseridas.push(payloadOp);
       }
+
+      // Manter payload principal (opcao aberta) pra compat com resto do codigo
+      var payload = versoesInseridas.find(function(p){ return p.opcao_nome === (window._currentOpcaoNome||'Principal'); }) || versoesInseridas[0];
+      var rIns = { ok: true }; // marker de compat
 
       // 2. Atualizar card CRM (v19: stage -> Orcamento Revisado, com valores)
       //    User arrasta manual do Revisado para Proposta Enviada apos mandar whatsapp.
@@ -1220,12 +1328,33 @@
         } catch(cerr){ console.warn('[aprov card patch]', cerr); }
       }
 
-      // 3. Downloads diretos
-      _toast('📥 <b>Baixando arquivos...</b>', '#0C447C', 4000);
-      var nomeBase = (snap.dados_projeto.agp || 'orcamento') + ' - ' +
-                     (snap.dados_projeto.reserva || '') + ' - ' +
-                     (snap.dados_cliente.nome || '').replace(/[^\w\s-]/g,'') + ' - V' + proxV;
-      var ok = await _gerarDownloadsDiretos(nomeBase);
+      // 3. Downloads diretos — v26: um conjunto por opcao
+      _toast('📥 <b>Baixando arquivos das ' + versoesInseridas.length + ' opção(ões)...</b>', '#0C447C', 6000);
+      var okList = [];
+      for(var idl = 0; idl < versoesInseridas.length; idl++){
+        var vIns = versoesInseridas[idl];
+        var opNomeAtual = vIns.opcao_nome || 'Principal';
+        // Se a opcao nao e a que esta na tela, aplica o snapshot dela antes
+        if(opNomeAtual !== (window._currentOpcaoNome||'Principal')){
+          try {
+            await _aplicarSnapshot(vIns, true);
+            await new Promise(function(r){ setTimeout(r, 1800); });
+          } catch(eApl){ console.warn('[aprov dl apply ' + opNomeAtual + ']', eApl); }
+        }
+        var sufixoOp = (versoesInseridas.length > 1) ? (' - ' + opNomeAtual.toUpperCase()) : '';
+        var nomeBaseOp = (snap.dados_projeto.agp || 'orcamento') + ' - ' +
+                         (snap.dados_projeto.reserva || '') + ' - ' +
+                         (snap.dados_cliente.nome || '').replace(/[^\w\s-]/g,'') +
+                         ' - V' + proxV + sufixoOp;
+        try {
+          var ok1 = await _gerarDownloadsDiretos(nomeBaseOp);
+          okList.push({opcao: opNomeAtual, files: ok1 || []});
+        } catch(eDl){ console.warn('[aprov dl ' + opNomeAtual + ']', eDl); }
+      }
+      var ok = okList.reduce(function(acc, x){
+        return acc.concat((x.files||[]).map(function(f){ return (versoesInseridas.length > 1 ? '['+x.opcao+'] ' : '') + f; }));
+      }, []);
+      var nomeBase = (snap.dados_projeto.agp || 'orcamento') + ' - V' + proxV; // compat
 
       _toast('🏆 <b>Versão ' + proxV + ' APROVADA!</b><br>' +
              '<span style="font-size:11px;font-weight:400;line-height:1.6">' +
@@ -1645,5 +1774,5 @@
     }
   });
 
-  console.log('%c[81 v25] remove CSS custom + fix valores camelCase — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v26] multiplas opcoes por cliente — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
