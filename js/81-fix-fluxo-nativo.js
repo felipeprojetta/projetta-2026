@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v11 — plan race-condition fix
+ * 81-fix-fluxo-nativo.js v12 — restore financ defaults ao sair
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -213,6 +213,46 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════
+  // v12: DEFAULTS FINANCEIROS DA EMPRESA — capturados 1 vez no init
+  // ═══════════════════════════════════════════════════════════════════
+  var FIN_IDS = ['overhead','impostos','com-rep','com-rt','com-gest',
+                 'lucro-alvo','markup-desc','desconto'];
+
+  function _captureFinDefaults(){
+    // Só captura 1x — depois da primeira vez, window._FIN_DEFAULTS é imutável
+    if(window._FIN_DEFAULTS) return;
+    var d = {}, hasAny = false;
+    FIN_IDS.forEach(function(id){
+      var el = document.getElementById(id);
+      if(el && el.value !== '' && el.value !== undefined && el.value !== null){
+        d[id] = el.value;
+        hasAny = true;
+      }
+    });
+    if(hasAny){
+      window._FIN_DEFAULTS = d;
+      console.log('%c[81 v12] defaults financeiros capturados', 'color:#1a5276', d);
+    }
+  }
+
+  function _restoreFinDefaults(){
+    if(!window._FIN_DEFAULTS) return false;
+    Object.keys(window._FIN_DEFAULTS).forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      el.value = window._FIN_DEFAULTS[id];
+      try { el.dispatchEvent(new Event('input',{bubbles:true})); } catch(e){}
+      try { el.dispatchEvent(new Event('change',{bubbles:true})); } catch(e){}
+    });
+    return true;
+  }
+
+  // Tentar capturar em vários momentos (depende de quando o HTML finaliza)
+  [1000, 2500, 5000].forEach(function(ms){
+    setTimeout(_captureFinDefaults, ms);
+  });
+
+    // ═══════════════════════════════════════════════════════════════════
   // 1. 💾 SALVAR PRÉ-ORÇAMENTO — UPSERT no rascunho (sobrescreve sempre)
   // ═══════════════════════════════════════════════════════════════════
   window.salvarPreOrcamento = async function(){
@@ -854,7 +894,9 @@
     window._snapshotFielCarregado = null;
     window._snapFielPlan = null; // v11
     _setReadOnlyGlobal(false);
-    _toast('🚪 Revisão encerrada','#7f8c8d', 2500);
+    // v12: restaurar defaults financeiros da empresa (se capturados)
+    var restored = _restoreFinDefaults();
+    _toast('🚪 Revisão encerrada' + (restored ? '<br><span style="font-size:10px;font-weight:400;opacity:.85">Parâmetros financeiros voltaram ao padrão</span>' : ''),'#7f8c8d', 3000);
   };
 
   // ═══════════════════════════════════════════════════════════════════
@@ -1131,5 +1173,5 @@
     }
   });
 
-  console.log('%c[81 v11] plan race-condition fix + fiel lock — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v12] restore financ defaults + plan fiel lock — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
