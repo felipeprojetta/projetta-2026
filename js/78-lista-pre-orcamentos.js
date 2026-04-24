@@ -1,11 +1,5 @@
 /**
- * 78-lista-pre-orcamentos.js v3 — REESCRITO DO ZERO
- *
- * Funções:
- *   - abrirModalPreOrcamentos() — modal com lista
- *   - carregarPreOrcamento(id)  — carrega TUDO fiel nos inputs (IDs corretos do 72)
- *   - excluirPreOrcamento(id, btn) — soft delete
- *   - Badge "PRÉ-ORÇAMENTO PRONTO" nos cards do kanban
+ * 78-lista-pre-orcamentos.js v4 — BLINDADO
  */
 (function(){
   'use strict';
@@ -14,10 +8,7 @@
   var KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
 
   function _hdrs(){ return { apikey: KEY, Authorization:'Bearer '+KEY, 'Content-Type':'application/json' }; }
-  function _fmtData(iso){
-    try { var d=new Date(iso); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
-    catch(e){ return iso; }
-  }
+  function _fmtData(iso){ try { var d=new Date(iso); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); } catch(e){ return iso; } }
   function _setVal(id, val){
     if(val === undefined || val === null || val === '') return;
     var el = document.getElementById(id);
@@ -38,7 +29,6 @@
   // ─── MODAL ─────────────────────────────────────────────────────────────
   window.abrirModalPreOrcamentos = async function(){
     var old = document.getElementById('po-modal-bg'); if(old) old.remove();
-
     var bg = document.createElement('div');
     bg.id = 'po-modal-bg';
     bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,20,35,.8);z-index:99990;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;font-family:inherit;backdrop-filter:blur(3px)';
@@ -63,9 +53,7 @@
       var lista = await r.json();
       _renderLista(lista);
     } catch(err){
-      console.error('[po-abrir]', err);
-      document.getElementById('po-modal-body').innerHTML =
-        '<div style="color:#c0392b;padding:20px;background:#fdf0f0;border-radius:8px">❌ Erro: ' + err.message + '</div>';
+      document.getElementById('po-modal-body').innerHTML = '<div style="color:#c0392b;padding:20px;background:#fdf0f0;border-radius:8px">❌ Erro: ' + err.message + '</div>';
     }
   };
 
@@ -74,30 +62,21 @@
     var sub  = document.getElementById('po-modal-sub');
     if(!body || !sub) return;
     sub.textContent = (lista||[]).length + ' pré-orçamento(s) salvo(s)';
-
     if(!Array.isArray(lista) || lista.length === 0){
-      body.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#7a8794">' +
-        '<div style="font-size:48px;margin-bottom:12px">📭</div>' +
-        '<div style="font-size:14px;font-weight:600">Nenhum pré-orçamento salvo ainda</div>' +
-        '<div style="font-size:11px;margin-top:6px">Preencha um orçamento e clique em <b>💾 Salvar Pré-Orçamento</b></div>' +
-      '</div>';
+      body.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#7a8794"><div style="font-size:48px;margin-bottom:12px">📭</div><div style="font-size:14px;font-weight:600">Nenhum pré-orçamento salvo ainda</div><div style="font-size:11px;margin-top:6px">Preencha um orçamento e clique em <b>💾 Salvar Pré-Orçamento</b></div></div>';
       return;
     }
-
-    var html = '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-      '<thead><tr style="background:#f3f1ed;border-bottom:2px solid #d5d2cc">' +
-        '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">Cliente</th>' +
-        '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">AGP / Ref</th>' +
-        '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">Data</th>' +
-        '<th style="padding:10px;text-align:right;font-weight:700;color:#003144">Preço Tabela</th>' +
-        '<th style="padding:10px;text-align:center;font-weight:700;color:#003144">Status</th>' +
-        '<th style="padding:10px;text-align:center;font-weight:700;color:#003144">Ações</th>' +
-      '</tr></thead><tbody>';
-
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f3f1ed;border-bottom:2px solid #d5d2cc">' +
+      '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">Cliente</th>' +
+      '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">AGP / Ref</th>' +
+      '<th style="padding:10px;text-align:left;font-weight:700;color:#003144">Data</th>' +
+      '<th style="padding:10px;text-align:right;font-weight:700;color:#003144">Preço Tabela</th>' +
+      '<th style="padding:10px;text-align:center;font-weight:700;color:#003144">Status</th>' +
+      '<th style="padding:10px;text-align:center;font-weight:700;color:#003144">Ações</th>' +
+    '</tr></thead><tbody>';
     lista.forEach(function(po){
       var dp  = po.dados_projeto || {};
       var res = po.resultado || {};
-      var aprov = po.aprovado;
       var preco = res.preco_tabela || res.preco_tabela_porta || '—';
       html += '<tr style="border-bottom:1px solid #eae7e1">' +
         '<td style="padding:10px;font-weight:600">' + (po.cliente||'—') + '</td>' +
@@ -105,20 +84,18 @@
         '<td style="padding:10px;font-size:11px;color:#5f5e5a">' + _fmtData(po.created_at) + '</td>' +
         '<td style="padding:10px;text-align:right;font-weight:700;color:#003144">' + preco + '</td>' +
         '<td style="padding:10px;text-align:center">' +
-          (aprov ? '<span style="background:#27ae60;color:#fff;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700">✅ APROVADO</span>'
-                 : '<span style="background:#e8f4ea;color:#27ae60;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700">📋 PRÉ-SALVO</span>') +
+          (po.aprovado ? '<span style="background:#27ae60;color:#fff;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700">✅ APROVADO</span>' : '<span style="background:#e8f4ea;color:#27ae60;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700">📋 PRÉ-SALVO</span>') +
         '</td>' +
         '<td style="padding:10px;text-align:center;white-space:nowrap">' +
           '<button onclick="carregarPreOrcamento(\'' + po.id + '\')" style="padding:6px 12px;border-radius:6px;border:none;background:#1a5276;color:#fff;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px">📂 Abrir</button>' +
           '<button onclick="excluirPreOrcamento(\'' + po.id + '\',this)" style="padding:6px 10px;border-radius:6px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;font-size:11px;font-weight:700;cursor:pointer">🗑</button>' +
-        '</td>' +
-      '</tr>';
+        '</td></tr>';
     });
     html += '</tbody></table>';
     body.innerHTML = html;
   }
 
-  // ─── CARREGAR (IDs REAIS do 72-salvar) ─────────────────────────────────
+  // ─── CARREGAR BLINDADO ───────────────────────────────────────────────
   window.carregarPreOrcamento = async function(id){
     try {
       var r = await fetch(SUPA + '/rest/v1/pre_orcamentos?id=eq.' + encodeURIComponent(id), { headers: _hdrs() });
@@ -129,6 +106,40 @@
       var dp = po.dados_projeto      || {};
       var pf = po.params_financeiros || {};
 
+      // ═══════════════════════════════════════════════════════════════════
+      // FASE 1: BLINDAGEM — fechar modais, resetar estado, deligar vínculos
+      // ═══════════════════════════════════════════════════════════════════
+      window._loadingPreOrcamento = true; // flag pra autosave/hidratar ignorarem
+      
+      // Fechar modal CRM se aberto (evita ele puxar itens de outro card)
+      var crmModal = document.getElementById('crm-opp-modal');
+      if(crmModal) crmModal.style.display = 'none';
+      
+      // Fechar modal de pré-orçamentos
+      var poModal = document.getElementById('po-modal-bg');
+      if(poModal) poModal.remove();
+
+      // Reset total pra remover vínculos de OUTRO card que estava aberto
+      window._orcItens      = [];
+      window._mpItens       = [];
+      window._crmItens      = [];
+      window._orcItemAtual  = -1;
+      window._mpEditingIdx  = -1;
+      window._crmOrcCardId  = null;
+      window._crmScope      = null;
+      window._editingCardId = null;
+      try { if(typeof orcItensRender === 'function') orcItensRender(); } catch(e){}
+
+      // Ir pra aba Orçamento
+      try { if(typeof switchTab === 'function') switchTab('orcamento'); } catch(e){}
+
+      // Esperar 200ms pra DOM estabilizar
+      await new Promise(function(res){ setTimeout(res, 200); });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // FASE 2: CARREGAR DADOS
+      // ═══════════════════════════════════════════════════════════════════
+      
       // Cliente
       _setVal('cliente',          dc.nome || po.cliente);
       _setVal('card-cliente',     dc.nome || po.cliente);
@@ -144,7 +155,6 @@
       _setVal('crm-o-estado',     dc.estado);
       _setVal('pais',             dc.pais);
       _setVal('endereco',         dc.endereco);
-
       // Projeto
       _setVal('produto',        dp.produto);
       _setVal('carac-modelo',   dp.modelo);
@@ -165,8 +175,7 @@
       _setVal('responsavel',    dp.responsavel);
       _setVal('wrep',           dp.wrep);
       _setVal('notas',          dp.notas);
-
-      // Parâmetros financeiros
+      // Params financeiros
       _setVal('lucro-alvo', pf.margem);
       _setVal('com-rep',    pf.comissao_rep);
       _setVal('com-rt',     pf.comissao_rt);
@@ -176,41 +185,59 @@
       _setVal('markup-desc',pf.markup);
       _setVal('desconto',   pf.desconto);
 
-      // Itens (alma do pré-orçamento)
-      if(po.itens){
-        window._orcItens = Array.isArray(po.itens) ? po.itens : [];
-      }
+      // ═══════════════════════════════════════════════════════════════════
+      // FASE 3: ITENS (deep clone pra guard restaurar)
+      // ═══════════════════════════════════════════════════════════════════
+      var itensOriginais = JSON.parse(JSON.stringify(po.itens || []));
+      window._orcItens = JSON.parse(JSON.stringify(itensOriginais));
 
-      // Re-vincular card
-      if(po.card_id) window._crmOrcCardId = po.card_id;
+      // Re-render + calcular
+      try { if(typeof orcItensRender === 'function') orcItensRender(); } catch(e){ console.warn('[po] orcItensRender', e); }
+      try { if(typeof calc === 'function') calc(); } catch(e){ console.warn('[po] calc', e); }
 
-      // Re-render e recalcular
-      try { if(typeof orcItensRender === 'function') orcItensRender(); } catch(e){}
-      try { if(typeof _crmItensRender === 'function') _crmItensRender(); } catch(e){}
-      try { if(typeof calc === 'function') calc(); } catch(e){}
-      try { if(typeof switchTab === 'function') switchTab('orcamento'); } catch(e){}
+      // ═══════════════════════════════════════════════════════════════════
+      // FASE 4: GUARD — se algum script sobrescrever _orcItens nos próximos
+      //                 5 segundos, restaura fiel aos dados do pré-orç
+      // ═══════════════════════════════════════════════════════════════════
+      var sigOriginal = JSON.stringify(itensOriginais);
+      var guardCount = 0;
+      var guardInterval = setInterval(function(){
+        guardCount++;
+        var sigAtual = JSON.stringify(window._orcItens || []);
+        if(sigAtual !== sigOriginal){
+          console.warn('[po-guard] _orcItens sobrescrito (tentativa '+guardCount+'), restaurando…');
+          window._orcItens = JSON.parse(JSON.stringify(itensOriginais));
+          try { if(typeof orcItensRender === 'function') orcItensRender(); } catch(e){}
+          try { if(typeof calc === 'function') calc(); } catch(e){}
+        }
+        if(guardCount >= 25){ // 25 * 200ms = 5s
+          clearInterval(guardInterval);
+          window._loadingPreOrcamento = false;
+          // Só NO FINAL vincular o card_id (depois do guard)
+          if(po.card_id) window._crmOrcCardId = po.card_id;
+          // Forçar Resumo da Obra aparecer
+          try {
+            window._osGeradoUmaVez = true;
+            if(typeof _updateResumoObra === 'function') _updateResumoObra();
+            if(typeof calc === 'function') calc();
+          } catch(e){}
+          console.log('[po-guard] encerrado. itens estáveis.');
+        }
+      }, 200);
 
-      // Segunda chamada após 800ms pra DOM propagar
-      setTimeout(function(){
-        try { if(typeof calc === 'function') calc(); } catch(e){}
-        try {
-          window._osGeradoUmaVez = true;
-          if(typeof _updateResumoObra === 'function') _updateResumoObra();
-        } catch(e){}
-      }, 800);
-
-      var bg = document.getElementById('po-modal-bg'); if(bg) bg.remove();
       _toast('✅ <b>Pré-orçamento carregado!</b><br>' +
              '<span style="font-size:11px;font-weight:400">' + (po.cliente||'') + ' · ' + (dp.agp||po.num_referencia||'') +
-             ' · ' + ((po.itens||[]).length) + ' item(ns)</span>',
-             '#27ae60', 5000);
+             ' · ' + itensOriginais.length + ' item(ns)</span>' +
+             '<br><span style="font-size:10px;opacity:.85">🔒 Blindagem de 5s ativa contra sobrescrita</span>',
+             '#27ae60', 6000);
     } catch(err){
       console.error('[po-carregar]', err);
-      alert('❌ Erro ao carregar: ' + err.message);
+      window._loadingPreOrcamento = false;
+      alert('❌ Erro: ' + err.message);
     }
   };
 
-  // ─── EXCLUIR (soft delete) ─────────────────────────────────────────────
+  // ─── EXCLUIR ─────────────────────────────────────────────────────────
   window.excluirPreOrcamento = async function(id, btn){
     if(!confirm('Excluir este pré-orçamento?')) return;
     try {
@@ -227,7 +254,7 @@
     }
   };
 
-  // ─── BADGE NOS CARDS DO KANBAN ─────────────────────────────────────────
+  // ─── BADGES CRM ──────────────────────────────────────────────────────
   var _cardsComPO = null;
   async function _atualizarCache(){
     try {
@@ -235,7 +262,7 @@
       var arr = await r.json();
       _cardsComPO = {};
       (arr||[]).forEach(function(po){ if(po.card_id) _cardsComPO[po.card_id] = 1; });
-    } catch(e){ console.warn('[po-cache]', e); }
+    } catch(e){}
   }
   function _injBadges(){
     if(!_cardsComPO) return;
@@ -255,5 +282,5 @@
   setInterval(_atualizarCache, 30000);
   setInterval(_injBadges, 2000);
 
-  console.log('%c[78 v3] Lista + carregar + excluir + badge','color:#5b2c6f;font-weight:700;background:#f3e8f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[78 v4] BLINDADO contra sobrescrita','color:#5b2c6f;font-weight:700;background:#f3e8f7;padding:3px 8px;border-radius:4px');
 })();
