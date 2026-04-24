@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v9 — barra fixa global (persiste entre abas)
+ * 81-fix-fluxo-nativo.js v10 — fallback plan calc p/ snapshots antigos
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -582,18 +582,21 @@
       try {
         if(window.PLN_RES && window.PLN_RES.placed && window.PLN_RES.placed.length > 0 &&
            typeof plnBuildTabs === 'function' && typeof plnDraw === 'function'){
-          // Rota fiel: usa resultado congelado
+          // Rota fiel: usa resultado congelado (snapshots v8+)
           try { plnBuildTabs(); } catch(e){}
           try { if(typeof _plnRenderColorTabs === 'function') _plnRenderColorTabs(); } catch(e){}
           try { if(typeof _plnRenderCoresPainel === 'function') _plnRenderCoresPainel(); } catch(e){}
           try { plnDraw(window.PLN_CSI || 0); } catch(e){}
-        } else if(typeof planUpd === 'function'){
-          // Fallback: recalcular layout do zero
-          planUpd();
+        } else {
+          // Fallback (v10): snapshots antigos sem PLN_RES — recalcula chamando
+          // _autoSelectAndRun() que é a função real de geração de chapas.
+          // planUpd só atualiza o summary-text, não desenha.
+          try { if(typeof planUpd === 'function') planUpd(); } catch(e){}
+          try { if(typeof _autoSelectAndRun === 'function') _autoSelectAndRun(); } catch(e){}
         }
       } catch(e){ /* silenciar */ }
     };
-    [500, 1200, 2400].forEach(function(ms){ setTimeout(_plnRedraw, ms); });
+    [500, 1400, 2800].forEach(function(ms){ setTimeout(_plnRedraw, ms); });
 
     // 7º — Ativar MODO FIEL + snapshot ref
     window._modoFielAtivo = true;
@@ -626,7 +629,7 @@
                 }
                 // Re-aplicar read-only (se ainda ativo)
                 if(window._modoLeituraAtivo) _setReadOnlyGlobal(true);
-                // Re-desenhar planificador se caiu nessa aba (v8)
+                // Re-desenhar planificador se caiu nessa aba (v10)
                 if(tabName === 'planificador'){
                   try {
                     if(window.PLN_RES && window.PLN_RES.placed && window.PLN_RES.placed.length > 0 &&
@@ -635,8 +638,10 @@
                       try { if(typeof _plnRenderColorTabs === 'function') _plnRenderColorTabs(); } catch(e){}
                       try { if(typeof _plnRenderCoresPainel === 'function') _plnRenderCoresPainel(); } catch(e){}
                       plnDraw(window.PLN_CSI || 0);
-                    } else if(typeof planUpd === 'function'){
-                      planUpd();
+                    } else {
+                      // Snapshot antigo: _autoSelectAndRun() gera o layout
+                      try { if(typeof planUpd === 'function') planUpd(); } catch(e){}
+                      try { if(typeof _autoSelectAndRun === 'function') _autoSelectAndRun(); } catch(e){}
                     }
                   } catch(e){}
                 }
@@ -1105,5 +1110,5 @@
     }
   });
 
-  console.log('%c[81 v9] barra fixa global + persiste entre abas — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v10] fallback plan calc + snapshots antigos — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
