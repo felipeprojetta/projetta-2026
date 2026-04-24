@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v23 — kanban full-width via body.crm-active (fix cards sumindo)
+ * 81-fix-fluxo-nativo.js v24 — sync forcado apos salvar + crmRender
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -320,11 +320,17 @@
       if(!res.ok){ var txt = await res.text(); throw new Error('HTTP '+res.status+': '+txt); }
 
       var acao = existente ? 'atualizado' : 'salvo';
-      // v17/v22: Auto-mover card de s3 (Fazer Orcamento) -> s3b (Orcamento Pronto)
-      // v22: logs explicitos pra debug quando user reporta que card nao moveu
+      // v24: Auto-move + sync forcado APOS salvar pre-orcamento
+      // Garante 3 coisas:
+      //   1. Se stage=s3, move pra s3b (PATCH Supabase)
+      //   2. Sempre sincroniza localStorage <- Supabase (mesmo sem PATCH)
+      //   3. Sempre chama crmRender pra atualizar kanban visual
+      // Assim o kanban do user sempre reflete o estado real do Supabase,
+      // independente de ter havido PATCH nesse salvar ou ja estar movido.
       var _cidAtual = window._crmOrcCardId || window._snapCardId || payload.card_id || null;
       var _movidoStage = false;
-      console.log('[auto-move v22] tentativa', {
+      var _stageFinal = null;
+      console.log('[auto-move v24] tentativa', {
         cardId: _cidAtual,
         fonte: window._crmOrcCardId ? '_crmOrcCardId'
              : window._snapCardId ? '_snapCardId'
@@ -334,17 +340,28 @@
       if(_cidAtual){
         try {
           var _curStage = await _getCardStage(_cidAtual);
-          console.log('[auto-move v22] stage atual do card:', _curStage);
+          console.log('[auto-move v24] stage atual do card no Supabase:', _curStage);
+          _stageFinal = _curStage;
           if(_curStage === 's3'){
+            // Fazer PATCH s3 -> s3b
             var _okMove = await _moverCardStage(_cidAtual, 's3b');
-            console.log('[auto-move v22] resultado PATCH s3->s3b:', _okMove);
-            if(_okMove) _movidoStage = true;
+            console.log('[auto-move v24] PATCH s3->s3b:', _okMove);
+            if(_okMove){
+              _movidoStage = true;
+              _stageFinal = 's3b';
+            }
           } else {
-            console.log('[auto-move v22] NAO move — stage ('+_curStage+') nao eh s3. Provavelmente ja foi aprovado/revisado.');
+            console.log('[auto-move v24] stage ('+_curStage+') ja esta em frente, nao precisa mover — mas vou sincronizar localStorage mesmo assim');
           }
-        } catch(e){ console.warn('[auto-move v22] erro', e); }
+          // v24 FIX CRITICO: sempre sincronizar localStorage com Supabase
+          // (independente de ter PATCH ou nao). Resolve desync cronico.
+          await _syncCardFromCloudParaLocal(_cidAtual);
+          console.log('[auto-move v24] localStorage sincronizado com Supabase (stage='+_stageFinal+')');
+          // Atualizar kanban visual
+          try { if(typeof window.crmRender === 'function') window.crmRender(); } catch(e){}
+        } catch(e){ console.warn('[auto-move v24] erro', e); }
       } else {
-        console.warn('[auto-move v22] NAO move — nenhum cardId encontrado. window._crmOrcCardId/_snapCardId/payload.card_id todos null.');
+        console.warn('[auto-move v24] NAO move — rascunho nao tem card vinculado (abriu direto, sem passar pelo CRM)');
       }
       _toast('💾 <b>Pré-orçamento ' + acao + '!</b><br>' +
              '<span style="font-size:11px;font-weight:400">' + payload.cliente + (payload.agp ? ' · '+payload.agp : '') +
@@ -1637,5 +1654,5 @@
     }
   });
 
-  console.log('%c[81 v23] kanban full-width + fix altura auto — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v24] sync forcado apos salvar + kanban full-width — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
