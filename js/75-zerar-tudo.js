@@ -23,7 +23,10 @@
     /* Campo busca cor: melhor estilo, sem cortar texto */
     '.crm-color-search { padding:6px 10px !important; font-size:12px !important; }',
     '.crm-color-search::placeholder { color:#aaa; font-size:11px; }',
-    '.crm-color-search:focus { background:#fff !important; border-color:#4caf50 !important; }'
+    '.crm-color-search:focus { background:#fff !important; border-color:#4caf50 !important; }',
+    /* Forçar painel "Simulação de Chapas" sempre aberto — Felipe 24/04 */
+    '#plan-auto-info { display:block !important; min-height:80px; }',
+    '#plan-auto-info:empty::before { content:"👇 Preencha os campos acima ou clique em Calcular aproveitamento"; color:#7a8794; font-size:11px; display:block; text-align:center; padding:18px 10px; font-weight:600; }'
   ].join('\n');
   if(document.head) document.head.appendChild(css);
   else setTimeout(function(){ if(document.head) document.head.appendChild(css); }, 500);
@@ -178,10 +181,11 @@
     function dispararCalc(){
       if(timer) clearTimeout(timer);
       timer = setTimeout(function(){
-        if(typeof window.calcularAproveitamento === 'function'){
-          try { window.calcularAproveitamento(); } catch(e){ console.warn('[auto-calc]', e); }
-        } else if(typeof window.calcPlanificador === 'function'){
-          try { window.calcPlanificador(); } catch(e){}
+        // A função real é planRun() (cálculo do planificador)
+        if(typeof window.planRun === 'function'){
+          try { window.planRun(); } catch(e){ console.warn('[auto-calc]', e); }
+        } else if(typeof planRun === 'function'){
+          try { planRun(); } catch(e){ console.warn('[auto-calc]', e); }
         }
       }, 600);
     }
