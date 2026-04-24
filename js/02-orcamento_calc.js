@@ -34,7 +34,7 @@ function calc(){
   if(window._snapshotLock && !currentId && !window._pendingRevision){
     window._snapshotLock=false;
     window._orcLocked=false;
-    try{_setOrcLock(false);}catch(e){}
+    try{(window._orcLocked=false);}catch(e){}
   }
   if(window._snapshotLock) return;
   var W=n('largura')/1000,H=n('altura')/1000,m2=W*H;
