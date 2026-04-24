@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v10 — fallback plan calc p/ snapshots antigos
+ * 81-fix-fluxo-nativo.js v11 — plan race-condition fix
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -578,25 +578,38 @@
     // Redesenho do planificador (v8 — só visual, não mexe em preço do orçamento)
     // Se temos PLN_RES no snapshot, usa direto (desenha sem recalcular layout).
     // Caso contrário, chama planUpd() pra recalcular do zero.
+    // v11: capturar PLN_RES do snapshot numa closure pra resistir a sobrescritas
+    // Debounces do _autoSelectAndRun (disparados por dispatchEvent input nos
+    // _setVal) podem sobrescrever window.PLN_RES antes do último redraw.
+    var _snapPlnRes = snap.globais && snap.globais.PLN_RES ? JSON.parse(JSON.stringify(snap.globais.PLN_RES)) : null;
+    var _snapPlnSd  = snap.globais && snap.globais.PLN_SD  ? JSON.parse(JSON.stringify(snap.globais.PLN_SD))  : null;
+    var _snapPlnCsi = (snap.globais && snap.globais.PLN_CSI !== undefined) ? snap.globais.PLN_CSI : 0;
+    var _snapPlnByColor = snap.globais && snap.globais._PLN_RES_BY_COLOR ? JSON.parse(JSON.stringify(snap.globais._PLN_RES_BY_COLOR)) : null;
+    window._snapFielPlan = { PLN_RES: _snapPlnRes, PLN_SD: _snapPlnSd, PLN_CSI: _snapPlnCsi, _BY_COLOR: _snapPlnByColor };
+
     var _plnRedraw = function(){
       try {
-        if(window.PLN_RES && window.PLN_RES.placed && window.PLN_RES.placed.length > 0 &&
+        if(_snapPlnRes && _snapPlnRes.placed && _snapPlnRes.placed.length > 0 &&
            typeof plnBuildTabs === 'function' && typeof plnDraw === 'function'){
-          // Rota fiel: usa resultado congelado (snapshots v8+)
+          // Rota fiel (v11): forçar PLN_RES do snapshot ANTES de cada render.
+          // Vence debounces que possam ter sobrescrito no meio do caminho.
+          window.PLN_RES = JSON.parse(JSON.stringify(_snapPlnRes));
+          if(_snapPlnSd) window.PLN_SD = JSON.parse(JSON.stringify(_snapPlnSd));
+          window.PLN_CSI = _snapPlnCsi;
+          if(_snapPlnByColor) window._PLN_RES_BY_COLOR = JSON.parse(JSON.stringify(_snapPlnByColor));
           try { plnBuildTabs(); } catch(e){}
           try { if(typeof _plnRenderColorTabs === 'function') _plnRenderColorTabs(); } catch(e){}
           try { if(typeof _plnRenderCoresPainel === 'function') _plnRenderCoresPainel(); } catch(e){}
-          try { plnDraw(window.PLN_CSI || 0); } catch(e){}
+          try { plnDraw(_snapPlnCsi); } catch(e){}
         } else {
-          // Fallback (v10): snapshots antigos sem PLN_RES — recalcula chamando
-          // _autoSelectAndRun() que é a função real de geração de chapas.
-          // planUpd só atualiza o summary-text, não desenha.
+          // Fallback: snapshots antigos sem PLN_RES
           try { if(typeof planUpd === 'function') planUpd(); } catch(e){}
           try { if(typeof _autoSelectAndRun === 'function') _autoSelectAndRun(); } catch(e){}
         }
       } catch(e){ /* silenciar */ }
     };
-    [500, 1400, 2800].forEach(function(ms){ setTimeout(_plnRedraw, ms); });
+    // Delays cobrindo antes/durante/depois do debounce de 800ms
+    [300, 900, 1500, 3000].forEach(function(ms){ setTimeout(_plnRedraw, ms); });
 
     // 7º — Ativar MODO FIEL + snapshot ref
     window._modoFielAtivo = true;
@@ -629,15 +642,22 @@
                 }
                 // Re-aplicar read-only (se ainda ativo)
                 if(window._modoLeituraAtivo) _setReadOnlyGlobal(true);
-                // Re-desenhar planificador se caiu nessa aba (v10)
+                // Re-desenhar planificador se caiu nessa aba (v11)
+                // Usa a ref do snapshot guardada em window._snapFielPlan pra
+                // resistir a sobrescritas de debounce.
                 if(tabName === 'planificador'){
                   try {
-                    if(window.PLN_RES && window.PLN_RES.placed && window.PLN_RES.placed.length > 0 &&
+                    var sfp = window._snapFielPlan;
+                    if(sfp && sfp.PLN_RES && sfp.PLN_RES.placed && sfp.PLN_RES.placed.length > 0 &&
                        typeof plnBuildTabs === 'function' && typeof plnDraw === 'function'){
+                      window.PLN_RES = JSON.parse(JSON.stringify(sfp.PLN_RES));
+                      if(sfp.PLN_SD) window.PLN_SD = JSON.parse(JSON.stringify(sfp.PLN_SD));
+                      window.PLN_CSI = sfp.PLN_CSI || 0;
+                      if(sfp._BY_COLOR) window._PLN_RES_BY_COLOR = JSON.parse(JSON.stringify(sfp._BY_COLOR));
                       plnBuildTabs();
                       try { if(typeof _plnRenderColorTabs === 'function') _plnRenderColorTabs(); } catch(e){}
                       try { if(typeof _plnRenderCoresPainel === 'function') _plnRenderCoresPainel(); } catch(e){}
-                      plnDraw(window.PLN_CSI || 0);
+                      plnDraw(sfp.PLN_CSI || 0);
                     } else {
                       // Snapshot antigo: _autoSelectAndRun() gera o layout
                       try { if(typeof planUpd === 'function') planUpd(); } catch(e){}
@@ -832,6 +852,7 @@
     window._snapshotCarregado = null;
     window._modoFielAtivo = false;
     window._snapshotFielCarregado = null;
+    window._snapFielPlan = null; // v11
     _setReadOnlyGlobal(false);
     _toast('🚪 Revisão encerrada','#7f8c8d', 2500);
   };
@@ -1110,5 +1131,5 @@
     }
   });
 
-  console.log('%c[81 v10] fallback plan calc + snapshots antigos — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v11] plan race-condition fix + fiel lock — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
