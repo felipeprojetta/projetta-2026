@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v12 — restore financ defaults ao sair
+ * 81-fix-fluxo-nativo.js v13 — SAIR também zera tudo
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -892,11 +892,24 @@
     window._snapshotCarregado = null;
     window._modoFielAtivo = false;
     window._snapshotFielCarregado = null;
-    window._snapFielPlan = null; // v11
+    window._snapFielPlan = null;
     _setReadOnlyGlobal(false);
-    // v12: restaurar defaults financeiros da empresa (se capturados)
-    var restored = _restoreFinDefaults();
-    _toast('🚪 Revisão encerrada' + (restored ? '<br><span style="font-size:10px;font-weight:400;opacity:.85">Parâmetros financeiros voltaram ao padrão</span>' : ''),'#7f8c8d', 3000);
+
+    // v13: ao SAIR da revisão, já zera tudo pra iniciar orçamento do zero.
+    // O hook de zerarTudo (instalado abaixo) checa _modoFielAtivo e evita loop
+    // (já está false a essa altura). Suprimimos o confirm do zerarTudo pra ser atômico.
+    if(typeof window.zerarTudo === 'function'){
+      var _origConfirm = window.confirm;
+      window.confirm = function(){ return true; };
+      try { window.zerarTudo(); }
+      catch(e){ console.warn('[fecharSnapshot -> zerarTudo]', e); }
+      window.confirm = _origConfirm;
+    }
+
+    // v12: restaurar defaults financeiros (zerarTudo os protege, então restore roda por cima)
+    _restoreFinDefaults();
+
+    _toast('🚪 <b>Revisão encerrada</b><br><span style="font-size:11px;font-weight:400;opacity:.85">Sistema zerado — pronto pra novo orçamento</span>','#7f8c8d', 3500);
   };
 
   // ═══════════════════════════════════════════════════════════════════
@@ -1173,5 +1186,5 @@
     }
   });
 
-  console.log('%c[81 v12] restore financ defaults + plan fiel lock — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v13] SAIR tb zera + restore financ defaults — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
