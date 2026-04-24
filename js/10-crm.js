@@ -2674,7 +2674,7 @@ window._crmItensRender=function(){
     
     // Actions
     h+='<div class="crm-item-actions">';
-    h+='<button class="dup" onclick="event.stopPropagation();crmItemSaveAndNext(\''+item.id+'\')" style="background:#27ae60;color:#fff;border-color:#27ae60">💾 Salvar Item</button>';
+    /* [REMOVIDO 24/04: botao Salvar Item - autosave agora em 70-autosave-card.js] */
     h+='<button class="dup" onclick="event.stopPropagation();crmItemDuplicate(\''+item.id+'\')">📋 Duplicar</button>';
     h+='<button class="del" onclick="event.stopPropagation();crmItemRemove(\''+item.id+'\')">🗑 Remover</button>';
     h+='</div>';
