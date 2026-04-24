@@ -1,6 +1,6 @@
 /**
- * 81-fix-fluxo-nativo.js v3 — FINAL
- * Definição Felipe 24/04 (11a sessão)
+ * 81-fix-fluxo-nativo.js v7 — readonly + redraw + edit mode
+ * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
  *   pre_orcamentos        — rascunho editável (upsert por chave)
@@ -11,9 +11,20 @@
  *   📋 Pré-Orçamentos Salvos → modal com rascunhos + histórico versões
  *   🏆 Aprovar para Envio    → INSERT em versoes_aprovadas + downloads
  *
- * Ao abrir um pré-orçamento ou versão:
- *   - valores voltam FIÉIS (nenhum recálculo automático)
- *   - botão "🔄 Recalcular com preços atuais" fica visível no topo
+ * Ao abrir um pré-orçamento:
+ *   - TUDO entra em MODO VISUALIZAÇÃO (read-only) — nada pode ser editado
+ *   - Valores voltam FIÉIS (nenhum recálculo automático)
+ *   - Layout das chapas é redesenhado (planUpd) — só visual, não afeta preços
+ *   - Barra no topo com [✏️ Editar] — libera edição
+ *   - Após editar, aparece [🔄 Recalcular] + [💾 Salvar] pra sobrescrever
+ *
+ * Fix v7:
+ *   - Reordenado: paineis_html ANTES de inputs_raw (HTML recria inputs;
+ *     o value precisa ser aplicado DEPOIS do innerHTML substituir a aba)
+ *   - Componentes aparecem fiéis na 1ª abertura (não mais zerados)
+ *   - Desenho das chapas redesenhado ao abrir (planUpd com setTimeout)
+ *   - Modo read-only: disabled em inputs/selects/textareas + overlay clique
+ *   - Função ativarEdicaoSnapshot libera edição e troca botões da barra
  *
  * Downloads (após Aprovar):
  *   - 1 PDF (Proposta) via html2pdf
@@ -423,21 +434,36 @@
     var poModal = document.getElementById('po-modal-bg'); if(poModal) poModal.remove();
     var crmModal = document.getElementById('crm-opp-modal'); if(crmModal) crmModal.style.display='none';
 
+    // Desativar modo fiel anterior (se houver) enquanto restauramos
+    window._modoFielAtivo = false;
+    window._snapshotFielCarregado = null;
+    _setReadOnlyGlobal(false);
+
     // Reset itens
     window._orcItens = [];
     try { if(typeof orcItensRender==='function') orcItensRender(); } catch(e){}
 
     try { if(typeof switchTab==='function') switchTab('orcamento'); } catch(e){}
-    await new Promise(function(r){ setTimeout(r, 200); });
+    await new Promise(function(r){ setTimeout(r, 250); });
 
-    // Cliente
+    // ═══════════════════════════════════════════════════════════════════
+    // ORDEM CORRETA (v7):
+    // 1º  Cliente/Projeto/Params via _setVal (com dispatchEvent pra disparos auxiliares)
+    // 2º  _orcItens e globais
+    // 3º  paineis_html — ISSO RECRIA OS INPUTS DA ABA (innerHTML)
+    // 4º  inputs_raw — ISSO REAPLICA OS VALUES DEPOIS DO innerHTML
+    // 5º  Displays de resultado (spans)
+    // 6º  orcItensRender + planUpd (redesenha layout das chapas)
+    // 7º  Ativar modo fiel + read-only + hook switchTab
+    // ═══════════════════════════════════════════════════════════════════
+
+    // 1º — Cliente
     _setVal('cliente', dc.nome); _setVal('crm-o-cliente', dc.nome);
     _setVal('contato', dc.contato); _setVal('crm-o-contato', dc.contato);
     _setVal('telefone', dc.telefone);
     _setVal('email', dc.email); _setVal('crm-o-email', dc.email);
     _setVal('cep-cliente', dc.cep); _setVal('cep', dc.cep); _setVal('crm-o-cep', dc.cep);
     _setVal('cidade', dc.cidade); _setVal('crm-o-cidade-nac', dc.cidade);
-    // Reexibir cidade/distância no span do CEP
     var cepCidEl = document.getElementById('cep-cidade');
     if(cepCidEl && dc.cidade) cepCidEl.textContent = dc.cidade + (dc.estado ? ' - '+dc.estado : '');
     _setVal('estado', dc.estado); _setVal('crm-o-estado', dc.estado);
@@ -468,10 +494,40 @@
     _setVal('markup-desc', pf.markup);
     _setVal('desconto', pf.desconto);
 
-    // Itens
+    // 2º — Itens + Globais
     window._orcItens = JSON.parse(JSON.stringify(snap.itens || []));
+    if(snap.globais){
+      try {
+        if(snap.globais._calcResult) window._calcResult = JSON.parse(JSON.stringify(snap.globais._calcResult));
+        if(snap.globais._mpItens) window._mpItens = JSON.parse(JSON.stringify(snap.globais._mpItens));
+        if(snap.globais._osGeradoUmaVez !== undefined) window._osGeradoUmaVez = snap.globais._osGeradoUmaVez;
+      } catch(e){ console.warn('[snap globais]', e); }
+    }
 
-    // RESTAURAR inputs_raw — setar TODOS os inputs com IDs capturados
+    // 3º — RESTAURAR innerHTML de ABAS INTEIRAS E PAINÉIS (recria inputs com values antigos do HTML)
+    if(snap.paineis_html){
+      Object.keys(snap.paineis_html).forEach(function(k){
+        if(k.indexOf('__aba__') === 0){
+          var tabId = k.replace('__aba__','');
+          var tab = document.getElementById(tabId);
+          if(tab) tab.innerHTML = snap.paineis_html[k];
+        }
+      });
+      Object.keys(snap.paineis_html).forEach(function(k){
+        if(k.indexOf('__aba__') === 0) return;
+        if(k.indexOf('_style_width_') === 0){
+          var id = k.replace('_style_width_','');
+          var el = document.getElementById(id);
+          if(el) el.style.width = snap.paineis_html[k];
+          return;
+        }
+        var el = document.getElementById(k);
+        if(el) el.innerHTML = snap.paineis_html[k];
+      });
+    }
+
+    // 4º — REAPLICAR inputs_raw DEPOIS do innerHTML (senão os values se perdem)
+    //      Essa é a correção-chave do v7: antes ficava zerado até trocar de aba
     if(snap.inputs_raw){
       Object.keys(snap.inputs_raw).forEach(function(id){
         var el = document.getElementById(id);
@@ -485,70 +541,62 @@
       });
     }
 
-    // RESTAURAR variáveis globais (_calcResult, _mpItens, etc)
-    if(snap.globais){
-      try {
-        if(snap.globais._calcResult) window._calcResult = JSON.parse(JSON.stringify(snap.globais._calcResult));
-        if(snap.globais._mpItens) window._mpItens = JSON.parse(JSON.stringify(snap.globais._mpItens));
-        if(snap.globais._osGeradoUmaVez !== undefined) window._osGeradoUmaVez = snap.globais._osGeradoUmaVez;
-      } catch(e){ console.warn('[snap globais]', e); }
-    }
+    // 5º — Displays de resultado (spans de preço/markup)
+    var setDisplay = function(id, val){ var el = document.getElementById(id); if(el && val) el.textContent = val; };
+    setDisplay('m-custo-porta', res.custo_porta);
+    setDisplay('m-tab-porta',   res.preco_tabela);
+    setDisplay('m-tab',         res.preco_tabela);
+    setDisplay('m-fat-porta',   res.preco_fat);
+    setDisplay('m-fat',         res.preco_fat);
+    setDisplay('m-mkp-porta',   res.markup);
 
-    // Render itens
+    // 6º — Re-render itens + re-desenho do planificador (layout das chapas)
     try { if(typeof orcItensRender==='function') orcItensRender(); } catch(e){}
 
-    // ATIVAR MODO FIEL — marcar globalmente
+    // Redesenho do planificador (só visual — não mexe em preço do orçamento)
+    // Vários delays pra cobrir scripts que rodam depois do innerHTML
+    [400, 900, 1800].forEach(function(ms){
+      setTimeout(function(){
+        try {
+          if(typeof planUpd === 'function') planUpd();
+        } catch(e){ /* silenciar */ }
+      }, ms);
+    });
+
+    // 7º — Ativar MODO FIEL + snapshot ref
     window._modoFielAtivo = true;
     window._snapshotFielCarregado = snap;
 
-    // RESTAURAR innerHTML de ABAS INTEIRAS (chaves __aba__*)
-    if(snap.paineis_html){
-      Object.keys(snap.paineis_html).forEach(function(k){
-        if(k.indexOf('__aba__') === 0){
-          var tabId = k.replace('__aba__','');
-          var tab = document.getElementById(tabId);
-          if(tab) tab.innerHTML = snap.paineis_html[k];
-        }
-      });
-      // E também painéis individuais (em caso de estar fora da aba ou redundância)
-      Object.keys(snap.paineis_html).forEach(function(k){
-        if(k.indexOf('__aba__') === 0) return; // já tratado
-        if(k.indexOf('_style_width_') === 0){
-          var id = k.replace('_style_width_','');
-          var el = document.getElementById(id);
-          if(el) el.style.width = snap.paineis_html[k];
-          return;
-        }
-        var el = document.getElementById(k);
-        if(el) el.innerHTML = snap.paineis_html[k];
-      });
-    }
-
-    // INTERCEPTAR switchTab — sempre que trocar de aba em modo fiel, restaurar HTML da aba
+    // Hook no switchTab (só instala 1x) — restaura HTML ao trocar abas no modo fiel
     if(!window.switchTab._fielHookInstalled){
       var origSwitchTab = window.switchTab;
       window.switchTab = function(tabName){
         var res = origSwitchTab.apply(this, arguments);
         if(window._modoFielAtivo && window._snapshotFielCarregado){
-          var snap = window._snapshotFielCarregado;
+          var s = window._snapshotFielCarregado;
           var tabId = 'tab-' + tabName;
-          var html = snap.paineis_html && snap.paineis_html['__aba__'+tabId];
+          var html = s.paineis_html && s.paineis_html['__aba__'+tabId];
           if(html){
-            // Restaurar várias vezes em intervalos (scripts podem re-renderizar depois)
             [50, 300, 800, 1500].forEach(function(ms){
               setTimeout(function(){
                 if(!window._modoFielAtivo) return;
                 var el = document.getElementById(tabId);
                 if(el) el.innerHTML = html;
-                // Re-restaurar inputs também (innerHTML substituiu os inputs)
-                if(snap.inputs_raw){
-                  Object.keys(snap.inputs_raw).forEach(function(id){
+                // Reaplica inputs_raw (innerHTML resetou)
+                if(s.inputs_raw){
+                  Object.keys(s.inputs_raw).forEach(function(id){
                     var ipt = document.getElementById(id);
                     if(!ipt) return;
-                    var v = snap.inputs_raw[id];
+                    var v = s.inputs_raw[id];
                     if(ipt.type === 'checkbox' || ipt.type === 'radio') ipt.checked = !!v;
                     else if(v !== null && v !== undefined) ipt.value = v;
                   });
+                }
+                // Re-aplicar read-only (se ainda ativo)
+                if(window._modoLeituraAtivo) _setReadOnlyGlobal(true);
+                // Re-desenhar planificador se caiu nessa aba
+                if(tabName === 'planificador'){
+                  try { if(typeof planUpd === 'function') planUpd(); } catch(e){}
                 }
               }, ms);
             });
@@ -559,24 +607,14 @@
       window.switchTab._fielHookInstalled = true;
     }
 
-    // NÃO chamar calc()! Mantém valores FIÉIS do snapshot.
-    // Os displays de resultado são repopulados manualmente:
-    var setDisplay = function(id, val){ var el = document.getElementById(id); if(el && val) el.textContent = val; };
-    setDisplay('m-custo-porta', res.custo_porta);
-    setDisplay('m-tab-porta',   res.preco_tabela);
-    setDisplay('m-tab',         res.preco_tabela);
-    setDisplay('m-fat-porta',   res.preco_fat);
-    setDisplay('m-fat',         res.preco_fat);
-    setDisplay('m-mkp-porta',   res.markup);
-
-    // Vincular card só se for rascunho (não vincular em versão pra autosave não sobrescrever)
+    // Vincular card só se for rascunho
     if(!isVersaoCongelada && snap.card_id){
       window._crmOrcCardId = snap.card_id;
     } else {
       window._crmOrcCardId = null;
     }
 
-    // Flag: orçamento carregado de snapshot
+    // Flag: orçamento carregado
     window._snapshotCarregado = {
       id: snap.id,
       chave: snap.chave,
@@ -584,45 +622,148 @@
       isVersao: isVersaoCongelada
     };
 
-    _toast('✅ <b>' + (isVersaoCongelada ? 'Versão ' + snap.versao + ' carregada (congelada)' : 'Rascunho carregado') + '!</b><br>' +
+    // 8º — ATIVAR MODO LEITURA (read-only) em todos os inputs das abas operacionais
+    //      Usuário precisa clicar "✏️ Editar" pra habilitar edição
+    _setReadOnlyGlobal(true);
+
+    _toast('👁️ <b>' + (isVersaoCongelada ? 'Versão ' + snap.versao + ' carregada (CONGELADA)' : 'Rascunho carregado') + '</b><br>' +
            '<span style="font-size:11px;font-weight:400">' + (snap.cliente||'') + ' · ' + (dp.agp||'') + ' · ' + (snap.itens||[]).length + ' item(ns)</span><br>' +
-           '<span style="font-size:10px;opacity:.85">Valores FIÉIS ao momento do save. Clique 🔄 Recalcular no topo pra usar preços atuais.</span>',
-           isVersaoCongelada ? '#27ae60' : '#1a5276', 6000);
+           '<span style="font-size:10px;opacity:.85">Modo VISUALIZAÇÃO — clique <b>✏️ Editar</b> no topo pra modificar.</span>',
+           isVersaoCongelada ? '#27ae60' : '#1a5276', 7000);
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // 4. 🔄 BARRA DE RECALCULAR — aparece no topo quando snapshot carregado
+  // READ-ONLY GLOBAL — desabilita/habilita todos inputs das abas operacionais
+  // ═══════════════════════════════════════════════════════════════════
+  function _setReadOnlyGlobal(on){
+    window._modoLeituraAtivo = !!on;
+    var TABS = ['tab-orcamento','tab-proposta','tab-planificador','tab-os','tab-os-acess','tab-levantamento-perfis','tab-levantamento-acess'];
+    TABS.forEach(function(tabId){
+      var tab = document.getElementById(tabId);
+      if(!tab) return;
+      if(on){
+        tab.setAttribute('data-readonly-snapshot','1');
+        // inputs, selects, textareas
+        var els = tab.querySelectorAll('input, select, textarea, button');
+        for(var i=0; i<els.length; i++){
+          var el = els[i];
+          // Salvar estado original no primeiro bloqueio
+          if(!el.hasAttribute('data-ro-orig')){
+            el.setAttribute('data-ro-orig', el.disabled ? '1' : '0');
+          }
+          // Botões de navegação/visualização não bloqueia (identifica por classe/id comuns)
+          var keep = (el.className && /\b(ro-keep|btn-nav|tab-btn|accordion|toggle-btn)\b/i.test(el.className))
+                  || (el.id && /^(btn-|nav-|tab-|accordion-)/i.test(el.id));
+          if(keep) continue;
+          el.disabled = true;
+          el.style.cursor = 'not-allowed';
+        }
+      } else {
+        tab.removeAttribute('data-readonly-snapshot');
+        var els2 = tab.querySelectorAll('input, select, textarea, button');
+        for(var j=0; j<els2.length; j++){
+          var el2 = els2[j];
+          var orig = el2.getAttribute('data-ro-orig');
+          if(orig !== null){
+            el2.disabled = (orig === '1');
+            el2.removeAttribute('data-ro-orig');
+          } else {
+            el2.disabled = false;
+          }
+          el2.style.cursor = '';
+        }
+      }
+    });
+    // CSS global de "read-only" (leve tint)
+    var styleId = 'ro-snap-style';
+    var st = document.getElementById(styleId);
+    if(on){
+      if(!st){
+        st = document.createElement('style'); st.id = styleId;
+        st.textContent = '[data-readonly-snapshot="1"] input:disabled,[data-readonly-snapshot="1"] select:disabled,[data-readonly-snapshot="1"] textarea:disabled{background:#f5f2eb !important;color:#5f5e5a !important;opacity:.85}[data-readonly-snapshot="1"] button:disabled{opacity:.5;filter:grayscale(.4)}';
+        document.head.appendChild(st);
+      }
+    } else {
+      if(st) st.remove();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 4. BARRA DE SNAPSHOT — Modo Visualização → Editar → Recalcular/Salvar
   // ═══════════════════════════════════════════════════════════════════
   function _mostrarBarraRecalcular(snap, isVersao){
     var old = document.getElementById('snapshot-bar'); if(old) old.remove();
     var bar = document.createElement('div');
     bar.id = 'snapshot-bar';
-    bar.style.cssText = 'position:sticky;top:0;z-index:100;background:' + (isVersao?'#d5efdc':'#d6e9f2') + ';border-bottom:2px solid ' + (isVersao?'#27ae60':'#1a5276') + ';padding:10px 20px;display:flex;justify-content:space-between;align-items:center;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,.08)';
-    bar.innerHTML =
-      '<div style="font-size:12px;color:#003144">' +
-        (isVersao
-          ? '🏆 <b>Versão ' + snap.versao + ' CONGELADA</b> — ' + (snap.cliente||'') + ' · ' + _fmtData(snap.aprovado_em) + ' · valores imutáveis'
-          : '💾 <b>Rascunho</b> — ' + (snap.cliente||'') + ' · salvo em ' + _fmtData(snap.updated_at)) +
-      '</div>' +
-      '<div style="display:flex;gap:8px">' +
-        '<button onclick="recalcularComPrecosAtuais()" style="padding:6px 14px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔄 Recalcular com preços atuais</button>' +
-        '<button onclick="fecharSnapshot()" style="padding:6px 12px;border-radius:6px;border:1px solid #7a8794;background:#fff;color:#5f5e5a;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✕ Fechar</button>' +
-      '</div>';
-    // Inserir no topo da aba Orçamento
+    bar.dataset.isVersao = isVersao ? '1' : '0';
+    bar.style.cssText = 'position:sticky;top:0;z-index:100;background:' + (isVersao?'#d5efdc':'#d6e9f2') + ';border-bottom:2px solid ' + (isVersao?'#27ae60':'#1a5276') + ';padding:10px 20px;display:flex;justify-content:space-between;align-items:center;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,.08);gap:12px;flex-wrap:wrap';
+    _renderBarraConteudo(bar, snap, isVersao, false /* não em edição */);
     var tabOrc = document.getElementById('tab-orcamento') || document.querySelector('[data-tab="orcamento"]') || document.body;
     tabOrc.insertBefore(bar, tabOrc.firstChild);
   }
 
+  function _renderBarraConteudo(bar, snap, isVersao, emEdicao){
+    var info, botoes;
+    if(emEdicao){
+      info = '✏️ <b>MODO EDIÇÃO</b> — ' + (snap.cliente||'') + ' · ' +
+             (isVersao ? 'Versão ' + snap.versao : 'Rascunho') +
+             '<span style="margin-left:10px;padding:2px 8px;background:#e67e22;color:#fff;border-radius:10px;font-size:10px;font-weight:700">EDITANDO</span>';
+      botoes =
+        '<button onclick="recalcularComPrecosAtuais()" style="padding:7px 14px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔄 Recalcular</button>' +
+        '<button onclick="salvarPreOrcamento()" style="padding:7px 14px;border-radius:6px;border:none;background:#1a5276;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💾 Salvar (sobrescreve)</button>' +
+        '<button onclick="fecharSnapshot()" style="padding:7px 12px;border-radius:6px;border:1px solid #7a8794;background:#fff;color:#5f5e5a;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✕ Fechar</button>';
+    } else {
+      info = '👁️ <b>MODO VISUALIZAÇÃO</b> — ' +
+             (isVersao
+               ? '🏆 Versão ' + snap.versao + ' CONGELADA · ' + (snap.cliente||'') + ' · ' + _fmtData(snap.aprovado_em)
+               : '💾 Rascunho · ' + (snap.cliente||'') + ' · salvo em ' + _fmtData(snap.updated_at));
+      botoes =
+        (isVersao
+          ? '<span style="font-size:10px;color:#196f3d;padding:5px 10px;background:rgba(39,174,96,.15);border-radius:6px">🔒 Imutável — criar nova versão se quiser editar</span>'
+          : '<button onclick="ativarEdicaoSnapshot()" style="padding:7px 14px;border-radius:6px;border:none;background:#e67e22;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ Editar</button>') +
+        '<button onclick="fecharSnapshot()" style="padding:7px 12px;border-radius:6px;border:1px solid #7a8794;background:#fff;color:#5f5e5a;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✕ Fechar</button>';
+    }
+    bar.innerHTML =
+      '<div style="font-size:12px;color:#003144;flex:1;min-width:280px">' + info + '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' + botoes + '</div>';
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ATIVAR EDIÇÃO — libera inputs, troca botões da barra
+  // ═══════════════════════════════════════════════════════════════════
+  window.ativarEdicaoSnapshot = function(){
+    var bar = document.getElementById('snapshot-bar');
+    var snap = window._snapshotFielCarregado;
+    if(!bar || !snap){
+      _toast('⚠ Nenhum snapshot ativo','#c0392b',3000); return;
+    }
+    var isVersao = bar.dataset.isVersao === '1';
+    if(isVersao){
+      _toast('🔒 <b>Versão congelada</b><br><span style="font-size:11px">Versões aprovadas são imutáveis. Pra editar, volte pra Pré-Orçamentos Salvos e abra o rascunho.</span>','#c0392b',6000);
+      return;
+    }
+    if(!confirm('✏️ ATIVAR MODO EDIÇÃO?\n\nVai liberar todos os campos do orçamento.\n\nDepois de editar, clique em 🔄 Recalcular pra atualizar os valores.\nQuando salvar, o rascunho ATUAL será SOBRESCRITO.\n\nProsseguir?')) return;
+    _setReadOnlyGlobal(false);
+    _renderBarraConteudo(bar, snap, isVersao, true /* em edição */);
+    bar.style.background = '#fff3e0';
+    bar.style.borderBottomColor = '#e67e22';
+    _toast('✏️ <b>Modo Edição ativado</b><br><span style="font-size:11px">Edite os campos necessários e clique em 🔄 Recalcular.</span>','#e67e22',5000);
+  };
+
   window.recalcularComPrecosAtuais = function(){
-    if(!confirm('🔄 RECALCULAR?\n\nVai recalcular TUDO usando os preços atuais do cadastro.\nOs valores fiéis ao snapshot serão substituídos.\n\nProsseguir?')) return;
+    if(!confirm('🔄 RECALCULAR?\n\nVai recalcular TUDO usando os dados atualmente preenchidos e preços atuais do cadastro.\n\nProsseguir?')) return;
     try {
-      // Desativar modo fiel primeiro (senão switchTab vai restaurar HTML antigo)
+      // Desativar modo fiel (senão switchTab restaura HTML antigo)
       window._modoFielAtivo = false;
       window._snapshotFielCarregado = null;
-      // Recalcular tudo
+      // Recalcular
       if(typeof window.gerarCustoTotal === 'function') window.gerarCustoTotal();
       else if(typeof window.calc === 'function') window.calc();
-      _toast('🔄 <b>Recalculado!</b><br><span style="font-size:11px;font-weight:400">Valores atualizados com preços atuais</span>', '#e67e22', 4000);
+      // Redesenhar planificador também
+      setTimeout(function(){
+        try { if(typeof planUpd === 'function') planUpd(); } catch(e){}
+      }, 300);
+      _toast('🔄 <b>Recalculado!</b><br><span style="font-size:11px;font-weight:400">Agora clique em 💾 Salvar pra sobrescrever o rascunho.</span>','#e67e22',5500);
     } catch(e){
       _toast('❌ Erro ao recalcular: ' + e.message, '#c0392b', 5000);
     }
@@ -631,10 +772,10 @@
   window.fecharSnapshot = function(){
     var bar = document.getElementById('snapshot-bar'); if(bar) bar.remove();
     window._snapshotCarregado = null;
-    // Desativar modo fiel
     window._modoFielAtivo = false;
     window._snapshotFielCarregado = null;
-    _toast('🚪 Snapshot fechado — modo fiel desativado', '#7f8c8d', 2500);
+    _setReadOnlyGlobal(false);
+    _toast('🚪 Snapshot fechado','#7f8c8d', 2500);
   };
 
   // ═══════════════════════════════════════════════════════════════════
@@ -878,5 +1019,5 @@
     return out;
   }
 
-  console.log('%c[81 v3] pre_orcamentos (upsert) + versoes_aprovadas (imutável) + downloads diretos', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v7] readonly + redraw + edit mode — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
