@@ -1,19 +1,7 @@
 /**
- * ═══════════════════════════════════════════════════════════════════════
- * 71-salvar-item-atual.js — Botão "💾 Salvar Item Atual" grava no banco
- * ─────────────────────────────────────────────────────────────────────
- *
- * Define window.salvarItemAtualComBanco() que:
- *   1) Roda orcItemSalvarAtual() original (atualiza _orcItens em memória)
- *   2) Se tem _crmOrcCardId → PATCH em crm_oportunidades.extras.itens
- *   3) Mostra toast grande colorido:
- *      🟢 VERDE    → salvo no card
- *      🔵 AZUL     → sem card vinculado (abrir via "Fazer Orçamento")
- *      🔴 VERMELHO → erro no PATCH
- *
- * O HTML do botão foi trocado pra chamar esta função diretamente
- * (onclick="salvarItemAtualComBanco()") — sem hooks de timing.
- * ═══════════════════════════════════════════════════════════════════════
+ * 71-salvar-item-atual.js v2 — Botão "💾 Salvar Item Atual" grava no banco
+ * Funções declaradas com "function X(){}" nem sempre ficam em window.X
+ * (depende de modo estrito/contexto). Por isso testamos sem o prefixo window.
  */
 (function(){
   'use strict';
@@ -44,6 +32,31 @@
     return p.join(' · ');
   }
 
+  // Helper: chama a função original com múltiplos fallbacks (window.X ou X direto)
+  function _chamaOriginal(){
+    // 1) window.orcItemSalvarAtual
+    if(typeof window.orcItemSalvarAtual === 'function'){
+      window.orcItemSalvarAtual();
+      return true;
+    }
+    // 2) Variável no escopo global (function orcItemSalvarAtual(){})
+    try {
+      if(typeof orcItemSalvarAtual === 'function'){
+        orcItemSalvarAtual();
+        return true;
+      }
+    } catch(e){ /* ReferenceError */ }
+    // 3) eval como última tentativa
+    try {
+      var fn = (new Function('return typeof orcItemSalvarAtual !== "undefined" ? orcItemSalvarAtual : null'))();
+      if(typeof fn === 'function'){
+        fn();
+        return true;
+      }
+    } catch(e){ /* impossível */ }
+    return false;
+  }
+
   async function _patchItensNoBanco(cardId, itens){
     var h = {
       apikey:         ANON_KEY,
@@ -51,7 +64,6 @@
       'Content-Type': 'application/json'
     };
 
-    // Ler extras atual pra merge (não sobrescrever outras chaves)
     var r1 = await fetch(
       SUPABASE_URL + '/rest/v1/crm_oportunidades?id=eq.' + encodeURIComponent(cardId) + '&select=extras&limit=1',
       { headers: h }
@@ -86,18 +98,15 @@
     return true;
   }
 
-  // Função principal (chamada pelo onclick do botão)
   window.salvarItemAtualComBanco = function(){
-    // 1) Roda a função original (atualiza _orcItens, re-render)
-    if(typeof window.orcItemSalvarAtual === 'function'){
-      try { window.orcItemSalvarAtual(); }
-      catch(e){
-        _toast('⚠ <b>Erro interno</b><br><span style="font-size:11px;font-weight:400">' + (e.message||e) + '</span>', '#c0392b', 5000);
-        console.error('[salvar-item] orcItemSalvarAtual falhou:', e);
-        return;
-      }
-    } else {
-      _toast('⚠ <b>orcItemSalvarAtual não encontrada</b><br><span style="font-size:11px;font-weight:400">Código do Projetta pode não ter carregado</span>', '#c0392b', 5000);
+    // 1) Tenta rodar a função original
+    var ok = _chamaOriginal();
+    if(!ok){
+      _toast(
+        '⚠ <b>orcItemSalvarAtual não carregada</b><br>' +
+        '<span style="font-size:11px;font-weight:400">Recarregue a página (Ctrl+Shift+R)</span>',
+        '#c0392b', 5000
+      );
       return;
     }
 
@@ -106,19 +115,17 @@
     var resumo = _resumo(item);
     var cardId = window._crmOrcCardId;
 
-    // 2) Sem card vinculado → toast azul, não tenta banco
     if(!cardId){
       _toast(
         '📝 <b>Item ' + (idx+1) + ' salvo localmente</b><br>' +
         '<span style="font-size:11px;font-weight:400;opacity:.95">' + resumo + '</span><br>' +
         '<span style="font-size:10px;font-weight:400;opacity:.85;display:block;margin-top:6px">' +
-        '⚠ Sem card vinculado — salve no card abrindo via "Fazer Orçamento" no CRM</span>',
+        '⚠ Sem card vinculado — use "Fazer Orçamento" a partir de um card no CRM</span>',
         '#1a5276', 6000
       );
       return;
     }
 
-    // 3) Tem card → mostra "⏳ salvando" e dispara PATCH
     _toast(
       '⏳ <b>Salvando no card ' + cardId.slice(0,8) + '...</b><br>' +
       '<span style="font-size:11px;font-weight:400;opacity:.95">Item ' + (idx+1) + ': ' + resumo + '</span>',
@@ -134,21 +141,17 @@
           'Card ' + cardId.slice(0,8) + ' · extras.itens atualizado no banco</span>',
           '#27ae60', 5000
         );
-        console.log('%c[salvar-item] ✓ banco atualizado — card ' + cardId,
-                    'color:#27ae60;font-weight:700;background:#e8f8f0;padding:3px 8px;border-radius:4px');
       })
       .catch(function(err){
         _toast(
           '❌ <b>Erro ao salvar no card!</b><br>' +
-          '<span style="font-size:11px;font-weight:400">' + (err.message || err) + '</span><br>' +
-          '<span style="font-size:10px;font-weight:400;opacity:.85;display:block;margin-top:6px">' +
-          'Dados locais preservados.</span>',
+          '<span style="font-size:11px;font-weight:400">' + (err.message || err) + '</span>',
           '#c0392b', 7000
         );
         console.error('[salvar-item] PATCH erro:', err);
       });
   };
 
-  console.log('%c[71-salvar-item-atual] v1.0 pronto — window.salvarItemAtualComBanco()',
+  console.log('%c[71-salvar-item-atual] v2 pronto — window.salvarItemAtualComBanco()',
               'color:#0C447C;font-weight:600;background:#E6F1FB;padding:3px 8px;border-radius:4px');
 })();
