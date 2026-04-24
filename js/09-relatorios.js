@@ -883,7 +883,7 @@ function renderClientesTab(){
       if(_le){
         h+='<button onclick="void 0" title="Memorial" style="background:#e67e22;color:#fff;border-color:#e67e22">📋 Memorial</button>';
         h+='<button onclick="void 0;switchTab(\'orcamento\')" title="Original">📂 Original</button>';
-        h+='<button onclick="void 0+');switchTab(\'orcamento\');setTimeout(novaRevisao,300)" title="Nova revisão">➕ Nova Rev</button>';
+        h+='<button onclick="void 0;switchTab(\'orcamento\');setTimeout(novaRevisao,300)" title="Nova revisão">➕ Nova Rev</button>';
         h+='<button class="del" onclick="event.stopPropagation();if(confirm(\'Excluir orçamento?\'))deleteOrc(\''+_le.id+'\');setTimeout(renderClientesTab,200)" title="Excluir">🗑 Excluir</button>';
       }
       h+='</div>';
@@ -943,8 +943,8 @@ function renderClientesTab(){
       h+='<div class="cli-orc-actions">';
       h+='<button onclick="void 0" title="Ver memorial de cálculo congelado" style="background:#e67e22;color:#fff;border-color:#e67e22">📋 Memorial</button>';
       h+='<button onclick="void 0;switchTab(\'orcamento\')" title="Abrir versão original">📂 Original</button>';
-      if(e.revisions.length>1) h+='<button onclick="void 0+');switchTab(\'orcamento\')" title="Abrir última revisão">📝 Última Rev</button>';
-      h+='<button onclick="void 0+');switchTab(\'orcamento\');setTimeout(novaRevisao,300)" title="Criar nova revisão a partir da última">➕ Nova Rev</button>';
+      if(e.revisions.length>1) h+='<button onclick="void 0;switchTab(\'orcamento\')" title="Abrir última revisão">📝 Última Rev</button>';
+      h+='<button onclick="void 0;switchTab(\'orcamento\');setTimeout(novaRevisao,300)" title="Criar nova revisão a partir da última">➕ Nova Rev</button>';
       h+='<button class="del" onclick="event.stopPropagation();if(confirm(\'Excluir este orçamento e todas as revisões?\'))deleteOrc(\''+e.id+'\');setTimeout(renderClientesTab,200)" title="Excluir">🗑 Excluir</button>';
       h+='</div>';
 
