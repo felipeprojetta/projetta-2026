@@ -4321,6 +4321,14 @@ Equipe Projetta by Weiku</textarea>
 <script src="js/01-shared.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
+     STORE CENTRAL (fonte única de verdade para TODAS as abas)
+     Precisa carregar ANTES de qualquer módulo que manipule
+     _mpItens, _crmItens, etc.
+═══════════════════════════════════════════════════════════ -->
+<script src="js/02-store.js?v=store1"></script>
+<script src="js/03-store-bridge.js?v=store1"></script>
+
+<!-- ═══════════════════════════════════════════════════════
      MODULE 02: ORCAMENTO_CALC
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 3461-3744
