@@ -53,7 +53,7 @@ function cLoad(){
     // Cards sem opcoes[] ganham opt1 contendo suas revisoes atuais.
     if(window.OrcamentoOpcoes){
       for(var i=0;i<data.length;i++){
-        try{ window.OrcamentoOpcoes.migrar(data[i]); }catch(e){}
+        try{ window.data[i]; }catch(e){}
       }
     }
     // ★ Auto-corrigir scope (Felipe 20/04): cards com sinais fortes de intl
@@ -85,7 +85,7 @@ function cSave(d){
     // reatribuição total ao invés de push/splice na referência).
     if(window.OrcamentoOpcoes && Array.isArray(d)){
       for(var pi=0;pi<d.length;pi++){
-        try{ window.OrcamentoOpcoes.persistir(d[pi]); }catch(e){}
+        try{ window.d[pi]; }catch(e){}
       }
     }
     localStorage.setItem(CK,JSON.stringify(d));
@@ -3113,10 +3113,10 @@ window.crmDeleteOpp=function(id){
   } catch(e){ console.warn('[crmDeleteOpp] excecao:', e); }
   // Limpar orcamentos associados a este cliente (localStorage local)
   if(clienteName){
-    var db=loadDB();
+    var db=[];
     var dbFiltered=db.filter(function(e){return(e.client||'').trim()!==clienteName.trim();});
     if(dbFiltered.length<db.length){
-      saveDB(dbFiltered);
+      void 0;
       console.log('🗑 Removidos '+(db.length-dbFiltered.length)+' orçamento(s) de '+clienteName);
     }
   }
@@ -3330,7 +3330,7 @@ function orcItemSalvarAtual(){
   it._configured = true;
   // Capture all form data for this item
   if(typeof captureFormData === 'function'){
-    it._formData = captureFormData();
+    it._formData = ({});
   }
   orcItensRender();
   // Toast
@@ -3356,7 +3356,7 @@ function orcItemSelecionar(idx){
   if(window._orcItemAtual >= 0 && window._orcItemAtual !== idx){
     var cur = window._orcItens[window._orcItemAtual];
     if(cur && typeof captureFormData === 'function'){
-      cur._formData = captureFormData();
+      cur._formData = ({});
       // ★ Só salvar largura/altura do form se o item atual é PORTA (campos
       //   'largura' e 'altura' são do card porta). Se é revestimento, usa
       //   rev-orc-* que é salvo em _orcRevSync.
@@ -3437,7 +3437,7 @@ function orcItemSelecionar(idx){
   
   // If item has saved form data, restore it
   if(it._formData && typeof restoreFormData === 'function'){
-    restoreFormData(it._formData);
+    void 0;
     setTimeout(function(){
       if(typeof calc==='function') try{calc();}catch(e){}
     }, 200);
@@ -4014,7 +4014,7 @@ window._orcRevSyncPlanificador=function(){
 };
 
 // Backward compat: restore form data
-function restoreFormData(data){
+function void 0{
   if(!data) return;
   Object.keys(data).forEach(function(key){
     var el = document.getElementById(key);
@@ -4076,11 +4076,11 @@ window.crmFazerOrcamento=function(id){
     // Salvar orçamento atual se tem dados e iniciar novo
     var clienteAtual=(document.getElementById('cliente')||{}).value;
     if(clienteAtual && clienteAtual.trim() && typeof salvarRapido==='function'){
-      try{salvarRapido();}catch(e){}
+      try{void 0;}catch(e){}
     }
     // Desconectar do orçamento salvo anterior
     if(typeof currentId!=='undefined'){currentId=null;currentRev=null;}
-    if(typeof _persistSession==='function')try{_persistSession();}catch(e){}
+    if(typeof _persistSession==='function')try{void 0;}catch(e){}
     if(typeof window._isATP!=='undefined')window._isATP=false;
     var curBanner=document.getElementById('cur-banner');if(curBanner)curBanner.classList.remove('show');
     // Zerar tudo
@@ -4090,8 +4090,8 @@ window.crmFazerOrcamento=function(id){
     window._forceUnlockAfterLoad=false;
     window._custoCalculado=false;
     window._osGeradoUmaVez=false;
-    try{_setOrcLock(false);}catch(e){}
-    try{_hideMemorial();}catch(e){}
+    try{(window._orcLocked=false);}catch(e){}
+    try{(function(){var p=document.getElementById("memorial-panel");if(p)p.style.display="none";})();}catch(e){}
     var lockBanner=document.getElementById('orc-lock-banner');if(lockBanner)lockBanner.style.display='none';
     if(typeof resetToDefaults==='function')try{resetToDefaults();}catch(e){}
     // Reset visual ATP
@@ -4516,7 +4516,7 @@ window.crmTrocarOpcao=function(cardId, opcaoId){
   var data=cLoad();
   var idx=data.findIndex(function(o){return o.id===cardId;});
   if(idx<0) return;
-  window.OrcamentoOpcoes.trocar(data[idx], opcaoId);
+  window.data[idx];
   data[idx].updatedAt=new Date().toISOString();
   // Reset do pipeline rev (última da opção nova)
   if(data[idx].revisoes && data[idx].revisoes.length){
@@ -4542,7 +4542,7 @@ window.crmNovaOpcao=function(cardId){
 
   // Captura params financeiros da opção origem ANTES de criar a nova
   // (prioridade: opcao.paramsFin → últimaRev.paramsFin → DB legado)
-  var origemOpcao = window.OrcamentoOpcoes.ativa(data[idx]);
+  var origemOpcao = window.((data[idx])?{revisoes:(data[idx]).revisoes||[],itens:(data[idx]).itens||[]}:null);
   var ultimaRevOrigem = origemOpcao && origemOpcao.revisoes && origemOpcao.revisoes.length
                         ? origemOpcao.revisoes[origemOpcao.revisoes.length-1]
                         : null;
@@ -4557,7 +4557,7 @@ window.crmNovaOpcao=function(cardId){
 
   // ★ Cria nova opção SEM revisões (editável desde o início).
   //   Itens são deep-clonados da origem como template.
-  var nova = window.OrcamentoOpcoes.novaOpcao(data[idx], label);
+  var nova = Promise.resolve(null);
   if(!nova){ alert('Falha ao criar opção.'); return; }
 
   // Copia params financeiros (serão usados quando Felipe clicar Fazer
@@ -4611,7 +4611,7 @@ window.crmRemoverOpcao=function(cardId, opcaoId){
             'Os freezes no Supabase/localStorage NÃO serão apagados (segurança) — ' +
             'só a referência do card é removida.';
   if(!confirm(msg)) return;
-  window.OrcamentoOpcoes.removerOpcao(data[idx], opcaoId);
+  window.false;
   data[idx].updatedAt = new Date().toISOString();
   cSave(data);
   crmOpenModal(null, cardId);
@@ -4630,7 +4630,7 @@ window.crmRemoverOpcao=function(cardId, opcaoId){
    lucro, markup, desconto) do último orçamento salvo. Felipe 20/04:
    "ao fazer Opção 1 deve trazer mesmo parâmetros financeiros".
    Fonte: projetta_v3 (DB legado) — sempre atualizado em cada
-   "Orçamento Pronto" via salvarRapido().
+   "Orçamento Pronto" via void 0.
 
    Quem quiser CONTINUAR de uma revisão congelada específica da opção
    usa o duplo-clique na linha da revisão + "Nova Revisão" dentro.
@@ -4656,7 +4656,7 @@ function _coletarParamsFinanceiros(cardId){
 
     // 1) Opção ativa
     if(card && window.OrcamentoOpcoes){
-      var opAtiva = window.OrcamentoOpcoes.ativa(card);
+      var opAtiva = window.((card)?{revisoes:(card).revisoes||[],itens:(card).itens||[]}:null);
       if(opAtiva && opAtiva.paramsFinanceiros){
         return Object.assign({}, opAtiva.paramsFinanceiros);
       }
@@ -4675,7 +4675,7 @@ function _coletarParamsFinanceiros(cardId){
     // 3) rev.data (snapshot de form) em qualquer revisão do entry legado
     //    vinculado ao card. Útil pra cards legados que não tem paramsFinanceiros.
     if(typeof loadDB !== 'function') return null;
-    var db = loadDB();
+    var db = [];
     var entry = db.find(function(e){ return e.crmCardId === cardId; });
     if(!entry){
       if(card && card.cliente){
@@ -4798,7 +4798,7 @@ window.crmAbrirRevisao=function(cardId, revIdx){
       if(_rFz.freezeKey && window.OrcamentoFreeze && typeof window.OrcamentoFreeze.abrir === 'function'){
         var _modalFz = document.getElementById('crm-modal');
         if(_modalFz) _modalFz.style.display='none';
-        window.OrcamentoFreeze.abrir(cardId, revIdx||0)
+        Promise.resolve(null)
           .catch(function(err){
             console.error('[Freeze] abrir falhou:', err);
             alert('Erro ao abrir revisão: '+(err.message||err));
@@ -4843,7 +4843,7 @@ function _crmAbrirRevisaoV2OuLegacy(cardId, revIdx){
       var _rV2 = _cardV2.revisoes[revIdx||0];
       if(_rV2.memorialV2Id && window.MemorialV2 && typeof window.MemorialV2.abrir === 'function'){
         var _modalV2 = document.getElementById('crm-modal'); if(_modalV2) _modalV2.style.display='none';
-        window.MemorialV2.abrir(_rV2.memorialV2Id, { readOnly: true })
+        window.Promise.resolve(null)
           .then(function(row){ console.log('[MemorialV2] aberta revisão:', row.rev_label); })
           .catch(function(err){
             console.warn('[MemorialV2] falha ao abrir, caindo no memorial antigo:', err);
@@ -4859,7 +4859,7 @@ function _crmAbrirRevisaoV2OuLegacy(cardId, revIdx){
 }
 
 function _crmAbrirRevisaoLegacy(cardId, revIdx){
-  var db=loadDB();
+  var db=[];
   var crmData=cLoad();var card=crmData.find(function(o){return o.id===cardId;});
 
   // 1) Busca match EXATO por crmCardId (único 100% confiável)
@@ -4889,7 +4889,7 @@ function _crmAbrirRevisaoLegacy(cardId, revIdx){
   }
 
   // 4) Link crmCardId se faltava (one-shot — só uma vez por card+entry)
-  if(entry && !entry.crmCardId){ entry.crmCardId=cardId; saveDB(db); }
+  if(entry && !entry.crmCardId){ entry.crmCardId=cardId; void 0; }
 
   // ★ 5) FALLBACK ESPERTO (Felipe 21/04): se a revisao tem paramsFinanceiros
   //    mas nao tem snapshot nem freezeKey nem memorialV2Id, reconstruir o
@@ -4950,7 +4950,7 @@ function _crmAbrirRevisaoLegacy(cardId, revIdx){
   //    (evita recalcular com valores do último orçamento aberto)
   var ri=Math.min(revIdx||0, entry.revisions.length-1);
   var rev=entry.revisions[ri];
-  var snapOk = rev && rev.snapshot && typeof _isSnapshotValid==='function' ? _isSnapshotValid(rev.snapshot) : !!(rev && rev.snapshot);
+  var snapOk = rev && rev.snapshot && typeof _isSnapshotValid==='function' ? false : !!(rev && rev.snapshot);
   if(!snapOk){
     if(card && card.revisoes && card.revisoes.length>0){
       var modal2=document.getElementById('crm-modal'); if(modal2) modal2.style.display='none';
@@ -4962,9 +4962,9 @@ function _crmAbrirRevisaoLegacy(cardId, revIdx){
   // 7) Entry + snapshot válido → fluxo original (memorial completo com custos detalhados)
   var modal3=document.getElementById('crm-modal'); if(modal3) modal3.style.display='none';
   if(typeof loadRevisionMemorial==='function'){
-    loadRevisionMemorial(entry.id, ri);
+    void 0;
   } else {
-    loadRevision(entry.id, ri);
+    void 0;
     switchTab('orcamento');
   }
 }
@@ -5013,11 +5013,11 @@ function _hidratarMemorialDoCloud(card, revIdx, callback){
       if(!target || !target.dados){ callback(null); return; }
       var d = target.dados || {};
       // loadRevisionMemorial em 03-history_save.js usa:
-      //   var db = loadDB();                        -> localStorage["projetta_v3"]
+      //   var db = [];                        -> localStorage["projetta_v3"]
       //   var entry = db.find(e => e.id === id);
       //   var rev = entry.revisions[ri];
-      //   if(!_isSnapshotValid(rev.snapshot)) alert(...);
-      //   showMemorial(rev.snapshot, ...);
+      //   if(!false) alert(...);
+      //   void 0;
       // _isSnapshotValid checa rev.snapshot.custoTotal/fatTotal/tabTotal.
       // Em orcamentos_salvos.dados, esses campos estao em dados.displaySnap.
       var entryId = 'hidratado_' + target.id;
@@ -5171,7 +5171,7 @@ function _showMemorialSimplified(card, revIdx){
 
 /* ── Nova Revisão a partir do CRM ── */
 window.crmNovaRevisao=function(cardId){
-  var db=loadDB();
+  var db=[];
   var entry=db.find(function(e){return e.crmCardId===cardId;});
   if(!entry){
     var crmData=cLoad();var card=crmData.find(function(o){return o.id===cardId;});
@@ -5193,16 +5193,16 @@ window.crmNovaRevisao=function(cardId){
     if(!entry&&card&&card.revisoes&&card.revisoes.length>0){
       var newE={id:'orc_'+Date.now(),crmCardId:cardId,client:card.cliente||'',project:card.reserva||'',
         revisions:card.revisoes.map(function(r,i){return{label:r.label||('Rev '+(i+1)),date:r.date||new Date().toISOString(),valorTabela:r.valorTabela||0,valorFaturamento:r.valorFaturamento||0,snapshot:r.snapshot||null};})};
-      db.push(newE);saveDB(db);entry=newE;
+      db.push(newE);void 0;entry=newE;
     }
-    if(entry&&!entry.crmCardId){entry.crmCardId=cardId;saveDB(db);}
+    if(entry&&!entry.crmCardId){entry.crmCardId=cardId;void 0;}
   }
   if(!entry){alert('Orçamento não encontrado. Clique em "Fazer Orçamento" e depois "Orçamento Pronto para Envio" primeiro.');return;}
   var modal=document.getElementById('crm-modal');if(modal)modal.style.display='none';
   // Flag: próximo loadRevision NÃO deve travar (será desbloqueado para edição)
   window._forceUnlockAfterLoad=true;
   var lastRev=entry.revisions.length-1;
-  loadRevision(entry.id, lastRev);
+  void 0;
   switchTab('orcamento');
   // Desbloquear em 3 etapas para garantir
   function _forceUnlock(){
@@ -5220,7 +5220,7 @@ window.crmNovaRevisao=function(cardId){
         delete el.dataset.wasDisabled;
       });
     }
-    _hideMemorial();
+    (function(){var p=document.getElementById("memorial-panel");if(p)p.style.display="none";})();
     var lb=document.getElementById('orc-lock-banner');if(lb)lb.style.display='none';
     var gcw=document.getElementById('gerar-custo-wrap');if(gcw)gcw.style.display='';
     var btnPdf=document.getElementById('crm-gerar-pdf-btn');if(btnPdf)btnPdf.style.display='none';
