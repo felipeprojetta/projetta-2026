@@ -1,5 +1,5 @@
 /**
- * 81-fix-fluxo-nativo.js v26 — multiplas opcoes por cliente (Principal/Preta/Marrom)
+ * 81-fix-fluxo-nativo.js v27 — paineis_html em background pra reabrir versao aprovada completa
  * Definição Felipe 24/04 (12a sessão)
  *
  * Tabelas:
@@ -1306,6 +1306,22 @@
           throw new Error('Insert versão ' + opNome + ': ' + rInsOp.status + ' ' + tOp);
         }
         versoesInseridas.push(payloadOp);
+
+        // v27: PATCH em background adicionando paineis_html (3MB).
+        // Nao bloqueia - se falhar, apenas reabrir tera resumo incompleto (igual v26).
+        // Se funcionar, reabrir mostra memoria 100% igual ao pre-orcamento.
+        (function(vId, vOpcao, vPaineis){
+          if(!vPaineis || Object.keys(vPaineis).length === 0) return;
+          // Gravar via PATCH por ID (so coluna paineis_html) - nao dispara trigger imutavel pq nao muda campos protegidos
+          fetch(SUPA+'/rest/v1/versoes_aprovadas?id=eq.'+encodeURIComponent(vId), {
+            method:'PATCH',
+            headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' }),
+            body: JSON.stringify({ paineis_html: vPaineis })
+          }).then(function(r){
+            if(r.ok){ console.log('[aprov v27] paineis_html gravado pra ' + vOpcao + ' (' + vId + ')'); }
+            else { console.warn('[aprov v27] paineis_html PATCH falhou ' + vOpcao + ': ' + r.status); }
+          }).catch(function(e){ console.warn('[aprov v27] paineis_html erro ' + vOpcao + ':', e && e.message); });
+        })(payloadOp.id, opNome, (op.paineis_html || snap.paineis_html || {}));
       }
 
       // Manter payload principal (opcao aberta) pra compat com resto do codigo
@@ -1774,5 +1790,5 @@
     }
   });
 
-  console.log('%c[81 v26] multiplas opcoes por cliente — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+  console.log('%c[81 v27] paineis_html em background — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
