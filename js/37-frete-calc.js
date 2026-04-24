@@ -48,6 +48,65 @@ function loadConfig(cb){
     .catch(function(e){ console.error('[frete-calc v2] erro load:',e); cb(null); });
 }
 
+// ==================== CAMBIO USD->BRL (media 30 dias via AwesomeAPI) ====================
+async function _fetchCambioMedia30Dias(){
+  var cacheKey = 'cambio_usd_brl_media_v1';
+  var CACHE_MS = 24*3600*1000;
+  try {
+    var c = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+    if(c && c.ts && (Date.now() - c.ts) < CACHE_MS && c.valor){
+      return { valor: c.valor, source: 'cache', n: c.n, ts: c.ts };
+    }
+  } catch(e){}
+  try {
+    var r = await fetch('https://economia.awesomeapi.com.br/json/daily/USD-BRL/30');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var arr = await r.json();
+    if(!Array.isArray(arr) || arr.length === 0) throw new Error('resposta vazia');
+    var vals = arr.map(function(x){ return parseFloat(x.bid); }).filter(function(v){ return !isNaN(v) && v > 0; });
+    if(vals.length === 0) throw new Error('sem valores');
+    var media = vals.reduce(function(a,b){ return a+b; }, 0) / vals.length;
+    localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), valor: media, n: vals.length }));
+    console.log('[cambio] media 30 dias: R$ ' + media.toFixed(4) + ' (' + vals.length + ' dias)');
+    return { valor: media, source: 'api', n: vals.length, ts: Date.now() };
+  } catch(e){
+    console.warn('[cambio] fetch falhou, usando fallback 5.20:', e.message);
+    return { valor: 5.20, source: 'fallback' };
+  }
+}
+
+function _aplicarCambioAuto(){
+  _fetchCambioMedia30Dias().then(function(r){
+    if(!r || !r.valor) return;
+    var inp = document.getElementById('frete-calc-cambio');
+    if(!inp) return;
+    var valorAtual = parseFloat(inp.value) || 0;
+    if(valorAtual === 5.20 || valorAtual === 5 || valorAtual === 0){
+      inp.value = r.valor.toFixed(4);
+      if(typeof recomputeAndRender === 'function'){ try { recomputeAndRender(); } catch(e){} }
+    }
+    var hintId = 'cambio-media-hint';
+    var hint = document.getElementById(hintId);
+    if(!hint){
+      hint = document.createElement('div');
+      hint.id = hintId;
+      hint.style.cssText = 'font-size:11px;color:#666;margin-top:4px;line-height:1.4';
+      if(inp.parentNode) inp.parentNode.appendChild(hint);
+    }
+    var srcStr = r.source === 'api' ? '(AwesomeAPI)' : (r.source === 'cache' ? '(cache 24h)' : '(fallback)');
+    hint.innerHTML = '💵 Media ultimos 30 dias: <b>R$ ' + r.valor.toFixed(4) + '</b> ' + srcStr +
+                     ' &middot; <a href="#" id="cambio-usar-media" style="color:#0C447C;text-decoration:underline">Usar media</a>';
+    var linkUsar = document.getElementById('cambio-usar-media');
+    if(linkUsar){
+      linkUsar.onclick = function(e){
+        e.preventDefault();
+        inp.value = r.valor.toFixed(4);
+        if(typeof recomputeAndRender === 'function'){ try { recomputeAndRender(); } catch(e){} }
+      };
+    }
+  });
+}
+
 function $(id){ return document.getElementById(id); }
 function val(id){ var e=$(id); return e?(e.value||''):''; }
 function numVal(id){ var e=$(id); return e?(parseFloat(e.value)||0):0; }
@@ -518,6 +577,8 @@ window.freteOpenCalc=function(){
     if(cbmAuto > 0) $('frete-calc-cbm').value = cbmAuto.toFixed(3);
     var cambio = numVal('inst-intl-cambio') || 5.20;
     $('frete-calc-cambio').value = cambio;
+    // v28: buscar media 30 dias em background e atualizar campo
+    _aplicarCambioAuto();
     $('frete-calc-dap').value = 0;
     $('frete-calc-oversize').value = 0;
     $('frete-calc-peso').value = '';
