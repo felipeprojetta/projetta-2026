@@ -126,7 +126,7 @@
     body.innerHTML = html;
   }
 
-  // ─── CARREGAR PRÉ-ORÇAMENTO NOS INPUTS ─────────────────────────────
+  // ─── CARREGAR PRÉ-ORÇAMENTO NOS INPUTS (v2 — IDs corretos) ─────────
   window.carregarPreOrcamento = async function(id){
     try {
       var r = await fetch(SUPA_URL + '/rest/v1/pre_orcamentos?id=eq.' + encodeURIComponent(id), {
@@ -136,107 +136,90 @@
       if(!arr || !arr[0]) throw new Error('Pré-orçamento não encontrado');
       var po = arr[0];
 
-      // Setar inputs de cliente
-      var dc = po.dados_cliente || {};
-      _setVal('cli-nome', dc.nome || po.cliente);
-      _setVal('cli-contato', dc.contato);
-      _setVal('cli-email', dc.email);
-      _setVal('cli-cep', dc.cep);
-      _setVal('cli-cidade', dc.cidade);
-      _setVal('cli-estado', dc.estado);
+      var dc = po.dados_cliente      || {};
+      var dp = po.dados_projeto      || {};
+      var pf = po.params_financeiros || {};
 
-      // Setar inputs de projeto
-      var dp = po.dados_projeto || {};
-      _setVal('proj-agp', dp.agp);
-      _setVal('proj-reserva', dp.reserva);
-      _setVal('proj-responsavel', dp.responsavel);
-      _setVal('proj-wrep', dp.wrep);
-      _setVal('proj-origem', dp.origem);
-      _setVal('proj-produto', dp.produto);
-      _setVal('proj-abertura', dp.abertura);
-      _setVal('proj-potencial', dp.potencial);
-      _setVal('proj-prioridade', dp.prioridade);
-      _setVal('proj-notas', dp.notas);
-      _setVal('largura', dp.largura);
-      _setVal('altura', dp.altura);
-      _setVal('folhas-porta', dp.folhas);
-      _setVal('modelo-porta', dp.modelo);
+      // ── CLIENTE ── (IDs que o 72 usa pra salvar)
+      _setVal('cliente',         dc.nome || po.cliente);
+      _setVal('card-cliente',    dc.nome || po.cliente);
+      _setVal('crm-o-cliente',   dc.nome || po.cliente);
+      _setVal('contato',         dc.contato);
+      _setVal('telefone',        dc.telefone);
+      _setVal('email',           dc.email);
+      _setVal('cep',             dc.cep);
+      _setVal('crm-o-cep',       dc.cep);
+      _setVal('cidade',          dc.cidade);
+      _setVal('crm-o-cidade-nac',dc.cidade);
+      _setVal('estado',          dc.estado);
+      _setVal('crm-o-estado',    dc.estado);
+      _setVal('pais',            dc.pais);
+      _setVal('endereco',        dc.endereco);
 
-      // Carregar itens
+      // ── PROJETO ──
+      _setVal('produto',         dp.produto);
+      _setVal('carac-modelo',    dp.modelo);
+      _setVal('modelo',          dp.modelo);
+      _setVal('largura',         dp.largura);
+      _setVal('altura',          dp.altura);
+      _setVal('folhas-porta',    dp.folhas);
+      _setVal('folhas',          dp.folhas);
+      _setVal('abertura',        dp.abertura);
+      _setVal('carac-abertura',  dp.abertura);
+      _setVal('reserva',         dp.reserva);
+      _setVal('numprojeto',      dp.reserva);
+      _setVal('agp',             dp.agp);
+      _setVal('num-agp',         dp.agp);
+      _setVal('origem',          dp.origem);
+      _setVal('prioridade',      dp.prioridade);
+      _setVal('potencial',       dp.potencial);
+      _setVal('responsavel',     dp.responsavel);
+      _setVal('wrep',            dp.wrep);
+      _setVal('notas',           dp.notas);
+
+      // ── PARÂMETROS FINANCEIROS ──
+      _setVal('lucro-alvo',      pf.margem);
+      _setVal('com-rep',         pf.comissao_rep);
+      _setVal('com-rt',           pf.comissao_rt);
+      _setVal('com-gest',        pf.comissao_gest);
+      _setVal('overhead',        pf.overhead);
+      _setVal('impostos',        pf.impostos);
+      _setVal('markup-desc',     pf.markup);
+      _setVal('desconto',        pf.desconto);
+
+      // ── ITENS DO ORÇAMENTO (a "alma" do pré-orç) ──
       if(po.itens){
         window._orcItens = Array.isArray(po.itens) ? po.itens : [];
-        try { if(typeof orcItensRender === 'function') orcItensRender(); } catch(e){}
       }
 
-      // Recalcular
-      try { if(typeof calc === 'function') calc(); } catch(e){}
+      // Vincular o card_id se o pré-orç tiver
+      if(po.card_id) window._crmOrcCardId = po.card_id;
+
+      // ── RE-RENDER E RECALCULAR ──
+      try { if(typeof orcItensRender === 'function') orcItensRender(); } catch(e){ console.warn('[carregar] orcItensRender', e); }
+      try { if(typeof _crmItensRender === 'function') _crmItensRender(); } catch(e){}
+      try { if(typeof calc === 'function') calc(); } catch(e){ console.warn('[carregar] calc', e); }
+      try { if(typeof _updateResumoObra === 'function') _updateResumoObra(); } catch(e){}
       try { if(typeof switchTab === 'function') switchTab('orcamento'); } catch(e){}
+
+      // Segunda chamada de calc() após DOM propagar (alguns listeners dependem disso)
+      setTimeout(function(){
+        try { if(typeof calc === 'function') calc(); } catch(e){}
+        try { if(typeof _updateResumoObra === 'function'){ window._osGeradoUmaVez = true; _updateResumoObra(); } } catch(e){}
+      }, 800);
 
       var bg = document.getElementById('po-modal-bg');
       if(bg) bg.remove();
 
       _toast('✅ <b>Pré-orçamento carregado!</b><br>' +
-             '<span style="font-size:11px;font-weight:400">' + (po.cliente||'') + ' · ' + (dp.agp||po.num_referencia||'') + '</span>',
-             '#27ae60', 4000);
+             '<span style="font-size:11px;font-weight:400">' + (po.cliente||'') + ' · ' + (dp.agp||po.num_referencia||'') + ' · ' +
+             ((po.itens||[]).length) + ' item(ns)</span>',
+             '#27ae60', 5000);
     } catch(err){
       console.error('[carregar-po]', err);
       alert('❌ Erro ao carregar pré-orçamento: ' + err.message);
     }
   };
-
-  // ─── EXCLUIR (soft delete) ─────────────────────────────────────────
-  window.excluirPreOrcamento = async function(id, btn){
-    if(!confirm('Excluir este pré-orçamento?')) return;
-    try {
-      var r = await fetch(SUPA_URL + '/rest/v1/pre_orcamentos?id=eq.' + encodeURIComponent(id), {
-        method: 'PATCH',
-        headers: {
-          'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
-          'Content-Type': 'application/json', 'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({ deleted_at: new Date().toISOString() })
-      });
-      if(!r.ok) throw new Error('HTTP ' + r.status);
-      // Remover linha da lista
-      var tr = btn.closest('tr');
-      if(tr) tr.remove();
-      _toast('🗑️ Pré-orçamento excluído','#e67e22', 2500);
-    } catch(err){
-      alert('❌ Erro ao excluir: ' + err.message);
-    }
-  };
-
-  function _setVal(id, val){
-    if(val === undefined || val === null) return;
-    var el = document.getElementById(id);
-    if(el){ el.value = val; try { el.dispatchEvent(new Event('change',{bubbles:true})); } catch(e){} }
-  }
-
-  function _toast(msg, cor, ms){
-    var t = document.getElementById('po-toast');
-    if(t) t.remove();
-    t = document.createElement('div');
-    t.id = 'po-toast';
-    t.style.cssText =
-      'position:fixed;top:80px;right:20px;background:' + cor + ';color:#fff;' +
-      'padding:14px 22px;border-radius:10px;font-size:13px;font-weight:700;' +
-      'z-index:99999;box-shadow:0 6px 20px rgba(0,0,0,.3);font-family:inherit';
-    t.innerHTML = msg;
-    document.body.appendChild(t);
-    setTimeout(function(){ if(t.parentNode) t.remove(); }, ms || 3000);
-  }
-
-  // ─── BADGE NOS CARDS CRM ───────────────────────────────────────────
-  // Cache dos card_ids com pré-orçamento ativo
-  var _cardsComPO = null;
-
-  async function _atualizarCacheCardsComPO(){
-    try {
-      var r = await fetch(SUPA_URL + '/rest/v1/pre_orcamentos?deleted_at=is.null&select=card_id', {
-        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
-      });
-      var arr = await r.json();
-      _cardsComPO = {};
       (arr||[]).forEach(function(po){ if(po.card_id) _cardsComPO[po.card_id] = 1; });
     } catch(e){ console.warn('[po-badge cache]', e); }
   }
