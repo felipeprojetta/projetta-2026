@@ -1,51 +1,48 @@
 /**
- * 75-zerar-tudo.js v4 — Zerar + CSS fixes + hooks
- *
- * Inclui:
- *   1. window.zerarValores() agressivo (whitelist mínima)
- *   2. CSS injetado:
- *       - esconde seção "Anexos" do modal CRM
- *       - melhora campo "Buscar cor" (sem ícone 🔍 fixo cortando texto)
- *   3. Hook no planificador: quando muda campo, chama calcular aproveitamento auto
+ * 75-zerar-tudo.js v5
+ *   - PROTEGE parâmetros financeiros (overhead, impostos, comissões, markup, desconto)
+ *   - ZERA displays de RESULTADO manualmente (cards com R$ 0) depois do clear
+ *   - Chama calc() pra recalcular com inputs vazios
+ *   - Auto-calc planificador (chama planRun)
+ *   - CSS: plan-auto-info sempre visível + esconde Anexos + melhora busca cor
  */
 (function(){
   'use strict';
 
-  // ─── 1. CSS INJETADO ──────────────────────────────────────────────────
+  // ─── CSS INJETADO ──────────────────────────────────────────────────────
   var css = document.createElement('style');
   css.id = 'projetta-fixes-css';
   css.textContent = [
-    /* Esconder seção Anexos do modal CRM — Felipe 24/04 */
     '#crm-attach-section, #crm-attach-section + * { display:none !important; }',
-    '.crm-section-label { /* manter visível os outros */ }',
-    /* Esconder especificamente o label de Anexos */
     '.crm-section-label[data-felipe-hide-anexos="1"] { display:none !important; }',
-    /* Campo busca cor: melhor estilo, sem cortar texto */
     '.crm-color-search { padding:6px 10px !important; font-size:12px !important; }',
     '.crm-color-search::placeholder { color:#aaa; font-size:11px; }',
     '.crm-color-search:focus { background:#fff !important; border-color:#4caf50 !important; }',
-    /* Forçar painel "Simulação de Chapas" sempre aberto — Felipe 24/04 */
     '#plan-auto-info { display:block !important; min-height:80px; }',
     '#plan-auto-info:empty::before { content:"👇 Preencha os campos acima ou clique em Calcular aproveitamento"; color:#7a8794; font-size:11px; display:block; text-align:center; padding:18px 10px; font-weight:600; }'
   ].join('\n');
   if(document.head) document.head.appendChild(css);
   else setTimeout(function(){ if(document.head) document.head.appendChild(css); }, 500);
 
-  // Observer pra marcar o label "Anexos" e esconder — percorre a cada modal
+  // Esconder label "Anexos" quando aparece
   function _esconderLabelAnexos(){
     var labels = document.querySelectorAll('.crm-section-label');
-    for(var i = 0; i < labels.length; i++){
-      var txt = (labels[i].textContent || '');
-      if(txt.indexOf('Anexos') >= 0){
+    for(var i=0;i<labels.length;i++){
+      if((labels[i].textContent||'').indexOf('Anexos') >= 0){
         labels[i].setAttribute('data-felipe-hide-anexos','1');
       }
     }
   }
   setInterval(_esconderLabelAnexos, 1500);
 
-  // ─── 2. ZERAR AGRESSIVO ───────────────────────────────────────────────
+  // ─── WHITELIST DE PROTEGIDOS ─────────────────────────────────────────
+  // PARÂMETROS FINANCEIROS: NUNCA zerar — são configurações do negócio
   var ID_PROTEGIDOS = {};
-  ['login-user','login-pass','admin-new-user','admin-new-pass',
+  [// Financeiro (CRÍTICO — Felipe 24/04)
+   'overhead','impostos','com-rep','com-rt','com-gest','lucro-alvo','markup-desc','desconto',
+   // Login/Admin
+   'login-user','login-pass','admin-new-user','admin-new-pass',
+   // CRM filtros
    'crm-search','crm-new-orig','crm-new-prod','crm-new-member','crm-new-member-color',
    'crm-f-periodo-de','crm-f-periodo-ate','crm-f-periodo-filter',
    'crm-f-scope-filter','crm-f-data-ref','crm-f-resp-filter',
@@ -76,6 +73,20 @@
    'filtro-logicas-perfis'
   ].forEach(function(id){ ID_PROTEGIDOS[id] = 1; });
 
+  // IDs de DISPLAYS de resultado (pra zerar manualmente)
+  var DISPLAYS_VALOR = [
+    'm-custo-porta','m-custo-porta-m2','m-mkp-porta',
+    'm-tab-porta','m-tab-porta-m2','m-fat-porta','m-fat-porta-m2',
+    'd-custo-fab','d-custo-inst','d-tab-sp','d-fat-sp','d-tab-inst','d-fat-inst',
+    's-cm2','s-tm2','s-fm2','s-tm2p','s-fm2p',
+    'r-total-tabela','r-total-fat','r-custo-fab','r-custo-inst',
+    'r-custo-total','r-markup','r-margem-bruta','r-margem-liquida',
+    'r-custo-m2','r-tab-m2','r-fat-m2',
+    'prop-area-total','prop-total-orc'
+  ];
+  var DISPLAYS_PCT = ['pct-mb-porta','pct-ml-porta'];
+  var BARRAS = ['bar-mb-porta','bar-ml-porta'];
+
   function _toast(msg, cor, ms){
     var t = document.getElementById('zerar-toast');
     if(t) t.remove();
@@ -91,8 +102,9 @@
   }
 
   function zerarTudo(){
-    if(!confirm('⚠ ZERAR TUDO?\n\nTodos os dados do orçamento serão apagados.\nConfigurações, CRM e login NÃO serão afetados.\n\nContinuar?')) return;
+    if(!confirm('⚠ ZERAR ORÇAMENTO?\n\nItens, cliente, dimensões e resultado serão apagados.\nParâmetros financeiros, CRM e login NÃO serão afetados.\n\nContinuar?')) return;
 
+    // 1) Arrays globais
     window._orcItens = [];
     window._mpItens = [];
     window._crmItens = [];
@@ -106,6 +118,7 @@
     try { window.currentId = null; window.currentRev = null; } catch(e){}
     if(document.body) document.body.removeAttribute('data-scope');
 
+    // 2) Zerar inputs/selects/textareas (exceto whitelist)
     var els = document.querySelectorAll('input, select, textarea');
     var count = 0;
     for(var i = 0; i < els.length; i++){
@@ -115,81 +128,77 @@
       if(el.type === 'checkbox' || el.type === 'radio'){
         if(el.checked){ el.checked = false; count++; }
       } else if(el.tagName.toLowerCase() === 'select'){
-        if(el.value !== ''){
-          el.selectedIndex = 0; el.value = ''; count++;
-        }
+        if(el.value !== ''){ el.selectedIndex = 0; el.value = ''; count++; }
       } else {
         if(el.value !== ''){ el.value = ''; count++; }
       }
     }
 
-    ['r-total-tabela','r-total-fat','r-custo-fab','r-custo-inst',
-     'r-tab-porta','r-fat-porta','r-tab-inst','r-fat-inst',
-     'r-custo-total','r-markup','r-margem-bruta','r-margem-liquida',
-     'r-custo-m2','r-tab-m2','r-fat-m2',
-     'm-custo-porta','m-custo-porta-m2','m-markup','m-markup-m2',
-     'm-tabela','m-tabela-m2','m-faturamento','m-faturamento-m2',
-     'prop-area-total','prop-total-orc'
-    ].forEach(function(id){
+    // 3) FORÇAR ZERO nos displays de resultado
+    DISPLAYS_VALOR.forEach(function(id){
       var el = document.getElementById(id);
       if(el) el.textContent = 'R$ 0';
     });
+    DISPLAYS_PCT.forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.textContent = '0%';
+    });
+    BARRAS.forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.style.width = '0%';
+    });
 
+    // 4) Esconder painéis contextuais
     ['memorial-panel','cur-banner','orc-lock-banner','resumo-obra',
      'crm-orc-pronto-btn','crm-atualizar-btn','preorc-badge-area'
     ].forEach(function(id){
       var el = document.getElementById(id);
-      if(el){
-        el.style.display = 'none';
-        el.classList.remove('show','open');
-      }
+      if(el){ el.style.display='none'; el.classList.remove('show','open'); }
     });
 
     var ibar = document.getElementById('orc-itens-bar');
     if(ibar) ibar.classList.remove('show');
 
+    // 5) Re-render e recalcular
     try { if(typeof orcItensRender === 'function') orcItensRender(); } catch(e){}
     try { if(typeof _crmItensRender === 'function') _crmItensRender(); } catch(e){}
-    try { if(typeof _clearResultDisplay === 'function') _clearResultDisplay(); } catch(e){}
+    try { if(typeof calc === 'function') calc(); } catch(e){}
     try { if(typeof switchTab === 'function') switchTab('orcamento'); } catch(e){}
 
     _toast(
-      '✅ <b>Tudo zerado!</b><br>' +
-      '<span style="font-size:11px;font-weight:400">' + count + ' campo(s) limpo(s)</span>',
-      '#27ae60', 3500
+      '✅ <b>Orçamento zerado!</b><br>' +
+      '<span style="font-size:11px;font-weight:400">' + count + ' campo(s) limpo(s) · Parâmetros financeiros preservados</span>',
+      '#27ae60', 4000
     );
-    console.log('%c[zerar v4] ✓ ' + count + ' campos', 'color:#27ae60;font-weight:700');
+    console.log('%c[zerar v5] ✓ ' + count + ' campos + ' + DISPLAYS_VALOR.length + ' displays',
+                'color:#27ae60;font-weight:700');
   }
 
   window.zerarValores = zerarTudo;
   window.zerarTudo    = zerarTudo;
 
-  // ─── 3. HOOK PLANIFICADOR: auto-calcular aproveitamento quando muda campo ─
+  // ─── HOOK PLANIFICADOR: auto-calc ──────────────────────────────────
   function _instalarAutoCalcChapa(){
-    // Ao mudar QUALQUER campo do planificador, dispara recalculo
-    var planificadorIds = [
-      'plan-modelo','plan-folhas','plan-chapa','plan-chapa-larg','plan-chapa-alt',
+    var ids = ['plan-modelo','plan-folhas','plan-chapa','plan-chapa-larg','plan-chapa-alt',
       'plan-acm-cor','plan-acm-qty','plan-alu-cor','plan-alu-qty',
       'plan-layout','plan-refilado','plan-largcava','plan-largfriso',
       'plan-disborcava','plan-disbordafriso','plan-friso-v-qty','plan-friso-h-qty',
       'plan-friso-h-esp','plan-moldura-rev','plan-moldura-tipo','plan-moldura-divisao',
       'plan-moldura-dis1','plan-moldura-dis2','plan-moldura-dis3',
       'plan-moldura-alt-qty','plan-moldura-larg-qty','plan-moldura-blocos',
-      'plan-ripa-qty','plan-ripa-larg','plan-ripa-dist'
-    ];
+      'plan-ripa-qty','plan-ripa-larg','plan-ripa-dist'];
     var timer = null;
     function dispararCalc(){
       if(timer) clearTimeout(timer);
       timer = setTimeout(function(){
-        // A função real é planRun() (cálculo do planificador)
         if(typeof window.planRun === 'function'){
-          try { window.planRun(); } catch(e){ console.warn('[auto-calc]', e); }
+          try { window.planRun(); } catch(e){}
         } else if(typeof planRun === 'function'){
-          try { planRun(); } catch(e){ console.warn('[auto-calc]', e); }
+          try { planRun(); } catch(e){}
         }
       }, 600);
     }
-    planificadorIds.forEach(function(id){
+    ids.forEach(function(id){
       var el = document.getElementById(id);
       if(el && !el._hookedAutoCalc){
         el.addEventListener('change', dispararCalc);
@@ -198,10 +207,9 @@
       }
     });
   }
-  // Instalar hook + re-tentar a cada 2s (pra campos adicionados dinamicamente)
   setTimeout(_instalarAutoCalcChapa, 1000);
   setInterval(_instalarAutoCalcChapa, 2500);
 
-  console.log('%c[75-zerar-tudo v4] CSS + Zerar + Auto-calc planificador ativos',
+  console.log('%c[75 v5] Zerar+Financeiro protegido + Auto-calc + CSS',
               'color:#0C447C;font-weight:700;background:#E6F1FB;padding:3px 8px;border-radius:4px');
 })();
