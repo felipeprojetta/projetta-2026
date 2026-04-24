@@ -739,7 +739,7 @@ function printOSColagem(){
 ═══════════════════════════════════════════════════ */
 function renderClientesTab(){
   var body=$('cli-hist-body');if(!body)return;
-  var db=loadDB();
+  var db=[];
   var crmData=[];try{crmData=JSON.parse(localStorage.getItem('projetta_crm_v1'))||[];}catch(e){}
   var searchEl=$('cli-hist-search');
   var q=searchEl?searchEl.value.toLowerCase().trim():'';
@@ -881,9 +881,9 @@ function renderClientesTab(){
       if(!_le&&card.reserva) _le=grp.entries.find(function(e){return e.project&&e.project===card.reserva;});
       if(!_le&&grp.entries.length===1) _le=grp.entries[0]; // grupo tem 1 só entry
       if(_le){
-        h+='<button onclick="loadRevisionMemorial(\''+_le.id+'\',0)" title="Memorial" style="background:#e67e22;color:#fff;border-color:#e67e22">📋 Memorial</button>';
-        h+='<button onclick="loadRevision(\''+_le.id+'\',0);switchTab(\'orcamento\')" title="Original">📂 Original</button>';
-        h+='<button onclick="loadRevision(\''+_le.id+'\','+(_le.revisions.length-1)+');switchTab(\'orcamento\');setTimeout(novaRevisao,300)" title="Nova revisão">➕ Nova Rev</button>';
+        h+='<button onclick="void 0" title="Memorial" style="background:#e67e22;color:#fff;border-color:#e67e22">📋 Memorial</button>';
+        h+='<button onclick="void 0;switchTab(\'orcamento\')" title="Original">📂 Original</button>';
+        h+='<button onclick="void 0+');switchTab(\'orcamento\');setTimeout(novaRevisao,300)" title="Nova revisão">➕ Nova Rev</button>';
         h+='<button class="del" onclick="event.stopPropagation();if(confirm(\'Excluir orçamento?\'))deleteOrc(\''+_le.id+'\');setTimeout(renderClientesTab,200)" title="Excluir">🗑 Excluir</button>';
       }
       h+='</div>';
@@ -931,7 +931,7 @@ function renderClientesTab(){
         var rvTotal=rv['valor-final']||rv['total-geral']||'';
         var rvLabel=(r.label||'Rev '+ri);
         if(rvTotal) rvLabel+=' — R$ '+(parseFloat(rvTotal)||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
-        h+='<button class="cli-rev-pill '+(ri===0?'orig ':' ')+(isCurrent?'active':'')+'" onclick="loadRevision(\''+e.id+'\','+ri+');switchTab(\'orcamento\')">';
+        h+='<button class="cli-rev-pill '+(ri===0?'orig ':' ')+(isCurrent?'active':'')+'" onclick="void 0;switchTab(\'orcamento\')">';
         h+=rvLabel;
         if(r.savedAt) h+='<span class="rev-date">'+r.savedAt+'</span>';
         h+='</button>';
@@ -941,10 +941,10 @@ function renderClientesTab(){
       h+='</div>'; // cli-orc-info
 
       h+='<div class="cli-orc-actions">';
-      h+='<button onclick="loadRevisionMemorial(\''+e.id+'\',0)" title="Ver memorial de cálculo congelado" style="background:#e67e22;color:#fff;border-color:#e67e22">📋 Memorial</button>';
-      h+='<button onclick="loadRevision(\''+e.id+'\',0);switchTab(\'orcamento\')" title="Abrir versão original">📂 Original</button>';
-      if(e.revisions.length>1) h+='<button onclick="loadRevision(\''+e.id+'\','+(e.revisions.length-1)+');switchTab(\'orcamento\')" title="Abrir última revisão">📝 Última Rev</button>';
-      h+='<button onclick="loadRevision(\''+e.id+'\','+(e.revisions.length-1)+');switchTab(\'orcamento\');setTimeout(novaRevisao,300)" title="Criar nova revisão a partir da última">➕ Nova Rev</button>';
+      h+='<button onclick="void 0" title="Ver memorial de cálculo congelado" style="background:#e67e22;color:#fff;border-color:#e67e22">📋 Memorial</button>';
+      h+='<button onclick="void 0;switchTab(\'orcamento\')" title="Abrir versão original">📂 Original</button>';
+      if(e.revisions.length>1) h+='<button onclick="void 0+');switchTab(\'orcamento\')" title="Abrir última revisão">📝 Última Rev</button>';
+      h+='<button onclick="void 0+');switchTab(\'orcamento\');setTimeout(novaRevisao,300)" title="Criar nova revisão a partir da última">➕ Nova Rev</button>';
       h+='<button class="del" onclick="event.stopPropagation();if(confirm(\'Excluir este orçamento e todas as revisões?\'))deleteOrc(\''+e.id+'\');setTimeout(renderClientesTab,200)" title="Excluir">🗑 Excluir</button>';
       h+='</div>';
 
