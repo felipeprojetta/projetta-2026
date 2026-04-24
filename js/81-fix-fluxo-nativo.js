@@ -129,13 +129,19 @@
         }
         return map;
       })(),
-      // CAPTURA HTML dos painéis renderizados (pra restaurar visual sem recalcular)
+      // CAPTURA HTML COMPLETO DE CADA ABA + painéis importantes
       paineis_html: (function(){
         var h = {};
-        var ids = ['resumo-obra','fab-body','ins-body',
+        // Abas inteiras — ao mudar pra elas, precisa ter HTML fiel
+        var abas = ['tab-orcamento','tab-proposta','tab-planificador','tab-os','tab-os-acess'];
+        abas.forEach(function(id){
+          var el = document.getElementById(id);
+          if(el) h['__aba__'+id] = el.innerHTML;
+        });
+        // Painéis individuais (redundância — muitos estão DENTRO das abas acima, mas ter aqui ajuda)
+        var ids = ['resumo-obra','fab-body','ins-body','plan-auto-info',
                    'fab-acm-resumo','fab-alu-resumo','fab-acm-tbody','fab-alu-tbody',
-                   'acm-list','alu-list','mp-list','plan-auto-info',
-                   'cep-info','atp-endereco',
+                   'acm-list','alu-list','mp-list','cep-info','atp-endereco',
                    'm-custo-porta','m-mkp-porta','m-tab-porta','m-fat-porta','m-tab','m-fat',
                    'd-custo-fab','d-custo-inst','d-tab-sp','d-fat-sp','d-tab-inst','d-fat-inst',
                    's-cm2','s-tm2','s-fm2','s-tm2p','s-fm2p',
@@ -144,7 +150,6 @@
           var el = document.getElementById(id);
           if(el) h[id] = el.innerHTML;
         });
-        // Barras de margem (width)
         ['bar-mb-porta','bar-ml-porta'].forEach(function(id){
           var el = document.getElementById(id);
           if(el) h['_style_width_'+id] = el.style.width;
@@ -492,9 +497,22 @@
     // Render itens
     try { if(typeof orcItensRender==='function') orcItensRender(); } catch(e){}
 
-    // RESTAURAR innerHTML dos painéis (Resumo da Obra, Custo Fab tabelas, resultado)
+    // ATIVAR MODO FIEL — marcar globalmente
+    window._modoFielAtivo = true;
+    window._snapshotFielCarregado = snap;
+
+    // RESTAURAR innerHTML de ABAS INTEIRAS (chaves __aba__*)
     if(snap.paineis_html){
       Object.keys(snap.paineis_html).forEach(function(k){
+        if(k.indexOf('__aba__') === 0){
+          var tabId = k.replace('__aba__','');
+          var tab = document.getElementById(tabId);
+          if(tab) tab.innerHTML = snap.paineis_html[k];
+        }
+      });
+      // E também painéis individuais (em caso de estar fora da aba ou redundância)
+      Object.keys(snap.paineis_html).forEach(function(k){
+        if(k.indexOf('__aba__') === 0) return; // já tratado
         if(k.indexOf('_style_width_') === 0){
           var id = k.replace('_style_width_','');
           var el = document.getElementById(id);
@@ -504,6 +522,41 @@
         var el = document.getElementById(k);
         if(el) el.innerHTML = snap.paineis_html[k];
       });
+    }
+
+    // INTERCEPTAR switchTab — sempre que trocar de aba em modo fiel, restaurar HTML da aba
+    if(!window.switchTab._fielHookInstalled){
+      var origSwitchTab = window.switchTab;
+      window.switchTab = function(tabName){
+        var res = origSwitchTab.apply(this, arguments);
+        if(window._modoFielAtivo && window._snapshotFielCarregado){
+          var snap = window._snapshotFielCarregado;
+          var tabId = 'tab-' + tabName;
+          var html = snap.paineis_html && snap.paineis_html['__aba__'+tabId];
+          if(html){
+            // Restaurar várias vezes em intervalos (scripts podem re-renderizar depois)
+            [50, 300, 800, 1500].forEach(function(ms){
+              setTimeout(function(){
+                if(!window._modoFielAtivo) return;
+                var el = document.getElementById(tabId);
+                if(el) el.innerHTML = html;
+                // Re-restaurar inputs também (innerHTML substituiu os inputs)
+                if(snap.inputs_raw){
+                  Object.keys(snap.inputs_raw).forEach(function(id){
+                    var ipt = document.getElementById(id);
+                    if(!ipt) return;
+                    var v = snap.inputs_raw[id];
+                    if(ipt.type === 'checkbox' || ipt.type === 'radio') ipt.checked = !!v;
+                    else if(v !== null && v !== undefined) ipt.value = v;
+                  });
+                }
+              }, ms);
+            });
+          }
+        }
+        return res;
+      };
+      window.switchTab._fielHookInstalled = true;
     }
 
     // NÃO chamar calc()! Mantém valores FIÉIS do snapshot.
@@ -563,7 +616,12 @@
   window.recalcularComPrecosAtuais = function(){
     if(!confirm('🔄 RECALCULAR?\n\nVai recalcular TUDO usando os preços atuais do cadastro.\nOs valores fiéis ao snapshot serão substituídos.\n\nProsseguir?')) return;
     try {
-      if(typeof window.calc === 'function') window.calc();
+      // Desativar modo fiel primeiro (senão switchTab vai restaurar HTML antigo)
+      window._modoFielAtivo = false;
+      window._snapshotFielCarregado = null;
+      // Recalcular tudo
+      if(typeof window.gerarCustoTotal === 'function') window.gerarCustoTotal();
+      else if(typeof window.calc === 'function') window.calc();
       _toast('🔄 <b>Recalculado!</b><br><span style="font-size:11px;font-weight:400">Valores atualizados com preços atuais</span>', '#e67e22', 4000);
     } catch(e){
       _toast('❌ Erro ao recalcular: ' + e.message, '#c0392b', 5000);
@@ -573,6 +631,10 @@
   window.fecharSnapshot = function(){
     var bar = document.getElementById('snapshot-bar'); if(bar) bar.remove();
     window._snapshotCarregado = null;
+    // Desativar modo fiel
+    window._modoFielAtivo = false;
+    window._snapshotFielCarregado = null;
+    _toast('🚪 Snapshot fechado — modo fiel desativado', '#7f8c8d', 2500);
   };
 
   // ═══════════════════════════════════════════════════════════════════
