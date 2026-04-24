@@ -4014,7 +4014,7 @@ window._orcRevSyncPlanificador=function(){
 };
 
 // Backward compat: restore form data
-function void 0{
+function _restoreFormDataLegacyStub(data){
   if(!data) return;
   Object.keys(data).forEach(function(key){
     var el = document.getElementById(key);
