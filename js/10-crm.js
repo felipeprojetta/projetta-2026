@@ -2488,7 +2488,7 @@ window._crmItensRender=function(){
     h+='<div class="crm-item" id="crm-item-'+item.id+'">';
     h+='<div class="crm-item-hdr" onclick="crmItemToggle(\''+item.id+'\')">';
     h+='<span class="crm-item-icon">'+t.icon+'</span>';
-    h+='<div class="crm-item-info"><div class="crm-item-title">Item '+(idx+1)+': '+t.label+'</div><div class="crm-item-sub">'+sub+'</div></div>';
+    h+='<div class="crm-item-info"><div class="crm-item-title">Item '+(idx+1)+': '+(item.tipo==='porta_pivotante' && item.abertura ? 'Porta de Entrada '+(String(item.abertura).indexOf('DOBRA')>=0?'Dobradiça':'Pivotante') : t.label)+'</div><div class="crm-item-sub">'+sub+'</div></div>';
     h+='<div class="crm-item-badges">';
     if(item.qtd>1) h+='<span class="crm-item-badge qty">×'+item.qtd+'</span>';
     if(item.largura&&item.altura) h+='<span class="crm-item-badge dim">'+item.largura+'×'+item.altura+'</span>';
@@ -3289,7 +3289,7 @@ function orcItensRender(){
     if(it.qtd > 1) h += '<span class="oic-qty">×'+it.qtd+'</span>';
     h += '<div class="oic-num">Item '+(idx+1)+'</div>';
     h += '<div class="oic-icon">'+t.icon+'</div>';
-    h += '<div class="oic-tipo">'+t.label+'</div>';
+    h += '<div class="oic-tipo">'+(it.tipo==='porta_pivotante' && it.abertura ? 'Porta de Entrada '+(String(it.abertura).indexOf('DOBRA')>=0?'Dobradiça':'Pivotante') : t.label)+'</div>';
     if(it.largura && it.altura) h += '<div class="oic-dim">'+it.largura+' × '+it.altura+' mm</div>';
     var details = [];
     if(it.modelo) details.push('Mod '+it.modelo);
