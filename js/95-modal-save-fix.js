@@ -96,7 +96,7 @@
     var titulos = Array.from(document.querySelectorAll('h2,h3,h4,div'));
     var titulo = titulos.find(function(e){
       var t = (e.textContent||'').trim();
-      return /^Editar Oportunidade/.test(t) && e.children.length < 3 && e.offsetParent !== null;
+      return /^(Editar|Nova) Oportunidade/.test(t) && e.children.length < 3 && e.offsetParent !== null;
     });
     if(!titulo) return;
 
