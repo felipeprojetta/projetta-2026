@@ -106,15 +106,21 @@
         // O valor USD geralmente e a ULTIMA td com numero
         // Mas em layouts complexos pode ser outra coluna (ex: prop-items tem qtd, valor unit, total)
         // Vou tentar a ultima td com numero
+        // Multiplicar TODAS as celulas USD desta linha (Unit + Total + ...)
+        // mas somar diff so da ULTIMA pro TOTAL CIF (que e a soma da coluna Total)
+        var diffUltima = 0;
         for(var c = cells.length - 1; c >= 0; c--){
           var cellTxt = (cells[c].textContent || "").trim();
           if(/[\d,.]+/.test(cellTxt) && parseUSDValue(cellTxt) > 0){
             var diff = aplicarMargemNaCelula(cells[c]);
-            if(diff > 0){
-              return { row: row, cellModificada: cells[c], diff: diff };
+            if(diff > 0 && diffUltima === 0){
+              // Primeira celula com valor (de tras pra frente) e o "Total"
+              diffUltima = diff;
             }
-            break;
           }
+        }
+        if(diffUltima > 0){
+          return { row: row, diff: diffUltima };
         }
       }
     }
