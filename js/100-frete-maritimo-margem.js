@@ -1,45 +1,48 @@
 /* ============================================================================
- * js/100-frete-maritimo-margem.js  —  Modulo NOVO (26-abr-2026)
+ * js/100-frete-maritimo-margem.js  —  Modulo NOVO (26-abr-2026, v3)
  *
  * Autorizado por Felipe Xavier de Lima.
- * Pedido: "sempre no frete maritimo calcule uma margem de seguranca de 20%"
- * Modo escolhido: OPCAO B — margem transparente (linha separada na proposta).
+ * Pedido original: "sempre no frete maritimo calcule uma margem de seguranca de 20%"
+ * CORRECAO Felipe: "NAO E PARA APARECER PARA CLIENTE ESSA MARGEM ISSO E UMA
+ *                  MARGEM INTERNA"
+ *
+ * v3: margem INVISIVEL ao cliente. Multiplica o valor do frete maritimo por
+ *     1.20 IN-PLACE (na propria celula), sem adicionar linha separada. O
+ *     cliente ve apenas o valor final ja com 20% somado. O Felipe digita
+ *     o custo real (ex: USD 3500) no card CRM, mas a proposta mostra USD 4200.
+ *
+ *  ANTES (na proposta):
+ *    Ocean freight (Santos -> destination port)         USD 3,500.00
+ *    TOTAL CIF                                          USD 9,540.00
+ *
+ *  DEPOIS (na proposta — cliente NAO sabe que tem 20% embutido):
+ *    Ocean freight (Santos -> destination port)         USD 4,200.00
+ *    TOTAL CIF                                          USD 10,240.00
+ *
+ * Cobertura ampla — patcha qualquer um destes locais:
+ *  - #prop-fob-cif-block (bloco SHIPPING COSTS BREAKDOWN)
+ *  - #prop-items-tbody (tabela principal: linha com "Sea Freight" / "Ocean freight")
+ *  - Linhas TR de qualquer outro container que contenham frete maritimo
  *
  * Conforme regras de blindagem:
  *  - NAO modifica js/12-proposta.js (BLINDADO)
- *  - NAO modifica js/10-crm.js / crmCifRecalc (BLINDADO)
+ *  - NAO modifica js/10-crm.js (BLINDADO)
  *  - NAO modifica js/37-frete-calc.js (BLINDADO)
- *  - Atua apenas no DOM via MutationObserver no #prop-fob-cif-block
- *
- * COMPORTAMENTO:
- *  Quando a proposta internacional (CIF) gera o bloco "SHIPPING COSTS BREAKDOWN":
- *
- *  ANTES:
- *    Ocean freight (Santos -> destination port)         USD 3,500.00
- *    TOTAL CIF                                          USD ...
- *
- *  DEPOIS (Opcao B):
- *    Ocean freight (Santos -> destination port)         USD 3,500.00
- *    Safety margin (20%)                                USD   700.00
- *    TOTAL CIF                                          USD ... (+700)
- *
- * Funciona em PT (Frete maritimo / Margem de seguranca) e EN.
- * Modal CRM e pipeline ficam INTOCADOS — a margem aparece SO na proposta
- * (que e o documento que vai pro cliente). O 20% extra cobrado eh o buffer real
- * pro Felipe contra variacoes cambiais, atrasos, e custos imprevistos.
+ *  - Atua apenas no DOM via MutationObserver / polling
  * ========================================================================== */
 (function(){
   "use strict";
   if(window.__projetta100FreteMargemApplied) return;
   window.__projetta100FreteMargemApplied = true;
-  console.log("[100-frete-margem] iniciando");
+  console.log("[100-frete-margem] iniciando v3 (invisivel)");
 
-  var MARGIN_RATE = 0.20;  // 20% margem de seguranca
-  var FLAG_ATTR = "data-projetta100MarginApplied";
+  var MARGIN_RATE = 0.20;  // 20% margem de seguranca interna
+  var FLAG_ATTR = "data-projetta100MarginV3";
+  var ROW_FLAG_ATTR = "data-projetta100RowMarginV3";
 
-  // Regex pra detectar linha do frete maritimo (em PT e EN)
-  var FREIGHT_LABEL_REGEX = new RegExp("(Ocean\\s+freight|Frete\\s+mar[ií]timo)", "i");
-  var TOTAL_LABEL_REGEX = new RegExp("(TOTAL)\\s+(CIF|FOB|EXW)", "i");
+  // Regex pra detectar linha do frete maritimo (em PT/EN, varias variacoes)
+  var FREIGHT_LABEL_REGEX = new RegExp("(Ocean\\s+freight|Sea\\s+Freight|Frete\\s+mar[ií]timo|Frete\\s+maritimo)", "i");
+  var TOTAL_LABEL_REGEX = new RegExp("(TOTAL)\\s+(CIF|FOB|EXW|GERAL)", "i");
 
   function fmtUSD(v){
     return "USD " + Number(v).toLocaleString("en-US", {
@@ -50,138 +53,165 @@
 
   function parseUSDValue(text){
     if(!text) return 0;
-    // Tirar tudo exceto digitos, virgula, ponto
     var clean = String(text).replace(/[^\d,.]/g, "");
     if(!clean) return 0;
-    // Detectar formato: se tem virgula como separador decimal (PT-BR), trocar
-    // Padrao: "3,500.00" (en) ou "3.500,00" (pt) ou "3500" (sem)
     var lastComma = clean.lastIndexOf(",");
     var lastDot = clean.lastIndexOf(".");
     if(lastComma > lastDot){
-      // Formato PT: 3.500,00 -> 3500.00
       clean = clean.replace(/\./g, "").replace(",", ".");
     } else {
-      // Formato EN: 3,500.00 -> 3500.00
       clean = clean.replace(/,/g, "");
     }
     var n = parseFloat(clean);
     return isNaN(n) ? 0 : n;
   }
 
-  function patchProposta(){
-    var block = document.getElementById("prop-fob-cif-block");
-    if(!block) return;
-    if(block.getAttribute(FLAG_ATTR) === "1") return;  // ja aplicado
+  // Substitui o numero USD em uma string preservando prefixos/sufixos
+  // Ex: "USD 3,500.00" + 4200 -> "USD 4,200.00"
+  function substituirValor(textoOriginal, novoValor){
+    var fmt = Number(novoValor).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    // Se tinha USD, manter "USD X". Senao, so o numero.
+    if(/USD/i.test(textoOriginal)) return "USD " + fmt;
+    if(/US\$/i.test(textoOriginal)) return "US$ " + fmt;
+    return fmt;
+  }
 
-    var rows = block.querySelectorAll("tr");
-    if(!rows || rows.length === 0) return;
+  // Multiplica o valor numerico de uma celula por (1 + MARGIN_RATE), retornando a diff
+  function aplicarMargemNaCelula(cell){
+    if(!cell || cell.getAttribute(ROW_FLAG_ATTR) === "1") return 0;
+    var txt = cell.textContent || "";
+    var valor = parseUSDValue(txt);
+    if(valor <= 0) return 0;
+    var novoValor = valor * (1 + MARGIN_RATE);
+    var diff = novoValor - valor;
+    cell.textContent = substituirValor(txt, novoValor);
+    cell.setAttribute(ROW_FLAG_ATTR, "1");
+    return diff;
+  }
 
-    // Achar linha do frete maritimo
-    var freightRow = null;
-    var freightUSD = 0;
-    var isEn = true;
+  // Procura tr/celula contendo o label do frete maritimo dentro de um container
+  // Retorna { freightCell, freightDiff } ou null
+  function patchFreightRow(container){
+    if(!container) return null;
+    var rows = container.querySelectorAll("tr");
     for(var i = 0; i < rows.length; i++){
-      var t = rows[i].textContent || "";
-      if(FREIGHT_LABEL_REGEX.test(t)){
-        freightRow = rows[i];
-        isEn = /Ocean\s+freight/i.test(t);
-        // Extrair USD do ultimo TD
-        var cells = rows[i].querySelectorAll("td");
-        if(cells.length >= 2){
-          var lastCellText = (cells[cells.length - 1].textContent || "").trim();
-          freightUSD = parseUSDValue(lastCellText);
-        }
-        break;
-      }
-    }
-
-    if(!freightRow || freightUSD <= 0) return;
-
-    var marginUSD = freightUSD * MARGIN_RATE;
-    var labelMargin = isEn
-      ? "Safety margin (20%)"
-      : "Margem de seguran\u00e7a (20%)";
-
-    // Construir nova linha clonando o estilo da freightRow
-    var newRow = freightRow.cloneNode(true);
-    var newCells = newRow.querySelectorAll("td");
-    if(newCells.length >= 2){
-      // Primeira celula: label
-      newCells[0].textContent = labelMargin;
-      // Estilizar como secundario (italico + cor mais clara)
-      newCells[0].style.fontStyle = "italic";
-      newCells[0].style.color = "#666";
-      // Limpar celulas intermediarias se houver
-      for(var j = 1; j < newCells.length - 1; j++){
-        newCells[j].textContent = "";
-      }
-      // Ultima celula: valor USD
-      var lastNewCell = newCells[newCells.length - 1];
-      lastNewCell.textContent = fmtUSD(marginUSD);
-      lastNewCell.style.fontStyle = "italic";
-      lastNewCell.style.color = "#666";
-    }
-
-    // Inserir nova linha apos freightRow
-    if(freightRow.parentNode){
-      freightRow.parentNode.insertBefore(newRow, freightRow.nextSibling);
-    }
-
-    // Atualizar TOTAL CIF/FOB — somar a margem no total existente
-    for(var k = 0; k < rows.length; k++){
-      var tt = rows[k].textContent || "";
-      if(TOTAL_LABEL_REGEX.test(tt)){
-        var totalCells = rows[k].querySelectorAll("td");
-        if(totalCells.length > 0){
-          var totalCell = totalCells[totalCells.length - 1];
-          var oldTotal = parseUSDValue(totalCell.textContent || "");
-          if(oldTotal > 0){
-            var newTotal = oldTotal + marginUSD;
-            totalCell.textContent = fmtUSD(newTotal);
+      var row = rows[i];
+      var t = row.textContent || "";
+      if(FREIGHT_LABEL_REGEX.test(t) && !TOTAL_LABEL_REGEX.test(t)){
+        var cells = row.querySelectorAll("td");
+        if(cells.length === 0) continue;
+        // O valor USD geralmente e a ULTIMA td com numero
+        // Mas em layouts complexos pode ser outra coluna (ex: prop-items tem qtd, valor unit, total)
+        // Vou tentar a ultima td com numero
+        for(var c = cells.length - 1; c >= 0; c--){
+          var cellTxt = (cells[c].textContent || "").trim();
+          if(/[\d,.]+/.test(cellTxt) && parseUSDValue(cellTxt) > 0){
+            var diff = aplicarMargemNaCelula(cells[c]);
+            if(diff > 0){
+              return { row: row, cellModificada: cells[c], diff: diff };
+            }
+            break;
           }
         }
-        break;
       }
     }
+    return null;
+  }
 
-    block.setAttribute(FLAG_ATTR, "1");
-    console.log("[100-frete-margem] margem 20% aplicada: +USD " + marginUSD.toFixed(2));
+  // Atualiza o TOTAL CIF/FOB/GERAL somando a diff
+  function atualizarTotal(container, diff){
+    if(!container || diff <= 0) return false;
+    var rows = container.querySelectorAll("tr");
+    for(var i = 0; i < rows.length; i++){
+      var t = rows[i].textContent || "";
+      if(TOTAL_LABEL_REGEX.test(t)){
+        var cells = rows[i].querySelectorAll("td");
+        if(cells.length === 0) continue;
+        for(var c = cells.length - 1; c >= 0; c--){
+          var cellTxt = (cells[c].textContent || "").trim();
+          var v = parseUSDValue(cellTxt);
+          if(v > 0){
+            cells[c].textContent = substituirValor(cellTxt, v + diff);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  function patchContainer(container){
+    if(!container) return;
+    if(container.getAttribute(FLAG_ATTR) === "1") return;
+
+    var resultado = patchFreightRow(container);
+    if(!resultado) return;
+
+    // Atualizar TOTAL no mesmo container (se existir)
+    atualizarTotal(container, resultado.diff);
+
+    container.setAttribute(FLAG_ATTR, "1");
+    console.log("[100-frete-margem] margem 20% INVISIVEL aplicada: +USD " + resultado.diff.toFixed(2));
   }
 
   function tick(){
-    try { patchProposta(); } catch(e){ console.warn("[100-frete-margem] erro:", e); }
+    try {
+      // 1. Patch no bloco SHIPPING COSTS BREAKDOWN
+      var block = document.getElementById("prop-fob-cif-block");
+      if(block) patchContainer(block);
+
+      // 2. Patch na tabela principal de items da proposta
+      var tbody = document.getElementById("prop-items-tbody");
+      if(tbody){
+        // tbody nao e o container completo (precisa do <table> que tem o TOTAL fora do tbody)
+        var table = tbody.closest("table") || tbody.parentElement;
+        if(table) patchContainer(table);
+      }
+
+      // 3. Patch generico — procura por containers com frete maritimo nao patcheados
+      var containers = document.querySelectorAll("table, [id*=\"prop\"]");
+      for(var i = 0; i < containers.length; i++){
+        var c = containers[i];
+        if(c.getAttribute(FLAG_ATTR) === "1") continue;
+        var txt = c.textContent || "";
+        if(FREIGHT_LABEL_REGEX.test(txt) && txt.length < 8000){
+          patchContainer(c);
+        }
+      }
+    } catch(e){
+      console.warn("[100-frete-margem] erro:", e);
+    }
   }
 
-  // Polling 800ms — aplica quando proposta intl renderiza
   setInterval(tick, 800);
   setTimeout(tick, 200);
   setTimeout(tick, 1500);
 
-  // MutationObserver: quando #prop-fob-cif-block muda, RESETAR flag e re-aplicar
-  // (porque as funcoes da proposta sobrescrevem todo o innerHTML)
+  // MutationObserver: quando containers mudam, RESETAR flag e re-aplicar
   if(typeof MutationObserver !== "undefined"){
     var mo = new MutationObserver(function(muts){
+      var precisaTick = false;
       for(var i = 0; i < muts.length; i++){
         var t = muts[i].target;
-        if(t && t.id === "prop-fob-cif-block"){
-          // Detectar se foi um RE-render (mais TR foram criadas) — resetar flag
-          var hasFreshContent = false;
-          if(muts[i].addedNodes){
-            for(var n = 0; n < muts[i].addedNodes.length; n++){
-              var an = muts[i].addedNodes[n];
-              if(an.nodeType === 1){ hasFreshContent = true; break; }
-            }
+        if(!t || !t.id) continue;
+        if(/prop-fob-cif-block|prop-items|proposta-pg/.test(t.id || "")){
+          // Reset flag pra forcar re-patch
+          t.removeAttribute(FLAG_ATTR);
+          // Tambem resetar nas celulas filhas
+          var celulasMarcadas = t.querySelectorAll("[" + ROW_FLAG_ATTR + "]");
+          for(var k = 0; k < celulasMarcadas.length; k++){
+            celulasMarcadas[k].removeAttribute(ROW_FLAG_ATTR);
           }
-          if(hasFreshContent){
-            t.removeAttribute(FLAG_ATTR);
-            setTimeout(tick, 60);
-          }
-          return;
+          precisaTick = true;
         }
       }
+      if(precisaTick) setTimeout(tick, 60);
     });
     mo.observe(document.body, { childList: true, subtree: true });
   }
 
-  console.log("[100-frete-margem] instalado");
+  console.log("[100-frete-margem] v3 instalado");
 })();
