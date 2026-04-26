@@ -161,6 +161,26 @@
         '<div style="display:flex;justify-content:space-between;gap:6px;border-top:1px solid #ddd;margin-top:4px;padding-top:4px;font-weight:700;color:#1565c0"><span>TOTAL:</span><span>' + fmtBRL(calc.total.brl) + ' · ' + fmtUSD(calc.total.usd) + '</span></div>' +
       '</div>';
 
+    // ESCONDER linhas antigas com "Porta:" ou "TOTAL:" FORA do footer
+    // (preserva so o detalhe novo)
+    var todos = cardEl.querySelectorAll("div, span");
+    for(var k = 0; k < todos.length; k++){
+      var el = todos[k];
+      if(el === footer || footer.contains(el)) continue;
+      if(el.children.length > 5) continue;
+      var t2 = (el.textContent || "").trim();
+      if(t2.length === 0 || t2.length > 200) continue;
+      // Esconder se tem Porta: ou TOTAL: e nao tem Crate/Land/Sea
+      var temPortaOuTotal = /^(Porta\s*:|TOTAL\s*:|Caixa\s*\+\s*Fretes)/i.test(t2) || /^Porta:|^TOTAL:|^R\$\s*[\d.,]+\s*US\$\s*[\d,]+$|^US\$\s*[\d,]+$/i.test(t2);
+      var temDetalheNovo = /Crate|Land\s*Freight|Sea\s*Freight|🚪|📦|🚚|🚢/i.test(t2);
+      if(temPortaOuTotal && !temDetalheNovo){
+        // Verificar se eh um row "label: valor" simples
+        // Esconder visualmente (display: none)
+        el.style.display = "none";
+        el.setAttribute("data-projetta104Hidden", "1");
+      }
+    }
+
     footer.innerHTML = newHtml;
     cardEl.setAttribute(FLAG_ATTR, "1");
   }
