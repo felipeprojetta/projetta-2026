@@ -52,15 +52,40 @@
   }
 
   function parseUSDValue(text){
+    // FIX v4: detectar formato PT-BR ("3.777" = 3777 milhar) vs EN ("3.777" = 3.777 decimal)
+    // Heuristica: se ha exatamente 3 digitos depois do ultimo separador, eh milhar
     if(!text) return 0;
     var clean = String(text).replace(/[^\d,.]/g, "");
     if(!clean) return 0;
     var lastComma = clean.lastIndexOf(",");
     var lastDot = clean.lastIndexOf(".");
-    if(lastComma > lastDot){
-      clean = clean.replace(/\./g, "").replace(",", ".");
-    } else {
-      clean = clean.replace(/,/g, "");
+    var hasComma = lastComma >= 0;
+    var hasDot = lastDot >= 0;
+    if(hasComma && hasDot){
+      // Ambos: o ultimo eh decimal, o anterior eh milhar
+      if(lastComma > lastDot){
+        // Ex: "3.777,50" -> 3777.50 (PT-BR)
+        clean = clean.replace(/\./g, "").replace(",", ".");
+      } else {
+        // Ex: "3,777.50" -> 3777.50 (EN-US)
+        clean = clean.replace(/,/g, "");
+      }
+    } else if(hasComma){
+      var afterComma = clean.length - lastComma - 1;
+      if(afterComma === 3){
+        // 3 digitos depois -> milhar (ex: "3,777" EN-US sem decimal)
+        clean = clean.replace(/,/g, "");
+      } else {
+        // 1 ou 2 digitos -> decimal (ex: "3,77" PT-BR)
+        clean = clean.replace(",", ".");
+      }
+    } else if(hasDot){
+      var afterDot = clean.length - lastDot - 1;
+      if(afterDot === 3){
+        // 3 digitos depois -> milhar (ex: "3.777" PT-BR sem decimal) ★ FIX BUG 4.53
+        clean = clean.replace(/\./g, "");
+      }
+      // 1 ou 2 digitos -> ja eh decimal valido (ex: "4.53")
     }
     var n = parseFloat(clean);
     return isNaN(n) ? 0 : n;
