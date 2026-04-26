@@ -1,25 +1,27 @@
 /* ============================================================================
- * js/97-paises-en.js  —  Modulo NOVO (26-abr-2026)
+ * js/97-paises-en.js  —  Modulo NOVO (26-abr-2026, v2)
  *
  * Autorizado por Felipe Xavier de Lima.
  * Pedido: "coloque o nome dos paises em ingles"
  *
- * Conforme regras de blindagem:
- *  - NAO modifica nenhum arquivo JS existente
- *  - NAO deleta linhas de codigo
- *  - Apenas injeta um <datalist> e ajusta o placeholder do input crm-o-inst-pais
+ * v2 (atualizacao): O sistema ja tem um datalist em PT criado pelo modulo
+ *  '97-pais-autocomplete-fix-caixa.js' (id 'projetta-paises-datalist-97').
+ *  Em vez de criar datalist proprio (que era sobrescrito pelo PT), agora
+ *  esse modulo SUBSTITUI as options do datalist existente por nomes em
+ *  ingles, garantindo que o autocomplete fique em ingles independente da
+ *  ordem de carregamento.
  *
  * COMPORTAMENTO:
- *  - Cria <datalist id="projetta-paises-en"> com ~250 paises ISO em ingles
- *  - Conecta ao input crm-o-inst-pais via attribute "list"
- *  - Substitui placeholder PT por equivalente EN
- *  - Polling 800ms apenas se modal CRM aberto e modo INTERNACIONAL
+ *  - Aguarda o datalist 'projetta-paises-datalist-97' existir
+ *  - Substitui todas as <option> por equivalentes em ingles (ISO 3166-1)
+ *  - Atualiza placeholder de crm-o-inst-pais para EN
+ *  - MutationObserver pro caso do datalist ser recriado
  * ========================================================================== */
 (function(){
   'use strict';
   if(window.__projetta97PaisesEnApplied) return;
   window.__projetta97PaisesEnApplied = true;
-  console.log('[97-paises-en] iniciando');
+  console.log('[97-paises-en] iniciando v2');
 
   // Lista oficial ISO 3166-1 (em ingles), ordenada alfabeticamente
   var PAISES_EN = [
@@ -68,52 +70,69 @@
     'Zambia','Zimbabwe'
   ];
 
-  var DATALIST_ID = 'projetta-paises-en';
+  // ID do datalist criado pelo outro modulo PT (e que vamos preencher em EN)
+  var DATALIST_ID_EXISTENTE = 'projetta-paises-datalist-97';
   var PLACEHOLDER_EN = 'e.g. Portugal, United States, United Arab Emirates';
 
-  function ensureDatalist(){
-    var dl = document.getElementById(DATALIST_ID);
-    if(dl) return dl;
-    dl = document.createElement('datalist');
-    dl.id = DATALIST_ID;
+  function preencherDatalist(dl){
+    if(!dl) return false;
+    if(dl.__projetta97FilledEn) return false;
+    // Limpar todas as options atuais
+    while(dl.firstChild) dl.removeChild(dl.firstChild);
+    // Adicionar as em ingles
     PAISES_EN.forEach(function(nome){
       var opt = document.createElement('option');
       opt.value = nome;
       dl.appendChild(opt);
     });
-    document.body.appendChild(dl);
-    return dl;
+    dl.__projetta97FilledEn = true;
+    console.log('[97-paises-en] datalist preenchido com ' + PAISES_EN.length + ' paises em ingles');
+    return true;
   }
 
-  function modalAberto(){
-    var titulos = document.querySelectorAll('h2,h3,h4,div');
-    for(var i = 0; i < titulos.length; i++){
-      var t = (titulos[i].textContent||'').trim();
-      if(/^(Editar|Nova) Oportunidade/.test(t) && titulos[i].children.length < 3 && titulos[i].offsetParent !== null) return true;
+  function reaplicar(){
+    var dl = document.getElementById(DATALIST_ID_EXISTENTE);
+    if(!dl) return;
+
+    // Se o datalist foi recriado (novas options em PT), refazer em EN
+    var primeiraOpt = dl.options[0];
+    if(primeiraOpt && primeiraOpt.value !== 'Afghanistan' && dl.options.length !== PAISES_EN.length){
+      dl.__projetta97FilledEn = false; // forcar reset
+      preencherDatalist(dl);
+    } else if(!dl.__projetta97FilledEn){
+      preencherDatalist(dl);
     }
-    return false;
-  }
 
-  function aplicarNoInput(){
+    // Atualizar placeholder do input
     var inp = document.getElementById('crm-o-inst-pais');
-    if(!inp) return;
-    if(inp.__projetta97Applied) return;
-    inp.__projetta97Applied = true;
-
-    ensureDatalist();
-    inp.setAttribute('list', DATALIST_ID);
-    inp.placeholder = PLACEHOLDER_EN;
-    inp.setAttribute('autocomplete', 'off');
-    inp.title = 'Type to autocomplete from the official ISO country list (in English)';
+    if(inp && inp.placeholder !== PLACEHOLDER_EN){
+      inp.placeholder = PLACEHOLDER_EN;
+      inp.title = 'Type to autocomplete from the official ISO country list (in English)';
+    }
   }
 
-  function tick(){
-    if(!modalAberto()) return;
-    aplicarNoInput();
+  // Polling 800ms (lightweight) — cobre datalist sendo recriado pelo modulo PT
+  setInterval(reaplicar, 800);
+  setTimeout(reaplicar, 200);
+  setTimeout(reaplicar, 1000);
+  setTimeout(reaplicar, 3000);
+
+  // MutationObserver opcional: se o datalist for substituido por novo elemento
+  if(typeof MutationObserver !== 'undefined'){
+    var mo = new MutationObserver(function(muts){
+      muts.forEach(function(m){
+        if(m.type === 'childList' && m.addedNodes){
+          for(var i = 0; i < m.addedNodes.length; i++){
+            var n = m.addedNodes[i];
+            if(n.id === DATALIST_ID_EXISTENTE){
+              setTimeout(reaplicar, 50);
+            }
+          }
+        }
+      });
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
   }
 
-  setInterval(tick, 800);
-  setTimeout(tick, 200);
-
-  console.log('[97-paises-en] instalado (' + PAISES_EN.length + ' paises carregados)');
+  console.log('[97-paises-en] v2 instalado');
 })();
