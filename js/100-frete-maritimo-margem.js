@@ -111,7 +111,7 @@
         var diffUltima = 0;
         for(var c = cells.length - 1; c >= 0; c--){
           var cellTxt = (cells[c].textContent || "").trim();
-          if(/[\d,.]+/.test(cellTxt) && parseUSDValue(cellTxt) > 0){
+          if(/USD|US\$/i.test(cellTxt) && parseUSDValue(cellTxt) > 0){
             var diff = aplicarMargemNaCelula(cells[c]);
             if(diff > 0 && diffUltima === 0){
               // Primeira celula com valor (de tras pra frente) e o "Total"
