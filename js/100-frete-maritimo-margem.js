@@ -116,27 +116,36 @@
     if(diff <= 0) return 0;
     var totaisAtualizados = 0;
 
-    // 1. TRs com TOTAL (em qualquer tabela)
+    // 1. TRs com TOTAL — analisa CELULA por CELULA
+    //    (nao pula a row inteira por causa de m² em outra coluna)
     var rows = document.querySelectorAll("tr");
     for(var i = 0; i < rows.length; i++){
       var row = rows[i];
       if(row.getAttribute(ROW_FLAG_ATTR) === "total") continue;
       var rowText = row.textContent || "";
-      // Pular linhas de m² ou peso
-      if(/m²|m2|kg|lb/i.test(rowText) && !TOTAL_LABEL_REGEX.test(rowText)) continue;
-      // So aplicar se tem padrao de TOTAL
-      if(!TOTAL_LABEL_REGEX.test(rowText)) continue;
+      // So entrar se a row tem padrao de TOTAL em algum lugar
+      // Aceita "Total Quote", "TOTAL CIF", "Total Area" (porque tem USD em outra cel)
+      // Rejeita rows que NAO tem palavra "Total" em lugar nenhum
+      if(!/total/i.test(rowText)) continue;
       var cells = row.querySelectorAll("td");
+      // Procurar celulas USD (NAO m², NAO peso, NAO area)
       for(var c = cells.length - 1; c >= 0; c--){
         var cellTxt = (cells[c].textContent || "").trim();
-        if(/USD|US\$/i.test(cellTxt) && parseUSDValue(cellTxt) > 0){
-          var oldVal = parseUSDValue(cellTxt);
-          cells[c].textContent = substituirValor(cellTxt, oldVal + diff);
-          row.setAttribute(ROW_FLAG_ATTR, "total");
-          totaisAtualizados++;
-          break; // so a ULTIMA celula USD da row
-        }
+        // Pular celulas com m²/m2/kg/lb/area/peso
+        if(/m²|m2|kg\b|lb\b/i.test(cellTxt)) continue;
+        // So atualizar celulas com USD/US$ e numero
+        if(!/USD|US\$/i.test(cellTxt)) continue;
+        var oldVal = parseUSDValue(cellTxt);
+        if(oldVal <= 0) continue;
+        // Verificar se essa celula JA foi marcada (ja recebeu diff)
+        if(cells[c].getAttribute(ROW_FLAG_ATTR) === "1") continue;
+        cells[c].textContent = substituirValor(cellTxt, oldVal + diff);
+        cells[c].setAttribute(ROW_FLAG_ATTR, "1");
+        totaisAtualizados++;
+        // Continuar pra atualizar OUTRAS celulas USD na mesma row se houver
+        // (ex: linha Total Area: m² | qty | unit | total — atualizar qualquer USD)
       }
+      row.setAttribute(ROW_FLAG_ATTR, "total");
     }
 
     // 2. Elementos NAO tabela (div, span) com "Total Quote: US$ X" no mesmo elemento
