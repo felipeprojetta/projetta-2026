@@ -29,10 +29,8 @@
   var DISPLAY_ID = "projetta-101-margem-display";
 
   function fmtUSD(v){
-    return Number(v).toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
+    // SEM decimais — Felipe nao quer decimais
+    return Math.round(Number(v)).toLocaleString("en-US");
   }
 
   function getInputValue(inp){
