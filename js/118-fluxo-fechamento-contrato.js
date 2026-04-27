@@ -457,25 +457,87 @@
         var atp = (inpAtp.value||"").trim();
         if(!atp){ return; }
         inpAtp.style.background = "#fef9c3";
+        var aviso = ov.querySelector("#m2-atp-aviso") || (function(){
+          var d = document.createElement("div");
+          d.id = "m2-atp-aviso";
+          d.style.cssText = "grid-column:1/-1;font-size:11px;padding:4px 8px;border-radius:4px;margin-top:4px";
+          inpAtp.parentElement.appendChild(d);
+          return d;
+        })();
         try {
-          var r = await sbFetch("/rest/v1/weiku_reservas?atp=eq." + encodeURIComponent(atp) + "&select=nome,email,telefone,cep,cidade_uf,reserva_interna&limit=1");
-          var d = await r.json();
-          if(d && d.length){
-            var w = d[0];
-            if(w.nome){ ov.querySelector("#m2-nome").value = w.nome; }
-            if(w.email){ ov.querySelector("#m2-email").value = w.email; ov.querySelector("#m2-email-nfe").value = w.email; }
-            if(w.telefone){ ov.querySelector("#m2-tel").value = w.telefone; }
-            if(w.cep){ ov.querySelector("#m2-cep").value = w.cep; }
-            if(w.cidade_uf){ ov.querySelector("#m2-cid").value = w.cidade_uf; }
+          // 1. PRIORIDADE: weiku_pedidos_fechados (dados detalhados do contrato)
+          var r1 = await sbFetch("/rest/v1/weiku_pedidos_fechados?atp=eq." + encodeURIComponent(atp) + "&select=*&limit=1");
+          var d1 = await r1.json();
+          if(d1 && d1.length){
+            var w = d1[0];
+            // Comprador
+            if(w.comprador_nome) ov.querySelector("#m2-nome").value = w.comprador_nome;
+            if(w.comprador_cpf) ov.querySelector("#m2-cpf").value = w.comprador_cpf;
+            if(w.comprador_rg) ov.querySelector("#m2-rg").value = w.comprador_rg;
+            if(w.comprador_rg_orgao_uf) ov.querySelector("#m2-rg-uf").value = w.comprador_rg_orgao_uf;
+            if(w.comprador_email){ ov.querySelector("#m2-email").value = w.comprador_email; }
+            if(w.comprador_email_nfe){ ov.querySelector("#m2-email-nfe").value = w.comprador_email_nfe; }
+            else if(w.comprador_email){ ov.querySelector("#m2-email-nfe").value = w.comprador_email; }
+            if(w.comprador_telefone) ov.querySelector("#m2-tel").value = w.comprador_telefone;
+            // Endereço residencial
+            if(w.end_rua) ov.querySelector("#m2-rua").value = w.end_rua;
+            if(w.end_numero) ov.querySelector("#m2-num").value = w.end_numero;
+            if(w.end_complemento) ov.querySelector("#m2-comp").value = w.end_complemento;
+            if(w.end_bairro) ov.querySelector("#m2-bairro").value = w.end_bairro;
+            if(w.end_cep) ov.querySelector("#m2-cep").value = w.end_cep;
+            var cidUf = (w.end_cidade || "") + (w.end_estado ? ("/" + w.end_estado) : "");
+            if(cidUf) ov.querySelector("#m2-cid").value = cidUf;
+            // Endereço obra
+            if(w.obra_rua) ov.querySelector("#m2-er").value = w.obra_rua;
+            if(w.obra_numero) ov.querySelector("#m2-en").value = w.obra_numero;
+            if(w.obra_complemento) ov.querySelector("#m2-ec").value = w.obra_complemento;
+            if(w.obra_bairro) ov.querySelector("#m2-eb").value = w.obra_bairro;
+            if(w.obra_cep) ov.querySelector("#m2-ecep").value = w.obra_cep;
+            var cidUf2 = (w.obra_cidade || "") + (w.obra_estado ? ("/" + w.obra_estado) : "");
+            if(cidUf2) ov.querySelector("#m2-ecid").value = cidUf2;
+            if(w.obra_cno) ov.querySelector("#m2-cno").value = w.obra_cno;
+            if(w.obra_ponto_referencia) ov.querySelector("#m2-ref").value = w.obra_ponto_referencia;
+            if(w.obra_pessoa_autorizada) ov.querySelector("#m2-pa").value = w.obra_pessoa_autorizada;
+            if(w.obra_telefone) ov.querySelector("#m2-pt").value = w.obra_telefone;
+            if(w.obra_email) ov.querySelector("#m2-pe").value = w.obra_email;
+            // Tipo obra / representante
+            if(w.tipo_obra){
+              var sel = ov.querySelector("#m2-tipo-obra");
+              if(sel){ Array.from(sel.options).forEach(function(o){ if(o.value === w.tipo_obra) sel.value = w.tipo_obra; }); }
+            }
+            if(w.representante) ov.querySelector("#m2-repres").value = w.representante;
             inpAtp.style.background = "#dcfce7";
             inpAtp.style.borderColor = "#16a34a";
-            console.log("[118] dados do weiku puxados via ATP " + atp);
+            aviso.style.cssText = "grid-column:1/-1;font-size:11px;padding:6px 10px;border-radius:4px;margin-top:6px;background:#dcfce7;color:#166534;font-weight:600";
+            aviso.textContent = "✓ Dados detalhados puxados do Weiku (pedidos fechados)";
+            console.log("[118] dados detalhados weiku_pedidos_fechados via ATP " + atp);
+            return;
+          }
+          // 2. FALLBACK: weiku_reservas (só dados básicos)
+          var r2 = await sbFetch("/rest/v1/weiku_reservas?atp=eq." + encodeURIComponent(atp) + "&select=nome,email,telefone,cep,cidade_uf,reserva_interna&limit=1");
+          var d2 = await r2.json();
+          if(d2 && d2.length){
+            var w2 = d2[0];
+            var algumPreenchido = false;
+            if(w2.nome){ ov.querySelector("#m2-nome").value = w2.nome; algumPreenchido = true; }
+            if(w2.email){ ov.querySelector("#m2-email").value = w2.email; ov.querySelector("#m2-email-nfe").value = w2.email; algumPreenchido = true; }
+            if(w2.telefone){ ov.querySelector("#m2-tel").value = w2.telefone; algumPreenchido = true; }
+            if(w2.cep){ ov.querySelector("#m2-cep").value = w2.cep; algumPreenchido = true; }
+            if(w2.cidade_uf){ ov.querySelector("#m2-cid").value = w2.cidade_uf; algumPreenchido = true; }
+            inpAtp.style.background = algumPreenchido ? "#dcfce7" : "#fef3c7";
+            inpAtp.style.borderColor = algumPreenchido ? "#16a34a" : "#f59e0b";
+            aviso.style.cssText = "grid-column:1/-1;font-size:11px;padding:6px 10px;border-radius:4px;margin-top:6px;background:#fef3c7;color:#92400e";
+            aviso.textContent = algumPreenchido ? "⚠ Dados básicos do Weiku (reservas). Detalhes do contrato: preencha manualmente." : "⚠ ATP achado em reservas mas sem dados de comprador. Preencha manualmente.";
           } else {
             inpAtp.style.background = "#fee2e2";
-            inpAtp.title = "ATP não encontrado no Weiku";
+            inpAtp.style.borderColor = "#dc2626";
+            aviso.style.cssText = "grid-column:1/-1;font-size:11px;padding:6px 10px;border-radius:4px;margin-top:6px;background:#fee2e2;color:#991b1b";
+            aviso.textContent = "✗ ATP não encontrado em weiku_pedidos_fechados nem em weiku_reservas. Preencha manualmente.";
           }
         } catch(e){
           inpAtp.style.background = "#fee2e2";
+          aviso.style.cssText = "grid-column:1/-1;font-size:11px;padding:6px 10px;border-radius:4px;margin-top:6px;background:#fee2e2;color:#991b1b";
+          aviso.textContent = "✗ Erro ao buscar: " + e.message;
           console.error("[118] erro buscando ATP:", e);
         }
       };
