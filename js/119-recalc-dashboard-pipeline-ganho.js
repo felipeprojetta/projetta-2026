@@ -32,10 +32,36 @@
     });
   }
   function fmtBRL(v){ return "R$ " + Math.round(Number(v)||0).toLocaleString("pt-BR"); }
+  // Cache de valores calculados pelo mod 119 — fonte de verdade
+  var dashCache = {};
+
   function setText(id, txt){
+    dashCache[id] = txt;
     var el = document.getElementById(id);
     if(el && el.textContent !== txt){ el.textContent = txt; }
   }
+
+  // MutationObserver: se outro mod sobrescrever um KPI, re-aplicamos
+  function instalarObserver(){
+    if(window.__proj119Observer) return;
+    var ids = ["ck-pipe","ck-gain","ck-gain-ano","ck-ticket","ck-tot-tab","ck-tot-fat"];
+    ids.forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      var obs = new MutationObserver(function(){
+        var desejado = dashCache[id];
+        if(desejado != null && el.textContent !== desejado){
+          // Outro mod sobrescreveu — restaurar nosso valor
+          el.textContent = desejado;
+        }
+      });
+      obs.observe(el, { childList: true, characterData: true, subtree: true });
+    });
+    window.__proj119Observer = true;
+    console.log("[119 v2] MutationObserver instalado nos KPIs");
+  }
+  setTimeout(instalarObserver, 2500);
+  setInterval(instalarObserver, 5000);  // re-instalar se DOM for recriado
 
   function getFiltros(){
     var mesEl = document.getElementById("ck-gain-mes-sel");
@@ -149,7 +175,7 @@
 
   // Inicial + interval + listeners
   setTimeout(recalcular, 1500);
-  setInterval(recalcular, 8000);
+  setInterval(recalcular, 2500);
 
   // Listener nos filtros (recalcula imediato)
   function attachFilters(){
