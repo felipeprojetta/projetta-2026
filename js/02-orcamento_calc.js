@@ -679,7 +679,7 @@ function calc(){
   //   "R$ X.XXX,XX <span>· US$ Y.YYY</span>" (intl).
   //   Em campos "por m²" também adiciona /m² após cada.
   var _isIntlResult = (typeof _isInternacional==='function') ? _isInternacional() : false;
-  var _cambioResult = parseFloat(($('inst-intl-cambio')||{value:0}).value) || 0;
+  var _cambioResult = parseFloat(($('inst-intl-cambio')||{value:5.20}).value) || 5.20;
   function _brlUsd(v){
     var s = brl(v);
     if(!_isIntlResult || !(_cambioResult>0)) return s;
@@ -763,7 +763,7 @@ function calc(){
     //   USD da porta e preenchido desde o inicio (nao espera frete).
     if(_isIntl && pFatReal>0){
       _intlPanel.style.display='';
-      var _cambioIntl=parseFloat(($('inst-intl-cambio')||{value:0}).value)||0;
+      var _cambioIntl=parseFloat(($('inst-intl-cambio')||{value:5.20}).value)||5.20;
       // _instIntlFat é setado por calcInstIntl() em 14-reps_sync.js — se nao
       // tem instalacao, fica 0 (nao aparece na linha instalacao).
       var _precoInstIntl = window._instIntlFat || 0;
