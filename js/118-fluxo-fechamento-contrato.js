@@ -66,20 +66,25 @@
   // Estado: cards processados nesta sessao (evita re-trigger por race)
   var cardsProcessando = {};
 
-  function isPatchCardStageS6(urlStr, method, init){
-    if(method !== "PATCH") return false;
-    if(!/\/rest\/v1\/crm_oportunidades\?id=eq/.test(urlStr)) return false;
+  // Detecta POST upsert OU PATCH em /crm_oportunidades com stage = s6
+  function isMoveToS6(urlStr, method, init){
+    if(method !== "PATCH" && method !== "POST") return null;
+    if(!/\/rest\/v1\/crm_oportunidades(\?|$)/.test(urlStr)) return null;
     var bodyStr = (init && init.body) || null;
-    if(typeof bodyStr !== "string") return false;
+    if(typeof bodyStr !== "string") return null;
     try {
       var p = JSON.parse(bodyStr);
-      return p.stage === "s6" || (Array.isArray(p) && p[0] && p[0].stage === "s6");
-    } catch(e){ return false; }
-  }
-
-  function extractCardId(urlStr){
-    var m = urlStr.match(/id=eq\.([^&]+)/);
-    return m ? decodeURIComponent(m[1]) : null;
+      var rec = Array.isArray(p) ? p[0] : p;
+      if(!rec || rec.stage !== "s6") return null;
+      // Tem que ter id pra prosseguir
+      var card_id = rec.id || null;
+      if(!card_id){
+        // Tentar extrair do URL (caso seja PATCH ?id=eq.X)
+        var m = urlStr.match(/id=eq\.([^&]+)/);
+        if(m) card_id = decodeURIComponent(m[1]);
+      }
+      return card_id ? { card_id: card_id, registro: rec } : null;
+    } catch(e){ return null; }
   }
 
   // Wrap fetch — detecta drop pra Fechado
@@ -87,9 +92,9 @@
     try {
       var urlStr = typeof input === "string" ? input : (input && input.url) || "";
       var method = ((init && init.method) || (input && input.method) || "GET").toUpperCase();
-      if(isPatchCardStageS6(urlStr, method, init)){
-        var card_id = extractCardId(urlStr);
-        if(!card_id) return origFetch.apply(this, arguments);
+      var detectado = isMoveToS6(urlStr, method, init);
+      if(detectado){
+        var card_id = detectado.card_id;
         if(cardsProcessando[card_id]){
           // Re-PATCH apos modal 1 OK — deixa passar
           delete cardsProcessando[card_id];
