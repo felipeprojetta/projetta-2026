@@ -510,6 +510,19 @@ function nameColor(name){
    - Nacional: retorna valorFaturamento (ou fallback).
    - Internacional: soma Porta + Instalação + Logística (caixa+fretes).
    Usado no breakdown do card, header das colunas e KPIs. */
+// ★ Felipe 27/04: helper getExtra — busca em o.extras[k] ou o[k]
+// (campos cif_*, inst_* podem estar em qualquer um dos dois)
+function _gex(o, k){
+  if(!o) return 0;
+  var v = (o.extras && o.extras[k] != null) ? o.extras[k] : o[k];
+  return parseFloat(v) || 0;
+}
+function _gexStr(o, k){
+  if(!o) return '';
+  var v = (o.extras && o.extras[k] != null) ? o.extras[k] : o[k];
+  return (v == null) ? '' : String(v);
+}
+
 function _valorRealCardBRL(o){
   if(!o) return 0;
   // ★ Felipe 27/04: stage pre-orcamento (Fazer Orcamento, Qualificacao) → 0
@@ -526,52 +539,52 @@ function _valorRealCardBRL(o){
   if(_vDireto === 0) return 0;
   var _vPorta = _vDireto;
 
-  var _ehIntl = o.scope === 'internacional'
-             || (o.inst_quem||'').toUpperCase() === 'INTERNACIONAL'
-             || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toUpperCase()) >= 0
-             || !!(o.pais||'').trim();
+  var _ehIntl = _gexStr(o,'scope') === 'internacional'
+             || _gexStr(o,'inst_quem').toUpperCase() === 'INTERNACIONAL'
+             || ['CIF','FOB','EXW'].indexOf(_gexStr(o,'inst_incoterm').toUpperCase()) >= 0
+             || !!_gexStr(o,'pais').trim();
   if(!_ehIntl) return _vPorta;
 
   // ★ Felipe 27/04: cambio do CARD (sem fallback 5.20). Se card sem cambio, usa projettaCambio.
-  var _cambio = parseFloat(o.inst_cambio) || 0;
+  var _cambio = _gex(o,'inst_cambio');
   if(_cambio <= 0 && window.projettaCambio){
     _cambio = parseFloat(window.projettaCambio.get()) || 0;
   }
   if(_cambio <= 0) return _vPorta;
 
   // Instalacao
-  var _vInst = parseFloat(o.inst_intl_fat) || 0;
+  var _vInst = _gex(o,'inst_intl_fat');
   if(_vInst === 0){
-    var _passagem = parseFloat(o.inst_passagem) || 0;
-    var _hotel = parseFloat(o.inst_hotel) || 0;
-    var _alim = parseFloat(o.inst_alim) || 0;
-    var _udigru = parseFloat(o.inst_udigru) || 0;
+    var _passagem = _gex(o,'inst_passagem');
+    var _hotel = _gex(o,'inst_hotel');
+    var _alim = _gex(o,'inst_alim');
+    var _udigru = _gex(o,'inst_udigru');
     if((_passagem + _hotel + _alim + _udigru) > 0){
-      var _seg = parseFloat(o.inst_seguro) || 0;
-      var _carro = parseFloat(o.inst_carro) || 0;
-      var _mo = parseFloat(o.inst_mo) || 0;
-      var _pes = parseInt(o.inst_pessoas) || 3;
-      var _di = parseInt(o.inst_dias) || 3;
+      var _seg = _gex(o,'inst_seguro');
+      var _carro = _gex(o,'inst_carro');
+      var _mo = _gex(o,'inst_mo');
+      var _pes = parseInt(_gex(o,'inst_pessoas')) || 3;
+      var _di = parseInt(_gex(o,'inst_dias')) || 3;
       var _dT = _di + 4; var _dH = _dT - 2;
-      var _mg = parseFloat(o.inst_margem) || 10;
+      var _mg = _gex(o,'inst_margem') || 10;
       var _custo = _udigru + (_passagem*_pes) + (_hotel*_dH) + (_alim*_pes*_dT) + (_seg*_pes) + (_carro*_dT) + (_mo*_dT);
       _vInst = _custo / Math.max(0.01, 1 - _mg/100);
     }
   }
 
-  var _inc = (o.inst_incoterm||'').toUpperCase();
+  var _inc = _gexStr(o,'inst_incoterm').toUpperCase();
   var _logUsd = 0;
   if(_inc==='CIF' || _inc==='FOB'){
-    var _L = parseFloat(o.cif_caixa_l)||0;
-    var _A = parseFloat(o.cif_caixa_a)||0;
-    var _E = parseFloat(o.cif_caixa_e)||0;
-    var _tx = parseFloat(o.cif_caixa_taxa)||100;
+    var _L = _gex(o,'cif_caixa_l');
+    var _A = _gex(o,'cif_caixa_a');
+    var _E = _gex(o,'cif_caixa_e');
+    var _tx = _gex(o,'cif_caixa_taxa') || 100;
     _logUsd += (_L/1000)*(_A/1000)*(_E/1000) * _tx;
-    _logUsd += parseFloat(o.cif_frete_terrestre)||0;
+    _logUsd += _gex(o,'cif_frete_terrestre');
   }
   if(_inc==='CIF'){
     // ★ Felipe 27/04: maritimo final = cif_frete_maritimo × 1.20 (regra fixa)
-    _logUsd += (parseFloat(o.cif_frete_maritimo)||0) * 1.20;
+    _logUsd += _gex(o,'cif_frete_maritimo') * 1.20;
   }
   return _vPorta + _vInst + (_logUsd * _cambio);
 }
@@ -587,10 +600,10 @@ function _valorTabCardBRL(o){
       if(/fazer.*or[çc]|qualifi/i.test(_lbl2)) return 0;
     }
   } catch(e){}
-  var _ehIntl2 = o.scope === 'internacional'
-              || (o.inst_quem||'').toUpperCase() === 'INTERNACIONAL'
-              || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toUpperCase()) >= 0
-              || !!(o.pais||'').trim();
+  var _ehIntl2 = _gexStr(o,'scope') === 'internacional'
+              || _gexStr(o,'inst_quem').toUpperCase() === 'INTERNACIONAL'
+              || ['CIF','FOB','EXW'].indexOf(_gexStr(o,'inst_incoterm').toUpperCase()) >= 0
+              || !!_gexStr(o,'pais').trim();
   if(_ehIntl2) return _valorRealCardBRL(o);
   return parseFloat(o.valorTabela) || 0;
 }
@@ -920,10 +933,10 @@ function buildCard(o,st,isFazerOrc){
   //   Porta + Instalação + Logística (Caixa+Fretes) = Total. Em R$ e USD.
   //   Detecta intl por qualquer sinal forte (evita bug de scope nao salvo):
   //   scope OU inst_quem=INTERNACIONAL OU tem incoterm (CIF/FOB/EXW) OU tem pais
-  var _ehIntl = o.scope === 'internacional'
-             || (o.inst_quem||'').toUpperCase() === 'INTERNACIONAL'
-             || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toUpperCase()) >= 0
-             || !!(o.pais||'').trim();
+  var _ehIntl = _gexStr(o,'scope') === 'internacional'
+             || _gexStr(o,'inst_quem').toUpperCase() === 'INTERNACIONAL'
+             || ['CIF','FOB','EXW'].indexOf(_gexStr(o,'inst_incoterm').toUpperCase()) >= 0
+             || !!_gexStr(o,'pais').trim();
   if(o.valorTabela>0 || o.valorFaturamento>0 || o.valor>0){
     if(_ehIntl){
       // --- Cálculo do breakdown ---
@@ -949,7 +962,7 @@ function buildCard(o,st,isFazerOrc){
         var _passagemPorPessoa = parseFloat(o.inst_passagem) || 0;
         var _hotelDia = parseFloat(o.inst_hotel) || 0;
         var _alimDia = parseFloat(o.inst_alim) || 0;
-        var _udigru = parseFloat(o.inst_udigru) || 0;
+        var _udigru = _gex(o,'inst_udigru');
         var _seguroPP = parseFloat(o.inst_seguro) || 0;
         var _carroDia = parseFloat(o.inst_carro) || 0;
         var _moDia = parseFloat(o.inst_mo) || 0;
@@ -977,9 +990,9 @@ function buildCard(o,st,isFazerOrc){
 
       var _caixaUsd = 0;
       if(_incluirCaixa){
-        var _L = parseFloat(o.cif_caixa_l)||0;
-        var _A = parseFloat(o.cif_caixa_a)||0;
-        var _E = parseFloat(o.cif_caixa_e)||0;
+        var _L = _gex(o,'cif_caixa_l');
+        var _A = _gex(o,'cif_caixa_a');
+        var _E = _gex(o,'cif_caixa_e');
         var _taxa = parseFloat(o.cif_caixa_taxa)||100;
         var _vol = (_L/1000)*(_A/1000)*(_E/1000);
         _caixaUsd = _vol * _taxa;
