@@ -117,8 +117,8 @@
         // User OK — deixa PATCH original passar (marca pra nao re-interceptar)
         cardsProcessando[card_id] = true;
         var resp = await origFetch.apply(this, arguments);
-        // Apos drop, abre Modal 2
-        setTimeout(function(){ mostrarModal2(card_id, dadosM1); }, 600);
+        // Modal 2 desabilitado por ora — sera aberto por outro gatilho (Felipe vai definir)
+        console.log("[118] drop pra Fechado completo. Modal 2 será aberto manualmente depois (ATP).");
         return resp;
       }
     } catch(e){ console.warn("[118] erro no interceptor:", e); }
@@ -134,6 +134,7 @@
     } catch(e){}
     if(!card){ alert("Erro ao carregar dados do card"); return null; }
 
+    var card_id_do_drop = card_id;
     return new Promise(function(resolve){
       var ov = document.createElement("div");
       ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999999;display:flex;align-items:center;justify-content:center;font-family:system-ui";
@@ -173,13 +174,58 @@
       inpVal.oninput = recalc;
 
       ov.querySelector("#m1-cancelar").onclick = function(){ ov.remove(); resolve(null); };
-      ov.querySelector("#m1-ok").onclick = function(){
+      ov.querySelector("#m1-ok").onclick = async function(){
         var data = ov.querySelector("#m1-data").value;
         var valor = parseFloat(inpVal.value) || 0;
         if(!data){ alert("Informe a data de fechamento"); return; }
         if(valor <= 0){ alert("Informe valor fechado válido"); return; }
-        ov.remove();
-        resolve({ data_fechamento: data, valor_fechado: valor, valor_original: card.valor_faturamento, card: card });
+        var btnOk = this;
+        btnOk.disabled = true;
+        btnOk.innerHTML = "💾 Salvando...";
+        try {
+          var ajuste = null;
+          if(card.valor_faturamento > 0){
+            ajuste = ((valor - card.valor_faturamento) / card.valor_faturamento) * 100;
+          }
+          // INSERT parcial em orcamentos_fechados (Modal 2 fará UPDATE depois com dados do contrato)
+          var registroParcial = {
+            id: "of_" + Date.now() + "_" + Math.random().toString(36).substring(2, 8),
+            card_id: card_id_do_drop,
+            cliente: card.cliente,
+            agp: card.agp,
+            valor_fechado: valor,
+            valor_original_versao: card.valor_faturamento,
+            valor_tabela: card.valor_tabela,
+            valor_faturamento: card.valor_faturamento,
+            ajuste_percentual_lucro: ajuste,
+            data_fechamento_pedido: data,
+            fechado_em: new Date().toISOString(),
+            fechado_por: "felipe.projetta"
+          };
+          var r2 = await sbFetch("/rest/v1/orcamentos_fechados", {
+            method: "POST",
+            headers: { "Prefer": "return=minimal" },
+            body: JSON.stringify(registroParcial)
+          });
+          if(r2.status >= 400){
+            var t = await r2.text();
+            throw new Error("HTTP " + r2.status + ": " + t.substring(0, 200));
+          }
+          ov.remove();
+          // Notificacao discreta
+          var n = document.createElement("div");
+          n.style.cssText = "position:fixed;top:20px;right:20px;background:#16a34a;color:#fff;padding:14px 20px;border-radius:10px;box-shadow:0 8px 25px rgba(0,0,0,.2);z-index:1000000;font-family:system-ui;font-size:13px;font-weight:600";
+          n.innerHTML = "✓ Fechamento registrado<br><span style=\"font-size:11px;font-weight:400\">" + fmtBRL(valor) + " • Aguardando contrato (preencha ATP depois)</span>";
+          document.body.appendChild(n);
+          setTimeout(function(){ n.style.opacity = "0"; n.style.transition = "opacity .4s"; }, 3000);
+          setTimeout(function(){ if(n.parentElement) n.remove(); }, 3500);
+          resolve({ data_fechamento: data, valor_fechado: valor, valor_original: card.valor_faturamento, card: card });
+        } catch(e){
+          console.error("[118] erro INSERT parcial:", e);
+          alert("⚠ Erro ao registrar fechamento: " + e.message);
+          btnOk.disabled = false;
+          btnOk.innerHTML = "Continuar →";
+        }
       };
     });
   }
