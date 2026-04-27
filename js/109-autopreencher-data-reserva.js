@@ -55,7 +55,7 @@
 
   async function aplicarDataAutomatica(){
     var inpReserva = document.getElementById("crm-o-reserva");
-    var inpData = document.getElementById("crm-o-data");
+    var inpData = document.getElementById("crm-o-data-contato");
     if(!inpReserva || !inpData) return;
     var num = (inpReserva.value || "").trim();
     if(!num) return;
