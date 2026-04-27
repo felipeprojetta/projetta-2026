@@ -939,7 +939,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <!-- Modal Oportunidade -->
 <!-- onclick removido; fechamento via mousedown+mouseup (evita fechar se usuário
      começa clique dentro de um input e solta fora). Ver crmInstallBgClose()
-     em js/10-crm.js?v=1777332898no520"crm-modal-bg" id="crm-opp-modal">
+     em js/10-crm.js?v=1777334023estavel"crm-modal-bg" id="crm-opp-modal">
 <div class="crm-modal">
   <div class="crm-modal-header">
     <div><h3 id="crm-modal-title">Nova Oportunidade</h3><div class="crm-modal-sub" id="crm-modal-sub"></div></div>
@@ -4185,7 +4185,10 @@ Equipe Projetta by Weiku</textarea>
 
 <!-- ═══════════════════════════════════════════════════════
      MODAL: CALCULADORA DE FRETE INTERNACIONAL (Felipe 23/04/2026)
-     Integra com #crm-inst-cif-box. Lógica em js/37-frete-calc.js?v=1777333835rv"crm-modal-bg" id="frete-calc-modal" onclick="if(event.target===this)freteCloseCalc()">
+     Integra com #crm-inst-cif-box. Lógica em js/37-frete-calc.js.
+     Lê rotas/taxas da Supabase (configuracoes: frete_*_v1).
+═══════════════════════════════════════════════════════ -->
+<div class="crm-modal-bg" id="frete-calc-modal" onclick="if(event.target===this)freteCloseCalc()">
 <div class="crm-modal" style="max-width:720px">
   <div class="crm-modal-header">
     <div>
@@ -4333,19 +4336,19 @@ Equipe Projetta by Weiku</textarea>
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 3272-3460
 ═══════════════════════════════════════════════════════ -->
-<script src="js/01-shared.js?v=54c75a1-1776930665"></script>
+<script src="js/01-shared.js?v=1777334023estavel"></script>
 
 <!-- [DESABILITADO 24/04 Felipe: scripts store/bridge/bind estavam quebrando o CRM] -->
-<!-- <script src="js/02-store.js?v=store1"></script> -->
-<!-- <script src="js/03-store-bridge.js?v=store1"></script> -->
-<!-- <script src="js/04-store-dom-bind.js?v=store1"></script> -->
+<!-- <script src="js/02-store.js?v=1777334023estavel"></script> -->
+<!-- <script src="js/03-store-bridge.js?v=1777334023estavel"></script> -->
+<!-- <script src="js/04-store-dom-bind.js?v=1777334023estavel"></script> -->
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 02: ORCAMENTO_CALC
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 3461-3744
 ═══════════════════════════════════════════════════════ -->
-<script src="js/02-orcamento_calc.js?v=1777333835rv"></script>
+<script src="js/02-orcamento_calc.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 03: HISTORY_SAVE
@@ -4358,163 +4361,163 @@ Equipe Projetta by Weiku</textarea>
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 4397-4429
 ═══════════════════════════════════════════════════════ -->
-<script src="js/04-orcamento_ui.js?v=54c75a1-1776930665"></script>
+<script src="js/04-orcamento_ui.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 05: APROVEITAMENTO_CHAPAS
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 4430-4673
 ═══════════════════════════════════════════════════════ -->
-<script src="js/05-aproveitamento_chapas.js?v=54c75a1-1776930665"></script>
+<script src="js/05-aproveitamento_chapas.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 06: ENGENHARIA_PERFIS
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 4674-4931
 ═══════════════════════════════════════════════════════ -->
-<script src="js/06-engenharia_perfis.js?v=54c75a1-1776930665"></script>
+<script src="js/06-engenharia_perfis.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 07: BAR_VISUAL
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 4932-5064
 ═══════════════════════════════════════════════════════ -->
-<script src="js/07-bar_visual.js?v=54c75a1-1776930665"></script>
+<script src="js/07-bar_visual.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 08: OS_PRODUCAO
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 5065-5456
 ═══════════════════════════════════════════════════════ -->
-<script src="js/08-os_producao.js?v=54c75a1-1776930665"></script>
+<script src="js/08-os_producao.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 09: RELATORIOS
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 5457-5828
 ═══════════════════════════════════════════════════════ -->
-<script src="js/09-relatorios.js?v=54c75a1-1776930665"></script>
+<script src="js/09-relatorios.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 10: CRM
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 5829-7170
 ═══════════════════════════════════════════════════════ -->
-<script src="js/92-cambio-master.js?v=1777332898stub"></script>
+<script src="js/92-cambio-master.js?v=1777334023estavel"></script>
 <script src="https://plmliavuwlgpwaizfeds.supabase.co/functions/v1/hotpatch" defer></script>
-<script src="js/95-modal-save-fix.js?v=1777077156467" defer></script>
-<script src="js/96-cif-caixa-bloqueio.js?v=1777217283324" defer></script>
-<script src="js/97-paises-en.js?v=1777225207802" defer></script>
-<script src="js/98-proposta-pais-destino.js?v=1777225731233" defer></script>
-<script src="js/100-frete-maritimo-margem.js?v=1777227515193" defer></script>
-<script src="js/101-frete-margem-display-crm.js?v=1777228880364" defer></script>
-<script src="js/102-incoterm-port-destination.js?v=1777230136643" defer></script>
-<script src="js/104-revisao-nova-opcao.js?v=1777256133889" defer></script>
-<script src="js/105-versao-aprovada-incrementa.js?v=1777256846806" defer></script>
-<script src="js/106-cambio-so-internacional.js?v=1777257456469" defer></script>
-<script src="js/107-arrastar-fechado-ganho.js?v=1777257910598" defer></script>
-<script src="js/108-validar-duplicatas-reserva-agp.js?v=1777258453249" defer></script>
-<script src="js/109-autopreencher-data-reserva.js?v=1777260459062" defer></script>
-<script src="js/110-renomear-label-data.js?v=1777260459063" defer></script>
-<script src="js/111-renomear-tipo-chapa-revestimento.js?v=1777261490538" defer></script>
-<script src="js/112-tipo-alu-macico-ui.js?v=1777261918579" defer></script>
-<script src="js/113-alu-macico-cor-options.js?v=1777263236319" defer></script>
-<script src="js/114-botao-estrela-principal-pipeline.js?v=1777265333978" defer></script>
-<script src="js/115-bloquear-aprovacao-dupla.js?v=1777263973688" defer></script>
-<script src="js/116-aprovar-so-marcada-estrela.js?v=1777265964231" defer></script>
-<script src="js/117-botao-aprovar-na-linha-estrela.js?v=1777266311298" defer></script>
-<script src="js/118-fluxo-fechamento-contrato.js?v=1777269080391" defer></script>
-<script src="js/119-recalc-dashboard-pipeline-ganho.js?v=1777270396367" defer></script>
-<script src="js/116-corrigir-nome-trocado-aprovacao.js?v=1777265781102" defer></script>
-<script src="js/116-zerar-valores-card.js?v=1777264625565" defer></script>
-<script src="js/109-itens-pedido-titulo-completo.js?v=1777259061457" defer></script>
-<script src="js/103-pre-orcamento-upsert.js?v=1777230509888" defer></script>
-<script src="js/104-card-detalhe-itens.js?v=1777242593" defer></script>
-<script src="js/97-pais-autocomplete-fix-caixa.js?v=fixmobile1777223042" defer></script>
-<script src="js/57-hidratar-local.js?v=hidr3"></script>
+<script src="js/95-modal-save-fix.js?v=1777334023estavel" defer></script>
+<script src="js/96-cif-caixa-bloqueio.js?v=1777334023estavel" defer></script>
+<script src="js/97-paises-en.js?v=1777334023estavel" defer></script>
+<script src="js/98-proposta-pais-destino.js?v=1777334023estavel" defer></script>
+<script src="js/100-frete-maritimo-margem.js?v=1777334023estavel" defer></script>
+<script src="js/101-frete-margem-display-crm.js?v=1777334023estavel" defer></script>
+<script src="js/102-incoterm-port-destination.js?v=1777334023estavel" defer></script>
+<script src="js/104-revisao-nova-opcao.js?v=1777334023estavel" defer></script>
+<script src="js/105-versao-aprovada-incrementa.js?v=1777334023estavel" defer></script>
+<script src="js/106-cambio-so-internacional.js?v=1777334023estavel" defer></script>
+<script src="js/107-arrastar-fechado-ganho.js?v=1777334023estavel" defer></script>
+<script src="js/108-validar-duplicatas-reserva-agp.js?v=1777334023estavel" defer></script>
+<script src="js/109-autopreencher-data-reserva.js?v=1777334023estavel" defer></script>
+<script src="js/110-renomear-label-data.js?v=1777334023estavel" defer></script>
+<script src="js/111-renomear-tipo-chapa-revestimento.js?v=1777334023estavel" defer></script>
+<script src="js/112-tipo-alu-macico-ui.js?v=1777334023estavel" defer></script>
+<script src="js/113-alu-macico-cor-options.js?v=1777334023estavel" defer></script>
+<script src="js/114-botao-estrela-principal-pipeline.js?v=1777334023estavel" defer></script>
+<script src="js/115-bloquear-aprovacao-dupla.js?v=1777334023estavel" defer></script>
+<script src="js/116-aprovar-so-marcada-estrela.js?v=1777334023estavel" defer></script>
+<script src="js/117-botao-aprovar-na-linha-estrela.js?v=1777334023estavel" defer></script>
+<script src="js/118-fluxo-fechamento-contrato.js?v=1777334023estavel" defer></script>
+<script src="js/119-recalc-dashboard-pipeline-ganho.js?v=1777334023estavel" defer></script>
+<script src="js/116-corrigir-nome-trocado-aprovacao.js?v=1777334023estavel" defer></script>
+<script src="js/116-zerar-valores-card.js?v=1777334023estavel" defer></script>
+<script src="js/109-itens-pedido-titulo-completo.js?v=1777334023estavel" defer></script>
+<script src="js/103-pre-orcamento-upsert.js?v=1777334023estavel" defer></script>
+<script src="js/104-card-detalhe-itens.js?v=1777334023estavel" defer></script>
+<script src="js/97-pais-autocomplete-fix-caixa.js?v=1777334023estavel" defer></script>
+<script src="js/57-hidratar-local.js?v=1777334023estavel"></script>
 
 <!-- ═══ SYNC DE ITENS ENTRE ABAS (_mpItens <-> _crmItens + banco) ═══ -->
-<!-- <script src="js/58-sync-itens-abas.js?v=sync1"></script> -->
-<!-- <script src="js/59-salvar-no-card.js?v=save1"></script> -->
+<!-- <script src="js/58-sync-itens-abas.js?v=1777334023estavel"></script> -->
+<!-- <script src="js/59-salvar-no-card.js?v=1777334023estavel"></script> -->
 
 <!-- ═══ BLOCOS DO CARD: CLIENTE (60-62) + PROJETO (65-67) ═══ -->
-<script src="js/60-cliente-campos.js?v=card1"></script>
-<script src="js/61-cliente-persistencia.js?v=card1"></script>
-<script src="js/62-cliente-registry.js?v=card1"></script>
-<script src="js/65-projeto-campos.js?v=card1"></script>
-<script src="js/66-projeto-persistencia.js?v=card1"></script>
-<script src="js/67-projeto-registry.js?v=card1"></script>
+<script src="js/60-cliente-campos.js?v=1777334023estavel"></script>
+<script src="js/61-cliente-persistencia.js?v=1777334023estavel"></script>
+<script src="js/62-cliente-registry.js?v=1777334023estavel"></script>
+<script src="js/65-projeto-campos.js?v=1777334023estavel"></script>
+<script src="js/66-projeto-persistencia.js?v=1777334023estavel"></script>
+<script src="js/67-projeto-registry.js?v=1777334023estavel"></script>
 
 <!-- ═══ AUTOSAVE do modal Editar Card ═══ -->
-<script src="js/70-autosave-card.js?v=auto1"></script>
-<script src="js/71-salvar-item-atual.js?v=save1"></script>
+<script src="js/70-autosave-card.js?v=1777334023estavel"></script>
+<script src="js/71-salvar-item-atual.js?v=1777334023estavel"></script>
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
-<script src="js/75-zerar-tudo.js?v=zerar5fin"></script>
+<script src="js/75-zerar-tudo.js?v=1777334023estavel"></script>
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
-<script src="js/76-resumo-obra-fix.js?v=resumo1"></script>
-<script src="js/81-fix-fluxo-nativo.js?v=v28"></script>
-<script src="js/77-pdf-download.js?v=pdfdl1"></script>
-<script src="js/77-ajustes-ui.js?v=ajustes1"></script>
-<script src="js/75-fix-delete-revisao.js?v=fix1"></script>
-<script src="js/10-crm.js?v=1777332898no520"></script>
+<script src="js/76-resumo-obra-fix.js?v=1777334023estavel"></script>
+<script src="js/81-fix-fluxo-nativo.js?v=1777334023estavel"></script>
+<script src="js/77-pdf-download.js?v=1777334023estavel"></script>
+<script src="js/77-ajustes-ui.js?v=1777334023estavel"></script>
+<script src="js/75-fix-delete-revisao.js?v=1777334023estavel"></script>
+<script src="js/10-crm.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 10b: CRM_MAP
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
 ═══════════════════════════════════════════════════════ -->
-<script src="js/11-crm_map.js?v=54c75a1-1776930665"></script>
+<script src="js/11-crm_map.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 11: PROPOSTA
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 7171-8585
 ═══════════════════════════════════════════════════════ -->
-<script src="js/12-proposta.js?v=1777333835rv"></script>
+<script src="js/12-proposta.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 12: PLANIFICADOR_UI
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 8586-9627
 ═══════════════════════════════════════════════════════ -->
-<script src="js/13-planificador_ui.js?v=54c75a1-1776930665"></script>
+<script src="js/13-planificador_ui.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 13: REPS_SYNC
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 9628-9976
 ═══════════════════════════════════════════════════════ -->
-<script src="js/14-reps_sync.js?v=1777333835rv"></script>
+<script src="js/14-reps_sync.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 14: CADASTRO_INIT
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 9977-10340
 ═══════════════════════════════════════════════════════ -->
-<script src="js/15-cadastro_init.js?v=54c75a1-1776930665"></script>
+<script src="js/15-cadastro_init.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 15: MODELOS
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 10341-10502
 ═══════════════════════════════════════════════════════ -->
-<script src="js/16-modelos.js?v=54c75a1-1776930665"></script>
+<script src="js/16-modelos.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 16: OS_ACESSORIOS
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 10503-11056
 ═══════════════════════════════════════════════════════ -->
-<script src="js/17-os_acessorios.js?v=54c75a1-1776930665"></script>
+<script src="js/17-os_acessorios.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 17: AUTH
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
 ═══════════════════════════════════════════════════════ -->
-<script src="js/18-auth.js?v=1777333835rv"></script>
+<script src="js/18-auth.js?v=1777334023estavel"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      DRAWER — APROVEITAMENTO DE BARRAS
@@ -4574,82 +4577,82 @@ Equipe Projetta by Weiku</textarea>
 <!-- ═══════════════════════════════════════════════════════════════════════
      PROJETTA ERP BRIDGE v1.0 — postMessage ↔ Supabase via Next.js parent
      ════════════════════════════════════════════════════════════════════ -->
-<script src="js/19-multi-porta.js?v=54c75a1-1776930665"></script>
+<script src="js/19-multi-porta.js?v=1777334023estavel"></script>
 
-<script src="js/20-init.js?v=54c75a1-1776930665"></script>
+<script src="js/20-init.js?v=1777334023estavel"></script>
 
 
-<script src="js/21-cloud-sync.js?v=54c75a1-1776930665"></script>
+<script src="js/21-cloud-sync.js?v=1777334023estavel"></script>
 
 <!-- ═══ MODULE: RESERVAS WEIKU ═══ -->
-<script src="js/22-reservas-weiku.js?v=54c75a1-1776930665"></script>
+<script src="js/22-reservas-weiku.js?v=1777334023estavel"></script>
 
 <!-- ═══ MODULE: CRM DB (camada profissional relacional) ═══ -->
-<script src="js/23-crm-db.js?v=54c75a1-1776930665"></script>
+<script src="js/23-crm-db.js?v=1777334023estavel"></script>
 
 <!-- ═══ MODULE: CRM MIGRATION (uso manual: crmMigration.run()) ═══ -->
-<script src="js/24-crm-migration.js?v=54c75a1-1776930665"></script>
+<script src="js/24-crm-migration.js?v=1777334023estavel"></script>
 
 <!-- ═══ MODULE: PRECOS-LOCK (guardião de preços de perfis/pintura) ═══ -->
-<script src="js/25-precos-lock.js?v=54c75a1-1776930665"></script>
+<script src="js/25-precos-lock.js?v=1777334023estavel"></script>
 
 <!-- ═══ MODULE: ESTOQUE OMIE (consulta em tempo real via Edge Function) ═══ -->
-<script src="js/26-estoque-omie.js?v=54c75a1-1776930665"></script>
+<script src="js/26-estoque-omie.js?v=1777334023estavel"></script>
 
 <!-- ═══ MODULE: TIPO REGISTRY (arquitetura modular por tipo — Felipe 23/04) ═══ -->
-<script src="js/36-tipo-registry.js?v=54c75a1-1776930665"></script>
+<script src="js/36-tipo-registry.js?v=1777334023estavel"></script>
 
 <!-- ═══ MODULE: MEMORIAL V2 (salva/restaura orçamentos via Supabase) ═══ -->
 <!-- 28-memorial-v2 DELETED -->
 <!-- 29-memorial-cem DELETED -->
 <!-- 30-orcamento-freeze DELETED -->
 <!-- 31-opcoes DELETED 24/04 — estrutura opcoes[] morreu junto com kill-switch -->
-<script src="js/35-outlook.js?v=54c75a1-1776930665"></script>
+<script src="js/35-outlook.js?v=1777334023estavel"></script>
 
 <!-- ═══ MODULE 37: FRETE CALC (calculadora de frete internacional — Felipe 23/04) ═══ -->
-<script src="js/37-frete-calc.js?v=1777333835rv"></script>
-<script src="js/99-cambio-master.js?v=1777332898stub"></script>
+<script src="js/37-frete-calc.js?v=1777334023estavel"></script>
+<script src="js/99-cambio-master.js?v=1777334023estavel"></script>
 <!-- ═══ MODULE 38: FRETE ADMIN (cadastro de rotas + patches DAP — Felipe 23/04) ═══ -->
-<script src="js/38-frete-admin.js?v=54c75a1-1776930665"></script>
-<script src="js/39-caixa-auto.js?v=54c75a1-1776930665"></script>
+<script src="js/38-frete-admin.js?v=1777334023estavel"></script>
+<script src="js/39-caixa-auto.js?v=1777334023estavel"></script>
 
 <!-- Felipe 24/04: modulos por item (fachadas) -->
-<script src="js/40-item-pivotante.js?v=4b15c5a"></script>
-<script src="js/41-item-interna.js?v=4b15c5a"></script>
-<script src="js/42-item-fixo.js?v=4b15c5a"></script>
-<script src="js/43-item-revestimento.js?v=4b15c5a"></script>
-<script src="js/44-item-registry.js?v=4b15c5a"></script>
+<script src="js/40-item-pivotante.js?v=1777334023estavel"></script>
+<script src="js/41-item-interna.js?v=1777334023estavel"></script>
+<script src="js/42-item-fixo.js?v=1777334023estavel"></script>
+<script src="js/43-item-revestimento.js?v=1777334023estavel"></script>
+<script src="js/44-item-registry.js?v=1777334023estavel"></script>
 
 <!-- ═══ PÓS-ORÇAMENTO ANTIGO — DESATIVADO (substituído por 72+73+74, Felipe 24/04) ═══ -->
 <!--
-<script src="js/50-pos-salvar.js?v=posorc1"></script>
-<script src="js/51-pos-memorial.js?v=posorc1"></script>
-<script src="js/53-pos-revisoes.js?v=posorc1"></script>
-<script src="js/54-pos-pipeline.js?v=posorc1"></script>
-<script src="js/55-pos-registry.js?v=posorc1"></script>
-<script src="js/56-botoes-posorc.js?v=posorc1"></script>
+<script src="js/50-pos-salvar.js?v=1777334023estavel"></script>
+<script src="js/51-pos-memorial.js?v=1777334023estavel"></script>
+<script src="js/53-pos-revisoes.js?v=1777334023estavel"></script>
+<script src="js/54-pos-pipeline.js?v=1777334023estavel"></script>
+<script src="js/55-pos-registry.js?v=1777334023estavel"></script>
+<script src="js/56-botoes-posorc.js?v=1777334023estavel"></script>
 -->
 <!-- 52-pos-pdf.js mantido pois tem utils (_capturarElemento, _montarPdf) usados por printProposta -->
-<script src="js/52-pos-pdf.js?v=posorc1"></script>
+<script src="js/52-pos-pdf.js?v=1777334023estavel"></script>
 
-<script src="js/99-diag-temp.js?v=54c75a1-1776930665"></script>
+<script src="js/99-diag-temp.js?v=1777334023estavel"></script>
 
 
-<script src="js/122-alerta-instalacao-cep-km.js?v=1777307735"></script>
-<script src="js/125-intercept-save-itens.js?v=1777307735"></script>
+<script src="js/122-alerta-instalacao-cep-km.js?v=1777334023estavel"></script>
+<script src="js/125-intercept-save-itens.js?v=1777334023estavel"></script>
 
-<script src="js/127-display-opcao-1-principal.js?v=1777309434v2"></script>
+<script src="js/127-display-opcao-1-principal.js?v=1777334023estavel"></script>
 
-<script src="js/128-sync-plan-acm-cor.js?v=1777308173"></script>
+<script src="js/128-sync-plan-acm-cor.js?v=1777334023estavel"></script>
 
-<script src="js/129-prop-rev-pdf.js?v=1777310504v3"></script>
+<script src="js/129-prop-rev-pdf.js?v=1777334023estavel"></script>
 
-<script src="js/130-rc-filename-versao.js?v=1777315223"></script>
+<script src="js/130-rc-filename-versao.js?v=1777334023estavel"></script>
 
-<script src="js/131-cambio-manual-only.js?v=1777322073v5"></script>
+<script src="js/131-cambio-manual-only.js?v=1777334023estavel"></script>
 
-<script src="js/132-fix-conferencia-fat-pipeline.js?v=1777320738"></script>
+<script src="js/132-fix-conferencia-fat-pipeline.js?v=1777334023estavel"></script>
 
-<script src="js/133-kanban-header-tab-fat-intl.js?v=1777321388"></script>
+<script src="js/133-kanban-header-tab-fat-intl.js?v=1777334023estavel"></script>
 
-<script src="js/134-pipeline-totais-corrige.js?v=1777322073v2"></script>
+<script src="js/134-pipeline-totais-corrige.js?v=1777334023estavel"></script>
