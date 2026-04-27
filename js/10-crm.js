@@ -941,8 +941,9 @@ function buildCard(o,st,isFazerOrc){
       // v29: usar cambio MASTER (window.projettaCambio) em vez de 5.20 fixo.
       //       Se o card tem inst_cambio salvo (override por card), usa ele;
       //       senao usa o master global; fallback 5.20.
-      // ★ Felipe 27/04: SOMENTE cambio do card, sem fallback externo
-      var _cambio = parseFloat(o.inst_cambio) || 0;
+      var _cambio = parseFloat(o.inst_cambio) ||
+                    (window.projettaCambio && typeof window.projettaCambio.get === 'function' ? window.projettaCambio.get() : 0) ||
+                    5.20;
       if(_vInst === 0 && _instAtiva){
         // Fallback — recalcular
         var _passagemPorPessoa = parseFloat(o.inst_passagem) || 0;
@@ -984,7 +985,7 @@ function buildCard(o,st,isFazerOrc){
         _caixaUsd = _vol * _taxa;
       }
       var _fTerrestreUsd = _incluirTerrestre ? (parseFloat(o.cif_frete_terrestre)||0) : 0;
-      var _fMaritimoUsd  = _incluirMaritimo  ? ((parseFloat(o.cif_frete_maritimo)||0) * 1.20)  : 0;
+      var _fMaritimoUsd  = _incluirMaritimo  ? (parseFloat(o.cif_frete_maritimo)||0)  : 0;
       var _logisticaUsd = _caixaUsd + _fTerrestreUsd + _fMaritimoUsd;
       var _logisticaBrl = _logisticaUsd * _cambio;
 
@@ -1482,7 +1483,7 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-inst-carro',opp.inst_carro||850);
     setVal('crm-o-inst-mo',opp.inst_mo||500);
     setVal('crm-o-inst-margem',opp.inst_margem||10);
-    setVal('crm-o-inst-cambio',opp.inst_cambio||'');
+    setVal('crm-o-inst-cambio',opp.inst_cambio||5.20);
     if(typeof crmInstQuemChange==='function') crmInstQuemChange();
     // ★ Após restaurar inst_quem e inst_incoterm, garantir que bloco CIF
     //   aparece se for CIF (e recalcula total).
@@ -2340,7 +2341,7 @@ window.crmInstCalcIntl=function(){
   var diasInst=gv('crm-o-inst-dias');
   var diasViagem=4; // 2 ida + 2 volta fixo
   var diasTotal=diasInst+diasViagem;
-  var cambio=gv('crm-o-inst-cambio')||0;
+  var cambio=gv('crm-o-inst-cambio')||5.20;
   var margemLiq=gv('crm-o-inst-margem')/100;
 
   var udiGru=gv('crm-o-inst-udigru');
@@ -3066,7 +3067,7 @@ window.crmSaveOpp=function(){
     inst_carro: parseFloat(val('crm-o-inst-carro'))||850,
     inst_mo: parseFloat(val('crm-o-inst-mo'))||500,
     inst_margem: parseFloat(val('crm-o-inst-margem'))||10,
-    inst_cambio: parseFloat(val('crm-o-inst-cambio'))||0,
+    inst_cambio: parseFloat(val('crm-o-inst-cambio'))||5.20,
     inst_intl_total: window._instIntlTotal||0,
     agp:       val('crm-o-agp').trim(),
     cep:       val('crm-o-cep'),
@@ -5496,7 +5497,7 @@ function _captureOrcValues(){
     instPessoas:      _v('inst-intl-pessoas'),
     instDias:         _v('inst-intl-dias'),
     instMargem:       _v('inst-intl-margem'),
-    instCambio:       _v('inst-intl-cambio') || 0
+    instCambio:       _v('inst-intl-cambio') || 5.20
   };
 }
 
