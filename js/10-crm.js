@@ -954,9 +954,10 @@ function buildCard(o,st,isFazerOrc){
       // v29: usar cambio MASTER (window.projettaCambio) em vez de 5.20 fixo.
       //       Se o card tem inst_cambio salvo (override por card), usa ele;
       //       senao usa o master global; fallback 5.20.
-      var _cambio = parseFloat(o.inst_cambio) ||
+      // ★ Felipe 27/04: cambio do CARD (extras ou direto), sem fallback 5.20
+      var _cambio = _gex(o,'inst_cambio') ||
                     (window.projettaCambio && typeof window.projettaCambio.get === 'function' ? window.projettaCambio.get() : 0) ||
-                    5.20;
+                    0;
       if(_vInst === 0 && _instAtiva){
         // Fallback — recalcular
         var _passagemPorPessoa = parseFloat(o.inst_passagem) || 0;
@@ -993,12 +994,13 @@ function buildCard(o,st,isFazerOrc){
         var _L = _gex(o,'cif_caixa_l');
         var _A = _gex(o,'cif_caixa_a');
         var _E = _gex(o,'cif_caixa_e');
-        var _taxa = parseFloat(o.cif_caixa_taxa)||100;
+        var _taxa = _gex(o,'cif_caixa_taxa') || 100;
         var _vol = (_L/1000)*(_A/1000)*(_E/1000);
         _caixaUsd = _vol * _taxa;
       }
-      var _fTerrestreUsd = _incluirTerrestre ? (parseFloat(o.cif_frete_terrestre)||0) : 0;
-      var _fMaritimoUsd  = _incluirMaritimo  ? (parseFloat(o.cif_frete_maritimo)||0)  : 0;
+      var _fTerrestreUsd = _incluirTerrestre ? _gex(o,'cif_frete_terrestre') : 0;
+      // ★ Felipe 27/04: maritimo final = cif_frete_maritimo × 1.20 (margem 20%)
+      var _fMaritimoUsd  = _incluirMaritimo  ? (_gex(o,'cif_frete_maritimo') * 1.20)  : 0;
       var _logisticaUsd = _caixaUsd + _fTerrestreUsd + _fMaritimoUsd;
       var _logisticaBrl = _logisticaUsd * _cambio;
 
@@ -1018,9 +1020,15 @@ function buildCard(o,st,isFazerOrc){
       if(_vInst>0){
         html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>🔧 Instalação:</span><span style="font-weight:600">'+_fBrl(_vInst)+' · '+_fUsd(_vInst/_cambio)+'</span></div>';
       }
-      if(_logisticaUsd>0){
-        var _logLabel = _incoterm==='CIF' ? '🚢 Caixa+Fretes' : _incoterm==='FOB' ? '📦 Caixa+Terrestre' : '📦 Logística';
-        html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>'+_logLabel+':</span><span style="font-weight:600">'+_fBrl(_logisticaBrl)+' · '+_fUsd(_logisticaUsd)+'</span></div>';
+      // ★ Felipe 27/04: detalhar Crate / Land / Sea separados (igual proposta)
+      if(_caixaUsd>0){
+        html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>📦 Crate:</span><span style="font-weight:600">'+_fBrl(_caixaUsd*_cambio)+' · '+_fUsd(_caixaUsd)+'</span></div>';
+      }
+      if(_fTerrestreUsd>0){
+        html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>🚚 Land Freight:</span><span style="font-weight:600">'+_fBrl(_fTerrestreUsd*_cambio)+' · '+_fUsd(_fTerrestreUsd)+'</span></div>';
+      }
+      if(_fMaritimoUsd>0){
+        html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>🚢 Sea Freight:</span><span style="font-weight:600">'+_fBrl(_fMaritimoUsd*_cambio)+' · '+_fUsd(_fMaritimoUsd)+' <span title="margem 20%" style="color:#d97706">🛡</span></span></div>';
       }
       // Total — destaque
       html += '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed rgba(230,81,0,.3)"><span style="color:#003144;font-weight:800">TOTAL:</span><span style="color:#e65100;font-weight:800;font-size:11px">'+_fBrl(_totalBrl)+'</span></div>';
