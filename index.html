@@ -939,7 +939,8 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <!-- Modal Oportunidade -->
 <!-- onclick removido; fechamento via mousedown+mouseup (evita fechar se usuário
      começa clique dentro de um input e solta fora). Ver crmInstallBgClose()
-     em js/10-crm.js?v=1777330929rev"crm-modal-bg" id="crm-opp-modal">
+     em js/10-crm.js. -->
+<div class="crm-modal-bg" id="crm-opp-modal">
 <div class="crm-modal">
   <div class="crm-modal-header">
     <div><h3 id="crm-modal-title">Nova Oportunidade</h3><div class="crm-modal-sub" id="crm-modal-sub"></div></div>
@@ -4403,7 +4404,7 @@ Equipe Projetta by Weiku</textarea>
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 5829-7170
 ═══════════════════════════════════════════════════════ -->
-<script src="js/92-cambio-master.js?v=1777330929rev"></script>
+<script src="js/92-cambio-master.js?v=cambio-m1"></script>
 <script src="https://plmliavuwlgpwaizfeds.supabase.co/functions/v1/hotpatch" defer></script>
 <script src="js/95-modal-save-fix.js?v=1777077156467" defer></script>
 <script src="js/96-cif-caixa-bloqueio.js?v=1777217283324" defer></script>
@@ -4427,12 +4428,12 @@ Equipe Projetta by Weiku</textarea>
 <script src="js/116-aprovar-so-marcada-estrela.js?v=1777265964231" defer></script>
 <script src="js/117-botao-aprovar-na-linha-estrela.js?v=1777266311298" defer></script>
 <script src="js/118-fluxo-fechamento-contrato.js?v=1777269080391" defer></script>
-<script src="js/119-recalc-dashboard-pipeline-ganho.js?v=1777330929rev" defer></script>
+<script src="js/119-recalc-dashboard-pipeline-ganho.js?v=1777270396367" defer></script>
 <script src="js/116-corrigir-nome-trocado-aprovacao.js?v=1777265781102" defer></script>
 <script src="js/116-zerar-valores-card.js?v=1777264625565" defer></script>
 <script src="js/109-itens-pedido-titulo-completo.js?v=1777259061457" defer></script>
 <script src="js/103-pre-orcamento-upsert.js?v=1777230509888" defer></script>
-<script src="js/104-card-detalhe-itens.js?v=1777330929rev" defer></script>
+<script src="js/104-card-detalhe-itens.js?v=1777242593" defer></script>
 <script src="js/97-pais-autocomplete-fix-caixa.js?v=fixmobile1777223042" defer></script>
 <script src="js/57-hidratar-local.js?v=hidr3"></script>
 
@@ -4463,7 +4464,7 @@ Equipe Projetta by Weiku</textarea>
 <script src="js/77-pdf-download.js?v=pdfdl1"></script>
 <script src="js/77-ajustes-ui.js?v=ajustes1"></script>
 <script src="js/75-fix-delete-revisao.js?v=fix1"></script>
-<script src="js/10-crm.js?v=1777330929rev"></script>
+<script src="js/10-crm.js?v=intl-inst-fix"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 10b: CRM_MAP
@@ -4611,7 +4612,7 @@ Equipe Projetta by Weiku</textarea>
 
 <!-- ═══ MODULE 37: FRETE CALC (calculadora de frete internacional — Felipe 23/04) ═══ -->
 <script src="js/37-frete-calc.js?v=cambio-master"></script>
-<script src="js/99-cambio-master.js?v=1777330929rev"></script>
+<script src="js/99-cambio-master.js?v=cambio-master1"></script>
 <!-- ═══ MODULE 38: FRETE ADMIN (cadastro de rotas + patches DAP — Felipe 23/04) ═══ -->
 <script src="js/38-frete-admin.js?v=54c75a1-1776930665"></script>
 <script src="js/39-caixa-auto.js?v=54c75a1-1776930665"></script>
@@ -4649,10 +4650,8 @@ Equipe Projetta by Weiku</textarea>
 
 <script src="js/130-rc-filename-versao.js?v=1777315223"></script>
 
-<script src="js/131-cambio-manual-only.js?v=1777322073v5"></script>
+<script src="js/131-cambio-manual-only.js?v=1777319877v4"></script>
 
 <script src="js/132-fix-conferencia-fat-pipeline.js?v=1777320738"></script>
 
 <script src="js/133-kanban-header-tab-fat-intl.js?v=1777321388"></script>
-
-<script src="js/134-pipeline-totais-corrige.js?v=1777322073v2"></script>
