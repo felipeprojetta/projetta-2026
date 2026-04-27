@@ -582,7 +582,7 @@ function populateProposta(){
     : (window._crmScope === 'internacional' || (document.getElementById('inst-quem')||{value:''}).value === 'INTERNACIONAL');
   var _PROP_LANG = _isIntlProp ? 'en' : 'pt';
   // Câmbio (usado só quando internacional)
-  var _cambioProp = parseFloat((document.getElementById('inst-intl-cambio')||{value:0}).value)||0;
+  var _cambioProp = parseFloat((document.getElementById('inst-intl-cambio')||{value:5.20}).value)||5.20;
 
   // Dicionário de traduções (só entradas 'en' — o default/pt vem do HTML original)
   var _PROP_I18N = {
@@ -1101,7 +1101,7 @@ function populateProposta(){
   try {
     if(_isIntlProp && window._propLangCtx && window._propLangCtx.cif){
       var _cf = window._propLangCtx.cif;
-      var _cambioCf = _cambioProp || 0;
+      var _cambioCf = _cambioProp || 5.20;
       if(_cf.incluirCaixa    && _cf.caixaUSD>0)          tabGeral += _cf.caixaUSD * _cambioCf;
       if(_cf.incluirTerrestre&& _cf.freteTerrestreUSD>0) tabGeral += _cf.freteTerrestreUSD * _cambioCf;
       if(_cf.incluirMaritimo && _cf.freteMaritimoUSD>0)  tabGeral += _cf.freteMaritimoUSD * _cambioCf;
