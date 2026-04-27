@@ -66,8 +66,11 @@
   // Estado: cards processados nesta sessao (evita re-trigger por race)
   var cardsProcessando = {};
 
-  // Detecta POST upsert OU PATCH em /crm_oportunidades com stage = s6
-  function isMoveToS6(urlStr, method, init){
+  var STAGE_FECHADO = "s6";
+  var STAGE_INTRANET = "s1777269819911";
+
+  // Detecta POST upsert OU PATCH em /crm_oportunidades pra Fechado ou Intranet
+  function getStageDestino(urlStr, method, init){
     if(method !== "PATCH" && method !== "POST") return null;
     if(!/\/rest\/v1\/crm_oportunidades(\?|$)/.test(urlStr)) return null;
     var bodyStr = (init && init.body) || null;
@@ -75,15 +78,17 @@
     try {
       var p = JSON.parse(bodyStr);
       var rec = Array.isArray(p) ? p[0] : p;
-      if(!rec || rec.stage !== "s6") return null;
-      // Tem que ter id pra prosseguir
+      if(!rec) return null;
+      var destino = null;
+      if(rec.stage === STAGE_FECHADO) destino = "fechado";
+      else if(rec.stage === STAGE_INTRANET) destino = "intranet";
+      else return null;
       var card_id = rec.id || null;
       if(!card_id){
-        // Tentar extrair do URL (caso seja PATCH ?id=eq.X)
         var m = urlStr.match(/id=eq\.([^&]+)/);
         if(m) card_id = decodeURIComponent(m[1]);
       }
-      return card_id ? { card_id: card_id, registro: rec } : null;
+      return card_id ? { card_id: card_id, registro: rec, destino: destino } : null;
     } catch(e){ return null; }
   }
 
@@ -92,34 +97,38 @@
     try {
       var urlStr = typeof input === "string" ? input : (input && input.url) || "";
       var method = ((init && init.method) || (input && input.method) || "GET").toUpperCase();
-      var detectado = isMoveToS6(urlStr, method, init);
+      var detectado = getStageDestino(urlStr, method, init);
       if(detectado){
         var card_id = detectado.card_id;
         if(cardsProcessando[card_id]){
-          // Re-PATCH apos modal 1 OK — deixa passar
           delete cardsProcessando[card_id];
           return origFetch.apply(this, arguments);
         }
-        // BLOQUEIA o PATCH original e mostra Modal 1
-        console.log("[118] interceptando drop pra s6 — card " + card_id);
-        var dadosM1 = await mostrarModal1(card_id);
-        if(!dadosM1){
-          console.log("[118] usuario cancelou Modal 1 — abortando drop");
-          // Forca refresh do kanban pra reverter visual
-          setTimeout(function(){
-            var btnRefresh = document.querySelector("[onclick*=refresh],[onclick*=Refresh]");
-            if(btnRefresh) btnRefresh.click();
-          }, 100);
-          return new Response(JSON.stringify({ error: "drop cancelado por usuario" }), {
-            status: 409, headers: { "Content-Type": "application/json" }
-          });
+        if(detectado.destino === "fechado"){
+          // Drop em Fechado (s6) → Modal 1 (data + valor)
+          console.log("[118] interceptando drop pra Fechado — card " + card_id);
+          var dadosM1 = await mostrarModal1(card_id);
+          if(!dadosM1){
+            console.log("[118] usuario cancelou Modal 1 — abortando drop");
+            setTimeout(function(){
+              var btnR = document.querySelector("[onclick*=refresh],[onclick*=Refresh]");
+              if(btnR) btnR.click();
+            }, 100);
+            return new Response(JSON.stringify({ error: "drop cancelado" }), { status: 409, headers: { "Content-Type": "application/json" } });
+          }
+          cardsProcessando[card_id] = true;
+          var resp = await origFetch.apply(this, arguments);
+          console.log("[118] Fechado registrado. Felipe vai criar no Weiku, depois arrastar pra Intranet (Modal 2)");
+          return resp;
+        } else if(detectado.destino === "intranet"){
+          // Drop em Intranet (s1777269819911) → Modal 2 (contrato completo)
+          console.log("[118] interceptando drop pra Intranet — card " + card_id);
+          cardsProcessando[card_id] = true;
+          var resp2 = await origFetch.apply(this, arguments);
+          // Abrir Modal 2 apos drop
+          setTimeout(function(){ mostrarModal2(card_id); }, 600);
+          return resp2;
         }
-        // User OK — deixa PATCH original passar (marca pra nao re-interceptar)
-        cardsProcessando[card_id] = true;
-        var resp = await origFetch.apply(this, arguments);
-        // Modal 2 desabilitado por ora — sera aberto por outro gatilho (Felipe vai definir)
-        console.log("[118] drop pra Fechado completo. Modal 2 será aberto manualmente depois (ATP).");
-        return resp;
       }
     } catch(e){ console.warn("[118] erro no interceptor:", e); }
     return origFetch.apply(this, arguments);
@@ -330,14 +339,29 @@
         '</div>' +
       '</div>';
   }
-  async function mostrarModal2(card_id, dadosM1){
-    var card = dadosM1.card;
-    // Pegar reserva do card (ja deve estar)
+  async function mostrarModal2(card_id){
+    // Buscar dados do card e do orcamento_fechado existente (Modal 1 ja salvou parcial)
+    var card = {};
+    var existente = null;
     try {
       var rc = await sbFetch("/rest/v1/crm_oportunidades?id=eq." + encodeURIComponent(card_id) + "&select=cliente,agp,reserva,valor_tabela,valor_faturamento");
       var arr = await rc.json();
-      if(arr && arr.length) card = Object.assign(card, arr[0]);
-    } catch(e){}
+      if(arr && arr.length) card = arr[0];
+      var rOf = await sbFetch("/rest/v1/orcamentos_fechados?card_id=eq." + encodeURIComponent(card_id) + "&select=*&order=fechado_em.desc.nullslast&limit=1");
+      var ofArr = await rOf.json();
+      if(ofArr && ofArr.length) existente = ofArr[0];
+    } catch(e){ console.error("[118] erro carregando dados:", e); }
+    if(!existente){
+      console.warn("[118] sem registro do Modal 1 — criar parcial");
+      existente = { valor_fechado: card.valor_faturamento, valor_original_versao: card.valor_faturamento, data_fechamento_pedido: new Date().toISOString().substring(0,10) };
+    }
+    var dadosM1 = {
+      data_fechamento: existente.data_fechamento_pedido,
+      valor_fechado: parseFloat(existente.valor_fechado) || parseFloat(card.valor_faturamento) || 0,
+      valor_original: parseFloat(existente.valor_original_versao) || parseFloat(card.valor_faturamento) || 0,
+      card: card
+    };
+    card.reserva = card.reserva || (existente && existente.reserva);
 
     return new Promise(function(resolve){
       var ov = document.createElement("div");
@@ -345,6 +369,48 @@
       ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999999;display:flex;align-items:center;justify-content:center;font-family:system-ui;padding:20px";
       ov.innerHTML = htmlModal2(card, dadosM1);
       document.body.appendChild(ov);
+
+      // PRE-PREENCHER campos do Modal 2 com dados existentes (do Modal 1)
+      if(existente){
+        function setIfPresent(id, val){
+          if(val == null || val === "") return;
+          var el = ov.querySelector("#" + id);
+          if(el) el.value = val;
+        }
+        setIfPresent("m2-atp", existente.atp);
+        setIfPresent("m2-dt-assin", existente.data_assinatura_contrato);
+        setIfPresent("m2-tipo-obra", existente.tipo_obra);
+        setIfPresent("m2-repres", existente.representante);
+        setIfPresent("m2-nome", existente.cliente_fechamento || card.cliente);
+        setIfPresent("m2-cpf", existente.cpf_comprador);
+        setIfPresent("m2-rg", existente.rg_comprador);
+        setIfPresent("m2-rg-uf", existente.rg_orgao_uf);
+        setIfPresent("m2-rua", existente.endereco_rua);
+        setIfPresent("m2-num", existente.endereco_numero);
+        setIfPresent("m2-comp", existente.endereco_complemento);
+        setIfPresent("m2-bairro", existente.endereco_bairro);
+        setIfPresent("m2-cep", existente.endereco_cep);
+        setIfPresent("m2-cid", existente.endereco_cidade);
+        setIfPresent("m2-email", existente.email_comprador);
+        setIfPresent("m2-email-nfe", existente.email_nfe_comprador);
+        setIfPresent("m2-tel", existente.telefone_comprador);
+        setIfPresent("m2-er", existente.entrega_rua);
+        setIfPresent("m2-en", existente.entrega_numero);
+        setIfPresent("m2-ec", existente.entrega_complemento);
+        setIfPresent("m2-eb", existente.entrega_bairro);
+        setIfPresent("m2-ecep", existente.entrega_cep);
+        setIfPresent("m2-ecid", existente.entrega_cidade);
+        setIfPresent("m2-cno", existente.entrega_cno);
+        setIfPresent("m2-ref", existente.entrega_ponto_referencia);
+        setIfPresent("m2-pa", existente.entrega_pessoa_autorizada);
+        setIfPresent("m2-pt", existente.entrega_telefone);
+        setIfPresent("m2-pe", existente.entrega_email);
+        if(existente.valor_produtos) setIfPresent("m2-prod", existente.valor_produtos);
+        if(existente.valor_servicos) setIfPresent("m2-serv", existente.valor_servicos);
+        setIfPresent("m2-forma", existente.forma_pagamento);
+        if(existente.qtd_parcelas) setIfPresent("m2-qtdp", existente.qtd_parcelas);
+        setIfPresent("m2-dt1", existente.data_primeira_parcela);
+      }
 
       // Auto-buscar weiku via ATP
       var inpAtp = ov.querySelector("#m2-atp");
@@ -508,17 +574,30 @@
         };
 
         try {
-          var r = await sbFetch("/rest/v1/orcamentos_fechados", {
-            method: "POST",
-            headers: { "Prefer": "return=representation" },
-            body: JSON.stringify(registro)
-          });
+          var r;
+          if(existente && existente.id){
+            // UPDATE registro existente (do Modal 1)
+            delete registro.id; // não trocar PK
+            registro.updated_at = new Date().toISOString();
+            r = await sbFetch("/rest/v1/orcamentos_fechados?id=eq." + encodeURIComponent(existente.id), {
+              method: "PATCH",
+              headers: { "Prefer": "return=representation" },
+              body: JSON.stringify(registro)
+            });
+          } else {
+            // INSERT novo
+            r = await sbFetch("/rest/v1/orcamentos_fechados", {
+              method: "POST",
+              headers: { "Prefer": "return=representation" },
+              body: JSON.stringify(registro)
+            });
+          }
           if(r.status >= 400){
             var t = await r.text();
             throw new Error("HTTP " + r.status + ": " + t.substring(0,200));
           }
           ov.remove();
-          alert("✓ Contrato salvo com sucesso!\n\nCard mantido em Fechado.\nValor fechado: " + fmtBRL(valor));
+          alert("✓ Contrato salvo com sucesso!\n\n" + (existente && existente.id ? "Atualizado" : "Criado") + " em orcamentos_fechados.\nValor fechado: " + fmtBRL(valor));
           console.log("[118] contrato salvo:", registro);
           resolve(registro);
         } catch(e){
