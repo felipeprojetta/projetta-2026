@@ -35,11 +35,18 @@
     var cliente = val("cliente");
     var reserva = val("numprojeto");
     var agp = val("num-agp");
-    var partes = ["📦 Itens do Pedido"];
     if(cliente){
       var sub = cliente;
-      if(reserva) sub += " · Reserva " + reserva;
-      if(agp) sub += " · AGP " + agp;
+      if(reserva){
+        // Se reserva ja comeca com "Reserva", nao duplica
+        if(/^reserva/i.test(reserva)) sub += " · " + reserva;
+        else sub += " · Reserva " + reserva;
+      }
+      if(agp){
+        // Se AGP ja comeca com "AGP", nao duplica
+        if(/^agp/i.test(agp)) sub += " · " + agp;
+        else sub += " · AGP " + agp;
+      }
       return "📦 Itens do Pedido — " + sub;
     }
     return "📦 Itens do Pedido — Cliente";
