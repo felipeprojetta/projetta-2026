@@ -1,21 +1,25 @@
 (() => {
-  if (window.__MOD_134_LOADED) return;
-  window.__MOD_134_LOADED = true;
+  if (window.__MOD_134_V2_LOADED) return;
+  window.__MOD_134_V2_LOADED = true;
 
   // ═══════════════════════════════════════════════════════════════
-  // PATCH AGRESSIVO: recalcula KPIs do topo + headers do kanban
-  // localmente, sem depender de window._valorRealCardBRL hook
-  // (a funcao real eh local dentro do IIFE do 10-crm.js).
-  //
-  // Logica corrigida:
-  //   - Cambio = projettaCambio.get() (manual)
-  //   - Maritimo CIF: aplicar margem 20%
-  //   - Internacional: Tab = Fat = Total
+  // REGRAS FIXAS:
+  // 1. Stage "Fazer Orcamento" / "Qualificacao" → 0 (sem orcamento ainda)
+  // 2. Cambio = o.inst_cambio (do card) || projettaCambio.get()
+  // 3. Maritimo final = cif_frete_maritimo × 1.20
+  // 4. Internacional: Tab = Fat = Total
   // ═══════════════════════════════════════════════════════════════
 
-  function getCambio() {
-    if (window.projettaCambio) return window.projettaCambio.get();
-    return 5.20;
+  function getCambio(o) {
+    // Prioridade: cambio salvo no proprio card
+    var cardCambio = parseFloat((o && o.inst_cambio) || 0);
+    if (isFinite(cardCambio) && cardCambio > 0) return cardCambio;
+    // Fallback: cambio digitado pelo usuario na sessao atual
+    if (window.projettaCambio) {
+      var c = window.projettaCambio.get();
+      if (isFinite(c) && c > 0) return c;
+    }
+    return 0; // sem cambio = nao calcula
   }
 
   function ehInternacional(o) {
@@ -26,27 +30,28 @@
       || !!(o.pais||'').toString().trim();
   }
 
-  // Replica logica de _valorRealCardBRL com cambio do projettaCambio + margem 20%
+  function isStagePreOrc(stageId) {
+    var stages = window.gStages ? window.gStages() : [];
+    var st = stages.find(function(s){return s.id === stageId;});
+    if (!st) return true;
+    var lbl = (st.label || '').toString().toLowerCase();
+    return /fazer.*or[çc]|qualifi/i.test(lbl);
+  }
+
   function calcCardBRL(o) {
     if (!o) return 0;
-    var _temRev = false;
-    if (o.revisoes && o.revisoes.length > 0) _temRev = true;
-    if (!_temRev && o.opcoes) {
-      for (var i = 0; i < o.opcoes.length; i++) {
-        if (o.opcoes[i] && o.opcoes[i].revisoes && o.opcoes[i].revisoes.length > 0) {
-          _temRev = true; break;
-        }
-      }
-    }
+    if (isStagePreOrc(o.stage)) return 0; // ★ sem orcamento ainda
+
     var _vDireto = parseFloat(o.valorFaturamento) || parseFloat(o.valorTabela) || parseFloat(o.valor) || 0;
-    if (!_temRev && _vDireto === 0) return 0;
+    if (_vDireto === 0) return 0;
     var _vPorta = _vDireto;
 
     if (!ehInternacional(o)) return _vPorta;
 
-    var _cambio = getCambio();
+    var _cambio = getCambio(o);
+    if (_cambio <= 0) return _vPorta; // sem cambio, so a porta
 
-    // Instalacao
+    // Instalacao (deixa logica original)
     var _vInst = parseFloat(o.inst_intl_fat) || 0;
     if (_vInst === 0) {
       var _pas = parseFloat(o.inst_passagem) || 0;
@@ -77,7 +82,7 @@
       _logUsd += parseFloat(o.cif_frete_terrestre) || 0;
     }
     if (_inc === 'CIF') {
-      _logUsd += (parseFloat(o.cif_frete_maritimo) || 0) * 1.20; // margem 20%
+      _logUsd += (parseFloat(o.cif_frete_maritimo) || 0) * 1.20;
     }
 
     return _vPorta + _vInst + (_logUsd * _cambio);
@@ -85,23 +90,19 @@
 
   function calcCardTabBRL(o) {
     if (!o) return 0;
-    if (ehInternacional(o)) {
-      // Internacional: Tab = Fat = Total
-      return calcCardBRL(o);
-    }
+    if (isStagePreOrc(o.stage)) return 0;
+    if (ehInternacional(o)) return calcCardBRL(o); // intl: Tab = Total
     return parseFloat(o.valorTabela) || 0;
   }
 
   function fmtBRL(n) { return 'R$ ' + Math.round(n).toLocaleString('pt-BR'); }
 
-  // ── PATCH dos KPIs do topo ─────────────────────────────────────
   function patchKPIs() {
     if (typeof window.cLoad !== 'function') return;
     var data;
     try { data = window.cLoad(); } catch(e){ return; }
     if (!Array.isArray(data)) return;
 
-    // Determinar stages won/lost (replica logica do updateKPIs)
     var gStages = window.gStages || function(){ return []; };
     var stages = gStages();
     var wonIds = stages.filter(function(s){ return /gan|won/i.test(s.label||''); }).map(function(s){return s.id;});
@@ -113,25 +114,38 @@
     var totTab = ativos.reduce(function(s,o){ return s + calcCardTabBRL(o); }, 0);
     var totFat = ativos.reduce(function(s,o){ return s + calcCardBRL(o); }, 0);
 
-    var ckPipe = document.getElementById('ck-pipe');
-    if (ckPipe && ckPipe.textContent !== fmtBRL(pipe)) ckPipe.textContent = fmtBRL(pipe);
-    var ckTotTab = document.getElementById('ck-tot-tab');
-    if (ckTotTab && ckTotTab.textContent !== fmtBRL(totTab)) ckTotTab.textContent = fmtBRL(totTab);
-    var ckTotFat = document.getElementById('ck-tot-fat');
-    if (ckTotFat && ckTotFat.textContent !== fmtBRL(totFat)) ckTotFat.textContent = fmtBRL(totFat);
+    function setText(id, txt) {
+      var el = document.getElementById(id);
+      if (el && el.textContent !== txt) el.textContent = txt;
+    }
+
+    setText('ck-pipe', fmtBRL(pipe));
+    setText('ck-tot-tab', fmtBRL(totTab));
+    setText('ck-tot-fat', fmtBRL(totFat));
+
+    // Subtitle do tot-tab e tot-fat: contar quantos cards REALMENTE com valor (>0)
+    var ckTotTabSub = document.getElementById('ck-tot-tab-s');
+    if (ckTotTabSub) {
+      var n = ativos.filter(function(o){ return calcCardTabBRL(o) > 0; }).length;
+      ckTotTabSub.textContent = n + ' com tabela';
+    }
+    var ckTotFatSub = document.getElementById('ck-tot-fat-s');
+    if (ckTotFatSub) {
+      var n2 = ativos.filter(function(o){ return calcCardBRL(o) > 0; }).length;
+      ckTotFatSub.textContent = n2 + ' com faturamento';
+    }
   }
 
-  // ── PATCH dos headers das colunas do kanban ────────────────────
   function patchKanbanHeaders() {
     if (typeof window.cLoad !== 'function') return;
     var data;
     try { data = window.cLoad(); } catch(e){ return; }
     if (!Array.isArray(data)) return;
 
-    var stages = document.querySelectorAll('.crm-stage');
-    if (!stages.length) return;
+    var stagesEl = document.querySelectorAll('.crm-stage');
+    if (!stagesEl.length) return;
 
-    stages.forEach(function(stage){
+    stagesEl.forEach(function(stage){
       var stageId = stage.getAttribute('data-stage');
       if (!stageId) return;
       var cards = data.filter(function(o){ return o && o.stage === stageId && !o.deleted_at; });
@@ -163,12 +177,9 @@
     patchKanbanHeaders();
   }
 
-  // Polling continuo
   setInterval(patchTudo, 1500);
   setTimeout(patchTudo, 500);
-  setTimeout(patchTudo, 2000);
 
-  // MutationObserver no pipeline
   function observe() {
     var pipe = document.getElementById('crm-pipeline');
     if (!pipe) { setTimeout(observe, 500); return; }
@@ -180,7 +191,6 @@
   }
   observe();
 
-  // Re-render quando cambio mudar
   if (window.addEventListener) {
     window.addEventListener('projetta:cambio-changed', function(){
       try { if (typeof window.crmRender === 'function') window.crmRender(); } catch(e){}
@@ -188,5 +198,5 @@
     });
   }
 
-  console.log('[mod 134] carregado — recalcula KPIs + headers (cambio manual + margem 20% + Tab=Fat intl)');
+  console.log('[mod 134 v2] consolidado — Fazer Orc=0, cambio do card, maritimo×1.2, intl Tab=Fat=Total');
 })();
