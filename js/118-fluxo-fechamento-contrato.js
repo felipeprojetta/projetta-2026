@@ -239,106 +239,142 @@
     });
   }
   function htmlModal2(card, dadosM1){
-    var v = dadosM1.valor_fechado;
-    var produtosDefault = (v / 2).toFixed(2);
-    var servicosDefault = (v / 2).toFixed(2);
-    return 
-      '<div style="background:#fff;border-radius:14px;width:760px;max-width:96vw;max-height:92vh;overflow-y:auto;box-shadow:0 25px 70px rgba(0,0,0,.4);border-top:5px solid #16a34a">' +
-        '<div style="position:sticky;top:0;background:#fff;padding:20px 24px 14px;border-bottom:1px solid #e5e7eb;z-index:1">' +
-          '<div style="font-size:20px;font-weight:700;color:#166534">📋 Contrato de Compra e Venda</div>' +
-          '<div style="font-size:12px;color:#6b7280;margin-top:4px">' + (card.cliente||"") + ' • ' + (card.agp||"-") + ' • Reserva ' + (card.reserva||"-") + ' • Fechado em ' + formatarData(dadosM1.data_fechamento) + ' • ' + fmtBRL(v) + '</div>' +
-        '</div>' +
-        '<div style="padding:18px 24px">' +
-          // SECAO 1: IDENTIFICACAO
-          '<div style="background:#f9fafb;border-radius:10px;padding:14px;margin-bottom:14px">' +
-            '<div style="font-size:13px;font-weight:700;color:#1f2937;margin-bottom:10px;display:flex;align-items:center;gap:6px">📋 Identificação</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">ATP (puxa do Weiku ao perder foco)</label><input id="m2-atp" type="text" placeholder="Numero ATP" style="width:100%;padding:8px;border:2px solid #fbbf24;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Data Assinatura Contrato</label><input id="m2-dt-assin" type="date" value="' + hoje() + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Tipo Obra</label><select id="m2-tipo-obra" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"><option value="NOVO">NOVO</option><option value="REFORMA">REFORMA</option></select></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Representante</label><input id="m2-repres" type="text" placeholder="Nome do representante" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-          '</div>' +
-          // SECAO 2: COMPRADOR
-          '<div style="background:#f9fafb;border-radius:10px;padding:14px;margin-bottom:14px">' +
-            '<div style="font-size:13px;font-weight:700;color:#1f2937;margin-bottom:10px">👤 1.1 Comprador (Pessoa Física)</div>' +
-            '<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:8px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Nome Completo</label><input id="m2-nome" type="text" value="' + (card.cliente||"") + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">CPF</label><input id="m2-cpf" type="text" placeholder="000.000.000-00" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">RG</label><input id="m2-rg" type="text" placeholder="00.000.000-0" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Órgão / UF</label><input id="m2-rg-uf" type="text" placeholder="SSP/SP" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:3fr 1fr 1fr;gap:10px;margin-bottom:8px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Endereço (Rua)</label><input id="m2-rua" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Número</label><input id="m2-num" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Complemento</label><input id="m2-comp" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:2fr 1fr 2fr;gap:10px;margin-bottom:8px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Bairro</label><input id="m2-bairro" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">CEP</label><input id="m2-cep" type="text" placeholder="00000-000" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Cidade / UF</label><input id="m2-cid" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">E-mail</label><input id="m2-email" type="email" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">E-mail NFe</label><input id="m2-email-nfe" type="email" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Telefone</label><input id="m2-tel" type="text" placeholder="(00) 00000-0000" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-          '</div>' +
-          // SECAO 3: ENTREGA
-          '<div style="background:#f9fafb;border-radius:10px;padding:14px;margin-bottom:14px">' +
-            '<div style="font-size:13px;font-weight:700;color:#1f2937;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">' +
-              '<span>🚚 Endereço de Entrega / Obra</span>' +
-              '<label style="font-size:11px;font-weight:500;color:#6b7280;cursor:pointer"><input type="checkbox" id="m2-mesma-end" style="margin-right:4px"> Igual ao residencial</label>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:3fr 1fr 1fr;gap:10px;margin-bottom:8px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Endereço Obra</label><input id="m2-er" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Número</label><input id="m2-en" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Complemento</label><input id="m2-ec" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:2fr 1fr 2fr;gap:10px;margin-bottom:8px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Bairro</label><input id="m2-eb" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">CEP</label><input id="m2-ecep" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Cidade / UF</label><input id="m2-ecid" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">CNO (Cadastro Nacional Obras)</label><input id="m2-cno" type="text" placeholder="Opcional" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Ponto Referência</label><input id="m2-ref" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:2fr 1fr 2fr;gap:10px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Pessoa Autorizada Receber</label><input id="m2-pa" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Telefone</label><input id="m2-pt" type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">E-mail</label><input id="m2-pe" type="email" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-          '</div>' +
-          // SECAO 4: PRECO
-          '<div style="background:#f9fafb;border-radius:10px;padding:14px;margin-bottom:14px">' +
-            '<div style="font-size:13px;font-weight:700;color:#1f2937;margin-bottom:10px">💰 Preço (Total: ' + fmtBRL(v) + ')</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Produtos (R$)</label><input id="m2-prod" type="number" step="0.01" value="' + produtosDefault + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Serviços (R$)</label><input id="m2-serv" type="number" step="0.01" value="' + servicosDefault + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-            '<div id="m2-soma-aviso" style="margin-top:8px;font-size:12px;color:#6b7280"></div>' +
-          '</div>' +
-          // SECAO 5: PAGAMENTO
-          '<div style="background:#f9fafb;border-radius:10px;padding:14px;margin-bottom:14px">' +
-            '<div style="font-size:13px;font-weight:700;color:#1f2937;margin-bottom:10px">💳 Condições de Pagamento</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Forma</label><select id="m2-forma" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"><option>BOLETO</option><option>PIX</option><option>BOLETO_PIX</option><option>OUTRO</option></select></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Qtd Parcelas</label><input id="m2-qtdp" type="number" min="1" value="1" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Data 1ª Parcela</label><input id="m2-dt1" type="date" value="' + hoje() + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-            '</div>' +
-            '<div id="m2-parcelas-preview" style="background:#fff;border-radius:6px;padding:10px;font-size:12px;border:1px dashed #d1d5db"></div>' +
-          '</div>' +
-        '</div>' +
-        // FOOTER STICKY
-        '<div style="position:sticky;bottom:0;background:#fff;padding:14px 24px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end">' +
-          '<button id="m2-cancelar" style="background:#f3f4f6;color:#374151;border:none;padding:11px 20px;border-radius:8px;cursor:pointer;font-weight:600">Cancelar (mantém em Fechado)</button>' +
-          '<button id="m2-salvar" style="background:#16a34a;color:#fff;border:none;padding:11px 28px;border-radius:8px;cursor:pointer;font-weight:600">💾 Salvar Contrato</button>' +
-        '</div>' +
-      '</div>';
+    try {
+      if(!card) card = {};
+      if(!dadosM1) dadosM1 = {};
+      var v = parseFloat(dadosM1.valor_fechado) || 0;
+      var produtosDefault = (v / 2).toFixed(2);
+      var servicosDefault = (v / 2).toFixed(2);
+      var clienteN = (card.cliente || "").toString();
+      var agp = (card.agp || "-").toString();
+      var reserva = (card.reserva || "-").toString();
+      var dataF = formatarData(dadosM1.data_fechamento) || "-";
+      var valorFmt = fmtBRL(v);
+      var totalFmt = fmtBRL(v);
+      var hojeStr = hoje();
+
+      var p = [];
+      // CONTAINER + HEADER
+      p.push("<div style=\"background:#fff;border-radius:14px;width:760px;max-width:96vw;max-height:92vh;overflow-y:auto;box-shadow:0 25px 70px rgba(0,0,0,.4);border-top:5px solid #16a34a\">");
+      p.push("<div style=\"position:sticky;top:0;background:#fff;padding:20px 24px 14px;border-bottom:1px solid #e5e7eb;z-index:1\">");
+      p.push("<div style=\"font-size:20px;font-weight:700;color:#166534\">📋 Contrato de Compra e Venda</div>");
+      p.push("<div style=\"font-size:12px;color:#6b7280;margin-top:4px\">" + clienteN + " • " + agp + " • Reserva " + reserva + " • Fechado em " + dataF + " • " + valorFmt + "</div>");
+      p.push("</div><div style=\"padding:18px 24px\">");
+
+      // SECAO 1: IDENTIFICACAO
+      p.push("<div style=\"background:#f9fafb;border-radius:10px;padding:14px;margin-bottom:14px\">");
+      p.push("<div style=\"font-size:13px;font-weight:700;color:#1f2937;margin-bottom:10px\">📋 Identificação</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px\">");
+      p.push(campoInput("m2-atp", "ATP (puxa do Weiku ao perder foco)", "text", "", "Numero ATP", "border:2px solid #fbbf24"));
+      p.push(campoInput("m2-dt-assin", "Data Assinatura Contrato", "date", hojeStr));
+      p.push(campoSelect("m2-tipo-obra", "Tipo Obra", ["NOVO", "REFORMA"]));
+      p.push(campoInput("m2-repres", "Representante", "text", "", "Nome do representante"));
+      p.push("</div></div>");
+
+      // SECAO 2: COMPRADOR
+      p.push("<div style=\"background:#f9fafb;border-radius:10px;padding:14px;margin-bottom:14px\">");
+      p.push("<div style=\"font-size:13px;font-weight:700;color:#1f2937;margin-bottom:10px\">👤 1.1 Comprador (Pessoa Física)</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:8px\">");
+      p.push(campoInput("m2-nome", "Nome Completo", "text", clienteN));
+      p.push(campoInput("m2-cpf", "CPF", "text", "", "000.000.000-00"));
+      p.push("</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px\">");
+      p.push(campoInput("m2-rg", "RG", "text", "", "00.000.000-0"));
+      p.push(campoInput("m2-rg-uf", "Órgão / UF", "text", "", "SSP/SP"));
+      p.push("</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:3fr 1fr 1fr;gap:10px;margin-bottom:8px\">");
+      p.push(campoInput("m2-rua", "Endereço (Rua)", "text"));
+      p.push(campoInput("m2-num", "Número", "text"));
+      p.push(campoInput("m2-comp", "Complemento", "text"));
+      p.push("</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:2fr 1fr 2fr;gap:10px;margin-bottom:8px\">");
+      p.push(campoInput("m2-bairro", "Bairro", "text"));
+      p.push(campoInput("m2-cep", "CEP", "text", "", "00000-000"));
+      p.push(campoInput("m2-cid", "Cidade / UF", "text"));
+      p.push("</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px\">");
+      p.push(campoInput("m2-email", "E-mail", "email"));
+      p.push(campoInput("m2-email-nfe", "E-mail NFe", "email"));
+      p.push(campoInput("m2-tel", "Telefone", "text", "", "(00) 00000-0000"));
+      p.push("</div></div>");
+
+      // SECAO 3: ENTREGA / OBRA
+      p.push("<div style=\"background:#f9fafb;border-radius:10px;padding:14px;margin-bottom:14px\">");
+      p.push("<div style=\"font-size:13px;font-weight:700;color:#1f2937;margin-bottom:10px;display:flex;justify-content:space-between\">");
+      p.push("<span>🚚 Endereço de Entrega / Obra</span>");
+      p.push("<label style=\"font-size:11px;font-weight:500;color:#6b7280;cursor:pointer\"><input type=\"checkbox\" id=\"m2-mesma-end\" style=\"margin-right:4px\"> Igual ao residencial</label>");
+      p.push("</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:3fr 1fr 1fr;gap:10px;margin-bottom:8px\">");
+      p.push(campoInput("m2-er", "Endereço Obra", "text"));
+      p.push(campoInput("m2-en", "Número", "text"));
+      p.push(campoInput("m2-ec", "Complemento", "text"));
+      p.push("</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:2fr 1fr 2fr;gap:10px;margin-bottom:8px\">");
+      p.push(campoInput("m2-eb", "Bairro", "text"));
+      p.push(campoInput("m2-ecep", "CEP", "text"));
+      p.push(campoInput("m2-ecid", "Cidade / UF", "text"));
+      p.push("</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px\">");
+      p.push(campoInput("m2-cno", "CNO (Cadastro Nacional Obras)", "text", "", "Opcional"));
+      p.push(campoInput("m2-ref", "Ponto Referência", "text"));
+      p.push("</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:2fr 1fr 2fr;gap:10px\">");
+      p.push(campoInput("m2-pa", "Pessoa Autorizada Receber", "text"));
+      p.push(campoInput("m2-pt", "Telefone", "text"));
+      p.push(campoInput("m2-pe", "E-mail", "email"));
+      p.push("</div></div>");
+
+      // SECAO 4: PRECO
+      p.push("<div style=\"background:#f9fafb;border-radius:10px;padding:14px;margin-bottom:14px\">");
+      p.push("<div style=\"font-size:13px;font-weight:700;color:#1f2937;margin-bottom:10px\">💰 Preço (Total: " + totalFmt + ")</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px\">");
+      p.push(campoInput("m2-prod", "Produtos (R$)", "number", produtosDefault));
+      p.push(campoInput("m2-serv", "Serviços (R$)", "number", servicosDefault));
+      p.push("</div>");
+      p.push("<div id=\"m2-soma-aviso\" style=\"margin-top:8px;font-size:12px;color:#6b7280\"></div>");
+      p.push("</div>");
+
+      // SECAO 5: PAGAMENTO
+      p.push("<div style=\"background:#f9fafb;border-radius:10px;padding:14px;margin-bottom:14px\">");
+      p.push("<div style=\"font-size:13px;font-weight:700;color:#1f2937;margin-bottom:10px\">💳 Condições de Pagamento</div>");
+      p.push("<div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px\">");
+      p.push(campoSelect("m2-forma", "Forma", ["BOLETO", "PIX", "BOLETO_PIX", "OUTRO"]));
+      p.push(campoInput("m2-qtdp", "Qtd Parcelas", "number", "1"));
+      p.push(campoInput("m2-dt1", "Data 1ª Parcela", "date", hojeStr));
+      p.push("</div>");
+      p.push("<div id=\"m2-parcelas-preview\" style=\"background:#fff;border-radius:6px;padding:10px;font-size:12px;border:1px dashed #d1d5db\"></div>");
+      p.push("</div>");
+
+      // FECHAR padding
+      p.push("</div>");
+
+      // FOOTER
+      p.push("<div style=\"position:sticky;bottom:0;background:#fff;padding:14px 24px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end\">");
+      p.push("<button id=\"m2-cancelar\" style=\"background:#f3f4f6;color:#374151;border:none;padding:11px 20px;border-radius:8px;cursor:pointer;font-weight:600\">Cancelar (mantém em Fechado)</button>");
+      p.push("<button id=\"m2-salvar\" style=\"background:#16a34a;color:#fff;border:none;padding:11px 28px;border-radius:8px;cursor:pointer;font-weight:600\">💾 Salvar Contrato</button>");
+      p.push("</div>");
+
+      p.push("</div>");
+      return p.join("");
+    } catch(err){
+      console.error("[118] htmlModal2 erro:", err);
+      return "<div style=\"background:#fee;color:#c00;padding:30px;border-radius:10px;font-family:system-ui;max-width:600px\"><b>⚠ Erro construindo Modal 2:</b><br>" + (err.message||err) + "</div>";
+    }
   }
+
+  // Helpers para construcao de campos do modal 2
+  function campoInput(id, label, tipo, val, placeholder, extraStyle){
+    val = val == null ? "" : String(val);
+    placeholder = placeholder || "";
+    extraStyle = extraStyle || "";
+    var style = "width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" + extraStyle;
+    return "<div><label style=\"font-size:11px;color:#6b7280;font-weight:600\">" + label + "</label><input id=\"" + id + "\" type=\"" + tipo + "\" value=\"" + escAttr(val) + "\" placeholder=\"" + escAttr(placeholder) + "\" style=\"" + style + "\"></div>";
+  }
+  function campoSelect(id, label, opcoes){
+    var opts = opcoes.map(function(o){ return "<option value=\"" + escAttr(o) + "\">" + o + "</option>"; }).join("");
+    return "<div><label style=\"font-size:11px;color:#6b7280;font-weight:600\">" + label + "</label><select id=\"" + id + "\" style=\"width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px\">" + opts + "</select></div>";
+  }
+  function escAttr(s){ return String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
   async function mostrarModal2(card_id){
     // Buscar dados do card e do orcamento_fechado existente (Modal 1 ja salvou parcial)
     var card = {};
