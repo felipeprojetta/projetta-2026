@@ -1020,15 +1020,9 @@ function buildCard(o,st,isFazerOrc){
       if(_vInst>0){
         html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>🔧 Instalação:</span><span style="font-weight:600">'+_fBrl(_vInst)+' · '+_fUsd(_vInst/_cambio)+'</span></div>';
       }
-      // ★ Felipe 27/04: detalhar Crate / Land / Sea separados (igual proposta)
-      if(_caixaUsd>0){
-        html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>📦 Crate:</span><span style="font-weight:600">'+_fBrl(_caixaUsd*_cambio)+' · '+_fUsd(_caixaUsd)+'</span></div>';
-      }
-      if(_fTerrestreUsd>0){
-        html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>🚚 Land Freight:</span><span style="font-weight:600">'+_fBrl(_fTerrestreUsd*_cambio)+' · '+_fUsd(_fTerrestreUsd)+'</span></div>';
-      }
-      if(_fMaritimoUsd>0){
-        html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>🚢 Sea Freight:</span><span style="font-weight:600">'+_fBrl(_fMaritimoUsd*_cambio)+' · '+_fUsd(_fMaritimoUsd)+' <span title="margem 20%" style="color:#d97706">🛡</span></span></div>';
+      if(_logisticaUsd>0){
+        var _logLabel = _incoterm==='CIF' ? '🚢 Caixa+Fretes' : _incoterm==='FOB' ? '📦 Caixa+Terrestre' : '📦 Logística';
+        html += '<div style="display:flex;justify-content:space-between;color:#555;margin-top:1px"><span>'+_logLabel+':</span><span style="font-weight:600">'+_fBrl(_logisticaBrl)+' · '+_fUsd(_logisticaUsd)+'</span></div>';
       }
       // Total — destaque
       html += '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed rgba(230,81,0,.3)"><span style="color:#003144;font-weight:800">TOTAL:</span><span style="color:#e65100;font-weight:800;font-size:11px">'+_fBrl(_totalBrl)+'</span></div>';
