@@ -186,7 +186,7 @@
   function htmlModal2(card, dadosM1){
     var v = dadosM1.valor_fechado;
     var produtosDefault = (v / 2).toFixed(2);
-    var serviçosDefault = (v / 2).toFixed(2);
+    var servicosDefault = (v / 2).toFixed(2);
     return 
       '<div style="background:#fff;border-radius:14px;width:760px;max-width:96vw;max-height:92vh;overflow-y:auto;box-shadow:0 25px 70px rgba(0,0,0,.4);border-top:5px solid #16a34a">' +
         '<div style="position:sticky;top:0;background:#fff;padding:20px 24px 14px;border-bottom:1px solid #e5e7eb;z-index:1">' +
@@ -262,7 +262,7 @@
             '<div style="font-size:13px;font-weight:700;color:#1f2937;margin-bottom:10px">💰 Preço (Total: ' + fmtBRL(v) + ')</div>' +
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
               '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Produtos (R$)</label><input id="m2-prod" type="number" step="0.01" value="' + produtosDefault + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
-              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Serviços (R$)</label><input id="m2-serv" type="number" step="0.01" value="' + serviçosDefault + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
+              '<div><label style="font-size:11px;color:#6b7280;font-weight:600">Serviços (R$)</label><input id="m2-serv" type="number" step="0.01" value="' + servicosDefault + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div>' +
             '</div>' +
             '<div id="m2-soma-aviso" style="margin-top:8px;font-size:12px;color:#6b7280"></div>' +
           '</div>' +
