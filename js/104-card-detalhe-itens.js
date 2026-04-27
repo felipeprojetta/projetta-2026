@@ -1,47 +1,47 @@
 /* ============================================================================
- * js/104-card-detalhe-itens.js  —  Modulo NOVO (26-abr-2026 v2)
+ * js/104-card-detalhe-itens.js — v3 (27-abr-2026)
  *
- * Autorizado por Felipe Xavier de Lima.
- * Pedido: "DETALHE CADA ITEM QUE VAI PARA CARD ASSIM FICA MAIS FACIL CONFERIR,
- *          ESTA COLOCANDO PORTA + OUTROS ITENS SOMADOS NO CARD,
- *          CONFIRA TUDO CADA LINHA PARA ESTAR CERTO MESMO VALOR DA PROPOSTA NO CARD"
- *
- * RESULTADO no card kanban (internacional CIF/FOB):
- *   🚪 Porta:         R$ 119.910 · US$ 23,545
- *   📦 Crate:         R$ 4.073   · US$ 800
- *   🚚 Land Freight:  R$ 8.658   · US$ 1,700
- *   🚢 Sea Freight:   R$ 18.023  · US$ 3,539  ← com margem 20% interna
- *   ─────────────────────────────────────────
- *   TOTAL:            R$ 150.664
- *                     US$ 29,584    ← BATE com proposta
- *
- * Identificacao do card: via nome do cliente (`.crm-card-client`) cruzado com
- * localStorage `projetta_crm_v1`. NAO depende de data-id (que nao existe).
- *
- * Conforme regras de blindagem:
- *  - NAO modifica js/10-crm.js (BLINDADO)
- *  - Atua via post-processing no DOM apos crmRender / mutations
+ * Felipe 27/04: 
+ *  - Cambio AGORA vem do CARD (o.inst_cambio em extras OU direto), nao do
+ *    projettaCambio. Sem fallback 5.0918.
+ *  - Reduzido o polling pra parar de piscar.
+ *  - Reset de flag SO quando muda numero de cards (nao a cada mutation).
  * ========================================================================== */
 (function(){
   "use strict";
-  if(window.__projetta104CardDetalheV2Applied) return;
-  window.__projetta104CardDetalheV2Applied = true;
-  console.log("[104-card-detalhe-v2] iniciando");
+  if(window.__projetta104CardDetalheV3Applied) return;
+  window.__projetta104CardDetalheV3Applied = true;
+  console.log("[104-card-detalhe-v3] iniciando");
 
   var MARGIN_RATE = 0.20;
-  var FLAG_ATTR = "data-projetta104DetalheV2";
+  var FLAG_ATTR = "data-projetta104DetalheV3";
+  var ULTIMA_CHAVE_RENDER = ""; // pra detectar quando precisa re-renderizar
 
   function fmtBRL(v){ return "R$ " + Math.round(Number(v) || 0).toLocaleString("pt-BR"); }
   function fmtUSD(v){ return "US$ " + Math.round(Number(v) || 0).toLocaleString("en-US"); }
 
-  function getCambio(){
+  function getExtra(c, key){
+    if(!c) return 0;
+    var v = (c.extras && c.extras[key] != null) ? c.extras[key] : c[key];
+    return parseFloat(v) || 0;
+  }
+  function getExtraStr(c, key){
+    if(!c) return "";
+    var v = (c.extras && c.extras[key] != null) ? c.extras[key] : c[key];
+    return (v == null) ? "" : String(v);
+  }
+
+  // ★ Cambio AGORA vem do card. Sem fallback 5.0918.
+  function getCambioCard(c){
+    var cc = getExtra(c, "inst_cambio");
+    if(cc > 0) return cc;
     try {
       if(window.projettaCambio && window.projettaCambio.get){
-        var c = window.projettaCambio.get();
-        if(c > 0) return c;
+        var c2 = window.projettaCambio.get();
+        if(c2 > 0) return c2;
       }
     } catch(e){}
-    return 5.0918;
+    return 0;
   }
 
   function getLocalStorageCards(){
@@ -54,7 +54,6 @@
     } catch(e){ return []; }
   }
 
-  // Identifica card por NOME DO CLIENTE (cruzado com localStorage)
   function findCardData(cardEl){
     var clientEl = cardEl.querySelector(".crm-card-client");
     if(!clientEl) return null;
@@ -64,12 +63,11 @@
     var cards = getLocalStorageCards();
     if(cards.length === 0) return null;
 
-    // Filtrar so internacionais (com sinais)
     var candidatos = cards.filter(function(c){
       if(!c || c.deleted_at) return false;
       if(!c.cliente) return false;
-      var quem = String((c.extras && c.extras.inst_quem) || c.inst_quem || "").toUpperCase();
-      var inco = String((c.extras && c.extras.inst_incoterm) || c.inst_incoterm || "").toUpperCase();
+      var quem = getExtraStr(c, "inst_quem").toUpperCase();
+      var inco = getExtraStr(c, "inst_incoterm").toUpperCase();
       var ehIntl = c.scope === "internacional"
                 || quem === "INTERNACIONAL"
                 || inco === "CIF" || inco === "FOB" || inco === "EXW"
@@ -77,37 +75,27 @@
       return ehIntl;
     });
 
-    // Match exato primeiro
     var found = candidatos.find(function(c){ return c.cliente === nome; });
     if(found) return found;
-
-    // Match parcial
     found = candidatos.find(function(c){
       return c.cliente.indexOf(nome) >= 0 || nome.indexOf(c.cliente) >= 0;
     });
     return found || null;
   }
 
-  function getExtra(c, key){
-    if(!c) return 0;
-    var v = (c.extras && c.extras[key] != null) ? c.extras[key] : c[key];
-    return parseFloat(v) || 0;
-  }
-
   function calcularItens(cardData){
     var c = cardData || {};
-    var cambio = getCambio();
-    var inco = String(getExtra(c, "inst_incoterm") ? "" : (c.extras && c.extras.inst_incoterm) || c.inst_incoterm || "").toUpperCase();
-    if(!inco) inco = String((c.extras && c.extras.inst_incoterm) || c.inst_incoterm || "").toUpperCase();
+    var cambio = getCambioCard(c);
+    if(cambio <= 0) return null;
+
+    var inco = getExtraStr(c, "inst_incoterm").toUpperCase();
     var ehCif = inco === "CIF";
     var ehFob = inco === "FOB";
 
-    // Porta (BRL)
     var porta_brl = parseFloat(c.valorFaturamento) || parseFloat(c.valorTabela) || parseFloat(c.valor) || parseFloat(c.valor_tabela) || 0;
     if(porta_brl <= 0) return null;
     var porta_usd = porta_brl / cambio;
 
-    // Crate (so se CIF ou FOB)
     var crate_usd = 0;
     if(ehCif || ehFob){
       var a = getExtra(c, "cif_caixa_a");
@@ -119,16 +107,13 @@
     }
     var crate_brl = crate_usd * cambio;
 
-    // Land Freight (so se CIF ou FOB)
     var land_usd = (ehCif || ehFob) ? getExtra(c, "cif_frete_terrestre") : 0;
     var land_brl = land_usd * cambio;
 
-    // Sea Freight COM MARGEM 20% (so se CIF)
     var sea_usd_orig = ehCif ? getExtra(c, "cif_frete_maritimo") : 0;
     var sea_usd = sea_usd_orig * (1 + MARGIN_RATE);
     var sea_brl = sea_usd * cambio;
 
-    // Total
     var total_usd = porta_usd + crate_usd + land_usd + sea_usd;
     var total_brl = porta_brl + crate_brl + land_brl + sea_brl;
 
@@ -145,16 +130,13 @@
     };
   }
 
-  // Achar o bloco visual: div com style "linear-gradient" ou que contem Porta+TOTAL
   function findValorBloco(cardEl){
     var divs = cardEl.querySelectorAll("div");
     for(var i = 0; i < divs.length; i++){
       var d = divs[i];
       var t = d.textContent || "";
       if(t.length > 600 || t.length < 30) continue;
-      // Tem que ter Porta: e TOTAL: e estar no card (nao nos sub-elements de outros cards)
       if(/Porta\s*:/i.test(t) && /TOTAL\s*:/i.test(t)){
-        // Pegar o MENOR (mais interno) que casa
         return d;
       }
     }
@@ -173,7 +155,6 @@
     var bloco = findValorBloco(cardEl);
     if(!bloco) return;
 
-    // Construir novo HTML detalhado
     var lines = [];
     lines.push('<div style="display:flex;justify-content:space-between;color:#555"><span>🚪 Porta:</span><span style="font-weight:600">' + fmtBRL(calc.porta.brl) + ' · ' + fmtUSD(calc.porta.usd) + '</span></div>');
     if(calc.crate.usd > 0){
@@ -188,64 +169,67 @@
     lines.push('<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed rgba(230,81,0,.3)"><span style="color:#003144;font-weight:800">TOTAL:</span><span style="color:#e65100;font-weight:800;font-size:11px">' + fmtBRL(calc.total.brl) + '</span></div>');
     lines.push('<div style="text-align:right;color:#1565c0;font-weight:700;font-size:10px">' + fmtUSD(calc.total.usd) + '</div>');
 
-    var newInner = lines.join("");
-
-    // Preservar style do bloco mas trocar conteudo interno
-    bloco.innerHTML = newInner;
+    bloco.innerHTML = lines.join("");
     cardEl.setAttribute(FLAG_ATTR, "1");
   }
 
   function tick(){
     try {
       var cards = document.querySelectorAll(".crm-card");
+      // Construir uma chave que muda quando layout muda
+      var chave = cards.length + ":";
       for(var i = 0; i < cards.length; i++){
-        patchCard(cards[i]);
+        var c = cards[i].querySelector(".crm-card-client");
+        chave += (c ? c.textContent : "") + "|";
       }
-    } catch(e){
-      console.warn("[104-card-detalhe-v2] erro:", e);
-    }
-  }
-
-  function resetFlags(){
-    var cards = document.querySelectorAll("[" + FLAG_ATTR + "]");
-    for(var i = 0; i < cards.length; i++){
-      cards[i].removeAttribute(FLAG_ATTR);
-    }
-  }
-
-  setInterval(tick, 2000);
-  setTimeout(tick, 200);
-  setTimeout(tick, 800);
-  setTimeout(tick, 2500);
-
-  if(typeof MutationObserver !== "undefined"){
-    var mo = new MutationObserver(function(muts){
-      var precisa = false;
-      for(var i = 0; i < muts.length && !precisa; i++){
-        var t = muts[i].target;
-        if(!t || !t.className) continue;
-        var cn = t.className.toString ? t.className.toString() : String(t.className);
-        if(/crm-card|crm-stage-body|sb-s/.test(cn)){
-          precisa = true;
+      // So re-renderiza se a chave mudou (cards foram recriados pelo crmRender)
+      if(chave !== ULTIMA_CHAVE_RENDER){
+        ULTIMA_CHAVE_RENDER = chave;
+        for(var j = 0; j < cards.length; j++){
+          cards[j].removeAttribute(FLAG_ATTR);
+          patchCard(cards[j]);
+        }
+      } else {
+        // Layout igual — so patcheia cards que ainda nao foram patcheados
+        for(var k = 0; k < cards.length; k++){
+          patchCard(cards[k]);
         }
       }
-      if(precisa){
-        resetFlags();
-        setTimeout(tick, 80);
-      }
-    });
-    if(document.body){
-      mo.observe(document.body, { childList: true, subtree: true });
+    } catch(e){
+      console.warn("[104-card-detalhe-v3] erro:", e);
     }
   }
 
-  // Reagir a mudanca de cambio
+  // ★ Reduzido drasticamente: tick a cada 5s + apenas timeouts iniciais
+  setInterval(tick, 5000);
+  setTimeout(tick, 300);
+  setTimeout(tick, 1500);
+
+  // ★ MutationObserver SO no #crm-pipeline e SO na lista direta de filhos
+  //   (nao subtree). Isso evita re-render quando algo dentro do card muda.
+  if(typeof MutationObserver !== "undefined"){
+    var inicializouObserver = false;
+    function tentaObservar(){
+      if(inicializouObserver) return;
+      var pipe = document.getElementById("crm-pipeline");
+      if(!pipe){ setTimeout(tentaObservar, 500); return; }
+      inicializouObserver = true;
+      var mo = new MutationObserver(function(){
+        // Espera estabilizar antes de re-render
+        setTimeout(tick, 150);
+      });
+      mo.observe(pipe, { childList: true, subtree: false });
+    }
+    tentaObservar();
+  }
+
+  // Reagir a mudanca de cambio (raro, mas suporta)
   if(window.projettaCambio && typeof window.projettaCambio.onChange === "function"){
     window.projettaCambio.onChange(function(){
-      resetFlags();
+      ULTIMA_CHAVE_RENDER = ""; // forca re-render
       setTimeout(tick, 100);
     });
   }
 
-  console.log("[104-card-detalhe-v2] instalado");
+  console.log("[104-card-detalhe-v3] instalado");
 })();
