@@ -1,33 +1,25 @@
 (() => {
-  if (window.__MOD_131_LOADED) return;
-  window.__MOD_131_LOADED = true;
+  // Recarrega pra forçar substituir mod 131 antigo
+  if (window.__MOD_131_V2_LOADED) return;
+  window.__MOD_131_V2_LOADED = true;
 
-  // ── 1. Bloqueia o auto-fetch + força manual-only no projettaCambio ──
+  // ── 1. Bloqueia auto-fetch + força manual-only ────────────────
   function whenReady(cb, attempts) {
     attempts = attempts || 0;
     if (window.projettaCambio) return cb();
-    if (attempts > 50) { console.warn('[mod 131] projettaCambio nao apareceu'); return; }
+    if (attempts > 50) return;
     setTimeout(function(){ whenReady(cb, attempts+1); }, 200);
   }
-
   whenReady(function(){
     try {
-      // 1.1 Refresh vira no-op (nao busca media da API)
       window.projettaCambio.refresh = async function(){
-        console.log('[mod 131] refresh ignorado — manual only');
+        console.log('[mod 131 v2] refresh ignorado — manual only');
       };
-
-      // 1.2 set so aceita source='manual'
       var origSet = window.projettaCambio.set;
       window.projettaCambio.set = function(valor, source){
-        if (source && source !== 'manual') {
-          console.log('[mod 131] set ignorado, source=' + source);
-          return false;
-        }
+        if (source && source !== 'manual') return false;
         return origSet.call(window.projettaCambio, valor, 'manual');
       };
-
-      // 1.3 Garante que localStorage marca como manual (assim o mod 92 nao sobrescreve com media no proximo load)
       try {
         var raw = localStorage.getItem('projetta_cambio_master_v1');
         var s = raw ? JSON.parse(raw) : { valor: 5.20 };
@@ -36,73 +28,81 @@
           localStorage.setItem('projetta_cambio_master_v1', JSON.stringify(s));
         }
       } catch(e){}
-
-      console.log('[mod 131] projettaCambio bloqueado em manual-only — atual: ' + window.projettaCambio.get());
-    } catch(e) {
-      console.warn('[mod 131] erro:', e);
-    }
+      console.log('[mod 131 v2] manual only ATIVADO — atual: ' + window.projettaCambio.get());
+    } catch(e) { console.warn('[mod 131 v2]', e); }
   });
 
-  // ── 2. UI: destacar o campo inst-intl-cambio no card CRM ──
-  function realcarCampoCambio() {
-    var inp = document.getElementById('inst-intl-cambio');
-    if (!inp) return;
-    if (inp.__mod131Estilizado) return;
-    inp.__mod131Estilizado = true;
+  // ── 2. CRIAR campo de input dentro do modal Editar Oportunidade ─
+  function injetarCampoCambio() {
+    // Evita duplicar
+    if (document.getElementById('mod131-cambio-card')) return;
 
-    // Estilo destaque
-    inp.style.background = '#fff8dc';
-    inp.style.border = '2px solid #d35400';
-    inp.style.fontWeight = '700';
-    inp.style.fontSize = '14px';
-    inp.style.color = '#003144';
+    // Painel CIF tem id crm-cif-box-title
+    var titulo = document.getElementById('crm-cif-box-title');
+    if (!titulo) return;
 
-    // Legenda acima do campo (so adiciona uma vez)
-    if (inp.parentNode && !inp.parentNode.querySelector('.mod131-legenda')) {
-      var legenda = document.createElement('div');
-      legenda.className = 'mod131-legenda';
-      legenda.style.cssText = 'background:#fff3e0;border:1px solid #d35400;color:#7a3e00;padding:8px 10px;border-radius:6px;font-size:11px;margin-bottom:6px;line-height:1.4;font-weight:600';
-      legenda.innerHTML = '⚠ <b>Cambio USD/BRL — DIGITE MANUALMENTE</b><br><span style="font-weight:400">Esse valor vai pra Orcamento, Frete, Caixa e todos os outros lugares.</span>';
-      inp.parentNode.insertBefore(legenda, inp);
-    }
+    // O painel CIF eh o pai (.parentNode do titulo)
+    var painel = titulo.parentNode;
+    if (!painel) return;
 
-    // Hook de change pra propagar via projettaCambio
-    if (!inp.__mod131Hooked) {
-      inp.__mod131Hooked = true;
-      var propagar = function(){
-        var v = parseFloat(String(inp.value || '').replace(',', '.'));
-        if (isFinite(v) && v > 0 && window.projettaCambio) {
-          window.projettaCambio.set(v, 'manual');
-          console.log('[mod 131] cambio do card propagado: ' + v);
-        }
-      };
-      inp.addEventListener('change', propagar);
-      inp.addEventListener('blur', propagar);
-      inp.addEventListener('keydown', function(e){
-        if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
-      });
-    }
+    var atual = window.projettaCambio ? window.projettaCambio.get() : 5.20;
+
+    // Bloco do cambio — vai ANTES do titulo do painel CIF
+    var bloco = document.createElement('div');
+    bloco.style.cssText = 'background:#fff8dc;border:2px solid #d35400;border-radius:8px;padding:10px 12px;margin-bottom:10px';
+    bloco.innerHTML =
+      '<div style="font-size:11px;font-weight:700;color:#7a3e00;margin-bottom:4px">💵 CAMBIO USD/BRL — DIGITE MANUALMENTE</div>' +
+      '<div style="font-size:10px;color:#7a3e00;margin-bottom:8px;font-style:italic;line-height:1.4">Esse valor vai pra Orcamento, Frete, Caixa e todos os outros lugares.</div>' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+        '<label style="font-size:11px;font-weight:700;color:#003144">R$</label>' +
+        '<input type="number" id="mod131-cambio-card" min="0" step="0.0001" style="flex:1;max-width:140px;padding:6px 8px;border:2px solid #d35400;border-radius:6px;font-weight:700;font-size:14px;background:#fff;color:#003144" value="' + atual.toFixed(4) + '">' +
+        '<span style="font-size:11px;color:#666">por US$ 1.00</span>' +
+      '</div>';
+
+    // Insere antes do titulo do painel CIF
+    painel.insertBefore(bloco, titulo);
+
+    // Hook de change
+    var inp = document.getElementById('mod131-cambio-card');
+    var propagar = function(){
+      var v = parseFloat(String(inp.value || '').replace(',', '.'));
+      if (!isFinite(v) || v <= 0) return;
+      if (window.projettaCambio) {
+        window.projettaCambio.set(v, 'manual');
+      }
+      // Atualiza inst-intl-cambio (se existir) pra re-render dos calculos do CRM
+      var intl = document.getElementById('inst-intl-cambio');
+      if (intl) {
+        intl.value = v.toFixed(4);
+        intl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      // Re-disparar calculo CIF (mostra "câmbio X.XX" embaixo)
+      if (typeof window.crmCifRecalc === 'function') {
+        try { window.crmCifRecalc(); } catch(e){}
+      }
+      console.log('[mod 131 v2] cambio do card propagado: ' + v);
+    };
+    inp.addEventListener('change', propagar);
+    inp.addEventListener('blur', propagar);
+    inp.addEventListener('keydown', function(e){
+      if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+    });
+
+    console.log('[mod 131 v2] campo cambio injetado no modal CRM');
   }
 
-  // Polling pra pegar quando o modal abre
-  setInterval(realcarCampoCambio, 1500);
-  realcarCampoCambio();
+  // Polling a cada 1.5s pra detectar quando modal abre
+  setInterval(injetarCampoCambio, 1500);
+  setTimeout(injetarCampoCambio, 500);
 
-  // ── 3. Esconder UI de "media 30d" se existir (esquecer media) ──
+  // ── 3. Esconder UI de "media 30d" se existir ──
   function esconderMedia() {
     ['cambio-master-media', 'cambio-master-extra', 'cambio-master-usar-media', 'cambio-master-refresh'].forEach(function(id){
       var el = document.getElementById(id);
-      if (el) {
-        el.style.display = 'none';
-        // Tambem esconder o pai se for um wrapper especifico
-        var p = el.parentElement;
-        if (p && (p.classList.contains('cambio-media-wrap') || p.classList.contains('cambio-extra'))) {
-          p.style.display = 'none';
-        }
-      }
+      if (el) el.style.display = 'none';
     });
   }
   setInterval(esconderMedia, 2000);
 
-  console.log('[mod 131] carregado — manual only + UI destacada');
+  console.log('[mod 131 v2] carregado — cria input cambio dentro do modal CRM');
 })();
