@@ -175,9 +175,12 @@
         if(orig <= 0){ divAj.innerHTML = "Sem valor original — primeira venda"; return; }
         var diff = v - orig;
         var pct = (diff/orig)*100;
+        var pctRestou = (v/orig)*100;
         var cor = pct < 0 ? "#dc2626" : (pct > 0 ? "#16a34a" : "#6b7280");
         var sinal = pct < 0 ? "▼" : (pct > 0 ? "▲" : "—");
-        divAj.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center"><span>Variação:</span><span style="color:' + cor + ';font-weight:700">' + sinal + ' ' + Math.abs(pct).toFixed(2) + '% (' + fmtBRL(diff) + ')</span></div>';
+        divAj.innerHTML =
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="color:#6b7280">Variação:</span><span style="color:' + cor + ';font-weight:700">' + sinal + ' ' + Math.abs(pct).toFixed(2) + '% (' + fmtBRL(diff) + ')</span></div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px dashed #d1d5db"><span style="color:#6b7280">Restou do original:</span><span style="font-weight:700;color:#1f2937">' + pctRestou.toFixed(2) + '% (' + fmtBRL(v) + ')</span></div>';
       }
       recalc();
       inpVal.oninput = recalc;
