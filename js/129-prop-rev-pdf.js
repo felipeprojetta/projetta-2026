@@ -16,72 +16,115 @@
     return true;
   }
 
-  // Pega versao ativa do card no banco
-  async function getVersaoAtivaCard(cardId) {
-    if (!cardId) return null;
-    try {
-      var url = SUPA_URL + '/rest/v1/versoes_aprovadas?card_id=eq.' + encodeURIComponent(cardId) + '&ativa=eq.true&order=versao.desc&limit=1&select=versao';
-      var res = await fetch(url, { headers: { apikey: ANON_KEY, Authorization: 'Bearer ' + ANON_KEY }});
-      if (!res.ok) return null;
-      var data = await res.json();
-      if (data && data[0]) return data[0].versao;
-    } catch(e) { console.warn('[mod 129]', e); }
-    return null;
+  // ─── ESTRATEGIA A: hook em window.reimprimirVersao
+  function hookReimprimirVersao() {
+    if (typeof window.reimprimirVersao !== 'function') return false;
+    if (window.reimprimirVersao.__mod129Patched) return true;
+    var orig = window.reimprimirVersao;
+    var wrapped = async function(id) {
+      try {
+        var url = SUPA_URL + '/rest/v1/versoes_aprovadas?id=eq.' + encodeURIComponent(id) + '&select=versao';
+        var res = await fetch(url, { headers: { apikey: ANON_KEY, Authorization: 'Bearer ' + ANON_KEY }});
+        if (res.ok) {
+          var data = await res.json();
+          if (data && data[0] && data[0].versao) {
+            window.__projettaCurrentRev = data[0].versao;
+            console.log('[mod 129] reimprimirVersao → currentRev = V' + data[0].versao);
+          }
+        }
+      } catch(e) { console.warn('[mod 129] reimp:', e); }
+      return orig.apply(this, arguments);
+    };
+    wrapped.__mod129Patched = true;
+    window.reimprimirVersao = wrapped;
+    console.log('[mod 129] reimprimirVersao hooked');
+    return true;
   }
 
-  // ── Estrategia 1: hook em window.downloadProposta — extrai V<N> do baseNome
-  function hookDownloadProposta() {
-    if (typeof window.downloadProposta !== 'function') return false;
-    if (window.downloadProposta.__mod129Patched) return true;
-    var orig = window.downloadProposta;
-    var wrapped = function(baseNome) {
+  // ─── ESTRATEGIA B: hook em window.fetch — quando INSERT versoes_aprovadas, pega versao
+  (function hookFetch() {
+    var origFetch = window.fetch;
+    window.fetch = function(url, opts) {
       try {
-        var m = (baseNome || '').match(/V(\d+)/i);
-        if (m) setPropRev(m[1]);
+        if (typeof url === 'string' &&
+            url.indexOf('/rest/v1/versoes_aprovadas') >= 0 &&
+            opts && (opts.method === 'POST' || opts.method === 'post') &&
+            opts.body) {
+          var body = (typeof opts.body === 'string') ? JSON.parse(opts.body) : opts.body;
+          if (body && body.versao) {
+            window.__projettaCurrentRev = body.versao;
+            console.log('[mod 129] INSERT versoes_aprovadas → currentRev = V' + body.versao);
+          }
+        }
+      } catch(e) {}
+      return origFetch.apply(this, arguments);
+    };
+  })();
+
+  // ─── ESTRATEGIA C: hook em populateProposta — depois dela roda, atualiza prop-rev
+  function hookPopulateProposta() {
+    if (typeof window.populateProposta !== 'function') return false;
+    if (window.populateProposta.__mod129Patched) return true;
+    var orig = window.populateProposta;
+    var wrapped = function() {
+      var ret = orig.apply(this, arguments);
+      try {
+        if (window.__projettaCurrentRev) {
+          setPropRev(window.__projettaCurrentRev);
+        }
+      } catch(e) {}
+      return ret;
+    };
+    wrapped.__mod129Patched = true;
+    window.populateProposta = wrapped;
+    console.log('[mod 129] populateProposta hooked');
+    return true;
+  }
+
+  // ─── ESTRATEGIA D: hook em html2canvas — antes de capturar, força prop-rev
+  function hookHtml2Canvas() {
+    if (typeof window.html2canvas !== 'function') return false;
+    if (window.html2canvas.__mod129Patched) return true;
+    var orig = window.html2canvas;
+    var wrapped = function(el, opts) {
+      try {
+        if (window.__projettaCurrentRev) setPropRev(window.__projettaCurrentRev);
       } catch(e) {}
       return orig.apply(this, arguments);
     };
     wrapped.__mod129Patched = true;
-    window.downloadProposta = wrapped;
-    console.log('[mod 129] window.downloadProposta hooked');
+    try { Object.keys(orig).forEach(function(k){ wrapped[k] = orig[k]; }); } catch(e) {}
+    window.html2canvas = wrapped;
+    console.log('[mod 129] html2canvas hooked');
     return true;
   }
-  var hookT = setInterval(function(){ if (hookDownloadProposta()) clearInterval(hookT); }, 300);
 
-  // ── Estrategia 2: clique em "Reimprimir" — pega versao da linha
+  // ─── Hooks que dependem de funcoes existirem — tentar a cada 300ms
+  var allHooks = setInterval(function() {
+    var allDone = hookReimprimirVersao() &&
+                  hookPopulateProposta() &&
+                  hookHtml2Canvas();
+    // Nao paramos enquanto html2canvas nao estiver carregada (ela eh carregada sob demanda)
+  }, 300);
+
+  // ─── ESTRATEGIA E (fallback): clique em "Reimprimir" — pega versao do texto
   document.addEventListener('click', function(e) {
     var btn = e.target && e.target.closest && e.target.closest('button,a');
     if (!btn) return;
     var txt = (btn.textContent || '').trim();
-    if (!/reimpr|🖨|imprimir/i.test(txt)) return;
+    if (!/reimpr|🖨/i.test(txt)) return;
     var row = btn.closest('tr,div');
     while (row && row !== document.body) {
       var rowTxt = row.textContent || '';
       var vm = rowTxt.match(/\bV(\d+)\b/);
       if (vm) {
-        setTimeout(function(){ setPropRev(vm[1]); }, 300);
-        setTimeout(function(){ setPropRev(vm[1]); }, 800);
-        setTimeout(function(){ setPropRev(vm[1]); }, 1500);
+        window.__projettaCurrentRev = parseInt(vm[1]);
+        console.log('[mod 129] click reimprimir → currentRev = V' + vm[1]);
         return;
       }
       row = row.parentElement;
     }
   }, true);
 
-  // ── Estrategia 3: MutationObserver no prop-agp — quando proposta eh montada,
-  //    busca versao ativa do banco e atualiza prop-rev
-  function watchPropAgp() {
-    var propAgp = document.getElementById('prop-agp');
-    if (!propAgp) { setTimeout(watchPropAgp, 500); return; }
-    new MutationObserver(async function() {
-      var cardId = window._crmOrcCardId;
-      if (!cardId) return;
-      var ver = await getVersaoAtivaCard(cardId);
-      if (ver) setPropRev(ver);
-    }).observe(propAgp, { childList: true, characterData: true, subtree: true });
-    console.log('[mod 129] watchPropAgp ativo');
-  }
-  watchPropAgp();
-
-  console.log('[mod 129 v2] Atualiza prop-rev no PDF/Proposta carregado');
+  console.log('[mod 129 v3] Estrategias A-E ativas');
 })();
