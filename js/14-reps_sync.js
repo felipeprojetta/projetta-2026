@@ -640,7 +640,7 @@ function calcInstIntl(){
   var diasInst=gv('inst-intl-dias');
   var diasViagem=4; // 2 ida (UDI→GRU + GRU→Destino) + 2 volta (Destino→GRU + GRU→UDI)
   var diasTotal=diasInst+diasViagem;
-  var cambio=gv('inst-intl-cambio')||5.20;
+  var cambio=gv('inst-intl-cambio')||0;
 
   var udiGru=gv('inst-intl-udigru');
   var passagem=gv('inst-intl-passagem')*pessoas;
