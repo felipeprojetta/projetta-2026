@@ -126,6 +126,15 @@ function _buildExtras(o){
     revisoes:1,anexos:1,createdAt:1,updatedAt:1};
   var ext={};
   Object.keys(o||{}).forEach(function(k){ if(!known[k]) ext[k]=o[k]; });
+  // ★ Felipe 28/04: se inst_quem !== INTERNACIONAL, ZERAR todos campos inst_intl_*
+  // antes de gravar (impede valor fantasma de passagem/hotel/etc no banco)
+  var _quem = (ext.inst_quem || '').toString().toUpperCase();
+  if(_quem !== 'INTERNACIONAL'){
+    ['inst_passagem','inst_hotel','inst_alim','inst_udigru','inst_carro',
+     'inst_mo','inst_seguro','inst_aero','inst_dias','inst_pessoas',
+     'inst_margem','inst_intl_total','inst_intl_fat','inst_intl_tab',
+     'inst_valor','inst_transp'].forEach(function(k){ ext[k]=0; });
+  }
   // Anexos grandes são tratados à parte (crm_anexos + Storage). Aqui só guardamos
   // referência leve quando já vieram como base64 pequeno (legado).
   return ext;
