@@ -925,9 +925,8 @@ function buildCard(o,st,isFazerOrc){
       // v29: usar cambio MASTER (window.projettaCambio) em vez de 0 fixo.
       //       Se o card tem inst_cambio salvo (override por card), usa ele;
       //       senao usa o master global; fallback 0.
-      var _cambio = parseFloat(o.inst_cambio) ||
-                    (window.projettaCambio && typeof window.projettaCambio.get === 'function' ? window.projettaCambio.get() : 0) ||
-                    0;
+      // Felipe 28/04: cambio 100% do card. Sem fallback projettaCambio.get
+      var _cambio = parseFloat(o.inst_cambio) || parseFloat((o.extras||{}).inst_cambio) || 0;
       if(_vInst === 0 && _instAtiva){
         // Fallback — recalcular
         var _passagemPorPessoa = parseFloat(o.inst_passagem) || 0;
