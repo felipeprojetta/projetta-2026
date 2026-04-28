@@ -536,8 +536,11 @@ function _valorRealCardBRL(o){
   // Internacional
   var _cambio = parseFloat(o.inst_cambio) || parseFloat((o.extras||{}).inst_cambio) || 0;
   // Instalação: valor salvo OU recalcular
-  var _vInst = parseFloat(o.inst_intl_fat) || 0;
-  if(_vInst === 0){
+  // ★ Felipe 28/04: respeitar inst_quem - se SEM/vazio, nao soma instalacao
+  var _instQuem = (o.inst_quem || '').toString().toUpperCase();
+  var _instAtiva = _instQuem !== 'SEM' && _instQuem !== '';
+  var _vInst = _instAtiva ? (parseFloat(o.inst_intl_fat) || 0) : 0;
+  if(_vInst === 0 && _instAtiva){
     var _passagem = parseFloat(o.inst_passagem) || 0;
     var _hotel = parseFloat(o.inst_hotel) || 0;
     var _alim = parseFloat(o.inst_alim) || 0;
