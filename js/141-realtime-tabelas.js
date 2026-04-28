@@ -50,15 +50,21 @@
   function agendarRecargaCRM(){
     if(_crmReloadTimer) clearTimeout(_crmReloadTimer);
     _crmReloadTimer = setTimeout(function(){
-      // Forca o 57-hidratar-local a re-sincronizar
+      // Felipe 28/04: SEMPRE forcar - banco e fonte unica da verdade.
+      // hidratarCrmLocal({forcar:true}) sobrescreve localStorage com banco.
       try {
-        if(typeof window._syncSilencioso === 'function'){
+        if(typeof window.hidratarCrmLocal === 'function'){
+          window.hidratarCrmLocal({forcar:true, verbose:false}).then(function(){
+            // Apos hidratar, re-render
+            if(typeof window.crmRender === 'function') window.crmRender();
+            if(typeof window.renderClientesTab === 'function') window.renderClientesTab();
+          }).catch(function(e){
+            console.warn('[141] hidratar falhou:', e);
+            if(typeof window.crmRender === 'function') window.crmRender();
+          });
+        } else if(typeof window._syncSilencioso === 'function'){
           window._syncSilencioso('realtime');
-        } else if(typeof window._loadCRMFromCloud === 'function'){
-          window._loadCRMFromCloud();
         }
-        // Re-render UI do CRM
-        if(typeof window.crmRender === 'function') window.crmRender();
       } catch(e){ console.warn('[141] erro ao recarregar CRM:', e); }
     }, 350);
   }
@@ -138,6 +144,17 @@
   }
 
   function init(){
+    // Felipe 28/04: forcar hidratacao do banco no boot.
+    // Garante que localStorage (potencialmente desatualizado) seja sobrescrito
+    // pelo estado real do banco antes do CRM renderizar.
+    setTimeout(function(){
+      if(typeof window.hidratarCrmLocal === 'function'){
+        window.hidratarCrmLocal({forcar:true, verbose:false}).then(function(r){
+          console.log('[141 boot] hidratacao forcada:', r);
+          if(typeof window.crmRender === 'function') window.crmRender();
+        }).catch(function(e){ console.warn('[141 boot] hidratar falhou:', e); });
+      }
+    }, 800);
     setTimeout(instalar, 1400);
     console.log('[141-realtime-tabelas] iniciado - escuta ' + Object.keys(TABELAS).length + ' tabelas');
   }
