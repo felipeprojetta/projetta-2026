@@ -1,5 +1,6 @@
-/* MODULE 131: campo manual de cambio do card (mod131-cambio-card)
- * FONTE UNICA. Sem fallback, sem auto-fill, sempre vazio ao criar.
+/* MODULE 131: campo cambio do card (28-abr-2026 v3 - Felipe pediu remover polling)
+ * Injeta input #mod131-cambio-card no modal CRM. SEM setInterval.
+ * Felipe: "uma vez feito nao deve produzir nada".
  */
 (function(){
   if (window.__MOD_131_5_LOADED) return;
@@ -9,10 +10,8 @@
     var num = parseFloat(String(valor||'').replace(',', '.'));
     if (!isFinite(num) || num < 0) return;
     var str = num > 0 ? num.toFixed(4) : '';
-
     var meu = document.getElementById('mod131-cambio-card');
     if (meu && meu.value !== str) meu.value = str;
-
     var oficial = document.getElementById('crm-inst-cambio');
     if (oficial && oficial.value !== str) {
       oficial.value = str;
@@ -23,31 +22,25 @@
       intl.value = str;
       try { intl.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){}
     }
-    var master = document.getElementById('cambio-master-input');
-    if (master && master.value !== str) master.value = str;
     var frete = document.getElementById('frete-calc-cambio');
     if (frete && frete.value !== str) frete.value = str;
-
     ['calc','calcInstIntl','crmCifRecalc','crmRender','populateProposta'].forEach(function(fn){
       if (typeof window[fn] === 'function') { try { window[fn](); } catch(e){} }
     });
   }
 
   function injetarCampoCambio() {
-    if (document.getElementById('mod131-cambio-card')) return;
+    if (document.getElementById('mod131-cambio-card')) return true;
     var titulo = document.getElementById('crm-cif-box-title');
-    if (!titulo) return;
+    if (!titulo) return false;
     var painel = titulo.parentNode;
-    if (!painel) return;
-
-    // Card SEMPRE inicia vazio. Se ha valor salvo em crm-inst-cambio, usa.
+    if (!painel) return false;
     var atual = '';
     var oficial = document.getElementById('crm-inst-cambio');
     if (oficial) {
       var v = parseFloat(oficial.value);
       if (isFinite(v) && v > 0) atual = v.toFixed(4);
     }
-
     var bloco = document.createElement('div');
     bloco.style.cssText = 'background:#fff8dc;border:2px solid #d35400;border-radius:8px;padding:10px 12px;margin-bottom:10px';
     bloco.innerHTML =
@@ -60,10 +53,8 @@
         '<span id="mod131-status" style="font-size:10px;color:#27ae60;font-weight:700;margin-left:8px"></span>' +
       '</div>';
     painel.insertBefore(bloco, titulo);
-
     var inp = document.getElementById('mod131-cambio-card');
     var status = document.getElementById('mod131-status');
-
     var onChange = function() {
       var v = parseFloat(String(inp.value||'').replace(',', '.'));
       if (!isFinite(v) || v < 0) return;
@@ -78,7 +69,6 @@
     inp.addEventListener('keydown', function(e){
       if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
     });
-
     if (oficial) {
       oficial.addEventListener('change', function(){
         var v = parseFloat(oficial.value);
@@ -87,13 +77,28 @@
         }
       });
     }
+    return true;
   }
 
-  setInterval(injetarCampoCambio, 1500);
-  setTimeout(injetarCampoCambio, 500);
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', injetarCampoCambio);
-  } else { injetarCampoCambio(); }
+  // Felipe 28/04: REMOVIDO setInterval(injetarCampoCambio, 1500).
+  // MutationObserver detecta abertura do modal CRM e injeta UMA VEZ.
+  function trySetup(){
+    if(injetarCampoCambio()) return;
+    // Reagir a abertura do modal via MutationObserver
+    var mo = new MutationObserver(function(){
+      if(injetarCampoCambio()){
+        try{ mo.disconnect(); }catch(e){}
+      }
+    });
+    if(document.body) mo.observe(document.body, { childList: true, subtree: true });
+    // Garantir tentativa quando modal aparecer (alguns modais reusam DOM)
+    setTimeout(injetarCampoCambio, 500);
+    setTimeout(injetarCampoCambio, 1500);
+  }
 
-  console.log('[131-cambio-card] sem fallback, sem API, card sempre vazio');
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', trySetup);
+  } else { trySetup(); }
+
+  console.log('[131-cambio v3] sem polling, so injecao via MutationObserver');
 })();
