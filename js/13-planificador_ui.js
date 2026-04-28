@@ -56,10 +56,26 @@ function plnPecas(Lmm, Amm, fol, mod) {
   var r  = [];
 
   /* MODELOS LISA (10, 11, 15, 23) */
-  if (mod === '10' || mod === '11' || mod === '15' || mod === '23acm' || mod === '23alu') {
+  if (mod === '10' || mod === '11' || mod === '15' || mod === '16' || mod === '23acm' || mod === '23alu') {
     // Detectar MACICO para modelo 23
     var _isMacico = (mod === '23acm' || mod === '23alu') && (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value === 'MACICO';
     var _mAlu = _isMacico ? 'alu' : 'acm';  // TAMPA+FIT → chapa ALU separada
+    /* ★ MODELO 16 — Puxador Externo + Friso Horizontal Variavel (Felipe 28/04/2026)
+       Replica logica modelo 06: descontar frisos da altura e dividir TAMPA MAIOR.
+       Se N_FRISOS=0 -> tampa unica cheia (porta lisa pura).
+       Se N_FRISOS>0 -> tampa dividida em (N+1) faixas + chapas FRISO HORIZ. */
+    var _isMod16 = (mod === '16');
+    var _N_FRISOS_16 = 0, _ESP_FRISO_16 = 0, _N_PARTS_16 = 1;
+    var _altMaior16 = G4, _qtyMul16 = 1;
+    if (_isMod16) {
+      _N_FRISOS_16 = parseInt((document.getElementById('plan-friso-h-qty')||{value:0}).value) || 0;
+      _ESP_FRISO_16 = parseInt((document.getElementById('plan-friso-h-esp')||{value:10}).value) || 10;
+      _N_PARTS_16 = _N_FRISOS_16 + 1;
+      var _altUtil_16 = G4 - (_N_FRISOS_16 * _ESP_FRISO_16);
+      var _medidaBruta_16 = _altUtil_16 / _N_PARTS_16;
+      _altMaior16 = _medidaBruta_16 + 2 * REF;
+      _qtyMul16 = _N_PARTS_16;
+    }
     var LARG_FRISO = 0, DIS_BOR_FRI = 0, frisoDeduc = 0;
     if (mod === '11') {
       LARG_FRISO  = parseInt(document.getElementById('plan-largfriso').value) || 10;
@@ -75,7 +91,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
         // ACM 1FLH mod23: TAMPA = L - 105 (ref Excel ACM)
         r.push(['TAMPA MAIOR', L - 105, G4, 2]);
       } else {
-        r.push(['TAMPA MAIOR', fW + 2*REF - frisoDeduc, G4, 2, _mAlu]);
+        r.push(['TAMPA MAIOR', fW + 2*REF - frisoDeduc, _altMaior16, 2 * _qtyMul16, _mAlu]);
       }
     } else {
       if(_isMacico){
@@ -101,9 +117,9 @@ function plnPecas(Lmm, Amm, fol, mod) {
         var T1 = base2 + FGA + FGLA*2 - 1;
         var T2 = base2 + FGLA*2 - PIV;
         var T3 = T2 - TUB_SUP;
-        r.push(['TAMPA MAIOR 01', T1, G4, 1, _mAlu]);
-        r.push(['TAMPA MAIOR 02', T2, G4, 2, _mAlu]);
-        r.push(['TAMPA MAIOR 03', T3, G4, 1, _mAlu]);
+        r.push(['TAMPA MAIOR 01', T1, _altMaior16, 1 * _qtyMul16, _mAlu]);
+        r.push(['TAMPA MAIOR 02', T2, _altMaior16, 2 * _qtyMul16, _mAlu]);
+        r.push(['TAMPA MAIOR 03', T3, _altMaior16, 1 * _qtyMul16, _mAlu]);
       }
     }
     if (mod === '11') {
@@ -126,6 +142,21 @@ function plnPecas(Lmm, Amm, fol, mod) {
       r.push(['FIT ACAB ME', 76.5, bH, 2, _mAlu], ['FIT ACAB MA', 114.5, bH, 2, _mAlu], ['FIT ACAB FITA', 101, bH, 2, _mAlu]);
     }
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
+    /* ★ MODELO 16 — pecas FRISO HORIZ (revestimento dos frisos no aluminio)
+       qty = N_FRISOS x 2 (frente + verso). Se N_FRISOS=0 -> nao gera. */
+    if (_isMod16 && _N_FRISOS_16 > 0) {
+      var _LAR_IS_16 = Math.round(L - 10 - 10 - 171.7 - 171.5);
+      var _frisoW16 = Math.round(_LAR_IS_16 + 110 + 110);
+      var _frisoH16 = _ESP_FRISO_16 + 100;
+      var _MAX_CHAPA_UTIL_16 = 1490;
+      if (_frisoW16 > _MAX_CHAPA_UTIL_16) {
+        var _frisoResto16 = _frisoW16 - _MAX_CHAPA_UTIL_16;
+        r.push(['FRISO HORIZ 1', _MAX_CHAPA_UTIL_16, _frisoH16, _N_FRISOS_16 * 2]);
+        r.push(['FRISO HORIZ 2', _frisoResto16, _frisoH16, _N_FRISOS_16 * 2]);
+      } else {
+        r.push(['FRISO HORIZ', _frisoW16, _frisoH16, _N_FRISOS_16 * 2]);
+      }
+    }
     if (mod === '23acm' || mod === '23alu') {
       var _moldRev = (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value;
       // Molduras ACM: peças 143mm largura no planificador (mesmas fórmulas da boiserie)
