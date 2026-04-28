@@ -462,6 +462,16 @@ function toggleInstQuem(){
     // Reset flag quando sair de INTERNACIONAL — assim se voltar depois
     // os defaults reaplicam
     window._intlDefaultsAplicado = false;
+    // ★ Felipe 28/04: zerar TODOS os campos inst-intl-* ao sair de INTERNACIONAL
+    // (evita valor fantasma de passagem/hotel/etc gravado no banco quando inst_quem=SEM)
+    ['inst-intl-passagem','inst-intl-hotel','inst-intl-alim','inst-intl-udigru',
+     'inst-intl-carro','inst-intl-mo','inst-intl-seguro','inst-intl-aero',
+     'inst-intl-pessoas','inst-intl-dias','inst-intl-margem','inst-intl-imp',
+     'inst-intl-transp','inst-intl-valor','inst-intl-total','inst-intl-fat',
+     'inst-intl-tab'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el){ el.value=''; try{el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){} }
+    });
   }
 }
 
