@@ -358,7 +358,7 @@ var API = {
      Chamado pelo cSave() patched. Compara com snapshot anterior
      e só manda pra nuvem as oportunidades/revisões que mudaram.
      ───────────────────────────────────────────────────────── */
-  syncFromBlob: function(dbArray){
+  syncFromBlob: async function(dbArray){
     var prev={};
     try{prev=JSON.parse(sessionStorage.getItem(SNAP_KEY)||'{}');}catch(e){}
 
@@ -366,11 +366,35 @@ var API = {
     var toUpsert=[];
     var revsToUpsert=[]; // {oppId, revNum, data}
 
+    // Felipe 28/04: ANTES de upload, buscar updated_at do banco para CADA card
+    // Se banco tem updated_at MAIS NOVO que o local, NAO sobrescrever (sera dado mais
+    // recente vindo de outra maquina ou de UPDATE do banco). So upa se local > banco.
+    var idsLocais = (dbArray||[]).map(function(o){ return o.id; }).filter(Boolean);
+    var bancoUpdates = {};
+    if(idsLocais.length){
+      try {
+        var inList = idsLocais.map(function(id){ return '"'+id+'"'; }).join(',');
+        var resp = await fetch(SB + '/rest/v1/crm_oportunidades?id=in.(' + encodeURIComponent(inList) + ')&select=id,updated_at',
+          { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } });
+        if(resp.ok){
+          var rows = await resp.json();
+          rows.forEach(function(r){ bancoUpdates[r.id] = r.updated_at; });
+        }
+      } catch(e){ console.warn('[crmDB] erro lendo updated_at do banco:', e); }
+    }
+
     (dbArray||[]).forEach(function(o){
       var key=o.id;
       var hash=_hash(o);
       curr[key]=hash;
       if(prev[key]!==hash){
+        // Felipe 28/04: blindagem - so upa se local for mais NOVO que banco
+        var localUpd = o.updatedAt || o.updated_at;
+        var bancoUpd = bancoUpdates[key];
+        if(bancoUpd && localUpd && new Date(localUpd) < new Date(bancoUpd)){
+          console.log('[crmDB] NAO upando ' + (o.cliente||key) + ' - banco mais novo (' + bancoUpd + ' > ' + localUpd + ')');
+          return; // Pula esse card - banco tem versao mais recente
+        }
         toUpsert.push(o);
         // Revisões: comparar uma a uma (hash inclui revisoes[])
         if(o.revisoes&&o.revisoes.length){
