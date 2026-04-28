@@ -534,7 +534,7 @@ function _valorRealCardBRL(o){
              || !!(o.pais||'').trim();
   if(!_ehIntl) return _vPorta;
   // Internacional
-  var _cambio = parseFloat(o.inst_cambio) || 0;
+  var _cambio = parseFloat(o.inst_cambio) || parseFloat((o.extras||{}).inst_cambio) || 0;
   // Instalação: valor salvo OU recalcular
   var _vInst = parseFloat(o.inst_intl_fat) || 0;
   if(_vInst === 0){
@@ -566,7 +566,8 @@ function _valorRealCardBRL(o){
     _logUsd += parseFloat(o.cif_frete_terrestre)||0;
   }
   if(_inc==='CIF'){
-    _logUsd += parseFloat(o.cif_frete_maritimo)||0;
+    // Felipe 28/04: margem 20% no maritimo (consistente com card kanban)
+    _logUsd += (parseFloat(o.cif_frete_maritimo)||0) * 1.20;
   }
   return _vPorta + _vInst + (_logUsd * _cambio);
 }
@@ -667,7 +668,15 @@ function updateKPIs(all){
   if(el('ck-conv'))el('ck-conv').textContent=conv+'%';
   if(el('ck-intl')){el('ck-intl').textContent=intl.length;el('ck-intl-s').textContent='internacional'+(intl.length!==1?'s':'');}
   // Total Tabela e Faturamento (ativas do periodo)
-  var totTab=ativos.reduce(function(s,o){return s+(parseFloat(o.valorTabela)||0);},0);
+  // Felipe 28/04: internacional Tab=Fat=Total (porta+inst+caixa+fretes×cambio_card)
+  function _ehIntl(o){
+    return o.scope==='internacional'
+        || (o.inst_quem||'').toString().toUpperCase()==='INTERNACIONAL'
+        || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toString().toUpperCase())>=0;
+  }
+  var totTab=ativos.reduce(function(s,o){
+    return s + (_ehIntl(o) ? _valorRealCardBRL(o) : (parseFloat(o.valorTabela)||0));
+  },0);
   var totFat=ativos.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
   if(el('ck-tot-tab')){el('ck-tot-tab').textContent=brl(totTab);el('ck-tot-tab-s').textContent=ativos.filter(function(o){return o.valorTabela>0;}).length+' com tabela';}
   if(el('ck-tot-fat')){el('ck-tot-fat').textContent=brl(totFat);el('ck-tot-fat-s').textContent=ativos.filter(function(o){return(o.valorFaturamento||o.valor)>0;}).length+' com faturamento';}
