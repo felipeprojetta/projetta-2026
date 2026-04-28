@@ -170,9 +170,17 @@ function plnPecas(Lmm, Amm, fol, mod) {
     }
     if (mod === '23acm' || mod === '23alu') {
       var _moldRev = (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value;
-      // Molduras ACM: peças 143mm largura no planificador (mesmas fórmulas da boiserie)
-      if (_moldRev !== 'MACICO') {
-        var _MW=143; // largura fixa moldura ACM
+      // Felipe 28/04/2026 FIX: SEMPRE gera molduras (antes pulava se MACICO)
+      // ACM 4mm  → flag null  → moldura vai pra chapa ACM (planilha chapas)
+      // MACICO   → flag 'alu' → moldura vai pra aba ALUMINIO (perfil Boiserie)
+      var _moldMat = (_moldRev === 'MACICO') ? 'alu' : null;
+      var _moldPx  = (_moldRev === 'MACICO') ? 'BOISERIE ' : '';
+      function _pushMold(label, w, h, qty){
+        if(_moldMat) r.push([_moldPx+label, w, h, qty, _moldMat]);
+        else         r.push([label, w, h, qty]);
+      }
+      {
+        var _MW=143; // largura fixa moldura
         var _N_COL_P=parseInt((document.getElementById('plan-moldura-larg-qty')||{value:2}).value)||2;
         var _N_ROW_P=parseInt((document.getElementById('plan-moldura-alt-qty')||{value:2}).value)||2;
         var _nNiveisP=parseInt((document.getElementById('plan-moldura-tipo')||{value:1}).value)||1;
@@ -192,7 +200,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
           if(fol==1){
             var _tAcm=L-105; // TAMPA ACM 1FLH
             var _mH=Math.round(_tAcm-2*REF-_dedP);
-            if(_mH>50) r.push(['MOLD HORIZ'+_nvL, _MW, _mH, _N_ROW_P*2]);
+            if(_mH>50) _pushMold('MOLD HORIZ'+_nvL, _MW, _mH, _N_ROW_P*2);
           } else {
             // 2flh: usar fórmulas ACM mod23 (base=(L-107)/2)
             var _bAcm=(L-5-2*TUB_SUP)/2;
@@ -202,9 +210,9 @@ function plnPecas(Lmm, Amm, fol, mod) {
             var _mT1=Math.round(_aT1-2*REF-_dedP);
             var _mT2=Math.round(_aT2-2*REF-_dedP);
             var _mT3=Math.round(_aT3-2*REF-_dedP);
-            if(_mT1>50) r.push(['MOLD H (T1)'+_nvL, _MW, _mT1, _N_ROW_P*2]);
-            if(_mT2>50) r.push(['MOLD H (T2)'+_nvL, _MW, _mT2, _N_ROW_P*4]);
-            if(_mT3>50) r.push(['MOLD H (T3)'+_nvL, _MW, _mT3, _N_ROW_P*2]);
+            if(_mT1>50) _pushMold('MOLD H (T1)'+_nvL, _MW, _mT1, _N_ROW_P*2);
+            if(_mT2>50) _pushMold('MOLD H (T2)'+_nvL, _MW, _mT2, _N_ROW_P*4);
+            if(_mT3>50) _pushMold('MOLD H (T3)'+_nvL, _MW, _mT3, _N_ROW_P*2);
           }
 
           // ── VERTICAIS: altura por bloco ──
@@ -212,17 +220,17 @@ function plnPecas(Lmm, Amm, fol, mod) {
             // Clássica: 2 blocos fixos no CENTRO
             var _vInf=_CENTRO_P-_dedP/2-75;
             var _vSup=Math.round(G4-_CENTRO_P-_dedP/2-75);
-            if(_vInf>50) r.push(['MOLD VERT INF'+_nvL, _MW, Math.round(_vInf), _N_COL_P*_fmP]);
-            if(_vSup>50) r.push(['MOLD VERT SUP'+_nvL, _MW, _vSup, _N_COL_P*_fmP]);
+            if(_vInf>50) _pushMold('MOLD VERT INF'+_nvL, _MW, Math.round(_vInf), _N_COL_P*_fmP);
+            if(_vSup>50) _pushMold('MOLD VERT SUP'+_nvL, _MW, _vSup, _N_COL_P*_fmP);
           } else {
             // Igual: N blocos
             var _disGapP=_dedP/2;
             var _usH=G4-(_N_ROW_P+1)*_disGapP;
             var _blH=Math.round(_usH/_N_ROW_P);
-            if(_blH>50) r.push(['MOLD VERT'+_nvL, _MW, _blH, _N_COL_P*_fmP*_N_ROW_P]);
+            if(_blH>50) _pushMold('MOLD VERT'+_nvL, _MW, _blH, _N_COL_P*_fmP*_N_ROW_P);
           }
         }
-      } // end if not MACICO
+      } // end molduras (gera sempre, MACICO ou ACM)
     }
     if (mod === '15') {
       var _rip2L15=($('carac-ripado-2lados')||{value:'SIM'}).value==='SIM';
