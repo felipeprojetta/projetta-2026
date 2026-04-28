@@ -835,16 +835,21 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <div class="main-tabs">
   <button class="main-tab on" onclick="switchTab('crm')" id="btn-tab-crm">📊 CRM</button>
   <button class="main-tab" onclick="switchTab('clientes')" id="btn-tab-clientes" style="display:none">📂 Clientes</button>
-  <button class="main-tab" onclick="switchTab('orcamento')">Orçamento</button>
-  <button class="main-tab" onclick="switchTab('proposta')">Proposta Comercial</button>
+  <button class="main-tab" onclick="switchTab('orcamento')" id="btn-tab-orcamento">Orçamento</button>
   <button class="main-tab" onclick="switchTab('cadastro')">Cadastro</button>
-  <button class="main-tab" onclick="switchTab('os')" id="btn-tab-os">Levantamento de Perfis</button>
-  <button class="main-tab" onclick="switchTab('os-acess')" id="btn-tab-os-acess">Levantamento de Acessórios</button>
-  <button class="main-tab" onclick="switchTab('planificador')" id="btn-tab-plan">Levantamento de Superfícies</button>
-  <button class="main-tab" onclick="switchTab('relatorios')" id="btn-tab-rel">Relatórios</button>
   <button class="main-tab" onclick="switchTab('custoreal')" id="btn-tab-custoreal">Custo Real NFE</button>
   <button class="main-tab" onclick="switchTab('estoque-omie')" id="btn-tab-estoque-omie">📦 Estoque Omie</button>
   <button class="main-tab" onclick="switchTab('email')" id="btn-tab-email">📧 Email</button>
+</div>
+
+<!-- SUB-NAV ORCAMENTO (Felipe 28/04: tudo dentro de Orcamento) -->
+<div id="sub-tabs-orc" class="sub-tabs" style="display:none;flex-wrap:wrap;gap:6px;padding:8px 16px;background:linear-gradient(180deg,#f8f9fa 0%,#eef0f3 100%);border-bottom:2px solid #d4d8dc">
+  <button class="sub-tab" onclick="switchTab('orcamento')" data-tab="orcamento" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📐 Orçamento</button>
+  <button class="sub-tab" onclick="switchTab('proposta')" data-tab="proposta" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📄 Proposta Comercial</button>
+  <button class="sub-tab" onclick="switchTab('os')" data-tab="os" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📏 Levantamento de Perfis</button>
+  <button class="sub-tab" onclick="switchTab('os-acess')" data-tab="os-acess" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">🔩 Levantamento de Acessórios</button>
+  <button class="sub-tab" onclick="switchTab('planificador')" data-tab="planificador" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">▭ Levantamento de Superfícies</button>
+  <button class="sub-tab" onclick="switchTab('relatorios')" data-tab="relatorios" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📊 Relatórios</button>
 </div>
 
 <!-- TAB: ORCAMENTO -->
@@ -4639,3 +4644,4 @@ Equipe Projetta by Weiku</textarea>
 <script src="js/141-realtime-tabelas.js?v=7fff0db-1777383902"></script>
 <script src="js/142-cadastro-watcher.js?v=watcher-1777384400"></script>
 <script src="js/143-sync-indicator.js?v=indicator-1777384800"></script>
+<script src="js/144-subtabs-orcamento.js?v=subtabs-1777389000"></script>
