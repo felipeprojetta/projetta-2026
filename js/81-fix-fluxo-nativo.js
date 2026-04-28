@@ -1700,15 +1700,20 @@
       var raw = localStorage.getItem('projetta_crm_v1');
       var local = raw ? JSON.parse(raw) : [];
       var ci = local.findIndex(function(c){ return c && c.id === cardId; });
+      // Felipe 28/04: SUBSTITUIR card completamente, NAO mergear.
+      // O merge anterior preservava campos antigos (opcoes, cif, valores cached)
+      // que ficavam no localStorage mesmo apos o banco ter zerado tudo.
+      // Agora: card vindo do banco e a UNICA fonte da verdade.
+      // Anexos preservados separadamente apenas se banco nao retornou anexos.
+      var localAnx = (ci >= 0) ? local[ci].anexos : null;
+      var cardFinal = card;
+      if(localAnx && localAnx.length && (!card.anexos || !card.anexos.length)){
+        cardFinal = Object.assign({}, card, { anexos: localAnx });
+      }
       if(ci >= 0){
-        // Preservar campos locais grandes (anexos) + merge do resto vindo do cloud
-        var localAnx = local[ci].anexos;
-        local[ci] = Object.assign({}, local[ci], card);
-        if(localAnx && localAnx.length && (!card.anexos || !card.anexos.length)){
-          local[ci].anexos = localAnx;
-        }
+        local[ci] = cardFinal;
       } else {
-        local.push(card);
+        local.push(cardFinal);
       }
       localStorage.setItem('projetta_crm_v1', JSON.stringify(local));
       // Resetar snapshot do crmDB pra evitar re-envio como "mudanca local"
