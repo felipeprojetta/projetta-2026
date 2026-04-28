@@ -286,13 +286,30 @@
         updated_by: 'felipe'
       };
 
-      var existed = versao > 1;
-      if(existed){
-        await fetchSupa('PATCH', TABLE + '?id=eq.' + encodeURIComponent(id), payload);
+      // UPSERT — POST com on_conflict resolve INSERT ou UPDATE atomicamente
+      payload.created_at = payload.created_at || new Date().toISOString();
+      payload.created_by = payload.created_by || 'felipe';
+      var upsertHeaders = {
+        apikey: ANON_KEY,
+        Authorization: 'Bearer ' + ANON_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=representation'
+      };
+      var upsertUrl = SUPABASE_URL + '/rest/v1/' + TABLE;
+      // Se tem card_id usa on_conflict=card_id, senao usa id (PK)
+      if(snap.card_id){
+        upsertUrl += '?on_conflict=card_id';
       } else {
-        payload.created_at = new Date().toISOString();
-        payload.created_by = 'felipe';
-        await fetchSupa('POST', TABLE, payload);
+        upsertUrl += '?on_conflict=id';
+      }
+      var upRes = await fetch(upsertUrl, {
+        method: 'POST',
+        headers: upsertHeaders,
+        body: JSON.stringify(payload)
+      });
+      if(!upRes.ok){
+        var errTxt = await upRes.text();
+        throw new Error('UPSERT ' + upRes.status + ': ' + errTxt);
       }
 
       window._orcLoadedId = id;
