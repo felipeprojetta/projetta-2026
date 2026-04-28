@@ -759,8 +759,14 @@ function renderKanban(fil){
   stages.forEach(function(st){
     var cards=fil.filter(function(o){return o.stage===st.id;});
     // ★ Felipe 20/04: Fat da coluna agora inclui inst+logistica pros intl
+    // Felipe 28/04: header das colunas internacional Tab=Fat=Total (porta+inst+caixa+fretes×cambio)
     var tv=cards.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
-    var tvTab=cards.reduce(function(s,o){return s+(parseFloat(o.valorTabela)||0);},0);
+    var tvTab=cards.reduce(function(s,o){
+      var ehIntl = o.scope==='internacional'
+                || (o.inst_quem||'').toString().toUpperCase()==='INTERNACIONAL'
+                || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toString().toUpperCase())>=0;
+      return s + (ehIntl ? _valorRealCardBRL(o) : (parseFloat(o.valorTabela)||0));
+    },0);
     var isFazerOrc=/fazer.*or|orcamento/i.test(st.label);
     var col=document.createElement('div');col.className='crm-stage';col.setAttribute('data-stage',st.id);
     col.innerHTML=
