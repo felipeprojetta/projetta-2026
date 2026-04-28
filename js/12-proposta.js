@@ -983,18 +983,25 @@ function populateProposta(){
     }
   }
   // Alisar / Architrave — destaque
-  // Felipe 28/04: ler tem_alisar dos itens da revisao (se houver) antes do DOM.
-  // Quando a proposta e gerada de uma versao aprovada (ex: "Sem Alisar"),
-  // o DOM pode estar com estado antigo. _mpItens[0] tem o valor real da revisao.
+  // Felipe 28/04 v2: DOM tem prioridade absoluta (estado ao vivo durante edicao).
+  // _mpItens so eh usado se DOM nao existe (proposta gerada sem orcamento aberto).
   var _alisarCb=document.getElementById('carac-tem-alisar');
-  var _alisarFromRev = null;
-  try {
-    if(window._mpItens && window._mpItens[0] && window._mpItens[0]['carac-tem-alisar'] !== undefined){
-      var _v = window._mpItens[0]['carac-tem-alisar'];
-      _alisarFromRev = (_v === '1' || _v === true || _v === 1);
-    }
-  } catch(e){}
-  var _alisarChecked = (_alisarFromRev !== null) ? _alisarFromRev : !!(_alisarCb && _alisarCb.checked);
+  var _alisarChecked;
+  if(_alisarCb){
+    // Existe checkbox no DOM = proposta esta sendo gerada com orcamento aberto.
+    // Usa estado AO VIVO do checkbox (respeita edicoes do usuario antes de salvar).
+    _alisarChecked = !!_alisarCb.checked;
+  } else {
+    // DOM nao tem checkbox = proposta sendo gerada de versao salva sem orcamento aberto.
+    // Fallback: ler de _mpItens (populado a partir do banco da revisao).
+    _alisarChecked = false;
+    try {
+      if(window._mpItens && window._mpItens[0] && window._mpItens[0]['carac-tem-alisar'] !== undefined){
+        var _v = window._mpItens[0]['carac-tem-alisar'];
+        _alisarChecked = (_v === '1' || _v === true || _v === 1);
+      }
+    } catch(e){}
+  }
   var _alisarEl=document.getElementById('prop-alisar');
   var _alisarLine=document.getElementById('prop-alisar-line');
   if(_alisarEl&&_alisarLine){
