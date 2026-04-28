@@ -35,10 +35,8 @@
   function fmtUSD(v){ return "US$ " + Math.round(Number(v) || 0).toLocaleString("en-US"); }
 
   function getCambio(cardData){
-    // ★ Felipe 28/04: PRIORIDADE = cambio FIXO do card (extras.inst_cambio)
-    // NUNCA mais fallback BCB nem 5.0918 fixo. Se card nao tem cambio,
-    // retorna 0 → calcularItens skipa (return null) → card nao e renderizado
-    // com cambio errado.
+    // Felipe 28/abr/26: cambio 100% do card. Sem fallback. Se card nao tem,
+    // retorna 0 → calcularItens skipa → card nao renderiza com valor errado.
     try {
       if(cardData){
         var c1 = parseFloat((cardData.extras||{}).inst_cambio);
