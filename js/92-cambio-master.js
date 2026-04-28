@@ -1,27 +1,17 @@
-/* MODULE 92: STUB (28-abr-2026) — Felipe pediu pra deletar todos modulos
- * de cambio externo. Mantido apenas window.projettaCambio.get() que LE do
- * input mod131-cambio-card. Sem API, sem fallback, sem polling.
+/* MODULE 92: STUB FINAL (28-abr-2026 v3)
+ * Felipe: cambio vem 100% do card. window.projettaCambio.get() SEMPRE 0.
+ * Quem precisar de cambio LE de o.extras.inst_cambio direto.
  */
 (function(){
   'use strict';
-  function readVal(id){
-    var el = document.getElementById(id);
-    if(!el) return 0;
-    var v = parseFloat(el.value);
-    return (isFinite(v) && v > 0) ? v : 0;
-  }
   window.projettaCambio = {
-    get: function(){
-      return readVal('mod131-cambio-card')
-          || readVal('inst-intl-cambio')
-          || (parseFloat(window._cambioFixoCard)||0);
-    },
-    set: function(){ return false; }, // deprecated
+    get: function(){ return 0; }, // ★ NUNCA retorna valor — forca leitura do card
+    set: function(){ return false; },
     onChange: function(){},
     refresh: function(){ return Promise.resolve(null); },
     getMedia: function(){ return null; }
   };
   try { localStorage.removeItem('projetta_cambio_master_v1'); } catch(e){}
   try { localStorage.removeItem('cambio_usd_brl_media_v1'); } catch(e){}
-  console.log('[92-cambio] STUB - le so do card');
+  console.log('[92-cambio] STUB FINAL - sempre retorna 0');
 })();
