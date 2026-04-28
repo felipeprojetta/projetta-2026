@@ -145,6 +145,8 @@
   var SYNC_INTERVAL_MS = 8000;
   var SYNC_MIN_GAP_MS = 2500; // nao fazer 2 syncs em menos de 2.5s
 
+  // Felipe 28/04: expor em window para 141-realtime-tabelas chamar
+  window._syncSilencioso = function(motivo){ return _syncSilencioso(motivo); };
   function _syncSilencioso(motivo){
     var agora = Date.now();
     if(agora - _ultimoSync < SYNC_MIN_GAP_MS) return;
