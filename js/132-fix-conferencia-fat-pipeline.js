@@ -1,5 +1,1 @@
-/* MODULE 132: NEUTRALIZADO (28-abr-2026)
- * Felipe pediu parar de piscar. Logica consolidada em 134.
- * Este modulo competia com 134 atualizando os mesmos KPIs/headers.
- */
-(function(){ console.log('[132] NEUTRALIZADO - logica em 134'); })();
+/* MOD 132: DELETED 28/04 - logica em 10-crm.js (_valorRealCardBRL) */(function(){})();
