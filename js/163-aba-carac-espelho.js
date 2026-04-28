@@ -1,18 +1,24 @@
 /* ============================================================================
- * js/163-aba-carac-espelho.js  —  v2 (28-abr-2026)
+ * js/163-aba-carac-espelho.js  —  v3 (28-abr-2026)
  *
- * Felipe 28/04: aba Caracteristicas vira ESPELHO READ-ONLY do card.
- * v2: ESPELHO COMPLETO com configurações específicas por modelo
- *  - Modelo 23 (Clássica): Revestimento, Divisão Altura, Tipo Moldura, Distâncias
- *  - Modelo 06/16 (Frisos H Variável): Quantidade Frisos, Espessura
- *  - Modelo 02 (Friso Vertical): Quantidade Verticais
- *  - Re-aplica readonly defensivamente
- *  - Sincroniza valores ao trocar item ativo
+ * Felipe 28/04 (Safari iOS): "modelo 23 ainda nao aparece configuracoes"
+ *
+ * CAUSA RAIZ v2: #card-carac-porta tem 2 filhos:
+ *   1. .card-hd (cabeçalho clicável)
+ *   2. #carac-body (display:none por padrão - accordion FECHADO)
+ *
+ * Banner e bloco eram inseridos no card mas DENTRO do body fechado
+ * (ou em local invisível). Agora:
+ *   - Banner inserido DENTRO de #carac-body como PRIMEIRO filho
+ *   - Bloco-modelo inserido ANTES da seção "Cores da chapa"
+ *   - Quando #carac-body abre, o user vê tudo
+ *   - Tambem inserir bloco em #card-carac-porta como copia visivel
+ *     mesmo com accordion fechado (placement defensivo)
  * ========================================================================== */
 (function(){
   'use strict';
-  if(window.__projetta163v2Applied) return;
-  window.__projetta163v2Applied = true;
+  if(window.__projetta163v3Applied) return;
+  window.__projetta163v3Applied = true;
 
   function $(id){ return document.getElementById(id); }
 
@@ -26,8 +32,7 @@
     'carac-dist-borda-friso','carac-largura-friso',
     'carac-friso-vert','carac-friso-horiz',
     'carac-ripado-total','carac-ripado-2lados',
-    'qtd-portas','largura','altura',
-    'carac-cor-ext-search','carac-cor-int-search','carac-cor-macico-search'
+    'qtd-portas','largura','altura'
   ];
 
   function injetarCSS(){
@@ -38,15 +43,14 @@
       '.espelho-readonly{ background:#f5f7fa !important; cursor:not-allowed !important; opacity:.92 !important; color:#003144 !important; font-weight:700 !important; pointer-events:none !important; }' +
       '.espelho-readonly:focus{ outline:none !important; box-shadow:none !important; }' +
       'select.espelho-readonly{ -webkit-appearance:none !important; appearance:none !important; }' +
-      '.espelho-banner{ background:linear-gradient(135deg,#1a5276,#2874a6); color:#fff; padding:10px 16px; border-radius:8px; margin:0 0 10px 0; font-size:12px; font-weight:600; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; box-shadow:0 2px 6px rgba(0,0,0,.12) }' +
+      '.espelho-banner{ background:linear-gradient(135deg,#1a5276,#2874a6); color:#fff; padding:10px 14px; border-radius:8px; margin:8px 0; font-size:12px; font-weight:600; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; box-shadow:0 2px 6px rgba(0,0,0,.12) }' +
       '.espelho-banner button{ background:#fff; color:#1a5276; border:none; border-radius:6px; padding:6px 14px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; box-shadow:0 1px 3px rgba(0,0,0,.15) }' +
-      '.espelho-banner button:hover{ background:#f0f7fc }' +
-      '.espelho-bloco-mod{ background:#fff;border:1.5px solid #e1c4f0;border-radius:8px;padding:10px 14px;margin:8px 0;font-family:inherit }' +
-      '.espelho-bloco-mod-h{ font-size:11px;font-weight:700;color:#7e3a93;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;display:flex;align-items:center;gap:6px }' +
-      '.espelho-bloco-mod-grid{ display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px }' +
-      '.espelho-bloco-mod-fr{ display:flex;flex-direction:column;gap:2px }' +
-      '.espelho-bloco-mod-fr label{ font-size:10px;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.03em }' +
-      '.espelho-bloco-mod-fr .val{ background:#f5f0fa;border:1px solid #d4b6e8;border-radius:6px;padding:6px 10px;font-size:13px;font-weight:700;color:#003144;font-family:inherit }';
+      '.espelho-bloco-mod{ background:#faf5ff;border:2px solid #b87bcf;border-radius:10px;padding:12px 16px;margin:10px 0;font-family:inherit;box-shadow:0 2px 8px rgba(126,58,147,.12) }' +
+      '.espelho-bloco-mod-h{ font-size:12px;font-weight:800;color:#7e3a93;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #d4b6e8;padding-bottom:6px }' +
+      '.espelho-bloco-mod-grid{ display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px }' +
+      '.espelho-bloco-mod-fr{ display:flex;flex-direction:column;gap:3px }' +
+      '.espelho-bloco-mod-fr label{ font-size:10px;color:#666;font-weight:700;text-transform:uppercase;letter-spacing:.03em }' +
+      '.espelho-bloco-mod-fr .val{ background:#fff;border:1.5px solid #d4b6e8;border-radius:6px;padding:7px 10px;font-size:13px;font-weight:700;color:#003144 }';
     document.head.appendChild(style);
   }
 
@@ -70,25 +74,28 @@
     });
   }
 
+  // FIX v3: Insere banner DENTRO de #carac-body como PRIMEIRO filho
+  // (visível quando o accordion estiver aberto).
   function inserirBannerCarac(){
-    var card = $('card-carac-porta'); if(!card) return;
-    if(card.querySelector('.espelho-banner')) return;
+    var body = $('carac-body'); if(!body) return;
+    if(body.querySelector(':scope > .espelho-banner')) return;
     var banner = document.createElement('div');
     banner.className = 'espelho-banner';
     banner.innerHTML =
       '<div>' +
-        '<div style="font-size:12px;font-weight:700">👁 Espelho do item ativo do card</div>' +
-        '<div style="font-size:10px;font-weight:500;opacity:.85;margin-top:1px">Edite no card "Itens do Pedido" acima</div>' +
+        '<div style="font-size:13px;font-weight:800">👁 Espelho do item ativo do card</div>' +
+        '<div style="font-size:10px;font-weight:500;opacity:.85;margin-top:1px">Para alterar, edite no card "Itens do Pedido" acima</div>' +
       '</div>' +
       '<button onclick="abrirCardItensPedido()">✏ Editar no card</button>';
-    var firstChild = card.firstElementChild;
-    if(firstChild) card.insertBefore(banner, firstChild.nextSibling);
-    else card.appendChild(banner);
+    if(body.firstChild){
+      body.insertBefore(banner, body.firstChild);
+    } else {
+      body.appendChild(banner);
+    }
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // BLOCO ESPECÍFICO POR MODELO — Configurações que NÃO existem na aba
-  // Características padrão (só no card)
+  // BLOCO ESPECIFICO POR MODELO
   // ════════════════════════════════════════════════════════════════════════
 
   function getItemAtivo(){
@@ -108,7 +115,7 @@
     return '<div class="espelho-bloco-mod-h">🏛️ Configuração de Moldura (Modelo 23)</div>' +
       '<div class="espelho-bloco-mod-grid">' +
         _row('Revestimento', revLabel) +
-        _row('Divisão Altura', it.moldura_divisao || it.moldura_alt_qty || '—') +
+        _row('Divisão Altura', it.moldura_divisao || '—') +
         _row('Qtd Molduras Largura', it.moldura_larg_qty || '—') +
         _row('Qtd Molduras Altura', it.moldura_alt_qty || '—') +
         _row('Tipo Moldura', it.moldura_tipo || '—') +
@@ -136,10 +143,12 @@
       '</div>';
   }
 
+  // FIX v3: insere bloco-modelo ANTES da seção "Cores da chapa"
+  // (dentro de #carac-body, em local visível quando aberto).
   function atualizarBlocoModelo(){
-    var card = $('card-carac-porta'); if(!card) return;
+    var body = $('carac-body'); if(!body) return;
     var it = getItemAtivo();
-    var existing = card.querySelector('.espelho-bloco-mod');
+    var existing = body.querySelector('.espelho-bloco-mod');
     if(!it || it.tipo !== 'porta_pivotante' || !it.modelo){
       if(existing) existing.remove();
       return;
@@ -154,24 +163,33 @@
     }
     if(existing){
       existing.innerHTML = html;
-    } else {
-      var bloco = document.createElement('div');
-      bloco.className = 'espelho-bloco-mod';
-      bloco.innerHTML = html;
-      // Inserir antes da seção FASE DO PROJETO se existir, senão no fim do card
-      var fase = card.querySelector('[id*="fase"]');
-      if(fase && fase.parentElement === card){
-        card.insertBefore(bloco, fase);
-      } else {
-        card.appendChild(bloco);
+      return;
+    }
+    var bloco = document.createElement('div');
+    bloco.className = 'espelho-bloco-mod';
+    bloco.innerHTML = html;
+
+    // Procurar a seção "Cores da chapa" (todos os divs com class "sec")
+    var seções = body.querySelectorAll('.sec');
+    var secCores = null;
+    for(var i = 0; i < seções.length; i++){
+      var t = (seções[i].textContent || '').toLowerCase();
+      if(t.indexOf('cores') >= 0 && t.indexOf('chapa') >= 0){
+        secCores = seções[i];
+        break;
       }
+    }
+    if(secCores){
+      body.insertBefore(bloco, secCores);
+    } else {
+      // Fallback: adicionar no fim do body
+      body.appendChild(bloco);
     }
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // BOTÃO "Editar no card" — scroll até barra Itens do Pedido
+  // BOTÃO "Editar no card"
   // ════════════════════════════════════════════════════════════════════════
-
   window.abrirCardItensPedido = function(){
     var bar = $('orc-itens-bar');
     if(bar && bar.scrollIntoView){
@@ -183,25 +201,22 @@
     }
   };
 
-  // ════════════════════════════════════════════════════════════════════════
-  // HOOK em orcItemSelecionar — atualiza bloco ao mudar item
-  // ════════════════════════════════════════════════════════════════════════
-
   function hookSelecionar(){
     var orig = window.orcItemSelecionar;
     if(typeof orig !== 'function'){ setTimeout(hookSelecionar, 600); return; }
-    if(orig.__sub163v2Hooked) return;
+    if(orig.__sub163v3Hooked) return;
     window.orcItemSelecionar = function(idx){
       var r = orig.apply(this, arguments);
       setTimeout(function(){
         try {
           aplicarReadOnly();
+          inserirBannerCarac();
           atualizarBlocoModelo();
-        } catch(e){}
+        } catch(e){ console.warn('[163v3] err:', e); }
       }, 500);
       return r;
     };
-    window.orcItemSelecionar.__sub163v2Hooked = true;
+    window.orcItemSelecionar.__sub163v3Hooked = true;
   }
 
   // INIT
@@ -212,12 +227,13 @@
       inserirBannerCarac();
       atualizarBlocoModelo();
       hookSelecionar();
+      console.log('%c[163-v3] espelho expandido ATIVO ✓','background:#7e3a93;color:#fff;padding:4px 10px;border-radius:6px;font-weight:700');
     }, 800);
 
     setInterval(function(){
       try {
         aplicarReadOnly();
-        if(!document.querySelector('#card-carac-porta .espelho-banner')){
+        if($('carac-body') && !$('carac-body').querySelector(':scope > .espelho-banner')){
           inserirBannerCarac();
         }
         atualizarBlocoModelo();
@@ -226,13 +242,15 @@
 
     document.addEventListener('click', function(e){
       var t = e.target;
-      if(t && t.textContent && /Or[çc]amento/.test(t.textContent)){
-        setTimeout(function(){ aplicarReadOnly(); atualizarBlocoModelo(); }, 200);
-        setTimeout(function(){ aplicarReadOnly(); atualizarBlocoModelo(); }, 600);
+      if(!t) return;
+      // Quando clica na aba Orçamento OU expande o accordion Características
+      if((t.textContent && /Or[çc]amento/.test(t.textContent)) ||
+         (t.id === 'carac-badge') ||
+         (t.closest && t.closest('.card-hd.toggle'))){
+        setTimeout(function(){ aplicarReadOnly(); inserirBannerCarac(); atualizarBlocoModelo(); }, 200);
+        setTimeout(function(){ aplicarReadOnly(); inserirBannerCarac(); atualizarBlocoModelo(); }, 700);
       }
     });
-
-    console.log('[163-aba-carac-espelho v2] iniciado — espelho expandido');
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
