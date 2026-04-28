@@ -983,13 +983,24 @@ function populateProposta(){
     }
   }
   // Alisar / Architrave — destaque
+  // Felipe 28/04: ler tem_alisar dos itens da revisao (se houver) antes do DOM.
+  // Quando a proposta e gerada de uma versao aprovada (ex: "Sem Alisar"),
+  // o DOM pode estar com estado antigo. _mpItens[0] tem o valor real da revisao.
   var _alisarCb=document.getElementById('carac-tem-alisar');
+  var _alisarFromRev = null;
+  try {
+    if(window._mpItens && window._mpItens[0] && window._mpItens[0]['carac-tem-alisar'] !== undefined){
+      var _v = window._mpItens[0]['carac-tem-alisar'];
+      _alisarFromRev = (_v === '1' || _v === true || _v === 1);
+    }
+  } catch(e){}
+  var _alisarChecked = (_alisarFromRev !== null) ? _alisarFromRev : !!(_alisarCb && _alisarCb.checked);
   var _alisarEl=document.getElementById('prop-alisar');
   var _alisarLine=document.getElementById('prop-alisar-line');
   if(_alisarEl&&_alisarLine){
     var _comAl = (_PROP_LANG==='en') ? '✅ YES — WITH CASING' : '✅ SIM — COM ALISAR';
     var _semAl = (_PROP_LANG==='en') ? 'NO CASING' : 'SEM ALISAR';
-    if(_alisarCb&&_alisarCb.checked){
+    if(_alisarChecked){
       _alisarEl.innerHTML='<strong style="color:#27ae60;font-size:110%">'+_comAl+'</strong>';
       _alisarLine.style.cssText='background:#e8f5e9;border:2px solid #27ae60;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700';
     } else {
