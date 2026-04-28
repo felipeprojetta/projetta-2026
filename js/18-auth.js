@@ -1085,7 +1085,7 @@ function _populatePropostaItens(){
   if(!tbody) return;
   if(!window._mpItens||window._mpItens.length===0) return;
   // Contexto internacional (setado por populateProposta em 12-proposta.js)
-  var _ctx = window._propLangCtx || {lang:'pt', isIntl:false, cambio:5.20, instFat:0, brlUsd:null, i18n:{}};
+  var _ctx = window._propLangCtx || {lang:'pt', isIntl:false, cambio:0, instFat:0, brlUsd:null, i18n:{}};
   var _LANG = _ctx.lang;
   var _ISINTL = _ctx.isIntl;
   var _INSTFAT = _ctx.instFat || 0;
@@ -1362,7 +1362,7 @@ function _populatePropostaItens(){
   //   instala (inst-quem). Card nacional SEM vazamento.
   var _cifData = _ctx.cif || null;
   if(_cifData && _ctx.isIntl){
-    var _cambioCif = _ctx.cambio || 5.20;
+    var _cambioCif = _ctx.cambio || 0;
     var _nextIdx = items.length + 2; // inst agora SEMPRE aparece (valor ou 'Not included')
     var _L_CAIXA   = (_LANG==='en' ? 'Wooden Fumigated Crate' : 'Caixa de Madeira Fumigada');
     var _L_FRETE_T = (_LANG==='en' ? 'Land Freight Uberlândia→Santos' : 'Frete Terrestre Uberlândia→Santos');
