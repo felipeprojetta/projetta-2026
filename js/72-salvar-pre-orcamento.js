@@ -102,6 +102,34 @@
       }
       _toast('⏳ <b>Salvando pré-orçamento...</b>', '#7f8c8d', 2500);
       var row = await _inserir(snap);
+
+      // Felipe 28/04: levar valor_tabela e valor_faturamento para o card (sem mover stage)
+      try {
+        var _cardId = window._crmOrcCardId || window._snapCardId || null;
+        if(_cardId){
+          var _parseM = function(s){
+            if(s == null) return null;
+            var t = String(s).replace(/[R$\s\u00A0]/g,'').replace(/\./g,'').replace(',','.');
+            var n = parseFloat(t); return isNaN(n) ? null : n;
+          };
+          var _vTab = _parseM(snap.resultado.preco_tabela);
+          var _vFat = _parseM(snap.resultado.preco_faturamento);
+          if(_vTab != null || _vFat != null){
+            await fetch(SUPABASE_URL + '/rest/v1/crm_oportunidades?id=eq.' + encodeURIComponent(_cardId), {
+              method: 'PATCH',
+              headers: { apikey: ANON_KEY, Authorization: 'Bearer '+ANON_KEY, 'Content-Type':'application/json', Prefer: 'return=minimal' },
+              body: JSON.stringify({
+                valor: _vFat || _vTab || 0,
+                valor_tabela: _vTab || 0,
+                valor_faturamento: _vFat || 0,
+                updated_by: 'salvar_pre_orc'
+              })
+            });
+            console.log('[72-pre-orc] valores levados ao card (sem mover stage):', { tab: _vTab, fat: _vFat });
+          }
+        }
+      } catch(ePatch){ console.warn('[72-pre-orc] PATCH valores card falhou:', ePatch); }
+
       var resumo = [];
       if(snap.cliente.nome) resumo.push(snap.cliente.nome);
       if(snap.itens && snap.itens.length) resumo.push(snap.itens.length + ' iten(s)');
@@ -110,7 +138,7 @@
         '✅ <b>Pré-orçamento salvo!</b><br>'+
         '<span style="font-size:12px;font-weight:600">'+resumo.join(' · ')+'</span><br>'+
         '<span style="font-size:10px;font-weight:400;opacity:.85;display:block;margin-top:4px">ID '+row.id+' · '+new Date(row.created_at).toLocaleString('pt-BR')+'</span><br>'+
-        '<span style="font-size:10px;font-weight:400;opacity:.9;display:block;margin-top:6px">💡 Veja todos em "📋 Pré-Orçamentos Salvos" no topo</span>',
+        '<span style="font-size:10px;font-weight:400;opacity:.9;display:block;margin-top:6px">✅ Valores levados ao card</span>',
         '#27ae60', 6000
       );
     } catch(err){
