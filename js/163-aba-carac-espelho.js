@@ -228,6 +228,19 @@
       atualizarBlocoModelo();
       hookSelecionar();
       console.log('%c[163-v3] espelho expandido ATIVO ✓','background:#7e3a93;color:#fff;padding:4px 10px;border-radius:6px;font-weight:700');
+      // BADGE VISUAL DE DEBUG: mostra que v3 carregou
+      try {
+        var dbg = document.getElementById('espelho-v3-badge');
+        if(!dbg){
+          dbg = document.createElement('div');
+          dbg.id = 'espelho-v3-badge';
+          dbg.style.cssText = 'position:fixed;bottom:6px;left:6px;background:#7e3a93;color:#fff;font:700 10px/1.2 system-ui,sans-serif;padding:5px 9px;border-radius:5px;z-index:99999;box-shadow:0 2px 6px rgba(0,0,0,.3);opacity:.9';
+          dbg.textContent = '📐 espelho v3 ✓';
+          dbg.onclick = function(){ this.style.display='none'; };
+          document.body.appendChild(dbg);
+          setTimeout(function(){ if(dbg) dbg.style.opacity='.3'; }, 8000);
+        }
+      } catch(e){}
     }, 800);
 
     setInterval(function(){
