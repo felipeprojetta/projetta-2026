@@ -886,14 +886,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <option value="ano-anterior">📋 Ano anterior</option>
       <option value="personalizado">🎯 Personalizado (de/até)</option>
     </select>
-    <select class="crm-sel" id="crm-f-data-ref" onchange="crmRender()" title="Qual data aplicar o filtro de período" style="background:#f5f5dc;border:2px solid #8e44ad;font-weight:700;color:#003144">
-      <option value="auto" selected>🎯 Auto (criação/fechamento)</option>
-      <option value="chegada">🆕 Data chegada (criação card)</option>
-      <option value="orcamento">📝 Data do orçamento</option>
-      <option value="contato">📞 1º contato</option>
-      <option value="fechamento">🏆 Data fechamento</option>
-    </select>
-    <div id="crm-f-periodo-custom" style="display:none;gap:4px;align-items:center;background:#fff3e0;padding:3px 8px;border-radius:6px;border:1px solid #e67e22">
+<div id="crm-f-periodo-custom" style="display:none;gap:4px;align-items:center;background:#fff3e0;padding:3px 8px;border-radius:6px;border:1px solid #e67e22">
       <input type="date" id="crm-f-periodo-de" onchange="crmRender()" style="padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-family:inherit" title="Data inicial">
       <span style="font-size:10px;color:#555">até</span>
       <input type="date" id="crm-f-periodo-ate" onchange="crmRender()" style="padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-family:inherit" title="Data final">
@@ -2194,7 +2187,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <div class="rc" style="position:sticky;top:16px;margin-bottom:12px">
   <div class="rh" style="background:var(--navy);display:flex;justify-content:space-between;align-items:center">
     <span>Resultado — Porta</span>
-    <button onclick="printPainelRep()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:5px;cursor:pointer;font-family:inherit" title="Imprimir painel para representante">🖨 Rep</button>
+    <button onclick="printPainelRep()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:inherit;letter-spacing:.02em">🖨️ Imprimir Painel Representante</button>
   </div>
   <div class="mg">
     <div class="mt"><label>Custo porta</label><div class="mv" id="m-custo-porta">R$ 0</div><div class="ms" id="m-custo-porta-m2">—</div></div>
