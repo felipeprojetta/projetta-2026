@@ -837,7 +837,6 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
   <button class="main-tab" onclick="switchTab('clientes')" id="btn-tab-clientes" style="display:none">📂 Clientes</button>
   <button class="main-tab" onclick="switchTab('orcamento')" id="btn-tab-orcamento">Orçamento</button>
   <button class="main-tab" onclick="switchTab('cadastro')">Cadastro</button>
-  <button class="main-tab" onclick="switchTab('custoreal')" id="btn-tab-custoreal">Custo Real NFE</button>
   <button class="main-tab" onclick="switchTab('estoque-omie')" id="btn-tab-estoque-omie">📦 Estoque Omie</button>
   <button class="main-tab" onclick="switchTab('email')" id="btn-tab-email">📧 Email</button>
 </div>
@@ -4031,54 +4030,6 @@ Equipe Projetta by Weiku</textarea>
   </div>
 </div>
 </div></div><!-- close tab-relatorios -->
-
-<!-- ═══ TAB: CUSTO REAL — Análise NF-e ═══ -->
-<div class="tab-panel" id="tab-custoreal">
-  <div class="sec">📊 Custo Real NFE — Análise de Nota Fiscal</div>
-  <div style="max-width:900px;margin:0 auto;padding:0 16px">
-    <!-- Chave de Acesso -->
-    <div style="background:#fff;border:1.5px solid #e0e0e0;border-radius:10px;padding:16px 20px;margin-bottom:16px">
-      <div style="font-size:12px;font-weight:700;color:#003144;margin-bottom:8px">🔑 Consultar por Chave de Acesso (44 dígitos)</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="nfe-chave" placeholder="Cole a chave de acesso da NF-e (44 dígitos)" style="flex:1;padding:10px 12px;border:1.5px solid #90caf9;border-radius:8px;font-size:13px;font-family:monospace;letter-spacing:1px;outline:none" oninput="parseChaveNFe(this.value)">
-        <button onclick="abrirSefazConsulta()" style="padding:10px 16px;border-radius:8px;border:none;background:#1565c0;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🌐 Consultar SEFAZ</button>
-      </div>
-      <div id="nfe-chave-info" style="margin-top:8px;font-size:11px;color:#666"></div>
-    </div>
-    <!-- Upload XML/PDF -->
-    <div style="background:linear-gradient(135deg,#f5f7fa,#eef2f7);border:2px dashed #90caf9;border-radius:12px;padding:30px;text-align:center;margin-bottom:20px;cursor:pointer" onclick="document.getElementById('nfe-upload').click()" id="nfe-drop-zone">
-      <div style="font-size:36px;margin-bottom:8px">📄</div>
-      <div style="font-size:14px;font-weight:700;color:#1565c0">Arraste ou clique para enviar NF-e</div>
-      <div style="font-size:11px;color:#888;margin-top:4px">Formatos aceitos: <b>XML</b> (recomendado) ou <b>PDF</b></div>
-      <input type="file" id="nfe-upload" accept=".xml,.pdf" style="display:none" onchange="parseNFe(this.files[0])">
-    </div>
-    <!-- Calculadora Lucro Real -->
-    <div style="background:#fff;border:1.5px solid #2e7d32;border-radius:10px;padding:16px 20px;margin-bottom:16px">
-      <div style="font-size:13px;font-weight:800;color:#2e7d32;margin-bottom:12px">📊 CUSTO REAL — LUCRO REAL (PIS/COFINS descontando ICMS)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
-        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Valor Produtos (R$)</label>
-          <input type="text" id="lr-valor" placeholder="0,00" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:14px;font-weight:700;text-align:right;font-family:inherit;outline:none"></div>
-        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Frete (R$)</label>
-          <input type="text" id="lr-frete" placeholder="0,00" value="0" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:13px;text-align:right;font-family:inherit;outline:none"></div>
-        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Qtd</label>
-          <input type="number" id="lr-qtd" value="1" min="1" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:13px;text-align:center;font-family:inherit;outline:none"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
-        <div><label style="font-size:10px;font-weight:600;color:#e65100;display:block;margin-bottom:3px">IPI %</label>
-          <input type="number" id="lr-ipi" value="3.25" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e65100;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#e65100;font-family:inherit;outline:none"></div>
-        <div><label style="font-size:10px;font-weight:600;color:#c62828;display:block;margin-bottom:3px">ICMS %</label>
-          <input type="number" id="lr-icms" value="12" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #c62828;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#c62828;font-family:inherit;outline:none"></div>
-        <div><label style="font-size:10px;font-weight:600;color:#1565c0;display:block;margin-bottom:3px">PIS %</label>
-          <input type="number" id="lr-pis" value="1.65" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #1565c0;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#1565c0;font-family:inherit;outline:none"></div>
-        <div><label style="font-size:10px;font-weight:600;color:#6a1b9a;display:block;margin-bottom:3px">COFINS %</label>
-          <input type="number" id="lr-cofins" value="7.60" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #6a1b9a;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#6a1b9a;font-family:inherit;outline:none"></div>
-      </div>
-      <div id="lr-result"></div>
-    </div>
-    <div id="nfe-result" style="display:none"></div>
-    <div id="nfe-historico" style="margin-top:20px"></div>
-  </div>
-</div>
 
 <!-- ═══ TAB: ESTOQUE OMIE — Consulta em Tempo Real ═══ -->
 <div class="tab-panel" id="tab-estoque-omie">
