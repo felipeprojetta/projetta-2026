@@ -70,8 +70,8 @@ async function _fetchCambioMedia30Dias(){
     console.log('[cambio] media 30 dias: R$ ' + media.toFixed(4) + ' (' + vals.length + ' dias)');
     return { valor: media, source: 'api', n: vals.length, ts: Date.now() };
   } catch(e){
-    console.warn('[cambio] fetch falhou, usando fallback 5.20:', e.message);
-    return { valor: 5.20, source: 'fallback' };
+    console.warn('[cambio] fetch falhou, usando fallback 0:', e.message);
+    return { valor: 0, source: 'fallback' };
   }
 }
 
@@ -579,7 +579,7 @@ window.freteOpenCalc=function(){
     //      Se master nao carregou ainda, cai no inst-intl-cambio legado.
     var cambio = (window.projettaCambio && typeof window.projettaCambio.get === 'function')
                  ? window.projettaCambio.get()
-                 : (numVal('inst-intl-cambio') || 5.20);
+                 : (numVal('inst-intl-cambio') || 0);
     $('frete-calc-cambio').value = cambio;
     _aplicarCambioAuto();
     $('frete-calc-dap').value = 0;
