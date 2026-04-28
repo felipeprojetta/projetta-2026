@@ -70,10 +70,12 @@ function plnPecas(Lmm, Amm, fol, mod) {
     if (_isMod16) {
       _N_FRISOS_16 = parseInt((document.getElementById('plan-friso-h-qty')||{value:0}).value) || 0;
       _ESP_FRISO_16 = parseInt((document.getElementById('plan-friso-h-esp')||{value:0}).value) || 0;
-      // ★ Felipe 28/04: se N=0 OU ESP=0 -> porta lisa pura (sem frisos, sem divisao)
-      if (_N_FRISOS_16 > 0 && _ESP_FRISO_16 > 0) {
+      // ★ Felipe 28/04 (revisado): N>0 SEMPRE divide TAMPA em N+1 partes
+      // ESP=0 -> nao desconta espessura mas mantem divisao + NAO gera FRISO HORIZ
+      // ESP>0 -> desconta espessura + gera FRISO HORIZ
+      if (_N_FRISOS_16 > 0) {
         _N_PARTS_16 = _N_FRISOS_16 + 1;
-        var _altUtil_16 = G4 - (_N_FRISOS_16 * _ESP_FRISO_16);
+        var _altUtil_16 = (_ESP_FRISO_16 > 0) ? (G4 - _N_FRISOS_16 * _ESP_FRISO_16) : G4;
         var _medidaBruta_16 = _altUtil_16 / _N_PARTS_16;
         _altMaior16 = _medidaBruta_16 + 2 * REF;
         _qtyMul16 = _N_PARTS_16;
@@ -327,14 +329,15 @@ function plnPecas(Lmm, Amm, fol, mod) {
     // Parâmetros do friso horizontal
     var N_FRISOS = parseInt((document.getElementById('plan-friso-h-qty')||{value:0}).value) || 0;
     var ESP_FRISO = parseInt((document.getElementById('plan-friso-h-esp')||{value:0}).value) || 0;
-    // ★ Felipe 28/04: se N=0 OU ESP=0 -> porta lisa pura (sem frisos)
-    var _hasFriso06 = (N_FRISOS > 0 && ESP_FRISO > 0);
-    var N_PARTS = _hasFriso06 ? (N_FRISOS + 1) : 1;
+    // ★ Felipe 28/04 (revisado): N>0 SEMPRE divide TAMPA; ESP controla desconto + FRISO HORIZ
+    var _hasDivisao06 = (N_FRISOS > 0);
+    var _hasFrisoChapa06 = (N_FRISOS > 0 && ESP_FRISO > 0);
+    var N_PARTS = _hasDivisao06 ? (N_FRISOS + 1) : 1;
     var LIMITE_CHAPA = 1450; // largura útil máxima da chapa (1500 - 20ref - 20ref)
     // Medida bruta de cada faixa = (G4 - gaps dos frisos) / nº partes
-    var altUtil = _hasFriso06 ? (G4 - (N_FRISOS * ESP_FRISO)) : G4;
-    var medidaBruta = _hasFriso06 ? (altUtil / N_PARTS) : G4;
-    var medidaCorte = _hasFriso06 ? (medidaBruta + 2 * REF) : G4;
+    var altUtil = _hasFrisoChapa06 ? (G4 - (N_FRISOS * ESP_FRISO)) : G4;
+    var medidaBruta = _hasDivisao06 ? (altUtil / N_PARTS) : G4;
+    var medidaCorte = _hasDivisao06 ? (medidaBruta + 2 * REF) : G4;
     // CAVA (mesma lógica do modelo 01)
     r.push(['CAVA', LARG_CAVA + 116, cavaH06, (fol==2) ? 4 : 2]);
     // TAMPA CAVA — NÃO dividida (peça pequena, mesma do modelo 01)
@@ -373,7 +376,7 @@ function plnPecas(Lmm, Amm, fol, mod) {
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
     // CHAPAS FRISO HORIZONTAL — largura=medida veda porta, altura=espessura+100, qty=frisos×2 (frente+verso)
     // ★ Felipe 28/04: so gera se N>0 E ESP>0
-    if (_hasFriso06) {
+    if (_hasFrisoChapa06) {
       var _LAR_IS_06 = Math.round(L - 10 - 10 - 171.7 - 171.5);
       var _frisoW06 = Math.round(_LAR_IS_06 + 110 + 110); // mesma medida VEDA PORTA
       var _frisoH06 = ESP_FRISO + 100;
