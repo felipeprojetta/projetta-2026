@@ -14,7 +14,7 @@
 
   function getCambio() {
     if (window.projettaCambio) return window.projettaCambio.get();
-    return 5.20;
+    return 0;
   }
 
   // ── BUG 2: hook em _valorRealCardBRL ──────────────────────
@@ -105,7 +105,7 @@
     if (!html || html.indexOf('Frete Mar') < 0) return;
 
     // Marca pra evitar loop infinito (idempotencia)
-    var stamp = window.projettaCambio ? window.projettaCambio.get().toFixed(4) : '5.20';
+    var stamp = window.projettaCambio ? window.projettaCambio.get().toFixed(4) : '0';
     if (el.getAttribute('data-mod132-cambio') === stamp) return;
 
     var cambio = getCambio();

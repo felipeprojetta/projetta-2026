@@ -534,7 +534,7 @@ function _valorRealCardBRL(o){
              || !!(o.pais||'').trim();
   if(!_ehIntl) return _vPorta;
   // Internacional
-  var _cambio = parseFloat(o.inst_cambio) || 5.20;
+  var _cambio = parseFloat(o.inst_cambio) || 0;
   // Instalação: valor salvo OU recalcular
   var _vInst = parseFloat(o.inst_intl_fat) || 0;
   if(_vInst === 0){
@@ -913,12 +913,12 @@ function buildCard(o,st,isFazerOrc){
       var _instQuem = (o.inst_quem||'').toUpperCase();
       var _instAtiva = _instQuem === 'INTERNACIONAL';
       var _vInst = _instAtiva ? (parseFloat(o.inst_intl_fat) || 0) : 0;
-      // v29: usar cambio MASTER (window.projettaCambio) em vez de 5.20 fixo.
+      // v29: usar cambio MASTER (window.projettaCambio) em vez de 0 fixo.
       //       Se o card tem inst_cambio salvo (override por card), usa ele;
-      //       senao usa o master global; fallback 5.20.
+      //       senao usa o master global; fallback 0.
       var _cambio = parseFloat(o.inst_cambio) ||
                     (window.projettaCambio && typeof window.projettaCambio.get === 'function' ? window.projettaCambio.get() : 0) ||
-                    5.20;
+                    0;
       if(_vInst === 0 && _instAtiva){
         // Fallback — recalcular
         var _passagemPorPessoa = parseFloat(o.inst_passagem) || 0;
@@ -1458,7 +1458,7 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-inst-carro',opp.inst_carro||850);
     setVal('crm-o-inst-mo',opp.inst_mo||500);
     setVal('crm-o-inst-margem',opp.inst_margem||10);
-    setVal('crm-o-inst-cambio',opp.inst_cambio||5.20);
+    setVal('crm-o-inst-cambio',opp.inst_cambio||0);
     if(typeof crmInstQuemChange==='function') crmInstQuemChange();
     // ★ Após restaurar inst_quem e inst_incoterm, garantir que bloco CIF
     //   aparece se for CIF (e recalcula total).
@@ -1553,7 +1553,7 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-inst-pessoas',3);setVal('crm-o-inst-dias',3);setVal('crm-o-inst-udigru',2000);
     setVal('crm-o-inst-passagem',10000);setVal('crm-o-inst-hotel',1700);setVal('crm-o-inst-alim',300);
     setVal('crm-o-inst-seguro',300);setVal('crm-o-inst-carro',850);setVal('crm-o-inst-mo',500);
-    setVal('crm-o-inst-margem',10);setVal('crm-o-inst-cambio',5.20);
+    setVal('crm-o-inst-margem',10);setVal('crm-o-inst-cambio',0);
     if(typeof crmInstQuemChange==='function') crmInstQuemChange();
     var cepSt=el('crm-cep-status');if(cepSt)cepSt.textContent='';
     crmSetScope('nacional');showWeikunField(false);
@@ -2316,7 +2316,7 @@ window.crmInstCalcIntl=function(){
   var diasInst=gv('crm-o-inst-dias');
   var diasViagem=4; // 2 ida + 2 volta fixo
   var diasTotal=diasInst+diasViagem;
-  var cambio=gv('crm-o-inst-cambio')||5.20;
+  var cambio=gv('crm-o-inst-cambio')||0;
   var margemLiq=gv('crm-o-inst-margem')/100;
 
   var udiGru=gv('crm-o-inst-udigru');
@@ -2391,27 +2391,11 @@ window.crmInstCalcIntl=function(){
   window._instIntlCusto=custoTotal;
 }
 
-window.crmInstFetchCambio=function(){
-  var info=document.getElementById('crm-inst-cambio-info');
-  if(info) info.textContent='Buscando cotação BCB...';
-  var end=new Date();var start=new Date();start.setDate(start.getDate()-90);
-  var fmt=function(d){var m=''+(d.getMonth()+1),dd=''+d.getDate(),y=d.getFullYear();return m+'/'+dd+'/'+y;};
-  fetch('https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@di,dataFinalCotacao=@df)?@di=%27'+fmt(start)+'%27&@df=%27'+fmt(end)+'%27&$format=json&$select=cotacaoVenda,dataHoraCotacao')
-  .then(function(r){return r.json();})
-  .then(function(data){
-    var vals=data.value||[];
-    if(vals.length>0){
-      var sum=0;vals.forEach(function(v){sum+=v.cotacaoVenda;});
-      var media=(sum/vals.length).toFixed(2);
-      var el=document.getElementById('crm-o-inst-cambio');
-      if(el)el.value=media;
-      if(info)info.textContent='✅ Média BCB ('+vals.length+' dias): R$ '+media;
-      crmInstCalcIntl();
-    }
-  }).catch(function(e){
-    if(info)info.textContent='⚠️ Erro API BCB. Usando default.';
-  });
-}
+/* crmInstFetchCambio NEUTRALIZADO */
+window.crmInstFetchCambio = function() {
+  var i = document.getElementById("crm-inst-cambio-info");
+  if (i) { i.textContent = ""; i.style.display = "none"; }
+};
 
 window.crmItemDuplicate=function(id){
   var orig=_crmItens.find(function(i){return i.id===id;});
@@ -3042,7 +3026,7 @@ window.crmSaveOpp=function(){
     inst_carro: parseFloat(val('crm-o-inst-carro'))||850,
     inst_mo: parseFloat(val('crm-o-inst-mo'))||500,
     inst_margem: parseFloat(val('crm-o-inst-margem'))||10,
-    inst_cambio: parseFloat(val('crm-o-inst-cambio'))||5.20,
+    inst_cambio: parseFloat(val('crm-o-inst-cambio'))||0,
     inst_intl_total: window._instIntlTotal||0,
     agp:       val('crm-o-agp').trim(),
     cep:       val('crm-o-cep'),
@@ -5472,7 +5456,7 @@ function _captureOrcValues(){
     instPessoas:      _v('inst-intl-pessoas'),
     instDias:         _v('inst-intl-dias'),
     instMargem:       _v('inst-intl-margem'),
-    instCambio:       _v('inst-intl-cambio') || 5.20
+    instCambio:       _v('inst-intl-cambio') || 0
   };
 }
 
