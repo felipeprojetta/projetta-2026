@@ -512,34 +512,30 @@ function nameColor(name){
    Usado no breakdown do card, header das colunas e KPIs. */
 function _valorRealCardBRL(o){
   if(!o) return 0;
-  // ★ Felipe 27/04: stage pre-orcamento (Fazer Orcamento, Qualificacao) → 0
-  try {
-    var _stages = (typeof gStages === 'function') ? gStages() : [];
-    var _st = _stages.find(function(s){return s.id === o.stage;});
-    if(_st){
-      var _lbl = (_st.label || '').toString().toLowerCase();
-      if(/fazer.*or[çc]|qualifi/i.test(_lbl)) return 0;
+  // ★ Felipe 24/04: card sem revisao calculada nao entra no pipeline.
+  // Vale tanto pra nacional (que ja retorna 0 via _vPorta) quanto pra
+  // internacional (que somaria inst+cif mesmo sem orcamento feito).
+  var _temRev = false;
+  if(o.revisoes && o.revisoes.length > 0) _temRev = true;
+  if(!_temRev && o.opcoes){
+    for(var _i=0; _i<o.opcoes.length; _i++){
+      if(o.opcoes[_i] && o.opcoes[_i].revisoes && o.opcoes[_i].revisoes.length > 0){
+        _temRev = true; break;
+      }
     }
-  } catch(e){}
-
+  }
   var _vDireto = parseFloat(o.valorFaturamento) || parseFloat(o.valorTabela) || parseFloat(o.valor) || 0;
-  if(_vDireto === 0) return 0;
+  if(!_temRev && _vDireto === 0) return 0;
   var _vPorta = _vDireto;
-
+  // Detectar intl por multiplos sinais (scope pode nao estar salvo em cards antigos)
   var _ehIntl = o.scope === 'internacional'
              || (o.inst_quem||'').toUpperCase() === 'INTERNACIONAL'
              || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toUpperCase()) >= 0
              || !!(o.pais||'').trim();
   if(!_ehIntl) return _vPorta;
-
-  // ★ Felipe 27/04: cambio do CARD (sem fallback 5.20). Se card sem cambio, usa projettaCambio.
-  var _cambio = parseFloat(o.inst_cambio) || 0;
-  if(_cambio <= 0 && window.projettaCambio){
-    _cambio = parseFloat(window.projettaCambio.get()) || 0;
-  }
-  if(_cambio <= 0) return _vPorta;
-
-  // Instalacao
+  // Internacional
+  var _cambio = parseFloat(o.inst_cambio) || 5.20;
+  // Instalação: valor salvo OU recalcular
   var _vInst = parseFloat(o.inst_intl_fat) || 0;
   if(_vInst === 0){
     var _passagem = parseFloat(o.inst_passagem) || 0;
@@ -558,7 +554,7 @@ function _valorRealCardBRL(o){
       _vInst = _custo / Math.max(0.01, 1 - _mg/100);
     }
   }
-
+  // Logística
   var _inc = (o.inst_incoterm||'').toUpperCase();
   var _logUsd = 0;
   if(_inc==='CIF' || _inc==='FOB'){
@@ -570,32 +566,11 @@ function _valorRealCardBRL(o){
     _logUsd += parseFloat(o.cif_frete_terrestre)||0;
   }
   if(_inc==='CIF'){
-    // ★ Felipe 27/04: maritimo final = cif_frete_maritimo × 1.20 (regra fixa)
-    _logUsd += (parseFloat(o.cif_frete_maritimo)||0) * 1.20;
+    _logUsd += parseFloat(o.cif_frete_maritimo)||0;
   }
   return _vPorta + _vInst + (_logUsd * _cambio);
 }
-
-// ★ Felipe 27/04: nova funcao para Tab. Internacional: Tab = Fat = Total.
-function _valorTabCardBRL(o){
-  if(!o) return 0;
-  try {
-    var _stages2 = (typeof gStages === 'function') ? gStages() : [];
-    var _st2 = _stages2.find(function(s){return s.id === o.stage;});
-    if(_st2){
-      var _lbl2 = (_st2.label || '').toString().toLowerCase();
-      if(/fazer.*or[çc]|qualifi/i.test(_lbl2)) return 0;
-    }
-  } catch(e){}
-  var _ehIntl2 = o.scope === 'internacional'
-              || (o.inst_quem||'').toUpperCase() === 'INTERNACIONAL'
-              || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toUpperCase()) >= 0
-              || !!(o.pais||'').trim();
-  if(_ehIntl2) return _valorRealCardBRL(o);
-  return parseFloat(o.valorTabela) || 0;
-}
 window._valorRealCardBRL = _valorRealCardBRL;
-window._valorTabCardBRL = _valorTabCardBRL;
 
 /* ── KPIs ────────────────────────────────────────── */
 function updateKPIs(all){
@@ -692,7 +667,7 @@ function updateKPIs(all){
   if(el('ck-conv'))el('ck-conv').textContent=conv+'%';
   if(el('ck-intl')){el('ck-intl').textContent=intl.length;el('ck-intl-s').textContent='internacional'+(intl.length!==1?'s':'');}
   // Total Tabela e Faturamento (ativas do periodo)
-  var totTab=ativos.reduce(function(s,o){return s+(typeof _valorTabCardBRL==='function'?_valorTabCardBRL(o):(parseFloat(o.valorTabela)||0));},0);
+  var totTab=ativos.reduce(function(s,o){return s+(parseFloat(o.valorTabela)||0);},0);
   var totFat=ativos.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
   if(el('ck-tot-tab')){el('ck-tot-tab').textContent=brl(totTab);el('ck-tot-tab-s').textContent=ativos.filter(function(o){return o.valorTabela>0;}).length+' com tabela';}
   if(el('ck-tot-fat')){el('ck-tot-fat').textContent=brl(totFat);el('ck-tot-fat-s').textContent=ativos.filter(function(o){return(o.valorFaturamento||o.valor)>0;}).length+' com faturamento';}
@@ -776,7 +751,7 @@ function renderKanban(fil){
     var cards=fil.filter(function(o){return o.stage===st.id;});
     // ★ Felipe 20/04: Fat da coluna agora inclui inst+logistica pros intl
     var tv=cards.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
-    var tvTab=cards.reduce(function(s,o){return s+(typeof _valorTabCardBRL==='function'?_valorTabCardBRL(o):(parseFloat(o.valorTabela)||0));},0);
+    var tvTab=cards.reduce(function(s,o){return s+(parseFloat(o.valorTabela)||0);},0);
     var isFazerOrc=/fazer.*or|orcamento/i.test(st.label);
     var col=document.createElement('div');col.className='crm-stage';col.setAttribute('data-stage',st.id);
     col.innerHTML=
