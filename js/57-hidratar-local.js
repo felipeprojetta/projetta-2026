@@ -116,9 +116,15 @@
                     'color:#27ae60;font-weight:600');
       }
 
-      // Re-renderizar UIs que leem do localStorage
-      try { if(typeof window.crmRender === 'function') window.crmRender(); } catch(e){}
-      try { if(typeof window.renderClientesTab === 'function') window.renderClientesTab(); } catch(e){}
+      // ★ Felipe 28/04: hash dedup - so chama crmRender se cards mudaram
+      var newHash = cards.length + '|' + cards.map(function(c){
+        return (c.id||'') + ':' + (c.updatedAt||c.updated_at||'') + ':' + (c.stage||'');
+      }).join(',');
+      if(newHash !== window.__hidratar_lastHash){
+        window.__hidratar_lastHash = newHash;
+        try { if(typeof window.crmRender === 'function') window.crmRender(); } catch(e){}
+        try { if(typeof window.renderClientesTab === 'function') window.renderClientesTab(); } catch(e){}
+      }
 
       return { status: 'ok', count: cards.length };
     } catch(err){
@@ -167,12 +173,10 @@
       _syncSilencioso('focus-janela');
     });
 
-    // Sync periodico
-    setInterval(function(){
-      if(document.visibilityState === 'visible'){
-        _syncSilencioso('periodico');
-      }
-    }, SYNC_INTERVAL_MS);
+    // ★ Felipe 28/04: REMOVIDO setInterval periodico (8s) que causava piscar.
+    // 10-crm.js ja faz polling a cada 5s com hash dedup. Manter so:
+    //  - Sync inicial ao carregar
+    //  - Sync ao focar janela (Alt-Tab)
   }
 
   if(document.readyState === 'loading'){
