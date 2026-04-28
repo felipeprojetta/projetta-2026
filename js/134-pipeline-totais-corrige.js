@@ -1,25 +1,27 @@
 (() => {
-  if (window.__MOD_134_V2_LOADED) return;
-  window.__MOD_134_V2_LOADED = true;
+  if (window.__MOD_134_V3_LOADED) return;
+  window.__MOD_134_V3_LOADED = true;
 
   // ═══════════════════════════════════════════════════════════════
-  // REGRAS FIXAS:
+  // v3 (28-abr-2026): consolidado, SEM polling agressivo (Felipe pediu
+  // parar de piscar). Modulos 132 e 133 NEUTRALIZADOS - logica toda aqui.
+  //
+  // REGRAS:
   // 1. Stage "Fazer Orcamento" / "Qualificacao" → 0 (sem orcamento ainda)
-  // 2. Cambio = o.inst_cambio (do card) || projettaCambio.get()
+  // 2. Cambio = o.inst_cambio (do card) — sem fallback API
   // 3. Maritimo final = cif_frete_maritimo × 1.20
-  // 4. Internacional: Tab = Fat = Total
+  // 4. Internacional: Tab = Fat = TOTAL (porta + inst + caixa + fretes)
+  // 5. Nacional: Tab = valorTabela, Fat = valorFaturamento
   // ═══════════════════════════════════════════════════════════════
 
   function getCambio(o) {
-    // Prioridade: cambio salvo no proprio card
     var cardCambio = parseFloat((o && o.inst_cambio) || 0);
     if (isFinite(cardCambio) && cardCambio > 0) return cardCambio;
-    // Fallback: cambio digitado pelo usuario na sessao atual
     if (window.projettaCambio) {
       var c = window.projettaCambio.get();
       if (isFinite(c) && c > 0) return c;
     }
-    return 0; // sem cambio = nao calcula
+    return 0;
   }
 
   function ehInternacional(o) {
@@ -40,7 +42,7 @@
 
   function calcCardBRL(o) {
     if (!o) return 0;
-    if (isStagePreOrc(o.stage)) return 0; // ★ sem orcamento ainda
+    if (isStagePreOrc(o.stage)) return 0;
 
     var _vDireto = parseFloat(o.valorFaturamento) || parseFloat(o.valorTabela) || parseFloat(o.valor) || 0;
     if (_vDireto === 0) return 0;
@@ -49,9 +51,8 @@
     if (!ehInternacional(o)) return _vPorta;
 
     var _cambio = getCambio(o);
-    if (_cambio <= 0) return _vPorta; // sem cambio, so a porta
+    if (_cambio <= 0) return _vPorta;
 
-    // Instalacao (deixa logica original)
     var _vInst = parseFloat(o.inst_intl_fat) || 0;
     if (_vInst === 0) {
       var _pas = parseFloat(o.inst_passagem) || 0;
@@ -91,18 +92,21 @@
   function calcCardTabBRL(o) {
     if (!o) return 0;
     if (isStagePreOrc(o.stage)) return 0;
-    if (ehInternacional(o)) return calcCardBRL(o); // intl: Tab = Total
+    if (ehInternacional(o)) return calcCardBRL(o);
     return parseFloat(o.valorTabela) || 0;
   }
 
   function fmtBRL(n) { return 'R$ ' + Math.round(n).toLocaleString('pt-BR'); }
 
-  function patchKPIs() {
-    if (typeof window.cLoad !== 'function') return;
-    var data;
-    try { data = window.cLoad(); } catch(e){ return; }
-    if (!Array.isArray(data)) return;
+  function setText(id, txt) {
+    var el = document.getElementById(id);
+    if (el && el.textContent !== txt) el.textContent = txt;
+  }
 
+  // Cache pra evitar setText quando nada mudou — REDUZ piscar
+  var _lastSnapshot = '';
+
+  function patchKPIs(data) {
     var gStages = window.gStages || function(){ return []; };
     var stages = gStages();
     var wonIds = stages.filter(function(s){ return /gan|won/i.test(s.label||''); }).map(function(s){return s.id;});
@@ -112,36 +116,27 @@
 
     var pipe = ativos.reduce(function(s,o){ return s + calcCardBRL(o); }, 0);
     var totTab = ativos.reduce(function(s,o){ return s + calcCardTabBRL(o); }, 0);
-    var totFat = ativos.reduce(function(s,o){ return s + calcCardBRL(o); }, 0);
-
-    function setText(id, txt) {
-      var el = document.getElementById(id);
-      if (el && el.textContent !== txt) el.textContent = txt;
-    }
+    var totFat = pipe;
 
     setText('ck-pipe', fmtBRL(pipe));
     setText('ck-tot-tab', fmtBRL(totTab));
     setText('ck-tot-fat', fmtBRL(totFat));
 
-    // Subtitle do tot-tab e tot-fat: contar quantos cards REALMENTE com valor (>0)
     var ckTotTabSub = document.getElementById('ck-tot-tab-s');
     if (ckTotTabSub) {
       var n = ativos.filter(function(o){ return calcCardTabBRL(o) > 0; }).length;
-      ckTotTabSub.textContent = n + ' com tabela';
+      var t = n + ' com tabela';
+      if (ckTotTabSub.textContent !== t) ckTotTabSub.textContent = t;
     }
     var ckTotFatSub = document.getElementById('ck-tot-fat-s');
     if (ckTotFatSub) {
       var n2 = ativos.filter(function(o){ return calcCardBRL(o) > 0; }).length;
-      ckTotFatSub.textContent = n2 + ' com faturamento';
+      var t2 = n2 + ' com faturamento';
+      if (ckTotFatSub.textContent !== t2) ckTotFatSub.textContent = t2;
     }
   }
 
-  function patchKanbanHeaders() {
-    if (typeof window.cLoad !== 'function') return;
-    var data;
-    try { data = window.cLoad(); } catch(e){ return; }
-    if (!Array.isArray(data)) return;
-
+  function patchKanbanHeaders(data) {
     var stagesEl = document.querySelectorAll('.crm-stage');
     if (!stagesEl.length) return;
 
@@ -173,12 +168,30 @@
   }
 
   function patchTudo() {
-    patchKPIs();
-    patchKanbanHeaders();
+    if (typeof window.cLoad !== 'function') return;
+    var data;
+    try { data = window.cLoad(); } catch(e){ return; }
+    if (!Array.isArray(data)) return;
+
+    // Snapshot do estado relevante para detectar mudanca real
+    var snap = data.length + '|' + data.map(function(o){
+      return (o.id||'') + ':' + (o.stage||'') + ':' + (parseFloat(o.valorFaturamento)||0)
+           + ':' + (parseFloat(o.valorTabela)||0) + ':' + (parseFloat(o.inst_cambio)||0)
+           + ':' + (parseFloat(o.cif_frete_maritimo)||0) + ':' + (o.deleted_at?'X':'');
+    }).join(',');
+
+    if (snap === _lastSnapshot) return; // nada mudou - nao reescreve DOM (= sem piscar)
+    _lastSnapshot = snap;
+
+    patchKPIs(data);
+    patchKanbanHeaders(data);
   }
 
-  setInterval(patchTudo, 1500);
+  // ★ Felipe 28/04: REMOVIDO setInterval(patchTudo, 1500) que piscava.
+  // Agora usa SO MutationObserver com debounce — recalcula apenas quando
+  // o DOM do kanban muda (drag/drop, novo card, edit, etc).
   setTimeout(patchTudo, 500);
+  setTimeout(patchTudo, 2000); // 1 retry caso DOM nao tenha terminado de hidratar
 
   function observe() {
     var pipe = document.getElementById('crm-pipeline');
@@ -186,17 +199,34 @@
     var pendingT = null;
     new MutationObserver(function(){
       if (pendingT) clearTimeout(pendingT);
-      pendingT = setTimeout(patchTudo, 80);
+      pendingT = setTimeout(patchTudo, 120); // debounce
     }).observe(pipe, { childList: true, subtree: true });
   }
   observe();
 
+  // Listener pra eventos de save/edit (fonte da verdade)
   if (window.addEventListener) {
     window.addEventListener('projetta:cambio-changed', function(){
-      try { if (typeof window.crmRender === 'function') window.crmRender(); } catch(e){}
+      _lastSnapshot = ''; // forca recalculo
       setTimeout(patchTudo, 200);
     });
   }
+  // Hook em fetch — quando POST/PATCH em crm_oportunidades, recalcula
+  try {
+    var origFetch = window.fetch;
+    window.fetch = async function(input, init){
+      var resp = await origFetch.apply(this, arguments);
+      try {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+        if (/POST|PATCH/.test(method) && /\/rest\/v1\/crm_oportunidades/.test(url)) {
+          _lastSnapshot = '';
+          setTimeout(patchTudo, 600);
+        }
+      } catch(e){}
+      return resp;
+    };
+  } catch(e){}
 
-  console.log('[mod 134 v2] consolidado — Fazer Orc=0, cambio do card, maritimo×1.2, intl Tab=Fat=Total');
+  console.log('[mod 134 v3] consolidado - SEM polling, snapshot dedupe, MutationObserver debounce');
 })();
