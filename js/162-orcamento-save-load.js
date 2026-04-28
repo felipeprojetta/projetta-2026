@@ -109,36 +109,55 @@
     return out;
   }
 
+  function _safeClone(obj){
+    if(!obj) return null;
+    try { return JSON.parse(JSON.stringify(obj)); }
+    catch(e){ console.warn('[162-clone] falhou (circular?):', e.message); return null; }
+  }
   function capturarPlanificador(){
-    return {
-      pieces: window._plnPieces ? JSON.parse(JSON.stringify(window._plnPieces)) : null,
-      lastResult: window._plnLastResult ? JSON.parse(JSON.stringify(window._plnLastResult)) : null,
-      cor: _v('plan-chapa'),
-      largura: _v('plan-largura'),
-      altura: _v('plan-altura')
-    };
+    try {
+      return {
+        pieces: _safeClone(window._plnPieces),
+        lastResult: _safeClone(window._plnLastResult),
+        cor: _v('plan-chapa'),
+        largura: _v('plan-largura'),
+        altura: _v('plan-altura')
+      };
+    } catch(e){
+      console.warn('[162-pln] erro:', e);
+      return { erro: e.message };
+    }
   }
 
   function capturarResultado(){
-    // Lê valores diretamente do DOM do painel Resultado + DRE
     function _readNum(sel){
-      var el = document.querySelector(sel);
-      if(!el) return 0;
-      var txt = el.textContent || el.innerText || '';
-      return _num(txt.replace(/[^\d,.\-]/g,''));
+      try {
+        var el = document.querySelector(sel);
+        if(!el) return 0;
+        var txt = (el.textContent || el.innerText || '').toString();
+        return _num(txt.replace(/[^\d,.\-]/g,''));
+      } catch(e){ return 0; }
     }
-    return {
-      sub_fab:        _readNum('.r-fab'),
-      sub_inst:       _readNum('.r-inst'),
-      valor_tabela:   _readNum('.r-tab') || _readNum('#r-tab') || _readNum('.dr-tab'),
-      faturamento:    _readNum('.d-fat') || _readNum('.dre .d-fat'),
-      custo_total:    _readNum('.d-custo'),
-      lucro_liquido:  _readNum('.dr.ll') || _readNum('.d-ll'),
-      capturado_html: { /* para fallback visual se números falharem */
-        rPorta: (document.querySelector('.r-porta')||{}).innerHTML || '',
-        dre:    (document.querySelector('.dre')||{}).innerHTML || ''
-      }
-    };
+    function _readHtml(sel){
+      try {
+        var el = document.querySelector(sel);
+        return el ? (el.innerHTML || '') : '';
+      } catch(e){ return ''; }
+    }
+    try {
+      return {
+        sub_fab:        _readNum('.r-fab'),
+        sub_inst:       _readNum('.r-inst'),
+        valor_tabela:   _readNum('.r-tab') || _readNum('#r-tab') || _readNum('.dr-tab'),
+        faturamento:    _readNum('.d-fat') || _readNum('.dre .d-fat'),
+        custo_total:    _readNum('.d-custo'),
+        lucro_liquido:  _readNum('.dr.ll') || _readNum('.d-ll'),
+        capturado_html: { rPorta: _readHtml('.r-porta'), dre: _readHtml('.dre') }
+      };
+    } catch(e){
+      console.warn('[162-res] erro:', e);
+      return { erro: e.message, capturado_html: { rPorta: '', dre: '' } };
+    }
   }
 
   function _readClienteFromDOM(){
@@ -198,13 +217,20 @@
   // ════════════════════════════════════════════════════════════════════════
 
   async function orcSalvarOrcamento(){
+    console.log('%c[162] orcSalvarOrcamento INICIADO', 'background:#27ae60;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700');
     try {
-      // Persistir alterações pendentes nos itens antes de capturar
       if(typeof window._crmItensSaveFromDOM === 'function'){
-        try { window._crmItensSaveFromDOM(); } catch(e){}
+        try { window._crmItensSaveFromDOM(); } catch(e){ console.warn('[162] saveFromDOM falhou:', e); }
       }
 
-      var snap = capturarSnapshot();
+      var snap;
+      try { snap = capturarSnapshot(); }
+      catch(e){
+        console.error('[162-snap] erro fatal capturando snapshot:', e);
+        toast('❌ <b>Erro capturando dados:</b><br><span style="font-size:11px;font-weight:400">' + e.message + '</span>', '#c0392b', 8000);
+        return;
+      }
+      console.log('[162] snapshot:', snap);
       if(!snap.cliente || snap.cliente === 'Sem cliente'){
         toast('⚠ <b>Cliente não identificado</b><br><span style="font-weight:400;font-size:11px">Abra um card do CRM antes de salvar</span>', '#c0392b', 5000);
         return;
@@ -281,8 +307,8 @@
         '#27ae60', 6000
       );
     } catch(err){
-      console.error('[162-save] erro:', err);
-      toast('❌ <b>Erro ao salvar:</b><br><span style="font-size:11px;font-weight:400">' + (err.message || err) + '</span>', '#c0392b', 8000);
+      console.error('[162-save] erro fatal:', err, err && err.stack);
+      toast('❌ <b>Erro ao salvar:</b><br><span style="font-size:11px;font-weight:400">' + (err.message || err) + '</span><br><span style="font-size:10px;font-weight:400;opacity:.85">Detalhes no console (F12)</span>', '#c0392b', 10000);
     }
   }
 
