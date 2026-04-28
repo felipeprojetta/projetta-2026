@@ -521,11 +521,9 @@ window.freteOpenCalc=function(){
     buildRotaOptions(cfg);
     var cbmAuto = cbmDaCaixa();
     if(cbmAuto > 0) $('frete-calc-cbm').value = cbmAuto.toFixed(3);
-    // v29: usar cambio MASTER (window.projettaCambio) como fonte de verdade.
-    //      Se master nao carregou ainda, cai no inst-intl-cambio legado.
-    var cambio = (window.projettaCambio && typeof window.projettaCambio.get === 'function')
-                 ? window.projettaCambio.get()
-                 : (numVal('inst-intl-cambio') || 0);
+    // Felipe 28/04: cambio 100% do card (mod131-cambio-card / inst-intl-cambio)
+    // SEM fallback projettaCambio.get. Se card nao tem cambio, retorna 0.
+    var cambio = numVal('mod131-cambio-card') || numVal('inst-intl-cambio') || 0;
     $('frete-calc-cambio').value = cambio;
     _aplicarCambioAuto();
     $('frete-calc-dap').value = 0;
