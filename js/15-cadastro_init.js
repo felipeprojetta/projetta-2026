@@ -25,8 +25,9 @@ document.addEventListener('DOMContentLoaded',function(){
   _populateManualAcessSelect();
   _populateManualPerfilSelect();
   _populatePlanChapaSelects();
-  // Auto-restaurar última sessão salva
-  _autoRestoreSession();
+  // Auto-restaurar ultima sessao salva (Felipe 28/04: defensivo - funcao pode nao existir)
+  try { if(typeof _autoRestoreSession === 'function') _autoRestoreSession(); }
+  catch(e){ console.warn('[15] _autoRestoreSession falhou:', e.message); }
   // Auto-gerar OS se houver dimensões salvas
   setTimeout(function(){ _osAutoUpdate(); }, 500);
 });
