@@ -422,13 +422,9 @@
           console.log('[auto-move v24] stage atual do card no Supabase:', _curStage);
           _stageFinal = _curStage;
           if(_curStage === 's3'){
-            // Fazer PATCH s3 -> s3b
-            var _okMove = await _moverCardStage(_cidAtual, 's3b');
-            console.log('[auto-move v24] PATCH s3->s3b:', _okMove);
-            if(_okMove){
-              _movidoStage = true;
-              _stageFinal = 's3b';
-            }
+            // Felipe 28/04: NAO mover stage automaticamente - tudo manual via drag
+            console.log('[auto-move v24] DESATIVADO - movimentacao manual via drag');
+            // _movidoStage permanece false; _stageFinal = stage atual
           } else {
             console.log('[auto-move v24] stage ('+_curStage+') ja esta em frente, nao precisa mover — mas vou sincronizar localStorage mesmo assim');
           }
@@ -1242,11 +1238,10 @@
       });
       var proxV = await r.json();
       
-      if(!confirm('🏆 APROVAR COMO VERSÃO ' + proxV + '?\n\n' +
-        '• Será criada uma versão CONGELADA (imutável)\n' +
-        '• Valores do card atualizados\n' +
-        '• Card movido pra "Orçamento Pronto"\n' +
-        '• 1 PDF + 3 PNGs baixados\n\n' +
+      if(!confirm('🏆 APROVAR ORCAMENTO?\n\n' +
+        '• Valores do card atualizados (Tabela + Faturamento)\n' +
+        '• 1 PDF + 3 PNGs baixados\n' +
+        '• Stage NAO sera movido (arraste manualmente)\n\n' +
         'Cliente: ' + (snap.dados_cliente.nome||'—') + '\n' +
         'AGP: ' + (snap.dados_projeto.agp||'—') + '\n' +
         'Tabela: R$ ' + (valTab ? valTab.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—') + '\n' +
@@ -1352,13 +1347,18 @@
       var _cardIdToPatch = window._crmOrcCardId || window._snapCardId || null;
       if(_cardIdToPatch){
         try {
-          var _stageRevisado = _getStageIdRevisado();
-          var _okAprov = await _moverCardStage(_cardIdToPatch, _stageRevisado, {
-            valor: valFat || valTab,
-            valor_tabela: valTab,
-            valor_faturamento: valFat
+          // Felipe 28/04: PATCH so de valores - SEM mover stage (manual via drag)
+          var _rPatch = await fetch(SUPA+'/rest/v1/crm_oportunidades?id=eq.'+encodeURIComponent(_cardIdToPatch), {
+            method:'PATCH',
+            headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' }),
+            body: JSON.stringify({
+              valor: valFat || valTab,
+              valor_tabela: valTab,
+              valor_faturamento: valFat,
+              updated_by: 'aprov_simples_28abr'
+            })
           });
-          if(!_okAprov) console.warn('[aprov card patch] PATCH falhou');
+          if(!_rPatch.ok) console.warn('[aprov card patch] PATCH falhou', _rPatch.status);
           if(!payload.card_id) payload.card_id = _cardIdToPatch;
         } catch(cerr){ console.warn('[aprov card patch]', cerr); }
       }
