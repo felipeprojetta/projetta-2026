@@ -498,7 +498,15 @@ function populateProposta(){
           mp['carac-puxador']    = oi.puxador || '';
           mp['carac-pux-tam']    = oi.pux_tam || '';
           mp['carac-cilindro']   = oi.cilindro || 'KESO';
-          mp['carac-tem-alisar'] = oi.tem_alisar ? '1' : '0';
+          // Felipe 28/04: tem_alisar - DOM tem prioridade absoluta sobre dado salvo
+          // Se checkbox existe no DOM (orcamento aberto), usa estado ao vivo.
+          // Senao (versao salva sem orcamento aberto), usa dado da revisao.
+          var _domAlisarCb = document.getElementById('carac-tem-alisar');
+          if(_domAlisarCb){
+            mp['carac-tem-alisar'] = _domAlisarCb.checked ? '1' : '0';
+          } else {
+            mp['carac-tem-alisar'] = oi.tem_alisar ? '1' : '0';
+          }
           mp._largura = parseFloat(oi.largura) || 0;
           mp._altura  = parseFloat(oi.altura)  || 0;
           mp._qtd     = parseInt(oi.qtd) || 1;
