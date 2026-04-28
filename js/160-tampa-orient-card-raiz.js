@@ -55,13 +55,16 @@
     var wrap = document.createElement('div');
     wrap.className = 'crm-row tampa-orient-row';
     wrap.setAttribute('data-tampa-orient', '1');
-    wrap.style.cssText = 'background:#fff8e1;border:1.5px solid #ff9800;border-radius:6px;padding:8px 10px;margin:6px 0';
+    wrap.style.cssText = 'background:#fff8e1;border:1.5px solid #ff9800;border-radius:8px;padding:10px 12px;margin:8px 0';
     wrap.innerHTML =
-      '<div class="crm-field" style="flex:1">' +
-        '<label style="font-size:11px;font-weight:700;color:#e65100;text-transform:uppercase;letter-spacing:.04em">↻ Sentido das Tampas <small style="color:#888;font-weight:500;text-transform:none">(planificador)</small></label>' +
-        '<select id="crmit-' + itemId + '-tampa_orient" style="width:100%;padding:6px 8px;border:1.5px solid #ff9800;border-radius:6px;font-size:13px;background:#fff;color:#e65100;font-weight:700;outline:none">' +
-          '<option value="vertical"' + (currentValue==='vertical'?' selected':'') + '>↕ Vertical (padrão — altura na vertical)</option>' +
-          '<option value="horizontal"' + (currentValue==='horizontal'?' selected':'') + '>↔ Horizontal (deita na chapa — economiza espaço)</option>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+        '<div style="flex:1;min-width:160px">' +
+          '<div style="font-size:11px;font-weight:700;color:#e65100;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">↻ Sentido das Tampas na Chapa</div>' +
+          '<div style="font-size:10px;color:#888;font-weight:500">como a peça TAMPA MAIOR é cortada</div>' +
+        '</div>' +
+        '<select id="crmit-' + itemId + '-tampa_orient" style="flex:0 0 auto;min-width:240px;padding:8px 12px;border:1.5px solid #ff9800;border-radius:6px;font-size:13px;background:#fff;color:#e65100;font-weight:700;outline:none;cursor:pointer">' +
+          '<option value="vertical"' + (currentValue==='vertical'?' selected':'') + '>↕ Em pé (altura vertical)</option>' +
+          '<option value="horizontal"' + (currentValue==='horizontal'?' selected':'') + '>↔ Deitada (largura horizontal)</option>' +
         '</select>' +
       '</div>';
     return wrap;
