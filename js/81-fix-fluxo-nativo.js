@@ -1816,3 +1816,30 @@
 
   console.log('%c[81 v28] restaurar _crmScope em snapshot — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
 })();
+
+
+/* ============================================================================
+ * Felipe 28/04 — DESATIVACAO PERMANENTE DE PRE-ORCAMENTO E APROVACAO
+ * Sobrescreve funcoes de fluxo automatico com no-ops. Movimentacao do CRM
+ * agora e 100% manual via drag.
+ * ========================================================================== */
+(function(){
+  'use strict';
+  var _noop = function(){
+    console.log('[81-disabled] funcao desativada - fluxo manual via drag');
+  };
+  var _funcoesDesativadas = [
+    'aprovarOrcamentoParaEnvio',
+    'salvarPreOrcamento',
+    'abrirModalPreOrcamentos',
+    'carregarPreOrcamento',
+    'excluirPreOrcamento',
+    'carregarVersao',
+    'reimprimirVersao',
+    'excluirVersao',
+    'ativarVersao',
+    'ativarEdicaoSnapshot'
+  ];
+  _funcoesDesativadas.forEach(function(f){ window[f] = _noop; });
+  console.log('[81-disabled] ' + _funcoesDesativadas.length + ' funcoes de fluxo desativadas');
+})();
