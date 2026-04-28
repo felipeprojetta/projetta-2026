@@ -141,17 +141,47 @@
     };
   }
 
+  function _readClienteFromDOM(){
+    // 1) #orc-itens-cli (lugar oficial - "Itens do Pedido — <span id=orc-itens-cli>Cliente</span>")
+    var el = $('orc-itens-cli');
+    if(el){
+      var t = (el.textContent || '').trim();
+      if(t && t !== 'Cliente') return t;
+    }
+    // 2) Texto completo do header (extrair regex)
+    var header = document.querySelector('.orc-itens-bar-title');
+    if(header){
+      var txt = (header.textContent || '').trim();
+      // Pattern: "Itens do Pedido — Eduardo E Giovana Pires - Pv · Reserva 141185 · AGP004519"
+      var m = txt.match(/Itens do Pedido\s*[—–-]\s*(.+?)(?:\s*[·•]\s*Reserva|\s*$)/);
+      if(m && m[1]) return m[1].trim();
+    }
+    // 3) Card do CRM (window state)
+    if(window._crmOrcCliente) return window._crmOrcCliente;
+    return '';
+  }
+  function _readAgpReservaFromDOM(){
+    var out = { agp: '', reserva: '' };
+    var header = document.querySelector('.orc-itens-bar-title');
+    if(header){
+      var txt = (header.textContent || '').trim();
+      var ma = txt.match(/AGP(\d+)/i);  if(ma) out.agp = 'AGP' + ma[1];
+      var mr = txt.match(/Reserva\s*(\d+)/i); if(mr) out.reserva = mr[1];
+    }
+    return out;
+  }
   function capturarSnapshot(){
-    var clienteEl = document.querySelector('.crm-orc-cliente') || document.querySelector('#crm-orc-cliente-display') || $('crm-orc-cliente');
-    var clienteNome = clienteEl ? (clienteEl.textContent || clienteEl.innerText || '').trim() : '';
-    if(!clienteNome) clienteNome = window._crmOrcCliente || 'Sem cliente';
+    var clienteNome = _readClienteFromDOM();
+    if(!clienteNome) clienteNome = 'Sem cliente';
+    var ar = _readAgpReservaFromDOM();
 
     return {
       capturado_em: new Date().toISOString(),
       cliente: clienteNome,
       card_id: window._crmOrcCardId || null,
-      agp: window._crmOrcAgp || _v('crm-o-agp') || '',
-      reserva: window._crmOrcReserva || _v('crm-o-reserva') || '',
+      agp: ar.agp || window._crmOrcAgp || _v('crm-o-agp') || '',
+      reserva: ar.reserva || window._crmOrcReserva || _v('crm-o-reserva') || '',
+
 
       campos: capturarCampos(),
       crmItens: window._crmItens ? JSON.parse(JSON.stringify(window._crmItens)) : [],
