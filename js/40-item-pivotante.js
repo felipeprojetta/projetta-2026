@@ -55,19 +55,14 @@ window.PROJETTA.pivotante = {
     if(item.puxador != null)           _set('carac-puxador', item.puxador);
     if(item.pux_tam != null)           _set('carac-pux-tam', item.pux_tam);
     if(item.puxador_tamanho != null)    _set('carac-pux-tam', item.puxador_tamanho);
-    // Modelo 23 (Boiserie) — Felipe 28/04: card grava nomes curtos (moldura_rev,
-    //   moldura_larg_qty, moldura_alt_qty), antes lia nomes longos por engano.
-    //   Aceita ambos (curto preferencial) para compat com itens antigos.
-    var _mrv = item.moldura_rev      || item.moldura_revestimento;
-    var _mlq = (item.moldura_larg_qty != null ? item.moldura_larg_qty : item.moldura_qtd_largura);
-    var _maq = (item.moldura_alt_qty  != null ? item.moldura_alt_qty  : item.moldura_qtd_altura);
-    if(_mrv)                       _set('plan-moldura-rev', _mrv);
-    if(_mlq != null)               _set('plan-moldura-larg-qty', _mlq);
-    if(_maq != null)               _set('plan-moldura-alt-qty', _maq);
-    if(item.moldura_tipo != null)  _set('plan-moldura-tipo', item.moldura_tipo);
-    if(item.moldura_dis1 != null)  _set('plan-moldura-dis1', item.moldura_dis1);
-    if(item.moldura_dis2 != null)  _set('plan-moldura-dis2', item.moldura_dis2);
-    if(item.moldura_dis3 != null)  _set('plan-moldura-dis3', item.moldura_dis3);
+    // Modelo 23 (Boiserie)
+    if(item.moldura_revestimento)        _set('plan-moldura-rev', item.moldura_revestimento);
+    if(item.moldura_qtd_largura != null)  _set('plan-moldura-larg-qty', item.moldura_qtd_largura);
+    if(item.moldura_qtd_altura != null)   _set('plan-moldura-alt-qty', item.moldura_qtd_altura);
+    if(item.moldura_tipo != null)         _set('plan-moldura-tipo', item.moldura_tipo);
+    if(item.moldura_dis1 != null)         _set('plan-moldura-dis1', item.moldura_dis1);
+    if(item.moldura_dis2 != null)         _set('plan-moldura-dis2', item.moldura_dis2);
+    if(item.moldura_dis3 != null)         _set('plan-moldura-dis3', item.moldura_dis3);
 
     // ═══ ISOLAMENTO DE ITENS (Felipe 24/04) ═══════════════════════════════
     // Garantia estrita de que NENHUM outro item (fixo, revestimento, multi-porta)
