@@ -116,15 +116,9 @@
                     'color:#27ae60;font-weight:600');
       }
 
-      // ★ Felipe 28/04: hash dedup - so chama crmRender se cards mudaram
-      var newHash = cards.length + '|' + cards.map(function(c){
-        return (c.id||'') + ':' + (c.updatedAt||c.updated_at||'') + ':' + (c.stage||'');
-      }).join(',');
-      if(newHash !== window.__hidratar_lastHash){
-        window.__hidratar_lastHash = newHash;
-        try { if(typeof window.crmRender === 'function') window.crmRender(); } catch(e){}
-        try { if(typeof window.renderClientesTab === 'function') window.renderClientesTab(); } catch(e){}
-      }
+      // Re-renderizar UIs que leem do localStorage
+      try { if(typeof window.crmRender === 'function') window.crmRender(); } catch(e){}
+      try { if(typeof window.renderClientesTab === 'function') window.renderClientesTab(); } catch(e){}
 
       return { status: 'ok', count: cards.length };
     } catch(err){
@@ -145,8 +139,6 @@
   var SYNC_INTERVAL_MS = 8000;
   var SYNC_MIN_GAP_MS = 2500; // nao fazer 2 syncs em menos de 2.5s
 
-  // Felipe 28/04: expor em window para 141-realtime-tabelas chamar
-  window._syncSilencioso = function(motivo){ return _syncSilencioso(motivo); };
   function _syncSilencioso(motivo){
     var agora = Date.now();
     if(agora - _ultimoSync < SYNC_MIN_GAP_MS) return;
@@ -175,10 +167,12 @@
       _syncSilencioso('focus-janela');
     });
 
-    // ★ Felipe 28/04: REMOVIDO setInterval periodico (8s) que causava piscar.
-    // 10-crm.js ja faz polling a cada 5s com hash dedup. Manter so:
-    //  - Sync inicial ao carregar
-    //  - Sync ao focar janela (Alt-Tab)
+    // Sync periodico
+    setInterval(function(){
+      if(document.visibilityState === 'visible'){
+        _syncSilencioso('periodico');
+      }
+    }, SYNC_INTERVAL_MS);
   }
 
   if(document.readyState === 'loading'){

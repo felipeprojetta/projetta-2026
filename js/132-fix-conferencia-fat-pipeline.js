@@ -1,1 +1,0 @@
-/* MOD 132: DELETED 28/04 - logica em 10-crm.js (_valorRealCardBRL) */(function(){})();

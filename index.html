@@ -803,6 +803,9 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
     </div>
     <div class="header-buttons">
       <div class="hbtns">
+        <button class="hbtn" id="btn-salvar-preorc" onclick="salvarPreOrcamento()" style="color:#fff;background:#1a5276;border-color:#1a5276;font-weight:700">💾 Salvar Pré-Orçamento</button>
+        <button class="hbtn" onclick="abrirModalPreOrcamentos()" style="color:#fff;background:#5b2c6f;border-color:#5b2c6f;font-weight:700">📋 Pré-Orçamentos Salvos</button>
+        <button class="hbtn" id="btn-aprovar-orc" onclick="aprovarOrcamentoParaEnvio()" style="color:#fff;background:#27ae60;border-color:#27ae60;font-weight:700">🏆 Aprovar para Envio</button>
         <button class="hbtn" onclick="zerarValores()" style="color:#fff;background:#e67e22;border-color:#e67e22">Zerar</button>
       </div>
     </div>
@@ -835,20 +838,16 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <div class="main-tabs">
   <button class="main-tab on" onclick="switchTab('crm')" id="btn-tab-crm">📊 CRM</button>
   <button class="main-tab" onclick="switchTab('clientes')" id="btn-tab-clientes" style="display:none">📂 Clientes</button>
-  <button class="main-tab" onclick="switchTab('orcamento')" id="btn-tab-orcamento">Orçamento</button>
+  <button class="main-tab" onclick="switchTab('orcamento')">Orçamento</button>
+  <button class="main-tab" onclick="switchTab('proposta')">Proposta Comercial</button>
   <button class="main-tab" onclick="switchTab('cadastro')">Cadastro</button>
+  <button class="main-tab" onclick="switchTab('os')" id="btn-tab-os">Levantamento de Perfis</button>
+  <button class="main-tab" onclick="switchTab('os-acess')" id="btn-tab-os-acess">Levantamento de Acessórios</button>
+  <button class="main-tab" onclick="switchTab('planificador')" id="btn-tab-plan">Levantamento de Superfícies</button>
+  <button class="main-tab" onclick="switchTab('relatorios')" id="btn-tab-rel">Relatórios</button>
+  <button class="main-tab" onclick="switchTab('custoreal')" id="btn-tab-custoreal">Custo Real NFE</button>
   <button class="main-tab" onclick="switchTab('estoque-omie')" id="btn-tab-estoque-omie">📦 Estoque Omie</button>
   <button class="main-tab" onclick="switchTab('email')" id="btn-tab-email">📧 Email</button>
-</div>
-
-<!-- SUB-NAV ORCAMENTO (Felipe 28/04: tudo dentro de Orcamento) -->
-<div id="sub-tabs-orc" class="sub-tabs" style="display:none;flex-wrap:wrap;gap:6px;padding:8px 16px;background:linear-gradient(180deg,#f8f9fa 0%,#eef0f3 100%);border-bottom:2px solid #d4d8dc">
-  <button class="sub-tab" onclick="switchTab('orcamento')" data-tab="orcamento" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📐 Orçamento</button>
-  <button class="sub-tab" onclick="switchTab('proposta')" data-tab="proposta" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📄 Proposta Comercial</button>
-  <button class="sub-tab" onclick="switchTab('os')" data-tab="os" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📏 Levantamento de Perfis</button>
-  <button class="sub-tab" onclick="switchTab('os-acess')" data-tab="os-acess" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">🔩 Levantamento de Acessórios</button>
-  <button class="sub-tab" onclick="switchTab('planificador')" data-tab="planificador" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">▭ Levantamento de Superfícies</button>
-  <button class="sub-tab" onclick="switchTab('relatorios')" data-tab="relatorios" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📊 Relatórios</button>
 </div>
 
 <!-- TAB: ORCAMENTO -->
@@ -886,7 +885,14 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <option value="ano-anterior">📋 Ano anterior</option>
       <option value="personalizado">🎯 Personalizado (de/até)</option>
     </select>
-<div id="crm-f-periodo-custom" style="display:none;gap:4px;align-items:center;background:#fff3e0;padding:3px 8px;border-radius:6px;border:1px solid #e67e22">
+    <select class="crm-sel" id="crm-f-data-ref" onchange="crmRender()" title="Qual data aplicar o filtro de período" style="background:#f5f5dc;border:2px solid #8e44ad;font-weight:700;color:#003144">
+      <option value="auto" selected>🎯 Auto (criação/fechamento)</option>
+      <option value="chegada">🆕 Data chegada (criação card)</option>
+      <option value="orcamento">📝 Data do orçamento</option>
+      <option value="contato">📞 1º contato</option>
+      <option value="fechamento">🏆 Data fechamento</option>
+    </select>
+    <div id="crm-f-periodo-custom" style="display:none;gap:4px;align-items:center;background:#fff3e0;padding:3px 8px;border-radius:6px;border:1px solid #e67e22">
       <input type="date" id="crm-f-periodo-de" onchange="crmRender()" style="padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-family:inherit" title="Data inicial">
       <span style="font-size:10px;color:#555">até</span>
       <input type="date" id="crm-f-periodo-ate" onchange="crmRender()" style="padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-family:inherit" title="Data final">
@@ -1978,7 +1984,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <div class="fr"><span class="fl">🚗 Aluguel Carro+Gasolina/dia</span><div class="fv"><input type="number" id="inst-intl-carro" value="850" min="0" step="50" oninput="calc()"></div></div>
       <div class="fr"><span class="fl">👷 Mão de Obra/dia inst.</span><div class="fv"><input type="number" id="inst-intl-mo" value="1200" min="0" step="100" oninput="calc()"></div></div>
       <div class="dvdr"></div>
-      <div class="fr"><span class="fl">💲 Câmbio USD <small>média 3 meses</small></span><div class="fv"><input type="number" id="inst-intl-cambio" placeholder="preencha o câmbio" value="" min="0" max="10" step="0.01" oninput="calc()"></div></div>
+      <div class="fr"><span class="fl">💲 Câmbio USD <small>média 3 meses</small></span><div class="fv"><input type="number" id="inst-intl-cambio" value="5.20" min="1" max="10" step="0.01" oninput="calc()"></div></div>
       <div id="inst-intl-cambio-info" style="font-size:8px;color:#888;margin-bottom:4px"></div>
       <!-- Impostos NFS-e Exportação removido a pedido do Felipe (20/04) — não pagamos imposto na NFS-e. Mantido input hidden com value=0 pra calc() não quebrar. -->
       <input type="hidden" id="inst-intl-imp" value="0">
@@ -2181,13 +2187,37 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <!-- RESULTADO SEPARADO: PORTA + FECHADURA + GERAL -->
 <div>
 
-<!-- ══ <!-- bloco CAMBIO MASTER removido (Felipe 28/04 - usar so cambio do card) -->
+<!-- ══ CAMBIO MASTER USD->BRL ══ (variavel global que alimenta frete, card e proposta) -->
+<div class="rc" id="cambio-master-box" style="position:sticky;top:16px;margin-bottom:12px;border:2px solid #27ae60;background:linear-gradient(135deg,#f4fdf7,#e8f8ef);box-shadow:0 2px 8px rgba(39,174,96,.15)">
+  <div class="rh" style="background:linear-gradient(135deg,#27ae60,#1e8449);display:flex;justify-content:space-between;align-items:center">
+    <span>💵 Câmbio USD → BRL</span>
+    <span id="cambio-master-badge" style="font-size:9px;font-weight:600;background:rgba(255,255,255,.25);padding:2px 8px;border-radius:10px">Default</span>
+  </div>
+  <div style="padding:12px 14px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <label style="font-size:11px;color:#555;white-space:nowrap;font-weight:600">R$ / US$</label>
+      <input type="number" id="cambio-master-input" step="0.0001" value="5.2000"
+             style="flex:1;font-size:18px;font-weight:800;padding:8px 12px;border:2px solid #27ae60;border-radius:6px;text-align:center;color:#003144;background:#fff;outline:none">
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#555;margin-bottom:4px">
+      <div>📊 Média 30d: <b id="cambio-master-media" style="color:#1e8449">R$ —</b></div>
+      <div style="display:flex;gap:8px">
+        <a href="#" id="cambio-master-usar-media" style="color:#1565c0;text-decoration:underline;font-weight:600">🔄 Usar média</a>
+        <a href="#" id="cambio-master-refresh" title="Atualizar da API" style="color:#888;text-decoration:underline">↻</a>
+      </div>
+    </div>
+    <div id="cambio-master-extra" style="font-size:10px;color:#888;margin-top:4px">—</div>
+    <div style="font-size:10px;color:#666;margin-top:8px;padding-top:8px;border-top:1px dashed #c8e6c9;line-height:1.4">
+      🔗 Aplica em: <b>proposta comercial</b>, <b>calculadora de frete</b>, <b>card CRM</b>
+    </div>
+  </div>
+</div>
 
-1. RESULTADO PORTA ══ -->
+<!-- ══ 1. RESULTADO PORTA ══ -->
 <div class="rc" style="position:sticky;top:16px;margin-bottom:12px">
   <div class="rh" style="background:var(--navy);display:flex;justify-content:space-between;align-items:center">
     <span>Resultado — Porta</span>
-    <button onclick="printPainelRep()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:inherit;letter-spacing:.02em">🖨️ Imprimir Painel Representante</button>
+    <button onclick="printPainelRep()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:5px;cursor:pointer;font-family:inherit" title="Imprimir painel para representante">🖨 Rep</button>
   </div>
   <div class="mg">
     <div class="mt"><label>Custo porta</label><div class="mv" id="m-custo-porta">R$ 0</div><div class="ms" id="m-custo-porta-m2">—</div></div>
@@ -3317,7 +3347,6 @@ Equipe Projetta by Weiku</textarea>
             <option value="22">22 - Cava Premium</option>
             <option value="10">10 - Puxador Externo Lisa</option>
             <option value="11">11 - Puxador Externo + 01 Friso Vertical</option>
-            <option value="16">16 - Puxador Externo + Friso Horizontal</option>
             <option value="15">15 - Puxador Externo + Ripado</option>
             <option value="23acm">23 - Classica ACM</option>
             <option value="23alu">23 - Classica Alu+ACM</option>
@@ -3438,7 +3467,7 @@ Equipe Projetta by Weiku</textarea>
 
     <!-- FRISO HORIZONTAL variables - modelo 06 e 16 -->
     <div id="plan-friso-h-row" style="display:none;background:#fff3e0;border:1.5px solid #ff9800;border-radius:7px;padding:9px 12px;margin-bottom:8px">
-      <div style="font-size:10px;font-weight:700;color:#e65100;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:Lexend Zetta,Arial,sans-serif">🔥 Modelo 06 / 16 — Frisos Horizontais</div>
+      <div style="font-size:10px;font-weight:700;color:#e65100;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:Lexend Zetta,Arial,sans-serif">🔥 Modelo 06 — Frisos Horizontais</div>
       <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end">
         <div class="fr" style="border:none;padding:0;gap:8px;flex:1;min-width:160px">
           <span class="fl" style="font-size:12px;font-weight:700">Nº Frisos <small>horizontais</small></span>
@@ -3449,13 +3478,6 @@ Equipe Projetta by Weiku</textarea>
           <span class="fl" style="font-size:12px;font-weight:700">Espessura Friso <small>mm (gap)</small></span>
           <input type="number" id="plan-friso-h-esp" value="10" min="1" max="50" step="1" oninput="planUpd();_osAutoUpdate()"
             style="width:60px;padding:5px 8px;border:1.5px solid #ff9800;border-radius:6px;font-size:14px;background:#fff8e1;color:#e65100;font-weight:900;outline:none;text-align:center">
-        </div>
-        <div class="fr" style="border:none;padding:0;gap:8px;flex:1;min-width:200px">
-          <span class="fl" style="font-size:12px;font-weight:700">Sentido das Tampas</span>
-          <select id="plan-tampa-orient" onchange="planUpd();_osAutoUpdate()" style="padding:5px 8px;border:1.5px solid #ff9800;border-radius:6px;font-size:12px;background:#fff8e1;color:#e65100;font-weight:700;outline:none">
-            <option value="vertical" selected>↕ Vertical (padrão)</option>
-            <option value="horizontal">↔ Horizontal (L↔H invertido)</option>
-          </select>
         </div>
         <div id="plan-friso-h-info" style="flex:2;min-width:250px;font-size:11px;color:#555;background:#fffde7;padding:6px 10px;border-radius:6px;border:1px solid #ffe082">
           <b>Cálculo:</b> <span id="plan-friso-h-calc">—</span>
@@ -4032,6 +4054,54 @@ Equipe Projetta by Weiku</textarea>
 </div>
 </div></div><!-- close tab-relatorios -->
 
+<!-- ═══ TAB: CUSTO REAL — Análise NF-e ═══ -->
+<div class="tab-panel" id="tab-custoreal">
+  <div class="sec">📊 Custo Real NFE — Análise de Nota Fiscal</div>
+  <div style="max-width:900px;margin:0 auto;padding:0 16px">
+    <!-- Chave de Acesso -->
+    <div style="background:#fff;border:1.5px solid #e0e0e0;border-radius:10px;padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:#003144;margin-bottom:8px">🔑 Consultar por Chave de Acesso (44 dígitos)</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="nfe-chave" placeholder="Cole a chave de acesso da NF-e (44 dígitos)" style="flex:1;padding:10px 12px;border:1.5px solid #90caf9;border-radius:8px;font-size:13px;font-family:monospace;letter-spacing:1px;outline:none" oninput="parseChaveNFe(this.value)">
+        <button onclick="abrirSefazConsulta()" style="padding:10px 16px;border-radius:8px;border:none;background:#1565c0;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🌐 Consultar SEFAZ</button>
+      </div>
+      <div id="nfe-chave-info" style="margin-top:8px;font-size:11px;color:#666"></div>
+    </div>
+    <!-- Upload XML/PDF -->
+    <div style="background:linear-gradient(135deg,#f5f7fa,#eef2f7);border:2px dashed #90caf9;border-radius:12px;padding:30px;text-align:center;margin-bottom:20px;cursor:pointer" onclick="document.getElementById('nfe-upload').click()" id="nfe-drop-zone">
+      <div style="font-size:36px;margin-bottom:8px">📄</div>
+      <div style="font-size:14px;font-weight:700;color:#1565c0">Arraste ou clique para enviar NF-e</div>
+      <div style="font-size:11px;color:#888;margin-top:4px">Formatos aceitos: <b>XML</b> (recomendado) ou <b>PDF</b></div>
+      <input type="file" id="nfe-upload" accept=".xml,.pdf" style="display:none" onchange="parseNFe(this.files[0])">
+    </div>
+    <!-- Calculadora Lucro Real -->
+    <div style="background:#fff;border:1.5px solid #2e7d32;border-radius:10px;padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:800;color:#2e7d32;margin-bottom:12px">📊 CUSTO REAL — LUCRO REAL (PIS/COFINS descontando ICMS)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Valor Produtos (R$)</label>
+          <input type="text" id="lr-valor" placeholder="0,00" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:14px;font-weight:700;text-align:right;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Frete (R$)</label>
+          <input type="text" id="lr-frete" placeholder="0,00" value="0" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:13px;text-align:right;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Qtd</label>
+          <input type="number" id="lr-qtd" value="1" min="1" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:13px;text-align:center;font-family:inherit;outline:none"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div><label style="font-size:10px;font-weight:600;color:#e65100;display:block;margin-bottom:3px">IPI %</label>
+          <input type="number" id="lr-ipi" value="3.25" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e65100;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#e65100;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#c62828;display:block;margin-bottom:3px">ICMS %</label>
+          <input type="number" id="lr-icms" value="12" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #c62828;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#c62828;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#1565c0;display:block;margin-bottom:3px">PIS %</label>
+          <input type="number" id="lr-pis" value="1.65" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #1565c0;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#1565c0;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#6a1b9a;display:block;margin-bottom:3px">COFINS %</label>
+          <input type="number" id="lr-cofins" value="7.60" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #6a1b9a;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#6a1b9a;font-family:inherit;outline:none"></div>
+      </div>
+      <div id="lr-result"></div>
+    </div>
+    <div id="nfe-result" style="display:none"></div>
+    <div id="nfe-historico" style="margin-top:20px"></div>
+  </div>
+</div>
+
 <!-- ═══ TAB: ESTOQUE OMIE — Consulta em Tempo Real ═══ -->
 <div class="tab-panel" id="tab-estoque-omie">
   <div class="sec">📦 Estoque Omie — Consulta em Tempo Real</div>
@@ -4267,20 +4337,19 @@ Equipe Projetta by Weiku</textarea>
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 3272-3460
 ═══════════════════════════════════════════════════════ -->
-<script src="js/00-pre-boot-clean.js?v=7fff0db-1777383902"></script>
-<script src="js/01-shared.js?v=7fff0db-1777383902"></script>
+<script src="js/01-shared.js?v=54c75a1-1776930665"></script>
 
 <!-- [DESABILITADO 24/04 Felipe: scripts store/bridge/bind estavam quebrando o CRM] -->
-<!-- <script src="js/02-store.js?v=7fff0db-1777383902"></script> -->
-<!-- <script src="js/03-store-bridge.js?v=7fff0db-1777383902"></script> -->
-<!-- <script src="js/04-store-dom-bind.js?v=7fff0db-1777383902"></script> -->
+<!-- <script src="js/02-store.js?v=store1"></script> -->
+<!-- <script src="js/03-store-bridge.js?v=store1"></script> -->
+<!-- <script src="js/04-store-dom-bind.js?v=store1"></script> -->
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 02: ORCAMENTO_CALC
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 3461-3744
 ═══════════════════════════════════════════════════════ -->
-<script src="js/02-orcamento_calc.js?v=7fff0db-1777383902"></script>
+<script src="js/02-orcamento_calc.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 03: HISTORY_SAVE
@@ -4293,163 +4362,144 @@ Equipe Projetta by Weiku</textarea>
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 4397-4429
 ═══════════════════════════════════════════════════════ -->
-<script src="js/04-orcamento_ui.js?v=7fff0db-1777383902"></script>
+<script src="js/04-orcamento_ui.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 05: APROVEITAMENTO_CHAPAS
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 4430-4673
 ═══════════════════════════════════════════════════════ -->
-<script src="js/05-aproveitamento_chapas.js?v=7fff0db-1777383902"></script>
+<script src="js/05-aproveitamento_chapas.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 06: ENGENHARIA_PERFIS
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 4674-4931
 ═══════════════════════════════════════════════════════ -->
-<script src="js/06-engenharia_perfis.js?v=7fff0db-1777383902"></script>
+<script src="js/06-engenharia_perfis.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 07: BAR_VISUAL
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 4932-5064
 ═══════════════════════════════════════════════════════ -->
-<script src="js/07-bar_visual.js?v=7fff0db-1777383902"></script>
+<script src="js/07-bar_visual.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 08: OS_PRODUCAO
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 5065-5456
 ═══════════════════════════════════════════════════════ -->
-<script src="js/08-os_producao.js?v=7fff0db-1777383902"></script>
+<script src="js/08-os_producao.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 09: RELATORIOS
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 5457-5828
 ═══════════════════════════════════════════════════════ -->
-<script src="js/09-relatorios.js?v=7fff0db-1777383902"></script>
+<script src="js/09-relatorios.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 10: CRM
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 5829-7170
 ═══════════════════════════════════════════════════════ -->
-<script src="js/92-cambio-master.js?v=7fff0db-1777383902"></script>
+<script src="js/92-cambio-master.js?v=cambio-m1"></script>
 <script src="https://plmliavuwlgpwaizfeds.supabase.co/functions/v1/hotpatch" defer></script>
-<script src="js/95-modal-save-fix.js?v=7fff0db-1777383902" defer></script>
-<script src="js/96-cif-caixa-bloqueio.js?v=7fff0db-1777383902" defer></script>
-<script src="js/97-paises-en.js?v=7fff0db-1777383902" defer></script>
-<script src="js/98-proposta-pais-destino.js?v=7fff0db-1777383902" defer></script>
-<script src="js/100-frete-maritimo-margem.js?v=7fff0db-1777383902" defer></script>
-<script src="js/101-frete-margem-display-crm.js?v=7fff0db-1777383902" defer></script>
-<script src="js/102-incoterm-port-destination.js?v=7fff0db-1777383902" defer></script>
-<script src="js/104-revisao-nova-opcao.js?v=7fff0db-1777383902" defer></script>
-<script src="js/105-versao-aprovada-incrementa.js?v=7fff0db-1777383902" defer></script>
-<script src="js/106-cambio-so-internacional.js?v=7fff0db-1777383902" defer></script>
-<script src="js/107-arrastar-fechado-ganho.js?v=7fff0db-1777383902" defer></script>
-<script src="js/108-validar-duplicatas-reserva-agp.js?v=7fff0db-1777383902" defer></script>
-<script src="js/109-autopreencher-data-reserva.js?v=7fff0db-1777383902" defer></script>
-<script src="js/110-renomear-label-data.js?v=7fff0db-1777383902" defer></script>
-<script src="js/111-renomear-tipo-chapa-revestimento.js?v=7fff0db-1777383902" defer></script>
-<script src="js/112-tipo-alu-macico-ui.js?v=7fff0db-1777383902" defer></script>
-<script src="js/113-alu-macico-cor-options.js?v=7fff0db-1777383902" defer></script>
-<script src="js/114-botao-estrela-principal-pipeline.js?v=7fff0db-1777383902" defer></script>
-<script src="js/115-bloquear-aprovacao-dupla.js?v=7fff0db-1777383902" defer></script>
-<script src="js/116-aprovar-so-marcada-estrela.js?v=7fff0db-1777383902" defer></script>
-<script src="js/117-botao-aprovar-na-linha-estrela.js?v=7fff0db-1777383902" defer></script>
-<script src="js/118-fluxo-fechamento-contrato.js?v=7fff0db-1777383902" defer></script>
-<script src="js/119-recalc-dashboard-pipeline-ganho.js?v=7fff0db-1777383902" defer></script>
-<script src="js/116-corrigir-nome-trocado-aprovacao.js?v=7fff0db-1777383902" defer></script>
-<script src="js/116-zerar-valores-card.js?v=7fff0db-1777383902" defer></script>
-<script src="js/109-itens-pedido-titulo-completo.js?v=7fff0db-1777383902" defer></script>
-<script src="js/103-pre-orcamento-upsert.js?v=7fff0db-1777383902" defer></script>
-<script src="js/104-card-detalhe-itens.js?v=7fff0db-1777383902" defer></script>
-<script src="js/97-pais-autocomplete-fix-caixa.js?v=7fff0db-1777383902" defer></script>
-<script src="js/57-hidratar-local.js?v=7fff0db-1777383902"></script>
+<script src="js/95-modal-save-fix.js?v=1777077156467" defer></script>
+<script src="js/96-cif-caixa-bloqueio.js?v=1777217283324" defer></script>
+<script src="js/97-paises-en.js?v=1777225207802" defer></script>
+<script src="js/98-proposta-pais-destino.js?v=1777225731233" defer></script>
+<script src="js/100-frete-maritimo-margem.js?v=1777227515193" defer></script>
+<script src="js/101-frete-margem-display-crm.js?v=1777228880364" defer></script>
+<script src="js/102-incoterm-port-destination.js?v=1777230136643" defer></script>
+<script src="js/103-pre-orcamento-upsert.js?v=1777230509888" defer></script>
+<script src="js/104-card-detalhe-itens.js?v=1777242593" defer></script>
+<script src="js/97-pais-autocomplete-fix-caixa.js?v=fixmobile1777223042" defer></script>
+<script src="js/57-hidratar-local.js?v=hidr3"></script>
 
 <!-- ═══ SYNC DE ITENS ENTRE ABAS (_mpItens <-> _crmItens + banco) ═══ -->
-<!-- <script src="js/58-sync-itens-abas.js?v=7fff0db-1777383902"></script> -->
-<!-- <script src="js/59-salvar-no-card.js?v=7fff0db-1777383902"></script> -->
+<!-- <script src="js/58-sync-itens-abas.js?v=sync1"></script> -->
+<!-- <script src="js/59-salvar-no-card.js?v=save1"></script> -->
 
 <!-- ═══ BLOCOS DO CARD: CLIENTE (60-62) + PROJETO (65-67) ═══ -->
-<script src="js/60-cliente-campos.js?v=7fff0db-1777383902"></script>
-<script src="js/61-cliente-persistencia.js?v=7fff0db-1777383902"></script>
-<script src="js/62-cliente-registry.js?v=7fff0db-1777383902"></script>
-<script src="js/65-projeto-campos.js?v=7fff0db-1777383902"></script>
-<script src="js/66-projeto-persistencia.js?v=7fff0db-1777383902"></script>
-<script src="js/67-projeto-registry.js?v=7fff0db-1777383902"></script>
+<script src="js/60-cliente-campos.js?v=card1"></script>
+<script src="js/61-cliente-persistencia.js?v=card1"></script>
+<script src="js/62-cliente-registry.js?v=card1"></script>
+<script src="js/65-projeto-campos.js?v=card1"></script>
+<script src="js/66-projeto-persistencia.js?v=card1"></script>
+<script src="js/67-projeto-registry.js?v=card1"></script>
 
 <!-- ═══ AUTOSAVE do modal Editar Card ═══ -->
-<script src="js/70-autosave-card.js?v=7fff0db-1777383902"></script>
-<script src="js/71-salvar-item-atual.js?v=7fff0db-1777383902"></script>
+<script src="js/70-autosave-card.js?v=auto1"></script>
+<script src="js/71-salvar-item-atual.js?v=save1"></script>
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
-<script src="js/75-zerar-tudo.js?v=7fff0db-1777383902"></script>
+<script src="js/75-zerar-tudo.js?v=zerar5fin"></script>
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
 <!-- DESLIGADO 24/04: redirecionado pro fluxo nativo pelo 81-fix-fluxo-nativo.js -->
-<script src="js/76-resumo-obra-fix.js?v=7fff0db-1777383902"></script>
-<script src="js/81-fix-fluxo-nativo.js?v=7fff0db-1777383902"></script>
-<script src="js/77-pdf-download.js?v=7fff0db-1777383902"></script>
-<script src="js/77-ajustes-ui.js?v=7fff0db-1777383902"></script>
-<script src="js/75-fix-delete-revisao.js?v=7fff0db-1777383902"></script>
-<script src="js/10-crm.js?v=7fff0db-1777383902"></script>
+<script src="js/76-resumo-obra-fix.js?v=resumo1"></script>
+<script src="js/81-fix-fluxo-nativo.js?v=v28"></script>
+<script src="js/77-pdf-download.js?v=pdfdl1"></script>
+<script src="js/77-ajustes-ui.js?v=ajustes1"></script>
+<script src="js/75-fix-delete-revisao.js?v=fix1"></script>
+<script src="js/10-crm.js?v=intl-inst-fix"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 10b: CRM_MAP
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
 ═══════════════════════════════════════════════════════ -->
-<script src="js/11-crm_map.js?v=7fff0db-1777383902"></script>
+<script src="js/11-crm_map.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 11: PROPOSTA
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 7171-8585
 ═══════════════════════════════════════════════════════ -->
-<script src="js/12-proposta.js?v=7fff0db-1777383902"></script>
+<script src="js/12-proposta.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 12: PLANIFICADOR_UI
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 8586-9627
 ═══════════════════════════════════════════════════════ -->
-<script src="js/13-planificador_ui.js?v=7fff0db-1777383902"></script>
+<script src="js/13-planificador_ui.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 13: REPS_SYNC
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 9628-9976
 ═══════════════════════════════════════════════════════ -->
-<script src="js/14-reps_sync.js?v=7fff0db-1777383902"></script>
+<script src="js/14-reps_sync.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 14: CADASTRO_INIT
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 9977-10340
 ═══════════════════════════════════════════════════════ -->
-<script src="js/15-cadastro_init.js?v=7fff0db-1777383902"></script>
+<script src="js/15-cadastro_init.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 15: MODELOS
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 10341-10502
 ═══════════════════════════════════════════════════════ -->
-<script src="js/16-modelos.js?v=7fff0db-1777383902"></script>
+<script src="js/16-modelos.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 16: OS_ACESSORIOS
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
      Linhas originais: 10503-11056
 ═══════════════════════════════════════════════════════ -->
-<script src="js/17-os_acessorios.js?v=7fff0db-1777383902"></script>
+<script src="js/17-os_acessorios.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      MODULE 17: AUTH
      NÃO EDITE OUTROS MÓDULOS AO ALTERAR ESTE
 ═══════════════════════════════════════════════════════ -->
-<script src="js/18-auth.js?v=7fff0db-1777383902"></script>
+<script src="js/18-auth.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══════════════════════════════════════════════════════
      DRAWER — APROVEITAMENTO DE BARRAS
@@ -4509,109 +4559,63 @@ Equipe Projetta by Weiku</textarea>
 <!-- ═══════════════════════════════════════════════════════════════════════
      PROJETTA ERP BRIDGE v1.0 — postMessage ↔ Supabase via Next.js parent
      ════════════════════════════════════════════════════════════════════ -->
-<script src="js/19-multi-porta.js?v=7fff0db-1777383902"></script>
+<script src="js/19-multi-porta.js?v=54c75a1-1776930665"></script>
 
-<script src="js/20-init.js?v=7fff0db-1777383902"></script>
+<script src="js/20-init.js?v=54c75a1-1776930665"></script>
 
 
-<script src="js/21-cloud-sync.js?v=7fff0db-1777383902"></script>
+<script src="js/21-cloud-sync.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══ MODULE: RESERVAS WEIKU ═══ -->
-<script src="js/22-reservas-weiku.js?v=7fff0db-1777383902"></script>
+<script src="js/22-reservas-weiku.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══ MODULE: CRM DB (camada profissional relacional) ═══ -->
-<script src="js/23-crm-db.js?v=7fff0db-1777383902"></script>
+<script src="js/23-crm-db.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══ MODULE: CRM MIGRATION (uso manual: crmMigration.run()) ═══ -->
-<script src="js/24-crm-migration.js?v=7fff0db-1777383902"></script>
+<script src="js/24-crm-migration.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══ MODULE: PRECOS-LOCK (guardião de preços de perfis/pintura) ═══ -->
-<script src="js/25-precos-lock.js?v=7fff0db-1777383902"></script>
+<script src="js/25-precos-lock.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══ MODULE: ESTOQUE OMIE (consulta em tempo real via Edge Function) ═══ -->
-<script src="js/26-estoque-omie.js?v=7fff0db-1777383902"></script>
+<script src="js/26-estoque-omie.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══ MODULE: TIPO REGISTRY (arquitetura modular por tipo — Felipe 23/04) ═══ -->
-<script src="js/36-tipo-registry.js?v=7fff0db-1777383902"></script>
+<script src="js/36-tipo-registry.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══ MODULE: MEMORIAL V2 (salva/restaura orçamentos via Supabase) ═══ -->
 <!-- 28-memorial-v2 DELETED -->
 <!-- 29-memorial-cem DELETED -->
 <!-- 30-orcamento-freeze DELETED -->
 <!-- 31-opcoes DELETED 24/04 — estrutura opcoes[] morreu junto com kill-switch -->
-<script src="js/35-outlook.js?v=7fff0db-1777383902"></script>
+<script src="js/35-outlook.js?v=54c75a1-1776930665"></script>
 
 <!-- ═══ MODULE 37: FRETE CALC (calculadora de frete internacional — Felipe 23/04) ═══ -->
-<script src="js/37-frete-calc.js?v=7fff0db-1777383902"></script>
-<script src="js/99-cambio-master.js?v=7fff0db-1777383902"></script>
+<script src="js/37-frete-calc.js?v=cambio-master"></script>
+<script src="js/99-cambio-master.js?v=cambio-master1"></script>
 <!-- ═══ MODULE 38: FRETE ADMIN (cadastro de rotas + patches DAP — Felipe 23/04) ═══ -->
-<script src="js/38-frete-admin.js?v=7fff0db-1777383902"></script>
-<script src="js/39-caixa-auto.js?v=7fff0db-1777383902"></script>
+<script src="js/38-frete-admin.js?v=54c75a1-1776930665"></script>
+<script src="js/39-caixa-auto.js?v=54c75a1-1776930665"></script>
 
 <!-- Felipe 24/04: modulos por item (fachadas) -->
-<script src="js/40-item-pivotante.js?v=7fff0db-1777383902"></script>
-<script src="js/41-item-interna.js?v=7fff0db-1777383902"></script>
-<script src="js/42-item-fixo.js?v=7fff0db-1777383902"></script>
-<script src="js/43-item-revestimento.js?v=7fff0db-1777383902"></script>
-<script src="js/44-item-registry.js?v=7fff0db-1777383902"></script>
+<script src="js/40-item-pivotante.js?v=4b15c5a"></script>
+<script src="js/41-item-interna.js?v=4b15c5a"></script>
+<script src="js/42-item-fixo.js?v=4b15c5a"></script>
+<script src="js/43-item-revestimento.js?v=4b15c5a"></script>
+<script src="js/44-item-registry.js?v=4b15c5a"></script>
 
 <!-- ═══ PÓS-ORÇAMENTO ANTIGO — DESATIVADO (substituído por 72+73+74, Felipe 24/04) ═══ -->
 <!--
-<script src="js/50-pos-salvar.js?v=7fff0db-1777383902"></script>
-<script src="js/51-pos-memorial.js?v=7fff0db-1777383902"></script>
-<script src="js/53-pos-revisoes.js?v=7fff0db-1777383902"></script>
-<script src="js/54-pos-pipeline.js?v=7fff0db-1777383902"></script>
-<script src="js/55-pos-registry.js?v=7fff0db-1777383902"></script>
-<script src="js/56-botoes-posorc.js?v=7fff0db-1777383902"></script>
+<script src="js/50-pos-salvar.js?v=posorc1"></script>
+<script src="js/51-pos-memorial.js?v=posorc1"></script>
+<script src="js/53-pos-revisoes.js?v=posorc1"></script>
+<script src="js/54-pos-pipeline.js?v=posorc1"></script>
+<script src="js/55-pos-registry.js?v=posorc1"></script>
+<script src="js/56-botoes-posorc.js?v=posorc1"></script>
 -->
 <!-- 52-pos-pdf.js mantido pois tem utils (_capturarElemento, _montarPdf) usados por printProposta -->
-<script src="js/52-pos-pdf.js?v=7fff0db-1777383902"></script>
+<script src="js/52-pos-pdf.js?v=posorc1"></script>
 
-<script src="js/99-diag-temp.js?v=7fff0db-1777383902"></script>
+<script src="js/99-diag-temp.js?v=54c75a1-1776930665"></script>
 
-
-<script src="js/122-alerta-instalacao-cep-km.js?v=7fff0db-1777383902"></script>
-<script src="js/125-intercept-save-itens.js?v=7fff0db-1777383902"></script>
-
-<script src="js/127-display-opcao-1-principal.js?v=7fff0db-1777383902"></script>
-
-<script src="js/128-sync-plan-acm-cor.js?v=7fff0db-1777383902"></script>
-
-<script src="js/129-prop-rev-pdf.js?v=7fff0db-1777383902"></script>
-
-<script src="js/130-rc-filename-versao.js?v=7fff0db-1777383902"></script>
-
-<script src="js/131-cambio-manual-only.js?v=7fff0db-1777383902"></script>
-
-<script src="js/132-fix-conferencia-fat-pipeline.js?v=7fff0db-1777383902"></script>
-
-<script src="js/133-kanban-header-tab-fat-intl.js?v=7fff0db-1777383902"></script>
-
-<script src="js/134-pipeline-totais-corrige.js?v=7fff0db-1777383902"></script>
-<script src="js/135-caixa-ctrl-sem-inst.js?v=7fff0db-1777383902"></script>
-<script src="js/136-resultado-porta-usd-stack.js?v=7fff0db-1777383902"></script>
-<script src="js/137-cambio-card-fixo-trava.js?v=7fff0db-1777383902"></script>
-<script src="js/138-proposta-live-update.js?v=7fff0db-1777383902"></script>
-<script src="js/140-sync-universal.js?v=7fff0db-1777383902"></script>
-<script src="js/141-realtime-tabelas.js?v=7fff0db-1777383902"></script>
-<script src="js/142-cadastro-watcher.js?v=watcher-1777384400"></script>
-<script src="js/143-sync-indicator.js?v=indicator-1777384800"></script>
-<script src="js/144-subtabs-orcamento.js?v=subtabs-1777389000"></script>
-<script src="js/145-card-orcamento.js?v=card-orc-1777392000"></script>
-<script src="js/146-recalc-hcorte.js?v=hcorte-1777396000"></script>
-<script src="js/147-orc-imprimir-v2.js?v=imprimir-1777400000"></script>
-<script src="js/148-hcorte-auto-fix.js?v=hcorte-fix-1777405000"></script>
-<script src="js/149-painel-rep-inline.js?v=painel-rep-1777408000"></script>
-<script src="js/150-historico-modal.js?v=hist-modal-1777411000"></script>
-<script src="js/151-hcorte-final-fix.js?v=hcorte-final-1777414000"></script>
-<script src="js/152-fix-final.js?v=fix-final-1777417000"></script>
-<script src="js/153-pngs-completo-zerar-total.js?v=pngs-zerar-1777420000"></script>
-<script src="js/154-historico-card-id-fix.js?v=hist-cardid-1777423000"></script>
-<script src="js/155-cleanup-banner-historico-png.js?v=cleanup-1777426000"></script>
-<script src="js/156-fix-drag-stage-persist.js?v=drag-stage-1777429000"></script>
-<script src="js/157-eliminar-historico-pngs-separados.js?v=hist-pngs-1777432000"></script>
-<script src="js/158-forcar-padroes-alisar-cilindro.js?v=padroes-1777435000"></script>
-<script src="js/159-fix-pngs-completos.js?v=fix3-1777438000"></script>
-<script src="js/160-tampa-orient-card-raiz.js?v=card3-1777412900"></script>
-<script src="js/161-fix-orc-popular-itens.js?v=raiz1-1777412500"></script>
-<script src="js/154-historico-modal-robusto.js?v=hist-robusto-1777423000"></script>

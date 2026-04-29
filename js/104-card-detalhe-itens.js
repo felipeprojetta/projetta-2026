@@ -34,18 +34,14 @@
   function fmtBRL(v){ return "R$ " + Math.round(Number(v) || 0).toLocaleString("pt-BR"); }
   function fmtUSD(v){ return "US$ " + Math.round(Number(v) || 0).toLocaleString("en-US"); }
 
-  function getCambio(cardData){
-    // Felipe 28/abr/26: cambio 100% do card. Sem fallback. Se card nao tem,
-    // retorna 0 → calcularItens skipa → card nao renderiza com valor errado.
+  function getCambio(){
     try {
-      if(cardData){
-        var c1 = parseFloat((cardData.extras||{}).inst_cambio);
-        if(c1 > 0) return c1;
-        var c2 = parseFloat(cardData.inst_cambio);
-        if(c2 > 0) return c2;
+      if(window.projettaCambio && window.projettaCambio.get){
+        var c = window.projettaCambio.get();
+        if(c > 0) return c;
       }
     } catch(e){}
-    return 0; // sem cambio = nao calcula nada
+    return 5.0918;
   }
 
   function getLocalStorageCards(){
@@ -100,8 +96,7 @@
 
   function calcularItens(cardData){
     var c = cardData || {};
-    var cambio = getCambio(c);
-    if(!(cambio > 0)) return null; // sem cambio fixo, nao renderiza com errado
+    var cambio = getCambio();
     var inco = String(getExtra(c, "inst_incoterm") ? "" : (c.extras && c.extras.inst_incoterm) || c.inst_incoterm || "").toUpperCase();
     if(!inco) inco = String((c.extras && c.extras.inst_incoterm) || c.inst_incoterm || "").toUpperCase();
     var ehCif = inco === "CIF";
@@ -218,8 +213,7 @@
     }
   }
 
-  // ★ Felipe 28/04: REMOVIDO setInterval(tick,2000) - causava piscar.
-  // MutationObserver abaixo basta para reagir a mudancas no DOM.
+  setInterval(tick, 2000);
   setTimeout(tick, 200);
   setTimeout(tick, 800);
   setTimeout(tick, 2500);

@@ -13,6 +13,7 @@ var _editId=null, _view='kanban', _scope='nacional', _stageId=null, _dragId=null
 var D_STAGES=[
   {id:'s2',label:'Qualificação',color:'#3498db',icon:'🔍'},
   {id:'s3',label:'Fazer Orçamento',color:'#e67e22',icon:'📋'},
+  {id:'s3b',label:'Orçamento Pronto',color:'#f39c12',icon:'📧'},
   {id:'s4',label:'Proposta Enviada',color:'#9b59b6',icon:'📤'},
   {id:'s5',label:'Negociação',color:'#e74c3c',icon:'🤝'},
   {id:'s6',label:'Fechado Ganho',color:'#27ae60',icon:'🏆'},
@@ -32,10 +33,9 @@ function sS(s){localStorage.setItem(SK,JSON.stringify(s));}
 function gStages(){
   var s=gS();
   var st=(s.stages||[]).length?s.stages:D_STAGES;
-  // Migrar (Felipe 28/04): remover s1, s3b, s3c se ainda existirem
-  // Esses estagios foram eliminados para sempre. Nunca podem voltar.
+  // Migrar: remover Prospecção (s1) se ainda existir nos salvos
   var had=st.length;
-  st=st.filter(function(x){return x.id!=='s1' && x.id!=='s3b' && x.id!=='s3c';});
+  st=st.filter(function(x){return x.id!=='s1';});
   if(st.length<had){s.stages=st;sS(s);}
   return st;
 }
@@ -534,13 +534,10 @@ function _valorRealCardBRL(o){
              || !!(o.pais||'').trim();
   if(!_ehIntl) return _vPorta;
   // Internacional
-  var _cambio = parseFloat(o.inst_cambio) || parseFloat((o.extras||{}).inst_cambio) || 0;
+  var _cambio = parseFloat(o.inst_cambio) || 5.20;
   // Instalação: valor salvo OU recalcular
-  // ★ Felipe 28/04: respeitar inst_quem - se SEM/vazio, nao soma instalacao
-  var _instQuem = (o.inst_quem || '').toString().toUpperCase();
-  var _instAtiva = _instQuem !== 'SEM' && _instQuem !== '';
-  var _vInst = _instAtiva ? (parseFloat(o.inst_intl_fat) || 0) : 0;
-  if(_vInst === 0 && _instAtiva){
+  var _vInst = parseFloat(o.inst_intl_fat) || 0;
+  if(_vInst === 0){
     var _passagem = parseFloat(o.inst_passagem) || 0;
     var _hotel = parseFloat(o.inst_hotel) || 0;
     var _alim = parseFloat(o.inst_alim) || 0;
@@ -569,8 +566,7 @@ function _valorRealCardBRL(o){
     _logUsd += parseFloat(o.cif_frete_terrestre)||0;
   }
   if(_inc==='CIF'){
-    // Felipe 28/04: margem 20% no maritimo (consistente com card kanban)
-    _logUsd += (parseFloat(o.cif_frete_maritimo)||0) * 1.20;
+    _logUsd += parseFloat(o.cif_frete_maritimo)||0;
   }
   return _vPorta + _vInst + (_logUsd * _cambio);
 }
@@ -671,15 +667,7 @@ function updateKPIs(all){
   if(el('ck-conv'))el('ck-conv').textContent=conv+'%';
   if(el('ck-intl')){el('ck-intl').textContent=intl.length;el('ck-intl-s').textContent='internacional'+(intl.length!==1?'s':'');}
   // Total Tabela e Faturamento (ativas do periodo)
-  // Felipe 28/04: internacional Tab=Fat=Total (porta+inst+caixa+fretes×cambio_card)
-  function _ehIntl(o){
-    return o.scope==='internacional'
-        || (o.inst_quem||'').toString().toUpperCase()==='INTERNACIONAL'
-        || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toString().toUpperCase())>=0;
-  }
-  var totTab=ativos.reduce(function(s,o){
-    return s + (_ehIntl(o) ? _valorRealCardBRL(o) : (parseFloat(o.valorTabela)||0));
-  },0);
+  var totTab=ativos.reduce(function(s,o){return s+(parseFloat(o.valorTabela)||0);},0);
   var totFat=ativos.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
   if(el('ck-tot-tab')){el('ck-tot-tab').textContent=brl(totTab);el('ck-tot-tab-s').textContent=ativos.filter(function(o){return o.valorTabela>0;}).length+' com tabela';}
   if(el('ck-tot-fat')){el('ck-tot-fat').textContent=brl(totFat);el('ck-tot-fat-s').textContent=ativos.filter(function(o){return(o.valorFaturamento||o.valor)>0;}).length+' com faturamento';}
@@ -762,14 +750,8 @@ function renderKanban(fil){
   stages.forEach(function(st){
     var cards=fil.filter(function(o){return o.stage===st.id;});
     // ★ Felipe 20/04: Fat da coluna agora inclui inst+logistica pros intl
-    // Felipe 28/04: header das colunas internacional Tab=Fat=Total (porta+inst+caixa+fretes×cambio)
     var tv=cards.reduce(function(s,o){return s+_valorRealCardBRL(o);},0);
-    var tvTab=cards.reduce(function(s,o){
-      var ehIntl = o.scope==='internacional'
-                || (o.inst_quem||'').toString().toUpperCase()==='INTERNACIONAL'
-                || ['CIF','FOB','EXW'].indexOf((o.inst_incoterm||'').toString().toUpperCase())>=0;
-      return s + (ehIntl ? _valorRealCardBRL(o) : (parseFloat(o.valorTabela)||0));
-    },0);
+    var tvTab=cards.reduce(function(s,o){return s+(parseFloat(o.valorTabela)||0);},0);
     var isFazerOrc=/fazer.*or|orcamento/i.test(st.label);
     var col=document.createElement('div');col.className='crm-stage';col.setAttribute('data-stage',st.id);
     col.innerHTML=
@@ -931,11 +913,12 @@ function buildCard(o,st,isFazerOrc){
       var _instQuem = (o.inst_quem||'').toUpperCase();
       var _instAtiva = _instQuem === 'INTERNACIONAL';
       var _vInst = _instAtiva ? (parseFloat(o.inst_intl_fat) || 0) : 0;
-      // v29: usar cambio MASTER (window.projettaCambio) em vez de 0 fixo.
+      // v29: usar cambio MASTER (window.projettaCambio) em vez de 5.20 fixo.
       //       Se o card tem inst_cambio salvo (override por card), usa ele;
-      //       senao usa o master global; fallback 0.
-      // Felipe 28/04: cambio 100% do card. Sem fallback projettaCambio.get
-      var _cambio = parseFloat(o.inst_cambio) || parseFloat((o.extras||{}).inst_cambio) || 0;
+      //       senao usa o master global; fallback 5.20.
+      var _cambio = parseFloat(o.inst_cambio) ||
+                    (window.projettaCambio && typeof window.projettaCambio.get === 'function' ? window.projettaCambio.get() : 0) ||
+                    5.20;
       if(_vInst === 0 && _instAtiva){
         // Fallback — recalcular
         var _passagemPorPessoa = parseFloat(o.inst_passagem) || 0;
@@ -1475,7 +1458,7 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-inst-carro',opp.inst_carro||850);
     setVal('crm-o-inst-mo',opp.inst_mo||500);
     setVal('crm-o-inst-margem',opp.inst_margem||10);
-    setVal('crm-o-inst-cambio',opp.inst_cambio||0);
+    setVal('crm-o-inst-cambio',opp.inst_cambio||5.20);
     if(typeof crmInstQuemChange==='function') crmInstQuemChange();
     // ★ Após restaurar inst_quem e inst_incoterm, garantir que bloco CIF
     //   aparece se for CIF (e recalcula total).
@@ -1570,7 +1553,7 @@ window.crmOpenModal=function(defaultStage,editId){
     setVal('crm-o-inst-pessoas',3);setVal('crm-o-inst-dias',3);setVal('crm-o-inst-udigru',2000);
     setVal('crm-o-inst-passagem',10000);setVal('crm-o-inst-hotel',1700);setVal('crm-o-inst-alim',300);
     setVal('crm-o-inst-seguro',300);setVal('crm-o-inst-carro',850);setVal('crm-o-inst-mo',500);
-    setVal('crm-o-inst-margem',10);setVal('crm-o-inst-cambio',0);
+    setVal('crm-o-inst-margem',10);setVal('crm-o-inst-cambio',5.20);
     if(typeof crmInstQuemChange==='function') crmInstQuemChange();
     var cepSt=el('crm-cep-status');if(cepSt)cepSt.textContent='';
     crmSetScope('nacional');showWeikunField(false);
@@ -2333,7 +2316,7 @@ window.crmInstCalcIntl=function(){
   var diasInst=gv('crm-o-inst-dias');
   var diasViagem=4; // 2 ida + 2 volta fixo
   var diasTotal=diasInst+diasViagem;
-  var cambio=gv('crm-o-inst-cambio')||0;
+  var cambio=gv('crm-o-inst-cambio')||5.20;
   var margemLiq=gv('crm-o-inst-margem')/100;
 
   var udiGru=gv('crm-o-inst-udigru');
@@ -2408,11 +2391,27 @@ window.crmInstCalcIntl=function(){
   window._instIntlCusto=custoTotal;
 }
 
-/* crmInstFetchCambio NEUTRALIZADO */
-window.crmInstFetchCambio = function() {
-  var i = document.getElementById("crm-inst-cambio-info");
-  if (i) { i.textContent = ""; i.style.display = "none"; }
-};
+window.crmInstFetchCambio=function(){
+  var info=document.getElementById('crm-inst-cambio-info');
+  if(info) info.textContent='Buscando cotação BCB...';
+  var end=new Date();var start=new Date();start.setDate(start.getDate()-90);
+  var fmt=function(d){var m=''+(d.getMonth()+1),dd=''+d.getDate(),y=d.getFullYear();return m+'/'+dd+'/'+y;};
+  fetch('https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@di,dataFinalCotacao=@df)?@di=%27'+fmt(start)+'%27&@df=%27'+fmt(end)+'%27&$format=json&$select=cotacaoVenda,dataHoraCotacao')
+  .then(function(r){return r.json();})
+  .then(function(data){
+    var vals=data.value||[];
+    if(vals.length>0){
+      var sum=0;vals.forEach(function(v){sum+=v.cotacaoVenda;});
+      var media=(sum/vals.length).toFixed(2);
+      var el=document.getElementById('crm-o-inst-cambio');
+      if(el)el.value=media;
+      if(info)info.textContent='✅ Média BCB ('+vals.length+' dias): R$ '+media;
+      crmInstCalcIntl();
+    }
+  }).catch(function(e){
+    if(info)info.textContent='⚠️ Erro API BCB. Usando default.';
+  });
+}
 
 window.crmItemDuplicate=function(id){
   var orig=_crmItens.find(function(i){return i.id===id;});
@@ -3043,7 +3042,7 @@ window.crmSaveOpp=function(){
     inst_carro: parseFloat(val('crm-o-inst-carro'))||850,
     inst_mo: parseFloat(val('crm-o-inst-mo'))||500,
     inst_margem: parseFloat(val('crm-o-inst-margem'))||10,
-    inst_cambio: parseFloat(val('crm-o-inst-cambio'))||0,
+    inst_cambio: parseFloat(val('crm-o-inst-cambio'))||5.20,
     inst_intl_total: window._instIntlTotal||0,
     agp:       val('crm-o-agp').trim(),
     cep:       val('crm-o-cep'),
@@ -5473,7 +5472,7 @@ function _captureOrcValues(){
     instPessoas:      _v('inst-intl-pessoas'),
     instDias:         _v('inst-intl-dias'),
     instMargem:       _v('inst-intl-margem'),
-    instCambio:       _v('inst-intl-cambio') || 0
+    instCambio:       _v('inst-intl-cambio') || 5.20
   };
 }
 

@@ -154,7 +154,6 @@
   }
 
   function tick(){
-    if(window._caixaCtrlOverride === true) return;  // 135 desativa polling
     if(!modalAberto()) return;
     if(!isInternacionalCIF()) return;
     snapshotPlaceholders();

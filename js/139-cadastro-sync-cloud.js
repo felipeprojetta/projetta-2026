@@ -1,1 +1,0 @@
-/* MOD 139: NEUTRALIZADO 28-04-2026. Substituido pelo 140-sync-universal que cobre 17 chaves. */(function(){})();
