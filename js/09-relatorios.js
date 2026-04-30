@@ -973,7 +973,6 @@ function switchTab(tabId) {
   }
   if (tabId==='perfis'||tabId==='cadastro') { syncPerfisTab(); renderPerfisDB(); renderCompDB(); renderPrecosACM(); }
   if (tabId==='clientes') { renderClientesTab(); }
-  if (tabId==='custoreal') { renderNFeHist(); }
   if (tabId==='acessorios'||tabId==='cadastro') { renderCompDB();
   loadModelos();
   loadModeloImagens(); }

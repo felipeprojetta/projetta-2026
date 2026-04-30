@@ -422,13 +422,9 @@
           console.log('[auto-move v24] stage atual do card no Supabase:', _curStage);
           _stageFinal = _curStage;
           if(_curStage === 's3'){
-            // Fazer PATCH s3 -> s3b
-            var _okMove = await _moverCardStage(_cidAtual, 's3b');
-            console.log('[auto-move v24] PATCH s3->s3b:', _okMove);
-            if(_okMove){
-              _movidoStage = true;
-              _stageFinal = 's3b';
-            }
+            // Felipe 28/04: NAO mover stage automaticamente - tudo manual via drag
+            console.log('[auto-move v24] DESATIVADO - movimentacao manual via drag');
+            // _movidoStage permanece false; _stageFinal = stage atual
           } else {
             console.log('[auto-move v24] stage ('+_curStage+') ja esta em frente, nao precisa mover — mas vou sincronizar localStorage mesmo assim');
           }
@@ -1242,11 +1238,10 @@
       });
       var proxV = await r.json();
       
-      if(!confirm('🏆 APROVAR COMO VERSÃO ' + proxV + '?\n\n' +
-        '• Será criada uma versão CONGELADA (imutável)\n' +
-        '• Valores do card atualizados\n' +
-        '• Card movido pra "Orçamento Pronto"\n' +
-        '• 1 PDF + 3 PNGs baixados\n\n' +
+      if(!confirm('🏆 APROVAR ORCAMENTO?\n\n' +
+        '• Valores do card atualizados (Tabela + Faturamento)\n' +
+        '• 1 PDF + 3 PNGs baixados\n' +
+        '• Stage NAO sera movido (arraste manualmente)\n\n' +
         'Cliente: ' + (snap.dados_cliente.nome||'—') + '\n' +
         'AGP: ' + (snap.dados_projeto.agp||'—') + '\n' +
         'Tabela: R$ ' + (valTab ? valTab.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—') + '\n' +
@@ -1352,13 +1347,18 @@
       var _cardIdToPatch = window._crmOrcCardId || window._snapCardId || null;
       if(_cardIdToPatch){
         try {
-          var _stageRevisado = _getStageIdRevisado();
-          var _okAprov = await _moverCardStage(_cardIdToPatch, _stageRevisado, {
-            valor: valFat || valTab,
-            valor_tabela: valTab,
-            valor_faturamento: valFat
+          // Felipe 28/04: PATCH so de valores - SEM mover stage (manual via drag)
+          var _rPatch = await fetch(SUPA+'/rest/v1/crm_oportunidades?id=eq.'+encodeURIComponent(_cardIdToPatch), {
+            method:'PATCH',
+            headers: Object.assign({}, _hdrs(), { Prefer:'return=minimal' }),
+            body: JSON.stringify({
+              valor: valFat || valTab,
+              valor_tabela: valTab,
+              valor_faturamento: valFat,
+              updated_by: 'aprov_simples_28abr'
+            })
           });
-          if(!_okAprov) console.warn('[aprov card patch] PATCH falhou');
+          if(!_rPatch.ok) console.warn('[aprov card patch] PATCH falhou', _rPatch.status);
           if(!payload.card_id) payload.card_id = _cardIdToPatch;
         } catch(cerr){ console.warn('[aprov card patch]', cerr); }
       }
@@ -1700,15 +1700,20 @@
       var raw = localStorage.getItem('projetta_crm_v1');
       var local = raw ? JSON.parse(raw) : [];
       var ci = local.findIndex(function(c){ return c && c.id === cardId; });
+      // Felipe 28/04: SUBSTITUIR card completamente, NAO mergear.
+      // O merge anterior preservava campos antigos (opcoes, cif, valores cached)
+      // que ficavam no localStorage mesmo apos o banco ter zerado tudo.
+      // Agora: card vindo do banco e a UNICA fonte da verdade.
+      // Anexos preservados separadamente apenas se banco nao retornou anexos.
+      var localAnx = (ci >= 0) ? local[ci].anexos : null;
+      var cardFinal = card;
+      if(localAnx && localAnx.length && (!card.anexos || !card.anexos.length)){
+        cardFinal = Object.assign({}, card, { anexos: localAnx });
+      }
       if(ci >= 0){
-        // Preservar campos locais grandes (anexos) + merge do resto vindo do cloud
-        var localAnx = local[ci].anexos;
-        local[ci] = Object.assign({}, local[ci], card);
-        if(localAnx && localAnx.length && (!card.anexos || !card.anexos.length)){
-          local[ci].anexos = localAnx;
-        }
+        local[ci] = cardFinal;
       } else {
-        local.push(card);
+        local.push(cardFinal);
       }
       localStorage.setItem('projetta_crm_v1', JSON.stringify(local));
       // Resetar snapshot do crmDB pra evitar re-envio como "mudanca local"
@@ -1810,4 +1815,31 @@
   });
 
   console.log('%c[81 v28] restaurar _crmScope em snapshot — pre_orcamentos (upsert) + versoes_aprovadas (imutável)', 'color:#003144;font-weight:700;background:#eaf2f7;padding:3px 8px;border-radius:4px');
+})();
+
+
+/* ============================================================================
+ * Felipe 28/04 — DESATIVACAO PERMANENTE DE PRE-ORCAMENTO E APROVACAO
+ * Sobrescreve funcoes de fluxo automatico com no-ops. Movimentacao do CRM
+ * agora e 100% manual via drag.
+ * ========================================================================== */
+(function(){
+  'use strict';
+  var _noop = function(){
+    console.log('[81-disabled] funcao desativada - fluxo manual via drag');
+  };
+  var _funcoesDesativadas = [
+    'aprovarOrcamentoParaEnvio',
+    'salvarPreOrcamento',
+    'abrirModalPreOrcamentos',
+    'carregarPreOrcamento',
+    'excluirPreOrcamento',
+    'carregarVersao',
+    'reimprimirVersao',
+    'excluirVersao',
+    'ativarVersao',
+    'ativarEdicaoSnapshot'
+  ];
+  _funcoesDesativadas.forEach(function(f){ window[f] = _noop; });
+  console.log('[81-disabled] ' + _funcoesDesativadas.length + ' funcoes de fluxo desativadas');
 })();

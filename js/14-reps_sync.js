@@ -462,6 +462,16 @@ function toggleInstQuem(){
     // Reset flag quando sair de INTERNACIONAL — assim se voltar depois
     // os defaults reaplicam
     window._intlDefaultsAplicado = false;
+    // ★ Felipe 28/04: zerar TODOS os campos inst-intl-* ao sair de INTERNACIONAL
+    // (evita valor fantasma de passagem/hotel/etc gravado no banco quando inst_quem=SEM)
+    ['inst-intl-passagem','inst-intl-hotel','inst-intl-alim','inst-intl-udigru',
+     'inst-intl-carro','inst-intl-mo','inst-intl-seguro','inst-intl-aero',
+     'inst-intl-pessoas','inst-intl-dias','inst-intl-margem','inst-intl-imp',
+     'inst-intl-transp','inst-intl-valor','inst-intl-total','inst-intl-fat',
+     'inst-intl-tab'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el){ el.value=''; try{el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){} }
+    });
   }
 }
 
@@ -617,20 +627,10 @@ document.addEventListener('click',function(e){
   if(ac&&!ac.contains(e.target)&&e.target.id!=='inst-intl-cidade')ac.style.display='none';
 });
 // ── Fetch câmbio BCB ──
-function instIntlFetchCambio(){
-  var info=document.getElementById('inst-intl-cambio-info');
-  if(info)info.textContent='Buscando cotação BCB...';
-  var end=new Date(),start=new Date();start.setDate(start.getDate()-90);
-  var fmt=function(d){return(d.getMonth()+1)+'/'+d.getDate()+'/'+d.getFullYear();};
-  fetch('https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@di,dataFinalCotacao=@df)?@di=%27'+fmt(start)+'%27&@df=%27'+fmt(end)+'%27&$format=json&$select=cotacaoVenda')
-  .then(function(r){return r.json();}).then(function(data){
-    var vals=data.value||[];if(vals.length<1)return;
-    var sum=0;vals.forEach(function(v){sum+=v.cotacaoVenda;});
-    var media=(sum/vals.length).toFixed(2);
-    var el=document.getElementById('inst-intl-cambio');if(el)el.value=media;
-    if(info)info.textContent='✅ Média BCB ('+vals.length+' dias): R$ '+media;
-    calc();
-  }).catch(function(){if(info)info.textContent='⚠️ Erro. Usando default.';});
+/* instIntlFetchCambio NEUTRALIZADO — câmbio só vem do campo do card */
+function instIntlFetchCambio() {
+  var info = document.getElementById("inst-intl-cambio-info");
+  if (info) { info.textContent = ""; info.style.display = "none"; }
 }
 
 // ── Cálculo Internacional com DRE completo ──
@@ -640,7 +640,7 @@ function calcInstIntl(){
   var diasInst=gv('inst-intl-dias');
   var diasViagem=4; // 2 ida (UDI→GRU + GRU→Destino) + 2 volta (Destino→GRU + GRU→UDI)
   var diasTotal=diasInst+diasViagem;
-  var cambio=gv('inst-intl-cambio')||5.20;
+  var cambio=gv('inst-intl-cambio')||0;
 
   var udiGru=gv('inst-intl-udigru');
   var passagem=gv('inst-intl-passagem')*pessoas;

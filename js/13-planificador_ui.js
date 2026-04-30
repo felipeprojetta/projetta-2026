@@ -56,10 +56,31 @@ function plnPecas(Lmm, Amm, fol, mod) {
   var r  = [];
 
   /* MODELOS LISA (10, 11, 15, 23) */
-  if (mod === '10' || mod === '11' || mod === '15' || mod === '23acm' || mod === '23alu') {
+  if (mod === '10' || mod === '11' || mod === '15' || mod === '16' || mod === '23acm' || mod === '23alu') {
     // Detectar MACICO para modelo 23
     var _isMacico = (mod === '23acm' || mod === '23alu') && (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value === 'MACICO';
     var _mAlu = _isMacico ? 'alu' : 'acm';  // TAMPA+FIT → chapa ALU separada
+    /* ★ MODELO 16 — Puxador Externo + Friso Horizontal Variavel (Felipe 28/04/2026)
+       Replica logica modelo 06: descontar frisos da altura e dividir TAMPA MAIOR.
+       Se N_FRISOS=0 -> tampa unica cheia (porta lisa pura).
+       Se N_FRISOS>0 -> tampa dividida em (N+1) faixas + chapas FRISO HORIZ. */
+    var _isMod16 = (mod === '16');
+    var _N_FRISOS_16 = 0, _ESP_FRISO_16 = 0, _N_PARTS_16 = 1;
+    var _altMaior16 = G4, _qtyMul16 = 1;
+    if (_isMod16) {
+      _N_FRISOS_16 = parseInt((document.getElementById('plan-friso-h-qty')||{value:0}).value) || 0;
+      _ESP_FRISO_16 = parseInt((document.getElementById('plan-friso-h-esp')||{value:0}).value) || 0;
+      // ★ Felipe 28/04 (revisado): N>0 SEMPRE divide TAMPA em N+1 partes
+      // ESP=0 -> nao desconta espessura mas mantem divisao + NAO gera FRISO HORIZ
+      // ESP>0 -> desconta espessura + gera FRISO HORIZ
+      if (_N_FRISOS_16 > 0) {
+        _N_PARTS_16 = _N_FRISOS_16 + 1;
+        var _altUtil_16 = (_ESP_FRISO_16 > 0) ? (G4 - _N_FRISOS_16 * _ESP_FRISO_16) : G4;
+        var _medidaBruta_16 = _altUtil_16 / _N_PARTS_16;
+        _altMaior16 = _medidaBruta_16 + 2 * REF;
+        _qtyMul16 = _N_PARTS_16;
+      }
+    }
     var LARG_FRISO = 0, DIS_BOR_FRI = 0, frisoDeduc = 0;
     if (mod === '11') {
       LARG_FRISO  = parseInt(document.getElementById('plan-largfriso').value) || 10;
@@ -75,7 +96,11 @@ function plnPecas(Lmm, Amm, fol, mod) {
         // ACM 1FLH mod23: TAMPA = L - 105 (ref Excel ACM)
         r.push(['TAMPA MAIOR', L - 105, G4, 2]);
       } else {
-        r.push(['TAMPA MAIOR', fW + 2*REF - frisoDeduc, G4, 2, _mAlu]);
+        var _orient16 = (document.getElementById('plan-tampa-orient')||{value:'vertical'}).value || 'vertical';
+        var _swap16 = _isMod16 && (_orient16 === 'horizontal');
+        var _w16_1 = _swap16 ? _altMaior16 : (fW + 2*REF - frisoDeduc);
+        var _h16_1 = _swap16 ? (fW + 2*REF - frisoDeduc) : _altMaior16;
+        r.push(['TAMPA MAIOR', _w16_1, _h16_1, 2 * _qtyMul16, _mAlu]);
       }
     } else {
       if(_isMacico){
@@ -101,9 +126,11 @@ function plnPecas(Lmm, Amm, fol, mod) {
         var T1 = base2 + FGA + FGLA*2 - 1;
         var T2 = base2 + FGLA*2 - PIV;
         var T3 = T2 - TUB_SUP;
-        r.push(['TAMPA MAIOR 01', T1, G4, 1, _mAlu]);
-        r.push(['TAMPA MAIOR 02', T2, G4, 2, _mAlu]);
-        r.push(['TAMPA MAIOR 03', T3, G4, 1, _mAlu]);
+        var _orient16b = (document.getElementById('plan-tampa-orient')||{value:'vertical'}).value || 'vertical';
+        var _swap16b = _isMod16 && (_orient16b === 'horizontal');
+        r.push(['TAMPA MAIOR 01', _swap16b ? _altMaior16 : T1, _swap16b ? T1 : _altMaior16, 1 * _qtyMul16, _mAlu]);
+        r.push(['TAMPA MAIOR 02', _swap16b ? _altMaior16 : T2, _swap16b ? T2 : _altMaior16, 2 * _qtyMul16, _mAlu]);
+        r.push(['TAMPA MAIOR 03', _swap16b ? _altMaior16 : T3, _swap16b ? T3 : _altMaior16, 1 * _qtyMul16, _mAlu]);
       }
     }
     if (mod === '11') {
@@ -126,6 +153,21 @@ function plnPecas(Lmm, Amm, fol, mod) {
       r.push(['FIT ACAB ME', 76.5, bH, 2, _mAlu], ['FIT ACAB MA', 114.5, bH, 2, _mAlu], ['FIT ACAB FITA', 101, bH, 2, _mAlu]);
     }
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
+    /* ★ MODELO 16 — pecas FRISO HORIZ (revestimento dos frisos no aluminio)
+       qty = N_FRISOS x 2 (frente + verso). Se N_FRISOS=0 -> nao gera. */
+    if (_isMod16 && _N_FRISOS_16 > 0 && _ESP_FRISO_16 > 0) {
+      var _LAR_IS_16 = Math.round(L - 10 - 10 - 171.7 - 171.5);
+      var _frisoW16 = Math.round(_LAR_IS_16 + 110 + 110);
+      var _frisoH16 = _ESP_FRISO_16 + 100;
+      var _MAX_CHAPA_UTIL_16 = 1490;
+      if (_frisoW16 > _MAX_CHAPA_UTIL_16) {
+        var _frisoResto16 = _frisoW16 - _MAX_CHAPA_UTIL_16;
+        r.push(['FRISO HORIZ 1', _MAX_CHAPA_UTIL_16, _frisoH16, _N_FRISOS_16 * 2]);
+        r.push(['FRISO HORIZ 2', _frisoResto16, _frisoH16, _N_FRISOS_16 * 2]);
+      } else {
+        r.push(['FRISO HORIZ', _frisoW16, _frisoH16, _N_FRISOS_16 * 2]);
+      }
+    }
     if (mod === '23acm' || mod === '23alu') {
       var _moldRev = (document.getElementById('plan-moldura-rev')||{value:'ACM'}).value;
       // Molduras ACM: peças 143mm largura no planificador (mesmas fórmulas da boiserie)
@@ -285,22 +327,30 @@ function plnPecas(Lmm, Amm, fol, mod) {
     var cavaH06 = Math.max(0, _TRAV_V06 - 12);
     var cavaDeduc06 = LARG_CAVA + DIS_BOR_CAVA + 2;
     // Parâmetros do friso horizontal
-    var N_FRISOS = parseInt((document.getElementById('plan-friso-h-qty')||{value:3}).value) || 3;
-    var ESP_FRISO = parseInt((document.getElementById('plan-friso-h-esp')||{value:10}).value) || 10;
-    var N_PARTS = N_FRISOS + 1;
+    var N_FRISOS = parseInt((document.getElementById('plan-friso-h-qty')||{value:0}).value) || 0;
+    var ESP_FRISO = parseInt((document.getElementById('plan-friso-h-esp')||{value:0}).value) || 0;
+    // ★ Felipe 28/04 (revisado): N>0 SEMPRE divide TAMPA; ESP controla desconto + FRISO HORIZ
+    var _hasDivisao06 = (N_FRISOS > 0);
+    var _hasFrisoChapa06 = (N_FRISOS > 0 && ESP_FRISO > 0);
+    var N_PARTS = _hasDivisao06 ? (N_FRISOS + 1) : 1;
     var LIMITE_CHAPA = 1450; // largura útil máxima da chapa (1500 - 20ref - 20ref)
     // Medida bruta de cada faixa = (G4 - gaps dos frisos) / nº partes
-    var altUtil = G4 - (N_FRISOS * ESP_FRISO);
-    var medidaBruta = altUtil / N_PARTS;
-    var medidaCorte = medidaBruta + 2 * REF; // +20 refilado cada lado
+    var altUtil = _hasFrisoChapa06 ? (G4 - (N_FRISOS * ESP_FRISO)) : G4;
+    var medidaBruta = _hasDivisao06 ? (altUtil / N_PARTS) : G4;
+    var medidaCorte = _hasDivisao06 ? (medidaBruta + 2 * REF) : G4;
     // CAVA (mesma lógica do modelo 01)
     r.push(['CAVA', LARG_CAVA + 116, cavaH06, (fol==2) ? 4 : 2]);
     // TAMPA CAVA — NÃO dividida (peça pequena, mesma do modelo 01)
     r.push(['TAMPA CAVA', LARG_CAVA + 90, DIS_BOR_CAVA, (fol==2) ? 8 : 4]);
     // TAMPA MAIOR — dividida em N_PARTS faixas horizontais
+    // ★ Felipe 28/04: orientacao Horizontal inverte L<->H das TAMPAs
+    var _orient06 = (document.getElementById('plan-tampa-orient')||{value:'vertical'}).value || 'vertical';
+    var _swap06 = (_orient06 === 'horizontal');
     if (fol == 1) {
       var tampaW06 = fW + 2*REF - cavaDeduc06;
-      r.push(['TAMPA MAIOR', tampaW06, medidaCorte, N_PARTS * 2]);
+      var _w06_1 = _swap06 ? medidaCorte : tampaW06;
+      var _h06_1 = _swap06 ? tampaW06 : medidaCorte;
+      r.push(['TAMPA MAIOR', _w06_1, _h06_1, N_PARTS * 2]);
     } else {
       var DBC06 = DIS_BOR_CAVA, LC06 = LARG_CAVA;
       var baseA06 = (G2total - DBC06*2 - LC06*2) / 2;
@@ -308,9 +358,9 @@ function plnPecas(Lmm, Amm, fol, mod) {
       var T1_06 = baseA06 + FGA + FGLA*2 - 1;
       var T2_06 = baseB06 + FGLA*2 - PIV - 1;
       var T3_06 = T2_06 - TUB_SUP;
-      r.push(['TAMPA MAIOR 01', T1_06, medidaCorte, N_PARTS * 1]);
-      r.push(['TAMPA MAIOR 02', T2_06, medidaCorte, N_PARTS * 2]);
-      r.push(['TAMPA MAIOR 03', T3_06, medidaCorte, N_PARTS * 1]);
+      r.push(['TAMPA MAIOR 01', _swap06 ? medidaCorte : T1_06, _swap06 ? T1_06 : medidaCorte, N_PARTS * 1]);
+      r.push(['TAMPA MAIOR 02', _swap06 ? medidaCorte : T2_06, _swap06 ? T2_06 : medidaCorte, N_PARTS * 2]);
+      r.push(['TAMPA MAIOR 03', _swap06 ? medidaCorte : T3_06, _swap06 ? T3_06 : medidaCorte, N_PARTS * 1]);
     }
     // TAMPA BOR CAVA — também dividida em faixas
     if (fol == 1) {
@@ -325,17 +375,20 @@ function plnPecas(Lmm, Amm, fol, mod) {
     r.push(['TAP FURO', 119, bH, 3], ['FIT ACAB ME', 76.5, bH, 2], ['FIT ACAB MA', 114.5, bH, 2], ['FIT ACAB FITA', 101, bH, 2]);
     if(document.getElementById('carac-tem-alisar')&&document.getElementById('carac-tem-alisar').checked) r.push(['ALISAR ALT', 225, A+150, 5], ['ALISAR LAR', 225, L+300, 2]);
     // CHAPAS FRISO HORIZONTAL — largura=medida veda porta, altura=espessura+100, qty=frisos×2 (frente+verso)
-    var _LAR_IS_06 = Math.round(L - 10 - 10 - 171.7 - 171.5);
-    var _frisoW06 = Math.round(_LAR_IS_06 + 110 + 110); // mesma medida VEDA PORTA
-    var _frisoH06 = ESP_FRISO + 100;
-    var _MAX_CHAPA_UTIL = 1490; // 1500 - 2×5mm margem
-    if (_frisoW06 > _MAX_CHAPA_UTIL) {
-      // Quebra/emenda: peça 1 = 1490, peça 2 = restante
-      var _frisoResto = _frisoW06 - _MAX_CHAPA_UTIL;
-      r.push(['FRISO HORIZ 1', _MAX_CHAPA_UTIL, _frisoH06, N_FRISOS * 2]);
-      r.push(['FRISO HORIZ 2', _frisoResto, _frisoH06, N_FRISOS * 2]);
-    } else {
-      r.push(['FRISO HORIZ', _frisoW06, _frisoH06, N_FRISOS * 2]);
+    // ★ Felipe 28/04: so gera se N>0 E ESP>0
+    if (_hasFrisoChapa06) {
+      var _LAR_IS_06 = Math.round(L - 10 - 10 - 171.7 - 171.5);
+      var _frisoW06 = Math.round(_LAR_IS_06 + 110 + 110); // mesma medida VEDA PORTA
+      var _frisoH06 = ESP_FRISO + 100;
+      var _MAX_CHAPA_UTIL = 1490; // 1500 - 2×5mm margem
+      if (_frisoW06 > _MAX_CHAPA_UTIL) {
+        // Quebra/emenda: peça 1 = 1490, peça 2 = restante
+        var _frisoResto = _frisoW06 - _MAX_CHAPA_UTIL;
+        r.push(['FRISO HORIZ 1', _MAX_CHAPA_UTIL, _frisoH06, N_FRISOS * 2]);
+        r.push(['FRISO HORIZ 2', _frisoResto, _frisoH06, N_FRISOS * 2]);
+      } else {
+        r.push(['FRISO HORIZ', _frisoW06, _frisoH06, N_FRISOS * 2]);
+      }
     }
   }
 

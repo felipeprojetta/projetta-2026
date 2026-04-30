@@ -498,7 +498,15 @@ function populateProposta(){
           mp['carac-puxador']    = oi.puxador || '';
           mp['carac-pux-tam']    = oi.pux_tam || '';
           mp['carac-cilindro']   = oi.cilindro || 'KESO';
-          mp['carac-tem-alisar'] = oi.tem_alisar ? '1' : '0';
+          // Felipe 28/04: tem_alisar - DOM tem prioridade absoluta sobre dado salvo
+          // Se checkbox existe no DOM (orcamento aberto), usa estado ao vivo.
+          // Senao (versao salva sem orcamento aberto), usa dado da revisao.
+          var _domAlisarCb = document.getElementById('carac-tem-alisar');
+          if(_domAlisarCb){
+            mp['carac-tem-alisar'] = _domAlisarCb.checked ? '1' : '0';
+          } else {
+            mp['carac-tem-alisar'] = oi.tem_alisar ? '1' : '0';
+          }
           mp._largura = parseFloat(oi.largura) || 0;
           mp._altura  = parseFloat(oi.altura)  || 0;
           mp._qtd     = parseInt(oi.qtd) || 1;
@@ -582,7 +590,7 @@ function populateProposta(){
     : (window._crmScope === 'internacional' || (document.getElementById('inst-quem')||{value:''}).value === 'INTERNACIONAL');
   var _PROP_LANG = _isIntlProp ? 'en' : 'pt';
   // Câmbio (usado só quando internacional)
-  var _cambioProp = parseFloat((document.getElementById('inst-intl-cambio')||{value:5.20}).value)||5.20;
+  var _cambioProp = parseFloat((document.getElementById('inst-intl-cambio')||{value:0}).value)||0;
 
   // Dicionário de traduções (só entradas 'en' — o default/pt vem do HTML original)
   var _PROP_I18N = {
@@ -983,13 +991,31 @@ function populateProposta(){
     }
   }
   // Alisar / Architrave — destaque
+  // Felipe 28/04 v2: DOM tem prioridade absoluta (estado ao vivo durante edicao).
+  // _mpItens so eh usado se DOM nao existe (proposta gerada sem orcamento aberto).
   var _alisarCb=document.getElementById('carac-tem-alisar');
+  var _alisarChecked;
+  if(_alisarCb){
+    // Existe checkbox no DOM = proposta esta sendo gerada com orcamento aberto.
+    // Usa estado AO VIVO do checkbox (respeita edicoes do usuario antes de salvar).
+    _alisarChecked = !!_alisarCb.checked;
+  } else {
+    // DOM nao tem checkbox = proposta sendo gerada de versao salva sem orcamento aberto.
+    // Fallback: ler de _mpItens (populado a partir do banco da revisao).
+    _alisarChecked = false;
+    try {
+      if(window._mpItens && window._mpItens[0] && window._mpItens[0]['carac-tem-alisar'] !== undefined){
+        var _v = window._mpItens[0]['carac-tem-alisar'];
+        _alisarChecked = (_v === '1' || _v === true || _v === 1);
+      }
+    } catch(e){}
+  }
   var _alisarEl=document.getElementById('prop-alisar');
   var _alisarLine=document.getElementById('prop-alisar-line');
   if(_alisarEl&&_alisarLine){
     var _comAl = (_PROP_LANG==='en') ? '✅ YES — WITH CASING' : '✅ SIM — COM ALISAR';
     var _semAl = (_PROP_LANG==='en') ? 'NO CASING' : 'SEM ALISAR';
-    if(_alisarCb&&_alisarCb.checked){
+    if(_alisarChecked){
       _alisarEl.innerHTML='<strong style="color:#27ae60;font-size:110%">'+_comAl+'</strong>';
       _alisarLine.style.cssText='background:#e8f5e9;border:2px solid #27ae60;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:700';
     } else {
@@ -1101,7 +1127,7 @@ function populateProposta(){
   try {
     if(_isIntlProp && window._propLangCtx && window._propLangCtx.cif){
       var _cf = window._propLangCtx.cif;
-      var _cambioCf = _cambioProp || 5.20;
+      var _cambioCf = _cambioProp || 0;
       if(_cf.incluirCaixa    && _cf.caixaUSD>0)          tabGeral += _cf.caixaUSD * _cambioCf;
       if(_cf.incluirTerrestre&& _cf.freteTerrestreUSD>0) tabGeral += _cf.freteTerrestreUSD * _cambioCf;
       if(_cf.incluirMaritimo && _cf.freteMaritimoUSD>0)  tabGeral += _cf.freteMaritimoUSD * _cambioCf;
