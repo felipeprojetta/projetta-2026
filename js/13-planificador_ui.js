@@ -253,7 +253,6 @@ function plnPecas(Lmm, Amm, fol, mod) {
       var QTY_FRISO_V = parseInt((document.getElementById('plan-friso-v-qty')||{value:1}).value) || 1;
       if (QTY_FRISO_V < 1) QTY_FRISO_V = 1;
       frisoDeduc = QTY_FRISO_V * (DIS_BOR_FRI + LARG_FRISO);
-      window._debugMod02 = {QTY:QTY_FRISO_V, DIS:DIS_BOR_FRI, LARG:LARG_FRISO, deduc:frisoDeduc};
     }
     // Modelo 07: múltiplas ripas rebaixadas
     var _nRipas07=0, _largRipa07=0, _distRipa07=0;
@@ -3304,18 +3303,3 @@ function atualizaBookingLink(el) {
 // autoMargem removida — lucro-alvo sempre 20%
 
 /* ══ END MODULE: PLANIFICADOR_UI ══ */
-
-
-// === DEBUG TEMPORARIO Felipe 30/04 ===
-setInterval(function(){
-  if(!window._debugMod02) return;
-  var d = window._debugMod02;
-  var b = document.getElementById("dbg-mod02");
-  if(!b){
-    b = document.createElement("div");
-    b.id = "dbg-mod02";
-    b.style.cssText = "position:fixed;top:0;left:0;right:0;background:#ffd700;color:#000;padding:8px;z-index:99999;font-family:monospace;font-size:13px;font-weight:700;text-align:center;border-bottom:2px solid red";
-    document.body.appendChild(b);
-  }
-  b.textContent = "DEBUG MOD02: QTY=" + d.QTY + " | DIS=" + d.DIS + " | LARG=" + d.LARG + " | desconto=" + d.deduc + "mm";
-}, 500);
