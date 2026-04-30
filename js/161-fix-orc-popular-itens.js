@@ -99,38 +99,19 @@
       if(it.friso_vert) setF('carac-friso-vert', it.friso_vert);
       if(it.friso_horiz) setF('carac-friso-horiz', it.friso_horiz);
 
-      // Friso horizontal modelo 06/16
-      if(it.friso_h_qty) setF('plan-friso-h-qty', it.friso_h_qty);
-      if(it.friso_h_esp) setF('plan-friso-h-esp', it.friso_h_esp);
+      // REMOVIDO: setF plan-friso-h-* (Felipe 29/04: nao persistir, deixar planificador livre)
 
-      // Friso vertical modelo 02
-      if(it.friso_v_qty) setF('plan-friso-v-qty', it.friso_v_qty);
+      // REMOVIDO: setF plan-friso-v-qty (Felipe 29/04: nao persistir, deixar planificador livre)
+      // REMOVIDO: setF plan-moldura-* (Felipe 29/04: nao persistir, deixar planificador livre)
 
-      // Modelo 23 (Classica Molduras)
-      if(it.moldura_rev) setF('plan-moldura-rev', it.moldura_rev);
-      if(it.moldura_larg_qty) setF('plan-moldura-larg-qty', it.moldura_larg_qty);
-      if(it.moldura_alt_qty) setF('plan-moldura-alt-qty', it.moldura_alt_qty);
-      if(it.moldura_tipo) setF('plan-moldura-tipo', it.moldura_tipo);
-      if(it.moldura_dis1) setF('plan-moldura-dis1', it.moldura_dis1);
-      if(it.moldura_dis2) setF('plan-moldura-dis2', it.moldura_dis2);
-      if(it.moldura_dis3) setF('plan-moldura-dis3', it.moldura_dis3);
-      if(it.moldura_divisao) setF('plan-moldura-divisao', it.moldura_divisao);
 
-      // Refilado tampas
-      if(it.refilado) setF('plan-refilado', it.refilado);
-
+      // REMOVIDO: setF plan-refilado (Felipe 29/04: nao persistir, deixar planificador livre)
       // Ripado
       if(it.ripado_total) setF('carac-ripado-total', it.ripado_total);
       if(it.ripado_2lados) setF('carac-ripado-2lados', it.ripado_2lados);
 
       // Tem alisar (checkbox)
       setCheckbox('carac-tem-alisar', it.tem_alisar);
-
-      // Tampa orient (do js/160)
-      if(it.tampa_orient){
-        setF('plan-tampa-orient', it.tampa_orient);
-      }
-
       // Disparar onModeloChange para mostrar/esconder seções corretas
       if(typeof window.onModeloChange === 'function' && it.modelo){
         try { window.onModeloChange(); } catch(e){}
