@@ -23,7 +23,7 @@
     'projetta_deleted_chapas','projetta_deleted_comps','projetta_deleted_perfis',
     'projetta_modelos','projetta_modelo_params',
     'projetta_users_v1','projetta_perms_v1','projetta_rep_cargos','projetta_rep_comms',
-    'projetta_crm_settings_v1'
+    'projetta_nfe_hist','projetta_crm_settings_v1'
   ];
   var PREFIXOS_SYNC = ['projetta_modelo_img_'];
 

@@ -13,6 +13,7 @@ var _editId=null, _view='kanban', _scope='nacional', _stageId=null, _dragId=null
 var D_STAGES=[
   {id:'s2',label:'Qualificação',color:'#3498db',icon:'🔍'},
   {id:'s3',label:'Fazer Orçamento',color:'#e67e22',icon:'📋'},
+  {id:'s3b',label:'Orçamento Pronto',color:'#f39c12',icon:'📧'},
   {id:'s4',label:'Proposta Enviada',color:'#9b59b6',icon:'📤'},
   {id:'s5',label:'Negociação',color:'#e74c3c',icon:'🤝'},
   {id:'s6',label:'Fechado Ganho',color:'#27ae60',icon:'🏆'},
@@ -32,10 +33,9 @@ function sS(s){localStorage.setItem(SK,JSON.stringify(s));}
 function gStages(){
   var s=gS();
   var st=(s.stages||[]).length?s.stages:D_STAGES;
-  // Migrar (Felipe 28/04): remover s1, s3b, s3c se ainda existirem
-  // Esses estagios foram eliminados para sempre. Nunca podem voltar.
+  // Migrar: remover Prospecção (s1) se ainda existir nos salvos
   var had=st.length;
-  st=st.filter(function(x){return x.id!=='s1' && x.id!=='s3b' && x.id!=='s3c';});
+  st=st.filter(function(x){return x.id!=='s1';});
   if(st.length<had){s.stages=st;sS(s);}
   return st;
 }

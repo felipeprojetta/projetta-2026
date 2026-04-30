@@ -835,20 +835,16 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <div class="main-tabs">
   <button class="main-tab on" onclick="switchTab('crm')" id="btn-tab-crm">📊 CRM</button>
   <button class="main-tab" onclick="switchTab('clientes')" id="btn-tab-clientes" style="display:none">📂 Clientes</button>
-  <button class="main-tab" onclick="switchTab('orcamento')" id="btn-tab-orcamento">Orçamento</button>
+  <button class="main-tab" onclick="switchTab('orcamento')">Orçamento</button>
+  <button class="main-tab" onclick="switchTab('proposta')">Proposta Comercial</button>
   <button class="main-tab" onclick="switchTab('cadastro')">Cadastro</button>
+  <button class="main-tab" onclick="switchTab('os')" id="btn-tab-os">Levantamento de Perfis</button>
+  <button class="main-tab" onclick="switchTab('os-acess')" id="btn-tab-os-acess">Levantamento de Acessórios</button>
+  <button class="main-tab" onclick="switchTab('planificador')" id="btn-tab-plan">Levantamento de Superfícies</button>
+  <button class="main-tab" onclick="switchTab('relatorios')" id="btn-tab-rel">Relatórios</button>
+  <button class="main-tab" onclick="switchTab('custoreal')" id="btn-tab-custoreal">Custo Real NFE</button>
   <button class="main-tab" onclick="switchTab('estoque-omie')" id="btn-tab-estoque-omie">📦 Estoque Omie</button>
   <button class="main-tab" onclick="switchTab('email')" id="btn-tab-email">📧 Email</button>
-</div>
-
-<!-- SUB-NAV ORCAMENTO (Felipe 28/04: tudo dentro de Orcamento) -->
-<div id="sub-tabs-orc" class="sub-tabs" style="display:none;flex-wrap:wrap;gap:6px;padding:8px 16px;background:linear-gradient(180deg,#f8f9fa 0%,#eef0f3 100%);border-bottom:2px solid #d4d8dc">
-  <button class="sub-tab" onclick="switchTab('orcamento')" data-tab="orcamento" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📐 Orçamento</button>
-  <button class="sub-tab" onclick="switchTab('proposta')" data-tab="proposta" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📄 Proposta Comercial</button>
-  <button class="sub-tab" onclick="switchTab('os')" data-tab="os" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📏 Levantamento de Perfis</button>
-  <button class="sub-tab" onclick="switchTab('os-acess')" data-tab="os-acess" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">🔩 Levantamento de Acessórios</button>
-  <button class="sub-tab" onclick="switchTab('planificador')" data-tab="planificador" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">▭ Levantamento de Superfícies</button>
-  <button class="sub-tab" onclick="switchTab('relatorios')" data-tab="relatorios" style="padding:7px 16px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.6);color:#333;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit">📊 Relatórios</button>
 </div>
 
 <!-- TAB: ORCAMENTO -->
@@ -886,7 +882,14 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
       <option value="ano-anterior">📋 Ano anterior</option>
       <option value="personalizado">🎯 Personalizado (de/até)</option>
     </select>
-<div id="crm-f-periodo-custom" style="display:none;gap:4px;align-items:center;background:#fff3e0;padding:3px 8px;border-radius:6px;border:1px solid #e67e22">
+    <select class="crm-sel" id="crm-f-data-ref" onchange="crmRender()" title="Qual data aplicar o filtro de período" style="background:#f5f5dc;border:2px solid #8e44ad;font-weight:700;color:#003144">
+      <option value="auto" selected>🎯 Auto (criação/fechamento)</option>
+      <option value="chegada">🆕 Data chegada (criação card)</option>
+      <option value="orcamento">📝 Data do orçamento</option>
+      <option value="contato">📞 1º contato</option>
+      <option value="fechamento">🏆 Data fechamento</option>
+    </select>
+    <div id="crm-f-periodo-custom" style="display:none;gap:4px;align-items:center;background:#fff3e0;padding:3px 8px;border-radius:6px;border:1px solid #e67e22">
       <input type="date" id="crm-f-periodo-de" onchange="crmRender()" style="padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-family:inherit" title="Data inicial">
       <span style="font-size:10px;color:#555">até</span>
       <input type="date" id="crm-f-periodo-ate" onchange="crmRender()" style="padding:4px 6px;border:1px solid #c9c6bf;border-radius:4px;font-size:11px;font-family:inherit" title="Data final">
@@ -2187,7 +2190,7 @@ body{font-family:'Montserrat',Arial,sans-serif;background:var(--page);color:var(
 <div class="rc" style="position:sticky;top:16px;margin-bottom:12px">
   <div class="rh" style="background:var(--navy);display:flex;justify-content:space-between;align-items:center">
     <span>Resultado — Porta</span>
-    <button onclick="printPainelRep()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:inherit;letter-spacing:.02em">🖨️ Imprimir Painel Representante</button>
+    <button onclick="printPainelRep()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:5px;cursor:pointer;font-family:inherit" title="Imprimir painel para representante">🖨 Rep</button>
   </div>
   <div class="mg">
     <div class="mt"><label>Custo porta</label><div class="mv" id="m-custo-porta">R$ 0</div><div class="ms" id="m-custo-porta-m2">—</div></div>
@@ -4024,6 +4027,54 @@ Equipe Projetta by Weiku</textarea>
 </div>
 </div></div><!-- close tab-relatorios -->
 
+<!-- ═══ TAB: CUSTO REAL — Análise NF-e ═══ -->
+<div class="tab-panel" id="tab-custoreal">
+  <div class="sec">📊 Custo Real NFE — Análise de Nota Fiscal</div>
+  <div style="max-width:900px;margin:0 auto;padding:0 16px">
+    <!-- Chave de Acesso -->
+    <div style="background:#fff;border:1.5px solid #e0e0e0;border-radius:10px;padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:#003144;margin-bottom:8px">🔑 Consultar por Chave de Acesso (44 dígitos)</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="nfe-chave" placeholder="Cole a chave de acesso da NF-e (44 dígitos)" style="flex:1;padding:10px 12px;border:1.5px solid #90caf9;border-radius:8px;font-size:13px;font-family:monospace;letter-spacing:1px;outline:none" oninput="parseChaveNFe(this.value)">
+        <button onclick="abrirSefazConsulta()" style="padding:10px 16px;border-radius:8px;border:none;background:#1565c0;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🌐 Consultar SEFAZ</button>
+      </div>
+      <div id="nfe-chave-info" style="margin-top:8px;font-size:11px;color:#666"></div>
+    </div>
+    <!-- Upload XML/PDF -->
+    <div style="background:linear-gradient(135deg,#f5f7fa,#eef2f7);border:2px dashed #90caf9;border-radius:12px;padding:30px;text-align:center;margin-bottom:20px;cursor:pointer" onclick="document.getElementById('nfe-upload').click()" id="nfe-drop-zone">
+      <div style="font-size:36px;margin-bottom:8px">📄</div>
+      <div style="font-size:14px;font-weight:700;color:#1565c0">Arraste ou clique para enviar NF-e</div>
+      <div style="font-size:11px;color:#888;margin-top:4px">Formatos aceitos: <b>XML</b> (recomendado) ou <b>PDF</b></div>
+      <input type="file" id="nfe-upload" accept=".xml,.pdf" style="display:none" onchange="parseNFe(this.files[0])">
+    </div>
+    <!-- Calculadora Lucro Real -->
+    <div style="background:#fff;border:1.5px solid #2e7d32;border-radius:10px;padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:800;color:#2e7d32;margin-bottom:12px">📊 CUSTO REAL — LUCRO REAL (PIS/COFINS descontando ICMS)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Valor Produtos (R$)</label>
+          <input type="text" id="lr-valor" placeholder="0,00" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:14px;font-weight:700;text-align:right;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Frete (R$)</label>
+          <input type="text" id="lr-frete" placeholder="0,00" value="0" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:13px;text-align:right;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#666;display:block;margin-bottom:3px">Qtd</label>
+          <input type="number" id="lr-qtd" value="1" min="1" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e0e0e0;border-radius:6px;font-size:13px;text-align:center;font-family:inherit;outline:none"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div><label style="font-size:10px;font-weight:600;color:#e65100;display:block;margin-bottom:3px">IPI %</label>
+          <input type="number" id="lr-ipi" value="3.25" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #e65100;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#e65100;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#c62828;display:block;margin-bottom:3px">ICMS %</label>
+          <input type="number" id="lr-icms" value="12" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #c62828;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#c62828;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#1565c0;display:block;margin-bottom:3px">PIS %</label>
+          <input type="number" id="lr-pis" value="1.65" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #1565c0;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#1565c0;font-family:inherit;outline:none"></div>
+        <div><label style="font-size:10px;font-weight:600;color:#6a1b9a;display:block;margin-bottom:3px">COFINS %</label>
+          <input type="number" id="lr-cofins" value="7.60" step="0.01" oninput="calcLucroReal()" style="width:100%;padding:8px;border:1.5px solid #6a1b9a;border-radius:6px;font-size:13px;text-align:center;font-weight:700;color:#6a1b9a;font-family:inherit;outline:none"></div>
+      </div>
+      <div id="lr-result"></div>
+    </div>
+    <div id="nfe-result" style="display:none"></div>
+    <div id="nfe-historico" style="margin-top:20px"></div>
+  </div>
+</div>
+
 <!-- ═══ TAB: ESTOQUE OMIE — Consulta em Tempo Real ═══ -->
 <div class="tab-panel" id="tab-estoque-omie">
   <div class="sec">📦 Estoque Omie — Consulta em Tempo Real</div>
@@ -4588,20 +4639,3 @@ Equipe Projetta by Weiku</textarea>
 <script src="js/141-realtime-tabelas.js?v=7fff0db-1777383902"></script>
 <script src="js/142-cadastro-watcher.js?v=watcher-1777384400"></script>
 <script src="js/143-sync-indicator.js?v=indicator-1777384800"></script>
-<script src="js/144-subtabs-orcamento.js?v=subtabs-1777389000"></script>
-<script src="js/145-card-orcamento.js?v=card-orc-1777392000"></script>
-<script src="js/146-recalc-hcorte.js?v=hcorte-1777396000"></script>
-<script src="js/147-orc-imprimir-v2.js?v=imprimir-1777400000"></script>
-<script src="js/148-hcorte-auto-fix.js?v=hcorte-fix-1777405000"></script>
-<script src="js/149-painel-rep-inline.js?v=painel-rep-1777408000"></script>
-<script src="js/150-historico-modal.js?v=hist-modal-1777411000"></script>
-<script src="js/151-hcorte-final-fix.js?v=hcorte-final-1777414000"></script>
-<script src="js/152-fix-final.js?v=fix-final-1777417000"></script>
-<script src="js/153-pngs-completo-zerar-total.js?v=pngs-zerar-1777420000"></script>
-<script src="js/154-historico-card-id-fix.js?v=hist-cardid-1777423000"></script>
-<script src="js/155-cleanup-banner-historico-png.js?v=cleanup-1777426000"></script>
-<script src="js/156-fix-drag-stage-persist.js?v=drag-stage-1777429000"></script>
-<script src="js/157-eliminar-historico-pngs-separados.js?v=hist-pngs-1777432000"></script>
-<script src="js/158-forcar-padroes-alisar-cilindro.js?v=padroes-1777435000"></script>
-<script src="js/159-fix-pngs-completos.js?v=fix3-1777438000"></script>
-<script src="js/154-historico-modal-robusto.js?v=hist-robusto-1777423000"></script>

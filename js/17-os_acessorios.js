@@ -1204,4 +1204,664 @@ function _calcManualPerfilRow(id){
 
 /* ══ END MODULE: OS_ACESSORIOS ══ */
 
-/* Felipe 28/04: bloco MODULE CUSTO_REAL (NFE) ELIMINADO PARA SEMPRE */
+/* ══ MODULE: CUSTO_REAL — Análise NF-e ══ */
+function parseNFe(file){
+  if(!file) return;
+  var ext=file.name.split('.').pop().toLowerCase();
+  var reader=new FileReader();
+  if(ext==='xml'){
+    reader.onload=function(e){parseNFeXML(e.target.result, file.name);};
+    reader.readAsText(file);
+  } else if(ext==='pdf'){
+    reader.onload=function(e){parseNFePDF(e.target.result, file.name);};
+    reader.readAsArrayBuffer(file);
+  } else {
+    alert('Formato não suportado. Use .xml ou .pdf');
+  }
+}
+
+async function parseNFePDF(arrayBuffer, fileName){
+  if(!window.pdfjsLib){alert('Biblioteca PDF não carregou. Recarregue a página.');return;}
+  var res=document.getElementById('nfe-result');
+  res.innerHTML='<div style="text-align:center;padding:30px;color:#888"><div style="font-size:24px">⏳</div>Extraindo dados do PDF...</div>';
+  res.style.display='block';
+  try{
+    var pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    var fullText='';
+    var rows=[];
+    for(var i=1;i<=pdf.numPages;i++){
+      var page=await pdf.getPage(i);
+      var tc=await page.getTextContent();
+      // Método ORIGINAL que funcionou: join simples na ordem do PDF
+      fullText+=tc.items.map(function(it){return it.str;}).join(' ')+' ';
+      // Rows por Y para extração de itens
+      var yMap={};
+      tc.items.forEach(function(it){
+        var y=Math.round(it.transform[5]);
+        if(!yMap[y])yMap[y]=[];
+        yMap[y].push({x:Math.round(it.transform[4]),str:it.str});
+      });
+      Object.keys(yMap).map(Number).sort(function(a,b){return b-a;}).forEach(function(y){
+        rows.push(yMap[y].sort(function(a,b){return a.x-b.x;}).map(function(c){return c.str;}).join(' '));
+      });
+    }
+    console.log('[NFE] Texto extraído:',fullText.substring(0,3000));
+    parseDanfeText(fullText, fileName, rows);
+  }catch(e){
+    console.error('Erro PDF:',e);
+    res.innerHTML='<div style="color:#c62828;padding:20px;text-align:center"><b>Erro ao ler PDF:</b> '+e.message+'</div>';
+  }
+}
+
+function parseDanfeText(txt, fileName, rows){
+  rows=rows||[];
+  // Extrair dados do texto do DANFE
+  var find=function(regex){var m=txt.match(regex);return m?m[1].trim():'';};
+  var findN=function(regex){var v=find(regex).replace(/\./g,'').replace(',','.');return parseFloat(v)||0;};
+
+  // Chave de acesso (44 dígitos)
+  var chaveMatch=txt.match(/(\d{4}\s*){11}/);
+  var chave='';
+  if(chaveMatch) chave=chaveMatch[0].replace(/\s/g,'');
+  if(!chave){var dm=txt.match(/\d{44}/);if(dm)chave=dm[0];}
+
+  // Número da NF
+  var nNF=find(/N[ºo°\.]\s*(\d[\d\.]+)/i)||find(/NOTA FISCAL.*?(\d{3,})/i);
+  nNF=nNF.replace(/\./g,'');
+
+  // Natureza da operação
+  var natOp=find(/NATUREZA DA OPERA[CÇ][AÃ]O\s*[:\-]?\s*(.+?)(?:\s{2,}|$)/i)||'';
+
+  // Emitente
+  var emitNome=find(/RAZ[AÃ]O SOCIAL.*?:\s*(.+?)(?:\s{2,}|CNPJ)/i);
+  if(!emitNome) emitNome=find(/NOME.*?EMITENTE.*?:\s*(.+?)(?:\s{2,})/i);
+  if(!emitNome) emitNome=find(/EMIT(?:ENTE)?[:\s]+([A-ZÀ-Ÿ][\w\s\.\-\&]+?)(?:\s{2,}|CNPJ|\d{2}\.\d{3})/i);
+  // Se emitNome parece hora (HH:MM) ou muito curto, extrair do nome do arquivo
+  if(!emitNome || /^\d{1,2}:\d{2}$/.test((emitNome||"").trim()) || (emitNome||"").trim().length<4){
+    var _fnParts=(fileName||"").replace(/\.pdf$/i,"").split(/[-–]/);
+    if(_fnParts.length>=3) emitNome=_fnParts.slice(2).join("-").trim();
+    else if(_fnParts.length>=2) emitNome=_fnParts[_fnParts.length-1].trim();
+  }
+  var emitCNPJ=find(/CNPJ[:\s]*(\d{2}[\.\s]?\d{3}[\.\s]?\d{3}[\/\s]?\d{4}[\-\s]?\d{2})/i);
+
+  // Totais — buscar padrões comuns do DANFE
+  var vProd=findN(/VAL(?:OR)?\.?\s*(?:TOTAL\s*)?(?:DOS?\s*)?PROD(?:UTOS)?[:\s]*([\d\.,]+)/i);
+  var vNF=findN(/VAL(?:OR)?\.?\s*TOTAL\s*(?:DA\s*)?(?:NOTA|NF)[:\s]*([\d\.,]+)/i);
+  var vFrete=findN(/(?:VALOR\s*(?:DO\s*)?)?FRETE[:\s]*([\d\.,]+)/i);
+  var vDesc=findN(/DESCONTO[:\s]*([\d\.,]+)/i);
+
+  // Impostos — busca direta por regex
+  var vBCICMS=findN(/BASE?\s*(?:DE\s*)?C[AÁ]LC(?:ULO)?\s*(?:DO?\s*)?ICMS[:\s]*([\d\.,]+)/i);
+  var vICMS=findN(/VAL(?:OR)?\.?\s*(?:DO?\s*)?ICMS[:\s]*([\d\.,]+)/i);
+  var vBCST=findN(/BASE?\s*(?:DE\s*)?C[AÁ]LC(?:ULO)?\s*(?:DO?\s*)?(?:ICMS\s*)?S\.?T\.?[:\s]*([\d\.,]+)/i);
+  var vICMSST=findN(/VAL(?:OR)?\.?\s*(?:DO?\s*)?(?:ICMS\s*)?S(?:UB)?(?:ST)?\.?(?:T)?\.?[:\s]*([\d\.,]+)/i);
+  var vIPI=findN(/VAL(?:OR)?\.?\s*(?:TOTAL\s*)?(?:DO?\s*)?IPI[:\s]*([\d\.,]+)/i);
+  var vPIS=findN(/(?:VALOR\s*(?:DO\s*)?)?PIS[:\s]*([\d\.,]+)/i);
+  var vCOFINS=findN(/(?:VALOR\s*(?:DO\s*)?)?COFINS[:\s]*([\d\.,]+)/i);
+  var vOutro=findN(/OUTRAS\s*DESP(?:ESAS)?[:\s]*([\d\.,]+)/i);
+
+  // Fallback: DANFE padrão tem labels numa linha e valores na próxima
+  // Buscar nas rows: linha com "BASE" + "ICMS" → próxima linha tem os valores
+  if(!vICMS && rows.length>0){
+    for(var _ri=0;_ri<rows.length-1;_ri++){
+      var _rl=rows[_ri].toUpperCase();
+      if(_rl.indexOf('BASE')>=0 && _rl.indexOf('ICMS')>=0 && _rl.indexOf('IPI')>=0){
+        // Próxima(s) linha(s) contêm os valores
+        var _valLine=rows[_ri+1];
+        // Se a próxima linha ainda tem texto (não só números), tentar a seguinte
+        if(_valLine && !/^\s*[\d\.,\s]+$/.test(_valLine) && _ri+2<rows.length) _valLine=rows[_ri+2];
+        var _vals=[];
+        var _vm=_valLine.match(/(\d[\d\.]*,\d{2})/g);
+        if(_vm) _vm.forEach(function(v){_vals.push(parseFloat(v.replace(/\./g,'').replace(',','.'))||0);});
+        // Ordem padrão DANFE: BC_ICMS, V_ICMS, BC_ST, V_ST, V_IPI
+        if(_vals.length>=5){
+          vBCICMS=_vals[0];vICMS=_vals[1];vBCST=_vals[2];vICMSST=_vals[3];vIPI=_vals[4];
+          console.log('[NFE] Impostos extraídos por fallback rows:',{vBCICMS,vICMS,vBCST,vICMSST,vIPI});
+        } else if(_vals.length>=2){
+          vBCICMS=_vals[0];vICMS=_vals[1];
+          if(_vals[2])vIPI=_vals[2];
+        }
+        break;
+      }
+    }
+    // Buscar PIS/COFINS e valor NF nas rows
+    for(var _ri2=0;_ri2<rows.length-1;_ri2++){
+      var _rl2=rows[_ri2].toUpperCase();
+      if(_rl2.indexOf('PIS')>=0 && _rl2.indexOf('COFINS')>=0){
+        var _valLine2=rows[_ri2+1];
+        if(_valLine2 && !/^\s*[\d\.,\s]+$/.test(_valLine2) && _ri2+2<rows.length) _valLine2=rows[_ri2+2];
+        var _vals2=[];
+        var _vm2=_valLine2.match(/(\d[\d\.]*,\d{2})/g);
+        if(_vm2) _vm2.forEach(function(v){_vals2.push(parseFloat(v.replace(/\./g,'').replace(',','.'))||0);});
+        // Buscar nas posições: geralmente PIS e COFINS estão entre os últimos
+        if(_vals2.length>=2){
+          // Encontrar PIS e COFINS: últimos dois valores significativos
+          vPIS=_vals2[_vals2.length-2]||0;
+          vCOFINS=_vals2[_vals2.length-1]||0;
+        }
+        break;
+      }
+    }
+    // Valor total NF
+    if(!vNF){
+      for(var _ri3=0;_ri3<rows.length;_ri3++){
+        var _rl3=rows[_ri3].toUpperCase();
+        if(_rl3.indexOf('TOTAL')>=0 && _rl3.indexOf('NOTA')>=0){
+          var _vmn=rows[_ri3].match(/(\d[\d\.]*,\d{2})/);
+          if(!_vmn && _ri3+1<rows.length) _vmn=rows[_ri3+1].match(/(\d[\d\.]*,\d{2})/);
+          if(_vmn) vNF=parseFloat(_vmn[1].replace(/\./g,'').replace(',','.'))||0;
+          break;
+        }
+      }
+    }
+  }
+
+  if(!vNF&&vProd) vNF=vProd+vFrete+vOutro-vDesc+vIPI+vICMSST;
+
+  var totalImp=vICMS+vICMSST+vIPI+vPIS+vCOFINS;
+  // Usar mesma lógica do Custo Real para TOTAL IMPOSTOS (créditos reais)
+  var _lrIcmsPct=parseFloat((document.getElementById('lr-icms')||{value:0}).value)||0;
+  var _lrPisPct=parseFloat((document.getElementById('lr-pis')||{value:0}).value)||0;
+  var _lrCofinsPct=parseFloat((document.getElementById('lr-cofins')||{value:0}).value)||0;
+  var _lrBase=vProd+vFrete-vDesc;
+  var _lrICMS=_lrBase*_lrIcmsPct/100;
+  var _lrLiq=_lrBase-_lrICMS;
+  var _lrPIS=_lrLiq*_lrPisPct/100;
+  var _lrCOFINS=_lrLiq*_lrCofinsPct/100;
+  var totalImpReal=_lrICMS+_lrPIS+_lrCOFINS; // créditos reais (sem IPI)
+  if(totalImpReal>0){ totalImp=totalImpReal; }
+  var valorLiquido=vNF-totalImp;
+  var pctImp=vNF>0?(totalImp/vNF*100):0;
+
+  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var pct=function(v){return v.toFixed(2)+'%';};
+
+  // Extrair itens do PDF (DADOS DOS PRODUTOS)
+  var pdfItens=[];
+  try{
+    var _dataStart=txt.indexOf('DADOS DOS PRODUTOS');
+    var _dataEnd=txt.indexOf('DADOS ADICIONAIS');
+    if(_dataStart<0) _dataStart=txt.indexOf('CÓDIGO PRODUTO');
+    if(_dataEnd<0) _dataEnd=txt.indexOf('INFORMAÇÕES COMPLEMENTARES');
+    if(_dataStart>=0){
+      var _itemTxt=txt.substring(_dataStart,_dataEnd>0?_dataEnd:txt.length);
+      var _itemRows=_itemTxt.split('\n');
+      _itemRows.forEach(function(row){
+        var m=row.match(/(\d{4})\s+(PC|UN|KG|MT|M2|CX|M|LT|PAR|JG|RL|CJ|SC|GL|BD|FD)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)/i);
+        if(m){
+          var cfop=m[1],un=m[2];
+          var qty=parseFloat(m[3].replace(/\./g,'').replace(',','.'))||0;
+          var vUn=parseFloat(m[4].replace(/\./g,'').replace(',','.'))||0;
+          var vTot=parseFloat(m[5].replace(/\./g,'').replace(',','.'))||0;
+          if(vUn>vTot){var t=vUn;vUn=vTot;vTot=t;}
+          if(Math.abs(qty*vUn-vTot)>1) vUn=qty>0?vTot/qty:0;
+          pdfItens.push({cfop:cfop,un:un,qty:qty,vUn:vUn,vTot:vTot,desc:''});
+        }
+        // Pegar descrição na mesma ou linha anterior
+        if(pdfItens.length>0 && !pdfItens[pdfItens.length-1].desc){
+          var descM=row.match(/([A-Z][\w\s\.\-\*\/]+(?:MM|PVDF|LUM|PRO|ACP|CHAPA|PERFIL|ALUMIN|INOX|ACM|PA\-|X\d)[\w\s\.\-\*\/]*)/i);
+          if(descM) pdfItens[pdfItens.length-1].desc=descM[1].trim();
+        }
+      });
+    }
+  }catch(e){console.warn('PDF item parse:',e);}
+  // Fallback: 1 item genérico com qtd do campo lr-qtd
+  var _lrQtd=parseInt((document.getElementById('lr-qtd')||{value:1}).value)||1;
+  if(pdfItens.length===0 && vProd>0){
+    pdfItens.push({cfop:'',un:'',qty:_lrQtd,vUn:vProd/_lrQtd,vTot:vProd,desc:'(produto da nota)'});
+  }
+
+  // Parse chave de acesso info
+  var chaveInfo='';
+  if(chave.length===44){
+    var UFS={11:'RO',12:'AC',13:'AM',14:'RR',15:'PA',16:'AP',17:'TO',21:'MA',22:'PI',23:'CE',24:'RN',25:'PB',26:'PE',27:'AL',28:'SE',29:'BA',31:'MG',32:'ES',33:'RJ',35:'SP',41:'PR',42:'SC',43:'RS',50:'MS',51:'MT',52:'GO',53:'DF'};
+    var uf=UFS[chave.substring(0,2)]||chave.substring(0,2);
+    chaveInfo=' · UF: '+uf+' · CNPJ: '+chave.substring(6,20);
+    if(!nNF) nNF=''+parseInt(chave.substring(25,34));
+    document.getElementById('nfe-chave').value=chave;
+    parseChaveNFe(chave);
+  }
+
+  // ── Extrair ITENS das linhas do PDF ──
+  var itens=[];
+  if(rows.length>0){
+    var pctICMStot=vProd>0?(vICMS/vProd):0;
+    var pctIPItot=vProd>0?(vIPI/vProd):0;
+    var pctPIStot=vProd>0?(vPIS/vProd):0;
+    var pctCOFtot=vProd>0?(vCOFINS/vProd):0;
+    // Buscar linhas com CFOP (4 dígitos 1xxx-7xxx) e valores monetários
+    for(var ri=0;ri<rows.length;ri++){
+      var line=rows[ri];
+      // Detectar CFOP: 4 dígitos começando com 1-7
+      var cfopM=line.match(/\b([1-7]\d{3})\b/);
+      if(!cfopM) continue;
+      // Extrair valores monetários (formato BR: 1.234,56 ou 1234,56)
+      var vals=[];
+      var vm=line.match(/\d[\d\.]*,\d{2,4}/g);
+      if(vm) vm.forEach(function(v){vals.push(parseFloat(v.replace(/\./g,'').replace(',','.')));});
+      if(vals.length<2) continue; // precisa de pelo menos qtd e valor
+      // Extrair descrição: texto antes do CFOP ou entre código e CFOP
+      var descM=line.match(/^[\d\s]*([A-Za-zÀ-ÿ][\w\s\-\/\.\,\(\)]+)/);
+      var desc=descM?descM[1].trim().substring(0,60):'Item '+(itens.length+1);
+      // Tentar identificar: qtd, v.unit, v.total
+      var vTotal=vals[vals.length-1]||0; // último valor grande tende a ser total
+      var vUnit=vals.length>=3?vals[vals.length-2]:vTotal;
+      var qtd=vals.length>=3?vals[vals.length-3]:1;
+      // Se vTotal parece ser um valor de item (não % ou código)
+      if(vTotal>0&&vTotal<1000000){
+        var impEst=vTotal*(pctICMStot+pctIPItot+pctPIStot+pctCOFtot);
+        itens.push({
+          desc:desc,cfop:cfopM[1],qtd:qtd,vUnit:vUnit,vBruto:vTotal,
+          impEst:impEst,vLiq:vTotal-impEst
+        });
+      }
+    }
+    // Remover itens duplicados (mesmo desc+valor)
+    var seen={};
+    itens=itens.filter(function(it){var k=it.desc+it.vBruto;if(seen[k])return false;seen[k]=1;return true;});
+  }
+
+  var h='<div style="background:#fff;border-radius:12px;border:1px solid #e0e0e0;overflow:hidden">';
+  h+='<div style="background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:16px 20px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center"><div>';
+  h+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;opacity:.7">Nota Fiscal — Extraída do PDF</div>';
+  h+='<div style="font-size:18px;font-weight:800">NF-e '+(nNF||'—')+'</div>';
+  if(natOp) h+='<div style="font-size:11px;opacity:.8">'+natOp+'</div>';
+  h+='</div><div style="font-size:9px;opacity:.6;text-align:right">'+fileName+chaveInfo+'</div></div></div>';
+
+  if(emitNome||emitCNPJ){
+    h+='<div style="padding:10px 16px;border-bottom:1px solid #e0e0e0;font-size:12px"><b>Emitente:</b> '+(emitNome||'—')+' · <b>CNPJ:</b> '+(emitCNPJ||'—')+'</div>';
+  }
+
+  // Chave
+  if(chave) h+='<div style="padding:8px 16px;border-bottom:1px solid #e0e0e0;font-size:10px;font-family:monospace;color:#888;word-break:break-all"><b>Chave:</b> '+chave+'</div>';
+
+  // Impostos
+  h+='<div style="padding:16px 20px;border-bottom:1px solid #e0e0e0">';
+  h+='<div style="font-size:12px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📊 Impostos Extraídos</div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">';
+  var taxes=[
+    ['Valor Produtos',vProd,'#1565c0'],['Frete',vFrete,'#666'],['Desconto',vDesc,'#c0392b'],['Outras Desp.',vOutro,'#795548'],
+    ['BC ICMS',vBCICMS,'#ff8f00'],['ICMS',vICMS,'#e65100'],['BC ICMS ST',vBCST,'#bf360c'],['ICMS ST',vICMSST,'#bf360c'],
+    ['IPI',vIPI,'#4a148c'],['PIS',vPIS,'#1b5e20'],['COFINS',vCOFINS,'#006064']
+  ];
+  taxes.forEach(function(t){
+    if(t[1]>0) h+='<div style="background:#f5f5f5;border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px">'+t[0]+'</div><div style="font-size:14px;font-weight:800;color:'+t[2]+'">'+brl(t[1])+'</div></div>';
+  });
+  h+='</div></div>';
+
+  // Resultado líquido
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:#e0e0e0">';
+  h+='<div style="background:#e3f2fd;padding:14px;text-align:center"><div style="font-size:10px;color:#1565c0;font-weight:600">VALOR NF-e</div><div style="font-size:18px;font-weight:800;color:#1565c0">'+brl(vNF)+'</div></div>';
+  h+='<div style="background:#fce4ec;padding:14px;text-align:center"><div style="font-size:10px;color:#c62828;font-weight:600">TOTAL IMPOSTOS ('+pct(pctImp)+')</div><div style="font-size:18px;font-weight:800;color:#c62828">-'+brl(totalImp)+'</div></div>';
+  h+='<div style="background:#e8f5e9;padding:14px;text-align:center"><div style="font-size:10px;color:#2e7d32;font-weight:600">VALOR LÍQUIDO REAL</div><div style="font-size:18px;font-weight:800;color:#2e7d32">'+brl(valorLiquido)+'</div></div>';
+  h+='</div>';
+
+  if(totalImp===0){
+    h+='<div style="background:#fff3e0;padding:12px 16px;color:#e65100;font-size:12px;font-weight:600">⚠️ Nenhum imposto encontrado no PDF. Para maior precisão, use o <b>XML</b> da NF-e.</div>';
+    h+='<details style="padding:8px 16px;font-size:10px"><summary style="cursor:pointer;color:#888">🔍 Debug: texto extraído do PDF</summary><pre style="white-space:pre-wrap;word-break:break-all;max-height:300px;overflow:auto;background:#f5f5f5;padding:8px;border-radius:4px;margin-top:4px">'+txt.substring(0,5000).replace(/</g,'&lt;')+'</pre></details>';
+  }
+  // Tabela itens com custo unitário líquido
+  if(pdfItens.length>0){
+    h+='<div style="padding:16px 20px;border-top:1px solid #e0e0e0">';
+    h+='<div style="font-size:12px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 Custo Unitário Líquido (ICMS '+_lrIcmsPct+'% + PIS '+_lrPisPct+'% + COFINS '+_lrCofinsPct+'%)</div>';
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
+    h+='<tr style="background:#003144;color:#fff"><th style="padding:6px">#</th><th>CFOP</th><th>Produto</th><th>UN</th><th>Qtd</th><th>V.Unit NF</th><th>V.Total</th><th style="color:#ff9800">Créditos</th><th style="color:#4caf50">Líq.Total</th><th style="color:#4caf50;font-size:12px">💰 UNIT.LÍQ</th></tr>';
+    pdfItens.forEach(function(it,idx){
+      var base=it.vTot;
+      var icmsR=base*_lrIcmsPct/100;
+      var liqSI=base-icmsR;
+      var pisR=liqSI*_lrPisPct/100;
+      var cofR=liqSI*_lrCofinsPct/100;
+      var creditos=icmsR+pisR+cofR;
+      var liqR=base-creditos;
+      var unitLiq=it.qty>0?liqR/it.qty:0;
+      var bg=idx%2?'#f9f9f9':'#fff';
+      h+='<tr style="background:'+bg+'">';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:center">'+(idx+1)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;font-weight:600">'+(it.cfop||'—')+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(it.desc||'')+'\">'+(it.desc||'—')+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:center">'+(it.un||'—')+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:600">'+it.qty+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+brl(it.vUn)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:600">'+brl(it.vTot)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#c62828">-'+brl(creditos)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#2e7d32">'+brl(liqR)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:900;font-size:13px;color:#1565c0;background:#e3f2fd">'+brl(unitLiq)+'</td>';
+      h+='</tr>';
+    });
+    h+='</table></div></div>';
+  }
+  h+='</div>';
+
+  var res=document.getElementById('nfe-result');
+  res.innerHTML=h;
+  res.style.display='block';
+  // Auto-preencher calculadora Lucro Real
+  if(vProd>0){var _lrV=document.getElementById("lr-valor");if(_lrV){_lrV.value=vProd.toLocaleString("pt-BR",{minimumFractionDigits:2});calcLucroReal();}}
+  if(vFrete>0){var _lrF=document.getElementById("lr-frete");if(_lrF){_lrF.value=vFrete.toLocaleString("pt-BR",{minimumFractionDigits:2});calcLucroReal();}}
+  // Auto-preencher Qtd se extraiu itens
+  if(pdfItens.length===1 && pdfItens[0].qty>1){var _lrQ=document.getElementById("lr-qtd");if(_lrQ){_lrQ.value=pdfItens[0].qty;calcLucroReal();}}
+
+  // Histórico
+  if(vNF>0){
+    var hist=JSON.parse(localStorage.getItem('projetta_nfe_hist')||'[]');
+    hist.unshift({nNF:nNF||'PDF',emit:emitNome||fileName,vNF:vNF,totalImp:totalImp,liq:valorLiquido,pctImp:pctImp,data:'',ts:new Date().toISOString(),itens:0,fonte:'PDF',panelHTML:h});
+    if(hist.length>50) hist=hist.slice(0,50);
+    localStorage.setItem('projetta_nfe_hist',JSON.stringify(hist));
+    renderNFeHist();
+  }
+}
+
+function parseNFeXML(xmlStr, fileName){
+  var parser=new DOMParser();
+  var doc=parser.parseFromString(xmlStr,'text/xml');
+  // Remove namespace para facilitar queries
+  var clean=xmlStr.replace(/xmlns[^"]*"[^"]*"/g,'');
+  doc=parser.parseFromString(clean,'text/xml');
+
+  var gv=function(parent,tag){var el=parent.getElementsByTagName(tag)[0];return el?el.textContent.trim():'';};
+  var gn=function(parent,tag){return parseFloat(gv(parent,tag))||0;};
+
+  // Emitente
+  var emit=doc.getElementsByTagName('emit')[0]||doc;
+  var emitNome=gv(emit,'xNome');
+  var emitCNPJ=gv(emit,'CNPJ');
+
+  // Destinatário
+  var dest=doc.getElementsByTagName('dest')[0]||doc;
+  var destNome=gv(dest,'xNome');
+
+  // IDE
+  var ide=doc.getElementsByTagName('ide')[0]||doc;
+  var nNF=gv(ide,'nNF');
+  var natOp=gv(ide,'natOp');
+  var dhEmi=gv(ide,'dhEmi');
+
+  // Totais
+  var tot=doc.getElementsByTagName('ICMSTot')[0]||doc;
+  var vProd=gn(tot,'vProd');
+  var vFrete=gn(tot,'vFrete');
+  var vSeg=gn(tot,'vSeg');
+  var vDesc=gn(tot,'vDesc');
+  var vOutro=gn(tot,'vOutro');
+  var vNF=gn(tot,'vNF');
+  var vBC=gn(tot,'vBC');
+  var vICMS=gn(tot,'vICMS');
+  var vICMSST=gn(tot,'vST');
+  var vIPI=gn(tot,'vIPI');
+  var vPIS=gn(tot,'vPIS');
+  var vCOFINS=gn(tot,'vCOFINS');
+  var vFCPUFDest=gn(tot,'vFCPUFDest');
+  var vICMSUFDest=gn(tot,'vICMSUFDest');
+  var vICMSUFRemet=gn(tot,'vICMSUFRemet');
+
+  // Itens
+  var dets=doc.getElementsByTagName('det');
+  var itens=[];
+  for(var i=0;i<dets.length;i++){
+    var det=dets[i];
+    var prod=det.getElementsByTagName('prod')[0];
+    if(!prod) continue;
+    var imp=det.getElementsByTagName('imposto')[0];
+    // ICMS
+    var icmsEl=imp?imp.getElementsByTagName('ICMS')[0]:null;
+    var icmsCST='',icmsBC=0,icmsAliq=0,icmsVal=0;
+    if(icmsEl){
+      var icmsInner=icmsEl.children[0];
+      if(icmsInner){icmsCST=gv(icmsInner,'CST')||gv(icmsInner,'CSOSN');icmsBC=gn(icmsInner,'vBC');icmsAliq=gn(icmsInner,'pICMS');icmsVal=gn(icmsInner,'vICMS');}
+    }
+    // IPI
+    var ipiEl=imp?imp.getElementsByTagName('IPI')[0]:null;
+    var ipiCST='',ipiBC=0,ipiAliq=0,ipiVal=0;
+    if(ipiEl){var ipiInner=ipiEl.children[0];if(ipiInner){ipiCST=gv(ipiInner,'CST');ipiBC=gn(ipiInner,'vBC');ipiAliq=gn(ipiInner,'pIPI');ipiVal=gn(ipiInner,'vIPI');}}
+    // PIS
+    var pisEl=imp?imp.getElementsByTagName('PIS')[0]:null;
+    var pisCST='',pisBC=0,pisAliq=0,pisVal=0;
+    if(pisEl){var pisInner=pisEl.children[0];if(pisInner){pisCST=gv(pisInner,'CST');pisBC=gn(pisInner,'vBC');pisAliq=gn(pisInner,'pPIS');pisVal=gn(pisInner,'vPIS');}}
+    // COFINS
+    var cofEl=imp?imp.getElementsByTagName('COFINS')[0]:null;
+    var cofCST='',cofBC=0,cofAliq=0,cofVal=0;
+    if(cofEl){var cofInner=cofEl.children[0];if(cofInner){cofCST=gv(cofInner,'CST');cofBC=gn(cofInner,'vBC');cofAliq=gn(cofInner,'pCOFINS');cofVal=gn(cofInner,'vCOFINS');}}
+
+    itens.push({
+      nItem:det.getAttribute('nItem')||''+(i+1),
+      cProd:gv(prod,'cProd'),xProd:gv(prod,'xProd'),
+      CFOP:gv(prod,'CFOP'),uCom:gv(prod,'uCom'),
+      qCom:gn(prod,'qCom'),vUnCom:gn(prod,'vUnCom'),vProd:gn(prod,'vProd'),
+      icms:{cst:icmsCST,bc:icmsBC,aliq:icmsAliq,val:icmsVal},
+      ipi:{cst:ipiCST,bc:ipiBC,aliq:ipiAliq,val:ipiVal},
+      pis:{cst:pisCST,bc:pisBC,aliq:pisAliq,val:pisVal},
+      cofins:{cst:cofCST,bc:cofBC,aliq:cofAliq,val:cofVal}
+    });
+  }
+
+  // Total impostos
+  var totalImp=vICMS+vICMSST+vIPI+vPIS+vCOFINS+vFCPUFDest+vICMSUFDest;
+  var valorLiquido=vNF-totalImp;
+  var pctImp=vNF>0?(totalImp/vNF*100):0;
+
+  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var pct=function(v){return v.toFixed(2)+'%';};
+
+  // Render
+  var h='<div style="background:#fff;border-radius:12px;border:1px solid #e0e0e0;overflow:hidden">';
+  // Header
+  h+='<div style="background:linear-gradient(135deg,#003144,#00526b);color:#fff;padding:16px 20px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center">';
+  h+='<div><div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;opacity:.7">Nota Fiscal Eletrônica</div>';
+  h+='<div style="font-size:18px;font-weight:800">NF-e '+nNF+'</div></div>';
+  h+='<div style="text-align:right"><div style="font-size:11px;opacity:.8">'+natOp+'</div>';
+  if(dhEmi) h+='<div style="font-size:11px;opacity:.7">'+new Date(dhEmi).toLocaleDateString('pt-BR')+'</div>';
+  h+='</div></div></div>';
+
+  // Emitente/Dest
+  var crt=gv(emit,'CRT');
+  var regimeMap={'1':'Simples Nacional','2':'Lucro Presumido','3':'Lucro Real'};
+  var regimeNome=regimeMap[crt]||(crt?'CRT '+crt:'Não informado');
+  var regimeCor=crt==='1'?'#2e7d32':crt==='2'?'#e65100':crt==='3'?'#1565c0':'#888';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#e0e0e0">';
+  h+='<div style="background:#fff;padding:12px 16px"><div style="font-size:9px;text-transform:uppercase;color:#888;letter-spacing:1px">Emitente</div><div style="font-size:13px;font-weight:700">'+emitNome+'</div><div style="font-size:10px;color:#888">CNPJ: '+emitCNPJ+'</div><div style="margin-top:4px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:#fff;background:'+regimeCor+'">'+regimeNome+'</div></div>';
+  h+='<div style="background:#fff;padding:12px 16px"><div style="font-size:9px;text-transform:uppercase;color:#888;letter-spacing:1px">Destinatário</div><div style="font-size:13px;font-weight:700">'+destNome+'</div></div>';
+  h+='</div>';
+
+  // Resumo impostos
+  h+='<div style="padding:16px 20px;border-bottom:1px solid #e0e0e0">';
+  h+='<div style="font-size:12px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📊 Resumo de Impostos</div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">';
+  var taxes=[
+    ['Valor Produtos',vProd,'#1565c0'],['Frete',vFrete,'#666'],['Desconto',vDesc,'#c0392b'],
+    ['ICMS',vICMS,'#e65100'],['ICMS ST',vICMSST,'#bf360c'],['IPI',vIPI,'#4a148c'],
+    ['PIS',vPIS,'#1b5e20'],['COFINS',vCOFINS,'#006064'],['DIFAL',vICMSUFDest,'#880e4f'],['FCP',vFCPUFDest,'#4e342e']
+  ];
+  taxes.forEach(function(t){
+    if(t[1]>0) h+='<div style="background:#f5f5f5;border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px">'+t[0]+'</div><div style="font-size:14px;font-weight:800;color:'+t[2]+'">'+brl(t[1])+'</div></div>';
+  });
+  h+='</div></div>';
+
+  // Valor líquido
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:#e0e0e0">';
+  h+='<div style="background:#e3f2fd;padding:14px;text-align:center"><div style="font-size:10px;color:#1565c0;font-weight:600">VALOR NF-e</div><div style="font-size:18px;font-weight:800;color:#1565c0">'+brl(vNF)+'</div></div>';
+  h+='<div style="background:#fce4ec;padding:14px;text-align:center"><div style="font-size:10px;color:#c62828;font-weight:600">TOTAL IMPOSTOS ('+pct(pctImp)+')</div><div style="font-size:18px;font-weight:800;color:#c62828">-'+brl(totalImp)+'</div></div>';
+  h+='<div style="background:#e8f5e9;padding:14px;text-align:center"><div style="font-size:10px;color:#2e7d32;font-weight:600">VALOR LÍQUIDO REAL</div><div style="font-size:18px;font-weight:800;color:#2e7d32">'+brl(valorLiquido)+'</div></div>';
+  h+='</div>';
+
+  // Taxas Custo Real para cálculo líquido
+  var _lrIcms=parseFloat((document.getElementById('lr-icms')||{value:12}).value)||12;
+  var _lrPis=parseFloat((document.getElementById('lr-pis')||{value:1.65}).value)||1.65;
+  var _lrCof=parseFloat((document.getElementById('lr-cofins')||{value:7.60}).value)||7.60;
+  // CFOP descriptions
+  var cfopMap={'1101':'Compra Industrialização','1102':'Compra Comercialização','1201':'Devolução Venda','1556':'Transferência','2101':'Compra Industrialização','2102':'Compra Comercialização','2201':'Devolução Venda','2556':'Transferência','5101':'Venda Industrialização','5102':'Venda Comercialização','5201':'Devolução Compra','5401':'Venda ST','5405':'Venda merc.ST','5556':'Transferência','6101':'Venda Industrialização','6102':'Venda Comercialização','6201':'Devolução Compra'};
+
+  // Tabela itens
+  if(itens.length>0){
+    h+='<div style="padding:16px 20px">';
+    h+='<div style="font-size:12px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 Itens ('+itens.length+') — Valor Líquido Real (ICMS '+_lrIcms+'% + PIS '+_lrPis+'% + COFINS '+_lrCof+'%)</div>';
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px">';
+    h+='<tr style="background:#003144;color:#fff"><th style="padding:6px">Item</th><th>CFOP</th><th>Produto</th><th>Qtd</th><th>V.Unit</th><th>V.Total</th><th>ICMS</th><th>IPI</th><th style="color:#4caf50">Líq.Real</th><th style="color:#4caf50">Unit.Líq</th></tr>';
+    itens.forEach(function(it,idx){
+      // Custo Real líquido: vProd - ICMS(%) - PIS(% s/liq) - COFINS(% s/liq)
+      var baseItem=it.vProd;
+      var icmsReal=baseItem*_lrIcms/100;
+      var liqSemICMS=baseItem-icmsReal;
+      var pisReal=liqSemICMS*_lrPis/100;
+      var cofReal=liqSemICMS*_lrCof/100;
+      var liqReal=baseItem-icmsReal-pisReal-cofReal;
+      var unitLiq=it.qCom>0?liqReal/it.qCom:0;
+      var cfopDesc=cfopMap[it.CFOP]||'';
+      var bg=idx%2?'#f9f9f9':'#fff';
+      h+='<tr style="background:'+bg+'">';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:center">'+it.nItem+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;font-weight:600" title="'+(cfopDesc||it.CFOP)+'">'+it.CFOP+(cfopDesc?'<br><small style=color:#888>'+cfopDesc+'</small>':'')+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+it.xProd+'">'+it.xProd+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+it.qCom.toFixed(2)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+brl(it.vUnCom)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:600">'+brl(it.vProd)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#e65100">'+(it.icms.val>0?brl(it.icms.val)+'<br><small>'+pct(it.icms.aliq)+'</small>':'-'+brl(icmsReal)+'<br><small>calc '+_lrIcms+'%</small>')+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#4a148c">'+(it.ipi.val>0?brl(it.ipi.val)+'<br><small>'+pct(it.ipi.aliq)+'</small>':'—')+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#2e7d32">'+brl(liqReal)+'</td>';
+      h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:800;color:#1565c0">'+brl(unitLiq)+'</td>';
+      h+='</tr>';
+    });
+    h+='</table></div></div>';
+  }
+  h+='</div>';
+
+  var res=document.getElementById('nfe-result');
+  res.innerHTML=h;
+  res.style.display='block';
+
+  // Salvar no histórico
+  var hist=JSON.parse(localStorage.getItem('projetta_nfe_hist')||'[]');
+  hist.unshift({nNF:nNF,emit:emitNome,vNF:vNF,totalImp:totalImp,liq:valorLiquido,pctImp:pctImp,data:dhEmi,ts:new Date().toISOString(),itens:itens.length,panelHTML:h});
+  if(hist.length>50) hist=hist.slice(0,50);
+  localStorage.setItem('projetta_nfe_hist',JSON.stringify(hist));
+  renderNFeHist();
+}
+
+function renderNFeHist(){
+  var hist=JSON.parse(localStorage.getItem('projetta_nfe_hist')||'[]');
+  var el=document.getElementById('nfe-historico');if(!el){return;}
+  if(hist.length===0){el.innerHTML='';return;}
+  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+  h+='<div style="font-size:12px;font-weight:800;color:#003144;text-transform:uppercase;letter-spacing:1px">📋 Histórico de NF-e ('+hist.length+')</div>';
+  h+='<button onclick="if(confirm(\'Limpar todo o histórico?\')){localStorage.removeItem(\'projetta_nfe_hist\');renderNFeHist();}" style="padding:4px 10px;border:1px solid #c62828;border-radius:6px;background:#fff;color:#c62828;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">🗑 Limpar tudo</button>';
+  h+='</div>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  h+='<tr style="background:#003144;color:#fff"><th style="padding:6px">NF-e</th><th>Fornecedor</th><th>Valor NF</th><th>Impostos</th><th>%</th><th>Líquido</th><th>Data</th><th></th></tr>';
+  hist.forEach(function(n,i){
+    var hasPanel=!!n.panelHTML;
+    h+='<tr style="background:'+(i%2?'#f5f5f5':'#fff')+';'+(hasPanel?'cursor:pointer;':'')+'\" '+(hasPanel?'onclick="_nfeHistShowPanel('+i+')" title="Clique para ver detalhes"':'')+'>';
+    h+='<td style="padding:5px;border-bottom:1px solid #eee;font-weight:700">'+(hasPanel?'🔍 ':'')+n.nNF+'</td>';
+    h+='<td style="padding:5px;border-bottom:1px solid #eee;font-weight:600;color:#003144;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(n.emit||'')+'">'+(n.emit||'—')+'</td>';
+    h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right">'+brl(n.vNF)+'</td>';
+    h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;color:#c62828">-'+brl(n.totalImp)+'</td>';
+    h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:center;color:#e65100">'+n.pctImp.toFixed(1)+'%</td>';
+    h+='<td style="padding:5px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#2e7d32">'+brl(n.liq)+'</td>';
+    h+='<td style="padding:5px;border-bottom:1px solid #eee;font-size:10px">'+new Date(n.ts).toLocaleDateString('pt-BR')+'</td>';
+    h+='<td style="padding:3px;border-bottom:1px solid #eee"><button onclick="event.stopPropagation();deleteNFeHist('+i+')" style="border:none;background:none;color:#c62828;cursor:pointer;font-size:14px" title="Excluir">×</button></td>';
+    h+='</tr>';
+  });
+  h+='</table>';
+  el.innerHTML=h;
+}
+function _nfeHistShowPanel(idx){
+  var hist=JSON.parse(localStorage.getItem('projetta_nfe_hist')||'[]');
+  if(!hist[idx]||!hist[idx].panelHTML) return;
+  var res=document.getElementById('nfe-result');
+  if(res){
+    res.innerHTML=hist[idx].panelHTML;
+    res.style.display='block';
+    res.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  // Auto-preencher calculadora Lucro Real com dados da nota
+  if(hist[idx].vNF>0){
+    var _lrV=document.getElementById('lr-valor');
+    if(_lrV){_lrV.value=(hist[idx].vNF-(hist[idx].totalImp||0)).toLocaleString('pt-BR',{minimumFractionDigits:2});calcLucroReal();}
+  }
+}
+function calcLucroReal(){
+  var parseBR=function(s){if(!s)return 0;return parseFloat(s.replace(/\./g,'').replace(',','.'))||0;};
+  var brl=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var valor=parseBR(document.getElementById('lr-valor').value);
+  var frete=parseBR(document.getElementById('lr-frete').value);
+  var qtd=parseInt(document.getElementById('lr-qtd').value)||1;
+  var pIPI=parseFloat(document.getElementById('lr-ipi').value)||0;
+  var pICMS=parseFloat(document.getElementById('lr-icms').value)||0;
+  var pPIS=parseFloat(document.getElementById('lr-pis').value)||0;
+  var pCOF=parseFloat(document.getElementById('lr-cofins').value)||0;
+  var res=document.getElementById('lr-result');
+  if(!valor){res.innerHTML='';return;}
+  // Formula aprovada pelo contador - Lucro Real
+  // Base = Produtos + Frete (frete entra na base!)
+  var base=valor+frete;
+  var vIPI=base*(pIPI/100);
+  var totalComIPI=base+vIPI;
+  var vICMS=base*(pICMS/100);
+  var liqSemICMS=base-vICMS;
+  var vPIS=liqSemICMS*(pPIS/100);
+  var vCOF=liqSemICMS*(pCOF/100);
+  var custoReal=liqSemICMS-vPIS-vCOF;
+  var custoUnit=custoReal/qtd;
+  var totalCreditos=vICMS+vPIS+vCOF;
+  var pctCred=base>0?(totalCreditos/base*100):0;
+  var h='<div style="border-top:1.5px solid #2e7d32;padding-top:12px">';
+  h+='<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:3px 12px;font-size:12px">';
+  h+='<div>(+) Valor Produtos:</div><div style="text-align:right">'+brl(valor)+'</div><div></div>';
+  if(frete>0) h+='<div>(+) Frete:</div><div style="text-align:right">'+brl(frete)+'</div><div></div>';
+  h+='<div style="font-weight:700">(=) Base (P+F):</div><div style="text-align:right;font-weight:700">'+brl(base)+'</div><div></div>';
+  h+='<div style="color:#e65100">(i) IPI '+pIPI+'%:</div><div style="text-align:right;color:#e65100">'+brl(vIPI)+'</div><div style="text-align:right;font-size:10px;color:#888">Total c/ IPI: '+brl(totalComIPI)+'</div>';
+  h+='<div style="color:#c62828;font-weight:600">(-) ICMS '+pICMS+'%:</div><div style="text-align:right;color:#c62828;font-weight:600">-'+brl(vICMS)+'</div><div style="text-align:right;font-size:10px;color:#888">'+pICMS+'% x '+brl(base)+'</div>';
+  h+='<div style="font-weight:600">(=) Liquido s/ ICMS:</div><div style="text-align:right;font-weight:600">'+brl(liqSemICMS)+'</div><div></div>';
+  h+='<div style="color:#1565c0">(-) PIS '+pPIS+'%:</div><div style="text-align:right;color:#1565c0">-'+brl(vPIS)+'</div><div style="text-align:right;font-size:10px;color:#888">'+pPIS+'% x '+brl(liqSemICMS)+'</div>';
+  h+='<div style="color:#6a1b9a">(-) COFINS '+pCOF+'%:</div><div style="text-align:right;color:#6a1b9a">-'+brl(vCOF)+'</div><div style="text-align:right;font-size:10px;color:#888">'+pCOF+'% x '+brl(liqSemICMS)+'</div>';
+  h+='</div>';
+  h+='<div style="background:#e8f5e9;border-radius:8px;padding:12px;margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center">';
+  h+='<div><div style="font-size:10px;color:#2e7d32;font-weight:600">CUSTO REAL LIQUIDO</div><div style="font-size:22px;font-weight:800;color:#2e7d32">'+brl(custoReal)+'</div></div>';
+  h+='<div><div style="font-size:10px;color:#c62828;font-weight:600">TOTAL CREDITOS ('+pctCred.toFixed(1)+'%)</div><div style="font-size:22px;font-weight:800;color:#c62828">-'+brl(totalCreditos)+'</div></div>';
+  h+='</div>';
+  if(qtd>1){
+    h+='<div style="text-align:center;margin-top:8px;background:#fff3e0;border-radius:6px;padding:8px"><span style="font-size:11px;color:#e65100;font-weight:600">Custo unitario (div'+qtd+'): </span><span style="font-size:16px;font-weight:800;color:#e65100">'+brl(custoUnit)+'</span></div>';
+  }
+  h+='</div>';
+  res.innerHTML=h;
+}
+
+function deleteNFeHist(idx){
+  var hist=JSON.parse(localStorage.getItem('projetta_nfe_hist')||'[]');
+  hist.splice(idx,1);
+  localStorage.setItem('projetta_nfe_hist',JSON.stringify(hist));
+  renderNFeHist();
+}
+/* ══ END MODULE: CUSTO_REAL ══ */
+
+function parseChaveNFe(chave){
+  var info=document.getElementById('nfe-chave-info');if(!info)return;
+  var c=chave.replace(/\D/g,'');
+  if(c.length<44){info.innerHTML=c.length>0?'<span style="color:#e65100">'+c.length+'/44 dígitos</span>':'';return;}
+  var UFS={11:'RO',12:'AC',13:'AM',14:'RR',15:'PA',16:'AP',17:'TO',21:'MA',22:'PI',23:'CE',24:'RN',25:'PB',26:'PE',27:'AL',28:'SE',29:'BA',31:'MG',32:'ES',33:'RJ',35:'SP',41:'PR',42:'SC',43:'RS',50:'MS',51:'MT',52:'GO',53:'DF'};
+  var uf=UFS[c.substring(0,2)]||c.substring(0,2);
+  var aamm=c.substring(2,6);var ano='20'+aamm.substring(0,2);var mes=aamm.substring(2,4);
+  var cnpj=c.substring(6,20);
+  var cnpjFmt=cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+  var modelo=c.substring(20,22)==='55'?'NF-e':'NFC-e';
+  var serie=parseInt(c.substring(22,25));
+  var numero=parseInt(c.substring(25,34));
+  info.innerHTML=
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin-top:6px">'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>UF:</b> '+uf+'</div>'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>Data:</b> '+mes+'/'+ano+'</div>'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>CNPJ:</b> '+cnpjFmt+'</div>'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>Modelo:</b> '+modelo+'</div>'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>Série:</b> '+serie+'</div>'+
+    '<div style="background:#e3f2fd;padding:6px 8px;border-radius:6px"><b>Nº NF:</b> '+numero+'</div>'+
+    '</div>'+
+    '<div style="margin-top:8px;font-size:10px;color:#888">✅ Chave válida — clique em <b>Consultar SEFAZ</b> para abrir o portal e baixar o XML</div>';
+}
+
+function abrirSefazConsulta(){
+  var chave=(document.getElementById('nfe-chave')||{value:''}).value.replace(/\D/g,'');
+  if(chave.length!==44){alert('Cole a chave de acesso com 44 dígitos.');return;}
+  window.open('https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=completa&tipoConteudo=XbSeqxE8pl8=&nfe='+chave,'_blank');
+}
