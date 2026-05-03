@@ -445,21 +445,21 @@
                 <div class="crm-form-row cols-2">
                   <div class="crm-field">
                     <label>Largura (mm)</label>
-                    <input type="text" data-field="porta_largura" value="${escapeHtml(m.porta_largura || '')}" placeholder="ex: 1750" />
+                    <input type="text" data-field="porta_largura" value="${escapeHtml(m.porta_largura || '')}" placeholder="" />
                   </div>
                   <div class="crm-field">
                     <label>Altura (mm)</label>
-                    <input type="text" data-field="porta_altura" value="${escapeHtml(m.porta_altura || '')}" placeholder="ex: 3550" />
+                    <input type="text" data-field="porta_altura" value="${escapeHtml(m.porta_altura || '')}" placeholder="" />
                   </div>
                 </div>
                 <div class="crm-form-row cols-3">
                   <div class="crm-field">
                     <label>Modelo</label>
-                    <input type="text" data-field="porta_modelo" value="${escapeHtml(m.porta_modelo || '')}" placeholder="ex: 01" />
+                    <input type="text" data-field="porta_modelo" value="${escapeHtml(m.porta_modelo || '')}" placeholder="" />
                   </div>
                   <div class="crm-field">
                     <label>Cor</label>
-                    <input type="text" data-field="porta_cor" value="${escapeHtml(m.porta_cor || '')}" placeholder="ex: Pro209 Wood Mogno" />
+                    <input type="text" data-field="porta_cor" value="${escapeHtml(m.porta_cor || '')}" placeholder="" />
                   </div>
                   <div class="crm-field">
                     <label>Fechadura Digital</label>
