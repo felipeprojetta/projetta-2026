@@ -22,7 +22,7 @@ window.ChapasAproveitamento = (function () {
   // Felipe (sessao 27 fix): defaults sincronizados com 34-regras.js
   // (KERF agora 0 default, Felipe nao quer 4mm de perda automatica).
   const DEFAULTS = {
-    KERF:        0,
+    KERF:        4,
     APARAR:      5,
     METODO:      'multi_horiz',
     DESPERDICIO: 'inferior',

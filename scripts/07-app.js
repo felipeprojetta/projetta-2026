@@ -49,6 +49,7 @@ const App = (() => {
         { id: 'precificacao',   label: 'Precificacao' },
         { id: 'filtros',        label: 'Filtros' },
         { id: 'representantes', label: 'Representantes' },
+        { id: 'configuracao',   label: 'Configuracao' },
         { id: 'mensagens',      label: 'Mensagens' },
         { id: 'usuarios',       label: 'Usuarios' },
         { id: 'permissoes',     label: 'Permissoes' },

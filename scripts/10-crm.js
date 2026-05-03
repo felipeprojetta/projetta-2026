@@ -2158,7 +2158,8 @@
       if (!container._realtimeSubscribed) {
         container._realtimeSubscribed = true;
         Events.on('db:realtime-sync', function() {
-          // Recarrega dados do localStorage (que foi atualizado pelo polling)
+          // Guard: so re-renderiza se estiver no CRM
+          if (window.App && window.App.state && window.App.state.currentModule !== 'crm') return;
           Crm.render(container);
         });
       }

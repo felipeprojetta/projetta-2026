@@ -1,31 +1,26 @@
 
-/* R19: classe substituta de <strong> — sem peso extra, mantem hierarquia visual
-   apenas pela cor (azul-escuro). Sem font-weight pesado. */
 .t-strong {
   color: var(--azul-escuro);
-  font-weight: 500;
+  font-weight: 600;
 }
 
-/* Felipe (sessao 32): fontes mais grossas, melhor contraste em campos importantes.
-   Somatorios, totais e valores devem ser bem visiveis — nao cinza claro. */
 body {
-  font-weight: 450 !important;
+  font-weight: 500 !important;
   -webkit-font-smoothing: antialiased;
 }
-/* Labels e valores de campos */
 input, select, textarea {
-  font-weight: 450 !important;
+  font-weight: 500 !important;
 }
-/* Somatorios e totais — destaque forte */
-.orcamento-total,
-.orc-total,
-.orc-resumo-valor,
-.orc-fab-total,
-.orc-soma,
-.lvp-total,
-.lvp-soma,
-[class*="total"],
-[class*="soma"] {
+/* Tabelas de cadastro e orcamento APENAS */
+.cad-table th, .lvp-table th, .rep-table th {
   font-weight: 600 !important;
-  color: var(--text) !important;
+  font-size: 13px !important;
+}
+.cad-table td, .lvp-table td, .rep-table td {
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}
+.orc-total, .orc-resumo-valor, .orc-fab-total, .orc-soma,
+.lvp-total, .lvp-soma {
+  font-weight: 700 !important;
 }
