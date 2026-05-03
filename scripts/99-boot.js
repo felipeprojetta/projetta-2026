@@ -119,7 +119,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         var autoBtn = document.getElementById('agent-auto-btn');
         if (scanBtn) {
           scanBtn.addEventListener('click', async function() {
-            if (!window.EmailAgent) { alert('Agente ainda carregando...'); return; }
+            // Espera script carregar (max 5s)
+            var tentativas = 0;
+            while (!window.EmailAgent && tentativas < 25) {
+              await new Promise(function(r) { setTimeout(r, 200); });
+              tentativas++;
+            }
+            if (!window.EmailAgent) {
+              var logEl2 = document.getElementById('agent-log');
+              if (logEl2) logEl2.textContent = '❌ Script do agente nao carregou. Recarregue a pagina (Ctrl+F5).';
+              return;
+            }
             scanBtn.disabled = true; scanBtn.textContent = '⏳ Escaneando...';
             var logEl = document.getElementById('agent-log');
             if (logEl) logEl.textContent = '';
@@ -130,7 +140,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
         }
         if (autoBtn) {
-          autoBtn.addEventListener('click', function() {
+          autoBtn.addEventListener('click', async function() {
+            var t = 0;
+            while (!window.EmailAgent && t < 25) { await new Promise(function(r){setTimeout(r,200)}); t++; }
             if (!window.EmailAgent) return;
             if (window.EmailAgent._autoAtivo) {
               window.EmailAgent.stopAutoScan();
