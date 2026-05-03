@@ -91,11 +91,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Carregar modulos extras dinamicamente
-  ['scripts/44-email-crm.js', 'scripts/35-outlook.js', 'scripts/45-email-agent.js'].forEach(function(src) {
+  ['scripts/44-email-crm.js', 'scripts/35-outlook.js', 'scripts/45-email-agent.js', 'scripts/50-estoque-omie.js'].forEach(function(src) {
     var s = document.createElement('script');
     s.src = src + '?v=' + Date.now();
     document.body.appendChild(s);
   });
+
+  // Registrar módulo Estoque Omie
+  setTimeout(function() {
+    if (!App.register) return;
+    App.register('estoque', {
+      render: function(container) {
+        if (window.EstoqueOmie) {
+          window.EstoqueOmie.render(container);
+        } else {
+          container.innerHTML = '<div class="info-banner">Modulo Estoque Omie carregando...</div>';
+          setTimeout(function() {
+            if (window.EstoqueOmie) window.EstoqueOmie.render(container);
+          }, 1500);
+        }
+      }
+    });
+  }, 600);
 
   // Registrar módulo Email (Outlook + Agente)
   setTimeout(function() {
