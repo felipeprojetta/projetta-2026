@@ -241,6 +241,11 @@
         fechadoEm: lead.fechadoEm || '',
         destinoTipo: lead.destinoTipo || 'nacional',
         destinoPais: lead.destinoPais || '',
+        porta_largura: lead.porta_largura || '',
+        porta_altura: lead.porta_altura || '',
+        porta_modelo: lead.porta_modelo || '',
+        porta_cor: lead.porta_cor || '',
+        porta_fechadura_digital: lead.porta_fechadura_digital || '',
       });
     }
 
@@ -435,6 +440,37 @@
                 </div>
               </div>
               ` : ''}
+              <div style="border-top:2px solid #1a5276;margin-top:16px;padding-top:14px">
+                <div style="font-weight:700;font-size:14px;color:#1a5276;margin-bottom:10px">🚪 Dados da Porta</div>
+                <div class="crm-form-row cols-2">
+                  <div class="crm-field">
+                    <label>Largura (mm)</label>
+                    <input type="text" data-field="porta_largura" value="${escapeHtml(m.porta_largura || '')}" placeholder="ex: 1750" />
+                  </div>
+                  <div class="crm-field">
+                    <label>Altura (mm)</label>
+                    <input type="text" data-field="porta_altura" value="${escapeHtml(m.porta_altura || '')}" placeholder="ex: 3550" />
+                  </div>
+                </div>
+                <div class="crm-form-row cols-3">
+                  <div class="crm-field">
+                    <label>Modelo</label>
+                    <input type="text" data-field="porta_modelo" value="${escapeHtml(m.porta_modelo || '')}" placeholder="ex: 01" />
+                  </div>
+                  <div class="crm-field">
+                    <label>Cor</label>
+                    <input type="text" data-field="porta_cor" value="${escapeHtml(m.porta_cor || '')}" placeholder="ex: Pro209 Wood Mogno" />
+                  </div>
+                  <div class="crm-field">
+                    <label>Fechadura Digital</label>
+                    <select data-field="porta_fechadura_digital">
+                      <option value="" ${!m.porta_fechadura_digital ? 'selected' : ''}>—</option>
+                      <option value="sim" ${m.porta_fechadura_digital === 'sim' ? 'selected' : ''}>Sim</option>
+                      <option value="nao" ${m.porta_fechadura_digital === 'nao' ? 'selected' : ''}>Não</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="crm-modal-footer">
               ${botaoExcluir}
@@ -905,6 +941,11 @@
           lead.valor = valorNum;
           lead.destinoTipo = m.destinoTipo || 'nacional';
           lead.destinoPais = m.destinoTipo === 'internacional' ? (m.destinoPais || '') : '';
+          lead.porta_largura = (m.porta_largura || '').trim();
+          lead.porta_altura = (m.porta_altura || '').trim();
+          lead.porta_modelo = (m.porta_modelo || '').trim();
+          lead.porta_cor = (m.porta_cor || '').trim();
+          lead.porta_fechadura_digital = m.porta_fechadura_digital || '';
           // data NAO eh atualizada — fica como criacao
 
           // Felipe (req 1 do CRM): mudanca de etapa via modal precisa do
@@ -1351,12 +1392,12 @@
               ${destinoLabel ? `<span class="crm-card-destino">${destinoLabel}</span>` : ''}
             </div>
             ${fechadoEmLabel}
-            ${(l.porta_largura || l.porta_modelo || l.porta_cor) ? `
+            ${(l.porta_largura || l.porta_modelo || l.porta_cor || mostraBtnOrc) ? `
               <div style="background:#f0f7ff;border:1px solid #c5d9ed;border-radius:4px;padding:6px 8px;margin:6px 0;font-size:11px;">
-                ${l.porta_largura && l.porta_altura ? `<div>📐 <b>${escapeHtml(l.porta_largura)} × ${escapeHtml(l.porta_altura)} mm</b></div>` : ''}
-                ${l.porta_modelo ? `<div>🚪 Modelo <b>${escapeHtml(l.porta_modelo)}</b></div>` : ''}
-                ${l.porta_cor ? `<div>🎨 ${escapeHtml(l.porta_cor)}</div>` : ''}
-                ${l.porta_fechadura_digital && l.porta_fechadura_digital !== 'nao' ? `<div>🔐 Fechadura digital</div>` : ''}
+                <div>📐 <b>${l.porta_largura && l.porta_altura ? escapeHtml(l.porta_largura) + ' × ' + escapeHtml(l.porta_altura) + ' mm' : '—'}</b></div>
+                <div>🚪 Modelo <b>${l.porta_modelo ? escapeHtml(l.porta_modelo) : '—'}</b></div>
+                <div>🎨 ${l.porta_cor ? escapeHtml(l.porta_cor) : '—'}</div>
+                <div>🔐 Fechadura: <b>${l.porta_fechadura_digital === 'sim' ? 'Digital' : l.porta_fechadura_digital === 'nao' ? 'Não' : '—'}</b></div>
               </div>
             ` : ''}
             ${versoesUI}
