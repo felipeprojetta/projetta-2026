@@ -7,8 +7,9 @@
 }
 
 /* Felipe (sessao 2026-10): "letras muito finas algumas muito pequenas
-   aumente espessura geral de todo sistema". Font-weight 500 global,
-   font-size minimo 14px. */
+   aumente espessura geral de todo sistema". "tenho TOC quero tudo
+   padronizado". Font-weight 500 global, font-size minimo 13px em
+   TUDO (tabelas, filtros, labels, campos, nav, etc). */
 body {
   font-weight: 500 !important;
   font-size: 14px !important;
@@ -19,16 +20,36 @@ input, select, textarea {
   font-weight: 500 !important;
   font-size: 14px !important;
 }
-/* Tabelas */
+/* Tabelas — PADRAO GLOBAL: minimo 13px em headers e cells */
 th {
   font-weight: 600 !important;
+  font-size: 13px !important;
 }
 td {
   font-weight: 500 !important;
+  font-size: 13px !important;
 }
 /* Labels de formulario */
 label {
   font-weight: 500 !important;
+  font-size: 13px !important;
+}
+/* Botoes e links na nav/sub-nav */
+button, .sub-nav-item, .nav-item {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+/* Codigos monoespacados */
+code, .rep-followup-code, [class*="code"] {
+  font-size: 13px !important;
+}
+/* Filtros de tabela */
+[class*="filter"], [class*="filtro"], [class*="Filter"] {
+  font-size: 13px !important;
+}
+/* Hints e helpers — minimo 12px (podem ser menores mas nao 10px) */
+[class*="help"], [class*="hint"], [class*="meta"], [class*="sub"] {
+  font-size: 12px !important;
 }
 /* Somatorios e totais — destaque forte */
 .orcamento-total,
