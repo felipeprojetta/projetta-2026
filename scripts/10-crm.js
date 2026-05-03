@@ -658,7 +658,9 @@
           modalState.cliente = dados.nome_cliente || '';
           modalState.telefone = dados.telefone || '';
           modalState.cep = dados.cep || '';
+          modalState.email = dados.email || '';
           modalState.representante = dados.representante || '';
+          modalState.representante_followup = dados.representante_followup || '';
           // Tenta resolver CEP automaticamente
           if (modalState.cep) {
             try {
@@ -959,7 +961,7 @@
             representante_followup: (m.representante_followup || '').trim(),
             representante_contato:  (m.representante_contato || '').trim(),
             numeroReserva: m.numeroReserva.trim(),
-            numeroAGP: m.numeroAGP.trim() || proximoAGP(),
+            numeroAGP: m.numeroAGP.trim(),
             valor: valorNum,
             etapa: m.etapa,
             destinoTipo: m.destinoTipo || 'nacional',
@@ -1399,6 +1401,68 @@
      * Modal compacto, default = hoje (ou fechadoEm anterior).
      * `onConfirm(data)` recebe ISO yyyy-mm-dd, ou null se cancelou.
      */
+    // Felipe (sessao 32): ao arrastar pra "Fazer Orcamento" sem AGP,
+    // pergunta: gerar automatico ou informar existente?
+    function abrirModalAGP(container, lead, onConfirm) {
+      var mount = container.querySelector('#crm-modal-mount');
+      if (!mount) return;
+      var sugestao = proximoAGP();
+      mount.innerHTML = [
+        '<div class="crm-modal-overlay" id="crm-agp-overlay">',
+        '  <div class="crm-modal crm-modal-compact" role="dialog" aria-modal="true">',
+        '    <div class="crm-modal-head">',
+        '      <span class="crm-modal-titulo">Numero AGP</span>',
+        '      <button class="crm-modal-close" id="crm-agp-cancel" aria-label="Fechar">&times;</button>',
+        '    </div>',
+        '    <div class="crm-modal-body" style="padding:20px 24px;">',
+        '      <p style="font-size:13px;color:var(--text-soft);margin:0 0 14px 0;">',
+        '        Este lead ainda nao tem AGP. Deseja gerar automaticamente ou informar um existente?',
+        '      </p>',
+        '      <div style="display:flex;gap:8px;margin-bottom:14px;">',
+        '        <button class="crm-btn-new" id="crm-agp-auto" style="flex:1;">Gerar Automatico<br><small style="opacity:.7;">' + escapeHtml(sugestao) + '</small></button>',
+        '        <button class="btn btn-ghost btn-sm" id="crm-agp-manual-btn" style="flex:1;padding:10px;">Informar Existente</button>',
+        '      </div>',
+        '      <div id="crm-agp-manual-area" style="display:none;">',
+        '        <label style="display:block;font-size:11px;color:var(--text-muted);letter-spacing:0.04em;margin-bottom:6px;">Numero AGP existente</label>',
+        '        <input type="text" id="crm-agp-input" placeholder="AGP004..." style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font-body);" />',
+        '        <button class="crm-btn-new" id="crm-agp-ok" style="margin-top:10px;width:100%;">Confirmar</button>',
+        '      </div>',
+        '    </div>',
+        '    <div class="crm-modal-actions" style="display:flex;justify-content:flex-end;gap:8px;padding:14px 24px;border-top:1px solid var(--line);">',
+        '      <button class="btn btn-ghost btn-sm" id="crm-agp-cancel-2">Cancelar</button>',
+        '    </div>',
+        '  </div>',
+        '</div>'
+      ].join('\n');
+
+      var fechar = function() { mount.innerHTML = ''; };
+
+      mount.querySelector('#crm-agp-cancel').addEventListener('click', fechar);
+      mount.querySelector('#crm-agp-cancel-2').addEventListener('click', fechar);
+
+      // Gerar automatico
+      mount.querySelector('#crm-agp-auto').addEventListener('click', function() {
+        lead.numeroAGP = sugestao;
+        fechar();
+        if (typeof onConfirm === 'function') onConfirm();
+      });
+
+      // Mostrar campo manual
+      mount.querySelector('#crm-agp-manual-btn').addEventListener('click', function() {
+        mount.querySelector('#crm-agp-manual-area').style.display = 'block';
+        setTimeout(function() { mount.querySelector('#crm-agp-input').focus(); }, 50);
+      });
+
+      // Confirmar manual
+      mount.querySelector('#crm-agp-ok').addEventListener('click', function() {
+        var val = (mount.querySelector('#crm-agp-input').value || '').trim();
+        if (!val) { alert('Informe o numero AGP.'); return; }
+        lead.numeroAGP = val;
+        fechar();
+        if (typeof onConfirm === 'function') onConfirm();
+      });
+    }
+
     function abrirModalDataFechamento(container, dataDefault, onConfirm) {
       const mount = container.querySelector('#crm-modal-mount');
       if (!mount) return;
@@ -1872,6 +1936,17 @@
           if (!id || !novaEtapa) return;
           const lead = state.leads.find(l => l.id === id);
           if (!lead || lead.etapa === novaEtapa) return;
+
+          // Felipe: ao mover pra coluna "Fazer Orcamento", se nao tem AGP,
+          // pergunta se quer gerar automatico ou informar existente.
+          if (novaEtapa === 'fazer-orcamento' && !lead.numeroAGP) {
+            abrirModalAGP(container, lead, function() {
+              lead.etapa = novaEtapa;
+              save();
+              render(container);
+            });
+            return;
+          }
 
           // Felipe: ao mover pra coluna "Fechado", abre modal pedindo
           // a data manual de fechamento. Se cancelar, NAO move o card.
