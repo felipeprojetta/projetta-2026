@@ -90,6 +90,16 @@
 
       var data = await omieCall('produtos', state.paginaAtual, 50, filtro);
 
+      // Debug: se Omie retornou erro
+      if (data.faultstring || data.error) {
+        if (statusEl) statusEl.textContent = '⚠ Omie: ' + (data.faultstring || JSON.stringify(data.error));
+        tabelaEl.innerHTML = '<div style="padding:20px;color:#e65100">'
+          + '<div style="font-weight:700;margin-bottom:8px">Resposta da Omie:</div>'
+          + '<pre style="background:#f5f5f5;padding:12px;border-radius:6px;font-size:12px;overflow-x:auto">' + JSON.stringify(data, null, 2) + '</pre>'
+          + '</div>';
+        return;
+      }
+
       state.totalPaginas = data.total_de_paginas || 0;
       var produtos = data.produto_servico_cadastro || [];
       state.produtos = produtos;
@@ -123,8 +133,12 @@
       var data = await omieCall('posicao', 1, 50);
       if (statusEl) statusEl.textContent = 'Posicao de estoque carregada';
 
-      if (data.error) {
-        tabelaEl.innerHTML = '<div style="padding:20px;color:#c62828">Erro Omie: ' + JSON.stringify(data.error) + '</div>';
+      if (data.faultstring || data.error) {
+        tabelaEl.innerHTML = '<div style="padding:20px;color:#e65100">'
+          + '<div style="font-weight:700;margin-bottom:8px">Resposta da Omie (posicao):</div>'
+          + '<pre style="background:#f5f5f5;padding:12px;border-radius:6px;font-size:12px;overflow-x:auto">' + JSON.stringify(data, null, 2) + '</pre>'
+          + '<div style="margin-top:10px;font-size:12px;color:#888">Tente "Listar Todos" para ver produtos cadastrados.</div>'
+          + '</div>';
         return;
       }
 
