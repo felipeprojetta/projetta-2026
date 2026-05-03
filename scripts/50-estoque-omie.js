@@ -90,10 +90,15 @@
 
       // Debug: se Omie retornou erro
       if (data.faultstring || data.error) {
-        if (statusEl) statusEl.textContent = '⚠ Omie: ' + (data.faultstring || JSON.stringify(data.error));
-        tabelaEl.innerHTML = '<div style="padding:20px;color:#e65100">'
-          + '<div style="font-weight:700;margin-bottom:8px">Resposta da Omie:</div>'
-          + '<pre style="background:#f5f5f5;padding:12px;border-radius:6px;font-size:12px;overflow-x:auto">' + JSON.stringify(data, null, 2) + '</pre>'
+        var fault = data.faultstring || JSON.stringify(data.error);
+        var isRedundant = fault.indexOf('REDUNDANT') >= 0 || fault.indexOf('redundante') >= 0;
+        var msgAmigavel = isRedundant
+          ? '⏳ Omie esta limitando consultas duplicadas. Aguarde alguns segundos e tente novamente.'
+          : '⚠ Omie: ' + fault;
+        if (statusEl) statusEl.textContent = msgAmigavel;
+        tabelaEl.innerHTML = '<div style="padding:20px;color:' + (isRedundant ? '#1565c0' : '#e65100') + '">'
+          + '<div style="font-weight:700;margin-bottom:8px;font-size:14px">' + msgAmigavel + '</div>'
+          + (isRedundant ? '<div style="background:#e3f2fd;padding:12px;border-radius:6px;color:#1565c0;font-size:13px;margin-top:8px">A API Omie bloqueia chamadas idenicas em curto periodo. Adicionamos cache de 90s no servidor para mitigar isso. Aguarde e tente de novo.</div>' : '<pre style="background:#f5f5f5;padding:12px;border-radius:6px;font-size:11px;overflow-x:auto;margin-top:8px">' + JSON.stringify(data, null, 2) + '</pre>')
           + '</div>';
         return;
       }
