@@ -258,7 +258,6 @@
 
           if (!dados || !dados.nome_cliente) {
             log('   ⚠ Reserva ' + numReserva + ' sem dados na Weiku');
-            processados.add(email.id);
             erros++;
             continue;
           }
@@ -434,7 +433,12 @@
     scan: scanInbox,
     renderUI: renderAgentUI,
     startAutoScan: startAutoScan,
-    stopAutoScan: stopAutoScan
+    stopAutoScan: stopAutoScan,
+    resetProcessados: function() {
+      processados.clear();
+      localStorage.removeItem('projetta_agent_processados');
+      console.log('[email-agent] Lista de processados resetada');
+    }
   };
 
   // Auto-render: se a aba Email ja esta visivel, injeta o agente
