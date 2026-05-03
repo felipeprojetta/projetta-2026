@@ -663,6 +663,10 @@
           modalState.representante = dados.representante || '';
           modalState.representante_followup = dados.representante_followup || '';
           modalState.data_reserva = dados.data_reserva || '';
+          // API Weiku retorna campo 'codigo' com o AGP (ex: AGP004589)
+          if (dados.codigo_agp && !modalState.numeroAGP) {
+            modalState.numeroAGP = dados.codigo_agp;
+          }
           // Tenta resolver CEP automaticamente
           if (modalState.cep) {
             try {

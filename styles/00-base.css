@@ -9,12 +9,12 @@
 /* Felipe (sessao 32): fontes mais grossas, melhor contraste em campos importantes.
    Somatorios, totais e valores devem ser bem visiveis — nao cinza claro. */
 body {
-  font-weight: 450;
+  font-weight: 450 !important;
   -webkit-font-smoothing: antialiased;
 }
 /* Labels e valores de campos */
 input, select, textarea {
-  font-weight: 450;
+  font-weight: 450 !important;
 }
 /* Somatorios e totais — destaque forte */
 .orcamento-total,

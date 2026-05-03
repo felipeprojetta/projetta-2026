@@ -84,4 +84,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       obs.observe(document.body, { childList: true, subtree: true, attributes: true });
     }
   }
+
+  // Carregar modulos extras dinamicamente (nao precisa alterar index.html)
+  ['scripts/44-email-crm.js'].forEach(function(src) {
+    var s = document.createElement('script');
+    s.src = src + '?v=' + Date.now();
+    document.body.appendChild(s);
+  });
 });

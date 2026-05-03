@@ -176,7 +176,7 @@ const WeikuClient = (() => {
         // FOLLOWUP: codigo cru da intranet (SP_BARUERI_PREVE, THAISAP, etc.)
         followup: raw.followup || '',
         // Extras da API que podem ser uteis
-        codigo_agp: raw.codigo || raw.agp || '',
+        codigo_agp: raw.codigo || raw.agp || raw.codigo_agp || '',
         reserva: raw.reserva || num,
         tipo: raw.tipo || '',
         data_reserva: raw.data_reserva || raw.dataReserva || raw.dt_reserva || raw.data || '',
