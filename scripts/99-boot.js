@@ -103,15 +103,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     App.register('email', {
       render: function(container) {
         container.innerHTML = '<div id="outlook-tab-content" style="padding:12px;"></div>';
-        if (typeof outlookRenderTab === 'function') {
-          outlookRenderTab();
-          // Adiciona UI do agente se logado no Outlook
-          if (window.outlookIsAuth && window.outlookIsAuth() && window.EmailAgent) {
+        // Tenta renderizar Outlook + Agente com retry (scripts carregam async)
+        function tentarRender() {
+          if (typeof outlookRenderTab === 'function') {
+            outlookRenderTab();
+          }
+          // Agente: sempre tenta renderizar (com delay pra garantir que carregou)
+          setTimeout(function() {
+            if (window.EmailAgent && !document.getElementById('email-agent-section')) {
+              window.EmailAgent.renderUI(container);
+            }
+          }, 300);
+        }
+        tentarRender();
+        // Retry apos 1.5s caso scripts ainda nao tenham carregado
+        setTimeout(function() {
+          if (!document.getElementById('email-agent-section') && window.EmailAgent) {
             window.EmailAgent.renderUI(container);
           }
-        } else {
-          container.innerHTML = '<div class="info-banner"><span class="t-strong">Modulo Email:</span> Carregando...</div>';
-        }
+        }, 1500);
       }
     });
   }, 800);
