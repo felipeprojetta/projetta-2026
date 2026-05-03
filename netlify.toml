@@ -1,7 +1,2 @@
-[build]
-  publish = "."
-  functions = "netlify/functions"
-
 [functions]
-  node_bundler = "esbuild"
-  included_files = ["node_modules/pdf-parse/**"]
+  directory = "netlify/functions"
