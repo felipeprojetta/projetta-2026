@@ -192,130 +192,111 @@
     }
   }
 
-  // ── SCANNER PRINCIPAL ──
+  // ── SCANNER: Busca e LISTA reservas (não cria leads) ──
   async function scanInbox(opts) {
     opts = opts || {};
     var log = opts.log || function() {};
-    var resultados = [];
+    var onResults = opts.onResults || function() {};
 
     if (!window.outlookIsAuth || !window.outlookIsAuth()) {
       log('⚠ Outlook nao conectado. Faca login primeiro.');
-      return { sucesso: false, msg: 'Outlook nao conectado', resultados: [] };
+      return [];
     }
 
     log('🔍 Buscando emails com "RESERVA" no assunto...');
 
     try {
-      // Busca emails com "reserva" no assunto (ultimos 50)
-      var inbox = await window.outlookListInbox({
-        top: 50,
-        search: 'subject:reserva'
-      });
-
+      var inbox = await window.outlookListInbox({ top: 50, search: 'subject:reserva' });
       var emails = (inbox && inbox.emails) || [];
-      log('📨 ' + emails.length + ' email(s) encontrado(s) com "reserva"');
+      log('📨 ' + emails.length + ' email(s) encontrado(s)');
 
-      var novos = 0;
-      var jaExistem = 0;
-      var erros = 0;
-
+      var encontrados = [];
       for (var i = 0; i < emails.length; i++) {
         var email = emails[i];
         var assunto = email.subject || '';
-
-        // Ja processou este email?
-        if (processados.has(email.id)) {
-          continue;
-        }
-
-        // Extrair numero da reserva
         var match = assunto.match(RESERVA_REGEX);
-        if (!match) {
-          continue;
-        }
+        if (!match) continue;
 
         var numReserva = match[1];
-        log('📋 Reserva ' + numReserva + ' encontrada: "' + assunto.substring(0, 60) + '..."');
+        var jaExiste = leadJaExiste(numReserva);
+        var from = (email.from && email.from.emailAddress) || {};
 
-        // Ja existe no CRM?
-        if (leadJaExiste(numReserva)) {
-          log('   ✓ Reserva ' + numReserva + ' ja existe no CRM, pulando');
-          processados.add(email.id);
-          jaExistem++;
-          continue;
-        }
-
-        // Buscar dados na Weiku API
-        try {
-          if (!window.WeikuClient) {
-            log('   ⚠ WeikuClient nao disponivel');
-            erros++;
-            continue;
-          }
-
-          log('   🔄 Buscando dados da reserva ' + numReserva + ' na Weiku...');
-          var dados = await window.WeikuClient.buscarReserva(numReserva);
-
-          if (!dados || !dados.nome_cliente) {
-            log('   ⚠ Reserva ' + numReserva + ' sem dados na Weiku');
-            erros++;
-            continue;
-          }
-
-          var agp = proximoAGP();
-          var from = (email.from && email.from.emailAddress) ? email.from.emailAddress.address : '';
-
-          // Tentar analisar PDF anexo antes de criar lead
-          var portaInfo = null;
-          try {
-            portaInfo = await analisarPdfComIA(email.id, log);
-          } catch(_){}
-          if (portaInfo) {
-            dados._portaInfo = portaInfo;
-          }
-
-          var novoLead = criarLead(numReserva, dados, agp, from);
-
-          if (novoLead) {
-            log('   ✅ Lead criado: ' + novoLead.cliente + ' | ' + agp + ' | Reserva ' + numReserva);
-            processados.add(email.id);
-            novos++;
-            resultados.push({
-              reserva: numReserva,
-              cliente: novoLead.cliente,
-              agp: agp,
-              email: assunto
-            });
-          }
-        } catch (e) {
-          log('   ❌ Erro na reserva ' + numReserva + ': ' + e.message);
-          erros++;
-        }
+        encontrados.push({
+          emailId: email.id,
+          reserva: numReserva,
+          assunto: assunto,
+          remetente: from.name || from.address || '',
+          data: email.receivedDateTime ? new Date(email.receivedDateTime).toLocaleDateString('pt-BR') : '',
+          jaExiste: jaExiste,
+          hasAttachments: email.hasAttachments
+        });
       }
 
-      salvarProcessados();
+      // Remove duplicatas (mesmo numero reserva)
+      var vistos = {};
+      encontrados = encontrados.filter(function(e) {
+        if (vistos[e.reserva]) return false;
+        vistos[e.reserva] = true;
+        return true;
+      });
 
-      // Re-renderizar CRM se criou leads
-      if (novos > 0 && window.Events) {
-        window.Events.emit('crm:reload');
-      }
-
-      var resumo = '✅ Scan completo: ' + novos + ' novo(s), ' + jaExistem + ' ja existiam, ' + erros + ' erro(s)';
-      log(resumo);
-
-      return {
-        sucesso: true,
-        msg: resumo,
-        novos: novos,
-        jaExistem: jaExistem,
-        erros: erros,
-        resultados: resultados
-      };
+      log('📋 ' + encontrados.length + ' reserva(s) unica(s) encontrada(s)');
+      onResults(encontrados);
+      return encontrados;
 
     } catch (e) {
       log('❌ Erro no scan: ' + e.message);
-      return { sucesso: false, msg: e.message, resultados: [] };
+      return [];
     }
+  }
+
+  // ── IMPORTAR: Cria leads dos selecionados ──
+  async function importarSelecionados(lista, log) {
+    log = log || function() {};
+    var criados = 0;
+
+    for (var i = 0; i < lista.length; i++) {
+      var item = lista[i];
+      log('🔄 [' + (i+1) + '/' + lista.length + '] Reserva ' + item.reserva + '...');
+
+      try {
+        if (!window.WeikuClient) {
+          log('   ⚠ WeikuClient nao disponivel');
+          continue;
+        }
+
+        var dados = await window.WeikuClient.buscarReserva(item.reserva);
+        if (!dados || !dados.nome_cliente) {
+          log('   ⚠ Sem dados na Weiku para reserva ' + item.reserva);
+          continue;
+        }
+
+        // Tentar analisar PDF
+        var portaInfo = null;
+        if (item.hasAttachments) {
+          try {
+            log('   📄 Analisando PDF do email...');
+            portaInfo = await analisarPdfComIA(item.emailId, log);
+          } catch(_){}
+        }
+        if (portaInfo) dados._portaInfo = portaInfo;
+
+        var agp = proximoAGP();
+        var novoLead = criarLead(item.reserva, dados, agp, item.remetente);
+        if (novoLead) {
+          log('   ✅ ' + novoLead.cliente + ' | ' + agp);
+          processados.add(item.emailId);
+          criados++;
+        }
+      } catch (e) {
+        log('   ❌ Erro: ' + e.message);
+      }
+    }
+
+    salvarProcessados();
+    if (criados > 0 && window.Events) window.Events.emit('crm:reload');
+    log('\n✅ ' + criados + ' lead(s) criado(s)!');
+    return criados;
   }
 
   // ── Auto-scan timer ──
@@ -431,9 +412,11 @@
   // Expoe globalmente
   window.EmailAgent = {
     scan: scanInbox,
+    importar: importarSelecionados,
     renderUI: renderAgentUI,
     startAutoScan: startAutoScan,
     stopAutoScan: stopAutoScan,
+    _autoAtivo: false,
     resetProcessados: function() {
       processados.clear();
       localStorage.removeItem('projetta_agent_processados');

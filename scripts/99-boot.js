@@ -121,23 +121,77 @@ document.addEventListener('DOMContentLoaded', async () => {
         var autoBtn = document.getElementById('agent-auto-btn');
         if (scanBtn) {
           scanBtn.addEventListener('click', async function() {
-            // Espera script carregar (max 5s)
-            var tentativas = 0;
-            while (!window.EmailAgent && tentativas < 25) {
-              await new Promise(function(r) { setTimeout(r, 200); });
-              tentativas++;
-            }
-            if (!window.EmailAgent) {
-              var logEl2 = document.getElementById('agent-log');
-              if (logEl2) logEl2.textContent = '❌ Script do agente nao carregou. Recarregue a pagina (Ctrl+F5).';
-              return;
-            }
+            var t = 0;
+            while (!window.EmailAgent && t < 25) { await new Promise(function(r){setTimeout(r,200)}); t++; }
+            if (!window.EmailAgent) { logEl.textContent = '❌ Script nao carregou. Ctrl+F5.'; return; }
             scanBtn.disabled = true; scanBtn.textContent = '⏳ Escaneando...';
             var logEl = document.getElementById('agent-log');
             if (logEl) logEl.textContent = '';
-            try {
-              await window.EmailAgent.scan({ log: function(m) { if (logEl) { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; } } });
-            } catch(e) { if (logEl) logEl.textContent += '❌ ' + e.message + '\n'; }
+            function log(m) { if (logEl) { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; } }
+
+            var resultados = await window.EmailAgent.scan({
+              log: log,
+              onResults: function(lista) {
+                // Renderiza tabela interativa
+                var novos = lista.filter(function(e) { return !e.jaExiste; });
+                var existentes = lista.filter(function(e) { return e.jaExiste; });
+                if (novos.length === 0) {
+                  log('\n✅ Todas as reservas ja existem no CRM. Nada a importar.');
+                  return;
+                }
+                var tableHtml = '<div id="agent-results" style="margin-top:14px">'
+                  + '<div style="font-weight:700;font-size:14px;color:#1a5276;margin-bottom:8px">'
+                  + '📋 ' + novos.length + ' reserva(s) nova(s) encontrada(s)' + (existentes.length ? ' (' + existentes.length + ' ja existem)' : '')
+                  + '</div>'
+                  + '<div style="max-height:300px;overflow-y:auto;border:1px solid #ddd;border-radius:6px">'
+                  + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                  + '<tr style="background:#1a5276;color:#fff;position:sticky;top:0"><th style="padding:8px;text-align:left;width:30px"><input type="checkbox" id="agent-check-all" checked /></th><th style="padding:8px;text-align:left">Reserva</th><th style="padding:8px;text-align:left">Assunto</th><th style="padding:8px;text-align:left">Remetente</th><th style="padding:8px;text-align:left">Data</th><th style="padding:8px">PDF</th></tr>';
+                novos.forEach(function(e, idx) {
+                  tableHtml += '<tr style="border-bottom:1px solid #eee;background:' + (idx%2===0?'#fff':'#f8f9fa') + '">'
+                    + '<td style="padding:6px 8px"><input type="checkbox" class="agent-check" data-idx="' + idx + '" checked /></td>'
+                    + '<td style="padding:6px 8px;font-weight:700;color:#1a5276">' + e.reserva + '</td>'
+                    + '<td style="padding:6px 8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (e.assunto||'').substring(0,50) + '</td>'
+                    + '<td style="padding:6px 8px">' + (e.remetente||'') + '</td>'
+                    + '<td style="padding:6px 8px">' + (e.data||'') + '</td>'
+                    + '<td style="padding:6px 8px;text-align:center">' + (e.hasAttachments?'📎':'—') + '</td>'
+                    + '</tr>';
+                });
+                tableHtml += '</table></div>'
+                  + '<div style="margin-top:12px;display:flex;gap:10px;align-items:center">'
+                  + '<button id="agent-import-btn" style="background:#2e7d32;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">✅ Criar Leads Selecionados</button>'
+                  + '<span id="agent-import-status" style="color:#666;font-size:13px"></span>'
+                  + '</div></div>';
+                // Injeta resultados
+                var existing = document.getElementById('agent-results');
+                if (existing) existing.remove();
+                logEl.insertAdjacentHTML('afterend', tableHtml);
+                // Armazena dados pra importação
+                window._agentNovos = novos;
+                // Check all toggle
+                document.getElementById('agent-check-all').addEventListener('change', function() {
+                  var checked = this.checked;
+                  document.querySelectorAll('.agent-check').forEach(function(cb) { cb.checked = checked; });
+                });
+                // Botao importar
+                document.getElementById('agent-import-btn').addEventListener('click', async function() {
+                  var selecionados = [];
+                  document.querySelectorAll('.agent-check:checked').forEach(function(cb) {
+                    var idx = parseInt(cb.dataset.idx);
+                    if (window._agentNovos[idx]) selecionados.push(window._agentNovos[idx]);
+                  });
+                  if (!selecionados.length) { alert('Selecione pelo menos 1 reserva'); return; }
+                  this.disabled = true; this.textContent = '⏳ Importando...';
+                  var statusEl = document.getElementById('agent-import-status');
+                  if (logEl) logEl.textContent = '';
+                  await window.EmailAgent.importar(selecionados, function(m) {
+                    if (logEl) { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; }
+                  });
+                  this.textContent = '✅ Concluido!';
+                  if (statusEl) statusEl.textContent = selecionados.length + ' lead(s) importado(s)';
+                });
+              }
+            });
+
             scanBtn.disabled = false; scanBtn.textContent = '🔍 Escanear Agora';
           });
         }
