@@ -455,11 +455,25 @@
                 <div class="crm-form-row cols-3">
                   <div class="crm-field">
                     <label>Modelo</label>
-                    <input type="text" data-field="porta_modelo" value="${escapeHtml(m.porta_modelo || '')}" placeholder="" />
+                    <select data-field="porta_modelo">
+                      <option value="" ${!m.porta_modelo ? 'selected' : ''}>—</option>
+                      ${['01','02','03','04','05','06','07','08','09','10','11','12','13','14'].map(n =>
+                        '<option value="' + n + '" ' + (m.porta_modelo == n ? 'selected' : '') + '>Modelo ' + n + '</option>'
+                      ).join('')}
+                    </select>
                   </div>
                   <div class="crm-field">
                     <label>Cor</label>
-                    <input type="text" data-field="porta_cor" value="${escapeHtml(m.porta_cor || '')}" placeholder="" />
+                    <input type="text" data-field="porta_cor" list="crm-cores-porta-list" value="${escapeHtml(m.porta_cor || '')}" placeholder="" />
+                    <datalist id="crm-cores-porta-list">
+                      ${(() => {
+                        try {
+                          const cadStore = Storage.scope('cadastros');
+                          const superficies = cadStore.get('superficies_lista') || [];
+                          return superficies.map(s => '<option value="' + escapeHtml(s.codigo + ' - ' + s.nome) + '">').join('');
+                        } catch(_) { return ''; }
+                      })()}
+                    </datalist>
                   </div>
                   <div class="crm-field">
                     <label>Fechadura Digital</label>

@@ -1583,8 +1583,8 @@ const Orcamento = (() => {
         itemInicial.tipo = 'porta_externa';
         if (lead.porta_largura) itemInicial.largura = lead.porta_largura;
         if (lead.porta_altura)  itemInicial.altura  = lead.porta_altura;
-        if (lead.porta_modelo)  { itemInicial.modeloNumero = lead.porta_modelo; itemInicial.modeloExterno = lead.porta_modelo; }
-        if (lead.porta_cor)     itemInicial.corExterna = lead.porta_cor;
+        if (lead.porta_modelo)  { itemInicial.modeloNumero = lead.porta_modelo; itemInicial.modeloExterno = lead.porta_modelo; itemInicial.modeloInterno = lead.porta_modelo; }
+        if (lead.porta_cor)     { itemInicial.corExterna = lead.porta_cor; itemInicial.corInterna = lead.porta_cor; }
         if (lead.porta_fechadura_digital === 'sim') itemInicial.fechaduraDigital = 'Sim';
       }
       atualizarVersao(versaoAlvo.id, { itens: [itemInicial] });
