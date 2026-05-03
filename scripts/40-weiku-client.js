@@ -57,8 +57,10 @@ const WeikuClient = (() => {
   // pelo modal: { nome_cliente, telefone, cep, representante }
   function normalizar(raw) {
     if (!raw) return null;
-    // followup vem cru da intranet (ex: 'ANDERSON_JARAGUA')
-    const followupCru = raw.representante || raw.followup || raw.rep || '';
+    // followup vem cru da intranet (ex: 'SP_BARUERI_PREVE', 'THAISAP')
+    // IMPORTANTE: raw.followup eh o CODIGO, raw.representante eh o NOME.
+    // Prioriza o codigo de followup pra resolver no cadastro.
+    const followupCru = raw.followup || raw.representante_followup || raw.rep || '';
     // Tenta resolver no cadastro de Representantes pra trocar
     // o codigo cru pela razao social.
     let representanteFinal = followupCru;
@@ -66,7 +68,12 @@ const WeikuClient = (() => {
       const resolvido = window.Representantes.buscarPorFollowup(followupCru);
       if (resolvido && resolvido.razao_social) {
         representanteFinal = resolvido.razao_social;
+      } else if (raw.representante) {
+        // Se nao achou no cadastro, usa o nome que veio da API
+        representanteFinal = raw.representante;
       }
+    } else if (raw.representante) {
+      representanteFinal = raw.representante;
     }
     return {
       nome_cliente: raw.nome_cliente || raw.nome || raw.cliente || '',
@@ -165,6 +172,8 @@ const WeikuClient = (() => {
         cep: raw.cep || '',
         email: raw.email || '',
         representante: raw.representante || '',
+        // FOLLOWUP: codigo cru da intranet (SP_BARUERI_PREVE, THAISAP, etc.)
+        followup: raw.followup || '',
         // Extras da API que podem ser uteis
         codigo_agp: raw.codigo || raw.agp || '',
         reserva: raw.reserva || num,

@@ -135,6 +135,23 @@
       store.set('view', state.view);
     }
 
+    // Felipe (sessao 31): AGP automatico.
+    // Ultimo: AGP004645. Proximo: AGP004646, etc.
+    // Escaneia todos os leads pra achar o maior numero e incrementar.
+    function proximoAGP() {
+      var max = 4645; // piso definido pelo Felipe
+      (state.leads || []).forEach(function(l) {
+        if (!l.numeroAGP) return;
+        var m = String(l.numeroAGP).match(/(\d+)/);
+        if (m) {
+          var n = parseInt(m[1], 10);
+          if (n > max) max = n;
+        }
+      });
+      var prox = max + 1;
+      return 'AGP' + String(prox).padStart(6, '0');
+    }
+
     function fmtBR(n) {
       return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
@@ -942,7 +959,7 @@
             representante_followup: (m.representante_followup || '').trim(),
             representante_contato:  (m.representante_contato || '').trim(),
             numeroReserva: m.numeroReserva.trim(),
-            numeroAGP: m.numeroAGP.trim(),
+            numeroAGP: m.numeroAGP.trim() || proximoAGP(),
             valor: valorNum,
             etapa: m.etapa,
             destinoTipo: m.destinoTipo || 'nacional',
