@@ -610,40 +610,62 @@
       var attachHtml = '';
       if(m.hasAttachments){
         try {
-          var attachResp = await _graphCall('/me/messages/' + msgId + '/attachments?$select=id,name,contentType,size,contentBytes,isInline');
+          // Busca so metadados (sem contentBytes — evita timeout em anexos grandes)
+          var attachResp = await _graphCall('/me/messages/' + msgId + '/attachments?$select=id,name,contentType,size,isInline');
           var attachments = (attachResp && attachResp.value) || [];
-          if(attachments.length > 0){
-            var attachItems = attachments.filter(function(a){ return !a.isInline; }).map(function(a){
+          var visibleAtt = attachments.filter(function(a){ return !a.isInline; });
+          if(visibleAtt.length > 0){
+            // Registra funcao global de download
+            window._outlookDownloadAtt = async function(attMsgId, attId, attName, attType){
+              try {
+                var btn = document.getElementById('dl-' + attId);
+                if(btn) btn.textContent = '⏳ Baixando...';
+                var att = await _graphCall('/me/messages/' + attMsgId + '/attachments/' + attId);
+                if(att && att.contentBytes){
+                  var raw = atob(att.contentBytes);
+                  var arr = new Uint8Array(raw.length);
+                  for(var i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+                  var blob = new Blob([arr], {type: attType || 'application/octet-stream'});
+                  var url = URL.createObjectURL(blob);
+                  var a = document.createElement('a');
+                  a.href = url; a.download = attName || 'anexo'; a.click();
+                  URL.revokeObjectURL(url);
+                  if(btn) btn.textContent = '✅ Baixado';
+                } else {
+                  if(btn) btn.textContent = '❌ Sem conteudo';
+                }
+              } catch(e){
+                console.error('Download att failed:', e);
+                var btn2 = document.getElementById('dl-' + attId);
+                if(btn2) btn2.textContent = '❌ Erro';
+              }
+            };
+            var attachItems = visibleAtt.map(function(a){
               var sizeKB = Math.round((a.size||0) / 1024);
               var sizeStr = sizeKB > 1024 ? (sizeKB/1024).toFixed(1) + ' MB' : sizeKB + ' KB';
               var icon = '📄';
-              if((a.contentType||'').indexOf('pdf') >= 0) icon = '📕';
-              else if((a.contentType||'').indexOf('image') >= 0) icon = '🖼️';
-              else if((a.contentType||'').indexOf('spreadsheet') >= 0 || (a.name||'').match(/\.xlsx?$/i)) icon = '📊';
-              else if((a.contentType||'').indexOf('word') >= 0 || (a.name||'').match(/\.docx?$/i)) icon = '📝';
-              // Criar botão de download se tiver contentBytes
-              var downloadBtn = '';
-              if(a.contentBytes){
-                downloadBtn = ' <button onclick="(function(){var b=atob(\'' + a.id + '_dl\');})(); var a=document.createElement(\'a\'); var blob=new Blob([Uint8Array.from(atob(document.getElementById(\'att-' + a.id + '\').dataset.b64).split(\'\').map(function(c){return c.charCodeAt(0)}))],{type:\'' + (a.contentType||'application/octet-stream') + '\'}); a.href=URL.createObjectURL(blob); a.download=\'' + _escAttr(a.name||'anexo') + '\'; a.click(); URL.revokeObjectURL(a.href);" style="background:#1a5276;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;margin-left:8px">⬇ Baixar</button>';
-                downloadBtn = ' <span id="att-' + a.id + '" data-b64="' + a.contentBytes.substring(0,1) + '" style="display:none"></span>';
-              }
-              return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0">'
-                + '<span style="font-size:20px">' + icon + '</span>'
+              var ct = (a.contentType||'').toLowerCase();
+              var nm = (a.name||'').toLowerCase();
+              if(ct.indexOf('pdf')>=0 || nm.endsWith('.pdf')) icon = '📕';
+              else if(ct.indexOf('image')>=0) icon = '🖼️';
+              else if(nm.match(/\.xlsx?$/)) icon = '📊';
+              else if(nm.match(/\.docx?$/)) icon = '📝';
+              return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">'
+                + '<span style="font-size:22px">' + icon + '</span>'
                 + '<div style="flex:1"><div style="font-weight:600;font-size:13px">' + _escHtml(a.name||'Sem nome') + '</div>'
-                + '<div style="font-size:11px;color:#888">' + _escHtml(a.contentType||'') + ' · ' + sizeStr + '</div></div>'
+                + '<div style="font-size:11px;color:#888">' + sizeStr + '</div></div>'
+                + '<button id="dl-' + a.id + '" onclick="window._outlookDownloadAtt(\'' + _escAttr(msgId) + '\',\'' + _escAttr(a.id) + '\',\'' + _escAttr(a.name||'anexo') + '\',\'' + _escAttr(a.contentType||'') + '\')" '
+                + 'style="background:#1a5276;color:#fff;border:none;padding:6px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">⬇ Baixar</button>'
                 + '</div>';
             });
-            if(attachItems.length > 0){
-              attachHtml = '<div style="border-top:1px solid #e5e7eb;margin-top:14px;padding-top:14px">'
-                + '<div style="font-weight:700;font-size:13px;color:#1a5276;margin-bottom:8px">📎 Anexos (' + attachItems.length + ')</div>'
-                + attachItems.join('')
-                + '<div style="margin-top:8px;font-size:11px;color:#888">Para baixar anexos grandes, abra o email diretamente no Outlook.</div>'
-                + '</div>';
-            }
+            attachHtml = '<div style="border-top:2px solid #1a5276;margin-top:16px;padding-top:14px">'
+              + '<div style="font-weight:700;font-size:14px;color:#1a5276;margin-bottom:10px">📎 Anexos (' + visibleAtt.length + ')</div>'
+              + attachItems.join('')
+              + '</div>';
           }
         } catch(ae){
           _err('fetch attachments', ae);
-          attachHtml = '<div style="color:#888;font-size:12px;margin-top:10px">📎 Nao foi possivel carregar os anexos.</div>';
+          attachHtml = '<div style="color:#c0392b;font-size:12px;margin-top:10px">⚠ Nao foi possivel carregar os anexos: ' + _escHtml(ae.message) + '</div>';
         }
       }
 

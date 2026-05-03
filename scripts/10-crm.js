@@ -1339,6 +1339,7 @@
             ${mostraBtnOrc ? `
               <div class="crm-card-actions">
                 <button class="crm-card-btn-orc" data-action="montar-orcamento" data-lead-id="${l.id}" title="Abrir orcamento deste lead">📐 Montar Orcamento</button>
+                ${l.telefone ? `<button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar mensagem via WhatsApp" style="background:#25d366;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>` : ''}
               </div>
             ` : ''}
           </div>
@@ -1840,6 +1841,28 @@
               Storage.scope('app').set('orcamento_lead_ativo', leadId);
               App.navigateTo('orcamento', 'item');
             }
+            return;
+          }
+          // WhatsApp — abre link wa.me com mensagem template
+          const btnWpp = e.target.closest('[data-action="whatsapp"]');
+          if (btnWpp) {
+            e.stopPropagation();
+            const leadId = btnWpp.dataset.leadId;
+            const lead = state.leads.find(l => l.id === leadId);
+            if (!lead || !lead.telefone) return;
+            // Formata telefone: remove tudo que nao e digito, adiciona 55 se necessario
+            let fone = String(lead.telefone).replace(/\D/g, '');
+            if (fone.length <= 11 && !fone.startsWith('55')) fone = '55' + fone;
+            // Busca valor do orçamento se existir
+            let valor = 'a combinar';
+            try {
+              if (window.Orcamento && typeof window.Orcamento.resumoParaCardCRM === 'function') {
+                const resumo = window.Orcamento.resumoParaCardCRM(leadId);
+                if (resumo && resumo.pFatReal > 0) valor = 'R$ ' + fmtBR(resumo.pFatReal);
+              }
+            } catch(_){}
+            const msg = `Olá ${lead.cliente || ''},\n\nÉ com satisfação que encaminhamos nossa proposta comercial referente ao seu projeto.\n\nMais do que um investimento, esta proposta traduz o compromisso da Projetta by Weiku com excelência, sofisticação e atenção absoluta aos detalhes — pilares que fazem de cada entrega uma experiência única.\n\nValor: ${valor}\n\nPermanecemos à disposição para esclarecer qualquer dúvida.\n\nAtenciosamente,\nEquipe Projetta by Weiku`;
+            window.open('https://wa.me/' + fone + '?text=' + encodeURIComponent(msg), '_blank');
             return;
           }
           const id = card.dataset.id;
