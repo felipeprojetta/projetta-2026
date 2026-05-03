@@ -2907,7 +2907,7 @@ const Orcamento = (() => {
             </div>
           </div>
         </div>
-        ` : `
+        ` : item.tipo === 'porta_externa' ? `` : `
         <div class="orc-section">
           <div class="orc-section-title">Em desenvolvimento</div>
           <p style="font-size:13px; color: var(--text-muted); padding: 8px 0;">
