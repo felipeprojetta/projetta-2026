@@ -589,7 +589,7 @@
     var modal = document.createElement('div');
     modal.id = 'outlook-email-modal';
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
-    modal.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:800px;width:100%;max-height:90vh;overflow:auto;padding:24px;position:relative">'
+    modal.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:95vw;width:100%;max-height:95vh;overflow:auto;padding:24px;position:relative">'
       + '<button onclick="document.getElementById(\'outlook-email-modal\').remove()" style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;color:#666">✕</button>'
       + '<div id="outlook-email-body" style="padding-top:8px"><div style="text-align:center;color:#666;padding:40px">⏳ Carregando...</div></div>'
       + '</div>';
@@ -658,11 +658,11 @@
                   var ct = (attType||'').toLowerCase();
                   if(ct.indexOf('image') >= 0){
                     // Imagem: mostra inline
-                    previewEl.innerHTML = '<img src="data:' + attType + ';base64,' + att.contentBytes + '" style="max-width:100%;max-height:500px;border-radius:6px;border:1px solid #ddd;" />';
+                    previewEl.innerHTML = '<img src="data:' + attType + ';base64,' + att.contentBytes + '" style="max-width:100%;max-height:80vh;border-radius:6px;border:1px solid #ddd;" />';
                   } else if(ct.indexOf('pdf') >= 0){
                     // PDF: mostra em iframe
                     var blobUrl = URL.createObjectURL(new Blob([Uint8Array.from(atob(att.contentBytes).split('').map(function(c){return c.charCodeAt(0)}))], {type:'application/pdf'}));
-                    previewEl.innerHTML = '<iframe src="' + blobUrl + '" style="width:100%;height:600px;border:1px solid #ddd;border-radius:6px;" frameborder="0"></iframe>';
+                    previewEl.innerHTML = '<iframe src="' + blobUrl + '" style="width:100%;height:85vh;border:1px solid #ddd;border-radius:6px;" frameborder="0"></iframe>';
                   }
                   previewEl.style.display = 'block';
                   if(btn) btn.textContent = '👁 Esconder';
