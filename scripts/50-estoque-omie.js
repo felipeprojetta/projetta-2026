@@ -84,10 +84,8 @@
 
     try {
       var filtro = {};
-      if (state.buscaTermo) {
-        filtro.descricao = state.buscaTermo;
-      }
-
+      // Omie nao aceita filtro por descricao no ListarProdutos
+      // Vamos buscar todos e filtrar no client
       var data = await omieCall('produtos', state.paginaAtual, 50, filtro);
 
       // Debug: se Omie retornou erro
@@ -102,9 +100,20 @@
 
       state.totalPaginas = data.total_de_paginas || 0;
       var produtos = data.produto_servico_cadastro || [];
+
+      // Filtra no client se tem termo de busca
+      if (state.buscaTermo) {
+        var termo = state.buscaTermo.toLowerCase();
+        produtos = produtos.filter(function(p) {
+          var desc = (p.descricao || '').toLowerCase();
+          var cod = (p.codigo || p.codigo_produto || '').toLowerCase();
+          return desc.indexOf(termo) >= 0 || cod.indexOf(termo) >= 0;
+        });
+      }
+
       state.produtos = produtos;
 
-      if (statusEl) statusEl.textContent = 'Pagina ' + (data.pagina || 1) + ' de ' + state.totalPaginas + ' | ' + (data.total_de_registros || 0) + ' produto(s)';
+      if (statusEl) statusEl.textContent = 'Pagina ' + (data.pagina || 1) + ' de ' + state.totalPaginas + ' | ' + (data.total_de_registros || 0) + ' produto(s)' + (state.buscaTermo ? ' (filtrado: ' + produtos.length + ')' : '');
 
       if (!produtos.length) {
         tabelaEl.innerHTML = '<div style="padding:30px;text-align:center;color:#888;font-size:14px">Nenhum produto encontrado' + (state.buscaTermo ? ' para "' + state.buscaTermo + '"' : '') + '</div>';
