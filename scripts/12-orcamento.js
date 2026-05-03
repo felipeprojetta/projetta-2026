@@ -4087,6 +4087,32 @@ const Orcamento = (() => {
     // Quando o motor de peso por item estiver pronto, somar aqui.
     inst.peso_bruto_kg = Number(inst.peso_bruto_kg) || 0;
 
+    // Felipe (sessao 2026-10 FIX CRITICO): "nao esta puxando valores
+    // perfis e pintura isso e basico, estava normal". Auto-popula
+    // total_perfis e total_pintura usando recalcularPerfisESalvarNoFab
+    // — mesma logica que a aba Lev. Perfis usa. So sobrescreve se
+    // campo estiver vazio/zero (preserva edicao manual do usuario).
+    try {
+      if (_ehVazioOuZero(fab.total_perfis) || _ehVazioOuZero(fab.total_pintura)) {
+        const itensCalc = (versao.itens || []);
+        if (itensCalc.length > 0) {
+          const rPerfis = recalcularPerfisESalvarNoFab(versao, itensCalc);
+          // Apos recalcular, re-le o fab da versao (recalcular ja atualizou)
+          const versaoAtualizada = versaoAtiva();
+          if (versaoAtualizada && versaoAtualizada.custoFab) {
+            if (_ehVazioOuZero(fab.total_perfis)) {
+              fab.total_perfis = versaoAtualizada.custoFab.total_perfis || 0;
+            }
+            if (_ehVazioOuZero(fab.total_pintura)) {
+              fab.total_pintura = versaoAtualizada.custoFab.total_pintura || 0;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Custo Fab/Inst] auto-perfis/pintura falhou:', e);
+    }
+
     // Felipe (sessao 2026-08): "CUSTO ACESSORIO ZERADO SENDO JA TEMOS
     // CUSTO EM LEVANTAMENTO DE ACESSORIOS". Auto-popula total_acessorios
     // somando o resultado do motor AcessoriosPortaExterna pra todos os
@@ -4263,7 +4289,6 @@ const Orcamento = (() => {
             <div class="orc-fi-etapas">
               <div class="orc-fi-etapa-head">
                 <span class="orc-fi-col-etapa">Etapa</span>
-                <span class="orc-fi-col-eq">Calculado pelas regras</span>
                 ${colunasItens}
                 ${colunaTotal}
               </div>
@@ -4309,7 +4334,6 @@ const Orcamento = (() => {
                 return `
                   <div class="orc-fi-etapa-row">
                     <span class="orc-fi-col-etapa">${escapeHtml(et.label)}</span>
-                    <span class="orc-fi-col-eq">${detalheEtapa.horasAuto > 0 ? Math.round(detalheEtapa.horasAuto * 100) / 100 : '—'}</span>
                     ${inputsPorItem}
                     ${totalCol}
                   </div>
@@ -4320,7 +4344,6 @@ const Orcamento = (() => {
                    dentro do label "Subtotal horas (X h × R$ Y)". -->
               <div class="orc-fi-etapa-row orc-fi-etapa-total">
                 <span class="orc-fi-col-etapa"><span class="t-strong">Total de horas</span></span>
-                <span class="orc-fi-col-eq orc-fi-help-detalhe">soma × ${Number(fab.n_operarios) || 0} operario${Number(fab.n_operarios) === 1 ? '' : 's'}</span>
                 ${nItens > 0 ? itensFab.map((_, idx) => {
                   // Soma vertical: soma de horasPorItem[idx] em todas as etapas
                   let totalItem = 0;

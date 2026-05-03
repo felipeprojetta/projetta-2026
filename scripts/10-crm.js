@@ -2155,9 +2155,19 @@
     render(container) {
       Crm.render(container);
       // Realtime: quando chegar mudanca do cloud, re-renderiza CRM
+      // Felipe (sessao 2026-10 FIX CRITICO): "do nada da pagina
+      // orcamento sai e volta para pagina crm". CAUSA: este handler
+      // Events.on('db:realtime-sync') dispara a cada 10s e chamava
+      // Crm.render(container) MESMO quando o modulo ativo era
+      // Orcamento — sobrescrevia o conteudo. CORRECAO: so' re-renderiza
+      // se o modulo ativo AINDA for 'crm'.
       if (!container._realtimeSubscribed) {
         container._realtimeSubscribed = true;
         Events.on('db:realtime-sync', function() {
+          // Verifica se o modulo ativo ainda e' CRM antes de re-renderizar
+          if (window.App && window.App.state && window.App.state.currentModule !== 'crm') {
+            return; // NAO re-renderizar — usuario esta em outro modulo
+          }
           // Recarrega dados do localStorage (que foi atualizado pelo polling)
           Crm.render(container);
         });
