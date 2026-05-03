@@ -115,16 +115,32 @@
     return novo;
   }
 
-  // ── Analisar PDF com Claude API ──
+  // ── Analisar PDF com pdf.js (client-side, sem API) ──
+  var _pdfJsLoaded = false;
+  async function _loadPdfJs() {
+    if (_pdfJsLoaded) return;
+    return new Promise(function(resolve) {
+      var s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = function() {
+        if (window.pdfjsLib) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          _pdfJsLoaded = true;
+        }
+        resolve();
+      };
+      s.onerror = function() { resolve(); };
+      document.head.appendChild(s);
+    });
+  }
+
   async function analisarPdfComIA(msgId, log) {
     if (!window.outlookIsAuth || !window.outlookIsAuth()) return null;
     try {
-      // Busca anexos do email
-      var _gc = window._outlookGraphCall || (function(){ return null; });
-      // Usa a funcao interna do outlook module
       var token = localStorage.getItem('projetta_outlook_access_token');
       if (!token) return null;
 
+      // Buscar anexos PDF
       var resp = await fetch('https://graph.microsoft.com/v1.0/me/messages/' + msgId + '/attachments?$select=id,name,contentType,size', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
@@ -133,11 +149,11 @@
       var pdfs = (data.value || []).filter(function(a) {
         return (a.contentType || '').indexOf('pdf') >= 0 || (a.name || '').toLowerCase().endsWith('.pdf');
       });
-      if (!pdfs.length) { log('   📄 Sem PDF anexo neste email'); return null; }
+      if (!pdfs.length) { log('   📄 Sem PDF neste email'); return null; }
 
-      // Baixa o primeiro PDF
+      // Baixar PDF
       var pdfAtt = pdfs[0];
-      log('   📄 Analisando PDF: ' + pdfAtt.name + '...');
+      log('   📄 Baixando PDF: ' + pdfAtt.name + '...');
       var attResp = await fetch('https://graph.microsoft.com/v1.0/me/messages/' + msgId + '/attachments/' + pdfAtt.id, {
         headers: { 'Authorization': 'Bearer ' + token }
       });
@@ -145,45 +161,63 @@
       var attData = await attResp.json();
       if (!attData.contentBytes) return null;
 
-      // Envia pro Claude API pra extrair dados
-      log('   🤖 Enviando PDF pro Claude analisar...');
-      var aiResp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'document',
-                source: { type: 'base64', media_type: 'application/pdf', data: attData.contentBytes }
-              },
-              {
-                type: 'text',
-                text: 'Extraia do PDF os seguintes dados da porta. Responda SOMENTE em JSON puro (sem markdown, sem explicacao):\n{"largura":"valor em mm","altura":"valor em mm","modelo":"numero do modelo","cor":"nome da cor ou codigo","fechaduraDigital":"sim ou nao"}\nSe um campo nao existir no PDF, use string vazia "".'
-              }
-            ]
-          }]
-        })
-      });
+      // Carregar pdf.js
+      await _loadPdfJs();
+      if (!window.pdfjsLib) { log('   ⚠ pdf.js nao carregou'); return null; }
 
-      if (!aiResp.ok) {
-        log('   ⚠ Claude API: ' + aiResp.status);
-        return null;
+      // Converter base64 → Uint8Array
+      var raw = atob(attData.contentBytes);
+      var arr = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+
+      // Extrair texto do PDF
+      log('   🔍 Extraindo texto do checklist...');
+      var pdf = await window.pdfjsLib.getDocument({ data: arr }).promise;
+      var textoCompleto = '';
+      for (var p = 1; p <= pdf.numPages; p++) {
+        var page = await pdf.getPage(p);
+        var tc = await page.getTextContent();
+        var pageText = tc.items.map(function(it) { return it.str; }).join(' ');
+        textoCompleto += pageText + '\n';
       }
 
-      var aiData = await aiResp.json();
-      var text = (aiData.content && aiData.content[0] && aiData.content[0].text) || '';
-      // Parse JSON
-      try {
-        var clean = text.replace(/```json|```/g, '').trim();
-        var info = JSON.parse(clean);
-        log('   ✅ PDF analisado: ' + info.largura + 'x' + info.altura + ' modelo ' + info.modelo + ' cor ' + info.cor + ' fechadura ' + info.fechaduraDigital);
+      log('   📝 Texto extraido (' + textoCompleto.length + ' chars)');
+
+      // Parsear campos do checklist Projetta com regex
+      var info = { largura: '', altura: '', modelo: '', cor: '', fechaduraDigital: '' };
+
+      // LARGURA X ALTURA: 1750 x 3550  ou  L: 1750 H: 3550
+      var mLxA = textoCompleto.match(/LARGURA\s*[Xx×]\s*ALTURA[:\s]*(\d+)\s*[Xx×]\s*(\d+)/i);
+      if (mLxA) { info.largura = mLxA[1]; info.altura = mLxA[2]; }
+      if (!mLxA) {
+        var mL = textoCompleto.match(/\bL[:\s]+(\d{3,5})/); if (mL) info.largura = mL[1];
+        var mH = textoCompleto.match(/\bH[:\s]+(\d{3,5})/); if (mH) info.altura = mH[1];
+      }
+
+      // MODELO: 01 ou MODELO: 01 — Cava
+      var mMod = textoCompleto.match(/MODELO[:\s]+(\d{1,2})/i);
+      if (mMod) info.modelo = mMod[1];
+
+      // COR CHAPA EXTERNA: Pro209 - Wood Mogno...
+      var mCor = textoCompleto.match(/COR\s*(?:CHAPA\s*)?EXTERNA[:\s]+([^\n]{3,50})/i);
+      if (mCor) info.cor = mCor[1].trim();
+      if (!info.cor) {
+        var mCor2 = textoCompleto.match(/(?:PRO|RAL|WOOD)\s*\d*[^\n]{0,40}/i);
+        if (mCor2) info.cor = mCor2[0].trim();
+      }
+
+      // FECHADURA DIGITAL: NAO SE APLICA / SIM
+      var mFech = textoCompleto.match(/FECHADURA\s*DIGITAL[:\s]+([^\n]+)/i);
+      if (mFech) {
+        var fd = mFech[1].trim().toUpperCase();
+        info.fechaduraDigital = (fd.indexOf('SIM') >= 0 || fd.indexOf('DIGITAL') >= 0) ? 'sim' : 'nao';
+      }
+
+      if (info.largura || info.modelo || info.cor) {
+        log('   ✅ PDF: ' + info.largura + '×' + info.altura + ' | Modelo ' + info.modelo + ' | Cor: ' + info.cor + ' | Fechadura: ' + info.fechaduraDigital);
         return info;
-      } catch (pe) {
-        log('   ⚠ Nao conseguiu parsear resposta da IA: ' + text.substring(0, 100));
+      } else {
+        log('   ⚠ Nao encontrou dados estruturados no PDF');
         return null;
       }
     } catch (e) {
@@ -206,7 +240,7 @@
     log('🔍 Buscando emails com "RESERVA" no assunto...');
 
     try {
-      var inbox = await window.outlookListInbox({ top: 50, search: 'subject:reserva' });
+      var inbox = await window.outlookListInbox({ top: 100, search: 'subject:reserva' });
       var emails = (inbox && inbox.emails) || [];
       log('📨 ' + emails.length + ' email(s) encontrado(s)');
 
