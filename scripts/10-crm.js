@@ -1862,7 +1862,7 @@
               }
             } catch(_){}
             const msg = `Olá ${lead.cliente || ''},\n\nÉ com satisfação que encaminhamos nossa proposta comercial referente ao seu projeto.\n\nMais do que um investimento, esta proposta traduz o compromisso da Projetta by Weiku com excelência, sofisticação e atenção absoluta aos detalhes — pilares que fazem de cada entrega uma experiência única.\n\nValor: ${valor}\n\nPermanecemos à disposição para esclarecer qualquer dúvida.\n\nAtenciosamente,\nEquipe Projetta by Weiku`;
-            window.open('https://wa.me/' + fone + '?text=' + encodeURIComponent(msg), '_blank');
+            window.open('https://wa.me/' + fone + '?text=' + encodeURIComponent(msg), 'projetta_whatsapp', 'width=900,height=700,scrollbars=yes,resizable=yes');
             return;
           }
           const id = card.dataset.id;

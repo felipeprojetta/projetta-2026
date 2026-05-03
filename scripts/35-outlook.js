@@ -640,6 +640,40 @@
                 if(btn2) btn2.textContent = '❌ Erro';
               }
             };
+            // Funcao de preview inline (imagens e PDFs)
+            window._outlookPreviewAtt = async function(attMsgId, attId, attName, attType){
+              var previewEl = document.getElementById('preview-' + attId);
+              var btn = document.getElementById('pv-' + attId);
+              if(!previewEl) return;
+              // Toggle: se ja visivel, esconde
+              if(previewEl.style.display !== 'none'){
+                previewEl.style.display = 'none';
+                if(btn) btn.textContent = '👁 Visualizar';
+                return;
+              }
+              if(btn) btn.textContent = '⏳ Carregando...';
+              try {
+                var att = await _graphCall('/me/messages/' + attMsgId + '/attachments/' + attId);
+                if(att && att.contentBytes){
+                  var ct = (attType||'').toLowerCase();
+                  if(ct.indexOf('image') >= 0){
+                    // Imagem: mostra inline
+                    previewEl.innerHTML = '<img src="data:' + attType + ';base64,' + att.contentBytes + '" style="max-width:100%;max-height:500px;border-radius:6px;border:1px solid #ddd;" />';
+                  } else if(ct.indexOf('pdf') >= 0){
+                    // PDF: mostra em iframe
+                    var blobUrl = URL.createObjectURL(new Blob([Uint8Array.from(atob(att.contentBytes).split('').map(function(c){return c.charCodeAt(0)}))], {type:'application/pdf'}));
+                    previewEl.innerHTML = '<iframe src="' + blobUrl + '" style="width:100%;height:600px;border:1px solid #ddd;border-radius:6px;" frameborder="0"></iframe>';
+                  }
+                  previewEl.style.display = 'block';
+                  if(btn) btn.textContent = '👁 Esconder';
+                } else {
+                  if(btn) btn.textContent = '❌ Sem conteudo';
+                }
+              } catch(e){
+                console.error('Preview att failed:', e);
+                if(btn) btn.textContent = '❌ Erro';
+              }
+            };
             var attachItems = visibleAtt.map(function(a){
               var sizeKB = Math.round((a.size||0) / 1024);
               var sizeStr = sizeKB > 1024 ? (sizeKB/1024).toFixed(1) + ' MB' : sizeKB + ' KB';
@@ -650,13 +684,23 @@
               else if(ct.indexOf('image')>=0) icon = '🖼️';
               else if(nm.match(/\.xlsx?$/)) icon = '📊';
               else if(nm.match(/\.docx?$/)) icon = '📝';
+              // Botao Visualizar para imagens e PDFs
+              var previewable = ct.indexOf('image')>=0 || ct.indexOf('pdf')>=0 || nm.endsWith('.pdf');
+              var previewBtn = previewable
+                ? '<button id="pv-' + a.id + '" onclick="window._outlookPreviewAtt(\'' + _escAttr(msgId) + '\',\'' + _escAttr(a.id) + '\',\'' + _escAttr(a.name||'anexo') + '\',\'' + _escAttr(a.contentType||'') + '\')" '
+                + 'style="background:#e65100;color:#fff;border:none;padding:6px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">👁 Visualizar</button>'
+                : '';
               return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">'
                 + '<span style="font-size:22px">' + icon + '</span>'
                 + '<div style="flex:1"><div style="font-weight:600;font-size:13px">' + _escHtml(a.name||'Sem nome') + '</div>'
                 + '<div style="font-size:11px;color:#888">' + sizeStr + '</div></div>'
+                + '<div style="display:flex;gap:6px">'
+                + previewBtn
                 + '<button id="dl-' + a.id + '" onclick="window._outlookDownloadAtt(\'' + _escAttr(msgId) + '\',\'' + _escAttr(a.id) + '\',\'' + _escAttr(a.name||'anexo') + '\',\'' + _escAttr(a.contentType||'') + '\')" '
                 + 'style="background:#1a5276;color:#fff;border:none;padding:6px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">⬇ Baixar</button>'
-                + '</div>';
+                + '</div>'
+                + '</div>'
+                + '<div id="preview-' + a.id + '" style="display:none;margin:8px 0;"></div>';
             });
             attachHtml = '<div style="border-top:2px solid #1a5276;margin-top:16px;padding-top:14px">'
               + '<div style="font-weight:700;font-size:14px;color:#1a5276;margin-bottom:10px">📎 Anexos (' + visibleAtt.length + ')</div>'

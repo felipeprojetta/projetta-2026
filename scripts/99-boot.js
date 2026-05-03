@@ -90,26 +90,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Carregar modulos extras dinamicamente (nao precisa alterar index.html)
-  ['scripts/44-email-crm.js', 'scripts/35-outlook.js'].forEach(function(src) {
+  // Carregar modulos extras dinamicamente
+  ['scripts/44-email-crm.js', 'scripts/35-outlook.js', 'scripts/45-email-agent.js'].forEach(function(src) {
     var s = document.createElement('script');
     s.src = src + '?v=' + Date.now();
     document.body.appendChild(s);
   });
 
-  // Registrar módulo Email (Outlook) — roda após scripts carregarem
+  // Registrar módulo Email (Outlook + Agente)
   setTimeout(function() {
     if (!App.register) return;
     App.register('email', {
       render: function(container) {
-        // Cria o div que outlookRenderTab espera
         container.innerHTML = '<div id="outlook-tab-content" style="padding:12px;"></div>';
         if (typeof outlookRenderTab === 'function') {
           outlookRenderTab();
+          // Adiciona UI do agente se logado no Outlook
+          if (window.outlookIsAuth && window.outlookIsAuth() && window.EmailAgent) {
+            window.EmailAgent.renderUI(container);
+          }
         } else {
           container.innerHTML = '<div class="info-banner"><span class="t-strong">Modulo Email:</span> Carregando...</div>';
         }
       }
     });
-  }, 500);
+  }, 800);
 });
