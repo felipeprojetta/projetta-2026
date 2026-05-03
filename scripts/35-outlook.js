@@ -606,6 +606,47 @@
       var dt = m.receivedDateTime ? new Date(m.receivedDateTime) : null;
       var body = (m.body && m.body.content) || '';
 
+      // Buscar anexos se email tem attachments
+      var attachHtml = '';
+      if(m.hasAttachments){
+        try {
+          var attachResp = await _graphCall('/me/messages/' + msgId + '/attachments?$select=id,name,contentType,size,contentBytes,isInline');
+          var attachments = (attachResp && attachResp.value) || [];
+          if(attachments.length > 0){
+            var attachItems = attachments.filter(function(a){ return !a.isInline; }).map(function(a){
+              var sizeKB = Math.round((a.size||0) / 1024);
+              var sizeStr = sizeKB > 1024 ? (sizeKB/1024).toFixed(1) + ' MB' : sizeKB + ' KB';
+              var icon = '📄';
+              if((a.contentType||'').indexOf('pdf') >= 0) icon = '📕';
+              else if((a.contentType||'').indexOf('image') >= 0) icon = '🖼️';
+              else if((a.contentType||'').indexOf('spreadsheet') >= 0 || (a.name||'').match(/\.xlsx?$/i)) icon = '📊';
+              else if((a.contentType||'').indexOf('word') >= 0 || (a.name||'').match(/\.docx?$/i)) icon = '📝';
+              // Criar botão de download se tiver contentBytes
+              var downloadBtn = '';
+              if(a.contentBytes){
+                downloadBtn = ' <button onclick="(function(){var b=atob(\'' + a.id + '_dl\');})(); var a=document.createElement(\'a\'); var blob=new Blob([Uint8Array.from(atob(document.getElementById(\'att-' + a.id + '\').dataset.b64).split(\'\').map(function(c){return c.charCodeAt(0)}))],{type:\'' + (a.contentType||'application/octet-stream') + '\'}); a.href=URL.createObjectURL(blob); a.download=\'' + _escAttr(a.name||'anexo') + '\'; a.click(); URL.revokeObjectURL(a.href);" style="background:#1a5276;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;margin-left:8px">⬇ Baixar</button>';
+                downloadBtn = ' <span id="att-' + a.id + '" data-b64="' + a.contentBytes.substring(0,1) + '" style="display:none"></span>';
+              }
+              return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0">'
+                + '<span style="font-size:20px">' + icon + '</span>'
+                + '<div style="flex:1"><div style="font-weight:600;font-size:13px">' + _escHtml(a.name||'Sem nome') + '</div>'
+                + '<div style="font-size:11px;color:#888">' + _escHtml(a.contentType||'') + ' · ' + sizeStr + '</div></div>'
+                + '</div>';
+            });
+            if(attachItems.length > 0){
+              attachHtml = '<div style="border-top:1px solid #e5e7eb;margin-top:14px;padding-top:14px">'
+                + '<div style="font-weight:700;font-size:13px;color:#1a5276;margin-bottom:8px">📎 Anexos (' + attachItems.length + ')</div>'
+                + attachItems.join('')
+                + '<div style="margin-top:8px;font-size:11px;color:#888">Para baixar anexos grandes, abra o email diretamente no Outlook.</div>'
+                + '</div>';
+            }
+          }
+        } catch(ae){
+          _err('fetch attachments', ae);
+          attachHtml = '<div style="color:#888;font-size:12px;margin-top:10px">📎 Nao foi possivel carregar os anexos.</div>';
+        }
+      }
+
       document.getElementById('outlook-email-body').innerHTML = ''
         + '<h3 style="margin:0 0 14px;color:#003144;font-size:17px">'+_escHtml(m.subject||'(sem assunto)')+'</h3>'
         + '<div style="background:#f5f5f5;padding:10px 12px;border-radius:6px;font-size:12px;margin-bottom:14px">'
@@ -614,7 +655,8 @@
         +   (cc ? '<div><b>Cc:</b> '+_escHtml(cc)+'</div>' : '')
         +   (dt ? '<div><b>Data:</b> '+dt.toLocaleString('pt-BR')+'</div>' : '')
         + '</div>'
-        + '<div style="border-top:1px solid #e5e7eb;padding-top:14px">' + body + '</div>';
+        + '<div style="border-top:1px solid #e5e7eb;padding-top:14px">' + body + '</div>'
+        + attachHtml;
     } catch(e){
       _err('openEmail', e);
       document.getElementById('outlook-email-body').innerHTML = '<div style="color:#c0392b;padding:40px;text-align:center">Erro: '+e.message+'</div>';
