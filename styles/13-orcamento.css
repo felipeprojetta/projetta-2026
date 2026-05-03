@@ -435,25 +435,31 @@
 }
 .orc-item-titulo {
   font-family: var(--font-display);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--azul-escuro);
 }
 
 /* Secoes dentro do item */
 .orc-section {
-  padding: 16px 20px;
-  border-bottom: 1px dashed var(--line-soft);
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
 }
 .orc-section:last-child {
   border-bottom: none;
 }
 .orc-section-title {
   font-family: var(--font-display);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  color: var(--text-muted);
-  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--azul-escuro);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--laranja);
+  display: inline-block;
 }
 
 /* Felipe (sessao 2026-08): title bar com botoes a direita — usado
@@ -496,19 +502,21 @@
 .orc-field input,
 .orc-field select {
   width: 100%;
-  border: 1px solid var(--line);
+  border: 1.5px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 8px 10px;
+  padding: 9px 10px;
   font-size: 13px;
+  font-weight: 450;
   font-family: inherit;
-  color: var(--text-default);
+  color: var(--text);
   background: var(--branco);
-  transition: border-color 0.12s;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 .orc-field input:focus,
 .orc-field select:focus {
   outline: none;
   border-color: var(--azul-escuro);
+  box-shadow: 0 0 0 2px rgba(0, 49, 68, 0.1);
 }
 .orc-field input:disabled,
 .orc-field select:disabled {
@@ -518,8 +526,9 @@
 }
 .orc-field label {
   font-size: 11px;
-  letter-spacing: 0.10em;
-  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--text-soft);
 }
 .orc-field-hint {
   font-size: 11px;

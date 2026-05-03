@@ -32,7 +32,7 @@
   background: var(--cinza-mais-claro);
 }
 .lvp-meta-cell { display: flex; flex-direction: column; gap: 4px; }
-.lvp-meta-lbl  { font-size: 11px; color: var(--text-muted); letter-spacing: 0.05em; }
+.lvp-meta-lbl  { font-size: 11px; font-weight: 500; color: var(--text-soft); letter-spacing: 0.05em; }
 .lvp-meta-val  { font-size: 13px; color: var(--text-default); }
 
 /* Tabela principal de cortes */
@@ -145,7 +145,7 @@
   text-align: center;
 }
 .lvp-card-destaque { border-color: var(--laranja); background: #fff8ef; }
-.lvp-card-lbl  { font-size: 11px; color: var(--text-muted); letter-spacing: 0.04em; }
+.lvp-card-lbl  { font-size: 11px; font-weight: 500; color: var(--text-soft); letter-spacing: 0.04em; }
 .lvp-card-val  { font-size: 24px; color: var(--azul-escuro); margin: 6px 0; }
 .lvp-card-aprov{ color: var(--laranja); }
 .lvp-card-perda{ color: var(--text-muted); }
@@ -467,7 +467,7 @@
 }
 .lvp-summary-cell { display: flex; flex-direction: column; gap: 4px; }
 .lvp-summary-info { grid-column: span 1; }
-.lvp-summary-lbl  { font-size: 11px; color: var(--text-muted); letter-spacing: 0.05em; }
+.lvp-summary-lbl  { font-size: 11px; font-weight: 500; color: var(--text-soft); letter-spacing: 0.05em; }
 .lvp-summary-val  { font-size: 24px; color: var(--azul-escuro); }
 .lvp-summary-val-small { font-size: 13px; color: var(--azul-escuro); }
 
