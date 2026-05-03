@@ -4090,21 +4090,21 @@ const Orcamento = (() => {
     // Felipe (sessao 2026-10 FIX CRITICO): "nao esta puxando valores
     // perfis e pintura isso e basico, estava normal". Auto-popula
     // total_perfis e total_pintura usando recalcularPerfisESalvarNoFab
-    // — mesma logica que a aba Lev. Perfis usa. So sobrescreve se
-    // campo estiver vazio/zero (preserva edicao manual do usuario).
+    // — mesma logica que a aba Lev. Perfis usa. Usa resultado DIRETO
+    // do calculo (nao re-le da versao pra evitar timing issue).
     try {
       if (_ehVazioOuZero(fab.total_perfis) || _ehVazioOuZero(fab.total_pintura)) {
         const itensCalc = (versao.itens || []);
         if (itensCalc.length > 0) {
           const rPerfis = recalcularPerfisESalvarNoFab(versao, itensCalc);
-          // Apos recalcular, re-le o fab da versao (recalcular ja atualizou)
-          const versaoAtualizada = versaoAtiva();
-          if (versaoAtualizada && versaoAtualizada.custoFab) {
-            if (_ehVazioOuZero(fab.total_perfis)) {
-              fab.total_perfis = versaoAtualizada.custoFab.total_perfis || 0;
+          if (rPerfis && rPerfis.result) {
+            const custoPerfisCalc  = Math.round((rPerfis.result.custoPerfis  || 0) * 100) / 100;
+            const custoPinturaCalc = Math.round((rPerfis.result.custoPintura || 0) * 100) / 100;
+            if (_ehVazioOuZero(fab.total_perfis) && custoPerfisCalc > 0) {
+              fab.total_perfis = custoPerfisCalc;
             }
-            if (_ehVazioOuZero(fab.total_pintura)) {
-              fab.total_pintura = versaoAtualizada.custoFab.total_pintura || 0;
+            if (_ehVazioOuZero(fab.total_pintura) && custoPinturaCalc > 0) {
+              fab.total_pintura = custoPinturaCalc;
             }
           }
         }
@@ -11120,7 +11120,7 @@ const Orcamento = (() => {
     const totalUnidades = itens.reduce((s, it) => s + (Number(it.quantidade) || 1), 0);
     container.innerHTML = `
       ${bannerCaracteristicasItens(versao)}
-      <div class="info-banner orc-banner-aviso">
+      ${itens.length >= 2 ? `<div class="info-banner orc-banner-aviso">
         <span class="t-strong">Levantamento de Acessorios — Multi-Item</span><br>
         <b>${itens.length}</b> tipo(s) de Porta Externa nesta versao,
         totalizando <b>${totalUnidades}</b> unidade(s).
@@ -11129,8 +11129,9 @@ const Orcamento = (() => {
         (ex: 10 portas iguais → x10). O Total Geral no fim soma TUDO.
         Acessorios marcados <i>(nao cadastrado)</i> precisam ser
         adicionados em <span class="t-strong">Cadastros &gt; Acessorios</span>.
-      </div>
+      </div>` : ''}
       ${blocosItens}
+      ${itens.length >= 2 ? `
       <div style="background:linear-gradient(135deg,#1a3a5c,#2a5a8c);border-radius:8px;padding:16px 20px;margin-top:16px;color:#fff;">
         <div style="font-weight:700;font-size:1.1em;letter-spacing:0.5px;">
           Total Geral (${itens.length} item(ns) · ${totalUnidades} unid.)
@@ -11140,7 +11141,7 @@ const Orcamento = (() => {
           · Obra: <span style="font-weight:700;font-size:1.2em;color:#90caf9;">${fmtMoney(totalGeralObra)}</span>
           · <span style="font-weight:700;font-size:1.4em;color:#ffeb3b;text-shadow:0 1px 3px rgba(0,0,0,0.3);">Geral: ${fmtMoney(totalGeralFab + totalGeralObra)}</span>
         </div>
-      </div>
+      </div>` : ''}
     `;
 
     // R18: aplica autoEnhance em todas as tabelas (filtro + sort)
