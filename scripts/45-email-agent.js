@@ -169,15 +169,40 @@
       var arr = new Uint8Array(raw.length);
       for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
 
-      // Extrair texto do PDF
+      // Extrair texto do PDF — 2 métodos
       log('   🔍 Extraindo texto do checklist...');
-      var pdf = await window.pdfjsLib.getDocument({ data: arr }).promise;
       var textoCompleto = '';
-      for (var p = 1; p <= pdf.numPages; p++) {
-        var page = await pdf.getPage(p);
-        var tc = await page.getTextContent();
-        var pageText = tc.items.map(function(it) { return it.str; }).join(' ');
-        textoCompleto += pageText + '\n';
+
+      // Método 1: pdf.js
+      try {
+        await _loadPdfJs();
+        if (window.pdfjsLib) {
+          var pdf = await window.pdfjsLib.getDocument({ data: arr }).promise;
+          for (var p = 1; p <= pdf.numPages; p++) {
+            var page = await pdf.getPage(p);
+            var tc = await page.getTextContent();
+            var pageText = tc.items.map(function(it) { return it.str; }).join(' ');
+            textoCompleto += pageText + '\n';
+          }
+        }
+      } catch(_pdfErr) { log('   ⚠ pdf.js falhou: ' + _pdfErr.message); }
+
+      // Método 2: se pdf.js extraiu pouco, tenta leitura bruta dos bytes
+      if (textoCompleto.replace(/\s/g, '').length < 20) {
+        log('   🔄 pdf.js extraiu pouco, tentando leitura bruta...');
+        // Decodifica bytes como texto Latin1 e busca strings legíveis
+        var rawText = '';
+        for (var i = 0; i < raw.length; i++) rawText += raw[i];
+        // Extrai strings entre parênteses (como PDFs armazenam texto)
+        var pdfStrings = rawText.match(/\(([^)]{2,})\)/g) || [];
+        textoCompleto = pdfStrings.map(function(s) {
+          return s.slice(1, -1) // remove ( )
+            .replace(/\\n/g, ' ')
+            .replace(/\\\(/g, '(')
+            .replace(/\\\)/g, ')')
+            .replace(/\\(\d{3})/g, function(_, oct) { return String.fromCharCode(parseInt(oct, 8)); });
+        }).join(' ');
+        log('   📝 Bruto: ' + textoCompleto.length + ' chars de ' + pdfStrings.length + ' strings');
       }
 
       log('   📝 Texto extraido (' + textoCompleto.length + ' chars)');
