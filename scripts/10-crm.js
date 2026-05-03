@@ -224,6 +224,7 @@
         representante: lead.representante || '',
         representante_followup: lead.representante_followup || '',
         representante_contato: lead.representante_contato || '',
+        data_reserva: lead.data_reserva || '',
         // R01: valor SEMPRE com 2 casas decimais formato BR (ex: 80.000,00)
         valor: lead.valor != null ? fmtBR(lead.valor) : '',
         etapa: lead.etapa || 'qualificacao',
@@ -661,6 +662,7 @@
           modalState.email = dados.email || '';
           modalState.representante = dados.representante || '';
           modalState.representante_followup = dados.representante_followup || '';
+          modalState.data_reserva = dados.data_reserva || '';
           // Tenta resolver CEP automaticamente
           if (modalState.cep) {
             try {
@@ -962,6 +964,7 @@
             representante_contato:  (m.representante_contato || '').trim(),
             numeroReserva: m.numeroReserva.trim(),
             numeroAGP: m.numeroAGP.trim(),
+            data_reserva: (m.data_reserva || '').trim(),
             valor: valorNum,
             etapa: m.etapa,
             destinoTipo: m.destinoTipo || 'nacional',
@@ -1277,6 +1280,7 @@
           <div class="crm-card" draggable="true" data-id="${l.id}">
             <div class="crm-card-titulo">${escapeHtml(l.cliente || '(sem nome)')}</div>
             ${reservaLabel ? `<div class="crm-card-numeros">${reservaLabel}</div>` : ''}
+            ${l.data_reserva ? `<div class="crm-card-contato" style="font-size:11px;color:var(--text-muted);">📅 Reserva: ${escapeHtml(l.data_reserva)}</div>` : ''}
             ${l.telefone ? `<div class="crm-card-contato">📞 ${escapeHtml(l.telefone)}</div>` : ''}
             ${l.email ? `<div class="crm-card-contato">✉ ${escapeHtml(l.email)}</div>` : ''}
             ${agpField}

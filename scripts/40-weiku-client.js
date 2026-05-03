@@ -87,6 +87,7 @@ const WeikuClient = (() => {
       codigo_agp: raw.codigo_agp || raw.codigo || raw.agp || '',
       reserva:    raw.reserva || '',
       tipo:       raw.tipo || '',
+      data_reserva: raw.data_reserva || raw.dataReserva || raw.dt_reserva || '',
     };
   }
 
@@ -178,6 +179,7 @@ const WeikuClient = (() => {
         codigo_agp: raw.codigo || raw.agp || '',
         reserva: raw.reserva || num,
         tipo: raw.tipo || '',
+        data_reserva: raw.data_reserva || raw.dataReserva || raw.dt_reserva || raw.data || '',
       });
     } catch (e) {
       // Se CORS falhar (localhost), mostra mensagem clara

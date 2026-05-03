@@ -26,8 +26,8 @@
   --line:            #E1E3E6;
   --line-soft:       #EDEFF1;
   --text:            var(--azul-escuro);
-  --text-soft:       #4A5560;
-  --text-muted:      #8892A0;
+  --text-soft:       #3A4550;
+  --text-muted:      #5F6B7A;
   --success:         #2E7D5B;
   --danger:          #C0392B;
   --warning:         var(--laranja);
