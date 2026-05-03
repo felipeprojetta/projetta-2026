@@ -453,3 +453,32 @@
 
   console.log('[email-agent] Agente de email carregado');
 })();
+
+// ── Limpar TODAS as tags/categorias de todos os emails ──
+window.outlookLimparTodasTags = async function() {
+  var token = localStorage.getItem('projetta_outlook_access_token');
+  if (!token) { alert('Conecte ao Outlook primeiro'); return; }
+  try {
+    // Busca emails que tem categorias
+    var resp = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=50&$filter=categories/any()&$select=id,subject,categories', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!resp.ok) throw new Error('Erro ' + resp.status);
+    var data = await resp.json();
+    var emails = data.value || [];
+    if (!emails.length) { alert('Nenhum email com tags encontrado'); return; }
+    var count = 0;
+    for (var i = 0; i < emails.length; i++) {
+      await fetch('https://graph.microsoft.com/v1.0/me/messages/' + emails[i].id, {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: [] })
+      });
+      count++;
+    }
+    alert(count + ' email(s) limpo(s). Atualize a lista.');
+    if (typeof outlookRefreshInbox === 'function') outlookRefreshInbox();
+  } catch(e) {
+    alert('Erro: ' + e.message);
+  }
+};
