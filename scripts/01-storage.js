@@ -28,6 +28,12 @@ const Storage = (() => {
         },
         set(k, value) {
           localStorage.setItem(PREFIX + scopeName + ':' + k, JSON.stringify(value));
+          // Sync pro Supabase em background (via Database sbUpsert interno)
+          // Database.set() ja faz localStorage + sbUpsert + emit, 
+          // mas precisamos evitar double-emit. Entao chamamos direto.
+          if (typeof Database !== 'undefined' && Database._sbUpsert) {
+            try { Database._sbUpsert(scopeName, k, value); } catch(_) {}
+          }
           Events.emit('db:change', { scope: scopeName, key: k, value });
         },
         remove(k) {

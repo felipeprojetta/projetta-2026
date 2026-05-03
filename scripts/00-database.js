@@ -74,7 +74,22 @@ const Database = (() => {
       rows.forEach(function(r) {
         var lsKey = PREFIX + r.scope + ':' + r.key;
         try {
-          localStorage.setItem(lsKey, JSON.stringify(r.valor));
+          // NAO sobrescreve dados locais com arrays vazios do Supabase.
+          // Isso evita perder leads/dados que ainda nao foram syncados.
+          var valorSb = r.valor;
+          if (Array.isArray(valorSb) && valorSb.length === 0) {
+            var localRaw = localStorage.getItem(lsKey);
+            if (localRaw !== null) {
+              try {
+                var localVal = JSON.parse(localRaw);
+                if (Array.isArray(localVal) && localVal.length > 0) {
+                  // Local tem dados, Supabase vazio — preserva local
+                  return;
+                }
+              } catch(_) {}
+            }
+          }
+          localStorage.setItem(lsKey, JSON.stringify(valorSb));
           count++;
         } catch(e) {}
       });
@@ -186,6 +201,7 @@ const Database = (() => {
     scope: scope,
     syncFromCloud: syncFromCloud,
     syncToCloud: syncToCloud,
+    _sbUpsert: sbUpsert,
     SUPABASE_URL: SUPABASE_URL,
   };
 })();
