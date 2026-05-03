@@ -1,0 +1,3040 @@
+/* ============================================================
+   ORCAMENTO — module 13
+   Prefixo: .orc-*
+   R03 paleta Projetta (azul, laranja, cinzas)
+   R19 sem font-weight pesado (max 600)
+   R20 sem text-transform uppercase
+   R11 sem fundo colorido em texto
+   ============================================================ */
+
+.orc-banner {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--laranja);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.orc-banner-info {
+  /* sem flex:1 — banner usa space-between, info fica justo ao conteudo */
+}
+
+.orc-banner-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.orc-btn-zerar {
+  font-size: 11px;
+  padding: 6px 12px;
+  background: var(--branco);
+  color: var(--text-default);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.orc-btn-zerar:hover {
+  background: var(--cinza-mais-claro);
+  border-color: var(--laranja);
+  color: var(--laranja);
+}
+
+/* Conferencia — Custo e Preco Final */
+.orc-section-card.orc-conferencia {
+  border-left: 3px solid var(--laranja);
+}
+
+/* Resumo destacado: Custo / Preco da Proposta / Cliente Paga */
+.orc-conf-resumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.orc-conf-resumo-bloco {
+  width: 220px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--cinza-mais-claro);
+}
+.orc-conf-resumo-bloco.orc-conf-destaque {
+  background: var(--branco);
+  border-color: var(--azul-escuro);
+  border-width: 2px;
+}
+/* Felipe (sessao 2026-05): bloco destaque com cor verde se for receita,
+   e azul-escuro se for custo de fato */
+.orc-conf-resumo-bloco.orc-conf-destaque .orc-conf-resumo-valor {
+  color: #16a34a;
+  font-weight: 800;
+}
+.orc-conf-resumo-label {
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.orc-conf-resumo-valor {
+  font-size: 16px;
+  color: var(--azul-escuro);
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+.orc-conf-resumo-detalhe {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Tabela DRE (formato contabil) */
+.orc-dre-conf {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  background: var(--cinza-mais-claro);
+}
+.orc-dre-conf-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+  padding: 5px 0;
+}
+.orc-dre-conf-label {
+  /* R06: width JUSTO ao conteudo. Maior label e "(-) Custo direto (Fab + Inst + overhead)" ~40 chars em monospace 12.5px */
+  width: 360px;
+  color: var(--text-default);
+}
+.orc-dre-conf-valor {
+  width: 140px;
+  text-align: right;
+  color: var(--text-default);
+}
+.orc-dre-conf-pct {
+  width: 80px;
+  text-align: right;
+  color: var(--text-muted);
+}
+.orc-dre-conf-row.is-destaque {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.orc-dre-conf-row.is-destaque .orc-dre-conf-label,
+.orc-dre-conf-row.is-destaque .orc-dre-conf-valor,
+.orc-dre-conf-row.is-destaque .orc-dre-conf-pct {
+  color: var(--azul-escuro);
+}
+.orc-dre-conf-row.is-subtotal .orc-dre-conf-label,
+.orc-dre-conf-row.is-subtotal .orc-dre-conf-valor,
+.orc-dre-conf-row.is-subtotal .orc-dre-conf-pct {
+  color: var(--text-muted);
+  border-bottom: 1px dashed var(--line);
+  padding-bottom: 5px;
+}
+
+/* Felipe (sessao 2026-06): linhas (−) Impostos / Comissao / Custo Direto
+   / IRPJ aparecem com VALOR em VERMELHO — pedido textual: "coloque
+   custo no DRE de vermelho". O label fica neutro pra leitura, so o
+   valor R$ chama atencao pelo desconto. */
+.orc-dre-conf-row.is-deducao .orc-dre-conf-valor,
+.orc-dre-conf-row.is-deducao .orc-dre-conf-pct {
+  color: #c43d3d;
+  font-weight: 600;
+}
+
+/* Lista de itens em chips no topo da aba */
+.orc-itens-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.orc-item-chip {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--branco);
+  overflow: hidden;
+}
+.orc-item-chip.is-active {
+  border-color: var(--azul-escuro);
+}
+.orc-item-chip-label {
+  font-size: 11px;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--text-default);
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+.orc-item-chip.is-active .orc-item-chip-label {
+  background: var(--azul-escuro);
+  color: var(--branco);
+}
+.orc-item-chip-label:hover {
+  background: var(--cinza-mais-claro);
+}
+.orc-item-chip.is-active .orc-item-chip-label:hover {
+  background: var(--azul-escuro);
+}
+.orc-item-chip-remove {
+  font-size: 11px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-left: 1px solid var(--line);
+  cursor: pointer;
+  font-family: inherit;
+}
+.orc-item-chip-remove:hover {
+  background: var(--cinza-mais-claro);
+  color: var(--azul-escuro);
+}
+.orc-item-add-wrapper {
+  margin-left: 4px;
+}
+.orc-item-add {
+  font-size: 11px;
+  padding: 6px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  background: var(--branco);
+  color: var(--azul-escuro);
+  font-family: inherit;
+  cursor: pointer;
+}
+.orc-item-add:hover {
+  border-color: var(--azul-escuro);
+  background: var(--cinza-mais-claro);
+}
+
+.orc-tag-lead,
+.orc-tag-dev,
+.orc-tag-fechada,
+.orc-tag-aprovada,
+.orc-tag-draft {
+  margin-left: 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+}
+.orc-tag-lead {
+  border-color: var(--azul-escuro);
+  color: var(--azul-escuro);
+}
+.orc-tag-dev {
+  border-color: var(--laranja);
+  color: var(--laranja);
+}
+.orc-tag-fechada {
+  border-color: var(--azul-escuro);
+  color: var(--azul-escuro);
+}
+/* Felipe (sessao 2026-06): nova tag pra versao APROVADA mas nao
+   fechada — DRE foi enviada pro CRM mas a versao nao virou historico
+   ainda. Visualmente: laranja com fundo claro. */
+.orc-tag-aprovada {
+  border-color: var(--laranja);
+  background: #fff5ed;
+  color: var(--laranja);
+  font-weight: 600;
+}
+
+/* Felipe (sessao 2026-06): seletor de versao no banner do orcamento
+   — aparece quando ha mais de 1 versao na opcao atual. */
+.orc-banner-versao-sel {
+  margin-left: 10px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--branco);
+  cursor: pointer;
+}
+.orc-banner-versao-sel:hover { border-color: var(--laranja); }
+.orc-banner-versao-sel:focus { outline: none; border-color: var(--laranja); box-shadow: 0 0 0 2px rgba(196,112,18,.15); }
+
+/* Felipe (sessao 2026-06): botao "+ Nova Versao" — destaque medio
+   (fica entre os botoes principais sem ofuscar Calcular/Salvar). */
+.orc-btn-nova-versao {
+  font-size: 11px;
+  padding: 6px 12px;
+  background: var(--branco);
+  color: var(--laranja);
+  border: 1px solid var(--laranja);
+  border-radius: 4px;
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.12s, color 0.12s;
+}
+.orc-btn-nova-versao:hover {
+  background: var(--laranja);
+  color: var(--branco);
+}
+
+/* Felipe (sessao 2026-07): "AO GERAR DRE DEVE TRAVAR TODAS AS ABAS
+   DEVE SER SOMENTE LEITURA". Quando o container tem .is-orc-readonly,
+   todos os inputs ficam visualmente cinza e nao recebem clique. Botoes
+   de navegacao e EXPORTACAO (que nao alteram dados) ficam ativos:
+   voltar pro CRM, nova versao, exportar PDF/PNG, alternar versao,
+   alternar entre sub-abas de relatorios, etc.
+   Felipe (sessao 2026-08): "quando bloqueia apos aprovar dre liberar
+   relatorios" — aba relatorios + Padroes de Cortes ficam SEMPRE
+   liberadas (visualizar e imprimir). */
+.is-orc-readonly input:not([data-allow-readonly]),
+.is-orc-readonly select:not([data-allow-readonly]):not(.orc-banner-versao-sel):not(.lvp-edit),
+.is-orc-readonly textarea:not([data-allow-readonly]) {
+  pointer-events: none;
+  background: var(--cinza-mais-claro) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--line) !important;
+  cursor: not-allowed;
+}
+/* Botoes ficam clicaveis mas alguns sao perigosos — bloqueia os
+   que MUDAM dados. Whitelist de classes/IDs que SEMPRE funcionam: */
+.is-orc-readonly button:not(.orc-btn-back):not(.orc-btn-nova-versao):not([id="orc-prop-imprimir"]):not([id="orc-btn-back-crm"]):not([id="lvp-modal-pdf"]):not([id="lvp-modal-print"]):not(.lvp-subtab):not(.subtab):not(.tab):not(.crm-card-btn-orc):not(#orc-btn-calcular):not([data-tab]):not([data-action="select-item"]):not([data-toggle-layout]):not([data-tab-card]):not([data-rel-subtab]):not([data-export-png]):not([data-export-pdf]) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+/* Tudo dentro da aba RELATORIOS continua interativo, ja que e' so
+   visualizacao + exportacao (nao altera dados nenhum). */
+.is-orc-readonly .rep-section-head,
+.is-orc-readonly .rep-section-head *,
+.is-orc-readonly .rel-tabs,
+.is-orc-readonly .rel-tabs *,
+.is-orc-readonly .rel-pane,
+.is-orc-readonly .rel-pane * {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: default;
+}
+.is-orc-readonly .rel-tab-btn,
+.is-orc-readonly .rel-tab-btn *,
+.is-orc-readonly .rep-export-btn,
+.is-orc-readonly button[data-export-png],
+.is-orc-readonly button[data-export-pdf],
+.is-orc-readonly button[data-rel-subtab] {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
+/* Lev. Perfis — botoes de exportar tambem ficam liberados em readonly */
+.is-orc-readonly #lvp-btn-export-png,
+.is-orc-readonly #lvp-btn-export-pdf,
+.is-orc-readonly #lvp-btn-recalcular {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+/* Padroes de Cortes (modal) — botoes de impressao tambem liberados */
+.is-orc-readonly #lvp-modal-pdf,
+.is-orc-readonly #lvp-modal-print {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: pointer;
+}
+/* Banner explicativo aparece em TODAS as abas quando versao imutavel */
+.is-orc-readonly::before {
+  content: "📜 Modo Memorial — versao APROVADA/FECHADA, somente leitura. Use '+ Nova Versao' pra editar. Relatorios e exportacao ficam liberados.";
+  display: block;
+  background: #fff5ed;
+  color: var(--laranja);
+  border: 1px solid var(--laranja);
+  border-left: 4px solid var(--laranja);
+  padding: 8px 14px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+.orc-banner-memorial {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin: 10px 0;
+  background: #fff5ed;
+  border: 1px solid var(--laranja);
+  border-left: 4px solid var(--laranja);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-default);
+}
+.orc-banner-memorial-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.orc-banner-memorial-msg {
+  flex: 1;
+  line-height: 1.4;
+}
+.orc-banner-memorial-msg b {
+  color: var(--laranja);
+}
+
+.orc-btn-back {
+  font-size: 11px;
+  padding: 6px 12px;
+  background: var(--branco);
+  color: var(--azul-escuro);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.12s, border-color 0.12s;
+}
+.orc-btn-back:hover {
+  background: var(--cinza-mais-claro);
+  border-color: var(--azul-escuro);
+}
+
+/* Card do item */
+.orc-item {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  margin-bottom: 18px;
+}
+.orc-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.orc-item-titulo {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--azul-escuro);
+}
+
+/* Secoes dentro do item */
+.orc-section {
+  padding: 16px 20px;
+  border-bottom: 1px dashed var(--line-soft);
+}
+.orc-section:last-child {
+  border-bottom: none;
+}
+.orc-section-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+/* Felipe (sessao 2026-08): title bar com botoes a direita — usado
+   no bloco "Relatorio de Chapas" da aba Lev. Superficies. */
+.orc-section-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.orc-section-title-bar .orc-section-title {
+  margin-bottom: 0;
+}
+.orc-section-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Form rows / fields — R06: flex-wrap + min-width fixo por campo, SEM 1fr.
+   Cada campo tem largura justa ao conteudo esperado, e linha quebra no wrap. */
+.orc-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 0;
+}
+/* compatibilidade: classes cols-N viraram noop (mantem flex-wrap) */
+.orc-form-row.cols-1,
+.orc-form-row.cols-2,
+.orc-form-row.cols-3 { /* nada — flex-wrap controla */ }
+
+.orc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.orc-field input,
+.orc-field select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-default);
+  background: var(--branco);
+  transition: border-color 0.12s;
+}
+.orc-field input:focus,
+.orc-field select:focus {
+  outline: none;
+  border-color: var(--azul-escuro);
+}
+.orc-field input:disabled,
+.orc-field select:disabled {
+  background: var(--cinza-mais-claro);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+.orc-field label {
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  color: var(--text-muted);
+}
+.orc-field-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ========================================================== */
+/*           ABA: CUSTO FAB / INST  — R06 widths fixos          */
+/* ========================================================== */
+
+/* widths reusaveis */
+.orc-fi-w-num   { width: 130px; }
+.orc-fi-w-money { width: 200px; }
+
+/* header de Fabricacao com Total perfis */
+.orc-fi-fab-header {
+  margin-bottom: 14px;
+}
+.orc-fi-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 380px;
+  padding: 10px 14px;
+  background: var(--cinza-mais-claro);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.orc-fi-stat-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.orc-fi-stat-valor {
+  font-size: 16px;
+  color: var(--azul-escuro);
+}
+.orc-fi-stat-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.orc-fi-fab-config {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* tabela de etapas — widths fixos por coluna */
+.orc-fi-etapas {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--branco);
+  margin-bottom: 14px;
+  width: 600px;
+}
+.orc-fi-etapa-head,
+.orc-fi-etapa-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.orc-fi-etapa-head {
+  background: var(--cinza-mais-claro);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.orc-fi-etapa-row + .orc-fi-etapa-row {
+  border-top: 1px solid var(--line-soft);
+}
+.orc-fi-col-etapa { width: 220px; }
+.orc-fi-col-dias  { width: 100px; }
+.orc-fi-col-eq    { width: 90px; color: var(--text-muted);
+ font-size: 11px; }
+.orc-fi-col-horas { width: 220px; text-align: right;
+ }
+/* Felipe (sessao 28): coluna por item — multi-coluna em Custo Fabricacao.
+   Cada item vira uma coluna estreita; total e' a ultima. Tabela cresce
+   horizontalmente conforme adiciona item. */
+.orc-fi-col-item-h {
+  width: 80px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.orc-fi-col-item-h input {
+  width: 60px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: right;
+}
+.orc-fi-col-item-h input:focus {
+  outline: none;
+  border-color: var(--azul-escuro);
+}
+.orc-fi-col-total-h {
+  width: 70px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--azul-escuro);
+}
+.orc-fi-col-dias input,
+.orc-fi-col-horas input {
+  width: 80px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: right;
+}
+.orc-fi-col-dias input:focus,
+.orc-fi-col-horas input:focus {
+  outline: none;
+  border-color: var(--azul-escuro);
+}
+/* Felipe (sessao 28): tabela de fabricacao precisa crescer com mais
+   colunas. Desativa largura fixa de 600px do .orc-fi-etapas quando
+   ha multi-item (UI sabe). Pra simplicidade, deixa width auto no
+   container — flex permite que cada coluna ocupe o espaco. */
+.orc-fi-etapas { width: auto; min-width: 600px; max-width: 100%; overflow-x: auto; }
+
+/* totais da fabricacao */
+.orc-fi-totais {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  background: var(--cinza-mais-claro);
+  border-radius: var(--radius-sm);
+  width: 600px;
+}
+.orc-fi-total-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+.orc-fi-total-label { width: 380px; color: var(--text-default); }
+.orc-fi-total-valor { width: 180px; text-align: right;
+ color: var(--text-default); }
+.orc-fi-total-final {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+.orc-fi-total-final .orc-fi-total-label,
+.orc-fi-total-final .orc-fi-total-valor {
+  color: var(--azul-escuro);
+  font-size: 13px;
+}
+
+/* Felipe (sessao 2026-06): Distribuicao por Item — tabela compacta
+   no card de Fabricacao, mostrando custo proporcional por item.
+   Estilo coerente com tabelas largas (Lev Perfis, Relacao de Barras). */
+.orc-fi-distrib-wrap {
+  margin-top: 8px;
+  overflow-x: auto;
+}
+.orc-fi-distrib-tabela {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+.orc-fi-distrib-tabela thead th {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.orc-fi-distrib-tabela thead th.num { text-align: right; }
+.orc-fi-distrib-tabela tbody td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.orc-fi-distrib-tabela tbody td.num { text-align: right; }
+.orc-fi-distrib-tabela tbody tr:nth-child(even) td { background: var(--cinza-mais-claro); }
+.orc-fi-distrib-tabela tfoot td {
+  background: var(--cinza-mais-claro);
+  padding: 7px 8px;
+  border-top: 2px solid var(--azul-escuro);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.orc-fi-distrib-tabela tfoot td.num { text-align: right; }
+
+/* Instalacao - grade de campos
+   Felipe pediu layout vertical (coluna unica) igual ao Custo Fabricacao.
+   Mantem campos identicos, so reorganiza em pilha vertical. */
+.orc-fi-inst-grid {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 12px;
+  margin-bottom: 14px;
+  max-width: 380px;  /* limita largura igual a coluna do Fabricacao */
+}
+.orc-fi-inst-grid .orc-field {
+  width: 100%;
+}
+.orc-fi-inst-grid .orc-fi-w-num,
+.orc-fi-inst-grid .orc-fi-w-money {
+  width: 100%;  /* sobrepoe widths fixos quando dentro do grid vertical */
+}
+.orc-fi-inst-grid .orc-field input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.orc-fi-inst-grid .orc-field input:focus {
+  outline: none;
+  border-color: var(--azul-escuro);
+}
+
+.orc-fi-andaime-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: var(--cinza-mais-claro);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+  width: 600px;
+}
+.orc-fi-andaime-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.orc-fi-andaime-valor {
+  font-size: 13px;
+  color: var(--azul-escuro);
+}
+
+/* ----- Modo PROJETTA / TERCEIROS toggle ----- */
+.orc-fi-inst-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.orc-fi-modo-toggle {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.orc-fi-modo-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  background: var(--branco);
+  color: var(--text-default);
+}
+.orc-fi-modo-toggle label.is-ativo {
+  background: var(--azul-escuro);
+  color: var(--branco);
+}
+.orc-fi-modo-toggle input[type="radio"] {
+  display: none;
+}
+
+/* ----- Help text dentro de cada campo ----- */
+.orc-fi-help {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ----- Alertas (andaime, munk) ----- */
+.orc-fi-alerta {
+  display: block;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin: 10px 0;
+  width: 760px;
+  line-height: 1.45;
+}
+.orc-fi-alerta-info {
+  background: #fef7e8;
+  border-left: 3px solid var(--laranja);
+  color: var(--text-default);
+}
+.orc-fi-alerta-warn {
+  background: #fdecec;
+  border-left: 3px solid #c63a3a;
+  color: var(--text-default);
+}
+.orc-fi-alerta strong {
+  color: var(--azul-escuro);
+}
+
+/* ----- Bloco display (deslocamento, total dias, hotel) ----- */
+.orc-fi-bloco {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: #f0f6fa;
+  border-left: 3px solid var(--azul-escuro);
+  border-radius: var(--radius-sm);
+  margin: 10px 0;
+  width: 600px;
+}
+.orc-fi-bloco-label {
+  width: 380px;
+  font-size: 13px;
+  color: var(--text-default);
+}
+.orc-fi-bloco-detalhe {
+  width: 200px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.orc-fi-bloco-valor {
+  width: 120px;
+  text-align: right;
+  font-size: 16px;
+  color: var(--azul-escuro);
+}
+.orc-fi-bloco-destaque .orc-fi-bloco-valor {
+  font-size: 16px;
+  color: var(--azul-escuro);
+}
+.orc-fi-bloco-info {
+  display: block;
+  width: 760px;
+  background: var(--cinza-mais-claro);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-default);
+  margin: 8px 0;
+}
+
+/* sub-bloco do deslocamento (override) */
+.orc-fi-bloco-sub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 14px 14px 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.orc-fi-bloco-sub input {
+  width: 90px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+/* traço "—" no resumo quando modo terceiros */
+.orc-fi-traco {
+  color: var(--text-muted);
+}
+
+/* resumo da instalacao */
+.orc-fi-resumo {
+  width: 600px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--cinza-mais-claro);
+  padding: 12px 14px;
+}
+.orc-fi-resumo-titulo {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.orc-fi-resumo-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+.orc-fi-resumo-row > span:first-child {
+  width: 380px;
+  color: var(--text-default);
+}
+.orc-fi-resumo-row > span:last-child {
+  width: 180px;
+  text-align: right;
+  color: var(--text-default);
+}
+.orc-fi-resumo-row.orc-fi-total-final {
+  border-top: 2px solid var(--azul-escuro, #1f3658);
+  padding-top: 8px;
+  margin-top: 4px;
+  background: #f0fdf4;
+  margin-left: -8px;
+  margin-right: -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: 4px;
+}
+.orc-fi-resumo-row.orc-fi-total-final > span {
+  color: var(--azul-escuro);
+  font-size: 14px;
+  font-weight: 800 !important;
+}
+.orc-fi-resumo-row.orc-fi-total-final > span:last-child {
+  color: #16a34a !important;
+}
+
+.orc-f-qtd          { width: 100px; }
+.orc-f-dim          { width: 130px; }   /* largura, altura */
+.orc-f-folhas       { width: 130px; }   /* n° folhas (1 ou 2) */
+.orc-f-modelo       { width: 460px; }   /* descrições longas */
+.orc-f-revestimento { width: 280px; }
+.orc-f-cor          { width: 460px; }   /* R04: descricao de superficie e' longa, nao cortar */
+.orc-f-sistema      { width: 280px; }
+.orc-f-fech-mec     { width: 280px; }   /* hint "auto: 12 pinos" cabe */
+.orc-f-fech-dig     { width: 380px; }   /* R04: descricao de fechadura digital e' longa */
+.orc-f-cilindro     { width: 280px; }
+.orc-f-puxador      { width: 240px; }
+.orc-f-friso        { width: 180px; }
+.orc-f-friso-dist   { width: 260px; }
+/* Felipe (do doc): campos dinamicos por modelo (Caracteristicas do Modelo) */
+.orc-f-modelo-var   { width: 240px; }
+.orc-section-modelo-vars { background: #FFF8F0; border-left: 3px solid var(--laranja); }
+.orc-section-modelo-vars .orc-section-title { color: var(--laranja); }
+/* aba Custo */
+.orc-f-money        { width: 200px; }
+.orc-f-pct          { width: 140px; }
+
+/* hints inline ao lado de label — auto-aplicacao ou aviso de override */
+.orc-hint-auto {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--azul-escuro);
+  background: rgba(0, 49, 68, 0.08);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: normal;
+}
+.orc-hint-warn {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--laranja);
+  background: rgba(196, 112, 18, 0.10);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: normal;
+}
+
+/* ===== Aba Custo — section cards e DRE ===== */
+.orc-section-card {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.orc-section-card .orc-section-title {
+  margin-bottom: 10px;
+}
+.orc-helptext {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0 0 12px 0;
+}
+.orc-section-card.orc-resultado {
+  border-left: 3px solid var(--azul-escuro);
+}
+
+.orc-dre {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.orc-dre-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+.orc-dre-label {
+  width: 240px;
+  color: var(--text-default);
+}
+.orc-dre-formula {
+  flex: 0 0 auto;
+  width: 320px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.orc-dre-valor {
+  width: 160px;
+  text-align: right;
+  font-size: 13px;
+  color: var(--text-default);
+}
+.orc-dre-divisor {
+  border-top: 1px dashed var(--line);
+  margin: 6px 0;
+}
+.orc-dre-destaque .orc-dre-label,
+.orc-dre-destaque .orc-dre-valor {
+  color: var(--azul-escuro);
+}
+.orc-dre-destaque .orc-dre-valor {
+  font-size: 13px;
+}
+
+/* Botoes */
+.orc-actions {
+  padding: 16px 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+}
+.orc-btn-primary,
+.orc-btn-secondary {
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: opacity 0.12s, background 0.12s;
+}
+.orc-btn-primary {
+  background: var(--azul-escuro);
+  color: var(--branco);
+}
+.orc-btn-primary:hover { opacity: 0.85; }
+.orc-btn-secondary {
+  background: var(--branco);
+  color: var(--text-default);
+  border-color: var(--line);
+}
+.orc-btn-secondary:hover:not(:disabled) {
+  background: var(--cinza-mais-claro);
+}
+.orc-btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Aba CUSTO */
+.orc-custo-resumo {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  font-size: 13px;
+}
+.orc-custo-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line-soft);
+  color: var(--text-default);
+}
+.orc-custo-row:last-child { border-bottom: none; }
+.orc-custo-row.orc-custo-total {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 2px solid var(--azul-escuro);
+  border-bottom: none;
+  color: var(--azul-escuro);
+  font-size: 13px;
+}
+
+/* hint inline mostrando detalhe da etapa (ex: "(2 dias × 9h × qtd)") */
+.orc-helptext-inline {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+/* mensagem quando a versao nao tem itens com dados suficientes */
+.orc-fi-empty {
+  padding: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  font-style: italic;
+  border-top: 1px solid var(--line);
+}
+
+.orc-fi-help-ok    { color: #2E7D5B !important; }
+.orc-fi-help-error { color: #b04340 !important; }
+
+/* ============================================================
+   Custo Instalacao - Lista de itens (R-inegociavel: tudo puxa
+   da Caracteristica do Item). Cards lado a lado em grid auto-fit
+   pra comportar N itens sem crescer altura linearmente.
+   ============================================================ */
+.orc-fi-itens {
+  margin: 16px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+  max-width: 1100px;
+}
+.orc-fi-itens-titulo {
+  font-family: var(--font-body);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  grid-column: 1 / -1;  /* titulo ocupa linha inteira */
+}
+.orc-fi-item-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  background: var(--branco);
+}
+.orc-fi-item-titulo {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--azul-escuro);
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.orc-fi-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 3px 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+.orc-fi-item-lbl {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.orc-fi-item-val {
+  color: var(--azul-escuro);
+}
+.orc-fi-item-val.orc-fi-item-pendente {
+  color: var(--text-muted);
+}
+.orc-fi-item-vazio {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  background: var(--cinza-mais-claro);
+  border-radius: var(--radius);
+  grid-column: 1 / -1;
+}
+
+/* ============================================================
+   Felipe (R-fluxo Calcular/Recalcular):
+   - Botao Calcular/Recalcular no banner Caracteristicas
+   - Tela de bloqueio nas abas dependentes (Custo Fab/Inst,
+     DRE, Lev. Perfis) ate o usuario apertar Calcular
+   ============================================================ */
+.orc-btn-calcular {
+  padding: 7px 14px;
+  font-weight: 500;
+  font-size: 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  border: 1px solid;
+}
+.orc-btn-calcular.is-dirty {
+  /* Estado: nunca calculou OU editou apos calculo — laranja Projetta */
+  background: var(--laranja);
+  border-color: var(--laranja);
+  color: #fff;
+}
+.orc-btn-calcular.is-dirty:hover { background: #a85e0e; border-color: #a85e0e; }
+.orc-btn-calcular.is-ok {
+  /* Estado: calculado e atualizado — neutro/cinza */
+  background: var(--branco);
+  border-color: var(--line);
+  color: var(--text-soft);
+}
+.orc-btn-calcular.is-ok:hover { border-color: var(--azul-escuro); color: var(--azul-escuro); }
+
+.orc-tag-dirty {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--laranja);
+  color: #fff;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+.orc-tag-pending {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--cinza-mais-claro);
+  color: var(--text-soft);
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+
+.orc-needs-calc {
+  margin: 24px auto;
+  max-width: 640px;
+  padding: 32px 28px;
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+.orc-needs-calc-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  color: var(--laranja);
+}
+.orc-needs-calc h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--azul-escuro);
+  margin: 0 0 12px 0;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.orc-needs-calc p {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-soft);
+  line-height: 1.55;
+  margin: 0 0 20px 0;
+}
+.orc-needs-calc p b { color: var(--azul-escuro); font-weight: 600; }
+.orc-needs-calc-btn {
+  background: var(--azul-escuro);
+  color: #fff;
+  border: 1px solid var(--azul-escuro);
+  padding: 10px 22px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.orc-needs-calc-btn:hover { background: var(--azul-escuro-2); }
+
+/* ============================================================
+   Botao "Salvar como Versao N" — banner Caracteristicas.
+   R03: laranja Projetta. R11: sem fundo colorido atras de
+   texto solido — usa fundo laranja claro #FFF4E6 com borda
+   laranja e texto laranja escuro pra ficar legivel.
+   ============================================================ */
+.orc-btn-salvar-versao {
+  background: #FFF4E6;
+  border: 1px solid var(--laranja);
+  color: var(--laranja);
+  padding: 7px 14px;
+  font-weight: 500;
+  font-size: 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.orc-btn-salvar-versao:hover {
+  background: var(--laranja);
+  color: #fff;
+}
+
+/* ============================================================
+   Felipe (Sessao 2): tela de escolha de tipo do item.
+   Aparece quando item.tipo === '' (orcamento novo, sem tipo).
+   ============================================================ */
+.orc-tipo-wrap {
+  padding: 32px 40px;
+  max-width: 1100px;
+}
+.orc-tipo-titulo {
+  font-family: var(--font-titulo);
+  font-size: 24px;
+  color: var(--azul-escuro);
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+}
+.orc-tipo-help {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+.orc-tipo-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.orc-tipo-card {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--laranja);
+  border-radius: var(--radius);
+  padding: 24px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-body);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.orc-tipo-card:hover:not(.is-disabled) {
+  border-color: var(--laranja);
+  border-left-width: 4px;
+  background: #FFF8F0;
+  box-shadow: 0 2px 8px rgba(196, 112, 18, 0.12);
+}
+.orc-tipo-card.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-left-color: var(--line);
+}
+.orc-tipo-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+.orc-tipo-label {
+  font-size: 16px;
+  color: var(--azul-escuro);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.orc-tipo-desc {
+  font-size: 13px;
+  color: var(--text-soft);
+  line-height: 1.5;
+}
+.orc-tipo-status {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 3px;
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: 4px;
+}
+.orc-tipo-status.is-ok {
+  background: #EFF7F1;
+  color: #2c8240;
+  border: 1px solid #c6e3cf;
+}
+.orc-tipo-status.is-pending {
+  background: var(--cinza-mais-claro);
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+}
+
+/* Felipe (do doc): banner de representante no DRE com comissao sugerida */
+.orc-rep-banner {
+  margin: 12px 0;
+  padding: 10px 16px;
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--azul-escuro);
+  border-radius: var(--radius);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+}
+.orc-rep-banner.is-showroom {
+  border-left-color: var(--laranja);
+  background: #FFF8F0;
+}
+.orc-rep-banner-label {
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.orc-rep-banner-nome {
+  color: var(--azul-escuro);
+  font-weight: 500;
+}
+.orc-rep-banner-class {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+}
+.orc-rep-banner.is-showroom .orc-rep-banner-class {
+  border-color: var(--laranja);
+  color: var(--laranja);
+  background: var(--branco);
+}
+.orc-rep-banner-com {
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+.orc-rep-banner-btn {
+  margin-left: auto;
+  background: #FFF4E6;
+  border: 1px solid var(--laranja);
+  color: var(--laranja);
+  padding: 5px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--font-body);
+  letter-spacing: 0.04em;
+}
+.orc-rep-banner-btn:hover {
+  background: var(--laranja);
+  color: var(--branco);
+}
+
+/* ============================================================
+   Felipe (do doc - msg wizard): barra de "Proximo" no fim de cada
+   aba do Orcamento. Botao bem visivel, alinhado a direita.
+   ============================================================ */
+.orc-wizard-actions {
+  margin-top: 24px;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+  border-top: 1px solid var(--border);
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 49, 68, 0.02) 100%);
+}
+.orc-wizard-aviso {
+  color: var(--laranja-2);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.orc-wizard-btn-proximo {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  border: none;
+  padding: 12px 22px;
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.orc-wizard-btn-proximo:hover:not(.is-disabled) {
+  background: var(--laranja);
+  transform: translateX(2px);
+}
+.orc-wizard-btn-proximo.is-disabled,
+.orc-wizard-btn-proximo:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
+/* ============================================================
+   Felipe (do doc - msg "em todas as abas preciso largura altura
+   modelo"): banner com caracteristicas dos itens. Aparece DEPOIS
+   do cabecalho da empresa em todas as abas — e' o ponto-chave
+   de toda conferencia. Compacto, inline, info densa.
+   ============================================================ */
+.orc-bcar {
+  background: #f7f8fa;
+  border-left: 3px solid var(--azul-escuro);
+  padding: 10px 14px;
+  margin: 0 0 14px 0;
+  border-radius: 2px;
+}
+.orc-bcar-titulo {
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.orc-bcar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--text-default);
+  padding: 3px 0;
+  align-items: baseline;
+}
+.orc-bcar-row + .orc-bcar-row {
+  border-top: 1px dashed var(--border);
+  margin-top: 3px;
+  padding-top: 6px;
+}
+.orc-bcar-num {
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.10em;
+  color: var(--azul-escuro);
+  background: rgba(0, 49, 68, 0.06);
+  padding: 2px 6px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+.orc-bcar-tipo {
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.10em;
+  color: var(--laranja);
+  text-transform: uppercase;
+}
+.orc-bcar-medidas {
+  font-size: 12px;
+  color: var(--text-strong);
+}
+.orc-bcar-modelo,
+.orc-bcar-folhas,
+.orc-bcar-qtd {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+/* Felipe (sessao 2026-05): linha de TOTAL DE HORAS no fim da tabela de
+   etapas (Fab/Inst). Destaca somatorio que antes so' aparecia
+   embutido no label "Subtotal horas (X h × R$ Y)". */
+.orc-fi-etapa-total {
+  border-top: 2px solid var(--azul-escuro, #003144);
+  background: #f3f5f8;
+  font-weight: 600;
+}
+.orc-fi-etapa-total .orc-fi-col-etapa {
+  color: var(--azul-escuro, #003144);
+  letter-spacing: 0.04em;
+}
+.orc-fi-help-detalhe {
+  font-size: 11px;
+  color: var(--cinza-medio, #8c92a0);
+  font-style: italic;
+}
+.orc-fi-total-horas-valor {
+  text-align: right;
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 13px;
+  color: var(--azul-escuro, #003144);
+  padding-right: 8px;
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): UI de pendencias zeradas
+   ============================================================
+   Banner de bloqueio detalhado quando campos do Custo Fab/Inst
+   estao em zero/vazio. Cada campo pode ser confirmado como
+   "zerado intencional" via botao inline.
+   ============================================================ */
+
+/* Banner principal (renderPrecisaCalcular com motivo='pendencias_zerados') */
+.orc-pend-wrap {
+  text-align: left;
+  margin: 20px auto 16px auto;
+  max-width: 720px;
+  background: #fffaf3;
+  border: 1px solid #f0c97a;
+  border-radius: 8px;
+  padding: 18px 22px;
+}
+.orc-pend-instr {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: var(--azul-escuro, #003144);
+  line-height: 1.5;
+}
+.orc-pend-instr-passos {
+  margin: 0 0 16px 0;
+  padding-left: 22px;
+  font-size: 13px;
+  color: var(--cinza-escuro, #4a5160);
+  line-height: 1.6;
+}
+.orc-pend-secao {
+  margin-top: 12px;
+  background: var(--branco, #ffffff);
+  border: 1px solid var(--cinza-borda, #e8eaed);
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+.orc-pend-secao-titulo {
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--laranja, #c47012);
+  margin-bottom: 6px;
+}
+.orc-pend-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.orc-pend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: #f9fafc;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.orc-pend-row:hover {
+  background: #f1f4f8;
+}
+.orc-pend-label {
+  color: var(--azul-escuro, #003144);
+  font-weight: 500;
+  flex: 1;
+}
+.orc-pend-valor {
+  font-size: 11px;
+  color: var(--cinza-medio, #8c92a0);
+  font-style: italic;
+  margin: 0 12px;
+}
+.orc-pend-btn-zerar {
+  background: var(--branco, #ffffff);
+  border: 1px solid #f0c97a;
+  color: var(--laranja, #c47012);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.orc-pend-btn-zerar:hover {
+  background: var(--laranja, #c47012);
+  color: var(--branco, #ffffff);
+}
+
+/* Inline na barra de wizard (botao Proximo) */
+.orc-wizard-pend-details {
+  margin: 8px 0;
+  background: var(--branco, #ffffff);
+  border: 1px solid var(--cinza-borda, #e8eaed);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+.orc-wizard-pend-summary {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--laranja, #c47012);
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+.orc-wizard-pend-summary:hover {
+  text-decoration: underline;
+}
+.orc-wizard-pend-lista {
+  list-style: none;
+  margin: 8px 0 4px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.orc-wizard-pend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 6px;
+  background: #f9fafc;
+  border-radius: 3px;
+  font-size: 12px;
+}
+.orc-wizard-pend-label {
+  color: var(--azul-escuro, #003144);
+  flex: 1;
+}
+.orc-wizard-pend-secao {
+  display: inline-block;
+  font-size: 9px;
+  letter-spacing: 0.10em;
+  background: #eef3f7;
+  color: var(--cinza-escuro, #4a5160);
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-right: 6px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.orc-wizard-pend-btn {
+  background: var(--branco, #ffffff);
+  border: 1px solid #f0c97a;
+  color: var(--laranja, #c47012);
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.orc-wizard-pend-btn:hover {
+  background: var(--laranja, #c47012);
+  color: var(--branco, #ffffff);
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): Card "Aprovar Orcamento" no DRE
+   Empurra valor pro lead do CRM e avanca etapa.
+   ============================================================ */
+.orc-aprovacao-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 18px;
+  margin-top: 14px;
+  background: #fffaf3;
+  border: 1px solid #f0c97a;
+  border-radius: 6px;
+  border-left: 4px solid var(--laranja);
+}
+.orc-aprovacao-card.is-aprovado {
+  background: #e8f5e9;
+  border-color: #66bb6a;
+  border-left-color: #2a7c3a;
+}
+.orc-aprovacao-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+.orc-aprovacao-icon {
+  font-size: 28px;
+  color: #2a7c3a;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.orc-aprovacao-titulo {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--azul-escuro);
+  margin-bottom: 2px;
+}
+.orc-aprovacao-detalhe {
+  font-size: 12.5px;
+  color: var(--cinza-escuro, #4a5160);
+  line-height: 1.4;
+}
+.orc-aprovacao-btn {
+  background: var(--laranja);
+  color: var(--branco);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.orc-aprovacao-btn:hover:not(.is-disabled) {
+  background: #a35d10;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(196, 112, 18, 0.3);
+}
+.orc-aprovacao-btn.is-disabled,
+.orc-aprovacao-btn:disabled {
+  background: #c0c4cb;
+  color: var(--branco);
+  cursor: not-allowed;
+}
+.orc-aprovacao-btn-reaprovar {
+  background: var(--branco);
+  border: 1px solid var(--laranja);
+  color: var(--laranja);
+  padding: 8px 14px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.orc-aprovacao-btn-reaprovar:hover {
+  background: var(--laranja);
+  color: var(--branco);
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): Modelo Externo + Interno e Cor Externa
+   + Interna em layout VERTICAL compacto.
+   540px e' largura suficiente pra mostrar nomes longos tipo
+   "As002 - Wood Carvalho Europeu Alusense Ldpe" sem cortar.
+   ============================================================ */
+.orc-modelo-stack,
+.orc-cor-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;          /* expande ate o limite */
+  max-width: 540px;     /* mas nao mais que isso */
+  min-width: 320px;     /* garante minimo razoavel */
+}
+.orc-modelo-stack .orc-field,
+.orc-cor-stack    .orc-field {
+  flex: none;
+  width: 100%;
+  /* Felipe: anular qualquer width fixa antiga (.orc-f-cor 460px) */
+  max-width: none !important;
+}
+/* Inputs do stack — largura 100% do field, com espaço pro dropdown */
+.orc-modelo-stack .orc-field input,
+.orc-cor-stack    .orc-field input {
+  width: 100% !important;
+  max-width: none !important;
+  padding-right: 28px;
+  text-overflow: ellipsis;
+}
+.orc-btn-copiar-stack {
+  align-self: center;
+  background: var(--branco);
+  color: var(--laranja);
+  border: 1px solid var(--laranja);
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  letter-spacing: 0.02em;
+}
+.orc-btn-copiar-stack:hover {
+  background: var(--laranja);
+  color: var(--branco);
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): aba Levantamento de Superficies
+   ============================================================ */
+.orc-lev-superficies-header {
+  background: var(--bg-suave);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+.orc-lev-superficies-header .orc-hint-text {
+  margin: 6px 0 12px 0;
+  color: var(--cinza-medio);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.orc-lev-sup-actions {
+  display: flex;
+  gap: 10px;
+}
+.orc-lev-sup-actions .orc-btn-link {
+  background: var(--branco);
+  border: 1px solid var(--cinza-claro);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--cinza-medio);
+  cursor: pointer;
+}
+.orc-lev-sup-actions .orc-btn-link[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.orc-lev-sup-item {
+  border: 1px solid var(--cinza-claro);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  background: var(--branco);
+}
+.orc-lev-sup-meta {
+  font-size: 12px;
+  color: var(--cinza-medio);
+  font-weight: normal;
+  margin-left: 8px;
+}
+.orc-lev-sup-quadro {
+  background: var(--bg-suave);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin: 8px 0 14px 0;
+  font-size: 13px;
+}
+.orc-lev-sup-quadro-label {
+  color: var(--cinza-medio);
+  margin-right: 6px;
+}
+.orc-lev-sup-lado {
+  margin-top: 14px;
+}
+.orc-lev-sup-lado-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--azul-escuro);
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.orc-lev-sup-cor-info {
+  font-weight: normal;
+  font-size: 11px;
+  color: var(--cinza-medio);
+  text-transform: none;
+  letter-spacing: normal;
+  margin-left: 8px;
+}
+.orc-lev-sup-table {
+  /* R06 — Felipe (sessao 2026-05): mesma correcao da .lvp-table.
+     Antes era width:100% que esticava a tabela ate o container, criando
+     espacos vazios entre colunas. Agora ocupa exatamente o tamanho do
+     conteudo. */
+  width: max-content;
+  font-size: 12px;
+}
+.orc-lev-sup-table .orc-lev-sup-cor {
+  font-size: 11px;
+  color: var(--cinza-medio);
+}
+/* Felipe (sessao 2026-05): select de Rotaciona Sim/Nao por linha.
+   Compacto, sem borda extra — fica integrado na celula igual ao texto
+   anterior. Quando Nao, a celula recebe .t-warn (laranja) que pinta
+   tambem o select. */
+.orc-lev-sup-rot-cell {
+  padding: 2px 6px;
+}
+.orc-lev-sup-rot-select {
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 4px;
+  border: 1px solid var(--cinza-claro);
+  border-radius: 3px;
+  background: var(--branco);
+  color: inherit;
+  cursor: pointer;
+}
+.orc-lev-sup-rot-select:focus {
+  outline: 2px solid var(--laranja);
+  outline-offset: 1px;
+}
+.orc-lev-sup-rot-cell.t-warn .orc-lev-sup-rot-select {
+  color: var(--laranja);
+  border-color: var(--laranja);
+  background: #fff8ef;
+  font-weight: 600;
+}
+.orc-lev-sup-empty {
+  background: var(--bg-suave);
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--cinza-medio);
+  margin: 0;
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): Aproveitamento de Chapas — cards
+   ============================================================ */
+.orc-aproveitamento-section {
+  margin-top: 24px;
+}
+.orc-aprov-cor {
+  background: var(--branco);
+  border: 1px solid var(--cinza-claro);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+.orc-aprov-cor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--bg-suave);
+}
+.orc-aprov-cor-titulo {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--azul-escuro);
+}
+.orc-aprov-cor-stats {
+  font-size: 12px;
+  color: var(--cinza-medio);
+}
+.orc-aprov-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.orc-aprov-card {
+  position: relative;
+  border: 1px solid var(--cinza-claro);
+  border-radius: 6px;
+  padding: 12px 14px;
+  background: var(--bg-suave);
+  text-align: center;
+}
+.orc-aprov-card.is-melhor {
+  border: 2px solid #2ea44f;
+  background: #e6f9eb;
+}
+.orc-aprov-melhor-badge {
+  position: absolute;
+  top: -10px;
+  right: 8px;
+  background: #2ea44f;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.orc-aprov-card-tam {
+  font-size: 11px;
+  color: var(--cinza-medio);
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+}
+.orc-aprov-card-num {
+  font-size: 20px;
+  color: var(--azul-escuro);
+  margin-bottom: 4px;
+}
+.orc-aprov-card-num b {
+  font-size: 28px;
+}
+.orc-aprov-card-taxa {
+  font-size: 12px;
+  color: var(--cinza-medio);
+  margin: 4px 0;
+}
+.orc-aprov-card-custo {
+  font-size: 13px;
+  color: var(--azul-escuro);
+  font-weight: 600;
+  margin-top: 6px;
+}
+.orc-aprov-card.is-melhor .orc-aprov-card-custo {
+  color: #2ea44f;
+}
+.orc-aprov-card-erro {
+  font-size: 10px;
+  color: #d73a49;
+  margin-top: 6px;
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): Pesos Porta/Portal/Total
+   ============================================================ */
+.orc-aprov-card-peso {
+  font-size: 12px;
+  color: var(--cinza-medio);
+  margin-top: 4px;
+  font-weight: 500;
+}
+.orc-aprov-card.is-melhor .orc-aprov-card-peso {
+  color: #2ea44f;
+  font-weight: 600;
+}
+
+/* Bloco de pesos por cor (porta / portal / total) */
+.orc-aprov-pesos {
+  background: var(--bg-suave);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.orc-aprov-pesos-titulo {
+  font-weight: 600;
+  color: var(--azul-escuro);
+  margin-bottom: 6px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.orc-aprov-pesos-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+}
+.orc-aprov-pesos-row.orc-aprov-pesos-total {
+  border-top: 1px solid var(--cinza-claro);
+  margin-top: 4px;
+  padding-top: 6px;
+  font-weight: 600;
+}
+
+/* Resumo final consolidado */
+.orc-aprov-resumo-total {
+  margin-top: 24px;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, #f8fafe 0%, #eef4fa 100%);
+  border-radius: 8px;
+  border: 1px solid var(--cinza-claro);
+}
+.orc-aprov-resumo-titulo {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--azul-escuro);
+  margin-bottom: 14px;
+}
+.orc-aprov-resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.orc-aprov-resumo-card {
+  background: var(--branco);
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--cinza-claro);
+}
+.orc-aprov-resumo-card.orc-aprov-resumo-destaque {
+  background: #16a34a;  /* verde — peso útil = peso da porta pronta */
+  color: var(--branco);
+  border-color: #15803d;
+}
+.orc-aprov-resumo-label {
+  font-size: 11px;
+  color: var(--cinza-medio);
+  margin-bottom: 4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.orc-aprov-resumo-card.orc-aprov-resumo-destaque .orc-aprov-resumo-label {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 700;
+}
+.orc-aprov-resumo-valor {
+  font-size: 16px;
+  color: var(--azul-escuro);
+  font-weight: 700;
+}
+.orc-aprov-resumo-card.orc-aprov-resumo-destaque .orc-aprov-resumo-valor {
+  color: var(--branco);
+  font-size: 18px;
+  font-weight: 800;
+}
+.orc-aprov-resumo-aviso {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #fff8e1;
+  border-radius: 4px;
+  border-left: 3px solid #ff9800;
+  color: #663c00;
+}
+
+/* Felipe (sessao 2026-05): card destaque LARANJA (custo total revestimento)
+   — ate' agora so' tinha o verde (peso util). Cor laranja casa com o
+   tema Projetta e indica "valor financeiro". */
+.orc-aprov-resumo-card.orc-aprov-resumo-destaque-laranja {
+  background: #fff4e6;
+  border-color: var(--laranja);
+}
+.orc-aprov-resumo-card.orc-aprov-resumo-destaque-laranja .orc-aprov-resumo-valor {
+  color: var(--laranja);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+/* Felipe (sessao 2026-05): tabela de Custo por cor — Felipe pediu
+   "preco unitario x quantidade por cor — entao se tem 3 cores tem 3
+   linhas com preco unitario x quantidade de cada cor e um valor total
+   para conferencia". Compacta (R06), zebra (R02), 2 casas (R01). */
+.orc-aprov-resumo-tabela-wrap {
+  margin-top: 16px;
+  background: var(--branco);
+  border: 1px solid var(--cinza-claro);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+.orc-aprov-resumo-tabela-titulo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--azul-escuro);
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+.orc-aprov-resumo-tabela {
+  width: max-content;     /* R06 — sem espacos vazios */
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.orc-aprov-resumo-tabela thead th {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.orc-aprov-resumo-tabela thead th.num { text-align: right; }
+.orc-aprov-resumo-tabela tbody td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.orc-aprov-resumo-tabela tbody td.num { text-align: right; }
+.orc-aprov-resumo-tabela tbody tr:nth-child(even) td { background: #E4E8EE; }
+.orc-aprov-resumo-tabela .orc-aprov-rev-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.orc-aprov-resumo-tabela .orc-aprov-rev-fonte {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.orc-aprov-resumo-tabela .orc-aprov-rev-sel .orc-aprov-rev-fonte {
+  color: #16a34a;
+  font-weight: 600;
+}
+.orc-aprov-resumo-tabela .orc-aprov-rev-auto .orc-aprov-rev-fonte {
+  color: var(--cinza-medio);
+}
+.orc-aprov-resumo-tabela .orc-aprov-rev-total td {
+  background: #FFF4E6 !important;
+  color: var(--laranja);
+  font-weight: 700;
+  border-top: 2px solid var(--laranja);
+  border-bottom: none;
+  padding: 8px 10px;
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): badges de categoria + peso por peca
+   ============================================================ */
+.orc-cat-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.orc-cat-porta {
+  background: #fff4e6;
+  color: #b85d00;
+  border: 1px solid #ffd9a8;
+}
+.orc-cat-portal {
+  background: #e6f0ff;
+  color: #1e40af;
+  border: 1px solid #b3d4ff;
+}
+.orc-cat-rev {
+  background: #f0e6ff;
+  color: #6b21a8;
+  border: 1px solid #d4b3ff;
+}
+.orc-lev-sup-peso-total {
+  font-size: 12px;
+  color: var(--cinza-medio);
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: monospace;
+}
+.orc-lev-sup-peso-total b {
+  color: var(--azul-escuro);
+}
+.orc-lev-sup-lado-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): preco unit/total + cards inviaveis
+   ============================================================ */
+.orc-aprov-card-precos {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--cinza-bg, #e8e8e8);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.orc-aprov-card-preco-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--cinza-medio, #6b6b6b);
+}
+.orc-aprov-card-preco-row b {
+  color: var(--azul-escuro, #1f3658);
+  font-family: monospace;
+}
+.orc-aprov-card-preco-total {
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--cinza-bg, #e8e8e8);
+  font-size: 12px;
+}
+.orc-aprov-card-preco-total b {
+  font-size: 13px;
+  font-weight: 700;
+}
+.orc-aprov-card.is-melhor .orc-aprov-card-preco-total b {
+  color: #16a34a;
+}
+
+.orc-aprov-card.is-inviavel {
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  opacity: 0.7;
+}
+.orc-aprov-card.is-inviavel .orc-aprov-card-tam {
+  color: #b91c1c;
+  text-decoration: line-through;
+}
+.orc-aprov-card-inviavel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: #b91c1c;
+  font-size: 12px;
+}
+.orc-aprov-card-inviavel-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #b91c1c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.orc-aprov-card-inviavel-motivo {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #7f1d1d;
+  line-height: 1.4;
+  font-style: italic;
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): layout SVG do nesting (Rodada 2)
+   ============================================================ */
+.orc-aprov-card-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.orc-aprov-card-btn-layout {
+  margin-top: 10px;
+  padding: 6px 10px;
+  font-size: 11px;
+  background: #fff;
+  border: 1px solid #d4af37;
+  border-radius: 4px;
+  color: #5d4a17;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: all 0.15s;
+}
+.orc-aprov-card-btn-layout:hover {
+  background: #fef9c3;
+  border-color: #a16207;
+}
+.orc-aprov-card.is-melhor .orc-aprov-card-btn-layout {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #fff;
+}
+.orc-aprov-card.is-melhor .orc-aprov-card-btn-layout:hover {
+  background: #15803d;
+}
+
+.orc-aprov-layout-wrap {
+  margin-top: 12px;
+  padding: 16px;
+  background: #fafaf9;
+  border: 1px solid #d6d3d1;
+  border-radius: 6px;
+}
+
+.orc-aprov-layout-header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e7e5e4;
+}
+.orc-aprov-layout-titulo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--azul-escuro, #1f3658);
+  letter-spacing: 0.02em;
+}
+
+.orc-aprov-layout-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.orc-aprov-layout-top {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .orc-aprov-layout-top { grid-template-columns: 1fr; }
+}
+
+.orc-aprov-detalhes {
+  background: #fff;
+  border: 1px solid #d6d3d1;
+  border-radius: 4px;
+  padding: 12px;
+  font-size: 11px;
+}
+.orc-aprov-detalhes-titulo {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--azul-escuro, #1f3658);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e7e5e4;
+}
+.orc-aprov-detalhes-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  color: #57534e;
+}
+.orc-aprov-detalhes-row b {
+  color: var(--azul-escuro, #1f3658);
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.orc-aprov-layout-svg-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.orc-aprov-svg-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.orc-aprov-svg-tab {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: #fff;
+  border: 1px solid #d6d3d1;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #57534e;
+  font-weight: 600;
+}
+.orc-aprov-svg-tab.is-active {
+  background: var(--azul-escuro, #1f3658);
+  border-color: var(--azul-escuro, #1f3658);
+  color: #fff;
+}
+.orc-aprov-svg-tab-taxa {
+  font-size: 10px;
+  opacity: 0.85;
+  margin-left: 4px;
+}
+.orc-aprov-svg-wrap {
+  background: #fff;
+  border: 1px solid #d6d3d1;
+  border-radius: 4px;
+  padding: 8px;
+}
+.orc-aprov-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.orc-aprov-legenda {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: #57534e;
+  padding: 6px 8px;
+  background: #fff;
+  border: 1px solid #d6d3d1;
+  border-radius: 4px;
+}
+.orc-aprov-legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.orc-aprov-legenda-cor {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+/* Selects do nesting (Cadastros > Regras > Calculo de Chapas) */
+.reg-nest-selects {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: #fafaf9;
+  border: 1px solid #d6d3d1;
+  border-radius: 4px;
+}
+.reg-nest-select-row {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+  align-items: center;
+}
+@media (max-width: 700px) {
+  .reg-nest-select-row { grid-template-columns: 1fr; }
+}
+.reg-nest-select-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.reg-nest-select-title {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--azul-escuro, #1f3658);
+}
+.reg-nest-select-help {
+  font-size: 11px;
+  color: #57534e;
+}
+.reg-nest-select {
+  padding: 6px 10px;
+  font-size: 12px;
+  border: 1px solid #d6d3d1;
+  border-radius: 4px;
+  background: #fff;
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): selecionada (duplo-clique) + proxima
+   ============================================================ */
+.orc-aprov-card-actions {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.orc-aprov-card-tip {
+  font-size: 9px;
+  color: #9ca3af;
+  text-align: center;
+  font-style: italic;
+}
+
+/* Estilo do card SELECIONADO (duplo clique) — laranja amarelo distinto */
+.orc-aprov-card-selecionada-badge {
+  display: none;
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #f59e0b;
+  color: #fff;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 12px;
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+  z-index: 2;
+}
+.orc-aprov-card.is-selecionada {
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+  position: relative;
+}
+.orc-aprov-card.is-selecionada .orc-aprov-card-selecionada-badge {
+  display: block;
+}
+/* Quando selecionada E e' a melhor, prioriza visual de selecionada */
+.orc-aprov-card.is-selecionada.is-melhor {
+  background: linear-gradient(135deg, #fef3c7 0%, #d1fae5 100%);
+}
+
+/* Posicionamento absoluto precisa de container relativo */
+.orc-aprov-card {
+  position: relative;
+}
+
+/* Layout: detalhes em cima junto com tabs/legenda, SVG ocupa 100% embaixo */
+.orc-aprov-layout-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: space-between;
+}
+.orc-aprov-layout-svg-area {
+  width: 100%;
+}
+.orc-aprov-svg-wrap {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #d6d3d1;
+  border-radius: 4px;
+  padding: 16px;
+  overflow-x: auto;
+}
+.orc-aprov-svg {
+  width: 100%;
+  min-height: 280px;
+  height: auto;
+  display: block;
+}
+
+/* Botão Próxima Página */
+.orc-aba-rodape {
+  margin-top: 32px;
+  padding: 20px 0;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #e7e5e4;
+}
+.orc-btn-proxima-aba {
+  padding: 12px 28px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--azul-escuro, #1f3658);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(31, 54, 88, 0.2);
+}
+.orc-btn-proxima-aba:hover {
+  background: #152540;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(31, 54, 88, 0.3);
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05 — peso v3): grupos de peso
+   ============================================================ */
+.orc-aprov-pesos-grupo {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #e7e5e4;
+  border-radius: 4px;
+}
+.orc-aprov-pesos-grupo:first-of-type {
+  border-left: 3px solid #16a34a;  /* verde — peso util */
+}
+.orc-aprov-pesos-grupo:last-of-type {
+  border-left: 3px solid #f59e0b;  /* laranja — comprado */
+}
+.orc-aprov-pesos-grupo-titulo {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--azul-escuro, #1f3658);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+.orc-aprov-pesos-subtotal {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed #d6d3d1;
+  font-weight: 700;
+  color: #16a34a !important;
+}
+.orc-aprov-pesos-subtotal b {
+  color: #16a34a !important;
+}
+.orc-aprov-pesos-desp {
+  font-size: 10px;
+  color: #92400e !important;
+  font-style: italic;
+}
+.orc-aprov-pesos-desp b {
+  color: #92400e !important;
+}
+
+/* Resumo final — desperdicio em laranja */
+.orc-aprov-resumo-desperdicio {
+  background: #fef3c7 !important;
+  border-color: #f59e0b !important;
+}
+.orc-aprov-resumo-desperdicio .orc-aprov-resumo-valor b {
+  color: #92400e;
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): modal de zoom do layout SVG
+   ============================================================ */
+.orc-aprov-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.85);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: orcAprovFadeIn 0.15s ease-out;
+}
+@keyframes orcAprovFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.orc-aprov-modal-conteudo {
+  background: #fff;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 1800px;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+.orc-aprov-modal-header {
+  padding: 14px 20px;
+  background: var(--azul-escuro, #1f3658);
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+}
+.orc-aprov-modal-titulo {
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+.orc-aprov-modal-fechar {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 8px;
+  line-height: 1;
+  transition: opacity 0.15s;
+}
+.orc-aprov-modal-fechar:hover { opacity: 0.7; }
+.orc-aprov-modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  background: #fafaf9;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.orc-aprov-modal-body svg.orc-aprov-svg {
+  width: 100%;
+  height: auto;
+  min-height: 600px;
+  cursor: grab;
+}
+.orc-aprov-modal-footer {
+  padding: 10px 20px;
+  background: #f5f5f4;
+  border-top: 1px solid #e7e5e4;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.orc-aprov-modal-tip {
+  font-size: 11px;
+  color: #57534e;
+  font-style: italic;
+  flex: 1;
+}
+.orc-aprov-modal-nav {
+  display: flex;
+  gap: 8px;
+}
+.orc-aprov-modal-prev,
+.orc-aprov-modal-next {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--azul-escuro, #1f3658);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: all 0.15s;
+}
+.orc-aprov-modal-prev:hover:not(:disabled),
+.orc-aprov-modal-next:hover:not(:disabled) {
+  background: #152540;
+  transform: translateY(-1px);
+}
+.orc-aprov-modal-prev:disabled,
+.orc-aprov-modal-next:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #94a3b8;
+}
+.orc-aprov-modal-chapa-info {
+  font-weight: 400;
+  margin-left: 8px;
+  opacity: 0.92;
+}
+.orc-aprov-modal-chapa-cnt {
+  font-size: 11px;
+  opacity: 0.8;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+/* Cursor zoom-in no SVG do card */
+.orc-aprov-svg-wrap {
+  cursor: zoom-in;
+  transition: box-shadow 0.15s;
+}
+.orc-aprov-svg-wrap:hover {
+  box-shadow: 0 4px 12px rgba(31, 54, 88, 0.15);
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): UTILIDADES DE TIPOGRAFIA + COR SEMANTICA
+   ============================================================
+   Sistema padrao pro DRE, filtros, resumos e cards. Aplicar em
+   classes existentes ou em novos elementos pra dar hierarquia
+   visual sem reinventar CSS.
+   - .t-strong       -> negrito moderado (600)
+   - .t-bold         -> negrito forte (700)
+   - .t-positivo     -> verde (receita, ganho, melhor opcao)
+   - .t-negativo     -> vermelho (custo, perda, deficit, desperdicio)
+   - .t-neutro       -> cinza escuro (info)
+   - .t-mono         -> monospace (numeros)
+   - .t-label        -> label de filtro / campo (negrito + cor azul)
+   ============================================================ */
+.t-strong   { font-weight: 600; }
+.t-bold     { font-weight: 700; }
+.t-positivo { color: #16a34a; font-weight: 600; }
+.t-negativo { color: #b91c1c; font-weight: 600; }
+.t-neutro   { color: #475569; }
+.t-mono     { font-family: 'IBM Plex Mono', 'Roboto Mono', Consolas, monospace; }
+.t-label {
+  font-weight: 700;
+  color: var(--azul-escuro, #1f3658);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.85em;
+}
+
+/* DRE — linhas de receita / custo / total */
+.orc-dre-row.is-receita .orc-dre-valor,
+.orc-dre-row.is-positivo .orc-dre-valor {
+  color: #16a34a;
+  font-weight: 700;
+}
+.orc-dre-row.is-custo .orc-dre-valor,
+.orc-dre-row.is-negativo .orc-dre-valor {
+  color: #b91c1c;
+  font-weight: 700;
+}
+.orc-dre-row.is-total {
+  border-top: 2px solid var(--azul-escuro, #1f3658);
+  padding-top: 8px;
+  margin-top: 6px;
+  font-weight: 700;
+}
+.orc-dre-row.is-total .orc-dre-label,
+.orc-dre-row.is-total .orc-dre-valor {
+  font-size: 1.05em;
+  font-weight: 800;
+}
+.orc-dre-row.is-subtotal {
+  font-weight: 700;
+}
+
+/* Filtros: label sempre em negrito */
+.orc-filtros label,
+.orc-filtros .filtro-label,
+.painel-filtros label,
+[class*="filtro"] > label {
+  font-weight: 700 !important;
+  color: var(--azul-escuro, #1f3658) !important;
+  letter-spacing: 0.02em;
+}
+
+/* Cards de Resumo da Obra: valores em destaque */
+.orc-card-resumo .orc-card-valor,
+.orc-resumo-obra .resumo-valor {
+  font-weight: 700;
+  font-size: 1.1em;
+}
+.orc-card-resumo .orc-card-label,
+.orc-resumo-obra .resumo-label {
+  font-weight: 600;
+  color: var(--azul-escuro, #1f3658);
+  text-transform: uppercase;
+  font-size: 0.75em;
+  letter-spacing: 0.05em;
+}
+
+/* Card de RESULTADO PORTA — destaque para custo/preço/faturamento */
+.orc-card-resultado .valor-custo {
+  color: #b91c1c;
+  font-weight: 800;
+}
+.orc-card-resultado .valor-receita,
+.orc-card-resultado .valor-faturamento {
+  color: #16a34a;
+  font-weight: 800;
+}
+.orc-card-resultado .valor-tabela {
+  color: var(--azul-escuro, #1f3658);
+  font-weight: 800;
+}
+.orc-card-resultado .valor-markup {
+  color: #1f3658;
+  font-weight: 700;
+}
+
+/* Margem bruta / liquida — barras de cor */
+.orc-margem-bruta b,
+.orc-margem-bruta .valor { color: #2563eb; font-weight: 700; }
+.orc-margem-liquida b,
+.orc-margem-liquida .valor { color: #d97706; font-weight: 700; }
+
+/* DRE simplificada — linhas (+) receita / (-) deducao */
+.dre-linha-positiva,
+.orc-dre-linha-positiva {
+  color: #16a34a;
+}
+.dre-linha-negativa,
+.orc-dre-linha-negativa {
+  color: #b91c1c;
+}
+.dre-linha-resultado {
+  border-top: 1.5px solid #1f3658;
+  padding-top: 6px;
+  margin-top: 4px;
+}
+.dre-linha-resultado.positivo b { color: #16a34a; font-weight: 800; }
+.dre-linha-resultado.negativo b { color: #b91c1c; font-weight: 800; }
+
+/* Felipe (sessao 2026-08): "SE TIVER VALOR ZERADO EM ACESSORIOS
+   TANTO EM CADASTRO QUANTO EM ORCAMENTO DESTACAR COM VERMELHO". 
+   No Levantamento de Acessorios, linhas com preco_un=0 ficam com 
+   fundo vermelho claro. */
+.lvp-table tbody tr.lvac-row-zerado,
+.lvp-table tbody tr.lvac-row-zerado:nth-child(even) {
+  background: #FFEBEE !important;
+}
+.lvp-table tbody tr.lvac-row-zerado:hover {
+  background: #FFCDD2 !important;
+}
+.lvp-table tbody tr.lvac-row-zerado td {
+  color: #C62828;
+}
+.lvp-table tbody tr.lvac-row-zerado code {
+  color: #C62828;
+  font-weight: 600;
+}

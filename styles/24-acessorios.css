@@ -1,0 +1,210 @@
+/* 24-acessorios.css — modulo Cadastros > Acessorios (.ace-) */
+
+/* TOOLBAR — 2 linhas fixas, padrao igual ao Representantes (R17) */
+.ace-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.ace-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ace-toolbar-row-1 { justify-content: space-between; }
+.ace-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.ace-toolbar-left strong { color: var(--azul-escuro); }
+.ace-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.ace-search {
+  flex: 1;
+  max-width: 360px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--azul-escuro);
+  background: var(--branco);
+}
+.ace-search:focus {
+  outline: none;
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 3px rgba(196, 112, 18, 0.1);
+}
+.ace-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-soft);
+}
+.ace-filter-group label {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0.05em;
+  color: var(--azul-escuro);
+}
+.ace-filter-select {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: var(--font-body);
+  background: var(--branco);
+  color: var(--azul-escuro);
+  min-width: 140px;
+}
+
+/* Felipe (sessao 2026-06): mesmo destaque laranja do +Nova Superficie */
+.ace-btn-add {
+  background: var(--laranja);
+  color: var(--branco);
+  border: none;
+  padding: 9px 18px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  text-transform: none;
+}
+.ace-btn-add:hover { background: #a35e0e; transform: translateY(-1px); }
+
+/* Tabela — segue R02 (zebra), R04 (min-width nas colunas), R06 (alinhada esquerda) */
+.ace-table-wrap {
+  overflow-x: auto;
+  width: min-content;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--branco);
+}
+.ace-table {
+  border-collapse: collapse;
+  font-family: var(--font-body);
+  font-size: 13px;
+  width: max-content;
+}
+.ace-table thead th {
+  background: var(--branco);
+  color: var(--azul-escuro);
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  padding: 9px 14px;
+  border-bottom: 2px solid var(--azul-escuro);
+  white-space: nowrap;
+  text-transform: none;
+}
+.ace-table thead th .ace-sort {
+  margin-left: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.ace-table tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+.ace-table tbody tr:last-child td { border-bottom: none; }
+.ace-table tbody tr:nth-child(odd)  td { background: var(--branco); }
+.ace-table tbody tr:nth-child(even) td { background: #E4E8EE; }
+.ace-table tbody tr:hover td { background: #D6DBE3; }
+
+/* Larguras minimas das colunas (R04, R06) — calibradas pelos valores de Perfis
+   pra nao deixar gaps grandes em conteudo curto.
+   1=CODIGO 2=FORNECEDOR 3=DESCRICAO 4=FAMILIA 5=PRECO 6=ACTIONS */
+.ace-table thead th:nth-child(1), .ace-table tbody td:nth-child(1) { min-width: 130px; }   /* CODIGO */
+.ace-table thead th:nth-child(2), .ace-table tbody td:nth-child(2) { min-width: 110px; }   /* FORNECEDOR (ex: "Homex") */
+.ace-table thead th:nth-child(3), .ace-table tbody td:nth-child(3) { min-width: 320px; }   /* DESCRICAO */
+.ace-table thead th:nth-child(4), .ace-table tbody td:nth-child(4) { min-width: 130px; }   /* FAMILIA */
+.ace-table thead th:nth-child(5), .ace-table tbody td:nth-child(5) { min-width: 110px; text-align: right; }   /* PRECO (cabe "9.999,99") */
+.ace-table thead th:nth-child(6), .ace-table tbody td:nth-child(6) { min-width: 36px; width: 36px; }      /* ACTIONS */
+.ace-th-num { text-align: right !important; }
+
+/* Inputs/selects dentro da tabela — fundo transparente quando nao em foco */
+.ace-input {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--azul-escuro);
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.ace-input:hover { border-color: var(--line); background: var(--branco); }
+.ace-input:focus {
+  outline: none;
+  border-color: var(--laranja);
+  background: var(--branco);
+  box-shadow: 0 0 0 2px rgba(196, 112, 18, 0.1);
+}
+.ace-input-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ace-input-ncm { font-family: var(--font-body); font-variant-numeric: tabular-nums; }
+.ace-input-wide { min-width: 360px; }
+.ace-select { cursor: pointer; }
+
+/* Botao excluir linha */
+.ace-btn-remove {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 500;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.ace-btn-remove:hover {
+  color: #C53030;
+  border-color: #FED7D7;
+  background: #FFF5F5;
+}
+
+/* Tabela vazia */
+.ace-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+}
+
+/* Felipe (sessao 2026-08): "SE TIVER VALOR ZERADO EM ACESSORIOS
+   DESTACAR COM VERMELHO BEM CLARO". Linhas sem preco no cadastro
+   ficam com fundo rosa claro pra identificacao imediata. */
+.ace-table tbody tr.ace-row-zerado,
+.ace-table tbody tr.ace-row-zerado:nth-child(even) {
+  background: #FFEBEE !important;  /* vermelho bem claro */
+}
+.ace-table tbody tr.ace-row-zerado:hover {
+  background: #FFCDD2 !important;  /* hover um tom mais escuro */
+}
+.ace-table tbody tr.ace-row-zerado .ace-input-num {
+  color: #C62828;
+  font-weight: 600;
+}

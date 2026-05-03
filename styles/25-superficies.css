@@ -1,0 +1,198 @@
+/* 25-superficies.css — modulo Cadastros > Superficies (.sup-) */
+
+.sup-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.sup-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.sup-toolbar-row-1 { justify-content: space-between; }
+.sup-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.sup-toolbar-left strong { color: var(--azul-escuro); }
+.sup-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.sup-search {
+  flex: 1;
+  max-width: 360px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--azul-escuro);
+  background: var(--branco);
+}
+.sup-search:focus {
+  outline: none;
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 3px rgba(196, 112, 18, 0.1);
+}
+
+/* Felipe (sessao 2026-06): "superficie e acessorios ainda sem botao
+   de adicionar novos itens" — o botao existia mas estava em azul
+   escuro discreto, misturado com os outros. Agora em LARANJA
+   destacado pra Felipe ver claramente. Mesmo padrao em Acessorios
+   e Representantes. */
+.sup-btn-add {
+  background: var(--laranja);
+  color: var(--branco);
+  border: none;
+  padding: 9px 18px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  text-transform: none;
+}
+.sup-btn-add:hover { background: #a35e0e; transform: translateY(-1px); }
+
+.sup-table-wrap {
+  overflow-x: auto;
+  width: min-content;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--branco);
+}
+.sup-table {
+  border-collapse: collapse;
+  font-family: var(--font-body);
+  font-size: 13px;
+  width: max-content;
+}
+.sup-table thead th {
+  background: var(--branco);
+  color: var(--azul-escuro);
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  padding: 12px 14px;
+  border-bottom: 2px solid var(--azul-escuro);
+  white-space: nowrap;
+  text-transform: none;
+}
+.sup-table tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+.sup-table tbody tr:last-child td { border-bottom: none; }
+.sup-table tbody tr:nth-child(odd)  td { background: var(--branco); }
+.sup-table tbody tr:nth-child(even) td { background: #E4E8EE; }
+.sup-table tbody tr:hover td { background: #D6DBE3; }
+
+.sup-table thead th:nth-child(1), .sup-table tbody td:nth-child(1) { min-width: 580px; }                           /* DESCRICAO */
+.sup-table thead th:nth-child(2), .sup-table tbody td:nth-child(2) { min-width: 140px; width: 140px; }              /* CATEGORIA (select) */
+.sup-table thead th:nth-child(3), .sup-table tbody td:nth-child(3) { min-width: 140px; width: 140px; text-align: right; }  /* PRECO R$ — R04 nunca cortar */
+.sup-table thead th:nth-child(4), .sup-table tbody td:nth-child(4) { min-width: 36px; width: 36px; }                /* ACTIONS */
+.sup-th-num { text-align: right !important; }
+
+.sup-input {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--azul-escuro);
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.sup-input:hover { border-color: var(--line); background: var(--branco); }
+.sup-input:focus {
+  outline: none;
+  border-color: var(--laranja);
+  background: var(--branco);
+  box-shadow: 0 0 0 2px rgba(196, 112, 18, 0.1);
+}
+.sup-input-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sup-input-wide { min-width: 540px; }
+
+.sup-btn-remove {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 500;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.sup-btn-remove:hover {
+  color: #C53030;
+  border-color: #FED7D7;
+  background: #FFF5F5;
+}
+
+.sup-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+}
+
+/* sub-abas de categoria (ACM / HPL / Vidro / Aluminio Macico) */
+.sup-toolbar-row-cats {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  padding: 0;
+  margin: 8px 0 4px;
+}
+.sup-cat-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sup-cat-tab:hover {
+  color: var(--text-default);
+}
+.sup-cat-tab.is-active {
+  color: var(--azul-escuro);
+  border-bottom-color: var(--laranja);
+}
+.sup-cat-count {
+  font-size: 11px;
+  background: var(--cinza-mais-claro);
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+.sup-cat-tab.is-active .sup-cat-count {
+  background: rgba(196, 112, 18, 0.15);
+  color: var(--laranja);
+}

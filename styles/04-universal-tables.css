@@ -1,0 +1,134 @@
+/* 04-universal-tables.css — helpers universais — sort/filter por coluna (R12, R14) */
+
+/* ============================================================
+   UNIVERSAL — CSS de tabelas com sort/filter por coluna (R12)
+   Aplicavel a qualquer tabela do sistema. NAO usa fundos
+   coloridos atras de texto (R11). Apenas paleta brand.
+   ============================================================ */
+/* <th> com header clicavel + botao de filtro. Suporta
+   qualquer tabela (cad-table, rep-table, cli-table, crm-lista). */
+.univ-th-sortable .univ-th-label {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.univ-th-sortable .univ-th-label:hover { color: var(--azul-escuro); }
+.univ-sort-arrow {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 8px;
+  letter-spacing: 0;
+}
+th.is-sorted .univ-sort-arrow { color: var(--laranja); }
+.univ-th-right { text-align: right; }
+
+/* === Universal.autoEnhance — sort+filtro DOM-only ===
+   Aplicado em qualquer tabela do sistema sem precisar refactor. */
+.univ-th-enhanced { user-select: none; }
+.univ-th-enhanced:hover { background: var(--bg-soft); }
+.univ-th-arrow {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.univ-th-enhanced.is-sorted .univ-th-arrow { color: var(--laranja); }
+.univ-filter-row { background: var(--branco); }
+.univ-filter-cell {
+  padding: 4px 6px !important;
+  background: var(--branco) !important;
+  border-bottom: 1px solid var(--line) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: normal !important;
+}
+.univ-col-filter {
+  width: 100%;
+  min-width: 40px;
+  /* Felipe (sessao 2026-06): default size=20 do <input type=text> faz
+     navegador alocar ~170px por coluna -> tabela com 10 colunas vira
+     1700px+. Forca size=1 + min-width pequeno pra coluna ser
+     dimensionada pelo CONTEUDO (texto do header e celulas), nao pelo
+     input default. R06 — sem espacos gigantes. */
+  box-sizing: border-box;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--azul-escuro);
+  background: var(--branco);
+}
+.univ-col-filter:focus {
+  outline: none;
+  border-color: var(--laranja);
+}
+.univ-col-filter::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 11px;
+}
+/* R14: Popup de autocomplete do filtro de coluna.
+   Mostra os valores distintos da coluna; filtra conforme digita. */
+.univ-filter-cell { position: relative; }
+.univ-filter-popup {
+  position: absolute;
+  top: 100%;
+  left: 6px;
+  right: 6px;
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-top: none;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 200;
+  box-shadow: 0 6px 18px rgba(0, 30, 60, 0.10);
+}
+.univ-filter-popup[hidden] { display: none; }
+.univ-filter-popup-item {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--azul-escuro);
+  /* Felipe (R04 + doc): NUNCA cortar nome. Quebra linha. */
+  white-space: normal;
+  word-break: break-word;
+}
+.univ-filter-popup-item:hover,
+.univ-filter-popup-item.is-active {
+  background: var(--bg-soft, #E4E8EE);
+}
+.univ-filter-popup-empty {
+  padding: 8px 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+  font-style: italic;
+}
+/* === fim autoEnhance === */
+
+/* ============================================================
+   Felipe (sessao 2026-05): REGRA UNIVERSAL — colunas compactas.
+   TODAS as tabelas do sistema (Lev. Perfis, Cadastros, Relacao
+   de Barras, Padroes de Cortes, etc) usam o mesmo padding pequeno
+   (~3-4mm gap visual). Antes algumas tabelas tinham 10-14px de
+   padding lateral, deixando colunas extremamente largas. Padronizado.
+   Esta regra usa selector universal — se algum modulo precisa
+   override pra alguma situacao, pode usar !important localmente.
+   ============================================================ */
+.lvp-table thead th,
+.lvp-rel-barras thead th,
+.lvp-pad-tabela-cortes thead th,
+.cad-table thead th {
+  padding: 4px 6px !important;
+}
+.lvp-table tbody td,
+.lvp-rel-barras tbody td,
+.lvp-pad-tabela-cortes tbody td,
+.cad-table tbody td {
+  padding: 3px 6px !important;
+}

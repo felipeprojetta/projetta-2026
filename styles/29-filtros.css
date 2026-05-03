@@ -1,0 +1,281 @@
+/* ============================================================
+   29-filtros.css — Cadastros > Filtros
+   ============================================================
+   Felipe (sessao 2026-05): UI dos filtros centralizados.
+   Layout em 3 grupos (Perfis, Acessorios, Representantes), cada
+   grupo com cards de filtro: titulo, descricao, lista editavel,
+   input pra adicionar, botao reset.
+   ============================================================ */
+
+.flt-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Intro */
+.flt-intro {
+  background: #fafbfc;
+  border: 1px solid var(--cinza-borda, #e3e6eb);
+  border-left: 3px solid var(--laranja, #c47012);
+  border-radius: 6px;
+  padding: 14px 18px;
+}
+.flt-intro-texto {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  color: var(--cinza-escuro, #4a5160);
+  line-height: 1.5;
+}
+.flt-intro-info {
+  margin: 0;
+  font-size: 12px;
+  color: var(--cinza-medio, #8c92a0);
+  line-height: 1.4;
+  font-style: italic;
+}
+.flt-intro-texto .t-strong { color: var(--azul-escuro, #003144); }
+
+/* Grupo */
+.flt-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.flt-grupo-titulo {
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--azul-escuro, #003144);
+  margin: 0;
+  padding: 0 4px 8px 4px;
+  border-bottom: 1px solid var(--cinza-borda, #e3e6eb);
+}
+.flt-grupo-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 14px;
+}
+
+/* Card individual */
+.flt-card {
+  background: var(--branco, #ffffff);
+  border: 1px solid var(--cinza-borda, #d5d8df);
+  border-radius: 8px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.flt-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.flt-card-titulo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.flt-card-titulo {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--azul-escuro, #003144);
+  margin: 0;
+}
+.flt-tag-seed,
+.flt-tag-custom {
+  font-size: 9.5px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.flt-tag-seed {
+  background: #eef3f7;
+  color: var(--cinza-escuro, #4a5160);
+}
+.flt-tag-custom {
+  background: #fff4e8;
+  color: var(--laranja, #c47012);
+}
+.flt-card-desc {
+  font-size: 12px;
+  color: var(--cinza-medio, #8c92a0);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.flt-btn-reset {
+  background: transparent;
+  border: 1px solid var(--cinza-borda, #d5d8df);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--cinza-escuro, #4a5160);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.flt-btn-reset:hover {
+  background: #f3f5f8;
+  border-color: var(--azul-escuro, #003144);
+  color: var(--azul-escuro, #003144);
+}
+
+/* Lista de itens */
+.flt-itens {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px;
+  background: #f8f9fb;
+  border: 1px solid var(--cinza-borda, #e8eaed);
+  border-radius: 5px;
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.flt-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--branco, #ffffff);
+  border: 1px solid #e8eaed;
+  border-radius: 4px;
+  padding: 5px 8px 5px 10px;
+  font-size: 12.5px;
+  color: var(--cinza-escuro, #4a5160);
+  transition: background 0.1s;
+}
+.flt-item:hover {
+  background: #f5f7fa;
+  border-color: var(--azul-escuro, #003144);
+}
+.flt-item-texto {
+  flex: 1;
+  margin-right: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.flt-btn-del {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cinza-medio, #8c92a0);
+  cursor: pointer;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+.flt-btn-del:hover {
+  background: #fbe9e9;
+  color: #b03030;
+}
+.flt-item-empty {
+  list-style: none;
+  text-align: center;
+  color: var(--cinza-medio, #8c92a0);
+  font-style: italic;
+  font-size: 12px;
+  padding: 10px;
+}
+
+/* Adicionar */
+.flt-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.flt-add-input {
+  flex: 1 1 auto;
+  min-width: 0;       /* permite encolher mesmo com flex: 1 */
+  font-size: 13px;
+}
+/* Felipe (sessao 2026-05): bug — o botao "+ Adicionar" usa classe
+   .btn-primary que tem `width: 100%` (definida em 10-auth.css pro
+   botao de login). Dentro do flexbox do .flt-add isso fazia o botao
+   ocupar tudo e comprimir o input pra ~0px. Override pro caso dos
+   filtros. */
+.flt-add .flt-btn-add {
+  width: auto !important;
+  flex: 0 0 auto;
+  margin-top: 0 !important;
+  padding: 8px 16px !important;
+  white-space: nowrap;
+}
+.flt-add-input.is-erro {
+  border-color: #b03030 !important;
+  background: #fbe9e9;
+  animation: flt-shake 0.4s ease;
+}
+@keyframes flt-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* Rodape */
+.flt-card-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--cinza-medio, #8c92a0);
+  padding-top: 6px;
+  border-top: 1px dashed var(--cinza-borda, #e8eaed);
+}
+.flt-contagem {
+  font-weight: 500;
+}
+.flt-flag-case {
+  background: #f3f5f8;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  color: var(--cinza-escuro, #4a5160);
+}
+
+/* Toast de feedback (sucesso/erro ao adicionar/remover) */
+.flt-toast {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: 0 auto 16px auto;
+  max-width: 600px;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: opacity 0.2s;
+}
+.flt-toast[hidden] { display: none; }
+.flt-toast-ok {
+  background: #e8f5e9;
+  border: 1px solid #66bb6a;
+  color: #2a7c3a;
+}
+.flt-toast-erro {
+  background: #fbe9e9;
+  border: 1px solid #e57373;
+  color: #b03030;
+}
+.flt-toast-info {
+  background: #eef3f7;
+  border: 1px solid var(--cinza-borda, #d5d8df);
+  color: var(--azul-escuro, #003144);
+}

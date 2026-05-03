@@ -1,0 +1,215 @@
+/* 03-universal-helpers.css — helpers universais — popup Salvo + botao Salvar Alteracoes (R07) */
+
+/* ============================================================
+   HELPERS UNIVERSAIS — POPUP SALVO + BOTAO SALVAR ALTERACOES
+   Usados por todos os modulos (regra R07).
+   ============================================================ */
+.univ-saved-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 49, 68, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s;
+}
+.univ-saved-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.univ-saved-dialog {
+  background: var(--branco);
+  border-radius: var(--radius-lg);
+  padding: 28px 36px 24px;
+  min-width: 320px;
+  max-width: 480px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 49, 68, 0.25);
+  transform: scale(0.94);
+  transition: transform 0.18s;
+}
+.univ-saved-overlay.is-open .univ-saved-dialog { transform: scale(1); }
+.univ-saved-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: #2E7D5B;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.univ-saved-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: none;
+  color: var(--azul-escuro);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+.univ-saved-msg {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 20px;
+}
+.univ-saved-btn {
+  background: var(--azul-escuro);
+  color: #fff;
+  border: 1px solid var(--azul-escuro);
+  border-radius: var(--radius);
+  padding: 9px 30px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.univ-saved-btn:hover { background: #002435; }
+.univ-saved-btn:focus { outline: 2px solid var(--laranja); outline-offset: 2px; }
+
+/* Botao "Salvar Alteracoes" universal */
+.univ-btn-save {
+  background: #2E7D5B;
+  color: #fff;
+  padding: 7px 14px;
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: 1px solid #266B4D;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.univ-btn-save:hover { background: #266B4D; }
+.univ-btn-save:focus { outline: 2px solid var(--laranja); outline-offset: 2px; }
+.univ-btn-save.is-dirty { background: var(--laranja); border-color: var(--laranja); }
+
+/* Botao "Exportar Excel" universal — padrao em todos os modulos */
+.univ-btn-export {
+  background: var(--branco);
+  color: var(--text-default);
+  padding: 9px 18px;
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.univ-btn-export:hover { background: var(--cinza-mais-claro); border-color: var(--azul-escuro); }
+.univ-btn-export:focus { outline: 2px solid var(--laranja); outline-offset: 2px; }
+
+/* Botao "Importar planilha" universal — mesmo visual do export */
+.univ-btn-import {
+  background: var(--branco);
+  color: var(--text-default);
+  padding: 9px 18px;
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.univ-btn-import:hover { background: var(--cinza-mais-claro); border-color: var(--azul-escuro); }
+.univ-btn-import:focus { outline: 2px solid var(--laranja); outline-offset: 2px; }
+
+/* Botao "+ Adicionar..." universal — mesmo tamanho dos export/save */
+.univ-btn-add {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  padding: 9px 18px;
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: 1px solid var(--azul-escuro);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.univ-btn-add:hover { background: #002435; }
+.univ-btn-add:focus { outline: 2px solid var(--laranja); outline-offset: 2px; }
+
+/* ============================================================
+   Combobox Universal — substitui datalist nativo
+   Felipe: opcoes devem aparecer ao clicar na seta, sem precisar
+   digitar. Aplicado em TODOS os <input list="..."> do sistema.
+   Cores Projetta apenas (R03), sem fundo colorido em texto (R11),
+   Title Case na exibicao (R20). */
+.cmbx-wrap {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+.cmbx-input {
+  width: 100%;
+  padding-right: 30px;  /* espaco pra seta */
+}
+.cmbx-arrow {
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  bottom: 1px;
+  width: 28px;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--line);
+  color: var(--text-soft);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.cmbx-arrow:hover { color: var(--azul-escuro); }
+.cmbx-wrap.cmbx-open .cmbx-arrow { color: var(--azul-escuro); }
+.cmbx-wrap.cmbx-open .cmbx-arrow svg { transform: rotate(180deg); transition: transform 0.15s; }
+.cmbx-arrow svg { transition: transform 0.15s; }
+
+.cmbx-dd {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  margin-top: 2px;
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(0, 49, 68, 0.12);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.cmbx-wrap.cmbx-open .cmbx-dd { display: block; }
+.cmbx-opt {
+  padding: 7px 12px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-default);
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  /* Felipe (R04 + doc): NUNCA cortar nome de campo. Quebra linha em vez
+     de truncar com ellipsis. */
+  white-space: normal;
+  word-break: break-word;
+}
+.cmbx-opt:last-child { border-bottom: none; }
+.cmbx-opt:hover, .cmbx-opt-hi {
+  background: var(--cinza-mais-claro);
+  color: var(--azul-escuro);
+}
+.cmbx-empty {
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}

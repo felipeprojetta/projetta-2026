@@ -1,0 +1,183 @@
+/* ============================================================
+   27-precificacao.css — Cadastros > Precificacao
+   ============================================================
+   Felipe (sessao 2026-05): estilos da nova aba de cadastro
+   centralizado de valores padrao (operarios, custo/h, diarias,
+   alimentacao, hotel por cidade).
+
+   Convencoes:
+     - Reusa tokens globais: --azul-escuro, --laranja, --branco
+     - Cards com padding generoso, separadores claros
+     - Inputs com largura calibrada por tipo (num pequeno / money)
+     - Tabela de hoteis: linhas editaveis inline
+   ============================================================ */
+
+.prc-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ============================================
+   SECAO (card) — comum a "valores" e "hoteis"
+   ============================================ */
+.prc-section {
+  background: var(--branco);
+  border: 1px solid var(--cinza-borda, #d5d8df);
+  border-radius: 8px;
+  padding: 20px 22px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.prc-section-head {
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cinza-borda, #e3e6eb);
+}
+.prc-section-titulo {
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--azul-escuro, #003144);
+  margin: 0 0 6px 0;
+}
+.prc-section-sub {
+  font-size: 13px;
+  color: var(--cinza-escuro, #4a5160);
+  margin: 0;
+  line-height: 1.5;
+}
+.prc-section-sub .t-strong {
+  color: var(--azul-escuro, #003144);
+}
+
+/* ============================================
+   GRID DE VALORES — 2 blocos lado a lado
+   ============================================ */
+.prc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+@media (max-width: 900px) {
+  .prc-grid { grid-template-columns: 1fr; }
+}
+
+.prc-bloco {
+  background: #fafbfc;
+  border: 1px solid var(--cinza-borda, #e3e6eb);
+  border-radius: 6px;
+  padding: 16px 18px;
+}
+.prc-bloco-titulo {
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--laranja, #c47012);
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #d5d8df;
+}
+.prc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.prc-field:last-child { margin-bottom: 0; }
+.prc-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--azul-escuro, #003144);
+  letter-spacing: 0.02em;
+}
+.prc-input {
+  width: 100%;
+  max-width: 200px;
+}
+.prc-w-num   { max-width: 110px; }
+.prc-w-money { max-width: 160px; }
+.prc-w-uf    { max-width: 60px;  }
+.prc-help {
+  font-size: 11px;
+  color: var(--cinza-medio, #8c92a0);
+  font-style: italic;
+}
+
+/* ============================================
+   ACOES (botao salvar + msg)
+   ============================================ */
+.prc-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cinza-borda, #e3e6eb);
+}
+.prc-msg {
+  font-size: 13px;
+  font-weight: 500;
+}
+.prc-msg-ok  { color: #2a7c3a; }
+.prc-msg-err { color: #b03030; }
+
+/* ============================================
+   TABELA DE HOTEIS POR CIDADE
+   ============================================ */
+.prc-add {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.prc-hot-table {
+  width: 100%;
+}
+.prc-hot-table th {
+  background: #f3f5f8;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cinza-escuro, #4a5160);
+  padding: 8px 10px;
+  text-align: left;
+}
+.prc-hot-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--cinza-borda, #e8eaed);
+  font-size: 13px;
+}
+.prc-th-uf       { width: 80px; }
+.prc-th-money    { width: 140px; }
+.prc-th-acoes    { width: 50px; }
+.prc-hot-cidade  { max-width: 100%; }
+.prc-hot-uf      { max-width: 60px; text-transform: uppercase; }
+.prc-hot-money   { max-width: 130px; text-align: right; }
+.prc-hot-data    { color: var(--cinza-medio, #8c92a0); font-size: 12px; }
+
+.prc-hot-empty td {
+  text-align: center;
+  color: var(--cinza-medio, #8c92a0);
+  font-style: italic;
+  padding: 24px 10px !important;
+}
+
+.prc-hot-del {
+  background: transparent;
+  border: 1px solid #e3e6eb;
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #b03030;
+  cursor: pointer;
+  line-height: 1;
+}
+.prc-hot-del:hover {
+  background: #fbe9e9;
+  border-color: #b03030;
+}

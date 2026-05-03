@@ -1,0 +1,11227 @@
+/* ============================================================
+   ORCAMENTO — modulo 12
+   ----------------------------------------------------------------
+   ETAPA 2 — INFRAESTRUTURA SILENCIOSA
+   Sem UI ainda. Esta etapa expoe APENAS a camada de dados:
+     - schema imutavel de Negocios → Opcoes → Versoes
+     - CRUD basico
+     - API publica (window.Orcamento) pros outros modulos consumirem
+       (em especial o CRM, na Etapa 5, quando o botao "Montar Orcamento"
+        chamar Orcamento.criarNegocio)
+
+   Estrutura hierarquica:
+
+   Negocio (1 por lead do CRM)
+   └── Opcao A, B, C... (alternativas dentro do mesmo negocio)
+       └── Versao 1, 2, 3... (revisoes da mesma opcao,
+                              cada versao = SNAPSHOT IMUTAVEL
+                              dos precos+inputs+calculos do momento)
+
+   Persistencia: Storage.scope('orcamentos'), chave 'negocios'.
+   Schema versionado em store.get('schema_version') para migracao futura.
+
+   Isolado: prefixo CSS .orc-* (quando UI vier), Storage.scope proprio.
+   ============================================================ */
+
+const Orcamento = (() => {
+  const store = Storage.scope('orcamentos');
+  const SCHEMA_VERSION = 1;
+
+  // ============================================================
+  //                  CONSTANTES DE NEGOCIO
+  // ============================================================
+
+  // IRPJ + CSLL fixo (regime brasileiro)
+  const IRPJ = 0.34;
+
+  // Defaults dos 8 parametros do DRE.
+  // Felipe pode editar caso a caso na aba Custo, ou trocar globalmente
+  // num futuro modulo de Configuracoes.
+  const PARAMS_DEFAULT = {
+    overhead:    5,   // % rateio fixo (0-30)
+    impostos:    18,  // % PIS + COFINS + ISS + ICMS (0-40)
+    com_rep:     7,   // % comissao representante (0-20) — vem do cadastro de Reps
+    com_rt:      5,   // % comissao RT/arquiteto (0-15)
+    com_gest:    1,   // % comissao gestao interna (0-10)
+    lucro_alvo:  15,  // % lucro liquido apos IRPJ+CSLL
+    markup_desc: 20,  // % markup de desconto (auto: 15 se RT>=5%, 20 se RT<5%)
+    desconto:    20,  // % desconto negociado (auto: mesma regra)
+  };
+
+  // Tipos de item suportados. Por agora so porta_externa tem form completo;
+  // os outros sao placeholder ate Felipe especificar a regra de cada um.
+  const TIPOS_ITEM = [
+    { id: 'porta_externa',       label: 'Porta Externa' },
+    { id: 'porta_interna',       label: 'Porta Interna' },
+    { id: 'fixo_acoplado',       label: 'Fixo Acoplado' },
+    { id: 'revestimento_parede', label: 'Revestimento de Parede' },
+  ];
+  function labelTipo(id) {
+    return TIPOS_ITEM.find(t => t.id === id)?.label || id;
+  }
+
+  // Etapas de fabricacao. Calculadas automaticamente pelas regras Felipe
+  // (Portal/Quadro/Corte/Colagem/Conferencia) baseadas em altura/modelo/folhas/qtd.
+  // O usuario ainda pode dar override manual por etapa.
+  const HORAS_POR_DIA = 9;
+  const ETAPAS_FAB = [
+    // Felipe (do doc - msg "volte os itens que tinha"):
+    // Portal, Folha da porta, Colagem, Corte e Usinagem, Conferencia e Embalagem
+    { id: 'portal',           label: 'Portal' },
+    { id: 'folha_porta',      label: 'Folha da porta' },
+    { id: 'colagem',          label: 'Colagem' },
+    { id: 'corte_usinagem',   label: 'Corte e Usinagem' },
+    { id: 'conf_embalagem',   label: 'Conferencia e Embalagem' },
+  ];
+
+  // Conjuntos de modelos por categoria (passados pelo Felipe).
+  // Modelo 08 e' tanto cava quanto ripado simultaneamente (cumulativo).
+  const MODELOS_CAVA   = [1, 2, 3, 4, 5, 6, 7, 8, 9, 19, 22, 24];
+  const MODELOS_RIPADO = [8, 15, 20, 21];
+  const MODELO_FRISO_HORIZONTAL = 6;
+
+  function isCava(n)   { return MODELOS_CAVA.includes(Number(n)); }
+  function isRipado(n) { return MODELOS_RIPADO.includes(Number(n)); }
+  function isFrisoH(n) { return Number(n) === MODELO_FRISO_HORIZONTAL; }
+  /** "Lisa" significa SEM cava — independente de ter ripado/frisos. */
+  function isLisa(n)   { return n && !isCava(n); }
+
+  /**
+   * REGRA 1 — Portal (montagem do aro), em horas.
+   *   altura ≤ 2500mm → 5h
+   *   altura ≤ 3800mm → 7h
+   *   altura ≤ 6500mm → 9h
+   *   altura > 6500mm → 14h
+   *   Se 2 folhas: +3h (não multiplica)
+   *   × qtd de portas
+   */
+  function regraPortal(altura, nFolhas, qtdPortas) {
+    if (!altura || !qtdPortas) return 0;
+    let base;
+    if (altura <= 2500)      base = 5;
+    else if (altura <= 3800) base = 7;
+    else if (altura <= 6500) base = 9;
+    else                     base = 14;
+    if (Number(nFolhas) === 2) base += 3;
+    return base * qtdPortas;
+  }
+
+  /**
+   * REGRA 2 — Quadro (montagem da folha), em horas.
+   *   Mesmas faixas do Portal por altura.
+   *   Se 2 folhas: ×2 (multiplica)
+   *   × qtd de portas
+   */
+  function regraQuadro(altura, nFolhas, qtdPortas) {
+    if (!altura || !qtdPortas) return 0;
+    let base;
+    if (altura <= 2500)      base = 5;
+    else if (altura <= 3800) base = 7;
+    else if (altura <= 6500) base = 9;
+    else                     base = 14;
+    if (Number(nFolhas) === 2) base *= 2;
+    return base * qtdPortas;
+  }
+
+  /**
+   * REGRA 3 — Corte e usinagem, em horas.
+   *   qtd_chapas + 1   → porta lisa (default)
+   *   qtd_chapas + 2   → porta ripado (modelos 08, 15, 20, 21)
+   *   × qtd de portas (cada porta consome chapas separadamente)
+   *   Tambem aplica × 2 quando 2 folhas (mais chapas).
+   */
+  function regraCorte(qtdChapas, modeloNumero, nFolhas, qtdPortas) {
+    if (!qtdChapas || !qtdPortas) return 0;
+    const base = Number(qtdChapas) + (isRipado(modeloNumero) ? 2 : 1);
+    const fol = Number(nFolhas) === 2 ? base * 2 : base;
+    return fol * qtdPortas;
+  }
+
+  /**
+   * REGRA 4 — Colagem, em DIAS (horas = dias × 9 × qtd).
+   *   PORTA CAVA   ≤ 2800 → 2 dias | ≤ 4000 → 3 dias | > 4000 → 4 dias
+   *   PORTA LISA   = cava - 1 dia (mín 2)
+   *   PORTA RIPADO = +1 dia até 4m, +2 dias acima de 4m (acumula)
+   *   Modelo 06 (Frisos Horizontais) → +1 dia (acumula)
+   *   Chapa Alusense → +1 dia (secagem) (acumula)
+   *   Mínimo SEMPRE 2 dias.
+   *   Se 2 folhas: ×2.
+   *   × qtd de portas.
+   */
+  function regraColagem(altura, modeloNumero, nFolhas, qtdPortas, isAlusense) {
+    if (!altura || !modeloNumero || !qtdPortas) return { dias: 0, horas: 0 };
+
+    let dias;
+    if (altura <= 2800)      dias = 2;
+    else if (altura <= 4000) dias = 3;
+    else                     dias = 4;
+
+    if (isLisa(modeloNumero)) dias = Math.max(2, dias - 1);
+    if (isRipado(modeloNumero)) dias += (altura <= 4000 ? 1 : 2);
+    if (isFrisoH(modeloNumero)) dias += 1;
+    if (isAlusense) dias += 1;
+
+    dias = Math.max(2, dias);
+    if (Number(nFolhas) === 2) dias *= 2;
+
+    const horas = dias * HORAS_POR_DIA * qtdPortas;
+    return { dias, horas };
+  }
+
+  /**
+   * REGRA 5 — Conferencia & Embalagem, em horas.
+   *   altura < 6000mm → 3h base
+   *   altura ≥ 6000mm → 4h base
+   *   Se 2 folhas: ×2.
+   *   × qtd de portas.
+   */
+  function regraConferencia(altura, nFolhas, qtdPortas) {
+    if (!altura || !qtdPortas) return 0;
+    let base = altura < 6000 ? 3 : 4;
+    if (Number(nFolhas) === 2) base *= 2;
+    return base * qtdPortas;
+  }
+
+  /**
+   * Detecta se a cor (interna/externa) e' chapa Alusense — faz +1 dia
+   * na colagem (regra 4).
+   */
+  function corEhAlusense(item) {
+    const c1 = String(item.corInterna || '').toLowerCase();
+    const c2 = String(item.corExterna || '').toLowerCase();
+    return /alusense/i.test(c1) || /alusense/i.test(c2);
+  }
+
+  /**
+   * Calcula horas auto por etapa pra UM item porta_externa.
+   * Devolve um objeto com as 5 etapas + dias da colagem (pra exibir).
+   */
+  function horasItemPortaExterna(item) {
+    const altura  = parseFloat(String(item.altura || '').replace(',', '.')) || 0;
+    const qtd     = Math.max(1, Number(item.quantidade) || 1);
+    const folhas  = Number(item.nFolhas) || 1;
+    const chapas  = Number(item.qtdChapas) || 0;
+    const modelo  = Number(item.modeloNumero) || 0;
+    const alus    = corEhAlusense(item);
+
+    const colag = regraColagem(altura, modelo, folhas, qtd, alus);
+    return {
+      portal:         regraPortal(altura, folhas, qtd),
+      quadro:         regraQuadro(altura, folhas, qtd),
+      corte_usinagem: regraCorte(chapas, modelo, folhas, qtd),
+      colagem:        colag.horas,
+      colagem_dias:   colag.dias,
+      conf_bem:       regraConferencia(altura, folhas, qtd),
+    };
+  }
+
+  // Defaults da fabricacao (sao salvos por versao, editaveis)
+  const FAB_DEFAULT = {
+    // Felipe (do doc - msg "campos vazios"): defaults vazios pra
+    // ficar laranja transparente ate o usuario preencher.
+    n_operarios: '',
+    custo_hora: '',
+    // 5 componentes que somam ao subMO pra dar subFab.
+    // Felipe (sessao 2026-05): adicionado total_revestimento — antes
+    // chapas/revestimentos iam pelo "Extras". Agora tem campo proprio
+    // (ficara automatico quando o motor de chapas estiver pronto).
+    total_perfis:        '',
+    total_pintura:       '',
+    total_acessorios:    '',
+    total_fechadura_digital: '',  // Felipe sessao 31: separado
+    total_revestimento:  '',
+    total_extras:        '',
+    etapas: ETAPAS_FAB.reduce((acc, e) => { acc[e.id] = { dias: 0 }; return acc; }, {}),
+  };
+
+  // Defaults da instalacao — schema das 10 regras do Felipe.
+  // Modo PROJETTA: calcula tudo a partir de km, pessoas, dias, etc.
+  // Modo TERCEIROS: subInst = inst_terceiros_valor + inst_terceiros_transp
+  //                 (componentes individuais ficam como "—")
+  const INST_DEFAULT = {
+    modo: 'projetta',          // 'projetta' | 'terceiros' | 'internacional'
+
+    // Dados base
+    distancia_km: '',          // Felipe: vazio pra ficar laranja, alerta antes de avancar
+    altura_porta_mm: 0,        // virá auto do item
+    peso_bruto_kg: 0,          // virá auto do item — alerta se > 500
+
+    // Override manual de deslocamento (vazio/null = auto pelo km)
+    desl_override: null,
+
+    // Dias de instalacao no local (manual; auto pelo tipo de porta depois)
+    // Felipe (do doc): comeca vazio — usuario preenche
+    dias_instalacao: '',
+
+    // Equipe
+    // Felipe (do doc - msg "todos campos 0,00 deixe vazio"): comecam vazios
+    n_pessoas: '',
+    diaria_pessoa: '',
+    n_carros: '',
+
+    // Hotel
+    diaria_hotel: '',
+
+    // Alimentacao
+    alimentacao_dia: '',
+
+    // Munk (manual)
+    munk_caminhao: '',
+
+    // Pedagio (manual; auto se vazio)
+    pedagio_manual: null,
+
+    // Modo TERCEIROS / INTERNACIONAL (manual sempre)
+    inst_terceiros_valor:  '',
+    inst_terceiros_transp: '',
+  };
+
+  // Tabela de dias de deslocamento por km (regra 1)
+  function deslocamentoPorKm(km) {
+    if (km <= 0) return 0;
+    if (km <= 300) return 1;
+    if (km <= 800) return 2;
+    if (km <= 1300) return 3;
+    return 4;
+  }
+
+  // Tabela de quartos por pessoas (regra 4)
+  function quartosPorPessoas(p) {
+    if (p <= 2) return 1;
+    if (p <= 4) return 2;
+    if (p <= 6) return 3;
+    return Math.ceil(p / 2);
+  }
+
+  /**
+   * Calcula custo total de fabricacao a partir do schema.
+   */
+  /**
+   * Calcula custo de fabricacao a partir das regras Felipe aplicadas a cada
+   * item porta_externa da versao. Soma a contribuicao de cada item por etapa.
+   *
+   *   horas_etapa  = sum(item → regra_etapa(item))     ou override manual
+   *   total_horas  = sum(horas_etapa) × n_operarios     (HH = ×2 default)
+   *   subMO        = total_horas × custo_hora           (R$ 110/h default)
+   *   subFab       = subMO + total_perfis_pintura_acessorios + chapas
+   */
+  function calcularFab(fab, itens) {
+    const f = Object.assign({}, FAB_DEFAULT, fab || {});
+    const etapas = Object.assign({}, FAB_DEFAULT.etapas, f.etapas || {});
+    const n_op   = Number(f.n_operarios) || 0;
+    const r_h    = Number(f.custo_hora)  || 0;
+    // 5 componentes separados (Felipe pediu) — somam pra compor o total
+    // Felipe (sessao 2026-05): adicionado total_revestimento (chapas).
+    const tPerfis      = Number(f.total_perfis)       || 0;
+    const tPintura     = Number(f.total_pintura)      || 0;
+    const tAcessorios  = Number(f.total_acessorios)   || 0;
+    const tRevestiment = Number(f.total_revestimento) || 0;
+    const tExtras      = Number(f.total_extras)       || 0;
+    // Felipe (sessao 31): fechadura digital em campo proprio
+    const tFechDigital = Number(f.total_fechadura_digital) || 0;
+    const tInsumos     = tPerfis + tPintura + tAcessorios + tRevestiment + tExtras + tFechDigital;
+
+    // Soma horas calculadas das regras pra cada etapa (todos os itens porta_externa)
+    const portas = (itens || []).filter(i => i && i.tipo === 'porta_externa');
+    const horasAuto = ETAPAS_FAB.reduce((acc, e) => { acc[e.id] = 0; return acc; }, {});
+    let diasColagem = 0;  // pra exibir o detalhe
+    portas.forEach(it => {
+      const h = horasItemPortaExterna(it);
+      horasAuto.portal         += h.portal;
+      horasAuto.quadro         += h.quadro;
+      horasAuto.corte_usinagem += h.corte_usinagem;
+      horasAuto.colagem        += h.colagem;
+      horasAuto.conf_bem       += h.conf_bem;
+      diasColagem = Math.max(diasColagem, h.colagem_dias || 0);
+    });
+
+    // Aplica override por etapa (se preenchido)
+    // Felipe (sessao 28): "QUANDO TENHO MULTI ITENS COLOQUE AO LADO Custo
+    // de Fabricacao OUTRA COLUNA POIS CADA ITEM TEM SEU TEMPO E DEPOIS
+    // SOMA TODAS AS HORAS". Estrutura nova:
+    //   etapas[id].horasPorItem = { '0': N, '1': N, ... }  (1 valor por item)
+    //   etapas[id].horasOverride = N                       (fallback global, compat)
+    //
+    // Logica:
+    //   - Se horasPorItem tem qualquer chave preenchida → soma TODAS as
+    //     entradas (chaves vazias = 0). horasOverride e' ignorado.
+    //   - Se horasPorItem vazio e horasOverride preenchido → usa
+    //     horasOverride (comportamento antigo).
+    //   - Se ambos vazios → usa o calculado automatico.
+    const detalhes = ETAPAS_FAB.map(e => {
+      const ent = etapas[e.id] || {};
+      const auto = horasAuto[e.id] || 0;
+      const ov = ent.horasOverride;
+      const porItem = ent.horasPorItem || {};
+
+      // Soma horasPorItem (alguma entrada preenchida → ja conta como override)
+      const chavesPorItem = Object.keys(porItem);
+      const algumPreenchidoPorItem = chavesPorItem.some(k => {
+        const v = porItem[k];
+        return v != null && v !== '' && Number.isFinite(Number(v));
+      });
+
+      let horas;
+      let temOverride;
+      if (algumPreenchidoPorItem) {
+        horas = chavesPorItem.reduce((s, k) => {
+          const v = Number(porItem[k]);
+          return s + (Number.isFinite(v) ? v : 0);
+        }, 0);
+        temOverride = true;
+      } else if (ov != null && ov !== '') {
+        horas = Number(ov);
+        temOverride = (Number(ov) !== auto);
+      } else {
+        // Felipe (sessao 31): "continua puxando 100 hora e pra ficar
+        // 100% manual". Quando vazio, horas = 0 (nao usa auto).
+        // O auto fica APENAS como referencia visual na coluna
+        // "Calculado pelas regras" — nao entra no calculo.
+        horas = 0;
+        temOverride = false;
+      }
+
+      return {
+        id: e.id,
+        label: e.label,
+        horasAuto: auto,
+        horas,
+        // Felipe (sessao 28): expoe horasPorItem pra UI renderizar coluna
+        // de cada item. UI vai usar e.horasPorItem[idx] OU calcular fallback.
+        horasPorItem: porItem,
+        override: temOverride,
+      };
+    });
+
+    const horas_etapas   = detalhes.reduce((s, d) => s + d.horas, 0);
+    const total_horas    = horas_etapas * n_op;
+    const subtotal_horas = total_horas * r_h;
+    const total          = subtotal_horas + tInsumos;
+
+    return {
+      detalhes,
+      horas_etapas,
+      n_operarios: n_op,
+      total_horas,
+      custo_hora: r_h,
+      subtotal_horas,
+      total_perfis:        tPerfis,
+      total_pintura:       tPintura,
+      total_acessorios:    tAcessorios,
+      total_fechadura_digital: tFechDigital,
+      total_revestimento:  tRevestiment,
+      total_extras:        tExtras,
+      total_insumos:       tInsumos,
+      total,
+      diasColagem,
+      qtdItens: portas.length,
+    };
+  }
+
+  /**
+   * Calcula custo de instalacao seguindo as 10 regras passadas pelo Felipe:
+   *
+   *  1. Dias de deslocamento (auto pelo km — override manual em desl_override)
+   *  2. Salarios = diasTotal × pessoas × diaria
+   *  3. Diesel = (km + 50) × 0,875 × 2 × carros   (so se km > 0)
+   *  4. Hotel = noites × hotel-dia × quartos
+   *     noites = max(diasTotal - 1, 0)
+   *     quartos: pessoas <= 2 → 1; <=4 → 2; <=6 → 3; else ceil(p/2)
+   *  5. Alimentacao = diasTotal × pessoas × alim
+   *  6. Andaime (auto): altura > 3000mm → R$ 550; senao 0
+   *  7. Pedagio (auto se vazio): ceil(km × 2 × 0,15 / 50) × 50
+   *  8. Munk (manual + alerta visual se peso bruto > 500 kg)
+   *  9. SubInst PROJETTA = sal + diesel + hotel + aliment + andaime + munk + pedagio
+   * 10. SubInst TERCEIROS = inst_terceiros_valor + inst_terceiros_transp
+   *     (componentes individuais ficam como "—")
+   */
+  function calcularInst(inst) {
+    const i = Object.assign({}, INST_DEFAULT, inst || {});
+    const km       = Number(i.distancia_km)     || 0;
+    const altura   = Number(i.altura_porta_mm)  || 0;
+    const peso     = Number(i.peso_bruto_kg)    || 0;
+    const pessoas  = Number(i.n_pessoas)        || 0;
+    const diaria   = Number(i.diaria_pessoa)    || 0;
+    const carros   = Number(i.n_carros)         || 0;
+    const hotelDia = Number(i.diaria_hotel)     || 0;
+    const alim     = Number(i.alimentacao_dia)  || 0;
+
+    // Regra 1: dias de deslocamento (override manual ou auto pelo km)
+    const overrideRaw = i.desl_override;
+    const temOverride = overrideRaw !== null && overrideRaw !== '' && overrideRaw !== undefined && !Number.isNaN(Number(overrideRaw));
+    const deslocamentoDias = temOverride ? (Number(overrideRaw) || 0) : deslocamentoPorKm(km);
+
+    const diasInst  = Number(i.dias_instalacao) || 0;
+    const diasTotal = deslocamentoDias + diasInst;
+
+    // Modo TERCEIROS / INTERNACIONAL — soma simples, componentes individuais "—"
+    // Felipe (do doc - msg frete/inst): "Internacional" se comporta igual
+    // a "Terceiros" (valores manuais).
+    if (i.modo === 'terceiros' || i.modo === 'internacional') {
+      const valor  = Number(i.inst_terceiros_valor)  || 0;
+      const transp = Number(i.inst_terceiros_transp) || 0;
+      return {
+        modo: i.modo,
+        deslocamentoDias,
+        diasInst,
+        diasTotal,
+        // null sinaliza pra UI exibir "—"
+        salarios:    null,
+        diesel:      null,
+        hotel:       null,
+        alimentacao: null,
+        andaime:     null,
+        munk:        null,
+        munk_alerta: false,
+        pedagio:     null,
+        noites:      null,
+        quartos:     null,
+        inst_terceiros_valor:  valor,
+        inst_terceiros_transp: transp,
+        total: valor + transp,
+      };
+    }
+
+    // Modo PROJETTA — todas as fórmulas
+    // Regra 2: salarios
+    const salarios = diasTotal * pessoas * diaria;
+
+    // Regra 3: diesel (so se km > 0)
+    const diesel = km > 0 ? (km + 50) * 0.875 * 2 * carros : 0;
+
+    // Regra 4: hotel
+    const noites  = Math.max(diasTotal - 1, 0);
+    const quartos = quartosPorPessoas(pessoas);
+    const hotel   = noites * hotelDia * quartos;
+
+    // Regra 5: alimentacao
+    const alimentacao = diasTotal * pessoas * alim;
+
+    // Regra 6: andaime (auto pela altura)
+    const andaime = altura > 3000 ? 550 : 0;
+
+    // Regra 7: pedagio (auto se manual vazio)
+    const pedagioRaw = i.pedagio_manual;
+    const temPedagioManual = pedagioRaw !== null && pedagioRaw !== '' && pedagioRaw !== undefined && !Number.isNaN(Number(pedagioRaw));
+    const pedagio = temPedagioManual
+      ? (Number(pedagioRaw) || 0)
+      : (km > 0 ? Math.ceil(km * 2 * 0.15 / 50) * 50 : 0);
+
+    // Regra 8: munk (manual; alerta se peso > 500)
+    const munk = Number(i.munk_caminhao) || 0;
+    const munk_alerta = peso > 500;
+
+    // Regra 9: subInst PROJETTA
+    const total = salarios + diesel + hotel + alimentacao + andaime + munk + pedagio;
+
+    return {
+      modo: 'projetta',
+      deslocamentoDias,
+      diasInst,
+      diasTotal,
+      noites,
+      quartos,
+      salarios,
+      diesel,
+      hotel,
+      alimentacao,
+      andaime,
+      munk,
+      munk_alerta,
+      pedagio,
+      total,
+    };
+  }
+
+  /**
+   * Calcula DRE completo a partir de subtotais e parametros.
+   * Formulas conforme spec passada pelo Felipe (sistema antigo da Weiku):
+   *   custo    = (subFab + subInst) + (subFab + subInst) × overhead
+   *   lbn      = lucro_alvo / (1 − IRPJ)        (lucro bruto necessario)
+   *   td       = impostos + com_rep + com_rt + com_gest + lbn
+   *   fF       = 1 / (1 − td)                   (fator faturamento)
+   *   pFat     = custo × fF
+   *   fT       = fF / (1 − markup_desc)         (fator tabela)
+   *   pTab     = custo × fT
+   *   pFatReal = pTab × (1 − desconto)
+   *   markup%  = (pTab / custo − 1) × 100
+   *
+   * Retorna todos os valores intermediarios pra exibir DRE detalhada.
+   * Se td >= 1 ou markup_desc >= 1, retorna fatores em 0 (protecao).
+   */
+  function calcularDRE(subFab, subInst, params) {
+    const p = Object.assign({}, PARAMS_DEFAULT, params || {});
+    const overhead    = (Number(p.overhead)    || 0) / 100;
+    const impostos    = (Number(p.impostos)    || 0) / 100;
+    const com_rep     = (Number(p.com_rep)     || 0) / 100;
+    const com_rt      = (Number(p.com_rt)      || 0) / 100;
+    const com_gest    = (Number(p.com_gest)    || 0) / 100;
+    const lucro_alvo  = (Number(p.lucro_alvo)  || 0) / 100;
+    const markup_desc = (Number(p.markup_desc) || 0) / 100;
+    const desconto    = (Number(p.desconto)    || 0) / 100;
+
+    const sub = (Number(subFab) || 0) + (Number(subInst) || 0);
+    const custo = sub + sub * overhead;
+
+    const lbn = lucro_alvo / (1 - IRPJ);
+    const td  = impostos + com_rep + com_rt + com_gest + lbn;
+    const fF  = (td < 1)  ? 1 / (1 - td)             : 0;
+    const fT  = (markup_desc < 1) ? fF / (1 - markup_desc) : 0;
+    const pFat     = custo * fF;
+    const pTab     = custo * fT;
+    const pFatReal = pTab * (1 - desconto);
+    const markupPct = custo > 0 ? (pTab / custo - 1) * 100 : 0;
+
+    return {
+      // entradas (echo)
+      subFab: Number(subFab) || 0,
+      subInst: Number(subInst) || 0,
+      params: p,
+      // intermediarios (em fracao 0-1, exceto markupPct)
+      lbn, td, fF, fT,
+      // resultado em R$
+      custo, pFat, pTab, pFatReal,
+      // markup % (visual)
+      markupPct,
+    };
+  }
+
+  /**
+   * Felipe (sessao 2026-06): calcula valores POR ITEM pra exibir na
+   * proposta comercial.
+   *
+   * Pedido textual: "fabricacao vai ter que ser separado portanto vai
+   * ter que ter fabricacao item 1, item 2, item 3 etc, para jogar esse
+   * custo neste item. Somente instalacao que vai ser junto. Para proposta
+   * comercial vai ter que jogar valor porta 1 + porta 2 normal custo
+   * fabricacao e preco final com markup e custo e preco final da
+   * instalacao dividir proporcional ao custo de cada pra nao sair vazio
+   * na proposta."
+   *
+   * Estrategia:
+   *  1. Calcula HORAS por item (horasItemPortaExterna ja' considera
+   *     item.quantidade).
+   *  2. Distribui subFab proporcional as horas (item maior = mais horas
+   *     = mais custo de fabricacao).
+   *  3. Distribui subInst proporcional ao subFab de cada item
+   *     (Felipe: "dividir proporcional ao custo de cada").
+   *  4. Aplica formula DRE em cada item separadamente.
+   *  5. Valor unitario = precoFinal / item.quantidade.
+   *
+   * Retorna { porItem: [...], totalGeral }.
+   */
+  function calcularValoresProposta(versao, params) {
+    const itens = (versao && versao.itens) || [];
+    if (!itens.length) return { porItem: [], totalGeral: 0 };
+
+    // 1. Horas por item (considera quantidade interna do horasItemPortaExterna)
+    const horasPorIdx = {};
+    let horasTotal = 0;
+    itens.forEach((it, idx) => {
+      if (it && it.tipo === 'porta_externa') {
+        const h = horasItemPortaExterna(it);
+        horasPorIdx[idx] = (h.portal || 0) + (h.quadro || 0) +
+                           (h.corte_usinagem || 0) + (h.colagem || 0) +
+                           (h.conf_bem || 0);
+      } else {
+        horasPorIdx[idx] = 0;
+      }
+      horasTotal += horasPorIdx[idx];
+    });
+
+    // 2. SubFab e SubInst totais (vem do storage, ja' calculados)
+    const subFabTotal  = Number(versao.subFab)  || 0;
+    const subInstTotal = Number(versao.subInst) || 0;
+
+    // 3. Distribui subFab proporcional as horas
+    const subFabPorIdx  = [];
+    const subInstPorIdx = [];
+    itens.forEach((it, idx) => {
+      const propHoras = horasTotal > 0
+        ? (horasPorIdx[idx] / horasTotal)
+        : (1 / itens.length);
+      subFabPorIdx.push(subFabTotal * propHoras);
+    });
+
+    // 4. Distribui subInst proporcional ao subFab de cada item
+    const subFabSomado = subFabPorIdx.reduce((s, v) => s + v, 0);
+    itens.forEach((it, idx) => {
+      const propFab = subFabSomado > 0
+        ? (subFabPorIdx[idx] / subFabSomado)
+        : (1 / itens.length);
+      subInstPorIdx.push(subInstTotal * propFab);
+    });
+
+    // 5. DRE por item — mesmos parametros, custos diferentes
+    const porItem = itens.map((it, idx) => {
+      const dreItem = calcularDRE(subFabPorIdx[idx], subInstPorIdx[idx], params);
+      const qtd = Math.max(1, Number(it.quantidade) || 1);
+      const precoFinal = Number(dreItem.pTab) || 0;
+      return {
+        idx,
+        item: it,
+        qtd,
+        subFab:    subFabPorIdx[idx],
+        subInst:   subInstPorIdx[idx],
+        custo:     dreItem.custo,
+        precoFinal,
+        valorUn:   qtd > 0 ? precoFinal / qtd : 0,
+      };
+    });
+
+    const totalGeral = porItem.reduce((s, x) => s + x.precoFinal, 0);
+
+    return { porItem, totalGeral };
+  }
+
+
+  // ---------- helpers internos ----------
+  function uid(prefix) {
+    return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+  }
+  function nowIso() {
+    return new Date().toISOString();
+  }
+  function userAtual() {
+    try {
+      return (window.Auth && Auth.getCurrentUser && Auth.getCurrentUser()?.username) || 'desconhecido';
+    } catch (e) {
+      return 'desconhecido';
+    }
+  }
+  // 1 → 'A', 2 → 'B', 27 → 'AA' (futuro-proof)
+  function letraOpcao(n) {
+    if (n < 1) return 'A';
+    let s = '';
+    let x = n;
+    while (x > 0) {
+      const r = (x - 1) % 26;
+      s = String.fromCharCode(65 + r) + s;
+      x = Math.floor((x - 1) / 26);
+    }
+    return s;
+  }
+
+  // ---------- camada de armazenamento ----------
+  function loadAll() {
+    return store.get('negocios') || [];
+  }
+  function saveAll(negocios) {
+    try {
+      store.set('negocios', negocios);
+      store.set('schema_version', SCHEMA_VERSION);
+    } catch (e) {
+      // Felipe (sessao 2026-09): saveAll defensivo.
+      // Quando localStorage estoura (QuotaExceededError), antes de
+      // explodir o app inteiro, tenta:
+      //   1) Auto-limpar precos_snapshot de drafts (sem perder dados)
+      //   2) Salvar de novo
+      //   3) Se ainda falhar, propaga o erro (UI ja deve estar resiliente)
+      const isQuota = (e && (e.name === 'QuotaExceededError'
+                           || e.code === 22
+                           || e.code === 1014
+                           || /quota/i.test(String(e.message || ''))));
+      if (!isQuota) throw e;
+      console.warn('[Orcamento] localStorage cheio — tentando auto-limpar snapshots de drafts...');
+      let liberados = 0;
+      negocios.forEach(n => (n.opcoes || []).forEach(o => (o.versoes || []).forEach(v => {
+        // Drafts nao precisam de snapshot completo. Versoes fechadas
+        // sao preservadas (snapshot legitimo de historico imutavel).
+        if (v.status !== 'fechada' && v.precos_snapshot
+            && (v.precos_snapshot.acessorios || v.precos_snapshot.perfis)) {
+          v.precos_snapshot = { pendente: true, tiradoEm: v.precos_snapshot.tiradoEm || nowIso() };
+          liberados++;
+        }
+      })));
+      if (liberados > 0) {
+        try {
+          store.set('negocios', negocios);
+          store.set('schema_version', SCHEMA_VERSION);
+          console.warn(`[Orcamento] Auto-limpou ${liberados} snapshots de drafts. Storage salvo.`);
+          return;
+        } catch (e2) {
+          console.error('[Orcamento] Auto-limpeza nao foi suficiente. Erro:', e2);
+          throw e2;
+        }
+      }
+      throw e;  // sem nada pra limpar, propaga
+    }
+    // Felipe (sessao 31): sync pro Supabase em background (nao bloqueia)
+    if (window.SupabaseSync && window.SupabaseSync.syncAll) {
+      window.SupabaseSync.syncAll(negocios).catch(function(err) {
+        console.warn('[Orcamento] Supabase sync falhou (dados locais OK):', err.message);
+      });
+    }
+  }
+
+  // ---------- snapshot de precos (Etapa 3 vai usar de verdade) ----------
+  // Felipe (sessao 2026-09 — fix de quota localStorage):
+  //
+  // O snapshot original copiava TODO o cadastro (acessorios, superficies,
+  // perfis, representantes) em CADA criacao de versao — inclusive em
+  // drafts efemeros. Resultado: 33 versoes × 65 KB = 2.15 MB so' em
+  // dados redundantes. Estourava o limite de 5 MB do localStorage.
+  //
+  // Verificado no codigo (grep "precos_snapshot"): o snapshot e' apenas
+  // ESCRITO, nunca LIDO. E' codigo reservado para "Etapa 3" futura. Logo,
+  // posso reduzir a um marcador leve sem impacto funcional.
+  //
+  // Estrategia:
+  //   - Drafts (criacao normal de versao) → snapshotPrecosLeve() — 1 obj
+  //     pequeno {pendente, tiradoEm}. Quando Etapa 3 chegar, le do
+  //     cadastro atual + flag pendente.
+  //   - Fechamento de versao (fecharVersao, status='fechada') → snapshot
+  //     completo (snapshotPrecosCompleto), porque ai' vira historico
+  //     imutavel e merece persistir.
+  //
+  // Backward compat: versoes existentes com precos_snapshot completo
+  // continuam funcionando (estrutura maior, mas valida).
+  function snapshotPrecosLeve() {
+    return {
+      pendente: true,            // marcador: snapshot ainda nao consolidado
+      tiradoEm: nowIso(),
+    };
+  }
+
+  function snapshotPrecosCompleto() {
+    const cad = Storage.scope('cadastros');
+    const acessorios  = cad.get('acessorios_lista')  || [];
+    const superficies = cad.get('superficies_lista') || [];
+    const perfis      = cad.get('perfis_lista')      || [];
+    const reps        = cad.get('representantes_lista') || [];
+    return {
+      acessorios:  acessorios.map(a  => ({ codigo: a.codigo, descricao: a.descricao, preco: Number(a.preco) || 0 })),
+      superficies: superficies.map(s => ({ descricao: s.descricao, preco: Number(s.preco) || 0 })),
+      perfis:      perfis.map(p      => ({ codigo: p.codigo, nome: p.nome, kg_m: p.kg_m, preco_kg: p.preco_kg })),
+      representantes: reps.map(r     => ({ razao_social: r.razao_social, comissao_maxima: r.comissao_maxima })),
+      tiradoEm: nowIso(),
+    };
+  }
+
+  // Alias de compatibilidade — outros lugares no codigo (fora deste
+  // arquivo) podem chamar snapshotPrecosAtual. Mantem o nome antigo
+  // apontando para a versao LEVE (default seguro).
+  function snapshotPrecosAtual() {
+    return snapshotPrecosLeve();
+  }
+
+  // ============================================================
+  //                       API PUBLICA
+  // ============================================================
+
+  /**
+   * Cria um novo Negocio vinculado a um lead, ja com Opcao A e Versao 1 vazia.
+   * @param {Object} args
+   * @param {string} args.leadId - ID do lead no CRM
+   * @param {string} args.clienteNome - nome do cliente (snapshot, lead pode renomear)
+   * @returns {Object} negocio criado, com referencia primeiraVersaoId pra navegar
+   */
+  function criarNegocio({ leadId, clienteNome }) {
+    if (!leadId) throw new Error('criarNegocio: leadId obrigatorio');
+    const negocios = loadAll();
+
+    // Se ja existe negocio pra esse lead, retorna o existente (idempotencia)
+    const existente = negocios.find(n => n.leadId === leadId);
+    if (existente) return existente;
+
+    const negocioId = uid('neg');
+    const opcaoId   = uid('opc');
+    const versaoId  = uid('ver');
+    const criadoPor = userAtual();
+    const criadoEm  = nowIso();
+
+    const versao = {
+      id: versaoId,
+      numero: 1,
+      status: 'draft',  // 'draft' (mutavel) | 'fechada' (imutavel)
+      criadoEm, criadoPor,
+      observacao: '',
+      itens: [],
+      precos_snapshot: snapshotPrecosAtual(),
+      // Subtotais de fabricacao e instalacao — por enquanto editaveis
+      // manualmente na aba Custo. Quando o calculo automatico de
+      // perfis/acessorios/chapas vier, vai sair direto dos itens.
+      subFab: 0,
+      subInst: 0,
+      custoFab: Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) }),
+      custoInst: Object.assign({}, INST_DEFAULT),
+      parametros: Object.assign({}, PARAMS_DEFAULT),
+      subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
+      total: 0,
+    };
+    const opcao = {
+      id: opcaoId,
+      letra: 'A',
+      criadoEm, criadoPor,
+      versoes: [versao],
+    };
+    const negocio = {
+      id: negocioId,
+      leadId,
+      clienteNome: clienteNome || '',
+      criadoEm, criadoPor,
+      opcoes: [opcao],
+    };
+
+    negocios.push(negocio);
+    saveAll(negocios);
+    return negocio;
+  }
+
+  /**
+   * Felipe (regra 3 do CRM): card so exibe Modelo / Folhas / Cor / Cidade /
+   * Estado / Rep depois que o usuario salvou pelo menos UMA versao oficial
+   * ('fechada'). Drafts nao aparecem.
+   *
+   * Retorna:
+   *   {
+   *     hasVersaoFechada: boolean,        // se ha pelo menos 1 versao fechada
+   *     valor: number,                    // total da ultima versao fechada
+   *     modelo: string,                   // do primeiro item da ultima versao fechada
+   *     nFolhas: string,                  // ex: "1 folha", "2 folhas"
+   *     corInterna: string, corExterna: string,
+   *     versoes: [                        // lista pra UI mostrar dropdown/abrir
+   *       { id, numero, status, valor, criadoEm, opcaoLetra }, ...
+   *     ]
+   *   }
+   * Se o lead nao tem negocio ainda, retorna null.
+   */
+  function resumoParaCardCRM(leadId) {
+    const negocio = obterNegocioPorLeadId(leadId);
+    if (!negocio) return null;
+
+    // Achata todas as versoes (de todas as opcoes) pra facilitar UI
+    // Felipe (sessao 2026-06): "ao alterar e reaprovar com valor R$
+    // 133.606,46 o card permaneceu valor antigo". Bug: estava lendo
+    // v.total (campo inicializado em 0 e nunca atualizado). Agora le
+    // v.valorAprovado (que SIM e' setado por aprovarOrcamento na
+    // linha 1075). Fallback p/ v.total p/ versoes legadas.
+    // Tambem expoe precoProposta (pTab — preco antes do desconto).
+    // Felipe (sessao 2026-08): "ORCAMENTO APROVADO, VALOR NAO FOI PARA
+    // O CARD". Bug: a logica abaixo procurava versao com status='fechada',
+    // mas aprovarOrcamento NAO muda status — so' seta aprovadoEm.
+    // Como Felipe aprova mas nao fecha, a versao ficava com aprovadoEm
+    // setado mas status ainda 'draft' → card nunca atualizava. Solucao:
+    // considera tambem versoes com aprovadoEm como "fechada pro card".
+    const versoesFlat = [];
+    (negocio.opcoes || []).forEach(o => {
+      (o.versoes || []).forEach(v => {
+        const ehImutavelParaCard = v.status === 'fechada' || !!v.aprovadoEm;
+        versoesFlat.push({
+          id: v.id,
+          numero: v.numero,
+          status: v.status,
+          aprovadoEm: v.aprovadoEm,                      // novo: card precisa saber
+          ehImutavelParaCard,                            // novo: marca pra ordenacao/filter
+          valor: Number(v.valorAprovado) || Number(v.total) || 0,
+          precoProposta: Number(v.precoProposta) || Number(v.valorAprovado) || 0,
+          criadoEm: v.criadoEm,
+          opcaoLetra: o.letra,
+          opcaoId: o.id,
+        });
+      });
+    });
+
+    // Ordena: imutaveis primeiro (mais recente primeiro), draft por ultimo
+    versoesFlat.sort((a, b) => {
+      if (a.ehImutavelParaCard !== b.ehImutavelParaCard) return a.ehImutavelParaCard ? -1 : 1;
+      return String(b.criadoEm || '').localeCompare(String(a.criadoEm || ''));
+    });
+
+    // Felipe (sessao 2026-08): aceita aprovadoEm OU status='fechada'.
+    const ultimaFechada = versoesFlat.find(v => v.ehImutavelParaCard) || null;
+
+    if (!ultimaFechada) {
+      return { hasVersaoFechada: false, valor: 0, precoProposta: 0, versoes: versoesFlat };
+    }
+
+    // Pega versao completa pra ler itens
+    const r = obterVersao(ultimaFechada.id);
+    const item0 = (r && r.versao && r.versao.itens && r.versao.itens[0]) || {};
+    return {
+      hasVersaoFechada: true,
+      valor: ultimaFechada.valor,                  // pFatReal — Cliente Paga (com desconto)
+      precoProposta: ultimaFechada.precoProposta,  // pTab — Preco da Proposta (sem desconto)
+      modelo: item0.modeloNumero || item0.modelo || '',
+      nFolhas: item0.nFolhas ? `${item0.nFolhas} folha${String(item0.nFolhas) === '1' ? '' : 's'}` : '',
+      corInterna: item0.corInterna || '',
+      corExterna: item0.corExterna || '',
+      versoes: versoesFlat,
+    };
+  }
+
+  function obterNegocioPorLeadId(leadId) {
+    return loadAll().find(n => n.leadId === leadId) || null;
+  }
+  function obterNegocio(negocioId) {
+    return loadAll().find(n => n.id === negocioId) || null;
+  }
+  function obterOpcao(opcaoId) {
+    for (const n of loadAll()) {
+      const o = (n.opcoes || []).find(o => o.id === opcaoId);
+      if (o) return { negocio: n, opcao: o };
+    }
+    return null;
+  }
+  function obterVersao(versaoId) {
+    for (const n of loadAll()) {
+      for (const o of (n.opcoes || [])) {
+        const v = (o.versoes || []).find(v => v.id === versaoId);
+        if (v) {
+          // Felipe (do doc): injeta defaults dos campos novos (alisar,
+          // parede, etc) em itens antigos. Idempotente.
+          normalizarItensVersao(v);
+          return { negocio: n, opcao: o, versao: v };
+        }
+      }
+    }
+    return null;
+  }
+  function listarNegocios() {
+    return loadAll().slice();
+  }
+  function listarOpcoes(negocioId) {
+    const n = obterNegocio(negocioId);
+    return n ? (n.opcoes || []).slice() : [];
+  }
+  function listarVersoes(opcaoId) {
+    const r = obterOpcao(opcaoId);
+    return r ? (r.opcao.versoes || []).slice() : [];
+  }
+
+  /**
+   * Cria nova Opcao (B, C, D...) dentro do mesmo Negocio.
+   * Pode partir do zero (versao vazia) ou clonar de uma versao existente.
+   */
+  function criarOpcao({ negocioId, baseadoEmVersaoId }) {
+    const negocios = loadAll();
+    const negocio = negocios.find(n => n.id === negocioId);
+    if (!negocio) throw new Error('criarOpcao: negocio nao encontrado');
+
+    const proximaLetra = letraOpcao((negocio.opcoes?.length || 0) + 1);
+    const opcaoId  = uid('opc');
+    const versaoId = uid('ver');
+    const criadoEm = nowIso();
+    const criadoPor = userAtual();
+
+    let itensBase = [];
+    if (baseadoEmVersaoId) {
+      const r = obterVersao(baseadoEmVersaoId);
+      if (r && r.versao) itensBase = JSON.parse(JSON.stringify(r.versao.itens || []));
+    }
+
+    const novaVersao = {
+      id: versaoId,
+      numero: 1,
+      status: 'draft',
+      criadoEm, criadoPor,
+      observacao: '',
+      itens: itensBase,
+      precos_snapshot: snapshotPrecosAtual(),
+      subFab: 0,
+      subInst: 0,
+      custoFab: Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) }),
+      custoInst: Object.assign({}, INST_DEFAULT),
+      parametros: Object.assign({}, PARAMS_DEFAULT),
+      subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
+      total: 0,
+    };
+    const novaOpcao = {
+      id: opcaoId,
+      letra: proximaLetra,
+      criadoEm, criadoPor,
+      versoes: [novaVersao],
+    };
+    negocio.opcoes.push(novaOpcao);
+    saveAll(negocios);
+    return novaOpcao;
+  }
+
+  /**
+   * Cria nova Versao (V N+1) dentro de uma Opcao existente.
+   * SEMPRE clona inputs da versao anterior + tira NOVO snapshot de precos.
+   * Versao anterior fica intocada (imutavel apos virar 'fechada').
+   */
+  function criarVersao({ opcaoId, baseadoEmVersaoId }) {
+    const negocios = loadAll();
+    let target = null;
+    for (const n of negocios) {
+      const o = (n.opcoes || []).find(o => o.id === opcaoId);
+      if (o) { target = { negocio: n, opcao: o }; break; }
+    }
+    if (!target) throw new Error('criarVersao: opcao nao encontrada');
+    const opcao = target.opcao;
+
+    // Versao base: a explicita ou a ultima da opcao
+    let base = null;
+    if (baseadoEmVersaoId) {
+      base = (opcao.versoes || []).find(v => v.id === baseadoEmVersaoId);
+    } else {
+      base = (opcao.versoes || []).slice(-1)[0];
+    }
+
+    const proximoNumero = (opcao.versoes?.length || 0) + 1;
+
+    // Felipe (sessao 2026-05): se nao ha versao base, popular defaults
+    // de Fab/Inst com os valores do cadastro de Precificacao. Mantem
+    // compatibilidade: se o cadastro nao existir ou modulo nao estiver
+    // carregado, usa os FAB_DEFAULT/INST_DEFAULT (que sao vazios).
+    // Isso so' atinge versoes NOVAS sem base — versoes clonadas a partir
+    // de outra continuam herdando da base (comportamento original intacto).
+    function _fabDefaultsComCadastro() {
+      const baseFab = Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) });
+      try {
+        if (window.Precificacao && typeof window.Precificacao.obterValores === 'function') {
+          const v = window.Precificacao.obterValores();
+          if (v.n_operarios)    baseFab.n_operarios = v.n_operarios;
+          if (v.custo_hora_fab) baseFab.custo_hora  = v.custo_hora_fab;
+        }
+      } catch (e) { /* fallback silencioso pros defaults */ }
+      return baseFab;
+    }
+    function _instDefaultsComCadastro() {
+      const baseInst = Object.assign({}, INST_DEFAULT);
+      try {
+        if (window.Precificacao && typeof window.Precificacao.obterValores === 'function') {
+          const v = window.Precificacao.obterValores();
+          // Para Hotel: tenta cotacao por cidade (se lead tem cidade), senao fallback
+          let diariaHotel = v.diaria_hotel;
+          try {
+            const lead = (typeof lerLeadAtivo === 'function') ? lerLeadAtivo() : null;
+            if (lead && lead.cidade && typeof window.Precificacao.obterDiariaHotelCidade === 'function') {
+              diariaHotel = window.Precificacao.obterDiariaHotelCidade(lead);
+            }
+          } catch (e) { /* mantem fallback */ }
+          if (v.diaria_pessoa)   baseInst.diaria_pessoa   = v.diaria_pessoa;
+          if (diariaHotel)       baseInst.diaria_hotel    = diariaHotel;
+          if (v.alimentacao_dia) baseInst.alimentacao_dia = v.alimentacao_dia;
+        }
+      } catch (e) { /* fallback silencioso */ }
+      return baseInst;
+    }
+
+    const novaVersao = {
+      id: uid('ver'),
+      numero: proximoNumero,
+      status: 'draft',
+      criadoEm: nowIso(),
+      criadoPor: userAtual(),
+      observacao: '',
+      itens: base ? JSON.parse(JSON.stringify(base.itens || [])) : [],
+      precos_snapshot: snapshotPrecosAtual(),
+      // Clona subFab/subInst/parametros da base se existir, senão default
+      subFab: base?.subFab || 0,
+      subInst: base?.subInst || 0,
+      custoFab: base?.custoFab ? JSON.parse(JSON.stringify(base.custoFab)) : _fabDefaultsComCadastro(),
+      custoInst: base?.custoInst ? JSON.parse(JSON.stringify(base.custoInst)) : _instDefaultsComCadastro(),
+      parametros: Object.assign({}, PARAMS_DEFAULT, base?.parametros || {}),
+      subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
+      total: 0,
+    };
+    opcao.versoes.push(novaVersao);
+    saveAll(negocios);
+    return novaVersao;
+  }
+
+  /**
+   * Felipe (sessao 2026-06): "criar nova versao com 2 opcoes:
+   *   1) em branco — mantem so' largura/altura
+   *   2) copiar atual — duplica tudo p/ ajustar pontual"
+   *
+   * Esta funcao recebe a versao atual (mesmo que aprovada/fechada),
+   * fecha ela como historico e cria a nova versao no modo escolhido.
+   * A nova versao vira a ATIVA automaticamente.
+   *
+   * @param {string} versaoBaseId - id da versao atual
+   * @param {'em-branco'|'copiar'} modo
+   */
+  function criarNovaVersao(versaoBaseId, modo) {
+    if (modo !== 'em-branco' && modo !== 'copiar') {
+      throw new Error('criarNovaVersao: modo invalido (' + modo + ')');
+    }
+    const r = obterVersao(versaoBaseId);
+    if (!r) throw new Error('criarNovaVersao: versao base nao encontrada');
+    const versaoBase = r.versao;
+    const opcao      = r.opcao;
+
+    // 1. Fecha a versao base se ainda nao estiver fechada.
+    //    Versoes aprovadas (mas nao fechadas) viram fechadas aqui — pra
+    //    historico ficar congelado.
+    if (versaoBase.status !== 'fechada') {
+      try { fecharVersao(versaoBase.id); }
+      catch (e) { console.warn('[orcamento] falha ao fechar versao base:', e.message); }
+    }
+
+    // 2. Cria nova versao a partir da base
+    const nova = criarVersao({ opcaoId: opcao.id, baseadoEmVersaoId: versaoBase.id });
+
+    // 3. Se modo "em-branco": LIMPA tudo exceto largura/altura/numFolhas/sistema
+    //    (campos basicos de identificacao da porta — Felipe quer manter isso)
+    if (modo === 'em-branco') {
+      const negocios = loadAll();
+      for (const n of negocios) {
+        for (const o of (n.opcoes || [])) {
+          const v = (o.versoes || []).find(v => v.id === nova.id);
+          if (v) {
+            // Mantem APENAS largura/altura por item, zera resto
+            v.itens = (versaoBase.itens || []).map(it => ({
+              tipo: it.tipo,
+              largura: it.largura,
+              altura: it.altura,
+              quantidade: it.quantidade || 1,
+              nFolhas: it.nFolhas,
+              sistema: it.sistema || '',
+            }));
+            // Zera toda a parte de calculo
+            v.subFab    = 0;
+            v.subInst   = 0;
+            v.custoFab  = Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) });
+            v.custoInst = Object.assign({}, INST_DEFAULT);
+            v.parametros = Object.assign({}, PARAMS_DEFAULT);
+            v.subtotais  = { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 };
+            v.total      = 0;
+            v.calculadoEm = null;
+            v.calcDirty   = true;
+            v.chapasSelecionadas = {};
+            saveAll(negocios);
+            break;
+          }
+        }
+      }
+    }
+    // modo 'copiar' nao faz nada — criarVersao ja' duplicou tudo da base
+
+    // 4. Ativa a nova versao na UI
+    UI.versaoAtivaId = nova.id;
+    return nova;
+  }
+
+  /**
+   * Atualiza dados de uma Versao 'draft'. Versao 'fechada' nao aceita mudanca.
+   * Use isto durante a edicao do orcamento; quando user salvar definitivo,
+   * chame fecharVersao() pra travar.
+   */
+  function atualizarVersao(versaoId, dadosNovos) {
+    const negocios = loadAll();
+    let alvo = null;
+    for (const n of negocios) {
+      for (const o of (n.opcoes || [])) {
+        const v = (o.versoes || []).find(v => v.id === versaoId);
+        if (v) { alvo = v; break; }
+      }
+      if (alvo) break;
+    }
+    if (!alvo) throw new Error('atualizarVersao: versao nao encontrada');
+    if (alvo.status === 'fechada') {
+      throw new Error('atualizarVersao: versao fechada eh imutavel — crie nova versao com criarVersao()');
+    }
+    // campos permitidos de atualizar
+    // Felipe (sessao 2026-05): adicionado 'chapasSelecionadas' — antes
+    // o duplo clique tentava salvar via window.OrcamentoCore (que NUNCA
+    // foi definido), entao a selecao virava lixo. Agora persiste de
+    // verdade na versao.
+    const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas'];
+    camposPermitidos.forEach(k => {
+      if (k in dadosNovos) alvo[k] = dadosNovos[k];
+    });
+    // Felipe (R-fluxo Calcular/Recalcular): qualquer mudanca em `itens`
+    // marca a versao como suja — outras abas (DRE, Lev. Perfis, Custo
+    // Fab/Inst, Padroes de Cortes) ficam bloqueadas ate o usuario apertar
+    // Recalcular em Caracteristicas do Item. Mudancas via o proprio
+    // botao Calcular passam `calcDirty: false` explicitamente e nao sao
+    // re-marcadas porque o set abaixo ja foi feito antes.
+    if ('itens' in dadosNovos && !('calcDirty' in dadosNovos)) {
+      alvo.calcDirty = true;
+    }
+    saveAll(negocios);
+    return alvo;
+  }
+
+  /**
+   * Fecha uma Versao — torna imutavel. Apos fechar, so consegue criar nova
+   * versao (criarVersao) com base nessa.
+   */
+  function fecharVersao(versaoId) {
+    const negocios = loadAll();
+    let alvo = null;
+    for (const n of negocios) {
+      for (const o of (n.opcoes || [])) {
+        const v = (o.versoes || []).find(v => v.id === versaoId);
+        if (v) { alvo = v; break; }
+      }
+      if (alvo) break;
+    }
+    if (!alvo) throw new Error('fecharVersao: versao nao encontrada');
+    alvo.status = 'fechada';
+    alvo.fechadoEm = nowIso();
+    // Felipe (sessao 2026-09): captura snapshot COMPLETO so' aqui.
+    // Versoes em draft tem snapshot leve {pendente:true} — quando a
+    // versao e' fechada (imutavel), tira o snapshot pesado pra
+    // preservar precos historicos.
+    if (!alvo.precos_snapshot || alvo.precos_snapshot.pendente) {
+      alvo.precos_snapshot = snapshotPrecosCompleto();
+    }
+    saveAll(negocios);
+    return alvo;
+  }
+
+  /**
+   * Felipe (sessao 2026-06): "preciso de uma opcao para deletar as
+   * versoes". Remove uma versao do array da opcao. Protecoes:
+   *   - Nao deleta a ultima versao (precisa sobrar pelo menos 1)
+   *   - Se a versao deletada e' a ATIVA, troca pra outra antes
+   *   - Se a opcao fica vazia, mantem (nao apaga opcao automaticamente)
+   */
+  function deletarVersao(versaoId) {
+    const negocios = loadAll();
+    let achou = false;
+    for (const n of negocios) {
+      for (const o of (n.opcoes || [])) {
+        const idx = (o.versoes || []).findIndex(v => v.id === versaoId);
+        if (idx !== -1) {
+          // Conta quantas versoes existem em TODAS as opcoes desse negocio
+          const totalNoNegocio = (n.opcoes || [])
+            .reduce((s, op) => s + ((op.versoes || []).length), 0);
+          if (totalNoNegocio <= 1) {
+            throw new Error('Nao pode deletar — precisa sobrar pelo menos 1 versao no negocio.');
+          }
+          o.versoes.splice(idx, 1);
+          achou = true;
+          // Se a versao deletada era a ativa, ativa outra
+          if (UI.versaoAtivaId === versaoId) {
+            // Pega a primeira versao disponivel em qualquer opcao
+            for (const op of (n.opcoes || [])) {
+              if (op.versoes && op.versoes.length) {
+                UI.versaoAtivaId = op.versoes[0].id;
+                UI.opcaoAtivaId = op.id;
+                break;
+              }
+            }
+          }
+          break;
+        }
+      }
+      if (achou) break;
+    }
+    if (!achou) throw new Error('deletarVersao: versao nao encontrada');
+    saveAll(negocios);
+    return true;
+  }
+
+  /**
+   * Felipe (sessao 2026-05): Aprovar Orcamento — empurra o pFatReal
+   * (preco real apos desconto) pro lead correspondente do CRM, atualiza
+   * a etapa pra "orcamento-pronto" e marca timestamp na versao.
+   *
+   * Regra: o card do CRM SO mostra valor a partir de "orcamento-pronto"
+   * pra frente. Antes disso o valor fica oculto, porque o sistema ainda
+   * nao sabe o preco. O botao Aprovar e' o que dispara essa transicao.
+   */
+  function aprovarOrcamento(versaoId, valorFaturamento, precoPropostaSemDesconto) {
+    const valor = Number(valorFaturamento) || 0;
+    const precoProposta = Number(precoPropostaSemDesconto) || valor;  // fallback: usa o mesmo valor
+    if (valor <= 0) {
+      throw new Error('aprovarOrcamento: valor invalido (' + valor + ')');
+    }
+    // 1. Marca a versao como aprovada
+    const negocios = loadAll();
+    let alvo = null;
+    for (const n of negocios) {
+      for (const o of (n.opcoes || [])) {
+        const v = (o.versoes || []).find(v => v.id === versaoId);
+        if (v) { alvo = v; break; }
+      }
+      if (alvo) break;
+    }
+    if (!alvo) throw new Error('aprovarOrcamento: versao nao encontrada');
+    alvo.aprovadoEm    = nowIso();
+    alvo.aprovadoPor   = userAtual();
+    alvo.valorAprovado = valor;
+    // Felipe (sessao 2026-06): salva tambem o preco DA PROPOSTA (sem
+    // desconto = pTab) pra mostrar no card do CRM junto com o valor
+    // que o cliente paga (pFatReal).
+    alvo.precoProposta = precoProposta;
+    saveAll(negocios);
+
+    // 2. Empurra valor pro lead do CRM e avanca etapa, se aplicavel
+    try {
+      const leadAtivo = lerLeadAtivo();
+      if (leadAtivo && leadAtivo.id) {
+        const leads = Storage.scope('crm').get('leads') || [];
+        const lead = leads.find(l => l.id === leadAtivo.id);
+        if (lead) {
+          lead.valor = valor;
+          lead.precoProposta = precoProposta;  // novo campo
+          // So' avanca a etapa se estiver ANTES de orcamento-pronto.
+          // Se ja estiver em etapa avancada (negociacao, fechado), preserva.
+          const etapasAntes = ['qualificacao', 'fazer-orcamento'];
+          if (etapasAntes.includes(lead.etapa)) {
+            lead.etapa = 'orcamento-pronto';
+          }
+          Storage.scope('crm').set('leads', leads);
+        }
+      }
+    } catch (e) {
+      console.warn('[orcamento] aprovarOrcamento: falha ao atualizar lead:', e.message);
+    }
+    return alvo;
+  }
+
+  /**
+   * Apaga um Negocio inteiro (e todas as suas opcoes/versoes).
+   * Uso restrito — em geral nunca se apaga, fica historico.
+   */
+  function deletarNegocio(negocioId) {
+    const negocios = loadAll().filter(n => n.id !== negocioId);
+    saveAll(negocios);
+  }
+
+  /**
+   * Demonstracao de Resultado contabil partindo dos numeros calculados.
+   * Recebe o resultado de calcularDRE() e devolve as linhas:
+   *   receita_bruta = pFatReal (cliente paga)
+   *   - impostos, com_rep, com_rt, com_gest (todos sobre receita_bruta)
+   *   = receita_liquida
+   *   - custo_direto (subFab + subInst + overhead)
+   *   = lucro_bruto
+   *   - irpj_csll (34% sobre lucro_bruto)
+   *   = lucro_liquido (deve bater com lucro_alvo × receita_bruta)
+   *
+   * Cada linha vem com valor em R$ e percentual sobre a receita_bruta.
+   * Usado pra gerar a Conferencia (tabela tipo DRE oficial).
+   */
+  function demonstracaoResultado(r) {
+    const p = r.params || {};
+    const receita = r.pFatReal || 0;
+    const pct = (frac) => receita > 0 ? (frac / receita) * 100 : 0;
+
+    const impostos = receita * ((p.impostos || 0) / 100);
+    const com_rep  = receita * ((p.com_rep  || 0) / 100);
+    const com_rt   = receita * ((p.com_rt   || 0) / 100);
+    const com_gest = receita * ((p.com_gest || 0) / 100);
+    const total_deducoes = impostos + com_rep + com_rt + com_gest;
+    const receita_liquida = receita - total_deducoes;
+    const custo_direto = r.custo || 0;
+    const lucro_bruto = receita_liquida - custo_direto;
+    const irpj_csll = lucro_bruto * IRPJ;
+    const lucro_liquido = lucro_bruto - irpj_csll;
+    return {
+      receita,
+      impostos, com_rep, com_rt, com_gest, total_deducoes,
+      receita_liquida,
+      custo_direto,
+      lucro_bruto,
+      irpj_csll,
+      lucro_liquido,
+      // percentuais sobre receita
+      pct: {
+        impostos: pct(impostos),
+        com_rep:  pct(com_rep),
+        com_rt:   pct(com_rt),
+        com_gest: pct(com_gest),
+        total_deducoes: pct(total_deducoes),
+        receita_liquida: pct(receita_liquida),
+        custo_direto: pct(custo_direto),
+        lucro_bruto:  pct(lucro_bruto),
+        irpj_csll:    pct(irpj_csll),
+        lucro_liquido: pct(lucro_liquido),
+      },
+    };
+  }
+
+  // ============================================================
+  const UI = {
+    negocioAtivoId: null,
+    versaoAtivaId: null,
+    leadAtivo: null,           // null se modo dev
+    itemSelecionadoIdx: 0,     // qual item da lista esta sendo editado
+  };
+
+  // Pra teste local: cria/recupera negocio "dev" enquanto a Etapa 5 (CRM)
+  // ainda nao plugou o "Montar Orcamento". Quando o CRM plugar, esse stub some.
+  const LEAD_ID_DEV = '__dev_test__';
+
+  // Le qual lead foi sinalizado pelo CRM (via Storage.scope('app').orcamento_lead_ativo).
+  // Retorna o lead inteiro do CRM, ou null se nao houver.
+  function lerLeadAtivo() {
+    try {
+      const leadId = Storage.scope('app').get('orcamento_lead_ativo');
+      if (!leadId) return null;
+      const leads = Storage.scope('crm').get('leads') || [];
+      return leads.find(l => l.id === leadId) || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function limparLeadAtivo() {
+    try { Storage.scope('app').set('orcamento_lead_ativo', null); } catch (e) {}
+  }
+
+  /**
+   * Zera todo o orcamento do negocio ativo: remove opcoes/versoes existentes
+   * e cria uma nova Opcao A · Versao 1 vazia (1 item porta_externa, parametros default).
+   * NAO mexe no lead do CRM, so no banco de orcamentos do negocio atual.
+   */
+  function zerarNegocioAtivo() {
+    if (!UI.negocioAtivoId) return;
+    const negocios = loadAll();
+    const neg = negocios.find(n => n.id === UI.negocioAtivoId);
+    if (!neg) return;
+    // Recria do zero
+    const opcaoId   = uid('opc');
+    const versaoId  = uid('ver');
+    const criadoEm  = nowIso();
+    const criadoPor = userAtual();
+    const versao = {
+      id: versaoId,
+      numero: 1,
+      status: 'draft',
+      criadoEm, criadoPor,
+      observacao: '',
+      itens: [novoItem('')],
+      precos_snapshot: snapshotPrecosAtual(),
+      subFab: 0,
+      subInst: 0,
+      custoFab: Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) }),
+      custoInst: Object.assign({}, INST_DEFAULT),
+      parametros: Object.assign({}, PARAMS_DEFAULT),
+      subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
+      total: 0,
+    };
+    neg.opcoes = [{
+      id: opcaoId,
+      letra: 'A',
+      titulo: '',
+      criadoEm, criadoPor,
+      versoes: [versao],
+    }];
+    neg.atualizadoEm = criadoEm;
+    saveAll(negocios);
+    UI.versaoAtivaId = versaoId;
+    UI.itemSelecionadoIdx = 0;
+  }
+
+  // Helpers para o UI atual.
+  // Felipe (sessao 2026-05): fmtData local — corrige bug "fmtData is not
+  // defined" no botao "Aprovar Orcamento". A funcao existia em 10-crm.js
+  // e 11-clientes.js mas em escopo IIFE local (nao exportado). Como o
+  // 12-orcamento usa a mesma formatacao em 1 lugar (linha do "aprovado em"),
+  // duplico aqui pra manter modulos isolados.
+  function fmtData(iso) {
+    if (!iso) return '';
+    const [y, m, d] = String(iso).split('-');
+    if (!y || !m || !d) return iso;
+    return `${d}/${m}/${y}`;
+  }
+  function versaoAtiva() {
+    if (!UI.versaoAtivaId) return null;
+    const r = obterVersao(UI.versaoAtivaId);
+    return r ? r.versao : null;
+  }
+  function itensDaVersao() {
+    return versaoAtiva()?.itens || [];
+  }
+  function itemAtual() {
+    const lista = itensDaVersao();
+    if (!lista.length) return null;
+    const idx = Math.min(UI.itemSelecionadoIdx, lista.length - 1);
+    return lista[idx];
+  }
+
+  function inicializarSessao() {
+    // Sempre re-le o lead ativo (pode ter mudado se user voltou pro CRM)
+    const lead = lerLeadAtivo();
+    let leadIdAlvo, clienteNome;
+    if (lead) {
+      leadIdAlvo  = lead.id;
+      clienteNome = lead.cliente || '(sem nome)';
+    } else {
+      leadIdAlvo  = LEAD_ID_DEV;
+      clienteNome = 'Cliente dev (modo teste local)';
+    }
+    let neg = obterNegocioPorLeadId(leadIdAlvo);
+    if (!neg) neg = criarNegocio({ leadId: leadIdAlvo, clienteNome });
+    UI.negocioAtivoId = neg.id;
+
+    // Felipe (sessao 2026-08): "PERMITA EU FAZER CALCULOS DE TODOS OS
+    // ITENS SEM CARD CRM, POSSO COLOCAR TUDO CALCULAR ELE SO NAO VAI
+    // SALVAR EM LUGAR NENHUM DO CARD, E SE EU APERTAR ZERAR ZERA TUDO".
+    //
+    // Antes (sessao 2026-05): em modo dev sempre zerava ao entrar.
+    // Agora: preserva os dados — usuario pode entrar/sair e continuar
+    // calculando. Em modo dev nao tem card pra salvar mesmo, entao
+    // os calculos ficam apenas no localStorage (negocio_dev). Quando
+    // aperta o botao "🗑 Zerar" ai sim limpa tudo.
+    //
+    // Comportamento atual:
+    //  - Modo COM LEAD: persiste em negocio do lead (workflow normal)
+    //  - Modo DEV (sem lead): persiste em negocio_dev — nao vai pra
+    //    nenhum card, mas Felipe pode continuar de onde parou.
+
+    // Felipe (req 7 do CRM): se o CRM sinalizou uma versao especifica
+    // (dropdown 'Abrir Versao' no card), abre nela. Senao, primeira versao.
+    let versaoAlvo = null;
+    const versaoSinalizadaId = Storage.scope('app').get('orcamento_versao_ativa');
+    if (versaoSinalizadaId) {
+      const r = obterVersao(versaoSinalizadaId);
+      // So aceita se a versao ainda existe E pertence ao mesmo negocio
+      if (r && r.negocio && r.negocio.id === neg.id) {
+        versaoAlvo = r.versao;
+      }
+      // Limpa pra nao "grudar" — proxima abertura volta pra padrao
+      Storage.scope('app').remove('orcamento_versao_ativa');
+    }
+    if (!versaoAlvo) {
+      versaoAlvo = neg.opcoes[0].versoes[0];
+    }
+    UI.versaoAtivaId = versaoAlvo.id;
+    if (!versaoAlvo.itens || versaoAlvo.itens.length === 0) {
+      atualizarVersao(versaoAlvo.id, { itens: [novoItem('')] });
+    }
+    UI.leadAtivo = lead;
+    // Mantem itemSelecionadoIdx valido (re-le pra pegar lista atualizada)
+    const lista = itensDaVersao();
+    if (UI.itemSelecionadoIdx >= lista.length) {
+      UI.itemSelecionadoIdx = 0;
+    }
+  }
+
+  /**
+   * Factory de itens. Cada tipo tem sua estrutura propria.
+   * Por enquanto apenas porta_externa tem campos completos;
+   * os outros sao stubs ate Felipe especificar.
+   *
+   * Felipe (Sessao 2 do Orcamento): tipo='' (vazio) e o estado inicial.
+   * A UI mostra tela de escolha (4 cards) ate o usuario escolher.
+   */
+  /**
+   * Felipe (do doc): garante que TODA porta tenha os campos novos com
+   * defaults — tem_alisar, largura_alisar (100), espessura_parede (250),
+   * larguraBordaCava, espessuraCava, larguraBordaFriso. Itens antigos
+   * que nao tinham esses campos ganham os defaults aqui sem precisar
+   * de migracao no storage.
+   *
+   * Chamado quando itens sao lidos pra renderizar/calcular. Idempotente.
+   */
+  function normalizarItem(item) {
+    if (!item || item.tipo !== 'porta_externa') return item;
+    if (item.tem_alisar === undefined || item.tem_alisar === null) item.tem_alisar = 'Sim';
+    if (item.largura_alisar === undefined || item.largura_alisar === null || item.largura_alisar === '') item.largura_alisar = 100;
+    if (item.espessura_parede === undefined || item.espessura_parede === null || item.espessura_parede === '') item.espessura_parede = 250;
+    // Felipe (sessao 2026-05): MIGRACAO RETRO-COMPAT do modelo unico
+    // pra modeloExterno + modeloInterno separados. Se o item legado tem
+    // modeloNumero preenchido E modeloExterno vazio → copia. Mesmo pra
+    // modeloInterno (assume que itens antigos tinham mesmo modelo nos
+    // 2 lados). Idempotente: se ja foi migrado, nao sobrescreve.
+    if (item.modeloExterno === undefined || item.modeloExterno === null || item.modeloExterno === '') {
+      item.modeloExterno = item.modeloNumero || '';
+    }
+    if (item.modeloInterno === undefined || item.modeloInterno === null || item.modeloInterno === '') {
+      item.modeloInterno = item.modeloNumero || '';
+    }
+    // Mantem modeloNumero sincronizado com modeloExterno (calculo legado
+    // de regras de fabricacao usa modeloNumero — se mudar so o externo,
+    // o codigo legado continua funcionando porque modeloNumero acompanha).
+    if (item.modeloExterno && item.modeloNumero !== item.modeloExterno) {
+      item.modeloNumero = item.modeloExterno;
+    }
+    // Felipe (do doc): renomeacao dos campos da CAVA. Antes:
+    //   larguraBordaCava → agora: distanciaBordaCava
+    //   espessuraCava    → agora: tamanhoCava
+    //   larguraBordaFriso → agora: distanciaBordaFrisoVertical
+    //   distanciaBordaFriso → agora: distanciaBordaFrisoHorizontal (fallback do antigo)
+    // Migra valores antigos (alias retroativo) sem perder dados ja gravados.
+    if (item.distanciaBordaCava === undefined || item.distanciaBordaCava === '') {
+      if (item.larguraBordaCava !== undefined && item.larguraBordaCava !== '') {
+        item.distanciaBordaCava = item.larguraBordaCava;
+      } else {
+        item.distanciaBordaCava = '';
+      }
+    }
+    if (item.tamanhoCava === undefined || item.tamanhoCava === '') {
+      if (item.espessuraCava !== undefined && item.espessuraCava !== '') {
+        item.tamanhoCava = item.espessuraCava;
+      } else {
+        item.tamanhoCava = '';
+      }
+    }
+    if (item.distanciaBordaFrisoVertical === undefined || item.distanciaBordaFrisoVertical === '') {
+      if (item.larguraBordaFriso !== undefined && item.larguraBordaFriso !== '') {
+        item.distanciaBordaFrisoVertical = item.larguraBordaFriso;
+      } else {
+        item.distanciaBordaFrisoVertical = '';
+      }
+    }
+    if (item.distanciaBordaFrisoHorizontal === undefined) {
+      // distanciaBordaFriso era o nome legacy generico
+      item.distanciaBordaFrisoHorizontal = item.distanciaBordaFriso || '';
+    }
+    // Garante que TODAS as chaves existem (vazias) pra inputs renderizarem
+    const camposNovos = ['distanciaBordaFrisoHorizontal1', 'distanciaBordaFrisoHorizontal2',
+                          'espessuraFriso', 'quantidadeFrisos', 'larguraRipas',
+                          'tipoRipado', 'espacamentoRipas',
+                          'tipoMoldura', 'quantasDivisoesMoldura', 'quantidadeMolduras',
+                          'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura',
+                          'perfilMoldura',
+                          // Felipe (sessao 2026-05): corCava — em modelos
+                          // com cava, a cava pode ter cor diferente.
+                          'corCava'];
+    camposNovos.forEach(c => {
+      if (item[c] === undefined) item[c] = '';
+    });
+    // Felipe (Modelo 23 - msg molduras): renomeacao retroativa.
+    //   distanciaBordaMoldura → distanciaBorda1aMoldura
+    //   materialMoldura ('Aluminio Macico'/'Outro') → descartado (perfilMoldura agora e' o codigo)
+    if (item.distanciaBordaMoldura !== undefined && item.distanciaBordaMoldura !== '' &&
+        (item.distanciaBorda1aMoldura === undefined || item.distanciaBorda1aMoldura === '')) {
+      item.distanciaBorda1aMoldura = item.distanciaBordaMoldura;
+    }
+    return item;
+  }
+  function normalizarItensVersao(versao) {
+    if (!versao || !Array.isArray(versao.itens)) return;
+    versao.itens.forEach(normalizarItem);
+  }
+
+  function novoItem(tipo) {
+    if (!tipo)                    return { tipo: '', quantidade: 1 };
+    if (tipo === 'porta_externa') return novoItemPortaExterna();
+    if (tipo === 'porta_interna') return { tipo: 'porta_interna', quantidade: 1, largura: '', altura: '' };
+    if (tipo === 'fixo_acoplado') return {
+      tipo: 'fixo_acoplado',
+      quantidade: 1,
+      largura: '',
+      altura: '',
+      // Felipe sessao 30: campos pro motor de calculo
+      posicao: 'superior',         // 'superior' | 'lateral' (lateral oculto por enquanto)
+      temEstrutura: 'sim',         // 'sim' (quadro+chapas) ou 'nao' (so chapas, sem perfis)
+      sistema: 'PA006',            // PA006 (espTubo 51) ou PA007 (espTubo 38) — so' aparece se temEstrutura='sim'
+      modeloNumero: 1,             // 1 = Liso (default — pode ser editado)
+      revestimento: '',            // material da chapa (descricao do cadastro de superficies)
+      corExterna: '',
+      corInterna: '',
+      lados: '1lado',              // '1lado' (so externo) ou '2lados' (externo+interno)
+      fixoSegueModelo: 'sim',      // 'sim' (default — replica porta) ou 'nao' (escolher modelo proprio)
+    };
+    if (tipo === 'revestimento_parede') return { tipo: 'revestimento_parede', quantidade: 1, area: '' };
+    return { tipo: '', quantidade: 1 };
+  }
+
+  function novoItemPortaExterna() {
+    return {
+      tipo: 'porta_externa',
+      quantidade: 1,
+      // Tudo vazio. As regras automaticas (sistema/fechadura/cilindro)
+      // so atuam DEPOIS que largura+altura forem preenchidos.
+      largura: '',
+      altura: '',
+      nFolhas: '',         // 1 ou 2 — afeta perfis, chapas, acessorios e fabricacao
+      qtdChapas: '',       // numero de chapas de revestimento — depois auto pelo levantamento
+      // Felipe (sessao 2026-05): MODELO agora separado por LADO da porta.
+      // modeloExterno e modeloInterno podem ser diferentes. Para retro-compat
+      // mantemos modeloNumero (fallback para modeloExterno em itens legados).
+      modeloNumero: '',     // legado — preservado pra nao quebrar regras antigas
+      modeloExterno: '',    // numero do modelo da face externa
+      modeloInterno: '',    // numero do modelo da face interna
+      revestimento: '',
+      corInterna: '',
+      corExterna: '',
+      sistema: '',
+      fechaduraMecanica: '',
+      fechaduraDigital: '',
+      cilindro: '',
+      tamanhoPuxador: '',
+      // Felipe (do doc): TODA porta tem que ter — se tem alisar (sim/nao),
+      // qual a largura do alisar (default 100mm) e a espessura da parede
+      // (default 250mm). Sao usados na proposta comercial e nos cortes
+      // de portal/alisar.
+      tem_alisar: 'Sim',
+      largura_alisar: 100,
+      espessura_parede: 250,
+      // ----------------------------------------------------------------
+      // CAMPOS POR MODELO — Felipe (do doc): cada modelo tem seu
+      // conjunto de variaveis. Ver CAMPOS_POR_MODELO + CATALOGO_CAMPOS_MODELO
+      // pra saber quais aparecem em cada um. Sao todos opcionais aqui;
+      // a UI mostra so' os que pertencem ao modelo escolhido.
+      // ----------------------------------------------------------------
+      distanciaBordaCava: '',         // Modelos 01,02,03,04,05,06,07,08,09,11,22
+      tamanhoCava: '',                // Modelos 01,02,03,04,05,06,07,08,09,11,22,24
+      distanciaBordaFrisoVertical: '',// Modelos 02,04,05,07,11,13,14,22
+      distanciaBordaFrisoHorizontal: '',  // Modelos 03,04,12,13
+      distanciaBordaFrisoHorizontal1: '', // Modelo 05 (so')
+      distanciaBordaFrisoHorizontal2: '', // Modelo 05 (so')
+      espessuraFriso: '',             // Modelos 02,03,04,05,06,07,11,12,13,14,16,22
+      quantidadeFrisos: '',           // Modelos 02,06,07,11,14,16,22
+      larguraRipas: '',               // Modelos 07,14
+      tipoRipado: '',                 // Modelos 08,15  ('Total' / 'Parcial')
+      espacamentoRipas: '',           // Modelos 08,15
+      tipoMoldura: '',                // Modelo 23 ('Padrao' / 'Divisoes Iguais' / 'Personalizado')
+      quantasDivisoesMoldura: '',     // Modelo 23 — so' se tipoMoldura = 'Divisoes Iguais'
+      quantidadeMolduras: '',         // Modelo 23 ('1' / '2' / '3')
+      // Felipe (do doc): distancias progressivas conforme qtde de molduras
+      distanciaBorda1aMoldura: '',    // Modelo 23 — sempre se qtde >= 1
+      distancia1a2aMoldura: '',       // Modelo 23 — so' se qtde >= 2
+      distancia2a3aMoldura: '',       // Modelo 23 — so' se qtde >= 3
+      // Felipe: perfil/codigo da moldura — so' aparece se Revestimento = Aluminio Macico 2mm
+      perfilMoldura: '',
+      // marcadores: campos editados manualmente pelo usuario sao registrados aqui
+      // pra exibir o aviso "fora da regra" quando saem do valor calculado
+      _overrides: {},
+    };
+  }
+
+  // ============================================================
+  // CATALOGO DE CAMPOS POR MODELO
+  // Felipe (do doc): cada modelo tem variaveis especificas que aparecem
+  // na aba Caracteristicas do Item quando o modelo e' escolhido. A
+  // estrutura e' separada do form: o catalogo descreve como cada campo
+  // e' renderizado, e o mapping diz quais campos cada modelo usa.
+  //
+  // Pra ADICIONAR campos a um modelo novo (ex: Modelo 17 quando o Felipe
+  // mandar): basta adicionar a entrada em CAMPOS_POR_MODELO. Se for um
+  // tipo novo de campo, adicionar tambem em CATALOGO_CAMPOS_MODELO.
+  // ============================================================
+  const CATALOGO_CAMPOS_MODELO = {
+    distanciaBordaCava:         { label: 'Distancia da borda ate a cava (mm)', tipo: 'number', min: 0, step: 1 },
+    // Felipe (sessao 2026-05): renomeado de "Tamanho da cava" pra
+    // "Largura da cava" — mais descritivo. Chave interna `tamanhoCava`
+    // mantida pra preservar compat com dados ja salvos.
+    tamanhoCava:                { label: 'Largura da cava (mm)', tipo: 'number', min: 0, step: 1 },
+    distanciaBordaFrisoVertical:    { label: 'Distancia da borda ao friso vertical (mm)', tipo: 'number', min: 0, step: 1 },
+    distanciaBordaFrisoHorizontal:  { label: 'Distancia da borda ao friso horizontal (mm)', tipo: 'number', min: 0, step: 1 },
+    distanciaBordaFrisoHorizontal1: { label: 'Distancia da borda ao friso horizontal 1 (mm)', tipo: 'number', min: 0, step: 1 },
+    distanciaBordaFrisoHorizontal2: { label: 'Distancia da borda ao friso horizontal 2 (mm)', tipo: 'number', min: 0, step: 1 },
+    espessuraFriso:             { label: 'Espessura do friso (mm)', tipo: 'number', min: 0, step: 1 },
+    quantidadeFrisos:           { label: 'Quantidade de frisos', tipo: 'number', min: 0, step: 1 },
+    larguraRipas:               { label: 'Largura das ripas (mm)', tipo: 'number', min: 0, step: 1 },
+    tipoRipado:                 { label: 'Ripado', tipo: 'select', opcoes: ['', 'Total', 'Parcial'] },
+    espacamentoRipas:           { label: 'Espacamento entre ripas (mm)', tipo: 'number', min: 0, step: 1 },
+    // Felipe (do doc - msg molduras): no Modelo 23 a "configuracao da moldura"
+    // (Padrao/Divisoes Iguais/Personalizado) e' SEMPRE visivel. As distancias
+    // sao progressivas conforme quantidade de molduras (1, 2 ou 3).
+    tipoMoldura:                { label: 'Configuracao da moldura', tipo: 'select', opcoes: ['', 'Padrao', 'Divisoes Iguais', 'Personalizado'] },
+    // Felipe: se Configuracao = "Divisoes Iguais", abre campo "Quantas divisoes"
+    quantasDivisoesMoldura:     { label: 'Quantas divisoes', tipo: 'number', min: 1, step: 1 },
+    quantidadeMolduras:         { label: 'Quantidade de molduras', tipo: 'select', opcoes: ['', '1', '2', '3'] },
+    distanciaBorda1aMoldura:    { label: 'Distancia da borda a 1a moldura (mm)', tipo: 'number', min: 0, step: 1 },
+    distancia1a2aMoldura:       { label: 'Distancia da 1a a 2a moldura (mm)', tipo: 'number', min: 0, step: 1 },
+    distancia2a3aMoldura:       { label: 'Distancia da 2a a 3a moldura (mm)', tipo: 'number', min: 0, step: 1 },
+    // Felipe (do doc): perfil/codigo da moldura. So' aparece se Revestimento
+    // for "Aluminio Macico 2mm" (porque nesse caso ele tera varios codigos
+    // pra escolher: PA-PERFILBOISERIE etc).
+    perfilMoldura:              { label: 'Tipo de moldura (perfil)', tipo: 'select',
+                                  opcoes: ['', 'PA-PERFILBOISERIE'] },
+  };
+
+  // Mapeamento modelo → array de campos. As chaves sao numeros do modelo
+  // (1 a 24). Modelos nao listados aqui (10, 17, 18, 19, 20, 21) ainda
+  // nao foram especificados pelo Felipe — quando ele passar, basta
+  // adicionar a entrada.
+  // Felipe (sessao 2026-05): campo corCava removido daqui — agora fica
+  // na seção "Acabamento" junto com Cor Externa/Interna, com botão de
+  // copiar (mesmo padrão das outras cores). Ver renderização condicional
+  // no `mostraCorCava` em renderItemTab.
+  const CAMPOS_POR_MODELO = {
+    1:  ['distanciaBordaCava', 'tamanhoCava'],
+    2:  ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'quantidadeFrisos'],
+    3:  ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoHorizontal', 'espessuraFriso'],
+    4:  ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoHorizontal', 'distanciaBordaFrisoVertical', 'espessuraFriso'],
+    5:  ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoHorizontal1', 'distanciaBordaFrisoHorizontal2', 'distanciaBordaFrisoVertical', 'espessuraFriso'],
+    6:  ['distanciaBordaCava', 'tamanhoCava', 'quantidadeFrisos', 'espessuraFriso'],
+    7:  ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'larguraRipas', 'quantidadeFrisos'],
+    8:  ['distanciaBordaCava', 'tamanhoCava', 'tipoRipado', 'espacamentoRipas'],
+    9:  ['distanciaBordaCava', 'tamanhoCava'],
+    11: ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'quantidadeFrisos'],
+    12: ['distanciaBordaFrisoHorizontal', 'espessuraFriso'],
+    13: ['distanciaBordaFrisoHorizontal', 'distanciaBordaFrisoVertical', 'espessuraFriso'],
+    14: ['distanciaBordaFrisoVertical', 'espessuraFriso', 'larguraRipas', 'quantidadeFrisos'],
+    15: ['tipoRipado', 'espacamentoRipas'],
+    16: ['quantidadeFrisos', 'espessuraFriso'],
+    22: ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'quantidadeFrisos'],
+    23: ['tipoMoldura', 'quantasDivisoesMoldura', 'quantidadeMolduras', 'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura', 'perfilMoldura'],
+    24: ['tamanhoCava'],
+  };
+
+  /**
+   * Felipe (sessao 2026-05): true se o modelo tem CAVA (campos
+   * distanciaBordaCava ou tamanhoCava). Usado pra decidir se a Cor da
+   * Cava aparece na seção Acabamento.
+   */
+  function modeloTemCava(modeloNumero) {
+    const num = Number(modeloNumero);
+    const campos = CAMPOS_POR_MODELO[num] || [];
+    return campos.includes('distanciaBordaCava') || campos.includes('tamanhoCava');
+  }
+
+  /**
+   * Felipe (Modelo 23): regras de visibilidade condicional. Usado pra
+   * decidir se cada campo do CATALOGO_CAMPOS_MODELO deve aparecer ou
+   * nao na tela, baseado em outros campos ja preenchidos do item.
+   *
+   * Retorna true se o campo deve aparecer, false se deve esconder.
+   */
+  function campoModeloVisivel(chave, item) {
+    const qtdMolduras = parseInt(item.quantidadeMolduras, 10) || 0;
+    // Felipe: distancias da moldura sao progressivas
+    //   qtde 0 (nao escolhido) -> nada
+    //   qtde 1 -> so distanciaBorda1aMoldura
+    //   qtde 2 -> + distancia1a2aMoldura
+    //   qtde 3 -> + distancia2a3aMoldura
+    if (chave === 'distanciaBorda1aMoldura') return qtdMolduras >= 1;
+    if (chave === 'distancia1a2aMoldura')    return qtdMolduras >= 2;
+    if (chave === 'distancia2a3aMoldura')    return qtdMolduras >= 3;
+    // Felipe (do doc - msg modelo 23 divisoes iguais): "Quantas divisoes"
+    // so' aparece se Configuracao da moldura = "Divisoes Iguais"
+    if (chave === 'quantasDivisoesMoldura') {
+      return item.tipoMoldura === 'Divisoes Iguais';
+    }
+    // Felipe: perfilMoldura (PA-PERFILBOISERIE etc) so' aparece quando
+    // o Revestimento e' "Aluminio Macico 2mm" (ou similar).
+    if (chave === 'perfilMoldura') {
+      const rev = String(item.revestimento || '').toLowerCase();
+      return /aluminio.*macico/.test(rev) && /2\s*mm/.test(rev);
+    }
+    return true;
+  }
+
+  /**
+   * Renderiza dinamicamente os campos do modelo escolhido. Se o modelo
+   * nao tem mapeamento (10, 17-21 ainda), nao mostra nada.
+   */
+  function renderCamposPorModelo(item) {
+    return renderCamposPorModeloEspecifico(item, Number(item.modeloNumero));
+  }
+
+  /**
+   * Felipe (sessao 2026-05): variante que aceita o numero do modelo
+   * explicitamente — usada quando externo e interno sao diferentes
+   * (ex: cava por fora, classica por dentro). Cada lado renderiza
+   * seu proprio conjunto de campos.
+   */
+  function renderCamposPorModeloEspecifico(item, numModelo) {
+    const num = Number(numModelo);
+    const campos = CAMPOS_POR_MODELO[num];
+    if (!campos || !campos.length) return '';
+    const inputs = campos
+      .filter(chave => campoModeloVisivel(chave, item))
+      .map(chave => {
+        const meta = CATALOGO_CAMPOS_MODELO[chave];
+        if (!meta) return '';
+        const val = item[chave] != null ? String(item[chave]) : '';
+        if (meta.tipo === 'select') {
+          const opts = (meta.opcoes || []).map(op =>
+            `<option value="${escapeHtml(op)}" ${val === op ? 'selected' : ''}>${escapeHtml(op || '—')}</option>`
+          ).join('');
+          return `
+            <div class="orc-field orc-f-modelo-var">
+              <label>${escapeHtml(meta.label)}</label>
+              <select data-field="${chave}">${opts}</select>
+            </div>`;
+        }
+        // Felipe (sessao 2026-05): tipo 'cor' (corCava) foi movido pra
+        // seção Acabamento (renderizado direto no template do mostraCor).
+        // Removido daqui pra evitar duplicacao de datalist com mesmo ID.
+        return `
+          <div class="orc-field orc-f-modelo-var">
+            <label>${escapeHtml(meta.label)}</label>
+            <input type="number" min="${meta.min || 0}" step="${meta.step || 1}" data-field="${chave}" value="${escapeHtml(val)}" />
+          </div>`;
+      }).join('');
+    if (!inputs) return '';
+    return `
+      <div class="orc-form-row" id="orc-modelo-vars-row">
+        ${inputs}
+      </div>`;
+  }
+
+  // ============================================================
+  //                       ROOT RENDER (router por aba)
+  // ============================================================
+  function render(container, tabId) {
+    const aba = tabId || 'item';
+
+    // Felipe (sessao 2026-08): "TIRE ESSE CONGELAMENTO ESTA TRAVANDO
+    // TODO SISTEMA, JA ESTAVA CALCULADO, NEM DEIXA VER AS OUTRAS ABAS".
+    // Removido o modo readonly automatico em versoes aprovadas/fechadas.
+    // Felipe quer poder navegar pelas abas livremente. O banner memorial
+    // continua aparecendo como aviso visual, mas nao bloqueia nada.
+    // Garante que a classe is-orc-readonly NUNCA fica grudada.
+    inicializarSessao();
+    container.classList.remove('is-orc-readonly');
+
+    if (aba === 'item')             return renderItemTab(container);
+    if (aba === 'fab-inst')         return renderFabInstTab(container);
+    if (aba === 'custo')            return renderCustoTab(container);
+    if (aba === 'proposta')         return renderPropostaTab(container);
+    if (aba === 'lev-perfis')       return renderLevPerfisTab(container);
+    if (aba === 'lev-superficies')  return renderLevSuperficiesTab(container);
+    if (aba === 'lev-acessorios')   return renderLevAcessoriosTab(container);
+    if (aba === 'relatorios')       return renderRelatoriosTab(container);
+    return renderPlaceholderTab(container, aba);
+  }
+
+  // ============================================================
+  //                      ABA: CARACTERISTICAS DO ITEM
+  // ============================================================
+
+  /**
+   * Felipe (Sessao 2): tela inicial vazia. Item recem-criado tem tipo=''
+   * e cai aqui — usuario escolhe entre Porta Externa / Porta Interna /
+   * Fixo Acoplado / Revestimento de Parede. Apos escolha, item.tipo e'
+   * setado e renderItemTab redireciona pro form especifico do tipo.
+   */
+  function renderEscolhaTipo(container, negocio, opcao, versao) {
+    const TIPOS = [
+      {
+        id: 'porta_externa',
+        label: 'Porta Externa',
+        icon: '🚪',
+        desc: 'Porta externa pivotante, com perfis de aluminio, acabamento e fechadura.',
+        ativo: true,
+      },
+      {
+        id: 'porta_interna',
+        label: 'Porta Interna',
+        icon: '🚪',
+        desc: 'Porta interna (entre comodos). Calculo simplificado.',
+        ativo: false,
+        statusLabel: 'aguardando especificacao',
+      },
+      {
+        id: 'fixo_acoplado',
+        label: 'Fixo Acoplado a Porta',
+        icon: '⬜',
+        desc: 'Painel fixo lateral ou superior acoplado a uma porta.',
+        ativo: false,
+        statusLabel: 'aguardando especificacao',
+      },
+      {
+        id: 'revestimento_parede',
+        label: 'Revestimento de Parede',
+        icon: '🟨',
+        desc: 'Revestimento decorativo de parede (sem porta).',
+        // Felipe (sessao 2026-07): "pq nao esta liberado revestimento
+        // de parede?" — habilitado. Os motores ja' existiam:
+        //   - scripts/37-perfis-rev-parede.js (window.PerfisRevParede)
+        //   - scripts/40-chapas-rev-parede.js (window.ChapasRevParede)
+        // E o form proprio em renderItemTab linha ~2398.
+        ativo: true,
+      },
+    ];
+
+    const headerOrcamento = `
+      <div class="orc-banner">
+        <span class="t-strong">${escapeHtml(negocio?.clienteNome || '')}</span>
+        · Opcao ${escapeHtml(opcao?.letra || 'A')} · Versao ${versao?.numero || 1}
+        · <span class="orc-banner-status">${versao?.status === 'fechada' ? 'fechada' : 'em edicao'}</span>
+      </div>
+    `;
+
+    container.innerHTML = `
+      ${headerOrcamento}
+      <div class="orc-tipo-wrap">
+        <div class="orc-tipo-titulo">Escolha o tipo do item</div>
+        <div class="orc-tipo-help">Cada tipo tem um formulario proprio. Voce pode adicionar mais itens depois.</div>
+        <div class="orc-tipo-cards">
+          ${TIPOS.map(t => `
+            <button type="button" class="orc-tipo-card ${t.ativo ? '' : 'is-disabled'}" data-tipo="${t.id}" ${t.ativo ? '' : 'disabled'}>
+              <div class="orc-tipo-icon">${t.icon}</div>
+              <div class="orc-tipo-label">${escapeHtml(t.label)}</div>
+              <div class="orc-tipo-desc">${escapeHtml(t.desc)}</div>
+              ${t.ativo
+                ? `<div class="orc-tipo-status is-ok">✓ Disponivel</div>`
+                : `<div class="orc-tipo-status is-pending">${escapeHtml(t.statusLabel)}</div>`}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    container.querySelectorAll('.orc-tipo-card[data-tipo]:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tipo = btn.dataset.tipo;
+        const v = versaoAtiva();
+        if (!v) return;
+        const lista = (v.itens || []).slice();
+        // Substitui o item atual (que era vazio) por um do tipo escolhido
+        const idx = Math.min(UI.itemSelecionadoIdx, lista.length - 1);
+        // Mantem quantidade se ja foi setada
+        const qtdAntiga = (lista[idx] && lista[idx].quantidade) || 1;
+        lista[idx] = novoItem(tipo);
+        if (qtdAntiga > 1) lista[idx].quantidade = qtdAntiga;
+        atualizarVersao(v.id, { itens: lista });
+        renderItemTab(container);
+      });
+    });
+  }
+
+  // ============================================================
+  // Felipe (sessao 2026-05): FORM DO REVESTIMENTO DE PAREDE
+  // ============================================================
+  /**
+   * Schema do item revestimento_parede:
+   *   - quantidade: int (do orçamento, ex: 3 = 3 paredes idênticas)
+   *   - revestimento: ACM 4mm | HPL 4mm | Aluminio Macico 2mm | Vidro 6/8mm
+   *   - cor: string (1 só — chapa tem 1 face)
+   *   - modo: 'manual' | 'automatico'
+   *   - // se modo === 'automatico'
+   *   - largura_total: mm (largura da parede inteira, ex: 10000)
+   *   - altura_total:  mm (altura da parede, ex: 5000)
+   *   - divisao_largura: 'maxima' | 'igual'
+   *     - maxima: faixas de larguraMaxima + sobra na ponta (10000 → 6×1440 + 1×1360)
+   *     - igual:  todas as faixas iguais (10000 / 7 = 1428,57 cada)
+   *   - com_refilado: 'sim' | 'nao' (se sim, larguraMaxima = 1500 - 2*REF = 1460)
+   *   - // se modo === 'manual'
+   *   - pecas: [{ largura, altura, quantidade }, ...]
+   *
+   * Renderiza form com sections: Tipo (rev/cor) → Modo (radio) →
+   * Campos do modo escolhido → botao Salvar.
+   */
+  function renderItemRevestimentoParede(container, negocio, opcao, versao, item) {
+    // Garante defaults (item legado pode ter so {tipo, quantidade, area})
+    if (item.modo === undefined) item.modo = 'manual';
+    if (item.divisao_largura === undefined) item.divisao_largura = 'maxima';
+    if (item.com_refilado === undefined) item.com_refilado = 'sim';
+    if (!Array.isArray(item.pecas)) item.pecas = [];
+
+    const cad = Storage.scope('cadastros');
+    const superficies = cad.get('superficies_lista') || [];
+
+    // Filtra cores conforme revestimento (mesma logica da porta_externa)
+    function filtrarCoresRev(rev) {
+      let lista = superficies;
+      if (rev) {
+        const cat = (rev === 'Aluminio Macico 2mm') ? 'aluminio_macico'
+                  : (rev === 'ACM 4mm')             ? 'acm'
+                  : (rev === 'HPL 4mm')             ? 'hpl'
+                  : (rev === 'Vidro 6mm' || rev === 'Vidro 8mm') ? 'vidro'
+                  : null;
+        if (cat) {
+          const auto = window.Superficies?.categoriaAuto || (() => 'acm');
+          lista = (superficies || []).filter(s => (s.categoria || auto(s.descricao)) === cat);
+        }
+      }
+      // Dedup por nome curto (sem sufixo de tamanho)
+      const seen = new Set();
+      const dedup = [];
+      (lista || []).forEach(s => {
+        const nome = String(s.descricao || '')
+          .replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, '')
+          .trim();
+        if (!nome) return;
+        const k = nome.toUpperCase();
+        if (seen.has(k)) return;
+        seen.add(k);
+        dedup.push({ ...s, descricao: nome });
+      });
+      return dedup;
+    }
+    const coresFiltradas = filtrarCoresRev(item.revestimento);
+
+    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro 6mm', 'Vidro 8mm'];
+
+    function tagsLeadHtml() {
+      if (!UI.leadAtivo) return '';
+      const lead = UI.leadAtivo;
+      const partes = [];
+      if (lead.cliente) partes.push(escapeHtml(lead.cliente));
+      if (lead.agp)     partes.push('AGP ' + escapeHtml(lead.agp));
+      if (lead.reserva) partes.push('Reserva ' + escapeHtml(lead.reserva));
+      return partes.length
+        ? `<span class="orc-tag-lead">${partes.join(' · ')}</span>`
+        : '';
+    }
+
+    container.innerHTML = `
+      ${(() => {
+        const leadIt = lerLeadAtivo() || {};
+        const numDocIt = `${(opcao?.letra || 'A')} - ${versao.numero}`;
+        return (window.Empresa && window.Empresa.montarHeaderRelatorio)
+          ? window.Empresa.montarHeaderRelatorio({
+              lead: leadIt,
+              tituloRelatorio: 'Caracteristicas do Item',
+              numeroDocumento: numDocIt,
+              validade: 15,
+            })
+          : '';
+      })()}
+      <div class="orc-banner">
+        <div class="orc-banner-info">
+          <span class="t-strong">Negocio em edicao:</span>
+          ${escapeHtml(negocio?.clienteNome || '—')}
+          ${tagsLeadHtml()}
+          · Opcao ${escapeHtml(opcao.letra)}
+          · Versao ${versao.numero}
+        </div>
+      </div>
+
+      <!-- Felipe (sessao 2026-06): chips de items + botao "+ Adicionar item"
+           — antes essa funcao renderItemRevestimentoParede nao tinha esse
+           bloco, entao quando o item ativo era revestimento_parede sumiam
+           os chips dos outros itens E o X de deletar. Felipe reclamou:
+           "se eu clico em revestimento fica diferente de quando clico em
+           porta interna ... revestimento parede entra dentro do
+           revestimento e nao tem X pra deletar". Agora replica EXATAMENTE
+           o mesmo bloco do renderItemTab principal. -->
+      <div class="orc-itens-list">
+        ${(versao.itens || []).map((it, idx) => {
+          const ativo = idx === UI.itemSelecionadoIdx;
+          // Felipe (sessao 2026-08): "QUANDO SO TEM UM ITEM NAO TEM
+          // OPCAO DE DELETAR ELE MESMO". Botao X sempre presente.
+          // Ao deletar o ultimo, volta pra tela de escolha de tipo.
+          return `
+            <div class="orc-item-chip ${ativo ? 'is-active' : ''}" data-idx="${idx}">
+              <button class="orc-item-chip-label" data-action="select-item" data-idx="${idx}">
+                Item ${idx + 1}: ${escapeHtml(labelTipo(it.tipo))}
+              </button>
+              <button class="orc-item-chip-remove" data-action="remove-item" data-idx="${idx}" title="Remover este item">✕</button>
+            </div>
+          `;
+        }).join('')}
+        <div class="orc-item-add-wrapper">
+          <select class="orc-item-add" id="orc-item-add">
+            <option value="">+ Adicionar item</option>
+            ${TIPOS_ITEM.map(t => `<option value="${t.id}">${escapeHtml(t.label)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="orc-item">
+        <div class="orc-item-header">
+          <div class="orc-item-titulo">Item ${UI.itemSelecionadoIdx + 1} — Revestimento de Parede</div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Quantidade</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-qtd">
+              <label>Quantidade (paredes idênticas)</label>
+              <input type="number" min="1" data-field="quantidade" value="${escapeHtml(String(item.quantidade || 1))}" />
+            </div>
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Acabamento</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-revestimento">
+              <label>Revestimento</label>
+              <select data-field="revestimento">
+                <option value=""></option>
+                ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="orc-form-row">
+            <div class="orc-cor-stack">
+              <div class="orc-field orc-f-cor">
+                <label>Cor</label>
+                <input type="text" list="orc-superficies-list-rev" data-field="cor" value="${escapeHtml(item.cor || '')}" placeholder="" />
+              </div>
+            </div>
+            <datalist id="orc-superficies-list-rev">
+              ${coresFiltradas.map(s => `<option value="${escapeHtml(s.descricao)}"></option>`).join('')}
+            </datalist>
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Modo de Calculo</div>
+          <div class="orc-form-row">
+            <div class="orc-field">
+              <label>
+                <input type="radio" name="rev-modo" data-field="modo" value="manual" ${item.modo === 'manual' ? 'checked' : ''} />
+                Manual — adicionar várias peças com medidas individuais
+              </label>
+            </div>
+          </div>
+          <div class="orc-form-row">
+            <div class="orc-field">
+              <label>
+                <input type="radio" name="rev-modo" data-field="modo" value="automatico" ${item.modo === 'automatico' ? 'checked' : ''} />
+                Automatico — informar a parede inteira e dividir em chapas
+              </label>
+            </div>
+          </div>
+        </div>
+
+        ${item.modo === 'automatico' ? renderRevAutomatico(item) : renderRevManual(item)}
+
+        <div class="orc-actions-bar">
+          <button class="univ-btn-save" id="orc-btn-salvar">💾 Salvar</button>
+          <button class="orc-btn-calcular" id="orc-btn-calcular">↻ Calcular</button>
+        </div>
+      </div>
+    `;
+
+    bindItemRevParedeEvents(container);
+  }
+
+  /**
+   * Form do MODO AUTOMATICO — largura/altura da parede + 2 escolhas.
+   */
+  function renderRevAutomatico(item) {
+    return `
+      <div class="orc-section">
+        <div class="orc-section-title">Medidas da Parede (modo Automatico)</div>
+        <div class="orc-form-row">
+          <div class="orc-field orc-f-dim">
+            <label>Largura total da parede (mm)</label>
+            <input type="number" min="0" data-field="largura_total"
+                   value="${escapeHtml(String(item.largura_total || ''))}" />
+          </div>
+          <div class="orc-field orc-f-dim">
+            <label>Altura total da parede (mm)</label>
+            <input type="number" min="0" data-field="altura_total"
+                   value="${escapeHtml(String(item.altura_total || ''))}" />
+          </div>
+        </div>
+        <div class="orc-form-row">
+          <div class="orc-field">
+            <label>Tipo de divisao da largura</label>
+            <select data-field="divisao_largura">
+              <option value="maxima" ${item.divisao_largura === 'maxima' ? 'selected' : ''}>
+                Largura maxima da chapa (faixas inteiras + sobra na ponta)
+              </option>
+              <option value="igual" ${item.divisao_largura === 'igual' ? 'selected' : ''}>
+                Divisao igual (todas as faixas com mesma largura)
+              </option>
+            </select>
+          </div>
+          <div class="orc-field">
+            <label>Com refilado?</label>
+            <select data-field="com_refilado">
+              <option value="sim" ${item.com_refilado === 'sim' ? 'selected' : ''}>Sim — diminui 20mm de cada lado (REF)</option>
+              <option value="nao" ${item.com_refilado === 'nao' ? 'selected' : ''}>Nao — usa largura inteira da chapa</option>
+            </select>
+          </div>
+        </div>
+        <p class="orc-hint-text" style="margin-top:8px;">
+          ${(() => {
+            const REF = (window.Storage?.scope?.('cadastros').get('regras_variaveis_chapas')?.REF) || 20;
+            const larguraChapa = 1500;
+            const larguraMax = item.com_refilado === 'sim' ? (larguraChapa - 2 * REF) : larguraChapa;
+            const L = Number(item.largura_total) || 0;
+            if (!L) return '<i>Preencha largura para ver o calculo.</i>';
+            if (item.divisao_largura === 'maxima') {
+              const nInteiras = Math.floor(L / larguraMax);
+              const sobra = L - nInteiras * larguraMax;
+              return `<b>Calculo:</b> ${nInteiras} faixa(s) de ${larguraMax}mm` +
+                (sobra > 0.5 ? ` + 1 faixa de sobra de ${sobra.toFixed(1)}mm` : ' (sem sobra)');
+            } else {
+              const n = Math.ceil(L / larguraMax);
+              const f = (L / n).toFixed(1);
+              return `<b>Calculo:</b> ${n} faixa(s) iguais de ${f}mm cada`;
+            }
+          })()}
+        </p>
+      </div>
+    `;
+  }
+
+  /**
+   * Form do MODO MANUAL — lista de pecas individuais.
+   */
+  function renderRevManual(item) {
+    const pecas = item.pecas || [];
+    const linhas = pecas.map((p, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><input type="number" min="0" data-field-peca="largura" data-peca-idx="${i}" value="${escapeHtml(String(p.largura || ''))}" placeholder="largura" /></td>
+        <td><input type="number" min="0" data-field-peca="altura"  data-peca-idx="${i}" value="${escapeHtml(String(p.altura  || ''))}" placeholder="altura"  /></td>
+        <td><input type="number" min="1" data-field-peca="quantidade" data-peca-idx="${i}" value="${escapeHtml(String(p.quantidade || 1))}" /></td>
+        <td><button type="button" class="sup-btn-remove" data-action="remover-peca" data-peca-idx="${i}" title="Remover">×</button></td>
+      </tr>
+    `).join('');
+    return `
+      <div class="orc-section">
+        <div class="orc-section-title">Pecas (modo Manual)</div>
+        <table class="cad-table">
+          <thead>
+            <tr>
+              <th style="width:40px;">#</th>
+              <th>Largura (mm)</th>
+              <th>Altura (mm)</th>
+              <th>Quantidade</th>
+              <th class="actions"></th>
+            </tr>
+          </thead>
+          <tbody id="rev-pecas-tbody">
+            ${linhas || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Nenhuma peca adicionada. Clique no botao abaixo.</td></tr>'}
+          </tbody>
+        </table>
+        <div style="margin-top:10px;">
+          <button type="button" class="univ-btn-secondary" id="rev-btn-add-peca">+ Adicionar peca</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Bind de eventos do form do revestimento de parede.
+   */
+  function bindItemRevParedeEvents(container) {
+    // Felipe (sessao 2026-06 — BUG FIX CRITICO): Storage.get faz JSON.parse
+    // a cada chamada -> obterVersao() retorna CLONE NOVO toda vez. O bug:
+    //   1. const item = getItem();  // CLONE 1
+    //   2. item.revestimento = v;    // muta CLONE 1
+    //   3. atualizarVersao(id, { itens: obterVersao().versao.itens });
+    //                          ^^^ chama obterVersao DE NOVO -> CLONE 2 sem mutacao!
+    //   4. CLONE 2 e' salvo, mutacao perdida.
+    // Felipe via: "Cor e Revestimento nao ficam, na realidade nada ali
+    // funciona". Selects pareciam responder mas re-render restaurava ''.
+    // Solucao: getRoot() retorna o CLONE COMPLETO da versao + index do
+    // item — handler muta esse clone e passa o MESMO clone pra
+    // atualizarVersao (sem chamar obterVersao de novo).
+    function getRoot() {
+      const r = obterVersao(UI.versaoAtivaId);
+      if (!r?.versao) return null;
+      const item = r.versao.itens?.[UI.itemSelecionadoIdx];
+      if (!item) return null;
+      return { versao: r.versao, item };
+    }
+    function persistir(root) {
+      atualizarVersao(root.versao.id, { itens: root.versao.itens });
+    }
+    function reRender() {
+      const r = obterVersao(UI.versaoAtivaId);
+      if (r?.versao) {
+        const item = r.versao.itens[UI.itemSelecionadoIdx];
+        renderItemRevestimentoParede(container,
+          obterNegocio(UI.negocioAtivoId), r.opcao, r.versao, item);
+      }
+    }
+
+    // Campos top-level
+    container.querySelectorAll('[data-field]').forEach(el => {
+      el.addEventListener('change', () => {
+        const root = getRoot();
+        if (!root) return;
+        const item = root.item;
+        const field = el.dataset.field;
+        const v = el.value;
+        if (field === 'quantidade') {
+          item.quantidade = Math.max(1, parseInt(v, 10) || 1);
+        } else if (field === 'revestimento') {
+          // Trocar revestimento → zera cor
+          const antigo = item.revestimento || '';
+          item.revestimento = v;
+          if (antigo && antigo !== v) item.cor = '';
+        } else if (field === 'largura_total' || field === 'altura_total') {
+          item[field] = parseFloat(v.replace(',', '.')) || 0;
+        } else {
+          item[field] = v;
+        }
+        persistir(root);  // ← MESMO clone, com a mutacao
+        if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+        // Campos que mudam o layout precisam re-render
+        if (['modo', 'revestimento', 'divisao_largura', 'com_refilado',
+             'largura_total', 'altura_total'].includes(field)) {
+          reRender();
+        }
+      });
+    });
+
+    // Campos de pecas (modo manual)
+    container.querySelectorAll('[data-field-peca]').forEach(el => {
+      el.addEventListener('change', () => {
+        const root = getRoot();
+        if (!root || !Array.isArray(root.item.pecas)) return;
+        const idx = parseInt(el.dataset.pecaIdx, 10);
+        const field = el.dataset.fieldPeca;
+        if (idx >= 0 && idx < root.item.pecas.length) {
+          root.item.pecas[idx][field] = parseFloat(el.value.replace(',', '.')) || 0;
+          persistir(root);
+          if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+        }
+      });
+    });
+
+    // Botao adicionar peca
+    container.querySelector('#rev-btn-add-peca')?.addEventListener('click', () => {
+      const root = getRoot();
+      if (!root) return;
+      if (!Array.isArray(root.item.pecas)) root.item.pecas = [];
+      root.item.pecas.push({ largura: 0, altura: 0, quantidade: 1 });
+      persistir(root);
+      reRender();
+    });
+
+    // Botao remover peca
+    container.querySelectorAll('[data-action="remover-peca"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const root = getRoot();
+        const idx = parseInt(btn.dataset.pecaIdx, 10);
+        if (root && Array.isArray(root.item.pecas) && idx >= 0 && idx < root.item.pecas.length) {
+          root.item.pecas.splice(idx, 1);
+          persistir(root);
+          reRender();
+        }
+      });
+    });
+
+    // Salvar
+    container.querySelector('#orc-btn-salvar')?.addEventListener('click', () => {
+      if (window.showSavedDialog) window.showSavedDialog();
+      else alert('Salvo!');
+    });
+
+    // Felipe (sessao 2026-08): "REVESTIMENTO BOTAO CALCULAR NAO FUNCIONA".
+    // Bug: bindItemRevParedeEvents nunca tinha handler pro botao
+    // #orc-btn-calcular — so' o handler do renderItemTab principal tinha,
+    // mas em revestimento_parede o renderItemTab redireciona pro
+    // renderItemRevestimentoParede ANTES de fazer o bind. Solucao:
+    // adiciona o handler aqui, com comportamento equivalente.
+    container.querySelector('#orc-btn-calcular')?.addEventListener('click', () => {
+      const r = obterVersao(UI.versaoAtivaId);
+      if (!r?.versao) return;
+      const versao = r.versao;
+      // Marca como calculado (fluxo Calcular/Recalcular). Libera as
+      // abas DRE, Lev. Perfis, Custo Fab/Inst, etc.
+      atualizarVersao(versao.id, {
+        calculadoEm: nowIso(),
+        calcDirty: false,
+      });
+      if (window.showSavedDialog) window.showSavedDialog('Calculado.');
+      // Re-renderiza pra atualizar visual do botao (↻ Calcular -> ↻ Recalcular)
+      renderItemTab(container);
+    });
+
+    // Felipe (sessao 2026-06): bindings do chip list (Item 1, Item 2... ✕)
+    // e do dropdown "+ Adicionar item". Antes esses handlers so eram bound
+    // em bindEventos do renderItemTab principal, entao quando o item ativo
+    // era revestimento_parede o chip list aparecia mas os botoes nao
+    // funcionavam. Agora replicados aqui pra paridade total com o item
+    // tipo porta_externa.
+
+    // Trocar de item ativo (clica no chip)
+    container.querySelectorAll('[data-action="select-item"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.idx, 10);
+        if (!isNaN(idx)) {
+          UI.itemSelecionadoIdx = idx;
+          renderItemTab(container);
+        }
+      });
+    });
+
+    // Remover item (botao X)
+    container.querySelectorAll('[data-action="remove-item"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.idx, 10);
+        const versao = versaoAtiva();
+        if (!versao) return;
+        const lista = versao.itens || [];
+        if (!confirm(`Remover Item ${idx + 1} (${labelTipo(lista[idx].tipo)})?`)) return;
+        // Felipe (sessao 2026-08): "QUERO PODER DELETAR E VOLTAR A TELA
+        // INICIAL QUE ESCOLHO QUAL ITEM IRE USAR". Se e o ULTIMO item,
+        // em vez de deixar lista vazia, reseta o tipo dele pra '' —
+        // assim renderItemTab cai automaticamente em renderEscolhaTipo.
+        if (lista.length <= 1) {
+          const itemReset = { ...lista[0], tipo: '' };
+          atualizarVersao(versao.id, { itens: [itemReset] });
+          UI.itemSelecionadoIdx = 0;
+          renderItemTab(container);
+          return;
+        }
+        const novaLista = lista.filter((_, i) => i !== idx);
+        atualizarVersao(versao.id, { itens: novaLista });
+        if (UI.itemSelecionadoIdx >= novaLista.length) UI.itemSelecionadoIdx = novaLista.length - 1;
+        renderItemTab(container);
+      });
+    });
+
+    // Dropdown "+ Adicionar item"
+    container.querySelector('#orc-item-add')?.addEventListener('change', (e) => {
+      const tipo = e.target.value;
+      if (!tipo) return;
+      const versao = versaoAtiva();
+      if (!versao) return;
+      const novaLista = [...(versao.itens || []), novoItem(tipo)];
+      atualizarVersao(versao.id, { itens: novaLista });
+      UI.itemSelecionadoIdx = novaLista.length - 1;
+      renderItemTab(container);
+    });
+  }
+
+  function renderItemTab(container) {
+    inicializarSessao();
+    const item = itemAtual();
+    const negocio = obterNegocio(UI.negocioAtivoId);
+    const versao = obterVersao(UI.versaoAtivaId).versao;
+    const opcao  = obterVersao(UI.versaoAtivaId).opcao;
+
+    if (!item) {
+      // Defesa em profundidade — em teoria nunca acontece pq inicializarSessao
+      // garante pelo menos 1 item, mas evita o crash.
+      container.innerHTML = `
+        <div class="orc-banner">
+          <span class="t-strong">Sem item selecionado.</span> Use "+ Adicionar item" pra comecar.
+        </div>
+      `;
+      return;
+    }
+
+    // Felipe (Sessao 2): tela vazia ate o usuario escolher o tipo do item.
+    // Aqui mostra 4 cards e re-renderiza ao escolher um.
+    if (!item.tipo) {
+      renderEscolhaTipo(container, negocio, opcao, versao);
+      return;
+    }
+
+    // Felipe (sessao 2026-05): revestimento_parede tem form proprio
+    // (modo manual com lista de pecas OU automatico com largura/altura
+    // total da parede + opcoes de divisao e refilado). Renderiza em
+    // funcao separada e retorna.
+    if (item.tipo === 'revestimento_parede') {
+      renderItemRevestimentoParede(container, negocio, opcao, versao, item);
+      return;
+    }
+
+    const cad = Storage.scope('cadastros');
+    const modelos     = cad.get('modelos_lista')     || [];
+    const acessorios  = cad.get('acessorios_lista')  || [];
+    const superficies = cad.get('superficies_lista') || [];
+
+    // Felipe (sessao 2026-05): suporte a modelo externo + interno
+    // separados. Retro-compat: itens antigos com modeloNumero unico ja
+    // foram migrados em normalizarItem() pra ter modeloExterno =
+    // modeloInterno = modeloNumero. Aqui so faz lookup nas 2 chaves.
+    const modeloExternoAtual = modelos.find(m =>
+      Number(m.numero) === Number(item.modeloExterno)
+    ) || null;
+    const modeloInternoAtual = modelos.find(m =>
+      Number(m.numero) === Number(item.modeloInterno)
+    ) || null;
+    // modeloAtual continua existindo pras regras de calculo legado —
+    // aponta pro EXTERNO (lado principal do projeto).
+    const modeloAtual = modeloExternoAtual;
+    const nomeModelo = String(modeloAtual?.nome || '');
+
+    // --- regras condicionais (calculadas pra render ---
+    // Medidas sempre em milimetros.
+    const largura = parseFloat(String(item.largura).replace(',', '.')) || 0;
+    const altura  = parseFloat(String(item.altura).replace(',', '.'))  || 0;
+    const temMedidas = largura > 0 && altura > 0;
+
+    // === REGRA SISTEMA ===
+    // <1200 → dobradica travada. >=1200 → escolha livre (vazio inicial).
+    const forcaDobradica = largura > 0 && largura < 1200;
+
+    // === REGRA FECHADURA MECANICA por altura ===
+    // padrao: <3100=08 | 3101-5100=12 | 5101-7100=16 | >7100=24
+    // Philips 9300: soma +560 em todos os limiares (porta inteligente fica mais alta).
+    const ehPhilips9300 = /philips/i.test(item.fechaduraDigital || '') && /9300/.test(item.fechaduraDigital || '');
+    const offsetPhilips = ehPhilips9300 ? 560 : 0;
+    const fmAuto = (() => {
+      if (!altura) return '';
+      if (altura < 3100 + offsetPhilips) return '08 pinos';
+      if (altura <= 5100 + offsetPhilips) return '12 pinos';
+      if (altura <= 7100 + offsetPhilips) return '16 pinos';
+      return '24 pinos';
+    })();
+    // Helper: compara so o numero base de pinos (ignora variante "+1").
+    // Ex: pinosBase("08 pinos") === pinosBase("08 pinos +1") === "08"
+    const pinosBase = (s) => { const m = String(s||'').match(/\d+/); return m ? m[0] : ''; };
+    const fmForaDaRegra = altura > 0 && item.fechaduraMecanica &&
+      pinosBase(item.fechaduraMecanica) !== pinosBase(fmAuto);
+
+    // === REGRA CILINDRO ===
+    // Default sempre KESO. Se Tedee selecionada → KESO obrigatorio (trava).
+    const ehTedee = /tedee/i.test(item.fechaduraDigital || '');
+    const cilindroTravado = ehTedee;
+    const cilindroAuto = 'KESO seguranca';
+
+    const ehCava = /\bcava\b/i.test(nomeModelo);
+    const ehFriso = /friso/i.test(nomeModelo);
+    const mostraCor = ['ACM 4mm', 'Aluminio Macico 2mm', 'HPL 4mm'].includes(item.revestimento);
+
+    // Filtra superficies por revestimento usando a categoria canonica
+    // do cadastro (ACM/HPL/Vidro/Aluminio Macico). A funcao auto e' compartilhada.
+    function filtrarSuperficies(rev) {
+      let lista = superficies;
+      if (rev) {
+        const cat = (rev === 'Aluminio Macico 2mm') ? 'aluminio_macico'
+                  : (rev === 'ACM 4mm')             ? 'acm'
+                  : (rev === 'HPL 4mm')             ? 'hpl'
+                  : (rev === 'Vidro 6mm' || rev === 'Vidro 8mm') ? 'vidro'
+                  : null;
+        if (cat) {
+          const auto = window.Superficies?.categoriaAuto || (() => 'acm');
+          lista = (superficies || []).filter(s => (s.categoria || auto(s.descricao)) === cat);
+        }
+      }
+      // Felipe: a descricao nao deve mostrar a medida da chapa.
+      // O cadastro tem 4 entradas por cor (1500x5000, 6000, 7000, 8000) — deduplica
+      // pelo nome curto. O tamanho real sera escolhido pelo aproveitamento de chapas.
+      const seen = new Set();
+      const dedup = [];
+      (lista || []).forEach(s => {
+        const nome = nomeCurtoSuperficie(s.descricao);
+        if (!nome) return;
+        const k = nome.toUpperCase();
+        if (seen.has(k)) return;
+        seen.add(k);
+        dedup.push({ ...s, descricao: nome });
+      });
+      return dedup;
+    }
+    // Remove sufixo " - 1500 x 5000", " -1500 X 6000", " - 1500 X8000" etc.
+    // Aceita variacoes de espacos, x/X, e separadores.
+    function nomeCurtoSuperficie(desc) {
+      if (!desc) return '';
+      return String(desc)
+        .replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, '')
+        .trim();
+    }
+    const superficiesFiltradas = filtrarSuperficies(item.revestimento);
+
+    const ehUSA = false;  // Etapa 5 vai plugar com lead.destinoPais === 'United States'
+    const mostraPlusUm = ehUSA && largura > 2400;
+
+    // Fechaduras digitais: filtra acessorios pela familia
+    const fechDigitais = acessorios.filter(a => /Fechadura Digital/i.test(a.familia || ''));
+
+    // Tamanhos puxador externo — em mm, de 1500 a 5000 step 500
+    const tamanhosPuxador = ['Enviado pelo cliente', 'Nao se aplica'];
+    for (let t = 1500; t <= 5000; t += 500) tamanhosPuxador.push(t + ' mm');
+
+    // Fechaduras mecanicas — sempre todas visiveis com "X pinos" e variantes "+1".
+    // A regra automatica calcula o NÚMERO BASE de pinos pela altura (08/12/16/24).
+    // O usuario pode trocar pra variante "+1" sem isso ser "fora da regra"
+    // (e' so uma especificacao adicional, nao uma violacao de altura).
+    const fechMecanicas = [
+      '04 pinos',
+      '08 pinos', '08 pinos +1',
+      '12 pinos', '12 pinos +1',
+      '16 pinos', '16 pinos +1',
+      '24 pinos', '24 pinos +1',
+    ];
+
+    // Revestimentos fixos
+    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro 6mm', 'Vidro 8mm'];
+
+    // Helpers de markup
+    const opt = (v, sel, lbl) => `<option value="${escapeHtml(v)}" ${v === sel ? 'selected' : ''}>${escapeHtml(lbl != null ? lbl : v)}</option>`;
+    const optEmpty = '<option value=""></option>';
+
+    // Felipe: banner mostra Reserva e AGP em vez de "Lead #03".
+    // Reserva primeiro, AGP depois. Sem reserva e sem AGP, fallback
+    // pro Lead #N pra nao ficar sem identificacao.
+    function tagsLeadHtml() {
+      if (!UI.leadAtivo) return '<span class="orc-tag-dev">modo teste local</span>';
+      const r = (UI.leadAtivo.numeroReserva || '').trim();
+      const a = (UI.leadAtivo.numeroAGP || '').trim();
+      const partes = [];
+      if (r) partes.push(`Reserva ${escapeHtml(r)}`);
+      if (a) partes.push(`AGP ${escapeHtml(a)}`);
+      if (partes.length === 0) {
+        // fallback: "Lead #03" (curto)
+        const idCurto = UI.leadAtivo.id.startsWith('lead_')
+          ? UI.leadAtivo.id.replace('lead_', '#')
+          : '#' + String(UI.leadAtivo.id).slice(-6);
+        return `<span class="orc-tag-lead">Lead ${escapeHtml(idCurto)}</span>`;
+      }
+      return `<span class="orc-tag-lead">${partes.join(' · ')}</span>`;
+    }
+
+    container.innerHTML = `
+      ${(() => {
+        // Felipe (do doc - msg "em todas as abas preciso largura altura modelo"):
+        // cabecalho da empresa + banner com caracteristicas dos itens em TODAS as abas.
+        const leadIt = lerLeadAtivo() || {};
+        const numDocIt = `${(opcao?.letra || 'A')} - ${versao.numero}`;
+        const headerItHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
+          ? window.Empresa.montarHeaderRelatorio({
+              lead: leadIt,
+              tituloRelatorio: 'Caracteristicas do Item',
+              numeroDocumento: numDocIt,
+              validade: 15,
+            })
+          : '';
+        // Felipe (sessao 2026-06): banner MEMORIAL pra versoes imutaveis
+        // (aprovadas ou fechadas). Avisa que dados podem ter sido
+        // calculados com cadastros antigos. Valores exibidos sao os
+        // que estavam salvos na versao quando ela foi aprovada/fechada.
+        const memorialBanner = versaoEhImutavel(versao) ? `
+          <div class="orc-banner-memorial">
+            <span class="orc-banner-memorial-icon">📜</span>
+            <span class="orc-banner-memorial-msg">
+              <b>Modo Memorial / Somente Leitura</b> —
+              ${versao.aprovadoEm ? 'esta versao foi APROVADA e o valor foi enviado pro CRM.' : 'esta versao esta FECHADA como historico.'}
+              Os dados aqui ficam congelados como referencia. Pra alterar, use <b>+ Nova Versao</b> no banner acima.
+            </span>
+          </div>` : '';
+        // Felipe (sessao 2026-08 v3): BUG CRITICO — havia duas IIFEs
+        // concatenadas mal-formadas que faziam vazar como TEXTO literal:
+        //   "return headerItHtml + bannerCaracteristicasItens(versao); })()"
+        // Esse texto aparecia no topo da pagina e podia travar o sistema
+        // dependendo de como o navegador interpretava o HTML quebrado.
+        // Solucao: UMA IIFE so, retornando header + memorial + caracteristicas.
+        return headerItHtml + bannerCaracteristicasItens(versao);
+      })()}
+      <div class="orc-banner">
+        <div class="orc-banner-info">
+          <span class="t-strong">Negocio em edicao:</span>
+          ${escapeHtml(negocio?.clienteNome || '—')}
+          ${tagsLeadHtml()}
+          · Opcao ${escapeHtml(opcao.letra)}
+        </div>
+        <div class="orc-banner-actions">
+          <button type="button" class="orc-btn-calcular ${versao.calcDirty || !versao.calculadoEm ? 'is-dirty' : 'is-ok'}" id="orc-btn-calcular" title="${versao.calculadoEm ? 'Atualiza DRE, Levantamentos, Custo Fab/Inst com os valores atuais' : 'Roda os calculos pela primeira vez'}">${versao.calculadoEm ? '↻ Recalcular' : '▶ Calcular'}</button>
+          <button type="button" class="univ-btn-save" id="orc-btn-salvar">✓ Tudo salvo</button>
+          <!-- Felipe (sessao 2026-08): "RETIRE ESSA VERSOES DO CALCULO
+               VAMOS TER QUE REPENSAR DO ZERO". Removidos da UI:
+               seletor de versao, +Nova Versao, banner memorial,
+               tag FECHADA/APROVADA/draft. A estrutura interna
+               (negocio.opcoes[].versoes[]) continua existindo em
+               background mas o usuario so' interage com a primeira
+               versao. -->
+          <button class="orc-btn-zerar" id="orc-btn-zerar" title="Zerar todos os itens, parametros e calculos deste orcamento">🗑 Zerar</button>
+          ${UI.leadAtivo ? `<button class="orc-btn-back" id="orc-btn-back-crm" title="Voltar para o card no CRM">← Voltar pro CRM</button>` : ''}
+        </div>
+      </div>
+
+      <div class="orc-itens-list">
+        ${(versao.itens || []).map((it, idx) => {
+          const ativo = idx === UI.itemSelecionadoIdx;
+          // Felipe (sessao 2026-08): "QUANDO SO TEM UM ITEM NAO TEM
+          // OPCAO DE DELETAR ELE MESMO". Botao X sempre presente.
+          // Ao deletar o ultimo, volta pra tela de escolha de tipo.
+          return `
+            <div class="orc-item-chip ${ativo ? 'is-active' : ''}" data-idx="${idx}">
+              <button class="orc-item-chip-label" data-action="select-item" data-idx="${idx}">
+                Item ${idx + 1}: ${escapeHtml(labelTipo(it.tipo))}
+              </button>
+              <button class="orc-item-chip-remove" data-action="remove-item" data-idx="${idx}" title="Remover este item">✕</button>
+            </div>
+          `;
+        }).join('')}
+        <div class="orc-item-add-wrapper">
+          <select class="orc-item-add" id="orc-item-add">
+            <option value="">+ Adicionar item</option>
+            ${TIPOS_ITEM.map(t => `<option value="${t.id}">${escapeHtml(t.label)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="orc-item">
+        <div class="orc-item-header">
+          <div class="orc-item-titulo">Item ${UI.itemSelecionadoIdx + 1} — ${escapeHtml(labelTipo(item.tipo))}</div>
+        </div>
+
+        ${item.tipo === 'fixo_acoplado' ? `
+        <!-- Felipe (sessao 30): Form do FIXO ACOPLADO. Item independente
+             que reusa motor da porta com nFolhas=1 e largura/altura proprias. -->
+        <div class="orc-section">
+          <div class="orc-section-title">Dimensoes</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-qtd">
+              <label>Quantidade</label>
+              <input type="number" min="1" data-field="quantidade" value="${escapeHtml(String(item.quantidade || 1))}" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Largura (mm)</label>
+              <input type="text" data-field="largura" value="${escapeHtml(String(item.largura || ''))}" placeholder="" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Altura (mm)</label>
+              <input type="text" data-field="altura" value="${escapeHtml(String(item.altura || ''))}" placeholder="" />
+            </div>
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Configuracao do Fixo</div>
+          <div class="orc-form-row">
+            <div class="orc-field">
+              <label>Posicao</label>
+              <select data-field="posicao">
+                <option value="superior" ${item.posicao !== 'lateral' ? 'selected' : ''}>Superior (em cima da porta)</option>
+                <option value="lateral" ${item.posicao === 'lateral' ? 'selected' : ''} disabled>Lateral (em desenvolvimento)</option>
+              </select>
+            </div>
+            <div class="orc-field">
+              <label>Tem estrutura de aluminio?</label>
+              <select data-field="temEstrutura">
+                <option value="sim" ${(item.temEstrutura || 'sim') === 'sim' ? 'selected' : ''}>Sim — quadro + chapas</option>
+                <option value="nao" ${item.temEstrutura === 'nao' ? 'selected' : ''}>Nao — so chapas (sem perfis)</option>
+              </select>
+            </div>
+            <div class="orc-field">
+              <label>Lados revestidos</label>
+              <select data-field="lados">
+                <option value="1lado" ${item.lados !== '2lados' ? 'selected' : ''}>1 lado (so externo)</option>
+                <option value="2lados" ${item.lados === '2lados' ? 'selected' : ''}>2 lados (externo + interno)</option>
+              </select>
+            </div>
+            ${item.temEstrutura !== 'nao' ? `
+            <div class="orc-field">
+              <label>Sistema</label>
+              <select data-field="sistema">
+                <option value="PA006" ${item.sistema !== 'PA007' ? 'selected' : ''}>PA006</option>
+                <option value="PA007" ${item.sistema === 'PA007' ? 'selected' : ''}>PA007</option>
+              </select>
+            </div>
+            ` : ''}
+          </div>
+          ${item.temEstrutura !== 'nao' ? `
+          <div class="orc-form-row">
+            <div class="orc-field">
+              <label>Segue modelo da porta?</label>
+              <select data-field="fixoSegueModelo">
+                <option value="sim" ${(item.fixoSegueModelo || 'sim') === 'sim' ? 'selected' : ''}>Sim — replica modelo da porta</option>
+                <option value="nao" ${item.fixoSegueModelo === 'nao' ? 'selected' : ''}>Nao — escolher modelo proprio</option>
+              </select>
+            </div>
+            ${item.fixoSegueModelo === 'nao' ? `
+            <div class="orc-field orc-f-modelo">
+              <label>Modelo do Fixo</label>
+              <select data-field="modeloNumero">
+                ${(() => {
+                  try {
+                    const modelos = (window.Storage ? Storage.scope('cadastros').get('modelos_lista') : null) || [];
+                    const opcoes = modelos.length
+                      ? modelos.map(m => `<option value="${m.numero}" ${String(item.modeloNumero) === String(m.numero) ? 'selected' : ''}>${m.numero} — ${escapeHtml(m.nome || '')}</option>`).join('')
+                      : '<option value="1">1 — Liso (default)</option>';
+                    return opcoes;
+                  } catch (_) {
+                    return '<option value="1">1 — Liso</option>';
+                  }
+                })()}
+              </select>
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+          <div class="orc-form-row">
+            <div class="orc-field">
+              <label>Revestimento (chapa)</label>
+              <select data-field="revestimento">
+                <option value=""></option>
+                ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+        </div>
+        ` : `
+        <div class="orc-section">
+          <div class="orc-section-title">Em desenvolvimento</div>
+          <p style="font-size:13px; color: var(--text-muted); padding: 8px 0;">
+            O formulario detalhado de <span class="t-strong">${escapeHtml(labelTipo(item.tipo))}</span> ainda nao foi implementado.
+            Por enquanto so <span class="t-strong">Porta Externa</span>, <span class="t-strong">Fixo Acoplado</span> e <span class="t-strong">Revestimento de Parede</span> tem campos completos.
+          </p>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-qtd">
+              <label>Quantidade</label>
+              <input type="number" min="1" data-field="quantidade" value="${((item.quantidade || 1) === '' || (item.quantidade || 1) === null || (item.quantidade || 1) === undefined || Number(item.quantidade || 1) === 0) ? '' : escapeHtml(String(item.quantidade || 1))}" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Largura (mm)</label>
+              <input type="text" data-field="largura" value="${((item.largura || '') === '' || (item.largura || '') === null || (item.largura || '') === undefined || Number(item.largura || '') === 0) ? '' : escapeHtml(String(item.largura || ''))}" placeholder="" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Altura (mm)</label>
+              <input type="text" data-field="altura" value="${((item.altura || '') === '' || (item.altura || '') === null || (item.altura || '') === undefined || Number(item.altura || '') === 0) ? '' : escapeHtml(String(item.altura || ''))}" placeholder="" />
+            </div>
+          </div>
+        </div>
+        `}
+        ${item.tipo === 'porta_externa' ? `
+
+        <div class="orc-section">
+          <div class="orc-section-title">Dimensoes</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-qtd">
+              <label>Quantidade</label>
+              <input type="number" min="1" data-field="quantidade" value="${((item.quantidade) === '' || (item.quantidade) === null || (item.quantidade) === undefined || Number(item.quantidade) === 0) ? '' : escapeHtml(String(item.quantidade))}" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Largura (mm)</label>
+              <input type="text" data-field="largura" value="${((item.largura) === '' || (item.largura) === null || (item.largura) === undefined || Number(item.largura) === 0) ? '' : escapeHtml(String(item.largura))}" placeholder="" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Altura (mm)</label>
+              <input type="text" data-field="altura" value="${((item.altura) === '' || (item.altura) === null || (item.altura) === undefined || Number(item.altura) === 0) ? '' : escapeHtml(String(item.altura))}" placeholder="" />
+            </div>
+            <div class="orc-field orc-f-folhas">
+              <label>N° folhas</label>
+              <select data-field="nFolhas">
+                <option value=""></option>
+                <option value="1" ${String(item.nFolhas) === '1' ? 'selected' : ''}>1 folha</option>
+                <option value="2" ${String(item.nFolhas) === '2' ? 'selected' : ''}>2 folhas</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Modelo</div>
+          <!-- Felipe (sessao 2026-05): layout VERTICAL compacto.
+               Externo em cima, botao Copiar, Interno embaixo.
+               NAO ocupa largura inteira — caixa compacta. -->
+          <div class="orc-modelo-stack">
+            <div class="orc-field orc-f-modelo">
+              <label>Modelo Externo</label>
+              <input type="text" list="orc-modelos-list" data-field="modeloExterno"
+                     value="${escapeHtml(modeloExternoAtual ? `${modeloExternoAtual.numero} — ${modeloExternoAtual.nome}` : '')}"
+                     placeholder="" />
+            </div>
+            <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-modelo-ext-int"
+                    title="Copia o Modelo Externo para o Modelo Interno (caso sejam iguais)">
+              ↓ Copiar Externo → Interno
+            </button>
+            <div class="orc-field orc-f-modelo">
+              <label>Modelo Interno</label>
+              <input type="text" list="orc-modelos-list" data-field="modeloInterno"
+                     value="${escapeHtml(modeloInternoAtual ? `${modeloInternoAtual.numero} — ${modeloInternoAtual.nome}` : '')}"
+                     placeholder="" />
+            </div>
+            <datalist id="orc-modelos-list">
+              ${modelos.map(m => `<option value="${m.numero} — ${escapeHtml(m.nome)}"></option>`).join('')}
+            </datalist>
+          </div>
+          ${(() => {
+            // Felipe (sessao 2026-05): renderiza Características DE AMBOS
+            // os modelos quando externo ≠ interno. Caso "Cava por fora,
+            // Clássica por dentro" → 2 seções, uma pra cada lado.
+            //
+            // Quando externo === interno: 1 seção (caso normal).
+            // Quando externo ≠ interno: 2 seções, cada uma com seus campos.
+            //
+            // Os campos físicos (distanciaBordaCava, tamanhoCava) podem
+            // ser compartilhados entre modelos com cava — nesse caso,
+            // ambas as seções editam o mesmo valor no item (sincronizam
+            // via re-render).
+            const numExt = Number(item.modeloExterno || item.modeloNumero);
+            const numInt = Number(item.modeloInterno || item.modeloNumero);
+            const camposExt = CAMPOS_POR_MODELO[numExt];
+            const camposInt = CAMPOS_POR_MODELO[numInt];
+
+            const temExt = camposExt && camposExt.length > 0;
+            const temInt = camposInt && camposInt.length > 0;
+            const modelosDiferentes = numExt !== numInt;
+
+            // Helper pra renderizar uma seção (label + campos do modelo)
+            function secaoModelo(numModelo, nomeModelo, prefixoTitulo) {
+              if (!numModelo) return '';
+              const campos = CAMPOS_POR_MODELO[numModelo];
+              if (!campos || !campos.length) return '';
+              const tituloLado = prefixoTitulo
+                ? `${prefixoTitulo} — Modelo ${numModelo}${nomeModelo ? ` — ${escapeHtml(nomeModelo)}` : ''}`
+                : `Caracteristicas do Modelo ${numModelo}${nomeModelo ? ` — ${escapeHtml(nomeModelo)}` : ''}`;
+              return `
+                <div class="orc-section orc-section-modelo-vars">
+                  <div class="orc-section-title">${tituloLado}</div>
+                  ${renderCamposPorModeloEspecifico(item, numModelo)}
+                </div>`;
+            }
+
+            // Caso 1: modelos iguais → 1 seção (igual antes)
+            if (!modelosDiferentes) {
+              if (!temExt) return '';
+              return secaoModelo(numExt, modeloExternoAtual?.nome, '');
+            }
+
+            // Caso 2: modelos diferentes → 2 seções
+            const partes = [];
+            if (temExt) partes.push(secaoModelo(numExt, modeloExternoAtual?.nome, 'Externo'));
+            if (temInt) partes.push(secaoModelo(numInt, modeloInternoAtual?.nome, 'Interno'));
+            return partes.join('');
+          })()}
+        </div>
+
+        <!-- Felipe (do doc): TODA porta tem alisar/parede. Default: alisar SIM,
+             largura 100, parede 250.
+             Felipe (msg "sem alisar nao mostra"): se tem_alisar = Nao,
+             esconde Largura do alisar e Espessura da parede. -->
+        <div class="orc-section" id="orc-section-alisar-parede">
+          <div class="orc-section-title">Alisar e Parede</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-alisar">
+              <label>Tem alisar?</label>
+              <select data-field="tem_alisar">
+                <option value="Sim" ${(item.tem_alisar || 'Sim') === 'Sim' ? 'selected' : ''}>Sim — com alisar</option>
+                <option value="Nao" ${item.tem_alisar === 'Nao' ? 'selected' : ''}>Nao — sem alisar</option>
+              </select>
+            </div>
+            ${(item.tem_alisar !== 'Nao') ? `
+            <div class="orc-field orc-f-alisar">
+              <label>Largura do alisar (mm)</label>
+              <input type="number" min="0" step="1" data-field="largura_alisar" value="${((item.largura_alisar || 100) === '' || (item.largura_alisar || 100) === null || (item.largura_alisar || 100) === undefined || Number(item.largura_alisar || 100) === 0) ? '' : escapeHtml(String(item.largura_alisar || 100))}" />
+            </div>
+            <div class="orc-field orc-f-alisar">
+              <label>Espessura da parede (mm)</label>
+              <input type="number" min="0" step="1" data-field="espessura_parede" value="${((item.espessura_parede || 250) === '' || (item.espessura_parede || 250) === null || (item.espessura_parede || 250) === undefined || Number(item.espessura_parede || 250) === 0) ? '' : escapeHtml(String(item.espessura_parede || 250))}" />
+            </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Acabamento</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-revestimento">
+              <label>Revestimento</label>
+              <select data-field="revestimento">
+                <option value=""></option>
+                ${revestimentos.map(r => opt(r, item.revestimento)).join('')}
+              </select>
+            </div>
+            ${mostraCor ? `
+            <!-- Felipe (sessao 2026-05): Cor EXTERNA em cima, botao copiar,
+                 Cor INTERNA embaixo. Padrao identico ao Modelo Externo/Interno.
+                 Cores diferentes = chapas separadas (1 pra cada lado).
+                 Cor da CAVA aparece embaixo, condicional ao modelo ter cava
+                 (modelos 1-9, 11, 22, 24). Botao "Copiar Externo → Cava"
+                 entre Cor Interna e Cor da Cava. -->
+            <div class="orc-cor-stack">
+              <div class="orc-field orc-f-cor">
+                <label>Cor Externa</label>
+                <input type="text" list="orc-superficies-list" data-field="corExterna" value="${escapeHtml(item.corExterna)}" placeholder="" title="${escapeHtml(item.corExterna)}" />
+              </div>
+              <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-ext-int"
+                      title="Copia a Cor Externa para a Cor Interna (caso sejam iguais)">
+                ↓ Copiar Externo → Interno
+              </button>
+              <div class="orc-field orc-f-cor">
+                <label>Cor Interna</label>
+                <input type="text" list="orc-superficies-list" data-field="corInterna" value="${escapeHtml(item.corInterna)}" placeholder="" title="${escapeHtml(item.corInterna)}" />
+              </div>
+              ${modeloTemCava(item.modeloExterno || item.modeloNumero) ? `
+              <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-ext-cava"
+                      title="Copia a Cor Externa para a Cor da Cava (caso sejam iguais)">
+                ↓ Copiar Externo → Cava
+              </button>
+              <div class="orc-field orc-f-cor">
+                <label>Cor da Cava</label>
+                <input type="text" list="orc-superficies-list" data-field="corCava" value="${escapeHtml(item.corCava || '')}" placeholder="" title="${escapeHtml(item.corCava || '')}" />
+              </div>
+              ` : ''}
+            </div>
+            <datalist id="orc-superficies-list">
+              ${superficiesFiltradas.map(s => `<option value="${escapeHtml(s.descricao)}"></option>`).join('')}
+            </datalist>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Sistema</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-sistema">
+              <select data-field="sistema" ${forcaDobradica ? 'disabled' : ''}>
+                <option value=""></option>
+                ${opt('dobradica',  forcaDobradica ? 'dobradica' : item.sistema, 'Dobradica')}
+                ${opt('pivotante', item.sistema, 'Pivotante')}
+              </select>
+              ${forcaDobradica ? '<span class="orc-hint-auto">auto: largura &lt; 1200 mm</span>' : (item._overrides?.sistema ? '<span class="orc-hint-warn">⚠ editado fora da regra</span>' : '')}
+            </div>
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Fechaduras e cilindro</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-fech-mec">
+              <label>Fechadura mecanica ${fmAuto && altura ? `<span class="orc-hint-auto">auto: ${ehPhilips9300 ? 'Philips 9300 (+560)' : 'altura'} → ${fmAuto}</span>` : ''} ${fmForaDaRegra ? '<span class="orc-hint-warn">⚠ editado fora da regra</span>' : ''}</label>
+              <select data-field="fechaduraMecanica">
+                <option value=""></option>
+                ${fechMecanicas.map(f => opt(f, item.fechaduraMecanica)).join('')}
+              </select>
+            </div>
+            <div class="orc-field orc-f-fech-dig">
+              <label>Fechadura digital</label>
+              <input type="text" list="orc-fech-digitais-list" data-field="fechaduraDigital" value="${escapeHtml(item.fechaduraDigital)}" placeholder="" title="${escapeHtml(item.fechaduraDigital)}" />
+              <datalist id="orc-fech-digitais-list">
+                <option value="Nao se aplica"></option>
+                ${fechDigitais.map(a => `<option value="${escapeHtml(a.descricao)}"></option>`).join('')}
+              </datalist>
+            </div>
+            <div class="orc-field orc-f-cilindro">
+              <label>Cilindro ${cilindroTravado ? '<span class="orc-hint-auto">Tedee → KESO obrigatorio</span>' : ''} ${item._overrides?.cilindro ? '<span class="orc-hint-warn">⚠ editado fora da regra</span>' : ''}</label>
+              <select data-field="cilindro" ${cilindroTravado ? 'disabled' : ''}>
+                <option value=""></option>
+                ${opt('KESO seguranca', cilindroTravado ? 'KESO seguranca' : item.cilindro)}
+                ${opt('Udinese chave comum', item.cilindro)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        ${!ehCava && nomeModelo ? `
+        <div class="orc-section" id="orc-field-tamanho-puxador">
+          <div class="orc-section-title">Puxador externo</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-puxador">
+              <label>Tamanho</label>
+              <select data-field="tamanhoPuxador">
+                ${tamanhosPuxador.map(t => opt(t, item.tamanhoPuxador)).join('')}
+              </select>
+            </div>
+          </div>
+        </div>` : ''}
+        ` : ''}
+      </div>
+    `;
+
+    bindItemEvents(container);
+    // Felipe (do doc - msg wizard): botao "Proximo: Levantamento de Perfis"
+    adicionarBotaoWizard(container, 'item');
+  }
+
+  /**
+   * Aplica as regras automaticas no item se o usuario AINDA NAO sobrescreveu
+   * manualmente o campo. Devolve o item modificado (mesma referencia).
+   *
+   * Regras:
+   *   - largura<1200    → sistema = dobradica (trava)
+   *   - altura          → fechaduraMecanica baseado em faixa (Philips 9300 +560)
+   *   - tedee           → cilindro = KESO (trava)
+   *   - default cilindro = KESO seguranca quando vazio
+   */
+  function aplicarRegrasAutoItem(item) {
+    if (!item) return item;
+    if (!item._overrides) item._overrides = {};
+
+    const lar = parseFloat(String(item.largura).replace(',', '.')) || 0;
+    const alt = parseFloat(String(item.altura).replace(',', '.'))  || 0;
+    const tedee = /tedee/i.test(item.fechaduraDigital || '');
+    const philips9300 = /philips/i.test(item.fechaduraDigital || '') && /9300/.test(item.fechaduraDigital || '');
+    const offsetPh = philips9300 ? 560 : 0;
+
+    // Sistema: largura<1200 trava em dobradica (sobrescreve override)
+    if (lar > 0 && lar < 1200) {
+      item.sistema = 'dobradica';
+      delete item._overrides.sistema;
+    } else if (!item._overrides.sistema && lar === 0) {
+      // sem largura ainda → mantem como esta (vazio inicialmente)
+    }
+
+    // Fechadura mecanica auto pela altura (so se nao foi editado manualmente).
+    // Auto retorna "X pinos" (sem +1). User pode trocar pra variante "+1" via override.
+    if (alt > 0 && !item._overrides.fechaduraMecanica) {
+      let fm;
+      if (alt < 3100 + offsetPh)        fm = '08 pinos';
+      else if (alt <= 5100 + offsetPh)  fm = '12 pinos';
+      else if (alt <= 7100 + offsetPh)  fm = '16 pinos';
+      else                              fm = '24 pinos';
+      item.fechaduraMecanica = fm;
+    }
+
+    // Cilindro: Tedee trava em KESO. Se nao Tedee e nao foi editado manualmente, default KESO.
+    if (tedee) {
+      item.cilindro = 'KESO seguranca';
+      delete item._overrides.cilindro;
+    } else if (!item._overrides.cilindro && !item.cilindro) {
+      item.cilindro = 'KESO seguranca';
+    }
+
+    return item;
+  }
+
+  function bindItemEvents(container) {
+    container.querySelectorAll('[data-field]').forEach(el => {
+      // SEMPRE 'change' — dispara no blur. Nunca usar 'input' aqui porque
+      // os campos gatilho (largura, altura, modelo, revestimento, fechaduraDigital)
+      // re-renderizam a aba, o que faria o usuario perder o foco a cada tecla.
+      el.addEventListener('change', () => {
+        const v = el.value;
+
+        // CRITICO: 1 load so por handler.
+        const r = obterVersao(UI.versaoAtivaId);
+        if (!r || !r.versao) return;
+        const versao = r.versao;
+        const idx = UI.itemSelecionadoIdx;
+        const item = (versao.itens || [])[idx];
+        if (!item) return;
+
+        const field = el.dataset.field;
+        if (!item._overrides) item._overrides = {};
+
+        if (field === 'modeloNumero') {
+          const num = parseInt(v, 10);
+          item.modeloNumero = isNaN(num) ? '' : num;
+          // Felipe (sessao 2026-05): modeloNumero legado tambem
+          // sincroniza modeloExterno (legado vira o lado externo).
+          item.modeloExterno = item.modeloNumero;
+          if (!item.modeloInterno) item.modeloInterno = item.modeloNumero;
+        } else if (field === 'modeloExterno') {
+          // Felipe (sessao 2026-05): novo campo. Atualiza tambem o
+          // modeloNumero legado (regras de fabricacao usam ele) — ele
+          // segue o EXTERNO. Se modeloInterno estiver vazio, herda
+          // do externo (defensivo).
+          const num = parseInt(v, 10);
+          item.modeloExterno = isNaN(num) ? '' : num;
+          item.modeloNumero  = item.modeloExterno;
+          if (item.modeloInterno === '' || item.modeloInterno === undefined) {
+            item.modeloInterno = item.modeloExterno;
+          }
+        } else if (field === 'modeloInterno') {
+          // Felipe (sessao 2026-05): novo campo independente do externo.
+          // Pode ser diferente — ai levantamento de chapas calcula 2x
+          // conjuntos de pecas (1 pra cada lado).
+          const num = parseInt(v, 10);
+          item.modeloInterno = isNaN(num) ? '' : num;
+        } else if (field === 'quantidade') {
+          item.quantidade = Math.max(1, parseInt(v, 10) || 1);
+        } else if (field === 'revestimento') {
+          // Felipe (sessao 2026-05): cada revestimento (ACM, HPL, Aluminio
+          // Macico, Vidro) tem um cadastro PROPRIO de cores em Cadastros >
+          // Superficies. Trocar revestimento invalida as cores anteriores
+          // (eram da categoria antiga). Zera pra forçar usuario a escolher
+          // de novo dentro da nova categoria.
+          const revAntigo = item.revestimento || '';
+          item.revestimento = v;
+          if (revAntigo && revAntigo !== v) {
+            item.corExterna = '';
+            item.corInterna = '';
+            item.corCava    = '';
+          }
+        } else {
+          item[field] = v;
+        }
+
+        // === REGISTRO DE OVERRIDE ===
+        // Override só faz sentido quando a REGRA ESTÁ ATIVA e o usuario escolhe
+        // diferente dela. Se a regra nao impoe nada (ex: largura ≥ 1200 → escolha
+        // livre Dobradica/Pivo), nao e' override — e' uma escolha valida.
+        const lar = parseFloat(String(item.largura || '').replace(',', '.')) || 0;
+        const alt = parseFloat(String(item.altura  || '').replace(',', '.')) || 0;
+        const ehTedeeLocal = /tedee/i.test(item.fechaduraDigital || '');
+        const ehPh9300Local = /philips/i.test(item.fechaduraDigital || '') && /9300/.test(item.fechaduraDigital || '');
+        const offsPh = ehPh9300Local ? 560 : 0;
+
+        function regraAtivaSistema()  { return lar > 0 && lar < 1200; }
+        function regraAtivaCilindro() { return ehTedeeLocal; }
+        function regraAtivaFM()       { return alt > 0; }
+
+        function calcAutoFM() {
+          if (alt < 3100 + offsPh)       return '08 pinos';
+          if (alt <= 5100 + offsPh)      return '12 pinos';
+          if (alt <= 7100 + offsPh)      return '16 pinos';
+          return '24 pinos';
+        }
+        // Helper: compara fechadura mecanica so pelo numero base (08/12/16/24)
+        // — variantes "+1" NAO contam como fora da regra.
+        const pinBase = (s) => { const m = String(s||'').match(/\d+/); return m ? m[0] : ''; };
+
+        if (field === 'sistema') {
+          // Sistema só vira "fora da regra" se largura<1200 (regra ativa) e usuario
+          // escolhe pivotante. Em qualquer outro caso e' livre.
+          if (regraAtivaSistema() && v && v !== 'dobradica') {
+            item._overrides.sistema = true;
+          } else {
+            delete item._overrides.sistema;
+          }
+        } else if (field === 'cilindro') {
+          // Cilindro só vira "fora da regra" se Tedee (regra ativa) e usuario
+          // escolhe diferente de KESO.
+          if (regraAtivaCilindro() && v && v !== 'KESO seguranca') {
+            item._overrides.cilindro = true;
+          } else {
+            delete item._overrides.cilindro;
+          }
+        } else if (field === 'fechaduraMecanica') {
+          // Fechadura mecanica vira "fora da regra" só se altura > 0 (regra ativa)
+          // e o NÚMERO BASE de pinos diverge do que a regra dita.
+          // Variantes "+1" NAO contam (sao especificacoes adicionais).
+          if (regraAtivaFM() && v && pinBase(v) !== pinBase(calcAutoFM())) {
+            item._overrides.fechaduraMecanica = true;
+          } else {
+            delete item._overrides.fechaduraMecanica;
+          }
+        }
+
+        // Se mudou largura/altura/fechaduraDigital, RE-aplica as regras
+        // automaticas nos campos que ainda nao tem override.
+        const gatilhosRegras = ['largura', 'altura', 'fechaduraDigital', 'modeloNumero'];
+        if (gatilhosRegras.includes(field)) {
+          aplicarRegrasAutoItem(item);
+        }
+
+        try {
+          // Recalcula Fab pq mudancas em altura/modelo/folhas/chapas/cor afetam horas
+          const camposAfetamFab = ['altura', 'modeloNumero', 'nFolhas', 'qtdChapas', 'corInterna', 'corExterna', 'quantidade'];
+          if (camposAfetamFab.includes(field)) {
+            const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
+            fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
+            const rFab = calcularFab(fab, versao.itens);
+            atualizarVersao(versao.id, { itens: versao.itens, subFab: rFab.total });
+          } else {
+            atualizarVersao(versao.id, { itens: versao.itens });
+          }
+          // Felipe (do doc - msg wizard): qualquer alteracao em
+          // Caracteristicas invalida etapas seguintes. Volta wizard pra
+          // 'item' — usuario tem que clicar Proximo de novo a cada etapa.
+          if (window.OrcamentoWizard && typeof window.OrcamentoWizard.resetar === 'function') {
+            window.OrcamentoWizard.resetar();
+          }
+        } catch (e) {
+          console.warn('[orcamento] erro ao salvar item:', e.message);
+        }
+
+        // Re-render: campos podem aparecer/sumir e regras automaticas mudaram.
+        // Tambem re-renderiza quando overrides em campos com regra pra mostrar
+        // o aviso "⚠ editado fora da regra".
+        // Felipe (Modelo 23): mudar quantidadeMolduras tambem re-renderiza
+        // (pra mostrar/esconder distancia 1a-2a, 2a-3a). Mudar revestimento
+        // tambem (pra mostrar/esconder perfilMoldura). Mudar tipoMoldura
+        // (pra mostrar quantasDivisoes quando = Divisoes Iguais). Mudar
+        // tem_alisar (pra esconder largura_alisar/espessura_parede).
+        const camposGatilho = ['largura', 'altura', 'modeloNumero', 'modeloExterno', 'modeloInterno', 'revestimento', 'fechaduraDigital', 'quantidadeMolduras', 'tipoMoldura', 'tem_alisar'];
+        const camposComRegraRender = ['sistema', 'fechaduraMecanica', 'cilindro'];
+        if (camposGatilho.includes(field) || camposComRegraRender.includes(field)) {
+          renderItemTab(container);
+        }
+      });
+    });
+
+    // Felipe (sessao 2026-05): botao "Copiar Externo → Interno" — atalho
+    // pra quando os 2 modelos sao iguais. Copia o valor de modeloExterno
+    // pro input de modeloInterno e dispara change pra salvar + re-render.
+    container.querySelector('#orc-btn-copiar-modelo-ext-int')?.addEventListener('click', () => {
+      const inpExt = container.querySelector('input[data-field="modeloExterno"]');
+      const inpInt = container.querySelector('input[data-field="modeloInterno"]');
+      if (!inpExt || !inpInt) return;
+      const valExt = inpExt.value || '';
+      if (!valExt.trim()) {
+        alert('Selecione primeiro o Modelo Externo, depois copie pro Interno.');
+        return;
+      }
+      inpInt.value = valExt;
+      // Dispara change pra acionar o handler que persiste no banco e re-renderiza
+      inpInt.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // Felipe (sessao 2026-05): mesmo padrao pra Cor Externa → Interna.
+    container.querySelector('#orc-btn-copiar-cor-ext-int')?.addEventListener('click', () => {
+      const inpExt = container.querySelector('input[data-field="corExterna"]');
+      const inpInt = container.querySelector('input[data-field="corInterna"]');
+      if (!inpExt || !inpInt) return;
+      const valExt = inpExt.value || '';
+      if (!valExt.trim()) {
+        alert('Selecione primeiro a Cor Externa, depois copie pra Interna.');
+        return;
+      }
+      inpInt.value = valExt;
+      inpInt.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // Felipe (sessao 2026-05): mesmo padrao pra Cor Externa → Cava.
+    container.querySelector('#orc-btn-copiar-cor-ext-cava')?.addEventListener('click', () => {
+      const inpExt  = container.querySelector('input[data-field="corExterna"]');
+      const inpCava = container.querySelector('input[data-field="corCava"]');
+      if (!inpExt || !inpCava) return;
+      const valExt = inpExt.value || '';
+      if (!valExt.trim()) {
+        alert('Selecione primeiro a Cor Externa, depois copie pra Cor da Cava.');
+        return;
+      }
+      inpCava.value = valExt;
+      inpCava.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    container.querySelector('#orc-btn-salvar')?.addEventListener('click', () => {
+      salvarItensNoBanco();
+      if (window.showSavedDialog) window.showSavedDialog();
+      else alert('Caracteristicas salvas!');
+    });
+
+    // Felipe (R-fluxo Calcular/Recalcular): aperta Calcular -> grava
+    // timestamp e limpa flag dirty. As outras abas (DRE, Lev. Perfis,
+    // Custo Fab/Inst, Padroes de Cortes) ficam liberadas. Qualquer
+    // mudanca em itens depois disso re-marca dirty automaticamente
+    // (logica em atualizarVersao).
+    // Felipe (sessao 2026-06): "botao recalcular nao funcionando" —
+    // bug era que clicar com versao FECHADA causava throw silencioso
+    // dentro de atualizarVersao (porque versao fechada e' imutavel).
+    // Agora detecta antes e oferece criar nova versao.
+    container.querySelector('#orc-btn-calcular')?.addEventListener('click', () => {
+      // Salva quaisquer edicoes pendentes nos inputs antes de calcular
+      salvarItensNoBanco();
+      const versaoAtual = obterVersao(UI.versaoAtivaId).versao;
+
+      // Felipe (sessao 2026-08): "RETIRE ESSA VERSOES DO CALCULO" —
+      // recalcular nao oferece mais "criar nova versao". Recalcula
+      // direto, mesmo se versao foi aprovada antes.
+      // (versaoEhImutavel removido daqui)
+
+      // Felipe (do doc): bloqueia calculo se algum item estiver incompleto
+      if (algumItemIncompleto(versaoAtual)) {
+        const itens = versaoAtual.itens || [];
+        const detalhes = [];
+        itens.forEach((it, idx) => {
+          if (!itemEstaIncompleto(it)) return;
+          if (!it.tipo) {
+            detalhes.push(`Item ${idx+1}: tipo nao escolhido`);
+          } else if (it.tipo === 'porta_externa') {
+            const faltam = ['largura', 'altura', 'nFolhas', 'modeloExterno', 'modeloInterno', 'sistema',
+                            'fechaduraMecanica', 'cilindro', 'corInterna', 'corExterna']
+              .filter(c => {
+                const v = it[c];
+                return v === null || v === undefined || String(v).trim() === '';
+              });
+            detalhes.push(`Item ${idx+1}: faltam ${faltam.join(', ')}`);
+          }
+        });
+        alert(
+          'Nao da pra calcular ainda — ha campos obrigatorios em branco:\n\n' +
+          detalhes.join('\n') +
+          '\n\nPreencha todos os campos da aba Caracteristicas do Item primeiro.'
+        );
+        return;
+      }
+      try {
+        atualizarVersao(versaoAtual.id, { calculadoEm: Date.now(), calcDirty: false });
+        renderItemTab(container);
+        // Felipe (sessao 2026-06): "ao apertar recalcular de aviso que
+        // foi recalculado e podemos seguir em frente" — feedback visivel.
+        if (window.showSavedDialog) {
+          window.showSavedDialog('Recalculado — DRE, Lev. Perfis e Custo Fab/Inst atualizados.');
+        }
+      } catch (e) {
+        alert('Falha ao recalcular: ' + e.message);
+      }
+    });
+
+    // Felipe: botao "Salvar como Versao N" — trava a versao atual como
+    // historico (status=fechada) e cria automaticamente a Versao N+1 em
+    // draft, clonada da atual, pra continuar editando. Versoes fechadas
+    // ficam imutaveis e podem ser reabertas pela aba Clientes (drill-down).
+    container.querySelector('#orc-btn-salvar-versao')?.addEventListener('click', () => {
+      const r = obterVersao(UI.versaoAtivaId);
+      if (!r) return;
+      const versaoAtual = r.versao;
+      const opcao       = r.opcao;
+      const numAtual    = versaoAtual.numero;
+      const numNova     = numAtual + 1;
+      const ok = confirm(
+        `Salvar como Versao ${numAtual}?\n\n` +
+        `- A Versao ${numAtual} sera travada como historico (nao podera mais ser editada).\n` +
+        `- Sera criada a Versao ${numNova} em draft, clonada desta, pra continuar editando.\n\n` +
+        `Confirma?`
+      );
+      if (!ok) return;
+      try {
+        // 1. Salva pendencias e fecha a versao atual
+        salvarItensNoBanco();
+        fecharVersao(versaoAtual.id);
+        // 2. Cria nova versao baseada na atual
+        const novaVersao = criarVersao({
+          opcaoId: opcao.id,
+          baseadoEmVersaoId: versaoAtual.id,
+        });
+        // 3. Torna a nova versao ativa
+        UI.versaoAtivaId = novaVersao.id;
+        // 4. Re-renderiza a tela
+        renderItemTab(container);
+        // 5. Popup de confirmacao (R07)
+        if (window.showSavedDialog) {
+          window.showSavedDialog(`Versao ${numAtual} salva no historico. Editando agora a Versao ${numNova}.`);
+        }
+      } catch (err) {
+        console.error('[orc-btn-salvar-versao]', err);
+        alert('Nao foi possivel salvar a versao: ' + (err.message || err));
+      }
+    });
+
+    // Trocar de item ativo (clica no chip)
+    container.querySelectorAll('[data-action="select-item"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.idx, 10);
+        if (!isNaN(idx)) {
+          UI.itemSelecionadoIdx = idx;
+          renderItemTab(container);
+        }
+      });
+    });
+
+    // Remover item (botao X)
+    container.querySelectorAll('[data-action="remove-item"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.idx, 10);
+        const versao = versaoAtiva();
+        if (!versao) return;
+        const lista = versao.itens || [];
+        if (!confirm(`Remover Item ${idx + 1} (${labelTipo(lista[idx].tipo)})?`)) return;
+        // Felipe (sessao 2026-08): "QUERO PODER DELETAR E VOLTAR A TELA
+        // INICIAL QUE ESCOLHO QUAL ITEM IRE USAR". Se e o ULTIMO item,
+        // em vez de deixar lista vazia, reseta o tipo dele pra '' —
+        // assim renderItemTab cai automaticamente em renderEscolhaTipo.
+        if (lista.length <= 1) {
+          const itemReset = { ...lista[0], tipo: '' };
+          atualizarVersao(versao.id, { itens: [itemReset] });
+          UI.itemSelecionadoIdx = 0;
+          renderItemTab(container);
+          return;
+        }
+        const novaLista = lista.filter((_, i) => i !== idx);
+        atualizarVersao(versao.id, { itens: novaLista });
+        if (UI.itemSelecionadoIdx >= novaLista.length) UI.itemSelecionadoIdx = novaLista.length - 1;
+        renderItemTab(container);
+      });
+    });
+
+    // Adicionar novo item (select)
+    container.querySelector('#orc-item-add')?.addEventListener('change', (e) => {
+      const tipo = e.target.value;
+      if (!tipo) return;
+      const versao = versaoAtiva();
+      if (!versao) return;
+      const novaLista = [...(versao.itens || []), novoItem(tipo)];
+      atualizarVersao(versao.id, { itens: novaLista });
+      UI.itemSelecionadoIdx = novaLista.length - 1;
+      renderItemTab(container);
+    });
+
+    // Botao "Voltar pro CRM": limpa sessao e navega
+    container.querySelector('#orc-btn-back-crm')?.addEventListener('click', () => {
+      limparLeadAtivo();
+      // Reset estado UI pra forçar re-init na próxima entrada
+      UI.negocioAtivoId = null;
+      UI.versaoAtivaId  = null;
+      UI.leadAtivo      = null;
+      UI.itemSelecionadoIdx = 0;
+      if (typeof App !== 'undefined' && App.navigateTo) App.navigateTo('crm');
+    });
+
+    // Felipe (sessao 2026-06): seletor de versao no banner — alterna
+    // entre versoes da OPCAO atual sem precisar voltar pro CRM.
+    container.querySelector('#orc-banner-versao-sel')?.addEventListener('change', (e) => {
+      const novaId = e.target.value;
+      if (!novaId || novaId === UI.versaoAtivaId) return;
+      UI.versaoAtivaId = novaId;
+      UI.itemSelecionadoIdx = 0;  // reseta selecao de item
+      renderItemTab(container);
+    });
+
+    // Felipe (sessao 2026-06): botao "+ Nova Versao" — sempre presente.
+    // Pergunta o modo (em-branco vs copiar) e cria.
+    container.querySelector('#orc-btn-nova-versao')?.addEventListener('click', () => {
+      const versao = versaoAtiva();
+      if (!versao) return;
+      const escolha = prompt(
+        'Criar nova versao a partir da Versao ' + versao.numero + ':\n\n' +
+        '  1 = Em branco (mantem so' + ' largura e altura dos itens)\n' +
+        '  2 = Copia atual (duplica tudo, edita o que quiser)\n' +
+        '  Cancelar = nao fazer nada\n\n' +
+        'Digite 1 ou 2:'
+      );
+      let modo = null;
+      if (escolha === '1') modo = 'em-branco';
+      else if (escolha === '2') modo = 'copiar';
+      else return;
+      try {
+        const nova = criarNovaVersao(versao.id, modo);
+        if (window.showSavedDialog) {
+          window.showSavedDialog('Nova Versao ' + nova.numero + ' criada (' + modo + '). Edicao liberada.');
+        }
+        renderItemTab(container);
+      } catch (e) {
+        alert('Falha ao criar nova versao: ' + e.message);
+      }
+    });
+
+    bindZerarButton(container, () => renderItemTab(container));
+  }
+
+  /**
+   * Felipe (sessao 2026-06): central UNICA pra decidir se uma versao
+   * esta bloqueada para edicao. Conta como bloqueada se:
+   *   - status === 'fechada' (versao explicitamente fechada como historico)
+   *   - aprovadoEm setado (DRE foi aprovada e enviada pro CRM)
+   *
+   * Felipe quer que apos aprovar o DRE, a versao fique imutavel —
+   * mesmo sem ter sido formalmente "fechada". Pra alterar algo,
+   * tem que criar nova versao.
+   */
+  function versaoEhImutavel(versao) {
+    if (!versao) return false;
+    if (versao.status === 'fechada') return true;
+    if (versao.aprovadoEm) return true;
+    return false;
+  }
+
+  /**
+   * Felipe (sessao 2026-06): dialog padronizado quando o usuario
+   * tenta editar/zerar/recalcular numa versao bloqueada. Oferece
+   * opcao de criar nova versao em 2 modos:
+   *   1) Em branco — mantem so' largura/altura
+   *   2) Copia atual — duplica tudo p/ ajustar pontualmente
+   *
+   * Retorna true se o usuario criou nova versao, false caso contrario.
+   * O caller deve interromper a acao se retornar false.
+   */
+  function avisarVersaoBloqueadaECriarNova(versao, motivoAcao) {
+    if (!versao) return false;
+    const motivo = versao.aprovadoEm
+      ? 'DRE aprovada — esta versao foi enviada pro CRM e ja vale como contrato.'
+      : 'Esta versao esta FECHADA (imutavel) como historico.';
+    const acaoMsg = motivoAcao ? `\n\nVoce tentou: ${motivoAcao}` : '';
+    const escolha = prompt(
+      motivo + acaoMsg + '\n\n' +
+      'Pra alterar, crie nova versao:\n' +
+      '  1 = Em branco (mantem so' + ' largura e altura)\n' +
+      '  2 = Copia atual (duplica tudo, edita pontual)\n' +
+      '  Cancelar = nao fazer nada\n\n' +
+      'Digite 1 ou 2:'
+    );
+    if (escolha === '1') {
+      try {
+        criarNovaVersao(versao.id, 'em-branco');
+        if (window.showSavedDialog) window.showSavedDialog('Nova versao criada (em branco). Edicao liberada.');
+        return true;
+      } catch (e) {
+        alert('Falha ao criar nova versao: ' + e.message);
+        return false;
+      }
+    }
+    if (escolha === '2') {
+      try {
+        criarNovaVersao(versao.id, 'copiar');
+        if (window.showSavedDialog) window.showSavedDialog('Nova versao criada (copia da atual). Edicao liberada.');
+        return true;
+      } catch (e) {
+        alert('Falha ao criar nova versao: ' + e.message);
+        return false;
+      }
+    }
+    return false;  // cancelou
+  }
+
+  /**
+   * Liga o botao Zerar a uma callback de re-render. Usado pelas duas abas
+   * (Item e Custo) — cada uma passa seu proprio render como callback.
+   */
+  function bindZerarButton(container, reRender) {
+    container.querySelector('#orc-btn-zerar')?.addEventListener('click', () => {
+      // Felipe (sessao 2026-08): "BOTAO ZERAR NAO FUNCIONA CLICA EM 1
+      // CONFIRMA, MAS MANTEM TODAS AS CONFIGURACOES". Antes o botao
+      // Zerar em versao aprovada chamava avisarVersaoBloqueadaECriarNova,
+      // que criava nova versao "em branco" preservando largura/altura/
+      // nFolhas/sistema. Felipe ja' tinha pedido pra remover o sistema
+      // de versoes da UI — entao o Zerar agora ZERA tudo direto, sem
+      // popup de versao. Single-confirm: "Zerar TODO?" → zerarNegocioAtivo.
+      if (!confirm('Zerar TODO o orcamento atual?\n\nIsso apaga todos os itens, parametros e calculos deste negocio.\n(O lead no CRM nao e afetado.)')) return;
+      zerarNegocioAtivo();
+      reRender();
+      if (window.showSavedDialog) window.showSavedDialog();
+    });
+  }
+
+  function salvarItensNoBanco() {
+    if (!UI.versaoAtivaId) return;
+    const lista = itensDaVersao();
+    try {
+      atualizarVersao(UI.versaoAtivaId, { itens: lista });
+    } catch (e) {
+      console.warn('[orcamento] nao foi possivel salvar:', e.message);
+    }
+  }
+
+  // ============================================================
+  //              ABA: CUSTO FAB / INST  (alimenta a DRE)
+  // ============================================================
+  // Felipe (R-fluxo Calcular/Recalcular): abas que dependem de calculo
+  // (Custo Fab/Inst, DRE, Lev. Perfis, Padroes de Cortes) so renderizam
+  // resultados depois que o usuario aperta "Calcular" em Caracteristicas
+  // do Item. Se a versao tem `calcDirty` true ou nunca foi calculada,
+  // mostra placeholder com instrucao.
+  /**
+   * Felipe (do doc): regras pra bloquear calculos:
+   *   - 'never': nunca foi calculada (ainda nao apertou Calcular)
+   *   - 'dirty': editou apos ultimo calculo
+   *   - 'incompleto': item(ns) sem campos obrigatorios preenchidos
+   *   - 'sem_fab': aba Fab/Inst sem valores (subFab=0 e subInst=0)
+   * Retorna null se ok pra renderizar.
+   *
+   * O parametro 'aba' pode ser 'item' (so checa never/dirty/incompleto)
+   * ou 'dre' (checa tudo). Outras abas: 'fab' so' checa never/dirty.
+   */
+  function precisaCalcular(versao, aba) {
+    aba = aba || 'item';
+    // Aba CARACTERISTICAS DO ITEM: nao exibe bloqueio (e' a propria aba
+    // de input). Em outras abas, primeiro checa 'never' e 'dirty'.
+    if (!versao.calculadoEm) return 'never';   // nunca foi calculada
+    if (versao.calcDirty)    return 'dirty';   // editou apos ultimo calculo
+
+    // DRE: requer subtotais nao-zero E todos itens completos
+    if (aba === 'dre') {
+      // Item incompleto?
+      if (algumItemIncompleto(versao)) return 'incompleto';
+      // Subtotais zerados? (Fab e Inst nao foram preenchidos)
+      const subFab = Number(versao.subFab) || 0;
+      const subInst = Number(versao.subInst) || 0;
+      if (subFab === 0 && subInst === 0) return 'sem_fab';
+      // Felipe (sessao 2026-05): bloqueio adicional pra avancar pra DRE
+      // se ha campos numericos criticos vazios/zero EM Fab/Inst que NAO
+      // foram explicitamente marcados como "zerado intencional" pelo
+      // usuario. Garante que a DRE nao seja calculada com furos.
+      const pend = coletarPendenciasFabInst(versao);
+      if (pend.length > 0) return 'pendencias_zerados';
+    }
+    return null;
+  }
+
+  /**
+   * Felipe (sessao 2026-05): coleta campos numericos criticos do Custo
+   * Fab/Inst que estao vazios ou em zero E nao estao marcados como
+   * "zerado intencional" em versao._zerosIntencionais.
+   *
+   * Estrutura retornada:
+   *   [{ chave, label, aba, valor, secao }]
+   *
+   *   chave: identificador unico (ex: 'fab.total_perfis') — usado pra
+   *          marcar como "zerado intencional" via _zerosIntencionais
+   *   label: nome amigavel pra UI
+   *   aba:   id da aba pra navegar (sempre 'fab-inst' aqui)
+   *   secao: 'Fabricacao' | 'Instalacao'
+   */
+  function coletarPendenciasFabInst(versao) {
+    if (!versao) return [];
+    const fab  = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
+    const inst = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
+    const zeros = (versao._zerosIntencionais || {});
+
+    function ehZero(v) {
+      if (v === null || v === undefined) return true;
+      const s = String(v).trim();
+      if (s === '') return true;
+      const n = Number(String(s).replace(/\./g, '').replace(',', '.'));
+      return !Number.isFinite(n) || n === 0;
+    }
+
+    const pend = [];
+    function checkar(chave, label, valor, secao) {
+      if (!ehZero(valor)) return;
+      if (zeros[chave])    return;  // marcado como intencional
+      pend.push({ chave, label, aba: 'fab-inst', valor, secao });
+    }
+
+    // ---- Fabricacao (sempre exigidos) ----
+    checkar('fab.n_operarios',     'Operarios',                 fab.n_operarios,     'Fabricacao');
+    checkar('fab.custo_hora',      'Custo por hora',            fab.custo_hora,      'Fabricacao');
+    checkar('fab.total_perfis',    'Total Perfis',              fab.total_perfis,    'Fabricacao');
+    checkar('fab.total_pintura',   'Total Pintura',             fab.total_pintura,   'Fabricacao');
+    checkar('fab.total_acessorios','Total Acessorios',          fab.total_acessorios,'Fabricacao');
+    checkar('fab.total_extras',    'Extras (chapas/livres)',    fab.total_extras,    'Fabricacao');
+
+    // ---- Instalacao (depende do modo) ----
+    const ehTerceiros = (inst.modo === 'terceiros' || inst.modo === 'internacional');
+    if (ehTerceiros) {
+      checkar('inst.inst_terceiros_valor',  'Valor da instalacao',    inst.inst_terceiros_valor,  'Instalacao');
+      checkar('inst.inst_terceiros_transp', 'Frete / transporte',     inst.inst_terceiros_transp, 'Instalacao');
+    } else {
+      // Modo Projetta — equipe propria
+      checkar('inst.distancia_km',    'Distancia (km)',           inst.distancia_km,    'Instalacao');
+      checkar('inst.dias_instalacao', 'Dias de instalacao',       inst.dias_instalacao, 'Instalacao');
+      checkar('inst.n_pessoas',       'Quantidade de pessoas',    inst.n_pessoas,       'Instalacao');
+      checkar('inst.diaria_pessoa',   'Diaria por pessoa',        inst.diaria_pessoa,   'Instalacao');
+      checkar('inst.n_carros',        'Qtd de carros',            inst.n_carros,        'Instalacao');
+      checkar('inst.diaria_hotel',    'Diaria de hotel',          inst.diaria_hotel,    'Instalacao');
+      checkar('inst.alimentacao_dia', 'Alimentacao (R$/pax/dia)', inst.alimentacao_dia, 'Instalacao');
+    }
+    return pend;
+  }
+
+  /**
+   * Marca um campo como "zerado intencional" — usuario confirmou que
+   * o zero/vazio e' proposital. Persiste em versao._zerosIntencionais.
+   */
+  function marcarZeradoIntencional(versaoId, chave, marcar) {
+    const r = obterVersao(versaoId);
+    if (!r || !r.versao) return;
+    const versao = r.versao;
+    const atual = Object.assign({}, versao._zerosIntencionais || {});
+    if (marcar) {
+      atual[chave] = true;
+    } else {
+      delete atual[chave];
+    }
+    atualizarVersao(versaoId, { _zerosIntencionais: atual });
+  }
+
+  /**
+   * Item porta_externa precisa de: largura, altura, nFolhas, modeloNumero,
+   * sistema, fechaduraMecanica, cilindro, corInterna, corExterna.
+   * Item porta_interna/fixo/revestimento: ainda em desenvolvimento, nao bloqueia.
+   * Item sem tipo (recem-criado): conta como incompleto.
+   */
+  function algumItemIncompleto(versao) {
+    const itens = versao.itens || [];
+    if (itens.length === 0) return true;
+    return itens.some(item => itemEstaIncompleto(item));
+  }
+  function itemEstaIncompleto(item) {
+    if (!item || !item.tipo) return true;
+    if (item.tipo !== 'porta_externa') return false; // outros tipos nao bloqueiam (ainda)
+    const camposObr = ['largura', 'altura', 'nFolhas', 'modeloNumero',
+                        'sistema', 'fechaduraMecanica', 'cilindro',
+                        'corInterna', 'corExterna'];
+    for (const c of camposObr) {
+      const v = item[c];
+      if (v === null || v === undefined) return true;
+      if (String(v).trim() === '') return true;
+    }
+    return false;
+  }
+  function renderPrecisaCalcular(container, versao, motivo, nomeAba) {
+    let titulo, icone, texto;
+    let pendenciasHtml = '';
+    if (motivo === 'dirty') {
+      titulo = 'Resultados desatualizados';
+      icone = '⚠';
+      texto = 'Voce editou Caracteristicas do Item depois do ultimo calculo. Volte para a aba <b>Caracteristicas do Item</b> e aperte <b>↻ Recalcular</b> para atualizar os resultados aqui.';
+    } else if (motivo === 'incompleto') {
+      titulo = 'Item(ns) incompleto(s)';
+      icone = '⚠';
+      const itens = versao.itens || [];
+      const incompletos = itens.filter(i => itemEstaIncompleto(i));
+      const detalhes = [];
+      itens.forEach((item, idx) => {
+        if (!itemEstaIncompleto(item)) return;
+        if (!item.tipo) {
+          detalhes.push(`Item ${idx+1}: tipo nao escolhido`);
+        } else if (item.tipo === 'porta_externa') {
+          const faltam = ['largura', 'altura', 'nFolhas', 'modeloNumero', 'sistema',
+                          'fechaduraMecanica', 'cilindro', 'corInterna', 'corExterna']
+            .filter(c => {
+              const v = item[c];
+              return v === null || v === undefined || String(v).trim() === '';
+            });
+          detalhes.push(`Item ${idx+1}: faltam ${faltam.join(', ')}`);
+        }
+      });
+      texto = `${incompletos.length} item${incompletos.length !== 1 ? 's' : ''} incompleto${incompletos.length !== 1 ? 's' : ''}. Volte pra <b>Caracteristicas do Item</b> e preencha:<ul style="margin:8px 0 0 0;padding-left:20px;text-align:left;">${detalhes.map(d => `<li>${escapeHtml(d)}</li>`).join('')}</ul>`;
+    } else if (motivo === 'sem_fab') {
+      titulo = 'Custo de Fabricacao/Instalacao em zero';
+      icone = '⚠';
+      texto = 'A DRE precisa dos custos de Fabricacao e Instalacao pra calcular margem. Vai pra aba <b>Custo de Fabricacao e Instalacao</b> e confirme que perfis, chapas e pintura estao com valores.';
+    } else if (motivo === 'pendencias_zerados') {
+      // Felipe (sessao 2026-05): bloqueio fino — campos especificos do
+      // Custo Fab/Inst estao em zero/vazio. Mostra cada um com a opcao
+      // de "marcar como zerado intencional" (ai libera o avanco) ou
+      // voltar pra Fab/Inst e preencher.
+      titulo = 'Campos zerados em Fabricacao / Instalacao';
+      icone = '⚠';
+      const pend = coletarPendenciasFabInst(versao);
+      // Agrupa por secao
+      const porSecao = {};
+      pend.forEach(p => {
+        if (!porSecao[p.secao]) porSecao[p.secao] = [];
+        porSecao[p.secao].push(p);
+      });
+      const blocos = Object.keys(porSecao).map(secao => {
+        const linhas = porSecao[secao].map(p => `
+          <li class="orc-pend-row" data-chave="${escapeHtml(p.chave)}">
+            <span class="orc-pend-label">${escapeHtml(p.label)}</span>
+            <span class="orc-pend-valor">vazio / 0</span>
+            <button type="button" class="orc-pend-btn-zerar"
+                    data-chave="${escapeHtml(p.chave)}"
+                    title="Confirma que este campo deve mesmo ficar em zero — libera o avanco">
+              ☑ Marcar como zerado
+            </button>
+          </li>
+        `).join('');
+        return `
+          <div class="orc-pend-secao">
+            <div class="orc-pend-secao-titulo">${escapeHtml(secao)}</div>
+            <ul class="orc-pend-lista">${linhas}</ul>
+          </div>
+        `;
+      }).join('');
+      pendenciasHtml = `
+        <div class="orc-pend-wrap">
+          <p class="orc-pend-instr">
+            <b>${pend.length} campo${pend.length === 1 ? '' : 's'} em zero/vazio</b>
+            sem confirmacao. Para avancar para a DRE / Proposta:
+          </p>
+          <ul class="orc-pend-instr-passos">
+            <li><b>Opcao A</b> — clique em <b>"Ir para Custo Fab/Inst"</b> e preencha os valores reais.</li>
+            <li><b>Opcao B</b> — clique em <b>"Marcar como zerado"</b> ao lado de cada item se o zero for proposital. So' apos marcar TODOS o avanco e' liberado.</li>
+          </ul>
+          ${blocos}
+        </div>
+      `;
+      texto = '';
+    } else {
+      titulo = 'Aguardando calculo';
+      icone = '▶';
+      texto = 'Preencha as Caracteristicas do Item e aperte <b>▶ Calcular</b> para que esta aba mostre os resultados. Os calculos so rodam apos o comando explicito.';
+    }
+    const tagPrincipal = (motivo === 'dirty') ? '<span class="orc-tag-dirty">⚠ desatualizado</span>'
+      : (motivo === 'incompleto' || motivo === 'sem_fab' || motivo === 'pendencias_zerados') ? '<span class="orc-tag-dirty">⚠ bloqueado</span>'
+      : '<span class="orc-tag-pending">aguardando calculo</span>';
+    const btnDest = (motivo === 'sem_fab' || motivo === 'pendencias_zerados') ? 'fab-inst' : 'item';
+    const btnLabel = (motivo === 'sem_fab' || motivo === 'pendencias_zerados') ? '→ Ir para Custo Fab/Inst' : '→ Ir para Caracteristicas do Item';
+    container.innerHTML = `
+      <div class="orc-banner">
+        <div class="orc-banner-info">
+          <span class="t-strong">${escapeHtml(nomeAba)}</span>
+          ${tagPrincipal}
+        </div>
+      </div>
+      <div class="orc-needs-calc">
+        <div class="orc-needs-calc-icon">${icone}</div>
+        <h3>${escapeHtml(titulo)}</h3>
+        ${texto ? `<p>${texto}</p>` : ''}
+        ${pendenciasHtml}
+        <button type="button" class="orc-needs-calc-btn" id="orc-go-item">${escapeHtml(btnLabel)}</button>
+      </div>
+    `;
+    container.querySelector('#orc-go-item')?.addEventListener('click', () => {
+      if (window.App && App.navigateTo) App.navigateTo('orcamento', btnDest);
+    });
+    // Handler dos botoes "Marcar como zerado"
+    container.querySelectorAll('.orc-pend-btn-zerar').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const chave = btn.dataset.chave;
+        if (!chave) return;
+        marcarZeradoIntencional(versao.id, chave, true);
+        // Re-renderiza a aba inteira pra recheckar pendencias e
+        // possivelmente liberar (se for a ultima).
+        const novoMotivo = precisaCalcular(obterVersao(versao.id).versao, 'dre');
+        if (novoMotivo === 'pendencias_zerados') {
+          // Ainda ha pendencias — re-render mostra lista atualizada
+          renderPrecisaCalcular(container, obterVersao(versao.id).versao, novoMotivo, nomeAba);
+        } else {
+          // Liberado — re-renderiza a aba destino (DRE/Proposta/etc.)
+          // chamando o router via App.navigateTo na MESMA aba (refresh).
+          if (window.App && App.navigateTo) {
+            App.navigateTo('orcamento', App.state?.currentTab || 'custo');
+          }
+        }
+      });
+    });
+  }
+
+  function renderFabInstTab(container) {
+    inicializarSessao();
+    const versao = obterVersao(UI.versaoAtivaId).versao;
+    const motivoBloqueio = precisaCalcular(versao);
+    if (motivoBloqueio) {
+      return renderPrecisaCalcular(container, versao, motivoBloqueio, 'Custo de Fabricacao e Instalacao');
+    }
+    const negocio = obterNegocio(UI.negocioAtivoId);
+    const opcao  = obterVersao(UI.versaoAtivaId).opcao;
+
+    const fab  = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
+    fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
+    const inst = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
+
+    // Felipe (sessao 2026-05): se algum campo critico de Fab/Inst esta
+    // vazio/zero E a Precificacao tem valor pra ele, AUTO-PREENCHE e
+    // PERSISTE na versao. Garante que versoes antigas (criadas antes
+    // do cadastro de Precificacao existir) peguem os defaults atuais.
+    // Se o usuario propositalmente quer 0, ele edita no input e o
+    // valor explicito 0 NAO e' substituido (so' campos vazios/null).
+    function _ehVazioOuZero(v) {
+      if (v === null || v === undefined) return true;
+      const s = String(v).trim();
+      if (s === '') return true;
+      const n = Number(String(s).replace(/\./g, '').replace(',', '.'));
+      return !Number.isFinite(n) || n === 0;
+    }
+    let _autoPreenchido = false;
+    try {
+      if (window.Precificacao && typeof window.Precificacao.obterValores === 'function') {
+        const pv = window.Precificacao.obterValores();
+        // Fabricacao
+        if (_ehVazioOuZero(fab.n_operarios) && pv.n_operarios) {
+          fab.n_operarios = pv.n_operarios; _autoPreenchido = true;
+        }
+        if (_ehVazioOuZero(fab.custo_hora) && pv.custo_hora_fab) {
+          fab.custo_hora = pv.custo_hora_fab; _autoPreenchido = true;
+        }
+        // Instalacao (so' pra modo Projetta — terceiros nao precisa)
+        const ehTerceiros = (inst.modo === 'terceiros' || inst.modo === 'internacional');
+        if (!ehTerceiros) {
+          if (_ehVazioOuZero(inst.diaria_pessoa) && pv.diaria_pessoa) {
+            inst.diaria_pessoa = pv.diaria_pessoa; _autoPreenchido = true;
+          }
+          if (_ehVazioOuZero(inst.alimentacao_dia) && pv.alimentacao_dia) {
+            inst.alimentacao_dia = pv.alimentacao_dia; _autoPreenchido = true;
+          }
+          // Hotel: tenta cidade especifica, fallback no padrao
+          if (_ehVazioOuZero(inst.diaria_hotel)) {
+            let diariaHotel = pv.diaria_hotel;
+            try {
+              const lead = lerLeadAtivo();
+              if (lead && lead.cidade && typeof window.Precificacao.obterDiariaHotelCidade === 'function') {
+                const dh = window.Precificacao.obterDiariaHotelCidade(lead);
+                if (dh) diariaHotel = dh;
+              }
+            } catch (e) {}
+            if (diariaHotel) { inst.diaria_hotel = diariaHotel; _autoPreenchido = true; }
+          }
+        }
+      }
+    } catch (e) { /* fallback silencioso */ }
+    // Persiste o auto-preenchimento na versao pra que o usuario veja
+    // os valores no proximo render e o calculo use valores reais.
+    if (_autoPreenchido) {
+      try {
+        atualizarVersao(versao.id, {
+          custoFab:  Object.assign({}, versao.custoFab || {}, fab),
+          custoInst: Object.assign({}, versao.custoInst || {}, inst),
+        });
+      } catch (e) { /* nao bloqueia render */ }
+    }
+
+    // Felipe (R-inegociavel): tudo puxa da Caracteristica do Item.
+    // Auto-popula altura_porta_mm do MAIOR item (gatilho de andaime > 3m).
+    // Peso bruto continua zero ate o motor de peso por item estar pronto.
+    const alturasItens = (versao.itens || [])
+      .map(it => Number(it.altura) || 0)
+      .filter(v => v > 0);
+    if (alturasItens.length > 0) {
+      inst.altura_porta_mm = Math.max(...alturasItens);
+    }
+    // Peso bruto: por enquanto soma 0 (calculo nao implementado).
+    // Quando o motor de peso por item estiver pronto, somar aqui.
+    inst.peso_bruto_kg = Number(inst.peso_bruto_kg) || 0;
+
+    // Felipe (sessao 2026-08): "CUSTO ACESSORIO ZERADO SENDO JA TEMOS
+    // CUSTO EM LEVANTAMENTO DE ACESSORIOS". Auto-popula total_acessorios
+    // somando o resultado do motor AcessoriosPortaExterna pra todos os
+    // itens porta_externa da versao. So' sobrescreve se o campo estiver
+    // vazio/zero (preserva edicao manual do usuario).
+    try {
+      if (window.AcessoriosPortaExterna && _ehVazioOuZero(fab.total_acessorios)) {
+        const cadAcess = Storage.scope('cadastros').get('acessorios_lista') || [];
+        // Felipe (sessao 2026-09): cadastro de perfis pra calcular peso
+        // da folha (necessario pra escolher pivo 350 vs 600 kg).
+        const perfisCad = (typeof construirCadastroPerfis === 'function')
+          ? construirCadastroPerfis() : {};
+        let totalAcess = 0;
+        let totalDigital = 0;
+        (versao.itens || []).forEach(item => {
+          if (!item || item.tipo !== 'porta_externa') return;
+          let pesoFolhaTotal = 0;
+          let pesoFolhaPerfis = 0;
+          let pesoFolhaChapas = 0;
+          try {
+            const r = calcularPesoFolhaItem(item, perfisCad) || {};
+            pesoFolhaTotal  = r.peso || 0;
+            pesoFolhaPerfis = (r.detalhe && r.detalhe.perfis) || 0;
+            pesoFolhaChapas = (r.detalhe && r.detalhe.chapas) || 0;
+          } catch (_) {}
+          const linhas = window.AcessoriosPortaExterna.calcularAcessoriosPorItem(
+            item, cadAcess, { pesoFolhaTotal, pesoFolhaPerfis, pesoFolhaChapas }
+          );
+          // Felipe (sessao 30): "acessorios esta puxando um valor nada
+          // haver Custo de Fabricacao acessorios e o somatorio total
+          // dos acessorios. separar fechadura digital do resto".
+          // Custo Fab = somatorio so' das linhas com aplicacao 'fab'
+          // (exclui 'obra' e exclui 'Fechadura Digital'). Obra vai pro
+          // custo de Instalacao, Fechadura Digital fica em campo proprio.
+          linhas.forEach(l => {
+            if (l.aplicacao !== 'fab') return;
+            if (String(l.categoria || '').toLowerCase().includes('fechadura digital')) {
+              totalDigital += Number(l.total) || 0;
+              return;
+            }
+            totalAcess += Number(l.total) || 0;
+          });
+        });
+        if (totalAcess > 0) {
+          fab.total_acessorios = totalAcess;
+        }
+        // Felipe (sessao 31): "nao esta somando no custo a fechadura"
+        // Salva fechadura digital em campo proprio pra somar no DRE.
+        if (totalDigital > 0) {
+          fab.total_fechadura_digital = totalDigital;
+        }
+        if (totalAcess > 0 || totalDigital > 0) {
+          atualizarVersao(versao.id, {
+            custoFab: Object.assign({}, versao.custoFab || {}, fab),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[Custo Fab/Inst] auto-acessorios falhou:', e);
+    }
+
+    const rFab  = calcularFab(fab, versao.itens);
+    const rInst = calcularInst(inst);
+
+    // Felipe (do doc): TODO relatorio tem cabecalho padronizado.
+    const leadFi = lerLeadAtivo() || {};
+    const numDocFi = `${(opcao?.letra || 'A')} - ${versao.numero}`;
+    const headerFiHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
+      ? window.Empresa.montarHeaderRelatorio({
+          lead: leadFi,
+          tituloRelatorio: 'Custo de Fabricacao e Instalacao',
+          numeroDocumento: numDocFi,
+          validade: 15,
+        })
+      : '';
+
+    container.innerHTML = `
+      ${headerFiHtml}
+      ${bannerCaracteristicasItens(versao)}
+      <div class="orc-banner">
+        <div class="orc-banner-info">
+          <span class="t-strong">Custo Fab/Inst</span>
+          · ${escapeHtml(negocio?.clienteNome || '—')}
+          · Opcao ${escapeHtml(opcao.letra)} V${versao.numero}
+        </div>
+        <div class="orc-banner-actions">
+          <button type="button" class="univ-btn-save" id="orc-btn-salvar-fi">✓ Tudo salvo</button>
+          <button class="orc-btn-zerar" id="orc-btn-zerar" title="Zerar todos os itens, parametros e calculos deste orcamento">🗑 Zerar</button>
+        </div>
+      </div>
+
+      <!-- ========== FABRICACAO ========== -->
+      <div class="orc-section-card">
+        <div class="orc-section-title">Custo Horas de Fabricacao e Materia Prima</div>
+
+        <div class="orc-fi-fab-config">
+          <div class="orc-field orc-fi-w-money">
+            <label>Perfis (R$)</label>
+            <input type="text" data-field="total_perfis" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_perfis))}" />
+            <span class="orc-fi-help">vira auto do Lev. Perfis</span>
+          </div>
+          <div class="orc-field orc-fi-w-money">
+            <label>Pintura (R$)</label>
+            <input type="text" data-field="total_pintura" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_pintura))}" />
+            <span class="orc-fi-help">vira auto do Lev. Perfis</span>
+          </div>
+          <div class="orc-field orc-fi-w-money">
+            <label>Acessorios (R$)</label>
+            <input type="text" data-field="total_acessorios" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_acessorios))}" />
+            <span class="orc-fi-help">vira auto do Lev. Acessorios</span>
+          </div>
+          <!-- Felipe (sessao 31): fechadura digital separada dos acessorios -->
+          <div class="orc-field orc-fi-w-money">
+            <label>Fechadura Digital (R$)</label>
+            <input type="text" data-field="total_fechadura_digital" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_fechadura_digital))}" />
+            <span class="orc-fi-help">auto do Lev. Acessorios (digital)</span>
+          </div>
+          <!-- Felipe (sessao 2026-05): novo campo Revestimento, entre
+               Acessorios e Extras. Manual ou automatico (futuro: vira
+               auto quando o motor de chapas estiver pronto). -->
+          <div class="orc-field orc-fi-w-money">
+            <label>Revestimento (R$)</label>
+            <input type="text" data-field="total_revestimento" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_revestimento))}" />
+            <span class="orc-fi-help">chapas / superficies (auto futuro)</span>
+          </div>
+          <div class="orc-field orc-fi-w-money">
+            <label>Extras (R$)</label>
+            <input type="text" data-field="total_extras" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_extras))}" />
+            <span class="orc-fi-help">livres / outros (manual)</span>
+          </div>
+          <div class="orc-field orc-fi-w-money">
+            <label>Soma insumos</label>
+            <input type="text" value="${escapeHtml(fmtBROrEmpty(rFab.total_insumos))}" disabled data-no-empty-marker="1" />
+            <span class="orc-fi-help">perfis + pintura + acess. + fech.digital + revest. + extras</span>
+          </div>
+        </div>
+
+        <div class="orc-fi-fab-config">
+          <div class="orc-field orc-fi-w-num">
+            <label>Operarios</label>
+            <input type="text" data-field="n_operarios" data-fab="1" value="${escapeHtml(fab.n_operarios === '' || fab.n_operarios === null || fab.n_operarios === undefined ? '' : String(fab.n_operarios))}" />
+          </div>
+          <div class="orc-field orc-fi-w-money">
+            <label>Custo por hora (R$/h)</label>
+            <input type="text" data-field="custo_hora" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.custo_hora))}" />
+          </div>
+        </div>
+
+        <!-- Felipe (do doc - msg "volte os itens que tinha, era so para
+             manter campo vazio nao deletear"): tabela de etapas COM
+             campos vazios — Portal, Folha da porta, Colagem, Corte e
+             Usinagem, Conferencia e Embalagem. Usuario preenche horas. -->
+        <!-- Felipe (sessao 28): "QUANDO TENHO MULTI ITENS COLOQUE AO LADO
+             Custo de Fabricacao OUTRA COLUNA POIS CADA ITEM TEM SEU TEMPO
+             E DEPOIS SOMA TODAS AS HORAS". Tabela agora tem 1 coluna por
+             item + coluna Total. Cada celula salva em
+             etapas[id].horasPorItem[idx]. Se ha um unico item, mostra so' 1
+             coluna (compat). -->
+        ${(() => {
+          const itensFab = (versao.itens || []).filter(i => i && i.tipo === 'porta_externa');
+          const nItens = itensFab.length;
+          // Cabecalho dinamico — uma coluna por item
+          const colunasItens = nItens > 0
+            ? itensFab.map((it, idx) => {
+                const dim = (it.largura && it.altura) ? `${it.largura}×${it.altura}` : `Item ${idx + 1}`;
+                return `<span class="orc-fi-col-item-h" title="Item ${idx + 1}: ${escapeHtml(dim)}">It ${idx + 1}<small style="display:block;font-weight:400;font-size:10px;opacity:0.7;">${escapeHtml(dim)}</small></span>`;
+              }).join('')
+            : '<span class="orc-fi-col-horas">Horas (editavel)</span>';
+          // Mostra coluna Total so' se ha 2+ itens
+          const colunaTotal = nItens >= 2
+            ? '<span class="orc-fi-col-total-h">Total</span>'
+            : '';
+          return `
+            <div class="orc-fi-etapas">
+              <div class="orc-fi-etapa-head">
+                <span class="orc-fi-col-etapa">Etapa</span>
+                <span class="orc-fi-col-eq">Calculado pelas regras</span>
+                ${colunasItens}
+                ${colunaTotal}
+              </div>
+              ${ETAPAS_FAB.map(et => {
+                const ent = (fab.etapas && fab.etapas[et.id]) || {};
+                const horasManual = ent.horasOverride;
+                const porItem = ent.horasPorItem || {};
+                const detalheEtapa = (rFab.detalhes || []).find(d => d.id === et.id) || {};
+
+                // Inputs por item
+                let inputsPorItem;
+                let totalEtapa = 0;
+                if (nItens > 0) {
+                  inputsPorItem = itensFab.map((it, idx) => {
+                    // Valor da celula: prefer horasPorItem[idx], senao
+                    // horasOverride (so' pro primeiro item — pra Felipe ver o
+                    // valor antigo migrado), senao vazio.
+                    let val = porItem[String(idx)];
+                    if ((val == null || val === '') && idx === 0
+                        && horasManual != null && horasManual !== ''
+                        && Object.keys(porItem).length === 0) {
+                      val = horasManual;
+                    }
+                    const valStr = (val != null && val !== '') ? String(val) : '';
+                    if (valStr !== '' && Number.isFinite(Number(valStr))) {
+                      totalEtapa += Number(valStr);
+                    }
+                    return `<span class="orc-fi-col-item-h">
+                      <input type="text" data-fab-etapa="${et.id}" data-fab-sub="horas-item" data-item-idx="${idx}" value="${escapeHtml(valStr)}" placeholder="" title="Aceita expressao: 9+5, 8*2, 10-3. Vazio = zero horas." />
+                    </span>`;
+                  }).join('');
+                } else {
+                  // Sem itens — fallback pro input antigo
+                  const valorInput = (horasManual !== null && horasManual !== undefined && horasManual !== '') ? String(horasManual) : '';
+                  inputsPorItem = `<span class="orc-fi-col-horas">
+                    <input type="text" data-field="etapa_${et.id}_horas" data-fab-etapa="${et.id}" data-fab-sub="horas" value="${escapeHtml(valorInput)}" placeholder="" title="Aceita expressao: 9+5, 8*2, 10-3. Vazio = zero horas." />
+                  </span>`;
+                  totalEtapa = Number(valorInput) || 0;
+                }
+                const totalCol = nItens >= 2
+                  ? `<span class="orc-fi-col-total-h"><b>${totalEtapa || ''}</b></span>`
+                  : '';
+                return `
+                  <div class="orc-fi-etapa-row">
+                    <span class="orc-fi-col-etapa">${escapeHtml(et.label)}</span>
+                    <span class="orc-fi-col-eq">${detalheEtapa.horasAuto > 0 ? Math.round(detalheEtapa.horasAuto * 100) / 100 : '—'}</span>
+                    ${inputsPorItem}
+                    ${totalCol}
+                  </div>
+                `;
+              }).join('')}
+              <!-- Felipe (sessao 2026-05): linha de TOTAL DE HORAS visivel,
+                   somando todas as etapas × n_operarios. Antes so' aparecia
+                   dentro do label "Subtotal horas (X h × R$ Y)". -->
+              <div class="orc-fi-etapa-row orc-fi-etapa-total">
+                <span class="orc-fi-col-etapa"><span class="t-strong">Total de horas</span></span>
+                <span class="orc-fi-col-eq orc-fi-help-detalhe">soma × ${Number(fab.n_operarios) || 0} operario${Number(fab.n_operarios) === 1 ? '' : 's'}</span>
+                ${nItens > 0 ? itensFab.map((_, idx) => {
+                  // Soma vertical: soma de horasPorItem[idx] em todas as etapas
+                  let totalItem = 0;
+                  ETAPAS_FAB.forEach(et => {
+                    const ent2 = (fab.etapas && fab.etapas[et.id]) || {};
+                    const v = (ent2.horasPorItem || {})[String(idx)];
+                    if (v != null && v !== '') totalItem += Number(v) || 0;
+                    else if (idx === 0 && Object.keys(ent2.horasPorItem || {}).length === 0
+                             && ent2.horasOverride != null && ent2.horasOverride !== '') {
+                      totalItem += Number(ent2.horasOverride) || 0;
+                    }
+                  });
+                  return `<span class="orc-fi-col-item-h"><span class="t-strong">${totalItem || ''}</span></span>`;
+                }).join('') : `<span class="orc-fi-col-horas orc-fi-total-horas-valor"><span class="t-strong">${rFab.total_horas} h</span></span>`}
+                ${nItens >= 2 ? `<span class="orc-fi-col-total-h orc-fi-total-horas-valor"><span class="t-strong">${rFab.total_horas} h</span></span>` : ''}
+              </div>
+            </div>
+          `;
+        })()}
+
+        <!-- Felipe (do doc - msg totais): formato simplificado
+             Subtotal horas (X h × R$ Y) → A
+             Custo Fabricacao → B
+             Total → A + B -->
+        <div class="orc-fi-totais">
+          <div class="orc-fi-total-row">
+            <span class="orc-fi-total-label">Subtotal horas (${rFab.total_horas} h × R$ ${fmtBR(rFab.custo_hora)})</span>
+            <span class="orc-fi-total-valor">R$ ${fmtBR(rFab.subtotal_horas)}</span>
+          </div>
+          <div class="orc-fi-total-row">
+            <span class="orc-fi-total-label">Custo Fabricacao</span>
+            <span class="orc-fi-total-valor">R$ ${fmtBR(rFab.total_insumos)}</span>
+          </div>
+          <div class="orc-fi-total-row orc-fi-total-final">
+            <span class="orc-fi-total-label">Total</span>
+            <span class="orc-fi-total-valor">R$ ${fmtBR(rFab.total)}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Felipe (sessao 2026-06): "fabricacao vai ter que ser separado
+           portanto vai ter que ter fabricacao item 1, item 2, item 3 etc,
+           para jogar esse custo neste item, somente instalacao que vai
+           ser junto". Tabela mostra a distribuicao do custo de Fabricacao
+           por item — proporcional as horas calculadas pra cada um. -->
+      <!-- Felipe (sessao 2026-07): "CUSTOS FABRICACAO AINDA NAO
+           ALTEROU POR ITEM CONTINUA 1 SO" — antes a tabela so'
+           aparecia se ha 2+ itens. Agora sempre aparece, mesmo com
+           1 item, pra Felipe ver o custo de fabricacao + instalacao
+           + preco final daquele item. -->
+      ${(versao.itens && versao.itens.length >= 1) ? (() => {
+        const params = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
+        const vp = calcularValoresProposta(versao, params);
+        if (!vp.porItem.length) return '';
+        const subFabSum = vp.porItem.reduce((s, x) => s + x.subFab, 0);
+        const linhas = vp.porItem.map(v => {
+          const it = v.item || {};
+          const desc = (typeof obterDescricaoItem === 'function')
+            ? obterDescricaoItem(it)
+            : 'Item';
+          const med = `${parseBR(it.largura) || it.largura || ''} × ${parseBR(it.altura) || it.altura || ''}`;
+          const pctFab = subFabSum > 0 ? (v.subFab / subFabSum * 100) : 0;
+          return `
+            <tr>
+              <td class="num">${String(v.idx + 1).padStart(2, '0')}</td>
+              <td>${escapeHtml(desc)}</td>
+              <td>${escapeHtml(med)}</td>
+              <td class="num">${v.qtd}</td>
+              <td class="num">R$ ${fmtBR(v.subFab)}</td>
+              <td class="num">${fmtBR(pctFab)} %</td>
+              <td class="num">R$ ${fmtBR(v.subInst)}</td>
+              <td class="num"><b>R$ ${fmtBR(v.precoFinal)}</b></td>
+            </tr>`;
+        }).join('');
+        return `
+          <div class="orc-section-card">
+            <div class="orc-section-title">Distribuicao por Item</div>
+            <p class="orc-helptext">
+              Custo de <b>Fabricacao</b> distribuido proporcional as horas de cada item.
+              Custo de <b>Instalacao</b> dividido proporcional ao subFab de cada item
+              (item maior = mais participacao no frete/montagem).
+              Preco Final ja' aplica o markup do DRE — esses valores aparecem
+              na proposta comercial em "Valor (un.)" e "Valor Total".
+            </p>
+            <div class="orc-fi-distrib-wrap">
+              <table class="orc-fi-distrib-tabela">
+                <thead>
+                  <tr>
+                    <th class="num">Item</th>
+                    <th>Descricao</th>
+                    <th>Medidas</th>
+                    <th class="num">Qtd</th>
+                    <th class="num">Custo Fab</th>
+                    <th class="num">% Fab</th>
+                    <th class="num">Custo Inst</th>
+                    <th class="num">Preco Final (pTab)</th>
+                  </tr>
+                </thead>
+                <tbody>${linhas}</tbody>
+                <tfoot>
+                  <tr class="orc-fi-distrib-total">
+                    <td colspan="4"><b>Total</b></td>
+                    <td class="num"><b>R$ ${fmtBR(subFabSum)}</b></td>
+                    <td class="num">100,00 %</td>
+                    <td class="num"><b>R$ ${fmtBR(vp.porItem.reduce((s, x) => s + x.subInst, 0))}</b></td>
+                    <td class="num"><b>R$ ${fmtBR(vp.totalGeral)}</b></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        `;
+      })() : ''}
+
+      <!-- ========== INSTALACAO — 10 regras ========== -->
+      <div class="orc-section-card">
+        <div class="orc-fi-inst-header">
+          <div class="orc-section-title">Custo Instalacao</div>
+          <div class="orc-fi-modo-toggle">
+            <label class="${inst.modo === 'projetta' ? 'is-ativo' : ''}">
+              <input type="radio" name="inst-modo" data-field="modo" data-inst="1" value="projetta" ${inst.modo === 'projetta' ? 'checked' : ''} />
+              Projetta
+            </label>
+            <label class="${inst.modo === 'terceiros' ? 'is-ativo' : ''}">
+              <input type="radio" name="inst-modo" data-field="modo" data-inst="1" value="terceiros" ${inst.modo === 'terceiros' ? 'checked' : ''} />
+              Terceiros
+            </label>
+            <!-- Felipe (do doc - msg frete/inst): novo modo "Projetta Internacional".
+                 Funciona igual ao Terceiros (valores manuais de instalacao + frete) -->
+            <label class="${inst.modo === 'internacional' ? 'is-ativo' : ''}">
+              <input type="radio" name="inst-modo" data-field="modo" data-inst="1" value="internacional" ${inst.modo === 'internacional' ? 'checked' : ''} />
+              Projetta Internacional
+            </label>
+          </div>
+        </div>
+
+        ${(inst.modo === 'terceiros' || inst.modo === 'internacional') ? `
+          <p class="orc-helptext">${inst.modo === 'internacional' ? 'Modo Projetta Internacional: equipe deslocada para o exterior — valores manuais de instalacao e frete.' : 'Modo terceiros: subcontratado faz a instalacao. Apenas dois valores manuais; componentes individuais ficam como "—".'}</p>
+          <div class="orc-fi-inst-grid">
+            <div class="orc-field orc-fi-w-money">
+              <label>Valor da instalacao (R$)</label>
+              <input type="text" data-field="inst_terceiros_valor" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.inst_terceiros_valor))}" />
+            </div>
+            <div class="orc-field orc-fi-w-money">
+              <label>Frete / transporte (R$)</label>
+              <input type="text" data-field="inst_terceiros_transp" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.inst_terceiros_transp))}" />
+            </div>
+          </div>
+        ` : `
+          <p class="orc-helptext">Equipe propria. Componentes calculados automaticamente; preenchimento manual apenas onde indicado.</p>
+
+          <!-- Bloco: dados da rota (Distancia se mantem por orcamento) -->
+          <div class="orc-fi-inst-grid">
+            <div class="orc-field orc-fi-w-num">
+              <label>Distancia (km)</label>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <input type="text" data-field="distancia_km" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.distancia_km))}" style="flex:0 0 100px;" />
+                <button type="button" id="orc-btn-calc-cep" class="univ-btn-export" style="padding:6px 10px; font-size:11px;" title="Calcula rota de carro pela API OSRM (OpenStreetMap)">📍 CEP</button>
+              </div>
+              <span class="orc-fi-help" id="orc-cep-status">virá auto pelo CEP do lead</span>
+            </div>
+          </div>
+
+          <!-- Felipe (R-inegociavel): tudo puxa da Caracteristica do Item.
+               Lista vertical empilhada — uma "ficha" por item com Largura,
+               Altura e Peso. Largura/Altura ja existem; Peso virá quando
+               o calculo de peso bruto por item estiver pronto. -->
+          <div class="orc-fi-itens">
+            <div class="orc-fi-itens-titulo">Dimensoes dos Itens <span class="orc-fi-help">auto · Caracteristica do Item</span></div>
+            ${(versao.itens || []).length === 0 ? `
+              <div class="orc-fi-item-vazio">Nenhum item cadastrado nesta versao.</div>
+            ` : (versao.itens || []).map((item, idx) => {
+              const tipo = labelTipo(item.tipo) || 'Item';
+              const lar = Number(item.largura) || 0;
+              const alt = Number(item.altura)  || 0;
+              const qtd = Number(item.quantidade) || 1;
+              return `
+                <div class="orc-fi-item-card">
+                  <div class="orc-fi-item-titulo">Item ${idx + 1} — ${escapeHtml(tipo)}</div>
+                  <div class="orc-fi-item-row">
+                    <span class="orc-fi-item-lbl">Largura</span>
+                    <span class="orc-fi-item-val">${lar > 0 ? lar + ' mm' : '—'}</span>
+                  </div>
+                  <div class="orc-fi-item-row">
+                    <span class="orc-fi-item-lbl">Altura</span>
+                    <span class="orc-fi-item-val">${alt > 0 ? alt + ' mm' : '—'}</span>
+                  </div>
+                  <div class="orc-fi-item-row">
+                    <span class="orc-fi-item-lbl">Peso bruto</span>
+                    <span class="orc-fi-item-val orc-fi-item-pendente">— <span class="orc-fi-help">aguardando calculo</span></span>
+                  </div>
+                  <div class="orc-fi-item-row">
+                    <span class="orc-fi-item-lbl">Quantidade</span>
+                    <span class="orc-fi-item-val">${qtd}</span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          ${rInst.andaime > 0 ? `
+            <div class="orc-fi-alerta orc-fi-alerta-info">
+              <span class="t-strong">Andaime incluido — R$ 550,00.</span>
+              Porta com altura acima de 3,0 m — custo de andaime adicionado automaticamente ao custo de instalacao.
+            </div>
+          ` : ''}
+
+          ${rInst.munk_alerta ? `
+            <div class="orc-fi-alerta orc-fi-alerta-warn">
+              <span class="t-strong">Atencao: peso bruto acima de 500 kg.</span>
+              Avalie a necessidade de munk / caminhao guindaste — informe o valor manualmente abaixo.
+            </div>
+          ` : ''}
+
+          <!-- Bloco: dias -->
+          <div class="orc-fi-bloco">
+            <div class="orc-fi-bloco-label">Deslocamento (calculado pelo km)</div>
+            <div class="orc-fi-bloco-valor">${rInst.deslocamentoDias} dias</div>
+          </div>
+          <div class="orc-fi-bloco-sub">
+            <span>Override manual:</span>
+            <input type="text" data-field="desl_override" data-inst="1" value="${inst.desl_override === null || inst.desl_override === undefined ? '' : escapeHtml(String(inst.desl_override))}" placeholder="auto" />
+            <span class="orc-fi-help">deixe vazio = automatico pelo km</span>
+          </div>
+
+          <div class="orc-fi-inst-grid">
+            <div class="orc-field orc-fi-w-num">
+              <label>Dias de instalacao</label>
+              <input type="text" data-field="dias_instalacao" data-inst="1" value="${((inst.dias_instalacao) === '' || (inst.dias_instalacao) === null || (inst.dias_instalacao) === undefined || Number(inst.dias_instalacao) === 0) ? '' : escapeHtml(String(inst.dias_instalacao))}" />
+              <span class="orc-fi-help">somente dias de trabalho no local</span>
+            </div>
+          </div>
+
+          <div class="orc-fi-bloco orc-fi-bloco-destaque">
+            <div class="orc-fi-bloco-label">Total dias</div>
+            <div class="orc-fi-bloco-detalhe">deslocamento + instalacao</div>
+            <div class="orc-fi-bloco-valor">${rInst.diasTotal} dias</div>
+          </div>
+
+          <!-- Bloco: equipe e custos -->
+          <div class="orc-fi-inst-grid">
+            <div class="orc-field orc-fi-w-num">
+              <label>Quantidade de pessoas</label>
+              <input type="text" data-field="n_pessoas" data-inst="1" value="${((inst.n_pessoas) === '' || (inst.n_pessoas) === null || (inst.n_pessoas) === undefined || Number(inst.n_pessoas) === 0) ? '' : escapeHtml(String(inst.n_pessoas))}" />
+            </div>
+            <div class="orc-field orc-fi-w-money">
+              <label>Diaria por pessoa (R$)</label>
+              <input type="text" data-field="diaria_pessoa" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.diaria_pessoa))}" />
+            </div>
+            <div class="orc-field orc-fi-w-num">
+              <label>Qtd de carros</label>
+              <input type="text" data-field="n_carros" data-inst="1" value="${((inst.n_carros) === '' || (inst.n_carros) === null || (inst.n_carros) === undefined || Number(inst.n_carros) === 0) ? '' : escapeHtml(String(inst.n_carros))}" />
+            </div>
+            <div class="orc-field orc-fi-w-money">
+              <label>Valor diaria hotel (R$)</label>
+              <input type="text" data-field="diaria_hotel" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.diaria_hotel))}" />
+            </div>
+            <div class="orc-field orc-fi-w-money">
+              <label>Alimentacao (R$/pax/dia)</label>
+              <input type="text" data-field="alimentacao_dia" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.alimentacao_dia))}" />
+            </div>
+            <div class="orc-field orc-fi-w-money">
+              <label>Munk / caminhao (R$)</label>
+              <input type="text" data-field="munk_caminhao" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.munk_caminhao))}" />
+              <span class="orc-fi-help">manual; nao soma sozinho</span>
+            </div>
+            <div class="orc-field orc-fi-w-money">
+              <label>Pedagio (ida + volta)</label>
+              <input type="text" data-field="pedagio_manual" data-inst="1" value="${inst.pedagio_manual === null || inst.pedagio_manual === undefined ? '' : escapeHtml(fmtBR(inst.pedagio_manual))}" placeholder="auto" />
+              <span class="orc-fi-help">deixe vazio = estimativa automatica</span>
+            </div>
+          </div>
+
+          <div class="orc-fi-bloco orc-fi-bloco-info">
+            <span class="t-strong">Hotel:</span> ${rInst.quartos} quarto${rInst.quartos > 1 ? 's' : ''} × ${rInst.noites} noite${rInst.noites !== 1 ? 's' : ''} × R$ ${fmtBR(Number(inst.diaria_hotel) || 0)} / noite
+          </div>
+        `}
+
+        <!-- Resumo da instalacao -->
+        <div class="orc-fi-resumo">
+          <div class="orc-fi-resumo-titulo">Resumo Instalacao</div>
+          ${(() => {
+            const linha = (label, valor) => {
+              const v = (valor === null || valor === undefined)
+                ? '<span class="orc-fi-traco">—</span>'
+                : `R$ ${fmtBR(Number(valor) || 0)}`;
+              return `<div class="orc-fi-resumo-row"><span>${label}</span><span>${v}</span></div>`;
+            };
+            const linhas = [];
+            const ehManual = (inst.modo === 'terceiros' || inst.modo === 'internacional');
+            const labelModo = inst.modo === 'internacional' ? 'Projetta Internacional' : 'Terceiros';
+            if (ehManual) {
+              linhas.push(linha('Salarios da equipe', null));
+              linhas.push(linha('Combustivel (diesel)', null));
+              linhas.push(linha('Hotel', null));
+              linhas.push(linha('Alimentacao', null));
+              linhas.push(linha('Andaime', null));
+              linhas.push(linha('Munk / caminhao', null));
+              linhas.push(linha('Pedagio', null));
+              linhas.push(linha(`Instalacao (${labelModo}) — valor`, rInst.inst_terceiros_valor));
+              linhas.push(linha(`Frete / transporte (${labelModo})`, rInst.inst_terceiros_transp));
+            } else {
+              linhas.push(`<div class="orc-fi-resumo-row"><span>Total dias</span><span>${rInst.diasTotal} dia${rInst.diasTotal !== 1 ? 's' : ''}</span></div>`);
+              linhas.push(linha(`Salarios da equipe (${rInst.diasTotal} d × ${Number(inst.n_pessoas) || 0} p × R$ ${fmtBR(Number(inst.diaria_pessoa) || 0)})`, rInst.salarios));
+              linhas.push(linha(`Diesel ((km + 50) × 0,875 × 2 × ${Number(inst.n_carros) || 0} carro${Number(inst.n_carros) === 1 ? '' : 's'})`, rInst.diesel));
+              linhas.push(linha(`Hotel (${rInst.noites} noite${rInst.noites !== 1 ? 's' : ''} × R$ ${fmtBR(Number(inst.diaria_hotel) || 0)} × ${rInst.quartos} quarto${rInst.quartos !== 1 ? 's' : ''})`, rInst.hotel));
+              linhas.push(linha(`Alimentacao (${rInst.diasTotal} d × ${Number(inst.n_pessoas) || 0} p × R$ ${fmtBR(Number(inst.alimentacao_dia) || 0)})`, rInst.alimentacao));
+              linhas.push(linha('Andaime (auto — altura > 3 m)', rInst.andaime));
+              linhas.push(linha('Munk / caminhao', rInst.munk));
+              linhas.push(linha('Pedagio (ida + volta)', rInst.pedagio));
+            }
+            return linhas.join('');
+          })()}
+          <div class="orc-fi-resumo-row orc-fi-total-final">
+            <span>Total Instalacao</span>
+            <span>R$ ${fmtBR(rInst.total)}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== TOTAIS QUE VAO PRA DRE ========== -->
+      <div class="orc-section-card orc-conferencia">
+        <div class="orc-section-title">Totais que alimentam a DRE</div>
+        <div class="orc-conf-resumo">
+          <div class="orc-conf-resumo-bloco orc-conf-destaque">
+            <div class="orc-conf-resumo-label">subFab</div>
+            <div class="orc-conf-resumo-valor">R$ ${fmtBR(rFab.total)}</div>
+            <div class="orc-conf-resumo-detalhe">soma do card Fabricacao</div>
+          </div>
+          <div class="orc-conf-resumo-bloco orc-conf-destaque">
+            <div class="orc-conf-resumo-label">subInst</div>
+            <div class="orc-conf-resumo-valor">R$ ${fmtBR(rInst.total)}</div>
+            <div class="orc-conf-resumo-detalhe">soma do card Instalacao</div>
+          </div>
+          <div class="orc-conf-resumo-bloco">
+            <div class="orc-conf-resumo-label">Total bruto (antes overhead)</div>
+            <div class="orc-conf-resumo-valor">R$ ${fmtBR(rFab.total + rInst.total)}</div>
+            <div class="orc-conf-resumo-detalhe">subFab + subInst</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    bindFabInstEvents(container);
+    // Felipe (do doc - msg wizard): "Proximo: DRE"
+    adicionarBotaoWizard(container, 'fab-inst');
+  }
+
+  function bindFabInstEvents(container) {
+    bindZerarButton(container, () => renderFabInstTab(container));
+
+    container.querySelector('#orc-btn-salvar-fi')?.addEventListener('click', () => {
+      if (window.showSavedDialog) window.showSavedDialog();
+    });
+
+    // Botao "Calcular pelo CEP" — geocoda ambos CEPs (ViaCEP) e roteia (OSRM)
+    container.querySelector('#orc-btn-calc-cep')?.addEventListener('click', async () => {
+      const status = container.querySelector('#orc-cep-status');
+      const inputDist = container.querySelector('input[data-field="distancia_km"]');
+      if (!inputDist || !status) return;
+
+      // Origem fixa: Av. Sicupiras 51, Uberlandia/MG (CEP 38401-708)
+      const ORIG_LAT = -18.918628;
+      const ORIG_LNG = -48.276695;
+
+      const lead = lerLeadAtivo();
+      if (!lead) { status.textContent = '✗ Sem lead ativo'; status.className = 'orc-fi-help orc-fi-help-error'; return; }
+
+      const cepDest = (lead.cep || '').replace(/\D/g, '');
+      const cidade  = (lead.cidade || '').trim();
+      const uf      = (lead.estado || '').trim();
+      if (!cepDest && !(cidade && uf)) {
+        status.textContent = '✗ Lead sem CEP nem Cidade/UF';
+        status.className = 'orc-fi-help orc-fi-help-error';
+        return;
+      }
+
+      status.textContent = 'Geocodificando destino...';
+      status.className = 'orc-fi-help';
+      try {
+        // (1) Geocodifica destino via Nominatim (OpenStreetMap, gratis sem auth).
+        // Tenta CEP primeiro; se falhar, usa "cidade, UF, Brasil".
+        let destLat, destLng;
+        const queryNominatim = async (q) => {
+          const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&countrycodes=br&limit=1`;
+          const r = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
+          if (!r.ok) return null;
+          const data = await r.json();
+          if (!data.length) return null;
+          return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        };
+
+        if (cepDest) {
+          const c = await queryNominatim(cepDest + ', Brasil');
+          if (c) { destLat = c.lat; destLng = c.lng; }
+        }
+        if (destLat == null && cidade && uf) {
+          const c = await queryNominatim(`${cidade}, ${uf}, Brasil`);
+          if (c) { destLat = c.lat; destLng = c.lng; }
+        }
+        if (destLat == null) {
+          status.textContent = '✗ Endereco nao localizado';
+          status.className = 'orc-fi-help orc-fi-help-error';
+          return;
+        }
+
+        status.textContent = 'Calculando rota OSRM...';
+        // (2) OSRM publico: rota de carro real, retorna distancia em metros.
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${ORIG_LNG},${ORIG_LAT};${destLng},${destLat}?overview=false`;
+        const rRoute = await fetch(osrmUrl);
+        if (!rRoute.ok) throw new Error('OSRM indisponivel');
+        const rd = await rRoute.json();
+        if (!rd.routes || !rd.routes.length) throw new Error('Sem rota');
+        const distMetros = rd.routes[0].distance;
+        // Arredonda 50 em 50 km (regra do Felipe)
+        const km = Math.ceil(distMetros / 1000 / 50) * 50;
+
+        // Persiste no inst.distancia_km e re-renderiza (atualiza dias/Total)
+        const v = obterVersao(UI.versaoAtivaId);
+        if (!v || !v.versao) return;
+        const inst = Object.assign({}, INST_DEFAULT, v.versao.custoInst || {});
+        inst.distancia_km = km;
+        atualizarVersao(UI.versaoAtivaId, { custoInst: inst });
+        renderFabInstTab(container);
+        const newStatus = container.querySelector('#orc-cep-status');
+        if (newStatus) {
+          newStatus.textContent = `✓ ${km} km (rota OSRM, arredondado 50 km)`;
+          newStatus.className = 'orc-fi-help orc-fi-help-ok';
+        }
+      } catch (err) {
+        status.textContent = '✗ ' + (err.message || 'erro');
+        status.className = 'orc-fi-help orc-fi-help-error';
+      }
+    });
+
+    // Toda mudanca: 1 load so, modifica, salva, sincroniza com DRE.
+    // Felipe (sessao 31 fix): selector inclui [data-fab-etapa] porque
+    // os inputs de horas-por-item NAO tem data-field (so data-fab-etapa).
+    // Sem isso, a calculadora (parseBRExpr) nao dispara neles.
+    container.querySelectorAll('[data-field], [data-fab-etapa]').forEach(el => {
+      el.addEventListener('change', () => {
+        const r = obterVersao(UI.versaoAtivaId);
+        if (!r || !r.versao) return;
+        const versao = r.versao;
+        if (versao.status === 'fechada') return;
+
+        const field = el.dataset.field;
+        const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
+        fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
+        const inst = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
+
+        if (el.dataset.fabEtapa) {
+          // input de etapa: pode ser 'dias', 'horas' (override global) ou
+          // 'horas-item' (por item, Felipe sessao 28).
+          const eid = el.dataset.fabEtapa;
+          const sub = el.dataset.fabSub || 'dias';
+          const ent = fab.etapas[eid] || {};
+          if (sub === 'dias') {
+            ent.dias = parseBR(el.value) || 0;
+            // Quando user mexe em dias, limpa o override de horas
+            // (volta a calcular auto). Felipe quer aviso quando user MUDA
+            // horas manualmente, nao quando muda dias.
+            delete ent.horasOverride;
+          } else if (sub === 'horas') {
+            const raw = String(el.value || '').trim();
+            const auto = (Number(ent.dias) || 0) * HORAS_POR_DIA;
+            // Felipe (do doc): aceita expressao simples ('9+5' = 14)
+            const num = parseBRExpr(raw);
+            // Se vazio ou igual ao auto, limpa o override (volta pro automatico)
+            if (raw === '' || num === auto) {
+              delete ent.horasOverride;
+            } else {
+              ent.horasOverride = num;
+              // Reescreve o valor do input com o resultado da expressao
+              // (ex: "9+5" → "14") pra Felipe ver o calculado
+              if (/[+\-*/]/.test(raw.replace(/^-/, '')) && num > 0) {
+                el.value = String(num).replace('.', ',');
+              }
+            }
+          } else if (sub === 'horas-item') {
+            // Felipe (sessao 28): horas POR ITEM. Salva em horasPorItem[idx].
+            // Limpa horasOverride global (incompativel com por-item) na
+            // primeira edicao por item.
+            const idx = String(el.dataset.itemIdx || '0');
+            const raw = String(el.value || '').trim();
+            const num = parseBRExpr(raw);
+            if (!ent.horasPorItem) ent.horasPorItem = {};
+            if (raw === '') {
+              delete ent.horasPorItem[idx];
+            } else {
+              ent.horasPorItem[idx] = num;
+              // Reescreve expressao calculada
+              if (/[+\-*/]/.test(raw.replace(/^-/, '')) && num > 0) {
+                el.value = String(num).replace('.', ',');
+              }
+            }
+            // Quando comeca a usar por-item, limpa horasOverride global
+            // (evita ambiguidade — calcularFab da preferencia ao por-item
+            // mas eh melhor remover pra ficar limpo).
+            if (Object.keys(ent.horasPorItem).length > 0) {
+              delete ent.horasOverride;
+            }
+          }
+          fab.etapas[eid] = ent;
+        } else if (el.dataset.fab) {
+          fab[field] = parseBR(el.value) || 0;
+        } else if (el.dataset.inst) {
+          if (el.type === 'checkbox') {
+            inst[field] = el.checked;
+          } else if (el.type === 'radio') {
+            // toggle modo projetta/terceiros
+            if (el.checked) inst[field] = el.value;
+          } else if (field === 'desl_override' || field === 'pedagio_manual') {
+            // campo "auto se vazio": null = automatico, numero = override manual
+            const raw = String(el.value || '').trim();
+            inst[field] = raw === '' ? null : (parseBR(raw) || 0);
+          } else {
+            inst[field] = parseBR(el.value) || 0;
+          }
+        }
+
+        // Recalcula e salva subFab/subInst direto na versao (alimenta a DRE)
+        const rFab  = calcularFab(fab, versao.itens);
+        const rInst = calcularInst(inst);
+        try {
+          atualizarVersao(versao.id, {
+            custoFab: fab,
+            custoInst: inst,
+            subFab: rFab.total,
+            subInst: rInst.total,
+          });
+        } catch (e) {
+          console.warn('[orcamento] erro ao salvar fab/inst:', e.message);
+        }
+        renderFabInstTab(container);
+      });
+    });
+  }
+
+  // ============================================================
+  //                      ABA: CUSTO E MARGEM
+  // ============================================================
+  function renderCustoTab(container) {
+    inicializarSessao();
+    const versao = obterVersao(UI.versaoAtivaId).versao;
+    // Felipe (do doc): DRE so calcula se item esta completo E Fab/Inst
+    // tem valores de perfis/chapas/pintura. Modo 'dre' valida ambos.
+    const motivoBloqueio = precisaCalcular(versao, 'dre');
+    if (motivoBloqueio) {
+      return renderPrecisaCalcular(container, versao, motivoBloqueio, 'DRE');
+    }
+    const negocio = obterNegocio(UI.negocioAtivoId);
+    const opcao  = obterVersao(UI.versaoAtivaId).opcao;
+    const subFab = Number(versao.subFab) || 0;
+    const subInst = Number(versao.subInst) || 0;
+    const params = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
+    const r = calcularDRE(subFab, subInst, params);
+
+    // Felipe (do doc): DRE puxa o representante do lead pra mostrar a
+    // classificacao (Showroom/Representante/etc) e a comissao sugerida
+    // (6% rep, 7% showroom). User pode aceitar ou ajustar manualmente
+    // no campo Comissao Rep.
+    let repInfoDre = null;
+    try {
+      const lead = lerLeadAtivo();
+      const fup = lead && (lead.representante_followup || '');
+      if (fup) {
+        const reps = (window.Representantes && typeof window.Representantes.listar === 'function')
+          ? window.Representantes.listar() : [];
+        const rep = reps.find(re => String(re.followup || '').trim() === fup);
+        if (rep) {
+          repInfoDre = {
+            nome: rep.razao_social || fup,
+            classificacao: rep.classificacao || 'Representante',
+            comissaoMaximaPct: ((Number(rep.comissao_maxima) || 0) * 100),
+          };
+        } else if (fup === 'PROJETTA') {
+          repInfoDre = { nome: 'PROJETTA (venda interna)', classificacao: 'Projetta', comissaoMaximaPct: 0 };
+        }
+      }
+    } catch (e) {
+      console.warn('[DRE] lookup do representante falhou:', e);
+    }
+
+    const fmtPct = (frac) => fmtBR((frac || 0) * 100) + ' %';
+    const fmtN3  = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+
+    // Felipe (do doc): TODO relatorio tem cabecalho padronizado.
+    const leadDre = lerLeadAtivo() || {};
+    const numDocDre = `${(opcao?.letra || 'A')} - ${versao.numero}`;
+    const headerDreHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
+      ? window.Empresa.montarHeaderRelatorio({
+          lead: leadDre,
+          tituloRelatorio: 'DRE — Custo e Margem',
+          numeroDocumento: numDocDre,
+          validade: 15,
+        })
+      : '';
+
+    container.innerHTML = `
+      ${headerDreHtml}
+      ${bannerCaracteristicasItens(versao)}
+      <div class="orc-banner">
+        <div class="orc-banner-info">
+          <span class="t-strong">Custo e Margem</span>
+          · ${escapeHtml(negocio?.clienteNome || '—')}
+          · Opcao ${escapeHtml(opcao.letra)} V${versao.numero}
+        </div>
+        <div class="orc-banner-actions">
+          <button type="button" class="univ-btn-save" id="orc-btn-salvar-custo">✓ Tudo salvo</button>
+          <!-- Felipe (sessao 2026-08): "RETIRE ESSA VERSOES DO CALCULO" —
+               botao "Salvar como Versao N e Congelar" removido. Versoes
+               vao ser repensadas do zero. -->
+          <button class="orc-btn-zerar" id="orc-btn-zerar" title="Zerar todos os itens, parametros e calculos deste orcamento">🗑 Zerar</button>
+        </div>
+      </div>
+
+      ${repInfoDre ? `
+      <div class="orc-rep-banner ${repInfoDre.classificacao.toLowerCase() === 'showroom' ? 'is-showroom' : ''}">
+        <span class="orc-rep-banner-label">Representante deste lead:</span>
+        <span class="orc-rep-banner-nome">${escapeHtml(repInfoDre.nome)}</span>
+        <span class="orc-rep-banner-class">${escapeHtml(repInfoDre.classificacao)}</span>
+        <span class="orc-rep-banner-com">comissao maxima ${fmtBR(repInfoDre.comissaoMaximaPct)}%</span>
+        <button type="button" class="orc-rep-banner-btn" id="orc-btn-aplicar-comissao" title="Aplica a comissao maxima do representante no campo Comissao Rep">↓ Aplicar no campo Comissao Rep</button>
+      </div>
+      ` : ''}
+
+      <div class="orc-section-card">
+        <div class="orc-section-title">Subtotais (vindos da aba Custo Fab/Inst)</div>
+        <p class="orc-helptext">Edite os valores na aba <span class="t-strong">Custo Fab/Inst</span>. A DRE le esses totais automaticamente.</p>
+        <div class="orc-form-row">
+          <div class="orc-field orc-f-money">
+            <label>Custo Fabricacao (R$)</label>
+            <input type="text" value="${escapeHtml(fmtBROrEmpty(subFab))}" disabled />
+          </div>
+          <div class="orc-field orc-f-money">
+            <label>Custo Instalacao (R$)</label>
+            <input type="text" value="${escapeHtml(fmtBROrEmpty(subInst))}" disabled />
+          </div>
+        </div>
+      </div>
+
+      <div class="orc-section-card">
+        <div class="orc-section-title">Parametros (% sobre o preco)</div>
+        <div class="orc-form-row">
+          <div class="orc-field orc-f-pct">
+            <label>Overhead</label>
+            <input type="text" data-field="overhead" data-param="1" value="${escapeHtml(fmtBROrEmpty(params.overhead))}" />
+            <span class="orc-field-hint">rateio fixo (0-30 %)</span>
+          </div>
+          <div class="orc-field orc-f-pct">
+            <label>Impostos</label>
+            <input type="text" data-field="impostos" data-param="1" value="${escapeHtml(fmtBROrEmpty(params.impostos))}" />
+            <span class="orc-field-hint">PIS+COFINS+ISS+ICMS</span>
+          </div>
+          <div class="orc-field orc-f-pct">
+            <label>Comissao Rep</label>
+            <input type="text" data-field="com_rep" data-param="1" value="${escapeHtml(fmtBROrEmpty(params.com_rep))}" />
+            <span class="orc-field-hint">representante (0-20 %)</span>
+          </div>
+          <div class="orc-field orc-f-pct">
+            <label>Comissao RT</label>
+            <input type="text" data-field="com_rt" data-param="1" value="${escapeHtml(fmtBROrEmpty(params.com_rt))}" />
+            <span class="orc-field-hint">RT/arquiteto (0-15 %)</span>
+          </div>
+        </div>
+        <div class="orc-form-row" style="margin-top:14px;">
+          <div class="orc-field orc-f-pct">
+            <label>Comissao Gest</label>
+            <input type="text" data-field="com_gest" data-param="1" value="${escapeHtml(fmtBROrEmpty(params.com_gest))}" />
+            <span class="orc-field-hint">gestao interna</span>
+          </div>
+          <div class="orc-field orc-f-pct">
+            <label>Lucro Alvo</label>
+            <input type="text" data-field="lucro_alvo" data-param="1" value="${escapeHtml(fmtBROrEmpty(params.lucro_alvo))}" />
+            <span class="orc-field-hint">liquido pos IRPJ+CSLL</span>
+          </div>
+          <div class="orc-field orc-f-pct">
+            <label>Markup Desc</label>
+            <input type="text" data-field="markup_desc" data-param="1" value="${escapeHtml(fmtBROrEmpty(params.markup_desc))}" />
+            <span class="orc-field-hint">sempre 20 % (fixo)</span>
+          </div>
+          <div class="orc-field orc-f-pct">
+            <label>Desconto</label>
+            <input type="text" data-field="desconto" data-param="1" value="${escapeHtml(fmtBROrEmpty(params.desconto))}" />
+            <span class="orc-field-hint">sempre 20 % (fixo)</span>
+          </div>
+        </div>
+          <div class="orc-field orc-f-pct">
+            <label>IRPJ + CSLL</label>
+            <input type="text" value="34,00" disabled />
+            <span class="orc-field-hint">constante (34 %)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="orc-section-card orc-resultado">
+        <div class="orc-section-title">Resultado DRE</div>
+        <div class="orc-dre">
+          <div class="orc-dre-row is-custo">
+            <span class="orc-dre-label">Custo total</span>
+            <span class="orc-dre-formula">(subFab + subInst) × (1 + overhead)</span>
+            <span class="orc-dre-valor">R$ ${fmtBR(r.custo)}</span>
+          </div>
+          <div class="orc-dre-row">
+            <span class="orc-dre-label">Lucro bruto necessario (LBN)</span>
+            <span class="orc-dre-formula">lucro_alvo / (1 − 0,34)</span>
+            <span class="orc-dre-valor">${fmtPct(r.lbn)}</span>
+          </div>
+          <div class="orc-dre-row">
+            <span class="orc-dre-label">Total % sobre preco (td)</span>
+            <span class="orc-dre-formula">impostos + com_rep + com_rt + com_gest + lbn</span>
+            <span class="orc-dre-valor">${fmtPct(r.td)}</span>
+          </div>
+          <div class="orc-dre-row">
+            <span class="orc-dre-label">Fator faturamento (fF)</span>
+            <span class="orc-dre-formula">1 / (1 − td)</span>
+            <span class="orc-dre-valor">${fmtN3(r.fF)}</span>
+          </div>
+          <div class="orc-dre-row">
+            <span class="orc-dre-label">Fator tabela (fT)</span>
+            <span class="orc-dre-formula">fF / (1 − markup_desc)</span>
+            <span class="orc-dre-valor">${fmtN3(r.fT)}</span>
+          </div>
+          <div class="orc-dre-divisor"></div>
+          <div class="orc-dre-row orc-dre-destaque is-receita is-subtotal">
+            <span class="orc-dre-label">Preco faturamento</span>
+            <span class="orc-dre-formula">custo × fF</span>
+            <span class="orc-dre-valor">R$ ${fmtBR(r.pFat)}</span>
+          </div>
+          <div class="orc-dre-row orc-dre-destaque is-receita is-subtotal">
+            <span class="orc-dre-label">Preco tabela</span>
+            <span class="orc-dre-formula">custo × fT</span>
+            <span class="orc-dre-valor">R$ ${fmtBR(r.pTab)}</span>
+          </div>
+          <div class="orc-dre-row orc-dre-destaque is-receita is-total">
+            <span class="orc-dre-label">Preco real (apos desconto)</span>
+            <span class="orc-dre-formula">pTab × (1 − desconto)</span>
+            <span class="orc-dre-valor">R$ ${fmtBR(r.pFatReal)}</span>
+          </div>
+          <div class="orc-dre-row">
+            <span class="orc-dre-label">Markup visual</span>
+            <span class="orc-dre-formula">(pTab / custo − 1) × 100</span>
+            <span class="orc-dre-valor">${fmtBR(r.markupPct)} %</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="orc-section-card orc-conferencia">
+        <div class="orc-section-title">Conferencia — Custo e Preco Final</div>
+        <div class="orc-conf-resumo">
+          <div class="orc-conf-resumo-bloco">
+            <div class="orc-conf-resumo-label">Custo total</div>
+            <div class="orc-conf-resumo-valor">R$ ${fmtBR(r.custo)}</div>
+            <div class="orc-conf-resumo-detalhe">subFab + subInst + overhead</div>
+          </div>
+          <div class="orc-conf-resumo-bloco orc-conf-destaque">
+            <div class="orc-conf-resumo-label">Preco da Proposta</div>
+            <div class="orc-conf-resumo-valor">R$ ${fmtBR(r.pTab)}</div>
+            <div class="orc-conf-resumo-detalhe">preco de tabela (pTab)</div>
+          </div>
+          <div class="orc-conf-resumo-bloco orc-conf-destaque">
+            <div class="orc-conf-resumo-label">Cliente Paga</div>
+            <div class="orc-conf-resumo-valor">R$ ${fmtBR(r.pFatReal)}</div>
+            <div class="orc-conf-resumo-detalhe">apos ${fmtBR(params.desconto)} % de desconto</div>
+          </div>
+        </div>
+
+        <!-- Felipe (sessao 2026-05): botao Aprovar Orcamento empurra o
+             pFatReal pro lead correspondente do CRM, atualiza a etapa
+             pra "orcamento-pronto" e marca timestamp de aprovacao.
+             So' a partir desse momento o card do CRM mostra valor. -->
+        ${(() => {
+          const aprovado = !!versao.aprovadoEm;
+          const valorAprovado = Number(versao.valorAprovado) || 0;
+          const podeAprovar = (Number(r.pFatReal) || 0) > 0;
+          if (aprovado) {
+            return `
+              <div class="orc-aprovacao-card is-aprovado">
+                <div class="orc-aprovacao-info">
+                  <span class="orc-aprovacao-icon">✓</span>
+                  <div>
+                    <div class="orc-aprovacao-titulo">Orcamento Aprovado</div>
+                    <div class="orc-aprovacao-detalhe">
+                      Valor de <span class="t-strong">R$ ${fmtBR(valorAprovado)}</span>
+                      enviado pro CRM em ${fmtData(versao.aprovadoEm)}.
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="orc-aprovacao-btn-reaprovar" id="orc-btn-reaprovar"
+                        title="Re-aprovar com o valor atual (caso tenha alterado parametros)">
+                  ↻ Re-aprovar com R$ ${fmtBR(r.pFatReal)}
+                </button>
+              </div>
+            `;
+          }
+          return `
+            <div class="orc-aprovacao-card">
+              <div class="orc-aprovacao-info">
+                <div>
+                  <div class="orc-aprovacao-titulo">Pronto pra aprovar?</div>
+                  <div class="orc-aprovacao-detalhe">
+                    Ao clicar, o valor de <span class="t-strong">R$ ${fmtBR(r.pFatReal)}</span>
+                    e enviado pro card do CRM, e a etapa do lead muda pra "Orcamento Pronto".
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="orc-aprovacao-btn ${podeAprovar ? '' : 'is-disabled'}"
+                      id="orc-btn-aprovar" ${podeAprovar ? '' : 'disabled'}
+                      title="${podeAprovar ? 'Aprovar e empurrar pro CRM' : 'Calcule o orcamento primeiro'}">
+                ✓ Aprovar Orcamento
+              </button>
+            </div>
+          `;
+        })()}
+
+        ${(() => {
+          const d = demonstracaoResultado(r);
+          // Felipe (sessao 2026-06): linhas que comecam com "(−)" sao
+          // deducoes/custos — recebem classe .is-deducao pra valor
+          // aparecer em VERMELHO no DRE (Felipe pediu).
+          const linha = (label, valor, pctVal, opts) => {
+            const isDeducao = String(label).trim().startsWith('(−)') ||
+                              String(label).trim().startsWith('(-)');
+            return `
+            <div class="orc-dre-conf-row ${opts?.destaque ? 'is-destaque' : ''} ${opts?.subtotal ? 'is-subtotal' : ''} ${isDeducao ? 'is-deducao' : ''}">
+              <span class="orc-dre-conf-label">${label}</span>
+              <span class="orc-dre-conf-valor">R$ ${fmtBR(valor)}</span>
+              <span class="orc-dre-conf-pct">${fmtBR(pctVal)} %</span>
+            </div>
+          `;
+          };
+          const lucroOk = Math.abs(d.pct.lucro_liquido - (params.lucro_alvo || 0)) < 0.5;
+          return `
+          <div class="orc-dre-conf">
+            ${linha('Receita Bruta', d.receita, 100, { destaque: true })}
+            ${linha('(−) Impostos Sobre Receita',  d.impostos, d.pct.impostos)}
+            ${linha('(−) Comissao Representante',  d.com_rep,  d.pct.com_rep)}
+            ${linha('(−) Comissao RT / Arquiteto', d.com_rt,   d.pct.com_rt)}
+            ${linha('(−) Comissao Gestao Interna', d.com_gest, d.pct.com_gest)}
+            ${linha('Total Deducoes', d.total_deducoes, d.pct.total_deducoes, { subtotal: true })}
+            ${linha('Receita Liquida', d.receita_liquida, d.pct.receita_liquida, { destaque: true })}
+            ${linha('(−) Custo Direto (Fab + Inst + Overhead)', d.custo_direto, d.pct.custo_direto)}
+            ${linha('Lucro Bruto (Antes IRPJ + CSLL)', d.lucro_bruto, d.pct.lucro_bruto, { destaque: true })}
+            ${linha('(−) IRPJ + CSLL (34 % Sobre Lucro Bruto)', d.irpj_csll, d.pct.irpj_csll)}
+            ${linha(`Lucro Liquido ${lucroOk ? '✓ bate com lucro_alvo' : ''}`, d.lucro_liquido, d.pct.lucro_liquido, { destaque: true })}
+          </div>
+          `;
+        })()}
+      </div>
+    `;
+
+    bindCustoEvents(container);
+    // Felipe (do doc - msg wizard): "Proximo: Proposta Comercial"
+    adicionarBotaoWizard(container, 'custo');
+  }
+
+  function bindCustoEvents(container) {
+    bindZerarButton(container, () => renderCustoTab(container));
+
+    // Botao Salvar (padrao do projeto: univ-btn-save).
+    // Os campos ja salvam em autosave nos change handlers — o botao
+    // serve pra dar feedback visual de "✓ Tudo salvo" e disparar o dialog.
+    container.querySelector('#orc-btn-salvar-custo')?.addEventListener('click', () => {
+      if (window.showSavedDialog) window.showSavedDialog();
+    });
+
+    // Felipe (sessao 2026-07): "no DRE que salva como versao 1 e
+    // congela 100% da planilha". Botao migrado da aba Item pra ca.
+    // Fecha a versao atual (vira historico) e cria nova versao
+    // baseada em copia.
+    container.querySelector('#orc-btn-salvar-versao-dre')?.addEventListener('click', () => {
+      const r = obterVersao(UI.versaoAtivaId);
+      if (!r) return;
+      const versaoAtual = r.versao;
+      const opcao       = r.opcao;
+      const numAtual    = versaoAtual.numero;
+      const numNova     = numAtual + 1;
+      const ok = confirm(
+        `Salvar Versao ${numAtual} no historico e congelar 100%?\n\n` +
+        `- A Versao ${numAtual} sera FECHADA (imutavel).\n` +
+        `- Sera criada a Versao ${numNova} em draft, clonada, pra continuar editando.\n\n` +
+        `Confirma?`
+      );
+      if (!ok) return;
+      try {
+        salvarItensNoBanco();
+        fecharVersao(versaoAtual.id);
+        const novaVersao = criarVersao({
+          opcaoId: opcao.id,
+          baseadoEmVersaoId: versaoAtual.id,
+        });
+        UI.versaoAtivaId = novaVersao.id;
+        renderCustoTab(container);
+        if (window.showSavedDialog) {
+          window.showSavedDialog(`Versao ${numAtual} congelada. Editando agora a Versao ${numNova}.`);
+        }
+      } catch (err) {
+        console.error('[orc-btn-salvar-versao-dre]', err);
+        alert('Nao foi possivel salvar a versao: ' + (err.message || err));
+      }
+    });
+
+    // Felipe (do doc): aplica a comissao maxima do representante no campo
+    // Comissao Rep. User clica → puxa do cadastro do rep (6% ou 7%).
+    container.querySelector('#orc-btn-aplicar-comissao')?.addEventListener('click', () => {
+      try {
+        const lead = lerLeadAtivo();
+        const fup = lead && (lead.representante_followup || '');
+        if (!fup) return;
+        const reps = (window.Representantes && typeof window.Representantes.listar === 'function')
+          ? window.Representantes.listar() : [];
+        const rep = reps.find(re => String(re.followup || '').trim() === fup);
+        if (!rep) return;
+        const comPct = (Number(rep.comissao_maxima) || 0) * 100;
+        const versao = versaoAtiva();
+        if (!versao) return;
+        const novosParams = Object.assign({}, versao.parametros || {});
+        novosParams.com_rep = comPct;
+        atualizarVersao(versao.id, { parametros: novosParams });
+        renderCustoTab(container);
+        if (window.showSavedDialog) window.showSavedDialog(`Comissao Rep aplicada: ${comPct}%`);
+      } catch (e) {
+        console.warn('[DRE] aplicar comissao falhou:', e);
+      }
+    });
+
+    // Felipe (sessao 2026-05): botao "Aprovar Orcamento" — empurra
+    // pFatReal pro lead do CRM e avanca etapa pra "orcamento-pronto".
+    // Felipe (sessao 2026-06): "deixe no card ambos valores Preco da
+    // Proposta e Cliente Paga" — agora passa AMBOS ao aprovarOrcamento.
+    function _executarAprovacao(versao) {
+      const subFab  = Number(versao.subFab) || 0;
+      const subInst = Number(versao.subInst) || 0;
+      const params  = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
+      const dre     = calcularDRE(subFab, subInst, params);
+      const precoProposta     = Number(dre.pTab) || 0;       // preco de tabela (com markup)
+      const precoComDesconto  = Number(dre.pFatReal) || 0;   // apos desconto (cliente paga)
+      if (precoComDesconto <= 0) {
+        alert('Calcule o orcamento primeiro — preco real esta em zero.');
+        return;
+      }
+      try {
+        aprovarOrcamento(versao.id, precoComDesconto, precoProposta);
+        renderCustoTab(container);
+        if (window.showSavedDialog) {
+          window.showSavedDialog(`Orcamento aprovado: R$ ${fmtBR(precoComDesconto)} enviado pro CRM.`);
+        }
+      } catch (e) {
+        alert('Falha ao aprovar: ' + e.message);
+      }
+    }
+    container.querySelector('#orc-btn-aprovar')?.addEventListener('click', () => {
+      const versao = versaoAtiva();
+      if (!versao) return;
+      if (versao.status === 'fechada') {
+        alert('Versao fechada — nao e possivel aprovar.');
+        return;
+      }
+      const ok = confirm('Aprovar este orcamento e enviar valor pro CRM?\n\nO card do lead vai mostrar o valor e a etapa avanca para "Orcamento Pronto" (se ainda nao estiver).');
+      if (!ok) return;
+      _executarAprovacao(versao);
+    });
+    container.querySelector('#orc-btn-reaprovar')?.addEventListener('click', () => {
+      const versao = versaoAtiva();
+      if (!versao) return;
+      if (versao.status === 'fechada') {
+        alert('Versao fechada — nao e possivel re-aprovar.');
+        return;
+      }
+      const ok = confirm('Re-aprovar com o valor atual?\n\nO valor antigo sera substituido no card do CRM.');
+      if (!ok) return;
+      _executarAprovacao(versao);
+    });
+
+    // Inputs de subFab/subInst e parametros — recalcula em tempo real
+    container.querySelectorAll('[data-field]').forEach(el => {
+      el.addEventListener('change', () => {
+        const versao = versaoAtiva();
+        if (!versao || versao.status === 'fechada') return;
+
+        const v = parseBR(el.value);
+        const field = el.dataset.field;
+        const dadosUpdate = {};
+        if (el.dataset.versaoField) {
+          // subFab ou subInst
+          dadosUpdate[field] = v;
+        } else if (el.dataset.param) {
+          // parametros
+          const novosParams = Object.assign({}, versao.parametros || {});
+          novosParams[field] = v;
+
+          // Felipe (sessao 2026-06): a regra automatica que mudava o
+          // desconto baseada em Comissao RT/Arquiteto foi REMOVIDA.
+          // Pedido textual: "mantenha desconto e markup desconto sempre
+          // 20 tire a regra que tem relacionado a comissao do arquiteto".
+          // Agora markup_desc e desconto ficam fixos em 20% (default) e
+          // so' mudam se o usuario digitar manualmente nos campos.
+          dadosUpdate.parametros = novosParams;
+        }
+        try {
+          atualizarVersao(versao.id, dadosUpdate);
+          renderCustoTab(container);  // re-render pra atualizar resultado
+        } catch (e) {
+          console.warn('[orcamento] erro ao salvar parametro:', e.message);
+        }
+      });
+    });
+  }
+
+  // ============================================================
+  //                      ABA: LEV. PERFIS
+  // ============================================================
+  /**
+   * Renderiza levantamento de perfis pra todos os itens da versao
+   * ativa. Aplica REGRAS_PERFIS.xlsx via PerfisCalc.gerarCortesPortaExterna,
+   * agrega por codigo, faz FFD, mostra:
+   *   - Tabela "Folha — Perfis de Corte" e "Portal — Perfis de Corte"
+   *   - Cards: kg liquido / kg bruto / aproveitamento / total barras / perda
+   *   - "Relacao de Barras" agrupada BNF-TECNO (com pintura) / BRUTO (sem)
+   *   - Botao "Padroes de Cortes" abre modal com bins barra a barra
+   */
+  /**
+   * Dispatcher: dado um item, escolhe o motor de calculo certo.
+   * Cada motor e' completamente isolado — nao compartilha logica
+   * com nenhum outro. Mudar regra de um nao afeta os demais.
+   */
+  function motorPerfisPorTipo(tipo) {
+    if (tipo === 'porta_externa')       return window.PerfisPortaExterna;
+    if (tipo === 'porta_interna')       return window.PerfisPortaInterna;
+    if (tipo === 'fixo_acoplado')       return window.PerfisRevAcoplado;
+    if (tipo === 'revestimento_parede') return window.PerfisRevParede;
+    return null;
+  }
+
+  // Estado da sub-aba dentro de Lev. Perfis (compartilhado entre renders)
+  if (typeof UI.subLevPerfis === 'undefined') UI.subLevPerfis = 'cortes';
+
+  /**
+   * ORDEM DA TABELA — definida pelo Felipe (nomes completos, ordem fixa):
+   * FOLHA:
+   *   1) ALTURA FOLHA
+   *   2) TRAVESSA VERTICAL
+   *   3) FRISO VERTICAL
+   *   4) CANTONEIRA CAVA
+   *   5) TUBO CAVA
+   *   6) LARGURA INFERIOR & SUPERIOR
+   *   7) TRAVESSA HORIZONTAL
+   *   8) FRISO HORIZONTAL
+   *   9) VEDA PORTA INFERIOR & SUPERIOR
+   *  10) CANAL ESCOVA
+   *  11) TRAVAMENTO CAVA (sempre por ultimo)
+   * PORTAL: ALTURA PORTAL → LARGURA PORTAL → TRAVESSA PORTAL
+   */
+  const ORDEM_FOLHA = [
+    'ALTURA FOLHA',
+    'TRAVESSA VERTICAL',
+    'FRISO VERTICAL',
+    'CANTONEIRA CAVA',
+    'TUBO CAVA',
+    'LARGURA INFERIOR & SUPERIOR',
+    'TRAVESSA HORIZONTAL',
+    'FRISO HORIZONTAL',
+    'VEDA PORTA INFERIOR & SUPERIOR',
+    'CANAL ESCOVA',
+    'TRAVAMENTO CAVA',
+  ];
+  const ORDEM_PORTAL = ['ALTURA PORTAL', 'LARGURA PORTAL', 'TRAVESSA PORTAL'];
+  // Felipe (R20): labels do motor estao em Title Case ('Altura Portal'),
+  // mas as constantes de ordem estao em UPPER. Comparacao precisa ser
+  // case-insensitive — senao 'Altura Portal' nao bate com 'ALTURA PORTAL'
+  // e vai pro grupo Folha errado.
+  function _normLabel(s) { return String(s || '').toUpperCase().trim(); }
+  function ordemDoLabel(label) {
+    const u = _normLabel(label);
+    const i1 = ORDEM_FOLHA.indexOf(u);
+    if (i1 >= 0) return i1;
+    const i2 = ORDEM_PORTAL.indexOf(u);
+    if (i2 >= 0) return 1000 + i2;
+    return 9999;
+  }
+  function ehLinhaPortal(label) {
+    return ORDEM_PORTAL.includes(_normLabel(label));
+  }
+
+  /**
+   * Felipe (sessao 2026-09): calcula peso liquido total da FOLHA de um
+   * item (perfis FOLHA + chapas FOLHA). Usado pra escolher pivo 350 vs
+   * 600 kg em Lev. Acessorios. Helper isolado: nao modifica motores
+   * existentes, so' le os resultados deles.
+   *
+   * Estrategia:
+   *   - Perfis: roda motorPerfisPorTipo(item.tipo).gerarCortes(item),
+   *     soma (comp/1000) × kgM × qty para cortes que NAO sao do PORTAL
+   *     (FOLHA + FIXO sao tratados como "estrutura da folha" pra peso).
+   *   - Chapas: usa ChapasPortaExterna.gerarPecasChapa(item, lado) pros
+   *     2 lados, soma area das pecas categoria !== 'portal' × kg/m² da
+   *     chapa-mae. Como nao temos acesso facil ao kg/m² aqui sem rodar
+   *     a otimizacao de chapa, usa fallback de 8 kg/m² (ACM 4mm padrao)
+   *     se nao conseguir descobrir.
+   *
+   * Retorna { peso, detalhe } onde detalhe explica a composicao.
+   * Se nao tem dados pra calcular, retorna { peso: 0 }.
+   */
+  function calcularPesoFolhaItem(item, perfisCadastro) {
+    if (!item || item.tipo !== 'porta_externa') return { peso: 0 };
+    let pesoPerfis = 0;
+    let pesoChapas = 0;
+
+    // --- Perfis FOLHA ---
+    try {
+      const motor = motorPerfisPorTipo(item.tipo);
+      if (motor && motor.gerarCortes) {
+        // Anexa modeloNome (igual recalcularPerfisESalvarNoFab faz)
+        const modelos = (window.Storage ? Storage.scope('cadastros').get('modelos_lista') : null) || [];
+        const numModelo = parseInt(String(item.modeloNumero || '').replace(/\D/g, ''), 10) || 0;
+        const modeloAtual = modelos.find(m => Number(m.numero) === numModelo);
+        const itemEnriquecido = Object.assign({}, item, { modeloNome: (modeloAtual && modeloAtual.nome) || '' });
+        const cortes = motor.gerarCortes(itemEnriquecido) || {};
+        for (const cod in cortes) {
+          const cad = (perfisCadastro && perfisCadastro[cod]) || {};
+          const kgM = Number(cad.kgPorMetro) || 0;
+          if (!kgM) continue;
+          (cortes[cod] || []).forEach(c => {
+            // Soma somente FOLHA (label nao em ORDEM_PORTAL).
+            // FIXO e' raro em porta_externa e nao tem label estavel
+            // ainda; conta como folha (afeta peso, ok).
+            if (ehLinhaPortal(c.label)) return;
+            const peso = (Number(c.comp) || 0) / 1000 * kgM * (Number(c.qty) || 0);
+            pesoPerfis += peso;
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[calcularPesoFolhaItem] perfis falhou:', e);
+    }
+
+    // --- Chapas FOLHA ---
+    try {
+      if (window.ChapasPortaExterna && window.ChapasPortaExterna.gerarPecasChapa) {
+        // Felipe (sessao 30): "RETORNE PARA COLETAR PESO DAS CHAPAS
+        // DIRETAMENTE DO CADASTRO, SE ESTIVER COM PESO 0 DEIXE ZERO
+        // NUNCA PUXE NENHUM PESO QUE NAO SAIBA". Sem fallback chumbado.
+        // Cadastro usa campo `descricao` (nao `codigo` nem `nome`).
+        let kgM2 = 0;
+        try {
+          const supList = (window.Storage ? Storage.scope('cadastros').get('superficies_lista') : null) || [];
+          const rev = String(item.revestimento || '').toUpperCase().trim();
+          if (rev) {
+            const sup = supList.find(s => String(s.descricao || '').toUpperCase().trim() === rev);
+            kgM2 = Number(sup && sup.peso_kg_m2) || 0;
+          }
+        } catch (_) {}
+        // Se kgM2=0 (cadastro nao tem peso ou material nao encontrado),
+        // pesoChapas fica 0 — Felipe prefere zero a chute errado.
+
+        if (kgM2 > 0) {
+          ['externo', 'interno'].forEach(lado => {
+            try {
+              const pecas = window.ChapasPortaExterna.gerarPecasChapa(item, lado) || [];
+              pecas.forEach(p => {
+                if (p.categoria === 'portal') return;  // so' FOLHA
+                const m2 = (Number(p.largura) || 0) * (Number(p.altura) || 0) * (Number(p.qtd) || 1) / 1000000;
+                pesoChapas += m2 * kgM2;
+              });
+            } catch (_) {}
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[calcularPesoFolhaItem] chapas falhou:', e);
+    }
+
+    const peso = pesoPerfis + pesoChapas;
+    return {
+      peso,
+      detalhe: { perfis: pesoPerfis, chapas: pesoChapas },
+    };
+  }
+
+  // Felipe (sessao 30 debug): expoe a funcao pra ele rodar no console e
+  // me mandar o resultado quando o peso do pivo nao bate. Loga cada
+  // peca individualmente pra eu ver de onde vem o peso.
+  window.debugPivo = function(itemIdx) {
+    const versao = obterVersaoAtiva && obterVersaoAtiva();
+    if (!versao || !versao.itens) {
+      console.error('[debugPivo] versao nao encontrada');
+      return null;
+    }
+    const idx = (Number(itemIdx) || 1) - 1;
+    const item = versao.itens[idx];
+    if (!item) {
+      console.error('[debugPivo] item', itemIdx, 'nao existe. Itens disponiveis:', versao.itens.length);
+      return null;
+    }
+    const perfisCadastro = construirCadastroPerfis();
+    console.group(`[debugPivo] Item ${idx + 1} — ${item.largura}×${item.altura}mm, ${item.nFolhas}F, modelo ${item.modeloNumero}, sistema ${item.sistema}`);
+
+    // Perfis
+    let pesoPerfisFolha = 0, pesoPerfisPortal = 0;
+    const motor = motorPerfisPorTipo(item.tipo);
+    if (motor && motor.gerarCortes) {
+      const modelos = (window.Storage ? Storage.scope('cadastros').get('modelos_lista') : null) || [];
+      const numModelo = parseInt(String(item.modeloNumero || '').replace(/\D/g, ''), 10) || 0;
+      const modeloAtual = modelos.find(m => Number(m.numero) === numModelo);
+      const itemEnriq = Object.assign({}, item, { modeloNome: (modeloAtual && modeloAtual.nome) || '' });
+      const cortes = motor.gerarCortes(itemEnriq) || {};
+      console.group('PERFIS');
+      console.table(Object.keys(cortes).flatMap(cod => {
+        const kgM = (perfisCadastro[cod] && perfisCadastro[cod].kgPorMetro) || 0;
+        return (cortes[cod] || []).map(c => {
+          const peso = (Number(c.comp) || 0) / 1000 * kgM * (Number(c.qty) || 0);
+          const eh = ehLinhaPortal(c.label) ? 'PORTAL' : 'FOLHA';
+          if (eh === 'PORTAL') pesoPerfisPortal += peso; else pesoPerfisFolha += peso;
+          return { codigo: cod, label: c.label, comp: c.comp, qty: c.qty, kgM: kgM, peso: Number(peso.toFixed(2)), tipo: eh };
+        });
+      }));
+      console.log(`Perfis FOLHA: ${pesoPerfisFolha.toFixed(2)}kg`);
+      console.log(`Perfis PORTAL: ${pesoPerfisPortal.toFixed(2)}kg`);
+      console.log(`Perfis TOTAL: ${(pesoPerfisFolha + pesoPerfisPortal).toFixed(2)}kg`);
+      console.groupEnd();
+    }
+
+    // Chapas
+    let pesoChapasFolha = 0, pesoChapasPortal = 0, kgM2 = 0;
+    if (window.ChapasPortaExterna && window.ChapasPortaExterna.gerarPecasChapa) {
+      try {
+        const supList = (window.Storage ? Storage.scope('cadastros').get('superficies_lista') : null) || [];
+        const rev = String(item.revestimento || '').toUpperCase().trim();
+        if (rev) {
+          const sup = supList.find(s => String(s.descricao || '').toUpperCase().trim() === rev);
+          kgM2 = Number(sup && sup.peso_kg_m2) || 0;
+        }
+      } catch (_) {}
+      const kgM2Final = kgM2 || 0;  // Felipe sessao 30: ZERO se nao tem cadastro
+      console.group(`CHAPAS — revestimento "${item.revestimento || '?'}" → ${kgM2 ? kgM2 + ' kg/m² (cadastro)' : 'NAO ENCONTRADO no cadastro — peso = 0'}`);
+      const todasPecas = [];
+      ['externo', 'interno'].forEach(lado => {
+        const pecas = window.ChapasPortaExterna.gerarPecasChapa(item, lado) || [];
+        pecas.forEach(p => {
+          const m2 = (Number(p.largura) || 0) * (Number(p.altura) || 0) * (Number(p.qtd) || 1) / 1000000;
+          const peso = m2 * kgM2Final;
+          if (p.categoria === 'portal') pesoChapasPortal += peso; else pesoChapasFolha += peso;
+          todasPecas.push({ lado, tipo: p.tipo, largura: p.largura, altura: p.altura, qtd: p.qtd, m2: Number(m2.toFixed(3)), peso: Number(peso.toFixed(2)), categoria: p.categoria });
+        });
+      });
+      console.table(todasPecas);
+      console.log(`Chapas FOLHA: ${pesoChapasFolha.toFixed(2)}kg`);
+      console.log(`Chapas PORTAL: ${pesoChapasPortal.toFixed(2)}kg`);
+      console.log(`Chapas TOTAL: ${(pesoChapasFolha + pesoChapasPortal).toFixed(2)}kg`);
+      console.groupEnd();
+    }
+
+    // Resumo
+    const totalFolha = pesoPerfisFolha + pesoChapasFolha;
+    const nF = Number(item.nFolhas) || 1;
+    console.group('RESUMO');
+    console.log(`Item ${idx + 1}: ${nF} folhas`);
+    console.log(`Peso FOLHA item (perfis+chapas folha): ${totalFolha.toFixed(2)}kg`);
+    console.log(`Peso por folha (÷${nF}): ${(totalFolha / nF).toFixed(2)}kg`);
+    console.log(`  → perfis/folha: ${(pesoPerfisFolha / nF).toFixed(2)}kg`);
+    console.log(`  → chapas/folha: ${(pesoChapasFolha / nF).toFixed(2)}kg`);
+    console.log(`Decisao pivo: ${(totalFolha / nF) > 350 ? 'PA-PIVOT 600 KG' : 'PA-PIVOT 350 KG'}`);
+    console.groupEnd();
+    console.groupEnd();
+    return {
+      perfisFolha: pesoPerfisFolha,
+      perfisPortal: pesoPerfisPortal,
+      chapasFolha: pesoChapasFolha,
+      chapasPortal: pesoChapasPortal,
+      kgM2: kgM2,
+      kgM2_origem: kgM2 ? 'cadastro' : 'NAO ENCONTRADO',
+      totalFolha,
+      pesoPorFolha: totalFolha / nF,
+    };
+  };
+
+  /**
+   * Recalcula os totais do Planificador e PERSISTE em fab.total_perfis e
+   * fab.total_pintura (e' assim que o DRE recebe os custos auto). Chamado
+   * sempre que abre Lev. Perfis ou o DRE — mantem os 2 sincronizados.
+   * Retorna { result, totalBarras, perda, aprovGeral, blocosPorItem }
+   */
+  function recalcularPerfisESalvarNoFab(versao, itens) {
+    const perfisCadastro = construirCadastroPerfis();
+    const cortesPorCodigo = {};
+    // Cadastro de modelos pra resolver modeloNumero -> nome (deteccao "cava" por descricao)
+    const modelos = (window.Storage ? Storage.scope('cadastros').get('modelos_lista') : null) || [];
+
+    // Felipe (sessao 30): expoe versao ativa pra o motor de fixo_acoplado
+    // poder ler a porta principal quando fixoSegueModelo='sim'. Approach
+    // simples — sem refatorar interface dos motores.
+    window._versaoAtivaParaFixo = versao;
+
+    // Felipe (sessao 27 fix): le overrides/excluidas/extras de lev_ajustes
+    // pra aplicar antes de gerar cortesPorCodigo. Sem isso, editar Qtd ou
+    // Tamanho na aba "Cortes por Item" nao atualizava os cards de Kg
+    // Liquido / Kg Bruto / Aproveitamento (usavam cortes ORIGINAIS).
+    // Felipe (sessao 28 fix CRITICO): usar 'store' local (definido na
+    // linha ~27 como Storage.scope('orcamentos')), NAO window.store
+    // (que nao existe — bug da sessao 27 fez o fix nao funcionar).
+    const ajustesAll = store.get('lev_ajustes') || {};
+    const ajustesV = (versao && ajustesAll[versao.id]) || {};
+    const overrides = ajustesV.overrides || {};
+    const excluidas = new Set(ajustesV.excluidas || []);
+    const extras    = ajustesV.extras    || [];
+    const keyLinha  = (itemIdx, codigo, descricao) => `${itemIdx}|${codigo}|${descricao}`;
+
+    const blocosPorItem = itens.map((item, idx) => {
+      const motor = motorPerfisPorTipo(item.tipo);
+      if (!motor) {
+        return { itemIdx: idx + 1, item, descricao: `Item ${idx + 1}: tipo desconhecido`, cortes: {}, temRegra: false };
+      }
+      // Anexa nome do modelo pro motor poder detectar "cava" pela descricao
+      // sem mudar a interface dele (motor recebe o item, nao o cadastro inteiro).
+      const numModelo = parseInt(String(item.modeloNumero || '').replace(/\D/g, ''), 10) || 0;
+      const modeloAtual = modelos.find(m => Number(m.numero) === numModelo);
+      const itemEnriquecido = { ...item, modeloNome: modeloAtual?.nome || '' };
+      let cortes = motor.gerarCortes(itemEnriquecido) || {};
+
+      // Felipe (sessao 27 fix): aplica overrides + remove excluidas
+      const itemIdx = idx + 1;
+      const cortesAjustados = {};
+      for (const cod in cortes) {
+        const arr = (cortes[cod] || []).map(c => {
+          const k = keyLinha(itemIdx, cod, c.label || '');
+          if (excluidas.has(k)) return null;
+          const ov = overrides[k];
+          if (ov) {
+            return Object.assign({}, c, {
+              comp: (Number.isFinite(ov.comp) && ov.comp > 0) ? ov.comp : c.comp,
+              qty:  (Number.isFinite(ov.qty)  && ov.qty  > 0) ? ov.qty  : c.qty,
+            });
+          }
+          return c;
+        }).filter(Boolean);
+        if (arr.length > 0) cortesAjustados[cod] = arr;
+      }
+      cortes = cortesAjustados;
+
+      const temRegra = Object.keys(cortes).length > 0;
+      // Agrega no cortesPorCodigo global pra Planificador rodar FFD
+      for (const cod in cortes) {
+        if (!cortesPorCodigo[cod]) cortesPorCodigo[cod] = [];
+        cortes[cod].forEach(c => cortesPorCodigo[cod].push({ ...c, itemIdx: idx + 1 }));
+      }
+      return {
+        itemIdx,
+        item,
+        descricao: motor.descricaoItem ? motor.descricaoItem(item) : `Item ${idx + 1}`,
+        cortes,
+        temRegra,
+      };
+    });
+
+    // Felipe (sessao 27 fix): adiciona linhas EXTRAS (manuais) ao
+    // cortesPorCodigo global. Cada extra tem itemIdx, codigo, descricao
+    // (label), comp, qty, kgM, barLen.
+    extras.forEach(ex => {
+      const cod = String(ex.codigo || '').trim();
+      if (!cod) return;
+      if (!cortesPorCodigo[cod]) cortesPorCodigo[cod] = [];
+      cortesPorCodigo[cod].push({
+        comp: Number(ex.comp) || 0,
+        qty:  Number(ex.qty)  || 0,
+        label: ex.descricao || '',
+        itemIdx: ex.itemIdx || 1,
+      });
+    });
+
+    const result = window.PerfisCore.calcularPorCodigo(cortesPorCodigo, perfisCadastro);
+    const totalBarras = result.itens.reduce((s, i) => s + i.nBars, 0);
+    const perda = result.kgBrutoTotal - result.kgLiqTotal;
+    const aprovGeral = result.kgBrutoTotal > 0 ? (result.kgLiqTotal / result.kgBrutoTotal) * 100 : 0;
+
+    // === AUTO-SALVA no fab.total_perfis e fab.total_pintura ===
+    // Se o usuario nao editou manualmente esses campos (auto-fill).
+    if (versao && versao.status !== 'fechada') {
+      const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
+      fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
+      const novoTPerfis  = Math.round(result.custoPerfis  * 100) / 100;
+      const novoTPintura = Math.round(result.custoPintura * 100) / 100;
+      const mudou = (Math.abs((Number(fab.total_perfis)  || 0) - novoTPerfis)  > 0.01)
+                 || (Math.abs((Number(fab.total_pintura) || 0) - novoTPintura) > 0.01);
+      if (mudou) {
+        fab.total_perfis  = novoTPerfis;
+        fab.total_pintura = novoTPintura;
+        atualizarVersao(UI.versaoAtivaId, { custoFab: fab });
+      }
+    }
+
+    return { result, blocosPorItem, totalBarras, perda, aprovGeral, perfisCadastro };
+  }
+
+  function renderLevPerfisTab(container) {
+    inicializarSessao();
+    const versao = versaoAtiva();
+    const motivoBloqueio = versao ? precisaCalcular(versao) : null;
+    if (motivoBloqueio) {
+      return renderPrecisaCalcular(container, versao, motivoBloqueio, 'Levantamento de Perfis');
+    }
+    const itens = (versao && versao.itens) || [];
+    if (!itens.length) {
+      container.innerHTML = `
+        <div class="placeholder">
+          <div class="icon-big">📏</div>
+          <h3>Sem itens nessa versao</h3>
+          <p>Adicione itens na aba "Caracteristicas do Item" pra ver o levantamento.</p>
+        </div>`;
+      return;
+    }
+
+    // Roda o calculo + persiste totais no FAB (DRE auto-puxa)
+    const calc = recalcularPerfisESalvarNoFab(versao, itens);
+
+    // Felipe (do doc): TODO relatorio tem cabecalho padronizado.
+    const lead = lerLeadAtivo() || {};
+    const opcaoLev = obterVersao(versao.id)?.opcao;
+    const numDocLev = `${(opcaoLev?.letra || 'A')} - ${versao.numero}`;
+    const headerLevHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
+      ? window.Empresa.montarHeaderRelatorio({
+          lead,
+          tituloRelatorio: 'Levantamento de Perfis',
+          numeroDocumento: numDocLev,
+          validade: 15,
+        })
+      : '';
+
+    // Header com sub-abas Cortes / Planificador (pedido do Felipe)
+    const subAbaAtiva = UI.subLevPerfis || 'cortes';
+
+    // Felipe (sessao 2026-05): aviso visivel quando o motor de perfis
+    // pede codigos que NAO estao no cadastro. Antes ficava silenciado
+    // com peso/preco zerado — agora o usuario ve a falta e sabe quais
+    // perfis precisam ser adicionados em Cadastros > Perfis.
+    let bannerFaltantes = '';
+    try {
+      const faltantes = (calc.perfisCadastro && calc.perfisCadastro._codigosFaltantes) || new Set();
+      if (faltantes.size > 0) {
+        const lista = Array.from(faltantes).sort();
+        bannerFaltantes = `
+          <div class="orc-banner-aviso orc-banner-aviso-erro">
+            <div class="orc-banner-aviso-icon">⚠</div>
+            <div class="orc-banner-aviso-conteudo">
+              <div class="orc-banner-aviso-titulo">
+                ${lista.length} codigo(s) de perfil pedido(s) pelo motor NAO existem no cadastro
+              </div>
+              <div class="orc-banner-aviso-detalhe">
+                Esses perfis aparecem com <b>peso/preco zerado</b> nas tabelas abaixo. Para corrigir,
+                adicione cada um em <b>Cadastros &gt; Perfis</b> com seu kg/m correto:
+                <ul class="orc-banner-aviso-lista">
+                  ${lista.map(c => `<li><code>${escapeHtml(c)}</code></li>`).join('')}
+                </ul>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    } catch (e) { /* nao bloqueia render */ }
+
+    container.innerHTML = `
+      ${headerLevHtml}
+      ${bannerCaracteristicasItens(versao)}
+      ${bannerFaltantes}
+      <div class="lvp-subtabs">
+        <button type="button" class="lvp-subtab ${subAbaAtiva === 'cortes' ? 'is-active' : ''}" data-subtab="cortes">📋 Cortes por Item</button>
+        <button type="button" class="lvp-subtab ${subAbaAtiva === 'planificador' ? 'is-active' : ''}" data-subtab="planificador">🧩 Aproveitamento de Barras</button>
+        <div class="lvp-subtabs-spacer"></div>
+        <!-- Felipe (sessao 2026-08): "permita imprimir todas as abas
+             do levantamento de perfis" — botoes PNG e PDF nas duas sub-abas -->
+        <button type="button" class="rep-export-btn" id="lvp-btn-export-png" title="Exporta esta sub-aba como imagem PNG">🖼 PNG</button>
+        <button type="button" class="rep-export-btn" id="lvp-btn-export-pdf" title="Exporta esta sub-aba como PDF">📄 PDF</button>
+        <button type="button" class="univ-btn-export" id="lvp-btn-recalcular">↻ Recalcular</button>
+      </div>
+      <div id="lvp-content"></div>
+    `;
+
+    const renderConteudo = () => {
+      const mount = container.querySelector('#lvp-content');
+      if (!mount) return;
+      if (UI.subLevPerfis === 'planificador') {
+        renderPlanificadorContent(mount, calc, versao);
+      } else {
+        renderCortesPorItemContent(mount, calc);
+      }
+    };
+    renderConteudo();
+
+    // Sub-abas
+    container.querySelectorAll('.lvp-subtab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        UI.subLevPerfis = btn.dataset.subtab;
+        container.querySelectorAll('.lvp-subtab').forEach(b => b.classList.toggle('is-active', b.dataset.subtab === UI.subLevPerfis));
+        renderConteudo();
+      });
+    });
+
+    // Felipe (sessao 2026-08): exportar a sub-aba ativa como PNG ou PDF
+    container.querySelector('#lvp-btn-export-png')?.addEventListener('click', () => {
+      const cliente = (lerLeadAtivo()?.cliente || 'cliente');
+      const aba = UI.subLevPerfis === 'planificador' ? 'aproveitamento-barras' : 'cortes-por-item';
+      const alvo = container.querySelector('#lvp-content');
+      if (!alvo) return;
+      // Da um id temporario pra exportar
+      alvo.id = 'lvp-content-export';
+      exportarRelatorioPNG('lvp-content-export', `LevPerfis_${aba}_${cliente}`);
+      // Restaura id original (renderConteudo recria)
+      setTimeout(() => { if (alvo) alvo.id = 'lvp-content'; }, 200);
+    });
+    container.querySelector('#lvp-btn-export-pdf')?.addEventListener('click', () => {
+      const cliente = (lerLeadAtivo()?.cliente || 'cliente');
+      const aba = UI.subLevPerfis === 'planificador' ? 'aproveitamento-barras' : 'cortes-por-item';
+      const alvo = container.querySelector('#lvp-content');
+      if (!alvo) return;
+      alvo.id = 'lvp-content-export';
+      exportarRelatorioPDF('lvp-content-export', `LevPerfis_${aba}_${cliente}`);
+      setTimeout(() => { if (alvo) alvo.id = 'lvp-content'; }, 200);
+    });
+
+    // Recalcular — R13: avisa antes de descartar ajustes manuais
+    container.querySelector('#lvp-btn-recalcular')?.addEventListener('click', () => {
+      // Felipe (sessao 28 fix): se o usuario digitou em algum input
+      // editavel e clicou DIRETO em Recalcular sem Tab/blur, o evento
+      // change pode nao ter disparado. Forca capturar valores dos
+      // inputs ANTES de qualquer logica.
+      try {
+        container.querySelectorAll('.lvp-edit-comp, .lvp-edit-qty').forEach(inp => {
+          inp.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      } catch (e) { /* nao bloqueia */ }
+
+      const versaoAtual = versaoAtiva();
+      let nManuais = 0, nExcluidas = 0, nOverrides = 0;
+      if (versaoAtual) {
+        const all = store.get('lev_ajustes') || {};
+        const a = all[versaoAtual.id] || { extras: [], excluidas: [], overrides: {} };
+        nManuais   = (a.extras    || []).length;
+        nExcluidas = (a.excluidas || []).length;
+        nOverrides = Object.keys(a.overrides || {}).length;
+      }
+      // Felipe (sessao 28 fix): considera tambem overrides na contagem
+      // (antes so' contava extras+excluidas — overrides recalcular
+      // descartava silenciosamente sem avisar).
+      if (nManuais > 0 || nExcluidas > 0 || nOverrides > 0) {
+        const partes = [];
+        if (nManuais > 0)   partes.push(`${nManuais} linha${nManuais   > 1 ? 's' : ''} adicionada${nManuais   > 1 ? 's' : ''} manualmente`);
+        if (nExcluidas > 0) partes.push(`${nExcluidas} linha${nExcluidas > 1 ? 's' : ''} excluida${nExcluidas > 1 ? 's' : ''} manualmente`);
+        if (nOverrides > 0) partes.push(`${nOverrides} edicao${nOverrides > 1 ? 'oes' : ''} de Tamanho/Qtd`);
+        const ok = confirm(
+          `Voce tem ajustes manuais nesta versao (${partes.join(' e ')}).\n\n` +
+          `Recalcular vai DESCARTAR todos esses ajustes e regenerar a tabela do zero.\n\n` +
+          `Continuar?`
+        );
+        if (!ok) {
+          // Felipe (sessao 28 fix): mesmo se NAO confirmar, re-renderiza
+          // a aba pra refletir os ajustes que foram capturados pelo
+          // dispatchEvent acima (caso o usuario tinha digitado mas o
+          // change ainda nao tinha disparado).
+          renderLevPerfisTab(container);
+          return;
+        }
+        // Limpa ajustes desta versao
+        if (versaoAtual) {
+          const all = store.get('lev_ajustes') || {};
+          delete all[versaoAtual.id];
+          store.set('lev_ajustes', all);
+        }
+      }
+      renderLevPerfisTab(container);  // re-renderiza tudo
+    });
+
+    // Felipe (do doc - msg wizard): "Proximo: Levantamento de Acessorios"
+    adicionarBotaoWizard(container, 'lev-perfis');
+  }
+
+  /**
+   * Sub-aba "Cortes por Item" — lista por item, cortes ordenados pela
+   * sequencia que Felipe definiu (PA00F → TRAV → FRISO → CAVA → LAR/VED/CANAL → TRAVAMENTO).
+   */
+  function renderCortesPorItemContent(mount, calc) {
+    const { blocosPorItem, perfisCadastro } = calc;
+    const versao = versaoAtiva();
+
+    // ============================================================
+    // R13 — Ajustes manuais (linhas extras + linhas excluidas)
+    // ============================================================
+    // Persistencia: chave 'lev_ajustes' no scope 'orcamentos', mapeada
+    // por id da versao. Estrutura por versao:
+    //   { extras: [ {id, itemIdx, secao, codigo, descricao, comp, qty, kgM, barLen} ],
+    //     excluidas: [ "key1", "key2", ... ],
+    //     overrides: { "key1": { comp: number, qty: number }, ... } }
+    // Onde key = `${itemIdx}|${codigo}|${descricao}`.
+    //
+    // Felipe (sessao 2026-06): "DEIXE CAMPO LARGURA ALTURA E QTD EDITAVEIS
+    // SE EU ALTERAR CLARO PRECISO REALCULAR" — overrides permitem editar
+    // os valores calculados pelas formulas inline na tabela. O Peso kg
+    // e o Corte mm sao recalculados automaticamente. Botao Recalcular
+    // descarta os overrides.
+    function keyLinha(itemIdx, codigo, descricao) {
+      return `${itemIdx}|${codigo}|${descricao}`;
+    }
+    function getAjustes() {
+      if (!versao) return { extras: [], excluidas: [], overrides: {} };
+      const all = store.get('lev_ajustes') || {};
+      const a = all[versao.id] || { extras: [], excluidas: [], overrides: {} };
+      // Garante estrutura
+      a.extras    = Array.isArray(a.extras) ? a.extras : [];
+      a.excluidas = Array.isArray(a.excluidas) ? a.excluidas : [];
+      a.overrides = (a.overrides && typeof a.overrides === 'object') ? a.overrides : {};
+      return a;
+    }
+    function setAjustes(a) {
+      if (!versao) return;
+      const all = store.get('lev_ajustes') || {};
+      all[versao.id] = a;
+      store.set('lev_ajustes', all);
+    }
+    function temAjustes() {
+      const a = getAjustes();
+      return (a.extras.length > 0)
+          || (a.excluidas.length > 0)
+          || (Object.keys(a.overrides || {}).length > 0);
+    }
+    function limparAjustes() {
+      if (!versao) return;
+      const all = store.get('lev_ajustes') || {};
+      delete all[versao.id];
+      store.set('lev_ajustes', all);
+    }
+    const ajustes = getAjustes();
+
+    let kgLiqTotalGlobal = 0;
+    let totalCortes = 0;
+    blocosPorItem.forEach(b => {
+      for (const codigo in b.cortes) {
+        const cad = perfisCadastro[codigo] || {};
+        b.cortes[codigo].forEach(c => {
+          kgLiqTotalGlobal += (c.comp / 1000) * (cad.kgPorMetro || 0) * c.qty;
+          totalCortes += c.qty;
+        });
+      }
+    });
+
+    function blocoItemHtml(b) {
+      if (!b.temRegra) {
+        const tipoLabel = labelTipo(b.item?.tipo) || 'item';
+        const semDim = (!b.item?.largura || !b.item?.altura);
+        const motivo = semDim
+          ? 'Largura e/ou altura nao foram preenchidas em "Caracteristicas do Item".'
+          : `Motor de calculo de "${tipoLabel}" ainda nao foi implementado.`;
+        return `
+          <div class="lvp-item-bloco">
+            <div class="lvp-item-titulo">
+              <span class="lvp-item-num">ITEM ${b.itemIdx}</span>
+              <span class="lvp-item-desc">${escapeHtml(b.descricao)}</span>
+            </div>
+            <div class="lvp-item-vazio">
+              ⚠ ${escapeHtml(motivo)}
+            </div>
+          </div>`;
+      }
+
+      // Achata cortes em linhas e ORDENA pela sequencia Felipe
+      const linhas = [];
+      let pos = 0;
+      for (const codigo in b.cortes) {
+        b.cortes[codigo].forEach(c => {
+          const cad = perfisCadastro[codigo] || {};
+          const kgM = cad.kgPorMetro || 0;
+          linhas.push({
+            codigo,
+            descricao: c.label,
+            comp: c.comp,
+            qty: c.qty,
+            kgM,
+            pesoKg: (c.comp / 1000) * kgM * c.qty,
+            barLen: window.PerfisCore.tamanhoBarraPorCodigo(codigo),
+            temPintura: !!cad.precoKgPintura,
+            ordem: ordemDoLabel(c.label),
+            ehManual: false,
+          });
+        });
+      }
+
+      // R13 — injeta linhas extras manuais deste item, ja com peso calculado
+      const extrasItem = ajustes.extras.filter(e => e.itemIdx === b.itemIdx);
+      extrasItem.forEach(e => {
+        const cad = perfisCadastro[e.codigo] || {};
+        const kgM = Number(e.kgM) || cad.kgPorMetro || 0;
+        const barLen = Number(e.barLen) || (window.PerfisCore.tamanhoBarraPorCodigo
+          ? window.PerfisCore.tamanhoBarraPorCodigo(e.codigo) : 6000);
+        // ordem por grupo: folha=998, portal=9999, fixo=99999 — sempre por
+        // ultimo dentro de cada grupo, mas grupo Fixo aparece sempre depois.
+        const ordemPorGrupo = e.secao === 'fixo' ? 99999 : (e.secao === 'portal' ? 9999 : 998);
+        linhas.push({
+          codigo: e.codigo,
+          descricao: e.descricao,
+          comp: Number(e.comp) || 0,
+          qty: Number(e.qty) || 0,
+          kgM,
+          pesoKg: ((Number(e.comp) || 0) / 1000) * kgM * (Number(e.qty) || 0),
+          barLen,
+          temPintura: !!cad.precoKgPintura,
+          ordem: ordemPorGrupo,
+          ehManual: true,
+          extraId: e.id,
+          forcaSecao: e.secao,  // 'folha' | 'portal' | 'fixo'
+        });
+      });
+
+      linhas.sort((a, b) => a.ordem - b.ordem);
+
+      // R13 — filtra linhas excluidas (apenas linhas calculadas; manuais sao
+      // removidas pelo proprio botao X delete)
+      const excSet = new Set(ajustes.excluidas);
+      const linhasVisiveis = linhas.filter(l => {
+        if (l.ehManual) return true;  // manuais nunca sao "excluidas" (delete remove)
+        return !excSet.has(keyLinha(b.itemIdx, l.codigo, l.descricao));
+      });
+
+      // Felipe (sessao 2026-06): aplica OVERRIDES de comp/qty editados
+      // inline pelo usuario. Se a linha tem override, sobrescreve comp
+      // e/ou qty e RECALCULA pesoKg = (comp/1000) * kgM * qty.
+      // O override fica em ajustes.overrides[key] (key = itemIdx|codigo|descricao).
+      // Manuais tambem podem ter override (mas geralmente o usuario edita
+      // direto pelos inputs do form de extra).
+      linhasVisiveis.forEach(l => {
+        const k = keyLinha(b.itemIdx, l.codigo, l.descricao);
+        const ov = ajustes.overrides[k];
+        if (ov) {
+          if (Number.isFinite(ov.comp) && ov.comp > 0) l.comp = ov.comp;
+          if (Number.isFinite(ov.qty)  && ov.qty  > 0) l.qty  = ov.qty;
+          // Recalcula peso com novos valores
+          l.pesoKg = (Number(l.comp) / 1000) * (Number(l.kgM) || 0) * Number(l.qty);
+          l.temOverride = true;  // pra mostrar visual diferente
+        }
+      });
+
+      // Felipe: 3 grupos Folha / Portal / Fixo. Cada grupo tem subtotal kg
+      // proprio + total geral = soma dos 3. O motor das fórmulas só gera
+      // linhas pra Folha e Portal por enquanto. Fixo aceita só linhas
+      // manuais (forcaSecao === 'fixo') — quando Felipe definir as fórmulas
+      // do fixo, o motor passa a popular automaticamente.
+      const linhasFolha  = linhasVisiveis
+        .filter(l => l.forcaSecao ? l.forcaSecao === 'folha' : !ehLinhaPortal(l.descricao))
+        .map((l, i) => ({ ...l, pos: i + 1 }));
+      const linhasPortal = linhasVisiveis
+        .filter(l => l.forcaSecao ? l.forcaSecao === 'portal' : ehLinhaPortal(l.descricao))
+        .map((l, i) => ({ ...l, pos: linhasFolha.length + i + 1 }));
+      const linhasFixo   = linhasVisiveis
+        .filter(l => l.forcaSecao === 'fixo')
+        .map((l, i) => ({ ...l, pos: linhasFolha.length + linhasPortal.length + i + 1 }));
+      const subtFolha  = linhasFolha.reduce((s, l) => s + l.pesoKg, 0);
+      const subtPortal = linhasPortal.reduce((s, l) => s + l.pesoKg, 0);
+      const subtFixo   = linhasFixo.reduce((s, l) => s + l.pesoKg, 0);
+      const totalKgGrupos = subtFolha + subtPortal + subtFixo;
+
+      function rowHtml(l) {
+        const dataAttr = l.ehManual
+          ? `data-manual="1" data-extra-id="${escapeHtml(l.extraId)}"`
+          : `data-key="${escapeHtml(keyLinha(b.itemIdx, l.codigo, l.descricao))}"`;
+        const manualBadge = l.ehManual ? '<span class="lvp-manual-tag">manual</span>' : '';
+        const ovBadge = l.temOverride ? '<span class="lvp-override-tag" title="Valor editado manualmente — clique em Recalcular pra restaurar o calculado">edit</span>' : '';
+        const compVal = Math.round(Number(l.comp) || 0);
+        const qtyVal  = Number(l.qty) || 0;
+        // Felipe (sessao 2026-06): Tamanho e Qtd editaveis inline.
+        // Inputs minusculos pra nao alargar a tabela. Salva em
+        // ajustes.overrides no change. R01 — sem casas decimais
+        // pra esses (mm e unidades inteiras).
+        // Felipe (sessao 30): coluna "Corte mm" REMOVIDA DEFINITIVAMENTE.
+        // Felipe ja' pediu pra tirar varias vezes — nunca mais voltar.
+        return `
+          <tr ${dataAttr}>
+            <td class="lvp-pos">${l.pos}</td>
+            <td class="lvp-cod">${escapeHtml(l.codigo)}</td>
+            <td>${escapeHtml(l.descricao)} ${manualBadge}${ovBadge}</td>
+            <td>${l.barLen / 1000}M</td>
+            <td class="num">
+              <input type="number" min="1" step="1"
+                     class="lvp-edit lvp-edit-comp ${l.temOverride ? 'is-override' : ''}"
+                     data-edit-comp data-item-idx="${b.itemIdx}"
+                     data-codigo="${escapeHtml(l.codigo)}"
+                     data-descricao="${escapeHtml(l.descricao)}"
+                     value="${compVal}" />
+            </td>
+            <td class="num">
+              <input type="number" min="1" step="1"
+                     class="lvp-edit lvp-edit-qty ${l.temOverride ? 'is-override' : ''}"
+                     data-edit-qty data-item-idx="${b.itemIdx}"
+                     data-codigo="${escapeHtml(l.codigo)}"
+                     data-descricao="${escapeHtml(l.descricao)}"
+                     value="${qtyVal}" />
+            </td>
+            <td class="num">${escapeHtml(fmtBR(l.kgM))}</td>
+            <td class="num">${escapeHtml(fmtBR(l.pesoKg))}</td>
+            <td class="lvp-obs ${l.temPintura ? 'lvp-bnf' : 'lvp-bruto'}">
+              ${l.temPintura ? 'BNF-TECNO' : 'BRUTO'}
+              <button type="button" class="lvp-row-delete" title="Excluir linha">×</button>
+            </td>
+          </tr>`;
+      }
+
+      return `
+        <div class="lvp-item-bloco" data-item-idx="${b.itemIdx}">
+          <div class="lvp-item-titulo">
+            <span class="lvp-item-num">ITEM ${b.itemIdx}</span>
+            <span class="lvp-item-desc">${escapeHtml(b.descricao)}</span>
+          </div>
+          <table class="lvp-table">
+            <thead>
+              <!-- ============================================================
+                   PROMESSA AO FELIPE (sessao 30): NUNCA MAIS adicionar
+                   coluna "Corte mm" / "KERF" aqui. Felipe pediu pra tirar
+                   varias vezes, sempre voltava — agora ela some PRA SEMPRE.
+                   Se vc esta lendo isso e pensando em adicionar uma coluna
+                   de KERF/corte, NAO ADICIONE. KERF eh interno (motor), nao
+                   exposto pro usuario.
+                   ============================================================ -->
+              <tr>
+                <th>Pos.</th>
+                <th>Codigo</th>
+                <th>Descricao</th>
+                <th>L/H</th>
+                <th class="num">Tamanho</th>
+                <th class="num">Qtd</th>
+                <th class="num">kg/m</th>
+                <th class="num">Peso kg</th>
+                <th>Obs.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Felipe (sessao 30): label do bloco e' dinamico baseado no tipo
+                   do item. Pra fixo_acoplado, mostra "FIXO SUPERIOR" ou "FIXO
+                   LATERAL" conforme item.posicao (em vez de "FOLHA"). -->
+              ${(() => {
+                const ehFixo = b.item && b.item.tipo === 'fixo_acoplado';
+                const labelGrupo = ehFixo
+                  ? `FIXO ${b.item.posicao === 'lateral' ? 'LATERAL' : 'SUPERIOR'}`
+                  : 'FOLHA';
+                return `
+                  <tr class="lvp-grupo"><td colspan="10">${labelGrupo} — Perfis de Corte</td></tr>
+                  ${linhasFolha.map(rowHtml).join('')}
+                  <tr class="lvp-subtotal"><td colspan="8">SUBTOTAL ${labelGrupo} — Peso Liquido</td><td class="num">${fmtBR(subtFolha)}</td><td></td></tr>
+                `;
+              })()}
+              ${linhasPortal.length ? `
+                <tr class="lvp-grupo"><td colspan="10">PORTAL — Perfis de Corte</td></tr>
+                ${linhasPortal.map(rowHtml).join('')}
+                <tr class="lvp-subtotal"><td colspan="8">SUBTOTAL PORTAL — Peso Liquido</td><td class="num">${fmtBR(subtPortal)}</td><td></td></tr>
+              ` : ''}
+              ${linhasFixo.length ? `
+                <tr class="lvp-grupo"><td colspan="10">FIXO — Perfis de Corte</td></tr>
+                ${linhasFixo.map(rowHtml).join('')}
+                <tr class="lvp-subtotal"><td colspan="8">SUBTOTAL FIXO — Peso Liquido</td><td class="num">${fmtBR(subtFixo)}</td><td></td></tr>
+              ` : ''}
+              <tr class="lvp-total-grupos"><td colspan="8">TOTAL DO ITEM — Peso Liquido${(b.item && b.item.tipo === 'fixo_acoplado') ? '' : ' (Folha + Portal + Fixo)'}</td><td class="num">${fmtBR(totalKgGrupos)}</td><td></td></tr>
+            </tbody>
+          </table>
+          <div class="lvp-add-bar">
+            <button type="button" class="lvp-btn-add" data-secao="folha">+ Adicionar Linha (Folha)</button>
+            <button type="button" class="lvp-btn-add" data-secao="portal">+ Adicionar Linha (Portal)</button>
+            <button type="button" class="lvp-btn-add" data-secao="fixo">+ Adicionar Linha (Fixo)</button>
+          </div>
+        </div>`;
+    }
+
+    mount.innerHTML = `
+      <div class="lvp-wrap">
+        <div class="lvp-header">
+          <div class="lvp-header-titulo">
+            <div class="lvp-header-empresa">Projetta Portas Exclusivas</div>
+            <div class="lvp-header-sub">Ordem de Servico — Corte de Perfis de Aluminio (por item)</div>
+          </div>
+          <div class="lvp-header-os">
+            <div class="lvp-os-num">OS-${(versao?.id || '').slice(-12)}</div>
+            <div class="lvp-os-data">${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+          </div>
+        </div>
+
+        <div class="lvp-summary">
+          <div class="lvp-summary-cell">
+            <span class="lvp-summary-lbl">Itens</span>
+            <span class="lvp-summary-val">${blocosPorItem.length}</span>
+          </div>
+          <div class="lvp-summary-cell">
+            <span class="lvp-summary-lbl">Cortes Totais</span>
+            <span class="lvp-summary-val">${totalCortes}</span>
+          </div>
+          <div class="lvp-summary-cell">
+            <span class="lvp-summary-lbl">Kg Liquido Total</span>
+            <span class="lvp-summary-val">${fmtBR(kgLiqTotalGlobal)}</span>
+          </div>
+        </div>
+
+        ${blocosPorItem.map(blocoItemHtml).join('')}
+      </div>
+    `;
+
+    // R12 + R14 + R18: aplica sort por header + filtro com autocomplete em
+    // cada .lvp-table renderizada. Linhas de grupo/subtotal (com colspan)
+    // sao puladas automaticamente pelo helper.
+    if (window.Universal && typeof window.Universal.autoEnhance === 'function') {
+      mount.querySelectorAll('.lvp-table').forEach(tbl => {
+        try { window.Universal.autoEnhance(tbl); }
+        catch (e) { console.warn('[lev-perfis] autoEnhance falhou:', e); }
+      });
+    }
+
+    // R13 — bind: excluir linha (X overlay)
+    mount.querySelectorAll('.lvp-row-delete').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tr = btn.closest('tr');
+        if (!tr) return;
+        const a = getAjustes();
+        if (tr.dataset.manual === '1') {
+          // Linha extra manual: remove do array de extras
+          const id = tr.dataset.extraId;
+          a.extras = a.extras.filter(x => x.id !== id);
+        } else {
+          // Linha calculada: marca como excluida
+          const key = tr.dataset.key;
+          if (key && !a.excluidas.includes(key)) a.excluidas.push(key);
+        }
+        setAjustes(a);
+        renderCortesPorItemContent(mount, calc);  // re-render desta sub-aba apenas
+      });
+    });
+
+    // R13 — bind: adicionar linha manual (form via prompt sequencial — MVP)
+    mount.querySelectorAll('.lvp-btn-add').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const bloco = btn.closest('.lvp-item-bloco');
+        const itemIdx = parseInt(bloco?.dataset.itemIdx || '0', 10);
+        const secao = btn.dataset.secao || 'folha';
+        if (!itemIdx) return;
+        const codigo = (prompt('Codigo do perfil (ex: PA-PA007F-6M):') || '').trim().toUpperCase();
+        if (!codigo) return;
+        const descricao = (prompt('Descricao da linha (ex: REFORCO EXTRA):') || '').trim();
+        if (!descricao) return;
+        const comp = parseFloat(String(prompt('Comprimento do corte (mm):') || '').replace(',', '.'));
+        if (!comp || comp <= 0) { alert('Comprimento invalido.'); return; }
+        const qty = parseInt(String(prompt('Quantidade:') || '0'), 10);
+        if (!qty || qty <= 0) { alert('Quantidade invalida.'); return; }
+        const a = getAjustes();
+        a.extras.push({
+          id: 'ext_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          itemIdx, secao,
+          codigo, descricao,
+          comp, qty,
+          kgM: 0, barLen: 6000,  // sera resolvido via cadastro no render
+        });
+        setAjustes(a);
+        renderCortesPorItemContent(mount, calc);
+      });
+    });
+
+    // Expoe helpers no scope da aba pra que o handler de Recalcular consiga
+    // verificar/limpar ajustes antes de recalcular.
+    mount._levAjustes = { temAjustes, limparAjustes };
+
+    // Felipe (sessao 2026-06): handlers dos inputs editaveis de Tamanho
+    // e Qtd. No change, salva override em ajustes.overrides[key] e
+    // re-renderiza pra mostrar o novo Peso kg recalculado.
+    // Felipe (sessao 28 fix CRITICO):
+    //   1. 'window.store' nao existe (era const local) — corrigido em
+    //      recalcularPerfisESalvarNoFab.
+    //   2. Re-render aba inteira pra cards atualizarem.
+    //   3. Bind 'change' E 'blur' pra cobrir cenarios onde change nao
+    //      dispara (ex: usuario digita e clica direto em outro botao).
+    //   4. Debounce no 'input' tambem cobre uso do spinner numerico.
+    function bindEditInput(inp) {
+      if (inp._lvpBound) return;  // evita bind duplicado
+      inp._lvpBound = true;
+      let pendingTimer = null;
+      const aplicarMudanca = () => {
+        const itemIdx = parseInt(inp.dataset.itemIdx, 10);
+        const codigo = inp.dataset.codigo;
+        const descricao = inp.dataset.descricao;
+        if (!itemIdx || !codigo || descricao == null) return;
+        const k = `${itemIdx}|${codigo}|${descricao}`;
+        const valor = parseFloat(String(inp.value || '').replace(',', '.'));
+        if (!Number.isFinite(valor) || valor <= 0) {
+          alert('Valor invalido. Use um numero maior que zero.');
+          renderCortesPorItemContent(mount, calc);
+          return;
+        }
+        const a = getAjustes();
+        if (!a.overrides[k]) a.overrides[k] = {};
+        if (inp.classList.contains('lvp-edit-comp')) {
+          a.overrides[k].comp = Math.round(valor);
+        } else if (inp.classList.contains('lvp-edit-qty')) {
+          a.overrides[k].qty = Math.max(1, Math.round(valor));
+        }
+        setAjustes(a);
+        // console.log debug visivel pro Felipe ver no DevTools se precisar
+        try { console.log('[LevPerfis] override aplicado', k, a.overrides[k]); } catch (e) {}
+        // Re-render ABA INTEIRA pra cards atualizarem.
+        const containerRaiz = mount.parentElement;
+        if (containerRaiz && typeof renderLevPerfisTab === 'function') {
+          renderLevPerfisTab(containerRaiz);
+        } else {
+          renderCortesPorItemContent(mount, calc);
+        }
+      };
+      // change: dispara quando perde foco com valor diferente
+      inp.addEventListener('change', aplicarMudanca);
+      // blur: garante que aplica mesmo se change nao disparar (alguns navegadores)
+      inp.addEventListener('blur', () => {
+        // Pequeno delay pra change disparar primeiro se for o caso
+        clearTimeout(pendingTimer);
+        pendingTimer = setTimeout(() => {
+          // Se o valor mudou em relacao ao salvo, aplica
+          const itemIdx = parseInt(inp.dataset.itemIdx, 10);
+          const codigo = inp.dataset.codigo;
+          const descricao = inp.dataset.descricao;
+          if (!itemIdx || !codigo || descricao == null) return;
+          const k = `${itemIdx}|${codigo}|${descricao}`;
+          const a = getAjustes();
+          const ov = a.overrides[k] || {};
+          const valor = parseFloat(String(inp.value || '').replace(',', '.'));
+          if (!Number.isFinite(valor) || valor <= 0) return;
+          const valorAtual = inp.classList.contains('lvp-edit-comp')
+            ? Math.round(valor) : Math.max(1, Math.round(valor));
+          const valorSalvo = inp.classList.contains('lvp-edit-comp') ? ov.comp : ov.qty;
+          if (valorAtual !== valorSalvo) {
+            aplicarMudanca();
+          }
+        }, 50);
+      });
+    }
+    mount.querySelectorAll('.lvp-edit-comp, .lvp-edit-qty').forEach(bindEditInput);
+  }
+  function construirCadastroPerfis() {
+    // Felipe (R-inegociavel): preco do kg e da pintura SEMPRE puxa
+    // da aba Cadastro > Perfis. SEM fallback hardcoded. Se o cadastro
+    // tem zero ou o codigo nao existe, retorna zero. Isso garante
+    // que "tudo puxa de um lugar so".
+    //
+    // Estrutura real do cadastro de Perfis (20-perfis.js):
+    //   - Cada perfil tem: codigo, kg_m, fornecedor, tratamento, barra
+    //   - Os PRECOS sao globais por fornecedor: state.params[fornecedor].rs_kg
+    //   - Pintura: state.params.pintura.rs_kg (somado quando tratamento='Pintura')
+    const cadastro = {};
+    let params = {};
+    if (window.Perfis && typeof window.Perfis.listar === 'function') {
+      const lista = window.Perfis.listar() || [];
+      params = (typeof window.Perfis.getParams === 'function') ? window.Perfis.getParams() : {};
+      lista.forEach(p => {
+        const cod = String(p.codigo || '').toUpperCase();
+        const kgM = Number(p.kg_m || p.kgPorMetro || p.kg_por_metro || 0);
+        // Determina fornecedor (default mercado para legados)
+        const fornKey = String(p.fornecedor || 'mercado').toLowerCase();
+        const forn = params[fornKey] || params.mercado || {};
+        const precoKg = Number(forn.rs_kg || 0);
+        // Tratamento: 'Pintura' soma preco de pintura, 'Natural' nao
+        const tratamento = p.tratamento || 'Pintura';
+        const aplicaPintura = (tratamento === 'Pintura');
+        const precoPintura = aplicaPintura ? Number((params.pintura || {}).rs_kg || 0) : 0;
+        cadastro[cod] = {
+          kgPorMetro:    kgM,
+          precoPorKg:    precoKg,
+          precoKgPintura: precoPintura,
+        };
+      });
+    }
+    // Felipe (sessao 2026-05): index normalizado pra match defensivo —
+    // ignora diferenca de hifen vs espaco e variacoes de caixa.
+    // Exemplo: motor pede 'PA-CANT-30X30X2.0' e cadastro tem
+    // 'PA-CANT 30X30X2.0' → match. Mantem comportamento exato como
+    // primeira tentativa (preserva precisao quando codigos batem).
+    const cadastroNormalizado = {};
+    function _normalizarCodigo(c) {
+      return String(c || '').toUpperCase().replace(/\s+/g, '').replace(/-+/g, '-');
+    }
+    Object.keys(cadastro).forEach(k => {
+      cadastroNormalizado[_normalizarCodigo(k)] = cadastro[k];
+    });
+
+    // Felipe (sessao 2026-05): registra codigos pedidos pelo motor que
+    // NAO existem no cadastro. Usado pra renderizar aviso visivel no
+    // Lev. Perfis (em vez de calar zeros silenciosamente).
+    const codigosFaltantes = new Set();
+
+    function buscar(cod) {
+      const codUp = String(cod || '').toUpperCase();
+      if (cadastro[codUp]) return cadastro[codUp];
+      // Codigos com sufixo -6M, -7M, -8M sao variantes do mesmo perfil base
+      const semSufixo = codUp.replace(/-6M$|-7M$|-8M$/, '');
+      if (cadastro[semSufixo]) return cadastro[semSufixo];
+      // Felipe (sessao 2026-05): tenta match normalizado (hifen/espaco)
+      const norm = _normalizarCodigo(codUp);
+      if (cadastroNormalizado[norm]) return cadastroNormalizado[norm];
+      const normSemSufixo = _normalizarCodigo(semSufixo);
+      if (cadastroNormalizado[normSemSufixo]) return cadastroNormalizado[normSemSufixo];
+      // Nao achou nem por fuzzy — registra falta pra UI avisar
+      codigosFaltantes.add(codUp);
+      return { kgPorMetro: 0, precoPorKg: 0, precoKgPintura: 0, _faltante: true };
+    }
+    const proxy = new Proxy(cadastro, {
+      get(target, prop) {
+        if (typeof prop !== 'string') return target[prop];
+        if (prop === '_codigosFaltantes') return codigosFaltantes;
+        return buscar(prop);
+      }
+    });
+    return proxy;
+  }
+
+  // ============================================================
+  //                      ABA: PLANIFICADOR
+  // ============================================================
+  /**
+   * Recebe TODOS os cortes de TODOS os itens (cada item passou pelo
+   * seu motor proprio) e roda o FFD compartilhando barras entre itens
+   * do mesmo codigo de perfil.
+   *
+   * Saida: kg liquido total, kg bruto total, total de barras, custo
+   * (perfil + pintura) — esse e' o numero que vai pro DRE no campo
+   * total_perfis (perfil) e total_pintura (pintura).
+   */
+  /** Sub-aba "Planificador (FFD)" — renderiza usando o `calc` ja pronto
+   *  (vem do recalcularPerfisESalvarNoFab). O calc ja salvou totais no fab. */
+  function renderPlanificadorContent(mount, calc, versao) {
+    const { result, totalBarras, perda, aprovGeral, perfisCadastro, blocosPorItem } = calc;
+
+    if (result.itens.length === 0) {
+      mount.innerHTML = `
+        <div class="placeholder">
+          <div class="icon-big">🧩</div>
+          <h3>Sem cortes pra planificar</h3>
+          <p>Os itens cadastrados nao geraram cortes. Confira a aba "Caracteristicas do Item".</p>
+        </div>`;
+      return;
+    }
+
+    const relBarras = result.itens.map(it => ({
+      codigo: it.codigo,
+      qtd: it.nBars,
+      barra: it.barLen,
+      kgBruto: it.kgBruto,
+      precoKg: (perfisCadastro[it.codigo] || {}).precoPorKg || 0,
+      precoKgPintura: (perfisCadastro[it.codigo] || {}).precoKgPintura || 0,
+      custoPerfil: it.custoPerfil,
+      custoPintura: it.custoPintura,
+    }));
+    const grupoBnf   = relBarras.filter(r => r.precoKgPintura > 0);
+    const grupoBruto = relBarras.filter(r => !r.precoKgPintura);
+
+    function relRow(r, i) {
+      return `
+        <tr>
+          <td>${i + 1}</td>
+          <td class="lvp-cod">${escapeHtml(r.codigo)}</td>
+          <td class="num">${r.qtd}</td>
+          <td class="num">${r.barra}</td>
+          <td class="num">${escapeHtml(fmtBR(r.kgBruto))}</td>
+          <td class="num">R$ ${escapeHtml(fmtBR(r.precoKg))}</td>
+          <td class="num">R$ ${escapeHtml(fmtBR(r.custoPerfil))}</td>
+          <td class="lvp-rb-obs">${r.precoKgPintura > 0 ? `+ R$ ${fmtBR(r.precoKgPintura)}/kg pint.` : ''}</td>
+        </tr>`;
+    }
+    const subtBnfKg  = grupoBnf.reduce((s, r) => s + r.kgBruto, 0);
+    const subtBnfR$  = grupoBnf.reduce((s, r) => s + r.custoPerfil, 0);
+    const subtBruKg  = grupoBruto.reduce((s, r) => s + r.kgBruto, 0);
+    const subtBruR$  = grupoBruto.reduce((s, r) => s + r.custoPerfil, 0);
+
+    // Felipe (do doc - msg "Aproveitamento de Barras nao tem cabecalho, todo
+    // item exportavel deve conter cabecalho"): adiciona cabecalho da empresa
+    // + banner com caracteristicas do item antes do conteudo do planificador.
+    const leadPl = lerLeadAtivo() || {};
+    const versaoAtual = versaoAtiva();
+    const opcaoAtual = obterVersao(UI.versaoAtivaId)?.opcao;
+    const numDocPl = `${(opcaoAtual?.letra || 'A')} - ${versaoAtual?.numero || 1}`;
+    const headerPlHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
+      ? window.Empresa.montarHeaderRelatorio({
+          lead: leadPl,
+          tituloRelatorio: 'Planificador de Cortes / Aproveitamento de Barras',
+          numeroDocumento: numDocPl,
+          validade: 15,
+        })
+      : '';
+
+    mount.innerHTML = `
+      ${headerPlHtml}
+      ${bannerCaracteristicasItens(versaoAtual)}
+      <div class="lvp-wrap">
+        <div class="lvp-header">
+          <div class="lvp-header-titulo">
+            <div class="lvp-header-empresa">APROVEITAMENTO DE BARRAS</div>
+            <div class="lvp-header-sub">Bin packing FFD — barras compartilhadas entre todos os itens · Disco 4mm</div>
+          </div>
+          <div class="lvp-header-os">
+            <div class="lvp-os-num">${blocosPorItem.length} itens · ${result.itens.length} codigos</div>
+          </div>
+        </div>
+
+        <div class="lvp-cards">
+          <div class="lvp-card">
+            <div class="lvp-card-lbl">Kg Liquido</div>
+            <div class="lvp-card-val">${fmtBR(result.kgLiqTotal)}</div>
+            <div class="lvp-card-sub">peso real das pecas</div>
+          </div>
+          <div class="lvp-card lvp-card-destaque">
+            <div class="lvp-card-lbl">Kg Bruto <span class="lvp-star">★</span></div>
+            <div class="lvp-card-val">${fmtBR(result.kgBrutoTotal)}</div>
+            <div class="lvp-card-sub">barras inteiras — base precificacao</div>
+          </div>
+          <div class="lvp-card">
+            <div class="lvp-card-lbl">Aproveitamento</div>
+            <div class="lvp-card-val lvp-card-aprov">${aprovGeral.toFixed(1)}%</div>
+            <div class="lvp-card-sub">media geral das barras</div>
+          </div>
+          <div class="lvp-card">
+            <div class="lvp-card-lbl">Total Barras</div>
+            <div class="lvp-card-val">${totalBarras}</div>
+            <div class="lvp-card-sub">pecas a comprar</div>
+          </div>
+          <div class="lvp-card">
+            <div class="lvp-card-lbl">Perda</div>
+            <div class="lvp-card-val lvp-card-perda">${fmtBR(perda)}</div>
+            <div class="lvp-card-sub">kg de sobra de corte</div>
+          </div>
+        </div>
+
+        <table class="lvp-rel-barras">
+          <thead>
+            <tr><th class="lvp-rel-titulo" colspan="8">Relacao de Barras — Total Geral (todos os itens)</th></tr>
+            <tr>
+              <th>PR</th><th>Perfil</th><th class="num">Qtde</th><th class="num">Barra</th>
+              <th class="num">Peso Bruto (kg)</th><th class="num">R$/kg</th><th class="num">Custo R$</th><th>Observacao</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${grupoBnf.length ? `<tr class="lvp-rb-grupo"><td colspan="8">BNF / PA-TECNOPERFIL</td></tr>` : ''}
+            ${grupoBnf.map(relRow).join('')}
+            ${grupoBnf.length ? `<tr class="lvp-rb-subtotal"><td colspan="4">Subtotal BNF/PA-TECNOPERFIL</td><td class="num">${fmtBR(subtBnfKg)}</td><td></td><td class="num">R$ ${fmtBR(subtBnfR$)}</td><td></td></tr>` : ''}
+            ${grupoBruto.length ? `<tr class="lvp-rb-grupo"><td colspan="8">BRUTO</td></tr>` : ''}
+            ${grupoBruto.map((r, i) => relRow(r, grupoBnf.length + i)).join('')}
+            ${grupoBruto.length ? `<tr class="lvp-rb-subtotal"><td colspan="4">Subtotal BRUTO</td><td class="num">${fmtBR(subtBruKg)}</td><td></td><td class="num">R$ ${fmtBR(subtBruR$)}</td><td></td></tr>` : ''}
+            <tr class="lvp-rb-total"><td colspan="4">TOTAL</td><td class="num">${fmtBR(result.kgBrutoTotal)}</td><td></td><td class="num">R$ ${fmtBR(result.custoTotal)}</td><td></td></tr>
+          </tbody>
+        </table>
+
+        <div class="lvp-actions">
+          <button type="button" class="univ-btn-export" id="lvp-btn-padroes">📊 Padroes de Cortes (FFD barra a barra)</button>
+        </div>
+
+        <div id="lvp-modal-mount"></div>
+      </div>
+    `;
+
+    mount.querySelector('#lvp-btn-padroes')?.addEventListener('click', () => {
+      const mountModal = mount.querySelector('#lvp-modal-mount');
+      // Felipe (sessao 2026-05): passa lead + opcao + versao pro modal
+      // poder montar o cabecalho padrao via Empresa.montarHeaderRelatorio.
+      // Isso garante que o PDF exportado identifique o cliente.
+      const ctxLead = (typeof lerLeadAtivo === 'function') ? (lerLeadAtivo() || {}) : {};
+      const ctxOpcao  = obterVersao(UI.versaoAtivaId)?.opcao || null;
+      const ctxVersao = obterVersao(UI.versaoAtivaId)?.versao || null;
+      mountModal.innerHTML = renderModalPadroesCortes(result, { lead: ctxLead, opcao: ctxOpcao, versao: ctxVersao });
+      mountModal.querySelector('#lvp-modal-close')?.addEventListener('click', () => { mountModal.innerHTML = ''; });
+      mountModal.querySelector('#lvp-modal-pdf')?.addEventListener('click', exportarPadroesCortesPDF);
+      mountModal.querySelector('.lvp-modal-overlay')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('lvp-modal-overlay')) mountModal.innerHTML = '';
+      });
+    });
+  }
+
+  /** Modal "Padroes de Cortes" — agora usado pelo Planificador.
+   *  Redesign estilo imagem 8 com cores Projetta:
+   *  - Cabecalho azul escuro distinto (texto branco)
+   *  - Tabela de cortes agregada acima das barras
+   *  - Barras com fundo branco/cinza claro, segmentos azul escuro distintos
+   *  - Cores Projetta: azul-escuro, branco, #E4E8EE, laranja em destaques.
+   *
+   *  Felipe (sessao 2026-05): aceita 2o argumento `ctx` opcional com
+   *  { lead, opcao, versao } pra montar cabecalho padrao Projetta no
+   *  PDF (identificacao do cliente). Se ctx.lead nao vier, omite o
+   *  cabecalho — comportamento antigo preservado.
+   */
+  function renderModalPadroesCortes(result, ctx) {
+    const KERF = (window.PerfisCore && window.PerfisCore.KERF) || 4;
+    const blocosHtml = result.itens.map(it => {
+      // Agrega TODOS os cortes do perfil (somando de todas as barras)
+      // para montar a tabela de cortes (estilo imagem 8).
+      const cortesAgreg = {};
+      (it.bins || []).forEach(b => {
+        b.cortes.forEach(c => {
+          const k = `${c.comp}__${c.label || ''}`;
+          if (!cortesAgreg[k]) {
+            cortesAgreg[k] = { qtd: 0, comp: c.comp, label: c.label || '' };
+          }
+          cortesAgreg[k].qtd++;
+        });
+      });
+      const cortesArr = Object.values(cortesAgreg).sort((a, b) => b.comp - a.comp);
+      const qtdTotalCortes = cortesArr.reduce((s, c) => s + c.qtd, 0);
+
+      const tabCortesHtml = `
+        <table class="lvp-pad-tabela-cortes">
+          <thead>
+            <tr>
+              <th class="num">Qtde</th>
+              <th class="num">Tam (mm)</th>
+              <th class="num">Corte</th>
+              <th>Descricao</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cortesArr.map(c => `
+              <tr>
+                <td class="num"><b>${c.qtd}</b></td>
+                <td class="num">${c.comp}</td>
+                <td class="num">${KERF}/${KERF}</td>
+                <td>${escapeHtml(c.label.toUpperCase())}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="lvp-pad-qtde-total"><b>${qtdTotalCortes}</b> &lt;&lt;&lt; Qtde total do item</div>
+      `;
+
+      const binsHtml = (it.bins || []).map((b, idx) => {
+        const aprov = b.usado / it.barLen * 100;
+        const cortesContagem = {};
+        b.cortes.forEach(c => {
+          const k = `${c.comp}_${c.label || ''}`;
+          if (!cortesContagem[k]) cortesContagem[k] = { comp: c.comp, label: c.label, n: 0 };
+          cortesContagem[k].n++;
+        });
+        const compostoCortes = Object.values(cortesContagem)
+          .map(g => `${g.n}×${g.comp}`).join('  ');
+        const visualCortes = b.cortes.map((c, i) => {
+          const pct = (c.comp / it.barLen * 100).toFixed(2);
+          // Alterna tons de azul para distinguir cortes adjacentes
+          const tone = i % 2 === 0 ? 'is-tone-a' : 'is-tone-b';
+          return `<div class="lvp-cut-segment ${tone}" style="width:${pct}%;" title="${escapeHtml(c.label || '')}">${c.comp}</div>`;
+        }).join('');
+        const sobraPct = ((it.barLen - b.usado) / it.barLen * 100).toFixed(2);
+        const sobraMm = Math.round(it.barLen - b.usado);
+        return `
+          <div class="lvp-bin">
+            <div class="lvp-bin-info-row">
+              <span><b>Barra ${idx + 1}</b> | ${it.barLen}mm | Util: ${it.barLen}mm | ${it.bins.length} barras total</span>
+              <span class="lvp-bin-aprov-text ${aprov >= 85 ? 'is-good' : aprov >= 75 ? 'is-mid' : 'is-low'}">Aprov: ${aprov.toFixed(0)}% | Sobra: ${sobraMm}mm</span>
+            </div>
+            <div class="lvp-bin-cortes-list">${compostoCortes}</div>
+            <div class="lvp-bin-cortes">
+              ${visualCortes}<div class="lvp-cut-sobra" style="width:${sobraPct}%;">${sobraMm}mm</div>
+            </div>
+            <div class="lvp-bin-sobra-row">
+              <span></span>
+              <span class="lvp-bin-sobra-text">Sobra: ${sobraMm}mm</span>
+            </div>
+          </div>`;
+      }).join('');
+      return `
+        <div class="lvp-pad-bloco">
+          <div class="lvp-pad-head">
+            <div class="lvp-pad-head-left">
+              <span class="lvp-cod-pill">${escapeHtml(it.codigo)}</span>
+            </div>
+            <div class="lvp-pad-head-mid">
+              <span class="lvp-pad-bars-pill">${it.nBars} barras × ${it.barLen / 1000}m</span>
+            </div>
+            <div class="lvp-pad-head-right">
+              Aproveitamento: <b>${it.aproveitamento.toFixed(1)}%</b>
+            </div>
+          </div>
+          ${tabCortesHtml}
+          ${binsHtml}
+        </div>`;
+    }).join('');
+
+    // Felipe (sessao 2026-05): cabecalho padrao Projetta (logo + dados
+    // empresa + cliente + AGP + reserva + cidade + representante).
+    // So' renderiza se o ctx tiver lead — assim o modal continua
+    // funcionando sem cabecalho em chamadas legadas.
+    let headerPadCortesHtml = '';
+    if (ctx && ctx.lead && window.Empresa && typeof window.Empresa.montarHeaderRelatorio === 'function') {
+      const numDoc = ctx.opcao && ctx.versao
+        ? `${(ctx.opcao.letra || 'A')} - ${ctx.versao.numero}`
+        : '—';
+      headerPadCortesHtml = window.Empresa.montarHeaderRelatorio({
+        lead: ctx.lead,
+        tituloRelatorio: 'Padroes de Cortes — Aproveitamento de Barras',
+        numeroDocumento: numDoc,
+        validade: 15,
+      });
+    }
+
+    return `
+      <div class="lvp-modal-overlay">
+        <div class="lvp-modal">
+          <div class="lvp-modal-head">
+            <div>
+              <div class="lvp-modal-titulo">Padroes de Cortes — Aproveitamento de Barras</div>
+              <div class="lvp-modal-sub">Serra: ${KERF}mm/corte | Algoritmo: First Fit Decreasing (FFD)</div>
+            </div>
+            <div class="lvp-modal-actions">
+              <button type="button" id="lvp-modal-pdf" class="lvp-modal-pdf-btn" title="Baixa um PDF direto, sem abrir tela de impressao">⬇ Exportar PDF</button>
+              <button type="button" id="lvp-modal-close" class="lvp-modal-close-btn">× Fechar</button>
+            </div>
+          </div>
+          <div class="lvp-modal-body" id="lvp-modal-body-print">
+            ${headerPadCortesHtml}
+            ${blocosHtml}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Felipe (R-pdf): exporta o conteudo do modal Padroes de Cortes
+  // direto em PDF, sem abrir a caixa de dialogo de impressao do navegador.
+  // Estrategia: lazy-load das libs jsPDF e html2canvas via CDN na primeira
+  // chamada; renderiza o modal-body em canvas; fatia em paginas A4 e
+  // dispara o download.
+  function carregarLib(src) {
+    return new Promise((resolve, reject) => {
+      const existente = document.querySelector(`script[src="${src}"]`);
+      if (existente) {
+        if (existente.dataset.loaded === '1') return resolve();
+        existente.addEventListener('load', () => resolve());
+        existente.addEventListener('error', () => reject(new Error('Falha carregando ' + src)));
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload  = () => { s.dataset.loaded = '1'; resolve(); };
+      s.onerror = () => reject(new Error('Falha carregando ' + src));
+      document.head.appendChild(s);
+    });
+  }
+  async function exportarPadroesCortesPDF() {
+    const corpo = document.getElementById('lvp-modal-body-print');
+    if (!corpo) return;
+    const btn = document.getElementById('lvp-modal-pdf');
+    const btnTextoOriginal = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Gerando...'; }
+
+    // Felipe: PDF estava cortado porque #lvp-modal-body-print tem
+    // overflow-y:auto e max-height. html2canvas so capturava a viewport
+    // visivel do scroll. Solucao: clonar o conteudo num container
+    // off-screen sem scroll/max-height, capturar dali, e remover.
+    let cloneHost = null;
+    try {
+      await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      const html2canvas = window.html2canvas;
+      const jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+      if (!html2canvas || !jsPDF) throw new Error('Libs nao disponiveis');
+
+      // Clona o conteudo em um host off-screen com largura fixa do modal
+      cloneHost = document.createElement('div');
+      cloneHost.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: -10000px;
+        width: 1200px;
+        background: #ffffff;
+        padding: 24px;
+        z-index: -1;
+      `;
+      cloneHost.innerHTML = corpo.innerHTML;
+      document.body.appendChild(cloneHost);
+
+      // Captura o conteudo COMPLETO (sem scroll cropando)
+      const canvas = await html2canvas(cloneHost, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        windowWidth:  cloneHost.scrollWidth,
+        windowHeight: cloneHost.scrollHeight,
+      });
+
+      // PDF A4 retrato (210x297 mm) com margem 10mm
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margem = 10;
+      const larguraImg = pageW - 2 * margem;
+      const alturaImg  = (canvas.height * larguraImg) / canvas.width;
+
+      // Se cabe em uma pagina, adiciona direto
+      if (alturaImg <= pageH - 2 * margem) {
+        const dataUrl = canvas.toDataURL('image/png');
+        pdf.addImage(dataUrl, 'PNG', margem, margem, larguraImg, alturaImg);
+      } else {
+        // Fatiar em multiplas paginas
+        const escala = larguraImg / canvas.width;       // mm por pixel
+        const sliceH = (pageH - 2 * margem) / escala;   // pixels por pagina
+        let yPx = 0;
+        let primeiraPag = true;
+        while (yPx < canvas.height) {
+          const alturaPx = Math.min(sliceH, canvas.height - yPx);
+          const slice = document.createElement('canvas');
+          slice.width  = canvas.width;
+          slice.height = alturaPx;
+          const ctx = slice.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, slice.width, slice.height);
+          ctx.drawImage(canvas, 0, yPx, canvas.width, alturaPx, 0, 0, canvas.width, alturaPx);
+          if (!primeiraPag) pdf.addPage();
+          primeiraPag = false;
+          pdf.addImage(slice.toDataURL('image/png'), 'PNG', margem, margem, larguraImg, alturaPx * escala);
+          yPx += alturaPx;
+        }
+      }
+
+      const dataStr = new Date().toISOString().slice(0, 10);
+      pdf.save(`Padroes_de_Cortes_${dataStr}.pdf`);
+    } catch (e) {
+      console.error('[exportarPadroesCortesPDF]', e);
+      alert('Nao foi possivel gerar o PDF: ' + (e.message || e));
+    } finally {
+      if (cloneHost && cloneHost.parentNode) cloneHost.parentNode.removeChild(cloneHost);
+      if (btn) { btn.disabled = false; btn.innerHTML = btnTextoOriginal; }
+    }
+  }
+
+  /**
+   * Felipe (sessao 2026-07): "nao abra impressora sempre ao clicar
+   * exporte direto para download" + "impresso PDF esta picado configure".
+   *
+   * Estrategia: igual a exportarPadroesCortesPDF, mas em vez de capturar
+   * o conteudo todo num canvas unico, captura CADA .rel-prop-pagina
+   * separadamente (cada uma vira 1 pagina A4 do PDF). Isso garante
+   * quebras nos pontos certos (entre capa, paginas de itens, tabela
+   * final, etc) — nao corta no meio de cards.
+   *
+   * Tambem clona pra container off-screen pra burlar overflow do
+   * conteudo da aba.
+   */
+  async function exportarPropostaPDF() {
+    const folha = document.querySelector('.rel-prop-folha');
+    if (!folha) {
+      alert('Conteudo da proposta nao encontrado.');
+      return;
+    }
+    const btn = document.getElementById('orc-prop-imprimir');
+    const btnTextoOriginal = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Gerando...'; }
+
+    let cloneHost = null;
+    try {
+      await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      const html2canvas = window.html2canvas;
+      const jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+      if (!html2canvas || !jsPDF) throw new Error('Libs nao disponiveis');
+
+      // Clona a folha inteira em host off-screen (sem overflow / sem
+      // padding da aba) na largura exata de A4 a 96dpi (~ 794px).
+      cloneHost = document.createElement('div');
+      cloneHost.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: -10000px;
+        width: 794px;
+        background: #ffffff;
+        z-index: -1;
+      `;
+      cloneHost.innerHTML = folha.outerHTML;
+      document.body.appendChild(cloneHost);
+
+      // Pega cada pagina individual do clone
+      const paginas = cloneHost.querySelectorAll('.rel-prop-pagina');
+      if (!paginas.length) throw new Error('Nenhuma .rel-prop-pagina encontrada');
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();    // 210mm
+      const pageH = pdf.internal.pageSize.getHeight();   // 297mm
+
+      for (let i = 0; i < paginas.length; i++) {
+        const pag = paginas[i];
+        // Garante que a pagina tem dimensao minima (mesmo que conteudo
+        // seja pequeno). A4 a 96dpi: 794x1123px.
+        pag.style.minHeight = '1123px';
+        pag.style.boxSizing = 'border-box';
+
+        const canvas = await html2canvas(pag, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          windowWidth:  pag.scrollWidth,
+          windowHeight: pag.scrollHeight,
+        });
+
+        const larguraImg = pageW;
+        const alturaImg  = (canvas.height * larguraImg) / canvas.width;
+
+        if (i > 0) pdf.addPage();
+
+        // Se altura calculada cabe na pagina A4, encaixa direto.
+        // Se nao cabe (raro — pagina muito comprida), redimensiona pra
+        // caber na altura.
+        if (alturaImg <= pageH) {
+          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, larguraImg, alturaImg);
+        } else {
+          const ratio = pageH / alturaImg;
+          const novaLargura = larguraImg * ratio;
+          const offsetX = (pageW - novaLargura) / 2;
+          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', offsetX, 0, novaLargura, pageH);
+        }
+      }
+
+      const dataStr = new Date().toISOString().slice(0, 10);
+      const cliente = (document.querySelector('.rel-header-cliente-table td')?.textContent || 'cliente')
+        .trim().replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
+      pdf.save(`Proposta_${cliente}_${dataStr}.pdf`);
+    } catch (e) {
+      console.error('[exportarPropostaPDF]', e);
+      alert('Nao foi possivel gerar o PDF: ' + (e.message || e));
+    } finally {
+      if (cloneHost && cloneHost.parentNode) cloneHost.parentNode.removeChild(cloneHost);
+      if (btn) { btn.disabled = false; btn.innerHTML = btnTextoOriginal; }
+    }
+  }
+
+  // ============================================================
+  //                      OUTRAS ABAS (placeholder)
+  // ============================================================
+  // ============================================================
+  //                  ABA: PROPOSTA COMERCIAL
+  // ============================================================
+  /**
+   * Felipe (do doc): a aba Proposta Comercial deve trazer:
+   *   - Cabecalho padrao (logo Projetta + dados empresa + cliente + AGP +
+   *     endereco + vendedor) — via window.Empresa.montarHeaderRelatorio
+   *   - Para cada item: imagem do modelo (do cadastro), todas as
+   *     caracteristicas, banner com alertas (alisar sim/nao, fechadura,
+   *     cilindro)
+   *   - Tabela final: Item, Descricao, Medidas, Qtd, Valor un, Valor Total
+   *   - Total Area, Total Orcamento, Observacoes, Condicoes, Assinaturas
+   *
+   * Esta versao implementa a estrutura completa baseada no PDF que o
+   * Felipe enviou (Proposta_1777651977765.pdf).
+   */
+  function renderPropostaTab(container) {
+    inicializarSessao();
+    const versao = obterVersao(UI.versaoAtivaId).versao;
+
+    // Bloqueio: mesma regra do DRE — itens completos + Fab/Inst com valor
+    const motivoBloqueio = precisaCalcular(versao, 'dre');
+    if (motivoBloqueio) {
+      return renderPrecisaCalcular(container, versao, motivoBloqueio, 'Proposta Comercial');
+    }
+
+    const negocio = obterNegocio(UI.negocioAtivoId);
+    const opcao   = obterVersao(UI.versaoAtivaId).opcao;
+    const lead    = lerLeadAtivo() || {};
+    const inst    = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
+
+    // Felipe (do doc - msg frete/inst): frase dinamica baseada no modo
+    // de instalacao + valores manuais. Regras:
+    //   modo 'projetta'                   → "Frete e instalacao inclusos"
+    //   modo 'terceiros' | 'internacional' → depende dos valores:
+    //     inst > 0, frete = 0  → "Instalacao inclusa, frete nao incluso"
+    //     inst = 0, frete > 0  → "Frete incluso, instalacao nao inclusa"
+    //     inst > 0, frete > 0  → "Frete e instalacao inclusos"
+    //     inst = 0, frete = 0  → "Frete e instalacao nao inclusos"
+    // Considera "incluso" apenas se valor > 0 (zero/null/vazio = nao incluso).
+    const fraseFreteInst = (() => {
+      if (inst.modo === 'projetta') {
+        return 'Frete e instalacao inclusos';
+      }
+      const valInst  = Number(inst.inst_terceiros_valor)  || 0;
+      const valFrete = Number(inst.inst_terceiros_transp) || 0;
+      const temInst  = valInst > 0;
+      const temFrete = valFrete > 0;
+      if (temInst && temFrete)   return 'Frete e instalacao inclusos';
+      if (temInst && !temFrete)  return 'Instalacao inclusa, frete nao incluso';
+      if (!temInst && temFrete)  return 'Frete incluso, instalacao nao inclusa';
+      return 'Frete e instalacao nao inclusos';
+    })();
+
+    // Cabecalho via modulo Empresa
+    // Felipe (sessao 2026-07): "A - 1 - Proposta Comercial - Previa
+    // isso no cabecalho seria o que? O que seria A-1? Coloque
+    // 'Proposta Comercial - 1ª Versão' e depois ao ir fazendo outras
+    // versoes vai alterando ali em cima". Removi a letra da opcao
+    // (A) que confundia. Numero do doc agora reflete numero da versao.
+    const numVersao = versao.numero || 1;
+    // Sufixos ordinais: 1ª, 2ª, 3ª... (em PT-BR sempre o mesmo "ª")
+    const tituloProposta = `Proposta Comercial - ${numVersao}ª Versao`;
+    const numeroDoc = `V${numVersao}`;
+    const headerHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
+      ? window.Empresa.montarHeaderRelatorio({
+          lead,
+          tituloRelatorio: tituloProposta,
+          numeroDocumento: numeroDoc,
+          validade: 15,
+        })
+      : '<div class="info-banner">Cabecalho indisponivel</div>';
+
+    // Calcula totais e cards de cada item
+    // Felipe (do doc): proposta agora aceita TODOS os tipos de item.
+    const itens = (versao.itens || []).filter(it => it.tipo);
+    let totalArea = 0;
+    let totalGeral = 0;
+    // Felipe (do doc - msg "PORPOSTA DEVE CABER EM UMA PAGINA"): com 1 item,
+    // tudo cabe numa pagina so' (header + card + tabela + totais + observacoes
+    // + pagamento + assinaturas). NAO quebra. Se REALMENTE nao couber (muitos
+    // itens), o navegador joga pra outra pagina automaticamente — mas blocos
+    // individuais (card, tabela, etc) ficam intactos via page-break-inside:avoid.
+    const cardsItens = itens.map((item, idx) => renderCardItemProposta(item, idx, versao)).join('');
+    itens.forEach(item => {
+      const lar = parseBR(item.largura) || 0;
+      const alt = parseBR(item.altura)  || 0;
+      const qtd = Number(item.quantidade) || 1;
+      const areaUn = (lar / 1000) * (alt / 1000);
+      totalArea += areaUn * qtd;
+      // Valor por item: distribui o preco total da versao proporcional ao subtotal
+      // (provisorio — depois substituido por preco-por-item real)
+    });
+
+    // Preco total da proposta: usa o pTab (PRECO DE TABELA) — e' o
+    // valor "cheio" mostrado pro cliente. O desconto (pFatReal) e'
+    // negociado em separado. Felipe (sessao 2026-05): trocado de
+    // pFatReal pra pTab — a proposta deve mostrar o "Preco da Proposta"
+    // (linha "Preco da Proposta" no card de Conferencia do DRE), nao
+    // o "Cliente Paga".
+    const subFab  = Number(versao.subFab) || 0;
+    const subInst = Number(versao.subInst) || 0;
+    const params  = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
+    const dre     = calcularDRE(subFab, subInst, params);
+    totalGeral    = Number(dre.pTab) || 0;
+
+    // Tabela com 1 linha por item — valores calculados via
+    // calcularValoresProposta (Felipe sessao 2026-06):
+    //   subFab por item: proporcional as horas
+    //   subInst por item: proporcional ao subFab de cada item
+    //   precoFinal por item = pTab (preco com markup, antes do desconto)
+    //   valorUn = precoFinal / item.quantidade
+    const valoresProposta = calcularValoresProposta(versao, params);
+    const valoresPorIdx = {};
+    valoresProposta.porItem.forEach(v => { valoresPorIdx[v.idx] = v; });
+
+    const linhasTabela = itens.map((item, idx) => {
+      const lar = parseBR(item.largura) || 0;
+      const alt = parseBR(item.altura)  || 0;
+      const qtd = Number(item.quantidade) || 1;
+      const medidas = `${lar} × ${alt}`;
+      const descricaoItem = obterDescricaoItem(item);
+      // Valor por item — se nao temos calculado (fallback), mostra "—"
+      const v = valoresPorIdx[idx];
+      const valorUnStr   = (v && v.precoFinal > 0) ? `R$ ${fmtBR(v.valorUn)}`    : '—';
+      const valorTotStr  = (v && v.precoFinal > 0) ? `R$ ${fmtBR(v.precoFinal)}` : '—';
+      return `
+        <tr>
+          <td class="rel-prop-tabela-num">${String(idx + 1).padStart(2, '0')}</td>
+          <td>${escapeHtml(descricaoItem)}</td>
+          <td>${escapeHtml(medidas)}</td>
+          <td class="num">${qtd}</td>
+          <td class="num">${valorUnStr}</td>
+          <td class="num">${valorTotStr}</td>
+        </tr>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="orc-banner">
+        <div class="orc-banner-info">
+          <span class="t-strong">Proposta Comercial</span>
+          · ${escapeHtml(negocio?.clienteNome || '—')}
+          · Opcao ${escapeHtml(opcao.letra)} V${versao.numero}
+        </div>
+        <div class="orc-banner-actions">
+          <button type="button" class="univ-btn-save" id="orc-prop-imprimir" title="Baixa o PDF da proposta direto (nao abre impressora)">📄 Exportar PDF</button>
+        </div>
+      </div>
+
+      <div class="rel-prop-folha">
+        <!-- Felipe (sessao 2026-05): paginas 01 e 02 da proposta agora
+             usam DIRETO o PDF que o Felipe enviou (01.pdf capa, 03.pdf
+             mapa). Antes era HTML/CSS tentando reproduzir o layout, mas
+             ficava feio. Agora e' simplesmente a imagem do PDF dele em
+             tela cheia — sem editar, sem reescrever, sem copiar texto. -->
+        <div class="rel-prop-pagina rel-prop-pagina-pdf">
+          <img src="images/proposta-pag1.jpg" alt="Capa Proposta Comercial 2026" class="rel-prop-pdf-img" />
+        </div>
+
+        <div class="rel-prop-pagina rel-prop-pagina-pdf">
+          <img src="images/proposta-pag2.jpg" alt="Nossa Portas pelo Mundo" class="rel-prop-pdf-img" />
+        </div>
+
+        <!-- Felipe ("PROPOSTA DEVE CABER EM UMA PAGINA"): tudo numa
+             pagina so'. Cada bloco (card, tabela, etc) tem
+             page-break-inside:avoid. Se passar do tamanho A4, o navegador
+             quebra entre blocos automatico. -->
+        <!-- Felipe ("PROPOSTA DEVE CABER EM UMA PAGINA"): tudo numa
+             pagina so'. Cada bloco (card, tabela, etc) tem
+             page-break-inside:avoid. Se passar do tamanho A4, o navegador
+             quebra entre blocos automatico. -->
+        <div class="rel-prop-pagina rel-prop-pagina-conteudo">
+          ${headerHtml}
+
+          ${cardsItens || '<div class="rel-prop-empty">Nenhum item.</div>'}
+
+          <table class="rel-prop-tabela-final">
+            <thead>
+              <tr>
+                <th class="rel-prop-tabela-num">Item</th>
+                <th>Descricao</th>
+                <th>Medidas</th>
+                <th class="num">Qtd</th>
+                <th class="num">Valor (un.)</th>
+                <th class="num">Valor Total</th>
+              </tr>
+            </thead>
+            <tbody>${linhasTabela}</tbody>
+          </table>
+          <div class="rel-prop-totais-row">
+            <div class="rel-prop-total-area">
+              <span class="rel-prop-total-label">Total Area Portas:</span>
+              <span class="rel-prop-total-valor">${fmtBR(totalArea)} m²</span>
+            </div>
+            <div class="rel-prop-total-orc">
+              <span class="rel-prop-total-label">Total Orcamento:</span>
+              <span class="rel-prop-total-valor">R$ ${fmtBR(totalGeral)}</span>
+            </div>
+          </div>
+
+          <div class="rel-prop-observacoes">
+            <div class="rel-prop-obs-titulo">Observacoes</div>
+            <ul class="rel-prop-obs-lista">
+              <li>Chapa 4 mm com pintura Kynar — 15 anos pro-rata</li>
+              <li>Fechaduras de seguranca KESO</li>
+              <li>Pivo em aco inox 304 / 316 L</li>
+              <li>Vedacao da porta automatica superior e inferior</li>
+              <li>Vedacao dupla (folha e batente) por Q-LON</li>
+              <li><b>*** ${escapeHtml(fraseFreteInst.toUpperCase())}</b></li>
+            </ul>
+          </div>
+
+          <div class="rel-prop-pagamento">
+            <div class="rel-prop-pag-row"><b>Condicoes de Pagamento:</b> 6X</div>
+            <div class="rel-prop-pag-row"><b>Forma de Pagamento:</b> Boleto</div>
+            <div class="rel-prop-pag-row"><b>Prazo de Entrega:</b> 90 dias apos aprovacao do recalculo.</div>
+          </div>
+
+          <div class="rel-prop-assinaturas">
+            <div class="rel-prop-assinatura">
+              <div class="rel-prop-assinatura-linha"></div>
+              <div class="rel-prop-assinatura-label">${escapeHtml(lead.cliente || '—')}</div>
+            </div>
+            <div class="rel-prop-assinatura">
+              <div class="rel-prop-assinatura-linha"></div>
+              <div class="rel-prop-assinatura-label">PROJETTA PORTAS EXCLUSIVAS LTDA</div>
+            </div>
+          </div>
+
+          <!-- Felipe (sessao 2026-07): "coloque site em letra minuscula
+               e um simbolo de website. Coloque acima do site
+               @projettaaluminio com simbolo do instagram. Em cima
+               deste 'siga-nos nas redes sociais'." Layout em 3 linhas:
+                  Siga-nos nas redes sociais
+                  📷 @projettaaluminio
+                  🌐 www.projettaaluminio.com -->
+          <div class="rel-prop-footer-redes">
+            <div class="rel-prop-footer-cta">Siga-nos nas redes sociais</div>
+            <div class="rel-prop-footer-rede">
+              <span class="rel-prop-footer-icon">
+                <!-- Instagram (SVG simples — camera + circulo) -->
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                </svg>
+              </span>
+              <span class="rel-prop-footer-handle">@projettaaluminio</span>
+            </div>
+            <div class="rel-prop-footer-rede">
+              <span class="rel-prop-footer-icon">
+                <!-- Globe / Website -->
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+              </span>
+              <span class="rel-prop-footer-site">www.projettaaluminio.com</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Felipe (sessao 2026-07): "nao abra impressora sempre ao clicar
+    // exporte direto para download". Botao agora gera PDF direto via
+    // jsPDF + html2canvas (mesma estrategia do Padroes de Cortes).
+    container.querySelector('#orc-prop-imprimir')?.addEventListener('click', () => {
+      exportarPropostaPDF();
+    });
+  }
+
+  /**
+   * Felipe (do doc): descricao do item na tabela da Proposta:
+   *   - tipo='porta_externa' → "PORTA EXTERNA (Pivotante)" ou "PORTA EXTERNA (Dobradica)"
+   *     (puxa de item.sistema)
+   *   - tipo='porta_interna' → "PORTA INTERNA"
+   *   - tipo='fixo_acoplado' → "FIXO ACOPLADO A PORTA"
+   *   - tipo='revestimento_parede' → "REVESTIMENTO DE PAREDE"
+   *   - tipo vazio → "—"
+   */
+  function obterDescricaoItem(item) {
+    if (!item || !item.tipo) return '—';
+    if (item.tipo === 'porta_externa') {
+      const sistema = (item.sistema || '').toLowerCase();
+      let abertura = '';
+      if (sistema.includes('pivot')) abertura = 'Pivotante';
+      else if (sistema.includes('dobrad')) abertura = 'Dobradica';
+      else if (sistema) abertura = item.sistema;
+      return abertura ? `PORTA EXTERNA (${abertura})` : 'PORTA EXTERNA';
+    }
+    if (item.tipo === 'porta_interna') return 'PORTA INTERNA';
+    if (item.tipo === 'fixo_acoplado') return 'FIXO ACOPLADO A PORTA';
+    if (item.tipo === 'revestimento_parede') return 'REVESTIMENTO DE PAREDE';
+    return item.tipo.toUpperCase();
+  }
+
+  // ============================================================
+  // Felipe (do doc - msg "em todas as abas preciso largura altura
+  // modelo junto ao cabecalho"): banner compacto com caracteristicas
+  // dos itens, EXIBIDO EM TODAS AS ABAS depois do cabecalho da empresa.
+  // E' o ponto-chave de toda conferencia.
+  // ============================================================
+  function bannerCaracteristicasItens(versao) {
+    const itens = (versao && versao.itens) || [];
+    if (!itens.length) return '';
+    // Lookup nomes dos modelos (Cadastro)
+    let modelosLista = [];
+    if (window.Modelos && typeof window.Modelos.listar === 'function') {
+      modelosLista = window.Modelos.listar();
+    }
+    const linhas = itens.map((item, idx) => {
+      const numero = idx + 1;
+      const tipo = obterDescricaoItem(item);
+      const lar = Number(item.largura) || null;
+      const alt = Number(item.altura) || null;
+      const medidas = (lar && alt) ? `${lar} × ${alt} mm` : '—';
+      let modeloLabel = '—';
+      if (item.modeloNumero) {
+        const m = modelosLista.find(x => Number(x.numero) === Number(item.modeloNumero));
+        modeloLabel = m ? `Modelo ${item.modeloNumero} — ${m.nome}` : `Modelo ${item.modeloNumero}`;
+      }
+      const folhas = item.nFolhas ? `${item.nFolhas} folha${Number(item.nFolhas) > 1 ? 's' : ''}` : '';
+      const qtd = Number(item.quantidade) || 1;
+      // Monta a linha com as caracteristicas-chave
+      const partes = [
+        `<span class="orc-bcar-num">Item ${numero}</span>`,
+        `<span class="orc-bcar-tipo">${escapeHtml(tipo)}</span>`,
+        `<span class="orc-bcar-medidas">${escapeHtml(medidas)}</span>`,
+        `<span class="orc-bcar-modelo">${escapeHtml(modeloLabel)}</span>`,
+        folhas ? `<span class="orc-bcar-folhas">${escapeHtml(folhas)}</span>` : '',
+        qtd > 1 ? `<span class="orc-bcar-qtd">Qtd ${qtd}</span>` : '',
+      ].filter(Boolean).join('');
+      return `<div class="orc-bcar-row">${partes}</div>`;
+    }).join('');
+    return `
+      <div class="orc-bcar">
+        <div class="orc-bcar-titulo">Caracteristicas do${itens.length > 1 ? 's' : ''} Item${itens.length > 1 ? 's' : ''}</div>
+        ${linhas}
+      </div>
+    `;
+  }
+
+  /**
+   * Card de UM item na proposta comercial — imagem do modelo + caracteristicas
+   * + banners de alertas (alisar, fechadura, cilindro).
+   */
+  function renderCardItemProposta(item, idx, versao) {
+    // Lookup do modelo no cadastro pra pegar imagem e nome
+    let modeloInfo = null;
+    if (window.Modelos && typeof window.Modelos.listar === 'function') {
+      const lista = window.Modelos.listar();
+      modeloInfo = lista.find(m => Number(m.numero) === Number(item.modeloNumero));
+    }
+    const modeloNome = modeloInfo
+      ? `${item.modeloNumero} — ${modeloInfo.nome}`
+      : (item.modeloNumero ? `Modelo ${item.modeloNumero}` : '—');
+
+    // Imagem: usa img_1f ou img_2f conforme nFolhas
+    const nFolhas = Number(item.nFolhas) || 1;
+    const imgSrc = modeloInfo
+      ? (nFolhas === 2 ? (modeloInfo.img_2f || modeloInfo.img_1f) : modeloInfo.img_1f)
+      : null;
+
+    const lar = parseBR(item.largura) || 0;
+    const alt = parseBR(item.altura)  || 0;
+    const areaM2 = (lar / 1000) * (alt / 1000);
+
+    // Felipe (do doc): banners de alertas — alisar, fechadura, cilindro
+    const temAlisar = (item.tem_alisar || 'Sim') === 'Sim';
+    const bannerAlisar = temAlisar
+      ? `<div class="rel-prop-banner-alisar is-sim">ALISAR: <b>SIM — COM ALISAR</b> (largura ${item.largura_alisar || 100}mm · parede ${item.espessura_parede || 250}mm)</div>`
+      : `<div class="rel-prop-banner-alisar is-nao">ALISAR: <b>NAO — SEM ALISAR</b></div>`;
+
+    const temFechDigital = item.fechaduraDigital && item.fechaduraDigital !== 'Nao se aplica' && item.fechaduraDigital !== '';
+    const bannerFechDigital = temFechDigital
+      ? `<div class="rel-prop-banner-fech is-sim">FECHADURA DIGITAL: <b>${escapeHtml(item.fechaduraDigital)}</b></div>`
+      : `<div class="rel-prop-banner-fech is-nao">FECHADURA DIGITAL: <b>NAO SE APLICA</b></div>`;
+
+    const sistema = item.sistema || '—';
+    const tipoAbertura = item.tipoAbertura || '—';
+
+    return `
+      <div class="rel-prop-item-card">
+        <div class="rel-prop-item-img">
+          ${imgSrc
+            ? `<img src="${imgSrc}" alt="Modelo ${item.modeloNumero}" />`
+            : `<div class="rel-prop-item-img-placeholder">Imagem do<br>modelo</div>`}
+        </div>
+        <div class="rel-prop-item-info">
+          <div class="rel-prop-item-titulo">PORTA PROJETTA BY WEIKU</div>
+          <!-- Felipe (msg "TUDO A ESQUERDA"): cada linha label+valor compacto,
+               sem espacos largos, alinhado a esquerda. R04. -->
+          <div class="rel-prop-item-linhas">
+            <div class="rel-prop-item-linha"><span class="lbl">Qtd:</span> <span>${Number(item.quantidade) || 1}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">L:</span> <span>${lar}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">H:</span> <span>${alt}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">Area Porta:</span> <span>${fmtBR(areaM2)} m²</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">SISTEMA:</span> <span>${escapeHtml(sistema)}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">TIPO DE ABERTURA:</span> <span>${escapeHtml(tipoAbertura)}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">NUMERO DE FOLHAS:</span> <span>${nFolhas} FOLHA${nFolhas > 1 ? 'S' : ''}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">MODELO:</span> <span>${escapeHtml(modeloNome)}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">FECHADURA MECANICA:</span> <span>${escapeHtml(item.fechaduraMecanica || '—')}</span></div>
+          </div>
+          ${bannerFechDigital}
+          <div class="rel-prop-item-linhas">
+            <div class="rel-prop-item-linha"><span class="lbl">PUXADOR:</span> <span>${escapeHtml(item.tamanhoPuxador || '—')}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA EXTERNA:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA INTERNA:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">CILINDRO:</span> <span>${escapeHtml(item.cilindro || '—')}</span></div>
+          </div>
+          ${(() => {
+            // Caracteristicas do modelo (so se preenchidas)
+            const num = Number(item.modeloNumero);
+            const campos = CAMPOS_POR_MODELO[num];
+            if (!campos || !campos.length) return '';
+            const linhas = campos
+              .filter(c => item[c] !== undefined && item[c] !== '' && item[c] !== null)
+              .map(c => {
+                const meta = CATALOGO_CAMPOS_MODELO[c];
+                if (!meta) return '';
+                const lbl = meta.label.replace(/\s*\(mm\)\s*$/, '');
+                const valor = `${item[c]}${meta.tipo === 'number' ? ' mm' : ''}`;
+                return `<div class="rel-prop-item-linha"><span class="lbl">${escapeHtml(lbl.toUpperCase())}:</span> <span>${escapeHtml(valor)}</span></div>`;
+              }).join('');
+            if (!linhas) return '';
+            return `<div class="rel-prop-item-linhas rel-prop-item-modelo-vars">${linhas}</div>`;
+          })()}
+          ${bannerAlisar}
+        </div>
+      </div>
+    `;
+  }
+
+  // ============================================================
+  // Felipe (do doc - msg wizard): helper que ANEXA um botao "Proximo"
+  // no final do container da aba, pra avancar pro proximo passo do
+  // wizard. Bloqueia avanco em casos especificos:
+  //  - 'item': nao avanca se algum item esta incompleto
+  // Cria a barra de acoes e attacha o handler de click.
+  // ============================================================
+  function adicionarBotaoWizard(container, tabAtual) {
+    if (!window.OrcamentoWizard) return;
+    const W = window.OrcamentoWizard;
+    const proxId = W.proximaTab(tabAtual);
+    if (!proxId) return; // ultima aba ('proposta'), sem botao
+    const proxLabel = W.labelDaTab(proxId);
+
+    // Detecta se a aba atual ja foi liberada pra avancar — se ja
+    // estiver em etapa >= proxId, mostra label diferente ("Ir para X")
+    // mas o botao continua funcionando (re-confirma o avanco).
+    const versao = _getVersaoAtivaWizard();
+    const ixMax  = W.indiceEtapa(W.getEtapaMaxima());
+    const ixProx = W.indiceEtapa(proxId);
+    const jaLiberado = ixMax >= ixProx;
+
+    // Validacao especifica por aba
+    let bloqueado = false;
+    let msgBloqueio = '';
+    let pendList = []; // Felipe (sessao 2026-05): lista de pendencias por campo zerado
+    if (tabAtual === 'item') {
+      // Felipe: nao deixa avancar se algum item esta incompleto
+      if (versao && algumItemIncompleto(versao)) {
+        bloqueado = true;
+        msgBloqueio = 'Preencha todas as caracteristicas dos itens antes de avancar.';
+      }
+    }
+    if (tabAtual === 'fab-inst') {
+      // Felipe (sessao 2026-05): bloqueio expandido — todos os campos
+      // criticos do Fab/Inst que estao em zero/vazio bloqueiam o avanco.
+      // Cada item pode ser confirmado como "zerado intencional" para
+      // liberar o avanco — UX inline (botao no proprio aviso).
+      if (versao) {
+        pendList = coletarPendenciasFabInst(versao);
+        if (pendList.length > 0) {
+          bloqueado = true;
+          msgBloqueio = `${pendList.length} campo${pendList.length === 1 ? '' : 's'} em zero/vazio. Confirme cada um abaixo OU preencha o valor.`;
+        }
+      }
+    }
+
+    const barra = document.createElement('div');
+    barra.className = 'orc-wizard-actions';
+
+    // Bloco de pendencias inline (so' aparece se ha campos zerados)
+    let pendInlineHtml = '';
+    if (bloqueado && pendList.length > 0) {
+      const itensHtml = pendList.map(p => `
+        <li class="orc-wizard-pend-row" data-chave="${escapeHtml(p.chave)}">
+          <span class="orc-wizard-pend-label">
+            <span class="orc-wizard-pend-secao">${escapeHtml(p.secao)}</span>
+            ${escapeHtml(p.label)}
+          </span>
+          <button type="button" class="orc-wizard-pend-btn"
+                  data-chave="${escapeHtml(p.chave)}"
+                  title="Confirma que este campo deve ficar mesmo em zero">
+            ☑ Item zerado
+          </button>
+        </li>
+      `).join('');
+      pendInlineHtml = `
+        <details class="orc-wizard-pend-details" open>
+          <summary class="orc-wizard-pend-summary">
+            Ver e marcar campos zerados (${pendList.length})
+          </summary>
+          <ul class="orc-wizard-pend-lista">${itensHtml}</ul>
+        </details>
+      `;
+    }
+
+    barra.innerHTML = `
+      ${bloqueado ? `<div class="orc-wizard-aviso">⚠ ${escapeHtml(msgBloqueio)}</div>` : ''}
+      ${pendInlineHtml}
+      <button type="button" class="orc-wizard-btn-proximo${bloqueado ? ' is-disabled' : ''}" ${bloqueado ? 'disabled' : ''}>
+        ${jaLiberado ? 'Ir' : 'Proximo'}: ${escapeHtml(proxLabel)} →
+      </button>
+    `;
+    container.appendChild(barra);
+
+    // Handler dos botoes "Item zerado" — marca o campo e re-renderiza
+    // a aba para reavaliar bloqueios.
+    barra.querySelectorAll('.orc-wizard-pend-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        const chave = b.dataset.chave;
+        if (!chave || !versao) return;
+        marcarZeradoIntencional(versao.id, chave, true);
+        // Re-renderiza a aba atual pra atualizar contagem de pendencias
+        if (window.App && App.navigateTo) {
+          App.navigateTo('orcamento', tabAtual);
+        }
+      });
+    });
+    const btn = barra.querySelector('.orc-wizard-btn-proximo');
+    if (btn && !bloqueado) {
+      btn.addEventListener('click', () => W.avancar(tabAtual));
+    }
+  }
+
+  // ============================================================
+  //                      ABA: RELATORIOS
+  // ============================================================
+  /**
+   * Felipe (sessao 2026-05): aba "Levantamento de Superficies" mostra
+   * as PEÇAS DE CHAPA geradas pelo motor para cada item do orcamento.
+   *
+   * Pra cada item:
+   *   - Cabeçalho: nome do item + dimensoes do QUADRO (limite das pecas)
+   *   - 2 sub-listas: peças do LADO EXTERNO e peças do LADO INTERNO
+   *     (cada lado calcula separado, mesmo se cores forem iguais).
+   *
+   * Cada peça tem: descricao (com lado + cor pra rastrear no planificador),
+   * dimensoes em mm, qtd, e flag "podeRotacionar" (false pra cores Wood
+   * com veio).
+   *
+   * Etapas pendentes (proximas rodadas):
+   *   - Algoritmo de aproveitamento (nesting) — Etapa 2
+   *   - UI de comparacao entre tamanhos de chapa-mae (4 cards) — Etapa 5
+   *   - Botao "Usar resultado" → injeta no DRE (custoFab.total_revestimento)
+   *   - Import/Export XLSX (3 abas: Pecas, Chapas-mae, Layout)
+   */
+  function renderLevSuperficiesTab(container) {
+    inicializarSessao();
+    const r = obterVersao(UI.versaoAtivaId);
+    if (!r || !r.versao) {
+      container.innerHTML = `
+        <div class="info-banner">
+          <span class="t-strong">Sem versao ativa.</span>
+          Volte para o CRM e abra um negocio para ver as pecas de chapa.
+        </div>`;
+      return;
+    }
+    const versao = r.versao;
+    // Felipe (sessao 2026-05): processa TODOS os itens com tipo definido,
+    // nao so porta_externa. Multiplos itens (3 portas, 1 revestimento, etc)
+    // sao todos considerados juntos — peças com cores iguais sao agrupadas
+    // na mesma chapa-mae no aproveitamento.
+    const itens = (versao.itens || []).filter(it => it && it.tipo);
+
+    if (!itens.length) {
+      container.innerHTML = `
+        <div class="info-banner">
+          Nenhum item nesta versao. Volte para "Caracteristicas do Item"
+          e adicione itens (Porta Externa, Revestimento de Parede, etc).
+        </div>`;
+      return;
+    }
+
+    if (!window.ChapasPortaExterna) {
+      container.innerHTML = `
+        <div class="info-banner orc-banner-aviso-erro">
+          Motor de chapas (ChapasPortaExterna) nao carregado. Recarregue a pagina (Ctrl+F5).
+        </div>`;
+      return;
+    }
+    if (!window.ChapasAproveitamento) {
+      container.innerHTML = `
+        <div class="info-banner orc-banner-aviso-erro">
+          Motor de aproveitamento (ChapasAproveitamento) nao carregado. Recarregue a pagina (Ctrl+F5).
+        </div>`;
+      return;
+    }
+
+    // Coleta TODAS as peças de TODOS os itens, agrupadas por cor
+    const pecasPorCor = coletarPecasPorCor(itens);
+
+    // Felipe (sessao 2026-05): pega lista de superficies pra calculo
+    // de peso individual das pecas. Usa Superficies.listar() (dispara
+    // seed automaticamente se vazio) ou fallback do storage.
+    const todasSupGlobal = (window.Superficies?.listar?.())
+      || (window.Storage?.scope?.('cadastros').get('superficies_lista'))
+      || [];
+
+    // Renderiza um bloco por item — porta_externa mostra peças completas;
+    // outros tipos (revestimento_parede, etc) mostram aviso "ainda nao implementado".
+    const blocosItens = itens.map((item, idx) => renderItemSuperficies(item, idx, todasSupGlobal)).join('');
+    const blocosAproveitamento = renderAproveitamentoChapas(pecasPorCor);
+
+    // Felipe (sessao 2026-06): SYNC AUTOMATICO do total_revestimento
+    // ao abrir a aba. Antes, se o usuario selecionasse chapas em cores
+    // diferentes em momentos diferentes, o handler de duplo clique
+    // calculava o total mas as listeners acumuladas (memory leak por
+    // re-render) podiam capturar valores stale. Resultado: campo
+    // "Revestimento (R$)" no Custo Fab/Inst pegava so' uma cor
+    // (R$ 8.645,90) em vez do total (R$ 22.479,35).
+    // Solucao: sempre que a aba renderiza, recalcula e sincroniza.
+    try {
+      const rSync = obterVersao(UI.versaoAtivaId);
+      if (rSync && rSync.versao && rSync.versao.status !== 'fechada') {
+        const totalRevSync = computeRevestimentoPorCor(rSync.versao, pecasPorCor, todasSupGlobal).total;
+        const fabAtual = Object.assign({}, FAB_DEFAULT, rSync.versao.custoFab || {});
+        const dif = Math.abs((Number(fabAtual.total_revestimento) || 0) - totalRevSync);
+        if (dif > 0.01) {
+          fabAtual.total_revestimento = totalRevSync;
+          const rFabSync = calcularFab(fabAtual, rSync.versao.itens);
+          atualizarVersao(rSync.versao.id, {
+            custoFab: fabAtual,
+            subFab: rFabSync.total,
+          });
+        }
+      }
+    } catch (errSync) {
+      console.warn('[Lev Superficies] sync total_revestimento falhou:', errSync);
+    }
+
+    // Conta quantos itens de cada tipo pra resumo no topo
+    const portasCnt = itens.filter(i => i.tipo === 'porta_externa').length;
+    const revsCnt   = itens.filter(i => i.tipo === 'revestimento_parede').length;
+    const fixosCnt  = itens.filter(i => i.tipo === 'fixo_acoplado').length;
+    const portasIntCnt = itens.filter(i => i.tipo === 'porta_interna').length;
+    const cntsTxt = [];
+    if (portasCnt) cntsTxt.push(`${portasCnt} porta${portasCnt > 1 ? 's' : ''} externa${portasCnt > 1 ? 's' : ''}`);
+    if (portasIntCnt) cntsTxt.push(`${portasIntCnt} porta${portasIntCnt > 1 ? 's' : ''} interna${portasIntCnt > 1 ? 's' : ''}`);
+    if (fixosCnt) cntsTxt.push(`${fixosCnt} fixo${fixosCnt > 1 ? 's' : ''}`);
+    if (revsCnt)  cntsTxt.push(`${revsCnt} revestimento${revsCnt > 1 ? 's' : ''} de parede`);
+
+    container.innerHTML = `
+      <div class="orc-section orc-lev-superficies-header">
+        <div class="orc-section-title">Levantamento de Superficies (Chapas)</div>
+        <p class="orc-hint-text">
+          ${itens.length} item${itens.length > 1 ? 's' : ''} no orcamento (${cntsTxt.join(' + ')}).
+          Cada porta gera peças do <b>lado externo</b> (cor externa) e
+          <b>lado interno</b> (cor interna). Quando a cor é igual nos 2
+          lados, as peças sao somadas numa lista só. Pecas da CAVA usam a
+          cor da cava (se preenchida) ou herdam a cor do lado.
+        </p>
+        <p class="orc-hint-text">
+          <b>Múltiplos itens</b>: o algoritmo agrupa peças de
+          <b>cores iguais</b> (independente do item de origem) numa
+          mesma chapa-mãe. Cores distintas viram chapas-mãe separadas.
+        </p>
+        <div class="orc-lev-sup-actions">
+          <button type="button" class="orc-btn-link" data-acao="recalcular"
+                  title="Reaplica os overrides Sim/Nao e recalcula peso e aproveitamento">
+            ↻ Recalcular
+          </button>
+          <!-- Felipe (sessao 2026-06): "elimine exportar e importar xml"
+               — removidos os botoes XML. Mantidos os de Excel (.xlsx)
+               porque Felipe usa Excel pra editar overrides Rotaciona. -->
+          <button type="button" class="orc-btn-link" data-acao="exportar-modelo-xlsx"
+                  title="Baixa um arquivo Excel (.xlsx) com todas as pecas atuais. Edite a coluna Rotaciona e reimporte.">
+            ↓ Exportar Modelo Excel
+          </button>
+          <button type="button" class="orc-btn-link" data-acao="importar-xlsx"
+                  title="Importa overrides de Rotaciona Sim/Nao a partir do Excel">
+            ↑ Importar Excel
+          </button>
+          <input type="file" class="orc-lev-sup-file-input"
+                 accept=".xml,application/xml,text/xml"
+                 style="display:none;">
+          <input type="file" class="orc-lev-sup-file-input-xlsx"
+                 accept=".xlsx,.xls,.csv"
+                 style="display:none;">
+        </div>
+      </div>
+      ${blocosItens}
+      ${blocosAproveitamento}
+
+      <!-- Felipe (sessao 30): "ja pedi pra tirar esse relatorio das
+           chapas ficou horrivel". Bloco "Relatorio de Chapas" + botoes
+           PNG/PDF removidos da aba Lev. Superficies. Funcao
+           renderRelChapas continua disponivel pra outras abas (ex:
+           Relatorios) caso seja chamada. Handlers PNG/PDF removidos
+           junto pra nao gerarem erro. -->
+
+      <div class="orc-aba-rodape">
+        <button type="button" class="orc-btn-proxima-aba" data-aba-destino="fab-inst">
+          Proxima pagina: Custo de Fabricacao e Instalacao →
+        </button>
+      </div>
+    `;
+
+    // Felipe (sessao 30): handlers PNG/PDF do "Relatorio de Chapas"
+    // removidos junto com o bloco. Cliente nao usado mais aqui.
+    // const cliente = (lerLeadAtivo()?.cliente || 'cliente');
+
+    // Felipe (sessao 2026-05): bind delegado pros botoes "Ver layout"
+    // e tabs entre chapas. Como o HTML e' gerado como string, usamos
+    // delegacao no container.
+    container.addEventListener('click', (e) => {
+      // Toggle do layout (botao "Ver layout de corte")
+      const btnLayout = e.target.closest('[data-toggle-layout]');
+      if (btnLayout) {
+        // Felipe (sessao 2026-06): "clico em ver layout e nao vai tenho
+        // que passar para aba seguinte voltar para ai sim conseguir ver
+        // layout". Causa raiz: o handler usava document.getElementById,
+        // que pega o PRIMEIRO elemento com esse id no documento inteiro.
+        // Se renderizacoes anteriores deixaram elementos com mesmo id
+        // (DOM stale), o getElementById pegava o errado e o toggle
+        // afetava um layout invisivel. Agora busca RELATIVO ao botao
+        // clicado — funciona sempre, em qualquer estado do DOM.
+        const cardWrap = btnLayout.closest('.orc-aprov-card-wrap');
+        const layoutEl = cardWrap?.querySelector('.orc-aprov-layout-wrap');
+        if (!layoutEl) return;
+        const visivel = layoutEl.style.display !== 'none';
+        layoutEl.style.display = visivel ? 'none' : '';
+        btnLayout.textContent = visivel ? '📐 Ver layout de corte' : '✕ Esconder layout';
+        return;
+      }
+
+      // ========================================================
+      // Felipe (sessao 2026-05): botoes da toolbar de superficies
+      // ========================================================
+      // Recalcular: re-renderiza a aba inteira (re-aplica overrides
+      // Sim/Nao e recalcula peso/aproveitamento). Sem chamadas externas
+      // — so' regera HTML a partir da versao atual.
+      const btnRecalc = e.target.closest('[data-acao="recalcular"]');
+      if (btnRecalc) {
+        renderLevSuperficiesTab(container);
+        if (window.showSavedDialog) {
+          window.showSavedDialog('Recalculo concluido — pesos e aproveitamento atualizados.');
+        }
+        return;
+      }
+
+      // Exportar modelo XML: gera arquivo com todas as pecas + flag
+      // Sim/Nao atual. Felipe edita e reimporta.
+      const btnExpXml = e.target.closest('[data-acao="exportar-modelo-xml"]');
+      if (btnExpXml) {
+        try {
+          const xml = gerarModeloXmlSuperficies(itens);
+          const blob = new Blob([xml], { type: 'application/xml;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const stamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
+          a.href = url;
+          a.download = `projetta-superficies-modelo-${stamp}.xml`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+        } catch (err) {
+          console.error('[Lev Superficies] erro ao exportar XML:', err);
+          alert('Erro ao gerar XML: ' + err.message);
+        }
+        return;
+      }
+
+      // Importar XML: dispara o file picker.
+      const btnImpXml = e.target.closest('[data-acao="importar-xml"]');
+      if (btnImpXml) {
+        const fileInput = container.querySelector('.orc-lev-sup-file-input');
+        if (fileInput) fileInput.click();
+        return;
+      }
+
+      // Felipe (sessao 2026-06): Exportar Modelo Excel — paralelo ao XML.
+      const btnExpXlsx = e.target.closest('[data-acao="exportar-modelo-xlsx"]');
+      if (btnExpXlsx) {
+        try {
+          const { headers, rows } = gerarModeloXlsxSuperficies(itens);
+          if (window.Universal?.exportXLSX) {
+            window.Universal.exportXLSX({
+              headers, rows,
+              sheetName: 'Superficies',
+              fileName: 'projetta-superficies-modelo',
+            });
+          } else {
+            alert('Modulo Universal.exportXLSX nao disponivel.');
+          }
+        } catch (err) {
+          console.error('[Lev Superficies] erro ao exportar XLSX:', err);
+          alert('Erro ao gerar Excel: ' + err.message);
+        }
+        return;
+      }
+
+      // Felipe (sessao 2026-06): Importar Excel — dispara file picker xlsx.
+      const btnImpXlsx = e.target.closest('[data-acao="importar-xlsx"]');
+      if (btnImpXlsx) {
+        const fileInputX = container.querySelector('.orc-lev-sup-file-input-xlsx');
+        if (fileInputX) fileInputX.click();
+        return;
+      }
+
+      // Tab entre chapas (Chapa 1, Chapa 2...)
+      // Felipe (sessao 27 fix): "ainda dificuldade para abrir layout
+      // tenho que ir de uma pagina pra outra". Antes: clicar na tab
+      // SO trocava o SVG visivel embaixo, e ele tinha que clicar no
+      // SVG pra abrir modal. Agora: clicar na tab JA abre o modal
+      // direto na chapa correspondente.
+      const btnTab = e.target.closest('[data-tab-chapa]');
+      if (btnTab) {
+        const cardId = btnTab.dataset.card;
+        const idx = btnTab.dataset.tabChapa;
+        const layoutEl = document.getElementById(`${cardId}-layout`);
+        if (!layoutEl) return;
+        // Atualiza estado visual das tabs e SVGs (mantém comportamento original
+        // pra quando o usuario nao quer abrir modal — alguma tab/SVG fica certo).
+        layoutEl.querySelectorAll('.orc-aprov-svg-wrap').forEach(el => {
+          el.style.display = (el.dataset.chapaIdx === idx) ? '' : 'none';
+        });
+        layoutEl.querySelectorAll('.orc-aprov-svg-tab').forEach(el => {
+          el.classList.toggle('is-active', el.dataset.tabChapa === idx);
+        });
+        // Felipe (sessao 27): ABRIR MODAL com essa chapa direto.
+        const layoutWrap = btnTab.closest('.orc-aprov-layout');
+        if (layoutWrap) {
+          const titulo = layoutWrap.querySelector('.orc-aprov-layout-titulo')?.textContent || 'Layout de Corte';
+          const todosSvgs = Array.from(layoutWrap.querySelectorAll('.orc-aprov-svg-wrap'));
+          const lista = todosSvgs.map((wrap, i) => {
+            const svgEl = wrap.querySelector('svg.orc-aprov-svg');
+            const tab = layoutWrap.querySelector(`.orc-aprov-svg-tab[data-tab-chapa="${i}"]`);
+            const titChapa = tab?.textContent?.trim() || `Chapa ${i + 1}`;
+            return { svg: svgEl ? svgEl.outerHTML : '', titulo: titChapa };
+          }).filter(x => x.svg);
+          if (lista.length > 0 && typeof abrirModalLayout === 'function') {
+            abrirModalLayout(lista, titulo, parseInt(idx, 10) || 0);
+          }
+        }
+        return;
+      }
+
+      // Felipe (sessao 2026-05): botao "Proxima pagina" — usa o
+      // Wizard pra AVANCAR (libera a proxima etapa + navega).
+      // Antes a gente so' clicava na aba, mas isso nao liberava o
+      // wizard, entao caia no alerta "esta bloqueada".
+      const btnProx = e.target.closest('[data-aba-destino]');
+      if (btnProx) {
+        const destino = btnProx.dataset.abaDestino;
+        if (window.OrcamentoWizard?.avancar) {
+          // 'lev-superficies' e' a aba atual; avancar() libera a proxima
+          // (que e' fab-inst) e ja navega pra ela.
+          const ok = window.OrcamentoWizard.avancar('lev-superficies');
+          if (!ok) {
+            console.warn('[Aproveitamento] avancar wizard falhou, tentando navegacao direta');
+            const tabBtn = document.querySelector(`button.sub-nav-item[data-tab="${destino}"]`);
+            tabBtn?.click();
+          }
+        } else {
+          // Fallback: clica direto na aba (caso wizard nao esteja disponivel)
+          const tabBtn = document.querySelector(`button.sub-nav-item[data-tab="${destino}"]`);
+          if (tabBtn) {
+            if (tabBtn.classList.contains('is-locked')) {
+              alert('A proxima aba esta bloqueada. Conclua os requisitos primeiro.');
+              return;
+            }
+            tabBtn.click();
+          }
+        }
+        return;
+      }
+
+      // Felipe (sessao 2026-05): clique no SVG abre modal de zoom
+      // com TODAS as chapas dessa configuracao (pra Felipe navegar
+      // entre Chapa 1, Chapa 2, Chapa 3, Chapa 4 com setas/botoes).
+      const svgClick = e.target.closest('.orc-aprov-svg-wrap');
+      if (svgClick) {
+        const layoutWrap = svgClick.closest('.orc-aprov-layout');
+        if (!layoutWrap) return;
+        const titulo = layoutWrap.querySelector('.orc-aprov-layout-titulo')?.textContent || 'Layout de Corte';
+        // Pega TODOS os SVGs (um por chapa) do layout
+        const todosSvgs = Array.from(layoutWrap.querySelectorAll('.orc-aprov-svg-wrap'));
+        const lista = todosSvgs.map((wrap, i) => {
+          const svgEl = wrap.querySelector('svg.orc-aprov-svg');
+          // Acha a tab correspondente pra pegar o titulo (ex: "Chapa 2 47%")
+          const tab = layoutWrap.querySelector(`.orc-aprov-svg-tab[data-tab-chapa="${i}"]`);
+          const titChapa = tab?.textContent?.trim() || `Chapa ${i + 1}`;
+          return {
+            svg: svgEl ? svgEl.outerHTML : '',
+            titulo: titChapa,
+          };
+        }).filter(x => x.svg);
+        // Indice da chapa que estava VISIVEL quando clicou (a que tinha display != none)
+        const idxClicado = todosSvgs.findIndex(w => w === svgClick);
+        abrirModalLayout(lista, titulo, idxClicado >= 0 ? idxClicado : 0);
+        return;
+      }
+    });
+
+    // ========================================================
+    // Felipe (sessao 2026-05): listener CHANGE pra:
+    //   1) Select editavel de Rotaciona Sim/Nao por linha
+    //   2) File input do "Importar XML"
+    // ========================================================
+    container.addEventListener('change', (e) => {
+      // 1. Select Sim/Nao — salva override no item e persiste no storage
+      const sel = e.target.closest('.orc-lev-sup-rot-select');
+      if (sel) {
+        const idx = Number(sel.dataset.itemIdx);
+        const chave = sel.dataset.pecaKey;
+        const valor = sel.value === 'sim' ? 'sim' : 'nao';
+        const item = itens[idx];
+        if (!item) return;
+        if (!item.rotacionaOverrides) item.rotacionaOverrides = {};
+        item.rotacionaOverrides[chave] = valor;
+        // Atualiza visual da celula (laranja se Nao)
+        const cell = sel.closest('.orc-lev-sup-rot-cell');
+        if (cell) cell.classList.toggle('t-warn', valor === 'nao');
+        // Felipe (sessao 2026-05 — bug fix): antes usava window.OrcamentoCore.*
+        // que NUNCA foi definido — entao a persistencia silenciosamente
+        // virava noop. Agora usa atualizarVersao (API real).
+        try {
+          const r = obterVersao(UI.versaoAtivaId);
+          if (r && r.versao) {
+            atualizarVersao(r.versao.id, { itens: r.versao.itens });
+          }
+        } catch (err) {
+          console.warn('[Lev Superficies] erro ao salvar override:', err);
+        }
+        return;
+      }
+      // 2. File input — usuario escolheu arquivo XML
+      const fileInput = e.target.closest('.orc-lev-sup-file-input');
+      if (fileInput && fileInput.files && fileInput.files[0]) {
+        const f = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const xml = String(ev.target.result || '');
+            const res = importarOverridesXml(xml, itens);
+            // Felipe (sessao 2026-05 — bug fix): antes usava OrcamentoCore.
+            if (res.aplicados > 0) {
+              try {
+                const r = obterVersao(UI.versaoAtivaId);
+                if (r && r.versao) {
+                  atualizarVersao(r.versao.id, { itens: r.versao.itens });
+                }
+              } catch (err) {
+                console.warn('[Lev Superficies] erro ao salvar XML:', err);
+              }
+            }
+            // Mostra resumo
+            const linhas = [
+              `Importacao concluida.`,
+              `  • ${res.aplicados} override(s) aplicado(s)`,
+              `  • ${res.ignorados} entrada(s) ignorada(s) (peca nao encontrada ou valor invalido)`,
+            ];
+            if (res.erros.length) linhas.push('Erros:\n  - ' + res.erros.join('\n  - '));
+            alert(linhas.join('\n'));
+            // Re-renderiza pra mostrar os novos valores nos selects
+            renderLevSuperficiesTab(container);
+          } catch (err) {
+            console.error('[Lev Superficies] erro ao importar XML:', err);
+            alert('Erro ao importar XML: ' + err.message);
+          }
+        };
+        reader.onerror = () => alert('Falha ao ler arquivo: ' + (reader.error?.message || 'desconhecido'));
+        reader.readAsText(f, 'UTF-8');
+        // Reseta input pra permitir re-importar mesmo arquivo se quiser
+        fileInput.value = '';
+        return;
+      }
+
+      // Felipe (sessao 2026-06): 3. File input XLSX — usuario escolheu .xlsx
+      const fileInputX = e.target.closest('.orc-lev-sup-file-input-xlsx');
+      if (fileInputX && fileInputX.files && fileInputX.files[0]) {
+        const fX = fileInputX.files[0];
+        if (!window.Universal?.readXLSXFile) {
+          alert('Modulo Universal.readXLSXFile nao disponivel.');
+          fileInputX.value = '';
+          return;
+        }
+        window.Universal.readXLSXFile(fX, (aoa) => {
+          try {
+            const res = importarOverridesXlsx(aoa, itens);
+            if (res.aplicados > 0) {
+              try {
+                const r = obterVersao(UI.versaoAtivaId);
+                if (r && r.versao) {
+                  atualizarVersao(r.versao.id, { itens: r.versao.itens });
+                }
+              } catch (err) {
+                console.warn('[Lev Superficies] erro ao salvar XLSX:', err);
+              }
+            }
+            const linhas = [
+              `Importacao Excel concluida.`,
+              `  • ${res.aplicados} override(s) aplicado(s)`,
+              `  • ${res.ignorados} entrada(s) ignorada(s) (peca nao encontrada ou valor invalido)`,
+            ];
+            if (res.erros.length) linhas.push('Erros:\n  - ' + res.erros.join('\n  - '));
+            alert(linhas.join('\n'));
+            renderLevSuperficiesTab(container);
+          } catch (err) {
+            console.error('[Lev Superficies] erro ao importar XLSX:', err);
+            alert('Erro ao importar Excel: ' + err.message);
+          }
+        });
+        fileInputX.value = '';
+        return;
+      }
+    });
+
+    // Felipe (sessao 2026-05): duplo clique no card da chapa = SELECIONA
+    // essa chapa pra ser usada no custo de superficies do orcamento.
+    // Marca com classe .is-selecionada e salva no orcamento.
+    //
+    // BUG-FIX (sessao 2026-05): antes usava window.OrcamentoCore.* que
+    // NUNCA foi definido — entao o objeto `orc` virava `{}` local e a
+    // selecao era perdida. Agora persiste de verdade via obterVersao/
+    // atualizarVersao e atualiza o campo Revestimento (R$) do Custo
+    // Fabricacao instantaneamente.
+    container.addEventListener('dblclick', (e) => {
+      const card = e.target.closest('.orc-aprov-card[data-chapa-info]');
+      if (!card) return;
+      e.preventDefault();
+      let info;
+      try { info = JSON.parse(card.dataset.chapaInfo); }
+      catch (err) { console.warn('[Aproveitamento] info invalida no card', err); return; }
+
+      // Acha o WRAP da cor (.orc-aprov-cor) — todas as chapas da MESMA
+      // cor estao no mesmo wrap. Desmarca outros cards e marca este.
+      const wrapCor = card.closest('.orc-aprov-cor');
+      if (wrapCor) {
+        wrapCor.querySelectorAll('.orc-aprov-card').forEach(c =>
+          c.classList.remove('is-selecionada'));
+      }
+      card.classList.add('is-selecionada');
+
+      try {
+        const r = obterVersao(UI.versaoAtivaId);
+        if (!r || !r.versao) {
+          console.warn('[Aproveitamento] versao atual nao encontrada');
+          return;
+        }
+        const versao = r.versao;
+        // Felipe (sessao 28 fix): "PDF QUE GERAR NAS Lev. Superficies
+        // ISSO AI NADA DO QUE PEDI". Causa raiz: o save antigo so salvava
+        // metadados (descricao, preco, custoTotal). O renderRelChapas
+        // espera `opcoes[idxEscolhido].chapas[].pecasPosicionadas` —
+        // como nada disso era salvo, mostrava "Sem dados de aproveitamento".
+        // Solucao: pegar resultado COMPLETO do cache global (preenchido
+        // ao renderizar os cards), extrair so' o que o relatorio precisa
+        // (sem `pecasNaoCouberam`, sem `pecasOriginais` etc — economia
+        // de localStorage), e salvar como `opcoes[0]`.
+        const cardId = card.dataset.cardId;
+        const resultadoCompleto = (window.__projettaResultadosNesting || {})[cardId];
+        const opcao = resultadoCompleto ? {
+          chapaMae: {
+            descricao: resultadoCompleto.chapaMae.descricao,
+            largura:   resultadoCompleto.chapaMae.largura,
+            altura:    resultadoCompleto.chapaMae.altura,
+            preco:     resultadoCompleto.chapaMae.preco,
+            peso_kg_m2: resultadoCompleto.chapaMae.peso_kg_m2,
+          },
+          taxaAproveitamento: resultadoCompleto.taxaAproveitamento,
+          custoTotal:         resultadoCompleto.custoTotal,
+          numChapas:          resultadoCompleto.numChapas,
+          // Pra cada chapa, salva só o minimo pro relatorio:
+          //   - taxa
+          //   - pecasPosicionadas[] com {peca:{label}, larg, alt}
+          //   - sobrasRetangulos[] com {w, h} (sem x,y — relatorio nao precisa)
+          chapas: (resultadoCompleto.chapas || []).map(c => ({
+            taxa: c.taxa,
+            pecasPosicionadas: (c.pecasPosicionadas || []).map(pp => ({
+              peca: { label: pp.peca?.label || '' },
+              larg: pp.larg,
+              alt:  pp.alt,
+            })),
+            sobrasRetangulos: (c.sobrasRetangulos || []).map(s => ({
+              w: s.w, h: s.h,
+            })),
+          })),
+        } : null;
+
+        // Persiste selecao por COR (existing chapasSelecionadas + esta cor)
+        const chapasSel = Object.assign({}, versao.chapasSelecionadas || {});
+        chapasSel[info.cor] = {
+          descricao: info.descricao,
+          largura: info.largura,
+          altura: info.altura,
+          preco: info.preco,
+          numChapas: info.numChapas,
+          custoTotal: info.custoTotal,
+          peso_kg_m2: info.peso_kg_m2,
+          pesoTotal: info.pesoTotal,
+          // Felipe (sessao 28 fix): estrutura completa pro relatorio
+          idxEscolhido: 0,
+          opcoes: opcao ? [opcao] : [],
+        };
+
+        // Felipe (sessao 2026-05): atualiza fab.total_revestimento
+        // automaticamente — soma de TODAS as chapas selecionadas + fallback
+        // automatico nas cores que ainda nao foram selecionadas.
+        const futVersao = Object.assign({}, versao, { chapasSelecionadas: chapasSel });
+        const totalRev = computeRevestimentoPorCor(futVersao, pecasPorCor, todasSupGlobal).total;
+        const novoFab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
+        novoFab.total_revestimento = totalRev;
+        // Recalcula subFab pra DRE refletir mudanca instantaneamente
+        const rFab = calcularFab(novoFab, versao.itens);
+
+        atualizarVersao(versao.id, {
+          chapasSelecionadas: chapasSel,
+          custoFab: novoFab,
+          subFab: rFab.total,
+        });
+
+        // Re-renderiza a aba inteira pra mostrar:
+        //   - Resumo Total atualizado (tabela com nova linha)
+        //   - Card destacado em verde
+        renderLevSuperficiesTab(container);
+
+        if (window.showSavedDialog) {
+          window.showSavedDialog(
+            `Chapa selecionada: ${info.numChapas}× ${info.largura}×${info.altura}mm de "${info.cor}"\n` +
+            `Custo: R$ ${fmtBR(info.custoTotal)}\n` +
+            `Revestimento total atualizado: R$ ${fmtBR(totalRev)}`
+          );
+        }
+      } catch (err) {
+        console.warn('[Aproveitamento] erro ao persistir selecao', err);
+        alert('Erro ao salvar selecao: ' + err.message);
+      }
+    });
+
+    // Felipe (sessao 2026-05): re-aplica chapas ja' selecionadas (caso
+    // o usuario tenha selecionado antes e re-aberto a aba). Le da versao
+    // ativa e marca os cards correspondentes.
+    setTimeout(() => {
+      try {
+        const r = obterVersao(UI.versaoAtivaId);
+        const sel = (r && r.versao && r.versao.chapasSelecionadas) || {};
+        Object.keys(sel).forEach(cor => {
+          const escolhida = sel[cor];
+          // Procura cards com mesma cor + dimensoes
+          container.querySelectorAll('.orc-aprov-card[data-chapa-info]').forEach(card => {
+            try {
+              const info = JSON.parse(card.dataset.chapaInfo);
+              if (info.cor === cor &&
+                  Number(info.largura) === Number(escolhida.largura) &&
+                  Number(info.altura)  === Number(escolhida.altura)) {
+                card.classList.add('is-selecionada');
+              }
+            } catch (e) { /* ignora */ }
+          });
+        });
+      } catch (e) { /* ignora */ }
+    }, 50);
+  }
+
+  /**
+   * Felipe (sessao 2026-05): coleta TODAS as peças de TODOS os itens
+   * de porta externa e agrupa por COR.
+   *
+   * Por que agrupar por cor: cada cor é uma chapa-mae diferente. Um
+   * orcamento com 3 portas pode ter 5 cores distintas (ext1, int1,
+   * cava1, ext2, int2). Cada cor tem sua propria pilha de pecas pra
+   * encaixar nas chapas-mae da categoria correspondente.
+   *
+   * Retorna: { 'As002 - Wood Carvalho': [pecas...], 'White Glossy': [...] }
+   */
+  function coletarPecasPorCor(itens) {
+    const Chapas = window.ChapasPortaExterna;
+    const ChapasRev = window.ChapasRevParede;
+    const grupos = {};
+    itens.forEach((item, idx) => {
+      // Felipe (sessao 2026-05): trata cada tipo com seu motor proprio.
+      // Quando outros tipos ganharem motor (porta_interna, fixo_acoplado),
+      // basta adicionar mais cases aqui.
+      // Felipe (sessao 2026-05 — Sim/Nao manual): aplica overrides do
+      // usuario ANTES de enviar pro aproveitamento, pra que o motor de
+      // chapas use a flag editada (e nao a calculada automaticamente).
+      // Felipe (sessao 28 fix): tambem aplica qtdOverrides (importado do Excel).
+      if (item.tipo === 'porta_externa' && Chapas) {
+        ['externo', 'interno'].forEach(lado => {
+          let pecas = Chapas.gerarPecasChapa(item, lado) || [];
+          pecas = aplicarRotacionaOverrides(pecas, item);
+          pecas = aplicarQtdOverrides(pecas, item, lado);
+          pecas.forEach(p => agrupar(grupos, p, idx, item));
+        });
+      } else if (item.tipo === 'revestimento_parede' && ChapasRev) {
+        let pecas = ChapasRev.gerarPecasRevParede(item) || [];
+        pecas = aplicarRotacionaOverrides(pecas, item);
+        pecas = aplicarQtdOverrides(pecas, item, null);
+        pecas.forEach(p => agrupar(grupos, p, idx, item));
+      }
+    });
+    return grupos;
+  }
+
+  /**
+   * Helper que agrupa peça no objeto `grupos` por cor.
+   */
+  function agrupar(grupos, peca, origemIdx, item) {
+    const cor = peca.cor || '(sem cor)';
+    if (!grupos[cor]) grupos[cor] = [];
+    grupos[cor].push(Object.assign({}, peca, {
+      origemItemIdx: origemIdx,
+      origemItemTipo: item.tipo,
+      revestimento: item.revestimento || '',
+    }));
+  }
+
+  /**
+   * Felipe (sessao 2026-05): renderiza a seção de APROVEITAMENTO DE
+   * CHAPAS — pra cada cor, mostra:
+   *   - Total de peças nessa cor
+   *   - 4 chapas-mae da categoria (ACM/HPL/Aluminio/Vidro)
+   *   - Pra cada uma: quantas chapas necessárias + taxa aproveitamento + custo
+   *   - Destaca a melhor configuração (menor custo)
+   */
+  function renderAproveitamentoChapas(pecasPorCor) {
+    const cores = Object.keys(pecasPorCor);
+    if (!cores.length) {
+      return `
+        <div class="orc-section">
+          <div class="orc-section-title">Aproveitamento de Chapas</div>
+          <p class="orc-hint-text">Sem pecas geradas — preencha os itens primeiro.</p>
+        </div>`;
+    }
+
+    // Felipe (sessao 2026-05): usa Superficies.listar() (que dispara
+    // load() do modulo 26-superficies.js, garantindo que o SEED de
+    // 249 chapas seja carregado mesmo se o usuario nunca abriu a aba
+    // Cadastros > Superficies). Fallback: storage direto.
+    const todasSuperficies = (window.Superficies?.listar?.())
+      || (window.Storage?.scope?.('cadastros').get('superficies_lista'))
+      || [];
+
+    // Felipe (sessao 2026-05 — peso v3): acumula totais consolidados.
+    const totaisGerais = {
+      pesoPorta: 0, pesoPortal: 0, pesoRev: 0,
+      pesoUtil: 0, pesoComprado: 0, pesoDesperdicio: 0,
+      pesoTotal: 0,  // backward-compat = comprado
+      custoTotal: 0, numChapas: 0,
+      semPesoCadastrado: false,
+    };
+
+    const blocos = cores.map(cor => {
+      const bloco = renderBlocoCor(cor, pecasPorCor[cor], todasSuperficies);
+      const dadosTotal = calcularDadosTotaisCor(pecasPorCor[cor], todasSuperficies);
+      if (dadosTotal) {
+        totaisGerais.pesoPorta       += dadosTotal.pesoPorta;
+        totaisGerais.pesoPortal      += dadosTotal.pesoPortal;
+        totaisGerais.pesoRev         += dadosTotal.pesoRev;
+        totaisGerais.pesoUtil        += dadosTotal.pesoUtil || 0;
+        totaisGerais.pesoComprado    += dadosTotal.pesoComprado || dadosTotal.pesoTotal || 0;
+        totaisGerais.pesoDesperdicio += dadosTotal.pesoDesperdicio || 0;
+        totaisGerais.pesoTotal       += dadosTotal.pesoTotal;
+        totaisGerais.custoTotal      += dadosTotal.custoTotal;
+        totaisGerais.numChapas       += dadosTotal.numChapas;
+        if (!dadosTotal.temPeso) totaisGerais.semPesoCadastrado = true;
+      }
+      return bloco;
+    }).join('');
+
+    // Felipe (sessao 2026-05): TABELA detalhada de revestimento por cor.
+    // Felipe pediu: "ali resumo quero preco unitatio de cada chapa x
+    // quantidade por cor — entao se tem 3 cores tem 3 linhas com preco
+    // unitario x quantidade de cada cor e um valor total para conferencia".
+    // Usa chapa SELECIONADA (duplo clique) ou MELHOR auto se nao escolheu.
+    const versaoAtual = (obterVersao(UI.versaoAtivaId) || {}).versao || {};
+    const revPorCor = computeRevestimentoPorCor(versaoAtual, pecasPorCor, todasSuperficies);
+    const tabelaCustosHtml = revPorCor.linhas.length ? `
+      <div class="orc-aprov-resumo-tabela-wrap">
+        <div class="orc-aprov-resumo-tabela-titulo">💵 Custo por cor — Preço unitário × Qtd</div>
+        <table class="orc-aprov-resumo-tabela">
+          <thead>
+            <tr>
+              <th>Cor</th>
+              <th>Chapa</th>
+              <th class="num">Preço unit. (R$)</th>
+              <th class="num">Qtd</th>
+              <th class="num">Subtotal (R$)</th>
+              <th>Origem</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${revPorCor.linhas.map(l => `
+              <tr class="${l.fonte === 'selecionada' ? 'orc-aprov-rev-sel' : 'orc-aprov-rev-auto'}">
+                <td>${escapeHtml(l.cor)}</td>
+                <td class="orc-aprov-rev-desc">${escapeHtml(l.descricao)}</td>
+                <td class="num">${fmtBR(l.precoUnit)}</td>
+                <td class="num">${l.qtd}</td>
+                <td class="num"><b>${fmtBR(l.subtotal)}</b></td>
+                <td class="orc-aprov-rev-fonte">${l.fonte === 'selecionada' ? '✓ selecionada' : 'auto (melhor)'}</td>
+              </tr>
+            `).join('')}
+            <tr class="orc-aprov-rev-total">
+              <td colspan="4">Total Geral (vai pro campo Revestimento em Custo Fab/Inst)</td>
+              <td class="num"><b>R$ ${fmtBR(revPorCor.total)}</b></td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    ` : '';
+
+    // Resumo final consolidado
+    // Felipe (sessao 2026-05 — peso v3): destaca PESO UTIL (peso real
+    // da porta pronta) — esse e' o peso que vai pro frete + montagem.
+    // PESO COMPRADO (chapa-mae × num) so' importa pra custo do material.
+    const resumoFinal = (cores.length > 0 && totaisGerais.numChapas > 0) ? `
+      <div class="orc-aprov-resumo-total">
+        <div class="orc-aprov-resumo-titulo">📦 Resumo Total — Todas as Cores</div>
+        <div class="orc-aprov-resumo-grid">
+          <div class="orc-aprov-resumo-card">
+            <div class="orc-aprov-resumo-label">Total de chapas-mãe</div>
+            <div class="orc-aprov-resumo-valor"><b>${totaisGerais.numChapas}</b></div>
+          </div>
+          <div class="orc-aprov-resumo-card orc-aprov-resumo-destaque-laranja">
+            <div class="orc-aprov-resumo-label">💰 Custo total (revestimento)</div>
+            <div class="orc-aprov-resumo-valor"><b>R$ ${fmtBR(revPorCor.total)}</b></div>
+          </div>
+          ${totaisGerais.pesoPorta > 0 ? `
+          <div class="orc-aprov-resumo-card">
+            <div class="orc-aprov-resumo-label">Peso da Porta (peças)</div>
+            <div class="orc-aprov-resumo-valor"><b>${fmtBR(totaisGerais.pesoPorta)} kg</b></div>
+          </div>` : ''}
+          ${totaisGerais.pesoPortal > 0 ? `
+          <div class="orc-aprov-resumo-card">
+            <div class="orc-aprov-resumo-label">Peso do Portal (peças)</div>
+            <div class="orc-aprov-resumo-valor"><b>${fmtBR(totaisGerais.pesoPortal)} kg</b></div>
+          </div>` : ''}
+          ${totaisGerais.pesoRev > 0 ? `
+          <div class="orc-aprov-resumo-card">
+            <div class="orc-aprov-resumo-label">Peso Revestimento (peças)</div>
+            <div class="orc-aprov-resumo-valor"><b>${fmtBR(totaisGerais.pesoRev)} kg</b></div>
+          </div>` : ''}
+          <div class="orc-aprov-resumo-card orc-aprov-resumo-destaque">
+            <div class="orc-aprov-resumo-label">📦 Peso ÚTIL (porta pronta)</div>
+            <div class="orc-aprov-resumo-valor"><b>${fmtBR(totaisGerais.pesoUtil)} kg</b></div>
+          </div>
+          <div class="orc-aprov-resumo-card">
+            <div class="orc-aprov-resumo-label">🧾 Peso comprado (chapas)</div>
+            <div class="orc-aprov-resumo-valor"><b>${fmtBR(totaisGerais.pesoComprado)} kg</b></div>
+          </div>
+          ${totaisGerais.pesoDesperdicio > 0 ? `
+          <div class="orc-aprov-resumo-card orc-aprov-resumo-desperdicio">
+            <div class="orc-aprov-resumo-label">↳ desperdício</div>
+            <div class="orc-aprov-resumo-valor"><b>${fmtBR(totaisGerais.pesoDesperdicio)} kg</b></div>
+          </div>` : ''}
+        </div>
+        ${tabelaCustosHtml}
+        ${totaisGerais.semPesoCadastrado
+          ? `<p class="orc-hint-text orc-aprov-resumo-aviso">
+              ⚠ Algumas superfícies não têm peso cadastrado.
+              Preencha "Peso (kg/m²)" em Cadastros > Superfícies pra ter o peso completo.
+            </p>` : ''}
+      </div>
+    ` : '';
+
+    return `
+      <div class="orc-section orc-aproveitamento-section">
+        <div class="orc-section-title">Aproveitamento de Chapas — quantas chapas-mãe vamos gastar?</div>
+        <p class="orc-hint-text">
+          Para cada cor, o algoritmo encaixa todas as peças numa chapa-mãe
+          de tamanho fixo e calcula quantas chapas precisamos. Os tamanhos
+          vêm do <b>Cadastros > Superfícies</b> (categoria de cada cor —
+          ACM, HPL, Alumínio Maciço ou Vidro).
+          A configuração com menor custo total fica destacada em verde.
+        </p>
+        ${blocos}
+        ${resumoFinal}
+      </div>`;
+  }
+
+  /**
+   * Helper: calcula peso e custo da MELHOR config pra UMA cor (usado no
+   * acumulado total).
+   */
+  function calcularDadosTotaisCor(pecas, todasSuperficies) {
+    const cor = pecas[0]?.cor || '';
+    const nomeCurto = nomeCurtoSuperficie(cor);
+    if (!nomeCurto) return null;
+    // Felipe (sessao 2026-05): MESMA lógica de matching do renderBlocoCor.
+    // 4 camadas: exato → substring → primeira palavra → digitos do codigo.
+    const norm = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const nomeCurtoNorm = norm(nomeCurto);
+
+    // Camada 1: exato
+    let variantes = todasSuperficies.filter(s => {
+      const sNome = nomeCurtoSuperficie(s.descricao);
+      return sNome && norm(sNome) === nomeCurtoNorm;
+    });
+    // Camada 2: substring
+    if (variantes.length === 0 && nomeCurtoNorm.length >= 4) {
+      variantes = todasSuperficies.filter(s => {
+        const n = norm(nomeCurtoSuperficie(s.descricao));
+        return n.length >= 4 && (n.includes(nomeCurtoNorm) || nomeCurtoNorm.includes(n));
+      });
+    }
+    // Camada 3: primeira palavra-chave
+    if (variantes.length === 0) {
+      const primPal = String(cor || '').trim().split(/[\s\-–—]+/)[0] || '';
+      const primPalNorm = norm(primPal);
+      if (primPalNorm.length >= 5) {
+        variantes = todasSuperficies.filter(s => norm(s.descricao).startsWith(primPalNorm));
+      }
+    }
+    // Camada 4: digitos do codigo
+    if (variantes.length === 0) {
+      const matchDig = String(cor || '').match(/\d{4,}/);
+      if (matchDig) {
+        const dig = matchDig[0];
+        variantes = todasSuperficies.filter(s => String(s.descricao || '').includes(dig));
+      }
+    }
+    // Aplica o mesmo fallback de extracao de dimensoes
+    function extrairDims(desc) {
+      const m = String(desc || '').match(/(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/i);
+      if (!m) return { largura: 0, altura: 0 };
+      let l = parseFloat(m[1].replace(',', '.')); let a = parseFloat(m[2].replace(',', '.'));
+      const ehMetros = !!m[3] || (l > 0 && l <= 5);
+      if (ehMetros) { l *= 1000; a *= 1000; }
+      return { largura: Math.round(l), altura: Math.round(a) };
+    }
+    variantes = variantes.map(v => {
+      if (Number(v.largura) > 0 && Number(v.altura) > 0) return v;
+      const d = extrairDims(v.descricao);
+      return Object.assign({}, v, { largura: d.largura, altura: d.altura });
+    }).filter(v => Number(v.largura) > 0 && Number(v.altura) > 0);
+    if (!variantes.length) return null;
+
+    const resultados = window.ChapasAproveitamento.compararConfiguracoes(
+      pecas,
+      variantes.map(v => ({
+        descricao: v.descricao,
+        largura:   Number(v.largura),
+        altura:    Number(v.altura),
+        preco:     Number(v.preco) || 0,
+        peso_kg_m2: Number(v.peso_kg_m2) || 0,
+      }))
+    );
+    // Felipe (sessao 2026-05): pega a melhor pela flag isMelhor
+    // (ordem natural por dimensao mantida).
+    const melhor = resultados.find(r => r.isMelhor) || null;
+    if (!melhor) return null;
+    const pesos = calcularPesosPorCategoria(pecas, melhor);
+    return {
+      pesoPorta:    pesos.porta,
+      pesoPortal:   pesos.portal,
+      pesoRev:      pesos.revestimento,
+      pesoUtil:     pesos.pecasUtil,    // novo: util (peças)
+      pesoComprado: pesos.comprado,     // novo: comprado (chapa)
+      pesoDesperdicio: pesos.desperdicio, // novo: sobra
+      pesoTotal:    pesos.comprado,     // backward-compat
+      custoTotal:   melhor.custoTotal,
+      numChapas:    melhor.numChapas,
+      temPeso:      pesos.temPeso,
+    };
+  }
+
+  /**
+   * Felipe (sessao 2026-05): calcula o custo de revestimento (chapas)
+   * por COR, usando a chapa SELECIONADA pelo usuario (duplo clique) ou
+   * caindo na MELHOR opcao automatica se nao tem selecao pra essa cor.
+   *
+   * Retorna { linhas, total }:
+   *   linhas: [{cor, descricao, precoUnit, qtd, subtotal, fonte}]
+   *   total: soma dos subtotais
+   *   fonte: 'selecionada' (usuario escolheu) | 'auto' (fallback)
+   *
+   * Usado em 3 lugares:
+   *   1. Duplo clique pra atualizar fab.total_revestimento instantaneamente
+   *   2. Resumo Total da aba Lev. Superficies (tabela 1 linha por cor)
+   *   3. Sincronizacao quando o usuario abre Custo Fab/Inst
+   */
+  function computeRevestimentoPorCor(versao, pecasPorCor, todasSuperficies) {
+    const linhas = [];
+    let total = 0;
+    const sel = (versao && versao.chapasSelecionadas) || {};
+    const cores = Object.keys(pecasPorCor || {});
+    cores.forEach(cor => {
+      if (sel[cor]) {
+        // Usuario selecionou explicitamente esta chapa
+        const c = sel[cor];
+        const qtd = Number(c.numChapas) || 0;
+        const subtotal = Number(c.custoTotal) || 0;
+        const precoUnit = qtd > 0 ? subtotal / qtd : (Number(c.preco) || 0);
+        linhas.push({
+          cor,
+          descricao: c.descricao || cor,
+          largura: Number(c.largura) || 0,
+          altura: Number(c.altura) || 0,
+          precoUnit,
+          qtd,
+          subtotal,
+          fonte: 'selecionada',
+        });
+        total += subtotal;
+      } else {
+        // Fallback automatico = melhor opcao
+        const dadosTotal = calcularDadosTotaisCor(pecasPorCor[cor], todasSuperficies);
+        if (dadosTotal) {
+          const qtd = Number(dadosTotal.numChapas) || 0;
+          const subtotal = Number(dadosTotal.custoTotal) || 0;
+          const precoUnit = qtd > 0 ? subtotal / qtd : 0;
+          linhas.push({
+            cor,
+            descricao: cor + ' (auto)',
+            largura: 0,
+            altura: 0,
+            precoUnit,
+            qtd,
+            subtotal,
+            fonte: 'auto',
+          });
+          total += subtotal;
+        }
+      }
+    });
+    return { linhas, total };
+  }
+
+  /**
+   * Renderiza o bloco de comparação de UMA cor.
+   */
+  // ============================================================
+  // Felipe (sessao 2026-05): Layout visual do nesting (SVG)
+  // ============================================================
+
+  /**
+   * Cor por categoria pra pintar peca no SVG (paleta MaxCut-like)
+   */
+  function corPecaSvg(peca) {
+    // Paleta inspirada no MaxCut (laranja=peças principais, etc)
+    const cat = peca.categoria || 'porta';
+    if (cat === 'porta')   return { fill: '#f97316', stroke: '#9a3412', text: '#1f1109' };
+    if (cat === 'portal')  return { fill: '#fb923c', stroke: '#7c2d12', text: '#1f1109' };
+    if (cat === 'revestimento') return { fill: '#fbbf24', stroke: '#78350f', text: '#1f1109' };
+    return { fill: '#fb923c', stroke: '#9a3412', text: '#1f1109' };
+  }
+
+  /**
+   * Gera SVG de UMA chapa (peças posicionadas + sobras).
+   * @param {Object} chapa - { largura, altura, pecasPosicionadas, sobrasRetangulos }
+   * @param {Number} numChapaAtual - numero desta chapa (1-based)
+   * @param {Number} numChapasTotal
+   */
+  function renderSvgChapa(chapa, numChapaAtual, numChapasTotal) {
+    // Felipe (sessao 2026-05): chapa SEMPRE renderizada na HORIZONTAL —
+    // o lado MAIOR vira a largura visual (eixo X) e o lado MENOR vira
+    // a altura visual (eixo Y). Isso faz a chapa parecer "deitada"
+    // como no MaxCut, e da espaco util pras pecas serem visiveis.
+    //
+    // Logica: se a chapa tem altura > largura (caso real, 1500x7000),
+    // a gente roda 90 graus pra desenhar.
+    const precisaGirar = chapa.altura > chapa.largura;
+    const chapaWView = precisaGirar ? chapa.altura : chapa.largura;
+    const chapaHView = precisaGirar ? chapa.largura : chapa.altura;
+
+    // SVG dimensoes — tamanho generoso pra ficar legivel
+    const SVG_W = 1400;
+    const PADDING = 50;
+    const wDisp = SVG_W - 2 * PADDING;
+    // Altura proporcional ao formato visual (deitado)
+    let svgH = wDisp * (chapaHView / chapaWView) + 2 * PADDING;
+    svgH = Math.max(280, Math.min(svgH, 500));
+    const hDisp = svgH - 2 * PADDING;
+    const escalaX = wDisp / chapaWView;
+    const escalaY = hDisp / chapaHView;
+    const escala = Math.min(escalaX, escalaY);
+    const offX = (SVG_W - chapaWView * escala) / 2;
+    const offY = (svgH - chapaHView * escala) / 2;
+
+    // Helpers de coordenada — converte coord da chapa REAL pra SVG.
+    // Quando precisaGirar, troca os eixos: peca em (x_real, y_real)
+    // vai pra (y_real, x_real) no SVG, e dimensoes invertidas.
+    const tx = (xReal, yReal) => offX + (precisaGirar ? yReal : xReal) * escala;
+    const ty = (xReal, yReal) => offY + (precisaGirar ? xReal : yReal) * escala;
+    const tw = (wReal, hReal) => (precisaGirar ? hReal : wReal) * escala;
+    const th = (wReal, hReal) => (precisaGirar ? wReal : hReal) * escala;
+
+    // Background da chapa
+    let svg = `
+      <svg viewBox="0 0 ${SVG_W} ${svgH}" xmlns="http://www.w3.org/2000/svg"
+           class="orc-aprov-svg" preserveAspectRatio="xMidYMid meet"
+           style="cursor: zoom-in;">
+        <rect x="${offX}" y="${offY}" width="${chapaWView * escala}" height="${chapaHView * escala}"
+              fill="#fef3c7" stroke="#1f3658" stroke-width="2" />
+    `;
+
+    // Sobras (areas amarelas)
+    chapa.sobrasRetangulos.forEach(s => {
+      const xPx = tx(s.x, s.y);
+      const yPx = ty(s.x, s.y);
+      const wPx = tw(s.w, s.h);
+      const hPx = th(s.w, s.h);
+      svg += `<rect x="${xPx}" y="${yPx}" width="${wPx}" height="${hPx}"
+                    fill="#fde68a" stroke="#a16207" stroke-width="0.5" stroke-dasharray="4 2" />`;
+    });
+
+    // Peças posicionadas
+    chapa.pecasPosicionadas.forEach(pp => {
+      const c = corPecaSvg(pp.peca);
+      const xPx = tx(pp.x, pp.y);
+      const yPx = ty(pp.x, pp.y);
+      const wPx = tw(pp.larg, pp.alt);
+      const hPx = th(pp.larg, pp.alt);
+
+      svg += `<rect x="${xPx}" y="${yPx}" width="${wPx}" height="${hPx}"
+                    fill="${c.fill}" stroke="${c.stroke}" stroke-width="1" />`;
+
+      // Felipe (sessao 2026-06): mudou de ideia — "nao vejo problema
+      // ter o id desde que tenha nessa imagem identificacao com nome
+      // da peca e as medidas ate facilita". Voltar mostrar #id +
+      // label + dimensoes. Para pecas pequenas, mostra label
+      // encurtado + #id.
+      const idStr = `#${pp.peca.id}`;
+      const labelStr = pp.peca.label || '';
+      const dimStr = `${Math.round(pp.larg)}×${Math.round(pp.alt)}`;
+      const cx = xPx + wPx / 2;
+      const cy = yPx + hPx / 2;
+
+      // Texto: usa o lado MAIOR do retangulo no SVG pra calibrar fonte
+      const ladoMaior = Math.max(wPx, hPx);
+      const ladoMenor = Math.min(wPx, hPx);
+
+      if (ladoMaior >= 60 && ladoMenor >= 24) {
+        const fonteLabel = Math.min(11, ladoMaior / 12, ladoMenor / 3.5);
+        const fonteDim = Math.min(9, ladoMaior / 14, ladoMenor / 5);
+        const labelClipado = labelStr.length > 16 ? labelStr.slice(0, 16) + '…' : labelStr;
+        // Se peca for mais alta que larga no SVG, escreve verticalmente
+        const ehVertical = hPx > wPx * 1.5;
+        const transformAttr = ehVertical
+          ? `transform="rotate(-90 ${cx} ${cy})"`
+          : '';
+        svg += `<text x="${cx}" y="${cy - fonteLabel/2}" text-anchor="middle"
+                      font-size="${fonteLabel.toFixed(1)}" fill="${c.text}"
+                      font-weight="600" font-family="monospace" ${transformAttr}>
+                  ${escapeHtml(labelClipado)} ${escapeHtml(idStr)}
+                </text>`;
+        svg += `<text x="${cx}" y="${cy + fonteLabel}" text-anchor="middle"
+                      font-size="${fonteDim.toFixed(1)}" fill="${c.text}"
+                      font-family="monospace" opacity="0.85" ${transformAttr}>
+                  ${escapeHtml(dimStr)} mm
+                </text>`;
+      } else if (ladoMaior >= 30 && ladoMenor >= 12) {
+        const fonte = Math.min(9, ladoMaior / 5, ladoMenor / 2.5);
+        const ehVertical = hPx > wPx * 1.5;
+        const transformAttr = ehVertical
+          ? `transform="rotate(-90 ${cx} ${cy})"`
+          : '';
+        // Felipe (sessao 2026-06): pecas pequenas — mostra label
+        // encurtado + #id. Se label e' muito longo, fica so' #id.
+        const labelCurto = labelStr.length > 6 ? labelStr.slice(0, 6) + '…' : labelStr;
+        const textoFinal = labelCurto ? `${labelCurto} ${idStr}` : idStr;
+        svg += `<text x="${cx}" y="${cy + fonte/3}" text-anchor="middle"
+                      font-size="${fonte.toFixed(1)}" fill="${c.text}"
+                      font-family="monospace" ${transformAttr}>
+                  ${escapeHtml(textoFinal)}
+                </text>`;
+      }
+    });
+
+    // Cotas externas — reflete dimensao REAL da chapa
+    const corCota = '#1f3658';
+    // Cota do lado HORIZONTAL no SVG (que e' o lado MAIOR da chapa real)
+    const xMidSvg = offX + (chapaWView * escala) / 2;
+    const yTopoCota = offY - 12;
+    const dimensaoTopo = chapaWView;  // dimensao real
+    svg += `<text x="${xMidSvg}" y="${yTopoCota}" text-anchor="middle"
+                  font-size="12" fill="${corCota}" font-weight="700" font-family="monospace">
+              ${dimensaoTopo} mm
+            </text>`;
+    // Cota do lado VERTICAL no SVG (lado MENOR)
+    const xEsqCota = offX - 12;
+    const yMidSvg = offY + (chapaHView * escala) / 2;
+    const dimensaoLado = chapaHView;
+    svg += `<text x="${xEsqCota}" y="${yMidSvg}" text-anchor="middle"
+                  font-size="12" fill="${corCota}" font-weight="700" font-family="monospace"
+                  transform="rotate(-90 ${xEsqCota} ${yMidSvg})">
+              ${dimensaoLado} mm
+            </text>`;
+
+    svg += `</svg>`;
+    return svg;
+  }
+
+  /**
+   * Renderiza o painel de detalhes + SVG(s) de uma configuração.
+   * Se tem mais de 1 chapa, mostra navegação tipo abas (Chapa 1, Chapa 2...).
+   */
+  function renderLayoutNesting(resultado, cardId) {
+    const cfg = resultado.cfg || {};
+    const numChapas = resultado.chapas.length;
+    if (!numChapas) return '';
+
+    // Se sao multiplas chapas, gera abas; senao, so um SVG
+    const totaisPecas = resultado.chapas.reduce((s, c) => s + c.pecasPosicionadas.length, 0);
+
+    // Painel detalhes
+    const desperdicioGeral = ((1 - resultado.taxaAproveitamento) * 100).toFixed(2);
+    const m2Chapa = (resultado.chapaMae.largura * resultado.chapaMae.altura / 1000000).toFixed(3);
+    const m2Total = (m2Chapa * numChapas).toFixed(3);
+    const m2Usado = (resultado.areaUsadaTotal / 1000000).toFixed(3);
+    const m2Sobra = (m2Total - m2Usado).toFixed(3);
+
+    const metodoLabel = {
+      'normal': 'Normal (BLF)',
+      'multi_horiz': 'Multiplos estagios — comprimento',
+      'multi_vert': 'Multiplos estagios — largura',
+    }[cfg.METODO] || cfg.METODO;
+
+    const painelDetalhes = `
+      <div class="orc-aprov-detalhes">
+        <div class="orc-aprov-detalhes-titulo">Detalhes da Distribuicao</div>
+        <div class="orc-aprov-detalhes-row"><span>Total de chapas:</span><b>${numChapas}</b></div>
+        <div class="orc-aprov-detalhes-row"><span>Total de pecas:</span><b>${totaisPecas}</b></div>
+        <div class="orc-aprov-detalhes-row"><span>Aproveitamento:</span><b>${(resultado.taxaAproveitamento * 100).toFixed(2)}%</b></div>
+        <div class="orc-aprov-detalhes-row"><span>Desperdicio:</span><b>${desperdicioGeral}%</b></div>
+        <div class="orc-aprov-detalhes-row"><span>Area chapa:</span><b>${m2Chapa} m²</b></div>
+        <div class="orc-aprov-detalhes-row"><span>Area total comprada:</span><b>${m2Total} m²</b></div>
+        <div class="orc-aprov-detalhes-row"><span>Area usada (peças):</span><b>${m2Usado} m²</b></div>
+        <div class="orc-aprov-detalhes-row"><span>Area sobra:</span><b>${m2Sobra} m²</b></div>
+        <div class="orc-aprov-detalhes-row"><span>Espessura serra (kerf):</span><b>${cfg.KERF || 4} mm</b></div>
+        <div class="orc-aprov-detalhes-row"><span>Aparar chapa:</span><b>${cfg.APARAR || 5} mm (todas as bordas)</b></div>
+        <div class="orc-aprov-detalhes-row"><span>Metodo:</span><b>${escapeHtml(metodoLabel)}</b></div>
+      </div>
+    `;
+
+    // Tabs de chapa (se mais de 1)
+    let tabsHtml = '';
+    let svgHtml = '';
+    if (numChapas === 1) {
+      svgHtml = `<div class="orc-aprov-svg-wrap" data-chapa-idx="0">
+                   ${renderSvgChapa(resultado.chapas[0], 1, 1)}
+                 </div>`;
+    } else {
+      const tabs = resultado.chapas.map((c, i) => {
+        const taxa = (c.taxa * 100).toFixed(0);
+        return `<button type="button" class="orc-aprov-svg-tab ${i === 0 ? 'is-active' : ''}"
+                       data-tab-chapa="${i}" data-card="${cardId}">
+                  Chapa ${i + 1} <span class="orc-aprov-svg-tab-taxa">${taxa}%</span>
+                </button>`;
+      }).join('');
+      tabsHtml = `<div class="orc-aprov-svg-tabs">${tabs}</div>`;
+      svgHtml = resultado.chapas.map((c, i) => `
+        <div class="orc-aprov-svg-wrap" data-chapa-idx="${i}"
+             style="${i === 0 ? '' : 'display:none;'}">
+          ${renderSvgChapa(c, i + 1, numChapas)}
+        </div>
+      `).join('');
+    }
+
+    // Legenda de cores
+    const legenda = `
+      <div class="orc-aprov-legenda">
+        <span class="orc-aprov-legenda-item">
+          <span class="orc-aprov-legenda-cor" style="background:#fb923c;border:1px solid #9a3412"></span>
+          Pecas
+        </span>
+        <span class="orc-aprov-legenda-item">
+          <span class="orc-aprov-legenda-cor" style="background:#fde68a;border:1px solid #a16207;border-style:dashed"></span>
+          Sobra (desperdicio)
+        </span>
+        <span class="orc-aprov-legenda-item">
+          <span class="orc-aprov-legenda-cor" style="background:#fef3c7;border:1px solid #1f3658"></span>
+          Chapa-mae
+        </span>
+      </div>
+    `;
+
+    return `
+      <div class="orc-aprov-layout">
+        <div class="orc-aprov-layout-header">
+          <span class="orc-aprov-layout-titulo">Layout de Corte — ${escapeHtml(resultado.chapaMae.descricao || '')}</span>
+        </div>
+        <div class="orc-aprov-layout-body">
+          <div class="orc-aprov-layout-top">
+            ${painelDetalhes}
+            <div class="orc-aprov-layout-info">
+              ${tabsHtml}
+              ${legenda}
+            </div>
+          </div>
+          <div class="orc-aprov-layout-svg-area">
+            ${svgHtml}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Felipe (sessao 2026-05): abre modal full-width com o(s) SVG(s)
+   * do layout em zoom grande. Se a configuracao tem MULTIPLAS chapas,
+   * adiciona botoes "← Chapa anterior" / "Proxima chapa →" no footer
+   * pra Felipe navegar entre elas sem fechar o modal.
+   *
+   * @param {Array} chapasSvgs - [{ svg: '<svg...>', titulo: 'Chapa 1' }, ...]
+   * @param {string} tituloBase - titulo do layout (header do modal)
+   * @param {number} idxInicial - indice da chapa a abrir (0-based)
+   */
+  function abrirModalLayout(chapasSvgs, tituloBase, idxInicial) {
+    document.querySelectorAll('.orc-aprov-modal-overlay').forEach(m => m.remove());
+
+    const lista = Array.isArray(chapasSvgs) ? chapasSvgs : [];
+    if (!lista.length) return;
+    let idxAtual = Math.max(0, Math.min(idxInicial || 0, lista.length - 1));
+    const numChapas = lista.length;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'orc-aprov-modal-overlay';
+    overlay.innerHTML = `
+      <div class="orc-aprov-modal-conteudo" role="dialog" aria-modal="true">
+        <div class="orc-aprov-modal-header">
+          <span class="orc-aprov-modal-titulo">
+            ${escapeHtml(tituloBase)}
+            <span class="orc-aprov-modal-chapa-info"></span>
+          </span>
+          <button type="button" class="orc-aprov-modal-fechar" aria-label="Fechar">✕</button>
+        </div>
+        <div class="orc-aprov-modal-body">
+          <div class="orc-aprov-modal-svg-slot"></div>
+        </div>
+        <div class="orc-aprov-modal-footer">
+          <span class="orc-aprov-modal-tip">
+            🔍 Use o scroll do mouse pra dar zoom · ESC ou clique fora pra fechar
+          </span>
+          <div class="orc-aprov-modal-nav">
+            <button type="button" class="orc-aprov-modal-prev"
+                    ${numChapas > 1 ? '' : 'style="display:none"'}
+                    title="Chapa anterior">← Chapa anterior</button>
+            <button type="button" class="orc-aprov-modal-next"
+                    ${numChapas > 1 ? '' : 'style="display:none"'}
+                    title="Proxima chapa">Proxima chapa →</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    const slotSvg = overlay.querySelector('.orc-aprov-modal-svg-slot');
+    const infoSpan = overlay.querySelector('.orc-aprov-modal-chapa-info');
+    const btnPrev = overlay.querySelector('.orc-aprov-modal-prev');
+    const btnNext = overlay.querySelector('.orc-aprov-modal-next');
+
+    function renderChapa() {
+      slotSvg.innerHTML = lista[idxAtual].svg;
+      infoSpan.innerHTML = numChapas > 1
+        ? ` — <b>${escapeHtml(lista[idxAtual].titulo || `Chapa ${idxAtual + 1}`)}</b> <span class="orc-aprov-modal-chapa-cnt">(${idxAtual + 1} de ${numChapas})</span>`
+        : '';
+      // Atualiza estado dos botoes
+      btnPrev.disabled = (idxAtual === 0);
+      btnNext.disabled = (idxAtual === numChapas - 1);
+      // Aplica zoom no SVG novo
+      const svgEl = slotSvg.querySelector('svg.orc-aprov-svg');
+      if (svgEl) {
+        svgEl.style.cursor = 'grab';
+        svgEl.style.maxWidth = '100%';
+        svgEl.style.height = 'auto';
+        svgEl.style.transform = 'scale(1)';
+        svgEl.style.transformOrigin = 'top left';
+      }
+    }
+    renderChapa();
+
+    function fechar() {
+      overlay.remove();
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', onKey);
+    }
+    function irChapa(delta) {
+      const novoIdx = idxAtual + delta;
+      if (novoIdx < 0 || novoIdx >= numChapas) return;
+      idxAtual = novoIdx;
+      renderChapa();
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') fechar();
+      else if (e.key === 'ArrowRight') irChapa(1);
+      else if (e.key === 'ArrowLeft')  irChapa(-1);
+    }
+    overlay.querySelector('.orc-aprov-modal-fechar').addEventListener('click', fechar);
+    btnPrev.addEventListener('click', () => irChapa(-1));
+    btnNext.addEventListener('click', () => irChapa(1));
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) fechar();
+    });
+    document.addEventListener('keydown', onKey);
+
+    // Felipe (sessao 2026-05): zoom no scroll dentro do SVG
+    let escalaZoom = 1;
+    overlay.querySelector('.orc-aprov-modal-body').addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = -Math.sign(e.deltaY) * 0.1;
+      escalaZoom = Math.max(0.5, Math.min(4, escalaZoom + delta));
+      const svgEl = slotSvg.querySelector('svg.orc-aprov-svg');
+      if (svgEl) {
+        svgEl.style.transform = `scale(${escalaZoom})`;
+        svgEl.style.transformOrigin = 'top left';
+      }
+    }, { passive: false });
+  }
+
+  function renderBlocoCor(cor, pecas, todasSuperficies) {
+    if (cor === '(sem cor)') {
+      return `
+        <div class="orc-aprov-cor">
+          <div class="orc-aprov-cor-titulo">${escapeHtml(cor)}</div>
+          <p class="orc-hint-text">${pecas.length} peca(s) sem cor definida — preencha as cores no item primeiro.</p>
+        </div>`;
+    }
+
+    // Encontra os tamanhos disponiveis no cadastro pra esta cor.
+    const nomeCurto = nomeCurtoSuperficie(cor);
+
+    // Felipe (sessao 2026-05): se as superficies foram cadastradas ANTES
+    // da feature de largura/altura, os campos estao zerados. Tentamos
+    // EXTRAIR da descricao na hora (mesma logica de 26-superficies.js).
+    // Assim funciona retroativamente sem o usuario precisar reabrir
+    // Cadastros > Superficies.
+    function extrairDimsDaDesc(desc) {
+      const d = String(desc || '');
+      const m = d.match(/(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/i);
+      if (!m) return { largura: 0, altura: 0 };
+      let l = parseFloat(m[1].replace(',', '.'));
+      let a = parseFloat(m[2].replace(',', '.'));
+      const ehMetros = !!m[3] || (l > 0 && l <= 5);
+      if (ehMetros) { l *= 1000; a *= 1000; }
+      return { largura: Math.round(l), altura: Math.round(a) };
+    }
+
+    // Felipe (sessao 2026-05): normalizacao DEFENSIVA pra matching.
+    // Importacao XLSX pode trazer espacos non-breaking (\u00a0), tab,
+    // espacos duplicados, hifens diferentes (-, –, —), etc. Ao inves
+    // de tentar listar todos, removemos TUDO que nao e' alfanumerico.
+    // "Pro37524 - Wood Sucupira Pvdf4300 Ldpe" e "Pro37524 Wood Sucupira Pvdf4300 Ldpe"
+    // e "PRO37524-Wood-Sucupira-PVDF4300-LDPE" todos viram "PRO37524WOODSUCUPIRAPVDF4300LDPE".
+    function normalizarParaMatch(s) {
+      return String(s || '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '');   // SO alfanumerico maiusculo
+    }
+    const nomeCurtoNorm = normalizarParaMatch(nomeCurto);
+
+    // Filtra variantes da mesma cor e enriquece com largura/altura
+    // extraidas da descricao quando o cadastro nao tem.
+    let variantesBrutas = todasSuperficies.filter(s => {
+      const sNomeCurto = nomeCurtoSuperficie(s.descricao);
+      return normalizarParaMatch(sNomeCurto) === nomeCurtoNorm;
+    });
+
+    // Fallback: substring (caso 1 nome contenha o outro)
+    if (variantesBrutas.length === 0 && nomeCurtoNorm.length >= 4) {
+      variantesBrutas = todasSuperficies.filter(s => {
+        const sNomeCurtoNorm = normalizarParaMatch(nomeCurtoSuperficie(s.descricao));
+        return sNomeCurtoNorm.length >= 4 && (
+          sNomeCurtoNorm.includes(nomeCurtoNorm) ||
+          nomeCurtoNorm.includes(sNomeCurtoNorm)
+        );
+      });
+      if (variantesBrutas.length > 0) {
+        console.log('[Aproveitamento] Match por substring achou', variantesBrutas.length,
+          'variante(s) pra cor', JSON.stringify(cor));
+      }
+    }
+
+    // Felipe (sessao 2026-05): 3a camada — primeira palavra-chave (codigo).
+    if (variantesBrutas.length === 0) {
+      const primeiraPalavraOriginal = String(cor || '').trim().split(/[\s\-–—]+/)[0] || '';
+      const primeiraPalavraNorm = normalizarParaMatch(primeiraPalavraOriginal);
+      if (primeiraPalavraNorm.length >= 5) {
+        variantesBrutas = todasSuperficies.filter(s => {
+          const sNorm = normalizarParaMatch(s.descricao);
+          return sNorm.startsWith(primeiraPalavraNorm);
+        });
+        if (variantesBrutas.length > 0) {
+          console.log('[Aproveitamento] Match por 1a palavra-chave achou',
+            variantesBrutas.length, 'variante(s) com codigo', primeiraPalavraNorm);
+        }
+      }
+    }
+
+    // Felipe (sessao 2026-05): 4a camada — apenas DIGITOS do codigo.
+    // Ultimo recurso. Se cor escolhida tem "Pro37524" e qualquer chapa
+    // do cadastro contem "37524" (sequencia de 4+ digitos), considera
+    // match. Resolve casos onde o codigo tem prefixo diferente (Pro/PR/
+    // sem prefixo) ou caracteres especiais "PR0" vs "PRO".
+    if (variantesBrutas.length === 0) {
+      const matchDigitos = String(cor || '').match(/\d{4,}/);
+      if (matchDigitos) {
+        const digitos = matchDigitos[0];
+        variantesBrutas = todasSuperficies.filter(s => {
+          return String(s.descricao || '').includes(digitos);
+        });
+        if (variantesBrutas.length > 0) {
+          console.log('[Aproveitamento] Match por digitos do codigo achou',
+            variantesBrutas.length, 'variante(s) com', digitos);
+        }
+      }
+    }
+
+    const variantes = variantesBrutas
+      .map(s => {
+        const larg = Number(s.largura) || 0;
+        const alt  = Number(s.altura)  || 0;
+        if (larg > 0 && alt > 0) return s;  // ja' tem
+        // Fallback: extrai da descricao
+        const dims = extrairDimsDaDesc(s.descricao);
+        return Object.assign({}, s, {
+          largura: dims.largura,
+          altura:  dims.altura,
+        });
+      })
+      .filter(s => Number(s.largura) > 0 && Number(s.altura) > 0);
+
+    if (!variantes.length) {
+      // Felipe (sessao 2026-05): mostra na TELA quais chapas existem
+      // com a primeira palavra-chave (ex: "PRO37524") — assim Felipe
+      // ve com seus olhos como esta cadastrado e identifica o problema.
+      //
+      // BUG ANTERIOR: usava nomeCurtoNorm (alfanumerico tudo junto)
+      // pra extrair "primeira palavra", que pegava a string INTEIRA.
+      // Agora pego do nome ORIGINAL antes da normalizacao.
+      const primeiraPalavraOriginal = String(cor || '').trim().split(/[\s-–—]+/)[0] || '';
+      const primeiraPalavraNorm = normalizarParaMatch(primeiraPalavraOriginal);
+      const semelhantes = primeiraPalavraNorm
+        ? todasSuperficies
+            .filter(s => normalizarParaMatch(s.descricao).startsWith(primeiraPalavraNorm))
+            .slice(0, 12)
+            .map(s => s.descricao)
+        : [];
+
+      // Felipe (sessao 2026-05): debug mais completo no console pra
+      // analisar o caso. Se Felipe abrir F12 ja' ve' tudo.
+      console.warn('[Aproveitamento] Nao achou variantes pra cor:', {
+        corEscolhida: cor,
+        nomeCurto: nomeCurto,
+        nomeCurtoNorm: nomeCurtoNorm,
+        primeiraPalavraOriginal,
+        primeiraPalavraNorm,
+        totalSuperficiesCadastro: todasSuperficies.length,
+        variantesBrutas: variantesBrutas.length,
+        semelhantes,
+        // Mostra ate 5 nomes brutos do storage que tem a primeira palavra
+        amostraStorage: todasSuperficies
+          .filter(s => normalizarParaMatch(s.descricao).startsWith(primeiraPalavraNorm))
+          .slice(0, 5)
+          .map(s => ({ desc: s.descricao, descNorm: normalizarParaMatch(s.descricao) })),
+      });
+
+      // Felipe (sessao 2026-05): se nada deu match, mostra TUDO do
+      // storage que tem qualquer numero parecido com o codigo da cor.
+      // Ultimo recurso pra debug visual.
+      const matchDigitos = String(cor || '').match(/\d{4,}/);
+      const digitos = matchDigitos ? matchDigitos[0] : '';
+      const todasComDigitos = digitos
+        ? todasSuperficies
+            .filter(s => String(s.descricao || '').includes(digitos))
+            .slice(0, 30)
+            .map(s => s.descricao)
+        : [];
+
+      const semelhantesHtml = semelhantes.length
+        ? `<br><br><b>Chapas que comecam com "${escapeHtml(primeiraPalavraOriginal)}" no SEU cadastro (${semelhantes.length} encontrada${semelhantes.length !== 1 ? 's' : ''}):</b>
+           <ul style="margin: 4px 0; padding-left: 20px; font-size: 11px;">
+             ${semelhantes.map(d => `<li><code>${escapeHtml(d)}</code></li>`).join('')}
+           </ul>`
+        : todasComDigitos.length
+        ? `<br><br><b>Nao achei chapa que comece com "${escapeHtml(primeiraPalavraOriginal)}",
+           mas estas tem "${escapeHtml(digitos)}" no nome:</b>
+           <ul style="margin: 4px 0; padding-left: 20px; font-size: 11px;">
+             ${todasComDigitos.map(d => `<li><code>${escapeHtml(d)}</code></li>`).join('')}
+           </ul>`
+        : `<br><br>Cadastro tem <b>${todasSuperficies.length} chapa(s)</b> total, mas nenhuma com "${escapeHtml(primeiraPalavraOriginal)}" ou "${escapeHtml(digitos || '?')}".
+           <details style="margin-top: 8px;"><summary style="cursor:pointer; font-size: 11px;">▶ Mostrar primeiras 30 chapas do meu cadastro (debug)</summary>
+           <ul style="margin: 4px 0; padding-left: 20px; font-size: 11px;">
+             ${todasSuperficies.slice(0, 30).map(s => `<li><code>${escapeHtml(s.descricao)}</code></li>`).join('')}
+           </ul></details>`;
+
+      const msg = variantesBrutas.length > 0
+        ? `Achei ${variantesBrutas.length} variante(s) com esse nome no cadastro, mas nenhuma tem largura/altura preenchidas (nem extraido do nome). Reabra <b>Cadastros > Superficies</b> e preencha "Largura (mm)" e "Altura (mm)" — ou edite o nome da chapa pra incluir o tamanho ex: "...1500 X 5000".`
+        : `Cor escolhida: <code>${escapeHtml(cor)}</code>${semelhantesHtml}`;
+
+      return `
+        <div class="orc-aprov-cor">
+          <div class="orc-aprov-cor-titulo">${escapeHtml(cor)}</div>
+          <p class="orc-hint-text orc-banner-aviso-erro">${msg}</p>
+          <p class="orc-hint-text">${pecas.length} peca(s) aguardando.</p>
+        </div>`;
+    }
+
+    // Roda o algoritmo nos tamanhos disponiveis
+    const resultados = window.ChapasAproveitamento.compararConfiguracoes(
+      pecas,
+      variantes.map(v => ({
+        descricao: v.descricao,
+        largura:   Number(v.largura),
+        altura:    Number(v.altura),
+        preco:     Number(v.preco) || 0,
+        peso_kg_m2: Number(v.peso_kg_m2) || 0,
+      }))
+    );
+
+    // Felipe (sessao 2026-05): mantem a ORDEM NATURAL das chapas
+    // (5000 → 6000 → 7000 → 8000) — ja' vem ordenada de
+    // compararConfiguracoes. NAO separa em viaveis/inviaveis na saida,
+    // so' identifica a melhor pela flag isMelhor.
+    const melhor = resultados.find(r => r.isMelhor) || null;
+
+    // Felipe (sessao 2026-05 — peso v2): calcula peso da PORTA, do PORTAL
+    // e total para a melhor configuração.
+    const pesos = melhor ? calcularPesosPorCategoria(pecas, melhor) :
+      { temPeso: false, porta: 0, portal: 0, revestimento: 0, total: 0 };
+
+    // Felipe (sessao 2026-05): TODOS os cards na ORDEM NATURAL (1500x5000,
+    // 1500x6000, 1500x7000, 1500x8000) — viaveis com layout completo e
+    // botao de selecao, inviaveis com aviso e SEM botoes.
+    // Felipe (sessao 28 fix): cacheia resultados completos por cardId
+    // pra serem recuperados no duplo-click (sem inflar dataset com
+    // chapas[] grande — JSON.stringify de pecasPosicionadas seria pesado).
+    if (!window.__projettaResultadosNesting) window.__projettaResultadosNesting = {};
+    const corNorm = String(cor || '').replace(/[^a-zA-Z0-9]/g, '_');
+    const cards = resultados.map((r, idx) => {
+      const ehMelhor = r.isMelhor;
+      const ehViavel = r.pecasNaoCouberam.length === 0;
+      const dimSize = `${r.chapaMae.largura} × ${r.chapaMae.altura} mm`;
+      const cardId = `aprov-${corNorm}-${idx}`;
+      // Cacheia resultado completo pra dblclick salvar
+      window.__projettaResultadosNesting[cardId] = r;
+
+      // Card INVIAVEL — peca maior que a chapa
+      if (!ehViavel) {
+        const naoCouberam = r.pecasNaoCouberam.length;
+        const maiorNaoCoube = r.pecasNaoCouberam.reduce((maior, p) =>
+          (p.largura * p.altura > (maior?.largura || 0) * (maior?.altura || 0)) ? p : maior
+        , null);
+        const motivoTxt = maiorNaoCoube
+          ? `Peça "${maiorNaoCoube.label}" (${maiorNaoCoube.largura}×${maiorNaoCoube.altura}mm) maior que a chapa.`
+          : `${naoCouberam} peça(s) maior(es) que a chapa.`;
+        return `
+          <div class="orc-aprov-card-wrap">
+            <div class="orc-aprov-card is-inviavel">
+              <div class="orc-aprov-card-tam">${escapeHtml(dimSize)}</div>
+              <div class="orc-aprov-card-inviavel">
+                <span class="orc-aprov-card-inviavel-icon">✕</span>
+                <b>Não pode ser usada</b>
+              </div>
+              <div class="orc-aprov-card-inviavel-motivo">${escapeHtml(motivoTxt)}</div>
+            </div>
+          </div>`;
+      }
+
+      // Card VIAVEL — com layout
+      const taxa = (r.taxaAproveitamento * 100).toFixed(1);
+      const precoUnit = Number(r.chapaMae.preco) || 0;
+      const precoUnitStr = precoUnit > 0 ? `R$ ${fmtBR(precoUnit)}` : '—';
+      const custoStr = r.custoTotal > 0
+        ? `R$ ${fmtBR(r.custoTotal)}`
+        : '— sem preço';
+      const m2PorChapa = (r.chapaMae.largura * r.chapaMae.altura) / 1000000;
+      const pesoTotalChapas = (Number(r.chapaMae.peso_kg_m2) || 0) * m2PorChapa * r.numChapas;
+      const pesoStr = pesoTotalChapas > 0
+        ? `${pesoTotalChapas.toFixed(1).replace('.', ',')} kg`
+        : '— sem peso';
+      const layoutHtml = renderLayoutNesting(r, cardId);
+
+      // Felipe (sessao 2026-05): atributos pra duplo clique selecionar
+      // a chapa pra computar o custo. Os dados precisam estar no DOM
+      // pra serem lidos pelo handler do duplo-clique.
+      const dadosChapaSel = JSON.stringify({
+        descricao: r.chapaMae.descricao,
+        largura: r.chapaMae.largura,
+        altura: r.chapaMae.altura,
+        preco: precoUnit,
+        numChapas: r.numChapas,
+        custoTotal: r.custoTotal,
+        peso_kg_m2: Number(r.chapaMae.peso_kg_m2) || 0,
+        pesoTotal: pesoTotalChapas,
+        cor: cor,
+      });
+
+      return `
+        <div class="orc-aprov-card-wrap">
+          <div class="orc-aprov-card ${ehMelhor ? 'is-melhor' : ''}" id="${cardId}-card"
+               data-chapa-info='${escapeHtml(dadosChapaSel)}'
+               data-card-id="${cardId}"
+               title="Duplo clique para selecionar esta chapa">
+            ${ehMelhor ? '<div class="orc-aprov-melhor-badge">★ Melhor opção</div>' : ''}
+            <div class="orc-aprov-card-selecionada-badge">★ Selecionada</div>
+            <div class="orc-aprov-card-tam">${escapeHtml(dimSize)}</div>
+            <div class="orc-aprov-card-num"><b>${r.numChapas}</b> chapa${r.numChapas !== 1 ? 's' : ''}</div>
+            <div class="orc-aprov-card-taxa">Aproveitamento: <b>${taxa}%</b></div>
+            <div class="orc-aprov-card-precos">
+              <div class="orc-aprov-card-preco-row">
+                <span>Preço unitário:</span><b>${escapeHtml(precoUnitStr)}</b>
+              </div>
+              <div class="orc-aprov-card-preco-row orc-aprov-card-preco-total">
+                <span>Total (${r.numChapas} chapa${r.numChapas !== 1 ? 's' : ''}):</span><b>${escapeHtml(custoStr)}</b>
+              </div>
+            </div>
+            <div class="orc-aprov-card-peso">Peso: ${escapeHtml(pesoStr)}</div>
+            <div class="orc-aprov-card-actions">
+              <button type="button" class="orc-aprov-card-btn-layout"
+                      data-toggle-layout="${cardId}">
+                📐 Ver layout de corte
+              </button>
+              <span class="orc-aprov-card-tip">duplo clique pra selecionar</span>
+            </div>
+          </div>
+          <div class="orc-aprov-layout-wrap" id="${cardId}-layout" style="display:none;">
+            ${layoutHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Verifica se ha pelo menos 1 viavel
+    const algumaViavel = resultados.some(r => r.pecasNaoCouberam.length === 0);
+    if (!algumaViavel) {
+      return `
+        <div class="orc-aprov-cor">
+          <div class="orc-aprov-cor-titulo">${escapeHtml(cor)}</div>
+          <p class="orc-hint-text orc-banner-aviso-erro">
+            <b>Nenhuma chapa cadastrada comporta as peças deste item.</b><br>
+            As peças sao maiores que todas as chapas-mae disponiveis pra essa cor.
+            Confira em <b>Cadastros > Superficies</b> se ha chapas maiores cadastradas
+            (ex: 1500×8000mm) — ou revise as dimensoes da porta no item.
+          </p>
+          <div class="orc-aprov-cards">${cards}</div>
+        </div>`;
+    }
+
+    const totalPecas = pecas.reduce((s, p) => s + (p.qtd || 1), 0);
+    const totalArea = pecas.reduce((s, p) => s + p.largura * p.altura * (p.qtd || 1), 0);
+    const totalAreaM2 = (totalArea / 1000000).toFixed(2);
+
+    // Bloco de PESOS (só aparece se tem peso cadastrado).
+    // Felipe (sessao 2026-05 — peso v3): mostra 3 grupos:
+    //   1. PESO ÚTIL (peças que vão pra porta) — porta + portal + rev
+    //   2. PESO COMPRADO (chapa-mãe inteira × num_chapas)
+    //   3. DESPERDÍCIO (sobra) = comprado - util
+    const blocoPesos = pesos.temPeso ? `
+      <div class="orc-aprov-pesos">
+        <div class="orc-aprov-pesos-titulo">Distribuição do peso (melhor opção)</div>
+
+        <div class="orc-aprov-pesos-grupo">
+          <div class="orc-aprov-pesos-grupo-titulo">📦 Peso ÚTIL — vai pra porta pronta</div>
+          ${pesos.porta > 0 ? `
+          <div class="orc-aprov-pesos-row">
+            <span>Porta (folha):</span>
+            <b>${fmtBR(pesos.porta)} kg</b>
+          </div>` : ''}
+          ${pesos.portal > 0 ? `
+          <div class="orc-aprov-pesos-row">
+            <span>Portal (moldura fixa):</span>
+            <b>${fmtBR(pesos.portal)} kg</b>
+          </div>` : ''}
+          ${pesos.revestimento > 0 ? `
+          <div class="orc-aprov-pesos-row">
+            <span>Revestimento de parede:</span>
+            <b>${fmtBR(pesos.revestimento)} kg</b>
+          </div>` : ''}
+          <div class="orc-aprov-pesos-row orc-aprov-pesos-subtotal">
+            <span>Subtotal útil (peças):</span>
+            <b>${fmtBR(pesos.pecasUtil)} kg</b>
+          </div>
+        </div>
+
+        <div class="orc-aprov-pesos-grupo">
+          <div class="orc-aprov-pesos-grupo-titulo">🧾 Peso COMPRADO — vai pro frete e custo</div>
+          <div class="orc-aprov-pesos-row">
+            <span>Chapas-mãe (inclui sobra):</span>
+            <b>${fmtBR(pesos.comprado)} kg</b>
+          </div>
+          <div class="orc-aprov-pesos-row orc-aprov-pesos-desp">
+            <span>↳ desperdício (sobra):</span>
+            <b>${fmtBR(pesos.desperdicio)} kg</b>
+          </div>
+        </div>
+      </div>
+    ` : '';
+
+    return `
+      <div class="orc-aprov-cor">
+        <div class="orc-aprov-cor-header">
+          <div class="orc-aprov-cor-titulo">${escapeHtml(cor)}</div>
+          <div class="orc-aprov-cor-stats">
+            ${totalPecas} peca${totalPecas !== 1 ? 's' : ''} · ${totalAreaM2} m² total
+          </div>
+        </div>
+        <div class="orc-aprov-cards">
+          ${cards}
+        </div>
+        ${blocoPesos}
+      </div>`;
+  }
+
+  /**
+   * Felipe (sessao 2026-05 — peso): calcula peso da PORTA, do PORTAL e
+   * peso TOTAL pra um conjunto de peças e a melhor configuração de chapa.
+   *
+   * Lógica:
+   *   - PESO TOTAL = num_chapas × peso_por_chapa (peso COMPRADO, inclui sobra)
+   *   - Distribuir esse peso entre PORTA e PORTAL proporcionalmente à
+   *     ÁREA TOTAL DAS PEÇAS de cada categoria (porta vs portal).
+   *
+   *   Ex: 10kg total, peças porta=60% da área das peças, peças portal=40%
+   *       → peso porta = 6kg, peso portal = 4kg, total = 10kg
+   */
+  /**
+   * Felipe (sessao 2026-05 — peso v3): calcula peso REAL das pecas e
+   * peso COMPRADO separadamente. Felipe pegou o bug: antes a gente
+   * distribuia o peso COMPRADO (incluindo desperdicio) entre porta e
+   * portal — agora calcula o peso REAL de cada categoria pela area
+   * das pecas × kg/m². Desperdicio fica como info separada.
+   *
+   * Retorna:
+   *   - porta:         peso REAL das pecas categoria 'porta' (kg)
+   *   - portal:        peso REAL das pecas categoria 'portal' (kg)
+   *   - revestimento:  peso REAL das pecas categoria 'revestimento' (kg)
+   *   - pecasUtil:     soma dos 3 acima (peso da PORTA pronta, sem sobra)
+   *   - comprado:      peso da chapa-mae inteira × num_chapas (inclui sobra)
+   *   - desperdicio:   comprado - pecasUtil (peso da sobra)
+   *   - total:         (compatibilidade) = comprado
+   */
+  function calcularPesosPorCategoria(pecas, resultadoMelhor) {
+    const pesoKgM2 = Number(resultadoMelhor?.chapaMae?.peso_kg_m2) || 0;
+    const largChapa = Number(resultadoMelhor?.chapaMae?.largura) || 0;
+    const altChapa  = Number(resultadoMelhor?.chapaMae?.altura) || 0;
+    if (!pesoKgM2 || !resultadoMelhor.numChapas || !largChapa || !altChapa) {
+      return { temPeso: false, porta: 0, portal: 0, revestimento: 0,
+               pecasUtil: 0, comprado: 0, desperdicio: 0, total: 0 };
+    }
+    const m2PorChapa = (largChapa * altChapa) / 1000000;
+    const pesoComprado = pesoKgM2 * m2PorChapa * resultadoMelhor.numChapas;
+
+    // Felipe (sessao 2026-05 — peso v3): peso REAL por categoria
+    // (area das pecas em m² × kg/m²). NAO rateia o desperdicio.
+    let pesoPorta  = 0;
+    let pesoPortal = 0;
+    let pesoRev    = 0;
+    pecas.forEach(p => {
+      const m2 = (Number(p.largura) || 0) * (Number(p.altura) || 0) * (Number(p.qtd) || 1) / 1000000;
+      const peso = m2 * pesoKgM2;
+      if (p.categoria === 'portal')             pesoPortal += peso;
+      else if (p.categoria === 'revestimento')  pesoRev    += peso;
+      else                                       pesoPorta  += peso;
+    });
+    const pesoPecasUtil = pesoPorta + pesoPortal + pesoRev;
+    const pesoDesperdicio = Math.max(0, pesoComprado - pesoPecasUtil);
+
+    return {
+      temPeso: true,
+      porta:        pesoPorta,           // peso REAL das pecas categoria porta
+      portal:       pesoPortal,          // idem portal
+      revestimento: pesoRev,             // idem revestimento
+      pecasUtil:    pesoPecasUtil,       // soma das 3 acima (peso real da porta)
+      comprado:     pesoComprado,        // chapa-mae × num_chapas (com sobra)
+      desperdicio:  pesoDesperdicio,     // sobra = comprado - util
+      total:        pesoComprado,        // backward-compat
+    };
+  }
+
+  /**
+   * Helper: extrai nome curto da superficie (ignorando sufixo de tamanho).
+   * "As002 - Wood Carvalho - 1500x5000" → "As002 - Wood Carvalho"
+   */
+  function nomeCurtoSuperficie(desc) {
+    if (!desc) return '';
+    return String(desc)
+      .replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, '')
+      .trim();
+  }
+
+  /**
+   * Felipe (sessao 2026-05): renderiza bloco do revestimento_parede
+   * na aba Lev. Superficies. Mostra resumo do modo (manual/automatico)
+   * e tabela de peças geradas pelo motor ChapasRevParede.
+   */
+  function renderItemRevSuperficies(item, idx) {
+    const numItem = idx + 1;
+    if (!window.ChapasRevParede) {
+      return `<div class="orc-section orc-lev-sup-item">
+        <div class="orc-section-title">Item ${numItem} — Revestimento de Parede</div>
+        <p class="orc-hint-text orc-banner-aviso-erro">
+          Motor (ChapasRevParede) nao carregado. Recarregue (Ctrl+F5).
+        </p>
+      </div>`;
+    }
+    const pecas = aplicarRotacionaOverrides(window.ChapasRevParede.gerarPecasRevParede(item) || [], item);
+    const modoLabel = item.modo === 'automatico' ? 'Modo Automatico' : 'Modo Manual';
+    const cor = item.cor || '— sem cor';
+    const refilLabel = item.com_refilado === 'nao' ? 'sem refilado' : 'com refilado (REF)';
+
+    let metaHtml = '';
+    if (item.modo === 'automatico') {
+      const L = Number(item.largura_total) || 0;
+      const H = Number(item.altura_total) || 0;
+      const div = item.divisao_largura === 'igual' ? 'divisao igual' : 'largura maxima';
+      metaHtml = `Parede: ${L}×${H}mm · ${div} · ${refilLabel}`;
+    } else {
+      metaHtml = `${(item.pecas || []).length} pecas individuais`;
+    }
+
+    if (!pecas.length) {
+      return `<div class="orc-section orc-lev-sup-item">
+        <div class="orc-section-title">
+          Item ${numItem} — Revestimento de Parede
+          <span class="orc-lev-sup-meta">${escapeHtml(modoLabel)} · ${escapeHtml(metaHtml)}</span>
+        </div>
+        <p class="orc-hint-text orc-lev-sup-empty">
+          Nenhuma peca gerada. Preencha as medidas em "Caracteristicas do Item".
+        </p>
+      </div>`;
+    }
+
+    const linhas = pecas.map(p => {
+      // Felipe (sessao 2026-05): SELECT editavel Sim/Nao em vez de "Nao (veio)"
+      const chave = rotacionaKey(p);
+      const valor = p.podeRotacionar ? 'sim' : 'nao';
+      const selectHtml = `
+        <select class="orc-lev-sup-rot-select"
+                data-item-idx="${idx}"
+                data-peca-key="${escapeHtml(chave)}">
+          <option value="sim" ${valor === 'sim' ? 'selected' : ''}>Sim</option>
+          <option value="nao" ${valor === 'nao' ? 'selected' : ''}>Nao</option>
+        </select>`;
+      return `
+      <tr>
+        <td>${escapeHtml(p.label)}</td>
+        <td>${p.largura}</td>
+        <td>${p.altura}</td>
+        <td class="t-num">${p.qtd}</td>
+        <td class="orc-lev-sup-rot-cell ${p.podeRotacionar ? '' : 't-warn'}">${selectHtml}</td>
+        <td class="orc-lev-sup-cor">${escapeHtml(p.cor || '—')}</td>
+      </tr>`;
+    }).join('');
+
+    return `
+      <div class="orc-section orc-lev-sup-item">
+        <div class="orc-section-title">
+          Item ${numItem} — Revestimento de Parede
+          <span class="orc-lev-sup-meta">${escapeHtml(modoLabel)} · ${escapeHtml(metaHtml)}</span>
+        </div>
+        <div class="orc-lev-sup-quadro">
+          <span class="orc-lev-sup-quadro-label">Cor:</span>
+          <b>${escapeHtml(cor)}</b>
+        </div>
+        <div class="orc-lev-sup-lado">
+          <div class="orc-lev-sup-lado-title">Pecas geradas</div>
+          <table class="cad-table orc-lev-sup-table">
+            <thead>
+              <tr>
+                <th>Peca</th>
+                <th>Largura (mm)</th>
+                <th>Altura (mm)</th>
+                <th>Qtd</th>
+                <th>Pode rotacionar?</th>
+                <th>Cor</th>
+              </tr>
+            </thead>
+            <tbody>${linhas}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  /**
+   * Renderiza um bloco por item: cabeçalho com quadro, depois 2 tabelas
+   * (peças externas + peças internas).
+   */
+  function renderItemSuperficies(item, idx, todasSuperficies) {
+    const numItem = idx + 1;
+    const Chapas = window.ChapasPortaExterna;
+
+    // Felipe (sessao 2026-05): revestimento_parede tem bloco proprio
+    // (mostra peças geradas pelo motor ChapasRevParede).
+    if (item.tipo === 'revestimento_parede') {
+      return renderItemRevSuperficies(item, idx);
+    }
+
+    // Outros tipos sem motor de chapas ainda
+    if (item.tipo !== 'porta_externa') {
+      const tipoLabel = ({
+        porta_interna: 'Porta Interna',
+        fixo_acoplado: 'Fixo Acoplado',
+      })[item.tipo] || item.tipo;
+      return `
+        <div class="orc-section orc-lev-sup-item">
+          <div class="orc-section-title">
+            Item ${numItem} — ${escapeHtml(tipoLabel)}
+            <span class="orc-lev-sup-meta">tipo nao implementado ainda</span>
+          </div>
+          <p class="orc-hint-text orc-lev-sup-empty">
+            Pecas de chapa pra <b>${escapeHtml(tipoLabel)}</b> ainda nao foram
+            especificadas. Quando voce passar as fórmulas das peças desse
+            tipo, ele entra no calculo de aproveitamento junto com as portas
+            externas (cores iguais sao agrupadas na mesma chapa).
+          </p>
+        </div>`;
+    }
+
+    const quadro = Chapas.calcularQuadro(item);
+    if (!quadro) {
+      return `
+        <div class="orc-section orc-lev-sup-item">
+          <div class="orc-section-title">Item ${numItem} — sem dimensoes</div>
+          <p class="orc-hint-text">
+            Volte para "Caracteristicas do Item" e preencha largura, altura e numero de folhas.
+          </p>
+        </div>`;
+    }
+
+    const familiaLabel = quadro.familia === '76' ? 'PA-006F (familia 76)' : 'PA-007F (familia 101)';
+    // Felipe (sessao 2026-05): aplica overrides de Rotaciona Sim/Nao salvos
+    // pelo usuario no select da tabela. Sem override -> usa valor calculado
+    // pelo motor (cor Wood = false).
+    const pecasExt = aplicarRotacionaOverrides(Chapas.gerarPecasChapa(item, 'externo'), item);
+    const pecasInt = aplicarRotacionaOverrides(Chapas.gerarPecasChapa(item, 'interno'), item);
+
+    const modeloExt = Number(item.modeloExterno || item.modeloNumero) || 0;
+    const modeloInt = Number(item.modeloInterno || item.modeloNumero) || 0;
+
+    // Felipe (sessao 2026-05): se cor externa === cor interna E modelo
+    // externo === interno, mostra UMA tabela so' com quantidades somadas.
+    // Felipe pediu: "esta a mesma cor entao nao deveria parecer interno
+    // e externo e sim tudo uma coisa so somando as quantidades".
+    const corExt = String(item.corExterna || '').trim();
+    const corInt = String(item.corInterna || '').trim();
+    const corUnica = corExt && corExt === corInt && modeloExt === modeloInt;
+
+    let tabelasHtml = '';
+    if (corUnica) {
+      // Junta as pecas dos 2 lados, somando quantidades por (label + dimensoes).
+      // Quando externo e interno geram exatamente as mesmas pecas, a soma
+      // simplesmente dobra as quantidades (porque o motor ja exclui
+      // U_PORTAL do interno em cor unica — entao a U_PORTAL fica qtd 1).
+      const pecasUnificadas = unificarPecas(pecasExt, pecasInt);
+      tabelasHtml = renderTabelaPecas(
+        'Externo + Interno (cor unica)',
+        pecasUnificadas, modeloExt, corExt, todasSuperficies, idx
+      );
+    } else {
+      // Cores diferentes: 2 tabelas separadas como antes
+      tabelasHtml = `
+        ${renderTabelaPecas('Lado Externo', pecasExt, modeloExt, item.corExterna, todasSuperficies, idx)}
+        ${renderTabelaPecas('Lado Interno', pecasInt, modeloInt, item.corInterna, todasSuperficies, idx)}
+      `;
+    }
+
+    return `
+      <div class="orc-section orc-lev-sup-item">
+        <div class="orc-section-title">
+          Item ${numItem} — Porta Externa
+          <span class="orc-lev-sup-meta">
+            ${item.largura}×${item.altura} mm,
+            ${quadro.nFolhas} folha${quadro.nFolhas > 1 ? 's' : ''} · ${familiaLabel}
+            · <b>${Math.max(1, parseInt(item.quantidade, 10) || 1)} porta${(item.quantidade || 1) > 1 ? 's' : ''}</b>
+          </span>
+        </div>
+        <div class="orc-lev-sup-quadro">
+          <span class="orc-lev-sup-quadro-label">Quadro (limite das pecas):</span>
+          <b>${quadro.larguraQuadro} × ${quadro.alturaQuadro} mm</b>
+        </div>
+        ${tabelasHtml}
+      </div>
+    `;
+  }
+
+  /**
+   * Felipe (sessao 2026-05): unifica pecas externas + internas, somando
+   * qtds quando label + dimensoes batem. Usado quando cor externa ===
+   * cor interna E modelo externo === modelo interno.
+   *
+   * Felipe (sessao 26 fix): garantir que pecas de PORTA fiquem juntas no
+   * inicio e PORTAL no fim. Sem este sort, pecas que so' aparecem no lado
+   * interno (ex: Tampa Maior 03 do mod 02) iam parar no fim da lista
+   * (depois das universais do portal) por causa da ordem de insercao.
+   */
+  function unificarPecas(pecasExt, pecasInt) {
+    const mapa = new Map();
+    const adicionar = (p) => {
+      const chave = `${p.label}|${p.largura}|${p.altura}|${p.cor || ''}`;
+      const existe = mapa.get(chave);
+      if (existe) {
+        existe.qtd = (existe.qtd || 1) + (p.qtd || 1);
+      } else {
+        mapa.set(chave, Object.assign({}, p));
+      }
+    };
+    pecasExt.forEach(adicionar);
+    pecasInt.forEach(adicionar);
+    const arr = Array.from(mapa.values());
+    // Sort estavel: 'porta' (0) antes de 'portal' (1). Outras categorias vem depois.
+    // Array.prototype.sort em JS (V8) e' estavel desde 2018, entao a ordem dentro
+    // de categorias iguais e' preservada (mesma ordem de insercao).
+    arr.sort((a, b) => {
+      const peso = c => (c === 'porta' ? 0 : (c === 'portal' ? 1 : 2));
+      return peso(a.categoria) - peso(b.categoria);
+    });
+    return arr;
+  }
+
+  // ============================================================
+  // Felipe (sessao 2026-05): OVERRIDES DE ROTACIONA SIM/NAO
+  // ============================================================
+  // O motor `ChapasPortaExterna.gerarPecasChapa(item, lado)` calcula
+  // `podeRotacionar: true|false` automaticamente baseado na cor (cores
+  // Wood com veio = false). Felipe pediu pra poder EDITAR esse flag
+  // manualmente por linha (peca) — overrides ficam em
+  //   item.rotacionaOverrides[chave] = 'sim' | 'nao'
+  // onde chave = `${label}|${largura}|${altura}` (sem lado, porque
+  // peca fisica nao muda entre externo/interno).
+  //
+  // Helpers:
+  //   - rotacionaKey(p)               -> string chave da peca
+  //   - aplicarRotacionaOverrides(...)-> aplica overrides salvos
+  //   - gerarModeloXmlSuperficies(...)-> exporta XML modelo pra Felipe editar
+  //   - importarOverridesXml(...)     -> le XML e atualiza overrides
+  // ============================================================
+  function rotacionaKey(p) {
+    return `${p.label}|${p.largura}|${p.altura}`;
+  }
+  function aplicarRotacionaOverrides(pecas, item) {
+    const ov = (item && item.rotacionaOverrides) || {};
+    if (!Object.keys(ov).length) return pecas;
+    return pecas.map(p => {
+      const k = rotacionaKey(p);
+      if (k in ov) {
+        return Object.assign({}, p, { podeRotacionar: ov[k] === 'sim' });
+      }
+      return p;
+    });
+  }
+  /**
+   * Felipe (sessao 28 fix): override de QUANTIDADE por peca×face.
+   * Chave inclui lado (ex: "Tampa Maior 01|1480|5679|externo") OU sem
+   * lado pra aplicar em ambos. Se chave especifica nao bater, tenta
+   * chave sem lado (compat).
+   *
+   * @param {Array} pecas - array retornado por gerarPecasChapa
+   * @param {Object} item - item do orcamento (com qtdOverrides salvos)
+   * @param {String} lado - 'externo' | 'interno' | null
+   */
+  function aplicarQtdOverrides(pecas, item, lado) {
+    const ov = (item && item.qtdOverrides) || {};
+    if (!Object.keys(ov).length) return pecas;
+    return pecas.map(p => {
+      const kSem = rotacionaKey(p);                          // sem lado
+      const kCom = lado ? `${kSem}|${lado}` : null;          // com lado (se conhecido)
+      // Prioriza override com lado (mais especifico) antes do sem lado
+      if (kCom && (kCom in ov)) {
+        const novaQtd = Number(ov[kCom]);
+        if (Number.isFinite(novaQtd) && novaQtd >= 0) {
+          return Object.assign({}, p, { qtd: novaQtd });
+        }
+      }
+      if (kSem in ov) {
+        const novaQtd = Number(ov[kSem]);
+        if (Number.isFinite(novaQtd) && novaQtd >= 0) {
+          return Object.assign({}, p, { qtd: novaQtd });
+        }
+      }
+      return p;
+    });
+  }
+  function escXml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+  }
+  /**
+   * Gera XML modelo com TODAS as pecas atuais e flag rotaciona.
+   * Felipe edita o XML (troca Sim/Nao) e depois reimporta.
+   */
+  function gerarModeloXmlSuperficies(itens) {
+    const Chapas = window.ChapasPortaExterna;
+    const ChapasRev = window.ChapasRevParede;
+    const linhas = [];
+    linhas.push('<?xml version="1.0" encoding="UTF-8"?>');
+    linhas.push('<projetta-superficies versao="1">');
+    linhas.push('  <!-- ====================================================== -->');
+    linhas.push('  <!-- MODELO PADRAO — Overrides de Rotaciona Sim/Nao         -->');
+    linhas.push('  <!-- ====================================================== -->');
+    linhas.push('  <!-- Edite a tag <rotaciona>Sim</rotaciona> ou <rotaciona>Nao</rotaciona> -->');
+    linhas.push('  <!-- de cada peca, salve o arquivo, e clique em "Importar XML"          -->');
+    linhas.push('  <!-- na aba Lev. Superficies pra aplicar suas mudancas.                  -->');
+    linhas.push('  <!-- A chave de busca e\' label + largura + altura (sem lado).            -->');
+    (itens || []).forEach((item, idx) => {
+      if (item.tipo === 'porta_externa' && Chapas) {
+        const ext = aplicarRotacionaOverrides(Chapas.gerarPecasChapa(item, 'externo') || [], item);
+        const int = aplicarRotacionaOverrides(Chapas.gerarPecasChapa(item, 'interno') || [], item);
+        // Unifica por chave pra nao duplicar peca igual em externo/interno
+        const mapa = new Map();
+        [...ext, ...int].forEach(p => { mapa.set(rotacionaKey(p), p); });
+        if (!mapa.size) return;
+        linhas.push(`  <item indice="${idx + 1}" tipo="porta_externa" descricao="${escXml(item.largura + 'x' + item.altura + 'mm')}">`);
+        mapa.forEach(p => {
+          linhas.push('    <peca>');
+          linhas.push(`      <label>${escXml(p.label)}</label>`);
+          linhas.push(`      <largura>${p.largura}</largura>`);
+          linhas.push(`      <altura>${p.altura}</altura>`);
+          linhas.push(`      <rotaciona>${p.podeRotacionar ? 'Sim' : 'Nao'}</rotaciona>`);
+          linhas.push('    </peca>');
+        });
+        linhas.push('  </item>');
+      } else if (item.tipo === 'revestimento_parede' && ChapasRev) {
+        const pecas = aplicarRotacionaOverrides(ChapasRev.gerarPecasRevParede(item) || [], item);
+        if (!pecas.length) return;
+        linhas.push(`  <item indice="${idx + 1}" tipo="revestimento_parede">`);
+        pecas.forEach(p => {
+          linhas.push('    <peca>');
+          linhas.push(`      <label>${escXml(p.label)}</label>`);
+          linhas.push(`      <largura>${p.largura}</largura>`);
+          linhas.push(`      <altura>${p.altura}</altura>`);
+          linhas.push(`      <rotaciona>${p.podeRotacionar ? 'Sim' : 'Nao'}</rotaciona>`);
+          linhas.push('    </peca>');
+        });
+        linhas.push('  </item>');
+      }
+    });
+    linhas.push('</projetta-superficies>');
+    return linhas.join('\n') + '\n';
+  }
+  /**
+   * Le um XML no formato do modelo e aplica os overrides nos itens.
+   * Retorna { aplicados, ignorados, erros }.
+   */
+  function importarOverridesXml(xmlString, itens) {
+    const out = { aplicados: 0, ignorados: 0, erros: [] };
+    let doc;
+    try {
+      doc = new DOMParser().parseFromString(xmlString, 'application/xml');
+      // DOMParser nao da throw em XML invalido — checa parseError.
+      // Usa getElementsByTagName em vez de querySelector pra compat
+      // com parsers XML antigos/alternativos.
+      const perr = doc.getElementsByTagName('parsererror');
+      if (perr && perr.length) {
+        out.erros.push('XML mal formado: ' + (perr[0].textContent || '').slice(0, 200));
+        return out;
+      }
+    } catch (e) {
+      out.erros.push('Erro ao ler XML: ' + e.message);
+      return out;
+    }
+    const itemNodes = doc.getElementsByTagName('item');
+    for (let i = 0; i < itemNodes.length; i++) {
+      const itemNode = itemNodes[i];
+      const indice = Number(itemNode.getAttribute('indice')) - 1;
+      const item = itens[indice];
+      if (!item) { out.ignorados++; continue; }
+      if (!item.rotacionaOverrides) item.rotacionaOverrides = {};
+      const pecaNodes = itemNode.getElementsByTagName('peca');
+      for (let j = 0; j < pecaNodes.length; j++) {
+        const pecaNode = pecaNodes[j];
+        const tag = (n) => {
+          const els = pecaNode.getElementsByTagName(n);
+          return els && els.length ? (els[0].textContent || '').trim() : '';
+        };
+        const label = tag('label');
+        const largura = Number(tag('largura'));
+        const altura  = Number(tag('altura'));
+        const rot = tag('rotaciona').toLowerCase();
+        if (!label || !largura || !altura) { out.ignorados++; continue; }
+        if (rot !== 'sim' && rot !== 'nao' && rot !== 'não') { out.ignorados++; continue; }
+        const chave = `${label}|${largura}|${altura}`;
+        item.rotacionaOverrides[chave] = (rot === 'sim') ? 'sim' : 'nao';
+        out.aplicados++;
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Felipe (sessao 2026-06): "preciso em chapas exportar e importa
+   * arquivo Excel nao HTML". Versao Excel das funcoes XML — gera
+   * planilha .xlsx com colunas Item / Tipo / Label / Largura / Altura
+   * / Rotaciona. Felipe edita coluna Rotaciona (Sim/Nao) e reimporta.
+   */
+  function gerarModeloXlsxSuperficies(itens) {
+    const Chapas = window.ChapasPortaExterna;
+    const ChapasRev = window.ChapasRevParede;
+    // Felipe (sessao 28 fix): "PLANILHA QUE EXPORTA MODELO PARA CHAPAS
+    // NAO COLOCA QUANTIDADE COMO VOU CONSEGUIR IMPORTAR ALGUMA COISA E
+    // CALCULAR SE A IMPORTACAO NAO TRAZ QUANTIDADE?".
+    // Solucao: adicionar colunas `Lado` (Externo/Interno) e `Quantidade`.
+    // Cada peca vai numa linha por face (sem dedupe — antes deduplicava
+    // ext+int e perdia info de qty). Com Lado, fica um registro
+    // editavel por peca×face.
+    const headers = ['Item', 'Tipo', 'Descricao Item', 'Lado', 'Label Peca', 'Largura', 'Altura', 'Quantidade', 'Rotaciona'];
+    const rows = [];
+    (itens || []).forEach((item, idx) => {
+      if (item.tipo === 'porta_externa' && Chapas) {
+        // Felipe (sessao 28 fix): aplica AMBOS overrides (rotaciona + qty)
+        // antes de exportar, pra Felipe ver o estado atual da edicao.
+        let ext = Chapas.gerarPecasChapa(item, 'externo') || [];
+        ext = aplicarRotacionaOverrides(ext, item);
+        ext = aplicarQtdOverrides(ext, item, 'externo');
+        let int = Chapas.gerarPecasChapa(item, 'interno') || [];
+        int = aplicarRotacionaOverrides(int, item);
+        int = aplicarQtdOverrides(int, item, 'interno');
+        const desc = `${item.largura}x${item.altura}mm`;
+        // 1 linha por face (com Quantidade real), sem dedupe
+        ext.forEach(p => {
+          rows.push([
+            idx + 1, 'porta_externa', desc, 'Externo',
+            p.label, p.largura, p.altura,
+            Number(p.qtd) || 0,
+            p.podeRotacionar ? 'Sim' : 'Nao',
+          ]);
+        });
+        int.forEach(p => {
+          rows.push([
+            idx + 1, 'porta_externa', desc, 'Interno',
+            p.label, p.largura, p.altura,
+            Number(p.qtd) || 0,
+            p.podeRotacionar ? 'Sim' : 'Nao',
+          ]);
+        });
+      } else if (item.tipo === 'revestimento_parede' && ChapasRev) {
+        let pecas = ChapasRev.gerarPecasRevParede(item) || [];
+        pecas = aplicarRotacionaOverrides(pecas, item);
+        pecas = aplicarQtdOverrides(pecas, item, null);
+        pecas.forEach(p => {
+          rows.push([
+            idx + 1, 'revestimento_parede', '—', '—',
+            p.label, p.largura, p.altura,
+            Number(p.qtd) || 0,
+            p.podeRotacionar ? 'Sim' : 'Nao',
+          ]);
+        });
+      }
+    });
+    return { headers, rows };
+  }
+
+  /**
+   * Felipe (sessao 2026-06): le um array-of-arrays do .xlsx (a partir
+   * de Universal.readXLSXFile) e aplica overrides de Rotaciona em cada
+   * item. Mesma logica do importarOverridesXml — chave = label + larg + alt.
+   *
+   * Felipe (sessao 28 fix): tambem aceita coluna `Quantidade` (opcional).
+   * Se presente e diferente do calculado, salva override em
+   * `item.qtdOverrides[chave_com_lado]`. Lado e' opcional — se nao tiver,
+   * aplica em ambas as faces.
+   */
+  function importarOverridesXlsx(aoa, itens) {
+    const out = { aplicados: 0, ignorados: 0, erros: [], qtdAplicados: 0 };
+    if (!Array.isArray(aoa) || aoa.length < 2) {
+      out.erros.push('Planilha vazia ou sem linhas de dados.');
+      return out;
+    }
+    const idx = window.Universal?.parseHeaders?.(aoa[0], {
+      item:        'item',
+      tipo:        'tipo',
+      label:       'label',
+      lado:        'lado',         // novo (opcional)
+      largura:     'largura',
+      altura:      'altura',
+      quantidade:  'quantidade',   // novo (opcional)
+      rotaciona:   'rotaciona',
+    }) || {};
+    if (idx.label === -1 || idx.largura === -1 || idx.altura === -1) {
+      out.erros.push('Cabecalhos faltando (precisa pelo menos: Label Peca, Largura, Altura).');
+      return out;
+    }
+    for (let i = 1; i < aoa.length; i++) {
+      const row = aoa[i];
+      if (!row || !row.length) continue;
+      const label = String(row[idx.label] || '').trim();
+      const largura = Number(row[idx.largura]) || 0;
+      const altura  = Number(row[idx.altura])  || 0;
+      if (!label || !largura || !altura) {
+        out.ignorados++;
+        continue;
+      }
+      // Lado opcional (aceita "Externo", "Interno", vazio)
+      const ladoStr = (idx.lado >= 0)
+        ? String(row[idx.lado] || '').trim().toLowerCase()
+        : '';
+      const lado = (ladoStr === 'externo' || ladoStr === 'ext') ? 'externo'
+                 : (ladoStr === 'interno' || ladoStr === 'int') ? 'interno'
+                 : null;  // null = ambas as faces
+
+      // Rotaciona (mantem comportamento anterior — chave SEM lado)
+      const rotStr = (idx.rotaciona >= 0)
+        ? String(row[idx.rotaciona] || '').trim().toLowerCase()
+        : '';
+      const valorRot = (rotStr === 'sim' || rotStr === 's' || rotStr === '1' || rotStr === 'true')
+        ? 'sim'
+        : (rotStr === 'nao' || rotStr === 'não' || rotStr === 'n' || rotStr === '0' || rotStr === 'false')
+          ? 'nao'
+          : null;
+
+      // Quantidade (novo — chave COM lado se especificado)
+      const qtdNum = (idx.quantidade >= 0)
+        ? Number(row[idx.quantidade])
+        : NaN;
+      const qtdValida = Number.isFinite(qtdNum) && qtdNum >= 0;
+
+      if (!valorRot && !qtdValida) {
+        out.ignorados++;
+        continue;
+      }
+
+      // Aplica em TODOS os itens que tem essa peca (por label + dimensoes)
+      const chaveSemLado = `${label}|${largura}|${altura}`;
+      let achou = false;
+      itens.forEach(it => {
+        if (!it.rotacionaOverrides) it.rotacionaOverrides = {};
+        if (!it.qtdOverrides)       it.qtdOverrides = {};
+        // Verifica se a peca existe nesse item (porta_externa ou revestimento)
+        const Chapas = window.ChapasPortaExterna;
+        const ChapasRev = window.ChapasRevParede;
+        let pecasItem = [];
+        if (it.tipo === 'porta_externa' && Chapas) {
+          pecasItem = [
+            ...(Chapas.gerarPecasChapa(it, 'externo') || []),
+            ...(Chapas.gerarPecasChapa(it, 'interno') || []),
+          ];
+        } else if (it.tipo === 'revestimento_parede' && ChapasRev) {
+          pecasItem = ChapasRev.gerarPecasRevParede(it) || [];
+        }
+        const match = pecasItem.find(p => rotacionaKey(p) === chaveSemLado);
+        if (match) {
+          if (valorRot) {
+            it.rotacionaOverrides[chaveSemLado] = valorRot;
+          }
+          if (qtdValida) {
+            // Chave com lado se especificado, senao chave sem lado (ambas)
+            const kQtd = lado ? `${chaveSemLado}|${lado}` : chaveSemLado;
+            it.qtdOverrides[kQtd] = qtdNum;
+            out.qtdAplicados++;
+          }
+          achou = true;
+        }
+      });
+      if (achou) out.aplicados++;
+      else out.ignorados++;
+    }
+    return out;
+  }
+
+  /**
+   * Renderiza tabela de pecas de UM lado (externo OU interno).
+   * @param {number} itemIdx — indice do item no array da versao
+   *   (necessario pro select de Rotaciona Sim/Nao saber em qual item gravar).
+   */
+  function renderTabelaPecas(tituloLado, pecas, modelo, corLado, todasSuperficies, itemIdx) {
+    if (!pecas || !pecas.length) {
+      return `
+        <div class="orc-lev-sup-lado">
+          <div class="orc-lev-sup-lado-title">${tituloLado}</div>
+          <p class="orc-hint-text orc-lev-sup-empty">
+            ${modelo
+              ? `Modelo ${modelo} ainda nao tem mapeamento de pecas. Felipe vai especificar
+                 quais pecas ele tem (Tampa, Tampa Borda Cava, Cava, etc) e as formulas.`
+              : 'Modelo nao escolhido — selecione em "Caracteristicas do Item".'}
+          </p>
+        </div>`;
+    }
+
+    // Felipe (sessao 2026-05 / sessao 30 fix): pra cada peca, calcula
+    // peso individual baseado no kg/m² da CHAPA-MAE da cor da peca.
+    // Felipe sessao 30: "SE ESTIVER COM PESO 0 DEIXE ZERO NUNCA PUXE
+    // NENHUM PESO QUE NAO SAIBA". Sem fallback chumbado — se nao acha
+    // chapa-mae cadastrada com peso > 0, retorna 0.
+    function pesoPorPeca(p) {
+      let kgM2 = 0;
+      if (todasSuperficies && p.cor) {
+        const norm = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const corNorm = norm(p.cor.replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, ''));
+        const chapa = todasSuperficies.find(s => {
+          const sNorm = norm(String(s.descricao).replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, ''));
+          return sNorm === corNorm || sNorm.includes(corNorm) || corNorm.includes(sNorm);
+        });
+        if (chapa && Number(chapa.peso_kg_m2) > 0) {
+          kgM2 = Number(chapa.peso_kg_m2);
+        }
+      }
+      // peso_unidade = larg_m × alt_m × kg_m2 (zero se kg/m² nao cadastrado)
+      const m2 = (Number(p.largura) * Number(p.altura)) / 1000000;
+      const pesoUnidade = m2 * kgM2;
+      const pesoTotal = pesoUnidade * (Number(p.qtd) || 1);
+      return { unidade: pesoUnidade, total: pesoTotal };
+    }
+
+    function badgeCategoria(cat) {
+      if (cat === 'portal') return '<span class="orc-cat-badge orc-cat-portal">Portal</span>';
+      if (cat === 'porta')  return '<span class="orc-cat-badge orc-cat-porta">Porta</span>';
+      if (cat === 'revestimento') return '<span class="orc-cat-badge orc-cat-rev">Rev. Parede</span>';
+      return '<span class="orc-cat-badge">—</span>';
+    }
+
+    let pesoTotalLado = 0;
+    const linhas = pecas.map(p => {
+      const peso = pesoPorPeca(p);
+      pesoTotalLado += peso.total;
+      // Felipe (sessao 2026-05): SELECT editavel Sim/Nao em vez de
+      // texto estatico "Nao (veio)". Felipe controla manualmente
+      // quando uma peca pode ou nao rotacionar (override salvo
+      // em item.rotacionaOverrides via change event).
+      const chave = rotacionaKey(p);
+      const valor = p.podeRotacionar ? 'sim' : 'nao';
+      const selectHtml = `
+        <select class="orc-lev-sup-rot-select"
+                data-item-idx="${itemIdx}"
+                data-peca-key="${escapeHtml(chave)}"
+                title="Pode rotacionar a peca em 90 graus pra encaixar na chapa? (cores Wood com veio = Nao)">
+          <option value="sim" ${valor === 'sim' ? 'selected' : ''}>Sim</option>
+          <option value="nao" ${valor === 'nao' ? 'selected' : ''}>Nao</option>
+        </select>`;
+      return `
+      <tr>
+        <td>${escapeHtml(p.label)}</td>
+        <td>${badgeCategoria(p.categoria)}</td>
+        <td>${p.largura}</td>
+        <td>${p.altura}</td>
+        <td class="t-num">${p.qtd}</td>
+        <td class="t-num">${fmtBR(peso.unidade)}</td>
+        <td class="t-num"><b>${fmtBR(peso.total)}</b></td>
+        <td class="orc-lev-sup-rot-cell ${p.podeRotacionar ? '' : 't-warn'}">${selectHtml}</td>
+      </tr>`;
+    }).join('');
+
+    return `
+      <div class="orc-lev-sup-lado">
+        <div class="orc-lev-sup-lado-title">
+          ${tituloLado} <span class="orc-lev-sup-cor-info">cor: ${escapeHtml(corLado || '—')}</span>
+          <span class="orc-lev-sup-peso-total">Peso total: <b>${fmtBR(pesoTotalLado)} kg</b></span>
+        </div>
+        <table class="cad-table orc-lev-sup-table">
+          <thead>
+            <tr>
+              <th>Peca</th>
+              <th>Cat</th>
+              <th>Largura (mm)</th>
+              <th>Altura (mm)</th>
+              <th>Qtd</th>
+              <th>Peso/un (kg)</th>
+              <th>Peso total (kg)</th>
+              <th>Rotaciona?</th>
+            </tr>
+          </thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>`;
+  }
+
+  /**
+   * Felipe (sessao 2026-05): aba Relatorios e' o hub dos relatorios
+   * comerciais. Comeca com o "Painel Comercial — Representante", que
+   * resume cada item da versao com:
+   *   - Identificacao (Cliente / AGP / Reserva)
+   *   - Dimensao / Modelo / Folhas / Portas / m² / Cor
+   *   - Preco Tabela (sem desconto) e Preco Faturamento (com desconto)
+   *   - Valores por m² (porta+inst e so' porta) — tabela e fat
+   *   - Comissoes (Rep, RT/Arq) e Desconto
+   *
+   * Layout em CARDS isolados — um card por item da versao. Se o
+   * orcamento tem 3 itens, sao 3 cards. Ainda nao distribui preco
+   * por item individualmente (motor da DRE so' tem total da versao);
+   * por enquanto cada card mostra os valores GERAIS da versao —
+   * Felipe vai detalhar a regra de rateio depois.
+   */
+  function renderRelatoriosTab(container) {
+    inicializarSessao();
+    const r = obterVersao(UI.versaoAtivaId);
+    if (!r || !r.versao) {
+      container.innerHTML = `
+        <div class="info-banner">
+          <span class="t-strong">Sem versao ativa.</span>
+          Volte para o CRM e abra um negocio para ver os relatorios.
+        </div>`;
+      return;
+    }
+    const versao = r.versao;
+    const opcao  = r.opcao;
+
+    // Felipe (sessao 2026-08): "quando bloqueia apos aprovar dre liberar
+    // relatorios" — Relatorios NAO bloqueia mais por motivoBloqueio.
+    // Se o orcamento ainda nao foi calculado, mostra resumo informativo
+    // mas nao bloqueia o acesso.
+    const motivoBloqueio = precisaCalcular(versao, 'dre');
+
+    const negocio = obterNegocio(UI.negocioAtivoId);
+    const lead    = lerLeadAtivo() || {};
+
+    // Calcula DRE (mesmos numeros que aparecem na aba DRE / Proposta)
+    const subFab  = Number(versao.subFab)  || 0;
+    const subInst = Number(versao.subInst) || 0;
+    const params  = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
+    const dre     = calcularDRE(subFab, subInst, params);
+
+    // Helpers de formatacao locais
+    const fmtMoney = (n) => 'R$ ' + Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtMoneyM2 = (n) => 'R$ ' + Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/m²';
+    const fmtPct = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + '%';
+
+    // Identificacao do lead
+    const cliente  = lead.cliente || (negocio?.clienteNome) || '—';
+    const agp      = lead.numeroAGP || '—';
+    const reserva  = lead.numeroReserva || '—';
+
+    // Sub-aba ativa (default: comercial)
+    const subAbaAtiva = UI.relSubAba || 'comercial';
+
+    // Felipe (sessao 2026-08): se nao foi calculado ainda, mostra aviso
+    // mas continua deixando navegar pelas sub-abas (algumas vao mostrar
+    // "calcule o orcamento primeiro" inline).
+    const avisoCalc = motivoBloqueio ? `
+      <div class="orc-banner-aviso orc-banner-aviso-erro" style="margin-bottom:12px;">
+        <div class="orc-banner-aviso-icon">⚠</div>
+        <div class="orc-banner-aviso-conteudo">
+          <div class="orc-banner-aviso-titulo">${escapeHtml(motivoBloqueio)}</div>
+          <div class="orc-banner-aviso-detalhe">
+            Os numeros abaixo podem estar zerados ou desatualizados. Volte na aba <b>Caracteristicas do Item</b> e clique em <b>Recalcular</b> pra atualizar.
+          </div>
+        </div>
+      </div>` : '';
+
+    // Header padrao Empresa (uma vez so')
+    const numVersao = versao.numero || 1;
+    const numeroDoc = `V${numVersao}`;
+    const headerEmpresaHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
+      ? window.Empresa.montarHeaderRelatorio({
+          lead,
+          tituloRelatorio: `Relatorios - ${numVersao}ª Versao`,
+          numeroDocumento: numeroDoc,
+          validade: 15,
+        })
+      : '';
+
+    // Renderiza sub-aba ativa
+    let conteudoSubAba = '';
+    if (subAbaAtiva === 'comercial') {
+      conteudoSubAba = renderRelComercial(versao, opcao, lead, negocio, dre, params, cliente, agp, reserva, fmtMoney, fmtMoneyM2, fmtPct);
+    } else if (subAbaAtiva === 'resultado-porta') {
+      conteudoSubAba = renderRelResultadoPorta(versao, dre, params, fmtMoney, fmtPct);
+    } else if (subAbaAtiva === 'dre') {
+      conteudoSubAba = renderRelDRE(versao, dre, params, fmtMoney, fmtPct);
+    } else if (subAbaAtiva === 'obra') {
+      conteudoSubAba = renderRelObra(versao, dre, fmtMoney);
+    }
+
+    container.innerHTML = `
+      ${headerEmpresaHtml}
+
+      <div class="rel-tabs">
+        <button type="button" class="rel-tab-btn ${subAbaAtiva === 'comercial'        ? 'is-active' : ''}" data-rel-subtab="comercial">📊 Painel Comercial</button>
+        <button type="button" class="rel-tab-btn ${subAbaAtiva === 'resultado-porta'  ? 'is-active' : ''}" data-rel-subtab="resultado-porta">🚪 Resultado por Porta</button>
+        <button type="button" class="rel-tab-btn ${subAbaAtiva === 'dre'              ? 'is-active' : ''}" data-rel-subtab="dre">💰 DRE Resumida</button>
+        <button type="button" class="rel-tab-btn ${subAbaAtiva === 'obra'             ? 'is-active' : ''}" data-rel-subtab="obra">🧱 Resumo da Obra</button>
+        <div class="rel-tabs-spacer"></div>
+        <button type="button" class="rep-export-btn" data-export-png="rel-pane-${subAbaAtiva}" title="Exporta esta aba como imagem PNG">🖼 Exportar PNG</button>
+        <button type="button" class="rep-export-btn" data-export-pdf="rel-pane-${subAbaAtiva}" title="Exporta esta aba como PDF">📄 Exportar PDF</button>
+      </div>
+
+      ${avisoCalc}
+
+      <div class="rel-pane" id="rel-pane-${subAbaAtiva}">
+        ${conteudoSubAba}
+      </div>
+    `;
+
+    // Bind sub-abas
+    container.querySelectorAll('[data-rel-subtab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        UI.relSubAba = btn.dataset.relSubtab;
+        renderRelatoriosTab(container);
+      });
+    });
+
+    // Bind exports
+    container.querySelectorAll('[data-export-png]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const alvoId = btn.dataset.exportPng;
+        exportarRelatorioPNG(alvoId, `Relatorio_${subAbaAtiva}_${cliente}`);
+      });
+    });
+    container.querySelectorAll('[data-export-pdf]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const alvoId = btn.dataset.exportPdf;
+        exportarRelatorioPDF(alvoId, `Relatorio_${subAbaAtiva}_${cliente}`);
+      });
+    });
+  }
+
+  /**
+   * Sub-aba "Painel Comercial — Representante" (era a tela inteira antiga).
+   * Felipe (sessao 2026-08): "so vai ter um relatorio por versao" — agora
+   * mostra UM card por item, todos juntos, com badge "1 / N itens" pra
+   * deixar claro que e' parte da MESMA versao.
+   */
+  function renderRelComercial(versao, opcao, lead, negocio, dre, params, cliente, agp, reserva, fmtMoney, fmtMoneyM2, fmtPct) {
+    const itens = (versao.itens || []);
+    if (itens.length === 0) {
+      return `<div class="rep-empty">
+        <div class="rep-empty-icon">📋</div>
+        <p>Nenhum item na versao ativa.</p>
+      </div>`;
+    }
+
+    const subFab  = Number(versao.subFab)  || 0;
+    const subInst = Number(versao.subInst) || 0;
+
+    // Calcula area total da versao
+    const areasItens = itens.map(it => {
+      const lar = parseBR(it.largura) || 0;
+      const alt = parseBR(it.altura)  || 0;
+      const qtd = Number(it.quantidade) || 1;
+      const m2  = (lar / 1000) * (alt / 1000);
+      return { item: it, m2Un: m2, qtd, m2Total: m2 * qtd };
+    });
+    const areaTotal = areasItens.reduce((s, a) => s + a.m2Total, 0);
+    const subTotalCusto = subFab + subInst;
+    const ratioInst = subTotalCusto > 0 ? subInst / subTotalCusto : 0;
+
+    const cardsHtml = areasItens.map((a, idx) => {
+      const it = a.item;
+      const peso = areaTotal > 0 ? a.m2Total / areaTotal : (1 / itens.length);
+      const precoTabItem  = (dre.pTab || 0)     * peso;
+      const precoFatItem  = (dre.pFatReal || 0) * peso;
+      const m2DoItem = a.m2Total || 1;
+      const precoTabM2_porInst   = precoTabItem / m2DoItem;
+      const precoFatM2_porInst   = precoFatItem / m2DoItem;
+      const precoTabM2_soPorta   = precoTabM2_porInst * (1 - ratioInst);
+      const precoFatM2_soPorta   = precoFatM2_porInst * (1 - ratioInst);
+
+      const lar = parseBR(it.largura) || 0;
+      const alt = parseBR(it.altura)  || 0;
+      const dimensao = `${lar} × ${alt} mm`;
+      const folhas   = Number(it.nFolhas) || 1;
+      const qtd      = Number(it.quantidade) || 1;
+      const m2Str    = a.m2Total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const modeloLabel = (window.Modelos && typeof window.Modelos.labelModelo === 'function')
+        ? window.Modelos.labelModelo(it.modeloNumero)
+        : (it.modeloNumero ? `${it.modeloNumero}` : '—');
+      const cor = it.corExterna || it.corInterna || '—';
+
+      return `
+        <div class="rep-card">
+          <div class="rep-card-head">
+            <div class="rep-card-titulo">PROJETTA <span>by WEIKU</span></div>
+            <div class="rep-card-sub">Painel Comercial — Item ${idx + 1} de ${itens.length}</div>
+          </div>
+          <div class="rep-card-id">
+            <div class="rep-id-row">
+              <span class="rep-id-label">Cliente:</span><span class="rep-id-val">${escapeHtml(cliente)}</span>
+              <span class="rep-id-label">AGP:</span><span class="rep-id-val">${escapeHtml(agp)}</span>
+              <span class="rep-id-label">Reserva:</span><span class="rep-id-val">${escapeHtml(reserva)}</span>
+            </div>
+            <div class="rep-id-row">
+              <span class="rep-id-label">Dimensao:</span><span class="rep-id-val">${escapeHtml(dimensao)}</span>
+              <span class="rep-id-label">Modelo:</span><span class="rep-id-val">${escapeHtml(String(modeloLabel))}</span>
+            </div>
+            <div class="rep-id-row">
+              <span class="rep-id-val rep-id-meta">${folhas} folha(s) · ${qtd} porta(s) · ${m2Str} m²</span>
+              <span class="rep-id-label">Cor:</span><span class="rep-id-val">${escapeHtml(String(cor).toUpperCase())}</span>
+            </div>
+          </div>
+          <div class="rep-precos">
+            <div class="rep-preco-bloco rep-preco-tabela">
+              <div class="rep-preco-label">PREÇO TABELA</div>
+              <div class="rep-preco-valor">${fmtMoney(precoTabItem)}</div>
+            </div>
+            <div class="rep-preco-bloco rep-preco-fat">
+              <div class="rep-preco-label">PREÇO FATURAMENTO</div>
+              <div class="rep-preco-valor">${fmtMoney(precoFatItem)}</div>
+            </div>
+          </div>
+          <div class="rep-m2">
+            <div class="rep-m2-titulo">VALORES POR M²</div>
+            <table class="rep-m2-tabela">
+              <tbody>
+                <tr><td>Preço tabela/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoneyM2(precoTabM2_porInst)}</td></tr>
+                <tr><td>Preço fat./m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoneyM2(precoFatM2_porInst)}</td></tr>
+                <tr><td>Preço tabela/m² <span class="t-strong">só porta</span></td><td class="num">${fmtMoneyM2(precoTabM2_soPorta)}</td></tr>
+                <tr><td>Preço fat./m² <span class="t-strong">só porta</span></td><td class="num">${fmtMoneyM2(precoFatM2_soPorta)}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="rep-comissoes">
+            <div class="rep-com-bloco"><div class="rep-com-label">COMISSÃO REP.</div><div class="rep-com-valor">${fmtPct(params.com_rep)}</div></div>
+            <div class="rep-com-bloco"><div class="rep-com-label">COMISSÃO ARQ.</div><div class="rep-com-valor">${fmtPct(params.com_rt)}</div></div>
+            <div class="rep-com-bloco rep-com-desc"><div class="rep-com-label">DESCONTO</div><div class="rep-com-valor">${fmtPct(params.desconto)}</div></div>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="rep-section-head">
+        <h3 class="rep-section-titulo">Painel Comercial — Representante</h3>
+        <p class="rep-section-sub">
+          Resumo por item: precos tabela e faturamento, valores por m² (porta+inst e so' porta), comissoes e desconto aplicado.
+          ${itens.length > 1 ? `<span class="rep-section-info">${itens.length} itens — preco rateado proporcional a area</span>` : ''}
+        </p>
+      </div>
+      <div class="rep-grid">${cardsHtml}</div>
+    `;
+  }
+
+  /**
+   * Sub-aba "DRE Resumida" — mesmo estilo do Painel Comercial mas com
+   * os numeros de receita / dedicoes / lucro alvo. Felipe queria igual
+   * em layout, so' trocando o conteudo.
+   */
+  function renderRelDRE(versao, dre, params, fmtMoney, fmtPct) {
+    const itens = (versao.itens || []);
+    const numItens = itens.length;
+    const m2Total = itens.reduce((s, it) => {
+      const lar = parseBR(it.largura) || 0;
+      const alt = parseBR(it.altura)  || 0;
+      const qtd = Number(it.quantidade) || 1;
+      return s + (lar / 1000) * (alt / 1000) * qtd;
+    }, 0);
+
+    const receitaBruta  = dre.pFatReal || 0;
+    const impostos      = receitaBruta * (params.impostos || 0) / 100;
+    const comRep        = receitaBruta * (params.com_rep || 0) / 100;
+    const comRT         = receitaBruta * (params.com_rt || 0) / 100;
+    const comGest       = receitaBruta * (params.com_gest || 0) / 100;
+    const totalDeducoes = impostos + comRep + comRT + comGest;
+    const receitaLiq    = receitaBruta - totalDeducoes;
+    const custoDireto   = (Number(versao.subFab)||0) + (Number(versao.subInst)||0);
+    const lucroBruto    = receitaLiq - (custoDireto * (1 + (Number(params.overhead)||0)/100));
+    const irpjCsll      = lucroBruto * 0.34;
+    const lucroLiq      = lucroBruto - irpjCsll;
+    const margem        = receitaBruta > 0 ? (lucroLiq / receitaBruta) * 100 : 0;
+
+    return `
+      <div class="rep-section-head">
+        <h3 class="rep-section-titulo">DRE — Resultado da Operacao</h3>
+        <p class="rep-section-sub">
+          Demonstrativo de Resultado do Exercicio para esta versao do orcamento.
+        </p>
+      </div>
+
+      <div class="rep-card" style="max-width: 720px; margin: 0 0 16px 0;">
+        <div class="rep-card-head">
+          <div class="rep-card-titulo">PROJETTA <span>by WEIKU</span></div>
+          <div class="rep-card-sub">DRE Resumida — Versao ${versao.numero}</div>
+        </div>
+
+        <div class="rep-card-id">
+          <div class="rep-id-row">
+            <span class="rep-id-label">Itens:</span><span class="rep-id-val">${numItens}</span>
+            <span class="rep-id-label">Area Total:</span><span class="rep-id-val">${m2Total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m²</span>
+          </div>
+        </div>
+
+        <div class="rep-precos">
+          <div class="rep-preco-bloco rep-preco-tabela">
+            <div class="rep-preco-label">RECEITA BRUTA</div>
+            <div class="rep-preco-valor">${fmtMoney(receitaBruta)}</div>
+          </div>
+          <div class="rep-preco-bloco rep-preco-fat">
+            <div class="rep-preco-label">LUCRO LIQUIDO</div>
+            <div class="rep-preco-valor">${fmtMoney(lucroLiq)}</div>
+          </div>
+        </div>
+
+        <div class="rep-m2">
+          <div class="rep-m2-titulo">DETALHAMENTO</div>
+          <table class="rep-m2-tabela">
+            <tbody>
+              <tr><td>Receita Bruta</td><td class="num">${fmtMoney(receitaBruta)}</td></tr>
+              <tr><td>(−) Impostos sobre Receita ${fmtPct(params.impostos)}</td><td class="num" style="color:#c43a3a;">${fmtMoney(-impostos)}</td></tr>
+              <tr><td>(−) Comissao Representante ${fmtPct(params.com_rep)}</td><td class="num" style="color:#c43a3a;">${fmtMoney(-comRep)}</td></tr>
+              <tr><td>(−) Comissao RT/Arquiteto ${fmtPct(params.com_rt)}</td><td class="num" style="color:#c43a3a;">${fmtMoney(-comRT)}</td></tr>
+              <tr><td>(−) Comissao Gestao ${fmtPct(params.com_gest)}</td><td class="num" style="color:#c43a3a;">${fmtMoney(-comGest)}</td></tr>
+              <tr style="border-top: 1px solid #ccc;"><td><span class="t-strong">Total Deducoes</span></td><td class="num" style="color:#c43a3a;"><span class="t-strong">${fmtMoney(-totalDeducoes)}</span></td></tr>
+              <tr><td><span class="t-strong">Receita Liquida</span></td><td class="num"><span class="t-strong">${fmtMoney(receitaLiq)}</span></td></tr>
+              <tr><td>(−) Custo Direto + Overhead</td><td class="num" style="color:#c43a3a;">${fmtMoney(-custoDireto * (1 + (Number(params.overhead)||0)/100))}</td></tr>
+              <tr><td><span class="t-strong">Lucro Bruto (antes IRPJ+CSLL)</span></td><td class="num"><span class="t-strong">${fmtMoney(lucroBruto)}</span></td></tr>
+              <tr><td>(−) IRPJ + CSLL (34%)</td><td class="num" style="color:#c43a3a;">${fmtMoney(-irpjCsll)}</td></tr>
+              <tr style="border-top: 2px solid var(--azul-escuro);"><td><span class="t-strong">Lucro Liquido</span></td><td class="num" style="color:#1a7a3f;"><span class="t-strong">${fmtMoney(lucroLiq)}</span></td></tr>
+              <tr><td>Margem Liquida</td><td class="num" style="color:${margem >= (params.lucro_alvo||15) ? '#1a7a3f' : '#c43a3a'};"><span class="t-strong">${margem.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 2})}%</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Sub-aba "Resumo da Obra" — Felipe quer no mesmo estilo do Painel
+   * Comercial mas mostrando esquadrias + perfis + chapas + componentes
+   * + mao de obra + instalacao = custo total. NA VERTICAL (cards
+   * empilhados) em vez de linha horizontal.
+   */
+  function renderRelObra(versao, dre, fmtMoney) {
+    const itens = (versao.itens || []);
+    const m2Total = itens.reduce((s, it) => {
+      const lar = parseBR(it.largura) || 0;
+      const alt = parseBR(it.altura)  || 0;
+      const qtd = Number(it.quantidade) || 1;
+      return s + (lar / 1000) * (alt / 1000) * qtd;
+    }, 0);
+    const numPortas = itens.reduce((s, it) => s + (Number(it.quantidade) || 1), 0);
+
+    const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
+
+    const custoPerfis    = Number(fab.total_perfis)      || 0;
+    const custoPintura   = Number(fab.total_pintura)     || 0;
+    const custoAcess     = Number(fab.total_acessorios)  || 0;
+    const custoChapas    = Number(fab.total_revestimento)|| 0;
+    const custoExtras    = Number(fab.total_extras)      || 0;
+
+    const totalHoras  = (Number(fab.etapas?.portal)||0) + (Number(fab.etapas?.quadro)||0) + (Number(fab.etapas?.colagem)||0) + (Number(fab.etapas?.corte_usinagem)||0) + (Number(fab.etapas?.conf_bem)||0);
+    const numOp       = Number(fab.operarios) || 1;
+    const custoHora   = Number(fab.custo_hora) || 0;
+    const custoMaoObra = totalHoras * numOp * custoHora;
+
+    const subInstTotal = Number(versao.subInst) || 0;
+    const subFabTotal  = Number(versao.subFab)  || 0;
+    const custoTotalFab = subFabTotal + subInstTotal;
+
+    // Felipe (sessao 2026-08): "resumo da obra nao ficou mesmo estilo
+    // dos outros". Refeito usando rep-card (mesma estrutura do Painel
+    // Comercial e DRE Resumida) com tabela de detalhamento dentro.
+    return `
+      <div class="rep-card" style="max-width: 720px; margin: 0 0 16px 0;">
+        <div class="rep-card-head">
+          <div class="rep-card-titulo">PROJETTA <span>by WEIKU</span></div>
+          <div class="rep-card-sub">Resumo da Obra — Versao ${versao.numero}</div>
+        </div>
+
+        <div class="rep-card-id">
+          <div class="rep-id-row">
+            <span class="rep-id-label">Itens:</span><span class="rep-id-val">${itens.length}</span>
+            <span class="rep-id-label">Portas:</span><span class="rep-id-val">${numPortas}</span>
+            <span class="rep-id-label">Area Total:</span><span class="rep-id-val">${m2Total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m²</span>
+          </div>
+        </div>
+
+        <div class="rep-precos">
+          <div class="rep-preco-bloco rep-preco-tabela">
+            <div class="rep-preco-label">CUSTO TOTAL DA OBRA</div>
+            <div class="rep-preco-valor">${fmtMoney(custoTotalFab)}</div>
+          </div>
+          <div class="rep-preco-bloco rep-preco-fat">
+            <div class="rep-preco-label">PRECO FATURAMENTO</div>
+            <div class="rep-preco-valor">${fmtMoney(dre.pFatReal || 0)}</div>
+          </div>
+        </div>
+
+        <div class="rep-m2">
+          <div class="rep-m2-titulo">DETALHAMENTO POR CATEGORIA</div>
+          <table class="rep-m2-tabela">
+            <tbody>
+              <tr><td>🚪 Esquadrias</td><td class="num">${m2Total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m² · ${numPortas} porta(s)</td></tr>
+              <tr><td>📏 Perfis de Aluminio</td><td class="num">${fmtMoney(custoPerfis)}</td></tr>
+              ${custoPintura > 0 ? `<tr><td>🎨 Pintura dos Perfis</td><td class="num">${fmtMoney(custoPintura)}</td></tr>` : ''}
+              <tr><td>🟫 Chapas / Revestimento</td><td class="num">${fmtMoney(custoChapas)}</td></tr>
+              <tr><td>🔩 Componentes (acessorios + fechaduras)</td><td class="num">${fmtMoney(custoAcess + custoExtras)}</td></tr>
+              <tr><td>👷 Mao de Obra (${totalHoras}h × ${numOp} op. × ${fmtMoney(custoHora)}/h)</td><td class="num">${fmtMoney(custoMaoObra)}</td></tr>
+              <tr><td>🚛 Instalacao</td><td class="num">${fmtMoney(subInstTotal)}</td></tr>
+              <tr style="border-top: 2px solid var(--azul-escuro);"><td><span class="t-strong">Custo Total da Obra</span></td><td class="num"><span class="t-strong">${fmtMoney(custoTotalFab)}</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Sub-aba "Resultado por Porta" — Felipe (sessao 2026-08): card que
+   * mostra POR ITEM os custos detalhados (fab, inst, tabela, faturamento)
+   * + margem bruta/liquida + valores por m² + desconto aplicado.
+   * Era o card "RESULTADO — PORTA" da imagem que ele enviou.
+   */
+  function renderRelResultadoPorta(versao, dre, params, fmtMoney, fmtPct) {
+    const itens = (versao.itens || []);
+    if (itens.length === 0) {
+      return `<div class="rep-empty">
+        <div class="rep-empty-icon">🚪</div>
+        <p>Nenhum item na versao ativa.</p>
+      </div>`;
+    }
+
+    const vp = calcularValoresProposta(versao, params);
+    const subInstTotal = Number(versao.subInst) || 0;
+    const subFabTotal  = Number(versao.subFab)  || 0;
+    const custoTotalSub = subFabTotal + subInstTotal;
+    const ratioInst = custoTotalSub > 0 ? subInstTotal / custoTotalSub : 0;
+    const desconto = Number(params.desconto) || 0;
+    const lucroAlvo = Number(params.lucro_alvo) || 15;
+
+    // Para cada item, monta um card "RESULTADO — PORTA"
+    const cardsHtml = vp.porItem.map((vpItem, idx) => {
+      const it = vpItem.item;
+      const lar = parseBR(it.largura) || 0;
+      const alt = parseBR(it.altura)  || 0;
+      const m2Item = (lar / 1000) * (alt / 1000) * (Number(it.quantidade) || 1);
+
+      // Custos do item
+      const custoFab    = vpItem.subFab;    // ja' rateado por horas
+      const custoInst   = vpItem.subInst;   // proporcional ao fab
+      const custoPorta  = custoFab + custoInst;
+
+      // Precos do item (DRE foi rateado por item dentro do calcularValoresProposta)
+      const dreItem = calcularDRE(custoFab, custoInst, params);
+      const precoTab     = dreItem.pTab     || 0;
+      const precoFat     = dreItem.pFatReal || 0;
+
+      // Decompoem porta vs instalacao no preco
+      const precoFatInst = precoFat * ratioInst;
+      const precoFatPorta = precoFat - precoFatInst;
+      const precoTabInst = precoTab * ratioInst;
+      const precoTabPorta = precoTab - precoTabInst;
+
+      // Markup s/ custo
+      const markupVisual = custoPorta > 0 ? ((precoTab - custoPorta) / custoPorta * 100) : 0;
+      // Margem bruta = (preco fat - custo) / preco fat
+      const margemBruta = precoFat > 0 ? ((precoFat - custoPorta) / precoFat * 100) : 0;
+      // Margem liquida (apos impostos+comissoes+IRPJ)
+      const impostos = precoFat * (Number(params.impostos)||0)/100;
+      const comRep = precoFat * (Number(params.com_rep)||0)/100;
+      const comRT = precoFat * (Number(params.com_rt)||0)/100;
+      const comGest = precoFat * (Number(params.com_gest)||0)/100;
+      const lucroBruto = precoFat - impostos - comRep - comRT - comGest - custoPorta * (1 + (Number(params.overhead)||0)/100);
+      const irpjCsll = lucroBruto * 0.34;
+      const lucroLiq = lucroBruto - irpjCsll;
+      const margemLiquida = precoFat > 0 ? (lucroLiq / precoFat * 100) : 0;
+
+      // Por m²
+      const m2Den = m2Item || 1;
+      const custoM2 = custoPorta / m2Den;
+      const precoTabM2_porInst = precoTab / m2Den;
+      const precoFatM2_porInst = precoFat / m2Den;
+      const precoTabM2_soPorta = precoTabPorta / m2Den;
+      const precoFatM2_soPorta = precoFatPorta / m2Den;
+
+      const dimensao = `${lar} × ${alt} mm`;
+      const qtd = Number(it.quantidade) || 1;
+      const folhas = Number(it.nFolhas) || 1;
+
+      return `
+        <div class="rep-card" style="max-width: 720px; margin: 0 0 16px 0;">
+          <div class="rep-card-head">
+            <div class="rep-card-titulo">PROJETTA <span>by WEIKU</span></div>
+            <div class="rep-card-sub">Resultado — Porta · Item ${idx + 1} de ${itens.length}</div>
+          </div>
+
+          <div class="rep-card-id">
+            <div class="rep-id-row">
+              <span class="rep-id-label">Dimensao:</span><span class="rep-id-val">${dimensao}</span>
+              <span class="rep-id-label">Folhas:</span><span class="rep-id-val">${folhas}</span>
+              <span class="rep-id-label">Qtd:</span><span class="rep-id-val">${qtd}</span>
+            </div>
+            <div class="rep-id-row">
+              <span class="rep-id-val rep-id-meta">Area total: ${m2Item.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m²</span>
+            </div>
+          </div>
+
+          <div class="rep-precos">
+            <div class="rep-preco-bloco rep-preco-tabela">
+              <div class="rep-preco-label">CUSTO PORTA</div>
+              <div class="rep-preco-valor">${fmtMoney(custoPorta)}</div>
+              <div class="rep-preco-meta">${fmtMoney(custoM2)}/m²</div>
+            </div>
+            <div class="rep-preco-bloco rep-preco-fat">
+              <div class="rep-preco-label">MARKUP S/ CUSTO</div>
+              <div class="rep-preco-valor">${markupVisual.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</div>
+              <div class="rep-preco-meta">sobre tabela</div>
+            </div>
+          </div>
+
+          <div class="rep-precos">
+            <div class="rep-preco-bloco rep-preco-tabela">
+              <div class="rep-preco-label">PRECO TABELA</div>
+              <div class="rep-preco-valor">${fmtMoney(precoTab)}</div>
+              <div class="rep-preco-meta">${fmtMoney(precoTabM2_porInst)}/m²</div>
+            </div>
+            <div class="rep-preco-bloco rep-preco-fat">
+              <div class="rep-preco-label">PRECO FATURAMENTO</div>
+              <div class="rep-preco-valor">${fmtMoney(precoFat)}</div>
+              <div class="rep-preco-meta">${fmtMoney(precoFatM2_porInst)}/m²</div>
+            </div>
+          </div>
+
+          <div class="rep-m2">
+            <div class="rep-m2-titulo">DETALHAMENTO</div>
+            <table class="rep-m2-tabela">
+              <tbody>
+                <tr><td>Custo fabricacao</td><td class="num">${fmtMoney(custoFab)}</td></tr>
+                <tr><td>Custo instalacao</td><td class="num">${fmtMoney(custoInst)}</td></tr>
+                <tr><td>Tabela so' porta</td><td class="num">${fmtMoney(precoTabPorta)}</td></tr>
+                <tr><td>Faturamento so' porta</td><td class="num">${fmtMoney(precoFatPorta)}</td></tr>
+                <tr><td>Tabela instalacao</td><td class="num">${fmtMoney(precoTabInst)}</td></tr>
+                <tr><td>Faturamento instalacao</td><td class="num">${fmtMoney(precoFatInst)}</td></tr>
+                <tr style="border-top: 1px solid #ccc;"><td>Margem bruta</td><td class="num">${margemBruta.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</td></tr>
+                <tr><td>Margem liquida</td><td class="num" style="color:${margemLiquida >= lucroAlvo ? '#1a7a3f' : '#c43a3a'};"><span class="t-strong">${margemLiquida.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="rep-m2">
+            <div class="rep-m2-titulo">POR M²</div>
+            <table class="rep-m2-tabela">
+              <tbody>
+                <tr><td>Custo/m²</td><td class="num">${fmtMoney(custoM2)}/m²</td></tr>
+                <tr><td>Preco tabela/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoney(precoTabM2_porInst)}/m²</td></tr>
+                <tr><td>Preco fat./m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoney(precoFatM2_porInst)}/m²</td></tr>
+                <tr><td>Preco tabela/m² <span class="t-strong">so' porta</span></td><td class="num">${fmtMoney(precoTabM2_soPorta)}/m²</td></tr>
+                <tr><td>Preco fat./m² <span class="t-strong">so' porta</span></td><td class="num">${fmtMoney(precoFatM2_soPorta)}/m²</td></tr>
+                ${desconto > 0 ? `<tr><td>Desconto aplicado</td><td class="num" style="color:var(--laranja);"><span class="t-strong">${desconto.toLocaleString('pt-BR')}% → -${fmtMoney(precoTab - precoFat)}</span></td></tr>` : ''}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }).join('');
+
+    return cardsHtml;
+  }
+
+  /**
+   * Felipe (sessao 2026-08): "relatorio de superficie coloque na propria
+   * aba de superficies e nao em relatorio". Funcao mantida pra ser
+   * exposta via window.Orcamento e chamada pelo modulo Superficies.
+   *
+   * Renderiza relatorio com itens, pecas e layout das chapas escolhidas.
+   */
+  function renderRelChapas(versao) {
+    const chapasSelecionadas = versao.chapasSelecionadas || {};
+    const cores = Object.keys(chapasSelecionadas);
+    if (cores.length === 0) {
+      return `
+        <div class="rep-empty">
+          <div class="rep-empty-icon">📐</div>
+          <p>Nenhuma chapa selecionada ainda.</p>
+          <p style="font-size:12px;color:var(--text-muted);">Volte na aba <b>Levantamento de Superficies</b> e escolha as chapas-mae.</p>
+        </div>`;
+    }
+
+    // Felipe (sessao 27 fix): "precisava desta parte geral, custo
+    // unitario custo total no relatorio e principalmente a disposicao
+    // das chapas em cada layout".
+    // Relatorio agora mostra:
+    //   1) Resumo geral por cor (chapas, aproveitamento, custo unit, total)
+    //   2) Tabela DETALHADA por chapa (#, peças, area, taxa, peso, custo)
+    //   3) Lista das peças posicionadas em cada chapa
+    const blocos = cores.map(cor => {
+      const sel = chapasSelecionadas[cor] || {};
+      const idxEscolhido = sel.idxEscolhido !== undefined ? sel.idxEscolhido : 0;
+      let opcoes = sel.opcoes || [];
+      let opcao = opcoes[idxEscolhido];
+
+      // Felipe (sessao 28 fix): se a chapa foi selecionada ANTES desta
+      // versao do codigo, nao tem `opcoes[].chapas[]` salvo. Monta uma
+      // opcao MINIMA com os metadados disponiveis pra mostrar pelo menos
+      // o resumo geral. Disposicao das pecas ficara vazia ate o usuario
+      // re-selecionar a chapa (duplo-click no card).
+      if (!opcao && (sel.descricao || sel.numChapas)) {
+        opcao = {
+          chapaMae: {
+            descricao:  sel.descricao || cor,
+            largura:    sel.largura || 0,
+            altura:     sel.altura || 0,
+            preco:      sel.preco || 0,
+            peso_kg_m2: sel.peso_kg_m2 || 0,
+          },
+          taxaAproveitamento: 0,  // nao temos — mostra "—"
+          custoTotal:         Number(sel.custoTotal) || 0,
+          numChapas:          Number(sel.numChapas) || 0,
+          chapas:             [],  // sem dados de disposicao
+        };
+      }
+
+      if (!opcao) {
+        return `<div class="rel-chapas-bloco">
+          <h4>${escapeHtml(cor)}</h4>
+          <p style="color:var(--text-muted);">Sem dados de aproveitamento.</p>
+        </div>`;
+      }
+      const numChapas    = opcao.numChapas || (opcao.chapas?.length || 0);
+      const aprovMedio   = ((opcao.taxaAproveitamento || 0) * 100).toFixed(1);
+      const custoTot     = Number(opcao.custoTotal)     || 0;
+      const custoUnit    = numChapas > 0 ? custoTot / numChapas : 0;
+      const chapaMae     = opcao.chapaMae || {};
+      const dimChapa     = (chapaMae.largura && chapaMae.altura)
+                           ? `${chapaMae.largura}×${chapaMae.altura} mm`
+                           : '—';
+      // Aviso se nao tem disposicao salva
+      const semDisposicao = (!opcao.chapas || opcao.chapas.length === 0);
+      // Soma total de peças e área usada
+      let totalPecas = 0;
+      let areaUsada = 0;
+      let areaSobra = 0;
+      (opcao.chapas || []).forEach(c => {
+        totalPecas += (c.pecasPosicionadas || []).length;
+        (c.pecasPosicionadas || []).forEach(pp => {
+          areaUsada += (Number(pp.larg) || 0) * (Number(pp.alt) || 0);
+        });
+        (c.sobrasRetangulos || []).forEach(s => {
+          areaSobra += (Number(s.w) || 0) * (Number(s.h) || 0);
+        });
+      });
+      const areaUsadaM2 = areaUsada / 1e6;
+      const areaSobraM2 = areaSobra / 1e6;
+
+      // Tabela detalhada por chapa
+      const linhasTabela = (opcao.chapas || []).map((c, idx) => {
+        const taxa = ((c.taxa || 0) * 100).toFixed(1);
+        const numPecas = (c.pecasPosicionadas || []).length;
+        let aTotal = 0;
+        (c.pecasPosicionadas || []).forEach(pp => {
+          aTotal += (Number(pp.larg) || 0) * (Number(pp.alt) || 0);
+        });
+        const aTotalM2 = (aTotal / 1e6).toFixed(2);
+        return `
+          <tr>
+            <td class="num"><b>${idx + 1}</b></td>
+            <td class="num">${numPecas}</td>
+            <td class="num">${aTotalM2} m²</td>
+            <td class="num">${taxa}%</td>
+            <td class="num">R$ ${fmtBR(custoUnit)}</td>
+          </tr>`;
+      }).join('');
+
+      // Lista de peças por chapa — agrupa por (label + dim) pra ficar limpa
+      const blocosPecasPorChapa = (opcao.chapas || []).map((c, idx) => {
+        if (!c.pecasPosicionadas || c.pecasPosicionadas.length === 0) {
+          return `<div class="rel-chapa-detalhe">
+            <h5>Chapa ${idx + 1} — vazia</h5>
+          </div>`;
+        }
+        // Agrupar peças repetidas
+        const mapa = new Map();
+        c.pecasPosicionadas.forEach(pp => {
+          const label = (pp.peca && pp.peca.label) || '—';
+          const k = `${label}|${Math.round(pp.larg)}×${Math.round(pp.alt)}`;
+          const existe = mapa.get(k);
+          if (existe) {
+            existe.qtd++;
+          } else {
+            mapa.set(k, { label, dim: `${Math.round(pp.larg)}×${Math.round(pp.alt)}`, qtd: 1 });
+          }
+        });
+        const linhas = Array.from(mapa.values()).map(p => `
+          <tr>
+            <td>${escapeHtml(p.label)}</td>
+            <td class="num">${p.dim} mm</td>
+            <td class="num">${p.qtd}</td>
+          </tr>`).join('');
+        const taxaC = ((c.taxa || 0) * 100).toFixed(1);
+        return `
+          <div class="rel-chapa-detalhe">
+            <h5>Chapa ${idx + 1} <span style="color:var(--text-muted);font-weight:400;">— ${taxaC}% aproveitamento, ${c.pecasPosicionadas.length} peça(s)</span></h5>
+            <table class="rel-chapa-pecas-tabela">
+              <thead><tr><th>Peça</th><th class="num">Dimensão</th><th class="num">Qtd</th></tr></thead>
+              <tbody>${linhas}</tbody>
+            </table>
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="rel-chapas-bloco">
+          <h4>${escapeHtml(cor)}</h4>
+
+          ${semDisposicao ? `
+            <div style="background:#fef9c3;border:1px solid #facc15;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#78350f;">
+              ⚠ Disposição das peças não foi salva nesta seleção.
+              Para ver custo unitário, área usada e a disposição em cada chapa,
+              <b>volte na aba Lev. Superfícies</b> e dê <b>duplo-clique</b> no
+              card da chapa novamente.
+            </div>` : ''}
+
+          <!-- Resumo geral -->
+          <div class="rel-chapas-resumo">
+            <div><span class="rel-chapas-lbl">Chapa-mãe:</span> ${escapeHtml(chapaMae.descricao || '—')}</div>
+            <div><span class="rel-chapas-lbl">Dimensão:</span> ${dimChapa}</div>
+            <div><span class="rel-chapas-lbl">Total chapas:</span> <b>${numChapas}</b></div>
+            <div><span class="rel-chapas-lbl">Total peças:</span> <b>${semDisposicao ? '—' : totalPecas}</b></div>
+            <div><span class="rel-chapas-lbl">Aproveitamento médio:</span> <b>${semDisposicao ? '—' : aprovMedio + '%'}</b></div>
+            <div><span class="rel-chapas-lbl">Área usada:</span> ${semDisposicao ? '—' : areaUsadaM2.toFixed(2) + ' m²'}</div>
+            <div><span class="rel-chapas-lbl">Área sobra:</span> ${semDisposicao ? '—' : areaSobraM2.toFixed(2) + ' m²'}</div>
+            <div><span class="rel-chapas-lbl">Custo unitário:</span> <b>R$ ${fmtBR(custoUnit)}</b></div>
+            <div><span class="rel-chapas-lbl">Custo total:</span> <b style="color:var(--accent);">R$ ${fmtBR(custoTot)}</b></div>
+          </div>
+
+          ${semDisposicao ? '' : `
+          <!-- Tabela por chapa -->
+          <table class="rel-chapas-tabela" style="margin-top:12px;">
+            <thead>
+              <tr>
+                <th class="num">Chapa</th>
+                <th class="num">Peças</th>
+                <th class="num">Área usada</th>
+                <th class="num">Aprov.</th>
+                <th class="num">Custo R$</th>
+              </tr>
+            </thead>
+            <tbody>${linhasTabela}</tbody>
+            <tfoot>
+              <tr style="font-weight:bold;border-top:2px solid var(--border);">
+                <td>Total</td>
+                <td class="num">${totalPecas}</td>
+                <td class="num">${areaUsadaM2.toFixed(2)} m²</td>
+                <td class="num">${aprovMedio}%</td>
+                <td class="num">R$ ${fmtBR(custoTot)}</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <!-- Disposição das peças por chapa -->
+          <div class="rel-chapas-disposicao" style="margin-top:16px;">
+            <h5 style="margin:0 0 8px 0;">Disposição das peças em cada chapa</h5>
+            ${blocosPecasPorChapa}
+          </div>`}
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="rep-section-head">
+        <h3 class="rep-section-titulo">Chapas / Aproveitamento</h3>
+        <p class="rep-section-sub">
+          Resumo geral, custo unitário e total, e disposição das peças em cada chapa.
+        </p>
+      </div>
+      ${blocos}
+    `;
+  }
+
+  /**
+   * Felipe (sessao 2026-08): "permita exportar mas dessa vez em png".
+   * Felipe (sessao 2026-08 v2): "esta imprimindo toda lateral quero
+   * somente o quadro dos relatorios". Estrategia agora:
+   *   1. Localiza dentro do `elementoId` o(s) card(s) reais
+   *      (.rep-card, .rel-chapas-bloco) — ignora section-head, padding
+   *      do container, etc.
+   *   2. Clona em host off-screen com fundo branco e largura otimizada
+   *   3. Captura SO' o clone — nao tem bordas/lateral da aba
+   */
+  async function exportarRelatorioPNG(elementoId, nomeArquivo) {
+    const elemento = document.getElementById(elementoId);
+    if (!elemento) {
+      alert('Conteudo do relatorio nao encontrado.');
+      return;
+    }
+    let cloneHost = null;
+    try {
+      await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      const html2canvas = window.html2canvas;
+
+      // Busca os cards reais (sem o section-head e sem bordas externas)
+      const cards = elemento.querySelectorAll('.rep-card, .rel-chapas-bloco');
+      let conteudoHtml = '';
+      if (cards.length > 0) {
+        conteudoHtml = Array.from(cards).map(c => c.outerHTML).join('<div style="height: 12px;"></div>');
+      } else {
+        // Fallback — captura tudo se nao achar cards
+        conteudoHtml = elemento.innerHTML;
+      }
+
+      // Host off-screen com fundo branco e largura adequada
+      cloneHost = document.createElement('div');
+      cloneHost.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: -10000px;
+        width: 720px;
+        background: #ffffff;
+        padding: 20px;
+        z-index: -1;
+      `;
+      cloneHost.innerHTML = conteudoHtml;
+      document.body.appendChild(cloneHost);
+
+      const canvas = await html2canvas(cloneHost, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        windowWidth:  cloneHost.scrollWidth,
+        windowHeight: cloneHost.scrollHeight,
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      const safeName = String(nomeArquivo || 'relatorio').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 60);
+      const dataStr = new Date().toISOString().slice(0, 10);
+      link.download = `${safeName}_${dataStr}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (e) {
+      console.error('[exportarRelatorioPNG]', e);
+      alert('Nao foi possivel gerar o PNG: ' + (e.message || e));
+    } finally {
+      if (cloneHost && cloneHost.parentNode) cloneHost.parentNode.removeChild(cloneHost);
+    }
+  }
+
+  /**
+   * Felipe (sessao 2026-08): exporta relatorio como PDF (1 pagina).
+   * Felipe (sessao 2026-08 v2): captura SO' os cards (sem lateral).
+   */
+  async function exportarRelatorioPDF(elementoId, nomeArquivo) {
+    const elemento = document.getElementById(elementoId);
+    if (!elemento) return;
+    let cloneHost = null;
+    try {
+      await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      const html2canvas = window.html2canvas;
+      const jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+
+      // Mesmo tratamento do PNG: captura so' os cards reais
+      const cards = elemento.querySelectorAll('.rep-card, .rel-chapas-bloco');
+      let conteudoHtml = '';
+      if (cards.length > 0) {
+        conteudoHtml = Array.from(cards).map(c => c.outerHTML).join('<div style="height: 12px;"></div>');
+      } else {
+        conteudoHtml = elemento.innerHTML;
+      }
+      cloneHost = document.createElement('div');
+      cloneHost.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: -10000px;
+        width: 720px;
+        background: #ffffff;
+        padding: 20px;
+        z-index: -1;
+      `;
+      cloneHost.innerHTML = conteudoHtml;
+      document.body.appendChild(cloneHost);
+
+      const canvas = await html2canvas(cloneHost, {
+        scale: 2, backgroundColor: '#ffffff', useCORS: true,
+        windowWidth: cloneHost.scrollWidth, windowHeight: cloneHost.scrollHeight,
+      });
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margem = 10;
+      const larguraImg = pageW - 2 * margem;
+      const alturaImg  = (canvas.height * larguraImg) / canvas.width;
+
+      if (alturaImg <= pageH - 2 * margem) {
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margem, margem, larguraImg, alturaImg);
+      } else {
+        // Fatia em paginas (caso o relatorio seja muito longo)
+        const escala = larguraImg / canvas.width;
+        const sliceH = (pageH - 2 * margem) / escala;
+        let yPx = 0;
+        let primeira = true;
+        while (yPx < canvas.height) {
+          const alturaPx = Math.min(sliceH, canvas.height - yPx);
+          const slice = document.createElement('canvas');
+          slice.width = canvas.width;
+          slice.height = alturaPx;
+          const ctx = slice.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, slice.width, slice.height);
+          ctx.drawImage(canvas, 0, yPx, canvas.width, alturaPx, 0, 0, canvas.width, alturaPx);
+          if (!primeira) pdf.addPage();
+          primeira = false;
+          pdf.addImage(slice.toDataURL('image/png'), 'PNG', margem, margem, larguraImg, alturaPx * escala);
+          yPx += alturaPx;
+        }
+      }
+      const safeName = String(nomeArquivo || 'relatorio').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 60);
+      const dataStr = new Date().toISOString().slice(0, 10);
+      pdf.save(`${safeName}_${dataStr}.pdf`);
+    } catch (e) {
+      console.error('[exportarRelatorioPDF]', e);
+      alert('Nao foi possivel gerar o PDF: ' + (e.message || e));
+    } finally {
+      if (cloneHost && cloneHost.parentNode) cloneHost.parentNode.removeChild(cloneHost);
+    }
+  }
+
+  // ============================================================
+  //                      ABA: LEVANTAMENTO DE ACESSORIOS
+  // ============================================================
+  /**
+   * Felipe (sessao 2026-08): "JA IMPLEMENTE TODAS REGRAS DOS PERFIS,
+   * LEMBRE QUE ASSIM COMO PERFIS E CHAPAS O CALCULO E INDIVIDUAL POR
+   * ITEM". Usa AcessoriosPortaExterna.calcularAcessoriosPorItem pra
+   * cada item porta_externa. Cada bloco mostra UM item com sua tabela
+   * propria de acessorios. Tabela tem R12+R18 (filtro/sort universal).
+   *
+   * Regras vindas do PDF acess.pdf + complementos do Felipe (sessao
+   * 2026-08). Documentadas em REGRAS_ACESSORIOS.md.
+   */
+  function renderLevAcessoriosTab(container) {
+    inicializarSessao();
+    const r = obterVersao(UI.versaoAtivaId);
+    if (!r || !r.versao) {
+      container.innerHTML = `<div class="info-banner">Sem versao ativa.</div>`;
+      return;
+    }
+    const versao = r.versao;
+    const itens = (versao.itens || []).filter(it => it && it.tipo === 'porta_externa');
+
+    if (itens.length === 0) {
+      container.innerHTML = `
+        ${bannerCaracteristicasItens(versao)}
+        <div class="info-banner">
+          <span class="t-strong">Sem porta externa nesta versao.</span>
+          Acessorios so' sao calculados para itens do tipo Porta Externa.
+        </div>`;
+      return;
+    }
+
+    if (!window.AcessoriosPortaExterna) {
+      container.innerHTML = `
+        <div class="info-banner orc-banner-aviso-erro">
+          Motor de acessorios (AcessoriosPortaExterna) nao carregado.
+          Recarregue a pagina (Ctrl+F5).
+        </div>`;
+      return;
+    }
+
+    const cadAcess = Storage.scope('cadastros').get('acessorios_lista') || [];
+    const fmtMoney = (n) => `R$ ${fmtBR(Number(n) || 0)}`;
+    // R01: TODO numero exibido = 2 casas decimais. Antes este fmtQtd
+    // retornava inteiros sem decimais (12, 28...) — viola R01.
+    const fmtQtd = (n) => fmtBR(Number(n) || 0);
+
+    // Renderiza UM bloco por item
+    let totalGeralFab = 0;
+    let totalGeralObra = 0;
+    // Felipe (sessao 30): separar fechadura digital
+    let totalGeralDigital = 0;
+
+    // Felipe (sessao 2026-09): cadastro de perfis carregado UMA vez aqui
+    // (fora do map) pra ser passado em todos os itens — usado pra
+    // calcular peso da folha → escolher pivo 350 vs 600 kg.
+    const perfisCadLevAcess = (typeof construirCadastroPerfis === 'function')
+      ? construirCadastroPerfis() : {};
+
+    const blocosItens = itens.map((item, idx) => {
+      let pesoFolhaTotal = 0;
+      let pesoFolhaPerfis = 0;
+      let pesoFolhaChapas = 0;
+      try {
+        const r = calcularPesoFolhaItem(item, perfisCadLevAcess) || {};
+        pesoFolhaTotal  = r.peso || 0;
+        pesoFolhaPerfis = (r.detalhe && r.detalhe.perfis) || 0;
+        pesoFolhaChapas = (r.detalhe && r.detalhe.chapas) || 0;
+      } catch (_) {}
+      const linhas = window.AcessoriosPortaExterna.calcularAcessoriosPorItem(
+        item, cadAcess, { pesoFolhaTotal, pesoFolhaPerfis, pesoFolhaChapas }
+      );
+      // Felipe (sessao 30): "separar fechadura digital do resto dos
+      // outros acessorios". 3 grupos agora:
+      //   - Fab    (aplicacao=fab, sem digital)
+      //   - Obra   (aplicacao=obra, sem digital)
+      //   - Digital (categoria contem "Fechadura Digital", qualquer aplicacao)
+      const ehDigital = (l) => String(l.categoria || '').toLowerCase().includes('fechadura digital');
+      const linhasFab     = linhas.filter(l => l.aplicacao === 'fab'  && !ehDigital(l));
+      const linhasObra    = linhas.filter(l => l.aplicacao === 'obra' && !ehDigital(l));
+      const linhasDigital = linhas.filter(ehDigital);
+      const totalFab     = linhasFab.reduce(    (s, l) => s + (Number(l.total) || 0), 0);
+      const totalObra    = linhasObra.reduce(   (s, l) => s + (Number(l.total) || 0), 0);
+      const totalDigital = linhasDigital.reduce((s, l) => s + (Number(l.total) || 0), 0);
+      totalGeralFab     += totalFab;
+      totalGeralObra    += totalObra;
+      totalGeralDigital += totalDigital;
+
+      const renderTabela = (idTab, linhasGrupo, titulo, total) => {
+        if (!linhasGrupo.length) return '';
+        const corpo = linhasGrupo.map(l => {
+          // Felipe (sessao 2026-08): "SE TIVER VALOR ZERADO EM
+          // ACESSORIOS DESTACAR COM VERMELHO BEM CLARO".
+          const zerado = (Number(l.preco_un) || 0) === 0;
+          const cls = zerado ? 'lvac-row-zerado' : '';
+          return `
+            <tr class="${cls}">
+              <td class="num">${fmtQtd(l.qtd)}</td>
+              <td><code>${escapeHtml(l.codigo)}</code></td>
+              <td>${escapeHtml(l.descricao)}</td>
+              <td>${escapeHtml(l.categoria)}</td>
+              <td class="num">${fmtMoney(l.preco_un)}</td>
+              <td class="num">${fmtMoney(l.total)}</td>
+              <td>${escapeHtml(l.observacao || '')}</td>
+            </tr>`;
+        }).join('');
+        // R19: sem <strong>. Usa span com classe semibold.
+        return `
+          <div class="orc-section">
+            <div class="orc-section-title">${titulo} — Subtotal: <span class="t-strong">${fmtMoney(total)}</span></div>
+            <table class="lvp-table cad-table" id="${idTab}">
+              <thead>
+                <tr>
+                  <th class="num">Qtd</th>
+                  <th>Codigo</th>
+                  <th>Descricao</th>
+                  <th>Categoria</th>
+                  <th class="num">Preco Unit.</th>
+                  <th class="num">Total</th>
+                  <th>Observacao</th>
+                </tr>
+              </thead>
+              <tbody>${corpo}</tbody>
+            </table>
+          </div>`;
+      };
+
+      const dim = `${item.largura || 0} × ${item.altura || 0} mm`;
+      const fols = `${item.nFolhas || 1} folha${String(item.nFolhas) === '1' ? '' : 's'}`;
+      // R20: Title Case nos titulos das tabelas e do total
+      return `
+        <div class="orc-item">
+          <div class="orc-item-header">
+            <div class="orc-item-titulo">Item ${idx + 1} — Porta Externa</div>
+            <div class="orc-item-meta">${dim} · ${fols} · Modelo ${item.modeloExterno || item.modeloNumero || '—'} · qtd ${item.quantidade || 1}</div>
+          </div>
+          ${renderTabela(`lvac-fab-${idx}`,     linhasFab,     '🏭 Fabricacao',        totalFab)}
+          ${renderTabela(`lvac-obra-${idx}`,    linhasObra,    '🚧 Obra',              totalObra)}
+          ${renderTabela(`lvac-digital-${idx}`, linhasDigital, '🔐 Fechadura Digital', totalDigital)}
+          <div class="orc-section orc-section-total">
+            <div class="orc-section-title">
+              Total deste Item — Fabricacao: <span class="t-strong">${fmtMoney(totalFab)}</span>
+              · Obra: <span class="t-strong">${fmtMoney(totalObra)}</span>
+              · Digital: <span class="t-strong">${fmtMoney(totalDigital)}</span>
+              · Geral: <span class="t-strong">${fmtMoney(totalFab + totalObra + totalDigital)}</span>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    // R20: "TOTAL GERAL" → "Total Geral". R19: <strong> → <span>
+    // Felipe (sessao 28): "ESTA MULTI ITEM? SE COLOCAR 10 PORTAS IRA
+    // MULTIPLICAR POR 10? ...". RESPOSTA: SIM. Banner agora deixa claro.
+    const totalUnidades = itens.reduce((s, it) => s + (Number(it.quantidade) || 1), 0);
+    container.innerHTML = `
+      ${bannerCaracteristicasItens(versao)}
+      <div class="info-banner orc-banner-aviso">
+        <span class="t-strong">Levantamento de Acessorios — Multi-Item</span><br>
+        <b>${itens.length}</b> tipo(s) de Porta Externa nesta versao,
+        totalizando <b>${totalUnidades}</b> unidade(s).
+        Cada item tem sua propria lista de acessorios, e a quantidade de
+        cada acessorio e' <b>multiplicada pela qtd do item</b>
+        (ex: 10 portas iguais → x10). O Total Geral no fim soma TUDO.
+        Acessorios marcados <i>(nao cadastrado)</i> precisam ser
+        adicionados em <span class="t-strong">Cadastros &gt; Acessorios</span>.
+      </div>
+      ${blocosItens}
+      <div class="orc-section orc-section-total" style="background:#f7f7f7;border:1px solid var(--line); padding: 12px;">
+        <div class="orc-section-title">
+          <span class="t-strong">Total Geral (${itens.length} item(ns) · ${totalUnidades} unid.) — Fabricacao: ${fmtMoney(totalGeralFab)}
+          · Obra: ${fmtMoney(totalGeralObra)}
+          · Geral: ${fmtMoney(totalGeralFab + totalGeralObra)}</span>
+        </div>
+      </div>
+    `;
+
+    // R18: aplica autoEnhance em todas as tabelas (filtro + sort)
+    if (window.Universal && window.Universal.autoEnhance) {
+      container.querySelectorAll('table.cad-table').forEach(tbl => {
+        try {
+          window.Universal.autoEnhance(tbl);
+        } catch (e) {
+          console.warn('[lev-acessorios] autoEnhance falhou:', e);
+        }
+      });
+    }
+
+    adicionarBotaoWizard(container, 'lev-acessorios');
+  }
+
+  // ============================================================
+  //                      OUTRAS ABAS (placeholder)
+  // ============================================================
+  function renderPlaceholderTab(container, tabId) {
+    container.innerHTML = `
+      <div class="info-banner">
+        <span class="t-strong">Aba "${escapeHtml(tabId)}" sera implementada em breve.</span>
+        O banco de dados ja esta preparado e isolado nas demais abas.
+      </div>
+      <div class="placeholder">
+        <div class="icon-big">⚙️</div>
+        <h3>Em construcao</h3>
+        <p>Modulo Orcamento — aba <code>${escapeHtml(tabId)}</code></p>
+      </div>
+    `;
+    // Felipe: tambem adiciona "Proximo" pra abas placeholder
+    // (lev-acessorios, lev-superficies) — pra usuario poder avancar
+    adicionarBotaoWizard(container, tabId);
+  }
+
+  // Felipe (do doc - msg wizard): helpers privados pro modulo Wizard.
+  // Le e atualiza versao.wizardEtapaMaxima.
+  function _getVersaoAtivaWizard() {
+    if (!UI || !UI.versaoAtivaId) return null;
+    const r = obterVersao(UI.versaoAtivaId);
+    return r ? r.versao : null;
+  }
+  function _setWizardEtapa(novaEtapa) {
+    if (!UI || !UI.versaoAtivaId) return;
+    atualizarVersao(UI.versaoAtivaId, { wizardEtapaMaxima: novaEtapa });
+  }
+
+  return {
+    // ciclo do App
+    render,
+    // API publica pra outros modulos
+    criarNegocio,
+    obterNegocioPorLeadId,
+    resumoParaCardCRM,
+    obterNegocio,
+    obterOpcao,
+    obterVersao,
+    listarNegocios,
+    listarOpcoes,
+    listarVersoes,
+    criarOpcao,
+    criarVersao,
+    criarNovaVersao,
+    atualizarVersao,
+    fecharVersao,
+    deletarVersao,
+    deletarNegocio,
+    // helpers expostos pra debugging
+    _snapshotPrecosAtual: snapshotPrecosAtual,
+    _snapshotPrecosCompleto: snapshotPrecosCompleto,
+    _letraOpcao: letraOpcao,
+    // wizard
+    _getVersaoAtivaWizard,
+    _setWizardEtapa,
+    // Felipe (sessao 2026-09): manutencao de storage on-demand.
+    // Uso no console: Orcamento.manutencao.relatorio()  ou  .limparSnapshotsDrafts()
+    manutencao: {
+      relatorio() {
+        const ng = loadAll();
+        let drafts = 0, fechadas = 0, snapsLeves = 0, snapsPesados = 0;
+        ng.forEach(n => (n.opcoes || []).forEach(o => (o.versoes || []).forEach(v => {
+          if (v.status === 'fechada') fechadas++; else drafts++;
+          if (v.precos_snapshot && v.precos_snapshot.acessorios) snapsPesados++;
+          if (v.precos_snapshot && v.precos_snapshot.pendente) snapsLeves++;
+        })));
+        const tam = (localStorage.getItem('projetta:orcamentos:negocios') || '').length;
+        const r = { negocios: ng.length, drafts, fechadas, snapsLeves, snapsPesados,
+                     tamanhoKB: (tam / 1024).toFixed(0) };
+        console.table(r);
+        return r;
+      },
+      limparSnapshotsDrafts() {
+        const ng = loadAll();
+        let n = 0;
+        ng.forEach(neg => (neg.opcoes || []).forEach(o => (o.versoes || []).forEach(v => {
+          if (v.status !== 'fechada' && v.precos_snapshot && v.precos_snapshot.acessorios) {
+            v.precos_snapshot = { pendente: true, tiradoEm: v.precos_snapshot.tiradoEm || nowIso() };
+            n++;
+          }
+        })));
+        if (n > 0) saveAll(ng);
+        console.log(`Limpou ${n} snapshots de drafts.`);
+        return n;
+      },
+    },
+  };
+})();
+
+// Registra no App
+if (typeof App !== 'undefined' && App.register) {
+  App.register('orcamento', { render: Orcamento.render });
+}
+
+// Expoe pra outros modulos consumirem (CRM em particular, na Etapa 5)
+window.Orcamento = Orcamento;

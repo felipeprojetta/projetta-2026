@@ -1,0 +1,744 @@
+/* 26-superficies.js — Cadastros > Superficies.
+   Tabela mestre de superficies (chapas de aluminio, painel composto, ACM etc.)
+   Persistencia: Storage.scope('cadastros') chave 'superficies_lista'.
+   SEED: 249 chapas extraidas de chapas.xlsx.
+   Colunas: Descricao | Preco. */
+
+const Superficies = (() => {
+  const store = Storage.scope('cadastros');
+
+  const SEED_SUPERFICIES = [{"descricao":"AS002 - WOOD CARVALHO EUROPEU ALUSENSE LDPE - 1250 x 5000","preco":1444.11175},{"descricao":"AS002 - WOOD CARVALHO EUROPEU ALUSENSE LDPE - 1250 x 6000","preco":1732.9341000000002},{"descricao":"AS002 - WOOD CARVALHO EUROPEU ALUSENSE LDPE - 1250 x 7000","preco":2021.7564499999999},{"descricao":"AS002 - WOOD CARVALHO EUROPEU ALUSENSE LDPE - 1250 x 8000","preco":2310.5788000000002},{"descricao":"AS003 - WOOD MAPLE ALUSENSE LDPE - 1250 x 5000","preco":1444.11175},{"descricao":"AS003 - WOOD MAPLE ALUSENSE LDPE - 1250 x 6000","preco":1732.9341000000002},{"descricao":"AS003 - WOOD MAPLE ALUSENSE LDPE - 1250 x 7000","preco":2021.7564499999999},{"descricao":"AS003 - WOOD MAPLE ALUSENSE LDPE - 1250 x 8000","preco":2310.5788000000002},{"descricao":"AS042 - WOOD CARVALHO LAVADO ALUSENSE LDPE - 1250 x 5000","preco":1444.11175},{"descricao":"AS042 - WOOD CARVALHO LAVADO ALUSENSE LDPE - 1250 x 6000","preco":1732.9341000000002},{"descricao":"AS042 - WOOD CARVALHO LAVADO ALUSENSE LDPE - 1250 x 7000","preco":2021.7564499999999},{"descricao":"AS042 - WOOD CARVALHO LAVADO ALUSENSE LDPE - 1250 x 8000","preco":2310.5788000000002},{"descricao":"AS046 - WOOD LOURO FREIJÓ ALUSENSE LDPE - 1250 x 5000","preco":1444.14473},{"descricao":"AS046 - WOOD LOURO FREIJÓ ALUSENSE LDPE - 1250 x 6000","preco":1732.973676},{"descricao":"AS046 - WOOD LOURO FREIJÓ ALUSENSE LDPE - 1250 x 7000","preco":2021.802622},{"descricao":"AS046 - WOOD LOURO FREIJÓ ALUSENSE LDPE - 1250 x 8000","preco":2310.631568},{"descricao":"AS076 - WOOD JACARANDÁ ALUSENSE LDPE - 1250 x 5000","preco":1444.14473},{"descricao":"AS076 - WOOD JACARANDÁ ALUSENSE LDPE - 1250 x 6000","preco":1732.973676},{"descricao":"AS076 - WOOD JACARANDÁ ALUSENSE LDPE - 1250 x 8000","preco":2310.631568},{"descricao":"AS076 - WOOD JACARANDÁ ALUSENSE LDPE -1250 x 7000","preco":2021.802622},{"descricao":"AS079 - CONCRETO ANTOCATTO ALUSENSE LDPE - 1250 x 5000","preco":1444.11175},{"descricao":"AS079 - CONCRETO ANTOCATTO ALUSENSE LDPE - 1250 x 6000","preco":1732.9341000000002},{"descricao":"AS079 - CONCRETO ANTOCATTO ALUSENSE LDPE - 1250 x 7000","preco":2021.7564499999999},{"descricao":"AS079 - CONCRETO ANTOCATTO ALUSENSE LDPE - 1250 x 8000","preco":2310.5788000000002},{"descricao":"AS505 - CONCRETO GREY ALUSENSE LDPE -  1250 x 8000","preco":2310.5788000000002},{"descricao":"AS505 - CONCRETO GREY ALUSENSE LDPE - 1250 x 5000","preco":1444.11175},{"descricao":"AS505 - CONCRETO GREY ALUSENSE LDPE - 1250 x 6000","preco":1732.9341000000002},{"descricao":"AS505 - CONCRETO GREY ALUSENSE LDPE - 1250 x 7000","preco":2021.7564499999999},{"descricao":"AS505 - CONCRETO LIGHT GREY ALUSENSE LDPE - 1250 x 5000","preco":1444.11175},{"descricao":"AS505 - CONCRETO LIGHT GREY ALUSENSE LDPE - 1250 x 6000","preco":1732.9341000000002},{"descricao":"AS505 - CONCRETO LIGHT GREY ALUSENSE LDPE - 1250 x 7000","preco":2021.7564499999999},{"descricao":"AS505 - CONCRETO LIGHT GREY ALUSENSE LDPE - 1250 x 8000","preco":2310.5788000000002},{"descricao":"AS616 - GRANITO TEXTURIZADO ALUSENSE LDPE - 1250 x 5000","preco":1444.11175},{"descricao":"AS616 - GRANITO TEXTURIZADO ALUSENSE LDPE - 1250 x 6000","preco":1732.9341000000002},{"descricao":"AS616 - GRANITO TEXTURIZADO ALUSENSE LDPE - 1250 x 7000","preco":2021.7564499999999},{"descricao":"AS616 - GRANITO TEXTURIZADO ALUSENSE LDPE - 1250 x 8000","preco":2310.5788000000002},{"descricao":"BLACK DOOR  - 1500 x 6000","preco":1723.3992391304346},{"descricao":"BLACK DOOR  - 1500 x 7000","preco":2010.6324456521738},{"descricao":"BLACK DOOR  - 1500 x 8000","preco":2297.865652173913},{"descricao":"CHAPA ALUMINIO 2.5 MM - MADEIRA - 1500 x 3000","preco":2219.713706705969},{"descricao":"CHAPA ALUMINIO 2.5 MM - MADEIRA - 1500 x 5000","preco":3699.522844509948},{"descricao":"CHAPA ALUMINIO 2.5 MM - MADEIRA - 1500 x 6000","preco":4439.427413411938},{"descricao":"CHAPA ALUMINIO 2.5 MM - SOLIDA E METALIZADAS - 1500 x 3000","preco":1384.3784082535003},{"descricao":"CHAPA ALUMINIO 2.5 MM - SOLIDA E METALIZADAS - 1500 x 5000","preco":2307.297347089167},{"descricao":"CHAPA ALUMINIO 2.5 MM - SOLIDA E METALIZADAS - 1500 x 6000","preco":2768.7568165070006},{"descricao":"PPRO2391 - CONCRETO SHANGAI VHDPE4500 LDPE -1500 X 6000","preco":1729.1805637500004},{"descricao":"PRO004 - WOOD MAPLE PVDF4300 LDPE - 1500  x 6000","preco":1729.1805637500004},{"descricao":"PRO004 - WOOD MAPLE PVDF4300 LDPE - 1500  x 7000","preco":2017.3773243750002},{"descricao":"PRO004 - WOOD MAPLE PVDF4300 LDPE - 1500  x 8000","preco":2305.574085},{"descricao":"PRO004 - WOOD MAPLE PVDF4300 LDPE - 1500 x 5000","preco":1440.9838031250001},{"descricao":"PRO0157T - PRETO WXL TEXTURIZADO WEATHER4300 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO0157T - PRETO WXL TEXTURIZADO WEATHER4300 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO0157T - PRETO WXL TEXTURIZADO WEATHER4300 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO0157T - PRETO WXL TEXTURIZADO WEATHER4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO046 - WOOD LOURO FREIJÓ PVDF4300 LDPE - 1500 x 5000","preco":1440.9838031250001},{"descricao":"PRO046 - WOOD LOURO FREIJÓ PVDF4300 LDPE - 1500 x 7000","preco":2017.3773243750002},{"descricao":"PRO046 - WOOD LOURO FREIJÓ PVDF4300 LDPE - 1500 x 8000","preco":2305.574085},{"descricao":"PRO046 - WOOD LOURO FREIJÓ PVDF4300 LDPE- 1500 x 6000","preco":1729.1805637500004},{"descricao":"PRO111 - CHAMPAGNE MET KYNAR4300 X5 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO111 - CHAMPAGNE MET KYNAR4300 X5 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO111 - CHAMPAGNE MET KYNAR4300 X5 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO111 - CHAMPAGNE MET KYNAR4300 X5 LDPE- 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO121 - GOLDEN MET KYNAR4300 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO121 - GOLDEN MET KYNAR4300 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO121 - GOLDEN MET KYNAR4300 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO121 - GOLDEN MET KYNAR4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO1231 - WOOD JATOBA ANTI SCRATCH LDPE - 1500 x 5000","preco":1440.9838031250001},{"descricao":"PRO1231 - WOOD JATOBA ANTI SCRATCH LDPE - 1500 x 6000","preco":1729.1805637500004},{"descricao":"PRO1231 - WOOD JATOBA ANTI SCRATCH LDPE - 1500 x 7000","preco":2017.3773243750002},{"descricao":"PRO1231 - WOOD JATOBA ANTI SCRATCH LDPE - 1500 x 8000","preco":2305.574085},{"descricao":"PRO1236 - AÇO CORTEN SB KYNAR4300 LDPE - 1500 X 5000","preco":1392.9159684375},{"descricao":"PRO1236 - AÇO CORTEN SB KYNAR4300 LDPE - 1500 X 6000","preco":1671.4991621249999},{"descricao":"PRO1236 - AÇO CORTEN SB KYNAR4300 LDPE - 1500 X 7000","preco":1950.0823558125},{"descricao":"PRO1236 - AÇO CORTEN SB KYNAR4300 LDPE - 1500 X 8000","preco":2228.6655495},{"descricao":"PRO1237 - BROWN CORTEN KYNAR4300 LDPE - 1500 X 5000","preco":1520.9391753125},{"descricao":"PRO1237 - BROWN CORTEN KYNAR4300 LDPE - 1500 X 6000","preco":1825.127010375},{"descricao":"PRO1237 - BROWN CORTEN KYNAR4300 LDPE - 1500 X 8000","preco":2433.5026805},{"descricao":"PRO1237 - BROWN CORTEN KYNAR4300 LDPE - 1500 X7000","preco":2129.3148454375},{"descricao":"PRO1238 - BLACK CORTEN KYNAR4300 LDPE - 1500 X 5000","preco":1520.9391753125},{"descricao":"PRO1238 - BLACK CORTEN KYNAR4300 LDPE - 1500 X 6000","preco":1825.127010375},{"descricao":"PRO1238 - BLACK CORTEN KYNAR4300 LDPE - 1500 X 7000","preco":2129.3148454375},{"descricao":"PRO1238 - BLACK CORTEN KYNAR4300 LDPE - 1500 X 8000","preco":2433.5026805},{"descricao":"PRO1277 - WOOD AMBAR ANTI SCRATCH PVDF4300 LDPE  - 1500 x 5000","preco":1440.9838031250001},{"descricao":"PRO1277 - WOOD AMBAR ANTI SCRATCH PVDF4300 LDPE  - 1500 x 7000","preco":2017.3773243750002},{"descricao":"PRO1277 - WOOD AMBAR ANTI SCRATCH PVDF4300 LDPE  - 1500 x 8000","preco":2305.574085},{"descricao":"PRO1277 - WOOD AMBAR ANTI SCRATCH PVDF4300 LDPE - 1500 x 6000","preco":1729.1805637500004},{"descricao":"PRO1280 - WOOD EBANO ANTI SCRATCH PVDF4300 LDPE - 1500 x 5000","preco":1440.9838031250001},{"descricao":"PRO1280 - WOOD EBANO ANTI SCRATCH PVDF4300 LDPE - 1500 x 7000","preco":2017.3773243750002},{"descricao":"PRO1280 - WOOD EBANO ANTI SCRATCH PVDF4300 LDPE - 1500 x 8000","preco":2305.574085},{"descricao":"PRO1280 - WOOD EBANO ANTI SCRATCH PVDF4300 LDPE- 1500 x 6000","preco":1729.1805637500004},{"descricao":"PRO134 - SMOKE SILVER MET KYNAR4300 LDPE - 1500  x 6000","preco":1504.3492459125005},{"descricao":"PRO134 - SMOKE SILVER MET KYNAR4300 LDPE - 1500  x 7000","preco":1755.0741202312502},{"descricao":"PRO134 - SMOKE SILVER MET KYNAR4300 LDPE - 1500  x 8000","preco":2005.7989945500003},{"descricao":"PRO134 - SMOKE SILVER MET KYNAR4300 LDPE - 1500 X 5000","preco":1253.62437159375},{"descricao":"PRO135 - SILVER GOLDEN MET KYNAR4300 LDPE - 1500  x 6000","preco":1504.3492459125005},{"descricao":"PRO135 - SILVER GOLDEN MET KYNAR4300 LDPE - 1500  x 7000","preco":1755.0741202312502},{"descricao":"PRO135 - SILVER GOLDEN MET KYNAR4300 LDPE - 1500  x 8000","preco":2005.7989945500003},{"descricao":"PRO135 - SILVER GOLDEN MET KYNAR4300 LDPE - 1500 X 5000","preco":1253.62437159375},{"descricao":"PRO136 - SAND GOLDEN MET KYNAR4300 LDPE - 1500  x 6000","preco":1504.3492459125005},{"descricao":"PRO136 - SAND GOLDEN MET KYNAR4300 LDPE - 1500  x 7000","preco":1755.0741202312502},{"descricao":"PRO136 - SAND GOLDEN MET KYNAR4300 LDPE - 1500  x 8000","preco":2005.7989945500003},{"descricao":"PRO136 - SAND GOLDEN MET KYNAR4300 LDPE - 1500 X 5000","preco":1253.62437159375},{"descricao":"PRO1363 - CINZA ESCURO UMBRAGRAU SB KYNAR4300 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO1363 - CINZA ESCURO UMBRAGRAU SB KYNAR4300 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO1363 - CINZA ESCURO UMBRAGRAU SB KYNAR4300 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO1363 - CINZA ESCURO UMBRAGRAU SB KYNAR4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO1363T - CINZA ESCURO UMBRAGRAU TEXTURIZADO WEATHER4300 LDPE  - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO1363T - CINZA ESCURO UMBRAGRAU TEXTURIZADO WEATHER4300 LDPE  - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO1363T - CINZA ESCURO UMBRAGRAU TEXTURIZADO WEATHER4300 LDPE  - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO1363T - CINZA ESCURO UMBRAGRAU TEXTURIZADO WEATHER4300 LDPE  - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO170414 - WOOD NOGUEIRA PVDF4300 LDPE  - 1500 x 7000","preco":2017.3773243750002},{"descricao":"PRO170414 - WOOD NOGUEIRA PVDF4300 LDPE  - 1500 x 8000","preco":2305.574085},{"descricao":"PRO170414 - WOOD NOGUEIRA PVDF4300 LDPE - 1500 x 5000","preco":1440.9838031250001},{"descricao":"PRO170414 - WOOD NOGUEIRA PVDF4300 LDPE - 1500 x 6000","preco":1729.1805637500004},{"descricao":"PRO1705252 - WOOD CARVALHO BRONZE PVDF4300 LDPE - 1500 X 5000","preco":1440.9838031250001},{"descricao":"PRO1705252 - WOOD CARVALHO BRONZE PVDF4300 LDPE - 1500 X 6000","preco":1729.1805637500004},{"descricao":"PRO1705252 - WOOD CARVALHO BRONZE PVDF4300 LDPE - 1500 X 7000","preco":2017.3773243750002},{"descricao":"PRO1705252 - WOOD CARVALHO BRONZE PVDF4300 LDPE - 1500 X 8000","preco":2305.574085},{"descricao":"PRO1874 - DARK GREY JLR MET KYNAR4300 X5 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO1874 - DARK GREY JLR MET KYNAR4300 X5 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO1874 - DARK GREY JLR MET KYNAR4300 X5 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO1874 - DARK GREY JLR MET KYNAR4300 X5 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO2007 - WOOD NOGUEIRA COLONIAL ESCURO EURA4500 LDPE - 1500 x  6000","preco":2671.2890988750005},{"descricao":"PRO2007 - WOOD NOGUEIRA COLONIAL ESCURO EURA4500 LDPE - 1500 x 5000","preco":2226.0742490625},{"descricao":"PRO2007 - WOOD NOGUEIRA COLONIAL ESCURO EURA4500 LDPE - 1500 x 7000","preco":3116.5039486875003},{"descricao":"PRO2007 - WOOD NOGUEIRA COLONIAL ESCURO EURA4500 LDPE - 1500 x 8000","preco":3561.7187985},{"descricao":"PRO203 - WOOD IMBUIA LDPE - 1500 x 5000","preco":1440.9838031250001},{"descricao":"PRO203 - WOOD IMBUIA LDPE - 1500 x 7000","preco":2017.3773243750002},{"descricao":"PRO203 - WOOD IMBUIA LDPE - 1500 x 8000","preco":2305.574085},{"descricao":"PRO203 - WOOD IMBUIA LDPE- 1500 x 6000","preco":1729.1805637500004},{"descricao":"PRO209 - WOOD MOGNO PVDF4300 LDPE - 1500 x 5000","preco":1440.9838031250001},{"descricao":"PRO209 - WOOD MOGNO PVDF4300 LDPE - 1500 x 7000","preco":2017.3773243750002},{"descricao":"PRO209 - WOOD MOGNO PVDF4300 LDPE - 1500 x 8000","preco":2305.574085},{"descricao":"PRO209 - WOOD MOGNO PVDF4300 LDPE- 1500 x 6000","preco":1729.1805637500004},{"descricao":"PRO210 - WOOD AMENDOA RUSTICA PVDF4300 LDPE - 1500 X 5000","preco":1440.9838031250001},{"descricao":"PRO210 - WOOD AMENDOA RUSTICA PVDF4300 LDPE - 1500 X 6000","preco":1729.1805637500004},{"descricao":"PRO210 - WOOD AMENDOA RUSTICA PVDF4300 LDPE - 1500 X 7000","preco":2017.3773243750002},{"descricao":"PRO210 - WOOD AMENDOA RUSTICA PVDF4300 LDPE - 1500 X 8000","preco":2305.574085},{"descricao":"PRO225 - OLIVE GREEN HAUS FO KYNAR4300 LDPE - 1500  x 6000","preco":1504.3492459125005},{"descricao":"PRO225 - OLIVE GREEN HAUS FO KYNAR4300 LDPE - 1500  x 7000","preco":1755.0741202312502},{"descricao":"PRO225 - OLIVE GREEN HAUS FO KYNAR4300 LDPE - 1500  x 8000","preco":2005.7989945500003},{"descricao":"PRO225 - OLIVE GREEN HAUS FO KYNAR4300 LDPE - 1500 X 5000","preco":1253.62437159375},{"descricao":"PRO225T - OLIVE GREEN TEXTURIZADO WEATHER4300 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO225T - OLIVE GREEN TEXTURIZADO WEATHER4300 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO225T - OLIVE GREEN TEXTURIZADO WEATHER4300 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO225T - OLIVE GREEN TEXTURIZADO WEATHER4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO2372 - CORTEN OXIDADO RED FO PVDF4300 LDPE - 1500 X 5000","preco":1440.9838031250001},{"descricao":"PRO2372 - CORTEN OXIDADO RED FO PVDF4300 LDPE - 1500 X 6000","preco":1729.1805637500004},{"descricao":"PRO2372 - CORTEN OXIDADO RED FO PVDF4300 LDPE - 1500 X 7000","preco":2017.3773243750002},{"descricao":"PRO2372 - CORTEN OXIDADO RED FO PVDF4300 LDPE - 1500 X 8000","preco":2305.574085},{"descricao":"PRO2374 - CORTEN OXIDADO VERMELHO PVDF4300 LDPE - 1500 X 5000","preco":1440.9838031250001},{"descricao":"PRO2374 - CORTEN OXIDADO VERMELHO PVDF4300 LDPE - 1500 X 6000","preco":1729.1805637500004},{"descricao":"PRO2374 - CORTEN OXIDADO VERMELHO PVDF4300 LDPE - 1500 X 7000","preco":2017.3773243750002},{"descricao":"PRO2374 - CORTEN OXIDADO VERMELHO PVDF4300 LDPE - 1500 X 8000","preco":2305.574085},{"descricao":"PRO2391 - CONCRETO SHANGAI VHDPE4500 LDPE - 1500 X 5000","preco":1440.9838031250001},{"descricao":"PRO2391 - CONCRETO SHANGAI VHDPE4500 LDPE - 1500 X 7000","preco":2017.3773243750002},{"descricao":"PRO2391 - CONCRETO SHANGAI VHDPE4500 LDPE - 1500 X 8000","preco":2305.574085},{"descricao":"PRO2425 - CONCRETO BERLIM KYNAR4300 LDPE - 1500 X 5000","preco":1440.9838031250001},{"descricao":"PRO2425 - CONCRETO BERLIM KYNAR4300 LDPE - 1500 X 6000","preco":1729.1805637500004},{"descricao":"PRO2425 - CONCRETO BERLIM KYNAR4300 LDPE - 1500 X 7000","preco":2017.3773243750002},{"descricao":"PRO2425 - CONCRETO BERLIM KYNAR4300 LDPE - 1500 X 8000","preco":2305.574085},{"descricao":"PRO3016G10 - EURACORTEN TEX EURA4500 LDPE -  1500 X 8000","preco":3759.6037455000005},{"descricao":"PRO3016G10 - EURACORTEN TEX EURA4500 LDPE - 1500 X 5000","preco":2349.7523409375},{"descricao":"PRO3016G10 - EURACORTEN TEX EURA4500 LDPE - 1500 X 6000","preco":2819.702809125},{"descricao":"PRO3016G10 - EURACORTEN TEX EURA4500 LDPE - 1500 X 7000","preco":3289.6532773125},{"descricao":"PRO3025 - PATINA CORTEN KYNAR4300 LDPE - 1500 X 5000","preco":1521.0442990625002},{"descricao":"PRO3025 - PATINA CORTEN KYNAR4300 LDPE - 1500 X 6000","preco":1825.2531588749998},{"descricao":"PRO3025 - PATINA CORTEN KYNAR4300 LDPE - 1500 X 7000","preco":2129.4620186875},{"descricao":"PRO3025 - PATINA CORTEN KYNAR4300 LDPE - 1500 X 8000","preco":2433.6708785},{"descricao":"PRO3316 - BRONZE 1002 MET KYNAR4300 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO3316 - BRONZE 1002 MET KYNAR4300 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO3316 - BRONZE 1002 MET KYNAR4300 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO3316 - BRONZE 1002 MET KYNAR4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO3316T - BRONZE 1002 TEXTURIZADO WEATHER4300 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO3316T - BRONZE 1002 TEXTURIZADO WEATHER4300 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO3316T - BRONZE 1002 TEXTURIZADO WEATHER4300 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO3316T - BRONZE 1002 TEXTURIZADO WEATHER4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO37373 - WOOD CASTANHA PVDF4300 LDPE - 1500 x 5000","preco":1440.9838031250001},{"descricao":"PRO37373 - WOOD CASTANHA PVDF4300 LDPE - 1500 x 6000","preco":1729.1805637500004},{"descricao":"PRO37373 - WOOD CASTANHA PVDF4300 LDPE - 1500 x 7000","preco":2017.3773243750002},{"descricao":"PRO37373 - WOOD CASTANHA PVDF4300 LDPE - 1500 x 8000","preco":2305.574085},{"descricao":"PRO37375 - WOOD CEREJEIRA ESCURA PVDF4300 LDPE - 1500 X 5000","preco":1440.9838031250001},{"descricao":"PRO37375 - WOOD CEREJEIRA ESCURA PVDF4300 LDPE - 1500 X 6000","preco":1729.1805637500004},{"descricao":"PRO37375 - WOOD CEREJEIRA ESCURA PVDF4300 LDPE - 1500 X 7000","preco":2017.3773243750002},{"descricao":"PRO37375 - WOOD CEREJEIRA ESCURA PVDF4300 LDPE - 1500 X 8000","preco":2305.574085},{"descricao":"PRO37524 - WOOD SUCUPIRA PVDF4300 LDPE - 1500 x 5000","preco":1440.9838031250001},{"descricao":"PRO37524 - WOOD SUCUPIRA PVDF4300 LDPE - 1500 x 6000","preco":1729.1805637500004},{"descricao":"PRO37524 - WOOD SUCUPIRA PVDF4300 LDPE - 1500 x 7000","preco":2017.3773243750002},{"descricao":"PRO37524 - WOOD SUCUPIRA PVDF4300 LDPE - 1500 x 8000","preco":2305.574085},{"descricao":"PRO37729 - WOOD CARVALHO MEL PVDF4300 LDPE - 1500 x 5000","preco":1440.9838031250001},{"descricao":"PRO37729 - WOOD CARVALHO MEL PVDF4300 LDPE - 1500 x 6000","preco":1729.1805637500004},{"descricao":"PRO37729 - WOOD CARVALHO MEL PVDF4300 LDPE - 1500 x 7000","preco":2017.3773243750002},{"descricao":"PRO37729 - WOOD CARVALHO MEL PVDF4300 LDPE - 1500 x 8000","preco":2305.574085},{"descricao":"PRO37730 - WOOD CARVALHO MEL COBRE PVDF4300 LDPE - 1500 X 5000","preco":1440.9838031250001},{"descricao":"PRO37730 - WOOD CARVALHO MEL COBRE PVDF4300 LDPE - 1500 X 6000","preco":1729.1805637500004},{"descricao":"PRO37730 - WOOD CARVALHO MEL COBRE PVDF4300 LDPE - 1500 X 7000","preco":2017.3773243750002},{"descricao":"PRO37730 - WOOD CARVALHO MEL COBRE PVDF4300 LDPE - 1500 X 8000","preco":2305.574085},{"descricao":"PRO37748 - WOOD CARVALHO AMERICANO PVDF4300 LDPE - 1500 X 5000","preco":1440.9838031250001},{"descricao":"PRO37748 - WOOD CARVALHO AMERICANO PVDF4300 LDPE - 1500 X 6000","preco":1729.1805637500004},{"descricao":"PRO37748 - WOOD CARVALHO AMERICANO PVDF4300 LDPE - 1500 X 7000","preco":2017.3773243750002},{"descricao":"PRO37748 - WOOD CARVALHO AMERICANO PVDF4300 LDPE - 1500 X 8000","preco":2305.574085},{"descricao":"PRO4631T - DARK GREY TEXTURIZADO WEATHER4300 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO4631T - DARK GREY TEXTURIZADO WEATHER4300 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO4631T - DARK GREY TEXTURIZADO WEATHER4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO4631T - DARK GREY TEXTURIZADO WEATHER4300 LDPE- 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO5062 - BRONZE 1003 SB KYNAR4300 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO5062 - BRONZE 1003 SB KYNAR4300 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO5062 - BRONZE 1003 SB KYNAR4300 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO5062 - BRONZE 1003 SB KYNAR4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO5062T - BRONZE 1003 TEXTURIZADO WEATHER4300 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO5062T - BRONZE 1003 TEXTURIZADO WEATHER4300 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO5062T - BRONZE 1003 TEXTURIZADO WEATHER4300 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO5062T - BRONZE 1003 TEXTURIZADO WEATHER4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO571 - BONE WHITE SB KYNAR4300 LDPE -  1500 x 6000","preco":1504.3523996249996},{"descricao":"PRO571 - BONE WHITE SB KYNAR4300 LDPE - 1500 x 5000","preco":1253.6269996874998},{"descricao":"PRO571 - BONE WHITE SB KYNAR4300 LDPE - 1500 x 7000","preco":1755.0777995624999},{"descricao":"PRO571 - BONE WHITE SB KYNAR4300 LDPE - 1500 x 8000","preco":2005.8031995},{"descricao":"PRO5818 - BRONZE 1001 MET KYNAR4300 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO5818 - BRONZE 1001 MET KYNAR4300 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO5818 - BRONZE 1001 MET KYNAR4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO5818 - BRONZE 1001 MET KYNAR4300 LDPE- 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO5818T - BRONZE 1001 TEXTURIZADO WEATHER4300 LDPE  - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO5818T - BRONZE 1001 TEXTURIZADO WEATHER4300 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO5818T - BRONZE 1001 TEXTURIZADO WEATHER4300 LDPE - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO5818T - BRONZE 1001 TEXTURIZADO WEATHER4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO7263 - CINZA PEWTER MET KYNAR4300 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO7263 - CINZA PEWTER MET KYNAR4300 LDPE - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO7263 - CINZA PEWTER MET KYNAR4300 LDPE - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO7263 - CINZA PEWTER MET KYNAR4300 LDPE- 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO7263T - CINZA PEWTER TEXTURIZADO WEATHER4300 LDPE  - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO7263T - CINZA PEWTER TEXTURIZADO WEATHER4300 LDPE  - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO7263T - CINZA PEWTER TEXTURIZADO WEATHER4300 LDPE  - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO7263T - CINZA PEWTER TEXTURIZADO WEATHER4300 LDPE  - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO824 - WOOD NUT KYNAR4300 LDPE - 1500 X 5000","preco":1440.9838031250001},{"descricao":"PRO824 - WOOD NUT KYNAR4300 LDPE - 1500 X 6000","preco":1729.1805637500004},{"descricao":"PRO824 - WOOD NUT KYNAR4300 LDPE - 1500 X 7000","preco":2017.3773243750002},{"descricao":"PRO824 - WOOD NUT KYNAR4300 LDPE - 1500 X 8000","preco":2305.574085},{"descricao":"PRO828 - WOOD EXPRESSO PVDF4300 LDPE - 1500 X 5000","preco":1440.9838031250001},{"descricao":"PRO828 - WOOD EXPRESSO PVDF4300 LDPE - 1500 X 6000","preco":1729.1805637500004},{"descricao":"PRO828 - WOOD EXPRESSO PVDF4300 LDPE - 1500 X 7000","preco":2017.3773243750002},{"descricao":"PRO828 - WOOD EXPRESSO PVDF4300 LDPE - 1500 X 8000","preco":2305.574085},{"descricao":"PRO9003 - BRANCO RAL9003 SB KYNAR4300 X5 LDPE - 1500 x 5000","preco":1253.62437159375},{"descricao":"PRO9003 - BRANCO RAL9003 SB KYNAR4300 X5 LDPE- 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO9003 - BRANCO RAL9003 SB KYNAR4300 X5 LDPE- 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO9003 - BRANCO RAL9003 SB KYNAR4300 X5 LDPE- 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO9003T - BRANCO TEXTURIZADO WEATHER4300 LDPE  - 1500 x 6000","preco":1504.3492459125005},{"descricao":"PRO9003T - BRANCO TEXTURIZADO WEATHER4300 LDPE  - 1500 x 7000","preco":1755.0741202312502},{"descricao":"PRO9003T - BRANCO TEXTURIZADO WEATHER4300 LDPE  - 1500 x 8000","preco":2005.7989945500003},{"descricao":"PRO9003T - BRANCO TEXTURIZADO WEATHER4300 LDPE - 1500 x 5000","preco":1253.62437159375}];
+
+  const state = {
+    superficies: [],
+    busca: '',
+    activeCat: 'acm',  // sub-aba ativa: acm | hpl | vidro | aluminio_macico
+  };
+  let loaded = false;
+  let dirty = false;
+  let btnSalvarRef = null;
+
+  function load() {
+    if (loaded) return;
+    const lista = store.get('superficies_lista');
+
+    // Felipe (sessao 2026-05): bug fixed. Antes a condicao era:
+    //   if (lista === null || (lista vazia && !superficies_seeded))
+    // Mas se em algum momento o storage ficou com `superficies_seeded=true`
+    // E `superficies_lista=[]` (importacao XLSX zerada, bug, limpeza), o seed
+    // nunca mais rodava. Agora: SE LISTA VAZIA, REPOPULA — ignora flag.
+    const precisaSeed = lista === null
+                     || !Array.isArray(lista)
+                     || lista.length === 0;
+    if (precisaSeed) {
+      console.log(`[Superficies] Storage vazio/invalido — carregando ${SEED_SUPERFICIES.length} chapas do seed`);
+      state.superficies = SEED_SUPERFICIES.map(normalize);
+      store.set('superficies_lista', state.superficies);
+      store.set('superficies_seeded', true);
+    } else {
+      // Migracao: dados antigos podem nao ter categoria → injeta automaticamente
+      state.superficies = lista.map(s => {
+        const norm = normalize(s);
+        if (!s.categoria) norm.categoria = categoriaAuto(norm.descricao);
+        return norm;
+      });
+      // salva de volta com categoria preenchida (so na 1a vez)
+      const precisaSalvar = lista.some(s => !s.categoria);
+      if (precisaSalvar) store.set('superficies_lista', state.superficies);
+    }
+    // Felipe (sessao 2026-05): MIGRACAO ALUSENSE 1500 → 1250.
+    // O seed inicial tinha as Alusense LDPE com largura 1500 erroneamente
+    // (no Excel original eram 1250). Esta migracao roda 1x — corrige a
+    // descricao E os campos largura no storage. Idempotente (flag
+    // 'alusense_1250_migrated' garante que nao roda mais de 1x).
+    if (!store.get('alusense_1250_migrated')) {
+      let alteradas = 0;
+      state.superficies.forEach(s => {
+        if (/ALUSENSE LDPE/i.test(s.descricao || '')) {
+          // Substitui "1500 x" por "1250 x" na descricao (preservando case
+          // do "x" — minusculo ou maiusculo)
+          const descNova = s.descricao.replace(/(\s|-)1500(\s*[xX])/g, '$11250$2');
+          if (descNova !== s.descricao) {
+            s.descricao = descNova;
+            alteradas++;
+          }
+          // Tambem corrige o campo largura se tiver 1500 salvo
+          if (Number(s.largura) === 1500) {
+            s.largura = 1250;
+          }
+        }
+      });
+      if (alteradas > 0) {
+        console.log(`[Superficies] Migracao Alusense: ${alteradas} chapa(s) trocadas de 1500 pra 1250`);
+        store.set('superficies_lista', state.superficies);
+      }
+      store.set('alusense_1250_migrated', true);
+    }
+    // Felipe (sessao 2026-05): MIGRACAO PESO peso_kg → peso_kg_m2.
+    // Antes peso era por chapa INTEIRA. Agora e' por m². Pra cada
+    // chapa: se tem peso_kg salvo (kg da chapa), tentamos converter
+    // pra kg/m² dividindo pela area. Se nao tem area, descarta e usa
+    // default da categoria. Idempotente.
+    if (!store.get('peso_kg_m2_migrated')) {
+      let alteradas = 0;
+      state.superficies.forEach(s => {
+        if (s.peso_kg_m2 != null && s.peso_kg_m2 > 0) return;  // ja' migrada
+        const pesoChapaAntigo = Number(s.peso_kg) || 0;
+        const larg = Number(s.largura) || 0;
+        const alt  = Number(s.altura)  || 0;
+        if (pesoChapaAntigo > 0 && larg > 0 && alt > 0) {
+          // Converte: kg / (m × m) = kg/m²
+          const m2 = (larg * alt) / 1000000;
+          s.peso_kg_m2 = Math.round((pesoChapaAntigo / m2) * 100) / 100;
+          alteradas++;
+        } else {
+          s.peso_kg_m2 = pesoDefaultPorCategoria(s.categoria);
+        }
+        // Limpa o campo antigo
+        delete s.peso_kg;
+      });
+      if (alteradas > 0) {
+        console.log(`[Superficies] Migracao peso_kg → peso_kg_m2: ${alteradas} chapa(s) convertidas`);
+      }
+      store.set('superficies_lista', state.superficies);
+      store.set('peso_kg_m2_migrated', true);
+    }
+    // Felipe (sessao 2026-05): MIGRACAO ESPACOS — descricoes antigas
+    // salvas com 2+ espacos seguidos (ex "Black Door  - 1500 X 6000")
+    // ou nbsp causam falha de matching no aproveitamento de chapas.
+    // Esta migracao colapsa tudo pra 1 espaco simples e re-aplica
+    // titlecase. Idempotente.
+    if (!store.get('descricao_espacos_migrated')) {
+      let alteradas = 0;
+      state.superficies.forEach(s => {
+        const descRaw = String(s.descricao || '');
+        const descLimpa = descRaw
+          .replace(/[\u00a0\t]+/g, ' ')
+          .replace(/ +/g, ' ')
+          .trim();
+        if (descLimpa !== descRaw) {
+          s.descricao = descLimpa;
+          alteradas++;
+        }
+      });
+      if (alteradas > 0) {
+        console.log(`[Superficies] Migracao espacos: ${alteradas} descricao(oes) limpada(s)`);
+        store.set('superficies_lista', state.superficies);
+      }
+      store.set('descricao_espacos_migrated', true);
+    }
+    // Felipe (sessao 2026-08): MIGRACAO REPARSE DIMENSOES v3.
+    // Felipe ainda via "4300 X 5 mm" mesmo apos a v2. Causa raiz: a
+    // descricao no storage dele estava EDITADA — virou "Pro1874 - Dark
+    // Grey Jlr Met Kynar Ldpe" SEM o sufixo "1500 x 5000" no fim. Sem
+    // medida na descricao, o parser retornava {0, 0} e a v2 nao
+    // atualizava — preservava o lixo (largura=4300, altura=5) que
+    // tinha sido salvo pelo parser original (com bug do Kynar4300 X5).
+    //
+    // Solucao v3:
+    //  1. Detecta valores ABSURDOS: largura<800 OU altura<1000
+    //     (chapas reais sao 1000-3000 x 2000-15000 mm)
+    //  2. Tenta parser na descricao atual
+    //  3. Se falhar, faz LOOKUP no SEED pelo codigo da chapa
+    //     (regex: PRO1874, AS002, PFCON37520C, etc)
+    //  4. Se ainda nao achar, deixa zerado pra' Felipe editar manual
+    //
+    // Idempotente. Flag NOVA (v3) pra rodar mesmo em quem ja' tinha v2.
+    if (!store.get('reparse_dimensoes_v3')) {
+      // Constroi mapa codigo → primeira dim valida no SEED
+      const dimsPorCodigoSeed = new Map();
+      const reCodigo = /^([A-Z]+\d+[A-Z]?)\b/i;
+      SEED_SUPERFICIES.forEach(seed => {
+        const m = String(seed.descricao || '').match(reCodigo);
+        if (!m) return;
+        const cod = m[1].toUpperCase();
+        if (dimsPorCodigoSeed.has(cod)) return;  // primeira variante so'
+        const dims = extrairDimensoes(seed.descricao || '', seed);
+        if (dims.largura > 0 && dims.altura > 0) {
+          dimsPorCodigoSeed.set(cod, dims);
+        }
+      });
+
+      let alteradas = 0;
+      let zeradas = 0;
+      state.superficies.forEach(s => {
+        const lar = Number(s.largura) || 0;
+        const alt = Number(s.altura)  || 0;
+
+        // 1. Valores plausiveis? Se sim, pula (preserva edicoes do usuario)
+        const ehAbsurdo = lar < 800 || lar > 3500 || alt < 1000 || alt > 15000;
+        if (!ehAbsurdo) return;
+
+        // 2. Tenta parser na descricao atual
+        let dims = extrairDimensoes(s.descricao || '', s);
+
+        // 3. Se parser falhar, lookup pelo codigo no SEED
+        if (!dims.largura || !dims.altura) {
+          const m = String(s.descricao || '').match(reCodigo);
+          if (m) {
+            const cod = m[1].toUpperCase();
+            if (dimsPorCodigoSeed.has(cod)) {
+              dims = dimsPorCodigoSeed.get(cod);
+              console.log(`[Superficies] reparse v3: "${s.descricao}" sem medida na descricao — usando dim do SEED por codigo "${cod}" (${dims.largura}x${dims.altura})`);
+            }
+          }
+        }
+
+        if (dims.largura > 0 && dims.altura > 0) {
+          console.log(`[Superficies] reparse v3: "${s.descricao}" — antes ${lar}x${alt}, depois ${dims.largura}x${dims.altura}`);
+          s.largura = dims.largura;
+          s.altura  = dims.altura;
+          alteradas++;
+        } else {
+          // Nao achou: zera pra Felipe ver "sem dimensao" e editar manual
+          console.warn(`[Superficies] reparse v3: "${s.descricao}" sem dimensao detectavel — zerada (edite manualmente em Cadastros > Superficies)`);
+          s.largura = 0;
+          s.altura = 0;
+          zeradas++;
+        }
+      });
+      if (alteradas > 0 || zeradas > 0) {
+        console.log(`[Superficies] Migracao reparse_dimensoes_v3: ${alteradas} corrigida(s), ${zeradas} zerada(s) (precisam edicao manual)`);
+        store.set('superficies_lista', state.superficies);
+      }
+      store.set('reparse_dimensoes_v3', true);
+    }
+    state.superficies.sort((a, b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
+    loaded = true;
+  }
+
+  function save() { store.set('superficies_lista', state.superficies); }
+
+  function fmt(n) { return window.fmtBR ? window.fmtBR(n) : Number(n||0).toFixed(2); }
+  function esc(s) { return window.escapeHtml ? window.escapeHtml(s) : String(s == null ? '' : s); }
+  function parseN(v) { return window.parseBR ? window.parseBR(v) : Number(String(v||'0').replace(',','.')) || 0; }
+  function tc(s) { return window.Universal?.titleCase ? window.Universal.titleCase(s) : String(s||''); }
+  function normalize(s) {
+    // Felipe (sessao 2026-05): campos largura/altura/tem_veio adicionados
+    // pro motor de aproveitamento de chapas (Lev. Superficies). Extracao
+    // automatica do nome quando nao estao preenchidos. Valores em mm.
+    //
+    // Felipe (sessao 2026-05 — peso v2): peso_kg_m2 = peso por METRO
+    // QUADRADO (nao por chapa). Felipe pediu: "PESO POR KG/M2 NAO POR
+    // CHAPA, CONSIDERE 6 KG POR M2 ACM".
+    // Default por categoria (kg/m²):
+    //   ACM 4mm:           6 (Felipe)
+    //   Aluminio Macico:  18 (~6.7g/cm³ × 2.5mm × 1m × 1m)
+    //   HPL:              10
+    //   Vidro 8mm:        20
+    //   Default:           6
+    // Felipe (sessao 2026-05): normalizacao defensiva de espacos.
+    // Importacao XLSX traz nbsp (\u00a0), tab e multiespacos. Colapsamos
+    // tudo pra 1 espaco simples antes de salvar — evita bug "Black  Door"
+    // (com 2 espacos) nao bater com "Black Door" no matching.
+    const descRaw = String(s.descricao || '');
+    const descLimpa = descRaw
+      .replace(/[\u00a0\t]+/g, ' ')   // nbsp/tab → espaco
+      .replace(/ +/g, ' ')             // multiespacos → 1 espaco
+      .trim();
+    const desc = tc(descLimpa);
+    const dims = extrairDimensoes(desc, s);
+    const tv = (s.tem_veio === undefined || s.tem_veio === null || s.tem_veio === '')
+      ? detectarVeio(desc)
+      : !!s.tem_veio;
+    const cat = s.categoria || categoriaAuto(desc);
+    return {
+      descricao: desc,
+      preco:     Number(s.preco) || 0,
+      categoria: cat,
+      largura:   Number(s.largura) || dims.largura || 0,    // mm
+      altura:    Number(s.altura)  || dims.altura  || 0,    // mm
+      tem_veio:  tv,
+      peso_kg_m2: Number(s.peso_kg_m2) || pesoDefaultPorCategoria(cat),
+    };
+  }
+
+  /**
+   * Felipe (sessao 2026-05): peso default em kg/m² por categoria de chapa.
+   * Editavel pelo usuario depois (campo "Peso (kg/m²)" no cadastro).
+   */
+  function pesoDefaultPorCategoria(categoria) {
+    switch (categoria) {
+      case 'aluminio_macico': return 18;
+      case 'hpl':             return 10;
+      case 'vidro':           return 20;
+      case 'acm':
+      default:                return 6;  // Felipe: 6 kg/m² ACM
+    }
+  }
+
+  /**
+   * Felipe (sessao 2026-05): tenta extrair largura×altura da descricao
+   * da chapa. Suporta padroes:
+   *   "ACM 4mm 1500x5000"        → 1500 × 5000
+   *   "Chapa 1.5x6m"             → 1500 × 6000 (m vira mm)
+   *   "1250 x 5000"              → 1250 × 5000
+   *   "Wood Maple 1500 6000"     → 1500 × 6000
+   * Devolve {largura, altura} em MM. Se nao achar, retorna {0,0}.
+   *
+   * Felipe (sessao 2026-08): "4300 x5 nao e medida e outra informacao
+   * da chapa (...) a medida e apos o traco". Bug: para descricoes
+   * tipo "PRO1874 - DARK GREY JLR MET KYNAR4300 X5 LDPE - 1500 x 5000",
+   * o regex pegava "4300 X5" do nome tecnico do material (Kynar4300 X5)
+   * em vez de "1500 x 5000" que e' a medida real. Felipe foi explicito:
+   * "a medida e apos o ULTIMO traco". Solucao: separa a string no
+   * ULTIMO " - " (com espacos), pega o que vem depois e procura
+   * dimensao SO' nessa parte. Se nao achar com traco, faz fallback
+   * pra busca global (descricoes simples sem traco continuam funcionando).
+   */
+  function extrairDimensoes(desc, sObj) {
+    const d = String(desc || '');
+    // Helper de parse — pega largura x altura de uma string
+    const tentarMatch = (str) => {
+      const m = str.match(/(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/i);
+      if (!m) return null;
+      let l = parseFloat(m[1].replace(',', '.'));
+      let a = parseFloat(m[2].replace(',', '.'));
+      const ehMetros = !!m[3] || (l > 0 && l <= 5);   // se < 5, provavel metros
+      if (ehMetros) { l *= 1000; a *= 1000; }
+      return { largura: Math.round(l), altura: Math.round(a) };
+    };
+
+    // 1. PREFERENCIA — extrai SO' a parte apos o ULTIMO " - " ou " — "
+    //    (espaco-traco-espaco). Felipe: "a medida e apos o traco".
+    const idxTracoSimples = d.lastIndexOf(' - ');
+    const idxTracoEm      = d.lastIndexOf(' — ');
+    const idxUltimoTraco  = Math.max(idxTracoSimples, idxTracoEm);
+    if (idxUltimoTraco !== -1) {
+      const sufixo = d.substring(idxUltimoTraco + 3).trim();
+      const r = tentarMatch(sufixo);
+      if (r) return r;
+    }
+
+    // 2. FALLBACK — descricao sem traco (ex: "1250 x 5000", "ACM 1500x5000").
+    //    Pra evitar pegar o "4300" de "Kynar4300", filtra: a largura
+    //    valida e' tipicamente 1000-2500mm e a altura 2000-12000mm.
+    //    Se o match cair fora dessa faixa, ignora e tenta o proximo.
+    const re = /(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/gi;
+    let match;
+    while ((match = re.exec(d)) !== null) {
+      let l = parseFloat(match[1].replace(',', '.'));
+      let a = parseFloat(match[2].replace(',', '.'));
+      const ehMetros = !!match[3] || (l > 0 && l <= 5);
+      if (ehMetros) { l *= 1000; a *= 1000; }
+      l = Math.round(l); a = Math.round(a);
+      // Sanidade: largura entre 800-3000mm, altura 1500-15000mm
+      // (chapas tipicas de revestimento/ACM).
+      if (l >= 800 && l <= 3000 && a >= 1500 && a <= 15000) {
+        return { largura: l, altura: a };
+      }
+    }
+
+    return { largura: 0, altura: 0 };
+  }
+
+  /**
+   * Felipe (sessao 2026-05): heuristica "tem veio?". Materiais Wood
+   * (madeira) sempre tem veio (NAO podem rotacionar peças). Outros
+   * materiais (lisos, monocromaticos) por padrao NAO tem veio.
+   */
+  function detectarVeio(desc) {
+    const d = String(desc || '').toLowerCase();
+    if (/wood|maple|carvalho|nogueira|imbu[ií]a|tauari|cerejeira|ipe|jatoba/i.test(d)) return true;
+    if (/\bveio\b/i.test(d)) return true;
+    return false;
+  }
+
+  /**
+   * Classifica uma superficie em 4 categorias com base na descricao.
+   * As "CHAPA ALUMINIO 2.5 MM..." viram aluminio_macico.
+   */
+  function categoriaAuto(descricao) {
+    const d = String(descricao || '').toLowerCase();
+    if (/chapa\s*alumin[ií]o|alumin[ií]o\s*maci[cç]o/i.test(d)) return 'aluminio_macico';
+    if (/\bhpl\b/i.test(d)) return 'hpl';
+    if (/vidro/i.test(d)) return 'vidro';
+    return 'acm';  // default — a maioria
+  }
+
+  // Sub-abas (categorias). Estado da aba ativa fica em memoria.
+  const CATEGORIAS = [
+    { id: 'acm',              label: 'ACM' },
+    { id: 'hpl',              label: 'HPL' },
+    { id: 'vidro',            label: 'Vidro' },
+    { id: 'aluminio_macico',  label: 'Aluminio Macico' },
+  ];
+
+  function setBtnSalvarEstado(isDirty) {
+    if (!btnSalvarRef) return;
+    btnSalvarRef.classList.toggle('is-dirty', !!isDirty);
+    btnSalvarRef.textContent = isDirty ? 'Salvar Alteracoes' : '✓ Tudo salvo';
+  }
+  function markDirty() { dirty = true; setBtnSalvarEstado(true); }
+  function salvarManual() {
+    save();
+    dirty = false;
+    setBtnSalvarEstado(false);
+    if (window.showSavedDialog) window.showSavedDialog('Alteracoes salvas com sucesso.');
+  }
+
+  function aplicarBusca(lista) {
+    const q = state.busca.trim().toLowerCase();
+    if (!q) return lista;
+    return lista.filter(s => String(s.descricao || '').toLowerCase().includes(q));
+  }
+
+  function aplicarCategoria(lista) {
+    if (!state.activeCat) return lista;
+    return lista.filter(s => (s.categoria || categoriaAuto(s.descricao)) === state.activeCat);
+  }
+
+  function render(container) {
+    load();
+    const total = state.superficies.length;
+    const comPreco = state.superficies.filter(s => Number(s.preco) > 0).length;
+
+    // Conta por categoria
+    const cont = (cat) => state.superficies.filter(s =>
+      (s.categoria || categoriaAuto(s.descricao)) === cat
+    ).length;
+
+    container.innerHTML = `
+      <div class="sup-toolbar">
+        <div class="sup-toolbar-row sup-toolbar-row-1">
+          <div class="sup-toolbar-left">
+            <span><span class="t-strong">${total}</span> superficies</span>
+            <span><span class="t-strong">${comPreco}</span> com preco</span>
+          </div>
+          <div class="sup-toolbar-right">
+            <button type="button" class="univ-btn-import" id="sup-btn-import">⤓ Importar planilha</button>
+            <button type="button" class="univ-btn-export" id="sup-btn-export">⬇ Exportar Excel</button>
+            <input type="file" id="sup-import-file" accept=".xlsx,.xls,.csv" style="display:none" />
+            <button type="button" class="sup-btn-add" id="sup-btn-add-novo">+ Nova Superficie</button>
+            <button type="button" class="univ-btn-save" id="sup-btn-salvar">✓ Tudo salvo</button>
+            <button type="button" class="sup-btn-reseed" id="sup-btn-reseed"
+                    title="Substitui SEU cadastro pelo cadastro padrao do sistema (249 chapas: Alusense, Pro, Black Door, Chapa Aluminio, etc).">
+              ↻ Restaurar Cadastro Padrao
+            </button>
+          </div>
+        </div>
+        <div class="sup-toolbar-row sup-toolbar-row-cats">
+          ${CATEGORIAS.map(c => `
+            <button type="button" class="sup-cat-tab ${state.activeCat === c.id ? 'is-active' : ''}" data-cat="${c.id}">
+              ${esc(c.label)} <span class="sup-cat-count">${cont(c.id)}</span>
+            </button>
+          `).join('')}
+        </div>
+        <div class="sup-toolbar-row sup-toolbar-row-2">
+          <input type="text" class="sup-search" id="sup-search"
+            placeholder="Buscar por descricao..."
+            value="${esc(state.busca)}" />
+        </div>
+      </div>
+      <div id="sup-table-mount">${renderTable()}</div>
+
+      <!-- Felipe (sessao 2026-08): "CADE A ABA DE ADICIONAR
+           REVESTIMENTOS QUE JA PEDI 200X". Form inline embaixo,
+           mesmo padrao de Perfis. Ja' pre-seleciona a categoria
+           ativa (sub-aba atual). -->
+      <div class="cad-add-form">
+        <h4>+ Adicionar Nova Superficie</h4>
+        <div class="cad-add-grid">
+          <div>
+            <div class="cad-param-label">Categoria</div>
+            <select id="sup-add-categoria" class="cad-input">
+              ${CATEGORIAS.map(c => `<option value="${c.id}" ${c.id === state.activeCat ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <div class="cad-param-label">Descricao</div>
+            <input id="sup-add-descricao" class="cad-input" type="text" placeholder="ex: PRO1234 - Cor Foo - 1500 x 5000" />
+          </div>
+          <div>
+            <div class="cad-param-label">Largura (mm)</div>
+            <input id="sup-add-largura" class="cad-input" type="text" inputmode="decimal" placeholder="1500" />
+          </div>
+          <div>
+            <div class="cad-param-label">Altura (mm)</div>
+            <input id="sup-add-altura" class="cad-input" type="text" inputmode="decimal" placeholder="5000" />
+          </div>
+          <div>
+            <div class="cad-param-label">Preco/m² (R$)</div>
+            <input id="sup-add-preco" class="cad-input" type="text" inputmode="decimal" placeholder="0,00" />
+          </div>
+          <button class="btn btn-primary btn-sm" id="sup-btn-add-form" style="height:34px;">+ Adicionar</button>
+        </div>
+      </div>
+    `;
+    btnSalvarRef = container.querySelector('#sup-btn-salvar');
+    dirty = false;
+    setBtnSalvarEstado(false);
+    bindEvents(container);
+  }
+
+  function renderTable() {
+    // Aplica busca + filtro de categoria
+    const filtrados = aplicarBusca(aplicarCategoria(state.superficies));
+    if (filtrados.length === 0) {
+      return `<div class="sup-empty">Nenhuma superficie encontrada nesta categoria.</div>`;
+    }
+    const linhas = filtrados.map((s) => {
+      const idx = state.superficies.indexOf(s);
+      const cat = s.categoria || categoriaAuto(s.descricao);
+      return `
+        <tr data-idx="${idx}">
+          <td><input class="sup-input sup-input-wide" data-field="descricao" value="${esc(s.descricao)}" /></td>
+          <td>
+            <select class="sup-input" data-field="categoria">
+              ${CATEGORIAS.map(c => `<option value="${c.id}" ${c.id === cat ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}
+            </select>
+          </td>
+          <td><input class="sup-input sup-input-num" data-field="preco" value="${fmt(s.preco)}" inputmode="decimal" /></td>
+          <td><input class="sup-input sup-input-num" data-field="peso_kg_m2" value="${(Number(s.peso_kg_m2) > 0) ? fmt(s.peso_kg_m2) : ''}" inputmode="decimal" placeholder="—" title="Peso por metro quadrado (kg/m²) — ACM padrao 6, Aluminio Macico 18, HPL 10" /></td>
+          <td><button type="button" class="sup-btn-remove" data-action="remover" data-idx="${idx}" title="Excluir superficie">×</button></td>
+        </tr>
+      `;
+    }).join('');
+    return `
+      <div class="sup-table-wrap">
+        <table class="sup-table cad-table">
+          <thead>
+            <tr>
+              <th>Descricao</th>
+              <th>Categoria</th>
+              <th class="sup-th-num" data-no-filter="1">R$</th>
+              <th class="sup-th-num" data-no-filter="1" title="Peso por metro quadrado (kg/m²)">Peso (kg/m²)</th>
+              <th class="actions"></th>
+            </tr>
+          </thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function rerenderTable(container) {
+    const mount = container.querySelector('#sup-table-mount');
+    if (!mount) return;
+    mount.innerHTML = renderTable();
+    bindRowEvents(container);
+    // R18: re-aplica autoEnhance apos re-render
+    const tbl = container.querySelector('.sup-table');
+    if (tbl && window.Universal) window.Universal.autoEnhance(tbl, { skipCols: ['actions'] });
+  }
+
+  function rerenderTudo(container) { render(container); }
+
+  function bindEvents(container) {
+    container.querySelector('#sup-btn-salvar')?.addEventListener('click', salvarManual);
+    container.querySelector('#sup-btn-add-novo')?.addEventListener('click', () => {
+      // Felipe (sessao 2026-06): antes criava sem categoria — entao
+      // categoriaAuto('') retornava 'acm' (default) e a nova entrada
+      // SEMPRE caia em ACM, mesmo que o usuario estivesse na sub-aba
+      // HPL/Vidro/Alu Maciço. Agora respeita a sub-aba ativa: peso
+      // default tambem ja' vem certo via pesoDefaultPorCategoria.
+      state.superficies.unshift({
+        descricao: '',
+        preco: 0,
+        categoria: state.activeCat,
+        peso_kg_m2: pesoDefaultPorCategoria(state.activeCat),
+      });
+      markDirty();
+      save();
+      rerenderTudo(container);
+      setTimeout(() => {
+        const first = container.querySelector('input[data-field="descricao"]');
+        if (first) first.focus();
+      }, 30);
+    });
+
+    // Felipe (sessao 2026-08): handler do form inline "+ Adicionar
+    // nova superficie" (embaixo da lista, padrao Perfis).
+    container.querySelector('#sup-btn-add-form')?.addEventListener('click', () => {
+      const categoria = container.querySelector('#sup-add-categoria')?.value || state.activeCat;
+      const descricao = container.querySelector('#sup-add-descricao')?.value.trim() || '';
+      const larguraStr = container.querySelector('#sup-add-largura')?.value || '';
+      const alturaStr  = container.querySelector('#sup-add-altura')?.value  || '';
+      const precoStr   = container.querySelector('#sup-add-preco')?.value   || '';
+      const largura    = window.parseBR ? window.parseBR(larguraStr) : (parseFloat(larguraStr.replace(',', '.')) || 0);
+      const altura     = window.parseBR ? window.parseBR(alturaStr)  : (parseFloat(alturaStr.replace(',', '.'))  || 0);
+      const preco      = window.parseBR ? window.parseBR(precoStr)   : (parseFloat(precoStr.replace(',', '.'))   || 0);
+      if (!descricao) {
+        alert('Informe a descricao da superficie.');
+        return;
+      }
+      state.superficies.unshift({
+        descricao,
+        preco,
+        categoria,
+        largura,
+        altura,
+        peso_kg_m2: pesoDefaultPorCategoria(categoria),
+      });
+      markDirty();
+      save();
+      // Se a categoria escolhida e' diferente da sub-aba ativa, troca
+      // a sub-aba pra mostrar o item recem-adicionado.
+      if (categoria !== state.activeCat) {
+        state.activeCat = categoria;
+      }
+      rerenderTudo(container);
+      // Limpa form e foca em descricao
+      setTimeout(() => {
+        const inpDesc = container.querySelector('#sup-add-descricao');
+        if (inpDesc) {
+          inpDesc.value = '';
+          inpDesc.focus();
+        }
+        ['sup-add-largura', 'sup-add-altura', 'sup-add-preco'].forEach(id => {
+          const el = container.querySelector('#' + id);
+          if (el) el.value = '';
+        });
+      }, 30);
+    });
+    container.querySelector('#sup-btn-export')?.addEventListener('click', exportarXLSX);
+    const fileInput = container.querySelector('#sup-import-file');
+    container.querySelector('#sup-btn-import')?.addEventListener('click', () => fileInput?.click());
+    fileInput?.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) importarXLSX(f, container);
+      e.target.value = '';
+    });
+    const busca = container.querySelector('#sup-search');
+    busca?.addEventListener('input', (e) => {
+      state.busca = e.target.value;
+      rerenderTable(container);
+    });
+
+    // Clique nas sub-abas de categoria
+    container.querySelectorAll('.sup-cat-tab').forEach(b => {
+      b.addEventListener('click', () => {
+        state.activeCat = b.dataset.cat;
+        rerenderTudo(container);
+      });
+    });
+
+    // R12 + R14 + R18: filtro por coluna com autocomplete + sort por header
+    const tbl = container.querySelector('.sup-table');
+    if (tbl && window.Universal) window.Universal.autoEnhance(tbl, { skipCols: ['actions'] });
+
+    bindRowEvents(container);
+  }
+
+  function bindRowEvents(container) {
+    container.querySelectorAll('.sup-table tbody tr').forEach(tr => {
+      const idx = Number(tr.dataset.idx);
+      const s = state.superficies[idx];
+      if (!s) return;
+      tr.querySelectorAll('input, select').forEach(el => {
+        const field = el.dataset.field;
+        if (!field) return;
+        el.addEventListener('change', () => {
+          if (field === 'preco') {
+            s.preco = parseN(el.value);
+            el.value = fmt(s.preco);
+          } else if (field === 'peso_kg_m2') {
+            // Felipe (sessao 2026-05): peso POR METRO QUADRADO (kg/m²).
+            // Antes era peso por chapa inteira — Felipe pediu mudar pra
+            // peso por m² (ACM padrao 6 kg/m²).
+            s.peso_kg_m2 = parseN(el.value);
+            el.value = s.peso_kg_m2 > 0 ? fmt(s.peso_kg_m2) : '';
+          } else if (field === 'categoria') {
+            s.categoria = el.value;
+            // Re-renderiza pra remover a linha da aba atual se mudou
+            markDirty();
+            save();
+            rerenderTudo(container);
+            return;
+          } else {
+            s[field] = tc(el.value);
+            el.value = s[field];
+          }
+          markDirty();
+          save();
+        });
+      });
+    });
+    container.querySelectorAll('.sup-btn-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        const s = state.superficies[idx];
+        if (!s) return;
+        const ok = confirm(`Excluir superficie:\n\n"${s.descricao || '(sem descricao)'}"\n\nEsta acao nao pode ser desfeita.`);
+        if (!ok) return;
+        state.superficies.splice(idx, 1);
+        markDirty();
+        save();
+        const c = btn.closest('.sup-toolbar')?.parentElement || document.querySelector('#main-content');
+        if (c) rerenderTudo(c);
+      });
+    });
+  }
+
+  function exportarXLSX() {
+    const headers = ['Descricao','Preco (R$)'];
+    const rows = state.superficies.map(s => [s.descricao || '', Number(s.preco) || 0]);
+    if (window.Universal?.exportXLSX) {
+      window.Universal.exportXLSX({
+        headers, rows, sheetName: 'Superficies', fileName: 'superficies_projetta',
+      });
+    }
+  }
+
+  function importarXLSX(file, container) {
+    if (!window.Universal?.readXLSXFile) return;
+    window.Universal.readXLSXFile(file, (aoa, fileName) => {
+      if (!aoa || aoa.length < 2) {
+        alert('A planilha esta vazia ou sem linhas de dados.');
+        return;
+      }
+      const idx = window.Universal.parseHeaders(aoa[0], {
+        descricao: 'descricao',
+        preco:     'preco (r$)',
+      });
+      if (idx.descricao === -1) {
+        alert('A planilha nao tem coluna "Descricao" (chave do registro).\nColunas esperadas: Descricao, Preco (R$)');
+        return;
+      }
+      let novos = 0, atualizados = 0, ignorados = 0;
+      for (let i = 1; i < aoa.length; i++) {
+        const row = aoa[i];
+        const descricao = tc(String(row[idx.descricao] || '').trim());
+        if (!descricao) { ignorados++; continue; }
+        const preco = idx.preco >= 0 ? parseN(row[idx.preco]) : 0;
+        const existente = state.superficies.find(s => s.descricao === descricao);
+        if (existente) {
+          existente.preco = preco;
+          atualizados++;
+        } else {
+          state.superficies.push({ descricao, preco });
+          novos++;
+        }
+      }
+      if (novos + atualizados === 0) {
+        alert(`Nenhuma linha valida em "${fileName}".`);
+        return;
+      }
+      const ok = confirm(`Importar de "${fileName}"?\n\n${novos} novo(s), ${atualizados} atualizado(s).\n` +
+        (ignorados > 0 ? `${ignorados} linha(s) sem descricao serao ignoradas.\n` : '') +
+        `\nSuperficies existentes que NAO estao no arquivo serao MANTIDAS.\n\nConfirmar?`);
+      if (!ok) {
+        state.superficies = store.get('superficies_lista') || state.superficies;
+        return;
+      }
+      save();
+      rerenderTudo(container);
+      if (window.showSavedDialog) {
+        window.showSavedDialog(`Importacao concluida!\n${novos} novo(s), ${atualizados} atualizado(s).`);
+      }
+    });
+  }
+
+  // Felipe (R-inegociavel): tudo puxa do cadastro. Helper exposto pra
+  // garantir que o seed seja inserido mesmo se a aba nao foi aberta.
+  function listar() {
+    load();
+    return state.superficies.slice();
+  }
+
+  return { render, categoriaAuto, listar };
+})();
+
+if (typeof window !== 'undefined') {
+  window.Superficies = Superficies;
+}

@@ -1,0 +1,69 @@
+/* 00-tokens.css — tokens de design (variaveis CSS, brand colors, fontes) */
+
+/* ============================================================
+   TOKENS DE DESIGN — Brandbook Projetta v2
+   ============================================================ */
+:root {
+  /* Cores principais */
+  --azul-escuro:     #003144;
+  --azul-escuro-2:   #002535;
+  --azul-escuro-3:   #001E2C;
+  --laranja:         #c47012;
+  --laranja-2:       #a85e0a;
+  --laranja-soft:    #e89a4a;
+
+  /* Cores de apoio */
+  --preto:           #000000;
+  --cinza:           #706f6f;
+  --cinza-claro:     #B8B7B7;
+  --cinza-muito-claro:#E8E7E7;
+  --branco:          #FFFFFF;
+
+  /* Tons funcionais derivados */
+  --bg:              #FFFFFF;
+  --bg-soft:         #F6F7F8;
+  --bg-card:         #FFFFFF;
+  --line:            #E1E3E6;
+  --line-soft:       #EDEFF1;
+  --text:            var(--azul-escuro);
+  --text-soft:       #4A5560;
+  --text-muted:      #8892A0;
+  --success:         #2E7D5B;
+  --danger:          #C0392B;
+  --warning:         var(--laranja);
+
+  /* Geometria */
+  --radius-sm:       4px;
+  --radius:          6px;
+  --radius-lg:       10px;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgba(0, 49, 68, 0.06);
+  --shadow:    0 2px 8px rgba(0, 49, 68, 0.08), 0 1px 2px rgba(0, 49, 68, 0.04);
+  --shadow-lg: 0 16px 48px rgba(0, 49, 68, 0.18), 0 4px 12px rgba(0, 49, 68, 0.08);
+
+  /* Tipografia */
+  --font-display: 'Lexend Zetta', 'Arial Black', sans-serif;
+  --font-body:    'Montserrat', Arial, sans-serif;
+}
+
+/* ============================================================
+   Felipe (do doc - msg "campos preenchidos em laranja"):
+   Marca campos VAZIOS com laranja transparente em TODO o sistema
+   (CRM, Cadastros, Orcamento, qualquer formulario). Ao digitar,
+   volta ao fundo normal. Aplicado via classe `field-empty` (anexada
+   automaticamente pelo Universal.autoAttachEmptyMark).
+   ============================================================ */
+input.field-empty,
+select.field-empty,
+textarea.field-empty {
+  background-color: rgba(196, 112, 18, 0.07) !important;
+  /* laranja Projetta a 7% — bem transparente, sutil */
+  border-color: rgba(196, 112, 18, 0.35) !important;
+}
+input.field-empty:focus,
+select.field-empty:focus,
+textarea.field-empty:focus {
+  background-color: rgba(196, 112, 18, 0.04) !important;
+  border-color: var(--laranja) !important;
+}

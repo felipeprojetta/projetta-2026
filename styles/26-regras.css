@@ -1,0 +1,285 @@
+/* 26-regras.css — Aba Regras e Logicas em Cadastros */
+
+.reg-wrap {
+  padding: 0 24px 24px 24px;
+}
+
+/* Sub-abas */
+.reg-subtabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin: 0 0 24px 0;
+}
+.reg-subtab {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: -1px;
+}
+.reg-subtab:hover {
+  color: var(--text-strong);
+}
+.reg-subtab.is-active {
+  color: var(--azul-escuro);
+  border-bottom-color: var(--laranja);
+}
+
+/* Section */
+.reg-section {
+  margin-bottom: 32px;
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.reg-section-title {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  padding: 10px 16px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+.reg-section-help {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 12px 16px 0 16px;
+  line-height: 1.5;
+}
+.reg-section-help code {
+  background: #F4F7FA;
+  border: 1px solid var(--line);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--azul-escuro);
+}
+
+/* Tabela de variaveis */
+.reg-vars-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.reg-vars-table th {
+  background: var(--cinza-mais-claro);
+  padding: 8px 12px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-strong);
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.reg-vars-table th.num { text-align: right; }
+.reg-vars-table td {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-strong);
+  border-bottom: 1px solid var(--line-soft);
+}
+.reg-vars-table td.num { text-align: right; }
+.reg-vars-table tbody tr:nth-child(even) td { background: #E4E8EE; }
+
+.reg-var-cod {
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  color: var(--azul-escuro);
+  letter-spacing: 0.02em;
+}
+.reg-var-sig {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+.reg-var-default {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.reg-vars-table input[type="number"] {
+  width: 90px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--branco);
+}
+.reg-vars-table input[type="number"]:focus {
+  outline: none;
+  border-color: var(--laranja);
+}
+
+.reg-var-tag-editado {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: #FFF4E6;
+  color: var(--laranja);
+  border: 1px solid var(--laranja);
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+.reg-var-tag-padrao {
+  font-size: 11px;
+  padding: 2px 8px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* Acoes */
+.reg-actions-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 16px 0 32px 0;
+}
+.reg-btn-reset {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+.reg-btn-reset:hover {
+  border-color: var(--text-soft);
+  color: var(--text-strong);
+}
+.reg-status {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.reg-status.is-ok {
+  color: #2c8240;
+}
+
+/* Formulas read-only */
+.reg-formulas-grid {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 12px;
+}
+.reg-formula {
+  background: #F4F7FA;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.reg-formula-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.reg-formula-label {
+  font-size: 12px;
+  color: var(--azul-escuro);
+  letter-spacing: 0.02em;
+}
+.reg-formula-locked {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.reg-formula-texto {
+  display: block;
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-strong);
+  margin-bottom: 6px;
+  overflow-x: auto;
+}
+.reg-formula-explica {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Tabela de formulas — separada em colunas 1 Folha vs 2 Folhas */
+.reg-formulas-tabela-wrap {
+  padding: 16px;
+  overflow-x: auto;
+}
+.reg-formulas-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.reg-formulas-table th {
+  background: var(--cinza-mais-claro);
+  padding: 8px 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-strong);
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line-soft);
+  font-weight: 500;
+  vertical-align: middle;
+}
+.reg-formulas-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  border-right: 1px solid var(--line-soft);
+  vertical-align: top;
+}
+.reg-formulas-table tbody tr:nth-child(even) td {
+  background: #E4E8EE;
+}
+.reg-folhas-col-1f {
+  background: #F4F7FA !important;
+}
+.reg-folhas-col-2f {
+  background: #FFF4E6 !important;
+}
+.reg-formulas-table thead th.reg-folhas-col-1f {
+  background: #D6E2EE !important;
+  text-align: center;
+  color: var(--azul-escuro);
+}
+.reg-formulas-table thead th.reg-folhas-col-2f {
+  background: #FFE5C2 !important;
+  text-align: center;
+  color: var(--laranja);
+}
+.reg-form-label {
+  font-weight: 500;
+  color: var(--azul-escuro);
+}
+.reg-form-cod {
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.reg-formulas-table code {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  color: var(--text-strong);
+  display: inline-block;
+}
+.reg-form-qty {
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  color: var(--text-strong);
+  text-align: center;
+}
+.reg-form-obs {
+  font-size: 11px;
+  color: var(--text-soft);
+  line-height: 1.5;
+}

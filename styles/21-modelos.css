@@ -1,0 +1,282 @@
+/* 21-modelos.css — modulo Cadastros > Modelos (.mod-) */
+
+/* ============================================================
+   MODULO: MODELOS  (sub-aba de Cadastros)
+   Cards de modelos de portas pivotantes com imagens 1F e 2F.
+   Prefixo .mod- para isolamento.
+   ============================================================ */
+.mod-section { margin-top: 12px; }
+.mod-section-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: none;
+  color: var(--azul-escuro);
+  font-weight: 500;
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mod-section-title::before {
+  content: "•";
+  color: var(--laranja);
+  font-size: 24px;
+  line-height: 0;
+}
+.mod-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+.mod-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.mod-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.mod-count {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.mod-count strong {
+  color: var(--azul-escuro);
+  font-weight: 500;
+  font-size: 16px;
+}
+.mod-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Lista de cards de modelos */
+.mod-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.mod-card {
+  display: grid;
+  /* numero | placeholder 1f | placeholder 2f | input nome (estica) | actions */
+  grid-template-columns: 60px 200px 200px 1fr 50px;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 16px;
+  width: 100%;
+  max-width: 1100px;
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.mod-card:hover {
+  border-color: var(--azul-escuro);
+  box-shadow: 0 2px 6px rgba(0, 49, 68, 0.06);
+}
+.mod-card-num {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--azul-escuro);
+  letter-spacing: 0.04em;
+}
+.mod-card-num-input {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--azul-escuro);
+  letter-spacing: 0.04em;
+  width: 60px;
+  padding: 8px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--branco);
+  text-align: center;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  /* Esconde setinhas do input number */
+  -moz-appearance: textfield;
+}
+.mod-card-num-input::-webkit-outer-spin-button,
+.mod-card-num-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.mod-card-num-input:hover {
+  border-color: var(--azul-escuro);
+}
+.mod-card-num-input:focus {
+  outline: none;
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 2px rgba(196, 112, 18, 0.1);
+}
+.mod-card-img {
+  width: 200px;
+  height: 230px;
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.mod-card-img-empty {
+  background: #FFFFFF;
+  color: #C4C4C4;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: none;
+  text-align: center;
+}
+.mod-card-img-empty .mod-icon-placeholder {
+  font-size: 42px;
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+.mod-card-img-label {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: none;
+}
+.mod-card-img-actions {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  opacity: 0.7;
+}
+.mod-card-img-actions button {
+  background: var(--branco);
+  border: 1px solid var(--laranja);
+  color: var(--laranja);
+  width: 28px;
+  height: 22px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mod-card-img-actions button.danger {
+  border-color: #C44;
+  color: #C44;
+}
+.mod-card-img-actions button:hover {
+  background: var(--laranja);
+  color: #fff;
+}
+.mod-card-img-actions button.danger:hover {
+  background: #C44;
+  color: #fff;
+}
+.mod-card-img-filled img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.mod-card-name input {
+  width: 100%;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--branco);
+  color: var(--azul-escuro);
+  font-weight: 500;
+  font-family: var(--font-body);
+}
+.mod-card-name input:focus {
+  outline: none;
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 2px rgba(196, 112, 18, 0.1);
+}
+.mod-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.mod-card-actions .row-delete {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #E0E0E0;
+  background: var(--branco);
+  color: #B33;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+.mod-card-actions .row-delete:hover {
+  background: #FCEFEF;
+  border-color: #C44;
+}
+
+/* Flash visual quando um card e recem-criado pelo botao Adicionar */
+@keyframes mod-card-flash-anim {
+  0%   { background: #FFF3D6; box-shadow: 0 0 0 3px var(--laranja); }
+  100% { background: var(--branco); box-shadow: 0 2px 6px rgba(0, 49, 68, 0.06); }
+}
+.mod-card.mod-card-flash {
+  animation: mod-card-flash-anim 1.2s ease-out;
+}
+
+/* Form de adicionar novo modelo */
+.mod-add-form {
+  margin-top: 18px;
+  padding: 18px;
+  background: #F7F5F0;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-lg);
+}
+.mod-add-form h4 {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: none;
+  color: var(--azul-escuro);
+  margin: 0 0 12px;
+  font-weight: 500;
+}
+.mod-add-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+/* Saved pill (igual aos outros modulos) */
+.mod-saved-pill {
+  display: inline-block;
+  font-size: 11px;
+  color: #2E7D5B;
+  background: #E8F4ED;
+  padding: 4px 10px;
+  border-radius: 999px;
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+.mod-saved-pill.is-visible { opacity: 1; }

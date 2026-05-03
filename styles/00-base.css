@@ -1,0 +1,7 @@
+
+/* R19: classe substituta de <strong> — sem peso extra, mantem hierarquia visual
+   apenas pela cor (azul-escuro). Sem font-weight pesado. */
+.t-strong {
+  color: var(--azul-escuro);
+  font-weight: 500;
+}

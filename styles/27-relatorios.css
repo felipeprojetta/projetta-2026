@@ -1,0 +1,687 @@
+/* ============================================================
+   RELATORIOS — header padronizado + Proposta Comercial
+   ============================================================
+   Felipe (do doc): cabecalho compartilhado entre TODOS os relatorios
+   (Proposta Comercial, Levantamentos, Padroes de Cortes, etc).
+   Sempre tras: logo + dados empresa + nome cliente + AGP + endereco
+   + vendedor.
+   ============================================================ */
+
+/* ============================================================
+   CABECALHO PADRAO (.rel-header-*)
+   ============================================================ */
+.rel-header-wrap {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0;
+  margin-bottom: 10px;
+  overflow: hidden;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Bloco 1: logo + dados empresa */
+.rel-header-empresa {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--cinza-mais-claro);
+}
+.rel-header-empresa-logo img {
+  height: 32px;
+  width: auto;
+  display: block;
+}
+.rel-header-empresa-info {
+  flex: 1;
+  min-width: 0;
+}
+.rel-header-empresa-nome {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--azul-escuro);
+}
+.rel-header-empresa-detalhe {
+  font-size: 10px;
+  color: var(--text-soft);
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+
+/* Bloco 2: titulo do documento */
+.rel-header-titulo {
+  text-align: center;
+  padding: 7px 14px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--azul-escuro);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+/* Bloco 3: tabela do cliente */
+.rel-header-cliente-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.rel-header-cliente-table th,
+.rel-header-cliente-table td {
+  padding: 5px 10px;
+  text-align: left;
+  border-right: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+.rel-header-cliente-table th {
+  background: var(--cinza-mais-claro);
+  color: var(--text-strong);
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  width: 100px;
+}
+.rel-header-cliente-table td {
+  color: var(--text-default);
+}
+.rel-header-cliente-table th:last-child,
+.rel-header-cliente-table td:last-child {
+  border-right: none;
+}
+.rel-header-cliente-table tr:last-child th,
+.rel-header-cliente-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Bloco 4: validade */
+.rel-header-validade {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  padding: 5px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.rel-header-validade-emissao {
+  opacity: 0.85;
+}
+.rel-header-validade-prazo {
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+/* ============================================================
+   PROPOSTA COMERCIAL — folha completa
+   ============================================================ */
+.rel-prop-folha {
+  background: var(--cinza-mais-claro);
+  padding: 12px 0;
+  margin-top: 12px;
+}
+.rel-prop-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  margin: 16px 0;
+}
+
+/* Felipe (do doc): cada pagina A4 e' isolada — NUNCA quebra ao meio */
+.rel-prop-pagina {
+  background: var(--branco);
+  /* A4 portrait: 210mm × 297mm. Aqui em px aproximamos pra preview na
+     tela. No print, @page A4 gerencia. */
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto 12px auto;
+  padding: 14mm 16mm;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  page-break-after: always;
+  page-break-inside: avoid;
+  break-after: page;
+  break-inside: avoid;
+  box-sizing: border-box;
+  position: relative;
+}
+.rel-prop-pagina:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+/* Felipe (msg "PROPOSTA DEVE CABER EM UMA PAGINA"): a pagina de conteudo
+   tem padding menor e font menor pra caber 1 item completo em UMA folha
+   (header + card + tabela + totais + observacoes + assinaturas). */
+.rel-prop-pagina-conteudo {
+  padding: 8mm 10mm;
+  font-size: 11px;
+}
+
+/* Banners no card menores pra economizar espaco */
+.rel-prop-pagina-conteudo .rel-prop-banner-alisar,
+.rel-prop-pagina-conteudo .rel-prop-banner-fech {
+  padding: 5px 10px;
+  margin: 4px 0;
+  font-size: 10px;
+}
+
+/* Felipe (do doc - msg "estoura nome zoom"): capa com texto vetorial
+   pra nao pixelizar no zoom do PDF. */
+.rel-prop-pagina-capa {
+  padding: 22mm 18mm;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--branco);
+}
+.rel-prop-capa-titulo {
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.32em;
+  color: var(--azul-escuro);
+  text-align: center;
+  /* Felipe (sessao 2026-05): conforme PDF de referencia, titulo em
+     title case ("Proposta Comercial 2026"), nao caixa alta. */
+  flex: 0 0 auto;
+}
+.rel-prop-capa-foto-wrap {
+  width: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 14mm 0;
+  max-height: 175mm;
+  overflow: hidden;
+}
+.rel-prop-capa-foto {
+  width: 100%;
+  height: auto;
+  max-height: 175mm;
+  object-fit: contain;
+  display: block;
+  border-radius: 2px;
+}
+.rel-prop-capa-logo {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.rel-prop-capa-logo img {
+  height: 56px;
+  width: auto;
+  display: block;
+}
+.rel-prop-pagina-img {
+  width: 100%;
+  height: auto;
+  max-height: 297mm;
+  display: block;
+  object-fit: contain;
+}
+
+/* Felipe (sessao 2026-05): paginas que usam DIRETAMENTE a imagem do PDF
+   do Felipe (capa "Proposta Comercial 2026" e mapa "Nossa Portas pelo
+   Mundo"). Sem padding — a imagem ja' inclui margens. Mantem proporcao
+   do PDF original (sem deformar). */
+.rel-prop-pagina-pdf {
+  padding: 0;
+  background: var(--branco);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rel-prop-pdf-img {
+  width: 100%;
+  height: auto;
+  max-width: 210mm;
+  max-height: 297mm;
+  display: block;
+  object-fit: contain;
+}
+
+/* Felipe (do doc - msg figma catalog 2025): pagina do mapa BATE com
+   o catalogo oficial. Padding lateral generoso, mapa centralizado,
+   "3 6 PAISES" pequeno sobre o continente sul-americano, listas em
+   3 colunas alinhadas a esquerda com bullets. */
+.rel-prop-pagina-mapa {
+  padding: 18mm 20mm 14mm 20mm;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--branco);
+}
+.rel-prop-mapa-titulo {
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.32em;
+  color: var(--azul-escuro);
+  text-align: center;
+  margin: 4mm 0 10mm 0;
+  /* Felipe (sessao 2026-05): conforme PDF de referencia, titulo em
+     title case ("Nossa Portas pelo Mundo"), nao caixa alta. */
+}
+.rel-prop-mapa-img-wrap {
+  width: 100%;
+  position: relative;
+  margin-bottom: 10mm;
+}
+.rel-prop-mapa-img-wrap img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+/* "3 6 PAISES" pequeno SOBRE a Argentina/Chile (igual no catalogo Figma):
+   posicao calibrada com base no screenshot do Figma. */
+.rel-prop-mapa-paises-count {
+  position: absolute;
+  left: 18%;
+  top: 73%;
+  text-align: left;
+  font-family: 'Lexend Zetta', sans-serif;
+  color: var(--laranja);
+  line-height: 1;
+}
+.rel-prop-mapa-paises-num {
+  font-size: 10px;
+  letter-spacing: 0.35em;
+  margin-bottom: 2px;
+}
+.rel-prop-mapa-paises-lbl {
+  font-size: 7px;
+  letter-spacing: 0.30em;
+}
+/* Listas — 3 colunas alinhadas a esquerda, bullets, padding interno */
+.rel-prop-mapa-listas {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6mm 12mm;
+  font-family: 'Montserrat', sans-serif;
+  margin-top: 0;
+  padding: 0 4mm;
+}
+.rel-prop-mapa-coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 6mm;
+  align-items: flex-start;
+}
+.rel-prop-mapa-bloco {
+  text-align: left;
+  width: 100%;
+}
+.rel-prop-mapa-bloco-titulo {
+  font-family: 'Lexend Zetta', sans-serif;
+  font-size: 8.5px;
+  letter-spacing: 0.10em;
+  color: var(--laranja);
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  text-align: left;
+}
+.rel-prop-mapa-bloco ul {
+  list-style: disc;
+  padding-left: 14px;
+  margin: 0;
+}
+.rel-prop-mapa-bloco ul li {
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  color: var(--text-default);
+  line-height: 1.7;
+  text-align: left;
+}
+.rel-prop-mapa-bloco ul li::marker {
+  color: var(--text-default);
+  font-size: 9.5px;
+}
+
+/* Card de cada item — imagem + caracteristicas */
+.rel-prop-item-card {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+/* Felipe (do doc): foto da porta MAIS LARGA. Container proporcional
+   a uma porta (alto+estreito), a imagem usa toda a area mantendo
+   proporcao via object-fit: contain (nao distorce). */
+.rel-prop-item-img {
+  background: var(--cinza-mais-claro);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--line);
+  min-height: 320px;
+  padding: 10px;
+}
+.rel-prop-item-img img {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 320px;
+  display: block;
+  object-fit: contain;
+}
+.rel-prop-item-img-placeholder {
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  font-style: italic;
+}
+.rel-prop-item-info {
+  padding: 10px 14px;
+}
+.rel-prop-item-titulo {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--azul-escuro);
+  margin-bottom: 6px;
+}
+
+/* Felipe (msg "TUDO A ESQUERDA"): linhas label+valor compactas, sem
+   esticar com colspan, sem espacos largos. R04 (nao corta texto). */
+.rel-prop-item-linhas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+.rel-prop-item-linha {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1.4;
+  text-align: left;
+}
+.rel-prop-item-linha .lbl {
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.rel-prop-item-linha > span:nth-child(2) {
+  color: var(--text-strong);
+  font-weight: 500;
+  word-break: break-word;
+}
+.rel-prop-item-modelo-vars {
+  background: #FFF8F0;
+  border: 1px solid #FFE5C2;
+  border-radius: 3px;
+  padding: 6px 10px;
+  margin-top: 4px;
+  margin-bottom: 6px;
+}
+.rel-prop-item-modelo-vars .lbl {
+  color: var(--laranja) !important;
+}
+
+/* Banners (alisar / fechadura digital / etc) */
+.rel-prop-banner-alisar,
+.rel-prop-banner-fech {
+  padding: 7px 12px;
+  border-radius: 3px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  margin: 6px 0;
+  border: 1px solid;
+}
+.rel-prop-banner-alisar.is-sim,
+.rel-prop-banner-fech.is-sim {
+  background: #E8F5E8;
+  border-color: #2D7A3D;
+  color: #1A5F2A;
+}
+.rel-prop-banner-alisar.is-nao,
+.rel-prop-banner-fech.is-nao {
+  background: #FFF4E6;
+  border-color: var(--laranja);
+  color: var(--laranja);
+}
+
+/* Tabela final */
+.rel-prop-tabela-final {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 0 0;
+  font-size: 11px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.rel-prop-tabela-final th {
+  background: var(--cinza-mais-claro);
+  padding: 5px 8px;
+  letter-spacing: 0.04em;
+  color: var(--text-strong);
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  font-weight: 500;
+}
+.rel-prop-tabela-final th.num,
+.rel-prop-tabela-final td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rel-prop-tabela-final td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.rel-prop-tabela-num {
+  width: 50px;
+  text-align: center !important;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Totais row (Area + Orcamento) */
+.rel-prop-totais-row {
+  display: flex;
+  justify-content: space-between;
+  background: var(--azul-escuro);
+  color: var(--branco);
+  padding: 6px 12px;
+  margin-top: 0;
+  font-size: 11px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  letter-spacing: 0.04em;
+}
+.rel-prop-total-label {
+  margin-right: 8px;
+  opacity: 0.9;
+}
+.rel-prop-total-valor {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* Observacoes */
+.rel-prop-observacoes {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: var(--cinza-mais-claro);
+  border-radius: 3px;
+  font-size: 10px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.rel-prop-obs-titulo {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--azul-escuro);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+.rel-prop-obs-lista {
+  margin: 0;
+  padding-left: 18px;
+}
+.rel-prop-obs-lista li {
+  margin-bottom: 1px;
+  color: var(--text-soft);
+}
+
+/* Pagamento */
+.rel-prop-pagamento {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-default);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.rel-prop-pag-row {
+  letter-spacing: 0.02em;
+}
+
+/* Assinaturas */
+.rel-prop-assinaturas {
+  margin-top: 28px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  padding: 0 24px;
+}
+/* Felipe (do doc - msgs assinatura): traco PRETO PURO 2px BEM VISIVEL
+   acima do nome do cliente E da Projetta, pra delimitar o campo onde
+   eles vao assinar. O .rel-prop-assinatura-linha e' um div vazio com
+   height: 0 e border-top, com margem em cima pra dar o espaco da
+   assinatura. */
+.rel-prop-assinatura {
+  display: flex;
+  flex-direction: column;
+}
+.rel-prop-assinatura-linha {
+  display: block;
+  height: 0;
+  margin-top: 32px;
+  /* Felipe (do doc - msg paleta): cor da identidade Projetta, nao preto */
+  border-top: 2px solid var(--azul-escuro);
+  width: 100%;
+}
+.rel-prop-assinatura-label {
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-strong);
+  margin-top: 6px;
+}
+
+/* Felipe (sessao 2026-07): rodape com redes sociais —
+   "Siga-nos nas redes sociais" + Instagram @projettaaluminio +
+   site www.projettaaluminio.com. Layout centralizado, 3 linhas. */
+.rel-prop-footer-redes {
+  margin-top: 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.rel-prop-footer-cta {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+  font-style: italic;
+}
+.rel-prop-footer-rede {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-default);
+}
+.rel-prop-footer-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--azul-escuro);
+}
+.rel-prop-footer-handle {
+  font-weight: 600;
+}
+.rel-prop-footer-site {
+  letter-spacing: 0.02em;
+}
+
+/* Felipe (do doc): print mode — 1 pagina A4 por .rel-prop-pagina,
+   nunca quebra no meio de um card/tabela/secao */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  body * { visibility: hidden; }
+  .rel-prop-folha,
+  .rel-prop-folha * { visibility: visible; }
+  .rel-prop-folha {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white;
+    padding: 0;
+    margin: 0;
+  }
+  .rel-prop-pagina {
+    width: 210mm;
+    min-height: 297mm;
+    box-shadow: none;
+    margin: 0 auto;
+    page-break-after: always;
+    page-break-inside: avoid;
+    break-after: page;
+    break-inside: avoid;
+  }
+  .rel-prop-pagina-capa,
+  .rel-prop-pagina-mapa {
+    padding: 0;
+  }
+  .rel-prop-pagina-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  /* Card do item nao quebra ao meio */
+  .rel-prop-item-card,
+  .rel-prop-tabela-final,
+  .rel-prop-totais-row,
+  .rel-prop-observacoes,
+  .rel-prop-pagamento,
+  .rel-prop-assinaturas {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
+/* Felipe (do doc): seccao de caracteristicas do modelo na Proposta */
+.rel-prop-item-modelo-vars {
+  background: #FFF8F0;
+  border: 1px solid #FFE5C2;
+  border-radius: 3px;
+  margin-top: 6px;
+  padding: 6px 10px;
+}
+.rel-prop-item-modelo-vars td.lbl {
+  color: var(--laranja) !important;
+}

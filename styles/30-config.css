@@ -1,0 +1,248 @@
+/* 30-config.css — modulo Configuracoes (.cfg-) */
+
+/* ============================================================
+   MODULO: CONFIGURACOES — prefixo .cfg-
+   Tela de admin pra configurar integracoes externas (Weiku,
+   Supabase). Padroniza visual com os outros modulos.
+   ============================================================ */
+.cfg-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 920px;
+}
+.cfg-card {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+}
+.cfg-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.cfg-card-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: none;
+  color: var(--azul-escuro);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cfg-card-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: var(--laranja);
+  border-radius: 50%;
+}
+.cfg-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+.cfg-status-pill.ativo  { background: #D1FAE5; color: #065F46; }
+.cfg-status-pill.mock   { background: #FEF3C7; color: #92400E; }
+.cfg-status-pill.off    { background: var(--bg-soft); color: var(--text-muted); }
+
+.cfg-info {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.cfg-info strong { color: var(--azul-escuro); font-weight: 500; }
+
+.cfg-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.cfg-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.cfg-mode:hover { border-color: var(--azul-escuro); }
+.cfg-mode.is-active {
+  background: var(--branco);
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 2px rgba(196, 112, 18, 0.1);
+}
+.cfg-mode input[type="radio"] {
+  margin-top: 2px;
+  accent-color: var(--laranja);
+}
+.cfg-mode-body { flex: 1; }
+.cfg-mode-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--azul-escuro);
+  margin-bottom: 2px;
+}
+.cfg-mode-desc {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.cfg-mode-detail {
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.cfg-mode-detail h5 {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: none;
+  color: var(--text-soft);
+  font-weight: 500;
+  margin: 0 0 10px;
+}
+.cfg-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+.cfg-form-row.row-cols-2 {
+  flex-direction: row;
+  gap: 10px;
+}
+.cfg-form-row.row-cols-2 > * { flex: 1; }
+.cfg-form-row label {
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: none;
+  color: var(--text-soft);
+  font-weight: 500;
+  font-family: var(--font-display);
+}
+.cfg-form-row input[type="text"],
+.cfg-form-row input[type="password"] {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--azul-escuro);
+  background: var(--branco);
+}
+.cfg-form-row input:focus {
+  outline: none;
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 2px rgba(196, 112, 18, 0.1);
+}
+.cfg-file-input {
+  display: none;
+}
+.cfg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 11px;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+  border: 1px solid;
+}
+.cfg-btn-primary {
+  background: var(--azul-escuro);
+  color: #fff;
+  border-color: var(--azul-escuro);
+}
+.cfg-btn-primary:hover { background: #002435; }
+.cfg-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.cfg-btn-secondary {
+  background: var(--branco);
+  color: var(--azul-escuro);
+  border-color: var(--line);
+}
+.cfg-btn-secondary:hover {
+  border-color: var(--azul-escuro);
+  background: var(--bg-soft);
+}
+.cfg-btn-danger {
+  background: var(--branco);
+  color: #c0392b;
+  border-color: #e8c5c0;
+}
+.cfg-btn-danger:hover {
+  background: #FDF2F1;
+}
+.cfg-btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cfg-msg {
+  font-size: 11px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: none;
+}
+.cfg-msg.is-visible { display: block; }
+.cfg-msg.is-ok    { background: #D1FAE5; color: #065F46; }
+.cfg-msg.is-error { background: #FEE2E2; color: #991B1B; }
+.cfg-msg.is-info  { background: #DBEAFE; color: #1E40AF; }
+
+.cfg-test-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 12px;
+}
+.cfg-test-row input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--azul-escuro);
+  background: var(--branco);
+}
+.cfg-test-row input:focus {
+  outline: none;
+  border-color: var(--laranja);
+}
+.cfg-test-result {
+  font-size: 11px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  display: none;
+  font-family: var(--font-mono, monospace);
+}
+.cfg-test-result.is-visible { display: block; }
+.cfg-test-result.is-ok    { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+.cfg-test-result.is-error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }

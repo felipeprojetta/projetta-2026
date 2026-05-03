@@ -1,0 +1,1268 @@
+/* 38-chapas-porta-externa.js — Motor declarativo de geração de peças
+ * de chapa para Porta Externa.
+ *
+ * Felipe (sessao 2026-09 — REESCRITA): substitui versão anterior que
+ * tinha discrepâncias com a planilha. Cada peça é definida numa
+ * TABELA declarativa, com fórmulas vindas DIRETO do Excel
+ * PRECIFICAÇÃO_01_04_2026.xlsx.
+ *
+ * Modelos suportados (1 e 2 folhas):
+ *   01 — Cava
+ *   02 — Cava + Friso Vertical (qtdFrisos variável)
+ *   03 — Cava + Friso Horizontal
+ *   04 — Cava + Friso Horizontal + Friso Vertical
+ *   06 — Cava + N Frisos Horizontais (qtdFrisos variável, divide tampa)
+ *   08 — Cava + Ripado
+ *   10 — Puxador Externo Lisa
+ *   11 — Puxador Externo + Friso Vertical
+ *   15 — Puxador Externo + Ripado
+ */
+const ChapasPortaExterna = (() => {
+  'use strict';
+
+  // ------------------------------------------------------------------
+  // CONSTANTES POR FAMÍLIA (76 vs 101)
+  // ------------------------------------------------------------------
+  const VARS_FAM_DEFAULT = {
+    '76':  { ESPPIV:28, TRANSPIV:8, FGLD:10, FGLE:10, FGA:10, TUBLPORTAL:38,    TUBLPORTA:38,    VEDPT:35 },
+    '101': { ESPPIV:28, TRANSPIV:8, FGLD:10, FGLE:10, FGA:10, TUBLPORTAL:51,    TUBLPORTA:102,   VEDPT:35 },
+  };
+  const VARS_CHAPAS_DEFAULT = {
+    REF:            20,
+    PORTAL_LD:      171.5,
+    PORTAL_LE:      171.5,
+    U_LARG_1F:      90,
+    U_LARG_2F:      128,
+    U_LARG_CENTRAL: 128,
+  };
+
+  function getVarsFam() {
+    try {
+      if (window.Storage && window.Storage.scope) {
+        const salvas = window.Storage.scope('cadastros').get('regras_variaveis_porta_externa');
+        if (salvas && salvas['76'] && salvas['101']) {
+          return {
+            '76':  Object.assign({}, VARS_FAM_DEFAULT['76'],  salvas['76']),
+            '101': Object.assign({}, VARS_FAM_DEFAULT['101'], salvas['101']),
+          };
+        }
+      }
+    } catch (e) {}
+    return VARS_FAM_DEFAULT;
+  }
+  function getVarsChapas() {
+    try {
+      if (window.Storage && window.Storage.scope) {
+        const salvas = window.Storage.scope('cadastros').get('regras_variaveis_chapas');
+        if (salvas && typeof salvas === 'object') return Object.assign({}, VARS_CHAPAS_DEFAULT, salvas);
+      }
+    } catch (e) {}
+    return Object.assign({}, VARS_CHAPAS_DEFAULT);
+  }
+
+  // ------------------------------------------------------------------
+  // QUADRO — fórmulas direto da planilha (G2/G3/G4)
+  // ------------------------------------------------------------------
+  function obterFamilia(item) {
+    const A = parseFloat(String(item.altura || '').replace(',', '.')) || 0;
+    return (A > 4000) ? '101' : '76';
+  }
+
+  function calcularQuadro(item) {
+    const L = parseFloat(String(item.largura || '').replace(',', '.')) || 0;
+    const H = parseFloat(String(item.altura  || '').replace(',', '.')) || 0;
+    const nFolhas = Number(item.nFolhas) || 1;
+    if (!L || !H) return null;
+
+    const familia = obterFamilia(item);
+    const v = getVarsFam()[familia];
+    const vc = getVarsChapas();
+
+    const alturaQuadro    = H - v.FGA - v.TUBLPORTAL - v.ESPPIV + v.TRANSPIV;
+    const larguraQuadro1F = L - (v.FGLD + v.FGLE) - vc.PORTAL_LD - vc.PORTAL_LE + vc.U_LARG_1F + vc.U_LARG_CENTRAL;
+    const larguraQuadro2F = L - vc.REF              - vc.PORTAL_LD - vc.PORTAL_LE + vc.U_LARG_2F + vc.U_LARG_CENTRAL;
+    const larguraQuadro   = (nFolhas === 2) ? larguraQuadro2F : larguraQuadro1F;
+
+    return {
+      alturaQuadro:    Math.round(alturaQuadro    * 100) / 100,
+      larguraQuadro1F: Math.round(larguraQuadro1F * 100) / 100,
+      larguraQuadro2F: Math.round(larguraQuadro2F * 100) / 100,
+      larguraQuadro:   Math.round(larguraQuadro   * 100) / 100,
+      familia, nFolhas,
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // CONTEXTO compartilhado pelas fórmulas declarativas
+  // ------------------------------------------------------------------
+  function construirContexto(item, lado, quadro) {
+    const v  = getVarsFam()[quadro.familia];
+    const vc = getVarsChapas();
+    const num = key => Number(item[key]) || 0;
+
+    const corExt   = String(item.corExterna || '').trim();
+    const corInt   = String(item.corInterna || '').trim();
+    const corCava  = String(item.corCava || '').trim();
+    const corUnica = corExt && corExt === corInt;
+
+    return {
+      item, lado, quadro,
+      L: parseFloat(String(item.largura || '').replace(',', '.')) || 0,
+      H: parseFloat(String(item.altura  || '').replace(',', '.')) || 0,
+      familia: quadro.familia,
+      fam: quadro.familia === '101' ? 'PA007' : 'PA006',
+      nFolhas: quadro.nFolhas,
+      alturaQuadro:    quadro.alturaQuadro,
+      larguraQuadro:   quadro.larguraQuadro,
+      larguraQuadro1F: quadro.larguraQuadro1F,
+      larguraQuadro2F: quadro.larguraQuadro2F,
+      REF: vc.REF,
+      FGA: v.FGA, FGLD_FGLE: v.FGLD + v.FGLE,
+      ESPPIV: v.ESPPIV, TRANSPIV: v.TRANSPIV,
+      TUBLPORTAL: v.TUBLPORTAL, TUBLPORTA: v.TUBLPORTA,
+      dBC:     num('distanciaBordaCava'),
+      tamCava: num('tamanhoCava'),
+      dBFV:    num('distanciaBordaFrisoVertical'),
+      dBFH:    num('distanciaBordaFrisoHorizontal'),
+      eF:        num('espessuraFriso'),
+      qtdFrisos: Math.max(0, num('quantidadeFrisos') || 0),
+      espacRipas: num('espacamentoRipas'),
+      tipoRipado: String(item.tipoRipado || 'Total').toLowerCase(),
+      duasFaces:  String(item.modeloDuasFaces || 'sim').toLowerCase() === 'sim',
+      larguraAlisar:    num('largura_alisar') || 100,
+      espessuraParede:  num('espessura_parede') || 250,
+      // Felipe (sessao 26 fix): respeitar flag tem_alisar das caracteristicas.
+      // Se 'Nao' -> nao gerar pecas de alisar (default 'Sim' pra retrocompat).
+      temAlisar: String(item.tem_alisar || 'Sim').toLowerCase() !== 'nao',
+      corExt, corInt, corCava, corUnica,
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // FÓRMULAS — extraídas literalmente das células da planilha Excel
+  // ------------------------------------------------------------------
+  const F = {
+    cava_largura: ctx => ctx.tamCava + 23 + 23 + 35 + 35,
+    cava_comp:    ctx => ctx.fam === 'PA007' ? ctx.alturaQuadro - 293 : ctx.alturaQuadro - 240,
+    l_da_cava_largura: ctx => ctx.tamCava + 100 - 10,
+    l_da_cava_comp:    ctx => 210,
+    tampa_borda_cava_largura: ctx => ctx.dBC + (ctx.REF * 2) - 1 - 1,
+    tampa_maior_1f_largura_com_cava: ctx => (ctx.larguraQuadro1F - ctx.dBC - 1 - ctx.tamCava - 1) + ctx.REF + ctx.REF,
+    tampa_maior_1f_largura_lisa: ctx => (ctx.larguraQuadro1F - ctx.dBC - 1 - ctx.tamCava) + ctx.REF + ctx.REF,
+    acab_lat_1: ctx => 70 + 18.5,
+    acab_lat_2: ctx => 70 + ctx.REF,
+    acab_lat_z: ctx => ctx.fam === 'PA007' ? (18.5 + 78.5 + 13) : (18.5 + 53.5 + 13),
+    u_portal_duas_cores: ctx => ctx.TUBLPORTAL + 4 + ctx.TUBLPORTA/2 + ctx.TUBLPORTAL + 4 + 9,
+    u_portal_uma_cor:    ctx => ctx.TUBLPORTAL + 4 + ctx.TUBLPORTA   + ctx.TUBLPORTAL + 4 + 9,
+    u_portal_comp:       ctx => ctx.L - ctx.FGLD_FGLE,
+    bat_01:    ctx => ctx.fam === 'PA007' ? (18.5 + 23) : (18.5 + 24),
+    bat_02_z:  ctx => ctx.fam === 'PA007' ? (33 + 19)   : (56 + 19),
+    bat_03:    ctx => ctx.fam === 'PA007' ? (61 + ctx.REF) : (62 + ctx.REF),
+    bat_comp:  ctx => ctx.alturaQuadro + 116,
+    tap_furo_largura: ctx => ctx.fam === 'PA007' ? (79 + 2*ctx.REF) : (54 + 2*ctx.REF),
+    fit_acab_me:  ctx => 36.5 + 2*ctx.REF,
+    fit_acab_ma:  ctx => 74.5 + 2*ctx.REF,
+    fit_acab_lar: ctx => ctx.TUBLPORTAL + 10 + 2*ctx.REF,
+    // ALISAR — Felipe planilha: (espessuraParede - 80/2) + 5 + larguraAlisar + REF
+    // Nota: 80/2 é DIVIDIDO ANTES (=40), NÃO (esp-80)/2.
+    alisar_largura: ctx => (ctx.espessuraParede - 80/2) + 5 + ctx.larguraAlisar + ctx.REF,
+    alisar_altura_comp:  ctx => ctx.H + ctx.larguraAlisar + 100,
+    alisar_largura_comp: ctx => ctx.L + 100,
+    tm_base_2f: ctx => (ctx.larguraQuadro2F - ctx.dBC*2 - ctx.tamCava*2) / 2,
+    // Felipe (sessao 29): A planilha NOVA tem -1 DENTRO da divisao em
+    // TM02 e TM03 (mas NAO em TM01). Diferenca: -0.5mm. Bug do motor
+    // anterior. Aplicado em modelos 02, 03, 04, 08, 11, 12, 13, 15
+    // (modelo 22 nao usa — fórmula diferente com -34*4).
+    tm_base_2f_menos1: ctx => (ctx.larguraQuadro2F - 1 - ctx.dBC*2 - ctx.tamCava*2) / 2,
+    tampa_maior_06_comp: ctx => {
+      const n = ctx.qtdFrisos;
+      if (n <= 0) return ctx.alturaQuadro;
+      return (ctx.alturaQuadro - n * ctx.eF) / (n + 1) + 2*ctx.REF;
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // PEÇAS UNIVERSAIS (1F e 2F)
+  // ------------------------------------------------------------------
+  // Felipe (planilha): em 2F, ACAB_LAT_* dobram (1 por folha × 2 folhas).
+  // BAT, TAP_FURO, FIT_ACAB, U_PORTAL, ALISAR — qty igual em 1F e 2F (parte do portal).
+  function pecasUniversais(variant) {
+    const isF1 = variant === '1F';
+    const acabExt = isF1 ? 1 : 2;
+    const acabInt = isF1 ? 1 : 2;
+
+    return [
+      { id: 'acab_lat_1', label: 'Acabamento Lateral 1',
+        largura: F.acab_lat_1, comp: ctx => ctx.alturaQuadro,
+        ext: acabExt, int: acabInt, categoria: 'porta' },
+      { id: 'acab_lat_2', label: 'Acabamento Lateral 2',
+        largura: F.acab_lat_2, comp: ctx => ctx.alturaQuadro,
+        ext: acabExt, int: acabInt, categoria: 'porta' },
+      { id: 'acab_lat_z', label: 'Acabamento Lateral Z',
+        largura: F.acab_lat_z, comp: ctx => ctx.alturaQuadro,
+        ext: acabExt, int: acabInt, categoria: 'porta' },
+
+      { id: 'u_portal_duas_cores', label: 'U Portal (2 Cores)',
+        largura: F.u_portal_duas_cores, comp: F.u_portal_comp,
+        ext: ctx => ctx.corUnica ? 0 : 1, int: ctx => ctx.corUnica ? 0 : 1,
+        categoria: 'portal' },
+      { id: 'u_portal_uma_cor', label: 'U Portal (1 Cor)',
+        largura: F.u_portal_uma_cor, comp: F.u_portal_comp,
+        ext: ctx => ctx.corUnica ? 1 : 0, int: 0,
+        categoria: 'portal' },
+
+      { id: 'bat_01', label: 'Batente 01',
+        largura: F.bat_01, comp: F.bat_comp, ext: 1, int: 1, categoria: 'portal' },
+      { id: 'bat_02_z', label: 'Batente 02 Z',
+        largura: F.bat_02_z, comp: F.bat_comp, ext: 1, int: 1, categoria: 'portal' },
+      { id: 'bat_03', label: 'Batente 03',
+        largura: F.bat_03, comp: F.bat_comp, ext: 1, int: 1, categoria: 'portal' },
+
+      // TAP_FURO planilha qty=3 (impar). Distribuir 2 ext + 1 int.
+      // Felipe revisar — pode ser 2 ext + 2 int (4 total) se obs "2/2" prevalecer.
+      { id: 'tap_furo', label: 'Tampa de Furo',
+        largura: F.tap_furo_largura, comp: F.bat_comp,
+        ext: 2, int: 1, categoria: 'portal',
+        observacao: 'qty 3 da planilha distribuida 2 ext + 1 int' },
+
+      // FIT_ACAB — cor única: 2 no externo; cor diferente: 1 ext + 1 int
+      { id: 'fit_acab_me', label: 'Fita Acabamento Menor',
+        largura: F.fit_acab_me, comp: F.bat_comp,
+        ext: ctx => ctx.corUnica ? 2 : 1, int: ctx => ctx.corUnica ? 0 : 1,
+        categoria: 'portal' },
+      { id: 'fit_acab_ma', label: 'Fita Acabamento Maior',
+        largura: F.fit_acab_ma, comp: F.bat_comp,
+        ext: ctx => ctx.corUnica ? 2 : 1, int: ctx => ctx.corUnica ? 0 : 1,
+        categoria: 'portal' },
+      { id: 'fit_acab_lar_fita', label: 'Fita Acabamento Largura',
+        largura: F.fit_acab_lar, comp: F.bat_comp,
+        ext: ctx => ctx.corUnica ? 2 : 1, int: ctx => ctx.corUnica ? 0 : 1,
+        categoria: 'portal' },
+
+      // ALISAR_ALTURA qty=5 — distribui 3 ext + 2 int. Felipe revisar.
+      // Felipe (sessao 26 fix): so' gera se item.tem_alisar !== 'Nao'.
+      { id: 'alisar_altura', label: 'Alisar Altura',
+        largura: F.alisar_largura, comp: F.alisar_altura_comp,
+        ext: ctx => ctx.temAlisar ? 3 : 0,
+        int: ctx => ctx.temAlisar ? 2 : 0,
+        categoria: 'portal',
+        observacao: 'qty 5 da planilha distribuida 3 ext + 2 int' },
+      { id: 'alisar_largura', label: 'Alisar Largura',
+        largura: F.alisar_largura, comp: F.alisar_largura_comp,
+        ext: ctx => ctx.temAlisar ? 1 : 0,
+        int: ctx => ctx.temAlisar ? 1 : 0,
+        categoria: 'portal' },
+    ];
+  }
+
+  // ------------------------------------------------------------------
+  // QUANTIDADE DE RIPAS (modelos 08 e 15)
+  // ------------------------------------------------------------------
+  function calcularQtdRipas(ctx) {
+    const espac = ctx.espacRipas || 30;
+    const denom = 60 + espac;
+    if (denom === 0) return 0;
+    const numerador = ctx.tipoRipado === 'parcial'
+      ? (ctx.L - ctx.dBC - ctx.tamCava - ctx.dBC)
+      : ctx.L;
+    return Math.ceil(numerador / denom);
+  }
+
+  // ------------------------------------------------------------------
+  // TABELA DE PEÇAS POR MODELO
+  // ------------------------------------------------------------------
+  const TABELA = {
+    1: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'l_da_cava', label: 'L da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          largura: F.tampa_maior_1f_largura_com_cava, comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+          largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          // Felipe (sessao 29 fix): planilha mod 01 tem +10 (nao +10.5)
+          largura: ctx => F.tm_base_2f(ctx) + 10 + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          // Felipe (sessao 29 fix): planilha tem -1 dentro da divisao
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          // Felipe (sessao 29 fix): planilha tem -1 dentro da divisao
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'tampa_menor', label: 'Tampa Menor',
+          largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+      ],
+    },
+
+    2: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'l_da_cava', label: 'L da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - 1 - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + 2*ctx.REF,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+          largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          largura: ctx => F.tm_base_2f(ctx) + 10 + 2*ctx.REF - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          // Felipe (sessao 29 fix): planilha tem -1 dentro da divisao
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          // Felipe (sessao 29 fix): planilha tem -1 dentro da divisao
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'tampa_menor', label: 'Tampa Menor',
+          largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          categoria: 'porta' },
+      ],
+    },
+
+    3: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'friso_horizontal_cava', label: 'Friso Horizontal Cava',
+          largura: ctx => ctx.larguraQuadro1F, comp: ctx => 250,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true,
+          observacao: 'Felipe: confirmar dimensoes (planilha truncada)' },
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          largura: F.tampa_maior_1f_largura_com_cava,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+          largura: F.tampa_borda_cava_largura,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_friso_horizontal', label: 'Tampa Friso Horizontal',
+          largura: ctx => (ctx.larguraQuadro1F - 1) + 2*ctx.REF,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 2, int: 2, categoria: 'porta' },
+        { id: 'friso_horizontal', label: 'Friso Horizontal',
+          largura: ctx => ctx.larguraQuadro1F,
+          comp: ctx => ctx.eF + 100,
+          ext: 1, int: 1, categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 1,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+          largura: F.tampa_borda_cava_largura,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'friso_horizontal', label: 'Friso Horizontal',
+          largura: ctx => ctx.larguraQuadro2F + 50,
+          comp: ctx => ctx.eF + 100,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tm01_friso_vert', label: 'Tampa Maior 01 - Friso Vert.',
+          largura: ctx => ctx.larguraQuadro2F/2 + 10.5 + 2*ctx.REF - 1,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tm02_friso_vert', label: 'Tampa Maior 02 - Friso Vert.',
+          largura: ctx => ctx.larguraQuadro2F/2 + 2*ctx.REF - 28 - 1,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tm03_friso_vert', label: 'Tampa Maior 03 - Friso Vert.',
+          largura: ctx => ctx.larguraQuadro2F/2 + 2*ctx.REF - 28 - 38 - 1,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 0, int: 1, categoria: 'porta' },
+      ],
+    },
+
+    4: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'l_da_cava', label: 'L da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          largura: ctx => F.tampa_maior_1f_largura_com_cava(ctx) - ctx.dBFV - ctx.eF,
+          comp: ctx => ctx.larguraQuadro1F - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+          largura: F.tampa_borda_cava_largura,
+          comp: ctx => ctx.larguraQuadro1F - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_friso_horizontal', label: 'Tampa Friso Horizontal',
+          largura: ctx => (ctx.larguraQuadro1F - 1) + 2*ctx.REF - ctx.dBFV - ctx.eF,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_menor_canto', label: 'Tampa Menor Canto',
+          largura: ctx => ctx.dBFH + 2*ctx.REF,
+          comp: ctx => ctx.dBFV + ctx.REF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_friso_vertical', label: 'Tampa Friso Vertical',
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.larguraQuadro1F - 2*ctx.dBFV - 2*ctx.eF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => ctx.eF + 100,
+          comp: ctx => ctx.alturaQuadro + 100,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'friso_horizontal', label: 'Friso Horizontal',
+          largura: ctx => ctx.eF + 100,
+          comp: ctx => ctx.larguraQuadro1F,
+          ext: 1, int: 1, categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1,
+          comp: ctx => ctx.larguraQuadro2F - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 1,
+          comp: ctx => ctx.larguraQuadro2F - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
+          comp: ctx => ctx.larguraQuadro2F - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+          largura: F.tampa_borda_cava_largura,
+          comp: ctx => ctx.larguraQuadro2F - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_friso_horizontal_01', label: 'Tampa Friso Horizontal 01',
+          largura: ctx => ctx.larguraQuadro2F/2 + 10.5,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_friso_horizontal_02', label: 'Tampa Friso Horizontal 02',
+          largura: ctx => ctx.larguraQuadro2F/2 - 28,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_friso_horizontal_03', label: 'Tampa Friso Horizontal 03',
+          largura: ctx => ctx.larguraQuadro2F/2 - 28 - 38,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'tampa_menor_canto', label: 'Tampa Menor Canto',
+          largura: ctx => ctx.dBFH + 2*ctx.REF,
+          comp: ctx => ctx.dBFV + ctx.REF,
+          ext: 4, int: 4, categoria: 'porta' },
+        { id: 'tampa_01_friso_vertical', label: 'Tampa 01 Friso Vertical',
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.larguraQuadro2F - 2*ctx.dBFV - 2*ctx.eF,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_02_friso_vertical', label: 'Tampa 02 Friso Vertical',
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.larguraQuadro2F - 2*ctx.dBFV - 2*ctx.eF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_03_friso_vertical', label: 'Tampa 03 Friso Vertical',
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.larguraQuadro2F - 2*ctx.dBFV - 2*ctx.eF,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => ctx.eF + 100,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 2, int: 2, categoria: 'porta' },
+        { id: 'friso_horizontal', label: 'Friso Horizontal',
+          largura: ctx => ctx.eF + 100,
+          comp: ctx => ctx.larguraQuadro2F/2,
+          ext: 4, int: 4, categoria: 'porta' },
+      ],
+    },
+
+    6: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'l_da_cava', label: 'L da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        // TAMPA_MAIOR_CAVA mod 06: largura igual mod 01, COMP varia, qty = qtdFrisos por face
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          largura: F.tampa_maior_1f_largura_com_cava,
+          comp: F.tampa_maior_06_comp,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+          largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1,
+          comp: F.tampa_maior_06_comp,
+          ext: ctx => ctx.qtdFrisos, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 1,
+          comp: F.tampa_maior_06_comp,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
+          comp: F.tampa_maior_06_comp,
+          ext: 0, int: ctx => ctx.qtdFrisos, categoria: 'porta' },
+        { id: 'tampa_menor', label: 'Tampa Menor',
+          largura: F.tampa_borda_cava_largura,
+          comp: F.tampa_maior_06_comp,
+          ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          categoria: 'porta', ehDaCava: true },
+      ],
+    },
+
+    8: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'l_da_cava', label: 'L da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          largura: F.tampa_maior_1f_largura_com_cava, comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+          largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'ripas', label: 'Ripas',
+          largura: ctx => 13+4+51+9+13+4,
+          comp: F.cava_comp,
+          ext: ctx => calcularQtdRipas(ctx),
+          int: ctx => calcularQtdRipas(ctx),
+          categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          largura: ctx => F.tm_base_2f(ctx) + 10 + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'tampa_menor', label: 'Tampa Menor',
+          largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'ripas', label: 'Ripas',
+          largura: ctx => 13+4+51+9+13+4,
+          comp: F.cava_comp,
+          ext: ctx => calcularQtdRipas(ctx),
+          int: ctx => calcularQtdRipas(ctx),
+          categoria: 'porta' },
+      ],
+    },
+
+    10: {
+      '1F': [
+        // Mod 10: lisa, sem cava real (planilha v2 não mostra CAVA/L_DA_CAVA)
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          largura: F.tampa_maior_1f_largura_lisa, comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          largura: ctx => (ctx.larguraQuadro2F)/2 + 10.5 + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          // Mod 10 usa -27 (não -28)
+          largura: ctx => (ctx.larguraQuadro2F - 1)/2 + 2*ctx.REF - 27 - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          largura: ctx => (ctx.larguraQuadro2F - 1)/2 + 2*ctx.REF - 28 - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 0, int: 1, categoria: 'porta' },
+      ],
+    },
+
+    // ===================================================================
+    // MODELO 11 — Felipe (sessao 29) revisao completa vs planilha NOVA.
+    // Mudancas vs versao anterior do motor:
+    //   1F: ADICIONADO Cava + L da Cava (faltavam — sempre presentes na planilha)
+    //   2F: ADICIONADO Cava + Tampa da Cava (faltavam)
+    //   2F TBFV: CORRIGIDO bug grave (motor tinha
+    //            "(espessuraParede + 2*REF - 1) + 2*REF - 1" — fórmula sem
+    //            sentido, ~288mm). Planilha: "dBFV + 2*REF - 1" (~59mm)
+    //   1F TBFV: motor JÁ usava espessuraParede; corrigido pra dBFV (planilha)
+    // ===================================================================
+    11: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'l_da_cava', label: 'L da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          // Planilha: (E3-C7-C8-1-C20*C22-C21*C22)+C15+C15
+          largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + 2*ctx.REF,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
+          // Felipe (sessao 29): planilha usa C20 (dBFV), nao C18 (espessuraParede)
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          // Planilha: (E2-C7*2-C8*2)/2+10.5+C15+C15-1-C20*C22-C21*C22
+          largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          // Planilha: (E2-1-C7*2-C8*2)/2+C15+C15-28-C20*C22-C21*C22 (SEM -1 final)
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          // Planilha: (E2-1-C7*2-C8*2)/2+C15+C15-28-38-C20*C22-C21*C22 (SEM -1 final)
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
+          // Felipe (sessao 29 fix CRITICO): motor tinha "(esp+2*REF-1)+2*REF-1"
+          // que dava ~288mm. Planilha NOVA: dBFV+2*REF-1 (~59mm). qty mantida
+          // como qtdFrisos*2 pra consistencia com modelos 02/22 (planilha mod 11
+          // tem 4 fixo, mas isso assume qtdFrisos=2 — qtdFrisos*2 e' generico).
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          categoria: 'porta' },
+      ],
+    },
+
+    15: {
+      '1F': [
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          largura: F.tampa_maior_1f_largura_com_cava, comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'ripas', label: 'Ripas',
+          largura: ctx => 13+4+51+9+13+4,
+          comp: F.cava_comp,
+          ext: ctx => calcularQtdRipas(ctx),
+          int: ctx => calcularQtdRipas(ctx),
+          categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          largura: ctx => F.tm_base_2f(ctx) + 10 + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'ripas', label: 'Ripas',
+          largura: ctx => 13+4+51+9+13+4,
+          comp: F.cava_comp,
+          ext: ctx => calcularQtdRipas(ctx),
+          int: ctx => calcularQtdRipas(ctx),
+          categoria: 'porta' },
+      ],
+    },
+
+    // ============================================================
+    // MODELO 12 — Cava + Friso Horizontal (variante simplificada do 03)
+    // Vars: dBFH (C19), eF (C20)
+    // Diferenca vs mod 03: NAO tem TAMPA_BORDA_CAVA. Comp da TM_CAVA tem -1 extra.
+    // ============================================================
+    12: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        // Friso horizontal junto a cava — 1F: largura = larguraQuadro1F, comp = 250 (constante)
+        { id: 'friso_horizontal_cava', label: 'Friso Horizontal Cava',
+          largura: ctx => ctx.larguraQuadro1F, comp: ctx => 250,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        // TAMPA_MAIOR_CAVA: largura igual mod 03 (com cava), comp = alturaQuadro - 2dBFH - 2eF + 2REF - 1
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          largura: F.tampa_maior_1f_largura_com_cava,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF - 1,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_friso_horizontal', label: 'Tampa Friso Horizontal',
+          largura: ctx => (ctx.larguraQuadro1F - 1) + 2*ctx.REF,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 2, int: 2, categoria: 'porta' },
+        { id: 'friso_horizontal', label: 'Friso Horizontal',
+          largura: ctx => ctx.larguraQuadro1F,
+          comp: ctx => ctx.eF + 100,
+          ext: 1, int: 1, categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        // No 2F: l_da_cava (mas planilha chama "FRISO_HORIZONTAL_CAVA" qty=8)
+        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF - 1,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 1,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF - 1,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF - 1,
+          ext: 0, int: 1, categoria: 'porta' },
+        // Friso horizontal 2F: largura = larguraQuadro2F + 50
+        { id: 'friso_horizontal', label: 'Friso Horizontal',
+          largura: ctx => ctx.larguraQuadro2F + 50,
+          comp: ctx => ctx.eF + 100,
+          ext: 1, int: 1, categoria: 'porta' },
+        // 3 TAMPA_MAIOR_FRISO_VERTICAL extras (so 2F): igual TM01/02/03 mas comp = dBFH + REF
+        { id: 'tm01_friso_vert', label: 'Tampa Maior 01 - Friso Vert.',
+          largura: ctx => ctx.larguraQuadro2F/2 + 10.5 + 2*ctx.REF - 1,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tm02_friso_vert', label: 'Tampa Maior 02 - Friso Vert.',
+          largura: ctx => ctx.larguraQuadro2F/2 + 2*ctx.REF - 28 - 1,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tm03_friso_vert', label: 'Tampa Maior 03 - Friso Vert.',
+          largura: ctx => ctx.larguraQuadro2F/2 + 2*ctx.REF - 28 - 38 - 1,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 0, int: 1, categoria: 'porta' },
+      ],
+    },
+
+    // ============================================================
+    // MODELO 13 — Cava + Friso H + Friso V (variante simplificada do 04)
+    // Vars: dBFH (C19), dBFV (C20), eF (C21)
+    // Diferenca vs mod 04: NAO tem TAMPA_BORDA_CAVA.
+    //                      Comp da TM_CAVA usa alturaQuadro (nao larguraQuadro).
+    // ============================================================
+    13: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'l_da_cava', label: 'L da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        // TAMPA_MAIOR_CAVA: (larguraQuadro1F - dBC - 1 - tamCava - 1) + 2REF - dBFV - eF
+        // comp: alturaQuadro - dBFV - eF + REF - 1
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          largura: ctx => F.tampa_maior_1f_largura_com_cava(ctx) - ctx.dBFV - ctx.eF,
+          comp: ctx => ctx.alturaQuadro - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_friso_horizontal', label: 'Tampa Friso Horizontal',
+          largura: ctx => (ctx.larguraQuadro1F - 1) + 2*ctx.REF - ctx.dBFV - ctx.eF,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_menor_canto', label: 'Tampa Menor Canto',
+          largura: ctx => ctx.dBFH + 2*ctx.REF,
+          comp: ctx => ctx.dBFV + ctx.REF,
+          ext: 1, int: 1, categoria: 'porta' },
+        // TAMPA_FRISO_VERTICAL: comp usa alturaQuadro (nao larguraQuadro)
+        { id: 'tampa_friso_vertical', label: 'Tampa Friso Vertical',
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF,
+          ext: 1, int: 1, categoria: 'porta' },
+        // FRISO VERTICAL: comp = G9 (alturaQuadro) + 100
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => ctx.eF + 100,
+          comp: ctx => ctx.alturaQuadro + 100,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'friso_horizontal', label: 'Friso Horizontal',
+          largura: ctx => ctx.eF + 100,
+          comp: ctx => ctx.larguraQuadro1F,
+          ext: 1, int: 1, categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        // TAMPA_MAIOR 01/02/03 — comp = alturaQuadro - dBFV - eF + REF - 1
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 1,
+          comp: ctx => ctx.alturaQuadro - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
+          comp: ctx => ctx.alturaQuadro - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          ext: 0, int: 1, categoria: 'porta' },
+        // 3 TAMPA_FRISO_HORIZONTAL: largura segue padrao TM01/02/03 sem dBFV
+        { id: 'tampa_friso_horizontal_01', label: 'Tampa Friso Horizontal 01',
+          largura: ctx => ctx.larguraQuadro2F/2 + 10.5,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_friso_horizontal_02', label: 'Tampa Friso Horizontal 02',
+          largura: ctx => ctx.larguraQuadro2F/2 - 28,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_friso_horizontal_03', label: 'Tampa Friso Horizontal 03',
+          largura: ctx => ctx.larguraQuadro2F/2 - 28 - 38,
+          comp: ctx => ctx.dBFH + ctx.REF,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'tampa_menor_canto', label: 'Tampa Menor Canto',
+          largura: ctx => ctx.dBFH + 2*ctx.REF,
+          comp: ctx => ctx.dBFV + ctx.REF,
+          ext: 4, int: 4, categoria: 'porta' },
+        // 3 TAMPA_FRISO_VERTICAL: comp usa alturaQuadro
+        { id: 'tampa_01_friso_vertical', label: 'Tampa 01 Friso Vertical',
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_02_friso_vertical', label: 'Tampa 02 Friso Vertical',
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_03_friso_vertical', label: 'Tampa 03 Friso Vertical',
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => ctx.eF + 100,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 2, int: 2, categoria: 'porta' },
+        { id: 'friso_horizontal', label: 'Friso Horizontal',
+          largura: ctx => ctx.eF + 100,
+          comp: ctx => ctx.larguraQuadro2F/2,
+          ext: 4, int: 4, categoria: 'porta' },
+      ],
+    },
+
+    // ============================================================
+    // MODELO 16 — Cava + N Frisos Horizontais (variante simplificada do 06)
+    // Vars: qtdFrisos (C19), eF (C20)
+    // Diferencas vs mod 06:
+    //   - NAO tem TAMPA_BORDA_CAVA (1F) nem TAMPA_MENOR (2F)
+    //   - TAMPA_MAIOR_CAVA 1F ocupa LARGURA INTEIRA do quadro (sem desconto de cava):
+    //     largura = (larguraQuadro1F - 1) + 2*REF
+    // ============================================================
+    16: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'l_da_cava', label: 'L da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        // Mod 16: TAMPA_MAIOR_CAVA NAO desconta cava na largura.
+        // Comp varia com qtdFrisos (mesma fórmula do mod 06).
+        // qty = qtdFrisos por face.
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          largura: ctx => (ctx.larguraQuadro1F - 1) + 2*ctx.REF,
+          comp: F.tampa_maior_06_comp,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        // TAMPA_MAIOR 01/02/03 com COMP variando (frisos horizontais)
+        // qty: TM01 = qtdFrisos, TM02 = qtdFrisos*2, TM03 = qtdFrisos
+        // (igual mod 06, MAS sem TAMPA_MENOR)
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1,
+          comp: F.tampa_maior_06_comp,
+          ext: ctx => ctx.qtdFrisos, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 1,
+          comp: F.tampa_maior_06_comp,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
+          comp: F.tampa_maior_06_comp,
+          ext: 0, int: ctx => ctx.qtdFrisos, categoria: 'porta' },
+      ],
+    },
+
+    // ====================================================================
+    // MODELO 22 — Felipe (sessao 28): "MODELO 22 CARREGADO 1 E 2 FOLHAS"
+    // Aba "MODELO 22" da planilha PRECIFICACAO_01_04_2026.xlsx
+    //
+    // Caracteristicas (vs Modelo 02):
+    //   - Cava com 5 ribs internas: largura = tamCava + 412
+    //     (formula F7 1F: (50+48+34+48+C8+48+34+48+50))
+    //     = tamCava + 50+48+34+48+48+34+48+50 = tamCava + 360 + 52 = tamCava + 412
+    //     Espera, deixa recalcular: 50+48+34+48+48+34+48+50 = 360. Mais o C8 (=tamCava).
+    //     Total: tamCava + 360. Vou conferir abaixo.
+    //   - SEM "L da Cava" (modelo 02 tem)
+    //   - TAMPA_MAIOR_CAVA com -34 em vez de -1 nas margens da cava
+    //     (formula 1F F9: E3-C7-34-C8-34-C20*C22-C21*C22 + C15+C15-1)
+    //   - 2F tem TAMPA_MAIOR 01/02/03 e TAMPA_MENOR (modelo 02 estilo)
+    //     Formulas 2F O9-O11 com base = (E2-C7*2-C8*2-34*4)/2
+    22: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          // Formula F7: (50+48+34+48+C8+48+34+48+50) = tamCava + 360
+          largura: ctx => ctx.tamCava + 50 + 48 + 34 + 48 + 48 + 34 + 48 + 50,
+          comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        // SEM l_da_cava no modelo 22 (planilha nao tem essa peca)
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          // Formula F9: (E3-C7-34-C8-34-C20*C22-C21*C22)+C15+C15-1
+          largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - 34 - ctx.tamCava - 34
+                           - ctx.dBFV * ctx.qtdFrisos - ctx.eF * ctx.qtdFrisos)
+                          + 2 * ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+          // Formula F10: C7+C15*2-1-1 = mesma do modelo 02
+          largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
+          // Formula F11: C18+C15*2-1 (espessuraParede + 2*REF - 1) — atencao:
+          // no modelo 02 a planilha usa $C$18 que e' espessuraParede; aqui
+          // tambem. Mantem consistencia.
+          largura: ctx => ctx.espessuraParede + 2 * ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          // Formula F12: 100+C21 = mesma do modelo 02
+          largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          // Formula N7 igual F7
+          largura: ctx => ctx.tamCava + 50 + 48 + 34 + 48 + 48 + 34 + 48 + 50,
+          comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        // SEM TAMPA DA CAVA (l_da_cava) no modelo 22
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          // Formula N9: (((E2-C7*2-C8*2-34*4)))/2 + 10 + C15+C15 - 1 - C20*C22 - C21*C22
+          // = base22 + 10 + 2*REF - 1 - (dBFV+eF)*qtdFrisos
+          // Onde base22 = (larguraQuadro2F - dBC*2 - tamCava*2 - 34*4) / 2
+          largura: ctx => {
+            const base22 = (ctx.larguraQuadro2F - ctx.dBC * 2 - ctx.tamCava * 2 - 34 * 4) / 2;
+            return base22 + 10 + 2 * ctx.REF - 1
+                   - ctx.dBFV * ctx.qtdFrisos - ctx.eF * ctx.qtdFrisos;
+          },
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          // Formula N10: base22 - 28 + C15+C15 - 1 - C20*C22 - C21*C22
+          largura: ctx => {
+            const base22 = (ctx.larguraQuadro2F - ctx.dBC * 2 - ctx.tamCava * 2 - 34 * 4) / 2;
+            return base22 - 28 + 2 * ctx.REF - 1
+                   - ctx.dBFV * ctx.qtdFrisos - ctx.eF * ctx.qtdFrisos;
+          },
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          // Formula N11: base22 - 28 - 38 + C15+C15 - 1 - C20*C22 - C21*C22
+          largura: ctx => {
+            const base22 = (ctx.larguraQuadro2F - ctx.dBC * 2 - ctx.tamCava * 2 - 34 * 4) / 2;
+            return base22 - 28 - 38 + 2 * ctx.REF - 1
+                   - ctx.dBFV * ctx.qtdFrisos - ctx.eF * ctx.qtdFrisos;
+          },
+          comp: ctx => ctx.alturaQuadro,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'tampa_menor', label: 'Tampa Menor',
+          // Formula N12: C7+C15*2-1-1 = igual TAMPA_BORDA_CAVA do 1F
+          largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
+          // Formula N13: C18+C15*2-1, qty = C22*2
+          largura: ctx => ctx.espessuraParede + 2 * ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          // Formula N14: 100+C21, qty = C22*2
+          largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          categoria: 'porta' },
+      ],
+    },
+
+    // ===================================================================
+    // MODELO 23 — ACM (Felipe sessao 29: "Coloquei modelo 23, mas
+    // somente com revestimento ACM e Configuracao da moldura PADRAO,
+    // as outras irei te falar como fazer").
+    //
+    // Estrutura IGUAL ao Modelo 11 (peças). Layout planilha 2F: M-N-O-P
+    // (cols 13-14-15-16). Fórmulas batem com Modelo 11.
+    //
+    // Diferencas vs Modelo 11 (apos comparacao planilha):
+    //   - 1F TBFV: planilha tem "C20+(C15*2)-1" = dBFV+2*REF-1 (igual mod 11 NOVO)
+    //   - 2F TBFV: planilha tem "C20+(C15*2)-1" = dBFV+2*REF-1, qty=C22*2
+    //     (mod 11 planilha tem qty=4 fixo, mod 23 planilha tem qty=C22*2 — MAIS GENERICO)
+    //   - 1F TM_CAVA: igual mod 11
+    //   - 2F TM01-03: iguais mod 11 (com -1 dentro, sem -1 final)
+    //
+    // Quando outras configurações (revestimento ≠ ACM, moldura ≠ PADRAO)
+    // forem definidas, Felipe vai mandar especificacoes e adicionamos
+    // variantes (talvez chave 23.1, 23.2 ou modificadores no item).
+    // ===================================================================
+    23: {
+      '1F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+        { id: 'l_da_cava', label: 'L da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          // Planilha mod 23: (E3-C7-C8-1-C20*C22-C21*C22)+C15+C15
+          largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + 2*ctx.REF,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
+          // Planilha mod 23: C20+(C15*2)-1 = dBFV+2*REF-1
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'cava', label: 'Cava',
+          largura: F.cava_largura, comp: F.cava_comp,
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          // Planilha mod 23: (E2-C7*2-C8*2)/2+10.5+C15+C15-1-C20*C22-C21*C22
+          largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          // Planilha mod 23: (E2-1-C7*2-C8*2)/2+C15+C15-28-C20*C22-C21*C22
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          // Planilha mod 23: (E2-1-C7*2-C8*2)/2+C15+C15-28-38-C20*C22-C21*C22
+          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
+          // Planilha mod 23: C20+(C15*2)-1, qty=C22*2
+          largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          categoria: 'porta' },
+      ],
+    },
+  };
+
+  // ------------------------------------------------------------------
+  // GERADOR PRINCIPAL
+  // ------------------------------------------------------------------
+  function gerarPecasChapa(item, lado) {
+    if (!item || item.tipo !== 'porta_externa') return [];
+    if (lado !== 'externo' && lado !== 'interno') {
+      throw new Error('gerarPecasChapa: lado deve ser "externo" ou "interno"');
+    }
+    const quadro = calcularQuadro(item);
+    if (!quadro) return [];
+    if (quadro.nFolhas !== 1 && quadro.nFolhas !== 2) return [];
+
+    const ctx = construirContexto(item, lado, quadro);
+
+    const modeloDoLado = (lado === 'externo')
+      ? Number(item.modeloExterno || item.modeloNumero) || 0
+      : Number(item.modeloInterno || item.modeloNumero) || 0;
+
+    const tabelaModelo = TABELA[modeloDoLado];
+    if (!tabelaModelo) return [];
+
+    const variant = quadro.nFolhas === 2 ? '2F' : '1F';
+    const pecasModelo = tabelaModelo[variant] || [];
+    if (pecasModelo.length === 0) return [];
+
+    const universais = pecasUniversais(variant);
+    const todasPecas = [...pecasModelo, ...universais];
+
+    return materializar(todasPecas, ctx, modeloDoLado);
+  }
+
+  function materializar(pecasDef, ctx, modelo) {
+    const out = [];
+    const qtdItem = Math.max(1, parseInt(ctx.item?.quantidade, 10) || 1);
+    const corDoLado = (ctx.lado === 'externo') ? ctx.corExt : ctx.corInt;
+
+    for (const def of pecasDef) {
+      const qtyExt = (typeof def.ext === 'function') ? def.ext(ctx) : (def.ext || 0);
+      const qtyInt = (typeof def.int === 'function') ? def.int(ctx) : (def.int || 0);
+      const qtyFace = (ctx.lado === 'externo') ? qtyExt : qtyInt;
+      if (qtyFace <= 0) continue;
+
+      const larg = (typeof def.largura === 'function') ? def.largura(ctx) : def.largura;
+      const comp = (typeof def.comp === 'function') ? def.comp(ctx) : def.comp;
+      if (!larg || larg <= 0 || !comp || comp <= 0) continue;
+
+      const corResolvida = (def.ehDaCava && ctx.corCava) ? ctx.corCava : corDoLado;
+
+      out.push({
+        id: def.id,
+        label: def.label,
+        labelCompleto: `${def.label} — ${ctx.lado === 'externo' ? 'Externo' : 'Interno'}${corResolvida ? ` (${corResolvida})` : ''}`,
+        largura: Math.round(larg * 100) / 100,
+        altura:  Math.round(comp * 100) / 100,
+        qtd:     Math.round(qtyFace) * qtdItem,
+        podeRotacionar: false,
+        cor:     corResolvida,
+        lado:    ctx.lado,
+        ehDaCava: !!def.ehDaCava,
+        categoria: def.categoria || 'porta',
+        modelo,
+        observacao: def.observacao || '',
+      });
+    }
+    return out;
+  }
+
+  function descreverQuadro(item) {
+    const q = calcularQuadro(item);
+    if (!q) return 'Sem medidas';
+    const fam = q.familia === '76' ? 'PA-006F' : 'PA-007F';
+    return `${q.larguraQuadro}×${q.alturaQuadro} mm (família ${fam}, ${q.nFolhas} folha${q.nFolhas > 1 ? 's' : ''})`;
+  }
+
+  return {
+    calcularQuadro,
+    gerarPecasChapa,
+    obterFamilia,
+    descreverQuadro,
+    getVarsFam,
+    getVarsChapas,
+    VARS_FAM_DEFAULT,
+    VARS_CHAPAS_DEFAULT,
+    _TABELA: TABELA,
+    _F: F,
+    _construirContexto: construirContexto,
+  };
+})();
+
+if (typeof window !== 'undefined') {
+  window.ChapasPortaExterna = ChapasPortaExterna;
+}

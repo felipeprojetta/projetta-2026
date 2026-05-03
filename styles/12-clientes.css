@@ -1,0 +1,256 @@
+/* 12-clientes.css — modulo Clientes (.cli-) */
+
+/* ============================================================
+   MODULO: CLIENTES — prefixo .cli-
+   Lista derivada agregando os leads do CRM por cliente.
+   ============================================================ */
+.cli-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cli-toolbar-left { display: flex; align-items: center; gap: 18px; }
+.cli-count { font-size: 13px; color: var(--text-soft); }
+.cli-count strong { color: var(--azul-escuro); font-weight: 500; }
+
+.cli-search {
+  position: relative;
+}
+.cli-search input {
+  padding: 8px 12px 8px 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  width: 280px;
+  background: var(--branco);
+  color: var(--azul-escuro);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.cli-search input:focus {
+  outline: none;
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 2px rgba(196, 112, 18, 0.1);
+}
+.cli-search::before {
+  content: '🔍';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.cli-table-wrap {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  /* R06: trava na soma das min-widths das colunas, sem esticar */
+  width: min-content;
+  max-width: 100%;
+}
+.cli-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: auto;
+}
+.cli-table thead th {
+  background: var(--bg-soft);
+  padding: 10px 14px;
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: none;
+  color: var(--text-soft);
+  font-weight: 500;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.cli-table thead th.num { text-align: right; }
+.cli-table tbody td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.cli-table tbody td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cli-table tbody tr:nth-child(odd)  td { background: var(--branco); }
+.cli-table tbody tr:nth-child(even) td { background: #E4E8EE; }
+.cli-table tbody tr:hover td { background: #D6DBE3; cursor: pointer; }
+.cli-table tbody tr:last-child td { border-bottom: none; }
+
+.cli-nome {
+  font-weight: 500;
+  color: var(--azul-escuro);
+}
+.cli-localidade {
+  color: var(--text-soft);
+  font-size: 11px;
+}
+.cli-badge {
+  /* R11: sem fundo colorido — apenas o numero, alinhado tabularmente */
+  display: inline;
+  padding: 0;
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+}
+.cli-badge-aberto  { color: var(--azul-escuro); }
+.cli-badge-fechado { color: var(--azul-escuro); }
+.cli-badge-zero    { color: var(--text-muted); }
+
+.cli-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.cli-empty .icon-big {
+  font-size: 36px;
+  margin-bottom: 10px;
+  opacity: 0.4;
+}
+
+/* Drawer/Modal de detalhe do cliente */
+.cli-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 49, 68, 0.55);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 9999;
+}
+.cli-drawer {
+  background: var(--branco);
+  width: 540px;
+  max-width: 95vw;
+  height: 100vh;
+  overflow-y: auto;
+  box-shadow: -8px 0 24px rgba(0, 49, 68, 0.2);
+  animation: cli-slide 0.18s ease-out;
+}
+@keyframes cli-slide {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.cli-drawer-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cli-drawer-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: var(--azul-escuro);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.cli-drawer-sub {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+.cli-drawer-close {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: var(--text-soft);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.cli-drawer-close:hover { background: var(--bg-soft); color: var(--azul-escuro); }
+.cli-drawer-section {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.cli-drawer-section h4 {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: none;
+  color: var(--text-soft);
+  font-weight: 500;
+  margin: 0 0 10px;
+}
+.cli-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 18px;
+}
+.cli-info-item label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.cli-info-item span {
+  font-size: 13px;
+  color: var(--azul-escuro);
+  font-weight: 500;
+}
+.cli-deals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cli-deal-item {
+  padding: 10px 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.cli-deal-info { flex: 1; min-width: 0; }
+.cli-deal-titulo {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--azul-escuro);
+  margin-bottom: 3px;
+}
+.cli-deal-meta {
+  font-size: 11px;
+  color: var(--text-soft);
+  display: flex;
+  gap: 10px;
+}
+.cli-deal-valor {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--azul-escuro);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Toolbar Clientes - linha unica com gap consistente */
+.cli-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cli-toolbar-right .cli-search {
+  margin-right: 4px;
+}

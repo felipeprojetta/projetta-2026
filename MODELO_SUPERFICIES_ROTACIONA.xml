@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projetta-superficies versao="1">
+  <!-- ====================================================== -->
+  <!-- MODELO PADRAO — Overrides de Rotaciona Sim/Nao         -->
+  <!-- ====================================================== -->
+  <!-- COMO USAR:                                                          -->
+  <!-- 1) Na aba "Lev. Superficies", clique em "Exportar Modelo XML"        -->
+  <!--    pra baixar este arquivo ja preenchido com as pecas do orcamento.  -->
+  <!-- 2) Abra no editor de texto (Bloco de Notas, VS Code, etc.).          -->
+  <!-- 3) Edite a tag <rotaciona> de cada peca: pode ser "Sim" ou "Nao".    -->
+  <!-- 4) Salve o arquivo (mantenha a extensao .xml).                       -->
+  <!-- 5) Volte na aba "Lev. Superficies", clique em "Importar XML" e       -->
+  <!--    selecione o arquivo editado. Os Sim/Nao serao aplicados nas       -->
+  <!--    pecas correspondentes (busca por label + largura + altura).       -->
+  <!-- 6) Clique em "Recalcular" pra atualizar peso e aproveitamento.       -->
+  <!--                                                                      -->
+  <!-- REGRA DE BUSCA:                                                      -->
+  <!-- A peca e' identificada pela combinacao label + largura + altura.     -->
+  <!-- Lado externo/interno NAO importa — a flag de rotacionar e' fisica    -->
+  <!-- (depende do veio da chapa, e e' a mesma se a peca e' usada nos 2     -->
+  <!-- lados em cores iguais).                                              -->
+  <!--                                                                      -->
+  <!-- VALORES ACEITOS PARA <rotaciona>:                                    -->
+  <!--   Sim  -> a peca pode girar 90 graus pra encaixar na chapa            -->
+  <!--   Nao  -> a peca nao pode girar (cor com veio, p.ex.)                 -->
+  <!--   Não  -> aceito tambem (com acento)                                  -->
+  <!-- Outros valores (vazio, "Talvez", etc) sao IGNORADOS.                 -->
+  <!-- ====================================================== -->
+
+  <!-- Exemplo: 1 item porta_externa com 4 pecas. -->
+  <item indice="1" tipo="porta_externa" descricao="1300x5000mm">
+
+    <peca>
+      <label>Tampa</label>
+      <largura>1280</largura>
+      <altura>2400</altura>
+      <rotaciona>Nao</rotaciona>
+    </peca>
+
+    <peca>
+      <label>Tampa Borda Cava</label>
+      <largura>1280</largura>
+      <altura>200</altura>
+      <rotaciona>Nao</rotaciona>
+    </peca>
+
+    <peca>
+      <label>Cava</label>
+      <largura>1280</largura>
+      <altura>4990</altura>
+      <rotaciona>Sim</rotaciona>
+    </peca>
+
+    <peca>
+      <label>U Portal</label>
+      <largura>1500</largura>
+      <altura>5200</altura>
+      <rotaciona>Sim</rotaciona>
+    </peca>
+
+  </item>
+
+  <!-- Pode ter varios <item> em sequencia, um por porta no orcamento. -->
+  <!-- Exemplo de segundo item: -->
+  <!--
+  <item indice="2" tipo="revestimento_parede">
+    <peca>
+      <label>Painel</label>
+      <largura>2000</largura>
+      <altura>2700</altura>
+      <rotaciona>Sim</rotaciona>
+    </peca>
+  </item>
+  -->
+
+</projetta-superficies>

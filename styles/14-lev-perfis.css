@@ -1,0 +1,733 @@
+/* === Aba Lev. Perfis === */
+.lvp-wrap {
+  background: var(--branco);
+  padding: 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+/* Cabecalho azul (header da OS) */
+.lvp-header {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  padding: 18px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.lvp-header-empresa { font-size: 16px; letter-spacing: 0.05em; }
+.lvp-header-sub     { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+.lvp-header-os      { text-align: right; }
+.lvp-os-num         { font-size: 13px; letter-spacing: 0.04em; }
+.lvp-os-data        { font-size: 11px; opacity: 0.85; margin-top: 4px; }
+
+/* Faixa de metadados (cliente, vao, sistema, folhas, modelo) */
+.lvp-meta {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--cinza-mais-claro);
+}
+.lvp-meta-cell { display: flex; flex-direction: column; gap: 4px; }
+.lvp-meta-lbl  { font-size: 11px; color: var(--text-muted); letter-spacing: 0.05em; }
+.lvp-meta-val  { font-size: 13px; color: var(--text-default); }
+
+/* Tabela principal de cortes */
+.lvp-table {
+  /* R06 — Felipe (sessao 2026-05): sem width 100% E sem min-width 100%.
+     Antes tinha min-width: 100% que forcava a tabela a esticar ate o
+     container, distribuindo espaco extra entre as colunas e criando
+     espacos vazios DENTRO de cada celula (ex.: coluna "Pos." com
+     numero 1 colado a esquerda e 80px de espaco vazio a direita).
+     Agora a tabela ocupa exatamente o tamanho do conteudo (width:
+     max-content) — colunas ficam compactas, alinhadas e sem gaps. */
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 0;
+  width: max-content;
+}
+/* Felipe (sessao 2026-06): inputs de FILTRO no thead — sem essa regra,
+   cada input tem o default do Chrome (~185px) e como tem 10 colunas a
+   tabela fica com 1850px+. Agora cada input ocupa 100% da coluna mas
+   com min-width 0, deixando a coluna definir a largura pelo conteudo
+   (texto da coluna ou cabecalho). */
+.lvp-table thead input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 2px 4px;
+  font-size: 11px;
+  border: 1px solid var(--cinza-claro);
+  border-radius: 2px;
+  background: var(--branco);
+}
+.lvp-table thead input[type="text"]:focus {
+  outline: 1px solid var(--laranja);
+  outline-offset: 0;
+}
+.lvp-table thead th {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  /* Felipe (sessao 2026-05/06): padding reduzido — antes 10px/12px,
+     depois 6px/8px, agora 5px/6px pra colunas mais compactas. */
+  padding: 5px 6px;
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  border: none;
+  white-space: nowrap;
+}
+.lvp-table thead th.num { text-align: right; }
+.lvp-table tbody td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.lvp-table tbody td.num { text-align: right; }
+/* Felipe (sessao 2026-06 — REVERTIDO): o fundo laranja claro nas
+   linhas estava errado — Felipe queria nos BOTOES/ICONES das abas
+   "Cortes por Item" / "Planificador de Barras" (Imagem 2), nao nas
+   tabelas. Voltei pro zebra cinza canonico (#E4E8EE). O laranja
+   foi para as abas — ver styles/13-orcamento.css (.tabs/.aba). */
+.lvp-table tbody tr:nth-child(even) td { background: #E4E8EE; }
+
+.lvp-grupo td {
+  background: var(--azul-escuro) !important;
+  color: var(--branco);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  padding: 6px 12px !important;
+}
+.lvp-subtotal td {
+  background: var(--cinza-mais-claro) !important;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+/* Felipe: linha do total geral somando Folha + Portal + Fixo.
+   Destaque em laranja claro pra distinguir dos subtotais por grupo. */
+.lvp-total-grupos td {
+  background: #FFF4E6 !important;
+  color: var(--laranja);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 8px 12px !important;
+  border-top: 1px solid var(--laranja);
+}
+.lvp-pos { color: var(--text-muted); }
+.lvp-cod { color: var(--azul-escuro); font-size: 13px; }
+.lvp-obs.lvp-bnf   { color: #b04340; font-size: 11px; letter-spacing: 0.04em; }
+.lvp-obs.lvp-bruto { color: var(--text-muted); font-size: 11px; }
+
+/* Legenda */
+.lvp-legenda {
+  margin: 16px 24px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.lvp-star { color: var(--laranja); }
+
+/* Cards de aproveitamento */
+.lvp-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  padding: 8px 24px 16px;
+}
+.lvp-card {
+  background: var(--cinza-mais-claro);
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.lvp-card-destaque { border-color: var(--laranja); background: #fff8ef; }
+.lvp-card-lbl  { font-size: 11px; color: var(--text-muted); letter-spacing: 0.04em; }
+.lvp-card-val  { font-size: 24px; color: var(--azul-escuro); margin: 6px 0; }
+.lvp-card-aprov{ color: var(--laranja); }
+.lvp-card-perda{ color: var(--text-muted); }
+.lvp-card-sub  { font-size: 11px; color: var(--text-muted); }
+
+/* Tabela "Relacao de Barras" — tabela do Planificador de Barras */
+.lvp-rel-barras {
+  /* Felipe (sessao 2026-07): "ja pedi 4 mil vezes pra as colunas
+     ficarem sem utilizar a coluna inteira". Mesmo fix que ja' tinha
+     na .lvp-table — antes era width:100% que esticava as colunas
+     pra ocupar 100% da largura disponivel (deixando espaco vazio
+     gigante dentro de cada celula). Agora width:max-content faz a
+     tabela ocupar so' o tamanho do conteudo. */
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 16px 0 0;
+  width: max-content;
+  max-width: 100%;
+}
+.lvp-rel-titulo {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  text-align: left;
+  padding: 10px 24px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.lvp-rel-barras thead tr:nth-child(2) th {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  /* Felipe (sessao 2026-05/07): padding 5px/6px — colunas compactas. */
+  padding: 5px 6px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.lvp-rel-barras thead th.num { text-align: right; }
+.lvp-rel-barras tbody td { padding: 4px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.lvp-rel-barras tbody td.num { text-align: right; }
+/* R02 universal: zebra striping nas linhas pares com #E4E8EE */
+.lvp-rel-barras tbody tr:nth-child(odd)  td { background: var(--branco); }
+.lvp-rel-barras tbody tr:nth-child(even) td { background: #E4E8EE; }
+.lvp-rb-grupo td {
+  background: #f4f5f7 !important;  /* sobrepoe zebra: grupos sempre cinza claro distinto */
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-default);
+}
+.lvp-rb-subtotal td {
+  background: var(--cinza-mais-claro) !important;  /* sobrepoe zebra */
+  font-size: 11px;
+}
+.lvp-rb-total td {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+.lvp-rb-obs { color: var(--text-muted); font-size: 11px; }
+
+/* Botoes de acao */
+.lvp-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  background: var(--cinza-mais-claro);
+}
+
+/* Modal "Padroes de Cortes" — REDESIGN tons claros + bordas
+   (R03 paleta Projetta, R11 sem fundos coloridos solidos atras
+   de texto, R19 sem font-weight pesado). */
+.lvp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 49, 68, 0.35);   /* azul-escuro com transparencia, em vez de preto opaco */
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+  overflow-y: auto;
+}
+.lvp-modal {
+  background: var(--branco);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 1280px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 32px rgba(0, 49, 68, 0.12);
+}
+.lvp-modal-head {
+  background: var(--branco);              /* R11: header branco */
+  color: var(--azul-escuro);
+  padding: 18px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--laranja);  /* destaque por borda, nao por fundo */
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.lvp-modal-titulo {
+  font-size: 16px;
+  color: var(--azul-escuro);
+  font-weight: 500;
+}
+.lvp-modal-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+.lvp-modal-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.lvp-modal-pdf-btn {
+  background: var(--laranja);
+  color: var(--branco);
+  border: 1px solid var(--laranja);
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-body);
+  transition: background 0.15s;
+}
+.lvp-modal-pdf-btn:hover { background: #a85e0e; border-color: #a85e0e; }
+.lvp-modal-pdf-btn:disabled { opacity: 0.6; cursor: wait; }
+.lvp-modal-close-btn {
+  background: var(--branco);
+  color: var(--text-soft);
+  border: 1px solid var(--line);
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-body);
+  transition: border-color 0.15s, color 0.15s;
+}
+.lvp-modal-close-btn:hover { border-color: var(--azul-escuro); color: var(--azul-escuro); }
+.lvp-modal-body { padding: 24px; overflow-y: auto; }
+
+/* Bloco por codigo — REDESIGN tons claros.
+   R11: header com fundo laranja MUITO claro (#FFF4E6) e texto
+   laranja escuro — diferenca visual sem fundo solido pesado. */
+.lvp-pad-bloco {
+  margin-bottom: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--branco);
+}
+
+/* Cabecalho do bloco — laranja CLARO + borda + texto laranja escuro */
+.lvp-pad-head {
+  background: #FFF4E6;                       /* laranja claro suave */
+  color: var(--laranja);
+  padding: 14px 18px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid #FFD9A8;          /* tom intermediario */
+}
+.lvp-pad-head-left  { display: flex; align-items: center; gap: 12px; }
+.lvp-pad-head-mid   { display: flex; justify-content: center; }
+.lvp-pad-head-right {
+  text-align: right;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--text-soft);
+}
+.lvp-pad-head-right b {
+  color: var(--azul-escuro);
+  font-weight: 600;
+}
+
+/* Codigo: pill com BORDA laranja e fundo branco (R11) */
+.lvp-cod-pill {
+  background: var(--branco);
+  color: var(--laranja);
+  border: 1px solid var(--laranja);
+  padding: 5px 12px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+/* "4 barras × 8m": pill com borda em tom intermediario */
+.lvp-pad-bars-pill {
+  background: var(--branco);
+  color: var(--azul-escuro);
+  border: 1px solid var(--line);
+  padding: 5px 14px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-family: var(--font-body);
+}
+
+/* Tabela de cortes do perfil — fundo bem claro, sem destaques */
+.lvp-pad-tabela-cortes {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--branco);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+.lvp-pad-tabela-cortes thead th {
+  background: var(--branco);
+  color: var(--text-muted);
+  text-align: left;
+  /* Felipe (sessao 2026-05): padding reduzido pra padronizar com
+     outras tabelas — antes 10px/14px, agora 6px/8px (~5mm gap). */
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+.lvp-pad-tabela-cortes thead th.num { text-align: center; }
+.lvp-pad-tabela-cortes tbody td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-default);
+}
+.lvp-pad-tabela-cortes tbody td.num { text-align: center; }
+.lvp-pad-tabela-cortes tbody tr:nth-child(even) td { background: #F4F6F9; }   /* R02 mais claro que #E4E8EE */
+.lvp-pad-tabela-cortes tbody tr:nth-child(odd)  td { background: var(--branco); }
+.lvp-pad-qtde-total {
+  padding: 8px 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--branco);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Barra visual (bin) — REDESIGN tons claros */
+.lvp-bin {
+  background: var(--branco);                 /* fundo branco em vez de cinza */
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.lvp-bin:last-child { border-bottom: none; }
+.lvp-bin-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: var(--text-default);
+}
+.lvp-bin-aprov-text { font-weight: 500; }
+.lvp-bin-aprov-text.is-good { color: #2E7D5B; }
+.lvp-bin-aprov-text.is-mid  { color: var(--laranja); }
+.lvp-bin-aprov-text.is-low  { color: #b04340; }
+.lvp-bin-cortes-list {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  letter-spacing: 0.03em;
+}
+
+/* Barra/segmentos: tons azul COM TRANSPARENCIA e borda fina pra leveza */
+.lvp-bin-cortes {
+  display: flex;
+  background: #F4F6F9;
+  border: 1px solid var(--line);
+  height: 30px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.lvp-cut-segment {
+  background: rgba(0, 49, 68, 0.85);         /* azul escuro com leve transparencia */
+  color: var(--branco);
+  border-right: 1px solid var(--branco);
+  text-align: center;
+  font-size: 11px;
+  line-height: 30px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--font-body);
+}
+/* Tons alternados — variacao mais suave entre segmentos vizinhos */
+.lvp-cut-segment.is-tone-a { background: rgba(0, 49, 68, 0.9); }    /* azul escuro Projetta */
+.lvp-cut-segment.is-tone-b { background: rgba(27, 74, 96, 0.85); }  /* azul intermediario */
+.lvp-cut-sobra {
+  background: #F4F6F9;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 11px;
+  line-height: 30px;
+  font-family: var(--font-body);
+  border-left: 1px dashed var(--line);
+}
+.lvp-bin-sobra-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  margin-top: 6px;
+  color: var(--text-muted);
+}
+.lvp-bin-sobra-text { color: var(--laranja); font-weight: 500; }
+
+/* === Lev. Perfis: blocos por item === */
+.lvp-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--cinza-mais-claro);
+}
+.lvp-summary-cell { display: flex; flex-direction: column; gap: 4px; }
+.lvp-summary-info { grid-column: span 1; }
+.lvp-summary-lbl  { font-size: 11px; color: var(--text-muted); letter-spacing: 0.05em; }
+.lvp-summary-val  { font-size: 24px; color: var(--azul-escuro); }
+.lvp-summary-val-small { font-size: 13px; color: var(--azul-escuro); }
+
+.lvp-item-bloco {
+  border-top: 1px solid var(--line);
+  overflow-x: auto;  /* R06: permite scroll horizontal quando colunas excedem a largura */
+}
+.lvp-item-bloco:first-of-type { border-top: none; }
+
+.lvp-item-titulo {
+  background: var(--cinza-mais-claro);
+  padding: 12px 24px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+}
+.lvp-item-num {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+.lvp-item-desc {
+  font-size: 13px;
+  color: var(--text-default);
+}
+.lvp-item-vazio {
+  padding: 16px 24px;
+  font-size: 13px;
+  color: var(--laranja);
+  background: #fff8ef;
+}
+
+/* === Sub-abas dentro de Lev. Perfis === */
+.lvp-subtabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  padding: 0;
+  margin-bottom: 12px;
+}
+.lvp-subtab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+.lvp-subtab:hover { color: var(--text-default); background: #fffaf5; }
+/* Felipe (sessao 2026-06): "pedi o botao laranja nos icones da
+   imagem 2" — aba ativa fica com fundo laranja claro esfumaçado
+   (#fff5ed) + borda inferior laranja, destacando os ícones
+   "📋 Cortes por Item" e "🧩 Planificador de Barras". */
+.lvp-subtab.is-active {
+  color: var(--azul-escuro);
+  background: #fff5ed;
+  border-bottom-color: var(--laranja);
+  font-weight: 600;
+}
+.lvp-subtabs-spacer { flex: 1; }
+.lvp-subtabs .univ-btn-export { padding: 6px 14px; font-size: 13px; }
+
+/* ==========================================================
+   R13 — Botao "X" overlay para excluir linha (aparece no hover)
+   + barra "+ Adicionar Linha" abaixo da tabela
+   + tag "manual" indicando linha extra manual
+   Cores SOMENTE da paleta Projetta (R03/R11). Sem fundos coloridos.
+   ========================================================== */
+.lvp-table tbody tr {
+  position: relative;
+}
+.lvp-table tbody td.lvp-obs {
+  position: relative;
+  padding-right: 38px;  /* espaco pro botao X overlay */
+}
+.lvp-row-delete {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--branco);
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s, border-color 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  padding: 0;
+}
+.lvp-table tbody tr:hover .lvp-row-delete {
+  opacity: 1;
+}
+.lvp-row-delete:hover {
+  color: #b04340;
+  border-color: #b04340;
+}
+.lvp-row-delete:focus {
+  opacity: 1;
+  outline: 2px solid var(--laranja);
+  outline-offset: 2px;
+}
+
+/* Tag pequena indicando linha manual (sem fundo colorido — R11) */
+.lvp-manual-tag {
+  font-size: 10px;
+  color: var(--laranja);
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* Felipe (sessao 2026-06): badge "edit" — aparece quando o usuario
+   editou Tamanho/Qtd inline. Indica que o valor foi sobrescrito do
+   calculado. Botao Recalcular descarta. */
+.lvp-override-tag {
+  font-size: 10px;
+  color: #c43d3d;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  font-weight: 600;
+  margin-left: 6px;
+  border: 1px solid #c43d3d;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+/* Felipe (sessao 2026-06): inputs Tamanho/Qtd editaveis inline na
+   tabela. Pequenos pra nao alargar a tabela (R06). Sem borda no
+   estado normal pra parecer um td comum; borda discreta no hover/focus. */
+.lvp-edit {
+  width: 64px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: right;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  padding: 2px 4px;
+  border-radius: 3px;
+  box-sizing: border-box;
+  /* Esconde spinner do Chrome — fica feio em tabela */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.lvp-edit::-webkit-inner-spin-button,
+.lvp-edit::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.lvp-edit:hover {
+  border-color: var(--line);
+  background: var(--cinza-mais-claro);
+}
+.lvp-edit:focus {
+  outline: none;
+  border-color: var(--laranja);
+  background: var(--branco);
+}
+.lvp-edit.is-override {
+  background: #fff5f5;
+  border-color: #f8c8c8;
+  font-weight: 600;
+}
+
+/* Barra de "+ Adicionar Linha" abaixo da tabela */
+.lvp-add-bar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 24px;
+  background: var(--branco);
+  border-top: 1px solid var(--line);
+}
+.lvp-btn-add {
+  background: var(--branco);
+  color: var(--azul-escuro);
+  padding: 6px 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.12s, color 0.12s;
+}
+.lvp-btn-add:hover {
+  border-color: var(--azul-escuro);
+  border-style: solid;
+}
+.lvp-btn-add:focus {
+  outline: 2px solid var(--laranja);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Felipe (sessao 2026-05): aviso quando motor pede perfis que
+   NAO estao no cadastro. Antes era silenciado (zeros nas tabelas).
+   ============================================================ */
+.orc-banner-aviso {
+  display: flex;
+  gap: 14px;
+  padding: 12px 16px;
+  margin: 12px 0;
+  background: #fffaf3;
+  border: 1px solid #f0c97a;
+  border-left: 4px solid var(--laranja);
+  border-radius: 6px;
+}
+.orc-banner-aviso-erro {
+  background: #fbe9e9;
+  border: 1px solid #e57373;
+  border-left: 4px solid #b03030;
+}
+.orc-banner-aviso-icon {
+  font-size: 22px;
+  color: #b03030;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.orc-banner-aviso-titulo {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--azul-escuro, #003144);
+  margin-bottom: 4px;
+}
+.orc-banner-aviso-detalhe {
+  font-size: 12.5px;
+  color: var(--cinza-escuro, #4a5160);
+  line-height: 1.5;
+}
+.orc-banner-aviso-lista {
+  margin: 6px 0 0 0;
+  padding-left: 20px;
+  columns: 2;
+  column-gap: 24px;
+}
+.orc-banner-aviso-lista li {
+  margin: 2px 0;
+}
+.orc-banner-aviso-lista code {
+  background: rgba(176, 48, 48, 0.08);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 11.5px;
+  color: var(--azul-escuro, #003144);
+}

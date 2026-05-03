@@ -1,0 +1,273 @@
+/* 20-perfis.css — modulo Cadastros > Perfis (.cad-) */
+
+/* ============================================================
+   MODULO: CADASTROS — Perfis
+   Todos os estilos com prefixo .cad- para evitar colisao
+   ============================================================ */
+.cad-section-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: none;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+.cad-params {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+.cad-params-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 28px;
+}
+.cad-param {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.cad-param-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: none;
+  color: var(--text-soft);
+  font-weight: 500;
+}
+.cad-param-inputs {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.cad-param-inputs input {
+  width: 80px;
+  padding: 7px 10px;
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--azul-escuro);
+  font-size: 13px;
+  font-weight: 500;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cad-param-inputs input.input-pct { width: 56px; }
+.cad-input {
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--azul-escuro);
+  font-size: 13px;
+  font-weight: 500;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.cad-param-inputs input:focus,
+.cad-input:focus {
+  outline: none;
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 2px rgba(196, 112, 18, 0.10);
+}
+.cad-param-suffix {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cad-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cad-toolbar-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.cad-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.cad-count strong { color: var(--azul-escuro); font-weight: 500; }
+.cad-toolbar-right {
+  display: flex;
+  gap: 8px;
+}
+.btn-sm {
+  padding: 7px 12px;
+  font-size: 11px;
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+/* TABELA */
+.cad-table-wrap {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  /* R06: width:min-content trava a tabela na soma exata dos
+     min-width definidos em cada <th>, sem esticar em telas
+     amplas. Texto longo em input fica scrolavel internamente
+     (R04: nao some, fica acessivel via foco/scroll). */
+  width: min-content;
+  max-width: 100%;
+}
+.cad-table {
+  width: auto;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: auto;
+}
+.cad-table thead th {
+  background: var(--bg-soft);
+  /* Felipe (sessao 2026-05): padding reduzido pra ~5mm visual.
+     Era 9px/14px, agora 6px/8px. Padroniza com Lev. Perfis e
+     todas as tabelas largas do sistema. */
+  padding: 6px 8px;
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: none;
+  color: var(--text-soft);
+  font-weight: 500;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.cad-table thead th.num { text-align: right; }
+.cad-table tbody td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+.cad-table tbody tr:last-child td { border-bottom: none; }
+/* Zebra striping — cinza claro do brand. Linhas pares ficam
+   com fundo cinza claro perceptivel para facilitar leitura.
+   Cor mantem hierarquia Projetta (azul/laranja sao acento, nao fundo). */
+.cad-table tbody tr:nth-child(odd)  td { background: var(--branco); }
+.cad-table tbody tr:nth-child(even) td { background: #E4E8EE; }
+.cad-table tbody tr:hover td { background: #D6DBE3; }
+.cad-table input,
+.cad-table select {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--azul-escuro);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  text-overflow: clip;
+}
+.cad-table input:hover,
+.cad-table select:hover {
+  border-color: var(--line);
+  background: var(--branco);
+}
+.cad-table input:focus,
+.cad-table select:focus {
+  outline: none;
+  border-color: var(--laranja);
+  background: var(--branco);
+  box-shadow: 0 0 0 2px rgba(196, 112, 18, 0.08);
+}
+.cad-table .num input { text-align: right; font-variant-numeric: tabular-nums; }
+/* Em linhas zebradas, input/select usam fundo transparente
+   para que a cor da linha apareca por baixo. */
+.cad-table tbody tr td input:not(:hover):not(:focus),
+.cad-table tbody tr td select:not(:hover):not(:focus) {
+  background: transparent;
+}
+.cad-table .calc {
+  text-align: right;
+  padding: 6px 12px;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.cad-table .calc strong { color: var(--azul-escuro); font-weight: 500; }
+.cad-table .actions {
+  width: 40px;
+  text-align: center;
+}
+.cad-table .row-delete {
+  color: var(--text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  transition: background 0.12s, color 0.12s;
+  font-size: 13px;
+  line-height: 1;
+}
+.cad-table .row-delete:hover {
+  background: rgba(192, 57, 43, 0.08);
+  color: var(--danger);
+}
+
+.cad-empty {
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.cad-empty strong { color: var(--azul-escuro); }
+
+/* FORM ADICIONAR */
+.cad-add-form {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-top: 14px;
+}
+.cad-add-form h4 {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: none;
+  color: var(--azul-escuro);
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.cad-add-grid {
+  display: grid;
+  grid-template-columns: 110px 1fr 90px 140px 90px 110px auto;
+  gap: 10px;
+  align-items: end;
+}
+.cad-add-grid .cad-param-label { margin-bottom: 4px; }
+@media (max-width: 880px) {
+  .cad-add-grid { grid-template-columns: 1fr 1fr; }
+  .cad-add-grid > button { grid-column: 1 / -1; }
+}
+
+.cad-saved-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--success);
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.cad-saved-pill.is-visible { opacity: 1; }
+
+
+/* === sub-abas de categoria — REMOVIDAS a pedido do Felipe === */
