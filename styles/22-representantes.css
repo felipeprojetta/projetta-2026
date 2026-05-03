@@ -54,25 +54,28 @@
   background: var(--branco);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
+  /* R06: trava na soma das min-widths das colunas, sem esticar.
+     scroll horizontal se nao couber. */
   overflow-x: auto;
-  width: 100%;
+  width: min-content;
   max-width: 100%;
 }
 .rep-table {
-  width: 100%;
+  /* R06: largura automatica, colunas coladas a esquerda */
+  width: auto;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
 }
 .rep-table thead th {
   background: var(--bg-soft);
   padding: 10px 14px;
   text-align: left;
   font-family: var(--font-display);
-  font-size: 13px;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  letter-spacing: 0.10em;
   text-transform: none;
   color: var(--text-soft);
-  font-weight: 600;
+  font-weight: 500;
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
@@ -100,18 +103,18 @@
 }
 .rep-filter-group label {
   font-family: var(--font-display);
-  font-size: 13px;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  letter-spacing: 0.06em;
   text-transform: none;
   color: var(--text-soft);
-  font-weight: 600;
+  font-weight: 500;
 }
 .rep-filter-select {
   padding: 6px 10px;
   border: 1px solid var(--line);
   border-radius: 4px;
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 11px;
   color: var(--azul-escuro);
   background: var(--branco);
   cursor: pointer;
@@ -132,8 +135,9 @@
   border-bottom: 1px solid var(--line-soft);
 }
 .rep-followup-code {
+  /* R11: sem fundo colorido; apenas texto monoespacado */
   font-family: var(--font-mono, monospace);
-  font-size: 13px;
+  font-size: 11px;
   letter-spacing: 0.02em;
   color: var(--text-soft);
   background: transparent;

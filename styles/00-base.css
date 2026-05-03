@@ -1,38 +1,31 @@
 
-/* R19: classe substituta de <strong> */
+/* R19: classe substituta de <strong> — sem peso extra, mantem hierarquia visual
+   apenas pela cor (azul-escuro). Sem font-weight pesado. */
 .t-strong {
   color: var(--azul-escuro);
-  font-weight: 600;
+  font-weight: 500;
 }
 
-/* Felipe (sessao 2026-10): fontes mais grossas e maiores.
-   REGRA: so afeta modulos de CADASTRO e ORCAMENTO.
-   NAO usa seletores globais pra nao quebrar CRM/Kanban. */
+/* Felipe (sessao 32): fontes mais grossas, melhor contraste em campos importantes.
+   Somatorios, totais e valores devem ser bem visiveis — nao cinza claro. */
 body {
-  font-weight: 500 !important;
+  font-weight: 450 !important;
   -webkit-font-smoothing: antialiased;
 }
-/* Inputs e campos de formulario — maiores */
+/* Labels e valores de campos */
 input, select, textarea {
-  font-weight: 500 !important;
-  font-size: 14px !important;
+  font-weight: 450 !important;
 }
-/* Labels */
-label {
-  font-weight: 500 !important;
-}
-/* Tabelas de cadastro e orcamento APENAS (prefixo cad- lvp- orc- rep-) */
-.cad-table th, .lvp-table th, .orc-table th, .rep-table th {
+/* Somatorios e totais — destaque forte */
+.orcamento-total,
+.orc-total,
+.orc-resumo-valor,
+.orc-fab-total,
+.orc-soma,
+.lvp-total,
+.lvp-soma,
+[class*="total"],
+[class*="soma"] {
   font-weight: 600 !important;
-  font-size: 13px !important;
-}
-.cad-table td, .lvp-table td, .orc-table td, .rep-table td {
-  font-weight: 500 !important;
-  font-size: 13px !important;
-}
-/* Somatorios e totais — APENAS dentro de orcamento e cadastro */
-.orc-total, .orc-resumo-valor, .orc-fab-total, .orc-soma,
-.lvp-total, .lvp-soma {
-  font-weight: 700 !important;
   color: var(--text) !important;
 }

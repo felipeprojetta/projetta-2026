@@ -4087,32 +4087,6 @@ const Orcamento = (() => {
     // Quando o motor de peso por item estiver pronto, somar aqui.
     inst.peso_bruto_kg = Number(inst.peso_bruto_kg) || 0;
 
-    // Felipe (sessao 2026-10 FIX CRITICO): "nao esta puxando valores
-    // perfis e pintura isso e basico, estava normal". Auto-popula
-    // total_perfis e total_pintura usando recalcularPerfisESalvarNoFab
-    // — mesma logica que a aba Lev. Perfis usa. Usa resultado DIRETO
-    // do calculo (nao re-le da versao pra evitar timing issue).
-    try {
-      if (_ehVazioOuZero(fab.total_perfis) || _ehVazioOuZero(fab.total_pintura)) {
-        const itensCalc = (versao.itens || []);
-        if (itensCalc.length > 0) {
-          const rPerfis = recalcularPerfisESalvarNoFab(versao, itensCalc);
-          if (rPerfis && rPerfis.result) {
-            const custoPerfisCalc  = Math.round((rPerfis.result.custoPerfis  || 0) * 100) / 100;
-            const custoPinturaCalc = Math.round((rPerfis.result.custoPintura || 0) * 100) / 100;
-            if (_ehVazioOuZero(fab.total_perfis) && custoPerfisCalc > 0) {
-              fab.total_perfis = custoPerfisCalc;
-            }
-            if (_ehVazioOuZero(fab.total_pintura) && custoPinturaCalc > 0) {
-              fab.total_pintura = custoPinturaCalc;
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[Custo Fab/Inst] auto-perfis/pintura falhou:', e);
-    }
-
     // Felipe (sessao 2026-08): "CUSTO ACESSORIO ZERADO SENDO JA TEMOS
     // CUSTO EM LEVANTAMENTO DE ACESSORIOS". Auto-popula total_acessorios
     // somando o resultado do motor AcessoriosPortaExterna pra todos os
@@ -4289,6 +4263,7 @@ const Orcamento = (() => {
             <div class="orc-fi-etapas">
               <div class="orc-fi-etapa-head">
                 <span class="orc-fi-col-etapa">Etapa</span>
+                <span class="orc-fi-col-eq">Calculado pelas regras</span>
                 ${colunasItens}
                 ${colunaTotal}
               </div>
@@ -4334,6 +4309,7 @@ const Orcamento = (() => {
                 return `
                   <div class="orc-fi-etapa-row">
                     <span class="orc-fi-col-etapa">${escapeHtml(et.label)}</span>
+                    <span class="orc-fi-col-eq">${detalheEtapa.horasAuto > 0 ? Math.round(detalheEtapa.horasAuto * 100) / 100 : '—'}</span>
                     ${inputsPorItem}
                     ${totalCol}
                   </div>
@@ -4344,6 +4320,7 @@ const Orcamento = (() => {
                    dentro do label "Subtotal horas (X h × R$ Y)". -->
               <div class="orc-fi-etapa-row orc-fi-etapa-total">
                 <span class="orc-fi-col-etapa"><span class="t-strong">Total de horas</span></span>
+                <span class="orc-fi-col-eq orc-fi-help-detalhe">soma × ${Number(fab.n_operarios) || 0} operario${Number(fab.n_operarios) === 1 ? '' : 's'}</span>
                 ${nItens > 0 ? itensFab.map((_, idx) => {
                   // Soma vertical: soma de horasPorItem[idx] em todas as etapas
                   let totalItem = 0;
@@ -4900,6 +4877,7 @@ const Orcamento = (() => {
     const subFab = Number(versao.subFab) || 0;
     const subInst = Number(versao.subInst) || 0;
     const params = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
+    const r = calcularDRE(subFab, subInst, params);
 
     // Felipe (do doc): DRE puxa o representante do lead pra mostrar a
     // classificacao (Showroom/Representante/etc) e a comissao sugerida
@@ -4926,22 +4904,6 @@ const Orcamento = (() => {
     } catch (e) {
       console.warn('[DRE] lookup do representante falhou:', e);
     }
-
-    // Felipe (sessao 2026-10): "marcio 6% dre mostrou 7% mas foi 7%
-    // para DRE voce dev puxar comissao do representante". AUTO-APLICA
-    // comissao do representante quando o campo AINDA esta no default.
-    // Se usuario ja editou manualmente, preserva o valor editado.
-    if (repInfoDre && repInfoDre.comissaoMaximaPct > 0) {
-      const paramsSalvos = versao.parametros || {};
-      if (paramsSalvos.com_rep === undefined || paramsSalvos.com_rep === null) {
-        params.com_rep = repInfoDre.comissaoMaximaPct;
-        const novosParams = Object.assign({}, paramsSalvos, { com_rep: repInfoDre.comissaoMaximaPct });
-        atualizarVersao(versao.id, { parametros: novosParams });
-      }
-    }
-
-    // Calcula DRE COM a comissao correta do representante
-    const r = calcularDRE(subFab, subInst, params);
 
     const fmtPct = (frac) => fmtBR((frac || 0) * 100) + ' %';
     const fmtN3  = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -11080,15 +11042,9 @@ const Orcamento = (() => {
             </tr>`;
         }).join('');
         // R19: sem <strong>. Usa span com classe semibold.
-        // Felipe (sessao 2026-10): subtotais destacados com fundo colorido
-        const ehFab = titulo.includes('Fabricacao');
-        const ehObra = titulo.includes('Obra');
-        const corFundo = ehFab ? '#e6f0e6' : ehObra ? '#e6e6f0' : '#f0e6f0';
         return `
           <div class="orc-section">
-            <div class="orc-section-title" style="background:${corFundo};padding:8px 12px;border-radius:4px;border-left:4px solid ${ehFab ? '#2e7d32' : ehObra ? '#1565c0' : '#7b1fa2'};margin-bottom:4px;">
-              ${titulo} — Subtotal: <span class="t-strong" style="font-size:1.1em;color:${ehFab ? '#2e7d32' : ehObra ? '#1565c0' : '#7b1fa2'}">${fmtMoney(total)}</span>
-            </div>
+            <div class="orc-section-title">${titulo} — Subtotal: <span class="t-strong">${fmtMoney(total)}</span></div>
             <table class="lvp-table cad-table" id="${idTab}">
               <thead>
                 <tr>
@@ -11118,12 +11074,12 @@ const Orcamento = (() => {
           ${renderTabela(`lvac-fab-${idx}`,     linhasFab,     '🏭 Fabricacao',        totalFab)}
           ${renderTabela(`lvac-obra-${idx}`,    linhasObra,    '🚧 Obra',              totalObra)}
           ${renderTabela(`lvac-digital-${idx}`, linhasDigital, '🔐 Fechadura Digital', totalDigital)}
-          <div class="orc-section" style="background:#fff3e0;border:2px solid #e65100;border-radius:6px;padding:12px 16px;margin-top:12px;">
-            <div style="font-weight:700;font-size:0.95em;color:#bf360c;letter-spacing:0.3px;">
-              Total deste Item — Fabricacao: <span style="font-size:1.15em;color:#2e7d32">${fmtMoney(totalFab)}</span>
-              · Obra: <span style="font-size:1.15em;color:#1565c0">${fmtMoney(totalObra)}</span>
-              · Digital: <span style="font-size:1.15em;color:#7b1fa2">${fmtMoney(totalDigital)}</span>
-              · <span style="font-size:1.3em;color:#bf360c;text-decoration:underline;">Geral: ${fmtMoney(totalFab + totalObra + totalDigital)}</span>
+          <div class="orc-section orc-section-total">
+            <div class="orc-section-title">
+              Total deste Item — Fabricacao: <span class="t-strong">${fmtMoney(totalFab)}</span>
+              · Obra: <span class="t-strong">${fmtMoney(totalObra)}</span>
+              · Digital: <span class="t-strong">${fmtMoney(totalDigital)}</span>
+              · Geral: <span class="t-strong">${fmtMoney(totalFab + totalObra + totalDigital)}</span>
             </div>
           </div>
         </div>`;
@@ -11135,7 +11091,7 @@ const Orcamento = (() => {
     const totalUnidades = itens.reduce((s, it) => s + (Number(it.quantidade) || 1), 0);
     container.innerHTML = `
       ${bannerCaracteristicasItens(versao)}
-      ${itens.length >= 2 ? `<div class="info-banner orc-banner-aviso">
+      <div class="info-banner orc-banner-aviso">
         <span class="t-strong">Levantamento de Acessorios — Multi-Item</span><br>
         <b>${itens.length}</b> tipo(s) de Porta Externa nesta versao,
         totalizando <b>${totalUnidades}</b> unidade(s).
@@ -11144,19 +11100,15 @@ const Orcamento = (() => {
         (ex: 10 portas iguais → x10). O Total Geral no fim soma TUDO.
         Acessorios marcados <i>(nao cadastrado)</i> precisam ser
         adicionados em <span class="t-strong">Cadastros &gt; Acessorios</span>.
-      </div>` : ''}
+      </div>
       ${blocosItens}
-      ${itens.length >= 2 ? `
-      <div style="background:linear-gradient(135deg,#1a3a5c,#2a5a8c);border-radius:8px;padding:16px 20px;margin-top:16px;color:#fff;">
-        <div style="font-weight:700;font-size:1.1em;letter-spacing:0.5px;">
-          Total Geral (${itens.length} item(ns) · ${totalUnidades} unid.)
+      <div class="orc-section orc-section-total" style="background:#f7f7f7;border:1px solid var(--line); padding: 12px;">
+        <div class="orc-section-title">
+          <span class="t-strong">Total Geral (${itens.length} item(ns) · ${totalUnidades} unid.) — Fabricacao: ${fmtMoney(totalGeralFab)}
+          · Obra: ${fmtMoney(totalGeralObra)}
+          · Geral: ${fmtMoney(totalGeralFab + totalGeralObra)}</span>
         </div>
-        <div style="margin-top:8px;font-size:1.05em;">
-          Fabricacao: <span style="font-weight:700;font-size:1.2em;color:#a5d6a7;">${fmtMoney(totalGeralFab)}</span>
-          · Obra: <span style="font-weight:700;font-size:1.2em;color:#90caf9;">${fmtMoney(totalGeralObra)}</span>
-          · <span style="font-weight:700;font-size:1.4em;color:#ffeb3b;text-shadow:0 1px 3px rgba(0,0,0,0.3);">Geral: ${fmtMoney(totalGeralFab + totalGeralObra)}</span>
-        </div>
-      </div>` : ''}
+      </div>
     `;
 
     // R18: aplica autoEnhance em todas as tabelas (filtro + sort)

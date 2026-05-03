@@ -19,10 +19,10 @@
 window.ChapasAproveitamento = (function () {
   'use strict';
 
-  // Felipe (sessao 2026-10): defaults sincronizados com MaxCut
-  // (Serra 4mm, Aparar 5mm todos lados, metodo multi_horiz, 6 niveis).
+  // Felipe (sessao 27 fix): defaults sincronizados com 34-regras.js
+  // (KERF agora 0 default, Felipe nao quer 4mm de perda automatica).
   const DEFAULTS = {
-    KERF:        4,
+    KERF:        0,
     APARAR:      5,
     METODO:      'multi_horiz',
     DESPERDICIO: 'inferior',
@@ -136,82 +136,50 @@ window.ChapasAproveitamento = (function () {
    * Tenta posicionar UMA peca em UMA chapa (em fileira existente
    * ou abrindo fileira nova). Retorna true se conseguiu.
    *
-   * Felipe (sessao 2026-10): REESCRITA para CNC router.
-   * Regras de orientacao (baseado em MaxCut / Vectric Cut2D):
-   *   1. Prioriza a dimensao MAIS LONGA ao longo do COMPRIMENTO (dispLarg=7000mm)
-   *   2. Entre fileiras existentes, pega a que gera MENOS desperdicio de altura
-   *   3. Ao abrir fileira nova, escolhe orientacao com MENOR altura (menor strip)
+   * Felipe (sessao 2026-05): testa AMBAS orientacoes (normal e
+   * rotacionada) e pega a primeira que cabe.
    */
   function tentarPosicionarChapa(chapa, peca, dispLarg, dispAlt, KERF, M) {
-    // Gera orientacoes — ordena priorizando dimensao maior no comprimento
-    let orientacoes;
-    if (peca.podeRotacionar) {
-      const ori1 = { larg: peca.largura, alt: peca.altura, rotada: false };
-      const ori2 = { larg: peca.altura,  alt: peca.largura, rotada: true };
-      // Prioriza: maior dimensao no eixo do comprimento (dispLarg)
-      if (ori2.larg > ori1.larg) {
-        orientacoes = [ori2, ori1];
-      } else {
-        orientacoes = [ori1, ori2];
-      }
-    } else {
-      orientacoes = [{ larg: peca.largura, alt: peca.altura, rotada: false }];
-    }
+    const orientacoes = peca.podeRotacionar
+      ? [{ larg: peca.largura, alt: peca.altura, rotada: false },
+         { larg: peca.altura,  alt: peca.largura, rotada: true }]
+      : [{ larg: peca.largura, alt: peca.altura, rotada: false }];
 
-    // FASE 1: Tenta encaixar em fileira existente (best-fit por desperdicio de altura)
-    let melhorFit = null;
     for (const o of orientacoes) {
-      if (o.larg > dispLarg + 0.01 || o.alt > dispAlt + 0.01) continue;
-      for (let fi = 0; fi < chapa.fileiras.length; fi++) {
-        const f = chapa.fileiras[fi];
+      // Tenta cada fileira ja aberta
+      for (const f of chapa.fileiras) {
         // Cabe em altura (peca <= altura da fileira)?
         if (o.alt > f.alturaFileira + 0.01) continue;
         // Cabe em largura (largura usada + peca <= dispLarg)?
         const xFinal = f.larguraUsada + o.larg;
         if (xFinal > dispLarg + 0.01) continue;
-        // Calcula desperdicio de altura nesta fileira
-        const desperdicioAlt = f.alturaFileira - o.alt;
-        if (!melhorFit || desperdicioAlt < melhorFit.desperdicioAlt) {
-          melhorFit = { fi, o, xFinal, desperdicioAlt };
-        }
+        // CABE — posiciona
+        chapa.pecasPosicionadas.push({
+          peca,
+          x: M + f.larguraUsada,
+          y: f.y,
+          larg: o.larg, alt: o.alt, rotada: o.rotada,
+        });
+        f.larguraUsada = xFinal + KERF;
+        return true;
       }
-    }
-    if (melhorFit) {
-      const f = chapa.fileiras[melhorFit.fi];
-      chapa.pecasPosicionadas.push({
-        peca,
-        x: M + f.larguraUsada,
-        y: f.y,
-        larg: melhorFit.o.larg, alt: melhorFit.o.alt, rotada: melhorFit.o.rotada,
-      });
-      f.larguraUsada = melhorFit.xFinal + KERF;
-      return true;
-    }
-
-    // FASE 2: Abre fileira nova — escolhe orientacao com MENOR alt (strip mais fino)
-    // Isso maximiza o espaco restante pra fileiras futuras
-    let melhorNova = null;
-    for (const o of orientacoes) {
-      if (o.larg > dispLarg + 0.01) continue;
+      // Tenta abrir fileira nova
       const yProx = chapa.fileiras.length > 0
         ? chapa.fileiras[chapa.fileiras.length - 1].y +
           chapa.fileiras[chapa.fileiras.length - 1].alturaFileira + KERF
         : M;
-      if (yProx + o.alt > M + dispAlt + 0.01) continue;
-      if (!melhorNova || o.alt < melhorNova.alt) {
-        melhorNova = { o, yProx };
-      }
-    }
-    if (melhorNova) {
+      if (yProx + o.alt > M + dispAlt + 0.01) continue;  // estoura altura
+      if (o.larg > dispLarg + 0.01) continue;             // estoura largura
+      // Abre fileira
       chapa.pecasPosicionadas.push({
         peca,
-        x: M, y: melhorNova.yProx,
-        larg: melhorNova.o.larg, alt: melhorNova.o.alt, rotada: melhorNova.o.rotada,
+        x: M, y: yProx,
+        larg: o.larg, alt: o.alt, rotada: o.rotada,
       });
       chapa.fileiras.push({
-        y: melhorNova.yProx,
-        alturaFileira: melhorNova.o.alt,
-        larguraUsada: melhorNova.o.larg + KERF,
+        y: yProx,
+        alturaFileira: o.alt,
+        larguraUsada: o.larg + KERF,
       });
       return true;
     }
@@ -594,11 +562,10 @@ window.ChapasAproveitamento = (function () {
     const exp = expandirPecas(pecas, contadorInicial || 100);
     const expandidas = exp.expandidas;
 
-    // Felipe (sessao 2026-10): MULTI-START EXPANDIDO — 16+ estrategias
-    // baseadas em estudo de Vectric Cut2D e MaxCut. Testa AMBOS os
-    // modos (multi_horiz e multi_vert) para cada estrategia de
-    // ordenacao. Isso garante pelo menos 16 tentativas antes de
-    // alocar as chapas. Resultado: aproveitamento proximo do MaxCut.
+    // Felipe (sessao 2026-05): MULTI-START — testa 8 estrategias
+    // de ordenacao e pega a com melhor aproveitamento. Pra
+    // 'normal' (BLF) tambem aplica, mas se torna mais caro
+    // e menos estavel — manter so 1 tentativa pra ele.
     let melhor = null;
     if (cfg.METODO === 'normal') {
       // BLF puro — 1 tentativa
@@ -634,48 +601,20 @@ window.ChapasAproveitamento = (function () {
         (arr) => arr.slice().sort((a, b) =>
           (b.largura + b.altura) - (a.largura + a.altura) ||
           (b.largura * b.altura) - (a.largura * a.altura)),
-        // 9. CNC-otimizado: pre-rota pecas pra dimensao maior no comprimento,
-        //    depois ordena por altura DESC (strip mais eficiente)
-        (arr) => {
-          const rot = arr.slice().map(p => {
-            if (p.podeRotacionar && p.altura > p.largura) {
-              return Object.assign({}, p, { largura: p.altura, altura: p.largura, _preRotada: true });
-            }
-            return p;
-          });
-          rot.sort((a, b) => b.altura - a.altura || b.largura - a.largura);
-          return rot;
-        },
-        // 10. Agrupado por altura EXATA (tolerancia 2%) — strips quase perfeitos
-        (arr) => agruparPorAltura(arr, 0.02),
-        // 11. Menor dimensao DESC (pecas finas e longas primeiro — ideal pra strips)
-        (arr) => arr.slice().sort((a, b) => {
-          const minA = Math.min(a.largura, a.altura);
-          const minB = Math.min(b.largura, b.altura);
-          return minB - minA || (b.largura * b.altura) - (a.largura * a.altura);
-        }),
-        // 12. Agrupado por classe de altura (15% tolerancia, mais permissivo)
-        (arr) => agruparPorAltura(arr, 0.15),
       ];
 
-      // Felipe (sessao 2026-10): testa CADA estrategia em AMBOS os modos
-      // (horiz e vert). Isso dobra o numero de tentativas e garante o
-      // melhor resultado possivel (16+ tentativas total, como MaxCut).
-      const modos = ['multi_horiz', 'multi_vert'];
       for (const estrat of estrategias) {
-        for (const modo of modos) {
-          try {
-            const ordenadas = estrat(expandidas);
-            const candidato = modo === 'multi_vert'
-              ? nestingMultiVert(ordenadas, chapaLarg, chapaAlt, cfg)
-              : nestingMultiHoriz(ordenadas, chapaLarg, chapaAlt, cfg);
-            if (!melhorResultado(candidato)) continue;
-            if (!melhor || compararResultados(candidato, melhor) < 0) {
-              melhor = candidato;
-            }
-          } catch (e) {
-            console.warn('[Aproveitamento] estrategia falhou', e);
+        try {
+          const ordenadas = estrat(expandidas);
+          const candidato = cfg.METODO === 'multi_vert'
+            ? nestingMultiVert(ordenadas, chapaLarg, chapaAlt, cfg)
+            : nestingMultiHoriz(ordenadas, chapaLarg, chapaAlt, cfg);
+          // Score: numero de chapas (menor melhor), tiebreak aproveitamento
+          if (!melhor || compararResultados(candidato, melhor) < 0) {
+            melhor = candidato;
           }
+        } catch (e) {
+          console.warn('[Aproveitamento] estrategia falhou', e);
         }
       }
     }
@@ -763,26 +702,14 @@ window.ChapasAproveitamento = (function () {
    * Compara dois resultados: retorna negativo se A e' melhor que B.
    * Criterio: menos chapas > maior aproveitamento > menos pecas nao couberam.
    */
-  // Felipe (sessao 2026-10): helper simples — resultado e' valido
-  // se tem pelo menos 1 chapa.
-  function melhorResultado(r) {
-    return r && r.chapas && r.chapas.length > 0;
-  }
-
   function compararResultados(a, b) {
     // Penaliza fortemente pecas nao couberam
     const naoA = a.naoCouberam.length, naoB = b.naoCouberam.length;
     if (naoA !== naoB) return naoA - naoB;
     // Menos chapas e' melhor
     if (a.chapas.length !== b.chapas.length) return a.chapas.length - b.chapas.length;
-    // Tiebreak: melhor aproveitamento na ULTIMA chapa (menos sobra)
-    // Isso significa que as primeiras chapas estao mais cheias.
-    const lastA = a.chapas[a.chapas.length - 1];
-    const lastB = b.chapas[b.chapas.length - 1];
-    const usadaA = lastA ? lastA.pecasPosicionadas.reduce((s, p) => s + p.larg * p.alt, 0) : 0;
-    const usadaB = lastB ? lastB.pecasPosicionadas.reduce((s, p) => s + p.larg * p.alt, 0) : 0;
-    // Maior area usada na ultima chapa = melhor (menos desperdicio no total)
-    return usadaB - usadaA;
+    // Tiebreak: maior aproveitamento (menor area total mae)
+    return 0;
   }
 
   /**

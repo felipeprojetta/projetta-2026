@@ -86,7 +86,7 @@ const Regras = (() => {
     // Felipe (sessao 27 fix): KERF_NEST default 0 — Felipe nao quer
     // perda de 4mm entre pecas no corte de chapa. Se quiser usar, edita
     // em Cadastros > Regras.
-    KERF_NEST:      4,            // espessura disco da serra (mm) — MaxCut padrao
+    KERF_NEST:      0,            // espessura disco da serra (mm)
     APARAR_NEST:    5,            // margem de aparar a chapa (mm)
     MAX_GIROS_NEST: 6,            // niveis de varias fases
   };
