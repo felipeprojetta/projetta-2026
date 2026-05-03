@@ -18,10 +18,9 @@
   'use strict';
 
   // ── Regex para extrair numero de reserva do assunto ──
-  // Exemplos: "RESERVA 146508 - Arq Julliana Wagner..."
-  //           "Re: RESERVA 146508..."
-  //           "Fwd: reserva 146508 porta..."
-  var RESERVA_REGEX = /reserva\s*(\d{4,7})/i;
+  // Regex para extrair numero de reserva do assunto
+  // Exemplos: "RESERVA 146508", "orçamento - 146510", "146467 - Ana Luiza", "reserva 138599"
+  var RESERVA_REGEX = /(?:reserva|orcamento|orçamento|AT0?)?\s*[-–]?\s*(\d{5,7})/i;
 
   // IDs de emails ja processados (evita duplicar)
   var processados = new Set();
@@ -240,7 +239,7 @@
     log('🔍 Buscando emails com "RESERVA" no assunto...');
 
     try {
-      var inbox = await window.outlookListInbox({ top: 100, search: 'subject:reserva' });
+      var inbox = await window.outlookListInbox({ top: 100 });
       var emails = (inbox && inbox.emails) || [];
       log('📨 ' + emails.length + ' email(s) encontrado(s)');
 

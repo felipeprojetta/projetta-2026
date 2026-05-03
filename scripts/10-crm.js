@@ -1363,8 +1363,8 @@
             ${mostraBtnOrc ? `
               <div class="crm-card-actions">
                 <button class="crm-card-btn-orc" data-action="montar-orcamento" data-lead-id="${l.id}" title="Abrir orcamento deste lead">📐 Montar Orcamento</button>
-                ${l.telefone ? `<button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar mensagem via WhatsApp" style="background:rgba(37,211,102,0.5);color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>` : ''}
-                ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva com proposta" style="background:rgba(0,120,212,0.5);color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Enviar Proposta</button>` : ''}
+                ${l.telefone ? `<button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar mensagem via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>` : ''}
+                ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva com proposta" style="background:rgba(0,120,212,0.4);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Enviar Proposta</button>` : ''}
               </div>
             ` : ''}
           </div>
