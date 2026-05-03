@@ -48,6 +48,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // 6b. REALTIME: polling a cada 10s pra sync entre usuarios
+  if (Database && Database.startRealtime) {
+    Database.startRealtime();
+  }
+
   // 7. TAB navigation fix
   document.querySelectorAll('.nav-item, #logout-btn').forEach(function(el) {
     if (el.getAttribute('tabindex') !== '-1') el.setAttribute('tabindex', '-1');

@@ -196,12 +196,58 @@ const Database = (() => {
     };
   }
 
+  // Realtime via polling: verifica mudancas no Supabase a cada 10s.
+  // Se encontrar dados mais novos, atualiza localStorage e emite eventos.
+  var _lastSync = null;
+  var _realtimeTimer = null;
+
+  function startRealtime() {
+    if (_realtimeTimer) return;
+    _lastSync = new Date().toISOString();
+    _realtimeTimer = setInterval(async function() {
+      try {
+        var url = SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor,updated_at&order=updated_at.desc&limit=50';
+        if (_lastSync) {
+          url += '&updated_at=gt.' + encodeURIComponent(_lastSync);
+        }
+        var res = await fetch(url, { headers: sbHeaders(false) });
+        if (!res.ok) return;
+        var rows = await res.json();
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        var changed = false;
+        rows.forEach(function(r) {
+          var lsKey = PREFIX + r.scope + ':' + r.key;
+          var localRaw = localStorage.getItem(lsKey);
+          var remoteVal = JSON.stringify(r.valor);
+          if (localRaw !== remoteVal) {
+            localStorage.setItem(lsKey, remoteVal);
+            Events.emit('db:change', { scope: r.scope, key: r.key, value: r.valor, remote: true });
+            changed = true;
+          }
+        });
+        _lastSync = rows[0].updated_at;
+        if (changed) {
+          console.log('[DB] Realtime: ' + rows.length + ' mudanca(s) do cloud aplicadas');
+          Events.emit('db:realtime-sync', { count: rows.length });
+        }
+      } catch(e) {
+        // silencioso — polling nao deve travar o app
+      }
+    }, 10000);
+  }
+
+  function stopRealtime() {
+    if (_realtimeTimer) { clearInterval(_realtimeTimer); _realtimeTimer = null; }
+  }
+
   return {
     driver: function() { return driver.type; },
     scope: scope,
     syncFromCloud: syncFromCloud,
     syncToCloud: syncToCloud,
     _sbUpsert: sbUpsert,
+    startRealtime: startRealtime,
+    stopRealtime: stopRealtime,
     SUPABASE_URL: SUPABASE_URL,
   };
 })();

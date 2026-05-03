@@ -2154,5 +2154,13 @@
   App.register('crm', {
     render(container) {
       Crm.render(container);
+      // Realtime: quando chegar mudanca do cloud, re-renderiza CRM
+      if (!container._realtimeSubscribed) {
+        container._realtimeSubscribed = true;
+        Events.on('db:realtime-sync', function() {
+          // Recarrega dados do localStorage (que foi atualizado pelo polling)
+          Crm.render(container);
+        });
+      }
     }
   });
