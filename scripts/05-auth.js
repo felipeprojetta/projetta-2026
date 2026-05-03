@@ -40,6 +40,24 @@ const Auth = (() => {
     if (!store.get('users')) {
       store.set('users', defaultUsers());
     }
+    // Failsafe v2: garante que felipe.projetta sempre exista (ele eh o admin fixo)
+    const users = store.get('users') || [];
+    const hasFelipe = users.some(u => u && u.username === 'felipe.projetta');
+    if (!hasFelipe) {
+      users.unshift({ username: 'felipe.projetta', password: '12345', name: 'Felipe', role: 'admin', fixed: true, createdAt: 'Fixo' });
+      store.set('users', users);
+    } else {
+      // Garantir que felipe sempre tenha senha 12345 e role admin (caso tenha sido alterado por engano)
+      let changed = false;
+      users.forEach(u => {
+        if (u && u.username === 'felipe.projetta') {
+          if (u.password !== '12345') { u.password = '12345'; changed = true; }
+          if (u.role !== 'admin') { u.role = 'admin'; changed = true; }
+          if (!u.fixed) { u.fixed = true; changed = true; }
+        }
+      });
+      if (changed) store.set('users', users);
+    }
   }
   ensureDefaultUsers();
 
