@@ -181,35 +181,40 @@
       }
 
       log('   📝 Texto extraido (' + textoCompleto.length + ' chars)');
+      // Debug: mostra trecho do texto
+      log('   📝 Primeiros 500 chars: ' + textoCompleto.substring(0, 500).replace(/\n/g, ' | '));
 
       // Parsear campos do checklist Projetta com regex
       var info = { largura: '', altura: '', modelo: '', cor: '', fechaduraDigital: '' };
 
-      // LARGURA X ALTURA: 1750 x 3550  ou  L: 1750 H: 3550
-      var mLxA = textoCompleto.match(/LARGURA\s*[Xx×]\s*ALTURA[:\s]*(\d+)\s*[Xx×]\s*(\d+)/i);
+      // LARGURA X ALTURA: vários formatos
+      // "LARGURA X ALTURA: 1300x2600" ou "LARGURA X ALTURA  1300x2600" ou "1300 x 2600"
+      var mLxA = textoCompleto.match(/LARGURA\s*[Xx×&]\s*ALTURA[:\s]*(\d{3,5})\s*[Xx×]\s*(\d{3,5})/i);
+      if (!mLxA) mLxA = textoCompleto.match(/LARGURA\s*[Xx×&]\s*ALTURA[:\s]*(\d{3,5})\s*[Xx×x]\s*(\d{3,5})/i);
+      if (!mLxA) mLxA = textoCompleto.match(/(\d{3,5})\s*[Xx×]\s*(\d{3,5})\s*(?:mm)?/);
       if (mLxA) { info.largura = mLxA[1]; info.altura = mLxA[2]; }
-      if (!mLxA) {
+      if (!info.largura) {
         var mL = textoCompleto.match(/\bL[:\s]+(\d{3,5})/); if (mL) info.largura = mL[1];
         var mH = textoCompleto.match(/\bH[:\s]+(\d{3,5})/); if (mH) info.altura = mH[1];
       }
 
-      // MODELO: 01 ou MODELO: 01 — Cava
+      // MODELO: 01 ou 14 etc
       var mMod = textoCompleto.match(/MODELO[:\s]+(\d{1,2})/i);
       if (mMod) info.modelo = mMod[1];
 
-      // COR CHAPA EXTERNA: Pro209 - Wood Mogno...
-      var mCor = textoCompleto.match(/COR\s*(?:CHAPA\s*)?EXTERNA[:\s]+([^\n]{3,50})/i);
-      if (mCor) info.cor = mCor[1].trim();
+      // COR: vários formatos — "COR PORTA:", "COR CHAPA EXTERNA:", "COR:", "COR CHAPA:"
+      var mCor = textoCompleto.match(/COR\s*(?:PORTA|CHAPA\s*(?:EXTERNA)?)?[:\s]+([A-Z0-9][\w\s\-\.]{3,50})/i);
+      if (mCor) info.cor = mCor[1].trim().replace(/\s{2,}/g, ' ');
       if (!info.cor) {
-        var mCor2 = textoCompleto.match(/(?:PRO|RAL|WOOD)\s*\d*[^\n]{0,40}/i);
-        if (mCor2) info.cor = mCor2[0].trim();
+        var mCor2 = textoCompleto.match(/(PRO\d{3,5}\w*\s*[-–]\s*[^\n|]{3,40})/i);
+        if (mCor2) info.cor = mCor2[1].trim();
       }
 
-      // FECHADURA DIGITAL: NAO SE APLICA / SIM
-      var mFech = textoCompleto.match(/FECHADURA\s*DIGITAL[:\s]+([^\n]+)/i);
+      // FECHADURA DIGITAL
+      var mFech = textoCompleto.match(/FECHADURA\s*(?:DIGITAL)?[:\s]+([^\n|]{3,30})/i);
       if (mFech) {
         var fd = mFech[1].trim().toUpperCase();
-        info.fechaduraDigital = (fd.indexOf('SIM') >= 0 || fd.indexOf('DIGITAL') >= 0) ? 'sim' : 'nao';
+        info.fechaduraDigital = (fd.indexOf('NAO') >= 0 || fd.indexOf('NÃO') >= 0 || fd.indexOf('APLICA') >= 0) ? 'nao' : 'sim';
       }
 
       if (info.largura || info.modelo || info.cor) {
