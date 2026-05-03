@@ -107,7 +107,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">'
           + '<div><div style="font-weight:700;font-size:16px;color:#1a5276">🤖 Agente Automatico de Reservas</div>'
           + '<div style="font-size:12px;color:#666;margin-top:2px">Escaneia inbox, identifica RESERVA, busca Weiku, cria lead no CRM</div></div>'
-          + '<div style="display:flex;gap:8px"><button id="agent-scan-btn" style="background:#1a5276;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">🔍 Escanear Agora</button>'
+          + '<div style="display:flex;gap:8px"><button id="agent-scan-btn" style="background:#1a5276;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">🔍 Escanear Todos</button>'
+          + '<button id="agent-scan-from-btn" style="background:#2563eb;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">🎯 Escolher Inicio</button>'
           + '<button id="agent-auto-btn" style="background:#2e7d32;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">▶ Auto 5min</button>'
           + '<button onclick="if(confirm(\'Limpar TODAS as tags de todos os emails?\')){window.outlookLimparTodasTags()}" style="background:#888;color:#fff;border:none;padding:10px 12px;border-radius:6px;font-weight:600;font-size:11px;cursor:pointer">🗑 Limpar Tags</button>'
           + '<button onclick="if(window.EmailAgent){window.EmailAgent.resetProcessados();document.getElementById(\'agent-log\').textContent=\'♻ Lista de processados resetada. Clique Escanear Agora.\'}" style="background:#e65100;color:#fff;border:none;padding:10px 12px;border-radius:6px;font-weight:600;font-size:11px;cursor:pointer">♻ Reset Scan</button></div>'
@@ -151,7 +152,82 @@ document.addEventListener('DOMContentLoaded', async () => {
                 mostrarProximo();
               }
             });
-            scanBtn.disabled = false; scanBtn.textContent = '🔍 Escanear Agora';
+            scanBtn.disabled = false; scanBtn.textContent = '🔍 Escanear Todos';
+          });
+        }
+        // Botao "Escolher Inicio" - lista emails pra usuario escolher de onde comecar
+        var scanFromBtn = document.getElementById('agent-scan-from-btn');
+        if (scanFromBtn) {
+          scanFromBtn.addEventListener('click', async function() {
+            var t = 0;
+            while (!window.EmailAgent && t < 25) { await new Promise(function(r){setTimeout(r,200)}); t++; }
+            if (!window.EmailAgent || !window.outlookIsAuth || !window.outlookIsAuth()) {
+              alert('Conecte ao Outlook primeiro');
+              return;
+            }
+            scanFromBtn.disabled = true; scanFromBtn.textContent = '⏳ Carregando...';
+            var logEl = document.getElementById('agent-log');
+            if (logEl) logEl.textContent = '📨 Carregando lista de emails...';
+            try {
+              var inbox = await window.outlookListInbox({ top: 100 });
+              var emails = (inbox && inbox.emails) || [];
+              var existing = document.getElementById('agent-results');
+              if (existing) existing.remove();
+              var div = document.createElement('div');
+              div.id = 'agent-results';
+              div.style.cssText = 'margin-top:14px';
+              div.innerHTML = '<div style="font-weight:700;font-size:14px;color:#1a5276;margin-bottom:8px">📨 Clique no email para começar o scan a partir dele:</div>'
+                + '<div style="max-height:400px;overflow-y:auto;border:1px solid #ddd;border-radius:6px">'
+                + emails.map(function(em, i) {
+                  var from = (em.from && em.from.emailAddress) ? (em.from.emailAddress.name || em.from.emailAddress.address) : '';
+                  var dt = em.receivedDateTime ? new Date(em.receivedDateTime).toLocaleDateString('pt-BR') : '';
+                  return '<div class="agent-email-pick" data-idx="' + i + '" style="padding:10px 12px;border-bottom:1px solid #eee;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background=\'#e8f0fe\'" onmouseout="this.style.background=\'#fff\'">'
+                    + '<div style="flex:1"><div style="font-weight:600">' + from + '</div>'
+                    + '<div style="color:#555">' + (em.subject||'').substring(0,70) + '</div></div>'
+                    + '<div style="font-size:11px;color:#888;white-space:nowrap;margin-left:8px">' + dt + (em.hasAttachments ? ' 📎' : '') + '</div>'
+                    + '</div>';
+                }).join('')
+                + '</div>';
+              logEl.parentElement.appendChild(div);
+              // Handler de clique em cada email
+              div.querySelectorAll('.agent-email-pick').forEach(function(el) {
+                el.addEventListener('click', function() {
+                  var startIdx = parseInt(this.dataset.idx);
+                  div.remove();
+                  if (logEl) logEl.textContent = '🔍 Escaneando a partir do email #' + (startIdx+1) + '...\n';
+                  // Filtra emails a partir do selecionado
+                  var emailsFromHere = emails.slice(startIdx);
+                  var REGEX = /(?:reserva|orcamento|orçamento|AT0?)?\s*[-–]?\s*(\d{5,7})/i;
+                  var encontrados = [];
+                  var vistos = {};
+                  emailsFromHere.forEach(function(email) {
+                    var match = (email.subject||'').match(REGEX);
+                    if (!match) return;
+                    var num = match[1];
+                    if (vistos[num]) return;
+                    vistos[num] = true;
+                    var jaExiste = false;
+                    try { jaExiste = window.EmailAgent._leadJaExiste ? window.EmailAgent._leadJaExiste(num) : false; } catch(_){}
+                    var from = (email.from && email.from.emailAddress) || {};
+                    encontrados.push({
+                      emailId: email.id, reserva: num, assunto: email.subject||'',
+                      remetente: from.name || from.address || '',
+                      data: email.receivedDateTime ? new Date(email.receivedDateTime).toLocaleDateString('pt-BR') : '',
+                      jaExiste: jaExiste, hasAttachments: email.hasAttachments
+                    });
+                  });
+                  var novos = encontrados.filter(function(e) { return !e.jaExiste; });
+                  if (logEl) logEl.textContent += '📋 ' + novos.length + ' reserva(s) nova(s)\n';
+                  if (!novos.length) { if (logEl) logEl.textContent += '✅ Nenhuma reserva nova a partir deste email.\n'; return; }
+                  window._agentNovos = novos;
+                  window._agentIdx = 0;
+                  mostrarProximo();
+                });
+              });
+            } catch(err) {
+              if (logEl) logEl.textContent = '❌ ' + err.message;
+            }
+            scanFromBtn.disabled = false; scanFromBtn.textContent = '🎯 Escolher Inicio';
           });
         }
         // Funcao que mostra cada reserva uma por vez

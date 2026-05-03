@@ -175,19 +175,6 @@
     }
   }
 
-      if (info.largura || info.modelo || info.cor) {
-        log('   ✅ PDF: ' + info.largura + '×' + info.altura + ' | Modelo ' + info.modelo + ' | Cor: ' + info.cor + ' | Fechadura: ' + info.fechaduraDigital);
-        return info;
-      } else {
-        log('   ⚠ Nao encontrou dados estruturados no PDF');
-        return null;
-      }
-    } catch (e) {
-      log('   ⚠ Analise PDF falhou: ' + e.message);
-      return null;
-    }
-  }
-
   // ── SCANNER: Busca e LISTA reservas (não cria leads) ──
   async function scanInbox(opts) {
     opts = opts || {};
@@ -416,6 +403,7 @@
     _criarLead: criarLead,
     _proximoAGP: proximoAGP,
     _analisarPdf: analisarPdfComIA,
+    _leadJaExiste: leadJaExiste,
     resetProcessados: function() {
       processados.clear();
       localStorage.removeItem('projetta_agent_processados');
