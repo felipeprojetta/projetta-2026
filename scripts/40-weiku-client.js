@@ -79,7 +79,7 @@ const WeikuClient = (() => {
       nome_cliente: raw.nome_cliente || raw.nome || raw.cliente || '',
       telefone:     raw.telefone || raw.fone || raw.celular || raw.whatsapp || '',
       cep:          raw.cep || raw.zip || '',
-      email:        raw.email || '',
+      email:        (raw.email || '').toLowerCase(),
       representante: representanteFinal,
       // Mantem o followup cru pro CRM poder linkar com o cadastro
       representante_followup: followupCru,
@@ -171,7 +171,7 @@ const WeikuClient = (() => {
         nome_cliente: raw.cliente || raw.nome || '',
         telefone: raw.telefone || raw.fone || '',
         cep: raw.cep || '',
-        email: raw.email || '',
+        email: (raw.email || '').toLowerCase(),
         representante: raw.representante || '',
         // FOLLOWUP: codigo cru da intranet (SP_BARUERI_PREVE, THAISAP, etc.)
         followup: raw.followup || '',

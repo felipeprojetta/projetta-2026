@@ -1284,7 +1284,7 @@
           <div class="crm-card" draggable="true" data-id="${l.id}">
             <div class="crm-card-titulo">${escapeHtml(l.cliente || '(sem nome)')}</div>
             ${reservaLabel ? `<div class="crm-card-numeros">${reservaLabel}</div>` : ''}
-            ${l.data_reserva ? `<div class="crm-card-contato" style="font-size:11px;color:var(--text-muted);">📅 Reserva: ${escapeHtml(l.data_reserva)}</div>` : ''}
+            ${l.data ? `<div class="crm-card-contato" style="font-size:11px;color:var(--text-muted);">📅 ${escapeHtml(fmtData(l.data))}</div>` : ''}
             ${l.telefone ? `<div class="crm-card-contato">📞 ${escapeHtml(l.telefone)}</div>` : ''}
             ${l.email ? `<div class="crm-card-contato">✉ ${escapeHtml(l.email)}</div>` : ''}
             ${agpField}
