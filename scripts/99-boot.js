@@ -129,70 +129,110 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (logEl) logEl.textContent = '';
             function log(m) { if (logEl) { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; } }
 
-            var resultados = await window.EmailAgent.scan({
+            await window.EmailAgent.scan({
               log: log,
               onResults: function(lista) {
-                // Renderiza tabela interativa
                 var novos = lista.filter(function(e) { return !e.jaExiste; });
                 var existentes = lista.filter(function(e) { return e.jaExiste; });
                 if (novos.length === 0) {
-                  log('\n✅ Todas as reservas ja existem no CRM. Nada a importar.');
+                  log('\n✅ Todas as reservas ja existem no CRM.');
                   return;
                 }
-                var tableHtml = '<div id="agent-results" style="margin-top:14px">'
-                  + '<div style="font-weight:700;font-size:14px;color:#1a5276;margin-bottom:8px">'
-                  + '📋 ' + novos.length + ' reserva(s) nova(s) encontrada(s)' + (existentes.length ? ' (' + existentes.length + ' ja existem)' : '')
-                  + '</div>'
-                  + '<div style="max-height:300px;overflow-y:auto;border:1px solid #ddd;border-radius:6px">'
-                  + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
-                  + '<tr style="background:#1a5276;color:#fff;position:sticky;top:0"><th style="padding:8px;text-align:left;width:30px"><input type="checkbox" id="agent-check-all" checked /></th><th style="padding:8px;text-align:left">Reserva</th><th style="padding:8px;text-align:left">Assunto</th><th style="padding:8px;text-align:left">Remetente</th><th style="padding:8px;text-align:left">Data</th><th style="padding:8px">PDF</th></tr>';
-                novos.forEach(function(e, idx) {
-                  tableHtml += '<tr style="border-bottom:1px solid #eee;background:' + (idx%2===0?'#fff':'#f8f9fa') + '">'
-                    + '<td style="padding:6px 8px"><input type="checkbox" class="agent-check" data-idx="' + idx + '" checked /></td>'
-                    + '<td style="padding:6px 8px;font-weight:700;color:#1a5276">' + e.reserva + '</td>'
-                    + '<td style="padding:6px 8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (e.assunto||'').substring(0,50) + '</td>'
-                    + '<td style="padding:6px 8px">' + (e.remetente||'') + '</td>'
-                    + '<td style="padding:6px 8px">' + (e.data||'') + '</td>'
-                    + '<td style="padding:6px 8px;text-align:center">' + (e.hasAttachments?'📎':'—') + '</td>'
-                    + '</tr>';
-                });
-                tableHtml += '</table></div>'
-                  + '<div style="margin-top:12px;display:flex;gap:10px;align-items:center">'
-                  + '<button id="agent-import-btn" style="background:#2e7d32;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">✅ Criar Leads Selecionados</button>'
-                  + '<span id="agent-import-status" style="color:#666;font-size:13px"></span>'
-                  + '</div></div>';
-                // Injeta resultados
+                log('\n📋 ' + novos.length + ' nova(s), ' + existentes.length + ' ja existem');
+                // Mostra um a um
                 var existing = document.getElementById('agent-results');
                 if (existing) existing.remove();
-                logEl.insertAdjacentHTML('afterend', tableHtml);
-                // Armazena dados pra importação
+                var div = document.createElement('div');
+                div.id = 'agent-results';
+                div.style.cssText = 'margin-top:14px';
+                logEl.parentElement.appendChild(div);
                 window._agentNovos = novos;
-                // Check all toggle
-                document.getElementById('agent-check-all').addEventListener('change', function() {
-                  var checked = this.checked;
-                  document.querySelectorAll('.agent-check').forEach(function(cb) { cb.checked = checked; });
-                });
-                // Botao importar
-                document.getElementById('agent-import-btn').addEventListener('click', async function() {
-                  var selecionados = [];
-                  document.querySelectorAll('.agent-check:checked').forEach(function(cb) {
-                    var idx = parseInt(cb.dataset.idx);
-                    if (window._agentNovos[idx]) selecionados.push(window._agentNovos[idx]);
-                  });
-                  if (!selecionados.length) { alert('Selecione pelo menos 1 reserva'); return; }
-                  this.disabled = true; this.textContent = '⏳ Importando...';
-                  var statusEl = document.getElementById('agent-import-status');
-                  if (logEl) logEl.textContent = '';
-                  await window.EmailAgent.importar(selecionados, function(m) {
-                    if (logEl) { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; }
-                  });
-                  this.textContent = '✅ Concluido!';
-                  if (statusEl) statusEl.textContent = selecionados.length + ' lead(s) importado(s)';
-                });
+                window._agentIdx = 0;
+                mostrarProximo();
               }
             });
-
             scanBtn.disabled = false; scanBtn.textContent = '🔍 Escanear Agora';
+          });
+        }
+        // Funcao que mostra cada reserva uma por vez
+        function mostrarProximo() {
+          var div = document.getElementById('agent-results');
+          var novos = window._agentNovos || [];
+          var idx = window._agentIdx || 0;
+          if (idx >= novos.length || !div) {
+            if (div) div.innerHTML = '<div style="padding:20px;text-align:center;font-weight:700;color:#2e7d32;font-size:16px">✅ Revisao completa!</div>';
+            return;
+          }
+          var e = novos[idx];
+          var nextAgp = '';
+          try { if (window.EmailAgent && window.EmailAgent._proximoAGP) nextAgp = window.EmailAgent._proximoAGP(); } catch(_){}
+          div.innerHTML = ''
+            + '<div style="background:#fff;border:2px solid #1a5276;border-radius:10px;padding:20px;margin-bottom:12px">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+            + '<div style="font-weight:700;font-size:15px;color:#1a5276">Reserva ' + (idx+1) + ' de ' + novos.length + '</div>'
+            + '<div style="font-size:12px;color:#888">' + (e.data||'') + '</div></div>'
+            + '<div style="background:#f5f7fa;border-radius:6px;padding:12px;margin-bottom:14px">'
+            + '<div style="font-weight:700;font-size:16px;color:#003144;margin-bottom:4px">Reserva ' + e.reserva + '</div>'
+            + '<div style="font-size:13px;color:#555;margin-bottom:4px">' + (e.assunto||'') + '</div>'
+            + '<div style="font-size:12px;color:#888">De: ' + (e.remetente||'') + (e.hasAttachments ? ' · 📎 Tem anexo' : '') + '</div>'
+            + '</div>'
+            + '<div style="margin-bottom:14px">'
+            + '<label style="font-weight:600;font-size:13px;color:#1a5276">Numero AGP:</label>'
+            + '<div style="display:flex;gap:8px;margin-top:4px;align-items:center">'
+            + '<input type="text" id="agent-agp-input" value="' + nextAgp + '" placeholder="AGP automatico" style="padding:8px 12px;border:1px solid #ccc;border-radius:4px;font-size:14px;font-weight:700;width:180px" />'
+            + '<span style="font-size:11px;color:#888">Deixe o valor sugerido ou digite outro</span>'
+            + '</div></div>'
+            + '<div style="display:flex;gap:10px">'
+            + '<button id="agent-importar-btn" style="background:#2e7d32;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;flex:1">✅ Importar Lead</button>'
+            + '<button id="agent-pular-btn" style="background:#888;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">⏭ Pular</button>'
+            + '<button id="agent-pular-todos-btn" style="background:#c62828;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">⏹ Parar</button>'
+            + '</div></div>';
+          // Handlers
+          document.getElementById('agent-pular-btn').addEventListener('click', function() {
+            window._agentIdx++;
+            mostrarProximo();
+          });
+          document.getElementById('agent-pular-todos-btn').addEventListener('click', function() {
+            window._agentIdx = novos.length;
+            mostrarProximo();
+          });
+          document.getElementById('agent-importar-btn').addEventListener('click', async function() {
+            var btn = this;
+            btn.disabled = true; btn.textContent = '⏳ Importando...';
+            var agpManual = document.getElementById('agent-agp-input').value.trim();
+            var logEl = document.getElementById('agent-log');
+            function log(m) { if (logEl) { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; } }
+            try {
+              var item = novos[idx];
+              log('🔄 Reserva ' + item.reserva + '...');
+              if (!window.WeikuClient) { log('⚠ WeikuClient indisponivel'); btn.textContent = '❌ Erro'; return; }
+              var dados = await window.WeikuClient.buscarReserva(item.reserva);
+              if (!dados || !dados.nome_cliente) { log('⚠ Sem dados Weiku'); btn.textContent = '❌ Sem dados'; return; }
+              // PDF
+              if (item.hasAttachments) {
+                try { var pi = await window.EmailAgent._analisarPdf(item.emailId, log); if (pi) dados._portaInfo = pi; } catch(_){}
+              }
+              // Criar lead com AGP manual ou auto
+              var lead = window.EmailAgent._criarLead(item.reserva, dados, agpManual, item.remetente);
+              if (lead) {
+                log('✅ ' + lead.cliente + ' | ' + lead.numeroAGP);
+                // Tag no email: "Fazer Orcamento"
+                try {
+                  var token = localStorage.getItem('projetta_outlook_access_token');
+                  if (token) {
+                    await fetch('https://graph.microsoft.com/v1.0/me/messages/' + item.emailId, {
+                      method: 'PATCH',
+                      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ categories: ['Fazer Orcamento'] })
+                    });
+                    log('   🏷 Tag "Fazer Orcamento" aplicada no email');
+                  }
+                } catch(_){}
+                if (window.Events) window.Events.emit('crm:reload');
+              }
+            } catch(err) { log('❌ ' + err.message); }
+            window._agentIdx++;
+            mostrarProximo();
           });
         }
         if (autoBtn) {

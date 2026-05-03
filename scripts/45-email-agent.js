@@ -86,7 +86,7 @@
       numeroReserva: String(reserva),
       numeroAGP: agp,
       valor: 0,
-      etapa: 'qualificacao',
+      etapa: 'fazer-orcamento',
       destinoTipo: 'nacional',
       destinoPais: '',
       data: new Date().toISOString().slice(0, 10),
@@ -417,6 +417,9 @@
     startAutoScan: startAutoScan,
     stopAutoScan: stopAutoScan,
     _autoAtivo: false,
+    _criarLead: criarLead,
+    _proximoAGP: proximoAGP,
+    _analisarPdf: analisarPdfComIA,
     resetProcessados: function() {
       processados.clear();
       localStorage.removeItem('projetta_agent_processados');
