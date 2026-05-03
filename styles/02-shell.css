@@ -322,3 +322,9 @@
   background: rgba(196, 112, 18, 0.04);
   color: var(--text-muted);
 }
+
+/* Felipe: header módulo compacto */
+.breadcrumb { margin-bottom: 2px; font-size: 11px; }
+.mod-title { font-size: 20px; margin-bottom: 4px; }
+.mod-subtitle { display: none; }
+.mod-header { padding-bottom: 6px; margin-bottom: 8px; }

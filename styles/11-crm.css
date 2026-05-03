@@ -930,3 +930,13 @@
   color: var(--azul-escuro, #1f3658);
   font-weight: 700;
 }
+
+/* Felipe: header compacto — mais espaço pros cards */
+.crm-kpi { padding: 6px 12px; min-width: 160px; }
+.crm-kpi-val { font-size: 16px; font-weight: 800; }
+.crm-kpi-lbl { font-size: 10px; font-weight: 700; }
+.crm-kpi-count { font-size: 10px; }
+.crm-kpi-select { font-size: 11px; padding: 2px 6px; }
+.crm-header-row { margin-bottom: 8px; gap: 10px; }
+.crm-kpis { gap: 8px; }
+.crm-filtros-wrap { margin-bottom: 8px; }

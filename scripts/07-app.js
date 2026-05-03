@@ -13,7 +13,7 @@ const App = (() => {
   const moduleDefinitions = {
     crm: {
       title: 'CRM',
-      subtitle: 'Pipeline de vendas, oportunidades, mapa de obras.',
+      subtitle: '',
       breadcrumb: 'Comercial · CRM',
     },
     clientes: {
