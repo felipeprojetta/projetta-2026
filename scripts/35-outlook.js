@@ -562,7 +562,7 @@
       var subject = m.subject || '(sem assunto)';
       var preview = (m.bodyPreview||'').slice(0,110);
       // Badges de categorias
-      var flagColors = {'Respondido':'#2e7d32','Pendente':'#e65100','Orcamento Pronto':'#1565c0','Urgente':'#c62828','Aguardando Cliente':'#7b1fa2'};
+      var flagColors = {'Lead Coletado':'#78909c','Lead Criado':'#e65100','Fazer Orcamento':'#1565c0','Orcamento Pronto':'#2e7d32','Orcamento Enviado':'#6a1b9a'};
       var catBadges = (m.categories||[]).map(function(c){
         var cor = flagColors[c] || '#666';
         return '<span style="background:'+cor+';color:#fff;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600">'+_escHtml(c)+'</span>';
@@ -722,8 +722,8 @@
 
       // Categorias/flags do email
       var cats = m.categories || [];
-      var FLAGS = ['Respondido', 'Pendente', 'Orcamento Pronto', 'Urgente', 'Aguardando Cliente'];
-      var flagColors = {'Respondido':'#2e7d32','Pendente':'#e65100','Orcamento Pronto':'#1565c0','Urgente':'#c62828','Aguardando Cliente':'#7b1fa2'};
+      var FLAGS = ['Lead Coletado', 'Lead Criado', 'Fazer Orcamento', 'Orcamento Pronto', 'Orcamento Enviado'];
+      var flagColors = {'Lead Coletado':'#78909c','Lead Criado':'#e65100','Fazer Orcamento':'#1565c0','Orcamento Pronto':'#2e7d32','Orcamento Enviado':'#6a1b9a'};
       var flagsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'
         + FLAGS.map(function(f){
           var ativo = cats.indexOf(f) >= 0;
@@ -777,7 +777,7 @@
       });
       // Atualiza visual do botao
       if(btnEl){
-        var flagColors = {'Respondido':'#2e7d32','Pendente':'#e65100','Orcamento Pronto':'#1565c0','Urgente':'#c62828','Aguardando Cliente':'#7b1fa2'};
+        var flagColors = {'Lead Coletado':'#78909c','Lead Criado':'#e65100','Fazer Orcamento':'#1565c0','Orcamento Pronto':'#2e7d32','Orcamento Enviado':'#6a1b9a'};
         var cor = flagColors[flag] || '#666';
         var ativo = cats.indexOf(flag) >= 0;
         btnEl.style.background = ativo ? cor : '#fff';

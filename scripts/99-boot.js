@@ -102,26 +102,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!App.register) return;
     App.register('email', {
       render: function(container) {
-        container.innerHTML = '<div id="outlook-tab-content" style="padding:12px;"></div>';
-        // Tenta renderizar Outlook + Agente com retry (scripts carregam async)
-        function tentarRender() {
-          if (typeof outlookRenderTab === 'function') {
-            outlookRenderTab();
-          }
-          // Agente: sempre tenta renderizar (com delay pra garantir que carregou)
-          setTimeout(function() {
-            if (window.EmailAgent && !document.getElementById('email-agent-section')) {
-              window.EmailAgent.renderUI(container);
-            }
-          }, 300);
+        // Agente embutido diretamente (sem depender de timing)
+        var agentHtml = '<div id="email-agent-section" style="background:#fff;border:2px solid #1a5276;border-radius:10px;padding:20px;margin:0 12px 16px;">'
+          + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">'
+          + '<div><div style="font-weight:700;font-size:16px;color:#1a5276">🤖 Agente Automatico de Reservas</div>'
+          + '<div style="font-size:12px;color:#666;margin-top:2px">Escaneia inbox, identifica RESERVA, busca Weiku, cria lead no CRM</div></div>'
+          + '<div style="display:flex;gap:8px"><button id="agent-scan-btn" style="background:#1a5276;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">🔍 Escanear Agora</button>'
+          + '<button id="agent-auto-btn" style="background:#2e7d32;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">▶ Auto 5min</button></div>'
+          + '</div><div id="agent-log" style="background:#f5f7fa;border:1px solid #e0e0e0;border-radius:6px;padding:12px;font-family:monospace;font-size:12px;max-height:300px;overflow-y:auto;white-space:pre-wrap;color:#333;margin-top:12px">Clique "Escanear Agora" ou ative o auto-scan.</div></div>';
+        container.innerHTML = agentHtml + '<div id="outlook-tab-content" style="padding:12px;"></div>';
+        if (typeof outlookRenderTab === 'function') {
+          outlookRenderTab();
         }
-        tentarRender();
-        // Retry apos 1.5s caso scripts ainda nao tenham carregado
-        setTimeout(function() {
-          if (!document.getElementById('email-agent-section') && window.EmailAgent) {
-            window.EmailAgent.renderUI(container);
-          }
-        }, 1500);
+        // Bind agent buttons
+        var scanBtn = document.getElementById('agent-scan-btn');
+        var autoBtn = document.getElementById('agent-auto-btn');
+        if (scanBtn) {
+          scanBtn.addEventListener('click', async function() {
+            if (!window.EmailAgent) { alert('Agente ainda carregando...'); return; }
+            scanBtn.disabled = true; scanBtn.textContent = '⏳ Escaneando...';
+            var logEl = document.getElementById('agent-log');
+            if (logEl) logEl.textContent = '';
+            try {
+              await window.EmailAgent.scan({ log: function(m) { if (logEl) { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; } } });
+            } catch(e) { if (logEl) logEl.textContent += '❌ ' + e.message + '\n'; }
+            scanBtn.disabled = false; scanBtn.textContent = '🔍 Escanear Agora';
+          });
+        }
+        if (autoBtn) {
+          autoBtn.addEventListener('click', function() {
+            if (!window.EmailAgent) return;
+            if (window.EmailAgent._autoAtivo) {
+              window.EmailAgent.stopAutoScan();
+              window.EmailAgent._autoAtivo = false;
+              autoBtn.style.background = '#2e7d32'; autoBtn.textContent = '▶ Auto 5min';
+            } else {
+              window.EmailAgent.startAutoScan(5);
+              window.EmailAgent._autoAtivo = true;
+              autoBtn.style.background = '#c62828'; autoBtn.textContent = '⏹ Parar Auto';
+            }
+          });
+        }
       }
     });
   }, 800);
