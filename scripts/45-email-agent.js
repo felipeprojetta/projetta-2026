@@ -91,12 +91,106 @@
       destinoPais: '',
       data: new Date().toISOString().slice(0, 10),
       origem: 'email-agente-outlook',
-      emailOrigem: emailOrigem || ''
+      emailOrigem: emailOrigem || '',
+      // Campos de porta (preenchidos pelo agente via PDF/IA)
+      porta_largura: '',
+      porta_altura: '',
+      porta_modelo: '',
+      porta_cor: '',
+      porta_fechadura_digital: ''
     };
+
+    // Mescla dados extras (do PDF) se fornecidos
+    if (dadosWeiku._portaInfo) {
+      var pi = dadosWeiku._portaInfo;
+      if (pi.largura) novo.porta_largura = pi.largura;
+      if (pi.altura) novo.porta_altura = pi.altura;
+      if (pi.modelo) novo.porta_modelo = pi.modelo;
+      if (pi.cor) novo.porta_cor = pi.cor;
+      if (pi.fechaduraDigital) novo.porta_fechadura_digital = pi.fechaduraDigital;
+    }
 
     leads.push(novo);
     store.set('leads', leads);
     return novo;
+  }
+
+  // ── Analisar PDF com Claude API ──
+  async function analisarPdfComIA(msgId, log) {
+    if (!window.outlookIsAuth || !window.outlookIsAuth()) return null;
+    try {
+      // Busca anexos do email
+      var _gc = window._outlookGraphCall || (function(){ return null; });
+      // Usa a funcao interna do outlook module
+      var token = localStorage.getItem('projetta_outlook_access_token');
+      if (!token) return null;
+
+      var resp = await fetch('https://graph.microsoft.com/v1.0/me/messages/' + msgId + '/attachments?$select=id,name,contentType,size', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!resp.ok) return null;
+      var data = await resp.json();
+      var pdfs = (data.value || []).filter(function(a) {
+        return (a.contentType || '').indexOf('pdf') >= 0 || (a.name || '').toLowerCase().endsWith('.pdf');
+      });
+      if (!pdfs.length) { log('   📄 Sem PDF anexo neste email'); return null; }
+
+      // Baixa o primeiro PDF
+      var pdfAtt = pdfs[0];
+      log('   📄 Analisando PDF: ' + pdfAtt.name + '...');
+      var attResp = await fetch('https://graph.microsoft.com/v1.0/me/messages/' + msgId + '/attachments/' + pdfAtt.id, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!attResp.ok) return null;
+      var attData = await attResp.json();
+      if (!attData.contentBytes) return null;
+
+      // Envia pro Claude API pra extrair dados
+      log('   🤖 Enviando PDF pro Claude analisar...');
+      var aiResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 500,
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'document',
+                source: { type: 'base64', media_type: 'application/pdf', data: attData.contentBytes }
+              },
+              {
+                type: 'text',
+                text: 'Extraia do PDF os seguintes dados da porta. Responda SOMENTE em JSON puro (sem markdown, sem explicacao):\n{"largura":"valor em mm","altura":"valor em mm","modelo":"numero do modelo","cor":"nome da cor ou codigo","fechaduraDigital":"sim ou nao"}\nSe um campo nao existir no PDF, use string vazia "".'
+              }
+            ]
+          }]
+        })
+      });
+
+      if (!aiResp.ok) {
+        log('   ⚠ Claude API: ' + aiResp.status);
+        return null;
+      }
+
+      var aiData = await aiResp.json();
+      var text = (aiData.content && aiData.content[0] && aiData.content[0].text) || '';
+      // Parse JSON
+      try {
+        var clean = text.replace(/```json|```/g, '').trim();
+        var info = JSON.parse(clean);
+        log('   ✅ PDF analisado: ' + info.largura + 'x' + info.altura + ' modelo ' + info.modelo + ' cor ' + info.cor + ' fechadura ' + info.fechaduraDigital);
+        return info;
+      } catch (pe) {
+        log('   ⚠ Nao conseguiu parsear resposta da IA: ' + text.substring(0, 100));
+        return null;
+      }
+    } catch (e) {
+      log('   ⚠ Analise PDF falhou: ' + e.message);
+      return null;
+    }
+  }
   }
 
   // ── SCANNER PRINCIPAL ──
@@ -161,7 +255,7 @@
           }
 
           log('   🔄 Buscando dados da reserva ' + numReserva + ' na Weiku...');
-          var dados = await window.WeikuClient.buscar(numReserva);
+          var dados = await window.WeikuClient.buscarReserva(numReserva);
 
           if (!dados || !dados.nome_cliente) {
             log('   ⚠ Reserva ' + numReserva + ' sem dados na Weiku');
@@ -172,6 +266,16 @@
 
           var agp = proximoAGP();
           var from = (email.from && email.from.emailAddress) ? email.from.emailAddress.address : '';
+
+          // Tentar analisar PDF anexo antes de criar lead
+          var portaInfo = null;
+          try {
+            portaInfo = await analisarPdfComIA(email.id, log);
+          } catch(_){}
+          if (portaInfo) {
+            dados._portaInfo = portaInfo;
+          }
+
           var novoLead = criarLead(numReserva, dados, agp, from);
 
           if (novoLead) {

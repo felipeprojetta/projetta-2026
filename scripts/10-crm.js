@@ -1335,6 +1335,14 @@
               ${destinoLabel ? `<span class="crm-card-destino">${destinoLabel}</span>` : ''}
             </div>
             ${fechadoEmLabel}
+            ${(l.porta_largura || l.porta_modelo || l.porta_cor) ? `
+              <div style="background:#f0f7ff;border:1px solid #c5d9ed;border-radius:4px;padding:6px 8px;margin:6px 0;font-size:11px;">
+                ${l.porta_largura && l.porta_altura ? `<div>📐 <b>${escapeHtml(l.porta_largura)} × ${escapeHtml(l.porta_altura)} mm</b></div>` : ''}
+                ${l.porta_modelo ? `<div>🚪 Modelo <b>${escapeHtml(l.porta_modelo)}</b></div>` : ''}
+                ${l.porta_cor ? `<div>🎨 ${escapeHtml(l.porta_cor)}</div>` : ''}
+                ${l.porta_fechadura_digital && l.porta_fechadura_digital !== 'nao' ? `<div>🔐 Fechadura digital</div>` : ''}
+              </div>
+            ` : ''}
             ${versoesUI}
             ${mostraBtnOrc ? `
               <div class="crm-card-actions">
