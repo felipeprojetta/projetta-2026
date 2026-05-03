@@ -9,9 +9,20 @@
   'use strict';
 
   var PROXY_URL = 'https://plmliavuwlgpwaizfeds.supabase.co/functions/v1/omie-proxy';
+  var _ultimaChamada = 0;
+  var THROTTLE_MS = 3000; // minimo 3s entre chamadas
 
   // ── Chamada ao proxy ──
   async function omieCall(action, pagina, registros, filtro) {
+    // Throttle: impede chamadas rapidas demais
+    var agora = Date.now();
+    var diff = agora - _ultimaChamada;
+    if (diff < THROTTLE_MS) {
+      var aguardar = THROTTLE_MS - diff;
+      await new Promise(function(r) { setTimeout(r, aguardar); });
+    }
+    _ultimaChamada = Date.now();
+
     var resp = await fetch(PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -118,7 +129,8 @@
 
       state.produtos = produtos;
 
-      if (statusEl) statusEl.textContent = 'Pagina ' + (data.pagina || 1) + ' de ' + state.totalPaginas + ' | ' + (data.total_de_registros || 0) + ' produto(s)' + (state.buscaTermo ? ' (filtrado: ' + produtos.length + ')' : '');
+      var cachedTag = data._cached ? ' 💾 (cache)' : '';
+      if (statusEl) statusEl.textContent = 'Pagina ' + (data.pagina || 1) + ' de ' + state.totalPaginas + ' | ' + (data.total_de_registros || 0) + ' produto(s)' + (state.buscaTermo ? ' (filtrado: ' + produtos.length + ')' : '') + cachedTag;
 
       if (!produtos.length) {
         tabelaEl.innerHTML = '<div style="padding:30px;text-align:center;color:#888;font-size:14px">Nenhum produto encontrado' + (state.buscaTermo ? ' para "' + state.buscaTermo + '"' : '') + '</div>';
