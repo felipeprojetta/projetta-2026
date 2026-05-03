@@ -109,6 +109,16 @@
       } else {
         state.leads = lista || [];
       }
+      // Filtra leads deletados (impede sync trazer de volta)
+      try {
+        var deletados = JSON.parse(localStorage.getItem('projetta_leads_deletados') || '[]');
+        if (deletados.length > 0) {
+          var setDel = new Set(deletados);
+          var antes = state.leads.length;
+          state.leads = state.leads.filter(function(l) { return !setDel.has(l.id); });
+          if (state.leads.length < antes) store.set('leads', state.leads);
+        }
+      } catch(_){}
       const v = store.get('view');
       if (v === 'kanban' || v === 'lista') state.view = v;
       // Migracao: pra leads ja em 'fechado' que nao tem `fechadoEm`, copia `data`.
@@ -1017,6 +1027,12 @@
           });
         }
         state.leads = state.leads.filter(l => l.id !== modalState.editandoId);
+        // Salva ID deletado pra sync nao trazer de volta
+        try {
+          var deletados = JSON.parse(localStorage.getItem('projetta_leads_deletados') || '[]');
+          deletados.push(modalState.editandoId);
+          localStorage.setItem('projetta_leads_deletados', JSON.stringify(deletados));
+        } catch(_){}
         save();
         fecharModal(container);
         render(container);

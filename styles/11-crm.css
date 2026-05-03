@@ -53,8 +53,8 @@
   background: var(--bg-soft);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  min-width: 220px;
-  width: 220px;
+  min-width: 300px;
+  width: 300px;
   max-height: calc(100vh - 280px);
   display: flex;
   flex-direction: column;
@@ -153,21 +153,21 @@
   cursor: grabbing;
 }
 .crm-card-titulo {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--azul-escuro);
   margin-bottom: 4px;
   line-height: 1.3;
 }
 .crm-card-cliente {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-soft);
   margin-bottom: 8px;
 }
 .crm-card-valor {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-strong);
-  font-weight: 500;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 /* Felipe (sessao 2026-06): bloco com 2 valores no card do CRM —
