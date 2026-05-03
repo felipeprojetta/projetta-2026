@@ -4900,7 +4900,6 @@ const Orcamento = (() => {
     const subFab = Number(versao.subFab) || 0;
     const subInst = Number(versao.subInst) || 0;
     const params = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
-    const r = calcularDRE(subFab, subInst, params);
 
     // Felipe (do doc): DRE puxa o representante do lead pra mostrar a
     // classificacao (Showroom/Representante/etc) e a comissao sugerida
@@ -4927,6 +4926,22 @@ const Orcamento = (() => {
     } catch (e) {
       console.warn('[DRE] lookup do representante falhou:', e);
     }
+
+    // Felipe (sessao 2026-10): "marcio 6% dre mostrou 7% mas foi 7%
+    // para DRE voce dev puxar comissao do representante". AUTO-APLICA
+    // comissao do representante quando o campo AINDA esta no default.
+    // Se usuario ja editou manualmente, preserva o valor editado.
+    if (repInfoDre && repInfoDre.comissaoMaximaPct > 0) {
+      const paramsSalvos = versao.parametros || {};
+      if (paramsSalvos.com_rep === undefined || paramsSalvos.com_rep === null) {
+        params.com_rep = repInfoDre.comissaoMaximaPct;
+        const novosParams = Object.assign({}, paramsSalvos, { com_rep: repInfoDre.comissaoMaximaPct });
+        atualizarVersao(versao.id, { parametros: novosParams });
+      }
+    }
+
+    // Calcula DRE COM a comissao correta do representante
+    const r = calcularDRE(subFab, subInst, params);
 
     const fmtPct = (frac) => fmtBR((frac || 0) * 100) + ' %';
     const fmtN3  = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
