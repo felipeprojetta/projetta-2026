@@ -1418,7 +1418,7 @@
             ${mostraBtnOrc ? `
               <div class="crm-card-actions">
                 <button class="crm-card-btn-orc" data-action="montar-orcamento" data-lead-id="${l.id}" title="Abrir orcamento deste lead">📐 Montar Orcamento</button>
-                ${l.telefone ? `<button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar mensagem via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>` : ''}
+                <button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>
                 ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva com proposta" style="background:rgba(0,120,212,0.4);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Enviar Proposta</button>` : ''}
               </div>
             ` : ''}
@@ -1929,11 +1929,39 @@
             e.stopPropagation();
             const leadId = btnWpp.dataset.leadId;
             const lead = state.leads.find(l => l.id === leadId);
-            if (!lead || !lead.telefone) return;
-            // Formata telefone: remove tudo que nao e digito, adiciona 55 se necessario
-            let fone = String(lead.telefone).replace(/\D/g, '');
-            if (fone.length <= 11 && !fone.startsWith('55')) fone = '55' + fone;
-            // Busca valor do orçamento se existir
+            if (!lead) return;
+            // Busca contato do representante
+            let repContato = '';
+            let repNome = '';
+            try {
+              const cadStore = Storage.scope('cadastros');
+              const reps = cadStore.get('representantes_lista') || [];
+              const fup = lead.representante_followup || '';
+              const rep = reps.find(r => r.followup === fup);
+              if (rep && rep.contatos && rep.contatos.length) {
+                const c = rep.contatos.find(ct => ct.nome === lead.representante_contato) || rep.contatos[0];
+                repContato = (c.telefone || c.celular || '').replace(/\D/g,'');
+                repNome = c.nome || fup;
+              }
+            } catch(_){}
+            // Popup de escolha
+            const existing = document.getElementById('wpp-choice-modal');
+            if (existing) existing.remove();
+            const modal = document.createElement('div');
+            modal.id = 'wpp-choice-modal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center';
+            const clienteFone = lead.telefone ? lead.telefone.replace(/\D/g,'') : '';
+            modal.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:400px;width:90%;text-align:center">'
+              + '<div style="font-weight:700;font-size:16px;color:#1a5276;margin-bottom:16px">💬 Enviar WhatsApp para:</div>'
+              + '<div style="display:flex;flex-direction:column;gap:10px">'
+              + (clienteFone ? '<button id="wpp-cliente" style="padding:12px;background:#25d366;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">👤 Cliente: ' + (lead.cliente||'').substring(0,30) + '<br><span style="font-size:11px;font-weight:400">' + (lead.telefone||'') + '</span></button>' : '<div style="color:#888;font-size:13px">👤 Cliente sem telefone</div>')
+              + (repContato ? '<button id="wpp-rep" style="padding:12px;background:#1a5276;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🏢 Representante: ' + repNome.substring(0,30) + '<br><span style="font-size:11px;font-weight:400">' + repContato + '</span></button>' : '<div style="color:#888;font-size:13px">🏢 Representante sem contato</div>')
+              + '<button id="wpp-cancel" style="padding:8px;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:8px;font-size:13px;cursor:pointer">Cancelar</button>'
+              + '</div></div>';
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (ev) => { if (ev.target === modal) modal.remove(); });
+            modal.querySelector('#wpp-cancel').addEventListener('click', () => modal.remove());
+            // Valor
             let valor = 'a combinar';
             try {
               if (window.Orcamento && typeof window.Orcamento.resumoParaCardCRM === 'function') {
@@ -1941,8 +1969,22 @@
                 if (resumo && resumo.pFatReal > 0) valor = 'R$ ' + fmtBR(resumo.pFatReal);
               }
             } catch(_){}
-            const msg = `Olá ${lead.cliente || ''},\n\nÉ com satisfação que encaminhamos nossa proposta comercial referente ao seu projeto.\n\nMais do que um investimento, esta proposta traduz o compromisso da Projetta by Weiku com excelência, sofisticação e atenção absoluta aos detalhes — pilares que fazem de cada entrega uma experiência única.\n\nValor: ${valor}\n\nPermanecemos à disposição para esclarecer qualquer dúvida.\n\nAtenciosamente,\nEquipe Projetta by Weiku`;
-            window.open('https://wa.me/' + fone + '?text=' + encodeURIComponent(msg), 'projetta_whatsapp', 'width=900,height=700,scrollbars=yes,resizable=yes');
+            const msgCliente = `Olá ${lead.cliente || ''},\n\nÉ com satisfação que encaminhamos nossa proposta comercial referente ao seu projeto.\n\nValor: ${valor}\n\nPermanecemos à disposição.\n\nAtenciosamente,\nEquipe Projetta by Weiku`;
+            const msgRep = `Olá ${repNome},\n\nSegue proposta do cliente ${lead.cliente || ''} (Reserva ${lead.numeroReserva || ''}).\n\nValor: ${valor}\n\nAtt,\nEquipe Projetta by Weiku`;
+            if (clienteFone) {
+              modal.querySelector('#wpp-cliente').addEventListener('click', () => {
+                let f = clienteFone; if (f.length <= 11 && !f.startsWith('55')) f = '55' + f;
+                window.open('https://wa.me/' + f + '?text=' + encodeURIComponent(msgCliente), 'projetta_whatsapp', 'width=900,height=700,scrollbars=yes,resizable=yes');
+                modal.remove();
+              });
+            }
+            if (repContato) {
+              modal.querySelector('#wpp-rep').addEventListener('click', () => {
+                let f = repContato; if (f.length <= 11 && !f.startsWith('55')) f = '55' + f;
+                window.open('https://wa.me/' + f + '?text=' + encodeURIComponent(msgRep), 'projetta_whatsapp', 'width=900,height=700,scrollbars=yes,resizable=yes');
+                modal.remove();
+              });
+            }
             return;
           }
           // Enviar Proposta por Email — busca email da reserva e responde a todos
@@ -2313,9 +2355,15 @@
       if (!container._realtimeSubscribed) {
         container._realtimeSubscribed = true;
         Events.on('db:realtime-sync', function() {
-          // Guard: so re-renderiza se estiver no CRM
           if (window.App && window.App.state && window.App.state.currentModule !== 'crm') return;
           Crm.render(container);
+        });
+        Events.on('crm:reload', function() {
+          loaded = false; // Forca re-leitura do storage
+          load();
+          if (window.App && window.App.state && window.App.state.currentModule === 'crm') {
+            render(container);
+          }
         });
       }
     }
