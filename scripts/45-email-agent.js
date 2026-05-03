@@ -438,5 +438,18 @@
     stopAutoScan: stopAutoScan
   };
 
+  // Auto-render: se a aba Email ja esta visivel, injeta o agente
+  function _tentarAutoRender() {
+    var el = document.getElementById('outlook-tab-content');
+    if (el && !document.getElementById('email-agent-section')) {
+      var container = el.parentElement || el;
+      renderAgentUI(container);
+    }
+  }
+  // Tenta agora e depois a cada 2s (caso a aba abra depois)
+  setTimeout(_tentarAutoRender, 500);
+  setTimeout(_tentarAutoRender, 2000);
+  setTimeout(_tentarAutoRender, 5000);
+
   console.log('[email-agent] Agente de email carregado');
 })();

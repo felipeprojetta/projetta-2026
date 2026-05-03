@@ -18,7 +18,7 @@
 
 .crm-view-toggle {
   display: inline-flex;
-  background: var(--bg-soft);
+  background: #fafbfc;
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 2px;
@@ -50,7 +50,8 @@
   align-items: flex-start;
 }
 .crm-column {
-  background: var(--bg-soft);
+  /* Felipe: cores bem claras como marca dagua */
+  background: #fafbfc;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   min-width: 300px;
@@ -61,7 +62,7 @@
   transition: background 0.12s, border-color 0.12s;
 }
 .crm-column.is-drop-target {
-  background: #FFF3D6;
+  background: #fef9ef;
   border-color: var(--laranja);
 }
 .crm-column-header {
@@ -142,10 +143,10 @@
   cursor: grab;
   transition: box-shadow 0.12s, border-color 0.12s, transform 0.12s;
   user-select: none;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .crm-card:hover {
-  border-color: var(--azul-escuro);
+  border-color: #a0b8c8;
   box-shadow: 0 2px 6px rgba(0, 49, 68, 0.08);
 }
 .crm-card.is-dragging {
@@ -303,7 +304,7 @@
   background: #FFF4E6;
 }
 .crm-card-rep-class-projetta {
-  border-color: var(--azul-escuro);
+  border-color: #a0b8c8;
   color: var(--azul-escuro);
   background: #F4F7FA;
 }
@@ -381,7 +382,7 @@
   background: var(--branco);
 }
 .crm-card-agp {
-  border-color: var(--azul-escuro);
+  border-color: #a0b8c8;
   color: var(--azul-escuro);
 }
 .crm-card-btn-orc {
@@ -398,7 +399,7 @@
 }
 .crm-card-btn-orc:hover {
   background: var(--cinza-mais-claro);
-  border-color: var(--azul-escuro);
+  border-color: #a0b8c8;
 }
 
 /* LISTA */
@@ -416,7 +417,7 @@
   width: auto;
 }
 .crm-lista thead th {
-  background: var(--bg-soft);
+  background: #fafbfc;
   padding: 9px 14px;
   text-align: left;
   font-family: var(--font-display);
@@ -528,7 +529,7 @@
   height: 32px;
   border-radius: 4px;
 }
-.crm-modal-close:hover { background: var(--bg-soft); color: var(--azul-escuro); }
+.crm-modal-close:hover { background: #fafbfc; color: var(--azul-escuro); }
 .crm-modal-body { padding: 18px 22px 4px; }
 
 /* Tabs do modal */
@@ -604,7 +605,7 @@
   100% { background-position: -200% 0; }
 }
 .crm-field input[readonly] {
-  background: var(--bg-soft);
+  background: #fafbfc;
   color: var(--text-strong);
   cursor: default;
 }
@@ -659,7 +660,7 @@
   border-radius: 6px;
   cursor: pointer;
 }
-.crm-btn-cancel:hover { background: var(--bg-soft); }
+.crm-btn-cancel:hover { background: #fafbfc; }
 .crm-btn-primary {
   background: var(--azul-escuro);
   color: #fff;
@@ -700,7 +701,7 @@
 }
 .crm-card-agp-field input:focus {
   outline: none;
-  border-color: var(--azul-escuro);
+  border-color: #a0b8c8;
 }
 
 /* Telefone e email no card */
@@ -817,7 +818,7 @@
   color: var(--azul-escuro);
   cursor: pointer;
 }
-.crm-kpi-select:hover { border-color: var(--azul-escuro); }
+.crm-kpi-select:hover { border-color: #a0b8c8; }
 .crm-kpi-select:focus { outline: 2px solid var(--laranja); outline-offset: 1px; }
 .crm-kpi-count {
   font-family: var(--font-body);
@@ -868,7 +869,7 @@
   min-width: 130px;
   cursor: pointer;
 }
-.crm-filtro-sel:hover { border-color: var(--azul-escuro); }
+.crm-filtro-sel:hover { border-color: #a0b8c8; }
 .crm-filtro-sel:focus { outline: 2px solid var(--laranja); outline-offset: -1px; }
 .crm-filtro-limpar {
   background: var(--branco);

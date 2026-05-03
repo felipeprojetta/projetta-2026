@@ -116,7 +116,7 @@
   color: var(--laranja);
   font-weight: 500;
 }
-.env-badge {
+.env-badge { display:none !important;
   display: inline-flex;
   align-items: center;
   gap: 6px;
