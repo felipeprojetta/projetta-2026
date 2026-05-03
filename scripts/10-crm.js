@@ -2159,14 +2159,24 @@
       // orcamento sai e volta para pagina crm". CAUSA: este handler
       // Events.on('db:realtime-sync') dispara a cada 10s e chamava
       // Crm.render(container) MESMO quando o modulo ativo era
-      // Orcamento — sobrescrevia o conteudo. CORRECAO: so' re-renderiza
-      // se o modulo ativo AINDA for 'crm'.
+      // Orcamento — sobrescrevia o conteudo. CORRECAO: TRIPLA
+      // verificacao — state + DOM + nav ativa.
       if (!container._realtimeSubscribed) {
         container._realtimeSubscribed = true;
         Events.on('db:realtime-sync', function() {
-          // Verifica se o modulo ativo ainda e' CRM antes de re-renderizar
+          // CHECK 1: App.state diz que modulo ativo e' CRM?
           if (window.App && window.App.state && window.App.state.currentModule !== 'crm') {
             return; // NAO re-renderizar — usuario esta em outro modulo
+          }
+          // CHECK 2: nav ativa no DOM e' CRM? (confirmacao real do DOM)
+          const navAtiva = document.querySelector('.nav-item.is-active');
+          if (navAtiva && navAtiva.dataset.module !== 'crm') {
+            return; // DOM diz que nao estamos no CRM
+          }
+          // CHECK 3: container TEM conteudo CRM? (nao vai sobrescrever
+          // orcamento se por alguma razao os checks acima falharam)
+          if (!container.querySelector('.crm-board, .crm-pipeline, [data-crm-section]')) {
+            return; // Container nao tem conteudo CRM — provavelmente orcamento
           }
           // Recarrega dados do localStorage (que foi atualizado pelo polling)
           Crm.render(container);

@@ -19,10 +19,10 @@
 window.ChapasAproveitamento = (function () {
   'use strict';
 
-  // Felipe (sessao 27 fix): defaults sincronizados com 34-regras.js
-  // (KERF agora 0 default, Felipe nao quer 4mm de perda automatica).
+  // Felipe (sessao 2026-10): defaults sincronizados com MaxCut
+  // (Serra 4mm, Aparar 5mm todos lados, metodo multi_horiz, 6 niveis).
   const DEFAULTS = {
-    KERF:        0,
+    KERF:        4,
     APARAR:      5,
     METODO:      'multi_horiz',
     DESPERDICIO: 'inferior',

@@ -11065,9 +11065,15 @@ const Orcamento = (() => {
             </tr>`;
         }).join('');
         // R19: sem <strong>. Usa span com classe semibold.
+        // Felipe (sessao 2026-10): subtotais destacados com fundo colorido
+        const ehFab = titulo.includes('Fabricacao');
+        const ehObra = titulo.includes('Obra');
+        const corFundo = ehFab ? '#e6f0e6' : ehObra ? '#e6e6f0' : '#f0e6f0';
         return `
           <div class="orc-section">
-            <div class="orc-section-title">${titulo} — Subtotal: <span class="t-strong">${fmtMoney(total)}</span></div>
+            <div class="orc-section-title" style="background:${corFundo};padding:8px 12px;border-radius:4px;border-left:4px solid ${ehFab ? '#2e7d32' : ehObra ? '#1565c0' : '#7b1fa2'};margin-bottom:4px;">
+              ${titulo} — Subtotal: <span class="t-strong" style="font-size:1.1em;color:${ehFab ? '#2e7d32' : ehObra ? '#1565c0' : '#7b1fa2'}">${fmtMoney(total)}</span>
+            </div>
             <table class="lvp-table cad-table" id="${idTab}">
               <thead>
                 <tr>
@@ -11097,12 +11103,12 @@ const Orcamento = (() => {
           ${renderTabela(`lvac-fab-${idx}`,     linhasFab,     '🏭 Fabricacao',        totalFab)}
           ${renderTabela(`lvac-obra-${idx}`,    linhasObra,    '🚧 Obra',              totalObra)}
           ${renderTabela(`lvac-digital-${idx}`, linhasDigital, '🔐 Fechadura Digital', totalDigital)}
-          <div class="orc-section orc-section-total">
-            <div class="orc-section-title">
-              Total deste Item — Fabricacao: <span class="t-strong">${fmtMoney(totalFab)}</span>
-              · Obra: <span class="t-strong">${fmtMoney(totalObra)}</span>
-              · Digital: <span class="t-strong">${fmtMoney(totalDigital)}</span>
-              · Geral: <span class="t-strong">${fmtMoney(totalFab + totalObra + totalDigital)}</span>
+          <div class="orc-section" style="background:#fff3e0;border:2px solid #e65100;border-radius:6px;padding:12px 16px;margin-top:12px;">
+            <div style="font-weight:700;font-size:0.95em;color:#bf360c;letter-spacing:0.3px;">
+              Total deste Item — Fabricacao: <span style="font-size:1.15em;color:#2e7d32">${fmtMoney(totalFab)}</span>
+              · Obra: <span style="font-size:1.15em;color:#1565c0">${fmtMoney(totalObra)}</span>
+              · Digital: <span style="font-size:1.15em;color:#7b1fa2">${fmtMoney(totalDigital)}</span>
+              · <span style="font-size:1.3em;color:#bf360c;text-decoration:underline;">Geral: ${fmtMoney(totalFab + totalObra + totalDigital)}</span>
             </div>
           </div>
         </div>`;
@@ -11125,11 +11131,14 @@ const Orcamento = (() => {
         adicionados em <span class="t-strong">Cadastros &gt; Acessorios</span>.
       </div>
       ${blocosItens}
-      <div class="orc-section orc-section-total" style="background:#f7f7f7;border:1px solid var(--line); padding: 12px;">
-        <div class="orc-section-title">
-          <span class="t-strong">Total Geral (${itens.length} item(ns) · ${totalUnidades} unid.) — Fabricacao: ${fmtMoney(totalGeralFab)}
-          · Obra: ${fmtMoney(totalGeralObra)}
-          · Geral: ${fmtMoney(totalGeralFab + totalGeralObra)}</span>
+      <div style="background:linear-gradient(135deg,#1a3a5c,#2a5a8c);border-radius:8px;padding:16px 20px;margin-top:16px;color:#fff;">
+        <div style="font-weight:700;font-size:1.1em;letter-spacing:0.5px;">
+          Total Geral (${itens.length} item(ns) · ${totalUnidades} unid.)
+        </div>
+        <div style="margin-top:8px;font-size:1.05em;">
+          Fabricacao: <span style="font-weight:700;font-size:1.2em;color:#a5d6a7;">${fmtMoney(totalGeralFab)}</span>
+          · Obra: <span style="font-weight:700;font-size:1.2em;color:#90caf9;">${fmtMoney(totalGeralObra)}</span>
+          · <span style="font-weight:700;font-size:1.4em;color:#ffeb3b;text-shadow:0 1px 3px rgba(0,0,0,0.3);">Geral: ${fmtMoney(totalGeralFab + totalGeralObra)}</span>
         </div>
       </div>
     `;
