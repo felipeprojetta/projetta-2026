@@ -1348,6 +1348,7 @@
               <div class="crm-card-actions">
                 <button class="crm-card-btn-orc" data-action="montar-orcamento" data-lead-id="${l.id}" title="Abrir orcamento deste lead">📐 Montar Orcamento</button>
                 ${l.telefone ? `<button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar mensagem via WhatsApp" style="background:#25d366;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>` : ''}
+                ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva com proposta" style="background:#0078d4;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Enviar Proposta</button>` : ''}
               </div>
             ` : ''}
           </div>
@@ -1871,6 +1872,58 @@
             } catch(_){}
             const msg = `Olá ${lead.cliente || ''},\n\nÉ com satisfação que encaminhamos nossa proposta comercial referente ao seu projeto.\n\nMais do que um investimento, esta proposta traduz o compromisso da Projetta by Weiku com excelência, sofisticação e atenção absoluta aos detalhes — pilares que fazem de cada entrega uma experiência única.\n\nValor: ${valor}\n\nPermanecemos à disposição para esclarecer qualquer dúvida.\n\nAtenciosamente,\nEquipe Projetta by Weiku`;
             window.open('https://wa.me/' + fone + '?text=' + encodeURIComponent(msg), 'projetta_whatsapp', 'width=900,height=700,scrollbars=yes,resizable=yes');
+            return;
+          }
+          // Enviar Proposta por Email — busca email da reserva e responde a todos
+          const btnEmail = e.target.closest('[data-action="enviar-proposta"]');
+          if (btnEmail) {
+            e.stopPropagation();
+            const leadId = btnEmail.dataset.leadId;
+            const lead = state.leads.find(l => l.id === leadId);
+            if (!lead || !lead.numeroReserva) return;
+            btnEmail.textContent = '⏳ Buscando...';
+            (async function() {
+              try {
+                if (!window.outlookIsAuth || !window.outlookIsAuth()) {
+                  alert('Conecte ao Outlook primeiro (aba Email)');
+                  btnEmail.textContent = '📧 Enviar Proposta';
+                  return;
+                }
+                // Busca email com a reserva no assunto
+                const inbox = await window.outlookListInbox({ top: 20, search: 'subject:reserva ' + lead.numeroReserva });
+                const emails = (inbox && inbox.emails) || [];
+                if (!emails.length) {
+                  alert('Email com reserva ' + lead.numeroReserva + ' nao encontrado no inbox');
+                  btnEmail.textContent = '📧 Enviar Proposta';
+                  return;
+                }
+                // Pega o primeiro email encontrado
+                const emailOrigem = emails[0];
+                const msgBody = '<p>Prezado(a),</p>'
+                  + '<p>Inicialmente agradecemos sua preferência e confiança atribuídas à Projetta By Weiku.</p>'
+                  + '<p>Colocamo-nos à disposição para maiores esclarecimentos ou dúvidas sobre o orçamento em anexo.</p>'
+                  + '<p>Gentileza confirmar o recebimento deste e-mail.</p>'
+                  + '<br>'
+                  + '<p>Como padrão, trabalhamos com 15% de markup e 5% de RT para o arquiteto.<br>'
+                  + 'Se não for reservada a porcentagem do arquiteto, deve-se considerar 20% de desconto sobre o valor cheio.<br>'
+                  + 'Caso o RT seja menor que 5%, a diferença deve ser somada ao desconto final do cliente.</p>'
+                  + '<br>'
+                  + '<p style="font-size:11px;color:#888">— Enviado via Projetta by Weiku</p>';
+                // Responde a todos no email original
+                await window.outlookReplyAll(emailOrigem.id, msgBody);
+                btnEmail.textContent = '✅ Enviado!';
+                btnEmail.style.background = '#2e7d32';
+                // Marca flag no email
+                if (window._outlookToggleFlag) {
+                  window._outlookToggleFlag(emailOrigem.id, 'Orcamento Pronto', null);
+                }
+                setTimeout(() => { btnEmail.textContent = '📧 Enviar Proposta'; btnEmail.style.background = '#0078d4'; }, 3000);
+              } catch(err) {
+                console.error('[enviar-proposta]', err);
+                alert('Erro ao enviar: ' + err.message);
+                btnEmail.textContent = '📧 Enviar Proposta';
+              }
+            })();
             return;
           }
           const id = card.dataset.id;
