@@ -31,7 +31,10 @@ const Database = (() => {
   }
 
   // Upsert no Supabase (background, nao bloqueia)
+  // PROTECAO: NUNCA envia arrays vazios — evita sobrescrever dados reais.
   function sbUpsert(scope, key, value) {
+    // Se for array vazio, NAO sobrescreve o cloud
+    if (Array.isArray(value) && value.length === 0) return;
     var usuario = '';
     try { usuario = (window.Auth && window.Auth.getUser()) || ''; } catch(_){}
     fetch(SUPABASE_URL + '/rest/v1/kv_store', {
@@ -102,6 +105,7 @@ const Database = (() => {
   }
 
   // Envia TUDO do localStorage → Supabase (backup completo)
+  // PROTECAO: NUNCA envia arrays vazios — evita sobrescrever dados reais no cloud.
   async function syncToCloud() {
     try {
       var rows = [];
@@ -117,6 +121,8 @@ const Database = (() => {
         var key = rest.slice(dotPos + 1);
         try {
           var valor = JSON.parse(localStorage.getItem(lsKey));
+          // PROTECAO: nao enviar arrays vazios pro cloud (evita apagar dados)
+          if (Array.isArray(valor) && valor.length === 0) continue;
           rows.push({ scope: scope, key: key, valor: valor, updated_by: usuario });
         } catch(_) {}
       }
