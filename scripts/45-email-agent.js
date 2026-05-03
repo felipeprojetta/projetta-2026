@@ -114,25 +114,7 @@
     return novo;
   }
 
-  // ── Analisar PDF com pdf.js (client-side, sem API) ──
-  var _pdfJsLoaded = false;
-  async function _loadPdfJs() {
-    if (_pdfJsLoaded) return;
-    return new Promise(function(resolve) {
-      var s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      s.onload = function() {
-        if (window.pdfjsLib) {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-          _pdfJsLoaded = true;
-        }
-        resolve();
-      };
-      s.onerror = function() { resolve(); };
-      document.head.appendChild(s);
-    });
-  }
-
+  // ── Analisar PDF via Netlify Function (server-side) ──
   async function analisarPdfComIA(msgId, log) {
     if (!window.outlookIsAuth || !window.outlookIsAuth()) return null;
     try {
@@ -160,87 +142,38 @@
       var attData = await attResp.json();
       if (!attData.contentBytes) return null;
 
-      // Carregar pdf.js
-      await _loadPdfJs();
-      if (!window.pdfjsLib) { log('   ⚠ pdf.js nao carregou'); return null; }
+      // Enviar para Netlify Function
+      log('   🔍 Analisando PDF no servidor...');
+      var parseResp = await fetch('/api/parse-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64: attData.contentBytes })
+      });
 
-      // Converter base64 → Uint8Array
-      var raw = atob(attData.contentBytes);
-      var arr = new Uint8Array(raw.length);
-      for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-
-      // Extrair texto do PDF — 2 métodos
-      log('   🔍 Extraindo texto do checklist...');
-      var textoCompleto = '';
-
-      // Método 1: pdf.js
-      try {
-        await _loadPdfJs();
-        if (window.pdfjsLib) {
-          var pdf = await window.pdfjsLib.getDocument({ data: arr }).promise;
-          for (var p = 1; p <= pdf.numPages; p++) {
-            var page = await pdf.getPage(p);
-            var tc = await page.getTextContent();
-            var pageText = tc.items.map(function(it) { return it.str; }).join(' ');
-            textoCompleto += pageText + '\n';
-          }
-        }
-      } catch(_pdfErr) { log('   ⚠ pdf.js falhou: ' + _pdfErr.message); }
-
-      // Método 2: se pdf.js extraiu pouco, tenta leitura bruta dos bytes
-      if (textoCompleto.replace(/\s/g, '').length < 20) {
-        log('   🔄 pdf.js extraiu pouco, tentando leitura bruta...');
-        // Decodifica bytes como texto Latin1 e busca strings legíveis
-        var rawText = '';
-        for (var i = 0; i < raw.length; i++) rawText += raw[i];
-        // Extrai strings entre parênteses (como PDFs armazenam texto)
-        var pdfStrings = rawText.match(/\(([^)]{2,})\)/g) || [];
-        textoCompleto = pdfStrings.map(function(s) {
-          return s.slice(1, -1) // remove ( )
-            .replace(/\\n/g, ' ')
-            .replace(/\\\(/g, '(')
-            .replace(/\\\)/g, ')')
-            .replace(/\\(\d{3})/g, function(_, oct) { return String.fromCharCode(parseInt(oct, 8)); });
-        }).join(' ');
-        log('   📝 Bruto: ' + textoCompleto.length + ' chars de ' + pdfStrings.length + ' strings');
+      if (!parseResp.ok) {
+        log('   ⚠ Erro no servidor: ' + parseResp.status);
+        return null;
       }
 
-      log('   📝 Texto extraido (' + textoCompleto.length + ' chars)');
-      // Debug: mostra trecho do texto
-      log('   📝 Primeiros 500 chars: ' + textoCompleto.substring(0, 500).replace(/\n/g, ' | '));
-
-      // Parsear campos do checklist Projetta com regex
-      var info = { largura: '', altura: '', modelo: '', cor: '', fechaduraDigital: '' };
-
-      // LARGURA X ALTURA: vários formatos
-      // "LARGURA X ALTURA: 1300x2600" ou "LARGURA X ALTURA  1300x2600" ou "1300 x 2600"
-      var mLxA = textoCompleto.match(/LARGURA\s*[Xx×&]\s*ALTURA[:\s]*(\d{3,5})\s*[Xx×]\s*(\d{3,5})/i);
-      if (!mLxA) mLxA = textoCompleto.match(/LARGURA\s*[Xx×&]\s*ALTURA[:\s]*(\d{3,5})\s*[Xx×x]\s*(\d{3,5})/i);
-      if (!mLxA) mLxA = textoCompleto.match(/(\d{3,5})\s*[Xx×]\s*(\d{3,5})\s*(?:mm)?/);
-      if (mLxA) { info.largura = mLxA[1]; info.altura = mLxA[2]; }
-      if (!info.largura) {
-        var mL = textoCompleto.match(/\bL[:\s]+(\d{3,5})/); if (mL) info.largura = mL[1];
-        var mH = textoCompleto.match(/\bH[:\s]+(\d{3,5})/); if (mH) info.altura = mH[1];
+      var info = await parseResp.json();
+      if (info.error) {
+        log('   ⚠ ' + info.error);
+        return null;
       }
 
-      // MODELO: 01 ou 14 etc
-      var mMod = textoCompleto.match(/MODELO[:\s]+(\d{1,2})/i);
-      if (mMod) info.modelo = mMod[1];
-
-      // COR: vários formatos — "COR PORTA:", "COR CHAPA EXTERNA:", "COR:", "COR CHAPA:"
-      var mCor = textoCompleto.match(/COR\s*(?:PORTA|CHAPA\s*(?:EXTERNA)?)?[:\s]+([A-Z0-9][\w\s\-\.]{3,50})/i);
-      if (mCor) info.cor = mCor[1].trim().replace(/\s{2,}/g, ' ');
-      if (!info.cor) {
-        var mCor2 = textoCompleto.match(/(PRO\d{3,5}\w*\s*[-–]\s*[^\n|]{3,40})/i);
-        if (mCor2) info.cor = mCor2[1].trim();
+      if (info.largura || info.modelo || info.cor) {
+        log('   ✅ PDF: ' + info.largura + '×' + info.altura + ' | Modelo ' + info.modelo + ' | Cor: ' + (info.cor || '').substring(0,30) + ' | Fechadura: ' + info.fechaduraDigital);
+        return info;
+      } else {
+        log('   ⚠ Nao encontrou dados no PDF');
+        if (info.textoCompleto) log('   📝 Texto: ' + info.textoCompleto.substring(0, 200));
+        return null;
       }
-
-      // FECHADURA DIGITAL
-      var mFech = textoCompleto.match(/FECHADURA\s*(?:DIGITAL)?[:\s]+([^\n|]{3,30})/i);
-      if (mFech) {
-        var fd = mFech[1].trim().toUpperCase();
-        info.fechaduraDigital = (fd.indexOf('NAO') >= 0 || fd.indexOf('NÃO') >= 0 || fd.indexOf('APLICA') >= 0) ? 'nao' : 'sim';
-      }
+    } catch (e) {
+      log('   ⚠ Analise PDF falhou: ' + e.message);
+      return null;
+    }
+  }
 
       if (info.largura || info.modelo || info.cor) {
         log('   ✅ PDF: ' + info.largura + '×' + info.altura + ' | Modelo ' + info.modelo + ' | Cor: ' + info.cor + ' | Fechadura: ' + info.fechaduraDigital);
