@@ -336,14 +336,14 @@
     opts = opts || {};
     var top = opts.top || 50;
     var path = "/me/mailFolders/inbox/messages?$top=" + top
-      + "&$select=id,subject,from,toRecipients,receivedDateTime,bodyPreview,hasAttachments,isRead,conversationId"
+      + "&$select=id,subject,from,toRecipients,receivedDateTime,bodyPreview,hasAttachments,isRead,conversationId,categories"
       + "&$orderby=receivedDateTime desc";
 
     if(opts.search){
       // Graph API search (busca em todos campos)
       path = "/me/messages?$search=" + encodeURIComponent('"' + opts.search + '"')
         + "&$top=" + top
-        + "&$select=id,subject,from,toRecipients,receivedDateTime,bodyPreview,hasAttachments,isRead,conversationId";
+        + "&$select=id,subject,from,toRecipients,receivedDateTime,bodyPreview,hasAttachments,isRead,conversationId,categories";
     }
 
     if(opts.skip) path += '&$skip=' + opts.skip;
@@ -364,7 +364,7 @@
   /* Pega corpo completo de um email pelo id. */
   window.outlookGetEmail = async function(msgId){
     return await _graphCall('/me/messages/' + encodeURIComponent(msgId)
-      + '?$select=id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,body,hasAttachments,conversationId');
+      + '?$select=id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,body,hasAttachments,conversationId,categories');
   };
 
   /* Envia email novo.
@@ -561,6 +561,12 @@
       var dtStr = dt ? _formatDate(dt) : '';
       var subject = m.subject || '(sem assunto)';
       var preview = (m.bodyPreview||'').slice(0,110);
+      // Badges de categorias
+      var flagColors = {'Respondido':'#2e7d32','Pendente':'#e65100','Orcamento Pronto':'#1565c0','Urgente':'#c62828','Aguardando Cliente':'#7b1fa2'};
+      var catBadges = (m.categories||[]).map(function(c){
+        var cor = flagColors[c] || '#666';
+        return '<span style="background:'+cor+';color:#fff;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600">'+_escHtml(c)+'</span>';
+      }).join(' ');
 
       return ''
         + '<div style="padding:12px 14px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .15s;background:'+(unread?'#f0f7ff':'#fff')+'" '
@@ -571,6 +577,7 @@
         +     (unread ? '<span style="width:8px;height:8px;background:#0078d4;border-radius:50%;display:inline-block"></span>' : '<span style="width:8px;display:inline-block"></span>')
         +     '<div style="font-weight:'+(unread?'800':'600')+';color:#003144;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escHtml(fromName||fromAddr)+'</div>'
         +     (attach ? '<span style="color:#888" title="Tem anexo">📎</span>' : '')
+        +     (catBadges ? '<span style="display:flex;gap:3px">'+catBadges+'</span>' : '')
         +     '<span style="font-size:11px;color:#888;white-space:nowrap">'+dtStr+'</span>'
         +   '</div>'
         +   '<div style="font-weight:'+(unread?'700':'500')+';color:#1a5276;margin-left:18px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escHtml(subject)+'</div>'
@@ -713,8 +720,24 @@
         }
       }
 
+      // Categorias/flags do email
+      var cats = m.categories || [];
+      var FLAGS = ['Respondido', 'Pendente', 'Orcamento Pronto', 'Urgente', 'Aguardando Cliente'];
+      var flagColors = {'Respondido':'#2e7d32','Pendente':'#e65100','Orcamento Pronto':'#1565c0','Urgente':'#c62828','Aguardando Cliente':'#7b1fa2'};
+      var flagsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'
+        + FLAGS.map(function(f){
+          var ativo = cats.indexOf(f) >= 0;
+          var cor = flagColors[f] || '#666';
+          return '<button onclick="window._outlookToggleFlag(\'' + _escAttr(msgId) + '\',\'' + _escAttr(f) + '\',this)" '
+            + 'style="padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid ' + cor + ';'
+            + (ativo ? 'background:' + cor + ';color:#fff' : 'background:#fff;color:' + cor) + '">'
+            + f + '</button>';
+        }).join('')
+        + '</div>';
+
       document.getElementById('outlook-email-body').innerHTML = ''
         + '<h3 style="margin:0 0 14px;color:#003144;font-size:17px">'+_escHtml(m.subject||'(sem assunto)')+'</h3>'
+        + flagsHtml
         + '<div style="background:#f5f5f5;padding:10px 12px;border-radius:6px;font-size:12px;margin-bottom:14px">'
         +   '<div><b>De:</b> '+_escHtml(from.name||'')+' &lt;'+_escHtml(from.address||'')+'&gt;</div>'
         +   '<div><b>Para:</b> '+_escHtml(to)+'</div>'
@@ -722,10 +745,82 @@
         +   (dt ? '<div><b>Data:</b> '+dt.toLocaleString('pt-BR')+'</div>' : '')
         + '</div>'
         + '<div style="border-top:1px solid #e5e7eb;padding-top:14px">' + body + '</div>'
-        + attachHtml;
+        + attachHtml
+        + '<div style="border-top:2px solid #1a5276;margin-top:20px;padding-top:16px">'
+        +   '<div style="font-weight:700;font-size:14px;color:#1a5276;margin-bottom:8px">✉️ Responder</div>'
+        +   '<textarea id="outlook-reply-text" placeholder="Digite sua resposta..." style="width:100%;min-height:120px;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical"></textarea>'
+        +   '<div style="display:flex;gap:8px;margin-top:8px">'
+        +     '<button id="outlook-reply-btn" onclick="window._outlookSendReply(\'' + _escAttr(msgId) + '\')" style="background:#1a5276;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">📤 Enviar Resposta</button>'
+        +     '<button id="outlook-reply-all-btn" onclick="window._outlookSendReply(\'' + _escAttr(msgId) + '\',true)" style="background:#2e7d32;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">📤 Responder Todos</button>'
+        +   '</div>'
+        + '</div>';
     } catch(e){
       _err('openEmail', e);
       document.getElementById('outlook-email-body').innerHTML = '<div style="color:#c0392b;padding:40px;text-align:center">Erro: '+e.message+'</div>';
+    }
+  };
+
+  // ═══ FLAGS / CATEGORIAS ═══
+
+  window._outlookToggleFlag = async function(msgId, flag, btnEl){
+    try {
+      if(btnEl) btnEl.textContent = '⏳';
+      // Le categorias atuais
+      var msg = await _graphCall('/me/messages/' + msgId + '?$select=categories');
+      var cats = (msg && msg.categories) || [];
+      var idx = cats.indexOf(flag);
+      if(idx >= 0) cats.splice(idx, 1); else cats.push(flag);
+      // Atualiza no servidor
+      await _graphCall('/me/messages/' + msgId, {
+        method: 'PATCH',
+        body: JSON.stringify({ categories: cats })
+      });
+      // Atualiza visual do botao
+      if(btnEl){
+        var flagColors = {'Respondido':'#2e7d32','Pendente':'#e65100','Orcamento Pronto':'#1565c0','Urgente':'#c62828','Aguardando Cliente':'#7b1fa2'};
+        var cor = flagColors[flag] || '#666';
+        var ativo = cats.indexOf(flag) >= 0;
+        btnEl.style.background = ativo ? cor : '#fff';
+        btnEl.style.color = ativo ? '#fff' : cor;
+        btnEl.textContent = flag;
+      }
+    } catch(e){
+      _err('toggleFlag', e);
+      if(btnEl) btnEl.textContent = '❌ ' + flag;
+    }
+  };
+
+  // ═══ RESPONDER EMAIL ═══
+
+  window._outlookSendReply = async function(msgId, replyAll){
+    var textarea = document.getElementById('outlook-reply-text');
+    var btn = document.getElementById(replyAll ? 'outlook-reply-all-btn' : 'outlook-reply-btn');
+    if(!textarea || !textarea.value.trim()){
+      alert('Digite uma resposta antes de enviar.');
+      return;
+    }
+    var bodyHtml = '<p>' + textarea.value.replace(/\n/g, '<br>') + '</p>'
+      + '<br><p style="font-size:11px;color:#888">— Enviado via Projetta by Weiku</p>';
+    if(btn) btn.textContent = '⏳ Enviando...';
+    try {
+      if(replyAll){
+        await window.outlookReplyAll(msgId, bodyHtml);
+      } else {
+        // Reply simples (so pro remetente)
+        await _graphCall('/me/messages/' + msgId + '/reply', {
+          method: 'POST',
+          body: JSON.stringify({ comment: bodyHtml })
+        });
+      }
+      textarea.value = '';
+      if(btn) btn.textContent = '✅ Enviado!';
+      setTimeout(function(){ if(btn) btn.textContent = replyAll ? '📤 Responder Todos' : '📤 Enviar Resposta'; }, 2000);
+      // Auto-marca como Respondido
+      window._outlookToggleFlag(msgId, 'Respondido', null);
+    } catch(e){
+      _err('sendReply', e);
+      if(btn) btn.textContent = '❌ Erro';
+      alert('Erro ao enviar resposta: ' + e.message);
     }
   };
 
