@@ -191,7 +191,6 @@
       return null;
     }
   }
-  }
 
   // ── SCANNER PRINCIPAL ──
   async function scanInbox(opts) {
