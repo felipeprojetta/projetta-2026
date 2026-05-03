@@ -1,8 +1,0 @@
-{
-  "name": "projetta-2026",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "pdf-parse": "^3.0.0"
-  }
-}
