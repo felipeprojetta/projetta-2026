@@ -348,7 +348,7 @@ const AcessoriosPortaExterna = (() => {
     }
 
     // ============================================================
-    // FITA DUPLA FACE + SILICONE ESTRUTURAL (Felipe sessao 2026-08)
+    // FITA DUPLA FACE + SILICONE ESTRUTURAL 995 (Felipe sessao 2026-08)
     // ============================================================
     // Substitui o calculo aproximado anterior (perim × 1.5/0.5 chumbado)
     // pela tabela EXATA fornecida no Excel CALCULO_DE_FITA_DULPA_FACE.
@@ -357,19 +357,21 @@ const AcessoriosPortaExterna = (() => {
     // motor PerfisPortaExterna, aplica multiplicador especifico conforme
     // o label da peca/perfil e o sistema (PA006 vs PA007).
     //
-    // Tabela (Excel sheet "PORTA"):
-    //   PEÇA/PERFIL              F.D19    F.D12    M.S    Tamanho usado
-    //   Alisar Altura            1×qtd    -        1×qtd  altura da peça
-    //   Alisar Largura           1×qtd    -        1×qtd  altura da peça
-    //   Tampa de Furo (PA007)    2×qtd    -        1×qtd  altura da peça
-    //   Tampa de Furo (PA006)    -        2×qtd    1×qtd  altura da peça
-    //   PA-PA006P (Alt Portal)   2×qty    2×qty    8×qty  comp do perfil
-    //   PA-PA007P (Alt Portal)   4×qty    4×qty    10×qty comp do perfil
-    //   PA-PA006F/PA007F (Folha) 1×qty    -        8×qty  comp do perfil
-    //   Qualquer "Tampa..."      1×qtd    -        1×qtd  perim (L×2+H×2)
-    //   Tubo das Ripas           -        -        2×qty  comp do perfil
+    // Tabela (Excel sheet "PORTA" + correcoes Felipe sessao 2026-08):
+    //   PEÇA/PERFIL              F.D19    F.D12    Silicone  Tamanho
+    //   Alisar Altura            1×qtd    -        1×qtd     altura da peça
+    //   Alisar Largura           1×qtd    -        1×qtd     altura da peça
+    //   Tampa de Furo (PA007)    2×qtd    -        1×qtd     altura da peça
+    //   Tampa de Furo (PA006)    -        2×qtd    1×qtd     altura da peça
+    //   PA-PA006P (Alt Portal)   2×qty    2×qty    8×qty     comp do perfil
+    //   PA-PA007P (Alt Portal)   4×qty    4×qty    10×qty    comp do perfil
+    //   Largura Portal           4×qty    -        5×qty     comp do perfil  ← Felipe correção 2026-08
+    //   PA-PA006F/PA007F (Folha) 1×qty    -        8×qty     comp do perfil
+    //   Qualquer "Tampa..."      1×qtd    -        1×qtd     perim (L×2+H×2)
+    //   Tubo das Ripas           -        2×qty    -         comp do perfil  ← Felipe correção 2026-08 (era silicone)
     //
-    // Conversao final: F.D total / 20m por rolo | M.S total / 8m por tubo
+    // "Silicone" = Silicone Estrutural 995 (DowSil 995). Nome interno mMS por brevidade.
+    // Conversao final: F.D total / 20m por rolo | Silicone total / 8m por tubo
     if (L > 0 && H > 0) {
       let mFD19 = 0;  // metros lineares de Fita Dupla Face 19mm
       let mFD12 = 0;  // metros lineares de Fita Dupla Face 12mm
@@ -447,9 +449,19 @@ const AcessoriosPortaExterna = (() => {
               }
               return;
             }
-            // Tubo Interno das Ripas: 2×M.S × comp
+            // Felipe sessao 2026-08 (correcao): Largura Portal — perfil
+            // travHor com label 'Largura Portal'. Antes nao estava
+            // mapeado. Multiplicadores: 4×F.D19 + 5×Silicone Estrutural.
+            if (lbl === 'Largura Portal') {
+              mFD19 += 4 * m;
+              mMS   += 5 * m;
+              return;
+            }
+            // Felipe sessao 2026-08 (correcao): Tubo Interno das Ripas
+            // antes usava M.S (silicone), mas Felipe esclareceu que e'
+            // F.D 12 (fita dupla face 12mm). Multiplicador 2×.
             if (lbl === 'Tubo Interno das Ripas') {
-              mMS += 2 * m;
+              mFD12 += 2 * m;
               return;
             }
           });
