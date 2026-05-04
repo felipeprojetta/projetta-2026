@@ -1582,8 +1582,18 @@ const Orcamento = (() => {
     //        maior e ativa ela. A aprovada permanece intacta.
     //   3. lead.valor / lead.etapa NAO sao tocados (estao no CRM, separado
     //      das versoes do orcamento)
-    const r = obterVersao(UI.versaoAtivaId);
-    const versaoAtual = r && r.versao;
+    //
+    // Felipe sessao 2026-08 REVISAO 2: BUG do 'Zerar nao zera'. Antes
+    // pegava versaoAtual via obterVersao() que faz NOVO loadAll() — e'
+    // outra COPIA do storage, descolada do 'neg' que sera salvo.
+    // Modificacoes em versaoAtual nao apareciam apos saveAll(negocios).
+    // Fix: procurar a versao DENTRO do 'neg' carregado, garantindo
+    // mesma referencia.
+    let versaoAtual = null;
+    for (const o of (neg.opcoes || [])) {
+      const v = (o.versoes || []).find(v => v.id === UI.versaoAtivaId);
+      if (v) { versaoAtual = v; break; }
+    }
     const ehAprovada = !!(versaoAtual && (versaoAtual.aprovadoEm || versaoAtual.valorAprovado));
 
     if (versaoAtual && !ehAprovada) {
