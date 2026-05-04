@@ -4486,8 +4486,21 @@ const Orcamento = (() => {
     // somando o resultado do motor AcessoriosPortaExterna pra todos os
     // itens porta_externa da versao. So' sobrescreve se o campo estiver
     // vazio/zero (preserva edicao manual do usuario).
+    //
+    // Felipe (sessao 2026-08 REVISAO): "MUDEI TIREI A PHILIPS 9300
+    // RECALCULEI, SAIU DE ACESSORIOS MAS CONTINUA EM CUSTO FABRICACAO".
+    // 2 BUGS combinados:
+    //   1. O bloco inteiro era pulado se total_acessorios ja tinha valor
+    //      (preservacao de edicao manual). Logo total_fechadura_digital
+    //      tambem nao atualizava.
+    //   2. 'if (totalDigital > 0) fab.total_fechadura_digital = totalDigital'
+    //      so' sobrescrevia quando havia fechadura. Se Felipe removia,
+    //      totalDigital=0 e o valor antigo permanecia.
+    // Fix: SEMPRE roda o calculo e SEMPRE atualiza total_fechadura_digital
+    // (refletir estado atual da fechadura). total_acessorios continua
+    // sobrescrevendo so' se vazio (preserva edicao manual).
     try {
-      if (window.AcessoriosPortaExterna && _ehVazioOuZero(fab.total_acessorios)) {
+      if (window.AcessoriosPortaExterna) {
         const cadAcess = Storage.scope('cadastros').get('acessorios_lista') || [];
         // Felipe (sessao 2026-09): cadastro de perfis pra calcular peso
         // da folha (necessario pra escolher pivo 350 vs 600 kg).
@@ -4513,15 +4526,9 @@ const Orcamento = (() => {
           // haver Custo de Fabricacao acessorios e o somatorio total
           // dos acessorios. separar fechadura digital do resto".
           // Felipe (sessao 2026-08): 'fechadura digital independente se e
-          // tedee keso emteco qualquer uma deve levar o valor da fechadura
-          // para custo, tedee ja levava agora fizemo philips 9300 e nao
-          // levou'. CAUSA do bug: fechaduras digitais (Tedee, Emteco,
-          // Philips, Nuki) tem aplicacao='obra' (vide 28-acessorios linha
-          // 663+), e o filtro 'aplicacao !== fab' bloqueava ANTES de
-          // checar a categoria Fechadura Digital. Fix: checar digital
-          // PRIMEIRO (vai sempre pro totalDigital), depois filtrar 'fab'
-          // pro resto. Mesma logica usada no Lev. Acessorios (3 grupos:
-          // Fab, Obra, Digital - digital nao olha aplicacao).
+          // tedee keso emteco qualquer uma'. Fix: checar digital PRIMEIRO
+          // (vai sempre pro totalDigital, qualquer aplicacao), depois
+          // filtrar 'fab' pro resto. Mesma logica do Lev. Acessorios.
           linhas.forEach(l => {
             // 1) Fechadura Digital sempre vai pro campo proprio,
             //    INDEPENDENTE da aplicacao (qualquer marca: Tedee,
@@ -4536,15 +4543,24 @@ const Orcamento = (() => {
             totalAcess += Number(l.total) || 0;
           });
         });
-        if (totalAcess > 0) {
+
+        // total_acessorios: SO' sobrescreve se vazio (preserva edicao manual)
+        const acessoriosVazio = _ehVazioOuZero(fab.total_acessorios);
+        if (acessoriosVazio && totalAcess > 0) {
           fab.total_acessorios = totalAcess;
         }
-        // Felipe (sessao 31): "nao esta somando no custo a fechadura"
-        // Salva fechadura digital em campo proprio pra somar no DRE.
-        if (totalDigital > 0) {
-          fab.total_fechadura_digital = totalDigital;
+        // Felipe (sessao 2026-08): total_fechadura_digital SEMPRE atualiza
+        // pra refletir estado atual da fechadura. Se removeu, vai pra 0.
+        // Se trocou (Tedee -> Philips), atualiza pro novo valor.
+        // Antes ficava com valor antigo persistido = bug grave.
+        const valorDigitalAntigo = Number(fab.total_fechadura_digital) || 0;
+        if (Math.abs(valorDigitalAntigo - totalDigital) > 0.01) {
+          fab.total_fechadura_digital = totalDigital > 0 ? totalDigital : '';
         }
-        if (totalAcess > 0 || totalDigital > 0) {
+        // Persiste se houve qualquer mudanca
+        const houveMudanca = (acessoriosVazio && totalAcess > 0)
+          || Math.abs(valorDigitalAntigo - totalDigital) > 0.01;
+        if (houveMudanca) {
           atualizarVersao(versao.id, {
             custoFab: Object.assign({}, versao.custoFab || {}, fab),
           });
