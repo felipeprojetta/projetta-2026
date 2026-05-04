@@ -488,7 +488,7 @@
       var dadosPDF = {};
       var textoPDFGuardado = '';   // Felipe sessao 2026-08: pra mostrar pro Felipe se parser falhar
       var nomePDFGuardado  = '';
-      var pdfMetaInfo      = { numPages: 0, totalItems: 0 };
+      var pdfMetaInfo      = { numPages: 0, totalItems: 0, totalAnnotations: 0 };
       try {
         var pdfMeta = await acharPrimeiroPDF(msgId);
         if (pdfMeta) {
@@ -497,8 +497,9 @@
           var pdfBytes = await baixarAnexo(msgId, pdfMeta.id);
           var resultado = await extrairTextoPDF(pdfBytes);
           var texto = resultado.texto || '';
-          pdfMetaInfo.numPages   = resultado.numPages   || 0;
-          pdfMetaInfo.totalItems = resultado.totalItems || 0;
+          pdfMetaInfo.numPages         = resultado.numPages         || 0;
+          pdfMetaInfo.totalItems       = resultado.totalItems       || 0;
+          pdfMetaInfo.totalAnnotations = resultado.totalAnnotations || 0;
           textoPDFGuardado = texto;
           // Felipe sessao 2026-08: log do texto extraido pra debug do parser.
           console.log('[email-import] ===== TEXTO EXTRAIDO DO PDF =====');
@@ -562,11 +563,19 @@
       }
       if (dadosPDF.porta_modelo)  dadosTxt += ' · Modelo ' + dadosPDF.porta_modelo;
       if (dadosPDF.porta_cor)     dadosTxt += ' · Cor ' + dadosPDF.porta_cor;
-      // Felipe sessao 2026-08: aviso quando PDF e' imagem
-      if (textoPDFGuardado !== undefined && pdfMetaInfo.totalItems === 0 && nomePDFGuardado) {
-        dadosTxt += ' · ⚠️ PDF e imagem (sem texto). Preencha porta no card.';
-      } else if (pdfMetaInfo.totalItems > 0 && !dadosPDF.porta_largura && !dadosPDF.porta_modelo) {
-        dadosTxt += ' · ⚠️ PDF tem texto (' + pdfMetaInfo.totalItems + ' items) mas parser nao achou campos.';
+      // Felipe sessao 2026-08: aviso correto considera annotations tambem
+      if (textoPDFGuardado !== undefined && nomePDFGuardado) {
+        var temNada    = (pdfMetaInfo.totalItems === 0 && pdfMetaInfo.totalAnnotations === 0);
+        var temAnotacoes = (pdfMetaInfo.totalAnnotations > 0);
+        var algumCampo  = !!(dadosPDF.porta_largura || dadosPDF.porta_altura ||
+                             dadosPDF.porta_modelo || dadosPDF.porta_cor);
+        if (temNada) {
+          dadosTxt += ' · ⚠️ PDF nao tem texto NEM annotations (imagem). Preencha porta no card.';
+        } else if (temAnotacoes && !algumCampo) {
+          dadosTxt += ' · ⚠️ PDF tem ' + pdfMetaInfo.totalAnnotations + ' annotations mas parser nao reconheceu os campos. Use 📋 Copiar.';
+        } else if (!temAnotacoes && pdfMetaInfo.totalItems > 0 && !algumCampo) {
+          dadosTxt += ' · ⚠️ PDF tem texto (' + pdfMetaInfo.totalItems + ' items) mas parser nao achou campos.';
+        }
       }
       setStatus('✅ ' + resumo + dadosTxt, '#16a34a');
 
@@ -610,7 +619,17 @@
       // Felipe sessao 2026-08: 'apertar importar e ja aparecer no crm'.
       // Auto-navega pra CRM apos 4s (tempo de Felipe ler o status verde
       // E clicar 'Copiar texto do PDF' se quiser mandar pro debug).
+      // Antes de navegar, chama Crm.forceReload diretamente pra garantir
+      // re-leitura do storage (defesa-em-profundidade caso o evento
+      // crm:reload nao tenha disparado por algum motivo).
       setTimeout(function() {
+        try {
+          if (window.Crm && typeof window.Crm.forceReload === 'function') {
+            window.Crm.forceReload(null);
+          }
+        } catch (eFR) {
+          console.warn('[email-import] Crm.forceReload falhou:', eFR);
+        }
         if (typeof App !== 'undefined' && App.navigateTo) {
           App.navigateTo('crm');
         }

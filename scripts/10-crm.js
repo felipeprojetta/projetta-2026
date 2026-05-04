@@ -2487,6 +2487,10 @@
     return { render, forceReload };
   })();
 
+  // Felipe sessao 2026-08: expoe Crm em window pra uso externo
+  // (45-email-import.js chama Crm.forceReload apos importar email).
+  window.Crm = Crm;
+
   /* ============================================================
      Registra modulo CRM no App
      ============================================================ */
