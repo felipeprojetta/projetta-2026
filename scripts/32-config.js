@@ -72,6 +72,7 @@ const Config = (() => {
           <div class="cfg-btn-row">
             <button class="cfg-btn cfg-btn-secondary" id="cfg-sync-now">🔄 Sincronizar agora</button>
             <button class="cfg-btn cfg-btn-secondary" id="cfg-sync-test">🧪 Testar conexao</button>
+            <button class="cfg-btn cfg-btn-secondary" id="cfg-migrar-imgs">🖼 Migrar imagens p/ Storage</button>
           </div>
           <div class="cfg-msg" id="cfg-sync-msg"></div>
         </div>
@@ -139,7 +140,35 @@ const Config = (() => {
     const msgSys = container.querySelector('#cfg-system-msg');
     const btnSyncNow = container.querySelector('#cfg-sync-now');
     const btnSyncTest = container.querySelector('#cfg-sync-test');
+    const btnMigrarImgs = container.querySelector('#cfg-migrar-imgs');
     const msgSync = container.querySelector('#cfg-sync-msg');
+
+    if (btnMigrarImgs) {
+      btnMigrarImgs.addEventListener('click', async () => {
+        if (!window.CadastrosAutosync || !window.CadastrosAutosync.migrarImagensBase64ParaStorage) {
+          showMsg(msgSync, 'error', '✗ Funcao de migracao nao disponivel');
+          return;
+        }
+        btnMigrarImgs.disabled = true;
+        btnMigrarImgs.textContent = '⏳ Migrando...';
+        showMsg(msgSync, 'info', 'Verificando imagens em base64 e enviando para o Storage...');
+        try {
+          const result = await window.CadastrosAutosync.migrarImagensBase64ParaStorage();
+          if (result.erro) {
+            showMsg(msgSync, 'error', '✗ Erro: ' + result.erro);
+          } else if (result.total === 0) {
+            showMsg(msgSync, 'ok', '✓ Nenhuma imagem em base64 encontrada. Tudo ja esta no Storage!');
+          } else {
+            showMsg(msgSync, 'ok', '✓ ' + result.migradas + ' de ' + result.total + ' imagens migradas para o Storage' + (result.falhas > 0 ? ' (' + result.falhas + ' falharam)' : ''));
+          }
+        } catch (err) {
+          showMsg(msgSync, 'error', '✗ ' + err.message);
+        }
+        btnMigrarImgs.disabled = false;
+        btnMigrarImgs.textContent = '🖼 Migrar imagens p/ Storage';
+        updateSyncStatus(container);
+      });
+    }
 
     if (btnSyncNow) {
       btnSyncNow.addEventListener('click', async () => {

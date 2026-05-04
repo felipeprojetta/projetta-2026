@@ -104,6 +104,118 @@
     }
   }
 
+  // ── Supabase Storage upload (bucket modelos-portas) ──
+  var SUPABASE_URL = 'https://plmliavuwlgpwaizfeds.supabase.co';
+  var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
+  var STORAGE_BUCKET = 'modelos-portas';
+
+  function dataUrlToBlob(dataUrl) {
+    var arr = dataUrl.split(',');
+    var mimeMatch = arr[0].match(/:(.*?);/);
+    var mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    var bstr = atob(arr[1]);
+    var n = bstr.length;
+    var u8 = new Uint8Array(n);
+    while (n--) u8[n] = bstr.charCodeAt(n);
+    return new Blob([u8], { type: mime });
+  }
+
+  async function uploadImagemParaStorage(dataUrl, modeloNumero, tipo) {
+    var blob = dataUrlToBlob(dataUrl);
+    var ext = blob.type === 'image/png' ? 'png' : 'jpg';
+    var numero = String(modeloNumero || 0).padStart(2, '0');
+    var path = 'modelo-' + numero + '-' + tipo + '-' + Date.now() + '.' + ext;
+    var url = SUPABASE_URL + '/storage/v1/object/' + STORAGE_BUCKET + '/' + path;
+    var resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'apikey': SUPABASE_KEY,
+        'Content-Type': blob.type,
+        'x-upsert': 'true'
+      },
+      body: blob
+    });
+    if (!resp.ok) {
+      var txt = await resp.text();
+      throw new Error('HTTP ' + resp.status + ': ' + txt.substring(0, 100));
+    }
+    return SUPABASE_URL + '/storage/v1/object/public/' + STORAGE_BUCKET + '/' + path;
+  }
+
+  /**
+   * Detecta imagens base64 em modelos_lista e migra pro Supabase Storage.
+   * Substitui o campo img_1f/img_2f pela URL publica.
+   * Retorna { migradas, falhas, total }
+   */
+  async function migrarImagensBase64ParaStorage() {
+    try {
+      var store = Storage.scope('cadastros');
+      var modelos = store.get('modelos_lista');
+      if (!modelos || !Array.isArray(modelos)) return { migradas: 0, falhas: 0, total: 0 };
+
+      var totalBase64 = 0;
+      modelos.forEach(function(m) {
+        if (m.img_1f && typeof m.img_1f === 'string' && m.img_1f.startsWith('data:image/')) totalBase64++;
+        if (m.img_2f && typeof m.img_2f === 'string' && m.img_2f.startsWith('data:image/')) totalBase64++;
+      });
+
+      if (totalBase64 === 0) {
+        console.log('[CadastrosAutosync] ✅ Nenhuma imagem base64 para migrar');
+        return { migradas: 0, falhas: 0, total: 0 };
+      }
+
+      console.log('[CadastrosAutosync] 🖼 Detectadas ' + totalBase64 + ' imagens base64 em modelos. Iniciando upload pro Storage...');
+      showToast('🖼 Migrando ' + totalBase64 + ' imagens locais para o Supabase Storage. Aguarde...', 'info');
+
+      var migradas = 0;
+      var falhas = 0;
+      for (var i = 0; i < modelos.length; i++) {
+        var m = modelos[i];
+        // 1F
+        if (m.img_1f && typeof m.img_1f === 'string' && m.img_1f.startsWith('data:image/')) {
+          try {
+            var url1f = await uploadImagemParaStorage(m.img_1f, m.numero, '1f');
+            m.img_1f = url1f;
+            migradas++;
+            console.log('  ✓ Modelo ' + m.numero + ' (1F): ' + url1f.substring(url1f.lastIndexOf('/') + 1));
+          } catch (e) {
+            falhas++;
+            console.error('  ✗ Modelo ' + m.numero + ' (1F): ' + e.message);
+          }
+        }
+        // 2F
+        if (m.img_2f && typeof m.img_2f === 'string' && m.img_2f.startsWith('data:image/')) {
+          try {
+            var url2f = await uploadImagemParaStorage(m.img_2f, m.numero, '2f');
+            m.img_2f = url2f;
+            migradas++;
+            console.log('  ✓ Modelo ' + m.numero + ' (2F): ' + url2f.substring(url2f.lastIndexOf('/') + 1));
+          } catch (e) {
+            falhas++;
+            console.error('  ✗ Modelo ' + m.numero + ' (2F): ' + e.message);
+          }
+        }
+      }
+
+      // Salva modelos_lista atualizado (sem base64) - vai disparar autosync
+      store.set('modelos_lista', modelos);
+
+      console.log('[CadastrosAutosync] ✅ Migracao de imagens: ' + migradas + ' OK, ' + falhas + ' falhas, total ' + totalBase64);
+      if (migradas > 0) {
+        showToast('✅ ' + migradas + ' imagens migradas para o Supabase Storage. Suas imagens nao se perdem mais!', 'sucesso');
+      }
+      if (falhas > 0) {
+        showToast('⚠ ' + falhas + ' imagens falharam ao subir. Tente novamente.', 'erro');
+      }
+      return { migradas: migradas, falhas: falhas, total: totalBase64 };
+    } catch (e) {
+      console.error('[CadastrosAutosync] Erro migracao imagens:', e);
+      showToast('❌ Erro migrando imagens: ' + e.message, 'erro');
+      return { migradas: 0, falhas: 0, total: 0, erro: e.message };
+    }
+  }
+
   /**
    * Migra dados que estao SO em localStorage pro Supabase.
    * Chamado uma vez no boot, depois do load.
@@ -249,11 +361,13 @@
       showToast('⚠ Sem conexao com o servidor. Usando cache local. Suas alteracoes serao sincronizadas quando voltar online.', 'erro');
     }
 
-    // 2. Migra dados que existem so' local
+    // 2. Migrar imagens base64 → Storage PRIMEIRO (importante: antes do sync genérico)
     setTimeout(async function() {
+      await migrarImagensBase64ParaStorage();
+      // Depois migra cadastros restantes
       var resultado = await migrarLocalParaSupabase();
       if (resultado && resultado.migradas > 0) {
-        showToast('✅ ' + resultado.migradas + ' cadastros migrados do navegador para o Supabase. Voce nao vai perder mais dados!', 'sucesso');
+        showToast('✅ ' + resultado.migradas + ' cadastros migrados para o Supabase. Voce nao vai perder mais dados!', 'sucesso');
       }
     }, 2000);
   }
@@ -295,6 +409,7 @@
     init: init,
     carregarDoSupabase: carregarDoSupabase,
     migrarLocalParaSupabase: migrarLocalParaSupabase,
+    migrarImagensBase64ParaStorage: migrarImagensBase64ParaStorage,
     syncTudoAgora: syncTudoAgora,
     getStatus: getStatus,
     onStatusChange: onStatusChange
