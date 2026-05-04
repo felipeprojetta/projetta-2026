@@ -10530,7 +10530,29 @@ const Orcamento = (() => {
     const custoChapas    = Number(fab.total_revestimento)|| 0;
     const custoExtras    = Number(fab.total_extras)      || 0;
 
-    const totalHoras  = (Number(fab.etapas?.portal)||0) + (Number(fab.etapas?.quadro)||0) + (Number(fab.etapas?.colagem)||0) + (Number(fab.etapas?.corte_usinagem)||0) + (Number(fab.etapas?.conf_bem)||0);
+    // FIX 2026-05-04 (AGP004647): mao de obra vinha 0h porque as etapas
+    // foram renomeadas (quadro->folha_porta, conf_bem->conf_embalagem) mas
+    // este bloco ainda lia os IDs antigos. Agora soma DINAMICAMENTE todas
+    // as etapas existentes em fab.etapas — robusto a renomeacoes futuras.
+    let totalHoras = 0;
+    if (fab.etapas && typeof fab.etapas === 'object') {
+      Object.keys(fab.etapas).forEach(k => {
+        const v = Number(fab.etapas[k]);
+        if (!isNaN(v) && v > 0) totalHoras += v;
+      });
+    }
+    // Fallback: se o usuario nao preencheu etapas manualmente, calcula via
+    // auto-regras de cada item (mesma logica de calcularValoresProposta).
+    if (totalHoras === 0 && itens.length > 0) {
+      itens.forEach(it => {
+        if (it && it.tipo === 'porta_externa') {
+          const h = horasItemPortaExterna(it);
+          totalHoras += (Number(h.portal)||0) + (Number(h.quadro)||0)
+                      + (Number(h.corte_usinagem)||0) + (Number(h.colagem)||0)
+                      + (Number(h.conf_bem)||0);
+        }
+      });
+    }
     const numOp       = Number(fab.operarios) || 1;
     const custoHora   = Number(fab.custo_hora) || 0;
     const custoMaoObra = totalHoras * numOp * custoHora;
@@ -10577,7 +10599,7 @@ const Orcamento = (() => {
               ${custoPintura > 0 ? `<tr><td>🎨 Pintura dos Perfis</td><td class="num">${fmtMoney(custoPintura)}</td></tr>` : ''}
               <tr><td>🟫 Chapas / Revestimento</td><td class="num">${fmtMoney(custoChapas)}</td></tr>
               <tr><td>🔩 Componentes (acessorios + fechaduras)</td><td class="num">${fmtMoney(custoAcess + custoExtras)}</td></tr>
-              <tr><td>👷 Mao de Obra (${totalHoras}h × ${numOp} op. × ${fmtMoney(custoHora)}/h)</td><td class="num">${fmtMoney(custoMaoObra)}</td></tr>
+              <tr><td>👷 Mao de Obra (${(Math.round(totalHoras*10)/10).toLocaleString('pt-BR')}h × ${numOp} op. × ${fmtMoney(custoHora)}/h)</td><td class="num">${fmtMoney(custoMaoObra)}</td></tr>
               <tr><td>🚛 Instalacao</td><td class="num">${fmtMoney(subInstTotal)}</td></tr>
               <tr style="border-top: 2px solid var(--azul-escuro);"><td><span class="t-strong">Custo Total da Obra</span></td><td class="num"><span class="t-strong">${fmtMoney(custoTotalFab)}</span></td></tr>
             </tbody>
