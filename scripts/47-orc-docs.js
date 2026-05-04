@@ -274,6 +274,17 @@
     });
     document.getElementById('orcdocs-revisar-confirmar')?.addEventListener('click', () => {
       fecharModal('orcdocs-modal-revisar');
+      // Felipe sessao 2026-08: "apos aprovar v1 nao pode alterar mais nada,
+      // somente se eu apertar botao revisar". Ao confirmar Revisar,
+      // DESTRAVA a versao removendo flags de aprovacao. lead.valor no card
+      // permanece intacto ate o usuario reaprovar.
+      try {
+        if (window.Orcamento && typeof window.Orcamento.destravarVersao === 'function') {
+          window.Orcamento.destravarVersao(versaoAtual.id);
+        }
+      } catch (e) {
+        console.warn('[OrcDocs] destravarVersao falhou:', e);
+      }
       carregarVersaoNaAbaOrcamento(leadId, versaoAtual.id);
     });
   }
@@ -297,9 +308,20 @@
       alert('Esse orcamento nao tem opcoes ainda. Crie uma versao em "Montar Orcamento" primeiro.');
       return;
     }
+    // Felipe sessao 2026-08: pega a ultima versao como BASE pro modo
+    // 'reset-calculos' (mantem caracteristicas da porta, zera calculos).
+    const ultimaVersao = (opcao.versoes || []).slice(-1)[0];
+    if (!ultimaVersao) {
+      alert('Esse orcamento nao tem nenhuma versao ainda.');
+      return;
+    }
     try {
-      const nova = window.Orcamento.criarVersao({ opcaoId: opcao.id });
-      toast(`Versão ${nova.numero} criada.`, 'sucesso');
+      // Felipe sessao 2026-08: usa modo 'reset-calculos' em vez de criarVersao
+      // direto. Mantem aba Caracteristicas da Porta intacta (largura, altura,
+      // modelo, cor, alisar, revestimento, etc) e zera DRE/calculos/custos/
+      // aprovacao. Versao anterior fica fechada como historico.
+      const nova = window.Orcamento.criarNovaVersao(ultimaVersao.id, 'reset-calculos');
+      toast(`Versão ${nova.numero} criada — caracteristicas mantidas, calculos zerados.`, 'sucesso');
       carregarVersaoNaAbaOrcamento(leadId, nova.id);
     } catch (e) {
       console.error('[OrcDocs] criarNovaVersao falhou:', e);

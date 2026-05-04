@@ -1136,7 +1136,11 @@ const Orcamento = (() => {
    * @param {'em-branco'|'copiar'} modo
    */
   function criarNovaVersao(versaoBaseId, modo) {
-    if (modo !== 'em-branco' && modo !== 'copiar') {
+    // Felipe sessao 2026-08: novo modo 'reset-calculos' — mantem caracteristicas
+    // do item INTEIRAS (largura/altura/modelo/cor/alisar/revestimento/...) e
+    // zera APENAS calculos/DRE/custos/aprovacoes. E o modo padrao do botao
+    // "+ Nova Versao" do CRM.
+    if (modo !== 'em-branco' && modo !== 'copiar' && modo !== 'reset-calculos') {
       throw new Error('criarNovaVersao: modo invalido (' + modo + ')');
     }
     const r = obterVersao(versaoBaseId);
@@ -1190,6 +1194,41 @@ const Orcamento = (() => {
       }
     }
     // modo 'copiar' nao faz nada — criarVersao ja' duplicou tudo da base
+    // Felipe sessao 2026-08: modo 'reset-calculos' — preserva o item
+    // INTEIRO (todas as caracteristicas digitadas pelo usuario) e zera
+    // SO calculos/DRE/custos/aprovacoes. Itens ja' vem clonados da base
+    // pelo criarVersao; aqui so' garantimos zerar campos de calculo e
+    // limpar qualquer flag de aprovacao herdada (defesa extra).
+    if (modo === 'reset-calculos') {
+      const negocios = loadAll();
+      for (const n of negocios) {
+        for (const o of (n.opcoes || [])) {
+          const v = (o.versoes || []).find(v => v.id === nova.id);
+          if (v) {
+            // ITENS: ja' vieram clonados da base via criarVersao — preserva.
+            // Zera apenas calculos/DRE/custos/aprovacoes:
+            v.subFab    = 0;
+            v.subInst   = 0;
+            v.custoFab  = Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) });
+            v.custoInst = Object.assign({}, INST_DEFAULT);
+            v.parametros = Object.assign({}, PARAMS_DEFAULT);
+            v.subtotais  = { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 };
+            v.total      = 0;
+            v.calculadoEm = null;
+            v.calcDirty   = true;
+            v.chapasSelecionadas = {};
+            // Defesa: criarVersao ja' nao copia aprovadoEm, mas garantimos
+            delete v.aprovadoEm;
+            delete v.aprovadoPor;
+            delete v.valorAprovado;
+            delete v.precoProposta;
+            delete v.enviadoParaCard;
+            saveAll(negocios);
+            break;
+          }
+        }
+      }
+    }
 
     // 4. Ativa a nova versao na UI
     UI.versaoAtivaId = nova.id;
@@ -1317,12 +1356,16 @@ const Orcamento = (() => {
    * pra frente. Antes disso o valor fica oculto, porque o sistema ainda
    * nao sabe o preco. O botao Aprovar e' o que dispara essa transicao.
    */
-  function aprovarOrcamento(versaoId, valorFaturamento, precoPropostaSemDesconto) {
+  function aprovarOrcamento(versaoId, valorFaturamento, precoPropostaSemDesconto, opts) {
     const valor = Number(valorFaturamento) || 0;
     const precoProposta = Number(precoPropostaSemDesconto) || valor;  // fallback: usa o mesmo valor
     if (valor <= 0) {
       throw new Error('aprovarOrcamento: valor invalido (' + valor + ')');
     }
+    // Felipe sessao 2026-08: novo opt-out — quando V2+ aprova localmente
+    // (sem substituir valor da V1 no card), passa { enviarParaCard: false }.
+    // Default true preserva retrocompat (V1 e Reaprovacao continuam empurrando).
+    const enviarParaCard = !opts || opts.enviarParaCard !== false;
     // 1. Marca a versao como aprovada
     const negocios = loadAll();
     let alvo = null;
@@ -1341,29 +1384,72 @@ const Orcamento = (() => {
     // desconto = pTab) pra mostrar no card do CRM junto com o valor
     // que o cliente paga (pFatReal).
     alvo.precoProposta = precoProposta;
+    // Felipe sessao 2026-08: marca se essa aprovacao empurrou pro card.
+    // Importante pra UI saber se mostra "Aprovada localmente" ou nao.
+    alvo.enviadoParaCard = enviarParaCard;
     saveAll(negocios);
 
     // 2. Empurra valor pro lead do CRM e avanca etapa, se aplicavel
-    try {
-      const leadAtivo = lerLeadAtivo();
-      if (leadAtivo && leadAtivo.id) {
-        const leads = Storage.scope('crm').get('leads') || [];
-        const lead = leads.find(l => l.id === leadAtivo.id);
-        if (lead) {
-          lead.valor = valor;
-          lead.precoProposta = precoProposta;  // novo campo
-          // So' avanca a etapa se estiver ANTES de orcamento-pronto.
-          // Se ja estiver em etapa avancada (negociacao, fechado), preserva.
-          const etapasAntes = ['qualificacao', 'fazer-orcamento'];
-          if (etapasAntes.includes(lead.etapa)) {
-            lead.etapa = 'orcamento-pronto';
+    //    Felipe sessao 2026-08: SO empurra se enviarParaCard. V2+ aprovada
+    //    localmente NAO substitui o valor que o cliente ja viu (V1 aprovada).
+    if (enviarParaCard) {
+      try {
+        const leadAtivo = lerLeadAtivo();
+        if (leadAtivo && leadAtivo.id) {
+          const leads = Storage.scope('crm').get('leads') || [];
+          const lead = leads.find(l => l.id === leadAtivo.id);
+          if (lead) {
+            lead.valor = valor;
+            lead.precoProposta = precoProposta;  // novo campo
+            // So' avanca a etapa se estiver ANTES de orcamento-pronto.
+            // Se ja estiver em etapa avancada (negociacao, fechado), preserva.
+            const etapasAntes = ['qualificacao', 'fazer-orcamento'];
+            if (etapasAntes.includes(lead.etapa)) {
+              lead.etapa = 'orcamento-pronto';
+            }
+            Storage.scope('crm').set('leads', leads);
           }
-          Storage.scope('crm').set('leads', leads);
         }
+      } catch (e) {
+        console.warn('[orcamento] aprovarOrcamento: falha ao atualizar lead:', e.message);
       }
-    } catch (e) {
-      console.warn('[orcamento] aprovarOrcamento: falha ao atualizar lead:', e.message);
     }
+    return alvo;
+  }
+
+  /**
+   * Felipe sessao 2026-08: "apos aprovar v1 nao pode alterar mais nada,
+   * somente se eu apertar botao revisar". Destrava uma versao removendo
+   * flags de aprovacao + revertendo status='fechada' pra 'draft'. lead.valor
+   * no card NAO eh alterado — permanece com o valor da aprovacao anterior
+   * ate o usuario reaprovar.
+   *
+   * Usado pelo botao Revisar do CRM (OrcDocs.revisarVersaoComConfirma).
+   */
+  function destravarVersao(versaoId) {
+    const negocios = loadAll();
+    let alvo = null;
+    for (const n of negocios) {
+      for (const o of (n.opcoes || [])) {
+        const v = (o.versoes || []).find(v => v.id === versaoId);
+        if (v) { alvo = v; break; }
+      }
+      if (alvo) break;
+    }
+    if (!alvo) throw new Error('destravarVersao: versao nao encontrada');
+    // Remove flags de aprovacao
+    delete alvo.aprovadoEm;
+    delete alvo.aprovadoPor;
+    delete alvo.valorAprovado;
+    delete alvo.precoProposta;
+    delete alvo.enviadoParaCard;
+    // Reverte status fechada -> draft
+    if (alvo.status === 'fechada') {
+      alvo.status = 'draft';
+    }
+    // calcDirty pra forcar recalculo na proxima abertura
+    alvo.calcDirty = true;
+    saveAll(negocios);
     return alvo;
   }
 
@@ -5249,23 +5335,32 @@ const Orcamento = (() => {
           const aprovado = !!versao.aprovadoEm;
           const valorAprovado = Number(versao.valorAprovado) || 0;
           const podeAprovar = (Number(r.pFatReal) || 0) > 0;
+          // Felipe sessao 2026-08: distinguir aprovado-com-envio vs aprovado-local.
+          // V2+ pode ter sido aprovada sem enviar pro card (Felipe escolheu "2").
+          // Default true preserva visual antigo pra versoes ja aprovadas.
+          const enviadoParaCard = versao.enviadoParaCard !== false;
           if (aprovado) {
+            const cardClass = enviadoParaCard ? 'is-aprovado' : 'is-aprovado-local';
+            const tituloTxt = enviadoParaCard ? 'Orcamento Aprovado' : 'Aprovado Localmente';
+            const detalheTxt = enviadoParaCard
+              ? `Valor de <span class="t-strong">R$ ${fmtBR(valorAprovado)}</span> enviado pro CRM em ${fmtData(versao.aprovadoEm)}.`
+              : `Versao ${versao.numero} aprovada por <span class="t-strong">R$ ${fmtBR(valorAprovado)}</span> em ${fmtData(versao.aprovadoEm)}. <br><span style="color:#b45309;">Card do CRM mantem o valor da versao anterior.</span>`;
+            const btnReaprovarTxt = enviadoParaCard
+              ? `↻ Re-aprovar com R$ ${fmtBR(r.pFatReal)}`
+              : `↻ Aprovar de novo (e escolher se envia pro card)`;
             return `
-              <div class="orc-aprovacao-card is-aprovado">
+              <div class="orc-aprovacao-card ${cardClass}" ${!enviadoParaCard ? 'style="background:#fef3c7;border-color:#f59e0b;"' : ''}>
                 <div class="orc-aprovacao-info">
-                  <span class="orc-aprovacao-icon">✓</span>
+                  <span class="orc-aprovacao-icon">${enviadoParaCard ? '✓' : '📝'}</span>
                   <div>
-                    <div class="orc-aprovacao-titulo">Orcamento Aprovado</div>
-                    <div class="orc-aprovacao-detalhe">
-                      Valor de <span class="t-strong">R$ ${fmtBR(valorAprovado)}</span>
-                      enviado pro CRM em ${fmtData(versao.aprovadoEm)}.
-                    </div>
+                    <div class="orc-aprovacao-titulo">${tituloTxt}</div>
+                    <div class="orc-aprovacao-detalhe">${detalheTxt}</div>
                   </div>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                   <button type="button" class="orc-aprovacao-btn-reaprovar" id="orc-btn-reaprovar"
-                          title="Re-aprovar com o valor atual (caso tenha alterado parametros)">
-                    ↻ Re-aprovar com R$ ${fmtBR(r.pFatReal)}
+                          title="Re-aprovar com o valor atual">
+                    ${btnReaprovarTxt}
                   </button>
                   <button type="button" id="orc-btn-gerar-documentos"
                           title="Gerar PDF Proposta + PNGs e abrir email"
@@ -5411,7 +5506,8 @@ const Orcamento = (() => {
     // pFatReal pro lead do CRM e avanca etapa pra "orcamento-pronto".
     // Felipe (sessao 2026-06): "deixe no card ambos valores Preco da
     // Proposta e Cliente Paga" — agora passa AMBOS ao aprovarOrcamento.
-    function _executarAprovacao(versao) {
+    // Felipe (sessao 2026-08): V2+ pergunta antes de empurrar pro card.
+    function _executarAprovacao(versao, opts) {
       const subFab  = Number(versao.subFab) || 0;
       const subInst = Number(versao.subInst) || 0;
       const params  = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
@@ -5423,14 +5519,45 @@ const Orcamento = (() => {
         return;
       }
       try {
-        aprovarOrcamento(versao.id, precoComDesconto, precoProposta);
+        aprovarOrcamento(versao.id, precoComDesconto, precoProposta, opts);
         renderCustoTab(container);
         if (window.showSavedDialog) {
-          window.showSavedDialog(`Orcamento aprovado: R$ ${fmtBR(precoComDesconto)} enviado pro CRM.`);
+          const enviou = !opts || opts.enviarParaCard !== false;
+          if (enviou) {
+            window.showSavedDialog(`Orcamento aprovado: R$ ${fmtBR(precoComDesconto)} enviado pro CRM.`);
+          } else {
+            window.showSavedDialog(`Versao ${versao.numero} aprovada localmente. Card do CRM mantem valor anterior.`);
+          }
         }
       } catch (e) {
         alert('Falha ao aprovar: ' + e.message);
       }
+    }
+    // Felipe sessao 2026-08: helper — pergunta na V2+ se quer enviar pro card
+    function _perguntarEnvioCardEAprovar(versao) {
+      if (versao.numero <= 1) {
+        // V1: fluxo padrao - sempre envia pro card
+        const ok = confirm('Aprovar este orcamento e enviar valor pro CRM?\n\nO card do lead vai mostrar o valor e a etapa avanca para "Orcamento Pronto" (se ainda nao estiver).');
+        if (!ok) return;
+        _executarAprovacao(versao, { enviarParaCard: true });
+        return;
+      }
+      // V2+: pergunta antes
+      const subFab  = Number(versao.subFab) || 0;
+      const subInst = Number(versao.subInst) || 0;
+      const params  = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
+      const dre     = calcularDRE(subFab, subInst, params);
+      const valor   = Number(dre.pFatReal) || 0;
+      const escolha = prompt(
+        `Aprovar Versao ${versao.numero} — R$ ${fmtBR(valor)}\n\n` +
+        `  1 = Aprovar e ENVIAR pro card (substitui valor anterior)\n` +
+        `  2 = Aprovar SO LOCALMENTE (card mantem valor da V1)\n` +
+        `  Cancelar\n\n` +
+        'Digite 1 ou 2:'
+      );
+      if (escolha === '1')      _executarAprovacao(versao, { enviarParaCard: true });
+      else if (escolha === '2') _executarAprovacao(versao, { enviarParaCard: false });
+      // qualquer outra coisa = cancelou
     }
     container.querySelector('#orc-btn-aprovar')?.addEventListener('click', () => {
       const versao = versaoAtiva();
@@ -5439,9 +5566,7 @@ const Orcamento = (() => {
         alert('Versao fechada — nao e possivel aprovar.');
         return;
       }
-      const ok = confirm('Aprovar este orcamento e enviar valor pro CRM?\n\nO card do lead vai mostrar o valor e a etapa avanca para "Orcamento Pronto" (se ainda nao estiver).');
-      if (!ok) return;
-      _executarAprovacao(versao);
+      _perguntarEnvioCardEAprovar(versao);
     });
     container.querySelector('#orc-btn-reaprovar')?.addEventListener('click', () => {
       const versao = versaoAtiva();
@@ -5450,9 +5575,7 @@ const Orcamento = (() => {
         alert('Versao fechada — nao e possivel re-aprovar.');
         return;
       }
-      const ok = confirm('Re-aprovar com o valor atual?\n\nO valor antigo sera substituido no card do CRM.');
-      if (!ok) return;
-      _executarAprovacao(versao);
+      _perguntarEnvioCardEAprovar(versao);
     });
     // Felipe (sessao 2026-11): Gerar Documentos direto do DRE quando aprovado.
     // Tambem disponivel no card do CRM. Delega pro modulo OrcDocs.
@@ -11563,6 +11686,7 @@ const Orcamento = (() => {
     criarNovaVersao,
     atualizarVersao,
     fecharVersao,
+    destravarVersao,
     deletarVersao,
     deletarNegocio,
     // Felipe (sessao 2026-11): geracao de Blobs pra OrcDocs
