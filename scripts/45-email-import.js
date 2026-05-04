@@ -193,6 +193,55 @@
   // ───────────────────────────────────────────────────────────────────
   // FLUXO PRINCIPAL — orquestra tudo
   // ───────────────────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────
+  // FLUXO MANUAL — so AGP, sem Weiku/PDF (Felipe completa o resto)
+  // ───────────────────────────────────────────────────────────────────
+  async function importarManualMinimoAGP(msgId, statusEl, btnEl) {
+    function setStatus(msg, cor) {
+      if (statusEl) { statusEl.textContent = msg; statusEl.style.color = cor || '#9a3412'; }
+    }
+    function setBusy(busy) {
+      if (btnEl) {
+        btnEl.disabled = busy;
+        btnEl.style.opacity = busy ? '0.6' : '1';
+        btnEl.style.cursor  = busy ? 'wait' : 'pointer';
+      }
+    }
+    try {
+      setBusy(true);
+      setStatus('🔄 Lendo email...', '#1565c0');
+      var email = await window.outlookGetEmail(msgId);
+      var reserva = extrairNumeroReserva(email);
+      if (!reserva) throw new Error('Nao achei numero de reserva no email.');
+
+      var leads = (typeof Storage !== 'undefined' ? Storage.scope('crm').get('leads') : []) || [];
+      var jaExiste = leads.find(function(l) { return String(l.numeroReserva) === String(reserva); });
+      if (jaExiste) {
+        throw new Error('Reserva ' + reserva + ' ja existe (lead "' + jaExiste.cliente + '").');
+      }
+
+      // Cria lead com so AGP+reserva, resto vazio. Felipe completa no card.
+      if (!window.EmailCRM || !window.EmailCRM.criarLeadAutomatico) {
+        throw new Error('EmailCRM nao carregado');
+      }
+      var agp = window.EmailCRM.proximoAGP();
+      // dadosWeiku = {} : criarLeadAutomatico aceita - todos campos tem fallback ''
+      var ok = window.EmailCRM.criarLeadAutomatico(reserva, {}, agp);
+      if (!ok) throw new Error('Falha ao criar lead');
+
+      setStatus('✅ Lead criado: ' + agp + ' · Reserva ' + reserva + ' (modo manual). Abra o card pra completar.', '#16a34a');
+      if (typeof Events !== 'undefined') Events.emit('crm:reload');
+    } catch (e) {
+      console.error('[email-import] manual erro:', e);
+      setStatus('❌ ' + (e.message || e), '#c0392b');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────
+  // FLUXO AUTOMATICO — Weiku + PDF + tudo
+  // ───────────────────────────────────────────────────────────────────
   async function importarDoEmail(msgId) {
     var statusEl = document.getElementById('outlook-import-status');
     var btnEl    = document.getElementById('outlook-btn-importar-crm');
@@ -248,6 +297,11 @@
           setStatus('🔄 Lendo PDF "' + pdfMeta.name + '"...', '#1565c0');
           var pdfBytes = await baixarAnexo(msgId, pdfMeta.id);
           var texto = await extrairTextoPDF(pdfBytes);
+          // Felipe sessao 2026-08: log do texto extraido pra debug do parser.
+          // Se medidas vierem vazias, Felipe abre console (F12) e copia.
+          console.log('[email-import] ===== TEXTO EXTRAIDO DO PDF =====');
+          console.log(texto);
+          console.log('[email-import] ===== FIM DO TEXTO =====');
           dadosPDF = parsearDadosPDF(texto);
           console.log('[email-import] PDF parseado:', dadosPDF);
         } else {
@@ -289,7 +343,7 @@
       setStatus('✅ ' + resumo + dadosTxt, '#16a34a');
 
       // Re-renderiza CRM se aberto
-      if (Events) Events.emit('crm:reload');
+      if (typeof Events !== 'undefined') Events.emit('crm:reload');
 
     } catch (e) {
       console.error('[email-import] erro:', e);
@@ -300,17 +354,32 @@
   }
 
   // ───────────────────────────────────────────────────────────────────
-  // Bridge global pro botao no modal do Outlook
+  // Bridge global pro botao no modal do Outlook — pergunta auto vs manual
   // ───────────────────────────────────────────────────────────────────
   window._outlookImportarCRM = function(msgId) {
-    importarDoEmail(msgId);
+    var escolha = prompt(
+      'Como importar?\n\n' +
+      '  1 = Automatico (busca dados na Weiku + le medidas do PDF)\n' +
+      '  2 = Manual (cria lead so com AGP, voce completa no card)\n' +
+      '  Cancelar\n\n' +
+      'Digite 1 ou 2:'
+    );
+    if (escolha === '1') {
+      importarDoEmail(msgId);
+    } else if (escolha === '2') {
+      var statusEl = document.getElementById('outlook-import-status');
+      var btnEl    = document.getElementById('outlook-btn-importar-crm');
+      importarManualMinimoAGP(msgId, statusEl, btnEl);
+    }
+    // qualquer outra coisa = cancela, nada acontece
   };
 
   // API publica
   window.EmailImport = {
-    importarDoEmail: importarDoEmail,
-    extrairNumeroReserva: extrairNumeroReserva,  // exposto pra debug
-    parsearDadosPDF: parsearDadosPDF,            // exposto pra debug
+    importarDoEmail: importarDoEmail,                    // automatico (Weiku+PDF)
+    importarManual:  importarManualMinimoAGP,            // manual (so AGP)
+    extrairNumeroReserva: extrairNumeroReserva,          // exposto pra debug
+    parsearDadosPDF: parsearDadosPDF,                    // exposto pra debug
   };
 
   console.log('[email-import] modulo carregado. API:', Object.keys(window.EmailImport));

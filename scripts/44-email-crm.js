@@ -107,7 +107,7 @@
       numeroReserva: String(reserva),
       numeroAGP: agp,
       valor: 0,
-      etapa: 'qualificacao',
+      etapa: 'fazer-orcamento',
       destinoTipo: 'nacional',
       destinoPais: '',
       data: new Date().toISOString().slice(0, 10),
