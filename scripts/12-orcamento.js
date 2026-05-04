@@ -4502,15 +4502,27 @@ const Orcamento = (() => {
           // Felipe (sessao 30): "acessorios esta puxando um valor nada
           // haver Custo de Fabricacao acessorios e o somatorio total
           // dos acessorios. separar fechadura digital do resto".
-          // Custo Fab = somatorio so' das linhas com aplicacao 'fab'
-          // (exclui 'obra' e exclui 'Fechadura Digital'). Obra vai pro
-          // custo de Instalacao, Fechadura Digital fica em campo proprio.
+          // Felipe (sessao 2026-08): 'fechadura digital independente se e
+          // tedee keso emteco qualquer uma deve levar o valor da fechadura
+          // para custo, tedee ja levava agora fizemo philips 9300 e nao
+          // levou'. CAUSA do bug: fechaduras digitais (Tedee, Emteco,
+          // Philips, Nuki) tem aplicacao='obra' (vide 28-acessorios linha
+          // 663+), e o filtro 'aplicacao !== fab' bloqueava ANTES de
+          // checar a categoria Fechadura Digital. Fix: checar digital
+          // PRIMEIRO (vai sempre pro totalDigital), depois filtrar 'fab'
+          // pro resto. Mesma logica usada no Lev. Acessorios (3 grupos:
+          // Fab, Obra, Digital - digital nao olha aplicacao).
           linhas.forEach(l => {
-            if (l.aplicacao !== 'fab') return;
+            // 1) Fechadura Digital sempre vai pro campo proprio,
+            //    INDEPENDENTE da aplicacao (qualquer marca: Tedee,
+            //    Emteco, Philips, Nuki, etc).
             if (String(l.categoria || '').toLowerCase().includes('fechadura digital')) {
               totalDigital += Number(l.total) || 0;
               return;
             }
+            // 2) Resto: so' 'fab' entra no custo de Acessorios. 'obra'
+            //    fica em Custo de Instalacao (separado).
+            if (l.aplicacao !== 'fab') return;
             totalAcess += Number(l.total) || 0;
           });
         });
