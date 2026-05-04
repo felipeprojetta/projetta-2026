@@ -4656,6 +4656,22 @@ const Orcamento = (() => {
                 const porItem = ent.horasPorItem || {};
                 const detalheEtapa = (rFab.detalhes || []).find(d => d.id === et.id) || {};
 
+                // Felipe sessao 2026-08: pra etapa 'Corte e Usinagem' mostra
+                // quantas chapas de revestimento (ACM/HPL/etc) serao usadas
+                // ao lado do label, ajudando Felipe a decidir as horas.
+                // Le item.qtdChapas (mesmo valor que regraCorte usa).
+                let labelExtra = '';
+                if (et.id === 'corte_usinagem' && nItens > 0) {
+                  const chapasArr = itensFab.map(it => Number(it.qtdChapas) || 0);
+                  const totalCh = chapasArr.reduce((a, b) => a + b, 0);
+                  if (totalCh > 0) {
+                    const detalhe = nItens > 1
+                      ? ' (' + chapasArr.map((n, i) => `It${i + 1}:${n}`).join(' · ') + ')'
+                      : '';
+                    labelExtra = `<small style="display:block;font-weight:500;font-size:10px;color:#c46b20;margin-top:3px;letter-spacing:0.02em;">📐 ${totalCh} chapa${totalCh !== 1 ? 's' : ''} de revestimento${detalhe}</small>`;
+                  }
+                }
+
                 // Inputs por item
                 let inputsPorItem;
                 let totalEtapa = 0;
@@ -4691,7 +4707,7 @@ const Orcamento = (() => {
                   : '';
                 return `
                   <div class="orc-fi-etapa-row">
-                    <span class="orc-fi-col-etapa">${escapeHtml(et.label)}</span>
+                    <span class="orc-fi-col-etapa">${escapeHtml(et.label)}${labelExtra}</span>
                     ${inputsPorItem}
                     ${totalCol}
                   </div>
