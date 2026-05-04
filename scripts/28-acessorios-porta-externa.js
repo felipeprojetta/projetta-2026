@@ -141,12 +141,20 @@ const AcessoriosPortaExterna = (() => {
    *                                observacao }
    */
   function calcularAcessoriosPorItem(item, cadastroAcessorios, opts) {
-    if (!item || item.tipo !== 'porta_externa') return [];
+    if (!item) return [];
+    // Felipe sessao 2026-08: tambem aceita revestimento_parede (so' calcula
+    // fita+silicone pra esse tipo, pula resto que e' especifico de porta).
+    const tipoOK = item.tipo === 'porta_externa' || item.tipo === 'revestimento_parede';
+    if (!tipoOK) return [];
     opts = opts || {};
     const marcaCilindro = (opts.marcaCilindro || 'KESO').toUpperCase();
 
-    const L = Number(item.largura) || 0;
-    const H = Number(item.altura)  || 0;
+    // Felipe sessao 2026-08: revestimento_parede usa largura_total/altura_total
+    // (nao tem item.largura/altura). Outros campos especificos de porta
+    // (fechadura, sistema, modelo) sao zerados pra revestimento - so' fita+silicone
+    // sera calculado.
+    const L = Number(item.largura)       || Number(item.largura_total) || 0;
+    const H = Number(item.altura)        || Number(item.altura_total)  || 0;
     const nFolhas = Math.max(1, Math.min(2, Number(item.nFolhas) || 1));
     const qtdPortas = Math.max(1, Number(item.quantidade) || 1);
     const sis = String(item.sistema || '').toUpperCase().trim() || 'PA006';
@@ -214,8 +222,9 @@ const AcessoriosPortaExterna = (() => {
     }
 
     // ============================================================
-    // FABRICACAO
+    // FABRICACAO (so' pra porta_externa - acessorios especificos de porta)
     // ============================================================
+    if (item.tipo === 'porta_externa') {
 
     // 1. FECHADURA KESO (1 un, variante mais cara)
     if (pinos === 4)  addMaxPreco('PA-KESO04P', 1, 'Fechaduras', 'fab');
@@ -347,6 +356,8 @@ const AcessoriosPortaExterna = (() => {
       add(codEps, mIso, 'Embalagem', 'fab', `H×4 + L×3 = ${mIso}m`);
     }
 
+    }  // ← fim do if (item.tipo === 'porta_externa') da FABRICACAO
+
     // ============================================================
     // FITA DUPLA FACE + SILICONE ESTRUTURAL 995 (Felipe sessao 2026-08)
     // ============================================================
@@ -406,45 +417,80 @@ const AcessoriosPortaExterna = (() => {
         mMS   += (Number(r.ms)   || 0) * metros;
       }
 
-      // --- 1) Pecas do Levantamento de Superficies (lado externo) ---
-      try {
-        const pecas = (window.ChapasPortaExterna?.gerarPecasChapa?.(item, 'externo')) || [];
-        pecas.forEach(p => {
-          const lar = Number(p.largura) || 0;
-          const alt = Number(p.altura)  || 0;
-          const qtd = Number(p.qtd)     || 0;
-          if (!lar || !alt || !qtd) return;
-          const lblLow = String(p.label || '').toLowerCase().trim();
-          const compM  = (alt * qtd * qtdPortas) / 1000;            // comprimento (altura) em metros
-          const perimM = ((lar + alt) * 2 * qtd * qtdPortas) / 1000; // perimetro em metros
+      // Felipe sessao 2026-08: helper pra REVESTIMENTO DE PAREDE.
+      // Fita usa perimetro normal (L×2 + H×2), mas silicone tem cordoes
+      // internos a cada 800mm vertical: silicone = perimetro + L×(H/800).
+      // Por isso a regra com tamanho='rev_parede' precisa de calculo
+      // diferenciado — fita e silicone sao multiplicados por valores diferentes.
+      function aplicarRegraRevParede(idRegra, larMm, altMm, qtdPecas) {
+        const r = REGRAS[idRegra] || REGRAS_DEFAULT[idRegra];
+        if (!r) return;
+        const perimM    = ((larMm + altMm) * 2 * qtdPecas) / 1000;
+        const internosM = (larMm * (altMm / 800) * qtdPecas) / 1000;
+        mFD19 += (Number(r.fd19) || 0) * perimM;
+        mFD12 += (Number(r.fd12) || 0) * perimM;
+        mMS   += (Number(r.ms)   || 0) * (perimM + internosM);
+      }
 
-          if (lblLow === 'alisar altura')        return aplicarRegra('alisar_altura', compM);
-          if (lblLow === 'alisar largura')       return aplicarRegra('alisar_largura', compM);
-          if (lblLow === 'tampa de furo')        return aplicarRegra(sis === 'PA007' ? 'tampa_furo_pa007' : 'tampa_furo_pa006', compM);
-          if (lblLow.startsWith('tampa'))        return aplicarRegra('tampa_generica', perimM);
-        });
-      } catch (e) { console.warn('[FD/MS] erro ao ler pecas:', e); }
-
-      // --- 2) Perfis do motor PerfisPortaExterna ---
-      try {
-        const cortes = (window.PerfisPortaExterna?.gerarCortes?.(item)) || {};
-        Object.keys(cortes).forEach(codigo => {
-          const lista = cortes[codigo] || [];
-          const isPA007 = /^PA-PA007/.test(codigo);
-          lista.forEach(corte => {
-            const comp = Number(corte.comp) || 0;
-            const qty  = Number(corte.qty)  || 0;
-            if (!comp || !qty) return;
-            const m = (comp * qty) / 1000;  // metros
-            const lbl = String(corte.label || '');
-
-            if (lbl === 'Altura Folha')              return aplicarRegra('altura_folha', m);
-            if (lbl === 'Altura Portal')             return aplicarRegra(isPA007 ? 'altura_portal_pa007' : 'altura_portal_pa006', m);
-            if (lbl === 'Largura Portal')            return aplicarRegra('largura_portal', m);
-            if (lbl === 'Tubo Interno das Ripas')    return aplicarRegra('ripas', m);
+      // --- 0) REVESTIMENTO DE PAREDE: pecas do motor ChapasRevParede ---
+      // Felipe sessao 2026-08: 'fita dupla face 19 l x 2 + h x 2 medida de
+      // cada tampa + silicone L×2 + H×2 + L×(H/800)'.
+      // Cada peca do revestimento e' considerada uma "tampa".
+      if (item.tipo === 'revestimento_parede') {
+        try {
+          const pecasRev = (window.ChapasRevParede?.gerarPecasRevParede?.(item)) || [];
+          pecasRev.forEach(p => {
+            const lar = Number(p.largura) || 0;
+            const alt = Number(p.altura)  || 0;
+            const qtd = Number(p.qtd)     || 0;
+            if (!lar || !alt || !qtd) return;
+            aplicarRegraRevParede('revestimento_tampa', lar, alt, qtd * qtdPortas);
           });
-        });
-      } catch (e) { console.warn('[FD/MS] erro ao ler perfis:', e); }
+        } catch (e) { console.warn('[FD/MS] erro ao ler pecas revestimento:', e); }
+      }
+
+      // --- 1) Pecas do Levantamento de Superficies (lado externo) ---
+      // So' pra porta_externa (revestimento ja' foi tratado no bloco 0)
+      if (item.tipo === 'porta_externa') {
+        try {
+          const pecas = (window.ChapasPortaExterna?.gerarPecasChapa?.(item, 'externo')) || [];
+          pecas.forEach(p => {
+            const lar = Number(p.largura) || 0;
+            const alt = Number(p.altura)  || 0;
+            const qtd = Number(p.qtd)     || 0;
+            if (!lar || !alt || !qtd) return;
+            const lblLow = String(p.label || '').toLowerCase().trim();
+            const compM  = (alt * qtd * qtdPortas) / 1000;            // comprimento (altura) em metros
+            const perimM = ((lar + alt) * 2 * qtd * qtdPortas) / 1000; // perimetro em metros
+
+            if (lblLow === 'alisar altura')        return aplicarRegra('alisar_altura', compM);
+            if (lblLow === 'alisar largura')       return aplicarRegra('alisar_largura', compM);
+            if (lblLow === 'tampa de furo')        return aplicarRegra(sis === 'PA007' ? 'tampa_furo_pa007' : 'tampa_furo_pa006', compM);
+            if (lblLow.startsWith('tampa'))        return aplicarRegra('tampa_generica', perimM);
+          });
+        } catch (e) { console.warn('[FD/MS] erro ao ler pecas:', e); }
+
+        // --- 2) Perfis do motor PerfisPortaExterna ---
+        try {
+          const cortes = (window.PerfisPortaExterna?.gerarCortes?.(item)) || {};
+          Object.keys(cortes).forEach(codigo => {
+            const lista = cortes[codigo] || [];
+            const isPA007 = /^PA-PA007/.test(codigo);
+            lista.forEach(corte => {
+              const comp = Number(corte.comp) || 0;
+              const qty  = Number(corte.qty)  || 0;
+              if (!comp || !qty) return;
+              const m = (comp * qty) / 1000;  // metros
+              const lbl = String(corte.label || '');
+
+              if (lbl === 'Altura Folha')              return aplicarRegra('altura_folha', m);
+              if (lbl === 'Altura Portal')             return aplicarRegra(isPA007 ? 'altura_portal_pa007' : 'altura_portal_pa006', m);
+              if (lbl === 'Largura Portal')            return aplicarRegra('largura_portal', m);
+              if (lbl === 'Tubo Interno das Ripas')    return aplicarRegra('ripas', m);
+            });
+          });
+        } catch (e) { console.warn('[FD/MS] erro ao ler perfis:', e); }
+      }
 
       // --- 3) Conversao final em rolos/tubos ---
       // Fita: rolo de 20m | Silicone DowSil 995: tubo de ~8m
@@ -491,8 +537,9 @@ const AcessoriosPortaExterna = (() => {
     }
 
     // ============================================================
-    // OBRA
+    // OBRA (so' pra porta_externa)
     // ============================================================
+    if (item.tipo === 'porta_externa') {
 
     // 14. FECHO UNHA + PUSH&GO — so 2 folhas
     if (nFolhas === 2) {
@@ -567,6 +614,8 @@ const AcessoriosPortaExterna = (() => {
       add('PA-NUKI-TEC-BL', 1, 'Fechadura Digital', 'obra', 'Nuki Keypad Preto');
       add('PA-NUKIBATERIA', 1, 'Fechadura Digital', 'obra', 'Nuki Bateria');
     }
+
+    }  // ← fim do if (item.tipo === 'porta_externa') da OBRA
 
     return linhas;
   }

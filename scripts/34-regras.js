@@ -162,6 +162,10 @@ const Regras = (() => {
     'altura_folha':        { label: 'Altura Folha · PA-PA006F / PA007F',   fd19: 1, fd12: 0, ms: 8,  tamanho: 'comprimento' },
     'tampa_generica':      { label: 'Outras peças "Tampa..." (perimetro)', fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro'   },
     'ripas':               { label: 'Tubo Interno das Ripas',              fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento' },
+    // Felipe sessao 2026-08: REVESTIMENTO DE PAREDE
+    // Pra cada peca do revestimento: fita usa perimetro, silicone usa
+    // perimetro + cordoes internos a cada 800mm (L × H/800).
+    'revestimento_tampa':  { label: 'Revestimento de Parede · Tampa',      fd19: 1, fd12: 0, ms: 1,  tamanho: 'rev_parede'  },
   };
 
   function getFitaSilicone() {
@@ -906,7 +910,9 @@ const Regras = (() => {
                    style="width:70px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;text-align:right;" />
           </td>
           <td style="font-size:11px;color:#6b7280;font-style:italic;">
-            ${r.tamanho === 'perimetro' ? 'L×2 + H×2' : 'comprimento'}
+            ${r.tamanho === 'perimetro' ? 'L×2 + H×2'
+              : r.tamanho === 'rev_parede' ? 'fita: L×2+H×2 / silicone: +L×(H/800)'
+              : 'comprimento'}
           </td>
         </tr>
       `;

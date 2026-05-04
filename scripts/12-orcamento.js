@@ -11775,14 +11775,19 @@ const Orcamento = (() => {
       return;
     }
     const versao = r.versao;
-    const itens = (versao.itens || []).filter(it => it && it.tipo === 'porta_externa');
+    // Felipe sessao 2026-08: aceita tambem revestimento_parede (so' calcula
+    // fita+silicone pra esse tipo, motor 28-acessorios-porta-externa.js
+    // foi estendido pra processar os 2 tipos).
+    const itens = (versao.itens || []).filter(it =>
+      it && (it.tipo === 'porta_externa' || it.tipo === 'revestimento_parede')
+    );
 
     if (itens.length === 0) {
       container.innerHTML = `
         ${bannerCaracteristicasItens(versao)}
         <div class="info-banner">
-          <span class="t-strong">Sem porta externa nesta versao.</span>
-          Acessorios so' sao calculados para itens do tipo Porta Externa.
+          <span class="t-strong">Sem porta externa ou revestimento de parede nesta versao.</span>
+          Acessorios so' sao calculados para itens dos tipos Porta Externa e Revestimento de Parede.
         </div>`;
       return;
     }
