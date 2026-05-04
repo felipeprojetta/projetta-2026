@@ -442,26 +442,27 @@
               ` : ''}
               <div style="border-top:2px solid #1a5276;margin-top:16px;padding-top:14px">
                 <div style="font-weight:700;font-size:14px;color:#1a5276;margin-bottom:10px">🚪 Dados da Porta</div>
-                <div class="crm-form-row cols-2">
-                  <div class="crm-field">
+                <div class="crm-form-row">
+                  <div class="crm-field" style="width:100%">
                     <label>Largura (mm)</label>
                     <input type="text" data-field="porta_largura" value="${escapeHtml(m.porta_largura || '')}" placeholder="" />
                   </div>
-                  <div class="crm-field">
+                </div>
+                <div class="crm-form-row">
+                  <div class="crm-field" style="width:100%">
                     <label>Altura (mm)</label>
                     <input type="text" data-field="porta_altura" value="${escapeHtml(m.porta_altura || '')}" placeholder="" />
                   </div>
                 </div>
-                <div class="crm-form-row cols-3">
-                  <div class="crm-field">
+                <div class="crm-form-row">
+                  <div class="crm-field" style="width:100%">
                     <label>Modelo</label>
-                    <select data-field="porta_modelo">
+                    <select data-field="porta_modelo" style="width:100%">
                       <option value="" ${!m.porta_modelo ? 'selected' : ''}>—</option>
                       ${(() => {
                         try {
                           const cadStore = Storage.scope('cadastros');
                           const modelos = cadStore.get('modelos_lista') || [];
-                          // Ordena por numero e gera options
                           return modelos
                             .slice()
                             .sort((a, b) => (a.numero || 0) - (b.numero || 0))
@@ -476,15 +477,16 @@
                       })()}
                     </select>
                   </div>
-                  <div class="crm-field">
+                </div>
+                <div class="crm-form-row">
+                  <div class="crm-field" style="width:100%">
                     <label>Cor</label>
-                    <input type="text" data-field="porta_cor" list="crm-cores-porta-list" value="${escapeHtml(m.porta_cor || '')}" placeholder="Digite ou escolha" />
+                    <input type="text" data-field="porta_cor" list="crm-cores-porta-list" value="${escapeHtml(m.porta_cor || '')}" placeholder="Digite ou escolha uma cor" style="width:100%" />
                     <datalist id="crm-cores-porta-list">
                       ${(() => {
                         try {
                           const cadStore = Storage.scope('cadastros');
                           const superficies = cadStore.get('superficies_lista') || [];
-                          // Deduplica por descricao (uma superficie pode ter varios tamanhos)
                           const vistas = new Set();
                           return superficies
                             .filter(s => {
@@ -499,9 +501,11 @@
                       })()}
                     </datalist>
                   </div>
-                  <div class="crm-field">
+                </div>
+                <div class="crm-form-row">
+                  <div class="crm-field" style="width:100%">
                     <label>Fechadura Digital</label>
-                    <select data-field="porta_fechadura_digital">
+                    <select data-field="porta_fechadura_digital" style="width:100%">
                       <option value="" ${!m.porta_fechadura_digital ? 'selected' : ''}>—</option>
                       <option value="nao" ${m.porta_fechadura_digital === 'nao' ? 'selected' : ''}>Nao se aplica</option>
                       ${(() => {
