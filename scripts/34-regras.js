@@ -166,6 +166,13 @@ const Regras = (() => {
     // Pra cada peca do revestimento: fita usa perimetro, silicone usa
     // perimetro + cordoes internos a cada 800mm (L × H/800).
     'revestimento_tampa':  { label: 'Revestimento de Parede · Tampa',      fd19: 1, fd12: 0, ms: 1,  tamanho: 'rev_parede'  },
+
+    // Felipe sessao 2026-08: FIXO ACOPLADO A PORTA
+    // Tampa usa perimetro. Fitas de Acabamento usam comprimento (altura).
+    'fixo_tampa':              { label: 'Fixo Acoplado · Tampa',                    fd19: 1, fd12: 0, ms: 1, tamanho: 'perimetro'   },
+    'fixo_fita_acab_maior':    { label: 'Fixo Acoplado · Fita Acabamento Maior',    fd19: 2, fd12: 0, ms: 1, tamanho: 'comprimento' },
+    'fixo_fita_acab_menor':    { label: 'Fixo Acoplado · Fita Acabamento Menor',    fd19: 0, fd12: 1, ms: 1, tamanho: 'comprimento' },
+    'fixo_fita_acab_largura':  { label: 'Fixo Acoplado · Fita Acabamento Largura',  fd19: 2, fd12: 0, ms: 1, tamanho: 'comprimento' },
   };
 
   function getFitaSilicone() {

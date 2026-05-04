@@ -142,9 +142,12 @@ const AcessoriosPortaExterna = (() => {
    */
   function calcularAcessoriosPorItem(item, cadastroAcessorios, opts) {
     if (!item) return [];
-    // Felipe sessao 2026-08: tambem aceita revestimento_parede (so' calcula
-    // fita+silicone pra esse tipo, pula resto que e' especifico de porta).
-    const tipoOK = item.tipo === 'porta_externa' || item.tipo === 'revestimento_parede';
+    // Felipe sessao 2026-08: tambem aceita revestimento_parede e fixo_acoplado.
+    // Pra esses tipos, so' fita+silicone e' calculado (resto - fechadura,
+    // dobradica, cilindro, EPS - e' especifico de porta).
+    const tipoOK = item.tipo === 'porta_externa'
+                || item.tipo === 'revestimento_parede'
+                || item.tipo === 'fixo_acoplado';
     if (!tipoOK) return [];
     opts = opts || {};
     const marcaCilindro = (opts.marcaCilindro || 'KESO').toUpperCase();
@@ -447,6 +450,35 @@ const AcessoriosPortaExterna = (() => {
             aplicarRegraRevParede('revestimento_tampa', lar, alt, qtd * qtdPortas);
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas revestimento:', e); }
+      }
+
+      // --- 0b) FIXO ACOPLADO A PORTA: pecas do motor PerfisRevAcoplado ---
+      // Felipe sessao 2026-08: 'Tampa L×2+H×2, fita acabamento maior/menor/
+      // largura comprimento da fita'. Itera pecas e aplica regra conforme
+      // label da peca:
+      //   'Tampa...' (qualquer)        -> fixo_tampa (perimetro)
+      //   'Fita Acabamento Maior'      -> fixo_fita_acab_maior (comprimento)
+      //   'Fita Acabamento Menor'      -> fixo_fita_acab_menor (comprimento)
+      //   'Fita Acabamento Largura'    -> fixo_fita_acab_largura (comprimento)
+      //   Outras pecas (Cava, Acabamento Lateral, etc): ignora.
+      if (item.tipo === 'fixo_acoplado') {
+        try {
+          const pecasFixo = (window.PerfisRevAcoplado?.gerarPecasChapa?.(item, 'externo')) || [];
+          pecasFixo.forEach(p => {
+            const lar = Number(p.largura) || 0;
+            const alt = Number(p.altura)  || 0;
+            const qtd = Number(p.qtd)     || 0;
+            if (!lar || !alt || !qtd) return;
+            const lblLow = String(p.label || '').toLowerCase().trim();
+            const compM  = (alt * qtd * qtdPortas) / 1000;            // comprimento (altura)
+            const perimM = ((lar + alt) * 2 * qtd * qtdPortas) / 1000; // perimetro
+
+            if (lblLow === 'fita acabamento maior')   return aplicarRegra('fixo_fita_acab_maior', compM);
+            if (lblLow === 'fita acabamento menor')   return aplicarRegra('fixo_fita_acab_menor', compM);
+            if (lblLow === 'fita acabamento largura') return aplicarRegra('fixo_fita_acab_largura', compM);
+            if (lblLow.startsWith('tampa'))           return aplicarRegra('fixo_tampa', perimM);
+          });
+        } catch (e) { console.warn('[FD/MS] erro ao ler pecas fixo:', e); }
       }
 
       // --- 1) Pecas do Levantamento de Superficies (lado externo) ---
