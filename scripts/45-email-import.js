@@ -35,7 +35,9 @@
    *   "Reserva 146508"
    *   "RESERVA: 146508"
    *   "RESERVA - 146508"
-   *   "146508" (numero solto, fallback)
+   *   "Novo orcamento - 146510 - CLIENTE"     (forwarded email)
+   *   "Fwd: Novo orcamento - 146510 - CLIENTE"
+   *   "Orcamento 146510"
    * Retorna string com o numero ou '' se nao achou.
    */
   function extrairNumeroReserva(email) {
@@ -45,15 +47,26 @@
     var corpo   = email.body && email.body.content ? String(email.body.content) : '';
     var pool    = assunto + '\n' + preview + '\n' + corpo;
 
-    // Padrao 1: palavra "reserva" seguida de numero (case-insensitive, com varios separadores)
+    // Padrao 1: palavra "reserva" seguida de numero
     var m = pool.match(/reserva[\s:#\-\.]*?(\d{4,8})/i);
     if (m && m[1]) return m[1];
 
-    // Padrao 2: "RES" abreviado (cuidado pra nao pegar palavras com RES no meio)
+    // Padrao 2: palavra "orcamento" seguida de numero (Felipe: "Novo orcamento - 146510")
+    //   Aceita orcamento|orçamento e separadores variados.
+    m = pool.match(/or[cç]amento[\s:#\-\.]*?(\d{4,8})/i);
+    if (m && m[1]) return m[1];
+
+    // Padrao 3: "RES" abreviado (cuidado pra nao pegar palavras com RES no meio)
     m = pool.match(/\bRES[\s:#\-\.]*?(\d{4,8})/i);
     if (m && m[1]) return m[1];
 
-    // Fallback: nao tenta pegar numero solto pra evitar falso positivo
+    // Fallback robusto: pega o PRIMEIRO numero de 5-7 digitos do ASSUNTO.
+    //   - Limitado ao assunto (corpo tem CEP/telefone que dariam falso positivo)
+    //   - 5-7 digitos cobre reservas Weiku (geralmente 6) sem pegar ano (4),
+    //     CEP brasileiro (8 com hifen), ou telefone (10-11)
+    m = assunto.match(/\b(\d{5,7})\b/);
+    if (m && m[1]) return m[1];
+
     return '';
   }
 
