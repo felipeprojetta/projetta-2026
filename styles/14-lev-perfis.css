@@ -103,7 +103,8 @@
   padding: 6px 12px !important;
 }
 .lvp-subtotal td {
-  background: var(--cinza-mais-claro) !important;
+  background: #FFF4E6 !important;
+  color: var(--laranja);
   font-size: 11px;
   letter-spacing: 0.05em;
 }
