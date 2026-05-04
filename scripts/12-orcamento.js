@@ -1586,6 +1586,15 @@ const Orcamento = (() => {
     saveAll(negocios);
     UI.versaoAtivaId = versaoId;
     UI.itemSelecionadoIdx = 0;
+    // Felipe (sessao 2026-08): "BOTAO ZERAR DEVE ZERAR 100% TUDO, E
+    // PRECISO IR NO CARD, APERTAR PARA ABRIR E AI SIM VOLTAR TODOS DADOS".
+    // Antes: zerarNegocioAtivo zerava, mas inicializarSessao detectava
+    // item virgem e re-populava do lead -> dados voltavam na tela.
+    // Fix: flag transitoria que suprime a repopulacao na PROXIMA chamada
+    // de inicializarSessao (o render que vem logo apos zerar). Flag e'
+    // consumida (limpa) automaticamente. Se Felipe voltar via card CRM
+    // depois, o signal orcamento_versao_ativa restaura o fluxo normal.
+    UI._suprimirRepopulacaoLead = true;
   }
 
   // Helpers para o UI atual.
@@ -1680,7 +1689,13 @@ const Orcamento = (() => {
     const versaoVazia = itensAtuais.length === 0;
     const primeiroVirgem = itensAtuais.length === 1 && _itemVirgem(itensAtuais[0]);
 
-    if (versaoVazia || primeiroVirgem) {
+    // Felipe (sessao 2026-08): flag setada por zerarNegocioAtivo pra
+    // suprimir repopulacao logo apos um Zerar (senao dados voltariam
+    // do lead). Consumida aqui — limpa pra nao afetar proximas entradas.
+    const suprimirRepop = !!UI._suprimirRepopulacaoLead;
+    UI._suprimirRepopulacaoLead = false;
+
+    if ((versaoVazia || primeiroVirgem) && !suprimirRepop) {
       // Caso vazio: cria item novo. Caso virgem: reusa item existente
       // (preserva o id pra nao quebrar referencias).
       const itemInicial = versaoVazia ? novoItem('') : Object.assign({}, itensAtuais[0]);
