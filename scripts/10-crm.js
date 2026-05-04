@@ -487,16 +487,23 @@
                         try {
                           const cadStore = Storage.scope('cadastros');
                           const superficies = cadStore.get('superficies_lista') || [];
+                          // Felipe sessao 2026-05: deduplica pelo NOME CURTO
+                          // (sem o sufixo " - 1500 X 5000", "1500 X 6000" etc)
+                          // pra mostrar so cor uma vez. O cadastro tem 4 entradas
+                          // por cor (uma pra cada altura de chapa).
                           const vistas = new Set();
-                          return superficies
-                            .filter(s => {
-                              const d = s.descricao || '';
-                              if (!d || vistas.has(d)) return false;
-                              vistas.add(d);
-                              return true;
-                            })
-                            .map(s => '<option value="' + escapeHtml(s.descricao) + '">')
-                            .join('');
+                          const opts = [];
+                          superficies.forEach(s => {
+                            const desc = String(s.descricao || '').trim();
+                            if (!desc) return;
+                            const limpo = desc.replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, '').trim();
+                            if (!limpo) return;
+                            const k = limpo.toUpperCase();
+                            if (vistas.has(k)) return;
+                            vistas.add(k);
+                            opts.push('<option value="' + escapeHtml(limpo) + '">');
+                          });
+                          return opts.join('');
                         } catch(_) { return ''; }
                       })()}
                     </datalist>

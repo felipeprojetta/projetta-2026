@@ -2249,7 +2249,21 @@ const Orcamento = (() => {
               </div>
             </div>
             <datalist id="orc-superficies-list-rev">
-              ${coresFiltradas.map(s => `<option value="${escapeHtml(s.descricao)}"></option>`).join('')}
+              ${(() => {
+                // Felipe sessao 2026-05: deduplicar pra mostrar so' nome sem
+                // medidas. Cadastro tem "X - 1500 X 5000", "X - 1500 X 6000"
+                // como entradas separadas. UI deve mostrar so' "X" uma vez.
+                // Motor de chapas ja' resolve as variantes via nomeCurtoSuperficie.
+                const vistas = new Set();
+                const opts = [];
+                coresFiltradas.forEach(s => {
+                  const limpo = nomeCurtoSuperficie(s.descricao);
+                  if (!limpo || vistas.has(limpo)) return;
+                  vistas.add(limpo);
+                  opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                });
+                return opts.join('');
+              })()}
             </datalist>
           </div>
         </div>
@@ -3176,7 +3190,18 @@ const Orcamento = (() => {
               ` : ''}
             </div>
             <datalist id="orc-superficies-list">
-              ${superficiesFiltradas.map(s => `<option value="${escapeHtml(s.descricao)}"></option>`).join('')}
+              ${(() => {
+                // Felipe sessao 2026-05: deduplicar pra mostrar so' nome sem medidas.
+                const vistas = new Set();
+                const opts = [];
+                superficiesFiltradas.forEach(s => {
+                  const limpo = nomeCurtoSuperficie(s.descricao);
+                  if (!limpo || vistas.has(limpo)) return;
+                  vistas.add(limpo);
+                  opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                });
+                return opts.join('');
+              })()}
             </datalist>
             ` : ''}
           </div>
