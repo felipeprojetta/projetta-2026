@@ -203,6 +203,25 @@
   }
 
   /**
+   * Mostra toast visual na tela (sem precisar de console)
+   */
+  function showToast(mensagem, tipo) {
+    var color = tipo === 'erro' ? '#c62828' : tipo === 'sucesso' ? '#2e7d32' : '#1565c0';
+    var icone = tipo === 'erro' ? '❌' : tipo === 'sucesso' ? '✅' : 'ℹ️';
+    var div = document.createElement('div');
+    div.style.cssText = 'position:fixed;top:20px;right:20px;left:20px;max-width:500px;margin:0 auto;background:#fff;border-left:4px solid ' + color + ';padding:14px 18px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;font-size:14px;line-height:1.4;color:#333';
+    div.innerHTML = '<div style="display:flex;gap:10px;align-items:flex-start"><span style="font-size:20px">' + icone + '</span><div style="flex:1">' + mensagem + '</div><button style="background:none;border:none;font-size:18px;cursor:pointer;color:#888;padding:0 4px" onclick="this.parentElement.parentElement.remove()">×</button></div>';
+    document.body.appendChild(div);
+    setTimeout(function() {
+      if (div.parentElement) {
+        div.style.transition = 'opacity 0.3s';
+        div.style.opacity = '0';
+        setTimeout(function() { if (div.parentElement) div.remove(); }, 300);
+      }
+    }, 6000);
+  }
+
+  /**
    * Inicializa: instala hook + carrega do Supabase + migra orfaos.
    */
   async function init() {
@@ -212,12 +231,31 @@
     instalarWriteThrough();
 
     // 1. Carrega do Supabase (source of truth)
-    await carregarDoSupabase();
+    var loadOk = await carregarDoSupabase();
+
+    if (loadOk) {
+      var statusAtual = getStatus();
+      // Toast visual se conseguiu carregar
+      var qtdItens = 0;
+      try {
+        var prefix = 'projetta_cadastros_';
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.startsWith(prefix)) qtdItens++;
+        }
+      } catch (_) {}
+      showToast('☁ Conectado ao Supabase. ' + qtdItens + ' cadastros disponiveis.', 'sucesso');
+    } else {
+      showToast('⚠ Sem conexao com o servidor. Usando cache local. Suas alteracoes serao sincronizadas quando voltar online.', 'erro');
+    }
 
     // 2. Migra dados que existem so' local
-    setTimeout(function() {
-      migrarLocalParaSupabase();
-    }, 2000); // espera 2s pra nao competir com outros loads
+    setTimeout(async function() {
+      var resultado = await migrarLocalParaSupabase();
+      if (resultado && resultado.migradas > 0) {
+        showToast('✅ ' + resultado.migradas + ' cadastros migrados do navegador para o Supabase. Voce nao vai perder mais dados!', 'sucesso');
+      }
+    }, 2000);
   }
 
   /**
