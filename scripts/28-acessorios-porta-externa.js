@@ -402,9 +402,11 @@ const AcessoriosPortaExterna = (() => {
         'tampa_furo_pa007':    { fd19: 2, fd12: 0, ms: 1,  tamanho: 'comprimento' },
         'altura_portal_pa006': { fd19: 2, fd12: 2, ms: 8,  tamanho: 'comprimento' },
         'altura_portal_pa007': { fd19: 4, fd12: 4, ms: 10, tamanho: 'comprimento' },
-        'largura_portal':      { fd19: 4, fd12: 0, ms: 5,  tamanho: 'comprimento' },
-        // Felipe sessao 2026-08 (Excel atualizado): NOVAS regras
-        'largura_porta':       { fd19: 0, fd12: 2, ms: 5,  tamanho: 'comprimento' },
+        // Felipe sessao 2026-08 (Excel atualizado): Largura Portal valores
+        // mudaram de 4×FD19+5×silicone pra 2×FD12+5×silicone.
+        'largura_portal':      { fd19: 0, fd12: 2, ms: 5,  tamanho: 'comprimento' },
+        // Felipe sessao 2026-08 (Excel atualizado): NOVA regra Travessa
+        // Vertical / Horizontal (4×FD19, sem silicone).
         'travessa_vert_horiz': { fd19: 4, fd12: 0, ms: 0,  tamanho: 'comprimento' },
         'altura_folha':        { fd19: 1, fd12: 0, ms: 8,  tamanho: 'comprimento' },
         'tampa_generica':      { fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro'   },
@@ -544,8 +546,11 @@ const AcessoriosPortaExterna = (() => {
               if (lbl === 'Altura Folha')              return aplicarRegra('altura_folha', m);
               if (lbl === 'Altura Portal')             return aplicarRegra(isPA007 ? 'altura_portal_pa007' : 'altura_portal_pa006', m);
               if (lbl === 'Largura Portal')            return aplicarRegra('largura_portal', m);
-              // Felipe sessao 2026-08 (Excel atualizado): NOVOS handlers
-              if (lbl === 'Largura Inferior & Superior') return aplicarRegra('largura_porta', m);
+              // Felipe sessao 2026-08 (Excel atualizado): NOVOS handlers de
+              // Travessa Vertical / Horizontal (4×FD19, sem silicone).
+              // (Handler 'Largura Inferior & Superior' foi REMOVIDO: o que
+              // o Excel chamava de 'LAREGURA PORTA' era erro de digitacao
+              // do PORTAL acima - nao e' o perfil interno da folha.)
               if (lbl === 'Travessa Vertical')         return aplicarRegra('travessa_vert_horiz', m);
               if (lbl === 'Travessa Horizontal')       return aplicarRegra('travessa_vert_horiz', m);
               if (lbl === 'Tubo Interno das Ripas')    return aplicarRegra('ripas', m);

@@ -161,11 +161,11 @@ const Regras = (() => {
     'tampa_furo_pa007':    { label: 'Tampa de Furo (sistema PA007)',       fd19: 2, fd12: 0, ms: 1,  tamanho: 'comprimento' },
     'altura_portal_pa006': { label: 'Altura Portal · PA-PA006P',           fd19: 2, fd12: 2, ms: 8,  tamanho: 'comprimento' },
     'altura_portal_pa007': { label: 'Altura Portal · PA-PA007P',           fd19: 4, fd12: 4, ms: 10, tamanho: 'comprimento' },
-    'largura_portal':      { label: 'Largura Portal',                      fd19: 4, fd12: 0, ms: 5,  tamanho: 'comprimento' },
-    // Felipe sessao 2026-08 (Excel atualizado): NOVA regra Largura Porta
-    // (perfil largura interna da folha - cod.perfLargInt 'Largura Inferior
-    // & Superior'). NAO confundir com Largura Portal acima.
-    'largura_porta':       { label: 'Largura Porta (Larg. Inferior & Superior)', fd19: 0, fd12: 2, ms: 5, tamanho: 'comprimento' },
+    // Felipe sessao 2026-08 (Excel atualizado): Largura Portal valores
+    // mudaram. Antes: 4×FD19 + 5×silicone. Agora: 2×FD12 + 5×silicone (sem
+    // FD19). Continua aplicado ao perfil horizontal do portal (cod.travHor
+    // 'Largura Portal' no motor PerfisPortaExterna).
+    'largura_portal':      { label: 'Largura Portal',                      fd19: 0, fd12: 2, ms: 5,  tamanho: 'comprimento' },
     'altura_folha':        { label: 'Altura Folha · PA-PA006F / PA007F',   fd19: 1, fd12: 0, ms: 8,  tamanho: 'comprimento' },
     'tampa_generica':      { label: 'Outras peças "Tampa..." (perimetro)', fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro'   },
     'ripas':               { label: 'Tubo Interno das Ripas',              fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento' },
