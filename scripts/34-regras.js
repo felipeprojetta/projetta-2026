@@ -19,12 +19,15 @@ const Regras = (() => {
   const store = Storage.scope('cadastros');
 
   // Sub-abas (cada logica de calculo do sistema)
+  // Felipe sessao 2026-08:
+  //   - Removido 'comissao' (sub-aba sem implementacao real, polui UI)
+  //   - Adicionado 'precificacao' (movido de aba topo pra dentro de Regras)
   const SUBABAS = [
     { id: 'porta-externa', label: 'Calculo de Perfis · Porta Externa' },
     { id: 'chapas',        label: 'Calculo de Chapas' },
     { id: 'fita-silicone', label: 'Fita Dupla Face + Silicone Estrutural' },
+    { id: 'precificacao',  label: 'Precificacao' },
     { id: 'frete',         label: 'Frete Internacional' },
-    { id: 'comissao',      label: 'Comissoes' },
   ];
 
   // Estado da sub-aba ativa (compartilhado entre renders)
@@ -351,13 +354,21 @@ const Regras = (() => {
     if (UI.subaba === 'porta-externa') renderPortaExterna(mount);
     else if (UI.subaba === 'chapas')   renderCalculoChapas(mount);
     else if (UI.subaba === 'fita-silicone') renderFitaSilicone(mount);
+    else if (UI.subaba === 'precificacao') {
+      // Felipe sessao 2026-08: Precificacao agora roda dentro de Regras
+      // (era aba topo). Reusa modulo Precificacao existente.
+      if (typeof Precificacao !== 'undefined' && Precificacao.render) {
+        Precificacao.render(mount);
+      } else {
+        mount.innerHTML = '<div class="info-banner">Modulo Precificacao nao carregado.</div>';
+      }
+    }
     else renderEmDesenvolvimento(mount, UI.subaba);
   }
 
   function renderEmDesenvolvimento(mount, subId) {
     const labels = {
       'frete':    'Frete Internacional',
-      'comissao': 'Comissoes',
     };
     mount.innerHTML = `
       <div class="info-banner">

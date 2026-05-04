@@ -46,7 +46,6 @@ const App = (() => {
         { id: 'superficies',    label: 'Superficies' },
         { id: 'modelos',        label: 'Modelos' },
         { id: 'regras',         label: 'Regras e Logicas' },
-        { id: 'precificacao',   label: 'Precificacao' },
         { id: 'filtros',        label: 'Filtros' },
         { id: 'representantes', label: 'Representantes' },
         { id: 'mensagens',      label: 'Mensagens' },
