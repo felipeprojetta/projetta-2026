@@ -2003,8 +2003,11 @@ const Orcamento = (() => {
         label: 'Fixo Acoplado a Porta',
         icon: '⬜',
         desc: 'Painel fixo lateral ou superior acoplado a uma porta.',
-        ativo: false,
-        statusLabel: 'aguardando especificacao',
+        // Felipe (sessao 2026-05): "pq nao esta liberado fixo acoplado a porta?
+        // Ja fiz dos calculos dos perfis dele" — habilitado. Os motores ja existiam:
+        //   - scripts/12-orcamento.js linha 5384 (PerfisRevAcoplado)
+        //   - form proprio renderItemTab + visualizacao em 2826
+        ativo: true,
       },
       {
         id: 'revestimento_parede',
