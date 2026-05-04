@@ -8291,6 +8291,24 @@ const Orcamento = (() => {
            junto pra nao gerarem erro. -->
 
       <div class="orc-aba-rodape">
+        ${(() => {
+          // Felipe sessao 2026-08: aviso visual quando ainda faltam
+          // cores sem chapa-mae selecionada explicitamente. Ajuda
+          // Felipe a ver na hora que precisa dar duplo clique antes
+          // de avancar (alem do alert que aparece se clicar Proxima).
+          const cores = Object.keys(pecasPorCor || {});
+          if (cores.length === 0) return '';
+          const sel = versao.chapasSelecionadas || {};
+          const faltando = cores.filter(cor => !sel[cor]);
+          if (faltando.length === 0) return '';
+          return `
+            <div style="background:#fff8ed;border:1px solid #fed7aa;border-left:4px solid #c46b20;padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:13px;color:#7c2d12;">
+              <b>⚠️ Selecione qual chapa-mae vai usar</b> antes de avancar pra proxima pagina.<br>
+              Falta${faltando.length > 1 ? 'm' : ''} <b>${faltando.length}</b> cor${faltando.length > 1 ? 'es' : ''}: ${faltando.map(c => '<code style="background:#fde6c5;padding:1px 5px;border-radius:3px;font-size:11px;">' + escapeHtml(c) + '</code>').join(' ')}<br>
+              <small style="color:#9a3412;">Faca <b>duplo clique</b> na opcao desejada (a destacada em verde e\\' a mais economica).</small>
+            </div>
+          `;
+        })()}
         <button type="button" class="orc-btn-proxima-aba" data-aba-destino="fab-inst">
           Proxima pagina: Custo de Fabricacao e Instalacao →
         </button>
@@ -8445,6 +8463,35 @@ const Orcamento = (() => {
       const btnProx = e.target.closest('[data-aba-destino]');
       if (btnProx) {
         const destino = btnProx.dataset.abaDestino;
+        // Felipe sessao 2026-08: 'nao deixe passar para proxima pagina
+        // sem selecionar qual chapa vou usar'. Valida que todas as
+        // cores tem selecao explicita em chapasSelecionadas. Se faltar,
+        // bloqueia com alerta listando as cores pendentes.
+        const cores = Object.keys(pecasPorCor || {});
+        if (cores.length > 0) {
+          // Re-le versao do storage pra pegar selecoes recem-feitas
+          // (closure 'versao' pode estar stale apos duplo-clique).
+          const vAtual = obterVersao(UI.versaoAtivaId)?.versao;
+          const sel = (vAtual && vAtual.chapasSelecionadas) || {};
+          const faltando = cores.filter(cor => !sel[cor]);
+          if (faltando.length > 0) {
+            const lista = faltando.map(c => '  • ' + c).join('\n');
+            alert(
+              '⚠️  Selecione qual chapa-mae vai usar antes de avancar!\n\n' +
+              `Falta${faltando.length > 1 ? 'm' : ''} ${faltando.length} cor${faltando.length > 1 ? 'es' : ''} sem selecao explicita:\n` +
+              lista + '\n\n' +
+              'Faca DUPLO CLIQUE na opcao desejada (ex: 1500 × 6000 mm — 3 chapas).\n' +
+              'A opcao destacada em verde e\' a mais economica, mas voce precisa\n' +
+              'confirmar a escolha pra travar o calculo.'
+            );
+            // Rola ate a primeira cor sem selecao pra Felipe ver onde clicar
+            try {
+              const blocoChapas = container.querySelector('.orc-aprov-chapas, [data-aprov-cor]');
+              if (blocoChapas) blocoChapas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch(_){}
+            return;
+          }
+        }
         if (window.OrcamentoWizard?.avancar) {
           // 'lev-superficies' e' a aba atual; avancar() libera a proxima
           // (que e' fab-inst) e ja navega pra ela.
