@@ -268,11 +268,13 @@
       }
 
       // 6. Cria lead com tudo combinado.
-      //    Felipe sessao 2026-08: agpManual sobrescreve proximoAGP() se informado.
+      //    Felipe sessao 2026-08: 'todo AGP vai ser manual pronto eu coloco
+      //    direto no card'. Lead criado SEM AGP. Felipe edita o card depois
+      //    pra colocar o AGP manualmente.
       if (!window.EmailCRM || !window.EmailCRM.criarLeadAutomatico) {
         throw new Error('EmailCRM nao carregado');
       }
-      var agp = agpManual || window.EmailCRM.proximoAGP();
+      var agp = agpManual || '';  // vazio quando nao informado - Felipe completa no card
       var ok = window.EmailCRM.criarLeadAutomatico(reserva, dadosWeiku, agp);
       if (!ok) throw new Error('Falha ao criar lead no CRM');
 
@@ -290,7 +292,7 @@
       }
 
       // 8. UI de sucesso
-      var resumo = 'Lead criado: ' + dadosWeiku.nome_cliente + ' · ' + agp;
+      var resumo = 'Lead criado: ' + dadosWeiku.nome_cliente + (agp ? ' · ' + agp : ' (lembre de preencher o AGP no card)');
       var dadosTxt = '';
       if (dadosPDF.porta_largura || dadosPDF.porta_altura) {
         dadosTxt = ' · ' + (dadosPDF.porta_largura || '?') + '×' + (dadosPDF.porta_altura || '?') + 'mm';
@@ -311,36 +313,13 @@
   }
 
   // ───────────────────────────────────────────────────────────────────
-  // Bridge global pro botao no modal do Outlook — pergunta sobre AGP
+  // Bridge global pro botao no modal do Outlook
+  // Felipe sessao 2026-08: 'todo AGP vai ser manual pronto eu coloco
+  // direto no card'. Sem prompt. Importa direto - lead criado sem AGP,
+  // Felipe edita o card depois pra preencher.
   // ───────────────────────────────────────────────────────────────────
   window._outlookImportarCRM = function(msgId) {
-    // Felipe sessao 2026-08: SEMPRE importa tudo automatico (Weiku + PDF).
-    // A pergunta e' so' sobre o AGP - automatico (proximo da sequencia)
-    // ou manual (Felipe digita o numero).
-    var proximoAuto = (window.EmailCRM && window.EmailCRM.proximoAGP)
-      ? window.EmailCRM.proximoAGP() : 'AGP004XXX';
-    var escolha = prompt(
-      'Como definir o AGP deste lead?\n\n' +
-      '  1 = Automatico (proximo: ' + proximoAuto + ')\n' +
-      '  2 = Manual (eu digito qual AGP usar)\n' +
-      '  Cancelar\n\n' +
-      'Digite 1 ou 2:'
-    );
-    if (escolha === '1') {
-      importarDoEmail(msgId);  // sem agpManual = usa proximoAGP()
-    } else if (escolha === '2') {
-      var agpManual = prompt('Digite o AGP completo (ex: AGP004647):', proximoAuto);
-      if (!agpManual) return;  // cancelou no segundo prompt
-      agpManual = String(agpManual).trim();
-      if (!agpManual) return;
-      // Normaliza: aceita "4647", "AGP4647", "AGP004647" - tudo vira AGP004647
-      var soDigitos = agpManual.match(/(\d+)/);
-      if (soDigitos) {
-        agpManual = 'AGP' + String(soDigitos[1]).padStart(6, '0');
-      }
-      importarDoEmail(msgId, agpManual);
-    }
-    // qualquer outra coisa = cancela, nada acontece
+    importarDoEmail(msgId);  // sem agpManual = AGP vazio
   };
 
   // API publica
