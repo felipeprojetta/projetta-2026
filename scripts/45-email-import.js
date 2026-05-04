@@ -150,43 +150,74 @@
   /**
    * Parser dos campos da porta no texto extraido do PDF da Weiku.
    *
-   * Felipe sessao 2026-08: regex GENERICO inicial. Se nao acertar
-   * com o formato real do PDF, Felipe me manda exemplo e calibro.
-   * Quando nao encontra um campo, deixa string vazia (nao quebra).
+   * Felipe sessao 2026-08: calibrado com formato REAL do "Checklist 2026".
+   * Campos do PDF:
+   *   COR PORTA: PRO-1874 DARK GRAY JLR METALLIC
+   *   MODELO: 01
+   *   FECHADURA DIGITAL: NÃO SE APLICA
+   *   LARGURA X ALTURA: 1720 X 3540
+   *   FIXO: NÃO SE APLICA
+   *   VIDRO: NÃO SE APLICA
+   *
+   * Estrategia: cada campo captura ate a proxima label conhecida do PDF
+   * (lookahead). Robusto a ordem variavel das linhas.
    */
   function parsearDadosPDF(texto) {
     if (!texto) return {};
     // Normaliza espacos multiplos pra simplificar regex
     var t = texto.replace(/\s+/g, ' ').trim();
 
+    // Lookahead com TODAS as labels conhecidas do checklist Weiku.
+    // Cada label inclui seu proprio \s*: pra garantir que so' para em
+    // labels reais. LARGURA tem variante 'LARGURA X ALTURA:'.
+    var STOP = '(?=\\s+(?:DATA\\s*:|REPRESENTANTE\\s*:|N[º°]?\\s*DE\\s*RESERVA\\s*:|CLIENTE\\s*:|MARKUP\\s*:|COR\\s+PORTA\\s*:|R\\.T\\s*:|RT\\s*:|MODELO\\s*:|FECHADURA\\s+DIGITAL\\s*:|LARGURA(?:\\s+X\\s+ALTURA)?\\s*:|ALTURA\\s*:|FIXO\\s*:|VIDRO\\s*:|OBSERVA[CÇ][AÃ]O)|$)';
+
     function matchFirst(re) {
       var m = t.match(re);
       return m && m[1] ? m[1].trim() : '';
     }
 
-    // Largura: aceita "Largura: 1750", "Largura 1.750 mm", "Larg 1750mm"
-    var largura = matchFirst(/(?:Largura|Larg)\.?\s*[:\-]?\s*(\d{2,5}(?:[.,]\d+)?)\s*(?:mm|m\b|cm)?/i);
-    // Altura: idem
-    var altura  = matchFirst(/Altura\.?\s*[:\-]?\s*(\d{2,5}(?:[.,]\d+)?)\s*(?:mm|m\b|cm)?/i);
-    // Modelo: aceita "Modelo: 01", "Modelo 01 - Cava", "Modelo: Cava"
-    var modelo  = matchFirst(/Modelo\.?\s*[:\-]?\s*([A-Za-z0-9 \-\/]+?)(?=\s{2,}|\s+(?:Cor|Pintura|Revestimento|Acabamento)\b|$)/i);
-    // Cor: aceita "Cor: PRO1874", "Cor PRO1874 - Dark Grey"
-    var cor     = matchFirst(/Cor\.?\s*[:\-]?\s*([A-Za-z0-9 \-\/]+?)(?=\s{2,}|\s+(?:Modelo|Pintura|Revestimento|Acabamento|Largura|Altura)\b|$)/i);
+    // LARGURA X ALTURA: 1720 X 3540
+    var largura = '', altura = '';
+    var dim = t.match(/LARGURA\s*X\s*ALTURA\s*:?\s*(\d{2,5})\s*[Xx×]\s*(\d{2,5})/i);
+    if (dim) {
+      largura = dim[1];
+      altura  = dim[2];
+    } else {
+      // Fallback: campos separados (formato antigo, caso mude)
+      largura = matchFirst(/Largura\s*\(?mm\)?\s*:?\s*(\d{2,5})/i);
+      altura  = matchFirst(/Altura\s*\(?mm\)?\s*:?\s*(\d{2,5})/i);
+    }
 
-    // Limpa virgulas/pontos pra largura/altura virarem numeros pt-BR
-    function _normaliza(num) {
-      if (!num) return '';
-      // Remove ponto de milhar, troca virgula por ponto
-      var n = num.replace(/\./g, '').replace(',', '.');
-      var f = parseFloat(n);
-      return isNaN(f) ? '' : String(Math.round(f));
+    // MODELO: 01
+    var modelo = matchFirst(new RegExp('MODELO\\s*:\\s*([^]+?)' + STOP, 'i'));
+
+    // COR PORTA: PRO-1874 DARK GRAY JLR METALLIC
+    var cor = matchFirst(new RegExp('COR\\s+PORTA\\s*:\\s*([^]+?)' + STOP, 'i'));
+
+    // FECHADURA DIGITAL: NÃO SE APLICA  /  PA-DIG-XXX  /  Sim
+    var fechDigRaw = matchFirst(new RegExp('FECHADURA\\s+DIGITAL\\s*:\\s*([^]+?)' + STOP, 'i'));
+    var fechDig = '';
+    if (fechDigRaw) {
+      var fechLower = fechDigRaw.toLowerCase().replace(/\s+/g, ' ').trim();
+      if (fechLower.indexOf('nao se aplica') >= 0 ||
+          fechLower.indexOf('não se aplica') >= 0 ||
+          fechLower === 'nao' || fechLower === 'não' ||
+          fechLower === 'no'  || fechLower === 'n/a') {
+        fechDig = 'nao';
+      } else if (fechLower === 'sim' || fechLower === 'yes' || fechLower === 's') {
+        fechDig = 'sim';
+      } else {
+        fechDig = fechDigRaw;  // mantém valor original (provavelmente codigo)
+      }
     }
 
     return {
-      porta_largura: _normaliza(largura),
-      porta_altura:  _normaliza(altura),
+      porta_largura: largura,
+      porta_altura:  altura,
       porta_modelo:  modelo,
       porta_cor:     cor,
+      porta_fechadura_digital: fechDig,
     };
   }
 
@@ -318,7 +349,8 @@
       if (!ok) throw new Error('Falha ao criar lead no CRM');
 
       // 7. Anexa dados do PDF no lead recem-criado (se tiver)
-      if (dadosPDF.porta_largura || dadosPDF.porta_altura || dadosPDF.porta_modelo || dadosPDF.porta_cor) {
+      if (dadosPDF.porta_largura || dadosPDF.porta_altura || dadosPDF.porta_modelo
+          || dadosPDF.porta_cor || dadosPDF.porta_fechadura_digital) {
         var leadsAtuais = Storage.scope('crm').get('leads') || [];
         var leadCriado = leadsAtuais.find(function(l) { return String(l.numeroReserva) === String(reserva); });
         if (leadCriado) {
@@ -326,6 +358,7 @@
           if (dadosPDF.porta_altura)  leadCriado.porta_altura  = dadosPDF.porta_altura;
           if (dadosPDF.porta_modelo)  leadCriado.porta_modelo  = dadosPDF.porta_modelo;
           if (dadosPDF.porta_cor)     leadCriado.porta_cor     = dadosPDF.porta_cor;
+          if (dadosPDF.porta_fechadura_digital) leadCriado.porta_fechadura_digital = dadosPDF.porta_fechadura_digital;
           Storage.scope('crm').set('leads', leadsAtuais);
         }
       }
@@ -344,7 +377,8 @@
       // mostra botao "Copiar texto do PDF" pro Felipe colar pro Claude
       // calibrar o regex.
       var nenhumCampoPDF = !dadosPDF.porta_largura && !dadosPDF.porta_altura
-                        && !dadosPDF.porta_modelo  && !dadosPDF.porta_cor;
+                        && !dadosPDF.porta_modelo  && !dadosPDF.porta_cor
+                        && !dadosPDF.porta_fechadura_digital;
       if (textoPDFGuardado && nenhumCampoPDF && statusEl) {
         var botaoCopiar = document.createElement('button');
         botaoCopiar.textContent = '📋 Copiar texto do PDF (mande pro Claude)';
