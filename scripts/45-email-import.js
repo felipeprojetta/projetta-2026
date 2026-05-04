@@ -137,39 +137,140 @@
     }
     var loadingTask = window.pdfjsLib.getDocument({ data: pdfBytes });
     var pdf = await loadingTask.promise;
-    // Felipe sessao 2026-08: debug detalhado pra distinguir PDF imagem
-    // (0 items de texto) de PDF texto vetorial (N items).
+    // Felipe sessao 2026-08: o PDF da Weiku tem labels como texto
+    // vetorial mas VALORES como annotations/form fields (camadas
+    // separadas). getTextContent() pega so' os labels. Precisamos
+    // tambem getAnnotations() pra pegar os valores preenchidos.
     var textoCompleto = '';
     var totalItems = 0;
-    var amostraItems = [];
+    var totalAnnotations = 0;
+    var camposFormulario = {}; // mapa fieldName -> fieldValue
+    var annotationsTextos = [];
+
     for (var p = 1; p <= pdf.numPages; p++) {
       var page = await pdf.getPage(p);
+
+      // 1. Texto vetorial (camada normal — labels)
       var content = await page.getTextContent();
       var items = content.items || [];
       totalItems += items.length;
-      // Guarda amostra dos primeiros 5 items pra debug
-      if (amostraItems.length < 5) {
-        items.slice(0, 5 - amostraItems.length).forEach(function(it) {
-          amostraItems.push({ str: it.str, page: p });
-        });
-      }
       var textoPagina = items.map(function(it) { return it.str; }).join(' ');
       textoCompleto += textoPagina + '\n';
+
+      // 2. Annotations e form fields (camada onde estao os VALORES)
+      try {
+        var annotations = await page.getAnnotations();
+        annotations.forEach(function(ann) {
+          // Form field preenchido (Tx, Btn, Ch, Sig)
+          if (ann.fieldValue !== undefined && ann.fieldValue !== null && ann.fieldValue !== '') {
+            totalAnnotations++;
+            var fName = ann.fieldName || ann.alternativeText || '';
+            var fVal  = ann.fieldValue;
+            if (fName) camposFormulario[fName] = fVal;
+            annotationsTextos.push((fName ? fName + ': ' : '') + fVal);
+          }
+          // FreeText annotation (contents = texto livre adicionado por cima)
+          if (ann.contents && ann.contents.trim()) {
+            totalAnnotations++;
+            annotationsTextos.push(ann.contents.trim());
+          }
+        });
+      } catch (eAnn) {
+        console.warn('[email-import] getAnnotations falhou:', eAnn);
+      }
     }
+
+    // Texto final = labels + (separador) + valores das annotations
+    var textoFinal = textoCompleto;
+    if (annotationsTextos.length > 0) {
+      textoFinal += '\n' + annotationsTextos.join(' ') + '\n';
+    }
+
     console.log('[email-import] PDF lido: ' + pdf.numPages + ' pagina(s), ' +
-                totalItems + ' items de texto.');
-    if (totalItems === 0) {
-      console.warn('[email-import] ⚠️ PDF NAO TEM TEXTO EXTRAIVEL — provavelmente ' +
-                   'e uma IMAGEM (scan). PDF.js nao le imagens. Solucao: OCR.');
-    } else if (totalItems < 5) {
-      console.warn('[email-import] ⚠️ PDF tem POUCOS items (' + totalItems +
-                   '). Pode ser parcialmente imagem. Amostra:', amostraItems);
+                totalItems + ' items texto, ' + totalAnnotations + ' annotations.');
+    if (Object.keys(camposFormulario).length > 0) {
+      console.log('[email-import] Form fields encontrados:', camposFormulario);
     }
+    if (totalItems === 0 && totalAnnotations === 0) {
+      console.warn('[email-import] ⚠️ PDF NAO TEM TEXTO NEM ANNOTATIONS — ' +
+                   'provavelmente e IMAGEM (scan). Solucao: OCR.');
+    }
+
     return {
-      texto: textoCompleto,
+      texto: textoFinal,
       numPages: pdf.numPages,
       totalItems: totalItems,
+      totalAnnotations: totalAnnotations,
+      camposFormulario: camposFormulario,
     };
+  }
+
+  /**
+   * Felipe sessao 2026-08: mapeamento de fieldName (form field do PDF Weiku)
+   * pra campo do lead. Tenta varios nomes possiveis pra cada campo, ja que
+   * nao sabemos exato como a Weiku nomeou. Se nao casar, retorna {} e o
+   * fluxo cai pro parser de regex no texto.
+   */
+  function parsearCamposFormulario(camposFormulario) {
+    if (!camposFormulario || Object.keys(camposFormulario).length === 0) return {};
+    // Normaliza chaves: lowercase + sem acentos + sem espaços
+    var normalizado = {};
+    Object.keys(camposFormulario).forEach(function(k) {
+      var kn = String(k).toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[\s_\-\.]+/g, '');
+      normalizado[kn] = camposFormulario[k];
+    });
+
+    function pegar() {
+      // Aceita varios nomes possiveis (ordem = prioridade)
+      for (var i = 0; i < arguments.length; i++) {
+        var k = arguments[i].toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[\s_\-\.]+/g, '');
+        if (normalizado[k] !== undefined && normalizado[k] !== '') {
+          return String(normalizado[k]).trim();
+        }
+      }
+      return '';
+    }
+
+    // LARGURA X ALTURA pode estar como campo unico ou separado
+    var larguraAltura = pegar('LARGURA X ALTURA', 'LARGURAXALTURA', 'DIMENSAO', 'DIMENSOES');
+    var largura = '', altura = '';
+    if (larguraAltura) {
+      var dim = String(larguraAltura).match(/(\d{2,5})\s*[Xx×]\s*(\d{2,5})/);
+      if (dim) { largura = dim[1]; altura = dim[2]; }
+    }
+    if (!largura) largura = pegar('LARGURA', 'LARG');
+    if (!altura)  altura  = pegar('ALTURA', 'ALT');
+
+    var modelo = pegar('MODELO', 'MODELO_PORTA', 'MODELOPORTA');
+    var cor    = pegar('COR PORTA', 'CORPORTA', 'COR', 'COR_PORTA');
+    var fechDigRaw = pegar('FECHADURA DIGITAL', 'FECHADURADIGITAL', 'FECHADURA');
+
+    var fechDig = '';
+    if (fechDigRaw) {
+      var fechLower = String(fechDigRaw).toLowerCase().replace(/\s+/g, ' ').trim();
+      if (fechLower.indexOf('nao se aplica') >= 0 ||
+          fechLower.indexOf('não se aplica') >= 0 ||
+          fechLower === 'nao' || fechLower === 'não' ||
+          fechLower === 'no'  || fechLower === 'n/a') {
+        fechDig = 'nao';
+      } else if (fechLower === 'sim' || fechLower === 'yes' || fechLower === 's') {
+        fechDig = 'sim';
+      } else {
+        fechDig = String(fechDigRaw).trim();
+      }
+    }
+
+    var resultado = {};
+    if (largura) resultado.porta_largura = largura;
+    if (altura)  resultado.porta_altura  = altura;
+    if (modelo)  resultado.porta_modelo  = String(modelo).trim();
+    if (cor)     resultado.porta_cor     = String(cor).trim();
+    if (fechDig) resultado.porta_fechadura_digital = fechDig;
+    return resultado;
   }
 
   /**
@@ -352,13 +453,21 @@
           pdfMetaInfo.totalItems = resultado.totalItems || 0;
           textoPDFGuardado = texto;
           // Felipe sessao 2026-08: log do texto extraido pra debug do parser.
-          // Tambem fica acessivel via window._ultimoTextoPDF
           console.log('[email-import] ===== TEXTO EXTRAIDO DO PDF =====');
           console.log(texto);
           console.log('[email-import] ===== FIM DO TEXTO =====');
           window._ultimoTextoPDF = texto;
-          dadosPDF = parsearDadosPDF(texto);
-          console.log('[email-import] PDF parseado:', dadosPDF);
+          window._ultimosCamposFormulario = resultado.camposFormulario;
+
+          // Estrategia 1: tenta extrair direto dos form fields (mais confiavel)
+          var dadosFromFields = parsearCamposFormulario(resultado.camposFormulario || {});
+          // Estrategia 2: regex no texto consolidado (fallback)
+          var dadosFromRegex  = parsearDadosPDF(texto);
+          // Combina: form fields tem prioridade, regex preenche o que faltou
+          dadosPDF = Object.assign({}, dadosFromRegex, dadosFromFields);
+          console.log('[email-import] PDF parseado (fields):', dadosFromFields);
+          console.log('[email-import] PDF parseado (regex) :', dadosFromRegex);
+          console.log('[email-import] PDF parseado (final) :', dadosPDF);
         } else {
           console.log('[email-import] Email sem PDF anexo — lead criado sem dados da porta');
         }
