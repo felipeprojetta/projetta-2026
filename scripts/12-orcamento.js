@@ -11668,6 +11668,112 @@ const Orcamento = (() => {
     return pdf.output('blob');
   }
 
+  /**
+   * Felipe (sessao 2026-08): Gera PDF da PROPOSTA COMERCIAL (cliente
+   * final) em separado do "PDF agregado interno" (que junta os 4 paineis
+   * comerciais com DRE/custos).
+   *
+   * Estrategia: renderiza renderPropostaTab(container) numa div offscreen
+   * com UI.versaoAtivaId/UI.negocioAtivoId temporariamente fixados. Pega
+   * cada .rel-prop-pagina e converte com html2canvas em paginas A4.
+   *
+   * Reuso de renderPropostaTab garante que o PDF da Proposta Comercial e'
+   * IDENTICO ao que o usuario ve na aba "Proposta Comercial" do orcamento,
+   * incluindo todas as formatacoes, banners, tabelas, totais e assinaturas.
+   *
+   * NAO mexe em: gerarPropostaPDFBlob (atual, gera dossie agregado),
+   * gerarRelatorioPNGBlob (4 PNGs internos), exportarPropostaPDF (botao
+   * Exportar PDF da propria aba).
+   */
+  async function gerarPropostaComercialPDFBlob(versaoId) {
+    // 1. Resolve negocio/versao a partir do versaoId
+    const r = obterVersao(versaoId);
+    if (!r || !r.versao) throw new Error('versao nao encontrada: ' + versaoId);
+    const negocioId = r.negocio.id;
+
+    // 2. Salva UI atual e seta pra essa versao temporariamente
+    const UIversaoOrig  = UI.versaoAtivaId;
+    const UInegocioOrig = UI.negocioAtivoId;
+
+    let host = null;
+    try {
+      // 3. Carrega libs em paralelo com criar host
+      await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      const html2canvas = window.html2canvas;
+      const jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+      if (!html2canvas || !jsPDF) throw new Error('libs html2canvas/jsPDF nao carregaram');
+
+      // 4. Cria host offscreen na largura A4 96dpi (~794px - mesma usada
+      //    em exportarPropostaPDF pra garantir layout identico)
+      host = document.createElement('div');
+      host.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: -10000px;
+        width: 794px;
+        background: #ffffff;
+        z-index: -1;
+      `;
+      document.body.appendChild(host);
+
+      // 5. Seta UI pra versao alvo e renderiza renderPropostaTab dentro do host
+      UI.versaoAtivaId  = versaoId;
+      UI.negocioAtivoId = negocioId;
+      renderPropostaTab(host);
+
+      // 6. Aguarda fontes/imagens (banners, modelos de porta) renderizarem
+      await new Promise(rs => setTimeout(rs, 350));
+
+      // 7. Pega cada pagina .rel-prop-pagina (renderPropostaTab pode gerar
+      //    1+ paginas dependendo de quantos itens)
+      const paginas = host.querySelectorAll('.rel-prop-pagina');
+      if (!paginas.length) throw new Error('Nenhuma .rel-prop-pagina encontrada na proposta');
+
+      // 8. Monta PDF A4 — mesma logica de exportarPropostaPDF
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();    // 210mm
+      const pageH = pdf.internal.pageSize.getHeight();   // 297mm
+
+      for (let i = 0; i < paginas.length; i++) {
+        const pag = paginas[i];
+        // Garante altura minima A4 96dpi (1123px)
+        pag.style.minHeight = '1123px';
+        pag.style.boxSizing = 'border-box';
+
+        const canvas = await html2canvas(pag, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          windowWidth:  pag.scrollWidth,
+          windowHeight: pag.scrollHeight,
+        });
+
+        const larguraImg = pageW;
+        const alturaImg  = (canvas.height * larguraImg) / canvas.width;
+
+        if (i > 0) pdf.addPage();
+
+        if (alturaImg <= pageH) {
+          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, larguraImg, alturaImg);
+        } else {
+          // Pagina muito comprida (raro): redimensiona pra caber na altura
+          const ratio = pageH / alturaImg;
+          const novaLargura = larguraImg * ratio;
+          const offsetX = (pageW - novaLargura) / 2;
+          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', offsetX, 0, novaLargura, pageH);
+        }
+      }
+
+      return pdf.output('blob');
+    } finally {
+      // 9. SEMPRE restaura UI e limpa host (mesmo em erro)
+      if (host && host.parentNode) host.parentNode.removeChild(host);
+      UI.versaoAtivaId  = UIversaoOrig;
+      UI.negocioAtivoId = UInegocioOrig;
+    }
+  }
+
   return {
     // ciclo do App
     render,
@@ -11692,6 +11798,8 @@ const Orcamento = (() => {
     // Felipe (sessao 2026-11): geracao de Blobs pra OrcDocs
     gerarRelatorioPNGBlob,
     gerarPropostaPDFBlob,
+    // Felipe (sessao 2026-08): nova - PDF Proposta Comercial separado
+    gerarPropostaComercialPDFBlob,
     // helpers expostos pra debugging
     _snapshotPrecosAtual: snapshotPrecosAtual,
     _snapshotPrecosCompleto: snapshotPrecosCompleto,
