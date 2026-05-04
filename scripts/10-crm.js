@@ -457,20 +457,44 @@
                     <label>Modelo</label>
                     <select data-field="porta_modelo">
                       <option value="" ${!m.porta_modelo ? 'selected' : ''}>—</option>
-                      ${['01','02','03','04','05','06','07','08','09','10','11','12','13','14'].map(n =>
-                        '<option value="' + n + '" ' + (m.porta_modelo == n ? 'selected' : '') + '>Modelo ' + n + '</option>'
-                      ).join('')}
+                      ${(() => {
+                        try {
+                          const cadStore = Storage.scope('cadastros');
+                          const modelos = cadStore.get('modelos_lista') || [];
+                          // Ordena por numero e gera options
+                          return modelos
+                            .slice()
+                            .sort((a, b) => (a.numero || 0) - (b.numero || 0))
+                            .map(mod => {
+                              const num = String(mod.numero || '').padStart(2, '0');
+                              const label = 'Modelo ' + num + (mod.nome ? ' - ' + mod.nome : '');
+                              const sel = (m.porta_modelo == num || m.porta_modelo == mod.numero) ? 'selected' : '';
+                              return '<option value="' + num + '" ' + sel + '>' + escapeHtml(label) + '</option>';
+                            })
+                            .join('');
+                        } catch(_) { return ''; }
+                      })()}
                     </select>
                   </div>
                   <div class="crm-field">
                     <label>Cor</label>
-                    <input type="text" data-field="porta_cor" list="crm-cores-porta-list" value="${escapeHtml(m.porta_cor || '')}" placeholder="" />
+                    <input type="text" data-field="porta_cor" list="crm-cores-porta-list" value="${escapeHtml(m.porta_cor || '')}" placeholder="Digite ou escolha" />
                     <datalist id="crm-cores-porta-list">
                       ${(() => {
                         try {
                           const cadStore = Storage.scope('cadastros');
                           const superficies = cadStore.get('superficies_lista') || [];
-                          return superficies.map(s => '<option value="' + escapeHtml(s.codigo + ' - ' + s.nome) + '">').join('');
+                          // Deduplica por descricao (uma superficie pode ter varios tamanhos)
+                          const vistas = new Set();
+                          return superficies
+                            .filter(s => {
+                              const d = s.descricao || '';
+                              if (!d || vistas.has(d)) return false;
+                              vistas.add(d);
+                              return true;
+                            })
+                            .map(s => '<option value="' + escapeHtml(s.descricao) + '">')
+                            .join('');
                         } catch(_) { return ''; }
                       })()}
                     </datalist>
@@ -479,8 +503,23 @@
                     <label>Fechadura Digital</label>
                     <select data-field="porta_fechadura_digital">
                       <option value="" ${!m.porta_fechadura_digital ? 'selected' : ''}>—</option>
-                      <option value="sim" ${m.porta_fechadura_digital === 'sim' ? 'selected' : ''}>Sim</option>
-                      <option value="nao" ${m.porta_fechadura_digital === 'nao' ? 'selected' : ''}>Não</option>
+                      <option value="nao" ${m.porta_fechadura_digital === 'nao' ? 'selected' : ''}>Nao se aplica</option>
+                      ${(() => {
+                        try {
+                          const cadStore = Storage.scope('cadastros');
+                          const acessorios = cadStore.get('acessorios_lista') || [];
+                          return acessorios
+                            .filter(a => (a.familia || '') === 'Fechadura Digital')
+                            .sort((a, b) => (a.descricao || '').localeCompare(b.descricao || ''))
+                            .map(a => {
+                              const cod = a.codigo || '';
+                              const desc = a.descricao || cod;
+                              const sel = m.porta_fechadura_digital === cod ? 'selected' : '';
+                              return '<option value="' + escapeHtml(cod) + '" ' + sel + '>' + escapeHtml(desc) + '</option>';
+                            })
+                            .join('');
+                        } catch(_) { return ''; }
+                      })()}
                     </select>
                   </div>
                 </div>
