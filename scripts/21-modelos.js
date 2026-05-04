@@ -51,11 +51,39 @@ const Modelos = (() => {
 
   function newId() { return 'm_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
 
+  // Felipe sessao 2026-05: Quando o cache local tem modelos sem URLs mas
+  // o Supabase tem, busca direto do servidor e atualiza.
+  // Garantia extra: nao depende do CadastrosAutosync ter rodado direito.
+  async function fetchModelosFromSupabaseDirect() {
+    try {
+      var SUPABASE_URL = 'https://plmliavuwlgpwaizfeds.supabase.co';
+      var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
+      var url = SUPABASE_URL + '/rest/v1/cadastros?chave=eq.modelos_lista';
+      var res = await fetch(url, {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Accept-Profile': 'v7',
+        }
+      });
+      if (!res.ok) return null;
+      var rows = await res.json();
+      if (!rows || !rows.length) return null;
+      var raw = rows[0].valor;
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (e) {
+      console.warn('[modelos] fetch direto falhou:', e);
+      return null;
+    }
+  }
+
   function load() {
-    // Carrega do localStorage SO na primeira vez. Em re-renders
-    // subsequentes, preserva o state em memoria pra nao apagar
-    // mutacoes ainda nao salvas (ex: imagem recem-carregada).
-    if (loaded) return;
+    // Felipe sessao 2026-05: SEMPRE recarrega do storage exceto se ha
+    // edicao em progresso (dirty=true). Isso garante que se o autosync
+    // baixou novos dados do Supabase ANTES de a aba ter sido aberta,
+    // a primeira renderizacao usa os dados atualizados.
+    // Antes: loaded=true ficava preso e nunca relia.
+    if (loaded && dirty) return;
     const lista = store.get('modelos_lista');
     if (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('modelos_seeded'))) {
       state.modelos = SEED_MODELOS.map((m, i) => ({
@@ -158,6 +186,31 @@ const Modelos = (() => {
 
     // Ordena por numero
     state.modelos.sort((a, b) => a.numero - b.numero);
+
+    // Felipe sessao 2026-05: se cache local NAO tem nenhuma URL de imagem
+    // mas o Supabase deveria ter (caso de bug de sync), busca direto.
+    // Isso protege contra falha do CadastrosAutosync no Safari iPhone.
+    var temAlgumaUrl = state.modelos.some(function(m) {
+      return (m.img_1f && String(m.img_1f).startsWith('https://')) ||
+             (m.img_2f && String(m.img_2f).startsWith('https://'));
+    });
+    if (!temAlgumaUrl && state.modelos.length > 0 && !render._jaFezFetchDireto && !dirty) {
+      render._jaFezFetchDireto = true;
+      console.log('[modelos] cache local sem URLs, buscando do Supabase direto...');
+      fetchModelosFromSupabaseDirect().then(function(modelosDoServer) {
+        if (!modelosDoServer || !Array.isArray(modelosDoServer)) return;
+        var temUrlNoServer = modelosDoServer.some(function(m) {
+          return (m.img_1f && String(m.img_1f).startsWith('https://')) ||
+                 (m.img_2f && String(m.img_2f).startsWith('https://'));
+        });
+        if (temUrlNoServer) {
+          console.log('[modelos] ✅ Modelos com URLs encontrados no servidor. Atualizando cache.');
+          state.modelos = modelosDoServer;
+          store.set('modelos_lista', modelosDoServer);
+          render(container); // re-render com URLs
+        }
+      });
+    }
 
     container.innerHTML = `
       <div class="mod-section">
@@ -465,4 +518,21 @@ const Modelos = (() => {
 
 if (typeof window !== 'undefined') {
   window.Modelos = Modelos;
+
+  // Felipe sessao 2026-05: listener GLOBAL cadastros:loaded.
+  // Garante que mesmo se Felipe nunca tiver aberto a aba modelos, o
+  // localStorage e' atualizado quando autosync trouxer dados do servidor.
+  // Antes, o listener so' era instalado dentro do render, entao se o
+  // usuario entrasse na aba DEPOIS do evento, perdia a sincronizacao.
+  if (window.Events && window.Events.on) {
+    window.Events.on('cadastros:loaded', function() {
+      // Se a aba modelos esta aberta no DOM, re-renderiza
+      var modelosContainer = document.querySelector('.mod-section');
+      if (modelosContainer && modelosContainer.parentElement && window.Modelos) {
+        try {
+          window.Modelos.render(modelosContainer.parentElement);
+        } catch (_) {}
+      }
+    });
+  }
 }
