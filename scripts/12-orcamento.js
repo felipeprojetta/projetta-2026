@@ -1590,6 +1590,11 @@ const Orcamento = (() => {
         if (fd && fd !== 'nao' && fd !== '') {
           itemInicial.fechaduraDigital = (fd === 'sim') ? 'Sim' : fd;  // codigo do acessorio
         }
+        // Felipe sessao 2026-05: aplica regras automaticas (fechadura mecanica
+        // por altura, sistema por largura, cilindro KESO default) AGORA que os
+        // campos estao preenchidos. Antes, isso so' rodava quando o usuario
+        // editava campo - resultado: lead vinha sem fechadura mecanica auto.
+        try { aplicarRegrasAutoItem(itemInicial); } catch (e) { console.warn('[orcamento] aplicarRegrasAutoItem falhou:', e); }
       }
       atualizarVersao(versaoAlvo.id, { itens: [itemInicial] });
     }
