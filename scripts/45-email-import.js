@@ -653,11 +653,45 @@
     importarDoEmail(msgId);  // sem agpManual = AGP vazio
   };
 
+  // ───────────────────────────────────────────────────────────────────
+  // Felipe sessao 2026-08: helper publico pra re-puxar dados Weiku de
+  // uma reserva existente. Usado pelo botao 'Re-puxar Weiku' no modal
+  // de Editar Lead (10-crm.js). Busca email no Outlook por subject
+  // contendo o numero da reserva, pega o msgId e chama importarDoEmail
+  // (que entra em modoAtualizar pq detecta lead existente).
+  //
+  // Retorna: promise resolvendo {ok:true, ...} ou {ok:false, erro:'...'}
+  // ───────────────────────────────────────────────────────────────────
+  async function importarPorReserva(numeroReserva, agpManual) {
+    if (!numeroReserva) return { ok: false, erro: 'Numero da reserva vazio' };
+    if (!window.outlookIsAuth || !window.outlookIsAuth()) {
+      return { ok: false, erro: 'Outlook nao conectado. Va em Email e conecte primeiro.' };
+    }
+    try {
+      var inbox = await window.outlookListInbox({
+        top: 20,
+        search: 'subject:reserva ' + numeroReserva,
+      });
+      var emails = (inbox && inbox.emails) || [];
+      if (!emails.length) {
+        return { ok: false, erro: 'Email com reserva ' + numeroReserva + ' nao encontrado no inbox.' };
+      }
+      // Pega o mais recente (primeiro do array, ja vem ordenado desc)
+      var msgId = emails[0].id;
+      await importarDoEmail(msgId, agpManual);
+      return { ok: true, msgId: msgId };
+    } catch (e) {
+      console.error('[EmailImport.importarPorReserva]', e);
+      return { ok: false, erro: (e && e.message) || String(e) };
+    }
+  }
+
   // API publica
   window.EmailImport = {
-    importarDoEmail: importarDoEmail,                    // (msgId, agpManual?)
-    extrairNumeroReserva: extrairNumeroReserva,          // exposto pra debug
-    parsearDadosPDF: parsearDadosPDF,                    // exposto pra debug
+    importarDoEmail:      importarDoEmail,                // (msgId, agpManual?)
+    importarPorReserva:   importarPorReserva,             // (numero, agp?)
+    extrairNumeroReserva: extrairNumeroReserva,           // exposto pra debug
+    parsearDadosPDF:      parsearDadosPDF,                // exposto pra debug
   };
 
   console.log('[email-import] modulo carregado. API:', Object.keys(window.EmailImport));

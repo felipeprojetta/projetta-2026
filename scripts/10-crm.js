@@ -289,6 +289,10 @@
       const botaoExcluir = editando
         ? `<button class="crm-btn-cancel" id="crm-btn-delete" style="color:#c0392b;border-color:#e8c5c0;">Excluir Lead</button>`
         : '';
+      // Felipe sessao 2026-08: botao Re-puxar Weiku - so' em edicao + reserva existente
+      const botaoRepuxar = (editando && lead && lead.numeroReserva)
+        ? `<button class="crm-btn-cancel" id="crm-btn-repuxar" title="Re-puxar dados desta reserva do Weiku/Outlook" style="color:#c2410c;border-color:#fed7aa;">🔄 Re-puxar Weiku</button>`
+        : '';
       return `
         <div class="crm-modal-overlay" id="crm-modal-overlay">
           <div class="crm-modal" role="dialog" aria-modal="true">
@@ -538,6 +542,7 @@
             </div>
             <div class="crm-modal-footer">
               ${botaoExcluir}
+              ${botaoRepuxar}
               <div style="flex:1;"></div>
               <button class="crm-btn-cancel" id="crm-btn-cancel">Cancelar</button>
               <button class="crm-btn-primary" id="crm-btn-create">${labelBotao}</button>
@@ -1106,6 +1111,57 @@
         save();
         fecharModal(container);
         render(container);
+      });
+
+      // Felipe sessao 2026-08: Botao Re-puxar Weiku
+      // Re-puxa os dados da reserva do Outlook/Weiku e atualiza o lead.
+      // Util quando o robo de email puxou dados desatualizados/incompletos
+      // ou quando o representante atualizou a reserva no Weiku.
+      container.querySelector('#crm-btn-repuxar')?.addEventListener('click', async () => {
+        if (!modalState.editandoId) return;
+        const lead = state.leads.find(l => l.id === modalState.editandoId);
+        if (!lead || !lead.numeroReserva) {
+          alert('Lead sem numero de reserva. Nada a re-puxar.');
+          return;
+        }
+        const btn = container.querySelector('#crm-btn-repuxar');
+        if (!btn) return;
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.textContent = '⏳ Buscando email...';
+        try {
+          if (!window.EmailImport || !window.EmailImport.importarPorReserva) {
+            throw new Error('Modulo EmailImport nao carregado');
+          }
+          // Passa AGP atual pra preservar (a funcao importarDoEmail nao mexe
+          // em AGP no modoAtualizar de qualquer forma, mas garante).
+          const r = await window.EmailImport.importarPorReserva(
+            lead.numeroReserva,
+            lead.numeroAGP || ''
+          );
+          if (!r || !r.ok) {
+            throw new Error(r?.erro || 'Falha desconhecida');
+          }
+          btn.textContent = '✅ Atualizado!';
+          btn.style.background = '#dcfce7';
+          // Recarrega state.leads do storage e re-renderiza o modal
+          // pra refletir os dados frescos.
+          state.leads = Storage.scope('crm').get('leads') || state.leads;
+          setTimeout(() => {
+            fecharModal(container);
+            render(container);
+            // Reabre o modal no mesmo lead pra Felipe ver os dados atualizados
+            modalState.editandoId = lead.id;
+            abrirModal(container);
+          }, 800);
+        } catch (err) {
+          console.error('[crm-btn-repuxar]', err);
+          alert('Erro ao re-puxar Weiku:\n\n' + (err.message || err));
+          btn.textContent = originalText;
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        }
       });
 
       // Botao Excluir Lead (so existe em modo edicao)
