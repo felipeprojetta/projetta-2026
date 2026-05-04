@@ -317,22 +317,43 @@
             try {
               atualServidor = await SupabaseSync.fetchCadastro(chave);
             } catch (_) {
-              // Se nao consegue buscar do servidor, NAO sincroniza
-              // (defensivo: se nao da pra ler, nao da pra escrever).
               console.warn('[CadastrosAutosync] Nao consegui validar antes de sync de "' + chave + '". Pulando.');
               setStatus({ online: false });
               return;
             }
             var bytesServidor = atualServidor ? JSON.stringify(atualServidor).length : 0;
 
+            // ── PROTECAO ESPECIFICA: modelos_lista ──
+            // Se vai subir modelos_lista, conta quantas URLs tem em cada
+            // versao. Se a versao nova tem MENOS URLs que o servidor,
+            // BLOQUEIA. Isso garante que as imagens NUNCA somem.
+            if (chave === 'modelos_lista' && Array.isArray(atualServidor) && Array.isArray(valor)) {
+              function contarUrls(modelos) {
+                var n = 0;
+                modelos.forEach(function(m) {
+                  if (m.img_1f && String(m.img_1f).indexOf('https://') === 0) n++;
+                  if (m.img_2f && String(m.img_2f).indexOf('https://') === 0) n++;
+                });
+                return n;
+              }
+              var urlsServer = contarUrls(atualServidor);
+              var urlsNovo = contarUrls(valor);
+              if (urlsNovo < urlsServer) {
+                console.error('[CadastrosAutosync] 🛑 BLOQUEADO: modelos_lista perderia imagens (' +
+                  urlsNovo + ' URLs vs ' + urlsServer + ' no servidor)');
+                showToast('🛑 Tentativa de apagar imagens dos modelos foi BLOQUEADA. Recarregue a pagina.', 'erro');
+                setStatus({ error: 'protecao_modelos:perdeu_urls' });
+                return;
+              }
+            }
+
+            // ── PROTECAO GENERICA: bytes ──
             // Se o que vai subir tem MENOS de 50% do tamanho atual no
-            // servidor (e servidor tem dados reais > 1KB), e' suspeito
-            // - perda de dados. Bloqueia.
+            // servidor, bloqueia.
             if (bytesServidor > 0 && bytesNovo < bytesServidor * 0.5 && bytesServidor > 1000) {
               console.error('[CadastrosAutosync] 🛑 SYNC BLOQUEADO em "' + chave + '": ' +
-                bytesNovo + ' bytes vs ' + bytesServidor + ' bytes no servidor. Possivel perda de dados.');
-              showToast('🛑 Edicao em "' + chave + '" foi bloqueada (suspeita de perda de dados). ' +
-                'Recarregue a pagina pra sincronizar antes de editar.', 'erro');
+                bytesNovo + ' bytes vs ' + bytesServidor + ' bytes no servidor.');
+              showToast('🛑 Edicao em "' + chave + '" foi bloqueada (suspeita de perda). Recarregue a pagina.', 'erro');
               setStatus({ error: 'perda_detectada:' + chave });
               return;
             }

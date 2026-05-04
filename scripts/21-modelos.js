@@ -58,15 +58,22 @@ const Modelos = (() => {
     try {
       var SUPABASE_URL = 'https://plmliavuwlgpwaizfeds.supabase.co';
       var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
-      var url = SUPABASE_URL + '/rest/v1/cadastros?chave=eq.modelos_lista';
+      // Cache-buster: Safari iPhone cacheia GETs - garante versao fresca
+      var url = SUPABASE_URL + '/rest/v1/cadastros?chave=eq.modelos_lista&_=' + Date.now();
       var res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': 'Bearer ' + SUPABASE_KEY,
           'Accept-Profile': 'v7',
+          'Cache-Control': 'no-cache',
         }
       });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        console.warn('[modelos] fetch direto: HTTP ' + res.status);
+        return null;
+      }
       var rows = await res.json();
       if (!rows || !rows.length) return null;
       var raw = rows[0].valor;
@@ -187,31 +194,38 @@ const Modelos = (() => {
     // Ordena por numero
     state.modelos.sort((a, b) => a.numero - b.numero);
 
-    // Felipe sessao 2026-05: se cache local NAO tem nenhuma URL de imagem
-    // mas o Supabase deveria ter (caso de bug de sync), busca direto.
-    // Isso protege contra falha do CadastrosAutosync no Safari iPhone.
-    var temAlgumaUrl = state.modelos.some(function(m) {
-      return (m.img_1f && String(m.img_1f).startsWith('https://')) ||
-             (m.img_2f && String(m.img_2f).startsWith('https://'));
-    });
-    if (!temAlgumaUrl && state.modelos.length > 0 && !render._jaFezFetchDireto && !dirty) {
-      render._jaFezFetchDireto = true;
-      console.log('[modelos] cache local sem URLs, buscando do Supabase direto...');
+    // Felipe sessao 2026-05: SUPABASE E' A FONTE PRIMARIA, sempre.
+    // localStorage apenas exibe enquanto a request termina.
+    // Isso garante que mesmo se o autosync falhar ou o cache local
+    // for corrompido, a aba Modelos sempre mostra a versao certa.
+    if (!dirty) {
       fetchModelosFromSupabaseDirect().then(function(modelosDoServer) {
-        if (!modelosDoServer || !Array.isArray(modelosDoServer)) return;
-        var temUrlNoServer = modelosDoServer.some(function(m) {
-          return (m.img_1f && String(m.img_1f).startsWith('https://')) ||
-                 (m.img_2f && String(m.img_2f).startsWith('https://'));
-        });
-        if (temUrlNoServer) {
-          console.log('[modelos] ✅ Modelos com URLs encontrados no servidor. Atualizando cache.');
-          state.modelos = modelosDoServer;
-          store.set('modelos_lista', modelosDoServer);
-          render(container); // re-render com URLs
+        if (!modelosDoServer || !Array.isArray(modelosDoServer) || !modelosDoServer.length) {
+          console.warn('[modelos] Supabase nao retornou modelos. Mantendo cache local.');
+          return;
         }
+        // Compara - se diferente, atualiza UI E cache local
+        var atualJson = JSON.stringify(state.modelos);
+        var serverJson = JSON.stringify(modelosDoServer);
+        if (atualJson !== serverJson) {
+          console.log('[modelos] ✅ Atualizando da fonte Supabase. ' + modelosDoServer.length + ' modelos.');
+          state.modelos = modelosDoServer;
+          // Atualiza cache local pra proxima leitura ser rapida
+          // (write-through vai pular pq vai detectar valor igual)
+          try { store.set('modelos_lista', modelosDoServer); } catch (_) {}
+          // Re-renderiza com dados certos
+          renderUI(container);
+        }
+      }).catch(function(e) {
+        console.warn('[modelos] fetch Supabase falhou:', e);
       });
     }
 
+    renderUI(container);
+  }
+
+  function renderUI(container) {
+    state.modelos.sort((a, b) => a.numero - b.numero);
     container.innerHTML = `
       <div class="mod-section">
         <div class="mod-section-title">CADASTRO DE MODELOS</div>
@@ -242,14 +256,15 @@ const Modelos = (() => {
     `;
 
     bindEvents(container);
-    updateSaveButton(); // sincroniza estado do botao com flag dirty (caso render seja chamado apos uma mutacao)
+    updateSaveButton();
 
-    // Re-render quando cadastros chegarem do Supabase
-    if (window.Events && window.Events.on && !render._listenerInstalled) {
-      render._listenerInstalled = true;
+    // Listener cadastros:loaded - re-renderiza quando autosync trouxer
+    // dados do servidor (caso usuario nao tenha visto ainda)
+    if (window.Events && window.Events.on && !renderUI._listenerInstalled) {
+      renderUI._listenerInstalled = true;
       window.Events.on('cadastros:loaded', function() {
-        loaded = false; // forca re-load do localStorage (ja' atualizado pelo autosync)
-        render(container);
+        loaded = false;
+        if (!dirty) render(container);
       });
     }
   }
