@@ -1408,6 +1408,19 @@ const Orcamento = (() => {
               lead.etapa = 'orcamento-pronto';
             }
             Storage.scope('crm').set('leads', leads);
+            // Felipe sessao 2026-08: storage foi atualizado mas o cache em
+            // memoria do CRM (state.leads) ainda tem etapa antiga. Sem isso,
+            // ao voltar pro CRM o card mostra valor novo (puxado do storage)
+            // mas continua na coluna antiga ate F5. Mesma solucao do
+            // email-import: emit crm:reload + forceReload direto.
+            try {
+              if (typeof Events !== 'undefined') Events.emit('crm:reload');
+              if (window.Crm && typeof window.Crm.forceReload === 'function') {
+                window.Crm.forceReload(null);
+              }
+            } catch (e) {
+              console.warn('[orcamento] reload do CRM apos aprovacao falhou:', e);
+            }
           }
         }
       } catch (e) {
