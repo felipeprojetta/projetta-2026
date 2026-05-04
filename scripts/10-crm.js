@@ -1088,6 +1088,17 @@
             etapa: m.etapa,
             destinoTipo: m.destinoTipo || 'nacional',
             destinoPais: m.destinoTipo === 'internacional' ? (m.destinoPais || '') : '',
+            // Felipe sessao 2026-05: BUG FIX CRITICO - dados da porta
+            // do card "Novo Lead" estavam sumindo. Felipe preenchia
+            // Largura/Altura/Modelo/Cor/Fechadura e arrastava pra
+            // "Fazer Orcamento" - chegava no orcamento sem dados da porta.
+            // Causa: estes 5 campos NUNCA eram persistidos no objeto novo.
+            // Agora fluem corretamente pro orcamento via lead.porta_*.
+            porta_largura:           (m.porta_largura || '').trim(),
+            porta_altura:            (m.porta_altura || '').trim(),
+            porta_modelo:            (m.porta_modelo || '').trim(),
+            porta_cor:               (m.porta_cor || '').trim(),
+            porta_fechadura_digital: (m.porta_fechadura_digital || '').trim(),
             data: new Date().toISOString().slice(0, 10),
           };
           state.leads.push(novo);
