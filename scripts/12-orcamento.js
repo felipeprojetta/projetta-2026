@@ -7975,6 +7975,20 @@ const Orcamento = (() => {
     if (revsCnt)  cntsTxt.push(`${revsCnt} revestimento${revsCnt > 1 ? 's' : ''} de parede`);
 
     container.innerHTML = `
+      <div class="orc-lev-sup-banner-recalc" style="display:none;
+           position:sticky;top:0;z-index:10;background:#fef3c7;
+           border:1px solid #f59e0b;border-radius:6px;padding:10px 14px;
+           margin-bottom:12px;display:flex;justify-content:space-between;
+           align-items:center;gap:10px;">
+        <span style="color:#78350f;font-size:13px;font-weight:600;">
+          ⚠️ Você alterou valores nas tabelas. Clique em Recalcular pra aplicar.
+        </span>
+        <button type="button" class="orc-lev-sup-btn-recalcular"
+                style="background:#d97706;color:#fff;border:none;border-radius:5px;
+                       padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;">
+          🔄 Recalcular
+        </button>
+      </div>
       <div class="orc-section orc-lev-superficies-header">
         <div class="orc-section-title">Levantamento de Superficies (Chapas)</div>
         <p class="orc-hint-text">
@@ -8260,6 +8274,18 @@ const Orcamento = (() => {
         }
         return;
       }
+      // Felipe sessao 2026-08: input editavel de Largura/Altura/Qtd. Marca
+      // a peca como pendente (visual laranja) e mostra banner Recalcular.
+      // Persistencia so' acontece quando user clica Recalcular.
+      const inpEdit = e.target.closest('.orc-lev-sup-input-edit');
+      if (inpEdit) {
+        // Marca o input como modificado (visual)
+        inpEdit.classList.add('orc-lev-sup-input-pendente');
+        // Mostra banner Recalcular
+        const banner = container.querySelector('.orc-lev-sup-banner-recalc');
+        if (banner) banner.style.display = '';
+        return;
+      }
       // 2. File input — usuario escolheu arquivo XML
       const fileInput = e.target.closest('.orc-lev-sup-file-input');
       if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -8338,6 +8364,136 @@ const Orcamento = (() => {
           }
         });
         fileInputX.value = '';
+        return;
+      }
+    });
+
+    // Felipe sessao 2026-08: listener CLICK pra botoes da edicao manual de
+    // superficies/chapas - botao + (adicionar peca), 🗑 (remover manual),
+    // ↺ (resetar override pra valor original), 🔄 Recalcular (salva todos
+    // os pendentes e re-renderiza a aba).
+    container.addEventListener('click', (e) => {
+      // 1. Botao "+ adicionar peca manual"
+      const btnAdd = e.target.closest('.orc-lev-sup-btn-add-peca');
+      if (btnAdd) {
+        const idx = Number(btnAdd.dataset.itemIdx);
+        const corLado = btnAdd.dataset.cor || '';
+        const item = itens[idx];
+        if (!item) return;
+        // Pega os inputs da linha de adicionar (mesmo data-item-idx)
+        const linhaAdd = btnAdd.closest('tr');
+        const labelInp = linhaAdd.querySelector('.orc-lev-sup-input-add-label');
+        const catInp   = linhaAdd.querySelector('.orc-lev-sup-input-add-cat');
+        const largInp  = linhaAdd.querySelector('.orc-lev-sup-input-add-largura');
+        const altInp   = linhaAdd.querySelector('.orc-lev-sup-input-add-altura');
+        const qtdInp   = linhaAdd.querySelector('.orc-lev-sup-input-add-qtd');
+        const label = (labelInp.value || '').trim();
+        const cat   = catInp.value || 'porta';
+        const larg  = parseInt(largInp.value, 10) || 0;
+        const alt   = parseInt(altInp.value, 10) || 0;
+        const qtd   = parseInt(qtdInp.value, 10) || 1;
+        if (!label) { alert('Preencha o nome da peça.'); labelInp.focus(); return; }
+        if (larg <= 0) { alert('Largura inválida.'); largInp.focus(); return; }
+        if (alt <= 0)  { alert('Altura inválida.');  altInp.focus(); return; }
+        if (qtd <= 0)  { alert('Quantidade inválida.'); qtdInp.focus(); return; }
+        if (!item.pecasManuaisExtras) item.pecasManuaisExtras = [];
+        item.pecasManuaisExtras.push({
+          label, categoria: cat, largura: larg, altura: alt, qtd,
+          cor: corLado, podeRotacionar: false,
+        });
+        // Salva e re-renderiza
+        try {
+          const r = obterVersao(UI.versaoAtivaId);
+          if (r && r.versao) atualizarVersao(r.versao.id, { itens: r.versao.itens });
+        } catch (err) { console.warn('[Lev Sup] erro ao salvar peça manual:', err); }
+        renderLevSuperficiesTab(container);
+        return;
+      }
+      // 2. Botao 🗑 remover peca manual
+      const btnRm = e.target.closest('.orc-lev-sup-btn-remover-manual');
+      if (btnRm) {
+        const idx = Number(btnRm.dataset.itemIdx);
+        const chave = btnRm.dataset.pecaKey;
+        const item = itens[idx];
+        if (!item || !item.pecasManuaisExtras) return;
+        // chave = label|largura|altura
+        const partes = chave.split('|');
+        const labelAlvo = partes[0];
+        const largAlvo  = Number(partes[1]);
+        const altAlvo   = Number(partes[2]);
+        const idxRemover = item.pecasManuaisExtras.findIndex(p =>
+          p.label === labelAlvo && Number(p.largura) === largAlvo && Number(p.altura) === altAlvo
+        );
+        if (idxRemover === -1) return;
+        if (!confirm(`Remover peça manual "${labelAlvo}" (${largAlvo}×${altAlvo})?`)) return;
+        item.pecasManuaisExtras.splice(idxRemover, 1);
+        try {
+          const r = obterVersao(UI.versaoAtivaId);
+          if (r && r.versao) atualizarVersao(r.versao.id, { itens: r.versao.itens });
+        } catch (err) { console.warn('[Lev Sup] erro ao remover peça:', err); }
+        renderLevSuperficiesTab(container);
+        return;
+      }
+      // 3. Botao ↺ resetar override (volta ao valor original calculado)
+      const btnReset = e.target.closest('.orc-lev-sup-btn-resetar-edit');
+      if (btnReset) {
+        const idx = Number(btnReset.dataset.itemIdx);
+        const chave = btnReset.dataset.pecaKey;
+        const item = itens[idx];
+        if (!item || !item.superficiesOverrides) return;
+        if (!confirm('Restaurar valores originais dessa peça?')) return;
+        delete item.superficiesOverrides[chave];
+        try {
+          const r = obterVersao(UI.versaoAtivaId);
+          if (r && r.versao) atualizarVersao(r.versao.id, { itens: r.versao.itens });
+        } catch (err) { console.warn('[Lev Sup] erro ao resetar:', err); }
+        renderLevSuperficiesTab(container);
+        return;
+      }
+      // 4. Botao 🔄 Recalcular - salva todos os inputs pendentes e re-renderiza
+      const btnRecalc = e.target.closest('.orc-lev-sup-btn-recalcular');
+      if (btnRecalc) {
+        // Le todos os inputs pendentes (com classe orc-lev-sup-input-pendente)
+        const pendentes = container.querySelectorAll('.orc-lev-sup-input-pendente');
+        if (!pendentes.length) {
+          // Sem pendentes - oculta banner e sai
+          const banner = container.querySelector('.orc-lev-sup-banner-recalc');
+          if (banner) banner.style.display = 'none';
+          return;
+        }
+        pendentes.forEach(inp => {
+          const idx = Number(inp.dataset.itemIdx);
+          const chave = inp.dataset.pecaKey;
+          const field = inp.dataset.field;  // 'largura' | 'altura' | 'qtd'
+          const isManual = inp.dataset.manual === '1';
+          const valor = parseInt(inp.value, 10) || 0;
+          const item = itens[idx];
+          if (!item || valor <= 0) return;
+          if (isManual) {
+            // Edicao em peca manual: atualiza diretamente em pecasManuaisExtras
+            if (!item.pecasManuaisExtras) return;
+            const partes = chave.split('|');
+            const labelAlvo = partes[0];
+            const largAlvo  = Number(partes[1]);
+            const altAlvo   = Number(partes[2]);
+            const pecaManual = item.pecasManuaisExtras.find(p =>
+              p.label === labelAlvo && Number(p.largura) === largAlvo && Number(p.altura) === altAlvo
+            );
+            if (pecaManual) {
+              pecaManual[field] = valor;
+            }
+          } else {
+            // Edicao em peca calculada pelo motor: salva em superficiesOverrides
+            if (!item.superficiesOverrides) item.superficiesOverrides = {};
+            if (!item.superficiesOverrides[chave]) item.superficiesOverrides[chave] = {};
+            item.superficiesOverrides[chave][field] = valor;
+          }
+        });
+        try {
+          const r = obterVersao(UI.versaoAtivaId);
+          if (r && r.versao) atualizarVersao(r.versao.id, { itens: r.versao.itens });
+        } catch (err) { console.warn('[Lev Sup] erro ao salvar overrides:', err); }
+        renderLevSuperficiesTab(container);
         return;
       }
     });
@@ -9851,8 +10007,12 @@ const Orcamento = (() => {
     // Felipe (sessao 2026-05): aplica overrides de Rotaciona Sim/Nao salvos
     // pelo usuario no select da tabela. Sem override -> usa valor calculado
     // pelo motor (cor Wood = false).
-    const pecasExt = aplicarRotacionaOverrides(Chapas.gerarPecasChapa(item, 'externo'), item);
-    const pecasInt = aplicarRotacionaOverrides(Chapas.gerarPecasChapa(item, 'interno'), item);
+    // Felipe (sessao 2026-08): aplica TAMBEM overrides de largura/altura/qtd
+    // (edicoes manuais inline) e concatena pecas manuais extras.
+    let pecasExt = aplicarRotacionaOverrides(Chapas.gerarPecasChapa(item, 'externo'), item);
+    let pecasInt = aplicarRotacionaOverrides(Chapas.gerarPecasChapa(item, 'interno'), item);
+    pecasExt = aplicarSuperficiesOverrides(pecasExt, item);
+    pecasInt = aplicarSuperficiesOverrides(pecasInt, item);
 
     const modeloExt = Number(item.modeloExterno || item.modeloNumero) || 0;
     const modeloInt = Number(item.modeloInterno || item.modeloNumero) || 0;
@@ -9871,15 +10031,21 @@ const Orcamento = (() => {
       // Quando externo e interno geram exatamente as mesmas pecas, a soma
       // simplesmente dobra as quantidades (porque o motor ja exclui
       // U_PORTAL do interno em cor unica — entao a U_PORTAL fica qtd 1).
-      const pecasUnificadas = unificarPecas(pecasExt, pecasInt);
+      let pecasUnificadas = unificarPecas(pecasExt, pecasInt);
+      // Felipe sessao 2026-08: adiciona pecas manuais extras (apenas 1x na
+      // visualizacao unificada).
+      pecasUnificadas = adicionarPecasManuaisExtras(pecasUnificadas, item);
       tabelasHtml = renderTabelaPecas(
         'Externo + Interno (cor unica)',
         pecasUnificadas, modeloExt, corExt, todasSuperficies, idx
       );
     } else {
       // Cores diferentes: 2 tabelas separadas como antes
+      // Pecas manuais extras vao no Externo (Felipe pode duplicar manualmente
+      // no Interno se quiser).
+      const pecasExtComExtras = adicionarPecasManuaisExtras(pecasExt, item);
       tabelasHtml = `
-        ${renderTabelaPecas('Lado Externo', pecasExt, modeloExt, item.corExterna, todasSuperficies, idx)}
+        ${renderTabelaPecas('Lado Externo', pecasExtComExtras, modeloExt, item.corExterna, todasSuperficies, idx)}
         ${renderTabelaPecas('Lado Interno', pecasInt, modeloInt, item.corInterna, todasSuperficies, idx)}
       `;
     }
@@ -9967,6 +10133,52 @@ const Orcamento = (() => {
       }
       return p;
     });
+  }
+
+  // Felipe sessao 2026-08: overrides editaveis de Largura/Altura/Qtd nas
+  // pecas calculadas pelo motor. Salvos em item.superficiesOverrides:
+  //   item.superficiesOverrides[chave] = { largura?, altura?, qtd? }
+  // chave = mesma do rotacionaKey (label + largura_orig + altura_orig).
+  // Aplica overrides sobrescrevendo so' os campos que o user alterou.
+  // Marca _editado=true pra UI mostrar visual diferenciado (borda laranja).
+  function aplicarSuperficiesOverrides(pecas, item) {
+    const ov = (item && item.superficiesOverrides) || {};
+    if (!Object.keys(ov).length) return pecas;
+    return pecas.map(p => {
+      const k = rotacionaKey(p);
+      if (k in ov) {
+        const o = ov[k];
+        const ret = Object.assign({}, p);
+        if (o.largura !== undefined && o.largura !== '' && o.largura !== null) {
+          const n = Number(o.largura);
+          if (!isNaN(n) && n > 0) ret.largura = n;
+        }
+        if (o.altura !== undefined && o.altura !== '' && o.altura !== null) {
+          const n = Number(o.altura);
+          if (!isNaN(n) && n > 0) ret.altura = n;
+        }
+        if (o.qtd !== undefined && o.qtd !== '' && o.qtd !== null) {
+          const n = Number(o.qtd);
+          if (!isNaN(n) && n > 0) ret.qtd = n;
+        }
+        ret._editado = true;  // pra UI marcar visualmente
+        return ret;
+      }
+      return p;
+    });
+  }
+
+  // Felipe sessao 2026-08: peças adicionadas manualmente pelo Felipe
+  // (linha extra no fim da tabela). Salvas em item.pecasManuaisExtras.
+  // Estrutura: [{label, categoria, largura, altura, qtd, cor, podeRotacionar}, ...]
+  function adicionarPecasManuaisExtras(pecas, item) {
+    const extras = (item && item.pecasManuaisExtras) || [];
+    if (!extras.length) return pecas;
+    return pecas.concat(extras.map(p => Object.assign({
+      podeRotacionar: false,
+      qtd: 1,
+      categoria: p.categoria || 'porta',
+    }, p, { _manual: true })));
   }
   /**
    * Felipe (sessao 28 fix): override de QUANTIDADE por peca×face.
@@ -10346,18 +10558,99 @@ const Orcamento = (() => {
           <option value="sim" ${valor === 'sim' ? 'selected' : ''}>Sim</option>
           <option value="nao" ${valor === 'nao' ? 'selected' : ''}>Nao</option>
         </select>`;
+      // Felipe sessao 2026-08: largura/altura/qtd viram inputs editaveis.
+      // Visual marca _editado (override) e _manual (peca extra adicionada).
+      const inputStyle = 'width:78px;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;text-align:right;background:#fff;';
+      const inputStyleQtd = 'width:50px;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;text-align:center;background:#fff;';
+      const editClass = p._editado ? ' orc-lev-sup-input-editado' : '';
+      const manualClass = p._manual ? ' orc-lev-sup-input-manual' : '';
+      const inputLargura = `<input type="number" min="1" step="1" class="orc-lev-sup-input-edit${editClass}${manualClass}"
+                              data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="largura"
+                              data-manual="${p._manual ? '1' : '0'}"
+                              value="${p.largura}" style="${inputStyle}" />`;
+      const inputAltura = `<input type="number" min="1" step="1" class="orc-lev-sup-input-edit${editClass}${manualClass}"
+                              data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="altura"
+                              data-manual="${p._manual ? '1' : '0'}"
+                              value="${p.altura}" style="${inputStyle}" />`;
+      const inputQtd = `<input type="number" min="1" step="1" class="orc-lev-sup-input-edit${editClass}${manualClass}"
+                              data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="qtd"
+                              data-manual="${p._manual ? '1' : '0'}"
+                              value="${p.qtd}" style="${inputStyleQtd}" />`;
+      // Acao: peca manual = botao remover; peca com override = botao resetar; senao = vazio
+      let acaoHtml = '';
+      if (p._manual) {
+        acaoHtml = `<button type="button" class="orc-lev-sup-btn-remover-manual"
+                            data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}"
+                            title="Remover peça manual"
+                            style="background:transparent;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px;">🗑</button>`;
+      } else if (p._editado) {
+        acaoHtml = `<button type="button" class="orc-lev-sup-btn-resetar-edit"
+                            data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}"
+                            title="Restaurar valores originais"
+                            style="background:transparent;border:none;color:#0284c7;cursor:pointer;font-size:14px;padding:2px 6px;">↺</button>`;
+      }
+      const labelDisplay = p._manual
+        ? `<span style="color:#7c3aed;font-weight:600;">${escapeHtml(p.label)} <span style="font-size:9px;background:#ddd6fe;color:#5b21b6;padding:1px 5px;border-radius:8px;font-weight:700;">MANUAL</span></span>`
+        : escapeHtml(p.label);
       return `
       <tr>
-        <td>${escapeHtml(p.label)}</td>
+        <td>${labelDisplay}</td>
         <td>${badgeCategoria(p.categoria)}</td>
-        <td>${p.largura}</td>
-        <td>${p.altura}</td>
-        <td class="t-num">${p.qtd}</td>
+        <td class="t-num">${inputLargura}</td>
+        <td class="t-num">${inputAltura}</td>
+        <td class="t-num">${inputQtd}</td>
         <td class="t-num">${fmtBR(peso.unidade)}</td>
         <td class="t-num"><b>${fmtBR(peso.total)}</b></td>
         <td class="orc-lev-sup-rot-cell ${p.podeRotacionar ? '' : 't-warn'}">${selectHtml}</td>
+        <td style="text-align:center;width:34px;">${acaoHtml}</td>
       </tr>`;
     }).join('');
+
+    // Felipe sessao 2026-08: linha sempre visivel no fim pra adicionar peca manual.
+    // Inputs vazios + botao + pra confirmar.
+    const linhaAdicionar = `
+      <tr class="orc-lev-sup-row-add" style="background:#fefce8;">
+        <td>
+          <input type="text" class="orc-lev-sup-input-add-label"
+                 data-item-idx="${itemIdx}"
+                 placeholder="Nome da peça"
+                 style="width:100%;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;background:#fff;" />
+        </td>
+        <td>
+          <select class="orc-lev-sup-input-add-cat" data-item-idx="${itemIdx}"
+                  style="padding:3px 4px;border:1px solid #d1d5db;border-radius:3px;font-size:11px;background:#fff;">
+            <option value="porta">Porta</option>
+            <option value="portal">Portal</option>
+            <option value="revestimento">Rev.</option>
+          </select>
+        </td>
+        <td class="t-num">
+          <input type="number" min="1" step="1" class="orc-lev-sup-input-add-largura"
+                 data-item-idx="${itemIdx}" placeholder="0"
+                 style="width:78px;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;text-align:right;background:#fff;" />
+        </td>
+        <td class="t-num">
+          <input type="number" min="1" step="1" class="orc-lev-sup-input-add-altura"
+                 data-item-idx="${itemIdx}" placeholder="0"
+                 style="width:78px;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;text-align:right;background:#fff;" />
+        </td>
+        <td class="t-num">
+          <input type="number" min="1" step="1" class="orc-lev-sup-input-add-qtd"
+                 data-item-idx="${itemIdx}" placeholder="1"
+                 style="width:50px;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;text-align:center;background:#fff;" />
+        </td>
+        <td class="t-num" style="color:#9ca3af;font-style:italic;font-size:11px;">auto</td>
+        <td class="t-num" style="color:#9ca3af;font-style:italic;font-size:11px;">auto</td>
+        <td style="text-align:center;color:#9ca3af;font-size:10px;">—</td>
+        <td style="text-align:center;width:34px;">
+          <button type="button" class="orc-lev-sup-btn-add-peca"
+                  data-item-idx="${itemIdx}"
+                  data-cor="${escapeHtml(corLado || '')}"
+                  title="Adicionar peça manual"
+                  style="background:#16a34a;color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;font-weight:700;line-height:1;">+</button>
+        </td>
+      </tr>
+    `;
 
     return `
       <div class="orc-lev-sup-lado">
@@ -10376,9 +10669,10 @@ const Orcamento = (() => {
               <th>Peso/un (kg)</th>
               <th>Peso total (kg)</th>
               <th>Rotaciona?</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody>${linhas}</tbody>
+          <tbody>${linhas}${linhaAdicionar}</tbody>
         </table>
       </div>`;
   }
