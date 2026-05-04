@@ -5147,10 +5147,27 @@ const Orcamento = (() => {
       console.warn('[DRE] lookup do representante falhou:', e);
     }
 
-    // Auto-aplica comissao do representante se campo nao editado
+    // Auto-aplica comissao do representante se campo nao editado.
+    // Felipe sessao 2026-08: antes so aplicava quando com_rep era
+    // undefined/null - mas como criarVersao copia PARAMS_DEFAULT, com_rep
+    // ja vinha 7% e a auto-aplicacao nao disparava (Felipe via 7% no MDG
+    // que tem 6%). Agora aplica TAMBEM quando esta no valor default
+    // (7%) E user nunca editou manualmente (flag _com_rep_manual).
     if (repInfoDre && repInfoDre.comissaoMaximaPct > 0) {
       const paramsSalvos = versao.parametros || {};
-      if (paramsSalvos.com_rep === undefined || paramsSalvos.com_rep === null) {
+      const editouManual = !!paramsSalvos._com_rep_manual;
+      const valorAtual   = paramsSalvos.com_rep;
+      const ehDefaultOuVazio = (
+        valorAtual === undefined ||
+        valorAtual === null ||
+        Number(valorAtual) === Number(PARAMS_DEFAULT.com_rep)
+      );
+      const precisaAtualizar = (
+        !editouManual &&
+        ehDefaultOuVazio &&
+        Number(valorAtual) !== Number(repInfoDre.comissaoMaximaPct)
+      );
+      if (precisaAtualizar) {
         params.com_rep = repInfoDre.comissaoMaximaPct;
         atualizarVersao(versao.id, { parametros: Object.assign({}, paramsSalvos, { com_rep: repInfoDre.comissaoMaximaPct }) });
       }
@@ -5509,6 +5526,10 @@ const Orcamento = (() => {
         if (!versao) return;
         const novosParams = Object.assign({}, versao.parametros || {});
         novosParams.com_rep = comPct;
+        // Felipe sessao 2026-08: limpa flag _com_rep_manual - aplicar
+        // comissao do rep e' acao automatica, deve voltar comportamento
+        // de auto-aplicacao nos proximos renders.
+        delete novosParams._com_rep_manual;
         atualizarVersao(versao.id, { parametros: novosParams });
         renderCustoTab(container);
         if (window.showSavedDialog) window.showSavedDialog(`Comissao Rep aplicada: ${comPct}%`);
@@ -5625,6 +5646,13 @@ const Orcamento = (() => {
           // parametros
           const novosParams = Object.assign({}, versao.parametros || {});
           novosParams[field] = v;
+          // Felipe sessao 2026-08: edicao manual de com_rep marca flag
+          // pra bloquear auto-aplicacao da comissao do rep no proximo
+          // render (senao toda vez que entrasse na DRE sobrescreveria
+          // de volta com a comissao do rep).
+          if (field === 'com_rep') {
+            novosParams._com_rep_manual = true;
+          }
 
           // Felipe (sessao 2026-06): a regra automatica que mudava o
           // desconto baseada em Comissao RT/Arquiteto foi REMOVIDA.
