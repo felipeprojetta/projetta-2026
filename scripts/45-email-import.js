@@ -194,55 +194,11 @@
   // FLUXO PRINCIPAL — orquestra tudo
   // ───────────────────────────────────────────────────────────────────
   // ───────────────────────────────────────────────────────────────────
-  // FLUXO MANUAL — so AGP, sem Weiku/PDF (Felipe completa o resto)
+  // FLUXO PRINCIPAL — puxa tudo automatico (Weiku + PDF). AGP pode ser
+  // gerado automatico (proximo da sequencia) OU informado manualmente
+  // pelo usuario (caso queira sobrescrever o proximo).
   // ───────────────────────────────────────────────────────────────────
-  async function importarManualMinimoAGP(msgId, statusEl, btnEl) {
-    function setStatus(msg, cor) {
-      if (statusEl) { statusEl.textContent = msg; statusEl.style.color = cor || '#9a3412'; }
-    }
-    function setBusy(busy) {
-      if (btnEl) {
-        btnEl.disabled = busy;
-        btnEl.style.opacity = busy ? '0.6' : '1';
-        btnEl.style.cursor  = busy ? 'wait' : 'pointer';
-      }
-    }
-    try {
-      setBusy(true);
-      setStatus('🔄 Lendo email...', '#1565c0');
-      var email = await window.outlookGetEmail(msgId);
-      var reserva = extrairNumeroReserva(email);
-      if (!reserva) throw new Error('Nao achei numero de reserva no email.');
-
-      var leads = (typeof Storage !== 'undefined' ? Storage.scope('crm').get('leads') : []) || [];
-      var jaExiste = leads.find(function(l) { return String(l.numeroReserva) === String(reserva); });
-      if (jaExiste) {
-        throw new Error('Reserva ' + reserva + ' ja existe (lead "' + jaExiste.cliente + '").');
-      }
-
-      // Cria lead com so AGP+reserva, resto vazio. Felipe completa no card.
-      if (!window.EmailCRM || !window.EmailCRM.criarLeadAutomatico) {
-        throw new Error('EmailCRM nao carregado');
-      }
-      var agp = window.EmailCRM.proximoAGP();
-      // dadosWeiku = {} : criarLeadAutomatico aceita - todos campos tem fallback ''
-      var ok = window.EmailCRM.criarLeadAutomatico(reserva, {}, agp);
-      if (!ok) throw new Error('Falha ao criar lead');
-
-      setStatus('✅ Lead criado: ' + agp + ' · Reserva ' + reserva + ' (modo manual). Abra o card pra completar.', '#16a34a');
-      if (typeof Events !== 'undefined') Events.emit('crm:reload');
-    } catch (e) {
-      console.error('[email-import] manual erro:', e);
-      setStatus('❌ ' + (e.message || e), '#c0392b');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // ───────────────────────────────────────────────────────────────────
-  // FLUXO AUTOMATICO — Weiku + PDF + tudo
-  // ───────────────────────────────────────────────────────────────────
-  async function importarDoEmail(msgId) {
+  async function importarDoEmail(msgId, agpManual) {
     var statusEl = document.getElementById('outlook-import-status');
     var btnEl    = document.getElementById('outlook-btn-importar-crm');
     function setStatus(msg, cor) {
@@ -311,11 +267,12 @@
         console.warn('[email-import] Falha ao ler PDF (lead sera criado sem dados da porta):', ePDF);
       }
 
-      // 6. Cria lead com tudo combinado
+      // 6. Cria lead com tudo combinado.
+      //    Felipe sessao 2026-08: agpManual sobrescreve proximoAGP() se informado.
       if (!window.EmailCRM || !window.EmailCRM.criarLeadAutomatico) {
         throw new Error('EmailCRM nao carregado');
       }
-      var agp = window.EmailCRM.proximoAGP();
+      var agp = agpManual || window.EmailCRM.proximoAGP();
       var ok = window.EmailCRM.criarLeadAutomatico(reserva, dadosWeiku, agp);
       if (!ok) throw new Error('Falha ao criar lead no CRM');
 
@@ -354,30 +311,41 @@
   }
 
   // ───────────────────────────────────────────────────────────────────
-  // Bridge global pro botao no modal do Outlook — pergunta auto vs manual
+  // Bridge global pro botao no modal do Outlook — pergunta sobre AGP
   // ───────────────────────────────────────────────────────────────────
   window._outlookImportarCRM = function(msgId) {
+    // Felipe sessao 2026-08: SEMPRE importa tudo automatico (Weiku + PDF).
+    // A pergunta e' so' sobre o AGP - automatico (proximo da sequencia)
+    // ou manual (Felipe digita o numero).
+    var proximoAuto = (window.EmailCRM && window.EmailCRM.proximoAGP)
+      ? window.EmailCRM.proximoAGP() : 'AGP004XXX';
     var escolha = prompt(
-      'Como importar?\n\n' +
-      '  1 = Automatico (busca dados na Weiku + le medidas do PDF)\n' +
-      '  2 = Manual (cria lead so com AGP, voce completa no card)\n' +
+      'Como definir o AGP deste lead?\n\n' +
+      '  1 = Automatico (proximo: ' + proximoAuto + ')\n' +
+      '  2 = Manual (eu digito qual AGP usar)\n' +
       '  Cancelar\n\n' +
       'Digite 1 ou 2:'
     );
     if (escolha === '1') {
-      importarDoEmail(msgId);
+      importarDoEmail(msgId);  // sem agpManual = usa proximoAGP()
     } else if (escolha === '2') {
-      var statusEl = document.getElementById('outlook-import-status');
-      var btnEl    = document.getElementById('outlook-btn-importar-crm');
-      importarManualMinimoAGP(msgId, statusEl, btnEl);
+      var agpManual = prompt('Digite o AGP completo (ex: AGP004647):', proximoAuto);
+      if (!agpManual) return;  // cancelou no segundo prompt
+      agpManual = String(agpManual).trim();
+      if (!agpManual) return;
+      // Normaliza: aceita "4647", "AGP4647", "AGP004647" - tudo vira AGP004647
+      var soDigitos = agpManual.match(/(\d+)/);
+      if (soDigitos) {
+        agpManual = 'AGP' + String(soDigitos[1]).padStart(6, '0');
+      }
+      importarDoEmail(msgId, agpManual);
     }
     // qualquer outra coisa = cancela, nada acontece
   };
 
   // API publica
   window.EmailImport = {
-    importarDoEmail: importarDoEmail,                    // automatico (Weiku+PDF)
-    importarManual:  importarManualMinimoAGP,            // manual (so AGP)
+    importarDoEmail: importarDoEmail,                    // (msgId, agpManual?)
     extrairNumeroReserva: extrairNumeroReserva,          // exposto pra debug
     parsearDadosPDF: parsearDadosPDF,                    // exposto pra debug
   };
