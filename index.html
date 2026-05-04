@@ -30,6 +30,11 @@
        acidental de codigo JS por scripts de versionamento. -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+  <!-- PDF.js (Mozilla) - leitura de PDF no browser. Felipe sessao 2026-08:
+       usado pelo 45-email-import.js pra extrair largura/altura/modelo/cor
+       dos PDFs anexos dos emails da Weiku. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
 
   <!-- CSS por modulo (ordem importa pra cascade) -->
   <link rel="stylesheet" href="styles/00-tokens.css?v=20260504165008">
@@ -146,6 +151,14 @@
 
   <!-- MODULO CRM (depende de 40-weiku-client.js carregado antes) -->
   <script src="scripts/40-weiku-client.js?v=20260504165008"></script>
+
+  <!-- Felipe sessao 2026-08: robo manual de import de email pro CRM.
+       35-outlook = UI Outlook (lista emails + modal); 44-email-crm =
+       helpers (criarLead, proximoAGP); 45-email-import = orquestrador
+       chamado pelo botao "Importar pro CRM" no modal do email. -->
+  <script src="scripts/35-outlook.js?v=20260504165008"></script>
+  <script src="scripts/44-email-crm.js?v=20260504165008"></script>
+  <script src="scripts/45-email-import.js?v=20260504165008"></script>
   <!-- Supabase Sync — schema v7 (sessao 31 Felipe) -->
   <script src="scripts/43-supabase-sync.js?v=20260504165008"></script>
   <script src="scripts/41-empresa.js?v=20260504165008"></script>

@@ -738,6 +738,10 @@
       document.getElementById('outlook-email-body').innerHTML = ''
         + '<h3 style="margin:0 0 14px;color:#003144;font-size:17px">'+_escHtml(m.subject||'(sem assunto)')+'</h3>'
         + flagsHtml
+        + '<div id="outlook-import-bar" style="display:flex;gap:8px;align-items:center;margin-bottom:14px;padding:10px 12px;background:#fff7ed;border:1px solid #fb923c;border-radius:6px">'
+        +   '<button id="outlook-btn-importar-crm" onclick="window._outlookImportarCRM(\'' + _escAttr(msgId) + '\')" style="background:#f97316;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">📥 Importar pro CRM</button>'
+        +   '<span id="outlook-import-status" style="font-size:12px;color:#9a3412">Lê reserva do email + dados da intranet + PDF anexo, cria card no CRM.</span>'
+        + '</div>'
         + '<div style="background:#f5f5f5;padding:10px 12px;border-radius:6px;font-size:12px;margin-bottom:14px">'
         +   '<div><b>De:</b> '+_escHtml(from.name||'')+' &lt;'+_escHtml(from.address||'')+'&gt;</div>'
         +   '<div><b>Para:</b> '+_escHtml(to)+'</div>'

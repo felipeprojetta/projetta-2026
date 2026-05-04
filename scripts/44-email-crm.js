@@ -145,7 +145,7 @@
           console.warn('[email-crm] WeikuClient nao disponivel');
           break;
         }
-        var dados = await window.WeikuClient.buscar(reserva);
+        var dados = await window.WeikuClient.buscarReserva(reserva);
         if (!dados || !dados.nome_cliente) {
           console.warn('[email-crm] Reserva ' + reserva + ' sem dados na Weiku');
           await marcarProcessado(item.id, '', 'erro');
@@ -173,23 +173,25 @@
     return criados;
   }
 
-  // ── Polling: verifica a cada 2 minutos ──
+  // ── Polling: DESABILITADO sessao 2026-08 (Felipe) ──
+  // Robo agora roda manualmente via botao "Importar pro CRM" no modal
+  // do email aberto (45-email-import.js). Funcoes publicas seguem
+  // expostas em window.EmailCRM pra reuso.
   var POLL_INTERVAL = 2 * 60 * 1000; // 2 min
 
   function iniciarPolling() {
-    // Primeira verificação 10s depois do boot
-    setTimeout(function() {
-      processarFila();
-      // Depois a cada 2 minutos
-      setInterval(processarFila, POLL_INTERVAL);
-    }, 10000);
+    // Felipe sessao 2026-08: comentado. Antes:
+    //   setTimeout(function(){ processarFila(); setInterval(processarFila, POLL_INTERVAL); }, 10000);
+    // Agora: nada acontece automaticamente. Manual via 45-email-import.js
+    console.log('[email-crm] polling automatico DESABILITADO. Use botao Importar pro CRM no modal do email.');
   }
 
   // ── Expor para uso manual ──
   window.EmailCRM = {
     processarFila: processarFila,
     buscarPendentes: buscarPendentes,
-    proximoAGP: proximoAGP
+    proximoAGP: proximoAGP,
+    criarLeadAutomatico: criarLeadAutomatico  // exposto pro 45-email-import.js
   };
 
   // ── Iniciar polling quando o app carregar ──
