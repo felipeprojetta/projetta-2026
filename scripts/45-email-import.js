@@ -531,26 +531,31 @@
         throw new Error('EmailCRM nao carregado');
       }
       var agp = agpManual || '';  // vazio quando nao informado - Felipe completa no card
-      var ok = window.EmailCRM.criarLeadAutomatico(reserva, dadosWeiku, agp);
-      if (!ok) throw new Error('Falha ao criar lead no CRM');
+      // Felipe sessao 2026-08: no modoAtualizar nao cria lead novo - usa o
+      // existente que detectamos no passo 3.
+      if (!modoAtualizar) {
+        var ok = window.EmailCRM.criarLeadAutomatico(reserva, dadosWeiku, agp);
+        if (!ok) throw new Error('Falha ao criar lead no CRM');
+      }
 
-      // 7. Anexa dados do PDF no lead recem-criado (se tiver)
+      // 7. Atualiza/anexa dados do PDF no lead (recem-criado ou existente)
       if (dadosPDF.porta_largura || dadosPDF.porta_altura || dadosPDF.porta_modelo
           || dadosPDF.porta_cor || dadosPDF.porta_fechadura_digital) {
         var leadsAtuais = Storage.scope('crm').get('leads') || [];
-        var leadCriado = leadsAtuais.find(function(l) { return String(l.numeroReserva) === String(reserva); });
-        if (leadCriado) {
-          if (dadosPDF.porta_largura) leadCriado.porta_largura = dadosPDF.porta_largura;
-          if (dadosPDF.porta_altura)  leadCriado.porta_altura  = dadosPDF.porta_altura;
-          if (dadosPDF.porta_modelo)  leadCriado.porta_modelo  = dadosPDF.porta_modelo;
-          if (dadosPDF.porta_cor)     leadCriado.porta_cor     = dadosPDF.porta_cor;
-          if (dadosPDF.porta_fechadura_digital) leadCriado.porta_fechadura_digital = dadosPDF.porta_fechadura_digital;
+        var leadAlvo = leadsAtuais.find(function(l) { return String(l.numeroReserva) === String(reserva); });
+        if (leadAlvo) {
+          if (dadosPDF.porta_largura) leadAlvo.porta_largura = dadosPDF.porta_largura;
+          if (dadosPDF.porta_altura)  leadAlvo.porta_altura  = dadosPDF.porta_altura;
+          if (dadosPDF.porta_modelo)  leadAlvo.porta_modelo  = dadosPDF.porta_modelo;
+          if (dadosPDF.porta_cor)     leadAlvo.porta_cor     = dadosPDF.porta_cor;
+          if (dadosPDF.porta_fechadura_digital) leadAlvo.porta_fechadura_digital = dadosPDF.porta_fechadura_digital;
           Storage.scope('crm').set('leads', leadsAtuais);
         }
       }
 
       // 8. UI de sucesso
-      var resumo = 'Lead criado: ' + dadosWeiku.nome_cliente + (agp ? ' · ' + agp : ' (lembre de preencher o AGP no card)');
+      var verbo = modoAtualizar ? 'Lead atualizado: ' : 'Lead criado: ';
+      var resumo = verbo + dadosWeiku.nome_cliente + (agp ? ' · ' + agp : (modoAtualizar ? '' : ' (lembre de preencher o AGP no card)'));
       var dadosTxt = '';
       if (dadosPDF.porta_largura || dadosPDF.porta_altura) {
         dadosTxt = ' · ' + (dadosPDF.porta_largura || '?') + '×' + (dadosPDF.porta_altura || '?') + 'mm';
