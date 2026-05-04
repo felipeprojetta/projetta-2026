@@ -4671,16 +4671,47 @@ const Orcamento = (() => {
                 // Felipe sessao 2026-08: pra etapa 'Corte e Usinagem' mostra
                 // quantas chapas de revestimento (ACM/HPL/etc) serao usadas
                 // ao lado do label, ajudando Felipe a decidir as horas.
-                // Le item.qtdChapas (mesmo valor que regraCorte usa).
+                //
+                // FONTE PRIMARIA: versao.chapasSelecionadas (dados reais do
+                // Lev. Superficies — Felipe seleciona as chapas la e o
+                // sistema grava {numChapas, custoTotal, etc}).
+                // FALLBACK: item.qtdChapas (campo manual antigo).
+                // Se ambos vazios, mostra dica pra preencher.
                 let labelExtra = '';
                 if (et.id === 'corte_usinagem' && nItens > 0) {
-                  const chapasArr = itensFab.map(it => Number(it.qtdChapas) || 0);
-                  const totalCh = chapasArr.reduce((a, b) => a + b, 0);
+                  let totalCh = 0;
+                  let detalheTxt = '';
+
+                  // Tenta primeiro chapasSelecionadas (dado real do Lev. Sup)
+                  const sel = (versao && versao.chapasSelecionadas) || {};
+                  const cores = Object.keys(sel);
+                  if (cores.length > 0) {
+                    const partes = [];
+                    cores.forEach(cor => {
+                      const n = Number(sel[cor].numChapas) || 0;
+                      if (n > 0) {
+                        totalCh += n;
+                        const corCurta = String(cor).split('-')[0].trim().substring(0, 12);
+                        partes.push(`${corCurta}:${n}`);
+                      }
+                    });
+                    if (partes.length > 1) detalheTxt = ' (' + partes.join(' · ') + ')';
+                  }
+
+                  // Fallback: item.qtdChapas
+                  if (totalCh === 0) {
+                    const chapasArr = itensFab.map(it => Number(it.qtdChapas) || 0);
+                    totalCh = chapasArr.reduce((a, b) => a + b, 0);
+                    if (totalCh > 0 && nItens > 1) {
+                      detalheTxt = ' (' + chapasArr.map((n, i) => `It${i + 1}:${n}`).join(' · ') + ')';
+                    }
+                  }
+
                   if (totalCh > 0) {
-                    const detalhe = nItens > 1
-                      ? ' (' + chapasArr.map((n, i) => `It${i + 1}:${n}`).join(' · ') + ')'
-                      : '';
-                    labelExtra = `<small style="display:block;font-weight:500;font-size:10px;color:#c46b20;margin-top:3px;letter-spacing:0.02em;">📐 ${totalCh} chapa${totalCh !== 1 ? 's' : ''} de revestimento${detalhe}</small>`;
+                    labelExtra = `<small style="display:block;font-weight:600;font-size:11px;color:#c46b20;margin-top:4px;letter-spacing:0.02em;">📐 ${totalCh} chapa${totalCh !== 1 ? 's' : ''} de revestimento${detalheTxt}</small>`;
+                  } else {
+                    // Nenhum item tem qtd preenchida e nenhuma chapa selecionada
+                    labelExtra = `<small style="display:block;font-weight:500;font-size:10px;color:#9a3412;margin-top:4px;font-style:italic;">📐 selecione chapas no Lev. Superficies</small>`;
                   }
                 }
 
