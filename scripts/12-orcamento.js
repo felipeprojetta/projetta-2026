@@ -1576,18 +1576,47 @@ const Orcamento = (() => {
       versaoAlvo = neg.opcoes[0].versoes[0];
     }
     UI.versaoAtivaId = versaoAlvo.id;
-    if (!versaoAlvo.itens || versaoAlvo.itens.length === 0) {
-      const itemInicial = novoItem('');
+    // FIX 2026-05-04: prepopular tambem quando ja existe Item 1 mas
+    // virgem (caso AGP004647). Antes: so' rodava quando itens.length===0.
+    // Resultado: usuario abria orcamento, voltava pro card, preenchia
+    // os dados da porta, clicava Montar Orcamento, e os campos vinham
+    // vazios pq o item 1 ja existia. Agora detecta "item virgem" e
+    // popula sem criar novo item.
+    function _itemVirgem(it) {
+      if (!it) return true;
+      const lar = String(it.largura || '').trim();
+      const alt = String(it.altura  || '').trim();
+      const mod = String(it.modeloExterno || it.modeloInterno || it.modeloNumero || '').trim();
+      const cor = String(it.corExterna || it.corInterna || '').trim();
+      return !lar && !alt && !mod && !cor;
+    }
+    const itensAtuais = versaoAlvo.itens || [];
+    const versaoVazia = itensAtuais.length === 0;
+    const primeiroVirgem = itensAtuais.length === 1 && _itemVirgem(itensAtuais[0]);
+
+    if (versaoVazia || primeiroVirgem) {
+      // Caso vazio: cria item novo. Caso virgem: reusa item existente
+      // (preserva o id pra nao quebrar referencias).
+      const itemInicial = versaoVazia ? novoItem('') : Object.assign({}, itensAtuais[0]);
       // Pre-preenche com dados da porta vindos do agente de email OU do lead manual
       if (lead && (lead.porta_largura || lead.porta_modelo)) {
         itemInicial.tipo = 'porta_externa';
-        if (lead.porta_largura) itemInicial.largura = lead.porta_largura;
-        if (lead.porta_altura)  itemInicial.altura  = lead.porta_altura;
-        if (lead.porta_modelo)  { itemInicial.modeloNumero = lead.porta_modelo; itemInicial.modeloExterno = lead.porta_modelo; itemInicial.modeloInterno = lead.porta_modelo; }
-        if (lead.porta_cor)     { itemInicial.corExterna = lead.porta_cor; itemInicial.corInterna = lead.porta_cor; }
+        // Preenche APENAS se o campo do item estiver vazio (nao sobrescreve
+        // edicao manual do usuario - protecao extra).
+        if (!itemInicial.largura && lead.porta_largura) itemInicial.largura = lead.porta_largura;
+        if (!itemInicial.altura  && lead.porta_altura)  itemInicial.altura  = lead.porta_altura;
+        if (lead.porta_modelo) {
+          if (!itemInicial.modeloNumero)  itemInicial.modeloNumero  = lead.porta_modelo;
+          if (!itemInicial.modeloExterno) itemInicial.modeloExterno = lead.porta_modelo;
+          if (!itemInicial.modeloInterno) itemInicial.modeloInterno = lead.porta_modelo;
+        }
+        if (lead.porta_cor) {
+          if (!itemInicial.corExterna) itemInicial.corExterna = lead.porta_cor;
+          if (!itemInicial.corInterna) itemInicial.corInterna = lead.porta_cor;
+        }
         // Fechadura Digital: agora pode ser codigo real (PA-DIG ...) ou 'sim'/'nao' antigo
         var fd = lead.porta_fechadura_digital;
-        if (fd && fd !== 'nao' && fd !== '') {
+        if (fd && fd !== 'nao' && fd !== '' && !itemInicial.fechaduraDigital) {
           itemInicial.fechaduraDigital = (fd === 'sim') ? 'Sim' : fd;  // codigo do acessorio
         }
         // Felipe sessao 2026-05: aplica regras automaticas (fechadura mecanica
