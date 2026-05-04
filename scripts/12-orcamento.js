@@ -11321,6 +11321,179 @@ const Orcamento = (() => {
     atualizarVersao(UI.versaoAtivaId, { wizardEtapaMaxima: novaEtapa });
   }
 
+  // -------------------------------------------------------------------
+  // Felipe (sessao 2026-11): geracao de Blobs pra OrcDocs
+  // -------------------------------------------------------------------
+
+  /**
+   * Resolve todos os dados pro render dos relatorios. Mesma logica
+   * do renderRelatoriosTab, mas reutilizavel offscreen.
+   */
+  function _resolverDadosRelatorio(versaoId) {
+    const r = obterVersao(versaoId);
+    if (!r || !r.versao) throw new Error('versao nao encontrada: ' + versaoId);
+    const versao  = r.versao;
+    const opcao   = r.opcao;
+    const negocio = r.negocio;
+
+    // Calcula DRE (mesmos numeros das abas DRE/Proposta)
+    const subFab  = Number(versao.subFab)  || 0;
+    const subInst = Number(versao.subInst) || 0;
+    const params  = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
+    const dre     = calcularDRE(subFab, subInst, params);
+
+    // Lead: prefere o do negocio, fallback lerLeadAtivo
+    let lead = null;
+    try {
+      const crmStore = (typeof Storage !== 'undefined' && Storage.scope) ? Storage.scope('crm') : null;
+      const cards = crmStore ? (crmStore.get('crmCards') || crmStore.get('leads') || []) : [];
+      lead = cards.find(c => c && c.id === negocio.leadId) || null;
+    } catch (_) { /* fallback abaixo */ }
+    if (!lead) lead = lerLeadAtivo() || {};
+
+    const fmtMoney = (n) => 'R$ ' + Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtMoneyM2 = (n) => 'R$ ' + Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/m²';
+    const fmtPct = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + '%';
+
+    const cliente = lead.cliente || (negocio?.clienteNome) || '—';
+    const agp     = lead.numeroAGP || '—';
+    const reserva = lead.numeroReserva || '—';
+
+    return { versao, opcao, negocio, lead, dre, params, fmtMoney, fmtMoneyM2, fmtPct, cliente, agp, reserva };
+  }
+
+  /**
+   * Renderiza um painel de relatorio em host offscreen e retorna o
+   * elemento DOM. Caller deve chamar removerHost() apos uso.
+   *
+   * subAba: 'comercial' | 'resultado-porta' | 'dre' | 'obra'
+   */
+  function _montarHostOffscreen(versaoId, subAba) {
+    const d = _resolverDadosRelatorio(versaoId);
+    let html = '';
+    if (subAba === 'comercial') {
+      html = renderRelComercial(d.versao, d.opcao, d.lead, d.negocio, d.dre, d.params,
+                                d.cliente, d.agp, d.reserva, d.fmtMoney, d.fmtMoneyM2, d.fmtPct);
+    } else if (subAba === 'resultado-porta') {
+      html = renderRelResultadoPorta(d.versao, d.dre, d.params, d.fmtMoney, d.fmtPct);
+    } else if (subAba === 'dre') {
+      html = renderRelDRE(d.versao, d.dre, d.params, d.fmtMoney, d.fmtPct);
+    } else if (subAba === 'obra') {
+      html = renderRelObra(d.versao, d.dre, d.fmtMoney);
+    } else {
+      throw new Error('subAba invalida: ' + subAba);
+    }
+
+    // Header empresa (se modulo Empresa carregado)
+    const numVersao = d.versao.numero || 1;
+    const numeroDoc = `V${numVersao}`;
+    const headerEmpresaHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
+      ? window.Empresa.montarHeaderRelatorio({
+          lead: d.lead, numeroDoc, dataDoc: nowIso(),
+          tituloDoc: subAba === 'comercial' ? 'Painel Comercial' :
+                     subAba === 'resultado-porta' ? 'Resultado por Porta' :
+                     subAba === 'dre' ? 'DRE Resumida' : 'Resumo da Obra',
+        })
+      : '';
+
+    const host = document.createElement('div');
+    host.style.cssText = `
+      position: absolute; top: 0; left: -10000px;
+      width: 1100px; background: #ffffff; padding: 20px;
+      z-index: -1; font-family: inherit;
+    `;
+    host.innerHTML = `${headerEmpresaHtml}<div class="rel-pane">${html}</div>`;
+    document.body.appendChild(host);
+    return host;
+  }
+
+  /**
+   * Gera PNG Blob de um relatorio.
+   *   versaoId: id da versao
+   *   subAba:   'comercial' | 'resultado-porta' | 'dre' | 'obra'
+   * Retorna Promise<Blob>.
+   */
+  async function gerarRelatorioPNGBlob(versaoId, subAba) {
+    let host = null;
+    try {
+      await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      const html2canvas = window.html2canvas;
+      if (!html2canvas) throw new Error('html2canvas nao carregou');
+
+      host = _montarHostOffscreen(versaoId, subAba);
+      // Aguarda fonts/imgs renderizarem
+      await new Promise(r => setTimeout(r, 200));
+
+      const canvas = await html2canvas(host, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        windowWidth:  host.scrollWidth,
+        windowHeight: host.scrollHeight,
+      });
+
+      return await new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/png'));
+    } finally {
+      if (host && host.parentNode) host.parentNode.removeChild(host);
+    }
+  }
+
+  /**
+   * Gera PDF Blob da Proposta Comercial — concatenando os 4 paineis em
+   * paginas separadas (1 por pagina A4). Cada painel ja vem formatado.
+   */
+  async function gerarPropostaPDFBlob(versaoId) {
+    await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await carregarLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    const html2canvas = window.html2canvas;
+    const jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (!html2canvas || !jsPDF) throw new Error('libs nao carregaram');
+
+    const subAbas = ['comercial', 'resultado-porta', 'dre', 'obra'];
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 8;
+    const maxW = pageW - 2 * margin;
+    const maxH = pageH - 2 * margin;
+
+    let primeiraPagina = true;
+    for (const subAba of subAbas) {
+      let host = null;
+      try {
+        host = _montarHostOffscreen(versaoId, subAba);
+        await new Promise(r => setTimeout(r, 200));
+        const canvas = await html2canvas(host, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          windowWidth:  host.scrollWidth,
+          windowHeight: host.scrollHeight,
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        // Calcula tamanho proporcional cabendo na pagina
+        const ratio = canvas.width / canvas.height;
+        let drawW = maxW;
+        let drawH = maxW / ratio;
+        if (drawH > maxH) {
+          drawH = maxH;
+          drawW = maxH * ratio;
+        }
+        const x = (pageW - drawW) / 2;
+        const y = (pageH - drawH) / 2;
+
+        if (!primeiraPagina) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', x, y, drawW, drawH);
+        primeiraPagina = false;
+      } finally {
+        if (host && host.parentNode) host.parentNode.removeChild(host);
+      }
+    }
+
+    // Retorna Blob
+    return pdf.output('blob');
+  }
+
   return {
     // ciclo do App
     render,
@@ -11341,6 +11514,9 @@ const Orcamento = (() => {
     fecharVersao,
     deletarVersao,
     deletarNegocio,
+    // Felipe (sessao 2026-11): geracao de Blobs pra OrcDocs
+    gerarRelatorioPNGBlob,
+    gerarPropostaPDFBlob,
     // helpers expostos pra debugging
     _snapshotPrecosAtual: snapshotPrecosAtual,
     _snapshotPrecosCompleto: snapshotPrecosCompleto,

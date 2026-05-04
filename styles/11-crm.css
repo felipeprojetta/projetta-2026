@@ -250,6 +250,57 @@
   justify-content: flex-end;
 }
 
+/* Felipe (sessao 2026-11): variante vertical para botoes OrcDocs.
+   Botoes minimalistas, full-width, um embaixo do outro. */
+.crm-card-actions.is-orcdocs {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.crm-orcdocs-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+}
+.crm-orcdocs-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+.crm-orcdocs-btn .icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+.crm-orcdocs-btn.is-primary {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+.crm-orcdocs-btn.is-primary:hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+.crm-orcdocs-btn-secundarios {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.crm-orcdocs-btn-secundarios button {
+  flex: 1;
+}
+
 /* Felipe (req 2,3 do CRM): bloco "produto" no card.
    So aparece quando o lead tem pelo menos UMA versao fechada do orcamento.
    Mostra Modelo/Folhas/Cor — informacao snapshotada da versao oficial. */

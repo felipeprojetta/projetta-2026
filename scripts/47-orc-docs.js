@@ -1,29 +1,22 @@
 /* eslint-disable */
 /*
    ===========================================================================
-   47-orc-docs.js — Modulo de Documentos do Orcamento (Fase 1 UI)
+   47-orc-docs.js — Modulo de Documentos do Orcamento
    ===========================================================================
 
-   Felipe (sessao 2026-11): Workflow de aprovacao do CRM —
-
-   Botoes no card do CRM (apos aprovacao DRE):
-     📂 Abrir Orcamento      → modal lista versoes pra escolher e carregar
-     ✏️ Revisar              → modal "tem certeza?" + reabre versao atual
-     ➕ Nova Versao          → cria Versao N+1
-     📄 Gerar Documentos     → PDF Proposta + PNGs (Fase 2 — placeholder)
-
-   E no DRE quando ja' aprovado, botao 📄 Gerar Documentos tambem aparece
-   junto ao botao Re-aprovar.
+   Felipe (sessao 2026-11):
+     - Workflow de aprovacao do CRM com 4 botoes verticais minimalistas
+     - AGP coletado do proprio card (nao gera automatico)
+     - Geracao real de PDF Proposta + 4 PNGs (Painel Comercial, Resultado
+       Porta, DRE Resumida, Resumo da Obra)
+     - Email Outlook (Fase 3 — Microsoft Graph, futuro)
 
    API publica (window.OrcDocs):
      formatNomeArquivo(lead, tipo)    → "AGP004647 - 146510 - Camila E Andre - Proposta"
      abrirVersoesModal(leadId)        → modal escolhe versao e carrega
      revisarVersaoComConfirma(leadId) → modal confirma + abre versao em edit
-     criarNovaVersao(leadId)          → cria Versao N+1 e abre na aba Orcamento
-     gerarDocumentos(leadId)          → Fase 2 (placeholder por enquanto)
-
-   Persistencia: tudo via window.Orcamento (criarVersao, obterNegocioPorLeadId,
-   resumoParaCardCRM). Nao mexe em Storage direto.
+     criarNovaVersao(leadId)          → cria Versao N+1 e abre na aba
+     gerarDocumentos(leadId)          → gera PDF + 4 PNGs e baixa todos
    ===========================================================================
 */
 
@@ -34,17 +27,8 @@
   // Helpers de formato de nome
   // -------------------------------------------------------------------
 
-  /**
-   * Title Case com prefixos comuns mantidos: "Arq.", "Eng.", "Dr.", "Sr."
-   * E siglas em CAIXA ALTA preservadas: DRE, ACM, PA, PI, RT, etc.
-   *   "CAMILA E ANDRE"           → "Camila E Andre"
-   *   "DRE Resumida"             → "DRE Resumida"   (sigla DRE preservada)
-   *   "JULLIANA WAGNER PORTA..."  → "Julliana Wagner Porta..."
-   *   "arq. julliana"            → "Arq. Julliana"
-   */
   function titleCase(str) {
     if (!str) return '';
-    // Siglas conhecidas que devem permanecer em CAIXA ALTA
     const SIGLAS = ['DRE', 'ACM', 'PA', 'PI', 'RT', 'NF', 'CNPJ', 'CPF', 'KESO',
                     'PNG', 'PDF', 'XLSX', 'CRM', 'OCR', 'AGP', 'SAP'];
     let out = String(str)
@@ -57,7 +41,6 @@
       .replace(/\bSra\./gi,  'Sra.')
       .replace(/\s+/g, ' ')
       .trim();
-    // Restaura siglas em caixa alta
     SIGLAS.forEach(sigla => {
       const re = new RegExp('\\b' + sigla + '\\b', 'gi');
       out = out.replace(re, sigla);
@@ -65,10 +48,6 @@
     return out;
   }
 
-  /**
-   * Sanitiza pra uso seguro em nome de arquivo:
-   * remove < > : " / \ | ? * e caracteres de controle.
-   */
   function sanitizeFilename(str) {
     return String(str || '')
       .replace(/[<>:"/\\|?*\x00-\x1f]/g, '')
@@ -76,79 +55,15 @@
       .trim();
   }
 
-  /**
-   * Gera o numero AGP do lead. Felipe: usa o campo lead.agp se existir,
-   * senao gera "AGP" + sequencial baseado em quantos leads tem AGP definido
-   * + 1, em zero-padding 6 digitos. So' gera (e persiste no lead) quando o
-   * lead vai pro estagio aprovado — que e' quando precisa do numero pra
-   * gerar documentos.
-   *
-   * Felipe pode mudar a logica depois (ex: vir do Omie). API: gerarAgp(lead).
-   */
-  function gerarAgp(lead) {
-    if (lead && lead.agp) return lead.agp;
-    // Conta leads existentes com AGP setado pra continuar a sequencia
-    let proximoNum = 1;
-    try {
-      const crmStore = (typeof Storage !== 'undefined' && Storage.scope) ? Storage.scope('crm') : null;
-      const cards = crmStore ? (crmStore.get('crmCards') || crmStore.get('leads') || []) : [];
-      const numerosUsados = cards
-        .map(c => (c && c.agp) || '')
-        .filter(s => /^AGP\d+$/i.test(s))
-        .map(s => parseInt(s.replace(/^AGP/i, ''), 10))
-        .filter(n => !isNaN(n));
-      if (numerosUsados.length > 0) {
-        proximoNum = Math.max(...numerosUsados) + 1;
-      }
-    } catch (_) { /* fallback 1 */ }
-    return 'AGP' + String(proximoNum).padStart(6, '0');
-  }
-
-  /**
-   * Garante que o lead tem AGP definido. Se nao tem, gera, persiste no
-   * card e dispara sync. Retorna o AGP final (string).
-   */
-  function garantirAgp(lead) {
+  /** Felipe: AGP vem do card (lead.numeroAGP). Nao gera automatico. */
+  function obterAgp(lead) {
     if (!lead) return '';
-    if (lead.agp) return lead.agp;
-    const agp = gerarAgp(lead);
-    lead.agp = agp;
-    // Persiste no Storage local (CRM vai sincronizar com Supabase)
-    try {
-      if (typeof Storage !== 'undefined' && Storage.scope) {
-        const crmStore = Storage.scope('crm');
-        const chaves = ['crmCards', 'leads'];
-        for (const k of chaves) {
-          const arr = crmStore.get(k);
-          if (Array.isArray(arr)) {
-            const idx = arr.findIndex(c => c && c.id === lead.id);
-            if (idx >= 0) {
-              arr[idx].agp = agp;
-              crmStore.set(k, arr);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[OrcDocs] Falha ao persistir AGP no Storage:', e);
-    }
-    return agp;
+    return String(lead.numeroAGP || '').trim();
   }
 
-  /**
-   * Monta o nome de arquivo padrao:
-   *   "AGP004647 - 146510 - Camila E Andre - Proposta"
-   *
-   * Ordem dos componentes:
-   *   AGP{numero} - {numeroReserva} - {nomeCliente em Title Case} - {tipo}
-   *
-   * Tipos suportados:
-   *   "Proposta", "Painel Comercial", "Resultado Porta",
-   *   "DRE Resumida", "Resumo Da Obra"
-   */
   function formatNomeArquivo(lead, tipo) {
     if (!lead) return tipo || 'arquivo';
-    const agp = garantirAgp(lead);
+    const agp = obterAgp(lead);
     const reserva = (lead.numeroReserva || '').toString().trim();
     const nome = titleCase(lead.cliente || '');
     const tipoFmt = titleCase(tipo || '');
@@ -157,7 +72,7 @@
   }
 
   // -------------------------------------------------------------------
-  // Modal infra — utilities pra criar modais consistentes
+  // Modal infra
   // -------------------------------------------------------------------
 
   function fecharModal(id) {
@@ -165,28 +80,23 @@
     if (m) m.remove();
   }
 
-  /**
-   * Cria modal generico com overlay. Retorna o elemento root.
-   * Conteudo HTML interno e' fornecido pelo caller via opts.body.
-   */
   function abrirModal({ id, titulo, body, larguraMax = 520 }) {
     fecharModal(id);
     const overlay = document.createElement('div');
     overlay.id = id;
-    overlay.className = 'orcdocs-modal-overlay';
     overlay.style.cssText = `
       position: fixed; inset: 0; background: rgba(0,0,0,0.5);
       display: flex; align-items: center; justify-content: center;
       z-index: 9999; padding: 16px;
     `;
     overlay.innerHTML = `
-      <div class="orcdocs-modal-card" style="
+      <div style="
         background: #fff; border-radius: 8px;
         max-width: ${larguraMax}px; width: 100%; max-height: 90vh;
         overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         display: flex; flex-direction: column;
       ">
-        <div class="orcdocs-modal-header" style="
+        <div style="
           padding: 16px 20px; border-bottom: 1px solid #e5e7eb;
           display: flex; align-items: center; justify-content: space-between;
         ">
@@ -198,7 +108,7 @@
             cursor: pointer; color: #6b7280; line-height: 1; padding: 4px 8px;
           ">×</button>
         </div>
-        <div class="orcdocs-modal-body" style="padding: 16px 20px; flex: 1;">
+        <div style="padding: 16px 20px; flex: 1;">
           ${body}
         </div>
       </div>
@@ -211,8 +121,29 @@
     return overlay;
   }
 
+  function toast(msg, tipo = 'info') {
+    const cores = {
+      info:    { bg: '#dbeafe', fg: '#1e3a8a', border: '#93c5fd' },
+      sucesso: { bg: '#dcfce7', fg: '#14532d', border: '#86efac' },
+      erro:    { bg: '#fee2e2', fg: '#7f1d1d', border: '#fca5a5' },
+      aviso:   { bg: '#fef3c7', fg: '#78350f', border: '#fcd34d' },
+    };
+    const c = cores[tipo] || cores.info;
+    const el = document.createElement('div');
+    el.style.cssText = `
+      position: fixed; top: 16px; right: 16px;
+      background: ${c.bg}; color: ${c.fg}; border: 1px solid ${c.border};
+      padding: 12px 16px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000; font-size: 13px; font-weight: 600; max-width: 320px;
+      animation: orcdocs-slide-in 0.25s ease-out;
+    `;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
   // -------------------------------------------------------------------
-  // 📂 Abrir Orcamento — modal lista versoes pra escolher
+  // 📂 Abrir Orcamento
   // -------------------------------------------------------------------
 
   function abrirVersoesModal(leadId) {
@@ -222,15 +153,14 @@
     }
     const resumo = window.Orcamento.resumoParaCardCRM(leadId);
     if (!resumo || !resumo.versoes || resumo.versoes.length === 0) {
-      alert('Esse lead ainda nao tem versao salva. Clique em "Montar Orcamento" pra criar a primeira.');
+      alert('Esse lead ainda nao tem versao salva.\nUse "+ Nova Versao" pra criar a primeira.');
       return;
     }
 
-    // Helpers de formato local
     const fmtBR = window.fmtBR || (n => Number(n || 0).toFixed(2));
     const fmtData = window.fmtData || (s => s ? new Date(s).toLocaleDateString('pt-BR') : '');
 
-    const linhas = resumo.versoes.map((v, i) => {
+    const linhas = resumo.versoes.map((v) => {
       const tag = v.ehImutavelParaCard
         ? '<span style="background:#16a34a;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">APROVADA</span>'
         : '<span style="background:#94a3b8;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">draft</span>';
@@ -245,8 +175,7 @@
         " onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background='#f9fafb'">
           <div>
             <div style="font-weight: 700; color: #1f3658; font-size: 14px;">
-              Versão ${v.numero}
-              ${tag}
+              Versão ${v.numero} ${tag}
             </div>
             <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">
               ${data ? fmtData(data) : ''}
@@ -270,7 +199,6 @@
       `,
     });
 
-    // Handler de clique nos items
     document.querySelectorAll('#orcdocs-modal-versoes .orcdocs-versao-item').forEach(btn => {
       btn.addEventListener('click', () => {
         const versaoId = btn.dataset.versaoId;
@@ -281,14 +209,10 @@
     });
   }
 
-  /**
-   * Carrega uma versao especifica na aba Orcamento.
-   * Sinaliza pro modulo Orcamento via Storage qual lead+versao ativar.
-   */
   function carregarVersaoNaAbaOrcamento(leadId, versaoId) {
     if (typeof Storage !== 'undefined' && Storage.scope) {
       Storage.scope('app').set('orcamento_lead_ativo', leadId);
-      Storage.scope('app').set('orcamento_versao_ativa', versaoId);
+      if (versaoId) Storage.scope('app').set('orcamento_versao_ativa', versaoId);
     }
     if (typeof App !== 'undefined' && App.navigateTo) {
       App.navigateTo('orcamento', 'item');
@@ -296,14 +220,9 @@
   }
 
   // -------------------------------------------------------------------
-  // ✏️ Revisar — abre versao atual em modo edicao (sobrescreve)
+  // ✏️ Revisar
   // -------------------------------------------------------------------
 
-  /**
-   * Abre modal "Tem certeza?" e, se confirmado, reabre a ultima versao
-   * em modo edicao. Felipe (req): "subscrever em cima do orcamento ja' feito"
-   * — entao se a versao esta' fechada/aprovada, reabre como draft.
-   */
   function revisarVersaoComConfirma(leadId) {
     const negocio = window.Orcamento && window.Orcamento.obterNegocioPorLeadId
       ? window.Orcamento.obterNegocioPorLeadId(leadId) : null;
@@ -311,7 +230,6 @@
       alert('Esse lead ainda nao tem orcamento. Clique em "Montar Orcamento" primeiro.');
       return;
     }
-    // Pega a ultima versao (mais recente, independente de status)
     const todasVersoes = [];
     (negocio.opcoes || []).forEach(o => (o.versoes || []).forEach(v => {
       todasVersoes.push({ ...v, opcaoId: o.id });
@@ -361,7 +279,7 @@
   }
 
   // -------------------------------------------------------------------
-  // ➕ Nova Versao — cria Versao N+1 e abre
+  // ➕ Nova Versao
   // -------------------------------------------------------------------
 
   function criarNovaVersao(leadId) {
@@ -374,7 +292,6 @@
       alert('Esse lead ainda nao tem orcamento. Clique em "Montar Orcamento" primeiro.');
       return;
     }
-    // Pega a ultima opcao (sempre 1 em geral)
     const opcao = (negocio.opcoes || [])[0];
     if (!opcao) {
       alert('Esse orcamento nao tem opcoes ainda. Crie uma versao em "Montar Orcamento" primeiro.');
@@ -382,8 +299,7 @@
     }
     try {
       const nova = window.Orcamento.criarVersao({ opcaoId: opcao.id });
-      if (window.showSavedDialog) window.showSavedDialog(`Versão ${nova.numero} criada.`);
-      // Carrega a nova versao na aba Orcamento
+      toast(`Versão ${nova.numero} criada.`, 'sucesso');
       carregarVersaoNaAbaOrcamento(leadId, nova.id);
     } catch (e) {
       console.error('[OrcDocs] criarNovaVersao falhou:', e);
@@ -392,61 +308,146 @@
   }
 
   // -------------------------------------------------------------------
-  // 📄 Gerar Documentos — Fase 2 (placeholder por enquanto)
+  // 📄 Gerar Documentos — Fase 2 (geracao real)
   // -------------------------------------------------------------------
 
-  function gerarDocumentos(leadId) {
-    // Placeholder — implementacao real na Fase 2
-    const negocio = window.Orcamento && window.Orcamento.obterNegocioPorLeadId
-      ? window.Orcamento.obterNegocioPorLeadId(leadId) : null;
-    let lead = null;
+  function obterLead(leadId) {
     try {
       const crmStore = Storage.scope('crm');
       const cards = crmStore.get('crmCards') || crmStore.get('leads') || [];
-      lead = cards.find(c => c && c.id === leadId);
-    } catch (_) { /* sem store */ }
+      return cards.find(c => c && c.id === leadId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function obterVersaoMaisRelevante(leadId) {
+    const resumo = window.Orcamento && window.Orcamento.resumoParaCardCRM
+      ? window.Orcamento.resumoParaCardCRM(leadId) : null;
+    if (!resumo || !resumo.versoes || resumo.versoes.length === 0) return null;
+    return resumo.versoes[0];
+  }
+
+  function baixarBlob(blob, nome) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = nome;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function gerarDocumentos(leadId) {
+    const lead = obterLead(leadId);
     if (!lead) {
       alert('Lead nao encontrado.');
       return;
     }
 
-    const nomeBase = formatNomeArquivo(lead, '');
-    const exemplos = [
-      formatNomeArquivo(lead, 'Proposta')          + '.pdf',
-      formatNomeArquivo(lead, 'Painel Comercial')  + '.png',
-      formatNomeArquivo(lead, 'Resultado Porta')   + '.png',
-      formatNomeArquivo(lead, 'DRE Resumida')      + '.png',
-      formatNomeArquivo(lead, 'Resumo Da Obra')    + '.png',
-    ];
+    if (!obterAgp(lead)) {
+      alert(
+        '⚠️ Campo AGP esta vazio neste card.\n\n' +
+        'Preencha o numero AGP no card antes de gerar os documentos.\n' +
+        '(Ex: AGP004647)'
+      );
+      return;
+    }
+
+    const versaoResumo = obterVersaoMaisRelevante(leadId);
+    if (!versaoResumo) {
+      alert('Esse lead nao tem versao salva. Cria uma versao no Orcamento primeiro.');
+      return;
+    }
+    const versaoId = versaoResumo.id;
+
+    if (!window.Orcamento ||
+        typeof window.Orcamento.gerarRelatorioPNGBlob !== 'function' ||
+        typeof window.Orcamento.gerarPropostaPDFBlob !== 'function') {
+      alert('API do Orcamento incompleta.\nFaltam: gerarRelatorioPNGBlob / gerarPropostaPDFBlob.\nRecarregue a pagina.');
+      return;
+    }
+
     abrirModal({
-      id: 'orcdocs-modal-gerar',
-      titulo: '📄 Gerar Documentos',
-      larguraMax: 580,
+      id: 'orcdocs-modal-gerando',
+      titulo: '📄 Gerando documentos...',
+      larguraMax: 480,
       body: `
-        <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px;
-                    padding: 12px 14px; margin-bottom: 14px; font-size: 13px; color: #78350f;">
-          <strong>⚙️ Em construção (Fase 2):</strong><br>
-          Aqui vai gerar automaticamente:
+        <div id="orcdocs-progresso" style="font-size: 13px; color: #374151; line-height: 1.8;">
+          <div data-step="prep">⏳ Preparando dados da Versão ${versaoResumo.numero}...</div>
+          <div data-step="comercial" style="opacity:0.4;">⌛ Painel Comercial</div>
+          <div data-step="resultado-porta" style="opacity:0.4;">⌛ Resultado por Porta</div>
+          <div data-step="dre" style="opacity:0.4;">⌛ DRE Resumida</div>
+          <div data-step="obra" style="opacity:0.4;">⌛ Resumo da Obra</div>
+          <div data-step="proposta" style="opacity:0.4;">⌛ PDF Proposta Comercial</div>
         </div>
-        <ul style="margin: 0 0 14px; padding-left: 24px; font-size: 13px; color: #374151;">
-          ${exemplos.map(n => `<li style="margin: 4px 0;"><code style="background:#f3f4f6;padding:2px 6px;border-radius:3px;font-size:11px;">${n}</code></li>`).join('')}
-        </ul>
-        <div style="font-size: 12px; color: #6b7280; line-height: 1.5;">
-          <strong>Próximas fases:</strong><br>
-          • Fase 2: gerar PDF/PNGs de verdade e salvar no Supabase Storage<br>
-          • Fase 3: integração Microsoft Graph (rascunho Outlook com anexos reais)
-        </div>
-        <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
-          <button type="button" id="orcdocs-gerar-fechar" style="
-            padding: 8px 14px; background: #1f3658; color: #fff; border: none;
-            border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;
-          ">OK, entendi</button>
+        <div style="margin-top: 14px; font-size: 11px; color: #6b7280;">
+          Os arquivos serão baixados automaticamente. Pode demorar até 30 segundos.
         </div>
       `,
     });
-    document.getElementById('orcdocs-gerar-fechar')?.addEventListener('click', () => {
-      fecharModal('orcdocs-modal-gerar');
-    });
+    const setStep = (key, status) => {
+      const el = document.querySelector(`#orcdocs-progresso [data-step="${key}"]`);
+      if (!el) return;
+      el.style.opacity = '1';
+      const map = { ok: '✅', erro: '❌', loading: '⏳' };
+      el.innerHTML = el.innerHTML.replace(/^[⏳⌛✅❌]\s*/, (map[status] || '⏳') + ' ');
+    };
+
+    const arquivosGerados = [];
+    const erros = [];
+
+    const subAbas = [
+      { key: 'comercial',       tipo: 'Painel Comercial' },
+      { key: 'resultado-porta', tipo: 'Resultado Porta'  },
+      { key: 'dre',             tipo: 'DRE Resumida'     },
+      { key: 'obra',            tipo: 'Resumo Da Obra'   },
+    ];
+    setStep('prep', 'ok');
+    for (const { key, tipo } of subAbas) {
+      setStep(key, 'loading');
+      try {
+        const blob = await window.Orcamento.gerarRelatorioPNGBlob(versaoId, key);
+        if (!blob) throw new Error('blob vazio');
+        const nome = formatNomeArquivo(lead, tipo) + '.png';
+        baixarBlob(blob, nome);
+        arquivosGerados.push(nome);
+        setStep(key, 'ok');
+      } catch (e) {
+        console.error(`[OrcDocs] erro PNG ${key}:`, e);
+        erros.push(`${tipo}: ${e.message || e}`);
+        setStep(key, 'erro');
+      }
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    setStep('proposta', 'loading');
+    try {
+      const blob = await window.Orcamento.gerarPropostaPDFBlob(versaoId);
+      if (!blob) throw new Error('blob vazio');
+      const nome = formatNomeArquivo(lead, 'Proposta') + '.pdf';
+      baixarBlob(blob, nome);
+      arquivosGerados.push(nome);
+      setStep('proposta', 'ok');
+    } catch (e) {
+      console.error('[OrcDocs] erro Proposta:', e);
+      erros.push(`Proposta: ${e.message || e}`);
+      setStep('proposta', 'erro');
+    }
+
+    setTimeout(() => {
+      fecharModal('orcdocs-modal-gerando');
+      if (erros.length === 0) {
+        toast(`${arquivosGerados.length} documentos gerados!`, 'sucesso');
+      } else if (arquivosGerados.length > 0) {
+        toast(`${arquivosGerados.length} ok, ${erros.length} falharam.`, 'aviso');
+        console.warn('Erros:', erros);
+      } else {
+        alert('Nao foi possivel gerar nenhum documento:\n\n' + erros.join('\n'));
+      }
+    }, 800);
   }
 
   // -------------------------------------------------------------------
@@ -456,14 +457,23 @@
     formatNomeArquivo,
     titleCase,
     sanitizeFilename,
-    gerarAgp,
-    garantirAgp,
+    obterAgp,
     abrirVersoesModal,
     revisarVersaoComConfirma,
     criarNovaVersao,
     gerarDocumentos,
     carregarVersaoNaAbaOrcamento,
+    toast,
   };
+
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes orcdocs-slide-in {
+      from { transform: translateX(120%); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
 
   console.log('[OrcDocs] modulo carregado. API:', Object.keys(window.OrcDocs));
 })();

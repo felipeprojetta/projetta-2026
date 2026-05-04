@@ -1495,17 +1495,31 @@
             ` : ''}
             ${versoesUI}
             ${mostraBtnOrc ? `
-              <div class="crm-card-actions">
+              <div class="crm-card-actions ${temVersaoFechada ? 'is-orcdocs' : ''}">
                 ${!temVersaoFechada ? `
                   <button class="crm-card-btn-orc" data-action="montar-orcamento" data-lead-id="${l.id}" title="Abrir orcamento deste lead">📐 Montar Orcamento</button>
                 ` : `
-                  <button class="crm-card-btn-orcdocs" data-action="abrir-orcamento" data-lead-id="${l.id}" title="Abrir orcamento — escolha versao" style="background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:700;">📂 Abrir Orçamento</button>
-                  <button class="crm-card-btn-orcdocs" data-action="revisar-versao" data-lead-id="${l.id}" title="Revisar — sobrescreve versao atual" style="background:#fef3c7;color:#78350f;border:1px solid #fcd34d;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:700;">✏️ Revisar</button>
-                  <button class="crm-card-btn-orcdocs" data-action="nova-versao" data-lead-id="${l.id}" title="Cria Versao N+1" style="background:#e0e7ff;color:#312e81;border:1px solid #a5b4fc;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:700;">➕ Nova Versão</button>
-                  <button class="crm-card-btn-orcdocs" data-action="gerar-documentos" data-lead-id="${l.id}" title="Gera PDF Proposta + PNGs" style="background:#dcfce7;color:#14532d;border:1px solid #86efac;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:700;">📄 Gerar Documentos</button>
+                  <button class="crm-orcdocs-btn" data-action="abrir-orcamento" data-lead-id="${l.id}" title="Escolha versao e abra o orcamento">
+                    <span class="icon">📂</span><span>Abrir Orçamento</span>
+                  </button>
+                  <button class="crm-orcdocs-btn" data-action="revisar-versao" data-lead-id="${l.id}" title="Revisar — sobrescreve versao atual">
+                    <span class="icon">✏️</span><span>Revisar</span>
+                  </button>
+                  <button class="crm-orcdocs-btn" data-action="nova-versao" data-lead-id="${l.id}" title="Cria Versao N+1 mantendo as anteriores">
+                    <span class="icon">➕</span><span>Nova Versão</span>
+                  </button>
+                  <button class="crm-orcdocs-btn is-primary" data-action="gerar-documentos" data-lead-id="${l.id}" title="Gera PDF Proposta + 4 PNGs">
+                    <span class="icon">📄</span><span>Gerar Documentos</span>
+                  </button>
+                  <div class="crm-orcdocs-btn-secundarios">
+                    <button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:6px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>
+                    ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva" style="background:rgba(0,120,212,0.4);color:#1a5276;border:none;padding:6px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Email</button>` : ''}
+                  </div>
                 `}
-                <button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>
-                ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva com proposta" style="background:rgba(0,120,212,0.4);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Enviar Proposta</button>` : ''}
+                ${!temVersaoFechada ? `
+                  <button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>
+                  ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva com proposta" style="background:rgba(0,120,212,0.4);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Enviar Proposta</button>` : ''}
+                ` : ''}
               </div>
             ` : ''}
           </div>
