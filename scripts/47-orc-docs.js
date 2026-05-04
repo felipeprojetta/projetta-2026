@@ -36,13 +36,18 @@
 
   /**
    * Title Case com prefixos comuns mantidos: "Arq.", "Eng.", "Dr.", "Sr."
+   * E siglas em CAIXA ALTA preservadas: DRE, ACM, PA, PI, RT, etc.
    *   "CAMILA E ANDRE"           → "Camila E Andre"
+   *   "DRE Resumida"             → "DRE Resumida"   (sigla DRE preservada)
    *   "JULLIANA WAGNER PORTA..."  → "Julliana Wagner Porta..."
    *   "arq. julliana"            → "Arq. Julliana"
    */
   function titleCase(str) {
     if (!str) return '';
-    return String(str)
+    // Siglas conhecidas que devem permanecer em CAIXA ALTA
+    const SIGLAS = ['DRE', 'ACM', 'PA', 'PI', 'RT', 'NF', 'CNPJ', 'CPF', 'KESO',
+                    'PNG', 'PDF', 'XLSX', 'CRM', 'OCR', 'AGP', 'SAP'];
+    let out = String(str)
       .toLowerCase()
       .replace(/\b\w/g, ch => ch.toUpperCase())
       .replace(/\bArq\./gi,  'Arq.')
@@ -52,6 +57,12 @@
       .replace(/\bSra\./gi,  'Sra.')
       .replace(/\s+/g, ' ')
       .trim();
+    // Restaura siglas em caixa alta
+    SIGLAS.forEach(sigla => {
+      const re = new RegExp('\\b' + sigla + '\\b', 'gi');
+      out = out.replace(re, sigla);
+    });
+    return out;
   }
 
   /**
