@@ -403,9 +403,19 @@ const AcessoriosPortaExterna = (() => {
         'altura_portal_pa006': { fd19: 2, fd12: 2, ms: 8,  tamanho: 'comprimento' },
         'altura_portal_pa007': { fd19: 4, fd12: 4, ms: 10, tamanho: 'comprimento' },
         'largura_portal':      { fd19: 4, fd12: 0, ms: 5,  tamanho: 'comprimento' },
+        // Felipe sessao 2026-08 (Excel atualizado): NOVAS regras
+        'largura_porta':       { fd19: 0, fd12: 2, ms: 5,  tamanho: 'comprimento' },
+        'travessa_vert_horiz': { fd19: 4, fd12: 0, ms: 0,  tamanho: 'comprimento' },
         'altura_folha':        { fd19: 1, fd12: 0, ms: 8,  tamanho: 'comprimento' },
         'tampa_generica':      { fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro'   },
         'ripas':               { fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento' },
+        'revestimento_tampa':  { fd19: 1, fd12: 0, ms: 1,  tamanho: 'rev_parede'  },
+        // Fixo Acoplado (Excel atualizado: maior/menor usam fixo_fita_dupla,
+        // largura usa perimetro)
+        'fixo_tampa':              { fd19: 1, fd12: 0, ms: 1, tamanho: 'perimetro'       },
+        'fixo_fita_acab_maior':    { fd19: 2, fd12: 0, ms: 1, tamanho: 'fixo_fita_dupla' },
+        'fixo_fita_acab_menor':    { fd19: 0, fd12: 1, ms: 1, tamanho: 'fixo_fita_dupla' },
+        'fixo_fita_acab_largura':  { fd19: 2, fd12: 0, ms: 1, tamanho: 'perimetro'       },
       };
       const REGRAS = (window.Regras && typeof window.Regras.getFitaSilicone === 'function')
         ? window.Regras.getFitaSilicone()
@@ -420,19 +430,35 @@ const AcessoriosPortaExterna = (() => {
         mMS   += (Number(r.ms)   || 0) * metros;
       }
 
-      // Felipe sessao 2026-08: helper pra REVESTIMENTO DE PAREDE.
-      // Fita usa perimetro normal (L×2 + H×2), mas silicone tem cordoes
-      // internos a cada 800mm vertical: silicone = perimetro + L×(H/800).
-      // Por isso a regra com tamanho='rev_parede' precisa de calculo
-      // diferenciado — fita e silicone sao multiplicados por valores diferentes.
+      // Felipe sessao 2026-08 (Excel atualizado): helper pra REVESTIMENTO
+      // DE PAREDE. Fita usa perimetro normal (L×2 + H×2). Silicone tem
+      // cordoes internos a cada 800mm vertical, ARREDONDADO:
+      //   silicone = perimetro + L × Math.round(H/800)
+      // Antes era H/800 direto (sem arredondar). Excel diz 'L × (H/800
+      // ARREDIONDAD)' - aplicamos Math.round na divisao.
       function aplicarRegraRevParede(idRegra, larMm, altMm, qtdPecas) {
         const r = REGRAS[idRegra] || REGRAS_DEFAULT[idRegra];
         if (!r) return;
         const perimM    = ((larMm + altMm) * 2 * qtdPecas) / 1000;
-        const internosM = (larMm * (altMm / 800) * qtdPecas) / 1000;
+        const cordoes   = Math.round(altMm / 800);
+        const internosM = (larMm * cordoes * qtdPecas) / 1000;
         mFD19 += (Number(r.fd19) || 0) * perimM;
         mFD12 += (Number(r.fd12) || 0) * perimM;
         mMS   += (Number(r.ms)   || 0) * (perimM + internosM);
+      }
+
+      // Felipe sessao 2026-08 (Excel atualizado): helper pra FIXO ACOPLADO
+      // tamanho 'fixo_fita_dupla'. Fita usa COMPRIMENTO (altura), silicone
+      // usa PERIMETRO (L×2 + H×2). Necessario pra Fita Acabamento Maior e
+      // Fita Acabamento Menor que tem tamanhos diferentes pra cada material.
+      function aplicarRegraFixoFitaDupla(idRegra, larMm, altMm, qtdPecas) {
+        const r = REGRAS[idRegra] || REGRAS_DEFAULT[idRegra];
+        if (!r) return;
+        const compM   = (altMm * qtdPecas) / 1000;
+        const perimM  = ((larMm + altMm) * 2 * qtdPecas) / 1000;
+        mFD19 += (Number(r.fd19) || 0) * compM;
+        mFD12 += (Number(r.fd12) || 0) * compM;
+        mMS   += (Number(r.ms)   || 0) * perimM;
       }
 
       // --- 0) REVESTIMENTO DE PAREDE: pecas do motor ChapasRevParede ---
@@ -453,14 +479,14 @@ const AcessoriosPortaExterna = (() => {
       }
 
       // --- 0b) FIXO ACOPLADO A PORTA: pecas do motor PerfisRevAcoplado ---
-      // Felipe sessao 2026-08: 'Tampa L×2+H×2, fita acabamento maior/menor/
-      // largura comprimento da fita'. Itera pecas e aplica regra conforme
-      // label da peca:
-      //   'Tampa...' (qualquer)        -> fixo_tampa (perimetro)
-      //   'Fita Acabamento Maior'      -> fixo_fita_acab_maior (comprimento)
-      //   'Fita Acabamento Menor'      -> fixo_fita_acab_menor (comprimento)
-      //   'Fita Acabamento Largura'    -> fixo_fita_acab_largura (comprimento)
-      //   Outras pecas (Cava, Acabamento Lateral, etc): ignora.
+      // Felipe sessao 2026-08 (Excel atualizado):
+      //   'Tampa...' (qualquer)        -> fixo_tampa (perimetro pra ambos)
+      //   'Fita Acabamento Maior'      -> fixo_fita_acab_maior
+      //                                   (fita=comprimento, silicone=perimetro)
+      //   'Fita Acabamento Menor'      -> fixo_fita_acab_menor
+      //                                   (fita=comprimento, silicone=perimetro)
+      //   'Fita Acabamento Largura'    -> fixo_fita_acab_largura (perimetro p/ ambos)
+      //   Outras pecas (Cava, Acabamento Lateral, etc): ignora silenciosamente.
       if (item.tipo === 'fixo_acoplado') {
         try {
           const pecasFixo = (window.PerfisRevAcoplado?.gerarPecasChapa?.(item, 'externo')) || [];
@@ -470,12 +496,12 @@ const AcessoriosPortaExterna = (() => {
             const qtd = Number(p.qtd)     || 0;
             if (!lar || !alt || !qtd) return;
             const lblLow = String(p.label || '').toLowerCase().trim();
-            const compM  = (alt * qtd * qtdPortas) / 1000;            // comprimento (altura)
-            const perimM = ((lar + alt) * 2 * qtd * qtdPortas) / 1000; // perimetro
+            const qtdTotal = qtd * qtdPortas;
+            const perimM = ((lar + alt) * 2 * qtdTotal) / 1000;
 
-            if (lblLow === 'fita acabamento maior')   return aplicarRegra('fixo_fita_acab_maior', compM);
-            if (lblLow === 'fita acabamento menor')   return aplicarRegra('fixo_fita_acab_menor', compM);
-            if (lblLow === 'fita acabamento largura') return aplicarRegra('fixo_fita_acab_largura', compM);
+            if (lblLow === 'fita acabamento maior')   return aplicarRegraFixoFitaDupla('fixo_fita_acab_maior', lar, alt, qtdTotal);
+            if (lblLow === 'fita acabamento menor')   return aplicarRegraFixoFitaDupla('fixo_fita_acab_menor', lar, alt, qtdTotal);
+            if (lblLow === 'fita acabamento largura') return aplicarRegra('fixo_fita_acab_largura', perimM);
             if (lblLow.startsWith('tampa'))           return aplicarRegra('fixo_tampa', perimM);
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas fixo:', e); }
@@ -518,6 +544,10 @@ const AcessoriosPortaExterna = (() => {
               if (lbl === 'Altura Folha')              return aplicarRegra('altura_folha', m);
               if (lbl === 'Altura Portal')             return aplicarRegra(isPA007 ? 'altura_portal_pa007' : 'altura_portal_pa006', m);
               if (lbl === 'Largura Portal')            return aplicarRegra('largura_portal', m);
+              // Felipe sessao 2026-08 (Excel atualizado): NOVOS handlers
+              if (lbl === 'Largura Inferior & Superior') return aplicarRegra('largura_porta', m);
+              if (lbl === 'Travessa Vertical')         return aplicarRegra('travessa_vert_horiz', m);
+              if (lbl === 'Travessa Horizontal')       return aplicarRegra('travessa_vert_horiz', m);
               if (lbl === 'Tubo Interno das Ripas')    return aplicarRegra('ripas', m);
             });
           });

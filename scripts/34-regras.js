@@ -162,20 +162,32 @@ const Regras = (() => {
     'altura_portal_pa006': { label: 'Altura Portal · PA-PA006P',           fd19: 2, fd12: 2, ms: 8,  tamanho: 'comprimento' },
     'altura_portal_pa007': { label: 'Altura Portal · PA-PA007P',           fd19: 4, fd12: 4, ms: 10, tamanho: 'comprimento' },
     'largura_portal':      { label: 'Largura Portal',                      fd19: 4, fd12: 0, ms: 5,  tamanho: 'comprimento' },
+    // Felipe sessao 2026-08 (Excel atualizado): NOVA regra Largura Porta
+    // (perfil largura interna da folha - cod.perfLargInt 'Largura Inferior
+    // & Superior'). NAO confundir com Largura Portal acima.
+    'largura_porta':       { label: 'Largura Porta (Larg. Inferior & Superior)', fd19: 0, fd12: 2, ms: 5, tamanho: 'comprimento' },
     'altura_folha':        { label: 'Altura Folha · PA-PA006F / PA007F',   fd19: 1, fd12: 0, ms: 8,  tamanho: 'comprimento' },
     'tampa_generica':      { label: 'Outras peças "Tampa..." (perimetro)', fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro'   },
     'ripas':               { label: 'Tubo Interno das Ripas',              fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento' },
+    // Felipe sessao 2026-08 (Excel atualizado): NOVA regra Travessa
+    // Vertical / Horizontal (perfis travVert e travHor 'Travessa
+    // Vertical' / 'Travessa Horizontal'). So' fita 19, sem silicone.
+    'travessa_vert_horiz': { label: 'Travessa Vertical / Horizontal',      fd19: 4, fd12: 0, ms: 0,  tamanho: 'comprimento' },
+
     // Felipe sessao 2026-08: REVESTIMENTO DE PAREDE
     // Pra cada peca do revestimento: fita usa perimetro, silicone usa
-    // perimetro + cordoes internos a cada 800mm (L × H/800).
+    // perimetro + cordoes internos a cada 800mm (L × ROUND(H/800)).
     'revestimento_tampa':  { label: 'Revestimento de Parede · Tampa',      fd19: 1, fd12: 0, ms: 1,  tamanho: 'rev_parede'  },
 
-    // Felipe sessao 2026-08: FIXO ACOPLADO A PORTA
-    // Tampa usa perimetro. Fitas de Acabamento usam comprimento (altura).
-    'fixo_tampa':              { label: 'Fixo Acoplado · Tampa',                    fd19: 1, fd12: 0, ms: 1, tamanho: 'perimetro'   },
-    'fixo_fita_acab_maior':    { label: 'Fixo Acoplado · Fita Acabamento Maior',    fd19: 2, fd12: 0, ms: 1, tamanho: 'comprimento' },
-    'fixo_fita_acab_menor':    { label: 'Fixo Acoplado · Fita Acabamento Menor',    fd19: 0, fd12: 1, ms: 1, tamanho: 'comprimento' },
-    'fixo_fita_acab_largura':  { label: 'Fixo Acoplado · Fita Acabamento Largura',  fd19: 2, fd12: 0, ms: 1, tamanho: 'comprimento' },
+    // Felipe sessao 2026-08 (Excel atualizado): FIXO ACOPLADO A PORTA
+    // Tampa: tudo perimetro.
+    // Fita Acab Maior/Menor: fita usa comprimento, silicone usa perimetro
+    //   (tamanho='fixo_fita_dupla' aplica essa diferenca).
+    // Fita Acab Largura: tudo perimetro.
+    'fixo_tampa':              { label: 'Fixo Acoplado · Tampa',                    fd19: 1, fd12: 0, ms: 1, tamanho: 'perimetro'        },
+    'fixo_fita_acab_maior':    { label: 'Fixo Acoplado · Fita Acabamento Maior',    fd19: 2, fd12: 0, ms: 1, tamanho: 'fixo_fita_dupla'  },
+    'fixo_fita_acab_menor':    { label: 'Fixo Acoplado · Fita Acabamento Menor',    fd19: 0, fd12: 1, ms: 1, tamanho: 'fixo_fita_dupla'  },
+    'fixo_fita_acab_largura':  { label: 'Fixo Acoplado · Fita Acabamento Largura',  fd19: 2, fd12: 0, ms: 1, tamanho: 'perimetro'        },
   };
 
   function getFitaSilicone() {
@@ -929,7 +941,8 @@ const Regras = (() => {
           </td>
           <td style="font-size:11px;color:#6b7280;font-style:italic;">
             ${r.tamanho === 'perimetro' ? 'L×2 + H×2'
-              : r.tamanho === 'rev_parede' ? 'fita: L×2+H×2 / silicone: +L×(H/800)'
+              : r.tamanho === 'rev_parede' ? 'fita: L×2+H×2 / silicone: +L×round(H/800)'
+              : r.tamanho === 'fixo_fita_dupla' ? 'fita: comprimento / silicone: L×2+H×2'
               : 'comprimento'}
           </td>
         </tr>
