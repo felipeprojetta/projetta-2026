@@ -1406,11 +1406,29 @@
             ? `<div class="crm-card-fechado-em">✓ Fechado em ${fmtData(l.fechadoEm)}</div>`
             : '';
 
-          // Lista de versoes — quando tem qualquer versao (fechada ou draft),
-          // Felipe (sessao 2026-08): "RETIRE ESSA VERSOES DO CALCULO" —
-          // dropdown e botao deletar versao removidos. O usuario clicava
-          // em V1 e travava. Versoes vao ser repensadas do zero.
-          const versoesUI = '';
+          // Lista de versoes — Felipe (sessao 2026-11): nova UI com botoes
+          // de Abrir/Revisar/Nova Versao/Gerar Documentos. Quando lead tem
+          // versao fechada, aparece resumo compacto da ultima versao + os
+          // 4 botoes substituem o "Montar Orcamento".
+          // (temVersaoFechada ja' foi declarada na linha 1354)
+          const totalVersoes = (resumo && resumo.versoes) ? resumo.versoes.length : 0;
+          let versoesUI = '';
+          if (temVersaoFechada && resumo) {
+            const ultimaVersao = (resumo.versoes || [])[0]; // ja vem ordenada (imutaveis primeiro)
+            const numAprovadas = (resumo.versoes || []).filter(v => v.ehImutavelParaCard).length;
+            versoesUI = `
+              <div class="crm-card-versoes-resumo" style="
+                background:#f0fdf4;border:1px solid #86efac;border-radius:4px;
+                padding:6px 8px;margin:6px 0;font-size:11px;color:#14532d;
+              ">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="background:#16a34a;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;">✓ V${ultimaVersao.numero}</span>
+                  <span style="font-weight:700;">${totalVersoes} ${totalVersoes === 1 ? 'versão' : 'versões'}</span>
+                  ${numAprovadas > 0 ? `<span style="color:#15803d;">(${numAprovadas} aprovada${numAprovadas > 1 ? 's' : ''})</span>` : ''}
+                </div>
+              </div>
+            `;
+          }
 
           return `
           <div class="crm-card" draggable="true" data-id="${l.id}">
@@ -1478,7 +1496,14 @@
             ${versoesUI}
             ${mostraBtnOrc ? `
               <div class="crm-card-actions">
-                <button class="crm-card-btn-orc" data-action="montar-orcamento" data-lead-id="${l.id}" title="Abrir orcamento deste lead">📐 Montar Orcamento</button>
+                ${!temVersaoFechada ? `
+                  <button class="crm-card-btn-orc" data-action="montar-orcamento" data-lead-id="${l.id}" title="Abrir orcamento deste lead">📐 Montar Orcamento</button>
+                ` : `
+                  <button class="crm-card-btn-orcdocs" data-action="abrir-orcamento" data-lead-id="${l.id}" title="Abrir orcamento — escolha versao" style="background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:700;">📂 Abrir Orçamento</button>
+                  <button class="crm-card-btn-orcdocs" data-action="revisar-versao" data-lead-id="${l.id}" title="Revisar — sobrescreve versao atual" style="background:#fef3c7;color:#78350f;border:1px solid #fcd34d;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:700;">✏️ Revisar</button>
+                  <button class="crm-card-btn-orcdocs" data-action="nova-versao" data-lead-id="${l.id}" title="Cria Versao N+1" style="background:#e0e7ff;color:#312e81;border:1px solid #a5b4fc;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:700;">➕ Nova Versão</button>
+                  <button class="crm-card-btn-orcdocs" data-action="gerar-documentos" data-lead-id="${l.id}" title="Gera PDF Proposta + PNGs" style="background:#dcfce7;color:#14532d;border:1px solid #86efac;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:700;">📄 Gerar Documentos</button>
+                `}
                 <button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>
                 ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva com proposta" style="background:rgba(0,120,212,0.4);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Enviar Proposta</button>` : ''}
               </div>
@@ -1982,6 +2007,36 @@
               Storage.scope('app').set('orcamento_lead_ativo', leadId);
               App.navigateTo('orcamento', 'item');
             }
+            return;
+          }
+          // Felipe (sessao 2026-11): novos botoes OrcDocs no card —
+          // 📂 Abrir Orcamento | ✏️ Revisar | ➕ Nova Versao | 📄 Gerar Documentos
+          const btnAbrirOrc = e.target.closest('[data-action="abrir-orcamento"]');
+          if (btnAbrirOrc) {
+            e.stopPropagation();
+            const leadId = btnAbrirOrc.dataset.leadId;
+            if (leadId && window.OrcDocs) window.OrcDocs.abrirVersoesModal(leadId);
+            return;
+          }
+          const btnRevisar = e.target.closest('[data-action="revisar-versao"]');
+          if (btnRevisar) {
+            e.stopPropagation();
+            const leadId = btnRevisar.dataset.leadId;
+            if (leadId && window.OrcDocs) window.OrcDocs.revisarVersaoComConfirma(leadId);
+            return;
+          }
+          const btnNovaV = e.target.closest('[data-action="nova-versao"]');
+          if (btnNovaV) {
+            e.stopPropagation();
+            const leadId = btnNovaV.dataset.leadId;
+            if (leadId && window.OrcDocs) window.OrcDocs.criarNovaVersao(leadId);
+            return;
+          }
+          const btnGerarDoc = e.target.closest('[data-action="gerar-documentos"]');
+          if (btnGerarDoc) {
+            e.stopPropagation();
+            const leadId = btnGerarDoc.dataset.leadId;
+            if (leadId && window.OrcDocs) window.OrcDocs.gerarDocumentos(leadId);
             return;
           }
           // WhatsApp — abre link wa.me com mensagem template

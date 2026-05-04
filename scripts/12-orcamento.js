@@ -5233,10 +5233,17 @@ const Orcamento = (() => {
                     </div>
                   </div>
                 </div>
-                <button type="button" class="orc-aprovacao-btn-reaprovar" id="orc-btn-reaprovar"
-                        title="Re-aprovar com o valor atual (caso tenha alterado parametros)">
-                  ↻ Re-aprovar com R$ ${fmtBR(r.pFatReal)}
-                </button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button type="button" class="orc-aprovacao-btn-reaprovar" id="orc-btn-reaprovar"
+                          title="Re-aprovar com o valor atual (caso tenha alterado parametros)">
+                    ↻ Re-aprovar com R$ ${fmtBR(r.pFatReal)}
+                  </button>
+                  <button type="button" id="orc-btn-gerar-documentos"
+                          title="Gerar PDF Proposta + PNGs e abrir email"
+                          style="background:#16a34a;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:700;">
+                    📄 Gerar Documentos
+                  </button>
+                </div>
               </div>
             `;
           }
@@ -5417,6 +5424,22 @@ const Orcamento = (() => {
       const ok = confirm('Re-aprovar com o valor atual?\n\nO valor antigo sera substituido no card do CRM.');
       if (!ok) return;
       _executarAprovacao(versao);
+    });
+    // Felipe (sessao 2026-11): Gerar Documentos direto do DRE quando aprovado.
+    // Tambem disponivel no card do CRM. Delega pro modulo OrcDocs.
+    container.querySelector('#orc-btn-gerar-documentos')?.addEventListener('click', () => {
+      const leadId = (typeof Storage !== 'undefined' && Storage.scope)
+        ? Storage.scope('app').get('orcamento_lead_ativo')
+        : null;
+      if (!leadId) {
+        alert('Nenhum lead ativo. Volte pro CRM e clique em "Abrir Orcamento" do lead.');
+        return;
+      }
+      if (window.OrcDocs && typeof window.OrcDocs.gerarDocumentos === 'function') {
+        window.OrcDocs.gerarDocumentos(leadId);
+      } else {
+        alert('Modulo OrcDocs nao carregado. Recarregue a pagina.');
+      }
     });
 
     // Inputs de subFab/subInst e parametros — recalcula em tempo real
