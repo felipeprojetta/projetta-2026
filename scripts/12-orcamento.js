@@ -1659,6 +1659,10 @@ const Orcamento = (() => {
     let versaoAlvo = null;
     const versaoSinalizadaId = Storage.scope('app').get('orcamento_versao_ativa');
     if (versaoSinalizadaId) {
+      // Felipe sessao 2026-08: vir do CRM (signal setado) limpa a flag
+      // de suprimir-repopulacao. Usuario veio explicitamente pra ver os
+      // dados (clicou no card → "abrir versao"), entao queremos repopular.
+      UI._suprimirRepopulacaoLead = false;
       const r = obterVersao(versaoSinalizadaId);
       // So aceita se a versao ainda existe E pertence ao mesmo negocio
       if (r && r.negocio && r.negocio.id === neg.id) {
@@ -1689,11 +1693,12 @@ const Orcamento = (() => {
     const versaoVazia = itensAtuais.length === 0;
     const primeiroVirgem = itensAtuais.length === 1 && _itemVirgem(itensAtuais[0]);
 
-    // Felipe (sessao 2026-08): flag setada por zerarNegocioAtivo pra
-    // suprimir repopulacao logo apos um Zerar (senao dados voltariam
-    // do lead). Consumida aqui — limpa pra nao afetar proximas entradas.
+    // Felipe (sessao 2026-08): flag setada por zerarNegocioAtivo. PERSISTE
+    // entre abas internas (item, custo, dre, proposta, etc) - so' e' limpa
+    // quando user volta pelo CRM (signal orcamento_versao_ativa) ou
+    // recarrega pagina (UI in-memory reseta). Sem essa persistencia,
+    // trocar de aba apos Zerar repopulava os dados de novo.
     const suprimirRepop = !!UI._suprimirRepopulacaoLead;
-    UI._suprimirRepopulacaoLead = false;
 
     if ((versaoVazia || primeiroVirgem) && !suprimirRepop) {
       // Caso vazio: cria item novo. Caso virgem: reusa item existente
