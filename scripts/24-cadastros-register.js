@@ -61,6 +61,16 @@ App.register('cadastros', {
       }
       return;
     }
+    // Felipe sessao 2026-08: aba Mensagens implementada (templates de
+    // WhatsApp e Email pra cliente/representante).
+    if (tab === 'mensagens') {
+      if (typeof Mensagens !== 'undefined') {
+        Mensagens.render(container);
+      } else {
+        container.innerHTML = '<div class="info-banner">Modulo Mensagens nao carregado.</div>';
+      }
+      return;
+    }
     // Demais sub-abas ainda nao implementadas
     const labelMap = {
       acessorios: 'Acessorios', superficies: 'Superficies',
