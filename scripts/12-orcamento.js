@@ -1718,7 +1718,18 @@ const Orcamento = (() => {
       lados: '1lado',              // '1lado' (so externo) ou '2lados' (externo+interno)
       fixoSegueModelo: 'sim',      // 'sim' (default — replica porta) ou 'nao' (escolher modelo proprio)
     };
-    if (tipo === 'revestimento_parede') return { tipo: 'revestimento_parede', quantidade: 1, area: '' };
+    if (tipo === 'revestimento_parede') return {
+      tipo: 'revestimento_parede',
+      quantidade: 1,
+      area: '',
+      modo: 'manual',
+      pecas: [],
+      // Felipe sessao 2026-05: campos de estrutura (default sem)
+      temEstrutura: 'nao',
+      tuboEstrutura: '',
+      largura_total: '',
+      altura_total: '',
+    };
     return { tipo: '', quantidade: 1 };
   }
 
@@ -2244,6 +2255,50 @@ const Orcamento = (() => {
         </div>
 
         <div class="orc-section">
+          <div class="orc-section-title">Estrutura</div>
+          <div class="orc-form-row">
+            <div class="orc-field">
+              <label>Tem estrutura?</label>
+              <select data-field="temEstrutura">
+                <option value="nao" ${item.temEstrutura !== 'sim' ? 'selected' : ''}>Sem estrutura (so chapas)</option>
+                <option value="sim" ${item.temEstrutura === 'sim' ? 'selected' : ''}>Com estrutura (tubos de aluminio)</option>
+              </select>
+            </div>
+          </div>
+          ${item.temEstrutura === 'sim' ? `
+          <div class="orc-form-row">
+            <div class="orc-field">
+              <label>Tubo da estrutura</label>
+              <select data-field="tuboEstrutura">
+                <option value="" ${!item.tuboEstrutura ? 'selected' : ''}>— Escolha um tubo</option>
+                <option value="PA-25X12X1.58" ${item.tuboEstrutura === 'PA-25X12X1.58' ? 'selected' : ''}>Tubo 25 × 12 × 1.58 (0,30 kg/m)</option>
+                <option value="PA-51X12X1.2"  ${item.tuboEstrutura === 'PA-51X12X1.2'  ? 'selected' : ''}>Tubo 51 × 12 × 1.2 (0,40 kg/m)</option>
+                <option value="PA-51X12X1.58" ${item.tuboEstrutura === 'PA-51X12X1.58' ? 'selected' : ''}>Tubo 51 × 12 × 1.58 (0,52 kg/m)</option>
+                <option value="PA-51X25X1.5"  ${item.tuboEstrutura === 'PA-51X25X1.5'  ? 'selected' : ''}>Tubo 51 × 25 × 1.5 (0,59 kg/m)</option>
+                <option value="PA-51X25X2.0"  ${item.tuboEstrutura === 'PA-51X25X2.0'  ? 'selected' : ''}>Tubo 51 × 25 × 2.0 (0,78 kg/m)</option>
+                <option value="PA-76X38X1.98" ${item.tuboEstrutura === 'PA-76X38X1.98' ? 'selected' : ''}>Tubo 76 × 38 × 1.98 (1,18 kg/m)</option>
+              </select>
+            </div>
+          </div>
+          ${item.modo === 'manual' ? `
+          <div class="orc-form-row">
+            <div class="orc-field">
+              <label>Largura total da parede (mm)</label>
+              <input type="number" min="0" data-field="largura_total" value="${escapeHtml(String(item.largura_total || ''))}" placeholder="ex: 5000" />
+            </div>
+            <div class="orc-field">
+              <label>Altura total da parede (mm)</label>
+              <input type="number" min="0" data-field="altura_total" value="${escapeHtml(String(item.altura_total || ''))}" placeholder="ex: 3000" />
+            </div>
+          </div>
+          <div style="font-size:12px;color:#666;margin-top:4px">
+            Necessario quando tem estrutura no modo manual (a estrutura precisa das medidas totais da parede).
+          </div>
+          ` : ''}
+          ` : ''}
+        </div>
+
+        <div class="orc-section">
           <div class="orc-section-title">Modo de Calculo</div>
           <div class="orc-form-row">
             <div class="orc-field">
@@ -2434,7 +2489,8 @@ const Orcamento = (() => {
         if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
         // Campos que mudam o layout precisam re-render
         if (['modo', 'revestimento', 'divisao_largura', 'com_refilado',
-             'largura_total', 'altura_total'].includes(field)) {
+             'largura_total', 'altura_total',
+             'temEstrutura'].includes(field)) {
           reRender();
         }
       });
