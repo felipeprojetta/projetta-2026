@@ -6005,9 +6005,22 @@ const Orcamento = (() => {
       if (!b.temRegra) {
         const tipoLabel = labelTipo(b.item?.tipo) || 'item';
         const semDim = (!b.item?.largura || !b.item?.altura);
-        const motivo = semDim
-          ? 'Largura e/ou altura nao foram preenchidas em "Caracteristicas do Item".'
-          : `Motor de calculo de "${tipoLabel}" ainda nao foi implementado.`;
+        // Detecta se o motor existe globalmente (se não, é cache antigo)
+        const motorEsperado = b.item?.tipo === 'porta_externa' ? window.PerfisPortaExterna
+                            : b.item?.tipo === 'porta_interna' ? window.PerfisPortaInterna
+                            : b.item?.tipo === 'fixo_acoplado' ? window.PerfisRevAcoplado
+                            : b.item?.tipo === 'revestimento_parede' ? window.PerfisRevParede
+                            : null;
+        const motorAusente = !!b.item?.tipo && !motorEsperado;
+        let motivo, acaoExtra = '';
+        if (semDim) {
+          motivo = 'Largura e/ou altura nao foram preenchidas em "Caracteristicas do Item".';
+        } else if (motorAusente) {
+          motivo = `O motor de calculo nao foi carregado (provavelmente cache do navegador antigo). Recarregue a pagina.`;
+          acaoExtra = `<button onclick="location.reload(true)" style="margin-top:10px;padding:8px 16px;background:#1a5276;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">🔄 Recarregar agora</button>`;
+        } else {
+          motivo = `Motor de calculo de "${tipoLabel}" ainda nao foi implementado.`;
+        }
         return `
           <div class="lvp-item-bloco">
             <div class="lvp-item-titulo">
@@ -6016,6 +6029,7 @@ const Orcamento = (() => {
             </div>
             <div class="lvp-item-vazio">
               ⚠ ${escapeHtml(motivo)}
+              ${acaoExtra}
             </div>
           </div>`;
       }
