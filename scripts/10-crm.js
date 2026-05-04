@@ -1490,7 +1490,22 @@
                 <div>📐 <b>${l.porta_largura && l.porta_altura ? escapeHtml(l.porta_largura) + ' × ' + escapeHtml(l.porta_altura) + ' mm' : '—'}</b></div>
                 <div>🚪 Modelo <b>${l.porta_modelo ? escapeHtml(l.porta_modelo) : '—'}</b></div>
                 <div>🎨 ${l.porta_cor ? escapeHtml(l.porta_cor) : '—'}</div>
-                <div>🔐 Fechadura: <b>${l.porta_fechadura_digital === 'sim' ? 'Digital' : l.porta_fechadura_digital === 'nao' ? 'Não' : '—'}</b></div>
+                <div>🔐 Fechadura: <b>${(() => {
+                  const v = String(l.porta_fechadura_digital || '').trim();
+                  if (!v) return '—';
+                  if (v === 'nao') return 'Não se aplica';
+                  if (v === 'sim') return 'Digital';
+                  // Felipe sessao 2026-08: tenta lookup em Acessorios (Cadastros)
+                  // pra mostrar descricao amigavel quando v e' codigo de produto.
+                  // Se nao achar, mostra o proprio valor truncado.
+                  let desc = v;
+                  try {
+                    const acessLista = Storage.scope('cadastros').get('acessorios_lista') || [];
+                    const a = acessLista.find(x => String(x.codigo || '') === v);
+                    if (a && a.descricao) desc = String(a.descricao);
+                  } catch(_) {}
+                  return escapeHtml(desc.length > 32 ? desc.slice(0, 30) + '…' : desc);
+                })()}</b></div>
               </div>
             ` : ''}
             ${versoesUI}
