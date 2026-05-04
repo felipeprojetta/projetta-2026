@@ -137,14 +137,39 @@
     }
     var loadingTask = window.pdfjsLib.getDocument({ data: pdfBytes });
     var pdf = await loadingTask.promise;
+    // Felipe sessao 2026-08: debug detalhado pra distinguir PDF imagem
+    // (0 items de texto) de PDF texto vetorial (N items).
     var textoCompleto = '';
+    var totalItems = 0;
+    var amostraItems = [];
     for (var p = 1; p <= pdf.numPages; p++) {
       var page = await pdf.getPage(p);
       var content = await page.getTextContent();
-      var textoPagina = (content.items || []).map(function(it) { return it.str; }).join(' ');
+      var items = content.items || [];
+      totalItems += items.length;
+      // Guarda amostra dos primeiros 5 items pra debug
+      if (amostraItems.length < 5) {
+        items.slice(0, 5 - amostraItems.length).forEach(function(it) {
+          amostraItems.push({ str: it.str, page: p });
+        });
+      }
+      var textoPagina = items.map(function(it) { return it.str; }).join(' ');
       textoCompleto += textoPagina + '\n';
     }
-    return textoCompleto;
+    console.log('[email-import] PDF lido: ' + pdf.numPages + ' pagina(s), ' +
+                totalItems + ' items de texto.');
+    if (totalItems === 0) {
+      console.warn('[email-import] ⚠️ PDF NAO TEM TEXTO EXTRAIVEL — provavelmente ' +
+                   'e uma IMAGEM (scan). PDF.js nao le imagens. Solucao: OCR.');
+    } else if (totalItems < 5) {
+      console.warn('[email-import] ⚠️ PDF tem POUCOS items (' + totalItems +
+                   '). Pode ser parcialmente imagem. Amostra:', amostraItems);
+    }
+    return {
+      texto: textoCompleto,
+      numPages: pdf.numPages,
+      totalItems: totalItems,
+    };
   }
 
   /**
@@ -314,13 +339,17 @@
       var dadosPDF = {};
       var textoPDFGuardado = '';   // Felipe sessao 2026-08: pra mostrar pro Felipe se parser falhar
       var nomePDFGuardado  = '';
+      var pdfMetaInfo      = { numPages: 0, totalItems: 0 };
       try {
         var pdfMeta = await acharPrimeiroPDF(msgId);
         if (pdfMeta) {
           nomePDFGuardado = pdfMeta.name || 'anexo.pdf';
           setStatus('🔄 Lendo PDF "' + nomePDFGuardado + '"...', '#1565c0');
           var pdfBytes = await baixarAnexo(msgId, pdfMeta.id);
-          var texto = await extrairTextoPDF(pdfBytes);
+          var resultado = await extrairTextoPDF(pdfBytes);
+          var texto = resultado.texto || '';
+          pdfMetaInfo.numPages   = resultado.numPages   || 0;
+          pdfMetaInfo.totalItems = resultado.totalItems || 0;
           textoPDFGuardado = texto;
           // Felipe sessao 2026-08: log do texto extraido pra debug do parser.
           // Tambem fica acessivel via window._ultimoTextoPDF
@@ -371,6 +400,12 @@
       }
       if (dadosPDF.porta_modelo)  dadosTxt += ' · Modelo ' + dadosPDF.porta_modelo;
       if (dadosPDF.porta_cor)     dadosTxt += ' · Cor ' + dadosPDF.porta_cor;
+      // Felipe sessao 2026-08: aviso quando PDF e' imagem
+      if (textoPDFGuardado !== undefined && pdfMetaInfo.totalItems === 0 && nomePDFGuardado) {
+        dadosTxt += ' · ⚠️ PDF e imagem (sem texto). Preencha porta no card.';
+      } else if (pdfMetaInfo.totalItems > 0 && !dadosPDF.porta_largura && !dadosPDF.porta_modelo) {
+        dadosTxt += ' · ⚠️ PDF tem texto (' + pdfMetaInfo.totalItems + ' items) mas parser nao achou campos.';
+      }
       setStatus('✅ ' + resumo + dadosTxt, '#16a34a');
 
       // Felipe sessao 2026-08: SEMPRE mostra botao "Copiar texto do PDF"
