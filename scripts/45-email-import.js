@@ -207,13 +207,31 @@
 
   /**
    * Felipe sessao 2026-08: mapeamento de fieldName (form field do PDF Weiku)
-   * pra campo do lead. Tenta varios nomes possiveis pra cada campo, ja que
-   * nao sabemos exato como a Weiku nomeou. Se nao casar, retorna {} e o
-   * fluxo cai pro parser de regex no texto.
+   * pra campo do lead.
+   *
+   * Os PDFs Weiku usam nomes GENERICOS pros campos: Texto1, Texto2, Texto6,
+   * Dropdown12, Dropdown15, etc. Mapeamento abaixo baseado em PDF real
+   * fornecido pelo Felipe (Console F12 mostrou os fieldName/fieldValue):
+   *   Texto1     = DATA              (ex: 02/05/2026)
+   *   Texto2     = N° DE RESERVA     (ex: 146510)
+   *   Texto6     = LARGURA X ALTURA  (ex: '1300x2600' ou '1300 X 2600')
+   *   Texto7     = OBSERVACOES       (texto livre)
+   *   Texto13    = REPRESENTANTE
+   *   Texto14    = CLIENTE
+   *   Dropdown12 = MODELO            (ex: 14)
+   *   Dropdown15 = COR PORTA         (ex: PRO0157T - PRETO WEATHERXL BB LDPE)
+   *   Dropdown16 = R.T
+   *   Dropdown17 = MARKUP
+   *   Dropdown18 = FECHADURA DIGITAL
+   *   Dropdown19 = FIXO
+   *   Dropdown20 = VIDRO
+   *
+   * Tambem aceita nomes semanticos (LARGURA, MODELO, COR_PORTA, etc) caso
+   * Weiku renomeie no futuro - prioridade alta antes do fallback por numero.
    */
   function parsearCamposFormulario(camposFormulario) {
     if (!camposFormulario || Object.keys(camposFormulario).length === 0) return {};
-    // Normaliza chaves: lowercase + sem acentos + sem espaços
+    // Normaliza chaves: lowercase + sem acentos + sem espacos/underscores
     var normalizado = {};
     Object.keys(camposFormulario).forEach(function(k) {
       var kn = String(k).toLowerCase()
@@ -225,18 +243,22 @@
     function pegar() {
       // Aceita varios nomes possiveis (ordem = prioridade)
       for (var i = 0; i < arguments.length; i++) {
-        var k = arguments[i].toLowerCase()
+        var k = String(arguments[i]).toLowerCase()
           .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
           .replace(/[\s_\-\.]+/g, '');
-        if (normalizado[k] !== undefined && normalizado[k] !== '') {
+        if (normalizado[k] !== undefined && normalizado[k] !== null && normalizado[k] !== '') {
           return String(normalizado[k]).trim();
         }
       }
       return '';
     }
 
-    // LARGURA X ALTURA pode estar como campo unico ou separado
-    var larguraAltura = pegar('LARGURA X ALTURA', 'LARGURAXALTURA', 'DIMENSAO', 'DIMENSOES');
+    // LARGURA X ALTURA: pode estar em campo unico (Texto6) ou separado.
+    // Aceita formatos: '1300x2600', '1300 X 2600', '1300X2600 mm'
+    var larguraAltura = pegar(
+      'LARGURA X ALTURA', 'LARGURAXALTURA', 'DIMENSAO', 'DIMENSOES',
+      'Texto6'  // mapeamento Weiku conhecido
+    );
     var largura = '', altura = '';
     if (larguraAltura) {
       var dim = String(larguraAltura).match(/(\d{2,5})\s*[Xx×]\s*(\d{2,5})/);
@@ -245,9 +267,18 @@
     if (!largura) largura = pegar('LARGURA', 'LARG');
     if (!altura)  altura  = pegar('ALTURA', 'ALT');
 
-    var modelo = pegar('MODELO', 'MODELO_PORTA', 'MODELOPORTA');
-    var cor    = pegar('COR PORTA', 'CORPORTA', 'COR', 'COR_PORTA');
-    var fechDigRaw = pegar('FECHADURA DIGITAL', 'FECHADURADIGITAL', 'FECHADURA');
+    var modelo = pegar(
+      'MODELO', 'MODELO_PORTA', 'MODELOPORTA',
+      'Dropdown12'  // mapeamento Weiku conhecido
+    );
+    var cor = pegar(
+      'COR PORTA', 'CORPORTA', 'COR', 'COR_PORTA',
+      'Dropdown15'  // mapeamento Weiku conhecido
+    );
+    var fechDigRaw = pegar(
+      'FECHADURA DIGITAL', 'FECHADURADIGITAL', 'FECHADURA',
+      'Dropdown18'  // mapeamento Weiku conhecido
+    );
 
     var fechDig = '';
     if (fechDigRaw) {
@@ -410,11 +441,27 @@
       }
       setStatus('🔄 Reserva ' + reserva + ' identificada. Buscando na intranet...', '#1565c0');
 
-      // 3. Verifica se ja existe esse lead
+      // 3. Verifica se ja existe esse lead.
+      //    Felipe sessao 2026-08: se ja existe, pergunta se quer atualizar
+      //    campos da porta (util pra completar leads importados antes do
+      //    fix de annotations).
       var leads = (typeof Storage !== 'undefined' ? Storage.scope('crm').get('leads') : []) || [];
-      var jaExiste = leads.find(function(l) { return String(l.numeroReserva) === String(reserva); });
-      if (jaExiste) {
-        throw new Error('Reserva ' + reserva + ' ja existe no CRM (lead "' + jaExiste.cliente + '"). Abra o card existente.');
+      var leadExistente = leads.find(function(l) { return String(l.numeroReserva) === String(reserva); });
+      var modoAtualizar = false;
+      if (leadExistente) {
+        var ok = confirm(
+          'Reserva ' + reserva + ' ja existe no CRM (lead "' + leadExistente.cliente + '").\n\n' +
+          'Atualizar os campos da porta (largura, altura, modelo, cor, fechadura) ' +
+          'com os dados deste email/PDF?\n\n' +
+          'Os outros campos (cliente, telefone, AGP, etapa) NAO serao tocados.\n\n' +
+          'OK = atualizar / Cancelar = nao fazer nada'
+        );
+        if (!ok) {
+          setBusy(false);
+          setStatus('Cancelado pelo usuario.', '#9a3412');
+          return;
+        }
+        modoAtualizar = true;
       }
 
       // 4. Busca dados Weiku
@@ -426,14 +473,15 @@
 
       // 4.1 Felipe sessao 2026-08: Weiku retorna so CEP. Faz lookup
       //     ViaCEP pra completar cidade/estado antes de criar lead.
-      if (dadosWeiku.cep) {
+      //     No modo atualizar, pula (lead ja tem cidade/estado).
+      if (!modoAtualizar && dadosWeiku.cep) {
         setStatus('🔄 Buscando cidade/estado pelo CEP ' + dadosWeiku.cep + '...', '#1565c0');
         var cepInfo = await buscarCidadeEstadoPorCEP(dadosWeiku.cep);
         if (cepInfo.cidade) dadosWeiku.cidade = cepInfo.cidade;
         if (cepInfo.estado) dadosWeiku.estado = cepInfo.estado;
       }
-      setStatus('🔄 Dados encontrados: ' + dadosWeiku.nome_cliente +
-                (dadosWeiku.cidade ? ' (' + dadosWeiku.cidade + '/' + (dadosWeiku.estado||'') + ')' : '') +
+      setStatus('🔄 ' + (modoAtualizar ? 'Atualizando ' : 'Dados encontrados: ') + dadosWeiku.nome_cliente +
+                (dadosWeiku.cidade && !modoAtualizar ? ' (' + dadosWeiku.cidade + '/' + (dadosWeiku.estado||'') + ')' : '') +
                 '. Procurando PDF anexo...', '#1565c0');
 
       // 5. Procura PDF anexo (opcional - sem PDF cria lead so com dados Weiku)

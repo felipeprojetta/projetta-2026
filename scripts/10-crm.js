@@ -2472,7 +2472,19 @@
       });
     }
 
-    return { render };
+    // Felipe sessao 2026-08: forceReload exposto pra uso externo (handler
+    // crm:reload em App.register, robo de email, etc). Antes o handler
+    // tentava chamar 'loaded' e 'load' diretamente fora do closure - dava
+    // ReferenceError silencioso. Agora externos chamam Crm.forceReload().
+    function forceReload(container) {
+      loaded = false;
+      load();
+      if (container) {
+        render(container);
+      }
+    }
+
+    return { render, forceReload };
   })();
 
   /* ============================================================
@@ -2489,11 +2501,13 @@
           Crm.render(container);
         });
         Events.on('crm:reload', function() {
-          loaded = false; // Forca re-leitura do storage
-          load();
-          if (window.App && window.App.state && window.App.state.currentModule === 'crm') {
-            render(container);
-          }
+          // Felipe sessao 2026-08: BUGFIX - handler tentava acessar
+          // 'loaded' e 'load' fora do closure do Crm IIFE -> ReferenceError.
+          // Agora usa funcao publica Crm.forceReload(container) que faz
+          // loaded=false; load() e re-renderiza se container passado.
+          var deveRenderizar = (window.App && window.App.state &&
+                                window.App.state.currentModule === 'crm');
+          Crm.forceReload(deveRenderizar ? container : null);
         });
       }
     }
