@@ -2152,15 +2152,32 @@
                   + 'Caso o RT seja menor que 5%, a diferença deve ser somada ao desconto final do cliente.</p>'
                   + '<br>'
                   + '<p style="font-size:11px;color:#888">— Enviado via Projetta by Weiku</p>';
-                // Responde a todos no email original
-                await window.outlookReplyAll(emailOrigem.id, msgBody);
-                btnEmail.textContent = '✅ Enviado!';
-                btnEmail.style.background = '#2e7d32';
-                // Marca flag no email
-                if (window._outlookToggleFlag) {
-                  window._outlookToggleFlag(emailOrigem.id, 'Orcamento Pronto', null);
+                // Felipe sessao 2026-08: ANTES enviava direto via outlookReplyAll.
+                // Agora abre OutlookComposer pro Felipe revisar/editar/anexar
+                // (a Proposta Comercial PDF) antes de enviar.
+                btnEmail.textContent = '📧 Enviar Proposta';
+                if (!window.OutlookComposer || typeof window.OutlookComposer.open !== 'function') {
+                  alert('Composer de email nao carregado. Recarregue a pagina.');
+                  return;
                 }
-                setTimeout(() => { btnEmail.textContent = '📧 Enviar Proposta'; btnEmail.style.background = '#0078d4'; }, 3000);
+                window.OutlookComposer.open({
+                  msgId: emailOrigem.id,
+                  subject: emailOrigem.subject || ('Re: Reserva ' + lead.numeroReserva),
+                  bodyHtml: msgBody,
+                  attachments: [],  // Felipe anexa manualmente. Futuro: anexar Proposta PDF + Painel Comercial PNG.
+                  onSent: function() {
+                    btnEmail.textContent = '✅ Enviado!';
+                    btnEmail.style.background = '#2e7d32';
+                    // Marca flag no email original
+                    if (window._outlookToggleFlag) {
+                      window._outlookToggleFlag(emailOrigem.id, 'Orcamento Pronto', null);
+                    }
+                    setTimeout(() => { btnEmail.textContent = '📧 Enviar Proposta'; btnEmail.style.background = '#0078d4'; }, 3000);
+                  },
+                  onCancel: function() {
+                    btnEmail.textContent = '📧 Enviar Proposta';
+                  },
+                });
               } catch(err) {
                 console.error('[enviar-proposta]', err);
                 alert('Erro ao enviar: ' + err.message);
