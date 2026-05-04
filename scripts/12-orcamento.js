@@ -7726,8 +7726,25 @@ const Orcamento = (() => {
   /**
    * Card de UM item na proposta comercial — imagem do modelo + caracteristicas
    * + banners de alertas (alisar, fechadura, cilindro).
+   *
+   * Felipe sessao 2026-08:
+   *   - FIXO ACOPLADO A PORTA NAO gera card visual aqui (e' parte do
+   *     conjunto da porta - aparece apenas na tabela inferior).
+   *   - REVESTIMENTO DE PAREDE gera card sem imagem, mostrando so' as
+   *     variaveis do item.
    */
   function renderCardItemProposta(item, idx, versao) {
+    // Felipe sessao 2026-08: fixo acoplado nao gera card visual proprio.
+    // 'E UM ITEM UNICO COM A PORTA - SOMENTE DESCRICAO E PRECO FICA
+    // MESCLADO ENTRE PORTA E FIXO ACOPLADO A PORTA'.
+    if (item.tipo === 'fixo_acoplado') return '';
+
+    // Felipe sessao 2026-08: revestimento de parede tem card sem imagem,
+    // so' com as variaveis (cor da peca, dimensoes, area, estrutura, etc).
+    if (item.tipo === 'revestimento_parede') {
+      return renderCardItemPropostaRevestimento(item, idx, versao);
+    }
+
     // Lookup do modelo no cadastro pra pegar imagem e nome
     let modeloInfo = null;
     if (window.Modelos && typeof window.Modelos.listar === 'function') {
@@ -7809,6 +7826,56 @@ const Orcamento = (() => {
             return `<div class="rel-prop-item-linhas rel-prop-item-modelo-vars">${linhas}</div>`;
           })()}
           ${bannerAlisar}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Felipe sessao 2026-08: card especifico pra REVESTIMENTO DE PAREDE
+   * na proposta comercial. SEM IMAGEM (Felipe pediu: 'NOVA VISUALISACAO
+   * COM CARACTERISTICA MAS SEM IMAGEM ALGUMA TRAGA SO AS VARIAVEIS DO
+   * ITEM'). Largura 100% (ocupa todo card sem area de img).
+   * Variaveis exibidas: Qtd, L_total, H_total, Area, Estrutura, Tubo,
+   * Modo, e lista de pecas (largura/altura/cor por peca, se houver).
+   */
+  function renderCardItemPropostaRevestimento(item, idx, versao) {
+    const lar = parseBR(item.largura_total) || 0;
+    const alt = parseBR(item.altura_total) || 0;
+    const areaM2 = (lar / 1000) * (alt / 1000);
+    const qtd = Number(item.quantidade) || 1;
+    const temEstr = item.temEstrutura === 'sim';
+    const tubo = item.tuboEstrutura ? escapeHtml(item.tuboEstrutura) : '—';
+    const modoTxt = (item.modo || 'manual').toUpperCase();
+
+    // Lista de pecas (cada peca com largura+altura+cor)
+    let blocoPecas = '';
+    const pecas = (item.pecas || []).filter(p => p && (p.largura || p.altura || p.cor));
+    if (pecas.length) {
+      const linhasP = pecas.map((p, i) => {
+        const w = p.largura || '—';
+        const h = p.altura || '—';
+        const c = p.cor ? escapeHtml(p.cor) : '—';
+        const q = p.qtd || p.quantidade || 1;
+        return `<div class="rel-prop-item-linha"><span class="lbl">PECA ${i + 1}:</span> <span>${w} × ${h} mm — ${c}${q > 1 ? ` (qtd ${q})` : ''}</span></div>`;
+      }).join('');
+      blocoPecas = `<div class="rel-prop-item-linhas rel-prop-item-rev-pecas" style="margin-top:6px;border-top:1px solid #e5e7eb;padding-top:6px;">${linhasP}</div>`;
+    }
+
+    return `
+      <div class="rel-prop-item-card rel-prop-item-card-no-img" style="display:flex;">
+        <div class="rel-prop-item-info" style="width:100%;flex:1;">
+          <div class="rel-prop-item-titulo">REVESTIMENTO DE PAREDE PROJETTA BY WEIKU</div>
+          <div class="rel-prop-item-linhas">
+            <div class="rel-prop-item-linha"><span class="lbl">Qtd:</span> <span>${qtd}</span></div>
+            ${lar ? `<div class="rel-prop-item-linha"><span class="lbl">L total:</span> <span>${lar} mm</span></div>` : ''}
+            ${alt ? `<div class="rel-prop-item-linha"><span class="lbl">H total:</span> <span>${alt} mm</span></div>` : ''}
+            ${(lar && alt) ? `<div class="rel-prop-item-linha"><span class="lbl">Area:</span> <span>${fmtBR(areaM2)} m²</span></div>` : ''}
+            <div class="rel-prop-item-linha"><span class="lbl">TEM ESTRUTURA:</span> <span>${temEstr ? 'SIM' : 'NAO'}</span></div>
+            ${temEstr ? `<div class="rel-prop-item-linha"><span class="lbl">TUBO DA ESTRUTURA:</span> <span>${tubo}</span></div>` : ''}
+            <div class="rel-prop-item-linha"><span class="lbl">MODO:</span> <span>${escapeHtml(modoTxt)}</span></div>
+          </div>
+          ${blocoPecas}
         </div>
       </div>
     `;
