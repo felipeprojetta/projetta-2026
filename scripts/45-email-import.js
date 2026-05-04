@@ -194,6 +194,29 @@
   // FLUXO PRINCIPAL — orquestra tudo
   // ───────────────────────────────────────────────────────────────────
   // ───────────────────────────────────────────────────────────────────
+  // CEP → cidade/estado via ViaCEP (mesma API que o CRM ja usa)
+  // ───────────────────────────────────────────────────────────────────
+  /**
+   * Felipe sessao 2026-08: API Weiku retorna so CEP, nao cidade/estado.
+   * Faz lookup no ViaCEP pra completar antes de criar lead.
+   * Tolerante a falha (rede off, CEP invalido) - retorna {} e segue.
+   */
+  async function buscarCidadeEstadoPorCEP(cep) {
+    var limpo = String(cep || '').replace(/\D/g, '');
+    if (limpo.length !== 8) return {};
+    try {
+      var res = await fetch('https://viacep.com.br/ws/' + limpo + '/json/');
+      if (!res.ok) return {};
+      var data = await res.json();
+      if (data.erro) return {};
+      return { cidade: data.localidade || '', estado: data.uf || '' };
+    } catch (e) {
+      console.warn('[email-import] ViaCEP falhou:', e);
+      return {};
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────
   // FLUXO PRINCIPAL — puxa tudo automatico (Weiku + PDF). AGP pode ser
   // gerado automatico (proximo da sequencia) OU informado manualmente
   // pelo usuario (caso queira sobrescrever o proximo).
@@ -243,21 +266,37 @@
       if (!dadosWeiku || !dadosWeiku.nome_cliente) {
         throw new Error('Reserva ' + reserva + ' nao encontrada na intranet Weiku.');
       }
-      setStatus('🔄 Dados encontrados: ' + dadosWeiku.nome_cliente + '. Procurando PDF anexo...', '#1565c0');
+
+      // 4.1 Felipe sessao 2026-08: Weiku retorna so CEP. Faz lookup
+      //     ViaCEP pra completar cidade/estado antes de criar lead.
+      if (dadosWeiku.cep) {
+        setStatus('🔄 Buscando cidade/estado pelo CEP ' + dadosWeiku.cep + '...', '#1565c0');
+        var cepInfo = await buscarCidadeEstadoPorCEP(dadosWeiku.cep);
+        if (cepInfo.cidade) dadosWeiku.cidade = cepInfo.cidade;
+        if (cepInfo.estado) dadosWeiku.estado = cepInfo.estado;
+      }
+      setStatus('🔄 Dados encontrados: ' + dadosWeiku.nome_cliente +
+                (dadosWeiku.cidade ? ' (' + dadosWeiku.cidade + '/' + (dadosWeiku.estado||'') + ')' : '') +
+                '. Procurando PDF anexo...', '#1565c0');
 
       // 5. Procura PDF anexo (opcional - sem PDF cria lead so com dados Weiku)
       var dadosPDF = {};
+      var textoPDFGuardado = '';   // Felipe sessao 2026-08: pra mostrar pro Felipe se parser falhar
+      var nomePDFGuardado  = '';
       try {
         var pdfMeta = await acharPrimeiroPDF(msgId);
         if (pdfMeta) {
-          setStatus('🔄 Lendo PDF "' + pdfMeta.name + '"...', '#1565c0');
+          nomePDFGuardado = pdfMeta.name || 'anexo.pdf';
+          setStatus('🔄 Lendo PDF "' + nomePDFGuardado + '"...', '#1565c0');
           var pdfBytes = await baixarAnexo(msgId, pdfMeta.id);
           var texto = await extrairTextoPDF(pdfBytes);
+          textoPDFGuardado = texto;
           // Felipe sessao 2026-08: log do texto extraido pra debug do parser.
-          // Se medidas vierem vazias, Felipe abre console (F12) e copia.
+          // Tambem fica acessivel via window._ultimoTextoPDF
           console.log('[email-import] ===== TEXTO EXTRAIDO DO PDF =====');
           console.log(texto);
           console.log('[email-import] ===== FIM DO TEXTO =====');
+          window._ultimoTextoPDF = texto;
           dadosPDF = parsearDadosPDF(texto);
           console.log('[email-import] PDF parseado:', dadosPDF);
         } else {
@@ -300,6 +339,40 @@
       if (dadosPDF.porta_modelo)  dadosTxt += ' · Modelo ' + dadosPDF.porta_modelo;
       if (dadosPDF.porta_cor)     dadosTxt += ' · Cor ' + dadosPDF.porta_cor;
       setStatus('✅ ' + resumo + dadosTxt, '#16a34a');
+
+      // Felipe sessao 2026-08: se houve PDF mas parser nao achou nada,
+      // mostra botao "Copiar texto do PDF" pro Felipe colar pro Claude
+      // calibrar o regex.
+      var nenhumCampoPDF = !dadosPDF.porta_largura && !dadosPDF.porta_altura
+                        && !dadosPDF.porta_modelo  && !dadosPDF.porta_cor;
+      if (textoPDFGuardado && nenhumCampoPDF && statusEl) {
+        var botaoCopiar = document.createElement('button');
+        botaoCopiar.textContent = '📋 Copiar texto do PDF (mande pro Claude)';
+        botaoCopiar.style.cssText =
+          'margin-left:10px;padding:4px 10px;background:#1f3658;color:#fff;' +
+          'border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer';
+        botaoCopiar.onclick = function() {
+          var conteudo = '=== ' + nomePDFGuardado + ' ===\n' + textoPDFGuardado;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(conteudo).then(function() {
+              botaoCopiar.textContent = '✅ Copiado! Cole no chat';
+              setTimeout(function() {
+                botaoCopiar.textContent = '📋 Copiar texto do PDF';
+              }, 3000);
+            });
+          } else {
+            // Fallback: textarea + select
+            var ta = document.createElement('textarea');
+            ta.value = conteudo;
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+            botaoCopiar.textContent = '✅ Copiado!';
+          }
+        };
+        statusEl.appendChild(botaoCopiar);
+      }
 
       // Re-renderiza CRM se aberto
       if (typeof Events !== 'undefined') Events.emit('crm:reload');
