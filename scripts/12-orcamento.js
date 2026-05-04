@@ -10954,13 +10954,16 @@ const Orcamento = (() => {
         conteudoHtml = elemento.innerHTML;
       }
 
-      // Host off-screen com fundo branco e largura adequada
+      // Host off-screen com fundo branco e largura adequada.
+      // Felipe sessao 2026-05: 720px era pequeno - tabela do Lev Perfis
+      // tem 10 colunas e cortava "Peso kg" e "Obs." no PNG.
+      // 1100px comporta a tabela inteira sem corte.
       cloneHost = document.createElement('div');
       cloneHost.style.cssText = `
         position: absolute;
         top: 0;
         left: -10000px;
-        width: 720px;
+        width: 1100px;
         background: #ffffff;
         padding: 20px;
         z-index: -1;
@@ -11017,7 +11020,7 @@ const Orcamento = (() => {
         position: absolute;
         top: 0;
         left: -10000px;
-        width: 720px;
+        width: 1100px;
         background: #ffffff;
         padding: 20px;
         z-index: -1;
