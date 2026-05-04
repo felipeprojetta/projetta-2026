@@ -362,11 +362,11 @@ const PerfisPortaExterna = (() => {
       add(cod.perfLargInt, TRAV_VERT, qtdFrisos * nFolhas, 'Friso Vertical');
     }
 
-    // Felipe (sessao 2026-05): tubo das ripas para modelos RIPADOS (8, 15, 20, 21).
+    // Felipe (sessao 2026-05): tubo das ripas para modelos 08 e 15.
     // Perfil: PA-51X12X1.58, comprimento fixo de 500mm cada pedaco.
     // Quantidade: floor(altura/1000) pedacos por ripa × qtdRipas total.
     // Exemplo: porta 3000mm com 22 ripas → 3 × 22 = 66 pedacos de 500mm.
-    if (MODELOS_RIPADO.includes(modelo)) {
+    if (modelo === 8 || modelo === 15) {
       const espacRipas = parseFloat(String(item.espacRipas || 30).replace(',', '.')) || 30;
       const tipoRipado = item.tipoRipado || 'total';
       // Mesma formula do motor de chapas (calcularQtdRipas)
