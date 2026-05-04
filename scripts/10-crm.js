@@ -2104,8 +2104,31 @@
                 if (resumo && resumo.pFatReal > 0) valor = 'R$ ' + fmtBR(resumo.pFatReal);
               }
             } catch(_){}
-            const msgCliente = `Olá ${lead.cliente || ''},\n\nÉ com satisfação que encaminhamos nossa proposta comercial referente ao seu projeto.\n\nValor: ${valor}\n\nPermanecemos à disposição.\n\nAtenciosamente,\nEquipe Projetta by Weiku`;
-            const msgRep = `Olá ${repNome},\n\nSegue proposta do cliente ${lead.cliente || ''} (Reserva ${lead.numeroReserva || ''}).\n\nValor: ${valor}\n\nAtt,\nEquipe Projetta by Weiku`;
+            // Felipe sessao 2026-08: usa templates editaveis do modulo Mensagens
+            // em vez de mensagens chumbadas. Variaveis substituidas pelo
+            // contexto do lead. Fallback chumbado se modulo nao carregado.
+            const ctxMsg = {
+              nome_cliente:       lead.cliente || '',
+              nome_representante: repNome || '',
+              nome_usuario:       (window.UsuarioAtivo?.nome || 'Equipe Projetta'),
+              agp:                lead.numeroAGP || '',
+              numero_reserva:     lead.numeroReserva || '',
+              valor_orcamento:    valor,
+              data_atual:         new Date().toLocaleDateString('pt-BR'),
+            };
+            let msgCliente = `Olá ${lead.cliente || ''},\n\nSegue nossa proposta comercial.\n\nValor: ${valor}\n\nAtt,\nEquipe Projetta by Weiku`;
+            let msgRep     = `Olá ${repNome},\n\nSegue proposta do cliente ${lead.cliente || ''}.\n\nValor: ${valor}\n\nAtt,\nEquipe Projetta by Weiku`;
+            try {
+              if (window.Mensagens && typeof window.Mensagens.getTemplates === 'function') {
+                const tpls = window.Mensagens.getTemplates();
+                if (tpls.whatsapp_cliente?.body) {
+                  msgCliente = window.Mensagens.aplicarVariaveis(tpls.whatsapp_cliente.body, ctxMsg);
+                }
+                if (tpls.whatsapp_rep?.body) {
+                  msgRep = window.Mensagens.aplicarVariaveis(tpls.whatsapp_rep.body, ctxMsg);
+                }
+              }
+            } catch(_){}
             if (clienteFone) {
               modal.querySelector('#wpp-cliente').addEventListener('click', () => {
                 let f = clienteFone; if (f.length <= 11 && !f.startsWith('55')) f = '55' + f;
@@ -2147,42 +2170,121 @@
                 }
                 // Pega o primeiro email encontrado
                 const emailOrigem = emails[0];
-                const msgBody = '<p>Prezado(a),</p>'
-                  + '<p>Inicialmente agradecemos sua preferência e confiança atribuídas à Projetta By Weiku.</p>'
-                  + '<p>Colocamo-nos à disposição para maiores esclarecimentos ou dúvidas sobre o orçamento em anexo.</p>'
-                  + '<p>Gentileza confirmar o recebimento deste e-mail.</p>'
-                  + '<br>'
-                  + '<p>Como padrão, trabalhamos com 15% de markup e 5% de RT para o arquiteto.<br>'
-                  + 'Se não for reservada a porcentagem do arquiteto, deve-se considerar 20% de desconto sobre o valor cheio.<br>'
-                  + 'Caso o RT seja menor que 5%, a diferença deve ser somada ao desconto final do cliente.</p>'
-                  + '<br>'
-                  + '<p style="font-size:11px;color:#888">— Enviado via Projetta by Weiku</p>';
-                // Felipe sessao 2026-08: ANTES enviava direto via outlookReplyAll.
-                // Agora abre OutlookComposer pro Felipe revisar/editar/anexar
-                // (a Proposta Comercial PDF) antes de enviar.
                 btnEmail.textContent = '📧 Enviar Proposta';
-                if (!window.OutlookComposer || typeof window.OutlookComposer.open !== 'function') {
-                  alert('Composer de email nao carregado. Recarregue a pagina.');
-                  return;
-                }
-                window.OutlookComposer.open({
-                  msgId: emailOrigem.id,
-                  subject: emailOrigem.subject || ('Re: Reserva ' + lead.numeroReserva),
-                  bodyHtml: msgBody,
-                  attachments: [],  // Felipe anexa manualmente. Futuro: anexar Proposta PDF + Painel Comercial PNG.
-                  onSent: function() {
-                    btnEmail.textContent = '✅ Enviado!';
-                    btnEmail.style.background = '#2e7d32';
-                    // Marca flag no email original
-                    if (window._outlookToggleFlag) {
-                      window._outlookToggleFlag(emailOrigem.id, 'Orcamento Pronto', null);
+
+                // Felipe sessao 2026-08: pergunta destino antes de abrir composer
+                // Opcoes: Cliente do card (mailto:) ou Reserva (OutlookComposer reply-all)
+                const remetenteReserva = (emailOrigem.from && emailOrigem.from.address) || '';
+                const clienteEmail = (lead.email || '').trim();
+
+                // Templates editaveis vindos do modulo Mensagens
+                let subjectCliente = 'Proposta Comercial Projetta — AGP ' + (lead.numeroAGP || '');
+                let bodyCliente    = `Prezado(a) ${lead.cliente || ''},\n\nSegue nossa proposta comercial.\n\nReserva: ${lead.numeroReserva}\n\nAtenciosamente,\nProjetta Portas Exclusivas`;
+                let subjectRep     = 'Re: Reserva ' + lead.numeroReserva;
+                let bodyRep        = '<p>Prezado(a),</p><p>Segue proposta comercial em anexo.</p>';
+
+                // Valor pro contexto
+                let valorTxt = 'a combinar';
+                try {
+                  if (window.Orcamento?.resumoParaCardCRM) {
+                    const resumo = window.Orcamento.resumoParaCardCRM(leadId);
+                    if (resumo && resumo.pFatReal > 0) valorTxt = 'R$ ' + fmtBR(resumo.pFatReal);
+                  }
+                } catch(_){}
+                // Nome representante pro contexto
+                let repNomeMail = '';
+                try {
+                  const cadStore2 = Storage.scope('cadastros');
+                  const reps2 = cadStore2.get('representantes_lista') || [];
+                  const fup2 = lead.representante_followup || '';
+                  const rep2 = reps2.find(r => r.followup === fup2);
+                  if (rep2) repNomeMail = rep2.followup || '';
+                } catch(_){}
+
+                const ctxMail = {
+                  nome_cliente:       lead.cliente || '',
+                  nome_representante: repNomeMail,
+                  nome_usuario:       (window.UsuarioAtivo?.nome || 'Equipe Projetta'),
+                  agp:                lead.numeroAGP || '',
+                  numero_reserva:     lead.numeroReserva || '',
+                  valor_orcamento:    valorTxt,
+                  data_atual:         new Date().toLocaleDateString('pt-BR'),
+                };
+                try {
+                  if (window.Mensagens?.getTemplates) {
+                    const tpls = window.Mensagens.getTemplates();
+                    if (tpls.email_cliente) {
+                      subjectCliente = window.Mensagens.aplicarVariaveis(tpls.email_cliente.subject || '', ctxMail);
+                      bodyCliente    = window.Mensagens.aplicarVariaveis(tpls.email_cliente.body || '', ctxMail);
                     }
-                    setTimeout(() => { btnEmail.textContent = '📧 Enviar Proposta'; btnEmail.style.background = '#0078d4'; }, 3000);
-                  },
-                  onCancel: function() {
-                    btnEmail.textContent = '📧 Enviar Proposta';
-                  },
-                });
+                    if (tpls.email_rep) {
+                      subjectRep = window.Mensagens.aplicarVariaveis(tpls.email_rep.subject || '', ctxMail);
+                      // Email pra reserva mantém HTML (vai em reply-all)
+                      const bodyRepText = window.Mensagens.aplicarVariaveis(tpls.email_rep.body || '', ctxMail);
+                      bodyRep = '<p>' + bodyRepText.split('\n').join('<br>') + '</p>';
+                    }
+                  }
+                } catch(_){}
+
+                // Modal de escolha de destino
+                const old = document.getElementById('email-choice-modal');
+                if (old) old.remove();
+                const modalE = document.createElement('div');
+                modalE.id = 'email-choice-modal';
+                modalE.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center';
+                modalE.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:440px;width:90%;text-align:center">'
+                  + '<div style="font-weight:700;font-size:16px;color:#1a5276;margin-bottom:16px">📧 Enviar email para:</div>'
+                  + '<div style="display:flex;flex-direction:column;gap:10px">'
+                  + (clienteEmail
+                      ? '<button id="email-cliente" style="padding:12px;background:#0078d4;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left">👤 Cliente do card<br><span style="font-size:11px;font-weight:400">' + (lead.cliente || '') + ' &lt;' + clienteEmail + '&gt;</span></button>'
+                      : '<div style="padding:12px;background:#f5f5f5;color:#888;border-radius:8px;font-size:12px">👤 Cliente do card sem email cadastrado</div>')
+                  + (remetenteReserva
+                      ? '<button id="email-reserva" style="padding:12px;background:#1a5276;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left">📨 Email da Reserva ' + lead.numeroReserva + '<br><span style="font-size:11px;font-weight:400">' + remetenteReserva + '</span></button>'
+                      : '')
+                  + '<button id="email-cancel" style="padding:8px;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:8px;font-size:13px;cursor:pointer;margin-top:6px">Cancelar</button>'
+                  + '</div></div>';
+                document.body.appendChild(modalE);
+                modalE.addEventListener('click', (ev) => { if (ev.target === modalE) modalE.remove(); });
+                modalE.querySelector('#email-cancel').addEventListener('click', () => modalE.remove());
+
+                // Cliente do card → mailto: (abre cliente nativo de email)
+                if (clienteEmail) {
+                  modalE.querySelector('#email-cliente').addEventListener('click', () => {
+                    modalE.remove();
+                    const link = 'mailto:' + encodeURIComponent(clienteEmail)
+                               + '?subject=' + encodeURIComponent(subjectCliente)
+                               + '&body=' + encodeURIComponent(bodyCliente);
+                    window.location.href = link;
+                  });
+                }
+
+                // Email da Reserva → OutlookComposer reply-all (atual)
+                if (remetenteReserva) {
+                  modalE.querySelector('#email-reserva').addEventListener('click', () => {
+                    modalE.remove();
+                    if (!window.OutlookComposer?.open) {
+                      alert('Composer de email nao carregado. Recarregue a pagina.');
+                      return;
+                    }
+                    window.OutlookComposer.open({
+                      msgId: emailOrigem.id,
+                      subject: subjectRep,
+                      bodyHtml: bodyRep,
+                      attachments: [],
+                      onSent: function() {
+                        btnEmail.textContent = '✅ Enviado!';
+                        btnEmail.style.background = '#2e7d32';
+                        if (window._outlookToggleFlag) {
+                          window._outlookToggleFlag(emailOrigem.id, 'Orcamento Pronto', null);
+                        }
+                        setTimeout(() => { btnEmail.textContent = '📧 Enviar Proposta'; btnEmail.style.background = '#0078d4'; }, 3000);
+                      },
+                      onCancel: function() {
+                        btnEmail.textContent = '📧 Enviar Proposta';
+                      },
+                    });
+                  });
+                }
               } catch(err) {
                 console.error('[enviar-proposta]', err);
                 alert('Erro ao enviar: ' + err.message);
