@@ -240,6 +240,21 @@ var SupabaseSync = (function() {
     return out;
   }
 
+  /**
+   * Busca UMA chave especifica do servidor (mais rapido que loadCadastros).
+   * Felipe sessao 2026-05: usado pro check de proteção anti-perda.
+   */
+  async function fetchCadastro(chave) {
+    var rows = await selectAll('cadastros', '?chave=eq.' + encodeURIComponent(chave));
+    if (!rows || !Array.isArray(rows) || rows.length === 0) return null;
+    var r = rows[0];
+    try {
+      return typeof r.valor === 'string' ? JSON.parse(r.valor) : r.valor;
+    } catch (_) {
+      return r.valor;
+    }
+  }
+
   // Status pra UI
   function getStatus() {
     return {
@@ -256,6 +271,7 @@ var SupabaseSync = (function() {
       syncNegocio: syncNegocio,
       syncAll: syncAll,
       syncCadastro: syncCadastro,
+      fetchCadastro: fetchCadastro,
       loadFromCloud: loadFromCloud,
       loadCadastrosFromCloud: loadCadastrosFromCloud,
       getStatus: getStatus,
@@ -266,6 +282,7 @@ var SupabaseSync = (function() {
     syncNegocio: syncNegocio,
     syncAll: syncAll,
     syncCadastro: syncCadastro,
+    fetchCadastro: fetchCadastro,
     loadFromCloud: loadFromCloud,
     loadCadastrosFromCloud: loadCadastrosFromCloud,
     getStatus: getStatus,

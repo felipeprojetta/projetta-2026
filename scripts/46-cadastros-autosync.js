@@ -40,7 +40,11 @@
     online: true,
     lastSync: null,
     syncQueueLen: 0,
-    error: null
+    error: null,
+    // Felipe sessao 2026-05: write-through SO ativa apos carregar do
+    // Supabase com sucesso. Se o load falhar, o cache local pode estar
+    // desatualizado e nao pode sobrescrever o servidor.
+    writeThroughEnabled: false
   };
 
   function setStatus(updates) {
@@ -90,7 +94,8 @@
         console.log('  Atualizados:', chavesAtualizadas.join(', '));
       }
 
-      setStatus({ initialLoadDone: true, online: true, lastSync: Date.now(), error: null });
+      setStatus({ initialLoadDone: true, online: true, lastSync: Date.now(), error: null,
+                  writeThroughEnabled: true });
 
       // Notifica modulos pra re-renderizar
       if (window.Events && window.Events.emit) {
@@ -268,8 +273,6 @@
    * Toda escrita em cadastros vai pro Supabase em background (debounced).
    */
   function instalarWriteThrough() {
-    // Storage.scope retorna um wrapper { get, set, remove }
-    // Precisamos interceptar o .set() especificamente do escopo 'cadastros'
     var scopeOriginal = Storage.scope;
     Storage.scope = function(scope) {
       var original = scopeOriginal.apply(Storage, arguments);
@@ -279,20 +282,53 @@
       var setOriginal = original.set;
       original.set = function(chave, valor) {
         var result = setOriginal.apply(this, arguments);
-        // Sincroniza pro Supabase em background (debounced por chave)
+
+        // ── PROTECAO #1: write-through so opera apos load inicial OK ──
+        // Se Supabase nao foi carregado com sucesso no boot, NAO sobrescrever
+        // o servidor com dados locais (que podem estar desatualizados).
+        if (!_status.writeThroughEnabled) {
+          console.warn('[CadastrosAutosync] ⚠ Write bloqueado: load inicial nao concluiu.', chave);
+          return result;
+        }
+
+        // ── PROTECAO #2: deteccao de perda de dados ──
+        // Antes de sobrescrever, busca valor atual no Supabase. Se o valor
+        // que vai subir for SIGNIFICATIVAMENTE menor (perdeu dados), bloqueia
+        // e mostra alerta. Aceita ate 30% de reducao (edicao normal).
         if (_pendingSyncs[chave]) clearTimeout(_pendingSyncs[chave]);
-        _pendingSyncs[chave] = setTimeout(function() {
+        _pendingSyncs[chave] = setTimeout(async function() {
           delete _pendingSyncs[chave];
           _status.syncQueueLen = Object.keys(_pendingSyncs).length;
-          SupabaseSync.syncCadastro(chave, valor).then(function(sucesso) {
+
+          try {
+            var bytesNovo = JSON.stringify(valor || '').length;
+            // Busca valor atual no Supabase pra comparar
+            var atualServidor = await SupabaseSync.fetchCadastro(chave);
+            var bytesServidor = atualServidor ? JSON.stringify(atualServidor).length : 0;
+
+            // Se o que vai subir tem MENOS de 50% do tamanho atual no
+            // servidor, e' suspeito (perda de dados). Bloqueia.
+            if (bytesServidor > 0 && bytesNovo < bytesServidor * 0.5 && bytesServidor > 1000) {
+              console.error('[CadastrosAutosync] 🛑 SYNC BLOQUEADO em "' + chave + '": ' +
+                bytesNovo + ' bytes vs ' + bytesServidor + ' bytes no servidor. Perda detectada.');
+              showToast('🛑 ALERTA: edicao em "' + chave + '" foi bloqueada (perda de dados detectada). ' +
+                'Recarregue a pagina pra sincronizar.', 'erro');
+              setStatus({ error: 'perda_detectada:' + chave });
+              return;
+            }
+
+            var sucesso = await SupabaseSync.syncCadastro(chave, valor);
             if (sucesso) {
-              console.log('[CadastrosAutosync] ☁ Sync OK: ' + chave);
+              console.log('[CadastrosAutosync] ☁ Sync OK: ' + chave + ' (' + bytesNovo + ' bytes)');
               setStatus({ lastSync: Date.now(), online: true, error: null });
             } else {
               console.warn('[CadastrosAutosync] ⚠ Sync falhou: ' + chave);
               setStatus({ online: false });
             }
-          });
+          } catch (e) {
+            console.error('[CadastrosAutosync] Erro no sync de ' + chave + ':', e);
+            setStatus({ online: false, error: e.message });
+          }
         }, 500); // debounce 500ms
         _status.syncQueueLen = Object.keys(_pendingSyncs).length;
         return result;
@@ -303,15 +339,17 @@
       if (removeOriginal) {
         original.remove = function(chave) {
           var result = removeOriginal.apply(this, arguments);
-          // Remove do Supabase tambem (escreve null - simples)
-          SupabaseSync.syncCadastro(chave, null).catch(function() {});
+          // Tambem so' se write-through esta habilitado
+          if (_status.writeThroughEnabled) {
+            SupabaseSync.syncCadastro(chave, null).catch(function() {});
+          }
           return result;
         };
       }
 
       return original;
     };
-    console.log('[CadastrosAutosync] ✅ Write-through instalado em Storage.scope(cadastros)');
+    console.log('[CadastrosAutosync] ✅ Write-through instalado (com protecoes anti-perda)');
   }
 
   /**
@@ -358,7 +396,9 @@
       } catch (_) {}
       showToast('☁ Conectado ao Supabase. ' + qtdItens + ' cadastros disponiveis.', 'sucesso');
     } else {
-      showToast('⚠ Sem conexao com o servidor. Usando cache local. Suas alteracoes serao sincronizadas quando voltar online.', 'erro');
+      // Felipe sessao 2026-05: nesta situacao writeThroughEnabled=false
+      // Por seguranca, nada vai pro servidor ate proxima recarga com sucesso.
+      showToast('⚠ Sem conexao com o servidor. Nao edite cadastros agora — recarregue a pagina pra reconectar antes de fazer alteracoes.', 'erro');
     }
 
     // 2. Migrar imagens base64 → Storage PRIMEIRO (importante: antes do sync genérico)
