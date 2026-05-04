@@ -22,6 +22,7 @@ const Regras = (() => {
   const SUBABAS = [
     { id: 'porta-externa', label: 'Calculo de Perfis · Porta Externa' },
     { id: 'chapas',        label: 'Calculo de Chapas' },
+    { id: 'fita-silicone', label: 'Fita Dupla Face + Silicone Estrutural' },
     { id: 'frete',         label: 'Frete Internacional' },
     { id: 'comissao',      label: 'Comissoes' },
   ];
@@ -129,6 +130,74 @@ const Regras = (() => {
   }
   function resetarVarsChapas() {
     store.set('regras_variaveis_chapas', null);
+  }
+
+  // ============================================================
+  // Felipe sessao 2026-08: REGRAS DE FITA DUPLA FACE + SILICONE
+  // ============================================================
+  // Tabela editavel de multiplicadores. O motor 28-acessorios-porta-
+  // externa le essa tabela via Regras.getFitaSilicone() pra calcular
+  // metragem de F.D 19, F.D 12 e Silicone Estrutural 995 (DowSil 995).
+  //
+  // Cada regra tem:
+  //   id        - identificador estavel (NAO mudar - codigo busca por id)
+  //   label     - descricao amigavel mostrada na UI
+  //   fd19      - multiplicador de Fita Dupla Face 19mm
+  //   fd12      - multiplicador de Fita Dupla Face 12mm
+  //   ms        - multiplicador de Silicone Estrutural 995
+  //   tamanho   - 'comprimento' (altura/comp da peca/perfil) ou
+  //               'perimetro' (largura×2 + altura×2)
+  //
+  // Storage: store.get('regras_fita_silicone') = { [id]: {fd19,fd12,ms} }
+  // (label e tamanho nao sao persistidos - vem do DEFAULT, sao fixos)
+  // ============================================================
+  const FITA_SILICONE_DEFAULT = {
+    'alisar_altura':       { label: 'Alisar Altura',                       fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento' },
+    'alisar_largura':      { label: 'Alisar Largura',                      fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento' },
+    'tampa_furo_pa006':    { label: 'Tampa de Furo (sistema PA006)',       fd19: 0, fd12: 2, ms: 1,  tamanho: 'comprimento' },
+    'tampa_furo_pa007':    { label: 'Tampa de Furo (sistema PA007)',       fd19: 2, fd12: 0, ms: 1,  tamanho: 'comprimento' },
+    'altura_portal_pa006': { label: 'Altura Portal · PA-PA006P',           fd19: 2, fd12: 2, ms: 8,  tamanho: 'comprimento' },
+    'altura_portal_pa007': { label: 'Altura Portal · PA-PA007P',           fd19: 4, fd12: 4, ms: 10, tamanho: 'comprimento' },
+    'largura_portal':      { label: 'Largura Portal',                      fd19: 4, fd12: 0, ms: 5,  tamanho: 'comprimento' },
+    'altura_folha':        { label: 'Altura Folha · PA-PA006F / PA007F',   fd19: 1, fd12: 0, ms: 8,  tamanho: 'comprimento' },
+    'tampa_generica':      { label: 'Outras peças "Tampa..." (perimetro)', fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro'   },
+    'ripas':               { label: 'Tubo Interno das Ripas',              fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento' },
+  };
+
+  function getFitaSilicone() {
+    const salvas = store.get('regras_fita_silicone') || {};
+    // Merge: pra cada id default, preserva label/tamanho fixo, mas
+    // sobrescreve fd19/fd12/ms com valor salvo (se houver).
+    const result = {};
+    Object.keys(FITA_SILICONE_DEFAULT).forEach(id => {
+      const def = FITA_SILICONE_DEFAULT[id];
+      const sal = salvas[id] || {};
+      result[id] = {
+        label:   def.label,
+        tamanho: def.tamanho,
+        fd19: (sal.fd19 !== undefined && !isNaN(Number(sal.fd19))) ? Number(sal.fd19) : def.fd19,
+        fd12: (sal.fd12 !== undefined && !isNaN(Number(sal.fd12))) ? Number(sal.fd12) : def.fd12,
+        ms:   (sal.ms   !== undefined && !isNaN(Number(sal.ms)))   ? Number(sal.ms)   : def.ms,
+      };
+    });
+    return result;
+  }
+
+  function salvarFitaSilicone(regras) {
+    // Salva apenas os multiplicadores numericos (label e tamanho ficam fixos)
+    const slim = {};
+    Object.keys(regras).forEach(id => {
+      slim[id] = {
+        fd19: Number(regras[id].fd19) || 0,
+        fd12: Number(regras[id].fd12) || 0,
+        ms:   Number(regras[id].ms)   || 0,
+      };
+    });
+    store.set('regras_fita_silicone', slim);
+  }
+
+  function resetarFitaSilicone() {
+    store.set('regras_fita_silicone', null);
   }
 
   // ============================================================
@@ -270,6 +339,7 @@ const Regras = (() => {
     const mount = container.querySelector('#reg-content');
     if (UI.subaba === 'porta-externa') renderPortaExterna(mount);
     else if (UI.subaba === 'chapas')   renderCalculoChapas(mount);
+    else if (UI.subaba === 'fita-silicone') renderFitaSilicone(mount);
     else renderEmDesenvolvimento(mount, UI.subaba);
   }
 
@@ -798,7 +868,122 @@ const Regras = (() => {
     }
   }
 
-  return { render };
+  /**
+   * Felipe sessao 2026-08: sub-aba "Fita Dupla Face + Silicone Estrutural".
+   * Tabela editavel com multiplicadores que o motor 28-acessorios-porta-
+   * externa.js le pra calcular metragem de F.D 19, F.D 12 e Silicone 995.
+   *
+   * Cada linha mostra:
+   *   - Label da regra (read-only)
+   *   - 3 inputs (F.D 19, F.D 12, Silicone) - multiplicadores editaveis
+   *   - Tipo de tamanho (read-only - "comprimento" ou "perimetro")
+   *
+   * Botoes:
+   *   - Salvar Alterações: persiste no Storage (regras_fita_silicone)
+   *   - Restaurar Padrão:  apaga edits e volta aos defaults
+   */
+  function renderFitaSilicone(mount) {
+    const regras = getFitaSilicone();
+
+    const linhas = Object.keys(regras).map(id => {
+      const r = regras[id];
+      return `
+        <tr>
+          <td style="font-weight:600;color:#1f3658;">${escapeHtml(r.label)}</td>
+          <td class="t-num">
+            <input type="number" min="0" step="1" class="reg-fs-input"
+                   data-id="${id}" data-field="fd19" value="${r.fd19}"
+                   style="width:70px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;text-align:right;" />
+          </td>
+          <td class="t-num">
+            <input type="number" min="0" step="1" class="reg-fs-input"
+                   data-id="${id}" data-field="fd12" value="${r.fd12}"
+                   style="width:70px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;text-align:right;" />
+          </td>
+          <td class="t-num">
+            <input type="number" min="0" step="1" class="reg-fs-input"
+                   data-id="${id}" data-field="ms" value="${r.ms}"
+                   style="width:70px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;text-align:right;" />
+          </td>
+          <td style="font-size:11px;color:#6b7280;font-style:italic;">
+            ${r.tamanho === 'perimetro' ? 'L×2 + H×2' : 'comprimento'}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    mount.innerHTML = `
+      <div class="info-banner" style="margin-bottom:14px;">
+        <span class="t-strong">Fita Dupla Face + Silicone Estrutural 995:</span>
+        Multiplicadores aplicados a cada peça/perfil pra calcular metragem total.
+        Cálculo final: <b>F.D total ÷ 20m</b> (rolo de fita) | <b>Silicone total ÷ 8m</b> (tubo DowSil 995).
+        <br>
+        Códigos do cadastro: <code>PA-FITDF 19X20X1.0</code> · <code>PA-FITDF 12X20X1.0</code> · <code>PA-DOWSIL 995</code>.
+      </div>
+
+      <table class="cad-table" style="width:100%;">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Peça / Perfil</th>
+            <th style="text-align:right;">F.D 19mm ×</th>
+            <th style="text-align:right;">F.D 12mm ×</th>
+            <th style="text-align:right;">Silicone 995 ×</th>
+            <th style="text-align:left;">Tamanho usado</th>
+          </tr>
+        </thead>
+        <tbody id="reg-fs-tbody">${linhas}</tbody>
+      </table>
+
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
+        <button type="button" id="reg-fs-salvar" class="btn-primary"
+                style="background:#16a34a;color:#fff;border:none;border-radius:5px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;">
+          💾 Salvar Alterações
+        </button>
+        <button type="button" id="reg-fs-restaurar"
+                style="background:#fff;color:#dc2626;border:1px solid #dc2626;border-radius:5px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;">
+          ↺ Restaurar Padrão
+        </button>
+        <span id="reg-fs-status" style="margin-left:10px;font-size:12px;color:#6b7280;"></span>
+      </div>
+
+      <div class="info-banner" style="margin-top:14px;background:#fef3c7;border-color:#f59e0b;">
+        <b>⚠️ Atenção:</b> as alterações afetam todos os orçamentos NOVOS.
+        Orçamentos já aprovados não são recalculados (têm snapshot próprio).
+      </div>
+    `;
+
+    // Handler: Salvar — le inputs e persiste
+    mount.querySelector('#reg-fs-salvar')?.addEventListener('click', () => {
+      const regrasNovas = {};
+      mount.querySelectorAll('.reg-fs-input').forEach(inp => {
+        const id    = inp.dataset.id;
+        const field = inp.dataset.field;
+        if (!regrasNovas[id]) regrasNovas[id] = {};
+        regrasNovas[id][field] = Number(inp.value) || 0;
+      });
+      try {
+        salvarFitaSilicone(regrasNovas);
+        const status = mount.querySelector('#reg-fs-status');
+        if (status) {
+          status.textContent = '✅ Salvo! Próximos orçamentos vão usar essas regras.';
+          status.style.color = '#16a34a';
+          setTimeout(() => { status.textContent = ''; }, 4000);
+        }
+      } catch (err) {
+        console.error('[Regras Fita+Silicone] erro ao salvar:', err);
+        alert('Falha ao salvar: ' + (err.message || err));
+      }
+    });
+
+    // Handler: Restaurar — confirma e re-renderiza
+    mount.querySelector('#reg-fs-restaurar')?.addEventListener('click', () => {
+      if (!confirm('Restaurar valores padrão da tabela de Fita+Silicone?\n\nIsso descarta todas as edições.')) return;
+      resetarFitaSilicone();
+      renderFitaSilicone(mount);
+    });
+  }
+
+  return { render, getFitaSilicone };
 })();
 
 if (typeof window !== 'undefined') window.Regras = Regras;

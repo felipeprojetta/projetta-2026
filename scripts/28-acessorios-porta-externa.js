@@ -375,12 +375,38 @@ const AcessoriosPortaExterna = (() => {
     if (L > 0 && H > 0) {
       let mFD19 = 0;  // metros lineares de Fita Dupla Face 19mm
       let mFD12 = 0;  // metros lineares de Fita Dupla Face 12mm
-      let mMS   = 0;  // metros lineares de Silicone Estrutural M.S 995
+      let mMS   = 0;  // metros lineares de Silicone Estrutural 995
+
+      // Felipe sessao 2026-08: le multiplicadores da tabela editavel em
+      // Cadastro > Regras e Logicas > Fita Dupla Face + Silicone. Se o
+      // modulo Regras nao estiver disponivel (loading order, dev), usa
+      // fallback chumbado com os valores padrao do Excel.
+      const REGRAS_DEFAULT = {
+        'alisar_altura':       { fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento' },
+        'alisar_largura':      { fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento' },
+        'tampa_furo_pa006':    { fd19: 0, fd12: 2, ms: 1,  tamanho: 'comprimento' },
+        'tampa_furo_pa007':    { fd19: 2, fd12: 0, ms: 1,  tamanho: 'comprimento' },
+        'altura_portal_pa006': { fd19: 2, fd12: 2, ms: 8,  tamanho: 'comprimento' },
+        'altura_portal_pa007': { fd19: 4, fd12: 4, ms: 10, tamanho: 'comprimento' },
+        'largura_portal':      { fd19: 4, fd12: 0, ms: 5,  tamanho: 'comprimento' },
+        'altura_folha':        { fd19: 1, fd12: 0, ms: 8,  tamanho: 'comprimento' },
+        'tampa_generica':      { fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro'   },
+        'ripas':               { fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento' },
+      };
+      const REGRAS = (window.Regras && typeof window.Regras.getFitaSilicone === 'function')
+        ? window.Regras.getFitaSilicone()
+        : REGRAS_DEFAULT;
+
+      // Helper: aplica multiplicadores de uma regra (id) a uma metragem em metros
+      function aplicarRegra(idRegra, metros) {
+        const r = REGRAS[idRegra] || REGRAS_DEFAULT[idRegra];
+        if (!r) return;
+        mFD19 += (Number(r.fd19) || 0) * metros;
+        mFD12 += (Number(r.fd12) || 0) * metros;
+        mMS   += (Number(r.ms)   || 0) * metros;
+      }
 
       // --- 1) Pecas do Levantamento de Superficies (lado externo) ---
-      // Lado externo so' (ja' contempla Portal + Folha externa). Lado
-      // interno duplicaria pecas em cor unica, e em cor diferente o
-      // motor ja' aplica logica especifica pra peca interna.
       try {
         const pecas = (window.ChapasPortaExterna?.gerarPecasChapa?.(item, 'externo')) || [];
         pecas.forEach(p => {
@@ -389,81 +415,33 @@ const AcessoriosPortaExterna = (() => {
           const qtd = Number(p.qtd)     || 0;
           if (!lar || !alt || !qtd) return;
           const lblLow = String(p.label || '').toLowerCase().trim();
-          const compM = (alt * qtd * qtdPortas) / 1000;          // metros — comprimento (altura)
-          const perimM = ((lar + alt) * 2 * qtd * qtdPortas) / 1000; // metros — perimetro
+          const compM  = (alt * qtd * qtdPortas) / 1000;            // comprimento (altura) em metros
+          const perimM = ((lar + alt) * 2 * qtd * qtdPortas) / 1000; // perimetro em metros
 
-          // Alisar Altura / Alisar Largura: 1× F.D19 + 1× M.S × comp
-          if (lblLow === 'alisar altura' || lblLow === 'alisar largura') {
-            mFD19 += 1 * compM;
-            mMS   += 1 * compM;
-            return;
-          }
-          // Tampa de Furo: muda fita conforme sistema
-          if (lblLow === 'tampa de furo') {
-            if (sis === 'PA007') mFD19 += 2 * compM;
-            else                 mFD12 += 2 * compM;
-            mMS += 1 * compM;
-            return;
-          }
-          // Qualquer outra peca que comeca com "tampa": 1×F.D19 + 1×M.S × perimetro
-          if (lblLow.startsWith('tampa')) {
-            mFD19 += 1 * perimM;
-            mMS   += 1 * perimM;
-            return;
-          }
+          if (lblLow === 'alisar altura')        return aplicarRegra('alisar_altura', compM);
+          if (lblLow === 'alisar largura')       return aplicarRegra('alisar_largura', compM);
+          if (lblLow === 'tampa de furo')        return aplicarRegra(sis === 'PA007' ? 'tampa_furo_pa007' : 'tampa_furo_pa006', compM);
+          if (lblLow.startsWith('tampa'))        return aplicarRegra('tampa_generica', perimM);
         });
       } catch (e) { console.warn('[FD/MS] erro ao ler pecas:', e); }
 
       // --- 2) Perfis do motor PerfisPortaExterna ---
-      // gerarCortes(item) retorna { 'PA-PA006F-6M': [{ comp, qty, label }, ...], ... }
-      // qty ja inclui qtdPorta multiplicado, entao NAO multiplicar por qtdPortas aqui.
       try {
         const cortes = (window.PerfisPortaExterna?.gerarCortes?.(item)) || {};
         Object.keys(cortes).forEach(codigo => {
           const lista = cortes[codigo] || [];
-          // Detecta sistema do perfil pelo prefixo do codigo
           const isPA007 = /^PA-PA007/.test(codigo);
-          // const isPA006 = /^PA-PA006/.test(codigo);  // default
           lista.forEach(corte => {
             const comp = Number(corte.comp) || 0;
             const qty  = Number(corte.qty)  || 0;
             if (!comp || !qty) return;
             const m = (comp * qty) / 1000;  // metros
             const lbl = String(corte.label || '');
-            // Altura Folha (PA-PA006F / PA-PA007F): 1×F.D19 + 8×M.S × comp
-            if (lbl === 'Altura Folha') {
-              mFD19 += 1 * m;
-              mMS   += 8 * m;
-              return;
-            }
-            // Altura Portal (PA-PA006P / PA-PA007P): muda multiplicadores conforme sistema
-            if (lbl === 'Altura Portal') {
-              if (isPA007) {
-                mFD19 += 4 * m;
-                mFD12 += 4 * m;
-                mMS   += 10 * m;
-              } else {
-                mFD19 += 2 * m;
-                mFD12 += 2 * m;
-                mMS   += 8 * m;
-              }
-              return;
-            }
-            // Felipe sessao 2026-08 (correcao): Largura Portal — perfil
-            // travHor com label 'Largura Portal'. Antes nao estava
-            // mapeado. Multiplicadores: 4×F.D19 + 5×Silicone Estrutural.
-            if (lbl === 'Largura Portal') {
-              mFD19 += 4 * m;
-              mMS   += 5 * m;
-              return;
-            }
-            // Felipe sessao 2026-08 (correcao): Tubo Interno das Ripas
-            // antes usava M.S (silicone), mas Felipe esclareceu que e'
-            // F.D 12 (fita dupla face 12mm). Multiplicador 2×.
-            if (lbl === 'Tubo Interno das Ripas') {
-              mFD12 += 2 * m;
-              return;
-            }
+
+            if (lbl === 'Altura Folha')              return aplicarRegra('altura_folha', m);
+            if (lbl === 'Altura Portal')             return aplicarRegra(isPA007 ? 'altura_portal_pa007' : 'altura_portal_pa006', m);
+            if (lbl === 'Largura Portal')            return aplicarRegra('largura_portal', m);
+            if (lbl === 'Tubo Interno das Ripas')    return aplicarRegra('ripas', m);
           });
         });
       } catch (e) { console.warn('[FD/MS] erro ao ler perfis:', e); }
