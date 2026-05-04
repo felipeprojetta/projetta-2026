@@ -91,11 +91,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Carregar modulos extras dinamicamente
-  ['scripts/44-email-crm.js', 'scripts/35-outlook.js', 'scripts/45-email-agent.js', 'scripts/50-estoque-omie.js'].forEach(function(src) {
+  ['scripts/44-email-crm.js', 'scripts/35-outlook.js', 'scripts/45-email-agent.js', 'scripts/46-cadastros-autosync.js', 'scripts/50-estoque-omie.js'].forEach(function(src) {
     var s = document.createElement('script');
     s.src = src + '?v=' + Date.now();
     document.body.appendChild(s);
   });
+
+  // Inicializar sync automatico de cadastros (Supabase = source of truth)
+  setTimeout(function() {
+    if (window.CadastrosAutosync && typeof window.CadastrosAutosync.init === 'function') {
+      window.CadastrosAutosync.init();
+    }
+  }, 800);
 
   // Registrar módulo Estoque Omie
   setTimeout(function() {

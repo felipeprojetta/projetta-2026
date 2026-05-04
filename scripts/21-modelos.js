@@ -1,14 +1,16 @@
 /* 21-modelos.js — Cadastros > Modelos.
    Modelos de portas pivotantes (Cava, Puxador Externo, Friso etc.)
    Cada modelo tem numero, nome, e duas imagens (1 folha e 2 folhas).
-   Imagens sao placeholder por enquanto — serao integradas no Supabase. */
+   Imagens sao salvas no Supabase Storage (bucket modelos-portas) e
+   persistem entre dispositivos. Sync automatico de cadastros via
+   46-cadastros-autosync.js (write-through ao v7.cadastros). */
 
 
 /* ============================================================
    SUB-MODULO: MODELOS
    Modelos de portas pivotantes (Cava, Puxador Externo, Friso etc.)
    Cada modelo tem um numero, nome, e duas imagens (1 folha e 2 folhas).
-   Imagens sao placeholder por enquanto — serao integradas no Supabase.
+   Imagens persistidas no Supabase Storage (bucket modelos-portas).
    ============================================================ */
 const Modelos = (() => {
   const store = Storage.scope('cadastros');
@@ -160,7 +162,7 @@ const Modelos = (() => {
     container.innerHTML = `
       <div class="mod-section">
         <div class="mod-section-title">CADASTRO DE MODELOS</div>
-        <div class="mod-subtitle">Edite os nomes e clique em Salvar para aplicar. As imagens (1 folha / 2 folhas) ainda sao placeholder e serao plugadas via Supabase.</div>
+        <div class="mod-subtitle">Imagens das portas (1 folha / 2 folhas) sao salvas no Supabase Storage. Persistem entre dispositivos e sessoes.</div>
 
         <div class="mod-toolbar">
           <div class="mod-toolbar-left">
@@ -188,16 +190,25 @@ const Modelos = (() => {
 
     bindEvents(container);
     updateSaveButton(); // sincroniza estado do botao com flag dirty (caso render seja chamado apos uma mutacao)
+
+    // Re-render quando cadastros chegarem do Supabase
+    if (window.Events && window.Events.on && !render._listenerInstalled) {
+      render._listenerInstalled = true;
+      window.Events.on('cadastros:loaded', function() {
+        loaded = false; // forca re-load do localStorage (ja' atualizado pelo autosync)
+        render(container);
+      });
+    }
   }
 
   /* ============================================================
-     UPLOAD DE IMAGEM (modo local — base64 no localStorage)
+     UPLOAD DE IMAGEM (Supabase Storage — bucket modelos-portas)
      ============================================================
-     Por enquanto as imagens ficam em base64 dentro do localStorage.
-     Quando migrar pro Supabase Storage, mudar pickAndCompressImage()
-     pra fazer upload e salvar a URL pública no campo img_1f / img_2f.
+     Imagens sao enviadas pro Supabase Storage. O campo img_1f/img_2f
+     guarda a URL publica. Persistem entre dispositivos e sessoes.
 
      Compressao: max 800px de largura, JPEG quality 0.85.
+     Limite Supabase: 5MB por imagem, mime types image/png|jpeg|webp|gif.
      Isso evita estourar o limite de ~5MB do localStorage com 24 modelos.
      ============================================================ */
   function pickImageFile(callback) {
@@ -248,24 +259,73 @@ const Modelos = (() => {
     });
   }
 
+  // ── Supabase Storage (bucket modelos-portas) ──
+  const SUPABASE_URL = 'https://plmliavuwlgpwaizfeds.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
+  const STORAGE_BUCKET = 'modelos-portas';
+
+  async function uploadParaStorage(blob, modeloNumero, tipo) {
+    const ext = blob.type === 'image/png' ? 'png' : 'jpg';
+    const numero = String(modeloNumero || 0).padStart(2, '0');
+    const path = 'modelo-' + numero + '-' + tipo + '-' + Date.now() + '.' + ext;
+    const url = SUPABASE_URL + '/storage/v1/object/' + STORAGE_BUCKET + '/' + path;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'apikey': SUPABASE_KEY,
+        'Content-Type': blob.type,
+        'x-upsert': 'true'
+      },
+      body: blob
+    });
+    if (!resp.ok) {
+      const txt = await resp.text();
+      throw new Error('Upload falhou: ' + resp.status + ' ' + txt);
+    }
+    // URL pública
+    return SUPABASE_URL + '/storage/v1/object/public/' + STORAGE_BUCKET + '/' + path;
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    const arr = dataUrl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8 = new Uint8Array(n);
+    while (n--) u8[n] = bstr.charCodeAt(n);
+    return new Blob([u8], { type: mime });
+  }
+
   function handleUpload(modelo, tipo, container) {
     pickImageFile(function(file) {
-      compressImage(file, 800, 0.85).then(function(result) {
+      compressImage(file, 800, 0.85).then(async function(result) {
         const campo = tipo === '1f' ? 'img_1f' : 'img_2f';
         const dimCampo = tipo === '1f' ? 'dim_1f' : 'dim_2f';
+        // Mostra preview imediato (base64) enquanto faz upload
         modelo[campo] = result.dataUrl;
         modelo[dimCampo] = result.width + 'x' + result.height;
-        const kbBase64 = (result.dataUrl.length / 1024).toFixed(0);
-        const kbOrig = (result.origSize / 1024).toFixed(0);
-        console.log(
-          '[Modelos] Imagem ' + tipo + ' carregada no modelo "' + modelo.nome + '":\n' +
-          '  Original: ' + result.origWidth + 'x' + result.origHeight + ' (' + kbOrig + 'KB)\n' +
-          '  Comprimida: ' + result.width + 'x' + result.height + ' (' + kbBase64 + 'KB base64)'
-        );
-        markDirty();
+        modelo._uploading = tipo;
         render(container);
+        try {
+          // Upload pro Supabase Storage
+          const blob = dataUrlToBlob(result.dataUrl);
+          const publicUrl = await uploadParaStorage(blob, modelo.numero, tipo);
+          // Substitui base64 pela URL publica do Supabase
+          modelo[campo] = publicUrl;
+          delete modelo._uploading;
+          console.log('[Modelos] Imagem ' + tipo + ' do modelo "' + modelo.nome + '" salva no Supabase: ' + publicUrl);
+          markDirty();
+          render(container);
+        } catch (err) {
+          delete modelo._uploading;
+          render(container);
+          alert('Erro ao enviar imagem para o servidor: ' + err.message + '\n\nA imagem foi salva localmente. Tente novamente quando tiver internet.');
+          markDirty();
+        }
       }).catch(function(err) {
-        alert('Erro ao carregar imagem: ' + err.message);
+        alert('Erro ao processar imagem: ' + err.message);
       });
     });
   }
