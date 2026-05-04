@@ -226,7 +226,7 @@
       setStatus('🔄 Reserva ' + reserva + ' identificada. Buscando na intranet...', '#1565c0');
 
       // 3. Verifica se ja existe esse lead
-      var leads = (window.Storage && window.Storage.scope('crm').get('leads')) || [];
+      var leads = (typeof Storage !== 'undefined' ? Storage.scope('crm').get('leads') : []) || [];
       var jaExiste = leads.find(function(l) { return String(l.numeroReserva) === String(reserva); });
       if (jaExiste) {
         throw new Error('Reserva ' + reserva + ' ja existe no CRM (lead "' + jaExiste.cliente + '"). Abra o card existente.');
@@ -267,14 +267,14 @@
 
       // 7. Anexa dados do PDF no lead recem-criado (se tiver)
       if (dadosPDF.porta_largura || dadosPDF.porta_altura || dadosPDF.porta_modelo || dadosPDF.porta_cor) {
-        var leadsAtuais = window.Storage.scope('crm').get('leads') || [];
+        var leadsAtuais = Storage.scope('crm').get('leads') || [];
         var leadCriado = leadsAtuais.find(function(l) { return String(l.numeroReserva) === String(reserva); });
         if (leadCriado) {
           if (dadosPDF.porta_largura) leadCriado.porta_largura = dadosPDF.porta_largura;
           if (dadosPDF.porta_altura)  leadCriado.porta_altura  = dadosPDF.porta_altura;
           if (dadosPDF.porta_modelo)  leadCriado.porta_modelo  = dadosPDF.porta_modelo;
           if (dadosPDF.porta_cor)     leadCriado.porta_cor     = dadosPDF.porta_cor;
-          window.Storage.scope('crm').set('leads', leadsAtuais);
+          Storage.scope('crm').set('leads', leadsAtuais);
         }
       }
 
@@ -289,7 +289,7 @@
       setStatus('✅ ' + resumo + dadosTxt, '#16a34a');
 
       // Re-renderiza CRM se aberto
-      if (window.Events) window.Events.emit('crm:reload');
+      if (Events) Events.emit('crm:reload');
 
     } catch (e) {
       console.error('[email-import] erro:', e);

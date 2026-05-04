@@ -65,8 +65,8 @@
 
   // ── Verificar se lead com essa reserva ja existe ──
   function leadJaExiste(reserva) {
-    if (!window.Storage) return false;
-    var leads = window.Storage.scope('crm').get('leads') || [];
+    if (typeof Storage === "undefined") return false;
+    var leads = Storage.scope('crm').get('leads') || [];
     return leads.some(function(l) {
       return String(l.numeroReserva) === String(reserva);
     });
@@ -75,7 +75,7 @@
   // ── Gerar proximo AGP ──
   function proximoAGP() {
     var max = 4645; // piso Felipe
-    var leads = (window.Storage && window.Storage.scope('crm').get('leads')) || [];
+    var leads = (Storage && Storage.scope('crm').get('leads')) || [];
     leads.forEach(function(l) {
       if (!l.numeroAGP) return;
       var m = String(l.numeroAGP).match(/(\d+)/);
@@ -89,8 +89,8 @@
 
   // ── Criar lead no CRM a partir dos dados da Weiku ──
   function criarLeadAutomatico(reserva, dadosWeiku, agp) {
-    if (!window.Storage) return false;
-    var store = window.Storage.scope('crm');
+    if (typeof Storage === "undefined") return false;
+    var store = Storage.scope('crm');
     var leads = store.get('leads') || [];
 
     var novo = {
@@ -165,8 +165,8 @@
     }
 
     // Re-renderizar CRM se criou leads
-    if (criados > 0 && window.Events) {
-      window.Events.emit('crm:reload');
+    if (criados > 0 && Events) {
+      Events.emit('crm:reload');
       console.log('[email-crm] ' + criados + ' lead(s) criado(s) automaticamente!');
     }
 
