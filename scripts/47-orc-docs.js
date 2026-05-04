@@ -167,24 +167,38 @@
       const valor = v.valor > 0 ? `R$ ${fmtBR(v.valor)}` : '<i style="color:#94a3b8;">sem valor</i>';
       const data = v.aprovadoEm || v.criadoEm;
       return `
-        <button type="button" class="orcdocs-versao-item" data-versao-id="${v.id}" style="
-          width: 100%; text-align: left; background: #f9fafb; border: 1px solid #e5e7eb;
-          border-radius: 6px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer;
-          display: flex; justify-content: space-between; align-items: center; gap: 12px;
-          transition: background 0.15s;
+        <div style="
+          width: 100%; background: #f9fafb; border: 1px solid #e5e7eb;
+          border-radius: 6px; margin-bottom: 8px; display: flex;
+          align-items: stretch; transition: background 0.15s;
         " onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background='#f9fafb'">
-          <div>
-            <div style="font-weight: 700; color: #1f3658; font-size: 14px;">
-              Versão ${v.numero} ${tag}
+          <button type="button" class="orcdocs-versao-item" data-versao-id="${v.id}" style="
+            flex: 1; text-align: left; background: transparent; border: none;
+            padding: 12px 14px; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center; gap: 12px;
+          ">
+            <div>
+              <div style="font-weight: 700; color: #1f3658; font-size: 14px;">
+                Versão ${v.numero} ${tag}
+              </div>
+              <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">
+                ${data ? fmtData(data) : ''}
+              </div>
             </div>
-            <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">
-              ${data ? fmtData(data) : ''}
+            <div style="text-align: right; font-weight: 600; color: #16a34a; font-size: 14px;">
+              ${valor}
             </div>
-          </div>
-          <div style="text-align: right; font-weight: 600; color: #16a34a; font-size: 14px;">
-            ${valor}
-          </div>
-        </button>
+          </button>
+          <button type="button" class="orcdocs-versao-deletar"
+                  data-versao-id="${v.id}" data-numero="${v.numero}" data-aprovada="${v.ehImutavelParaCard ? '1' : '0'}"
+                  title="Deletar Versão ${v.numero}"
+                  style="
+            background: transparent; border: none; border-left: 1px solid #e5e7eb;
+            padding: 0 14px; cursor: pointer; color: #94a3b8; font-size: 16px;
+            transition: color 0.15s, background 0.15s;
+          " onmouseover="this.style.color='#dc2626';this.style.background='#fef2f2'"
+            onmouseout="this.style.color='#94a3b8';this.style.background='transparent'">🗑️</button>
+        </div>
       `;
     }).join('');
 
@@ -205,6 +219,43 @@
         if (!versaoId) return;
         carregarVersaoNaAbaOrcamento(leadId, versaoId);
         fecharModal('orcdocs-modal-versoes');
+      });
+    });
+
+    // Felipe sessao 2026-08: botao deletar versao. Confirma 1x (ou 2x se aprovada).
+    document.querySelectorAll('#orcdocs-modal-versoes .orcdocs-versao-deletar').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const versaoId = btn.dataset.versaoId;
+        const numero   = btn.dataset.numero;
+        const aprovada = btn.dataset.aprovada === '1';
+        if (!versaoId) return;
+        const msg1 = `Deletar Versão ${numero}?\n\nIsso vai apagar TODOS os dados dessa versão (itens, parâmetros, cálculos).\n\nEssa ação não pode ser desfeita.`;
+        if (!confirm(msg1)) return;
+        if (aprovada) {
+          const msg2 = `⚠️  Versão ${numero} está APROVADA.\n\nDeletar uma versão aprovada pode causar inconsistência no histórico do lead (valor mostrado no card pode ficar órfão).\n\nTem certeza absoluta que quer deletar?`;
+          if (!confirm(msg2)) return;
+        }
+        try {
+          if (!window.Orcamento || typeof window.Orcamento.deletarVersao !== 'function') {
+            alert('Função deletarVersao não disponível. Recarregue a página.');
+            return;
+          }
+          window.Orcamento.deletarVersao(versaoId);
+          // Atualiza CRM (card pode mudar de etapa/valor se versao aprovada foi deletada)
+          try {
+            if (typeof Events !== 'undefined') Events.emit('crm:reload');
+            if (window.Crm && typeof window.Crm.forceReload === 'function') {
+              window.Crm.forceReload(null);
+            }
+          } catch(_) {}
+          fecharModal('orcdocs-modal-versoes');
+          // Reabre modal pra mostrar lista atualizada (se ainda houver versões)
+          setTimeout(() => abrirVersoesModal(leadId), 100);
+        } catch (err) {
+          console.error('[OrcDocs] erro ao deletar versão:', err);
+          alert('Falha ao deletar: ' + (err.message || err));
+        }
       });
     });
   }
