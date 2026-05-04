@@ -347,26 +347,132 @@ const AcessoriosPortaExterna = (() => {
       add(codEps, mIso, 'Embalagem', 'fab', `H×4 + L×3 = ${mIso}m`);
     }
 
-    // SELANTES FAB — DOWSIL 995 (Felipe: 65.2m / 8m por tubo = 9 tubos)
-    // Formula: ceil(perimetroPorta / 8) onde perimetroPorta = (L+H)*2 / 1000
+    // ============================================================
+    // FITA DUPLA FACE + SILICONE ESTRUTURAL (Felipe sessao 2026-08)
+    // ============================================================
+    // Substitui o calculo aproximado anterior (perim × 1.5/0.5 chumbado)
+    // pela tabela EXATA fornecida no Excel CALCULO_DE_FITA_DULPA_FACE.
+    //
+    // Regra: pra cada peca do Lev. Superficies E pra cada perfil do
+    // motor PerfisPortaExterna, aplica multiplicador especifico conforme
+    // o label da peca/perfil e o sistema (PA006 vs PA007).
+    //
+    // Tabela (Excel sheet "PORTA"):
+    //   PEÇA/PERFIL              F.D19    F.D12    M.S    Tamanho usado
+    //   Alisar Altura            1×qtd    -        1×qtd  altura da peça
+    //   Alisar Largura           1×qtd    -        1×qtd  altura da peça
+    //   Tampa de Furo (PA007)    2×qtd    -        1×qtd  altura da peça
+    //   Tampa de Furo (PA006)    -        2×qtd    1×qtd  altura da peça
+    //   PA-PA006P (Alt Portal)   2×qty    2×qty    8×qty  comp do perfil
+    //   PA-PA007P (Alt Portal)   4×qty    4×qty    10×qty comp do perfil
+    //   PA-PA006F/PA007F (Folha) 1×qty    -        8×qty  comp do perfil
+    //   Qualquer "Tampa..."      1×qtd    -        1×qtd  perim (L×2+H×2)
+    //   Tubo das Ripas           -        -        2×qty  comp do perfil
+    //
+    // Conversao final: F.D total / 20m por rolo | M.S total / 8m por tubo
     if (L > 0 && H > 0) {
-      const perimetro = ((L + H) * 2) / 1000;
-      const tubos = Math.max(1, Math.ceil(perimetro / 8));
-      add('PA-DOWSIL 995', tubos, 'Selantes', 'fab', `${perimetro.toFixed(1)}m ÷ 8m/tubo = ${tubos} tubo(s)`);
-    }
+      let mFD19 = 0;  // metros lineares de Fita Dupla Face 19mm
+      let mFD12 = 0;  // metros lineares de Fita Dupla Face 12mm
+      let mMS   = 0;  // metros lineares de Silicone Estrutural M.S 995
 
-    // FITA DUPLA FACE (Felipe PDF):
-    //   3 rolos PA-FITDF 19X20X1.0 (42.6m / 20m/rolo)
-    //   1 rolo PA-FITDF 12X20X1.0 (15.2m / 20m/rolo)
-    if (L > 0 && H > 0) {
-      const perim = ((L + H) * 2) / 1000;  // perimetro em m
-      // Aproximadamente: 19mm = perim x 1.5, 12mm = perim x 0.5
-      const m19 = Math.ceil(perim * 1.5);
-      const m12 = Math.ceil(perim * 0.5);
-      const r19 = Math.max(1, Math.ceil(m19 / 20));
-      const r12 = Math.max(1, Math.ceil(m12 / 20));
-      add('PA-FITDF 19X20X1.0', r19, 'Fita Dupla Face', 'fab', `${m19}m ÷ 20m/rolo = ${r19} rolo(s)`);
-      add('PA-FITDF 12X20X1.0', r12, 'Fita Dupla Face', 'fab', `${m12}m ÷ 20m/rolo = ${r12} rolo(s)`);
+      // --- 1) Pecas do Levantamento de Superficies (lado externo) ---
+      // Lado externo so' (ja' contempla Portal + Folha externa). Lado
+      // interno duplicaria pecas em cor unica, e em cor diferente o
+      // motor ja' aplica logica especifica pra peca interna.
+      try {
+        const pecas = (window.ChapasPortaExterna?.gerarPecasChapa?.(item, 'externo')) || [];
+        pecas.forEach(p => {
+          const lar = Number(p.largura) || 0;
+          const alt = Number(p.altura)  || 0;
+          const qtd = Number(p.qtd)     || 0;
+          if (!lar || !alt || !qtd) return;
+          const lblLow = String(p.label || '').toLowerCase().trim();
+          const compM = (alt * qtd * qtdPortas) / 1000;          // metros — comprimento (altura)
+          const perimM = ((lar + alt) * 2 * qtd * qtdPortas) / 1000; // metros — perimetro
+
+          // Alisar Altura / Alisar Largura: 1× F.D19 + 1× M.S × comp
+          if (lblLow === 'alisar altura' || lblLow === 'alisar largura') {
+            mFD19 += 1 * compM;
+            mMS   += 1 * compM;
+            return;
+          }
+          // Tampa de Furo: muda fita conforme sistema
+          if (lblLow === 'tampa de furo') {
+            if (sis === 'PA007') mFD19 += 2 * compM;
+            else                 mFD12 += 2 * compM;
+            mMS += 1 * compM;
+            return;
+          }
+          // Qualquer outra peca que comeca com "tampa": 1×F.D19 + 1×M.S × perimetro
+          if (lblLow.startsWith('tampa')) {
+            mFD19 += 1 * perimM;
+            mMS   += 1 * perimM;
+            return;
+          }
+        });
+      } catch (e) { console.warn('[FD/MS] erro ao ler pecas:', e); }
+
+      // --- 2) Perfis do motor PerfisPortaExterna ---
+      // gerarCortes(item) retorna { 'PA-PA006F-6M': [{ comp, qty, label }, ...], ... }
+      // qty ja inclui qtdPorta multiplicado, entao NAO multiplicar por qtdPortas aqui.
+      try {
+        const cortes = (window.PerfisPortaExterna?.gerarCortes?.(item)) || {};
+        Object.keys(cortes).forEach(codigo => {
+          const lista = cortes[codigo] || [];
+          // Detecta sistema do perfil pelo prefixo do codigo
+          const isPA007 = /^PA-PA007/.test(codigo);
+          // const isPA006 = /^PA-PA006/.test(codigo);  // default
+          lista.forEach(corte => {
+            const comp = Number(corte.comp) || 0;
+            const qty  = Number(corte.qty)  || 0;
+            if (!comp || !qty) return;
+            const m = (comp * qty) / 1000;  // metros
+            const lbl = String(corte.label || '');
+            // Altura Folha (PA-PA006F / PA-PA007F): 1×F.D19 + 8×M.S × comp
+            if (lbl === 'Altura Folha') {
+              mFD19 += 1 * m;
+              mMS   += 8 * m;
+              return;
+            }
+            // Altura Portal (PA-PA006P / PA-PA007P): muda multiplicadores conforme sistema
+            if (lbl === 'Altura Portal') {
+              if (isPA007) {
+                mFD19 += 4 * m;
+                mFD12 += 4 * m;
+                mMS   += 10 * m;
+              } else {
+                mFD19 += 2 * m;
+                mFD12 += 2 * m;
+                mMS   += 8 * m;
+              }
+              return;
+            }
+            // Tubo Interno das Ripas: 2×M.S × comp
+            if (lbl === 'Tubo Interno das Ripas') {
+              mMS += 2 * m;
+              return;
+            }
+          });
+        });
+      } catch (e) { console.warn('[FD/MS] erro ao ler perfis:', e); }
+
+      // --- 3) Conversao final em rolos/tubos ---
+      // Fita: rolo de 20m | Silicone DowSil 995: tubo de ~8m
+      if (mFD19 > 0) {
+        const rolos = Math.ceil(mFD19 / 20);
+        add('PA-FITDF 19X20X1.0', rolos, 'Fita Dupla Face', 'fab',
+            `${mFD19.toFixed(1)}m / 20m por rolo = ${rolos} rolo(s)`);
+      }
+      if (mFD12 > 0) {
+        const rolos = Math.ceil(mFD12 / 20);
+        add('PA-FITDF 12X20X1.0', rolos, 'Fita Dupla Face', 'fab',
+            `${mFD12.toFixed(1)}m / 20m por rolo = ${rolos} rolo(s)`);
+      }
+      if (mMS > 0) {
+        const tubos = Math.ceil(mMS / 8);
+        add('PA-DOWSIL 995', tubos, 'Selantes', 'fab',
+            `${mMS.toFixed(1)}m / 8m por tubo = ${tubos} tubo(s)`);
+      }
     }
 
     // VEDA PORTA (Felipe sessao 2026-08): proximo na sequencia
