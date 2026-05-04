@@ -373,20 +373,19 @@
       if (dadosPDF.porta_cor)     dadosTxt += ' · Cor ' + dadosPDF.porta_cor;
       setStatus('✅ ' + resumo + dadosTxt, '#16a34a');
 
-      // Felipe sessao 2026-08: se houve PDF mas parser nao achou nada,
-      // mostra botao "Copiar texto do PDF" pro Felipe colar pro Claude
-      // calibrar o regex.
-      var nenhumCampoPDF = !dadosPDF.porta_largura && !dadosPDF.porta_altura
-                        && !dadosPDF.porta_modelo  && !dadosPDF.porta_cor
-                        && !dadosPDF.porta_fechadura_digital;
-      if (textoPDFGuardado && nenhumCampoPDF && statusEl) {
+      // Felipe sessao 2026-08: SEMPRE mostra botao "Copiar texto do PDF"
+      // quando havia PDF anexo. Ajuda debug do parser - Felipe copia
+      // texto e cola pro Claude calibrar o regex.
+      if (textoPDFGuardado && statusEl) {
         var botaoCopiar = document.createElement('button');
-        botaoCopiar.textContent = '📋 Copiar texto do PDF (mande pro Claude)';
+        botaoCopiar.textContent = '📋 Copiar texto do PDF';
         botaoCopiar.style.cssText =
           'margin-left:10px;padding:4px 10px;background:#1f3658;color:#fff;' +
           'border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer';
         botaoCopiar.onclick = function() {
-          var conteudo = '=== ' + nomePDFGuardado + ' ===\n' + textoPDFGuardado;
+          var conteudo = '=== ' + nomePDFGuardado + ' ===\n' +
+                         '=== PARSED: ' + JSON.stringify(dadosPDF) + ' ===\n' +
+                         textoPDFGuardado;
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(conteudo).then(function() {
               botaoCopiar.textContent = '✅ Copiado! Cole no chat';
@@ -412,14 +411,13 @@
       if (typeof Events !== 'undefined') Events.emit('crm:reload');
 
       // Felipe sessao 2026-08: 'apertar importar e ja aparecer no crm'.
-      // Auto-navega pra CRM apos 1.5s (tempo de Felipe ler o status verde).
-      // Se Felipe estiver fazendo varias importacoes em serie, ele volta
-      // pra Email facilmente pelo menu lateral.
+      // Auto-navega pra CRM apos 4s (tempo de Felipe ler o status verde
+      // E clicar 'Copiar texto do PDF' se quiser mandar pro debug).
       setTimeout(function() {
         if (typeof App !== 'undefined' && App.navigateTo) {
           App.navigateTo('crm');
         }
-      }, 1500);
+      }, 4000);
 
     } catch (e) {
       console.error('[email-import] erro:', e);
