@@ -1763,6 +1763,54 @@ const Orcamento = (() => {
       const cor = String(it.corExterna || it.corInterna || '').trim();
       return !lar && !alt && !mod && !cor;
     }
+
+    // Felipe sessao 2026-08: detecta revestimento da chapa baseado na cor.
+    // Faz lookup em Storage('cadastros').superficies_lista procurando uma
+    // superficie cuja descricao contenha o codigo/nome da cor importada.
+    // Retorna a string que casa com as opcoes do select Revestimento:
+    //   'ACM 4mm' | 'HPL 4mm' | 'Aluminio Macico 2mm' | 'Vidro 6mm' | ''
+    // Ex: cor='PRO0157T - PRETO WEATHERXL BB LDPE' cadastrada como
+    // 'PRO0157T - PRETO WEATHERXL BB LDPE - ACM 4mm 1500x5000' (categoria
+    // 'acm') -> retorna 'ACM 4mm'.
+    function _detectarRevestimentoPorCor(corStr) {
+      if (!corStr) return '';
+      const cor = String(corStr).trim();
+      if (!cor) return '';
+      try {
+        const lista = Storage.scope('cadastros').get('superficies_lista') || [];
+        if (!lista.length) return '';
+
+        // Extrai o codigo da cor (parte antes do primeiro '-' ou ' ')
+        // Ex: 'PRO0157T - PRETO WEATHERXL BB LDPE' -> 'PRO0157T'
+        const codigoMatch = cor.match(/^[A-Z0-9]+/i);
+        const codigoCor = codigoMatch ? codigoMatch[0].toUpperCase() : '';
+        const corLower = cor.toLowerCase();
+
+        // Procura: 1) match exato pelo codigo, 2) descricao contem cor inteira
+        let achada = null;
+        if (codigoCor) {
+          achada = lista.find(s => {
+            const d = String(s.descricao || '').toUpperCase();
+            return d.indexOf(codigoCor) >= 0;
+          });
+        }
+        if (!achada) {
+          achada = lista.find(s => String(s.descricao || '').toLowerCase().indexOf(corLower) >= 0);
+        }
+        if (!achada) return '';
+
+        const cat = String(achada.categoria || '').toLowerCase();
+        // Mapa categoria -> opcao do select
+        if (cat === 'acm')              return 'ACM 4mm';
+        if (cat === 'hpl')              return 'HPL 4mm';
+        if (cat === 'aluminio_macico')  return 'Aluminio Macico 2mm';
+        if (cat === 'vidro')            return 'Vidro 6mm';  // default - user pode trocar pra 8mm
+        return '';
+      } catch (e) {
+        console.warn('[orcamento] _detectarRevestimentoPorCor falhou:', e);
+        return '';
+      }
+    }
     const itensAtuais = versaoAlvo.itens || [];
     const versaoVazia = itensAtuais.length === 0;
     const primeiroVirgem = itensAtuais.length === 1 && _itemVirgem(itensAtuais[0]);
@@ -1793,6 +1841,14 @@ const Orcamento = (() => {
         if (lead.porta_cor) {
           if (!itemInicial.corExterna) itemInicial.corExterna = lead.porta_cor;
           if (!itemInicial.corInterna) itemInicial.corInterna = lead.porta_cor;
+          // Felipe sessao 2026-08: auto-detecta revestimento pela cor.
+          // Se a cor importada esta cadastrada em Superficies (acm/hpl/
+          // aluminio_macico/vidro), preenche o select de Revestimento
+          // automaticamente. Felipe pode trocar manualmente depois.
+          if (!itemInicial.revestimento) {
+            const revAuto = _detectarRevestimentoPorCor(lead.porta_cor);
+            if (revAuto) itemInicial.revestimento = revAuto;
+          }
         }
         // Fechadura Digital: agora pode ser codigo real (PA-DIG ...) ou 'sim'/'nao' antigo
         var fd = lead.porta_fechadura_digital;
