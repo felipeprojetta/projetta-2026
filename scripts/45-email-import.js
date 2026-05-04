@@ -408,8 +408,18 @@
         statusEl.appendChild(botaoCopiar);
       }
 
-      // Re-renderiza CRM se aberto
+      // Re-renderiza CRM se aberto (handler faz loaded=false; load())
       if (typeof Events !== 'undefined') Events.emit('crm:reload');
+
+      // Felipe sessao 2026-08: 'apertar importar e ja aparecer no crm'.
+      // Auto-navega pra CRM apos 1.5s (tempo de Felipe ler o status verde).
+      // Se Felipe estiver fazendo varias importacoes em serie, ele volta
+      // pra Email facilmente pelo menu lateral.
+      setTimeout(function() {
+        if (typeof App !== 'undefined' && App.navigateTo) {
+          App.navigateTo('crm');
+        }
+      }, 1500);
 
     } catch (e) {
       console.error('[email-import] erro:', e);
