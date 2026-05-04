@@ -97,14 +97,40 @@
 
       var store = Storage.scope('cadastros');
       var chavesAtualizadas = [];
+      var quotaErrors = 0;
+
       Object.keys(dados).forEach(function(chave) {
         var valorAtual = store.get(chave);
         var valorNovo = dados[chave];
         if (JSON.stringify(valorAtual) !== JSON.stringify(valorNovo)) {
-          store.set(chave, valorNovo);
-          chavesAtualizadas.push(chave);
+          try {
+            store.set(chave, valorNovo);
+            chavesAtualizadas.push(chave);
+          } catch (e) {
+            // Quota exceeded? Tenta limpar e re-tentar
+            if (String(e).indexOf('quota') >= 0 || String(e).indexOf('Quota') >= 0) {
+              quotaErrors++;
+              console.warn('[CadastrosAutosync] Quota cheia salvando "' + chave + '". Limpando e retentando...');
+              limparQuotaSeNecessario();
+              try {
+                store.set(chave, valorNovo);
+                chavesAtualizadas.push(chave);
+              } catch (e2) {
+                // Ainda nao conseguiu - guarda em window pra Modelos.js usar
+                console.error('[CadastrosAutosync] Falha persistente em "' + chave + '". Guardando em memoria.');
+                window._cadastrosFallbackMemoria = window._cadastrosFallbackMemoria || {};
+                window._cadastrosFallbackMemoria[chave] = valorNovo;
+              }
+            } else {
+              throw e;
+            }
+          }
         }
       });
+
+      if (quotaErrors > 0) {
+        showToast('⚠ Espaco do navegador estava cheio. Limpei automaticamente. Recarregue se algo nao aparecer.', 'info');
+      }
 
       console.log('[CadastrosAutosync] ✅ ' + Object.keys(dados).length + ' cadastros do Supabase | ' + chavesAtualizadas.length + ' atualizados localmente');
       if (chavesAtualizadas.length) {
@@ -410,11 +436,71 @@
   }
 
   /**
+   * Felipe sessao 2026-05: Limpa localStorage de chaves antigas/orfas
+   * que estouram a quota de 10MB. Sintoma anterior: setItem falhava com
+   * "exceeded the quota" e modelos_lista nao conseguia ser atualizado
+   * com URLs do Supabase, deixando imagens "sumidas".
+   */
+  function limparQuotaSeNecessario() {
+    try {
+      // Conta uso total
+      var total = 0;
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        var v = localStorage.getItem(k);
+        total += (k.length + (v ? v.length : 0)) * 2;
+      }
+      var totalMB = total / 1048576;
+      console.log('[CadastrosAutosync] localStorage uso: ' + totalMB.toFixed(2) + ' MB');
+
+      // Se acima de 7MB, limpa chaves orfas conhecidas
+      if (totalMB < 7) return { liberou: 0 };
+
+      var liberou = 0;
+      var removidas = 0;
+
+      // Padroes de chaves obsoletas que podem ser removidas
+      // (sao caches/snapshots antigos pre-Supabase)
+      var padroesRemover = [
+        /^freeze_/,           // snapshots de versao antigos
+        /^projetta_v[0-9]+$/, // backups antigos
+      ];
+
+      for (var j = localStorage.length - 1; j >= 0; j--) {
+        var key = localStorage.key(j);
+        if (!key) continue;
+        var deveRemover = padroesRemover.some(function(re) { return re.test(key); });
+        if (deveRemover) {
+          var val = localStorage.getItem(key);
+          var tam = (key.length + (val ? val.length : 0)) * 2;
+          localStorage.removeItem(key);
+          liberou += tam;
+          removidas++;
+        }
+      }
+
+      if (removidas > 0) {
+        var liberouMB = (liberou / 1048576).toFixed(2);
+        console.log('[CadastrosAutosync] 🧹 Liberou ' + liberouMB + ' MB (' + removidas + ' chaves obsoletas removidas)');
+        showToast('🧹 Liberado ' + liberouMB + ' MB de cache antigo do navegador.', 'sucesso');
+      }
+      return { liberou: liberou, removidas: removidas };
+    } catch (e) {
+      console.warn('[CadastrosAutosync] Erro limpando quota:', e);
+      return { liberou: 0 };
+    }
+  }
+
+  /**
    * Inicializa: instala hook + carrega do Supabase + migra orfaos.
    */
   async function init() {
     if (_initialized) return;
     _initialized = true;
+
+    // 0. Limpa cache obsoleto antes de qualquer coisa - libera espaco
+    //    pra autosync conseguir fazer setItem com dados grandes (URLs etc)
+    limparQuotaSeNecessario();
 
     instalarWriteThrough();
 
