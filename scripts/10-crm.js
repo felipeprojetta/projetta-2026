@@ -2066,12 +2066,21 @@
         card.addEventListener('dragend', () => {
           card.classList.remove('is-dragging');
           container.querySelectorAll('.crm-column.is-drop-target').forEach(c => c.classList.remove('is-drop-target'));
-          // Delay pra que o click pos-drag seja descartado
+          // Felipe sessao 2026-08: troca de flag booleana pra timestamp -
+          // antes 'wasDragged = true' podia ficar travado se um drag fosse
+          // cancelado abruptamente (modal/erro/etc). Agora gravamos a hora
+          // do ultimo dragend e o click so' bloqueia se dragend foi recente
+          // (< 200ms). Garante que click EVENTUALMENTE sempre abre o modal.
+          card._lastDragEnd = Date.now();
+          // Mantem compatibilidade com handlers que checam wasDragged
+          wasDragged = true;
           setTimeout(() => { wasDragged = false; }, 60);
         });
-        // Click no card abre modal de edicao (se nao foi drag)
+        // Click no card abre modal de edicao (se nao foi drag recente)
         card.addEventListener('click', (e) => {
-          if (wasDragged) return;
+          // Felipe sessao 2026-08: usa timestamp em vez de flag binaria.
+          // Bloqueia click so' se houve drag nos ultimos 200ms.
+          if (card._lastDragEnd && (Date.now() - card._lastDragEnd) < 200) return;
           // Se clicou no input AGP, nao abre modal — deixa editar
           if (e.target.matches('[data-action="edit-agp"]')) {
             e.stopPropagation();
@@ -2245,7 +2254,12 @@
 
                 // Felipe sessao 2026-08: pergunta destino antes de abrir composer
                 // Opcoes: Cliente do card (mailto:) ou Reserva (OutlookComposer reply-all)
-                const remetenteReserva = (emailOrigem.from && emailOrigem.from.address) || '';
+                // Felipe sessao 2026-08 REVISAO: BUG estrutura do email do Outlook
+                // usa from.emailAddress.address (Microsoft Graph API) - NAO
+                // from.address. Antes a opcao 'Email da Reserva' NUNCA
+                // aparecia porque remetenteReserva ficava sempre vazio.
+                const remetenteReserva = (emailOrigem.from && emailOrigem.from.emailAddress && emailOrigem.from.emailAddress.address) || '';
+                const remetenteNome    = (emailOrigem.from && emailOrigem.from.emailAddress && emailOrigem.from.emailAddress.name) || '';
                 const clienteEmail = (lead.email || '').trim();
 
                 // Templates editaveis vindos do modulo Mensagens
@@ -2310,7 +2324,7 @@
                       ? '<button id="email-cliente" style="padding:12px;background:#0078d4;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left">👤 Cliente do card<br><span style="font-size:11px;font-weight:400">' + (lead.cliente || '') + ' &lt;' + clienteEmail + '&gt;</span></button>'
                       : '<div style="padding:12px;background:#f5f5f5;color:#888;border-radius:8px;font-size:12px">👤 Cliente do card sem email cadastrado</div>')
                   + (remetenteReserva
-                      ? '<button id="email-reserva" style="padding:12px;background:#1a5276;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left">📨 Email da Reserva ' + lead.numeroReserva + '<br><span style="font-size:11px;font-weight:400">' + remetenteReserva + '</span></button>'
+                      ? '<button id="email-reserva" style="padding:12px;background:#1a5276;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left">📨 Email da Reserva ' + lead.numeroReserva + '<br><span style="font-size:11px;font-weight:400">' + (remetenteNome ? remetenteNome + ' &lt;' + remetenteReserva + '&gt;' : remetenteReserva) + '</span></button>'
                       : '')
                   + '<button id="email-cancel" style="padding:8px;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:8px;font-size:13px;cursor:pointer;margin-top:6px">Cancelar</button>'
                   + '</div></div>';
