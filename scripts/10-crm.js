@@ -2019,6 +2019,11 @@
             if (leadId && typeof App !== 'undefined' && App.navigateTo) {
               // Sinaliza pro modulo Orcamento qual lead esta ativo
               Storage.scope('app').set('orcamento_lead_ativo', leadId);
+              // Felipe sessao 2026-08 REVISAO: "SEMPRE QUE APERTAR ESSE
+              // BOTAO NO CARD MONTAR ORCAMENTO DEVE LEVAR DADOS DO CARD
+              // PRA TELA INICIAL ORCAMENTO". Sinal explicito pra forcar
+              // repopulacao em inicializarSessao (limpa flag de Zerar).
+              Storage.scope('app').set('orcamento_repopular_do_lead', '1');
               App.navigateTo('orcamento', 'item');
             }
             return;

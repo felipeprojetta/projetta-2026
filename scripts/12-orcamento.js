@@ -1567,46 +1567,96 @@ const Orcamento = (() => {
     const negocios = loadAll();
     const neg = negocios.find(n => n.id === UI.negocioAtivoId);
     if (!neg) return;
-    // Recria do zero
-    const opcaoId   = uid('opc');
-    const versaoId  = uid('ver');
-    const criadoEm  = nowIso();
-    const criadoPor = userAtual();
-    const versao = {
-      id: versaoId,
-      numero: 1,
-      status: 'draft',
-      criadoEm, criadoPor,
-      observacao: '',
-      itens: [novoItem('')],
-      precos_snapshot: snapshotPrecosAtual(),
-      subFab: 0,
-      subInst: 0,
-      custoFab: Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) }),
-      custoInst: Object.assign({}, INST_DEFAULT),
-      parametros: Object.assign({}, PARAMS_DEFAULT),
-      subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
-      total: 0,
-    };
-    neg.opcoes = [{
-      id: opcaoId,
-      letra: 'A',
-      titulo: '',
-      criadoEm, criadoPor,
-      versoes: [versao],
-    }];
-    neg.atualizadoEm = criadoEm;
+
+    // Felipe sessao 2026-08 REVISAO: "ZERAR E LIMPAR A TELA, NAO APAGAR
+    // DADOS DO CARD". Antes (versao errada) recriava neg.opcoes do zero,
+    // apagando versoes APROVADAS e fazendo o card perder valor/etapa.
+    // Agora preserva o historico:
+    //
+    //   1. Versoes APROVADAS sao intocadas (continuam no historico)
+    //   2. Versao ativa atual:
+    //      - Se DRAFT: zera os campos in-place (mantem o id, mas todos
+    //        os campos editaveis voltam ao default). UI fica em branco
+    //        mas a versao continua sendo a mesma, sem poluir historico.
+    //      - Se APROVADA: cria uma nova versao DRAFT em branco com numero
+    //        maior e ativa ela. A aprovada permanece intacta.
+    //   3. lead.valor / lead.etapa NAO sao tocados (estao no CRM, separado
+    //      das versoes do orcamento)
+    const r = obterVersao(UI.versaoAtivaId);
+    const versaoAtual = r && r.versao;
+    const ehAprovada = !!(versaoAtual && (versaoAtual.aprovadoEm || versaoAtual.valorAprovado));
+
+    if (versaoAtual && !ehAprovada) {
+      // ZERA IN-PLACE: limpa todos os campos editaveis mantendo o ID da versao
+      versaoAtual.itens = [novoItem('')];
+      versaoAtual.subFab = 0;
+      versaoAtual.subInst = 0;
+      versaoAtual.custoFab = Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) });
+      versaoAtual.custoInst = Object.assign({}, INST_DEFAULT);
+      versaoAtual.parametros = Object.assign({}, PARAMS_DEFAULT);
+      versaoAtual.subtotais = { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 };
+      versaoAtual.total = 0;
+      versaoAtual.calculadoEm = null;
+      versaoAtual.calcDirty = false;
+      versaoAtual.observacao = '';
+      delete versaoAtual.chapasSelecionadas;
+      delete versaoAtual.aprovadoEm;
+      delete versaoAtual.valorAprovado;
+      delete versaoAtual.precoPropostaSemDesconto;
+      delete versaoAtual.aprovacaoLocal;
+      // Mantem id, numero, criadoEm, criadoPor, status (volta pra draft)
+      versaoAtual.status = 'draft';
+    } else {
+      // Versao ativa e' aprovada (ou nao existe). Cria nova versao DRAFT
+      // em branco com numero maior. Versao aprovada NAO e' tocada.
+      let maiorNumero = 0;
+      (neg.opcoes || []).forEach(o => (o.versoes || []).forEach(v => {
+        if (v.numero > maiorNumero) maiorNumero = v.numero;
+      }));
+      // Garante que existe pelo menos uma opcao
+      if (!neg.opcoes || !neg.opcoes.length) {
+        neg.opcoes = [{
+          id: uid('opc'),
+          letra: 'A',
+          titulo: '',
+          criadoEm: nowIso(),
+          criadoPor: userAtual(),
+          versoes: [],
+        }];
+      }
+      const opcA = neg.opcoes[0];
+      const versaoId = uid('ver');
+      const criadoEm = nowIso();
+      const criadoPor = userAtual();
+      const versaoNova = {
+        id: versaoId,
+        numero: maiorNumero + 1,
+        status: 'draft',
+        criadoEm, criadoPor,
+        observacao: '',
+        itens: [novoItem('')],
+        precos_snapshot: snapshotPrecosAtual(),
+        subFab: 0,
+        subInst: 0,
+        custoFab: Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) }),
+        custoInst: Object.assign({}, INST_DEFAULT),
+        parametros: Object.assign({}, PARAMS_DEFAULT),
+        subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
+        total: 0,
+      };
+      opcA.versoes.unshift(versaoNova);
+      UI.versaoAtivaId = versaoId;
+    }
+
+    neg.atualizadoEm = nowIso();
     saveAll(negocios);
-    UI.versaoAtivaId = versaoId;
     UI.itemSelecionadoIdx = 0;
     // Felipe (sessao 2026-08): "BOTAO ZERAR DEVE ZERAR 100% TUDO, E
     // PRECISO IR NO CARD, APERTAR PARA ABRIR E AI SIM VOLTAR TODOS DADOS".
-    // Antes: zerarNegocioAtivo zerava, mas inicializarSessao detectava
-    // item virgem e re-populava do lead -> dados voltavam na tela.
-    // Fix: flag transitoria que suprime a repopulacao na PROXIMA chamada
-    // de inicializarSessao (o render que vem logo apos zerar). Flag e'
-    // consumida (limpa) automaticamente. Se Felipe voltar via card CRM
-    // depois, o signal orcamento_versao_ativa restaura o fluxo normal.
+    // Flag transitoria que suprime a repopulacao na PROXIMA chamada de
+    // inicializarSessao (o render que vem logo apos zerar). Quando user
+    // volta pelo CRM via "Montar Orcamento", o signal
+    // orcamento_repopular_do_lead limpa a flag e força repopulacao.
     UI._suprimirRepopulacaoLead = true;
   }
 
@@ -1670,6 +1720,17 @@ const Orcamento = (() => {
     // Felipe (req 7 do CRM): se o CRM sinalizou uma versao especifica
     // (dropdown 'Abrir Versao' no card), abre nela. Senao, primeira versao.
     let versaoAlvo = null;
+
+    // Felipe sessao 2026-08 REVISAO: signal "forcar repopulacao do lead"
+    // setado pelo botao "Montar Orcamento" do CRM. Limpa a flag de
+    // suprimir-repopulacao (que pode ter sido setada por Zerar anterior)
+    // e força repopulação dos dados do lead na tela inicial.
+    const forcarRepop = Storage.scope('app').get('orcamento_repopular_do_lead');
+    if (forcarRepop === '1') {
+      UI._suprimirRepopulacaoLead = false;
+      Storage.scope('app').remove('orcamento_repopular_do_lead');
+    }
+
     const versaoSinalizadaId = Storage.scope('app').get('orcamento_versao_ativa');
     if (versaoSinalizadaId) {
       // Felipe sessao 2026-08: vir do CRM (signal setado) limpa a flag
