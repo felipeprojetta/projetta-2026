@@ -385,6 +385,9 @@ const PerfisPortaExterna = (() => {
 
     return cortes;
   }
+
+  /**
+   * Identificacao curta do item pra mostrar no Lev. Perfis.
    * Ex: "Porta Externa Pivotante 1100×2100, 1 folha, modelo 02".
    */
   function descricaoItem(item) {
