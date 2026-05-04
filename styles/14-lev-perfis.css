@@ -107,6 +107,7 @@
   color: var(--laranja);
   font-size: 11px;
   letter-spacing: 0.05em;
+  font-weight: 700;
 }
 /* Felipe: linha do total geral somando Folha + Portal + Fixo.
    Destaque em laranja claro pra distinguir dos subtotais por grupo. */
@@ -117,6 +118,7 @@
   letter-spacing: 0.04em;
   padding: 8px 12px !important;
   border-top: 1px solid var(--laranja);
+  font-weight: 700;
 }
 .lvp-pos { color: var(--text-muted); }
 .lvp-cod { color: var(--azul-escuro); font-size: 13px; }
@@ -197,14 +199,17 @@
   color: var(--text-default);
 }
 .lvp-rb-subtotal td {
-  background: var(--cinza-mais-claro) !important;  /* sobrepoe zebra */
+  background: #FFF4E6 !important;  /* laranja claro - igual ao subtotal de perfis */
+  color: var(--laranja);
   font-size: 11px;
+  font-weight: 700;
 }
 .lvp-rb-total td {
   background: var(--azul-escuro);
   color: var(--branco);
   font-size: 13px;
   letter-spacing: 0.04em;
+  font-weight: 700;
 }
 .lvp-rb-obs { color: var(--text-muted); font-size: 11px; }
 

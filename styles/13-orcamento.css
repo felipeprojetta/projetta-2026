@@ -143,9 +143,11 @@
 .orc-dre-conf-row.is-subtotal .orc-dre-conf-label,
 .orc-dre-conf-row.is-subtotal .orc-dre-conf-valor,
 .orc-dre-conf-row.is-subtotal .orc-dre-conf-pct {
-  color: var(--text-muted);
-  border-bottom: 1px dashed var(--line);
+  color: var(--laranja);
+  border-bottom: 1px solid var(--laranja);
+  background: #FFF4E6;
   padding-bottom: 5px;
+  font-weight: 700;
 }
 
 /* Felipe (sessao 2026-06): linhas (−) Impostos / Comissao / Custo Direto
@@ -685,14 +687,18 @@
 .orc-fi-total-valor { width: 180px; text-align: right;
  color: var(--text-default); }
 .orc-fi-total-final {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--laranja);
   padding-top: 8px;
   margin-top: 4px;
+  background: #FFF4E6;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
 }
 .orc-fi-total-final .orc-fi-total-label,
 .orc-fi-total-final .orc-fi-total-valor {
-  color: var(--azul-escuro);
+  color: var(--laranja);
   font-size: 13px;
+  font-weight: 700;
 }
 
 /* Felipe (sessao 2026-06): Distribuicao por Item — tabela compacta
