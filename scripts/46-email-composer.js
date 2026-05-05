@@ -147,11 +147,21 @@
       injetarCSS();
       opts = opts || {};
       var msgId       = opts.msgId || '';
-      var subject     = opts.subject || 'Responder email';
+      var to          = String(opts.to || '').trim();
+      var subject     = opts.subject || (msgId ? 'Responder email' : 'Novo email');
       var bodyHtml    = opts.bodyHtml || '';
       var attachments = (opts.attachments || []).slice();  // copia
       var onSent      = opts.onSent   || function() {};
       var onCancel    = opts.onCancel || function() {};
+
+      // Felipe sessao 2026-08: 2 modos
+      //   reply-all: tem msgId, sem 'to' (responde thread existente via outlookReplyAll)
+      //   novo:      tem 'to', sem msgId (cria email novo via outlookSendMail)
+      var modoNovo = !msgId && !!to;
+      var headerTitulo = modoNovo ? '📧 Novo Email' : '📧 Responder Email';
+      var paraLinha = modoNovo
+        ? '<div class="ec-subject"><b>Para:</b> ' + escapeHtml(to) + '</div>'
+        : '';
 
       // ---- Constroi modal ----
       var overlay = document.createElement('div');
@@ -159,10 +169,11 @@
       overlay.innerHTML = ''
         + '<div class="ec-modal">'
         +   '<div class="ec-header">'
-        +     '<h3>📧 Responder Email</h3>'
+        +     '<h3>' + headerTitulo + '</h3>'
         +     '<button class="ec-close" type="button" title="Cancelar">×</button>'
         +   '</div>'
         +   '<div class="ec-body">'
+        +     paraLinha
         +     '<div class="ec-subject"><b>Assunto:</b> ' + escapeHtml(subject) + '</div>'
         +     '<div class="ec-editor" contenteditable="true"></div>'
         +     '<div class="ec-anexos">'
@@ -259,13 +270,21 @@
 
       // ---- Enviar ----
       btnEnviar.addEventListener('click', async function() {
-        if (!window.outlookReplyAll || typeof window.outlookReplyAll !== 'function') {
-          mostrarErro('Modulo Outlook nao carregado. Recarregue a pagina.');
-          return;
-        }
-        if (!msgId) {
-          mostrarErro('ID do email original ausente. Cancele e tente novamente.');
-          return;
+        // Felipe sessao 2026-08: bifurca em modo novo vs reply-all
+        if (modoNovo) {
+          if (!window.outlookSendMail || typeof window.outlookSendMail !== 'function') {
+            mostrarErro('Modulo Outlook nao carregado. Recarregue a pagina.');
+            return;
+          }
+        } else {
+          if (!window.outlookReplyAll || typeof window.outlookReplyAll !== 'function') {
+            mostrarErro('Modulo Outlook nao carregado. Recarregue a pagina.');
+            return;
+          }
+          if (!msgId) {
+            mostrarErro('ID do email original ausente. Cancele e tente novamente.');
+            return;
+          }
         }
         var bodyAtual = editor.innerHTML.trim();
         if (!bodyAtual) {
@@ -279,7 +298,6 @@
         divErro.style.display = 'none';
 
         try {
-          // Envia attachments no formato esperado pelo outlookReplyAll
           var attsParaEnvio = attachments.map(function(a) {
             return {
               name: a.name,
@@ -287,7 +305,17 @@
               contentBytes: a.contentBytes,
             };
           });
-          await window.outlookReplyAll(msgId, bodyAtual, attsParaEnvio);
+          if (modoNovo) {
+            await window.outlookSendMail({
+              to: [to],
+              subject: subject,
+              body: bodyAtual,
+              bodyType: 'HTML',
+              attachments: attsParaEnvio,
+            });
+          } else {
+            await window.outlookReplyAll(msgId, bodyAtual, attsParaEnvio);
+          }
           document.removeEventListener('keydown', onKey);
           fechar(onSent);
         } catch (e) {

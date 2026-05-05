@@ -2350,18 +2350,79 @@
                 modalE.addEventListener('click', (ev) => { if (ev.target === modalE) modalE.remove(); });
                 modalE.querySelector('#email-cancel').addEventListener('click', () => modalE.remove());
 
-                // Cliente do card → mailto: (abre cliente nativo de email)
+                // Felipe sessao 2026-08: helper compartilhado entre os 2
+                // fluxos de envio. Quando email e' disparado com sucesso,
+                // este helper:
+                //   1. Move o card no kanban: 'orcamento-pronto' -> 'orcamento-enviado'
+                //   2. Atualiza a tag/categoria no email original do Outlook
+                //      (remove 'Orcamento Pronto', adiciona 'Orcamento Enviado')
+                //   3. Atualiza visual do card e do botao
+                async function marcarOrcamentoEnviado(emailOrigemId) {
+                  try {
+                    // 1. Move etapa do card. So' move se estava em 'orcamento-pronto'.
+                    //    Se ja' estava em 'orcamento-enviado' ou outro, mantem.
+                    //    Re-busca o lead da fonte de verdade pra evitar 'cópias' antigas.
+                    const negs = (typeof loadAll === 'function') ? loadAll() : null;
+                    const leadAtual = state.leads.find(l => l.id === lead.id);
+                    if (leadAtual && leadAtual.etapa === 'orcamento-pronto') {
+                      leadAtual.etapa = 'orcamento-enviado';
+                      save();
+                      render(container);
+                    }
+                    // 2. Atualiza tag no email do Outlook (so' se temos msgId)
+                    if (emailOrigemId && window._outlookSetCategories) {
+                      try {
+                        await window._outlookSetCategories(
+                          emailOrigemId,
+                          ['Orcamento Enviado'],   // adiciona
+                          ['Orcamento Pronto']     // remove
+                        );
+                      } catch(e) {
+                        // Falha de tag nao bloqueia o sucesso do envio
+                        console.warn('[marcarOrcamentoEnviado] falha ao atualizar tag:', e);
+                      }
+                    }
+                  } catch(e) {
+                    console.error('[marcarOrcamentoEnviado] erro:', e);
+                  }
+                }
+
+                // Cliente do card -> OutlookComposer modo NOVO (envia direto pelo sistema)
                 if (clienteEmail) {
                   modalE.querySelector('#email-cliente').addEventListener('click', () => {
                     modalE.remove();
-                    const link = 'mailto:' + encodeURIComponent(clienteEmail)
-                               + '?subject=' + encodeURIComponent(subjectCliente)
-                               + '&body=' + encodeURIComponent(bodyCliente);
-                    window.location.href = link;
+                    if (!window.OutlookComposer?.open) {
+                      alert('Composer de email nao carregado. Recarregue a pagina.');
+                      return;
+                    }
+                    // Body em HTML pra o composer (cliente recebe formatado)
+                    const bodyClienteHtml = '<p>' + (bodyCliente || '').replace(/\n/g, '<br>') + '</p>';
+                    window.OutlookComposer.open({
+                      to: clienteEmail,                  // modo novo (sem msgId)
+                      subject: subjectCliente,
+                      bodyHtml: bodyClienteHtml,
+                      attachments: [],
+                      onSent: function() {
+                        btnEmail.textContent = '✅ Enviado!';
+                        btnEmail.style.background = '#2e7d32';
+                        btnEmail.style.color = '#fff';
+                        // Move card pra 'orcamento-enviado'. Sem emailOrigem aqui
+                        // porque foi email novo - so' atualiza o card.
+                        marcarOrcamentoEnviado(emailOrigem.id);
+                        setTimeout(() => {
+                          btnEmail.textContent = '📧 Enviar Proposta';
+                          btnEmail.style.background = '';
+                          btnEmail.style.color = '';
+                        }, 3000);
+                      },
+                      onCancel: function() {
+                        btnEmail.textContent = '📧 Enviar Proposta';
+                      },
+                    });
                   });
                 }
 
-                // Email da Reserva → OutlookComposer reply-all (atual)
+                // Email da Reserva -> OutlookComposer modo REPLY-ALL
                 if (remetenteReserva) {
                   modalE.querySelector('#email-reserva').addEventListener('click', () => {
                     modalE.remove();
@@ -2370,17 +2431,21 @@
                       return;
                     }
                     window.OutlookComposer.open({
-                      msgId: emailOrigem.id,
+                      msgId: emailOrigem.id,             // modo reply-all
                       subject: subjectRep,
                       bodyHtml: bodyRep,
                       attachments: [],
                       onSent: function() {
                         btnEmail.textContent = '✅ Enviado!';
                         btnEmail.style.background = '#2e7d32';
-                        if (window._outlookToggleFlag) {
-                          window._outlookToggleFlag(emailOrigem.id, 'Orcamento Pronto', null);
-                        }
-                        setTimeout(() => { btnEmail.textContent = '📧 Enviar Proposta'; btnEmail.style.background = '#0078d4'; }, 3000);
+                        btnEmail.style.color = '#fff';
+                        // Move card + atualiza tag no email original
+                        marcarOrcamentoEnviado(emailOrigem.id);
+                        setTimeout(() => {
+                          btnEmail.textContent = '📧 Enviar Proposta';
+                          btnEmail.style.background = '';
+                          btnEmail.style.color = '';
+                        }, 3000);
                       },
                       onCancel: function() {
                         btnEmail.textContent = '📧 Enviar Proposta';

@@ -794,6 +794,36 @@
     }
   };
 
+  /* Felipe sessao 2026-08: SET EXPLICITO de categorias.
+     Diferente de _outlookToggleFlag - faz set determinístico em uma op:
+       addList:    array de categorias pra GARANTIR que estejam presentes
+       removeList: array de categorias pra GARANTIR que sejam removidas
+     Necessario quando muda etapa do CRM (ex: Pronto -> Enviado) e precisa
+     garantir o estado final das tags. */
+  window._outlookSetCategories = async function(msgId, addList, removeList){
+    try {
+      var msg = await _graphCall('/me/messages/' + msgId + '?$select=categories');
+      var cats = (msg && msg.categories) || [];
+      // Remove tudo de removeList
+      (removeList || []).forEach(function(t){
+        var i = cats.indexOf(t);
+        if (i >= 0) cats.splice(i, 1);
+      });
+      // Adiciona tudo de addList (sem duplicar)
+      (addList || []).forEach(function(t){
+        if (cats.indexOf(t) < 0) cats.push(t);
+      });
+      await _graphCall('/me/messages/' + msgId, {
+        method: 'PATCH',
+        body: JSON.stringify({ categories: cats })
+      });
+      return cats;
+    } catch(e){
+      _err('setCategories', e);
+      throw e;
+    }
+  };
+
   // ═══ RESPONDER EMAIL ═══
 
   window._outlookSendReply = async function(msgId, replyAll){
