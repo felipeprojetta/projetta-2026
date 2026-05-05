@@ -43,6 +43,9 @@ const Acessorios = (() => {
     if (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('acessorios_seeded'))) {
       // R20: aplica titleCase no SEED antes de salvar
       state.acessorios = SEED_ACESSORIOS.map(normalize);
+      // Felipe sessao 2026-08-02: em read-only o Storage.set retorna
+      // silenciosamente. Nao quebra fluxo - state.acessorios fica em
+      // memoria, sistema pode mostrar mas nao salva.
       store.set('acessorios_lista', state.acessorios);
       store.set('acessorios_seeded', true);
     } else {

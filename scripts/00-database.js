@@ -15,6 +15,35 @@ const Database = (() => {
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
   const SCHEMA = 'v7';
 
+  // ────────────────────────────────────────────────────────────────────────
+  // Felipe sessao 2026-08-02: PROTECAO CRITICA ANTI-PERDA DE DADOS
+  // ────────────────────────────────────────────────────────────────────────
+  // Felipe perdeu precos cadastrados de acessorios depois que o sync inicial
+  // do Supabase falhou em outro notebook que estava adormecido. Estado
+  // localStorage velho (vazio/seed) sobrescreveu Supabase via write-through.
+  //
+  // Solucao: ate' provarmos que o Supabase carregou OK no boot, o sistema
+  // fica em READ-ONLY MODE - leituras OK, escritas BLOQUEADAS.
+  //
+  // Estados:
+  //   _readOnlyMode = true  (DEFAULT)  → set() bloqueado, mostra alert
+  //   _readOnlyMode = false (apos sync) → write-through normal
+  //
+  // syncFromCloud() libera write mode SE recebeu pelo menos 1 row do
+  // servidor (= ha conexao + esquema OK + dados existem). Se 0 rows mas
+  // HTTP 200, e' projeto novo - tambem libera.
+  // Se erro de rede ou HTTP != 200, MANTEM read-only.
+  // ────────────────────────────────────────────────────────────────────────
+  let _readOnlyMode = true;
+  let _syncStatus = { lastSync: null, online: false, error: 'aguardando_boot' };
+  const _statusListeners = [];
+  function _emitStatus() {
+    _statusListeners.forEach(function(cb) { try { cb(_syncStatus, _readOnlyMode); } catch(_){} });
+  }
+  function isReadOnly() { return _readOnlyMode; }
+  function getSyncStatus() { return Object.assign({}, _syncStatus); }
+  function onSyncStatusChange(cb) { _statusListeners.push(cb); }
+
   // Headers pra REST API Supabase
   function sbHeaders(write) {
     var h = {
@@ -62,23 +91,29 @@ const Database = (() => {
   }
 
   // Carrega TUDO do Supabase → localStorage (chamado no startup)
+  // Felipe sessao 2026-08-02: ESTA FUNCAO E' A UNICA que pode liberar
+  // _readOnlyMode = false. Sucesso aqui = sistema pode escrever.
   async function syncFromCloud() {
     try {
       var res = await fetch(SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor&order=scope,key', {
         headers: sbHeaders(false),
       });
       if (!res.ok) {
-        console.warn('[DB] syncFromCloud HTTP', res.status);
+        console.warn('[DB] syncFromCloud HTTP', res.status, '- READ-ONLY mantido');
+        _syncStatus = { lastSync: null, online: false, error: 'http_' + res.status };
+        _emitStatus();
         return false;
       }
       var rows = await res.json();
-      if (!Array.isArray(rows)) return false;
+      if (!Array.isArray(rows)) {
+        _syncStatus = { lastSync: null, online: false, error: 'resposta_invalida' };
+        _emitStatus();
+        return false;
+      }
       var count = 0;
       rows.forEach(function(r) {
         var lsKey = PREFIX + r.scope + ':' + r.key;
         try {
-          // NAO sobrescreve dados locais com arrays vazios do Supabase.
-          // Isso evita perder leads/dados que ainda nao foram syncados.
           var valorSb = r.valor;
           if (Array.isArray(valorSb) && valorSb.length === 0) {
             var localRaw = localStorage.getItem(lsKey);
@@ -86,7 +121,6 @@ const Database = (() => {
               try {
                 var localVal = JSON.parse(localRaw);
                 if (Array.isArray(localVal) && localVal.length > 0) {
-                  // Local tem dados, Supabase vazio — preserva local
                   return;
                 }
               } catch(_) {}
@@ -97,9 +131,17 @@ const Database = (() => {
         } catch(e) {}
       });
       console.log('[DB] syncFromCloud: ' + count + ' chaves carregadas do Supabase');
+
+      // ✅ SUCESSO TOTAL → libera write mode
+      _readOnlyMode = false;
+      _syncStatus = { lastSync: Date.now(), online: true, error: null };
+      _emitStatus();
+      console.log('[DB] ✅ Modo de escrita LIBERADO. Sistema pronto pra editar.');
       return true;
     } catch(e) {
-      console.warn('[DB] syncFromCloud falhou (modo offline):', e.message);
+      console.warn('[DB] syncFromCloud falhou (modo offline):', e.message, '- READ-ONLY mantido');
+      _syncStatus = { lastSync: null, online: false, error: e.message };
+      _emitStatus();
       return false;
     }
   }
@@ -156,15 +198,58 @@ const Database = (() => {
     },
 
     set: function(scope, key, value) {
+      // ────────────────────────────────────────────────────────────────────
+      // Felipe sessao 2026-08-02: PROTECAO ANTI-PERDA
+      // Em read-only mode, BLOQUEIA escritas em chaves de dados de negocio.
+      // Permite escritas em chaves "seguras" (flags de boot, session, debug)
+      // pra nao quebrar fluxos de inicializacao.
+      // ────────────────────────────────────────────────────────────────────
+      if (_readOnlyMode) {
+        // Whitelist de chaves que SEMPRE podem ser escritas
+        var SAFE_KEYS = [
+          'acessorios_seeded', 'modelos_seeded', 'perfis_seeded',
+          'superficies_seeded', 'representantes_seeded', 'cores_seeded',
+          'session_user', 'last_login', 'last_route', 'ui_state',
+          'auth_token', 'user_prefs',
+        ];
+        var SAFE_SCOPES = ['auth', 'session', 'ui', 'debug'];
+        var keyOk   = SAFE_KEYS.indexOf(key) >= 0;
+        var scopeOk = SAFE_SCOPES.indexOf(scope) >= 0;
+
+        if (!keyOk && !scopeOk) {
+          // BLOQUEIA escrita - retorna silenciosamente pra nao quebrar fluxos.
+          // Alert mostrado pra usuario perceber.
+          console.warn('[DB] ⛔ Escrita bloqueada (read-only):', scope, '/', key, '- razao:', _syncStatus.error);
+          try {
+            if (typeof window !== 'undefined' && window.alert && !window._dbReadOnlyAlertShown) {
+              window._dbReadOnlyAlertShown = true;
+              setTimeout(function() {
+                window.alert('⛔ Sistema em modo SOMENTE LEITURA.\n\n' +
+                  'Não foi possível conectar à nuvem (Supabase) na inicialização.\n' +
+                  'Pra proteger seus dados, edições estão bloqueadas.\n\n' +
+                  '• Recarregue a página (Ctrl+Shift+R)\n' +
+                  '• Verifique sua conexão de internet\n' +
+                  '• Há um botão "↻ Sync" no canto inferior direito da tela\n\n' +
+                  'Erro: ' + (_syncStatus.error || 'sem detalhes'));
+                window._dbReadOnlyAlertShown = false;
+              }, 100);
+            }
+          } catch(_) {}
+          return value; // Retorna o value pra simular sucesso (nao quebra fluxo)
+        }
+      }
+
       localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(value));
-      // Sync pro Supabase em background (nao bloqueia)
       sbUpsert(scope, key, value);
-      // Emite evento local
       Events.emit('db:change', { scope: scope, key: key, value: value });
       return value;
     },
 
     remove: function(scope, key) {
+      if (_readOnlyMode) {
+        console.warn('[DB] ⛔ Remove bloqueado (read-only):', scope, '/', key);
+        return false;
+      }
       localStorage.removeItem(PREFIX + scope + ':' + key);
       sbDelete(scope, key);
       Events.emit('db:change', { scope: scope, key: key, value: null });
@@ -255,5 +340,9 @@ const Database = (() => {
     startRealtime: startRealtime,
     stopRealtime: stopRealtime,
     SUPABASE_URL: SUPABASE_URL,
+    // Felipe sessao 2026-08-02: protecao anti-perda
+    isReadOnly: isReadOnly,
+    getSyncStatus: getSyncStatus,
+    onSyncStatusChange: onSyncStatusChange,
   };
 })();
