@@ -3058,3 +3058,22 @@
   color: #C62828;
   font-weight: 600;
 }
+
+/* Felipe sessao 2026-08: 'movimente a coluna para ficar igual a de cima'.
+   Tabelas Fabricacao/Obra/Digital do relatorio de acessorios usam
+   table-layout:fixed + colgroup pra ALINHAR colunas entre as 3 tabelas
+   empilhadas (mesma largura por coluna). Word-break em descricao/codigo
+   pra evitar overflow horizontal quando texto e' longo. */
+.orc-acess-tab {
+  table-layout: fixed;
+  width: 100%;
+}
+.orc-acess-tab td,
+.orc-acess-tab th {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.orc-acess-tab td code {
+  font-size: 11px;
+  word-break: break-all;
+}

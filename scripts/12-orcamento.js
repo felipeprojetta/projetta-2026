@@ -3854,6 +3854,15 @@ const Orcamento = (() => {
         return;
       }
       try {
+        // Felipe sessao 2026-08: 'isso deve varrer todos os valores pos
+        // calculo'. ANTES de marcar calculadoEm, FORCA sync dos campos
+        // auto-populados do Custo Fab/Inst (perfis, pintura, acessorios,
+        // fechadura digital). Sem isso, Felipe via valores antigos no
+        // Custo Fab/Inst (ex: 6.034,36 acessorios) enquanto o relatorio
+        // de Fabricacao ja' refletia o novo (5.577,83) - desincronia.
+        try { forcarSyncCustoFabAuto(versaoAtual); }
+        catch(e) { console.warn('[Recalcular] forcarSyncCustoFabAuto:', e); }
+
         atualizarVersao(versaoAtual.id, { calculadoEm: Date.now(), calcDirty: false });
         renderItemTab(container);
         // Felipe (sessao 2026-06): "ao apertar recalcular de aviso que
@@ -6165,6 +6174,93 @@ const Orcamento = (() => {
    * sempre que abre Lev. Perfis ou o DRE — mantem os 2 sincronizados.
    * Retorna { result, totalBarras, perda, aprovGeral, blocosPorItem }
    */
+  /* Felipe sessao 2026-08: 'isso deve varrer todos os valores pos calculo'.
+     Forca o sync de TODOS os campos auto-populados do Custo Fab/Inst,
+     sobrescrevendo qualquer valor anterior (incluindo edicao manual).
+
+     A logica em renderCustoTab so' atualiza se o campo estiver vazio
+     (preserva edicao manual). Bom pro abrir-a-aba, mas RUIM quando
+     Felipe muda algum input em Caracteristicas do Item, recalcula, e
+     espera que o Custo Fab/Inst reflita o novo valor.
+
+     Esta funcao e' chamada SO' pelo botao 'Recalcular' - explicito.
+     Garante que apos Recalcular:
+       - total_perfis        = soma do Lev. Perfis
+       - total_pintura       = soma do Lev. Perfis (pintura)
+       - total_acessorios    = soma do Lev. Acessorios FAB sem digital
+       - total_fechadura_digital = soma do Lev. Acessorios DIGITAL
+     total_revestimento e total_extras continuam manuais (sem motor
+     automatico ainda). */
+  function forcarSyncCustoFabAuto(versao) {
+    if (!versao || !versao.itens) return;
+    const fab = Object.assign({}, versao.custoFab || {});
+    const itens = versao.itens || [];
+    if (!itens.length) return;
+
+    let mudou = false;
+
+    // 1) Perfis e pintura: usa motor existente recalcularPerfisESalvarNoFab
+    try {
+      const rPerfis = recalcularPerfisESalvarNoFab(versao, itens);
+      if (rPerfis && rPerfis.result) {
+        const cp = Math.round((rPerfis.result.custoPerfis  || 0) * 100) / 100;
+        const ct = Math.round((rPerfis.result.custoPintura || 0) * 100) / 100;
+        if (Math.abs((Number(fab.total_perfis)  || 0) - cp) > 0.01) { fab.total_perfis  = cp > 0 ? cp : ''; mudou = true; }
+        if (Math.abs((Number(fab.total_pintura) || 0) - ct) > 0.01) { fab.total_pintura = ct > 0 ? ct : ''; mudou = true; }
+      }
+    } catch(e) { console.warn('[forcarSyncCustoFabAuto] perfis/pintura:', e); }
+
+    // 2) Acessorios e Fechadura Digital: chama AcessoriosPortaExterna por item
+    try {
+      if (window.AcessoriosPortaExterna) {
+        const cadAcess = Storage.scope('cadastros').get('acessorios_lista') || [];
+        const perfisCad = (typeof construirCadastroPerfis === 'function')
+          ? construirCadastroPerfis() : {};
+        let totalAcess = 0;
+        let totalDigital = 0;
+        itens.forEach(item => {
+          if (!item || item.tipo !== 'porta_externa') return;
+          let pesoFolhaTotal = 0, pesoFolhaPerfis = 0, pesoFolhaChapas = 0;
+          try {
+            const r = calcularPesoFolhaItem(item, perfisCad) || {};
+            pesoFolhaTotal  = r.peso || 0;
+            pesoFolhaPerfis = (r.detalhe && r.detalhe.perfis) || 0;
+            pesoFolhaChapas = (r.detalhe && r.detalhe.chapas) || 0;
+          } catch(_){}
+          const linhas = window.AcessoriosPortaExterna.calcularAcessoriosPorItem(
+            item, cadAcess, { pesoFolhaTotal, pesoFolhaPerfis, pesoFolhaChapas }
+          );
+          linhas.forEach(l => {
+            if (String(l.categoria || '').toLowerCase().includes('fechadura digital')) {
+              totalDigital += Number(l.total) || 0;
+              return;
+            }
+            if (l.aplicacao !== 'fab') return;
+            totalAcess += Number(l.total) || 0;
+          });
+        });
+        // SOBRESCREVE (diferente da logica em renderCustoTab)
+        const totalAcessRound = Math.round(totalAcess * 100) / 100;
+        const totalDigRound   = Math.round(totalDigital * 100) / 100;
+        if (Math.abs((Number(fab.total_acessorios) || 0) - totalAcessRound) > 0.01) {
+          fab.total_acessorios = totalAcessRound > 0 ? totalAcessRound : '';
+          mudou = true;
+        }
+        if (Math.abs((Number(fab.total_fechadura_digital) || 0) - totalDigRound) > 0.01) {
+          fab.total_fechadura_digital = totalDigRound > 0 ? totalDigRound : '';
+          mudou = true;
+        }
+      }
+    } catch(e) { console.warn('[forcarSyncCustoFabAuto] acessorios:', e); }
+
+    // 3) Persiste se houve qualquer mudanca
+    if (mudou) {
+      atualizarVersao(versao.id, {
+        custoFab: Object.assign({}, versao.custoFab || {}, fab),
+      });
+    }
+  }
+
   function recalcularPerfisESalvarNoFab(versao, itens) {
     const perfisCadastro = construirCadastroPerfis();
     const cortesPorCodigo = {};
@@ -12075,7 +12171,16 @@ const Orcamento = (() => {
               <span>${titulo} — Subtotal: <span style="font-weight:700;font-size:1.1em;color:${corBorda}">${fmtMoney(total)}</span></span>
               ${btnDetalhar}
             </div>
-            <table class="lvp-table cad-table" id="${idTab}">
+            <table class="lvp-table cad-table orc-acess-tab" id="${idTab}" style="table-layout:fixed;width:100%;">
+              <colgroup>
+                <col style="width:5%;">
+                <col style="width:13%;">
+                <col style="width:32%;">
+                <col style="width:11%;">
+                <col style="width:8%;">
+                <col style="width:9%;">
+                <col style="width:22%;">
+              </colgroup>
               <thead>
                 <tr>
                   <th class="num">Qtd</th>
