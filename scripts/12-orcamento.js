@@ -12279,6 +12279,11 @@ const Orcamento = (() => {
                 <div style="font-size:10px;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Silicone DowSil 995</div>
                 <div style="font-size:18px;font-weight:800;color:#b45309;line-height:1.1;margin-top:2px;">${(t.mMS || 0).toFixed(2)} m</div>
                 <div style="font-size:11px;color:#92400e;margin-top:2px;">÷ ${rends.ms_tubo}m por tubo = <b style="color:#b45309;">${tubosMS} tubo(s)</b></div>
+                <button type="button"
+                  onclick="event.preventDefault(); event.stopPropagation(); window.AppNav?.goToFitaSilicone?.();"
+                  style="margin-top:8px;background:#b45309;color:#fff;border:none;padding:5px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;width:100%;letter-spacing:0.3px;">
+                  ✏️ MUDAR RENDIMENTO (12m → ?)
+                </button>
               </div>
             </div>
 

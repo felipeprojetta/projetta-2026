@@ -1282,7 +1282,53 @@ const Regras = (() => {
     });
   }
 
-  return { render, getFitaSilicone, getRendimentos, salvarRendimentos, resetarRendimentos };
+  return { render, getFitaSilicone, getRendimentos, salvarRendimentos, resetarRendimentos,
+           _setSubAba: function(s) { UI.subaba = s; } };
 })();
 
 if (typeof window !== 'undefined') window.Regras = Regras;
+
+// Felipe sessao 2026-08: 'AONDE ESTA O LOCAL PARA EU ALTERAR DE 12 PARA 18?'.
+// Helper de navegacao global pra atalho do quadro de detalhamento.
+// Quando Felipe clica no botao 'Mudar' do quadro:
+//   1. Navega pra Cadastros > Regras
+//   2. Forca a sub-aba 'fita-silicone' (default era 'porta-externa')
+//   3. Re-renderiza
+//   4. Rola ate o input do silicone e destaca em amarelo
+if (typeof window !== 'undefined') {
+  window.AppNav = window.AppNav || {};
+  window.AppNav.goToFitaSilicone = function() {
+    try {
+      // Forca subaba ANTES de navegar (quando renderRegras rodar, ja' sabe qual ler)
+      if (window.Regras && window.Regras._setSubAba) {
+        window.Regras._setSubAba('fita-silicone');
+      }
+      if (window.App && typeof window.App.navigateTo === 'function') {
+        window.App.navigateTo('cadastros', 'regras');
+      }
+      // Apos render (1 frame), rola e destaca o input do silicone
+      setTimeout(() => {
+        // Re-forca sub-aba caso navigateTo tenha resetado
+        const tabFs = document.querySelector('.reg-subnav [data-subaba="fita-silicone"]');
+        if (tabFs && !tabFs.classList.contains('is-active')) tabFs.click();
+        setTimeout(() => {
+          const inp = document.querySelector('#reg-fs-rend-ms');
+          if (inp) {
+            inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            inp.focus();
+            inp.select();
+            // Highlight pulsante 3s
+            inp.style.transition = 'box-shadow 0.3s';
+            inp.style.boxShadow = '0 0 0 6px #fbbf24';
+            setTimeout(() => { inp.style.boxShadow = '0 0 0 12px rgba(251,191,36,0.4)'; }, 300);
+            setTimeout(() => { inp.style.boxShadow = '0 0 0 6px #fbbf24'; }, 600);
+            setTimeout(() => { inp.style.boxShadow = ''; }, 3000);
+          }
+        }, 200);
+      }, 100);
+    } catch(e) {
+      console.error('[AppNav.goToFitaSilicone]', e);
+      alert('Va em Cadastros > Regras e Logicas > Fita Dupla Face + Silicone Estrutural\\nLa tem o quadro amarelo "Rendimento por Embalagem".');
+    }
+  };
+}
