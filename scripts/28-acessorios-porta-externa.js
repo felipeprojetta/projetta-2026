@@ -623,10 +623,15 @@ const AcessoriosPortaExterna = (() => {
       // Salva o breakdown desse item no cache global indexado por id.
       // Usado pela funcao window.debugFitaSilicone(itemId) e pelo botao
       // 'Detalhar' na aba Custos do orcamento.
+      // Felipe sessao 2026-08 REVISAO: itens criados por novoItemPortaExterna
+      // nao tem 'id' - usa _cacheKey deterministico que o caller seta
+      // (12-orcamento.js renderLevAcessoriosTab atribui antes da chamada).
       try {
         window._fitaSiliconeBreakdownCache = window._fitaSiliconeBreakdownCache || {};
-        window._fitaSiliconeBreakdownCache[item.id || ('item_' + Date.now())] = {
+        const ckey = item._cacheKey || item.id || ('item_' + Date.now());
+        window._fitaSiliconeBreakdownCache[ckey] = {
           itemId:    item.id,
+          cacheKey:  ckey,
           itemTipo:  item.tipo,
           itemDim:   { L: L, H: H, nFolhas: nFolhas, qtdPortas: qtdPortas },
           totais:    { mFD19: mFD19, mFD12: mFD12, mMS: mMS },

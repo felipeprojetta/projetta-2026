@@ -12113,6 +12113,13 @@ const Orcamento = (() => {
         pesoFolhaPerfis = (r.detalhe && r.detalhe.perfis) || 0;
         pesoFolhaChapas = (r.detalhe && r.detalhe.chapas) || 0;
       } catch (_) {}
+      // Felipe sessao 2026-08: BUG - itens novos nao tem 'id' (criados
+      // por novoItemPortaExterna sem id). Cache do breakdown era gravado
+      // com timestamp aleatorio e o render buscava por undefined ->
+      // quadro nunca aparecia. Fix: atribui _cacheKey deterministico
+      // (combinacao versao + idx) que ambos lados usam.
+      const cacheKey = `${versao.id || 'v?'}:${idx}`;
+      item._cacheKey = cacheKey;
       const linhas = window.AcessoriosPortaExterna.calcularAcessoriosPorItem(
         item, cadAcess, { pesoFolhaTotal, pesoFolhaPerfis, pesoFolhaChapas }
       );
@@ -12305,7 +12312,7 @@ const Orcamento = (() => {
             <div class="orc-item-meta">${dim} · ${fols} · Modelo ${item.modeloExterno || item.modeloNumero || '—'} · qtd ${item.quantidade || 1}</div>
           </div>
           ${renderTabela(`lvac-fab-${idx}`,     linhasFab,     '🏭 Fabricacao',        totalFab)}
-          ${renderBreakdownInline(item.id)}
+          ${renderBreakdownInline(item._cacheKey || item.id)}
           ${renderTabela(`lvac-obra-${idx}`,    linhasObra,    '🚧 Obra',              totalObra)}
           ${renderTabela(`lvac-digital-${idx}`, linhasDigital, '🔐 Fechadura Digital', totalDigital)}
           <div style="background:#fff3e0;border:2px solid #e65100;border-radius:6px;padding:12px 16px;margin-top:12px;">
