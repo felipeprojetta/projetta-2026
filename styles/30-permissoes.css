@@ -1,0 +1,132 @@
+/* ============================================================
+   Permissões — overlay de read-only em Cadastros pra usuários
+   ============================================================
+   Felipe sessao 2026-08-02: 'Só leitura: ele vê os preços mas
+   não pode editar, deletar ou criar acessórios'.
+
+   Comportamento:
+   - body[data-cadastros-readonly="1"] é setado pelo App quando
+     usuário não-admin entra em Cadastros.
+   - Todos os inputs/selects/textareas dentro de .cadastros-tela
+     ficam desabilitados (visual + bloqueio de digitação).
+   - Botões com data-action="add", "edit", "delete", "save", etc.
+     ficam ocultos.
+   - Banner amarelo no topo da tela informando.
+
+   Princípio: read-only profissional - usuário vê tudo, edita nada.
+   ============================================================ */
+
+/* Banner de aviso fixado no topo de cadastros pra user não-admin */
+.cadastros-readonly-banner {
+  display: none;
+  background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  color: #78350f;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+}
+
+.cadastros-readonly-banner .ico {
+  font-size: 18px;
+}
+
+.cadastros-readonly-banner .body {
+  flex: 1;
+}
+
+.cadastros-readonly-banner .body strong {
+  font-weight: 800;
+  color: #92400e;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  font-size: 11px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* Quando body está em modo readonly de cadastros, aplica estilos */
+body[data-cadastros-readonly="1"] .cadastros-tela {
+
+  /* Inputs/selects/textareas: visual desabilitado + cursor not-allowed */
+  input:not([type="search"]):not([data-no-readonly]),
+  select:not([data-no-readonly]),
+  textarea:not([data-no-readonly]) {
+    background-color: #f3f4f6 !important;
+    color: #6b7280 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    opacity: 0.85;
+  }
+
+  /* Inputs com a class de filtro/busca continuam funcionando (read-only mas pode buscar) */
+  input[type="search"],
+  input.filter-input,
+  input[placeholder*="iltrar"],
+  input[placeholder*="uscar"],
+  input[placeholder*="esquisar"] {
+    background-color: #fff !important;
+    color: #1f2937 !important;
+    cursor: text !important;
+    pointer-events: auto !important;
+    opacity: 1;
+  }
+
+  /* Botões de edição: oculta */
+  button[data-action="add"],
+  button[data-action="edit"],
+  button[data-action="delete"],
+  button[data-action="save"],
+  button[data-action="reset"],
+  button[data-action="restore"],
+  button[data-action="duplicate"],
+  button[data-action="move-up"],
+  button[data-action="move-down"],
+  button.btn-primary[type="submit"],
+  button.btn-add,
+  button.btn-edit,
+  button.btn-delete,
+  button.btn-save,
+  button.btn-restore,
+  button[id*="btn-add"],
+  button[id*="btn-save"],
+  button[id*="btn-restore"],
+  button[id*="-salvar"],
+  button[id*="-restaurar"],
+  button[id*="-add"],
+  .row-actions button,
+  .table-row-actions button,
+  td.acoes button,
+  td[data-col="acoes"] button {
+    display: none !important;
+  }
+
+  /* Mas botoes de visualizacao/exportacao continuam */
+  button[data-action="view"],
+  button[data-action="export"],
+  button[data-action="download"],
+  button.btn-view,
+  button.btn-export,
+  button.btn-download {
+    display: inline-flex !important;
+  }
+
+  /* Linhas da tabela: sem hover de editar (cursor pointer) */
+  table tbody tr {
+    cursor: default !important;
+  }
+  table tbody tr:hover {
+    background-color: #f9fafb !important;
+  }
+
+  /* Mostra o banner de aviso */
+  .cadastros-readonly-banner {
+    display: flex !important;
+  }
+}

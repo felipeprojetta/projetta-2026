@@ -239,6 +239,29 @@ const Database = (() => {
         }
       }
 
+      // Felipe sessao 2026-08-02: defesa por permissao
+      if (scope === 'cadastros' && typeof Auth !== 'undefined' && Auth.can && !Auth.can('cadastros:editar')) {
+        var SAFE_CADASTROS_KEYS = [
+          'acessorios_seeded', 'modelos_seeded', 'perfis_seeded',
+          'superficies_seeded', 'representantes_seeded', 'cores_seeded',
+        ];
+        if (SAFE_CADASTROS_KEYS.indexOf(key) < 0) {
+          console.warn('[DB] ⛔ Escrita em cadastros bloqueada (sem permissao):', key);
+          try {
+            if (typeof window !== 'undefined' && window.alert && !window._permissaoAlertShown) {
+              window._permissaoAlertShown = true;
+              setTimeout(function() {
+                window.alert('🔒 Acesso restrito.\n\n' +
+                  'Esta área é só do administrador. Você consegue visualizar mas não editar.\n\n' +
+                  'Se precisar alterar algo aqui, peça pro Felipe.');
+                window._permissaoAlertShown = false;
+              }, 100);
+            }
+          } catch(_) {}
+          return value;
+        }
+      }
+
       localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(value));
       sbUpsert(scope, key, value);
       Events.emit('db:change', { scope: scope, key: key, value: value });

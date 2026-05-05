@@ -76,6 +76,41 @@ const Auth = (() => {
       const s = store.get('session');
       return !!s && s.role === 'admin';
     },
+
+    // ────────────────────────────────────────────────────────────────────
+    // Felipe sessao 2026-08-02: sistema central de permissoes.
+    // Auth.can('acao') retorna true/false.
+    //
+    // Acoes:
+    //   'cadastros:editar'  - editar cadastros (Acessorios, Perfis, Modelos,
+    //                         Superficies, Regras, Representantes, Mensagens).
+    //                         SO ADMIN.
+    //   'crm:tudo'          - editar leads no CRM. ADM e USER.
+    //   'orcamento:tudo'    - editar orcamentos, versoes, DRE. ADM e USER.
+    //   'usuarios:gerenciar'- abrir aba Usuarios e Permissoes. SO ADMIN.
+    //   'config:editar'     - editar Configuracoes. SO ADMIN.
+    //
+    // Felipe: 'unica coisa que fazem e o crm e orcamentos, gerar orcamentos'
+    // ────────────────────────────────────────────────────────────────────
+    can(acao) {
+      const s = store.get('session');
+      if (!s) return false;
+      const isAdm = s.role === 'admin';
+      switch (acao) {
+        case 'cadastros:editar':
+        case 'usuarios:gerenciar':
+        case 'config:editar':
+          return isAdm;
+        case 'crm:tudo':
+        case 'orcamento:tudo':
+        case 'cadastros:visualizar':
+        case 'estoque:visualizar':
+        case 'email:usar':
+          return true; // qualquer logado
+        default:
+          return isAdm; // unknown action -> admin only
+      }
+    },
     listUsers() {
       // Retorna copia pra evitar mutacao acidental
       return (store.get('users') || []).map(u => ({ ...u }));

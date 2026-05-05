@@ -43,6 +43,26 @@ const Storage = (() => {
     return true; // bloqueado
   }
 
+  // Felipe sessao 2026-08-02: defesa em profundidade pra permissoes.
+  // Se scope='cadastros' e user nao e' admin, BLOQUEIA escrita.
+  // Garante que mesmo se algum botao escapar do CSS readonly do
+  // styles/30-permissoes.css, a gravacao no Storage e' impedida aqui.
+  function _isPermissaoBlocked(scopeName, k) {
+    try {
+      if (scopeName !== 'cadastros') return false; // so' bloqueia cadastros
+      if (typeof Auth === 'undefined') return false;
+      if (typeof Auth.can !== 'function') return false;
+      if (Auth.can('cadastros:editar')) return false;
+      // Excecoes (chaves operacionais que podem rodar mesmo sem admin):
+      var SAFE_CADASTROS_KEYS = [
+        'acessorios_seeded', 'modelos_seeded', 'perfis_seeded',
+        'superficies_seeded', 'representantes_seeded', 'cores_seeded',
+      ];
+      if (SAFE_CADASTROS_KEYS.indexOf(k) >= 0) return false;
+      return true; // bloqueado por falta de permissao
+    } catch(_) { return false; }
+  }
+
   return {
     scope(scopeName) {
       return {
@@ -70,7 +90,22 @@ const Storage = (() => {
                 }, 100);
               }
             } catch(_) {}
-            // Retorna silenciosamente - nao quebra fluxos legacy de seed
+            return;
+          }
+          // Felipe sessao 2026-08-02: bloqueio por permissao (defesa em profundidade)
+          if (_isPermissaoBlocked(scopeName, k)) {
+            console.warn('[Storage] ⛔ Escrita bloqueada (sem permissao):', scopeName, '/', k);
+            try {
+              if (typeof window !== 'undefined' && window.alert && !window._permissaoAlertShown) {
+                window._permissaoAlertShown = true;
+                setTimeout(function() {
+                  window.alert('🔒 Acesso restrito.\n\n' +
+                    'Esta área é só do administrador. Você consegue visualizar mas não editar.\n\n' +
+                    'Se precisar alterar algo aqui, peça pro Felipe.');
+                  window._permissaoAlertShown = false;
+                }, 100);
+              }
+            } catch(_) {}
             return;
           }
           localStorage.setItem(PREFIX + scopeName + ':' + k, JSON.stringify(value));
@@ -83,6 +118,10 @@ const Storage = (() => {
         remove(k) {
           if (_isReadOnlyBlocked(scopeName, k)) {
             console.warn('[Storage] ⛔ Remove bloqueado (read-only):', scopeName, '/', k);
+            return;
+          }
+          if (_isPermissaoBlocked(scopeName, k)) {
+            console.warn('[Storage] ⛔ Remove bloqueado (sem permissao):', scopeName, '/', k);
             return;
           }
           localStorage.removeItem(PREFIX + scopeName + ':' + k);

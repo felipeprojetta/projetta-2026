@@ -134,9 +134,9 @@ const App = (() => {
 
     const subNavEl = $('#sub-nav');
     if (def.tabs) {
-      // Aba "usuarios" eh restrita: so admin pode ver/usar.
+      // Felipe sessao 2026-08-02: abas restritas a admin: Usuarios e Permissoes
       const tabsVisiveis = def.tabs.filter(t => {
-        if (t.id === 'usuarios' && !Auth.isAdmin()) return false;
+        if ((t.id === 'usuarios' || t.id === 'permissoes') && !Auth.isAdmin()) return false;
         return true;
       });
       // R15: aplica ordem persistida das abas (reordenaveis por drag).
@@ -222,12 +222,61 @@ const App = (() => {
 
   function renderModule(moduleId, tabId) {
     const container = $('#main-content');
+
+    // Felipe sessao 2026-08-02: aplica controle de readonly em Cadastros
+    // pra users nao-admin. ADM faz tudo, USER so' visualiza.
+    // body[data-cadastros-readonly="1"] ativa o CSS em styles/30-permissoes.css
+    const ehCadastros   = (moduleId === 'cadastros');
+    const podeEditarCad = window.Auth && window.Auth.can ? window.Auth.can('cadastros:editar') : true;
+    const readOnlyCad   = ehCadastros && !podeEditarCad;
+
+    if (readOnlyCad) {
+      document.body.dataset.cadastrosReadonly = '1';
+      // Bloqueia abas restritas pra nao-admin (Usuarios, Permissoes)
+      if (tabId === 'usuarios' || tabId === 'permissoes') {
+        // Redireciona pra Acessorios (primeira aba que ele pode ver)
+        tabId = 'acessorios';
+        state.currentTab = tabId;
+      }
+    } else {
+      delete document.body.dataset.cadastrosReadonly;
+    }
+
     const mod = modules[moduleId];
     if (mod && typeof mod.render === 'function') {
       try { mod.render(container, tabId); }
       catch (e) {
         console.error('[App] erro ao renderizar modulo', moduleId, e);
         container.innerHTML = renderError(moduleId, e);
+      }
+
+      // Apos render, marca a tela como cadastros-tela (pro CSS pegar)
+      // e injeta banner de readonly se aplicavel.
+      if (ehCadastros) {
+        try {
+          // Marca o container interno
+          const inner = container.firstElementChild;
+          if (inner && !inner.classList.contains('cadastros-tela')) {
+            inner.classList.add('cadastros-tela');
+          }
+          // Banner de readonly
+          if (readOnlyCad && !container.querySelector('.cadastros-readonly-banner')) {
+            const session = window.Auth.currentUser();
+            const banner = document.createElement('div');
+            banner.className = 'cadastros-readonly-banner';
+            banner.innerHTML = `
+              <span class="ico">🔒</span>
+              <div class="body">
+                <strong>Modo somente leitura</strong>
+                Olá ${session ? (session.name || session.username) : ''} — esta área é restrita ao administrador.
+                Você consegue visualizar todos os cadastros e códigos, mas só o admin pode editar, criar ou apagar.
+              </div>
+            `;
+            // Insere no topo do container interno
+            if (inner) inner.insertBefore(banner, inner.firstChild);
+            else container.insertBefore(banner, container.firstChild);
+          }
+        } catch(_) {}
       }
       return;
     }
