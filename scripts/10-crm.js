@@ -290,7 +290,11 @@
         ? `<button class="crm-btn-cancel" id="crm-btn-delete" style="color:#c0392b;border-color:#e8c5c0;">Excluir Lead</button>`
         : '';
       // Felipe sessao 2026-08: botao Re-puxar Weiku - so' em edicao + reserva existente
-      const botaoRepuxar = (editando && lead && lead.numeroReserva)
+      // Felipe sessao 2026-08 FIX BUG CRITICO: a variavel 'lead' nao
+      // existe no escopo de renderModal() - so' modalState (alias 'm').
+      // 'lead.numeroReserva' lancava ReferenceError, modal nao abria.
+      // Trocar por 'm.numeroReserva' (mesmo dado, escopo correto).
+      const botaoRepuxar = (editando && m.numeroReserva)
         ? `<button class="crm-btn-cancel" id="crm-btn-repuxar" title="Re-puxar dados desta reserva do Weiku/Outlook" style="color:#c2410c;border-color:#fed7aa;">🔄 Re-puxar Weiku</button>`
         : '';
       return `
@@ -2089,36 +2093,19 @@
         // nenhum botao). Apenas garante que click em area-morta SEMPRE
         // abre o modal, mesmo que algo mais a frente trave o bubble.
         card.addEventListener('click', (e) => {
-          // Felipe sessao 2026-08: DEBUG ATIVO - Felipe disse que clique
-          // ainda nao abre. Console pra investigar.
-          console.log('[CRM-card-click-CAPTURE]',
-            'target:', e.target.tagName,
-            'classes:', e.target.className,
-            'closest data-action:', e.target.closest('[data-action]')?.dataset?.action || 'NONE',
-            'lastDragEnd diff:', card._lastDragEnd ? Date.now() - card._lastDragEnd : 'never',
-          );
           // Mesma protecao anti-drag
-          if (card._lastDragEnd && (Date.now() - card._lastDragEnd) < 200) {
-            console.log('[CRM-card-click-CAPTURE] BLOCKED: drag recente');
-            return;
-          }
+          if (card._lastDragEnd && (Date.now() - card._lastDragEnd) < 200) return;
           // Se clicou em elemento interativo, deixa o handler de bubble
           // rodar (cada botao tem seu proprio if/return).
           const interativo = e.target.closest(
             '[data-action], button, input, select, textarea, a, label, .crm-card-versoes-resumo'
           );
-          if (interativo) {
-            console.log('[CRM-card-click-CAPTURE] interativo detectado:', interativo.tagName, interativo.className, '— deixando bubble handler tratar');
-            return;
-          }
+          if (interativo) return;
           // Area-morta -> abre modal e para aqui
           const id = card.dataset.id;
           if (id) {
-            console.log('[CRM-card-click-CAPTURE] AREA MORTA - abrindo modal de edicao pro lead', id);
             e.stopPropagation();
             abrirModalEdicao(container, id);
-          } else {
-            console.log('[CRM-card-click-CAPTURE] sem dataset.id no card!');
           }
         }, true);  // capture: true - roda ANTES do bubble handler abaixo
 
