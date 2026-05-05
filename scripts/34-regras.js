@@ -1128,6 +1128,7 @@ const Regras = (() => {
 
     mount.innerHTML = `
       <div class="info-banner" style="margin-bottom:14px;">
+        <span style="display:inline-block;background:#16a34a;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:8px;letter-spacing:0.5px;">v224 · 4 NOV</span>
         <span class="t-strong">Fita Dupla Face + Silicone Estrutural 995:</span>
         Multiplicadores aplicados a cada peça/perfil pra calcular metragem total.
         Cálculo final: <b>F.D total ÷ ${rendimentos.fd19_rolo}m</b> (rolo de fita 19) | <b>F.D total ÷ ${rendimentos.fd12_rolo}m</b> (rolo de fita 12) | <b>Silicone total ÷ ${rendimentos.ms_tubo}m</b> (tubo DowSil 995).
@@ -1163,13 +1164,14 @@ const Regras = (() => {
       <!-- Felipe sessao 2026-08: 'coloque ali manual para eu colocar por
            qual valor vou dividir o silicone estrutural pra ter qtd de
            tubos'. Secao editavel com rendimento por embalagem. -->
-      <div style="margin-top:18px;background:#f0f9ff;border:2px solid #0284c7;border-radius:8px;padding:14px 18px;">
-        <div style="font-weight:700;color:#075985;font-size:14px;margin-bottom:4px;">
-          📦 Rendimento por Embalagem (metragem para cálculo de qtd)
+      <div style="margin-top:24px;background:linear-gradient(180deg,#fef3c7 0%, #fffbeb 100%);border:3px solid #f59e0b;border-radius:10px;padding:18px 22px;box-shadow:0 4px 12px rgba(245,158,11,0.15);">
+        <div style="font-weight:800;color:#92400e;font-size:17px;margin-bottom:6px;letter-spacing:0.3px;">
+          📦 Rendimento por Embalagem — quantos metros cada rolo/tubo rende
         </div>
-        <div style="font-size:11px;color:#475569;margin-bottom:12px;">
-          Define quantos metros lineares cada rolo/tubo rende. O sistema divide
-          a metragem total pelo rendimento pra saber quantos rolos/tubos comprar.
+        <div style="font-size:13px;color:#78350f;margin-bottom:16px;line-height:1.4;">
+          Define quantos metros lineares cada embalagem cobre. O sistema divide a metragem total
+          pelo rendimento pra calcular <b>quantos rolos/tubos</b> comprar.
+          <br><b>Edite os 3 campos abaixo</b> conforme o rendimento real da marca/lote que você usa.
         </div>
 
         <div style="display:flex;gap:12px;flex-wrap:wrap;">
