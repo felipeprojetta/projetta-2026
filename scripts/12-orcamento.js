@@ -12139,6 +12139,20 @@ const Orcamento = (() => {
           // ACESSORIOS DESTACAR COM VERMELHO BEM CLARO".
           const zerado = (Number(l.preco_un) || 0) === 0;
           const cls = zerado ? 'lvac-row-zerado' : '';
+          // Felipe sessao 2026-08: 'DO LADO ALI DA FITA E DO PU'. Botao
+          // Detalhar Fita+Silicone DENTRO da linha (coluna Observacao),
+          // so' nas linhas PA-FITDF (fita) e PA-DOWSIL (silicone). Clique
+          // direto na linha que Felipe quer auditar.
+          const cod = String(l.codigo || '').toUpperCase();
+          const ehFitaOuSilicone = /^PA-FITDF|^PA-DOWSIL/.test(cod);
+          const btnLinhaDetalhar = ehFitaOuSilicone && item && item.id
+            ? ` <button type="button"
+                  onclick="event.stopPropagation(); window.FitaSiliconeDebug && window.FitaSiliconeDebug.abrir('${escapeHtml(item.id)}')"
+                  style="background:#fef3c7;border:1px solid #f59e0b;color:#b45309;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle"
+                  title="Ver de onde sairam os metros - quais perfis e pecas contribuiram">
+                  📊 Detalhar
+                </button>`
+            : '';
           return `
             <tr class="${cls}">
               <td class="num">${fmtQtd(l.qtd)}</td>
@@ -12147,29 +12161,17 @@ const Orcamento = (() => {
               <td>${escapeHtml(l.categoria)}</td>
               <td class="num">${fmtMoney(l.preco_un)}</td>
               <td class="num">${fmtMoney(l.total)}</td>
-              <td>${escapeHtml(l.observacao || '')}</td>
+              <td>${escapeHtml(l.observacao || '')}${btnLinhaDetalhar}</td>
             </tr>`;
         }).join('');
         const ehFab = titulo.includes('Fabricacao');
         const ehObra = titulo.includes('Obra');
         const corBorda = ehFab ? '#2e7d32' : ehObra ? '#1565c0' : '#7b1fa2';
         const corFundo = ehFab ? '#e8f5e9' : ehObra ? '#e3f2fd' : '#f3e5f5';
-        // Felipe sessao 2026-08: 'me traga suas contas detalhadas'.
-        // Botao de breakdown de Fita+Silicone na tabela de FAB (so' la
-        // tem essas linhas). Obra/Digital nao tem fita ou silicone.
-        const btnDetalhar = ehFab && item && item.id
-          ? `<button type="button"
-                onclick="window.FitaSiliconeDebug && window.FitaSiliconeDebug.abrir('${escapeHtml(item.id)}')"
-                style="background:#fef3c7;border:1px solid #f59e0b;color:#b45309;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;margin-left:12px"
-                title="Ver de onde sairam os metros de Fita Dupla Face e Silicone">
-                📊 Detalhar Fita+Silicone
-              </button>`
-          : '';
         return `
           <div class="orc-section">
-            <div class="orc-section-title" style="background:${corFundo};padding:8px 12px;border-radius:4px;border-left:4px solid ${corBorda};display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-              <span>${titulo} — Subtotal: <span style="font-weight:700;font-size:1.1em;color:${corBorda}">${fmtMoney(total)}</span></span>
-              ${btnDetalhar}
+            <div class="orc-section-title" style="background:${corFundo};padding:8px 12px;border-radius:4px;border-left:4px solid ${corBorda};">
+              ${titulo} — Subtotal: <span style="font-weight:700;font-size:1.1em;color:${corBorda}">${fmtMoney(total)}</span>
             </div>
             <table class="lvp-table cad-table orc-acess-tab" id="${idTab}" style="table-layout:fixed;width:100%;">
               <colgroup>
