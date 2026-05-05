@@ -919,33 +919,101 @@ const Regras = (() => {
   function renderFitaSilicone(mount) {
     const regras = getFitaSilicone();
 
-    const linhas = Object.keys(regras).map(id => {
+    // Felipe sessao 2026-08: REDESIGN. Agrupa em 3 secoes seguindo
+    // exatamente a estrutura do Excel oficial. Antes era uma listona
+    // sem hierarquia que confundia. Agora:
+    //   1) PORTA EXTERNA / PORTAL
+    //   2) REVESTIMENTO DE PAREDE
+    //   3) FIXO ACOPLADO A PORTA
+    const SECOES = [
+      {
+        id: 'porta',
+        titulo: '🚪 PORTA EXTERNA / PORTAL',
+        cor: '#003144',
+        cor_fundo: '#e0f2fe',
+        // Ordem identica ao Excel
+        ids: [
+          'alisar_altura',
+          'alisar_largura',
+          'tampa_furo_pa006',
+          'tampa_furo_pa007',
+          'altura_portal_pa006',
+          'altura_portal_pa007',
+          'altura_folha',
+          'tampa_generica',
+          'largura_portal',
+          'ripas',
+          'travessa_vert_horiz',
+        ],
+      },
+      {
+        id: 'revestimento',
+        titulo: '🧱 REVESTIMENTO DE PAREDE',
+        cor: '#0e7490',
+        cor_fundo: '#cffafe',
+        ids: [ 'revestimento_tampa' ],
+      },
+      {
+        id: 'fixo',
+        titulo: '📐 FIXO ACOPLADO À PORTA',
+        cor: '#7c2d12',
+        cor_fundo: '#fed7aa',
+        ids: [
+          'fixo_tampa',
+          'fixo_fita_acab_maior',
+          'fixo_fita_acab_menor',
+          'fixo_fita_acab_largura',
+        ],
+      },
+    ];
+
+    // Cores por coluna pra distinguir visualmente
+    // F.D 19mm → azul claro    | F.D 12mm → azul escuro    | Silicone → amarelo
+    const COL_FD19_BG = '#dbeafe';
+    const COL_FD12_BG = '#bfdbfe';
+    const COL_MS_BG   = '#fef3c7';
+
+    function inputCelula(id, field, valor, bg) {
+      return `<td class="t-num" style="background:${bg};">
+        <input type="number" min="0" step="1" class="reg-fs-input"
+               data-id="${id}" data-field="${field}" value="${valor}"
+               style="width:64px;padding:6px 8px;border:1px solid #94a3b8;border-radius:4px;text-align:center;font-weight:700;font-size:14px;background:#fff;" />
+      </td>`;
+    }
+
+    function tamanhoTxt(t) {
+      return t === 'perimetro'        ? 'perímetro (L×2 + H×2)'
+           : t === 'rev_parede'       ? 'fita: L×2+H×2 / silicone: + L×round(H/800)'
+           : t === 'fixo_fita_dupla'  ? 'fita: comprimento / silicone: L×2+H×2'
+           : 'comprimento';
+    }
+
+    function linhaRegra(id) {
       const r = regras[id];
+      if (!r) return '';
       return `
         <tr>
-          <td style="font-weight:600;color:#1f3658;">${escapeHtml(r.label)}</td>
-          <td class="t-num">
-            <input type="number" min="0" step="1" class="reg-fs-input"
-                   data-id="${id}" data-field="fd19" value="${r.fd19}"
-                   style="width:70px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;text-align:right;" />
-          </td>
-          <td class="t-num">
-            <input type="number" min="0" step="1" class="reg-fs-input"
-                   data-id="${id}" data-field="fd12" value="${r.fd12}"
-                   style="width:70px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;text-align:right;" />
-          </td>
-          <td class="t-num">
-            <input type="number" min="0" step="1" class="reg-fs-input"
-                   data-id="${id}" data-field="ms" value="${r.ms}"
-                   style="width:70px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;text-align:right;" />
-          </td>
-          <td style="font-size:11px;color:#6b7280;font-style:italic;">
-            ${r.tamanho === 'perimetro' ? 'L×2 + H×2'
-              : r.tamanho === 'rev_parede' ? 'fita: L×2+H×2 / silicone: +L×round(H/800)'
-              : r.tamanho === 'fixo_fita_dupla' ? 'fita: comprimento / silicone: L×2+H×2'
-              : 'comprimento'}
+          <td style="font-weight:600;color:#1f3658;padding:8px 12px;">${escapeHtml(r.label)}</td>
+          ${inputCelula(id, 'fd19', r.fd19, COL_FD19_BG)}
+          ${inputCelula(id, 'fd12', r.fd12, COL_FD12_BG)}
+          ${inputCelula(id, 'ms',   r.ms,   COL_MS_BG)}
+          <td style="font-size:11px;color:#475569;font-style:italic;padding:8px 12px;">
+            ${tamanhoTxt(r.tamanho)}
           </td>
         </tr>
+      `;
+    }
+
+    // Renderiza cada secao com header proprio
+    const secoesHtml = SECOES.map(sec => {
+      const linhasSec = sec.ids.map(linhaRegra).join('');
+      return `
+        <tr class="reg-fs-secao-header" style="background:${sec.cor_fundo};">
+          <td colspan="5" style="padding:10px 12px;font-weight:800;color:${sec.cor};font-size:13px;letter-spacing:0.5px;border-top:2px solid ${sec.cor};border-bottom:2px solid ${sec.cor};">
+            ${sec.titulo}
+          </td>
+        </tr>
+        ${linhasSec}
       `;
     }).join('');
 
@@ -958,17 +1026,29 @@ const Regras = (() => {
         Códigos do cadastro: <code>PA-FITDF 19X20X1.0</code> · <code>PA-FITDF 12X20X1.0</code> · <code>PA-DOWSIL 995</code>.
       </div>
 
-      <table class="cad-table" style="width:100%;">
+      <!-- Felipe sessao 2026-08: tabela com 3 colunas coloridas pra
+           distinguir F.D 19 / F.D 12 / Silicone visualmente. Antes
+           Felipe confundia qual coluna era qual. -->
+      <table class="cad-table reg-fs-tab" style="width:100%;border-collapse:collapse;">
         <thead>
-          <tr>
-            <th style="text-align:left;">Peça / Perfil</th>
-            <th style="text-align:right;">F.D 19mm ×</th>
-            <th style="text-align:right;">F.D 12mm ×</th>
-            <th style="text-align:right;">Silicone 995 ×</th>
-            <th style="text-align:left;">Tamanho usado</th>
+          <tr style="background:#003144;color:#fff;">
+            <th style="text-align:left;padding:10px 12px;font-size:13px;">Peça / Perfil</th>
+            <th style="text-align:center;padding:10px 8px;font-size:12px;background:${COL_FD19_BG};color:#1e3a8a;border-right:1px solid #fff;">
+              <div style="font-size:11px;font-weight:600;">FITA DUPLA FACE</div>
+              <div style="font-size:14px;font-weight:800;">19 mm ×</div>
+            </th>
+            <th style="text-align:center;padding:10px 8px;font-size:12px;background:${COL_FD12_BG};color:#1e3a8a;border-right:1px solid #fff;">
+              <div style="font-size:11px;font-weight:600;">FITA DUPLA FACE</div>
+              <div style="font-size:14px;font-weight:800;">12 mm ×</div>
+            </th>
+            <th style="text-align:center;padding:10px 8px;font-size:12px;background:${COL_MS_BG};color:#92400e;border-right:1px solid #fff;">
+              <div style="font-size:11px;font-weight:600;">SILICONE</div>
+              <div style="font-size:14px;font-weight:800;">DowSil 995 ×</div>
+            </th>
+            <th style="text-align:left;padding:10px 12px;font-size:13px;">Tamanho aplicado</th>
           </tr>
         </thead>
-        <tbody id="reg-fs-tbody">${linhas}</tbody>
+        <tbody id="reg-fs-tbody">${secoesHtml}</tbody>
       </table>
 
       <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
