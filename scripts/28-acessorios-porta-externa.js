@@ -602,21 +602,35 @@ const AcessoriosPortaExterna = (() => {
       }
 
       // --- 3) Conversao final em rolos/tubos ---
-      // Fita: rolo de 20m | Silicone DowSil 995: tubo de ~8m
+      // Felipe sessao 2026-08: 'deixe esse valor editavel'. Le rendimentos
+      // editaveis em Cadastro > Regras > Fita+Silicone. Defaults atuais:
+      //   FD 19mm: 20m por rolo  ·  FD 12mm: 20m por rolo  ·  Silicone: 12m por tubo
+      let RENDIMENTOS_FS;
+      try {
+        RENDIMENTOS_FS = (window.Regras && typeof window.Regras.getRendimentos === 'function')
+          ? window.Regras.getRendimentos()
+          : { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12 };
+      } catch(e) {
+        RENDIMENTOS_FS = { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12 };
+      }
+      const FD19_POR_ROLO = Number(RENDIMENTOS_FS.fd19_rolo) > 0 ? Number(RENDIMENTOS_FS.fd19_rolo) : 20;
+      const FD12_POR_ROLO = Number(RENDIMENTOS_FS.fd12_rolo) > 0 ? Number(RENDIMENTOS_FS.fd12_rolo) : 20;
+      const MS_POR_TUBO   = Number(RENDIMENTOS_FS.ms_tubo)   > 0 ? Number(RENDIMENTOS_FS.ms_tubo)   : 12;
+
       if (mFD19 > 0) {
-        const rolos = Math.ceil(mFD19 / 20);
+        const rolos = Math.ceil(mFD19 / FD19_POR_ROLO);
         add('PA-FITDF 19X20X1.0', rolos, 'Fita Dupla Face', 'fab',
-            `${mFD19.toFixed(1)}m / 20m por rolo = ${rolos} rolo(s)`);
+            `${mFD19.toFixed(1)}m / ${FD19_POR_ROLO}m por rolo = ${rolos} rolo(s)`);
       }
       if (mFD12 > 0) {
-        const rolos = Math.ceil(mFD12 / 20);
+        const rolos = Math.ceil(mFD12 / FD12_POR_ROLO);
         add('PA-FITDF 12X20X1.0', rolos, 'Fita Dupla Face', 'fab',
-            `${mFD12.toFixed(1)}m / 20m por rolo = ${rolos} rolo(s)`);
+            `${mFD12.toFixed(1)}m / ${FD12_POR_ROLO}m por rolo = ${rolos} rolo(s)`);
       }
       if (mMS > 0) {
-        const tubos = Math.ceil(mMS / 8);
+        const tubos = Math.ceil(mMS / MS_POR_TUBO);
         add('PA-DOWSIL 995', tubos, 'Selantes', 'fab',
-            `${mMS.toFixed(1)}m / 8m por tubo = ${tubos} tubo(s)`);
+            `${mMS.toFixed(1)}m / ${MS_POR_TUBO}m por tubo = ${tubos} tubo(s)`);
       }
 
       // Felipe sessao 2026-08: 'me traga suas contas detalhadas'.
@@ -635,9 +649,10 @@ const AcessoriosPortaExterna = (() => {
           itemTipo:  item.tipo,
           itemDim:   { L: L, H: H, nFolhas: nFolhas, qtdPortas: qtdPortas },
           totais:    { mFD19: mFD19, mFD12: mFD12, mMS: mMS },
-          rolosFD19: mFD19 > 0 ? Math.ceil(mFD19 / 20) : 0,
-          rolosFD12: mFD12 > 0 ? Math.ceil(mFD12 / 20) : 0,
-          tubosMS:   mMS   > 0 ? Math.ceil(mMS   / 8 ) : 0,
+          rendimentos: { fd19_rolo: FD19_POR_ROLO, fd12_rolo: FD12_POR_ROLO, ms_tubo: MS_POR_TUBO },
+          rolosFD19: mFD19 > 0 ? Math.ceil(mFD19 / FD19_POR_ROLO) : 0,
+          rolosFD12: mFD12 > 0 ? Math.ceil(mFD12 / FD12_POR_ROLO) : 0,
+          tubosMS:   mMS   > 0 ? Math.ceil(mMS   / MS_POR_TUBO)   : 0,
           breakdown: _breakdown.slice(),
           ts:        Date.now(),
         };

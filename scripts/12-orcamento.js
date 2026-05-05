@@ -12245,9 +12245,13 @@ const Orcamento = (() => {
           `;
         }).join('');
 
-        const rolosFD19 = t.mFD19 > 0 ? Math.ceil(t.mFD19 / 20) : 0;
-        const rolosFD12 = t.mFD12 > 0 ? Math.ceil(t.mFD12 / 20) : 0;
-        const tubosMS   = t.mMS   > 0 ? Math.ceil(t.mMS   / 8 ) : 0;
+        // Felipe sessao 2026-08: usa rendimentos editaveis do cache
+        // (preenchidos pelo motor 28-acessorios-porta-externa.js ao
+        // chamar window.Regras.getRendimentos).
+        const rends = dados.rendimentos || { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12 };
+        const rolosFD19 = t.mFD19 > 0 ? Math.ceil(t.mFD19 / rends.fd19_rolo) : 0;
+        const rolosFD12 = t.mFD12 > 0 ? Math.ceil(t.mFD12 / rends.fd12_rolo) : 0;
+        const tubosMS   = t.mMS   > 0 ? Math.ceil(t.mMS   / rends.ms_tubo)   : 0;
 
         return `
           <details style="margin-top:12px;background:#fffbeb;border:2px solid #f59e0b;border-radius:6px;">
@@ -12264,17 +12268,17 @@ const Orcamento = (() => {
               <div style="flex:1;min-width:160px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
                 <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Fita Dupla 19mm</div>
                 <div style="font-size:18px;font-weight:800;color:#1e3a8a;line-height:1.1;margin-top:2px;">${(t.mFD19 || 0).toFixed(2)} m</div>
-                <div style="font-size:11px;color:#64748b;margin-top:2px;">÷ 20m por rolo = <b style="color:#1e3a8a;">${rolosFD19} rolo(s)</b></div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">÷ ${rends.fd19_rolo}m por rolo = <b style="color:#1e3a8a;">${rolosFD19} rolo(s)</b></div>
               </div>
               <div style="flex:1;min-width:160px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
                 <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Fita Dupla 12mm</div>
                 <div style="font-size:18px;font-weight:800;color:#1e3a8a;line-height:1.1;margin-top:2px;">${(t.mFD12 || 0).toFixed(2)} m</div>
-                <div style="font-size:11px;color:#64748b;margin-top:2px;">÷ 20m por rolo = <b style="color:#1e3a8a;">${rolosFD12} rolo(s)</b></div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">÷ ${rends.fd12_rolo}m por rolo = <b style="color:#1e3a8a;">${rolosFD12} rolo(s)</b></div>
               </div>
               <div style="flex:1;min-width:160px;background:#fff;border:2px solid #f59e0b;border-radius:6px;padding:10px 14px;">
                 <div style="font-size:10px;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Silicone DowSil 995</div>
                 <div style="font-size:18px;font-weight:800;color:#b45309;line-height:1.1;margin-top:2px;">${(t.mMS || 0).toFixed(2)} m</div>
-                <div style="font-size:11px;color:#92400e;margin-top:2px;">÷ 8m por tubo = <b style="color:#b45309;">${tubosMS} tubo(s)</b></div>
+                <div style="font-size:11px;color:#92400e;margin-top:2px;">÷ ${rends.ms_tubo}m por tubo = <b style="color:#b45309;">${tubosMS} tubo(s)</b></div>
               </div>
             </div>
 

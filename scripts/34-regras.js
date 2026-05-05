@@ -288,6 +288,44 @@ const Regras = (() => {
     store.set('regras_fita_silicone', null);
   }
 
+  // Felipe sessao 2026-08: 'coloque manual para eu colocar por qual valor
+  // vou dividir o silicone estrutural para ter qtd de tubos hoje esta 8
+  // ja pode alterar para 12 que seria um tubo percorre 12mts lineares'.
+  // Rendimentos editaveis pra dividir metragem total e obter qtd de
+  // rolos/tubos. Defaults V3:
+  //   FD 19mm: 20m por rolo  (mantido)
+  //   FD 12mm: 20m por rolo  (mantido)
+  //   Silicone DowSil 995: 12m por tubo  (era 8, Felipe corrigiu pra 12)
+  // ============================================================
+  const RENDIMENTOS_DEFAULT = {
+    fd19_rolo:  20,
+    fd12_rolo:  20,
+    ms_tubo:    12,
+  };
+
+  function getRendimentos() {
+    const salvas = store.get('rendimentos_fita_silicone') || {};
+    return {
+      fd19_rolo: (salvas.fd19_rolo !== undefined && Number(salvas.fd19_rolo) > 0) ? Number(salvas.fd19_rolo) : RENDIMENTOS_DEFAULT.fd19_rolo,
+      fd12_rolo: (salvas.fd12_rolo !== undefined && Number(salvas.fd12_rolo) > 0) ? Number(salvas.fd12_rolo) : RENDIMENTOS_DEFAULT.fd12_rolo,
+      ms_tubo:   (salvas.ms_tubo   !== undefined && Number(salvas.ms_tubo)   > 0) ? Number(salvas.ms_tubo)   : RENDIMENTOS_DEFAULT.ms_tubo,
+    };
+  }
+
+  function salvarRendimentos(rends) {
+    if (!rends || typeof rends !== 'object') return;
+    const valido = {
+      fd19_rolo: Number(rends.fd19_rolo) > 0 ? Number(rends.fd19_rolo) : RENDIMENTOS_DEFAULT.fd19_rolo,
+      fd12_rolo: Number(rends.fd12_rolo) > 0 ? Number(rends.fd12_rolo) : RENDIMENTOS_DEFAULT.fd12_rolo,
+      ms_tubo:   Number(rends.ms_tubo)   > 0 ? Number(rends.ms_tubo)   : RENDIMENTOS_DEFAULT.ms_tubo,
+    };
+    store.set('rendimentos_fita_silicone', valido);
+  }
+
+  function resetarRendimentos() {
+    store.set('rendimentos_fita_silicone', null);
+  }
+
   // ============================================================
   // SIGNIFICADO DAS VARIAVEIS (pra Felipe entender no UI)
   // ============================================================
@@ -980,6 +1018,7 @@ const Regras = (() => {
    */
   function renderFitaSilicone(mount) {
     const regras = getFitaSilicone();
+    const rendimentos = getRendimentos();
 
     // Felipe sessao 2026-08: REDESIGN. Agrupa em 3 secoes seguindo
     // exatamente a estrutura do Excel oficial. Antes era uma listona
@@ -1088,7 +1127,7 @@ const Regras = (() => {
       <div class="info-banner" style="margin-bottom:14px;">
         <span class="t-strong">Fita Dupla Face + Silicone Estrutural 995:</span>
         Multiplicadores aplicados a cada peça/perfil pra calcular metragem total.
-        Cálculo final: <b>F.D total ÷ 20m</b> (rolo de fita) | <b>Silicone total ÷ 8m</b> (tubo DowSil 995).
+        Cálculo final: <b>F.D total ÷ ${rendimentos.fd19_rolo}m</b> (rolo de fita 19) | <b>F.D total ÷ ${rendimentos.fd12_rolo}m</b> (rolo de fita 12) | <b>Silicone total ÷ ${rendimentos.ms_tubo}m</b> (tubo DowSil 995).
         <br>
         Códigos do cadastro: <code>PA-FITDF 19X20X1.0</code> · <code>PA-FITDF 12X20X1.0</code> · <code>PA-DOWSIL 995</code>.
       </div>
@@ -1118,6 +1157,60 @@ const Regras = (() => {
         <tbody id="reg-fs-tbody">${secoesHtml}</tbody>
       </table>
 
+      <!-- Felipe sessao 2026-08: 'coloque ali manual para eu colocar por
+           qual valor vou dividir o silicone estrutural pra ter qtd de
+           tubos'. Secao editavel com rendimento por embalagem. -->
+      <div style="margin-top:18px;background:#f0f9ff;border:2px solid #0284c7;border-radius:8px;padding:14px 18px;">
+        <div style="font-weight:700;color:#075985;font-size:14px;margin-bottom:4px;">
+          📦 Rendimento por Embalagem (metragem para cálculo de qtd)
+        </div>
+        <div style="font-size:11px;color:#475569;margin-bottom:12px;">
+          Define quantos metros lineares cada rolo/tubo rende. O sistema divide
+          a metragem total pelo rendimento pra saber quantos rolos/tubos comprar.
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
+            <label style="display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">
+              Fita Dupla 19mm — m por rolo
+            </label>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="number" min="1" step="0.5" id="reg-fs-rend-fd19"
+                     value="${rendimentos.fd19_rolo}"
+                     style="width:80px;padding:6px 8px;border:1px solid #94a3b8;border-radius:4px;text-align:center;font-weight:700;font-size:14px;" />
+              <span style="font-size:12px;color:#64748b;">metros / rolo</span>
+            </div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:3px;">Código: <code>PA-FITDF 19X20X1.0</code></div>
+          </div>
+
+          <div style="flex:1;min-width:200px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
+            <label style="display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">
+              Fita Dupla 12mm — m por rolo
+            </label>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="number" min="1" step="0.5" id="reg-fs-rend-fd12"
+                     value="${rendimentos.fd12_rolo}"
+                     style="width:80px;padding:6px 8px;border:1px solid #94a3b8;border-radius:4px;text-align:center;font-weight:700;font-size:14px;" />
+              <span style="font-size:12px;color:#64748b;">metros / rolo</span>
+            </div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:3px;">Código: <code>PA-FITDF 12X20X1.0</code></div>
+          </div>
+
+          <div style="flex:1;min-width:200px;background:#fff;border:2px solid #f59e0b;border-radius:6px;padding:10px 14px;">
+            <label style="display:block;font-size:11px;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:4px;">
+              Silicone DowSil 995 — m por tubo
+            </label>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="number" min="1" step="0.5" id="reg-fs-rend-ms"
+                     value="${rendimentos.ms_tubo}"
+                     style="width:80px;padding:6px 8px;border:1px solid #f59e0b;border-radius:4px;text-align:center;font-weight:800;font-size:15px;color:#b45309;background:#fffbeb;" />
+              <span style="font-size:12px;color:#92400e;">metros / tubo</span>
+            </div>
+            <div style="font-size:10px;color:#b45309;margin-top:3px;">Código: <code>PA-DOWSIL 995</code></div>
+          </div>
+        </div>
+      </div>
+
       <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
         <button type="button" id="reg-fs-salvar" class="btn-primary"
                 style="background:#16a34a;color:#fff;border:none;border-radius:5px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;">
@@ -1145,8 +1238,15 @@ const Regras = (() => {
         if (!regrasNovas[id]) regrasNovas[id] = {};
         regrasNovas[id][field] = Number(inp.value) || 0;
       });
+      // Felipe sessao 2026-08: tambem persiste rendimentos editaveis
+      const rendsNovos = {
+        fd19_rolo: Number(mount.querySelector('#reg-fs-rend-fd19')?.value) || 20,
+        fd12_rolo: Number(mount.querySelector('#reg-fs-rend-fd12')?.value) || 20,
+        ms_tubo:   Number(mount.querySelector('#reg-fs-rend-ms')?.value)   || 12,
+      };
       try {
         salvarFitaSilicone(regrasNovas);
+        salvarRendimentos(rendsNovos);
         const status = mount.querySelector('#reg-fs-status');
         if (status) {
           status.textContent = '✅ Salvo! Próximos orçamentos vão usar essas regras.';
@@ -1161,13 +1261,14 @@ const Regras = (() => {
 
     // Handler: Restaurar — confirma e re-renderiza
     mount.querySelector('#reg-fs-restaurar')?.addEventListener('click', () => {
-      if (!confirm('Restaurar valores padrão da tabela de Fita+Silicone?\n\nIsso descarta todas as edições.')) return;
+      if (!confirm('Restaurar valores padrão da tabela de Fita+Silicone?\n\nIsso descarta todas as edições (multiplicadores E rendimentos).')) return;
       resetarFitaSilicone();
+      resetarRendimentos();
       renderFitaSilicone(mount);
     });
   }
 
-  return { render, getFitaSilicone };
+  return { render, getFitaSilicone, getRendimentos, salvarRendimentos, resetarRendimentos };
 })();
 
 if (typeof window !== 'undefined') window.Regras = Regras;
