@@ -12231,16 +12231,18 @@ const Orcamento = (() => {
           const ms = e.contrib?.ms || 0;
           const fd19 = e.contrib?.fd19 || 0;
           const fd12 = e.contrib?.fd12 || 0;
+          const cps = e.contrib?.cps || 0;
           const pctMs = t.mMS > 0 ? (ms / t.mMS) * 100 : 0;
           const corDestaque = pctMs > 25 ? '#b91c1c' : pctMs > 10 ? '#b45309' : '#374151';
           return `
             <tr>
               <td style="padding:6px 10px;font-weight:500;color:#1f2937;font-size:12px;">${escapeHtml(e.origem || '?')}</td>
               <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;color:#475569;font-size:12px;">${(e.metros || 0).toFixed(2)}m</td>
-              <td class="num" style="padding:6px 10px;font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0}</td>
+              <td class="num" style="padding:6px 10px;font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0} / ×${e.mult?.cps || 0}</td>
               <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;color:#1e3a8a;background:#eff6ff;">${fd19 > 0 ? fd19.toFixed(2) + 'm' : '—'}</td>
               <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;color:#1e3a8a;background:#dbeafe;">${fd12 > 0 ? fd12.toFixed(2) + 'm' : '—'}</td>
               <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-weight:700;color:${corDestaque};background:#fef3c7;font-size:12px;">${ms > 0 ? ms.toFixed(2) + 'm' : '—'}<span style="font-size:10px;font-weight:400;color:#9ca3af;"> (${pctMs.toFixed(0)}%)</span></td>
+              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-weight:700;color:#15803d;background:#dcfce7;font-size:12px;">${cps > 0 ? cps.toFixed(2) + 'm' : '—'}</td>
             </tr>
           `;
         }).join('');
@@ -12248,10 +12250,12 @@ const Orcamento = (() => {
         // Felipe sessao 2026-08: usa rendimentos editaveis do cache
         // (preenchidos pelo motor 28-acessorios-porta-externa.js ao
         // chamar window.Regras.getRendimentos).
-        const rends = dados.rendimentos || { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12 };
+        const rends = dados.rendimentos || { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12, cps_sache: 12 };
+        const cpsRend = rends.cps_sache || rends.ms_tubo || 12;  // CPS usa mesmo rendimento do silicone
         const rolosFD19 = t.mFD19 > 0 ? Math.ceil(t.mFD19 / rends.fd19_rolo) : 0;
         const rolosFD12 = t.mFD12 > 0 ? Math.ceil(t.mFD12 / rends.fd12_rolo) : 0;
         const tubosMS   = t.mMS   > 0 ? Math.ceil(t.mMS   / rends.ms_tubo)   : 0;
+        const sachesCPS = (t.mCPS || 0) > 0 ? Math.ceil(t.mCPS / cpsRend)    : 0;
 
         return `
           <details style="margin-top:12px;background:#fffbeb;border:2px solid #f59e0b;border-radius:6px;">
@@ -12259,7 +12263,7 @@ const Orcamento = (() => {
               <span style="display:inline-block;transition:transform 0.2s;font-size:12px;color:#b45309;" class="fsd-arrow">▶</span>
               📊 Abrir Detalhamento — Fita Dupla Face e Silicone Estrutural
               <span style="margin-left:auto;font-size:11px;font-weight:500;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:12px;">
-                ${(t.mFD19 || 0).toFixed(1)}m + ${(t.mFD12 || 0).toFixed(1)}m + ${(t.mMS || 0).toFixed(1)}m silicone · clique pra ver de onde
+                ${(t.mFD19 || 0).toFixed(1)}m + ${(t.mFD12 || 0).toFixed(1)}m + ${(t.mMS || 0).toFixed(1)}m silicone + ${(t.mCPS || 0).toFixed(1)}m CPS · clique pra ver de onde
               </span>
             </summary>
 
@@ -12282,8 +12286,16 @@ const Orcamento = (() => {
                 <button type="button"
                   onclick="event.preventDefault(); event.stopPropagation(); window.AppNav?.goToFitaSilicone?.();"
                   style="margin-top:8px;background:#b45309;color:#fff;border:none;padding:5px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;width:100%;letter-spacing:0.3px;">
-                  ✏️ MUDAR RENDIMENTO (12m → ?)
+                  ✏️ MUDAR RENDIMENTO (${rends.ms_tubo}m → ?)
                 </button>
+              </div>
+              <div style="flex:1;min-width:160px;background:#fff;border:2px solid #16a34a;border-radius:6px;padding:10px 14px;">
+                <div style="font-size:10px;color:#14532d;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">CPS BR (Dow Corning)</div>
+                <div style="font-size:18px;font-weight:800;color:#15803d;line-height:1.1;margin-top:2px;">${(t.mCPS || 0).toFixed(2)} m</div>
+                <div style="font-size:11px;color:#166534;margin-top:2px;">÷ ${cpsRend}m por sachê = <b style="color:#15803d;">${sachesCPS} sachê(s)</b></div>
+                <div style="font-size:10px;color:#14532d;margin-top:6px;line-height:1.3;">
+                  PA-DOWSIL CPS BR<br>(só nas Travessas)
+                </div>
               </div>
             </div>
 
@@ -12292,10 +12304,11 @@ const Orcamento = (() => {
                 <tr style="background:#1f2937;color:#fff;">
                   <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">Peça / Perfil (com dimensões)</th>
                   <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;">Metros</th>
-                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;">Mult. (19/12/MS)</th>
+                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;">Mult. (19/12/MS/CPS)</th>
                   <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;">FD 19mm</th>
                   <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;">FD 12mm</th>
                   <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;">Silicone</th>
+                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#15803d;">CPS BR</th>
                 </tr>
               </thead>
               <tbody>${linhasHtml}</tbody>
@@ -12305,6 +12318,7 @@ const Orcamento = (() => {
                   <td class="num" style="padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD19 || 0).toFixed(2)}m</td>
                   <td class="num" style="padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD12 || 0).toFixed(2)}m</td>
                   <td class="num" style="padding:8px 10px;font-size:13px;color:#b45309;">${(t.mMS || 0).toFixed(2)}m</td>
+                  <td class="num" style="padding:8px 10px;font-size:13px;color:#15803d;background:#dcfce7;">${(t.mCPS || 0).toFixed(2)}m</td>
                 </tr>
               </tfoot>
             </table>

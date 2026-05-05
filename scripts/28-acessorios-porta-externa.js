@@ -390,6 +390,7 @@ const AcessoriosPortaExterna = (() => {
       let mFD19 = 0;  // metros lineares de Fita Dupla Face 19mm
       let mFD12 = 0;  // metros lineares de Fita Dupla Face 12mm
       let mMS   = 0;  // metros lineares de Silicone Estrutural 995
+      let mCPS  = 0;  // metros lineares de PA-DOWSIL CPS BR (sache branco 591ml) — Felipe sessao 2026-08
 
       // Felipe sessao 2026-08: 'me traga suas contas detalhadas'.
       // Acumulador de breakdown: cada chamada de aplicarRegra* registra
@@ -402,29 +403,25 @@ const AcessoriosPortaExterna = (() => {
       // modulo Regras nao estiver disponivel (loading order, dev), usa
       // fallback chumbado com os valores padrao do Excel.
       const REGRAS_DEFAULT = {
-        'alisar_altura':       { fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento' },
-        'alisar_largura':      { fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento' },
-        'tampa_furo_pa006':    { fd19: 0, fd12: 2, ms: 1,  tamanho: 'comprimento' },
-        'tampa_furo_pa007':    { fd19: 2, fd12: 0, ms: 1,  tamanho: 'comprimento' },
-        'altura_portal_pa006': { fd19: 1, fd12: 1, ms: 3,  tamanho: 'comprimento' },
-        'altura_portal_pa007': { fd19: 1, fd12: 1, ms: 3,  tamanho: 'comprimento' },
-        // Felipe sessao 2026-08 (Excel atualizado): Largura Portal valores
-        // mudaram de 4×FD19+5×silicone pra 2×FD12+5×silicone.
-        'largura_portal':      { fd19: 0, fd12: 2, ms: 4,  tamanho: 'comprimento' },
-        // Felipe sessao 2026-08 (Excel atualizado): NOVA regra Travessa
-        // Vertical / Horizontal (4×FD19, sem silicone).
-        'travessa_vert_horiz': { fd19: 0, fd12: 0, ms: 2,  tamanho: 'comprimento' },
-        'cantoneira_cava':     { fd19: 2, fd12: 0, ms: 2,  tamanho: 'comprimento' },
-        'altura_folha':        { fd19: 0, fd12: 0, ms: 3,  tamanho: 'comprimento' },
-        'tampa_generica':      { fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro'   },
-        'ripas':               { fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento' },
-        'revestimento_tampa':  { fd19: 1, fd12: 0, ms: 1,  tamanho: 'rev_parede'  },
-        // Fixo Acoplado (Excel atualizado: maior/menor usam fixo_fita_dupla,
-        // largura usa perimetro)
-        'fixo_tampa':              { fd19: 1, fd12: 0, ms: 1, tamanho: 'perimetro'       },
-        'fixo_fita_acab_maior':    { fd19: 2, fd12: 0, ms: 1, tamanho: 'fixo_fita_dupla' },
-        'fixo_fita_acab_menor':    { fd19: 0, fd12: 1, ms: 1, tamanho: 'fixo_fita_dupla' },
-        'fixo_fita_acab_largura':  { fd19: 2, fd12: 0, ms: 1, tamanho: 'perimetro'       },
+        'alisar_altura':       { fd19: 1, fd12: 0, ms: 1, cps: 0,  tamanho: 'comprimento' },
+        'alisar_largura':      { fd19: 1, fd12: 0, ms: 1, cps: 0,  tamanho: 'comprimento' },
+        'tampa_furo_pa006':    { fd19: 0, fd12: 2, ms: 1, cps: 0,  tamanho: 'comprimento' },
+        'tampa_furo_pa007':    { fd19: 2, fd12: 0, ms: 1, cps: 0,  tamanho: 'comprimento' },
+        'altura_portal_pa006': { fd19: 1, fd12: 1, ms: 3, cps: 0,  tamanho: 'comprimento' },
+        'altura_portal_pa007': { fd19: 1, fd12: 1, ms: 3, cps: 0,  tamanho: 'comprimento' },
+        'largura_portal':      { fd19: 0, fd12: 2, ms: 4, cps: 0,  tamanho: 'comprimento' },
+        // Felipe sessao 2026-08: travessa_vert_horiz e' UNICA regra com cps > 0.
+        // Excel: 'PA-DOWSIL CPS BR | 2 X QUANTIDADE DESTE ITEM | COMPRIMENTO TUBO TRAVESSA'
+        'travessa_vert_horiz': { fd19: 0, fd12: 0, ms: 2, cps: 2,  tamanho: 'comprimento' },
+        'cantoneira_cava':     { fd19: 2, fd12: 0, ms: 2, cps: 0,  tamanho: 'comprimento' },
+        'altura_folha':        { fd19: 0, fd12: 0, ms: 3, cps: 0,  tamanho: 'comprimento' },
+        'tampa_generica':      { fd19: 1, fd12: 0, ms: 1, cps: 0,  tamanho: 'perimetro'   },
+        'ripas':               { fd19: 0, fd12: 2, ms: 0, cps: 0,  tamanho: 'comprimento' },
+        'revestimento_tampa':  { fd19: 1, fd12: 0, ms: 1, cps: 0,  tamanho: 'rev_parede'  },
+        'fixo_tampa':              { fd19: 1, fd12: 0, ms: 1, cps: 0, tamanho: 'perimetro'       },
+        'fixo_fita_acab_maior':    { fd19: 2, fd12: 0, ms: 1, cps: 0, tamanho: 'fixo_fita_dupla' },
+        'fixo_fita_acab_menor':    { fd19: 0, fd12: 1, ms: 1, cps: 0, tamanho: 'fixo_fita_dupla' },
+        'fixo_fita_acab_largura':  { fd19: 2, fd12: 0, ms: 1, cps: 0, tamanho: 'perimetro'       },
       };
       const REGRAS = (window.Regras && typeof window.Regras.getFitaSilicone === 'function')
         ? window.Regras.getFitaSilicone()
@@ -437,16 +434,18 @@ const AcessoriosPortaExterna = (() => {
         const cFD19 = (Number(r.fd19) || 0) * metros;
         const cFD12 = (Number(r.fd12) || 0) * metros;
         const cMS   = (Number(r.ms)   || 0) * metros;
+        const cCPS  = (Number(r.cps)  || 0) * metros;
         mFD19 += cFD19;
         mFD12 += cFD12;
         mMS   += cMS;
+        mCPS  += cCPS;
         _breakdown.push({
           origem: origem || idRegra,
           regra:  idRegra,
           tipo:   'comprimento',
           metros: metros,
-          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0 },
-          contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS },
+          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0, cps: r.cps||0 },
+          contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS, cps: cCPS },
         });
       }
 
@@ -465,17 +464,19 @@ const AcessoriosPortaExterna = (() => {
         const cFD19 = (Number(r.fd19) || 0) * perimM;
         const cFD12 = (Number(r.fd12) || 0) * perimM;
         const cMS   = (Number(r.ms)   || 0) * (perimM + internosM);
+        const cCPS  = (Number(r.cps)  || 0) * (perimM + internosM);
         mFD19 += cFD19;
         mFD12 += cFD12;
         mMS   += cMS;
+        mCPS  += cCPS;
         _breakdown.push({
           origem: origem || idRegra,
           regra:  idRegra,
           tipo:   'rev_parede',
           metros: perimM + internosM,  // metragem usada pro silicone
           dim:    { L: larMm, H: altMm, qtd: qtdPecas, cordoes: cordoes },
-          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0 },
-          contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS },
+          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0, cps: r.cps||0 },
+          contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS, cps: cCPS },
         });
       }
 
@@ -491,17 +492,19 @@ const AcessoriosPortaExterna = (() => {
         const cFD19 = (Number(r.fd19) || 0) * compM;
         const cFD12 = (Number(r.fd12) || 0) * compM;
         const cMS   = (Number(r.ms)   || 0) * perimM;
+        const cCPS  = (Number(r.cps)  || 0) * perimM;
         mFD19 += cFD19;
         mFD12 += cFD12;
         mMS   += cMS;
+        mCPS  += cCPS;
         _breakdown.push({
           origem: origem || idRegra,
           regra:  idRegra,
           tipo:   'fixo_fita_dupla',
           metros: perimM,
           dim:    { L: larMm, H: altMm, qtd: qtdPecas, compM: compM, perimM: perimM },
-          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0 },
-          contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS },
+          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0, cps: r.cps||0 },
+          contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS, cps: cCPS },
         });
       }
 
@@ -638,6 +641,14 @@ const AcessoriosPortaExterna = (() => {
         add('PA-DOWSIL 995', tubos, 'Selantes', 'fab',
             `${mMS.toFixed(1)}m / ${MS_POR_TUBO}m por tubo = ${tubos} tubo(s)`);
       }
+      // Felipe sessao 2026-08: PA-DOWSIL CPS BR (sache 591ml). So' aparece
+      // nas Travessas. Mesmo rendimento do silicone estrutural (MS_POR_TUBO,
+      // Felipe: 'mesmo do 995, pegue do cadastro logica').
+      if (mCPS > 0) {
+        const sachesCPS = Math.ceil(mCPS / MS_POR_TUBO);
+        add('PA-DOWSIL CPS BR', sachesCPS, 'Selantes', 'fab',
+            `${mCPS.toFixed(1)}m / ${MS_POR_TUBO}m por sache = ${sachesCPS} sache(s)`);
+      }
 
       // Felipe sessao 2026-08: 'me traga suas contas detalhadas'.
       // Salva o breakdown desse item no cache global indexado por id.
@@ -654,11 +665,12 @@ const AcessoriosPortaExterna = (() => {
           cacheKey:  ckey,
           itemTipo:  item.tipo,
           itemDim:   { L: L, H: H, nFolhas: nFolhas, qtdPortas: qtdPortas },
-          totais:    { mFD19: mFD19, mFD12: mFD12, mMS: mMS },
-          rendimentos: { fd19_rolo: FD19_POR_ROLO, fd12_rolo: FD12_POR_ROLO, ms_tubo: MS_POR_TUBO },
+          totais:    { mFD19: mFD19, mFD12: mFD12, mMS: mMS, mCPS: mCPS },
+          rendimentos: { fd19_rolo: FD19_POR_ROLO, fd12_rolo: FD12_POR_ROLO, ms_tubo: MS_POR_TUBO, cps_sache: MS_POR_TUBO },
           rolosFD19: mFD19 > 0 ? Math.ceil(mFD19 / FD19_POR_ROLO) : 0,
           rolosFD12: mFD12 > 0 ? Math.ceil(mFD12 / FD12_POR_ROLO) : 0,
           tubosMS:   mMS   > 0 ? Math.ceil(mMS   / MS_POR_TUBO)   : 0,
+          sachesCPS: mCPS  > 0 ? Math.ceil(mCPS  / MS_POR_TUBO)   : 0,
           breakdown: _breakdown.slice(),
           ts:        Date.now(),
         };

@@ -160,27 +160,27 @@ const Regras = (() => {
   // coluna 'Tamanho aplicado' da tabela de regras.
   // ============================================================
   const FITA_SILICONE_DEFAULT = {
-    'alisar_altura':       { label: 'Alisar Altura',                       fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento',
+    'alisar_altura':       { label: 'Alisar Altura',                       fd19: 1, fd12: 0, ms: 1, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do alisar de altura (Lev. Superfícies)' },
-    'alisar_largura':      { label: 'Alisar Largura',                      fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento',
+    'alisar_largura':      { label: 'Alisar Largura',                      fd19: 1, fd12: 0, ms: 1, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do alisar de largura (Lev. Superfícies)' },
-    'tampa_furo_pa006':    { label: 'Tampa de Furo (sistema PA006)',       fd19: 0, fd12: 2, ms: 1,  tamanho: 'comprimento',
+    'tampa_furo_pa006':    { label: 'Tampa de Furo (sistema PA006)',       fd19: 0, fd12: 2, ms: 1, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento da tampa de furo PA006 (Lev. Superfícies)' },
-    'tampa_furo_pa007':    { label: 'Tampa de Furo (sistema PA007)',       fd19: 2, fd12: 0, ms: 1,  tamanho: 'comprimento',
+    'tampa_furo_pa007':    { label: 'Tampa de Furo (sistema PA007)',       fd19: 2, fd12: 0, ms: 1, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento da tampa de furo PA007 (Lev. Superfícies)' },
-    'altura_portal_pa006': { label: 'Altura Portal · PA-PA006P',           fd19: 1, fd12: 1, ms: 3,  tamanho: 'comprimento',
+    'altura_portal_pa006': { label: 'Altura Portal · PA-PA006P',           fd19: 1, fd12: 1, ms: 3, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do perfil PA-PA006P (Altura Portal — Lev. Perfis)' },
-    'altura_portal_pa007': { label: 'Altura Portal · PA-PA007P',           fd19: 1, fd12: 1, ms: 3,  tamanho: 'comprimento',
+    'altura_portal_pa007': { label: 'Altura Portal · PA-PA007P',           fd19: 1, fd12: 1, ms: 3, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do perfil PA-PA007P (Altura Portal — Lev. Perfis)' },
     // Felipe sessao 2026-08 V4: Largura Portal silicone caiu de 5 pra 4
-    'largura_portal':      { label: 'Largura Portal',                      fd19: 0, fd12: 2, ms: 4,  tamanho: 'comprimento',
+    'largura_portal':      { label: 'Largura Portal',                      fd19: 0, fd12: 2, ms: 4, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do tubo Largura Portal (perfil horizontal — Lev. Perfis)' },
     // Felipe sessao 2026-08 V4: Altura Folha agora ZERA fita 19, so' silicone 3 (era 1/0/4)
-    'altura_folha':        { label: 'Altura Folha · PA-PA006F / PA007F',   fd19: 0, fd12: 0, ms: 3,  tamanho: 'comprimento',
+    'altura_folha':        { label: 'Altura Folha · PA-PA006F / PA007F',   fd19: 0, fd12: 0, ms: 3, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do perfil PA-PA006F ou PA-PA007F (Altura Folha — Lev. Perfis)' },
-    'tampa_generica':      { label: 'Outras peças "Tampa..." (perimetro)', fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro',
+    'tampa_generica':      { label: 'Outras peças "Tampa..." (perimetro)', fd19: 1, fd12: 0, ms: 1, cps: 0,  tamanho: 'perimetro',
       tamanhoDescricao: 'perímetro da tampa: largura×2 + altura×2' },
-    'ripas':               { label: 'Tubo Interno das Ripas',              fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento',
+    'ripas':               { label: 'Tubo Interno das Ripas',              fd19: 0, fd12: 2, ms: 0, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do tubo das ripas × quantidade' },
     // Felipe sessao 2026-08 V4: Travessa silicone caiu de 4 pra 2
     // NOTA do Excel: 'quando tiver cava tem 2 travessas obrigatorias que
@@ -188,7 +188,7 @@ const Regras = (() => {
     // (Implementacao desse desconto fica pra proximo passo - hoje o motor
     // conta TODAS as travessas. Quando Felipe pedir, posso filtrar as
     // 2 obrigatorias da cava no motor PerfisPortaExterna.)
-    'travessa_vert_horiz': { label: 'Travessa Vertical / Horizontal',      fd19: 0, fd12: 0, ms: 2,  tamanho: 'comprimento',
+    'travessa_vert_horiz': { label: 'Travessa Vertical / Horizontal',      fd19: 0, fd12: 0, ms: 2, cps: 2,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do tubo da travessa vertical/horizontal' },
 
     // Felipe sessao 2026-08 V5 (Excel atualizado): NOVA regra Cantoneira
@@ -196,13 +196,13 @@ const Regras = (() => {
     // pelo motor PerfisPortaExterna com label 'Cantoneira Cava'.
     // Excel: 2×FD19 + 0×FD12 + 2×silicone × comprimento.
     // Nota Excel: '2x por folha, se tiver 2 folhas 4x, se for cava'.
-    'cantoneira_cava':     { label: 'Cantoneira Cava · PA-CANT-30X30X2.0', fd19: 2, fd12: 0, ms: 2,  tamanho: 'comprimento',
+    'cantoneira_cava':     { label: 'Cantoneira Cava · PA-CANT-30X30X2.0', fd19: 2, fd12: 0, ms: 2, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento da Cantoneira Cava (só em modelo cava — Lev. Perfis)' },
 
     // Felipe sessao 2026-08: REVESTIMENTO DE PAREDE
     // Pra cada peca do revestimento: fita usa perimetro, silicone usa
     // perimetro + cordoes internos a cada 800mm (L × ROUND(H/800)).
-    'revestimento_tampa':  { label: 'Revestimento de Parede · Tampa',      fd19: 1, fd12: 0, ms: 1,  tamanho: 'rev_parede',
+    'revestimento_tampa':  { label: 'Revestimento de Parede · Tampa',      fd19: 1, fd12: 0, ms: 1, cps: 0,  tamanho: 'rev_parede',
       tamanhoDescricao: 'fita = perímetro (L×2 + H×2) · silicone = perímetro + L × round(H÷800) cordões internos' },
 
     // Felipe sessao 2026-08 (Excel atualizado): FIXO ACOPLADO A PORTA
@@ -210,13 +210,13 @@ const Regras = (() => {
     // Fita Acab Maior/Menor: fita usa comprimento, silicone usa perimetro
     //   (tamanho='fixo_fita_dupla' aplica essa diferenca).
     // Fita Acab Largura: tudo perimetro.
-    'fixo_tampa':              { label: 'Fixo Acoplado · Tampa',                    fd19: 1, fd12: 0, ms: 1, tamanho: 'perimetro',
+    'fixo_tampa':              { label: 'Fixo Acoplado · Tampa',                    fd19: 1, fd12: 0, ms: 1, cps: 0, tamanho: 'perimetro',
       tamanhoDescricao: 'perímetro da tampa do fixo: L×2 + H×2' },
-    'fixo_fita_acab_maior':    { label: 'Fixo Acoplado · Fita Acabamento Maior',    fd19: 2, fd12: 0, ms: 1, tamanho: 'fixo_fita_dupla',
+    'fixo_fita_acab_maior':    { label: 'Fixo Acoplado · Fita Acabamento Maior',    fd19: 2, fd12: 0, ms: 1, cps: 0, tamanho: 'fixo_fita_dupla',
       tamanhoDescricao: 'fita = comprimento da peça (altura) · silicone = perímetro (L×2 + H×2)' },
-    'fixo_fita_acab_menor':    { label: 'Fixo Acoplado · Fita Acabamento Menor',    fd19: 0, fd12: 1, ms: 1, tamanho: 'fixo_fita_dupla',
+    'fixo_fita_acab_menor':    { label: 'Fixo Acoplado · Fita Acabamento Menor',    fd19: 0, fd12: 1, ms: 1, cps: 0, tamanho: 'fixo_fita_dupla',
       tamanhoDescricao: 'fita = comprimento da peça (altura) · silicone = perímetro (L×2 + H×2)' },
-    'fixo_fita_acab_largura':  { label: 'Fixo Acoplado · Fita Acabamento Largura',  fd19: 2, fd12: 0, ms: 1, tamanho: 'perimetro',
+    'fixo_fita_acab_largura':  { label: 'Fixo Acoplado · Fita Acabamento Largura',  fd19: 2, fd12: 0, ms: 1, cps: 0, tamanho: 'perimetro',
       tamanhoDescricao: 'perímetro da peça: L×2 + H×2' },
   };
 
@@ -259,6 +259,19 @@ const Regras = (() => {
         migrouAlgo = true;
       }
     });
+
+    // Felipe sessao 2026-08: migracao CPS BR (PA-DOWSIL CPS BR).
+    // Antes desta versao, regras salvas nao tinham campo 'cps'. Travessa
+    // recebe cps:2 (Excel: 'PA-DOWSIL CPS BR | 2 X QUANTIDADE | TRAVESSA').
+    // Outras regras recebem cps:0 (CPS so' sai nas Travessas).
+    Object.keys(salvasMigradas).forEach(id => {
+      const r = salvasMigradas[id];
+      if (r && r.cps === undefined) {
+        r.cps = (id === 'travessa_vert_horiz') ? 2 : 0;
+        migrouAlgo = true;
+      }
+    });
+
     if (migrouAlgo) {
       try { store.set('regras_fita_silicone', salvasMigradas); }
       catch(e) { console.warn('[regras-fs] falha ao persistir migracao:', e); }
@@ -277,6 +290,9 @@ const Regras = (() => {
         fd19: (sal.fd19 !== undefined && !isNaN(Number(sal.fd19))) ? Number(sal.fd19) : def.fd19,
         fd12: (sal.fd12 !== undefined && !isNaN(Number(sal.fd12))) ? Number(sal.fd12) : def.fd12,
         ms:   (sal.ms   !== undefined && !isNaN(Number(sal.ms)))   ? Number(sal.ms)   : def.ms,
+        // Felipe sessao 2026-08: PA-DOWSIL CPS BR (sache 591ml). 4o multiplicador
+        // que so' aparece nas Travessas. Mesmo rendimento do silicone (12m por sache).
+        cps:  (sal.cps  !== undefined && !isNaN(Number(sal.cps)))  ? Number(sal.cps)  : (def.cps || 0),
       };
     });
     return result;
@@ -290,6 +306,8 @@ const Regras = (() => {
         fd19: Number(regras[id].fd19) || 0,
         fd12: Number(regras[id].fd12) || 0,
         ms:   Number(regras[id].ms)   || 0,
+        // Felipe sessao 2026-08: 4o multiplicador PA-DOWSIL CPS BR
+        cps:  Number(regras[id].cps)  || 0,
       };
     });
     store.set('regras_fita_silicone', slim);
@@ -1081,10 +1099,11 @@ const Regras = (() => {
     ];
 
     // Cores por coluna pra distinguir visualmente
-    // F.D 19mm → azul claro    | F.D 12mm → azul escuro    | Silicone → amarelo
+    // F.D 19mm → azul claro    | F.D 12mm → azul escuro    | Silicone → amarelo  | CPS BR → verde
     const COL_FD19_BG = '#dbeafe';
     const COL_FD12_BG = '#bfdbfe';
     const COL_MS_BG   = '#fef3c7';
+    const COL_CPS_BG  = '#dcfce7';  // verde claro - PA-DOWSIL CPS BR (Dow Corning sache branco)
 
     function inputCelula(id, field, valor, bg) {
       return `<td class="t-num" style="background:${bg};">
@@ -1115,6 +1134,7 @@ const Regras = (() => {
           ${inputCelula(id, 'fd19', r.fd19, COL_FD19_BG)}
           ${inputCelula(id, 'fd12', r.fd12, COL_FD12_BG)}
           ${inputCelula(id, 'ms',   r.ms,   COL_MS_BG)}
+          ${inputCelula(id, 'cps',  r.cps || 0, COL_CPS_BG)}
           <td style="font-size:11px;color:#475569;padding:8px 12px;line-height:1.4;">
             ${escapeHtml(tamanhoTxt(r))}
           </td>
@@ -1127,7 +1147,7 @@ const Regras = (() => {
       const linhasSec = sec.ids.map(linhaRegra).join('');
       return `
         <tr class="reg-fs-secao-header" style="background:${sec.cor_fundo};">
-          <td colspan="5" style="padding:10px 12px;font-weight:800;color:${sec.cor};font-size:13px;letter-spacing:0.5px;border-top:2px solid ${sec.cor};border-bottom:2px solid ${sec.cor};">
+          <td colspan="6" style="padding:10px 12px;font-weight:800;color:${sec.cor};font-size:13px;letter-spacing:0.5px;border-top:2px solid ${sec.cor};border-bottom:2px solid ${sec.cor};">
             ${sec.titulo}
           </td>
         </tr>
@@ -1163,6 +1183,10 @@ const Regras = (() => {
             <th style="text-align:center;padding:10px 8px;font-size:12px;background:${COL_MS_BG};color:#92400e;border-right:1px solid #fff;">
               <div style="font-size:11px;font-weight:600;">SILICONE</div>
               <div style="font-size:14px;font-weight:800;">DowSil 995 ×</div>
+            </th>
+            <th style="text-align:center;padding:10px 8px;font-size:12px;background:${COL_CPS_BG};color:#14532d;border-right:1px solid #fff;">
+              <div style="font-size:11px;font-weight:600;">SILICONE</div>
+              <div style="font-size:14px;font-weight:800;">CPS BR ×</div>
             </th>
             <th style="text-align:left;padding:10px 12px;font-size:13px;">Tamanho aplicado</th>
           </tr>
