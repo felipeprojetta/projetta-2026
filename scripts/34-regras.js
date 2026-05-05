@@ -191,6 +191,14 @@ const Regras = (() => {
     'travessa_vert_horiz': { label: 'Travessa Vertical / Horizontal',      fd19: 0, fd12: 0, ms: 2,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do tubo da travessa vertical/horizontal' },
 
+    // Felipe sessao 2026-08 V5 (Excel atualizado): NOVA regra Cantoneira
+    // Cava. So' aparece em modelo CAVA. Perfil PA-CANT-30X30X2.0 gerado
+    // pelo motor PerfisPortaExterna com label 'Cantoneira Cava'.
+    // Excel: 2×FD19 + 0×FD12 + 2×silicone × comprimento.
+    // Nota Excel: '2x por folha, se tiver 2 folhas 4x, se for cava'.
+    'cantoneira_cava':     { label: 'Cantoneira Cava · PA-CANT-30X30X2.0', fd19: 2, fd12: 0, ms: 2,  tamanho: 'comprimento',
+      tamanhoDescricao: 'comprimento da Cantoneira Cava (só em modelo cava — Lev. Perfis)' },
+
     // Felipe sessao 2026-08: REVESTIMENTO DE PAREDE
     // Pra cada peca do revestimento: fita usa perimetro, silicone usa
     // perimetro + cordoes internos a cada 800mm (L × ROUND(H/800)).
@@ -1048,6 +1056,7 @@ const Regras = (() => {
           'largura_portal',
           'ripas',
           'travessa_vert_horiz',
+          'cantoneira_cava',
         ],
       },
       {

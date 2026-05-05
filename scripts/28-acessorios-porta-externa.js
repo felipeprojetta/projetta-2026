@@ -414,6 +414,7 @@ const AcessoriosPortaExterna = (() => {
         // Felipe sessao 2026-08 (Excel atualizado): NOVA regra Travessa
         // Vertical / Horizontal (4×FD19, sem silicone).
         'travessa_vert_horiz': { fd19: 0, fd12: 0, ms: 2,  tamanho: 'comprimento' },
+        'cantoneira_cava':     { fd19: 2, fd12: 0, ms: 2,  tamanho: 'comprimento' },
         'altura_folha':        { fd19: 0, fd12: 0, ms: 3,  tamanho: 'comprimento' },
         'tampa_generica':      { fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro'   },
         'ripas':               { fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento' },
@@ -596,6 +597,11 @@ const AcessoriosPortaExterna = (() => {
               if (lbl === 'Travessa Vertical')         return aplicarRegra('travessa_vert_horiz', m, `${codigo}: Travessa Vert ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
               if (lbl === 'Travessa Horizontal')       return aplicarRegra('travessa_vert_horiz', m, `${codigo}: Travessa Horiz ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
               if (lbl === 'Tubo Interno das Ripas')    return aplicarRegra('ripas',                m, `${codigo}: Ripas ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
+              // Felipe sessao 2026-08 V5 (Excel atualizado): NOVA regra
+              // 'cantoneira_cava' (so' aparece em modelo cava). Excel diz
+              // 2×FD19 + 2×silicone × comprimento. Perfil cod 'PA-CANT-30X30X2.0'
+              // gerado pelo motor PerfisPortaExterna com label 'Cantoneira Cava'.
+              if (lbl === 'Cantoneira Cava')           return aplicarRegra('cantoneira_cava',     m, `${codigo}: Cantoneira Cava ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
             });
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler perfis:', e); }
