@@ -12250,12 +12250,17 @@ const Orcamento = (() => {
         const tubosMS   = t.mMS   > 0 ? Math.ceil(t.mMS   / 8 ) : 0;
 
         return `
-          <div style="margin-top:12px;background:#fffbeb;border:2px solid #f59e0b;border-radius:6px;padding:14px 16px;">
-            <div style="font-weight:700;color:#b45309;font-size:14px;margin-bottom:10px;">
-              📊 Detalhamento Fita Dupla Face + Silicone — de onde sai cada metragem
-            </div>
+          <details style="margin-top:12px;background:#fffbeb;border:2px solid #f59e0b;border-radius:6px;">
+            <summary style="cursor:pointer;padding:12px 16px;font-weight:700;color:#b45309;font-size:14px;list-style:none;display:flex;align-items:center;gap:10px;user-select:none;">
+              <span style="display:inline-block;transition:transform 0.2s;font-size:12px;color:#b45309;" class="fsd-arrow">▶</span>
+              📊 Abrir Detalhamento — Fita Dupla Face e Silicone Estrutural
+              <span style="margin-left:auto;font-size:11px;font-weight:500;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:12px;">
+                ${(t.mFD19 || 0).toFixed(1)}m + ${(t.mFD12 || 0).toFixed(1)}m + ${(t.mMS || 0).toFixed(1)}m silicone · clique pra ver de onde
+              </span>
+            </summary>
 
-            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+            <div style="padding:0 16px 16px 16px;border-top:1px solid #fde68a;margin-top:4px;">
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;">
               <div style="flex:1;min-width:160px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
                 <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Fita Dupla 19mm</div>
                 <div style="font-size:18px;font-weight:800;color:#1e3a8a;line-height:1.1;margin-top:2px;">${(t.mFD19 || 0).toFixed(2)} m</div>
@@ -12299,7 +12304,14 @@ const Orcamento = (() => {
               💡 Os multiplicadores estão em <b>Cadastro &gt; Regras e Lógicas &gt; Fita Dupla Face + Silicone</b>.
               Linhas com mais de 25% do total estão em vermelho (revisar se for excessivo).
             </div>
-          </div>
+            </div>
+          </details>
+          <style>
+            details[open] > summary > .fsd-arrow { transform: rotate(90deg); }
+            details > summary::-webkit-details-marker { display:none; }
+            details > summary { outline:none; }
+            details:hover > summary { background:#fff7d6; }
+          </style>
         `;
       };
 
