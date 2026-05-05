@@ -2248,8 +2248,26 @@
                   btnEmail.textContent = '📧 Enviar Proposta';
                   return;
                 }
-                // Pega o primeiro email encontrado
+                // Felipe sessao 2026-08: o Microsoft Graph com $search retorna
+                // ordenado por RELEVANCIA, nao por data. Pra pegar o ULTIMO
+                // email (mais recente) da thread, ordena manualmente por
+                // receivedDateTime DESC.
+                emails.sort(function(a, b) {
+                  var dA = new Date(a.receivedDateTime || 0).getTime();
+                  var dB = new Date(b.receivedDateTime || 0).getTime();
+                  return dB - dA;
+                });
+                // Pega o MAIS RECENTE da thread (apos ordenacao)
                 const emailOrigem = emails[0];
+                // Felipe: "responder a todos o ultimo email" - replyAll do
+                // emailOrigem vai pra TODOS os participantes (To + CC) do
+                // ultimo email da thread.
+                const dataUltimoEmail = emailOrigem.receivedDateTime
+                  ? new Date(emailOrigem.receivedDateTime).toLocaleString('pt-BR', {
+                      day: '2-digit', month: '2-digit', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit',
+                    })
+                  : '';
                 btnEmail.textContent = '📧 Enviar Proposta';
 
                 // Felipe sessao 2026-08: pergunta destino antes de abrir composer
@@ -2317,14 +2335,14 @@
                 const modalE = document.createElement('div');
                 modalE.id = 'email-choice-modal';
                 modalE.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center';
-                modalE.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:440px;width:90%;text-align:center">'
+                modalE.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:480px;width:90%;text-align:center">'
                   + '<div style="font-weight:700;font-size:16px;color:#1a5276;margin-bottom:16px">📧 Enviar email para:</div>'
                   + '<div style="display:flex;flex-direction:column;gap:10px">'
                   + (clienteEmail
                       ? '<button id="email-cliente" style="padding:12px;background:#0078d4;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left">👤 Cliente do card<br><span style="font-size:11px;font-weight:400">' + (lead.cliente || '') + ' &lt;' + clienteEmail + '&gt;</span></button>'
                       : '<div style="padding:12px;background:#f5f5f5;color:#888;border-radius:8px;font-size:12px">👤 Cliente do card sem email cadastrado</div>')
                   + (remetenteReserva
-                      ? '<button id="email-reserva" style="padding:12px;background:#1a5276;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left">📨 Email da Reserva ' + lead.numeroReserva + '<br><span style="font-size:11px;font-weight:400">' + (remetenteNome ? remetenteNome + ' &lt;' + remetenteReserva + '&gt;' : remetenteReserva) + '</span></button>'
+                      ? '<button id="email-reserva" style="padding:12px;background:#1a5276;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:left">📨 Responder a Todos · Reserva ' + lead.numeroReserva + '<br><span style="font-size:11px;font-weight:400">' + (remetenteNome ? remetenteNome + ' &lt;' + remetenteReserva + '&gt;' : remetenteReserva) + (dataUltimoEmail ? '<br>📅 Último email: ' + dataUltimoEmail : '') + '</span></button>'
                       : '')
                   + '<button id="email-cancel" style="padding:8px;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:8px;font-size:13px;cursor:pointer;margin-top:6px">Cancelar</button>'
                   + '</div></div>';
