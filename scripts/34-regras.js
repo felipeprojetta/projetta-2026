@@ -153,41 +153,62 @@ const Regras = (() => {
   //
   // Storage: store.get('regras_fita_silicone') = { [id]: {fd19,fd12,ms} }
   // (label e tamanho nao sao persistidos - vem do DEFAULT, sao fixos)
+  // Felipe sessao 2026-08: 'TAMANHO APLICADO = COMPRIMENTO, COMPRIMENTO
+  // DO QUE? TRAGA COM MAIS CLAREZA E DETALHAMENTO'.
+  // Adiciona tamanhoDescricao com o texto exato do Excel ('comprimento
+  // do perfil PA-PA006P' em vez de so 'comprimento') que aparece na
+  // coluna 'Tamanho aplicado' da tabela de regras.
   // ============================================================
   const FITA_SILICONE_DEFAULT = {
-    'alisar_altura':       { label: 'Alisar Altura',                       fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento' },
-    'alisar_largura':      { label: 'Alisar Largura',                      fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento' },
-    'tampa_furo_pa006':    { label: 'Tampa de Furo (sistema PA006)',       fd19: 0, fd12: 2, ms: 1,  tamanho: 'comprimento' },
-    'tampa_furo_pa007':    { label: 'Tampa de Furo (sistema PA007)',       fd19: 2, fd12: 0, ms: 1,  tamanho: 'comprimento' },
-    'altura_portal_pa006': { label: 'Altura Portal · PA-PA006P',           fd19: 2, fd12: 2, ms: 8,  tamanho: 'comprimento' },
-    'altura_portal_pa007': { label: 'Altura Portal · PA-PA007P',           fd19: 4, fd12: 4, ms: 10, tamanho: 'comprimento' },
+    'alisar_altura':       { label: 'Alisar Altura',                       fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento',
+      tamanhoDescricao: 'comprimento do alisar de altura (Lev. Superfícies)' },
+    'alisar_largura':      { label: 'Alisar Largura',                      fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento',
+      tamanhoDescricao: 'comprimento do alisar de largura (Lev. Superfícies)' },
+    'tampa_furo_pa006':    { label: 'Tampa de Furo (sistema PA006)',       fd19: 0, fd12: 2, ms: 1,  tamanho: 'comprimento',
+      tamanhoDescricao: 'comprimento da tampa de furo PA006 (Lev. Superfícies)' },
+    'tampa_furo_pa007':    { label: 'Tampa de Furo (sistema PA007)',       fd19: 2, fd12: 0, ms: 1,  tamanho: 'comprimento',
+      tamanhoDescricao: 'comprimento da tampa de furo PA007 (Lev. Superfícies)' },
+    'altura_portal_pa006': { label: 'Altura Portal · PA-PA006P',           fd19: 2, fd12: 2, ms: 8,  tamanho: 'comprimento',
+      tamanhoDescricao: 'comprimento do perfil PA-PA006P (Altura Portal — Lev. Perfis)' },
+    'altura_portal_pa007': { label: 'Altura Portal · PA-PA007P',           fd19: 4, fd12: 4, ms: 10, tamanho: 'comprimento',
+      tamanhoDescricao: 'comprimento do perfil PA-PA007P (Altura Portal — Lev. Perfis)' },
     // Felipe sessao 2026-08 (Excel atualizado): Largura Portal valores
     // mudaram. Antes: 4×FD19 + 5×silicone. Agora: 2×FD12 + 5×silicone (sem
     // FD19). Continua aplicado ao perfil horizontal do portal (cod.travHor
     // 'Largura Portal' no motor PerfisPortaExterna).
-    'largura_portal':      { label: 'Largura Portal',                      fd19: 0, fd12: 2, ms: 5,  tamanho: 'comprimento' },
-    'altura_folha':        { label: 'Altura Folha · PA-PA006F / PA007F',   fd19: 1, fd12: 0, ms: 8,  tamanho: 'comprimento' },
-    'tampa_generica':      { label: 'Outras peças "Tampa..." (perimetro)', fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro'   },
-    'ripas':               { label: 'Tubo Interno das Ripas',              fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento' },
+    'largura_portal':      { label: 'Largura Portal',                      fd19: 0, fd12: 2, ms: 5,  tamanho: 'comprimento',
+      tamanhoDescricao: 'comprimento do tubo Largura Portal (perfil horizontal — Lev. Perfis)' },
+    'altura_folha':        { label: 'Altura Folha · PA-PA006F / PA007F',   fd19: 1, fd12: 0, ms: 8,  tamanho: 'comprimento',
+      tamanhoDescricao: 'comprimento do perfil PA-PA006F ou PA-PA007F (Altura Folha — Lev. Perfis)' },
+    'tampa_generica':      { label: 'Outras peças "Tampa..." (perimetro)', fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro',
+      tamanhoDescricao: 'perímetro da tampa: largura×2 + altura×2' },
+    'ripas':               { label: 'Tubo Interno das Ripas',              fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento',
+      tamanhoDescricao: 'comprimento do tubo das ripas × quantidade' },
     // Felipe sessao 2026-08 (Excel atualizado): NOVA regra Travessa
     // Vertical / Horizontal (perfis travVert e travHor 'Travessa
     // Vertical' / 'Travessa Horizontal'). So' fita 19, sem silicone.
-    'travessa_vert_horiz': { label: 'Travessa Vertical / Horizontal',      fd19: 4, fd12: 0, ms: 0,  tamanho: 'comprimento' },
+    'travessa_vert_horiz': { label: 'Travessa Vertical / Horizontal',      fd19: 4, fd12: 0, ms: 0,  tamanho: 'comprimento',
+      tamanhoDescricao: 'comprimento do tubo da travessa vertical/horizontal' },
 
     // Felipe sessao 2026-08: REVESTIMENTO DE PAREDE
     // Pra cada peca do revestimento: fita usa perimetro, silicone usa
     // perimetro + cordoes internos a cada 800mm (L × ROUND(H/800)).
-    'revestimento_tampa':  { label: 'Revestimento de Parede · Tampa',      fd19: 1, fd12: 0, ms: 1,  tamanho: 'rev_parede'  },
+    'revestimento_tampa':  { label: 'Revestimento de Parede · Tampa',      fd19: 1, fd12: 0, ms: 1,  tamanho: 'rev_parede',
+      tamanhoDescricao: 'fita = perímetro (L×2 + H×2) · silicone = perímetro + L × round(H÷800) cordões internos' },
 
     // Felipe sessao 2026-08 (Excel atualizado): FIXO ACOPLADO A PORTA
     // Tampa: tudo perimetro.
     // Fita Acab Maior/Menor: fita usa comprimento, silicone usa perimetro
     //   (tamanho='fixo_fita_dupla' aplica essa diferenca).
     // Fita Acab Largura: tudo perimetro.
-    'fixo_tampa':              { label: 'Fixo Acoplado · Tampa',                    fd19: 1, fd12: 0, ms: 1, tamanho: 'perimetro'        },
-    'fixo_fita_acab_maior':    { label: 'Fixo Acoplado · Fita Acabamento Maior',    fd19: 2, fd12: 0, ms: 1, tamanho: 'fixo_fita_dupla'  },
-    'fixo_fita_acab_menor':    { label: 'Fixo Acoplado · Fita Acabamento Menor',    fd19: 0, fd12: 1, ms: 1, tamanho: 'fixo_fita_dupla'  },
-    'fixo_fita_acab_largura':  { label: 'Fixo Acoplado · Fita Acabamento Largura',  fd19: 2, fd12: 0, ms: 1, tamanho: 'perimetro'        },
+    'fixo_tampa':              { label: 'Fixo Acoplado · Tampa',                    fd19: 1, fd12: 0, ms: 1, tamanho: 'perimetro',
+      tamanhoDescricao: 'perímetro da tampa do fixo: L×2 + H×2' },
+    'fixo_fita_acab_maior':    { label: 'Fixo Acoplado · Fita Acabamento Maior',    fd19: 2, fd12: 0, ms: 1, tamanho: 'fixo_fita_dupla',
+      tamanhoDescricao: 'fita = comprimento da peça (altura) · silicone = perímetro (L×2 + H×2)' },
+    'fixo_fita_acab_menor':    { label: 'Fixo Acoplado · Fita Acabamento Menor',    fd19: 0, fd12: 1, ms: 1, tamanho: 'fixo_fita_dupla',
+      tamanhoDescricao: 'fita = comprimento da peça (altura) · silicone = perímetro (L×2 + H×2)' },
+    'fixo_fita_acab_largura':  { label: 'Fixo Acoplado · Fita Acabamento Largura',  fd19: 2, fd12: 0, ms: 1, tamanho: 'perimetro',
+      tamanhoDescricao: 'perímetro da peça: L×2 + H×2' },
   };
 
   function getFitaSilicone() {
@@ -201,6 +222,7 @@ const Regras = (() => {
       result[id] = {
         label:   def.label,
         tamanho: def.tamanho,
+        tamanhoDescricao: def.tamanhoDescricao || '',
         fd19: (sal.fd19 !== undefined && !isNaN(Number(sal.fd19))) ? Number(sal.fd19) : def.fd19,
         fd12: (sal.fd12 !== undefined && !isNaN(Number(sal.fd12))) ? Number(sal.fd12) : def.fd12,
         ms:   (sal.ms   !== undefined && !isNaN(Number(sal.ms)))   ? Number(sal.ms)   : def.ms,
@@ -981,7 +1003,12 @@ const Regras = (() => {
       </td>`;
     }
 
-    function tamanhoTxt(t) {
+    function tamanhoTxt(r) {
+      // Felipe sessao 2026-08: 'comprimento do que? traga com mais
+      // clareza'. Se a regra tem descricao especifica (vem do DEFAULT),
+      // usa ela. Senao, fallback generico baseado no tipo.
+      if (r && r.tamanhoDescricao) return r.tamanhoDescricao;
+      const t = r && r.tamanho;
       return t === 'perimetro'        ? 'perímetro (L×2 + H×2)'
            : t === 'rev_parede'       ? 'fita: L×2+H×2 / silicone: + L×round(H/800)'
            : t === 'fixo_fita_dupla'  ? 'fita: comprimento / silicone: L×2+H×2'
@@ -997,8 +1024,8 @@ const Regras = (() => {
           ${inputCelula(id, 'fd19', r.fd19, COL_FD19_BG)}
           ${inputCelula(id, 'fd12', r.fd12, COL_FD12_BG)}
           ${inputCelula(id, 'ms',   r.ms,   COL_MS_BG)}
-          <td style="font-size:11px;color:#475569;font-style:italic;padding:8px 12px;">
-            ${tamanhoTxt(r.tamanho)}
+          <td style="font-size:11px;color:#475569;padding:8px 12px;line-height:1.4;">
+            ${escapeHtml(tamanhoTxt(r))}
           </td>
         </tr>
       `;
