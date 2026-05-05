@@ -58,8 +58,47 @@ const Auth = (() => {
       });
       if (changed) store.set('users', users);
     }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Felipe sessao 2026-08-02 V2: AUTO-CORRECAO DE SESSAO
+    // Se a sessao ativa esta com role desatualizado (ex: foi salva antes
+    // da migracao), corrige aqui SEM forcar re-login. O usuario nao
+    // precisa fazer nada.
+    // ────────────────────────────────────────────────────────────────────
+    const session = store.get('session');
+    if (session && session.username) {
+      const finalUsers = store.get('users') || [];
+      const u = finalUsers.find(x => x && x.username === session.username);
+      if (u && u.role && session.role !== u.role) {
+        console.log('[Auth] Auto-corrigindo sessao: role ' + session.role + ' -> ' + u.role);
+        session.role = u.role;
+        // Tambem atualiza name caso tenha mudado
+        if (u.name && session.name !== u.name) session.name = u.name;
+        store.set('session', session);
+      }
+    }
   }
   ensureDefaultUsers();
+
+  // Felipe sessao 2026-08-02 V2: helper que auto-corrige a sessao
+  // em tempo real. Chamado por currentUser() e isAdmin() pra garantir
+  // que mesmo apos syncFromCloud trazer sessao velha do Supabase, o
+  // role e' atualizado conforme a lista de users (que sempre tem o
+  // role correto).
+  function autoFixSession() {
+    try {
+      const s = store.get('session');
+      if (!s || !s.username) return s;
+      const users = store.get('users') || [];
+      const u = users.find(x => x && x.username === s.username);
+      if (u && u.role && s.role !== u.role) {
+        s.role = u.role;
+        if (u.name && s.name !== u.name) s.name = u.name;
+        store.set('session', s);
+      }
+      return s;
+    } catch(_) { return null; }
+  }
 
   return {
     login(username, password) {
@@ -71,20 +110,20 @@ const Auth = (() => {
       return session;
     },
     logout() { store.remove('session'); },
-    currentUser() { return store.get('session'); },
+    currentUser() {
+      // Felipe sessao 2026-08-02 V2: auto-corrige antes de retornar
+      return autoFixSession() || store.get('session');
+    },
     isAdmin() {
-      const s = store.get('session');
+      // Felipe sessao 2026-08-02 V2: auto-corrige antes de checar
+      const s = autoFixSession() || store.get('session');
       if (!s) return false;
-      // Felipe sessao 2026-08-02: defensivo - confere se o role
-      // armazenado na sessao bate com o role atual do user na lista.
-      // Cobre caso onde sessao foi salva antes de migracao com role velho.
       if (s.role === 'admin') return true;
-      // Fallback: confere lista de users
+      // Fallback ainda mais defensivo: confere lista direto
       try {
         const users = store.get('users') || [];
         const u = users.find(x => x && x.username === s.username);
         if (u && u.role === 'admin') {
-          // Atualiza sessao silenciosamente pra refletir role correto
           s.role = 'admin';
           store.set('session', s);
           return true;
@@ -111,7 +150,9 @@ const Auth = (() => {
     can(acao) {
       const s = store.get('session');
       if (!s) return false;
-      const isAdm = s.role === 'admin';
+      // Felipe sessao 2026-08-02 V2: usa isAdmin() defensivo em vez
+      // de checar s.role direto. Garante auto-correcao da sessao.
+      const isAdm = this.isAdmin();
       switch (acao) {
         case 'cadastros:editar':
         case 'usuarios:gerenciar':

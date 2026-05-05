@@ -16,6 +16,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // 1b. Felipe sessao 2026-08-02 V2: apos syncFromCloud, forca
+  // re-validacao da sessao do usuario logado. SyncFromCloud pode ter
+  // sobrescrito a chave 'projetta:auth:session' com versao desatualizada
+  // do Supabase. Aqui chamamos isAdmin() que internamente consulta a
+  // lista de users e auto-corrige o role.
+  try {
+    if (typeof Auth !== 'undefined' && Auth.isAdmin) {
+      const ehAdm = Auth.isAdmin();
+      console.log('[Boot] Sessao validada. isAdmin:', ehAdm);
+    }
+  } catch(_) {}
+
   // 2. Migracoes
   try {
     Migracoes.rodarTodas();
