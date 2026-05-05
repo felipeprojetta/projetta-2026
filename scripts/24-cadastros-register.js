@@ -71,6 +71,16 @@ App.register('cadastros', {
       }
       return;
     }
+    // Felipe sessao 2026-08-02: aba Permissoes funcional (controle de acessos
+    // granular por usuario × area de cadastro). So' admin acessa.
+    if (tab === 'permissoes') {
+      if (typeof window.Permissoes !== 'undefined') {
+        window.Permissoes.render(container);
+      } else {
+        container.innerHTML = '<div class="info-banner">Modulo Permissoes nao carregado.</div>';
+      }
+      return;
+    }
     // Demais sub-abas ainda nao implementadas
     const labelMap = {
       acessorios: 'Acessorios', superficies: 'Superficies',

@@ -223,21 +223,43 @@ const App = (() => {
   function renderModule(moduleId, tabId) {
     const container = $('#main-content');
 
-    // Felipe sessao 2026-08-02: aplica controle de readonly em Cadastros
-    // pra users nao-admin. ADM faz tudo, USER so' visualiza.
-    // body[data-cadastros-readonly="1"] ativa o CSS em styles/30-permissoes.css
-    const ehCadastros   = (moduleId === 'cadastros');
-    const podeEditarCad = window.Auth && window.Auth.can ? window.Auth.can('cadastros:editar') : true;
-    const readOnlyCad   = ehCadastros && !podeEditarCad;
+    // Felipe sessao 2026-08-02: controle de readonly em Cadastros
+    // pra users nao-admin. ADM faz tudo, USER so' visualiza por padrao.
+    // Permissoes granulares (cadastros:acessorios:editar etc) podem
+    // liberar tabs especificas pra user nao-admin.
+    const ehCadastros = (moduleId === 'cadastros');
+    const isAdmin     = window.Auth && window.Auth.isAdmin && window.Auth.isAdmin();
+    const session     = window.Auth && window.Auth.currentUser ? window.Auth.currentUser() : null;
 
-    if (readOnlyCad) {
-      document.body.dataset.cadastrosReadonly = '1';
+    // Mapa tab → permissao granular
+    const TAB_PERMISSAO = {
+      'acessorios':     'cadastros:acessorios:editar',
+      'perfis':         'cadastros:perfis:editar',
+      'superficies':    'cadastros:superficies:editar',
+      'modelos':        'cadastros:modelos:editar',
+      'regras':         'cadastros:regras:editar',
+      'representantes': 'cadastros:representantes:editar',
+      'mensagens':      'cadastros:mensagens:editar',
+      'filtros':        'cadastros:filtros:editar',
+    };
+
+    let readOnlyCad = false;
+    if (ehCadastros && !isAdmin) {
       // Bloqueia abas restritas pra nao-admin (Usuarios, Permissoes)
       if (tabId === 'usuarios' || tabId === 'permissoes') {
-        // Redireciona pra Acessorios (primeira aba que ele pode ver)
         tabId = 'acessorios';
         state.currentTab = tabId;
       }
+      // Checa permissao granular pra esta tab especifica
+      const permGranular = TAB_PERMISSAO[tabId];
+      const podeEditarTab = permGranular && session && window.Permissoes
+        && window.Permissoes.userTemPermissao
+        && window.Permissoes.userTemPermissao(session.username, permGranular);
+      readOnlyCad = !podeEditarTab;
+    }
+
+    if (readOnlyCad) {
+      document.body.dataset.cadastrosReadonly = '1';
     } else {
       delete document.body.dataset.cadastrosReadonly;
     }
@@ -254,25 +276,21 @@ const App = (() => {
       // e injeta banner de readonly se aplicavel.
       if (ehCadastros) {
         try {
-          // Marca o container interno
           const inner = container.firstElementChild;
           if (inner && !inner.classList.contains('cadastros-tela')) {
             inner.classList.add('cadastros-tela');
           }
-          // Banner de readonly
           if (readOnlyCad && !container.querySelector('.cadastros-readonly-banner')) {
-            const session = window.Auth.currentUser();
             const banner = document.createElement('div');
             banner.className = 'cadastros-readonly-banner';
             banner.innerHTML = `
               <span class="ico">🔒</span>
               <div class="body">
                 <strong>Modo somente leitura</strong>
-                Olá ${session ? (session.name || session.username) : ''} — esta área é restrita ao administrador.
-                Você consegue visualizar todos os cadastros e códigos, mas só o admin pode editar, criar ou apagar.
+                Olá ${session ? (session.name || session.username) : ''} — esta área é restrita.
+                Você consegue visualizar mas só edita o que o admin liberar pra você (em Cadastros &gt; Permissões).
               </div>
             `;
-            // Insere no topo do container interno
             if (inner) inner.insertBefore(banner, inner.firstChild);
             else container.insertBefore(banner, container.firstChild);
           }

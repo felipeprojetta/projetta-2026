@@ -44,22 +44,27 @@ const Storage = (() => {
   }
 
   // Felipe sessao 2026-08-02: defesa em profundidade pra permissoes.
-  // Se scope='cadastros' e user nao e' admin, BLOQUEIA escrita.
-  // Garante que mesmo se algum botao escapar do CSS readonly do
-  // styles/30-permissoes.css, a gravacao no Storage e' impedida aqui.
+  // Se scope='cadastros' e user nao tem permissao, BLOQUEIA escrita.
+  // Felipe sessao 2026-08-02 V2: agora consulta Permissoes.podeEditarChave
+  // (granular) - permite que admin libere acessos pontuais por usuario.
   function _isPermissaoBlocked(scopeName, k) {
     try {
       if (scopeName !== 'cadastros') return false; // so' bloqueia cadastros
       if (typeof Auth === 'undefined') return false;
-      if (typeof Auth.can !== 'function') return false;
-      if (Auth.can('cadastros:editar')) return false;
+      // Admin sempre pode
+      if (Auth.isAdmin && Auth.isAdmin()) return false;
       // Excecoes (chaves operacionais que podem rodar mesmo sem admin):
       var SAFE_CADASTROS_KEYS = [
         'acessorios_seeded', 'modelos_seeded', 'perfis_seeded',
         'superficies_seeded', 'representantes_seeded', 'cores_seeded',
       ];
       if (SAFE_CADASTROS_KEYS.indexOf(k) >= 0) return false;
-      return true; // bloqueado por falta de permissao
+      // Permissoes granulares (overrides por usuario)
+      var session = Auth.currentUser ? Auth.currentUser() : null;
+      if (session && typeof Permissoes !== 'undefined' && Permissoes.podeEditarChave) {
+        if (Permissoes.podeEditarChave(session.username, k)) return false;
+      }
+      return true; // bloqueado
     } catch(_) { return false; }
   }
 
