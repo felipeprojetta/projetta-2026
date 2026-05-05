@@ -287,17 +287,23 @@ const Database = (() => {
     };
   }
 
-  // Realtime via polling: verifica mudancas no Supabase a cada 10s.
-  // Se encontrar dados mais novos, atualiza localStorage e emite eventos.
+  // Realtime via polling: verifica mudancas no Supabase a cada 5s.
+  // Felipe sessao 2026-08-02: 'a cada alteracao deve salvar atualizar
+  // automaticamente sem ter que apertar F5'.
+  // - Polling 5s (antes 10s)
+  // - Sem limit (antes era limit=50, podia perder mudancas em rajada)
+  // - Emite db:change com remote:true pra modulos re-renderizarem
+  // - DETECTA VOLTA DO FOCUS (notebook adormecido) e forca sync imediato
   var _lastSync = null;
   var _realtimeTimer = null;
+  var _realtimeFocusHandler = null;
 
   function startRealtime() {
     if (_realtimeTimer) return;
     _lastSync = new Date().toISOString();
     _realtimeTimer = setInterval(async function() {
       try {
-        var url = SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor,updated_at&order=updated_at.desc&limit=50';
+        var url = SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor,updated_at&order=updated_at.desc';
         if (_lastSync) {
           url += '&updated_at=gt.' + encodeURIComponent(_lastSync);
         }
@@ -306,29 +312,58 @@ const Database = (() => {
         var rows = await res.json();
         if (!Array.isArray(rows) || rows.length === 0) return;
         var changed = false;
+        var chavesAlteradas = [];
         rows.forEach(function(r) {
           var lsKey = PREFIX + r.scope + ':' + r.key;
           var localRaw = localStorage.getItem(lsKey);
           var remoteVal = JSON.stringify(r.valor);
           if (localRaw !== remoteVal) {
             localStorage.setItem(lsKey, remoteVal);
+            // Felipe sessao 2026-08-02: flag remote:true permite modulos
+            // distinguirem 'mudei eu' vs 'outro usuario mudou'.
             Events.emit('db:change', { scope: r.scope, key: r.key, value: r.valor, remote: true });
             changed = true;
+            chavesAlteradas.push(r.scope + '/' + r.key);
           }
         });
         _lastSync = rows[0].updated_at;
         if (changed) {
-          console.log('[DB] Realtime: ' + rows.length + ' mudanca(s) do cloud aplicadas');
-          Events.emit('db:realtime-sync', { count: rows.length });
+          console.log('[DB] 🔄 Realtime: ' + rows.length + ' mudanca(s) do cloud aplicadas:', chavesAlteradas.join(', '));
+          Events.emit('db:realtime-sync', { count: rows.length, chaves: chavesAlteradas });
         }
       } catch(e) {
         // silencioso — polling nao deve travar o app
       }
-    }, 10000);
+    }, 5000);  // Felipe: 5s pra parecer 'tempo real'
+
+    // Felipe sessao 2026-08-02: detecta volta do focus (aba/notebook
+    // que estava em background ou adormecido) e dispara polling
+    // imediato pra sincronizar sem esperar 5s.
+    if (typeof document !== 'undefined' && !_realtimeFocusHandler) {
+      _realtimeFocusHandler = async function() {
+        if (document.visibilityState === 'visible') {
+          console.log('[DB] 👀 Aba voltou ao foco - forcando sync imediato');
+          // Resync completo (caso o aba tenha ficado horas dormindo)
+          try {
+            await syncFromCloud();
+          } catch(_) {}
+        }
+      };
+      document.addEventListener('visibilitychange', _realtimeFocusHandler);
+      // Tambem captura window.focus (volta de outra aba/janela)
+      window.addEventListener('focus', _realtimeFocusHandler);
+    }
   }
 
   function stopRealtime() {
     if (_realtimeTimer) { clearInterval(_realtimeTimer); _realtimeTimer = null; }
+    if (_realtimeFocusHandler) {
+      try {
+        document.removeEventListener('visibilitychange', _realtimeFocusHandler);
+        window.removeEventListener('focus', _realtimeFocusHandler);
+      } catch(_) {}
+      _realtimeFocusHandler = null;
+    }
   }
 
   return {
