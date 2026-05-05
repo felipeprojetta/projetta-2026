@@ -168,26 +168,27 @@ const Regras = (() => {
       tamanhoDescricao: 'comprimento da tampa de furo PA006 (Lev. Superfícies)' },
     'tampa_furo_pa007':    { label: 'Tampa de Furo (sistema PA007)',       fd19: 2, fd12: 0, ms: 1,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento da tampa de furo PA007 (Lev. Superfícies)' },
-    'altura_portal_pa006': { label: 'Altura Portal · PA-PA006P',           fd19: 2, fd12: 2, ms: 5,  tamanho: 'comprimento',
+    'altura_portal_pa006': { label: 'Altura Portal · PA-PA006P',           fd19: 1, fd12: 1, ms: 3,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do perfil PA-PA006P (Altura Portal — Lev. Perfis)' },
-    'altura_portal_pa007': { label: 'Altura Portal · PA-PA007P',           fd19: 2, fd12: 2, ms: 5,  tamanho: 'comprimento',
+    'altura_portal_pa007': { label: 'Altura Portal · PA-PA007P',           fd19: 1, fd12: 1, ms: 3,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do perfil PA-PA007P (Altura Portal — Lev. Perfis)' },
-    // Felipe sessao 2026-08 (Excel atualizado): Largura Portal valores
-    // mudaram. Antes: 4×FD19 + 5×silicone. Agora: 2×FD12 + 5×silicone (sem
-    // FD19). Continua aplicado ao perfil horizontal do portal (cod.travHor
-    // 'Largura Portal' no motor PerfisPortaExterna).
-    'largura_portal':      { label: 'Largura Portal',                      fd19: 0, fd12: 2, ms: 5,  tamanho: 'comprimento',
+    // Felipe sessao 2026-08 V4: Largura Portal silicone caiu de 5 pra 4
+    'largura_portal':      { label: 'Largura Portal',                      fd19: 0, fd12: 2, ms: 4,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do tubo Largura Portal (perfil horizontal — Lev. Perfis)' },
-    'altura_folha':        { label: 'Altura Folha · PA-PA006F / PA007F',   fd19: 1, fd12: 0, ms: 4,  tamanho: 'comprimento',
+    // Felipe sessao 2026-08 V4: Altura Folha agora ZERA fita 19, so' silicone 3 (era 1/0/4)
+    'altura_folha':        { label: 'Altura Folha · PA-PA006F / PA007F',   fd19: 0, fd12: 0, ms: 3,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do perfil PA-PA006F ou PA-PA007F (Altura Folha — Lev. Perfis)' },
     'tampa_generica':      { label: 'Outras peças "Tampa..." (perimetro)', fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro',
       tamanhoDescricao: 'perímetro da tampa: largura×2 + altura×2' },
     'ripas':               { label: 'Tubo Interno das Ripas',              fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do tubo das ripas × quantidade' },
-    // Felipe sessao 2026-08 (Excel atualizado): NOVA regra Travessa
-    // Vertical / Horizontal (perfis travVert e travHor 'Travessa
-    // Vertical' / 'Travessa Horizontal'). So' fita 19, sem silicone.
-    'travessa_vert_horiz': { label: 'Travessa Vertical / Horizontal',      fd19: 0, fd12: 0, ms: 4,  tamanho: 'comprimento',
+    // Felipe sessao 2026-08 V4: Travessa silicone caiu de 4 pra 2
+    // NOTA do Excel: 'quando tiver cava tem 2 travessas obrigatorias que
+    // nao contam, entao se for cava com 3 travessas diminui 2'.
+    // (Implementacao desse desconto fica pra proximo passo - hoje o motor
+    // conta TODAS as travessas. Quando Felipe pedir, posso filtrar as
+    // 2 obrigatorias da cava no motor PerfisPortaExterna.)
+    'travessa_vert_horiz': { label: 'Travessa Vertical / Horizontal',      fd19: 0, fd12: 0, ms: 2,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do tubo da travessa vertical/horizontal' },
 
     // Felipe sessao 2026-08: REVESTIMENTO DE PAREDE
@@ -215,26 +216,28 @@ const Regras = (() => {
     const salvas = store.get('regras_fita_silicone') || {};
 
     // Felipe sessao 2026-08: migracao automatica de regras antigas pro
-    // Excel novo. Mudancas detectadas em sequencia (3 versoes do Excel):
+    // Excel novo. Mudancas detectadas em sequencia (4 versoes do Excel):
     //
-    //   Excel V1 (original):  altura_portal_pa006: 2/2/8  · altura_folha: 1/0/8  · travessa: 4/0/0
-    //   Excel V2 (commit 94e2b6b): altura_portal_pa006: 4/4/10 · altura_folha: 1/0/8 · travessa: 0/0/4
-    //   Excel V3 (atual, Felipe disse 'ESTE ESTA CORRETO'):
-    //                                altura_portal_pa006: 2/2/5  · altura_folha: 1/0/4  · travessa: 0/0/4
+    //   V1 (sessao inicial 2026-08): altura_portal_pa006: 2/2/8  · altura_folha: 1/0/8 · travessa: 4/0/0 · largura_portal: 0/2/5
+    //   V2 (commit 94e2b6b):         altura_portal_pa006: 4/4/10 · altura_folha: 1/0/8 · travessa: 0/0/4 · largura_portal: 0/2/5
+    //   V3 (commit 8da9aff):         altura_portal_pa006: 2/2/5  · altura_folha: 1/0/4 · travessa: 0/0/4 · largura_portal: 0/2/5
+    //   V4 (atual, commit corrente): altura_portal_pa006: 1/1/3  · altura_folha: 0/0/3 · travessa: 0/0/2 · largura_portal: 0/2/4
     //
-    // Detecta qualquer valor das versoes antigas e atualiza pro V3.
+    // Detecta valor de qualquer versao antiga e atualiza pra V4.
     // Se Felipe customizou (valores diferentes), respeita edicao.
     let migrouAlgo = false;
     const salvasMigradas = JSON.parse(JSON.stringify(salvas));
     const migracoes = [
-      // altura_portal_pa006: detecta V1 (2/2/8) E V2 (4/4/10), migra pra V3 (2/2/5)
-      { id: 'altura_portal_pa006', antigos: [{ fd19: 2, fd12: 2, ms: 8 }, { fd19: 4, fd12: 4, ms: 10 }], novo: { fd19: 2, fd12: 2, ms: 5 } },
-      // altura_portal_pa007: V1 (4/4/10) era diferente, V2 (4/4/10), V3 (2/2/5)
-      { id: 'altura_portal_pa007', antigos: [{ fd19: 4, fd12: 4, ms: 10 }],                              novo: { fd19: 2, fd12: 2, ms: 5 } },
-      // altura_folha: V1+V2 (1/0/8), V3 (1/0/4)
-      { id: 'altura_folha',        antigos: [{ fd19: 1, fd12: 0, ms: 8 }],                               novo: { fd19: 1, fd12: 0, ms: 4 } },
-      // travessa: V1 (4/0/0), V2+V3 (0/0/4)
-      { id: 'travessa_vert_horiz', antigos: [{ fd19: 4, fd12: 0, ms: 0 }],                               novo: { fd19: 0, fd12: 0, ms: 4 } },
+      // altura_portal_pa006: V1 (2/2/8), V2 (4/4/10), V3 (2/2/5)  ->  V4 (1/1/3)
+      { id: 'altura_portal_pa006', antigos: [{ fd19: 2, fd12: 2, ms: 8 }, { fd19: 4, fd12: 4, ms: 10 }, { fd19: 2, fd12: 2, ms: 5 }],  novo: { fd19: 1, fd12: 1, ms: 3 } },
+      // altura_portal_pa007: V2 (4/4/10), V3 (2/2/5)  ->  V4 (1/1/3)
+      { id: 'altura_portal_pa007', antigos: [{ fd19: 4, fd12: 4, ms: 10 }, { fd19: 2, fd12: 2, ms: 5 }],                                 novo: { fd19: 1, fd12: 1, ms: 3 } },
+      // altura_folha: V1+V2 (1/0/8), V3 (1/0/4)  ->  V4 (0/0/3)
+      { id: 'altura_folha',        antigos: [{ fd19: 1, fd12: 0, ms: 8 }, { fd19: 1, fd12: 0, ms: 4 }],                                  novo: { fd19: 0, fd12: 0, ms: 3 } },
+      // travessa: V1 (4/0/0), V2+V3 (0/0/4)  ->  V4 (0/0/2)
+      { id: 'travessa_vert_horiz', antigos: [{ fd19: 4, fd12: 0, ms: 0 }, { fd19: 0, fd12: 0, ms: 4 }],                                  novo: { fd19: 0, fd12: 0, ms: 2 } },
+      // largura_portal: V1+V2+V3 (0/2/5)  ->  V4 (0/2/4)
+      { id: 'largura_portal',      antigos: [{ fd19: 0, fd12: 2, ms: 5 }],                                                                novo: { fd19: 0, fd12: 2, ms: 4 } },
     ];
     migracoes.forEach(m => {
       const s = salvasMigradas[m.id];

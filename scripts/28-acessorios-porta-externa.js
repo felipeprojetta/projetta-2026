@@ -406,15 +406,15 @@ const AcessoriosPortaExterna = (() => {
         'alisar_largura':      { fd19: 1, fd12: 0, ms: 1,  tamanho: 'comprimento' },
         'tampa_furo_pa006':    { fd19: 0, fd12: 2, ms: 1,  tamanho: 'comprimento' },
         'tampa_furo_pa007':    { fd19: 2, fd12: 0, ms: 1,  tamanho: 'comprimento' },
-        'altura_portal_pa006': { fd19: 2, fd12: 2, ms: 5,  tamanho: 'comprimento' },
-        'altura_portal_pa007': { fd19: 2, fd12: 2, ms: 5,  tamanho: 'comprimento' },
+        'altura_portal_pa006': { fd19: 1, fd12: 1, ms: 3,  tamanho: 'comprimento' },
+        'altura_portal_pa007': { fd19: 1, fd12: 1, ms: 3,  tamanho: 'comprimento' },
         // Felipe sessao 2026-08 (Excel atualizado): Largura Portal valores
         // mudaram de 4×FD19+5×silicone pra 2×FD12+5×silicone.
-        'largura_portal':      { fd19: 0, fd12: 2, ms: 5,  tamanho: 'comprimento' },
+        'largura_portal':      { fd19: 0, fd12: 2, ms: 4,  tamanho: 'comprimento' },
         // Felipe sessao 2026-08 (Excel atualizado): NOVA regra Travessa
         // Vertical / Horizontal (4×FD19, sem silicone).
-        'travessa_vert_horiz': { fd19: 0, fd12: 0, ms: 4,  tamanho: 'comprimento' },
-        'altura_folha':        { fd19: 1, fd12: 0, ms: 4,  tamanho: 'comprimento' },
+        'travessa_vert_horiz': { fd19: 0, fd12: 0, ms: 2,  tamanho: 'comprimento' },
+        'altura_folha':        { fd19: 0, fd12: 0, ms: 3,  tamanho: 'comprimento' },
         'tampa_generica':      { fd19: 1, fd12: 0, ms: 1,  tamanho: 'perimetro'   },
         'ripas':               { fd19: 0, fd12: 2, ms: 0,  tamanho: 'comprimento' },
         'revestimento_tampa':  { fd19: 1, fd12: 0, ms: 1,  tamanho: 'rev_parede'  },
