@@ -12058,10 +12058,22 @@ const Orcamento = (() => {
         const ehObra = titulo.includes('Obra');
         const corBorda = ehFab ? '#2e7d32' : ehObra ? '#1565c0' : '#7b1fa2';
         const corFundo = ehFab ? '#e8f5e9' : ehObra ? '#e3f2fd' : '#f3e5f5';
+        // Felipe sessao 2026-08: 'me traga suas contas detalhadas'.
+        // Botao de breakdown de Fita+Silicone na tabela de FAB (so' la
+        // tem essas linhas). Obra/Digital nao tem fita ou silicone.
+        const btnDetalhar = ehFab && item && item.id
+          ? `<button type="button"
+                onclick="window.FitaSiliconeDebug && window.FitaSiliconeDebug.abrir('${escapeHtml(item.id)}')"
+                style="background:#fef3c7;border:1px solid #f59e0b;color:#b45309;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;margin-left:12px"
+                title="Ver de onde sairam os metros de Fita Dupla Face e Silicone">
+                📊 Detalhar Fita+Silicone
+              </button>`
+          : '';
         return `
           <div class="orc-section">
-            <div class="orc-section-title" style="background:${corFundo};padding:8px 12px;border-radius:4px;border-left:4px solid ${corBorda};">
-              ${titulo} — Subtotal: <span style="font-weight:700;font-size:1.1em;color:${corBorda}">${fmtMoney(total)}</span>
+            <div class="orc-section-title" style="background:${corFundo};padding:8px 12px;border-radius:4px;border-left:4px solid ${corBorda};display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+              <span>${titulo} — Subtotal: <span style="font-weight:700;font-size:1.1em;color:${corBorda}">${fmtMoney(total)}</span></span>
+              ${btnDetalhar}
             </div>
             <table class="lvp-table cad-table" id="${idTab}">
               <thead>

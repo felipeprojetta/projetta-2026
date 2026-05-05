@@ -391,6 +391,12 @@ const AcessoriosPortaExterna = (() => {
       let mFD12 = 0;  // metros lineares de Fita Dupla Face 12mm
       let mMS   = 0;  // metros lineares de Silicone Estrutural 995
 
+      // Felipe sessao 2026-08: 'me traga suas contas detalhadas'.
+      // Acumulador de breakdown: cada chamada de aplicarRegra* registra
+      // aqui sua contribuicao. Usado pelo modal debug pra mostrar
+      // exatamente de onde sai cada metro de FD19/FD12/MS.
+      const _breakdown = [];
+
       // Felipe sessao 2026-08: le multiplicadores da tabela editavel em
       // Cadastro > Regras e Logicas > Fita Dupla Face + Silicone. Se o
       // modulo Regras nao estiver disponivel (loading order, dev), usa
@@ -424,12 +430,23 @@ const AcessoriosPortaExterna = (() => {
         : REGRAS_DEFAULT;
 
       // Helper: aplica multiplicadores de uma regra (id) a uma metragem em metros
-      function aplicarRegra(idRegra, metros) {
+      function aplicarRegra(idRegra, metros, origem) {
         const r = REGRAS[idRegra] || REGRAS_DEFAULT[idRegra];
         if (!r) return;
-        mFD19 += (Number(r.fd19) || 0) * metros;
-        mFD12 += (Number(r.fd12) || 0) * metros;
-        mMS   += (Number(r.ms)   || 0) * metros;
+        const cFD19 = (Number(r.fd19) || 0) * metros;
+        const cFD12 = (Number(r.fd12) || 0) * metros;
+        const cMS   = (Number(r.ms)   || 0) * metros;
+        mFD19 += cFD19;
+        mFD12 += cFD12;
+        mMS   += cMS;
+        _breakdown.push({
+          origem: origem || idRegra,
+          regra:  idRegra,
+          tipo:   'comprimento',
+          metros: metros,
+          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0 },
+          contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS },
+        });
       }
 
       // Felipe sessao 2026-08 (Excel atualizado): helper pra REVESTIMENTO
@@ -438,29 +455,53 @@ const AcessoriosPortaExterna = (() => {
       //   silicone = perimetro + L × Math.round(H/800)
       // Antes era H/800 direto (sem arredondar). Excel diz 'L × (H/800
       // ARREDIONDAD)' - aplicamos Math.round na divisao.
-      function aplicarRegraRevParede(idRegra, larMm, altMm, qtdPecas) {
+      function aplicarRegraRevParede(idRegra, larMm, altMm, qtdPecas, origem) {
         const r = REGRAS[idRegra] || REGRAS_DEFAULT[idRegra];
         if (!r) return;
         const perimM    = ((larMm + altMm) * 2 * qtdPecas) / 1000;
         const cordoes   = Math.round(altMm / 800);
         const internosM = (larMm * cordoes * qtdPecas) / 1000;
-        mFD19 += (Number(r.fd19) || 0) * perimM;
-        mFD12 += (Number(r.fd12) || 0) * perimM;
-        mMS   += (Number(r.ms)   || 0) * (perimM + internosM);
+        const cFD19 = (Number(r.fd19) || 0) * perimM;
+        const cFD12 = (Number(r.fd12) || 0) * perimM;
+        const cMS   = (Number(r.ms)   || 0) * (perimM + internosM);
+        mFD19 += cFD19;
+        mFD12 += cFD12;
+        mMS   += cMS;
+        _breakdown.push({
+          origem: origem || idRegra,
+          regra:  idRegra,
+          tipo:   'rev_parede',
+          metros: perimM + internosM,  // metragem usada pro silicone
+          dim:    { L: larMm, H: altMm, qtd: qtdPecas, cordoes: cordoes },
+          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0 },
+          contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS },
+        });
       }
 
       // Felipe sessao 2026-08 (Excel atualizado): helper pra FIXO ACOPLADO
       // tamanho 'fixo_fita_dupla'. Fita usa COMPRIMENTO (altura), silicone
       // usa PERIMETRO (L×2 + H×2). Necessario pra Fita Acabamento Maior e
       // Fita Acabamento Menor que tem tamanhos diferentes pra cada material.
-      function aplicarRegraFixoFitaDupla(idRegra, larMm, altMm, qtdPecas) {
+      function aplicarRegraFixoFitaDupla(idRegra, larMm, altMm, qtdPecas, origem) {
         const r = REGRAS[idRegra] || REGRAS_DEFAULT[idRegra];
         if (!r) return;
         const compM   = (altMm * qtdPecas) / 1000;
         const perimM  = ((larMm + altMm) * 2 * qtdPecas) / 1000;
-        mFD19 += (Number(r.fd19) || 0) * compM;
-        mFD12 += (Number(r.fd12) || 0) * compM;
-        mMS   += (Number(r.ms)   || 0) * perimM;
+        const cFD19 = (Number(r.fd19) || 0) * compM;
+        const cFD12 = (Number(r.fd12) || 0) * compM;
+        const cMS   = (Number(r.ms)   || 0) * perimM;
+        mFD19 += cFD19;
+        mFD12 += cFD12;
+        mMS   += cMS;
+        _breakdown.push({
+          origem: origem || idRegra,
+          regra:  idRegra,
+          tipo:   'fixo_fita_dupla',
+          metros: perimM,
+          dim:    { L: larMm, H: altMm, qtd: qtdPecas, compM: compM, perimM: perimM },
+          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0 },
+          contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS },
+        });
       }
 
       // --- 0) REVESTIMENTO DE PAREDE: pecas do motor ChapasRevParede ---
@@ -475,7 +516,8 @@ const AcessoriosPortaExterna = (() => {
             const alt = Number(p.altura)  || 0;
             const qtd = Number(p.qtd)     || 0;
             if (!lar || !alt || !qtd) return;
-            aplicarRegraRevParede('revestimento_tampa', lar, alt, qtd * qtdPortas);
+            aplicarRegraRevParede('revestimento_tampa', lar, alt, qtd * qtdPortas,
+              `Revestimento: tampa ${lar}×${alt}mm × ${qtd}un`);
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas revestimento:', e); }
       }
@@ -501,10 +543,10 @@ const AcessoriosPortaExterna = (() => {
             const qtdTotal = qtd * qtdPortas;
             const perimM = ((lar + alt) * 2 * qtdTotal) / 1000;
 
-            if (lblLow === 'fita acabamento maior')   return aplicarRegraFixoFitaDupla('fixo_fita_acab_maior', lar, alt, qtdTotal);
-            if (lblLow === 'fita acabamento menor')   return aplicarRegraFixoFitaDupla('fixo_fita_acab_menor', lar, alt, qtdTotal);
-            if (lblLow === 'fita acabamento largura') return aplicarRegra('fixo_fita_acab_largura', perimM);
-            if (lblLow.startsWith('tampa'))           return aplicarRegra('fixo_tampa', perimM);
+            if (lblLow === 'fita acabamento maior')   return aplicarRegraFixoFitaDupla('fixo_fita_acab_maior', lar, alt, qtdTotal,   `Fixo: ${p.label} ${lar}×${alt}mm`);
+            if (lblLow === 'fita acabamento menor')   return aplicarRegraFixoFitaDupla('fixo_fita_acab_menor', lar, alt, qtdTotal,   `Fixo: ${p.label} ${lar}×${alt}mm`);
+            if (lblLow === 'fita acabamento largura') return aplicarRegra('fixo_fita_acab_largura', perimM,                          `Fixo: ${p.label} ${lar}×${alt}mm (perim ${perimM.toFixed(2)}m)`);
+            if (lblLow.startsWith('tampa'))           return aplicarRegra('fixo_tampa', perimM,                                       `Fixo: ${p.label} ${lar}×${alt}mm (perim ${perimM.toFixed(2)}m)`);
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas fixo:', e); }
       }
@@ -523,10 +565,10 @@ const AcessoriosPortaExterna = (() => {
             const compM  = (alt * qtd * qtdPortas) / 1000;            // comprimento (altura) em metros
             const perimM = ((lar + alt) * 2 * qtd * qtdPortas) / 1000; // perimetro em metros
 
-            if (lblLow === 'alisar altura')        return aplicarRegra('alisar_altura', compM);
-            if (lblLow === 'alisar largura')       return aplicarRegra('alisar_largura', compM);
-            if (lblLow === 'tampa de furo')        return aplicarRegra(sis === 'PA007' ? 'tampa_furo_pa007' : 'tampa_furo_pa006', compM);
-            if (lblLow.startsWith('tampa'))        return aplicarRegra('tampa_generica', perimM);
+            if (lblLow === 'alisar altura')        return aplicarRegra('alisar_altura',  compM, `${p.label||'Alisar Altura'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            if (lblLow === 'alisar largura')       return aplicarRegra('alisar_largura', compM, `${p.label||'Alisar Largura'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            if (lblLow === 'tampa de furo')        return aplicarRegra(sis === 'PA007' ? 'tampa_furo_pa007' : 'tampa_furo_pa006', compM, `${p.label||'Tampa Furo'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            if (lblLow.startsWith('tampa'))        return aplicarRegra('tampa_generica', perimM, `${p.label} ${lar}×${alt}mm × ${qtd}un (perim ${perimM.toFixed(2)}m)`);
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas:', e); }
 
@@ -543,17 +585,17 @@ const AcessoriosPortaExterna = (() => {
               const m = (comp * qty) / 1000;  // metros
               const lbl = String(corte.label || '');
 
-              if (lbl === 'Altura Folha')              return aplicarRegra('altura_folha', m);
-              if (lbl === 'Altura Portal')             return aplicarRegra(isPA007 ? 'altura_portal_pa007' : 'altura_portal_pa006', m);
-              if (lbl === 'Largura Portal')            return aplicarRegra('largura_portal', m);
+              if (lbl === 'Altura Folha')              return aplicarRegra('altura_folha', m,                                              `${codigo}: Altura Folha ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
+              if (lbl === 'Altura Portal')             return aplicarRegra(isPA007 ? 'altura_portal_pa007' : 'altura_portal_pa006', m,    `${codigo}: Altura Portal ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
+              if (lbl === 'Largura Portal')            return aplicarRegra('largura_portal', m,                                            `${codigo}: Largura Portal ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
               // Felipe sessao 2026-08 (Excel atualizado): NOVOS handlers de
               // Travessa Vertical / Horizontal (4×FD19, sem silicone).
               // (Handler 'Largura Inferior & Superior' foi REMOVIDO: o que
               // o Excel chamava de 'LAREGURA PORTA' era erro de digitacao
               // do PORTAL acima - nao e' o perfil interno da folha.)
-              if (lbl === 'Travessa Vertical')         return aplicarRegra('travessa_vert_horiz', m);
-              if (lbl === 'Travessa Horizontal')       return aplicarRegra('travessa_vert_horiz', m);
-              if (lbl === 'Tubo Interno das Ripas')    return aplicarRegra('ripas', m);
+              if (lbl === 'Travessa Vertical')         return aplicarRegra('travessa_vert_horiz', m, `${codigo}: Travessa Vert ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
+              if (lbl === 'Travessa Horizontal')       return aplicarRegra('travessa_vert_horiz', m, `${codigo}: Travessa Horiz ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
+              if (lbl === 'Tubo Interno das Ripas')    return aplicarRegra('ripas',                m, `${codigo}: Ripas ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
             });
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler perfis:', e); }
@@ -576,6 +618,25 @@ const AcessoriosPortaExterna = (() => {
         add('PA-DOWSIL 995', tubos, 'Selantes', 'fab',
             `${mMS.toFixed(1)}m / 8m por tubo = ${tubos} tubo(s)`);
       }
+
+      // Felipe sessao 2026-08: 'me traga suas contas detalhadas'.
+      // Salva o breakdown desse item no cache global indexado por id.
+      // Usado pela funcao window.debugFitaSilicone(itemId) e pelo botao
+      // 'Detalhar' na aba Custos do orcamento.
+      try {
+        window._fitaSiliconeBreakdownCache = window._fitaSiliconeBreakdownCache || {};
+        window._fitaSiliconeBreakdownCache[item.id || ('item_' + Date.now())] = {
+          itemId:    item.id,
+          itemTipo:  item.tipo,
+          itemDim:   { L: L, H: H, nFolhas: nFolhas, qtdPortas: qtdPortas },
+          totais:    { mFD19: mFD19, mFD12: mFD12, mMS: mMS },
+          rolosFD19: mFD19 > 0 ? Math.ceil(mFD19 / 20) : 0,
+          rolosFD12: mFD12 > 0 ? Math.ceil(mFD12 / 20) : 0,
+          tubosMS:   mMS   > 0 ? Math.ceil(mMS   / 8 ) : 0,
+          breakdown: _breakdown.slice(),
+          ts:        Date.now(),
+        };
+      } catch(e){ /* nao crit */ }
     }
 
     // VEDA PORTA (Felipe sessao 2026-08): proximo na sequencia
