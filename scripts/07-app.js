@@ -228,8 +228,12 @@ const App = (() => {
     // Permissoes granulares (cadastros:acessorios:editar etc) podem
     // liberar tabs especificas pra user nao-admin.
     const ehCadastros = (moduleId === 'cadastros');
-    const isAdmin     = window.Auth && window.Auth.isAdmin && window.Auth.isAdmin();
-    const session     = window.Auth && window.Auth.currentUser ? window.Auth.currentUser() : null;
+    // Felipe sessao 2026-08-02: usa Auth global direto (nao window.Auth).
+    // window.Auth pode nao estar disponivel em alguns browsers porque
+    // Auth e' declarado com 'const' no escopo top-level (nao vira
+    // automaticamente window.Auth em modulos ESM/strict).
+    const isAdmin     = (typeof Auth !== 'undefined') && Auth.isAdmin && Auth.isAdmin();
+    const session     = (typeof Auth !== 'undefined') && Auth.currentUser ? Auth.currentUser() : null;
 
     // Mapa tab → permissao granular
     const TAB_PERMISSAO = {
