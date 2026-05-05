@@ -1,0 +1,52 @@
+# Felipe sessao 2026-08-02 V3: 'cache do browser está servindo versao
+# antiga vc nao consegue acabar com isso? sistema online tem que puxar
+# do servidor toda hora'.
+#
+# Estrategia profissional pra cache:
+#
+# 1) index.html:
+#    Cache-Control: no-store, must-revalidate
+#    Sempre puxa do servidor. Esse e' o ponto de entrada que decide
+#    qual versao dos scripts/CSS carregar via ?v=YYYYMMDDHHMMSS.
+#
+# 2) Scripts/CSS (.js, .css):
+#    Cache-Control: no-cache, must-revalidate
+#    Browser pode armazenar mas SEMPRE valida com servidor (304 Not
+#    Modified se nada mudou). Isso e' rapido e correto.
+#
+# 3) Imagens, fontes, etc:
+#    Cache-Control: public, max-age=86400 (24h)
+#    Conteudo estatico que raramente muda.
+#
+# Resultado: deploy novo aparece IMEDIATAMENTE pro usuario sem precisar
+# Ctrl+Shift+R. O servidor manda os headers corretos e o browser
+# obedece - regra basica de HTTP.
+
+/index.html
+  Cache-Control: no-store, must-revalidate, max-age=0
+  Pragma: no-cache
+  Expires: 0
+
+/
+  Cache-Control: no-store, must-revalidate, max-age=0
+  Pragma: no-cache
+  Expires: 0
+
+/*.html
+  Cache-Control: no-store, must-revalidate, max-age=0
+  Pragma: no-cache
+  Expires: 0
+
+/scripts/*
+  Cache-Control: no-cache, must-revalidate
+  Pragma: no-cache
+
+/styles/*
+  Cache-Control: no-cache, must-revalidate
+  Pragma: no-cache
+
+/images/*
+  Cache-Control: public, max-age=86400
+
+/fonts/*
+  Cache-Control: public, max-age=2592000

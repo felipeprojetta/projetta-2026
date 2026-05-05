@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Felipe sessao 2026-08-02 V3: anti-cache. Sistema online sempre
+       puxa do servidor. Reforco caso _headers do Netlify nao baste. -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>Projetta — Sistema</title>
 
   <!--
@@ -210,6 +215,7 @@
   <script src="scripts/52-backup-diario.js?v=20260505200000"></script>
   <script src="scripts/53-auto-rerender.js?v=20260505201000"></script>
   <script src="scripts/54-permissoes.js?v=20260505207000"></script>
+  <script src="scripts/55-version-check.js?v=20260505207000"></script>
   <script src="scripts/99-boot.js?v=20260505206000"></script>
 
 </body>

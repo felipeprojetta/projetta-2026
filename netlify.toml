@@ -1,0 +1,39 @@
+# Felipe sessao 2026-08-02 V3: build automatico anti-cache
+#
+# Ao fazer git push, o Netlify executa este comando ANTES de servir:
+#   1. Pega timestamp atual (segundos epoch)
+#   2. Reescreve TODOS os ?v=qualquercoisa em index.html pra esse timestamp
+#   3. Cada deploy gera URLs unicas como scripts/00-database.js?v=1762123456
+#   4. Browser nao tem como ter cache dessa URL especifica → puxa do server
+#
+# Resultado: Felipe nunca mais precisa Ctrl+Shift+R. Cada push = sistema
+# atualizado pra todos os 3 usuarios automaticamente em ate ~5 segundos
+# (tempo do Netlify deploy).
+
+[build]
+  command = "TIMESTAMP=$(date +%s) && sed -i \"s|?v=[0-9]*|?v=$TIMESTAMP|g\" index.html && echo \"Build cache-bust timestamp: $TIMESTAMP\""
+  publish = "."
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-store, must-revalidate, max-age=0"
+    Pragma = "no-cache"
+    Expires = "0"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-store, must-revalidate, max-age=0"
+    Pragma = "no-cache"
+    Expires = "0"
+
+[[headers]]
+  for = "/scripts/*"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+  for = "/styles/*"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
