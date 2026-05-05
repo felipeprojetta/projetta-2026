@@ -71,14 +71,28 @@ App.register('cadastros', {
       }
       return;
     }
-    // Felipe sessao 2026-08-02: aba Permissoes funcional (controle de acessos
-    // granular por usuario × area de cadastro). So' admin acessa.
+    // Felipe sessao 2026-08-02 V2: aba Permissoes com retry
+    // Modulo carrega via 54-permissoes.js. Em caso de cache do browser,
+    // pode tardar uns ms. Por isso, tentamos render com fallback de retry.
     if (tab === 'permissoes') {
-      if (typeof window.Permissoes !== 'undefined') {
-        window.Permissoes.render(container);
-      } else {
-        container.innerHTML = '<div class="info-banner">Modulo Permissoes nao carregado.</div>';
+      function tentarRender(tentativa) {
+        if (typeof window.Permissoes !== 'undefined' && window.Permissoes.render) {
+          window.Permissoes.render(container);
+          return;
+        }
+        if (tentativa < 5) {
+          // Retry em 200ms (ate' 5 tentativas = 1 segundo total)
+          setTimeout(function() { tentarRender(tentativa + 1); }, 200);
+          return;
+        }
+        // Falhou apos 5 tentativas - mostra mensagem util
+        container.innerHTML = '<div class="info-banner" style="background:#fef2f2;border-color:#fecaca;color:#991b1b;">' +
+          '<b>Modulo Permissoes nao carregou.</b><br>' +
+          'Aperte <kbd style="background:#fff;padding:2px 6px;border:1px solid #ccc;border-radius:3px;">Ctrl + Shift + R</kbd> ' +
+          'pra recarregar limpando cache. Se persistir, abra o F12 > Console e me mande o erro.' +
+          '</div>';
       }
+      tentarRender(0);
       return;
     }
     // Demais sub-abas ainda nao implementadas
