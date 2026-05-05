@@ -2076,6 +2076,35 @@
           wasDragged = true;
           setTimeout(() => { wasDragged = false; }, 60);
         });
+        // Felipe sessao 2026-08: 'QUERO SO CLICAR EM QUALQUER LOCAL E
+        // ABRIR O CARD' (mesmo apos enviar preco / virar 'Orcamento Pronto').
+        //
+        // Estrategia: adiciona um handler ADICIONAL em CAPTURE PHASE que
+        // roda ANTES do handler de bubbling abaixo. Se o click foi em
+        // elemento interativo (botao com data-action, input, etc), deixa
+        // passar - o handler antigo (em bubble) trata. Se foi em area
+        // morta do card, abre o modal direto e para a propagacao.
+        //
+        // Nao remove nem altera o handler antigo (zero risco de quebrar
+        // nenhum botao). Apenas garante que click em area-morta SEMPRE
+        // abre o modal, mesmo que algo mais a frente trave o bubble.
+        card.addEventListener('click', (e) => {
+          // Mesma protecao anti-drag
+          if (card._lastDragEnd && (Date.now() - card._lastDragEnd) < 200) return;
+          // Se clicou em elemento interativo, deixa o handler de bubble
+          // rodar (cada botao tem seu proprio if/return).
+          const interativo = e.target.closest(
+            '[data-action], button, input, select, textarea, a, label, .crm-card-versoes-resumo'
+          );
+          if (interativo) return;
+          // Area-morta -> abre modal e para aqui
+          const id = card.dataset.id;
+          if (id) {
+            e.stopPropagation();
+            abrirModalEdicao(container, id);
+          }
+        }, true);  // capture: true - roda ANTES do bubble handler abaixo
+
         // Click no card abre modal de edicao (se nao foi drag recente)
         card.addEventListener('click', (e) => {
           // Felipe sessao 2026-08: usa timestamp em vez de flag binaria.
