@@ -168,7 +168,7 @@ const Regras = (() => {
       tamanhoDescricao: 'comprimento da tampa de furo PA006 (Lev. Superfícies)' },
     'tampa_furo_pa007':    { label: 'Tampa de Furo (sistema PA007)',       fd19: 2, fd12: 0, ms: 1,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento da tampa de furo PA007 (Lev. Superfícies)' },
-    'altura_portal_pa006': { label: 'Altura Portal · PA-PA006P',           fd19: 2, fd12: 2, ms: 8,  tamanho: 'comprimento',
+    'altura_portal_pa006': { label: 'Altura Portal · PA-PA006P',           fd19: 4, fd12: 4, ms: 10, tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do perfil PA-PA006P (Altura Portal — Lev. Perfis)' },
     'altura_portal_pa007': { label: 'Altura Portal · PA-PA007P',           fd19: 4, fd12: 4, ms: 10, tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do perfil PA-PA007P (Altura Portal — Lev. Perfis)' },
@@ -187,7 +187,7 @@ const Regras = (() => {
     // Felipe sessao 2026-08 (Excel atualizado): NOVA regra Travessa
     // Vertical / Horizontal (perfis travVert e travHor 'Travessa
     // Vertical' / 'Travessa Horizontal'). So' fita 19, sem silicone.
-    'travessa_vert_horiz': { label: 'Travessa Vertical / Horizontal',      fd19: 4, fd12: 0, ms: 0,  tamanho: 'comprimento',
+    'travessa_vert_horiz': { label: 'Travessa Vertical / Horizontal',      fd19: 0, fd12: 0, ms: 4,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento do tubo da travessa vertical/horizontal' },
 
     // Felipe sessao 2026-08: REVESTIMENTO DE PAREDE
@@ -213,12 +213,39 @@ const Regras = (() => {
 
   function getFitaSilicone() {
     const salvas = store.get('regras_fita_silicone') || {};
+
+    // Felipe sessao 2026-08: migracao automatica de regras antigas pro
+    // Excel novo. 2 valores mudaram:
+    //   altura_portal_pa006: 2/2/8  -> 4/4/10  (Excel unificou com pa007)
+    //   travessa_vert_horiz: 4/0/0  -> 0/0/4   (Excel inverteu fita por silicone)
+    // Se Felipe tinha salvo os valores antigos exatos, substitui pelos novos.
+    // Se tinha valores customizados diferentes, deixa intactos (respeita edicao).
+    let migrouAlgo = false;
+    const salvasMigradas = JSON.parse(JSON.stringify(salvas));
+    const migracoes = [
+      { id: 'altura_portal_pa006', antigo: { fd19: 2, fd12: 2, ms: 8 },  novo: { fd19: 4, fd12: 4, ms: 10 } },
+      { id: 'travessa_vert_horiz', antigo: { fd19: 4, fd12: 0, ms: 0 },  novo: { fd19: 0, fd12: 0, ms: 4  } },
+    ];
+    migracoes.forEach(m => {
+      const s = salvasMigradas[m.id];
+      if (s && Number(s.fd19) === m.antigo.fd19
+           && Number(s.fd12) === m.antigo.fd12
+           && Number(s.ms)   === m.antigo.ms) {
+        salvasMigradas[m.id] = { fd19: m.novo.fd19, fd12: m.novo.fd12, ms: m.novo.ms };
+        migrouAlgo = true;
+      }
+    });
+    if (migrouAlgo) {
+      try { store.set('regras_fita_silicone', salvasMigradas); }
+      catch(e) { console.warn('[regras-fs] falha ao persistir migracao:', e); }
+    }
+
     // Merge: pra cada id default, preserva label/tamanho fixo, mas
     // sobrescreve fd19/fd12/ms com valor salvo (se houver).
     const result = {};
     Object.keys(FITA_SILICONE_DEFAULT).forEach(id => {
       const def = FITA_SILICONE_DEFAULT[id];
-      const sal = salvas[id] || {};
+      const sal = salvasMigradas[id] || {};
       result[id] = {
         label:   def.label,
         tamanho: def.tamanho,
