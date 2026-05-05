@@ -12417,8 +12417,12 @@ const Orcamento = (() => {
         pag.style.minHeight = '1123px';
         pag.style.boxSizing = 'border-box';
 
+        // Felipe sessao 2026-08: scale=2 + PNG saia com 40+ MB e estourava
+        // limite do Outlook (Microsoft Graph: ~4 MB inline). Troca pra
+        // scale=1.7 (~163dpi, nitido pra impressao) + JPEG qualidade 0.92.
+        // Reduz tamanho ~10x sem perda visual perceptivel.
         const canvas = await html2canvas(pag, {
-          scale: 2,
+          scale: 1.7,
           backgroundColor: '#ffffff',
           useCORS: true,
           windowWidth:  pag.scrollWidth,
@@ -12431,13 +12435,13 @@ const Orcamento = (() => {
         if (i > 0) pdf.addPage();
 
         if (alturaImg <= pageH) {
-          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, larguraImg, alturaImg);
+          pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, larguraImg, alturaImg);
         } else {
           // Pagina muito comprida (raro): redimensiona pra caber na altura
           const ratio = pageH / alturaImg;
           const novaLargura = larguraImg * ratio;
           const offsetX = (pageW - novaLargura) / 2;
-          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', offsetX, 0, novaLargura, pageH);
+          pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', offsetX, 0, novaLargura, pageH);
         }
       }
 
