@@ -12199,6 +12199,103 @@ const Orcamento = (() => {
           </div>`;
       };
 
+      // Felipe sessao 2026-08: 'ATE AGORA NAO VI ESSE BENDITO BOTAO,
+      // O QUE EU QUERO E QUE DETALHE AS METRAGENS DAONDE PUXOU CADA
+      // COISA QUANTIDADE TAMANHO PARA CONFERIR' + 'EM BAIXO DAONDE?
+      // ISSO DEVE FICAR EM ACESSORIOS'.
+      // Quadro de breakdown VISIVEL AUTOMATICAMENTE embaixo da Fabricacao,
+      // sem precisar clicar em nada. Mostra cada peca/perfil + dim + qtd
+      // + multiplicador + contribuicao em metros pra FD19/FD12/Silicone.
+      // Cache window._fitaSiliconeBreakdownCache populado pelo motor 28-
+      // acessorios-porta-externa.js durante calcularAcessoriosPorItem
+      // (que ja' rodou acima, antes deste render).
+      const renderBreakdownInline = (idItem) => {
+        const cache = window._fitaSiliconeBreakdownCache || {};
+        const dados = cache[idItem];
+        if (!dados || !dados.breakdown || !dados.breakdown.length) return '';
+
+        const t = dados.totais || {};
+        const dim = dados.itemDim || {};
+        const ordenado = dados.breakdown.slice().sort((a, b) =>
+          (b.contrib?.ms || 0) - (a.contrib?.ms || 0)
+        );
+
+        const linhasHtml = ordenado.map(e => {
+          const ms = e.contrib?.ms || 0;
+          const fd19 = e.contrib?.fd19 || 0;
+          const fd12 = e.contrib?.fd12 || 0;
+          const pctMs = t.mMS > 0 ? (ms / t.mMS) * 100 : 0;
+          const corDestaque = pctMs > 25 ? '#b91c1c' : pctMs > 10 ? '#b45309' : '#374151';
+          return `
+            <tr>
+              <td style="padding:6px 10px;font-weight:500;color:#1f2937;font-size:12px;">${escapeHtml(e.origem || '?')}</td>
+              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;color:#475569;font-size:12px;">${(e.metros || 0).toFixed(2)}m</td>
+              <td class="num" style="padding:6px 10px;font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0}</td>
+              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;color:#1e3a8a;background:#eff6ff;">${fd19 > 0 ? fd19.toFixed(2) + 'm' : '—'}</td>
+              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;color:#1e3a8a;background:#dbeafe;">${fd12 > 0 ? fd12.toFixed(2) + 'm' : '—'}</td>
+              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-weight:700;color:${corDestaque};background:#fef3c7;font-size:12px;">${ms > 0 ? ms.toFixed(2) + 'm' : '—'}<span style="font-size:10px;font-weight:400;color:#9ca3af;"> (${pctMs.toFixed(0)}%)</span></td>
+            </tr>
+          `;
+        }).join('');
+
+        const rolosFD19 = t.mFD19 > 0 ? Math.ceil(t.mFD19 / 20) : 0;
+        const rolosFD12 = t.mFD12 > 0 ? Math.ceil(t.mFD12 / 20) : 0;
+        const tubosMS   = t.mMS   > 0 ? Math.ceil(t.mMS   / 8 ) : 0;
+
+        return `
+          <div style="margin-top:12px;background:#fffbeb;border:2px solid #f59e0b;border-radius:6px;padding:14px 16px;">
+            <div style="font-weight:700;color:#b45309;font-size:14px;margin-bottom:10px;">
+              📊 Detalhamento Fita Dupla Face + Silicone — de onde sai cada metragem
+            </div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+              <div style="flex:1;min-width:160px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
+                <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Fita Dupla 19mm</div>
+                <div style="font-size:18px;font-weight:800;color:#1e3a8a;line-height:1.1;margin-top:2px;">${(t.mFD19 || 0).toFixed(2)} m</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">÷ 20m por rolo = <b style="color:#1e3a8a;">${rolosFD19} rolo(s)</b></div>
+              </div>
+              <div style="flex:1;min-width:160px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
+                <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Fita Dupla 12mm</div>
+                <div style="font-size:18px;font-weight:800;color:#1e3a8a;line-height:1.1;margin-top:2px;">${(t.mFD12 || 0).toFixed(2)} m</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">÷ 20m por rolo = <b style="color:#1e3a8a;">${rolosFD12} rolo(s)</b></div>
+              </div>
+              <div style="flex:1;min-width:160px;background:#fff;border:2px solid #f59e0b;border-radius:6px;padding:10px 14px;">
+                <div style="font-size:10px;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Silicone DowSil 995</div>
+                <div style="font-size:18px;font-weight:800;color:#b45309;line-height:1.1;margin-top:2px;">${(t.mMS || 0).toFixed(2)} m</div>
+                <div style="font-size:11px;color:#92400e;margin-top:2px;">÷ 8m por tubo = <b style="color:#b45309;">${tubosMS} tubo(s)</b></div>
+              </div>
+            </div>
+
+            <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;">
+              <thead>
+                <tr style="background:#1f2937;color:#fff;">
+                  <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">Peça / Perfil (com dimensões)</th>
+                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;">Metros</th>
+                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;">Mult. (19/12/MS)</th>
+                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;">FD 19mm</th>
+                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;">FD 12mm</th>
+                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;">Silicone</th>
+                </tr>
+              </thead>
+              <tbody>${linhasHtml}</tbody>
+              <tfoot>
+                <tr style="background:#fef3c7;font-weight:800;border-top:2px solid #f59e0b;">
+                  <td style="padding:8px 10px;font-size:12px;color:#92400e;" colspan="3">TOTAL</td>
+                  <td class="num" style="padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD19 || 0).toFixed(2)}m</td>
+                  <td class="num" style="padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD12 || 0).toFixed(2)}m</td>
+                  <td class="num" style="padding:8px 10px;font-size:13px;color:#b45309;">${(t.mMS || 0).toFixed(2)}m</td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <div style="margin-top:10px;font-size:11px;color:#6b7280;line-height:1.5;">
+              💡 Os multiplicadores estão em <b>Cadastro &gt; Regras e Lógicas &gt; Fita Dupla Face + Silicone</b>.
+              Linhas com mais de 25% do total estão em vermelho (revisar se for excessivo).
+            </div>
+          </div>
+        `;
+      };
+
       const dim = `${item.largura || 0} × ${item.altura || 0} mm`;
       const fols = `${item.nFolhas || 1} folha${String(item.nFolhas) === '1' ? '' : 's'}`;
       return `
@@ -12208,6 +12305,7 @@ const Orcamento = (() => {
             <div class="orc-item-meta">${dim} · ${fols} · Modelo ${item.modeloExterno || item.modeloNumero || '—'} · qtd ${item.quantidade || 1}</div>
           </div>
           ${renderTabela(`lvac-fab-${idx}`,     linhasFab,     '🏭 Fabricacao',        totalFab)}
+          ${renderBreakdownInline(item.id)}
           ${renderTabela(`lvac-obra-${idx}`,    linhasObra,    '🚧 Obra',              totalObra)}
           ${renderTabela(`lvac-digital-${idx}`, linhasDigital, '🔐 Fechadura Digital', totalDigital)}
           <div style="background:#fff3e0;border:2px solid #e65100;border-radius:6px;padding:12px 16px;margin-top:12px;">
