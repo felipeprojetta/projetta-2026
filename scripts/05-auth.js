@@ -74,7 +74,23 @@ const Auth = (() => {
     currentUser() { return store.get('session'); },
     isAdmin() {
       const s = store.get('session');
-      return !!s && s.role === 'admin';
+      if (!s) return false;
+      // Felipe sessao 2026-08-02: defensivo - confere se o role
+      // armazenado na sessao bate com o role atual do user na lista.
+      // Cobre caso onde sessao foi salva antes de migracao com role velho.
+      if (s.role === 'admin') return true;
+      // Fallback: confere lista de users
+      try {
+        const users = store.get('users') || [];
+        const u = users.find(x => x && x.username === s.username);
+        if (u && u.role === 'admin') {
+          // Atualiza sessao silenciosamente pra refletir role correto
+          s.role = 'admin';
+          store.set('session', s);
+          return true;
+        }
+      } catch(_) {}
+      return false;
     },
 
     // ────────────────────────────────────────────────────────────────────
