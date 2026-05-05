@@ -2089,19 +2089,36 @@
         // nenhum botao). Apenas garante que click em area-morta SEMPRE
         // abre o modal, mesmo que algo mais a frente trave o bubble.
         card.addEventListener('click', (e) => {
+          // Felipe sessao 2026-08: DEBUG ATIVO - Felipe disse que clique
+          // ainda nao abre. Console pra investigar.
+          console.log('[CRM-card-click-CAPTURE]',
+            'target:', e.target.tagName,
+            'classes:', e.target.className,
+            'closest data-action:', e.target.closest('[data-action]')?.dataset?.action || 'NONE',
+            'lastDragEnd diff:', card._lastDragEnd ? Date.now() - card._lastDragEnd : 'never',
+          );
           // Mesma protecao anti-drag
-          if (card._lastDragEnd && (Date.now() - card._lastDragEnd) < 200) return;
+          if (card._lastDragEnd && (Date.now() - card._lastDragEnd) < 200) {
+            console.log('[CRM-card-click-CAPTURE] BLOCKED: drag recente');
+            return;
+          }
           // Se clicou em elemento interativo, deixa o handler de bubble
           // rodar (cada botao tem seu proprio if/return).
           const interativo = e.target.closest(
             '[data-action], button, input, select, textarea, a, label, .crm-card-versoes-resumo'
           );
-          if (interativo) return;
+          if (interativo) {
+            console.log('[CRM-card-click-CAPTURE] interativo detectado:', interativo.tagName, interativo.className, '— deixando bubble handler tratar');
+            return;
+          }
           // Area-morta -> abre modal e para aqui
           const id = card.dataset.id;
           if (id) {
+            console.log('[CRM-card-click-CAPTURE] AREA MORTA - abrindo modal de edicao pro lead', id);
             e.stopPropagation();
             abrirModalEdicao(container, id);
+          } else {
+            console.log('[CRM-card-click-CAPTURE] sem dataset.id no card!');
           }
         }, true);  // capture: true - roda ANTES do bubble handler abaixo
 
