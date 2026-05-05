@@ -20,3 +20,5 @@ const Events = (() => {
     },
   };
 })();
+
+if (typeof window !== 'undefined') window.Events = Events;

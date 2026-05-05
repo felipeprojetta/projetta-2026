@@ -136,3 +136,5 @@ const Storage = (() => {
     },
   };
 })();
+
+if (typeof window !== 'undefined') window.Storage = Storage;

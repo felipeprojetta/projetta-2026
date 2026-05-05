@@ -415,3 +415,7 @@ const Database = (() => {
     onSyncStatusChange: onSyncStatusChange,
   };
 })();
+
+// Felipe sessao 2026-08-02 V3: expoe globalmente. Em browsers strict
+// mode 'const' top-level NAO vira automaticamente window.X.
+if (typeof window !== 'undefined') window.Database = Database;
