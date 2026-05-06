@@ -150,7 +150,19 @@ const AcessoriosPortaExterna = (() => {
                 || item.tipo === 'fixo_acoplado';
     if (!tipoOK) return [];
     opts = opts || {};
-    const marcaCilindro = (opts.marcaCilindro || 'KESO').toUpperCase();
+    // Felipe sessao 12: detecta marca do PROPRIO item.cilindro se nao
+    // veio em opts. Antes sempre usava 'KESO' default mesmo se o usuario
+    // selecionou Udinese. Agora le do item:
+    //   'KESO seguranca'      -> KESO  (default)
+    //   'Udinese chave comum' -> UDINESE
+    var marcaDetectada = 'KESO';
+    if (item && item.cilindro) {
+      var cilStr = String(item.cilindro).toUpperCase();
+      if (cilStr.indexOf('UDINESE') !== -1 || cilStr.indexOf('UDINE') !== -1) {
+        marcaDetectada = 'UDINESE';
+      }
+    }
+    const marcaCilindro = (opts.marcaCilindro || marcaDetectada).toUpperCase();
 
     // Felipe sessao 2026-08: revestimento_parede usa largura_total/altura_total
     // (nao tem item.largura/altura). Outros campos especificos de porta
@@ -245,12 +257,20 @@ const AcessoriosPortaExterna = (() => {
     }
 
     // 3. CILINDRO
+    // Felipe sessao 12 (refazendo regra perdida):
+    //   KESO seguranca + PA006 -> PA-KESOCIL130 BLTD  (sem espaco entre BL e TD)
+    //   KESO seguranca + PA007 -> PA-KESOCIL150 BL TD (com espaco entre BL e TD)
+    //   UDINESE + PA006        -> PA-CIL UDINE 130 BL
+    //   UDINESE + PA007        -> PA-CIL UDINE 150 BL
+    // (e130 indica "usar 130mm" - serve pra PA006; PA007 usa 150mm)
     if (pinos > 0) {
       const e130 = sis === 'PA006';
       if (marcaCilindro === 'UDINESE') {
-        add(e130 ? 'PA-CIL UDINE 130 BL' : 'PA-CIL UDINE 150 BL', 1, 'Fechaduras', 'fab', 'Cilindro UDINESE');
+        add(e130 ? 'PA-CIL UDINE 130 BL' : 'PA-CIL UDINE 150 BL', 1, 'Fechaduras', 'fab',
+            e130 ? 'Cilindro UDINESE 130mm (PA006)' : 'Cilindro UDINESE 150mm (PA007)');
       } else {
-        add(e130 ? 'PA-KESOCIL130 BT BL' : 'PA-KESOCIL150 BT BL', 1, 'Fechaduras', 'fab', 'Cilindro KESO chave-botao');
+        add(e130 ? 'PA-KESOCIL130 BLTD' : 'PA-KESOCIL150 BL TD', 1, 'Fechaduras', 'fab',
+            e130 ? 'Cilindro KESO 130mm Tedee (PA006)' : 'Cilindro KESO 150mm Tedee (PA007)');
       }
     }
 
