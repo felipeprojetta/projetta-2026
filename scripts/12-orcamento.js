@@ -8014,7 +8014,17 @@ const Orcamento = (() => {
       : `<div class="rel-prop-banner-fech is-nao">FECHADURA DIGITAL: <b>NAO SE APLICA</b></div>`;
 
     const sistema = item.sistema || '—';
-    const tipoAbertura = item.tipoAbertura || '—';
+    // Felipe sessao 2026-08-03: 'Pivotante' em vez de 'pivotante' (capitaliza)
+    const sistemaFmt = sistema && sistema !== '—'
+      ? sistema.charAt(0).toUpperCase() + sistema.slice(1).toLowerCase()
+      : '—';
+
+    // Felipe sessao 2026-08-03: em modelo CAVA, puxador deve aparecer como 'Cava'
+    // (nao um modelo de puxador especifico)
+    const ehModeloCava = isCava(item.modeloNumero);
+    const puxadorFmt = ehModeloCava
+      ? 'Cava'
+      : (item.tamanhoPuxador || '—');
 
     return `
       <div class="rel-prop-item-card">
@@ -8032,15 +8042,14 @@ const Orcamento = (() => {
             <div class="rel-prop-item-linha"><span class="lbl">L:</span> <span>${lar}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">H:</span> <span>${alt}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">Area Porta:</span> <span>${fmtBR(areaM2)} m²</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">SISTEMA:</span> <span>${escapeHtml(sistema)}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">TIPO DE ABERTURA:</span> <span>${escapeHtml(tipoAbertura)}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">SISTEMA:</span> <span>${escapeHtml(sistemaFmt)}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">NUMERO DE FOLHAS:</span> <span>${nFolhas} FOLHA${nFolhas > 1 ? 'S' : ''}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">MODELO:</span> <span>${escapeHtml(modeloNome)}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">FECHADURA MECANICA:</span> <span>${escapeHtml(item.fechaduraMecanica || '—')}</span></div>
           </div>
           ${bannerFechDigital}
           <div class="rel-prop-item-linhas">
-            <div class="rel-prop-item-linha"><span class="lbl">PUXADOR:</span> <span>${escapeHtml(item.tamanhoPuxador || '—')}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">PUXADOR:</span> <span>${escapeHtml(puxadorFmt)}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA EXTERNA:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA INTERNA:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">CILINDRO:</span> <span>${escapeHtml(item.cilindro || '—')}</span></div>
