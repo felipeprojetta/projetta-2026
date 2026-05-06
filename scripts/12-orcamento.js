@@ -2755,27 +2755,38 @@ const Orcamento = (() => {
           <div class="orc-form-row">
             <div class="orc-cor-stack">
               <div class="orc-field orc-f-cor">
-                <label>Cor</label>
-                <input type="text" list="orc-superficies-list-rev" data-field="cor" value="${escapeHtml(item.cor || '')}" placeholder="" />
+                <label>Cor ${(() => {
+                  // Felipe sessao 12: 'quando tem multiplos os demais nao
+                  // estao puxando as cores'. Felipe via 8 cores no datalist e
+                  // achava que faltavam. Datalist nativo do browser e' confuso
+                  // (parece truncar mas tem scroll). Trocado por SELECT - mostra
+                  // todas as cores claramente. Plus, contador mostra quantas tem.
+                  const vistas = new Set();
+                  let total = 0;
+                  coresFiltradas.forEach(s => {
+                    const limpo = nomeCurtoSuperficie(s.descricao);
+                    if (!limpo || vistas.has(limpo)) return;
+                    vistas.add(limpo);
+                    total++;
+                  });
+                  return total > 0 ? `<span class="orc-cor-counter">(${total} ${item.revestimento || 'cores'})</span>` : '';
+                })()}</label>
+                <select data-field="cor">
+                  <option value="">— escolher cor —</option>
+                  ${(() => {
+                    const vistas = new Set();
+                    const opts = [];
+                    coresFiltradas.forEach(s => {
+                      const limpo = nomeCurtoSuperficie(s.descricao);
+                      if (!limpo || vistas.has(limpo)) return;
+                      vistas.add(limpo);
+                      opts.push(`<option value="${escapeHtml(limpo)}" ${item.cor === limpo ? 'selected' : ''}>${escapeHtml(limpo)}</option>`);
+                    });
+                    return opts.join('');
+                  })()}
+                </select>
               </div>
             </div>
-            <datalist id="orc-superficies-list-rev">
-              ${(() => {
-                // Felipe sessao 2026-05: deduplicar pra mostrar so' nome sem
-                // medidas. Cadastro tem "X - 1500 X 5000", "X - 1500 X 6000"
-                // como entradas separadas. UI deve mostrar so' "X" uma vez.
-                // Motor de chapas ja' resolve as variantes via nomeCurtoSuperficie.
-                const vistas = new Set();
-                const opts = [];
-                coresFiltradas.forEach(s => {
-                  const limpo = nomeCurtoSuperficie(s.descricao);
-                  if (!limpo || vistas.has(limpo)) return;
-                  vistas.add(limpo);
-                  opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
-                });
-                return opts.join('');
-              })()}
-            </datalist>
           </div>
         </div>
 

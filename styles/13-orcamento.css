@@ -3212,3 +3212,14 @@
   font-weight: 700 !important;
   color: #78350F !important;
 }
+
+/* Felipe sessao 12: contador "(N cores)" ao lado do label Cor no rev_parede.
+   Felipe via 8 cores no datalist e achava que faltavam. Datalist nativo do
+   browser e' confuso. Agora usa select normal e contador deixa explicito
+   quantas opcoes tem. */
+.orc-cor-counter {
+  font-size: 12px;
+  color: #6B7280;
+  font-weight: normal;
+  margin-left: 6px;
+}
