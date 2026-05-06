@@ -170,6 +170,94 @@ const Database = (() => {
   function _chaveModelo(m)     { return m && m.numero != null ? String(m.numero) : null; }
   function _chaveRep(r)        { return r && r.followup ? String(r.followup).trim() : null; }
 
+  // Felipe sessao 12: merge protetor pra orcamentos/negocios. Resolve
+  // bug critico onde "V2 sumia" — cliente velho com 1 versao em cache
+  // sobrescrevia o cloud que tinha 2 versoes. Tactica: pra cada negocio,
+  // adiciona ao LOCAL as versoes que existem no CLOUD mas nao no local
+  // (matching por neg.id e v.id). Negocios inteiros que sumiram do
+  // local mas estao no cloud sao re-adicionados.
+  // NAO resolve conflito de edicao concorrente (mesma versao editada
+  // em 2 lugares - ultimo que salva ganha) — isso e' tradeoff aceitavel.
+  // RESOLVE: V2 nunca mais e' apagada por cache stale.
+  async function mergeProtegido_negocios(localValue) {
+    if (!Array.isArray(localValue)) return localValue;
+    try {
+      var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.orcamentos&key=eq.negocios&select=valor';
+      var res = await fetch(url, { headers: sbHeaders(false) });
+      if (!res.ok) return localValue;
+      var rows = await res.json();
+      if (!Array.isArray(rows) || rows.length === 0) return localValue;
+      var cloudValue = rows[0].valor;
+      if (!Array.isArray(cloudValue)) return localValue;
+
+      // Index cloud: pra cada negocio.id, mapeia versoes_por_id e opcao_de_cada_versao
+      var cloudNegoMap = {};
+      cloudValue.forEach(function(neg) {
+        if (!neg || !neg.id) return;
+        var versoesMap = {};
+        (neg.opcoes || []).forEach(function(o) {
+          (o.versoes || []).forEach(function(v) {
+            if (v && v.id) versoesMap[v.id] = { ver: v, opcaoId: o.id };
+          });
+        });
+        cloudNegoMap[neg.id] = { neg: neg, versoesMap: versoesMap };
+      });
+
+      // Index local pra detectar negocios que sumiram
+      var localNegIds = new Set();
+      localValue.forEach(function(neg) { if (neg && neg.id) localNegIds.add(neg.id); });
+
+      // Clona local pra modificar em segurança
+      var resultado = JSON.parse(JSON.stringify(localValue));
+      var versoesPreservadas = 0;
+      var negociosPreservados = 0;
+
+      // 1. Pra cada negocio LOCAL, adiciona versoes do cloud que nao estao no local
+      resultado.forEach(function(neg) {
+        if (!neg || !neg.id) return;
+        var cloudInfo = cloudNegoMap[neg.id];
+        if (!cloudInfo) return;
+        var localVerIds = new Set();
+        (neg.opcoes || []).forEach(function(o) {
+          (o.versoes || []).forEach(function(v) {
+            if (v && v.id) localVerIds.add(v.id);
+          });
+        });
+        Object.keys(cloudInfo.versoesMap).forEach(function(verId) {
+          if (localVerIds.has(verId)) return;
+          var info = cloudInfo.versoesMap[verId];
+          // Acha opcao correspondente no local
+          var opc = (neg.opcoes || []).find(function(o) { return o.id === info.opcaoId; });
+          if (!opc && neg.opcoes && neg.opcoes.length > 0) opc = neg.opcoes[0]; // fallback opcao A
+          if (opc) {
+            (opc.versoes = opc.versoes || []).push(info.ver);
+            versoesPreservadas++;
+          }
+        });
+      });
+
+      // 2. Pra cada negocio CLOUD que nao esta no local, adiciona inteiro
+      cloudValue.forEach(function(neg) {
+        if (!neg || !neg.id) return;
+        if (!localNegIds.has(neg.id)) {
+          resultado.push(JSON.parse(JSON.stringify(neg)));
+          negociosPreservados++;
+        }
+      });
+
+      if (versoesPreservadas > 0 || negociosPreservados > 0) {
+        console.warn('[DB] mergeProtegido_negocios: preservou ' + versoesPreservadas +
+                     ' versao(es) e ' + negociosPreservados + ' negocio(s) que sumiriam ' +
+                     'por cache stale (cloud tinha ' + cloudValue.length +
+                     ' negocios, local tinha ' + localValue.length + ')');
+      }
+      return resultado;
+    } catch(e) {
+      console.warn('[DB] mergeProtegido_negocios falhou — enviando local:', e.message);
+      return localValue;
+    }
+  }
+
   function sbUpsert(scope, key, value) {
     // Se for array vazio, NAO sobrescreve o cloud
     if (Array.isArray(value) && value.length === 0) return;
@@ -202,6 +290,15 @@ const Database = (() => {
           if (Array.isArray(valorFinal) && Array.isArray(value) && valorFinal.length > value.length) {
             try { localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(valorFinal)); } catch(_){}
           }
+        }
+      }
+      // Felipe sessao 12: merge anti-sobrescrita pra orcamentos/negocios.
+      // Resolve "V2 sumiu ao voltar uma tela" - cliente velho com cache
+      // de 1 versao sobrescrevia o cloud que tinha V2 nova.
+      else if (scope === 'orcamentos' && key === 'negocios') {
+        valorFinal = await mergeProtegido_negocios(value);
+        if (Array.isArray(valorFinal) && Array.isArray(value) && valorFinal.length >= value.length) {
+          try { localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(valorFinal)); } catch(_){}
         }
       }
 
