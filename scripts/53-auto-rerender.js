@@ -31,26 +31,33 @@
     return;
   }
 
-  // Mapeamento chave → modulo
-  // Cada entrada: { match: regex, modulo: nomeModuloApp, label: 'pra UI' }
+  // Mapeamento chave → módulo do App (que é FLAT, não hierárquico).
+  // Felipe sessao 12 (BUG FIX): antes tabPath era ['operacional','crm']
+  // mas o App nao tem hierarquia 'operacional' — tem so 'crm', 'cadastros',
+  // 'orcamento'. Como 'crm' !== 'operacional' a condicao falhava SEMPRE
+  // e o auto-rerender nunca disparava (existia desde sessao 2026-08-02).
+  // tabPath agora: [moduleId, tabIdOuNull].
   var MAPEAMENTO = [
-    { match: /^cadastros\/acessorios_lista$/,         tabPath: ['cadastros', 'acessorios'],   label: 'Acessórios' },
-    { match: /^cadastros\/perfis_lista$/,             tabPath: ['cadastros', 'perfis'],       label: 'Perfis' },
-    { match: /^cadastros\/modelos_lista$/,            tabPath: ['cadastros', 'modelos'],      label: 'Modelos' },
-    { match: /^cadastros\/superficies_lista$/,        tabPath: ['cadastros', 'superficies'],  label: 'Superfícies' },
+    { match: /^cadastros\/acessorios_lista$/,         tabPath: ['cadastros', 'acessorios'],     label: 'Acessórios' },
+    { match: /^cadastros\/perfis_lista$/,             tabPath: ['cadastros', 'perfis'],         label: 'Perfis' },
+    { match: /^cadastros\/modelos_lista$/,            tabPath: ['cadastros', 'modelos'],        label: 'Modelos' },
+    { match: /^cadastros\/superficies_lista$/,        tabPath: ['cadastros', 'superficies'],    label: 'Superfícies' },
     { match: /^cadastros\/representantes_lista$/,     tabPath: ['cadastros', 'representantes'], label: 'Representantes' },
-    { match: /^cadastros\/cores_lista$/,              tabPath: ['cadastros', 'superficies'],  label: 'Cores' },
-    { match: /^cadastros\/markups_lista$/,            tabPath: ['cadastros', 'regras'],       label: 'Markups' },
+    { match: /^cadastros\/cores_lista$/,              tabPath: ['cadastros', 'superficies'],    label: 'Cores' },
+    { match: /^cadastros\/markups_lista$/,            tabPath: ['cadastros', 'regras'],         label: 'Markups' },
     { match: /^cadastros\/comissoes_lista$/,          tabPath: ['cadastros', 'representantes'], label: 'Comissões' },
-    { match: /^cadastros\/regras_/,                   tabPath: ['cadastros', 'regras'],       label: 'Regras' },
-    { match: /^cadastros\/rendimentos_/,              tabPath: ['cadastros', 'regras'],       label: 'Rendimentos' },
-    { match: /^cadastros\/precificacao_/,             tabPath: ['cadastros', 'regras'],       label: 'Precificação' },
-    { match: /^cadastros\/fechaduras_lista$/,         tabPath: ['cadastros', 'acessorios'],   label: 'Fechaduras' },
-    { match: /^cadastros\/puxadores_lista$/,          tabPath: ['cadastros', 'acessorios'],   label: 'Puxadores' },
-    { match: /^cadastros\/vidros_lista$/,             tabPath: ['cadastros', 'superficies'],  label: 'Vidros' },
-    { match: /^cadastros\/mensagens_templates$/,      tabPath: ['cadastros', 'mensagens'],    label: 'Mensagens' },
-    { match: /^crm\/leads$/,                          tabPath: ['operacional', 'crm'],        label: 'CRM' },
-    { match: /^orcamentos\/negocios$/,                tabPath: ['operacional', 'orcamento'],  label: 'Orçamentos' },
+    { match: /^cadastros\/regras_/,                   tabPath: ['cadastros', 'regras'],         label: 'Regras' },
+    { match: /^cadastros\/rendimentos_/,              tabPath: ['cadastros', 'regras'],         label: 'Rendimentos' },
+    { match: /^cadastros\/precificacao_/,             tabPath: ['cadastros', 'regras'],         label: 'Precificação' },
+    { match: /^cadastros\/fechaduras_lista$/,         tabPath: ['cadastros', 'acessorios'],     label: 'Fechaduras' },
+    { match: /^cadastros\/puxadores_lista$/,          tabPath: ['cadastros', 'acessorios'],     label: 'Puxadores' },
+    { match: /^cadastros\/vidros_lista$/,             tabPath: ['cadastros', 'superficies'],    label: 'Vidros' },
+    { match: /^cadastros\/mensagens_templates$/,      tabPath: ['cadastros', 'mensagens'],      label: 'Mensagens' },
+    { match: /^auth\/users$/,                         tabPath: ['cadastros', 'usuarios'],       label: 'Usuários' },
+    { match: /^crm\/leads$/,                          tabPath: ['crm', null],                   label: 'CRM' },
+    { match: /^crm\/view$/,                           tabPath: ['crm', null],                   label: 'CRM (visão)' },
+    { match: /^clientes\/clientes_independentes$/,    tabPath: ['clientes', null],              label: 'Clientes' },
+    { match: /^orcamentos\/negocios$/,                tabPath: ['orcamento', null],             label: 'Orçamentos' },
   ];
 
   // Toast helper - cria/reusa elemento no canto superior direito
