@@ -1910,6 +1910,15 @@ const Orcamento = (() => {
         // edicao manual do usuario - protecao extra).
         if (!itemInicial.largura && lead.porta_largura) itemInicial.largura = lead.porta_largura;
         if (!itemInicial.altura  && lead.porta_altura)  itemInicial.altura  = lead.porta_altura;
+        // Felipe sessao 12: quantidade do card -> quantidade do item no orcamento.
+        // Default 1 se nao tiver no lead. So aplica se o item ainda nao foi editado
+        // (item virgem com qtd=1) pra preservar edicao manual.
+        const leadQtd = Math.max(1, parseInt(lead.porta_quantidade, 10) || 1);
+        if ((Number(itemInicial.quantidade) || 1) === 1 && leadQtd > 1) {
+          itemInicial.quantidade = leadQtd;
+        } else if (!itemInicial.quantidade) {
+          itemInicial.quantidade = leadQtd;
+        }
         if (lead.porta_modelo) {
           if (!itemInicial.modeloNumero)  itemInicial.modeloNumero  = lead.porta_modelo;
           if (!itemInicial.modeloExterno) itemInicial.modeloExterno = lead.porta_modelo;

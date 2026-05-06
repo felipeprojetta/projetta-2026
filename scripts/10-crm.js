@@ -237,6 +237,7 @@
         destinoPais: '',
         porta_largura: '', porta_altura: '', porta_modelo: '', porta_cor: '',
         porta_fechadura_digital: '',
+        porta_quantidade: 1,  // Felipe sessao 12
         itens_extras: [],  // Felipe sessao 12
       });
     }
@@ -267,6 +268,7 @@
         porta_modelo: lead.porta_modelo || '',
         porta_cor: lead.porta_cor || '',
         porta_fechadura_digital: lead.porta_fechadura_digital || '',
+        porta_quantidade: Number(lead.porta_quantidade) > 0 ? Number(lead.porta_quantidade) : 1,
         // Felipe sessao 12: lead vira lista de itens. Item 1 e' a porta
         // (mantido nos campos porta_* pra retrocompat), itens_extras
         // sao porta_interna / rev_acoplado_porta / rev_parede / porta_externa.
@@ -305,15 +307,22 @@
         } catch(_) { return ''; }
       })();
       const lwh = (it.largura && it.altura) ? (escapeHtml(it.largura) + '×' + escapeHtml(it.altura) + ' mm') : 'sem medidas';
+      const qtd = Number(it.quantidade) > 0 ? Number(it.quantidade) : 1;
+      const qtdLabel = qtd > 1 ? (qtd + '× · ') : '';
       return `
         <div class="crm-item-card" data-item-extra-idx="${dataIdx}" style="margin-top:12px;padding-top:12px;border-top:1px dashed #cbd5e1">
           <div class="crm-item-header" data-action="toggle-item-extra" data-item-idx="${dataIdx}" style="cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:#1a5276;margin-bottom:10px;user-select:none">
             <span class="crm-item-toggle" style="display:inline-block;width:14px;text-align:center;transition:transform 150ms">▼</span>
             <span>${tipoCfg.icone} Item ${idx + 1} — ${escapeHtml(tipoCfg.label)}</span>
-            <span style="margin-left:auto;font-weight:400;font-size:12px;color:#64748b">${lwh}</span>
+            <span style="margin-left:auto;font-weight:400;font-size:12px;color:#64748b">${qtdLabel}${lwh}</span>
             <button type="button" class="crm-item-remove" data-action="remove-item-extra" data-item-idx="${dataIdx}" title="Remover item" style="background:transparent;border:0;color:#ef4444;cursor:pointer;font-size:16px;padding:0 4px">✕</button>
           </div>
           <div class="crm-item-body">
+            <div class="crm-form-row">
+              <div class="crm-field" style="width:100%"><label>Quantidade</label>
+                <input type="number" min="1" step="1" data-extra-idx="${dataIdx}" data-extra-field="quantidade" value="${qtd}" placeholder="1" />
+              </div>
+            </div>
             <div class="crm-form-row">
               <div class="crm-field" style="width:100%"><label>Largura (mm)</label>
                 <input type="text" data-extra-idx="${dataIdx}" data-extra-field="largura" value="${escapeHtml(it.largura || '')}" />
@@ -557,9 +566,15 @@
                   <div class="crm-item-header" data-action="toggle-item" data-item-idx="0" style="cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:#1a5276;margin-bottom:10px;user-select:none">
                     <span class="crm-item-toggle" style="display:inline-block;width:14px;text-align:center;transition:transform 150ms">▼</span>
                     <span>📦 Item 1 — Porta Externa</span>
-                    <span style="margin-left:auto;font-weight:400;font-size:12px;color:#64748b">${m.porta_largura && m.porta_altura ? escapeHtml(m.porta_largura) + '×' + escapeHtml(m.porta_altura) + ' mm' : 'sem medidas'}</span>
+                    <span style="margin-left:auto;font-weight:400;font-size:12px;color:#64748b">${(Number(m.porta_quantidade) > 1 ? (m.porta_quantidade + '× · ') : '') + (m.porta_largura && m.porta_altura ? escapeHtml(m.porta_largura) + '×' + escapeHtml(m.porta_altura) + ' mm' : 'sem medidas')}</span>
                   </div>
                   <div class="crm-item-body">
+                    <div class="crm-form-row">
+                      <div class="crm-field" style="width:100%">
+                        <label>Quantidade</label>
+                        <input type="number" min="1" step="1" data-field="porta_quantidade" value="${escapeHtml(String(m.porta_quantidade || 1))}" placeholder="1" style="width:100%" />
+                      </div>
+                    </div>
                     <div class="crm-form-row">
                       <div class="crm-field" style="width:100%">
                         <label>Largura (mm)</label>
@@ -796,7 +811,7 @@
         if (isNaN(idx) || idx < 0 || idx >= tipos.length) return;
         const [tipoKey] = tipos[idx];
         modalState.itens_extras.push({
-          tipo: tipoKey, largura: '', altura: '', modelo: '', cor: '',
+          tipo: tipoKey, quantidade: 1, largura: '', altura: '', modelo: '', cor: '',
         });
         reRenderModal(container);
       });
@@ -1230,9 +1245,11 @@
           lead.porta_modelo = (m.porta_modelo || '').trim();
           lead.porta_cor = (m.porta_cor || '').trim();
           lead.porta_fechadura_digital = m.porta_fechadura_digital || '';
+          lead.porta_quantidade = Math.max(1, parseInt(m.porta_quantidade, 10) || 1);
           // Felipe sessao 12: itens extras (porta interna, revestimentos)
           lead.itens_extras = Array.isArray(m.itens_extras) ? m.itens_extras.map(it => ({
             tipo: String(it.tipo || ''),
+            quantidade: Math.max(1, parseInt(it.quantidade, 10) || 1),
             largura: String(it.largura || '').trim(),
             altura:  String(it.altura  || '').trim(),
             modelo:  String(it.modelo  || '').trim(),
