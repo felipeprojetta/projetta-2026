@@ -1812,12 +1812,17 @@
       const kpiAno = somarFechadosNoPeriodo(leadsFiltrados, state.kpiAno, null);
       const kpiMes = somarFechadosNoPeriodo(leadsFiltrados, state.kpiMesAno, state.kpiMes);
 
-      // Felipe: KPI "Em Aberto" — soma valor de leads em qualquer etapa
-      // EXCETO fechado e perdido. Usa ano civil (data do lead = l.data).
-      // Ano default = ano atual (compartilha estado com 'kpiAno' do filtro).
+      // Felipe sessao 12: KPI "Em Aberto" só conta leads que tem VALOR
+      // VISIVEL no card. Antes somava qualquer lead.valor != fechado/perdido,
+      // incluindo leads em 'qualificacao' e 'fazer-orcamento' que tem
+      // l.valor stale de versao deletada/etapa antiga (card NAO mostra,
+      // mas KPI somava — bug "valor 158k com cards zerados").
+      // Espelha a regra de escondeValor do card kanban (linha 1542):
+      // qualificacao/fazer-orcamento NAO contam.
       const ANO_EM_ABERTO = state.kpiAno;
+      const ETAPAS_SEM_VALOR_VISIVEL = ['qualificacao', 'fazer-orcamento', 'fechado', 'perdido'];
       const leadsEmAberto = leadsFiltrados.filter(l => {
-        if (l.etapa === 'fechado' || l.etapa === 'perdido') return false;
+        if (ETAPAS_SEM_VALOR_VISIVEL.includes(l.etapa)) return false;
         if (!l.data) return false;
         const ano = parseInt(String(l.data).slice(0, 4), 10);
         return ano === ANO_EM_ABERTO;
@@ -1867,7 +1872,7 @@
           </div>`,
         'em-aberto': `
           <div class="crm-kpi crm-kpi-em-aberto" data-kpi-id="em-aberto" draggable="true">
-            <div class="crm-kpi-lbl">Em Aberto <span class="crm-kpi-help" title="Soma de todos os leads em negociacao no ano civil escolhido (exclui fechados e perdidos)">?</span></div>
+            <div class="crm-kpi-lbl">Em Aberto <span class="crm-kpi-help" title="Soma do valor com desconto dos cards a partir de Orcamento Pronto. Qualificacao e Fazer Orcamento nao contam (card ainda nao mostra valor).">?</span></div>
             <div class="crm-kpi-val">R$ ${fmtBR(kpiEmAberto.total)}</div>
             <div class="crm-kpi-sub">
               <span class="crm-kpi-fixo">${state.kpiAno}</span>
