@@ -9524,7 +9524,7 @@ const Orcamento = (() => {
       const idxU = Math.max(d.lastIndexOf(' - '), d.lastIndexOf(' — '));
       if (idxU !== -1) {
         const r = tentarMatch(d.substring(idxU + 3).trim());
-        if (r) return r;
+        if (r && r.largura >= 800 && r.largura <= 3000 && r.altura >= 1500 && r.altura <= 15000) return r;
       }
       // Fallback com sanidade
       const re = /(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/gi;
@@ -10060,7 +10060,7 @@ const Orcamento = (() => {
       const idxU  = Math.max(idxTS, idxTE);
       if (idxU !== -1) {
         const r = tentarMatch(d.substring(idxU + 3).trim());
-        if (r) return r;
+        if (r && r.largura >= 800 && r.largura <= 3000 && r.altura >= 1500 && r.altura <= 15000) return r;
       }
       // 2. FALLBACK — global com sanidade (largura 800-3000, altura 1500-15000)
       const re = /(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/gi;

@@ -321,7 +321,8 @@ const Superficies = (() => {
     if (idxUltimoTraco !== -1) {
       const sufixo = d.substring(idxUltimoTraco + 3).trim();
       const r = tentarMatch(sufixo);
-      if (r) return r;
+      // Felipe (sessao 11): sanidade — "Kynar4300 X5" casa 4300x5, rejeita
+      if (r && r.largura >= 800 && r.largura <= 3000 && r.altura >= 1500 && r.altura <= 15000) return r;
     }
 
     // 2. FALLBACK — descricao sem traco (ex: "1250 x 5000", "ACM 1500x5000").
