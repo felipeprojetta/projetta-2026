@@ -294,11 +294,13 @@
 }
 .crm-orcdocs-btn-secundarios {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
   margin-top: 4px;
 }
 .crm-orcdocs-btn-secundarios button {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* Felipe (req 2,3 do CRM): bloco "produto" no card.
