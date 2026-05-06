@@ -5580,7 +5580,7 @@ const Orcamento = (() => {
           <div class="orc-field orc-f-pct">
             <label>Markup Desc</label>
             <input type="text" data-field="markup_desc" data-param="1" value="${escapeHtml(fmtBROrEmpty(params.markup_desc))}" />
-            <span class="orc-field-hint">sempre 20 % (fixo)</span>
+            <span class="orc-field-hint">auto: 20 − RT (${params.com_rt || 0}) = ${20 - (Number(params.com_rt) || 0)}%</span>
           </div>
           <div class="orc-field orc-f-pct">
             <label>Desconto</label>
@@ -5963,11 +5963,13 @@ const Orcamento = (() => {
             novosParams._com_rep_manual = true;
           }
 
-          // Felipe (sessao 2026-06) REMOVEU regra auto desconto.
-          // Felipe (sessao 09) RESTAUROU: desconto = 20 - com_rt.
-          // RT=5 → desconto=15. RT=0 → desconto=20.
+          // Felipe (sessao 09): RT muda markup E desconto juntos.
+          // RT=5 → markup=15, desconto=15 (lucro = exatamente lucro_alvo)
+          // RT=0 → markup=20, desconto=20 (lucro = exatamente lucro_alvo)
           if (field === 'com_rt') {
-            novosParams.desconto = 20 - (Number(novosParams.com_rt) || 0);
+            const rtVal = Number(novosParams.com_rt) || 0;
+            novosParams.markup_desc = 20 - rtVal;
+            novosParams.desconto = 20 - rtVal;
           }
           dadosUpdate.parametros = novosParams;
         }
