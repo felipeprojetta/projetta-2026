@@ -8869,7 +8869,15 @@ const Orcamento = (() => {
     // Felipe (sessao 2026-05): bind delegado pros botoes "Ver layout"
     // e tabs entre chapas. Como o HTML e' gerado como string, usamos
     // delegacao no container.
-    container.addEventListener('click', (e) => {
+    // Felipe sessao 12: GUARD anti-duplicacao. renderLevSuperficiesTab e'
+    // chamada em varios momentos (recalcular, navegar entre abas e voltar).
+    // Cada chamada estava adicionando OUTRO listener no mesmo container.
+    // Resultado: 2 listeners abrem+fecham (toggle 2x = invisivel), 3
+    // listeners abrem (3x toggle = visivel), 4 fecham. Bug "tem hora que
+    // abre, hora que nao". Agora flag persistente impede registro duplo.
+    if (!container._levSupListenersAdded) {
+      container._levSupListenersAdded = true;
+      container.addEventListener('click', (e) => {
       // Toggle do layout (botao "Ver layout de corte")
       const btnLayout = e.target.closest('[data-toggle-layout]');
       if (btnLayout) {
@@ -9466,6 +9474,7 @@ const Orcamento = (() => {
         alert('Erro ao salvar selecao: ' + err.message);
       }
     });
+    } // fim if(!_levSupListenersAdded) — Felipe sessao 12: guard anti-duplo
 
     // Felipe (sessao 2026-05): re-aplica chapas ja' selecionadas (caso
     // o usuario tenha selecionado antes e re-aberto a aba). Le da versao
