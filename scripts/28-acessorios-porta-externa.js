@@ -679,7 +679,12 @@ const AcessoriosPortaExterna = (() => {
             // Felipe sessao 2026-08-03: regras faltantes (Excel oficial)
             if (lblLow === 'fita acabamento menor')   return aplicarRegra('fita_acab_me',      compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
             if (lblLow === 'fita acabamento maior')   return aplicarRegra('fita_acab_ma',      compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
-            if (lblLow === 'fita acabamento largura') return aplicarRegra('fita_acab_largura', compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            if (lblLow === 'fita acabamento largura') {
+              // Felipe (sessao 09): comprimento = largura da porta + 100mm
+              // Antes usava alt (altura da peça = H portal) — ERRADO.
+              const compLarg = ((L + 100) * qtd * qtdPortas) / 1000;
+              return aplicarRegra('fita_acab_largura', compLarg, `${p.label} (L+100)=${L + 100}mm × ${qtd}un (${compLarg.toFixed(2)}m)`);
+            }
             // Cava: motor de chapas ja' gera qtd dobrada quando 2F ou cava dupla,
             // entao aqui aplicamos × 2 direto (Excel: 2 X POR FOLHA, ja' contemplado pelo qtd).
             if (lblLow === 'cava')                    return aplicarRegra('cava_porta',        compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
