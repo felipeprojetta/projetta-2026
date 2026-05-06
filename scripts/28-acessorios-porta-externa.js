@@ -430,6 +430,25 @@ const AcessoriosPortaExterna = (() => {
         'fixo_fita_acab_maior':    { fd19: 2, fd12: 0, ms: 1, cps: 0, tamanho: 'fixo_fita_dupla' },
         'fixo_fita_acab_menor':    { fd19: 0, fd12: 1, ms: 1, cps: 0, tamanho: 'fixo_fita_dupla' },
         'fixo_fita_acab_largura':  { fd19: 2, fd12: 0, ms: 1, cps: 0, tamanho: 'perimetro'       },
+
+        // Felipe sessao 2026-08-03: 4 regras faltantes pra porta_externa
+        // (Excel CALCULO_DE_FITA_DULPA_FACE.xlsx aba PORTA e PORTAL).
+        // Antes essas peças apareciam no Lev.Superficies mas eram ignoradas
+        // pelo motor de FD/Silicone — saiam zeradas no calculo.
+        //
+        // Excel:
+        //   fita acab ME:      0×FD19, 1×FD12, 1×Silicone (comprimento)
+        //   fita acab MA:      1×FD19, 0×FD12, 1×Silicone (comprimento)
+        //   fita acab Largura: 1×FD19, 0×FD12, 1×Silicone (comprimento)
+        //   Cava: 2×FD19, 0×FD12, 2× silicone (× 2 se cava dupla mod 9)
+        //         O motor de chapas (38-chapas-porta-externa.js) ja' gera
+        //         a peca 'Cava' com qtd dobrada quando 2F (ext=2,int=2=4)
+        //         e 'L da Cava' com qtd dobrada em cava dupla (ext=2,int=2=4).
+        //         Por isso aqui basta `× 2` que ja' contempla todos os casos.
+        'fita_acab_me':         { fd19: 0, fd12: 1, ms: 1, cps: 0, tamanho: 'comprimento' },
+        'fita_acab_ma':         { fd19: 1, fd12: 0, ms: 1, cps: 0, tamanho: 'comprimento' },
+        'fita_acab_largura':    { fd19: 1, fd12: 0, ms: 1, cps: 0, tamanho: 'comprimento' },
+        'cava_porta':           { fd19: 2, fd12: 0, ms: 2, cps: 0, tamanho: 'comprimento' },
       };
       const REGRAS = (window.Regras && typeof window.Regras.getFitaSilicone === 'function')
         ? window.Regras.getFitaSilicone()
@@ -611,6 +630,14 @@ const AcessoriosPortaExterna = (() => {
             if (lblLow === 'alisar altura')        return aplicarRegra('alisar_altura',  compM, `${p.label||'Alisar Altura'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
             if (lblLow === 'alisar largura')       return aplicarRegra('alisar_largura', compM, `${p.label||'Alisar Largura'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
             if (lblLow === 'tampa de furo')        return aplicarRegra(sis === 'PA007' ? 'tampa_furo_pa007' : 'tampa_furo_pa006', compM, `${p.label||'Tampa Furo'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            // Felipe sessao 2026-08-03: regras faltantes (Excel oficial)
+            if (lblLow === 'fita acabamento menor')   return aplicarRegra('fita_acab_me',      compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            if (lblLow === 'fita acabamento maior')   return aplicarRegra('fita_acab_ma',      compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            if (lblLow === 'fita acabamento largura') return aplicarRegra('fita_acab_largura', compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            // Cava: motor de chapas ja' gera qtd dobrada quando 2F ou cava dupla,
+            // entao aqui aplicamos × 2 direto (Excel: 2 X POR FOLHA, ja' contemplado pelo qtd).
+            if (lblLow === 'cava')                    return aplicarRegra('cava_porta',        compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            if (lblLow === 'l da cava')               return aplicarRegra('cava_porta',        compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
             if (lblLow.startsWith('tampa'))        return aplicarRegra('tampa_generica', perimM, `${p.label} ${lar}×${alt}mm × ${qtd}un (perim ${perimM.toFixed(2)}m)`);
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas:', e); }
