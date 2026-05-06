@@ -50,7 +50,6 @@ const App = (() => {
         { id: 'representantes', label: 'Representantes' },
         { id: 'mensagens',      label: 'Mensagens' },
         { id: 'usuarios',       label: 'Usuarios' },
-        { id: 'permissoes',     label: 'Permissoes' },
       ],
     },
     estoque: {
@@ -136,7 +135,7 @@ const App = (() => {
     if (def.tabs) {
       // Felipe sessao 2026-08-02: abas restritas a admin: Usuarios e Permissoes
       const tabsVisiveis = def.tabs.filter(t => {
-        if ((t.id === 'usuarios' || t.id === 'permissoes') && !Auth.isAdmin()) return false;
+        if (t.id === 'usuarios' && !Auth.isAdmin()) return false;
         return true;
       });
       // R15: aplica ordem persistida das abas (reordenaveis por drag).
@@ -250,7 +249,7 @@ const App = (() => {
     let readOnlyCad = false;
     if (ehCadastros && !isAdmin) {
       // Bloqueia abas restritas pra nao-admin (Usuarios, Permissoes)
-      if (tabId === 'usuarios' || tabId === 'permissoes') {
+      if (tabId === 'usuarios') {
         tabId = 'acessorios';
         state.currentTab = tabId;
       }
