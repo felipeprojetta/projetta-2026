@@ -222,6 +222,18 @@ const App = (() => {
   function renderModule(moduleId, tabId) {
     const container = $('#main-content');
 
+    // Felipe sessao 12: bug 'CONGELA ATE O CARD, NAO CONSIGO ENVIAR EMAIL NADA'.
+    // O #main-content e' container compartilhado entre TODOS os modulos. Quando
+    // o orcamento adiciona .is-orc-readonly (versao V1 aprovada/fechada), e' Felipe
+    // sai pro CRM ou Email, a classe GRUDA no container. CRM/Email renderizam
+    // dentro do mesmo container - herdam o readonly. Resultado: modal Editar Lead,
+    // botoes de email, etc todos cinza. Fix: ao entrar em qualquer modulo que NAO
+    // seja orcamento, garante que a classe esteja LIMPA. O proprio orcamento
+    // re-aplica conforme a versao em renderXxxTab (logica em scripts/12-orcamento.js).
+    if (moduleId !== 'orcamento') {
+      container.classList.remove('is-orc-readonly');
+    }
+
     // Felipe sessao 2026-08-02: controle de readonly em Cadastros
     // pra users nao-admin. ADM faz tudo, USER so' visualiza por padrao.
     // Permissoes granulares (cadastros:acessorios:editar etc) podem
