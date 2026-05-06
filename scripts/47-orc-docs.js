@@ -202,16 +202,87 @@
       `;
     }).join('');
 
+    // Felipe sessao 12: AGP editavel no modal "Abrir Orcamento". Antes
+    // o user precisava fechar e ir no card do CRM pra setar AGP.
+    var escHtml = window.escapeHtml || function(s){
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+        return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+      });
+    };
+    var leadParaAGP = null;
+    try {
+      var leadsAll = (Storage && Storage.scope && Storage.scope('crm').get('leads')) || [];
+      leadParaAGP = leadsAll.find(function(l){ return l && l.id === leadId; }) || null;
+    } catch(_){}
+    var agpAtual = leadParaAGP ? String(leadParaAGP.numeroAGP || '').trim() : '';
+    var clienteAtual = leadParaAGP ? String(leadParaAGP.cliente || '').trim() : '';
+
+    var headerAGP = `
+      <div style="
+        background:#f0f7ff; border:1px solid #c7ddf2; border-radius:6px;
+        padding:10px 12px; margin-bottom:14px; display:flex; align-items:center;
+        gap:10px; flex-wrap:wrap;">
+        <span style="font-size:11px; color:#6b7280; text-transform:uppercase;
+                     letter-spacing:0.5px; font-weight:700;">AGP</span>
+        <input type="text" id="orcdocs-agp-input"
+               value="${escHtml(agpAtual)}"
+               placeholder="Ex: AGP004647"
+               style="flex:1; min-width:140px; padding:6px 10px; border:1px solid #c7ddf2;
+                      border-radius:4px; font-size:13px; font-weight:600; color:#1f3658;
+                      background:#fff; letter-spacing:0.3px;" />
+        <button type="button" id="orcdocs-agp-save"
+                style="background:#1f3658; color:#fff; border:0;
+                       padding:6px 14px; border-radius:4px; font-size:12px;
+                       font-weight:600; cursor:pointer; letter-spacing:0.5px;">SALVAR</button>
+        ${clienteAtual ? `<span style="font-size:11px; color:#6b7280; margin-left:auto;">${escHtml(clienteAtual)}</span>` : ''}
+      </div>
+    `;
+
     abrirModal({
       id: 'orcdocs-modal-versoes',
       titulo: '📂 Abrir Orçamento — escolha uma versão',
       body: `
+        ${headerAGP}
         <p style="margin: 0 0 12px; font-size: 13px; color: #374151;">
           Clique numa versão pra carregar de volta na aba Orçamento.
         </p>
         ${linhas}
       `,
     });
+
+    // Felipe sessao 12: handler do botao SALVAR do AGP
+    var btnSaveAGP = document.getElementById('orcdocs-agp-save');
+    var inputAGP   = document.getElementById('orcdocs-agp-input');
+    if (btnSaveAGP && inputAGP) {
+      btnSaveAGP.addEventListener('click', function() {
+        try {
+          var novoAGP = String(inputAGP.value || '').trim();
+          var leads = Storage.scope('crm').get('leads') || [];
+          var alvo = leads.find(function(l){ return l && l.id === leadId; });
+          if (!alvo) { alert('Lead nao encontrado.'); return; }
+          alvo.numeroAGP = novoAGP;
+          Storage.scope('crm').set('leads', leads);
+          // Visual feedback
+          btnSaveAGP.textContent = '✓ SALVO';
+          btnSaveAGP.style.background = '#16a34a';
+          setTimeout(function() {
+            btnSaveAGP.textContent = 'SALVAR';
+            btnSaveAGP.style.background = '#1f3658';
+          }, 1500);
+          // Atualiza CRM em background
+          try {
+            if (typeof Events !== 'undefined') Events.emit('crm:reload');
+          } catch(_){}
+        } catch(e) {
+          console.error('[OrcDocs] erro ao salvar AGP:', e);
+          alert('Falha ao salvar AGP: ' + (e.message || e));
+        }
+      });
+      // Salva tambem ao apertar Enter no input
+      inputAGP.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); btnSaveAGP.click(); }
+      });
+    }
 
     document.querySelectorAll('#orcdocs-modal-versoes .orcdocs-versao-item').forEach(btn => {
       btn.addEventListener('click', () => {

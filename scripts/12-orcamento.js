@@ -1321,14 +1321,37 @@ const Orcamento = (() => {
           // Conta quantas versoes existem em TODAS as opcoes desse negocio
           const totalNoNegocio = (n.opcoes || [])
             .reduce((s, op) => s + ((op.versoes || []).length), 0);
-          if (totalNoNegocio <= 1) {
-            throw new Error('Nao pode deletar — precisa sobrar pelo menos 1 versao no negocio.');
-          }
+
+          // Felipe sessao 12: deletar a ULTIMA versao agora E permitido
+          // — cria uma versao nova zerada no lugar (reset) em vez de
+          // bloquear. Se quiser comecar do zero o usuario consegue.
           o.versoes.splice(idx, 1);
           achou = true;
-          // Se a versao deletada era a ativa, ativa outra
-          if (UI.versaoAtivaId === versaoId) {
-            // Pega a primeira versao disponivel em qualquer opcao
+
+          if (totalNoNegocio <= 1) {
+            // Era a ultima — cria versao vazia nova na mesma opcao
+            const novaVersao = {
+              id: uid('ver'),
+              numero: 1,
+              status: 'draft',
+              criadoEm: nowIso(),
+              criadoPor: userAtual(),
+              observacao: '',
+              itens: [],
+              precos_snapshot: snapshotPrecosAtual(),
+              subFab: 0,
+              subInst: 0,
+              custoFab:  Object.assign({}, FAB_DEFAULT,  { etapas: Object.assign({}, FAB_DEFAULT.etapas) }),
+              custoInst: Object.assign({}, INST_DEFAULT),
+              parametros: Object.assign({}, PARAMS_DEFAULT),
+              subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
+              total: 0,
+            };
+            o.versoes.push(novaVersao);
+            UI.versaoAtivaId = novaVersao.id;
+            UI.opcaoAtivaId  = o.id;
+          } else if (UI.versaoAtivaId === versaoId) {
+            // Versao deletada era a ativa, mas ainda ha outras — ativa outra
             for (const op of (n.opcoes || [])) {
               if (op.versoes && op.versoes.length) {
                 UI.versaoAtivaId = op.versoes[0].id;
