@@ -214,39 +214,7 @@ const Database = (() => {
         }
       }
 
-      // Felipe sessao 2026-08-02 V2: defesa por permissao granular
-      if (scope === 'cadastros' && typeof Auth !== 'undefined') {
-        var ehAdmin = Auth.isAdmin && Auth.isAdmin();
-        if (!ehAdmin) {
-          var SAFE_CADASTROS_KEYS = [
-            'acessorios_seeded', 'modelos_seeded', 'perfis_seeded',
-            'superficies_seeded', 'representantes_seeded', 'cores_seeded',
-          ];
-          var blocked = SAFE_CADASTROS_KEYS.indexOf(key) < 0;
-          if (blocked) {
-            // Checa override granular
-            var session = Auth.currentUser ? Auth.currentUser() : null;
-            if (session && typeof Permissoes !== 'undefined' && Permissoes.podeEditarChave) {
-              if (Permissoes.podeEditarChave(session.username, key)) blocked = false;
-            }
-          }
-          if (blocked) {
-            console.warn('[DB] ⛔ Escrita em cadastros bloqueada (sem permissao):', key);
-            try {
-              if (typeof window !== 'undefined' && window.alert && !window._permissaoAlertShown) {
-                window._permissaoAlertShown = true;
-                setTimeout(function() {
-                  window.alert('🔒 Acesso restrito.\n\n' +
-                    'Esta área é só do administrador. Você consegue visualizar mas não editar.\n\n' +
-                    'Se precisar alterar algo aqui, peça pro Felipe (ele pode liberar em Cadastros > Permissões).');
-                  window._permissaoAlertShown = false;
-                }, 100);
-              }
-            } catch(_) {}
-            return value;
-          }
-        }
-      }
+      // Permissão granular REMOVIDA — todos podem editar cadastros.
 
       localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(value));
       sbUpsert(scope, key, value);

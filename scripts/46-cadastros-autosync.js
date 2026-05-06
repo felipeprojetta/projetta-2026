@@ -214,7 +214,6 @@
       }
 
       console.log('[CadastrosAutosync] 🖼 Detectadas ' + totalBase64 + ' imagens base64 em modelos. Iniciando upload pro Storage...');
-      showToast('🖼 Migrando ' + totalBase64 + ' imagens locais para o Supabase Storage. Aguarde...', 'info');
 
       var migradas = 0;
       var falhas = 0;

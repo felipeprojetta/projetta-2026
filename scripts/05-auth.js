@@ -18,8 +18,6 @@ const Auth = (() => {
   function defaultUsers() {
     return [
       { username: 'felipe.projetta',   password: '12345', name: 'Felipe',   role: 'admin', fixed: true,  createdAt: 'Fixo' },
-      { username: 'thays.projetta',    password: '12345', name: 'Thays',    role: 'user',  fixed: false, createdAt: nowDateBR() },
-      { username: 'andressa.projetta', password: '12345', name: 'Andressa', role: 'user',  fixed: false, createdAt: nowDateBR() },
     ];
   }
 

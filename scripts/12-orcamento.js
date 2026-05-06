@@ -328,10 +328,10 @@ const Orcamento = (() => {
     portas.forEach(it => {
       const h = horasItemPortaExterna(it);
       horasAuto.portal         += h.portal;
-      horasAuto.quadro         += h.quadro;
+      horasAuto.folha_porta    += h.quadro;          // quadro → folha_porta (renomeado)
       horasAuto.corte_usinagem += h.corte_usinagem;
       horasAuto.colagem        += h.colagem;
-      horasAuto.conf_bem       += h.conf_bem;
+      horasAuto.conf_embalagem += h.conf_bem;        // conf_bem → conf_embalagem (renomeado)
       diasColagem = Math.max(diasColagem, h.colagem_dias || 0);
     });
 
@@ -1778,7 +1778,7 @@ const Orcamento = (() => {
     // Faz lookup em Storage('cadastros').superficies_lista procurando uma
     // superficie cuja descricao contenha o codigo/nome da cor importada.
     // Retorna a string que casa com as opcoes do select Revestimento:
-    //   'ACM 4mm' | 'HPL 4mm' | 'Aluminio Macico 2mm' | 'Vidro 6mm' | ''
+    //   'ACM 4mm' | 'HPL 4mm' | 'Aluminio Macico 2mm' | 'Vidro' | ''
     // Ex: cor='PRO0157T - PRETO WEATHERXL BB LDPE' cadastrada como
     // 'PRO0157T - PRETO WEATHERXL BB LDPE - ACM 4mm 1500x5000' (categoria
     // 'acm') -> retorna 'ACM 4mm'.
@@ -1814,7 +1814,7 @@ const Orcamento = (() => {
         if (cat === 'acm')              return 'ACM 4mm';
         if (cat === 'hpl')              return 'HPL 4mm';
         if (cat === 'aluminio_macico')  return 'Aluminio Macico 2mm';
-        if (cat === 'vidro')            return 'Vidro 6mm';  // default - user pode trocar pra 8mm
+        if (cat === 'vidro')            return 'Vidro';
         return '';
       } catch (e) {
         console.warn('[orcamento] _detectarRevestimentoPorCor falhou:', e);
@@ -2403,7 +2403,7 @@ const Orcamento = (() => {
         const cat = (rev === 'Aluminio Macico 2mm') ? 'aluminio_macico'
                   : (rev === 'ACM 4mm')             ? 'acm'
                   : (rev === 'HPL 4mm')             ? 'hpl'
-                  : (rev === 'Vidro 6mm' || rev === 'Vidro 8mm') ? 'vidro'
+                  : (rev === 'Vidro') ? 'vidro'
                   : null;
         if (cat) {
           const auto = window.Superficies?.categoriaAuto || (() => 'acm');
@@ -2427,7 +2427,7 @@ const Orcamento = (() => {
     }
     const coresFiltradas = filtrarCoresRev(item.revestimento);
 
-    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro 6mm', 'Vidro 8mm'];
+    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro'];
 
     function tagsLeadHtml() {
       if (!UI.leadAtivo) return '';
@@ -3007,7 +3007,7 @@ const Orcamento = (() => {
 
     const ehCava = /\bcava\b/i.test(nomeModelo);
     const ehFriso = /friso/i.test(nomeModelo);
-    const mostraCor = ['ACM 4mm', 'Aluminio Macico 2mm', 'HPL 4mm'].includes(item.revestimento);
+    const mostraCor = ['ACM 4mm', 'Aluminio Macico 2mm', 'HPL 4mm', 'Vidro'].includes(item.revestimento);
 
     // Filtra superficies por revestimento usando a categoria canonica
     // do cadastro (ACM/HPL/Vidro/Aluminio Macico). A funcao auto e' compartilhada.
@@ -3017,7 +3017,7 @@ const Orcamento = (() => {
         const cat = (rev === 'Aluminio Macico 2mm') ? 'aluminio_macico'
                   : (rev === 'ACM 4mm')             ? 'acm'
                   : (rev === 'HPL 4mm')             ? 'hpl'
-                  : (rev === 'Vidro 6mm' || rev === 'Vidro 8mm') ? 'vidro'
+                  : (rev === 'Vidro') ? 'vidro'
                   : null;
         if (cat) {
           const auto = window.Superficies?.categoriaAuto || (() => 'acm');
@@ -3072,7 +3072,7 @@ const Orcamento = (() => {
     ];
 
     // Revestimentos fixos
-    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro 6mm', 'Vidro 8mm'];
+    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro'];
 
     // Helpers de markup
     const opt = (v, sel, lbl) => `<option value="${escapeHtml(v)}" ${v === sel ? 'selected' : ''}>${escapeHtml(lbl != null ? lbl : v)}</option>`;
@@ -11616,6 +11616,7 @@ const Orcamento = (() => {
     const custoAcess     = Number(fab.total_acessorios)  || 0;
     const custoChapas    = Number(fab.total_revestimento)|| 0;
     const custoExtras    = Number(fab.total_extras)      || 0;
+    const custoFechDig   = Number(fab.total_fechadura_digital) || 0;
 
     // FIX 2026-05-04 (AGP004647): mao de obra vinha 0h porque as etapas
     // foram renomeadas (quadro->folha_porta, conf_bem->conf_embalagem) mas
@@ -11685,7 +11686,7 @@ const Orcamento = (() => {
               <tr><td>📏 Perfis de Aluminio</td><td class="num">${fmtMoney(custoPerfis)}</td></tr>
               ${custoPintura > 0 ? `<tr><td>🎨 Pintura dos Perfis</td><td class="num">${fmtMoney(custoPintura)}</td></tr>` : ''}
               <tr><td>🟫 Chapas / Revestimento</td><td class="num">${fmtMoney(custoChapas)}</td></tr>
-              <tr><td>🔩 Componentes (acessorios + fechaduras)</td><td class="num">${fmtMoney(custoAcess + custoExtras)}</td></tr>
+              <tr><td>🔩 Componentes (acessorios + fechaduras)</td><td class="num">${fmtMoney(custoAcess + custoExtras + custoFechDig)}</td></tr>
               <tr><td>👷 Mao de Obra (${(Math.round(totalHoras*10)/10).toLocaleString('pt-BR')}h × ${numOp} op. × ${fmtMoney(custoHora)}/h)</td><td class="num">${fmtMoney(custoMaoObra)}</td></tr>
               <tr><td>🚛 Instalacao</td><td class="num">${fmtMoney(subInstTotal)}</td></tr>
               <tr style="border-top: 2px solid var(--azul-escuro);"><td><span class="t-strong">Custo Total da Obra</span></td><td class="num"><span class="t-strong">${fmtMoney(custoTotalFab)}</span></td></tr>
