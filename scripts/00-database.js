@@ -217,6 +217,11 @@ const Database = (() => {
         if (!neg || !neg.id) return;
         var cloudInfo = cloudNegoMap[neg.id];
         if (!cloudInfo) return;
+        // Felipe sessao 12: TOMBSTONE - lista de IDs de versoes que o usuario
+        // DELETOU intencionalmente. Merge nao re-adiciona elas mesmo se
+        // ainda existem no cloud. Sem isso, deletarVersao falhava porque
+        // o cloud ainda tinha a versao e o merge re-injetava.
+        var deletadasLocal = new Set(Array.isArray(neg._versoesDeletadas) ? neg._versoesDeletadas : []);
         var localVerIds = new Set();
         (neg.opcoes || []).forEach(function(o) {
           (o.versoes || []).forEach(function(v) {
@@ -225,6 +230,7 @@ const Database = (() => {
         });
         Object.keys(cloudInfo.versoesMap).forEach(function(verId) {
           if (localVerIds.has(verId)) return;
+          if (deletadasLocal.has(verId)) return;  // pula versoes deletadas (tombstone)
           var info = cloudInfo.versoesMap[verId];
           // Acha opcao correspondente no local
           var opc = (neg.opcoes || []).find(function(o) { return o.id === info.opcaoId; });

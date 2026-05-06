@@ -1060,7 +1060,15 @@ const Orcamento = (() => {
       base = (opcao.versoes || []).slice(-1)[0];
     }
 
-    const proximoNumero = (opcao.versoes?.length || 0) + 1;
+    // Felipe sessao 12: ANTES era (length+1) — falhava quando cache stale
+    // tinha menos versoes que o cloud. Resultado: 2 versoes com numero=1.
+    // Agora pega MAIOR numero existente + 1 (independente do tamanho).
+    let _maiorNumExistente = 0;
+    (opcao.versoes || []).forEach(v => {
+      const n = Number(v.numero) || 0;
+      if (n > _maiorNumExistente) _maiorNumExistente = n;
+    });
+    const proximoNumero = _maiorNumExistente + 1;
 
     // Felipe (sessao 2026-05): se nao ha versao base, popular defaults
     // de Fab/Inst com os valores do cadastro de Precificacao. Mantem
@@ -1321,6 +1329,16 @@ const Orcamento = (() => {
           // Conta quantas versoes existem em TODAS as opcoes desse negocio
           const totalNoNegocio = (n.opcoes || [])
             .reduce((s, op) => s + ((op.versoes || []).length), 0);
+
+          // Felipe sessao 12: TOMBSTONE - marca id como deletado no negocio.
+          // Sem isso, o merge protetor de orcamentos/negocios re-injetava
+          // versoes "deletadas" porque ainda estavam no cloud (Felipe:
+          // 'APERTO PARA DELETAR E NAO ESTA DELETANDO'). Agora o merge
+          // respeita a lista _versoesDeletadas do negocio e nao re-adiciona.
+          n._versoesDeletadas = Array.isArray(n._versoesDeletadas) ? n._versoesDeletadas : [];
+          if (!n._versoesDeletadas.includes(versaoId)) {
+            n._versoesDeletadas.push(versaoId);
+          }
 
           // Felipe sessao 12: deletar a ULTIMA versao agora E permitido
           // — cria uma versao nova zerada no lugar (reset) em vez de
