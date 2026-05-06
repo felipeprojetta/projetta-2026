@@ -223,6 +223,7 @@
         'qualificacao': 'Qualificacao',
         'fazer-orcamento': 'Fazer Orcamento',
         'orcamento-pronto': 'Orcamento Pronto',
+        'orcamento-aprovado': 'Orcamento Aprovado',
         'orcamento-enviado': 'Orcamento Enviado',
         'negociacao': 'Negociacao',
         'fechado': 'Fechado',

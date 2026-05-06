@@ -3,7 +3,7 @@
    Persistencia: Storage.scope('crm'). CSS: prefixo .crm-*.
    Etapas do pipeline:
      qualificacao -> fazer-orcamento -> orcamento-pronto ->
-     orcamento-enviado -> negociacao -> fechado / perdido */
+     orcamento-aprovado -> orcamento-enviado -> negociacao -> fechado / perdido */
 
   /* ============================================================
      MODULO: CRM (Kanban + Lista)
@@ -13,7 +13,7 @@
 
      Etapas do pipeline (ordem importa pro Kanban):
        qualificacao → fazer-orcamento → orcamento-pronto →
-       orcamento-enviado → negociacao → fechado / perdido
+       orcamento-aprovado → orcamento-enviado → negociacao → fechado / perdido
 
      Persistencia: leads em projetta:crm:leads (localStorage).
      Drag-and-drop: HTML5 nativo (dragstart/dragover/drop).
@@ -52,13 +52,14 @@
     ];
 
     const ETAPAS = [
-      { id: 'qualificacao',      label: 'Qualificacao',      color: '#94A3B8' },
-      { id: 'fazer-orcamento',   label: 'Fazer Orcamento',   color: '#3B82F6' },
-      { id: 'orcamento-pronto',  label: 'Orcamento Pronto',  color: '#8B5CF6' },
-      { id: 'orcamento-enviado', label: 'Orcamento Enviado', color: '#F59E0B' },
-      { id: 'negociacao',        label: 'Negociacao',        color: '#EAB308' },
-      { id: 'fechado',           label: 'Fechado',           color: '#10B981' },
-      { id: 'perdido',           label: 'Perdido',           color: '#EF4444' },
+      { id: 'qualificacao',        label: 'Qualificacao',        color: '#94A3B8' },
+      { id: 'fazer-orcamento',     label: 'Fazer Orcamento',     color: '#3B82F6' },
+      { id: 'orcamento-pronto',    label: 'Orcamento Pronto',    color: '#8B5CF6' },
+      { id: 'orcamento-aprovado',  label: 'Orcamento Aprovado',  color: '#06B6D4' },
+      { id: 'orcamento-enviado',   label: 'Orcamento Enviado',   color: '#F59E0B' },
+      { id: 'negociacao',          label: 'Negociacao',           color: '#EAB308' },
+      { id: 'fechado',             label: 'Fechado',              color: '#10B981' },
+      { id: 'perdido',             label: 'Perdido',              color: '#EF4444' },
     ];
 
     // Cards de exemplo. Sera substituido por leads reais quando
@@ -422,7 +423,7 @@
                 // etapa for orcamento-pronto+, o valor real vem do DRE
                 // via botao "Aprovar Orcamento" (que empurra pro lead).
                 const editando = m.editandoId !== null;
-                const etapaPermiteValor = ['orcamento-pronto', 'orcamento-enviado', 'negociacao', 'fechado'].includes(m.etapa);
+                const etapaPermiteValor = ['orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'fechado'].includes(m.etapa);
                 const mostrarValor = editando && etapaPermiteValor;
                 return `
                 <div class="crm-form-row${mostrarValor ? '' : ' cols-1'}">
@@ -1396,7 +1397,7 @@
             ? (l.destinoPais ? `🌎 ${escapeHtml(l.destinoPais)}` : '🌎 Internacional')
             : '';
           // Botao "Montar Orcamento" so aparece a partir da etapa "Fazer Orcamento"
-          const etapasComBotao = ['fazer-orcamento', 'orcamento-pronto', 'orcamento-enviado', 'negociacao'];
+          const etapasComBotao = ['fazer-orcamento', 'orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao'];
           const mostraBtnOrc = etapasComBotao.includes(l.etapa);
           // Reserva: sempre que existir, em qualquer etapa
           const reservaLabel = l.numeroReserva
@@ -2449,12 +2450,12 @@
                 //   3. Atualiza visual do card e do botao
                 async function marcarOrcamentoEnviado(emailOrigemId) {
                   try {
-                    // 1. Move etapa do card. So' move se estava em 'orcamento-pronto'.
+                    // 1. Move etapa do card. So' move se estava em 'orcamento-pronto' ou 'orcamento-aprovado'.
                     //    Se ja' estava em 'orcamento-enviado' ou outro, mantem.
                     //    Re-busca o lead da fonte de verdade pra evitar 'cópias' antigas.
                     const negs = (typeof loadAll === 'function') ? loadAll() : null;
                     const leadAtual = state.leads.find(l => l.id === lead.id);
-                    if (leadAtual && leadAtual.etapa === 'orcamento-pronto') {
+                    if (leadAtual && ['orcamento-pronto', 'orcamento-aprovado'].includes(leadAtual.etapa)) {
                       leadAtual.etapa = 'orcamento-enviado';
                       save();
                       render(container);
@@ -2465,7 +2466,7 @@
                         await window._outlookSetCategories(
                           emailOrigemId,
                           ['Orcamento Enviado'],   // adiciona
-                          ['Orcamento Pronto']     // remove
+                          ['Orcamento Pronto', 'Orcamento Aprovado']     // remove
                         );
                       } catch(e) {
                         // Falha de tag nao bloqueia o sucesso do envio
