@@ -66,13 +66,68 @@ const Database = (() => {
   // o 1o request (sem vidros) pode chegar no Supabase DEPOIS do 2o (com
   // vidros), sobrescrevendo. Debounce garante que so' o ULTIMO valor e' enviado.
   var _sbUpsertTimers = {};
+
+  // Felipe sessao 12 (3a sobrescrita da Andressa): MERGE protetor pra
+  // auth/users. Antes de sobrescrever, busca versao cloud. Se cloud tem
+  // mais usuarios que local, faz uniao por username (cloud ganha em
+  // conflito de mesmo username — pq cloud e' fonte da verdade).
+  // Sem isso, navegador velho com [Felipe] sobrescrevia [Felipe,Andressa]
+  // do cloud. Acontece quando o usuario abre o sistema antes do sync
+  // inicial completar e algum failsafe chama store.set('users', users).
+  async function mergeProtegido_users(localValue) {
+    if (!Array.isArray(localValue)) return localValue;
+    try {
+      var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.auth&key=eq.users&select=valor';
+      var res = await fetch(url, { headers: sbHeaders(false) });
+      if (!res.ok) return localValue;
+      var rows = await res.json();
+      if (!Array.isArray(rows) || rows.length === 0) return localValue;
+      var cloudValue = rows[0].valor;
+      if (!Array.isArray(cloudValue)) return localValue;
+      // Merge: cloud + locais novos (locais que nao tem no cloud)
+      var byUsername = {};
+      cloudValue.forEach(function(u) {
+        if (u && u.username) byUsername[u.username] = u;
+      });
+      var adicionados = 0;
+      localValue.forEach(function(u) {
+        if (u && u.username && !byUsername[u.username]) {
+          byUsername[u.username] = u;
+          adicionados++;
+        }
+      });
+      var merged = Object.values(byUsername);
+      if (merged.length > localValue.length) {
+        console.warn('[DB] mergeProtegido_users: cloud tinha ' + cloudValue.length +
+                     ' usuarios, local ' + localValue.length + ' — uniao = ' +
+                     merged.length + ' (impedindo sobrescrita por cache stale)');
+      }
+      return merged;
+    } catch(e) {
+      console.warn('[DB] mergeProtegido_users falhou — enviando local:', e.message);
+      return localValue;
+    }
+  }
+
   function sbUpsert(scope, key, value) {
     // Se for array vazio, NAO sobrescreve o cloud
     if (Array.isArray(value) && value.length === 0) return;
     var timerKey = scope + '::' + key;
     if (_sbUpsertTimers[timerKey]) clearTimeout(_sbUpsertTimers[timerKey]);
-    _sbUpsertTimers[timerKey] = setTimeout(function() {
+    _sbUpsertTimers[timerKey] = setTimeout(async function() {
       delete _sbUpsertTimers[timerKey];
+
+      // Felipe sessao 12: protecao especial pra auth/users
+      var valorFinal = value;
+      if (scope === 'auth' && key === 'users') {
+        valorFinal = await mergeProtegido_users(value);
+        // Se merge retornou mais users que tinhamos local, atualizar
+        // localStorage tb pra manter consistencia.
+        if (Array.isArray(valorFinal) && Array.isArray(value) && valorFinal.length > value.length) {
+          try { localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(valorFinal)); } catch(_){}
+        }
+      }
+
       // Felipe sessao 12: Auth nao tem getUser() — tem currentUser() que
       // retorna {username, name, role, loggedAt}. Por isso updated_by
       // estava sempre vazio no Supabase. Agora extrai username da sessao.
@@ -87,7 +142,7 @@ const Database = (() => {
         body: JSON.stringify({
           scope: scope,
           key: key,
-          valor: value,
+          valor: valorFinal,
           updated_by: String(usuario),
         }),
         keepalive: true,
