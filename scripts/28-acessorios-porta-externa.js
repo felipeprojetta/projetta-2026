@@ -236,9 +236,12 @@ const AcessoriosPortaExterna = (() => {
     if (pinos === 16) addMaxPreco('PA-KESO16',  1, 'Fechaduras', 'fab');
     if (pinos === 24) addMaxPreco('PA-KESO24P', 1, 'Fechaduras', 'fab');
 
-    // 2. ROSETA — 2 unidades se tem fechadura
+    // 2. ROSETA — 2 unidades por folha (frente + verso de cada folha)
+    // Felipe sessao 12: porta 2 folhas precisa de 4 rosetas (2 por folha),
+    // antes vinha fixo em 2. Pivo ja e' * nFolhas, fecho unha ja e' 2.
     if (pinos > 0) {
-      addMaxPreco('PA-KESO ROS', 2, 'Fechaduras', 'fab', 'frente + verso');
+      addMaxPreco('PA-KESO ROS', 2 * nFolhas, 'Fechaduras', 'fab',
+        nFolhas === 2 ? '2 por folha · frente+verso' : 'frente + verso');
     }
 
     // 3. CILINDRO
