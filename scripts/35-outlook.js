@@ -627,7 +627,7 @@
         // Busca TODOS emails desta conversa
         var threadEmails = [];
         if(convId){
-          var resp = await _graphCall("/me/messages?$filter=conversationId eq '"+convId+"'&$orderby=receivedDateTime desc&$top=30&$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments,conversationId,categories");
+          var resp = await _graphCall("/me/messages?$filter=conversationId eq '"+convId+"'&$top=30&$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments,conversationId,categories");
           threadEmails = (resp && resp.value) || [];
         }
         if(!threadEmails.length){
