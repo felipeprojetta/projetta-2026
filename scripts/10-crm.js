@@ -235,6 +235,9 @@
         valor: '', etapa: 'qualificacao',
         destinoTipo: 'nacional',
         destinoPais: '',
+        porta_largura: '', porta_altura: '', porta_modelo: '', porta_cor: '',
+        porta_fechadura_digital: '',
+        itens_extras: [],  // Felipe sessao 12
       });
     }
     function preencherModalComLead(lead) {
@@ -264,7 +267,80 @@
         porta_modelo: lead.porta_modelo || '',
         porta_cor: lead.porta_cor || '',
         porta_fechadura_digital: lead.porta_fechadura_digital || '',
+        // Felipe sessao 12: lead vira lista de itens. Item 1 e' a porta
+        // (mantido nos campos porta_* pra retrocompat), itens_extras
+        // sao porta_interna / rev_acoplado_porta / rev_parede / porta_externa.
+        itens_extras: Array.isArray(lead.itens_extras) ? JSON.parse(JSON.stringify(lead.itens_extras)) : [],
       });
+    }
+
+    // Felipe sessao 12: tipos de item permitidos no card. Felipe pediu 4
+    // opcoes ao adicionar item: porta externa, porta interna, revestimento
+    // acoplado a porta, revestimento de parede.
+    const TIPOS_ITEM = {
+      'porta_externa':       { label: 'Porta Externa',         icone: '🚪', tem_modelo: true,  tem_fechadura: true  },
+      'porta_interna':       { label: 'Porta Interna',         icone: '🚪', tem_modelo: true,  tem_fechadura: false },
+      'rev_acoplado_porta':  { label: 'Revestimento Acoplado', icone: '▭',  tem_modelo: false, tem_fechadura: false },
+      'rev_parede':          { label: 'Revestimento de Parede',icone: '▭',  tem_modelo: false, tem_fechadura: false },
+    };
+
+    // Renderiza um item EXTRA (item 2 em diante). Item 1 e' a porta principal
+    // que continua nos campos porta_* pra retrocompat. idx aqui e' o numero
+    // visivel (Item 2, Item 3...).
+    function renderItemExtra(it, idx) {
+      const tipoCfg = TIPOS_ITEM[it.tipo] || TIPOS_ITEM['porta_externa'];
+      const dataIdx = idx - 1; // posicao real no array itens_extras (0-based)
+      // Datalist de cores reaproveita o crm-cores-porta-list ja renderizado no Item 1
+      const modelosOptionsHtml = (() => {
+        if (!tipoCfg.tem_modelo) return '';
+        try {
+          const modelos = Storage.scope('cadastros').get('modelos_lista') || [];
+          return modelos.slice().sort((a, b) => (a.numero || 0) - (b.numero || 0))
+            .map(mod => {
+              const num = String(mod.numero || '').padStart(2, '0');
+              const label = 'Modelo ' + num + (mod.nome ? ' - ' + mod.nome : '');
+              const sel = (it.modelo == num || it.modelo == mod.numero) ? 'selected' : '';
+              return '<option value="' + num + '" ' + sel + '>' + escapeHtml(label) + '</option>';
+            }).join('');
+        } catch(_) { return ''; }
+      })();
+      const lwh = (it.largura && it.altura) ? (escapeHtml(it.largura) + '×' + escapeHtml(it.altura) + ' mm') : 'sem medidas';
+      return `
+        <div class="crm-item-card" data-item-extra-idx="${dataIdx}" style="margin-top:12px;padding-top:12px;border-top:1px dashed #cbd5e1">
+          <div class="crm-item-header" data-action="toggle-item-extra" data-item-idx="${dataIdx}" style="cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:#1a5276;margin-bottom:10px;user-select:none">
+            <span class="crm-item-toggle" style="display:inline-block;width:14px;text-align:center;transition:transform 150ms">▼</span>
+            <span>${tipoCfg.icone} Item ${idx + 1} — ${escapeHtml(tipoCfg.label)}</span>
+            <span style="margin-left:auto;font-weight:400;font-size:12px;color:#64748b">${lwh}</span>
+            <button type="button" class="crm-item-remove" data-action="remove-item-extra" data-item-idx="${dataIdx}" title="Remover item" style="background:transparent;border:0;color:#ef4444;cursor:pointer;font-size:16px;padding:0 4px">✕</button>
+          </div>
+          <div class="crm-item-body">
+            <div class="crm-form-row">
+              <div class="crm-field" style="width:100%"><label>Largura (mm)</label>
+                <input type="text" data-extra-idx="${dataIdx}" data-extra-field="largura" value="${escapeHtml(it.largura || '')}" />
+              </div>
+            </div>
+            <div class="crm-form-row">
+              <div class="crm-field" style="width:100%"><label>Altura (mm)</label>
+                <input type="text" data-extra-idx="${dataIdx}" data-extra-field="altura" value="${escapeHtml(it.altura || '')}" />
+              </div>
+            </div>
+            ${tipoCfg.tem_modelo ? `
+            <div class="crm-form-row">
+              <div class="crm-field" style="width:100%"><label>Modelo</label>
+                <select data-extra-idx="${dataIdx}" data-extra-field="modelo" style="width:100%">
+                  <option value="" ${!it.modelo ? 'selected' : ''}>—</option>
+                  ${modelosOptionsHtml}
+                </select>
+              </div>
+            </div>` : ''}
+            <div class="crm-form-row">
+              <div class="crm-field" style="width:100%"><label>Cor</label>
+                <input type="text" data-extra-idx="${dataIdx}" data-extra-field="cor" list="crm-cores-porta-list" value="${escapeHtml(it.cor || '')}" placeholder="Digite ou escolha uma cor" style="width:100%" />
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
     }
 
     function renderModal() {
@@ -471,98 +547,115 @@
               </div>
               ` : ''}
               <div style="border-top:2px solid #1a5276;margin-top:16px;padding-top:14px">
-                <div style="font-weight:700;font-size:14px;color:#1a5276;margin-bottom:10px">🚪 Dados da Porta</div>
-                <div class="crm-form-row">
-                  <div class="crm-field" style="width:100%">
-                    <label>Largura (mm)</label>
-                    <input type="text" data-field="porta_largura" value="${escapeHtml(m.porta_largura || '')}" placeholder="" />
+                <!-- Felipe sessao 12: 'Dados da Porta' virou 'Item 1 - Porta Externa'
+                     com header colapsavel. Botao + Adicionar Item embaixo permite
+                     novos itens (Porta Externa, Porta Interna, Rev. Acoplado, Rev. Parede). -->
+                <div class="crm-item-card" data-item-idx="0">
+                  <div class="crm-item-header" data-action="toggle-item" data-item-idx="0" style="cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:#1a5276;margin-bottom:10px;user-select:none">
+                    <span class="crm-item-toggle" style="display:inline-block;width:14px;text-align:center;transition:transform 150ms">▼</span>
+                    <span>📦 Item 1 — Porta Externa</span>
+                    <span style="margin-left:auto;font-weight:400;font-size:12px;color:#64748b">${m.porta_largura && m.porta_altura ? escapeHtml(m.porta_largura) + '×' + escapeHtml(m.porta_altura) + ' mm' : 'sem medidas'}</span>
+                  </div>
+                  <div class="crm-item-body">
+                    <div class="crm-form-row">
+                      <div class="crm-field" style="width:100%">
+                        <label>Largura (mm)</label>
+                        <input type="text" data-field="porta_largura" value="${escapeHtml(m.porta_largura || '')}" placeholder="" />
+                      </div>
+                    </div>
+                    <div class="crm-form-row">
+                      <div class="crm-field" style="width:100%">
+                        <label>Altura (mm)</label>
+                        <input type="text" data-field="porta_altura" value="${escapeHtml(m.porta_altura || '')}" placeholder="" />
+                      </div>
+                    </div>
+                    <div class="crm-form-row">
+                      <div class="crm-field" style="width:100%">
+                        <label>Modelo</label>
+                        <select data-field="porta_modelo" style="width:100%">
+                          <option value="" ${!m.porta_modelo ? 'selected' : ''}>—</option>
+                          ${(() => {
+                            try {
+                              const cadStore = Storage.scope('cadastros');
+                              const modelos = cadStore.get('modelos_lista') || [];
+                              return modelos
+                                .slice()
+                                .sort((a, b) => (a.numero || 0) - (b.numero || 0))
+                                .map(mod => {
+                                  const num = String(mod.numero || '').padStart(2, '0');
+                                  const label = 'Modelo ' + num + (mod.nome ? ' - ' + mod.nome : '');
+                                  const sel = (m.porta_modelo == num || m.porta_modelo == mod.numero) ? 'selected' : '';
+                                  return '<option value="' + num + '" ' + sel + '>' + escapeHtml(label) + '</option>';
+                                })
+                                .join('');
+                            } catch(_) { return ''; }
+                          })()}
+                        </select>
+                      </div>
+                    </div>
+                    <div class="crm-form-row">
+                      <div class="crm-field" style="width:100%">
+                        <label>Cor</label>
+                        <input type="text" data-field="porta_cor" list="crm-cores-porta-list" value="${escapeHtml(m.porta_cor || '')}" placeholder="Digite ou escolha uma cor" style="width:100%" />
+                        <datalist id="crm-cores-porta-list">
+                          ${(() => {
+                            try {
+                              const cadStore = Storage.scope('cadastros');
+                              const superficies = cadStore.get('superficies_lista') || [];
+                              const vistas = new Set();
+                              const opts = [];
+                              superficies.forEach(s => {
+                                const desc = String(s.descricao || '').trim();
+                                if (!desc) return;
+                                const limpo = desc.replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, '').trim();
+                                if (!limpo) return;
+                                const k = limpo.toUpperCase();
+                                if (vistas.has(k)) return;
+                                vistas.add(k);
+                                opts.push('<option value="' + escapeHtml(limpo) + '">');
+                              });
+                              return opts.join('');
+                            } catch(_) { return ''; }
+                          })()}
+                        </datalist>
+                      </div>
+                    </div>
+                    <div class="crm-form-row">
+                      <div class="crm-field" style="width:100%">
+                        <label>Fechadura Digital</label>
+                        <select data-field="porta_fechadura_digital" style="width:100%">
+                          <option value="" ${!m.porta_fechadura_digital ? 'selected' : ''}>—</option>
+                          <option value="nao" ${m.porta_fechadura_digital === 'nao' ? 'selected' : ''}>Nao se aplica</option>
+                          ${(() => {
+                            try {
+                              const cadStore = Storage.scope('cadastros');
+                              const acessorios = cadStore.get('acessorios_lista') || [];
+                              return acessorios
+                                .filter(a => (a.familia || '') === 'Fechadura Digital')
+                                .sort((a, b) => (a.descricao || '').localeCompare(b.descricao || ''))
+                                .map(a => {
+                                  const cod = a.codigo || '';
+                                  const desc = a.descricao || cod;
+                                  const sel = m.porta_fechadura_digital === cod ? 'selected' : '';
+                                  return '<option value="' + escapeHtml(cod) + '" ' + sel + '>' + escapeHtml(desc) + '</option>';
+                                })
+                                .join('');
+                            } catch(_) { return ''; }
+                          })()}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div class="crm-form-row">
-                  <div class="crm-field" style="width:100%">
-                    <label>Altura (mm)</label>
-                    <input type="text" data-field="porta_altura" value="${escapeHtml(m.porta_altura || '')}" placeholder="" />
-                  </div>
-                </div>
-                <div class="crm-form-row">
-                  <div class="crm-field" style="width:100%">
-                    <label>Modelo</label>
-                    <select data-field="porta_modelo" style="width:100%">
-                      <option value="" ${!m.porta_modelo ? 'selected' : ''}>—</option>
-                      ${(() => {
-                        try {
-                          const cadStore = Storage.scope('cadastros');
-                          const modelos = cadStore.get('modelos_lista') || [];
-                          return modelos
-                            .slice()
-                            .sort((a, b) => (a.numero || 0) - (b.numero || 0))
-                            .map(mod => {
-                              const num = String(mod.numero || '').padStart(2, '0');
-                              const label = 'Modelo ' + num + (mod.nome ? ' - ' + mod.nome : '');
-                              const sel = (m.porta_modelo == num || m.porta_modelo == mod.numero) ? 'selected' : '';
-                              return '<option value="' + num + '" ' + sel + '>' + escapeHtml(label) + '</option>';
-                            })
-                            .join('');
-                        } catch(_) { return ''; }
-                      })()}
-                    </select>
-                  </div>
-                </div>
-                <div class="crm-form-row">
-                  <div class="crm-field" style="width:100%">
-                    <label>Cor</label>
-                    <input type="text" data-field="porta_cor" list="crm-cores-porta-list" value="${escapeHtml(m.porta_cor || '')}" placeholder="Digite ou escolha uma cor" style="width:100%" />
-                    <datalist id="crm-cores-porta-list">
-                      ${(() => {
-                        try {
-                          const cadStore = Storage.scope('cadastros');
-                          const superficies = cadStore.get('superficies_lista') || [];
-                          // Felipe sessao 2026-05: deduplica pelo NOME CURTO
-                          // (sem o sufixo " - 1500 X 5000", "1500 X 6000" etc)
-                          // pra mostrar so cor uma vez. O cadastro tem 4 entradas
-                          // por cor (uma pra cada altura de chapa).
-                          const vistas = new Set();
-                          const opts = [];
-                          superficies.forEach(s => {
-                            const desc = String(s.descricao || '').trim();
-                            if (!desc) return;
-                            const limpo = desc.replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, '').trim();
-                            if (!limpo) return;
-                            const k = limpo.toUpperCase();
-                            if (vistas.has(k)) return;
-                            vistas.add(k);
-                            opts.push('<option value="' + escapeHtml(limpo) + '">');
-                          });
-                          return opts.join('');
-                        } catch(_) { return ''; }
-                      })()}
-                    </datalist>
-                  </div>
-                </div>
-                <div class="crm-form-row">
-                  <div class="crm-field" style="width:100%">
-                    <label>Fechadura Digital</label>
-                    <select data-field="porta_fechadura_digital" style="width:100%">
-                      <option value="" ${!m.porta_fechadura_digital ? 'selected' : ''}>—</option>
-                      <option value="nao" ${m.porta_fechadura_digital === 'nao' ? 'selected' : ''}>Nao se aplica</option>
-                      ${(() => {
-                        try {
-                          const cadStore = Storage.scope('cadastros');
-                          const acessorios = cadStore.get('acessorios_lista') || [];
-                          return acessorios
-                            .filter(a => (a.familia || '') === 'Fechadura Digital')
-                            .sort((a, b) => (a.descricao || '').localeCompare(b.descricao || ''))
-                            .map(a => {
-                              const cod = a.codigo || '';
-                              const desc = a.descricao || cod;
-                              const sel = m.porta_fechadura_digital === cod ? 'selected' : '';
-                              return '<option value="' + escapeHtml(cod) + '" ' + sel + '>' + escapeHtml(desc) + '</option>';
-                            })
-                            .join('');
-                        } catch(_) { return ''; }
-                      })()}
-                    </select>
-                  </div>
+
+                <!-- Itens extras (porta interna, revestimento, etc) -->
+                ${(m.itens_extras || []).map((it, i) => renderItemExtra(it, i + 1)).join('')}
+
+                <!-- Botao Adicionar -->
+                <div style="margin-top:14px;padding-top:14px;border-top:1px dashed #cbd5e1">
+                  <button type="button" id="crm-btn-add-item" style="background:#fff;border:2px dashed #94a3b8;color:#475569;padding:12px 20px;border-radius:8px;width:100%;cursor:pointer;font-size:14px;font-weight:600;transition:all 150ms" onmouseover="this.style.borderColor='#1a5276';this.style.color='#1a5276'" onmouseout="this.style.borderColor='#94a3b8';this.style.color='#475569'">
+                    + Adicionar Item
+                  </button>
                 </div>
               </div>
             </div>
@@ -631,6 +724,78 @@
       container.querySelectorAll('.crm-modal [data-field]').forEach(el => {
         const evt = el.tagName === 'SELECT' ? 'change' : 'input';
         el.addEventListener(evt, (e) => { modalState[el.dataset.field] = e.target.value; });
+      });
+
+      // Felipe sessao 12: handlers de itens dinamicos
+      // Toggle do Item 1 (porta principal)
+      container.querySelectorAll('.crm-modal [data-action="toggle-item"]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          const card = el.closest('.crm-item-card');
+          const body = card?.querySelector('.crm-item-body');
+          const toggle = el.querySelector('.crm-item-toggle');
+          if (!body) return;
+          const aberto = body.style.display !== 'none';
+          body.style.display = aberto ? 'none' : '';
+          if (toggle) toggle.style.transform = aberto ? 'rotate(-90deg)' : '';
+        });
+      });
+      // Toggle dos itens extras
+      container.querySelectorAll('.crm-modal [data-action="toggle-item-extra"]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          // Nao abre/fecha se clicou no botao remover
+          if (e.target.closest('[data-action="remove-item-extra"]')) return;
+          const card = el.closest('.crm-item-card');
+          const body = card?.querySelector('.crm-item-body');
+          const toggle = el.querySelector('.crm-item-toggle');
+          if (!body) return;
+          const aberto = body.style.display !== 'none';
+          body.style.display = aberto ? 'none' : '';
+          if (toggle) toggle.style.transform = aberto ? 'rotate(-90deg)' : '';
+        });
+      });
+      // Edicao de campos dos itens extras
+      container.querySelectorAll('.crm-modal [data-extra-idx][data-extra-field]').forEach(el => {
+        const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(evt, (e) => {
+          const idx = Number(el.dataset.extraIdx);
+          const field = el.dataset.extraField;
+          if (!modalState.itens_extras[idx]) return;
+          modalState.itens_extras[idx][field] = e.target.value;
+          // Atualiza dimensoes no header sem re-render completo
+          if (field === 'largura' || field === 'altura') {
+            const card = el.closest('.crm-item-card');
+            const headerDims = card?.querySelector('.crm-item-header > span:nth-of-type(3)');
+            const it = modalState.itens_extras[idx];
+            if (headerDims) {
+              headerDims.textContent = (it.largura && it.altura) ? (it.largura + '×' + it.altura + ' mm') : 'sem medidas';
+            }
+          }
+        });
+      });
+      // Remover item extra
+      container.querySelectorAll('.crm-modal [data-action="remove-item-extra"]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = Number(el.dataset.itemIdx);
+          if (isNaN(idx) || !modalState.itens_extras[idx]) return;
+          if (!confirm('Remover este item?')) return;
+          modalState.itens_extras.splice(idx, 1);
+          reRenderModal(container);
+        });
+      });
+      // Adicionar item: pergunta tipo
+      container.querySelector('#crm-btn-add-item')?.addEventListener('click', () => {
+        const tipos = Object.entries(TIPOS_ITEM);
+        const lista = tipos.map(([k, v], i) => (i+1) + '. ' + v.icone + ' ' + v.label).join('\n');
+        const escolha = prompt('Qual tipo de item?\n\n' + lista + '\n\nDigite o numero (1-' + tipos.length + '):');
+        if (escolha === null) return;
+        const idx = parseInt(escolha, 10) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= tipos.length) return;
+        const [tipoKey] = tipos[idx];
+        modalState.itens_extras.push({
+          tipo: tipoKey, largura: '', altura: '', modelo: '', cor: '',
+        });
+        reRenderModal(container);
       });
 
       // Quando o user muda o Follow Up: busca o representante e preenche
@@ -1041,6 +1206,14 @@
           lead.porta_modelo = (m.porta_modelo || '').trim();
           lead.porta_cor = (m.porta_cor || '').trim();
           lead.porta_fechadura_digital = m.porta_fechadura_digital || '';
+          // Felipe sessao 12: itens extras (porta interna, revestimentos)
+          lead.itens_extras = Array.isArray(m.itens_extras) ? m.itens_extras.map(it => ({
+            tipo: String(it.tipo || ''),
+            largura: String(it.largura || '').trim(),
+            altura:  String(it.altura  || '').trim(),
+            modelo:  String(it.modelo  || '').trim(),
+            cor:     String(it.cor     || '').trim(),
+          })) : [];
           // data NAO eh atualizada — fica como criacao
 
           // Felipe (req 1 do CRM): mudanca de etapa via modal precisa do
