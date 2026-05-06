@@ -360,6 +360,9 @@ const Database = (() => {
         var changed = false;
         var chavesAlteradas = [];
         rows.forEach(function(r) {
+          // Felipe (sessao 09): NUNCA sincronizar auth/session via realtime
+          if (r.scope === 'auth') return;
+          if (r.key === 'session' || r.key === 'users' || r.key === 'session_user') return;
           var lsKey = PREFIX + r.scope + ':' + r.key;
           var localRaw = localStorage.getItem(lsKey);
           var remoteVal = JSON.stringify(r.valor);
