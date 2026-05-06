@@ -5448,29 +5448,44 @@ const Orcamento = (() => {
     }
 
     // Auto-aplica comissao do representante se campo nao editado.
-    // Felipe sessao 2026-08: antes so aplicava quando com_rep era
-    // undefined/null - mas como criarVersao copia PARAMS_DEFAULT, com_rep
-    // ja vinha 7% e a auto-aplicacao nao disparava (Felipe via 7% no MDG
-    // que tem 6%). Agora aplica TAMBEM quando esta no valor default
-    // (7%) E user nunca editou manualmente (flag _com_rep_manual).
+    // Felipe sessao 12: filosofia last-write-wins do cadastro. Antes era
+    // restrito a (default OR vazio), o que travava casos onde o rep mudou
+    // e o com_rep ja tinha valor != default. Agora SEMPRE aplica quando o
+    // user nao editou manualmente, independente do valor atual.
     if (repInfoDre && repInfoDre.comissaoMaximaPct > 0) {
       const paramsSalvos = versao.parametros || {};
       const editouManual = !!paramsSalvos._com_rep_manual;
       const valorAtual   = paramsSalvos.com_rep;
-      const ehDefaultOuVazio = (
-        valorAtual === undefined ||
-        valorAtual === null ||
-        Number(valorAtual) === Number(PARAMS_DEFAULT.com_rep)
-      );
       const precisaAtualizar = (
         !editouManual &&
-        ehDefaultOuVazio &&
         Number(valorAtual) !== Number(repInfoDre.comissaoMaximaPct)
       );
       if (precisaAtualizar) {
         params.com_rep = repInfoDre.comissaoMaximaPct;
         atualizarVersao(versao.id, { parametros: Object.assign({}, paramsSalvos, { com_rep: repInfoDre.comissaoMaximaPct }) });
       }
+    }
+
+    // Felipe sessao 12: auto-deriva markup_desc e desconto a partir de
+    // com_rt no render (regra: 20 - com_rt). Antes so disparava no handler
+    // de edicao do com_rt - se o orcamento ja vinha com defaults
+    // dessincronizados (com_rt=5, markup=20, desconto=20), nunca corrigia.
+    // Respeita override manual via flags _markup_desc_manual / _desconto_manual.
+    {
+      const paramsSalvos = versao.parametros || {};
+      const rtVal = Number(params.com_rt) || 0;
+      const auto = 20 - rtVal;
+      const editouMarkup   = !!paramsSalvos._markup_desc_manual;
+      const editouDesconto = !!paramsSalvos._desconto_manual;
+      const updates = Object.assign({}, paramsSalvos);
+      let mudou = false;
+      if (!editouMarkup && Number(params.markup_desc) !== auto) {
+        params.markup_desc = auto; updates.markup_desc = auto; mudou = true;
+      }
+      if (!editouDesconto && Number(params.desconto) !== auto) {
+        params.desconto = auto; updates.desconto = auto; mudou = true;
+      }
+      if (mudou) atualizarVersao(versao.id, { parametros: updates });
     }
 
     const r = calcularDRE(subFab, subInst, params);
@@ -5953,14 +5968,26 @@ const Orcamento = (() => {
           if (field === 'com_rep') {
             novosParams._com_rep_manual = true;
           }
+          // Felipe sessao 12: mesma logica pra markup_desc e desconto -
+          // edicao manual desliga a auto-derivacao (20 - com_rt).
+          if (field === 'markup_desc') {
+            novosParams._markup_desc_manual = true;
+          }
+          if (field === 'desconto') {
+            novosParams._desconto_manual = true;
+          }
 
           // Felipe (sessao 09): RT muda markup E desconto juntos.
           // RT=5 → markup=15, desconto=15 (lucro = exatamente lucro_alvo)
           // RT=0 → markup=20, desconto=20 (lucro = exatamente lucro_alvo)
+          // Felipe sessao 12: editar com_rt LIMPA flags manual de markup/
+          // desconto - intencao do user e' resetar esses dois pra auto.
           if (field === 'com_rt') {
             const rtVal = Number(novosParams.com_rt) || 0;
             novosParams.markup_desc = 20 - rtVal;
             novosParams.desconto = 20 - rtVal;
+            delete novosParams._markup_desc_manual;
+            delete novosParams._desconto_manual;
           }
           dadosUpdate.parametros = novosParams;
         }
