@@ -204,18 +204,31 @@ const Superficies = (() => {
       store.set('reparse_dimensoes_v3', true);
     }
 
-    // Felipe 2026-05-07: migração vidros — se não tem nenhum vidro na lista, adiciona do seed
-    if (!store.get('vidros_seed_v1')) {
-      const temVidro = state.superficies.some(s => (s.categoria || categoriaAuto(s.descricao)) === 'vidro');
-      if (!temVidro) {
-        const vidrosSeed = SEED_SUPERFICIES.filter(s => s.categoria === 'vidro').map(normalize);
-        if (vidrosSeed.length > 0) {
-          state.superficies = state.superficies.concat(vidrosSeed);
+    // Felipe sessao 12 (fix definitivo do bug cronico): vidros sumiam
+    // periodicamente porque a flag 'vidros_seed_v1' bloqueava re-injecao
+    // mesmo quando a lista chegava vazia (ex: cliente A salva 249 sem
+    // vidros sobrescrevendo cliente B que tinha 259 — last-write-wins).
+    //
+    // SOLUCAO: nao usar flag. SEMPRE checar se algum vidro do seed esta
+    // faltando e adicionar SO os que faltam (merge por descricao). Idempotente.
+    {
+      const vidrosSeed = SEED_SUPERFICIES.filter(s => s.categoria === 'vidro').map(normalize);
+      if (vidrosSeed.length > 0) {
+        const normDesc = (s) => String(s || '').toUpperCase().replace(/\s+/g, ' ').trim();
+        const existentes = new Set(
+          state.superficies
+            .filter(s => (s.categoria || categoriaAuto(s.descricao)) === 'vidro')
+            .map(s => normDesc(s.descricao))
+        );
+        const faltantes = vidrosSeed.filter(v => !existentes.has(normDesc(v.descricao)));
+        if (faltantes.length > 0) {
+          state.superficies = state.superficies.concat(faltantes);
           store.set('superficies_lista', state.superficies);
-          console.log('[Superficies] Migracao vidros_seed_v1: ' + vidrosSeed.length + ' vidros adicionados');
+          console.log('[Superficies] Vidros restaurados: ' + faltantes.length + ' (causa: last-write-wins entre clientes)');
         }
       }
-      store.set('vidros_seed_v1', true);
+      // Mantem flag por compat, mas a logica acima nao depende mais dela.
+      if (!store.get('vidros_seed_v1')) store.set('vidros_seed_v1', true);
     }
     state.superficies.sort((a, b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
     loaded = true;
