@@ -882,11 +882,13 @@ const AcessoriosPortaExterna = (() => {
     if (H > 0) {
       const espuma = H > 4000 ? 2 : 1;
       add('PA-ESPUMA EXP GUN', espuma, 'Selantes', 'obra', `H ${H > 4000 ? '>' : '≤'} 4000mm`);
-      let hightack;
-      if (H <= 3000)      hightack = 2;
-      else if (H <= 5000) hightack = 3;
-      else                hightack = 4;
-      add('PA-HIGHTACK BR', hightack, 'Selantes', 'obra', `H ≤${H<=3000?'3000':H<=5000?'5000':'>5000'}mm`);
+      // Felipe sessao 2026-08-03: 'tem dois PA-HIGHTACK BR em obra, um
+      // com nossa formula e outro fixo H ≤>5000mm com uma quantidade
+      // delete esse antigo e mantenha somente o novo com nossa formula'.
+      // Regra antiga era hightack = (H<=3000?2 : H<=5000?3 : 4) tubos
+      // chumbado. Foi REMOVIDA - HIGHTACK BR agora vem da formula
+      // correta via mHIGHTACK acumulado pelas regras de Alisar +
+      // Fita Acab (commit 79e898c, linhas 768-773).
     }
 
     // 18. FECHADURAS DIGITAIS — fixo por marca
