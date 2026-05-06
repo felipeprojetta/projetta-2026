@@ -159,12 +159,23 @@ var PerfisRevAcoplado = (function() {
   // ═══════════════════════════════════════════════════
   // CHAPAS (reusa motor da porta com item virtual)
   // ═══════════════════════════════════════════════════
+  // Felipe (sessao 12): altura efetiva da chapa do fixo cobre o quadro
+  // do fixo + tubo do portal da porta + reforco. Por isso o motor de
+  // chapas da porta recebe H = altura_fixo + TUBLPORTAL + REF.
+  //   TUBLPORTAL = 38 (PA006/'76') ou 51 (PA007/'101') — espelha
+  //                VARS_FAM_DEFAULT.TUBLPORTAL em 38-chapas-porta-externa.js
+  //   REF        = 20 — espelha VARS_CHAPAS_DEFAULT.REF
+  var TUBLPORTAL_BY_FAM = { '76': 38, '101': 51 };
+  var REF_CHAPA = 20;
+
   function criarItemVirtualChapas(item) {
     if (!ehFixoValido(item)) return null;
     var segueModelo = item.fixoSegueModelo === 'sim';
     var porta = segueModelo ? obterPortaPrincipal() : null;
     var fonte = porta || item;
     var fam = String(item.sistema || 'PA006') === 'PA007' ? '101' : '76';
+    var tublportal = TUBLPORTAL_BY_FAM[fam] || 38;
+    var alturaEfetiva = Number(item.altura) + tublportal + REF_CHAPA;
 
     var modeloNum = segueModelo && porta ? Number(porta.modeloNumero) || 1 : Number(item.modeloNumero) || 1;
     var modeloNome = segueModelo && porta ? String(porta.modeloNome || '') : 'Liso';
@@ -173,7 +184,7 @@ var PerfisRevAcoplado = (function() {
       tipo: 'porta_externa',
       quantidade: 1,
       largura: Number(item.largura),
-      altura:  Number(item.altura),
+      altura:  alturaEfetiva,
       nFolhas: 1,
       modeloNumero: modeloNum,
       modeloNome: modeloNome,
@@ -194,6 +205,12 @@ var PerfisRevAcoplado = (function() {
     };
   }
 
+  // Felipe (sessao 12): fixo replica porta DEVE levar fitas de acabamento
+  // ME e MA, mesmo que no motor da porta sejam categoria 'portal'. Demais
+  // pecas 'portal' (alisar, batente, u_portal, tap_furo, fit_acab_lar)
+  // sao do marco/portal e NAO vao pro fixo.
+  var IDS_PORTAL_QUE_VAO_PRO_FIXO = { 'fit_acab_me': true, 'fit_acab_ma': true };
+
   function gerarPecasChapa(item, lado) {
     if (!ehFixoValido(item)) return [];
     var lados = item.lados === '2lados' ? 2 : 1;
@@ -205,7 +222,9 @@ var PerfisRevAcoplado = (function() {
       var raw = window.ChapasPortaExterna.gerarPecasChapa(iv, lado) || [];
       var result = [];
       for (var i = 0; i < raw.length; i++) {
-        if (raw[i].categoria !== 'portal') result.push(raw[i]);
+        var p = raw[i];
+        if (p.categoria !== 'portal') { result.push(p); continue; }
+        if (IDS_PORTAL_QUE_VAO_PRO_FIXO[p.id]) result.push(p);
       }
       return result;
     } catch (e) {
