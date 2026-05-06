@@ -12385,7 +12385,7 @@ const Orcamento = (() => {
         // Felipe sessao 2026-08: usa rendimentos editaveis do cache
         // (preenchidos pelo motor 28-acessorios-porta-externa.js ao
         // chamar window.Regras.getRendimentos).
-        const rends = dados.rendimentos || { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12, cps_sache: 12 };
+        const rends = dados.rendimentos || { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12, cps_sache: 12, hightack_tubo: 8 };
         const cpsRend = rends.cps_sache || rends.ms_tubo || 12;  // CPS usa mesmo rendimento do silicone
         const rolosFD19 = t.mFD19 > 0 ? Math.ceil(t.mFD19 / rends.fd19_rolo) : 0;
         const rolosFD12 = t.mFD12 > 0 ? Math.ceil(t.mFD12 / rends.fd12_rolo) : 0;

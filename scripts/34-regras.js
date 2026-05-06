@@ -330,23 +330,29 @@ const Regras = (() => {
     fd19_rolo:  20,
     fd12_rolo:  20,
     ms_tubo:    12,
+    // Felipe sessao 2026-08-03: PA-HIGHTACK BR (Fix All High Tack
+    // Branco 290ml) tem rendimento menor que o DowSil 995. 8m linear
+    // por tubo. Usado nos itens de OBRA (alisar + fita acab).
+    hightack_tubo: 8,
   };
 
   function getRendimentos() {
     const salvas = store.get('rendimentos_fita_silicone') || {};
     return {
-      fd19_rolo: (salvas.fd19_rolo !== undefined && Number(salvas.fd19_rolo) > 0) ? Number(salvas.fd19_rolo) : RENDIMENTOS_DEFAULT.fd19_rolo,
-      fd12_rolo: (salvas.fd12_rolo !== undefined && Number(salvas.fd12_rolo) > 0) ? Number(salvas.fd12_rolo) : RENDIMENTOS_DEFAULT.fd12_rolo,
-      ms_tubo:   (salvas.ms_tubo   !== undefined && Number(salvas.ms_tubo)   > 0) ? Number(salvas.ms_tubo)   : RENDIMENTOS_DEFAULT.ms_tubo,
+      fd19_rolo:     (salvas.fd19_rolo     !== undefined && Number(salvas.fd19_rolo)     > 0) ? Number(salvas.fd19_rolo)     : RENDIMENTOS_DEFAULT.fd19_rolo,
+      fd12_rolo:     (salvas.fd12_rolo     !== undefined && Number(salvas.fd12_rolo)     > 0) ? Number(salvas.fd12_rolo)     : RENDIMENTOS_DEFAULT.fd12_rolo,
+      ms_tubo:       (salvas.ms_tubo       !== undefined && Number(salvas.ms_tubo)       > 0) ? Number(salvas.ms_tubo)       : RENDIMENTOS_DEFAULT.ms_tubo,
+      hightack_tubo: (salvas.hightack_tubo !== undefined && Number(salvas.hightack_tubo) > 0) ? Number(salvas.hightack_tubo) : RENDIMENTOS_DEFAULT.hightack_tubo,
     };
   }
 
   function salvarRendimentos(rends) {
     if (!rends || typeof rends !== 'object') return;
     const valido = {
-      fd19_rolo: Number(rends.fd19_rolo) > 0 ? Number(rends.fd19_rolo) : RENDIMENTOS_DEFAULT.fd19_rolo,
-      fd12_rolo: Number(rends.fd12_rolo) > 0 ? Number(rends.fd12_rolo) : RENDIMENTOS_DEFAULT.fd12_rolo,
-      ms_tubo:   Number(rends.ms_tubo)   > 0 ? Number(rends.ms_tubo)   : RENDIMENTOS_DEFAULT.ms_tubo,
+      fd19_rolo:     Number(rends.fd19_rolo)     > 0 ? Number(rends.fd19_rolo)     : RENDIMENTOS_DEFAULT.fd19_rolo,
+      fd12_rolo:     Number(rends.fd12_rolo)     > 0 ? Number(rends.fd12_rolo)     : RENDIMENTOS_DEFAULT.fd12_rolo,
+      ms_tubo:       Number(rends.ms_tubo)       > 0 ? Number(rends.ms_tubo)       : RENDIMENTOS_DEFAULT.ms_tubo,
+      hightack_tubo: Number(rends.hightack_tubo) > 0 ? Number(rends.hightack_tubo) : RENDIMENTOS_DEFAULT.hightack_tubo,
     };
     store.set('rendimentos_fita_silicone', valido);
   }
@@ -1244,7 +1250,21 @@ const Regras = (() => {
                      style="width:80px;padding:6px 8px;border:1px solid #f59e0b;border-radius:4px;text-align:center;font-weight:800;font-size:15px;color:#b45309;background:#fffbeb;" />
               <span style="font-size:12px;color:#92400e;">metros / tubo</span>
             </div>
-            <div style="font-size:10px;color:#b45309;margin-top:3px;">Código: <code>PA-DOWSIL 995</code></div>
+            <div style="font-size:10px;color:#b45309;margin-top:3px;">Código: <code>PA-DOWSIL 995</code> (FAB)</div>
+          </div>
+
+          <!-- Felipe sessao 2026-08-03: PA-HIGHTACK BR rendimento (silicone obra) -->
+          <div style="flex:1;min-width:200px;background:#fff;border:2px solid #0284c7;border-radius:6px;padding:10px 14px;">
+            <label style="display:block;font-size:11px;color:#075985;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:4px;">
+              Silicone HIGHTACK BR — m por tubo
+            </label>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="number" min="1" step="0.5" id="reg-fs-rend-hightack"
+                     value="${rendimentos.hightack_tubo}"
+                     style="width:80px;padding:6px 8px;border:1px solid #0284c7;border-radius:4px;text-align:center;font-weight:800;font-size:15px;color:#075985;background:#f0f9ff;" />
+              <span style="font-size:12px;color:#075985;">metros / tubo</span>
+            </div>
+            <div style="font-size:10px;color:#0284c7;margin-top:3px;">Código: <code>PA-HIGHTACK BR</code> (OBRA)</div>
           </div>
         </div>
       </div>
@@ -1278,9 +1298,11 @@ const Regras = (() => {
       });
       // Felipe sessao 2026-08: tambem persiste rendimentos editaveis
       const rendsNovos = {
-        fd19_rolo: Number(mount.querySelector('#reg-fs-rend-fd19')?.value) || 20,
-        fd12_rolo: Number(mount.querySelector('#reg-fs-rend-fd12')?.value) || 20,
-        ms_tubo:   Number(mount.querySelector('#reg-fs-rend-ms')?.value)   || 12,
+        fd19_rolo:     Number(mount.querySelector('#reg-fs-rend-fd19')?.value)     || 20,
+        fd12_rolo:     Number(mount.querySelector('#reg-fs-rend-fd12')?.value)     || 20,
+        ms_tubo:       Number(mount.querySelector('#reg-fs-rend-ms')?.value)       || 12,
+        // Felipe sessao 2026-08-03: PA-HIGHTACK BR (silicone obra)
+        hightack_tubo: Number(mount.querySelector('#reg-fs-rend-hightack')?.value) || 8,
       };
       try {
         salvarFitaSilicone(regrasNovas);

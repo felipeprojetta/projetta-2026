@@ -726,13 +726,17 @@ const AcessoriosPortaExterna = (() => {
       try {
         RENDIMENTOS_FS = (window.Regras && typeof window.Regras.getRendimentos === 'function')
           ? window.Regras.getRendimentos()
-          : { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12 };
+          : { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12, hightack_tubo: 8 };
       } catch(e) {
-        RENDIMENTOS_FS = { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12 };
+        RENDIMENTOS_FS = { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12, hightack_tubo: 8 };
       }
-      const FD19_POR_ROLO = Number(RENDIMENTOS_FS.fd19_rolo) > 0 ? Number(RENDIMENTOS_FS.fd19_rolo) : 20;
-      const FD12_POR_ROLO = Number(RENDIMENTOS_FS.fd12_rolo) > 0 ? Number(RENDIMENTOS_FS.fd12_rolo) : 20;
-      const MS_POR_TUBO   = Number(RENDIMENTOS_FS.ms_tubo)   > 0 ? Number(RENDIMENTOS_FS.ms_tubo)   : 12;
+      const FD19_POR_ROLO    = Number(RENDIMENTOS_FS.fd19_rolo)     > 0 ? Number(RENDIMENTOS_FS.fd19_rolo)     : 20;
+      const FD12_POR_ROLO    = Number(RENDIMENTOS_FS.fd12_rolo)     > 0 ? Number(RENDIMENTOS_FS.fd12_rolo)     : 20;
+      const MS_POR_TUBO      = Number(RENDIMENTOS_FS.ms_tubo)       > 0 ? Number(RENDIMENTOS_FS.ms_tubo)       : 12;
+      // Felipe sessao 2026-08-03: PA-HIGHTACK BR rende menos que 995.
+      // Default 8m por tubo (vs 12m do DowSil 995). Editavel em
+      // Cadastro > Regras e Logicas > Fita+Silicone.
+      const HIGHTACK_POR_TUBO = Number(RENDIMENTOS_FS.hightack_tubo) > 0 ? Number(RENDIMENTOS_FS.hightack_tubo) : 8;
 
       if (mFD19 > 0) {
         const rolos = Math.ceil(mFD19 / FD19_POR_ROLO);
@@ -765,9 +769,9 @@ const AcessoriosPortaExterna = (() => {
             `${mFD12_obra.toFixed(1)}m / ${FD12_POR_ROLO}m por rolo = ${rolos} rolo(s) (obra)`);
       }
       if (mHIGHTACK > 0) {
-        const tubos = Math.ceil(mHIGHTACK / MS_POR_TUBO);
+        const tubos = Math.ceil(mHIGHTACK / HIGHTACK_POR_TUBO);
         add('PA-HIGHTACK BR', tubos, 'Selantes', 'obra',
-            `${mHIGHTACK.toFixed(1)}m / ${MS_POR_TUBO}m por tubo = ${tubos} tubo(s) (obra)`);
+            `${mHIGHTACK.toFixed(1)}m / ${HIGHTACK_POR_TUBO}m por tubo = ${tubos} tubo(s) (obra)`);
       }
       // Felipe sessao 2026-08: PA-DOWSIL CPS BR (sache 591ml). So' aparece
       // nas Travessas. Mesmo rendimento do silicone estrutural (MS_POR_TUBO,
