@@ -726,7 +726,30 @@
         var dt = em.receivedDateTime ? new Date(em.receivedDateTime) : null;
         var body = (em.body && em.body.content) || '';
 
-        var html = '<div class="etm-destinatarios">'
+        var html = '';
+
+        // Flags/categorias
+        var cats = em.categories || [];
+        var FLAGS = ['Lead Coletado','Lead Criado','Fazer Orcamento','Orcamento Pronto','Orcamento Enviado'];
+        var flagColors = {'Lead Coletado':'#78909c','Lead Criado':'#e65100','Fazer Orcamento':'#1565c0','Orcamento Pronto':'#2e7d32','Orcamento Enviado':'#6a1b9a'};
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
+          + FLAGS.map(function(f){
+            var ativo = cats.indexOf(f) >= 0;
+            var cor = flagColors[f] || '#666';
+            return '<button onclick="window._outlookToggleFlag(\''+_escAttr(msgId)+'\',\''+_escAttr(f)+'\',this)" '
+              + 'style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:2px solid '+cor+';'
+              + (ativo ? 'background:'+cor+';color:#fff' : 'background:#fff;color:'+cor) + '">'
+              + f + '</button>';
+          }).join('')
+          + '</div>';
+
+        // Importar pro CRM
+        html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;padding:8px 10px;background:#fff7ed;border:1px solid #fb923c;border-radius:6px">'
+          + '<button onclick="window._outlookImportarCRM(\''+_escAttr(msgId)+'\')" style="background:#f97316;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">📥 Importar pro CRM</button>'
+          + '<span style="font-size:11px;color:#9a3412">Lê reserva + dados intranet + PDF anexo</span>'
+          + '</div>';
+
+        html += '<div class="etm-destinatarios">'
           + '<div><b>De:</b> '+_escHtml(from.name||'')+' &lt;'+_escHtml(from.address||'')+'&gt;</div>'
           + '<div><b>Para:</b> '+_escHtml(to)+'</div>'
           + (cc ? '<div><b>Cc:</b> '+_escHtml(cc)+'</div>' : '')
