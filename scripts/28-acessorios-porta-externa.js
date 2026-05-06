@@ -514,7 +514,11 @@ const AcessoriosPortaExterna = (() => {
           metros: metros,
           aplicacao: ehObra ? 'obra' : 'fab',
           mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0, cps: r.cps||0 },
-          contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS, cps: cCPS },
+          // Felipe (sessao 09 fix): itens OBRA devem mostrar metragem
+          // na coluna HIGHTACK, nao na coluna Silicone 995.
+          contrib: ehObra
+            ? { fd19: cFD19, fd12: cFD12, ms: 0, cps: 0, hightack: cMS }
+            : { fd19: cFD19, fd12: cFD12, ms: cMS, cps: cCPS, hightack: 0 },
         });
       }
 

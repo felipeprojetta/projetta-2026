@@ -12383,6 +12383,7 @@ const Orcamento = (() => {
           const fd19 = e.contrib?.fd19 || 0;
           const fd12 = e.contrib?.fd12 || 0;
           const cps = e.contrib?.cps || 0;
+          const ht = e.contrib?.hightack || 0;
           const pctMs = t.mMS > 0 ? (ms / t.mMS) * 100 : 0;
           const corDestaque = pctMs > 25 ? '#b91c1c' : pctMs > 10 ? '#b45309' : '#374151';
           return `
@@ -12392,8 +12393,9 @@ const Orcamento = (() => {
               <td class="num" style="padding:6px 10px;font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0} / ×${e.mult?.cps || 0}</td>
               <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;color:#1e3a8a;background:#eff6ff;">${fd19 > 0 ? fd19.toFixed(2) + 'm' : '—'}</td>
               <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;color:#1e3a8a;background:#dbeafe;">${fd12 > 0 ? fd12.toFixed(2) + 'm' : '—'}</td>
-              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-weight:700;color:${corDestaque};background:#fef3c7;font-size:12px;">${ms > 0 ? ms.toFixed(2) + 'm' : '—'}<span style="font-size:10px;font-weight:400;color:#9ca3af;"> (${pctMs.toFixed(0)}%)</span></td>
+              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-weight:700;color:${corDestaque};background:#fef3c7;font-size:12px;">${ms > 0 ? ms.toFixed(2) + 'm' : '—'}${ms > 0 ? `<span style="font-size:10px;font-weight:400;color:#9ca3af;"> (${pctMs.toFixed(0)}%)</span>` : ''}</td>
               <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-weight:700;color:#15803d;background:#dcfce7;font-size:12px;">${cps > 0 ? cps.toFixed(2) + 'm' : '—'}</td>
+              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-weight:700;color:#0369a1;background:#e0f2fe;font-size:12px;">${ht > 0 ? ht.toFixed(2) + 'm' : '—'}</td>
             </tr>
           `;
         }).join('');
@@ -12479,6 +12481,7 @@ const Orcamento = (() => {
                   <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;">FD 12mm</th>
                   <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;">Silicone</th>
                   <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#15803d;">CPS BR</th>
+                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#0369a1;">HIGHTACK</th>
                 </tr>
               </thead>
               <tbody>${linhasHtml}</tbody>
@@ -12489,6 +12492,7 @@ const Orcamento = (() => {
                   <td class="num" style="padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD12 || 0).toFixed(2)}m</td>
                   <td class="num" style="padding:8px 10px;font-size:13px;color:#b45309;">${(t.mMS || 0).toFixed(2)}m</td>
                   <td class="num" style="padding:8px 10px;font-size:13px;color:#15803d;background:#dcfce7;">${(t.mCPS || 0).toFixed(2)}m</td>
+                  <td class="num" style="padding:8px 10px;font-size:13px;color:#0369a1;background:#e0f2fe;">${(t.mHIGHTACK || 0).toFixed(2)}m</td>
                 </tr>
               </tfoot>
             </table>
