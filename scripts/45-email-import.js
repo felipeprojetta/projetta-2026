@@ -392,16 +392,27 @@
   async function buscarCidadeEstadoPorCEP(cep) {
     var limpo = String(cep || '').replace(/\D/g, '');
     if (limpo.length !== 8) return {};
+    // 1. Tenta ViaCEP
     try {
       var res = await fetch('https://viacep.com.br/ws/' + limpo + '/json/');
-      if (!res.ok) return {};
-      var data = await res.json();
-      if (data.erro) return {};
-      return { cidade: data.localidade || '', estado: data.uf || '' };
+      if (res.ok) {
+        var data = await res.json();
+        if (!data.erro && data.localidade) {
+          return { cidade: data.localidade || '', estado: data.uf || '' };
+        }
+      }
+    } catch (_) {}
+    // 2. Fallback: BrasilAPI (melhor cobertura pra CEPs -000)
+    try {
+      var res2 = await fetch('https://brasilapi.com.br/api/cep/v2/' + limpo);
+      if (res2.ok) {
+        var d2 = await res2.json();
+        if (d2.city) return { cidade: d2.city || '', estado: d2.state || '' };
+      }
     } catch (e) {
-      console.warn('[email-import] ViaCEP falhou:', e);
-      return {};
+      console.warn('[email-import] BrasilAPI tambem falhou:', e);
     }
+    return {};
   }
 
   // ───────────────────────────────────────────────────────────────────

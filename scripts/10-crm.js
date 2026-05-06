@@ -180,14 +180,29 @@
 
 
     // ViaCEP — API publica brasileira (gratis, sem auth)
+    // Felipe sessao 11: fallback BrasilAPI quando ViaCEP falha (CEPs -000)
     async function buscarCEP(cep) {
       const limpo = String(cep || '').replace(/\D/g, '');
       if (limpo.length !== 8) throw new Error('CEP precisa ter 8 digitos');
-      const res = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
-      if (!res.ok) throw new Error('Falha ao consultar CEP');
-      const data = await res.json();
-      if (data.erro) throw new Error('CEP nao encontrado');
-      return { cidade: data.localidade || '', estado: data.uf || '' };
+      // 1. Tenta ViaCEP
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!data.erro && data.localidade) {
+            return { cidade: data.localidade || '', estado: data.uf || '' };
+          }
+        }
+      } catch (_) {}
+      // 2. Fallback: BrasilAPI
+      try {
+        const res2 = await fetch(`https://brasilapi.com.br/api/cep/v2/${limpo}`);
+        if (res2.ok) {
+          const d2 = await res2.json();
+          if (d2.city) return { cidade: d2.city || '', estado: d2.state || '' };
+        }
+      } catch (_) {}
+      throw new Error('CEP nao encontrado em nenhuma API');
     }
 
     // Estado do modal
