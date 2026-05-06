@@ -1545,6 +1545,8 @@
               ${destinoLabel ? `<span class="crm-card-destino">${destinoLabel}</span>` : ''}
             </div>
             ${fechadoEmLabel}
+            <div class="crm-card-expand-toggle" data-action="toggle-card-expand" title="Expandir/recolher detalhes">▼</div>
+            <div class="crm-card-expandable" style="display:none">
             ${(l.porta_largura || l.porta_modelo || l.porta_cor || mostraBtnOrc) ? `
               <div style="background:#f0f7ff;border:1px solid #c5d9ed;border-radius:4px;padding:6px 8px;margin:6px 0;font-size:11px;">
                 <div>📐 <b>${l.porta_largura && l.porta_altura ? escapeHtml(l.porta_largura) + ' × ' + escapeHtml(l.porta_altura) + ' mm' : '—'}</b></div>
@@ -1555,9 +1557,6 @@
                   if (!v) return '—';
                   if (v === 'nao') return 'Não se aplica';
                   if (v === 'sim') return 'Digital';
-                  // Felipe sessao 2026-08: tenta lookup em Acessorios (Cadastros)
-                  // pra mostrar descricao amigavel quando v e' codigo de produto.
-                  // Se nao achar, mostra o proprio valor truncado.
                   let desc = v;
                   try {
                     const acessLista = Storage.scope('cadastros').get('acessorios_lista') || [];
@@ -1601,6 +1600,7 @@
                 ` : ''}
               </div>
             ` : ''}
+            </div>
           </div>
           `;
         }).join('');
@@ -2259,6 +2259,25 @@
                 window.open('https://wa.me/' + f + '?text=' + encodeURIComponent(msgRep), 'projetta_whatsapp', 'width=900,height=700,scrollbars=yes,resizable=yes');
                 modal.remove();
               });
+            }
+            return;
+          }
+          // Felipe (sessao 09): seta expande/recolhe parte inferior do card
+          const btnToggle = e.target.closest('[data-action="toggle-card-expand"]');
+          if (btnToggle) {
+            e.stopPropagation();
+            const card = btnToggle.closest('.crm-card');
+            if (!card) return;
+            const expandable = card.querySelector('.crm-card-expandable');
+            if (!expandable) return;
+            if (expandable.style.display === 'none') {
+              expandable.style.display = '';
+              btnToggle.textContent = '▲';
+              btnToggle.title = 'Recolher detalhes';
+            } else {
+              expandable.style.display = 'none';
+              btnToggle.textContent = '▼';
+              btnToggle.title = 'Expandir detalhes';
             }
             return;
           }
