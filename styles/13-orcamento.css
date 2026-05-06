@@ -1499,6 +1499,14 @@
   border-top: 1px solid var(--border);
   background: linear-gradient(180deg, transparent 0%, rgba(0, 49, 68, 0.02) 100%);
 }
+/* Felipe (sessao 09): botao duplicado no topo da aba */
+.orc-wizard-actions-top {
+  margin-top: 0;
+  margin-bottom: 16px;
+  border-top: none;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(0deg, transparent 0%, rgba(0, 49, 68, 0.02) 100%);
+}
 .orc-wizard-aviso {
   color: var(--laranja-2);
   font-size: 12px;

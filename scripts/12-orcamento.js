@@ -8317,6 +8317,22 @@ const Orcamento = (() => {
     if (btn && !bloqueado) {
       btn.addEventListener('click', () => W.avancar(tabAtual));
     }
+
+    // Felipe (sessao 09): botao duplicado NO TOPO — "as vezes tenho
+    // que descer a tela so para passar pra frente". Topo so' mostra
+    // o botao (sem lista de pendencias — essas ficam so' embaixo).
+    if (!bloqueado) {
+      const barraTopo = document.createElement('div');
+      barraTopo.className = 'orc-wizard-actions orc-wizard-actions-top';
+      barraTopo.innerHTML = `
+        <button type="button" class="orc-wizard-btn-proximo">
+          ${jaLiberado ? 'Ir' : 'Proximo'}: ${escapeHtml(proxLabel)} →
+        </button>
+      `;
+      barraTopo.querySelector('.orc-wizard-btn-proximo')
+        .addEventListener('click', () => W.avancar(tabAtual));
+      container.prepend(barraTopo);
+    }
   }
 
   // ============================================================
