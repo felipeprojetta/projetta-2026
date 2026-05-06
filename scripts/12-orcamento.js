@@ -1444,6 +1444,15 @@ const Orcamento = (() => {
       if (alvo) break;
     }
     if (!alvo) throw new Error('aprovarOrcamento: versao nao encontrada');
+    // Felipe sessao 12: BLOQUEIO ANTI-SOBRESCRITA. Versao 'fechada' representa
+    // historico imutavel (foi fechada quando uma nova versao foi criada).
+    // SOBRESCREVER aprovadoEm/valorAprovado destruia historico real.
+    // Cenario do bug Julliana Wagner (sessao 12): UI carregou V1 fechada por
+    // engano, Felipe editou DRE, aprovou - sobrescreveu valorAprovado da V1
+    // com numeros da "V2" e a V2 foi perdida. Agora rejeita explicitamente.
+    if (alvo.status === 'fechada') {
+      throw new Error('aprovarOrcamento: versao ' + alvo.numero + ' esta fechada (historico imutavel). Use Revisar ou crie Nova Versao.');
+    }
     alvo.aprovadoEm    = nowIso();
     alvo.aprovadoPor   = userAtual();
     alvo.valorAprovado = valor;
@@ -1823,7 +1832,23 @@ const Orcamento = (() => {
       Storage.scope('app').remove('orcamento_versao_ativa');
     }
     if (!versaoAlvo) {
-      versaoAlvo = neg.opcoes[0].versoes[0];
+      // Felipe sessao 12: ANTES pegava versoes[0] cegamente. Como criarVersao
+      // faz .push (nova versao vai pro fim), versoes[0] era a MAIS ANTIGA -
+      // possivelmente uma versao 'fechada' (historico). Bug Julliana Wagner:
+      // V1 aprovada+fechada (idx 0), V2 ativa (idx 1). Sem signal, sistema
+      // jogava em V1 fechada. Felipe editava sem perceber e a aprovacao
+      // sobrescrevia a V1 - a V2 ficava orfa.
+      // FIX: prioriza versoes NAO fechadas. Se houver alguma com status='draft',
+      // pega a MAIOR numero. Se todas fechadas, pega a MAIOR numero (mais recente).
+      const todasVersoes = neg.opcoes[0].versoes || [];
+      const naoFechadas = todasVersoes.filter(v => v.status !== 'fechada');
+      const candidatas = naoFechadas.length > 0 ? naoFechadas : todasVersoes;
+      // Pega versao com MAIOR numero (mais recente)
+      versaoAlvo = candidatas.reduce((maior, v) => {
+        if (!maior) return v;
+        return (Number(v.numero) || 0) > (Number(maior.numero) || 0) ? v : maior;
+      }, null);
+      if (!versaoAlvo) versaoAlvo = todasVersoes[0]; // fallback final
     }
     UI.versaoAtivaId = versaoAlvo.id;
     // FIX 2026-05-04: prepopular tambem quando ja existe Item 1 mas
@@ -5920,7 +5945,7 @@ const Orcamento = (() => {
               <button type="button" class="orc-aprovacao-btn ${podeAprovar ? '' : 'is-disabled'}"
                       id="orc-btn-aprovar" ${podeAprovar ? '' : 'disabled'}
                       title="${podeAprovar ? 'Aprovar e empurrar pro CRM' : 'Calcule o orcamento primeiro'}">
-                ✓ Aprovar Orcamento
+                ✓ Aprovar ${(Number(versao.numero) || 1) > 1 ? 'Versao ' + versao.numero : 'Orcamento'}
               </button>
             </div>
           `;
