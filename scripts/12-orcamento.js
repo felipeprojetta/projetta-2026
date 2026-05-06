@@ -5355,22 +5355,72 @@ const Orcamento = (() => {
     if (motivoBloqueio) {
       return renderPrecisaCalcular(container, versao, motivoBloqueio, 'DRE');
     }
-    // Felipe (sessao 09): SEMPRE recalcula subFab/subInst antes de
-    // renderizar DRE. Garante que qualquer mudança em itens, acessórios,
-    // fechadura, perfis, etc. reflita imediatamente no custo total.
+    // Felipe (sessao 09): SEMPRE recalcula TUDO antes de renderizar DRE.
+    // Inclui recalcular perfis, pintura, acessórios e digital dos motors
+    // (mesma lógica de renderFabInstTab). Sem isso, custoFab pode ter
+    // valores antigos e o DRE mostra custo errado.
     try {
       const fabDre  = Object.assign({}, FAB_DEFAULT, versao.custoFab  || {});
       fabDre.etapas = Object.assign({}, FAB_DEFAULT.etapas, fabDre.etapas || {});
       const instDre = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
+
+      // 1) Recalcular perfis e pintura do motor
+      try {
+        const itensCalc = (versao.itens || []);
+        if (itensCalc.length > 0) {
+          const rPerfis = recalcularPerfisESalvarNoFab(versao, itensCalc);
+          if (rPerfis && rPerfis.result) {
+            const cp = Math.round((rPerfis.result.custoPerfis  || 0) * 100) / 100;
+            const ct = Math.round((rPerfis.result.custoPintura || 0) * 100) / 100;
+            if (cp > 0) fabDre.total_perfis = cp;
+            if (ct > 0) fabDre.total_pintura = ct;
+          }
+        }
+      } catch(_){}
+
+      // 2) Recalcular acessórios e fechadura digital do motor
+      try {
+        if (window.AcessoriosPortaExterna) {
+          const cadAcess = Storage.scope('cadastros').get('acessorios_lista') || [];
+          const perfisCad = (typeof construirCadastroPerfis === 'function') ? construirCadastroPerfis() : {};
+          let totalAcess = 0, totalDigital = 0;
+          (versao.itens || []).forEach(item => {
+            if (!item || item.tipo !== 'porta_externa') return;
+            let pesoFolhaTotal = 0, pesoFolhaPerfis = 0, pesoFolhaChapas = 0;
+            try {
+              const r = calcularPesoFolhaItem(item, perfisCad) || {};
+              pesoFolhaTotal = r.peso || 0;
+              pesoFolhaPerfis = (r.detalhe && r.detalhe.perfis) || 0;
+              pesoFolhaChapas = (r.detalhe && r.detalhe.chapas) || 0;
+            } catch(_){}
+            const linhas = window.AcessoriosPortaExterna.calcularAcessoriosPorItem(
+              item, cadAcess, { pesoFolhaTotal, pesoFolhaPerfis, pesoFolhaChapas }
+            );
+            linhas.forEach(l => {
+              if (String(l.categoria || '').toLowerCase().includes('fechadura digital')) {
+                totalDigital += Number(l.total) || 0;
+                return;
+              }
+              totalAcess += Number(l.total) || 0;
+            });
+          });
+          if (totalAcess > 0) fabDre.total_acessorios = totalAcess;
+          else fabDre.total_acessorios = '';
+          fabDre.total_fechadura_digital = totalDigital > 0 ? totalDigital : '';
+        }
+      } catch(_){}
+
+      // 3) Recalcular subFab e subInst
       const rFabDre  = calcularFab(fabDre, versao.itens);
       const rInstDre = calcularInst(instDre);
-      if (Math.abs((Number(versao.subFab) || 0) - rFabDre.total) > 0.01
-          || Math.abs((Number(versao.subInst) || 0) - rInstDre.total) > 0.01) {
-        versao.subFab  = rFabDre.total;
-        versao.subInst = rInstDre.total;
-        atualizarVersao(versao.id, { subFab: rFabDre.total, subInst: rInstDre.total });
-      }
-    } catch(eDre){ console.warn('[DRE] recalc subFab/subInst:', eDre); }
+      versao.subFab  = rFabDre.total;
+      versao.subInst = rInstDre.total;
+      atualizarVersao(versao.id, {
+        custoFab: fabDre,
+        subFab: rFabDre.total,
+        subInst: rInstDre.total
+      });
+    } catch(eDre){ console.warn('[DRE] recalc completo:', eDre); }
 
     const negocio = obterNegocio(UI.negocioAtivoId);
     const opcao  = obterVersao(UI.versaoAtivaId).opcao;
