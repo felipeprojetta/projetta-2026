@@ -13575,6 +13575,15 @@ const Orcamento = (() => {
     // wizard
     _getVersaoAtivaWizard,
     _setWizardEtapa,
+    // Felipe sessao 12: pra wizard (tabLiberada) saber se a versao
+    // atual eh imutavel. Em modo memorial, libera todas as abas pra
+    // navegacao/consulta sem permitir edicao (CSS .is-orc-readonly cuida).
+    versaoAtualEhImutavel: function() {
+      try {
+        const v = versaoAtiva();
+        return !!(v && versaoEhImutavel(v));
+      } catch(_) { return false; }
+    },
     // Felipe (sessao 2026-09): manutencao de storage on-demand.
     // Uso no console: Orcamento.manutencao.relatorio()  ou  .limparSnapshotsDrafts()
     manutencao: {

@@ -65,8 +65,18 @@
    * Retorna true se a aba esta liberada (pode ser clicada).
    * Aba so' libera se o seu indice <= indice de wizardEtapaMaxima.
    * Abas fora do wizard (ex: 'relatorios') sempre liberadas.
+   *
+   * Felipe sessao 12: em MODO MEMORIAL (versao aprovada/fechada), TODAS
+   * as abas ficam liberadas pra navegacao/consulta. Felipe pediu: 'preciso
+   * navegar por tudo conferir tudo'. CSS .is-orc-readonly continua impedindo
+   * edicao, mas navegacao livre.
    */
   function tabLiberada(tabId) {
+    if (window.Orcamento && typeof window.Orcamento.versaoAtualEhImutavel === 'function') {
+      try {
+        if (window.Orcamento.versaoAtualEhImutavel()) return true;
+      } catch(_) {}
+    }
     const ix = indiceEtapa(tabId);
     if (ix < 0) return true; // aba fora do wizard
     const ixMax = indiceEtapa(getEtapaMaxima());
