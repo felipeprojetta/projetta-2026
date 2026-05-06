@@ -536,7 +536,9 @@
     }
   };
 
-  /* Renderiza array de emails como lista. */
+  /* Renderiza array de emails como lista com expansao inline.
+     Felipe (sessao 09): 'quero aqui no email igual no card —
+     empilhados para clicar abrir, encolher e com anexo' */
   function _renderEmailList(emails, searchTerm){
     var list = document.getElementById('outlook-inbox-list');
     if(!list) return;
@@ -552,7 +554,7 @@
       ? '<div style="padding:10px 14px;background:#e8f5e9;color:#1e8449;font-size:12px;font-weight:700;border-bottom:1px solid #e5e7eb">🔍 '+emails.length+' resultado(s) para "'+_escHtml(searchTerm)+'"</div>'
       : '<div style="padding:10px 14px;color:#666;font-size:12px;font-weight:600;border-bottom:1px solid #e5e7eb">📥 '+emails.length+' emails recentes</div>';
 
-    var rows = emails.map(function(m){
+    var rows = emails.map(function(m, idx){
       var fromName = (m.from && m.from.emailAddress && m.from.emailAddress.name) || '';
       var fromAddr = (m.from && m.from.emailAddress && m.from.emailAddress.address) || '';
       var unread = !m.isRead;
@@ -560,8 +562,8 @@
       var dt = m.receivedDateTime ? new Date(m.receivedDateTime) : null;
       var dtStr = dt ? _formatDate(dt) : '';
       var subject = m.subject || '(sem assunto)';
-      var preview = (m.bodyPreview||'').slice(0,110);
-      // Badges de categorias
+      var preview = (m.bodyPreview||'').slice(0,140);
+      var inicial = ((fromName || fromAddr || '?')[0] || '?').toUpperCase();
       var flagColors = {'Lead Coletado':'#78909c','Lead Criado':'#e65100','Fazer Orcamento':'#1565c0','Orcamento Pronto':'#2e7d32','Orcamento Enviado':'#6a1b9a'};
       var catBadges = (m.categories||[]).map(function(c){
         var cor = flagColors[c] || '#666';
@@ -569,23 +571,228 @@
       }).join(' ');
 
       return ''
-        + '<div style="padding:12px 14px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .15s;background:'+(unread?'#f0f7ff':'#fff')+'" '
-        +      'onclick="outlookOpenEmail(\''+_escAttr(m.id)+'\')" '
-        +      'onmouseover="this.style.background=\'#f5f5f5\'" '
-        +      'onmouseout="this.style.background=\''+(unread?'#f0f7ff':'#fff')+'\'">'
-        +   '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">'
-        +     (unread ? '<span style="width:8px;height:8px;background:#0078d4;border-radius:50%;display:inline-block"></span>' : '<span style="width:8px;display:inline-block"></span>')
-        +     '<div style="font-weight:'+(unread?'800':'600')+';color:#003144;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escHtml(fromName||fromAddr)+'</div>'
-        +     (attach ? '<span style="color:#888" title="Tem anexo">📎</span>' : '')
-        +     (catBadges ? '<span style="display:flex;gap:3px">'+catBadges+'</span>' : '')
-        +     '<span style="font-size:11px;color:#888;white-space:nowrap">'+dtStr+'</span>'
+        + '<div class="etm-row" id="ol-row-'+idx+'">'
+        +   '<div class="etm-row-header" data-idx="'+idx+'" data-msg-id="'+_escAttr(m.id)+'">'
+        +     '<span class="etm-avatar" style="'+(unread?'background:#0078d4':'background:#6b7280')+'">'+_escHtml(inicial)+'</span>'
+        +     '<div class="etm-row-info">'
+        +       '<div class="etm-row-top">'
+        +         '<span class="etm-row-nome" style="font-weight:'+(unread?'800':'600')+'">'+_escHtml(fromName||fromAddr)+'</span>'
+        +         (catBadges ? '<span style="display:flex;gap:3px">'+catBadges+'</span>' : '')
+        +         '<span class="etm-row-date">'+dtStr+'</span>'
+        +       '</div>'
+        +       '<div style="font-weight:'+(unread?'700':'500')+';color:#1a5276;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:1px">'+_escHtml(subject)+'</div>'
+        +       '<div class="etm-row-preview">'
+        +         (attach ? '<span class="etm-att-icon">📎</span> ' : '')
+        +         _escHtml(preview)
+        +       '</div>'
+        +     '</div>'
         +   '</div>'
-        +   '<div style="font-weight:'+(unread?'700':'500')+';color:#1a5276;margin-left:18px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escHtml(subject)+'</div>'
-        +   '<div style="color:#777;font-size:11px;margin-left:18px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escHtml(preview)+'</div>'
+        +   '<div class="etm-row-expanded" id="ol-expanded-'+idx+'" style="display:none"></div>'
         + '</div>';
     }).join('');
 
     list.innerHTML = header + rows;
+
+    // Click handlers — expansao inline
+    list.querySelectorAll('.etm-row-header').forEach(function(h){
+      h.addEventListener('click', function(){
+        var idx = parseInt(h.dataset.idx);
+        var msgId = h.dataset.msgId;
+        _toggleInlineEmail(idx, msgId);
+      });
+    });
+  }
+
+  /* Toggle expansao inline de email na aba Email */
+  function _toggleInlineEmail(idx, msgId){
+    var expanded = document.getElementById('ol-expanded-' + idx);
+    var row = document.getElementById('ol-row-' + idx);
+    if(!expanded) return;
+
+    if(expanded.style.display !== 'none'){
+      expanded.style.display = 'none';
+      if(row) row.classList.remove('is-expanded');
+      return;
+    }
+
+    expanded.style.display = '';
+    if(row) row.classList.add('is-expanded');
+
+    // Ja carregou? So mostra
+    if(expanded.dataset.loaded === '1') return;
+
+    expanded.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:13px">⏳ Carregando...</div>';
+
+    (async function(){
+      try {
+        var em = await window.outlookGetEmail(msgId);
+        var anexos = [];
+        if(window._outlookGraphCall){
+          try {
+            var attResp = await _graphCall('/me/messages/' + msgId + '/attachments?$select=id,name,contentType,size,isInline');
+            anexos = (attResp && attResp.value) || [];
+          } catch(ae){}
+        }
+
+        var from = (em.from && em.from.emailAddress) || {};
+        var to = (em.toRecipients||[]).map(function(r){return r.emailAddress.address;}).join(', ');
+        var cc = (em.ccRecipients||[]).map(function(r){return r.emailAddress.address;}).join(', ');
+        var dt = em.receivedDateTime ? new Date(em.receivedDateTime) : null;
+        var body = (em.body && em.body.content) || '';
+
+        var html = '';
+
+        // Flags/categorias
+        var cats = em.categories || [];
+        var FLAGS = ['Lead Coletado','Lead Criado','Fazer Orcamento','Orcamento Pronto','Orcamento Enviado'];
+        var flagColors = {'Lead Coletado':'#78909c','Lead Criado':'#e65100','Fazer Orcamento':'#1565c0','Orcamento Pronto':'#2e7d32','Orcamento Enviado':'#6a1b9a'};
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
+          + FLAGS.map(function(f){
+            var ativo = cats.indexOf(f) >= 0;
+            var cor = flagColors[f] || '#666';
+            return '<button onclick="window._outlookToggleFlag(\''+_escAttr(msgId)+'\',\''+_escAttr(f)+'\',this)" '
+              + 'style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:2px solid '+cor+';'
+              + (ativo ? 'background:'+cor+';color:#fff' : 'background:#fff;color:'+cor) + '">'
+              + f + '</button>';
+          }).join('')
+          + '</div>';
+
+        // Importar pro CRM
+        html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;padding:8px 10px;background:#fff7ed;border:1px solid #fb923c;border-radius:6px">'
+          + '<button onclick="window._outlookImportarCRM(\''+_escAttr(msgId)+'\')" style="background:#f97316;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">📥 Importar pro CRM</button>'
+          + '<span style="font-size:11px;color:#9a3412">Lê reserva + dados intranet + PDF anexo</span>'
+          + '</div>';
+
+        // Destinatarios
+        html += '<div class="etm-destinatarios">'
+          + '<div><b>De:</b> '+_escHtml(from.name||'')+' &lt;'+_escHtml(from.address||'')+'&gt;</div>'
+          + '<div><b>Para:</b> '+_escHtml(to)+'</div>'
+          + (cc ? '<div><b>Cc:</b> '+_escHtml(cc)+'</div>' : '')
+          + (dt ? '<div><b>Data:</b> '+dt.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+'</div>' : '')
+          + '<div><b>Assunto:</b> '+_escHtml(em.subject||'')+'</div>'
+          + '</div>';
+
+        // Conteudo
+        html += '<div class="etm-conteudo">' + body + '</div>';
+
+        // Anexos
+        if(anexos.length > 0){
+          html += '<div class="etm-anexos">'
+            + '<div class="etm-anexos-titulo">📎 Anexos ('+anexos.length+')</div>';
+          anexos.forEach(function(a){
+            var sizeKB = Math.round((a.size||0)/1024);
+            var sizeStr = sizeKB > 1024 ? (sizeKB/1024).toFixed(1)+' MB' : sizeKB+' KB';
+            var ct = (a.contentType||'').toLowerCase();
+            var nm = (a.name||'').toLowerCase();
+            var icon = '📄';
+            if(ct.indexOf('pdf')>=0||nm.endsWith('.pdf')) icon='📕';
+            else if(ct.indexOf('image')>=0) icon='🖼️';
+            else if(nm.match(/\.xlsx?$/)) icon='📊';
+            else if(nm.match(/\.docx?$/)) icon='📝';
+            var previewable = ct.indexOf('image')>=0||ct.indexOf('pdf')>=0||nm.endsWith('.pdf');
+            var uid = 'ol'+idx+'_'+(a.id||'').slice(-10);
+
+            html += '<div class="etm-anexo-item">'
+              + '<span class="etm-anexo-icon">'+icon+'</span>'
+              + '<div class="etm-anexo-info"><div class="etm-anexo-nome">'+_escHtml(a.name||'Sem nome')+'</div>'
+              + '<div class="etm-anexo-size">'+sizeStr+'</div></div>'
+              + '<div class="etm-anexo-btns">';
+            if(previewable){
+              html += '<button class="etm-btn etm-btn-preview" data-msg="'+_escAttr(msgId)+'" data-att="'+_escAttr(a.id)+'" data-type="'+_escAttr(a.contentType||'')+'" data-uid="'+uid+'">👁 Ver</button>';
+            }
+            html += '<button class="etm-btn etm-btn-download" data-msg="'+_escAttr(msgId)+'" data-att="'+_escAttr(a.id)+'" data-name="'+_escAttr(a.name||'anexo')+'" data-type="'+_escAttr(a.contentType||'')+'">⬇ Baixar</button>'
+              + '</div></div>'
+              + '<div class="etm-preview-area" id="etm-pv-'+uid+'" style="display:none"></div>';
+          });
+          html += '</div>';
+        }
+
+        // Reply
+        html += '<div class="etm-reply-section">'
+          + '<div class="etm-reply-titulo">✉️ Responder</div>'
+          + '<textarea id="ol-reply-'+idx+'" class="etm-reply-textarea" placeholder="Digite sua resposta..."></textarea>'
+          + '<div class="etm-reply-btns">'
+          + '<button class="etm-btn etm-btn-reply" data-msg="'+_escAttr(msgId)+'" data-idx="'+idx+'">📤 Responder</button>'
+          + '<button class="etm-btn etm-btn-reply-all" data-msg="'+_escAttr(msgId)+'" data-idx="'+idx+'">📤 Responder Todos</button>'
+          + '</div></div>';
+
+        expanded.innerHTML = html;
+        expanded.dataset.loaded = '1';
+
+        // Listeners anexos
+        expanded.querySelectorAll('.etm-btn-preview').forEach(function(btn){
+          btn.addEventListener('click', function(e){
+            e.stopPropagation();
+            _inlinePreview(btn.dataset.msg, btn.dataset.att, btn.dataset.type, btn.dataset.uid, btn);
+          });
+        });
+        expanded.querySelectorAll('.etm-btn-download').forEach(function(btn){
+          btn.addEventListener('click', function(e){
+            e.stopPropagation();
+            _inlineDownload(btn.dataset.msg, btn.dataset.att, btn.dataset.name, btn.dataset.type, btn);
+          });
+        });
+        // Listeners reply
+        expanded.querySelectorAll('.etm-btn-reply, .etm-btn-reply-all').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            var replyAll = btn.classList.contains('etm-btn-reply-all');
+            var textarea = document.getElementById('ol-reply-'+btn.dataset.idx);
+            if(!textarea||!textarea.value.trim()){alert('Digite uma resposta.');return;}
+            var bodyHtml = '<p>'+textarea.value.replace(/\n/g,'<br>')+'</p><br><p style="font-size:11px;color:#888">— Enviado via Projetta by Weiku</p>';
+            btn.textContent = '⏳ Enviando...';
+            (async function(){
+              try {
+                if(replyAll) await window.outlookReplyAll(btn.dataset.msg, bodyHtml);
+                else await _graphCall('/me/messages/'+btn.dataset.msg+'/reply',{method:'POST',body:JSON.stringify({comment:bodyHtml})});
+                textarea.value='';
+                btn.textContent='✅ Enviado!';
+                setTimeout(function(){btn.textContent=replyAll?'📤 Responder Todos':'📤 Responder';},2000);
+              } catch(e){btn.textContent='❌ Erro';alert('Erro: '+e.message);}
+            })();
+          });
+        });
+      } catch(e){
+        expanded.innerHTML = '<div style="color:#c0392b;padding:20px;text-align:center">❌ '+_escHtml(e.message)+'</div>';
+      }
+    })();
+  }
+
+  /* Preview inline na aba Email */
+  async function _inlinePreview(msgId, attId, type, uid, btn){
+    var el = document.getElementById('etm-pv-'+uid);
+    if(!el) return;
+    if(el.style.display!=='none'){el.style.display='none';btn.textContent='👁 Ver';return;}
+    btn.textContent='⏳...';
+    try {
+      var att = await _graphCall('/me/messages/'+msgId+'/attachments/'+attId);
+      if(att && att.contentBytes){
+        var ct=(type||'').toLowerCase();
+        if(ct.indexOf('image')>=0) el.innerHTML='<img src="data:'+type+';base64,'+att.contentBytes+'" style="max-width:100%;max-height:70vh;border-radius:6px;border:1px solid #ddd;margin-top:8px" />';
+        else if(ct.indexOf('pdf')>=0){
+          var raw=atob(att.contentBytes);var arr=new Uint8Array(raw.length);
+          for(var i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+          el.innerHTML='<iframe src="'+URL.createObjectURL(new Blob([arr],{type:'application/pdf'}))+'" style="width:100%;height:70vh;border:1px solid #ddd;border-radius:6px;margin-top:8px" frameborder="0"></iframe>';
+        }
+        el.style.display='block';btn.textContent='👁 Esconder';
+      }
+    } catch(e){btn.textContent='❌ Erro';}
+  }
+
+  /* Download na aba Email */
+  async function _inlineDownload(msgId, attId, name, type, btn){
+    btn.textContent='⏳...';
+    try {
+      var att = await _graphCall('/me/messages/'+msgId+'/attachments/'+attId);
+      if(att && att.contentBytes){
+        var raw=atob(att.contentBytes);var arr=new Uint8Array(raw.length);
+        for(var i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+        var a=document.createElement('a');
+        a.href=URL.createObjectURL(new Blob([arr],{type:type||'application/octet-stream'}));
+        a.download=name||'anexo';a.click();
+        btn.textContent='✅ OK';
+        setTimeout(function(){btn.textContent='⬇ Baixar';},2000);
+      }
+    } catch(e){btn.textContent='❌ Erro';}
   }
 
   /* Abre email completo num modal. */
