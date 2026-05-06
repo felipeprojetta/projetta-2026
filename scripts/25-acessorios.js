@@ -52,6 +52,11 @@ const Acessorios = (() => {
       // R20: normaliza tambem dados antigos (migracao silenciosa)
       state.acessorios = (lista || []).map(normalize);
     }
+    // Felipe sessao 2026-08-03: limpa codigos com espacos extras e
+    // deduplica entradas equivalentes. Cobre caso onde planilha original
+    // tinha codigo com trailing space (ex: 'PA-DOWSIL 995 ') que ficou
+    // como entrada separada do 'PA-DOWSIL 995' limpo.
+    migrarLimpezaCodigos();
     // Felipe: Tedee Lock/Keypad/Bridge/Contato Seco/Kit Extensor 9300 nao
     // sao fechaduras digitais (sao acessorios). So sao fechaduras digitais
     // de verdade: Barcelona II, Eletronica 9300, Solenoide FS 1011.
@@ -129,6 +134,90 @@ const Acessorios = (() => {
       store.set('acessorios_lista', state.acessorios);
     }
     store.set('migracao_precos_acess_pdf_v1', true);
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // Felipe sessao 2026-08-03: migracao de limpeza de codigos
+  // ────────────────────────────────────────────────────────────────────
+  // Cadastros antigos podem ter codigos com:
+  //   - Espacos no inicio/fim:    'PA-DOWSIL 995 ' (trailing)
+  //   - Espacos duplos no meio:   'PA-DOWSIL  995'
+  //   - Variacoes de capitalizacao
+  //
+  // Resultado: importacao de planilha com 'PA-DOWSIL 995' (limpo) nao
+  // encontrava o cadastro existente 'PA-DOWSIL 995 ' (sujo) e criava
+  // uma nova entrada duplicada. O motor de orcamento procurava 'PA-DOWSIL 995'
+  // exato e podia pegar a entrada errada (sem preco).
+  //
+  // Esta migracao:
+  //   1. Limpa codigos (trim + collapse de espacos duplos)
+  //   2. Deduplica entradas equivalentes
+  //   3. Em conflito de preco, vence o que tem preco > 0
+  // ────────────────────────────────────────────────────────────────────
+  function migrarLimpezaCodigos() {
+    if (store.get('migracao_limpeza_codigos_v1')) return;
+
+    function normCmp(s) {
+      return String(s == null ? '' : s).trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+    function limpaCodigo(s) {
+      return String(s == null ? '' : s).trim().replace(/\s+/g, ' ');
+    }
+
+    // Agrupa por codigo normalizado
+    const grupos = {};
+    state.acessorios.forEach(a => {
+      const key = normCmp(a.codigo);
+      if (!grupos[key]) grupos[key] = [];
+      grupos[key].push(a);
+    });
+
+    // Pra cada grupo, escolhe um vencedor e limpa o codigo
+    const novaLista = [];
+    let limpos = 0, dedupados = 0;
+    Object.keys(grupos).forEach(key => {
+      const grupo = grupos[key];
+      if (grupo.length === 1) {
+        const a = grupo[0];
+        const codigoLimpo = limpaCodigo(a.codigo);
+        if (codigoLimpo !== a.codigo) {
+          a.codigo = codigoLimpo;
+          limpos++;
+        }
+        novaLista.push(a);
+      } else {
+        // Conflito: mescla pegando o melhor de cada
+        // - codigo: limpo
+        // - preco: maior (preco preenchido vence sobre 0)
+        // - demais campos: do com preco > 0; senao do primeiro
+        const comPreco = grupo.find(g => Number(g.preco) > 0);
+        const base = comPreco || grupo[0];
+        const merged = { ...base };
+        merged.codigo = limpaCodigo(base.codigo);
+        // Pega valores nao-vazios dos demais (campos que estao vazios na base)
+        grupo.forEach(g => {
+          ['fornecedor', 'descricao', 'familia'].forEach(campo => {
+            if ((!merged[campo] || merged[campo] === '') && g[campo]) {
+              merged[campo] = g[campo];
+            }
+          });
+        });
+        console.log('[Acessorios] Deduplicando "' + key + '": ' + grupo.length + ' entradas → 1 (preco final R$ ' + (merged.preco || 0) + ')');
+        novaLista.push(merged);
+        dedupados += (grupo.length - 1);
+      }
+    });
+
+    if (limpos > 0 || dedupados > 0) {
+      console.log('[Acessorios] ✅ Limpeza de codigos: ' + limpos + ' codigos limpos, ' + dedupados + ' entradas duplicadas mescladas');
+      state.acessorios = novaLista;
+      try {
+        store.set('acessorios_lista', state.acessorios);
+      } catch(_) {}
+    }
+    try {
+      store.set('migracao_limpeza_codigos_v1', true);
+    } catch(_) {}
   }
 
   function migrarFamiliaTedee() {
@@ -689,9 +778,23 @@ const Acessorios = (() => {
         if (dados.familia && !familiasAtuais.has(dados.familia.toLowerCase())) {
           novasFamilias.add(dados.familia);
         }
-        const existente = state.acessorios.find(a => a.codigo === codigo);
+        // Felipe sessao 2026-08-03: comparacao normalizada do codigo.
+        // Cadastros antigos podem ter espacos extras (ex: 'PA-DOWSIL 995 '
+        // com trailing space). Importacao limpa o novo (trim) mas precisa
+        // achar o existente mesmo se ele estiver sujo. Comparamos as duas
+        // versoes normalizadas (trim + collapse de espacos duplos + lower).
+        function normCodigoCmp(s) {
+          return String(s == null ? '' : s).trim().replace(/\s+/g, ' ').toLowerCase();
+        }
+        const codigoNorm = normCodigoCmp(codigo);
+        const existente = state.acessorios.find(a => normCodigoCmp(a.codigo) === codigoNorm);
         if (existente) {
+          // Aproveita pra limpar o codigo do existente tambem (se estava sujo)
+          if (existente.codigo !== codigo) {
+            console.log('[Acessorios] Normalizando codigo: ' + JSON.stringify(existente.codigo) + ' -> ' + JSON.stringify(codigo));
+          }
           Object.assign(existente, dados);
+          existente.codigo = codigo; // forca uso do codigo limpo
           atualizados++;
         } else {
           state.acessorios.push(dados);
