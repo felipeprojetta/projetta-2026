@@ -264,7 +264,19 @@ const AcessoriosPortaExterna = (() => {
       }
     }
 
-    // 5. PIVO — sempre, 12 × nFolhas
+    // 5. PIVO ou DOBRADICA — depende do sistema da porta
+    // Felipe sessao 12: quando sistema='dobradica' (largura<1200), porta NAO
+    // leva pivo. Em vez disso leva PA-DOBINOX 3.5X3 PRE:
+    //   altura ≤ 2500 → 3 unidades por folha
+    //   altura > 2500 → 4 unidades por folha
+    if (sis === 'DOBRADICA') {
+      const qtdDobByFolha = (H > 0 && H <= 2500) ? 3 : 4;
+      const obsAlt = (H > 0 && H <= 2500) ? '(altura ≤ 2500)' : '(altura > 2500)';
+      add('PA-DOBINOX 3.5X3 PRE', qtdDobByFolha * nFolhas, 'Dobradiças', 'fab',
+          nFolhas === 2
+            ? `${qtdDobByFolha} dobradiças/folha × 2 folhas ${obsAlt}`
+            : `${qtdDobByFolha} dobradiças ${obsAlt}`);
+    } else {
     // Felipe (sessao 2026-05-06): parafusos do pivo vao pra OBRA (não fab)
     add('PA-CHA AA PHS 4,8X50', 12 * nFolhas, 'Parafusos', 'obra', 'pivo');
     add('PA-BUCHA 06',          12 * nFolhas, 'Buchas', 'obra', 'pivo');
@@ -313,6 +325,7 @@ const AcessoriosPortaExterna = (() => {
       add('PA-PIVOT 350 KG', nFolhas, 'Pivo', 'fab',
           `conjunto sup/inf 350kg (peso da folha nao informado${qtdSuf})`);
     }
+    } // fim else (pivo)
 
     // 7. FITA ESCOVINHA Q-LON — depende do sistema
     //    PA006 → ceil(L/1000) × 2 metros
