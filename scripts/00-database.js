@@ -73,8 +73,14 @@ const Database = (() => {
     if (_sbUpsertTimers[timerKey]) clearTimeout(_sbUpsertTimers[timerKey]);
     _sbUpsertTimers[timerKey] = setTimeout(function() {
       delete _sbUpsertTimers[timerKey];
+      // Felipe sessao 12: Auth nao tem getUser() — tem currentUser() que
+      // retorna {username, name, role, loggedAt}. Por isso updated_by
+      // estava sempre vazio no Supabase. Agora extrai username da sessao.
       var usuario = '';
-      try { usuario = (window.Auth && window.Auth.getUser()) || ''; } catch(_){}
+      try {
+        var u = window.Auth && window.Auth.currentUser && window.Auth.currentUser();
+        if (u && u.username) usuario = u.username;
+      } catch(_){}
       fetch(SUPABASE_URL + '/rest/v1/kv_store', {
         method: 'POST',
         headers: sbHeaders(true),
@@ -333,7 +339,7 @@ const Database = (() => {
       } catch(e) {
         // silencioso — polling nao deve travar o app
       }
-    }, 5000);  // Felipe: 5s pra parecer 'tempo real'
+    }, 3000);  // Felipe sessao 12: 3s (era 5s) — mais "tempo real" pra colaboracao
 
     // Felipe sessao 2026-08-02: detecta volta do focus (aba/notebook
     // que estava em background ou adormecido) e dispara polling
