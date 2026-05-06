@@ -506,7 +506,7 @@
     list.innerHTML = '<div style="padding:40px;text-align:center;color:#666">⏳ Carregando emails...</div>';
 
     try {
-      var result = await window.outlookListInbox({top: 50});
+      var result = await window.outlookListInbox({top: 150});
       _renderEmailList(result.emails);
     } catch(e){
       _err('refreshInbox', e);
@@ -528,7 +528,7 @@
     list.innerHTML = '<div style="padding:40px;text-align:center;color:#666">🔍 Buscando "'+_escHtml(q)+'"...</div>';
 
     try {
-      var result = await window.outlookSearch(q, 50);
+      var result = await window.outlookSearch(q, 150);
       _renderEmailList(result.emails, q);
     } catch(e){
       _err('doSearch', e);
