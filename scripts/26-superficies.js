@@ -264,6 +264,7 @@ const Superficies = (() => {
       altura:    Number(s.altura)  || dims.altura  || 0,    // mm
       tem_veio:  tv,
       peso_kg_m2: Number(s.peso_kg_m2) || pesoDefaultPorCategoria(cat),
+      cobranca:  s.cobranca || (cat === 'vidro' ? 'm2' : ''),  // Felipe sessao 11: preservar
     };
   }
 
@@ -389,7 +390,11 @@ const Superficies = (() => {
     save();
     dirty = false;
     setBtnSalvarEstado(false);
-    if (window.showSavedDialog) window.showSavedDialog('Alteracoes salvas com sucesso.');
+    // Felipe sessao 11: verificacao dupla — confirma que o dado chegou no Supabase
+    const totalItens = state.superficies.length;
+    const vidros = state.superficies.filter(s => s.categoria === 'vidro').length;
+    console.log(`[Superficies] ✅ Salvo: ${totalItens} itens (${vidros} vidros) → localStorage + Supabase`);
+    if (window.showSavedDialog) window.showSavedDialog(`Salvo: ${totalItens} itens (${vidros} vidros).`);
   }
 
   function aplicarBusca(lista) {

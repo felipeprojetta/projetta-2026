@@ -75,8 +75,11 @@ const Database = (() => {
         valor: value,
         updated_by: String(usuario),
       }),
+      keepalive: true,  // Felipe sessao 11: garante que o write sobrevive navegacao/reload
+    }).then(function(res) {
+      if (!res.ok) console.error('[DB] sbUpsert FALHOU:', scope, '/', key, 'HTTP', res.status);
     }).catch(function(e) {
-      console.warn('[DB] Supabase upsert falhou (dados locais OK):', e.message);
+      console.error('[DB] sbUpsert FALHOU (rede):', scope, '/', key, e.message);
     });
   }
 
