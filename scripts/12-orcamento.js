@@ -5389,8 +5389,24 @@ const Orcamento = (() => {
       // Recalcula subFab/subInst SEM rodar motores
       const rFabDre  = calcularFab(fabDre, versao.itens);
       const rInstDre = calcularInst(instDre);
-      versao.subFab  = rFabDre.total;
-      versao.subInst = rInstDre.total;
+      const newSubFab  = rFabDre.total;
+      const newSubInst = rInstDre.total;
+      // BUG FIX (sessao 2026-05-06): renderCustoTab recalculava subFab/subInst
+      // em memoria mas NAO persistia. Resultado: DRE mostrava valores recalculados
+      // mas Aprovar/Proposta liam os valores ANTIGOS do storage → precos divergiam.
+      // Agora persiste se mudou, pra que tudo use os mesmos valores.
+      const mudouFab  = Math.abs(newSubFab  - (Number(versao.subFab)  || 0)) > 0.005;
+      const mudouInst = Math.abs(newSubInst - (Number(versao.subInst) || 0)) > 0.005;
+      versao.subFab  = newSubFab;
+      versao.subInst = newSubInst;
+      if ((mudouFab || mudouInst) && versao.status !== 'fechada') {
+        try {
+          const dadosPersist = {};
+          if (mudouFab)  dadosPersist.subFab  = newSubFab;
+          if (mudouInst) dadosPersist.subInst = newSubInst;
+          atualizarVersao(versao.id, dadosPersist);
+        } catch(ePersist) { console.warn('[DRE] persist subFab/subInst:', ePersist); }
+      }
     } catch(eDre){ console.warn('[DRE] recalc subFab/subInst:', eDre); }
 
     const negocio = obterNegocio(UI.negocioAtivoId);
