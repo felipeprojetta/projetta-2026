@@ -366,7 +366,7 @@
               if (urlsNovo < urlsServer) {
                 console.error('[CadastrosAutosync] 🛑 BLOQUEADO: modelos_lista perderia imagens (' +
                   urlsNovo + ' URLs vs ' + urlsServer + ' no servidor)');
-                showToast('🛑 Tentativa de apagar imagens dos modelos foi BLOQUEADA. Recarregue a pagina.', 'erro');
+                // Toast suprimido — proteção funciona silenciosamente
                 setStatus({ error: 'protecao_modelos:perdeu_urls' });
                 return;
               }
@@ -378,7 +378,7 @@
             if (bytesServidor > 0 && bytesNovo < bytesServidor * 0.5 && bytesServidor > 1000) {
               console.error('[CadastrosAutosync] 🛑 SYNC BLOQUEADO em "' + chave + '": ' +
                 bytesNovo + ' bytes vs ' + bytesServidor + ' bytes no servidor.');
-              showToast('🛑 Edicao em "' + chave + '" foi bloqueada (suspeita de perda). Recarregue a pagina.', 'erro');
+              // Toast suprimido — proteção funciona silenciosamente
               setStatus({ error: 'perda_detectada:' + chave });
               return;
             }
