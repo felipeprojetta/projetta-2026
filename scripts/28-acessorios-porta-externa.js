@@ -797,12 +797,24 @@ const AcessoriosPortaExterna = (() => {
           cacheKey:  ckey,
           itemTipo:  item.tipo,
           itemDim:   { L: L, H: H, nFolhas: nFolhas, qtdPortas: qtdPortas },
-          totais:    { mFD19: mFD19, mFD12: mFD12, mMS: mMS, mCPS: mCPS },
-          rendimentos: { fd19_rolo: FD19_POR_ROLO, fd12_rolo: FD12_POR_ROLO, ms_tubo: MS_POR_TUBO, cps_sache: MS_POR_TUBO },
-          rolosFD19: mFD19 > 0 ? Math.ceil(mFD19 / FD19_POR_ROLO) : 0,
-          rolosFD12: mFD12 > 0 ? Math.ceil(mFD12 / FD12_POR_ROLO) : 0,
-          tubosMS:   mMS   > 0 ? Math.ceil(mMS   / MS_POR_TUBO)   : 0,
-          sachesCPS: mCPS  > 0 ? Math.ceil(mCPS  / MS_POR_TUBO)   : 0,
+          // Felipe sessao 2026-08-03: totais agora separam FAB e OBRA
+          // pra que o modal de Detalhamento mostre PA-HIGHTACK BR.
+          totais:    {
+            mFD19: mFD19, mFD12: mFD12, mMS: mMS, mCPS: mCPS,
+            mFD19_obra: mFD19_obra, mFD12_obra: mFD12_obra, mHIGHTACK: mHIGHTACK,
+          },
+          rendimentos: {
+            fd19_rolo: FD19_POR_ROLO, fd12_rolo: FD12_POR_ROLO,
+            ms_tubo: MS_POR_TUBO, cps_sache: MS_POR_TUBO,
+            hightack_tubo: HIGHTACK_POR_TUBO,
+          },
+          rolosFD19:      mFD19      > 0 ? Math.ceil(mFD19      / FD19_POR_ROLO)     : 0,
+          rolosFD12:      mFD12      > 0 ? Math.ceil(mFD12      / FD12_POR_ROLO)     : 0,
+          tubosMS:        mMS        > 0 ? Math.ceil(mMS        / MS_POR_TUBO)       : 0,
+          sachesCPS:      mCPS       > 0 ? Math.ceil(mCPS       / MS_POR_TUBO)       : 0,
+          rolosFD19_obra: mFD19_obra > 0 ? Math.ceil(mFD19_obra / FD19_POR_ROLO)     : 0,
+          rolosFD12_obra: mFD12_obra > 0 ? Math.ceil(mFD12_obra / FD12_POR_ROLO)     : 0,
+          tubosHIGHTACK:  mHIGHTACK  > 0 ? Math.ceil(mHIGHTACK  / HIGHTACK_POR_TUBO) : 0,
           breakdown: _breakdown.slice(),
           ts:        Date.now(),
         };

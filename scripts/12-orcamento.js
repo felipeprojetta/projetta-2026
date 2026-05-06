@@ -12391,6 +12391,14 @@ const Orcamento = (() => {
         const rolosFD12 = t.mFD12 > 0 ? Math.ceil(t.mFD12 / rends.fd12_rolo) : 0;
         const tubosMS   = t.mMS   > 0 ? Math.ceil(t.mMS   / rends.ms_tubo)   : 0;
         const sachesCPS = (t.mCPS || 0) > 0 ? Math.ceil(t.mCPS / cpsRend)    : 0;
+        // Felipe sessao 2026-08-03: totais OBRA (FD19, FD12, HIGHTACK BR)
+        const mFD19_obra = Number(t.mFD19_obra) || 0;
+        const mFD12_obra = Number(t.mFD12_obra) || 0;
+        const mHIGHTACK  = Number(t.mHIGHTACK)  || 0;
+        const hightackRend = rends.hightack_tubo || 8;
+        const rolosFD19_obra = mFD19_obra > 0 ? Math.ceil(mFD19_obra / rends.fd19_rolo)  : 0;
+        const rolosFD12_obra = mFD12_obra > 0 ? Math.ceil(mFD12_obra / rends.fd12_rolo)  : 0;
+        const tubosHIGHTACK  = mHIGHTACK  > 0 ? Math.ceil(mHIGHTACK  / hightackRend)     : 0;
 
         return `
           <details style="margin-top:12px;background:#fffbeb;border:2px solid #f59e0b;border-radius:6px;">
@@ -12398,7 +12406,7 @@ const Orcamento = (() => {
               <span style="display:inline-block;transition:transform 0.2s;font-size:12px;color:#b45309;" class="fsd-arrow">▶</span>
               📊 Abrir Detalhamento — Fita Dupla Face e Silicone Estrutural
               <span style="margin-left:auto;font-size:11px;font-weight:500;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:12px;">
-                ${(t.mFD19 || 0).toFixed(1)}m + ${(t.mFD12 || 0).toFixed(1)}m + ${(t.mMS || 0).toFixed(1)}m silicone + ${(t.mCPS || 0).toFixed(1)}m CPS · clique pra ver de onde
+                ${(t.mFD19 || 0).toFixed(1)}m + ${(t.mFD12 || 0).toFixed(1)}m + ${(t.mMS || 0).toFixed(1)}m 995 + ${(t.mCPS || 0).toFixed(1)}m CPS${mHIGHTACK > 0 ? ' + ' + mHIGHTACK.toFixed(1) + 'm HIGHTACK' : ''} · clique pra ver de onde
               </span>
             </summary>
 
@@ -12432,6 +12440,17 @@ const Orcamento = (() => {
                   PA-DOWSIL CPS BR<br>(só nas Travessas)
                 </div>
               </div>
+              ${mHIGHTACK > 0 ? `
+              <!-- Felipe sessao 2026-08-03: card HIGHTACK BR (silicone obra) -->
+              <div style="flex:1;min-width:160px;background:#fff;border:2px solid #0284c7;border-radius:6px;padding:10px 14px;">
+                <div style="font-size:10px;color:#075985;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">HIGHTACK BR (Obra)</div>
+                <div style="font-size:18px;font-weight:800;color:#0284c7;line-height:1.1;margin-top:2px;">${mHIGHTACK.toFixed(2)} m</div>
+                <div style="font-size:11px;color:#075985;margin-top:2px;">÷ ${hightackRend}m por tubo = <b style="color:#0284c7;">${tubosHIGHTACK} tubo(s)</b></div>
+                <div style="font-size:10px;color:#075985;margin-top:6px;line-height:1.3;">
+                  PA-HIGHTACK BR<br>(Alisar + Fita Acab)
+                </div>
+              </div>
+              ` : ''}
             </div>
 
             <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;">
