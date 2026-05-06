@@ -9613,17 +9613,35 @@ const Orcamento = (() => {
       // mesmo quando Felipe editava na tabela. Bug 'mudo de 3 para 2 e nao
       // recalcula tirando essa peca'.
       if (item.tipo === 'porta_externa' && Chapas) {
+        // Felipe sessao 12 fix: pra COR UNICA (corExt = corInt), peças com
+        // override (_editado) NAO sao duplicadas entre os 2 lados. O override
+        // representa a qtd FINAL desejada pelo usuario, nao por lado. Sem
+        // isso o aproveitamento contava 2× (ext+int) o valor editado e
+        // calculava chapas-mae a mais.
+        const corExt2 = String(item.corExterna || '').trim();
+        const corInt2 = String(item.corInterna || '').trim();
+        const corUnica2 = corExt2 && corExt2 === corInt2;
+        // Coleta primeiro o externo e marca chaves _editadas pra pular no interno.
+        const chavesEditadasExt = new Set();
         ['externo', 'interno'].forEach(lado => {
           let pecas = Chapas.gerarPecasChapa(item, lado) || [];
           pecas = aplicarRotacionaOverrides(pecas, item);
           pecas = aplicarQtdOverrides(pecas, item, lado);
           pecas = aplicarSuperficiesOverrides(pecas, item);
+          // Cor unica: pula no INTERNO peças _editadas que ja foram contadas no EXTERNO
+          if (corUnica2 && lado === 'interno') {
+            pecas = pecas.filter(p => !(p._editado && chavesEditadasExt.has(rotacionaKey(p))));
+          }
           // peca manual: filtra por cor do lado (cada peca manual tem .cor='externo'/'interno')
           const extrasLado = ((item.pecasManuaisExtras || []).filter(p => (p.cor||'') === lado));
           if (extrasLado.length) {
             pecas = pecas.concat(extrasLado.map(p => Object.assign({
               podeRotacionar: false, qtd: 1, categoria: p.categoria || 'porta',
             }, p, { _manual: true })));
+          }
+          // Marca chaves _editadas do externo pra usar no interno (1a passada)
+          if (corUnica2 && lado === 'externo') {
+            pecas.forEach(p => { if (p._editado) chavesEditadasExt.add(rotacionaKey(p)); });
           }
           pecas.forEach(p => agrupar(grupos, p, idx, item));
         });
@@ -11221,7 +11239,21 @@ const Orcamento = (() => {
       const chave = `${p.label}|${p.largura}|${p.altura}|${p.cor || ''}`;
       const existe = mapa.get(chave);
       if (existe) {
-        existe.qtd = (existe.qtd || 1) + (p.qtd || 1);
+        // Felipe sessao 12 fix: 'mudo de 4 para 2 e volta pra 4'.
+        // CAUSA: aplicarSuperficiesOverrides aplica o override em CADA lado
+        // (ext e int) ANTES de unificar. Se Felipe edita qtd=2, ext=2 e int=2.
+        // Aqui antes somava 2+2=4. Solucao: se a peca tem _editado=true (foi
+        // alterada manualmente pelo usuario), o valor JA representa a qtd
+        // FINAL desejada por Felipe - nao soma de novo entre os lados.
+        if (existe._editado || p._editado) {
+          // Pelo menos um dos lados tem override. Mantem qtd existente
+          // (do primeiro lado processado, que ja teve override aplicado).
+          // _editado fica true pra UI mostrar visual azul.
+          existe._editado = true;
+        } else {
+          // Comportamento original: soma qtd dos 2 lados.
+          existe.qtd = (existe.qtd || 1) + (p.qtd || 1);
+        }
       } else {
         mapa.set(chave, Object.assign({}, p));
       }
