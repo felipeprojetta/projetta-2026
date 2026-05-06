@@ -12386,16 +12386,17 @@ const Orcamento = (() => {
           const ht = e.contrib?.hightack || 0;
           const pctMs = t.mMS > 0 ? (ms / t.mMS) * 100 : 0;
           const corDestaque = pctMs > 25 ? '#b91c1c' : pctMs > 10 ? '#b45309' : '#374151';
+          const cs = 'text-align:center;padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;';
           return `
             <tr>
               <td style="padding:6px 10px;font-weight:500;color:#1f2937;font-size:12px;">${escapeHtml(e.origem || '?')}</td>
-              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;color:#475569;font-size:12px;">${(e.metros || 0).toFixed(2)}m</td>
-              <td class="num" style="padding:6px 10px;font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0} / ×${e.mult?.cps || 0}</td>
-              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;color:#1e3a8a;background:#eff6ff;">${fd19 > 0 ? fd19.toFixed(2) + 'm' : '—'}</td>
-              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;color:#1e3a8a;background:#dbeafe;">${fd12 > 0 ? fd12.toFixed(2) + 'm' : '—'}</td>
-              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-weight:700;color:${corDestaque};background:#fef3c7;font-size:12px;">${ms > 0 ? ms.toFixed(2) + 'm' : '—'}${ms > 0 ? `<span style="font-size:10px;font-weight:400;color:#9ca3af;"> (${pctMs.toFixed(0)}%)</span>` : ''}</td>
-              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-weight:700;color:#15803d;background:#dcfce7;font-size:12px;">${cps > 0 ? cps.toFixed(2) + 'm' : '—'}</td>
-              <td class="num" style="padding:6px 10px;font-variant-numeric:tabular-nums;font-weight:700;color:#0369a1;background:#e0f2fe;font-size:12px;">${ht > 0 ? ht.toFixed(2) + 'm' : '—'}</td>
+              <td style="${cs}color:#475569;">${(e.metros || 0).toFixed(2)}m</td>
+              <td style="${cs}font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0} / ×${e.mult?.cps || 0}</td>
+              <td style="${cs}color:#1e3a8a;background:#eff6ff;">${fd19 > 0 ? fd19.toFixed(2) + 'm' : '—'}</td>
+              <td style="${cs}color:#1e3a8a;background:#dbeafe;">${fd12 > 0 ? fd12.toFixed(2) + 'm' : '—'}</td>
+              <td style="${cs}font-weight:700;color:${corDestaque};background:#fef3c7;">${ms > 0 ? ms.toFixed(2) + 'm' : '—'}${ms > 0 ? `<span style="font-size:10px;font-weight:400;color:#9ca3af;"> (${pctMs.toFixed(0)}%)</span>` : ''}</td>
+              <td style="${cs}font-weight:700;color:#15803d;background:#dcfce7;">${cps > 0 ? cps.toFixed(2) + 'm' : '—'}</td>
+              <td style="${cs}font-weight:700;color:#0369a1;background:#e0f2fe;">${ht > 0 ? ht.toFixed(2) + 'm' : '—'}</td>
             </tr>
           `;
         }).join('');
@@ -12471,28 +12472,28 @@ const Orcamento = (() => {
               ` : ''}
             </div>
 
-            <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;">
+            <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;table-layout:fixed;">
               <thead>
                 <tr style="background:#1f2937;color:#fff;">
-                  <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">Peça / Perfil (com dimensões)</th>
-                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;">Metros</th>
-                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;">Mult. (19/12/995/CPS)</th>
-                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;">FD 19mm</th>
-                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;">FD 12mm</th>
-                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;">Silicone</th>
-                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#15803d;">CPS BR</th>
-                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#0369a1;">HIGHTACK</th>
+                  <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;width:auto;">Peça / Perfil (com dimensões)</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;width:70px;">Metros</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;width:120px;">Mult. (19/12/995/CPS)</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;width:80px;">FD 19mm</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;width:80px;">FD 12mm</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;width:100px;">Silicone</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#15803d;width:80px;">CPS BR</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#0369a1;width:80px;">HIGHTACK</th>
                 </tr>
               </thead>
               <tbody>${linhasHtml}</tbody>
               <tfoot>
                 <tr style="background:#fef3c7;font-weight:800;border-top:2px solid #f59e0b;">
                   <td style="padding:8px 10px;font-size:12px;color:#92400e;" colspan="3">TOTAL</td>
-                  <td class="num" style="padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD19 || 0).toFixed(2)}m</td>
-                  <td class="num" style="padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD12 || 0).toFixed(2)}m</td>
-                  <td class="num" style="padding:8px 10px;font-size:13px;color:#b45309;">${(t.mMS || 0).toFixed(2)}m</td>
-                  <td class="num" style="padding:8px 10px;font-size:13px;color:#15803d;background:#dcfce7;">${(t.mCPS || 0).toFixed(2)}m</td>
-                  <td class="num" style="padding:8px 10px;font-size:13px;color:#0369a1;background:#e0f2fe;">${(t.mHIGHTACK || 0).toFixed(2)}m</td>
+                  <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD19 || 0).toFixed(2)}m</td>
+                  <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD12 || 0).toFixed(2)}m</td>
+                  <td style="text-align:center;padding:8px 10px;font-size:13px;color:#b45309;">${(t.mMS || 0).toFixed(2)}m</td>
+                  <td style="text-align:center;padding:8px 10px;font-size:13px;color:#15803d;background:#dcfce7;">${(t.mCPS || 0).toFixed(2)}m</td>
+                  <td style="text-align:center;padding:8px 10px;font-size:13px;color:#0369a1;background:#e0f2fe;">${(t.mHIGHTACK || 0).toFixed(2)}m</td>
                 </tr>
               </tfoot>
             </table>

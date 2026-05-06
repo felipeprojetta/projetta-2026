@@ -423,7 +423,7 @@ const AcessoriosPortaExterna = (() => {
       const REGRAS_OBRA = new Set([
         'alisar_altura',
         'alisar_largura',
-        'fita_acab_me',
+        // Felipe (sessao 09): fita_acab_me removida — so usa FD 12mm, sem HIGHTACK
         'fita_acab_ma',
         'fita_acab_largura',
       ]);
@@ -475,7 +475,7 @@ const AcessoriosPortaExterna = (() => {
         //         a peca 'Cava' com qtd dobrada quando 2F (ext=2,int=2=4)
         //         e 'L da Cava' com qtd dobrada em cava dupla (ext=2,int=2=4).
         //         Por isso aqui basta `× 2` que ja' contempla todos os casos.
-        'fita_acab_me':         { fd19: 0, fd12: 1, ms: 1, cps: 0, tamanho: 'comprimento' },
+        'fita_acab_me':         { fd19: 0, fd12: 1, ms: 0, cps: 0, tamanho: 'comprimento' },
         'fita_acab_ma':         { fd19: 1, fd12: 0, ms: 1, cps: 0, tamanho: 'comprimento' },
         'fita_acab_largura':    { fd19: 1, fd12: 0, ms: 1, cps: 0, tamanho: 'comprimento' },
         'cava_porta':           { fd19: 2, fd12: 0, ms: 2, cps: 0, tamanho: 'comprimento' },
