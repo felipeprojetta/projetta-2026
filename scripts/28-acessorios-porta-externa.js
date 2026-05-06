@@ -555,11 +555,42 @@ const AcessoriosPortaExterna = (() => {
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas fixo:', e); }
       }
 
-      // --- 1) Pecas do Levantamento de Superficies (lado externo) ---
+      // --- 1) Pecas do Levantamento de Superficies (AMBOS os lados) ---
+      // Felipe sessao 2026-08-03 BUG FIX: 'qualquer item escrito tampa
+      // ... tampa maior da cava tem 2 unidades e no calculo so tem 1.
+      // tampa furo sao 3 unidades, so sai 2 no calculo'.
+      //
+      // CAUSA: gerarPecasChapa(item, 'externo') retorna so' lado externo.
+      // Tampa Maior Cava tem ext=1, int=1 = total 2 unidades. Antes lia
+      // so' o externo (1).
+      //
+      // FIX: le os 2 lados, agrupa por (label + dimensoes) e SOMA as qtds.
+      // Assim FD/MS recebe a quantidade real total como aparece no
+      // Levantamento de Superficies.
+      //
       // So' pra porta_externa (revestimento ja' foi tratado no bloco 0)
       if (item.tipo === 'porta_externa') {
         try {
-          const pecas = (window.ChapasPortaExterna?.gerarPecasChapa?.(item, 'externo')) || [];
+          const pecasExt = (window.ChapasPortaExterna?.gerarPecasChapa?.(item, 'externo')) || [];
+          const pecasInt = (window.ChapasPortaExterna?.gerarPecasChapa?.(item, 'interno')) || [];
+          // Agrupa por (label + largura + altura): peças identicas dos
+          // 2 lados viram uma so', somando qtd. Lev.Superficies ja' faz
+          // isso na tela.
+          const mapa = new Map();
+          [...pecasExt, ...pecasInt].forEach(p => {
+            const lar = Number(p.largura) || 0;
+            const alt = Number(p.altura)  || 0;
+            const qtd = Number(p.qtd)     || 0;
+            if (!lar || !alt || !qtd) return;
+            const chave = `${p.label}|${lar}|${alt}`;
+            if (mapa.has(chave)) {
+              mapa.get(chave).qtd += qtd;
+            } else {
+              mapa.set(chave, { label: p.label, largura: lar, altura: alt, qtd: qtd });
+            }
+          });
+          const pecas = Array.from(mapa.values());
+
           pecas.forEach(p => {
             const lar = Number(p.largura) || 0;
             const alt = Number(p.altura)  || 0;
