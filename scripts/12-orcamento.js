@@ -2477,24 +2477,14 @@ const Orcamento = (() => {
   function render(container, tabId) {
     const aba = tabId || 'item';
 
-    // Felipe sessao 12: REATIVANDO congelamento. 'QUANDO EU FECHAR UMA
-    // VERSAO APROVAR DRE TEM QUE CONGELAR TUDO NAO PERMITIR ALTERAR NADA
-    // SOMENTE VISUALIZAR. SOMENTE LIBERAR CAMPOS SE APERTAR REVISAR NA V1'.
-    //
-    // Sessao 2026-08 Felipe tinha tirado pq estava 'TRAVANDO TODO SISTEMA,
-    // NEM DEIXA VER AS OUTRAS ABAS'. Mas o CSS .is-orc-readonly ja' tem
-    // exception list pra navegacao (data-tab, subtab, tab, rel-pane etc),
-    // entao agora nao bloqueia mais navegacao - so' inputs/selects/buttons
-    // que ALTERAM dados. Logo: aplicavel sem o problema antigo.
-    //
-    // Imutavel quando: status='fechada' OU aprovadoEm setado.
+    // Felipe sessao 12 (2a vez): 'nao gostei disso tire esse bloqueio'.
+    // Congelamento via CSS .is-orc-readonly REMOVIDO. Banner 'Modo Memorial'
+    // continua aparecendo como AVISO VISUAL nao-bloqueante, mas Felipe pode
+    // editar campos livremente em qualquer versao. Versoes com status='fechada'
+    // ainda dao erro tecnico em atualizarVersao (linha 1262) - intencional
+    // pra preservar historico apos Nova Versao.
     inicializarSessao();
-    var _versaoAtualP = versaoAtiva();
-    if (_versaoAtualP && versaoEhImutavel(_versaoAtualP)) {
-      container.classList.add('is-orc-readonly');
-    } else {
-      container.classList.remove('is-orc-readonly');
-    }
+    container.classList.remove('is-orc-readonly');
 
     if (aba === 'item')             return renderItemTab(container);
     if (aba === 'fab-inst')         return renderFabInstTab(container);
