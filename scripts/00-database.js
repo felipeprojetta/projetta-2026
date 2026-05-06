@@ -124,12 +124,17 @@ const Database = (() => {
         return false;
       }
       var count = 0;
-      // Felipe (sessao 09): NUNCA sincronizar chaves de sessão/auth do cloud.
-      // Bug: outro navegador (Andressa/Thays) fazia syncToCloud com SUA sessão,
+      // Felipe (sessao 09): NUNCA sincronizar chaves de SESSAO via cloud.
+      // Bug original: outro navegador fazia syncToCloud com SUA sessao,
       // depois syncFromCloud no navegador do Felipe puxava e sobrescrevia,
       // trocando o usuário logado e causando "Acesso restrito".
-      var NEVER_SYNC_KEYS = ['session', 'users', 'session_user', 'last_login'];
-      var NEVER_SYNC_SCOPES = ['auth'];
+      // Felipe sessao 12: 'users' SAI do bloqueio — lista de usuarios
+      // cadastrados E global (mesma pra todos), tem que sincronizar pra
+      // novos cadastros propagarem entre maquinas. Bug Andressa: cadastrava
+      // no PC do Felipe e nao conseguia logar do PC dela.
+      // 'session', 'session_user', 'last_login' continuam locais (per-device).
+      var NEVER_SYNC_KEYS = ['session', 'session_user', 'last_login'];
+      var NEVER_SYNC_SCOPES = ['auth_session']; // 'auth' continua liberado pra users
       rows.forEach(function(r) {
         // Bloqueia chaves de autenticação
         if (NEVER_SYNC_SCOPES.indexOf(r.scope) >= 0) return;
@@ -304,9 +309,10 @@ const Database = (() => {
         var changed = false;
         var chavesAlteradas = [];
         rows.forEach(function(r) {
-          // Felipe (sessao 09): NUNCA sincronizar auth/session via realtime
-          if (r.scope === 'auth') return;
-          if (r.key === 'session' || r.key === 'users' || r.key === 'session_user') return;
+          // Felipe (sessao 09): NUNCA sincronizar SESSAO via realtime.
+          // Felipe sessao 12: 'users' agora sincroniza (cadastros novos
+          // precisam propagar entre maquinas - bug Andressa).
+          if (r.key === 'session' || r.key === 'session_user' || r.key === 'last_login') return;
           var lsKey = PREFIX + r.scope + ':' + r.key;
           var localRaw = localStorage.getItem(lsKey);
           var remoteVal = JSON.stringify(r.valor);
