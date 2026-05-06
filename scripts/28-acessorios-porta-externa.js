@@ -386,17 +386,47 @@ const AcessoriosPortaExterna = (() => {
     //
     // "Silicone" = Silicone Estrutural 995 (DowSil 995). Nome interno mMS por brevidade.
     // Conversao final: F.D total / 20m por rolo | Silicone total / 8m por tubo
+    //
+    // Felipe sessao 2026-08-03: 'Fita Acabamento ME/MA, fita acabamento
+    // largura, e todos alisares na realidade sao itens da obra, voce
+    // deve jogar em itens da obra e vamos mudar de 995 para PA-HIGHTACK BR'.
+    //
+    // Itens FAB (ficam na fabrica, silicone = PA-DOWSIL 995):
+    //   - Cantoneira, Cava, L da Cava, Tampa Maior/Borda/Furo, qualquer
+    //     Tampa, Travessa Vert/Horiz, Altura Folha/Portal, Largura Portal,
+    //     Ripas
+    //
+    // Itens OBRA (vao pra obra com instalador, silicone = PA-HIGHTACK BR):
+    //   - Alisar Altura, Alisar Largura, Fita Acab ME, Fita Acab MA,
+    //     Fita Acab Largura
     if (L > 0 && H > 0) {
-      let mFD19 = 0;  // metros lineares de Fita Dupla Face 19mm
-      let mFD12 = 0;  // metros lineares de Fita Dupla Face 12mm
-      let mMS   = 0;  // metros lineares de Silicone Estrutural 995
-      let mCPS  = 0;  // metros lineares de PA-DOWSIL CPS BR (sache branco 591ml) — Felipe sessao 2026-08
+      // Acumuladores FAB (linha original)
+      let mFD19 = 0;  // metros lineares de Fita Dupla Face 19mm (FAB)
+      let mFD12 = 0;  // metros lineares de Fita Dupla Face 12mm (FAB)
+      let mMS   = 0;  // metros lineares de Silicone Estrutural 995 (FAB)
+      let mCPS  = 0;  // metros lineares de PA-DOWSIL CPS BR (FAB)
+
+      // Acumuladores OBRA (Felipe sessao 2026-08-03)
+      let mFD19_obra = 0;  // FD19 que vai pra obra (Alisar/Fita Acab)
+      let mFD12_obra = 0;  // FD12 que vai pra obra (Alisar/Fita Acab)
+      let mHIGHTACK  = 0;  // PA-HIGHTACK BR (silicone obra)
 
       // Felipe sessao 2026-08: 'me traga suas contas detalhadas'.
       // Acumulador de breakdown: cada chamada de aplicarRegra* registra
       // aqui sua contribuicao. Usado pelo modal debug pra mostrar
       // exatamente de onde sai cada metro de FD19/FD12/MS.
       const _breakdown = [];
+
+      // Felipe sessao 2026-08-03: lista de regras que vao pra OBRA.
+      // aplicarRegra checa essa lista e direciona pros acumuladores OBRA
+      // em vez de FAB. Silicone vira PA-HIGHTACK BR.
+      const REGRAS_OBRA = new Set([
+        'alisar_altura',
+        'alisar_largura',
+        'fita_acab_me',
+        'fita_acab_ma',
+        'fita_acab_largura',
+      ]);
 
       // Felipe sessao 2026-08: le multiplicadores da tabela editavel em
       // Cadastro > Regras e Logicas > Fita Dupla Face + Silicone. Se o
@@ -462,15 +492,27 @@ const AcessoriosPortaExterna = (() => {
         const cFD12 = (Number(r.fd12) || 0) * metros;
         const cMS   = (Number(r.ms)   || 0) * metros;
         const cCPS  = (Number(r.cps)  || 0) * metros;
-        mFD19 += cFD19;
-        mFD12 += cFD12;
-        mMS   += cMS;
-        mCPS  += cCPS;
+        // Felipe sessao 2026-08-03: regras OBRA acumulam em mFD19_obra,
+        // mFD12_obra e mHIGHTACK (silicone PA-HIGHTACK BR).
+        // FAB (todo o resto) acumula em mFD19, mFD12, mMS (silicone 995).
+        const ehObra = REGRAS_OBRA.has(idRegra);
+        if (ehObra) {
+          mFD19_obra += cFD19;
+          mFD12_obra += cFD12;
+          mHIGHTACK  += cMS;  // 'ms' da regra vira PA-HIGHTACK BR pra OBRA
+          // CPS nao se aplica em obra (so' Travessas FAB usam CPS)
+        } else {
+          mFD19 += cFD19;
+          mFD12 += cFD12;
+          mMS   += cMS;
+          mCPS  += cCPS;
+        }
         _breakdown.push({
           origem: origem || idRegra,
           regra:  idRegra,
           tipo:   'comprimento',
           metros: metros,
+          aplicacao: ehObra ? 'obra' : 'fab',
           mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0, cps: r.cps||0 },
           contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS, cps: cCPS },
         });
@@ -706,6 +748,26 @@ const AcessoriosPortaExterna = (() => {
         const tubos = Math.ceil(mMS / MS_POR_TUBO);
         add('PA-DOWSIL 995', tubos, 'Selantes', 'fab',
             `${mMS.toFixed(1)}m / ${MS_POR_TUBO}m por tubo = ${tubos} tubo(s)`);
+      }
+
+      // Felipe sessao 2026-08-03: linhas OBRA - silicone PA-HIGHTACK BR
+      // (Fix All High Tack Branco) e fita dupla face vinda de Alisar/Fita Acab.
+      // Aplicacao 'obra' = vai com instalador na obra (categoria diferente
+      // de FAB que fica na fabrica).
+      if (mFD19_obra > 0) {
+        const rolos = Math.ceil(mFD19_obra / FD19_POR_ROLO);
+        add('PA-FITDF 19X20X1.0', rolos, 'Fita Dupla Face', 'obra',
+            `${mFD19_obra.toFixed(1)}m / ${FD19_POR_ROLO}m por rolo = ${rolos} rolo(s) (obra)`);
+      }
+      if (mFD12_obra > 0) {
+        const rolos = Math.ceil(mFD12_obra / FD12_POR_ROLO);
+        add('PA-FITDF 12X20X1.0', rolos, 'Fita Dupla Face', 'obra',
+            `${mFD12_obra.toFixed(1)}m / ${FD12_POR_ROLO}m por rolo = ${rolos} rolo(s) (obra)`);
+      }
+      if (mHIGHTACK > 0) {
+        const tubos = Math.ceil(mHIGHTACK / MS_POR_TUBO);
+        add('PA-HIGHTACK BR', tubos, 'Selantes', 'obra',
+            `${mHIGHTACK.toFixed(1)}m / ${MS_POR_TUBO}m por tubo = ${tubos} tubo(s) (obra)`);
       }
       // Felipe sessao 2026-08: PA-DOWSIL CPS BR (sache 591ml). So' aparece
       // nas Travessas. Mesmo rendimento do silicone estrutural (MS_POR_TUBO,
