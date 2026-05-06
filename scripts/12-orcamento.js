@@ -8343,19 +8343,21 @@ const Orcamento = (() => {
       btn.addEventListener('click', () => W.avancar(tabAtual));
     }
 
-    // Felipe (sessao 09): botao duplicado NO TOPO — "as vezes tenho
-    // que descer a tela so para passar pra frente". Topo so' mostra
-    // o botao (sem lista de pendencias — essas ficam so' embaixo).
-    if (!bloqueado) {
+    // Felipe (sessao 09): botao duplicado NO TOPO — SEMPRE aparece
+    // (desabilitado se bloqueado). "Quero todas as abas com botao
+    // em cima e em baixo."
+    {
       const barraTopo = document.createElement('div');
       barraTopo.className = 'orc-wizard-actions orc-wizard-actions-top';
       barraTopo.innerHTML = `
-        <button type="button" class="orc-wizard-btn-proximo">
+        <button type="button" class="orc-wizard-btn-proximo${bloqueado ? ' is-disabled' : ''}" ${bloqueado ? 'disabled' : ''}>
           ${jaLiberado ? 'Ir' : 'Proximo'}: ${escapeHtml(proxLabel)} →
         </button>
       `;
-      barraTopo.querySelector('.orc-wizard-btn-proximo')
-        .addEventListener('click', () => W.avancar(tabAtual));
+      if (!bloqueado) {
+        barraTopo.querySelector('.orc-wizard-btn-proximo')
+          .addEventListener('click', () => W.avancar(tabAtual));
+      }
       container.prepend(barraTopo);
     }
   }
@@ -8490,6 +8492,11 @@ const Orcamento = (() => {
                 style="background:#d97706;color:#fff;border:none;border-radius:5px;
                        padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;">
           🔄 Recalcular
+        </button>
+      </div>
+      <div class="orc-wizard-actions orc-wizard-actions-top">
+        <button type="button" class="orc-wizard-btn-proximo orc-btn-proxima-aba" data-aba-destino="fab-inst">
+          Proxima pagina: Custo de Fabricacao e Instalacao →
         </button>
       </div>
       <div class="orc-section orc-lev-superficies-header">
