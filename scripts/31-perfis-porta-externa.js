@@ -330,7 +330,15 @@ const PerfisPortaExterna = (() => {
     add(cod.perfLargInt,                          LARG_INT_FOLHA,  2 * nFolhas,    'Largura Inferior & Superior');
     add(cod.canalEsc,                             CANAL,           2 * nFolhas,    'Canal Escova');
     add(cod.travVert,                             TRAV_VERT,       qtdTV,          'Travessa Vertical');
-    add(cod.travHor,                              LARG_INT_TRAV,   qtdTH * nFolhas,'Travessa Horizontal');
+    // Felipe sessao 12: modelo 6 (friso horizontal) NAO duplica - o
+    // 'Friso Horizontal' SUBSTITUI a 'Travessa Horizontal'. Antes
+    // adicionavam os 2 (mesmo PA-76X38X1.98, mesmo comprimento, mesmo
+    // qtd) - duplicacao. Felipe: 'o friso na horizontal substitui a
+    // travessa vertcal' (errou: queria dizer travessa horizontal,
+    // pq sao ambas horizontais e mesmas dimensoes).
+    if (!ehFriso6) {
+      add(cod.travHor,                            LARG_INT_TRAV,   qtdTH * nFolhas,'Travessa Horizontal');
+    }
 
     if (ehCava) {
       // Felipe (sessao 30 — fix v2): "1F com cava: 2 unidades, 2F com
@@ -343,8 +351,9 @@ const PerfisPortaExterna = (() => {
       add(cod.travCava, 250,       qtdTH * nFolhas,    'Travamento Cava');
     }
     if (ehFriso6) {
+      // Felipe sessao 12: modelo 6 = SO friso horizontal. Sem friso
+      // vertical (era erro). Travessa Vertical (acima) mantem padrao.
       add(cod.travHor,     LARG_INT_TRAV, qtdTH * nFolhas, 'Friso Horizontal');
-      add(cod.perfLargInt, TRAV_VERT,     1 * nFolhas,     'Friso Vertical');
     }
 
     // Felipe (sessao 2026-09): tubo de reforco do FRISO VERTICAL.
