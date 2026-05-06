@@ -2367,20 +2367,31 @@
 
                 // Valor pro contexto
                 let valorTxt = 'a combinar';
+                let valorOriginal = '';
+                let valorComDesconto = '';
                 try {
                   if (window.Orcamento?.resumoParaCardCRM) {
                     const resumo = window.Orcamento.resumoParaCardCRM(leadId);
-                    if (resumo && resumo.pFatReal > 0) valorTxt = 'R$ ' + fmtBR(resumo.pFatReal);
+                    if (resumo && resumo.pFatReal > 0) {
+                      valorComDesconto = 'R$ ' + fmtBR(resumo.pFatReal);
+                      valorTxt = valorComDesconto;
+                    }
+                    if (resumo && resumo.precoProposta > 0) {
+                      valorOriginal = 'R$ ' + fmtBR(resumo.precoProposta);
+                    }
+                    if (valorOriginal && valorComDesconto) {
+                      valorTxt = 'Original: ' + valorOriginal + ' / Com Desconto: ' + valorComDesconto;
+                    }
                   }
                 } catch(_){}
-                // Nome representante pro contexto
+                // Nome representante: usa razao_social (nome real), NAO followup (codigo)
                 let repNomeMail = '';
                 try {
                   const cadStore2 = Storage.scope('cadastros');
                   const reps2 = cadStore2.get('representantes_lista') || [];
                   const fup2 = lead.representante_followup || '';
                   const rep2 = reps2.find(r => r.followup === fup2);
-                  if (rep2) repNomeMail = rep2.followup || '';
+                  if (rep2) repNomeMail = rep2.razao_social || rep2.followup || '';
                 } catch(_){}
 
                 const ctxMail = {

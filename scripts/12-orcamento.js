@@ -5650,12 +5650,12 @@ const Orcamento = (() => {
           </div>
           <div class="orc-dre-divisor"></div>
           <div class="orc-dre-row orc-dre-destaque is-receita is-subtotal">
-            <span class="orc-dre-label">Preco faturamento</span>
+            <span class="orc-dre-label">Com Desconto</span>
             <span class="orc-dre-formula">custo × fF</span>
             <span class="orc-dre-valor">R$ ${fmtBR(r.pFat)}</span>
           </div>
           <div class="orc-dre-row orc-dre-destaque is-receita is-subtotal">
-            <span class="orc-dre-label">Preco tabela</span>
+            <span class="orc-dre-label">Original</span>
             <span class="orc-dre-formula">custo × fT</span>
             <span class="orc-dre-valor">R$ ${fmtBR(r.pTab)}</span>
           </div>
@@ -11529,11 +11529,11 @@ const Orcamento = (() => {
           </div>
           <div class="rep-precos">
             <div class="rep-preco-bloco rep-preco-tabela">
-              <div class="rep-preco-label">PREÇO TABELA</div>
+              <div class="rep-preco-label">ORIGINAL</div>
               <div class="rep-preco-valor">${fmtMoney(precoTabItem)}</div>
             </div>
             <div class="rep-preco-bloco rep-preco-fat">
-              <div class="rep-preco-label">PREÇO FATURAMENTO</div>
+              <div class="rep-preco-label">COM DESCONTO</div>
               <div class="rep-preco-valor">${fmtMoney(precoFatItem)}</div>
             </div>
           </div>
@@ -11730,7 +11730,7 @@ const Orcamento = (() => {
             <div class="rep-preco-valor">${fmtMoney(custoTotalFab)}</div>
           </div>
           <div class="rep-preco-bloco rep-preco-fat">
-            <div class="rep-preco-label">PRECO FATURAMENTO</div>
+            <div class="rep-preco-label">COM DESCONTO</div>
             <div class="rep-preco-valor">${fmtMoney(dre.pFatReal || 0)}</div>
           </div>
         </div>
@@ -11859,12 +11859,12 @@ const Orcamento = (() => {
 
           <div class="rep-precos">
             <div class="rep-preco-bloco rep-preco-tabela">
-              <div class="rep-preco-label">PRECO TABELA</div>
+              <div class="rep-preco-label">ORIGINAL</div>
               <div class="rep-preco-valor">${fmtMoney(precoTab)}</div>
               <div class="rep-preco-meta">${fmtMoney(precoTabM2_porInst)}/m²</div>
             </div>
             <div class="rep-preco-bloco rep-preco-fat">
-              <div class="rep-preco-label">PRECO FATURAMENTO</div>
+              <div class="rep-preco-label">COM DESCONTO</div>
               <div class="rep-preco-valor">${fmtMoney(precoFat)}</div>
               <div class="rep-preco-meta">${fmtMoney(precoFatM2_porInst)}/m²</div>
             </div>
@@ -11891,10 +11891,10 @@ const Orcamento = (() => {
             <table class="rep-m2-tabela">
               <tbody>
                 <tr><td>Custo/m²</td><td class="num">${fmtMoney(custoM2)}/m²</td></tr>
-                <tr><td>Preco tabela/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoney(precoTabM2_porInst)}/m²</td></tr>
-                <tr><td>Preco fat./m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoney(precoFatM2_porInst)}/m²</td></tr>
-                <tr><td>Preco tabela/m² <span class="t-strong">so' porta</span></td><td class="num">${fmtMoney(precoTabM2_soPorta)}/m²</td></tr>
-                <tr><td>Preco fat./m² <span class="t-strong">so' porta</span></td><td class="num">${fmtMoney(precoFatM2_soPorta)}/m²</td></tr>
+                <tr><td>Original/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoney(precoTabM2_porInst)}/m²</td></tr>
+                <tr><td>Com Desconto/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoney(precoFatM2_porInst)}/m²</td></tr>
+                <tr><td>Original/m² <span class="t-strong">so' porta</span></td><td class="num">${fmtMoney(precoTabM2_soPorta)}/m²</td></tr>
+                <tr><td>Com Desconto/m² <span class="t-strong">so' porta</span></td><td class="num">${fmtMoney(precoFatM2_soPorta)}/m²</td></tr>
                 ${desconto > 0 ? `<tr><td>Desconto aplicado</td><td class="num" style="color:var(--laranja);"><span class="t-strong">${desconto.toLocaleString('pt-BR')}% → -${fmtMoney(precoTab - precoFat)}</span></td></tr>` : ''}
               </tbody>
             </table>
