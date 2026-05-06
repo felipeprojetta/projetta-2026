@@ -61,26 +61,36 @@ const Database = (() => {
 
   // Upsert no Supabase (background, nao bloqueia)
   // PROTECAO: NUNCA envia arrays vazios — evita sobrescrever dados reais.
+  // Felipe sessao 11: DEBOUNCE por scope+key — durante o boot, multiplos
+  // store.set() pra mesma chave disparam em sequencia rapida. Sem debounce,
+  // o 1o request (sem vidros) pode chegar no Supabase DEPOIS do 2o (com
+  // vidros), sobrescrevendo. Debounce garante que so' o ULTIMO valor e' enviado.
+  var _sbUpsertTimers = {};
   function sbUpsert(scope, key, value) {
     // Se for array vazio, NAO sobrescreve o cloud
     if (Array.isArray(value) && value.length === 0) return;
-    var usuario = '';
-    try { usuario = (window.Auth && window.Auth.getUser()) || ''; } catch(_){}
-    fetch(SUPABASE_URL + '/rest/v1/kv_store', {
-      method: 'POST',
-      headers: sbHeaders(true),
-      body: JSON.stringify({
-        scope: scope,
-        key: key,
-        valor: value,
-        updated_by: String(usuario),
-      }),
-      keepalive: true,  // Felipe sessao 11: garante que o write sobrevive navegacao/reload
-    }).then(function(res) {
-      if (!res.ok) console.error('[DB] sbUpsert FALHOU:', scope, '/', key, 'HTTP', res.status);
-    }).catch(function(e) {
-      console.error('[DB] sbUpsert FALHOU (rede):', scope, '/', key, e.message);
-    });
+    var timerKey = scope + '::' + key;
+    if (_sbUpsertTimers[timerKey]) clearTimeout(_sbUpsertTimers[timerKey]);
+    _sbUpsertTimers[timerKey] = setTimeout(function() {
+      delete _sbUpsertTimers[timerKey];
+      var usuario = '';
+      try { usuario = (window.Auth && window.Auth.getUser()) || ''; } catch(_){}
+      fetch(SUPABASE_URL + '/rest/v1/kv_store', {
+        method: 'POST',
+        headers: sbHeaders(true),
+        body: JSON.stringify({
+          scope: scope,
+          key: key,
+          valor: value,
+          updated_by: String(usuario),
+        }),
+        keepalive: true,
+      }).then(function(res) {
+        if (!res.ok) console.error('[DB] sbUpsert FALHOU:', scope, '/', key, 'HTTP', res.status);
+      }).catch(function(e) {
+        console.error('[DB] sbUpsert FALHOU (rede):', scope, '/', key, e.message);
+      });
+    }, 500);  // 500ms debounce — ultimo valor ganha
   }
 
   // Delete no Supabase (background)
