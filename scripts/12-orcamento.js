@@ -5410,7 +5410,12 @@ const Orcamento = (() => {
         }
       } catch(_){}
 
-      // 3) Recalcular subFab e subInst
+      // 3) Auto-popula altura_porta_mm pra calculo do andaime
+      const alturasDre = (versao.itens || [])
+        .map(it => Number(it.altura) || 0).filter(v => v > 0);
+      if (alturasDre.length > 0) instDre.altura_porta_mm = Math.max(...alturasDre);
+
+      // 4) Recalcular subFab e subInst
       const rFabDre  = calcularFab(fabDre, versao.itens);
       const rInstDre = calcularInst(instDre);
       versao.subFab  = rFabDre.total;
