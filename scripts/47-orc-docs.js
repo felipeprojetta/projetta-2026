@@ -61,13 +61,19 @@
     return String(lead.numeroAGP || '').trim();
   }
 
-  function formatNomeArquivo(lead, tipo) {
+  function formatNomeArquivo(lead, tipo, numeroVersao) {
     if (!lead) return tipo || 'arquivo';
     const agp = obterAgp(lead);
     const reserva = (lead.numeroReserva || '').toString().trim();
     const nome = titleCase(lead.cliente || '');
     const tipoFmt = titleCase(tipo || '');
-    const partes = [agp, reserva, nome, tipoFmt].filter(Boolean);
+    // Felipe sessao 12: 'AO SALVAR ARQUIVOS COLOQUE NO FINAL - V1, SE FOR
+    // VERSAO 2 COLOQUE - V2 ASSIM POR DIANTE'.
+    var verSuffix = '';
+    if (numeroVersao != null && Number(numeroVersao) > 0) {
+      verSuffix = 'V' + Number(numeroVersao);
+    }
+    const partes = [agp, reserva, nome, tipoFmt, verSuffix].filter(Boolean);
     return sanitizeFilename(partes.join(' - '));
   }
 
@@ -557,7 +563,7 @@
       try {
         const blob = await window.Orcamento.gerarRelatorioPNGBlob(versaoId, key);
         if (!blob) throw new Error('blob vazio');
-        const nome = formatNomeArquivo(lead, tipo) + '.png';
+        const nome = formatNomeArquivo(lead, tipo, versaoResumo.numero) + '.png';
         baixarBlob(blob, nome);
         arquivosGerados.push(nome);
         setStep(key, 'ok');
@@ -576,7 +582,7 @@
       // Felipe sessao 2026-08: arquivo renomeado de 'Proposta' pra 'Dossie
       // Interno' pra nao confundir com a Proposta Comercial real (cliente).
       // O conteudo do arquivo e' o mesmo (4 paineis agregados + DRE + custos).
-      const nome = formatNomeArquivo(lead, 'Dossie Interno') + '.pdf';
+      const nome = formatNomeArquivo(lead, 'Dossie Interno', versaoResumo.numero) + '.pdf';
       baixarBlob(blob, nome);
       arquivosGerados.push(nome);
       setStep('proposta', 'ok');
@@ -595,7 +601,7 @@
     try {
       const blob = await window.Orcamento.gerarPropostaComercialPDFBlob(versaoId);
       if (!blob) throw new Error('blob vazio');
-      const nome = formatNomeArquivo(lead, 'Proposta Comercial') + '.pdf';
+      const nome = formatNomeArquivo(lead, 'Proposta Comercial', versaoResumo.numero) + '.pdf';
       baixarBlob(blob, nome);
       arquivosGerados.push(nome);
       setStep('proposta-comercial', 'ok');
