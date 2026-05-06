@@ -701,13 +701,34 @@
       return { ok: false, erro: 'Outlook nao conectado. Va em Email e conecte primeiro.' };
     }
     try {
-      var inbox = await window.outlookListInbox({
-        top: 20,
-        search: 'subject:reserva ' + numeroReserva,
-      });
-      var emails = (inbox && inbox.emails) || [];
+      // Felipe sessao 12: busca em 3 niveis com fallback. Felipe relatou
+      // 'diz que nao encontra email mas olha ele ai' - email tinha subject
+      // '146448 - Sergio e Beth' (so' o numero, sem 'reserva'). Antes a
+      // busca era 'subject:reserva 146448' - exigia a palavra explicita.
+      // Agora tenta varios formatos comuns ate achar.
+      var num = String(numeroReserva).trim();
+      var emails = [];
+      var tentativas = [
+        'subject:"reserva ' + num + '"',  // 1. classico: 'Reserva 146448' (Weiku)
+        'subject:' + num,                 // 2. so o numero no subject (caso Felipe)
+        '"' + num + '"',                  // 3. ampla: numero em qq lugar do email (corpo, anexo, etc)
+      ];
+      for (var i = 0; i < tentativas.length && emails.length === 0; i++) {
+        try {
+          var inbox = await window.outlookListInbox({
+            top: 50,
+            search: tentativas[i],
+          });
+          emails = (inbox && inbox.emails) || [];
+          if (emails.length) {
+            console.log('[EmailImport] reserva ' + num + ' encontrada via tentativa ' + (i+1) + ': ' + tentativas[i]);
+          }
+        } catch (errBusca) {
+          console.warn('[EmailImport] tentativa ' + (i+1) + ' falhou:', errBusca && errBusca.message);
+        }
+      }
       if (!emails.length) {
-        return { ok: false, erro: 'Email com reserva ' + numeroReserva + ' nao encontrado no inbox.' };
+        return { ok: false, erro: 'Email com reserva ' + num + ' nao encontrado no inbox.\n(Procurei por "reserva ' + num + '", "' + num + '" e ampla. Tente reabrir Email > Sync e clique de novo.)' };
       }
       // Pega o mais recente (primeiro do array, ja vem ordenado desc)
       var msgId = emails[0].id;
