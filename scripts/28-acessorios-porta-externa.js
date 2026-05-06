@@ -426,8 +426,9 @@ const AcessoriosPortaExterna = (() => {
         // Felipe (sessao 09): fita_acab_me removida — so usa FD 12mm, sem HIGHTACK
         'fita_acab_ma',
         'fita_acab_largura',
-        // Felipe (sessao 09): tampa de furo PA007 vai pra HIGHTACK
-        // PA006 fica em Silicone 995 (conforme Excel atualizado)
+        // Felipe (sessao 09): todo tampa de furo vai pra HIGHTACK
+        // (Excel estava errado sobre PA006 ser Silicone)
+        'tampa_furo_pa006',
         'tampa_furo_pa007',
       ]);
 

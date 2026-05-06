@@ -12430,18 +12430,18 @@ const Orcamento = (() => {
             </summary>
 
             <div style="padding:0 16px 16px 16px;border-top:1px solid #fde68a;margin-top:4px;">
-              <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;">
-              <div style="flex:1;min-width:160px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0;max-width:500px;">
+              <div style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
                 <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Fita Dupla 19mm</div>
                 <div style="font-size:18px;font-weight:800;color:#1e3a8a;line-height:1.1;margin-top:2px;">${(t.mFD19 || 0).toFixed(2)} m</div>
                 <div style="font-size:11px;color:#64748b;margin-top:2px;">÷ ${rends.fd19_rolo}m por rolo = <b style="color:#1e3a8a;">${rolosFD19} rolo(s)</b></div>
               </div>
-              <div style="flex:1;min-width:160px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
+              <div style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
                 <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Fita Dupla 12mm</div>
                 <div style="font-size:18px;font-weight:800;color:#1e3a8a;line-height:1.1;margin-top:2px;">${(t.mFD12 || 0).toFixed(2)} m</div>
                 <div style="font-size:11px;color:#64748b;margin-top:2px;">÷ ${rends.fd12_rolo}m por rolo = <b style="color:#1e3a8a;">${rolosFD12} rolo(s)</b></div>
               </div>
-              <div style="flex:1;min-width:160px;background:#fff;border:2px solid #f59e0b;border-radius:6px;padding:10px 14px;">
+              <div style="background:#fff;border:2px solid #f59e0b;border-radius:6px;padding:10px 14px;">
                 <div style="font-size:10px;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Silicone DowSil 995</div>
                 <div style="font-size:18px;font-weight:800;color:#b45309;line-height:1.1;margin-top:2px;">${(t.mMS || 0).toFixed(2)} m</div>
                 <div style="font-size:11px;color:#92400e;margin-top:2px;">÷ ${rends.ms_tubo}m por tubo = <b style="color:#b45309;">${tubosMS} tubo(s)</b></div>
@@ -12451,7 +12451,7 @@ const Orcamento = (() => {
                   ✏️ MUDAR RENDIMENTO (${rends.ms_tubo}m → ?)
                 </button>
               </div>
-              <div style="flex:1;min-width:160px;background:#fff;border:2px solid #16a34a;border-radius:6px;padding:10px 14px;">
+              <div style="background:#fff;border:2px solid #16a34a;border-radius:6px;padding:10px 14px;">
                 <div style="font-size:10px;color:#14532d;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">CPS BR (Dow Corning)</div>
                 <div style="font-size:18px;font-weight:800;color:#15803d;line-height:1.1;margin-top:2px;">${(t.mCPS || 0).toFixed(2)} m</div>
                 <div style="font-size:11px;color:#166534;margin-top:2px;">÷ ${cpsRend}m por sachê = <b style="color:#15803d;">${sachesCPS} sachê(s)</b></div>
@@ -12461,7 +12461,7 @@ const Orcamento = (() => {
               </div>
               ${mHIGHTACK > 0 ? `
               <!-- Felipe sessao 2026-08-03: card HIGHTACK BR (silicone obra) -->
-              <div style="flex:1;min-width:160px;background:#fff;border:2px solid #0284c7;border-radius:6px;padding:10px 14px;">
+              <div style="background:#fff;border:2px solid #0284c7;border-radius:6px;padding:10px 14px;">
                 <div style="font-size:10px;color:#075985;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">HIGHTACK BR (Obra)</div>
                 <div style="font-size:18px;font-weight:800;color:#0284c7;line-height:1.1;margin-top:2px;">${mHIGHTACK.toFixed(2)} m</div>
                 <div style="font-size:11px;color:#075985;margin-top:2px;">÷ ${hightackRend}m por tubo = <b style="color:#0284c7;">${tubosHIGHTACK} tubo(s)</b></div>
