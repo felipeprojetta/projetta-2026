@@ -9281,6 +9281,36 @@ const Orcamento = (() => {
           pecas = aplicarQtdOverrides(pecas, item, lado);
           pecas.forEach(p => agrupar(grupos, p, idx, item));
         });
+      } else if (item.tipo === 'fixo_acoplado') {
+        // Felipe sessao 11: fixo acoplado = 1 chapa retangular por lado
+        const larg = Number(item.largura) || 0;
+        const alt  = Number(item.altura)  || 0;
+        if (larg > 0 && alt > 0) {
+          const qtdItem = Math.max(1, parseInt(item.quantidade, 10) || 1);
+          const lados = item.lados === '2lados' ? ['externo', 'interno'] : ['externo'];
+          lados.forEach(lado => {
+            const cor = lado === 'externo'
+              ? String(item.corExterna || '').trim()
+              : String(item.corInterna || '').trim();
+            if (!cor) return;
+            const peca = {
+              id: 'CHAPA_FIXO',
+              label: item.posicao === 'superior' ? 'Fixo Superior' : 'Fixo Lateral',
+              labelCompleto: `${item.posicao === 'superior' ? 'Fixo Superior' : 'Fixo Lateral'} — ${lado === 'externo' ? 'Externo' : 'Interno'}${cor ? ` (${cor})` : ''}`,
+              largura: larg,
+              altura: alt,
+              qtd: qtdItem,
+              podeRotacionar: false,
+              cor: cor,
+              lado: lado,
+              ehDaCava: false,
+              categoria: 'fixo',
+              modelo: Number(item.modeloNumero) || 1,
+              observacao: '',
+            };
+            agrupar(grupos, peca, idx, item);
+          });
+        }
       } else if (item.tipo === 'revestimento_parede' && ChapasRev) {
         let pecas = ChapasRev.gerarPecasRevParede(item) || [];
         pecas = aplicarRotacionaOverrides(pecas, item);
