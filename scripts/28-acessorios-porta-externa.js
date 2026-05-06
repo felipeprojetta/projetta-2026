@@ -264,7 +264,7 @@ const AcessoriosPortaExterna = (() => {
     // 5. PIVO — sempre, 12 × nFolhas
     // Felipe (sessao 2026-05-06): parafusos do pivo vao pra OBRA (não fab)
     add('PA-CHA AA PHS 4,8X50', 12 * nFolhas, 'Parafusos', 'obra', 'pivo');
-    add('PA-BUCHA 06',          12 * nFolhas, 'Parafusos', 'obra', 'pivo');
+    add('PA-BUCHA 06',          12 * nFolhas, 'Buchas', 'obra', 'pivo');
 
     // PIVO conjunto sup/inf — Felipe (sessao 2026-09): o pivo escolhido
     // depende do PESO DA FOLHA (perfis FOLHA + chapas FOLHA).
@@ -879,7 +879,7 @@ const AcessoriosPortaExterna = (() => {
     if (H > 0) {
       const qtyBucha8 = Math.ceil(H / 300) * 2;  // × 2 lados
       // Felipe (sessao 2026-05-06): categoria e' Parafusos, nao Portal
-      add('PA-BUCHA 08',      qtyBucha8, 'Parafusos', 'obra', `ceil(H/300) × 2 lados`);
+      add('PA-BUCHA 08',      qtyBucha8, 'Buchas', 'obra', `ceil(H/300) × 2 lados`);
       add('PA-PAR SOB M6X65', qtyBucha8, 'Parafusos', 'obra', `ceil(H/300) × 2 lados`);
     }
 
