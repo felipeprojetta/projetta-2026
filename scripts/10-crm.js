@@ -335,7 +335,10 @@
             </div>` : ''}
             <div class="crm-form-row">
               <div class="crm-field" style="width:100%"><label>Cor</label>
-                <input type="text" data-extra-idx="${dataIdx}" data-extra-field="cor" list="crm-cores-porta-list" value="${escapeHtml(it.cor || '')}" placeholder="Digite ou escolha uma cor" style="width:100%" />
+                <div style="display:flex;gap:6px">
+                  <input type="text" data-extra-idx="${dataIdx}" data-extra-field="cor" list="crm-cores-porta-list" value="${escapeHtml(it.cor || '')}" placeholder="Digite ou escolha uma cor" style="flex:1" />
+                  <button type="button" class="crm-btn-cor-cima" data-action="cor-cima" data-item-idx="${dataIdx}" title="Usar a mesma cor do item de cima" style="background:#fff;border:1px solid #cbd5e1;color:#475569;padding:0 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">= cima</button>
+                </div>
               </div>
             </div>
           </div>
@@ -796,6 +799,27 @@
           tipo: tipoKey, largura: '', altura: '', modelo: '', cor: '',
         });
         reRenderModal(container);
+      });
+
+      // Felipe sessao 12: botao "= cima" copia cor do item anterior.
+      // Item extra idx 0 -> copia de m.porta_cor (Item 1).
+      // Item extra idx N (>0) -> copia de itens_extras[N-1].cor.
+      container.querySelectorAll('.crm-modal [data-action="cor-cima"]').forEach(el => {
+        el.addEventListener('click', () => {
+          const idx = Number(el.dataset.itemIdx);
+          if (isNaN(idx) || !modalState.itens_extras[idx]) return;
+          const corCima = idx === 0
+            ? (modalState.porta_cor || '')
+            : (modalState.itens_extras[idx - 1]?.cor || '');
+          if (!corCima) {
+            alert('O item de cima ainda nao tem cor definida.');
+            return;
+          }
+          modalState.itens_extras[idx].cor = corCima;
+          // Atualiza so o input sem re-render completo
+          const inp = container.querySelector(`input[data-extra-idx="${idx}"][data-extra-field="cor"]`);
+          if (inp) inp.value = corCima;
+        });
       });
 
       // Quando o user muda o Follow Up: busca o representante e preenche
@@ -3107,9 +3131,17 @@
       // Realtime: quando chegar mudanca do cloud, re-renderiza CRM
       if (!container._realtimeSubscribed) {
         container._realtimeSubscribed = true;
+        // Felipe sessao 12: nao re-renderiza enquanto modal aberto (forceReload
+        // troca o DOM e fecharia o card que o user esta editando). Quando
+        // fechar o modal, o proximo polling em ate 3s aplica.
+        function modalAberto() {
+          var mount = container.querySelector('#crm-modal-mount');
+          return !!(mount && mount.children && mount.children.length > 0);
+        }
         Events.on('db:realtime-sync', function() {
           if (window.App && window.App.state && window.App.state.currentModule !== 'crm') return;
-          Crm.forceReload(container);  // tb forceReload aqui (era render)
+          if (modalAberto()) return; // adia ate fechar modal
+          Crm.forceReload(container);
         });
         Events.on('crm:reload', function() {
           // Felipe sessao 2026-08: BUGFIX - handler tentava acessar
@@ -3118,6 +3150,7 @@
           // loaded=false; load() e re-renderiza se container passado.
           var deveRenderizar = (window.App && window.App.state &&
                                 window.App.state.currentModule === 'crm');
+          if (modalAberto()) return; // mesma protecao
           Crm.forceReload(deveRenderizar ? container : null);
         });
       }
