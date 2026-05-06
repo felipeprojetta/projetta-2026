@@ -218,13 +218,29 @@ var PerfisRevAcoplado = (function() {
     if (!window.ChapasPortaExterna || !window.ChapasPortaExterna.gerarPecasChapa) return [];
     var iv = criarItemVirtualChapas(item);
     if (!iv) return [];
+
+    // Felipe sessao 12: comprimento da CHAPA DA CAVA do fixo segue o
+    // comprimento da TRAVESSA VERTICAL do fixo (= ALTURA - 2*TUB1, ver
+    // linha 112 'compTravVert'), nao a formula da porta (alturaQuadro -
+    // 240/293) que desconta espaco de pivo/topo que o fixo nao tem.
+    // Override post-processing pra nao precisar mexer no motor da porta.
+    //   PA006: altura_fixo - 76     (TUB1=38)
+    //   PA007: altura_fixo - 102    (TUB1=51)
+    // Mesmo valor da cantoneira da cava do fixo (linha 153).
+    var sis = getSis(item);
+    var compChapaCava = Number(item.altura) - 2 * sis.TUB1;
+
     try {
       var raw = window.ChapasPortaExterna.gerarPecasChapa(iv, lado) || [];
       var result = [];
       for (var i = 0; i < raw.length; i++) {
         var p = raw[i];
-        if (p.categoria !== 'portal') { result.push(p); continue; }
-        if (IDS_PORTAL_QUE_VAO_PRO_FIXO[p.id]) result.push(p);
+        if (p.categoria !== 'porta' && p.categoria !== 'portal') { result.push(p); continue; }
+        if (p.categoria === 'portal' && !IDS_PORTAL_QUE_VAO_PRO_FIXO[p.id]) continue;
+        if (p.id === 'cava' && compChapaCava > 0) {
+          p = Object.assign({}, p, { altura: Math.round(compChapaCava * 100) / 100 });
+        }
+        result.push(p);
       }
       return result;
     } catch (e) {
