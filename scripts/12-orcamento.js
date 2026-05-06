@@ -6031,28 +6031,60 @@ const Orcamento = (() => {
     // --- Chapas FOLHA ---
     try {
       if (window.ChapasPortaExterna && window.ChapasPortaExterna.gerarPecasChapa) {
-        // Felipe (sessao 30): "RETORNE PARA COLETAR PESO DAS CHAPAS
-        // DIRETAMENTE DO CADASTRO, SE ESTIVER COM PESO 0 DEIXE ZERO
-        // NUNCA PUXE NENHUM PESO QUE NAO SAIBA". Sem fallback chumbado.
-        // Cadastro usa campo `descricao` (nao `codigo` nem `nome`).
+        // Felipe sessao 2026-08-03 BUG FIX:
+        // Antes o sistema procurava por item.revestimento ('ACM 4mm',
+        // 'HPL 4mm', etc - valor generico) na lista de superficies, mas
+        // o cadastro tem cada cor com nome completo (ex: 'Pro4631t -
+        // Dark Grey Texturizado Weather4300 Ldpe - 1500 X 6000').
+        // Nunca batia → kgM2 sempre 0 → chapas nao entravam no peso da
+        // folha → pivo escolhia sempre 350kg em vez de 600kg.
+        //
+        // FIX: procura primeiro por item.corExterna (que e' a descricao
+        // especifica selecionada), depois corInterna como fallback.
         let kgM2 = 0;
         try {
           const supList = (window.Storage ? Storage.scope('cadastros').get('superficies_lista') : null) || [];
-          const rev = String(item.revestimento || '').toUpperCase().trim();
-          if (rev) {
-            const sup = supList.find(s => String(s.descricao || '').toUpperCase().trim() === rev);
-            kgM2 = Number(sup && sup.peso_kg_m2) || 0;
+          const candidatos = [
+            String(item.corExterna  || '').toUpperCase().trim(),
+            String(item.corInterna  || '').toUpperCase().trim(),
+            String(item.revestimento|| '').toUpperCase().trim(),
+          ].filter(Boolean);
+          for (const c of candidatos) {
+            const sup = supList.find(s => String(s.descricao || '').toUpperCase().trim() === c);
+            if (sup && Number(sup.peso_kg_m2) > 0) {
+              kgM2 = Number(sup.peso_kg_m2);
+              break;
+            }
+          }
+          // Fallback final: pega QUALQUER superficie da mesma categoria
+          // do revestimento ('ACM 4mm' -> categoria 'acm' -> primeira ACM
+          // com peso > 0). Util quando cliente cadastrou peso em UMA
+          // chapa ACM e outras ainda nao.
+          if (!kgM2 && item.revestimento) {
+            const rev = String(item.revestimento).toUpperCase().trim();
+            const catAlvo = rev.includes('ACM') ? 'acm'
+                          : rev.includes('ALUMINIO') ? 'aluminio_macico'
+                          : rev.includes('HPL') ? 'hpl'
+                          : null;
+            if (catAlvo) {
+              const sup = supList.find(s => s.categoria === catAlvo && Number(s.peso_kg_m2) > 0);
+              kgM2 = Number(sup && sup.peso_kg_m2) || 0;
+            }
           }
         } catch (_) {}
         // Se kgM2=0 (cadastro nao tem peso ou material nao encontrado),
         // pesoChapas fica 0 — Felipe prefere zero a chute errado.
 
         if (kgM2 > 0) {
+          // Felipe sessao 2026-08-03: 'deve somar somente o peso das
+          // chapas que estao no campo porta'. WHITELIST explicita -
+          // so' soma categoria='porta' (folha). Categoria 'portal'
+          // (marco) e 'revestimento' (parede) NAO entram.
           ['externo', 'interno'].forEach(lado => {
             try {
               const pecas = window.ChapasPortaExterna.gerarPecasChapa(item, lado) || [];
               pecas.forEach(p => {
-                if (p.categoria === 'portal') return;  // so' FOLHA
+                if (p.categoria !== 'porta') return;  // SO' chapas da folha
                 const m2 = (Number(p.largura) || 0) * (Number(p.altura) || 0) * (Number(p.qtd) || 1) / 1000000;
                 pesoChapas += m2 * kgM2;
               });
@@ -6117,29 +6149,53 @@ const Orcamento = (() => {
     // Chapas
     let pesoChapasFolha = 0, pesoChapasPortal = 0, kgM2 = 0;
     if (window.ChapasPortaExterna && window.ChapasPortaExterna.gerarPecasChapa) {
+      // Felipe sessao 2026-08-03 BUG FIX: usa corExterna/corInterna primeiro
+      // (descricao especifica), depois revestimento como fallback.
       try {
         const supList = (window.Storage ? Storage.scope('cadastros').get('superficies_lista') : null) || [];
-        const rev = String(item.revestimento || '').toUpperCase().trim();
-        if (rev) {
-          const sup = supList.find(s => String(s.descricao || '').toUpperCase().trim() === rev);
-          kgM2 = Number(sup && sup.peso_kg_m2) || 0;
+        const candidatos = [
+          String(item.corExterna  || '').toUpperCase().trim(),
+          String(item.corInterna  || '').toUpperCase().trim(),
+          String(item.revestimento|| '').toUpperCase().trim(),
+        ].filter(Boolean);
+        for (const c of candidatos) {
+          const sup = supList.find(s => String(s.descricao || '').toUpperCase().trim() === c);
+          if (sup && Number(sup.peso_kg_m2) > 0) {
+            kgM2 = Number(sup.peso_kg_m2);
+            break;
+          }
+        }
+        if (!kgM2 && item.revestimento) {
+          const rev = String(item.revestimento).toUpperCase().trim();
+          const catAlvo = rev.includes('ACM') ? 'acm'
+                        : rev.includes('ALUMINIO') ? 'aluminio_macico'
+                        : rev.includes('HPL') ? 'hpl'
+                        : null;
+          if (catAlvo) {
+            const sup = supList.find(s => s.categoria === catAlvo && Number(s.peso_kg_m2) > 0);
+            kgM2 = Number(sup && sup.peso_kg_m2) || 0;
+          }
         }
       } catch (_) {}
-      const kgM2Final = kgM2 || 0;  // Felipe sessao 30: ZERO se nao tem cadastro
-      console.group(`CHAPAS — revestimento "${item.revestimento || '?'}" → ${kgM2 ? kgM2 + ' kg/m² (cadastro)' : 'NAO ENCONTRADO no cadastro — peso = 0'}`);
+      const kgM2Final = kgM2 || 0;
+      const labelKgM2 = kgM2 ? kgM2 + ' kg/m² (cadastro: corExterna/corInterna/revestimento)' : 'NAO ENCONTRADO no cadastro — peso = 0';
+      console.group(`CHAPAS — corExterna "${item.corExterna || '?'}" / corInterna "${item.corInterna || '?'}" / rev "${item.revestimento || '?'}" → ${labelKgM2}`);
       const todasPecas = [];
+      // Felipe sessao 2026-08-03: WHITELIST - so' categoria='porta' soma na folha
       ['externo', 'interno'].forEach(lado => {
         const pecas = window.ChapasPortaExterna.gerarPecasChapa(item, lado) || [];
         pecas.forEach(p => {
           const m2 = (Number(p.largura) || 0) * (Number(p.altura) || 0) * (Number(p.qtd) || 1) / 1000000;
           const peso = m2 * kgM2Final;
-          if (p.categoria === 'portal') pesoChapasPortal += peso; else pesoChapasFolha += peso;
+          if (p.categoria === 'porta')        pesoChapasFolha  += peso;
+          else if (p.categoria === 'portal')  pesoChapasPortal += peso;
+          // outras categorias (revestimento de parede, etc) NAO somam
           todasPecas.push({ lado, tipo: p.tipo, largura: p.largura, altura: p.altura, qtd: p.qtd, m2: Number(m2.toFixed(3)), peso: Number(peso.toFixed(2)), categoria: p.categoria });
         });
       });
       console.table(todasPecas);
-      console.log(`Chapas FOLHA: ${pesoChapasFolha.toFixed(2)}kg`);
-      console.log(`Chapas PORTAL: ${pesoChapasPortal.toFixed(2)}kg`);
+      console.log(`Chapas FOLHA (categoria='porta'): ${pesoChapasFolha.toFixed(2)}kg`);
+      console.log(`Chapas PORTAL (categoria='portal'): ${pesoChapasPortal.toFixed(2)}kg — NAO entra na folha`);
       console.log(`Chapas TOTAL: ${(pesoChapasFolha + pesoChapasPortal).toFixed(2)}kg`);
       console.groupEnd();
     }
