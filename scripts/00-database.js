@@ -109,6 +109,67 @@ const Database = (() => {
     }
   }
 
+  // Felipe sessao 12: merge anti-sobrescrita generico pra listas de cadastro
+  // (superficies/acessorios/perfis/modelos/representantes). Identifica cada
+  // item pela CHAVE NATURAL (codigo OU descricao) e faz UNIAO. Cloud ganha
+  // em conflito mesmo nome - se 2 maquinas editam o "mesmo" item ao mesmo
+  // tempo, o ultimo a salvar perde local. Mas NUNCA mais "Laminado 4+4
+  // sumiu" pq cliente velho mandou lista sem ele. (Felipe: "perdi um vidro
+  // que salvei laminado 4+4 sumiu... nao teria que salvar imediato super base").
+  async function mergeProtegido_lista(scope, key, localValue, chaveItemFn) {
+    if (!Array.isArray(localValue)) return localValue;
+    try {
+      var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.' + scope + '&key=eq.' + key + '&select=valor';
+      var res = await fetch(url, { headers: sbHeaders(false) });
+      if (!res.ok) return localValue;
+      var rows = await res.json();
+      if (!Array.isArray(rows) || rows.length === 0) return localValue;
+      var cloudValue = rows[0].valor;
+      if (!Array.isArray(cloudValue)) return localValue;
+      // Index cloud pela chave natural
+      var byChave = {};
+      cloudValue.forEach(function(item) {
+        var ch = chaveItemFn(item);
+        if (ch) byChave[ch] = item;
+      });
+      var adicionados = 0;
+      var atualizados = 0;
+      localValue.forEach(function(item) {
+        var ch = chaveItemFn(item);
+        if (!ch) return;
+        if (!byChave[ch]) {
+          // Item novo (so' local) — adiciona ao merge
+          byChave[ch] = item;
+          adicionados++;
+        } else {
+          // Item existe nos 2 — usa LOCAL (presume edicao recente)
+          // Se isso causar perda de edicao concorrente, e' aceitavel —
+          // o que NAO e' aceitavel e' SUMIR um item que existe no cloud.
+          byChave[ch] = item;
+          atualizados++;
+        }
+      });
+      var merged = Object.values(byChave);
+      if (merged.length > localValue.length) {
+        console.warn('[DB] mergeProtegido_lista ' + scope + '/' + key +
+                     ': cloud tinha ' + cloudValue.length +
+                     ' itens, local ' + localValue.length + ' — uniao = ' +
+                     merged.length + ' (preservou ' + (merged.length - localValue.length) +
+                     ' itens que sumiriam por cache stale)');
+      }
+      return merged;
+    } catch(e) {
+      console.warn('[DB] mergeProtegido_lista ' + scope + '/' + key + ' falhou — enviando local:', e.message);
+      return localValue;
+    }
+  }
+  // Chaves naturais por scope/key (codigo OU descricao OU id)
+  function _chaveSuperficie(s) { return s && s.descricao ? String(s.descricao).trim().toUpperCase() : null; }
+  function _chaveAcessorio(a)  { return a && a.codigo    ? String(a.codigo).trim().toUpperCase() : null; }
+  function _chavePerfil(p)     { return p && p.codigo    ? String(p.codigo).trim().toUpperCase() : null; }
+  function _chaveModelo(m)     { return m && m.numero != null ? String(m.numero) : null; }
+  function _chaveRep(r)        { return r && r.followup ? String(r.followup).trim() : null; }
+
   function sbUpsert(scope, key, value) {
     // Se for array vazio, NAO sobrescreve o cloud
     if (Array.isArray(value) && value.length === 0) return;
@@ -125,6 +186,22 @@ const Database = (() => {
         // localStorage tb pra manter consistencia.
         if (Array.isArray(valorFinal) && Array.isArray(value) && valorFinal.length > value.length) {
           try { localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(valorFinal)); } catch(_){}
+        }
+      }
+      // Felipe sessao 12: merge anti-sobrescrita pra listas de cadastros.
+      // Resolve "vidro Laminado 4+4 sumiu" e classes similares.
+      else if (scope === 'cadastros') {
+        var chaveFn = null;
+        if      (key === 'superficies_lista')    chaveFn = _chaveSuperficie;
+        else if (key === 'acessorios_lista')     chaveFn = _chaveAcessorio;
+        else if (key === 'perfis_lista')         chaveFn = _chavePerfil;
+        else if (key === 'modelos_lista')        chaveFn = _chaveModelo;
+        else if (key === 'representantes_lista') chaveFn = _chaveRep;
+        if (chaveFn) {
+          valorFinal = await mergeProtegido_lista(scope, key, value, chaveFn);
+          if (Array.isArray(valorFinal) && Array.isArray(value) && valorFinal.length > value.length) {
+            try { localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(valorFinal)); } catch(_){}
+          }
         }
       }
 
