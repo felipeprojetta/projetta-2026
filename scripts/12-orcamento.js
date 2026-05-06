@@ -11541,10 +11541,10 @@ const Orcamento = (() => {
             <div class="rep-m2-titulo">VALORES POR M²</div>
             <table class="rep-m2-tabela">
               <tbody>
-                <tr><td>Preço tabela/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoneyM2(precoTabM2_porInst)}</td></tr>
-                <tr><td>Preço fat./m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoneyM2(precoFatM2_porInst)}</td></tr>
-                <tr><td>Preço tabela/m² <span class="t-strong">só porta</span></td><td class="num">${fmtMoneyM2(precoTabM2_soPorta)}</td></tr>
-                <tr><td>Preço fat./m² <span class="t-strong">só porta</span></td><td class="num">${fmtMoneyM2(precoFatM2_soPorta)}</td></tr>
+                <tr><td>Original/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoneyM2(precoTabM2_porInst)}</td></tr>
+                <tr><td>Com Desconto/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoneyM2(precoFatM2_porInst)}</td></tr>
+                <tr><td>Original/m² <span class="t-strong">só porta</span></td><td class="num">${fmtMoneyM2(precoTabM2_soPorta)}</td></tr>
+                <tr><td>Com Desconto/m² <span class="t-strong">só porta</span></td><td class="num">${fmtMoneyM2(precoFatM2_soPorta)}</td></tr>
               </tbody>
             </table>
           </div>
