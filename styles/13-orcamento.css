@@ -3085,3 +3085,104 @@
   font-size: 11px;
   word-break: break-all;
 }
+
+/* Felipe sessao 12: no celular, 7 colunas com table-layout:fixed se
+   sobrepoem feio (texto vaza por cima do vizinho). Vira CARDS:
+   - Linha 1: Qtd × Codigo  ........  Total
+   - Linha 2: Descricao (full width)
+   - Esconde Categoria, Preco Unit. e Observacao (secundarias no mobile)
+   - Esconde thead (sem labels, sem filtros — desktop mantem tudo)
+   - Cabecalhos de categoria (.lvac-cat-header) viram faixa flex
+   Mudanca puramente CSS, mobile-only. Desktop nao muda em nada.        */
+@media (max-width: 700px) {
+  .orc-acess-tab {
+    table-layout: auto;
+    border: 0;
+  }
+  .orc-acess-tab thead,
+  .orc-acess-tab colgroup {
+    display: none;
+  }
+  .orc-acess-tab tbody,
+  .orc-acess-tab tr,
+  .orc-acess-tab td {
+    display: block;
+    width: auto;
+  }
+  .orc-acess-tab tr.lvac-cat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #eef2f7;
+    padding: 6px 10px;
+    border-top: 2px solid #cbd5e1;
+    margin-top: 4px;
+  }
+  .orc-acess-tab tr.lvac-cat-header td {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    display: inline;
+  }
+  .orc-acess-tab tr.lvac-cat-header td:first-child {
+    flex: 1;
+    text-align: left;
+    font-weight: 700;
+    font-size: 12px;
+    color: #1f2937;
+  }
+  .orc-acess-tab tr.lvac-cat-header td:last-child {
+    text-align: right;
+    font-weight: 700;
+    font-size: 11px;
+    color: #64748b;
+    flex-shrink: 0;
+  }
+  .orc-acess-tab tr:not(.lvac-cat-header) {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 2px 10px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .orc-acess-tab tr:not(.lvac-cat-header) td {
+    padding: 0;
+    border: 0;
+    text-align: left;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  /* col 1 Qtd */
+  .orc-acess-tab tr:not(.lvac-cat-header) td:nth-child(1) {
+    grid-column: 1; grid-row: 1;
+    font-weight: 700; color: #1f2937; white-space: nowrap;
+  }
+  .orc-acess-tab tr:not(.lvac-cat-header) td:nth-child(1)::before {
+    content: '× '; color: #94a3b8; font-weight: 400;
+  }
+  /* col 2 Codigo */
+  .orc-acess-tab tr:not(.lvac-cat-header) td:nth-child(2) {
+    grid-column: 2; grid-row: 1;
+    font-size: 11px; color: #475569; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .orc-acess-tab tr:not(.lvac-cat-header) td:nth-child(2) code {
+    font-size: 11px; word-break: keep-all;
+  }
+  /* col 6 Total — destaque direita */
+  .orc-acess-tab tr:not(.lvac-cat-header) td:nth-child(6) {
+    grid-column: 3; grid-row: 1;
+    font-weight: 700; color: #1f2937; text-align: right; white-space: nowrap;
+  }
+  /* col 3 Descricao — linha 2 full */
+  .orc-acess-tab tr:not(.lvac-cat-header) td:nth-child(3) {
+    grid-column: 1 / -1; grid-row: 2;
+    color: #374151;
+  }
+  /* Esconde Categoria, Preco Unit, Observacao no mobile */
+  .orc-acess-tab tr:not(.lvac-cat-header) td:nth-child(4),
+  .orc-acess-tab tr:not(.lvac-cat-header) td:nth-child(5),
+  .orc-acess-tab tr:not(.lvac-cat-header) td:nth-child(7) {
+    display: none;
+  }
+}
