@@ -4476,15 +4476,18 @@ const Orcamento = (() => {
 
     // Auto-popula perfis e pintura usando resultado direto do calculo
     try {
-      if (_ehVazioOuZero(fab.total_perfis) || _ehVazioOuZero(fab.total_pintura)) {
+      // Felipe (sessao 09): SEMPRE recalcula perfis e pintura.
+      // Antes: só sobrescrevia se vazio. Resultado: mudava item
+      // e o custo ficava travado no primeiro cálculo.
+      {
         const itensCalc = (versao.itens || []);
         if (itensCalc.length > 0) {
           const rPerfis = recalcularPerfisESalvarNoFab(versao, itensCalc);
           if (rPerfis && rPerfis.result) {
             const cp = Math.round((rPerfis.result.custoPerfis  || 0) * 100) / 100;
             const ct = Math.round((rPerfis.result.custoPintura || 0) * 100) / 100;
-            if (_ehVazioOuZero(fab.total_perfis) && cp > 0)  fab.total_perfis = cp;
-            if (_ehVazioOuZero(fab.total_pintura) && ct > 0) fab.total_pintura = ct;
+            if (cp > 0) fab.total_perfis = cp;
+            if (ct > 0) fab.total_pintura = ct;
           }
         }
       }
@@ -4553,10 +4556,13 @@ const Orcamento = (() => {
           });
         });
 
-        // total_acessorios: SO' sobrescreve se vazio (preserva edicao manual)
-        const acessoriosVazio = _ehVazioOuZero(fab.total_acessorios);
-        if (acessoriosVazio && totalAcess > 0) {
+        // Felipe (sessao 09): SEMPRE atualiza total_acessorios.
+        // Antes: só se vazio. Resultado: tirava fechadura, mudava
+        // alisar, e o custo ficava travado no valor antigo.
+        if (totalAcess > 0) {
           fab.total_acessorios = totalAcess;
+        } else {
+          fab.total_acessorios = '';
         }
         // Felipe (sessao 2026-08): total_fechadura_digital SEMPRE atualiza
         // pra refletir estado atual da fechadura. Se removeu, vai pra 0.
@@ -4566,12 +4572,14 @@ const Orcamento = (() => {
         if (Math.abs(valorDigitalAntigo - totalDigital) > 0.01) {
           fab.total_fechadura_digital = totalDigital > 0 ? totalDigital : '';
         }
-        // Persiste se houve qualquer mudanca
-        const houveMudanca = (acessoriosVazio && totalAcess > 0)
-          || Math.abs(valorDigitalAntigo - totalDigital) > 0.01;
-        if (houveMudanca) {
+        // Felipe (sessao 09): SEMPRE recalcula subFab e persiste.
+        // Qualquer mudança em perfis/pintura/acessórios/digital deve
+        // refletir imediatamente no DRE.
+        {
+          const rFab = calcularFab(fab, versao.itens);
           atualizarVersao(versao.id, {
             custoFab: Object.assign({}, versao.custoFab || {}, fab),
+            subFab: rFab.total,
           });
         }
       }
