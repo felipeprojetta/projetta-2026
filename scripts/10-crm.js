@@ -92,6 +92,7 @@
         supervisor: '',
         destino: '',         // '' | 'nacional' | 'internacional'
         responsavel: '',     // Felipe (sessao 09): responsavel pelo orcamento
+        classificacao: '',   // Felipe sessao 12: Showroom/Representante/Vendedor/etc
       },
       // KPIs Fechado: ano civil + mes fiscal (16-15).
       // Default: ano e mes atual.
@@ -1276,6 +1277,15 @@
       };
     }
 
+    // Felipe sessao 12: classificacao do representante (Showroom/Representante/
+    // Vendedor/Coordenador/Supervisor) - filtro do CRM. Lookup pelo followup.
+    function classificacaoDoLead(lead) {
+      const idx = getRepsIndex();
+      const key = String(lead.representante_followup || '').trim().toLowerCase();
+      const r = idx[key];
+      return r ? String(r.classificacao || '').trim() : '';
+    }
+
     /**
      * Aplica os filtros do `state.filtros` em uma lista de leads.
      * Combinacao AND. Strings comparadas case-insensitive e via "contains".
@@ -1303,6 +1313,8 @@
         }
         // Felipe (sessao 09): filtro responsavel pelo orcamento
         if (f.responsavel && (l.responsavel_orcamento || '') !== f.responsavel) return false;
+        // Felipe sessao 12: filtro classificacao do representante
+        if (f.classificacao && classificacaoDoLead(l) !== f.classificacao) return false;
         return true;
       });
     }
@@ -1835,7 +1847,7 @@
       const anos = anosFiltroKPI();
       const opcs = opcoesFiltros();
       const f = state.filtros;
-      const algumFiltroAtivo = !!(f.busca || f.cidade || f.estado || f.representante || f.gerente || f.coordenador || f.supervisor || f.responsavel || f.destino);
+      const algumFiltroAtivo = !!(f.busca || f.cidade || f.estado || f.representante || f.gerente || f.coordenador || f.supervisor || f.responsavel || f.destino || f.classificacao);
       const MESES = [
         'Janeiro','Fevereiro','Marco','Abril','Maio','Junho',
         'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'
@@ -1921,6 +1933,14 @@
             <select class="crm-filtro-sel" id="crm-f-estado">
               <option value="">— estado —</option>
               ${opcs.estados.map(v => `<option value="${escapeHtml(v)}" ${v === f.estado ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+            </select>
+            <select class="crm-filtro-sel" id="crm-f-classificacao">
+              <option value="">— canal —</option>
+              <option value="Showroom"     ${f.classificacao === 'Showroom'     ? 'selected' : ''}>Showroom</option>
+              <option value="Representante" ${f.classificacao === 'Representante' ? 'selected' : ''}>Representante</option>
+              <option value="Vendedor"     ${f.classificacao === 'Vendedor'     ? 'selected' : ''}>Vendedor</option>
+              <option value="Coordenador"  ${f.classificacao === 'Coordenador'  ? 'selected' : ''}>Coordenador</option>
+              <option value="Supervisor"   ${f.classificacao === 'Supervisor'   ? 'selected' : ''}>Supervisor</option>
             </select>
             <select class="crm-filtro-sel" id="crm-f-representante">
               <option value="">— representante —</option>
@@ -2053,6 +2073,7 @@
       };
       bindSelectFiltro('#crm-f-cidade',        'cidade');
       bindSelectFiltro('#crm-f-estado',        'estado');
+      bindSelectFiltro('#crm-f-classificacao', 'classificacao');
       bindSelectFiltro('#crm-f-representante', 'representante');
       bindSelectFiltro('#crm-f-gerente',       'gerente');
       bindSelectFiltro('#crm-f-coordenador',   'coordenador');
@@ -2060,7 +2081,7 @@
       bindSelectFiltro('#crm-f-responsavel',   'responsavel');
       bindSelectFiltro('#crm-f-destino',       'destino');
       container.querySelector('#crm-f-limpar')?.addEventListener('click', () => {
-        state.filtros = { busca: '', cidade: '', estado: '', representante: '', gerente: '', coordenador: '', supervisor: '', responsavel: '', destino: '' };
+        state.filtros = { busca: '', cidade: '', estado: '', representante: '', gerente: '', coordenador: '', supervisor: '', responsavel: '', destino: '', classificacao: '' };
         render(container);
       });
 
