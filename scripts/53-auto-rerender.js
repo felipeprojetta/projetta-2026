@@ -126,6 +126,51 @@
     }
   }
 
+  // Felipe sessao 12: detecta se ha modal/dialog aberto. Se houver, o
+  // re-render do modulo (que troca o DOM do container) FECHA o modal -
+  // foi exatamente o problema que Felipe relatou: "card esta fechando
+  // sozinho". A fix `feb9e28` fez o auto-rerender funcionar pela 1a
+  // vez desde sessao 2026-08, expondo este efeito colateral.
+  function temModalAberto() {
+    try {
+      // CRM modal (Editar/Criar Lead)
+      var crmMount = document.querySelector('#crm-modal-mount');
+      if (crmMount && crmMount.children && crmMount.children.length > 0) return true;
+      // Modal Abrir Orcamento (47-orc-docs.js)
+      var orcDocs = document.querySelector('.orcdocs-modal-overlay');
+      if (orcDocs && orcDocs.offsetParent !== null) return true;
+      // Generic ARIA dialog visivel
+      var dialogs = document.querySelectorAll('[role="dialog"]');
+      for (var i = 0; i < dialogs.length; i++) {
+        if (dialogs[i].offsetParent !== null) return true;
+      }
+    } catch(_) {}
+    return false;
+  }
+
+  // Re-render adiado: agenda verificacao a cada 500ms ate o modal
+  // fechar, entao aplica. Sem leak — para o interval quando aplica.
+  var _pendingRemoteRender = false;
+  var _modalWatcher = null;
+  function aguardarModalFechar() {
+    if (_modalWatcher) return;
+    _modalWatcher = setInterval(function() {
+      if (!_pendingRemoteRender) {
+        clearInterval(_modalWatcher);
+        _modalWatcher = null;
+        return;
+      }
+      if (!temModalAberto()) {
+        _pendingRemoteRender = false;
+        clearInterval(_modalWatcher);
+        _modalWatcher = null;
+        console.log('[AutoRerender] ▶ Modal fechado — aplicando re-render adiado');
+        var ok = reRenderActive();
+        if (ok) showToast('🔄 Atualizado (mudanças aplicadas)', 'info');
+      }
+    }, 500);
+  }
+
   // Encontra entry do mapeamento que casa com 'scope/key'
   function findMatch(scope, key) {
     var combo = scope + '/' + key;
@@ -151,6 +196,17 @@
     // Se o usuario esta NA tela que mudou, re-renderiza
     if (atual.modulo === moduloEsperado &&
         (atual.tab === tabEsperada || tabEsperada === null)) {
+
+      // Felipe sessao 12: NAO re-renderiza enquanto modal/card aberto
+      // (fecharia o card que o usuario esta editando). Adia ate fechar.
+      if (temModalAberto()) {
+        _pendingRemoteRender = true;
+        aguardarModalFechar();
+        console.log('[AutoRerender] ⏸ ' + entry.label + ' atualizado mas modal aberto - postergando');
+        showToast('ℹ ' + entry.label + ' atualizado — feche o card pra atualizar', 'warn');
+        return;
+      }
+
       console.log('[AutoRerender] 🔄 ' + entry.label + ' atualizado por outro usuario - re-renderizando');
       var ok = reRenderActive();
       if (ok) {
@@ -165,11 +221,17 @@
 
   // Bulk handler: quando vem multiplas mudancas juntas (db:realtime-sync),
   // re-renderiza no max 1 vez (nao N vezes seguidas).
+  // Felipe sessao 12: respeita modal aberto (mesma logica do single).
   var _pendingRender = null;
   function scheduleRerender() {
     if (_pendingRender) clearTimeout(_pendingRender);
     _pendingRender = setTimeout(function() {
       _pendingRender = null;
+      if (temModalAberto()) {
+        _pendingRemoteRender = true;
+        aguardarModalFechar();
+        return;
+      }
       reRenderActive();
     }, 200); // debounce 200ms
   }
