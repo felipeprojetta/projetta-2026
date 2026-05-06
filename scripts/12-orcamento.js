@@ -5999,6 +5999,10 @@ const Orcamento = (() => {
     if (!item || item.tipo !== 'porta_externa') return { peso: 0 };
     let pesoPerfis = 0;
     let pesoChapas = 0;
+    let pesoEnchimento = 0;
+    // Felipe sessao 2026-08-03: reusa cortes pra calcular enchimento.
+    // Travessas vertical e horizontal entram aqui.
+    let _cortes = {};
 
     // --- Perfis FOLHA ---
     try {
@@ -6009,12 +6013,12 @@ const Orcamento = (() => {
         const numModelo = parseInt(String(item.modeloNumero || '').replace(/\D/g, ''), 10) || 0;
         const modeloAtual = modelos.find(m => Number(m.numero) === numModelo);
         const itemEnriquecido = Object.assign({}, item, { modeloNome: (modeloAtual && modeloAtual.nome) || '' });
-        const cortes = motor.gerarCortes(itemEnriquecido) || {};
-        for (const cod in cortes) {
+        _cortes = motor.gerarCortes(itemEnriquecido) || {};
+        for (const cod in _cortes) {
           const cad = (perfisCadastro && perfisCadastro[cod]) || {};
           const kgM = Number(cad.kgPorMetro) || 0;
           if (!kgM) continue;
-          (cortes[cod] || []).forEach(c => {
+          (_cortes[cod] || []).forEach(c => {
             // Soma somente FOLHA (label nao em ORDEM_PORTAL).
             // FIXO e' raro em porta_externa e nao tem label estavel
             // ainda; conta como folha (afeta peso, ok).
@@ -6096,10 +6100,38 @@ const Orcamento = (() => {
       console.warn('[calcularPesoFolhaItem] chapas falhou:', e);
     }
 
-    const peso = pesoPerfis + pesoChapas;
+    // --- Enchimento (frisos internos das travessas) ---
+    // Felipe sessao 2026-08-03: '(100 x comprimento travessa vertical)
+    // x quantidade de travessa vertical x 6 kg/m², mesma coisa para
+    // travessa horizontal'.
+    // Formula: m² = (100mm × comp_mm × qty) / 1.000.000 → kg = m² × 6
+    try {
+      const ENCH_KG_M2 = 6; // ACM 4mm padrao
+      for (const cod in _cortes) {
+        (_cortes[cod] || []).forEach(c => {
+          if (/TRAVESSA (VERTICAL|HORIZONTAL)/i.test(c.label)) {
+            const m2 = (100 * (Number(c.comp) || 0) * (Number(c.qty) || 0)) / 1000000;
+            pesoEnchimento += m2 * ENCH_KG_M2;
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('[calcularPesoFolhaItem] enchimento falhou:', e);
+    }
+
+    // Felipe sessao 2026-08-03: peso da porta = perfis + chapas +
+    // enchimento, COM 10% de margem de seguranca.
+    const subtotal = pesoPerfis + pesoChapas + pesoEnchimento;
+    const peso = subtotal * 1.10;
     return {
       peso,
-      detalhe: { perfis: pesoPerfis, chapas: pesoChapas },
+      detalhe: {
+        perfis: pesoPerfis,
+        chapas: pesoChapas,
+        enchimento: pesoEnchimento,
+        subtotal: subtotal,
+        comMargem: peso,
+      },
     };
   }
 
@@ -12172,12 +12204,50 @@ const Orcamento = (() => {
       let pesoFolhaTotal = 0;
       let pesoFolhaPerfis = 0;
       let pesoFolhaChapas = 0;
+      let pesoFolhaEnchimento = 0;
+      let pesoFolhaSubtotal = 0;
+      let pesoFolhaComMargem = 0;
       try {
         const r = calcularPesoFolhaItem(item, perfisCadLevAcess) || {};
-        pesoFolhaTotal  = r.peso || 0;
-        pesoFolhaPerfis = (r.detalhe && r.detalhe.perfis) || 0;
-        pesoFolhaChapas = (r.detalhe && r.detalhe.chapas) || 0;
+        pesoFolhaTotal       = r.peso || 0;
+        pesoFolhaPerfis      = (r.detalhe && r.detalhe.perfis) || 0;
+        pesoFolhaChapas      = (r.detalhe && r.detalhe.chapas) || 0;
+        pesoFolhaEnchimento  = (r.detalhe && r.detalhe.enchimento) || 0;
+        pesoFolhaSubtotal    = (r.detalhe && r.detalhe.subtotal) || 0;
+        pesoFolhaComMargem   = (r.detalhe && r.detalhe.comMargem) || pesoFolhaTotal;
       } catch (_) {}
+      // Felipe sessao 2026-08-03: 'Coloca um quadro tipo Resumo do
+      // peso da porta no topo da Lev. Acessorios'.
+      // Mostra a composicao do peso usado pra escolher o pivo:
+      //   perfis FOLHA + chapas (categoria='porta') + enchimento (frisos)
+      //   subtotal + 10% margem = peso final que o pivo precisa segurar
+      const nFolhasItem = Number(item.nFolhas) || 1;
+      const subtotalPorFolha = pesoFolhaSubtotal / nFolhasItem;
+      const margemPorFolha   = pesoFolhaComMargem / nFolhasItem;
+      const fmtKg = (n) => (Number(n) || 0).toFixed(2) + ' kg';
+      const quadroPesoPorta = (item.tipo === 'porta_externa' && pesoFolhaSubtotal > 0)
+        ? `
+        <div style="background:#f0f9ff;border:2px solid #0284c7;border-radius:8px;padding:14px 18px;margin-bottom:14px;">
+          <div style="font-weight:700;color:#075985;font-size:13px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+            ⚖️ Resumo do peso da porta ${nFolhasItem > 1 ? `(${nFolhasItem} folhas — peso por folha)` : ''}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:6px 24px;font-size:13px;color:#1e293b;">
+            <div>Peso liquido perfis (folha)</div>
+            <div style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${fmtKg(pesoFolhaPerfis / nFolhasItem)}</div>
+            <div>Peso liquido chapas (folha)</div>
+            <div style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${fmtKg(pesoFolhaChapas / nFolhasItem)}</div>
+            <div>Peso enchimento (frisos)</div>
+            <div style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${fmtKg(pesoFolhaEnchimento / nFolhasItem)}</div>
+            <div style="border-top:1px solid #cbd5e1;padding-top:6px;margin-top:2px;">Subtotal</div>
+            <div style="border-top:1px solid #cbd5e1;padding-top:6px;margin-top:2px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;">${fmtKg(subtotalPorFolha)}</div>
+            <div style="color:#92400e;">+ 10% margem de seguranca</div>
+            <div style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:#92400e;">${fmtKg(margemPorFolha - subtotalPorFolha)}</div>
+            <div style="font-weight:800;color:#075985;font-size:14px;border-top:2px solid #0284c7;padding-top:8px;margin-top:4px;">PESO TOTAL DA PORTA (folha)</div>
+            <div style="font-weight:800;color:#075985;font-size:14px;border-top:2px solid #0284c7;padding-top:8px;margin-top:4px;text-align:right;font-variant-numeric:tabular-nums;">${fmtKg(margemPorFolha)}</div>
+          </div>
+        </div>`
+        : '';
+
       // Felipe sessao 2026-08: BUG - itens novos nao tem 'id' (criados
       // por novoItemPortaExterna sem id). Cache do breakdown era gravado
       // com timestamp aleatorio e o render buscava por undefined ->
@@ -12411,6 +12481,7 @@ const Orcamento = (() => {
             <div class="orc-item-titulo">Item ${idx + 1} — Porta Externa</div>
             <div class="orc-item-meta">${dim} · ${fols} · Modelo ${item.modeloExterno || item.modeloNumero || '—'} · qtd ${item.quantidade || 1}</div>
           </div>
+          ${quadroPesoPorta}
           ${renderTabela(`lvac-fab-${idx}`,     linhasFab,     '🏭 Fabricacao',        totalFab)}
           ${renderBreakdownInline(item._cacheKey || item.id)}
           ${renderTabela(`lvac-obra-${idx}`,    linhasObra,    '🚧 Obra',              totalObra)}
