@@ -461,6 +461,13 @@ const Superficies = (() => {
             <div class="cad-param-label">Preco/m² (R$)</div>
             <input id="sup-add-preco" class="cad-input" type="text" inputmode="decimal" placeholder="0,00" />
           </div>
+          <div id="sup-add-cobranca-wrap" style="display:${state.activeCat === 'vidro' ? 'block' : 'none'}">
+            <div class="cad-param-label">Cobrança</div>
+            <select id="sup-add-cobranca" class="cad-input">
+              <option value="m2">por m²</option>
+              <option value="chapa">por chapa</option>
+            </select>
+          </div>
           <button class="btn btn-primary btn-sm" id="sup-btn-add-form" style="height:34px;">+ Adicionar</button>
         </div>
       </div>
@@ -477,9 +484,11 @@ const Superficies = (() => {
     if (filtrados.length === 0) {
       return `<div class="sup-empty">Nenhuma superficie encontrada nesta categoria.</div>`;
     }
+    const ehVidro = state.activeCat === 'vidro';
     const linhas = filtrados.map((s) => {
       const idx = state.superficies.indexOf(s);
       const cat = s.categoria || categoriaAuto(s.descricao);
+      const cobranca = s.cobranca || 'm2';
       return `
         <tr data-idx="${idx}">
           <td><input class="sup-input sup-input-wide" data-field="descricao" value="${esc(s.descricao)}" /></td>
@@ -488,7 +497,13 @@ const Superficies = (() => {
               ${CATEGORIAS.map(c => `<option value="${c.id}" ${c.id === cat ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}
             </select>
           </td>
-          <td><input class="sup-input sup-input-num" data-field="preco" value="${fmt(s.preco)}" inputmode="decimal" /></td>
+          ${ehVidro ? `<td>
+            <select class="sup-input" data-field="cobranca" title="Como cobrar: por m² (area) ou por chapa inteira (planificador)">
+              <option value="m2" ${cobranca === 'm2' ? 'selected' : ''}>por m²</option>
+              <option value="chapa" ${cobranca === 'chapa' ? 'selected' : ''}>por chapa</option>
+            </select>
+          </td>` : ''}
+          <td><input class="sup-input sup-input-num" data-field="preco" value="${fmt(s.preco)}" inputmode="decimal" title="${ehVidro ? (cobranca === 'm2' ? 'Preço por m²' : 'Preço por chapa inteira') : 'Preço por m²'}" /></td>
           <td><input class="sup-input sup-input-num" data-field="peso_kg_m2" value="${(Number(s.peso_kg_m2) > 0) ? fmt(s.peso_kg_m2) : ''}" inputmode="decimal" placeholder="—" title="Peso por metro quadrado (kg/m²) — ACM padrao 6, Aluminio Macico 18, HPL 10" /></td>
           <td><button type="button" class="sup-btn-remove" data-action="remover" data-idx="${idx}" title="Excluir superficie">×</button></td>
         </tr>
@@ -501,7 +516,8 @@ const Superficies = (() => {
             <tr>
               <th>Descricao</th>
               <th>Categoria</th>
-              <th class="sup-th-num" data-no-filter="1">R$</th>
+              ${ehVidro ? '<th data-no-filter="1">Cobranca</th>' : ''}
+              <th class="sup-th-num" data-no-filter="1">${ehVidro ? 'R$' : 'R$'}</th>
               <th class="sup-th-num" data-no-filter="1" title="Peso por metro quadrado (kg/m²)">Peso (kg/m²)</th>
               <th class="actions"></th>
             </tr>
@@ -536,6 +552,7 @@ const Superficies = (() => {
         descricao: '',
         preco: 0,
         categoria: state.activeCat,
+        cobranca: 'm2',
         peso_kg_m2: pesoDefaultPorCategoria(state.activeCat),
       });
       markDirty();
@@ -568,6 +585,7 @@ const Superficies = (() => {
         categoria,
         largura,
         altura,
+        cobranca: (container.querySelector('#sup-add-cobranca')?.value) || 'm2',
         peso_kg_m2: pesoDefaultPorCategoria(categoria),
       });
       markDirty();
@@ -592,6 +610,12 @@ const Superficies = (() => {
       }, 30);
     });
     container.querySelector('#sup-btn-export')?.addEventListener('click', exportarXLSX);
+
+    // Mostrar/ocultar campo Cobrança quando muda categoria no form de adicionar
+    container.querySelector('#sup-add-categoria')?.addEventListener('change', (e) => {
+      const wrap = container.querySelector('#sup-add-cobranca-wrap');
+      if (wrap) wrap.style.display = e.target.value === 'vidro' ? 'block' : 'none';
+    });
     const fileInput = container.querySelector('#sup-import-file');
     container.querySelector('#sup-btn-import')?.addEventListener('click', () => fileInput?.click());
     fileInput?.addEventListener('change', (e) => {
@@ -645,6 +669,8 @@ const Superficies = (() => {
             save();
             rerenderTudo(container);
             return;
+          } else if (field === 'cobranca') {
+            s.cobranca = el.value; // 'm2' ou 'chapa'
           } else {
             s[field] = tc(el.value);
             el.value = s[field];
