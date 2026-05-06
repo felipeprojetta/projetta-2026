@@ -1947,7 +1947,119 @@ const Orcamento = (() => {
         // editava campo - resultado: lead vinha sem fechadura mecanica auto.
         try { aplicarRegrasAutoItem(itemInicial); } catch (e) { console.warn('[orcamento] aplicarRegrasAutoItem falhou:', e); }
       }
-      atualizarVersao(versaoAlvo.id, { itens: [itemInicial] });
+
+      // Felipe sessao 12 (Etapa 2): leva os itens_extras do card pro orcamento.
+      // CRM tipo -> Orcamento tipo:
+      //   porta_externa       -> porta_externa
+      //   porta_interna       -> porta_interna
+      //   rev_acoplado_porta  -> fixo_acoplado
+      //   rev_parede          -> revestimento_parede
+      const TIPO_CRM_TO_ORC = {
+        'porta_externa':      'porta_externa',
+        'porta_interna':      'porta_interna',
+        'rev_acoplado_porta': 'fixo_acoplado',
+        'rev_parede':         'revestimento_parede',
+      };
+      const itensExtrasOrc = [];
+      const itensExtrasLead = (lead && Array.isArray(lead.itens_extras)) ? lead.itens_extras : [];
+      itensExtrasLead.forEach(ext => {
+        const tipoOrc = TIPO_CRM_TO_ORC[ext.tipo];
+        if (!tipoOrc) return; // tipo desconhecido — pula
+        const novo = novoItem(tipoOrc);
+        novo.quantidade = Math.max(1, parseInt(ext.quantidade, 10) || 1);
+        if (ext.largura) novo.largura = ext.largura;
+        if (ext.altura)  novo.altura  = ext.altura;
+        // Modelo (so faz sentido pra portas)
+        if (ext.modelo && (tipoOrc === 'porta_externa' || tipoOrc === 'porta_interna')) {
+          novo.modeloNumero  = ext.modelo;
+          novo.modeloExterno = ext.modelo;
+          novo.modeloInterno = ext.modelo;
+        }
+        // Modelo do fixo_acoplado tb aceita modeloNumero
+        if (ext.modelo && tipoOrc === 'fixo_acoplado') {
+          novo.modeloNumero = ext.modelo;
+          novo.fixoSegueModelo = 'nao'; // se tem modelo proprio, nao segue porta
+        }
+        // Cor (porta_externa/fixo_acoplado tem corExterna+corInterna; outros so corExterna)
+        if (ext.cor) {
+          if ('corExterna' in novo) novo.corExterna = ext.cor;
+          if ('corInterna' in novo) novo.corInterna = ext.cor;
+          // Detecta revestimento automatico pela cor
+          if ('revestimento' in novo && !novo.revestimento) {
+            const revAuto = _detectarRevestimentoPorCor(ext.cor);
+            if (revAuto) novo.revestimento = revAuto;
+          }
+        }
+        // Aplica regras auto pra portas (fechadura mecanica/cilindro/sistema)
+        if (tipoOrc === 'porta_externa') {
+          try { aplicarRegrasAutoItem(novo); } catch(_){}
+        }
+        itensExtrasOrc.push(novo);
+      });
+
+      // So adiciona itens novos se ainda nao foram adicionados (evita duplicar
+      // ao reabrir o orcamento). Detecta por: itemInicial e' o unico, e nao
+      // tem outros itens depois.
+      const itensFinaisVersao = itensExtrasOrc.length > 0
+        ? [itemInicial].concat(itensExtrasOrc)
+        : [itemInicial];
+      atualizarVersao(versaoAlvo.id, { itens: itensFinaisVersao });
+    } else if (!suprimirRepop && lead && Array.isArray(lead.itens_extras) && lead.itens_extras.length > 0) {
+      // Felipe sessao 12 (caso adicional): orcamento ja tem Item 1 (porta
+      // principal), mas o lead ganhou novos itens_extras DEPOIS que o orcamento
+      // foi populado pela 1a vez. Adiciona so os que ainda nao estao no orcamento
+      // (compara por tipo+largura+altura+cor pra heuristica de "ja' existe").
+      // Sem isso, adicionar item no card depois nao chegava no orcamento.
+      const TIPO_CRM_TO_ORC = {
+        'porta_externa':      'porta_externa',
+        'porta_interna':      'porta_interna',
+        'rev_acoplado_porta': 'fixo_acoplado',
+        'rev_parede':         'revestimento_parede',
+      };
+      const itensJa = versaoAlvo.itens || [];
+      const chaveItem = (it) => [it.tipo, it.largura, it.altura, it.corExterna || ''].join('|');
+      const setExistente = new Set(itensJa.map(chaveItem));
+      const novosItens = [];
+      lead.itens_extras.forEach(ext => {
+        const tipoOrc = TIPO_CRM_TO_ORC[ext.tipo];
+        if (!tipoOrc) return;
+        // Pula porta_externa que casa com Item 1 (porta principal ja' la)
+        if (tipoOrc === 'porta_externa' &&
+            String(ext.largura) === String(lead.porta_largura || '') &&
+            String(ext.altura)  === String(lead.porta_altura  || '')) return;
+        const novo = novoItem(tipoOrc);
+        novo.quantidade = Math.max(1, parseInt(ext.quantidade, 10) || 1);
+        if (ext.largura) novo.largura = ext.largura;
+        if (ext.altura)  novo.altura  = ext.altura;
+        if (ext.modelo && (tipoOrc === 'porta_externa' || tipoOrc === 'porta_interna')) {
+          novo.modeloNumero  = ext.modelo;
+          novo.modeloExterno = ext.modelo;
+          novo.modeloInterno = ext.modelo;
+        }
+        if (ext.modelo && tipoOrc === 'fixo_acoplado') {
+          novo.modeloNumero = ext.modelo;
+          novo.fixoSegueModelo = 'nao';
+        }
+        if (ext.cor) {
+          if ('corExterna' in novo) novo.corExterna = ext.cor;
+          if ('corInterna' in novo) novo.corInterna = ext.cor;
+          if ('revestimento' in novo && !novo.revestimento) {
+            const revAuto = _detectarRevestimentoPorCor(ext.cor);
+            if (revAuto) novo.revestimento = revAuto;
+          }
+        }
+        if (tipoOrc === 'porta_externa') {
+          try { aplicarRegrasAutoItem(novo); } catch(_){}
+        }
+        // So adiciona se nao tem item igual (heuristica simples)
+        if (!setExistente.has(chaveItem(novo))) {
+          novosItens.push(novo);
+          setExistente.add(chaveItem(novo));
+        }
+      });
+      if (novosItens.length > 0) {
+        atualizarVersao(versaoAlvo.id, { itens: itensJa.concat(novosItens) });
+      }
     }
     UI.leadAtivo = lead;
     // Mantem itemSelecionadoIdx valido (re-le pra pegar lista atualizada)
