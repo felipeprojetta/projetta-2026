@@ -5585,7 +5585,7 @@ const Orcamento = (() => {
           <div class="orc-field orc-f-pct">
             <label>Desconto</label>
             <input type="text" data-field="desconto" data-param="1" value="${escapeHtml(fmtBROrEmpty(params.desconto))}" />
-            <span class="orc-field-hint">sempre 20 % (fixo)</span>
+            <span class="orc-field-hint">auto: 20 − RT (${params.com_rt || 0}) = ${20 - (Number(params.com_rt) || 0)}%</span>
           </div>
         </div>
           <div class="orc-field orc-f-pct">
@@ -5963,12 +5963,12 @@ const Orcamento = (() => {
             novosParams._com_rep_manual = true;
           }
 
-          // Felipe (sessao 2026-06): a regra automatica que mudava o
-          // desconto baseada em Comissao RT/Arquiteto foi REMOVIDA.
-          // Pedido textual: "mantenha desconto e markup desconto sempre
-          // 20 tire a regra que tem relacionado a comissao do arquiteto".
-          // Agora markup_desc e desconto ficam fixos em 20% (default) e
-          // so' mudam se o usuario digitar manualmente nos campos.
+          // Felipe (sessao 2026-06) REMOVEU regra auto desconto.
+          // Felipe (sessao 09) RESTAUROU: desconto = 20 - com_rt.
+          // RT=5 → desconto=15. RT=0 → desconto=20.
+          if (field === 'com_rt') {
+            novosParams.desconto = 20 - (Number(novosParams.com_rt) || 0);
+          }
           dadosUpdate.parametros = novosParams;
         }
         try {
