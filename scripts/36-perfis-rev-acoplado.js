@@ -180,6 +180,13 @@ var PerfisRevAcoplado = (function() {
     var modeloNum = segueModelo && porta ? Number(porta.modeloNumero) || 1 : Number(item.modeloNumero) || 1;
     var modeloNome = segueModelo && porta ? String(porta.modeloNome || '') : 'Liso';
 
+    // Felipe sessao 12: cor herdada da porta quando segueModelo, com
+    // fallback pro item do fixo (caso usuario tenha setado direto).
+    // Sem isso o motor de chapas retornava p.cor='' e peso ficava 0.
+    var corExt  = (segueModelo && porta && porta.corExterna) ? String(porta.corExterna).trim() : String(item.corExterna || '').trim();
+    var corInt  = (segueModelo && porta && porta.corInterna) ? String(porta.corInterna).trim() : String(item.corInterna || '').trim();
+    var corCava = (segueModelo && porta && porta.corCava)    ? String(porta.corCava).trim()    : String(item.corCava    || '').trim();
+
     return {
       tipo: 'porta_externa',
       quantidade: 1,
@@ -192,6 +199,9 @@ var PerfisRevAcoplado = (function() {
       modeloInterno: modeloNum,
       sistema: fam,
       familia: fam,
+      corExterna: corExt,
+      corInterna: corInt,
+      corCava:    corCava,
       revestimento: item.revestimento || '',
       tamanhoCava:                   segueModelo && porta ? (Number(porta.tamanhoCava) || 0)                   : 0,
       distanciaBordaCava:            segueModelo && porta ? (Number(porta.distanciaBordaCava) || 0)            : 0,

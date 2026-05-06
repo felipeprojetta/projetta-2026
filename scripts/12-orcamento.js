@@ -10816,10 +10816,28 @@ const Orcamento = (() => {
     pecasExt = aplicarSuperficiesOverrides(pecasExt, item);
     if (lados2) pecasInt = aplicarSuperficiesOverrides(pecasInt, item);
 
+    // Felipe sessao 12: cor efetiva — herda da porta principal quando
+    // fixoSegueModelo='sim' E item nao tem cor propria. Antes lia
+    // item.corExterna direto e mostrava 'cor: —' + peso 0.
+    const segueModelo = item.fixoSegueModelo === 'sim';
+    const portaPrincipal = (() => {
+      if (!segueModelo || !window._versaoAtivaParaFixo) return null;
+      const v = window._versaoAtivaParaFixo;
+      if (!v.itens) return null;
+      return v.itens.find(it => it && it.tipo === 'porta_externa') || null;
+    })();
+    const corExt = (segueModelo && portaPrincipal && portaPrincipal.corExterna)
+      ? String(portaPrincipal.corExterna).trim()
+      : String(item.corExterna || '').trim();
+    const corInt = (segueModelo && portaPrincipal && portaPrincipal.corInterna)
+      ? String(portaPrincipal.corInterna).trim()
+      : String(item.corInterna || '').trim();
     const modeloEfetivo = Number(item.modeloNumero) || 0;
-    const corExt = String(item.corExterna || '').trim();
-    const corInt = String(item.corInterna || '').trim();
-    const corUnica = lados2 ? (corExt && corExt === corInt) : true;
+
+    // Felipe sessao 12: 1 tabela quando sao iguais (incluindo ambas vazias).
+    // Antes 'corExt && corExt===corInt' falhava se cores fossem '' — caia
+    // no else (separadas) mesmo em fixo simples sem cor.
+    const corUnica = lados2 ? (corExt === corInt) : true;
 
     let tabelasHtml = '';
     if (!lados2) {
