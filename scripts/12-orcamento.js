@@ -4546,9 +4546,9 @@ const Orcamento = (() => {
               totalDigital += Number(l.total) || 0;
               return;
             }
-            // 2) Resto: so' 'fab' entra no custo de Acessorios. 'obra'
-            //    fica em Custo de Instalacao (separado).
-            if (l.aplicacao !== 'fab') return;
+            // 2) Felipe (sessao 09): TODOS os acessorios (fab + obra)
+            //    entram no campo Acessorios. Antes so' 'fab' entrava
+            //    e 'obra' (R$ 983) ficava perdido sem somar em nada.
             totalAcess += Number(l.total) || 0;
           });
         });
@@ -6323,7 +6323,7 @@ const Orcamento = (() => {
               totalDigital += Number(l.total) || 0;
               return;
             }
-            if (l.aplicacao !== 'fab') return;
+            // Felipe (sessao 09): FAB + OBRA somam juntos em Acessorios
             totalAcess += Number(l.total) || 0;
           });
         });
