@@ -8946,7 +8946,10 @@ const Orcamento = (() => {
       const btnExpXml = e.target.closest('[data-acao="exportar-modelo-xml"]');
       if (btnExpXml) {
         try {
-          const xml = gerarModeloXmlSuperficies(itens);
+          // Felipe sessao 12: itens FRESH do storage (closure stale)
+          const rExp = obterVersao(UI.versaoAtivaId);
+          const itensFresh = (rExp && rExp.versao && rExp.versao.itens) || itens;
+          const xml = gerarModeloXmlSuperficies(itensFresh);
           const blob = new Blob([xml], { type: 'application/xml;charset=utf-8' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -8976,7 +8979,10 @@ const Orcamento = (() => {
       const btnExpXlsx = e.target.closest('[data-acao="exportar-modelo-xlsx"]');
       if (btnExpXlsx) {
         try {
-          const { headers, rows } = gerarModeloXlsxSuperficies(itens);
+          // Felipe sessao 12: itens FRESH do storage
+          const rExpX = obterVersao(UI.versaoAtivaId);
+          const itensFreshX = (rExpX && rExpX.versao && rExpX.versao.itens) || itens;
+          const { headers, rows } = gerarModeloXlsxSuperficies(itensFreshX);
           if (window.Universal?.exportXLSX) {
             window.Universal.exportXLSX({
               headers, rows,
@@ -9137,21 +9143,20 @@ const Orcamento = (() => {
         const idx = Number(sel.dataset.itemIdx);
         const chave = sel.dataset.pecaKey;
         const valor = sel.value === 'sim' ? 'sim' : 'nao';
-        const item = itens[idx];
+        // Felipe sessao 12: le itens FRESH do storage (closure 'itens' eh
+        // da primeira render, vira stale apos re-renders). Bug: 'AO MUDAR
+        // ALGUMA CHAPA NAO ESTA SALVANDO E RECALCULANDO'.
+        const r = obterVersao(UI.versaoAtivaId);
+        if (!r || !r.versao) return;
+        const item = (r.versao.itens || [])[idx];
         if (!item) return;
         if (!item.rotacionaOverrides) item.rotacionaOverrides = {};
         item.rotacionaOverrides[chave] = valor;
         // Atualiza visual da celula (laranja se Nao)
         const cell = sel.closest('.orc-lev-sup-rot-cell');
         if (cell) cell.classList.toggle('t-warn', valor === 'nao');
-        // Felipe (sessao 2026-05 — bug fix): antes usava window.OrcamentoCore.*
-        // que NUNCA foi definido — entao a persistencia silenciosamente
-        // virava noop. Agora usa atualizarVersao (API real).
         try {
-          const r = obterVersao(UI.versaoAtivaId);
-          if (r && r.versao) {
-            atualizarVersao(r.versao.id, { itens: r.versao.itens });
-          }
+          atualizarVersao(r.versao.id, { itens: r.versao.itens });
         } catch (err) {
           console.warn('[Lev Superficies] erro ao salvar override:', err);
         }
@@ -9177,13 +9182,14 @@ const Orcamento = (() => {
         reader.onload = (ev) => {
           try {
             const xml = String(ev.target.result || '');
-            const res = importarOverridesXml(xml, itens);
-            // Felipe (sessao 2026-05 — bug fix): antes usava OrcamentoCore.
+            // Felipe sessao 12: itens FRESH (closure stale apos re-renders)
+            const rImp = obterVersao(UI.versaoAtivaId);
+            const itensImp = (rImp && rImp.versao && rImp.versao.itens) || itens;
+            const res = importarOverridesXml(xml, itensImp);
             if (res.aplicados > 0) {
               try {
-                const r = obterVersao(UI.versaoAtivaId);
-                if (r && r.versao) {
-                  atualizarVersao(r.versao.id, { itens: r.versao.itens });
+                if (rImp && rImp.versao) {
+                  atualizarVersao(rImp.versao.id, { itens: itensImp });
                 }
               } catch (err) {
                 console.warn('[Lev Superficies] erro ao salvar XML:', err);
@@ -9222,12 +9228,14 @@ const Orcamento = (() => {
         }
         window.Universal.readXLSXFile(fX, (aoa) => {
           try {
-            const res = importarOverridesXlsx(aoa, itens);
+            // Felipe sessao 12: itens FRESH (closure stale)
+            const rImpX = obterVersao(UI.versaoAtivaId);
+            const itensImpX = (rImpX && rImpX.versao && rImpX.versao.itens) || itens;
+            const res = importarOverridesXlsx(aoa, itensImpX);
             if (res.aplicados > 0) {
               try {
-                const r = obterVersao(UI.versaoAtivaId);
-                if (r && r.versao) {
-                  atualizarVersao(r.versao.id, { itens: r.versao.itens });
+                if (rImpX && rImpX.versao) {
+                  atualizarVersao(rImpX.versao.id, { itens: itensImpX });
                 }
               } catch (err) {
                 console.warn('[Lev Superficies] erro ao salvar XLSX:', err);
@@ -9261,7 +9269,10 @@ const Orcamento = (() => {
       if (btnAdd) {
         const idx = Number(btnAdd.dataset.itemIdx);
         const corLado = btnAdd.dataset.cor || '';
-        const item = itens[idx];
+        // Felipe sessao 12: le itens fresh do storage (closure stale)
+        const r1 = obterVersao(UI.versaoAtivaId);
+        if (!r1 || !r1.versao) return;
+        const item = (r1.versao.itens || [])[idx];
         if (!item) return;
         // Pega os inputs da linha de adicionar (mesmo data-item-idx)
         const linhaAdd = btnAdd.closest('tr');
@@ -9286,8 +9297,7 @@ const Orcamento = (() => {
         });
         // Salva e re-renderiza
         try {
-          const r = obterVersao(UI.versaoAtivaId);
-          if (r && r.versao) atualizarVersao(r.versao.id, { itens: r.versao.itens });
+          atualizarVersao(r1.versao.id, { itens: r1.versao.itens });
         } catch (err) { console.warn('[Lev Sup] erro ao salvar peça manual:', err); }
         renderLevSuperficiesTab(container);
         return;
@@ -9297,7 +9307,9 @@ const Orcamento = (() => {
       if (btnRm) {
         const idx = Number(btnRm.dataset.itemIdx);
         const chave = btnRm.dataset.pecaKey;
-        const item = itens[idx];
+        const r2 = obterVersao(UI.versaoAtivaId);
+        if (!r2 || !r2.versao) return;
+        const item = (r2.versao.itens || [])[idx];
         if (!item || !item.pecasManuaisExtras) return;
         // chave = label|largura|altura
         const partes = chave.split('|');
@@ -9311,8 +9323,7 @@ const Orcamento = (() => {
         if (!confirm(`Remover peça manual "${labelAlvo}" (${largAlvo}×${altAlvo})?`)) return;
         item.pecasManuaisExtras.splice(idxRemover, 1);
         try {
-          const r = obterVersao(UI.versaoAtivaId);
-          if (r && r.versao) atualizarVersao(r.versao.id, { itens: r.versao.itens });
+          atualizarVersao(r2.versao.id, { itens: r2.versao.itens });
         } catch (err) { console.warn('[Lev Sup] erro ao remover peça:', err); }
         renderLevSuperficiesTab(container);
         return;
@@ -9322,13 +9333,14 @@ const Orcamento = (() => {
       if (btnReset) {
         const idx = Number(btnReset.dataset.itemIdx);
         const chave = btnReset.dataset.pecaKey;
-        const item = itens[idx];
+        const r3 = obterVersao(UI.versaoAtivaId);
+        if (!r3 || !r3.versao) return;
+        const item = (r3.versao.itens || [])[idx];
         if (!item || !item.superficiesOverrides) return;
         if (!confirm('Restaurar valores originais dessa peça?')) return;
         delete item.superficiesOverrides[chave];
         try {
-          const r = obterVersao(UI.versaoAtivaId);
-          if (r && r.versao) atualizarVersao(r.versao.id, { itens: r.versao.itens });
+          atualizarVersao(r3.versao.id, { itens: r3.versao.itens });
         } catch (err) { console.warn('[Lev Sup] erro ao resetar:', err); }
         renderLevSuperficiesTab(container);
         return;
@@ -9344,13 +9356,27 @@ const Orcamento = (() => {
           if (banner) banner.style.display = 'none';
           return;
         }
+        // Felipe sessao 12: BUG FIX - 'AO MUDAR ALGUMA CHAPA NAO ESTA SALVANDO
+        // E RECALCULANDO'. CAUSA: handlers estavam dentro do guard
+        // _levSupListenersAdded (commit 1398df1) - sao registrados na PRIMEIRA
+        // render. Capturam 'itens' da closure inicial. Em re-renders posteriores,
+        // mutacoes em 'itens[idx]' vao pro array antigo (lixo em memoria), mas
+        // 'r.versao.itens' usado no atualizarVersao vem fresh do storage SEM as
+        // mutacoes. Tudo era perdido. FIX: mutar diretamente em r.versao.itens
+        // (do storage atual) em vez do 'itens' da closure.
+        const rRecalc = obterVersao(UI.versaoAtivaId);
+        if (!rRecalc || !rRecalc.versao) {
+          console.warn('[Lev Sup] versao atual nao encontrada ao recalcular');
+          return;
+        }
+        const itensAtual = rRecalc.versao.itens || [];
         pendentes.forEach(inp => {
           const idx = Number(inp.dataset.itemIdx);
           const chave = inp.dataset.pecaKey;
           const field = inp.dataset.field;  // 'largura' | 'altura' | 'qtd'
           const isManual = inp.dataset.manual === '1';
           const valor = parseInt(inp.value, 10) || 0;
-          const item = itens[idx];
+          const item = itensAtual[idx];   // <-- FRESH do storage
           if (!item || valor <= 0) return;
           if (isManual) {
             // Edicao em peca manual: atualiza diretamente em pecasManuaisExtras
@@ -9373,8 +9399,7 @@ const Orcamento = (() => {
           }
         });
         try {
-          const r = obterVersao(UI.versaoAtivaId);
-          if (r && r.versao) atualizarVersao(r.versao.id, { itens: r.versao.itens });
+          atualizarVersao(rRecalc.versao.id, { itens: itensAtual });
         } catch (err) { console.warn('[Lev Sup] erro ao salvar overrides:', err); }
         renderLevSuperficiesTab(container);
         return;
