@@ -1,12 +1,12 @@
 /* ================================================================
- * 47-email-thread.css — Estilo do modal de thread de emails
- * Felipe (sessao 09): thread Outlook no CRM card
+ * 47-email-thread.css — Visual estilo Outlook
+ * Felipe (sessao 09): "quero exatamente igual o Outlook"
  * ================================================================ */
 
 .etm-container {
   background: #fff;
-  border-radius: 12px;
-  max-width: 900px;
+  border-radius: 10px;
+  max-width: 920px;
   width: 100%;
   max-height: 92vh;
   display: flex;
@@ -19,256 +19,177 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 14px 20px;
   background: var(--azul-escuro, #003144);
   color: #fff;
   flex-shrink: 0;
 }
-
-.etm-title {
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.02em;
-}
-
+.etm-title { font-weight: 700; font-size: 14px; }
 .etm-close {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 24px;
-  cursor: pointer;
-  padding: 0 4px;
-  opacity: 0.7;
-  transition: opacity 0.15s;
+  background: none; border: none; color: #fff;
+  font-size: 24px; cursor: pointer; opacity: 0.7;
 }
 .etm-close:hover { opacity: 1; }
 
 .etm-body {
   overflow-y: auto;
-  padding: 16px 20px;
   flex: 1;
 }
 
 .etm-loading, .etm-empty, .etm-error {
-  text-align: center;
-  padding: 48px 20px;
-  font-size: 14px;
-  color: #666;
+  text-align: center; padding: 48px 20px; font-size: 14px; color: #666;
 }
 .etm-error { color: #c0392b; }
+.etm-loading-inline {
+  padding: 20px; text-align: center; color: #888; font-size: 13px;
+}
 
-.etm-thread-count {
-  font-size: 12px;
-  color: #888;
-  font-weight: 600;
-  margin-bottom: 14px;
-  padding-bottom: 8px;
+/* ══════════════════════════════════════════════════════════════
+   LINHA COMPACTA (estilo Outlook)
+   ══════════════════════════════════════════════════════════════ */
+.etm-row {
   border-bottom: 1px solid #e5e7eb;
 }
-
-/* ── Email card ── */
-.etm-email {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  margin-bottom: 10px;
-  overflow: hidden;
-  transition: box-shadow 0.15s;
-}
-.etm-email:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
-
-.etm-email-ultimo {
-  border-color: var(--azul-escuro, #003144);
-  border-width: 2px;
+.etm-row.is-expanded {
+  background: #f8fafc;
 }
 
-/* Header */
-.etm-email-header {
+.etm-row-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
-  gap: 10px;
+  gap: 12px;
+  padding: 12px 18px;
+  cursor: pointer;
+  transition: background 0.12s;
 }
-.etm-collapsible { cursor: pointer; }
-.etm-collapsible:hover { background: #f0f5fa; }
-
-.etm-email-ultimo .etm-email-header {
-  background: #f0f7ff;
-}
-
-.etm-email-from {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex: 1;
+.etm-row-header:hover {
+  background: #f0f5fa;
 }
 
 .etm-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--azul-escuro, #003144);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 14px;
-  flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: #0078d4; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 14px; flex-shrink: 0;
+  text-transform: uppercase;
 }
 
-.etm-from-info { min-width: 0; }
-.etm-from-name {
+.etm-row-info {
+  flex: 1; min-width: 0;
+}
+
+.etm-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.etm-row-nome {
   font-weight: 700;
   font-size: 13px;
-  color: #003144;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.etm-from-addr {
-  font-size: 11px;
-  color: #888;
+  color: #1a1a1a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.etm-email-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.etm-row-date {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
   flex-shrink: 0;
 }
-.etm-att-badge {
-  font-size: 11px;
-  color: #c2410c;
-  font-weight: 600;
-}
-.etm-date {
-  font-size: 11px;
-  color: #888;
+
+.etm-row-preview {
+  font-size: 12px;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-}
-.etm-expand-arrow {
-  font-size: 10px;
-  color: #aaa;
-  transition: transform 0.15s;
+  line-height: 1.4;
 }
 
-/* Body */
-.etm-email-body {
-  padding: 14px;
+.etm-att-icon {
+  font-size: 11px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   EMAIL EXPANDIDO
+   ══════════════════════════════════════════════════════════════ */
+.etm-row-expanded {
+  padding: 0 18px 16px 64px; /* alinhado com o texto (depois do avatar) */
 }
 
 .etm-destinatarios {
-  font-size: 12px;
-  color: #555;
-  margin-bottom: 12px;
-  padding: 8px 10px;
-  background: #f5f5f5;
-  border-radius: 6px;
+  font-size: 12px; color: #555;
+  margin-bottom: 12px; padding: 8px 12px;
+  background: #f5f5f5; border-radius: 6px;
+  border-left: 3px solid #0078d4;
 }
 .etm-destinatarios div { margin-bottom: 2px; }
 
 .etm-conteudo {
-  font-size: 13px;
-  line-height: 1.55;
-  color: #333;
-  word-break: break-word;
-  overflow: hidden;
+  font-size: 13px; line-height: 1.55; color: #333;
+  word-break: break-word; overflow: hidden;
+  padding: 8px 0;
 }
-.etm-conteudo img {
-  max-width: 100%;
-  height: auto;
-}
+.etm-conteudo img { max-width: 100%; height: auto; }
 
-/* ── Anexos ── */
+/* ══════════════════════════════════════════════════════════════
+   ANEXOS
+   ══════════════════════════════════════════════════════════════ */
 .etm-anexos {
-  border-top: 2px solid var(--azul-escuro, #003144);
-  margin-top: 16px;
-  padding-top: 12px;
+  border-top: 2px solid #0078d4;
+  margin-top: 14px; padding-top: 10px;
 }
 .etm-anexos-titulo {
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--azul-escuro, #003144);
-  margin-bottom: 8px;
+  font-weight: 700; font-size: 13px; color: #0078d4; margin-bottom: 8px;
 }
 .etm-anexo-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid #f0f0f0;
 }
-.etm-anexo-icon { font-size: 22px; }
+.etm-anexo-icon { font-size: 20px; }
 .etm-anexo-info { flex: 1; min-width: 0; }
 .etm-anexo-nome {
-  font-weight: 600;
-  font-size: 13px;
-  color: #333;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 600; font-size: 13px; color: #333;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.etm-anexo-size {
-  font-size: 11px;
-  color: #888;
-}
-.etm-anexo-btns {
-  display: flex;
-  gap: 6px;
-}
-
+.etm-anexo-size { font-size: 11px; color: #888; }
+.etm-anexo-btns { display: flex; gap: 6px; }
 .etm-preview-area { margin: 8px 0; }
 
-/* ── Botoes ── */
+/* ══════════════════════════════════════════════════════════════
+   BOTOES
+   ══════════════════════════════════════════════════════════════ */
 .etm-btn {
-  border: none;
-  padding: 6px 14px;
-  border-radius: 5px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: opacity 0.15s;
+  border: none; padding: 6px 14px; border-radius: 5px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  white-space: nowrap; transition: opacity 0.15s;
 }
 .etm-btn:hover { opacity: 0.85; }
-
 .etm-btn-preview { background: #e65100; color: #fff; }
-.etm-btn-download { background: var(--azul-escuro, #003144); color: #fff; }
+.etm-btn-download { background: #0078d4; color: #fff; }
 .etm-btn-reply { background: var(--azul-escuro, #003144); color: #fff; padding: 10px 20px; font-size: 13px; }
 .etm-btn-reply-all { background: #2e7d32; color: #fff; padding: 10px 20px; font-size: 13px; }
 
-/* ── Reply section ── */
+/* ══════════════════════════════════════════════════════════════
+   REPLY
+   ══════════════════════════════════════════════════════════════ */
 .etm-reply-section {
-  border-top: 2px solid var(--azul-escuro, #003144);
-  margin-top: 16px;
-  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+  padding: 16px 18px;
 }
 .etm-reply-titulo {
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--azul-escuro, #003144);
-  margin-bottom: 8px;
+  font-weight: 700; font-size: 14px;
+  color: var(--azul-escuro, #003144); margin-bottom: 8px;
 }
 .etm-reply-textarea {
-  width: 100%;
-  min-height: 100px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 13px;
-  font-family: inherit;
-  resize: vertical;
+  width: 100%; min-height: 80px; padding: 10px;
+  border: 1px solid #ccc; border-radius: 6px;
+  font-size: 13px; font-family: inherit; resize: vertical;
   box-sizing: border-box;
 }
-.etm-reply-btns {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
+.etm-reply-btns { display: flex; gap: 8px; margin-top: 8px; }
