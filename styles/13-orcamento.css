@@ -320,7 +320,7 @@
 }
 /* Botoes ficam clicaveis mas alguns sao perigosos — bloqueia os
    que MUDAM dados. Whitelist de classes/IDs que SEMPRE funcionam: */
-.is-orc-readonly button:not(.orc-btn-back):not(.orc-btn-nova-versao):not([id="orc-prop-imprimir"]):not([id="orc-btn-back-crm"]):not([id="lvp-modal-pdf"]):not([id="lvp-modal-print"]):not(.lvp-subtab):not(.subtab):not(.tab):not(.crm-card-btn-orc):not(#orc-btn-calcular):not([data-tab]):not([data-action="select-item"]):not([data-toggle-layout]):not([data-tab-card]):not([data-rel-subtab]):not([data-export-png]):not([data-export-pdf]) {
+.is-orc-readonly button:not(.orc-btn-back):not(.orc-btn-nova-versao):not([id="orc-prop-imprimir"]):not([id="orc-btn-back-crm"]):not([id="orc-btn-zerar"]):not([id="lvp-modal-pdf"]):not([id="lvp-modal-print"]):not(.lvp-subtab):not(.subtab):not(.tab):not(.crm-card-btn-orc):not(#orc-btn-calcular):not([data-tab]):not([data-action="select-item"]):not([data-toggle-layout]):not([data-tab-card]):not([data-rel-subtab]):not([data-export-png]):not([data-export-pdf]) {
   opacity: 0.5;
   cursor: not-allowed;
   pointer-events: none;

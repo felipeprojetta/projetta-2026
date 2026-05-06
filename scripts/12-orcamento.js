@@ -3391,7 +3391,7 @@ const Orcamento = (() => {
                (negocio.opcoes[].versoes[]) continua existindo em
                background mas o usuario so' interage com a primeira
                versao. -->
-          <button class="orc-btn-zerar" id="orc-btn-zerar" title="Zerar todos os itens, parametros e calculos deste orcamento">🗑 Zerar</button>
+          <button class="orc-btn-zerar" id="orc-btn-zerar" title="Limpa os inputs da tela e cria nova versao em branco preservando o historico.">🧹 Limpar Tela</button>
           ${UI.leadAtivo ? `<button class="orc-btn-back" id="orc-btn-back-crm" title="Voltar para o card no CRM">← Voltar pro CRM</button>` : ''}
         </div>
       </div>
@@ -4360,7 +4360,7 @@ const Orcamento = (() => {
       // nFolhas/sistema. Felipe ja' tinha pedido pra remover o sistema
       // de versoes da UI — entao o Zerar agora ZERA tudo direto, sem
       // popup de versao. Single-confirm: "Zerar TODO?" → zerarNegocioAtivo.
-      if (!confirm('Zerar TODO o orcamento atual?\n\nIsso apaga todos os itens, parametros e calculos deste negocio.\n(O lead no CRM nao e afetado.)')) return;
+      if (!confirm('Limpar a tela do orcamento atual?\n\nIsso limpa os inputs visiveis. Em versao APROVADA/FECHADA, cria uma nova versao em branco preservando o historico (V1 continua intacta).\n\n(O lead no CRM nao e afetado.)')) return;
       zerarNegocioAtivo();
       reRender();
       if (window.showSavedDialog) window.showSavedDialog();
@@ -4873,7 +4873,7 @@ const Orcamento = (() => {
         </div>
         <div class="orc-banner-actions">
           <button type="button" class="univ-btn-save" id="orc-btn-salvar-fi">✓ Tudo salvo</button>
-          <button class="orc-btn-zerar" id="orc-btn-zerar" title="Zerar todos os itens, parametros e calculos deste orcamento">🗑 Zerar</button>
+          <button class="orc-btn-zerar" id="orc-btn-zerar" title="Limpa os inputs da tela e cria nova versao em branco preservando o historico.">🧹 Limpar Tela</button>
         </div>
       </div>
 
@@ -5760,7 +5760,7 @@ const Orcamento = (() => {
           <!-- Felipe (sessao 2026-08): "RETIRE ESSA VERSOES DO CALCULO" —
                botao "Salvar como Versao N e Congelar" removido. Versoes
                vao ser repensadas do zero. -->
-          <button class="orc-btn-zerar" id="orc-btn-zerar" title="Zerar todos os itens, parametros e calculos deste orcamento">🗑 Zerar</button>
+          <button class="orc-btn-zerar" id="orc-btn-zerar" title="Limpa os inputs da tela e cria nova versao em branco preservando o historico.">🧹 Limpar Tela</button>
         </div>
       </div>
 
