@@ -264,9 +264,16 @@ const Acessorios = (() => {
   // Codigo NAO eh normalizado — eh identificador, preserva exatamente.
   // Felipe (sessao 26 fix): preserva campos de impostos opcionais quando vierem
   // (preco_bruto, ipi, icm, pis, cofins). Se nao tiver, fica undefined (compat).
+  // Felipe sessao 12: ESPACOS DUPLOS no codigo causavam codigos "fantasma"
+  // tipo "PA-KESO CXT  AUX" (2 espacos). Felipe: "salvo e volta de novo
+  // ai da erro, esse que escrevi e o correto". Agora trim + colapsa
+  // multiplos whitespace em 1 espaco. Case preservado (pode ser
+  // intencional). Comentario antigo "Codigo NAO eh normalizado" continua
+  // valido pra case/letras — so' espacos sao limpos.
   function normalize(a) {
+    var codigoLimpo = String(a.codigo == null ? '' : a.codigo).trim().replace(/\s+/g, ' ');
     const out = {
-      codigo: a.codigo || '',
+      codigo: codigoLimpo,
       fornecedor: tc(a.fornecedor),
       descricao: tc(a.descricao),
       familia: tc(a.familia),
