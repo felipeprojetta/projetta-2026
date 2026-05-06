@@ -12292,36 +12292,49 @@ const Orcamento = (() => {
 
       const renderTabela = (idTab, linhasGrupo, titulo, total) => {
         if (!linhasGrupo.length) return '';
-        const corpo = linhasGrupo.map(l => {
-          // Felipe (sessao 2026-08): "SE TIVER VALOR ZERADO EM
-          // ACESSORIOS DESTACAR COM VERMELHO BEM CLARO".
-          const zerado = (Number(l.preco_un) || 0) === 0;
-          const cls = zerado ? 'lvac-row-zerado' : '';
-          // Felipe sessao 2026-08: 'DO LADO ALI DA FITA E DO PU'. Botao
-          // Detalhar Fita+Silicone DENTRO da linha (coluna Observacao),
-          // so' nas linhas PA-FITDF (fita) e PA-DOWSIL (silicone). Clique
-          // direto na linha que Felipe quer auditar.
-          const cod = String(l.codigo || '').toUpperCase();
-          const ehFitaOuSilicone = /^PA-FITDF|^PA-DOWSIL/.test(cod);
-          const btnLinhaDetalhar = ehFitaOuSilicone && item && item.id
-            ? ` <button type="button"
-                  onclick="event.stopPropagation(); window.FitaSiliconeDebug && window.FitaSiliconeDebug.abrir('${escapeHtml(item.id)}')"
-                  style="background:#fef3c7;border:1px solid #f59e0b;color:#b45309;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle"
-                  title="Ver de onde sairam os metros - quais perfis e pecas contribuiram">
-                  📊 Detalhar
-                </button>`
-            : '';
-          return `
-            <tr class="${cls}">
-              <td class="num">${fmtQtd(l.qtd)}</td>
-              <td><code>${escapeHtml(l.codigo)}</code></td>
-              <td>${escapeHtml(l.descricao)}</td>
-              <td>${escapeHtml(l.categoria)}</td>
-              <td class="num">${fmtMoney(l.preco_un)}</td>
-              <td class="num">${fmtMoney(l.total)}</td>
-              <td>${escapeHtml(l.observacao || '')}${btnLinhaDetalhar}</td>
-            </tr>`;
-        }).join('');
+
+        // Felipe (sessao 09): agrupar por categoria (Fechaduras, Parafusos, etc.)
+        const categorias = {};
+        const ordemCat = [];
+        linhasGrupo.forEach(l => {
+          const cat = l.categoria || 'Outros';
+          if (!categorias[cat]) { categorias[cat] = []; ordemCat.push(cat); }
+          categorias[cat].push(l);
+        });
+
+        let corpo = '';
+        ordemCat.forEach(cat => {
+          const itens = categorias[cat];
+          const subtotalCat = itens.reduce((s, l) => s + (Number(l.total) || 0), 0);
+          corpo += `<tr class="lvac-cat-header">
+            <td colspan="6" style="background:#eef2f7;padding:6px 10px;font-weight:700;font-size:12px;color:#1f2937;border-top:2px solid #cbd5e1;letter-spacing:0.3px;">${escapeHtml(cat)}</td>
+            <td style="background:#eef2f7;padding:6px 10px;font-weight:700;font-size:11px;color:#64748b;border-top:2px solid #cbd5e1;text-align:right;">${fmtMoney(subtotalCat)}</td>
+          </tr>`;
+          itens.forEach(l => {
+            const zerado = (Number(l.preco_un) || 0) === 0;
+            const cls = zerado ? 'lvac-row-zerado' : '';
+            const cod = String(l.codigo || '').toUpperCase();
+            const ehFitaOuSilicone = /^PA-FITDF|^PA-DOWSIL/.test(cod);
+            const btnLinhaDetalhar = ehFitaOuSilicone && item && item.id
+              ? ` <button type="button"
+                    onclick="event.stopPropagation(); window.FitaSiliconeDebug && window.FitaSiliconeDebug.abrir('${escapeHtml(item.id)}')"
+                    style="background:#fef3c7;border:1px solid #f59e0b;color:#b45309;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle"
+                    title="Ver de onde sairam os metros">
+                    📊 Detalhar
+                  </button>`
+              : '';
+            corpo += `
+              <tr class="${cls}">
+                <td class="num">${fmtQtd(l.qtd)}</td>
+                <td><code>${escapeHtml(l.codigo)}</code></td>
+                <td>${escapeHtml(l.descricao)}</td>
+                <td>${escapeHtml(l.categoria)}</td>
+                <td class="num">${fmtMoney(l.preco_un)}</td>
+                <td class="num">${fmtMoney(l.total)}</td>
+                <td>${escapeHtml(l.observacao || '')}${btnLinhaDetalhar}</td>
+              </tr>`;
+          });
+        });
         const ehFab = titulo.includes('Fabricacao');
         const ehObra = titulo.includes('Obra');
         const corBorda = ehFab ? '#2e7d32' : ehObra ? '#1565c0' : '#7b1fa2';
