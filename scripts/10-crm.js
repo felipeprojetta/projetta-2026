@@ -90,6 +90,7 @@
         coordenador: '',
         supervisor: '',
         destino: '',         // '' | 'nacional' | 'internacional'
+        responsavel: '',     // Felipe (sessao 09): responsavel pelo orcamento
       },
       // KPIs Fechado: ano civil + mes fiscal (16-15).
       // Default: ano e mes atual.
@@ -1280,6 +1281,8 @@
           if (f.coordenador && h.coordenador !== f.coordenador) return false;
           if (f.supervisor && h.supervisor !== f.supervisor) return false;
         }
+        // Felipe (sessao 09): filtro responsavel pelo orcamento
+        if (f.responsavel && (l.responsavel_orcamento || '') !== f.responsavel) return false;
         return true;
       });
     }
@@ -1296,10 +1299,12 @@
       const gers = new Set();
       const coords = new Set();
       const sups = new Set();
+      const resps = new Set();
       state.leads.forEach(l => {
         if (l.cidade) cidades.add(l.cidade);
         if (l.estado) estados.add(l.estado);
         if (l.representante_followup) reps.add(l.representante_followup);
+        if (l.responsavel_orcamento) resps.add(l.responsavel_orcamento);
         const h = hierarquiaDoLead(l);
         if (h.gerente)     gers.add(h.gerente);
         if (h.coordenador) coords.add(h.coordenador);
@@ -1313,6 +1318,7 @@
         gerentes: sort(gers),
         coordenadores: sort(coords),
         supervisores: sort(sups),
+        responsaveis: sort(resps),
       };
     }
 
@@ -1804,7 +1810,7 @@
       const anos = anosFiltroKPI();
       const opcs = opcoesFiltros();
       const f = state.filtros;
-      const algumFiltroAtivo = !!(f.busca || f.cidade || f.estado || f.representante || f.gerente || f.coordenador || f.supervisor || f.destino);
+      const algumFiltroAtivo = !!(f.busca || f.cidade || f.estado || f.representante || f.gerente || f.coordenador || f.supervisor || f.responsavel || f.destino);
       const MESES = [
         'Janeiro','Fevereiro','Marco','Abril','Maio','Junho',
         'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'
@@ -1906,6 +1912,10 @@
             <select class="crm-filtro-sel" id="crm-f-supervisor">
               <option value="">— supervisor —</option>
               ${opcs.supervisores.map(v => `<option value="${escapeHtml(v)}" ${v === f.supervisor ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+            </select>
+            <select class="crm-filtro-sel" id="crm-f-responsavel">
+              <option value="">— responsável —</option>
+              ${opcs.responsaveis.map(v => `<option value="${escapeHtml(v)}" ${v === f.responsavel ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
             </select>
             <select class="crm-filtro-sel" id="crm-f-destino">
               <option value="">— destino —</option>
@@ -2022,9 +2032,10 @@
       bindSelectFiltro('#crm-f-gerente',       'gerente');
       bindSelectFiltro('#crm-f-coordenador',   'coordenador');
       bindSelectFiltro('#crm-f-supervisor',    'supervisor');
+      bindSelectFiltro('#crm-f-responsavel',   'responsavel');
       bindSelectFiltro('#crm-f-destino',       'destino');
       container.querySelector('#crm-f-limpar')?.addEventListener('click', () => {
-        state.filtros = { busca: '', cidade: '', estado: '', representante: '', gerente: '', coordenador: '', supervisor: '', destino: '' };
+        state.filtros = { busca: '', cidade: '', estado: '', representante: '', gerente: '', coordenador: '', supervisor: '', responsavel: '', destino: '' };
         render(container);
       });
 

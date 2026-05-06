@@ -2920,6 +2920,9 @@ const Orcamento = (() => {
     const negocio = obterNegocio(UI.negocioAtivoId);
     const versao = obterVersao(UI.versaoAtivaId).versao;
     const opcao  = obterVersao(UI.versaoAtivaId).opcao;
+    // Felipe (sessao 09): responsável pelo orçamento (salvo no lead)
+    const leadResp = lerLeadAtivo() || {};
+    const leadResponsavel = leadResp.responsavel_orcamento || '';
 
     if (!item) {
       // Defesa em profundidade — em teoria nunca acontece pq inicializarSessao
@@ -3150,6 +3153,16 @@ const Orcamento = (() => {
           <button class="orc-btn-zerar" id="orc-btn-zerar" title="Zerar todos os itens, parametros e calculos deste orcamento">🗑 Zerar</button>
           ${UI.leadAtivo ? `<button class="orc-btn-back" id="orc-btn-back-crm" title="Voltar para o card no CRM">← Voltar pro CRM</button>` : ''}
         </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin:8px 0;padding:8px 12px;background:#f0f7ff;border:1px solid #c5d9ed;border-radius:4px;">
+        <label style="font-size:12px;font-weight:700;color:#1a5276;white-space:nowrap;">Responsável:</label>
+        <select id="orc-responsavel" style="padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;flex:1;max-width:200px;">
+          <option value="">— selecionar —</option>
+          <option value="Felipe" ${(leadResponsavel === 'Felipe') ? 'selected' : ''}>Felipe</option>
+          <option value="Andressa" ${(leadResponsavel === 'Andressa') ? 'selected' : ''}>Andressa</option>
+          <option value="Thays" ${(leadResponsavel === 'Thays') ? 'selected' : ''}>Thays</option>
+        </select>
       </div>
 
       <div class="orc-itens-list">
@@ -3818,6 +3831,17 @@ const Orcamento = (() => {
     // bug era que clicar com versao FECHADA causava throw silencioso
     // dentro de atualizarVersao (porque versao fechada e' imutavel).
     // Agora detecta antes e oferece criar nova versao.
+    // Felipe (sessao 09): handler responsável pelo orçamento
+    container.querySelector('#orc-responsavel')?.addEventListener('change', (e) => {
+      const lead = lerLeadAtivo();
+      if (!lead) return;
+      lead.responsavel_orcamento = e.target.value;
+      const store = Storage.scope('crm');
+      const leads = store.get('leads') || [];
+      const idx = leads.findIndex(l => l.id === lead.id);
+      if (idx >= 0) { leads[idx] = lead; store.set('leads', leads); }
+    });
+
     container.querySelector('#orc-btn-calcular')?.addEventListener('click', () => {
       // Salva quaisquer edicoes pendentes nos inputs antes de calcular
       salvarItensNoBanco();
