@@ -9577,30 +9577,53 @@ const Orcamento = (() => {
       // usuario ANTES de enviar pro aproveitamento, pra que o motor de
       // chapas use a flag editada (e nao a calculada automaticamente).
       // Felipe (sessao 28 fix): tambem aplica qtdOverrides (importado do Excel).
+      // Felipe sessao 12: TAMBEM aplica aplicarSuperficiesOverrides (largura/
+      // altura/qtd editados manualmente na tabela) E adicionarPecasManuaisExtras
+      // (pecas adicionadas pelo Felipe). Antes essa funcao IGNORAVA esses dois,
+      // entao o calculo de aproveitamento (chapas a comprar) usava valor original
+      // mesmo quando Felipe editava na tabela. Bug 'mudo de 3 para 2 e nao
+      // recalcula tirando essa peca'.
       if (item.tipo === 'porta_externa' && Chapas) {
         ['externo', 'interno'].forEach(lado => {
           let pecas = Chapas.gerarPecasChapa(item, lado) || [];
           pecas = aplicarRotacionaOverrides(pecas, item);
           pecas = aplicarQtdOverrides(pecas, item, lado);
+          pecas = aplicarSuperficiesOverrides(pecas, item);
+          // peca manual: filtra por cor do lado (cada peca manual tem .cor='externo'/'interno')
+          const extrasLado = ((item.pecasManuaisExtras || []).filter(p => (p.cor||'') === lado));
+          if (extrasLado.length) {
+            pecas = pecas.concat(extrasLado.map(p => Object.assign({
+              podeRotacionar: false, qtd: 1, categoria: p.categoria || 'porta',
+            }, p, { _manual: true })));
+          }
           pecas.forEach(p => agrupar(grupos, p, idx, item));
         });
       } else if (item.tipo === 'fixo_acoplado' && window.PerfisRevAcoplado) {
-        // Felipe sessao 12: aproveitamento agora usa pecas individuais
-        // do fixo (Cava, Tampa Maior, Tampa Borda, L da Cava, Fitas) —
-        // mesmo motor PerfisRevAcoplado.gerarPecasChapa que ja alimenta
-        // o painel de Lev. Superficies. Antes era 1 chapa retangular
-        // unica (sessao 11) — desperdicava chapa-mae, agora aproveita
-        // sobras igual a porta. Motor ja respeita 1 lado / 2 lados.
         ['externo', 'interno'].forEach(lado => {
           let pecas = window.PerfisRevAcoplado.gerarPecasChapa(item, lado) || [];
           pecas = aplicarRotacionaOverrides(pecas, item);
           pecas = aplicarQtdOverrides(pecas, item, lado);
+          pecas = aplicarSuperficiesOverrides(pecas, item);
+          const extrasLado = ((item.pecasManuaisExtras || []).filter(p => (p.cor||'') === lado));
+          if (extrasLado.length) {
+            pecas = pecas.concat(extrasLado.map(p => Object.assign({
+              podeRotacionar: false, qtd: 1, categoria: p.categoria || 'porta',
+            }, p, { _manual: true })));
+          }
           pecas.forEach(p => agrupar(grupos, p, idx, item));
         });
       } else if (item.tipo === 'revestimento_parede' && ChapasRev) {
         let pecas = ChapasRev.gerarPecasRevParede(item) || [];
         pecas = aplicarRotacionaOverrides(pecas, item);
         pecas = aplicarQtdOverrides(pecas, item, null);
+        pecas = aplicarSuperficiesOverrides(pecas, item);
+        // revestimento: peca manual sem filtro de lado
+        const extrasRev = item.pecasManuaisExtras || [];
+        if (extrasRev.length) {
+          pecas = pecas.concat(extrasRev.map(p => Object.assign({
+            podeRotacionar: false, qtd: 1, categoria: p.categoria || 'porta',
+          }, p, { _manual: true })));
+        }
         pecas.forEach(p => agrupar(grupos, p, idx, item));
       }
     });
