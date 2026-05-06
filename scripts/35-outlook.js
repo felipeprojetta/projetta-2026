@@ -572,7 +572,7 @@
 
       return ''
         + '<div class="etm-row" id="ol-row-'+idx+'">'
-        +   '<div class="etm-row-header" data-idx="'+idx+'" data-msg-id="'+_escAttr(m.id)+'">'
+        +   '<div class="etm-row-header" data-idx="'+idx+'" data-msg-id="'+_escAttr(m.id)+'" data-conv-id="'+_escAttr(m.conversationId||'')+'" data-subject="'+_escAttr(subject)+'">'
         +     '<span class="etm-avatar" style="'+(unread?'background:#0078d4':'background:#6b7280')+'">'+_escHtml(inicial)+'</span>'
         +     '<div class="etm-row-info">'
         +       '<div class="etm-row-top">'
@@ -597,14 +597,15 @@
     list.querySelectorAll('.etm-row-header').forEach(function(h){
       h.addEventListener('click', function(){
         var idx = parseInt(h.dataset.idx);
-        var msgId = h.dataset.msgId;
-        _toggleInlineEmail(idx, msgId);
+        var convId = h.dataset.convId;
+        var subject = h.dataset.subject;
+        _toggleInlineThread(idx, convId, subject);
       });
     });
   }
 
-  /* Toggle expansao inline de email na aba Email */
-  function _toggleInlineEmail(idx, msgId){
+  /* Toggle: expande thread completa (por conversationId) ou colapsa */
+  function _toggleInlineThread(idx, convId, subject){
     var expanded = document.getElementById('ol-expanded-' + idx);
     var row = document.getElementById('ol-row-' + idx);
     if(!expanded) return;
@@ -617,22 +618,107 @@
 
     expanded.style.display = '';
     if(row) row.classList.add('is-expanded');
-
-    // Ja carregou? So mostra
     if(expanded.dataset.loaded === '1') return;
 
-    expanded.innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:13px">⏳ Carregando...</div>';
+    expanded.innerHTML = '<div style="padding:16px;text-align:center;color:#888;font-size:13px">⏳ Buscando thread...</div>';
+
+    (async function(){
+      try {
+        // Busca TODOS emails desta conversa
+        var threadEmails = [];
+        if(convId){
+          var resp = await _graphCall("/me/messages?$filter=conversationId eq '"+convId+"'&$orderby=receivedDateTime desc&$top=30&$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments,conversationId,categories");
+          threadEmails = (resp && resp.value) || [];
+        }
+        if(!threadEmails.length){
+          // Fallback: busca por assunto
+          var resp2 = await window.outlookListInbox({search: subject, top: 10});
+          threadEmails = (resp2 && resp2.emails) || [];
+        }
+
+        // Ordenar: mais recente primeiro
+        threadEmails.sort(function(a,b){
+          return new Date(b.receivedDateTime||0).getTime() - new Date(a.receivedDateTime||0).getTime();
+        });
+
+        if(!threadEmails.length){
+          expanded.innerHTML = '<div style="padding:16px;color:#888">Nenhum email encontrado nesta conversa.</div>';
+          expanded.dataset.loaded = '1';
+          return;
+        }
+
+        // Renderizar thread: linhas compactas (igual card)
+        var html = '<div style="font-size:11px;color:#888;padding:0 0 8px;border-bottom:1px solid #e5e7eb;margin-bottom:4px;">'+threadEmails.length+' email(s) na conversa</div>';
+        threadEmails.forEach(function(em, tidx){
+          var from = (em.from && em.from.emailAddress) || {};
+          var fromName = from.name || from.address || '?';
+          var dt = em.receivedDateTime ? new Date(em.receivedDateTime) : null;
+          var dtStr = dt ? dt.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+          var preview = (em.bodyPreview||'').slice(0,140);
+          var ini = (fromName[0]||'?').toUpperCase();
+
+          html += '<div class="etm-row" id="ol-t'+idx+'-'+tidx+'">'
+            + '<div class="etm-row-header" style="padding:8px 10px;" data-parent="'+idx+'" data-tidx="'+tidx+'" data-tmsg="'+_escAttr(em.id)+'">'
+            + '<span class="etm-avatar" style="width:28px;height:28px;font-size:12px;">'+_escHtml(ini)+'</span>'
+            + '<div class="etm-row-info">'
+            + '<div class="etm-row-top"><span class="etm-row-nome">'+_escHtml(fromName)+'</span>'
+            + (em.hasAttachments ? '<span class="etm-att-icon">📎</span>' : '')
+            + '<span class="etm-row-date">'+_escHtml(dtStr)+'</span></div>'
+            + '<div class="etm-row-preview">'+_escHtml(preview)+'</div>'
+            + '</div></div>'
+            + '<div class="etm-row-expanded" id="ol-te-'+idx+'-'+tidx+'" style="display:none"></div>'
+            + '</div>';
+        });
+
+        expanded.innerHTML = html;
+        expanded.dataset.loaded = '1';
+
+        // Handlers de sub-email (expandir individual)
+        expanded.querySelectorAll('.etm-row-header').forEach(function(sh){
+          sh.addEventListener('click', function(e){
+            e.stopPropagation();
+            var tidx = parseInt(sh.dataset.tidx);
+            var tmsg = sh.dataset.tmsg;
+            var parentIdx = sh.dataset.parent;
+            _toggleSubEmail(parentIdx, tidx, tmsg);
+          });
+        });
+
+        // Auto-expandir o mais recente (primeiro)
+        if(threadEmails.length > 0){
+          _toggleSubEmail(idx, 0, threadEmails[0].id);
+        }
+      } catch(e){
+        expanded.innerHTML = '<div style="color:#c0392b;padding:16px;text-align:center">❌ '+_escHtml(e.message)+'</div>';
+      }
+    })();
+  }
+
+  /* Expande sub-email individual dentro da thread */
+  function _toggleSubEmail(parentIdx, tidx, msgId){
+    var el = document.getElementById('ol-te-'+parentIdx+'-'+tidx);
+    var row = document.getElementById('ol-t'+parentIdx+'-'+tidx);
+    if(!el) return;
+
+    if(el.style.display !== 'none'){
+      el.style.display = 'none';
+      if(row) row.classList.remove('is-expanded');
+      return;
+    }
+    el.style.display = '';
+    if(row) row.classList.add('is-expanded');
+    if(el.dataset.loaded === '1') return;
+
+    el.innerHTML = '<div style="padding:12px;color:#888;font-size:12px;text-align:center">⏳ Carregando...</div>';
 
     (async function(){
       try {
         var em = await window.outlookGetEmail(msgId);
         var anexos = [];
-        if(window._outlookGraphCall){
-          try {
-            var attResp = await _graphCall('/me/messages/' + msgId + '/attachments?$select=id,name,contentType,size,isInline');
-            anexos = (attResp && attResp.value) || [];
-          } catch(ae){}
-        }
+        try {
+          var attResp = await _graphCall('/me/messages/'+msgId+'/attachments?$select=id,name,contentType,size,isInline');
+          anexos = (attResp && attResp.value) || [];
+        } catch(ae){}
 
         var from = (em.from && em.from.emailAddress) || {};
         var to = (em.toRecipients||[]).map(function(r){return r.emailAddress.address;}).join(', ');
@@ -640,45 +726,16 @@
         var dt = em.receivedDateTime ? new Date(em.receivedDateTime) : null;
         var body = (em.body && em.body.content) || '';
 
-        var html = '';
-
-        // Flags/categorias
-        var cats = em.categories || [];
-        var FLAGS = ['Lead Coletado','Lead Criado','Fazer Orcamento','Orcamento Pronto','Orcamento Enviado'];
-        var flagColors = {'Lead Coletado':'#78909c','Lead Criado':'#e65100','Fazer Orcamento':'#1565c0','Orcamento Pronto':'#2e7d32','Orcamento Enviado':'#6a1b9a'};
-        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
-          + FLAGS.map(function(f){
-            var ativo = cats.indexOf(f) >= 0;
-            var cor = flagColors[f] || '#666';
-            return '<button onclick="window._outlookToggleFlag(\''+_escAttr(msgId)+'\',\''+_escAttr(f)+'\',this)" '
-              + 'style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:2px solid '+cor+';'
-              + (ativo ? 'background:'+cor+';color:#fff' : 'background:#fff;color:'+cor) + '">'
-              + f + '</button>';
-          }).join('')
-          + '</div>';
-
-        // Importar pro CRM
-        html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;padding:8px 10px;background:#fff7ed;border:1px solid #fb923c;border-radius:6px">'
-          + '<button onclick="window._outlookImportarCRM(\''+_escAttr(msgId)+'\')" style="background:#f97316;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">📥 Importar pro CRM</button>'
-          + '<span style="font-size:11px;color:#9a3412">Lê reserva + dados intranet + PDF anexo</span>'
-          + '</div>';
-
-        // Destinatarios
-        html += '<div class="etm-destinatarios">'
+        var html = '<div class="etm-destinatarios">'
           + '<div><b>De:</b> '+_escHtml(from.name||'')+' &lt;'+_escHtml(from.address||'')+'&gt;</div>'
           + '<div><b>Para:</b> '+_escHtml(to)+'</div>'
           + (cc ? '<div><b>Cc:</b> '+_escHtml(cc)+'</div>' : '')
           + (dt ? '<div><b>Data:</b> '+dt.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+'</div>' : '')
-          + '<div><b>Assunto:</b> '+_escHtml(em.subject||'')+'</div>'
           + '</div>';
-
-        // Conteudo
         html += '<div class="etm-conteudo">' + body + '</div>';
 
-        // Anexos
         if(anexos.length > 0){
-          html += '<div class="etm-anexos">'
-            + '<div class="etm-anexos-titulo">📎 Anexos ('+anexos.length+')</div>';
+          html += '<div class="etm-anexos"><div class="etm-anexos-titulo">📎 Anexos ('+anexos.length+')</div>';
           anexos.forEach(function(a){
             var sizeKB = Math.round((a.size||0)/1024);
             var sizeStr = sizeKB > 1024 ? (sizeKB/1024).toFixed(1)+' MB' : sizeKB+' KB';
@@ -687,19 +744,13 @@
             var icon = '📄';
             if(ct.indexOf('pdf')>=0||nm.endsWith('.pdf')) icon='📕';
             else if(ct.indexOf('image')>=0) icon='🖼️';
-            else if(nm.match(/\.xlsx?$/)) icon='📊';
-            else if(nm.match(/\.docx?$/)) icon='📝';
             var previewable = ct.indexOf('image')>=0||ct.indexOf('pdf')>=0||nm.endsWith('.pdf');
-            var uid = 'ol'+idx+'_'+(a.id||'').slice(-10);
-
-            html += '<div class="etm-anexo-item">'
-              + '<span class="etm-anexo-icon">'+icon+'</span>'
+            var uid = 'olt'+parentIdx+'_'+tidx+'_'+(a.id||'').slice(-8);
+            html += '<div class="etm-anexo-item"><span class="etm-anexo-icon">'+icon+'</span>'
               + '<div class="etm-anexo-info"><div class="etm-anexo-nome">'+_escHtml(a.name||'Sem nome')+'</div>'
               + '<div class="etm-anexo-size">'+sizeStr+'</div></div>'
               + '<div class="etm-anexo-btns">';
-            if(previewable){
-              html += '<button class="etm-btn etm-btn-preview" data-msg="'+_escAttr(msgId)+'" data-att="'+_escAttr(a.id)+'" data-type="'+_escAttr(a.contentType||'')+'" data-uid="'+uid+'">👁 Ver</button>';
-            }
+            if(previewable) html += '<button class="etm-btn etm-btn-preview" data-msg="'+_escAttr(msgId)+'" data-att="'+_escAttr(a.id)+'" data-type="'+_escAttr(a.contentType||'')+'" data-uid="'+uid+'">👁 Ver</button>';
             html += '<button class="etm-btn etm-btn-download" data-msg="'+_escAttr(msgId)+'" data-att="'+_escAttr(a.id)+'" data-name="'+_escAttr(a.name||'anexo')+'" data-type="'+_escAttr(a.contentType||'')+'">⬇ Baixar</button>'
               + '</div></div>'
               + '<div class="etm-preview-area" id="etm-pv-'+uid+'" style="display:none"></div>';
@@ -707,52 +758,18 @@
           html += '</div>';
         }
 
-        // Reply
-        html += '<div class="etm-reply-section">'
-          + '<div class="etm-reply-titulo">✉️ Responder</div>'
-          + '<textarea id="ol-reply-'+idx+'" class="etm-reply-textarea" placeholder="Digite sua resposta..."></textarea>'
-          + '<div class="etm-reply-btns">'
-          + '<button class="etm-btn etm-btn-reply" data-msg="'+_escAttr(msgId)+'" data-idx="'+idx+'">📤 Responder</button>'
-          + '<button class="etm-btn etm-btn-reply-all" data-msg="'+_escAttr(msgId)+'" data-idx="'+idx+'">📤 Responder Todos</button>'
-          + '</div></div>';
+        el.innerHTML = html;
+        el.dataset.loaded = '1';
 
-        expanded.innerHTML = html;
-        expanded.dataset.loaded = '1';
-
-        // Listeners anexos
-        expanded.querySelectorAll('.etm-btn-preview').forEach(function(btn){
-          btn.addEventListener('click', function(e){
-            e.stopPropagation();
-            _inlinePreview(btn.dataset.msg, btn.dataset.att, btn.dataset.type, btn.dataset.uid, btn);
-          });
+        // Listeners
+        el.querySelectorAll('.etm-btn-preview').forEach(function(btn){
+          btn.addEventListener('click',function(e){e.stopPropagation();_inlinePreview(btn.dataset.msg,btn.dataset.att,btn.dataset.type,btn.dataset.uid,btn);});
         });
-        expanded.querySelectorAll('.etm-btn-download').forEach(function(btn){
-          btn.addEventListener('click', function(e){
-            e.stopPropagation();
-            _inlineDownload(btn.dataset.msg, btn.dataset.att, btn.dataset.name, btn.dataset.type, btn);
-          });
-        });
-        // Listeners reply
-        expanded.querySelectorAll('.etm-btn-reply, .etm-btn-reply-all').forEach(function(btn){
-          btn.addEventListener('click', function(){
-            var replyAll = btn.classList.contains('etm-btn-reply-all');
-            var textarea = document.getElementById('ol-reply-'+btn.dataset.idx);
-            if(!textarea||!textarea.value.trim()){alert('Digite uma resposta.');return;}
-            var bodyHtml = '<p>'+textarea.value.replace(/\n/g,'<br>')+'</p><br><p style="font-size:11px;color:#888">— Enviado via Projetta by Weiku</p>';
-            btn.textContent = '⏳ Enviando...';
-            (async function(){
-              try {
-                if(replyAll) await window.outlookReplyAll(btn.dataset.msg, bodyHtml);
-                else await _graphCall('/me/messages/'+btn.dataset.msg+'/reply',{method:'POST',body:JSON.stringify({comment:bodyHtml})});
-                textarea.value='';
-                btn.textContent='✅ Enviado!';
-                setTimeout(function(){btn.textContent=replyAll?'📤 Responder Todos':'📤 Responder';},2000);
-              } catch(e){btn.textContent='❌ Erro';alert('Erro: '+e.message);}
-            })();
-          });
+        el.querySelectorAll('.etm-btn-download').forEach(function(btn){
+          btn.addEventListener('click',function(e){e.stopPropagation();_inlineDownload(btn.dataset.msg,btn.dataset.att,btn.dataset.name,btn.dataset.type,btn);});
         });
       } catch(e){
-        expanded.innerHTML = '<div style="color:#c0392b;padding:20px;text-align:center">❌ '+_escHtml(e.message)+'</div>';
+        el.innerHTML = '<div style="color:#c0392b;padding:12px">❌ '+_escHtml(e.message)+'</div>';
       }
     })();
   }
