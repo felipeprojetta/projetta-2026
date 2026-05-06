@@ -286,10 +286,14 @@
           </div>
         </div>
       ` : (editando ? `
-        <div class="crm-form-row cols-1">
+        <div class="crm-form-row cols-2">
           <div class="crm-field">
             <label>Numero da Reserva</label>
             <input type="text" data-field="numeroReserva" value="${escapeHtml(m.numeroReserva)}" placeholder="" />
+          </div>
+          <div class="crm-field">
+            <label>AGP</label>
+            <input type="text" data-field="numeroAGP" value="${escapeHtml(m.numeroAGP || '')}" placeholder="AGP000000" />
           </div>
         </div>
       ` : '');
