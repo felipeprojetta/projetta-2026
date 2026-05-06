@@ -5355,6 +5355,23 @@ const Orcamento = (() => {
     if (motivoBloqueio) {
       return renderPrecisaCalcular(container, versao, motivoBloqueio, 'DRE');
     }
+    // Felipe (sessao 09): SEMPRE recalcula subFab/subInst antes de
+    // renderizar DRE. Garante que qualquer mudança em itens, acessórios,
+    // fechadura, perfis, etc. reflita imediatamente no custo total.
+    try {
+      const fabDre  = Object.assign({}, FAB_DEFAULT, versao.custoFab  || {});
+      fabDre.etapas = Object.assign({}, FAB_DEFAULT.etapas, fabDre.etapas || {});
+      const instDre = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
+      const rFabDre  = calcularFab(fabDre, versao.itens);
+      const rInstDre = calcularInst(instDre);
+      if (Math.abs((Number(versao.subFab) || 0) - rFabDre.total) > 0.01
+          || Math.abs((Number(versao.subInst) || 0) - rInstDre.total) > 0.01) {
+        versao.subFab  = rFabDre.total;
+        versao.subInst = rInstDre.total;
+        atualizarVersao(versao.id, { subFab: rFabDre.total, subInst: rInstDre.total });
+      }
+    } catch(eDre){ console.warn('[DRE] recalc subFab/subInst:', eDre); }
+
     const negocio = obterNegocio(UI.negocioAtivoId);
     const opcao  = obterVersao(UI.versaoAtivaId).opcao;
     const subFab = Number(versao.subFab) || 0;
