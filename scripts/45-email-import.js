@@ -27,6 +27,54 @@
   'use strict';
 
   // ───────────────────────────────────────────────────────────────────
+  // FECHADURA DIGITAL — normaliza valor cru do PDF/Weiku pro codigo do
+  // cadastro de acessorios (familia "Fechadura Digital").
+  //
+  // Felipe sessao 12: PDF traz so' "TEDEE" (sem cor) — precisa virar
+  // codigo canonico do cadastro pra bater com o select do card. Se vier
+  // cor no texto, mapeamos pra variante; default e' PRETA.
+  //
+  //   PA-TEDEE-FEC-PT       -> Tedee Preta (DEFAULT pra "tedee" sozinho)
+  //   PA-TEDEE-FEC-DOURADA  -> Tedee Dourada
+  //   PA-TEDEE-FEC-PRT/BRA  -> Tedee Prata/Branca
+  //   PA-TEDEE-FEC-BRONZE   -> Tedee Bronze (Stainless)
+  //   PA-DIG EMTECO BAR II  -> Barcelona II (Emteco)
+  //   PA-DIG PH EK K9300    -> EK 9300 Preta
+  //   PA-DIG SOLENOIDE      -> Solenoide FS 1011
+  //
+  // Retorna '' se vazio, 'nao' se "nao se aplica", 'sim' se "sim",
+  // codigo canonico se mapeado, ou string original se nao reconhecido.
+  // ───────────────────────────────────────────────────────────────────
+  function mapearFechaduraDigital(raw) {
+    if (!raw) return '';
+    var s = String(raw).toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+
+    if (s.indexOf('nao se aplica') >= 0 ||
+        s.indexOf('não se aplica') >= 0 ||
+        s === 'nao' || s === 'não' || s === 'no' || s === 'n/a') return 'nao';
+    if (s === 'sim' || s === 'yes' || s === 's') return 'sim';
+
+    // TEDEE com variantes de cor
+    if (s.indexOf('tedee') >= 0) {
+      if (s.indexOf('dourad') >= 0 || s.indexOf('gold') >= 0)        return 'PA-TEDEE-FEC-DOURADA';
+      if (s.indexOf('prata')  >= 0 || s.indexOf('branc') >= 0 ||
+          s.indexOf('silver') >= 0 || s.indexOf('white') >= 0)        return 'PA-TEDEE-FEC-PRT/BRA';
+      if (s.indexOf('bronze') >= 0 || s.indexOf('stainless') >= 0)    return 'PA-TEDEE-FEC-BRONZE';
+      // Default Tedee = PRETA (Felipe sessao 12)
+      return 'PA-TEDEE-FEC-PT';
+    }
+
+    // Outros modelos
+    if (s.indexOf('barcelona') >= 0 || s.indexOf('emteco') >= 0)      return 'PA-DIG EMTECO BAR II';
+    if (s.indexOf('9300') >= 0 || s.indexOf('k9300') >= 0)            return 'PA-DIG PH EK K9300';
+    if (s.indexOf('solenoide') >= 0 || s.indexOf('fs 1011') >= 0)     return 'PA-DIG SOLENOIDE';
+
+    // Nao reconhecido — mantem string original (usuario corrige no card)
+    return String(raw).trim();
+  }
+
+  // ───────────────────────────────────────────────────────────────────
   // EXTRACAO DA RESERVA — regex no assunto + corpo do email
   // ───────────────────────────────────────────────────────────────────
   /**
@@ -280,20 +328,7 @@
       'Dropdown18'  // mapeamento Weiku conhecido
     );
 
-    var fechDig = '';
-    if (fechDigRaw) {
-      var fechLower = String(fechDigRaw).toLowerCase().replace(/\s+/g, ' ').trim();
-      if (fechLower.indexOf('nao se aplica') >= 0 ||
-          fechLower.indexOf('não se aplica') >= 0 ||
-          fechLower === 'nao' || fechLower === 'não' ||
-          fechLower === 'no'  || fechLower === 'n/a') {
-        fechDig = 'nao';
-      } else if (fechLower === 'sim' || fechLower === 'yes' || fechLower === 's') {
-        fechDig = 'sim';
-      } else {
-        fechDig = String(fechDigRaw).trim();
-      }
-    }
+    var fechDig = mapearFechaduraDigital(fechDigRaw);
 
     var resultado = {};
     if (largura) resultado.porta_largura = largura;
@@ -352,22 +387,9 @@
     // COR PORTA: PRO-1874 DARK GRAY JLR METALLIC
     var cor = matchFirst(new RegExp('COR\\s+PORTA\\s*:\\s*([^]+?)' + STOP, 'i'));
 
-    // FECHADURA DIGITAL: NÃO SE APLICA  /  PA-DIG-XXX  /  Sim
+    // FECHADURA DIGITAL: NÃO SE APLICA  /  PA-DIG-XXX  /  Sim  /  TEDEE
     var fechDigRaw = matchFirst(new RegExp('FECHADURA\\s+DIGITAL\\s*:\\s*([^]+?)' + STOP, 'i'));
-    var fechDig = '';
-    if (fechDigRaw) {
-      var fechLower = fechDigRaw.toLowerCase().replace(/\s+/g, ' ').trim();
-      if (fechLower.indexOf('nao se aplica') >= 0 ||
-          fechLower.indexOf('não se aplica') >= 0 ||
-          fechLower === 'nao' || fechLower === 'não' ||
-          fechLower === 'no'  || fechLower === 'n/a') {
-        fechDig = 'nao';
-      } else if (fechLower === 'sim' || fechLower === 'yes' || fechLower === 's') {
-        fechDig = 'sim';
-      } else {
-        fechDig = fechDigRaw;  // mantém valor original (provavelmente codigo)
-      }
-    }
+    var fechDig = mapearFechaduraDigital(fechDigRaw);
 
     return {
       porta_largura: largura,

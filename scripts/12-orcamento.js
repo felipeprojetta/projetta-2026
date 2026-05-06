@@ -1367,6 +1367,50 @@ const Orcamento = (() => {
     }
     if (!achou) throw new Error('deletarVersao: versao nao encontrada');
     saveAll(negocios);
+
+    // Felipe sessao 12: ao deletar versao, se NAO sobrou nenhuma aprovada
+    // no negocio, zera valor/precoProposta do lead no CRM e volta etapa
+    // pra "fazer-orcamento" (se estava em "orcamento-pronto" ou
+    // "orcamento-aprovado"). Sem isso o card mostrava preco orfao de
+    // versao deletada — Felipe pediu: "ao apagar versao se nao tiver
+    // nenhuma retirar preco do card".
+    try {
+      const negociosAtualizados = loadAll();
+      for (const n of negociosAtualizados) {
+        let temAprovada = false;
+        for (const o of (n.opcoes || [])) {
+          for (const v of (o.versoes || [])) {
+            if (v.aprovadoEm || v.valorAprovado || v.enviadoParaCard) { temAprovada = true; break; }
+          }
+          if (temAprovada) break;
+        }
+        if (!temAprovada && n.leadId) {
+          const leads = Storage.scope('crm').get('leads') || [];
+          const lead = leads.find(l => l.id === n.leadId);
+          if (lead && (Number(lead.valor) > 0 || Number(lead.precoProposta) > 0 ||
+              lead.etapa === 'orcamento-pronto' || lead.etapa === 'orcamento-aprovado')) {
+            lead.valor = 0;
+            lead.precoProposta = 0;
+            // Se etapa estava "pronto" ou "aprovado" (que dependiam da versao
+            // deletada), volta pra "fazer-orcamento". Mantem etapas posteriores
+            // (negociacao/fechado) pra preservar trabalho do usuario.
+            if (lead.etapa === 'orcamento-pronto' || lead.etapa === 'orcamento-aprovado') {
+              lead.etapa = 'fazer-orcamento';
+            }
+            Storage.scope('crm').set('leads', leads);
+            try {
+              if (typeof Events !== 'undefined') Events.emit('crm:reload');
+              if (window.Crm && typeof window.Crm.forceReload === 'function') {
+                window.Crm.forceReload(null);
+              }
+            } catch(_) {}
+          }
+        }
+      }
+    } catch(e) {
+      console.warn('[deletarVersao] zerar valor do card falhou:', e);
+    }
+
     return true;
   }
 
