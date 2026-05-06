@@ -1687,7 +1687,7 @@
           const blocoLocal = (repInfo || cidadeEstado) ? `
             <div class="crm-card-local">
               ${repInfo ? `
-                <div class="crm-card-loc-row">👤 ${escapeHtml(repInfo.nome)}</div>
+                <div class="crm-card-loc-row crm-card-rep-nome">👤 ${escapeHtml(repInfo.nome)}</div>
                 <div class="crm-card-loc-row crm-card-loc-meta">
                   <span class="crm-card-rep-class crm-card-rep-class-${escapeHtml(String(repInfo.classificacao).toLowerCase())}">${escapeHtml(repInfo.classificacao)}</span>
                   <span class="crm-card-rep-comissao">comissao ${escapeHtml(repInfo.comissaoPct)}</span>

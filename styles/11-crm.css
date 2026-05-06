@@ -368,6 +368,14 @@
   background: var(--branco);
   color: var(--text-soft);
 }
+/* Felipe sessao 12: nome do representante em negrito (mesmo destaque
+   do nome do cliente, mas tamanho normal). Pediu: "destaque o nome do
+   representante igual fez com nome cliente mas nao precisa ser mesmo
+   tamanho fonte coloque em negrito". */
+.crm-card-rep-nome {
+  font-weight: 700;
+  color: var(--azul-escuro);
+}
 /* Show room destaca em laranja (regra 7%) */
 .crm-card-rep-class-showroom {
   border-color: var(--laranja);
