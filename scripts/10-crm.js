@@ -1589,11 +1589,13 @@
                   <div class="crm-orcdocs-btn-secundarios">
                     <button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:6px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>
                     ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva" style="background:rgba(0,120,212,0.4);color:#1a5276;border:none;padding:6px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Email</button>` : ''}
+                    ${l.numeroReserva ? `<button data-action="ver-thread" data-lead-id="${l.id}" title="Ver todos emails desta reserva" style="background:rgba(0,120,212,0.15);color:#0078d4;border:1px solid rgba(0,120,212,0.3);padding:6px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Ver Emails</button>` : ''}
                   </div>
                 `}
                 ${!temVersaoFechada ? `
                   <button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>
                   ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva com proposta" style="background:rgba(0,120,212,0.4);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Enviar Proposta</button>` : ''}
+                  ${l.numeroReserva ? `<button data-action="ver-thread" data-lead-id="${l.id}" title="Ver todos emails desta reserva" style="background:rgba(0,120,212,0.15);color:#0078d4;border:1px solid rgba(0,120,212,0.3);padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Ver Emails</button>` : ''}
                 ` : ''}
               </div>
             ` : ''}
@@ -2255,6 +2257,18 @@
                 window.open('https://wa.me/' + f + '?text=' + encodeURIComponent(msgRep), 'projetta_whatsapp', 'width=900,height=700,scrollbars=yes,resizable=yes');
                 modal.remove();
               });
+            }
+            return;
+          }
+          // Felipe (sessao 09): Ver thread completa de emails da reserva
+          const btnThread = e.target.closest('[data-action="ver-thread"]');
+          if (btnThread) {
+            e.stopPropagation();
+            const leadId = btnThread.dataset.leadId;
+            if (leadId && window.EmailThread && window.EmailThread.abrir) {
+              window.EmailThread.abrir(leadId);
+            } else {
+              alert('Modulo de email thread nao carregado.');
             }
             return;
           }

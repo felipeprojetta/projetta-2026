@@ -880,6 +880,11 @@
     return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'});
   }
 
+  // ═══ EXPOR GRAPH CALL PARA MODULOS EXTERNOS ═══
+  // Felipe (sessao 09): 47-email-thread.js precisa fazer chamadas
+  // Graph API (buscar anexos, corpo de emails). Expor wrapper.
+  window._outlookGraphCall = _graphCall;
+
   // ═══ INIT ═══
 
   // Processar callback se voltamos de autorizacao
