@@ -2054,7 +2054,20 @@
         return ano === ANO_EM_ABERTO;
       });
       const kpiEmAberto = {
-        total: leadsEmAberto.reduce((s, l) => s + (Number(l.valor) || 0), 0),
+        // Felipe sessao 12: USAR mesmo valor que o card mostra (resumo.valor
+        // da ultima versao aprovada). Antes usava l.valor que pode estar stale
+        // (cache de outra maquina sobrescreveu). Agora KPI sincroniza com card.
+        total: leadsEmAberto.reduce((s, l) => {
+          let valorReal = Number(l.valor) || 0;
+          try {
+            const resumo = (window.Orcamento && window.Orcamento.resumoParaCardCRM)
+              ? window.Orcamento.resumoParaCardCRM(l.id) : null;
+            if (resumo && resumo.hasVersaoFechada) {
+              valorReal = Number(resumo.valor) || 0;
+            }
+          } catch(_){}
+          return s + valorReal;
+        }, 0),
         count: leadsEmAberto.length,
       };
 
