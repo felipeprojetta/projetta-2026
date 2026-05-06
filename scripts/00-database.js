@@ -111,7 +111,16 @@ const Database = (() => {
         return false;
       }
       var count = 0;
+      // Felipe (sessao 09): NUNCA sincronizar chaves de sessão/auth do cloud.
+      // Bug: outro navegador (Andressa/Thays) fazia syncToCloud com SUA sessão,
+      // depois syncFromCloud no navegador do Felipe puxava e sobrescrevia,
+      // trocando o usuário logado e causando "Acesso restrito".
+      var NEVER_SYNC_KEYS = ['session', 'users', 'session_user', 'last_login'];
+      var NEVER_SYNC_SCOPES = ['auth'];
       rows.forEach(function(r) {
+        // Bloqueia chaves de autenticação
+        if (NEVER_SYNC_SCOPES.indexOf(r.scope) >= 0) return;
+        if (NEVER_SYNC_KEYS.indexOf(r.key) >= 0) return;
         var lsKey = PREFIX + r.scope + ':' + r.key;
         try {
           var valorSb = r.valor;
@@ -161,6 +170,9 @@ const Database = (() => {
         if (dotPos < 0) continue;
         var scope = rest.slice(0, dotPos);
         var key = rest.slice(dotPos + 1);
+        // Felipe (sessao 09): NUNCA enviar sessão/auth pro cloud
+        if (scope === 'auth') continue;
+        if (key === 'session' || key === 'users' || key === 'session_user') continue;
         try {
           var valor = JSON.parse(localStorage.getItem(lsKey));
           // PROTECAO: nao enviar arrays vazios pro cloud (evita apagar dados)
