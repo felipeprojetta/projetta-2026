@@ -2894,13 +2894,19 @@
      ============================================================ */
   App.register('crm', {
     render(container) {
-      Crm.render(container);
+      // Felipe sessao 12: forceReload em vez de render direto.
+      // render() chama load() que tem guard `if (loaded) return` e
+      // mantem state.leads STALE - mesmo apos polling do realtime
+      // atualizar localStorage, a UI mostrava lista antiga ate F5.
+      // forceReload faz `loaded=false; load();` -> sempre re-le do
+      // storage. Overhead desprezivel.
+      Crm.forceReload(container);
       // Realtime: quando chegar mudanca do cloud, re-renderiza CRM
       if (!container._realtimeSubscribed) {
         container._realtimeSubscribed = true;
         Events.on('db:realtime-sync', function() {
           if (window.App && window.App.state && window.App.state.currentModule !== 'crm') return;
-          Crm.render(container);
+          Crm.forceReload(container);  // tb forceReload aqui (era render)
         });
         Events.on('crm:reload', function() {
           // Felipe sessao 2026-08: BUGFIX - handler tentava acessar
