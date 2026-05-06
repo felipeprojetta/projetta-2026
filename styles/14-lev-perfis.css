@@ -204,6 +204,13 @@
   font-size: 11px;
   font-weight: 700;
 }
+.lvp-rb-total-liquido td {
+  background: #1a5276;  /* azul mais escuro pra Peso Liquido */
+  color: var(--branco);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
 .lvp-rb-total td {
   background: var(--azul-escuro);
   color: var(--branco);

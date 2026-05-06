@@ -7633,7 +7633,8 @@ const Orcamento = (() => {
             ${grupoBruto.length ? `<tr class="lvp-rb-grupo"><td colspan="8">BRUTO</td></tr>` : ''}
             ${grupoBruto.map((r, i) => relRow(r, grupoBnf.length + i)).join('')}
             ${grupoBruto.length ? `<tr class="lvp-rb-subtotal"><td colspan="4">Subtotal BRUTO</td><td class="num">${fmtBR(subtBruKg)}</td><td></td><td class="num">R$ ${fmtBR(subtBruR$)}</td><td></td></tr>` : ''}
-            <tr class="lvp-rb-total"><td colspan="4">TOTAL</td><td class="num">${fmtBR(result.kgBrutoTotal)}</td><td></td><td class="num">R$ ${fmtBR(result.custoTotal)}</td><td></td></tr>
+            <tr class="lvp-rb-total-liquido"><td colspan="4">TOTAL GERAL — Peso Liquido</td><td class="num">${fmtBR(result.kgLiqTotal)}</td><td colspan="3"></td></tr>
+            <tr class="lvp-rb-total"><td colspan="4">TOTAL GERAL — Peso Bruto</td><td class="num">${fmtBR(result.kgBrutoTotal)}</td><td></td><td class="num">R$ ${fmtBR(result.custoTotal)}</td><td></td></tr>
           </tbody>
         </table>
 
