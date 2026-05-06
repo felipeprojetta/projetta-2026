@@ -173,6 +173,16 @@ const AcessoriosPortaExterna = (() => {
     const nFolhas = Math.max(1, Math.min(2, Number(item.nFolhas) || 1));
     const qtdPortas = Math.max(1, Number(item.quantidade) || 1);
     const sis = String(item.sistema || '').toUpperCase().trim() || 'PA006';
+    // Felipe sessao 12: helper unificado pra detectar PA006/PA007.
+    // Pra PORTA EXTERNA, item.sistema = 'pivotante' ou 'dobradica' (NAO PA006/PA007).
+    // Logica: PA006 = altura<4000mm, PA007 = altura>=4000mm
+    //   (regra dos perfis em scripts/31-perfis-porta-externa.js linha 269:
+    //    fam = altura<4000 ? '76' : '101', onde 76=PA006, 101=PA007).
+    // Pra FIXO_ACOPLADO, item.sistema = 'PA006' ou 'PA007' explicito - usa direto.
+    // Antes: 'sis === PA006' nunca era true pra porta -> sempre caia em PA007/150.
+    const ehPA006 = (sis === 'PA006') ? true
+                  : (sis === 'PA007') ? false
+                  : (H > 0 && H < 4000); // porta: altura<4000 = PA006
     const fechMec = item.fechaduraMecanica || '';
     const fechDig = item.fechaduraDigital || '';
     const puxTam = item.tamanhoPuxador || '';
@@ -263,8 +273,15 @@ const AcessoriosPortaExterna = (() => {
     //   UDINESE + PA006        -> PA-CIL UDINE 130 BL
     //   UDINESE + PA007        -> PA-CIL UDINE 150 BL
     // (e130 indica "usar 130mm" - serve pra PA006; PA007 usa 150mm)
+    //
+    // Felipe sessao 12 (FIX cilindro 150 sempre): pra PORTA EXTERNA o
+    // item.sistema e' 'pivotante' ou 'dobradica' (NUNCA 'PA006'/'PA007').
+    // PA006 vs PA007 vem da ALTURA (regra do scripts/31-perfis-porta-externa.js
+    // linha 269: fam = altura<4000 ? '76' : '101', onde 76=PA006, 101=PA007).
+    // Antes: e130 = sis === 'PA006' -> sempre FALSE pra porta -> sempre 150.
+    // Agora: detecta PA006 explicito (fixo_acoplado) ou via altura (porta).
     if (pinos > 0) {
-      const e130 = sis === 'PA006';
+      var e130 = ehPA006;
       if (marcaCilindro === 'UDINESE') {
         add(e130 ? 'PA-CIL UDINE 130 BL' : 'PA-CIL UDINE 150 BL', 1, 'Fechaduras', 'fab',
             e130 ? 'Cilindro UDINESE 130mm (PA006)' : 'Cilindro UDINESE 150mm (PA007)');
@@ -351,7 +368,7 @@ const AcessoriosPortaExterna = (() => {
     //    PA006 → ceil(L/1000) × 2 metros
     //    PA007 → ceil(L/1000) × 4 metros
     if (L > 0) {
-      const mFita = sis === 'PA006'
+      const mFita = ehPA006
         ? Math.ceil((L / 1000) * 2)
         : Math.ceil((L / 1000) * 4);
       // Note: Felipe colocou PA-FITA VED 5X20 no item 7 mas categoria
@@ -389,9 +406,9 @@ const AcessoriosPortaExterna = (() => {
       const mIso = Math.ceil((H / 1000) * 4 + (L / 1000) * 3);
       let codEps;
       if (ripado) {
-        codEps = sis === 'PA006' ? 'PA-ISOPOR 135' : 'PA-ISOPOR 165';
+        codEps = ehPA006 ? 'PA-ISOPOR 135' : 'PA-ISOPOR 165';
       } else {
-        codEps = sis === 'PA006' ? 'PA-ISOPOR 115' : 'PA-ISOPOR 125';
+        codEps = ehPA006 ? 'PA-ISOPOR 115' : 'PA-ISOPOR 125';
       }
       add(codEps, mIso, 'Embalagem', 'fab', `H×4 + L×3 = ${mIso}m`);
     }
@@ -716,7 +733,7 @@ const AcessoriosPortaExterna = (() => {
 
             if (lblLow === 'alisar altura')        return aplicarRegra('alisar_altura',  compM, `${p.label||'Alisar Altura'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
             if (lblLow === 'alisar largura')       return aplicarRegra('alisar_largura', compM, `${p.label||'Alisar Largura'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
-            if (lblLow === 'tampa de furo')        return aplicarRegra(sis === 'PA007' ? 'tampa_furo_pa007' : 'tampa_furo_pa006', compM, `${p.label||'Tampa Furo'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            if (lblLow === 'tampa de furo')        return aplicarRegra(ehPA006 ? 'tampa_furo_pa006' : 'tampa_furo_pa007', compM, `${p.label||'Tampa Furo'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
             // Felipe sessao 2026-08-03: regras faltantes (Excel oficial)
             if (lblLow === 'fita acabamento menor')   return aplicarRegra('fita_acab_me',      compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
             if (lblLow === 'fita acabamento maior')   return aplicarRegra('fita_acab_ma',      compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
