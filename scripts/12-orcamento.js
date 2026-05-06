@@ -11640,7 +11640,7 @@ const Orcamento = (() => {
         }
       });
     }
-    const numOp       = Number(fab.operarios) || 1;
+    const numOp       = Number(fab.n_operarios) || 1;
     const custoHora   = Number(fab.custo_hora) || 0;
     const custoMaoObra = totalHoras * numOp * custoHora;
 
