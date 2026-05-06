@@ -9538,8 +9538,13 @@ const Orcamento = (() => {
       }
       return { largura: 0, altura: 0 };
     }
+    // Felipe (sessao 11): mesma validacao de sanidade
+    function dimsChapaSaoValidas2(l, a) {
+      return l >= 800 && l <= 3000 && a >= 1500 && a <= 15000;
+    }
     variantes = variantes.map(v => {
-      if (Number(v.largura) > 0 && Number(v.altura) > 0) return v;
+      const l = Number(v.largura) || 0, a = Number(v.altura) || 0;
+      if (l > 0 && a > 0 && dimsChapaSaoValidas2(l, a)) return v;
       const d = extrairDims(v.descricao);
       return Object.assign({}, v, { largura: d.largura, altura: d.altura });
     }).filter(v => Number(v.largura) > 0 && Number(v.altura) > 0);
@@ -10143,12 +10148,19 @@ const Orcamento = (() => {
       }
     }
 
+    // Felipe (sessao 11): validacao de sanidade — cadastro pode ter
+    // dimensoes erradas (ex: 4300x5 extraido de "Kynar4300 X5").
+    // Chapa real: largura 800-3000mm, altura 1500-15000mm.
+    function dimsChapaSaoValidas(l, a) {
+      return l >= 800 && l <= 3000 && a >= 1500 && a <= 15000;
+    }
+
     const variantes = variantesBrutas
       .map(s => {
         const larg = Number(s.largura) || 0;
         const alt  = Number(s.altura)  || 0;
-        if (larg > 0 && alt > 0) return s;  // ja' tem
-        // Fallback: extrai da descricao
+        if (larg > 0 && alt > 0 && dimsChapaSaoValidas(larg, alt)) return s;
+        // Fallback: extrai da descricao (valores ausentes OU insanos)
         const dims = extrairDimsDaDesc(s.descricao);
         return Object.assign({}, s, {
           largura: dims.largura,
