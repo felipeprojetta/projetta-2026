@@ -160,15 +160,17 @@
 }
 .rep-preco-tabela .rep-preco-valor {
   font-family: 'Lexend Zetta', sans-serif;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--azul-escuro, #003144);
+  white-space: nowrap;
 }
 .rep-preco-fat .rep-preco-valor {
   font-family: 'Lexend Zetta', sans-serif;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--laranja, #c47012);
+  white-space: nowrap;
 }
 
 /* Valores por m² */

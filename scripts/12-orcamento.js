@@ -11560,7 +11560,7 @@ const Orcamento = (() => {
       <div class="rep-section-head">
         <h3 class="rep-section-titulo">Painel Comercial — Representante</h3>
         <p class="rep-section-sub">
-          Resumo por item: precos tabela e faturamento, valores por m² (porta+inst e so' porta), comissoes e desconto aplicado.
+          Resumo por item: precos Original e Com Desconto, valores por m² (porta+inst e so' porta), comissoes e desconto aplicado.
           ${itens.length > 1 ? `<span class="rep-section-info">${itens.length} itens — preco rateado proporcional a area</span>` : ''}
         </p>
       </div>
