@@ -5365,19 +5365,16 @@ const Orcamento = (() => {
   // ============================================================
   //                      ABA: CUSTO E MARGEM
   // ============================================================
-  function renderCustoTab(container) {
-    inicializarSessao();
-    const versao = obterVersao(UI.versaoAtivaId).versao;
-    // Felipe (do doc): DRE so calcula se item esta completo E Fab/Inst
-    // tem valores de perfis/chapas/pintura. Modo 'dre' valida ambos.
-    const motivoBloqueio = precisaCalcular(versao, 'dre');
-    if (motivoBloqueio) {
-      return renderPrecisaCalcular(container, versao, motivoBloqueio, 'DRE');
-    }
-    // Felipe (sessao 09): DRE so RECALCULA subFab/subInst do custoFab
-    // existente. NAO roda motores (perfis/acessorios) — esses so rodam
-    // na aba Custo Fab/Inst. Se rodassem aqui com cadastros nao carregados,
-    // zerariam os valores reais (BUG CRITICO que destruiu dados).
+  /**
+   * Helper: recalcula subFab/subInst a partir de custoFab/custoInst e
+   * persiste se os valores mudaram. Garante que DRE, Aprovacao, Proposta
+   * e Relatorios usem SEMPRE os mesmos valores (BUG FIX sessao 2026-05-06).
+   *
+   * NAO roda motores (perfis/acessorios) — esses so rodam na aba
+   * Custo Fab/Inst. Se rodassem aqui com cadastros nao carregados,
+   * zerariam os valores reais (BUG CRITICO historico).
+   */
+  function _sincronizarSubFabInst(versao) {
     try {
       const fabDre  = Object.assign({}, FAB_DEFAULT, versao.custoFab  || {});
       fabDre.etapas = Object.assign({}, FAB_DEFAULT.etapas, fabDre.etapas || {});
@@ -5391,10 +5388,6 @@ const Orcamento = (() => {
       const rInstDre = calcularInst(instDre);
       const newSubFab  = rFabDre.total;
       const newSubInst = rInstDre.total;
-      // BUG FIX (sessao 2026-05-06): renderCustoTab recalculava subFab/subInst
-      // em memoria mas NAO persistia. Resultado: DRE mostrava valores recalculados
-      // mas Aprovar/Proposta liam os valores ANTIGOS do storage → precos divergiam.
-      // Agora persiste se mudou, pra que tudo use os mesmos valores.
       const mudouFab  = Math.abs(newSubFab  - (Number(versao.subFab)  || 0)) > 0.005;
       const mudouInst = Math.abs(newSubInst - (Number(versao.subInst) || 0)) > 0.005;
       versao.subFab  = newSubFab;
@@ -5405,9 +5398,25 @@ const Orcamento = (() => {
           if (mudouFab)  dadosPersist.subFab  = newSubFab;
           if (mudouInst) dadosPersist.subInst = newSubInst;
           atualizarVersao(versao.id, dadosPersist);
-        } catch(ePersist) { console.warn('[DRE] persist subFab/subInst:', ePersist); }
+        } catch(ePersist) { console.warn('[sync] persist subFab/subInst:', ePersist); }
       }
-    } catch(eDre){ console.warn('[DRE] recalc subFab/subInst:', eDre); }
+    } catch(e) { console.warn('[sync] recalc subFab/subInst:', e); }
+  }
+
+  function renderCustoTab(container) {
+    inicializarSessao();
+    const versao = obterVersao(UI.versaoAtivaId).versao;
+    // Felipe (do doc): DRE so calcula se item esta completo E Fab/Inst
+    // tem valores de perfis/chapas/pintura. Modo 'dre' valida ambos.
+    const motivoBloqueio = precisaCalcular(versao, 'dre');
+    if (motivoBloqueio) {
+      return renderPrecisaCalcular(container, versao, motivoBloqueio, 'DRE');
+    }
+    // Felipe (sessao 09): DRE so RECALCULA subFab/subInst do custoFab
+    // existente. NAO roda motores (perfis/acessorios) — esses so rodam
+    // na aba Custo Fab/Inst. Se rodassem aqui com cadastros nao carregados,
+    // zerariam os valores reais (BUG CRITICO que destruiu dados).
+    _sincronizarSubFabInst(versao);
 
     const negocio = obterNegocio(UI.negocioAtivoId);
     const opcao  = obterVersao(UI.versaoAtivaId).opcao;
@@ -7867,6 +7876,7 @@ const Orcamento = (() => {
     // pFatReal pra pTab — a proposta deve mostrar o "Preco da Proposta"
     // (linha "Preco da Proposta" no card de Conferencia do DRE), nao
     // o "Cliente Paga".
+    _sincronizarSubFabInst(versao);
     const subFab  = Number(versao.subFab) || 0;
     const subInst = Number(versao.subInst) || 0;
     const params  = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
@@ -11313,6 +11323,9 @@ const Orcamento = (() => {
     const lead    = lerLeadAtivo() || {};
 
     // Calcula DRE (mesmos numeros que aparecem na aba DRE / Proposta)
+    // BUG FIX (sessao 2026-05-06): recalcula subFab/subInst do custoFab
+    // atual antes de montar DRE — senão Resumo da Obra mostra dados antigos.
+    _sincronizarSubFabInst(versao);
     const subFab  = Number(versao.subFab)  || 0;
     const subInst = Number(versao.subInst) || 0;
     const params  = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
@@ -12699,6 +12712,7 @@ const Orcamento = (() => {
     const negocio = r.negocio;
 
     // Calcula DRE (mesmos numeros das abas DRE/Proposta)
+    _sincronizarSubFabInst(versao);
     const subFab  = Number(versao.subFab)  || 0;
     const subInst = Number(versao.subInst) || 0;
     const params  = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
