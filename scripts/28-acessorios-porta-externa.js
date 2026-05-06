@@ -262,8 +262,9 @@ const AcessoriosPortaExterna = (() => {
     }
 
     // 5. PIVO — sempre, 12 × nFolhas
-    add('PA-CHA AA PHS 4,8X50', 12 * nFolhas, 'Parafusos', 'fab', 'pivo');
-    add('PA-BUCHA 06',          12 * nFolhas, 'Parafusos', 'fab', 'pivo');
+    // Felipe (sessao 2026-05-06): parafusos do pivo vao pra OBRA (não fab)
+    add('PA-CHA AA PHS 4,8X50', 12 * nFolhas, 'Parafusos', 'obra', 'pivo');
+    add('PA-BUCHA 06',          12 * nFolhas, 'Parafusos', 'obra', 'pivo');
 
     // PIVO conjunto sup/inf — Felipe (sessao 2026-09): o pivo escolhido
     // depende do PESO DA FOLHA (perfis FOLHA + chapas FOLHA).
