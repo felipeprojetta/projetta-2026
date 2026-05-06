@@ -5,14 +5,64 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
 
-  // 1. SYNC DO CLOUD (ANTES de tudo)
-  // Puxa TODOS os dados do Supabase pra localStorage.
-  // Assim, quando Thays abrir, ela ve os dados do Felipe.
+  // Felipe sessao 12: helpers do overlay de boot (definido inline no HTML)
+  function bootShowError(msg) {
+    var sub = document.getElementById('boot-loading-sub');
+    var retry = document.getElementById('boot-loading-retry');
+    var err = document.getElementById('boot-loading-err');
+    if (sub) sub.style.display = 'none';
+    if (retry) retry.style.display = 'block';
+    if (err) err.textContent = msg;
+  }
+  function bootHide() {
+    var ov = document.getElementById('boot-loading');
+    if (ov && ov.parentNode) {
+      ov.style.transition = 'opacity 200ms';
+      ov.style.opacity = '0';
+      setTimeout(function(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }, 220);
+    }
+  }
+  function bootSetMsg(m) {
+    var el = document.getElementById('boot-loading-msg');
+    if (el) el.textContent = m;
+  }
+
+  // 1. SYNC DO CLOUD (ANTES de tudo) - BLOQUEANTE com retry.
+  // Felipe sessao 12: se falhar, NAO deixa o usuario trabalhar - mostra
+  // botao "tentar novamente" no overlay. Antes seguia em modo offline
+  // silencioso e o user achava que estava tudo OK, mas ao salvar sobre-
+  // -escrevia dados de outros (last-write-wins com cache stale).
   if (Database && Database.syncFromCloud) {
-    try {
-      await Database.syncFromCloud();
-    } catch (e) {
-      console.warn('[Boot] syncFromCloud falhou, usando dados locais:', e.message);
+    let tentativa = 0;
+    let ok = false;
+    while (!ok) {
+      tentativa++;
+      bootSetMsg(tentativa === 1 ? 'Carregando banco de dados...' : 'Tentativa ' + tentativa + '...');
+      try {
+        await Database.syncFromCloud();
+        // syncFromCloud so' libera _readOnlyMode se sucesso.
+        // Se nao liberou, considera falha (servidor offline / sem rows).
+        if (Database.isReadOnly && Database.isReadOnly()) {
+          throw new Error('Servidor nao retornou dados (offline ou banco vazio)');
+        }
+        ok = true;
+      } catch (e) {
+        console.warn('[Boot] syncFromCloud tentativa ' + tentativa + ' falhou:', e.message);
+        bootShowError(e.message || 'Falha desconhecida');
+        // Espera o usuario clicar em "tentar novamente"
+        await new Promise(function(resolve) {
+          var btn = document.getElementById('boot-retry-btn');
+          if (!btn) return resolve(); // fallback se HTML faltar
+          btn.onclick = function() {
+            // Reseta UI pra estado de loading
+            var sub = document.getElementById('boot-loading-sub');
+            var retry = document.getElementById('boot-loading-retry');
+            if (sub) sub.style.display = 'block';
+            if (retry) retry.style.display = 'none';
+            resolve();
+          };
+        });
+      }
     }
   }
 
@@ -37,6 +87,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 3. App.init
   App.init();
+
+  // Felipe sessao 12: app inicializado, sync OK -> tira overlay de boot
+  bootHide();
 
   // 4. Seed de cadastros
   try {

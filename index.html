@@ -69,6 +69,44 @@
 <body>
 
   <!-- ============================================================
+       TELA DE BOOT — Felipe sessao 12: bloqueia UI ate syncFromCloud
+       terminar. Evita o cenario de cliente velho sobrescrever dados
+       de outro cliente que estava com cache desatualizado.
+       Removida pelo 99-boot.js apos syncFromCloud completar.
+       ============================================================ -->
+  <div id="boot-loading" style="
+    position:fixed; inset:0; z-index:99999;
+    background:#003144; color:#fff;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    text-align:center; padding:20px;">
+    <div style="font-size:42px; font-weight:300; letter-spacing:8px; color:#c47012; margin-bottom:8px;">
+      PROJETTA
+    </div>
+    <div style="width:48px; height:48px; border:4px solid rgba(255,255,255,0.2);
+                border-top-color:#c47012; border-radius:50%;
+                animation: bootSpin 0.8s linear infinite;
+                margin:24px 0 18px;"></div>
+    <div id="boot-loading-msg" style="font-size:18px; font-weight:500; margin-bottom:6px;">
+      Carregando banco de dados...
+    </div>
+    <div id="boot-loading-sub" style="font-size:13px; opacity:0.7; max-width:480px; line-height:1.5;">
+      Aguarde a sincronizacao com o servidor antes de comecar a trabalhar.<br>
+      Isso evita que dados de outras pessoas sejam perdidos.
+    </div>
+    <div id="boot-loading-retry" style="display:none; margin-top:24px;">
+      <div style="background:#b8341c; color:#fff; padding:12px 18px; border-radius:6px; margin-bottom:12px; max-width:480px;">
+        <div style="font-weight:600; margin-bottom:4px;">Erro ao conectar com o servidor</div>
+        <div id="boot-loading-err" style="font-size:13px; opacity:0.9;"></div>
+      </div>
+      <button id="boot-retry-btn" style="background:#c47012; color:#fff; border:0;
+              padding:12px 28px; border-radius:6px; font-size:14px; font-weight:600;
+              cursor:pointer; letter-spacing:0.5px;">TENTAR NOVAMENTE</button>
+    </div>
+  </div>
+  <style>@keyframes bootSpin { to { transform: rotate(360deg); } }</style>
+
+  <!-- ============================================================
        TELA DE LOGIN
        ============================================================ -->
   <div id="login-screen" class="login-screen">
