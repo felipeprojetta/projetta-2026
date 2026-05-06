@@ -12472,17 +12472,17 @@ const Orcamento = (() => {
               ` : ''}
             </div>
 
-            <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;table-layout:fixed;">
+            <table style="border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;">
               <thead>
                 <tr style="background:#1f2937;color:#fff;">
-                  <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;width:auto;">Peça / Perfil (com dimensões)</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;width:70px;">Metros</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;width:120px;">Mult. (19/12/995/CPS)</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;width:80px;">FD 19mm</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;width:80px;">FD 12mm</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;width:100px;">Silicone</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#15803d;width:80px;">CPS BR</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#0369a1;width:80px;">HIGHTACK</th>
+                  <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;white-space:nowrap;">Peça / Perfil (com dimensões)</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Metros</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Mult. (19/12/995/CPS)</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;white-space:nowrap;">FD 19mm</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;white-space:nowrap;">FD 12mm</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;white-space:nowrap;">Silicone</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#15803d;white-space:nowrap;">CPS BR</th>
+                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#0369a1;white-space:nowrap;">HIGHTACK</th>
                 </tr>
               </thead>
               <tbody>${linhasHtml}</tbody>
