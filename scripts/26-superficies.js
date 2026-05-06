@@ -479,7 +479,6 @@ const Superficies = (() => {
   }
 
   function renderTable() {
-    // Aplica busca + filtro de categoria
     const filtrados = aplicarBusca(aplicarCategoria(state.superficies));
     if (filtrados.length === 0) {
       return `<div class="sup-empty">Nenhuma superficie encontrada nesta categoria.</div>`;
@@ -491,35 +490,35 @@ const Superficies = (() => {
       const cobranca = s.cobranca || 'm2';
       return `
         <tr data-idx="${idx}">
-          <td><input class="sup-input sup-input-wide" data-field="descricao" value="${esc(s.descricao)}" /></td>
-          <td>
+          <td style="min-width:400px"><input class="sup-input sup-input-wide" data-field="descricao" value="${esc(s.descricao)}" /></td>
+          <td style="min-width:100px;width:100px">
             <select class="sup-input" data-field="categoria">
               ${CATEGORIAS.map(c => `<option value="${c.id}" ${c.id === cat ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}
             </select>
           </td>
-          ${ehVidro ? `<td>
-            <select class="sup-input" data-field="cobranca" title="Como cobrar: por m² (area) ou por chapa inteira (planificador)">
+          ${ehVidro ? `<td style="min-width:100px;width:100px">
+            <select class="sup-input" data-field="cobranca">
               <option value="m2" ${cobranca === 'm2' ? 'selected' : ''}>por m²</option>
               <option value="chapa" ${cobranca === 'chapa' ? 'selected' : ''}>por chapa</option>
             </select>
           </td>` : ''}
-          <td><input class="sup-input sup-input-num" data-field="preco" value="${fmt(s.preco)}" inputmode="decimal" title="${ehVidro ? (cobranca === 'm2' ? 'Preço por m²' : 'Preço por chapa inteira') : 'Preço por m²'}" /></td>
-          <td><input class="sup-input sup-input-num" data-field="peso_kg_m2" value="${(Number(s.peso_kg_m2) > 0) ? fmt(s.peso_kg_m2) : ''}" inputmode="decimal" placeholder="—" title="Peso por metro quadrado (kg/m²) — ACM padrao 6, Aluminio Macico 18, HPL 10" /></td>
-          <td><button type="button" class="sup-btn-remove" data-action="remover" data-idx="${idx}" title="Excluir superficie">×</button></td>
+          <td style="min-width:120px;width:120px;text-align:right"><input class="sup-input sup-input-num" data-field="preco" value="${fmt(s.preco)}" inputmode="decimal" /></td>
+          <td style="min-width:90px;width:90px;text-align:right"><input class="sup-input sup-input-num" data-field="peso_kg_m2" value="${(Number(s.peso_kg_m2) > 0) ? fmt(s.peso_kg_m2) : ''}" inputmode="decimal" placeholder="—" /></td>
+          <td style="width:36px"><button type="button" class="sup-btn-remove" data-action="remover" data-idx="${idx}" title="Excluir superficie">×</button></td>
         </tr>
       `;
     }).join('');
     return `
       <div class="sup-table-wrap">
-        <table class="sup-table cad-table">
+        <table class="sup-table cad-table" style="table-layout:auto;width:100%">
           <thead>
             <tr>
-              <th>Descricao</th>
-              <th>Categoria</th>
-              ${ehVidro ? '<th data-no-filter="1">Cobranca</th>' : ''}
-              <th class="sup-th-num" data-no-filter="1">${ehVidro ? 'R$' : 'R$'}</th>
-              <th class="sup-th-num" data-no-filter="1" title="Peso por metro quadrado (kg/m²)">Peso (kg/m²)</th>
-              <th class="actions"></th>
+              <th style="min-width:400px">Descricao</th>
+              <th style="min-width:100px;width:100px">Categoria</th>
+              ${ehVidro ? '<th style="min-width:100px;width:100px" data-no-filter="1">Cobranca</th>' : ''}
+              <th class="sup-th-num" style="min-width:120px;width:120px" data-no-filter="1">R$</th>
+              <th class="sup-th-num" style="min-width:90px;width:90px" data-no-filter="1">Peso (kg/m²)</th>
+              <th class="actions" style="width:36px"></th>
             </tr>
           </thead>
           <tbody>${linhas}</tbody>
