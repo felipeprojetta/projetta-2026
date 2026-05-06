@@ -12430,49 +12430,9 @@ const Orcamento = (() => {
             </summary>
 
             <div style="padding:0 16px 16px 16px;border-top:1px solid #fde68a;margin-top:4px;">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0;max-width:500px;">
-              <div style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
-                <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Fita Dupla 19mm</div>
-                <div style="font-size:18px;font-weight:800;color:#1e3a8a;line-height:1.1;margin-top:2px;">${(t.mFD19 || 0).toFixed(2)} m</div>
-                <div style="font-size:11px;color:#64748b;margin-top:2px;">÷ ${rends.fd19_rolo}m por rolo = <b style="color:#1e3a8a;">${rolosFD19} rolo(s)</b></div>
-              </div>
-              <div style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;">
-                <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Fita Dupla 12mm</div>
-                <div style="font-size:18px;font-weight:800;color:#1e3a8a;line-height:1.1;margin-top:2px;">${(t.mFD12 || 0).toFixed(2)} m</div>
-                <div style="font-size:11px;color:#64748b;margin-top:2px;">÷ ${rends.fd12_rolo}m por rolo = <b style="color:#1e3a8a;">${rolosFD12} rolo(s)</b></div>
-              </div>
-              <div style="background:#fff;border:2px solid #f59e0b;border-radius:6px;padding:10px 14px;">
-                <div style="font-size:10px;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Silicone DowSil 995</div>
-                <div style="font-size:18px;font-weight:800;color:#b45309;line-height:1.1;margin-top:2px;">${(t.mMS || 0).toFixed(2)} m</div>
-                <div style="font-size:11px;color:#92400e;margin-top:2px;">÷ ${rends.ms_tubo}m por tubo = <b style="color:#b45309;">${tubosMS} tubo(s)</b></div>
-                <button type="button"
-                  onclick="event.preventDefault(); event.stopPropagation(); window.AppNav?.goToFitaSilicone?.();"
-                  style="margin-top:8px;background:#b45309;color:#fff;border:none;padding:5px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;width:100%;letter-spacing:0.3px;">
-                  ✏️ MUDAR RENDIMENTO (${rends.ms_tubo}m → ?)
-                </button>
-              </div>
-              <div style="background:#fff;border:2px solid #16a34a;border-radius:6px;padding:10px 14px;">
-                <div style="font-size:10px;color:#14532d;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">CPS BR (Dow Corning)</div>
-                <div style="font-size:18px;font-weight:800;color:#15803d;line-height:1.1;margin-top:2px;">${(t.mCPS || 0).toFixed(2)} m</div>
-                <div style="font-size:11px;color:#166534;margin-top:2px;">÷ ${cpsRend}m por sachê = <b style="color:#15803d;">${sachesCPS} sachê(s)</b></div>
-                <div style="font-size:10px;color:#14532d;margin-top:6px;line-height:1.3;">
-                  PA-DOWSIL CPS BR<br>(só nas Travessas)
-                </div>
-              </div>
-              ${mHIGHTACK > 0 ? `
-              <!-- Felipe sessao 2026-08-03: card HIGHTACK BR (silicone obra) -->
-              <div style="background:#fff;border:2px solid #0284c7;border-radius:6px;padding:10px 14px;">
-                <div style="font-size:10px;color:#075985;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">HIGHTACK BR (Obra)</div>
-                <div style="font-size:18px;font-weight:800;color:#0284c7;line-height:1.1;margin-top:2px;">${mHIGHTACK.toFixed(2)} m</div>
-                <div style="font-size:11px;color:#075985;margin-top:2px;">÷ ${hightackRend}m por tubo = <b style="color:#0284c7;">${tubosHIGHTACK} tubo(s)</b></div>
-                <div style="font-size:10px;color:#075985;margin-top:6px;line-height:1.3;">
-                  PA-HIGHTACK BR<br>(Alisar + Fita Acab)
-                </div>
-              </div>
-              ` : ''}
-            </div>
+              <div style="display:flex;gap:12px;align-items:flex-start;margin:14px 0;">
 
-            <table style="border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;">
+              <table style="border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;">
               <thead>
                 <tr style="background:#1f2937;color:#fff;">
                   <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;white-space:nowrap;">Peça / Perfil (com dimensões)</th>
@@ -12497,6 +12457,38 @@ const Orcamento = (() => {
                 </tr>
               </tfoot>
             </table>
+
+              <div style="display:flex;flex-direction:column;gap:6px;min-width:160px;flex-shrink:0;">
+              <div style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:8px 12px;">
+                <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">Fita Dupla 19mm</div>
+                <div style="font-size:15px;font-weight:800;color:#1e3a8a;margin-top:1px;">${(t.mFD19 || 0).toFixed(2)} m</div>
+                <div style="font-size:10px;color:#64748b;">÷${rends.fd19_rolo}m = <b>${rolosFD19} rolo(s)</b></div>
+              </div>
+              <div style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:8px 12px;">
+                <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">Fita Dupla 12mm</div>
+                <div style="font-size:15px;font-weight:800;color:#1e3a8a;margin-top:1px;">${(t.mFD12 || 0).toFixed(2)} m</div>
+                <div style="font-size:10px;color:#64748b;">÷${rends.fd12_rolo}m = <b>${rolosFD12} rolo(s)</b></div>
+              </div>
+              <div style="background:#fff;border:2px solid #f59e0b;border-radius:6px;padding:8px 12px;">
+                <div style="font-size:9px;color:#92400e;text-transform:uppercase;letter-spacing:0.4px;font-weight:700;">Silicone 995</div>
+                <div style="font-size:15px;font-weight:800;color:#b45309;margin-top:1px;">${(t.mMS || 0).toFixed(2)} m</div>
+                <div style="font-size:10px;color:#92400e;">÷${rends.ms_tubo}m = <b>${tubosMS} tubo(s)</b></div>
+              </div>
+              <div style="background:#fff;border:2px solid #16a34a;border-radius:6px;padding:8px 12px;">
+                <div style="font-size:9px;color:#14532d;text-transform:uppercase;letter-spacing:0.4px;font-weight:700;">CPS BR</div>
+                <div style="font-size:15px;font-weight:800;color:#15803d;margin-top:1px;">${(t.mCPS || 0).toFixed(2)} m</div>
+                <div style="font-size:10px;color:#166534;">÷${cpsRend}m = <b>${sachesCPS} sachê(s)</b></div>
+              </div>
+              ${mHIGHTACK > 0 ? `
+              <div style="background:#fff;border:2px solid #0284c7;border-radius:6px;padding:8px 12px;">
+                <div style="font-size:9px;color:#075985;text-transform:uppercase;letter-spacing:0.4px;font-weight:700;">HIGHTACK BR</div>
+                <div style="font-size:15px;font-weight:800;color:#0284c7;margin-top:1px;">${mHIGHTACK.toFixed(2)} m</div>
+                <div style="font-size:10px;color:#075985;">÷${hightackRend}m = <b>${tubosHIGHTACK} tubo(s)</b></div>
+              </div>
+              ` : ''}
+              </div>
+
+            </div>
 
             <div style="margin-top:10px;font-size:11px;color:#6b7280;line-height:1.5;">
               💡 Os multiplicadores estão em <b>Cadastro &gt; Regras e Lógicas &gt; Fita Dupla Face + Silicone</b>.
