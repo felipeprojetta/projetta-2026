@@ -155,47 +155,10 @@ const Database = (() => {
     }
   }
 
-  // Envia TUDO do localStorage → Supabase (backup completo)
-  // PROTECAO: NUNCA envia arrays vazios — evita sobrescrever dados reais no cloud.
+  // syncToCloud DESABILITADO — causava perda de dados.
   async function syncToCloud() {
-    try {
-      var rows = [];
-      var usuario = '';
-      try { usuario = (window.Auth && window.Auth.getUser()) || ''; } catch(_){}
-      for (var i = 0; i < localStorage.length; i++) {
-        var lsKey = localStorage.key(i);
-        if (!lsKey || !lsKey.startsWith(PREFIX)) continue;
-        var rest = lsKey.slice(PREFIX.length);
-        var dotPos = rest.indexOf(':');
-        if (dotPos < 0) continue;
-        var scope = rest.slice(0, dotPos);
-        var key = rest.slice(dotPos + 1);
-        // Felipe (sessao 09): NUNCA enviar sessão/auth pro cloud
-        if (scope === 'auth') continue;
-        if (key === 'session' || key === 'users' || key === 'session_user') continue;
-        try {
-          var valor = JSON.parse(localStorage.getItem(lsKey));
-          // PROTECAO: nao enviar arrays vazios pro cloud (evita apagar dados)
-          if (Array.isArray(valor) && valor.length === 0) continue;
-          rows.push({ scope: scope, key: key, valor: valor, updated_by: usuario });
-        } catch(_) {}
-      }
-      if (!rows.length) return true;
-      // Upsert em batch (max 500 por chamada)
-      for (var batch = 0; batch < rows.length; batch += 500) {
-        var chunk = rows.slice(batch, batch + 500);
-        await fetch(SUPABASE_URL + '/rest/v1/kv_store', {
-          method: 'POST',
-          headers: sbHeaders(true),
-          body: JSON.stringify(chunk),
-        });
-      }
-      console.log('[DB] syncToCloud: ' + rows.length + ' chaves enviadas pro Supabase');
-      return true;
-    } catch(e) {
-      console.warn('[DB] syncToCloud falhou:', e.message);
-      return false;
-    }
+    console.warn('[DB] syncToCloud DESABILITADO.');
+    return true;
   }
 
   // Driver principal

@@ -290,9 +290,6 @@
         fechDig = 'nao';
       } else if (fechLower === 'sim' || fechLower === 'yes' || fechLower === 's') {
         fechDig = 'sim';
-      } else if (/^te?dee/i.test(fechLower) || /^tde/i.test(fechLower)) {
-        // Felipe (sessao 09): TEDEE/TDE no PDF = Tedee Go (Preta)
-        fechDig = 'Tedee Go (Preta)';
       } else {
         fechDig = String(fechDigRaw).trim();
       }
@@ -367,8 +364,6 @@
         fechDig = 'nao';
       } else if (fechLower === 'sim' || fechLower === 'yes' || fechLower === 's') {
         fechDig = 'sim';
-      } else if (/^te?dee/i.test(fechLower) || /^tde/i.test(fechLower)) {
-        fechDig = 'Tedee Go (Preta)';
       } else {
         fechDig = fechDigRaw;  // mantém valor original (provavelmente codigo)
       }

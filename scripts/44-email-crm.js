@@ -87,12 +87,6 @@
     return 'AGP' + String(max + 1).padStart(6, '0');
   }
 
-  // ── Title Case: "MARCONI GONÇALVES" → "Marconi Gonçalves" ──
-  function toTitleCase(str) {
-    if (!str) return '';
-    return str.toLowerCase().replace(/(?:^|\s)\S/g, function(c) { return c.toUpperCase(); });
-  }
-
   // ── Criar lead no CRM a partir dos dados da Weiku ──
   function criarLeadAutomatico(reserva, dadosWeiku, agp) {
     if (typeof Storage === "undefined") return false;
@@ -101,7 +95,7 @@
 
     var novo = {
       id: 'lead_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-      cliente: toTitleCase(dadosWeiku.nome_cliente || ''),
+      cliente: dadosWeiku.nome_cliente || '',
       telefone: dadosWeiku.telefone || '',
       email: dadosWeiku.email || '',
       cep: dadosWeiku.cep || '',

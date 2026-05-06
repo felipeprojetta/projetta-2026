@@ -52,13 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.Projetta = { App, Auth, Storage, Database, Events };
   window.App = App;
 
-  // 6. SYNC LOCAL -> CLOUD (background, nao bloqueia)
-  // Envia dados locais pro Supabase (caso tenha algo que o cloud nao tem)
-  if (Database && Database.syncToCloud) {
-    Database.syncToCloud().catch(function(e) {
-      console.warn('[Boot] syncToCloud falhou:', e.message);
-    });
-  }
+  // syncToCloud REMOVIDO — causava perda de dados.
 
   // 6b. REALTIME: polling a cada 10s pra sync entre usuarios
   if (Database && Database.startRealtime) {
