@@ -145,35 +145,24 @@ const App = (() => {
       // TAB pula direto entre os campos do form, sem entrar nas abas.
       // Mouse continua funcionando normal (click).
       subNavEl.innerHTML = tabsOrdenadas.map(t => {
-        // Felipe (do doc - msg wizard): se modulo orcamento, consulta o wizard
-        // pra saber se a aba esta liberada. Aba bloqueada (etapa futura ainda
-        // nao concluida) ganha class is-locked — opacity baixa, cursor disabled.
+        // Felipe sessao 12: 'retire isso se nao cosneguie fazer eu passar
+        // por tudo'. Wizard de bloqueio das abas DESATIVADO. Navegacao
+        // sempre livre - Felipe pode clicar em qualquer aba a qualquer
+        // momento. Cada aba e' responsavel por mostrar 'precisa calcular'
+        // se faltar dado (ja' existe via renderPrecisaCalcular). O is-locked
+        // visual e o alertarBloqueio nao aplicam mais.
         let cls = 'sub-nav-item';
         if (t.id === state.currentTab) cls += ' is-active';
-        let locked = false;
-        if (moduleId === 'orcamento' && window.OrcamentoWizard && typeof window.OrcamentoWizard.tabLiberada === 'function') {
-          if (!window.OrcamentoWizard.tabLiberada(t.id)) {
-            cls += ' is-locked';
-            locked = true;
-          }
-        }
-        const lockIcon = locked ? '🔒 ' : '';
+        const lockIcon = '';
+        const locked = false;
         return `<button class="${cls}" data-tab="${t.id}" draggable="true" tabindex="-1" ${locked ? 'aria-disabled="true"' : ''}>${lockIcon}${t.label}</button>`;
       }).join('');
       subNavEl.hidden = false;
       subNavEl.querySelectorAll('.sub-nav-item').forEach(btn => {
-        // Click: navega para a aba (se nao bloqueada)
+        // Felipe sessao 12: navegacao sempre livre. Antes verificava
+        // is-locked e mostrava alert. Removido a pedido do Felipe -
+        // 'preciso navegar por tudo conferir tudo me ajude mestre'.
         btn.addEventListener('click', () => {
-          if (btn.classList.contains('is-locked')) {
-            // Felipe (do doc - msg wizard): aba bloqueada — nao navega,
-            // mostra o motivo via Wizard.
-            if (window.OrcamentoWizard && typeof window.OrcamentoWizard.alertarBloqueio === 'function') {
-              window.OrcamentoWizard.alertarBloqueio(btn.dataset.tab);
-            } else {
-              alert('Conclua a etapa anterior antes de avancar.');
-            }
-            return;
-          }
           navigateTo(moduleId, btn.dataset.tab);
         });
         // R15: drag-and-drop pra reordenar
