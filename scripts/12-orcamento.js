@@ -10692,11 +10692,18 @@ const Orcamento = (() => {
       return renderItemRevSuperficies(item, idx);
     }
 
+    // Felipe sessao 12: fixo_acoplado renderiza igual porta_externa,
+    // mas usando o motor PerfisRevAcoplado (que filtra/ajusta as pecas
+    // herdadas do motor da porta). Reusa renderTabelaPecas/unificarPecas/
+    // adicionarPecasManuaisExtras pra zero duplicacao.
+    if (item.tipo === 'fixo_acoplado') {
+      return renderItemFixoSuperficies(item, idx, todasSuperficies);
+    }
+
     // Outros tipos sem motor de chapas ainda
     if (item.tipo !== 'porta_externa') {
       const tipoLabel = ({
         porta_interna: 'Porta Interna',
-        fixo_acoplado: 'Fixo Acoplado',
       })[item.tipo] || item.tipo;
       return `
         <div class="orc-section orc-lev-sup-item">
@@ -10784,6 +10791,85 @@ const Orcamento = (() => {
         <div class="orc-lev-sup-quadro">
           <span class="orc-lev-sup-quadro-label">Quadro (limite das pecas):</span>
           <b>${quadro.larguraQuadro} × ${quadro.alturaQuadro} mm</b>
+        </div>
+        ${tabelasHtml}
+      </div>
+    `;
+  }
+
+  /**
+   * Felipe sessao 12: render do levantamento de superficies para FIXO
+   * ACOPLADO. Reusa as helpers da porta (renderTabelaPecas/unificarPecas/
+   * adicionarPecasManuaisExtras) - zero duplicacao - chamando o motor
+   * PerfisRevAcoplado.gerarPecasChapa que ja filtra/ajusta pecas.
+   */
+  function renderItemFixoSuperficies(item, idx, todasSuperficies) {
+    const numItem = idx + 1;
+    const Motor = window.PerfisRevAcoplado;
+    if (!Motor || !Motor.gerarPecasChapa) {
+      return `
+        <div class="orc-section orc-lev-sup-item">
+          <div class="orc-section-title">Item ${numItem} — Fixo Acoplado</div>
+          <p class="orc-hint-text orc-lev-sup-empty">Motor de chapas do fixo nao carregado.</p>
+        </div>`;
+    }
+
+    const larg = Number(item.largura) || 0;
+    const alt  = Number(item.altura)  || 0;
+    if (!larg || !alt) {
+      return `
+        <div class="orc-section orc-lev-sup-item">
+          <div class="orc-section-title">Item ${numItem} — Fixo Acoplado — sem dimensoes</div>
+          <p class="orc-hint-text">Volte para "Caracteristicas do Item" e preencha largura e altura.</p>
+        </div>`;
+    }
+
+    const sis = String(item.sistema || 'PA006').toUpperCase();
+    const familiaLabel = sis === 'PA007' ? 'PA-007F (familia 101)' : 'PA-006F (familia 76)';
+    const lados2 = item.lados === '2lados';
+
+    let pecasExt = aplicarRotacionaOverrides(Motor.gerarPecasChapa(item, 'externo') || [], item);
+    let pecasInt = lados2 ? aplicarRotacionaOverrides(Motor.gerarPecasChapa(item, 'interno') || [], item) : [];
+    pecasExt = aplicarSuperficiesOverrides(pecasExt, item);
+    if (lados2) pecasInt = aplicarSuperficiesOverrides(pecasInt, item);
+
+    const modeloEfetivo = Number(item.modeloNumero) || 0;
+    const corExt = String(item.corExterna || '').trim();
+    const corInt = String(item.corInterna || '').trim();
+    const corUnica = lados2 ? (corExt && corExt === corInt) : true;
+
+    let tabelasHtml = '';
+    if (!lados2) {
+      // Fixo de 1 lado: so' tem externo
+      const pecasExtComExtras = adicionarPecasManuaisExtras(pecasExt, item);
+      tabelasHtml = renderTabelaPecas('Lado Externo', pecasExtComExtras, modeloEfetivo, corExt, todasSuperficies, idx);
+    } else if (corUnica) {
+      let pecasUnificadas = unificarPecas(pecasExt, pecasInt);
+      pecasUnificadas = adicionarPecasManuaisExtras(pecasUnificadas, item);
+      tabelasHtml = renderTabelaPecas(
+        'Externo + Interno (cor unica)',
+        pecasUnificadas, modeloEfetivo, corExt, todasSuperficies, idx
+      );
+    } else {
+      const pecasExtComExtras = adicionarPecasManuaisExtras(pecasExt, item);
+      tabelasHtml = `
+        ${renderTabelaPecas('Lado Externo', pecasExtComExtras, modeloEfetivo, corExt, todasSuperficies, idx)}
+        ${renderTabelaPecas('Lado Interno', pecasInt,         modeloEfetivo, corInt, todasSuperficies, idx)}
+      `;
+    }
+
+    const qtdItem = Math.max(1, parseInt(item.quantidade, 10) || 1);
+    const posLabel = item.posicao === 'lateral' ? 'Lateral' : 'Superior';
+
+    return `
+      <div class="orc-section orc-lev-sup-item">
+        <div class="orc-section-title">
+          Item ${numItem} — Fixo Acoplado (${posLabel})
+          <span class="orc-lev-sup-meta">
+            ${larg}×${alt} mm · ${familiaLabel}
+            · <b>${qtdItem} fixo${qtdItem > 1 ? 's' : ''}</b>
+            · ${lados2 ? '2 lados' : '1 lado'}
+          </span>
         </div>
         ${tabelasHtml}
       </div>

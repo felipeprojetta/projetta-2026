@@ -205,11 +205,26 @@ var PerfisRevAcoplado = (function() {
     };
   }
 
-  // Felipe (sessao 12): fixo replica porta DEVE levar fitas de acabamento
-  // ME e MA, mesmo que no motor da porta sejam categoria 'portal'. Demais
-  // pecas 'portal' (alisar, batente, u_portal, tap_furo, fit_acab_lar)
-  // sao do marco/portal e NAO vao pro fixo.
-  var IDS_PORTAL_QUE_VAO_PRO_FIXO = { 'fit_acab_me': true, 'fit_acab_ma': true };
+  // Felipe sessao 12 (refinado): regras de filtragem das pecas que o
+  // motor da porta gera, pra montar a saida de pecas do fixo.
+  //
+  // INCLUI categoria='porta' EXCETO os 3 acabamentos laterais
+  //   (acab_lat_1, acab_lat_2, acab_lat_z) que sao especificos da
+  //   moldura da porta e nao se aplicam ao fixo.
+  // INCLUI categoria='portal' SOMENTE as 3 fitas de acabamento
+  //   (fit_acab_me, fit_acab_ma, fit_acab_lar) que precisam vir
+  //   pro fixo. Demais pecas 'portal' (alisar, batente, u_portal,
+  //   tap_furo) sao do marco/portal e nao pertencem ao fixo.
+  var IDS_PORTA_EXCLUIR = {
+    'acab_lat_1': true,
+    'acab_lat_2': true,
+    'acab_lat_z': true,
+  };
+  var IDS_PORTAL_QUE_VAO_PRO_FIXO = {
+    'fit_acab_me':  true,
+    'fit_acab_ma':  true,
+    'fit_acab_lar': true,
+  };
 
   function gerarPecasChapa(item, lado) {
     if (!ehFixoValido(item)) return [];
@@ -235,8 +250,13 @@ var PerfisRevAcoplado = (function() {
       var result = [];
       for (var i = 0; i < raw.length; i++) {
         var p = raw[i];
-        if (p.categoria !== 'porta' && p.categoria !== 'portal') { result.push(p); continue; }
-        if (p.categoria === 'portal' && !IDS_PORTAL_QUE_VAO_PRO_FIXO[p.id]) continue;
+        if (p.categoria === 'porta') {
+          if (IDS_PORTA_EXCLUIR[p.id]) continue;
+        } else if (p.categoria === 'portal') {
+          if (!IDS_PORTAL_QUE_VAO_PRO_FIXO[p.id]) continue;
+        } else {
+          continue; // outras categorias nao vao pro fixo
+        }
         if (p.id === 'cava' && compChapaCava > 0) {
           p = Object.assign({}, p, { altura: Math.round(compChapaCava * 100) / 100 });
         }
