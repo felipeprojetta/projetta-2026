@@ -878,8 +878,9 @@ const AcessoriosPortaExterna = (() => {
     // 15. PORTAL — Bucha + Parafuso (sempre)
     if (H > 0) {
       const qtyBucha8 = Math.ceil(H / 300) * 2;  // × 2 lados
-      add('PA-BUCHA 08',      qtyBucha8, 'Portal', 'obra', `ceil(H/300) × 2 lados`);
-      add('PA-PAR SOB M6X65', qtyBucha8, 'Portal', 'obra', `ceil(H/300) × 2 lados`);
+      // Felipe (sessao 2026-05-06): categoria e' Parafusos, nao Portal
+      add('PA-BUCHA 08',      qtyBucha8, 'Parafusos', 'obra', `ceil(H/300) × 2 lados`);
+      add('PA-PAR SOB M6X65', qtyBucha8, 'Parafusos', 'obra', `ceil(H/300) × 2 lados`);
     }
 
     // 16. CONTRA TESTA + CAIXETA — se tem fechadura
