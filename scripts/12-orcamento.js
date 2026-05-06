@@ -8802,15 +8802,24 @@ const Orcamento = (() => {
            position:sticky;top:0;z-index:10;background:#fef3c7;
            border:1px solid #f59e0b;border-radius:6px;padding:10px 14px;
            margin-bottom:12px;display:flex;justify-content:space-between;
-           align-items:center;gap:10px;">
+           align-items:center;gap:10px;flex-wrap:wrap;">
         <span style="color:#78350f;font-size:13px;font-weight:600;">
-          ⚠️ Você alterou valores nas tabelas. Clique em Recalcular pra aplicar.
+          ⚠️ Você alterou valores. Clique em <b>Salvar</b> pra aplicar.
         </span>
-        <button type="button" class="orc-lev-sup-btn-recalcular"
-                style="background:#d97706;color:#fff;border:none;border-radius:5px;
-                       padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;">
-          🔄 Recalcular
-        </button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="orc-lev-sup-btn-resetar-tudo"
+                  title="Descartar todas as edicoes manuais deste item e voltar ao calculo padrao do motor"
+                  style="background:#fff;color:#78350f;border:1px solid #f59e0b;border-radius:5px;
+                         padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;">
+            ↩ Voltar ao Padrão
+          </button>
+          <button type="button" class="orc-lev-sup-btn-recalcular"
+                  title="Salvar as edicoes manuais e recalcular peso/aproveitamento"
+                  style="background:#d97706;color:#fff;border:none;border-radius:5px;
+                         padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;">
+            💾 Salvar
+          </button>
+        </div>
       </div>
       <div class="orc-wizard-actions orc-wizard-actions-top">
         <button type="button" class="orc-wizard-btn-proximo orc-btn-proxima-aba" data-aba-destino="fab-inst">
@@ -9345,7 +9354,27 @@ const Orcamento = (() => {
         renderLevSuperficiesTab(container);
         return;
       }
-      // 4. Botao 🔄 Recalcular - salva todos os inputs pendentes e re-renderiza
+      // Felipe sessao 12: Botao "↩ Voltar ao Padrao" - descarta TODOS os
+      // overrides manuais do item (todas as edicoes de qtd/largura/altura) e
+      // tambem as pecas manuais adicionadas. Volta ao calculo do motor.
+      const btnResetTudo = e.target.closest('.orc-lev-sup-btn-resetar-tudo');
+      if (btnResetTudo) {
+        if (!confirm('Voltar ao calculo padrao do motor?\n\nIsso descarta todas as edicoes manuais (qtd, largura, altura) e remove pecas adicionadas manualmente. Os valores Sim/Nao de rotacao sao mantidos.')) return;
+        const rR = obterVersao(UI.versaoAtivaId);
+        if (!rR || !rR.versao) return;
+        // Apaga overrides em TODOS os itens da versao (porque o banner e' por
+        // tela inteira, nao por item especifico - simplifica fluxo do Felipe).
+        (rR.versao.itens || []).forEach(it => {
+          delete it.superficiesOverrides;
+          delete it.pecasManuaisExtras;
+        });
+        try {
+          atualizarVersao(rR.versao.id, { itens: rR.versao.itens });
+        } catch (err) { console.warn('[Lev Sup] erro ao resetar tudo:', err); }
+        renderLevSuperficiesTab(container);
+        return;
+      }
+      // 4. Botao 💾 Salvar - salva todos os inputs pendentes e re-renderiza
       const btnRecalc = e.target.closest('.orc-lev-sup-btn-recalcular');
       if (btnRecalc) {
         // Le todos os inputs pendentes (com classe orc-lev-sup-input-pendente)

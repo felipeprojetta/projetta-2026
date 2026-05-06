@@ -3186,3 +3186,29 @@
     display: none;
   }
 }
+
+/* Felipe sessao 12: visual de estados do input editavel em Lev. Superficies.
+   - .orc-lev-sup-input-pendente: alterado mas nao salvo (banner amarelo). Borda
+     laranja escura, fundo amarelo claro - sinaliza "precisa salvar".
+   - .orc-lev-sup-input-editado: override salvo (valor diferente do calculado
+     pelo motor). Fundo azul claro com borda azul - sinaliza "este valor foi
+     alterado manualmente, motor calcularia outro".
+   - .orc-lev-sup-input-manual: peca adicionada manualmente (nao gerada pelo
+     motor). Fundo verde claro com borda verde.
+   Pendente sobrepoe os outros (mais recente, ainda nao salvo). */
+.orc-lev-sup-input-editado {
+  background: #DBEAFE !important;     /* azul claro */
+  border-color: #3B82F6 !important;   /* azul */
+  font-weight: 600;
+}
+.orc-lev-sup-input-manual {
+  background: #DCFCE7 !important;     /* verde claro */
+  border-color: #16A34A !important;   /* verde */
+}
+.orc-lev-sup-input-pendente {
+  background: #FEF3C7 !important;     /* amarelo claro - pendente sobrepoe */
+  border-color: #D97706 !important;   /* laranja escuro */
+  border-width: 2px !important;
+  font-weight: 700 !important;
+  color: #78350F !important;
+}
