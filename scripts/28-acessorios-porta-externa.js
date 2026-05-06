@@ -413,7 +413,15 @@ const AcessoriosPortaExterna = (() => {
         // Felipe sessao 2026-08: travessa_vert_horiz e' UNICA regra com cps > 0.
         // Excel: 'PA-DOWSIL CPS BR | 2 X QUANTIDADE DESTE ITEM | COMPRIMENTO TUBO TRAVESSA'
         'travessa_vert_horiz': { fd19: 0, fd12: 0, ms: 2, cps: 2,  tamanho: 'comprimento' },
-        'cantoneira_cava':     { fd19: 2, fd12: 0, ms: 2, cps: 0,  tamanho: 'comprimento' },
+        // Felipe sessao 2026-08-03: 'cantoneira nao tem silicone
+        // estrutural 995 na minha planilha e voce colocou na sua 2x'.
+        // Excel oficial CALCULO_DE_FITA_DULPA_FACE.xlsx aba PORTA e
+        // PORTAL diz pra PA-CANT-30X30X2.0:
+        //   FITA DUPLA FACE 19:  1× × COMPRIMENTO Cantoneira Cava
+        //   FITA DUPLA FACE 12:  (vazio - nao usa)
+        //   SILICONE ESTRUTURAL: (vazio - NAO USA)
+        // Antes era fd19: 2, ms: 2 (incorreto). Corrigindo.
+        'cantoneira_cava':     { fd19: 1, fd12: 0, ms: 0, cps: 0,  tamanho: 'comprimento' },
         'altura_folha':        { fd19: 0, fd12: 0, ms: 3, cps: 0,  tamanho: 'comprimento' },
         'tampa_generica':      { fd19: 1, fd12: 0, ms: 1, cps: 0,  tamanho: 'perimetro'   },
         'ripas':               { fd19: 0, fd12: 2, ms: 0, cps: 0,  tamanho: 'comprimento' },

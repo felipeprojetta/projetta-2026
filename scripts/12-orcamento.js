@@ -12439,7 +12439,7 @@ const Orcamento = (() => {
                 <tr style="background:#1f2937;color:#fff;">
                   <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">Peça / Perfil (com dimensões)</th>
                   <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;">Metros</th>
-                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;">Mult. (19/12/MS/CPS)</th>
+                  <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;">Mult. (19/12/995/CPS)</th>
                   <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;">FD 19mm</th>
                   <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;">FD 12mm</th>
                   <th class="num" style="padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;">Silicone</th>
