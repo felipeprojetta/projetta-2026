@@ -9511,12 +9511,32 @@ const Orcamento = (() => {
     }
     // Aplica o mesmo fallback de extracao de dimensoes
     function extrairDims(desc) {
-      const m = String(desc || '').match(/(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/i);
-      if (!m) return { largura: 0, altura: 0 };
-      let l = parseFloat(m[1].replace(',', '.')); let a = parseFloat(m[2].replace(',', '.'));
-      const ehMetros = !!m[3] || (l > 0 && l <= 5);
-      if (ehMetros) { l *= 1000; a *= 1000; }
-      return { largura: Math.round(l), altura: Math.round(a) };
+      const d = String(desc || '');
+      const tentarMatch = (str) => {
+        const m = str.match(/(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/i);
+        if (!m) return null;
+        let l = parseFloat(m[1].replace(',', '.')); let a = parseFloat(m[2].replace(',', '.'));
+        const ehMetros = !!m[3] || (l > 0 && l <= 5);
+        if (ehMetros) { l *= 1000; a *= 1000; }
+        return { largura: Math.round(l), altura: Math.round(a) };
+      };
+      // Preferencia: so' apos o ultimo traco (evita "Kynar4300 X5")
+      const idxU = Math.max(d.lastIndexOf(' - '), d.lastIndexOf(' — '));
+      if (idxU !== -1) {
+        const r = tentarMatch(d.substring(idxU + 3).trim());
+        if (r) return r;
+      }
+      // Fallback com sanidade
+      const re = /(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/gi;
+      let match;
+      while ((match = re.exec(d)) !== null) {
+        let l = parseFloat(match[1].replace(',', '.')); let a = parseFloat(match[2].replace(',', '.'));
+        const ehMetros = !!match[3] || (l > 0 && l <= 5);
+        if (ehMetros) { l *= 1000; a *= 1000; }
+        l = Math.round(l); a = Math.round(a);
+        if (l >= 800 && l <= 3000 && a >= 1500 && a <= 15000) return { largura: l, altura: a };
+      }
+      return { largura: 0, altura: 0 };
     }
     variantes = variantes.map(v => {
       if (Number(v.largura) > 0 && Number(v.altura) > 0) return v;
@@ -10018,13 +10038,39 @@ const Orcamento = (() => {
     // Cadastros > Superficies.
     function extrairDimsDaDesc(desc) {
       const d = String(desc || '');
-      const m = d.match(/(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/i);
-      if (!m) return { largura: 0, altura: 0 };
-      let l = parseFloat(m[1].replace(',', '.'));
-      let a = parseFloat(m[2].replace(',', '.'));
-      const ehMetros = !!m[3] || (l > 0 && l <= 5);
-      if (ehMetros) { l *= 1000; a *= 1000; }
-      return { largura: Math.round(l), altura: Math.round(a) };
+      // Helper de parse
+      const tentarMatch = (str) => {
+        const m = str.match(/(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/i);
+        if (!m) return null;
+        let l = parseFloat(m[1].replace(',', '.'));
+        let a = parseFloat(m[2].replace(',', '.'));
+        const ehMetros = !!m[3] || (l > 0 && l <= 5);
+        if (ehMetros) { l *= 1000; a *= 1000; }
+        return { largura: Math.round(l), altura: Math.round(a) };
+      };
+      // 1. PREFERENCIA — so' apos o ULTIMO " - " ou " — "
+      //    (Felipe sessao 11: "Kynar4300 X5" no nome pegava 4300x5 errado)
+      const idxTS = d.lastIndexOf(' - ');
+      const idxTE = d.lastIndexOf(' — ');
+      const idxU  = Math.max(idxTS, idxTE);
+      if (idxU !== -1) {
+        const r = tentarMatch(d.substring(idxU + 3).trim());
+        if (r) return r;
+      }
+      // 2. FALLBACK — global com sanidade (largura 800-3000, altura 1500-15000)
+      const re = /(\d+(?:[.,]\d+)?)\s*(?:m)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*(m)?/gi;
+      let match;
+      while ((match = re.exec(d)) !== null) {
+        let l = parseFloat(match[1].replace(',', '.'));
+        let a = parseFloat(match[2].replace(',', '.'));
+        const ehMetros = !!match[3] || (l > 0 && l <= 5);
+        if (ehMetros) { l *= 1000; a *= 1000; }
+        l = Math.round(l); a = Math.round(a);
+        if (l >= 800 && l <= 3000 && a >= 1500 && a <= 15000) {
+          return { largura: l, altura: a };
+        }
+      }
+      return { largura: 0, altura: 0 };
     }
 
     // Felipe (sessao 2026-05): normalizacao DEFENSIVA pra matching.
