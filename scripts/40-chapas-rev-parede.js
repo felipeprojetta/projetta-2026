@@ -136,18 +136,32 @@ window.ChapasRevParede = (function () {
       // Divide em N faixas iguais
       const n = Math.max(1, Math.ceil(L / larguraMaxima));
       const larguraFaixa = L / n;
+      // Felipe sessao 12: 'quando a chapa nao atingir limite da largura
+      // da chapa nao e sobra'. Se uma faixa unica < larguraMaxima, e' so'
+      // 'Faixa' (nao 'Sobra').
+      const ehFaixaUnica = n === 1 && larguraFaixa < larguraMaxima;
       return [{
         id: 'rev_parede_auto_igual',
-        label: `Faixa (${n}×${larguraFaixa.toFixed(1)}×${H}mm)`,
+        label: ehFaixaUnica
+          ? `Faixa (${larguraFaixa.toFixed(1)}×${H}mm)`
+          : `Faixa (${n}×${larguraFaixa.toFixed(1)}×${H}mm)`,
         largura: larguraFaixa,
         altura: H,
         qtd: n,
         observacao: `automatico — divisão igual em ${n} faixas`,
       }];
     } else {
-      // Largura maxima + sobra
+      // Felipe sessao 12: 'sobra e o que sobra'. Renomeado:
+      //   - 'Sobra' (no codigo antigo) -> 'Complemento' quando vem de uma
+      //     parede que pega varias chapas inteiras e a parte final completa.
+      //     Ex: parede 2200mm em chapa 1460 -> 1× 1460 + 1× 740 (740 e'
+      //     COMPLEMENTO, nao sobra).
+      //   - Quando e' o UNICO pedaco (parede menor que larguraMaxima),
+      //     vira so' 'Faixa' (ex: 350×3700 - faixa unica de 350mm).
+      //   'Sobra' real = o que SOBRA da chapa apos cortar tudo (e' calculado
+      //   no aproveitamento, nao aqui).
       const nInteiras = Math.floor(L / larguraMaxima);
-      const sobra = L - nInteiras * larguraMaxima;
+      const complemento = L - nInteiras * larguraMaxima;
       const result = [];
       if (nInteiras > 0) {
         result.push({
@@ -159,14 +173,22 @@ window.ChapasRevParede = (function () {
           observacao: 'automatico — largura máxima',
         });
       }
-      if (sobra > 0.5) {  // ignora sobra desprezível
+      if (complemento > 0.5) {  // ignora desprezível
+        // Se nao tem faixa inteira antes, e' a UNICA peca (parede menor
+        // que larguraMaxima) -> chama de 'Faixa'. Se ja' tem faixa(s)
+        // inteira(s), e' 'Complemento' (parte final completa a parede).
+        const ehFaixaUnica = nInteiras === 0;
         result.push({
-          id: 'rev_parede_auto_sobra',
-          label: `Sobra (${sobra.toFixed(1)}×${H}mm)`,
-          largura: sobra,
+          id: ehFaixaUnica ? 'rev_parede_auto_faixa' : 'rev_parede_auto_complemento',
+          label: ehFaixaUnica
+            ? `Faixa (${complemento.toFixed(1)}×${H}mm)`
+            : `Complemento (${complemento.toFixed(1)}×${H}mm)`,
+          largura: complemento,
           altura: H,
           qtd: 1,
-          observacao: 'automatico — sobra na ponta',
+          observacao: ehFaixaUnica
+            ? 'automatico — faixa unica (parede menor que largura maxima)'
+            : 'automatico — complemento da largura',
         });
       }
       return result;

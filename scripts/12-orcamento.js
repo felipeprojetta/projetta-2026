@@ -10840,15 +10840,52 @@ const Orcamento = (() => {
     // Verifica se ha pelo menos 1 viavel
     const algumaViavel = resultados.some(r => r.pecasNaoCouberam.length === 0);
     if (!algumaViavel) {
+      // Felipe sessao 12: 'se a chapa for maior, demonstre destaque qual
+      // chapa e para ajuste'. Banner agora mostra destaque vermelho com
+      // titulo grande + lista das pecas problemáticas + sugestoes acionaveis.
+      // Coleta TODAS as pecas que nao cabem (de qq resultado) - sao as
+      // mesmas em todas as chapas. Pega uma amostra do 1º resultado.
+      const pecasProblema = (resultados[0] && resultados[0].pecasNaoCouberam) || [];
+      const dedupProblema = [];
+      const seenLabels = new Set();
+      pecasProblema.forEach(p => {
+        const k = `${p.label}|${p.largura}|${p.altura}`;
+        if (seenLabels.has(k)) return;
+        seenLabels.add(k);
+        dedupProblema.push(p);
+      });
+      const maiorPeca = dedupProblema.reduce((maior, p) =>
+        (p.largura * p.altura > (maior?.largura || 0) * (maior?.altura || 0)) ? p : maior
+      , null);
+      const chapasDispDim = resultados.map(r => `${r.chapaMae.largura}×${r.chapaMae.altura}mm`).join(', ');
       return `
-        <div class="orc-aprov-cor">
-          <div class="orc-aprov-cor-titulo">${escapeHtml(cor)}</div>
-          <p class="orc-hint-text orc-banner-aviso-erro">
-            <b>Nenhuma chapa cadastrada comporta as peças deste item.</b><br>
-            As peças sao maiores que todas as chapas-mae disponiveis pra essa cor.
-            Confira em <b>Cadastros > Superficies</b> se ha chapas maiores cadastradas
-            (ex: 1500×8000mm) — ou revise as dimensoes da porta no item.
-          </p>
+        <div class="orc-aprov-cor orc-aprov-cor-inviavel">
+          <div class="orc-aprov-cor-titulo orc-aprov-cor-titulo-erro">
+            🚨 <b>${escapeHtml(cor)}</b> — Nenhuma chapa comporta as peças
+          </div>
+          <div class="orc-banner-aviso-erro" style="padding:14px 18px;border-radius:8px;border-left:4px solid #dc2626;background:#fef2f2;">
+            <div style="font-weight:700;font-size:14px;color:#7f1d1d;margin-bottom:8px;">
+              ⚠️ Esta cor precisa de ajuste — todas as ${resultados.length} chapas-mãe disponíveis sao menores que ${dedupProblema.length} peça${dedupProblema.length>1?'s':''} do item.
+            </div>
+            ${maiorPeca ? `
+            <div style="background:#fff;padding:10px 14px;border-radius:6px;border:1px solid #fca5a5;margin:8px 0;">
+              <div style="font-size:11px;color:#7f1d1d;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Maior peça que não cabe</div>
+              <div style="font-weight:700;color:#991b1b;font-size:15px;">
+                ${escapeHtml(maiorPeca.label)} — <span style="font-variant-numeric:tabular-nums;">${maiorPeca.largura}×${maiorPeca.altura}mm</span>
+              </div>
+            </div>` : ''}
+            <div style="font-size:13px;color:#7f1d1d;margin-top:6px;">
+              <b>Chapas-mãe disponíveis:</b> ${escapeHtml(chapasDispDim)}
+            </div>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #fca5a5;">
+              <div style="font-weight:600;color:#7f1d1d;margin-bottom:6px;">O que fazer:</div>
+              <ul style="margin:0 0 0 18px;color:#7f1d1d;font-size:13px;line-height:1.5;">
+                <li>Cadastrar uma chapa-mãe maior em <b>Cadastros > Superfícies</b> (ex: 1500×8000mm)</li>
+                <li>Revisar dimensões do item — talvez a peça esteja com medida fora do esperado</li>
+                <li>Trocar pra cor que tenha chapa cadastrada compatível</li>
+              </ul>
+            </div>
+          </div>
           <div class="orc-aprov-cards">${cards}</div>
         </div>`;
     }
