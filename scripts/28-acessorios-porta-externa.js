@@ -924,7 +924,13 @@ const AcessoriosPortaExterna = (() => {
     // valores como 970 que nao existem na sequencia. O tamanho real
     // do perfil de corte e' LARG_INT_FOLHA + 110 + 110 (formula VEDA
     // bruta, antes do snap pra X20). Agora mostra o valor correto.
-    if (L > 0) {
+    //
+    // Felipe sessao 12: 'item 4 como porta extena e veda porta, todos
+    // estao como porta e trazendo veda porta, isso e uma chapa colada
+    // a parede'. VEDA PORTA e' especifico de PORTA EXTERNA - a sequencia
+    // de tamanhos (820/920/1020...) e' do perfil da porta. Rev_parede
+    // (chapa colada na parede) e fixo_acoplado nao tem veda porta.
+    if (L > 0 && item.tipo === 'porta_externa') {
       const medida = calcularVedaPorta(L, nFolhas, FGLD, FGLE);
       const codVeda = `PA-VED${medida}`;
       const qtdVeda = nFolhas === 2 ? 4 : 2;

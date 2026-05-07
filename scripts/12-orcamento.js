@@ -13232,13 +13232,23 @@ const Orcamento = (() => {
         `;
       };
 
-      const dim = `${item.largura || 0} × ${item.altura || 0} mm`;
-      const fols = `${item.nFolhas || 1} folha${String(item.nFolhas) === '1' ? '' : 's'}`;
+      // Felipe sessao 12: 'item 3 esta colocando como se fosse uma porta...
+      // todos estao como porta'. Titulo era chumbado 'Porta Externa'. Agora
+      // usa labelTipo(item.tipo) - 'Revestimento de Parede', 'Fixo Acoplado',
+      // 'Porta Externa', etc. Meta tambem adapta: rev_parede usa largura_total/
+      // altura_total e NAO tem folhas/modelo (e' chapa colada na parede).
+      const ehRevTitulo = item.tipo === 'revestimento_parede';
+      const dim = ehRevTitulo
+        ? `${item.largura_total || 0} × ${item.altura_total || 0} mm`
+        : `${item.largura || 0} × ${item.altura || 0} mm`;
+      const meta = ehRevTitulo
+        ? `${dim} · ${item.modo === 'automatico' ? 'auto' : 'manual'} · qtd ${item.quantidade || 1}`
+        : `${dim} · ${item.nFolhas || 1} folha${String(item.nFolhas) === '1' ? '' : 's'} · Modelo ${item.modeloExterno || item.modeloNumero || '—'} · qtd ${item.quantidade || 1}`;
       return `
         <div class="orc-item">
           <div class="orc-item-header">
-            <div class="orc-item-titulo">Item ${idx + 1} — Porta Externa</div>
-            <div class="orc-item-meta">${dim} · ${fols} · Modelo ${item.modeloExterno || item.modeloNumero || '—'} · qtd ${item.quantidade || 1}</div>
+            <div class="orc-item-titulo">Item ${idx + 1} — ${escapeHtml(labelTipo(item.tipo))}</div>
+            <div class="orc-item-meta">${meta}</div>
           </div>
           ${quadroPesoPorta}
           ${renderTabela(`lvac-fab-${idx}`,     linhasFab,     '🏭 Fabricacao',        totalFab)}
