@@ -601,6 +601,18 @@ window.ChapasAproveitamento = (function () {
         (arr) => arr.slice().sort((a, b) =>
           (b.largura + b.altura) - (a.largura + a.altura) ||
           (b.largura * b.altura) - (a.largura * a.altura)),
+        // 9. Felipe sessao 12: agrupado por LABEL similar (prefixo).
+        // 'tente juntar pecas com nomes parecidos'. Pecas Acabamento
+        // ficam juntas, Tampa ficam juntas, Fita ficam juntas, etc.
+        // Reduz fragmentacao em chapas de 6%/52% que aparecia.
+        (arr) => agruparPorLabelSimilar(arr),
+        // 10. Label similar + agrupar por altura interna (combinado)
+        (arr) => {
+          const porLabel = agruparPorLabelSimilar(arr);
+          // Re-ordena dentro de cada bloco contiguo de mesmo prefixo
+          // por altura DESC, mantendo grupos
+          return porLabel; // ja' ordenado por altura dentro do grupo
+        },
       ];
 
       for (const estrat of estrategias) {
@@ -673,6 +685,69 @@ window.ChapasAproveitamento = (function () {
       });
     }
 
+    // Felipe sessao 12: REPACK FINAL GLOBAL. 'melhore e muito esse seu
+    // motor de calculo de chapas... ainda tem que melhorar muito esse
+    // algoritmo'. Print mostrava Chapa 10 (52%) + Chapa 11 (6%) - todas
+    // as pecas dessas 2 chapas (4 acabamentos + 1 portal) caberiam fácil
+    // em UMA chapa só. Salvage individual nao consegue mover pecas pra
+    // sobras complexas; este repack pega TODAS as pecas das chapas com
+    // aproveitamento <50% E tenta refazer o nesting global delas com BLF.
+    // Se reduzir o numero de chapas, substitui.
+    if (melhor && melhor.chapas && melhor.chapas.length >= 2) {
+      const dispLarg = chapaLarg - 2 * cfg.APARAR;
+      const dispAlt  = chapaAlt  - 2 * cfg.APARAR;
+      const areaTot = dispLarg * dispAlt;
+      // Identifica chapas com aproveitamento <50% (candidatas a refazer)
+      const indicesRefazer = [];
+      melhor.chapas.forEach((c, i) => {
+        const areaUs = c.pecasPosicionadas.reduce((s, p) => s + p.larg * p.alt, 0);
+        const taxa = areaTot > 0 ? areaUs / areaTot : 0;
+        if (taxa < 0.50) indicesRefazer.push(i);
+      });
+
+      // Se tem >=2 chapas mal aproveitadas, vale tentar combinar
+      if (indicesRefazer.length >= 2) {
+        // Coleta TODAS as pecas dessas chapas (preservando dimensoes
+        // posicionadas - ja podem estar rotacionadas)
+        const pecasParaRefazer = [];
+        indicesRefazer.forEach(i => {
+          melhor.chapas[i].pecasPosicionadas.forEach(pp => {
+            pecasParaRefazer.push({
+              label: pp.peca.label,
+              largura: pp.peca.largura,  // dim ORIGINAL (nao rotacionada)
+              altura: pp.peca.altura,
+              podeRotacionar: pp.peca.podeRotacionar,
+              cor: pp.peca.cor,
+              categoria: pp.peca.categoria,
+              ref: pp.peca,
+              id: pp.peca.id,
+            });
+          });
+        });
+
+        // Tenta refazer com BLF (que e' mais agressivo em compactacao)
+        try {
+          // Ordena por area DESC pra BLF colocar grandes primeiro
+          pecasParaRefazer.sort((a, b) =>
+            (b.largura * b.altura) - (a.largura * a.altura));
+          const refeitas = nestingBLF(pecasParaRefazer, chapaLarg, chapaAlt, cfg);
+          // So' substitui se reduzir num. de chapas
+          if (refeitas.chapas.length < indicesRefazer.length &&
+              !refeitas.naoCouberam.length) {
+            // Remove as chapas antigas (de tras pra frente pra preservar idx)
+            indicesRefazer.slice().reverse().forEach(i => {
+              melhor.chapas.splice(i, 1);
+            });
+            // Adiciona as novas no fim
+            refeitas.chapas.forEach(c => melhor.chapas.push(c));
+            console.log(`[Aproveitamento] Repack final: ${indicesRefazer.length} chapas mal-aprov. → ${refeitas.chapas.length} chapas`);
+          }
+        } catch (e) {
+          console.warn('[Aproveitamento] repack final falhou', e);
+        }
+      }
+    }
+
     // Calcula areas
     const areaChapa = chapaLarg * chapaAlt;
     let areaUsadaTotal = 0;
@@ -741,6 +816,42 @@ window.ChapasAproveitamento = (function () {
     grupos.forEach(g => g.sort((a, b) => b.largura - a.largura));
     // Concatena tudo
     return grupos.flat();
+  }
+
+  /**
+   * Felipe sessao 12: 'tente juntar pecas com nomes parecidos'.
+   * Agrupa pecas por PREFIXO do label (1a palavra). Pecas com mesmo
+   * prefixo (ex: 'Acabamento Lateral Esquerdo', 'Acabamento Lateral
+   * Direito', 'Acabamento Inferior') ficam consecutivas no array.
+   * Dentro de cada grupo, ordena por altura DESC + largura DESC.
+   * Entre grupos, ordena pelo grupo de maior altura primeiro (pra
+   * encaixar grupos altos primeiro nas chapas).
+   */
+  function agruparPorLabelSimilar(pecas) {
+    if (!pecas.length) return [];
+    // Extrai prefixo: 1a palavra do label (ate primeiro espaco/numero/hifen)
+    function prefixo(p) {
+      const lbl = String(p.label || '').trim();
+      // Pega ate o 1o caractere que nao seja letra/acento (espaco, digito, parenteses)
+      const m = lbl.match(/^[\p{L}]+/u);
+      return m ? m[0].toLowerCase() : '_outros_';
+    }
+    // Agrupa por prefixo
+    const grupos = {};
+    pecas.forEach(p => {
+      const k = prefixo(p);
+      if (!grupos[k]) grupos[k] = [];
+      grupos[k].push(p);
+    });
+    // Ordena cada grupo internamente: altura DESC + largura DESC
+    Object.values(grupos).forEach(g => {
+      g.sort((a, b) => (b.altura - a.altura) || (b.largura - a.largura));
+    });
+    // Ordena os GRUPOS pela altura da maior peca de cada grupo (DESC)
+    const gruposOrdenados = Object.values(grupos).sort((ga, gb) => {
+      return (gb[0].altura - ga[0].altura) || (gb.length - ga.length);
+    });
+    return gruposOrdenados.flat();
   }
 
   function compararConfiguracoes(pecas, chapasMaeDisponiveis) {
