@@ -12944,21 +12944,10 @@ const Orcamento = (() => {
     const perfisCadLevAcess = (typeof construirCadastroPerfis === 'function')
       ? construirCadastroPerfis() : {};
 
-    // Felipe sessao 12: PRIMER global pra rev_parede. 'coloque 1 primer no
-    // geral independente da quantidade de revestimentos coloque so uma vez'.
-    // Marca _ehPrimeiroRevParede=true so' no PRIMEIRO rev_parede da lista.
-    // Outros revs herdam false. O motor 28-acessorios checa esse flag pra
-    // emitir PA-PRIMER apenas 1× independente de quantos revs.
-    let _primeiroRevParedeMarcado = false;
-    itens.forEach(it => {
-      if (it.tipo === 'revestimento_parede' && !_primeiroRevParedeMarcado) {
-        it._ehPrimeiroRevParede = true;
-        _primeiroRevParedeMarcado = true;
-      } else {
-        it._ehPrimeiroRevParede = false;
-      }
-    });
-
+    // Felipe sessao 12: rev_parede agora consolidado em UM bloco no fim
+    // (commit a seguir). PRIMER unico nao depende mais de
+    // _ehPrimeiroRevParede - a consolidacao adiciona 1× PRIMER se houver
+    // qualquer rev_parede no orcamento.
     const blocosItens = itens.map((item, idx) => {
       let pesoFolhaTotal = 0;
       let pesoFolhaPerfis = 0;
@@ -13311,6 +13300,145 @@ const Orcamento = (() => {
     // Felipe (sessao 28): "ESTA MULTI ITEM? SE COLOCAR 10 PORTAS IRA
     // MULTIPLICAR POR 10? ...". RESPOSTA: SIM. Banner agora deixa claro.
     const totalUnidades = itens.reduce((s, it) => s + (Number(it.quantidade) || 1), 0);
+
+    // Felipe sessao 12: bloco CONSOLIDADO de Revestimento de Parede.
+    // 'revestimento de parede pode juntar todos o que tiverem somente em
+    // um calculo, pois da muita perca as vezes um item da 10 mts mas rolo
+    // de fita tem 20, entao some tudo e um unico item revestimento de
+    // parede junte tudo em um so para obter rolo de fita e de hightack'.
+    // Cada item rev_parede armazenou seus metros no _fitaSiliconeBreakdownCache.
+    // Agora: soma metros de todos os revs do orcamento e calcula UMA vez
+    // FD19+HIGHTACK. Plus 1 PRIMER global. Total adicionado ao totalGeralObra.
+    let blocoRevConsolidado = '';
+    let totalRevConsolidado = 0;
+    const revsItens = itens.filter(it => it.tipo === 'revestimento_parede');
+    if (revsItens.length > 0) {
+      // Le rendimentos editaveis (mesma logica do motor)
+      let RENDIMENTOS_FS;
+      try {
+        RENDIMENTOS_FS = (window.Regras && typeof window.Regras.getRendimentos === 'function')
+          ? window.Regras.getRendimentos()
+          : { fd19_rolo: 20, hightack_tubo: 8 };
+      } catch(e) {
+        RENDIMENTOS_FS = { fd19_rolo: 20, hightack_tubo: 8 };
+      }
+      const FD19_POR_ROLO     = Number(RENDIMENTOS_FS.fd19_rolo)     > 0 ? Number(RENDIMENTOS_FS.fd19_rolo)     : 20;
+      const HIGHTACK_POR_TUBO = Number(RENDIMENTOS_FS.hightack_tubo) > 0 ? Number(RENDIMENTOS_FS.hightack_tubo) : 8;
+
+      // Soma metros de FD19 e MS de TODOS os revs (cache foi populado no .map acima)
+      let totFD19m = 0;
+      let totMSm = 0;
+      const cache = window._fitaSiliconeBreakdownCache || {};
+      revsItens.forEach((it, i) => {
+        // Os items rev_parede recem-processados tem _cacheKey atribuido no map.
+        // Se nao tem (caso edge), pula - ja' nao consumiu material no item.
+        const ck = it._cacheKey;
+        if (!ck || !cache[ck]) return;
+        const t = cache[ck].totais || {};
+        totFD19m += Number(t.mFD19) || 0;
+        totMSm   += Number(t.mMS)   || 0;
+      });
+
+      // Busca preco unitario nos cadastros
+      const cadAcessLocal = Storage.scope('cadastros').get('acessorios_lista') || [];
+      function precoCad(codigo) {
+        const a = cadAcessLocal.find(x => String(x.codigo).toUpperCase() === codigo.toUpperCase());
+        return a ? (Number(a.preco) || 0) : 0;
+      }
+
+      const linhasRev = [];
+      // 1. PRIMER (1 global, sempre que tem rev no orcamento)
+      const precoPrimer = precoCad('PA-PRIMER');
+      linhasRev.push({
+        codigo: 'PA-PRIMER',
+        descricao: 'Primer Fita Dupla Face',
+        qtd: 1,
+        precoUnit: precoPrimer,
+        total: precoPrimer * 1,
+        obs: '1 unidade global pra todos os revestimentos',
+      });
+      // 2. FITA 19 (consolidada)
+      if (totFD19m > 0) {
+        const rolosFD19 = Math.ceil(totFD19m / FD19_POR_ROLO);
+        const precoFD19 = precoCad('PA-FITDF 19X20X1.0');
+        linhasRev.push({
+          codigo: 'PA-FITDF 19X20X1.0',
+          descricao: 'Fita Dupla Face 19mm',
+          qtd: rolosFD19,
+          precoUnit: precoFD19,
+          total: precoFD19 * rolosFD19,
+          obs: `${revsItens.length} rev × consolidado: ${totFD19m.toFixed(1)}m / ${FD19_POR_ROLO}m por rolo = ${rolosFD19} rolo(s)`,
+        });
+      }
+      // 3. HIGHTACK (consolidado)
+      if (totMSm > 0) {
+        const tubosHT = Math.ceil(totMSm / HIGHTACK_POR_TUBO);
+        const precoHT = precoCad('PA-HIGHTACK BR');
+        linhasRev.push({
+          codigo: 'PA-HIGHTACK BR',
+          descricao: 'Fix All High Tack Branco',
+          qtd: tubosHT,
+          precoUnit: precoHT,
+          total: precoHT * tubosHT,
+          obs: `${revsItens.length} rev × consolidado: ${totMSm.toFixed(1)}m / ${HIGHTACK_POR_TUBO}m por tubo = ${tubosHT} tubo(s)`,
+        });
+      }
+      totalRevConsolidado = linhasRev.reduce((s, l) => s + (Number(l.total) || 0), 0);
+      totalGeralObra += totalRevConsolidado;
+
+      // HTML do bloco
+      const linhasHtml = linhasRev.map(l => `
+        <tr>
+          <td class="num">${fmtBR(l.qtd)}</td>
+          <td><code>${escapeHtml(l.codigo)}</code></td>
+          <td>${escapeHtml(l.descricao)}</td>
+          <td>Selantes</td>
+          <td class="num">${fmtMoney(l.precoUnit)}</td>
+          <td class="num"><b>${fmtMoney(l.total)}</b></td>
+          <td><span style="color:#666;font-size:12px;">${escapeHtml(l.obs)}</span></td>
+        </tr>
+      `).join('');
+
+      blocoRevConsolidado = `
+        <details class="orc-item-collapse" data-item-idx="rev-consolidado" open>
+          <summary class="orc-item-summary" style="background:linear-gradient(180deg,#e0f2fe,#bae6fd);">
+            <span class="orc-item-summary-chevron">▶</span>
+            <span class="orc-item-summary-titulo">📦 Revestimento de Parede — Consolidado</span>
+            <span class="orc-item-summary-meta">${revsItens.length} item${revsItens.length>1?'s':''} · ${totFD19m.toFixed(1)}m fita · ${totMSm.toFixed(1)}m hightack</span>
+            <span class="orc-item-summary-total">${fmtMoney(totalRevConsolidado)}</span>
+          </summary>
+          <div class="orc-item-collapse-body">
+            <div class="info-banner" style="margin-bottom:10px;">
+              <span class="t-strong">Por que consolidado?</span>
+              Felipe sessao 12: 'as vezes um item da 10 mts mas rolo de fita tem 20'.
+              Somar metros de TODOS os revs e calcular rolos/tubos UMA vez reduz
+              arredondamento e perda. Material vai pra OBRA (instalado na obra).
+            </div>
+            <table class="cad-table">
+              <thead>
+                <tr>
+                  <th class="num">Qtd</th>
+                  <th>Codigo</th>
+                  <th>Descricao</th>
+                  <th>Categoria</th>
+                  <th class="num">Preco Unit.</th>
+                  <th class="num">Total</th>
+                  <th>Observacao</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${linhasHtml}
+              </tbody>
+            </table>
+            <div style="background:#fff3e0;border:2px solid #e65100;border-radius:6px;padding:12px 16px;margin-top:12px;">
+              <div style="font-weight:700;color:#bf360c;">
+                Subtotal Consolidado Revestimento (Obra): <span style="font-size:1.2em;text-decoration:underline;">${fmtMoney(totalRevConsolidado)}</span>
+              </div>
+            </div>
+          </div>
+        </details>`;
+    }
+
     container.innerHTML = `
       ${bannerCaracteristicasItens(versao)}
       ${itens.length >= 2 ? `<div class="info-banner orc-banner-aviso">
@@ -13324,6 +13452,7 @@ const Orcamento = (() => {
         <button type="button" class="btn-secondary" data-act="collapse-all">▶ Recolher todos</button>
       </div>` : ''}
       ${blocosItens}
+      ${blocoRevConsolidado}
       ${itens.length >= 2 ? `
       <div style="background:linear-gradient(135deg,#1a3a5c,#2a5a8c);border-radius:8px;padding:16px 20px;margin-top:16px;color:#fff;">
         <div style="font-weight:700;font-size:1.1em;">Total Geral (${itens.length} itens · ${totalUnidades} unid.)</div>
