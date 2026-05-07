@@ -2069,6 +2069,13 @@ const Orcamento = (() => {
         ? [itemInicial].concat(itensExtrasOrc)
         : [itemInicial];
       atualizarVersao(versaoAlvo.id, { itens: itensFinaisVersao });
+      // Felipe sessao 12: 'revestimento parede 7 nao deixa apagar sendo que
+      // nem tem 7 itens no card'. Apos sync executado, marca a flag pra
+      // BLOQUEAR sync novo na proxima abertura. Sem isso, Felipe deletava
+      // um item, voltava pro card e abria de novo - sync recriava o item
+      // (recriation loop). Pra rodar sync novamente, Felipe usa botao
+      // 'Montar Orcamento' do CRM (que limpa a flag em forcarRepop).
+      UI._suprimirRepopulacaoLead = true;
     } else if (!suprimirRepop && lead && Array.isArray(lead.itens_extras) && lead.itens_extras.length > 0) {
       // Felipe sessao 12 (caso adicional): orcamento ja tem Item 1 (porta
       // principal), mas o lead ganhou novos itens_extras DEPOIS que o orcamento
@@ -2154,6 +2161,9 @@ const Orcamento = (() => {
       if (novosItens.length > 0) {
         atualizarVersao(versaoAlvo.id, { itens: itensJa.concat(novosItens) });
       }
+      // Felipe sessao 12: marca pra travar re-sync na proxima abertura.
+      // Mesma logica do bloco 1 acima.
+      UI._suprimirRepopulacaoLead = true;
     }
     UI.leadAtivo = lead;
     // Mantem itemSelecionadoIdx valido (re-le pra pegar lista atualizada)
