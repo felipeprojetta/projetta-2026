@@ -9296,6 +9296,33 @@ const Orcamento = (() => {
         }
         return;
       }
+      // Felipe sessao 12: input editavel de rev_parede (Largura/Altura/Qtd).
+      // Salva DIRETO em item.superficiesOverrides[chave] - rev_parede nao
+      // tem motor pesado igual porta_externa, entao salvar direto eh OK
+      // (sem banner Recalcular). Aplica em proxima leitura.
+      const inpRevEdit = e.target.closest('input[data-rev-edit]');
+      if (inpRevEdit) {
+        const idx = Number(inpRevEdit.dataset.itemIdx);
+        const chave = inpRevEdit.dataset.pecaKey;
+        const campo = inpRevEdit.dataset.revEdit;
+        const valor = Number(inpRevEdit.value);
+        if (!Number.isFinite(valor) || valor <= 0) return;
+        const r = obterVersao(UI.versaoAtivaId);
+        if (!r || !r.versao) return;
+        const item = (r.versao.itens || [])[idx];
+        if (!item || item.tipo !== 'revestimento_parede') return;
+        if (!item.superficiesOverrides) item.superficiesOverrides = {};
+        if (!item.superficiesOverrides[chave]) item.superficiesOverrides[chave] = {};
+        item.superficiesOverrides[chave][campo] = valor;
+        // Visual: marca como editado (azul)
+        inpRevEdit.classList.add('orc-lev-sup-input-editado');
+        try {
+          atualizarVersao(r.versao.id, { itens: r.versao.itens });
+        } catch (err) {
+          console.warn('[Lev Sup rev_parede] erro ao salvar override:', err);
+        }
+        return;
+      }
       // Felipe sessao 2026-08: input editavel de Largura/Altura/Qtd. Marca
       // a peca como pendente (visual laranja) e mostra banner Recalcular.
       // Persistencia so' acontece quando user clica Recalcular.
@@ -11091,7 +11118,13 @@ const Orcamento = (() => {
         </p>
       </div>`;
     }
-    const pecas = aplicarRotacionaOverrides(window.ChapasRevParede.gerarPecasRevParede(item) || [], item);
+    // Felipe sessao 12: 'os itens do revestimento parede tbm devem ficar
+    // editaveis'. Aplica overrides ja' existentes (rotaciona +
+    // largura/altura/qtd) que o motor de superficies do orcamento usa
+    // pra portas externas. Reuso garante consistencia.
+    let pecas = window.ChapasRevParede.gerarPecasRevParede(item) || [];
+    pecas = aplicarRotacionaOverrides(pecas, item);
+    pecas = aplicarSuperficiesOverrides(pecas, item);
     const modoLabel = item.modo === 'automatico' ? 'Modo Automatico' : 'Modo Manual';
     const cor = item.cor || '— sem cor';
     const refilLabel = item.com_refilado === 'nao' ? 'sem refilado' : 'com refilado (REF)';
@@ -11122,6 +11155,7 @@ const Orcamento = (() => {
       // Felipe (sessao 2026-05): SELECT editavel Sim/Nao em vez de "Nao (veio)"
       const chave = rotacionaKey(p);
       const valor = p.podeRotacionar ? 'sim' : 'nao';
+      const editado = !!p._editado;
       const selectHtml = `
         <select class="orc-lev-sup-rot-select"
                 data-item-idx="${idx}"
@@ -11129,12 +11163,25 @@ const Orcamento = (() => {
           <option value="sim" ${valor === 'sim' ? 'selected' : ''}>Sim</option>
           <option value="nao" ${valor === 'nao' ? 'selected' : ''}>Nao</option>
         </select>`;
+      // Felipe sessao 12: Largura/Altura/Qtd editaveis via input number.
+      // data-rev-edit identifica os inputs - listener separado salva em
+      // item.superficiesOverrides[chave] = {largura?, altura?, qtd?}.
+      const cssEdit = editado ? 'orc-lev-sup-input-editado' : '';
+      const inputLargura = `<input type="number" class="orc-lev-sup-input ${cssEdit}"
+        data-rev-edit="largura" data-item-idx="${idx}" data-peca-key="${escapeHtml(chave)}"
+        value="${p.largura}" min="1" step="1" style="width:70px;text-align:right;" />`;
+      const inputAltura = `<input type="number" class="orc-lev-sup-input ${cssEdit}"
+        data-rev-edit="altura" data-item-idx="${idx}" data-peca-key="${escapeHtml(chave)}"
+        value="${p.altura}" min="1" step="1" style="width:70px;text-align:right;" />`;
+      const inputQtd = `<input type="number" class="orc-lev-sup-input ${cssEdit}"
+        data-rev-edit="qtd" data-item-idx="${idx}" data-peca-key="${escapeHtml(chave)}"
+        value="${p.qtd}" min="1" step="1" style="width:60px;text-align:right;" />`;
       return `
       <tr>
         <td>${escapeHtml(p.label)}</td>
-        <td>${p.largura}</td>
-        <td>${p.altura}</td>
-        <td class="t-num">${p.qtd}</td>
+        <td>${inputLargura}</td>
+        <td>${inputAltura}</td>
+        <td class="t-num">${inputQtd}</td>
         <td class="orc-lev-sup-rot-cell ${p.podeRotacionar ? '' : 't-warn'}">${selectHtml}</td>
         <td class="orc-lev-sup-cor">${escapeHtml(p.cor || '—')}</td>
       </tr>`;
