@@ -3223,3 +3223,101 @@
   font-weight: normal;
   margin-left: 6px;
 }
+
+/* Felipe sessao 12: Lev. Acessorios com itens colapsaveis (details).
+   'quando tiver multiplos permita ocultar a seta para abrir ou fechar
+   detalhamento de cada item, vai ficar melhor comecar tudo ocultado e
+   ir abrindo so o que voce quer ver'. Felipe testou com 7 itens e ficava
+   imenso. Agora cada item e' details fechado por padrao. Summary mostra
+   titulo + meta + total geral - Felipe ve tudo sem abrir. */
+.orc-item-collapse {
+  border: 1px solid #d4a76a;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  background: #fafaf7;
+  overflow: hidden;
+}
+.orc-item-collapse[open] {
+  background: #fff;
+  border-color: #b8722f;
+}
+.orc-item-summary {
+  display: grid;
+  grid-template-columns: 18px auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  font-size: 14px;
+  background: linear-gradient(180deg, #fdf6e8, #faeed1);
+  border-bottom: 1px solid transparent;
+  transition: background-color 0.15s ease;
+}
+.orc-item-summary::-webkit-details-marker { display: none; }
+.orc-item-summary::marker { content: ''; }
+.orc-item-collapse[open] > .orc-item-summary {
+  border-bottom-color: #d4a76a;
+  background: linear-gradient(180deg, #fff8e8, #fdf0d4);
+}
+.orc-item-summary:hover {
+  background: linear-gradient(180deg, #fff5dc, #f8e7c5);
+}
+.orc-item-summary-chevron {
+  font-size: 11px;
+  color: #b8722f;
+  transition: transform 0.2s ease;
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+}
+.orc-item-collapse[open] > .orc-item-summary > .orc-item-summary-chevron {
+  transform: rotate(90deg);
+}
+.orc-item-summary-titulo {
+  font-weight: 700;
+  color: #5a3413;
+  white-space: nowrap;
+}
+.orc-item-summary-meta {
+  font-size: 12px;
+  color: #6c4a26;
+  font-weight: 500;
+}
+.orc-item-summary-total {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #2e7d32;
+  font-size: 14px;
+  white-space: nowrap;
+  background: rgba(255,255,255,0.6);
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(46, 125, 50, 0.3);
+}
+.orc-item-collapse-body {
+  padding: 14px 16px;
+  background: #fff;
+}
+
+/* Toolbar com botoes expand/collapse all (Lev. Acessorios multi-item) */
+.orc-item-toolbar {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  justify-content: flex-end;
+}
+.orc-item-toolbar .btn-secondary {
+  font-size: 12px;
+  padding: 6px 12px;
+  background: #f5f5f5;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #555;
+}
+.orc-item-toolbar .btn-secondary:hover {
+  background: #e8e8e8;
+  border-color: #999;
+}

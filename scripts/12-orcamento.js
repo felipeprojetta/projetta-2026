@@ -13244,26 +13244,38 @@ const Orcamento = (() => {
       const meta = ehRevTitulo
         ? `${dim} · ${item.modo === 'automatico' ? 'auto' : 'manual'} · qtd ${item.quantidade || 1}`
         : `${dim} · ${item.nFolhas || 1} folha${String(item.nFolhas) === '1' ? '' : 's'} · Modelo ${item.modeloExterno || item.modeloNumero || '—'} · qtd ${item.quantidade || 1}`;
+      // Felipe sessao 12: 'quando tiver multiplos permita ocultar a seta pra
+      // abrir ou fechar detalhamento de cada item, vai ficar melhor comecar
+      // tudo ocultado e ir abrindo so o que voce quer ver'.
+      // Cada bloco de item agora e' <details> colapsavel. Por padrao FECHADO
+      // - Felipe abre so' o item que quer conferir. Summary mostra titulo +
+      // dimensoes + total geral pra Felipe ver tudo de relance sem abrir.
+      // CSS: cursor pointer no summary, chevron rotaciona, hover destaca.
+      const totalGeralItem = totalFab + totalObra + totalDigital;
       return `
-        <div class="orc-item">
-          <div class="orc-item-header">
-            <div class="orc-item-titulo">Item ${idx + 1} — ${escapeHtml(labelTipo(item.tipo))}</div>
-            <div class="orc-item-meta">${meta}</div>
-          </div>
-          ${quadroPesoPorta}
-          ${renderTabela(`lvac-fab-${idx}`,     linhasFab,     '🏭 Fabricacao',        totalFab)}
-          ${renderBreakdownInline(item._cacheKey || item.id)}
-          ${renderTabela(`lvac-obra-${idx}`,    linhasObra,    '🚧 Obra',              totalObra)}
-          ${renderTabela(`lvac-digital-${idx}`, linhasDigital, '🔐 Fechadura Digital', totalDigital)}
-          <div style="background:#fff3e0;border:2px solid #e65100;border-radius:6px;padding:12px 16px;margin-top:12px;">
-            <div style="font-weight:700;color:#bf360c;">
-              Total deste Item — Fabricacao: <span style="color:#2e7d32">${fmtMoney(totalFab)}</span>
-              · Obra: <span style="color:#1565c0">${fmtMoney(totalObra)}</span>
-              · Digital: <span style="color:#7b1fa2">${fmtMoney(totalDigital)}</span>
-              · <span style="font-size:1.2em;text-decoration:underline;">Geral: ${fmtMoney(totalFab + totalObra + totalDigital)}</span>
+        <details class="orc-item-collapse" data-item-idx="${idx}">
+          <summary class="orc-item-summary">
+            <span class="orc-item-summary-chevron">▶</span>
+            <span class="orc-item-summary-titulo">Item ${idx + 1} — ${escapeHtml(labelTipo(item.tipo))}</span>
+            <span class="orc-item-summary-meta">${meta}</span>
+            <span class="orc-item-summary-total">${fmtMoney(totalGeralItem)}</span>
+          </summary>
+          <div class="orc-item-collapse-body">
+            ${quadroPesoPorta}
+            ${renderTabela(`lvac-fab-${idx}`,     linhasFab,     '🏭 Fabricacao',        totalFab)}
+            ${renderBreakdownInline(item._cacheKey || item.id)}
+            ${renderTabela(`lvac-obra-${idx}`,    linhasObra,    '🚧 Obra',              totalObra)}
+            ${renderTabela(`lvac-digital-${idx}`, linhasDigital, '🔐 Fechadura Digital', totalDigital)}
+            <div style="background:#fff3e0;border:2px solid #e65100;border-radius:6px;padding:12px 16px;margin-top:12px;">
+              <div style="font-weight:700;color:#bf360c;">
+                Total deste Item — Fabricacao: <span style="color:#2e7d32">${fmtMoney(totalFab)}</span>
+                · Obra: <span style="color:#1565c0">${fmtMoney(totalObra)}</span>
+                · Digital: <span style="color:#7b1fa2">${fmtMoney(totalDigital)}</span>
+                · <span style="font-size:1.2em;text-decoration:underline;">Geral: ${fmtMoney(totalGeralItem)}</span>
+              </div>
             </div>
           </div>
-        </div>`;
+        </details>`;
     }).join('');
 
     // R20: "TOTAL GERAL" → "Total Geral". R19: <strong> → <span>
@@ -13277,6 +13289,11 @@ const Orcamento = (() => {
         <b>${itens.length}</b> tipo(s) de Porta Externa, totalizando <b>${totalUnidades}</b> unidade(s).
         Quantidade de cada acessorio e' multiplicada pela qtd do item.
       </div>` : ''}
+      ${itens.length >= 2 ? `
+      <div class="orc-item-toolbar">
+        <button type="button" class="btn-secondary" data-act="expand-all">▼ Expandir todos</button>
+        <button type="button" class="btn-secondary" data-act="collapse-all">▶ Recolher todos</button>
+      </div>` : ''}
       ${blocosItens}
       ${itens.length >= 2 ? `
       <div style="background:linear-gradient(135deg,#1a3a5c,#2a5a8c);border-radius:8px;padding:16px 20px;margin-top:16px;color:#fff;">
@@ -13288,6 +13305,20 @@ const Orcamento = (() => {
         </div>
       </div>` : ''}
     `;
+
+    // Felipe sessao 12: botoes expandir/recolher todos os items.
+    const btnExpandAll = container.querySelector('[data-act="expand-all"]');
+    if (btnExpandAll) {
+      btnExpandAll.addEventListener('click', () => {
+        container.querySelectorAll('details.orc-item-collapse').forEach(d => d.open = true);
+      });
+    }
+    const btnCollapseAll = container.querySelector('[data-act="collapse-all"]');
+    if (btnCollapseAll) {
+      btnCollapseAll.addEventListener('click', () => {
+        container.querySelectorAll('details.orc-item-collapse').forEach(d => d.open = false);
+      });
+    }
 
     // R18: aplica autoEnhance em todas as tabelas (filtro + sort)
     if (window.Universal && window.Universal.autoEnhance) {
