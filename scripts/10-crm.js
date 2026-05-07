@@ -1715,7 +1715,7 @@
 
           // Data de fechamento — so aparece em leads na etapa 'fechado'
           const fechadoEmLabel = (l.etapa === 'fechado' && l.fechadoEm)
-            ? `<div class="crm-card-fechado-em">✓ Fechado em ${fmtData(l.fechadoEm)}</div>`
+            ? `<div class="crm-card-fechado-em">✓ Fechado em <strong>${fmtData(l.fechadoEm)}</strong></div>`
             : '';
 
           // Lista de versoes — Felipe (sessao 2026-11): nova UI com botoes
