@@ -12150,10 +12150,14 @@ const Orcamento = (() => {
   }
 
   /**
-   * Sub-aba "Painel Comercial — Representante" (era a tela inteira antiga).
-   * Felipe (sessao 2026-08): "so vai ter um relatorio por versao" — agora
-   * mostra UM card por item, todos juntos, com badge "1 / N itens" pra
-   * deixar claro que e' parte da MESMA versao.
+   * Sub-aba "Painel Comercial — Representante".
+   * Felipe sessao 12: 'esse painel e unico somente 1 do valor global,
+   * nao esse tanto de cards, sempre painel representante independente
+   * de quanto itens tiver e so um global, com valores globais'.
+   *
+   * ANTES: 1 card por item da versao (6 itens = 6 cards). Cada card
+   * tinha preco rateado proporcional a area.
+   * AGORA: 1 card UNICO sempre. Valores GLOBAIS (toda a versao).
    */
   function renderRelComercial(versao, opcao, lead, negocio, dre, params, cliente, agp, reserva, fmtMoney, fmtMoneyM2, fmtPct) {
     const itens = (versao.itens || []);
@@ -12167,99 +12171,93 @@ const Orcamento = (() => {
     const subFab  = Number(versao.subFab)  || 0;
     const subInst = Number(versao.subInst) || 0;
 
-    // Calcula area total da versao
-    const areasItens = itens.map(it => {
-      const lar = parseBR(it.largura) || 0;
-      const alt = parseBR(it.altura)  || 0;
+    // Calcula area TOTAL de toda a versao (todos os itens)
+    // Felipe sessao 12: rev_parede usa largura_total/altura_total
+    const areaTotal = itens.reduce((s, it) => {
+      const ehRev = it.tipo === 'revestimento_parede';
+      const lar = ehRev
+        ? (parseBR(it.largura_total) || parseBR(it.largura) || 0)
+        : (parseBR(it.largura) || 0);
+      const alt = ehRev
+        ? (parseBR(it.altura_total) || parseBR(it.altura) || 0)
+        : (parseBR(it.altura) || 0);
       const qtd = Number(it.quantidade) || 1;
-      const m2  = (lar / 1000) * (alt / 1000);
-      return { item: it, m2Un: m2, qtd, m2Total: m2 * qtd };
-    });
-    const areaTotal = areasItens.reduce((s, a) => s + a.m2Total, 0);
+      return s + (lar / 1000) * (alt / 1000) * qtd;
+    }, 0);
+
     const subTotalCusto = subFab + subInst;
     const ratioInst = subTotalCusto > 0 ? subInst / subTotalCusto : 0;
 
-    const cardsHtml = areasItens.map((a, idx) => {
-      const it = a.item;
-      const peso = areaTotal > 0 ? a.m2Total / areaTotal : (1 / itens.length);
-      const precoTabItem  = (dre.pTab || 0)     * peso;
-      const precoFatItem  = (dre.pFatReal || 0) * peso;
-      const m2DoItem = a.m2Total || 1;
-      const precoTabM2_porInst   = precoTabItem / m2DoItem;
-      const precoFatM2_porInst   = precoFatItem / m2DoItem;
-      const precoTabM2_soPorta   = precoTabM2_porInst * (1 - ratioInst);
-      const precoFatM2_soPorta   = precoFatM2_porInst * (1 - ratioInst);
+    // Precos GLOBAIS (toda a versao)
+    const precoTabTotal = Number(dre.pTab)     || 0;
+    const precoFatTotal = Number(dre.pFatReal) || 0;
+    const m2Base = areaTotal || 1;
+    const precoTabM2_porInst = precoTabTotal / m2Base;
+    const precoFatM2_porInst = precoFatTotal / m2Base;
+    const precoTabM2_soPorta = precoTabM2_porInst * (1 - ratioInst);
+    const precoFatM2_soPorta = precoFatM2_porInst * (1 - ratioInst);
 
-      const lar = parseBR(it.largura) || 0;
-      const alt = parseBR(it.altura)  || 0;
-      const dimensao = `${lar} × ${alt} mm`;
-      const folhas   = Number(it.nFolhas) || 1;
-      const qtd      = Number(it.quantidade) || 1;
-      const m2Str    = a.m2Total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const modeloLabel = (window.Modelos && typeof window.Modelos.labelModelo === 'function')
-        ? window.Modelos.labelModelo(it.modeloNumero)
-        : (it.modeloNumero ? `${it.modeloNumero}` : '—');
-      const cor = it.corExterna || it.corInterna || '—';
+    // Resumo de itens: tipos + quantidades
+    const totalPortas = itens.filter(it => it.tipo === 'porta_externa').reduce((s, it) => s + (Number(it.quantidade) || 1), 0);
+    const totalRevs   = itens.filter(it => it.tipo === 'revestimento_parede').reduce((s, it) => s + (Number(it.quantidade) || 1), 0);
+    const m2Str = areaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const resumoItens = [
+      totalPortas > 0 ? `${totalPortas} porta(s)` : null,
+      totalRevs > 0 ? `${totalRevs} revestimento(s)` : null,
+    ].filter(Boolean).join(' · ');
 
-      return `
-        <div class="rep-card">
-          <div class="rep-card-head">
-            <div class="rep-card-titulo">PROJETTA <span>by WEIKU</span></div>
-            <div class="rep-card-sub">Painel Comercial — Item ${idx + 1} de ${itens.length}</div>
+    const cardHtml = `
+      <div class="rep-card">
+        <div class="rep-card-head">
+          <div class="rep-card-titulo">PROJETTA <span>by WEIKU</span></div>
+          <div class="rep-card-sub">Painel Comercial — Resumo Global</div>
+        </div>
+        <div class="rep-card-id">
+          <div class="rep-id-row">
+            <span class="rep-id-label">Cliente:</span><span class="rep-id-val">${escapeHtml(cliente)}</span>
+            <span class="rep-id-label">AGP:</span><span class="rep-id-val">${escapeHtml(agp)}</span>
+            <span class="rep-id-label">Reserva:</span><span class="rep-id-val">${escapeHtml(reserva)}</span>
           </div>
-          <div class="rep-card-id">
-            <div class="rep-id-row">
-              <span class="rep-id-label">Cliente:</span><span class="rep-id-val">${escapeHtml(cliente)}</span>
-              <span class="rep-id-label">AGP:</span><span class="rep-id-val">${escapeHtml(agp)}</span>
-              <span class="rep-id-label">Reserva:</span><span class="rep-id-val">${escapeHtml(reserva)}</span>
-            </div>
-            <div class="rep-id-row">
-              <span class="rep-id-label">Dimensao:</span><span class="rep-id-val">${escapeHtml(dimensao)}</span>
-              <span class="rep-id-label">Modelo:</span><span class="rep-id-val">${escapeHtml(String(modeloLabel))}</span>
-            </div>
-            <div class="rep-id-row">
-              <span class="rep-id-val rep-id-meta">${folhas} folha(s) · ${qtd} porta(s) · ${m2Str} m²</span>
-              <span class="rep-id-label">Cor:</span><span class="rep-id-val">${escapeHtml(String(cor).toUpperCase())}</span>
-            </div>
+          <div class="rep-id-row">
+            <span class="rep-id-val rep-id-meta">${itens.length} itens · ${escapeHtml(resumoItens || 'sem itens')} · ${m2Str} m² total</span>
           </div>
-          <div class="rep-precos">
-            <div class="rep-preco-bloco rep-preco-tabela">
-              <div class="rep-preco-label">ORIGINAL</div>
-              <div class="rep-preco-valor">${fmtMoney(precoTabItem)}</div>
-            </div>
-            <div class="rep-preco-bloco rep-preco-fat">
-              <div class="rep-preco-label">COM DESCONTO</div>
-              <div class="rep-preco-valor">${fmtMoney(precoFatItem)}</div>
-            </div>
+        </div>
+        <div class="rep-precos">
+          <div class="rep-preco-bloco rep-preco-tabela">
+            <div class="rep-preco-label">ORIGINAL</div>
+            <div class="rep-preco-valor">${fmtMoney(precoTabTotal)}</div>
           </div>
-          <div class="rep-m2">
-            <div class="rep-m2-titulo">VALORES POR M²</div>
-            <table class="rep-m2-tabela">
-              <tbody>
-                <tr><td>Original/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoneyM2(precoTabM2_porInst)}</td></tr>
-                <tr><td>Com Desconto/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoneyM2(precoFatM2_porInst)}</td></tr>
-                <tr><td>Original/m² <span class="t-strong">só porta</span></td><td class="num">${fmtMoneyM2(precoTabM2_soPorta)}</td></tr>
-                <tr><td>Com Desconto/m² <span class="t-strong">só porta</span></td><td class="num">${fmtMoneyM2(precoFatM2_soPorta)}</td></tr>
-              </tbody>
-            </table>
+          <div class="rep-preco-bloco rep-preco-fat">
+            <div class="rep-preco-label">COM DESCONTO</div>
+            <div class="rep-preco-valor">${fmtMoney(precoFatTotal)}</div>
           </div>
-          <div class="rep-comissoes">
-            <div class="rep-com-bloco"><div class="rep-com-label">COMISSÃO REP.</div><div class="rep-com-valor">${fmtPct(params.com_rep)}</div></div>
-            <div class="rep-com-bloco"><div class="rep-com-label">COMISSÃO ARQ.</div><div class="rep-com-valor">${fmtPct(params.com_rt)}</div></div>
-            <div class="rep-com-bloco rep-com-desc"><div class="rep-com-label">DESCONTO</div><div class="rep-com-valor">${fmtPct(params.desconto)}</div></div>
-          </div>
-        </div>`;
-    }).join('');
+        </div>
+        <div class="rep-m2">
+          <div class="rep-m2-titulo">VALORES POR M²</div>
+          <table class="rep-m2-tabela">
+            <tbody>
+              <tr><td>Original/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoneyM2(precoTabM2_porInst)}</td></tr>
+              <tr><td>Com Desconto/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoneyM2(precoFatM2_porInst)}</td></tr>
+              <tr><td>Original/m² <span class="t-strong">só porta</span></td><td class="num">${fmtMoneyM2(precoTabM2_soPorta)}</td></tr>
+              <tr><td>Com Desconto/m² <span class="t-strong">só porta</span></td><td class="num">${fmtMoneyM2(precoFatM2_soPorta)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="rep-comissoes">
+          <div class="rep-com-bloco"><div class="rep-com-label">COMISSÃO REP.</div><div class="rep-com-valor">${fmtPct(params.com_rep)}</div></div>
+          <div class="rep-com-bloco"><div class="rep-com-label">COMISSÃO ARQ.</div><div class="rep-com-valor">${fmtPct(params.com_rt)}</div></div>
+          <div class="rep-com-bloco rep-com-desc"><div class="rep-com-label">DESCONTO</div><div class="rep-com-valor">${fmtPct(params.desconto)}</div></div>
+        </div>
+      </div>`;
 
     return `
       <div class="rep-section-head">
         <h3 class="rep-section-titulo">Painel Comercial — Representante</h3>
         <p class="rep-section-sub">
-          Resumo por item: precos Original e Com Desconto, valores por m² (porta+inst e so' porta), comissoes e desconto aplicado.
-          ${itens.length > 1 ? `<span class="rep-section-info">${itens.length} itens — preco rateado proporcional a area</span>` : ''}
+          Resumo GLOBAL da versao: precos Original e Com Desconto, valores por m² (porta+inst e so' porta), comissoes e desconto aplicado.
         </p>
       </div>
-      <div class="rep-grid">${cardsHtml}</div>
+      <div class="rep-grid">${cardHtml}</div>
     `;
   }
 
@@ -12451,10 +12449,9 @@ const Orcamento = (() => {
   }
 
   /**
-   * Sub-aba "Resultado por Porta" — Felipe (sessao 2026-08): card que
-   * mostra POR ITEM os custos detalhados (fab, inst, tabela, faturamento)
-   * + margem bruta/liquida + valores por m² + desconto aplicado.
-   * Era o card "RESULTADO — PORTA" da imagem que ele enviou.
+   * Sub-aba "Resultado por Porta" — mostra POR ITEM os custos detalhados.
+   * Felipe sessao 12: 'aba resultado da porta a mesma coisa' - 1 card
+   * UNICO global, nao 1 por item. Antes tinha 6 cards pra 6 itens.
    */
   function renderRelResultadoPorta(versao, dre, params, fmtMoney, fmtPct) {
     const itens = (versao.itens || []);
@@ -12465,140 +12462,135 @@ const Orcamento = (() => {
       </div>`;
     }
 
-    const vp = calcularValoresProposta(versao, params);
-    const subInstTotal = Number(versao.subInst) || 0;
-    const subFabTotal  = Number(versao.subFab)  || 0;
-    const custoTotalSub = subFabTotal + subInstTotal;
-    const ratioInst = custoTotalSub > 0 ? subInstTotal / custoTotalSub : 0;
-    const desconto = Number(params.desconto) || 0;
+    const subInst = Number(versao.subInst) || 0;
+    const subFab  = Number(versao.subFab)  || 0;
+    const custoTotal = subFab + subInst;
+    const ratioInst = custoTotal > 0 ? subInst / custoTotal : 0;
+    const desconto  = Number(params.desconto) || 0;
     const lucroAlvo = Number(params.lucro_alvo) || 15;
 
-    // Para cada item, monta um card "RESULTADO — PORTA"
-    const cardsHtml = vp.porItem.map((vpItem, idx) => {
-      const it = vpItem.item;
-      const lar = parseBR(it.largura) || 0;
-      const alt = parseBR(it.altura)  || 0;
-      const m2Item = (lar / 1000) * (alt / 1000) * (Number(it.quantidade) || 1);
-
-      // Custos do item
-      const custoFab    = vpItem.subFab;    // ja' rateado por horas
-      const custoInst   = vpItem.subInst;   // proporcional ao fab
-      const custoPorta  = custoFab + custoInst;
-
-      // Precos do item (DRE foi rateado por item dentro do calcularValoresProposta)
-      const dreItem = calcularDRE(custoFab, custoInst, params);
-      const precoTab     = dreItem.pTab     || 0;
-      const precoFat     = dreItem.pFatReal || 0;
-
-      // Decompoem porta vs instalacao no preco
-      const precoFatInst = precoFat * ratioInst;
-      const precoFatPorta = precoFat - precoFatInst;
-      const precoTabInst = precoTab * ratioInst;
-      const precoTabPorta = precoTab - precoTabInst;
-
-      // Markup s/ custo
-      const markupVisual = custoPorta > 0 ? ((precoTab - custoPorta) / custoPorta * 100) : 0;
-      // Margem bruta = (preco fat - custo) / preco fat
-      const margemBruta = precoFat > 0 ? ((precoFat - custoPorta) / precoFat * 100) : 0;
-      // Margem liquida (apos impostos+comissoes+IRPJ)
-      const impostos = precoFat * (Number(params.impostos)||0)/100;
-      const comRep = precoFat * (Number(params.com_rep)||0)/100;
-      const comRT = precoFat * (Number(params.com_rt)||0)/100;
-      const comGest = precoFat * (Number(params.com_gest)||0)/100;
-      const lucroBruto = precoFat - impostos - comRep - comRT - comGest - custoPorta * (1 + (Number(params.overhead)||0)/100);
-      const irpjCsll = lucroBruto * 0.34;
-      const lucroLiq = lucroBruto - irpjCsll;
-      const margemLiquida = precoFat > 0 ? (lucroLiq / precoFat * 100) : 0;
-
-      // Por m²
-      const m2Den = m2Item || 1;
-      const custoM2 = custoPorta / m2Den;
-      const precoTabM2_porInst = precoTab / m2Den;
-      const precoFatM2_porInst = precoFat / m2Den;
-      const precoTabM2_soPorta = precoTabPorta / m2Den;
-      const precoFatM2_soPorta = precoFatPorta / m2Den;
-
-      const dimensao = `${lar} × ${alt} mm`;
+    // Area TOTAL da versao (rev usa largura_total/altura_total)
+    const m2Total = itens.reduce((s, it) => {
+      const ehRev = it.tipo === 'revestimento_parede';
+      const lar = ehRev
+        ? (parseBR(it.largura_total) || parseBR(it.largura) || 0)
+        : (parseBR(it.largura) || 0);
+      const alt = ehRev
+        ? (parseBR(it.altura_total) || parseBR(it.altura) || 0)
+        : (parseBR(it.altura) || 0);
       const qtd = Number(it.quantidade) || 1;
-      const folhas = Number(it.nFolhas) || 1;
+      return s + (lar / 1000) * (alt / 1000) * qtd;
+    }, 0);
 
-      return `
-        <div class="rep-card" style="max-width: 720px; margin: 0 0 16px 0;">
-          <div class="rep-card-head">
-            <div class="rep-card-titulo">PROJETTA <span>by WEIKU</span></div>
-            <div class="rep-card-sub">Resultado — Porta · Item ${idx + 1} de ${itens.length}</div>
+    // Precos GLOBAIS (toda a versao)
+    const precoTab = Number(dre.pTab)     || 0;
+    const precoFat = Number(dre.pFatReal) || 0;
+
+    // Decompoem porta vs instalacao no preco
+    const precoFatInst  = precoFat * ratioInst;
+    const precoFatPorta = precoFat - precoFatInst;
+    const precoTabInst  = precoTab * ratioInst;
+    const precoTabPorta = precoTab - precoTabInst;
+
+    // Markup s/ custo
+    const markupVisual = custoTotal > 0 ? ((precoTab - custoTotal) / custoTotal * 100) : 0;
+    // Margem bruta = (preco fat - custo) / preco fat
+    const margemBruta = precoFat > 0 ? ((precoFat - custoTotal) / precoFat * 100) : 0;
+    // Margem liquida (apos impostos+comissoes+IRPJ)
+    const impostos = precoFat * (Number(params.impostos)||0)/100;
+    const comRep   = precoFat * (Number(params.com_rep)||0)/100;
+    const comRT    = precoFat * (Number(params.com_rt)||0)/100;
+    const comGest  = precoFat * (Number(params.com_gest)||0)/100;
+    const lucroBruto = precoFat - impostos - comRep - comRT - comGest - custoTotal * (1 + (Number(params.overhead)||0)/100);
+    const irpjCsll = lucroBruto * 0.34;
+    const lucroLiq = lucroBruto - irpjCsll;
+    const margemLiquida = precoFat > 0 ? (lucroLiq / precoFat * 100) : 0;
+
+    // Por m²
+    const m2Den = m2Total || 1;
+    const custoM2 = custoTotal / m2Den;
+    const precoTabM2_porInst = precoTab / m2Den;
+    const precoFatM2_porInst = precoFat / m2Den;
+    const precoTabM2_soPorta = precoTabPorta / m2Den;
+    const precoFatM2_soPorta = precoFatPorta / m2Den;
+
+    const totalPortas = itens.filter(it => it.tipo === 'porta_externa').reduce((s, it) => s + (Number(it.quantidade) || 1), 0);
+    const totalRevs   = itens.filter(it => it.tipo === 'revestimento_parede').reduce((s, it) => s + (Number(it.quantidade) || 1), 0);
+    const m2Str = m2Total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const resumoItens = [
+      totalPortas > 0 ? `${totalPortas} porta(s)` : null,
+      totalRevs > 0 ? `${totalRevs} revestimento(s)` : null,
+    ].filter(Boolean).join(' · ');
+
+    return `
+      <div class="rep-card" style="max-width: 720px; margin: 0 0 16px 0;">
+        <div class="rep-card-head">
+          <div class="rep-card-titulo">PROJETTA <span>by WEIKU</span></div>
+          <div class="rep-card-sub">Resultado — Resumo Global</div>
+        </div>
+
+        <div class="rep-card-id">
+          <div class="rep-id-row">
+            <span class="rep-id-val rep-id-meta">${itens.length} itens · ${escapeHtml(resumoItens || 'sem itens')} · Area total: ${m2Str} m²</span>
           </div>
+        </div>
 
-          <div class="rep-card-id">
-            <div class="rep-id-row">
-              <span class="rep-id-label">Dimensao:</span><span class="rep-id-val">${dimensao}</span>
-              <span class="rep-id-label">Folhas:</span><span class="rep-id-val">${folhas}</span>
-              <span class="rep-id-label">Qtd:</span><span class="rep-id-val">${qtd}</span>
-            </div>
-            <div class="rep-id-row">
-              <span class="rep-id-val rep-id-meta">Area total: ${m2Item.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m²</span>
-            </div>
+        <div class="rep-precos">
+          <div class="rep-preco-bloco rep-preco-tabela">
+            <div class="rep-preco-label">CUSTO TOTAL</div>
+            <div class="rep-preco-valor">${fmtMoney(custoTotal)}</div>
+            <div class="rep-preco-meta">${fmtMoney(custoM2)}/m²</div>
           </div>
-
-          <div class="rep-precos">
-            <div class="rep-preco-bloco rep-preco-tabela">
-              <div class="rep-preco-label">CUSTO PORTA</div>
-              <div class="rep-preco-valor">${fmtMoney(custoPorta)}</div>
-              <div class="rep-preco-meta">${fmtMoney(custoM2)}/m²</div>
-            </div>
-            <div class="rep-preco-bloco rep-preco-fat">
-              <div class="rep-preco-label">MARKUP S/ CUSTO</div>
-              <div class="rep-preco-valor">${markupVisual.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</div>
-              <div class="rep-preco-meta">sobre tabela</div>
-            </div>
+          <div class="rep-preco-bloco rep-preco-fat">
+            <div class="rep-preco-label">MARKUP S/ CUSTO</div>
+            <div class="rep-preco-valor">${markupVisual.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</div>
+            <div class="rep-preco-meta">sobre tabela</div>
           </div>
+        </div>
 
-          <div class="rep-precos">
-            <div class="rep-preco-bloco rep-preco-tabela">
-              <div class="rep-preco-label">ORIGINAL</div>
-              <div class="rep-preco-valor">${fmtMoney(precoTab)}</div>
-              <div class="rep-preco-meta">${fmtMoney(precoTabM2_porInst)}/m²</div>
-            </div>
-            <div class="rep-preco-bloco rep-preco-fat">
-              <div class="rep-preco-label">COM DESCONTO</div>
-              <div class="rep-preco-valor">${fmtMoney(precoFat)}</div>
-              <div class="rep-preco-meta">${fmtMoney(precoFatM2_porInst)}/m²</div>
-            </div>
+        <div class="rep-precos">
+          <div class="rep-preco-bloco rep-preco-tabela">
+            <div class="rep-preco-label">ORIGINAL</div>
+            <div class="rep-preco-valor">${fmtMoney(precoTab)}</div>
+            <div class="rep-preco-meta">${fmtMoney(precoTabM2_porInst)}/m²</div>
           </div>
-
-          <div class="rep-m2">
-            <div class="rep-m2-titulo">DETALHAMENTO</div>
-            <table class="rep-m2-tabela">
-              <tbody>
-                <tr><td>Custo fabricacao</td><td class="num">${fmtMoney(custoFab)}</td></tr>
-                <tr><td>Custo instalacao</td><td class="num">${fmtMoney(custoInst)}</td></tr>
-                <tr><td>Tabela so' porta</td><td class="num">${fmtMoney(precoTabPorta)}</td></tr>
-                <tr><td>Faturamento so' porta</td><td class="num">${fmtMoney(precoFatPorta)}</td></tr>
-                <tr><td>Tabela instalacao</td><td class="num">${fmtMoney(precoTabInst)}</td></tr>
-                <tr><td>Faturamento instalacao</td><td class="num">${fmtMoney(precoFatInst)}</td></tr>
-                <tr style="border-top: 1px solid #ccc;"><td>Margem bruta</td><td class="num">${margemBruta.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</td></tr>
-                <tr><td>Margem liquida</td><td class="num" style="color:${margemLiquida >= lucroAlvo ? '#1a7a3f' : '#c43a3a'};"><span class="t-strong">${margemLiquida.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</span></td></tr>
-              </tbody>
-            </table>
+          <div class="rep-preco-bloco rep-preco-fat">
+            <div class="rep-preco-label">COM DESCONTO</div>
+            <div class="rep-preco-valor">${fmtMoney(precoFat)}</div>
+            <div class="rep-preco-meta">${fmtMoney(precoFatM2_porInst)}/m²</div>
           </div>
+        </div>
 
-          <div class="rep-m2">
-            <div class="rep-m2-titulo">POR M²</div>
-            <table class="rep-m2-tabela">
-              <tbody>
-                <tr><td>Custo/m²</td><td class="num">${fmtMoney(custoM2)}/m²</td></tr>
-                <tr><td>Original/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoney(precoTabM2_porInst)}/m²</td></tr>
-                <tr><td>Com Desconto/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoney(precoFatM2_porInst)}/m²</td></tr>
-                <tr><td>Original/m² <span class="t-strong">so' porta</span></td><td class="num">${fmtMoney(precoTabM2_soPorta)}/m²</td></tr>
-                <tr><td>Com Desconto/m² <span class="t-strong">so' porta</span></td><td class="num">${fmtMoney(precoFatM2_soPorta)}/m²</td></tr>
-                ${desconto > 0 ? `<tr><td>Desconto aplicado</td><td class="num" style="color:var(--laranja);"><span class="t-strong">${desconto.toLocaleString('pt-BR')}% → -${fmtMoney(precoTab - precoFat)}</span></td></tr>` : ''}
-              </tbody>
-            </table>
-          </div>
-        </div>`;
-    }).join('');
+        <div class="rep-m2">
+          <div class="rep-m2-titulo">DETALHAMENTO</div>
+          <table class="rep-m2-tabela">
+            <tbody>
+              <tr><td>Custo fabricacao</td><td class="num">${fmtMoney(subFab)}</td></tr>
+              <tr><td>Custo instalacao</td><td class="num">${fmtMoney(subInst)}</td></tr>
+              <tr><td>Tabela so' porta</td><td class="num">${fmtMoney(precoTabPorta)}</td></tr>
+              <tr><td>Faturamento so' porta</td><td class="num">${fmtMoney(precoFatPorta)}</td></tr>
+              <tr><td>Tabela instalacao</td><td class="num">${fmtMoney(precoTabInst)}</td></tr>
+              <tr><td>Faturamento instalacao</td><td class="num">${fmtMoney(precoFatInst)}</td></tr>
+              <tr style="border-top: 1px solid #ccc;"><td>Margem bruta</td><td class="num">${margemBruta.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</td></tr>
+              <tr><td>Margem liquida</td><td class="num" style="color:${margemLiquida >= lucroAlvo ? '#1a7a3f' : '#c43a3a'};"><span class="t-strong">${margemLiquida.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</span></td></tr>
+            </tbody>
+          </table>
+        </div>
 
-    return cardsHtml;
+        <div class="rep-m2">
+          <div class="rep-m2-titulo">POR M²</div>
+          <table class="rep-m2-tabela">
+            <tbody>
+              <tr><td>Custo/m²</td><td class="num">${fmtMoney(custoM2)}/m²</td></tr>
+              <tr><td>Original/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoney(precoTabM2_porInst)}/m²</td></tr>
+              <tr><td>Com Desconto/m² <span class="t-strong">porta+inst</span></td><td class="num">${fmtMoney(precoFatM2_porInst)}/m²</td></tr>
+              <tr><td>Original/m² <span class="t-strong">so' porta</span></td><td class="num">${fmtMoney(precoTabM2_soPorta)}/m²</td></tr>
+              <tr><td>Com Desconto/m² <span class="t-strong">so' porta</span></td><td class="num">${fmtMoney(precoFatM2_soPorta)}/m²</td></tr>
+              ${desconto > 0 ? `<tr><td>Desconto aplicado</td><td class="num" style="color:var(--laranja);"><span class="t-strong">${desconto.toLocaleString('pt-BR')}% → -${fmtMoney(precoTab - precoFat)}</span></td></tr>` : ''}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
   }
 
   /**
