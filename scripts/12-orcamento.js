@@ -251,13 +251,16 @@ const Orcamento = (() => {
 
     // Dias de instalacao no local (manual; auto pelo tipo de porta depois)
     // Felipe (do doc): comeca vazio — usuario preenche
-    dias_instalacao: '',
+    // Felipe sessao 12: 'na instalacao colque quantidade de carro ja
+    // automatico 1 dia'. Default dias_instalacao=1, n_carros=1. Felipe
+    // ainda pode editar pra cima se a obra exigir.
+    dias_instalacao: 1,
 
     // Equipe
     // Felipe (do doc - msg "todos campos 0,00 deixe vazio"): comecam vazios
     n_pessoas: '',
     diaria_pessoa: '',
-    n_carros: '',
+    n_carros: 1,
 
     // Hotel
     diaria_hotel: '',
@@ -3898,9 +3901,16 @@ const Orcamento = (() => {
     const offsetPh = philips9300 ? 560 : 0;
 
     // Sistema: largura<1200 trava em dobradica (sobrescreve override)
+    // Felipe sessao 12: 'ja inicie com sistema pivotate, claro se for
+    // menor que 1100 eu acho e dobradica obrigatorio'. Mantém 1200 como
+    // threshold (regra estabelecida). Default pivotante quando >=1200
+    // E sistema ainda nao foi escolhido pelo user.
     if (lar > 0 && lar < 1200) {
       item.sistema = 'dobradica';
       delete item._overrides.sistema;
+    } else if (lar >= 1200 && !item.sistema && !item._overrides.sistema) {
+      // Default pivotante pra portas grandes
+      item.sistema = 'pivotante';
     } else if (!item._overrides.sistema && lar === 0) {
       // sem largura ainda → mantem como esta (vazio inicialmente)
     }
@@ -3922,6 +3932,29 @@ const Orcamento = (() => {
       delete item._overrides.cilindro;
     } else if (!item._overrides.cilindro && !item.cilindro) {
       item.cilindro = 'KESO seguranca';
+    }
+
+    // Felipe sessao 12: 'ja inicie fechadura digital nao se aplica, caso
+    // nao tenha alguma fechadura ja indicada no card'. Se chegou aqui sem
+    // fechaduraDigital setada (card nao indicou), default 'Nao se aplica'.
+    if (!item.fechaduraDigital && !item._overrides.fechaduraDigital) {
+      item.fechaduraDigital = 'Nao se aplica';
+    }
+
+    // Felipe sessao 12: 'quando tiver cava, ja inicie ali com Distancia
+    // da borda ate a cava (mm) 210 e Largura da cava (mm) 150'. Se o
+    // modelo (externo OU interno) tem cava E os campos estao vazios,
+    // aplica defaults. User pode editar depois.
+    const numExt = Number(item.modeloExterno || item.modeloNumero || 0);
+    const numInt = Number(item.modeloInterno || item.modeloNumero || 0);
+    const temCava = modeloTemCava(numExt) || modeloTemCava(numInt);
+    if (temCava) {
+      if (item.distanciaBordaCava === '' || item.distanciaBordaCava == null) {
+        item.distanciaBordaCava = 210;
+      }
+      if (item.tamanhoCava === '' || item.tamanhoCava == null) {
+        item.tamanhoCava = 150;
+      }
     }
 
     return item;
@@ -4040,9 +4073,11 @@ const Orcamento = (() => {
           }
         }
 
-        // Se mudou largura/altura/fechaduraDigital, RE-aplica as regras
+        // Se mudou largura/altura/fechaduraDigital/modelo, RE-aplica as regras
         // automaticas nos campos que ainda nao tem override.
-        const gatilhosRegras = ['largura', 'altura', 'fechaduraDigital', 'modeloNumero'];
+        // Felipe sessao 12: modeloExterno/modeloInterno tambem disparam
+        // pra aplicar defaults de cava (210/150) quando troca pro Modelo 1.
+        const gatilhosRegras = ['largura', 'altura', 'fechaduraDigital', 'modeloNumero', 'modeloExterno', 'modeloInterno'];
         if (gatilhosRegras.includes(field)) {
           aplicarRegrasAutoItem(item);
         }
