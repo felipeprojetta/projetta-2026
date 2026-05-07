@@ -2010,6 +2010,28 @@ const Orcamento = (() => {
         if (!tipoOrc) return; // tipo desconhecido — pula
         const novo = novoItem(tipoOrc);
         novo.quantidade = Math.max(1, parseInt(ext.quantidade, 10) || 1);
+
+        // Felipe sessao 12: rev_parede tem campos diferentes — usa
+        // largura_total/altura_total (nao largura/altura) e modo automatico
+        // se vier medida do card. Card mostra largura+altura+cor.
+        if (tipoOrc === 'revestimento_parede') {
+          if (ext.largura) novo.largura_total = ext.largura;
+          if (ext.altura)  novo.altura_total  = ext.altura;
+          // Tem medida -> modo automatico (default era 'manual')
+          if (ext.largura && ext.altura) novo.modo = 'automatico';
+          // Cor: rev_parede tem 1 face so' (campo 'cor', nao corExterna/Interna)
+          if (ext.cor) {
+            novo.cor = ext.cor;
+            // Detecta revestimento (ACM/HPL/Aluminio/Vidro) pela cor
+            if (!novo.revestimento) {
+              const revAutoR = _detectarRevestimentoPorCor(ext.cor);
+              if (revAutoR) novo.revestimento = revAutoR;
+            }
+          }
+          itensExtrasOrc.push(novo);
+          return;
+        }
+
         if (ext.largura) novo.largura = ext.largura;
         if (ext.altura)  novo.altura  = ext.altura;
         // Modelo (so faz sentido pra portas)
@@ -2060,7 +2082,15 @@ const Orcamento = (() => {
         'rev_parede':         'revestimento_parede',
       };
       const itensJa = versaoAlvo.itens || [];
-      const chaveItem = (it) => [it.tipo, it.largura, it.altura, it.corExterna || ''].join('|');
+      // Felipe sessao 12: chave usa cor pra rev_parede (item.cor) E corExterna pra portas/fixo
+      const chaveItem = (it) => {
+        const corChave = it.tipo === 'revestimento_parede'
+          ? (it.cor || '')
+          : (it.corExterna || '');
+        const larChave = it.tipo === 'revestimento_parede' ? (it.largura_total || '') : (it.largura || '');
+        const altChave = it.tipo === 'revestimento_parede' ? (it.altura_total  || '') : (it.altura  || '');
+        return [it.tipo, larChave, altChave, corChave].join('|');
+      };
       const setExistente = new Set(itensJa.map(chaveItem));
       const novosItens = [];
       lead.itens_extras.forEach(ext => {
@@ -2072,6 +2102,27 @@ const Orcamento = (() => {
             String(ext.altura)  === String(lead.porta_altura  || '')) return;
         const novo = novoItem(tipoOrc);
         novo.quantidade = Math.max(1, parseInt(ext.quantidade, 10) || 1);
+
+        // Felipe sessao 12: rev_parede usa largura_total/altura_total + modo
+        // automatico se vier medida + cor (1 face so').
+        if (tipoOrc === 'revestimento_parede') {
+          if (ext.largura) novo.largura_total = ext.largura;
+          if (ext.altura)  novo.altura_total  = ext.altura;
+          if (ext.largura && ext.altura) novo.modo = 'automatico';
+          if (ext.cor) {
+            novo.cor = ext.cor;
+            if (!novo.revestimento) {
+              const revAutoR = _detectarRevestimentoPorCor(ext.cor);
+              if (revAutoR) novo.revestimento = revAutoR;
+            }
+          }
+          if (!setExistente.has(chaveItem(novo))) {
+            novosItens.push(novo);
+            setExistente.add(chaveItem(novo));
+          }
+          return;
+        }
+
         if (ext.largura) novo.largura = ext.largura;
         if (ext.altura)  novo.altura  = ext.altura;
         if (ext.modelo && (tipoOrc === 'porta_externa' || tipoOrc === 'porta_interna')) {
