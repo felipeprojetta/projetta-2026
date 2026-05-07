@@ -6351,6 +6351,30 @@ const Orcamento = (() => {
     //   td_alvo = 1 - 1/fF_alvo
     //   lbn_alvo = td_alvo - (impostos + com_rep + com_rt + com_gest)
     //   lucro_alvo_novo = lbn_alvo × (1 - 0.34)
+    // Felipe sessao 12: 'ainda esta escrevendo sem ter sequencia decimal
+    // ,1 depois 1,2 depois 12,0 depois 120,0 e assim por diante'.
+    // Quer mascara monetaria classica BR onde cada digito desliza:
+    //   1 -> 0,01    12 -> 0,12    120 -> 1,20    1200 -> 12,00
+    //   12000 -> 120,00    120000 -> 1.200,00    12000000 -> 120.000,00
+    // User so digita digitos, formatacao automatica.
+    const inputValorManual = container.querySelector('#orc-input-valor-manual');
+    if (inputValorManual) {
+      inputValorManual.addEventListener('input', (e) => {
+        const raw = String(e.target.value || '').replace(/\D/g, '');
+        if (!raw) {
+          e.target.value = '';
+          return;
+        }
+        // Converte digitos pra numero com 2 casas decimais (centavos)
+        const num = parseInt(raw, 10) / 100;
+        // Formata BR: 1.234,56
+        e.target.value = num.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      });
+    }
+
     container.querySelector('#orc-btn-aplicar-valor-manual')?.addEventListener('click', () => {
       const versao = versaoAtiva();
       if (!versao) return;
