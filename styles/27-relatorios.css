@@ -685,3 +685,37 @@
 .rel-prop-item-modelo-vars td.lbl {
   color: var(--laranja) !important;
 }
+
+/* Felipe sessao 12: 'nao deixe imprimir dessa forma quebre pagina em
+   duas de forma inteligente sem cortar um item entre uma pagina e outra'.
+   CSS @media print reforca page-break-inside: avoid pros cards de item,
+   tabela final, assinaturas e observacoes. Browser respeita melhor com
+   essas regras explicitas no contexto print. */
+@media print {
+  .rel-prop-item-card,
+  .rel-prop-item-card-no-img,
+  .rel-prop-tabela-final,
+  .rel-prop-tabela-final tr,
+  .rel-prop-totais-row,
+  .rel-prop-observacoes,
+  .rel-prop-pagamento,
+  .rel-prop-assinaturas {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  /* Permite quebra ANTES dos cards (entre eles) e ANTES da tabela final */
+  .rel-prop-item-card {
+    page-break-after: auto;
+    break-after: auto;
+  }
+  /* Header da proposta + 1o card sem quebra entre eles */
+  .rel-prop-header-doc {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  /* Forca cada bloco grande pra ter espaco - reduz risco de orfão */
+  .rel-prop-pagina-conteudo > * {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

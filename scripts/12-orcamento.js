@@ -8201,7 +8201,19 @@ const Orcamento = (() => {
 
     // Calcula totais e cards de cada item
     // Felipe (do doc): proposta agora aceita TODOS os tipos de item.
-    const itens = (versao.itens || []).filter(it => it.tipo);
+    // Felipe sessao 12: filtra itens vazios (sem dim alguma) - nao
+    // adianta mostrar 'Item 06 - Revestimento de Parede 0x0 R\$ 0,00'.
+    // Item vazio = sem largura/altura E sem largura_total/altura_total.
+    const itens = (versao.itens || []).filter(it => {
+      if (!it.tipo) return false;
+      const lar = parseBR(it.largura) || parseBR(it.largura_total) || 0;
+      const alt = parseBR(it.altura)  || parseBR(it.altura_total)  || 0;
+      // Aceita item se tem qualquer dimensao OU se tem peças manuais
+      const temPecasManuais = Array.isArray(it.pecas) && it.pecas.some(
+        p => Number(p.largura) > 0 && Number(p.altura) > 0
+      );
+      return (lar > 0 && alt > 0) || temPecasManuais;
+    });
     let totalArea = 0;
     let totalGeral = 0;
     // Felipe (do doc - msg "PORPOSTA DEVE CABER EM UMA PAGINA"): com 1 item,
@@ -8211,8 +8223,13 @@ const Orcamento = (() => {
     // individuais (card, tabela, etc) ficam intactos via page-break-inside:avoid.
     const cardsItens = itens.map((item, idx) => renderCardItemProposta(item, idx, versao)).join('');
     itens.forEach(item => {
-      const lar = parseBR(item.largura) || 0;
-      const alt = parseBR(item.altura)  || 0;
+      const ehRev = item.tipo === 'revestimento_parede';
+      const lar = ehRev
+        ? (parseBR(item.largura_total) || 0)
+        : (parseBR(item.largura) || 0);
+      const alt = ehRev
+        ? (parseBR(item.altura_total) || 0)
+        : (parseBR(item.altura) || 0);
       const qtd = Number(item.quantidade) || 1;
       const areaUn = (lar / 1000) * (alt / 1000);
       totalArea += areaUn * qtd;
@@ -8244,8 +8261,15 @@ const Orcamento = (() => {
     valoresProposta.porItem.forEach(v => { valoresPorIdx[v.idx] = v; });
 
     const linhasTabela = itens.map((item, idx) => {
-      const lar = parseBR(item.largura) || 0;
-      const alt = parseBR(item.altura)  || 0;
+      // Felipe sessao 12: rev_parede usa largura_total/altura_total (nao
+      // largura/altura). Antes saia '0 x 0' nas tabelas pra revs.
+      const ehRev = item.tipo === 'revestimento_parede';
+      const lar = ehRev
+        ? (parseBR(item.largura_total) || 0)
+        : (parseBR(item.largura) || 0);
+      const alt = ehRev
+        ? (parseBR(item.altura_total) || 0)
+        : (parseBR(item.altura) || 0);
       const qtd = Number(item.quantidade) || 1;
       const medidas = `${lar} × ${alt}`;
       const descricaoItem = obterDescricaoItem(item);
@@ -8539,7 +8563,7 @@ const Orcamento = (() => {
       : (item.tamanhoPuxador || '—');
 
     return `
-      <div class="rel-prop-item-card">
+      <div class="rel-prop-item-card" style="page-break-inside:avoid;break-inside:avoid;">
         <div class="rel-prop-item-img">
           ${imgSrc
             ? `<img src="${imgSrc}" alt="Modelo ${item.modeloNumero}" />`
@@ -8621,7 +8645,7 @@ const Orcamento = (() => {
     }
 
     return `
-      <div class="rel-prop-item-card rel-prop-item-card-no-img" style="display:flex;">
+      <div class="rel-prop-item-card rel-prop-item-card-no-img" style="display:flex;page-break-inside:avoid;break-inside:avoid;">
         <div class="rel-prop-item-info" style="width:100%;flex:1;">
           <div class="rel-prop-item-titulo">REVESTIMENTO DE PAREDE PROJETTA BY WEIKU</div>
           <div class="rel-prop-item-linhas">
@@ -8631,7 +8655,6 @@ const Orcamento = (() => {
             ${(lar && alt) ? `<div class="rel-prop-item-linha"><span class="lbl">Area:</span> <span>${fmtBR(areaM2)} m²</span></div>` : ''}
             <div class="rel-prop-item-linha"><span class="lbl">TEM ESTRUTURA:</span> <span>${temEstr ? 'SIM' : 'NAO'}</span></div>
             ${temEstr ? `<div class="rel-prop-item-linha"><span class="lbl">TUBO DA ESTRUTURA:</span> <span>${tubo}</span></div>` : ''}
-            <div class="rel-prop-item-linha"><span class="lbl">MODO:</span> <span>${escapeHtml(modoTxt)}</span></div>
           </div>
           ${blocoPecas}
         </div>
