@@ -474,11 +474,37 @@ window.ChapasAproveitamento = (function () {
     // sempre tenta mover qualquer peca que coubeer numa sobra. O custo
     // e' maior mas o resultado e' otimo (cada peca encontra o melhor
     // encaixe possivel sem destruir o nesting principal).
+    // Felipe sessao 12: 'ainda nao juntou L da cava... esses dois quadrados
+    // pequenos podiam ir para chapa 01 e ia sobrar mais material'.
+    //
+    // BUG do salvage anterior: 'const sobras = calcularSobrasDetalhadas(chapas[j])'
+    // era calculado UMA vez por (i, j) - mas dentro do mesmo (i, j), se uma
+    // peca era movida pra chapas[j], as sobras nao eram recalculadas.
+    // Resultado: 2a peca podia tentar usar a mesma sobra ja' ocupada pela
+    // 1a, e a comparacao 'o.larg <= sobra.w' achava que ainda cabia (mas
+    // ja' nao cabia mais).
+    //
+    // FIX: cache de sobras por chapa. Invalida o cache quando uma peca e'
+    // adicionada na chapa. Proxima leitura recalcula. Garante que cada peca
+    // testa contra sobras ATUAIS.
+    const sobrasCache = {}; // {chapaIdx: sobras[]}
+    function getSobras(j) {
+      if (!sobrasCache[j]) {
+        sobrasCache[j] = calcularSobrasDetalhadas(chapas[j], margem);
+      }
+      return sobrasCache[j];
+    }
+    function invalidarSobras(j) {
+      delete sobrasCache[j];
+    }
+
     let mudou = true;
     let safetyLoop = 0;
     while (mudou && safetyLoop < 5) {
       mudou = false;
       safetyLoop++;
+      // Limpa cache no inicio de cada rodada (estados podem ter mudado)
+      for (const k in sobrasCache) delete sobrasCache[k];
       for (let i = chapas.length - 1; i > 0; i--) {
         const c = chapas[i];
         if (!c.pecasPosicionadas.length) continue;
@@ -490,7 +516,7 @@ window.ChapasAproveitamento = (function () {
           if (!peca) return;
           // Tenta cada chapa anterior (j < i)
           for (let j = 0; j < i; j++) {
-            const sobras = calcularSobrasDetalhadas(chapas[j], margem);
+            const sobras = getSobras(j);
             if (!sobras.length) continue;
             const orientacoes = peca.podeRotacionar
               ? [{ larg: peca.largura, alt: peca.altura, rotada: false },
@@ -509,6 +535,7 @@ window.ChapasAproveitamento = (function () {
                     alt: o.alt,
                     rotada: o.rotada,
                   });
+                  invalidarSobras(j);  // proxima peca recalcula
                   movidas.push(placedPeca);
                   mudou = true;
                   achou = true;
@@ -524,6 +551,7 @@ window.ChapasAproveitamento = (function () {
         if (movidas.length) {
           c.pecasPosicionadas = c.pecasPosicionadas.filter(
             p => !movidas.includes(p));
+          invalidarSobras(i);  // chapa de origem ganhou sobras
         }
       }
       // Remove chapas vazias APOS cada iteracao completa
@@ -534,6 +562,78 @@ window.ChapasAproveitamento = (function () {
         }
       }
     }
+
+    // Felipe sessao 12: PASS FINAL AGRESSIVO PRA PECAS PEQUENAS.
+    // Mesmo apos salvage acima, podem sobrar pecas pequenas em chapas com
+    // aproveitamento bom (>50%) que poderiam ir pra sobras de chapas
+    // ANTERIORES com aproveitamento ainda melhor. Print Felipe sessao 12:
+    // Chapa 1 86% + Chapa 2 73% - 2 pecas 'L da C' pequenas (~50x110mm)
+    // na Chapa 2 que cabem nas sobras da Chapa 1.
+    //
+    // Diferente do salvage acima: aqui considera TODAS as pecas (qualquer
+    // chapa, incluindo Chapa 1) pra mover pra sobras de chapas anteriores.
+    // So' move se a peca for pequena (area < 0.3 m² = 300.000 mm²) - pecas
+    // grandes ja' foram tentadas no salvage principal. Pequenas tem mais
+    // flexibilidade pra encaixar em sobras minusculas.
+    for (const k in sobrasCache) delete sobrasCache[k];
+    let mudouPequenas = true;
+    let pequenasLoop = 0;
+    while (mudouPequenas && pequenasLoop < 3) {
+      mudouPequenas = false;
+      pequenasLoop++;
+      for (const k in sobrasCache) delete sobrasCache[k];
+      for (let i = chapas.length - 1; i >= 1; i--) {
+        const c = chapas[i];
+        const pecasOrig = c.pecasPosicionadas.slice();
+        const movidas = [];
+        pecasOrig.forEach(placedPeca => {
+          const peca = placedPeca.peca;
+          if (!peca) return;
+          const area = (Number(peca.largura) || 0) * (Number(peca.altura) || 0);
+          if (area > 300000) return;  // > 0.3 m² nao e' "pequena"
+          for (let j = 0; j < i; j++) {
+            const sobras = getSobras(j);
+            if (!sobras.length) continue;
+            const orientacoes = peca.podeRotacionar
+              ? [{ larg: peca.largura, alt: peca.altura, rotada: false },
+                 { larg: peca.altura,  alt: peca.largura, rotada: true }]
+              : [{ larg: peca.largura, alt: peca.altura, rotada: false }];
+            let achou = false;
+            for (const o of orientacoes) {
+              for (const sobra of sobras) {
+                if (o.larg <= sobra.w + 0.01 && o.alt <= sobra.h + 0.01) {
+                  chapas[j].pecasPosicionadas.push({
+                    peca,
+                    x: sobra.x, y: sobra.y,
+                    larg: o.larg, alt: o.alt,
+                    rotada: o.rotada,
+                  });
+                  invalidarSobras(j);
+                  movidas.push(placedPeca);
+                  mudouPequenas = true;
+                  achou = true;
+                  break;
+                }
+              }
+              if (achou) break;
+            }
+            if (achou) break;
+          }
+        });
+        if (movidas.length) {
+          c.pecasPosicionadas = c.pecasPosicionadas.filter(
+            p => !movidas.includes(p));
+          invalidarSobras(i);
+        }
+      }
+      for (let i = chapas.length - 1; i >= 0; i--) {
+        if (!chapas[i].pecasPosicionadas.length) {
+          chapas.splice(i, 1);
+          mudouPequenas = true;
+        }
+      }
+    }
+
     // Re-calcula sobras das chapas finais
     chapas.forEach(c => {
       c.sobrasRetangulos = calcularSobras(c, margem);
