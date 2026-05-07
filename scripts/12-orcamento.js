@@ -8199,29 +8199,55 @@ const Orcamento = (() => {
         })
       : '<div class="info-banner">Cabecalho indisponivel</div>';
 
-    // Calcula totais e cards de cada item
-    // Felipe (do doc): proposta agora aceita TODOS os tipos de item.
-    // Felipe sessao 12: filtra itens vazios (sem dim alguma) - nao
-    // adianta mostrar 'Item 06 - Revestimento de Parede 0x0 R\$ 0,00'.
-    // Item vazio = sem largura/altura E sem largura_total/altura_total.
+    // Felipe sessao 12: filtra itens vazios (sem dim alguma) - nao adianta
+    // mostrar 'Item 06 - Revestimento de Parede 0x0 R$ 0,00' na proposta.
     const itens = (versao.itens || []).filter(it => {
       if (!it.tipo) return false;
       const lar = parseBR(it.largura) || parseBR(it.largura_total) || 0;
       const alt = parseBR(it.altura)  || parseBR(it.altura_total)  || 0;
-      // Aceita item se tem qualquer dimensao OU se tem peças manuais
       const temPecasManuais = Array.isArray(it.pecas) && it.pecas.some(
         p => Number(p.largura) > 0 && Number(p.altura) > 0
       );
       return (lar > 0 && alt > 0) || temPecasManuais;
     });
+
+    // Felipe sessao 12: 'quero a proposta igual quando tem so uma porta,
+    // ocupando largura bacana. ai como tem mais item faca uma quebra,
+    // sem cortar detalhamento de um item'.
+    //
+    // ANTES: TODOS os cards iam num unico .rel-prop-pagina-conteudo. Se
+    // tinha 7 itens, a pagina crescia verticalmente (overflow). Felipe
+    // achou estreito por contraste com o caso 1 item (que cabia certinho).
+    //
+    // AGORA: distribui cards em multiplas paginas A4 - cada pagina com
+    // largura cheia 210mm. 1a pagina: header + 3 cards. 2a pagina:
+    // proximos 3-4 cards. Ultima pagina: tabela final + totais +
+    // observacoes + pagamento + assinaturas. Sem cortar item entre paginas.
+    const CARDS_POR_PAGINA = 3;
+    const cardsList = itens.map((item, idx) => renderCardItemProposta(item, idx, versao));
+    // Divide em chunks
+    const cardsChunks = [];
+    for (let k = 0; k < cardsList.length; k += CARDS_POR_PAGINA) {
+      cardsChunks.push(cardsList.slice(k, k + CARDS_POR_PAGINA));
+    }
+    if (!cardsChunks.length) cardsChunks.push([]);
+
+    // 1a pagina: header + 1o chunk
+    const paginaItensHtml = cardsChunks.map((chunk, pgIdx) => {
+      const headerNaPagina = pgIdx === 0 ? headerHtml : '';
+      return `
+        <div class="rel-prop-pagina rel-prop-pagina-conteudo">
+          ${headerNaPagina}
+          ${chunk.length ? chunk.join('') : '<div class="rel-prop-empty">Nenhum item.</div>'}
+        </div>`;
+    }).join('');
+    // Manter cardsItens pra compatibilidade (nao usado mais no innerHTML)
+    const cardsItens = cardsList.join('');
     let totalArea = 0;
     let totalGeral = 0;
     // Felipe (do doc - msg "PORPOSTA DEVE CABER EM UMA PAGINA"): com 1 item,
-    // tudo cabe numa pagina so' (header + card + tabela + totais + observacoes
-    // + pagamento + assinaturas). NAO quebra. Se REALMENTE nao couber (muitos
-    // itens), o navegador joga pra outra pagina automaticamente — mas blocos
-    // individuais (card, tabela, etc) ficam intactos via page-break-inside:avoid.
-    const cardsItens = itens.map((item, idx) => renderCardItemProposta(item, idx, versao)).join('');
+    // tudo cabe numa pagina so'. Felipe sessao 12: agora cards distribuidos
+    // em paginas A4 separadas via paginaItensHtml (acima).
     itens.forEach(item => {
       const ehRev = item.tipo === 'revestimento_parede';
       const lar = ehRev
@@ -8315,19 +8341,14 @@ const Orcamento = (() => {
           <img src="images/proposta-pag2.jpg" alt="Nossa Portas pelo Mundo" class="rel-prop-pdf-img" />
         </div>
 
-        <!-- Felipe ("PROPOSTA DEVE CABER EM UMA PAGINA"): tudo numa
-             pagina so'. Cada bloco (card, tabela, etc) tem
-             page-break-inside:avoid. Se passar do tamanho A4, o navegador
-             quebra entre blocos automatico. -->
-        <!-- Felipe ("PROPOSTA DEVE CABER EM UMA PAGINA"): tudo numa
-             pagina so'. Cada bloco (card, tabela, etc) tem
-             page-break-inside:avoid. Se passar do tamanho A4, o navegador
-             quebra entre blocos automatico. -->
+        <!-- Felipe sessao 12: 'ai como tem mais item faca uma quebra,
+             sem cortar detalhamento de um item'. Multiplas paginas A4 -
+             header + 3 cards na 1a, mais 3 cards nas seguintes, ultima
+             tem tabela final + totais + observacoes + assinaturas. Cada
+             pagina tem largura cheia 210mm. -->
+        ${paginaItensHtml}
+
         <div class="rel-prop-pagina rel-prop-pagina-conteudo">
-          ${headerHtml}
-
-          ${cardsItens || '<div class="rel-prop-empty">Nenhum item.</div>'}
-
           <table class="rel-prop-tabela-final">
             <thead>
               <tr>
