@@ -12864,6 +12864,21 @@ const Orcamento = (() => {
     const perfisCadLevAcess = (typeof construirCadastroPerfis === 'function')
       ? construirCadastroPerfis() : {};
 
+    // Felipe sessao 12: PRIMER global pra rev_parede. 'coloque 1 primer no
+    // geral independente da quantidade de revestimentos coloque so uma vez'.
+    // Marca _ehPrimeiroRevParede=true so' no PRIMEIRO rev_parede da lista.
+    // Outros revs herdam false. O motor 28-acessorios checa esse flag pra
+    // emitir PA-PRIMER apenas 1× independente de quantos revs.
+    let _primeiroRevParedeMarcado = false;
+    itens.forEach(it => {
+      if (it.tipo === 'revestimento_parede' && !_primeiroRevParedeMarcado) {
+        it._ehPrimeiroRevParede = true;
+        _primeiroRevParedeMarcado = true;
+      } else {
+        it._ehPrimeiroRevParede = false;
+      }
+    });
+
     const blocosItens = itens.map((item, idx) => {
       let pesoFolhaTotal = 0;
       let pesoFolhaPerfis = 0;

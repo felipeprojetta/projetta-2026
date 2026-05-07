@@ -805,20 +805,46 @@ const AcessoriosPortaExterna = (() => {
       // Cadastro > Regras e Logicas > Fita+Silicone.
       const HIGHTACK_POR_TUBO = Number(RENDIMENTOS_FS.hightack_tubo) > 0 ? Number(RENDIMENTOS_FS.hightack_tubo) : 8;
 
+      // Felipe sessao 12: pra REVESTIMENTO_PAREDE, fita+silicone vao pra OBRA.
+      // Silicone usa PA-HIGHTACK BR (nao DOWSIL 995). Plus +1 PRIMER global.
+      // Felipe: 'parede leva primer, fita dupla face 19, e high tack'.
+      const ehRevParede = item.tipo === 'revestimento_parede';
+
       if (mFD19 > 0) {
         const rolos = Math.ceil(mFD19 / FD19_POR_ROLO);
-        add('PA-FITDF 19X20X1.0', rolos, 'Fita Dupla Face', 'fab',
-            `${mFD19.toFixed(1)}m / ${FD19_POR_ROLO}m por rolo = ${rolos} rolo(s)`);
+        // Rev_parede: FD19 vai pra OBRA. Porta_externa/fixo_acoplado: FAB.
+        const aplic = ehRevParede ? 'obra' : 'fab';
+        add('PA-FITDF 19X20X1.0', rolos, 'Fita Dupla Face', aplic,
+            `${mFD19.toFixed(1)}m / ${FD19_POR_ROLO}m por rolo = ${rolos} rolo(s)${ehRevParede ? ' (obra)' : ''}`);
       }
       if (mFD12 > 0) {
         const rolos = Math.ceil(mFD12 / FD12_POR_ROLO);
-        add('PA-FITDF 12X20X1.0', rolos, 'Fita Dupla Face', 'fab',
-            `${mFD12.toFixed(1)}m / ${FD12_POR_ROLO}m por rolo = ${rolos} rolo(s)`);
+        const aplic = ehRevParede ? 'obra' : 'fab';
+        add('PA-FITDF 12X20X1.0', rolos, 'Fita Dupla Face', aplic,
+            `${mFD12.toFixed(1)}m / ${FD12_POR_ROLO}m por rolo = ${rolos} rolo(s)${ehRevParede ? ' (obra)' : ''}`);
       }
       if (mMS > 0) {
-        const tubos = Math.ceil(mMS / MS_POR_TUBO);
-        add('PA-DOWSIL 995', tubos, 'Selantes', 'fab',
-            `${mMS.toFixed(1)}m / ${MS_POR_TUBO}m por tubo = ${tubos} tubo(s)`);
+        if (ehRevParede) {
+          // Rev_parede: silicone vira HIGHTACK BR (nao 995) e vai pra OBRA.
+          // Rendimento = HIGHTACK_POR_TUBO (8m/tubo, default).
+          const tubos = Math.ceil(mMS / HIGHTACK_POR_TUBO);
+          add('PA-HIGHTACK BR', tubos, 'Selantes', 'obra',
+              `${mMS.toFixed(1)}m / ${HIGHTACK_POR_TUBO}m por tubo = ${tubos} tubo(s) (revestimento)`);
+        } else {
+          const tubos = Math.ceil(mMS / MS_POR_TUBO);
+          add('PA-DOWSIL 995', tubos, 'Selantes', 'fab',
+              `${mMS.toFixed(1)}m / ${MS_POR_TUBO}m por tubo = ${tubos} tubo(s)`);
+        }
+      }
+
+      // Felipe sessao 12: PRIMER pra revestimento. 'coloque 1 primer no geral
+      // independente da quantidade de revestimentos coloque so uma vez'. O
+      // motor e' por-item, entao caller (renderLevAcessoriosTab) marca
+      // item._ehPrimeiroRevParede=true no PRIMEIRO rev_parede da lista.
+      // Outros revs: nao emitem PRIMER. Resultado: 1 PRIMER global no orcamento
+      // independente de quantos revs tiverem.
+      if (ehRevParede && item._ehPrimeiroRevParede) {
+        add('PA-PRIMER', 1, 'Selantes', 'obra', '1 unidade global pra todos os revestimentos');
       }
 
       // Felipe sessao 2026-08-03: linhas OBRA - silicone PA-HIGHTACK BR
