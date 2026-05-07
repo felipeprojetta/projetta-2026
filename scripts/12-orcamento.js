@@ -1521,6 +1521,26 @@ const Orcamento = (() => {
         console.warn('[orcamento] aprovarOrcamento: falha ao atualizar lead:', e.message);
       }
     }
+
+    // Felipe sessao 12 (bug Noemi - lead salvo mas versao nao):
+    // Forca flush imediato dos saves pendentes (negocios + crm/leads)
+    // pra garantir atomicidade. Sem isso, podia acontecer:
+    //   1. saveAll(negocios) marca debounce de 500ms
+    //   2. lead.valor atualizado, set('leads') marca outro debounce
+    //   3. User fecha aba antes dos 500ms
+    //   4. Pequeno (lead 23kb) flusha via keepalive, grande (negocios
+    //      67kb) excede limite keepalive 64kb e e' descartado
+    //   5. Resultado: lead com valor mas versao sem aprovadoEm
+    //
+    // Fix: flushSbUpsertPendentes() cancela debounces e dispara
+    // imediato as 2 requests. Background (sem await) pra UI nao trava.
+    try {
+      if (window.Database && window.Database.flushSbUpsertPendentes) {
+        window.Database.flushSbUpsertPendentes()
+          .catch(function(e) { console.warn('[orcamento] flush pos-aprovacao falhou:', e); });
+      }
+    } catch(_){}
+
     return alvo;
   }
 

@@ -67,6 +67,14 @@ const Database = (() => {
   // vidros), sobrescrevendo. Debounce garante que so' o ULTIMO valor e' enviado.
   var _sbUpsertTimers = {};
 
+  // Felipe sessao 12 (bug Noemi - lead atualizado mas versao nao):
+  // _sbUpsertPayloads guarda o ultimo (scope, key, value) pendente em cada
+  // timer. flushSbUpsertPendentes() pega todos os pendentes, cancela timers
+  // e executa as requests IMEDIATO. Operacoes criticas (aprovarOrcamento)
+  // devem chamar flush apos saveAll/setLead pra garantir que ambos vao
+  // pro cloud antes de qualquer fechamento de aba.
+  var _sbUpsertPayloads = {};
+
   // Felipe sessao 12 (3a sobrescrita da Andressa): MERGE protetor pra
   // auth/users. Antes de sobrescrever, busca versao cloud. Se cloud tem
   // mais usuarios que local, faz uniao por username (cloud ganha em
@@ -336,9 +344,18 @@ const Database = (() => {
     if (Array.isArray(value) && value.length === 0) return;
     var timerKey = scope + '::' + key;
     if (_sbUpsertTimers[timerKey]) clearTimeout(_sbUpsertTimers[timerKey]);
-    _sbUpsertTimers[timerKey] = setTimeout(async function() {
+    // Felipe sessao 12: guarda ultimo payload pra flushSbUpsertPendentes
+    _sbUpsertPayloads[timerKey] = { scope: scope, key: key, value: value };
+    _sbUpsertTimers[timerKey] = setTimeout(function() {
       delete _sbUpsertTimers[timerKey];
+      delete _sbUpsertPayloads[timerKey];
+      _sbUpsertExecuta(scope, key, value);
+    }, 500);  // 500ms debounce — ultimo valor ganha
+  }
 
+  // Felipe sessao 12: extraido pra _sbUpsertExecuta pra ser reutilizado
+  // por sbUpsert (debounced) e flushSbUpsertPendentes (imediato).
+  async function _sbUpsertExecuta(scope, key, value) {
       // Felipe sessao 12: protecao especial pra auth/users
       var valorFinal = value;
       if (scope === 'auth' && key === 'users') {
@@ -383,22 +400,65 @@ const Database = (() => {
         var u = window.Auth && window.Auth.currentUser && window.Auth.currentUser();
         if (u && u.username) usuario = u.username;
       } catch(_){}
-      fetch(SUPABASE_URL + '/rest/v1/kv_store', {
+
+      // Felipe sessao 12 (bug Noemi - lead salvo mas negocios nao):
+      // keepalive: true tem limite de 64kb por origem. Quando o payload
+      // de 'negocios' ultrapassa esse limite (cresceu pra 67kb com
+      // dados de Felipe+Andressa), o browser DESCARTA SILENCIOSAMENTE
+      // a request se a aba fechar antes do response. Lead (23kb) passa
+      // dentro do limite mas negocios (67kb) nao. Resultado: aprovacao
+      // parcial onde lead.valor atualiza mas versao.aprovadoEm nao.
+      //
+      // FIX: serializa o body, mede o tamanho, e SO' usa keepalive se
+      // estiver dentro do limite seguro de 60kb (margem de erro pros
+      // headers + estrutura JSON).
+      var body = JSON.stringify({
+        scope: scope,
+        key: key,
+        valor: valorFinal,
+        updated_by: String(usuario),
+      });
+      var podeKeepalive = body.length < 60000;  // < 60kb - margem segura
+
+      var fetchOpts = {
         method: 'POST',
         headers: sbHeaders(true),
-        body: JSON.stringify({
-          scope: scope,
-          key: key,
-          valor: valorFinal,
-          updated_by: String(usuario),
-        }),
-        keepalive: true,
-      }).then(function(res) {
-        if (!res.ok) console.error('[DB] sbUpsert FALHOU:', scope, '/', key, 'HTTP', res.status);
+        body: body,
+      };
+      if (podeKeepalive) {
+        fetchOpts.keepalive = true;
+      }
+      // Retorna Promise pra flushSbUpsertPendentes poder esperar com Promise.all
+      return fetch(SUPABASE_URL + '/rest/v1/kv_store', fetchOpts).then(function(res) {
+        if (!res.ok) {
+          console.error('[DB] sbUpsert FALHOU:', scope, '/', key, 'HTTP', res.status);
+          return false;
+        }
+        return true;
       }).catch(function(e) {
         console.error('[DB] sbUpsert FALHOU (rede):', scope, '/', key, e.message);
+        return false;
       });
-    }, 500);  // 500ms debounce — ultimo valor ganha
+  }
+
+  // Felipe sessao 12 (bug Noemi): forca flush imediato de TODOS os
+  // upserts pendentes (cancelando o debounce de 500ms). Usado em
+  // operacoes criticas onde a atomicidade entre 2 saves importa
+  // (ex: aprovarOrcamento atualiza versao + lead - ambos devem ir
+  // pro cloud, nao apenas um). Retorna Promise.all das requests.
+  function flushSbUpsertPendentes() {
+    var promises = [];
+    var keys = Object.keys(_sbUpsertTimers);
+    keys.forEach(function(timerKey) {
+      clearTimeout(_sbUpsertTimers[timerKey]);
+      delete _sbUpsertTimers[timerKey];
+      var p = _sbUpsertPayloads[timerKey];
+      delete _sbUpsertPayloads[timerKey];
+      if (p) {
+        promises.push(_sbUpsertExecuta(p.scope, p.key, p.value));
+      }
+    });
+    return Promise.all(promises);
   }
 
   // Delete no Supabase (background)
@@ -679,6 +739,9 @@ const Database = (() => {
     syncFromCloud: syncFromCloud,
     syncToCloud: syncToCloud,
     _sbUpsert: sbUpsert,
+    // Felipe sessao 12: flush imediato de saves pendentes (operacoes
+    // criticas tipo aprovarOrcamento usam pra garantir atomicidade)
+    flushSbUpsertPendentes: flushSbUpsertPendentes,
     startRealtime: startRealtime,
     stopRealtime: stopRealtime,
     SUPABASE_URL: SUPABASE_URL,
