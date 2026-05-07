@@ -242,6 +242,73 @@ const Database = (() => {
         });
       });
 
+      // Felipe sessao 12 (problema R\$ 73.750 vs R\$ 214.343): pra versoes
+      // que existem em AMBOS local E cloud, se o cloud tem campos de
+      // CALCULO/APROVACAO preenchidos e o local esta zerado, rehidrata
+      // do cloud. Cenario tipico: outra sessao (Andressa em outra maquina)
+      // editou e calculou; meu navegador tem localStorage stale com
+      // custoFab/custoInst zerados; ao salvar, sobrescreveria o cloud.
+      //
+      // Regra anti-conflito: SO rehidrata se LOCAL.subFab=0 E CLOUD.subFab>0.
+      // Isso garante que NAO sobrescrevemos edicoes legitimas locais
+      // (se o user fez Limpar Tela proposital, local.subFab=0 mas
+      // cloud tambem ja' foi atualizado pra 0 pelo proprio user antes
+      // do reload). Logo se cloud.subFab>0 e local.subFab=0, e' sinal
+      // claro de cache stale local.
+      var camposRehidratados = 0;
+      resultado.forEach(function(neg) {
+        if (!neg || !neg.id) return;
+        var cloudInfo = cloudNegoMap[neg.id];
+        if (!cloudInfo) return;
+        (neg.opcoes || []).forEach(function(opc) {
+          (opc.versoes || []).forEach(function(vLocal, idx) {
+            if (!vLocal || !vLocal.id) return;
+            var info = cloudInfo.versoesMap[vLocal.id];
+            if (!info || !info.ver) return;
+            var vCloud = info.ver;
+            // Heuristica: local zerado + cloud preenchido = stale
+            var localZerado = (Number(vLocal.subFab) || 0) === 0
+                           && (Number(vLocal.subInst) || 0) === 0;
+            var cloudPreenchido = (Number(vCloud.subFab) || 0) > 0
+                               || (Number(vCloud.subInst) || 0) > 0;
+            if (!(localZerado && cloudPreenchido)) return;
+
+            // Rehidrata os campos de calculo/aprovacao do cloud.
+            // Mantem ITENS do local intactos (preserva edicao em curso).
+            var camposCloudWinners = [
+              'subFab', 'subInst',
+              'custoFab', 'custoInst',
+              'parametros', 'subtotais', 'total',
+              'calculadoEm',
+              'aprovadoEm', 'aprovadoPor', 'valorAprovado',
+              'precoProposta', 'enviadoParaCard',
+              'precos_snapshot',
+              '_zerosIntencionais',
+            ];
+            camposCloudWinners.forEach(function(campo) {
+              if (vCloud[campo] !== undefined && vCloud[campo] !== null) {
+                vLocal[campo] = JSON.parse(JSON.stringify(vCloud[campo]));
+              }
+            });
+            // calcDirty=true porque ITENS pode ter sido editado depois
+            // do calculo do cloud (caso o user editou item mas nao
+            // recalculou). Sinal pra UI mostrar 'desatualizado'.
+            // Se nao foi editado, ficar dirty=true nao quebra - so'
+            // pede pra clicar Recalcular.
+            // Excecao: se cloud.calcDirty=false e local.itens === cloud.itens,
+            // poderia preservar — mas comparar itens e' caro e raro o
+            // ganho. Aceito o tradeoff.
+            vLocal.calcDirty = true;
+            camposRehidratados++;
+          });
+        });
+      });
+      if (camposRehidratados > 0) {
+        console.warn('[DB] mergeProtegido_negocios: REHIDRATADAS ' + camposRehidratados +
+                     ' versao(es) onde local tinha custos zerados mas cloud tinha valores. ' +
+                     'Cache stale local foi corrigido com dados do Supabase.');
+      }
+
       // 2. Pra cada negocio CLOUD que nao esta no local, adiciona inteiro
       cloudValue.forEach(function(neg) {
         if (!neg || !neg.id) return;
