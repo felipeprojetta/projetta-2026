@@ -2806,38 +2806,28 @@ const Orcamento = (() => {
           <div class="orc-form-row">
             <div class="orc-cor-stack">
               <div class="orc-field orc-f-cor">
-                <label>Cor ${(() => {
-                  // Felipe sessao 12: 'quando tem multiplos os demais nao
-                  // estao puxando as cores'. Felipe via 8 cores no datalist e
-                  // achava que faltavam. Datalist nativo do browser e' confuso
-                  // (parece truncar mas tem scroll). Trocado por SELECT - mostra
-                  // todas as cores claramente. Plus, contador mostra quantas tem.
-                  const vistas = new Set();
-                  let total = 0;
-                  coresFiltradas.forEach(s => {
-                    const limpo = nomeCurtoSuperficie(s.descricao);
-                    if (!limpo || vistas.has(limpo)) return;
-                    vistas.add(limpo);
-                    total++;
-                  });
-                  return total > 0 ? `<span class="orc-cor-counter">(${total} ${item.revestimento || 'cores'})</span>` : '';
-                })()}</label>
-                <select data-field="cor">
-                  <option value="">— escolher cor —</option>
-                  ${(() => {
-                    const vistas = new Set();
-                    const opts = [];
-                    coresFiltradas.forEach(s => {
-                      const limpo = nomeCurtoSuperficie(s.descricao);
-                      if (!limpo || vistas.has(limpo)) return;
-                      vistas.add(limpo);
-                      opts.push(`<option value="${escapeHtml(limpo)}" ${item.cor === limpo ? 'selected' : ''}>${escapeHtml(limpo)}</option>`);
-                    });
-                    return opts.join('');
-                  })()}
-                </select>
+                <label>Cor</label>
+                <input type="text" list="orc-superficies-list-rev" data-field="cor" value="${escapeHtml(item.cor || '')}" placeholder="" title="${escapeHtml(item.cor || '')}" />
               </div>
             </div>
+            <datalist id="orc-superficies-list-rev">
+              ${(() => {
+                // Felipe sessao 12: 'em Revestimento de Parede faca a escolha da
+                // chapa igual na porta de entrada, esta muito ruim escolher a cor
+                // do jeito que esta o filtro'. Voltado pra input+datalist (igual
+                // porta_externa). Datalist mostra todas as cores filtradas pelo
+                // revestimento e Felipe pode digitar pra buscar.
+                const vistas = new Set();
+                const opts = [];
+                coresFiltradas.forEach(s => {
+                  const limpo = nomeCurtoSuperficie(s.descricao);
+                  if (!limpo || vistas.has(limpo)) return;
+                  vistas.add(limpo);
+                  opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                });
+                return opts.join('');
+              })()}
+            </datalist>
           </div>
         </div>
 
