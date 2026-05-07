@@ -7123,16 +7123,18 @@ const Orcamento = (() => {
           motivo = `Motor de calculo de "${tipoLabel}" ainda nao foi implementado.`;
         }
         return `
-          <div class="lvp-item-bloco">
-            <div class="lvp-item-titulo">
+          <details class="lvp-item-bloco lvp-item-collapse" data-item-idx="${b.itemIdx}">
+            <summary class="lvp-item-summary">
+              <span class="lvp-item-summary-chevron">▶</span>
               <span class="lvp-item-num">ITEM ${b.itemIdx}</span>
               <span class="lvp-item-desc">${escapeHtml(b.descricao)}</span>
-            </div>
+              <span class="lvp-item-summary-warn">⚠ vazio</span>
+            </summary>
             <div class="lvp-item-vazio">
               ⚠ ${escapeHtml(motivo)}
               ${acaoExtra}
             </div>
-          </div>`;
+          </details>`;
       }
 
       // Achata cortes em linhas e ORDENA pela sequencia Felipe
@@ -7275,12 +7277,18 @@ const Orcamento = (() => {
           </tr>`;
       }
 
+      // Felipe sessao 12: 'fava a mesma coisa de setas para ocultar e
+      // expandir nos perfis'. Cada bloco de item agora e' details colapsavel.
+      // Por padrao FECHADO. Summary mostra item + descricao + total kg/peso.
       return `
-        <div class="lvp-item-bloco" data-item-idx="${b.itemIdx}">
-          <div class="lvp-item-titulo">
+        <details class="lvp-item-bloco lvp-item-collapse" data-item-idx="${b.itemIdx}">
+          <summary class="lvp-item-summary">
+            <span class="lvp-item-summary-chevron">▶</span>
             <span class="lvp-item-num">ITEM ${b.itemIdx}</span>
             <span class="lvp-item-desc">${escapeHtml(b.descricao)}</span>
-          </div>
+            <span class="lvp-item-summary-total">${fmtBR(totalKgGrupos)} kg</span>
+          </summary>
+          <div class="lvp-item-collapse-body">
           <table class="lvp-table">
             <thead>
               <!-- ============================================================
@@ -7336,7 +7344,8 @@ const Orcamento = (() => {
             <button type="button" class="lvp-btn-add" data-secao="portal">+ Adicionar Linha (Portal)</button>
             <button type="button" class="lvp-btn-add" data-secao="fixo">+ Adicionar Linha (Fixo)</button>
           </div>
-        </div>`;
+          </div>
+        </details>`;
     }
 
     mount.innerHTML = `
@@ -7367,9 +7376,29 @@ const Orcamento = (() => {
           </div>
         </div>
 
+        ${blocosPorItem.length >= 2 ? `
+        <div class="orc-item-toolbar">
+          <button type="button" class="btn-secondary" data-act="lvp-expand-all">▼ Expandir todos</button>
+          <button type="button" class="btn-secondary" data-act="lvp-collapse-all">▶ Recolher todos</button>
+        </div>` : ''}
+
         ${blocosPorItem.map(blocoItemHtml).join('')}
       </div>
     `;
+
+    // Felipe sessao 12: botoes expandir/recolher todos os items na Lev. Perfis.
+    const btnLvpExpandAll = mount.querySelector('[data-act="lvp-expand-all"]');
+    if (btnLvpExpandAll) {
+      btnLvpExpandAll.addEventListener('click', () => {
+        mount.querySelectorAll('details.lvp-item-collapse').forEach(d => d.open = true);
+      });
+    }
+    const btnLvpCollapseAll = mount.querySelector('[data-act="lvp-collapse-all"]');
+    if (btnLvpCollapseAll) {
+      btnLvpCollapseAll.addEventListener('click', () => {
+        mount.querySelectorAll('details.lvp-item-collapse').forEach(d => d.open = false);
+      });
+    }
 
     // R12 + R14 + R18: aplica sort por header + filtro com autocomplete em
     // cada .lvp-table renderizada. Linhas de grupo/subtotal (com colspan)
