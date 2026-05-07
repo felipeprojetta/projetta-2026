@@ -8563,7 +8563,7 @@ const Orcamento = (() => {
       : (item.tamanhoPuxador || '—');
 
     return `
-      <div class="rel-prop-item-card" style="page-break-inside:avoid;break-inside:avoid;">
+      <div class="rel-prop-item-card">
         <div class="rel-prop-item-img">
           ${imgSrc
             ? `<img src="${imgSrc}" alt="Modelo ${item.modeloNumero}" />`
@@ -8645,7 +8645,7 @@ const Orcamento = (() => {
     }
 
     return `
-      <div class="rel-prop-item-card rel-prop-item-card-no-img" style="display:flex;page-break-inside:avoid;break-inside:avoid;">
+      <div class="rel-prop-item-card rel-prop-item-card-no-img" style="display:flex;">
         <div class="rel-prop-item-info" style="width:100%;flex:1;">
           <div class="rel-prop-item-titulo">REVESTIMENTO DE PAREDE PROJETTA BY WEIKU</div>
           <div class="rel-prop-item-linhas">
