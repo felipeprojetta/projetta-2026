@@ -6022,6 +6022,51 @@ const Orcamento = (() => {
           </div>
         </div>
 
+        <!-- Felipe sessao 12: 'me de um campo ali valor manual, aonde
+             eu coloco valor manual que quero final e voce ajusta a
+             margem para chegar no valor por exemplo esse valor ai
+             esta em 114.709,76, fechei em 120 mil preciso aumentar
+             a margem para chegar em 120 mil ai eu coloco valor manual
+             proposto e voce altera a margem para chegar em 120 mil'.
+
+             Campo recebe o valor que o cliente vai pagar (pFatReal alvo).
+             Calcula o lucro_alvo necessario pra chegar la, considerando
+             desconto + markup_desc + impostos + comissoes atuais. -->
+        <div class="orc-section orc-valor-manual" style="margin-top:18px;padding:14px;background:linear-gradient(180deg,#fef3c7,#fff8e7);border:2px solid #f59e0b;border-radius:8px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span style="font-size:18px;">🎯</span>
+            <div style="font-weight:700;color:#92400e;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+              Ajustar pra Valor Final Desejado
+            </div>
+          </div>
+          <p style="font-size:12px;color:#78350f;margin:0 0 12px 0;line-height:1.5;">
+            Negociou um valor final com o cliente diferente do calculado? Digita aqui
+            o valor que o cliente vai pagar e o sistema ajusta a <b>Margem (lucro alvo)</b>
+            automatico pra chegar nesse numero.
+          </p>
+          <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <label style="display:block;font-size:11px;color:#92400e;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">
+                Valor Final Desejado (Cliente Paga)
+              </label>
+              <input type="number" id="orc-input-valor-manual"
+                     placeholder="Ex: 120000"
+                     min="0" step="100"
+                     style="width:100%;padding:10px 14px;font-size:18px;font-weight:700;color:#7c2d12;border:2px solid #fbbf24;border-radius:6px;background:#fff;font-variant-numeric:tabular-nums;"
+                     value="${Math.round(r.pFatReal) || ''}" />
+            </div>
+            <button type="button" id="orc-btn-aplicar-valor-manual"
+                    style="padding:10px 20px;background:#92400e;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;height:44px;white-space:nowrap;">
+              ⚡ Ajustar Margem
+            </button>
+            <button type="button" id="orc-btn-resetar-margem" title="Volta lucro_alvo pra 15%"
+                    style="padding:10px 14px;background:#fff;color:#92400e;border:2px solid #fbbf24;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;height:44px;white-space:nowrap;">
+              ↺ Resetar
+            </button>
+          </div>
+          <div id="orc-valor-manual-feedback" style="margin-top:10px;font-size:12px;color:#78350f;min-height:18px;"></div>
+        </div>
+
         <!-- Felipe (sessao 2026-05): botao Aprovar Orcamento empurra o
              pFatReal pro lead correspondente do CRM, atualiza a etapa
              pra "orcamento-pronto" e marca timestamp de aprovacao.
@@ -6276,6 +6321,101 @@ const Orcamento = (() => {
       }
       _perguntarEnvioCardEAprovar(versao);
     });
+    // Felipe sessao 12: 'me de um campo ali valor manual, aonde eu coloco
+    // valor manual que quero final e voce ajusta a margem para chegar no
+    // valor'. Calcula lucro_alvo necessario pra chegar no pFatReal alvo.
+    //
+    // Formula reversa:
+    //   pFatReal = pTab × (1 - desconto)
+    //   pTab = custo × fT = custo × fF / (1 - markup_desc)
+    //   fF = 1 / (1 - td)
+    //   td = impostos + com_rep + com_rt + com_gest + lbn
+    //   lbn = lucro_alvo / (1 - 0.34)
+    //
+    // Dado pFatReal_alvo, isolar lucro_alvo:
+    //   pTab_alvo = pFatReal_alvo / (1 - desconto)
+    //   fT_alvo = pTab_alvo / custo
+    //   fF_alvo = fT_alvo × (1 - markup_desc)
+    //   td_alvo = 1 - 1/fF_alvo
+    //   lbn_alvo = td_alvo - (impostos + com_rep + com_rt + com_gest)
+    //   lucro_alvo_novo = lbn_alvo × (1 - 0.34)
+    container.querySelector('#orc-btn-aplicar-valor-manual')?.addEventListener('click', () => {
+      const versao = versaoAtiva();
+      if (!versao) return;
+      if (versao.status === 'fechada') {
+        alert('Versao fechada — nao e possivel ajustar margem.');
+        return;
+      }
+      const inp = container.querySelector('#orc-input-valor-manual');
+      const fb = container.querySelector('#orc-valor-manual-feedback');
+      const valorAlvo = Number(inp?.value) || 0;
+      if (valorAlvo <= 0) {
+        if (fb) { fb.textContent = '⚠ Digite um valor valido (> 0)'; fb.style.color = '#dc2626'; }
+        return;
+      }
+      // Recalcula r FRESH (params podem ter mudado entre render e click)
+      const params = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
+      const dreAtual = calcularDRE(versao.subFab, versao.subInst, params);
+      const custoBase = dreAtual.custo;
+      if (custoBase <= 0) {
+        if (fb) { fb.textContent = '⚠ Custo zero - preencha Fab/Inst antes'; fb.style.color = '#dc2626'; }
+        return;
+      }
+
+      const desconto = (Number(params.desconto) || 0) / 100;
+      const markup_desc = (Number(params.markup_desc) || 0) / 100;
+      const impostos = (Number(params.impostos) || 0) / 100;
+      const com_rep  = (Number(params.com_rep)  || 0) / 100;
+      const com_rt   = (Number(params.com_rt)   || 0) / 100;
+      const com_gest = (Number(params.com_gest) || 0) / 100;
+
+      // Inverte formula
+      const pTab_alvo = valorAlvo / Math.max(0.01, 1 - desconto);
+      const fT_alvo = pTab_alvo / custoBase;
+      const fF_alvo = fT_alvo * (1 - markup_desc);
+      if (fF_alvo <= 1) {
+        if (fb) { fb.textContent = '⚠ Valor abaixo do custo + impostos. Aumente o valor desejado.'; fb.style.color = '#dc2626'; }
+        return;
+      }
+      const td_alvo = 1 - 1 / fF_alvo;
+      const lbn_alvo = td_alvo - (impostos + com_rep + com_rt + com_gest);
+      if (lbn_alvo <= 0) {
+        if (fb) { fb.textContent = '⚠ Impostos + comissoes ja consomem todo o valor. Aumente o valor desejado.'; fb.style.color = '#dc2626'; }
+        return;
+      }
+      const lucro_alvo_novo = lbn_alvo * (1 - IRPJ) * 100; // em %
+      if (lucro_alvo_novo > 80) {
+        if (fb) { fb.textContent = `⚠ Margem necessaria muito alta (${lucro_alvo_novo.toFixed(1)}%). Considere reduzir desconto.`; fb.style.color = '#dc2626'; }
+        return;
+      }
+
+      // Atualiza parametros
+      const paramsNovos = Object.assign({}, params, {
+        lucro_alvo: Number(lucro_alvo_novo.toFixed(2)),
+      });
+      atualizarVersao(versao.id, { parametros: paramsNovos });
+
+      const lucroAntigo = (Number(params.lucro_alvo) || 0).toFixed(2);
+      const lucroNovo = lucro_alvo_novo.toFixed(2);
+      if (fb) {
+        fb.innerHTML = `✓ Margem ajustada de <b>${lucroAntigo}%</b> para <b>${lucroNovo}%</b>. Cliente Paga = <b>R$ ${fmtBR(valorAlvo)}</b>.`;
+        fb.style.color = '#15803d';
+      }
+      // Re-renderiza DRE pra refletir
+      setTimeout(() => renderCustoTab(container), 100);
+    });
+
+    // Resetar margem pra default (15%)
+    container.querySelector('#orc-btn-resetar-margem')?.addEventListener('click', () => {
+      const versao = versaoAtiva();
+      if (!versao) return;
+      if (versao.status === 'fechada') return;
+      const params = Object.assign({}, versao.parametros || {});
+      params.lucro_alvo = 15;
+      atualizarVersao(versao.id, { parametros: params });
+      setTimeout(() => renderCustoTab(container), 100);
+    });
+
     // Felipe (sessao 2026-11): Gerar Documentos direto do DRE quando aprovado.
     // Tambem disponivel no card do CRM. Delega pro modulo OrcDocs.
     container.querySelector('#orc-btn-gerar-documentos')?.addEventListener('click', () => {
