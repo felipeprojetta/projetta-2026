@@ -335,15 +335,17 @@
   window.outlookListInbox = async function(opts){
     opts = opts || {};
     var top = opts.top || 50;
+    // Felipe sessao 12: 'Responder com CC controlado' precisa dos
+    // ccRecipients de cada email - antes nao vinham no select.
     var path = "/me/mailFolders/inbox/messages?$top=" + top
-      + "&$select=id,subject,from,toRecipients,receivedDateTime,bodyPreview,hasAttachments,isRead,conversationId,categories"
+      + "&$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments,isRead,conversationId,categories"
       + "&$orderby=receivedDateTime desc";
 
     if(opts.search){
       // Graph API search (busca em todos campos)
       path = "/me/messages?$search=" + encodeURIComponent('"' + opts.search + '"')
         + "&$top=" + top
-        + "&$select=id,subject,from,toRecipients,receivedDateTime,bodyPreview,hasAttachments,isRead,conversationId,categories";
+        + "&$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments,isRead,conversationId,categories";
     }
 
     if(opts.skip) path += '&$skip=' + opts.skip;
@@ -433,6 +435,77 @@
       method: 'POST',
       body: JSON.stringify(payload)
     });
+  };
+
+  /* Felipe sessao 12: 'Responder com CC controlado' - novo fluxo onde
+     usuario edita TO e CC manualmente. Necessario porque /replyAll do
+     Graph usa CC automatico do email original; aqui Felipe quer agregar
+     CC de TODA a thread (desde primeiro email) e ainda permitir remover.
+     
+     Estrategia: createReplyAll cria um draft com thread preservado
+     (mantem In-Reply-To, conversationId, subject 'Re: ...'). Em seguida
+     PATCH no draft pra sobrescrever toRecipients/ccRecipients e body.
+     Por fim /send dispara.
+     
+     msgId: id da mensagem original no thread
+     body: HTML do reply (substitui o body do draft)
+     toEmails: array de strings (emails) - TO final
+     ccEmails: array de strings (emails) - CC final
+     attachments: [{name, contentBytes, contentType}] */
+  window.outlookReplyAllCustom = async function(msgId, body, toEmails, ccEmails, attachments){
+    // Passo 1: cria draft via createReplyAll
+    var draft = await _graphCall(
+      '/me/messages/' + encodeURIComponent(msgId) + '/createReplyAll',
+      { method: 'POST', body: '{}' }
+    );
+    if(!draft || !draft.id) {
+      throw new Error('createReplyAll nao retornou draft.id');
+    }
+    var draftId = draft.id;
+
+    // Passo 2: PATCH pra atualizar destinatarios e body
+    var patchPayload = {
+      toRecipients: (toEmails || []).map(function(e){
+        return { emailAddress: { address: e } };
+      }),
+      ccRecipients: (ccEmails || []).map(function(e){
+        return { emailAddress: { address: e } };
+      }),
+      body: {
+        contentType: 'HTML',
+        content: body
+      }
+    };
+    await _graphCall(
+      '/me/messages/' + encodeURIComponent(draftId),
+      { method: 'PATCH', body: JSON.stringify(patchPayload) }
+    );
+
+    // Passo 3: anexos (se tiver) - cada um e' um POST separado
+    if(attachments && attachments.length){
+      for(var i = 0; i < attachments.length; i++){
+        var a = attachments[i];
+        await _graphCall(
+          '/me/messages/' + encodeURIComponent(draftId) + '/attachments',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              '@odata.type': '#microsoft.graph.fileAttachment',
+              name: a.name,
+              contentType: a.contentType || 'application/octet-stream',
+              contentBytes: a.contentBytes
+            })
+          }
+        );
+      }
+    }
+
+    // Passo 4: send
+    await _graphCall(
+      '/me/messages/' + encodeURIComponent(draftId) + '/send',
+      { method: 'POST', body: '' }
+    );
+    return { ok: true, draftId: draftId };
   };
 
   // ═══ UI: ABA EMAIL ═══

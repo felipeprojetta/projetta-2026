@@ -89,6 +89,36 @@
       + '  font-size: 12px; color: #374151;'
       + '}'
       + '.ec-anexar-btn:hover { border-color: #0078d4; color: #0078d4; }'
+      // Felipe sessao 12: chips editaveis de TO/CC pra Reply-All custom
+      + '.ec-rcp-row {'
+      + '  margin-bottom: 10px; padding: 8px 10px;'
+      + '  background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;'
+      + '}'
+      + '.ec-rcp-label {'
+      + '  font-size: 11px; font-weight: 700; color: #374151;'
+      + '  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;'
+      + '}'
+      + '.ec-rcp-chips {'
+      + '  display: flex; flex-wrap: wrap; gap: 5px; align-items: center;'
+      + '}'
+      + '.ec-rcp-chip {'
+      + '  display: inline-flex; align-items: center; gap: 5px;'
+      + '  padding: 3px 8px; background: #dbeafe; color: #1e40af;'
+      + '  border-radius: 12px; font-size: 11px; font-weight: 500;'
+      + '  border: 1px solid #93c5fd;'
+      + '}'
+      + '.ec-rcp-chip-cc { background: #fef3c7; color: #92400e; border-color: #fcd34d; }'
+      + '.ec-rcp-chip-rm {'
+      + '  background: none; border: none; color: inherit; cursor: pointer;'
+      + '  font-size: 13px; line-height: 1; padding: 0; opacity: 0.6;'
+      + '}'
+      + '.ec-rcp-chip-rm:hover { opacity: 1; }'
+      + '.ec-rcp-add {'
+      + '  border: 1px dashed #9ca3af; background: transparent; padding: 2px 8px;'
+      + '  border-radius: 12px; font-size: 11px; color: #6b7280; cursor: pointer;'
+      + '}'
+      + '.ec-rcp-add:hover { border-color: #0078d4; color: #0078d4; }'
+      + '.ec-rcp-empty { font-size: 11px; color: #9ca3af; font-style: italic; }'
       + '.ec-footer {'
       + '  padding: 14px 20px; border-top: 1px solid #e5e7eb;'
       + '  display: flex; justify-content: flex-end; gap: 10px;'
@@ -153,15 +183,41 @@
       var attachments = (opts.attachments || []).slice();  // copia
       var onSent      = opts.onSent   || function() {};
       var onCancel    = opts.onCancel || function() {};
+      // Felipe sessao 12: 'sempre vamos responder em cima do ultimo correto
+      // mas com todos em copia desde primeiro email, e lista quais sao os
+      // emails que estarao em copia para eu tbm se quiser deletar algum
+      // que nao queira'. Modo reply-all custom recebe toEmails + ccEmails
+      // pre-calculados (emails unicos de toda a thread). UI mostra como
+      // chips removiveis.
+      var toEmails = Array.isArray(opts.toEmails) ? opts.toEmails.slice() : null;
+      var ccEmails = Array.isArray(opts.ccEmails) ? opts.ccEmails.slice() : null;
+      var modoReplyCustom = !!msgId && (toEmails !== null || ccEmails !== null);
 
-      // Felipe sessao 2026-08: 2 modos
-      //   reply-all: tem msgId, sem 'to' (responde thread existente via outlookReplyAll)
-      //   novo:      tem 'to', sem msgId (cria email novo via outlookSendMail)
+      // 3 modos:
+      //   reply-custom: tem msgId + toEmails/ccEmails (chips editaveis)
+      //   reply-all:    tem msgId, sem toEmails (modo legado, sem CC custom)
+      //   novo:         tem 'to', sem msgId (cria email novo)
       var modoNovo = !msgId && !!to;
       var headerTitulo = modoNovo ? '📧 Novo Email' : '📧 Responder Email';
       var paraLinha = modoNovo
         ? '<div class="ec-subject"><b>Para:</b> ' + escapeHtml(to) + '</div>'
         : '';
+
+      // Linhas de chips TO/CC quando modoReplyCustom
+      var chipsTO = '';
+      var chipsCC = '';
+      if (modoReplyCustom) {
+        chipsTO = ''
+          + '<div class="ec-rcp-row">'
+          + '  <div class="ec-rcp-label">Para:</div>'
+          + '  <div class="ec-rcp-chips" id="ec-to-chips"></div>'
+          + '</div>';
+        chipsCC = ''
+          + '<div class="ec-rcp-row">'
+          + '  <div class="ec-rcp-label">Em copia (CC):</div>'
+          + '  <div class="ec-rcp-chips" id="ec-cc-chips"></div>'
+          + '</div>';
+      }
 
       // ---- Constroi modal ----
       var overlay = document.createElement('div');
@@ -174,6 +230,8 @@
         +   '</div>'
         +   '<div class="ec-body">'
         +     paraLinha
+        +     chipsTO
+        +     chipsCC
         +     '<div class="ec-subject"><b>Assunto:</b> ' + escapeHtml(subject) + '</div>'
         +     '<div class="ec-editor" contenteditable="true"></div>'
         +     '<div class="ec-anexos">'
@@ -198,6 +256,51 @@
       var btnEnviar   = overlay.querySelector('.ec-btn-send');
       var btnFechar   = overlay.querySelector('.ec-close');
       var divErro     = overlay.querySelector('.ec-erro');
+
+      // ---- Renderiza chips TO/CC com botao 'X' pra remover ----
+      function renderizarChips() {
+        if (!modoReplyCustom) return;
+        var elTo = overlay.querySelector('#ec-to-chips');
+        var elCc = overlay.querySelector('#ec-cc-chips');
+        if (elTo) {
+          if (!toEmails || !toEmails.length) {
+            elTo.innerHTML = '<span class="ec-rcp-empty">(nenhum destinatario)</span>';
+          } else {
+            elTo.innerHTML = toEmails.map(function(e, idx) {
+              return '<span class="ec-rcp-chip">'
+                + escapeHtml(e)
+                + '<button class="ec-rcp-chip-rm" type="button" data-rm-to="' + idx + '" title="Remover">×</button>'
+                + '</span>';
+            }).join('');
+            // Bind remove
+            elTo.querySelectorAll('[data-rm-to]').forEach(function(b) {
+              b.addEventListener('click', function() {
+                toEmails.splice(Number(b.dataset.rmTo), 1);
+                renderizarChips();
+              });
+            });
+          }
+        }
+        if (elCc) {
+          if (!ccEmails || !ccEmails.length) {
+            elCc.innerHTML = '<span class="ec-rcp-empty">(nenhum em copia)</span>';
+          } else {
+            elCc.innerHTML = ccEmails.map(function(e, idx) {
+              return '<span class="ec-rcp-chip ec-rcp-chip-cc">'
+                + escapeHtml(e)
+                + '<button class="ec-rcp-chip-rm" type="button" data-rm-cc="' + idx + '" title="Remover">×</button>'
+                + '</span>';
+            }).join('');
+            elCc.querySelectorAll('[data-rm-cc]').forEach(function(b) {
+              b.addEventListener('click', function() {
+                ccEmails.splice(Number(b.dataset.rmCc), 1);
+                renderizarChips();
+              });
+            });
+          }
+        }
+      }
+      renderizarChips();
 
       // Define HTML inicial do editor (preserva formatacao)
       editor.innerHTML = bodyHtml;
@@ -270,10 +373,19 @@
 
       // ---- Enviar ----
       btnEnviar.addEventListener('click', async function() {
-        // Felipe sessao 2026-08: bifurca em modo novo vs reply-all
+        // Felipe sessao 2026-08 + sessao 12: 3 modos
         if (modoNovo) {
           if (!window.outlookSendMail || typeof window.outlookSendMail !== 'function') {
             mostrarErro('Modulo Outlook nao carregado. Recarregue a pagina.');
+            return;
+          }
+        } else if (modoReplyCustom) {
+          if (!window.outlookReplyAllCustom || typeof window.outlookReplyAllCustom !== 'function') {
+            mostrarErro('Modulo Outlook nao carregado. Recarregue a pagina.');
+            return;
+          }
+          if (!toEmails || !toEmails.length) {
+            mostrarErro('Adicione ao menos 1 destinatario em Para.');
             return;
           }
         } else {
@@ -313,6 +425,15 @@
               bodyType: 'HTML',
               attachments: attsParaEnvio,
             });
+          } else if (modoReplyCustom) {
+            // Felipe sessao 12: reply pro ultimo email mas com TO/CC
+            // editados pelo usuario (chips removiveis)
+            await window.outlookReplyAllCustom(
+              msgId, bodyAtual,
+              toEmails || [],
+              ccEmails || [],
+              attsParaEnvio
+            );
           } else {
             await window.outlookReplyAll(msgId, bodyAtual, attsParaEnvio);
           }

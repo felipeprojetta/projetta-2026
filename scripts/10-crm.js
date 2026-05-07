@@ -2799,19 +2799,94 @@
                   });
                 }
 
-                // Email da Reserva -> OutlookComposer modo REPLY-ALL
+                // Email da Reserva -> OutlookComposer modo REPLY-ALL CUSTOM
+                // Felipe sessao 12: 'sempre vamos responder em cima do
+                // ultimo correto mas com todos em copia desde primeiro
+                // email, e lista quais sao os emails que estarao em copia
+                // para eu tbm se quiser deletar algum que nao queira'.
+                //
+                // Antes: usava window.outlookReplyAll que so' inclui
+                // CC do ULTIMO email. Felipe quer CC de TODA a thread.
+                //
+                // Agora: coleta emails unicos de from/to/cc de TODOS os
+                // emails da thread (ja' temos em 'emails'), separa
+                // TO=remetente do ultimo, CC=todos os outros (excluindo
+                // o proprio user). Usuario pode remover chips.
                 if (remetenteReserva) {
-                  modalE.querySelector('#email-reserva').addEventListener('click', () => {
+                  modalE.querySelector('#email-reserva').addEventListener('click', async () => {
                     modalE.remove();
                     if (!window.OutlookComposer?.open) {
                       alert('Composer de email nao carregado. Recarregue a pagina.');
                       return;
                     }
+
+                    // Coleta emails unicos de from + to + cc de TODOS
+                    // os emails da thread. Normaliza pra lowercase pra
+                    // dedup. Cada email pode ter ccRecipients (vem de
+                    // outlookListInbox com select expandido).
+                    const conjuntoEmails = new Set();
+                    const emailsRecuperados = []; // ordem de aparicao
+                    function adicionarEmail(addr) {
+                      if (!addr) return;
+                      const norm = String(addr).trim().toLowerCase();
+                      if (!norm) return;
+                      if (conjuntoEmails.has(norm)) return;
+                      conjuntoEmails.add(norm);
+                      emailsRecuperados.push(addr.trim());
+                    }
+                    function extrairEnderecos(arr) {
+                      if (!Array.isArray(arr)) return;
+                      arr.forEach(function(r) {
+                        const a = r && r.emailAddress && r.emailAddress.address;
+                        if (a) adicionarEmail(a);
+                      });
+                    }
+                    emails.forEach(function(em) {
+                      // From de cada email
+                      const fAddr = em.from && em.from.emailAddress && em.from.emailAddress.address;
+                      if (fAddr) adicionarEmail(fAddr);
+                      // To/CC de cada email
+                      extrairEnderecos(em.toRecipients);
+                      extrairEnderecos(em.ccRecipients);
+                    });
+
+                    // Remove o proprio usuario (Felipe) - nao tem sentido
+                    // mandar pra ele mesmo
+                    let meuEmail = '';
+                    try {
+                      const user = JSON.parse(localStorage.getItem('projetta_outlook_user') || 'null');
+                      meuEmail = (user && (user.mail || user.userPrincipalName) || '').toLowerCase();
+                    } catch(_){}
+
+                    // TO = remetente do ultimo email (mais recente),
+                    // ja' que emails[0] e' o mais recente apos sort DESC
+                    const toFromUltimo = (emailOrigem.from
+                      && emailOrigem.from.emailAddress
+                      && emailOrigem.from.emailAddress.address) || '';
+                    const toFinal = [];
+                    if (toFromUltimo && toFromUltimo.toLowerCase() !== meuEmail) {
+                      toFinal.push(toFromUltimo);
+                    }
+
+                    // CC = todos os outros emails coletados, MENOS:
+                    // - o destinatario TO ja' adicionado
+                    // - o proprio usuario
+                    const ccFinal = [];
+                    const toLower = toFinal.map(e => e.toLowerCase());
+                    emailsRecuperados.forEach(function(e) {
+                      const elower = e.toLowerCase();
+                      if (toLower.includes(elower)) return;
+                      if (elower === meuEmail) return;
+                      ccFinal.push(e);
+                    });
+
                     window.OutlookComposer.open({
-                      msgId: emailOrigem.id,             // modo reply-all
+                      msgId: emailOrigem.id,             // mantém thread no Outlook
                       subject: subjectRep,
                       bodyHtml: bodyRep,
                       attachments: [],
+                      toEmails: toFinal,                 // Felipe sessao 12
+                      ccEmails: ccFinal,                 // Felipe sessao 12
                       onSent: function() {
                         btnEmail.textContent = '✅ Enviado!';
                         btnEmail.style.background = '#2e7d32';
