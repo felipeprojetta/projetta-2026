@@ -590,7 +590,12 @@ const AcessoriosPortaExterna = (() => {
         const r = REGRAS[idRegra] || REGRAS_DEFAULT[idRegra];
         if (!r) return;
         const perimM    = ((larMm + altMm) * 2 * qtdPecas) / 1000;
-        const cordoes   = Math.round(altMm / 800);
+        // Felipe sessao 12: 'no revestimento parede faca cordoes =
+        // round(H / 1000) arredonda pra baixo'. Antes usava round(H/800)
+        // (arredondamento normal). Agora floor(H/1000) - cordoes a cada
+        // 1000mm de altura, nao arredonda pra cima. Ex: H=3700 -> 3 cordoes
+        // (era 5 com round(H/800)). Reduz consumo de silicone.
+        const cordoes   = Math.floor(altMm / 1000);
         const internosM = (larMm * cordoes * qtdPecas) / 1000;
         const cFD19 = (Number(r.fd19) || 0) * perimM;
         const cFD12 = (Number(r.fd12) || 0) * perimM;
@@ -643,6 +648,11 @@ const AcessoriosPortaExterna = (() => {
       // Felipe sessao 2026-08: 'fita dupla face 19 l x 2 + h x 2 medida de
       // cada tampa + silicone L×2 + H×2 + L×(H/800)'.
       // Cada peca do revestimento e' considerada uma "tampa".
+      // Felipe sessao 12: 'nao multiplica qtdPortas, isso e um revestido
+      // parede nao tem nada haver com portas'. ChapasRevParede.gerarPecasRevParede
+      // ja' multiplica p.qtd por item.quantidade internamente (ver
+      // 40-chapas-rev-parede.js linha 91), entao usar qtd direto. Nao
+      // duplica - rev_parede nao tem conceito de 'qtdPortas'.
       if (item.tipo === 'revestimento_parede') {
         try {
           const pecasRev = (window.ChapasRevParede?.gerarPecasRevParede?.(item)) || [];
@@ -651,7 +661,7 @@ const AcessoriosPortaExterna = (() => {
             const alt = Number(p.altura)  || 0;
             const qtd = Number(p.qtd)     || 0;
             if (!lar || !alt || !qtd) return;
-            aplicarRegraRevParede('revestimento_tampa', lar, alt, qtd * qtdPortas,
+            aplicarRegraRevParede('revestimento_tampa', lar, alt, qtd,
               `Revestimento: tampa ${lar}×${alt}mm × ${qtd}un`);
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas revestimento:', e); }

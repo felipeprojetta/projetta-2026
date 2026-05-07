@@ -208,9 +208,10 @@ const Regras = (() => {
 
     // Felipe sessao 2026-08: REVESTIMENTO DE PAREDE
     // Pra cada peca do revestimento: fita usa perimetro, silicone usa
-    // perimetro + cordoes internos a cada 800mm (L × ROUND(H/800)).
+    // perimetro + cordoes internos. Felipe sessao 12: cordoes = floor(H/1000)
+    // (a cada 1000mm de altura, arredonda pra baixo). Antes era round(H/800).
     'revestimento_tampa':  { label: 'Revestimento de Parede · Tampa',      fd19: 1, fd12: 0, ms: 1, cps: 0,  tamanho: 'rev_parede',
-      tamanhoDescricao: 'fita = perímetro (L×2 + H×2) · silicone = perímetro + L × round(H÷800) cordões internos' },
+      tamanhoDescricao: 'fita = perímetro (L×2 + H×2) · silicone = perímetro + L × floor(H÷1000) cordões internos' },
 
     // Felipe sessao 2026-08 (Excel atualizado): FIXO ACOPLADO A PORTA
     // Tampa: tudo perimetro.
@@ -1133,7 +1134,7 @@ const Regras = (() => {
       if (r && r.tamanhoDescricao) return r.tamanhoDescricao;
       const t = r && r.tamanho;
       return t === 'perimetro'        ? 'perímetro (L×2 + H×2)'
-           : t === 'rev_parede'       ? 'fita: L×2+H×2 / silicone: + L×round(H/800)'
+           : t === 'rev_parede'       ? 'fita: L×2+H×2 / silicone: + L×floor(H/1000)'
            : t === 'fixo_fita_dupla'  ? 'fita: comprimento / silicone: L×2+H×2'
            : 'comprimento';
     }
