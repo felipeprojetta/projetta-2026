@@ -5928,8 +5928,16 @@ const Orcamento = (() => {
           </div>
           <div class="orc-field orc-f-pct">
             <label>Lucro Alvo</label>
-            <input type="text" data-field="lucro_alvo" data-param="1" value="${escapeHtml(fmtBROrEmpty(params.lucro_alvo))}" />
-            <span class="orc-field-hint">liquido pos IRPJ+CSLL</span>
+            <!-- Felipe sessao 12: 'liberar para margem casas decimais
+                 livres tbm'. Lucro Alvo agora mostra ate 4 casas decimais
+                 (15,4271 etc) - precisao necessaria pra Ajustar Margem
+                 acertar exato o Valor Final Desejado. fmtBROrEmpty padrao
+                 cortaria em 2 casas. -->
+            <input type="text" data-field="lucro_alvo" data-param="1" data-precisao="4"
+                   value="${escapeHtml(((params.lucro_alvo === '' || params.lucro_alvo == null || Number(params.lucro_alvo) === 0)
+                     ? ''
+                     : Number(params.lucro_alvo).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })))}" />
+            <span class="orc-field-hint">liquido pos IRPJ+CSLL · ate 4 decimais</span>
           </div>
           <div class="orc-field orc-f-pct">
             <label>Markup Desc</label>
@@ -6049,11 +6057,15 @@ const Orcamento = (() => {
               <label style="display:block;font-size:11px;color:#92400e;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">
                 Valor Final Desejado (Cliente Paga)
               </label>
-              <input type="number" id="orc-input-valor-manual"
-                     placeholder="Ex: 120000"
-                     min="0" step="100"
+              <!-- Felipe sessao 12: 'quando for colocar o numero ali deixei
+                   normal 0 0,0 00,0 000,0 nao tem segredo igual esta ali'.
+                   Trocado type=number pra type=text - aceita formato BR
+                   livre (1234, 1.234, 1234,56, 1.234,56). parseBR no
+                   handler converte. -->
+              <input type="text" id="orc-input-valor-manual"
+                     placeholder="Ex: 120.000,00"
                      style="width:100%;padding:10px 14px;font-size:18px;font-weight:700;color:#7c2d12;border:2px solid #fbbf24;border-radius:6px;background:#fff;font-variant-numeric:tabular-nums;"
-                     value="${Math.round(r.pFatReal) || ''}" />
+                     value="${(r.pFatReal && r.pFatReal > 0) ? fmtBR(r.pFatReal) : ''}" />
             </div>
             <button type="button" id="orc-btn-aplicar-valor-manual"
                     style="padding:10px 20px;background:#92400e;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;height:44px;white-space:nowrap;">
@@ -6348,7 +6360,11 @@ const Orcamento = (() => {
       }
       const inp = container.querySelector('#orc-input-valor-manual');
       const fb = container.querySelector('#orc-valor-manual-feedback');
-      const valorAlvo = Number(inp?.value) || 0;
+      // Felipe sessao 12: 'pode ser por causa do numero de casas decimais'.
+      // parseBR aceita '120000', '120.000', '120000,50', '120.000,50' (BR).
+      // MAS parseBR arredonda em 2 casas - aqui o user digita o ALVO em
+      // R\$, 2 casas e' suficiente.
+      const valorAlvo = parseBR(inp?.value || '');
       if (valorAlvo <= 0) {
         if (fb) { fb.textContent = '⚠ Digite um valor valido (> 0)'; fb.style.color = '#dc2626'; }
         return;
@@ -6389,14 +6405,18 @@ const Orcamento = (() => {
         return;
       }
 
-      // Atualiza parametros
+      // Felipe sessao 12: 'pode ser por causa do numero de casa decimais,
+      // liberar para margem casas decimais livres tbm'. Antes salvava com
+      // toFixed(2) - perdia precisao e o pFatReal final ficava ~R\$ 5
+      // abaixo do alvo. Agora salva o Number JS direto (preserva ~15
+      // digitos significativos) - resultado bate exato com o alvo.
       const paramsNovos = Object.assign({}, params, {
-        lucro_alvo: Number(lucro_alvo_novo.toFixed(2)),
+        lucro_alvo: lucro_alvo_novo,  // SEM toFixed - precisao maxima
       });
       atualizarVersao(versao.id, { parametros: paramsNovos });
 
       const lucroAntigo = (Number(params.lucro_alvo) || 0).toFixed(2);
-      const lucroNovo = lucro_alvo_novo.toFixed(2);
+      const lucroNovo = lucro_alvo_novo.toFixed(4);  // mostra 4 casas no feedback
       if (fb) {
         fb.innerHTML = `✓ Margem ajustada de <b>${lucroAntigo}%</b> para <b>${lucroNovo}%</b>. Cliente Paga = <b>R$ ${fmtBR(valorAlvo)}</b>.`;
         fb.style.color = '#15803d';
@@ -6439,7 +6459,25 @@ const Orcamento = (() => {
         const versao = versaoAtiva();
         if (!versao || versao.status === 'fechada') return;
 
-        const v = parseBR(el.value);
+        // Felipe sessao 12: 'liberar para margem casas decimais livres
+        // tbm'. Inputs com data-precisao=4 usam parseBR de 4 casas
+        // decimais (padrao parseBR arredonda em 2 - perdia precisao do
+        // Lucro Alvo calculado pelo Ajustar Margem).
+        let v;
+        if (el.dataset.precisao === '4') {
+          // Parser inline mais preciso: aceita formato BR mas mantem 4+ decimais
+          const s = String(el.value || '').trim();
+          let clean;
+          if (s.includes(',')) {
+            clean = s.replace(/\./g, '').replace(',', '.');
+          } else {
+            clean = s;
+          }
+          const n = parseFloat(clean);
+          v = isNaN(n) ? 0 : Math.round(n * 10000) / 10000;  // 4 casas
+        } else {
+          v = parseBR(el.value);
+        }
         const field = el.dataset.field;
         const dadosUpdate = {};
         if (el.dataset.versaoField) {
