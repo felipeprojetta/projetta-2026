@@ -447,7 +447,9 @@ const Orcamento = (() => {
     const peso     = Number(i.peso_bruto_kg)    || 0;
     const pessoas  = Number(i.n_pessoas)        || 0;
     const diaria   = Number(i.diaria_pessoa)    || 0;
-    const carros   = Number(i.n_carros)         || 0;
+    // Felipe sessao 13: n_carros default automatico = 1 (nao 0). Se item
+    // legado/novo vier sem n_carros, assume 1 carro pra calculo.
+    const carros   = Number(i.n_carros) >= 1 ? Number(i.n_carros) : 1;
     const hotelDia = Number(i.diaria_hotel)     || 0;
     const alim     = Number(i.alimentacao_dia)  || 0;
 
@@ -5475,7 +5477,14 @@ const Orcamento = (() => {
             </div>
             <div class="orc-field orc-fi-w-num">
               <label>Qtd de carros</label>
-              <input type="text" data-field="n_carros" data-inst="1" value="${((inst.n_carros) === '' || (inst.n_carros) === null || (inst.n_carros) === undefined || Number(inst.n_carros) === 0) ? '' : escapeHtml(String(inst.n_carros))}" />
+              <!-- Felipe sessao 13: 'quantidade de carro deve 1 automatico'.
+                   Diferente do dias_instalacao (que mostra vazio quando 0
+                   pra Felipe preencher), o n_carros sempre tem que mostrar
+                   pelo menos 1. Fallback no display: se vazio/null/0, exibe 1. -->
+              <input type="text" data-field="n_carros" data-inst="1" value="${(() => {
+                const n = Number(inst.n_carros);
+                return Number.isFinite(n) && n >= 1 ? escapeHtml(String(inst.n_carros)) : '1';
+              })()}" />
             </div>
             <div class="orc-field orc-fi-w-money">
               <label>Valor diaria hotel (R$)</label>
