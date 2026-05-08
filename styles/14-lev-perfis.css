@@ -833,4 +833,11 @@
 .lvp-item-collapse-body {
   padding: 12px 14px;
   background: #fff;
+  /* Felipe sessao 13: 'nao consigo ver corte perfis pelo celular nao
+     vai pro lado'. Tabela .lvp-table tem width: max-content (9 colunas
+     compactas), no desktop cabe na largura, mas no celular transborda.
+     Adiciona scroll horizontal automatico — funciona em iOS/Android
+     com momentum scroll suave. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
