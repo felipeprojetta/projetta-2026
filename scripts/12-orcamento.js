@@ -11774,17 +11774,25 @@ const Orcamento = (() => {
         // Felipe sessao 12 fix: 'mudo de 4 para 2 e volta pra 4'.
         // CAUSA: aplicarSuperficiesOverrides aplica o override em CADA lado
         // (ext e int) ANTES de unificar. Se Felipe edita qtd=2, ext=2 e int=2.
-        // Aqui antes somava 2+2=4. Solucao: se a peca tem _editado=true (foi
-        // alterada manualmente pelo usuario), o valor JA representa a qtd
+        // Aqui antes somava 2+2=4. Solucao: se a peca tem _qtdOverride=true
+        // (qtd foi alterada manualmente), o valor JA representa a qtd
         // FINAL desejada por Felipe - nao soma de novo entre os lados.
-        if (existe._editado || p._editado) {
-          // Pelo menos um dos lados tem override. Mantem qtd existente
-          // (do primeiro lado processado, que ja teve override aplicado).
-          // _editado fica true pra UI mostrar visual azul.
+        //
+        // Felipe sessao 13 fix: distincao entre _editado (qualquer
+        // alteracao — pra UI mostrar borda azul) e _qtdOverride (so
+        // qtd alterada — pra nao somar). Bug que motivou: editar
+        // largura 1510→1490 fazia qtd cair de 2 pra 1 porque _editado=true
+        // bloqueava a soma. Agora so' o flag especifico de qtd bloqueia.
+        if (existe._qtdOverride || p._qtdOverride) {
+          // Qtd foi editada manualmente em pelo menos um dos lados.
+          // Mantem qtd do primeiro lado processado (ja' tem o override aplicado).
+          existe._qtdOverride = true;
           existe._editado = true;
         } else {
           // Comportamento original: soma qtd dos 2 lados.
+          // Inclui o caso de edicao SO de dimensao (largura/altura) sem qtd.
           existe.qtd = (existe.qtd || 1) + (p.qtd || 1);
+          if (existe._editado || p._editado) existe._editado = true;
         }
       } else {
         mapa.set(chave, Object.assign({}, p));
@@ -11861,6 +11869,7 @@ const Orcamento = (() => {
       if (k in ov) {
         const o = ov[k];
         const ret = Object.assign({}, p);
+        let qtdEditada = false;
         if (o.largura !== undefined && o.largura !== '' && o.largura !== null) {
           const n = Number(o.largura);
           if (!isNaN(n) && n > 0) ret.largura = n;
@@ -11871,9 +11880,18 @@ const Orcamento = (() => {
         }
         if (o.qtd !== undefined && o.qtd !== '' && o.qtd !== null) {
           const n = Number(o.qtd);
-          if (!isNaN(n) && n > 0) ret.qtd = n;
+          if (!isNaN(n) && n > 0) {
+            ret.qtd = n;
+            qtdEditada = true;
+          }
         }
-        ret._editado = true;  // pra UI marcar visualmente
+        ret._editado = true;  // pra UI marcar visualmente (qualquer edicao)
+        // Felipe sessao 13: flag especifica pra qtd. unificarPecas precisa
+        // distinguir 'qtd editada manualmente' (nao somar ext+int) de
+        // 'so dimensao editada' (continuar somando ext+int normalmente).
+        // Bug: editar largura 1510→1490 fazia qtd 2 virar 1 porque
+        // _editado=true bloqueava a soma.
+        if (qtdEditada) ret._qtdOverride = true;
         return ret;
       }
       return p;
