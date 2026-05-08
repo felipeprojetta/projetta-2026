@@ -296,16 +296,14 @@ var PerfisRevAcoplado = (function() {
     if (!ehFixoValido(item)) return [];
     // Felipe sessao 13: 'no fixo acoplado a porta, lateral, quando tem vidro,
     // eu nao te passei nada ainda de chapa de ECM, tem varias coisas la,
-    // elimine tudo.' Fixo Lateral c/ Vidro NAO tem chapas — so' perfis
-    // estruturais do quadro (ja' gerados em gerarCortes) e borrachas
-    // (acessorios em 28-acessorios-porta-externa.js). Retorna vazio aqui
-    // pra impedir que o reuso de ChapasPortaExterna.gerarPecasChapa traga
-    // Tampa Maior / Friso / Cava / Fitas pro levantamento.
+    // elimine tudo.' Fixo Lateral c/ Vidro NAO tem chapas vindo do reuso
+    // do motor da porta (Tampa Maior, Cava etc). Gera apenas as 2 pecas
+    // ACM proprias: Fita Acabamento do PF + Revestimento do Tubo.
     var ehLateralVidro = (
       String(item.posicao || '').toLowerCase() === 'lateral'
       && String(item.revestimento || '').toLowerCase() === 'vidro'
     );
-    if (ehLateralVidro) return [];
+    if (ehLateralVidro) return gerarPecasACMLatVidro(item, lado);
 
     var lados = item.lados === '2lados' ? 2 : 1;
     if (lados === 1 && lado === 'interno') return [];
@@ -346,6 +344,78 @@ var PerfisRevAcoplado = (function() {
       console.warn('[PerfisRevAcoplado] chapas falhou:', e);
       return [];
     }
+  }
+
+  // Felipe sessao 13: pecas ACM do FIXO LATERAL COM VIDRO.
+  //
+  // 2 pecas geradas (categoria 'fixo_lateral' — badge azul no levantamento):
+  //
+  // 1. FITA ACABAMENTO DO PF
+  //    Largura: 52 + REFILADO  (REF=20 do cadastro regras_variaveis_chapas)
+  //    Cortes:  2 verticais (H+100) + 2 horizontais (L+100)
+  //
+  // 2. REVESTIMENTO DO TUBO
+  //    Largura: formula do U Portal 1 Cor (TUBLPORTAL+4+TUBLPORTA+TUBLPORTAL+4+9)
+  //             PA006 (familia 76):  38+4+38 +38+4+9 = 131
+  //             PA007 (familia 101): 51+4+102+51+4+9 = 221
+  //    Cortes:  2 verticais (H+100) + 2 horizontais (L+100)
+  //
+  // Cor:
+  //   lado='externo' -> item.corExterna (cor ACM Externa preenchida no form)
+  //   lado='interno' -> item.corInterna (cor ACM Interna preenchida no form)
+  //   Se Felipe setar igual, agrupador une como cor unica.
+  //
+  // qtdItem multiplica naturalmente cada qty de corte (item.quantidade
+  // = numero de fixos, ex: 2 fixos -> dobra todas as pecas).
+  function gerarPecasACMLatVidro(item, lado) {
+    var L = Number(item.largura) || 0;
+    var H = Number(item.altura)  || 0;
+    if (L <= 0 || H <= 0) return [];
+
+    var qtdItem = Math.max(1, parseInt(item.quantidade, 10) || 1);
+
+    // REFILADO do cadastro (default 20mm)
+    var REF = 20;
+    try {
+      if (window.Storage && window.Storage.scope) {
+        var v = window.Storage.scope('cadastros').get('regras_variaveis_chapas');
+        if (v && Number(v.REF) > 0) REF = Number(v.REF);
+      }
+    } catch (_) {}
+
+    var largFita = 52 + REF;
+    var largRev  = (String(item.sistema).toUpperCase() === 'PA007') ? 221 : 131;
+
+    var corLado = (lado === 'externo')
+      ? String(item.corExterna || '').trim()
+      : String(item.corInterna || '').trim();
+
+    var pecas = [];
+    var ord = 100;
+
+    function add(label, larg, comp, qty) {
+      if (!larg || comp <= 0 || qty <= 0) return;
+      pecas.push({
+        id: 'flv_' + label.toLowerCase().replace(/\W+/g, '_') + '_' + Math.round(comp),
+        label: label,
+        largura: Math.round(larg * 100) / 100,
+        altura:  Math.round(comp),
+        qtd:     qty * qtdItem,
+        podeRotacionar: false,
+        cor:     corLado,
+        lado:    lado,
+        categoria: 'fixo_lateral',
+        materialEspecial: null,
+        _ordem: ord++,
+      });
+    }
+
+    add('Fita Acabamento do PF', largFita, H + 100, 2);
+    add('Fita Acabamento do PF', largFita, L + 100, 2);
+    add('Revestimento do Tubo',  largRev,  H + 100, 2);
+    add('Revestimento do Tubo',  largRev,  L + 100, 2);
+
+    return pecas;
   }
 
   function descricaoItem(item) {

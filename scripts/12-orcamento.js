@@ -12582,6 +12582,9 @@ const Orcamento = (() => {
       // Felipe sessao 13: peças marcadas como aluminio_macico ganham
       // badge propria com texto "Al. Maciço" (cor amarela).
       if (cat === 'aluminio_macico') return '<span class="orc-cat-badge" style="background:#fbbf24;color:#78350f;font-weight:700;">Al. Maciço</span>';
+      // Felipe sessao 13: badge novo 'Fixo Lateral' (azul) pras pecas
+      // ACM do Fixo Lateral c/ Vidro (Fita Acab do PF + Revestimento Tubo).
+      if (cat === 'fixo_lateral') return '<span class="orc-cat-badge" style="background:#dbeafe;color:#1e3a8a;font-weight:700;">Fixo Lateral</span>';
       return '<span class="orc-cat-badge">—</span>';
     }
 
