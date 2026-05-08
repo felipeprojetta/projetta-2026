@@ -457,7 +457,9 @@ const PerfisPortaExterna = (() => {
       if (!larguraQuadro1F) {
         // VARS_CHAPAS atuais (38-chapas-porta-externa.js linhas 32-36):
         const PORTAL_LD = 171.5, PORTAL_LE = 171.5;
-        const U_LARG_1F = 90, U_LARG_2F = 128, U_LARG_CENTRAL = 128;
+        // Felipe (sessao 13, planilha 01/04/2026): Mod23+AM usa
+        // U_LARG_2F=133 e U_LARG_CENTRAL=133 (em vez de 128).
+        const U_LARG_1F = 90, U_LARG_2F = 133, U_LARG_CENTRAL = 133;
         const FGLD_FGLE_loc = v.FGLD + v.FGLE;
         larguraQuadro1F = L - FGLD_FGLE_loc - PORTAL_LD - PORTAL_LE + U_LARG_1F + U_LARG_CENTRAL;
         larguraQuadro2F = L - 20            - PORTAL_LD - PORTAL_LE + U_LARG_2F + U_LARG_CENTRAL;
@@ -471,14 +473,19 @@ const PerfisPortaExterna = (() => {
       const qtdFrisos = Math.max(0, parseInt(item.quantidadeFrisos, 10) || 0);
       const C29 = parseFloat(String(item.distanciaBorda1aMoldura || 150).replace(',', '.')) || 150;
 
-      // J9 = TAMPA_MAIOR_CAVA largura ANTES de +2*REF
-      const J9 = larguraQuadro1F - dBC - tamCava - 1 - dBFV*qtdFrisos - eF*qtdFrisos;
+      // J9 = TAMPA_MAIOR_CAVA largura ANTES de +2*REF (AM nao soma +2*REF)
+      // Felipe (sessao 13, planilha 01/04/2026): AM tira o -1 da formula.
+      const J9 = larguraQuadro1F - dBC - tamCava - dBFV*qtdFrisos - eF*qtdFrisos;
       // Q9, Q10, Q11 = TAMPA_MAIOR 01/02/03 largura ANTES de +2*REF
+      // Felipe (sessao 13): formulas NOVAS do AM:
+      //   Q9 (TM01) = tm_base_2f + 15.5
+      //   Q10 (TM02) = tm_base_2f - 27.5
+      //   Q11 (TM03) = tm_base_2f - 27.5 - 43
+      // (tm_base_2f sem -1 — usa larguraQuadro2F direto)
       const tm_base_2f       = (larguraQuadro2F - dBC*2 - tamCava*2) / 2;
-      const tm_base_2f_menos1= (larguraQuadro2F - 1 - dBC*2 - tamCava*2) / 2;
-      const Q9  = tm_base_2f       + 10.5 - 1 - dBFV*qtdFrisos - eF*qtdFrisos;
-      const Q10 = tm_base_2f_menos1     - 28      - dBFV*qtdFrisos - eF*qtdFrisos;
-      const Q11 = tm_base_2f_menos1     - 28 - 38 - dBFV*qtdFrisos - eF*qtdFrisos;
+      const Q9  = tm_base_2f + 15.5      - dBFV*qtdFrisos - eF*qtdFrisos;
+      const Q10 = tm_base_2f - 27.5      - dBFV*qtdFrisos - eF*qtdFrisos;
+      const Q11 = tm_base_2f - 27.5 - 43 - dBFV*qtdFrisos - eF*qtdFrisos;
 
       // IF qtdFrisos>0 -> J9 ; senao -> J9-C29*2
       const horiz1F = (qtdFrisos > 0) ? J9 : (J9 - 2*C29);

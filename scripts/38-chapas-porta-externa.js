@@ -78,9 +78,23 @@ const ChapasPortaExterna = (() => {
     const v = getVarsFam()[familia];
     const vc = getVarsChapas();
 
+    // Felipe (sessao 13, planilha PRECIFICAÇÃO_01_04_2026 atualizada):
+    // Modelo 23 + Aluminio Macico tem U_LARG_2F e U_LARG_CENTRAL = 133
+    // (em vez de 128 padrao do ACM e demais modelos). Fonte: planilha
+    // E2 (lQuadro2F) e E3 (lQuadro1F) das abas "MODELO 23 - ACM" vs
+    // "MODELO 23 - ALUMINIO MACICO" — a unica diferenca de E2/E3 entre
+    // as duas abas e' o +128/+128 (ACM) virar +133/+133 (AM).
+    // Efeito: lQuadro1F_AM = lQuadro1F_ACM + 5; lQuadro2F_AM = lQuadro2F_ACM + 10.
+    const mNum = Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) || 0;
+    const rev = String(item.revestimento || '').toLowerCase();
+    const ehMod23AM = (mNum === 23) && /aluminio.*macico/.test(rev) && /2\s*mm/.test(rev);
+    const U_LARG_1F      = vc.U_LARG_1F;
+    const U_LARG_2F      = ehMod23AM ? 133 : vc.U_LARG_2F;
+    const U_LARG_CENTRAL = ehMod23AM ? 133 : vc.U_LARG_CENTRAL;
+
     const alturaQuadro    = H - v.FGA - v.TUBLPORTAL - v.ESPPIV + v.TRANSPIV;
-    const larguraQuadro1F = L - (v.FGLD + v.FGLE) - vc.PORTAL_LD - vc.PORTAL_LE + vc.U_LARG_1F + vc.U_LARG_CENTRAL;
-    const larguraQuadro2F = L - vc.REF              - vc.PORTAL_LD - vc.PORTAL_LE + vc.U_LARG_2F + vc.U_LARG_CENTRAL;
+    const larguraQuadro1F = L - (v.FGLD + v.FGLE) - vc.PORTAL_LD - vc.PORTAL_LE + U_LARG_1F + U_LARG_CENTRAL;
+    const larguraQuadro2F = L - vc.REF              - vc.PORTAL_LD - vc.PORTAL_LE + U_LARG_2F + U_LARG_CENTRAL;
     const larguraQuadro   = (nFolhas === 2) ? larguraQuadro2F : larguraQuadro1F;
 
     return {
@@ -1142,9 +1156,11 @@ const ChapasPortaExterna = (() => {
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
         { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
           // Planilha mod 23 ACM: (E3-C7-C8-1-C20*C22-C21*C22)+C15+C15
-          // Planilha mod 23 AM:  (E3-C7-C8-1-C20*C22-C21*C22)         (sem +2*REF)
-          // _refExtra(ctx) = 2*REF normalmente, 0 quando AM
-          largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + F._refExtra(ctx),
+          // Planilha mod 23 AM:  (E3-C7-C8-C20*C22-C21*C22)         (sem -1, sem +2*REF)
+          // Felipe (sessao 13, planilha 01/04/2026): AM tira o -1 da formula.
+          largura: ctx => F._ehMod23AM(ctx)
+            ? (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos)
+            : (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + 2*ctx.REF,
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
@@ -1170,20 +1186,29 @@ const ChapasPortaExterna = (() => {
           ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
           // Planilha mod 23 ACM: (E2-C7*2-C8*2)/2+10.5+C15+C15-1-C20*C22-C21*C22
-          // Planilha mod 23 AM:  (E2-C7*2-C8*2)/2+10.5-1-C20*C22-C21*C22 (sem +2*REF)
-          largura: ctx => F.tm_base_2f(ctx) + 10.5 + F._refExtra(ctx) - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          // Planilha mod 23 AM:  (E2-C7*2-C8*2)/2+15.5-C20*C22-C21*C22
+          // Felipe (sessao 13, planilha 01/04/2026): AM usa +15.5 em vez de +10.5+2*REF-1.
+          largura: ctx => F._ehMod23AM(ctx)
+            ? F.tm_base_2f(ctx) + 15.5 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos
+            : F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 0, categoria: 'porta' },
         { id: 'tampa_maior_02', label: 'Tampa Maior 02',
           // Planilha mod 23 ACM: (E2-1-C7*2-C8*2)/2+C15+C15-28-C20*C22-C21*C22
-          // Planilha mod 23 AM:  (E2-1-C7*2-C8*2)/2-28-C20*C22-C21*C22 (sem +2*REF)
-          largura: ctx => F.tm_base_2f_menos1(ctx) + F._refExtra(ctx) - 28 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          // Planilha mod 23 AM:  (E2-C7*2-C8*2)/2-27.5-C20*C22-C21*C22
+          // Felipe (sessao 13, planilha 01/04/2026): AM usa tm_base_2f (sem -1) e -27.5.
+          largura: ctx => F._ehMod23AM(ctx)
+            ? F.tm_base_2f(ctx) - 27.5 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos
+            : F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'tampa_maior_03', label: 'Tampa Maior 03',
           // Planilha mod 23 ACM: (E2-1-C7*2-C8*2)/2+C15+C15-28-38-C20*C22-C21*C22
-          // Planilha mod 23 AM:  (E2-1-C7*2-C8*2)/2-28-38-C20*C22-C21*C22 (sem +2*REF)
-          largura: ctx => F.tm_base_2f_menos1(ctx) + F._refExtra(ctx) - 28 - 38 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          // Planilha mod 23 AM:  (E2-C7*2-C8*2)/2-27.5-43-C20*C22-C21*C22
+          // Felipe (sessao 13, planilha 01/04/2026): AM usa tm_base_2f (sem -1), -27.5 e -43.
+          largura: ctx => F._ehMod23AM(ctx)
+            ? F.tm_base_2f(ctx) - 27.5 - 43 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos
+            : F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
           comp: ctx => ctx.alturaQuadro,
           ext: 0, int: 1, categoria: 'porta' },
         { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
