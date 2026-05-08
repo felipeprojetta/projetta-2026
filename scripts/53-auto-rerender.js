@@ -180,6 +180,28 @@
     return null;
   }
 
+  // Felipe sessao 13: cadastros que AFETAM o calculo do orcamento.
+  // Quando QUALQUER um desses muda (ex: alguem importa planilha de
+  // acessorios em outra aba), o orcamento ABERTO precisa recalcular —
+  // senao ficaria com preco STALE em relacao ao cadastro atual.
+  // Felipe: "no calculo se deve pegar valores que estao na aba de
+  //          cadastro, como que em cadastro esta um valor e voce puxa
+  //          outro quando esta calculando isso nao existe".
+  var CADASTROS_QUE_AFETAM_ORCAMENTO = [
+    /^cadastros\/acessorios_lista$/,
+    /^cadastros\/perfis_lista$/,
+    /^cadastros\/superficies_lista$/,
+    /^cadastros\/modelos_lista$/,
+    /^cadastros\/regras_/,
+    /^cadastros\/rendimentos_/,
+    /^cadastros\/precificacao_/,
+    /^cadastros\/markups_lista$/,
+  ];
+  function afetaOrcamento(scope, key) {
+    var combo = scope + '/' + key;
+    return CADASTROS_QUE_AFETAM_ORCAMENTO.some(function(rx) { return rx.test(combo); });
+  }
+
   // Decisao de re-render: se a chave alterada bate com o modulo
   // ATUALMENTE ATIVO, re-renderiza. Senao, so' atualiza localStorage
   // (que ja' foi feito pelo realtime polling) e o usuario vai ver
@@ -192,6 +214,22 @@
 
     var atual = getActiveModuleAndTab();
     var [moduloEsperado, tabEsperada] = entry.tabPath;
+
+    // Felipe sessao 13: se cadastro que AFETA orcamento mudou E o user
+    // esta no orcamento agora, re-renderiza pra recalcular com os
+    // novos precos do cadastro.
+    if (atual.modulo === 'orcamento' && afetaOrcamento(payload.scope, payload.key)) {
+      if (temModalAberto()) {
+        _pendingRemoteRender = true;
+        aguardarModalFechar();
+        showToast('ℹ ' + entry.label + ' atualizado — feche o card pra atualizar', 'warn');
+        return;
+      }
+      console.log('[AutoRerender] 🔄 ' + entry.label + ' mudou — recalculando orcamento aberto');
+      var okOrc = reRenderActive();
+      if (okOrc) showToast('🔄 Orçamento recalculado (' + entry.label + ' atualizado)', 'info');
+      return;
+    }
 
     // Se o usuario esta NA tela que mudou, re-renderiza
     if (atual.modulo === moduloEsperado &&
@@ -242,8 +280,21 @@
   // Tambem escuta o realtime sync (quando vem batch de mudancas)
   Events.on('db:realtime-sync', function(payload) {
     if (!payload || !payload.chaves) return;
-    // Se ALGUMA das chaves bate com tela ativa, re-renderiza 1x
     var atual = getActiveModuleAndTab();
+    // Felipe sessao 13: se user no orcamento E veio mudanca em cadastro
+    // que afeta calculo, re-renderiza orcamento.
+    if (atual.modulo === 'orcamento') {
+      var afetou = payload.chaves.some(function(combo) {
+        var parts = combo.split('/');
+        return afetaOrcamento(parts[0], parts[1]);
+      });
+      if (afetou) {
+        scheduleRerender();
+        showToast('🔄 Cadastro atualizado — recalculando orçamento', 'info');
+        return;
+      }
+    }
+    // Se ALGUMA das chaves bate com tela ativa, re-renderiza 1x
     var temMatch = payload.chaves.some(function(combo) {
       var parts = combo.split('/');
       var entry = findMatch(parts[0], parts[1]);
