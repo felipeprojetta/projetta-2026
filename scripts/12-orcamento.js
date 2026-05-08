@@ -3401,6 +3401,18 @@ const Orcamento = (() => {
     }
     const superficiesFiltradas = filtrarSuperficies(item.revestimento);
 
+    // Felipe sessao 13: Modelo 23 + Aluminio Maciço 2mm precisa de 2 datalists
+    // separados — um pra cores AM (campos corChapaAM_Ext/Int) e outro pra
+    // cores ACM (campos corExterna/corInterna que viram chapa ACM nesse caso).
+    // Bug do commit anterior: todos os 4 campos usavam o mesmo datalist
+    // 'orc-superficies-list' que filtrava pelo revestimento (= AM), entao
+    // os 4 mostravam so' cores AM. Felipe nao conseguia escolher cor ACM.
+    const _modNumPort = Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) || 0;
+    const _revLow = String(item.revestimento || '').toLowerCase();
+    const ehMod23AM = (_modNumPort === 23) && /aluminio.*macico/.test(_revLow) && /2\s*mm/.test(_revLow);
+    const superficiesAM  = ehMod23AM ? filtrarSuperficies('Aluminio Macico 2mm') : [];
+    const superficiesACM = ehMod23AM ? filtrarSuperficies('ACM 4mm')             : [];
+
     const ehUSA = false;  // Etapa 5 vai plugar com lead.destinoPais === 'United States'
     const mostraPlusUm = ehUSA && largura > 2400;
 
@@ -3915,16 +3927,16 @@ const Orcamento = (() => {
                  entre Cor Interna e Cor da Cava. -->
             <div class="orc-cor-stack">
               <div class="orc-field orc-f-cor">
-                <label>Cor Externa</label>
-                <input type="text" list="orc-superficies-list" data-field="corExterna" value="${escapeHtml(item.corExterna)}" placeholder="" title="${escapeHtml(item.corExterna)}" />
+                <label>${ehMod23AM ? 'Cor ACM Externa' : 'Cor Externa'}</label>
+                <input type="text" list="${ehMod23AM ? 'orc-superficies-list-acm' : 'orc-superficies-list'}" data-field="corExterna" value="${escapeHtml(item.corExterna)}" placeholder="" title="${escapeHtml(item.corExterna)}" />
               </div>
               <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-ext-int"
                       title="Copia a Cor Externa para a Cor Interna (caso sejam iguais)">
                 ↓ Copiar Externo → Interno
               </button>
               <div class="orc-field orc-f-cor">
-                <label>Cor Interna</label>
-                <input type="text" list="orc-superficies-list" data-field="corInterna" value="${escapeHtml(item.corInterna)}" placeholder="" title="${escapeHtml(item.corInterna)}" />
+                <label>${ehMod23AM ? 'Cor ACM Interna' : 'Cor Interna'}</label>
+                <input type="text" list="${ehMod23AM ? 'orc-superficies-list-acm' : 'orc-superficies-list'}" data-field="corInterna" value="${escapeHtml(item.corInterna)}" placeholder="" title="${escapeHtml(item.corInterna)}" />
               </div>
               ${modeloTemCava(item.modeloExterno || item.modeloNumero) ? `
               <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-ext-cava"
@@ -3936,16 +3948,7 @@ const Orcamento = (() => {
                 <input type="text" list="orc-superficies-list" data-field="corCava" value="${escapeHtml(item.corCava || '')}" placeholder="" title="${escapeHtml(item.corCava || '')}" />
               </div>
               ` : ''}
-              ${(() => {
-                // Felipe sessao 13: Modelo 23 + Aluminio Maciço 2mm tem
-                // 2 chapas (AM pro corpo + ACM pro portal). Mostra 2
-                // campos extras pra cor AM. As cores acima (Externa/Interna)
-                // viram cor ACM nesse caso.
-                const m = Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) || 0;
-                const rev = String(item.revestimento || '').toLowerCase();
-                const ehMod23AM = m === 23 && /aluminio.*macico/.test(rev) && /2\s*mm/.test(rev);
-                if (!ehMod23AM) return '';
-                return `
+              ${ehMod23AM ? `
                 <div class="orc-cor-am-aviso" style="margin:8px 0;padding:8px 10px;background:#fff7e8;border-left:3px solid #d97706;border-radius:4px;font-size:12px;color:#7c3a00;">
                   <b>Modelo 23 + Alumínio Maciço:</b> as cores acima são da
                   <b>chapa ACM</b> (batentes, tampa de furo, acabamentos laterais,
@@ -3954,7 +3957,7 @@ const Orcamento = (() => {
                 </div>
                 <div class="orc-field orc-f-cor">
                   <label>Cor AM Externa</label>
-                  <input type="text" list="orc-superficies-list" data-field="corChapaAM_Ext"
+                  <input type="text" list="orc-superficies-list-am" data-field="corChapaAM_Ext"
                          value="${escapeHtml(item.corChapaAM_Ext || '')}"
                          placeholder="" title="${escapeHtml(item.corChapaAM_Ext || '')}" />
                 </div>
@@ -3964,12 +3967,11 @@ const Orcamento = (() => {
                 </button>
                 <div class="orc-field orc-f-cor">
                   <label>Cor AM Interna</label>
-                  <input type="text" list="orc-superficies-list" data-field="corChapaAM_Int"
+                  <input type="text" list="orc-superficies-list-am" data-field="corChapaAM_Int"
                          value="${escapeHtml(item.corChapaAM_Int || '')}"
                          placeholder="" title="${escapeHtml(item.corChapaAM_Int || '')}" />
                 </div>
-                `;
-              })()}
+              ` : ''}
             </div>
             <datalist id="orc-superficies-list">
               ${(() => {
@@ -3985,6 +3987,35 @@ const Orcamento = (() => {
                 return opts.join('');
               })()}
             </datalist>
+            ${ehMod23AM ? `
+            <!-- Felipe sessao 13: datalists separados pro Mod23+AM. -->
+            <datalist id="orc-superficies-list-am">
+              ${(() => {
+                const vistas = new Set();
+                const opts = [];
+                superficiesAM.forEach(s => {
+                  const limpo = nomeCurtoSuperficie(s.descricao);
+                  if (!limpo || vistas.has(limpo)) return;
+                  vistas.add(limpo);
+                  opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                });
+                return opts.join('');
+              })()}
+            </datalist>
+            <datalist id="orc-superficies-list-acm">
+              ${(() => {
+                const vistas = new Set();
+                const opts = [];
+                superficiesACM.forEach(s => {
+                  const limpo = nomeCurtoSuperficie(s.descricao);
+                  if (!limpo || vistas.has(limpo)) return;
+                  vistas.add(limpo);
+                  opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                });
+                return opts.join('');
+              })()}
+            </datalist>
+            ` : ''}
             ` : ''}
           </div>
         </div>
