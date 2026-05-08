@@ -3724,6 +3724,49 @@ const Orcamento = (() => {
           </div>
           ` : ''}
         </div>
+
+        ${(item.revestimento && item.revestimento !== 'Vidro') ? `
+        <!-- Felipe sessao 13: Acabamento do FIXO ACOPLADO. Cor da chapa
+             ACM (ou HPL/Aluminio Maciço — filtra pelo revestimento). Padrao
+             igual porta externa: Externa em cima, botao copiar, Interna
+             embaixo. -->
+        <div class="orc-section">
+          <div class="orc-section-title">Acabamento</div>
+          <div class="orc-cor-stack">
+            <div class="orc-field orc-f-cor">
+              <label>Cor ${escapeHtml(item.revestimento)} Externa</label>
+              <input type="text" list="orc-superficies-list-fixo" data-field="corExterna"
+                     value="${escapeHtml(item.corExterna || '')}"
+                     placeholder="" title="${escapeHtml(item.corExterna || '')}" />
+            </div>
+            <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-ext-int-fixo"
+                    title="Copia a Cor Externa para a Cor Interna (caso sejam iguais)">
+              ↓ Copiar Externo → Interno
+            </button>
+            <div class="orc-field orc-f-cor">
+              <label>Cor ${escapeHtml(item.revestimento)} Interna</label>
+              <input type="text" list="orc-superficies-list-fixo" data-field="corInterna"
+                     value="${escapeHtml(item.corInterna || '')}"
+                     placeholder="" title="${escapeHtml(item.corInterna || '')}" />
+            </div>
+          </div>
+          <datalist id="orc-superficies-list-fixo">
+            ${(() => {
+              // Felipe sessao 13: deduplica nome (sem medida) — igual porta externa.
+              const sup = filtrarSuperficies(item.revestimento) || [];
+              const vistas = new Set();
+              const opts = [];
+              sup.forEach(s => {
+                const limpo = nomeCurtoSuperficie(s.descricao);
+                if (!limpo || vistas.has(limpo)) return;
+                vistas.add(limpo);
+                opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+              });
+              return opts.join('');
+            })()}
+          </datalist>
+        </div>
+        ` : ''}
         ` : item.tipo === 'porta_externa' ? `` : `
         <div class="orc-section">
           <div class="orc-section-title">Em desenvolvimento</div>
@@ -4377,6 +4420,23 @@ const Orcamento = (() => {
       const valExt = inpExt.value || '';
       if (!valExt.trim()) {
         alert('Selecione primeiro a Cor AM Externa, depois copie pra AM Interna.');
+        return;
+      }
+      inpInt.value = valExt;
+      inpInt.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // Felipe sessao 13: copiar Cor Externa -> Cor Interna no FIXO ACOPLADO.
+    // O fixo usa os mesmos data-fields corExterna/corInterna que a porta,
+    // mas o botao tem id propio pra evitar conflito quando ambos os items
+    // estiverem no DOM (improvavel pq form e' um item por vez, mas seguro).
+    container.querySelector('#orc-btn-copiar-cor-ext-int-fixo')?.addEventListener('click', () => {
+      const inpExt = container.querySelector('input[data-field="corExterna"]');
+      const inpInt = container.querySelector('input[data-field="corInterna"]');
+      if (!inpExt || !inpInt) return;
+      const valExt = inpExt.value || '';
+      if (!valExt.trim()) {
+        alert('Selecione primeiro a Cor Externa, depois copie pra Cor Interna.');
         return;
       }
       inpInt.value = valExt;
