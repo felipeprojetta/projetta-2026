@@ -8489,8 +8489,17 @@ const Orcamento = (() => {
     }
     if (!cardsChunks.length) cardsChunks.push([]);
 
-    // 1a pagina: header + 1o chunk
-    const paginaItensHtml = cardsChunks.map((chunk, pgIdx) => {
+    // Felipe (sessao 13, msg "proposta comercial quando couber tudo em uma
+    // folha faca, nesse caso baerria tranquiloamente"): com 1 item so', o
+    // card + tabela + observacoes + assinaturas cabem TUDO em 1 folha A4.
+    // Antes: card numa folha + tabela final em OUTRA folha = espaco enorme
+    // em branco entre elas. Agora: detecta caso 1-item e junta tudo numa
+    // unica .rel-prop-pagina (sem paginaItensHtml separada da pagina final).
+    const unicaPagina = (cardsList.length <= 1);
+
+    // Se for unicaPagina, paginaItensHtml fica vazio (header+card vao na
+    // pagina final). Se for multi-itens, mantem comportamento da sessao 12.
+    const paginaItensHtml = unicaPagina ? '' : cardsChunks.map((chunk, pgIdx) => {
       const headerNaPagina = pgIdx === 0 ? headerHtml : '';
       return `
         <div class="rel-prop-pagina rel-prop-pagina-conteudo">
@@ -8602,10 +8611,14 @@ const Orcamento = (() => {
              sem cortar detalhamento de um item'. Multiplas paginas A4 -
              header + 3 cards na 1a, mais 3 cards nas seguintes, ultima
              tem tabela final + totais + observacoes + assinaturas. Cada
-             pagina tem largura cheia 210mm. -->
+             pagina tem largura cheia 210mm.
+             Felipe sessao 13: caso 1-item, paginaItensHtml fica vazio e
+             header+card vao na pagina final junto com tabela+obs+ass. -->
         ${paginaItensHtml}
 
         <div class="rel-prop-pagina rel-prop-pagina-conteudo">
+          ${unicaPagina ? headerHtml : ''}
+          ${unicaPagina ? (cardsList[0] || '') : ''}
           <table class="rel-prop-tabela-final">
             <thead>
               <tr>
