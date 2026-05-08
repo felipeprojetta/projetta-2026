@@ -2315,6 +2315,10 @@ const Orcamento = (() => {
       // (ex: 'Laminado Incolor 3+3...'). Cada vidro tem campo 'cobranca'
       // m2|chapa que define como precificar.
       vidroDescricao: '',
+      // Felipe sessao 13: tipoLateral so' aplica quando posicao='lateral'
+      // e revestimento != Vidro. Lateral nao replica modelo da porta —
+      // normalmente e' chapa lisa, mas pode ser Ripado ou Moldura.
+      tipoLateral: 'lisa',         // 'lisa' | 'ripado' | 'moldura'
       corExterna: '',
       corInterna: '',
       lados: '1lado',              // '1lado' (so externo) ou '2lados' (externo+interno) — ignorado se vidro
@@ -3606,33 +3610,49 @@ const Orcamento = (() => {
             </div>
             ` : ''}
           </div>
-          ${item.temEstrutura !== 'nao' ? `
+          ${item.temEstrutura !== 'nao' && item.revestimento !== 'Vidro' ? `
           <div class="orc-form-row">
-            <div class="orc-field">
-              <label>Segue modelo da porta?</label>
-              <select data-field="fixoSegueModelo">
-                <option value="sim" ${(item.fixoSegueModelo || 'sim') === 'sim' ? 'selected' : ''}>Sim — replica modelo da porta</option>
-                <option value="nao" ${item.fixoSegueModelo === 'nao' ? 'selected' : ''}>Nao — escolher modelo proprio</option>
-              </select>
-            </div>
-            ${item.fixoSegueModelo === 'nao' ? `
-            <div class="orc-field orc-f-modelo">
-              <label>Modelo do Fixo</label>
-              <select data-field="modeloNumero">
-                ${(() => {
-                  try {
-                    const modelos = (window.Storage ? Storage.scope('cadastros').get('modelos_lista') : null) || [];
-                    const opcoes = modelos.length
-                      ? modelos.map(m => `<option value="${m.numero}" ${String(item.modeloNumero) === String(m.numero) ? 'selected' : ''}>${m.numero} — ${escapeHtml(m.nome || '')}</option>`).join('')
-                      : '<option value="1">1 — Liso (default)</option>';
-                    return opcoes;
-                  } catch (_) {
-                    return '<option value="1">1 — Liso</option>';
-                  }
-                })()}
-              </select>
-            </div>
-            ` : ''}
+            ${item.posicao !== 'lateral' ? `
+              <!-- Felipe sessao 13: SUPERIOR mantem 'Segue modelo da porta?'
+                   (replica o modelo da porta principal — comportamento original) -->
+              <div class="orc-field">
+                <label>Segue modelo da porta?</label>
+                <select data-field="fixoSegueModelo">
+                  <option value="sim" ${(item.fixoSegueModelo || 'sim') === 'sim' ? 'selected' : ''}>Sim — replica modelo da porta</option>
+                  <option value="nao" ${item.fixoSegueModelo === 'nao' ? 'selected' : ''}>Nao — escolher modelo proprio</option>
+                </select>
+              </div>
+              ${item.fixoSegueModelo === 'nao' ? `
+              <div class="orc-field orc-f-modelo">
+                <label>Modelo do Fixo</label>
+                <select data-field="modeloNumero">
+                  ${(() => {
+                    try {
+                      const modelos = (window.Storage ? Storage.scope('cadastros').get('modelos_lista') : null) || [];
+                      const opcoes = modelos.length
+                        ? modelos.map(m => `<option value="${m.numero}" ${String(item.modeloNumero) === String(m.numero) ? 'selected' : ''}>${m.numero} — ${escapeHtml(m.nome || '')}</option>`).join('')
+                        : '<option value="1">1 — Liso (default)</option>';
+                      return opcoes;
+                    } catch (_) {
+                      return '<option value="1">1 — Liso</option>';
+                    }
+                  })()}
+                </select>
+              </div>
+              ` : ''}
+            ` : `
+              <!-- Felipe sessao 13: LATERAL nao replica modelo da porta
+                   (normalmente e' uma chapa lisa). Em vez disso pergunta
+                   o tipo de chapa: lisa, ripado ou moldura. -->
+              <div class="orc-field">
+                <label>Tipo de chapa</label>
+                <select data-field="tipoLateral">
+                  <option value="lisa"    ${(item.tipoLateral || 'lisa') === 'lisa'    ? 'selected' : ''}>Chapa lisa</option>
+                  <option value="ripado"  ${item.tipoLateral === 'ripado'  ? 'selected' : ''}>Ripado</option>
+                  <option value="moldura" ${item.tipoLateral === 'moldura' ? 'selected' : ''}>Moldura</option>
+                </select>
+              </div>
+            `}
           </div>
           ` : ''}
         </div>
