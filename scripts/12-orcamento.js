@@ -9208,10 +9208,10 @@ const Orcamento = (() => {
               const ehMod23AM = m === 23 && /aluminio.*macico/.test(rev) && /2\s*mm/.test(rev);
               if (ehMod23AM) {
                 return `
-                  <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA ACM EXTERNA:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
-                  <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA ACM INTERNA:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
-                  <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA AM EXTERNA:</span> <span>${escapeHtml(item.corChapaAM_Ext || '—')}</span></div>
-                  <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA AM INTERNA:</span> <span>${escapeHtml(item.corChapaAM_Int || '—')}</span></div>
+                  <div class="rel-prop-item-linha"><span class="lbl">CHAPA ACM ACABAMENTO EXTERNO:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
+                  <div class="rel-prop-item-linha"><span class="lbl">CHAPA ACM ACABAMENTO INTERNO:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
+                  <div class="rel-prop-item-linha"><span class="lbl">CHAPA AM EXTERNA:</span> <span>${escapeHtml(item.corChapaAM_Ext || '—')}</span></div>
+                  <div class="rel-prop-item-linha"><span class="lbl">CHAPA AM INTERNA:</span> <span>${escapeHtml(item.corChapaAM_Int || '—')}</span></div>
                 `;
               }
               return `
