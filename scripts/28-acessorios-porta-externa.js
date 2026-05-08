@@ -192,9 +192,18 @@ const AcessoriosPortaExterna = (() => {
     const temCava = isCava(modeloExt) || isCava(modeloInt);
     const ripado = isRipado(modeloExt) || isRipado(modeloInt);
 
-    // FGLD/FGLE: vem das regras de perfis. Sao 10mm default.
-    const FGLD = 10;
-    const FGLE = 10;
+    // Felipe sessao 13: folgas EDITAVEIS POR ITEM. Default global = 10mm.
+    // Override: item.fglDir / item.fglEsq. Vazio = usa global.
+    // Mesma logica de calcularQuadro em 38-chapas-porta-externa.js.
+    // Nota: aqui mantemos default hardcoded 10 (nao busco do cadastro)
+    // pra preservar comportamento atual quando item nao tem override.
+    const _toNumFG = (raw, fb) => {
+      if (raw === '' || raw === null || raw === undefined) return fb;
+      const n = Number(String(raw).replace(',', '.'));
+      return (Number.isFinite(n) && n >= 0) ? n : fb;
+    };
+    const FGLD = _toNumFG(item.fglDir, 10);
+    const FGLE = _toNumFG(item.fglEsq, 10);
 
     const pinos = detectarPinos(fechMec);
     const marcaDig = detectarMarcaDigital(fechDig);

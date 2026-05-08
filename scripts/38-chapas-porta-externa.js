@@ -78,6 +78,20 @@ const ChapasPortaExterna = (() => {
     const v = getVarsFam()[familia];
     const vc = getVarsChapas();
 
+    // Felipe sessao 13: folgas EDITAVEIS POR ITEM. Default global vem
+    // de getVarsFam() (regras_variaveis_porta_externa, 10mm padrao).
+    // Override por item: item.fglDir / item.fglEsq / item.fgSup.
+    // Se o usuario preencheu no form, usa o valor do item; senao, usa
+    // o default global. Numero invalido/0 tambem cai pro global.
+    const _toNum = (raw, fallback) => {
+      if (raw === '' || raw === null || raw === undefined) return fallback;
+      const n = Number(String(raw).replace(',', '.'));
+      return (Number.isFinite(n) && n >= 0) ? n : fallback;
+    };
+    const FGLD_eff = _toNum(item.fglDir, v.FGLD);
+    const FGLE_eff = _toNum(item.fglEsq, v.FGLE);
+    const FGA_eff  = _toNum(item.fgSup, v.FGA);
+
     // Felipe (sessao 13, planilha PRECIFICAÇÃO_01_04_2026 atualizada):
     // Modelo 23 + Aluminio Macico tem U_LARG_2F e U_LARG_CENTRAL = 133
     // (em vez de 128 padrao do ACM e demais modelos). Fonte: planilha
@@ -92,8 +106,8 @@ const ChapasPortaExterna = (() => {
     const U_LARG_2F      = ehMod23AM ? 133 : vc.U_LARG_2F;
     const U_LARG_CENTRAL = ehMod23AM ? 133 : vc.U_LARG_CENTRAL;
 
-    const alturaQuadro    = H - v.FGA - v.TUBLPORTAL - v.ESPPIV + v.TRANSPIV;
-    const larguraQuadro1F = L - (v.FGLD + v.FGLE) - vc.PORTAL_LD - vc.PORTAL_LE + U_LARG_1F + U_LARG_CENTRAL;
+    const alturaQuadro    = H - FGA_eff - v.TUBLPORTAL - v.ESPPIV + v.TRANSPIV;
+    const larguraQuadro1F = L - (FGLD_eff + FGLE_eff) - vc.PORTAL_LD - vc.PORTAL_LE + U_LARG_1F + U_LARG_CENTRAL;
     const larguraQuadro2F = L - vc.REF              - vc.PORTAL_LD - vc.PORTAL_LE + U_LARG_2F + U_LARG_CENTRAL;
     const larguraQuadro   = (nFolhas === 2) ? larguraQuadro2F : larguraQuadro1F;
 
@@ -114,6 +128,20 @@ const ChapasPortaExterna = (() => {
     const vc = getVarsChapas();
     const num = key => Number(item[key]) || 0;
 
+    // Felipe sessao 13: folgas EDITAVEIS POR ITEM (mesma logica do
+    // calcularQuadro). Override no item: fglDir/fglEsq/fgSup. Vazio =
+    // usa default global do cadastro. As pecas que usam ctx.FGA e
+    // ctx.FGLD_FGLE (ex: u_portal_comp = L - FGLD_FGLE) precisam ler
+    // o effective, nao o global, senao gera peca de tamanho errado.
+    const _toNum = (raw, fallback) => {
+      if (raw === '' || raw === null || raw === undefined) return fallback;
+      const n = Number(String(raw).replace(',', '.'));
+      return (Number.isFinite(n) && n >= 0) ? n : fallback;
+    };
+    const FGLD_eff = _toNum(item.fglDir, v.FGLD);
+    const FGLE_eff = _toNum(item.fglEsq, v.FGLE);
+    const FGA_eff  = _toNum(item.fgSup, v.FGA);
+
     const corExt   = String(item.corExterna || '').trim();
     const corInt   = String(item.corInterna || '').trim();
     const corCava  = String(item.corCava || '').trim();
@@ -131,7 +159,7 @@ const ChapasPortaExterna = (() => {
       larguraQuadro1F: quadro.larguraQuadro1F,
       larguraQuadro2F: quadro.larguraQuadro2F,
       REF: vc.REF,
-      FGA: v.FGA, FGLD_FGLE: v.FGLD + v.FGLE,
+      FGA: FGA_eff, FGLD_FGLE: FGLD_eff + FGLE_eff,
       ESPPIV: v.ESPPIV, TRANSPIV: v.TRANSPIV,
       TUBLPORTAL: v.TUBLPORTAL, TUBLPORTA: v.TUBLPORTA,
       dBC:     num('distanciaBordaCava'),
