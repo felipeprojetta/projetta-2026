@@ -254,7 +254,9 @@ const Orcamento = (() => {
     // Felipe sessao 12: 'na instalacao colque quantidade de carro ja
     // automatico 1 dia'. Default dias_instalacao=1, n_carros=1. Felipe
     // ainda pode editar pra cima se a obra exigir.
-    dias_instalacao: 1,
+    // Felipe sessao 13: 'dias de instalcao ainda esta vindo automatico
+    // 1 deve vir zerado'. Default agora 0 — Felipe preenche manual.
+    dias_instalacao: 0,
 
     // Equipe
     // Felipe (do doc - msg "todos campos 0,00 deixe vazio"): comecam vazios
