@@ -75,6 +75,38 @@ const Database = (() => {
   // pro cloud antes de qualquer fechamento de aba.
   var _sbUpsertPayloads = {};
 
+  // Felipe sessao 13 — BUG CRITICO "cadastro mostra 7,09 mas orcamento usa 14,18".
+  // Causa-raiz: usuario importa planilha → set() local atualiza localStorage
+  // imediato, mas sbUpsert tem debounce 500ms. Antes do upload propagar,
+  // o realtime polling (3s) busca rows do Supabase com updated_at>last_sync
+  // e sobrescreve o localStorage com dados ANTIGOS (que ainda nao foram
+  // atualizados pelo upload pendente do usuario). Cadastro mostra valor
+  // novo (state em memoria), mas orcamento le do localStorage corrompido.
+  //
+  // Fix: registramos timestamp local de cada set(). O realtime polling
+  // ignora rows REMOTAS que sao MAIS VELHAS que nosso ultimo set local
+  // (dentro de janela de 30s — depois assume que upload ja propagou).
+  var _localWriteTs = {};
+  var LOCAL_WRITE_PROTECT_MS = 30000;
+  function _registrarWriteLocal(scope, key) {
+    _localWriteTs[scope + '/' + key] = new Date();
+  }
+  function _writeLocalEhMaisNovoQue(scope, key, remoteTsIso) {
+    var combo = scope + '/' + key;
+    var localTs = _localWriteTs[combo];
+    if (!localTs) return false;
+    var ageMs = Date.now() - localTs.getTime();
+    if (ageMs > LOCAL_WRITE_PROTECT_MS) {
+      // Janela expirou — limpa e aceita remote
+      delete _localWriteTs[combo];
+      return false;
+    }
+    try {
+      var remoteTs = new Date(remoteTsIso);
+      return remoteTs.getTime() < localTs.getTime();
+    } catch(_) { return false; }
+  }
+
   // Felipe sessao 12 (3a sobrescrita da Andressa): MERGE protetor pra
   // auth/users. Antes de sobrescrever, busca versao cloud. Se cloud tem
   // mais usuarios que local, faz uniao por username (cloud ganha em
@@ -603,6 +635,9 @@ const Database = (() => {
       // Permissão granular REMOVIDA — todos podem editar cadastros.
 
       localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(value));
+      // Felipe sessao 13: marca timestamp local pra proteger contra
+      // overwrite por realtime polling com dados stale do Supabase.
+      _registrarWriteLocal(scope, key);
       sbUpsert(scope, key, value);
       Events.emit('db:change', { scope: scope, key: key, value: value });
       return value;
@@ -681,6 +716,15 @@ const Database = (() => {
           // Felipe sessao 12: 'users' agora sincroniza (cadastros novos
           // precisam propagar entre maquinas - bug Andressa).
           if (r.key === 'session' || r.key === 'session_user' || r.key === 'last_login') return;
+          // Felipe sessao 13: PROTECAO ANTI-STALE. Se acabamos de fazer
+          // set() local pra esta chave (janela de 30s), e o registro
+          // remoto e' MAIS VELHO que nosso write, IGNORA — caso contrario
+          // sobrescreveriamos o write recente do usuario com dado obsoleto
+          // (bug Felipe: importou planilha 7,09 mas orcamento via 14,18).
+          if (_writeLocalEhMaisNovoQue(r.scope, r.key, r.updated_at)) {
+            console.log('[DB] 🛡 Realtime IGNOROU stale: ' + r.scope + '/' + r.key + ' (write local mais novo)');
+            return;
+          }
           var lsKey = PREFIX + r.scope + ':' + r.key;
           var localRaw = localStorage.getItem(lsKey);
           var remoteVal = JSON.stringify(r.valor);
