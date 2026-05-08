@@ -13025,20 +13025,30 @@ const Orcamento = (() => {
         const mapa = new Map();
         c.pecasPosicionadas.forEach(pp => {
           const label = (pp.peca && pp.peca.label) || '—';
-          const k = `${label}|${Math.round(pp.larg)}×${Math.round(pp.alt)}`;
+          // Felipe sessao 13: destaque AM. Vem do 38-chapas-porta-externa.js
+          // (set quando peça virou categoria='aluminio_macico' no Modelo 23 + AM).
+          const matEsp = (pp.peca && pp.peca.materialEspecial) || null;
+          const k = `${label}|${Math.round(pp.larg)}×${Math.round(pp.alt)}|${matEsp || ''}`;
           const existe = mapa.get(k);
           if (existe) {
             existe.qtd++;
           } else {
-            mapa.set(k, { label, dim: `${Math.round(pp.larg)}×${Math.round(pp.alt)}`, qtd: 1 });
+            mapa.set(k, { label, dim: `${Math.round(pp.larg)}×${Math.round(pp.alt)}`, qtd: 1, materialEspecial: matEsp });
           }
         });
-        const linhas = Array.from(mapa.values()).map(p => `
-          <tr>
-            <td>${escapeHtml(p.label)}</td>
+        const linhas = Array.from(mapa.values()).map(p => {
+          // Badge AM: peças de aluminio macico no modelo 23 + AM destacadas
+          // (Felipe: "destaque isso na coluna que mostra as pecas em acm")
+          const badgeAM = (p.materialEspecial === 'AM')
+            ? ' <span style="display:inline-block;padding:1px 6px;margin-left:4px;background:#fbbf24;color:#78350f;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.3px;">AM</span>'
+            : '';
+          return `
+          <tr${p.materialEspecial === 'AM' ? ' style="background:#fffbeb;"' : ''}>
+            <td>${escapeHtml(p.label)}${badgeAM}</td>
             <td class="num">${p.dim} mm</td>
             <td class="num">${p.qtd}</td>
-          </tr>`).join('');
+          </tr>`;
+        }).join('');
         const taxaC = ((c.taxa || 0) * 100).toFixed(1);
         return `
           <div class="rel-chapa-detalhe">

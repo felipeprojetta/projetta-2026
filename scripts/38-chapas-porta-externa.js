@@ -1334,6 +1334,12 @@ const ChapasPortaExterna = (() => {
         ehDaCava: !!def.ehDaCava,
         categoria: categoria,
         modelo,
+        // Felipe sessao 13: destaque visual no relatorio. Quando peça
+        // virou aluminio_macico (modelo 23 + AM, peças Tampa*/Fita Acab*),
+        // marca pra exibir badge "AM" na tabela de relatório de chapas.
+        // Felipe: "sempre que tiver alguma peca em aluminio macico
+        //          destaque isso na coluna que mostra as pecas em acm".
+        materialEspecial: (categoria === 'aluminio_macico') ? 'AM' : null,
         observacao: def.observacao || '',
       });
     }
