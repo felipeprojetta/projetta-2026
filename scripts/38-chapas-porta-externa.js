@@ -1150,10 +1150,16 @@ const ChapasPortaExterna = (() => {
       '1F': [
         { id: 'cava', label: 'Cava',
           largura: F.cava_largura, comp: F.cava_comp,
-          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
+          ext: 1, int: 1, categoria: 'porta', ehDaCava: true,
+          // Felipe sessao 13 (planilha v3 PRECIFICACAO_01_04_2026):
+          // CAVA SEMPRE em aluminio macico (mesmo no Modelo 23 ACM).
+          // Planilha aba MODELO 23 ACM tem coluna E='ALUMINIO MACICO'
+          // nas linhas R7 CAVA e R8 LDACAVA.
+          sempreAM: true },
         { id: 'l_da_cava', label: 'L da Cava',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true,
+          sempreAM: true },
         { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
           // Planilha mod 23 ACM: (E3-C7-C8-1-C20*C22-C21*C22)+C15+C15
           // Planilha mod 23 AM:  (E3-C7-C8-C20*C22-C21*C22)         (sem -1, sem +2*REF)
@@ -1180,10 +1186,12 @@ const ChapasPortaExterna = (() => {
       '2F': [
         { id: 'cava', label: 'Cava',
           largura: F.cava_largura, comp: F.cava_comp,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+          ext: 2, int: 2, categoria: 'porta', ehDaCava: true,
+          sempreAM: true },
         { id: 'tampa_da_cava', label: 'Tampa da Cava',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+          ext: 4, int: 4, categoria: 'porta', ehDaCava: true,
+          sempreAM: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
           // Planilha mod 23 ACM: (E2-C7*2-C8*2)/2+10.5+C15+C15-1-C20*C22-C21*C22
           // Planilha mod 23 AM:  (E2-C7*2-C8*2)/2+15.5-C20*C22-C21*C22
@@ -1303,7 +1311,17 @@ const ChapasPortaExterna = (() => {
       let corResolvida = (def.ehDaCava && ctx.corCava) ? ctx.corCava : corDoLado;
       let categoria = def.categoria || 'porta';
 
-      if (ehAluminioMacico) {
+      // Felipe sessao 13: peças com flag sempreAM viram aluminio macico
+      // INDEPENDENTE do revestimento da porta (usado nas CAVA e L_DA_CAVA
+      // do Modelo 23, que sao fisicamente em alumínio macico mesmo
+      // quando o sistema da porta e' ACM. Ver planilha v3 aba 'MODELO 23
+      // - ACM' col E='ALUMINIO MACICO' nas linhas R7/R8).
+      if (def.sempreAM) {
+        corResolvida = corResolvida
+          ? `Aluminio Macico — ${corResolvida}`
+          : 'Aluminio Macico';
+        categoria = 'aluminio_macico';
+      } else if (ehAluminioMacico) {
         const lblLow = String(def.label || '').toLowerCase();
         const labelComecaTampa = /^tampa\b/.test(lblLow);
         const ehFitaAcab = /^fita\s*acabamento\b/.test(lblLow);

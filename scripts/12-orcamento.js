@@ -13037,14 +13037,15 @@ const Orcamento = (() => {
           }
         });
         const linhas = Array.from(mapa.values()).map(p => {
-          // Badge AM: peças de aluminio macico no modelo 23 + AM destacadas
-          // (Felipe: "destaque isso na coluna que mostra as pecas em acm")
-          const badgeAM = (p.materialEspecial === 'AM')
-            ? ' <span style="display:inline-block;padding:1px 6px;margin-left:4px;background:#fbbf24;color:#78350f;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.3px;">AM</span>'
+          // Felipe sessao 13: "escrito chapa aluminio macico quando for".
+          // Em vez de badge AM curto, exibimos texto completo abaixo do
+          // nome da peça quando ela e' de aluminio macico.
+          const subtituloAM = (p.materialEspecial === 'AM')
+            ? '<div style="font-size:11px;color:#92400e;font-weight:600;margin-top:2px;">Chapa Alumínio Maciço</div>'
             : '';
           return `
           <tr${p.materialEspecial === 'AM' ? ' style="background:#fffbeb;"' : ''}>
-            <td>${escapeHtml(p.label)}${badgeAM}</td>
+            <td>${escapeHtml(p.label)}${subtituloAM}</td>
             <td class="num">${p.dim} mm</td>
             <td class="num">${p.qtd}</td>
           </tr>`;
