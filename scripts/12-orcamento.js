@@ -12184,6 +12184,9 @@ const Orcamento = (() => {
       if (cat === 'portal') return '<span class="orc-cat-badge orc-cat-portal">Portal</span>';
       if (cat === 'porta')  return '<span class="orc-cat-badge orc-cat-porta">Porta</span>';
       if (cat === 'revestimento') return '<span class="orc-cat-badge orc-cat-rev">Rev. Parede</span>';
+      // Felipe sessao 13: peças marcadas como aluminio_macico ganham
+      // badge propria com texto "Al. Maciço" (cor amarela).
+      if (cat === 'aluminio_macico') return '<span class="orc-cat-badge" style="background:#fbbf24;color:#78350f;font-weight:700;">Al. Maciço</span>';
       return '<span class="orc-cat-badge">—</span>';
     }
 
@@ -12239,8 +12242,11 @@ const Orcamento = (() => {
       const labelDisplay = p._manual
         ? `<span style="color:#7c3aed;font-weight:600;">${escapeHtml(p.label)} <span style="font-size:9px;background:#ddd6fe;color:#5b21b6;padding:1px 5px;border-radius:8px;font-weight:700;">MANUAL</span></span>`
         : escapeHtml(p.label);
+      // Felipe sessao 13: linha destacada (amarelo claro) quando peça
+      // e' de aluminio macico — visual claro pro usuario distinguir.
+      const trStyle = (p.categoria === 'aluminio_macico') ? ' style="background:#fffbeb;"' : '';
       return `
-      <tr>
+      <tr${trStyle}>
         <td>${labelDisplay}</td>
         <td>${badgeCategoria(p.categoria)}</td>
         <td class="t-num">${inputLargura}</td>
