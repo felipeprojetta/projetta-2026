@@ -2305,14 +2305,19 @@ const Orcamento = (() => {
       largura: '',
       altura: '',
       // Felipe sessao 30: campos pro motor de calculo
-      posicao: 'superior',         // 'superior' | 'lateral' (lateral oculto por enquanto)
+      posicao: 'superior',         // 'superior' | 'lateral'
       temEstrutura: 'sim',         // 'sim' (quadro+chapas) ou 'nao' (so chapas, sem perfis)
       sistema: 'PA006',            // PA006 (espTubo 51) ou PA007 (espTubo 38) — so' aparece se temEstrutura='sim'
       modeloNumero: 1,             // 1 = Liso (default — pode ser editado)
-      revestimento: '',            // material da chapa (descricao do cadastro de superficies)
+      revestimento: '',            // material da chapa: ACM 4mm | HPL 4mm | Aluminio Macico 2mm | Vidro
+      // Felipe sessao 13: quando revestimento='Vidro', vidroDescricao
+      // guarda a descricao do vidro escolhido no cadastro de superficies
+      // (ex: 'Laminado Incolor 3+3...'). Cada vidro tem campo 'cobranca'
+      // m2|chapa que define como precificar.
+      vidroDescricao: '',
       corExterna: '',
       corInterna: '',
-      lados: '1lado',              // '1lado' (so externo) ou '2lados' (externo+interno)
+      lados: '1lado',              // '1lado' (so externo) ou '2lados' (externo+interno) — ignorado se vidro
       fixoSegueModelo: 'sim',      // 'sim' (default — replica porta) ou 'nao' (escolher modelo proprio)
     };
     if (tipo === 'revestimento_parede') return {
@@ -3534,6 +3539,39 @@ const Orcamento = (() => {
 
         <div class="orc-section">
           <div class="orc-section-title">Configuracao do Fixo</div>
+
+          <!-- Felipe sessao 13: Revestimento e a PRIMEIRA pergunta. Se for
+               Vidro, esconde 'Lados revestidos' (vidro e' unico, atravessa)
+               e abre selector pra escolher qual vidro do cadastro. -->
+          <div class="orc-form-row">
+            <div class="orc-field">
+              <label>Revestimento</label>
+              <select data-field="revestimento">
+                <option value=""></option>
+                ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+              </select>
+            </div>
+            ${item.revestimento === 'Vidro' ? `
+            <div class="orc-field" style="flex:2;">
+              <label>Tipo de vidro</label>
+              <select data-field="vidroDescricao">
+                <option value=""></option>
+                ${(() => {
+                  try {
+                    const sups = (window.Storage ? Storage.scope('cadastros').get('superficies_lista') : null) || [];
+                    const vidros = sups.filter(s => String(s.categoria || '').toLowerCase() === 'vidro');
+                    return vidros.map(v => {
+                      const cob = v.cobranca === 'chapa' ? ' [chapa]' : ' [m²]';
+                      const sel = item.vidroDescricao === v.descricao ? 'selected' : '';
+                      return `<option value="${escapeHtml(v.descricao)}" ${sel}>${escapeHtml(v.descricao)}${cob}</option>`;
+                    }).join('');
+                  } catch(_) { return ''; }
+                })()}
+              </select>
+            </div>
+            ` : ''}
+          </div>
+
           <div class="orc-form-row">
             <div class="orc-field">
               <label>Posicao</label>
@@ -3545,10 +3583,11 @@ const Orcamento = (() => {
             <div class="orc-field">
               <label>Tem estrutura de aluminio?</label>
               <select data-field="temEstrutura">
-                <option value="sim" ${(item.temEstrutura || 'sim') === 'sim' ? 'selected' : ''}>Sim — quadro + chapas</option>
-                <option value="nao" ${item.temEstrutura === 'nao' ? 'selected' : ''}>Nao — so chapas (sem perfis)</option>
+                <option value="sim" ${(item.temEstrutura || 'sim') === 'sim' ? 'selected' : ''}>Sim</option>
+                <option value="nao" ${item.temEstrutura === 'nao' ? 'selected' : ''}>Nao</option>
               </select>
             </div>
+            ${item.revestimento !== 'Vidro' ? `
             <div class="orc-field">
               <label>Lados revestidos</label>
               <select data-field="lados">
@@ -3556,6 +3595,7 @@ const Orcamento = (() => {
                 <option value="2lados" ${item.lados === '2lados' ? 'selected' : ''}>2 lados (externo + interno)</option>
               </select>
             </div>
+            ` : ''}
             ${item.temEstrutura !== 'nao' ? `
             <div class="orc-field">
               <label>Sistema</label>
@@ -3595,15 +3635,6 @@ const Orcamento = (() => {
             ` : ''}
           </div>
           ` : ''}
-          <div class="orc-form-row">
-            <div class="orc-field">
-              <label>Revestimento (chapa)</label>
-              <select data-field="revestimento">
-                <option value=""></option>
-                ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
-              </select>
-            </div>
-          </div>
         </div>
         ` : item.tipo === 'porta_externa' ? `` : `
         <div class="orc-section">
