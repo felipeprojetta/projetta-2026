@@ -129,6 +129,28 @@ var PerfisRevAcoplado = (function() {
     add(s.perfil, compAltura,  2, 'Perfil Altura');        // 76x38 ou 101x51
     add(s.perfil, compLargura, 2, 'Perfil Largura');       // 76x38 ou 101x51
 
+    // Felipe sessao 13: detecta FIXO LATERAL COM VIDRO. Esse caso NAO
+    // tem travessa vertical, travessa horizontal, friso, nem cava.
+    // No lugar, leva 4 perfis novos cobrindo o perimetro do vao do
+    // vidro (PA-PF-104, PA-PF-051, PA-GUA411, PA-GUA413). Cada perfil
+    // tem 4 cortes: 2 horizontais (largura L) e 2 verticais (altura H).
+    var ehLateralVidro = (
+      String(item.posicao || '').toLowerCase() === 'lateral'
+      && String(item.revestimento || '').toLowerCase() === 'vidro'
+    );
+
+    if (ehLateralVidro) {
+      // 4 perfis estruturais do vidro. Cada um: 2 horizontais + 2 verticais.
+      // Total por perfil = L*2 + H*2 (perimetro).
+      ['PA-PF-104', 'PA-PF-051', 'PA-GUA411', 'PA-GUA413'].forEach(function(cod) {
+        add(cod, LARGURA, 2, cod + ' (horizontal)');
+        add(cod, ALTURA,  2, cod + ' (vertical)');
+      });
+      // SAI antes de gerar travessas/frisos/cava — fixo lateral c/ vidro
+      // nao tem nenhum desses.
+      return cortes;
+    }
+
     // ── TRAVESSA HORIZONTAL: 1o digito da ALTURA ──
     // Planilha: "PRIMEIRO NUMERO DA ALTURA = EX 3634 = 3 TRAVESSAS"
     var qtdTH = Math.floor(ALTURA / 1000) || 0;
