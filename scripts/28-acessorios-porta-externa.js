@@ -448,6 +448,9 @@ const AcessoriosPortaExterna = (() => {
         // qtd de fixos do item (qtdPortas no codigo legado).
         const perimM = ((fL * 2) + (fH * 2)) / 1000;
         const totalM = perimM * qtdItem;
+        // Felipe sessao 13: 'arredonde pra cima as GUA'. Borrachas EPDM
+        // sao vendidas em metros inteiros. 16,70m -> 17m.
+        const totalMCeil = Math.ceil(totalM);
         // Adiciona linhas direto (helper add() forca unidade='un',
         // borrachas sao 'm'). Busca preco do cadastro.
         ['PA-GUA411', 'PA-GUA413'].forEach(function(cod) {
@@ -459,13 +462,13 @@ const AcessoriosPortaExterna = (() => {
             codigo: cod,
             descricao: desc,
             familia: fam,
-            qtd: Number(totalM.toFixed(3)),
+            qtd: totalMCeil,
             unidade: 'm',
             preco_un: precoUn,
-            total: precoUn * totalM,
+            total: precoUn * totalMCeil,
             categoria: 'Vedações',
             aplicacao: 'fab',
-            observacao: `Fixo Lateral Vidro: perim ${fL}×${fH}mm × ${qtdItem} = ${totalM.toFixed(2)}m`
+            observacao: `Fixo Lateral Vidro: perim ${fL}×${fH}mm × ${qtdItem} = ${totalM.toFixed(2)}m → ${totalMCeil}m (arredondado pra cima)`
               + (acess ? '' : ' · CADASTRAR EM ACESSORIOS'),
           });
         });
