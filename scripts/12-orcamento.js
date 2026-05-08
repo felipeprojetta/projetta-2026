@@ -12522,6 +12522,17 @@ const Orcamento = (() => {
         </div>`;
     }
 
+    // Felipe sessao 13: 'na frente o que for aluminio macico, descreva como
+    // aluminio macico. O que nao for aluminio macico voce ja sabe que e ACM,
+    // descreva na frente tambem como ACM. Isso somente para o modelo 23,
+    // quando o revestimento for aluminio macico.'
+    // Quando ALGUMA peca do conjunto tem materialEspecial='AM', e' Mod23+AM
+    // (so' esse caso seta materialEspecial). Nessa condicao adiciona uma
+    // COLUNA EXTRA 'Material' com badge AM/ACM na frente de cada peca.
+    // Nos demais casos (modelos normais, Mod23 ACM, vidro etc) a coluna
+    // nao aparece — layout original preservado.
+    const temAM_naLista = pecas.some(p => p.materialEspecial === 'AM');
+
     // Felipe (sessao 2026-05 / sessao 30 fix): pra cada peca, calcula
     // peso individual baseado no kg/m² da CHAPA-MAE da cor da peca.
     // Felipe sessao 30: "SE ESTIVER COM PESO 0 DEIXE ZERO NUNCA PUXE
@@ -12612,10 +12623,19 @@ const Orcamento = (() => {
       // Felipe sessao 13: linha destacada (amarelo claro) quando peça
       // e' de aluminio macico — visual claro pro usuario distinguir.
       const trStyle = (p.categoria === 'aluminio_macico') ? ' style="background:#fffbeb;"' : '';
+      // Felipe sessao 13: badge Material so' quando a tabela tem pecas AM.
+      // Mostra 'AM' (laranja) ou 'ACM' (cinza) — ajuda Felipe a separar
+      // visualmente as 2 chapas do Mod23+AM.
+      const badgeMaterial = !temAM_naLista ? '' : (
+        p.materialEspecial === 'AM'
+          ? '<td><span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #d97706;">AM</span></td>'
+          : '<td><span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;background:#e5e7eb;color:#374151;border:1px solid #9ca3af;">ACM</span></td>'
+      );
       return `
       <tr${trStyle}>
         <td>${labelDisplay}</td>
         <td>${badgeCategoria(p.categoria)}</td>
+        ${badgeMaterial}
         <td class="t-num">${inputLargura}</td>
         <td class="t-num">${inputAltura}</td>
         <td class="t-num">${inputQtd}</td>
@@ -12644,6 +12664,7 @@ const Orcamento = (() => {
             <option value="revestimento">Rev.</option>
           </select>
         </td>
+        ${temAM_naLista ? '<td style="text-align:center;color:#9ca3af;font-size:10px;">—</td>' : ''}
         <td class="t-num">
           <input type="number" min="1" step="1" class="orc-lev-sup-input-add-largura"
                  data-item-idx="${itemIdx}" placeholder="0"
@@ -12683,6 +12704,7 @@ const Orcamento = (() => {
             <tr>
               <th>Peca</th>
               <th>Cat</th>
+              ${temAM_naLista ? '<th>Material</th>' : ''}
               <th>Largura (mm)</th>
               <th>Altura (mm)</th>
               <th>Qtd</th>
