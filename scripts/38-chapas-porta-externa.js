@@ -1150,20 +1150,27 @@ const ChapasPortaExterna = (() => {
       '1F': [
         { id: 'cava', label: 'Cava',
           largura: F.cava_largura, comp: F.cava_comp,
-          ext: 1, int: 1, categoria: 'porta', ehDaCava: true,
           // Felipe sessao 13 (planilha v3 PRECIFICACAO_01_04_2026):
-          // CAVA SEMPRE em aluminio macico (mesmo no Modelo 23 ACM).
-          // Planilha aba MODELO 23 ACM tem coluna E='ALUMINIO MACICO'
-          // nas linhas R7 CAVA e R8 LDACAVA.
-          sempreAM: true },
+          // CAVA so' aparece no MODELO 23 ACM (aba 'MODELO 23 - ACM' R7).
+          // No MODELO 23 AM (revestimento Aluminio Macico 2mm) a aba
+          // 'MODELO 23 - ALUMINIO MACICO' NAO tem CAVA - a porta inteira
+          // ja' e' em AM, nao precisa de cavidade pra estruturar a chapa.
+          // Quando gerada (caso ACM), e' SEMPRE em aluminio macico
+          // (planilha aba ACM col E='ALUMINIO MACICO' nas linhas R7/R8).
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 1,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 1,
+          categoria: 'porta', ehDaCava: true, sempreAM: true },
         { id: 'l_da_cava', label: 'L da Cava',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true,
-          sempreAM: true },
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          categoria: 'porta', ehDaCava: true, sempreAM: true },
+        { id: 'tampa_maior_cava', label: 'Tampa Maior',
+          // Felipe sessao 13: planilha v3 nome e' "TAMPA_MAIOR_" (sem
+          // "Cava"). Mantive id 'tampa_maior_cava' por compatibilidade
+          // com codigo legado mas trocei label pra "Tampa Maior".
           // Planilha mod 23 ACM: (E3-C7-C8-1-C20*C22-C21*C22)+C15+C15
           // Planilha mod 23 AM:  (E3-C7-C8-C20*C22-C21*C22)         (sem -1, sem +2*REF)
-          // Felipe (sessao 13, planilha 01/04/2026): AM tira o -1 da formula.
           largura: ctx => F._ehMod23AM(ctx)
             ? (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos)
             : (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + 2*ctx.REF,
@@ -1171,14 +1178,13 @@ const ChapasPortaExterna = (() => {
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
           // Planilha mod 23: C20+(C15*2)-1 = dBFV+2*REF-1
-          // Felipe sessao 12: 'quando tiver qtd igual a 0 deixe zero pq tem
-          // uma formula ali, se tiver friso com qtd > 1 traga tudo'.
-          // qtd = qtdFrisos. Quando qtdFrisos=0 (AM tipico), nao gera (qtd 0).
+          // qty = qtdFrisos. Quando qtdFrisos=0 (AM tipico), nao gera (qtd 0).
           largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
           comp: ctx => ctx.alturaQuadro,
           ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
           categoria: 'porta' },
-        { id: 'friso_vertical', label: 'Friso Vertical',
+        { id: 'friso_vertical', label: 'Friso',
+          // Felipe sessao 13: planilha v3 nome e' "FRISO" (nao "Friso Vertical")
           largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
           ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
           categoria: 'porta' },
@@ -1186,12 +1192,17 @@ const ChapasPortaExterna = (() => {
       '2F': [
         { id: 'cava', label: 'Cava',
           largura: F.cava_largura, comp: F.cava_comp,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true,
-          sempreAM: true },
+          // Felipe sessao 13 (planilha v3): CAVA so' aparece no Modelo
+          // 23 ACM 2F. Aba 'MODELO 23 - ALUMINIO MACICO' 2F (col P) NAO
+          // tem CAVA — porta toda em AM dispensa cavidade estrutural.
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          categoria: 'porta', ehDaCava: true, sempreAM: true },
         { id: 'tampa_da_cava', label: 'Tampa da Cava',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 4, int: 4, categoria: 'porta', ehDaCava: true,
-          sempreAM: true },
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          categoria: 'porta', ehDaCava: true, sempreAM: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
           // Planilha mod 23 ACM: (E2-C7*2-C8*2)/2+10.5+C15+C15-1-C20*C22-C21*C22
           // Planilha mod 23 AM:  (E2-C7*2-C8*2)/2+15.5-C20*C22-C21*C22
@@ -1226,7 +1237,8 @@ const ChapasPortaExterna = (() => {
           comp: ctx => ctx.alturaQuadro,
           ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
           categoria: 'porta' },
-        { id: 'friso_vertical', label: 'Friso Vertical',
+        { id: 'friso_vertical', label: 'Friso',
+          // Felipe sessao 13: planilha v3 Mod 23 nome e' "FRISO" (nao "Friso Vertical")
           largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
           ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
           categoria: 'porta' },
@@ -1311,27 +1323,34 @@ const ChapasPortaExterna = (() => {
       let corResolvida = (def.ehDaCava && ctx.corCava) ? ctx.corCava : corDoLado;
       let categoria = def.categoria || 'porta';
 
-      // Felipe sessao 13: peças com flag sempreAM viram aluminio macico
-      // INDEPENDENTE do revestimento da porta (usado nas CAVA e L_DA_CAVA
-      // do Modelo 23, que sao fisicamente em alumínio macico mesmo
-      // quando o sistema da porta e' ACM. Ver planilha v3 aba 'MODELO 23
-      // - ACM' col E='ALUMINIO MACICO' nas linhas R7/R8).
+      // Felipe sessao 13 (planilha v3): regras de quando peca vira
+      // chapa de aluminio macico no Modelo 23:
+      //   1. CAVA / L_DA_CAVA / Tampa da Cava (com sempreAM=true):
+      //      sempre AM (so' aparecem no Mod 23 ACM, mas sao em AM).
+      //   2. FIT_ACAB_ME/MA/LAR_FITA: SEMPRE AM no Modelo 23 (ACM ou AM)
+      //      — planilha v3 aba ACM tambem marca FIT_ACAB col E='ALUMINIO
+      //      MACICO' (linhas R19, R20, R21).
+      //   3. Tampa* (Tampa Maior, TBFV): vira AM SO' quando porta toda
+      //      e' AM (revestimento Aluminio Macico 2mm).
+      const lblLow = String(def.label || '').toLowerCase();
+      const ehFitaAcab = /^fita\s*acabamento\b/.test(lblLow);
+      const labelComecaTampa = /^tampa\b/.test(lblLow);
+
       if (def.sempreAM) {
         corResolvida = corResolvida
           ? `Aluminio Macico — ${corResolvida}`
           : 'Aluminio Macico';
         categoria = 'aluminio_macico';
+      } else if (ehMod23 && ehFitaAcab) {
+        // Felipe sessao 13: fitas no Mod 23 SEMPRE AM.
+        corResolvida = corResolvida
+          ? `Aluminio Macico — ${corResolvida}`
+          : 'Aluminio Macico';
+        categoria = 'aluminio_macico';
       } else if (ehAluminioMacico) {
-        const lblLow = String(def.label || '').toLowerCase();
-        const labelComecaTampa = /^tampa\b/.test(lblLow);
-        const ehFitaAcab = /^fita\s*acabamento\b/.test(lblLow);
-
-        if (labelComecaTampa || ehFitaAcab) {
-          // Vira aluminio macico - chapa-mae propria.
-          // Felipe: 'tudo que tem Tampa no nome (qualquer Tampa) vira
-          // Aluminio Macico'. + Fita Acabamento.
-          // Cor passa a ser 'Aluminio Macico' (chapa-mae diferente)
-          // mas mantem a cor original como sufixo pra UI.
+        if (labelComecaTampa) {
+          // Felipe: tampas viram AM quando revestimento da porta e' AM.
+          // (FitaAcab ja' foi tratada acima na regra ehMod23+ehFitaAcab.)
           corResolvida = corResolvida
             ? `Aluminio Macico — ${corResolvida}`
             : 'Aluminio Macico';
