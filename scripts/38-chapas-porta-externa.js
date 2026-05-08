@@ -131,6 +131,10 @@ const ChapasPortaExterna = (() => {
       duasFaces:  String(item.modeloDuasFaces || 'sim').toLowerCase() === 'sim',
       larguraAlisar:    num('largura_alisar') || 100,
       espessuraParede:  num('espessura_parede') || 250,
+      // Felipe sessao 12: dist1aMoldura usada nas formulas Boiserie do
+      // modelo 23 + Aluminio Macico (G27=1048-C29/2-C29, etc).
+      // Default 150 (valor da planilha quando o user nao preencheu).
+      dist1aMoldura:    num('distanciaBorda1aMoldura') || 150,
       // Felipe (sessao 26 fix): respeitar flag tem_alisar das caracteristicas.
       // Se 'Nao' -> nao gerar pecas de alisar (default 'Sim' pra retrocompat).
       temAlisar: String(item.tem_alisar || 'Sim').toLowerCase() !== 'nao',
@@ -160,9 +164,23 @@ const ChapasPortaExterna = (() => {
     bat_03:    ctx => ctx.fam === 'PA007' ? (61 + ctx.REF) : (62 + ctx.REF),
     bat_comp:  ctx => ctx.alturaQuadro + 116,
     tap_furo_largura: ctx => ctx.fam === 'PA007' ? (79 + 2*ctx.REF) : (54 + 2*ctx.REF),
-    fit_acab_me:  ctx => 36.5 + 2*ctx.REF,
-    fit_acab_ma:  ctx => 74.5 + 2*ctx.REF,
-    fit_acab_lar: ctx => ctx.TUBLPORTAL + 10 + 2*ctx.REF,
+    // Felipe sessao 12 - Modelo 23 + Aluminio Macico:
+    // Quando modelo=23 E revestimento=Aluminio Macico, as fitas e tampas
+    // perdem o '+2*REF' (que e a dobra do revestimento sobre as bordas - 
+    // so faz sentido em ACM). Helper _ehMod23AM detecta o caso.
+    // Aplicado nas fitas (fit_acab_me/ma/lar) e nas tampas (modelo 23
+    // direto, ja inline).
+    _ehMod23AM: ctx => {
+      const mNum = Number(ctx.item?.modeloExterno || ctx.item?.modeloInterno || ctx.item?.modeloNumero) || 0;
+      if (mNum !== 23) return false;
+      const rev = String(ctx.item?.revestimento || '').toLowerCase();
+      return /aluminio.*macico/.test(rev) && /2\s*mm/.test(rev);
+    },
+    // _refExtra(ctx) retorna 2*REF normalmente, ou 0 quando modelo 23 + AM.
+    _refExtra: ctx => F._ehMod23AM(ctx) ? 0 : (2 * ctx.REF),
+    fit_acab_me:  ctx => 36.5 + F._refExtra(ctx),
+    fit_acab_ma:  ctx => 74.5 + F._refExtra(ctx),
+    fit_acab_lar: ctx => ctx.TUBLPORTAL + 10 + F._refExtra(ctx),
     // ALISAR — Felipe planilha: (espessuraParede - 80/2) + 5 + larguraAlisar + REF
     // Nota: 80/2 é DIVIDIDO ANTES (=40), NÃO (esp-80)/2.
     alisar_largura: ctx => (ctx.espessuraParede - 80/2) + 5 + ctx.larguraAlisar + ctx.REF,
@@ -1123,12 +1141,17 @@ const ChapasPortaExterna = (() => {
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
         { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
-          // Planilha mod 23: (E3-C7-C8-1-C20*C22-C21*C22)+C15+C15
-          largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + 2*ctx.REF,
+          // Planilha mod 23 ACM: (E3-C7-C8-1-C20*C22-C21*C22)+C15+C15
+          // Planilha mod 23 AM:  (E3-C7-C8-1-C20*C22-C21*C22)         (sem +2*REF)
+          // _refExtra(ctx) = 2*REF normalmente, 0 quando AM
+          largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + F._refExtra(ctx),
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
           // Planilha mod 23: C20+(C15*2)-1 = dBFV+2*REF-1
+          // Felipe sessao 12: 'quando tiver qtd igual a 0 deixe zero pq tem
+          // uma formula ali, se tiver friso com qtd > 1 traga tudo'.
+          // qtd = qtdFrisos. Quando qtdFrisos=0 (AM tipico), nao gera (qtd 0).
           largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
           comp: ctx => ctx.alturaQuadro,
           ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
@@ -1146,22 +1169,26 @@ const ChapasPortaExterna = (() => {
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
-          // Planilha mod 23: (E2-C7*2-C8*2)/2+10.5+C15+C15-1-C20*C22-C21*C22
-          largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          // Planilha mod 23 ACM: (E2-C7*2-C8*2)/2+10.5+C15+C15-1-C20*C22-C21*C22
+          // Planilha mod 23 AM:  (E2-C7*2-C8*2)/2+10.5-1-C20*C22-C21*C22 (sem +2*REF)
+          largura: ctx => F.tm_base_2f(ctx) + 10.5 + F._refExtra(ctx) - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 0, categoria: 'porta' },
         { id: 'tampa_maior_02', label: 'Tampa Maior 02',
-          // Planilha mod 23: (E2-1-C7*2-C8*2)/2+C15+C15-28-C20*C22-C21*C22
-          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          // Planilha mod 23 ACM: (E2-1-C7*2-C8*2)/2+C15+C15-28-C20*C22-C21*C22
+          // Planilha mod 23 AM:  (E2-1-C7*2-C8*2)/2-28-C20*C22-C21*C22 (sem +2*REF)
+          largura: ctx => F.tm_base_2f_menos1(ctx) + F._refExtra(ctx) - 28 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'tampa_maior_03', label: 'Tampa Maior 03',
-          // Planilha mod 23: (E2-1-C7*2-C8*2)/2+C15+C15-28-38-C20*C22-C21*C22
-          largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+          // Planilha mod 23 ACM: (E2-1-C7*2-C8*2)/2+C15+C15-28-38-C20*C22-C21*C22
+          // Planilha mod 23 AM:  (E2-1-C7*2-C8*2)/2-28-38-C20*C22-C21*C22 (sem +2*REF)
+          largura: ctx => F.tm_base_2f_menos1(ctx) + F._refExtra(ctx) - 28 - 38 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
           comp: ctx => ctx.alturaQuadro,
           ext: 0, int: 1, categoria: 'porta' },
         { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
           // Planilha mod 23: C20+(C15*2)-1, qty=C22*2
+          // Felipe sessao 12: 'qtd=0 nao gera'. Quando qtdFrisos=0 (AM tipico).
           largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
           comp: ctx => ctx.alturaQuadro,
           ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
@@ -1210,17 +1237,64 @@ const ChapasPortaExterna = (() => {
     const qtdItem = Math.max(1, parseInt(ctx.item?.quantidade, 10) || 1);
     const corDoLado = (ctx.lado === 'externo') ? ctx.corExt : ctx.corInt;
 
+    // Felipe sessao 12 - Modelo 23 + Aluminio Macico:
+    // Detecta o caso especial (modelo=23 E revestimento='Aluminio Macico 2mm').
+    // Quando ativo:
+    //   - 'Tampa' qualquer (Tampa Maior, Tampa Maior 01/02/03, Tampa Maior
+    //     Cava, Tampa da Cava, Tampa Borda Friso Vertical) -> chapa de
+    //     ALUMINIO MACICO (categoria propria, separa no aproveitamento)
+    //   - 'Fita Acabamento' (Menor/Maior/Largura) -> ALUMINIO MACICO
+    //   - 'Friso Vertical' / 'Tampa Borda Friso Vertical' continuam mas
+    //     com qtd 0 quando qtdFrisos=0 (regra Felipe: 'quando tiver qtd
+    //     igual a 0 deixe zero pq tem uma formula ali, se tiver friso
+    //     com qtd > 1 traga tudo')
+    //   - 'L da Cava' / 'Cava' continuam ACM
+    //   - Acabamento Lateral, Batente, U Portal, Tampa Furo, Alisar
+    //     continuam ACM
+    //   - Molduras (Moldura Horizontal/Vertical) NAO sao geradas como
+    //     pecas de chapa - viram perfis Boiserie em 31-perfis-porta-externa.js
+    //   - Tampa Final / Tampa+REF (modelo 23 ACM) tambem nao mais geradas
+    const ehMod23 = Number(modelo) === 23;
+    const rev = String(ctx.item?.revestimento || '').toLowerCase();
+    const ehAluminioMacico = ehMod23
+      && /aluminio.*macico/.test(rev)
+      && /2\s*mm/.test(rev);
+
     for (const def of pecasDef) {
       const qtyExt = (typeof def.ext === 'function') ? def.ext(ctx) : (def.ext || 0);
       const qtyInt = (typeof def.int === 'function') ? def.int(ctx) : (def.int || 0);
       const qtyFace = (ctx.lado === 'externo') ? qtyExt : qtyInt;
-      if (qtyFace <= 0) continue;
 
       const larg = (typeof def.largura === 'function') ? def.largura(ctx) : def.largura;
       const comp = (typeof def.comp === 'function') ? def.comp(ctx) : def.comp;
+
+      // Felipe sessao 12: regra geral 'quantidade 0 deixa fora'.
+      // Apenas o caso modo=Aluminio Macico de TAMPA_BORDA_FRISO_VERTICAL e FRISO
+      // pode ter qtd 0 quando qtdFrisos vazio - e sao essas peças que
+      // nao entram (qtd 0 = peça inexistente). Mantemos o filtro qtyFace<=0.
+      if (qtyFace <= 0) continue;
       if (!larg || larg <= 0 || !comp || comp <= 0) continue;
 
-      const corResolvida = (def.ehDaCava && ctx.corCava) ? ctx.corCava : corDoLado;
+      let corResolvida = (def.ehDaCava && ctx.corCava) ? ctx.corCava : corDoLado;
+      let categoria = def.categoria || 'porta';
+
+      if (ehAluminioMacico) {
+        const lblLow = String(def.label || '').toLowerCase();
+        const labelComecaTampa = /^tampa\b/.test(lblLow);
+        const ehFitaAcab = /^fita\s*acabamento\b/.test(lblLow);
+
+        if (labelComecaTampa || ehFitaAcab) {
+          // Vira aluminio macico - chapa-mae propria.
+          // Felipe: 'tudo que tem Tampa no nome (qualquer Tampa) vira
+          // Aluminio Macico'. + Fita Acabamento.
+          // Cor passa a ser 'Aluminio Macico' (chapa-mae diferente)
+          // mas mantem a cor original como sufixo pra UI.
+          corResolvida = corResolvida
+            ? `Aluminio Macico — ${corResolvida}`
+            : 'Aluminio Macico';
+          categoria = 'aluminio_macico';
+        }
+      }
 
       out.push({
         id: def.id,
@@ -1233,7 +1307,7 @@ const ChapasPortaExterna = (() => {
         cor:     corResolvida,
         lado:    ctx.lado,
         ehDaCava: !!def.ehDaCava,
-        categoria: def.categoria || 'porta',
+        categoria: categoria,
         modelo,
         observacao: def.observacao || '',
       });

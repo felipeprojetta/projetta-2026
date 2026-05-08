@@ -399,6 +399,110 @@ const PerfisPortaExterna = (() => {
       }
     }
 
+    // ====================================================================
+    // Felipe sessao 12 - MODELO 23 + ALUMINIO MACICO -> PERFIS BOISERIE
+    //
+    // Quando o modelo for 23 e o revestimento for "Aluminio Macico 2mm",
+    // as MOLDURAS deixam de ser pecas de chapa e viram PERFIL BOISERIE
+    // (PA-PERFILBOISERIE) — 1:1, mesmo comprimento, mesma quantidade.
+    //
+    // Formulas extraidas LITERALMENTE da planilha "MODELO 23 - ALUMINIO
+    // MACICO" (aba aliminio macico, secao Boiserie):
+    //
+    // 1F (3 tipos):
+    //   MOLDURA HORIZONTAL 1: largura = J9-C29*2, qtd 8
+    //     onde J9 = TAMPA_MAIOR_CAVA antes de +2REF
+    //          = larguraQuadro1F - dBC - tamCava - 1
+    //            - dBFV*qtdFrisos - eF*qtdFrisos
+    //   MOLDURA VERTICAL 1: largura = 1048 - C29/2 - C29, qtd 4
+    //     (1048 e' constante de desenho do modelo 23)
+    //   MOLDURA VERTICAL 2: largura = E4 - 3*C29 - G27, qtd 4
+    //     (E4 = alturaQuadro; G27 = MOLDURA VERTICAL 1)
+    //
+    // 2F (5 tipos):
+    //   MOLDURA HORIZONTAL 1: largura = Q9-C29*2,  qtd 4
+    //   MOLDURA HORIZONTAL 2: largura = Q10-C29*2, qtd 8
+    //   MOLDURA HORIZONTAL 3: largura = Q11-C29*2, qtd 4
+    //   MOLDURA VERTICAL 1:   largura = 1048-C29/2-C29, qtd 8
+    //   MOLDURA VERTICAL 2:   largura = E4-3*C29-MOLDURA VERTICAL 1, qtd 8
+    //   onde Q9, Q10, Q11 = Tampa Maior 01/02/03 antes de +2*REF.
+    //
+    // C29 = distanciaBorda1aMoldura (default 150mm).
+    //
+    // O motor de chapas (38-chapas-porta-externa.js) NAO gera as molduras
+    // como pecas de chapa quando ehAluminioMacico=true — entao nao tem
+    // duplicacao. Aqui a regra fecha o ciclo.
+    // ====================================================================
+    const ehMod23AM = (modelo === 23)
+      && /aluminio.*macico/i.test(String(item.revestimento || ''))
+      && /2\s*mm/i.test(String(item.revestimento || ''));
+    if (ehMod23AM) {
+      const COD_BOIS = (window.PerfisCore && window.PerfisCore.COD_BOISERIE) || 'PA-PERFILBOISERIE';
+
+      // Felipe sessao 12: usa calcularQuadro do motor de chapas pra
+      // garantir consistencia (mesma fonte de verdade) - evita duplicar
+      // VARS_CHAPAS aqui. ChapasPortaExterna.calcularQuadro retorna
+      // { alturaQuadro, larguraQuadro1F, larguraQuadro2F, ... }
+      let larguraQuadro1F = 0, larguraQuadro2F = 0, alturaQuadro = 0;
+      if (window.ChapasPortaExterna && window.ChapasPortaExterna.calcularQuadro) {
+        const q = window.ChapasPortaExterna.calcularQuadro(item);
+        if (q) {
+          larguraQuadro1F = q.larguraQuadro1F;
+          larguraQuadro2F = q.larguraQuadro2F;
+          alturaQuadro    = q.alturaQuadro;
+        }
+      }
+      // Fallback se motor de chapas nao carregado: replica formulas
+      // (com VARS_CHAPAS hardcoded da planilha Felipe).
+      if (!larguraQuadro1F) {
+        // VARS_CHAPAS atuais (38-chapas-porta-externa.js linhas 32-36):
+        const PORTAL_LD = 171.5, PORTAL_LE = 171.5;
+        const U_LARG_1F = 90, U_LARG_2F = 128, U_LARG_CENTRAL = 128;
+        const FGLD_FGLE_loc = v.FGLD + v.FGLE;
+        larguraQuadro1F = L - FGLD_FGLE_loc - PORTAL_LD - PORTAL_LE + U_LARG_1F + U_LARG_CENTRAL;
+        larguraQuadro2F = L - 20            - PORTAL_LD - PORTAL_LE + U_LARG_2F + U_LARG_CENTRAL;
+        alturaQuadro    = A - v.FGA - v.TUBLPORTAL - v.ESPPIV + v.TRANSPIV;
+      }
+
+      const dBC     = parseFloat(String(item.distanciaBordaCava || 0).replace(',', '.')) || 0;
+      const tamCava = parseFloat(String(item.tamanhoCava || 0).replace(',', '.')) || 0;
+      const dBFV    = parseFloat(String(item.distanciaBordaFrisoVertical || 0).replace(',', '.')) || 0;
+      const eF      = parseFloat(String(item.espessuraFriso || 0).replace(',', '.')) || 0;
+      const qtdFrisos = Math.max(0, parseInt(item.quantidadeFrisos, 10) || 0);
+      const C29 = parseFloat(String(item.distanciaBorda1aMoldura || 150).replace(',', '.')) || 150;
+
+      // J9 = TAMPA_MAIOR_CAVA largura ANTES de +2*REF
+      const J9 = larguraQuadro1F - dBC - tamCava - 1 - dBFV*qtdFrisos - eF*qtdFrisos;
+      // Q9, Q10, Q11 = TAMPA_MAIOR 01/02/03 largura ANTES de +2*REF
+      const tm_base_2f       = (larguraQuadro2F - dBC*2 - tamCava*2) / 2;
+      const tm_base_2f_menos1= (larguraQuadro2F - 1 - dBC*2 - tamCava*2) / 2;
+      const Q9  = tm_base_2f       + 10.5 - 1 - dBFV*qtdFrisos - eF*qtdFrisos;
+      const Q10 = tm_base_2f_menos1     - 28      - dBFV*qtdFrisos - eF*qtdFrisos;
+      const Q11 = tm_base_2f_menos1     - 28 - 38 - dBFV*qtdFrisos - eF*qtdFrisos;
+
+      // IF qtdFrisos>0 -> J9 ; senao -> J9-C29*2
+      const horiz1F = (qtdFrisos > 0) ? J9 : (J9 - 2*C29);
+      // VERTICAL 1: 1048 - C29/2 - C29 (constante 1048 do desenho)
+      const VERT_1 = 1048 - (C29/2) - C29;
+      // VERTICAL 2: alturaQuadro - 3*C29 - VERT_1
+      const VERT_2 = alturaQuadro - 3*C29 - VERT_1;
+
+      if (nFolhas === 1) {
+        if (horiz1F > 0)  add(COD_BOIS, horiz1F, 8, 'Moldura Horizontal 1');
+        if (VERT_1 > 0)   add(COD_BOIS, VERT_1,  4, 'Moldura Vertical 1');
+        if (VERT_2 > 0)   add(COD_BOIS, VERT_2,  4, 'Moldura Vertical 2');
+      } else if (nFolhas === 2) {
+        const horiz1_2F = (qtdFrisos > 0) ? Q9  : (Q9  - 2*C29);
+        const horiz2_2F = (qtdFrisos > 0) ? Q10 : (Q10 - 2*C29);
+        const horiz3_2F = (qtdFrisos > 0) ? Q11 : (Q11 - 2*C29);
+        if (horiz1_2F > 0) add(COD_BOIS, horiz1_2F, 4, 'Moldura Horizontal 1');
+        if (horiz2_2F > 0) add(COD_BOIS, horiz2_2F, 8, 'Moldura Horizontal 2');
+        if (horiz3_2F > 0) add(COD_BOIS, horiz3_2F, 4, 'Moldura Horizontal 3');
+        if (VERT_1 > 0)    add(COD_BOIS, VERT_1,    8, 'Moldura Vertical 1');
+        if (VERT_2 > 0)    add(COD_BOIS, VERT_2,    8, 'Moldura Vertical 2');
+      }
+    }
+
     return cortes;
   }
 
