@@ -2325,6 +2325,12 @@ const Orcamento = (() => {
       corInterna: '',
       lados: '1lado',              // '1lado' (so externo) ou '2lados' (externo+interno) — ignorado se vidro
       fixoSegueModelo: 'sim',      // 'sim' (default — replica porta) ou 'nao' (escolher modelo proprio)
+      // Felipe sessao 13: folgas editaveis por item (mesma feature da
+      // porta externa). Vazio = usa default 10mm. Preenchido = override.
+      // Aplicadas em 36-perfis-rev-acoplado.js gerarPerfis().
+      fglDir: '',
+      fglEsq: '',
+      fgSup: '',
     };
     if (tipo === 'revestimento_parede') return {
       tipo: 'revestimento_parede',
@@ -3547,6 +3553,37 @@ const Orcamento = (() => {
             <div class="orc-field orc-f-dim">
               <label>Altura (mm)</label>
               <input type="text" data-field="altura" value="${escapeHtml(String(item.altura || ''))}" placeholder="" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Felipe sessao 13: FOLGAS editaveis por item no Fixo Acoplado.
+             Mesma feature da porta externa. Vazio = usa default 10mm.
+             Preenchido = override so' nesse fixo. -->
+        <div class="orc-section">
+          <div class="orc-section-title">Folgas (mm)</div>
+          <p style="font-size:12px; color: var(--text-muted); margin: 0 0 8px 0;">
+            Padrao: 10mm em cada lado. No fixo lateral, normalmente o lado
+            que encosta na porta nao tem folga (deixe 0).
+          </p>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-qtd">
+              <label>Lateral Esquerda</label>
+              <input type="number" min="0" step="1" data-field="fglEsq"
+                     value="${(item.fglEsq === '' || item.fglEsq === null || item.fglEsq === undefined) ? '' : escapeHtml(String(item.fglEsq))}"
+                     placeholder="10" />
+            </div>
+            <div class="orc-field orc-f-qtd">
+              <label>Lateral Direita</label>
+              <input type="number" min="0" step="1" data-field="fglDir"
+                     value="${(item.fglDir === '' || item.fglDir === null || item.fglDir === undefined) ? '' : escapeHtml(String(item.fglDir))}"
+                     placeholder="10" />
+            </div>
+            <div class="orc-field orc-f-qtd">
+              <label>Superior</label>
+              <input type="number" min="0" step="1" data-field="fgSup"
+                     value="${(item.fgSup === '' || item.fgSup === null || item.fgSup === undefined) ? '' : escapeHtml(String(item.fgSup))}"
+                     placeholder="10" />
             </div>
           </div>
         </div>

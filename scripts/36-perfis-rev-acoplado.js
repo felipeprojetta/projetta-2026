@@ -96,8 +96,20 @@ var PerfisRevAcoplado = (function() {
     var ALTURA  = Number(item.altura)  || 0;
     var s    = getSis(item);
     var TUB1 = s.TUB1;
-    var FGLD = s.FGLD;
-    var FGLE = s.FGLE;
+
+    // Felipe sessao 13: folgas EDITAVEIS POR ITEM. Default 10mm vem
+    // de getSis() (PA006/PA007). Override no item: fglDir/fglEsq.
+    // Vazio = usa default. Mesma logica da porta externa.
+    function _fg(raw, fb) {
+      if (raw === '' || raw === null || raw === undefined) return fb;
+      var n = Number(String(raw).replace(',', '.'));
+      return (isFinite(n) && n >= 0) ? n : fb;
+    }
+    var FGLD = _fg(item.fglDir, s.FGLD);
+    var FGLE = _fg(item.fglEsq, s.FGLE);
+    // Nota: fgSup ainda nao e' usado pelo motor atual (formulas Pasta1.xlsx
+    // nao tinham FGA pro fixo). Sera usado quando entrar a logica do
+    // Fixo Lateral com Vidro (proximo commit) e estrutura de topo.
 
     var cortes = {};
     function add(codigo, comp, qty, label) {
