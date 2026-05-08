@@ -425,6 +425,54 @@ const AcessoriosPortaExterna = (() => {
     }  // ← fim do if (item.tipo === 'porta_externa') da FABRICACAO
 
     // ============================================================
+    // BORRACHAS DE VIDRO no FIXO ACOPLADO LATERAL (Felipe sessao 13)
+    // ============================================================
+    // Felipe: 'fixo acoplado lateral com vidro deve adicionar PA-GUA411
+    // e PA-GUA413 perimetro L*2 + H*2'. Sao borrachas EPDM (familia
+    // borracha) cadastradas em scripts/25-acessorios.js — viram
+    // ACESSORIOS aqui, nao perfis de corte.
+    //
+    // Aplicado SO em: fixo_acoplado + posicao=lateral + revestimento=vidro.
+    // Os perfis de aluminio do mesmo caso (PA-PF-104, PA-PF-051) sao
+    // tratados em 36-perfis-rev-acoplado.js (gerarCortes), nao aqui.
+    if (
+      item.tipo === 'fixo_acoplado'
+      && String(item.posicao || '').toLowerCase() === 'lateral'
+      && String(item.revestimento || '').toLowerCase() === 'vidro'
+    ) {
+      const fL = Number(item.largura) || 0;
+      const fH = Number(item.altura)  || 0;
+      const qtdItem = Math.max(1, Number(item.quantidade) || 1);
+      if (fL > 0 && fH > 0) {
+        // Perimetro em metros por unidade do fixo. Multiplicado pela
+        // qtd de fixos do item (qtdPortas no codigo legado).
+        const perimM = ((fL * 2) + (fH * 2)) / 1000;
+        const totalM = perimM * qtdItem;
+        // Adiciona linhas direto (helper add() forca unidade='un',
+        // borrachas sao 'm'). Busca preco do cadastro.
+        ['PA-GUA411', 'PA-GUA413'].forEach(function(cod) {
+          const acess = buscarAcessorio(cadastroAcessorios, cod);
+          const precoUn = acess ? (Number(acess.preco) || 0) : 0;
+          const desc = acess ? (acess.descricao || '') : '(nao cadastrado)';
+          const fam  = acess ? (acess.familia || '')   : '';
+          linhas.push({
+            codigo: cod,
+            descricao: desc,
+            familia: fam,
+            qtd: Number(totalM.toFixed(3)),
+            unidade: 'm',
+            preco_un: precoUn,
+            total: precoUn * totalM,
+            categoria: 'Vedações',
+            aplicacao: 'fab',
+            observacao: `Fixo Lateral Vidro: perim ${fL}×${fH}mm × ${qtdItem} = ${totalM.toFixed(2)}m`
+              + (acess ? '' : ' · CADASTRAR EM ACESSORIOS'),
+          });
+        });
+      }
+    }
+
+    // ============================================================
     // FITA DUPLA FACE + SILICONE ESTRUTURAL 995 (Felipe sessao 2026-08)
     // ============================================================
     // Substitui o calculo aproximado anterior (perim × 1.5/0.5 chumbado)

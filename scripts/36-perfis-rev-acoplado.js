@@ -140,12 +140,17 @@ var PerfisRevAcoplado = (function() {
     );
 
     if (ehLateralVidro) {
-      // 4 perfis estruturais do vidro. Cada um: 2 horizontais + 2 verticais.
+      // 2 perfis estruturais de aluminio (vao em PERFIS de corte).
+      // Cada um: 2 horizontais (largura L) + 2 verticais (altura H).
       // Total por perfil = L*2 + H*2 (perimetro).
-      ['PA-PF-104', 'PA-PF-051', 'PA-GUA411', 'PA-GUA413'].forEach(function(cod) {
+      ['PA-PF-104', 'PA-PF-051'].forEach(function(cod) {
         add(cod, LARGURA, 2, cod + ' (horizontal)');
         add(cod, ALTURA,  2, cod + ' (vertical)');
       });
+      // Felipe sessao 13: PA-GUA411 e PA-GUA413 sao BORRACHAS EPDM —
+      // viram ACESSORIOS (em metros), nao perfis de corte.
+      // Adicionados em 28-acessorios-porta-externa.js no bloco
+      // 'fixo_acoplado lateral c/ vidro' com qtd = perimetro em metros.
       // SAI antes de gerar travessas/frisos/cava — fixo lateral c/ vidro
       // nao tem nenhum desses.
       return cortes;
