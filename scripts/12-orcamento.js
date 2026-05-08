@@ -10288,13 +10288,13 @@ const Orcamento = (() => {
           </thead>
           <tbody>
             ${revPorCor.linhas.map(l => `
-              <tr class="${l.fonte === 'selecionada' ? 'orc-aprov-rev-sel' : 'orc-aprov-rev-auto'}">
+              <tr class="${l.fonte === 'selecionada' ? 'orc-aprov-rev-sel' : (l.fonte === 'vidro_m2' ? 'orc-aprov-rev-vidro' : 'orc-aprov-rev-auto')}">
                 <td>${escapeHtml(l.cor)}</td>
                 <td class="orc-aprov-rev-desc">${escapeHtml(l.descricao)}</td>
-                <td class="num">${fmtBR(l.precoUnit)}</td>
-                <td class="num">${l.qtd}</td>
+                <td class="num">${fmtBR(l.precoUnit)}${l.fonte === 'vidro_m2' ? '<span style="font-size:10px;color:#666;"> /m²</span>' : ''}</td>
+                <td class="num">${l.fonte === 'vidro_m2' ? fmtBR(l.qtd) + ' m²' : l.qtd}</td>
                 <td class="num"><b>${fmtBR(l.subtotal)}</b></td>
-                <td class="orc-aprov-rev-fonte">${l.fonte === 'selecionada' ? '✓ selecionada' : 'auto (melhor)'}</td>
+                <td class="orc-aprov-rev-fonte">${l.fonte === 'selecionada' ? '✓ selecionada' : (l.fonte === 'vidro_m2' ? '🔷 vidro m²' : 'auto (melhor)')}</td>
               </tr>
             `).join('')}
             <tr class="orc-aprov-rev-total">
@@ -10546,6 +10546,57 @@ const Orcamento = (() => {
         }
       }
     });
+
+    // Felipe sessao 13: VIDROS M² entram no custo de superficies tambem.
+    // Itens fixo_acoplado com revestimento='Vidro' e a superficie do vidro
+    // tem cobranca='m2': calcula L*H em m² × qtd item × preco_m2 e adiciona
+    // como linha extra. NAO usa pecasPorCor (que e' so' chapas com motor).
+    // Busca a superficie no cadastro pela descricao salva em item.vidroDescricao.
+    try {
+      const itens = (versao && versao.itens) || [];
+      const sups = todasSuperficies || [];
+      itens.forEach(item => {
+        if (!item) return;
+        // Por enquanto so' fixo_acoplado tem campo vidroDescricao. Quando
+        // outros tipos ganharem, basta ampliar a condicao.
+        if (item.tipo !== 'fixo_acoplado') return;
+        if (String(item.revestimento || '').toLowerCase() !== 'vidro') return;
+        const desc = String(item.vidroDescricao || '').trim();
+        if (!desc) return;
+        // Acha superficie pela descricao (case-insensitive)
+        const sup = sups.find(s =>
+          s && String(s.descricao || '').trim().toLowerCase() === desc.toLowerCase()
+        );
+        if (!sup) return;
+        const cobranca = String(sup.cobranca || 'm2').toLowerCase();
+        if (cobranca !== 'm2') return;  // chapa usa motor de aproveitamento (proximo commit)
+        const L_mm = parseFloat(String(item.largura || '').replace(',', '.')) || 0;
+        const H_mm = parseFloat(String(item.altura  || '').replace(',', '.')) || 0;
+        const qtd  = Math.max(1, Number(item.quantidade) || 1);
+        if (L_mm <= 0 || H_mm <= 0) return;
+        const m2_unit  = (L_mm * H_mm) / 1_000_000;
+        const m2_total = m2_unit * qtd;
+        const preco_m2 = Number(sup.preco) || 0;
+        const subtotal = m2_total * preco_m2;
+        // Cor sintetica pra essa linha (nao colide com cores de chapa)
+        const corChave = `Vidro — ${sup.descricao}`;
+        linhas.push({
+          cor: corChave,
+          descricao: `${sup.descricao} [m²]`,
+          largura: L_mm,
+          altura: H_mm,
+          precoUnit: preco_m2,
+          qtd: m2_total,        // qtd em m² (nao chapas)
+          subtotal,
+          fonte: 'vidro_m2',
+          unidade: 'm²',
+        });
+        total += subtotal;
+      });
+    } catch (e) {
+      console.error('[computeRevestimentoPorCor vidros] erro:', e);
+    }
+
     return { linhas, total };
   }
 
