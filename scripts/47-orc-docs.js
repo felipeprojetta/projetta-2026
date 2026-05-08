@@ -532,7 +532,6 @@
           <div data-step="resultado-porta" style="opacity:0.4;">⌛ Resultado por Porta (PNG)</div>
           <div data-step="dre" style="opacity:0.4;">⌛ DRE Resumida (PNG)</div>
           <div data-step="obra" style="opacity:0.4;">⌛ Resumo da Obra (PNG)</div>
-          <div data-step="proposta" style="opacity:0.4;">⌛ Dossiê Interno (PDF agregado)</div>
           <div data-step="proposta-comercial" style="opacity:0.4;">⌛ Proposta Comercial (PDF cliente)</div>
         </div>
         <div style="margin-top: 14px; font-size: 11px; color: #6b7280;">
@@ -575,28 +574,6 @@
       await new Promise(r => setTimeout(r, 400));
     }
 
-    setStep('proposta', 'loading');
-    try {
-      const blob = await window.Orcamento.gerarPropostaPDFBlob(versaoId);
-      if (!blob) throw new Error('blob vazio');
-      // Felipe sessao 2026-08: arquivo renomeado de 'Proposta' pra 'Dossie
-      // Interno' pra nao confundir com a Proposta Comercial real (cliente).
-      // O conteudo do arquivo e' o mesmo (4 paineis agregados + DRE + custos).
-      const nome = formatNomeArquivo(lead, 'Dossie Interno', versaoResumo.numero) + '.pdf';
-      baixarBlob(blob, nome);
-      arquivosGerados.push(nome);
-      setStep('proposta', 'ok');
-    } catch (e) {
-      console.error('[OrcDocs] erro Dossie Interno:', e);
-      erros.push(`Dossie Interno: ${e.message || e}`);
-      setStep('proposta', 'erro');
-    }
-
-    await new Promise(r => setTimeout(r, 400));
-
-    // Felipe sessao 2026-08: NOVO - Proposta Comercial pro cliente final
-    // (formato apresentavel, sem custos/DRE/markup). Reusa renderPropostaTab
-    // existente em container offscreen.
     setStep('proposta-comercial', 'loading');
     try {
       const blob = await window.Orcamento.gerarPropostaComercialPDFBlob(versaoId);
