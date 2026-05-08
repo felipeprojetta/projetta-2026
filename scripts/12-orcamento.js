@@ -3539,7 +3539,7 @@ const Orcamento = (() => {
               <label>Posicao</label>
               <select data-field="posicao">
                 <option value="superior" ${item.posicao !== 'lateral' ? 'selected' : ''}>Superior (em cima da porta)</option>
-                <option value="lateral" ${item.posicao === 'lateral' ? 'selected' : ''} disabled>Lateral (em desenvolvimento)</option>
+                <option value="lateral" ${item.posicao === 'lateral' ? 'selected' : ''}>Lateral (ao lado da porta)</option>
               </select>
             </div>
             <div class="orc-field">
