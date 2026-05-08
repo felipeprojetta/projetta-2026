@@ -3725,16 +3725,33 @@ const Orcamento = (() => {
           ` : ''}
         </div>
 
-        ${(item.revestimento && item.revestimento !== 'Vidro') ? `
-        <!-- Felipe sessao 13: Acabamento do FIXO ACOPLADO. Cor da chapa
-             ACM (ou HPL/Aluminio Maciço — filtra pelo revestimento). Padrao
-             igual porta externa: Externa em cima, botao copiar, Interna
-             embaixo. -->
+        ${(() => {
+          // Felipe sessao 13: cor de chapa do FIXO ACOPLADO.
+          // - Superior/Lateral + ACM/HPL/Aluminio Macico  -> mostra cor (categoria do rev)
+          // - Lateral + Vidro                              -> mostra cor ACM (NOVO!)
+          //   (porque o fixo lateral c/ vidro tem pecas ACM:
+          //   Fita Acabamento do PF + Revestimento do Tubo)
+          // - Superior + Vidro                             -> NAO mostra
+          //   (vidro puro, sem chapa de revestimento)
+          if (!item.revestimento) return '';
+          const ehLatVidro = item.posicao === 'lateral' && item.revestimento === 'Vidro';
+          if (item.revestimento === 'Vidro' && !ehLatVidro) return '';
+          // Quando Lateral+Vidro, forca filtro pra categoria 'acm' e label 'ACM'.
+          // Nos outros casos, usa o revestimento do item.
+          const revFiltro = ehLatVidro ? 'ACM 4mm' : item.revestimento;
+          const labelMat  = ehLatVidro ? 'ACM' : item.revestimento;
+          return `
         <div class="orc-section">
-          <div class="orc-section-title">Acabamento</div>
+          <div class="orc-section-title">Acabamento${ehLatVidro ? ' (Chapa ACM do Fixo Lateral)' : ''}</div>
+          ${ehLatVidro ? `
+          <p style="font-size:12px;color:var(--text-muted);margin:0 0 8px 0;">
+            Cores das peças ACM que vao no fixo lateral com vidro
+            (Fita Acabamento do PF + Revestimento do Tubo).
+          </p>
+          ` : ''}
           <div class="orc-cor-stack">
             <div class="orc-field orc-f-cor">
-              <label>Cor ${escapeHtml(item.revestimento)} Externa</label>
+              <label>Cor ${escapeHtml(labelMat)} Externa</label>
               <input type="text" list="orc-superficies-list-fixo" data-field="corExterna"
                      value="${escapeHtml(item.corExterna || '')}"
                      placeholder="" title="${escapeHtml(item.corExterna || '')}" />
@@ -3744,7 +3761,7 @@ const Orcamento = (() => {
               ↓ Copiar Externo → Interno
             </button>
             <div class="orc-field orc-f-cor">
-              <label>Cor ${escapeHtml(item.revestimento)} Interna</label>
+              <label>Cor ${escapeHtml(labelMat)} Interna</label>
               <input type="text" list="orc-superficies-list-fixo" data-field="corInterna"
                      value="${escapeHtml(item.corInterna || '')}"
                      placeholder="" title="${escapeHtml(item.corInterna || '')}" />
@@ -3752,21 +3769,21 @@ const Orcamento = (() => {
           </div>
           <datalist id="orc-superficies-list-fixo">
             ${(() => {
-              // Felipe sessao 13: deduplica nome (sem medida) — igual porta externa.
-              const sup = filtrarSuperficies(item.revestimento) || [];
+              const sup = filtrarSuperficies(revFiltro) || [];
               const vistas = new Set();
               const opts = [];
               sup.forEach(s => {
                 const limpo = nomeCurtoSuperficie(s.descricao);
                 if (!limpo || vistas.has(limpo)) return;
                 vistas.add(limpo);
-                opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                opts.push('<option value="' + escapeHtml(limpo) + '"></option>');
               });
               return opts.join('');
             })()}
           </datalist>
         </div>
-        ` : ''}
+          `;
+        })()}
         ` : item.tipo === 'porta_externa' ? `` : `
         <div class="orc-section">
           <div class="orc-section-title">Em desenvolvimento</div>
