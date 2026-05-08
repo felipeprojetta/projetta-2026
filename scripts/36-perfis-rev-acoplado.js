@@ -107,9 +107,10 @@ var PerfisRevAcoplado = (function() {
     }
     var FGLD = _fg(item.fglDir, s.FGLD);
     var FGLE = _fg(item.fglEsq, s.FGLE);
-    // Nota: fgSup ainda nao e' usado pelo motor atual (formulas Pasta1.xlsx
-    // nao tinham FGA pro fixo). Sera usado quando entrar a logica do
-    // Fixo Lateral com Vidro (proximo commit) e estrutura de topo.
+    // Felipe sessao 13: 'perfil da altura nao esta entrando a folga de
+    // 10mm da altura'. FGSup (folga superior) descontada do Perfil Altura.
+    // Default 10mm. Vazio no item = usa default.
+    var FGSup = _fg(item.fgSup, 10);
 
     var cortes = {};
     function add(codigo, comp, qty, label) {
@@ -119,7 +120,7 @@ var PerfisRevAcoplado = (function() {
     }
 
     // ── Formulas Pasta1.xlsx ──
-    var compAltura   = ALTURA;                             // PERFIL ALTURA
+    var compAltura   = ALTURA - FGSup;                     // PERFIL ALTURA (desconta folga superior)
     var compLargura  = LARGURA - FGLD - FGLE;              // PERFIL LARGURA (caso normal)
     var compTravVert = ALTURA - 2 * TUB1;                  // TRAV VERT + FRISO VERT + CANTONEIRA
     var compTravHor  = LARGURA - FGLD - FGLE - 2 * TUB1;  // TRAV HOR + FRISO HOR
@@ -152,7 +153,10 @@ var PerfisRevAcoplado = (function() {
       //   PA007 (TUB1=51): L - FGL - 102
       var compPerfilLarguraVidro = LARGURA - FGL_total - 2 * TUB1;
       // PA-PF (vertical): altura interna = H - 2*TUB1
-      var compAlturaInterna = ALTURA - 2 * TUB1;
+      // PA-PF (vertical): altura interna entre os 2 Perfis Largura.
+      // Usa compAltura (= ALTURA - FGSup), nao ALTURA crua, pra ficar
+      // consistente com o Perfil Altura ja' descontado da folga superior.
+      var compAlturaInterna = compAltura - 2 * TUB1;
 
       // Perfil Largura usa formula NOVA (com -2*TUB1)
       add(s.perfil, compPerfilLarguraVidro, 2, 'Perfil Largura');
