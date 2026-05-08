@@ -146,6 +146,12 @@ const ChapasPortaExterna = (() => {
     const corInt   = String(item.corInterna || '').trim();
     const corCava  = String(item.corCava || '').trim();
     const corUnica = corExt && corExt === corInt;
+    // Felipe sessao 13: cores da CHAPA AM (Aluminio Maciço) — separadas
+    // de corExterna/corInterna (que viram cor da CHAPA ACM no Mod23 AM).
+    // Pecas com ehPecaAM=true em materializar usam essas cores.
+    const corAM_Ext = String(item.corChapaAM_Ext || '').trim();
+    const corAM_Int = String(item.corChapaAM_Int || '').trim();
+    const corAM_Unica = corAM_Ext && corAM_Ext === corAM_Int;
 
     return {
       item, lado, quadro,
@@ -181,6 +187,8 @@ const ChapasPortaExterna = (() => {
       // Se 'Nao' -> nao gerar pecas de alisar (default 'Sim' pra retrocompat).
       temAlisar: String(item.tem_alisar || 'Sim').toLowerCase() !== 'nao',
       corExt, corInt, corCava, corUnica,
+      // Felipe sessao 13: cores da CHAPA AM (Mod23 + Aluminio Macico)
+      corAM_Ext, corAM_Int, corAM_Unica,
     };
   }
 
@@ -1351,16 +1359,13 @@ const ChapasPortaExterna = (() => {
 
       let corResolvida = (def.ehDaCava && ctx.corCava) ? ctx.corCava : corDoLado;
       let categoria = def.categoria || 'porta';
-
-      // Felipe sessao 13 (planilha v3): regras de quando peca vira
-      // chapa de aluminio macico no Modelo 23:
-      //   1. CAVA / L_DA_CAVA / Tampa da Cava (com sempreAM=true):
-      //      sempre AM (so' aparecem no Mod 23 ACM, mas sao em AM).
-      //   2. FIT_ACAB_ME/MA/LAR_FITA: SEMPRE AM no Modelo 23 (ACM ou AM)
-      //      — planilha v3 aba ACM tambem marca FIT_ACAB col E='ALUMINIO
-      //      MACICO' (linhas R19, R20, R21).
-      //   3. Tampa* (Tampa Maior, TBFV): vira AM SO' quando porta toda
-      //      e' AM (revestimento Aluminio Macico 2mm).
+      // Felipe sessao 13: PRESERVA categoria original (porta/portal/etc).
+      // Antes, pecas AM viravam categoria='aluminio_macico' — Felipe pediu
+      // pra manter porta/portal e usar a flag materialEspecial pra rastrear.
+      // Lógica de PEÇA AM:
+      //   1. CAVA / L_DA_CAVA / Tampa da Cava (sempreAM=true) -> AM
+      //   2. FIT_ACAB_*: SEMPRE AM no Mod 23 (ACM ou AM)
+      //   3. Tampa Maior/Borda/Da: AM SO' quando porta toda e' AM (Mod23 AM)
       const lblLow = String(def.label || '').toLowerCase();
       const ehFitaAcab = /^fita\s*acabamento\b/.test(lblLow);
       // Felipe sessao 13 (planilha v3): pecas que viram AM quando a porta
@@ -1371,27 +1376,31 @@ const ChapasPortaExterna = (() => {
       // erradamente.
       const labelComecaTampa = /^tampa\s+(maior|borda|da)\b/.test(lblLow);
 
-      if (def.sempreAM) {
-        corResolvida = corResolvida
-          ? `Aluminio Macico — ${corResolvida}`
+      // Decide se ESSA peça e' AM (vai usar chapa AM, prefixo "Aluminio Macico —"):
+      let ehPecaAM = false;
+      if (def.sempreAM)                                          ehPecaAM = true;
+      else if (ehMod23 && ehFitaAcab)                            ehPecaAM = true;
+      else if (ehAluminioMacico && labelComecaTampa)             ehPecaAM = true;
+
+      if (ehPecaAM) {
+        // Felipe sessao 13: peca AM usa cor da CHAPA AM (campo separado
+        // corChapaAM_Ext/Int), nao a corExterna/corInterna que e' chapa ACM.
+        const corAM_Lado = ctx.lado === 'externo' ? ctx.corAM_Ext : ctx.corAM_Int;
+        corResolvida = corAM_Lado
+          ? `Aluminio Macico — ${corAM_Lado}`
           : 'Aluminio Macico';
-        categoria = 'aluminio_macico';
-      } else if (ehMod23 && ehFitaAcab) {
-        // Felipe sessao 13: fitas no Mod 23 SEMPRE AM.
-        corResolvida = corResolvida
-          ? `Aluminio Macico — ${corResolvida}`
-          : 'Aluminio Macico';
-        categoria = 'aluminio_macico';
+        // categoria MANTEM def.categoria (porta/portal) — Felipe: 'mantenha
+        // o que e porta e portal isso voce tirou'.
       } else if (ehAluminioMacico) {
-        if (labelComecaTampa) {
-          // Felipe: tampas viram AM quando revestimento da porta e' AM.
-          // (FitaAcab ja' foi tratada acima na regra ehMod23+ehFitaAcab.)
-          corResolvida = corResolvida
-            ? `Aluminio Macico — ${corResolvida}`
-            : 'Aluminio Macico';
-          categoria = 'aluminio_macico';
-        }
+        // Felipe sessao 13: peca NAO-AM em item Mod23+AM e' ACM. Prefixa
+        // a cor com "ACM —" pra separar das chapas AM no levantamento.
+        // Exemplo: Batente, Tampa de Furo, U Portal, Acabamento Lateral.
+        corResolvida = corResolvida
+          ? `ACM — ${corResolvida}`
+          : 'ACM';
+        // categoria MANTEM def.categoria (porta/portal)
       }
+      // Outros casos (modelo nao-23, ou Mod23 ACM): cor sem prefixo (atual)
 
       out.push({
         id: def.id,
@@ -1411,7 +1420,7 @@ const ChapasPortaExterna = (() => {
         // pra preservar a sequencia exata da planilha (nao reordenar
         // por categoria que misturava AM no fim).
         _ordem: _idx,
-        materialEspecial: (categoria === 'aluminio_macico') ? 'AM' : null,
+        materialEspecial: ehPecaAM ? 'AM' : null,
         observacao: def.observacao || '',
       });
     }

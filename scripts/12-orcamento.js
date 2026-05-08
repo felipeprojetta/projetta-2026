@@ -2366,6 +2366,15 @@ const Orcamento = (() => {
       revestimento: '',
       corInterna: '',
       corExterna: '',
+      // Felipe sessao 13: no Modelo 23 + Aluminio Maciço 2mm a porta
+      // mistura 2 chapas — AM (corpo: tampas, fitas, cava) e ACM
+      // (portal: batentes, tampa de furo, acab lateral, u portal).
+      // corExterna/corInterna passam a ser cor da CHAPA ACM nesse caso.
+      // corChapaAM_Ext/Int sao cores da CHAPA AM. Vazio = usa AM default
+      // (sem cor). Pra qualquer outro modelo/revestimento, esses campos
+      // sao ignorados.
+      corChapaAM_Ext: '',
+      corChapaAM_Int: '',
       sistema: '',
       fechaduraMecanica: '',
       fechaduraDigital: '',
@@ -3927,6 +3936,40 @@ const Orcamento = (() => {
                 <input type="text" list="orc-superficies-list" data-field="corCava" value="${escapeHtml(item.corCava || '')}" placeholder="" title="${escapeHtml(item.corCava || '')}" />
               </div>
               ` : ''}
+              ${(() => {
+                // Felipe sessao 13: Modelo 23 + Aluminio Maciço 2mm tem
+                // 2 chapas (AM pro corpo + ACM pro portal). Mostra 2
+                // campos extras pra cor AM. As cores acima (Externa/Interna)
+                // viram cor ACM nesse caso.
+                const m = Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) || 0;
+                const rev = String(item.revestimento || '').toLowerCase();
+                const ehMod23AM = m === 23 && /aluminio.*macico/.test(rev) && /2\s*mm/.test(rev);
+                if (!ehMod23AM) return '';
+                return `
+                <div class="orc-cor-am-aviso" style="margin:8px 0;padding:8px 10px;background:#fff7e8;border-left:3px solid #d97706;border-radius:4px;font-size:12px;color:#7c3a00;">
+                  <b>Modelo 23 + Alumínio Maciço:</b> as cores acima são da
+                  <b>chapa ACM</b> (batentes, tampa de furo, acabamentos laterais,
+                  U portal, alisar). Preencha abaixo as cores da <b>chapa AM</b>
+                  (tampa maior, fitas de acabamento, cava).
+                </div>
+                <div class="orc-field orc-f-cor">
+                  <label>Cor AM Externa</label>
+                  <input type="text" list="orc-superficies-list" data-field="corChapaAM_Ext"
+                         value="${escapeHtml(item.corChapaAM_Ext || '')}"
+                         placeholder="" title="${escapeHtml(item.corChapaAM_Ext || '')}" />
+                </div>
+                <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-am-ext-int"
+                        title="Copia a Cor AM Externa para a Cor AM Interna (caso sejam iguais)">
+                  ↓ Copiar AM Externo → AM Interno
+                </button>
+                <div class="orc-field orc-f-cor">
+                  <label>Cor AM Interna</label>
+                  <input type="text" list="orc-superficies-list" data-field="corChapaAM_Int"
+                         value="${escapeHtml(item.corChapaAM_Int || '')}"
+                         placeholder="" title="${escapeHtml(item.corChapaAM_Int || '')}" />
+                </div>
+                `;
+              })()}
             </div>
             <datalist id="orc-superficies-list">
               ${(() => {
@@ -4292,6 +4335,21 @@ const Orcamento = (() => {
       }
       inpCava.value = valExt;
       inpCava.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // Felipe sessao 13: copiar Cor AM Externa -> Cor AM Interna
+    // (pareado com as cores ACM acima quando Mod23 + Aluminio Macico).
+    container.querySelector('#orc-btn-copiar-cor-am-ext-int')?.addEventListener('click', () => {
+      const inpExt = container.querySelector('input[data-field="corChapaAM_Ext"]');
+      const inpInt = container.querySelector('input[data-field="corChapaAM_Int"]');
+      if (!inpExt || !inpInt) return;
+      const valExt = inpExt.value || '';
+      if (!valExt.trim()) {
+        alert('Selecione primeiro a Cor AM Externa, depois copie pra AM Interna.');
+        return;
+      }
+      inpInt.value = valExt;
+      inpInt.dispatchEvent(new Event('change', { bubbles: true }));
     });
 
     container.querySelector('#orc-btn-salvar')?.addEventListener('click', () => {
