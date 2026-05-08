@@ -503,7 +503,27 @@
 
     instalarWriteThrough();
 
-    // 1. Carrega do Supabase (source of truth)
+    // Felipe sessao 13: BUG 'rendimento HIGHTACK voltou de 18 pra 8 do
+    // nada' (e isopor com mesma classe de bug antes). Causa raiz:
+    // existem 2 tabelas no Supabase armazenando os mesmos cadastros:
+    //   - v7.kv_store (carregada por 00-database.js syncFromCloud)
+    //   - v7.cadastros (carregada AQUI por carregarDoSupabase)
+    // O v7.cadastros tem dados ESTALES (faltando chaves novas como
+    // hightack_tubo) — ao recarregar, ele sobrescrevia o localStorage
+    // correto vindo da v7.kv_store, causando os bugs.
+    //
+    // FIX: desativa a LEITURA da v7.cadastros. O 00-database.js
+    // syncFromCloud (lendo v7.kv_store) e' a fonte unica de verdade.
+    // O write-through continua ativo pra manter v7.cadastros sincronizada
+    // (compat com codigo legado que possa ler dela), mas a leitura
+    // inicial nao mistura dados velhos.
+    //
+    // Status fica como online mas sem load — o 00-database.js cuida.
+    setStatus({ initialLoadDone: true, online: true, lastSync: Date.now(),
+                writeThroughEnabled: true });
+    var loadOk = true;  // pula o carregarDoSupabase()
+
+    /* DESATIVADO sessao 13 (ver comentario acima):
     var loadOk = await carregarDoSupabase();
 
     if (loadOk) {
@@ -525,6 +545,7 @@
       // Mostrar toast aqui assustava o usuario sem motivo.
       console.warn('[CadastrosAutosync] Load inicial falhou. Cache local sera usado. Proximo sync revalidara.');
     }
+    */
 
     // 2. Migrar imagens base64 → Storage PRIMEIRO (importante: antes do sync genérico)
     setTimeout(async function() {
