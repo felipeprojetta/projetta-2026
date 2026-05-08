@@ -8972,6 +8972,24 @@ const Orcamento = (() => {
               <li>Pivo em aco inox 304 / 316 L</li>
               <li>Vedacao da porta automatica superior e inferior</li>
               <li>Vedacao dupla (folha e batente) por Q-LON</li>
+              ${(() => {
+                // Felipe sessao 13: 'sempre que tiver vidro tem que sair o
+                // vidro que esta sendo usado, entao procure algum lugar
+                // para especificar o vidro do fixo lateral'. Lista todos
+                // os itens com revestimento=Vidro nas Observacoes.
+                const itensVidro = (versao.itens || [])
+                  .map((it, i) => ({ it, i }))
+                  .filter(({ it }) => it && it.tipo === 'fixo_acoplado'
+                                   && it.revestimento === 'Vidro'
+                                   && it.vidroDescricao);
+                if (!itensVidro.length) return '';
+                return itensVidro.map(({ it, i }) => {
+                  const pos = String(it.posicao || '').toLowerCase() === 'lateral'
+                    ? 'Lateral' : (String(it.posicao || '').toLowerCase() === 'superior' ? 'Superior' : '');
+                  const label = `Item ${i + 1} (Fixo Acoplado${pos ? ' ' + pos : ''})`;
+                  return `<li><b>VIDRO ${escapeHtml(label)}:</b> ${escapeHtml(it.vidroDescricao)}</li>`;
+                }).join('');
+              })()}
               <li><b>*** ${escapeHtml(fraseFreteInst.toUpperCase())}</b></li>
             </ul>
           </div>
@@ -9057,7 +9075,19 @@ const Orcamento = (() => {
       return abertura ? `PORTA EXTERNA (${abertura})` : 'PORTA EXTERNA';
     }
     if (item.tipo === 'porta_interna') return 'PORTA INTERNA';
-    if (item.tipo === 'fixo_acoplado') return 'FIXO ACOPLADO A PORTA';
+    if (item.tipo === 'fixo_acoplado') {
+      // Felipe sessao 13: 'sempre que tiver vidro tem que sair o vidro
+      // que esta sendo usado'. Quando revestimento='Vidro', adiciona
+      // o tipo de vidro na descricao da tabela final da proposta.
+      let base = 'FIXO ACOPLADO A PORTA';
+      const pos = String(item.posicao || '').toLowerCase();
+      if (pos === 'lateral')  base += ' (Lateral)';
+      if (pos === 'superior') base += ' (Superior)';
+      if (item.revestimento === 'Vidro' && item.vidroDescricao) {
+        base += ` — Vidro: ${item.vidroDescricao}`;
+      }
+      return base;
+    }
     if (item.tipo === 'revestimento_parede') return 'REVESTIMENTO DE PAREDE';
     return item.tipo.toUpperCase();
   }
