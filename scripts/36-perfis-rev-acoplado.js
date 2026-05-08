@@ -294,6 +294,19 @@ var PerfisRevAcoplado = (function() {
 
   function gerarPecasChapa(item, lado) {
     if (!ehFixoValido(item)) return [];
+    // Felipe sessao 13: 'no fixo acoplado a porta, lateral, quando tem vidro,
+    // eu nao te passei nada ainda de chapa de ECM, tem varias coisas la,
+    // elimine tudo.' Fixo Lateral c/ Vidro NAO tem chapas — so' perfis
+    // estruturais do quadro (ja' gerados em gerarCortes) e borrachas
+    // (acessorios em 28-acessorios-porta-externa.js). Retorna vazio aqui
+    // pra impedir que o reuso de ChapasPortaExterna.gerarPecasChapa traga
+    // Tampa Maior / Friso / Cava / Fitas pro levantamento.
+    var ehLateralVidro = (
+      String(item.posicao || '').toLowerCase() === 'lateral'
+      && String(item.revestimento || '').toLowerCase() === 'vidro'
+    );
+    if (ehLateralVidro) return [];
+
     var lados = item.lados === '2lados' ? 2 : 1;
     if (lados === 1 && lado === 'interno') return [];
     if (!window.ChapasPortaExterna || !window.ChapasPortaExterna.gerarPecasChapa) return [];
