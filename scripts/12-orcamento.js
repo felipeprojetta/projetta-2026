@@ -9198,8 +9198,27 @@ const Orcamento = (() => {
           ${bannerFechDigital}
           <div class="rel-prop-item-linhas">
             <div class="rel-prop-item-linha"><span class="lbl">PUXADOR:</span> <span>${escapeHtml(puxadorFmt)}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA EXTERNA:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA INTERNA:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
+            ${(() => {
+              // Felipe sessao 13: 'na proposta comercial da 23 precisamos
+              // melhorar nao tem cor da chapa de aluminio macico'. Quando
+              // Mod23+AM, a porta tem 2 chapas (AM corpo + ACM portal).
+              // Mostra 4 cores em vez de 2, com labels ACM/AM explicitos.
+              const m = Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) || 0;
+              const rev = String(item.revestimento || '').toLowerCase();
+              const ehMod23AM = m === 23 && /aluminio.*macico/.test(rev) && /2\s*mm/.test(rev);
+              if (ehMod23AM) {
+                return `
+                  <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA ACM EXTERNA:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
+                  <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA ACM INTERNA:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
+                  <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA AM EXTERNA:</span> <span>${escapeHtml(item.corChapaAM_Ext || '—')}</span></div>
+                  <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA AM INTERNA:</span> <span>${escapeHtml(item.corChapaAM_Int || '—')}</span></div>
+                `;
+              }
+              return `
+                <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA EXTERNA:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
+                <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA INTERNA:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
+              `;
+            })()}
             <div class="rel-prop-item-linha"><span class="lbl">CILINDRO:</span> <span>${escapeHtml(item.cilindro || '—')}</span></div>
           </div>
           ${(() => {
@@ -9212,12 +9231,36 @@ const Orcamento = (() => {
               .map(c => {
                 const meta = CATALOGO_CAMPOS_MODELO[c];
                 if (!meta) return '';
-                const lbl = meta.label.replace(/\s*\(mm\)\s*$/, '');
-                const valor = `${item[c]}${meta.tipo === 'number' ? ' mm' : ''}`;
+                let lbl = meta.label.replace(/\s*\(mm\)\s*$/, '');
+                let valor = `${item[c]}${meta.tipo === 'number' ? ' mm' : ''}`;
+                // Felipe sessao 13: customizacoes de DISPLAY na proposta
+                // comercial (so' aqui — nao afeta form/cadastros).
+                // - 'Padrao' vira frase explicativa
+                // - 'Quantidade de molduras' vira 'Quantidade moldura por modulo'
+                // - 'Distancia da borda a 1a moldura' vira '1ª' (ordinal feminino)
+                // - 'Distancia da 1a a 2a' tambem -> '1ª a 2ª'
+                if (c === 'tipoMoldura' && item[c] === 'Padrao') {
+                  valor = 'Padrão — 2 molduras com divisão central centralizada ao eixo do cilindro';
+                } else if (c === 'quantidadeMolduras') {
+                  lbl = 'Quantidade moldura por módulo';
+                } else if (c === 'distanciaBorda1aMoldura') {
+                  lbl = 'Distancia da borda a 1ª moldura';
+                } else if (c === 'distancia1a2aMoldura') {
+                  lbl = 'Distancia da 1ª a 2ª moldura';
+                } else if (c === 'distancia2a3aMoldura') {
+                  lbl = 'Distancia da 2ª a 3ª moldura';
+                }
                 return `<div class="rel-prop-item-linha"><span class="lbl">${escapeHtml(lbl.toUpperCase())}:</span> <span>${escapeHtml(valor)}</span></div>`;
               }).join('');
             if (!linhas) return '';
-            return `<div class="rel-prop-item-linhas rel-prop-item-modelo-vars">${linhas}</div>`;
+            // Felipe sessao 13: nota explicativa quando o modelo tem moldura
+            // (Mod 23) — 'devemos deixar explicito que chapa frontal e molduras
+            // sao aluminio com pintura eletrostatica'.
+            const ehMod23 = num === 23;
+            const notaPintura = ehMod23
+              ? `<div class="rel-prop-item-linha" style="margin-top:6px;padding:6px 8px;background:#fff7e8;border-left:3px solid #d97706;border-radius:3px;font-size:11px;color:#7c3a00;font-style:italic;"><span style="font-weight:600;">Obs.:</span> Chapa frontal e molduras em alumínio com pintura eletrostática.</div>`
+              : '';
+            return `<div class="rel-prop-item-linhas rel-prop-item-modelo-vars">${linhas}${notaPintura}</div>`;
           })()}
           ${bannerAlisar}
         </div>
