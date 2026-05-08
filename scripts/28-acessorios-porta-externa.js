@@ -955,12 +955,14 @@ const AcessoriosPortaExterna = (() => {
     if (item.tipo === 'porta_externa') {
 
     // 14. FECHO UNHA + PUSH&GO — so 2 folhas
+    // Felipe sessao 12: 'FECHO UNHA FICA EM FABRICACAO'. Antes 'obra'
+    // (instalacao), agora 'fab' (fabricacao na producao).
     if (nFolhas === 2) {
       if (H > 4000) {
-        add('PA-FECHUNHA', 1, 'Fecho Unha', 'obra', 'H > 4000mm');
-        add('PA-PUSHGO',   1, 'Fecho Unha', 'obra', 'H > 4000mm');
+        add('PA-FECHUNHA', 1, 'Fecho Unha', 'fab', 'H > 4000mm');
+        add('PA-PUSHGO',   1, 'Fecho Unha', 'fab', 'H > 4000mm');
       } else {
-        add('PA-FECHUNHA', 2, 'Fecho Unha', 'obra', 'H ≤ 4000mm');
+        add('PA-FECHUNHA', 2, 'Fecho Unha', 'fab', 'H ≤ 4000mm');
       }
     }
 

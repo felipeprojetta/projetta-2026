@@ -305,7 +305,14 @@ const PerfisPortaExterna = (() => {
     // --------- Quantidades ---------
     const qtdTH = travessasHorizontais(A);
     const tv    = travessasVerticais({ largura: L, modeloNumero: modelo, modeloNome, nFolhas, distBordaFriso: 0 });
-    const qtdTV = tv.qtyTotal;
+    // Felipe sessao 12: 'PORTA DUAS FOLHAS A QUANTIDADE DE TRAVESSA
+    // VERTICAL TAMBEM MULTIPLICA POR 2'. travessasVerticais() ja
+    // multiplica a parte das travessas obrigatorias da Cava (4 por
+    // folha) por nFolhas, mas o BONUS por largura (>2500=+2, >1500=+1)
+    // NAO era multiplicado. Felipe quer multiplicar tudo: bonus inclusive.
+    // Solucao: usa qtyTotal mas REMULTIPLICA o bonus pela diferenca
+    // pra refletir nFolhas tambem nele.
+    const qtdTV = tv.qtyTotal + tv.travLarguraBonus * (nFolhas - 1);
     const qtdTraPortal = Math.max(2, Math.floor(A / 2000) + 1);
 
     function add(codigo, comp, qty, label) {
