@@ -120,41 +120,58 @@ var PerfisRevAcoplado = (function() {
 
     // ── Formulas Pasta1.xlsx ──
     var compAltura   = ALTURA;                             // PERFIL ALTURA
-    var compLargura  = LARGURA - FGLD - FGLE;              // PERFIL LARGURA
+    var compLargura  = LARGURA - FGLD - FGLE;              // PERFIL LARGURA (caso normal)
     var compTravVert = ALTURA - 2 * TUB1;                  // TRAV VERT + FRISO VERT + CANTONEIRA
     var compTravHor  = LARGURA - FGLD - FGLE - 2 * TUB1;  // TRAV HOR + FRISO HOR
     var compCava     = ALTURA - 2 * TUB1 - 30;             // CAVA 38x38
 
-    // ── SEMPRE PRESENTES (quadro) ──
-    add(s.perfil, compAltura,  2, 'Perfil Altura');        // 76x38 ou 101x51
-    add(s.perfil, compLargura, 2, 'Perfil Largura');       // 76x38 ou 101x51
+    // ── PERFIL ALTURA: sempre presente (quadro) ──
+    add(s.perfil, compAltura, 2, 'Perfil Altura');         // 76x38 ou 101x51
 
     // Felipe sessao 13: detecta FIXO LATERAL COM VIDRO. Esse caso NAO
-    // tem travessa vertical, travessa horizontal, friso, nem cava.
-    // No lugar, leva 4 perfis novos cobrindo o perimetro do vao do
-    // vidro (PA-PF-104, PA-PF-051, PA-GUA411, PA-GUA413). Cada perfil
-    // tem 4 cortes: 2 horizontais (largura L) e 2 verticais (altura H).
+    // tem travessa vertical, horizontal, friso, ou cava. E a formula
+    // do PERFIL LARGURA muda — desconta tambem 2*TUB1 (38 ou 51).
+    // Adiciona 2 perfis estruturais novos do vidro (PA-PF-104, PA-PF-051)
+    // com cortes encaixados DENTRO do quadro.
+    // PA-GUA411 e PA-GUA413 vao como acessorios (em metros) em
+    // 28-acessorios-porta-externa.js.
     var ehLateralVidro = (
       String(item.posicao || '').toLowerCase() === 'lateral'
       && String(item.revestimento || '').toLowerCase() === 'vidro'
     );
 
     if (ehLateralVidro) {
-      // 2 perfis estruturais de aluminio (vao em PERFIS de corte).
-      // Cada um: 2 horizontais (largura L) + 2 verticais (altura H).
-      // Total por perfil = L*2 + H*2 (perimetro).
+      // Felipe: 'no fixo lateral teremos somente UMA folga lateral
+      // de 10mm e nao 20'. Como o sistema tem 2 campos (Dir/Esq),
+      // usa a SOMA — Felipe preenche 10/0 ou 0/10 conforme o lado
+      // que encosta na porta. O outro fica zero (encosta).
+      var FGL_total = FGLD + FGLE;
+      // Perfil Largura no fixo lateral c/ vidro:
+      //   L - FOLGA_LATERAL - 2*TUB1
+      //   PA006 (TUB1=38): L - FGL - 76
+      //   PA007 (TUB1=51): L - FGL - 102
+      var compPerfilLarguraVidro = LARGURA - FGL_total - 2 * TUB1;
+      // PA-PF (vertical): altura interna = H - 2*TUB1
+      var compAlturaInterna = ALTURA - 2 * TUB1;
+
+      // Perfil Largura usa formula NOVA (com -2*TUB1)
+      add(s.perfil, compPerfilLarguraVidro, 2, 'Perfil Largura');
+
+      // 2 perfis estruturais do vidro:
+      //   horizontal = mesmo tamanho do Perfil Largura (encaixa entre alturas)
+      //   vertical   = altura interna (H - 2*TUB1)
       ['PA-PF-104', 'PA-PF-051'].forEach(function(cod) {
-        add(cod, LARGURA, 2, cod + ' (horizontal)');
-        add(cod, ALTURA,  2, cod + ' (vertical)');
+        add(cod, compPerfilLarguraVidro, 2, cod + ' (horizontal)');
+        add(cod, compAlturaInterna,      2, cod + ' (vertical)');
       });
-      // Felipe sessao 13: PA-GUA411 e PA-GUA413 sao BORRACHAS EPDM —
-      // viram ACESSORIOS (em metros), nao perfis de corte.
-      // Adicionados em 28-acessorios-porta-externa.js no bloco
-      // 'fixo_acoplado lateral c/ vidro' com qtd = perimetro em metros.
+
       // SAI antes de gerar travessas/frisos/cava — fixo lateral c/ vidro
       // nao tem nenhum desses.
       return cortes;
     }
+
+    // ── PERFIL LARGURA (caso normal — sem vidro lateral) ──
+    add(s.perfil, compLargura, 2, 'Perfil Largura');       // 76x38 ou 101x51
 
     // ── TRAVESSA HORIZONTAL: 1o digito da ALTURA ──
     // Planilha: "PRIMEIRO NUMERO DA ALTURA = EX 3634 = 3 TRAVESSAS"
