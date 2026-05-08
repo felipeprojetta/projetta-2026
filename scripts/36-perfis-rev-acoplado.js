@@ -112,11 +112,20 @@ var PerfisRevAcoplado = (function() {
     // Default 10mm. Vazio no item = usa default.
     var FGSup = _fg(item.fgSup, 10);
 
+    // Felipe sessao 13: 'qualquer motor que va pra perfil que va pra
+    // chapa que va para acessorios qualquer motor se eu colocar
+    // quantidade vezes 2 tem que multiplicar por 2'. Aplicado tambem
+    // aqui em gerarCortes — antes cada add() passava qty FIXO (2)
+    // sem considerar item.quantidade. 2 fixos = 2x cortes (e nao 1x).
+    // Mesma logica dos motores da porta (38-chapas, 31-perfis,
+    // 28-acessorios) que ja' faziam isso.
+    var qtdItem = Math.max(1, parseInt(item.quantidade, 10) || 1);
+
     var cortes = {};
     function add(codigo, comp, qty, label) {
       if (!codigo || comp <= 0 || qty <= 0) return;
       if (!cortes[codigo]) cortes[codigo] = [];
-      cortes[codigo].push({ comp: Math.round(comp), qty: qty, label: label });
+      cortes[codigo].push({ comp: Math.round(comp), qty: qty * qtdItem, label: label });
     }
 
     // ── Formulas Pasta1.xlsx ──
