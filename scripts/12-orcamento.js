@@ -11740,12 +11740,24 @@ const Orcamento = (() => {
     pecasExt.forEach(adicionar);
     pecasInt.forEach(adicionar);
     const arr = Array.from(mapa.values());
-    // Sort estavel: 'porta' (0) antes de 'portal' (1). Outras categorias vem depois.
-    // Array.prototype.sort em JS (V8) e' estavel desde 2018, entao a ordem dentro
-    // de categorias iguais e' preservada (mesma ordem de insercao).
+    // Felipe sessao 13: ORDENAR pela ordem da planilha (_ordem) em vez
+    // de por categoria. O sort antigo (porta=0, portal=1, outras=2)
+    // jogava todas as pecas AM (categoria='aluminio_macico') pro fim,
+    // misturando TM01/TM02/TM03 com FIT_ACAB e bagunçando a sequencia
+    // que Felipe espera (TM antes de ACAB_LAT, depois TBFV/FRISO,
+    // depois ACAB_LAT/U_PORTAL/BAT/TAP_FURO/FIT_ACAB/ALISAR — ordem
+    // exata da planilha v3 PRECIFICACAO_01_04_2026).
+    //
+    // Campo _ordem e' setado pelo materializar() em 38-chapas-porta-externa.js
+    // como o indice na pecasDef original. Pecas extras manuais ou de
+    // outros geradores podem nao ter _ordem — caem no final (999).
+    //
+    // Sort estavel (V8 desde 2018): pecas com mesmo _ordem mantem
+    // ordem de insercao.
     arr.sort((a, b) => {
-      const peso = c => (c === 'porta' ? 0 : (c === 'portal' ? 1 : 2));
-      return peso(a.categoria) - peso(b.categoria);
+      const oA = (typeof a._ordem === 'number') ? a._ordem : 999;
+      const oB = (typeof b._ordem === 'number') ? b._ordem : 999;
+      return oA - oB;
     });
     return arr;
   }

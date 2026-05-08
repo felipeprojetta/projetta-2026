@@ -1305,7 +1305,8 @@ const ChapasPortaExterna = (() => {
       && /aluminio.*macico/.test(rev)
       && /2\s*mm/.test(rev);
 
-    for (const def of pecasDef) {
+    for (let _idx = 0; _idx < pecasDef.length; _idx++) {
+      const def = pecasDef[_idx];
       const qtyExt = (typeof def.ext === 'function') ? def.ext(ctx) : (def.ext || 0);
       const qtyInt = (typeof def.int === 'function') ? def.int(ctx) : (def.int || 0);
       const qtyFace = (ctx.lado === 'externo') ? qtyExt : qtyInt;
@@ -1334,7 +1335,13 @@ const ChapasPortaExterna = (() => {
       //      e' AM (revestimento Aluminio Macico 2mm).
       const lblLow = String(def.label || '').toLowerCase();
       const ehFitaAcab = /^fita\s*acabamento\b/.test(lblLow);
-      const labelComecaTampa = /^tampa\b/.test(lblLow);
+      // Felipe sessao 13 (planilha v3): pecas que viram AM quando a porta
+      // e' AM sao especificamente Tampa Maior, Tampa Borda Friso Vertical
+      // e Tampa da Cava — NAO 'Tampa de Furo' (TAP_FURO), que e' perfil
+      // ACM normal mesmo no Mod 23 AM (planilha aba ALUMINIO MACICO R18
+      // mat=None). Regex anterior /^tampa\b/ pegava 'Tampa de Furo'
+      // erradamente.
+      const labelComecaTampa = /^tampa\s+(maior|borda|da)\b/.test(lblLow);
 
       if (def.sempreAM) {
         corResolvida = corResolvida
@@ -1371,11 +1378,11 @@ const ChapasPortaExterna = (() => {
         ehDaCava: !!def.ehDaCava,
         categoria: categoria,
         modelo,
-        // Felipe sessao 13: destaque visual no relatorio. Quando peça
-        // virou aluminio_macico (modelo 23 + AM, peças Tampa*/Fita Acab*),
-        // marca pra exibir badge "AM" na tabela de relatório de chapas.
-        // Felipe: "sempre que tiver alguma peca em aluminio macico
-        //          destaque isso na coluna que mostra as pecas em acm".
+        // Felipe sessao 13: _ordem preserva indice na lista pecasDef
+        // (ordem da planilha). Usado por unificarPecas em 12-orcamento.js
+        // pra preservar a sequencia exata da planilha (nao reordenar
+        // por categoria que misturava AM no fim).
+        _ordem: _idx,
         materialEspecial: (categoria === 'aluminio_macico') ? 'AM' : null,
         observacao: def.observacao || '',
       });
