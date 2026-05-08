@@ -424,20 +424,6 @@ const Database = (() => {
         }
       }
 
-      // Felipe sessao 13 DEBUG TEMPORARIO: log do PRECO de PA-ISOPOR PRANC 50
-      // antes do PUT pra rastrear quem sobrescreve com 18.98 quando deveria
-      // ser 9.49. Remover quando bug for identificado.
-      if (scope === 'cadastros' && key === 'acessorios_lista' && Array.isArray(valorFinal)) {
-        var _pranc = valorFinal.find(function(a) { return a && a.codigo === 'PA-ISOPOR PRANC 50'; });
-        if (_pranc) {
-          console.warn('[DB DEBUG sessao 13] PUT acessorios_lista — PA-ISOPOR PRANC 50:',
-                       'preco=' + _pranc.preco,
-                       'preco_bruto=' + _pranc.preco_bruto,
-                       'usuario=' + usuario,
-                       'stack=' + (new Error().stack || '').split('\n').slice(2,5).join(' → '));
-        }
-      }
-
       // Felipe sessao 12: Auth nao tem getUser() — tem currentUser() que
       // retorna {username, name, role, loggedAt}. Por isso updated_by
       // estava sempre vazio no Supabase. Agora extrai username da sessao.
