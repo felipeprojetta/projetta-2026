@@ -5390,11 +5390,29 @@ const Orcamento = (() => {
 
                   // Tenta primeiro chapasSelecionadas (dado real do Lev. Sup)
                   const sel = (versao && versao.chapasSelecionadas) || {};
-                  const cores = Object.keys(sel);
-                  if (cores.length > 0) {
+
+                  // Felipe sessao 13: 'saiu 9 chapas, corrige por favor'.
+                  // Bug: chapasSelecionadas podia ter COres ORFAS — cores
+                  // selecionadas no Lev. Superficies em algum momento, mas
+                  // que nao tem mais peca atualmente (ex: usuario mudou
+                  // cor de 'Branco F00' pra 'Branco F00f00' — a entrada
+                  // antiga ficava no objeto somando chapas indevidamente).
+                  // Solucao: usa pecasPorCor (recalculado das pecas atuais)
+                  // como fonte da verdade — so' soma cores que TEM peca
+                  // viva agora.
+                  let coresAtivas;
+                  try {
+                    const pecasPorCorAtual = coletarPecasPorCor(versao.itens || []);
+                    coresAtivas = Object.keys(pecasPorCorAtual || {});
+                  } catch (_) {
+                    coresAtivas = Object.keys(sel);
+                  }
+
+                  if (coresAtivas.length > 0) {
                     const partes = [];
-                    cores.forEach(cor => {
-                      const n = Number(sel[cor].numChapas) || 0;
+                    coresAtivas.forEach(cor => {
+                      const dado = sel[cor];
+                      const n = dado ? Number(dado.numChapas) || 0 : 0;
                       if (n > 0) {
                         totalCh += n;
                         const corCurta = String(cor).split('-')[0].trim().substring(0, 12);
