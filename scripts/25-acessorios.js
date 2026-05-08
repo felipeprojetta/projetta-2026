@@ -814,12 +814,26 @@ const Acessorios = (() => {
       }
       const ok = confirm(`Importar de "${fileName}"?\n\n${novos} novo(s), ${atualizados} atualizado(s).\n` +
         (ignorados > 0 ? `${ignorados} linha(s) sem codigo serao ignoradas.\n` : '') +
-        `\nAcessorios existentes que NAO estao no arquivo serao MANTIDOS.\n\nConfirmar?`);
+        `\nAcessorios existentes que NAO estao no arquivo serao MANTIDOS no cadastro (so' os listados na planilha sao alterados).\n\nConfirmar?`);
       if (!ok) {
         state.acessorios = store.get('acessorios_lista') || state.acessorios;
         return;
       }
       save();
+      // Felipe (sessao 13): "EU IPORTO PLANILHA ALTERA, AI NAO FICA SALVO".
+      // Causa provavel: sbUpsert tem debounce de 500ms. Se o usuario fechar
+      // a aba ou navegar antes do timer disparar, o sync com Supabase
+      // nunca acontece. Outras maquinas (e o proprio reload) puxam a
+      // versao stale do cloud e o import "some". FIX: forca flush imediato
+      // dos saves pendentes (cancela debounce e dispara fetch agora).
+      try {
+        if (window.Database && typeof window.Database.flushSbUpsertPendentes === 'function') {
+          window.Database.flushSbUpsertPendentes();
+          console.log('[Acessorios] Import: flush sbUpsert pendentes disparado (sync imediato com cloud).');
+        }
+      } catch (e) {
+        console.warn('[Acessorios] Import: flushSbUpsertPendentes falhou:', e);
+      }
       rerenderTudo(container);
 
       // Felipe (sessao 2026-05): apos importar com sucesso, perguntar
