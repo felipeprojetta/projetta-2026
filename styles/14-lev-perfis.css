@@ -204,8 +204,32 @@
   font-size: 11px;
   font-weight: 700;
 }
+/* Felipe sessao 14: 'Total Perfis (BNF + BRUTO)' destaque medio */
+.lvp-rb-soma-perfis td {
+  background: #FFE4C4 !important;
+  color: var(--laranja, #c47012);
+  font-size: 12px;
+  font-weight: 700;
+  border-top: 1px solid #f0b97a;
+}
+/* Felipe sessao 14: linha da pintura */
+.lvp-rb-pintura td {
+  background: #FFF8EE !important;
+  color: var(--laranja, #c47012);
+  font-style: italic;
+  font-size: 11px;
+}
+/* Felipe sessao 14: subtotal geral final - laranja forte */
+.lvp-rb-total-geral td {
+  background: var(--laranja, #c47012) !important;
+  color: #ffffff !important;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+/* Mantidos pra retrocompatibilidade caso outras telas usem */
 .lvp-rb-total-liquido td {
-  background: #1a5276;  /* azul mais escuro pra Peso Liquido */
+  background: #1a5276;
   color: var(--branco);
   font-size: 12px;
   letter-spacing: 0.04em;

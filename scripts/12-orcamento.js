@@ -8285,6 +8285,14 @@ const Orcamento = (() => {
     const subtBnfR$  = grupoBnf.reduce((s, r) => s + r.custoPerfil, 0);
     const subtBruKg  = grupoBruto.reduce((s, r) => s + r.kgBruto, 0);
     const subtBruR$  = grupoBruto.reduce((s, r) => s + r.custoPerfil, 0);
+    // Felipe sessao 14: separa pintura do subtotal de perfis e mostra
+    // "Total Perfis" + "Pintura" + "Subtotal Geral".
+    const subtPinturaKg = subtBnfKg;                                      // pintura aplica so' nos BNF
+    const subtPinturaR$ = grupoBnf.reduce((s, r) => s + (r.custoPintura || 0), 0);
+    const totalPerfisKg = subtBnfKg + subtBruKg;
+    const totalPerfisR$ = subtBnfR$ + subtBruR$;
+    const subtotalGeralKg = totalPerfisKg;                                // pintura nao adiciona peso
+    const subtotalGeralR$ = totalPerfisR$ + subtPinturaR$;
 
     // Felipe (do doc - msg "Aproveitamento de Barras nao tem cabecalho, todo
     // item exportavel deve conter cabecalho"): adiciona cabecalho da empresa
@@ -8359,8 +8367,9 @@ const Orcamento = (() => {
             ${grupoBruto.length ? `<tr class="lvp-rb-grupo"><td colspan="8">BRUTO</td></tr>` : ''}
             ${grupoBruto.map((r, i) => relRow(r, grupoBnf.length + i)).join('')}
             ${grupoBruto.length ? `<tr class="lvp-rb-subtotal"><td colspan="4">Subtotal BRUTO</td><td class="num">${fmtBR(subtBruKg)}</td><td></td><td class="num">R$ ${fmtBR(subtBruR$)}</td><td></td></tr>` : ''}
-            <tr class="lvp-rb-total-liquido"><td colspan="4">TOTAL GERAL — Peso Liquido</td><td class="num">${fmtBR(result.kgLiqTotal)}</td><td colspan="3"></td></tr>
-            <tr class="lvp-rb-total"><td colspan="4">TOTAL GERAL — Peso Bruto</td><td class="num">${fmtBR(result.kgBrutoTotal)}</td><td></td><td class="num">R$ ${fmtBR(result.custoTotal)}</td><td></td></tr>
+            <tr class="lvp-rb-subtotal lvp-rb-soma-perfis"><td colspan="4">Total Perfis (BNF + BRUTO)</td><td class="num">${fmtBR(totalPerfisKg)}</td><td></td><td class="num">R$ ${fmtBR(totalPerfisR$)}</td><td></td></tr>
+            ${subtPinturaR$ > 0 ? `<tr class="lvp-rb-subtotal lvp-rb-pintura"><td colspan="4">+ Pintura (sobre ${fmtBR(subtPinturaKg)} kg BNF/Tecnoperfil)</td><td class="num"></td><td></td><td class="num">R$ ${fmtBR(subtPinturaR$)}</td><td></td></tr>` : ''}
+            <tr class="lvp-rb-total-geral"><td colspan="4">SUBTOTAL GERAL (Perfis + Pintura)</td><td class="num">${fmtBR(subtotalGeralKg)}</td><td></td><td class="num">R$ ${fmtBR(subtotalGeralR$)}</td><td></td></tr>
           </tbody>
         </table>
 
