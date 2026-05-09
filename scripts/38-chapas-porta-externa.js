@@ -1391,16 +1391,15 @@ const ChapasPortaExterna = (() => {
           : 'Aluminio Macico';
         // categoria MANTEM def.categoria (porta/portal) — Felipe: 'mantenha
         // o que e porta e portal isso voce tirou'.
-      } else if (ehAluminioMacico) {
-        // Felipe sessao 13: peca NAO-AM em item Mod23+AM e' ACM. Prefixa
-        // a cor com "ACM —" pra separar das chapas AM no levantamento.
-        // Exemplo: Batente, Tampa de Furo, U Portal, Acabamento Lateral.
-        corResolvida = corResolvida
-          ? `ACM — ${corResolvida}`
-          : 'ACM';
-        // categoria MANTEM def.categoria (porta/portal)
       }
-      // Outros casos (modelo nao-23, ou Mod23 ACM): cor sem prefixo (atual)
+      // Felipe sessao 14: REMOVIDO prefixo "ACM —" das pecas nao-AM em
+      // Mod23+AM. O prefixo separava do AM (que ja tem prefixo proprio
+      // "Aluminio Macico —"), mas tambem QUEBRAVA o agrupamento com pecas
+      // ACM de outros itens (porta normal, fixo, revestimento) da mesma
+      // cor real. Pedido Felipe: "independente do item, sempre que tiver
+      // a mesma cor deve fazer aproveitamento de chapas juntos".
+      // Pecas AM continuam prefixadas (chapa-mae diferente). Pecas ACM
+      // ficam com cor pura -> agrupam com tudo.
 
       out.push({
         id: def.id,

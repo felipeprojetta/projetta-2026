@@ -402,15 +402,14 @@ var PerfisRevAcoplado = (function() {
     var corLado = (lado === 'externo')
       ? String(item.corExterna || '').trim()
       : String(item.corInterna || '').trim();
-    // Felipe sessao 13: 'se e a mesma cor fazer tudo junto para
-    // aproveitar ao maximo a chapa'. As pecas ACM da Porta no Mod23+AM
-    // saem com cor 'ACM — Branco' (prefixo aplicado em 38-chapas-porta-
-    // externa.js materializar). Pra agrupar essas pecas com as do Fixo
-    // Lateral c/ Vidro, o prefixo precisa ser identico aqui tambem.
-    // Sem o prefixo, planificador trata 'Branco' (fixo) e 'ACM — Branco'
-    // (porta) como cores diferentes -> 2 chapas separadas mesmo cor real
-    // sendo a mesma. Com o prefixo, agrupar() une as 2 numa chapa so'.
-    var corComPrefixo = corLado ? ('ACM — ' + corLado) : 'ACM';
+    // Felipe sessao 14: cor SEM prefixo "ACM —". Pedido Felipe:
+    // "independente do item, sempre que tiver a mesma cor deve fazer
+    // aproveitamento de chapas juntos". Pecas ACM de qualquer item
+    // (porta, fixo, fixo lateral c/vidro, revestimento) com a mesma
+    // cor agora caem no MESMO grupo de aproveitamento. Pecas AM
+    // continuam prefixadas "Aluminio Macico —" porque vao pra
+    // chapa-mae diferente.
+    var corComPrefixo = corLado || 'ACM';
 
     var pecas = [];
     var ord = 100;
