@@ -13999,6 +13999,117 @@ const Orcamento = (() => {
     const perfisCadLevAcess = (typeof construirCadastroPerfis === 'function')
       ? construirCadastroPerfis() : {};
 
+    // Felipe sessao 14 BUG FIX: renderBreakdownInline PRECISA estar no
+    // escopo da funcao pai (renderLevAcessoriosTab), nao dentro do .map.
+    // Antes (commit a447f4c): declarada dentro do map -> bloco consolidado
+    // de revestimento (rodando depois do map) acessava fora do escopo
+    // -> ReferenceError 'renderBreakdownInline is not defined' que
+    // travava a aba Acessorios inteira. Agora em escopo de funcao,
+    // acessivel tanto dentro do map quanto no bloco consolidado.
+    const renderBreakdownInline = (idItem) => {
+      const cache = window._fitaSiliconeBreakdownCache || {};
+      const dados = cache[idItem];
+      if (!dados || !dados.breakdown || !dados.breakdown.length) return '';
+
+      const t = dados.totais || {};
+      const dim = dados.itemDim || {};
+      const ordenado = dados.breakdown.slice().sort((a, b) =>
+        (b.contrib?.ms || 0) - (a.contrib?.ms || 0)
+      );
+
+      const linhasHtml = ordenado.map(e => {
+        const ms = e.contrib?.ms || 0;
+        const fd19 = e.contrib?.fd19 || 0;
+        const fd12 = e.contrib?.fd12 || 0;
+        const cps = e.contrib?.cps || 0;
+        const ht = e.contrib?.hightack || 0;
+        const pctMs = t.mMS > 0 ? (ms / t.mMS) * 100 : 0;
+        const corDestaque = pctMs > 25 ? '#b91c1c' : pctMs > 10 ? '#b45309' : '#374151';
+        const cs = 'text-align:center;padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;';
+        return `
+          <tr>
+            <td style="padding:6px 10px;font-weight:500;color:#1f2937;font-size:12px;">${escapeHtml(e.origem || '?')}</td>
+            <td style="${cs}color:#475569;">${(e.metros || 0).toFixed(2)}m</td>
+            <td style="${cs}font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0} / ×${e.mult?.cps || 0}</td>
+            <td style="${cs}color:#1e3a8a;background:#eff6ff;">${fd19 > 0 ? fd19.toFixed(2) + 'm' : '—'}</td>
+            <td style="${cs}color:#1e3a8a;background:#dbeafe;">${fd12 > 0 ? fd12.toFixed(2) + 'm' : '—'}</td>
+            <td style="${cs}font-weight:700;color:${corDestaque};background:#fef3c7;">${ms > 0 ? ms.toFixed(2) + 'm' : '—'}${ms > 0 ? `<span style="font-size:10px;font-weight:400;color:#9ca3af;"> (${pctMs.toFixed(0)}%)</span>` : ''}</td>
+            <td style="${cs}font-weight:700;color:#15803d;background:#dcfce7;">${cps > 0 ? cps.toFixed(2) + 'm' : '—'}</td>
+            <td style="${cs}font-weight:700;color:#0369a1;background:#e0f2fe;">${ht > 0 ? ht.toFixed(2) + 'm' : '—'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const rends = dados.rendimentos || { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12, cps_sache: 12, hightack_tubo: 8 };
+      const cpsRend = rends.cps_sache || rends.ms_tubo || 12;
+      const rolosFD19 = t.mFD19 > 0 ? Math.ceil(t.mFD19 / rends.fd19_rolo) : 0;
+      const rolosFD12 = t.mFD12 > 0 ? Math.ceil(t.mFD12 / rends.fd12_rolo) : 0;
+      const tubosMS   = t.mMS   > 0 ? Math.ceil(t.mMS   / rends.ms_tubo)   : 0;
+      const sachesCPS = (t.mCPS || 0) > 0 ? Math.ceil(t.mCPS / cpsRend)    : 0;
+      const mFD19_obra = Number(t.mFD19_obra) || 0;
+      const mFD12_obra = Number(t.mFD12_obra) || 0;
+      const mHIGHTACK  = Number(t.mHIGHTACK)  || 0;
+      const hightackRend = rends.hightack_tubo || 8;
+      const rolosFD19_obra = mFD19_obra > 0 ? Math.ceil(mFD19_obra / rends.fd19_rolo)  : 0;
+      const rolosFD12_obra = mFD12_obra > 0 ? Math.ceil(mFD12_obra / rends.fd12_rolo)  : 0;
+      const tubosHIGHTACK  = mHIGHTACK  > 0 ? Math.ceil(mHIGHTACK  / hightackRend)     : 0;
+
+      return `
+        <details style="margin-top:12px;background:#fffbeb;border:2px solid #f59e0b;border-radius:6px;">
+          <summary style="cursor:pointer;padding:12px 16px;font-weight:700;color:#b45309;font-size:14px;list-style:none;display:flex;align-items:center;gap:10px;user-select:none;">
+            <span style="display:inline-block;transition:transform 0.2s;font-size:12px;color:#b45309;" class="fsd-arrow">▶</span>
+            📊 Abrir Detalhamento — Fita Dupla Face e Silicone Estrutural
+            <span style="margin-left:auto;font-size:11px;font-weight:500;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:12px;">
+              ${(t.mFD19 || 0).toFixed(1)}m + ${(t.mFD12 || 0).toFixed(1)}m + ${(t.mMS || 0).toFixed(1)}m 995 + ${(t.mCPS || 0).toFixed(1)}m CPS${mHIGHTACK > 0 ? ' + ' + mHIGHTACK.toFixed(1) + 'm HIGHTACK' : ''} · clique pra ver de onde
+            </span>
+          </summary>
+
+          <div style="padding:0 16px 16px 16px;border-top:1px solid #fde68a;margin-top:4px;">
+            <div style="display:flex;gap:12px;align-items:flex-start;margin:14px 0;">
+
+            <table style="border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;">
+            <thead>
+              <tr style="background:#1f2937;color:#fff;">
+                <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;white-space:nowrap;">Peça / Perfil (com dimensões)</th>
+                <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Metros</th>
+                <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Mult. (19/12/995/CPS)</th>
+                <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;white-space:nowrap;">FD 19mm</th>
+                <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;white-space:nowrap;">FD 12mm</th>
+                <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;white-space:nowrap;">Silicone</th>
+                <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#15803d;white-space:nowrap;">CPS BR</th>
+                <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#0369a1;white-space:nowrap;">HIGHTACK</th>
+              </tr>
+            </thead>
+            <tbody>${linhasHtml}</tbody>
+            <tfoot>
+              <tr style="background:#fef3c7;font-weight:800;border-top:2px solid #f59e0b;">
+                <td style="padding:8px 10px;font-size:12px;color:#92400e;" colspan="3">TOTAL</td>
+                <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD19 || 0).toFixed(2)}m</td>
+                <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD12 || 0).toFixed(2)}m</td>
+                <td style="text-align:center;padding:8px 10px;font-size:13px;color:#b45309;">${(t.mMS || 0).toFixed(2)}m</td>
+                <td style="text-align:center;padding:8px 10px;font-size:13px;color:#15803d;background:#dcfce7;">${(t.mCPS || 0).toFixed(2)}m</td>
+                <td style="text-align:center;padding:8px 10px;font-size:13px;color:#0369a1;background:#e0f2fe;">${(t.mHIGHTACK || 0).toFixed(2)}m</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          </div>
+
+          <div style="margin-top:10px;font-size:11px;color:#6b7280;line-height:1.5;">
+            💡 Os multiplicadores estão em <b>Cadastro &gt; Regras e Lógicas &gt; Fita Dupla Face + Silicone</b>.
+            Linhas com mais de 25% do total estão em vermelho (revisar se for excessivo).
+          </div>
+          </div>
+        </details>
+        <style>
+          details[open] > summary > .fsd-arrow { transform: rotate(90deg); }
+          details > summary::-webkit-details-marker { display:none; }
+          details > summary { outline:none; }
+          details:hover > summary { background:#fff7d6; }
+        </style>
+      `;
+    };
+
     // Felipe sessao 12: rev_parede agora consolidado em UM bloco no fim
     // (commit a seguir). PRIMER unico nao depende mais de
     // _ehPrimeiroRevParede - a consolidacao adiciona 1× PRIMER se houver
@@ -14157,153 +14268,6 @@ const Orcamento = (() => {
           </div>`;
       };
 
-      // Felipe sessao 2026-08: 'ATE AGORA NAO VI ESSE BENDITO BOTAO,
-      // O QUE EU QUERO E QUE DETALHE AS METRAGENS DAONDE PUXOU CADA
-      // COISA QUANTIDADE TAMANHO PARA CONFERIR' + 'EM BAIXO DAONDE?
-      // ISSO DEVE FICAR EM ACESSORIOS'.
-      // Quadro de breakdown VISIVEL AUTOMATICAMENTE embaixo da Fabricacao,
-      // sem precisar clicar em nada. Mostra cada peca/perfil + dim + qtd
-      // + multiplicador + contribuicao em metros pra FD19/FD12/Silicone.
-      // Cache window._fitaSiliconeBreakdownCache populado pelo motor 28-
-      // acessorios-porta-externa.js durante calcularAcessoriosPorItem
-      // (que ja' rodou acima, antes deste render).
-      const renderBreakdownInline = (idItem) => {
-        const cache = window._fitaSiliconeBreakdownCache || {};
-        const dados = cache[idItem];
-        if (!dados || !dados.breakdown || !dados.breakdown.length) return '';
-
-        const t = dados.totais || {};
-        const dim = dados.itemDim || {};
-        const ordenado = dados.breakdown.slice().sort((a, b) =>
-          (b.contrib?.ms || 0) - (a.contrib?.ms || 0)
-        );
-
-        const linhasHtml = ordenado.map(e => {
-          const ms = e.contrib?.ms || 0;
-          const fd19 = e.contrib?.fd19 || 0;
-          const fd12 = e.contrib?.fd12 || 0;
-          const cps = e.contrib?.cps || 0;
-          const ht = e.contrib?.hightack || 0;
-          const pctMs = t.mMS > 0 ? (ms / t.mMS) * 100 : 0;
-          const corDestaque = pctMs > 25 ? '#b91c1c' : pctMs > 10 ? '#b45309' : '#374151';
-          const cs = 'text-align:center;padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;';
-          return `
-            <tr>
-              <td style="padding:6px 10px;font-weight:500;color:#1f2937;font-size:12px;">${escapeHtml(e.origem || '?')}</td>
-              <td style="${cs}color:#475569;">${(e.metros || 0).toFixed(2)}m</td>
-              <td style="${cs}font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0} / ×${e.mult?.cps || 0}</td>
-              <td style="${cs}color:#1e3a8a;background:#eff6ff;">${fd19 > 0 ? fd19.toFixed(2) + 'm' : '—'}</td>
-              <td style="${cs}color:#1e3a8a;background:#dbeafe;">${fd12 > 0 ? fd12.toFixed(2) + 'm' : '—'}</td>
-              <td style="${cs}font-weight:700;color:${corDestaque};background:#fef3c7;">${ms > 0 ? ms.toFixed(2) + 'm' : '—'}${ms > 0 ? `<span style="font-size:10px;font-weight:400;color:#9ca3af;"> (${pctMs.toFixed(0)}%)</span>` : ''}</td>
-              <td style="${cs}font-weight:700;color:#15803d;background:#dcfce7;">${cps > 0 ? cps.toFixed(2) + 'm' : '—'}</td>
-              <td style="${cs}font-weight:700;color:#0369a1;background:#e0f2fe;">${ht > 0 ? ht.toFixed(2) + 'm' : '—'}</td>
-            </tr>
-          `;
-        }).join('');
-
-        // Felipe sessao 2026-08: usa rendimentos editaveis do cache
-        // (preenchidos pelo motor 28-acessorios-porta-externa.js ao
-        // chamar window.Regras.getRendimentos).
-        const rends = dados.rendimentos || { fd19_rolo: 20, fd12_rolo: 20, ms_tubo: 12, cps_sache: 12, hightack_tubo: 8 };
-        const cpsRend = rends.cps_sache || rends.ms_tubo || 12;  // CPS usa mesmo rendimento do silicone
-        const rolosFD19 = t.mFD19 > 0 ? Math.ceil(t.mFD19 / rends.fd19_rolo) : 0;
-        const rolosFD12 = t.mFD12 > 0 ? Math.ceil(t.mFD12 / rends.fd12_rolo) : 0;
-        const tubosMS   = t.mMS   > 0 ? Math.ceil(t.mMS   / rends.ms_tubo)   : 0;
-        const sachesCPS = (t.mCPS || 0) > 0 ? Math.ceil(t.mCPS / cpsRend)    : 0;
-        // Felipe sessao 2026-08-03: totais OBRA (FD19, FD12, HIGHTACK BR)
-        const mFD19_obra = Number(t.mFD19_obra) || 0;
-        const mFD12_obra = Number(t.mFD12_obra) || 0;
-        const mHIGHTACK  = Number(t.mHIGHTACK)  || 0;
-        const hightackRend = rends.hightack_tubo || 8;
-        const rolosFD19_obra = mFD19_obra > 0 ? Math.ceil(mFD19_obra / rends.fd19_rolo)  : 0;
-        const rolosFD12_obra = mFD12_obra > 0 ? Math.ceil(mFD12_obra / rends.fd12_rolo)  : 0;
-        const tubosHIGHTACK  = mHIGHTACK  > 0 ? Math.ceil(mHIGHTACK  / hightackRend)     : 0;
-
-        return `
-          <details style="margin-top:12px;background:#fffbeb;border:2px solid #f59e0b;border-radius:6px;">
-            <summary style="cursor:pointer;padding:12px 16px;font-weight:700;color:#b45309;font-size:14px;list-style:none;display:flex;align-items:center;gap:10px;user-select:none;">
-              <span style="display:inline-block;transition:transform 0.2s;font-size:12px;color:#b45309;" class="fsd-arrow">▶</span>
-              📊 Abrir Detalhamento — Fita Dupla Face e Silicone Estrutural
-              <span style="margin-left:auto;font-size:11px;font-weight:500;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:12px;">
-                ${(t.mFD19 || 0).toFixed(1)}m + ${(t.mFD12 || 0).toFixed(1)}m + ${(t.mMS || 0).toFixed(1)}m 995 + ${(t.mCPS || 0).toFixed(1)}m CPS${mHIGHTACK > 0 ? ' + ' + mHIGHTACK.toFixed(1) + 'm HIGHTACK' : ''} · clique pra ver de onde
-              </span>
-            </summary>
-
-            <div style="padding:0 16px 16px 16px;border-top:1px solid #fde68a;margin-top:4px;">
-              <div style="display:flex;gap:12px;align-items:flex-start;margin:14px 0;">
-
-              <table style="border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;">
-              <thead>
-                <tr style="background:#1f2937;color:#fff;">
-                  <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;white-space:nowrap;">Peça / Perfil (com dimensões)</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Metros</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Mult. (19/12/995/CPS)</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;white-space:nowrap;">FD 19mm</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;white-space:nowrap;">FD 12mm</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;white-space:nowrap;">Silicone</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#15803d;white-space:nowrap;">CPS BR</th>
-                  <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#0369a1;white-space:nowrap;">HIGHTACK</th>
-                </tr>
-              </thead>
-              <tbody>${linhasHtml}</tbody>
-              <tfoot>
-                <tr style="background:#fef3c7;font-weight:800;border-top:2px solid #f59e0b;">
-                  <td style="padding:8px 10px;font-size:12px;color:#92400e;" colspan="3">TOTAL</td>
-                  <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD19 || 0).toFixed(2)}m</td>
-                  <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD12 || 0).toFixed(2)}m</td>
-                  <td style="text-align:center;padding:8px 10px;font-size:13px;color:#b45309;">${(t.mMS || 0).toFixed(2)}m</td>
-                  <td style="text-align:center;padding:8px 10px;font-size:13px;color:#15803d;background:#dcfce7;">${(t.mCPS || 0).toFixed(2)}m</td>
-                  <td style="text-align:center;padding:8px 10px;font-size:13px;color:#0369a1;background:#e0f2fe;">${(t.mHIGHTACK || 0).toFixed(2)}m</td>
-                </tr>
-              </tfoot>
-            </table>
-
-              <div style="display:flex;flex-direction:column;gap:6px;min-width:160px;flex-shrink:0;">
-              <div style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:8px 12px;">
-                <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">Fita Dupla 19mm</div>
-                <div style="font-size:15px;font-weight:800;color:#1e3a8a;margin-top:1px;">${(t.mFD19 || 0).toFixed(2)} m</div>
-                <div style="font-size:10px;color:#64748b;">÷${rends.fd19_rolo}m = <b>${rolosFD19} rolo(s)</b></div>
-              </div>
-              <div style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:8px 12px;">
-                <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">Fita Dupla 12mm</div>
-                <div style="font-size:15px;font-weight:800;color:#1e3a8a;margin-top:1px;">${(t.mFD12 || 0).toFixed(2)} m</div>
-                <div style="font-size:10px;color:#64748b;">÷${rends.fd12_rolo}m = <b>${rolosFD12} rolo(s)</b></div>
-              </div>
-              <div style="background:#fff;border:2px solid #f59e0b;border-radius:6px;padding:8px 12px;">
-                <div style="font-size:9px;color:#92400e;text-transform:uppercase;letter-spacing:0.4px;font-weight:700;">Silicone 995</div>
-                <div style="font-size:15px;font-weight:800;color:#b45309;margin-top:1px;">${(t.mMS || 0).toFixed(2)} m</div>
-                <div style="font-size:10px;color:#92400e;">÷${rends.ms_tubo}m = <b>${tubosMS} tubo(s)</b></div>
-              </div>
-              <div style="background:#fff;border:2px solid #16a34a;border-radius:6px;padding:8px 12px;">
-                <div style="font-size:9px;color:#14532d;text-transform:uppercase;letter-spacing:0.4px;font-weight:700;">CPS BR</div>
-                <div style="font-size:15px;font-weight:800;color:#15803d;margin-top:1px;">${(t.mCPS || 0).toFixed(2)} m</div>
-                <div style="font-size:10px;color:#166534;">÷${cpsRend}m = <b>${sachesCPS} sachê(s)</b></div>
-              </div>
-              ${mHIGHTACK > 0 ? `
-              <div style="background:#fff;border:2px solid #0284c7;border-radius:6px;padding:8px 12px;">
-                <div style="font-size:9px;color:#075985;text-transform:uppercase;letter-spacing:0.4px;font-weight:700;">HIGHTACK BR</div>
-                <div style="font-size:15px;font-weight:800;color:#0284c7;margin-top:1px;">${mHIGHTACK.toFixed(2)} m</div>
-                <div style="font-size:10px;color:#075985;">÷${hightackRend}m = <b>${tubosHIGHTACK} tubo(s)</b></div>
-              </div>
-              ` : ''}
-              </div>
-
-            </div>
-
-            <div style="margin-top:10px;font-size:11px;color:#6b7280;line-height:1.5;">
-              💡 Os multiplicadores estão em <b>Cadastro &gt; Regras e Lógicas &gt; Fita Dupla Face + Silicone</b>.
-              Linhas com mais de 25% do total estão em vermelho (revisar se for excessivo).
-            </div>
-            </div>
-          </details>
-          <style>
-            details[open] > summary > .fsd-arrow { transform: rotate(90deg); }
-            details > summary::-webkit-details-marker { display:none; }
-            details > summary { outline:none; }
-            details:hover > summary { background:#fff7d6; }
-          </style>
-        `;
-      };
 
       // Felipe sessao 12: 'item 3 esta colocando como se fosse uma porta...
       // todos estao como porta'. Titulo era chumbado 'Porta Externa'. Agora
