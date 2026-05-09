@@ -3668,15 +3668,54 @@ const Orcamento = (() => {
               </select>
             </div>
             ` : ''}
-            ${item.temEstrutura !== 'nao' ? `
+            ${item.temEstrutura !== 'nao' ? (() => {
+              // Felipe (sessao 14): "puxe isso automatico pela porta
+              // anterior ao item fixo - se a porta anterior for PA006
+              // ou PA007 pela regra da altura, busca isso da porta".
+              // Regra: altura < 4000 = PA006, altura >= 4000 = PA007
+              // (mesma regra usada em 28-acessorios-porta-externa.js
+              // e 31-perfis-porta-externa.js fam '76' vs '101').
+              let sysAuto = null;
+              try {
+                const itensV = (versao && versao.itens) || [];
+                const idxFixo = UI.itemSelecionadoIdx;
+                // 1) Procura porta IMEDIATAMENTE anterior na lista
+                let porta = null;
+                for (let i = idxFixo - 1; i >= 0; i--) {
+                  const it = itensV[i];
+                  if (it && it.tipo === 'porta_externa') { porta = it; break; }
+                }
+                // 2) Fallback: qualquer porta da versao
+                if (!porta) {
+                  porta = itensV.find(it => it && it.tipo === 'porta_externa') || null;
+                }
+                if (porta) {
+                  const h = parseFloat(String(porta.altura || '').replace(',', '.')) || 0;
+                  if (h > 0) sysAuto = h < 4000 ? 'PA006' : 'PA007';
+                }
+              } catch (_) {}
+              // Se inferiu da porta, atualiza item.sistema (mantem
+              // sincronizado pro motor de calculo). Se ja estava no
+              // mesmo valor, nao faz nada. Sem porta valida, mantem
+              // o que ja estava (default PA006 do novoItem).
+              if (sysAuto && item.sistema !== sysAuto) {
+                item.sistema = sysAuto;
+              }
+              const sysAtual = item.sistema || 'PA006';
+              const lockedAuto = !!sysAuto;
+              const helpTxt = lockedAuto
+                ? `<span style="font-size:10px; color: var(--cinza-medio, #8c92a0); font-weight:400;"> · auto da porta (alt ${sysAuto === 'PA006' ? '<' : '≥'} 4000mm)</span>`
+                : '';
+              return `
             <div class="orc-field">
-              <label>Sistema</label>
-              <select data-field="sistema">
-                <option value="PA006" ${item.sistema !== 'PA007' ? 'selected' : ''}>PA006</option>
-                <option value="PA007" ${item.sistema === 'PA007' ? 'selected' : ''}>PA007</option>
+              <label>Sistema${helpTxt}</label>
+              <select data-field="sistema"${lockedAuto ? ' disabled title="Definido automaticamente pela altura da porta. Edite a altura da porta para alterar."' : ''}>
+                <option value="PA006" ${sysAtual !== 'PA007' ? 'selected' : ''}>PA006</option>
+                <option value="PA007" ${sysAtual === 'PA007' ? 'selected' : ''}>PA007</option>
               </select>
             </div>
-            ` : ''}
+              `;
+            })() : ''}
           </div>
           ${item.temEstrutura !== 'nao' && item.revestimento !== 'Vidro' ? `
           <div class="orc-form-row">

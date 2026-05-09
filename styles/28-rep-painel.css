@@ -16,12 +16,16 @@
 /* ============================================
    CABECALHO DA ABA
    Felipe (sessao 2026-08): "titulo centralizado menor sem bordas"
+   Felipe (sessao 14): max-width pra alinhar com o card e nao
+   ficar com a descricao esticada. Layout vertical, sem lateral
+   vazia.
    ============================================ */
 .rep-section-head {
-  margin: 14px 0 14px 0;
-  padding: 0;
+  margin: 14px auto;
+  padding: 0 16px;
   text-align: center;
   border: none;
+  max-width: 720px;
 }
 .rep-section-titulo {
   font-family: 'Lexend Zetta', sans-serif;
@@ -56,12 +60,17 @@
 
 /* ============================================
    GRID DE CARDS
+   Felipe (sessao 14): "elimina essa lateral grande
+   disperdicaca, vai ficar mais vertical do que horizontal".
+   1 coluna so', max-width 720px, centralizado.
    ============================================ */
 .rep-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  grid-template-columns: 1fr;
   gap: 18px;
   padding: 4px;
+  max-width: 720px;
+  margin: 0 auto;
 }
 @media (max-width: 700px) {
   .rep-grid { grid-template-columns: 1fr; }
