@@ -1186,20 +1186,23 @@ const ChapasPortaExterna = (() => {
       '1F': [
         { id: 'cava', label: 'Cava',
           largura: F.cava_largura, comp: F.cava_comp,
-          // Felipe sessao 13 (planilha v3 PRECIFICACAO_01_04_2026):
-          // CAVA so' aparece no MODELO 23 ACM (aba 'MODELO 23 - ACM' R7).
-          // No MODELO 23 AM (revestimento Aluminio Macico 2mm) a aba
-          // 'MODELO 23 - ALUMINIO MACICO' NAO tem CAVA - a porta inteira
-          // ja' e' em AM, nao precisa de cavidade pra estruturar a chapa.
-          // Quando gerada (caso ACM), e' SEMPRE em aluminio macico
-          // (planilha aba ACM col E='ALUMINIO MACICO' nas linhas R7/R8).
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 1,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 1,
+          // Felipe sessao 14 (planilha PRECIFICACAO_01_04_2026):
+          // CAVA NAO EXISTE no Modelo 23 — nem em "MODELO 23 - ACM"
+          // nem em "MODELO 23 - ALUMINIO MACICO". As 2 abas listam:
+          // Tampa Maior, Tampa Borda Friso Vert, Friso, Acab Lateral
+          // (1/2/Z), U Portal, Batente (01/02_Z/03), Tap Furo, Fitas
+          // de Acabamento (ME/MA/LAR), Alisar, Molduras. Sem Cava.
+          // Antes: Mod23 ACM gerava Cava + Tampa da Cava + L da Cava
+          // como peca AM erroneamente. Felipe: "QUANDO REVESITMENTO
+          // FOR ACM NAO EXITE NADA DE ALUMINIO MACICO".
+          ext: 0,
+          int: 0,
           categoria: 'porta', ehDaCava: true, sempreAM: true },
         { id: 'l_da_cava', label: 'L da Cava',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          // Felipe sessao 14: NAO EXISTE em Mod 23 (nem ACM nem AM).
+          ext: 0,
+          int: 0,
           categoria: 'porta', ehDaCava: true, sempreAM: true },
         { id: 'tampa_maior_cava', label: 'Tampa Maior',
           // Felipe sessao 13: planilha v3 nome e' "TAMPA_MAIOR_" (sem
@@ -1228,16 +1231,18 @@ const ChapasPortaExterna = (() => {
       '2F': [
         { id: 'cava', label: 'Cava',
           largura: F.cava_largura, comp: F.cava_comp,
-          // Felipe sessao 13 (planilha v3): CAVA so' aparece no Modelo
-          // 23 ACM 2F. Aba 'MODELO 23 - ALUMINIO MACICO' 2F (col P) NAO
-          // tem CAVA — porta toda em AM dispensa cavidade estrutural.
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          // Felipe sessao 14 (planilha PRECIFICACAO_01_04_2026):
+          // CAVA NAO EXISTE no Modelo 23 — nem ACM nem AM (ambas as
+          // abas omitem a peca). Antes: Mod23 ACM 2F gerava 2x Cava
+          // + 4x Tampa da Cava como AM erroneamente.
+          ext: 0,
+          int: 0,
           categoria: 'porta', ehDaCava: true, sempreAM: true },
         { id: 'tampa_da_cava', label: 'Tampa da Cava',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 4,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          // Felipe sessao 14: NAO EXISTE em Mod 23 (nem ACM nem AM).
+          ext: 0,
+          int: 0,
           categoria: 'porta', ehDaCava: true, sempreAM: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
           // Planilha mod 23 ACM: (E2-C7*2-C8*2)/2+10.5+C15+C15-1-C20*C22-C21*C22
@@ -1377,9 +1382,14 @@ const ChapasPortaExterna = (() => {
       const labelComecaTampa = /^tampa\s+(maior|borda|da)\b/.test(lblLow);
 
       // Decide se ESSA peça e' AM (vai usar chapa AM, prefixo "Aluminio Macico —"):
+      // Felipe sessao 14: regra anterior "ehMod23 && ehFitaAcab" colocava
+      // FIT_ACAB_* como AM em Mod23 ACM tambem — bug. Planilha
+      // "MODELO 23 - ACM" lista FIT_ACAB sem flag AM (tudo ACM); apenas
+      // "MODELO 23 - ALUMINIO MACICO" marca FIT_ACAB como ALUMINIO MACICO.
+      // Trocado pra ehAluminioMacico (Mod23 + revestimento AM 2mm).
       let ehPecaAM = false;
       if (def.sempreAM)                                          ehPecaAM = true;
-      else if (ehMod23 && ehFitaAcab)                            ehPecaAM = true;
+      else if (ehAluminioMacico && ehFitaAcab)                   ehPecaAM = true;
       else if (ehAluminioMacico && labelComecaTampa)             ehPecaAM = true;
 
       if (ehPecaAM) {
