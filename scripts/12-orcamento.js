@@ -14300,7 +14300,7 @@ const Orcamento = (() => {
           <div class="orc-item-collapse-body">
             ${quadroPesoPorta}
             ${renderTabela(`lvac-fab-${idx}`,     linhasFab,     '🏭 Fabricacao',        totalFab)}
-            ${renderBreakdownInline(item._cacheKey || item.id)}
+            ${item.tipo === 'revestimento_parede' ? '' : renderBreakdownInline(item._cacheKey || item.id)}
             ${renderTabela(`lvac-obra-${idx}`,    linhasObra,    '🚧 Obra',              totalObra)}
             ${renderTabela(`lvac-digital-${idx}`, linhasDigital, '🔐 Fechadura Digital', totalDigital)}
             <div style="background:#fff3e0;border:2px solid #e65100;border-radius:6px;padding:12px 16px;margin-top:12px;">
@@ -14405,29 +14405,106 @@ const Orcamento = (() => {
       totalRevConsolidado = linhasRev.reduce((s, l) => s + (Number(l.total) || 0), 0);
       totalGeralObra += totalRevConsolidado;
 
-      // Felipe sessao 14: Felipe pediu "ESTE ITEM REVESITMENTO DE PAREDE
-      // CONSOLIDADO NAO TEM PAINEL DEMOSTRATVIO DE COMO CALCULOU AS FITAS
-      // ETC COMO O ITEM PORTA EXTENA". Cache do breakdown ja' existe pra
-      // cada rev (populado por 28-acessorios-porta-externa.js).
-      // Aqui, montamos UM painel por rev mostrando peca/perfil + dim + qtd
-      // + multiplicador + contribuicao. Mesma funcao reusada da porta externa.
-      const breakdownsRevHtml = revsItens.map((it, idxRev) => {
-        const ck = it._cacheKey;
-        if (!ck) return '';
-        const html = renderBreakdownInline(ck);
-        if (!html) return '';
-        // Rotulo do rev pra identificar dentro do painel consolidado
-        const lbl = it.modo === 'automatico'
-          ? `Rev ${idxRev + 1} · automatico · ${it.largura_total || '?'}×${it.altura_total || '?'}mm`
-          : `Rev ${idxRev + 1} · manual · ${(it.pecas || []).length} peca(s)`;
+      // Felipe sessao 14 PARTE 2: Felipe pediu "PODE COLOCAR DETALHAMENTO
+      // TUDO JUNTO ESTA TENDO ABA DEMAIS PRA ABRIR... NAO QUERO UMA ABA
+      // PARA CADA COISA". Antes: 1 painel por rev (3 abas). Agora: UM
+      // painel agregado mostrando todas as pecas de todos os revs juntos
+      // com prefixo "Rev N:" pra identificar a origem.
+      const breakdownsRevHtml = (() => {
+        const cache = window._fitaSiliconeBreakdownCache || {};
+        // Agrega: cada peca de cada rev vira uma linha, com prefixo "Rev N: "
+        const todasPecas = [];
+        let totFD19 = 0, totFD12 = 0, totMS = 0, totCPS = 0, totHT = 0;
+        let rendsRef = null;
+        revsItens.forEach((it, idxRev) => {
+          const ck = it._cacheKey;
+          if (!ck || !cache[ck]) return;
+          const dados = cache[ck];
+          if (!rendsRef) rendsRef = dados.rendimentos;
+          const t = dados.totais || {};
+          totFD19 += Number(t.mFD19) || 0;
+          totFD12 += Number(t.mFD12) || 0;
+          totMS   += Number(t.mMS)   || 0;
+          totCPS  += Number(t.mCPS)  || 0;
+          totHT   += Number(t.mHIGHTACK) || 0;
+          (dados.breakdown || []).forEach(e => {
+            todasPecas.push({
+              ...e,
+              origem: `Rev ${idxRev + 1}: ${e.origem || '?'}`,
+            });
+          });
+        });
+        if (!todasPecas.length) return '';
+        // Ordena por contribuicao MS desc (igual renderBreakdownInline)
+        todasPecas.sort((a, b) => (b.contrib?.ms || 0) - (a.contrib?.ms || 0));
+
+        const linhasHtmlBd = todasPecas.map(e => {
+          const ms = e.contrib?.ms || 0;
+          const fd19 = e.contrib?.fd19 || 0;
+          const fd12 = e.contrib?.fd12 || 0;
+          const cps = e.contrib?.cps || 0;
+          const ht = e.contrib?.hightack || 0;
+          const pctMs = totMS > 0 ? (ms / totMS) * 100 : 0;
+          const corDestaque = pctMs > 25 ? '#b91c1c' : pctMs > 10 ? '#b45309' : '#374151';
+          const cs = 'text-align:center;padding:6px 10px;font-variant-numeric:tabular-nums;font-size:12px;';
+          return `
+            <tr>
+              <td style="padding:6px 10px;font-weight:500;color:#1f2937;font-size:12px;">${escapeHtml(e.origem)}</td>
+              <td style="${cs}color:#475569;">${(e.metros || 0).toFixed(2)}m</td>
+              <td style="${cs}font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0} / ×${e.mult?.cps || 0}</td>
+              <td style="${cs}color:#1e3a8a;background:#eff6ff;">${fd19 > 0 ? fd19.toFixed(2) + 'm' : '—'}</td>
+              <td style="${cs}color:#1e3a8a;background:#dbeafe;">${fd12 > 0 ? fd12.toFixed(2) + 'm' : '—'}</td>
+              <td style="${cs}font-weight:700;color:${corDestaque};background:#fef3c7;">${ms > 0 ? ms.toFixed(2) + 'm' : '—'}${ms > 0 ? `<span style="font-size:10px;font-weight:400;color:#9ca3af;"> (${pctMs.toFixed(0)}%)</span>` : ''}</td>
+              <td style="${cs}font-weight:700;color:#15803d;background:#dcfce7;">${cps > 0 ? cps.toFixed(2) + 'm' : '—'}</td>
+              <td style="${cs}font-weight:700;color:#0369a1;background:#e0f2fe;">${ht > 0 ? ht.toFixed(2) + 'm' : '—'}</td>
+            </tr>
+          `;
+        }).join('');
+
         return `
-          <div style="margin-top:14px;">
-            <div style="font-size:12px;font-weight:700;color:#0c4a6e;background:#e0f2fe;padding:6px 12px;border-radius:4px 4px 0 0;border:1px solid #7dd3fc;border-bottom:none;">
-              📐 ${escapeHtml(lbl)}
+          <details style="margin-top:12px;background:#fffbeb;border:2px solid #f59e0b;border-radius:6px;">
+            <summary style="cursor:pointer;padding:12px 16px;font-weight:700;color:#b45309;font-size:14px;list-style:none;display:flex;align-items:center;gap:10px;user-select:none;">
+              <span style="display:inline-block;transition:transform 0.2s;font-size:12px;color:#b45309;" class="fsd-arrow">▶</span>
+              📊 Detalhamento das Fitas e Silicone — todos os revestimentos
+              <span style="margin-left:auto;font-size:11px;font-weight:500;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:12px;">
+                ${totFD19.toFixed(1)}m fita + ${totMS.toFixed(1)}m hightack · ${revsItens.length} rev${revsItens.length>1?'s':''}
+              </span>
+            </summary>
+            <div style="padding:0 16px 16px 16px;border-top:1px solid #fde68a;margin-top:4px;">
+              <div style="margin:14px 0;">
+                <table style="border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;width:100%;">
+                  <thead>
+                    <tr style="background:#1f2937;color:#fff;">
+                      <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;white-space:nowrap;">Peça (com origem)</th>
+                      <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Metros</th>
+                      <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Mult. (19/12/995/CPS)</th>
+                      <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;white-space:nowrap;">FD 19mm</th>
+                      <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;white-space:nowrap;">FD 12mm</th>
+                      <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;white-space:nowrap;">Silicone</th>
+                      <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#15803d;white-space:nowrap;">CPS BR</th>
+                      <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#0369a1;white-space:nowrap;">HIGHTACK</th>
+                    </tr>
+                  </thead>
+                  <tbody>${linhasHtmlBd}</tbody>
+                  <tfoot>
+                    <tr style="background:#fef3c7;font-weight:800;border-top:2px solid #f59e0b;">
+                      <td style="padding:8px 10px;font-size:12px;color:#92400e;" colspan="3">TOTAL CONSOLIDADO</td>
+                      <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${totFD19.toFixed(2)}m</td>
+                      <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${totFD12.toFixed(2)}m</td>
+                      <td style="text-align:center;padding:8px 10px;font-size:13px;color:#b45309;">${totMS.toFixed(2)}m</td>
+                      <td style="text-align:center;padding:8px 10px;font-size:13px;color:#15803d;background:#dcfce7;">${totCPS.toFixed(2)}m</td>
+                      <td style="text-align:center;padding:8px 10px;font-size:13px;color:#0369a1;background:#e0f2fe;">${totHT.toFixed(2)}m</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div style="font-size:11px;color:#6b7280;line-height:1.5;">
+                💡 Multiplicadores em <b>Cadastro &gt; Regras e Lógicas &gt; Fita Dupla Face + Silicone</b>.
+                Linhas com mais de 25% do total Silicone destacadas em vermelho.
+              </div>
             </div>
-            ${html}
-          </div>`;
-      }).filter(Boolean).join('');
+          </details>`;
+      })();
 
       // HTML do bloco
       const linhasHtml = linhasRev.map(l => `
