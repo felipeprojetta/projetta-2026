@@ -390,10 +390,12 @@ const AcessoriosPortaExterna = (() => {
     }
 
     // 8. Q-LON VEDACAO — ceil(H/1000) × 2 metros (cada perfil)
+    //    Felipe sessao 14: quando 2 folhas, dobra (cada folha tem o seu perfil
+    //    de Q-LON na lateral, entao 2 folhas = 2x os metros).
     if (H > 0) {
-      const mQL = Math.ceil((H / 1000) * 2);
-      add('PA-QL 48800', mQL, 'Vedacoes', 'fab', `Flipper Seal H×2 = ${mQL}m`);
-      add('PA-QL 48700', mQL, 'Vedacoes', 'fab', `H×2 = ${mQL}m`);
+      const mQL = Math.ceil((H / 1000) * 2 * nFolhas);
+      add('PA-QL 48800', mQL, 'Vedacoes', 'fab', `Flipper Seal H×2×${nFolhas}folha${nFolhas>1?'s':''} = ${mQL}m`);
+      add('PA-QL 48700', mQL, 'Vedacoes', 'fab', `H×2×${nFolhas}folha${nFolhas>1?'s':''} = ${mQL}m`);
     }
 
     // 9. ISOLAMENTO — LA DE ROCHA
@@ -409,17 +411,22 @@ const AcessoriosPortaExterna = (() => {
       add('PA-ISOPOR PRANC 50', m2Eps, 'Embalagem', 'fab', `L×H×2 = ${m2Eps}m²`);
     }
 
-    // 11. EPS CANALETA U — depende de sistema + ripado
-    //     mIso = ceil((H/1000)×4 + (L/1000)×3)
+    // 11. EPS CANALETA U — depende de sistema + ripado + folhas
+    //     Felipe sessao 14: formula varia por nFolhas.
+    //       1 folha:  ceil((H/1000)×4 + (L/1000)×3)
+    //       2 folhas: ceil((H/1000)×6 + (L/1000)×3)
+    //     PA006 → Mod 05 (cod PA-ISOPOR 115)  | ripado: Mod 07 (PA-ISOPOR 135)
+    //     PA007 → Mod 06 (cod PA-ISOPOR 125)  | ripado: Mod 08 (PA-ISOPOR 165)
     if (L > 0 && H > 0) {
-      const mIso = Math.ceil((H / 1000) * 4 + (L / 1000) * 3);
+      const fatorH = (nFolhas >= 2) ? 6 : 4;
+      const mIso = Math.ceil((H / 1000) * fatorH + (L / 1000) * 3);
       let codEps;
       if (ripado) {
         codEps = ehPA006 ? 'PA-ISOPOR 135' : 'PA-ISOPOR 165';
       } else {
         codEps = ehPA006 ? 'PA-ISOPOR 115' : 'PA-ISOPOR 125';
       }
-      add(codEps, mIso, 'Embalagem', 'fab', `H×4 + L×3 = ${mIso}m`);
+      add(codEps, mIso, 'Embalagem', 'fab', `H×${fatorH} + L×3 = ${mIso}m (${nFolhas}f)`);
     }
 
     }  // ← fim do if (item.tipo === 'porta_externa') da FABRICACAO
