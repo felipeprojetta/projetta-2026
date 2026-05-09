@@ -153,6 +153,20 @@ const ChapasPortaExterna = (() => {
     const corAM_Int = String(item.corChapaAM_Int || '').trim();
     const corAM_Unica = corAM_Ext && corAM_Ext === corAM_Int;
 
+    // Felipe sessao 14: Modelo 23 NAO TEM cava (planilha
+    // PRECIFICACAO_01_04_2026 abas "MODELO 23 - ACM" e "MODELO 23 -
+    // ALUMINIO MACICO" tem C7 e C8 VAZIOS = 0). Itens legados podem
+    // ter distanciaBordaCava e tamanhoCava salvos do modelo anterior
+    // (ex: 210 e 150). Forcamos 0 aqui pra Mod 23 — fórmulas que usam
+    // dBC e tamCava (Tampa Maior, tm_base_2f, tm_base_2f_menos1) ficam
+    // com os valores corretos da planilha. Sem fix: TAMPA_MAIOR 01 dava
+    // 836 em vez de 1196 (diferenca 360 = 210+150 do item legado).
+    const _modeloEhMod23 = (
+      Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) === 23
+    );
+    const dBC_eff     = _modeloEhMod23 ? 0 : num('distanciaBordaCava');
+    const tamCava_eff = _modeloEhMod23 ? 0 : num('tamanhoCava');
+
     return {
       item, lado, quadro,
       L: parseFloat(String(item.largura || '').replace(',', '.')) || 0,
@@ -168,8 +182,8 @@ const ChapasPortaExterna = (() => {
       FGA: FGA_eff, FGLD_FGLE: FGLD_eff + FGLE_eff,
       ESPPIV: v.ESPPIV, TRANSPIV: v.TRANSPIV,
       TUBLPORTAL: v.TUBLPORTAL, TUBLPORTA: v.TUBLPORTA,
-      dBC:     num('distanciaBordaCava'),
-      tamCava: num('tamanhoCava'),
+      dBC:     dBC_eff,
+      tamCava: tamCava_eff,
       dBFV:    num('distanciaBordaFrisoVertical'),
       dBFH:    num('distanciaBordaFrisoHorizontal'),
       eF:        num('espessuraFriso'),
