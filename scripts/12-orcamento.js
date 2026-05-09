@@ -2297,11 +2297,32 @@ const Orcamento = (() => {
     versao.itens.forEach(normalizarItem);
   }
 
+  // Felipe sessao 14: le folgas do cadastro Regras > Variaveis (FGLD/FGLE/FGA)
+  // pra popular item NOVO. Se cadastro mudar de 10 pra 15, novos itens vem
+  // com 15 (existentes mantem o que foi salvo). Usa familia '76' (PA006)
+  // como padrao - PA007 tem mesmos defaults entao tanto faz.
+  function lerFolgasPadraoCadastro() {
+    try {
+      const v = (window.Storage ? Storage.scope('cadastros').get('regras_variaveis_porta_externa') : null);
+      const fam = (v && v['76']) || null;
+      if (fam) {
+        return {
+          fglDir: (fam.FGLD != null ? Number(fam.FGLD) : 10),
+          fglEsq: (fam.FGLE != null ? Number(fam.FGLE) : 10),
+          fgSup:  (fam.FGA  != null ? Number(fam.FGA)  : 10),
+        };
+      }
+    } catch(_) {}
+    return { fglDir: 10, fglEsq: 10, fgSup: 10 };
+  }
+
   function novoItem(tipo) {
     if (!tipo)                    return { tipo: '', quantidade: 1 };
     if (tipo === 'porta_externa') return novoItemPortaExterna();
     if (tipo === 'porta_interna') return { tipo: 'porta_interna', quantidade: 1, largura: '', altura: '' };
-    if (tipo === 'fixo_acoplado') return {
+    if (tipo === 'fixo_acoplado') {
+      const fg = lerFolgasPadraoCadastro();
+      return {
       tipo: 'fixo_acoplado',
       quantidade: 1,
       largura: '',
@@ -2325,13 +2346,14 @@ const Orcamento = (() => {
       corInterna: '',
       lados: '1lado',              // '1lado' (so externo) ou '2lados' (externo+interno) — ignorado se vidro
       fixoSegueModelo: 'sim',      // 'sim' (default — replica porta) ou 'nao' (escolher modelo proprio)
-      // Felipe sessao 13: folgas editaveis por item (mesma feature da
-      // porta externa). Vazio = usa default 10mm. Preenchido = override.
-      // Aplicadas em 36-perfis-rev-acoplado.js gerarPerfis().
-      fglDir: '',
-      fglEsq: '',
-      fgSup: '',
+      // Felipe sessao 14: folgas vem POPULADAS do cadastro Regras >
+      // Variaveis (FGLD/FGLE/FGA). Usuario pode editar caso queira
+      // override por item.
+      fglDir: fg.fglDir,
+      fglEsq: fg.fglEsq,
+      fgSup:  fg.fgSup,
     };
+    }
     if (tipo === 'revestimento_parede') return {
       tipo: 'revestimento_parede',
       quantidade: 1,
@@ -2348,6 +2370,7 @@ const Orcamento = (() => {
   }
 
   function novoItemPortaExterna() {
+    const fg = lerFolgasPadraoCadastro();
     return {
       tipo: 'porta_externa',
       quantidade: 1,
@@ -2413,14 +2436,12 @@ const Orcamento = (() => {
       distancia2a3aMoldura: '',       // Modelo 23 — so' se qtde >= 3
       // Felipe: perfil/codigo da moldura — so' aparece se Revestimento = Aluminio Macico 2mm
       perfilMoldura: '',
-      // Felipe sessao 13: folgas editaveis por item (override do cadastro
-      // global em regras_variaveis_porta_externa). Vazio = usa default
-      // global (10mm pra cada). Preenchido = sobrescreve so' nesse item.
-      // Aplicadas em calcularQuadro (38-chapas-porta-externa.js) e em
-      // calcularVedaPorta (28-acessorios-porta-externa.js).
-      fglDir: '',
-      fglEsq: '',
-      fgSup: '',
+      // Felipe sessao 14: folgas vem POPULADAS do cadastro Regras >
+      // Variaveis (FGLD/FGLE/FGA). Usuario pode editar caso queira
+      // override por item.
+      fglDir: fg.fglDir,
+      fglEsq: fg.fglEsq,
+      fgSup:  fg.fgSup,
       // marcadores: campos editados manualmente pelo usuario sao registrados aqui
       // pra exibir o aviso "fora da regra" quando saem do valor calculado
       _overrides: {},
