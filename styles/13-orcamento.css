@@ -3213,6 +3213,18 @@
   color: #78350F !important;
 }
 
+/* Felipe sessao 14: hint "sec NNN" abaixo do input largura/altura no Lev.
+   Sup mostra a peca SECA (sem refilado/REF). Aparece so' quando ha
+   diferenca (peca tem REF). Texto pequeno, cinza, alinhado a direita. */
+.orc-lev-sup-hint-sec {
+  font-size: 10px;
+  color: #6b7280;
+  margin-top: 2px;
+  text-align: right;
+  font-style: italic;
+  line-height: 1;
+}
+
 /* Felipe sessao 12: contador "(N cores)" ao lado do label Cor no rev_parede.
    Felipe via 8 cores no datalist e achava que faltavam. Datalist nativo do
    browser e' confuso. Agora usa select normal e contador deixa explicito

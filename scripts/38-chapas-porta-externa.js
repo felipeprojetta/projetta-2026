@@ -1589,6 +1589,17 @@ const ChapasPortaExterna = (() => {
       const larg = (typeof def.largura === 'function') ? def.largura(ctx) : def.largura;
       const comp = (typeof def.comp === 'function') ? def.comp(ctx) : def.comp;
 
+      // Felipe sessao 14: 'as pecas que tem o refilado podedria ao lado me
+      // dar a peca seca, sem o aumento do refilado? pelo menos nas tampas?
+      // verifique nas formulas aonde tem refilado pode ser que tenha peca
+      // que so tem uma ref e nao 2 ref'.
+      // Solucao elegante: roda a mesma formula com ctx.REF=0 e compara.
+      // Diferenca = quanto REF foi aplicado naquela dimensao (0/1/2 vezes).
+      // Funciona pra QUALQUER peca, sem precisar marcar def por def.
+      const ctxSemRef = Object.assign({}, ctx, { REF: 0 });
+      const largSemRef = (typeof def.largura === 'function') ? def.largura(ctxSemRef) : def.largura;
+      const compSemRef = (typeof def.comp === 'function') ? def.comp(ctxSemRef) : def.comp;
+
       // Felipe sessao 12: regra geral 'quantidade 0 deixa fora'.
       // Apenas o caso modo=Aluminio Macico de TAMPA_BORDA_FRISO_VERTICAL e FRISO
       // pode ter qtd 0 quando qtdFrisos vazio - e sao essas peças que
@@ -1651,6 +1662,11 @@ const ChapasPortaExterna = (() => {
         labelCompleto: `${def.label} — ${ctx.lado === 'externo' ? 'Externo' : 'Interno'}${corResolvida ? ` (${corResolvida})` : ''}`,
         largura: Math.round(larg * 100) / 100,
         altura:  Math.round(comp * 100) / 100,
+        // Felipe sessao 14: medidas SECAS (sem REF) — pra exibir ao lado
+        // da medida com refilado no Lev. Superficies. Se larguraSemRef ===
+        // largura, peca nao tem REF nessa dimensao.
+        larguraSemRef: Math.round(largSemRef * 100) / 100,
+        alturaSemRef:  Math.round(compSemRef * 100) / 100,
         qtd:     Math.round(qtyFace) * qtdItem,
         podeRotacionar: false,
         cor:     corResolvida,
@@ -1716,11 +1732,18 @@ const ChapasPortaExterna = (() => {
         Math.ceil((Number(peca.largura) - LIMITE_UTIL) / 2) + 'mm.');
     }
     const qtdOriginal = Number(peca.qtd) || 0;
+    // Felipe sessao 14: lateral nao tem REF — sao apenas pedacos cortados
+    // da peca original. larguraSemRef = largura. Centro herda a logica:
+    // tira os 2*distBorda do larguraSemRef original tbm. Se larguraSemRef
+    // === largura (peca sem REF), ambos ficam igual.
+    const larguraSemRefOriginal = Number(peca.larguraSemRef) || Number(peca.largura) || 0;
+    const larguraCentroSemRef = Math.max(0, larguraSemRefOriginal - 2 * distBorda);
     // Lateral: 1 peca com qtd*2 (2 laterais por face)
     out.push(Object.assign({}, peca, {
       label: peca.label + ' (Lateral)',
       labelCompleto: (peca.labelCompleto || '').replace(peca.label, peca.label + ' (Lateral)'),
       largura: distBorda,
+      larguraSemRef: distBorda,
       qtd: qtdOriginal * 2,
       _splitOrigem: peca.label,
       _splitTipo: 'lateral',
@@ -1730,6 +1753,7 @@ const ChapasPortaExterna = (() => {
       label: peca.label + ' (Centro)',
       labelCompleto: (peca.labelCompleto || '').replace(peca.label, peca.label + ' (Centro)'),
       largura: larguraCentro,
+      larguraSemRef: larguraCentroSemRef,
       qtd: qtdOriginal,
       _splitOrigem: peca.label,
       _splitTipo: 'centro',

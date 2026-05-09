@@ -12136,12 +12136,24 @@ const Orcamento = (() => {
       // data-rev-edit identifica os inputs - listener separado salva em
       // item.superficiesOverrides[chave] = {largura?, altura?, qtd?}.
       const cssEdit = editado ? 'orc-lev-sup-input-editado' : '';
+      // Felipe sessao 14: 'as pecas que tem o refilado podedria ao lado me
+      // dar a peca seca, sem o aumento do refilado'. Mostra abaixo do
+      // input em texto cinza pequeno: 'sec: 1313'. Aparece SO quando ha
+      // diferenca (peca tem REF aplicado naquela dimensao). REF pode ser
+      // 0/1/2 vezes em cada dimensao — calculo dinamico em 38-chapas-porta-
+      // externa.js (roda formula com REF=0 e compara).
+      const _largSec = Number(p.larguraSemRef);
+      const _altSec  = Number(p.alturaSemRef);
+      const _hintLarg = (Number.isFinite(_largSec) && _largSec > 0 && Math.abs(_largSec - Number(p.largura)) >= 0.5)
+        ? `<div class="orc-lev-sup-hint-sec">sec ${_largSec}</div>` : '';
+      const _hintAlt  = (Number.isFinite(_altSec)  && _altSec  > 0 && Math.abs(_altSec  - Number(p.altura))  >= 0.5)
+        ? `<div class="orc-lev-sup-hint-sec">sec ${_altSec}</div>` : '';
       const inputLargura = `<input type="number" class="orc-lev-sup-input ${cssEdit}"
         data-rev-edit="largura" data-item-idx="${idx}" data-peca-key="${escapeHtml(chave)}"
-        value="${p.largura}" min="1" step="1" style="width:70px;text-align:right;" />`;
+        value="${p.largura}" min="1" step="1" style="width:70px;text-align:right;" />${_hintLarg}`;
       const inputAltura = `<input type="number" class="orc-lev-sup-input ${cssEdit}"
         data-rev-edit="altura" data-item-idx="${idx}" data-peca-key="${escapeHtml(chave)}"
-        value="${p.altura}" min="1" step="1" style="width:70px;text-align:right;" />`;
+        value="${p.altura}" min="1" step="1" style="width:70px;text-align:right;" />${_hintAlt}`;
       const inputQtd = `<input type="number" class="orc-lev-sup-input ${cssEdit}"
         data-rev-edit="qtd" data-item-idx="${idx}" data-peca-key="${escapeHtml(chave)}"
         value="${p.qtd}" min="1" step="1" style="width:60px;text-align:right;" />`;
