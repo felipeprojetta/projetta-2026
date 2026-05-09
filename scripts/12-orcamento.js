@@ -8735,6 +8735,92 @@ const Orcamento = (() => {
    * Tambem clona pra container off-screen pra burlar overflow do
    * conteudo da aba.
    */
+  /**
+   * Felipe sessao 14: helper unificado pra montar PDF A4 a partir de N
+   * elementos .rel-prop-pagina, EMPILHANDO capturas curtas na mesma pagina
+   * fisica A4 do PDF em vez de gastar 1 pagina A4 cheia por elemento.
+   *
+   * Por que: ANTES cada .rel-prop-pagina era forcada com minHeight=1123px
+   * antes da captura — daí mesmo um chunk com 1 card pequeno virava uma
+   * pagina A4 inteira no PDF (~80% em branco). AGORA a captura usa altura
+   * NATURAL do conteudo. As capturas que cabem juntas em 297mm sao
+   * empilhadas na mesma pagina; quando estouram 297mm, addPage e reseta yPos.
+   *
+   * Usado em:
+   *   - exportarPropostaPDF (botao "Exportar PDF" da aba Proposta Comercial)
+   *   - gerarPropostaComercialPDFBlob (PDF anexo do email do representante)
+   *
+   * NAO mexe em: gerarRelatorioPNGBlob (4 PNGs internos do dossie),
+   * gerarPropostaPDFBlob (dossie agregado), nem em outras geracoes que
+   * tem 1 pagina so.
+   *
+   * @param {jsPDF} pdf - instancia ja inicializada (orientation portrait, A4)
+   * @param {NodeList} paginas - elementos .rel-prop-pagina pra capturar
+   * @param {function} html2canvas - referencia pra lib carregada
+   * @param {Object} opts - { scale, formato='png'|'jpeg', qualidade, pageW, pageH }
+   */
+  async function _paginarCapturasPDFEmpilhadas(pdf, paginas, html2canvas, opts) {
+    const scale = opts.scale || 2;
+    const formato = (opts.formato || 'png').toLowerCase();
+    const qualidade = opts.qualidade || 1.0;
+    const pageW = opts.pageW;
+    const pageH = opts.pageH;
+    const mime = formato === 'jpeg' ? 'image/jpeg' : 'image/png';
+    const tipo = formato === 'jpeg' ? 'JPEG' : 'PNG';
+
+    // 1. Captura cada pagina com altura NATURAL (sem forcar minHeight)
+    const capturas = [];
+    for (let i = 0; i < paginas.length; i++) {
+      const pag = paginas[i];
+      pag.style.boxSizing = 'border-box';
+      // IMPORTANTE: NAO setar pag.style.minHeight - quer altura real do conteudo
+      const canvas = await html2canvas(pag, {
+        scale,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        windowWidth:  pag.scrollWidth,
+        windowHeight: pag.scrollHeight,
+      });
+      const larguraImg = pageW;
+      const alturaImg = (canvas.height * larguraImg) / canvas.width;
+      const dataUrl = formato === 'jpeg'
+        ? canvas.toDataURL(mime, qualidade)
+        : canvas.toDataURL(mime);
+      capturas.push({ dataUrl, alturaImg });
+    }
+
+    // 2. Empilha capturas em paginas A4. jsPDF ja' tem 1 pagina criada na
+    //    inicializacao - usa ela primeiro, addPage so' quando estoura ou
+    //    quando captura nao cabe na pagina atual.
+    let yPos = 0;
+    let primeira = true;
+    const epsilon = 0.1; // tolerancia mm pra arredondamento
+    for (const cap of capturas) {
+      if (cap.alturaImg > pageH + epsilon) {
+        // Captura maior que A4 (raro — pagina HTML mt comprida): redimensiona
+        // pra caber na altura, ocupa pagina propria
+        if (!primeira) pdf.addPage();
+        const ratio = pageH / cap.alturaImg;
+        const novaLargura = pageW * ratio;
+        const offsetX = (pageW - novaLargura) / 2;
+        pdf.addImage(cap.dataUrl, tipo, offsetX, 0, novaLargura, pageH);
+        yPos = pageH; // forca proxima a abrir nova pagina
+        primeira = false;
+      } else if (yPos + cap.alturaImg > pageH + epsilon) {
+        // Nao cabe na pagina atual: nova pagina, captura no topo
+        pdf.addPage();
+        pdf.addImage(cap.dataUrl, tipo, 0, 0, pageW, cap.alturaImg);
+        yPos = cap.alturaImg;
+        primeira = false;
+      } else {
+        // Cabe na pagina atual: empilha em yPos
+        pdf.addImage(cap.dataUrl, tipo, 0, yPos, pageW, cap.alturaImg);
+        yPos += cap.alturaImg;
+        primeira = false;
+      }
+    }
+  }
+
   async function exportarPropostaPDF() {
     const folha = document.querySelector('.rel-prop-folha');
     if (!folha) {
@@ -8775,38 +8861,14 @@ const Orcamento = (() => {
       const pageW = pdf.internal.pageSize.getWidth();    // 210mm
       const pageH = pdf.internal.pageSize.getHeight();   // 297mm
 
-      for (let i = 0; i < paginas.length; i++) {
-        const pag = paginas[i];
-        // Garante que a pagina tem dimensao minima (mesmo que conteudo
-        // seja pequeno). A4 a 96dpi: 794x1123px.
-        pag.style.minHeight = '1123px';
-        pag.style.boxSizing = 'border-box';
-
-        const canvas = await html2canvas(pag, {
-          scale: 2,
-          backgroundColor: '#ffffff',
-          useCORS: true,
-          windowWidth:  pag.scrollWidth,
-          windowHeight: pag.scrollHeight,
-        });
-
-        const larguraImg = pageW;
-        const alturaImg  = (canvas.height * larguraImg) / canvas.width;
-
-        if (i > 0) pdf.addPage();
-
-        // Se altura calculada cabe na pagina A4, encaixa direto.
-        // Se nao cabe (raro — pagina muito comprida), redimensiona pra
-        // caber na altura.
-        if (alturaImg <= pageH) {
-          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, larguraImg, alturaImg);
-        } else {
-          const ratio = pageH / alturaImg;
-          const novaLargura = larguraImg * ratio;
-          const offsetX = (pageW - novaLargura) / 2;
-          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', offsetX, 0, novaLargura, pageH);
-        }
-      }
+      // Felipe sessao 14: ANTES forcava minHeight=1123px em cada .rel-prop-pagina,
+      // resultando em cada captura ser uma pagina A4 inteira no PDF — mesmo que
+      // o conteudo fosse pequeno (ex: chunk com 1 card sozinho). Isso gerava
+      // espacos brancos enormes entre paginas. AGORA captura com altura natural
+      // do conteudo e empilha capturas que cabem na mesma pagina A4 do PDF.
+      await _paginarCapturasPDFEmpilhadas(pdf, paginas, html2canvas, {
+        scale: 2, formato: 'png', pageW, pageH,
+      });
 
       const dataStr = new Date().toISOString().slice(0, 10);
       const cliente = (document.querySelector('.rel-header-cliente-table td')?.textContent || 'cliente')
@@ -14939,39 +15001,13 @@ const Orcamento = (() => {
       const pageW = pdf.internal.pageSize.getWidth();    // 210mm
       const pageH = pdf.internal.pageSize.getHeight();   // 297mm
 
-      for (let i = 0; i < paginas.length; i++) {
-        const pag = paginas[i];
-        // Garante altura minima A4 96dpi (1123px)
-        pag.style.minHeight = '1123px';
-        pag.style.boxSizing = 'border-box';
-
-        // Felipe sessao 2026-08: scale=2 + PNG saia com 40+ MB e estourava
-        // limite do Outlook (Microsoft Graph: ~4 MB inline). Troca pra
-        // scale=1.7 (~163dpi, nitido pra impressao) + JPEG qualidade 0.92.
-        // Reduz tamanho ~10x sem perda visual perceptivel.
-        const canvas = await html2canvas(pag, {
-          scale: 1.7,
-          backgroundColor: '#ffffff',
-          useCORS: true,
-          windowWidth:  pag.scrollWidth,
-          windowHeight: pag.scrollHeight,
-        });
-
-        const larguraImg = pageW;
-        const alturaImg  = (canvas.height * larguraImg) / canvas.width;
-
-        if (i > 0) pdf.addPage();
-
-        if (alturaImg <= pageH) {
-          pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, larguraImg, alturaImg);
-        } else {
-          // Pagina muito comprida (raro): redimensiona pra caber na altura
-          const ratio = pageH / alturaImg;
-          const novaLargura = larguraImg * ratio;
-          const offsetX = (pageW - novaLargura) / 2;
-          pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', offsetX, 0, novaLargura, pageH);
-        }
-      }
+      // Felipe sessao 14: empilha capturas curtas na mesma pagina A4 do PDF
+      // (corta espacos brancos enormes quando chunk tem poucos cards).
+      // scale=1.7 + JPEG 0.92 mantidos pra reduzir tamanho do PDF anexo do
+      // email (~4MB limite Microsoft Graph).
+      await _paginarCapturasPDFEmpilhadas(pdf, paginas, html2canvas, {
+        scale: 1.7, formato: 'jpeg', qualidade: 0.92, pageW, pageH,
+      });
 
       return pdf.output('blob');
     } finally {
