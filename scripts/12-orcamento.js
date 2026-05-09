@@ -10247,26 +10247,37 @@ const Orcamento = (() => {
         renderLevSuperficiesTab(container);
         return;
       }
-      // 2. Botao 🗑 remover peca manual
-      const btnRm = e.target.closest('.orc-lev-sup-btn-remover-manual');
+      // Felipe sessao 14: botao 🗑 unificado — funciona em peca manual E auto.
+      // data-manual="1" → splice de pecasManuaisExtras (comportamento antigo)
+      // data-manual="0" → adiciona chave em item.pecasRemovidas[] (cria array se nao existir)
+      const btnRm = e.target.closest('.orc-lev-sup-btn-remover-peca');
       if (btnRm) {
         const idx = Number(btnRm.dataset.itemIdx);
         const chave = btnRm.dataset.pecaKey;
+        const isManual = btnRm.dataset.manual === '1';
         const r2 = obterVersao(UI.versaoAtivaId);
         if (!r2 || !r2.versao) return;
         const item = (r2.versao.itens || [])[idx];
-        if (!item || !item.pecasManuaisExtras) return;
-        // chave = label|largura|altura
+        if (!item) return;
         const partes = chave.split('|');
         const labelAlvo = partes[0];
         const largAlvo  = Number(partes[1]);
         const altAlvo   = Number(partes[2]);
-        const idxRemover = item.pecasManuaisExtras.findIndex(p =>
-          p.label === labelAlvo && Number(p.largura) === largAlvo && Number(p.altura) === altAlvo
-        );
-        if (idxRemover === -1) return;
-        if (!confirm(`Remover peça manual "${labelAlvo}" (${largAlvo}×${altAlvo})?`)) return;
-        item.pecasManuaisExtras.splice(idxRemover, 1);
+        if (isManual) {
+          // peca manual: splice direto de pecasManuaisExtras
+          if (!item.pecasManuaisExtras) return;
+          const idxRemover = item.pecasManuaisExtras.findIndex(p =>
+            p.label === labelAlvo && Number(p.largura) === largAlvo && Number(p.altura) === altAlvo
+          );
+          if (idxRemover === -1) return;
+          if (!confirm(`Remover peça manual "${labelAlvo}" (${largAlvo}×${altAlvo})?`)) return;
+          item.pecasManuaisExtras.splice(idxRemover, 1);
+        } else {
+          // peca automatica: adiciona chave em pecasRemovidas[]
+          if (!confirm(`Remover esta peça do calculo?\n\n"${labelAlvo}" (${largAlvo}×${altAlvo})\n\nEla some do levantamento e do aproveitamento. Pra trazer de volta, use "↩ Voltar ao Padrao".`)) return;
+          if (!Array.isArray(item.pecasRemovidas)) item.pecasRemovidas = [];
+          if (item.pecasRemovidas.indexOf(chave) === -1) item.pecasRemovidas.push(chave);
+        }
         try {
           atualizarVersao(r2.versao.id, { itens: r2.versao.itens });
         } catch (err) { console.warn('[Lev Sup] erro ao remover peça:', err); }
@@ -10295,7 +10306,7 @@ const Orcamento = (() => {
       // tambem as pecas manuais adicionadas. Volta ao calculo do motor.
       const btnResetTudo = e.target.closest('.orc-lev-sup-btn-resetar-tudo');
       if (btnResetTudo) {
-        if (!confirm('Voltar ao calculo padrao do motor?\n\nIsso descarta todas as edicoes manuais (qtd, largura, altura) e remove pecas adicionadas manualmente. Os valores Sim/Nao de rotacao sao mantidos.')) return;
+        if (!confirm('Voltar ao calculo padrao do motor?\n\nIsso descarta todas as edicoes manuais (qtd, largura, altura, nome, categoria), remove pecas adicionadas manualmente E restaura pecas removidas. Os valores Sim/Nao de rotacao sao mantidos.')) return;
         const rR = obterVersao(UI.versaoAtivaId);
         if (!rR || !rR.versao) return;
         // Apaga overrides em TODOS os itens da versao (porque o banner e' por
@@ -10303,6 +10314,7 @@ const Orcamento = (() => {
         (rR.versao.itens || []).forEach(it => {
           delete it.superficiesOverrides;
           delete it.pecasManuaisExtras;
+          delete it.pecasRemovidas;  // Felipe sessao 14: limpa lista de pecas removidas
         });
         try {
           atualizarVersao(rR.versao.id, { itens: rR.versao.itens });
@@ -10338,11 +10350,21 @@ const Orcamento = (() => {
         pendentes.forEach(inp => {
           const idx = Number(inp.dataset.itemIdx);
           const chave = inp.dataset.pecaKey;
-          const field = inp.dataset.field;  // 'largura' | 'altura' | 'qtd'
+          const field = inp.dataset.field;  // 'largura' | 'altura' | 'qtd' | 'label' | 'categoria'
           const isManual = inp.dataset.manual === '1';
-          const valor = parseInt(inp.value, 10) || 0;
+          // Felipe sessao 14: campos string (label, categoria) sao tratados
+          // diferente dos numericos. Categoria vem de <select>, label de <input text>.
+          const isStringField = (field === 'label' || field === 'categoria');
+          const valor = isStringField
+            ? String(inp.value || '').trim()
+            : (parseInt(inp.value, 10) || 0);
           const item = itensAtual[idx];   // <-- FRESH do storage
-          if (!item || valor <= 0) return;
+          if (!item) return;
+          if (isStringField) {
+            if (!valor) return; // string vazia ignora
+          } else if (valor <= 0) {
+            return;
+          }
           if (isManual) {
             // Edicao em peca manual: atualiza diretamente em pecasManuaisExtras
             if (!item.pecasManuaisExtras) return;
@@ -12399,8 +12421,14 @@ const Orcamento = (() => {
   // Marca _editado=true pra UI mostrar visual diferenciado (borda laranja).
   function aplicarSuperficiesOverrides(pecas, item) {
     const ov = (item && item.superficiesOverrides) || {};
-    if (!Object.keys(ov).length) return pecas;
-    return pecas.map(p => {
+    const removidas = (item && Array.isArray(item.pecasRemovidas)) ? item.pecasRemovidas : [];
+    const removidasSet = new Set(removidas);
+    // Felipe sessao 14: filtra pecas marcadas como removidas (chave = rotacionaKey(p))
+    let base = removidasSet.size
+      ? pecas.filter(p => !removidasSet.has(rotacionaKey(p)))
+      : pecas;
+    if (!Object.keys(ov).length) return base;
+    return base.map(p => {
       const k = rotacionaKey(p);
       if (k in ov) {
         const o = ov[k];
@@ -12420,6 +12448,13 @@ const Orcamento = (() => {
             ret.qtd = n;
             qtdEditada = true;
           }
+        }
+        // Felipe sessao 14: label e categoria editaveis inline
+        if (typeof o.label === 'string' && o.label.trim() !== '') {
+          ret.label = o.label.trim();
+        }
+        if (typeof o.categoria === 'string' && o.categoria.trim() !== '') {
+          ret.categoria = o.categoria.trim();
         }
         ret._editado = true;  // pra UI marcar visualmente (qualquer edicao)
         // Felipe sessao 13: flag especifica pra qtd. unificarPecas precisa
@@ -12859,22 +12894,44 @@ const Orcamento = (() => {
                               data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="qtd"
                               data-manual="${p._manual ? '1' : '0'}"
                               value="${p.qtd}" style="${inputStyleQtd}" />`;
-      // Acao: peca manual = botao remover; peca com override = botao resetar; senao = vazio
+      // Felipe sessao 14: nome e categoria editaveis inline em TODAS as pecas
+      // (auto + manuais). Mantem badge "MANUAL" pra distinguir visualmente.
+      const inputLabelStyle = 'width:100%;min-width:130px;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;background:#fff;'
+        + (p._manual ? 'color:#7c3aed;font-weight:600;' : '');
+      const inputLabel = `<input type="text" class="orc-lev-sup-input-edit${editClass}${manualClass}"
+                            data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="label"
+                            data-manual="${p._manual ? '1' : '0'}"
+                            value="${escapeHtml(p.label || '')}" style="${inputLabelStyle}" />`
+        + (p._manual ? ' <span style="font-size:9px;background:#ddd6fe;color:#5b21b6;padding:1px 5px;border-radius:8px;font-weight:700;">MANUAL</span>' : '');
+      const catVal = p.categoria || 'porta';
+      const selectCategoria = `<select class="orc-lev-sup-input-edit${editClass}${manualClass}"
+                                  data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="categoria"
+                                  data-manual="${p._manual ? '1' : '0'}"
+                                  style="padding:3px 4px;border:1px solid #d1d5db;border-radius:3px;font-size:11px;background:#fff;">
+          <option value="porta" ${catVal === 'porta' ? 'selected' : ''}>Porta</option>
+          <option value="portal" ${catVal === 'portal' ? 'selected' : ''}>Portal</option>
+          <option value="revestimento" ${catVal === 'revestimento' ? 'selected' : ''}>Rev. Parede</option>
+          <option value="aluminio_macico" ${catVal === 'aluminio_macico' ? 'selected' : ''}>Al. Maciço</option>
+          <option value="fixo_lateral" ${catVal === 'fixo_lateral' ? 'selected' : ''}>Fixo Lateral</option>
+        </select>`;
+      // Felipe sessao 14: botao 🗑 em TODAS as pecas. data-manual distingue:
+      //   1 = peca extra → splice de pecasManuaisExtras
+      //   0 = peca automatica → adiciona key em pecasRemovidas[]
+      // Botao ↺ continua aparecendo SO em pecas auto com override (_editado).
       let acaoHtml = '';
-      if (p._manual) {
-        acaoHtml = `<button type="button" class="orc-lev-sup-btn-remover-manual"
+      const btnRemover = `<button type="button" class="orc-lev-sup-btn-remover-peca"
                             data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}"
-                            title="Remover peça manual"
-                            style="background:transparent;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px;">🗑</button>`;
-      } else if (p._editado) {
+                            data-manual="${p._manual ? '1' : '0'}"
+                            title="${p._manual ? 'Remover peça manual' : 'Remover esta peça do calculo'}"
+                            style="background:transparent;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 4px;">🗑</button>`;
+      if (!p._manual && p._editado) {
         acaoHtml = `<button type="button" class="orc-lev-sup-btn-resetar-edit"
                             data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}"
                             title="Restaurar valores originais"
-                            style="background:transparent;border:none;color:#0284c7;cursor:pointer;font-size:14px;padding:2px 6px;">↺</button>`;
+                            style="background:transparent;border:none;color:#0284c7;cursor:pointer;font-size:14px;padding:2px 4px;">↺</button>` + btnRemover;
+      } else {
+        acaoHtml = btnRemover;
       }
-      const labelDisplay = p._manual
-        ? `<span style="color:#7c3aed;font-weight:600;">${escapeHtml(p.label)} <span style="font-size:9px;background:#ddd6fe;color:#5b21b6;padding:1px 5px;border-radius:8px;font-weight:700;">MANUAL</span></span>`
-        : escapeHtml(p.label);
       // Felipe sessao 13: linha destacada (amarelo claro) quando peça
       // e' de aluminio macico — visual claro pro usuario distinguir.
       const trStyle = (p.categoria === 'aluminio_macico') ? ' style="background:#fffbeb;"' : '';
@@ -12888,8 +12945,8 @@ const Orcamento = (() => {
       );
       return `
       <tr${trStyle}>
-        <td>${labelDisplay}</td>
-        <td>${badgeCategoria(p.categoria)}</td>
+        <td>${inputLabel}</td>
+        <td>${selectCategoria}</td>
         ${badgeMaterial}
         <td class="t-num">${inputLargura}</td>
         <td class="t-num">${inputAltura}</td>
@@ -12897,7 +12954,7 @@ const Orcamento = (() => {
         <td class="t-num">${fmtBR(peso.unidade)}</td>
         <td class="t-num"><b>${fmtBR(peso.total)}</b></td>
         <td class="orc-lev-sup-rot-cell ${p.podeRotacionar ? '' : 't-warn'}">${selectHtml}</td>
-        <td style="text-align:center;width:34px;">${acaoHtml}</td>
+        <td style="text-align:center;width:54px;white-space:nowrap;">${acaoHtml}</td>
       </tr>`;
     }).join('');
 
