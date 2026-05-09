@@ -2443,7 +2443,12 @@ const Orcamento = (() => {
       fechaduraMecanica: '',
       fechaduraDigital: '',
       cilindro: '',
-      tamanhoPuxador: '',
+      // Felipe sessao 14: 'ELE TEM QUE APARECER O QUE TEM NO CAMPO'.
+      // Default antes era '' (vazio) — mas o select mostra visualmente
+      // 'Enviado pelo cliente' (1a opcao) e o usuario achava que o item
+      // tinha esse valor. Resultado: item ficava com '' no banco e PDF
+      // saia '—'. Default agora bate com o que o usuario ve' no select.
+      tamanhoPuxador: 'Enviado pelo cliente',
       // Felipe (do doc): TODA porta tem que ter — se tem alisar (sim/nao),
       // qual a largura do alisar (default 100mm) e a espessura da parede
       // (default 250mm). Sao usados na proposta comercial e nos cortes
@@ -9381,15 +9386,15 @@ const Orcamento = (() => {
 
     // Felipe sessao 2026-08-03: em modelo CAVA, puxador deve aparecer como 'Cava'
     // (nao um modelo de puxador especifico)
-    // Felipe sessao 14: 'PUXADOR sempre tem que sair a realidade, nao pode
-    // sair aquele -'. Item recem-criado tem tamanhoPuxador='' (linha 2446
-    // do item default). Fallback antigo era '—' (caia direto no PDF).
-    // Novo fallback: 'Enviado pelo cliente' — primeira opcao do select
-    // (linha 3495), realidade padrao da Projetta quando nao especificado.
+    // Felipe sessao 14: 'ELE TEM QUE APARECER O QUE TEM NO CAMPO, NAO E
+    // FORCAR ALGO. Se modelo for Cava, sai Cava. Se nao for, e' o que
+    // tem no campo'. Sem fallback artificial — sai literal item.tamanhoPuxador.
+    // Default do item.tamanhoPuxador agora e' 'Enviado pelo cliente' (linha
+    // 2446) entao itens novos sempre tem valor real.
     const ehModeloCava = isCava(item.modeloNumero);
     const puxadorFmt = ehModeloCava
       ? 'Cava'
-      : (item.tamanhoPuxador || 'Enviado pelo cliente');
+      : (item.tamanhoPuxador || '');
 
     return `
       <div class="rel-prop-item-card">
