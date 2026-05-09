@@ -2337,6 +2337,21 @@ const Orcamento = (() => {
     return { fglDir: 10, fglEsq: 10, fgSup: 10 };
   }
 
+  // Felipe sessao 14 (continuacao): usado nos inputs do form. Se item esta
+  // com folga vazia (item antigo, criado antes do auto-fill), exibe o valor
+  // do cadastro como value visivel. Usuario ve 10 (ou 15 se mudou cadastro)
+  // em vez de campo vazio. Motor de calculo ja faz mesmo fallback (28-...,
+  // 36-..., 38-...), entao bate com o que aparece na UI.
+  function _folgaParaInput(item, field) {
+    const v = item && item[field];
+    if (v === '' || v === null || v === undefined) {
+      const fg = lerFolgasPadraoCadastro();
+      const def = fg[field];
+      return def != null ? String(def) : '10';
+    }
+    return String(v);
+  }
+
   function novoItem(tipo) {
     if (!tipo)                    return { tipo: '', quantidade: 1 };
     if (tipo === 'porta_externa') return novoItemPortaExterna();
@@ -3633,19 +3648,19 @@ const Orcamento = (() => {
             <div class="orc-field orc-f-qtd">
               <label>Lateral Esquerda</label>
               <input type="number" min="0" step="1" data-field="fglEsq"
-                     value="${(item.fglEsq === '' || item.fglEsq === null || item.fglEsq === undefined) ? '' : escapeHtml(String(item.fglEsq))}"
+                     value="${escapeHtml(_folgaParaInput(item, 'fglEsq'))}"
                      />
             </div>
             <div class="orc-field orc-f-qtd">
               <label>Lateral Direita</label>
               <input type="number" min="0" step="1" data-field="fglDir"
-                     value="${(item.fglDir === '' || item.fglDir === null || item.fglDir === undefined) ? '' : escapeHtml(String(item.fglDir))}"
+                     value="${escapeHtml(_folgaParaInput(item, 'fglDir'))}"
                      />
             </div>
             <div class="orc-field orc-f-qtd">
               <label>Superior</label>
               <input type="number" min="0" step="1" data-field="fgSup"
-                     value="${(item.fgSup === '' || item.fgSup === null || item.fgSup === undefined) ? '' : escapeHtml(String(item.fgSup))}"
+                     value="${escapeHtml(_folgaParaInput(item, 'fgSup'))}"
                      />
             </div>
           </div>
@@ -3928,19 +3943,19 @@ const Orcamento = (() => {
             <div class="orc-field orc-f-qtd">
               <label>Lateral Esquerda</label>
               <input type="number" min="0" step="1" data-field="fglEsq"
-                     value="${(item.fglEsq === '' || item.fglEsq === null || item.fglEsq === undefined) ? '' : escapeHtml(String(item.fglEsq))}"
+                     value="${escapeHtml(_folgaParaInput(item, 'fglEsq'))}"
                      />
             </div>
             <div class="orc-field orc-f-qtd">
               <label>Lateral Direita</label>
               <input type="number" min="0" step="1" data-field="fglDir"
-                     value="${(item.fglDir === '' || item.fglDir === null || item.fglDir === undefined) ? '' : escapeHtml(String(item.fglDir))}"
+                     value="${escapeHtml(_folgaParaInput(item, 'fglDir'))}"
                      />
             </div>
             <div class="orc-field orc-f-qtd">
               <label>Superior</label>
               <input type="number" min="0" step="1" data-field="fgSup"
-                     value="${(item.fgSup === '' || item.fgSup === null || item.fgSup === undefined) ? '' : escapeHtml(String(item.fgSup))}"
+                     value="${escapeHtml(_folgaParaInput(item, 'fgSup'))}"
                      />
             </div>
           </div>
@@ -13508,10 +13523,10 @@ const Orcamento = (() => {
             <tbody>
               <tr><td>Custo fabricacao</td><td class="num">${fmtMoney(subFab)}</td></tr>
               <tr><td>Custo instalacao</td><td class="num">${fmtMoney(subInst)}</td></tr>
-              <tr><td>Tabela so' porta</td><td class="num">${fmtMoney(precoTabPorta)}</td></tr>
-              <tr><td>Faturamento so' porta</td><td class="num">${fmtMoney(precoFatPorta)}</td></tr>
-              <tr><td>Tabela instalacao</td><td class="num">${fmtMoney(precoTabInst)}</td></tr>
-              <tr><td>Faturamento instalacao</td><td class="num">${fmtMoney(precoFatInst)}</td></tr>
+              <tr><td>Original so' porta</td><td class="num">${fmtMoney(precoTabPorta)}</td></tr>
+              <tr><td>Com Desconto so' porta</td><td class="num">${fmtMoney(precoFatPorta)}</td></tr>
+              <tr><td>Original instalacao</td><td class="num">${fmtMoney(precoTabInst)}</td></tr>
+              <tr><td>Com Desconto instalacao</td><td class="num">${fmtMoney(precoFatInst)}</td></tr>
               <tr style="border-top: 1px solid #ccc;"><td>Margem bruta</td><td class="num">${margemBruta.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</td></tr>
               <tr><td>Margem liquida</td><td class="num" style="color:${margemLiquida >= lucroAlvo ? '#1a7a3f' : '#c43a3a'};"><span class="t-strong">${margemLiquida.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</span></td></tr>
             </tbody>
