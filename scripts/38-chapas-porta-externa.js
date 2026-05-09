@@ -1675,7 +1675,7 @@ const ChapasPortaExterna = (() => {
       // face viram total 4 por porta, e 2 centros (1 por face). Felipe:
       // 'pegue 1800 menos 150 menos 150 = 1500. Frente e verso, 4 vezes 150
       // de complemento mais 2 chapas de 1500 no meio'.
-      const _splitOk = _splitPecaAMOversize(pecaBase, item, out);
+      const _splitOk = _splitPecaAMOversize(pecaBase, ctx.item, out);
       if (!_splitOk) {
         out.push(pecaBase);
       }
