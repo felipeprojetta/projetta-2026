@@ -197,6 +197,15 @@ const ChapasPortaExterna = (() => {
       // modelo 23 + Aluminio Macico (G27=1048-C29/2-C29, etc).
       // Default 150 (valor da planilha quando o user nao preencheu).
       dist1aMoldura:    num('distanciaBorda1aMoldura') || 150,
+      // Felipe sessao 14: variaveis pra molduras MULTIPLAS no Mod 23
+      //   Quantidade de molduras: 1 (default), 2 ou 3
+      //   Distancia 1a -> 2a moldura: usado quando qtde >= 2
+      //   Distancia 2a -> 3a moldura: usado quando qtde >= 3
+      // Cada moldura adicional reduz a dimensao da anterior em 2*dist
+      // (porque a moldura interna fica deslocada dist nos 4 lados).
+      qtdMolduras: Math.max(1, parseInt(item.quantidadeMolduras, 10) || 1),
+      dist12Mold:  num('distancia1a2aMoldura') || 0,
+      dist23Mold:  num('distancia2a3aMoldura') || 0,
       // Felipe (sessao 26 fix): respeitar flag tem_alisar das caracteristicas.
       // Se 'Nao' -> nao gerar pecas de alisar (default 'Sim' pra retrocompat).
       temAlisar: String(item.tem_alisar || 'Sim').toLowerCase() !== 'nao',
@@ -244,7 +253,14 @@ const ChapasPortaExterna = (() => {
     _refExtra: ctx => F._ehMod23AM(ctx) ? 0 : (2 * ctx.REF),
     fit_acab_me:  ctx => 36.5 + F._refExtra(ctx),
     fit_acab_ma:  ctx => 74.5 + F._refExtra(ctx),
-    fit_acab_lar: ctx => ctx.TUBLPORTAL + 10 + F._refExtra(ctx),
+    // Felipe sessao 14 (planilha PRECIFICACAO_01_04_2026 atualizada):
+    // Em Mod 23 AM, FIT_ACAB_LAR mudou:
+    //   ANTES: TUBLPORTAL + 10
+    //   AGORA: TUBLPORTA + 10 + 4 (R21 col F = "=$C$14+10+4")
+    // Em Mod 23 ACM e demais modelos: continua TUBLPORTAL + 10 + 2*REF.
+    fit_acab_lar: ctx => F._ehMod23AM(ctx)
+      ? ctx.TUBLPORTA + 10 + 4
+      : ctx.TUBLPORTAL + 10 + 2 * ctx.REF,
     // ALISAR — Felipe planilha: (espessuraParede - 80/2) + 5 + larguraAlisar + REF
     // Nota: 80/2 é DIVIDIDO ANTES (=40), NÃO (esp-80)/2.
     alisar_largura: ctx => (ctx.espessuraParede - 80/2) + 5 + ctx.larguraAlisar + ctx.REF,
@@ -317,6 +333,23 @@ const ChapasPortaExterna = (() => {
       const Q = F.mold_Q11(ctx);
       const C29 = F._C29(ctx);
       return ctx.qtdFrisos > 0 ? Q : (Q - 2*C29);
+    },
+    // Felipe sessao 14: MOLDURAS MULTIPLAS (qtdMolduras 1, 2 ou 3)
+    // Cada moldura adicional fica DENTRO da anterior, deslocada em
+    // dist12 (ou dist23) nos 4 lados. Logo as dimensoes diminuem 2×dist.
+    //   Moldura 1: dimensao base (sem decremento)
+    //   Moldura 2: base - 2*dist12
+    //   Moldura 3: base - 2*dist12 - 2*dist23
+    mold_dec_2: ctx => 2 * (Number(ctx.dist12Mold) || 0),
+    mold_dec_3: ctx => 2 * (Number(ctx.dist12Mold) || 0)
+                       + 2 * (Number(ctx.dist23Mold) || 0),
+    // Helper qty: retorna qtdBase se item tem >= N molduras, senao 0.
+    // Sempre 0 em Mod 23 AM (la' viram perfis Boiserie em 31-perfis).
+    mold_qty: function(n, qtdBase) {
+      return ctx => {
+        if (F._ehMod23AM(ctx)) return 0;
+        return (Number(ctx.qtdMolduras) || 1) >= n ? qtdBase : 0;
+      };
     },
   };
 
@@ -1298,21 +1331,58 @@ const ChapasPortaExterna = (() => {
         // revestimento Aluminio Macico continuam como perfis Boiserie
         // (geradas em 31-perfis-porta-externa.js linhas 437-510).
         // Largura: 143mm (constante da planilha — espessura do perfil).
-        // Distribuicao ext/int 50/50 com arredondamento.
-        { id: 'moldura_horizontal_1', label: 'Moldura Horizontal 1',
+        //
+        // Felipe sessao 14 PARTE 2: quando item.quantidadeMolduras > 1,
+        // gerar molduras 2 e 3 com dimensoes reduzidas (2*dist12 ou
+        // 2*dist12+2*dist23). Cada moldura interna fica dentro da anterior.
+        // Labels "Moldura 1", "Moldura 2", "Moldura 3".
+        //
+        // MOLDURA 1 (base — sempre gerada quando qtdMolduras >= 1)
+        { id: 'moldura_1_horizontal_1', label: 'Moldura 1 - Horizontal 1',
           largura: ctx => 143, comp: F.mold_horiz_1F,
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 4,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          ext: F.mold_qty(1, 4), int: F.mold_qty(1, 4),
           categoria: 'porta' },
-        { id: 'moldura_vertical_1', label: 'Moldura Vertical 1',
+        { id: 'moldura_1_vertical_1', label: 'Moldura 1 - Vertical 1',
           largura: ctx => 143, comp: F.mold_vert_1,
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          ext: F.mold_qty(1, 2), int: F.mold_qty(1, 2),
           categoria: 'porta' },
-        { id: 'moldura_vertical_2', label: 'Moldura Vertical 2',
+        { id: 'moldura_1_vertical_2', label: 'Moldura 1 - Vertical 2',
           largura: ctx => 143, comp: F.mold_vert_2,
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          ext: F.mold_qty(1, 2), int: F.mold_qty(1, 2),
+          categoria: 'porta' },
+        // MOLDURA 2 (so' gerada quando qtdMolduras >= 2)
+        // Dimensoes = Moldura 1 - 2*dist12
+        { id: 'moldura_2_horizontal_1', label: 'Moldura 2 - Horizontal 1',
+          largura: ctx => 143,
+          comp: ctx => F.mold_horiz_1F(ctx) - F.mold_dec_2(ctx),
+          ext: F.mold_qty(2, 4), int: F.mold_qty(2, 4),
+          categoria: 'porta' },
+        { id: 'moldura_2_vertical_1', label: 'Moldura 2 - Vertical 1',
+          largura: ctx => 143,
+          comp: ctx => F.mold_vert_1(ctx) - F.mold_dec_2(ctx),
+          ext: F.mold_qty(2, 2), int: F.mold_qty(2, 2),
+          categoria: 'porta' },
+        { id: 'moldura_2_vertical_2', label: 'Moldura 2 - Vertical 2',
+          largura: ctx => 143,
+          comp: ctx => F.mold_vert_2(ctx) - F.mold_dec_2(ctx),
+          ext: F.mold_qty(2, 2), int: F.mold_qty(2, 2),
+          categoria: 'porta' },
+        // MOLDURA 3 (so' gerada quando qtdMolduras >= 3)
+        // Dimensoes = Moldura 1 - 2*dist12 - 2*dist23
+        { id: 'moldura_3_horizontal_1', label: 'Moldura 3 - Horizontal 1',
+          largura: ctx => 143,
+          comp: ctx => F.mold_horiz_1F(ctx) - F.mold_dec_3(ctx),
+          ext: F.mold_qty(3, 4), int: F.mold_qty(3, 4),
+          categoria: 'porta' },
+        { id: 'moldura_3_vertical_1', label: 'Moldura 3 - Vertical 1',
+          largura: ctx => 143,
+          comp: ctx => F.mold_vert_1(ctx) - F.mold_dec_3(ctx),
+          ext: F.mold_qty(3, 2), int: F.mold_qty(3, 2),
+          categoria: 'porta' },
+        { id: 'moldura_3_vertical_2', label: 'Moldura 3 - Vertical 2',
+          largura: ctx => 143,
+          comp: ctx => F.mold_vert_2(ctx) - F.mold_dec_3(ctx),
+          ext: F.mold_qty(3, 2), int: F.mold_qty(3, 2),
           categoria: 'porta' },
       ],
       '2F': [
@@ -1368,30 +1438,84 @@ const ChapasPortaExterna = (() => {
         // Felipe sessao 14 (planilha "MODELO 23 - ACM" 2F R26-30):
         // 5 MOLDURAS como pecas de chapa SOMENTE em ACM. Em AM continuam
         // como perfis Boiserie (geradas em 31-perfis-porta-externa.js).
-        { id: 'moldura_horizontal_1', label: 'Moldura Horizontal 1',
+        //
+        // Felipe sessao 14 PARTE 2: replicacao Moldura 1/2/3 (qtdMolduras
+        // 1, 2 ou 3). Cada moldura interna fica dentro da anterior,
+        // dimensoes reduzidas em 2*dist12 (Moldura 2) ou 2*dist12+2*dist23
+        // (Moldura 3).
+        //
+        // MOLDURA 1 (base)
+        { id: 'moldura_1_horizontal_1', label: 'Moldura 1 - Horizontal 1',
           largura: ctx => 143, comp: F.mold_horiz_2F_1,
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          ext: F.mold_qty(1, 2), int: F.mold_qty(1, 2),
           categoria: 'porta' },
-        { id: 'moldura_horizontal_2', label: 'Moldura Horizontal 2',
+        { id: 'moldura_1_horizontal_2', label: 'Moldura 1 - Horizontal 2',
           largura: ctx => 143, comp: F.mold_horiz_2F_2,
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 4,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          ext: F.mold_qty(1, 4), int: F.mold_qty(1, 4),
           categoria: 'porta' },
-        { id: 'moldura_horizontal_3', label: 'Moldura Horizontal 3',
+        { id: 'moldura_1_horizontal_3', label: 'Moldura 1 - Horizontal 3',
           largura: ctx => 143, comp: F.mold_horiz_2F_3,
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          ext: F.mold_qty(1, 2), int: F.mold_qty(1, 2),
           categoria: 'porta' },
-        { id: 'moldura_vertical_1', label: 'Moldura Vertical 1',
+        { id: 'moldura_1_vertical_1', label: 'Moldura 1 - Vertical 1',
           largura: ctx => 143, comp: F.mold_vert_1,
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 4,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          ext: F.mold_qty(1, 4), int: F.mold_qty(1, 4),
           categoria: 'porta' },
-        { id: 'moldura_vertical_2', label: 'Moldura Vertical 2',
+        { id: 'moldura_1_vertical_2', label: 'Moldura 1 - Vertical 2',
           largura: ctx => 143, comp: F.mold_vert_2,
-          ext: ctx => F._ehMod23AM(ctx) ? 0 : 4,
-          int: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          ext: F.mold_qty(1, 4), int: F.mold_qty(1, 4),
+          categoria: 'porta' },
+        // MOLDURA 2 (qtdMolduras >= 2). Dimensoes = M1 - 2*dist12
+        { id: 'moldura_2_horizontal_1', label: 'Moldura 2 - Horizontal 1',
+          largura: ctx => 143,
+          comp: ctx => F.mold_horiz_2F_1(ctx) - F.mold_dec_2(ctx),
+          ext: F.mold_qty(2, 2), int: F.mold_qty(2, 2),
+          categoria: 'porta' },
+        { id: 'moldura_2_horizontal_2', label: 'Moldura 2 - Horizontal 2',
+          largura: ctx => 143,
+          comp: ctx => F.mold_horiz_2F_2(ctx) - F.mold_dec_2(ctx),
+          ext: F.mold_qty(2, 4), int: F.mold_qty(2, 4),
+          categoria: 'porta' },
+        { id: 'moldura_2_horizontal_3', label: 'Moldura 2 - Horizontal 3',
+          largura: ctx => 143,
+          comp: ctx => F.mold_horiz_2F_3(ctx) - F.mold_dec_2(ctx),
+          ext: F.mold_qty(2, 2), int: F.mold_qty(2, 2),
+          categoria: 'porta' },
+        { id: 'moldura_2_vertical_1', label: 'Moldura 2 - Vertical 1',
+          largura: ctx => 143,
+          comp: ctx => F.mold_vert_1(ctx) - F.mold_dec_2(ctx),
+          ext: F.mold_qty(2, 4), int: F.mold_qty(2, 4),
+          categoria: 'porta' },
+        { id: 'moldura_2_vertical_2', label: 'Moldura 2 - Vertical 2',
+          largura: ctx => 143,
+          comp: ctx => F.mold_vert_2(ctx) - F.mold_dec_2(ctx),
+          ext: F.mold_qty(2, 4), int: F.mold_qty(2, 4),
+          categoria: 'porta' },
+        // MOLDURA 3 (qtdMolduras >= 3). Dimensoes = M1 - 2*dist12 - 2*dist23
+        { id: 'moldura_3_horizontal_1', label: 'Moldura 3 - Horizontal 1',
+          largura: ctx => 143,
+          comp: ctx => F.mold_horiz_2F_1(ctx) - F.mold_dec_3(ctx),
+          ext: F.mold_qty(3, 2), int: F.mold_qty(3, 2),
+          categoria: 'porta' },
+        { id: 'moldura_3_horizontal_2', label: 'Moldura 3 - Horizontal 2',
+          largura: ctx => 143,
+          comp: ctx => F.mold_horiz_2F_2(ctx) - F.mold_dec_3(ctx),
+          ext: F.mold_qty(3, 4), int: F.mold_qty(3, 4),
+          categoria: 'porta' },
+        { id: 'moldura_3_horizontal_3', label: 'Moldura 3 - Horizontal 3',
+          largura: ctx => 143,
+          comp: ctx => F.mold_horiz_2F_3(ctx) - F.mold_dec_3(ctx),
+          ext: F.mold_qty(3, 2), int: F.mold_qty(3, 2),
+          categoria: 'porta' },
+        { id: 'moldura_3_vertical_1', label: 'Moldura 3 - Vertical 1',
+          largura: ctx => 143,
+          comp: ctx => F.mold_vert_1(ctx) - F.mold_dec_3(ctx),
+          ext: F.mold_qty(3, 4), int: F.mold_qty(3, 4),
+          categoria: 'porta' },
+        { id: 'moldura_3_vertical_2', label: 'Moldura 3 - Vertical 2',
+          largura: ctx => 143,
+          comp: ctx => F.mold_vert_2(ctx) - F.mold_dec_3(ctx),
+          ext: F.mold_qty(3, 4), int: F.mold_qty(3, 4),
           categoria: 'porta' },
       ],
     },
