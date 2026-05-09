@@ -2396,6 +2396,11 @@ const Orcamento = (() => {
       area: '',
       modo: 'manual',
       pecas: [],
+      // Felipe sessao 14: estilo do revestimento (lisa | ripada | classica)
+      // Por agora apenas registro/diferenciacao no item, sem efeito em
+      // calculo. Quando Felipe especificar regras (ex: ripada exige espessura
+      // X de tubo, classica exige moldura Y) eu engancho na regra.
+      estilo: '',
       // Felipe sessao 2026-05: campos de estrutura (default sem)
       temEstrutura: 'nao',
       tuboEstrutura: '',
@@ -2778,6 +2783,7 @@ const Orcamento = (() => {
   /**
    * Schema do item revestimento_parede:
    *   - quantidade: int (do orçamento, ex: 3 = 3 paredes idênticas)
+   *   - estilo: '' | 'lisa' | 'ripada' | 'classica' (Felipe sessao 14)
    *   - revestimento: ACM 4mm | HPL 4mm | Aluminio Macico 2mm | Vidro 6/8mm
    *   - cor: string (1 só — chapa tem 1 face)
    *   - modo: 'manual' | 'automatico'
@@ -2921,6 +2927,15 @@ const Orcamento = (() => {
         <div class="orc-section">
           <div class="orc-section-title">Acabamento</div>
           <div class="orc-form-row">
+            <div class="orc-field orc-f-revestimento">
+              <label>Estilo</label>
+              <select data-field="estilo">
+                <option value="" ${!item.estilo ? 'selected' : ''}>— Selecione —</option>
+                <option value="lisa"     ${item.estilo === 'lisa'     ? 'selected' : ''}>Lisa</option>
+                <option value="ripada"   ${item.estilo === 'ripada'   ? 'selected' : ''}>Ripada</option>
+                <option value="classica" ${item.estilo === 'classica' ? 'selected' : ''}>Classica</option>
+              </select>
+            </div>
             <div class="orc-field orc-f-revestimento">
               <label>Revestimento</label>
               <select data-field="revestimento">
