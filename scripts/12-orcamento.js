@@ -9388,13 +9388,29 @@ const Orcamento = (() => {
     // (nao um modelo de puxador especifico)
     // Felipe sessao 14: 'ELE TEM QUE APARECER O QUE TEM NO CAMPO, NAO E
     // FORCAR ALGO. Se modelo for Cava, sai Cava. Se nao for, e' o que
-    // tem no campo'. Sem fallback artificial — sai literal item.tamanhoPuxador.
-    // Default do item.tamanhoPuxador agora e' 'Enviado pelo cliente' (linha
-    // 2446) entao itens novos sempre tem valor real.
+    // tem no campo'. Mas pra itens ANTIGOS (criados antes do default
+    // 'Enviado pelo cliente') o item.tamanhoPuxador esta '' — visualmente
+    // o select mostra 'Enviado pelo cliente' (1a opcao) e usuario espera
+    // ver isso na proposta. Trata '' como 'Enviado pelo cliente'.
+    //
+    // Felipe sessao 14 (2a msg): 'quando for por conta do cliente destaque
+    // igual quando alisar nao e incluso, cliente tem que estar ciente que
+    // nao esta incluso'. Quando puxador e' 'Enviado pelo cliente' ou
+    // 'Nao se aplica', renderiza BANNER LARANJA (mesmo estilo do
+    // 'ALISAR NAO — SEM ALISAR'). Outros tamanhos (Cava, XX mm) saem
+    // como linha simples.
     const ehModeloCava = isCava(item.modeloNumero);
-    const puxadorFmt = ehModeloCava
+    const puxadorRaw = ehModeloCava
       ? 'Cava'
-      : (item.tamanhoPuxador || '');
+      : (item.tamanhoPuxador || 'Enviado pelo cliente');
+    const puxadorPorContaDoCliente = !ehModeloCava && (
+      puxadorRaw === 'Enviado pelo cliente' ||
+      puxadorRaw === 'Nao se aplica' ||
+      puxadorRaw === ''
+    );
+    const linhaPuxador = puxadorPorContaDoCliente
+      ? `<div class="rel-prop-banner-alisar is-nao">PUXADOR EXTERNO: <b>${escapeHtml(puxadorRaw.toUpperCase())} — NAO INCLUSO</b></div>`
+      : `<div class="rel-prop-item-linha"><span class="lbl">PUXADOR:</span> <span>${escapeHtml(puxadorRaw)}</span></div>`;
 
     return `
       <div class="rel-prop-item-card">
@@ -9419,7 +9435,7 @@ const Orcamento = (() => {
           </div>
           ${bannerFechDigital}
           <div class="rel-prop-item-linhas">
-            <div class="rel-prop-item-linha"><span class="lbl">PUXADOR:</span> <span>${escapeHtml(puxadorFmt)}</span></div>
+            ${linhaPuxador}
             ${(() => {
               // Felipe sessao 13: 'na proposta comercial da 23 precisamos
               // melhorar nao tem cor da chapa de aluminio macico'. Quando
