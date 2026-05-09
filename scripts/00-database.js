@@ -197,6 +197,32 @@ const Database = (() => {
                      merged.length + ' (preservou ' + (merged.length - localValue.length) +
                      ' itens que sumiriam por cache stale)');
       }
+      // Felipe sessao 14: TOMBSTONES — registra deletados intencionais
+      // pra evitar que o merge ressuscite items que o usuario apagou.
+      // Bug: Felipe deletava vidro Switchglass, salvava local, mas
+      // mergeProtegido_lista (uniao com cloud que ainda tinha) restaurava.
+      // Solucao: chave 'superficies_lista__deleted' guarda lista de chaves
+      // (descricoes normalizadas) deletadas. Filtra do merge final.
+      try {
+        var tombKey = key + '__deleted';
+        var tombUrl = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.' + scope + '&key=eq.' + tombKey + '&select=valor';
+        var tombRes = await fetch(tombUrl, { headers: sbHeaders(false) });
+        if (tombRes.ok) {
+          var tombRows = await tombRes.json();
+          if (Array.isArray(tombRows) && tombRows.length > 0 && Array.isArray(tombRows[0].valor) && tombRows[0].valor.length > 0) {
+            var tombSet = {};
+            tombRows[0].valor.forEach(function(k) { tombSet[String(k).toUpperCase()] = true; });
+            var antes = merged.length;
+            merged = merged.filter(function(item) {
+              var ch = chaveItemFn(item);
+              return !ch || !tombSet[String(ch).toUpperCase()];
+            });
+            if (merged.length < antes) {
+              console.log('[DB] tombstones removeu ' + (antes - merged.length) + ' itens deletados intencionalmente');
+            }
+          }
+        }
+      } catch(_){}
       return merged;
     } catch(e) {
       console.warn('[DB] mergeProtegido_lista ' + scope + '/' + key + ' falhou — enviando local:', e.message);
@@ -777,6 +803,47 @@ const Database = (() => {
     }
   }
 
+  // Felipe sessao 14: API de TOMBSTONES — registra delecoes intencionais
+  // pra mergeProtegido_lista respeitar. Sem isso, deletar um item local
+  // era ressuscitado pelo merge com cloud (uniao). Resolve bug "apago
+  // vidro e fica voltando".
+  async function adicionarTombstone(scope, listKey, chaveStr) {
+    if (!chaveStr) return;
+    var tombKey = listKey + '__deleted';
+    var lista = [];
+    try {
+      var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.' + scope + '&key=eq.' + tombKey + '&select=valor';
+      var res = await fetch(url, { headers: sbHeaders(false) });
+      if (res.ok) {
+        var rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0 && Array.isArray(rows[0].valor)) {
+          lista = rows[0].valor.slice();
+        }
+      }
+    } catch(_){}
+    var k = String(chaveStr).toUpperCase();
+    var jaTem = lista.some(function(x){ return String(x).toUpperCase() === k; });
+    if (jaTem) return;
+    lista.push(chaveStr);
+    // Salva via sbUpsert (mesmo caminho dos saves normais)
+    sbUpsert(scope, tombKey, lista);
+  }
+
+  async function removerTombstone(scope, listKey, chaveStr) {
+    if (!chaveStr) return;
+    var tombKey = listKey + '__deleted';
+    try {
+      var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.' + scope + '&key=eq.' + tombKey + '&select=valor';
+      var res = await fetch(url, { headers: sbHeaders(false) });
+      if (!res.ok) return;
+      var rows = await res.json();
+      if (!Array.isArray(rows) || rows.length === 0 || !Array.isArray(rows[0].valor)) return;
+      var k = String(chaveStr).toUpperCase();
+      var nova = rows[0].valor.filter(function(x){ return String(x).toUpperCase() !== k; });
+      if (nova.length !== rows[0].valor.length) sbUpsert(scope, tombKey, nova);
+    } catch(_){}
+  }
+
   return {
     driver: function() { return driver.type; },
     scope: scope,
@@ -793,6 +860,9 @@ const Database = (() => {
     isReadOnly: isReadOnly,
     getSyncStatus: getSyncStatus,
     onSyncStatusChange: onSyncStatusChange,
+    // Felipe sessao 14: tombstones (delecoes intencionais)
+    adicionarTombstone: adicionarTombstone,
+    removerTombstone: removerTombstone,
   };
 })();
 

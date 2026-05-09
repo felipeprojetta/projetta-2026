@@ -476,6 +476,44 @@ const AcessoriosPortaExterna = (() => {
     }
 
     // ============================================================
+    // SWITCHGLASS — FONTE DE ACIONAMENTO (Felipe sessao 14)
+    // ============================================================
+    // Felipe: "QUANDO SELECIONAR VIDRO Switchglass, SEMPRE ADICIONE EM
+    // ACESSORIOS FONTE DE ACIONAMENTO PARA Switchglass VALOR 750,00".
+    //
+    // Aplica em qualquer item com revestimento=Vidro e vidroDescricao
+    // contendo 'switchglass' (case-insensitive). 1 fonte por item ×
+    // quantidade (qtdPortas). Tenta buscar codigo FONTE-SWITCHGLASS
+    // no cadastro; se nao tiver, usa preco padrao 750.
+    {
+      const vidroDescLower = String(item.vidroDescricao || '').toLowerCase();
+      const ehSwitchglass = String(item.revestimento || '').toLowerCase() === 'vidro'
+                          && vidroDescLower.indexOf('switchglass') !== -1;
+      if (ehSwitchglass) {
+        const codFonte = 'FONTE-SWITCHGLASS';
+        const acessFonte = buscarAcessorio(cadastroAcessorios, codFonte);
+        const precoFonte = acessFonte ? (Number(acessFonte.preco) || 750) : 750;
+        const descFonte = (acessFonte && acessFonte.descricao)
+          ? acessFonte.descricao
+          : 'Fonte de Acionamento Switchglass';
+        const famFonte = (acessFonte && acessFonte.familia) ? acessFonte.familia : 'Switchglass';
+        linhas.push({
+          codigo: codFonte,
+          descricao: descFonte,
+          familia: famFonte,
+          qtd: qtdPortas,
+          unidade: 'un',
+          preco_un: precoFonte,
+          total: precoFonte * qtdPortas,
+          categoria: 'Eletrica',
+          aplicacao: 'fab',
+          observacao: 'Vidro Switchglass requer fonte de acionamento (1 por item)'
+            + (acessFonte ? '' : ' · valor padrao R\$ 750 — CADASTRAR EM ACESSORIOS'),
+        });
+      }
+    }
+
+    // ============================================================
     // FITA DUPLA FACE + SILICONE ESTRUTURAL 995 (Felipe sessao 2026-08)
     // ============================================================
     // Substitui o calculo aproximado anterior (perim × 1.5/0.5 chumbado)

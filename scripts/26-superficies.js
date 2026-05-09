@@ -211,6 +211,10 @@ const Superficies = (() => {
     //
     // SOLUCAO: nao usar flag. SEMPRE checar se algum vidro do seed esta
     // faltando e adicionar SO os que faltam (merge por descricao). Idempotente.
+    //
+    // Felipe sessao 14: AGORA respeita TOMBSTONES — se o usuario deletou
+    // um vidro do SEED intencionalmente, NAO restaurar. Sem isso, os
+    // vidros padrao voltavam toda vez que a pagina recarregava.
     {
       const vidrosSeed = SEED_SUPERFICIES.filter(s => s.categoria === 'vidro').map(normalize);
       if (vidrosSeed.length > 0) {
@@ -220,7 +224,16 @@ const Superficies = (() => {
             .filter(s => (s.categoria || categoriaAuto(s.descricao)) === 'vidro')
             .map(s => normDesc(s.descricao))
         );
-        const faltantes = vidrosSeed.filter(v => !existentes.has(normDesc(v.descricao)));
+        // Felipe sessao 14: lista de tombstones (deletados intencionais)
+        let tombstones = new Set();
+        try {
+          const tombs = store.get('superficies_lista__deleted');
+          if (Array.isArray(tombs)) tombstones = new Set(tombs.map(t => normDesc(t)));
+        } catch(_){}
+        const faltantes = vidrosSeed.filter(v => {
+          const d = normDesc(v.descricao);
+          return !existentes.has(d) && !tombstones.has(d);
+        });
         if (faltantes.length > 0) {
           state.superficies = state.superficies.concat(faltantes);
           store.set('superficies_lista', state.superficies);
@@ -620,6 +633,18 @@ const Superficies = (() => {
         cobranca: (container.querySelector('#sup-add-cobranca')?.value) || 'm2',
         peso_kg_m2: pesoDefaultPorCategoria(categoria),
       });
+      // Felipe sessao 14: re-adicao explicita REMOVE do tombstone.
+      // Senao o merge derrubaria o item recem-adicionado.
+      try {
+        const chaveAdd = String(descricao || '').trim().toUpperCase();
+        if (chaveAdd) {
+          const tombs = (store.get('superficies_lista__deleted') || []);
+          const novos = tombs.filter(t => String(t).toUpperCase() !== chaveAdd);
+          if (novos.length !== tombs.length) {
+            store.set('superficies_lista__deleted', novos);
+          }
+        }
+      } catch(_){}
       markDirty();
       save();
       // Se a categoria escolhida e' diferente da sub-aba ativa, troca
@@ -719,6 +744,21 @@ const Superficies = (() => {
         if (!s) return;
         const ok = confirm(`Excluir superficie:\n\n"${s.descricao || '(sem descricao)'}"\n\nEsta acao nao pode ser desfeita.`);
         if (!ok) return;
+        // Felipe sessao 14: TOMBSTONE — registra a delecao pra evitar
+        // que o merge ressuscite o item. Bug: deletar local era desfeito
+        // pelo mergeProtegido_lista (uniao com cloud). Salva via Storage
+        // (grava local E sincroniza pro Supabase no fluxo padrao).
+        try {
+          const chaveDel = String(s.descricao || '').trim().toUpperCase();
+          if (chaveDel) {
+            const tombs = (store.get('superficies_lista__deleted') || []).slice();
+            const jaTem = tombs.some(t => String(t).toUpperCase() === chaveDel);
+            if (!jaTem) {
+              tombs.push(chaveDel);
+              store.set('superficies_lista__deleted', tombs);
+            }
+          }
+        } catch(_){}
         state.superficies.splice(idx, 1);
         markDirty();
         save();
