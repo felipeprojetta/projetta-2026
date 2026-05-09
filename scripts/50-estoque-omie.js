@@ -88,11 +88,16 @@
       + '</div>';
     try {
       var data = await omieCall('estoque_real', { force: !!force });
+      // Felipe sessao 14 v12: erro sem cache stale disponivel
       if (data.error) {
         var blocked = data.blocked === true;
+        var redundant = data.redundant === true;
+        var titulo = blocked ? '🚫 OMIE bloqueou temporariamente'
+                  : redundant ? '⏳ OMIE detectou consumo redundante'
+                  : '⚠ Erro ao carregar';
         el.innerHTML = ''
           + '<div style="padding:24px;background:#fff3cd;border:1px solid #ffeaa7;border-radius:8px;color:#856404">'
-          + '  <div style="font-size:16px;font-weight:700;margin-bottom:8px">' + (blocked ? '🚫 OMIE bloqueou temporariamente' : '⚠ Erro ao carregar') + '</div>'
+          + '  <div style="font-size:16px;font-weight:700;margin-bottom:8px">' + titulo + '</div>'
           + '  <div style="font-size:13px;margin-bottom:8px">' + escapeHtml(String(data.error || '')) + '</div>'
           + (data.hint ? '<div style="font-size:12px;color:#666">' + escapeHtml(data.hint) + '</div>' : '')
           + '</div>';
@@ -125,7 +130,26 @@
           || (p.cCodigo || '').toLowerCase().indexOf(termo) >= 0;
     });
 
-    var html = ''
+    // Felipe sessao 14 v12: avisos sobre dados stale/parciais
+    var avisos = '';
+    if (d._stale) {
+      var motivoTxt = d._staleReason === 'omie_blocked' ? 'OMIE bloqueou temporariamente'
+                    : d._staleReason === 'omie_redundant' ? 'OMIE detectou consumo redundante (~30s)'
+                    : 'erro ao consultar OMIE';
+      avisos += '<div style="background:#fff3cd;border:1px solid #ffeaa7;border-radius:6px;padding:10px;margin-bottom:10px;color:#856404;font-size:12px">'
+              + '<b>⚠ Mostrando dados em cache (desatualizados)</b> — ' + escapeHtml(motivoTxt)
+              + '. Aguarde alguns segundos e clique em Recarregar pra atualizar.'
+              + '</div>';
+    }
+    if (d.locaisComErro && d.locaisComErro.length) {
+      avisos += '<div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:6px;padding:10px;margin-bottom:10px;color:#bf360c;font-size:12px">'
+              + '<b>⚠ ' + d.locaisComErro.length + ' local(is) com erro:</b> '
+              + d.locaisComErro.map(function(l) { return escapeHtml(l.nome); }).join(', ')
+              + '. Saldos desses locais nao foram somados — clique em Recarregar pra tentar novamente.'
+              + '</div>';
+    }
+
+    var html = avisos
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">'
       + '  <input type="text" id="omie-busca" value="' + escapeAttr(state.buscaTermo) + '" placeholder="Buscar por codigo, descricao..." style="flex:1;min-width:280px;padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:13px" />'
       + '  <span style="font-size:12px;color:#666">'
