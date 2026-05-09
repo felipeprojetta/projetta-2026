@@ -1645,7 +1645,7 @@ const ChapasPortaExterna = (() => {
       // Pecas AM continuam prefixadas (chapa-mae diferente). Pecas ACM
       // ficam com cor pura -> agrupam com tudo.
 
-      out.push({
+      const pecaBase = {
         id: def.id,
         label: def.label,
         labelCompleto: `${def.label} — ${ctx.lado === 'externo' ? 'Externo' : 'Interno'}${corResolvida ? ` (${corResolvida})` : ''}`,
@@ -1665,9 +1665,76 @@ const ChapasPortaExterna = (() => {
         _ordem: _idx,
         materialEspecial: ehPecaAM ? 'AM' : null,
         observacao: def.observacao || '',
-      });
+      };
+
+      // Felipe sessao 14: Mod 23 + AM, peca cuja largura estoura a chapa
+      // (1500mm - 5mm aparar = 1490 util) precisa ser PARTIDA em 3 pedacos:
+      //   2 laterais (largura = distanciaBorda1aMoldura) + 1 centro
+      //   (largura = original - 2*distBorda).
+      // Como cada face e' chamada separada (externo/interno), 2 laterais por
+      // face viram total 4 por porta, e 2 centros (1 por face). Felipe:
+      // 'pegue 1800 menos 150 menos 150 = 1500. Frente e verso, 4 vezes 150
+      // de complemento mais 2 chapas de 1500 no meio'.
+      const _splitOk = _splitPecaAMOversize(pecaBase, item, out);
+      if (!_splitOk) {
+        out.push(pecaBase);
+      }
     }
     return out;
+  }
+
+  /**
+   * Felipe sessao 14: divide peca AM cuja largura estoura a chapa
+   * (1500mm - 2*APARAR_NEST = 1490 util) em 3 pedacos: 2 laterais + 1 centro.
+   * Lateral usa item.distanciaBorda1aMoldura. Centro = larg - 2*distBorda.
+   *
+   * Aplica apenas em peca.materialEspecial === 'AM' E peca.largura > 1490.
+   * Se nao precisar split, retorna false (caller faz push original).
+   * Se split foi feito, faz push das 2 partes (lateral qtd*2 + centro qtd) e
+   * retorna true.
+   *
+   * Sem distanciaBorda1aMoldura preenchido: nao split (caller faz push
+   * inteira; motor de nesting vai sinalizar que nao cabe).
+   */
+  function _splitPecaAMOversize(peca, item, out) {
+    // Constantes do limite. Mantidas como const local pra fix cirurgico
+    // sem mexer em 34-regras.js. APARAR_NEST atual default = 5mm por borda.
+    const LARGURA_CHAPA_AM = 1500;
+    const APARAR_BORDA = 5;
+    const LIMITE_UTIL = LARGURA_CHAPA_AM - 2 * APARAR_BORDA; // 1490
+    if (peca.materialEspecial !== 'AM') return false;
+    if (Number(peca.largura) <= LIMITE_UTIL) return false;
+    const distBorda = Number(item && item.distanciaBorda1aMoldura) || 0;
+    if (distBorda <= 0) return false;
+    const larguraCentro = Number(peca.largura) - 2 * distBorda;
+    if (larguraCentro <= 0) return false;
+    if (larguraCentro > LIMITE_UTIL) {
+      console.warn('[Chapas Mod23 AM] Peca "' + peca.label + '" largura=' +
+        peca.largura + ' apos split centro=' + larguraCentro +
+        ' > limite ' + LIMITE_UTIL +
+        '. Aumente "Distancia da borda a 1a moldura" pra >= ' +
+        Math.ceil((Number(peca.largura) - LIMITE_UTIL) / 2) + 'mm.');
+    }
+    const qtdOriginal = Number(peca.qtd) || 0;
+    // Lateral: 1 peca com qtd*2 (2 laterais por face)
+    out.push(Object.assign({}, peca, {
+      label: peca.label + ' (Lateral)',
+      labelCompleto: (peca.labelCompleto || '').replace(peca.label, peca.label + ' (Lateral)'),
+      largura: distBorda,
+      qtd: qtdOriginal * 2,
+      _splitOrigem: peca.label,
+      _splitTipo: 'lateral',
+    }));
+    // Centro: 1 peca com qtd igual
+    out.push(Object.assign({}, peca, {
+      label: peca.label + ' (Centro)',
+      labelCompleto: (peca.labelCompleto || '').replace(peca.label, peca.label + ' (Centro)'),
+      largura: larguraCentro,
+      qtd: qtdOriginal,
+      _splitOrigem: peca.label,
+      _splitTipo: 'centro',
+    }));
+    return true;
   }
 
   function descreverQuadro(item) {
