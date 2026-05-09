@@ -10568,33 +10568,29 @@ const Orcamento = (() => {
           if (corUnica2 && lado === 'interno') {
             pecas = pecas.filter(p => !(p._editado && chavesEditadasExt.has(rotacionaKey(p))));
           }
-          // peca manual: filtra por cor do lado (cada peca manual tem .cor='externo'/'interno')
-          const extrasLado = ((item.pecasManuaisExtras || []).filter(p => (p.cor||'') === lado));
-          if (extrasLado.length) {
-            pecas = pecas.concat(extrasLado.map(p => Object.assign({
-              podeRotacionar: false, qtd: 1, categoria: p.categoria || 'porta',
-            }, p, { _manual: true })));
-          }
           // Marca chaves _editadas do externo pra usar no interno (1a passada)
           if (corUnica2 && lado === 'externo') {
             pecas.forEach(p => { if (p._editado) chavesEditadasExt.add(rotacionaKey(p)); });
           }
           pecas.forEach(p => agrupar(grupos, p, idx, item));
         });
+        // Felipe sessao 14 BUG FIX: pecas manuais entram UMA VEZ por item.
+        // ANTES: filtro p.cor === 'externo'|'interno' dentro do forEach de
+        // lados nunca batia — porque p.cor e' a COR REAL da chapa (ex:
+        // "Pro5818 - Bronze 1001 Met Kynar4300 Ldpe"), nao o nome do lado.
+        // Resultado: zero pecas manuais entravam no aproveitamento. Agora
+        // agrupar() agrupa cada manual pela sua cor real (igual peca automatica).
+        adicionarPecasManuaisExtras([], item).forEach(p => agrupar(grupos, p, idx, item));
       } else if (item.tipo === 'fixo_acoplado' && window.PerfisRevAcoplado) {
         ['externo', 'interno'].forEach(lado => {
           let pecas = window.PerfisRevAcoplado.gerarPecasChapa(item, lado) || [];
           pecas = aplicarRotacionaOverrides(pecas, item);
           pecas = aplicarQtdOverrides(pecas, item, lado);
           pecas = aplicarSuperficiesOverrides(pecas, item);
-          const extrasLado = ((item.pecasManuaisExtras || []).filter(p => (p.cor||'') === lado));
-          if (extrasLado.length) {
-            pecas = pecas.concat(extrasLado.map(p => Object.assign({
-              podeRotacionar: false, qtd: 1, categoria: p.categoria || 'porta',
-            }, p, { _manual: true })));
-          }
           pecas.forEach(p => agrupar(grupos, p, idx, item));
         });
+        // Felipe sessao 14 BUG FIX: idem porta_externa, manuais UMA VEZ por item
+        adicionarPecasManuaisExtras([], item).forEach(p => agrupar(grupos, p, idx, item));
       } else if (item.tipo === 'revestimento_parede' && ChapasRev) {
         let pecas = ChapasRev.gerarPecasRevParede(item) || [];
         pecas = aplicarRotacionaOverrides(pecas, item);
