@@ -115,7 +115,9 @@
       }
 
       state.totalPaginas = data.total_de_paginas || 0;
-      var produtos = data.produto_servico_cadastro || [];
+      // Felipe sessao 14: function v10 troca ListarProdutos -> ListarProdutosResumido
+      // (965 produtos vs 0 antes). Aceita ambos os formatos pra compat.
+      var produtos = data.produto_servico_resumido || data.produto_servico_cadastro || [];
 
       // Filtra no client se tem termo de busca
       if (state.buscaTermo) {
@@ -197,11 +199,13 @@
 
     produtos.forEach(function(p, i) {
       var bg = i % 2 === 0 ? '#fff' : '#f8f9fa';
+      // ListarProdutosResumido nao tem ncm/unidade/inativo/preco_venda — so' codigo, descricao, valor_unitario.
+      // ListarProdutos (formato antigo) tem todos. Renderiza o que tiver.
       html += '<tr style="border-bottom:1px solid #eee;background:' + bg + '">'
         + '<td style="padding:6px 8px;font-weight:600;color:#1a5276">' + (p.codigo || p.codigo_produto || '') + '</td>'
         + '<td style="padding:6px 8px">' + (p.descricao || '') + '</td>'
-        + '<td style="padding:6px 8px">' + (p.ncm || '') + '</td>'
-        + '<td style="padding:6px 8px">' + (p.unidade || '') + '</td>'
+        + '<td style="padding:6px 8px">' + (p.ncm || '—') + '</td>'
+        + '<td style="padding:6px 8px">' + (p.unidade || '—') + '</td>'
         + '<td style="padding:6px 8px;text-align:right">' + fmtMoeda(p.valor_unitario || 0) + '</td>'
         + '<td style="padding:6px 8px;text-align:right">' + fmtMoeda(p.preco_venda || 0) + '</td>'
         + '<td style="padding:6px 8px;text-align:center">' + (p.inativo === 'S' ? '❌' : '✅') + '</td>'
