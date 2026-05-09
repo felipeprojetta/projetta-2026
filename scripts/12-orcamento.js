@@ -9381,10 +9381,15 @@ const Orcamento = (() => {
 
     // Felipe sessao 2026-08-03: em modelo CAVA, puxador deve aparecer como 'Cava'
     // (nao um modelo de puxador especifico)
+    // Felipe sessao 14: 'PUXADOR sempre tem que sair a realidade, nao pode
+    // sair aquele -'. Item recem-criado tem tamanhoPuxador='' (linha 2446
+    // do item default). Fallback antigo era '—' (caia direto no PDF).
+    // Novo fallback: 'Enviado pelo cliente' — primeira opcao do select
+    // (linha 3495), realidade padrao da Projetta quando nao especificado.
     const ehModeloCava = isCava(item.modeloNumero);
     const puxadorFmt = ehModeloCava
       ? 'Cava'
-      : (item.tamanhoPuxador || '—');
+      : (item.tamanhoPuxador || 'Enviado pelo cliente');
 
     return `
       <div class="rel-prop-item-card">
