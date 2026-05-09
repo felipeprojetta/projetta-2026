@@ -3592,19 +3592,19 @@ const Orcamento = (() => {
               <label>Lateral Esquerda</label>
               <input type="number" min="0" step="1" data-field="fglEsq"
                      value="${(item.fglEsq === '' || item.fglEsq === null || item.fglEsq === undefined) ? '' : escapeHtml(String(item.fglEsq))}"
-                     placeholder="10" />
+                     />
             </div>
             <div class="orc-field orc-f-qtd">
               <label>Lateral Direita</label>
               <input type="number" min="0" step="1" data-field="fglDir"
                      value="${(item.fglDir === '' || item.fglDir === null || item.fglDir === undefined) ? '' : escapeHtml(String(item.fglDir))}"
-                     placeholder="10" />
+                     />
             </div>
             <div class="orc-field orc-f-qtd">
               <label>Superior</label>
               <input type="number" min="0" step="1" data-field="fgSup"
                      value="${(item.fgSup === '' || item.fgSup === null || item.fgSup === undefined) ? '' : escapeHtml(String(item.fgSup))}"
-                     placeholder="10" />
+                     />
             </div>
           </div>
         </div>
@@ -3887,19 +3887,19 @@ const Orcamento = (() => {
               <label>Lateral Esquerda</label>
               <input type="number" min="0" step="1" data-field="fglEsq"
                      value="${(item.fglEsq === '' || item.fglEsq === null || item.fglEsq === undefined) ? '' : escapeHtml(String(item.fglEsq))}"
-                     placeholder="10" />
+                     />
             </div>
             <div class="orc-field orc-f-qtd">
               <label>Lateral Direita</label>
               <input type="number" min="0" step="1" data-field="fglDir"
                      value="${(item.fglDir === '' || item.fglDir === null || item.fglDir === undefined) ? '' : escapeHtml(String(item.fglDir))}"
-                     placeholder="10" />
+                     />
             </div>
             <div class="orc-field orc-f-qtd">
               <label>Superior</label>
               <input type="number" min="0" step="1" data-field="fgSup"
                      value="${(item.fgSup === '' || item.fgSup === null || item.fgSup === undefined) ? '' : escapeHtml(String(item.fgSup))}"
-                     placeholder="10" />
+                     />
             </div>
           </div>
         </div>
@@ -10911,29 +10911,57 @@ const Orcamento = (() => {
         );
         if (!sup) return;
         const cobranca = String(sup.cobranca || 'm2').toLowerCase();
-        if (cobranca !== 'm2') return;  // chapa usa motor de aproveitamento (proximo commit)
         const L_mm = parseFloat(String(item.largura || '').replace(',', '.')) || 0;
         const H_mm = parseFloat(String(item.altura  || '').replace(',', '.')) || 0;
         const qtd  = Math.max(1, Number(item.quantidade) || 1);
         if (L_mm <= 0 || H_mm <= 0) return;
-        const m2_unit  = (L_mm * H_mm) / 1_000_000;
-        const m2_total = m2_unit * qtd;
-        const preco_m2 = Number(sup.preco) || 0;
-        const subtotal = m2_total * preco_m2;
-        // Cor sintetica pra essa linha (nao colide com cores de chapa)
-        const corChave = `Vidro — ${sup.descricao}`;
-        linhas.push({
-          cor: corChave,
-          descricao: `${sup.descricao} [m²]`,
-          largura: L_mm,
-          altura: H_mm,
-          precoUnit: preco_m2,
-          qtd: m2_total,        // qtd em m² (nao chapas)
-          subtotal,
-          fonte: 'vidro_m2',
-          unidade: 'm²',
-        });
-        total += subtotal;
+        if (cobranca === 'm2') {
+          const m2_unit  = (L_mm * H_mm) / 1_000_000;
+          const m2_total = m2_unit * qtd;
+          const preco_m2 = Number(sup.preco) || 0;
+          const subtotal = m2_total * preco_m2;
+          const corChave = `Vidro — ${sup.descricao}`;
+          linhas.push({
+            cor: corChave,
+            descricao: `${sup.descricao} [m²]`,
+            largura: L_mm,
+            altura: H_mm,
+            precoUnit: preco_m2,
+            qtd: m2_total,        // qtd em m² (nao chapas)
+            subtotal,
+            fonte: 'vidro_m2',
+            unidade: 'm²',
+          });
+          total += subtotal;
+        } else if (cobranca === 'chapa') {
+          // Felipe sessao 14: vidros com cobranca=chapa (ex: Switchglass,
+          // Corstone) sao vendidos por chapa inteira do tamanho cadastrado.
+          // Antes: caia em "if (cobranca !== 'm2') return" e nao aparecia
+          // no resumo - vidro Switchglass nunca era cobrado.
+          // Calculo: ceil(L_item/L_chapa) × ceil(H_item/H_chapa) × qtd_item.
+          const L_chapa = Number(sup.largura) || 0;
+          const H_chapa = Number(sup.altura)  || 0;
+          const preco_chapa = Number(sup.preco) || 0;
+          // Se a chapa cadastrada nao tem dimensao, fallback 1 chapa por item
+          const nLargura = (L_chapa > 0) ? Math.ceil(L_mm / L_chapa) : 1;
+          const nAltura  = (H_chapa > 0) ? Math.ceil(H_mm / H_chapa) : 1;
+          const chapasPorItem = Math.max(1, nLargura * nAltura);
+          const totalChapas = chapasPorItem * qtd;
+          const subtotal = totalChapas * preco_chapa;
+          const corChave = `Vidro — ${sup.descricao}`;
+          linhas.push({
+            cor: corChave,
+            descricao: `${sup.descricao} [chapa ${L_chapa}×${H_chapa}]`,
+            largura: L_chapa,
+            altura: H_chapa,
+            precoUnit: preco_chapa,
+            qtd: totalChapas,
+            subtotal,
+            fonte: 'vidro_chapa',
+            unidade: 'chapa',
+          });
+          total += subtotal;
+        }
       });
     } catch (e) {
       console.error('[computeRevestimentoPorCor vidros] erro:', e);
@@ -12826,17 +12854,17 @@ const Orcamento = (() => {
         ${temAM_naLista ? '<td style="text-align:center;color:#9ca3af;font-size:10px;">—</td>' : ''}
         <td class="t-num">
           <input type="number" min="1" step="1" class="orc-lev-sup-input-add-largura"
-                 data-item-idx="${itemIdx}" placeholder="0"
+                 data-item-idx="${itemIdx}"
                  style="width:78px;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;text-align:right;background:#fff;" />
         </td>
         <td class="t-num">
           <input type="number" min="1" step="1" class="orc-lev-sup-input-add-altura"
-                 data-item-idx="${itemIdx}" placeholder="0"
+                 data-item-idx="${itemIdx}"
                  style="width:78px;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;text-align:right;background:#fff;" />
         </td>
         <td class="t-num">
           <input type="number" min="1" step="1" class="orc-lev-sup-input-add-qtd"
-                 data-item-idx="${itemIdx}" placeholder="1"
+                 data-item-idx="${itemIdx}"
                  style="width:50px;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;text-align:center;background:#fff;" />
         </td>
         <td class="t-num" style="color:#9ca3af;font-style:italic;font-size:11px;">auto</td>
