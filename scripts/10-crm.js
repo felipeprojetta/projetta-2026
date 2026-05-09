@@ -2502,7 +2502,8 @@
             try {
               if (window.Orcamento && typeof window.Orcamento.resumoParaCardCRM === 'function') {
                 const resumo = window.Orcamento.resumoParaCardCRM(leadId);
-                if (resumo && resumo.pFatReal > 0) valor = 'R$ ' + fmtBR(resumo.pFatReal);
+                // Felipe sessao 2026-05: bug — campo retornado e' "valor", nao "pFatReal"
+                if (resumo && resumo.valor > 0) valor = 'R$ ' + fmtBR(resumo.valor);
               }
             } catch(_){}
             // Felipe sessao 2026-08: usa templates editaveis do modulo Mensagens
@@ -2656,11 +2657,16 @@
                 let valorTxt = 'a combinar';
                 let valorOriginal = '';
                 let valorComDesconto = '';
+                let comissaoRepTxt = '—';
+                let comissaoArqTxt = '—';
+                let descontoTotalTxt = '—';
                 try {
                   if (window.Orcamento?.resumoParaCardCRM) {
                     const resumo = window.Orcamento.resumoParaCardCRM(leadId);
-                    if (resumo && resumo.pFatReal > 0) {
-                      valorComDesconto = 'R$ ' + fmtBR(resumo.pFatReal);
+                    // Felipe sessao 2026-05: bug — campo retornado e' "valor",
+                    // nao "pFatReal". Antes: valorTxt sempre ficava "a combinar".
+                    if (resumo && resumo.valor > 0) {
+                      valorComDesconto = 'R$ ' + fmtBR(resumo.valor);
                       valorTxt = valorComDesconto;
                     }
                     if (resumo && resumo.precoProposta > 0) {
@@ -2668,6 +2674,15 @@
                     }
                     if (valorOriginal && valorComDesconto) {
                       valorTxt = 'Original: ' + valorOriginal + ' / Com Desconto: ' + valorComDesconto;
+                    }
+                    if (resumo && resumo.comissaoRepPct > 0) {
+                      comissaoRepTxt = resumo.comissaoRepPct.toFixed(1).replace('.',',') + '% (R$ ' + fmtBR(resumo.comissaoRepRs) + ')';
+                    }
+                    if (resumo && resumo.comissaoArqPct > 0) {
+                      comissaoArqTxt = resumo.comissaoArqPct.toFixed(1).replace('.',',') + '% (R$ ' + fmtBR(resumo.comissaoArqRs) + ')';
+                    }
+                    if (resumo && resumo.descontoPct > 0) {
+                      descontoTotalTxt = resumo.descontoPct.toFixed(1).replace('.',',') + '% (R$ ' + fmtBR(resumo.descontoRs) + ')';
                     }
                   }
                 } catch(_){}
@@ -2688,6 +2703,12 @@
                   agp:                lead.numeroAGP || '',
                   numero_reserva:     lead.numeroReserva || '',
                   valor_orcamento:    valorTxt,
+                  // Felipe sessao 2026-05: novas variaveis pro template do rep
+                  valor_original:     valorOriginal || 'a combinar',
+                  valor_com_desconto: valorComDesconto || 'a combinar',
+                  comissao_representante: comissaoRepTxt,
+                  comissao_arquiteto: comissaoArqTxt,
+                  desconto_total:     descontoTotalTxt,
                   data_atual:         new Date().toLocaleDateString('pt-BR'),
                 };
                 try {

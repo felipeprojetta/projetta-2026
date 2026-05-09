@@ -12,13 +12,18 @@
        - email_rep:        Email pra representante (subject + body)
 
    Variaveis de substituicao disponiveis nos templates (entre chaves):
-     {nome_cliente}        - nome do cliente do card CRM
-     {nome_representante}  - nome do representante cadastrado no card
-     {nome_usuario}        - nome do usuario logado (vai no rodape)
+     {nome_cliente}        - nome do cliente do CRM
+     {nome_representante}  - razao social do representante (nao followup)
+     {nome_usuario}        - nome do usuario logado (Equipe Projetta fallback)
      {agp}                 - codigo AGP do orcamento
-     {numero_reserva}      - numero da reserva Weiku
-     {valor_orcamento}     - valor R$ formatado (R$ 84.628,68)
-     {data_atual}          - data de hoje (DD/MM/YYYY)
+     {numero_reserva}      - numero da reserva (ex: 146018)
+     {valor_orcamento}     - valor R$ formatado (R$ 84.628,68) — fallback antigo
+     {valor_original}      - valor cheio sem desconto (R$ 84.628,68)
+     {valor_com_desconto}  - valor que cliente paga (R$ 67.702,94)
+     {comissao_representante} - "7,0% (R$ 4.739,21)" do rep
+     {comissao_arquiteto}  - "5,0% (R$ 3.385,15)" do RT
+     {desconto_total}      - "20,0% (R$ 16.925,74)" aplicado
+     {data_atual}          - data de hoje (08/05/2026)
 
    API exposta:
      Mensagens.render(container)         - renderiza UI no Cadastros
@@ -117,7 +122,11 @@ Finalizamos o orçamento da reserva {numero_reserva}. Segue em anexo a proposta 
 Resumo:
 • Cliente: {nome_cliente}
 • AGP: {agp}
-• Valor: {valor_orcamento}
+• Valor original: {valor_original}
+• Valor com desconto: {valor_com_desconto}
+• Desconto total aplicado: {desconto_total}
+• Comissão representante: {comissao_representante}
+• Comissão arquiteto/RT: {comissao_arquiteto}
 • Data: {data_atual}
 
 Por favor valide antes de eu encaminhar diretamente ao cliente.
@@ -229,10 +238,13 @@ Projetta Portas Exclusivas LTDA`,
           Use <code>{variavel}</code> entre chaves pra inserir dados dinâmicos.
         </div>
 
-        <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;">
+        <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;line-height:1.7;">
           <b style="color:#1e40af;">Variáveis disponíveis:</b><br>
           <code>{nome_cliente}</code> · <code>{nome_representante}</code> · <code>{nome_usuario}</code> ·
-          <code>{agp}</code> · <code>{numero_reserva}</code> · <code>{valor_orcamento}</code> · <code>{data_atual}</code>
+          <code>{agp}</code> · <code>{numero_reserva}</code> · <code>{data_atual}</code><br>
+          <b style="color:#1e40af;">Valores e comissões (somente quando há orçamento aprovado):</b><br>
+          <code>{valor_orcamento}</code> · <code>{valor_original}</code> · <code>{valor_com_desconto}</code> ·
+          <code>{desconto_total}</code> · <code>{comissao_representante}</code> · <code>{comissao_arquiteto}</code>
         </div>
 
         ${cardsHtml}

@@ -945,10 +945,31 @@ const Orcamento = (() => {
     // Pega versao completa pra ler itens
     const r = obterVersao(ultimaFechada.id);
     const item0 = (r && r.versao && r.versao.itens && r.versao.itens[0]) || {};
+
+    // Felipe (sessao 2026-05): expoe comissoes e desconto pro template
+    // de email/whatsapp do representante. params da versao tem com_rep,
+    // com_rt e desconto em %. Calcula R$ sobre o valorComDesconto.
+    const params = Object.assign({}, PARAMS_DEFAULT, (r && r.versao && r.versao.parametros) || {});
+    const valorComDesc  = Number(ultimaFechada.valor) || 0;
+    const valorOriginal = Number(ultimaFechada.precoProposta) || 0;
+    const com_rep_pct   = Number(params.com_rep) || 0;
+    const com_rt_pct    = Number(params.com_rt)  || 0;
+    const desconto_pct  = valorOriginal > 0 ? Math.max(0, (1 - (valorComDesc / valorOriginal)) * 100) : 0;
+    const com_rep_rs    = valorComDesc * (com_rep_pct / 100);
+    const com_rt_rs     = valorComDesc * (com_rt_pct  / 100);
+    const desconto_rs   = Math.max(0, valorOriginal - valorComDesc);
+
     return {
       hasVersaoFechada: true,
       valor: ultimaFechada.valor,                  // pFatReal — Cliente Paga (com desconto)
       precoProposta: ultimaFechada.precoProposta,  // pTab — Preco da Proposta (sem desconto)
+      // Felipe sessao 2026-05: dados pro template de email rep
+      comissaoRepPct:  com_rep_pct,
+      comissaoRepRs:   com_rep_rs,
+      comissaoArqPct:  com_rt_pct,
+      comissaoArqRs:   com_rt_rs,
+      descontoPct:     desconto_pct,
+      descontoRs:      desconto_rs,
       modelo: item0.modeloNumero || item0.modelo || '',
       nFolhas: item0.nFolhas ? `${item0.nFolhas} folha${String(item0.nFolhas) === '1' ? '' : 's'}` : '',
       corInterna: item0.corInterna || '',
