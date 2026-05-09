@@ -14441,6 +14441,30 @@ const Orcamento = (() => {
       totalRevConsolidado = linhasRev.reduce((s, l) => s + (Number(l.total) || 0), 0);
       totalGeralObra += totalRevConsolidado;
 
+      // Felipe sessao 14: Felipe pediu "ESTE ITEM REVESITMENTO DE PAREDE
+      // CONSOLIDADO NAO TEM PAINEL DEMOSTRATVIO DE COMO CALCULOU AS FITAS
+      // ETC COMO O ITEM PORTA EXTENA". Cache do breakdown ja' existe pra
+      // cada rev (populado por 28-acessorios-porta-externa.js).
+      // Aqui, montamos UM painel por rev mostrando peca/perfil + dim + qtd
+      // + multiplicador + contribuicao. Mesma funcao reusada da porta externa.
+      const breakdownsRevHtml = revsItens.map((it, idxRev) => {
+        const ck = it._cacheKey;
+        if (!ck) return '';
+        const html = renderBreakdownInline(ck);
+        if (!html) return '';
+        // Rotulo do rev pra identificar dentro do painel consolidado
+        const lbl = it.modo === 'automatico'
+          ? `Rev ${idxRev + 1} · automatico · ${it.largura_total || '?'}×${it.altura_total || '?'}mm`
+          : `Rev ${idxRev + 1} · manual · ${(it.pecas || []).length} peca(s)`;
+        return `
+          <div style="margin-top:14px;">
+            <div style="font-size:12px;font-weight:700;color:#0c4a6e;background:#e0f2fe;padding:6px 12px;border-radius:4px 4px 0 0;border:1px solid #7dd3fc;border-bottom:none;">
+              📐 ${escapeHtml(lbl)}
+            </div>
+            ${html}
+          </div>`;
+      }).filter(Boolean).join('');
+
       // HTML do bloco
       const linhasHtml = linhasRev.map(l => `
         <tr>
@@ -14485,6 +14509,7 @@ const Orcamento = (() => {
                 ${linhasHtml}
               </tbody>
             </table>
+            ${breakdownsRevHtml}
             <div style="background:#fff3e0;border:2px solid #e65100;border-radius:6px;padding:12px 16px;margin-top:12px;">
               <div style="font-weight:700;color:#bf360c;">
                 Subtotal Consolidado Revestimento (Obra): <span style="font-size:1.2em;text-decoration:underline;">${fmtMoney(totalRevConsolidado)}</span>
