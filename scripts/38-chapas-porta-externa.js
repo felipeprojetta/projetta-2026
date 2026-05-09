@@ -247,6 +247,63 @@ const ChapasPortaExterna = (() => {
       if (n <= 0) return ctx.alturaQuadro;
       return (ctx.alturaQuadro - n * ctx.eF) / (n + 1) + 2*ctx.REF;
     },
+    // ====================================================================
+    // Felipe sessao 14: MOLDURAS DO MOD 23 ACM (peças de chapa)
+    // Aba "MODELO 23 - ACM" planilha PRECIFICACAO_01_04_2026:
+    //   1F: MOLDURA HORIZONTAL 1 (qty 8), VERTICAL 1 (qty 4), VERTICAL 2 (qty 4)
+    //   2F: MOLDURA HORIZONTAL 1 (qty 4), 2 (qty 8), 3 (qty 4),
+    //        VERTICAL 1 (qty 8), VERTICAL 2 (qty 8)
+    // Largura (espessura do perfil): 143 mm — constante na planilha.
+    // Quando nao for ACM (= AM) viram perfis Boiserie em 31-perfis-porta-externa.js
+    // (ehMod23AM la' aplica). Aqui geramos APENAS quando NAO for AM.
+    // ====================================================================
+    _C29:    ctx => Number(ctx.dist1aMoldura) || 150,
+    // J9 1F = TAMPA_MAIOR_largura - 2*REF (planilha: G26 = J9 ou J9-C29*2)
+    //   Em ACM, TAMPA_MAIOR_ = larguraQuadro1F - dBC - tamCava - 1 - frisos*X + 2*REF
+    //   Logo J9 (sem o +2*REF) = larguraQuadro1F - dBC - tamCava - 1 - dBFV*qtdFrisos - eF*qtdFrisos
+    mold_J9: ctx =>
+      ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1
+      - ctx.dBFV * ctx.qtdFrisos - ctx.eF * ctx.qtdFrisos,
+    mold_horiz_1F: ctx => {
+      const J9 = F.mold_J9(ctx);
+      const C29 = F._C29(ctx);
+      return ctx.qtdFrisos > 0 ? J9 : (J9 - 2*C29);
+    },
+    // VERTICAL 1: 1048 - C29/2 - C29 (constante 1048 da planilha)
+    mold_vert_1: ctx => {
+      const C29 = F._C29(ctx);
+      return 1048 - C29/2 - C29;
+    },
+    // VERTICAL 2: alturaQuadro - 3*C29 - VERTICAL_1
+    mold_vert_2: ctx => {
+      const C29 = F._C29(ctx);
+      return ctx.alturaQuadro - 3*C29 - F.mold_vert_1(ctx);
+    },
+    // Q9, Q10, Q11 = TAMPA_MAIOR 01/02/03 - 2*REF (planilha 2F)
+    //   Q9  = tm_base_2f + 10.5 - 1 - dBFV*qtdFrisos - eF*qtdFrisos
+    //   Q10 = tm_base_2f_menos1 - 28 - dBFV*qtdFrisos - eF*qtdFrisos
+    //   Q11 = tm_base_2f_menos1 - 28 - 38 - dBFV*qtdFrisos - eF*qtdFrisos
+    mold_Q9:  ctx => F.tm_base_2f(ctx) + 10.5 - 1
+                     - ctx.dBFV * ctx.qtdFrisos - ctx.eF * ctx.qtdFrisos,
+    mold_Q10: ctx => F.tm_base_2f_menos1(ctx) - 28
+                     - ctx.dBFV * ctx.qtdFrisos - ctx.eF * ctx.qtdFrisos,
+    mold_Q11: ctx => F.tm_base_2f_menos1(ctx) - 28 - 38
+                     - ctx.dBFV * ctx.qtdFrisos - ctx.eF * ctx.qtdFrisos,
+    mold_horiz_2F_1: ctx => {
+      const Q = F.mold_Q9(ctx);
+      const C29 = F._C29(ctx);
+      return ctx.qtdFrisos > 0 ? Q : (Q - 2*C29);
+    },
+    mold_horiz_2F_2: ctx => {
+      const Q = F.mold_Q10(ctx);
+      const C29 = F._C29(ctx);
+      return ctx.qtdFrisos > 0 ? Q : (Q - 2*C29);
+    },
+    mold_horiz_2F_3: ctx => {
+      const Q = F.mold_Q11(ctx);
+      const C29 = F._C29(ctx);
+      return ctx.qtdFrisos > 0 ? Q : (Q - 2*C29);
+    },
   };
 
   // ------------------------------------------------------------------
@@ -1184,25 +1241,20 @@ const ChapasPortaExterna = (() => {
     // ===================================================================
     23: {
       '1F': [
+        // Felipe sessao 14 (planilha PRECIFICACAO_01_04_2026 atualizada):
+        // CAVA e L_DA_CAVA REMOVIDAS DO SISTEMA — Felipe: "nesse sistema
+        // nao tem L da Cava nem Cava retirei, pode seguir essa planilha".
+        // Ambas abas (ACM e AM) nao listam mais essas pecas. Mantenho aqui
+        // como qty=0 + sempreAM=true por seguranca de retro-compat (NUNCA
+        // gerada agora). Se algum item antigo no banco referencia 'cava'
+        // ou 'l_da_cava' nao quebra.
         { id: 'cava', label: 'Cava',
           largura: F.cava_largura, comp: F.cava_comp,
-          // Felipe sessao 14 (planilha PRECIFICACAO_01_04_2026):
-          // CAVA NAO EXISTE no Modelo 23 — nem em "MODELO 23 - ACM"
-          // nem em "MODELO 23 - ALUMINIO MACICO". As 2 abas listam:
-          // Tampa Maior, Tampa Borda Friso Vert, Friso, Acab Lateral
-          // (1/2/Z), U Portal, Batente (01/02_Z/03), Tap Furo, Fitas
-          // de Acabamento (ME/MA/LAR), Alisar, Molduras. Sem Cava.
-          // Antes: Mod23 ACM gerava Cava + Tampa da Cava + L da Cava
-          // como peca AM erroneamente. Felipe: "QUANDO REVESITMENTO
-          // FOR ACM NAO EXITE NADA DE ALUMINIO MACICO".
-          ext: 0,
-          int: 0,
+          ext: 0, int: 0,
           categoria: 'porta', ehDaCava: true, sempreAM: true },
         { id: 'l_da_cava', label: 'L da Cava',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          // Felipe sessao 14: NAO EXISTE em Mod 23 (nem ACM nem AM).
-          ext: 0,
-          int: 0,
+          ext: 0, int: 0,
           categoria: 'porta', ehDaCava: true, sempreAM: true },
         { id: 'tampa_maior_cava', label: 'Tampa Maior',
           // Felipe sessao 13: planilha v3 nome e' "TAMPA_MAIOR_" (sem
@@ -1227,22 +1279,38 @@ const ChapasPortaExterna = (() => {
           largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
           ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
           categoria: 'porta' },
+        // Felipe sessao 14 (planilha "MODELO 23 - ACM" 1F R24-26):
+        // MOLDURAS como pecas de chapa SOMENTE em revestimento ACM. Em
+        // revestimento Aluminio Macico continuam como perfis Boiserie
+        // (geradas em 31-perfis-porta-externa.js linhas 437-510).
+        // Largura: 143mm (constante da planilha — espessura do perfil).
+        // Distribuicao ext/int 50/50 com arredondamento.
+        { id: 'moldura_horizontal_1', label: 'Moldura Horizontal 1',
+          largura: ctx => 143, comp: F.mold_horiz_1F,
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          categoria: 'porta' },
+        { id: 'moldura_vertical_1', label: 'Moldura Vertical 1',
+          largura: ctx => 143, comp: F.mold_vert_1,
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          categoria: 'porta' },
+        { id: 'moldura_vertical_2', label: 'Moldura Vertical 2',
+          largura: ctx => 143, comp: F.mold_vert_2,
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          categoria: 'porta' },
       ],
       '2F': [
+        // Felipe sessao 14 (planilha atualizada): CAVA e TAMPA_DA_CAVA
+        // REMOVIDAS DO SISTEMA. Mantidas com qty=0 por retro-compat.
         { id: 'cava', label: 'Cava',
           largura: F.cava_largura, comp: F.cava_comp,
-          // Felipe sessao 14 (planilha PRECIFICACAO_01_04_2026):
-          // CAVA NAO EXISTE no Modelo 23 — nem ACM nem AM (ambas as
-          // abas omitem a peca). Antes: Mod23 ACM 2F gerava 2x Cava
-          // + 4x Tampa da Cava como AM erroneamente.
-          ext: 0,
-          int: 0,
+          ext: 0, int: 0,
           categoria: 'porta', ehDaCava: true, sempreAM: true },
         { id: 'tampa_da_cava', label: 'Tampa da Cava',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          // Felipe sessao 14: NAO EXISTE em Mod 23 (nem ACM nem AM).
-          ext: 0,
-          int: 0,
+          ext: 0, int: 0,
           categoria: 'porta', ehDaCava: true, sempreAM: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
           // Planilha mod 23 ACM: (E2-C7*2-C8*2)/2+10.5+C15+C15-1-C20*C22-C21*C22
@@ -1282,6 +1350,34 @@ const ChapasPortaExterna = (() => {
           // Felipe sessao 13: planilha v3 Mod 23 nome e' "FRISO" (nao "Friso Vertical")
           largura: ctx => 100 + ctx.eF, comp: ctx => ctx.alturaQuadro,
           ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          categoria: 'porta' },
+        // Felipe sessao 14 (planilha "MODELO 23 - ACM" 2F R26-30):
+        // 5 MOLDURAS como pecas de chapa SOMENTE em ACM. Em AM continuam
+        // como perfis Boiserie (geradas em 31-perfis-porta-externa.js).
+        { id: 'moldura_horizontal_1', label: 'Moldura Horizontal 1',
+          largura: ctx => 143, comp: F.mold_horiz_2F_1,
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          categoria: 'porta' },
+        { id: 'moldura_horizontal_2', label: 'Moldura Horizontal 2',
+          largura: ctx => 143, comp: F.mold_horiz_2F_2,
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          categoria: 'porta' },
+        { id: 'moldura_horizontal_3', label: 'Moldura Horizontal 3',
+          largura: ctx => 143, comp: F.mold_horiz_2F_3,
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 2,
+          categoria: 'porta' },
+        { id: 'moldura_vertical_1', label: 'Moldura Vertical 1',
+          largura: ctx => 143, comp: F.mold_vert_1,
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          categoria: 'porta' },
+        { id: 'moldura_vertical_2', label: 'Moldura Vertical 2',
+          largura: ctx => 143, comp: F.mold_vert_2,
+          ext: ctx => F._ehMod23AM(ctx) ? 0 : 4,
+          int: ctx => F._ehMod23AM(ctx) ? 0 : 4,
           categoria: 'porta' },
       ],
     },
