@@ -344,10 +344,29 @@ var PerfisRevAcoplado = (function() {
     // tubo de extremidade + aba de revestimento, entao precisam crescer.
     // REF=20 do motor da porta (38-chapas-porta-externa.js linha 31).
     var REF_FIXO = 20;
-    var ehSuperior = String(item.posicao || '').toLowerCase() === 'superior';
+    var posicao  = String(item.posicao || '').toLowerCase();
+    var ehSuperior = posicao === 'superior';
+    var ehLateral  = posicao === 'lateral';
     var compTampaFrisoSup = ehSuperior
       ? Math.round((Number(item.altura) + sis.TUB1 + REF_FIXO) * 100) / 100
       : 0;
+
+    // Felipe (sessao 2026-05-10): sufixo no label pra identificar no
+    // planificador qual peca eh do fixo (superior ou lateral) — evita
+    // confusao com pecas de mesmo nome vindas da porta.
+    //   'Tampa Maior Cava' -> 'Tampa Maior Cava - fixo superior'
+    //   'Cava'             -> 'Cava - fixo lateral'
+    var sufixoFixo = '';
+    if (ehSuperior) sufixoFixo = ' - fixo superior';
+    else if (ehLateral) sufixoFixo = ' - fixo lateral';
+
+    function aplicarSufixoLabel(label) {
+      if (!sufixoFixo) return label;
+      var s = String(label || '');
+      // idempotente: se ja tem o sufixo, nao duplica
+      if (s.indexOf(sufixoFixo) >= 0) return s;
+      return s + sufixoFixo;
+    }
 
     try {
       var raw = window.ChapasPortaExterna.gerarPecasChapa(iv, lado) || [];
@@ -367,6 +386,10 @@ var PerfisRevAcoplado = (function() {
         // Override altura tampa/friso no fixo SUPERIOR
         if (compTampaFrisoSup > 0 && /^(tampa|friso)/.test(p.id || '')) {
           p = Object.assign({}, p, { altura: compTampaFrisoSup });
+        }
+        // Felipe: sufixo no label pra identificar no planificador
+        if (sufixoFixo) {
+          p = Object.assign({}, p, { label: aplicarSufixoLabel(p.label) });
         }
         result.push(p);
       }
@@ -434,9 +457,14 @@ var PerfisRevAcoplado = (function() {
 
     function add(label, larg, comp, qty) {
       if (!larg || comp <= 0 || qty <= 0) return;
+      // Felipe (sessao 2026-05-10): sufixo no label pra identificar no
+      // planificador. Aqui SEMPRE eh fixo lateral (gerarPecasACMLatVidro).
+      var labelComSufixo = (String(label).indexOf(' - fixo lateral') >= 0)
+        ? label
+        : label + ' - fixo lateral';
       pecas.push({
         id: 'flv_' + label.toLowerCase().replace(/\W+/g, '_') + '_' + Math.round(comp),
-        label: label,
+        label: labelComSufixo,
         largura: Math.round(larg * 100) / 100,
         altura:  Math.round(comp),
         qtd:     qty * qtdItem,
