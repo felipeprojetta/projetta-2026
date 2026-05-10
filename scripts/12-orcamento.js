@@ -12147,22 +12147,6 @@ const Orcamento = (() => {
       const _ehTampaOuFita = /^(Tampa|Fita Acabamento)\b/i.test(_lblPeca);
       const _largSec = Number(p.larguraSemRef);
       const _altSec  = Number(p.alturaSemRef);
-      // DEBUG TEMPORARIO Felipe sessao 14
-      if (_ehTampaOuFita && typeof window !== 'undefined' && !window.__hintDebug) {
-        window.__hintDebug = [];
-      }
-      if (_ehTampaOuFita && window.__hintDebug && window.__hintDebug.length < 30) {
-        window.__hintDebug.push({
-          label: _lblPeca,
-          largura: p.largura,
-          larguraSemRef: p.larguraSemRef,
-          altura: p.altura,
-          alturaSemRef: p.alturaSemRef,
-          temCampo: ('larguraSemRef' in p),
-          tipoLargSemRef: typeof p.larguraSemRef
-        });
-        console.log('[hint debug]', _lblPeca, '| largura=', p.largura, '| larguraSemRef=', p.larguraSemRef, '(tipo:', typeof p.larguraSemRef, ')');
-      }
       const _hintLarg = (_ehTampaOuFita && Number.isFinite(_largSec) && _largSec > 0 && Math.abs(_largSec - Number(p.largura)) >= 0.5)
         ? `<div class="orc-lev-sup-hint-sec">sec ${_largSec}</div>` : '';
       const _hintAlt  = (_ehTampaOuFita && Number.isFinite(_altSec)  && _altSec  > 0 && Math.abs(_altSec  - Number(p.altura))  >= 0.5)
@@ -13001,14 +12985,24 @@ const Orcamento = (() => {
       const inputStyleQtd = 'width:50px;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;text-align:center;background:#fff;';
       const editClass = p._editado ? ' orc-lev-sup-input-editado' : '';
       const manualClass = p._manual ? ' orc-lev-sup-input-manual' : '';
+      // Felipe sessao 14: hint 'sec NNN' (medida sem REF) abaixo do input
+      // largura/altura. Aparece SO em pecas Tampa* ou Fita Acabamento*.
+      const _lblSec = String(p.label || '');
+      const _ehTampaOuFita = /^(Tampa|Fita Acabamento)\b/i.test(_lblSec);
+      const _largSecVal = Number(p.larguraSemRef);
+      const _altSecVal  = Number(p.alturaSemRef);
+      const _hintLargSec = (_ehTampaOuFita && Number.isFinite(_largSecVal) && _largSecVal > 0 && Math.abs(_largSecVal - Number(p.largura)) >= 0.5)
+        ? `<div class="orc-lev-sup-hint-sec">sec ${_largSecVal}</div>` : '';
+      const _hintAltSec = (_ehTampaOuFita && Number.isFinite(_altSecVal)  && _altSecVal  > 0 && Math.abs(_altSecVal  - Number(p.altura))  >= 0.5)
+        ? `<div class="orc-lev-sup-hint-sec">sec ${_altSecVal}</div>` : '';
       const inputLargura = `<input type="number" min="1" step="1" class="orc-lev-sup-input-edit${editClass}${manualClass}"
                               data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="largura"
                               data-manual="${p._manual ? '1' : '0'}"
-                              value="${p.largura}" style="${inputStyle}" />`;
+                              value="${p.largura}" style="${inputStyle}" />${_hintLargSec}`;
       const inputAltura = `<input type="number" min="1" step="1" class="orc-lev-sup-input-edit${editClass}${manualClass}"
                               data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="altura"
                               data-manual="${p._manual ? '1' : '0'}"
-                              value="${p.altura}" style="${inputStyle}" />`;
+                              value="${p.altura}" style="${inputStyle}" />${_hintAltSec}`;
       const inputQtd = `<input type="number" min="1" step="1" class="orc-lev-sup-input-edit${editClass}${manualClass}"
                               data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="qtd"
                               data-manual="${p._manual ? '1' : '0'}"
