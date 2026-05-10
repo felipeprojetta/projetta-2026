@@ -34,7 +34,9 @@
     loaded: false,
   };
 
-  // Marcos de producao (chave + label + ordem)
+  // Marcos de producao (chave + label + ordem).
+  // 'calculado:true' significa que NAO eh editavel — vem de formula
+  // baseada em Aprovacao + Prazo Contrato (Felipe sessao 2026-05-10).
   const MARCOS = [
     { id: 'medicao',       label: 'Medicao' },
     { id: 'liberacao',     label: 'Liberacao' },
@@ -49,9 +51,11 @@
     { id: 'colagemFixo',   label: 'Colagem Fixo' },
     { id: 'conferencia',   label: 'Conferencia' },
     { id: 'embalagem',     label: 'Embalagem' },
-    { id: 'inicioInst',    label: 'Inicio Inst.' },
-    { id: 'entregaFinal',  label: 'Entrega Final' },
+    { id: 'inicioInst',    label: 'Inicio Inst.',  calculado: true },
+    { id: 'entregaFinal',  label: 'Entrega Final', calculado: true },
   ];
+  const PRAZO_CONTRATO_DEFAULT = 90;  // dias (Felipe: "geralmente 90 dias")
+  const ANTECEDENCIA_INSTALACAO = 15; // dias (Felipe: "15 dias antes do prazo final")
 
   // Mapa etapa Kanban Producao -> label legivel
   const LABEL_STATUS = {
@@ -98,6 +102,24 @@
       return d.toLocaleDateString('pt-BR');
     } catch (_) { return iso; }
   }
+  // Felipe (sessao 2026-05-10): formula de entrega.
+  // Entrega Final = Aprovacao + prazoDias (default 90)
+  // Inicio Inst.  = Entrega Final - 15 dias (default)
+  function calcEntregaFinal(aprovacaoISO, prazoDias) {
+    if (!aprovacaoISO) return '';
+    const dias = Number(prazoDias) || PRAZO_CONTRATO_DEFAULT;
+    const d = new Date(aprovacaoISO);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + dias);
+    return d.toISOString().slice(0, 10);
+  }
+  function calcInicioInst(entregaFinalISO) {
+    if (!entregaFinalISO) return '';
+    const d = new Date(entregaFinalISO);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() - ANTECEDENCIA_INSTALACAO);
+    return d.toISOString().slice(0, 10);
+  }
 
   // ============================================================
   // FONTE: Kanban Producao (read-only)
@@ -110,6 +132,15 @@
     } catch (_) { cards = []; }
     return cards.map(card => {
       const delta = state.deltas[card.id] || {};
+      // Felipe (sessao 2026-05-10): prazo contrato default 90 dias,
+      // editavel por trabalho. Entrega Final = aprovacao + prazo.
+      // Inicio Inst. = Entrega Final - 15 dias.
+      const prazoDias = (delta.prazoContratoDias != null && delta.prazoContratoDias !== '')
+        ? Number(delta.prazoContratoDias)
+        : PRAZO_CONTRATO_DEFAULT;
+      const aprovacao = delta.aprovacao || '';
+      const entregaFinalCalc = calcEntregaFinal(aprovacao, prazoDias);
+      const inicioInstCalc   = calcInicioInst(entregaFinalCalc);
       return {
         cardId:        card.id,
         crmLeadId:     card.crmLeadId || null,
@@ -123,11 +154,12 @@
         statusId:      card.etapa || '',
         statusLabel:   LABEL_STATUS[card.etapa] || (card.etapa || '—').toUpperCase(),
         statusCor:     COR_STATUS[card.etapa] || '#64748B',
-        // Deltas (marcos)
+        prazoDias:     prazoDias,
+        // Deltas (marcos editaveis + calculados readonly)
         marcos: {
           medicao:       delta.medicao       || '',
           liberacao:     delta.liberacao     || '',
-          aprovacao:     delta.aprovacao     || '',
+          aprovacao:     aprovacao,
           cadOs:         delta.cadOs         || '',
           cut2d:         delta.cut2d         || '',
           corteChapa:    delta.corteChapa    || '',
@@ -138,8 +170,8 @@
           colagemFixo:   delta.colagemFixo   || '',
           conferencia:   delta.conferencia   || '',
           embalagem:     delta.embalagem     || '',
-          inicioInst:    delta.inicioInst    || '',
-          entregaFinal:  delta.entregaFinal  || '',
+          inicioInst:    inicioInstCalc,    // calculado
+          entregaFinal:  entregaFinalCalc,  // calculado
         },
         observacoes: delta.observacoes || '',
       };
@@ -233,17 +265,20 @@
   // ============================================================
   // RENDER TABELA
   // ============================================================
-  function renderTabela(trabalhos) {
-    if (trabalhos.length === 0) {
-      return `<div class="pg-empty">Nenhum trabalho. Cards aparecem aqui automaticamente do Kanban Producao.</div>`;
-    }
-
-    const colsMarco = MARCOS.map(m => `<th class="pg-th-marco">${escapeHtml(m.label)}</th>`).join('');
-
-    const rows = trabalhos.map(t => {
+  function renderLinhas(trabalhos) {
+    return trabalhos.map(t => {
       const local = [t.cidade, t.estado].filter(Boolean).join('/');
       const marcosCells = MARCOS.map(m => {
         const val = t.marcos[m.id] || '';
+        if (m.calculado) {
+          // Felipe: Entrega Final e Inicio Inst sao CALCULADOS (readonly).
+          // Mostra a data formatada BR. Se nao tem aprovacao, mostra '—'.
+          return `<td class="pg-td-marco pg-td-calc">
+            <span class="pg-marco-calc" title="${val ? 'Calculado a partir da Aprovacao + Prazo' : 'Preencha Aprovacao pra calcular'}">
+              ${val ? fmtData(val) : '<em class="pg-calc-empty">—</em>'}
+            </span>
+          </td>`;
+        }
         return `<td class="pg-td-marco">
           <input type="date" class="pg-marco-input"
                  data-card-id="${escapeHtml(t.cardId)}"
@@ -264,13 +299,24 @@
           <td>${escapeHtml(local || '—')}</td>
           <td>${escapeHtml(t.tipo || '—')}</td>
           <td class="pg-td-qtd">${t.qtd}</td>
+          <td class="pg-td-prazo">
+            <input type="number" class="pg-prazo-input"
+                   data-card-id="${escapeHtml(t.cardId)}"
+                   value="${t.prazoDias}" min="1" max="365" step="1"
+                   title="Prazo de contrato em dias (default 90)" />
+          </td>
           ${marcosCells}
         </tr>
       `;
     }).join('');
+  }
 
+  function renderTabelaCompleta(trabalhos, titulo, classeExtra) {
+    if (trabalhos.length === 0) return '';
+    const colsMarco = MARCOS.map(m => `<th class="pg-th-marco${m.calculado ? ' pg-th-calc' : ''}">${escapeHtml(m.label)}${m.calculado ? ' <span class="pg-th-fx" title="Calculado: Aprovacao + Prazo (Inicio = Entrega - 15)">ƒ</span>' : ''}</th>`).join('');
     return `
-      <div class="pg-tabela-wrap">
+      ${titulo ? `<div class="pg-secao-titulo ${classeExtra || ''}">${escapeHtml(titulo)} <span class="pg-secao-count">${trabalhos.length}</span></div>` : ''}
+      <div class="pg-tabela-wrap ${classeExtra || ''}">
         <table class="pg-tabela">
           <thead>
             <tr>
@@ -280,12 +326,27 @@
               <th>Cidade/UF</th>
               <th>Tipo</th>
               <th>Qtd</th>
+              <th class="pg-th-prazo">Prazo (d)</th>
               ${colsMarco}
             </tr>
           </thead>
-          <tbody>${rows}</tbody>
+          <tbody>${renderLinhas(trabalhos)}</tbody>
         </table>
       </div>
+    `;
+  }
+
+  function renderTabela(trabalhos) {
+    if (trabalhos.length === 0) {
+      return `<div class="pg-empty">Nenhum trabalho. Cards aparecem aqui automaticamente do Kanban Producao.</div>`;
+    }
+    // Felipe (sessao 2026-05-10): "tudo que for aguardando liberacao
+    // fica separado dos demais". Bloco superior = AG. LIBERACAO MEDIDAS.
+    const aguardandoLiberacao = trabalhos.filter(t => t.statusId === 'ag-liberacao-medidas');
+    const emProducao          = trabalhos.filter(t => t.statusId !== 'ag-liberacao-medidas');
+    return `
+      ${renderTabelaCompleta(aguardandoLiberacao, 'AGUARDANDO LIBERACAO', 'pg-secao-aguardando')}
+      ${renderTabelaCompleta(emProducao,          'EM PRODUCAO',          'pg-secao-producao')}
     `;
   }
 
@@ -332,6 +393,23 @@
     container.querySelectorAll('.pg-marco-input').forEach(input => {
       input.addEventListener('change', () => {
         atualizarMarco(input.dataset.cardId, input.dataset.marco, input.value);
+        // Felipe: se o marco eh aprovacao, re-renderiza pra recalcular
+        // Entrega Final + Inicio Inst (que dependem dele).
+        if (input.dataset.marco === 'aprovacao') render(container);
+      });
+    });
+
+    // Felipe (sessao 2026-05-10): input de prazo (default 90, editavel).
+    // Mudou prazo -> recalcula entrega/inicio -> re-renderiza linha.
+    container.querySelectorAll('.pg-prazo-input').forEach(input => {
+      input.addEventListener('change', () => {
+        const cardId = input.dataset.cardId;
+        const dias = Math.max(1, Math.min(365, parseInt(input.value, 10) || PRAZO_CONTRATO_DEFAULT));
+        const atual = state.deltas[cardId] || {};
+        atual.prazoContratoDias = dias;
+        state.deltas[cardId] = atual;
+        saveDeltas();
+        render(container);
       });
     });
   }

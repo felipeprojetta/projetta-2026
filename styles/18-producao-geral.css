@@ -161,3 +161,101 @@
   color: #065f46;
   font-weight: 600;
 }
+
+/* ============================================================
+   SECOES (Felipe sessao 2026-05-10): aguardando liberacao separado
+   ============================================================ */
+.pg-secao-titulo {
+  margin: 16px 0 6px 0;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  border-radius: 5px;
+  display: inline-block;
+}
+.pg-secao-titulo.pg-secao-aguardando {
+  background: #f3e8ff;
+  color: #6d28d9;
+  border: 1px solid #c4b5fd;
+}
+.pg-secao-titulo.pg-secao-producao {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+.pg-secao-count {
+  background: rgba(255,255,255,.6);
+  padding: 1px 8px;
+  border-radius: 999px;
+  margin-left: 4px;
+  font-weight: 700;
+}
+.pg-tabela-wrap.pg-secao-aguardando { border-color: #c4b5fd; }
+.pg-tabela-wrap.pg-secao-producao   { border-color: #93c5fd; }
+
+/* Marcos calculados (readonly) — Entrega Final, Inicio Inst */
+.pg-th-calc {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+.pg-th-fx {
+  display: inline-block;
+  background: #d97706;
+  color: #fff;
+  font-style: italic;
+  font-weight: 800;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  border-radius: 3px;
+  font-size: 9px;
+  font-family: ui-serif, Georgia, serif;
+  margin-left: 2px;
+}
+.pg-td-calc {
+  background: #fffbeb;
+  border-left: 2px solid #fbbf24;
+}
+.pg-marco-calc {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #fef3c7;
+  color: #78350f;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid #fbbf24;
+  font-variant-numeric: tabular-nums;
+}
+.pg-calc-empty {
+  color: #d1d5db;
+  font-style: normal;
+  font-weight: 400;
+}
+
+/* Prazo (input number) */
+.pg-th-prazo {
+  background: #ede9fe !important;
+  color: #5b21b6 !important;
+}
+.pg-td-prazo { background: #f5f3ff; }
+.pg-prazo-input {
+  width: 60px;
+  padding: 4px 6px;
+  font-size: 11px;
+  border: 1px solid var(--border, #c4b5fd);
+  border-radius: 4px;
+  background: #fff;
+  text-align: center;
+  font-weight: 600;
+  color: #5b21b6;
+  font-family: inherit;
+}
+.pg-prazo-input:focus {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 0;
+  border-color: #8b5cf6;
+}
