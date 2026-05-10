@@ -1,0 +1,1063 @@
+/* 11-crm.css — modulo CRM (.kprod-) */
+
+/* ============================================================
+   MODULO: CRM (Kanban + Lista) — prefixo .kprod-
+   Isolado, segue mesma linha visual de Perfis/Modelos.
+   ============================================================ */
+.kprod-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.kprod-toolbar-left { display: flex; align-items: center; gap: 22px; }
+.kprod-count { font-size: 14px; color: var(--text-soft); }
+.kprod-count strong { color: var(--azul-escuro); font-weight: 600; font-size: 15px; }
+
+.kprod-view-toggle {
+  display: inline-flex;
+  background: #fafbfc;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px;
+}
+.kprod-view-toggle button {
+  background: transparent;
+  border: none;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--text-soft);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.12s, color 0.12s;
+}
+.kprod-view-toggle button.is-active {
+  background: var(--azul-escuro);
+  color: #fff;
+}
+
+/* KANBAN */
+.kprod-kanban {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  align-items: flex-start;
+}
+.kprod-column {
+  /* Felipe: cores bem claras como marca dagua */
+  background: #fafbfc;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  min-width: 300px;
+  width: 300px;
+  max-height: calc(100vh - 280px);
+  display: flex;
+  flex-direction: column;
+  transition: background 0.12s, border-color 0.12s;
+}
+.kprod-column.is-drop-target {
+  background: #fef9ef;
+  border-color: var(--laranja);
+}
+.kprod-column-header {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kprod-column-total {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--azul-escuro);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.kprod-column-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.kprod-column-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: none;
+  color: var(--azul-escuro);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kprod-column-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.kprod-column-count {
+  font-size: 11px;
+  color: var(--text-soft);
+  background: var(--branco);
+  border: 1px solid var(--line);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.kprod-column-body {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 80px;
+}
+.kprod-column-body:empty::after {
+  content: 'Sem leads';
+  display: block;
+  text-align: center;
+  padding: 24px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+/* CARD */
+.kprod-card {
+  background: var(--branco);
+  /* Felipe (sessao 30): cards sem limite. Adicionei sombra leve e
+     mantive borda 1px (com line mais escura via tokens). */
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: grab;
+  transition: box-shadow 0.12s, border-color 0.12s, transform 0.12s;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.kprod-card:hover {
+  border-color: #a0b8c8;
+  box-shadow: 0 2px 6px rgba(0, 49, 68, 0.08);
+}
+.kprod-card.is-dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+.kprod-card-titulo {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--azul-escuro);
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+.kprod-card-cliente {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+.kprod-card-valor {
+  font-size: 13px;
+  color: var(--text-strong);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* Felipe (sessao 2026-06): bloco com 2 valores no card do CRM —
+   "Preco da Proposta" (pTab, com markup) e "Com desconto" (pFatReal,
+   o que o cliente paga). Aparece quando ha desconto aplicado. */
+.kprod-card-valor-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+.kprod-card-valor-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.kprod-card-valor-label {
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+.kprod-card-valor-tabela {
+  color: var(--text-soft);
+  text-decoration: line-through;
+  text-decoration-color: rgba(0,0,0,0.25);
+  font-weight: 400;
+}
+.kprod-card-valor-bloco .kprod-card-valor {
+  color: var(--laranja);
+  font-weight: 600;
+}
+/* Felipe (sessao 2026-07): 3a linha "Cliente Paga" — destaque maior,
+   borda em cima pra separar de "Com desconto". */
+.kprod-card-valor-desconto {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-decoration: line-through;
+  text-decoration-color: rgba(0,0,0,0.2);
+}
+.kprod-card-valor-row-final {
+  border-top: 1px dashed var(--line-soft);
+  padding-top: 3px;
+  margin-top: 2px;
+}
+.kprod-card-valor-row-final .kprod-card-valor-label {
+  font-weight: 600;
+  color: var(--text-strong);
+  font-size: 11px;
+}
+.kprod-card-valor-row-final .kprod-card-valor {
+  font-size: 13px;
+  font-weight: 700;
+}
+.kprod-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line-soft);
+}
+.kprod-card-data {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.kprod-card-destino {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.kprod-card-actions {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line-soft);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Felipe (sessao 2026-11): variante vertical para botoes OrcDocs.
+   Botoes minimalistas, full-width, um embaixo do outro. */
+.kprod-card-actions.is-orcdocs {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.kprod-orcdocs-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+}
+.kprod-orcdocs-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+.kprod-orcdocs-btn .icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+.kprod-orcdocs-btn.is-primary {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+.kprod-orcdocs-btn.is-primary:hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+.kprod-orcdocs-btn-secundarios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.kprod-orcdocs-btn-secundarios button {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Felipe (req 2,3 do CRM): bloco "produto" no card.
+   So aparece quando o lead tem pelo menos UMA versao fechada do orcamento.
+   Mostra Modelo/Folhas/Cor — informacao snapshotada da versao oficial. */
+/* Felipe (sessao 09): seta pra expandir/recolher detalhes do card */
+.kprod-card-expand-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 4px 0;
+  margin-top: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--azul-escuro, #003144);
+  opacity: 0.5;
+  transition: opacity 0.15s;
+  border-top: 1px dashed #d1d5db;
+}
+.kprod-card-expand-toggle:hover {
+  opacity: 1;
+}
+.kprod-card-produto {
+  margin: 6px 0 4px 0;
+  padding: 6px 8px;
+  background: #F4F7FA;
+  border-left: 2px solid var(--azul-escuro);
+  border-radius: 0 3px 3px 0;
+}
+.kprod-card-prod-row {
+  font-size: 11px;
+  color: var(--text-strong);
+  line-height: 1.5;
+}
+.kprod-card-prod-lbl {
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+/* Bloco "local + representante" — sempre que tiver dado, independe de versao */
+.kprod-card-local {
+  margin: 4px 0 6px 0;
+  font-size: 11px;
+  color: var(--text-soft);
+  line-height: 1.5;
+}
+.kprod-card-loc-row { display: block; }
+
+/* Felipe (do doc): card mostra classificacao do representante (Show Room
+   / Representante / Coordenador / etc) e a comissao atribuida em pequeno. */
+.kprod-card-loc-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.kprod-card-rep-class {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  background: var(--branco);
+  color: var(--text-soft);
+}
+/* Felipe sessao 12: nome do representante em negrito (mesmo destaque
+   do nome do cliente, mas tamanho normal). Pediu: "destaque o nome do
+   representante igual fez com nome cliente mas nao precisa ser mesmo
+   tamanho fonte coloque em negrito". */
+.kprod-card-rep-nome {
+  font-weight: 700;
+  color: var(--azul-escuro);
+}
+/* Show room destaca em laranja (regra 7%) */
+.kprod-card-rep-class-showroom {
+  border-color: var(--laranja);
+  color: var(--laranja);
+  background: #FFF4E6;
+}
+.kprod-card-rep-class-projetta {
+  border-color: #a0b8c8;
+  color: var(--azul-escuro);
+  background: #F4F7FA;
+}
+.kprod-card-rep-comissao {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Data de fechamento — visivel so' em leads na coluna Fechado */
+.kprod-card-fechado-em {
+  margin-top: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #2c8240;
+  background: #EFF7F1;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+.kprod-card-fechado-em strong {
+  font-weight: 700;
+  font-size: 12px;
+  color: #1f6630;
+}
+
+/* Dropdown de versoes do orcamento */
+.kprod-card-versoes {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line-soft);
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.kprod-card-versao-sel {
+  flex: 1;
+  font-size: 11px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--branco);
+  color: var(--text-strong);
+  font-family: inherit;
+  cursor: pointer;
+}
+.kprod-card-versao-sel:hover {
+  border-color: var(--laranja);
+}
+/* Felipe (sessao 2026-06): botao 🗑 pra deletar versao — aparece
+   quando ha mais de 1 versao no negocio. */
+.kprod-card-versao-del {
+  padding: 3px 8px;
+  font-size: 12px;
+  background: var(--branco);
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.kprod-card-versao-del:hover {
+  color: var(--branco);
+  background: #c43a3a;
+  border-color: #c43a3a;
+}
+.kprod-card-numeros {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 6px 0;
+}
+.kprod-card-reserva,
+.kprod-card-agp {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--branco);
+}
+.kprod-card-agp {
+  border-color: #a0b8c8;
+  color: var(--azul-escuro);
+}
+.kprod-card-btn-orc {
+  font-size: 11px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--branco);
+  color: var(--azul-escuro);
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  transition: background 0.12s, border-color 0.12s;
+}
+.kprod-card-btn-orc:hover {
+  background: var(--cinza-mais-claro);
+  border-color: #a0b8c8;
+}
+
+/* LISTA */
+.kprod-lista {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.kprod-lista table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: auto;
+}
+.kprod-lista thead th {
+  background: #fafbfc;
+  padding: 9px 14px;
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: none;
+  color: var(--text-soft);
+  font-weight: 500;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.kprod-lista tbody td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.kprod-lista tbody tr:nth-child(odd)  td { background: var(--branco); }
+.kprod-lista tbody tr:nth-child(even) td { background: #E4E8EE; }
+.kprod-lista tbody tr:hover td { background: #D6DBE3; }
+.kprod-lista tbody tr:last-child td { border-bottom: none; }
+.kprod-etapa-pill {
+  /* R11: sem background, sem border. Apenas texto + pequeno ponto
+     colorido decorativo (o ponto e' brand-safe pois nao e' fundo
+     atras de texto, e' apenas um marcador visual de etapa). */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border-radius: 0;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  background: transparent;
+  border: none;
+  color: var(--azul-escuro);
+}
+.kprod-etapa-pill .kprod-column-dot { width: 6px; height: 6px; }
+
+/* Botao Novo Lead */
+.kprod-btn-new {
+  background: var(--azul-escuro);
+  color: #fff;
+  border: 1px solid var(--azul-escuro);
+  padding: 7px 16px;
+  font-size: 11px;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.kprod-btn-new:hover { background: #002435; }
+
+/* Modal Novo Lead */
+.kprod-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 49, 68, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 5vh;
+  z-index: 9999;
+}
+.kprod-modal {
+  background: var(--branco);
+  border-radius: var(--radius-lg);
+  width: 640px;
+  max-width: calc(100vw - 40px);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0, 49, 68, 0.25);
+}
+.kprod-modal-header {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.kprod-modal-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: none;
+  color: var(--azul-escuro);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kprod-modal-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: var(--laranja);
+  border-radius: 50%;
+}
+.kprod-modal-close {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: var(--text-soft);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+}
+.kprod-modal-close:hover { background: #fafbfc; color: var(--azul-escuro); }
+.kprod-modal-body { padding: 18px 22px 4px; }
+
+/* Tabs do modal */
+.kprod-modal-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+}
+.kprod-modal-tab {
+  background: transparent;
+  border: none;
+  padding: 10px 16px;
+  font-size: 11px;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--text-soft);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.12s, border-color 0.12s;
+}
+.kprod-modal-tab.is-active {
+  color: var(--azul-escuro);
+  border-bottom-color: var(--laranja);
+  font-weight: 500;
+}
+
+/* Form do modal */
+.kprod-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.kprod-form-row.cols-1 { grid-template-columns: 1fr; }
+.kprod-form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.kprod-field { display: flex; flex-direction: column; gap: 5px; }
+.kprod-field label {
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: none;
+  color: var(--text-soft);
+  font-weight: 500;
+  font-family: var(--font-display);
+}
+.kprod-field input,
+.kprod-field select,
+.kprod-field textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--azul-escuro);
+  background: var(--branco);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.kprod-field input:focus,
+.kprod-field select:focus,
+.kprod-field textarea:focus {
+  outline: none;
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 2px rgba(196, 112, 18, 0.1);
+}
+.kprod-field input.is-loading {
+  background: linear-gradient(90deg, #fff 25%, #f7f5f0 50%, #fff 75%) 0/200% 100%;
+  animation: crm-skeleton 1s linear infinite;
+}
+@keyframes crm-skeleton {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.kprod-field input[readonly] {
+  background: #fafbfc;
+  color: var(--text-strong);
+  cursor: default;
+}
+.kprod-field-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.kprod-field-error { color: #c0392b; }
+.kprod-field-ok    { color: #10B981; }
+
+/* Search inline (numero reserva/agp + botao buscar) */
+.kprod-search-inline {
+  display: flex;
+  gap: 8px;
+}
+.kprod-search-inline input { flex: 1; }
+.kprod-btn-search {
+  background: var(--laranja);
+  color: #fff;
+  border: 1px solid var(--laranja);
+  padding: 0 16px;
+  font-size: 11px;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kprod-btn-search:hover { background: #a85f0e; }
+.kprod-btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.kprod-modal-footer {
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+.kprod-btn-cancel {
+  background: transparent;
+  color: var(--text-soft);
+  border: 1px solid var(--line);
+  padding: 8px 18px;
+  font-size: 11px;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.kprod-btn-cancel:hover { background: #fafbfc; }
+.kprod-btn-primary {
+  background: var(--azul-escuro);
+  color: #fff;
+  border: 1px solid var(--azul-escuro);
+  padding: 8px 22px;
+  font-size: 11px;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.kprod-btn-primary:hover { background: #002435; }
+.kprod-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* AGP editavel no card (fase orcamento) */
+.kprod-card-agp-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  font-size: 11px;
+}
+.kprod-card-agp-field label {
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.kprod-card-agp-field input {
+  flex: 0 0 auto;
+  width: 130px;
+  padding: 3px 6px;
+  font-size: 11px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--branco);
+}
+.kprod-card-agp-field input:focus {
+  outline: none;
+  border-color: #a0b8c8;
+}
+
+/* Telefone e email no card */
+.kprod-card-contato {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 2px 0;
+  word-break: break-all;
+}
+
+/* ============================================================
+   Felipe — Header com KPIs (Fechado Ano/Mes) + filtros do CRM.
+   R03 paleta, R11 sem fundo colorido atras de texto, R19 sem
+   font-weight pesado, R20 Title Case nos labels.
+   ============================================================ */
+
+.kprod-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+/* Bloco esquerda: 2 KPIs lado a lado */
+.kprod-kpis {
+  display: flex;
+  gap: 12px;
+}
+.kprod-kpi {
+  background: var(--branco);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--laranja);
+  border-radius: var(--radius);
+  padding: 12px 18px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* KPI Em Aberto: borda azul pra diferenciar dos 2 KPIs de Fechado (laranja) */
+.kprod-kpi.kprod-kpi-em-aberto {
+  border-left-color: var(--azul-escuro);
+}
+.kprod-kpi-fixo {
+  font-size: 12px;
+  color: var(--text);            /* era text-soft (cinza) — agora azul-escuro */
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* Felipe (KPIs reordenaveis): cursor de move + estados de drag */
+.kprod-kpi[draggable="true"] {
+  cursor: grab;
+  transition: opacity 0.15s, border-color 0.15s, transform 0.15s;
+}
+.kprod-kpi[draggable="true"]:active { cursor: grabbing; }
+.kprod-kpi.is-dragging {
+  opacity: 0.4;
+}
+.kprod-kpi.is-drop-target {
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 2px rgba(196, 112, 18, 0.2);
+}
+.kprod-kpi-lbl {
+  font-family: var(--font-body);
+  /* Felipe (sessao 30): era 11px + cor muted (#8892A0) — quase ilegivel.
+     Agora 12px, cor azul-escuro com 70% e font-weight 600 — bem legivel. */
+  font-size: 12px;
+  color: var(--text-soft);
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.kprod-kpi-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: help;
+  font-weight: 500;
+}
+.kprod-kpi-val {
+  font-family: var(--font-body);
+  font-size: 22px;
+  color: var(--azul-escuro);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.kprod-kpi-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.kprod-kpi-select {
+  font-family: var(--font-body);
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--branco);
+  color: var(--azul-escuro);
+  cursor: pointer;
+}
+.kprod-kpi-select:hover { border-color: #a0b8c8; }
+.kprod-kpi-select:focus { outline: 2px solid var(--laranja); outline-offset: 1px; }
+.kprod-kpi-count {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Bloco direita: toggle de vista + acoes */
+.kprod-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Linha de filtros do pipeline */
+.kprod-filtros {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: var(--cinza-mais-claro);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.kprod-filtro-busca {
+  flex: 1 1 260px;
+  min-width: 220px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--branco);
+  color: var(--text-default);
+}
+.kprod-filtro-busca:focus { outline: 2px solid var(--laranja); outline-offset: -1px; border-color: var(--laranja); }
+.kprod-filtro-sel {
+  font-family: var(--font-body);
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--branco);
+  color: var(--text-default);
+  min-width: 130px;
+  cursor: pointer;
+}
+.kprod-filtro-sel:hover { border-color: #a0b8c8; }
+.kprod-filtro-sel:focus { outline: 2px solid var(--laranja); outline-offset: -1px; }
+.kprod-filtro-limpar {
+  background: var(--branco);
+  border: 1px solid var(--laranja);
+  color: var(--laranja);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.kprod-filtro-limpar:hover {
+  background: var(--laranja);
+  color: var(--branco);
+}
+.kprod-filtro-resumo {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Modal compacto (Data de Fechamento) */
+.kprod-modal-compact {
+  max-width: 380px;
+}
+
+/* Felipe (do doc): em Qualificacao e Fazer Orcamento o preco nao existe
+   ainda. Total da coluna fica '—' em cinza claro. */
+.kprod-column-total-empty {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+/* Felipe (sessao 2026-05): titulo dos filtros + valores em destaque */
+.kprod-filtros-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.kprod-filtros-titulo {
+  flex-shrink: 0;
+  padding: 8px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--azul-escuro, #1f3658);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.kprod-filtros-wrap .kprod-filtros {
+  flex: 1;
+  margin-bottom: 0;
+}
+.kprod-filtro-resumo b {
+  color: var(--azul-escuro, #1f3658);
+  font-weight: 700;
+}
+
+/* Felipe: header compacto — mais espaço pros cards */
+.kprod-kpi { padding: 6px 12px; min-width: 160px; }
+.kprod-kpi-val { font-size: 16px; font-weight: 800; }
+.kprod-kpi-lbl { font-size: 10px; font-weight: 700; }
+.kprod-kpi-count { font-size: 10px; }
+.kprod-kpi-select { font-size: 11px; padding: 2px 6px; }
+.kprod-header-row { margin-bottom: 8px; gap: 10px; }
+.kprod-kpis { gap: 8px; }
+.kprod-filtros-wrap { margin-bottom: 8px; }
+
+/* Felipe sessao 2026-05: modal "Novo Lead" no celular - empilhar tudo
+   Sem isso, cols-2 e cols-3 ficavam apertados gerando barra horizontal,
+   e o campo Cor virava uma fresta minuscula impossivel de usar. */
+@media (max-width: 720px) {
+  .kprod-modal-overlay { padding: 0; }
+  .kprod-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+    margin: 0;
+  }
+  .kprod-modal-body {
+    padding: 14px 16px 4px;
+    overflow-x: hidden;
+  }
+  .kprod-form-row,
+  .kprod-form-row.cols-2,
+  .kprod-form-row.cols-3 {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+  .kprod-field input,
+  .kprod-field select,
+  .kprod-field textarea {
+    width: 100% !important;
+    box-sizing: border-box;
+    min-height: 42px;
+    font-size: 15px;
+  }
+  .kprod-modal-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .kprod-modal-footer button { flex: 1 1 auto; min-height: 42px; }
+}
