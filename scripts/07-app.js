@@ -52,6 +52,16 @@ const App = (() => {
         { id: 'usuarios',       label: 'Usuarios' },
       ],
     },
+    producao: {
+      title: 'Ordens de Producao',
+      subtitle: 'Gestao das ordens de producao geradas a partir dos orcamentos aprovados.',
+      breadcrumb: 'Producao · Ordens de Producao',
+    },
+    instalacao: {
+      title: 'Agenda Obras',
+      subtitle: 'Calendario e equipes de instalacao em obra.',
+      breadcrumb: 'Instalacao · Agenda Obras',
+    },
     estoque: {
       title: 'Estoque Omie',
       subtitle: 'Consulta de saldo em tempo real via API Omie.',
