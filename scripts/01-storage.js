@@ -113,7 +113,20 @@ const Storage = (() => {
             } catch(_) {}
             return;
           }
-          localStorage.setItem(PREFIX + scopeName + ':' + k, JSON.stringify(value));
+          // Felipe (sessao 2026-05-10): localStorage e' cache opcional, Supabase
+          // e' source-of-truth. Quando quota estoura, NAO deve travar o save —
+          // segue normalmente pra sbUpsert. Sintoma anterior: nao deixava
+          // selecionar chapa em Lev. Superficies pq atualizarVersao -> saveAll
+          // -> Storage.set falhava aqui ANTES do sbUpsert rodar.
+          try {
+            localStorage.setItem(PREFIX + scopeName + ':' + k, JSON.stringify(value));
+          } catch (lsErr) {
+            if (lsErr && (lsErr.name === 'QuotaExceededError' || /quota/i.test(lsErr.message || ''))) {
+              console.warn('[Storage] ⚠️ localStorage quota cheia — pulando cache local. Supabase permanece source-of-truth.', scopeName + '/' + k);
+            } else {
+              console.warn('[Storage] localStorage.setItem falhou (nao-quota):', lsErr);
+            }
+          }
           // Sync pro Supabase em background (via Database sbUpsert interno)
           if (typeof Database !== 'undefined' && Database._sbUpsert) {
             try { Database._sbUpsert(scopeName, k, value); } catch(_) {}
