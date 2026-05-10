@@ -12147,6 +12147,22 @@ const Orcamento = (() => {
       const _ehTampaOuFita = /^(Tampa|Fita Acabamento)\b/i.test(_lblPeca);
       const _largSec = Number(p.larguraSemRef);
       const _altSec  = Number(p.alturaSemRef);
+      // DEBUG TEMPORARIO Felipe sessao 14
+      if (_ehTampaOuFita && typeof window !== 'undefined' && !window.__hintDebug) {
+        window.__hintDebug = [];
+      }
+      if (_ehTampaOuFita && window.__hintDebug && window.__hintDebug.length < 30) {
+        window.__hintDebug.push({
+          label: _lblPeca,
+          largura: p.largura,
+          larguraSemRef: p.larguraSemRef,
+          altura: p.altura,
+          alturaSemRef: p.alturaSemRef,
+          temCampo: ('larguraSemRef' in p),
+          tipoLargSemRef: typeof p.larguraSemRef
+        });
+        console.log('[hint debug]', _lblPeca, '| largura=', p.largura, '| larguraSemRef=', p.larguraSemRef, '(tipo:', typeof p.larguraSemRef, ')');
+      }
       const _hintLarg = (_ehTampaOuFita && Number.isFinite(_largSec) && _largSec > 0 && Math.abs(_largSec - Number(p.largura)) >= 0.5)
         ? `<div class="orc-lev-sup-hint-sec">sec ${_largSec}</div>` : '';
       const _hintAlt  = (_ehTampaOuFita && Number.isFinite(_altSec)  && _altSec  > 0 && Math.abs(_altSec  - Number(p.altura))  >= 0.5)
