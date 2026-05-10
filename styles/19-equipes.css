@@ -409,3 +409,66 @@
   background: #dcfce7 !important;
   border-left-color: #22c55e !important;
 }
+
+/* ============================================================
+   MULTI-SELECT DE MARCOS NO MODAL (Felipe sessao 2026-05-10)
+   "Engenharia faz CAD.OS e CUT2D, pode ser so um ou os dois"
+   ============================================================ */
+.eq-modal-marcos-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.eq-modal-marco-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  transition: all .12s ease;
+  user-select: none;
+}
+.eq-modal-marco-chip:hover {
+  border-color: var(--accent, #0f766e);
+  background: #f0fdfa;
+}
+.eq-modal-marco-chip input[type="checkbox"] {
+  width: 14px; height: 14px;
+  accent-color: var(--accent, #0f766e);
+  cursor: pointer;
+}
+.eq-modal-marco-chip:has(input:checked) {
+  background: var(--accent, #0f766e);
+  border-color: var(--accent, #0f766e);
+  color: #fff;
+}
+
+/* ============================================================
+   INSTALACAO AUTO-PUXADA DE AGENDA OBRAS (sessao 2026-05-10)
+   "instalacao e somente dia que sai, vamos pegar la de agenda
+    obras quando colocar la a data que sai colocamos ali na
+    primeira data o nome do cliente"
+   Mini-cards na coluna INSTALACAO sem botao remover/finalizar
+   - sao read-only, dependem do delta de agenda obras.
+   ============================================================ */
+.eq-job-card.eq-job-instalacao-auto {
+  background: #fef2f2 !important;       /* vermelho-claro de fundo */
+  border-left-width: 4px !important;
+  cursor: default;
+}
+.eq-job-card.eq-job-instalacao-auto:hover {
+  box-shadow: 0 2px 6px rgba(239,68,68,.18);
+}
+.eq-tag-auto {
+  background: #ef4444;
+  color: #fff;
+  font-size: 8px !important;
+  letter-spacing: .5px;
+}

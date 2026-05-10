@@ -37,16 +37,21 @@
 (() => {
   'use strict';
 
-  // Felipe (sessao 2026-05-10): "multiplos marcos por equipe (mais
-  // flexivel)". Cada equipe pode mapear pra varios marcos da Producao
-  // Geral. Quando o user vai INICIAR/FINALIZAR um job na cell, se
-  // tiver mais de 1 marco a UI pergunta qual.
+  // Felipe (sessao 2026-05-10): mapeamento equipe -> marcos da PG.
+  //   Engenharia/Eric: CAD.OS e CUT2D (pode ser 1, os 2 ou manual)
+  //   Quadro/Luiz:     Quadro Porta ou Quadro Fixo (ou manual)
+  //   Corte 8.5:       Corte Chapa
+  //   Corte 5.0:       Corte Chapa
+  //   Colagem 1/2/3:   Colagem ou Colagem Fixo (ou manual)
+  //   Portal:          Portal (ou manual)
+  //   Instalacao:      sem marco (data vem de Agenda Obras automatico)
+  // Multi-select: user pode marcar 1 OU mais simultaneo no modal.
   // 'instalacao' nao mapeia - eh agendamento puro (Agenda Obras).
   const EQUIPES = [
-    { id: 'engenharia', label: 'ENGENHARIA', responsavel: 'Eric',         icon: '📐', cor: '#0EA5E9', marcos: ['cadOs'] },
+    { id: 'engenharia', label: 'ENGENHARIA', responsavel: 'Eric',         icon: '📐', cor: '#0EA5E9', marcos: ['cadOs', 'cut2d'] },
     { id: 'quadro',     label: 'QUADRO',     responsavel: 'Luiz',         icon: '🔲', cor: '#8B5CF6', marcos: ['quadroPorta', 'quadroFixo'] },
     { id: 'corte-85',   label: 'CORTE 8.5',  responsavel: '—',            icon: '✂️', cor: '#F59E0B', marcos: ['corteChapa'] },
-    { id: 'corte-50',   label: 'CORTE 5.0',  responsavel: '—',            icon: '✂️', cor: '#EAB308', marcos: ['cut2d'] },
+    { id: 'corte-50',   label: 'CORTE 5.0',  responsavel: '—',            icon: '✂️', cor: '#EAB308', marcos: ['corteChapa'] },
     { id: 'colagem-1',  label: 'COLAGEM 1',  responsavel: 'Igor',         icon: '🛠️', cor: '#06B6D4', marcos: ['colagem', 'colagemFixo'] },
     { id: 'colagem-2',  label: 'COLAGEM 2',  responsavel: 'Alex',         icon: '🛠️', cor: '#14B8A6', marcos: ['colagem', 'colagemFixo'] },
     { id: 'colagem-3',  label: 'COLAGEM 3',  responsavel: 'Michael',      icon: '🛠️', cor: '#10B981', marcos: ['colagem', 'colagemFixo'] },
@@ -185,6 +190,50 @@
     return listarCardsKanban().find(c => c.id === cardId) || null;
   }
 
+  /**
+   * Felipe (sessao 2026-05-10): "instalacao e somente dia que sai,
+   * ai vamos pegar la de agenda obras quando colocar la a data que
+   * sai colocamos ali na primeira data o nome do cliente".
+   *
+   * Coluna INSTALACAO do Equipes le dataInicio dos deltas de
+   * Storage.scope('instalacao').instalacoes - read-only. Cada dia
+   * que tem dataInicio preenchida vira automatico mini-card na
+   * coluna INSTALACAO.
+   *
+   * Retorna Map<dia (YYYY-MM-DD), {cardId, cliente, atp, dataInicio}[]>.
+   */
+  function listarInstalacoesPorDia() {
+    const out = new Map();
+    let instalacoes = {};
+    try {
+      const raw = Storage.scope('instalacao').get('instalacoes');
+      instalacoes = (raw && typeof raw === 'object') ? raw : {};
+    } catch (_) { instalacoes = {}; }
+
+    const cards = listarCardsKanban();
+    const cardsById = new Map(cards.map(c => [c.id, c]));
+
+    Object.entries(instalacoes).forEach(([cardId, delta]) => {
+      if (!delta || !delta.dataInicio) return;
+      // So mostra no mes atual (perf - evita iterar tudo)
+      if (!delta.dataInicio.startsWith(state.mesAno)) return;
+      const card = cardsById.get(cardId);
+      if (!card) return;  // job removido do Kanban - ignora
+      // Pre-producao nao deve aparecer (mesma regra das outras equipes)
+      if (ETAPAS_PRE_PRODUCAO.has(card.etapa)) return;
+      const dia = delta.dataInicio;
+      if (!out.has(dia)) out.set(dia, []);
+      out.get(dia).push({
+        cardId,
+        cliente: card.cliente || '(sem nome)',
+        atp:     card.numeroAGP || '—',
+        etapa:   card.etapa,
+        statusInstalacao: delta.statusInstalacao || '',
+      });
+    });
+    return out;
+  }
+
   // ============================================================
   // PERSISTENCIA
   // ============================================================
@@ -255,6 +304,9 @@
     const totalDias = diasNoMes(state.mesAno);
     const hoje = hojeISO();
     const idx = indexarAgendamentosDoMes();
+    // Felipe (sessao 2026-05-10): instalacoes automaticas vindas de
+    // Agenda Obras (read-only) - aparecem na coluna 'instalacao'.
+    const instalacoesPorDia = listarInstalacoesPorDia();
 
     // Header row: dia + 9 colunas equipe
     const headerEquipes = EQUIPES.map(e => `
@@ -302,7 +354,12 @@
             ? `border-left-color:#10b981;background:#dcfce7`
             : `border-left-color:${corEtapa};background:${corEtapa}15`;
           const dataFmt = finalizado && ag.dataFim ? fmtData(ag.dataFim) : '';
-          const marcoLabel = ag.marcoPG ? labelMarco(ag.marcoPG) : '';
+          // Multi-marco: junta os labels com ' + '
+          const marcosArr = Array.isArray(ag.marcosPG) ? ag.marcosPG
+                          : (ag.marcoPG ? [ag.marcoPG] : []);
+          const marcoLabel = marcosArr.length > 0
+            ? marcosArr.map(labelMarco).join(' + ')
+            : '';
           return `
             <div class="eq-job-card ${finalizado ? 'eq-job-finalizado' : ''}" style="${styleBg}" title="${escapeHtml(card.cliente)} · ATP ${escapeHtml(card.numeroAGP || '—')}${marcoLabel ? ' · ' + marcoLabel : ''}${finalizado ? ' (finalizado em ' + dataFmt + ')' : ''}">
               <button class="eq-job-del" data-action="remover" data-ag-id="${escapeHtml(ag.id)}" title="Remover">×</button>
@@ -315,8 +372,28 @@
           `;
         }).join('');
 
+        // Felipe (sessao 2026-05-10): coluna INSTALACAO recebe
+        // automaticamente os jobs com dataInicio = ESTE dia em
+        // Agenda Obras (read-only). Pinned no topo da cell, antes
+        // dos agendamentos manuais (se houver).
+        let instalAutoHtml = '';
+        if (e.id === 'instalacao') {
+          const installs = instalacoesPorDia.get(iso) || [];
+          instalAutoHtml = installs.map(inst => {
+            const corEtapa = COR_ETAPA[inst.etapa] || '#EF4444';
+            return `
+              <div class="eq-job-card eq-job-instalacao-auto" style="border-left-color:${corEtapa};" title="${escapeHtml(inst.cliente)} · ATP ${escapeHtml(inst.atp)} · automatico de Agenda Obras">
+                <div class="eq-job-cliente">🚚 ${escapeHtml(inst.cliente)}</div>
+                <div class="eq-job-atp">${escapeHtml(inst.atp)}</div>
+                <div class="eq-job-status-tag eq-tag-auto" title="Vem de Agenda Obras (read-only)">SAI ESTE DIA</div>
+              </div>
+            `;
+          }).join('');
+        }
+
         return `
           <td class="eq-td-cell ${fim ? 'eq-cell-weekend' : ''}" data-action="adicionar" data-equipe="${escapeHtml(e.id)}" data-dia="${iso}">
+            ${instalAutoHtml}
             ${cardsHtml}
             <button class="eq-add-btn" data-action="adicionar" data-equipe="${escapeHtml(e.id)}" data-dia="${iso}" title="Agendar tarefa">+</button>
           </td>
@@ -380,22 +457,30 @@
       : '';
 
     // Felipe (sessao 2026-05-10): equipe com multiplos marcos PG.
-    // Se equipe tem 0 marcos (instalacao) -> sem select. Se 1 -> oculto
-    // mas valor sai automatico. Se 2+ -> select obrigatorio.
+    // Felipe pediu MULTI-SELECT: "Engenharia faz CAD.OS e CUT2D, pode
+    // ser so um ou os dois ao mesmo tempo".
+    //   - 0 marcos (instalacao): sem campo
+    //   - 1 marco               : checkbox unico pre-marcado (oculto)
+    //   - 2+ marcos             : checkboxes multiplos
     const marcosEquipe = Array.isArray(equipe.marcos) ? equipe.marcos : [];
     let marcoPgHtml = '';
-    if (marcosEquipe.length === 1) {
-      marcoPgHtml = `<input type="hidden" id="eq-modal-marco-pg" value="${escapeHtml(marcosEquipe[0])}" />`;
-    } else if (marcosEquipe.length > 1) {
-      marcoPgHtml = `
-        <label class="eq-modal-label">Qual etapa de producao? <span style="color:#dc2626;font-weight:400;">*</span></label>
-        <select class="eq-modal-select" id="eq-modal-marco-pg">
-          <option value="">— selecione —</option>
-          ${marcosEquipe.map(mc => `<option value="${escapeHtml(mc)}">${escapeHtml(labelMarco(mc))}</option>`).join('')}
-        </select>
-      `;
+    if (marcosEquipe.length === 0) {
+      marcoPgHtml = '';
+    } else if (marcosEquipe.length === 1) {
+      // 1 marco: hidden checkbox sempre marcado
+      marcoPgHtml = `<input type="checkbox" data-marco-checkbox value="${escapeHtml(marcosEquipe[0])}" checked style="display:none;" />`;
     } else {
-      marcoPgHtml = `<input type="hidden" id="eq-modal-marco-pg" value="" />`;
+      marcoPgHtml = `
+        <label class="eq-modal-label">Quais etapas? <span style="color:#dc2626;font-weight:400;">(marque 1 ou mais)</span></label>
+        <div class="eq-modal-marcos-checks">
+          ${marcosEquipe.map(mc => `
+            <label class="eq-modal-marco-chip">
+              <input type="checkbox" data-marco-checkbox value="${escapeHtml(mc)}" />
+              <span>${escapeHtml(labelMarco(mc))}</span>
+            </label>
+          `).join('')}
+        </div>
+      `;
     }
 
     return `
@@ -440,11 +525,14 @@
   // ============================================================
   // OPERACOES
   // ============================================================
-  function criarAgendamento(equipeId, dia, cardId, notas, tarefaManual, marcoPG) {
+  function criarAgendamento(equipeId, dia, cardId, notas, tarefaManual, marcosPG) {
     const id = genId();
     // Felipe (sessao 2026-05-10): "coloco que comecou" - ao agendar,
-    // o status default eh 'iniciado'. User clica '✓' depois pra
-    // finalizar e disparar evento -> Producao Geral atualiza.
+    // status default eh 'iniciado'. Click '✓' depois pra finalizar.
+    // marcosPG eh array (multi-select) - 0, 1 ou mais marcos.
+    const marcosArr = Array.isArray(marcosPG)
+      ? marcosPG.filter(Boolean)
+      : (marcosPG ? [marcosPG] : []);  // retrocompat se vier string
     state.agendamentos[id] = {
       cardId: cardId || null,
       equipeId,
@@ -452,8 +540,11 @@
       notas: notas || '',
       tarefaManual: tarefaManual || '',
       status: 'iniciado',
-      marcoPG: marcoPG || '',     // qual marco PG sera afetado ao finalizar
-      dataFim: '',                // preenchido ao finalizar
+      marcosPG: marcosArr,
+      // Felipe sessao 2026-05-10: campo legado marcoPG mantido vazio
+      // pra retrocompat se storage tiver dados antigos.
+      marcoPG: '',
+      dataFim: '',
     };
     saveAgendamentos();
   }
@@ -465,19 +556,25 @@
     saveAgendamentos();
 
     // Felipe (sessao 2026-05-10): "ja joga essa data em producao geral".
-    // Dispara evento que ProducaoGeral escuta - tarefas manuais
-    // (sem cardId) nao disparam (nao tem como atualizar marco PG).
-    if (ag.cardId && ag.marcoPG) {
-      try {
-        if (window.Events && typeof Events.emit === 'function') {
-          Events.emit('equipes:job-finalizado', {
-            cardId: ag.cardId,
-            marcoPG: ag.marcoPG,
-            dataFim: ag.dataFim,
-          });
-          console.log('[Equipes] Job finalizado:', ag.cardId, '/', ag.marcoPG, '->', ag.dataFim);
-        }
-      } catch (_) {}
+    // Suporta multi-marco: dispara 1 evento por marco selecionado.
+    if (ag.cardId) {
+      // Retrocompat: agendamentos antigos podem ter ag.marcoPG (string)
+      // em vez de ag.marcosPG (array). Normaliza.
+      const marcos = (Array.isArray(ag.marcosPG) && ag.marcosPG.length > 0)
+        ? ag.marcosPG
+        : (ag.marcoPG ? [ag.marcoPG] : []);
+      marcos.forEach(marcoPG => {
+        try {
+          if (window.Events && typeof Events.emit === 'function') {
+            Events.emit('equipes:job-finalizado', {
+              cardId: ag.cardId,
+              marcoPG,
+              dataFim: ag.dataFim,
+            });
+            console.log('[Equipes] Job finalizado:', ag.cardId, '/', marcoPG, '->', ag.dataFim);
+          }
+        } catch (_) {}
+      });
     }
   }
   function reiniciarAgendamento(agId) {
@@ -592,23 +689,24 @@
         btnSalvar.addEventListener('click', () => {
           const sel = mount.querySelector('#eq-modal-card-select');
           const notas = mount.querySelector('#eq-modal-notas');
-          const marcoEl = mount.querySelector('#eq-modal-marco-pg');
           if (!sel || !sel.value) return;
           const m = state.modalAberto;
           const selValue = sel.value;
-          // Felipe (sessao 2026-05-10): se equipe tem multiplos marcos
-          // PG, exigir selecao. Tarefa manual nao precisa de marcoPG.
           const equipe = equipeById(m.equipeId);
-          const marcoPG = marcoEl ? marcoEl.value : '';
-          const precisaMarco = (selValue !== '__manual__')
-                            && Array.isArray(equipe.marcos)
-                            && equipe.marcos.length >= 2;
-          if (precisaMarco && !marcoPG) {
-            alert('Selecione qual etapa de producao esta equipe vai fazer.');
-            if (marcoEl) marcoEl.focus();
+
+          // Felipe (sessao 2026-05-10): multi-select de marcos.
+          // Le todos os checkboxes marcados [data-marco-checkbox].
+          const marcosCheckboxes = Array.from(mount.querySelectorAll('[data-marco-checkbox]:checked'));
+          const marcosPG = marcosCheckboxes.map(cb => cb.value).filter(Boolean);
+
+          // Validacao: tarefa manual pode nao ter marco. Job vinculado
+          // precisa de pelo menos 1 marco (se equipe tiver marcos).
+          const equipeTemMarcos = Array.isArray(equipe.marcos) && equipe.marcos.length > 0;
+          if (selValue !== '__manual__' && equipeTemMarcos && marcosPG.length === 0) {
+            alert('Selecione pelo menos uma etapa de producao.');
             return;
           }
-          // Felipe (sessao 2026-05-10): suporte a tarefa manual
+          // Tarefa manual
           if (selValue === '__manual__') {
             const tarefa = mount.querySelector('#eq-modal-tarefa-manual');
             const txtTarefa = tarefa ? tarefa.value.trim() : '';
@@ -616,9 +714,9 @@
               alert('Descreva a tarefa manual antes de salvar.');
               return;
             }
-            criarAgendamento(m.equipeId, m.dia, null, notas ? notas.value : '', txtTarefa, '');
+            criarAgendamento(m.equipeId, m.dia, null, notas ? notas.value : '', txtTarefa, []);
           } else {
-            criarAgendamento(m.equipeId, m.dia, selValue, notas ? notas.value : '', '', marcoPG);
+            criarAgendamento(m.equipeId, m.dia, selValue, notas ? notas.value : '', '', marcosPG);
           }
           fecharModal();
           render(container);
@@ -673,10 +771,14 @@
           Equipes.forceReload(container);
         });
 
-        // Mudou Kanban Producao -> re-renderiza (cor/cliente do mini-card)
+        // Mudou Kanban Producao OU Instalacao -> re-renderiza
+        // (cor/cliente do mini-card OU mini-card auto da coluna
+        // INSTALACAO podem ter mudado de dia/aparecido/sumido).
         Events.on('db:change', function(payload) {
           if (!payload) return;
-          if (payload.scope !== 'kanban-producao' && payload.scope !== 'equipes') return;
+          if (payload.scope !== 'kanban-producao'
+              && payload.scope !== 'equipes'
+              && payload.scope !== 'instalacao') return;
           if (window.App && window.App.state && window.App.state.currentModule !== 'equipes') return;
           if (state.modalAberto) return;
           Equipes.forceReload(container);
