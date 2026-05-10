@@ -1086,3 +1086,83 @@
 .kprod-kpis,
 .kprod-kpi,
 .kprod-kpi-fixo { display: none !important; }
+
+/* ============================================================
+   ABAS AGP/ATP NO MODAL (Felipe sessao 2026-05-10)
+   Aparecem em modo edicao - cards aqui sao SEMPRE clones de
+   leads 'fechado' do CRM.
+   ============================================================ */
+.kprod-modal-tabs.kprod-tabs-agp-atp {
+  margin: -4px 0 14px 0;
+  padding-bottom: 0;
+  border-bottom: 2px solid #e5e7eb;
+}
+.kprod-modal-tabs.kprod-tabs-agp-atp .kprod-modal-tab {
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+}
+.kprod-modal-tabs.kprod-tabs-agp-atp .kprod-modal-tab .kprod-tab-sub {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: none;
+  opacity: .7;
+  margin-left: 4px;
+}
+.kprod-modal-tabs.kprod-tabs-agp-atp .kprod-modal-tab.is-active {
+  border-bottom-color: #1a5276;
+  color: #1a5276;
+}
+
+.kprod-aba-atp-banner {
+  background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.kprod-aba-atp-icone { font-size: 24px; line-height: 1; }
+.kprod-aba-atp-banner strong {
+  display: block;
+  font-size: 14px;
+  color: #92400e;
+  margin-bottom: 4px;
+}
+.kprod-aba-atp-hint {
+  font-size: 12px;
+  color: #78350f;
+  line-height: 1.5;
+}
+.kprod-aba-atp-hint em {
+  display: block;
+  margin-top: 4px;
+  font-style: italic;
+  opacity: .85;
+}
+.kprod-aba-atp-divider {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .6px;
+  color: #475569;
+  margin: 18px 0 10px 0;
+  padding: 6px 12px;
+  background: #f8fafc;
+  border-left: 4px solid #1a5276;
+  border-radius: 0 4px 4px 0;
+}
+.kprod-aba-atp-content textarea {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  background: #fff;
+  color: #1f2937;
+  font-family: inherit;
+  resize: vertical;
+}

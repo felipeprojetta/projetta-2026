@@ -1061,3 +1061,89 @@
   }
   .crm-modal-footer button { flex: 1 1 auto; min-height: 42px; }
 }
+
+/* ============================================================
+   ABAS AGP/ATP NO MODAL (Felipe sessao 2026-05-10)
+   Aparecem quando lead esta em edicao + etapa=fechado.
+   AGP = dados originais do orcamento (preservados).
+   ATP = dados do contrato (cliente pode mudar nome, endereco).
+   ============================================================ */
+.crm-modal-tabs.crm-tabs-agp-atp {
+  margin: -4px 0 14px 0;
+  padding-bottom: 0;
+  border-bottom: 2px solid #e5e7eb;
+}
+.crm-modal-tabs.crm-tabs-agp-atp .crm-modal-tab {
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+}
+.crm-modal-tabs.crm-tabs-agp-atp .crm-modal-tab .crm-tab-sub {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: none;
+  opacity: .7;
+  margin-left: 4px;
+}
+.crm-modal-tabs.crm-tabs-agp-atp .crm-modal-tab.is-active {
+  border-bottom-color: #1a5276;
+  color: #1a5276;
+}
+
+/* Banner explicativo no topo da aba ATP */
+.crm-aba-atp-banner {
+  background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.crm-aba-atp-icone { font-size: 24px; line-height: 1; }
+.crm-aba-atp-banner strong {
+  display: block;
+  font-size: 14px;
+  color: #92400e;
+  margin-bottom: 4px;
+}
+.crm-aba-atp-hint {
+  font-size: 12px;
+  color: #78350f;
+  line-height: 1.5;
+}
+.crm-aba-atp-hint em {
+  display: block;
+  margin-top: 4px;
+  font-style: italic;
+  opacity: .85;
+}
+
+/* Dividers de secao dentro da aba ATP */
+.crm-aba-atp-divider {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .6px;
+  color: #475569;
+  margin: 18px 0 10px 0;
+  padding: 6px 12px;
+  background: #f8fafc;
+  border-left: 4px solid #1a5276;
+  border-radius: 0 4px 4px 0;
+}
+
+/* textarea na aba ATP */
+.crm-aba-atp-content textarea {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--text, #1f2937);
+  font-family: inherit;
+  resize: vertical;
+}

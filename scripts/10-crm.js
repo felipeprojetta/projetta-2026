@@ -273,6 +273,11 @@
         // (mantido nos campos porta_* pra retrocompat), itens_extras
         // sao porta_interna / rev_acoplado_porta / rev_parede / porta_externa.
         itens_extras: Array.isArray(lead.itens_extras) ? JSON.parse(JSON.stringify(lead.itens_extras)) : [],
+        // Felipe (sessao 2026-05-10): aba ATP - sub-objeto com dados do
+        // contrato. Preserva intacto os dados originais do orcamento.
+        // Default = aba AGP (dados originais).
+        atp: lead.atp ? JSON.parse(JSON.stringify(lead.atp)) : {},
+        abaAgpAtp: 'agp',
       });
     }
 
@@ -355,6 +360,160 @@
       `;
     }
 
+    /**
+     * Felipe (sessao 2026-05-10): aba ATP do modal CRM.
+     * Aparece apenas quando lead está em etapa='fechado'.
+     * Campos sao gravados em m.atp = { ... } - sub-objeto separado
+     * pra preservar dados originais do orcamento (AGP) intactos.
+     *
+     * Endpoint Weiku (puxar dados pelo ATP) virá quando Felipe receber
+     * do John (TI Weiku). Por enquanto so campos manuais.
+     */
+    function renderAbaAtp(m, abaAtual) {
+      const atp = m.atp || {};
+      const oculta = abaAtual === 'agp' ? 'display:none;' : '';
+      return `
+        <div class="crm-aba-atp-content" style="${oculta}">
+          <div class="crm-aba-atp-banner">
+            <span class="crm-aba-atp-icone">📄</span>
+            <div>
+              <strong>Dados do Contrato (ATP)</strong>
+              <div class="crm-aba-atp-hint">
+                Apos fechar o lead, o cliente pode mudar nome, endereco e dados no contrato.
+                Preencha aqui sem afetar os dados originais do orcamento (aba AGP).
+                <br><em>Em breve: botao pra puxar do intranet Weiku pelo numero ATP.</em>
+              </div>
+            </div>
+          </div>
+
+          <div class="crm-form-row cols-2">
+            <div class="crm-field">
+              <label>Numero ATP <span class="crm-field-hint">numero do contrato</span></label>
+              <input type="text" data-atp-field="numeroAtp" value="${escapeHtml(atp.numeroAtp || '')}" placeholder="ATP000000" />
+            </div>
+            <div class="crm-field">
+              <label>Data Fechamento Contrato</label>
+              <input type="date" data-atp-field="dataFechamentoContrato" value="${escapeHtml(atp.dataFechamentoContrato || '')}" />
+            </div>
+          </div>
+
+          <div class="crm-form-row cols-2">
+            <div class="crm-field">
+              <label>Data Assinatura Contrato</label>
+              <input type="date" data-atp-field="dataAssinaturaContrato" value="${escapeHtml(atp.dataAssinaturaContrato || '')}" />
+            </div>
+            <div class="crm-field">
+              <label>Numero Garantia</label>
+              <input type="text" data-atp-field="numeroGarantia" value="${escapeHtml(atp.numeroGarantia || '')}" />
+            </div>
+          </div>
+
+          <div class="crm-aba-atp-divider">DADOS DO COMPRADOR (CONFORME CONTRATO)</div>
+
+          <div class="crm-form-row cols-2">
+            <div class="crm-field">
+              <label>Nome no Contrato <span class="crm-field-hint">pode ser diferente do orcamento</span></label>
+              <input type="text" data-atp-field="nomeContrato" data-titlecase="1" value="${escapeHtml(atp.nomeContrato || '')}" placeholder="ex: Roberto Bergantini" />
+            </div>
+            <div class="crm-field">
+              <label>Responsavel Legal</label>
+              <input type="text" data-atp-field="responsavelLegal" data-titlecase="1" value="${escapeHtml(atp.responsavelLegal || '')}" />
+            </div>
+          </div>
+
+          <div class="crm-form-row cols-3">
+            <div class="crm-field">
+              <label>CPF / CNPJ</label>
+              <input type="text" data-atp-field="cpfCnpj" value="${escapeHtml(atp.cpfCnpj || '')}" placeholder="000.000.000-00" />
+            </div>
+            <div class="crm-field">
+              <label>RG</label>
+              <input type="text" data-atp-field="rg" value="${escapeHtml(atp.rg || '')}" />
+            </div>
+            <div class="crm-field">
+              <label>Email no Contrato</label>
+              <input type="email" data-atp-field="emailContrato" value="${escapeHtml(atp.emailContrato || '')}" />
+            </div>
+          </div>
+
+          <div class="crm-aba-atp-divider">ENDERECO DE COBRANCA</div>
+
+          <div class="crm-form-row cols-3">
+            <div class="crm-field">
+              <label>CEP</label>
+              <input type="text" data-atp-field="cepCobranca" value="${escapeHtml(atp.cepCobranca || '')}" placeholder="00000-000" maxlength="9" />
+            </div>
+            <div class="crm-field">
+              <label>Cidade</label>
+              <input type="text" data-atp-field="cidadeCobranca" data-titlecase="1" value="${escapeHtml(atp.cidadeCobranca || '')}" />
+            </div>
+            <div class="crm-field">
+              <label>Estado</label>
+              <input type="text" data-atp-field="estadoCobranca" value="${escapeHtml(atp.estadoCobranca || '')}" maxlength="2" />
+            </div>
+          </div>
+
+          <div class="crm-form-row cols-1">
+            <div class="crm-field">
+              <label>Endereco Completo Cobranca</label>
+              <input type="text" data-atp-field="enderecoCobranca" value="${escapeHtml(atp.enderecoCobranca || '')}" placeholder="Rua, numero, complemento, bairro" />
+            </div>
+          </div>
+
+          <div class="crm-aba-atp-divider">ENDERECO DE ENTREGA (OBRA)</div>
+
+          <div class="crm-form-row cols-3">
+            <div class="crm-field">
+              <label>CEP Entrega</label>
+              <input type="text" data-atp-field="cepEntrega" value="${escapeHtml(atp.cepEntrega || '')}" placeholder="00000-000" maxlength="9" />
+            </div>
+            <div class="crm-field">
+              <label>Cidade Entrega</label>
+              <input type="text" data-atp-field="cidadeEntrega" data-titlecase="1" value="${escapeHtml(atp.cidadeEntrega || '')}" />
+            </div>
+            <div class="crm-field">
+              <label>Estado Entrega</label>
+              <input type="text" data-atp-field="estadoEntrega" value="${escapeHtml(atp.estadoEntrega || '')}" maxlength="2" />
+            </div>
+          </div>
+
+          <div class="crm-form-row cols-1">
+            <div class="crm-field">
+              <label>Endereco Completo Entrega</label>
+              <input type="text" data-atp-field="enderecoEntrega" value="${escapeHtml(atp.enderecoEntrega || '')}" placeholder="Rua, numero, complemento, bairro" />
+            </div>
+          </div>
+
+          <div class="crm-form-row cols-1">
+            <div class="crm-field">
+              <label>Pessoa Autorizada a Receber</label>
+              <input type="text" data-atp-field="pessoaAutorizadaReceber" data-titlecase="1" value="${escapeHtml(atp.pessoaAutorizadaReceber || '')}" placeholder="Nome de quem vai receber na obra" />
+            </div>
+          </div>
+
+          <div class="crm-form-row cols-2">
+            <div class="crm-field">
+              <label>Telefone na Obra</label>
+              <input type="text" data-atp-field="telefoneObra" value="${escapeHtml(atp.telefoneObra || '')}" />
+            </div>
+            <div class="crm-field">
+              <label>Ponto de Referencia</label>
+              <input type="text" data-atp-field="pontoReferencia" value="${escapeHtml(atp.pontoReferencia || '')}" />
+            </div>
+          </div>
+
+          <div class="crm-aba-atp-divider">OBSERVACOES DO CONTRATO</div>
+
+          <div class="crm-form-row cols-1">
+            <div class="crm-field">
+              <label>Notas Internas</label>
+              <textarea data-atp-field="notas" rows="3" placeholder="Particularidades do contrato, prazos especiais, etc">${escapeHtml(atp.notas || '')}</textarea>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     function renderModal() {
       const m = modalState;
       const tabBtn = (id, label) => `<button class="crm-modal-tab ${m.modo===id?'is-active':''}" data-modo="${id}">${label}</button>`;
@@ -394,6 +553,27 @@
                 ${tabBtn('manual', 'Manual')}
               </div>
       `;
+      // Felipe (sessao 2026-05-10): "No CRM quando colocamos em fechado,
+      // precisamos agora abrir campo de ATP. AGP eh numero orcamento, ATP
+      // eh o numero contrato. Ao fechar, ATP pode mudar nome no contrato,
+      // endereco. Entao quando fecha todos esses dados ja tem no intranet.
+      // Dentro do card poderiamos ter aba AGP e outra ATP, entao
+      // preservariamos todos os dados do orcamento e teramos outra aba com
+      // dados do contrato".
+      //
+      // Decisao: tabs AGP/ATP aparecem APENAS em modo edicao + etapa=fechado.
+      // Aba AGP = todos os campos atuais (zero mudanca visual).
+      // Aba ATP = campos proprios em sub-objeto m.atp (contrato).
+      //   Felipe: "Nao tenho [endpoint Weiku] ainda - faz so o campo
+      //   manual por enquanto". Endpoint Weiku virá depois (puxa pra atp).
+      const mostrarTabsAgpAtp = editando && m.etapa === 'fechado';
+      const abaAtual = mostrarTabsAgpAtp ? (m.abaAgpAtp || 'agp') : 'agp';
+      const tabsAgpAtpHtml = mostrarTabsAgpAtp ? `
+              <div class="crm-modal-tabs crm-tabs-agp-atp">
+                <button class="crm-modal-tab ${abaAtual === 'agp' ? 'is-active' : ''}" data-aba-agp-atp="agp">📋 AGP <span class="crm-tab-sub">orcamento original</span></button>
+                <button class="crm-modal-tab ${abaAtual === 'atp' ? 'is-active' : ''}" data-aba-agp-atp="atp">📄 ATP <span class="crm-tab-sub">contrato</span></button>
+              </div>
+      ` : '';
       const labelEtapa = editando ? 'Etapa atual' : 'Etapa inicial';
       const labelBotao = editando ? 'Salvar Alteracoes' : 'Criar Lead';
       const botaoExcluir = editando
@@ -416,6 +596,8 @@
             </div>
             <div class="crm-modal-body">
               ${tabsHtml}
+              ${tabsAgpAtpHtml}
+              <div class="crm-aba-agp-content" style="${abaAtual === 'atp' ? 'display:none;' : ''}">
               ${searchSection}
               <div class="crm-form-row cols-3">
                 <div class="crm-field">
@@ -676,6 +858,8 @@
                   </button>
                 </div>
               </div>
+              </div><!-- /crm-aba-agp-content -->
+              ${mostrarTabsAgpAtp ? renderAbaAtp(m, abaAtual) : ''}
             </div>
             <div class="crm-modal-footer">
               ${botaoExcluir}
@@ -730,10 +914,18 @@
       container.querySelector('#crm-btn-cancel')?.addEventListener('click', () => fecharModal(container));
       // overlay click: REMOVIDO de proposito.
 
-      // Tabs (modo)
-      container.querySelectorAll('.crm-modal-tab').forEach(btn => {
+      // Tabs (modo) - so' botoes com data-modo (criar lead: Por Reserva / Manual)
+      container.querySelectorAll('.crm-modal-tab[data-modo]').forEach(btn => {
         btn.addEventListener('click', () => {
           modalState.modo = btn.dataset.modo;
+          reRenderModal(container);
+        });
+      });
+
+      // Felipe (sessao 2026-05-10): Tabs AGP / ATP (modo edicao + fechado)
+      container.querySelectorAll('.crm-modal-tab[data-aba-agp-atp]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          modalState.abaAgpAtp = btn.dataset.abaAgpAtp;
           reRenderModal(container);
         });
       });
@@ -742,6 +934,16 @@
       container.querySelectorAll('.crm-modal [data-field]').forEach(el => {
         const evt = el.tagName === 'SELECT' ? 'change' : 'input';
         el.addEventListener(evt, (e) => { modalState[el.dataset.field] = e.target.value; });
+      });
+
+      // Felipe (sessao 2026-05-10): inputs da aba ATP - gravam em
+      // modalState.atp = { ... } pra preservar dados originais (AGP).
+      container.querySelectorAll('.crm-modal [data-atp-field]').forEach(el => {
+        const evt = (el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') ? 'change' : 'input';
+        el.addEventListener(evt, (e) => {
+          if (!modalState.atp) modalState.atp = {};
+          modalState.atp[el.dataset.atpField] = e.target.value;
+        });
       });
 
       // Felipe sessao 12: handlers de itens dinamicos
@@ -1255,6 +1457,11 @@
             modelo:  String(it.modelo  || '').trim(),
             cor:     String(it.cor     || '').trim(),
           })) : [];
+          // Felipe (sessao 2026-05-10): persistir sub-objeto ATP (contrato).
+          // Preserva intacto os dados originais do orcamento.
+          if (m.atp && typeof m.atp === 'object') {
+            lead.atp = JSON.parse(JSON.stringify(m.atp));
+          }
           // data NAO eh atualizada — fica como criacao
 
           // Felipe (req 1 do CRM): mudanca de etapa via modal precisa do
