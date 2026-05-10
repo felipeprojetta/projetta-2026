@@ -252,7 +252,7 @@
               <th>Status Instalacao</th>
               <th>Instalador</th>
               <th>Cidade / Estado</th>
-              <th>Data Inicio</th>
+              <th>Data Saida</th>
               <th>Data Termino</th>
             </tr>
           </thead>
@@ -532,15 +532,15 @@
                 <input type="hidden" id="inst-f-instalador" data-edit="instalador" value="${escapeHtml(t.instalador)}" />
               </div>
               <div>
-                <label for="inst-f-inicio">Data Inicio</label>
+                <label for="inst-f-inicio">Data Saida (dia que sai pra obra)</label>
                 <input type="date" id="inst-f-inicio" data-edit="dataInicio" value="${escapeHtml(t.dataInicio)}" />
               </div>
               <div>
-                <label for="inst-f-termino">Data Termino</label>
+                <label for="inst-f-termino">Data Termino (volta pra empresa)</label>
                 <input type="date" id="inst-f-termino" data-edit="dataTermino" value="${escapeHtml(t.dataTermino)}" />
               </div>
               <div>
-                <label for="inst-f-entrega">Data Entrega</label>
+                <label for="inst-f-entrega">Data Entrega ao Cliente</label>
                 <input type="date" id="inst-f-entrega" data-edit="dataEntrega" value="${escapeHtml(t.dataEntrega)}" />
               </div>
               <div>
