@@ -660,7 +660,19 @@ const Database = (() => {
 
       // Permissão granular REMOVIDA — todos podem editar cadastros.
 
-      localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(value));
+      // Felipe (sessao 2026-05-10): localStorage e' cache opcional, Supabase
+      // e' source-of-truth. Quando quota estoura, NAO deve travar o save —
+      // segue normalmente pra sbUpsert. Sintoma anterior: 'Erro ao salvar
+      // selecao: setItem ... exceeded the quota' bloqueava persistencia.
+      try {
+        localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(value));
+      } catch (lsErr) {
+        if (lsErr && (lsErr.name === 'QuotaExceededError' || /quota/i.test(lsErr.message || ''))) {
+          console.warn('[DB] ⚠️ localStorage quota cheia — pulando cache local. Supabase permanece source-of-truth.', scope + '/' + key);
+        } else {
+          console.warn('[DB] localStorage.setItem falhou (nao-quota):', lsErr);
+        }
+      }
       // Felipe sessao 13: marca timestamp local pra proteger contra
       // overwrite por realtime polling com dados stale do Supabase.
       _registrarWriteLocal(scope, key);
