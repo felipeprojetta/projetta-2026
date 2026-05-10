@@ -709,12 +709,72 @@
   // ============================================================
   // API PUBLICA
   // ============================================================
+  // API PUBLICA
+  // ============================================================
   const ProducaoGeral = { render, forceReload, listar: listarTrabalhos };
   window.ProducaoGeral = ProducaoGeral;
+
+  // ============================================================
+  // LISTENERS GLOBAIS (Felipe sessao 2026-05-10 - bug fix)
+  // ============================================================
+  // PROBLEMA: listeners de eventos que persistem dados (NAO so'
+  // atualizam UI) precisam estar ativos SEMPRE, nao so' depois que
+  // o user abriu o modulo PG pela 1a vez.
+  //
+  // CENARIO QUE FALHAVA:
+  //   1. User abre Equipes (sem ter aberto PG antes)
+  //   2. User finaliza job 'Roberto Bergantini / Portal' dia 08/05
+  //   3. Equipes.emit('equipes:job-finalizado', ...)
+  //   4. PG ainda nao registrou o listener (so' faz isso no render)
+  //   5. Evento PERDIDO. Marco Portal continua 'AG' eternamente.
+  //
+  // FIX: registrar 'equipes:job-finalizado' e 'kanban-producao:card-deleted'
+  // no IIFE module-level. Esses 2 eventos PRECISAM persistir mudancas no
+  // storage independente da UI. Listeners de UI (db:change, db:realtime-sync)
+  // continuam dentro de App.register (so' fazem sentido com container).
+  //
+  // Idempotente: usa flag global pra nao registrar 2x se script
+  // recarregar por engano.
+  if (!window.__pgGlobalListenersRegistered) {
+    window.__pgGlobalListenersRegistered = true;
+
+    // Equipes finalizou job -> escreve direto no delta da PG.
+    Events.on('equipes:job-finalizado', function(payload) {
+      if (!payload || !payload.cardId || !payload.marcoPG || !payload.dataFim) return;
+      load();  // garante state hidratado
+      atualizarMarco(payload.cardId, payload.marcoPG, payload.dataFim);
+      console.log('[ProducaoGeral] marco', payload.marcoPG, '=', payload.dataFim,
+                  'via Equipes (cardId:', payload.cardId, ')');
+      // Re-renderiza SE estamos visualizando PG agora
+      if (window.App && window.App.state && window.App.state.currentModule === 'producao-geral') {
+        const container = document.querySelector('.main-content') || document.body;
+        if (container) render(container);
+      }
+    });
+
+    // Kanban deletou card -> limpa nossos deltas pra esse cardId
+    // (evita lixo no storage; mesma necessidade de persistencia).
+    Events.on('kanban-producao:card-deleted', function(payload) {
+      if (!payload || !payload.cardId) return;
+      load();
+      if (state.deltas[payload.cardId]) {
+        delete state.deltas[payload.cardId];
+        saveDeltas();
+        console.log('[ProducaoGeral] delta removido por cascade-delete: ' + payload.cardId);
+      }
+      if (window.App && window.App.state && window.App.state.currentModule === 'producao-geral') {
+        const container = document.querySelector('.main-content') || document.body;
+        if (container) render(container);
+      }
+    });
+  }
 
   App.register('producao-geral', {
     render(container) {
       ProducaoGeral.forceReload(container);
+      // Felipe (sessao 2026-05-10): so' listeners de UI ficam aqui.
+      // Listeners de PERSISTENCIA foram pro module-level acima
+      // (sempre ativos, mesmo sem container montado).
       if (!container._realtimeSubscribedPG) {
         container._realtimeSubscribedPG = true;
         Events.on('db:realtime-sync', function() {
@@ -726,37 +786,6 @@
           if (payload.scope !== 'kanban-producao' && payload.scope !== 'producao-geral') return;
           if (window.App && window.App.state && window.App.state.currentModule !== 'producao-geral') return;
           ProducaoGeral.forceReload(container);
-        });
-        // Felipe (sessao 2026-05-10): cascade delete - quando Kanban
-        // Producao deleta um card, limpa nossos deltas pra esse cardId
-        // (evita lixo no storage). Cada modulo cuida do proprio scope.
-        Events.on('kanban-producao:card-deleted', function(payload) {
-          if (!payload || !payload.cardId) return;
-          load();
-          if (state.deltas[payload.cardId]) {
-            delete state.deltas[payload.cardId];
-            saveDeltas();
-            console.log('[ProducaoGeral] delta removido por cascade-delete: ' + payload.cardId);
-          }
-          if (window.App && window.App.state && window.App.state.currentModule === 'producao-geral') {
-            render(container);
-          }
-        });
-
-        // Felipe (sessao 2026-05-10): "ao finalizar [no Equipes] ja
-        // joga essa data em producao geral". Equipes emite evento
-        // 'equipes:job-finalizado' { cardId, marcoPG, dataFim }.
-        // PG aplica via atualizarMarco() - mesma funcao usada pelo
-        // proprio click do user. Persistido em state.deltas.
-        Events.on('equipes:job-finalizado', function(payload) {
-          if (!payload || !payload.cardId || !payload.marcoPG || !payload.dataFim) return;
-          load();
-          atualizarMarco(payload.cardId, payload.marcoPG, payload.dataFim);
-          console.log('[ProducaoGeral] marco', payload.marcoPG, '=', payload.dataFim,
-                      'via Equipes (cardId:', payload.cardId, ')');
-          if (window.App && window.App.state && window.App.state.currentModule === 'producao-geral') {
-            render(container);
-          }
         });
       }
     }
