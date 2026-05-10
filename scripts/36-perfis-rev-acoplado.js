@@ -335,6 +335,20 @@ var PerfisRevAcoplado = (function() {
     var sis = getSis(item);
     var compChapaCava = Number(item.altura) - 2 * sis.TUB1;
 
+    // Felipe (sessao atual): chapas com 'tampa' ou 'friso' no id, no fixo
+    // SUPERIOR (acima da porta), devem ter altura = altura_fixo + TUB1 + REF.
+    //   PA006: altura_fixo + 38 + 20 = altura_fixo + 58
+    //   PA007: altura_fixo + 51 + 20 = altura_fixo + 71
+    // Motivo: o motor da porta calcula essas alturas baseado em alturaQuadro
+    // (descontando dBC/dBFV/etc), mas no fixo superior elas atravessam o
+    // tubo de extremidade + aba de revestimento, entao precisam crescer.
+    // REF=20 do motor da porta (38-chapas-porta-externa.js linha 31).
+    var REF_FIXO = 20;
+    var ehSuperior = String(item.posicao || '').toLowerCase() === 'superior';
+    var compTampaFrisoSup = ehSuperior
+      ? Math.round((Number(item.altura) + sis.TUB1 + REF_FIXO) * 100) / 100
+      : 0;
+
     try {
       var raw = window.ChapasPortaExterna.gerarPecasChapa(iv, lado) || [];
       var result = [];
@@ -349,6 +363,10 @@ var PerfisRevAcoplado = (function() {
         }
         if (p.id === 'cava' && compChapaCava > 0) {
           p = Object.assign({}, p, { altura: Math.round(compChapaCava * 100) / 100 });
+        }
+        // Override altura tampa/friso no fixo SUPERIOR
+        if (compTampaFrisoSup > 0 && /^(tampa|friso)/.test(p.id || '')) {
+          p = Object.assign({}, p, { altura: compTampaFrisoSup });
         }
         result.push(p);
       }
