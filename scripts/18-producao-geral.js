@@ -45,7 +45,7 @@
     { id: 'cut2d',         label: 'CUT2D' },
     { id: 'corteChapa',    label: 'Corte Chapa' },
     { id: 'quadroPorta',   label: 'Quadro Porta' },
-    { id: 'colagem',       label: 'Colagem' },
+    { id: 'colagem',       label: 'Colagem Porta' },
     { id: 'portal',        label: 'Portal' },
     { id: 'quadroFixo',    label: 'Quadro Fixo' },
     { id: 'colagemFixo',   label: 'Colagem Fixo' },
@@ -780,6 +780,32 @@
       if (window.App && window.App.state && window.App.state.currentModule === 'producao-geral') {
         const container = document.querySelector('.main-content') || document.body;
         if (container) render(container);
+      }
+    });
+
+    // Felipe (sessao 2026-05-10): "ao colocar a primeira vez o cliente
+    // em colagem ja deixe no producao geral como iniciado".
+    // Equipes agendou job -> marca marco como 'iniciado' na PG.
+    // PROTECAO: nao sobrescreve marcos ja com data (FINALIZADO) nem
+    // marcados como N/A. Se o marco esta em 'iniciado' ou '', seta
+    // 'iniciado' (idempotente). Caso contrario, ignora silenciosamente.
+    Events.on('equipes:job-iniciado', function(payload) {
+      if (!payload || !payload.cardId || !payload.marcoPG) return;
+      load();
+      const delta = state.deltas[payload.cardId] || {};
+      const atual = delta[payload.marcoPG] || '';
+      // So' marca iniciado se o marco ainda nao foi finalizado/marcado como N/A
+      if (atual === '' || atual === 'iniciado') {
+        atualizarMarco(payload.cardId, payload.marcoPG, 'iniciado');
+        console.log('[ProducaoGeral] marco', payload.marcoPG, '-> iniciado',
+                    'via Equipes (cardId:', payload.cardId, ')');
+        if (window.App && window.App.state && window.App.state.currentModule === 'producao-geral') {
+          const container = document.querySelector('.main-content') || document.body;
+          if (container) render(container);
+        }
+      } else {
+        console.log('[ProducaoGeral] marco', payload.marcoPG,
+                    'ja em estado', atual, '- mantido (cardId:', payload.cardId, ')');
       }
     });
 

@@ -607,6 +607,25 @@
       dataFim: '',
     };
     saveAgendamentos();
+
+    // Felipe (sessao 2026-05-10): "ao colocar a primeira vez o cliente
+    // em colagem ja deixe no producao geral como iniciado. Ao
+    // finalizar leva data da finalizacao".
+    // Dispara 1 evento por marco - PG seta delta[cardId][marco] = 'iniciado'.
+    // SO' marca como 'iniciado' se nao tiver valor (nao sobrescreve
+    // FINALIZADO ou N/A). PG faz essa checagem ao receber o evento.
+    if (cardId && marcosArr.length > 0) {
+      marcosArr.forEach(marcoPG => {
+        try {
+          if (window.Events && typeof Events.emit === 'function') {
+            Events.emit('equipes:job-iniciado', {
+              cardId, marcoPG,
+            });
+            console.log('[Equipes] Job iniciado:', cardId, '/', marcoPG);
+          }
+        } catch (_) {}
+      });
+    }
   }
   function finalizarAgendamento(agId, dataFim) {
     const ag = state.agendamentos[agId];
@@ -804,7 +823,7 @@
     corteChapa:   'Corte Chapa',
     quadroPorta:  'Quadro Porta',
     quadroFixo:   'Quadro Fixo',
-    colagem:      'Colagem',
+    colagem:      'Colagem Porta',
     colagemFixo:  'Colagem Fixo',
     portal:       'Portal',
     conferencia:  'Conferencia',
