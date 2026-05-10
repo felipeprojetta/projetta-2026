@@ -65,11 +65,14 @@
   // Felipe (sessao 2026-05-10): "tipo esta errado - pode ser porta
   // pivotante externa pivotante/dobradica, porta interna, revestimento
   // de parede ou deixar manual". Enum fechado + opcao manual.
+  // Felipe (sessao 2026-05-10 - 2a iteracao): "faltou aqui revestimento
+  // sem estrutura que tinha na outra planilha". Adicionado.
   const TIPOS_TRABALHO = [
     { id: 'porta-pivotante-externa', label: 'Porta Pivotante Externa' },
     { id: 'porta-pivotante-dobradica', label: 'Porta Pivotante / Dobradiça' },
     { id: 'porta-interna',           label: 'Porta Interna' },
     { id: 'revestimento-parede',     label: 'Revestimento de Parede' },
+    { id: 'revestimento-sem-estrutura', label: 'Revestimento sem Estrutura' },
     { id: 'manual',                  label: 'Manual (texto livre)' },
   ];
   const LABEL_TIPO = TIPOS_TRABALHO.reduce((m, t) => { m[t.id] = t.label; return m; }, {});
