@@ -12992,9 +12992,9 @@ const Orcamento = (() => {
       const _largSecVal = Number(p.larguraSemRef);
       const _altSecVal  = Number(p.alturaSemRef);
       const _hintLargSec = (_ehTampaOuFita && Number.isFinite(_largSecVal) && _largSecVal > 0 && Math.abs(_largSecVal - Number(p.largura)) >= 0.5)
-        ? `<div class="orc-lev-sup-hint-sec">sec ${_largSecVal}</div>` : '';
+        ? `<div class="orc-lev-sup-hint-sec">sem REF ${_largSecVal}</div>` : '';
       const _hintAltSec = (_ehTampaOuFita && Number.isFinite(_altSecVal)  && _altSecVal  > 0 && Math.abs(_altSecVal  - Number(p.altura))  >= 0.5)
-        ? `<div class="orc-lev-sup-hint-sec">sec ${_altSecVal}</div>` : '';
+        ? `<div class="orc-lev-sup-hint-sec">sem REF ${_altSecVal}</div>` : '';
       const inputLargura = `<input type="number" min="1" step="1" class="orc-lev-sup-input-edit${editClass}${manualClass}"
                               data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="largura"
                               data-manual="${p._manual ? '1' : '0'}"

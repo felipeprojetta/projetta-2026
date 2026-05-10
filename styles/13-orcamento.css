@@ -3213,16 +3213,16 @@
   color: #78350F !important;
 }
 
-/* Felipe sessao 14: hint "sec NNN" abaixo do input largura/altura no Lev.
+/* Felipe sessao 14: hint "sem REF NNN" abaixo do input largura/altura no Lev.
    Sup mostra a peca SECA (sem refilado/REF). Aparece so' quando ha
-   diferenca (peca tem REF). Texto pequeno, cinza, alinhado a direita. */
+   diferenca (peca tem REF). Felipe pediu fonte maior pra ficar legivel. */
 .orc-lev-sup-hint-sec {
-  font-size: 10px;
-  color: #6b7280;
-  margin-top: 2px;
+  font-size: 13px;
+  color: #4b5563;
+  margin-top: 3px;
   text-align: right;
-  font-style: italic;
-  line-height: 1;
+  font-weight: 600;
+  line-height: 1.1;
 }
 
 /* Felipe sessao 12: contador "(N cores)" ao lado do label Cor no rev_parede.
