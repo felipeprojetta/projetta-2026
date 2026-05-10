@@ -44,6 +44,7 @@
   const store = Storage.scope('instalacao');
   const state = {
     view: 'lista',             // 'lista' | 'gantt'
+    ganttPeriodo: 'mes-atual', // 'semana' | 'mes-atual' | 'mes-seguinte' | 'auto'
     instalacoes: {},           // deltas por cardId
     filtros: {
       busca: '',
@@ -156,6 +157,10 @@
     state.instalacoes = (inst && typeof inst === 'object') ? inst : {};
     const v = store.get('view');
     if (v === 'lista' || v === 'gantt') state.view = v;
+    const gp = store.get('ganttPeriodo');
+    if (gp === 'semana' || gp === 'mes-atual' || gp === 'mes-seguinte' || gp === 'auto') {
+      state.ganttPeriodo = gp;
+    }
     const f = store.get('filtros');
     if (f && typeof f === 'object') {
       Object.keys(state.filtros).forEach(k => {
@@ -164,9 +169,10 @@
     }
     state.loaded = true;
   }
-  function saveInstalacoes() { store.set('instalacoes', state.instalacoes); }
-  function saveView()        { store.set('view', state.view); }
-  function saveFiltros()     { store.set('filtros', state.filtros); }
+  function saveInstalacoes()    { store.set('instalacoes', state.instalacoes); }
+  function saveView()           { store.set('view', state.view); }
+  function saveGanttPeriodo()   { store.set('ganttPeriodo', state.ganttPeriodo); }
+  function saveFiltros()        { store.set('filtros', state.filtros); }
 
   function forceReload(container) {
     state.loaded = false;
@@ -263,25 +269,53 @@
    * Calcula limites de datas (min e max) entre todos os trabalhos.
    * Se nao tem nenhuma data, usa hoje +/- 30 dias como fallback.
    */
+  /**
+   * Felipe (sessao 2026-05-10): opcoes de periodo do Gantt:
+   *   - 'semana':       semana atual (segunda a domingo)
+   *   - 'mes-atual':    1o ao ultimo dia do mes corrente (default)
+   *   - 'mes-seguinte': 1o ao ultimo dia do proximo mes
+   *   - 'auto':         range automatico baseado nos trabalhos (legado)
+   */
   function calcularRangeGantt(trabalhos) {
-    const datas = [];
-    trabalhos.forEach(t => {
-      if (t.dataInicio)  datas.push(t.dataInicio);
-      if (t.dataTermino) datas.push(t.dataTermino);
-    });
-    if (datas.length === 0) {
-      const h = new Date();
-      const min = new Date(h.getTime() - 14 * 86400000);
-      const max = new Date(h.getTime() + 60 * 86400000);
-      return { min: min.toISOString().slice(0,10), max: max.toISOString().slice(0,10) };
+    const periodo = state.ganttPeriodo || 'mes-atual';
+    const h = new Date();
+    let min, max;
+
+    if (periodo === 'semana') {
+      // Segunda da semana atual
+      const dow = h.getDay(); // 0 = dom
+      const diasParaSegunda = (dow === 0) ? -6 : 1 - dow;
+      min = new Date(h.getTime() + diasParaSegunda * 86400000);
+      // Domingo = segunda + 6
+      max = new Date(min.getTime() + 6 * 86400000);
+    } else if (periodo === 'mes-atual') {
+      min = new Date(h.getFullYear(), h.getMonth(), 1);
+      max = new Date(h.getFullYear(), h.getMonth() + 1, 0); // ultimo dia do mes
+    } else if (periodo === 'mes-seguinte') {
+      min = new Date(h.getFullYear(), h.getMonth() + 1, 1);
+      max = new Date(h.getFullYear(), h.getMonth() + 2, 0);
+    } else {
+      // 'auto' - logica antiga baseada nos trabalhos
+      const datas = [];
+      trabalhos.forEach(t => {
+        if (t.dataInicio)  datas.push(t.dataInicio);
+        if (t.dataTermino) datas.push(t.dataTermino);
+      });
+      if (datas.length === 0) {
+        min = new Date(h.getTime() - 14 * 86400000);
+        max = new Date(h.getTime() + 60 * 86400000);
+      } else {
+        datas.sort();
+        min = new Date(datas[0]);
+        max = new Date(datas[datas.length - 1]);
+        min.setDate(min.getDate() - 3);
+        max.setDate(max.getDate() + 7);
+      }
     }
-    datas.sort();
-    // Adiciona buffer de 3 dias antes e 7 depois pra Gantt nao ficar colado
-    const min = new Date(datas[0]);
-    const max = new Date(datas[datas.length - 1]);
-    min.setDate(min.getDate() - 3);
-    max.setDate(max.getDate() + 7);
-    return { min: min.toISOString().slice(0,10), max: max.toISOString().slice(0,10) };
+    return {
+      min: min.toISOString().slice(0,10),
+      max: max.toISOString().slice(0,10)
+    };
   }
 
   function renderGantt(trabalhos) {
@@ -496,12 +530,31 @@
     const todos = listarTrabalhos();
     const trabalhos = aplicarFiltros(todos);
 
+    // Felipe (sessao 2026-05-10): seletor de periodo do Gantt
+    // (semana/mes atual/mes seguinte). So aparece quando view='gantt'.
+    const periodos = [
+      { id: 'semana',       label: 'Semana atual' },
+      { id: 'mes-atual',    label: 'Mes atual' },
+      { id: 'mes-seguinte', label: 'Mes seguinte' },
+      { id: 'auto',         label: 'Auto (range)' },
+    ];
+    const seletorPeriodoHtml = state.view === 'gantt' ? `
+      <div class="inst-periodo-toggle">
+        ${periodos.map(p => `
+          <button data-periodo="${p.id}" class="${state.ganttPeriodo === p.id ? 'is-active' : ''}">
+            ${escapeHtml(p.label)}
+          </button>
+        `).join('')}
+      </div>
+    ` : '';
+
     container.innerHTML = `
       <div class="inst-toolbar">
         <div class="inst-view-toggle">
           <button data-view="lista" class="${state.view === 'lista' ? 'is-active' : ''}">Lista</button>
           <button data-view="gantt" class="${state.view === 'gantt' ? 'is-active' : ''}">Gantt</button>
         </div>
+        ${seletorPeriodoHtml}
         <div class="inst-toolbar-info">
           <span class="inst-info-pill">${trabalhos.length} de ${todos.length} trabalhos</span>
         </div>
@@ -520,6 +573,17 @@
         if (v === state.view) return;
         state.view = v;
         saveView();
+        render(container);
+      });
+    });
+
+    // Felipe: seletor de periodo do Gantt
+    container.querySelectorAll('.inst-periodo-toggle button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = btn.dataset.periodo;
+        if (p === state.ganttPeriodo) return;
+        state.ganttPeriodo = p;
+        saveGanttPeriodo();
         render(container);
       });
     });
@@ -632,6 +696,22 @@
           if (window.App && window.App.state && window.App.state.currentModule !== 'instalacao') return;
           if (state.modalAberto) return;
           Instalacao.forceReload(container);
+        });
+
+        // Felipe (sessao 2026-05-10): cascade delete - apaga delta de
+        // instalacao quando Kanban Producao apaga o card. Cada modulo
+        // cuida do proprio scope.
+        Events.on('kanban-producao:card-deleted', function(payload) {
+          if (!payload || !payload.cardId) return;
+          load();
+          if (state.instalacoes[payload.cardId]) {
+            delete state.instalacoes[payload.cardId];
+            saveInstalacoes();
+            console.log('[Instalacao] delta removido por cascade-delete: ' + payload.cardId);
+          }
+          if (window.App && window.App.state && window.App.state.currentModule === 'instalacao') {
+            render(container);
+          }
         });
       }
     }

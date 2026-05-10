@@ -1540,15 +1540,25 @@
         // pra marcar 'crm:<id>' nos deletados (impede re-clonagem).
         var leadAntesDelete = state.leads.find(l => l.id === modalState.editandoId);
         var crmIdDoLead = leadAntesDelete && leadAntesDelete.crmLeadId;
-        state.leads = state.leads.filter(l => l.id !== modalState.editandoId);
+        var cardIdDeletado = modalState.editandoId;
+        state.leads = state.leads.filter(l => l.id !== cardIdDeletado);
         // Salva ID deletado pra sync nao trazer de volta
         try {
           var deletados = JSON.parse(localStorage.getItem('kprod_cards_deletados') || '[]');
-          deletados.push(modalState.editandoId);
+          deletados.push(cardIdDeletado);
           if (crmIdDoLead) deletados.push('crm:' + crmIdDoLead);
           localStorage.setItem('kprod_cards_deletados', JSON.stringify(deletados));
         } catch(_){}
         save();
+        // Felipe (sessao 2026-05-10): "se eu deletar do kaban deve deletar
+        // de todos os locais kaban e o mestre". Emite evento custom -
+        // Producao Geral e Instalacao escutam e limpam seus deltas locais
+        // pra esse cardId. Cada modulo continua isolado.
+        try {
+          if (window.Events && typeof Events.emit === 'function') {
+            Events.emit('kanban-producao:card-deleted', { cardId: cardIdDeletado });
+          }
+        } catch(_){}
         fecharModal(container);
         render(container);
       });

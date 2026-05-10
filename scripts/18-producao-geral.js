@@ -435,6 +435,21 @@
           if (window.App && window.App.state && window.App.state.currentModule !== 'producao-geral') return;
           ProducaoGeral.forceReload(container);
         });
+        // Felipe (sessao 2026-05-10): cascade delete - quando Kanban
+        // Producao deleta um card, limpa nossos deltas pra esse cardId
+        // (evita lixo no storage). Cada modulo cuida do proprio scope.
+        Events.on('kanban-producao:card-deleted', function(payload) {
+          if (!payload || !payload.cardId) return;
+          load();
+          if (state.deltas[payload.cardId]) {
+            delete state.deltas[payload.cardId];
+            saveDeltas();
+            console.log('[ProducaoGeral] delta removido por cascade-delete: ' + payload.cardId);
+          }
+          if (window.App && window.App.state && window.App.state.currentModule === 'producao-geral') {
+            render(container);
+          }
+        });
       }
     }
   });

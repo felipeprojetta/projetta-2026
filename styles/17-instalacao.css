@@ -459,3 +459,32 @@
   color: var(--text, #1f2937);
 }
 .inst-btn-secundario:hover { background: var(--bg-hover, #f3f4f6); }
+
+/* ============================================================
+   SELETOR DE PERIODO DO GANTT (Felipe sessao 2026-05-10)
+   Aparece SO quando view='gantt'.
+   ============================================================ */
+.inst-periodo-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+.inst-periodo-toggle button {
+  background: transparent;
+  border: none;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text, #1f2937);
+  cursor: pointer;
+  border-right: 1px solid var(--border, #e5e7eb);
+  white-space: nowrap;
+}
+.inst-periodo-toggle button:last-child { border-right: none; }
+.inst-periodo-toggle button:hover { background: var(--bg-hover, #f3f4f6); }
+.inst-periodo-toggle button.is-active {
+  background: var(--accent, #0f766e);
+  color: #fff;
+}
