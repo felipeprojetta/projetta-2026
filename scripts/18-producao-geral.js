@@ -55,7 +55,12 @@
     { id: 'entregaFinal',  label: 'Entrega Final', calculado: true },
   ];
   const PRAZO_CONTRATO_DEFAULT = 90;  // dias (Felipe: "geralmente 90 dias")
-  const ANTECEDENCIA_INSTALACAO = 15; // dias (Felipe: "15 dias antes do prazo final")
+  // Felipe (sessao 2026-05-10): "inicio da instalacao se for instalacao
+  // projetta 7 dias antes, e se for weiku 20 dias antes". Antes era
+  // valor unico (15 dias) - agora depende de quemInstala.
+  const ANTECEDENCIA_INST_PROJETTA = 7;
+  const ANTECEDENCIA_INST_WEIKU    = 20;
+  const QUEM_INSTALA_DEFAULT       = 'projetta';
 
   // Mapa etapa Kanban Producao -> label legivel
   const LABEL_STATUS = {
@@ -113,11 +118,14 @@
     d.setDate(d.getDate() + dias);
     return d.toISOString().slice(0, 10);
   }
-  function calcInicioInst(entregaFinalISO) {
+  function calcInicioInst(entregaFinalISO, quemInstala) {
     if (!entregaFinalISO) return '';
     const d = new Date(entregaFinalISO);
     if (isNaN(d.getTime())) return '';
-    d.setDate(d.getDate() - ANTECEDENCIA_INSTALACAO);
+    const dias = (quemInstala === 'weiku')
+      ? ANTECEDENCIA_INST_WEIKU
+      : ANTECEDENCIA_INST_PROJETTA;
+    d.setDate(d.getDate() - dias);
     return d.toISOString().slice(0, 10);
   }
 
@@ -134,13 +142,16 @@
       const delta = state.deltas[card.id] || {};
       // Felipe (sessao 2026-05-10): prazo contrato default 90 dias,
       // editavel por trabalho. Entrega Final = aprovacao + prazo.
-      // Inicio Inst. = Entrega Final - 15 dias.
+      // Inicio Inst. = Entrega Final - antecedencia (Projetta=7, Weiku=20).
       const prazoDias = (delta.prazoContratoDias != null && delta.prazoContratoDias !== '')
         ? Number(delta.prazoContratoDias)
         : PRAZO_CONTRATO_DEFAULT;
+      const quemInstala = (delta.quemInstala === 'weiku' || delta.quemInstala === 'projetta')
+        ? delta.quemInstala
+        : QUEM_INSTALA_DEFAULT;
       const aprovacao = delta.aprovacao || '';
       const entregaFinalCalc = calcEntregaFinal(aprovacao, prazoDias);
-      const inicioInstCalc   = calcInicioInst(entregaFinalCalc);
+      const inicioInstCalc   = calcInicioInst(entregaFinalCalc, quemInstala);
       return {
         cardId:        card.id,
         crmLeadId:     card.crmLeadId || null,
@@ -155,6 +166,7 @@
         statusLabel:   LABEL_STATUS[card.etapa] || (card.etapa || '—').toUpperCase(),
         statusCor:     COR_STATUS[card.etapa] || '#64748B',
         prazoDias:     prazoDias,
+        quemInstala:   quemInstala,
         // Deltas (marcos editaveis + calculados readonly)
         marcos: {
           medicao:       delta.medicao       || '',
@@ -362,6 +374,14 @@
                    value="${t.prazoDias}" min="1" max="365" step="1"
                    title="Prazo de contrato em dias (default 90)" />
           </td>
+          <td class="pg-td-quem-instala">
+            <select class="pg-quem-instala-select pg-quem-instala-${escapeHtml(t.quemInstala)}"
+                    data-card-id="${escapeHtml(t.cardId)}"
+                    title="Projetta: inicio = entrega - 7 dias. Weiku: entrega - 20 dias.">
+              <option value="projetta" ${t.quemInstala === 'projetta' ? 'selected' : ''}>Projetta (-7d)</option>
+              <option value="weiku"    ${t.quemInstala === 'weiku'    ? 'selected' : ''}>Weiku (-20d)</option>
+            </select>
+          </td>
           ${marcosCells}
         </tr>
       `;
@@ -374,14 +394,15 @@
   // Liberacao + Em Producao) ficam identicamente alinhadas, mesmo que
   // os pills de status tenham tamanhos diferentes.
   const COL_WIDTHS = {
-    cliente: 220,
-    atp:     100,
-    status:  220,
-    cidade:  140,
-    tipo:    100,
-    qtd:      60,
-    prazo:    90,
-    marco:   120,  // todos os marcos tem mesma largura
+    cliente:     220,
+    atp:         100,
+    status:      220,
+    cidade:      140,
+    tipo:        100,
+    qtd:          60,
+    prazo:        90,
+    quemInstala: 130,  // Felipe (sessao 2026-05-10): coluna nova
+    marco:       120,  // todos os marcos tem mesma largura
   };
 
   function renderColgroup() {
@@ -393,6 +414,7 @@
       <col style="width:${COL_WIDTHS.tipo}px">
       <col style="width:${COL_WIDTHS.qtd}px">
       <col style="width:${COL_WIDTHS.prazo}px">
+      <col style="width:${COL_WIDTHS.quemInstala}px">
     `;
     MARCOS.forEach(() => {
       cols += `<col style="width:${COL_WIDTHS.marco}px">`;
@@ -429,6 +451,7 @@
               <th>Tipo</th>
               <th>Qtd</th>
               <th class="pg-th-prazo">Prazo (d)</th>
+              <th class="pg-th-quem-instala">Quem Instala</th>
               ${colsMarco}
             </tr>
           </thead>
@@ -545,6 +568,22 @@
         const dias = Math.max(1, Math.min(365, parseInt(input.value, 10) || PRAZO_CONTRATO_DEFAULT));
         const atual = state.deltas[cardId] || {};
         atual.prazoContratoDias = dias;
+        state.deltas[cardId] = atual;
+        saveDeltas();
+        render(container);
+      });
+    });
+
+    // Felipe (sessao 2026-05-10): select Quem Instala.
+    // Projetta -> Inicio Inst = Entrega - 7 dias
+    // Weiku    -> Inicio Inst = Entrega - 20 dias
+    // Mudou -> recalcula Inicio Inst -> re-renderiza.
+    container.querySelectorAll('.pg-quem-instala-select').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const cardId = sel.dataset.cardId;
+        const valor = (sel.value === 'weiku' || sel.value === 'projetta') ? sel.value : QUEM_INSTALA_DEFAULT;
+        const atual = state.deltas[cardId] || {};
+        atual.quemInstala = valor;
         state.deltas[cardId] = atual;
         saveDeltas();
         render(container);

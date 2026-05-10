@@ -395,3 +395,46 @@
   background: #fee2e2;
   color: #dc2626;
 }
+
+/* ============================================================
+   QUEM INSTALA (Felipe sessao 2026-05-10)
+   Coluna entre Prazo e os marcos. Cor neutra (cinza-azulado)
+   pra nao confundir com comercial (verde), producao (amarelo)
+   ou calculado (laranja). Select muda cor pelo valor selecionado.
+   ============================================================ */
+.pg-th-quem-instala {
+  background: #e0e7ff !important;  /* indigo claro */
+  color: #3730a3 !important;        /* indigo-800 */
+}
+.pg-td-quem-instala {
+  background: #eef2ff;              /* indigo MUITO claro */
+  border-left: 2px solid #a5b4fc;
+  padding: 4px 6px;
+}
+.pg-quem-instala-select {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  border: 1px solid;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: .2px;
+}
+.pg-quem-instala-select.pg-quem-instala-projetta {
+  background: #dcfce7;              /* verde claro */
+  border-color: #86efac;
+  color: #14532d;                   /* green-900 */
+}
+.pg-quem-instala-select.pg-quem-instala-weiku {
+  background: #ffedd5;              /* laranja claro */
+  border-color: #fdba74;
+  color: #9a3412;                   /* orange-800 */
+}
+.pg-quem-instala-select:focus {
+  outline: 2px solid #6366f1;
+  outline-offset: 0;
+}
