@@ -176,11 +176,18 @@
       const aprovacao = delta.aprovacao || '';
       const entregaFinalCalc = calcEntregaFinal(aprovacao, prazoDias);
       const inicioInstCalc   = calcInicioInst(entregaFinalCalc, quemInstala);
+      // Felipe (sessao 2026-05-10): "campo de ATP ainda esta vazio,
+      // nao traga numero de AGP somente o ATP". A aba ATP do CRM/Kanban
+      // tem o numero do contrato em card.atp.numeroAtp. AGP eh do orcamento
+      // (separado). Buscar ATP dessa aba e cair pra '—' se nao preenchido
+      // - NUNCA misturar com numeroAGP.
+      const atpContrato = (card.atp && card.atp.numeroAtp) ? String(card.atp.numeroAtp).trim() : '';
       return {
         cardId:        card.id,
         crmLeadId:     card.crmLeadId || null,
         cliente:       card.cliente || '(sem nome)',
-        atp:           card.numeroAGP || '',
+        atp:           atpContrato,
+        agp:           card.numeroAGP || '',  // tambem disponivel em busca
         reserva:       card.numeroReserva || '',
         cidade:        card.cidade || '',
         estado:        card.estado || '',
@@ -253,7 +260,7 @@
     return trabalhos.filter(t => {
       if (f.busca) {
         const q = f.busca.toLowerCase();
-        const hay = [t.cliente, t.atp, t.cidade, t.estado, t.tipo]
+        const hay = [t.cliente, t.atp, t.agp, t.cidade, t.estado, t.tipo]
           .map(x => String(x || '').toLowerCase()).join(' ');
         if (hay.indexOf(q) === -1) return false;
       }
@@ -493,9 +500,15 @@
     // liberacao em baixo". Ordem invertida nesta entrega.
     const aguardandoLiberacao = trabalhos.filter(t => t.statusId === 'ag-liberacao-medidas');
     const emProducao          = trabalhos.filter(t => t.statusId !== 'ag-liberacao-medidas');
+    // Felipe (sessao 2026-05-10): "ainda continua desalinhando as
+    // colunas, mantenha todas alinhadas". Wrap UNICO compartilhado pelas
+    // 2 tabelas - 1 scroll horizontal compartilhado garante que o
+    // alinhamento visual se mantem mesmo com pills de tamanhos diferentes.
     return `
-      ${renderTabelaCompleta(emProducao,          'EM PRODUCAO',          'pg-secao-producao')}
-      ${renderTabelaCompleta(aguardandoLiberacao, 'AGUARDANDO LIBERACAO', 'pg-secao-aguardando')}
+      <div class="pg-secoes-wrap">
+        ${renderTabelaCompleta(emProducao,          'EM PRODUCAO',          'pg-secao-producao')}
+        ${renderTabelaCompleta(aguardandoLiberacao, 'AGUARDANDO LIBERACAO', 'pg-secao-aguardando')}
+      </div>
     `;
   }
 

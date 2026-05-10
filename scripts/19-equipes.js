@@ -226,7 +226,9 @@
       out.get(dia).push({
         cardId,
         cliente: card.cliente || '(sem nome)',
-        atp:     card.numeroAGP || '—',
+        // Felipe (sessao 2026-05-10): "campo de ATP nao traga numero
+        // de AGP somente o ATP". Le da aba ATP do Kanban (sub-objeto).
+        atp:     (card.atp && card.atp.numeroAtp) ? String(card.atp.numeroAtp).trim() : '—',
         etapa:   card.etapa,
         statusInstalacao: delta.statusInstalacao || '',
       });
@@ -269,6 +271,45 @@
     return idx;
   }
 
+  /**
+   * Felipe (sessao 2026-05-10): "quando ter um cliente dia 09 e
+   * passar para dia 10 elimine esse campo finalizar dia 09. Posso
+   * pre-planejar varios dias, sempre o finalizar fica somente no
+   * ultimo dessa coluna".
+   *
+   * Quando o mesmo job (cardId) com mesmos marcos esta agendado em
+   * varios dias na MESMA equipe, so o agendamento do ULTIMO dia
+   * tem botao 'Finalizar'. Os anteriores sao auto-puladados (sem
+   * botao - 'EM PRODUCAO').
+   *
+   * Critica: olhamos TODOS os agendamentos (nao so' do mes atual),
+   * pra cobrir caso 'agendado dia 30/04 + 01/05' onde o ultimo
+   * esta no proximo mes.
+   *
+   * Retorna Set<agId> com IDs que SAO o ultimo dia (tem botao Finalizar).
+   */
+  function mapearUltimosDiasPorJob() {
+    // Agrupa por (equipeId|cardId|marcosPGsorted)
+    const grupos = new Map();
+    Object.entries(state.agendamentos).forEach(([id, ag]) => {
+      if (!ag || !ag.cardId) return;  // tarefa manual nao se aplica
+      if (ag.status === 'finalizado') return;  // ja finalizado nao conta
+      const marcos = (Array.isArray(ag.marcosPG) ? ag.marcosPG.slice() : []).sort();
+      const key = ag.equipeId + '|' + ag.cardId + '|' + marcos.join(',');
+      if (!grupos.has(key)) grupos.set(key, []);
+      grupos.get(key).push({ id, dia: ag.dia });
+    });
+
+    const ultimos = new Set();
+    grupos.forEach(arr => {
+      // Ordena por dia (string ISO permite comparar como string)
+      arr.sort((a, b) => (a.dia < b.dia ? -1 : (a.dia > b.dia ? 1 : 0)));
+      // Ultimo dia
+      ultimos.add(arr[arr.length - 1].id);
+    });
+    return ultimos;
+  }
+
   // ============================================================
   // RENDER CABECALHO
   // ============================================================
@@ -307,6 +348,9 @@
     // Felipe (sessao 2026-05-10): instalacoes automaticas vindas de
     // Agenda Obras (read-only) - aparecem na coluna 'instalacao'.
     const instalacoesPorDia = listarInstalacoesPorDia();
+    // Felipe (sessao 2026-05-10): "sempre o finalizar fica somente no
+    // ultimo dessa coluna". Quem TEM botao Finalizar.
+    const ultimosDias = mapearUltimosDiasPorJob();
 
     // Header row: dia + 9 colunas equipe
     const headerEquipes = EQUIPES.map(e => `
@@ -360,14 +404,30 @@
           const marcoLabel = marcosArr.length > 0
             ? marcosArr.map(labelMarco).join(' + ')
             : '';
+          // Felipe (sessao 2026-05-10): "campo de ATP ainda esta vazio,
+          // nao traga numero de AGP somente o ATP". Le da aba ATP do
+          // CRM/Kanban (sub-objeto card.atp.numeroAtp) - cai pra '—'
+          // se nao preenchido.
+          const numeroAtpExibir = (card.atp && card.atp.numeroAtp)
+            ? String(card.atp.numeroAtp).trim()
+            : '—';
+          // Felipe (sessao 2026-05-10): "sempre o finalizar fica
+          // somente no ultimo dessa coluna". Quando agendamentos
+          // mesmo job/equipe/marcos abrangem varios dias, so o
+          // ULTIMO mostra botao 'Finalizar'. Os anteriores mostram
+          // tag 'EM PRODUCAO' (sem botao).
+          const ehUltimoDia = ultimosDias.has(ag.id);
           return `
-            <div class="eq-job-card ${finalizado ? 'eq-job-finalizado' : ''}" style="${styleBg}" title="${escapeHtml(card.cliente)} · ATP ${escapeHtml(card.numeroAGP || '—')}${marcoLabel ? ' · ' + marcoLabel : ''}${finalizado ? ' (finalizado em ' + dataFmt + ')' : ''}">
+            <div class="eq-job-card ${finalizado ? 'eq-job-finalizado' : ''}" style="${styleBg}" title="${escapeHtml(card.cliente)} · ATP ${escapeHtml(numeroAtpExibir)}${marcoLabel ? ' · ' + marcoLabel : ''}${finalizado ? ' (finalizado em ' + dataFmt + ')' : ''}">
               <button class="eq-job-del" data-action="remover" data-ag-id="${escapeHtml(ag.id)}" title="Remover">×</button>
               <div class="eq-job-cliente">${escapeHtml(card.cliente || '(sem nome)')}</div>
-              <div class="eq-job-atp">${escapeHtml(card.numeroAGP || '—')}${marcoLabel ? ' · ' + escapeHtml(marcoLabel) : ''}</div>
+              <div class="eq-job-atp">${escapeHtml(numeroAtpExibir)}${marcoLabel ? ' · ' + escapeHtml(marcoLabel) : ''}</div>
               ${finalizado
                 ? `<div class="eq-job-status-tag eq-tag-finalizado">✓ ${escapeHtml(dataFmt)}</div>`
-                : `<button class="eq-job-finalizar" data-action="finalizar" data-ag-id="${escapeHtml(ag.id)}" title="Marcar como finalizado hoje">✓ Finalizar</button>`}
+                : (ehUltimoDia
+                  ? `<button class="eq-job-finalizar" data-action="finalizar" data-ag-id="${escapeHtml(ag.id)}" title="Marcar como finalizado">✓ Finalizar</button>`
+                  : `<div class="eq-job-status-tag eq-tag-emprod" title="Continua em outro dia - botao Finalizar fica no ultimo">→ EM PRODUCAO</div>`)
+              }
             </div>
           `;
         }).join('');

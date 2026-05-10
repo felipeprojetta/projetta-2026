@@ -73,12 +73,24 @@
 }
 
 /* TABELA MASTER */
-.pg-tabela-wrap {
+/* Felipe (sessao 2026-05-10): wrap UNICO compartilhado pelas 2
+   secoes (Em Producao + Aguardando Liberacao). Scroll horizontal
+   ÚNICO garante alinhamento perfeito entre as 2 tabelas. */
+.pg-secoes-wrap {
   background: var(--bg-card, #fff);
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 8px;
   overflow: auto;
-  max-height: calc(100vh - 280px);
+  max-height: calc(100vh - 240px);
+  width: 100%;
+}
+.pg-tabela-wrap {
+  /* Filhos do pg-secoes-wrap herdam o scroll do pai - sem overflow proprio */
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  width: max-content;
+  min-width: 100%;
 }
 .pg-tabela {
   border-collapse: collapse;

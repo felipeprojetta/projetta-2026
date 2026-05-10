@@ -472,3 +472,16 @@
   font-size: 8px !important;
   letter-spacing: .5px;
 }
+
+/* ============================================================
+   TAG 'EM PRODUCAO' (Felipe sessao 2026-05-10)
+   Quando job esta agendado em multiplos dias, dias intermediarios
+   nao tem botao 'Finalizar' - mostra '→ EM PRODUCAO' (sera
+   finalizado no ultimo dia). So o ultimo dia tem o botao.
+   ============================================================ */
+.eq-tag-emprod {
+  background: #fed7aa;
+  color: #9a3412;
+  font-size: 8.5px !important;
+  letter-spacing: .3px;
+}
