@@ -138,9 +138,14 @@
 .eq-grade tbody tr.eq-row-hoje:hover td.eq-td-dia { background: #fde68a; }
 
 /* Linha de fim de semana */
-.eq-grade tbody tr.eq-row-weekend td.eq-td-dia { background: #f9fafb; }
-.eq-grade tbody tr.eq-row-weekend td.eq-td-dia .eq-dia-num { color: var(--text-muted, #9ca3af); }
-.eq-grade tbody tr.eq-row-weekend:hover td.eq-td-dia { background: #f3f4f6; }
+/* Felipe (sessao 2026-05-10): "coloque sabado e domingo um cinza
+   um pouco mais escuro pra destacar final de semana".
+   Antes: #f9fafb (cinza-50) - quase invisivel.
+   Agora: #e2e8f0 (slate-200) - destacado mas nao agressivo. */
+.eq-grade tbody tr.eq-row-weekend td.eq-td-dia { background: #e2e8f0; }
+.eq-grade tbody tr.eq-row-weekend td.eq-td-dia .eq-dia-num { color: #64748b; }
+.eq-grade tbody tr.eq-row-weekend td.eq-td-dia .eq-dia-dow { color: #94a3b8; }
+.eq-grade tbody tr.eq-row-weekend:hover td.eq-td-dia { background: #cbd5e1; }
 
 /* Cell de equipe (vazia ou com jobs) */
 .eq-grade tbody td.eq-td-cell {
@@ -156,8 +161,8 @@
   transition: background .12s ease;
 }
 .eq-grade tbody td.eq-td-cell:hover { background: #f0f9ff; }
-.eq-grade tbody td.eq-td-cell.eq-cell-weekend { background: #f9fafb; }
-.eq-grade tbody td.eq-td-cell.eq-cell-weekend:hover { background: #f3f4f6; }
+.eq-grade tbody td.eq-td-cell.eq-cell-weekend { background: #f1f5f9; }
+.eq-grade tbody td.eq-td-cell.eq-cell-weekend:hover { background: #e2e8f0; }
 
 /* Botao + de adicionar (so aparece no hover) */
 .eq-add-btn {
@@ -348,4 +353,59 @@
   color: #64748b;
   font-family: inherit;
   font-style: italic;
+}
+
+/* ============================================================
+   ESTADOS DOS MINI-CARDS (Felipe sessao 2026-05-10)
+   INICIADO (default ao agendar) -> FINALIZADO (click '✓')
+   Ao finalizar dispara evento -> Producao Geral atualiza marco.
+   ============================================================ */
+.eq-job-finalizar {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 3px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #14532d;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.eq-job-finalizar:hover {
+  background: #86efac;
+  border-color: #22c55e;
+}
+
+.eq-job-status-tag {
+  display: block;
+  margin-top: 4px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  border-radius: 3px;
+  text-align: center;
+}
+.eq-tag-finalizado {
+  background: #22c55e;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.eq-job-card.eq-job-finalizado {
+  border-left-width: 5px !important;
+}
+.eq-job-card.eq-job-finalizado .eq-job-cliente {
+  text-decoration: line-through;
+  opacity: .85;
+}
+.eq-job-card.eq-job-manual.eq-job-finalizado {
+  background: #dcfce7 !important;
+  border-left-color: #22c55e !important;
 }

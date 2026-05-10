@@ -37,17 +37,34 @@
 (() => {
   'use strict';
 
+  // Felipe (sessao 2026-05-10): "multiplos marcos por equipe (mais
+  // flexivel)". Cada equipe pode mapear pra varios marcos da Producao
+  // Geral. Quando o user vai INICIAR/FINALIZAR um job na cell, se
+  // tiver mais de 1 marco a UI pergunta qual.
+  // 'instalacao' nao mapeia - eh agendamento puro (Agenda Obras).
   const EQUIPES = [
-    { id: 'engenharia', label: 'ENGENHARIA', responsavel: 'Eric',         icon: '📐', cor: '#0EA5E9' },
-    { id: 'quadro',     label: 'QUADRO',     responsavel: 'Luiz',         icon: '🔲', cor: '#8B5CF6' },
-    { id: 'corte-85',   label: 'CORTE 8.5',  responsavel: '—',            icon: '✂️', cor: '#F59E0B' },
-    { id: 'corte-50',   label: 'CORTE 5.0',  responsavel: '—',            icon: '✂️', cor: '#EAB308' },
-    { id: 'colagem-1',  label: 'COLAGEM 1',  responsavel: 'Igor',         icon: '🛠️', cor: '#06B6D4' },
-    { id: 'colagem-2',  label: 'COLAGEM 2',  responsavel: 'Alex',         icon: '🛠️', cor: '#14B8A6' },
-    { id: 'colagem-3',  label: 'COLAGEM 3',  responsavel: 'Michael',      icon: '🛠️', cor: '#10B981' },
-    { id: 'portal',     label: 'PORTAL',     responsavel: 'Pedro/Jose',   icon: '🚪', cor: '#F97316' },
-    { id: 'instalacao', label: 'INSTALACAO', responsavel: '—',            icon: '🔧', cor: '#EF4444' },
+    { id: 'engenharia', label: 'ENGENHARIA', responsavel: 'Eric',         icon: '📐', cor: '#0EA5E9', marcos: ['cadOs'] },
+    { id: 'quadro',     label: 'QUADRO',     responsavel: 'Luiz',         icon: '🔲', cor: '#8B5CF6', marcos: ['quadroPorta', 'quadroFixo'] },
+    { id: 'corte-85',   label: 'CORTE 8.5',  responsavel: '—',            icon: '✂️', cor: '#F59E0B', marcos: ['corteChapa'] },
+    { id: 'corte-50',   label: 'CORTE 5.0',  responsavel: '—',            icon: '✂️', cor: '#EAB308', marcos: ['cut2d'] },
+    { id: 'colagem-1',  label: 'COLAGEM 1',  responsavel: 'Igor',         icon: '🛠️', cor: '#06B6D4', marcos: ['colagem', 'colagemFixo'] },
+    { id: 'colagem-2',  label: 'COLAGEM 2',  responsavel: 'Alex',         icon: '🛠️', cor: '#14B8A6', marcos: ['colagem', 'colagemFixo'] },
+    { id: 'colagem-3',  label: 'COLAGEM 3',  responsavel: 'Michael',      icon: '🛠️', cor: '#10B981', marcos: ['colagem', 'colagemFixo'] },
+    { id: 'portal',     label: 'PORTAL',     responsavel: 'Pedro/Jose',   icon: '🚪', cor: '#F97316', marcos: ['portal'] },
+    { id: 'instalacao', label: 'INSTALACAO', responsavel: '—',            icon: '🔧', cor: '#EF4444', marcos: [] },
   ];
+
+  // Felipe (sessao 2026-05-10): "ao colocar ali uma tarefa coloco que
+  // comecou, na sexta depois pulo pra terca, preciso de alguma forma
+  // ali informar que o corte de chapa acabou na terca ai fica verde,
+  // e ja joga essa data em producao geral". Estados:
+  //   'iniciado'    -> mini-card amarelo, botao verde "Finalizar"
+  //   'finalizado'  -> mini-card verde, sem botoes (mostra data fim)
+  // ag.marcoPG = qual marco da Producao Geral foi afetado (cadOs,
+  // quadroPorta, etc). Ao finalizar, dispara evento que Producao
+  // Geral escuta e seta delta[cardId][marcoPG] = dataFim.
+  // Defaulto novo agendamento pra 'iniciado' (Felipe disse 'coloco
+  // que comecou' - significa que ao agendar ja eh inicio).
   const equipeById = (id) => EQUIPES.find(e => e.id === id) || EQUIPES[0];
 
   // Cores das 11 etapas do Kanban Producao (sincronizadas)
@@ -259,29 +276,41 @@
       const cellsEquipes = EQUIPES.map(e => {
         const ags = idx.get(e.id + '|' + iso) || [];
         const cardsHtml = ags.map(ag => {
+          const finalizado = ag.status === 'finalizado';
+
           // Felipe (sessao 2026-05-10): tarefa manual (sem cardId)
           if (!ag.cardId && ag.tarefaManual) {
+            const classFin = finalizado ? 'eq-job-finalizado' : '';
+            const dataFmt  = finalizado && ag.dataFim ? fmtData(ag.dataFim) : '';
             return `
-              <div class="eq-job-card eq-job-manual" title="Tarefa manual: ${escapeHtml(ag.tarefaManual)}">
+              <div class="eq-job-card eq-job-manual ${classFin}" title="Tarefa manual: ${escapeHtml(ag.tarefaManual)}${finalizado ? ' (finalizada em ' + dataFmt + ')' : ''}">
                 <button class="eq-job-del" data-action="remover" data-ag-id="${escapeHtml(ag.id)}" title="Remover">×</button>
                 <div class="eq-job-cliente">📝 ${escapeHtml(ag.tarefaManual)}</div>
-                ${ag.notas ? `<div class="eq-job-atp">${escapeHtml(ag.notas)}</div>` : ''}
+                ${finalizado
+                  ? `<div class="eq-job-status-tag eq-tag-finalizado">✓ ${escapeHtml(dataFmt)}</div>`
+                  : `<button class="eq-job-finalizar" data-action="finalizar" data-ag-id="${escapeHtml(ag.id)}" title="Marcar como finalizada">✓ Finalizar</button>`}
               </div>
             `;
           }
           const card = cardById(ag.cardId);
           if (!card) return ''; // card deletado no kanban — cascade ja limpa, mas defesa
-          // Felipe (sessao 2026-05-10): "so deve aparecer ai os itens
-          // que estiverem em producao". Se o job avancou de etapa e
-          // voltou pra pre-producao (ag-liberacao-medidas / ag-medicao),
-          // esconder o mini-card aqui tambem.
-          if (ETAPAS_PRE_PRODUCAO.has(card.etapa)) return '';
+          if (ETAPAS_PRE_PRODUCAO.has(card.etapa)) return ''; // pre-producao escondido
           const corEtapa = COR_ETAPA[card.etapa] || '#64748B';
+          // Felipe (sessao 2026-05-10): se finalizado, fundo verde
+          // sobreposto a cor da etapa pra dar feedback visual claro.
+          const styleBg = finalizado
+            ? `border-left-color:#10b981;background:#dcfce7`
+            : `border-left-color:${corEtapa};background:${corEtapa}15`;
+          const dataFmt = finalizado && ag.dataFim ? fmtData(ag.dataFim) : '';
+          const marcoLabel = ag.marcoPG ? labelMarco(ag.marcoPG) : '';
           return `
-            <div class="eq-job-card" style="border-left-color:${corEtapa};background:${corEtapa}15" title="${escapeHtml(card.cliente)} · ATP ${escapeHtml(card.numeroAGP || '—')}">
+            <div class="eq-job-card ${finalizado ? 'eq-job-finalizado' : ''}" style="${styleBg}" title="${escapeHtml(card.cliente)} · ATP ${escapeHtml(card.numeroAGP || '—')}${marcoLabel ? ' · ' + marcoLabel : ''}${finalizado ? ' (finalizado em ' + dataFmt + ')' : ''}">
               <button class="eq-job-del" data-action="remover" data-ag-id="${escapeHtml(ag.id)}" title="Remover">×</button>
               <div class="eq-job-cliente">${escapeHtml(card.cliente || '(sem nome)')}</div>
-              <div class="eq-job-atp">${escapeHtml(card.numeroAGP || '—')}</div>
+              <div class="eq-job-atp">${escapeHtml(card.numeroAGP || '—')}${marcoLabel ? ' · ' + escapeHtml(marcoLabel) : ''}</div>
+              ${finalizado
+                ? `<div class="eq-job-status-tag eq-tag-finalizado">✓ ${escapeHtml(dataFmt)}</div>`
+                : `<button class="eq-job-finalizar" data-action="finalizar" data-ag-id="${escapeHtml(ag.id)}" title="Marcar como finalizado hoje">✓ Finalizar</button>`}
             </div>
           `;
         }).join('');
@@ -350,6 +379,25 @@
       ? `<small style="color:var(--text-muted,#6b7280);font-size:11px;">Nenhum job em producao no Kanban (jobs aguardando liberacao/medicao nao aparecem aqui).</small>`
       : '';
 
+    // Felipe (sessao 2026-05-10): equipe com multiplos marcos PG.
+    // Se equipe tem 0 marcos (instalacao) -> sem select. Se 1 -> oculto
+    // mas valor sai automatico. Se 2+ -> select obrigatorio.
+    const marcosEquipe = Array.isArray(equipe.marcos) ? equipe.marcos : [];
+    let marcoPgHtml = '';
+    if (marcosEquipe.length === 1) {
+      marcoPgHtml = `<input type="hidden" id="eq-modal-marco-pg" value="${escapeHtml(marcosEquipe[0])}" />`;
+    } else if (marcosEquipe.length > 1) {
+      marcoPgHtml = `
+        <label class="eq-modal-label">Qual etapa de producao? <span style="color:#dc2626;font-weight:400;">*</span></label>
+        <select class="eq-modal-select" id="eq-modal-marco-pg">
+          <option value="">— selecione —</option>
+          ${marcosEquipe.map(mc => `<option value="${escapeHtml(mc)}">${escapeHtml(labelMarco(mc))}</option>`).join('')}
+        </select>
+      `;
+    } else {
+      marcoPgHtml = `<input type="hidden" id="eq-modal-marco-pg" value="" />`;
+    }
+
     return `
       <div class="eq-modal-backdrop" data-action="fechar-modal"></div>
       <div class="eq-modal" role="dialog" aria-modal="true">
@@ -370,12 +418,13 @@
             <label class="eq-modal-label">Descricao da tarefa manual</label>
             <input type="text" class="eq-modal-select" id="eq-modal-tarefa-manual" placeholder="Ex: Manutencao da maquina, treinamento, limpeza..." />
           </div>
+          ${marcoPgHtml}
           <label class="eq-modal-label">Observacoes (opcional)</label>
           <textarea class="eq-modal-textarea" id="eq-modal-notas" rows="3" placeholder="Detalhes adicionais..."></textarea>
         </div>
         <div class="eq-modal-footer">
           <button class="eq-btn-secundario" data-action="fechar-modal">Cancelar</button>
-          <button class="eq-btn-primario" data-action="salvar-modal">Agendar</button>
+          <button class="eq-btn-primario" data-action="salvar-modal">Agendar (Iniciar)</button>
         </div>
       </div>
     `;
@@ -391,17 +440,51 @@
   // ============================================================
   // OPERACOES
   // ============================================================
-  function criarAgendamento(equipeId, dia, cardId, notas, tarefaManual) {
+  function criarAgendamento(equipeId, dia, cardId, notas, tarefaManual, marcoPG) {
     const id = genId();
-    // Felipe (sessao 2026-05-10): suporta tarefa manual (sem cardId)
-    // alem de jobs vinculados ao Kanban.
+    // Felipe (sessao 2026-05-10): "coloco que comecou" - ao agendar,
+    // o status default eh 'iniciado'. User clica '✓' depois pra
+    // finalizar e disparar evento -> Producao Geral atualiza.
     state.agendamentos[id] = {
       cardId: cardId || null,
       equipeId,
       dia,
       notas: notas || '',
       tarefaManual: tarefaManual || '',
+      status: 'iniciado',
+      marcoPG: marcoPG || '',     // qual marco PG sera afetado ao finalizar
+      dataFim: '',                // preenchido ao finalizar
     };
+    saveAgendamentos();
+  }
+  function finalizarAgendamento(agId, dataFim) {
+    const ag = state.agendamentos[agId];
+    if (!ag) return;
+    ag.status = 'finalizado';
+    ag.dataFim = dataFim || hojeISO();
+    saveAgendamentos();
+
+    // Felipe (sessao 2026-05-10): "ja joga essa data em producao geral".
+    // Dispara evento que ProducaoGeral escuta - tarefas manuais
+    // (sem cardId) nao disparam (nao tem como atualizar marco PG).
+    if (ag.cardId && ag.marcoPG) {
+      try {
+        if (window.Events && typeof Events.emit === 'function') {
+          Events.emit('equipes:job-finalizado', {
+            cardId: ag.cardId,
+            marcoPG: ag.marcoPG,
+            dataFim: ag.dataFim,
+          });
+          console.log('[Equipes] Job finalizado:', ag.cardId, '/', ag.marcoPG, '->', ag.dataFim);
+        }
+      } catch (_) {}
+    }
+  }
+  function reiniciarAgendamento(agId) {
+    const ag = state.agendamentos[agId];
+    if (!ag) return;
+    ag.status = 'iniciado';
+    ag.dataFim = '';
     saveAgendamentos();
   }
   function removerAgendamento(agId) {
@@ -458,6 +541,32 @@
       });
     });
 
+    // Felipe (sessao 2026-05-10): "ao finalizar ja altera producao
+    // geral pra dia X". Click em ✓ Finalizar.
+    container.querySelectorAll('[data-action="finalizar"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const agId = btn.dataset.agId;
+        const ag = state.agendamentos[agId];
+        if (!ag) return;
+        // Felipe: data fim default = hoje. User pode editar via prompt
+        // antes de confirmar (se finalizou em outro dia).
+        const sugerido = hojeISO();
+        const dataInput = window.prompt(
+          'Data de finalizacao (YYYY-MM-DD):\n\nDeixe vazio pra usar HOJE (' + fmtData(sugerido) + ').',
+          sugerido
+        );
+        if (dataInput === null) return; // cancelou
+        const dataFim = dataInput.trim() || sugerido;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dataFim)) {
+          alert('Data invalida. Use formato YYYY-MM-DD.');
+          return;
+        }
+        finalizarAgendamento(agId, dataFim);
+        render(container);
+      });
+    });
+
     // Modal handlers
     const mount = container.querySelector('#eq-modal-mount');
     if (mount && state.modalAberto) {
@@ -483,9 +592,22 @@
         btnSalvar.addEventListener('click', () => {
           const sel = mount.querySelector('#eq-modal-card-select');
           const notas = mount.querySelector('#eq-modal-notas');
+          const marcoEl = mount.querySelector('#eq-modal-marco-pg');
           if (!sel || !sel.value) return;
           const m = state.modalAberto;
           const selValue = sel.value;
+          // Felipe (sessao 2026-05-10): se equipe tem multiplos marcos
+          // PG, exigir selecao. Tarefa manual nao precisa de marcoPG.
+          const equipe = equipeById(m.equipeId);
+          const marcoPG = marcoEl ? marcoEl.value : '';
+          const precisaMarco = (selValue !== '__manual__')
+                            && Array.isArray(equipe.marcos)
+                            && equipe.marcos.length >= 2;
+          if (precisaMarco && !marcoPG) {
+            alert('Selecione qual etapa de producao esta equipe vai fazer.');
+            if (marcoEl) marcoEl.focus();
+            return;
+          }
           // Felipe (sessao 2026-05-10): suporte a tarefa manual
           if (selValue === '__manual__') {
             const tarefa = mount.querySelector('#eq-modal-tarefa-manual');
@@ -494,9 +616,9 @@
               alert('Descreva a tarefa manual antes de salvar.');
               return;
             }
-            criarAgendamento(m.equipeId, m.dia, null, notas ? notas.value : '', txtTarefa);
+            criarAgendamento(m.equipeId, m.dia, null, notas ? notas.value : '', txtTarefa, '');
           } else {
-            criarAgendamento(m.equipeId, m.dia, selValue, notas ? notas.value : '', '');
+            criarAgendamento(m.equipeId, m.dia, selValue, notas ? notas.value : '', '', marcoPG);
           }
           fecharModal();
           render(container);
@@ -515,6 +637,22 @@
       render(container);
     }
   }
+
+  // Felipe (sessao 2026-05-10): nomes legiveis dos marcos da Producao
+  // Geral. Sincronizado com MARCOS em scripts/18-producao-geral.js.
+  const LABEL_MARCO = {
+    cadOs:        'CAD.OS',
+    cut2d:        'CUT2D',
+    corteChapa:   'Corte Chapa',
+    quadroPorta:  'Quadro Porta',
+    quadroFixo:   'Quadro Fixo',
+    colagem:      'Colagem',
+    colagemFixo:  'Colagem Fixo',
+    portal:       'Portal',
+    conferencia:  'Conferencia',
+    embalagem:    'Embalagem',
+  };
+  function labelMarco(id) { return LABEL_MARCO[id] || id; }
 
   // ============================================================
   // API PUBLICA

@@ -651,6 +651,22 @@
             render(container);
           }
         });
+
+        // Felipe (sessao 2026-05-10): "ao finalizar [no Equipes] ja
+        // joga essa data em producao geral". Equipes emite evento
+        // 'equipes:job-finalizado' { cardId, marcoPG, dataFim }.
+        // PG aplica via atualizarMarco() - mesma funcao usada pelo
+        // proprio click do user. Persistido em state.deltas.
+        Events.on('equipes:job-finalizado', function(payload) {
+          if (!payload || !payload.cardId || !payload.marcoPG || !payload.dataFim) return;
+          load();
+          atualizarMarco(payload.cardId, payload.marcoPG, payload.dataFim);
+          console.log('[ProducaoGeral] marco', payload.marcoPG, '=', payload.dataFim,
+                      'via Equipes (cardId:', payload.cardId, ')');
+          if (window.App && window.App.state && window.App.state.currentModule === 'producao-geral') {
+            render(container);
+          }
+        });
       }
     }
   });
