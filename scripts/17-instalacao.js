@@ -65,21 +65,45 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+  /**
+   * Felipe (sessao 2026-05-10 - bug Gantt): "coloquei ali que sai
+   * dia 25/05 entao saiu ali no grafico gantt dia 24".
+   *
+   * CAUSA RAIZ: new Date('2026-05-25') eh parseado como UTC midnight.
+   * Brasil eh UTC-3, entao no JS local vira 2026-05-24 21:00. Bar do
+   * Gantt e tooltip mostram 24 em vez de 25.
+   *
+   * FIX: parseISODate quebra a string e usa new Date(y, m-1, d) -
+   * construtor com 3+ argumentos cria a data em LOCAL time.
+   */
+  function parseISODate(iso) {
+    if (!iso || typeof iso !== 'string') return new Date(NaN);
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return new Date(iso);
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
   function fmtData(iso) {
     if (!iso) return '';
     try {
-      const d = new Date(iso);
+      const d = parseISODate(iso);
       if (isNaN(d.getTime())) return iso;
       return d.toLocaleDateString('pt-BR');
     } catch (_) { return iso; }
   }
   function diasEntre(d1, d2) {
     if (!d1 || !d2) return 0;
-    const a = new Date(d1), b = new Date(d2);
+    const a = parseISODate(d1), b = parseISODate(d2);
     if (isNaN(a) || isNaN(b)) return 0;
     return Math.round((b - a) / 86400000);
   }
-  function hojeISO() { return new Date().toISOString().slice(0, 10); }
+  function hojeISO() {
+    // Felipe (sessao 2026-05-10): hojeISO em LOCAL time pra alinhar
+    // com parseISODate.
+    const h = new Date();
+    return h.getFullYear() + '-' +
+           String(h.getMonth() + 1).padStart(2, '0') + '-' +
+           String(h.getDate()).padStart(2, '0');
+  }
 
   // ============================================================
   // FONTE: cards do Kanban Producao (read-only)
@@ -281,13 +305,14 @@
     const h = new Date();
     let min, max;
 
+    // Felipe (sessao 2026-05-10): usa LOCAL time pra alinhar com
+    // parseISODate no resto do app. Construtor (y, m, d) cria local.
     if (periodo === 'semana') {
       // Segunda da semana atual
       const dow = h.getDay(); // 0 = dom
       const diasParaSegunda = (dow === 0) ? -6 : 1 - dow;
-      min = new Date(h.getTime() + diasParaSegunda * 86400000);
-      // Domingo = segunda + 6
-      max = new Date(min.getTime() + 6 * 86400000);
+      min = new Date(h.getFullYear(), h.getMonth(), h.getDate() + diasParaSegunda);
+      max = new Date(min.getFullYear(), min.getMonth(), min.getDate() + 6);
     } else if (periodo === 'mes-atual') {
       min = new Date(h.getFullYear(), h.getMonth(), 1);
       max = new Date(h.getFullYear(), h.getMonth() + 1, 0); // ultimo dia do mes
@@ -302,20 +327,22 @@
         if (t.dataTermino) datas.push(t.dataTermino);
       });
       if (datas.length === 0) {
-        min = new Date(h.getTime() - 14 * 86400000);
-        max = new Date(h.getTime() + 60 * 86400000);
+        min = new Date(h.getFullYear(), h.getMonth(), h.getDate() - 14);
+        max = new Date(h.getFullYear(), h.getMonth(), h.getDate() + 60);
       } else {
         datas.sort();
-        min = new Date(datas[0]);
-        max = new Date(datas[datas.length - 1]);
+        // parseISODate evita off-by-one em string ISO
+        min = parseISODate(datas[0]);
+        max = parseISODate(datas[datas.length - 1]);
         min.setDate(min.getDate() - 3);
         max.setDate(max.getDate() + 7);
       }
     }
-    return {
-      min: min.toISOString().slice(0,10),
-      max: max.toISOString().slice(0,10)
-    };
+    // Format LOCAL ISO (nao UTC) - alinhado com parseISODate
+    const fmtLocal = (d) => d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+    return { min: fmtLocal(min), max: fmtLocal(max) };
   }
 
   function renderGantt(trabalhos) {
@@ -341,17 +368,26 @@
     const hoje = hojeISO();
     const offsetHoje = (hoje >= min && hoje <= max) ? diasEntre(min, hoje) * PX_DIA : -1;
 
-    // Header: dias com indicacao de mes/semana
+    // Felipe (sessao 2026-05-10): "coloque dias de semana SEG TER QUA
+    // QUI SEX SAB DOM em cima dos numeros".
+    // Header dos dias agora tem 2 linhas: dow (cima) + dia (baixo).
+    const DOW_LABELS = ['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
     const headerDias = [];
     const headerMeses = [];
-    const dInicio = new Date(min);
+    // Felipe (sessao 2026-05-10): bug timezone - new Date(min) era UTC.
+    // parseISODate cria em LOCAL time pra alinhar com o resto do app.
+    const dInicio = parseISODate(min);
     let mesAtual = -1, mesInicioPx = 0, mesLabel = '';
     for (let i = 0; i < totalDias; i++) {
-      const d = new Date(dInicio.getTime() + i * 86400000);
+      // Incrementa dia em LOCAL time (sem usar +86400000 que pode pular
+      // por causa de DST mesmo no Brasil onde nao tem DST atualmente,
+      // por seguranca).
+      const d = new Date(dInicio.getFullYear(), dInicio.getMonth(), dInicio.getDate() + i);
       const dia = d.getDate();
       const dow = d.getDay();
       const fimDeSemana = (dow === 0 || dow === 6);
-      headerDias.push(`<div class="inst-gantt-day ${fimDeSemana ? 'is-weekend' : ''}" style="flex:0 0 ${PX_DIA}px;width:${PX_DIA}px" title="${d.toLocaleDateString('pt-BR')}">${dia}</div>`);
+      const dowLabel = DOW_LABELS[dow];
+      headerDias.push(`<div class="inst-gantt-day ${fimDeSemana ? 'is-weekend' : ''}" style="flex:0 0 ${PX_DIA}px;width:${PX_DIA}px" title="${d.toLocaleDateString('pt-BR')}"><div class="inst-gantt-day-dow">${dowLabel}</div><div class="inst-gantt-day-num">${dia}</div></div>`);
 
       if (d.getMonth() !== mesAtual) {
         if (mesAtual !== -1) {
