@@ -311,16 +311,16 @@
   window.Producao = Producao;
 
   // ============================================================
-  // Registra modulo Producao no App
+  // Registra modulo Kanban Producao no App
   // ============================================================
-  App.register('producao', {
+  App.register('kanban-producao', {
     render(container) {
       Producao.forceReload(container);
       // Realtime sync (mesma estrategia do CRM/Orcamento)
       if (!container._realtimeSubscribedProd) {
         container._realtimeSubscribedProd = true;
         Events.on('db:realtime-sync', function() {
-          if (window.App && window.App.state && window.App.state.currentModule !== 'producao') return;
+          if (window.App && window.App.state && window.App.state.currentModule !== 'kanban-producao') return;
           Producao.forceReload(container);
         });
       }

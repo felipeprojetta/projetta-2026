@@ -52,10 +52,10 @@ const App = (() => {
         { id: 'usuarios',       label: 'Usuarios' },
       ],
     },
-    producao: {
-      title: 'Ordens de Producao',
-      subtitle: 'Gestao das ordens de producao geradas a partir dos orcamentos aprovados.',
-      breadcrumb: 'Producao · Ordens de Producao',
+    'kanban-producao': {
+      title: 'Kanban Producao',
+      subtitle: 'Acompanhamento das etapas de producao. Leads fechados no CRM aparecem clonados aqui automaticamente.',
+      breadcrumb: 'Producao · Kanban',
     },
     instalacao: {
       title: 'Agenda Obras',
