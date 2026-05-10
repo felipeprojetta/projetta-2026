@@ -128,10 +128,45 @@
       // Migracao: pra leads ja em 'fechado' que nao tem `fechadoEm`, copia `data`.
       // Isso preserva o seed antigo e o historico antes desta feature existir.
       migrarFechadoEm();
+      // Felipe (sessao 2026-05-10): cards importados antes do refactor podem
+      // ter etapas do CRM antigo (qualificacao, fazer-orcamento, orcamento-pronto,
+      // negociacao, fechado, perdido). Como o Kanban Producao SO tem 11 etapas
+      // proprias (ag-liberacao-medidas...finalizado), cards com etapa fora dessas
+      // 11 ficam invisiveis (sem coluna). Esta migracao move pra
+      // 'ag-liberacao-medidas' e os deixa visiveis pro user arrastar.
+      // Felipe: "preciso trazer todos antigos para aqui".
+      migrarEtapasInvalidas();
       // Felipe (sessao 2026-05-10): clona leads 'fechado' do CRM como cards
       // iniciais. Idempotente, NAO modifica o CRM.
       sincronizarComCRM();
       loaded = true;
+    }
+
+    /**
+     * Felipe (sessao 2026-05-10): leads importados pelo "Importar Planilha"
+     * ou criados manualmente antes do default ser corrigido podem estar com
+     * etapas do CRM antigo (qualificacao, fazer-orcamento, etc). Como essas
+     * etapas NAO existem no Kanban Producao, os cards somem da UI.
+     *
+     * Migracao move TODA etapa que nao esta nas 11 etapas validas pra
+     * 'ag-liberacao-medidas' (1a coluna). Idempotente, roda 1x via flag.
+     */
+    function migrarEtapasInvalidas() {
+      if (store.get('migracao_etapas_invalidas_done')) return;
+      const idsValidos = new Set(ETAPAS.map(e => e.id));
+      let mudou = 0;
+      state.leads.forEach(lead => {
+        if (!idsValidos.has(lead.etapa)) {
+          console.log('[KanbanProducao] migrando etapa invalida:', lead.etapa, '->', ETAPA_INICIAL_CLONE_CRM, '(lead', lead.id, ')');
+          lead.etapa = ETAPA_INICIAL_CLONE_CRM;
+          mudou++;
+        }
+      });
+      if (mudou > 0) {
+        save();
+        console.log('[KanbanProducao] ' + mudou + ' card(s) com etapa invalida migrados para ag-liberacao-medidas');
+      }
+      store.set('migracao_etapas_invalidas_done', true);
     }
 
     /**
@@ -281,7 +316,7 @@
       representante: '',  // razao social (auto via lookup do followup)
       representante_followup: '',  // followup digitado pelo user
       representante_contato: '',  // nome do contato principal (auto)
-      valor: '', etapa: 'qualificacao',
+      valor: '', etapa: 'ag-liberacao-medidas',
       destinoTipo: 'nacional',
       destinoPais: '',
     };
@@ -295,7 +330,7 @@
         representante: '',
         representante_followup: '',
         representante_contato: '',
-        valor: '', etapa: 'qualificacao',
+        valor: '', etapa: 'ag-liberacao-medidas',
         destinoTipo: 'nacional',
         destinoPais: '',
         porta_largura: '', porta_altura: '', porta_modelo: '', porta_cor: '',
@@ -322,7 +357,7 @@
         data_reserva: lead.data_reserva || '',
         // R01: valor SEMPRE com 2 casas decimais formato BR (ex: 80.000,00)
         valor: lead.valor != null ? fmtBR(lead.valor) : '',
-        etapa: lead.etapa || 'qualificacao',
+        etapa: lead.etapa || 'ag-liberacao-medidas',
         fechadoEm: lead.fechadoEm || '',
         destinoTipo: lead.destinoTipo || 'nacional',
         destinoPais: lead.destinoPais || '',
@@ -3176,7 +3211,7 @@
         l.cor_interna || '',
         l.cor_externa || '',
         Number(l.valor) || 0,
-        l.etapa || 'qualificacao',
+        l.etapa || 'ag-liberacao-medidas',
         l.data || '',
         l.followup || '',
       ]);
@@ -3207,7 +3242,7 @@
         '', 'Joao da Silva', '(34) 99999-9999', 'joao@email.com',
         '38400-000', 'Uberlandia', 'MG',
         '1300', '5000', 'Modelo 1', 'Wood Sucupira', 'Acabamento Externo',
-        '0', 'qualificacao', '', '',
+        '0', 'ag-liberacao-medidas', '', '',
       ]];
       if (window.Universal && window.Universal.exportXLSX) {
         window.Universal.exportXLSX({
@@ -3254,6 +3289,16 @@
         const get = (row, key) => idx[key] >= 0 ? String(row[idx[key]] || '').trim() : '';
         const getNum = (row, key) =>
           idx[key] >= 0 ? (Number(String(row[idx[key]] || '0').replace(',','.')) || 0) : 0;
+        // Felipe (sessao 2026-05-10): valida etapa contra as 11 do Kanban
+        // Producao. Se a planilha trouxer etapa antiga do CRM (qualificacao,
+        // fazer-orcamento, etc) ou inexistente, manda pra ag-liberacao-medidas.
+        // Felipe: "kanban producao nao aceitou eu importar lead, saiu como
+        // qualificacao, coloque ele como ag. liberacao medidas ate eu arrastar".
+        const idsEtapasValidas = new Set(ETAPAS.map(e => e.id));
+        const normalizarEtapa = (raw) => {
+          const e = String(raw || '').trim();
+          return idsEtapasValidas.has(e) ? e : ETAPA_INICIAL_CLONE_CRM;
+        };
         for (let i = 1; i < aoa.length; i++) {
           const row = aoa[i];
           const cliente = get(row, 'cliente');
@@ -3272,7 +3317,7 @@
             cor_interna:   get(row, 'cor_interna'),
             cor_externa:   get(row, 'cor_externa'),
             valor:         getNum(row, 'valor'),
-            etapa:         get(row, 'etapa') || 'qualificacao',
+            etapa:         normalizarEtapa(get(row, 'etapa')),
             data:          get(row, 'data'),
             followup:      get(row, 'followup'),
           };
