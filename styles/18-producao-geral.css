@@ -450,3 +450,39 @@
   outline: 2px solid #6366f1;
   outline-offset: 0;
 }
+
+/* ============================================================
+   COLUNA TIPO (Felipe sessao 2026-05-10)
+   "tipo esta errado - pode ser porta pivotante externa, porta
+   interna, revestimento de parede ou deixar manual"
+   ============================================================ */
+.pg-tipo-select {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 11px;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 4px;
+  background: #fff;
+  font-family: inherit;
+  cursor: pointer;
+}
+.pg-tipo-select:hover { border-color: #94a3b8; }
+.pg-tipo-select:focus {
+  outline: none;
+  border-color: var(--accent, #0f766e);
+  box-shadow: 0 0 0 2px rgba(15,118,110,.15);
+}
+.pg-tipo-manual-input {
+  width: 100%;
+  margin-top: 4px;
+  padding: 4px 6px;
+  font-size: 11px;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 4px;
+  font-family: inherit;
+}
+.pg-tipo-manual-input:focus {
+  outline: none;
+  border-color: var(--accent, #0f766e);
+  box-shadow: 0 0 0 2px rgba(15,118,110,.15);
+}

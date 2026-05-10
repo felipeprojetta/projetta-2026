@@ -408,6 +408,16 @@
             </div>
           </div>
 
+          <div class="crm-form-row cols-2">
+            <div class="crm-field">
+              <label>Prazo de Entrega <span class="crm-field-hint">dias - puxado do Weiku ou manual</span></label>
+              <input type="number" data-atp-field="prazoEntrega" value="${escapeHtml(atp.prazoEntrega || '')}" min="1" max="365" placeholder="90" />
+            </div>
+            <div class="crm-field">
+              <!-- vazio (espaco pra quando tiver botao 'Puxar do Weiku') -->
+            </div>
+          </div>
+
           <div class="crm-aba-atp-divider">DADOS DO COMPRADOR (CONFORME CONTRATO)</div>
 
           <div class="crm-form-row cols-2">

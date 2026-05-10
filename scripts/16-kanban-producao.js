@@ -515,6 +515,16 @@
             </div>
           </div>
 
+          <div class="kprod-form-row cols-2">
+            <div class="kprod-field">
+              <label>Prazo de Entrega <span class="kprod-field-hint">dias - puxado do Weiku ou manual</span></label>
+              <input type="number" data-atp-field="prazoEntrega" value="${escapeHtml(atp.prazoEntrega || '')}" min="1" max="365" placeholder="90" />
+            </div>
+            <div class="kprod-field">
+              <!-- vazio (espaco pra quando tiver botao 'Puxar do Weiku') -->
+            </div>
+          </div>
+
           <div class="kprod-aba-atp-divider">DADOS DO COMPRADOR (CONFORME CONTRATO)</div>
 
           <div class="kprod-form-row cols-2">

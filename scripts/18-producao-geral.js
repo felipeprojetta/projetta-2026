@@ -62,6 +62,18 @@
   const ANTECEDENCIA_INST_WEIKU    = 20;
   const QUEM_INSTALA_DEFAULT       = 'projetta';
 
+  // Felipe (sessao 2026-05-10): "tipo esta errado - pode ser porta
+  // pivotante externa pivotante/dobradica, porta interna, revestimento
+  // de parede ou deixar manual". Enum fechado + opcao manual.
+  const TIPOS_TRABALHO = [
+    { id: 'porta-pivotante-externa', label: 'Porta Pivotante Externa' },
+    { id: 'porta-pivotante-dobradica', label: 'Porta Pivotante / Dobradiça' },
+    { id: 'porta-interna',           label: 'Porta Interna' },
+    { id: 'revestimento-parede',     label: 'Revestimento de Parede' },
+    { id: 'manual',                  label: 'Manual (texto livre)' },
+  ];
+  const LABEL_TIPO = TIPOS_TRABALHO.reduce((m, t) => { m[t.id] = t.label; return m; }, {});
+
   // Mapa etapa Kanban Producao -> label legivel
   const LABEL_STATUS = {
     'ag-liberacao-medidas':       'AG. LIBERACAO MEDIDAS',
@@ -164,12 +176,22 @@
     } catch (_) { cards = []; }
     return cards.map(card => {
       const delta = state.deltas[card.id] || {};
-      // Felipe (sessao 2026-05-10): prazo contrato default 90 dias,
-      // editavel por trabalho. Entrega Final = aprovacao + prazo.
-      // Inicio Inst. = Entrega Final - antecedencia (Projetta=7, Weiku=20).
-      const prazoDias = (delta.prazoContratoDias != null && delta.prazoContratoDias !== '')
-        ? Number(delta.prazoContratoDias)
-        : PRAZO_CONTRATO_DEFAULT;
+      // Felipe (sessao 2026-05-10): "prazo de entrega ira puxar do
+      // intranet, garanta que tenha esse prazo dentro do card atp,
+      // e deve vir do intranet". Prioridade:
+      //   1. delta.prazoContratoDias (override manual no PG)
+      //   2. card.atp.prazoEntrega   (vem da aba ATP - manual ou via Weiku)
+      //   3. PRAZO_CONTRATO_DEFAULT  (90 dias - fallback)
+      let prazoDias;
+      if (delta.prazoContratoDias != null && delta.prazoContratoDias !== '') {
+        prazoDias = Number(delta.prazoContratoDias);
+      } else if (card.atp && card.atp.prazoEntrega != null && card.atp.prazoEntrega !== '') {
+        prazoDias = Number(card.atp.prazoEntrega);
+      } else {
+        prazoDias = PRAZO_CONTRATO_DEFAULT;
+      }
+      if (!Number.isFinite(prazoDias) || prazoDias < 0) prazoDias = PRAZO_CONTRATO_DEFAULT;
+
       const quemInstala = (delta.quemInstala === 'weiku' || delta.quemInstala === 'projetta')
         ? delta.quemInstala
         : QUEM_INSTALA_DEFAULT;
@@ -182,6 +204,13 @@
       // (separado). Buscar ATP dessa aba e cair pra '—' se nao preenchido
       // - NUNCA misturar com numeroAGP.
       const atpContrato = (card.atp && card.atp.numeroAtp) ? String(card.atp.numeroAtp).trim() : '';
+
+      // Felipe (sessao 2026-05-10): "tipo esta errado". Antes era
+      // card.porta_modelo (numero - ex 11, 01). Agora eh enum salvo no
+      // delta + opcao manual. Default vazio (user preenche).
+      const tipoId = delta.tipo || '';
+      const tipoManual = delta.tipoManual || '';
+
       return {
         cardId:        card.id,
         crmLeadId:     card.crmLeadId || null,
@@ -191,7 +220,9 @@
         reserva:       card.numeroReserva || '',
         cidade:        card.cidade || '',
         estado:        card.estado || '',
-        tipo:          card.porta_modelo || '',
+        tipo:          tipoId,
+        tipoManual:    tipoManual,
+        tipoLabel:     tipoId === 'manual' ? (tipoManual || '(escrever)') : (LABEL_TIPO[tipoId] || ''),
         qtd:           1,
         statusId:      card.etapa || '',
         statusLabel:   LABEL_STATUS[card.etapa] || (card.etapa || '—').toUpperCase(),
@@ -260,7 +291,9 @@
     return trabalhos.filter(t => {
       if (f.busca) {
         const q = f.busca.toLowerCase();
-        const hay = [t.cliente, t.atp, t.agp, t.cidade, t.estado, t.tipo]
+        // Felipe (sessao 2026-05-10): inclui tipoLabel na busca
+        // (textual mostrado ao user) em vez do enum interno.
+        const hay = [t.cliente, t.atp, t.agp, t.cidade, t.estado, t.tipoLabel, t.tipoManual]
           .map(x => String(x || '').toLowerCase()).join(' ');
         if (hay.indexOf(q) === -1) return false;
       }
@@ -282,7 +315,6 @@
   // ============================================================
   function renderFiltros(todos) {
     const estados = listarUnicos(todos, 'estado');
-    const tipos   = listarUnicos(todos, 'tipo');
     const statusList = Object.keys(LABEL_STATUS);
     return `
       <div class="pg-filtros">
@@ -298,7 +330,7 @@
         </select>
         <select data-filtro="tipo">
           <option value="">Todos tipos</option>
-          ${tipos.map(t => `<option value="${escapeHtml(t)}" ${state.filtros.tipo === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+          ${TIPOS_TRABALHO.map(tp => `<option value="${escapeHtml(tp.id)}" ${state.filtros.tipo === tp.id ? 'selected' : ''}>${escapeHtml(tp.label)}</option>`).join('')}
         </select>
         <button class="pg-filtro-limpar" data-action="limpar-filtros">Limpar filtros</button>
       </div>
@@ -397,7 +429,20 @@
             </span>
           </td>
           <td class="pg-td-cidade">${escapeHtml(local || '—')}</td>
-          <td class="pg-td-tipo">${escapeHtml(t.tipo || '—')}</td>
+          <td class="pg-td-tipo">
+            <select class="pg-tipo-select"
+                    data-card-id="${escapeHtml(t.cardId)}"
+                    title="Tipo de trabalho">
+              <option value="">— escolher —</option>
+              ${TIPOS_TRABALHO.map(tp => `<option value="${escapeHtml(tp.id)}" ${t.tipo === tp.id ? 'selected' : ''}>${escapeHtml(tp.label)}</option>`).join('')}
+            </select>
+            ${t.tipo === 'manual' ? `
+              <input type="text" class="pg-tipo-manual-input"
+                     data-card-id="${escapeHtml(t.cardId)}"
+                     value="${escapeHtml(t.tipoManual)}"
+                     placeholder="Descreva..." title="Texto livre" />
+            ` : ''}
+          </td>
           <td class="pg-td-qtd">${t.qtd}</td>
           <td class="pg-td-prazo">
             <input type="number" class="pg-prazo-input"
@@ -429,7 +474,9 @@
     atp:         100,
     status:      220,
     cidade:      140,
-    tipo:        100,
+    // Felipe (sessao 2026-05-10): tipo agora eh select com labels
+    // longos ("Porta Pivotante / Dobradiça"). 100 -> 200.
+    tipo:        200,
     qtd:          60,
     prazo:        90,
     quemInstala: 130,  // Felipe (sessao 2026-05-10): coluna nova
@@ -624,6 +671,37 @@
         state.deltas[cardId] = atual;
         saveDeltas();
         render(container);
+      });
+    });
+
+    // Felipe (sessao 2026-05-10): "tipo esta errado - pode ser porta
+    // pivotante externa, porta interna, revestimento de parede ou
+    // deixar manual". Select com 5 opcoes (4 fixas + manual).
+    // Quando muda pra 'manual', re-renderiza pra mostrar input texto.
+    container.querySelectorAll('.pg-tipo-select').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const cardId = sel.dataset.cardId;
+        const atual = state.deltas[cardId] || {};
+        atual.tipo = sel.value || '';
+        // Se saiu de 'manual' pra outra coisa, limpa o texto manual
+        // (evita lixo no storage que confundiria buscas futuras).
+        if (atual.tipo !== 'manual') atual.tipoManual = '';
+        state.deltas[cardId] = atual;
+        saveDeltas();
+        render(container);
+      });
+    });
+
+    // Input texto livre quando tipo = 'manual'. Salva on blur (nao on
+    // change pra nao re-renderizar a cada tecla e perder foco).
+    container.querySelectorAll('.pg-tipo-manual-input').forEach(input => {
+      input.addEventListener('blur', () => {
+        const cardId = input.dataset.cardId;
+        const atual = state.deltas[cardId] || {};
+        atual.tipoManual = (input.value || '').trim();
+        state.deltas[cardId] = atual;
+        saveDeltas();
+        // Nao re-renderiza - manter foco/UX limpo
       });
     });
   }
