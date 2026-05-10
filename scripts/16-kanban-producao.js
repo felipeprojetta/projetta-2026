@@ -51,22 +51,21 @@
       'Yemen','Zambia','Zimbabwe',
     ];
 
-    // Felipe (sessao 2026-05-10): 13 etapas de producao definidas pelo Felipe.
-    // Ordem inicial; futuramente reordenavel por drag das colunas.
+    // Felipe (sessao 2026-05-10): 11 etapas em ordem definida pelo Felipe.
+    // Removidas: COLAGEM e AG. RECALCULO (nao constam na nova sequencia).
+    // ETAPA_INICIAL_CLONE_CRM continua 'ag-liberacao-medidas' (1a coluna).
     const ETAPAS = [
-      { id: 'ag-producao',                label: 'AG. PRODUCAO',                color: '#94A3B8' },
-      { id: 'ag-os',                      label: 'AG. O.S',                     color: '#64748B' },
-      { id: 'em-producao',                label: 'EM PRODUCAO',                 color: '#3B82F6' },
-      { id: 'finalizado',                 label: 'FINALIZADO',                  color: '#10B981' },
-      { id: 'ag-conferencia',             label: 'AG. CONFERENCIA',             color: '#0EA5E9' },
-      { id: 'ag-embarque',                label: 'AG. EMBARQUE',                color: '#06B6D4' },
       { id: 'ag-liberacao-medidas',       label: 'AG. LIBERACAO DE MEDIDAS',    color: '#8B5CF6' },
-      { id: 'colagem',                    label: 'COLAGEM',                     color: '#A855F7' },
-      { id: 'ag-embalagem',               label: 'AG. EMBALAGEM',               color: '#D946EF' },
-      { id: 'ag-recalculo',               label: 'AG. RECALCULO',               color: '#F59E0B' },
+      { id: 'ag-medicao',                 label: 'AG. MEDICAO',                 color: '#EF4444' },
       { id: 'ag-fazer-liberacao',         label: 'AG. FAZER LIBERACAO',         color: '#EAB308' },
       { id: 'ag-aprovacao-final-cliente', label: 'AG. APROVACAO FINAL CLIENTE', color: '#F97316' },
-      { id: 'ag-medicao',                 label: 'AG. MEDICAO',                 color: '#EF4444' },
+      { id: 'ag-os',                      label: 'AG. O.S',                     color: '#64748B' },
+      { id: 'ag-producao',                label: 'AG. PRODUCAO',                color: '#94A3B8' },
+      { id: 'em-producao',                label: 'EM PRODUCAO',                 color: '#3B82F6' },
+      { id: 'ag-conferencia',             label: 'AG. CONFERENCIA',             color: '#0EA5E9' },
+      { id: 'ag-embalagem',               label: 'AG. EMBALAGEM',               color: '#D946EF' },
+      { id: 'ag-embarque',                label: 'AG. EMBARQUE',                color: '#06B6D4' },
+      { id: 'finalizado',                 label: 'FINALIZADO',                  color: '#10B981' },
     ];
 
     // Etapa onde lead 'fechado' do CRM eh CLONADO automaticamente.
@@ -1956,7 +1955,6 @@
           <tr data-id="${l.id}">
             <td>${escapeHtml(l.cliente || '(sem nome)')}</td>
             <td>${escapeHtml(l.telefone || '—')}</td>
-            <td style="text-align:right;font-variant-numeric:tabular-nums;">R$ ${fmtBR(l.valor)}</td>
             <td>
               <span class="kprod-etapa-pill">
                 <span class="kprod-column-dot" style="background:${et.color};"></span>
@@ -1974,7 +1972,6 @@
               <tr>
                 <th style="min-width:220px;">Cliente</th>
                 <th style="min-width:140px;">Telefone</th>
-                <th style="min-width:120px;text-align:right;">Valor</th>
                 <th style="min-width:160px;">Etapa</th>
                 <th style="min-width:100px;">Data</th>
               </tr>

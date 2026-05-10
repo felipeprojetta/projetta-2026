@@ -1061,3 +1061,28 @@
   }
   .kprod-modal-footer button { flex: 1 1 auto; min-height: 42px; }
 }
+
+/* ============================================================
+   Felipe (sessao 2026-05-10): "producao nao deve ver valores das portas".
+   Esconde TODOS os valores monetarios/comerciais no Kanban Producao.
+   Producao so ve dados tecnicos (cliente, contato, modelo, medidas, etapa).
+   Reverter: deletar este bloco.
+   ============================================================ */
+
+/* Card no kanban: bloco de valor (Original/Com Desconto + valor unico) */
+.kprod-card-valor,
+.kprod-card-valor-bloco,
+.kprod-card-valor-row,
+.kprod-card-valor-tabela,
+.kprod-card-valor-label,
+.kprod-card-valor-desconto,
+.kprod-card-valor-row-final { display: none !important; }
+
+/* Total monetario no header da coluna */
+.kprod-column-total,
+.kprod-column-total-empty { display: none !important; }
+
+/* KPIs do topo (Fechado no Ano/Mes/Em Aberto) — todos sao monetarios */
+.kprod-kpis,
+.kprod-kpi,
+.kprod-kpi-fixo { display: none !important; }
