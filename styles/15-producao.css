@@ -1,0 +1,213 @@
+/* 15-producao.css — Modulo Producao
+   Prefixo .prod-* (isolado de .crm-* e demais).
+   Inspirado no CSS do CRM (11-crm.css) mas independente. */
+
+.prod-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.prod-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.prod-view-toggle button {
+  background: transparent;
+  border: none;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #1f2937);
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.prod-view-toggle button:hover { background: var(--bg-hover, #f3f4f6); }
+.prod-view-toggle button.is-active {
+  background: var(--accent, #0f766e);
+  color: #fff;
+}
+
+.prod-toolbar-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+.prod-info-pill {
+  background: var(--bg-soft, #f3f4f6);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 999px;
+  padding: 4px 12px;
+  color: var(--text-muted, #6b7280);
+}
+.prod-info-hint {
+  color: var(--text-muted, #6b7280);
+  font-style: italic;
+}
+
+/* ===== KANBAN ===== */
+.prod-kanban {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  align-items: flex-start;
+}
+.prod-column {
+  flex: 0 0 260px;
+  background: var(--bg-soft, #f8fafc);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 240px);
+  transition: outline .12s ease, transform .12s ease, opacity .12s ease;
+}
+.prod-column.is-drop-target {
+  outline: 2px dashed var(--accent, #0f766e);
+  outline-offset: -2px;
+}
+.prod-column.is-col-drop-target {
+  outline: 2px dashed #f59e0b;
+  outline-offset: -2px;
+  background: #fffbeb;
+}
+.prod-column.is-col-dragging {
+  opacity: .5;
+  transform: scale(.98);
+}
+
+.prod-column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  color: var(--text, #1f2937);
+  background: var(--bg-card, #fff);
+  border-radius: 8px 8px 0 0;
+  cursor: grab;
+  user-select: none;
+}
+.prod-column-header:active { cursor: grabbing; }
+
+.prod-column-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.prod-column-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.prod-column-count {
+  background: var(--bg-soft, #f3f4f6);
+  color: var(--text-muted, #6b7280);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  min-width: 22px;
+  text-align: center;
+}
+
+.prod-column-body {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 60px;
+}
+
+.prod-card {
+  background: #fff;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  transition: box-shadow .15s ease, transform .15s ease;
+}
+.prod-card:hover {
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+  transform: translateY(-1px);
+}
+.prod-card.is-dragging {
+  opacity: .5;
+  cursor: grabbing;
+}
+.prod-card-titulo {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text, #1f2937);
+  margin-bottom: 4px;
+}
+.prod-card-numero {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent, #0f766e);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.prod-card-data {
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+  margin-top: 4px;
+}
+
+/* ===== LISTA ===== */
+.prod-lista-wrap {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.prod-lista {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.prod-lista thead th {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--bg-soft, #f8fafc);
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: .3px;
+  color: var(--text-muted, #6b7280);
+}
+.prod-lista tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border, #f1f5f9);
+}
+.prod-lista tbody tr:last-child td { border-bottom: none; }
+.prod-lista tbody tr:hover { background: var(--bg-hover, #f9fafb); }
+
+.prod-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  border: 1px solid;
+}
