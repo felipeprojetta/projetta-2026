@@ -83,6 +83,10 @@
 .pg-tabela {
   border-collapse: collapse;
   font-size: 12px;
+  /* Felipe (sessao 2026-05-10): table-layout fixed + colgroup widths
+     mantem as 2 tabelas IDENTICAMENTE alinhadas independente do
+     conteudo das celulas (pill maior nao expande coluna). */
+  table-layout: fixed;
   white-space: nowrap;
 }
 .pg-tabela thead th {
@@ -96,16 +100,19 @@
   text-transform: uppercase;
   letter-spacing: .3px;
   color: var(--text-muted, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.pg-tabela thead th.pg-th-cli { min-width: 220px; position: sticky; left: 0; z-index: 4; }
+.pg-tabela thead th.pg-th-cli { position: sticky; left: 0; z-index: 4; }
 .pg-tabela thead th.pg-th-marco {
-  min-width: 120px;
   background: #fef3c7;
   color: #92400e;
 }
 .pg-tabela tbody td {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border, #f1f5f9);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pg-tabela tbody tr:hover { background: var(--bg-hover, #f9fafb); }
 .pg-tabela tbody td.pg-td-cli {
@@ -123,8 +130,10 @@
 }
 .pg-tabela tbody td.pg-td-qtd { text-align: center; font-weight: 600; }
 
+/* Pill de status: nao deixa estourar a coluna; trunca com ellipsis */
 .pg-pill {
   display: inline-block;
+  max-width: 100%;
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 10px;
@@ -133,6 +142,9 @@
   letter-spacing: .3px;
   border: 1px solid;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
 /* Inputs de marco */
@@ -258,4 +270,102 @@
   outline: 2px solid #8b5cf6;
   outline-offset: 0;
   border-color: #8b5cf6;
+}
+
+/* ============================================================
+   MARCOS - 3 ESTADOS (Felipe sessao 2026-05-10)
+   AG (cinza) -> INICIADO (amarelo) -> FINALIZADO (verde, com data)
+   ============================================================ */
+
+/* Estado: AG (botao cinza com bordinha) */
+.pg-marco-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 26px;
+  padding: 0 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  border-radius: 4px;
+  border: 1px solid;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all .12s ease;
+}
+.pg-marco-btn.pg-marco-ag {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #6b7280;
+}
+.pg-marco-btn.pg-marco-ag:hover {
+  background: #fef3c7;
+  border-color: #fbbf24;
+  color: #92400e;
+}
+.pg-marco-btn.pg-marco-finalizado {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #14532d;
+  font-variant-numeric: tabular-nums;
+}
+.pg-marco-btn.pg-marco-finalizado:hover {
+  background: #bbf7d0;
+}
+
+/* Estado: INICIADO (label amarelo + input date inline + cancelar) */
+.pg-marco-iniciado-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.pg-marco-iniciado-tag {
+  background: #fef08a;
+  color: #713f12;
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid #facc15;
+  letter-spacing: .2px;
+  flex-shrink: 0;
+}
+.pg-marco-data-termino {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  border: 1px solid #facc15;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 10px;
+  background: #fffbeb;
+  font-family: inherit;
+  color: #713f12;
+  font-weight: 600;
+}
+.pg-marco-data-termino:focus {
+  outline: 1px solid #d97706;
+  outline-offset: 0;
+  background: #fff;
+}
+.pg-marco-cancel {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.pg-marco-cancel:hover {
+  background: #fee2e2;
+  color: #dc2626;
 }

@@ -265,27 +265,80 @@
   // ============================================================
   // RENDER TABELA
   // ============================================================
+  /**
+   * Felipe (sessao 2026-05-10): "deixar status na coluna, ag, iniciado.
+   * e depois colocar data termino de cad.os pra frente".
+   *
+   * Marcos MEDICAO, LIBERACAO, APROVACAO: input date simples (datas
+   * que vem do cliente/comercial).
+   *
+   * Marcos CAD.OS pra frente (cadOs, cut2d, corteChapa, quadroPorta,
+   * colagem, portal, quadroFixo, colagemFixo, conferencia, embalagem):
+   * 3 estados ciclicos guardados em delta[m.id]:
+   *   ''             -> botao "AG" (cinza)
+   *   'iniciado'     -> input date inline + label "INICIADO" (amarelo)
+   *   'YYYY-MM-DD'   -> botao com data formatada (verde, FINALIZADO)
+   * Click cycling:
+   *   AG       -> click          -> INICIADO
+   *   INICIADO -> preenche data  -> FINALIZADO (data termino)
+   *   FINAL    -> click+confirm  -> AG (resetar)
+   */
+  const MARCOS_DATA_SIMPLES = new Set(['medicao', 'liberacao', 'aprovacao']);
+
+  function renderMarcoCell(t, m) {
+    const val = t.marcos[m.id] || '';
+    const cardId = escapeHtml(t.cardId);
+    const marcoId = escapeHtml(m.id);
+
+    if (m.calculado) {
+      return `<td class="pg-td-marco pg-td-calc">
+        <span class="pg-marco-calc" title="${val ? 'Calculado: Aprovacao + Prazo' : 'Preencha Aprovacao pra calcular'}">
+          ${val ? fmtData(val) : '<em class="pg-calc-empty">—</em>'}
+        </span>
+      </td>`;
+    }
+
+    if (MARCOS_DATA_SIMPLES.has(m.id)) {
+      // Marcos comerciais (medicao, liberacao, aprovacao): data simples
+      return `<td class="pg-td-marco">
+        <input type="date" class="pg-marco-input"
+               data-card-id="${cardId}" data-marco="${marcoId}"
+               value="${escapeHtml(val)}" />
+      </td>`;
+    }
+
+    // Marcos de producao (cad.os pra frente): 3 estados
+    if (val === '') {
+      return `<td class="pg-td-marco">
+        <button class="pg-marco-btn pg-marco-ag"
+                data-card-id="${cardId}" data-marco="${marcoId}" data-action="iniciar"
+                title="Click pra marcar como INICIADO">AG</button>
+      </td>`;
+    }
+    if (val === 'iniciado') {
+      return `<td class="pg-td-marco">
+        <div class="pg-marco-iniciado-wrap">
+          <span class="pg-marco-iniciado-tag">INICIADO</span>
+          <input type="date" class="pg-marco-data-termino"
+                 data-card-id="${cardId}" data-marco="${marcoId}"
+                 title="Preencha a data de termino" />
+          <button class="pg-marco-cancel" data-card-id="${cardId}" data-marco="${marcoId}" data-action="cancelar"
+                  title="Voltar pra AG">×</button>
+        </div>
+      </td>`;
+    }
+    // Tem data: FINALIZADO
+    return `<td class="pg-td-marco">
+      <button class="pg-marco-btn pg-marco-finalizado"
+              data-card-id="${cardId}" data-marco="${marcoId}" data-action="resetar"
+              title="Click pra resetar este marco (vai voltar pra AG)">${escapeHtml(fmtData(val))}</button>
+    </td>`;
+  }
+
   function renderLinhas(trabalhos) {
     return trabalhos.map(t => {
       const local = [t.cidade, t.estado].filter(Boolean).join('/');
-      const marcosCells = MARCOS.map(m => {
-        const val = t.marcos[m.id] || '';
-        if (m.calculado) {
-          // Felipe: Entrega Final e Inicio Inst sao CALCULADOS (readonly).
-          // Mostra a data formatada BR. Se nao tem aprovacao, mostra '—'.
-          return `<td class="pg-td-marco pg-td-calc">
-            <span class="pg-marco-calc" title="${val ? 'Calculado a partir da Aprovacao + Prazo' : 'Preencha Aprovacao pra calcular'}">
-              ${val ? fmtData(val) : '<em class="pg-calc-empty">—</em>'}
-            </span>
-          </td>`;
-        }
-        return `<td class="pg-td-marco">
-          <input type="date" class="pg-marco-input"
-                 data-card-id="${escapeHtml(t.cardId)}"
-                 data-marco="${escapeHtml(m.id)}"
-                 value="${escapeHtml(val)}" />
-        </td>`;
-      }).join('');
+      const marcosCells = MARCOS.map(m => renderMarcoCell(t, m)).join('');
 
       return `
         <tr data-card-id="${escapeHtml(t.cardId)}">
@@ -296,8 +349,8 @@
               ${escapeHtml(t.statusLabel)}
             </span>
           </td>
-          <td>${escapeHtml(local || '—')}</td>
-          <td>${escapeHtml(t.tipo || '—')}</td>
+          <td class="pg-td-cidade">${escapeHtml(local || '—')}</td>
+          <td class="pg-td-tipo">${escapeHtml(t.tipo || '—')}</td>
           <td class="pg-td-qtd">${t.qtd}</td>
           <td class="pg-td-prazo">
             <input type="number" class="pg-prazo-input"
@@ -311,6 +364,38 @@
     }).join('');
   }
 
+  // Felipe (sessao 2026-05-10): "todas colunas alinhadas, nao faca isso
+  // de desalinhar pq uma palavra eh maior que a outra". Larguras fixas
+  // explicitas em <colgroup> garantem que as 2 tabelas (Aguardando
+  // Liberacao + Em Producao) ficam identicamente alinhadas, mesmo que
+  // os pills de status tenham tamanhos diferentes.
+  const COL_WIDTHS = {
+    cliente: 220,
+    atp:     100,
+    status:  220,
+    cidade:  140,
+    tipo:    100,
+    qtd:      60,
+    prazo:    90,
+    marco:   120,  // todos os marcos tem mesma largura
+  };
+
+  function renderColgroup() {
+    let cols = `
+      <col style="width:${COL_WIDTHS.cliente}px">
+      <col style="width:${COL_WIDTHS.atp}px">
+      <col style="width:${COL_WIDTHS.status}px">
+      <col style="width:${COL_WIDTHS.cidade}px">
+      <col style="width:${COL_WIDTHS.tipo}px">
+      <col style="width:${COL_WIDTHS.qtd}px">
+      <col style="width:${COL_WIDTHS.prazo}px">
+    `;
+    MARCOS.forEach(() => {
+      cols += `<col style="width:${COL_WIDTHS.marco}px">`;
+    });
+    return `<colgroup>${cols}</colgroup>`;
+  }
+
   function renderTabelaCompleta(trabalhos, titulo, classeExtra) {
     if (trabalhos.length === 0) return '';
     const colsMarco = MARCOS.map(m => `<th class="pg-th-marco${m.calculado ? ' pg-th-calc' : ''}">${escapeHtml(m.label)}${m.calculado ? ' <span class="pg-th-fx" title="Calculado: Aprovacao + Prazo (Inicio = Entrega - 15)">ƒ</span>' : ''}</th>`).join('');
@@ -318,6 +403,7 @@
       ${titulo ? `<div class="pg-secao-titulo ${classeExtra || ''}">${escapeHtml(titulo)} <span class="pg-secao-count">${trabalhos.length}</span></div>` : ''}
       <div class="pg-tabela-wrap ${classeExtra || ''}">
         <table class="pg-tabela">
+          ${renderColgroup()}
           <thead>
             <tr>
               <th class="pg-th-cli">Cliente</th>
@@ -396,6 +482,42 @@
         // Felipe: se o marco eh aprovacao, re-renderiza pra recalcular
         // Entrega Final + Inicio Inst (que dependem dele).
         if (input.dataset.marco === 'aprovacao') render(container);
+      });
+    });
+
+    // Felipe (sessao 2026-05-10): 3 estados nos marcos de cad.os pra frente.
+    // INICIAR (AG -> INICIADO)
+    container.querySelectorAll('[data-action="iniciar"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        atualizarMarco(btn.dataset.cardId, btn.dataset.marco, 'iniciado');
+        render(container);
+      });
+    });
+
+    // CANCELAR (INICIADO -> AG)
+    container.querySelectorAll('[data-action="cancelar"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        atualizarMarco(btn.dataset.cardId, btn.dataset.marco, '');
+        render(container);
+      });
+    });
+
+    // RESETAR (FINALIZADO -> AG, com confirm)
+    container.querySelectorAll('[data-action="resetar"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (window.confirm('Resetar este marco?\n\nVai voltar para AG (sem data).')) {
+          atualizarMarco(btn.dataset.cardId, btn.dataset.marco, '');
+          render(container);
+        }
+      });
+    });
+
+    // INICIADO -> preenche data termino -> FINALIZADO
+    container.querySelectorAll('.pg-marco-data-termino').forEach(input => {
+      input.addEventListener('change', () => {
+        if (!input.value) return; // ignora limpar
+        atualizarMarco(input.dataset.cardId, input.dataset.marco, input.value);
+        render(container);
       });
     });
 
