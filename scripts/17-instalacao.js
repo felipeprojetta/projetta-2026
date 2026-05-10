@@ -496,8 +496,40 @@
                 </select>
               </div>
               <div>
-                <label for="inst-f-instalador">Instalador / Equipe</label>
-                <input type="text" id="inst-f-instalador" data-edit="instalador" value="${escapeHtml(t.instalador)}" placeholder="Nome do instalador ou equipe" />
+                <label for="inst-f-instalador">Instaladores / Equipe</label>
+                <div class="inst-instaladores-multi" id="inst-instaladores-multi">
+                  ${(() => {
+                    // Felipe (sessao 2026-05-10): "quando em instalacao
+                    // for selecionar equipe vai ter um filtro e vamos
+                    // escolher quem vai, podem ser 1, 2, 3, 4 ou 5 pessoas".
+                    //
+                    // Multi-select: lista checkboxes dos cadastrados ativos.
+                    // Salva em t.instalador como string CSV (compat retro:
+                    // campo string usado em listagem/busca/Gantt).
+                    const ativos = (window.Instaladores && window.Instaladores.listarAtivos)
+                      ? window.Instaladores.listarAtivos()
+                      : [];
+                    if (ativos.length === 0) {
+                      return `<div class="inst-instaladores-vazio">
+                        Nenhum instalador cadastrado. Va em <strong>Instalacao -> Instaladores</strong> pra adicionar.
+                      </div>`;
+                    }
+                    // Quem ja esta selecionado pra esse trabalho
+                    const selecionadosArr = String(t.instalador || '')
+                      .split(',')
+                      .map(s => s.trim().toUpperCase())
+                      .filter(Boolean);
+                    return ativos.map(i => {
+                      const nomeUp = String(i.nome).toUpperCase();
+                      const checked = selecionadosArr.indexOf(nomeUp) >= 0 ? 'checked' : '';
+                      return `<label class="inst-instalador-chip ${checked ? 'is-checked' : ''}">
+                        <input type="checkbox" data-inst-checkbox value="${escapeHtml(nomeUp)}" ${checked} />
+                        <span>${escapeHtml(i.nome)}</span>
+                      </label>`;
+                    }).join('');
+                  })()}
+                </div>
+                <input type="hidden" id="inst-f-instalador" data-edit="instalador" value="${escapeHtml(t.instalador)}" />
               </div>
               <div>
                 <label for="inst-f-inicio">Data Inicio</label>
@@ -639,6 +671,27 @@
     mount.querySelectorAll('[data-action="fechar-modal"]').forEach(b => {
       b.addEventListener('click', () => fecharModal(container));
     });
+
+    // Felipe (sessao 2026-05-10): multi-select de instaladores.
+    // Cada checkbox marcado adiciona o nome ao hidden input #inst-f-instalador
+    // (CSV separado por ", ") - preserva compat com codigo existente que
+    // trata t.instalador como string simples (busca, listagem, Gantt).
+    const hiddenInst = mount.querySelector('#inst-f-instalador');
+    const chipsRoot  = mount.querySelector('#inst-instaladores-multi');
+    if (hiddenInst && chipsRoot) {
+      const sincronizarHidden = () => {
+        const marcados = Array.from(chipsRoot.querySelectorAll('[data-inst-checkbox]:checked'))
+          .map(cb => cb.value);
+        hiddenInst.value = marcados.join(', ');
+      };
+      chipsRoot.querySelectorAll('[data-inst-checkbox]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const chip = cb.closest('.inst-instalador-chip');
+          if (chip) chip.classList.toggle('is-checked', cb.checked);
+          sincronizarHidden();
+        });
+      });
+    }
 
     // Salvar
     const btnSalvar = mount.querySelector('[data-action="salvar-modal"]');
