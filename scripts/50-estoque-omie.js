@@ -191,7 +191,7 @@
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">'
       + '  <input type="text" id="omie-busca" value="' + escapeAttr(state.buscaTermo) + '" placeholder="Buscar por codigo, descricao..." style="flex:1;min-width:280px;padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:13px" />'
       + '  <span style="font-size:12px;color:#666">'
-      + '    <b>' + d.produtosComMovimento + '</b> com movimento · '
+      + '    <b>' + (d.produtosComSaldo || d.produtosComMovimento || 0) + '</b> com saldo · '
       + '    <b>' + d.locaisConsultados + '</b> locais · '
       + '    cache: <b>' + (d._cached ? '15min' : 'fresco') + '</b> · '
       + '    gerado em ' + formatarHora(d.geradoEm)
@@ -214,14 +214,19 @@
             + '<thead><tr style="background:#1a5276;color:#fff">'
             + '<th style="padding:8px;text-align:left">Codigo</th>'
             + '<th style="padding:8px;text-align:left">Produto</th>'
-            + '<th style="padding:8px;text-align:right">Saldo Total</th>'
+            + '<th style="padding:8px;text-align:right">Saldo</th>'
+            + '<th style="padding:8px;text-align:right" title="Reservado em pedidos">Reserv.</th>'
+            + '<th style="padding:8px;text-align:right" title="Saldo - Reservado">Disp.</th>'
             + '<th style="padding:8px;text-align:left">Locais</th>'
-            + '<th style="padding:8px;text-align:right">Preco Unit.</th>'
+            + '<th style="padding:8px;text-align:right" title="CMC: Custo Medio Contabil">CMC</th>'
             + '</tr></thead><tbody>';
       filtrados.slice(0, 500).forEach(function(p, i) {
         var bg = i % 2 === 0 ? '#fff' : '#f8f9fa';
         var saldo = Number(p.saldoTotal || 0);
+        var reservado = Number(p.reservadoTotal || 0);
+        var disponivel = saldo - reservado;
         var corSaldo = saldo > 0 ? '#2e7d32' : (saldo < 0 ? '#c62828' : '#999');
+        var corDisp = disponivel > 0 ? '#2e7d32' : (disponivel < 0 ? '#c62828' : '#999');
         var locaisTxt = (p.porLocal || [])
           .filter(function(l) { return Number(l.saldo) !== 0; })
           .map(function(l) { return escapeHtml(l.nome) + ' (' + l.saldo + ')'; })
@@ -230,8 +235,10 @@
               + '<td style="padding:6px 8px;font-weight:600;color:#1a5276;font-size:11px">' + escapeHtml(p.cCodigo || '') + '</td>'
               + '<td style="padding:6px 8px">' + escapeHtml(p.cDescricao || '') + '</td>'
               + '<td style="padding:6px 8px;text-align:right;font-weight:700;color:' + corSaldo + ';font-size:14px">' + fmtNum(saldo) + '</td>'
+              + '<td style="padding:6px 8px;text-align:right;color:' + (reservado > 0 ? '#e65100' : '#999') + '">' + (reservado > 0 ? fmtNum(reservado) : '—') + '</td>'
+              + '<td style="padding:6px 8px;text-align:right;font-weight:700;color:' + corDisp + '">' + fmtNum(disponivel) + '</td>'
               + '<td style="padding:6px 8px;font-size:11px;color:#555">' + locaisTxt + '</td>'
-              + '<td style="padding:6px 8px;text-align:right">' + fmtMoeda(p.preco || 0) + '</td>'
+              + '<td style="padding:6px 8px;text-align:right;font-size:11px;color:#666">' + fmtMoeda(p.cmc || p.preco || 0) + '</td>'
               + '</tr>';
       });
       html += '</tbody></table>';
@@ -862,5 +869,5 @@
   }
 
   window.EstoqueOmie = { render: render };
-  console.log('[estoque-omie] Modulo carregado v15 (perfis + acessorios + binding manual)');
+  console.log('[estoque-omie] Modulo carregado v16 (ListarPosEstoque por local + Reservado/Disp/CMC)');
 })();
