@@ -52,10 +52,20 @@ const App = (() => {
         { id: 'usuarios',       label: 'Usuarios' },
       ],
     },
+    'producao-geral': {
+      title: 'Producao Geral',
+      subtitle: 'Tabela master com todos marcos de producao por ATP. Sincronizada com Kanban Producao.',
+      breadcrumb: 'Producao · Geral',
+    },
     'kanban-producao': {
       title: 'Kanban Producao',
       subtitle: 'Acompanhamento das etapas de producao. Leads fechados no CRM aparecem clonados aqui automaticamente.',
       breadcrumb: 'Producao · Kanban',
+    },
+    equipes: {
+      title: 'Equipes',
+      subtitle: 'Calendario diario por equipe (Engenharia, Quadro, Corte, Colagem, Portal, Instalacao).',
+      breadcrumb: 'Producao · Equipes',
     },
     producao: {
       title: 'Producao',
