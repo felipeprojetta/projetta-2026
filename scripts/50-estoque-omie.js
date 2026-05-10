@@ -240,9 +240,12 @@
     var html = ''
       + '<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:14px;margin-bottom:14px">'
       + '  <div style="font-weight:700;color:#0d47a1;margin-bottom:6px">Como funciona</div>'
-      + '  <div style="font-size:12px;color:#1565c0">Selecione abaixo um orcamento. O sistema lista as chapas que vao ser usadas, '
-      + 'cruza com o saldo atual do OMIE e mostra quanto sobra. Se faltar, aparece em vermelho com sugestao de quanto comprar.</div>'
-      + '  <div style="font-size:11px;color:#1976d2;margin-top:6px">Versao 1: superficies (chapas selecionadas no Lev. Sup). Perfis e acessorios entram nas proximas versoes.</div>'
+      + '  <div style="font-size:12px;color:#1565c0">Selecione abaixo um orcamento. O sistema calcula a demanda completa: '
+      + '<b>chapas</b> (do Lev. Sup), <b>perfis</b> (rodando o motor de cortes -> barras) e <b>acessorios</b> (rodando o motor de regras). '
+      + 'Cruza com o saldo OMIE e mostra "vai sobrar X depois da obra". Se faltar, aparece em vermelho com sugestao de quanto comprar.</div>'
+      + '  <div style="font-size:11px;color:#1976d2;margin-top:6px">Match em 3 niveis: '
+      + '<b>codigo exato</b> (badge verde "cod") &gt; <b>vinculo manual</b> (badge azul "bind") &gt; <b>fuzzy por palavras-chave</b> (badge amarelo "fuzzy"). '
+      + 'Itens sem match: clica em "Vincular" pra escolher o produto OMIE certo — fica gravado pra sempre.</div>'
       + '</div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 130px;gap:10px;align-items:end;margin-bottom:14px">'
       + '  <div><label style="display:block;font-size:11px;color:#666;margin-bottom:3px">Negocio</label>'
@@ -310,37 +313,43 @@
     }
   }
 
-  function executarCruzamento(negocioId, opcaoLetra, versaoNumero) {
-    var st = window.Storage.scope('orcamentos');
-    var negocios = (st && st.get('negocios')) || [];
-    var n = negocios.find(function(x) { return x.id === negocioId; });
-    var o = n && (n.opcoes || []).find(function(x) { return x.letra === opcaoLetra; });
-    var v = o && (o.versoes || []).find(function(x) { return String(x.numero) === String(versaoNumero); });
-    if (!v) {
-      alert('Versao nao encontrada.');
-      return;
-    }
-    state.obraSelecao = { negocioId: negocioId, opcaoLetra: opcaoLetra, versaoNumero: versaoNumero };
-    var demanda = coletarDemandaObra(v);
-    var omieIdx = construirIndiceOmie(state.estoque.items || []);
-    var linhas = [];
-    demanda.forEach(function(d) {
-      if (d.cat === 'aviso') { linhas.push(d); return; }
-      var match = matchOmie(omieIdx, d);
-      var saldo = match ? Number(match.saldoTotal || 0) : 0;
-      var sobra = saldo - d.usar;
-      linhas.push({
-        cat: d.cat, descSistema: d.descricao, usar: d.usar, unidade: d.unidade,
-        match: match, saldoOmie: saldo, sobra: sobra,
-        status: !match ? 'sem-match' : (sobra >= 0 ? 'ok' : 'comprar')
-      });
-    });
-    state.cruzamento = { linhas: linhas, gerado: new Date().toISOString() };
-    renderResultadoCruzamento();
+  // ──────────────────────────────────────────────────────────────────
+  // Felipe sessao 14 (continuacao): bindings manuais sistema -> OMIE.
+  // Felipe vai padronizar codigos OMIE pra bater com sistema. Enquanto
+  // nao termina, bindings manuais cobrem itens 'sem match'.
+  // Storage: scope('cadastros') key 'omie_bindings' = { 'codigo_sistema': 'cCodigoOmie' }
+  // ──────────────────────────────────────────────────────────────────
+  function loadBindings() {
+    try {
+      var st = window.Storage && window.Storage.scope('cadastros');
+      return (st && st.get('omie_bindings')) || {};
+    } catch (_) { return {}; }
+  }
+  function saveBindings(bindings) {
+    try {
+      var st = window.Storage.scope('cadastros');
+      st.set('omie_bindings', bindings || {});
+    } catch (e) { console.warn('[estoque-omie] saveBindings:', e); }
+  }
+  function setBinding(codigoSistema, cCodigoOmie) {
+    var b = loadBindings();
+    if (!cCodigoOmie) { delete b[codigoSistema]; }
+    else { b[codigoSistema] = cCodigoOmie; }
+    saveBindings(b);
   }
 
+  // ──────────────────────────────────────────────────────────────────
+  // Coleta demanda da obra: superficies + perfis + acessorios.
+  // Felipe sessao 14: invoca os mesmos motores que rodam no orcamento
+  // (PerfisPortaExterna.gerarCortes + PerfisCore.calcularPorCodigo +
+  // AcessoriosPortaExterna.calcularAcessoriosPorItem) pra somar a
+  // demanda de TODOS os itens da versao.
+  // ──────────────────────────────────────────────────────────────────
   function coletarDemandaObra(versao) {
     var demanda = [];
+    var avisos = [];
+
+    // 1. SUPERFICIES — usa chapasSelecionadas (Lev. Sup ja' calculou nesting)
     var sel = versao.chapasSelecionadas || {};
     Object.keys(sel).forEach(function(cor) {
       var c = sel[cor];
@@ -348,26 +357,117 @@
       if (qtd <= 0) return;
       demanda.push({
         cat: 'superficie',
+        codigoSistema: cor,
         descricao: c.descricao || cor,
-        cor: cor,
         usar: qtd,
         unidade: 'CH',
       });
     });
     if (!Object.keys(sel).length) {
-      demanda.push({
-        cat: 'aviso',
-        descricao: 'Aba "Lev. Superficies" do orcamento nao tem chapas-mae selecionadas (duplo clique nos cards). Sem isso, nao da pra cruzar com OMIE.',
-      });
+      avisos.push('Aba "Lev. Superficies" do orcamento nao tem chapas-mae selecionadas. Sem isso, a demanda de superficies nao entra no cruzamento.');
     }
-    // TODO: perfis e acessorios em commits proximos
+
+    // 2. PERFIS — pra cada item, roda gerarCortes -> calcularPorCodigo
+    //    pra obter NUMERO DE BARRAS por codigo. Acumula entre itens.
+    var demandaPerfis = {}; // { codigoBarra: qtdBarras }
+    var demandaPerfisDesc = {}; // codigoBarra -> 'descricao + sufixo barra'
+    if (window.PerfisPortaExterna && window.PerfisCore && window.Storage) {
+      var cadPerfis = (window.Storage.scope('cadastros').get('perfis_lista')) || [];
+      // Constroi mapa codigo->cadastro pra calcularPorCodigo
+      var perfisCadastro = {};
+      cadPerfis.forEach(function(p) {
+        var cod = String(p.codigo || '').toUpperCase();
+        if (!cod) return;
+        perfisCadastro[cod] = {
+          kgPorMetro: Number(p.kgPorMetro || p.kg_por_metro || 0),
+          precoPorKg: Number(p.precoPorKg || p.preco_por_kg || 0),
+          precoKgPintura: Number(p.precoKgPintura || 0),
+          descricao: p.descricao || '',
+        };
+      });
+      (versao.itens || []).forEach(function(item) {
+        if (!item || item.tipo !== 'porta_externa') return; // V1: so' porta externa
+        try {
+          var cortes = window.PerfisPortaExterna.gerarCortes(item) || {};
+          var resultado = window.PerfisCore.calcularPorCodigo(cortes, perfisCadastro);
+          (resultado.itens || []).forEach(function(r) {
+            var cod = String(r.codigo || '').toUpperCase();
+            if (!cod || !r.nBars) return;
+            demandaPerfis[cod] = (demandaPerfis[cod] || 0) + r.nBars;
+            // Pega descricao base (sem sufixo -6M/-7M/-8M) pro cadastro
+            var codBase = cod.replace(/-[678]M$/, '');
+            var cad = perfisCadastro[codBase] || perfisCadastro[cod];
+            if (cad && cad.descricao && !demandaPerfisDesc[cod]) {
+              demandaPerfisDesc[cod] = cad.descricao;
+            }
+          });
+        } catch (err) {
+          console.warn('[estoque-omie] gerarCortes falhou no item', item.id, err);
+        }
+      });
+    } else {
+      avisos.push('Modulos de Perfis nao carregados — demanda de perfis nao calculada.');
+    }
+    Object.keys(demandaPerfis).forEach(function(codBarra) {
+      demanda.push({
+        cat: 'perfil',
+        codigoSistema: codBarra,
+        descricao: demandaPerfisDesc[codBarra] || codBarra,
+        usar: demandaPerfis[codBarra],
+        unidade: 'BR', // barras
+      });
+    });
+
+    // 3. ACESSORIOS — calcularAcessoriosPorItem pra cada item, agrupa por codigo
+    var demandaAcess = {};
+    var demandaAcessDesc = {};
+    var demandaAcessUnid = {};
+    if (window.AcessoriosPortaExterna && window.Storage) {
+      var cadAcess = window.Storage.scope('cadastros').get('acessorios_lista') || [];
+      (versao.itens || []).forEach(function(item) {
+        if (!item) return;
+        try {
+          var linhas = window.AcessoriosPortaExterna.calcularAcessoriosPorItem(item, cadAcess) || [];
+          linhas.forEach(function(l) {
+            var cod = String(l.codigo || '').toUpperCase();
+            if (!cod) return;
+            // Felipe: acessorios cuja qtd e' por METRO (fita/silicone)
+            // ja vem somado em metros — manter unidade.
+            demandaAcess[cod] = (demandaAcess[cod] || 0) + Number(l.qtd || 0);
+            if (!demandaAcessDesc[cod]) demandaAcessDesc[cod] = l.descricao || cod;
+            if (!demandaAcessUnid[cod]) demandaAcessUnid[cod] = l.unidade || 'un';
+          });
+        } catch (err) {
+          console.warn('[estoque-omie] calcularAcessoriosPorItem falhou no item', item.id, err);
+        }
+      });
+    } else {
+      avisos.push('Modulos de Acessorios nao carregados — demanda de acessorios nao calculada.');
+    }
+    Object.keys(demandaAcess).forEach(function(cod) {
+      var qtd = demandaAcess[cod];
+      if (!(qtd > 0)) return;
+      demanda.push({
+        cat: 'acessorio',
+        codigoSistema: cod,
+        descricao: demandaAcessDesc[cod] || cod,
+        usar: qtd,
+        unidade: demandaAcessUnid[cod] || 'un',
+      });
+    });
+
+    avisos.forEach(function(msg) { demanda.unshift({ cat: 'aviso', descricao: msg }); });
     return demanda;
   }
 
+  // ──────────────────────────────────────────────────────────────────
+  // Indice OMIE: por cCodigo (chave primaria) + por palavras-chave (fuzzy)
+  // ──────────────────────────────────────────────────────────────────
   function construirIndiceOmie(items) {
     var idx = { porCcod: {}, porPalavraChave: {} };
     items.forEach(function(p) {
-      idx.porCcod[String(p.cCodigo || '').toUpperCase()] = p;
+      var cc = String(p.cCodigo || '').toUpperCase();
+      if (cc) idx.porCcod[cc] = p;
       var d = String(p.cDescricao || '').toUpperCase();
       var mPro = d.match(/PRO\s*\d{3,}/g);
       var mDim = d.match(/\d{3,4}\s*[X×]\s*\d{3,4}/g);
@@ -381,7 +481,32 @@
     return idx;
   }
 
-  function matchOmie(idx, demanda) {
+  // ──────────────────────────────────────────────────────────────────
+  // Match com 3 camadas (em ordem de prioridade):
+  //   1. CODIGO EXATO  (Felipe: 'depois vou mudar codigos OMIE iguais aqui')
+  //   2. BINDING MANUAL  (Felipe ajusta uma vez, fica gravado)
+  //   3. FUZZY  (PRO + dim — fallback pra hoje)
+  // Retorna { match, fonte: 'codigo'|'binding'|'fuzzy' }
+  // ──────────────────────────────────────────────────────────────────
+  function matchOmie(idx, demanda, bindings) {
+    var codSis = String(demanda.codigoSistema || '').toUpperCase();
+    // 1. Codigo exato
+    if (codSis && idx.porCcod[codSis]) {
+      return { match: idx.porCcod[codSis], fonte: 'codigo' };
+    }
+    // 1b. Tenta sem sufixo de barra (ex: PA-76X38X1.98-6M -> PA-76X38X1.98)
+    var codSisBase = codSis.replace(/-[678]M$/, '');
+    if (codSisBase !== codSis && idx.porCcod[codSisBase]) {
+      return { match: idx.porCcod[codSisBase], fonte: 'codigo' };
+    }
+    // 2. Binding manual
+    if (bindings && bindings[codSis]) {
+      var alvo = String(bindings[codSis]).toUpperCase();
+      if (idx.porCcod[alvo]) {
+        return { match: idx.porCcod[alvo], fonte: 'binding' };
+      }
+    }
+    // 3. Fuzzy (so' faz sentido pra superficies — descricao tem PRO)
     var d = String(demanda.descricao || '').toUpperCase();
     var mPro = d.match(/PRO\s*\d{3,}/);
     var mDim = d.match(/(\d{3,4})\s*[X×]\s*(\d{3,4})/);
@@ -395,30 +520,81 @@
           var cd = String(c.cDescricao || '').toUpperCase().replace(/\s/g, '');
           return cd.indexOf(dimAlvo) >= 0 || cd.indexOf(dimAlvoInv) >= 0;
         });
-        if (comDim.length === 1) return comDim[0];
+        if (comDim.length === 1) return { match: comDim[0], fonte: 'fuzzy' };
         if (comDim.length > 1) {
           return {
-            cCodigo: comDim.map(function(c) { return c.cCodigo; }).join(' + '),
-            cDescricao: comDim[0].cDescricao + ' (+' + (comDim.length - 1) + ' variantes mesmo PRO+dim)',
-            saldoTotal: comDim.reduce(function(a, c) { return a + Number(c.saldoTotal || 0); }, 0),
-            porLocal: [].concat.apply([], comDim.map(function(c) { return c.porLocal || []; })),
-            preco: comDim[0].preco,
+            match: {
+              cCodigo: comDim.map(function(c) { return c.cCodigo; }).join(' + '),
+              cDescricao: comDim[0].cDescricao + ' (+' + (comDim.length - 1) + ' variantes mesmo PRO+dim)',
+              saldoTotal: comDim.reduce(function(a, c) { return a + Number(c.saldoTotal || 0); }, 0),
+              porLocal: [].concat.apply([], comDim.map(function(c) { return c.porLocal || []; })),
+              preco: comDim[0].preco,
+              _agregado: true,
+            },
+            fonte: 'fuzzy',
           };
         }
       }
       if (candidatos.length >= 1) {
         return {
-          cCodigo: candidatos.map(function(c) { return c.cCodigo; }).join(' + '),
-          cDescricao: candidatos[0].cDescricao + (candidatos.length > 1 ? ' (+' + (candidatos.length - 1) + ' variantes mesmo PRO)' : ''),
-          saldoTotal: candidatos.reduce(function(a, c) { return a + Number(c.saldoTotal || 0); }, 0),
-          porLocal: [].concat.apply([], candidatos.map(function(c) { return c.porLocal || []; })),
-          preco: candidatos[0].preco,
+          match: {
+            cCodigo: candidatos.map(function(c) { return c.cCodigo; }).join(' + '),
+            cDescricao: candidatos[0].cDescricao + (candidatos.length > 1 ? ' (+' + (candidatos.length - 1) + ' variantes mesmo PRO)' : ''),
+            saldoTotal: candidatos.reduce(function(a, c) { return a + Number(c.saldoTotal || 0); }, 0),
+            porLocal: [].concat.apply([], candidatos.map(function(c) { return c.porLocal || []; })),
+            preco: candidatos[0].preco,
+            _agregado: true,
+          },
+          fonte: 'fuzzy',
         };
       }
     }
-    return null;
+    return { match: null, fonte: null };
   }
 
+  function executarCruzamento(negocioId, opcaoLetra, versaoNumero) {
+    var st = window.Storage.scope('orcamentos');
+    var negocios = (st && st.get('negocios')) || [];
+    var n = negocios.find(function(x) { return x.id === negocioId; });
+    var o = n && (n.opcoes || []).find(function(x) { return x.letra === opcaoLetra; });
+    var v = o && (o.versoes || []).find(function(x) { return String(x.numero) === String(versaoNumero); });
+    if (!v) {
+      alert('Versao nao encontrada.');
+      return;
+    }
+    state.obraSelecao = { negocioId: negocioId, opcaoLetra: opcaoLetra, versaoNumero: versaoNumero };
+    // Mostra loading antes de calcular (motor de perfis demora)
+    var elRes = document.getElementById('obra-resultado');
+    if (elRes) {
+      elRes.innerHTML = '<div style="padding:30px;text-align:center;color:#1a5276"><div style="font-size:24px">⏳</div><b>Calculando demanda — rodando motores de perfis e acessorios...</b></div>';
+    }
+    // Pequeno delay pra UI atualizar antes do calculo sincrono pesado
+    setTimeout(function() {
+      var demanda = coletarDemandaObra(v);
+      var omieIdx = construirIndiceOmie(state.estoque.items || []);
+      var bindings = loadBindings();
+      var linhas = [];
+      demanda.forEach(function(d) {
+        if (d.cat === 'aviso') { linhas.push(d); return; }
+        var m = matchOmie(omieIdx, d, bindings);
+        var match = m.match;
+        var saldo = match ? Number(match.saldoTotal || 0) : 0;
+        var sobra = saldo - d.usar;
+        linhas.push({
+          cat: d.cat, codigoSistema: d.codigoSistema, descSistema: d.descricao,
+          usar: d.usar, unidade: d.unidade,
+          match: match, fonte: m.fonte, saldoOmie: saldo, sobra: sobra,
+          status: !match ? 'sem-match' : (sobra >= 0 ? 'ok' : 'comprar')
+        });
+      });
+      state.cruzamento = { linhas: linhas, gerado: new Date().toISOString() };
+      renderResultadoCruzamento();
+    }, 50);
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  // Render do resultado: cards + tabela com botao 'Vincular' nos sem-match
+  // ──────────────────────────────────────────────────────────────────
   function renderResultadoCruzamento() {
     var el = document.getElementById('obra-resultado');
     if (!el || !state.cruzamento) return;
@@ -432,14 +608,19 @@
     var faltam = efetivas.filter(function(l) { return l.status === 'comprar'; });
     var semMatch = efetivas.filter(function(l) { return l.status === 'sem-match'; });
     var ok = efetivas.filter(function(l) { return l.status === 'ok'; });
+    var contPorCat = { superficie: 0, perfil: 0, acessorio: 0 };
+    efetivas.forEach(function(l) { contPorCat[l.cat] = (contPorCat[l.cat] || 0) + 1; });
 
     var html = '';
     if (efetivas.length) {
       html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">'
             + '  <div style="background:#e8f5e9;border:1px solid #81c784;border-radius:6px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:#2e7d32">' + ok.length + '</div><div style="font-size:11px;color:#1b5e20">✓ tem estoque</div></div>'
             + '  <div style="background:#ffebee;border:1px solid #ef9a9a;border-radius:6px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:#c62828">' + faltam.length + '</div><div style="font-size:11px;color:#b71c1c">⚠ falta — comprar</div></div>'
-            + '  <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:6px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:#e65100">' + semMatch.length + '</div><div style="font-size:11px;color:#bf360c">? sem match OMIE</div></div>'
-            + '  <div style="background:#e3f2fd;border:1px solid #64b5f6;border-radius:6px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:#1565c0">' + efetivas.length + '</div><div style="font-size:11px;color:#0d47a1">total itens</div></div>'
+            + '  <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:6px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:#e65100">' + semMatch.length + '</div><div style="font-size:11px;color:#bf360c">? sem match — vincular</div></div>'
+            + '  <div style="background:#e3f2fd;border:1px solid #64b5f6;border-radius:6px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:#1565c0">' + efetivas.length + '</div><div style="font-size:11px;color:#0d47a1">total ('
+            + (contPorCat.superficie || 0) + ' chapas · '
+            + (contPorCat.perfil || 0) + ' perfis · '
+            + (contPorCat.acessorio || 0) + ' acess.)</div></div>'
             + '</div>';
     }
     if (avisos.length) {
@@ -453,34 +634,167 @@
             + '<th style="padding:8px;text-align:left">Cat</th>'
             + '<th style="padding:8px;text-align:left">Item Sistema</th>'
             + '<th style="padding:8px;text-align:left">Match OMIE</th>'
-            + '<th style="padding:8px;text-align:right">Estoque Atual</th>'
+            + '<th style="padding:8px;text-align:right">Estoque</th>'
             + '<th style="padding:8px;text-align:right">Vai Usar</th>'
             + '<th style="padding:8px;text-align:right">Sobra</th>'
             + '<th style="padding:8px;text-align:center">Status</th>'
+            + '<th style="padding:8px;text-align:center">Acao</th>'
             + '</tr></thead><tbody>';
-      efetivas.forEach(function(l, i) {
+      // Ordena: sem-match -> comprar -> ok (Felipe ve' o que precisa de atencao primeiro)
+      var ordenadas = efetivas.slice().sort(function(a, b) {
+        var p = { 'sem-match': 0, 'comprar': 1, 'ok': 2 };
+        return (p[a.status] - p[b.status]) || a.cat.localeCompare(b.cat);
+      });
+      ordenadas.forEach(function(l, i) {
         var bg = i % 2 === 0 ? '#fff' : '#f8f9fa';
         var status, corStatus;
         if (l.status === 'ok') { status = '✓ OK'; corStatus = '#2e7d32'; }
         else if (l.status === 'comprar') { status = '⚠ COMPRAR ' + Math.abs(l.sobra) + ' ' + l.unidade; corStatus = '#c62828'; }
         else { status = '? sem match'; corStatus = '#e65100'; }
+        var fonteBadge = '';
+        if (l.fonte === 'codigo') fonteBadge = '<span title="Match por codigo exato" style="background:#dcfce7;color:#166534;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;font-weight:600">cod</span>';
+        else if (l.fonte === 'binding') fonteBadge = '<span title="Match por binding manual" style="background:#dbeafe;color:#1e40af;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;font-weight:600">bind</span>';
+        else if (l.fonte === 'fuzzy') fonteBadge = '<span title="Match por palavras-chave (fuzzy)" style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;font-weight:600">fuzzy</span>';
         var matchTxt = l.match
-          ? '<div style="font-size:11px;color:#1a5276;font-weight:600">' + escapeHtml(l.match.cCodigo || '') + '</div>'
+          ? '<div style="font-size:11px;color:#1a5276;font-weight:600">' + escapeHtml(l.match.cCodigo || '') + fonteBadge + '</div>'
             + '<div style="font-size:11px;color:#555">' + escapeHtml(l.match.cDescricao || '') + '</div>'
           : '<i style="color:#999">— nao encontrado no OMIE</i>';
+        // Botao vincular: aparece em sem-match, e em fuzzy/binding (Felipe pode trocar)
+        var btnAcao = '';
+        if (l.codigoSistema) {
+          var btnLabel = l.fonte === 'binding' ? '✏ Trocar' : (l.match ? '🔗 Vincular' : '🔗 Vincular');
+          btnAcao = '<button class="omie-btn-vincular" data-cod-sistema="' + escapeAttr(l.codigoSistema) + '" '
+                  + 'style="font-size:11px;padding:4px 8px;background:#1a5276;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600">'
+                  + btnLabel + '</button>';
+        }
         html += '<tr style="border-bottom:1px solid #eee;background:' + bg + '">'
               + '<td style="padding:6px 8px;font-weight:600">' + escapeHtml(l.cat) + '</td>'
-              + '<td style="padding:6px 8px">' + escapeHtml(l.descSistema) + '</td>'
+              + '<td style="padding:6px 8px"><div style="font-size:10px;color:#666">' + escapeHtml(l.codigoSistema || '') + '</div>'
+              + '<div>' + escapeHtml(l.descSistema) + '</div></td>'
               + '<td style="padding:6px 8px">' + matchTxt + '</td>'
               + '<td style="padding:6px 8px;text-align:right;font-weight:700">' + (l.match ? fmtNum(l.saldoOmie) : '—') + '</td>'
-              + '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#1a5276">' + fmtNum(l.usar) + '</td>'
+              + '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#1a5276">' + fmtNum(l.usar) + ' ' + escapeHtml(l.unidade) + '</td>'
               + '<td style="padding:6px 8px;text-align:right;font-weight:700;color:' + (l.match && l.sobra >= 0 ? '#2e7d32' : '#c62828') + '">' + (l.match ? fmtNum(l.sobra) : '—') + '</td>'
               + '<td style="padding:6px 8px;text-align:center;color:' + corStatus + ';font-weight:700;font-size:11px">' + status + '</td>'
+              + '<td style="padding:6px 8px;text-align:center">' + btnAcao + '</td>'
               + '</tr>';
       });
       html += '</tbody></table>';
     }
     el.innerHTML = html;
+
+    // Listener pros botoes Vincular
+    el.querySelectorAll('.omie-btn-vincular').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        var codSis = e.currentTarget.getAttribute('data-cod-sistema');
+        abrirModalVinculo(codSis);
+      });
+    });
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  // Modal de vinculo manual: Felipe escolhe um produto OMIE da lista
+  // pra vincular ao codigo do sistema. Persistido em omie_bindings.
+  // ──────────────────────────────────────────────────────────────────
+  function abrirModalVinculo(codSistema) {
+    if (!state.estoque) return;
+    var items = state.estoque.items || [];
+    var bindings = loadBindings();
+    var linha = (state.cruzamento && state.cruzamento.linhas || []).find(function(l) { return l.codigoSistema === codSistema; });
+    var descSis = linha ? linha.descSistema : codSistema;
+    var bindingAtual = bindings[String(codSistema).toUpperCase()] || '';
+
+    var overlay = document.createElement('div');
+    overlay.id = 'omie-modal-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML = ''
+      + '<div style="background:#fff;border-radius:10px;max-width:850px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.4)">'
+      + '  <div style="padding:16px 20px;border-bottom:1px solid #ddd;display:flex;align-items:center;gap:14px">'
+      + '    <div style="flex:1">'
+      + '      <div style="font-weight:700;color:#1a5276;font-size:15px">Vincular ao OMIE</div>'
+      + '      <div style="font-size:12px;color:#666;margin-top:2px"><b>' + escapeHtml(codSistema) + '</b> — ' + escapeHtml(descSis) + '</div>'
+      + '    </div>'
+      + '    <button id="omie-modal-fechar" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666">×</button>'
+      + '  </div>'
+      + '  <div style="padding:14px 20px;border-bottom:1px solid #eee">'
+      + '    <input type="text" id="omie-modal-busca" placeholder="Buscar codigo ou descricao OMIE..." autofocus '
+      + '      style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:6px;font-size:13px" />'
+      + '    ' + (bindingAtual ? '<div style="font-size:11px;color:#0d47a1;margin-top:6px">Binding atual: <b>' + escapeHtml(bindingAtual) + '</b> · '
+      + '<a href="#" id="omie-modal-remover" style="color:#c62828">remover</a></div>' : '')
+      + '  </div>'
+      + '  <div id="omie-modal-lista" style="flex:1;overflow-y:auto;padding:0 12px 12px"></div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+
+    function fechar() {
+      var o = document.getElementById('omie-modal-overlay');
+      if (o) o.remove();
+    }
+    document.getElementById('omie-modal-fechar').addEventListener('click', fechar);
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) fechar(); });
+
+    var rem = document.getElementById('omie-modal-remover');
+    if (rem) rem.addEventListener('click', function(e) {
+      e.preventDefault();
+      setBinding(String(codSistema).toUpperCase(), '');
+      fechar();
+      executarCruzamento(state.obraSelecao.negocioId, state.obraSelecao.opcaoLetra, state.obraSelecao.versaoNumero);
+    });
+
+    var lista = document.getElementById('omie-modal-lista');
+    var inp = document.getElementById('omie-modal-busca');
+
+    // Sugere termos a partir do codigo/descricao do sistema
+    var termoInicial = '';
+    var codBase = String(codSistema).replace(/-[678]M$/, '').replace(/[^A-Z0-9]/gi, '');
+    if (codBase.length >= 4) termoInicial = codBase.substring(0, Math.min(8, codBase.length));
+    var mPro = String(descSis).match(/PRO\s*\d+/i);
+    if (mPro) termoInicial = mPro[0].replace(/\s/g, '');
+    inp.value = termoInicial;
+
+    function renderLista() {
+      var t = (inp.value || '').toLowerCase().trim();
+      var filtrados = !t ? items.slice(0, 100) : items.filter(function(p) {
+        return (p.cCodigo || '').toLowerCase().indexOf(t) >= 0
+            || (p.cDescricao || '').toLowerCase().indexOf(t) >= 0;
+      }).slice(0, 200);
+      if (!filtrados.length) {
+        lista.innerHTML = '<div style="padding:30px;text-align:center;color:#888">Nenhum produto encontrado pra "' + escapeHtml(t) + '"</div>';
+        return;
+      }
+      var h = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>';
+      filtrados.forEach(function(p, i) {
+        var saldo = Number(p.saldoTotal || 0);
+        var corS = saldo > 0 ? '#2e7d32' : '#999';
+        h += '<tr class="omie-modal-row" data-ccod="' + escapeAttr(p.cCodigo) + '" '
+           + 'style="cursor:pointer;border-bottom:1px solid #eee;background:' + (i % 2 === 0 ? '#fff' : '#f9f9f9') + '">'
+           + '<td style="padding:8px;font-weight:600;color:#1a5276;font-size:11px;width:140px">' + escapeHtml(p.cCodigo) + '</td>'
+           + '<td style="padding:8px">' + escapeHtml(p.cDescricao) + '</td>'
+           + '<td style="padding:8px;text-align:right;font-weight:700;color:' + corS + ';width:80px">' + fmtNum(saldo) + '</td>'
+           + '</tr>';
+      });
+      h += '</tbody></table>';
+      if (items.length > filtrados.length && !t) {
+        h += '<div style="padding:8px;text-align:center;color:#999;font-size:11px">Digite pra refinar (' + items.length + ' produtos OMIE no total)</div>';
+      }
+      lista.innerHTML = h;
+      lista.querySelectorAll('.omie-modal-row').forEach(function(row) {
+        row.addEventListener('mouseenter', function() { row.style.background = '#e3f2fd'; });
+        row.addEventListener('mouseleave', function() {
+          var idx = Array.prototype.indexOf.call(row.parentNode.children, row);
+          row.style.background = idx % 2 === 0 ? '#fff' : '#f9f9f9';
+        });
+        row.addEventListener('click', function() {
+          var ccod = row.getAttribute('data-ccod');
+          setBinding(String(codSistema).toUpperCase(), ccod);
+          fechar();
+          executarCruzamento(state.obraSelecao.negocioId, state.obraSelecao.opcaoLetra, state.obraSelecao.versaoNumero);
+        });
+      });
+    }
+    inp.addEventListener('input', renderLista);
+    renderLista();
+    setTimeout(function() { inp.focus(); inp.select(); }, 50);
   }
 
   // ── Helpers ──
@@ -510,5 +824,5 @@
   }
 
   window.EstoqueOmie = { render: render };
-  console.log('[estoque-omie] Modulo carregado v14');
+  console.log('[estoque-omie] Modulo carregado v15 (perfis + acessorios + binding manual)');
 })();
