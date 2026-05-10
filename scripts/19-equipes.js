@@ -65,6 +65,13 @@
     'finalizado':                 '#10B981',
   };
 
+  // Felipe (sessao 2026-05-10): "so deve aparecer ai os itens que
+  // estiverem em producao, esse Mhamad Kamel Fayad esta aguardando
+  // liberacao entao nao deve aparecer ali". ag-liberacao-medidas e
+  // ag-medicao sao pre-producao. Producao real comeca em
+  // ag-fazer-liberacao em diante.
+  const ETAPAS_PRE_PRODUCAO = new Set(['ag-liberacao-medidas', 'ag-medicao']);
+
   const store = Storage.scope('equipes');
   const state = {
     agendamentos: {},      // { [id]: { cardId, equipeId, dia, notas } }
@@ -76,6 +83,23 @@
   // ============================================================
   // HELPERS
   // ============================================================
+  /**
+   * Felipe (sessao 2026-05-10 - bug 2): 'ultima imagem 17 de abril e
+   * sexta feira, ali mostra quinta feira'.
+   *
+   * CAUSA RAIZ: new Date('2026-04-17') eh parseado como UTC midnight.
+   * Brasil eh UTC-3, entao no JS local vira 2026-04-16 21:00 -> getDay()
+   * retorna QUI quando deveria ser SEX.
+   *
+   * FIX: parseISODate quebra a string e usa o construtor (y, m, d) que
+   * cria a data em local time, evitando off-by-one.
+   */
+  function parseISODate(iso) {
+    if (!iso || typeof iso !== 'string') return new Date(NaN);
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return new Date(iso);
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
   function escapeHtml(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -84,7 +108,7 @@
   function fmtData(iso) {
     if (!iso) return '';
     try {
-      const d = new Date(iso);
+      const d = parseISODate(iso);
       if (isNaN(d.getTime())) return iso;
       return d.toLocaleDateString('pt-BR');
     } catch (_) { return iso; }
@@ -101,15 +125,22 @@
     return mesAno + '-' + String(dia).padStart(2, '0');
   }
   function diaSemana(isoDate) {
-    const d = new Date(isoDate);
+    const d = parseISODate(isoDate);
     return ['DOM','SEG','TER','QUA','QUI','SEX','SAB'][d.getDay()];
   }
   function ehFimDeSemana(isoDate) {
-    const d = new Date(isoDate);
+    const d = parseISODate(isoDate);
     const dow = d.getDay();
     return dow === 0 || dow === 6;
   }
-  function hojeISO() { return new Date().toISOString().slice(0, 10); }
+  function hojeISO() {
+    // Felipe (sessao 2026-05-10): hojeISO em LOCAL time pra alinhar
+    // com parseISODate (evitar comparacao errada perto da meia-noite).
+    const h = new Date();
+    return h.getFullYear() + '-' +
+           String(h.getMonth() + 1).padStart(2, '0') + '-' +
+           String(h.getDate()).padStart(2, '0');
+  }
   function genId() {
     return 'ag_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
   }
@@ -228,8 +259,23 @@
       const cellsEquipes = EQUIPES.map(e => {
         const ags = idx.get(e.id + '|' + iso) || [];
         const cardsHtml = ags.map(ag => {
+          // Felipe (sessao 2026-05-10): tarefa manual (sem cardId)
+          if (!ag.cardId && ag.tarefaManual) {
+            return `
+              <div class="eq-job-card eq-job-manual" title="Tarefa manual: ${escapeHtml(ag.tarefaManual)}">
+                <button class="eq-job-del" data-action="remover" data-ag-id="${escapeHtml(ag.id)}" title="Remover">×</button>
+                <div class="eq-job-cliente">📝 ${escapeHtml(ag.tarefaManual)}</div>
+                ${ag.notas ? `<div class="eq-job-atp">${escapeHtml(ag.notas)}</div>` : ''}
+              </div>
+            `;
+          }
           const card = cardById(ag.cardId);
           if (!card) return ''; // card deletado no kanban — cascade ja limpa, mas defesa
+          // Felipe (sessao 2026-05-10): "so deve aparecer ai os itens
+          // que estiverem em producao". Se o job avancou de etapa e
+          // voltou pra pre-producao (ag-liberacao-medidas / ag-medicao),
+          // esconder o mini-card aqui tambem.
+          if (ETAPAS_PRE_PRODUCAO.has(card.etapa)) return '';
           const corEtapa = COR_ETAPA[card.etapa] || '#64748B';
           return `
             <div class="eq-job-card" style="border-left-color:${corEtapa};background:${corEtapa}15" title="${escapeHtml(card.cliente)} · ATP ${escapeHtml(card.numeroAGP || '—')}">
@@ -243,7 +289,7 @@
         return `
           <td class="eq-td-cell ${fim ? 'eq-cell-weekend' : ''}" data-action="adicionar" data-equipe="${escapeHtml(e.id)}" data-dia="${iso}">
             ${cardsHtml}
-            <button class="eq-add-btn" data-action="adicionar" data-equipe="${escapeHtml(e.id)}" data-dia="${iso}" title="Agendar job">+</button>
+            <button class="eq-add-btn" data-action="adicionar" data-equipe="${escapeHtml(e.id)}" data-dia="${iso}" title="Agendar tarefa">+</button>
           </td>
         `;
       }).join('');
@@ -274,6 +320,12 @@
     `;
   }
 
+  // Felipe (sessao 2026-05-10): so jobs que ja sairam da pre-producao
+  // aparecem no select do modal. Veja ETAPAS_PRE_PRODUCAO no topo.
+  function listarCardsKanbanEmProducao() {
+    return listarCardsKanban().filter(c => !ETAPAS_PRE_PRODUCAO.has(c.etapa));
+  }
+
   // ============================================================
   // MODAL DE AGENDAMENTO
   // ============================================================
@@ -281,29 +333,22 @@
     if (!state.modalAberto) return '';
     const m = state.modalAberto;
     const equipe = equipeById(m.equipeId);
-    const cards = listarCardsKanban();
-    if (cards.length === 0) {
-      return `
-        <div class="eq-modal-backdrop" data-action="fechar-modal"></div>
-        <div class="eq-modal" role="dialog" aria-modal="true">
-          <div class="eq-modal-header" style="border-left:6px solid ${equipe.cor}">
-            <h3>${escapeHtml(equipe.label)} · ${escapeHtml(fmtData(m.dia))}</h3>
-            <button class="eq-modal-close" data-action="fechar-modal">×</button>
-          </div>
-          <div class="eq-modal-body">
-            <p style="text-align:center;color:var(--text-muted,#6b7280);padding:20px;">
-              Nenhum card no Kanban Producao pra agendar.<br>
-              Importe leads no Kanban Producao primeiro.
-            </p>
-          </div>
-        </div>
-      `;
-    }
+    // Felipe (sessao 2026-05-10): so jobs EM producao no select.
+    const cardsEmProducao = listarCardsKanbanEmProducao();
 
-    const opts = cards.map(c => {
-      const label = (c.cliente || '(sem nome)') + ' · ' + (c.numeroAGP || 'sem ATP') + ' · ' + (c.etapa || '');
-      return `<option value="${escapeHtml(c.id)}">${escapeHtml(label)}</option>`;
-    }).join('');
+    // Felipe (sessao 2026-05-10): "deixe campo pra escrever tarefa manual".
+    // Opcao 'manual' no topo do select - se escolhida, mostra textarea.
+    const opts = `
+      <option value="__manual__">📝 Tarefa manual (sem job vinculado)</option>
+      ${cardsEmProducao.length > 0 ? '<option disabled>───── jobs em producao ─────</option>' : ''}
+      ${cardsEmProducao.map(c => {
+        const label = (c.cliente || '(sem nome)') + ' · ' + (c.numeroAGP || 'sem ATP') + ' · ' + (c.etapa || '');
+        return `<option value="${escapeHtml(c.id)}">${escapeHtml(label)}</option>`;
+      }).join('')}
+    `;
+    const hintCardsVazio = cardsEmProducao.length === 0
+      ? `<small style="color:var(--text-muted,#6b7280);font-size:11px;">Nenhum job em producao no Kanban (jobs aguardando liberacao/medicao nao aparecem aqui).</small>`
+      : '';
 
     return `
       <div class="eq-modal-backdrop" data-action="fechar-modal"></div>
@@ -316,12 +361,17 @@
           <button class="eq-modal-close" data-action="fechar-modal">×</button>
         </div>
         <div class="eq-modal-body">
-          <label class="eq-modal-label">Qual job esta equipe vai fazer?</label>
+          <label class="eq-modal-label">O que esta equipe vai fazer?</label>
           <select class="eq-modal-select" id="eq-modal-card-select">
             ${opts}
           </select>
+          ${hintCardsVazio}
+          <div id="eq-modal-manual-wrap" style="display:none;margin-top:10px;">
+            <label class="eq-modal-label">Descricao da tarefa manual</label>
+            <input type="text" class="eq-modal-select" id="eq-modal-tarefa-manual" placeholder="Ex: Manutencao da maquina, treinamento, limpeza..." />
+          </div>
           <label class="eq-modal-label">Observacoes (opcional)</label>
-          <textarea class="eq-modal-textarea" id="eq-modal-notas" rows="3" placeholder="Ex: levar peca extra, conferir antes..."></textarea>
+          <textarea class="eq-modal-textarea" id="eq-modal-notas" rows="3" placeholder="Detalhes adicionais..."></textarea>
         </div>
         <div class="eq-modal-footer">
           <button class="eq-btn-secundario" data-action="fechar-modal">Cancelar</button>
@@ -341,9 +391,17 @@
   // ============================================================
   // OPERACOES
   // ============================================================
-  function criarAgendamento(equipeId, dia, cardId, notas) {
+  function criarAgendamento(equipeId, dia, cardId, notas, tarefaManual) {
     const id = genId();
-    state.agendamentos[id] = { cardId, equipeId, dia, notas: notas || '' };
+    // Felipe (sessao 2026-05-10): suporta tarefa manual (sem cardId)
+    // alem de jobs vinculados ao Kanban.
+    state.agendamentos[id] = {
+      cardId: cardId || null,
+      equipeId,
+      dia,
+      notas: notas || '',
+      tarefaManual: tarefaManual || '',
+    };
     saveAgendamentos();
   }
   function removerAgendamento(agId) {
@@ -409,17 +467,39 @@
           render(container);
         });
       });
+      // Felipe (sessao 2026-05-10): listener pra mostrar campo de
+      // tarefa manual quando user seleciona '__manual__' no select.
+      const selectCards = mount.querySelector('#eq-modal-card-select');
+      const wrapManual  = mount.querySelector('#eq-modal-manual-wrap');
+      if (selectCards && wrapManual) {
+        const toggleManual = () => {
+          wrapManual.style.display = (selectCards.value === '__manual__') ? 'block' : 'none';
+        };
+        selectCards.addEventListener('change', toggleManual);
+        toggleManual();
+      }
       const btnSalvar = mount.querySelector('[data-action="salvar-modal"]');
       if (btnSalvar) {
         btnSalvar.addEventListener('click', () => {
           const sel = mount.querySelector('#eq-modal-card-select');
           const notas = mount.querySelector('#eq-modal-notas');
-          if (sel && sel.value) {
-            const m = state.modalAberto;
-            criarAgendamento(m.equipeId, m.dia, sel.value, notas ? notas.value : '');
-            fecharModal();
-            render(container);
+          if (!sel || !sel.value) return;
+          const m = state.modalAberto;
+          const selValue = sel.value;
+          // Felipe (sessao 2026-05-10): suporte a tarefa manual
+          if (selValue === '__manual__') {
+            const tarefa = mount.querySelector('#eq-modal-tarefa-manual');
+            const txtTarefa = tarefa ? tarefa.value.trim() : '';
+            if (!txtTarefa) {
+              alert('Descreva a tarefa manual antes de salvar.');
+              return;
+            }
+            criarAgendamento(m.equipeId, m.dia, null, notas ? notas.value : '', txtTarefa);
+          } else {
+            criarAgendamento(m.equipeId, m.dia, selValue, notas ? notas.value : '', '');
           }
+          fecharModal();
+          render(container);
         });
       }
       // ESC fecha

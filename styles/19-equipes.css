@@ -331,3 +331,21 @@
   color: var(--text, #1f2937);
 }
 .eq-btn-secundario:hover { background: var(--bg-hover, #f3f4f6); }
+
+/* ============================================================
+   TAREFA MANUAL (Felipe sessao 2026-05-10)
+   Mini-card sem cardId vinculado - cor cinza, icone 📝.
+   ============================================================ */
+.eq-job-card.eq-job-manual {
+  background: #f1f5f9 !important;
+  border-left-color: #94a3b8 !important;
+}
+.eq-job-card.eq-job-manual .eq-job-cliente {
+  color: #475569;
+  font-weight: 600;
+}
+.eq-job-card.eq-job-manual .eq-job-atp {
+  color: #64748b;
+  font-family: inherit;
+  font-style: italic;
+}

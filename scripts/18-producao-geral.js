@@ -99,34 +99,58 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+  /**
+   * Felipe (sessao 2026-05-10 - bug 3): "clico dia 10/04 quando dou ok
+   * aparece no 09/04".
+   *
+   * CAUSA RAIZ: new Date('2026-04-10') eh parseado como UTC midnight.
+   * Brasil eh UTC-3, entao no JS local vira 2026-04-09 21:00 -> ao
+   * formatar com toLocaleDateString('pt-BR') aparece 09/04/2026.
+   *
+   * FIX: parseISODate quebra a string e usa o construtor (y, m, d)
+   * que cria a data em LOCAL time, evitando off-by-one.
+   * E toISOString() (que usa UTC) eh trocado por fmtISODateLocal().
+   */
+  function parseISODate(iso) {
+    if (!iso || typeof iso !== 'string') return new Date(NaN);
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return new Date(iso);
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  function fmtISODateLocal(d) {
+    if (!d || isNaN(d.getTime())) return '';
+    return d.getFullYear() + '-' +
+           String(d.getMonth() + 1).padStart(2, '0') + '-' +
+           String(d.getDate()).padStart(2, '0');
+  }
   function fmtData(iso) {
     if (!iso) return '';
     try {
-      const d = new Date(iso);
+      const d = parseISODate(iso);
       if (isNaN(d.getTime())) return iso;
       return d.toLocaleDateString('pt-BR');
     } catch (_) { return iso; }
   }
   // Felipe (sessao 2026-05-10): formula de entrega.
   // Entrega Final = Aprovacao + prazoDias (default 90)
-  // Inicio Inst.  = Entrega Final - 15 dias (default)
+  // Inicio Inst.  = Entrega Final - 7 (Projetta) ou 20 (Weiku)
   function calcEntregaFinal(aprovacaoISO, prazoDias) {
     if (!aprovacaoISO) return '';
     const dias = Number(prazoDias) || PRAZO_CONTRATO_DEFAULT;
-    const d = new Date(aprovacaoISO);
+    const d = parseISODate(aprovacaoISO);
     if (isNaN(d.getTime())) return '';
     d.setDate(d.getDate() + dias);
-    return d.toISOString().slice(0, 10);
+    return fmtISODateLocal(d);
   }
   function calcInicioInst(entregaFinalISO, quemInstala) {
     if (!entregaFinalISO) return '';
-    const d = new Date(entregaFinalISO);
+    const d = parseISODate(entregaFinalISO);
     if (isNaN(d.getTime())) return '';
     const dias = (quemInstala === 'weiku')
       ? ANTECEDENCIA_INST_WEIKU
       : ANTECEDENCIA_INST_PROJETTA;
     d.setDate(d.getDate() - dias);
-    return d.toISOString().slice(0, 10);
+    return fmtISODateLocal(d);
   }
 
   // ============================================================
