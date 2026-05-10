@@ -57,6 +57,11 @@ const App = (() => {
       subtitle: 'Acompanhamento das etapas de producao. Leads fechados no CRM aparecem clonados aqui automaticamente.',
       breadcrumb: 'Producao · Kanban',
     },
+    producao: {
+      title: 'Producao',
+      subtitle: 'Calculo tecnico (medidas e quantidades) — sem precos. Mesma logica do Orcamento, focado na producao.',
+      breadcrumb: 'Producao · Producao',
+    },
     instalacao: {
       title: 'Agenda Obras',
       subtitle: 'Calendario e equipes de instalacao em obra.',
