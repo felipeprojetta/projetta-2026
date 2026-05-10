@@ -465,13 +465,13 @@
     if (trabalhos.length === 0) {
       return `<div class="pg-empty">Nenhum trabalho. Cards aparecem aqui automaticamente do Kanban Producao.</div>`;
     }
-    // Felipe (sessao 2026-05-10): "tudo que for aguardando liberacao
-    // fica separado dos demais". Bloco superior = AG. LIBERACAO MEDIDAS.
+    // Felipe (sessao 2026-05-10): "deixe em producao em cima, aguardando
+    // liberacao em baixo". Ordem invertida nesta entrega.
     const aguardandoLiberacao = trabalhos.filter(t => t.statusId === 'ag-liberacao-medidas');
     const emProducao          = trabalhos.filter(t => t.statusId !== 'ag-liberacao-medidas');
     return `
-      ${renderTabelaCompleta(aguardandoLiberacao, 'AGUARDANDO LIBERACAO', 'pg-secao-aguardando')}
       ${renderTabelaCompleta(emProducao,          'EM PRODUCAO',          'pg-secao-producao')}
+      ${renderTabelaCompleta(aguardandoLiberacao, 'AGUARDANDO LIBERACAO', 'pg-secao-aguardando')}
     `;
   }
 
