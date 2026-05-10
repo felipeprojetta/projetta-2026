@@ -299,8 +299,12 @@
     }
 
     if (MARCOS_DATA_SIMPLES.has(m.id)) {
-      // Marcos comerciais (medicao, liberacao, aprovacao): data simples
-      return `<td class="pg-td-marco">
+      // Felipe (sessao 2026-05-10): "deixe essa coluna tbm de forma
+      // diferente assim como estao as primeiras outra cor".
+      // Marcos comerciais (medicao, liberacao, aprovacao) ganham
+      // classe pg-td-comercial — fundo verde-agua, distinto dos
+      // marcos de producao (amarelo) e calculados (laranja).
+      return `<td class="pg-td-marco pg-td-comercial">
         <input type="date" class="pg-marco-input"
                data-card-id="${cardId}" data-marco="${marcoId}"
                value="${escapeHtml(val)}" />
@@ -398,7 +402,19 @@
 
   function renderTabelaCompleta(trabalhos, titulo, classeExtra) {
     if (trabalhos.length === 0) return '';
-    const colsMarco = MARCOS.map(m => `<th class="pg-th-marco${m.calculado ? ' pg-th-calc' : ''}">${escapeHtml(m.label)}${m.calculado ? ' <span class="pg-th-fx" title="Calculado: Aprovacao + Prazo (Inicio = Entrega - 15)">ƒ</span>' : ''}</th>`).join('');
+    const colsMarco = MARCOS.map(m => {
+      // Felipe (sessao 2026-05-10): 3 grupos de cor de header:
+      //   - comercial (medicao/liberacao/aprovacao): pg-th-comercial (verde)
+      //   - producao  (cad.os ate embalagem):        pg-th-marco (amarelo)
+      //   - calculado (inicio inst, entrega final):  pg-th-calc (laranja)
+      let classes = 'pg-th-marco';
+      if (MARCOS_DATA_SIMPLES.has(m.id)) classes += ' pg-th-comercial';
+      if (m.calculado)                   classes += ' pg-th-calc';
+      const fxBadge = m.calculado
+        ? ' <span class="pg-th-fx" title="Calculado: Aprovacao + Prazo (Inicio = Entrega - 15)">ƒ</span>'
+        : '';
+      return `<th class="${classes}">${escapeHtml(m.label)}${fxBadge}</th>`;
+    }).join('');
     return `
       ${titulo ? `<div class="pg-secao-titulo ${classeExtra || ''}">${escapeHtml(titulo)} <span class="pg-secao-count">${trabalhos.length}</span></div>` : ''}
       <div class="pg-tabela-wrap ${classeExtra || ''}">

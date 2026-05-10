@@ -327,7 +327,16 @@
     if (totalDias <= 0) {
       return `<div class="inst-empty">Datas invalidas no range do Gantt.</div>`;
     }
-    const PX_DIA = 24;  // largura de cada celula-dia
+    // Felipe (sessao 2026-05-10): "sempre que colocar semana atual,
+    // mes atual, aumente a largura pois tem espaco ai nao fica tao
+    // pequeno aumente 1,5 vezes a largura".
+    // 24 * 1.5 = 36px pros 3 periodos curtos. Auto fica 24 (range
+    // pode ser grande, 36 estouraria).
+    const PX_DIA_BASE = 24;
+    const periodosLargos = ['semana', 'mes-atual', 'mes-seguinte'];
+    const PX_DIA = periodosLargos.indexOf(state.ganttPeriodo) >= 0
+      ? Math.round(PX_DIA_BASE * 1.5)  // 36px
+      : PX_DIA_BASE;                    // 24px (auto)
     const totalPx = totalDias * PX_DIA;
     const hoje = hojeISO();
     const offsetHoje = (hoje >= min && hoje <= max) ? diasEntre(min, hoje) * PX_DIA : -1;
@@ -342,7 +351,7 @@
       const dia = d.getDate();
       const dow = d.getDay();
       const fimDeSemana = (dow === 0 || dow === 6);
-      headerDias.push(`<div class="inst-gantt-day ${fimDeSemana ? 'is-weekend' : ''}" title="${d.toLocaleDateString('pt-BR')}">${dia}</div>`);
+      headerDias.push(`<div class="inst-gantt-day ${fimDeSemana ? 'is-weekend' : ''}" style="flex:0 0 ${PX_DIA}px;width:${PX_DIA}px" title="${d.toLocaleDateString('pt-BR')}">${dia}</div>`);
 
       if (d.getMonth() !== mesAtual) {
         if (mesAtual !== -1) {
@@ -379,7 +388,7 @@
             <span class="inst-gantt-meta">${escapeHtml(t.numeroAGP || '')} · ${escapeHtml(local || '')}</span>
             <span class="inst-gantt-meta">${escapeHtml(t.instalador || '—')}</span>
           </div>
-          <div class="inst-gantt-track" style="width:${totalPx}px">
+          <div class="inst-gantt-track" style="width:${totalPx}px;background-image:repeating-linear-gradient(to right,transparent 0,transparent ${PX_DIA-1}px,#f1f5f9 ${PX_DIA-1}px,#f1f5f9 ${PX_DIA}px)">
             ${bar}
           </div>
         </div>

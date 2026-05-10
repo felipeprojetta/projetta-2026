@@ -207,10 +207,36 @@
 .pg-tabela-wrap.pg-secao-aguardando { border-color: #c4b5fd; }
 .pg-tabela-wrap.pg-secao-producao   { border-color: #93c5fd; }
 
-/* Marcos calculados (readonly) — Entrega Final, Inicio Inst */
+/* Felipe (sessao 2026-05-10): 3 grupos de cor de header dos marcos:
+   - COMERCIAL (medicao/liberacao/aprovacao): verde-agua (datas vindas
+     do cliente, comerciais)
+   - PRODUCAO (cad.os ate embalagem): amarelo (atual - marcos do chao
+     de fabrica)
+   - CALCULADO (inicio inst., entrega final): laranja (formula auto)
+   ============================================================ */
+
+/* COMERCIAL */
+.pg-th-comercial {
+  background: #ccfbf1 !important;  /* verde-agua claro */
+  color: #115e59 !important;        /* teal-800 */
+}
+.pg-td-comercial {
+  background: #f0fdfa;              /* verde-agua MUITO claro */
+  border-left: 2px solid #5eead4;
+}
+.pg-td-comercial .pg-marco-input {
+  background: #fff;
+  border-color: #5eead4;
+}
+.pg-td-comercial .pg-marco-input:focus {
+  outline-color: #14b8a6;
+  border-color: #14b8a6;
+}
+
+/* CALCULADO (laranja, diferenciado do amarelo dos marcos producao) */
 .pg-th-calc {
-  background: #fef3c7 !important;
-  color: #92400e !important;
+  background: #fed7aa !important;  /* laranja claro */
+  color: #9a3412 !important;        /* orange-800 */
 }
 .pg-th-fx {
   display: inline-block;
@@ -228,18 +254,18 @@
   margin-left: 2px;
 }
 .pg-td-calc {
-  background: #fffbeb;
-  border-left: 2px solid #fbbf24;
+  background: #fff7ed;              /* laranja MUITO claro */
+  border-left: 2px solid #fb923c;
 }
 .pg-marco-calc {
   display: inline-block;
   padding: 4px 8px;
   border-radius: 4px;
-  background: #fef3c7;
-  color: #78350f;
+  background: #fed7aa;
+  color: #9a3412;
   font-size: 11px;
   font-weight: 700;
-  border: 1px solid #fbbf24;
+  border: 1px solid #fb923c;
   font-variant-numeric: tabular-nums;
 }
 .pg-calc-empty {
