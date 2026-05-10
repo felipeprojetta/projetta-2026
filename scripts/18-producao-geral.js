@@ -386,12 +386,26 @@
       </td>`;
     }
 
-    // Marcos de producao (cad.os pra frente): 3 estados
+    // Marcos de producao (cad.os pra frente): 4 estados
+    //   ''        -> AG (cinza) + botao 'N/A' ao lado
+    //   'iniciado' -> INICIADO amarelo + input data + cancelar
+    //   'na'       -> NAO SE APLICA cinza claro (Felipe sessao 2026-05-10)
+    //   'YYYY-MM-DD' -> FINALIZADO verde com data
     if (val === '') {
+      // Felipe (sessao 2026-05-10): "me deixe colocar um campo por
+      // exemplo nesse cliente nao tem Quadro Fixo Colagem Fixo, um
+      // campo aonde fique um x dizendo que nao existe nao tera data".
+      // Botao pequeno '—' ao lado do AG marca o marco como 'N/A'
+      // (nao se aplica - este trabalho nao tem essa etapa).
       return `<td class="pg-td-marco">
-        <button class="pg-marco-btn pg-marco-ag"
-                data-card-id="${cardId}" data-marco="${marcoId}" data-action="iniciar"
-                title="Click pra marcar como INICIADO">AG</button>
+        <div class="pg-marco-ag-wrap">
+          <button class="pg-marco-btn pg-marco-ag"
+                  data-card-id="${cardId}" data-marco="${marcoId}" data-action="iniciar"
+                  title="Click pra marcar como INICIADO">AG</button>
+          <button class="pg-marco-na-btn"
+                  data-card-id="${cardId}" data-marco="${marcoId}" data-action="marcar-na"
+                  title="Marcar como NAO SE APLICA (este trabalho nao tem esta etapa)">—</button>
+        </div>
       </td>`;
     }
     if (val === 'iniciado') {
@@ -404,6 +418,13 @@
           <button class="pg-marco-cancel" data-card-id="${cardId}" data-marco="${marcoId}" data-action="cancelar"
                   title="Voltar pra AG">×</button>
         </div>
+      </td>`;
+    }
+    if (val === 'na') {
+      return `<td class="pg-td-marco">
+        <button class="pg-marco-btn pg-marco-na"
+                data-card-id="${cardId}" data-marco="${marcoId}" data-action="resetar"
+                title="Marcado como Nao Se Aplica. Click pra voltar pra AG.">N/A</button>
       </td>`;
     }
     // Tem data: FINALIZADO
@@ -608,7 +629,7 @@
       });
     });
 
-    // Felipe (sessao 2026-05-10): 3 estados nos marcos de cad.os pra frente.
+    // Felipe (sessao 2026-05-10): 4 estados nos marcos de cad.os pra frente.
     // INICIAR (AG -> INICIADO)
     container.querySelectorAll('[data-action="iniciar"]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -621,6 +642,16 @@
     container.querySelectorAll('[data-action="cancelar"]').forEach(btn => {
       btn.addEventListener('click', () => {
         atualizarMarco(btn.dataset.cardId, btn.dataset.marco, '');
+        render(container);
+      });
+    });
+
+    // Felipe (sessao 2026-05-10): MARCAR-NA (AG -> N/A).
+    // "deixe colocar um campo aonde fique um x dizendo que nao existe".
+    // Botao '—' ao lado do AG. Sem confirm (eh reversivel via resetar).
+    container.querySelectorAll('[data-action="marcar-na"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        atualizarMarco(btn.dataset.cardId, btn.dataset.marco, 'na');
         render(container);
       });
     });

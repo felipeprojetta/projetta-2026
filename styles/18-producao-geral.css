@@ -486,3 +486,54 @@
   border-color: var(--accent, #0f766e);
   box-shadow: 0 0 0 2px rgba(15,118,110,.15);
 }
+
+/* ============================================================
+   ESTADO N/A NOS MARCOS (Felipe sessao 2026-05-10)
+   "me deixe colocar um campo aonde fique um x dizendo que nao
+   existe nao tera data". Marca marco como 'Nao Se Aplica' pra
+   trabalhos que nao tem aquela etapa (ex: Quadro Fixo, Colagem
+   Fixo num pedido que so' tem porta pivotante).
+   ============================================================ */
+.pg-marco-ag-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+}
+.pg-marco-ag-wrap .pg-marco-ag {
+  flex: 1;
+  min-width: 0;
+}
+.pg-marco-na-btn {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 24px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.pg-marco-na-btn:hover {
+  background: #cbd5e1;
+  color: #334155;
+}
+.pg-marco-btn.pg-marco-na {
+  width: 100%;
+  background: #e2e8f0;
+  color: #64748b;
+  border: 1px dashed #94a3b8;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  font-style: italic;
+}
+.pg-marco-btn.pg-marco-na:hover {
+  background: #cbd5e1;
+  border-style: solid;
+}
