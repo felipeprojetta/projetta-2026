@@ -92,9 +92,16 @@
       if (data.error) {
         var blocked = data.blocked === true;
         var redundant = data.redundant === true;
-        var titulo = blocked ? '🚫 OMIE bloqueou temporariamente'
-                  : redundant ? '⏳ OMIE detectou consumo redundante'
-                  : '⚠ Erro ao carregar';
+        // Felipe sessao 14: REDUNDANT geralmente passa em 20-40s. Em vez
+        // de mostrar so' erro, faz auto-retry com countdown. OMIE devolve
+        // 'Aguarde N segundos' no error msg — extrai e usa.
+        if (redundant) {
+          var match = String(data.error || '').match(/(\d+)\s*segundos?/i);
+          var espera = match ? Math.min(60, Math.max(10, parseInt(match[1], 10) + 3)) : 30;
+          renderRedundantCountdown(el, espera);
+          return;
+        }
+        var titulo = blocked ? '🚫 OMIE bloqueou temporariamente' : '⚠ Erro ao carregar';
         el.innerHTML = ''
           + '<div style="padding:24px;background:#fff3cd;border:1px solid #ffeaa7;border-radius:8px;color:#856404">'
           + '  <div style="font-size:16px;font-weight:700;margin-bottom:8px">' + titulo + '</div>'
@@ -108,6 +115,37 @@
     } catch (e) {
       el.innerHTML = '<div style="padding:20px;color:#c62828;background:#ffebee;border-radius:6px"><b>❌ Erro:</b> ' + escapeHtml(e.message) + '</div>';
     }
+  }
+
+  // Felipe sessao 14: countdown visual durante auto-retry de REDUNDANT.
+  // OMIE responde 'Aguarde N segundos' — esperamos N+3 e tentamos de novo
+  // automaticamente. Felipe nao precisa ficar clicando em loop.
+  function renderRedundantCountdown(el, segundos) {
+    var fim = Date.now() + segundos * 1000;
+    var cancelado = false;
+    function tick() {
+      if (cancelado) return;
+      var rest = Math.max(0, Math.ceil((fim - Date.now()) / 1000));
+      if (rest <= 0) {
+        el.innerHTML = '<div style="padding:30px;text-align:center;color:#1a5276"><div style="font-size:24px">🔄</div><b>Tentando novamente...</b></div>';
+        carregarEstoqueReal(false);
+        return;
+      }
+      el.innerHTML = ''
+        + '<div style="padding:30px;text-align:center">'
+        + '  <div style="font-size:42px;margin-bottom:10px;color:#e65100;font-weight:800">' + rest + 's</div>'
+        + '  <div style="font-size:14px;color:#856404;font-weight:700">⏳ OMIE pediu pra aguardar — tentando de novo automaticamente</div>'
+        + '  <div style="font-size:12px;color:#888;margin-top:8px">A API do OMIE limita chamadas seguidas em ~30s. Esta tela atualiza sozinha quando o tempo acabar.</div>'
+        + '  <button id="omie-cancelar-retry" style="margin-top:14px;padding:6px 12px;background:#fff;border:1px solid #ccc;border-radius:6px;cursor:pointer;color:#666;font-size:11px">Cancelar</button>'
+        + '</div>';
+      var btn = document.getElementById('omie-cancelar-retry');
+      if (btn) btn.addEventListener('click', function() {
+        cancelado = true;
+        el.innerHTML = '<div style="padding:20px;color:#666">Auto-retry cancelado. Clique em "Recarregar do OMIE" quando quiser tentar de novo.</div>';
+      });
+      setTimeout(tick, 1000);
+    }
+    tick();
   }
 
   function renderConteudo() {
