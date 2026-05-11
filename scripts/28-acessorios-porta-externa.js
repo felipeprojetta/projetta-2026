@@ -806,6 +806,51 @@ const AcessoriosPortaExterna = (() => {
             if (lblLow.startsWith('tampa'))           return aplicarRegra('fixo_tampa', perimM,                                       `Fixo: ${p.label} ${lar}×${alt}mm (perim ${perimM.toFixed(2)}m)`);
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas fixo:', e); }
+
+        // Felipe sessao 2026-05-10: PECAS MANUAIS do fixo (adicionadas
+        // via linha "+ inline" no Lev. Superficies pelo usuario) tambem
+        // precisam entrar no calculo de FD/Silicone. ANTES: passavam
+        // direto pelo aproveitamento de chapas (12-orcamento.js) mas
+        // eram ignoradas aqui no consumo de fitas.
+        //
+        // Sintoma reportado: 'nao calculou fita do fixo moldura vertical
+        // e horizontal fixo superior'. Felipe adicionou molduras como
+        // pecas manuais no Item 2 (fixo superior) mas saiam sem fita
+        // no Lev. Acessorios.
+        //
+        // Schema da peca manual (12-orcamento.js linha 10702-10706):
+        //   {label, categoria, largura, altura, qtd, cor, podeRotacionar}
+        //
+        // Aplicamos mesmos handlers do bloco automatico ACIMA + extra
+        // pra 'moldura' (regex /^moldura\b/ que cobre 'Moldura X - ...').
+        try {
+          const manuaisFixo = (item.pecasManuaisExtras) || [];
+          manuaisFixo.forEach(p => {
+            const lar = Number(p.largura) || 0;
+            const alt = Number(p.altura)  || 0;
+            const qtd = Number(p.qtd)     || 0;
+            if (!lar || !alt || !qtd) return;
+            const lblLow = String(p.label || '').toLowerCase().trim();
+            const qtdTotal = qtd * qtdPortas;
+            const compM  = (alt * qtdTotal) / 1000;
+            const perimM = ((lar + alt) * 2 * qtdTotal) / 1000;
+
+            // MOLDURA (Felipe sessao 2026-05-10): caso reportado.
+            // Mesma regra do bloco porta_externa (linha 870) - 1×FD19
+            // + 1×FD12 no COMPRIMENTO total. Cobre 'Moldura Horizontal',
+            // 'Moldura Vertical', 'Moldura 2 - Horizontal X - ...' etc.
+            if (/^moldura\b/.test(lblLow))            return aplicarRegra('moldura', compM,        `Fixo MANUAL: ${p.label} ${lar}×${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            // Fita Acabamento Maior/Menor/Largura: mesmas regras do bloco automatico
+            if (lblLow === 'fita acabamento maior')   return aplicarRegraFixoFitaDupla('fixo_fita_acab_maior', lar, alt, qtdTotal, `Fixo MANUAL: ${p.label} ${lar}×${alt}mm`);
+            if (lblLow === 'fita acabamento menor')   return aplicarRegraFixoFitaDupla('fixo_fita_acab_menor', lar, alt, qtdTotal, `Fixo MANUAL: ${p.label} ${lar}×${alt}mm`);
+            if (lblLow === 'fita acabamento largura') return aplicarRegra('fixo_fita_acab_largura', perimM,                       `Fixo MANUAL: ${p.label} ${lar}×${alt}mm (perim ${perimM.toFixed(2)}m)`);
+            // Tampa (qualquer): aplica fixo_tampa por perimetro
+            if (lblLow.startsWith('tampa'))           return aplicarRegra('fixo_tampa', perimM,                                  `Fixo MANUAL: ${p.label} ${lar}×${alt}mm (perim ${perimM.toFixed(2)}m)`);
+            // Outros labels (custom do user): NAO casa em nenhuma regra
+            // -> nao consome fita (correto - user adicionou peca generica
+            // sem identificacao tipica).
+          });
+        } catch (e) { console.warn('[FD/MS] erro ao ler pecas manuais fixo:', e); }
       }
 
       // --- 1) Pecas do Levantamento de Superficies (AMBOS os lados) ---
