@@ -256,6 +256,24 @@ var PerfisRevAcoplado = (function() {
     var corInt  = (segueModelo && porta && porta.corInterna) ? String(porta.corInterna).trim() : String(item.corInterna || '').trim();
     var corCava = (segueModelo && porta && porta.corCava)    ? String(porta.corCava).trim()    : String(item.corCava    || '').trim();
 
+    // Felipe (sessao 2026-05-10): BUGFIX - aproveitamento de chapas
+    // mostrava 'Aluminio Macico — Black Door' no Item 2 (fixo AM).
+    //
+    // Causa: quando revestimento='Aluminio Macico 2mm', o user preenche
+    // a cor AM no MESMO campo corExterna/corInterna (form do fixo nao
+    // tem campo separado corChapaAM_Ext/Int como o form da porta).
+    // O motor de chapas (38-chapas-porta-externa.js) busca corChapaAM_Ext
+    // pra resolver cor de pecas AM, falha (item virtual nao passava
+    // esse campo), cai em cascata de fallbacks e acaba pegando
+    // corCava='Black Door' (herdada da porta principal).
+    //
+    // Fix: quando este fixo for AM, espelha a cor escolhida nos campos
+    // corChapaAM_Ext/Int do item virtual - assim o motor pega no 1o
+    // fallback e nao precisa cair em corCava (ACM da porta principal).
+    var ehFixoAM = /alum[ií]n[ií]o\s*maci[cç]o/i.test(item.revestimento || '');
+    var corChapaAM_Ext = ehFixoAM ? corExt : '';
+    var corChapaAM_Int = ehFixoAM ? corInt : '';
+
     return {
       tipo: 'porta_externa',
       quantidade: 1,
@@ -271,6 +289,11 @@ var PerfisRevAcoplado = (function() {
       corExterna: corExt,
       corInterna: corInt,
       corCava:    corCava,
+      // Felipe sessao 2026-05-10: passa cores AM pro item virtual quando
+      // este fixo eh AM (espelha corExterna/Interna pra evitar fallback
+      // erroneo via corCava da porta principal).
+      corChapaAM_Ext: corChapaAM_Ext,
+      corChapaAM_Int: corChapaAM_Int,
       revestimento: item.revestimento || '',
       tamanhoCava:                   segueModelo && porta ? (Number(porta.tamanhoCava) || 0)                   : 0,
       distanciaBordaCava:            segueModelo && porta ? (Number(porta.distanciaBordaCava) || 0)            : 0,
