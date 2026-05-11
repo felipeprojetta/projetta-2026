@@ -1640,9 +1640,39 @@ const ChapasPortaExterna = (() => {
       if (ehPecaAM) {
         // Felipe sessao 13: peca AM usa cor da CHAPA AM (campo separado
         // corChapaAM_Ext/Int), nao a corExterna/corInterna que e' chapa ACM.
-        const corAM_Lado = ctx.lado === 'externo' ? ctx.corAM_Ext : ctx.corAM_Int;
-        corResolvida = corAM_Lado
-          ? `Aluminio Macico — ${corAM_Lado}`
+        //
+        // Felipe (sessao 2026-05-10): BUGFIX - quebrava agrupamento.
+        // Sintoma: 2 chapas pretas texturizadas em layouts SEPARADOS no
+        // aproveitamento - uma como "Aluminio Macico — <cor completa>"
+        // e outra como "Aluminio Macico" (genérico).
+        //
+        // Causa: quando corAM_<lado> esta vazio (ex: corAM_Int vazio mas
+        // corAM_Ext preenchido, OU peca da Cava sempreAM sem cor AM
+        // preenchida), o fallback 'Aluminio Macico' criava um grupo
+        // FANTASMA que nunca casava com a cor real do outro lado/peca.
+        //
+        // Pedido Felipe: "sempre que tiver a mesma cor deve fazer
+        // aproveitamento de chapas juntos" (mesmo comentario ja no
+        // codigo - linha 1654).
+        //
+        // FIX: cascata de fallbacks pra SEMPRE pegar a cor real:
+        //   1. cor AM do lado atual (corAM_Ext ou corAM_Int)
+        //   2. cor AM do OUTRO lado (porta com cor AM so' num lado)
+        //   3. corCava (Cava sempreAM sem cor AM preenchida)
+        //   4. corExt/corInt do lado (compatibilidade com cor unica
+        //      ja usada por outras pecas - PORTA TODA mesma cor)
+        //   5. UNICO caso que vira 'Aluminio Macico' generico: NENHUMA
+        //      cor preenchida em LUGAR NENHUM. Ainda assim e' so' 1
+        //      grupo por orcamento, nao 2.
+        const corAM_Lado    = ctx.lado === 'externo' ? ctx.corAM_Ext : ctx.corAM_Int;
+        const corAM_OutroLado = ctx.lado === 'externo' ? ctx.corAM_Int : ctx.corAM_Ext;
+        const corAlternativa = corAM_Lado
+          || corAM_OutroLado
+          || (def.ehDaCava ? ctx.corCava : '')
+          || corDoLado
+          || '';
+        corResolvida = corAlternativa
+          ? `Aluminio Macico — ${corAlternativa}`
           : 'Aluminio Macico';
         // categoria MANTEM def.categoria (porta/portal) — Felipe: 'mantenha
         // o que e porta e portal isso voce tirou'.
