@@ -642,6 +642,13 @@ const AcessoriosPortaExterna = (() => {
         'fita_acab_ma':         { fd19: 1, fd12: 0, ms: 1, cps: 0, tamanho: 'comprimento' },
         'fita_acab_largura':    { fd19: 1, fd12: 0, ms: 1, cps: 0, tamanho: 'comprimento' },
         'cava_porta':           { fd19: 2, fd12: 0, ms: 2, cps: 0, tamanho: 'comprimento' },
+        // Felipe sessao 2026-05-10: 'quando tivermos molduras teremos
+        // fita dupla face de 19 e um fita de 12 em todo comprimento de
+        // cada moldura, pela quantidade'. Modelo 23 (Classica c/ Molduras)
+        // gera perfis Boiserie horizontais/verticais com label começando
+        // por 'Moldura Horizontal' ou 'Moldura Vertical'. Cada um precisa
+        // de 1× FD19 + 1× FD12 no comprimento total (×qty).
+        'moldura':              { fd19: 1, fd12: 1, ms: 0, cps: 0, tamanho: 'comprimento' },
       };
       const REGRAS = (window.Regras && typeof window.Regras.getFitaSilicone === 'function')
         ? window.Regras.getFitaSilicone()
@@ -895,6 +902,14 @@ const AcessoriosPortaExterna = (() => {
               // 2×FD19 + 2×silicone × comprimento. Perfil cod 'PA-CANT-30X30X2.0'
               // gerado pelo motor PerfisPortaExterna com label 'Cantoneira Cava'.
               if (lbl === 'Cantoneira Cava')           return aplicarRegra('cantoneira_cava',     m, `${codigo}: Cantoneira Cava ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
+              // Felipe sessao 2026-05-10: 'quando tivermos molduras
+              // teremos fita dupla face de 19 e um fita de 12 em todo
+              // comprimento de cada moldura, pela quantidade'.
+              // Modelo 23 gera perfis 'Moldura Horizontal 1/2/3' e
+              // 'Moldura Vertical 1/2' (codigo PA-PERFILBOISERIE em
+              // 31-perfis-porta-externa.js linhas 497-509). 1×FD19 +
+              // 1×FD12 no comprimento total ja' multiplicado por qty.
+              if (/^Moldura\b/.test(lbl))              return aplicarRegra('moldura',             m, `${codigo}: ${lbl} ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
             });
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler perfis:', e); }
