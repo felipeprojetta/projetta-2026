@@ -869,6 +869,28 @@ const AcessoriosPortaExterna = (() => {
             // entao aqui aplicamos × 2 direto (Excel: 2 X POR FOLHA, ja' contemplado pelo qtd).
             if (lblLow === 'cava')                    return aplicarRegra('cava_porta',        compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
             if (lblLow === 'l da cava')               return aplicarRegra('cava_porta',        compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
+            // Felipe sessao 2026-05-10: 'quando tivermos molduras
+            // teremos fita dupla face de 19 e um fita de 12 em todo
+            // comprimento de cada moldura, pela quantidade'.
+            //
+            // IMPORTANTE: este handler so' executa pra Mod23+ACM/HPL
+            // (caminho do motor 38-chapas-porta-externa.js que gera
+            // molduras como CHAPAS - linhas 281-345). Pra Mod23+AM
+            // as molduras viram PERFIS Boiserie em
+            // 31-perfis-porta-externa.js e NAO sao processadas aqui
+            // (nem precisam de fita - aparafusadas, nao coladas).
+            //
+            // Felipe: 'somente iremos adicionar essas fitas dupla face
+            // quando as molduras estiverem nas chapas de acm'.
+            //
+            // 1×FD19 + 1×FD12 no comprimento total da moldura
+            // (compM = alt × qtd × qtdPortas / 1000).
+            // Cobre todas as variantes:
+            //   'Moldura Horizontal 1/2/3'
+            //   'Moldura Vertical 1/2'
+            //   futuro 'Moldura ...' com qtdMolduras=2 ou 3
+            // O lblLow ja' esta lowercase, regex usa essa forma.
+            if (/^moldura\b/.test(lblLow))            return aplicarRegra('moldura',           compM, `${p.label} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
             if (lblLow.startsWith('tampa'))        return aplicarRegra('tampa_generica', perimM, `${p.label} ${lar}×${alt}mm × ${qtd}un (perim ${perimM.toFixed(2)}m)`);
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas:', e); }
@@ -902,14 +924,17 @@ const AcessoriosPortaExterna = (() => {
               // 2×FD19 + 2×silicone × comprimento. Perfil cod 'PA-CANT-30X30X2.0'
               // gerado pelo motor PerfisPortaExterna com label 'Cantoneira Cava'.
               if (lbl === 'Cantoneira Cava')           return aplicarRegra('cantoneira_cava',     m, `${codigo}: Cantoneira Cava ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
-              // Felipe sessao 2026-05-10: 'quando tivermos molduras
-              // teremos fita dupla face de 19 e um fita de 12 em todo
-              // comprimento de cada moldura, pela quantidade'.
-              // Modelo 23 gera perfis 'Moldura Horizontal 1/2/3' e
-              // 'Moldura Vertical 1/2' (codigo PA-PERFILBOISERIE em
-              // 31-perfis-porta-externa.js linhas 497-509). 1×FD19 +
-              // 1×FD12 no comprimento total ja' multiplicado por qty.
-              if (/^Moldura\b/.test(lbl))              return aplicarRegra('moldura',             m, `${codigo}: ${lbl} ${comp}mm × ${qty} (${m.toFixed(2)}m)`);
+              // Felipe sessao 2026-05-10: NAO adicionar regra de fita
+              // pra Moldura aqui (seção de PERFIS) porque este caminho
+              // so' executa pra Mod23+AM (perfis Boiserie de aluminio,
+              // gerados em 31-perfis-porta-externa.js linha 439+).
+              // Boiserie e' aparafusado/encaixado, NAO colado - nao
+              // precisa de fita.
+              //
+              // A regra de fita pra moldura esta na secao de PEÇAS DE
+              // CHAPA acima (linha ~872), que so' executa pra Mod23+ACM/HPL
+              // (motor 38-chapas-porta-externa.js linha 281+ gera as
+              // molduras como chapas naqueles casos).
             });
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler perfis:', e); }
