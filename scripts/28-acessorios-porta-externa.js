@@ -648,7 +648,13 @@ const AcessoriosPortaExterna = (() => {
         // gera perfis Boiserie horizontais/verticais com label começando
         // por 'Moldura Horizontal' ou 'Moldura Vertical'. Cada um precisa
         // de 1× FD19 + 1× FD12 no comprimento total (×qty).
-        'moldura':              { fd19: 1, fd12: 1, ms: 0, cps: 0, tamanho: 'comprimento' },
+        //
+        // Felipe sessao 2026-05-10 (iter 2): 'acrescente HighTack em
+        // todas as molduras que falamos anteriormente'. Adicionado campo
+        // 'hightack' (independente de 'ms') que vai pro acumulador
+        // mHIGHTACK sem mover a regra pra REGRAS_OBRA. Isso preserva
+        // FD19/FD12 nos acumuladores FAB e adiciona HighTack alem deles.
+        'moldura':              { fd19: 1, fd12: 1, ms: 0, cps: 0, hightack: 1, tamanho: 'comprimento' },
       };
       const REGRAS = (window.Regras && typeof window.Regras.getFitaSilicone === 'function')
         ? window.Regras.getFitaSilicone()
@@ -662,6 +668,22 @@ const AcessoriosPortaExterna = (() => {
         const cFD12 = (Number(r.fd12) || 0) * metros;
         const cMS   = (Number(r.ms)   || 0) * metros;
         const cCPS  = (Number(r.cps)  || 0) * metros;
+
+        // Felipe sessao 2026-05-10: campo 'hightack' adicional na regra
+        // (independente de 'ms'). Permite que uma regra consuma HighTack
+        // ALEM do silicone 995/HighTack vindo de 'ms'. Caso de uso:
+        // moldura (Mod23 ACM/HPL) precisa de FD19+FD12 em FAB (colagem na
+        // chapa) E HighTack como reforco/vedacao (Felipe pediu).
+        //
+        // Fallback pra REGRAS_DEFAULT[idRegra].hightack quando a regra
+        // foi editada pelo user via Cadastro > Regras antes desse campo
+        // existir - assim ediçoes salvas sem 'hightack' nao perdem o
+        // default. (Nullish ??: zero do user ainda zera; so' undefined
+        // cai pro default.)
+        const rDefault = REGRAS_DEFAULT[idRegra] || {};
+        const hightackMult = Number(r.hightack ?? rDefault.hightack) || 0;
+        const cHTACK_extra = hightackMult * metros;
+
         // Felipe sessao 2026-08-03: regras OBRA acumulam em mFD19_obra,
         // mFD12_obra e mHIGHTACK (silicone PA-HIGHTACK BR).
         // FAB (todo o resto) acumula em mFD19, mFD12, mMS (silicone 995).
@@ -669,13 +691,14 @@ const AcessoriosPortaExterna = (() => {
         if (ehObra) {
           mFD19_obra += cFD19;
           mFD12_obra += cFD12;
-          mHIGHTACK  += cMS;  // 'ms' da regra vira PA-HIGHTACK BR pra OBRA
+          mHIGHTACK  += cMS + cHTACK_extra;  // 'ms' (OBRA) + adicional 'hightack'
           // CPS nao se aplica em obra (so' Travessas FAB usam CPS)
         } else {
           mFD19 += cFD19;
           mFD12 += cFD12;
           mMS   += cMS;
           mCPS  += cCPS;
+          mHIGHTACK += cHTACK_extra;  // adicional FAB tambem pode usar HighTack
         }
         _breakdown.push({
           origem: origem || idRegra,
@@ -683,12 +706,15 @@ const AcessoriosPortaExterna = (() => {
           tipo:   'comprimento',
           metros: metros,
           aplicacao: ehObra ? 'obra' : 'fab',
-          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0, cps: r.cps||0 },
+          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0, cps: r.cps||0, hightack: hightackMult },
           // Felipe (sessao 09 fix): itens OBRA devem mostrar metragem
           // na coluna HIGHTACK, nao na coluna Silicone 995.
+          // Felipe sessao 2026-05-10: contribuicao de 'hightack' (campo
+          // adicional) tambem entra na coluna HIGHTACK independente
+          // de FAB/OBRA.
           contrib: ehObra
-            ? { fd19: cFD19, fd12: cFD12, ms: 0, cps: 0, hightack: cMS }
-            : { fd19: cFD19, fd12: cFD12, ms: cMS, cps: cCPS, hightack: 0 },
+            ? { fd19: cFD19, fd12: cFD12, ms: 0,   cps: 0,    hightack: cMS + cHTACK_extra }
+            : { fd19: cFD19, fd12: cFD12, ms: cMS, cps: cCPS, hightack: cHTACK_extra       },
         });
       }
 
