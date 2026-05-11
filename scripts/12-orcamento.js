@@ -14572,7 +14572,7 @@ const Orcamento = (() => {
           <tr>
             <td style="padding:6px 10px;font-weight:500;color:#1f2937;font-size:12px;">${escapeHtml(e.origem || '?')}</td>
             <td style="${cs}color:#475569;">${(e.metros || 0).toFixed(2)}m</td>
-            <td style="${cs}font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0} / ×${e.mult?.cps || 0}</td>
+            <td style="${cs}font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0} / ×${e.mult?.cps || 0} / ×${e.mult?.hightack || 0}</td>
             <td style="${cs}color:#1e3a8a;background:#eff6ff;">${fd19 > 0 ? fd19.toFixed(2) + 'm' : '—'}</td>
             <td style="${cs}color:#1e3a8a;background:#dbeafe;">${fd12 > 0 ? fd12.toFixed(2) + 'm' : '—'}</td>
             <td style="${cs}font-weight:700;color:${corDestaque};background:#fef3c7;">${ms > 0 ? ms.toFixed(2) + 'm' : '—'}${ms > 0 ? `<span style="font-size:10px;font-weight:400;color:#9ca3af;"> (${pctMs.toFixed(0)}%)</span>` : ''}</td>
@@ -14614,7 +14614,7 @@ const Orcamento = (() => {
               <tr style="background:#1f2937;color:#fff;">
                 <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;white-space:nowrap;">Peça / Perfil (com dimensões)</th>
                 <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Metros</th>
-                <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Mult. (19/12/995/CPS)</th>
+                <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Mult. (19/12/995/CPS/HT)</th>
                 <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;white-space:nowrap;">FD 19mm</th>
                 <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;white-space:nowrap;">FD 12mm</th>
                 <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;white-space:nowrap;">Silicone</th>
@@ -14993,7 +14993,7 @@ const Orcamento = (() => {
             <tr>
               <td style="padding:6px 10px;font-weight:500;color:#1f2937;font-size:12px;">${escapeHtml(e.origem)}</td>
               <td style="${cs}color:#475569;">${(e.metros || 0).toFixed(2)}m</td>
-              <td style="${cs}font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0} / ×${e.mult?.cps || 0}</td>
+              <td style="${cs}font-size:11px;color:#6b7280;">×${e.mult?.fd19 || 0} / ×${e.mult?.fd12 || 0} / ×${e.mult?.ms || 0} / ×${e.mult?.cps || 0} / ×${e.mult?.hightack || 0}</td>
               <td style="${cs}color:#1e3a8a;background:#eff6ff;">${fd19 > 0 ? fd19.toFixed(2) + 'm' : '—'}</td>
               <td style="${cs}color:#1e3a8a;background:#dbeafe;">${fd12 > 0 ? fd12.toFixed(2) + 'm' : '—'}</td>
               <td style="${cs}font-weight:700;color:${corDestaque};background:#fef3c7;">${ms > 0 ? ms.toFixed(2) + 'm' : '—'}${ms > 0 ? `<span style="font-size:10px;font-weight:400;color:#9ca3af;"> (${pctMs.toFixed(0)}%)</span>` : ''}</td>
@@ -15019,7 +15019,7 @@ const Orcamento = (() => {
                     <tr style="background:#1f2937;color:#fff;">
                       <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;white-space:nowrap;">Peça (com origem)</th>
                       <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Metros</th>
-                      <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Mult. (19/12/995/CPS)</th>
+                      <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap;">Mult. (19/12/995/CPS/HT)</th>
                       <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e3a8a;white-space:nowrap;">FD 19mm</th>
                       <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#1e40af;white-space:nowrap;">FD 12mm</th>
                       <th style="text-align:center;padding:8px 10px;font-size:11px;font-weight:700;background:#b45309;white-space:nowrap;">Silicone</th>
