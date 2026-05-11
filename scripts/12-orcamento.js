@@ -7928,25 +7928,48 @@ const Orcamento = (() => {
 
       // Felipe (sessao 2026-05-10): linha "+" inline no FIM de cada
       // secao (Folha/Portal/Fixo). Substitui o popup de 4 prompts
-      // anterior. UX enxuto: 3 inputs (codigo com datalist, tamanho,
-      // qtd) + botao confirmar. Ao escolher um codigo do datalist,
-      // descricao/kg_m/barra carregam automaticamente do cadastro.
+      // anterior.
+      //
+      // Felipe (sessao 2026-05-10 - iter 2): "faca igual os existentes
+      // codigo, descricao, ou eu escolho codigo e puxa descricao, ou
+      // escolho descricao e puxa codigo, tamanho da barra, tamanho
+      // corte, qt, kg por mt, tudo todas as colunas".
+      //
+      // Linha agora tem TODAS as 9 colunas:
+      //   Pos.  Codigo  Descricao  L/H  Tamanho  Qtd  kg/m  Peso kg  Obs
+      // Inputs editaveis: Codigo (com datalist), Descricao (com datalist),
+      // Tamanho, Qtd. Demais sao read-only (auto-calculados).
+      //
+      // Busca bidirecional:
+      //   - Escolhe codigo -> descricao + kg/m + barra auto
+      //   - Escolhe descricao -> codigo + kg/m + barra auto
+      //   - Datalist do codigo lista "CODIGO" (visualmente)
+      //   - Datalist da descricao lista "DESCRICAO" (visualmente)
+      // O matching e' por valor EXATO em ambos casos.
       //
       // Schema preservado (lev_ajustes.extras): {id, itemIdx, secao,
       // codigo, descricao, comp, qty, kgM, barLen}.
       function linhaAddInline(itemIdx, secao, secaoLabel) {
-        const dlistId = `lvp-perfis-dlist-${itemIdx}-${secao}`;
+        const dlistCodId = `lvp-perfis-dlist-cod-${itemIdx}-${secao}`;
+        const dlistDescId = `lvp-perfis-dlist-desc-${itemIdx}-${secao}`;
         return `
           <tr class="lvp-row-add-inline" data-item-idx="${itemIdx}" data-secao="${secao}">
             <td class="lvp-pos">＋</td>
-            <td colspan="2" class="lvp-row-add-cod-cell">
-              <input type="text" list="${dlistId}"
+            <td class="lvp-cod">
+              <input type="text" list="${dlistCodId}"
                      class="lvp-add-codigo"
                      data-item-idx="${itemIdx}" data-secao="${secao}"
-                     placeholder="Codigo do perfil (escolha do cadastro)..." />
-              <datalist id="${dlistId}"></datalist>
+                     placeholder="Codigo..." />
+              <datalist id="${dlistCodId}"></datalist>
             </td>
-            <td class="lvp-row-add-lh">—</td>
+            <td>
+              <input type="text" list="${dlistDescId}"
+                     class="lvp-add-descricao"
+                     data-item-idx="${itemIdx}" data-secao="${secao}"
+                     placeholder="Descricao..." />
+              <datalist id="${dlistDescId}"></datalist>
+            </td>
+            <td class="lvp-add-lh-cell">—</td>
             <td class="num">
               <input type="number" min="1" step="1"
                      class="lvp-add-tamanho"
@@ -7959,10 +7982,12 @@ const Orcamento = (() => {
                      data-item-idx="${itemIdx}" data-secao="${secao}"
                      placeholder="qtd" />
             </td>
-            <td colspan="3" class="lvp-row-add-actions">
+            <td class="num lvp-add-kgm-cell">—</td>
+            <td class="num lvp-add-pesokg-cell">—</td>
+            <td class="lvp-obs">
               <button type="button" class="lvp-btn-add-confirm"
                       data-item-idx="${itemIdx}" data-secao="${secao}"
-                      title="Adicionar linha extra em ${escapeHtml(secaoLabel)}">+ Adicionar</button>
+                      title="Adicionar linha em ${escapeHtml(secaoLabel)}">+ Adicionar</button>
             </td>
           </tr>`;
       }
@@ -8179,17 +8204,21 @@ const Orcamento = (() => {
     // cada secao. Substitui o handler antigo dos botoes de popup
     // (4 prompts sequenciais).
     //
+    // Felipe (sessao 2026-05-10 - iter 2): "faca igual os existentes
+    // codigo, descricao, [...], tudo todas as colunas". Linha agora
+    // tem todas as 9 colunas + busca bidirecional + auto-preencher.
+    //
     // Fluxo:
-    //   1. Popula datalists com a lista do cadastro (window.Perfis.listar)
-    //   2. Quando user escolhe um codigo, descricao/kg_m/barra ficam
-    //      em memoria (atributos data-* na linha)
-    //   3. Botao "+ Adicionar" valida e persiste em ajustes.extras
+    //   1. Popula datalists de codigo E descricao com lista do cadastro
+    //   2. Lookup bidirecional:
+    //      - Escolhe codigo -> preenche descricao + L/H + kg/m
+    //      - Escolhe descricao -> preenche codigo + L/H + kg/m
+    //   3. Recalcula Peso kg em tempo real (kg/m * comp/1000 * qty)
+    //   4. Botao "+ Adicionar" valida e persiste em ajustes.extras
     //
     // Reutiliza o MESMO schema do popup antigo - retrocompat 100%.
     {
-      // 1. Popula TODOS os datalists desta aba com o cadastro de perfis.
-      // Cada datalist e' por (itemIdx, secao) - mesmo conteudo, mas
-      // dispatched apenas no input local (sem cross-pollination).
+      // 1. Carrega cadastro de Perfis (62 perfis CEM Pro).
       let listaPerfis = [];
       try {
         if (window.Perfis && typeof window.Perfis.listar === 'function') {
@@ -8198,38 +8227,125 @@ const Orcamento = (() => {
       } catch (e) {
         console.warn('[Lev. Perfis] Erro ao listar perfis cadastrados:', e);
       }
-      // Ordena por codigo pra UX previsivel
+      // Ordena por codigo
       listaPerfis = listaPerfis.slice().sort((a, b) => {
         const cA = String(a.codigo || '').toUpperCase();
         const cB = String(b.codigo || '').toUpperCase();
         return cA.localeCompare(cB);
       });
-      const optionsHtml = listaPerfis.map(p => {
-        const cod = String(p.codigo || '').toUpperCase();
-        const desc = String(p.descricao || '');
-        // O <option> value e' o que aparece quando seleciona; usamos
-        // o codigo. label e' texto auxiliar (visivel em alguns browsers).
-        return `<option value="${escapeHtml(cod)}" label="${escapeHtml(desc.slice(0, 80))}"></option>`;
-      }).join('');
-      mount.querySelectorAll('datalist[id^="lvp-perfis-dlist-"]').forEach(dl => {
-        dl.innerHTML = optionsHtml;
+
+      // 2. Popula AMBOS datalists (codigo e descricao) de cada linha.
+      const optionsCodHtml = listaPerfis.map(p => {
+        const cod = String(p.codigo || '').toUpperCase().trim();
+        if (!cod) return '';
+        return `<option value="${escapeHtml(cod)}"></option>`;
+      }).filter(Boolean).join('');
+      const optionsDescHtml = listaPerfis.map(p => {
+        const desc = String(p.descricao || '').trim();
+        if (!desc) return '';
+        return `<option value="${escapeHtml(desc)}"></option>`;
+      }).filter(Boolean).join('');
+      mount.querySelectorAll('datalist[id^="lvp-perfis-dlist-cod-"]').forEach(dl => {
+        dl.innerHTML = optionsCodHtml;
+      });
+      mount.querySelectorAll('datalist[id^="lvp-perfis-dlist-desc-"]').forEach(dl => {
+        dl.innerHTML = optionsDescHtml;
       });
 
-      // 2. Map auxiliar codigo -> dados completos do cadastro pra resolver
-      //    no momento da confirmacao.
+      // 3. Maps codigo->dados e descricao->dados pra lookup bidirecional.
       const perfilPorCodigo = {};
+      const perfilPorDescricao = {};
       listaPerfis.forEach(p => {
         const cod = String(p.codigo || '').toUpperCase().trim();
-        if (!cod) return;
-        perfilPorCodigo[cod] = {
+        const desc = String(p.descricao || '').trim();
+        const dados = {
           codigo: cod,
-          descricao: String(p.descricao || '').trim(),
+          descricao: desc,
           kg_m: Number(p.kg_m || p.kgPorMetro || 0),
-          barra: Number(p.barra || 6),  // metros (default 6)
+          barra: Number(p.barra || 6),
         };
+        if (cod) perfilPorCodigo[cod] = dados;
+        if (desc) perfilPorDescricao[desc] = dados;
       });
 
-      // 3. Handler do botao confirmar.
+      // 4. Helper: atualiza cells read-only (L/H, kg/m, Peso kg) na linha.
+      function atualizarCellsReadOnly(tr) {
+        const inputCod = tr.querySelector('.lvp-add-codigo');
+        const inputDesc = tr.querySelector('.lvp-add-descricao');
+        const inputTam = tr.querySelector('.lvp-add-tamanho');
+        const inputQtd = tr.querySelector('.lvp-add-qtd');
+        const cellLH = tr.querySelector('.lvp-add-lh-cell');
+        const cellKgM = tr.querySelector('.lvp-add-kgm-cell');
+        const cellPeso = tr.querySelector('.lvp-add-pesokg-cell');
+
+        // Resolve perfil via codigo OU descricao (codigo tem prioridade)
+        const codigoTxt = (inputCod?.value || '').trim().toUpperCase();
+        const descricaoTxt = (inputDesc?.value || '').trim();
+        let perfil = perfilPorCodigo[codigoTxt];
+        if (!perfil && descricaoTxt) {
+          perfil = perfilPorDescricao[descricaoTxt];
+        }
+        if (perfil) {
+          // L/H (barra em metros)
+          if (cellLH) cellLH.textContent = (perfil.barra || 6) + 'M';
+          // kg/m
+          if (cellKgM) cellKgM.textContent = fmtBR(perfil.kg_m || 0);
+          // Peso kg = kgM * comp(mm)/1000 * qty
+          const comp = parseFloat(String(inputTam?.value || '').replace(',', '.')) || 0;
+          const qty  = parseInt(inputQtd?.value || '0', 10) || 0;
+          const peso = (perfil.kg_m || 0) * (comp / 1000) * qty;
+          if (cellPeso) cellPeso.textContent = peso > 0 ? fmtBR(peso) : '—';
+        } else {
+          if (cellLH) cellLH.textContent = '—';
+          if (cellKgM) cellKgM.textContent = '—';
+          if (cellPeso) cellPeso.textContent = '—';
+        }
+      }
+
+      // 5. Bind: quando escolhe CODIGO via datalist, preenche descricao.
+      mount.querySelectorAll('.lvp-add-codigo').forEach(inp => {
+        inp.addEventListener('input', () => {
+          const codTxt = (inp.value || '').trim().toUpperCase();
+          const perfil = perfilPorCodigo[codTxt];
+          const tr = inp.closest('tr.lvp-row-add-inline');
+          if (!tr) return;
+          if (perfil) {
+            // Preenche descricao auto se for diferente
+            const inputDesc = tr.querySelector('.lvp-add-descricao');
+            if (inputDesc && inputDesc.value !== perfil.descricao) {
+              inputDesc.value = perfil.descricao;
+            }
+          }
+          atualizarCellsReadOnly(tr);
+        });
+      });
+
+      // 6. Bind: quando escolhe DESCRICAO via datalist, preenche codigo.
+      mount.querySelectorAll('.lvp-add-descricao').forEach(inp => {
+        inp.addEventListener('input', () => {
+          const descTxt = (inp.value || '').trim();
+          const perfil = perfilPorDescricao[descTxt];
+          const tr = inp.closest('tr.lvp-row-add-inline');
+          if (!tr) return;
+          if (perfil) {
+            const inputCod = tr.querySelector('.lvp-add-codigo');
+            if (inputCod && inputCod.value !== perfil.codigo) {
+              inputCod.value = perfil.codigo;
+            }
+          }
+          atualizarCellsReadOnly(tr);
+        });
+      });
+
+      // 7. Bind: tamanho/qtd recalculam Peso kg em tempo real.
+      mount.querySelectorAll('.lvp-add-tamanho, .lvp-add-qtd').forEach(inp => {
+        inp.addEventListener('input', () => {
+          const tr = inp.closest('tr.lvp-row-add-inline');
+          if (tr) atualizarCellsReadOnly(tr);
+        });
+      });
+
+      // 8. Bind: botao confirmar persiste a linha em ajustes.extras.
       mount.querySelectorAll('.lvp-btn-add-confirm').forEach(btn => {
         btn.addEventListener('click', () => {
           const tr = btn.closest('tr.lvp-row-add-inline');
@@ -8239,32 +8355,37 @@ const Orcamento = (() => {
           if (!itemIdx) return;
 
           const inputCod = tr.querySelector('.lvp-add-codigo');
+          const inputDesc = tr.querySelector('.lvp-add-descricao');
           const inputTam = tr.querySelector('.lvp-add-tamanho');
           const inputQtd = tr.querySelector('.lvp-add-qtd');
           const codigoRaw = (inputCod?.value || '').trim().toUpperCase();
+          const descricaoRaw = (inputDesc?.value || '').trim();
           const tamanhoRaw = String(inputTam?.value || '').replace(',', '.');
           const qtdRaw    = String(inputQtd?.value || '');
 
-          // Validacoes (silenciosas via highlight - sem alert popup)
-          if (!codigoRaw) { inputCod?.focus(); return; }
+          // Resolve perfil. Codigo tem prioridade; senao tenta descricao.
+          const perfil = perfilPorCodigo[codigoRaw] || perfilPorDescricao[descricaoRaw] || null;
+
+          // Validacoes (silenciosas via focus - sem alert popup).
+          // Precisa ter (codigo OU descricao) + tamanho + qtd.
+          if (!codigoRaw && !descricaoRaw) { inputCod?.focus(); return; }
           const tamanho = parseFloat(tamanhoRaw);
           if (!tamanho || tamanho <= 0) { inputTam?.focus(); return; }
           const qty = parseInt(qtdRaw, 10);
           if (!qty || qty <= 0) { inputQtd?.focus(); return; }
 
-          // Resolve via cadastro - se nao tiver, ainda permite (cria
-          // 'manual' com descricao = codigo, kgM=0, barLen=6000).
-          const cadPerfil = perfilPorCodigo[codigoRaw] || null;
-          const descricao = cadPerfil ? cadPerfil.descricao : codigoRaw;
-          const kgM       = cadPerfil ? cadPerfil.kg_m : 0;
-          const barLen    = cadPerfil ? Math.round(cadPerfil.barra * 1000) : 6000;
+          // Se nao casou com cadastro, usa o que o user digitou.
+          const codigoFinal = perfil ? perfil.codigo : (codigoRaw || descricaoRaw.toUpperCase());
+          const descricaoFinal = perfil ? perfil.descricao : (descricaoRaw || codigoRaw);
+          const kgM    = perfil ? perfil.kg_m : 0;
+          const barLen = perfil ? Math.round(perfil.barra * 1000) : 6000;
 
           const a = getAjustes();
           a.extras.push({
             id: 'ext_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
             itemIdx, secao,
-            codigo: codigoRaw,
-            descricao,
+            codigo: codigoFinal,
+            descricao: descricaoFinal,
             comp: Math.round(tamanho),
             qty,
             kgM, barLen,
@@ -8274,8 +8395,7 @@ const Orcamento = (() => {
         });
       });
 
-      // 4. Enter dentro de qualquer input da linha -> dispara o botao
-      //    confirm da mesma linha. UX rapido pro Felipe.
+      // 9. Bind: Enter em qualquer input dispara o confirm da mesma linha.
       mount.querySelectorAll('.lvp-row-add-inline input').forEach(inp => {
         inp.addEventListener('keydown', (ev) => {
           if (ev.key === 'Enter') {

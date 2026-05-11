@@ -718,30 +718,41 @@
 /* Felipe (sessao 2026-05-10): CSS DA BARRA ANTIGA (.lvp-add-bar)
    foi REMOVIDA - botoes substituidos por linha "+" inline dentro
    da tabela. Mantida visualmente compativel com .lvp-grupo/.lvp-subtotal.
+
+   Felipe (sessao 2026-05-10 iter 2): linha agora tem TODAS as 9
+   colunas (Pos, Codigo, Descricao, L/H, Tamanho, Qtd, kg/m, Peso kg, Obs).
+   Lookup bidirecional codigo<->descricao via datalists.
    */
 
 /* Linha "+" inline no fim de cada secao (Folha/Portal/Fixo).
-   Felipe pediu UI enxuta: codigo + tamanho + qtd. */
+   Replica visualmente as linhas calculadas mas com inputs. */
 tr.lvp-row-add-inline {
-  background: #fffbeb;  /* amarelo bem clarinho - destaca a linha de add */
+  background: #fffbeb;
 }
 tr.lvp-row-add-inline td {
-  padding: 6px 8px;
+  padding: 4px 6px;
   border-top: 1px dashed var(--line);
+  vertical-align: middle;
 }
 tr.lvp-row-add-inline .lvp-pos {
   color: #d97706;
   font-weight: 700;
   text-align: center;
 }
-tr.lvp-row-add-inline .lvp-row-add-lh {
+tr.lvp-row-add-inline .lvp-add-lh-cell {
   color: #94a3b8;
-  text-align: center;
   font-size: 11px;
+  text-align: center;
+}
+tr.lvp-row-add-inline .lvp-add-kgm-cell,
+tr.lvp-row-add-inline .lvp-add-pesokg-cell {
+  color: #64748b;
+  text-align: right;
+  font-size: 12px;
 }
 tr.lvp-row-add-inline input {
   width: 100%;
-  padding: 4px 6px;
+  padding: 3px 5px;
   border: 1px solid #d1d5db;
   border-radius: 3px;
   font-size: 12px;
@@ -754,30 +765,21 @@ tr.lvp-row-add-inline input:focus {
   border-color: var(--laranja);
   background: #fef3c7;
 }
-tr.lvp-row-add-inline input.num,
-tr.lvp-row-add-inline .num input {
-  text-align: right;
-}
 tr.lvp-row-add-inline .lvp-add-tamanho,
 tr.lvp-row-add-inline .lvp-add-qtd {
-  text-align: right;
-}
-tr.lvp-row-add-inline .lvp-row-add-cod-cell {
-  position: relative;
-}
-tr.lvp-row-add-inline .lvp-row-add-actions {
   text-align: right;
 }
 .lvp-btn-add-confirm {
   background: #16a34a;
   color: var(--branco);
   border: none;
-  padding: 5px 14px;
+  padding: 4px 10px;
   border-radius: 3px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap;
 }
 .lvp-btn-add-confirm:hover {
   background: #15803d;
