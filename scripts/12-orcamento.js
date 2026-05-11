@@ -7926,6 +7926,47 @@ const Orcamento = (() => {
       const subtFixo   = linhasFixo.reduce((s, l) => s + l.pesoKg, 0);
       const totalKgGrupos = subtFolha + subtPortal + subtFixo;
 
+      // Felipe (sessao 2026-05-10): linha "+" inline no FIM de cada
+      // secao (Folha/Portal/Fixo). Substitui o popup de 4 prompts
+      // anterior. UX enxuto: 3 inputs (codigo com datalist, tamanho,
+      // qtd) + botao confirmar. Ao escolher um codigo do datalist,
+      // descricao/kg_m/barra carregam automaticamente do cadastro.
+      //
+      // Schema preservado (lev_ajustes.extras): {id, itemIdx, secao,
+      // codigo, descricao, comp, qty, kgM, barLen}.
+      function linhaAddInline(itemIdx, secao, secaoLabel) {
+        const dlistId = `lvp-perfis-dlist-${itemIdx}-${secao}`;
+        return `
+          <tr class="lvp-row-add-inline" data-item-idx="${itemIdx}" data-secao="${secao}">
+            <td class="lvp-pos">＋</td>
+            <td colspan="2" class="lvp-row-add-cod-cell">
+              <input type="text" list="${dlistId}"
+                     class="lvp-add-codigo"
+                     data-item-idx="${itemIdx}" data-secao="${secao}"
+                     placeholder="Codigo do perfil (escolha do cadastro)..." />
+              <datalist id="${dlistId}"></datalist>
+            </td>
+            <td class="lvp-row-add-lh">—</td>
+            <td class="num">
+              <input type="number" min="1" step="1"
+                     class="lvp-add-tamanho"
+                     data-item-idx="${itemIdx}" data-secao="${secao}"
+                     placeholder="mm" />
+            </td>
+            <td class="num">
+              <input type="number" min="1" step="1"
+                     class="lvp-add-qtd"
+                     data-item-idx="${itemIdx}" data-secao="${secao}"
+                     placeholder="qtd" />
+            </td>
+            <td colspan="3" class="lvp-row-add-actions">
+              <button type="button" class="lvp-btn-add-confirm"
+                      data-item-idx="${itemIdx}" data-secao="${secao}"
+                      title="Adicionar linha extra em ${escapeHtml(secaoLabel)}">+ Adicionar</button>
+            </td>
+          </tr>`;
+      }
+
       function rowHtml(l) {
         const dataAttr = l.ehManual
           ? `data-manual="1" data-extra-id="${escapeHtml(l.extraId)}"`
@@ -8014,30 +8055,39 @@ const Orcamento = (() => {
                 const labelGrupo = ehFixo
                   ? `FIXO ${b.item.posicao === 'lateral' ? 'LATERAL' : 'SUPERIOR'}`
                   : 'FOLHA';
+                // Felipe (sessao 2026-05-10): linha inline "+" em cada
+                // secao (Folha/Portal/Fixo). Substitui o popup de 4
+                // prompts. Mantida estrutura .lvp-row-add reutilizavel
+                // pras 3 secoes - so' muda data-secao.
+                const secaoFolhaId = ehFixo ? 'folha' : 'folha';
                 return `
                   <tr class="lvp-grupo"><td colspan="10">${labelGrupo} — Perfis de Corte</td></tr>
                   ${linhasFolha.map(rowHtml).join('')}
+                  ${linhaAddInline(b.itemIdx, secaoFolhaId, labelGrupo)}
                   <tr class="lvp-subtotal"><td colspan="8">SUBTOTAL ${labelGrupo} — Peso Liquido</td><td class="num">${fmtBR(subtFolha)}</td><td></td></tr>
                 `;
               })()}
               ${linhasPortal.length ? `
                 <tr class="lvp-grupo"><td colspan="10">PORTAL — Perfis de Corte</td></tr>
                 ${linhasPortal.map(rowHtml).join('')}
+                ${linhaAddInline(b.itemIdx, 'portal', 'Portal')}
                 <tr class="lvp-subtotal"><td colspan="8">SUBTOTAL PORTAL — Peso Liquido</td><td class="num">${fmtBR(subtPortal)}</td><td></td></tr>
-              ` : ''}
+              ` : `
+                <tr class="lvp-grupo"><td colspan="10">PORTAL — Perfis de Corte</td></tr>
+                ${linhaAddInline(b.itemIdx, 'portal', 'Portal')}
+              `}
               ${linhasFixo.length ? `
                 <tr class="lvp-grupo"><td colspan="10">FIXO — Perfis de Corte</td></tr>
                 ${linhasFixo.map(rowHtml).join('')}
+                ${linhaAddInline(b.itemIdx, 'fixo', 'Fixo')}
                 <tr class="lvp-subtotal"><td colspan="8">SUBTOTAL FIXO — Peso Liquido</td><td class="num">${fmtBR(subtFixo)}</td><td></td></tr>
-              ` : ''}
+              ` : `
+                <tr class="lvp-grupo"><td colspan="10">FIXO — Perfis de Corte</td></tr>
+                ${linhaAddInline(b.itemIdx, 'fixo', 'Fixo')}
+              `}
               <tr class="lvp-total-grupos"><td colspan="8">TOTAL DO ITEM — Peso Liquido${(b.item && b.item.tipo === 'fixo_acoplado') ? '' : ' (Folha + Portal + Fixo)'}</td><td class="num">${fmtBR(totalKgGrupos)}</td><td></td></tr>
             </tbody>
           </table>
-          <div class="lvp-add-bar">
-            <button type="button" class="lvp-btn-add" data-secao="folha">+ Adicionar Linha (Folha)</button>
-            <button type="button" class="lvp-btn-add" data-secao="portal">+ Adicionar Linha (Portal)</button>
-            <button type="button" class="lvp-btn-add" data-secao="fixo">+ Adicionar Linha (Fixo)</button>
-          </div>
           </div>
         </details>`;
     }
@@ -8125,33 +8175,118 @@ const Orcamento = (() => {
       });
     });
 
-    // R13 — bind: adicionar linha manual (form via prompt sequencial — MVP)
-    mount.querySelectorAll('.lvp-btn-add').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const bloco = btn.closest('.lvp-item-bloco');
-        const itemIdx = parseInt(bloco?.dataset.itemIdx || '0', 10);
-        const secao = btn.dataset.secao || 'folha';
-        if (!itemIdx) return;
-        const codigo = (prompt('Codigo do perfil (ex: PA-PA007F-6M):') || '').trim().toUpperCase();
-        if (!codigo) return;
-        const descricao = (prompt('Descricao da linha (ex: REFORCO EXTRA):') || '').trim();
-        if (!descricao) return;
-        const comp = parseFloat(String(prompt('Comprimento do corte (mm):') || '').replace(',', '.'));
-        if (!comp || comp <= 0) { alert('Comprimento invalido.'); return; }
-        const qty = parseInt(String(prompt('Quantidade:') || '0'), 10);
-        if (!qty || qty <= 0) { alert('Quantidade invalida.'); return; }
-        const a = getAjustes();
-        a.extras.push({
-          id: 'ext_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-          itemIdx, secao,
-          codigo, descricao,
-          comp, qty,
-          kgM: 0, barLen: 6000,  // sera resolvido via cadastro no render
-        });
-        setAjustes(a);
-        renderCortesPorItemContent(mount, calc);
+    // Felipe (sessao 2026-05-10): NOVO handler - linha "+" inline em
+    // cada secao. Substitui o handler antigo dos botoes de popup
+    // (4 prompts sequenciais).
+    //
+    // Fluxo:
+    //   1. Popula datalists com a lista do cadastro (window.Perfis.listar)
+    //   2. Quando user escolhe um codigo, descricao/kg_m/barra ficam
+    //      em memoria (atributos data-* na linha)
+    //   3. Botao "+ Adicionar" valida e persiste em ajustes.extras
+    //
+    // Reutiliza o MESMO schema do popup antigo - retrocompat 100%.
+    {
+      // 1. Popula TODOS os datalists desta aba com o cadastro de perfis.
+      // Cada datalist e' por (itemIdx, secao) - mesmo conteudo, mas
+      // dispatched apenas no input local (sem cross-pollination).
+      let listaPerfis = [];
+      try {
+        if (window.Perfis && typeof window.Perfis.listar === 'function') {
+          listaPerfis = window.Perfis.listar() || [];
+        }
+      } catch (e) {
+        console.warn('[Lev. Perfis] Erro ao listar perfis cadastrados:', e);
+      }
+      // Ordena por codigo pra UX previsivel
+      listaPerfis = listaPerfis.slice().sort((a, b) => {
+        const cA = String(a.codigo || '').toUpperCase();
+        const cB = String(b.codigo || '').toUpperCase();
+        return cA.localeCompare(cB);
       });
-    });
+      const optionsHtml = listaPerfis.map(p => {
+        const cod = String(p.codigo || '').toUpperCase();
+        const desc = String(p.descricao || '');
+        // O <option> value e' o que aparece quando seleciona; usamos
+        // o codigo. label e' texto auxiliar (visivel em alguns browsers).
+        return `<option value="${escapeHtml(cod)}" label="${escapeHtml(desc.slice(0, 80))}"></option>`;
+      }).join('');
+      mount.querySelectorAll('datalist[id^="lvp-perfis-dlist-"]').forEach(dl => {
+        dl.innerHTML = optionsHtml;
+      });
+
+      // 2. Map auxiliar codigo -> dados completos do cadastro pra resolver
+      //    no momento da confirmacao.
+      const perfilPorCodigo = {};
+      listaPerfis.forEach(p => {
+        const cod = String(p.codigo || '').toUpperCase().trim();
+        if (!cod) return;
+        perfilPorCodigo[cod] = {
+          codigo: cod,
+          descricao: String(p.descricao || '').trim(),
+          kg_m: Number(p.kg_m || p.kgPorMetro || 0),
+          barra: Number(p.barra || 6),  // metros (default 6)
+        };
+      });
+
+      // 3. Handler do botao confirmar.
+      mount.querySelectorAll('.lvp-btn-add-confirm').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tr = btn.closest('tr.lvp-row-add-inline');
+          if (!tr) return;
+          const itemIdx = parseInt(tr.dataset.itemIdx || '0', 10);
+          const secao   = tr.dataset.secao || 'folha';
+          if (!itemIdx) return;
+
+          const inputCod = tr.querySelector('.lvp-add-codigo');
+          const inputTam = tr.querySelector('.lvp-add-tamanho');
+          const inputQtd = tr.querySelector('.lvp-add-qtd');
+          const codigoRaw = (inputCod?.value || '').trim().toUpperCase();
+          const tamanhoRaw = String(inputTam?.value || '').replace(',', '.');
+          const qtdRaw    = String(inputQtd?.value || '');
+
+          // Validacoes (silenciosas via highlight - sem alert popup)
+          if (!codigoRaw) { inputCod?.focus(); return; }
+          const tamanho = parseFloat(tamanhoRaw);
+          if (!tamanho || tamanho <= 0) { inputTam?.focus(); return; }
+          const qty = parseInt(qtdRaw, 10);
+          if (!qty || qty <= 0) { inputQtd?.focus(); return; }
+
+          // Resolve via cadastro - se nao tiver, ainda permite (cria
+          // 'manual' com descricao = codigo, kgM=0, barLen=6000).
+          const cadPerfil = perfilPorCodigo[codigoRaw] || null;
+          const descricao = cadPerfil ? cadPerfil.descricao : codigoRaw;
+          const kgM       = cadPerfil ? cadPerfil.kg_m : 0;
+          const barLen    = cadPerfil ? Math.round(cadPerfil.barra * 1000) : 6000;
+
+          const a = getAjustes();
+          a.extras.push({
+            id: 'ext_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            itemIdx, secao,
+            codigo: codigoRaw,
+            descricao,
+            comp: Math.round(tamanho),
+            qty,
+            kgM, barLen,
+          });
+          setAjustes(a);
+          renderCortesPorItemContent(mount, calc);
+        });
+      });
+
+      // 4. Enter dentro de qualquer input da linha -> dispara o botao
+      //    confirm da mesma linha. UX rapido pro Felipe.
+      mount.querySelectorAll('.lvp-row-add-inline input').forEach(inp => {
+        inp.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            const tr = inp.closest('tr.lvp-row-add-inline');
+            const btn = tr?.querySelector('.lvp-btn-add-confirm');
+            if (btn) btn.click();
+          }
+        });
+      });
+    }
 
     // Expoe helpers no scope da aba pra que o handler de Recalcular consiga
     // verificar/limpar ajustes antes de recalcular.
