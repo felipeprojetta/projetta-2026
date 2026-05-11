@@ -14591,6 +14591,11 @@ const Orcamento = (() => {
       const mFD19_obra = Number(t.mFD19_obra) || 0;
       const mFD12_obra = Number(t.mFD12_obra) || 0;
       const mHIGHTACK  = Number(t.mHIGHTACK)  || 0;
+      // Felipe sessao 2026-05-10: HighTack FAB separado (regras FAB com
+      // campo hightack > 0, ex: moldura Mod23 ACM). Soma com mHIGHTACK
+      // (OBRA) pra exibir TOTAL real no badge e na linha TOTAL.
+      const mHIGHTACK_fab = Number(t.mHIGHTACK_fab) || 0;
+      const mHIGHTACK_total = mHIGHTACK + mHIGHTACK_fab;
       const hightackRend = rends.hightack_tubo || 8;
       const rolosFD19_obra = mFD19_obra > 0 ? Math.ceil(mFD19_obra / rends.fd19_rolo)  : 0;
       const rolosFD12_obra = mFD12_obra > 0 ? Math.ceil(mFD12_obra / rends.fd12_rolo)  : 0;
@@ -14602,7 +14607,7 @@ const Orcamento = (() => {
             <span style="display:inline-block;transition:transform 0.2s;font-size:12px;color:#b45309;" class="fsd-arrow">▶</span>
             📊 Abrir Detalhamento — Fita Dupla Face e Silicone Estrutural
             <span style="margin-left:auto;font-size:11px;font-weight:500;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:12px;">
-              ${(t.mFD19 || 0).toFixed(1)}m + ${(t.mFD12 || 0).toFixed(1)}m + ${(t.mMS || 0).toFixed(1)}m 995 + ${(t.mCPS || 0).toFixed(1)}m CPS${mHIGHTACK > 0 ? ' + ' + mHIGHTACK.toFixed(1) + 'm HIGHTACK' : ''} · clique pra ver de onde
+              ${(t.mFD19 || 0).toFixed(1)}m + ${(t.mFD12 || 0).toFixed(1)}m + ${(t.mMS || 0).toFixed(1)}m 995 + ${(t.mCPS || 0).toFixed(1)}m CPS${mHIGHTACK_total > 0 ? ' + ' + mHIGHTACK_total.toFixed(1) + 'm HIGHTACK' : ''} · clique pra ver de onde
             </span>
           </summary>
 
@@ -14630,7 +14635,7 @@ const Orcamento = (() => {
                 <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD12 || 0).toFixed(2)}m</td>
                 <td style="text-align:center;padding:8px 10px;font-size:13px;color:#b45309;">${(t.mMS || 0).toFixed(2)}m</td>
                 <td style="text-align:center;padding:8px 10px;font-size:13px;color:#15803d;background:#dcfce7;">${(t.mCPS || 0).toFixed(2)}m</td>
-                <td style="text-align:center;padding:8px 10px;font-size:13px;color:#0369a1;background:#e0f2fe;">${(t.mHIGHTACK || 0).toFixed(2)}m</td>
+                <td style="text-align:center;padding:8px 10px;font-size:13px;color:#0369a1;background:#e0f2fe;">${mHIGHTACK_total.toFixed(2)}m</td>
               </tr>
             </tfoot>
           </table>
@@ -14968,7 +14973,7 @@ const Orcamento = (() => {
           totFD12 += Number(t.mFD12) || 0;
           totMS   += Number(t.mMS)   || 0;
           totCPS  += Number(t.mCPS)  || 0;
-          totHT   += Number(t.mHIGHTACK) || 0;
+          totHT   += (Number(t.mHIGHTACK) || 0) + (Number(t.mHIGHTACK_fab) || 0);
           (dados.breakdown || []).forEach(e => {
             todasPecas.push({
               ...e,

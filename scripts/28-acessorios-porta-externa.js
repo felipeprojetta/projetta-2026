@@ -570,6 +570,13 @@ const AcessoriosPortaExterna = (() => {
       let mFD12_obra = 0;  // FD12 que vai pra obra (Alisar/Fita Acab)
       let mHIGHTACK  = 0;  // PA-HIGHTACK BR (silicone obra)
 
+      // Felipe sessao 2026-05-10: HighTack FAB separado.
+      // 'esse hightack da moldura fica dentro de fabricacao e nao na obra'.
+      // Regras FAB que tem campo 'hightack' > 0 acumulam aqui (e nao em
+      // mHIGHTACK que e' OBRA). Caso de uso: moldura Mod23 ACM/HPL precisa
+      // de HighTack como reforco de colagem - colagem feita na fabrica.
+      let mHIGHTACK_fab = 0;  // PA-HIGHTACK BR (fab - reforco de colagem)
+
       // Felipe sessao 2026-08: 'me traga suas contas detalhadas'.
       // Acumulador de breakdown: cada chamada de aplicarRegra* registra
       // aqui sua contribuicao. Usado pelo modal debug pra mostrar
@@ -698,7 +705,10 @@ const AcessoriosPortaExterna = (() => {
           mFD12 += cFD12;
           mMS   += cMS;
           mCPS  += cCPS;
-          mHIGHTACK += cHTACK_extra;  // adicional FAB tambem pode usar HighTack
+          // Felipe sessao 2026-05-10: cHTACK_extra de regra FAB vai pra
+          // mHIGHTACK_fab (NAO mHIGHTACK que e' OBRA). Sera emitido como
+          // tubo 'fab' no Lev. Acessorios.
+          mHIGHTACK_fab += cHTACK_extra;
         }
         _breakdown.push({
           origem: origem || idRegra,
@@ -1067,6 +1077,17 @@ const AcessoriosPortaExterna = (() => {
       // caller le e consolida via window._fitaSiliconeBreakdownCache filtrado
       // por itemTipo='revestimento_parede'.
 
+      // Felipe sessao 2026-05-10: HighTack FAB (reforco de colagem em
+      // pecas que ficam na fabrica - ex: molduras Mod23 ACM coladas
+      // na chapa). Pedido Felipe: 'esse hightack da moldura fica dentro
+      // de fabricacao e nao na obra'. Aplicacao 'fab' = categoria FAB
+      // (mesmo bloco da Fabricacao no Lev. Acessorios).
+      if (mHIGHTACK_fab > 0) {
+        const tubos = Math.ceil(mHIGHTACK_fab / HIGHTACK_POR_TUBO);
+        add('PA-HIGHTACK BR', tubos, 'Selantes', 'fab',
+            `${mHIGHTACK_fab.toFixed(1)}m / ${HIGHTACK_POR_TUBO}m por tubo = ${tubos} tubo(s) (fab)`);
+      }
+
       // Felipe sessao 2026-08-03: linhas OBRA - silicone PA-HIGHTACK BR
       // (Fix All High Tack Branco) e fita dupla face vinda de Alisar/Fita Acab.
       // Aplicacao 'obra' = vai com instalador na obra (categoria diferente
@@ -1115,6 +1136,8 @@ const AcessoriosPortaExterna = (() => {
           totais:    {
             mFD19: mFD19, mFD12: mFD12, mMS: mMS, mCPS: mCPS,
             mFD19_obra: mFD19_obra, mFD12_obra: mFD12_obra, mHIGHTACK: mHIGHTACK,
+            // Felipe sessao 2026-05-10: HighTack FAB separado
+            mHIGHTACK_fab: mHIGHTACK_fab,
           },
           rendimentos: {
             fd19_rolo: FD19_POR_ROLO, fd12_rolo: FD12_POR_ROLO,
@@ -1128,6 +1151,8 @@ const AcessoriosPortaExterna = (() => {
           rolosFD19_obra: mFD19_obra > 0 ? Math.ceil(mFD19_obra / FD19_POR_ROLO)     : 0,
           rolosFD12_obra: mFD12_obra > 0 ? Math.ceil(mFD12_obra / FD12_POR_ROLO)     : 0,
           tubosHIGHTACK:  mHIGHTACK  > 0 ? Math.ceil(mHIGHTACK  / HIGHTACK_POR_TUBO) : 0,
+          // Felipe sessao 2026-05-10: tubos HighTack FAB separado
+          tubosHIGHTACK_fab: mHIGHTACK_fab > 0 ? Math.ceil(mHIGHTACK_fab / HIGHTACK_POR_TUBO) : 0,
           breakdown: _breakdown.slice(),
           ts:        Date.now(),
         };
