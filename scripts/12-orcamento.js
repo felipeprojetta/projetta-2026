@@ -9858,8 +9858,20 @@ const Orcamento = (() => {
             // Felipe sessao 13: nota explicativa quando o modelo tem moldura
             // (Mod 23) — 'devemos deixar explicito que chapa frontal e molduras
             // sao aluminio com pintura eletrostatica'.
+            //
+            // Felipe sessao 2026-05-10 (BUGFIX): a obs SO' faz sentido pro
+            // caso Mod23 + Aluminio Macico (chapa AM frontal). Pra Mod23 +
+            // ACM/HPL/Vidro, a chapa NAO eh aluminio - so' as molduras
+            // (perfis Boiserie) sao. Falar "Chapa frontal em aluminio"
+            // pra Mod23 ACM eh ENGANOSO no PDF da proposta.
+            //
+            // Sintoma reportado pelo Felipe: 'revestimento escolhido em
+            // acm, proposta falando que e em aluminio macico totalmente
+            // errado'.
             const ehMod23 = num === 23;
-            const notaPintura = ehMod23
+            const revLower = String(item.revestimento || '').toLowerCase();
+            const ehAM = /alum[ií]n[ií]o.*maci[cç]o/.test(revLower) && /2\s*mm/.test(revLower);
+            const notaPintura = (ehMod23 && ehAM)
               ? `<div class="rel-prop-item-linha" style="margin-top:6px;padding:6px 8px;background:#fff7e8;border-left:3px solid #d97706;border-radius:3px;font-size:11px;color:#7c3a00;font-style:italic;"><span style="font-weight:600;">Obs.:</span> Chapa frontal e molduras em alumínio com pintura eletrostática.</div>`
               : '';
             return `<div class="rel-prop-item-linhas rel-prop-item-modelo-vars">${linhas}${notaPintura}</div>`;
