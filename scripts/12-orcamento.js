@@ -2352,13 +2352,33 @@ const Orcamento = (() => {
     return String(v);
   }
 
-  function novoItem(tipo) {
+  // Felipe (sessao 2026-05-10): novoItem agora aceita versaoAtual
+  // opcional pra herdar revestimento/cor da PORTA ANTERIOR ao criar
+  // um Fixo Acoplado. Pedido Felipe: "quando for fixo acoplado a
+  // porta, ja traga revestimento e cor igual da porta, muito raro
+  // voce ter cor diferente, mas ao criar o fixo acoplado a porta
+  // pegue as caracteristicas de cor e revestimento o item anterior
+  // que deve ser uma porta, deixe livre para escolha, mas mantenha
+  // igual, se alterar a cor e revestimento da porta altere tambem
+  // do fixo acoplado a porta".
+  //
+  // Strategy:
+  //   - Cria item normal (defaults).
+  //   - Se for fixo_acoplado E versaoAtual tem porta_externa antes,
+  //     copia revestimento + cores (corExterna, corInterna, corCava,
+  //     corChapaAM_Ext, corChapaAM_Int) DA ULTIMA porta da versao.
+  //   - Marca __syncPortaIdx pra rastrear sync.
+  //   - Quando o user edita manualmente qualquer campo no fixo, o
+  //     handler limpa __syncPortaIdx (perde sincronia).
+  //   - Quando o user edita rev/cor da porta, handler propaga pros
+  //     fixos que AINDA estao com __syncPortaIdx === idx_da_porta.
+  function novoItem(tipo, versaoAtual) {
     if (!tipo)                    return { tipo: '', quantidade: 1 };
     if (tipo === 'porta_externa') return novoItemPortaExterna();
     if (tipo === 'porta_interna') return { tipo: 'porta_interna', quantidade: 1, largura: '', altura: '' };
     if (tipo === 'fixo_acoplado') {
       const fg = lerFolgasPadraoCadastro();
-      return {
+      const novo = {
       tipo: 'fixo_acoplado',
       quantidade: 1,
       largura: '',
@@ -2389,6 +2409,33 @@ const Orcamento = (() => {
       fglEsq: fg.fglEsq,
       fgSup:  fg.fgSup,
     };
+
+      // Felipe sessao 2026-05-10: herda rev/cor da ULTIMA porta da versao.
+      try {
+        const itens = (versaoAtual && Array.isArray(versaoAtual.itens))
+          ? versaoAtual.itens : [];
+        // procura a ultima porta_externa
+        let portaIdx = -1;
+        for (let i = itens.length - 1; i >= 0; i--) {
+          if (itens[i] && itens[i].tipo === 'porta_externa') { portaIdx = i; break; }
+        }
+        if (portaIdx >= 0) {
+          const porta = itens[portaIdx];
+          if (porta.revestimento)  novo.revestimento  = porta.revestimento;
+          if (porta.corExterna)    novo.corExterna    = porta.corExterna;
+          if (porta.corInterna)    novo.corInterna    = porta.corInterna;
+          if (porta.corCava)       novo.corCava       = porta.corCava;
+          if (porta.corChapaAM_Ext) novo.corChapaAM_Ext = porta.corChapaAM_Ext;
+          if (porta.corChapaAM_Int) novo.corChapaAM_Int = porta.corChapaAM_Int;
+          // Marca sync: se user editar rev/cor da porta, propaga.
+          // Se user editar no fixo, perde sync.
+          novo.__syncPortaIdx = portaIdx;
+        }
+      } catch (_) {
+        // sem porta anterior - cria item vazio normalmente
+      }
+
+      return novo;
     }
     if (tipo === 'revestimento_parede') return {
       tipo: 'revestimento_parede',
@@ -3336,7 +3383,9 @@ const Orcamento = (() => {
       if (!tipo) return;
       const versao = versaoAtiva();
       if (!versao) return;
-      const novaLista = [...(versao.itens || []), novoItem(tipo)];
+      // Felipe sessao 2026-05-10: passa versao pra novoItem herdar
+      // rev/cor da porta anterior quando criar um fixo_acoplado.
+      const novaLista = [...(versao.itens || []), novoItem(tipo, versao)];
       atualizarVersao(versao.id, { itens: novaLista });
       UI.itemSelecionadoIdx = novaLista.length - 1;
       renderItemTab(container);
@@ -4402,6 +4451,64 @@ const Orcamento = (() => {
           item[field] = v;
         }
 
+        // ============================================================
+        // Felipe sessao 2026-05-10: SYNC Porta <-> Fixo Acoplado.
+        // 2 caminhos:
+        //
+        // A) Se ESTE item eh fixo_acoplado E user editou rev/cor:
+        //    -> perde sync com a porta (__syncPortaIdx vira null).
+        //    Pedido: "deixe livre para escolha [...] mesmo assim fica
+        //    livre para alterar caso necessario".
+        //
+        // B) Se ESTE item eh porta_externa E user editou rev/cor:
+        //    -> propaga pros fixos que AINDA estao em sync com esta
+        //    porta (__syncPortaIdx === idx desta porta).
+        //    Pedido: "se alterar a cor e revestimento da porta altere
+        //    tambem do fixo acoplado a porta".
+        //
+        // Campos rastreados: revestimento, corExterna, corInterna,
+        // corCava, corChapaAM_Ext, corChapaAM_Int.
+        const CAMPOS_SYNC = ['revestimento', 'corExterna', 'corInterna',
+                             'corCava', 'corChapaAM_Ext', 'corChapaAM_Int'];
+        if (CAMPOS_SYNC.includes(field)) {
+          if (item.tipo === 'fixo_acoplado' && item.__syncPortaIdx != null) {
+            // A) User editou um fixo - perde sync (decisao deliberada do user)
+            console.log('[Sync] Fixo idx', idx, 'editou', field, '- perdeu sync com porta',
+                        item.__syncPortaIdx);
+            delete item.__syncPortaIdx;
+          } else if (item.tipo === 'porta_externa') {
+            // B) Propaga pros fixos sincronizados com ESTA porta
+            const itens = versao.itens || [];
+            let propagados = 0;
+            itens.forEach((it, i) => {
+              if (!it || it.tipo !== 'fixo_acoplado') return;
+              if (it.__syncPortaIdx !== idx) return;
+              // Espelha o mesmo valor
+              if (field === 'revestimento') {
+                const revAntigoFixo = it.revestimento || '';
+                it.revestimento = v;
+                // Quando porta muda revestimento, zera as cores do fixo
+                // (cores de ACM nao casam com cores HPL/AM/Vidro).
+                // Cores serao re-copiadas no proximo edit de cor da porta.
+                if (revAntigoFixo && revAntigoFixo !== v) {
+                  it.corExterna = '';
+                  it.corInterna = '';
+                  it.corCava    = '';
+                  it.corChapaAM_Ext = '';
+                  it.corChapaAM_Int = '';
+                }
+              } else {
+                it[field] = v;
+              }
+              propagados++;
+            });
+            if (propagados > 0) {
+              console.log('[Sync] Porta idx', idx, 'mudou', field, 'para', JSON.stringify(v),
+                          '- propagado pra', propagados, 'fixo(s) sincronizado(s)');
+            }
+          }
+        }
+
         // === REGISTRO DE OVERRIDE ===
         // Override só faz sentido quando a REGRA ESTÁ ATIVA e o usuario escolhe
         // diferente dela. Se a regra nao impoe nada (ex: largura ≥ 1200 → escolha
@@ -4745,7 +4852,9 @@ const Orcamento = (() => {
       if (!tipo) return;
       const versao = versaoAtiva();
       if (!versao) return;
-      const novaLista = [...(versao.itens || []), novoItem(tipo)];
+      // Felipe sessao 2026-05-10: passa versao pra novoItem herdar
+      // rev/cor da porta anterior quando criar um fixo_acoplado.
+      const novaLista = [...(versao.itens || []), novoItem(tipo, versao)];
       atualizarVersao(versao.id, { itens: novaLista });
       UI.itemSelecionadoIdx = novaLista.length - 1;
       renderItemTab(container);
