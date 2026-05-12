@@ -166,6 +166,24 @@
   function genId() {
     return 'ag_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
   }
+  // Felipe (sessao 18): helper pra "replicar dia anterior". Subtrai
+  // 1 dia em LOCAL time (atravessa borda de mes/ano corretamente).
+  function diaAnteriorISO(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() - 1);
+    return dt.getFullYear() + '-' +
+           String(dt.getMonth() + 1).padStart(2, '0') + '-' +
+           String(dt.getDate()).padStart(2, '0');
+  }
+  // Felipe (sessao 18): agendamentos de uma celula (equipe+dia).
+  // Usa TODOS os agendamentos do storage (nao so' o mes corrente)
+  // pra suportar dia anterior atravessando borda de mes.
+  function agendamentosDaCelula(equipeId, dia) {
+    return Object.values(state.agendamentos).filter(ag =>
+      ag.equipeId === equipeId && ag.dia === dia
+    );
+  }
   function navegarMes(delta) {
     const [y, m] = state.mesAno.split('-').map(Number);
     const novo = new Date(y, m - 1 + delta, 1);
@@ -378,10 +396,16 @@
           if (!ag.cardId && ag.tarefaManual) {
             const classFin = finalizado ? 'eq-job-finalizado' : '';
             const dataFmt  = finalizado && ag.dataFim ? fmtData(ag.dataFim) : '';
+            // Felipe (sessao 18): linha de observacao visivel (se houver)
+            const notasHtml = (ag.notas && String(ag.notas).trim())
+              ? `<div class="eq-job-notas" title="${escapeHtml(ag.notas)}">📝 ${escapeHtml(ag.notas)}</div>`
+              : '';
             return `
               <div class="eq-job-card eq-job-manual ${classFin}" title="Tarefa manual: ${escapeHtml(ag.tarefaManual)}${finalizado ? ' (finalizada em ' + dataFmt + ')' : ''}">
+                <button class="eq-job-edit" data-action="editar" data-ag-id="${escapeHtml(ag.id)}" title="Editar agendamento">✏️</button>
                 <button class="eq-job-del" data-action="remover" data-ag-id="${escapeHtml(ag.id)}" title="Remover">×</button>
                 <div class="eq-job-cliente">📝 ${escapeHtml(ag.tarefaManual)}</div>
+                ${notasHtml}
                 ${finalizado
                   ? `<div class="eq-job-status-tag eq-tag-finalizado">✓ ${escapeHtml(dataFmt)}</div>`
                   : `<button class="eq-job-finalizar" data-action="finalizar" data-ag-id="${escapeHtml(ag.id)}" title="Marcar como finalizada">✓ Finalizar</button>`}
@@ -417,11 +441,17 @@
           // ULTIMO mostra botao 'Finalizar'. Os anteriores mostram
           // tag 'EM PRODUCAO' (sem botao).
           const ehUltimoDia = ultimosDias.has(ag.id);
+          // Felipe (sessao 18): linha de observacao visivel (se houver)
+          const notasHtml = (ag.notas && String(ag.notas).trim())
+            ? `<div class="eq-job-notas" title="${escapeHtml(ag.notas)}">📝 ${escapeHtml(ag.notas)}</div>`
+            : '';
           return `
             <div class="eq-job-card ${finalizado ? 'eq-job-finalizado' : ''}" style="${styleBg}" title="${escapeHtml(card.cliente)} · ATP ${escapeHtml(numeroAtpExibir)}${marcoLabel ? ' · ' + marcoLabel : ''}${finalizado ? ' (finalizado em ' + dataFmt + ')' : ''}">
+              <button class="eq-job-edit" data-action="editar" data-ag-id="${escapeHtml(ag.id)}" title="Editar agendamento">✏️</button>
               <button class="eq-job-del" data-action="remover" data-ag-id="${escapeHtml(ag.id)}" title="Remover">×</button>
               <div class="eq-job-cliente">${escapeHtml(card.cliente || '(sem nome)')}</div>
               <div class="eq-job-atp">${escapeHtml(numeroAtpExibir)}${marcoLabel ? ' · ' + escapeHtml(marcoLabel) : ''}</div>
+              ${notasHtml}
               ${finalizado
                 ? `<div class="eq-job-status-tag eq-tag-finalizado">✓ ${escapeHtml(dataFmt)}</div>`
                 : (ehUltimoDia
@@ -499,18 +529,40 @@
     if (!state.modalAberto) return '';
     const m = state.modalAberto;
     const equipe = equipeById(m.equipeId);
+    // Felipe (sessao 18): modo edit le agendamento atual pra pre-preencher.
+    const ehEdit = m.tipo === 'edit';
+    const agEditando = ehEdit ? state.agendamentos[m.agendamentoId] : null;
+    if (ehEdit && !agEditando) {
+      // Defesa: agendamento sumiu (race condition) - fecha modal silenciosamente.
+      state.modalAberto = null;
+      return '';
+    }
+    const marcosAtuais = agEditando
+      ? (Array.isArray(agEditando.marcosPG) ? agEditando.marcosPG
+         : (agEditando.marcoPG ? [agEditando.marcoPG] : []))
+      : [];
+    const cardIdAtual = agEditando ? (agEditando.cardId || '') : '';
+    const tarefaManualAtual = agEditando ? (agEditando.tarefaManual || '') : '';
+    const notasAtual = agEditando ? (agEditando.notas || '') : '';
+
     // Felipe (sessao 2026-05-10): so jobs EM producao no select.
     const cardsEmProducao = listarCardsKanbanEmProducao();
 
     // Felipe (sessao 2026-05-10): "deixe campo pra escrever tarefa manual".
     // Opcao 'manual' no topo do select - se escolhida, mostra textarea.
+    // Felipe (sessao 18): em modo edit, marca 'selected' no card/manual atual.
+    const manualSelected = (ehEdit && !cardIdAtual && tarefaManualAtual) ? 'selected' : '';
     const opts = `
-      <option value="__manual__">📝 Tarefa manual (sem job vinculado)</option>
+      <option value="__manual__" ${manualSelected}>📝 Tarefa manual (sem job vinculado)</option>
       ${cardsEmProducao.length > 0 ? '<option disabled>───── jobs em producao ─────</option>' : ''}
       ${cardsEmProducao.map(c => {
         const label = (c.cliente || '(sem nome)') + ' · ' + (c.numeroAGP || 'sem ATP') + ' · ' + (c.etapa || '');
-        return `<option value="${escapeHtml(c.id)}">${escapeHtml(label)}</option>`;
+        const sel = (cardIdAtual === c.id) ? 'selected' : '';
+        return `<option value="${escapeHtml(c.id)}" ${sel}>${escapeHtml(label)}</option>`;
       }).join('')}
+      ${(ehEdit && cardIdAtual && !cardsEmProducao.find(c => c.id === cardIdAtual))
+        ? `<option value="${escapeHtml(cardIdAtual)}" selected>⚠️ Job atual (fora de producao)</option>`
+        : ''}
     `;
     const hintCardsVazio = cardsEmProducao.length === 0
       ? `<small style="color:var(--text-muted,#6b7280);font-size:11px;">Nenhum job em producao no Kanban (jobs aguardando liberacao/medicao nao aparecem aqui).</small>`
@@ -530,25 +582,37 @@
       // 1 marco: hidden checkbox sempre marcado
       marcoPgHtml = `<input type="checkbox" data-marco-checkbox value="${escapeHtml(marcosEquipe[0])}" checked style="display:none;" />`;
     } else {
+      // Felipe (sessao 18): em modo edit, pre-marca os marcos atuais
       marcoPgHtml = `
         <label class="eq-modal-label">Quais etapas? <span style="color:#dc2626;font-weight:400;">(marque 1 ou mais)</span></label>
         <div class="eq-modal-marcos-checks">
-          ${marcosEquipe.map(mc => `
+          ${marcosEquipe.map(mc => {
+            const isChecked = marcosAtuais.includes(mc) ? 'checked' : '';
+            return `
             <label class="eq-modal-marco-chip">
-              <input type="checkbox" data-marco-checkbox value="${escapeHtml(mc)}" />
+              <input type="checkbox" data-marco-checkbox value="${escapeHtml(mc)}" ${isChecked} />
               <span>${escapeHtml(labelMarco(mc))}</span>
             </label>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
       `;
     }
+
+    // Felipe (sessao 18): em modo edit, wrap manual aparece se tarefaManual existe
+    const manualWrapStyle = (ehEdit && !cardIdAtual && tarefaManualAtual)
+      ? 'display:block;margin-top:10px;'
+      : 'display:none;margin-top:10px;';
+    // Felipe (sessao 18): titulo + texto do botao mudam em modo edit
+    const tituloModal = ehEdit ? 'Editar agendamento' : equipe.label;
+    const labelBtnSalvar = ehEdit ? 'Salvar alteracoes' : 'Agendar (Iniciar)';
 
     return `
       <div class="eq-modal-backdrop" data-action="fechar-modal"></div>
       <div class="eq-modal" role="dialog" aria-modal="true">
         <div class="eq-modal-header" style="border-left:6px solid ${equipe.cor}">
           <div>
-            <h3>${escapeHtml(equipe.label)}</h3>
+            <h3>${escapeHtml(tituloModal)}</h3>
             <p class="eq-modal-sub">${escapeHtml(equipe.responsavel)} · ${escapeHtml(fmtData(m.dia))}</p>
           </div>
           <button class="eq-modal-close" data-action="fechar-modal">×</button>
@@ -559,17 +623,17 @@
             ${opts}
           </select>
           ${hintCardsVazio}
-          <div id="eq-modal-manual-wrap" style="display:none;margin-top:10px;">
+          <div id="eq-modal-manual-wrap" style="${manualWrapStyle}">
             <label class="eq-modal-label">Descricao da tarefa manual</label>
-            <input type="text" class="eq-modal-select" id="eq-modal-tarefa-manual" placeholder="Ex: Manutencao da maquina, treinamento, limpeza..." />
+            <input type="text" class="eq-modal-select" id="eq-modal-tarefa-manual" placeholder="Ex: Manutencao da maquina, treinamento, limpeza..." value="${escapeHtml(tarefaManualAtual)}" />
           </div>
           ${marcoPgHtml}
           <label class="eq-modal-label">Observacoes (opcional)</label>
-          <textarea class="eq-modal-textarea" id="eq-modal-notas" rows="3" placeholder="Detalhes adicionais..."></textarea>
+          <textarea class="eq-modal-textarea" id="eq-modal-notas" rows="3" placeholder="Detalhes adicionais...">${escapeHtml(notasAtual)}</textarea>
         </div>
         <div class="eq-modal-footer">
           <button class="eq-btn-secundario" data-action="fechar-modal">Cancelar</button>
-          <button class="eq-btn-primario" data-action="salvar-modal">Agendar (Iniciar)</button>
+          <button class="eq-btn-primario" data-action="salvar-modal">${escapeHtml(labelBtnSalvar)}</button>
         </div>
       </div>
     `;
@@ -577,6 +641,17 @@
 
   function abrirModal(equipeId, dia) {
     state.modalAberto = { tipo: 'add', equipeId, dia };
+  }
+  // Felipe (sessao 18): modal em modo edicao - pre-preenche com agendamento atual
+  function abrirModalEditar(agId) {
+    const ag = state.agendamentos[agId];
+    if (!ag) return;
+    state.modalAberto = {
+      tipo: 'edit',
+      equipeId: ag.equipeId,
+      dia: ag.dia,
+      agendamentoId: agId,
+    };
   }
   function fecharModal() {
     state.modalAberto = null;
@@ -669,6 +744,53 @@
       saveAgendamentos();
     }
   }
+  // Felipe (sessao 18): editar agendamento existente. Preserva id, dia,
+  // equipeId, status, dataFim. Atualiza cardId, notas, tarefaManual, marcosPG.
+  // NAO emite evento 'equipes:job-iniciado' de novo (ja foi emitido na criacao).
+  // Se quiser disparar status na PG, finalize o agendamento.
+  function editarAgendamento(agId, cardId, notas, tarefaManual, marcosPG) {
+    const ag = state.agendamentos[agId];
+    if (!ag) return;
+    const marcosArr = Array.isArray(marcosPG)
+      ? marcosPG.filter(Boolean)
+      : (marcosPG ? [marcosPG] : []);
+    ag.cardId = cardId || null;
+    ag.notas = notas || '';
+    ag.tarefaManual = tarefaManual || '';
+    ag.marcosPG = marcosArr;
+    ag.marcoPG = '';
+    saveAgendamentos();
+  }
+  // Felipe (sessao 18): replica TODOS os agendamentos de uma equipe do
+  // diaOrigem pro diaDestino. Cada agendamento clonado vira novo registro
+  // com status 'iniciado' (mesmo se o original ja estava finalizado, a
+  // replicacao representa uma NOVA execucao no novo dia).
+  // NAO emite evento (job ja esta sendo trabalhado, evita duplo-iniciado na PG).
+  function replicarDiaAnterior(equipeId, diaOrigem, diaDestino) {
+    const ags = agendamentosDaCelula(equipeId, diaOrigem);
+    if (ags.length === 0) return 0;
+    let count = 0;
+    ags.forEach(orig => {
+      const id = genId();
+      const marcosArr = (Array.isArray(orig.marcosPG) && orig.marcosPG.length > 0)
+        ? orig.marcosPG.slice()
+        : (orig.marcoPG ? [orig.marcoPG] : []);
+      state.agendamentos[id] = {
+        cardId: orig.cardId || null,
+        equipeId,
+        dia: diaDestino,
+        notas: orig.notas || '',
+        tarefaManual: orig.tarefaManual || '',
+        status: 'iniciado',
+        marcosPG: marcosArr,
+        marcoPG: '',
+        dataFim: '',
+      };
+      count++;
+    });
+    if (count > 0) saveAgendamentos();
+    return count;
+  }
 
   // ============================================================
   // RENDER PRINCIPAL
@@ -701,7 +823,48 @@
         // Evita conflito quando clica em mini-card dentro da cell
         if (e.target.closest('.eq-job-card')) return;
         e.stopPropagation();
-        abrirModal(el.dataset.equipe, el.dataset.dia);
+        const equipeId = el.dataset.equipe;
+        const dia      = el.dataset.dia;
+
+        // Felipe (sessao 18): se celula esta VAZIA e o dia anterior tem
+        // agendamento da MESMA equipe, oferece replicar antes de abrir
+        // modal de novo agendamento. "Muitos trabalhos se repetem no dia
+        // seguinte".
+        const ehInstalacao = (equipeId === 'instalacao'); // instalacao e' auto-pop, nao replicavel
+        const celulaVazia  = agendamentosDaCelula(equipeId, dia).length === 0;
+        if (!ehInstalacao && celulaVazia) {
+          const diaAnt = diaAnteriorISO(dia);
+          const ant    = agendamentosDaCelula(equipeId, diaAnt);
+          if (ant.length > 0) {
+            const qtd = ant.length;
+            const msg = 'O dia anterior (' + fmtData(diaAnt) + ') tem ' +
+                        qtd + ' agendamento' + (qtd > 1 ? 's' : '') +
+                        ' nesta equipe.\n\nReplicar ' +
+                        (qtd > 1 ? 'todos' : '') +
+                        ' para HOJE (' + fmtData(dia) + ')?\n\n' +
+                        'OK = replicar\nCancelar = adicionar novo manualmente';
+            if (window.confirm(msg)) {
+              const n = replicarDiaAnterior(equipeId, diaAnt, dia);
+              if (n > 0) {
+                console.log('[Equipes] Replicados ' + n + ' agendamento(s) de ' + diaAnt + ' -> ' + dia);
+              }
+              render(container);
+              return;
+            }
+            // Cancelar: cai pro fluxo normal de modal de add
+          }
+        }
+
+        abrirModal(equipeId, dia);
+        render(container);
+      });
+    });
+
+    // Felipe (sessao 18): editar agendamento existente
+    container.querySelectorAll('[data-action="editar"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        abrirModalEditar(btn.dataset.agId);
         render(container);
       });
     });
@@ -785,6 +948,8 @@
             alert('Selecione pelo menos uma etapa de producao.');
             return;
           }
+          // Felipe (sessao 18): roteia pra criar (add) ou atualizar (edit)
+          const ehEdit = m.tipo === 'edit';
           // Tarefa manual
           if (selValue === '__manual__') {
             const tarefa = mount.querySelector('#eq-modal-tarefa-manual');
@@ -793,9 +958,17 @@
               alert('Descreva a tarefa manual antes de salvar.');
               return;
             }
-            criarAgendamento(m.equipeId, m.dia, null, notas ? notas.value : '', txtTarefa, []);
+            if (ehEdit) {
+              editarAgendamento(m.agendamentoId, null, notas ? notas.value : '', txtTarefa, []);
+            } else {
+              criarAgendamento(m.equipeId, m.dia, null, notas ? notas.value : '', txtTarefa, []);
+            }
           } else {
-            criarAgendamento(m.equipeId, m.dia, selValue, notas ? notas.value : '', '', marcosPG);
+            if (ehEdit) {
+              editarAgendamento(m.agendamentoId, selValue, notas ? notas.value : '', '', marcosPG);
+            } else {
+              criarAgendamento(m.equipeId, m.dia, selValue, notas ? notas.value : '', '', marcosPG);
+            }
           }
           fecharModal();
           render(container);

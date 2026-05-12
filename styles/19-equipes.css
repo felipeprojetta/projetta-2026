@@ -196,7 +196,8 @@
   border: 1px solid var(--border, #e5e7eb);
   border-left: 4px solid;
   border-radius: 4px;
-  padding: 4px 18px 4px 6px;
+  /* Felipe (sessao 18): padding-right 34px pra caber 2 botoes (editar + remover) */
+  padding: 4px 34px 4px 6px;
   margin-bottom: 3px;
   font-size: 10px;
   cursor: default;
@@ -236,6 +237,33 @@
   line-height: 1;
 }
 .eq-job-del:hover { background: #fee2e2; color: #dc2626; }
+
+/* Felipe (sessao 18): botao editar agendamento (ao lado do remover) */
+.eq-job-edit {
+  position: absolute;
+  top: 2px;
+  right: 18px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #9ca3af);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 3px;
+  border-radius: 3px;
+  line-height: 1;
+}
+.eq-job-edit:hover { background: #dbeafe; color: #2563eb; }
+
+/* Felipe (sessao 18): linha de observacao visivel no card (se houver notas) */
+.eq-job-notas {
+  font-size: 9px;
+  color: var(--text-muted, #6b7280);
+  font-style: italic;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ============================================================
    MODAL
