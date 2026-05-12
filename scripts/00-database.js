@@ -862,6 +862,10 @@ const Database = (() => {
     syncFromCloud: syncFromCloud,
     syncToCloud: syncToCloud,
     _sbUpsert: sbUpsert,
+    // Felipe sessao 18: expor _registrarWriteLocal pra Storage.set
+    // ativar a protecao anti-stale (evita realtime polling sobrescrever
+    // delete recente com versao antiga do server).
+    _registrarWriteLocal: _registrarWriteLocal,
     // Felipe sessao 12: flush imediato de saves pendentes (operacoes
     // criticas tipo aprovarOrcamento usam pra garantir atomicidade)
     flushSbUpsertPendentes: flushSbUpsertPendentes,

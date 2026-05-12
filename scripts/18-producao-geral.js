@@ -812,6 +812,30 @@
       }
     });
 
+    // Felipe (sessao 18): Equipes removeu agendamento -> recalcula
+    // marco na PG. Valor pode ser data (finalizado mais recente),
+    // 'iniciado' ou '' (limpa). NAO sobrescreve 'na' (N/A manual do user).
+    Events.on('equipes:job-data-recalculada', function(payload) {
+      if (!payload || !payload.cardId || !payload.marcoPG) return;
+      load();
+      const delta = state.deltas[payload.cardId] || {};
+      const atual = delta[payload.marcoPG] || '';
+      if (atual === 'na') {
+        console.log('[ProducaoGeral] marco', payload.marcoPG,
+                    'em N/A - mantido (cardId:', payload.cardId, ')');
+        return;
+      }
+      const novo = payload.novoValor || '';
+      atualizarMarco(payload.cardId, payload.marcoPG, novo);
+      console.log('[ProducaoGeral] marco', payload.marcoPG, '=',
+                  (novo || '(vazio)'),
+                  'via Equipes-remove (cardId:', payload.cardId, ')');
+      if (window.App && window.App.state && window.App.state.currentModule === 'producao-geral') {
+        const container = document.querySelector('.main-content') || document.body;
+        if (container) render(container);
+      }
+    });
+
     // Kanban deletou card -> limpa nossos deltas pra esse cardId
     // (evita lixo no storage; mesma necessidade de persistencia).
     Events.on('kanban-producao:card-deleted', function(payload) {

@@ -739,9 +739,53 @@
     saveAgendamentos();
   }
   function removerAgendamento(agId) {
-    if (state.agendamentos[agId]) {
-      delete state.agendamentos[agId];
-      saveAgendamentos();
+    const ag = state.agendamentos[agId];
+    if (!ag) return;
+    // Felipe (sessao 18): captura cardId+marcos ANTES de deletar pra
+    // poder recalcular estado dos marcos na PG depois.
+    const cardId = ag.cardId;
+    const marcosRemover = (Array.isArray(ag.marcosPG) && ag.marcosPG.length > 0)
+      ? ag.marcosPG.slice()
+      : (ag.marcoPG ? [ag.marcoPG] : []);
+
+    delete state.agendamentos[agId];
+    saveAgendamentos();
+
+    // Felipe (sessao 18): "quando eu deletar de equipes deve deletar
+    // datas da producao geral". Pra cada marco do agendamento removido,
+    // calcula NOVO estado baseado nos agendamentos REMANESCENTES desse
+    // cardId+marco:
+    //   - se ainda ha finalizado: pega dataFim do mais recente
+    //   - senao se ha iniciado: 'iniciado'
+    //   - senao: '' (limpa)
+    // PG nao sobrescreve marco em 'na' (N/A manual do user).
+    if (cardId && marcosRemover.length > 0) {
+      marcosRemover.forEach(marcoPG => {
+        const restantes = Object.values(state.agendamentos).filter(other => {
+          if (other.cardId !== cardId) return false;
+          const ms = (Array.isArray(other.marcosPG) && other.marcosPG.length > 0)
+            ? other.marcosPG
+            : (other.marcoPG ? [other.marcoPG] : []);
+          return ms.indexOf(marcoPG) !== -1;
+        });
+        let novoValor = '';
+        const finalizados = restantes.filter(a => a.status === 'finalizado' && a.dataFim);
+        if (finalizados.length > 0) {
+          finalizados.sort((a, b) => String(b.dataFim).localeCompare(String(a.dataFim)));
+          novoValor = finalizados[0].dataFim;
+        } else if (restantes.some(a => a.status === 'iniciado')) {
+          novoValor = 'iniciado';
+        }
+        try {
+          if (window.Events && typeof Events.emit === 'function') {
+            Events.emit('equipes:job-data-recalculada', {
+              cardId, marcoPG, novoValor,
+            });
+            console.log('[Equipes] Recalc marco', marcoPG, '->',
+                        (novoValor || '(vazio)'), 'cardId:', cardId);
+          }
+        } catch (_) {}
+      });
     }
   }
   // Felipe (sessao 18): editar agendamento existente. Preserva id, dia,
@@ -870,13 +914,12 @@
     });
 
     // Remover agendamento
+    // Felipe (sessao 18): deletar no PRIMEIRO click (sem confirm)
     container.querySelectorAll('[data-action="remover"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (window.confirm('Remover este agendamento?')) {
-          removerAgendamento(btn.dataset.agId);
-          render(container);
-        }
+        removerAgendamento(btn.dataset.agId);
+        render(container);
       });
     });
 

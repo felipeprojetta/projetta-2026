@@ -128,8 +128,16 @@ const Storage = (() => {
             }
           }
           // Sync pro Supabase em background (via Database sbUpsert interno)
-          if (typeof Database !== 'undefined' && Database._sbUpsert) {
-            try { Database._sbUpsert(scopeName, k, value); } catch(_) {}
+          // Felipe (sessao 18): registra timestamp local ANTES do upsert
+          // pra ativar protecao anti-stale (evita realtime polling
+          // sobrescrever delete recente com versao antiga do server).
+          if (typeof Database !== 'undefined') {
+            if (Database._registrarWriteLocal) {
+              try { Database._registrarWriteLocal(scopeName, k); } catch(_) {}
+            }
+            if (Database._sbUpsert) {
+              try { Database._sbUpsert(scopeName, k, value); } catch(_) {}
+            }
           }
           Events.emit('db:change', { scope: scopeName, key: k, value });
         },
