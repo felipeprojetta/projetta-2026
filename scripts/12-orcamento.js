@@ -3843,11 +3843,12 @@ const Orcamento = (() => {
               `;
             })() : ''}
           </div>
-          ${item.temEstrutura !== 'nao' && item.revestimento !== 'Vidro' ? `
+          ${item.revestimento !== 'Vidro' && (item.posicao === 'lateral' || item.temEstrutura !== 'nao') ? `
           <div class="orc-form-row">
             ${item.posicao !== 'lateral' ? `
               <!-- Felipe sessao 13: SUPERIOR mantem 'Segue modelo da porta?'
-                   (replica o modelo da porta principal — comportamento original) -->
+                   (replica o modelo da porta principal — comportamento original)
+                   SO' faz sentido com estrutura (sem perfis nao tem o que replicar). -->
               <div class="orc-field">
                 <label>Segue modelo da porta?</label>
                 <select data-field="fixoSegueModelo">
@@ -3876,7 +3877,11 @@ const Orcamento = (() => {
             ` : `
               <!-- Felipe sessao 13: LATERAL nao replica modelo da porta
                    (normalmente e' uma chapa lisa). Em vez disso pergunta
-                   o tipo de chapa: lisa, ripado ou moldura. -->
+                   o tipo de chapa: lisa, ripado ou moldura.
+                   Felipe sessao 2026-05-10: 'Tipo de chapa ripado lisa
+                   moldura, some quando colocamos sem estrutura deve manter'.
+                   O tipo de chapa afeta AS CHAPAS, nao a estrutura -
+                   precisa estar visivel mesmo sem perfis. -->
               <div class="orc-field">
                 <label>Tipo de chapa</label>
                 <select data-field="tipoLateral">
