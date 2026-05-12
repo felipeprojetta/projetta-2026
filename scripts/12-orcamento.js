@@ -2430,6 +2430,24 @@ const Orcamento = (() => {
           // Marca sync: se user editar rev/cor da porta, propaga.
           // Se user editar no fixo, perde sync.
           novo.__syncPortaIdx = portaIdx;
+
+          // Felipe sessao 2026-05-10: 'quando tem fixo superior alisar
+          // e somente interno e essa decisao alterara quantidade de
+          // pecas nas chapas'. Felipe confirmou: 'detectar fixo superior
+          // automaticamente e mudar default pra 1 lado'.
+          //
+          // Fixo nasce com posicao='superior' (default em novoItem).
+          // Marca tem_alisar='Interno' na porta SE:
+          //   - posicao do novo fixo eh 'superior' (default)
+          //   - porta ainda tem tem_alisar='Sim' (legado/default, user
+          //     nao editou manualmente)
+          // Flag __alisarAutoFixoSuperior rastreia mudanca automatica
+          // pra permitir reverter se user trocar pra lateral.
+          if (novo.posicao === 'superior' && (porta.tem_alisar === 'Sim' || porta.tem_alisar === undefined)) {
+            porta.tem_alisar = 'Interno';
+            porta.__alisarAutoFixoSuperior = portaIdx;  // marca que foi auto
+            console.log('[Sync] Fixo superior criado - porta', portaIdx, 'tem_alisar -> Interno (automatico)');
+          }
         }
       } catch (_) {
         // sem porta anterior - cria item vazio normalmente
@@ -4125,9 +4143,20 @@ const Orcamento = (() => {
           <div class="orc-form-row">
             <div class="orc-field orc-f-alisar">
               <label>Tem alisar?</label>
+              <!-- Felipe sessao 2026-05-10: 'coloque opcao alisar somente
+                   1 lado ou dos dois lados, pois quando tem fixo superior
+                   alisar e somente interno e essa decisao alterara
+                   quantidade de pecas nas chapas'.
+                   Felipe confirmou 4 opcoes: Externo, Interno, Externo+Interno, Sem.
+                   Valor 'Sim' (legado) preservado = 'Externo + Interno' pra
+                   compat com itens ja' salvos. Valores novos: 'Externo' e 'Interno'.
+                   Default automatico: se ha fixo superior no orcamento ->
+                   'Interno' (sem alisar externo onde fica o fixo). -->
               <select data-field="tem_alisar">
-                <option value="Sim" ${(item.tem_alisar || 'Sim') === 'Sim' ? 'selected' : ''}>Sim — com alisar</option>
-                <option value="Nao" ${item.tem_alisar === 'Nao' ? 'selected' : ''}>Nao — sem alisar</option>
+                <option value="Sim"     ${(item.tem_alisar || 'Sim') === 'Sim' ? 'selected' : ''}>Externo + Interno (dois lados)</option>
+                <option value="Externo" ${item.tem_alisar === 'Externo' ? 'selected' : ''}>Somente Externo (um lado)</option>
+                <option value="Interno" ${item.tem_alisar === 'Interno' ? 'selected' : ''}>Somente Interno (um lado)</option>
+                <option value="Nao"     ${item.tem_alisar === 'Nao' ? 'selected' : ''}>Sem alisar</option>
               </select>
             </div>
             ${(item.tem_alisar !== 'Nao') ? `

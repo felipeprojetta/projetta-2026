@@ -208,7 +208,27 @@ const ChapasPortaExterna = (() => {
       dist23Mold:  num('distancia2a3aMoldura') || 0,
       // Felipe (sessao 26 fix): respeitar flag tem_alisar das caracteristicas.
       // Se 'Nao' -> nao gerar pecas de alisar (default 'Sim' pra retrocompat).
+      //
+      // Felipe sessao 2026-05-10: alisar pode ser '1 lado' (so' externo
+      // ou so' interno) ou 'Sim' (= ambos, retrocompat) ou 'Nao' (sem).
+      // 'quando tem fixo superior alisar e somente interno e essa
+      // decisao alterara quantidade de pecas nas chapas'.
+      // Valores possiveis de item.tem_alisar:
+      //   'Sim'     -> ext + int (legado, retrocompat com cadastros antigos)
+      //   'Externo' -> so' externo (1 lado)
+      //   'Interno' -> so' interno (1 lado, default quando ha fixo superior)
+      //   'Nao'     -> sem alisar (preserva comportamento existente)
+      // Cada peca de alisar usa essas 2 flags pra decidir ext/int.
+      // (Antes era 1 flag boolean 'temAlisar' aplicada a ambos.)
       temAlisar: String(item.tem_alisar || 'Sim').toLowerCase() !== 'nao',
+      temAlisarExt: (function() {
+        var v = String(item.tem_alisar || 'Sim').toLowerCase();
+        return v === 'sim' || v === 'externo';  // 'Sim' (legado) e 'Externo' = tem ext
+      })(),
+      temAlisarInt: (function() {
+        var v = String(item.tem_alisar || 'Sim').toLowerCase();
+        return v === 'sim' || v === 'interno';  // 'Sim' (legado) e 'Interno' = tem int
+      })(),
       corExt, corInt, corCava, corUnica,
       // Felipe sessao 13: cores da CHAPA AM (Mod23 + Aluminio Macico)
       corAM_Ext, corAM_Int, corAM_Unica,
@@ -413,16 +433,36 @@ const ChapasPortaExterna = (() => {
 
       // ALISAR_ALTURA qty=5 — distribui 3 ext + 2 int. Felipe revisar.
       // Felipe (sessao 26 fix): so' gera se item.tem_alisar !== 'Nao'.
+      // Felipe sessao 2026-05-10: separar ext/int em flags independentes.
+      // Felipe confirmou: '1 lado (so interno) -> altura 3 largura 1' -
+      // ou seja, quando so' tem 1 lado, todas as pecas vao pra esse lado
+      // (nao distribui 3 ext + 2 int). Comportamento por valor:
+      //   'Sim' (legado/ambos): ext=3, int=2 (igual antes)
+      //   'Externo' (so' ext):  ext=3 (todos vao pra externo), int=0
+      //                         Convertemos 2 int em 0 (sao quem fica do
+      //                         lado interno, e nao existe lado interno).
+      //                         NAO somamos 5 pro externo porque o
+      //                         externo continua precisando de 3 pecas.
+      //   'Interno' (so' int):  ext=0, int=3 (pegamos 3 - mesmo numero
+      //                         da Altura porque agora todo o '5' do
+      //                         legado se torna so' Altura no interno)
+      //                         Felipe pediu '3 altura' explicitamente.
+      //   'Nao' (sem):          ext=0, int=0 (preserva comportamento)
       { id: 'alisar_altura', label: 'Alisar Altura',
         largura: F.alisar_largura, comp: F.alisar_altura_comp,
-        ext: ctx => ctx.temAlisar ? 3 : 0,
-        int: ctx => ctx.temAlisar ? 2 : 0,
+        ext: ctx => ctx.temAlisarExt && ctx.temAlisarInt ? 3 : (ctx.temAlisarExt ? 3 : 0),
+        int: ctx => ctx.temAlisarExt && ctx.temAlisarInt ? 2 : (ctx.temAlisarInt ? 3 : 0),
         categoria: 'portal',
-        observacao: 'qty 5 da planilha distribuida 3 ext + 2 int' },
+        observacao: 'qty 5 da planilha distribuida 3 ext + 2 int (ou 3 quando 1 lado, Felipe)' },
+      // Felipe sessao 2026-05-10 (Alisar Largura): '1 largura' quando 1 lado.
+      //   'Sim' (ambos):   ext=1, int=1 (igual antes)
+      //   'Externo' so':   ext=1, int=0
+      //   'Interno' so':   ext=0, int=1
+      //   'Nao':           ext=0, int=0
       { id: 'alisar_largura', label: 'Alisar Largura',
         largura: F.alisar_largura, comp: F.alisar_largura_comp,
-        ext: ctx => ctx.temAlisar ? 1 : 0,
-        int: ctx => ctx.temAlisar ? 1 : 0,
+        ext: ctx => ctx.temAlisarExt ? 1 : 0,
+        int: ctx => ctx.temAlisarInt ? 1 : 0,
         categoria: 'portal' },
     ];
   }
