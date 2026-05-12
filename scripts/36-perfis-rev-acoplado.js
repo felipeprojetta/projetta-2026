@@ -194,7 +194,13 @@ var PerfisRevAcoplado = (function() {
     }
 
     // ── CONDICIONAIS: herdam da porta se fixoSegueModelo=sim ──
-    var segueModelo = item.fixoSegueModelo === 'sim';
+    // Felipe sessao 2026-05-10 (FIX 2): Lateral + Ripado/Moldura tambem
+    // herda da porta (mesmo espacamento). Replicada a mesma logica do
+    // criarItemVirtualChapas pra consistencia entre perfis e chapas.
+    var ehLateralRipadoOuMoldura = item.posicao === 'lateral' &&
+                                   (item.tipoLateral === 'ripado' ||
+                                    item.tipoLateral === 'moldura');
+    var segueModelo = item.fixoSegueModelo === 'sim' || ehLateralRipadoOuMoldura;
     var porta = segueModelo ? obterPortaPrincipal() : null;
 
     // TRAVESSA VERTICAL (76x38 / 101x51)
@@ -239,7 +245,30 @@ var PerfisRevAcoplado = (function() {
 
   function criarItemVirtualChapas(item) {
     if (!ehFixoValido(item)) return null;
-    var segueModelo = item.fixoSegueModelo === 'sim';
+
+    // Felipe sessao 2026-05-10: 2 fixes combinados pra herdar parametros
+    // do modelo da porta:
+    //
+    // FIX 2 (LATERAL + tipoLateral): quando o user escolhe 'Ripado' ou
+    // 'Moldura' no campo 'Tipo de chapa' do lateral, deve usar o MESMO
+    // espacamento/moldura da porta. Felipe: 'mesmo espacamento da porta'.
+    // Lateral + 'lisa' continua sem herdar (chapa simples).
+    //
+    // FIX 3 (SUPERIOR + Segue modelo = Sim): alem dos campos atuais
+    // (cava/frisos/ripado), agora herda TODOS os campos de MOLDURA do
+    // Mod23 (qtdMolduras, dist1a2a, dist2a3a, dist1aMoldura) +
+    // modeloDuasFaces. Sem isso o motor de chapas (38-chapas-...)
+    // recebia qtdMolduras=1 (default) e nao gerava as molduras 2/3.
+    // Felipe pediu 'TODOS (qtdMolduras, dist1a2a, dist2a3a,
+    // dist1aMoldura, modeloDuasFaces)'.
+    //
+    // ALISAR (largura_alisar, espessura_parede, tem_alisar):
+    // NAO herda. Felipe: 'herdar somente campos que interferem na
+    // porta' - alisar e' do portal da porta, nao do fixo.
+    var ehLateralRipadoOuMoldura = item.posicao === 'lateral' &&
+                                   (item.tipoLateral === 'ripado' ||
+                                    item.tipoLateral === 'moldura');
+    var segueModelo = item.fixoSegueModelo === 'sim' || ehLateralRipadoOuMoldura;
     var porta = segueModelo ? obterPortaPrincipal() : null;
     var fonte = porta || item;
     var fam = String(item.sistema || 'PA006') === 'PA007' ? '101' : '76';
@@ -303,6 +332,20 @@ var PerfisRevAcoplado = (function() {
       distanciaBordaFrisoHorizontal: segueModelo && porta ? (Number(porta.distanciaBordaFrisoHorizontal) || 0) : 0,
       espacamentoRipas:              segueModelo && porta ? (Number(porta.espacamentoRipas) || 0)              : 0,
       tipoRipado:                    segueModelo && porta ? String(porta.tipoRipado || '')                     : '',
+      // Felipe sessao 2026-05-10 (FIX 3): campos de MOLDURA do Mod23.
+      // Sem esses campos, o motor de chapas (38-chapas-porta-externa.js)
+      // assumia qtdMolduras=1 (default em parseInt) e nao gerava as
+      // molduras 2 e 3 quando a porta tinha qtdMolduras=2 ou 3.
+      // 'distanciaBorda1aMoldura' tem default 150 no motor, mas pra
+      // segueModelo o correto e' herdar da porta.
+      quantidadeMolduras:            segueModelo && porta ? (Number(porta.quantidadeMolduras) || 1)            : 1,
+      distancia1a2aMoldura:          segueModelo && porta ? (Number(porta.distancia1a2aMoldura) || 0)          : 0,
+      distancia2a3aMoldura:          segueModelo && porta ? (Number(porta.distancia2a3aMoldura) || 0)          : 0,
+      distanciaBorda1aMoldura:       segueModelo && porta ? (Number(porta.distanciaBorda1aMoldura) || 0)       : 0,
+      // Felipe sessao 2026-05-10 (FIX 3): modeloDuasFaces afeta se o
+      // motor gera pecas pra face interna tambem. Herda da porta quando
+      // segue modelo.
+      modeloDuasFaces:               segueModelo && porta ? String(porta.modeloDuasFaces || 'sim')             : (item.lados === '2lados' ? 'sim' : 'nao'),
       __origemFixo: true,
     };
   }
