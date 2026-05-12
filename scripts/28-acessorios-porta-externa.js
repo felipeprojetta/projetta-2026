@@ -596,6 +596,17 @@ const AcessoriosPortaExterna = (() => {
         // (Excel estava errado sobre PA006 ser Silicone)
         'tampa_furo_pa006',
         'tampa_furo_pa007',
+        // Felipe sessao 2026-05-10: 'fixo acoplado superior ou inferior
+        // e sempre colado na obra, entao substitua tampas por hightack
+        // e esse sim coloque como obra'. A regra 'fixo_tampa' e' usada
+        // EXCLUSIVAMENTE no caminho do fixo_acoplado (linhas 842 e 884
+        // - automatica + manual). Mover ela pra REGRAS_OBRA faz:
+        //   - O campo 'ms' (1m/m de perimetro) virar HighTack OBRA
+        //   - FD19 ainda contado, mas em mFD19_obra (vai com instalador)
+        // Porta externa usa 'tampa_generica' (regra diferente), nao
+        // afetada por essa mudanca. As molduras (regra 'moldura', FAB)
+        // tambem permanecem FAB, como pedido pelo Felipe.
+        'fixo_tampa',
       ]);
 
       // Felipe sessao 2026-08: le multiplicadores da tabela editavel em
