@@ -90,10 +90,57 @@ var PerfisRevAcoplado = (function() {
   // ═══════════════════════════════════════════════════
   function gerarCortes(item) {
     if (!ehFixoValido(item)) return {};
-    if (item.temEstrutura === 'nao') return {};
 
+    // Felipe sessao 2026-05-10: Tubo Interno das Ripas deve ser gerado
+    // MESMO sem estrutura. Felipe: 'item 3 coloquei que e ripado, ainda
+    // nao calcula perfis ripado'. O tubo das ripas e' INTERNO a chapa
+    // ripa (vai dentro da peca de revestimento), nao faz parte da
+    // estrutura/quadro. Por isso aparece tanto com quanto sem estrutura.
+    //
+    // Logica replicada do bloco original (que estava DEPOIS do return {}
+    // quando temEstrutura='nao' - bug). Agora executa primeiro.
     var LARGURA = Number(item.largura) || 0;
     var ALTURA  = Number(item.altura)  || 0;
+    var qtdItem = Math.max(1, parseInt(item.quantidade, 10) || 1);
+
+    var ehLateralRipadoOuMoldura = item.posicao === 'lateral' &&
+                                   (item.tipoLateral === 'ripado' ||
+                                    item.tipoLateral === 'moldura');
+    var segueModelo = item.fixoSegueModelo === 'sim' || ehLateralRipadoOuMoldura;
+    var portaPreCheck = segueModelo ? obterPortaPrincipal() : null;
+
+    var cortesPreEstrutura = {};
+    function addPreEst(codigo, comp, qty, label) {
+      if (!codigo || comp <= 0 || qty <= 0) return;
+      if (!cortesPreEstrutura[codigo]) cortesPreEstrutura[codigo] = [];
+      cortesPreEstrutura[codigo].push({ comp: Math.round(comp), qty: qty * qtdItem, label: label });
+    }
+
+    if (segueModelo && portaPreCheck && LARGURA > 0 && ALTURA > 0) {
+      var modeloFixoPre = Number(portaPreCheck.modeloNumero) || 1;
+      if (modeloFixoPre === 8 || modeloFixoPre === 15) {
+        var espacRipasPre = parseFloat(String(portaPreCheck.espacamentoRipas || portaPreCheck.espacRipas || 30).replace(',', '.')) || 30;
+        var tipoRipadoPre = String(portaPreCheck.tipoRipado || 'total').toLowerCase();
+        var tamCavaPortaPre = Number(portaPreCheck.tamanhoCava) || 0;
+        var denomPre = 60 + espacRipasPre;
+        var FGLD_pre = Number(item.fglDir) || 0;
+        var FGLE_pre = Number(item.fglEsq) || 0;
+        var numeradorPre = (tipoRipadoPre === 'parcial')
+          ? (LARGURA - FGLD_pre - tamCavaPortaPre - FGLE_pre)
+          : LARGURA;
+        var qtdRipasPre = denomPre > 0 ? Math.ceil(numeradorPre / denomPre) : 0;
+        var pedacosPorRipaPre = Math.max(1, Math.floor(ALTURA / 1000));
+        var qtdTuboRipaPre = qtdRipasPre * pedacosPorRipaPre;
+        if (qtdTuboRipaPre > 0) {
+          addPreEst('PA-51X12X1.58', 500, qtdTuboRipaPre, 'Tubo Interno das Ripas');
+        }
+      }
+    }
+
+    // Felipe sessao 2026-05-10: Sem estrutura - retorna SOMENTE o tubo
+    // interno das ripas (se aplicavel) - sem perfis de quadro.
+    if (item.temEstrutura === 'nao') return cortesPreEstrutura;
+
     var s    = getSis(item);
     var TUB1 = s.TUB1;
 
@@ -121,7 +168,10 @@ var PerfisRevAcoplado = (function() {
     // 28-acessorios) que ja' faziam isso.
     var qtdItem = Math.max(1, parseInt(item.quantidade, 10) || 1);
 
-    var cortes = {};
+    // Felipe sessao 2026-05-10: inicializa cortes com o tubo das ripas
+    // ja' calculado no bloco PRE-estrutura (antes do check temEstrutura
+    // === 'nao'). Assim o caminho com-estrutura tambem inclui o tubo.
+    var cortes = cortesPreEstrutura;
     function add(codigo, comp, qty, label) {
       if (!codigo || comp <= 0 || qty <= 0) return;
       if (!cortes[codigo]) cortes[codigo] = [];
@@ -228,48 +278,8 @@ var PerfisRevAcoplado = (function() {
       add(COD_CANTONEIRA, compTravVert, qtdCv * 2, 'Cantoneira Cava');
     }
 
-    // Felipe sessao 2026-05-10: TUBO INTERNO DAS RIPAS
-    // Quando o fixo segue um modelo ripado (modelo 8 ou 15), precisa
-    // gerar os tubos internos do ripado - mesma formula da porta
-    // (31-perfis-porta-externa.js linha 398).
-    //
-    // Felipe reportou: 'nao calcula perfis do ripado do fixo superior
-    // nem lateral'. Sintoma: porta tinha modelo 15 ripado, mas o fixo
-    // Superior+Segue Modelo e o fixo Lateral+Ripado nao geravam o
-    // 'Tubo Interno das Ripas' (PA-51X12X1.58).
-    //
-    // Aplica quando:
-    //   - segueModelo=true (Superior+Sim OU Lateral+ripado/moldura)
-    //   - modelo eh 8 ou 15 (mesmos modelos ripados da porta)
-    //   - espacRipas > 0 (necessario pra formula)
-    //
-    // Formula da planilha:
-    //   denom = 60 + espacRipas
-    //   numerador = tipoRipado='parcial' ? (L - FGLD - tamCava - FGLE) : L
-    //   qtdRipas = ceil(numerador / denom)
-    //   pedacosPorRipa = max(1, floor(altura / 1000))
-    //   qtdTuboRipa = qtdRipas * pedacosPorRipa  (nFolhas=1 no fixo)
-    if (segueModelo && porta) {
-      var modeloFixo = Number(porta.modeloNumero) || 1;
-      if (modeloFixo === 8 || modeloFixo === 15) {
-        var espacRipas = parseFloat(String(porta.espacamentoRipas || porta.espacRipas || 30).replace(',', '.')) || 30;
-        var tipoRipado = String(porta.tipoRipado || 'total').toLowerCase();
-        var tamCavaPorta = Number(porta.tamanhoCava) || 0;
-        var denom = 60 + espacRipas;
-        // Fixo nao tem FGLD/FGLE como a porta - usa folgas do proprio item
-        var FGLD_fixo = Number(item.fglDir)  || 0;
-        var FGLE_fixo = Number(item.fglEsq)  || 0;
-        var numerador = (tipoRipado === 'parcial')
-          ? (LARGURA - FGLD_fixo - tamCavaPorta - FGLE_fixo)
-          : LARGURA;
-        var qtdRipasFixo = denom > 0 ? Math.ceil(numerador / denom) : 0;
-        var pedacosPorRipa = Math.max(1, Math.floor(ALTURA / 1000));
-        var qtdTuboRipa = qtdRipasFixo * pedacosPorRipa;
-        if (qtdTuboRipa > 0) {
-          add('PA-51X12X1.58', 500, qtdTuboRipa, 'Tubo Interno das Ripas');
-        }
-      }
-    }
+    // Felipe sessao 2026-05-10: 'Tubo Interno das Ripas' ja' foi gerado
+    // no inicio (bloco pre-estrutura) - aplicavel mesmo sem estrutura.
 
     return cortes;
   }
@@ -348,7 +358,13 @@ var PerfisRevAcoplado = (function() {
 
     return {
       tipo: 'porta_externa',
-      quantidade: 1,
+      // Felipe sessao 2026-05-10: BUGFIX - 'que burrice e idiotice e essa
+      // que ate hoje quando se tem 2 itens na quantidade nao se multiplica
+      // por 2'. Antes 'quantidade: 1' hardcoded fazia o motor de chapas
+      // (38-chapas-porta-externa.js linha 1597) usar qtdItem=1 mesmo quando
+      // item.quantidade=2. Resultado: fixo qtd=2 gerava apenas 1 conjunto
+      // de chapas. Agora propaga corretamente.
+      quantidade: Math.max(1, parseInt(item.quantidade, 10) || 1),
       largura: Number(item.largura),
       altura:  alturaEfetiva,
       nFolhas: 1,
