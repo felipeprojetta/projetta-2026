@@ -3843,12 +3843,17 @@ const Orcamento = (() => {
               `;
             })() : ''}
           </div>
-          ${item.revestimento !== 'Vidro' && (item.posicao === 'lateral' || item.temEstrutura !== 'nao') ? `
+          ${item.revestimento !== 'Vidro' ? `
           <div class="orc-form-row">
             ${item.posicao !== 'lateral' ? `
               <!-- Felipe sessao 13: SUPERIOR mantem 'Segue modelo da porta?'
                    (replica o modelo da porta principal — comportamento original)
-                   SO' faz sentido com estrutura (sem perfis nao tem o que replicar). -->
+                   Felipe sessao 2026-05-10: 'se eu coloco que tem estrutura
+                   aparece opcao de dizer que segue modelo da porta entao vc
+                   saberia que porta e ripado mas... se coloco que nao tem
+                   estrutura essa opcao some (corrija isso deve aparecer)'.
+                   Aparece sempre (com ou sem estrutura) - assim o motor de
+                   chapas tambem sabe qual modelo seguir mesmo sem perfis. -->
               <div class="orc-field">
                 <label>Segue modelo da porta?</label>
                 <select data-field="fixoSegueModelo">
@@ -7921,12 +7926,22 @@ const Orcamento = (() => {
                             : b.item?.tipo === 'revestimento_parede' ? window.PerfisRevParede
                             : null;
         const motorAusente = !!b.item?.tipo && !motorEsperado;
+        // Felipe sessao 2026-05-10: caso especifico - fixo_acoplado SEM
+        // estrutura nao gera perfis (so' chapas - decisao legitima do
+        // user). Antes mostrava 'Motor de calculo nao foi implementado'
+        // (mensagem ERRADA - o motor existe, so' nao tem perfis pra
+        // gerar). Felipe reportou: 'Motor de calculo de Fixo Acoplado
+        // ainda nao foi implementado' aparecia indevidamente.
+        const ehFixoSemEstrutura = b.item?.tipo === 'fixo_acoplado' &&
+                                   b.item?.temEstrutura === 'nao';
         let motivo, acaoExtra = '';
         if (semDim) {
           motivo = 'Largura e/ou altura nao foram preenchidas em "Caracteristicas do Item".';
         } else if (motorAusente) {
           motivo = `O motor de calculo nao foi carregado (provavelmente cache do navegador antigo). Recarregue a pagina.`;
           acaoExtra = `<button onclick="location.reload(true)" style="margin-top:10px;padding:8px 16px;background:#1a5276;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">🔄 Recarregar agora</button>`;
+        } else if (ehFixoSemEstrutura) {
+          motivo = 'Sem estrutura de aluminio - o fixo sera produzido somente com chapas, sem perfis. As chapas aparecem em "Levantamento de Superficies".';
         } else {
           motivo = `Motor de calculo de "${tipoLabel}" ainda nao foi implementado.`;
         }

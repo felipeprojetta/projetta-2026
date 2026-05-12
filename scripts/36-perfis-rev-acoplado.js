@@ -228,6 +228,49 @@ var PerfisRevAcoplado = (function() {
       add(COD_CANTONEIRA, compTravVert, qtdCv * 2, 'Cantoneira Cava');
     }
 
+    // Felipe sessao 2026-05-10: TUBO INTERNO DAS RIPAS
+    // Quando o fixo segue um modelo ripado (modelo 8 ou 15), precisa
+    // gerar os tubos internos do ripado - mesma formula da porta
+    // (31-perfis-porta-externa.js linha 398).
+    //
+    // Felipe reportou: 'nao calcula perfis do ripado do fixo superior
+    // nem lateral'. Sintoma: porta tinha modelo 15 ripado, mas o fixo
+    // Superior+Segue Modelo e o fixo Lateral+Ripado nao geravam o
+    // 'Tubo Interno das Ripas' (PA-51X12X1.58).
+    //
+    // Aplica quando:
+    //   - segueModelo=true (Superior+Sim OU Lateral+ripado/moldura)
+    //   - modelo eh 8 ou 15 (mesmos modelos ripados da porta)
+    //   - espacRipas > 0 (necessario pra formula)
+    //
+    // Formula da planilha:
+    //   denom = 60 + espacRipas
+    //   numerador = tipoRipado='parcial' ? (L - FGLD - tamCava - FGLE) : L
+    //   qtdRipas = ceil(numerador / denom)
+    //   pedacosPorRipa = max(1, floor(altura / 1000))
+    //   qtdTuboRipa = qtdRipas * pedacosPorRipa  (nFolhas=1 no fixo)
+    if (segueModelo && porta) {
+      var modeloFixo = Number(porta.modeloNumero) || 1;
+      if (modeloFixo === 8 || modeloFixo === 15) {
+        var espacRipas = parseFloat(String(porta.espacamentoRipas || porta.espacRipas || 30).replace(',', '.')) || 30;
+        var tipoRipado = String(porta.tipoRipado || 'total').toLowerCase();
+        var tamCavaPorta = Number(porta.tamanhoCava) || 0;
+        var denom = 60 + espacRipas;
+        // Fixo nao tem FGLD/FGLE como a porta - usa folgas do proprio item
+        var FGLD_fixo = Number(item.fglDir)  || 0;
+        var FGLE_fixo = Number(item.fglEsq)  || 0;
+        var numerador = (tipoRipado === 'parcial')
+          ? (LARGURA - FGLD_fixo - tamCavaPorta - FGLE_fixo)
+          : LARGURA;
+        var qtdRipasFixo = denom > 0 ? Math.ceil(numerador / denom) : 0;
+        var pedacosPorRipa = Math.max(1, Math.floor(ALTURA / 1000));
+        var qtdTuboRipa = qtdRipasFixo * pedacosPorRipa;
+        if (qtdTuboRipa > 0) {
+          add('PA-51X12X1.58', 500, qtdTuboRipa, 'Tubo Interno das Ripas');
+        }
+      }
+    }
+
     return cortes;
   }
 
