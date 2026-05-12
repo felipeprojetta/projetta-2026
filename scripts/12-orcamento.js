@@ -9637,6 +9637,21 @@ const Orcamento = (() => {
       if (item.revestimento === 'Vidro' && item.vidroDescricao) {
         base += ` — Vidro: ${item.vidroDescricao}`;
       }
+      // Felipe sessao 2026-05-10: 'quando tiver fixo acoplado a porta
+      // deve se informar ali na proposta se ele e revestido de um lado
+      // ou dos dois lados, pois o cliente nao pode ter duvida se esta
+      // comprando somente um lado da parede revestido ou os dois lados'.
+      // Campo item.lados: '1lado' (so externo) ou '2lados' (externo +
+      // interno). Ignorado quando revestimento=Vidro (nao tem face de
+      // revestimento - so' a chapa de vidro).
+      if (item.revestimento !== 'Vidro') {
+        const lados = String(item.lados || '1lado').toLowerCase();
+        if (lados === '2lados') {
+          base += ' — Revestido nos 2 lados (externo + interno)';
+        } else {
+          base += ' — Revestido em 1 lado (somente externo)';
+        }
+      }
       return base;
     }
     if (item.tipo === 'revestimento_parede') return 'REVESTIMENTO DE PAREDE';
