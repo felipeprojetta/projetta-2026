@@ -598,15 +598,20 @@ const AcessoriosPortaExterna = (() => {
         'tampa_furo_pa007',
         // Felipe sessao 2026-05-10: 'fixo acoplado superior ou inferior
         // e sempre colado na obra, entao substitua tampas por hightack
-        // e esse sim coloque como obra'. A regra 'fixo_tampa' e' usada
-        // EXCLUSIVAMENTE no caminho do fixo_acoplado (linhas 842 e 884
-        // - automatica + manual). Mover ela pra REGRAS_OBRA faz:
-        //   - O campo 'ms' (1m/m de perimetro) virar HighTack OBRA
-        //   - FD19 ainda contado, mas em mFD19_obra (vai com instalador)
-        // Porta externa usa 'tampa_generica' (regra diferente), nao
-        // afetada por essa mudanca. As molduras (regra 'moldura', FAB)
-        // tambem permanecem FAB, como pedido pelo Felipe.
+        // e esse sim coloque como obra, mas as molduras sao coladas na
+        // fabrica'. Felipe confirmou: 'Tampas + Fitas Acabamento
+        // Maior/Menor/Largura do fixo (toda a colagem do fixo vai pra
+        // obra)'. As 4 regras abaixo sao usadas EXCLUSIVAMENTE no
+        // caminho do fixo_acoplado (linhas 850-851/852/853 - automatica
+        // + linhas 891-892/893/894 - manual). Mover pra REGRAS_OBRA faz:
+        //   - O campo 'ms' (silicone 995) virar HighTack OBRA
+        //   - FD19/FD12 contados, mas em mFD19_obra/mFD12_obra (instalador)
+        // Porta externa usa 'tampa_generica' e nao tem fita_acab_*_fixo —
+        // NAO afetada. Molduras (regra 'moldura', FAB) permanecem FAB.
         'fixo_tampa',
+        'fixo_fita_acab_maior',
+        'fixo_fita_acab_menor',
+        'fixo_fita_acab_largura',
       ]);
 
       // Felipe sessao 2026-08: le multiplicadores da tabela editavel em
@@ -788,18 +793,42 @@ const AcessoriosPortaExterna = (() => {
         const cFD12 = (Number(r.fd12) || 0) * compM;
         const cMS   = (Number(r.ms)   || 0) * perimM;
         const cCPS  = (Number(r.cps)  || 0) * perimM;
-        mFD19 += cFD19;
-        mFD12 += cFD12;
-        mMS   += cMS;
-        mCPS  += cCPS;
+
+        // Felipe sessao 2026-05-10: aplicarRegraFixoFitaDupla agora
+        // tambem respeita REGRAS_OBRA + campo 'hightack' (mesma logica
+        // de aplicarRegra). Necessario porque Felipe moveu
+        // fixo_fita_acab_maior/menor pra OBRA: 'fixo acoplado superior
+        // ou inferior e sempre colado na obra [...] toda a colagem do
+        // fixo vai pra obra'.
+        const rDefault = REGRAS_DEFAULT[idRegra] || {};
+        const hightackMult = Number(r.hightack ?? rDefault.hightack) || 0;
+        // hightack adicional usa perimetro (mesma medida do ms - faz
+        // sentido pra fita acab que e' calculada por perimetro)
+        const cHTACK_extra = hightackMult * perimM;
+
+        const ehObra = REGRAS_OBRA.has(idRegra);
+        if (ehObra) {
+          mFD19_obra += cFD19;
+          mFD12_obra += cFD12;
+          mHIGHTACK  += cMS + cHTACK_extra;
+        } else {
+          mFD19 += cFD19;
+          mFD12 += cFD12;
+          mMS   += cMS;
+          mCPS  += cCPS;
+          mHIGHTACK_fab += cHTACK_extra;
+        }
         _breakdown.push({
           origem: origem || idRegra,
           regra:  idRegra,
           tipo:   'fixo_fita_dupla',
           metros: perimM,
+          aplicacao: ehObra ? 'obra' : 'fab',
           dim:    { L: larMm, H: altMm, qtd: qtdPecas, compM: compM, perimM: perimM },
-          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0, cps: r.cps||0 },
-          contrib:{ fd19: cFD19, fd12: cFD12, ms: cMS, cps: cCPS },
+          mult:   { fd19: r.fd19||0, fd12: r.fd12||0, ms: r.ms||0, cps: r.cps||0, hightack: hightackMult },
+          contrib: ehObra
+            ? { fd19: cFD19, fd12: cFD12, ms: 0,   cps: 0,    hightack: cMS + cHTACK_extra }
+            : { fd19: cFD19, fd12: cFD12, ms: cMS, cps: cCPS, hightack: cHTACK_extra       },
         });
       }
 
