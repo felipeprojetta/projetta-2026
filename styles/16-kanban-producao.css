@@ -1144,6 +1144,45 @@
   font-style: italic;
   opacity: .85;
 }
+/* Felipe (sessao 18): badge ATP no titulo do modal Editar Lead.
+   Aparece nos titulos de TODAS as abas (AGP e ATP). */
+.kprod-modal-atp-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  margin-left: 6px;
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: .5px;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+/* Felipe (sessao 18): botao desabilitado de Importar do Intranet
+   no banner da aba ATP. Sera ativado quando John (TI Weiku) liberar
+   a API de leitura por numero ATP. */
+.kprod-btn-importar-intranet {
+  padding: 8px 14px;
+  background: #e5e7eb;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: not-allowed;
+  white-space: nowrap;
+  align-self: center;
+  transition: opacity .15s ease;
+}
+.kprod-btn-importar-intranet:disabled {
+  opacity: .7;
+}
+.kprod-btn-importar-intranet:hover:not(:disabled) {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #2563eb;
+}
 .kprod-aba-atp-divider {
   font-size: 11px;
   font-weight: 800;

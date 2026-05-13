@@ -483,14 +483,22 @@
         <div class="kprod-aba-atp-content" style="${oculta}">
           <div class="kprod-aba-atp-banner">
             <span class="kprod-aba-atp-icone">📄</span>
-            <div>
+            <div style="flex:1;">
               <strong>Dados do Contrato (ATP)</strong>
               <div class="kprod-aba-atp-hint">
                 Dados especificos do contrato (clonados do CRM ao fechar).
                 Pode editar aqui pra refletir mudancas pos-fechamento na producao.
-                <br><em>Em breve: botao pra puxar do intranet Weiku pelo numero ATP.</em>
               </div>
             </div>
+            <!-- Felipe (sessao 18): botao desabilitado ate Weiku/John liberar
+                 a API de leitura por numero ATP. Quando ativado, vai puxar
+                 todos os dados do cliente direto do intranet pelo numero ATP. -->
+            <button
+              type="button"
+              class="kprod-btn-importar-intranet"
+              disabled
+              title="Aguardando liberacao do TI Weiku (John). Quando liberado, este botao puxa todos os dados do cliente do intranet pelo numero ATP."
+            >🔒 Importar do Intranet</button>
           </div>
 
           <div class="kprod-form-row cols-2">
@@ -663,7 +671,17 @@
         </div>
       ` : '');
       const etapasOpts = ETAPAS.map(e => `<option value="${e.id}" ${m.etapa===e.id?'selected':''}>${e.label}</option>`).join('');
-      const tituloModal = editando ? 'Editar Lead' : 'Novo Lead';
+      // Felipe (sessao 18): "tudo nessa etapa eh sobre o ATP, todo
+      // campo deve mostrar o ATP ali". ATP no titulo aparece em TODAS
+      // as abas (AGP e ATP). So mostra se tem numeroAtp preenchido —
+      // se vazio, fica so "Editar Lead" pra nao poluir.
+      const atpHeaderObj = (m.atp && typeof m.atp === 'object') ? m.atp : {};
+      const numeroAtpHeader = String(atpHeaderObj.numeroAtp || '').trim();
+      const tituloModal = editando
+        ? (numeroAtpHeader
+            ? `Editar Lead · <span class="kprod-modal-atp-badge">${escapeHtml(numeroAtpHeader)}</span>`
+            : 'Editar Lead')
+        : 'Novo Lead';
       const tabsHtml = editando ? '' : `
               <div class="kprod-modal-tabs">
                 ${tabBtn('reserva', 'Por Reserva')}
@@ -2469,7 +2487,7 @@
             <button class="btn btn-ghost btn-sm" id="kprod-btn-export">⬇ Exportar Excel</button>
             <button class="btn btn-ghost btn-sm" id="kprod-btn-modelo" title="Baixa modelo Excel em branco com todos os campos para preencher e reimportar">📋 Modelo Excel</button>
             <input type="file" id="kprod-import-file" accept=".xlsx,.xls,.csv" style="display:none" />
-            <button class="kprod-btn-new" id="kprod-btn-new-lead">+ Novo Lead</button>
+            <button class="kprod-btn-new" id="kprod-btn-new-lead">+ Importar Cliente</button>
           </div>
         </div>
 
