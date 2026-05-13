@@ -10509,13 +10509,32 @@ const Orcamento = (() => {
         // sem selecionar qual chapa vou usar'. Valida que todas as
         // cores tem selecao explicita em chapasSelecionadas. Se faltar,
         // bloqueia com alerta listando as cores pendentes.
+        //
+        // Felipe sessao 18: 'chapa ja selecionada e nao deixa seguir em
+        // frente'. Cores que aparecem em pecasPorCor mas nao tem CARD
+        // selecionavel no DOM (sem variante de chapa-mae no cadastro,
+        // ou todas as chapas sao inviaveis) eram listadas como
+        // 'faltando selecao' — mas nao tinha como selecionar! Bloqueava
+        // o avanco indevidamente.
+        //
+        // FIX: filtra cores pra incluir SO' aquelas com bloco
+        // [data-cor-validar="..."] no DOM (= bloco principal com cards
+        // selecionaveis renderizado por renderBlocoCor return 12431).
+        // Blocos 'aguardando' (sem cadastro), 'inviavel' (chapa pequena
+        // demais) e '(sem cor)' nao tem esse marcador e nao entram na
+        // validacao.
         const cores = Object.keys(pecasPorCor || {});
+        const coresSelecionaveis = new Set();
+        container.querySelectorAll('[data-cor-validar]').forEach(div => {
+          const c = div.getAttribute('data-cor-validar');
+          if (c) coresSelecionaveis.add(c);
+        });
         if (cores.length > 0) {
           // Re-le versao do storage pra pegar selecoes recem-feitas
           // (closure 'versao' pode estar stale apos duplo-clique).
           const vAtual = obterVersao(UI.versaoAtivaId)?.versao;
           const sel = (vAtual && vAtual.chapasSelecionadas) || {};
-          const faltando = cores.filter(cor => !sel[cor]);
+          const faltando = cores.filter(cor => coresSelecionaveis.has(cor) && !sel[cor]);
           if (faltando.length > 0) {
             const lista = faltando.map(c => '  • ' + c).join('\n');
             alert(
@@ -12428,7 +12447,7 @@ const Orcamento = (() => {
     ` : '';
 
     return `
-      <div class="orc-aprov-cor">
+      <div class="orc-aprov-cor" data-cor-validar="${escapeHtml(cor)}">
         <div class="orc-aprov-cor-header">
           <div class="orc-aprov-cor-titulo">${escapeHtml(cor)}</div>
           <div class="orc-aprov-cor-stats">
