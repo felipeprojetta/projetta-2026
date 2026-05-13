@@ -888,12 +888,8 @@ const ChapasPortaExterna = (() => {
     // ===================================================================
     11: {
       '1F': [
-        { id: 'cava', label: 'Cava',
-          largura: F.cava_largura, comp: F.cava_comp,
-          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
-        { id: 'l_da_cava', label: 'L da Cava',
-          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        // Felipe (sessao 18): mod 11 e' Puxador Externo + Friso Vertical.
+        // NAO tem CAVA nem L_DA_CAVA. Antes geravam peca fantasma.
         { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
           // Planilha: (E3-C7-C8-1-C20*C22-C21*C22)+C15+C15
           largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + 2*ctx.REF,
@@ -911,12 +907,7 @@ const ChapasPortaExterna = (() => {
           categoria: 'porta' },
       ],
       '2F': [
-        { id: 'cava', label: 'Cava',
-          largura: F.cava_largura, comp: F.cava_comp,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_da_cava', label: 'Tampa da Cava',
-          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        // Felipe (sessao 18): mod 11 NAO tem CAVA nem TAMPA_DA_CAVA.
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
           // Planilha: (E2-C7*2-C8*2)/2+10.5+C15+C15-1-C20*C22-C21*C22
           largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
@@ -989,13 +980,8 @@ const ChapasPortaExterna = (() => {
     // ============================================================
     12: {
       '1F': [
-        { id: 'cava', label: 'Cava',
-          largura: F.cava_largura, comp: F.cava_comp,
-          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
-        // Friso horizontal junto a cava — 1F: largura = larguraQuadro1F, comp = 250 (constante)
-        { id: 'friso_horizontal_cava', label: 'Friso Horizontal Cava',
-          largura: ctx => ctx.larguraQuadro1F, comp: ctx => 250,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        // Felipe (sessao 18): mod 12 e' Puxador Externo + Friso Horizontal.
+        // NAO tem CAVA. Pecas 'cava' e 'friso_horizontal_cava' removidas.
         // TAMPA_MAIOR_CAVA: largura igual mod 03 (com cava), comp = alturaQuadro - 2dBFH - 2eF + 2REF - 1
         { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
           largura: F.tampa_maior_1f_largura_com_cava,
@@ -1011,13 +997,7 @@ const ChapasPortaExterna = (() => {
           ext: 1, int: 1, categoria: 'porta' },
       ],
       '2F': [
-        { id: 'cava', label: 'Cava',
-          largura: F.cava_largura, comp: F.cava_comp,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        // No 2F: l_da_cava (mas planilha chama "FRISO_HORIZONTAL_CAVA" qty=8)
-        { id: 'tampa_da_cava', label: 'Tampa da Cava',
-          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        // Felipe (sessao 18): mod 12 NAO tem CAVA nem TAMPA_DA_CAVA.
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
           largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1,
           comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF - 1,
@@ -1059,12 +1039,8 @@ const ChapasPortaExterna = (() => {
     // ============================================================
     13: {
       '1F': [
-        { id: 'cava', label: 'Cava',
-          largura: F.cava_largura, comp: F.cava_comp,
-          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
-        { id: 'l_da_cava', label: 'L da Cava',
-          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        // Felipe (sessao 18): mod 13 e' Puxador Externo + Friso H + Friso V.
+        // NAO tem CAVA nem L_DA_CAVA.
         // TAMPA_MAIOR_CAVA: (larguraQuadro1F - dBC - 1 - tamCava - 1) + 2REF - dBFV - eF
         // comp: alturaQuadro - dBFV - eF + REF - 1
         { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
@@ -1095,12 +1071,7 @@ const ChapasPortaExterna = (() => {
           ext: 1, int: 1, categoria: 'porta' },
       ],
       '2F': [
-        { id: 'cava', label: 'Cava',
-          largura: F.cava_largura, comp: F.cava_comp,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_da_cava', label: 'Tampa da Cava',
-          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        // Felipe (sessao 18): mod 13 NAO tem CAVA nem TAMPA_DA_CAVA.
         // TAMPA_MAIOR 01/02/03 — comp = alturaQuadro - dBFV - eF + REF - 1
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
           largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1,
@@ -1165,12 +1136,8 @@ const ChapasPortaExterna = (() => {
     // ============================================================
     16: {
       '1F': [
-        { id: 'cava', label: 'Cava',
-          largura: F.cava_largura, comp: F.cava_comp,
-          ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
-        { id: 'l_da_cava', label: 'L da Cava',
-          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
+        // Felipe (sessao 18): mod 16 e' Puxador Externo + N Frisos Horizontais.
+        // NAO tem CAVA nem L_DA_CAVA.
         // Mod 16: TAMPA_MAIOR_CAVA NAO desconta cava na largura.
         // Comp varia com qtdFrisos (mesma fórmula do mod 06).
         // qty = qtdFrisos por face.
@@ -1181,15 +1148,9 @@ const ChapasPortaExterna = (() => {
           categoria: 'porta' },
       ],
       '2F': [
-        { id: 'cava', label: 'Cava',
-          largura: F.cava_largura, comp: F.cava_comp,
-          ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_da_cava', label: 'Tampa da Cava',
-          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
+        // Felipe (sessao 18): mod 16 NAO tem CAVA nem TAMPA_DA_CAVA.
         // TAMPA_MAIOR 01/02/03 com COMP variando (frisos horizontais)
         // qty: TM01 = qtdFrisos, TM02 = qtdFrisos*2, TM03 = qtdFrisos
-        // (igual mod 06, MAS sem TAMPA_MENOR)
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
           largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1,
           comp: F.tampa_maior_06_comp,
@@ -1328,21 +1289,10 @@ const ChapasPortaExterna = (() => {
     // ===================================================================
     23: {
       '1F': [
-        // Felipe sessao 14 (planilha PRECIFICACAO_01_04_2026 atualizada):
-        // CAVA e L_DA_CAVA REMOVIDAS DO SISTEMA — Felipe: "nesse sistema
-        // nao tem L da Cava nem Cava retirei, pode seguir essa planilha".
-        // Ambas abas (ACM e AM) nao listam mais essas pecas. Mantenho aqui
-        // como qty=0 + sempreAM=true por seguranca de retro-compat (NUNCA
-        // gerada agora). Se algum item antigo no banco referencia 'cava'
-        // ou 'l_da_cava' nao quebra.
-        { id: 'cava', label: 'Cava',
-          largura: F.cava_largura, comp: F.cava_comp,
-          ext: 0, int: 0,
-          categoria: 'porta', ehDaCava: true, sempreAM: true },
-        { id: 'l_da_cava', label: 'L da Cava',
-          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 0, int: 0,
-          categoria: 'porta', ehDaCava: true, sempreAM: true },
+        // Felipe (sessao 18): pecas CAVA e L_DA_CAVA REMOVIDAS de vez.
+        // Sessao 14 deixou com ext:0/int:0 + sempreAM por compat, mas
+        // a planilha NAO tem essas pecas e Felipe confirmou: "do 10 pra
+        // frente todos sao puxadores externo e nao tem nada de cava".
         { id: 'tampa_maior_cava', label: 'Tampa Maior',
           // Felipe sessao 13: planilha v3 nome e' "TAMPA_MAIOR_" (sem
           // "Cava"). Mantive id 'tampa_maior_cava' por compatibilidade
@@ -1426,16 +1376,9 @@ const ChapasPortaExterna = (() => {
           categoria: 'porta' },
       ],
       '2F': [
-        // Felipe sessao 14 (planilha atualizada): CAVA e TAMPA_DA_CAVA
-        // REMOVIDAS DO SISTEMA. Mantidas com qty=0 por retro-compat.
-        { id: 'cava', label: 'Cava',
-          largura: F.cava_largura, comp: F.cava_comp,
-          ext: 0, int: 0,
-          categoria: 'porta', ehDaCava: true, sempreAM: true },
-        { id: 'tampa_da_cava', label: 'Tampa da Cava',
-          largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
-          ext: 0, int: 0,
-          categoria: 'porta', ehDaCava: true, sempreAM: true },
+        // Felipe (sessao 18): pecas CAVA e TAMPA_DA_CAVA REMOVIDAS de
+        // vez. Sessao 14 deixou com ext:0/int:0 + sempreAM. Mod 23 e'
+        // Puxador Externo + Friso Vertical + Molduras, nao tem cava.
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
           // Planilha mod 23 ACM: (E2-C7*2-C8*2)/2+10.5+C15+C15-1-C20*C22-C21*C22
           // Planilha mod 23 AM:  (E2-C7*2-C8*2)/2+15.5-C20*C22-C21*C22

@@ -2620,7 +2620,10 @@ const Orcamento = (() => {
     7:  ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'larguraRipas', 'quantidadeFrisos'],
     8:  ['distanciaBordaCava', 'tamanhoCava', 'tipoRipado', 'espacamentoRipas'],
     9:  ['distanciaBordaCava', 'tamanhoCava'],
-    11: ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'quantidadeFrisos'],
+    // Felipe (sessao 18): mod 11 e' "Puxador Externo + Friso Vertical".
+    // NAO tem cava (do 10 pra frente sao todos puxador externo, exceto 22).
+    // Antes tinha distanciaBordaCava/tamanhoCava indevidamente.
+    11: ['distanciaBordaFrisoVertical', 'espessuraFriso', 'quantidadeFrisos'],
     12: ['distanciaBordaFrisoHorizontal', 'espessuraFriso'],
     13: ['distanciaBordaFrisoHorizontal', 'distanciaBordaFrisoVertical', 'espessuraFriso'],
     14: ['distanciaBordaFrisoVertical', 'espessuraFriso', 'larguraRipas', 'quantidadeFrisos'],
