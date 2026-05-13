@@ -181,7 +181,16 @@ var PerfisRevAcoplado = (function() {
     // ── Formulas Pasta1.xlsx ──
     var compAltura   = ALTURA - FGSup;                     // PERFIL ALTURA (desconta folga superior)
     var compLargura  = LARGURA - FGLD - FGLE;              // PERFIL LARGURA (caso normal)
-    var compTravVert = ALTURA - 2 * TUB1;                  // TRAV VERT + FRISO VERT + CANTONEIRA
+    // Felipe (sessao 18): compTravVert tambem desconta FGSup. Antes
+    // ficava 'ALTURA - 2*TUB1' (sem folga superior). Bug reportado:
+    // "no fixo lateral acoplado a porta a travessa vertical nao esta
+    //  desconto a folga da altura". Mesma logica do compAltura: a
+    // folga superior reduz a altura util entre os tubos do portal.
+    // Afeta os 3 perfis verticais que usam compTravVert:
+    //   - Travessa Vertical (linha 260)
+    //   - Friso Vertical    (linha 267)
+    //   - Cantoneira Cava   (linha 278)
+    var compTravVert = ALTURA - FGSup - 2 * TUB1;          // TRAV VERT + FRISO VERT + CANTONEIRA
     var compTravHor  = LARGURA - FGLD - FGLE - 2 * TUB1;  // TRAV HOR + FRISO HOR
     var compCava     = ALTURA - 2 * TUB1 - 30;             // CAVA 38x38
 
