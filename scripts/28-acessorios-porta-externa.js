@@ -47,12 +47,18 @@ const AcessoriosPortaExterna = (() => {
     // FIX: se valor >= 100, considera que esta em mm e converte pra metros.
     // Aceita ambos os formatos (legado em metros + novo em mm).
     if (t >= 100) t = t / 1000;
-    if (t === 1.0) return 'PA-PUX-1MT';
-    if (t === 1.5) return 'PA-PUX-1,5MT';
-    if (t === 2.0) return 'PA-PUX-2MT';
-    if (t <= 3.0)  return 'PA-PUX-3MT';
-    if (t <= 4.0)  return 'PA-PUX-4MT';
-    if (t <= 5.0)  return 'PA-PUX-5MT';
+    // Felipe sessao 18: 'coloque sempre a cor preta nos acessorios'.
+    // Cadastro tem 3 cores por tamanho:
+    //   ESC = escovado, POL = polido, PRE = preto.
+    // Antes: codigos vinham sem sufixo de cor (ex: 'PA-PUX-1,5MT')
+    // → caia em '(nao cadastrado)' pois cadastro so tem com sufixo
+    // PRE/POL/ESC. FIX: sempre adiciona ' PRE'.
+    if (t === 1.0) return 'PA-PUX-1MT PRE';
+    if (t === 1.5) return 'PA-PUX-1,5MT PRE';
+    if (t === 2.0) return 'PA-PUX-2MT PRE';
+    if (t <= 3.0)  return 'PA-PUX-3MT PRE';
+    if (t <= 4.0)  return 'PA-PUX-4MT PRE';
+    if (t <= 5.0)  return 'PA-PUX-5MT PRE';
     return null;
   }
 
