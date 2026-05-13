@@ -110,7 +110,63 @@ const PerfisRevParede = (() => {
   // ===========================================================
   function gerarCortes(item) {
     if (!item || item.tipo !== 'revestimento_parede') return {};
-    if (item.temEstrutura !== 'sim') return {};
+
+    // Felipe sessao 18: 'coloquei ripado nao me perguntou qual
+    // espacamento, nem soltou perfis de aluminio nem os ripados nas
+    // chapas'. Comportamento IGUAL mod 8/15 da porta externa: tubo
+    // PA-51X12X1.58, pedacos de 500mm, ceil(L/(60+espac)) ripas
+    // por parede × floor(H/1000) pedacos por ripa. Rev parede ripado
+    // 'so chapa colada' (sem estrutura visivel) MAS ainda gera tubo
+    // interno como acessorio de obra.
+    const ehRipada = String(item.estilo || '').toLowerCase() === 'ripada';
+
+    if (ehRipada) {
+      // Resolve lista de paredes (mesma logica do motor de chapas)
+      let paredes = Array.isArray(item.paredes)
+        ? item.paredes.filter(p => p && (Number(p.largura_total) > 0 || Number(p.altura_total) > 0))
+        : [];
+      if (paredes.length === 0) {
+        paredes = [{
+          largura_total: item.largura_total,
+          altura_total:  item.altura_total,
+          quantidade:    Math.max(1, Number(item.quantidade) || 1),
+        }];
+      }
+      const espacRipas = parseFloat(String(item.espacamentoRipas != null ? item.espacamentoRipas : 30).replace(',', '.')) || 30;
+      const cortesRipa = {};
+      cortesRipa['PA-51X12X1.58'] = [];
+      paredes.forEach((p, paredeIdx) => {
+        const L = Number(p.largura_total) || 0;
+        const H = Number(p.altura_total)  || 0;
+        if (!L || !H) return;
+        const qtdParede = Math.max(1, Number(p.quantidade) || 1);
+        const denom = 60 + espacRipas;
+        const qtdRipas = denom > 0 ? Math.ceil(L / denom) : 0;
+        const pedacosPorRipa = Math.max(1, Math.floor(H / 1000));
+        const qtdTubo = qtdRipas * pedacosPorRipa * qtdParede;
+        if (qtdTubo > 0) {
+          cortesRipa['PA-51X12X1.58'].push({
+            comp: 500,
+            qty: qtdTubo,
+            label: paredes.length > 1
+              ? `Tubo Interno das Ripas — Parede ${paredeIdx + 1}`
+              : 'Tubo Interno das Ripas',
+          });
+        }
+      });
+      // Se ainda tem estrutura ativa em paralelo, continua o fluxo
+      // abaixo pra somar tubo da estrutura aos cortes acima.
+      if (item.temEstrutura !== 'sim') {
+        return cortesRipa['PA-51X12X1.58'].length ? cortesRipa : {};
+      }
+      // Fallthrough: junta com cortes da estrutura abaixo
+      // (raro mas pode ocorrer se usuario marcar Sim + ripada)
+      var _ripaCortes = cortesRipa;
+    }
+
+    if (item.temEstrutura !== 'sim') {
+      return {};
+    }
 
     const tubo = String(item.tuboEstrutura || '').trim();
     if (!tubo || !TUBOS_VALIDOS.includes(tubo)) return {};
@@ -166,7 +222,23 @@ const PerfisRevParede = (() => {
       add(compTravessa, qtdTravessas, 'Travessa horizontal');
     }
 
-    if (cortes[tubo].length === 0) return {};
+    if (cortes[tubo].length === 0) {
+      // Felipe sessao 18: se ripada + temEstrutura=sim mas estrutura
+      // vazia, ainda retorna cortes das ripas
+      if (typeof _ripaCortes !== 'undefined' && _ripaCortes['PA-51X12X1.58'].length) {
+        return _ripaCortes;
+      }
+      return {};
+    }
+    // Felipe sessao 18: junta cortes da estrutura + cortes da ripa
+    // (caso ripada=sim + temEstrutura=sim em paralelo)
+    if (typeof _ripaCortes !== 'undefined' && _ripaCortes['PA-51X12X1.58'].length) {
+      if (tubo === 'PA-51X12X1.58') {
+        cortes[tubo] = cortes[tubo].concat(_ripaCortes['PA-51X12X1.58']);
+      } else {
+        cortes['PA-51X12X1.58'] = _ripaCortes['PA-51X12X1.58'];
+      }
+    }
     return cortes;
   }
 

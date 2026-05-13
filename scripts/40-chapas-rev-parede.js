@@ -150,18 +150,47 @@ window.ChapasRevParede = (function () {
     }
 
     const REF = getREF();
+    // Felipe sessao 18: 'coloquei ripado nao me perguntou qual
+    // espacamento, nem soltou perfis de aluminio nem os ripados nas
+    // chapas'. Comportamento igual mod 8/15 da porta externa:
+    //   - Cada ripa = chapa de 60mm × altura
+    //   - qtd ripas = ceil(L / (60 + espacamento))
+    //   - Sem estrutura (rev parede ripado = so chapa colada)
+    // Aplica POR PAREDE. Outros estilos (lisa, classica) seguem fluxo
+    // normal de faixas.
+    const ehRipada = String(item.estilo || '').toLowerCase() === 'ripada';
+    const espacRipas = parseFloat(String(item.espacamentoRipas != null ? item.espacamentoRipas : 30).replace(',', '.')) || 30;
     const out = [];
     paredes.forEach((p, paredeIdx) => {
       const L = Number(p.largura_total) || 0;
       const H = Number(p.altura_total)  || 0;
       if (!L || !H) return;
       const qtdParede = Math.max(1, Number(p.quantidade) || 1);
+      const sufixoLabel = paredes.length > 1 ? ` — Parede ${paredeIdx + 1}` : '';
+
+      // ========= ESTILO RIPADA =========
+      if (ehRipada) {
+        const denom = 60 + espacRipas;
+        const qtdRipas = denom > 0 ? Math.ceil(L / denom) : 0;
+        if (qtdRipas > 0) {
+          out.push({
+            id: `rev_parede_ripa_p${paredeIdx + 1}`,
+            label: `Ripa (60×${H}mm)` + sufixoLabel,
+            largura: 60,
+            altura: H,
+            qtd: qtdRipas * qtdParede,
+            observacao: `ripada — espacamento ${espacRipas}mm` + sufixoLabel,
+          });
+        }
+        return;  // pula divisao_largura/com_refilado nesse ramo
+      }
+
+      // ========= ESTILO LISA/CLASSICA (fluxo normal) =========
       const comRefilado = (p.com_refilado != null ? p.com_refilado : 'sim') !== 'nao';
       const larguraMaxima = comRefilado
         ? (LARGURA_CHAPA_BASE - 2 * REF)
         : LARGURA_CHAPA_BASE;
       const divisao = p.divisao_largura || 'maxima';
-      const sufixoLabel = paredes.length > 1 ? ` — Parede ${paredeIdx + 1}` : '';
 
       if (divisao === 'igual') {
         const n = Math.max(1, Math.ceil(L / larguraMaxima));

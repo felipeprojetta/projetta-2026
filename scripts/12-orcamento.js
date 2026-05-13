@@ -3060,6 +3060,18 @@ const Orcamento = (() => {
                 ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
               </select>
             </div>
+            ${item.estilo === 'ripada' ? `
+            <!-- Felipe sessao 18: 'coloquei ripado nao me perguntou qual
+                 espacamento, nem soltou perfis de aluminio nem os ripados
+                 nas chapas'. Campo aparece somente quando estilo=ripada.
+                 Default 30mm (mesmo da porta externa mod 8/15). -->
+            <div class="orc-field orc-f-revestimento">
+              <label>Espaçamento das ripas (mm)</label>
+              <input type="number" min="0" data-field="espacamentoRipas"
+                     value="${escapeHtml(String(item.espacamentoRipas || 30))}"
+                     placeholder="30" />
+            </div>
+            ` : ''}
           </div>
           <div class="orc-form-row">
             <div class="orc-cor-stack">
@@ -3347,6 +3359,9 @@ const Orcamento = (() => {
           if (antigo && antigo !== v) item.cor = '';
         } else if (field === 'largura_total' || field === 'altura_total') {
           item[field] = parseFloat(v.replace(',', '.')) || 0;
+        } else if (field === 'espacamentoRipas') {
+          // Felipe sessao 18: campo numerico (default 30mm)
+          item.espacamentoRipas = parseFloat(String(v).replace(',', '.')) || 30;
         } else {
           item[field] = v;
         }
@@ -3355,7 +3370,7 @@ const Orcamento = (() => {
         // Campos que mudam o layout precisam re-render
         if (['modo', 'revestimento', 'divisao_largura', 'com_refilado',
              'largura_total', 'altura_total',
-             'temEstrutura'].includes(field)) {
+             'temEstrutura', 'estilo'].includes(field)) {
           reRender();
         }
       });
