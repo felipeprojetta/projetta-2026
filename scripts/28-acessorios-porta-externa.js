@@ -1115,20 +1115,70 @@ const AcessoriosPortaExterna = (() => {
       // depois e gerar UM bloco consolidado no fim, somando os metros de
       // TODOS os rev_parede e calculando rolos/tubos uma vez. Reduz arred-
       // ondamento e perda de material.
+      // Felipe sessao 18: 'esse problema esta no fixo acoplado lateral,
+      // pois ele busca quantidade de tudo nas chapas, entao por mais
+      // que tenha 2 fixos, nao multiplica por 2, ele pega tudo pela
+      // quantidade de chapas e metros lineares no planificador de
+      // chapas'.
+      //
+      // BUG: pra fixo_acoplado, os consumos mFD19/mFD12/mMS/mHIGHTACK
+      // /mCPS ja' acumulam TODAS as pecas com qtdTotal = qtd × qtdPortas
+      // (linha 876). Multiplicar de novo no add seria dupla contagem.
+      // Sintoma reportado: 37.4m de HT (com rendimento 18m) deveria
+      // dar 3 tubos (ceil(37.4/18)=3) mas saia 6 = 3×qtdPortas(2).
+      // FD19 mesmo: 37.4m deveria dar 2 rolos, saia 4.
+      //
+      // FIX: addAbsoluto bypass o ×qtdPortas do add APENAS pro
+      // fixo_acoplado. Pra porta_externa/revestimento_parede mantem
+      // comportamento legado (add multiplica). As 8 conversoes finais
+      // (FD19/FD12/MS/HIGHTACK/HIGHTACK_fab/HIGHTACK_obra/FD19_obra
+      // /FD12_obra/CPS) usam addAbsoluto.
+      const ehFixoAcoplado = item.tipo === 'fixo_acoplado';
+      function addAbsoluto(codigo, qtdAbs, categoria, aplicacao, observacao) {
+        if (!ehFixoAcoplado) {
+          // Item nao-fixo: comportamento legado (add multiplica por qtdPortas)
+          return add(codigo, qtdAbs, categoria, aplicacao, observacao);
+        }
+        // Fixo acoplado: qtdAbs ja' eh total absoluto, nao multiplica
+        if (!codigo) return;
+        const acess = buscarAcessorio(cadastroAcessorios, codigo);
+        if (!acess) {
+          linhas.push({
+            codigo, descricao: '(nao cadastrado)', familia: '',
+            qtd: qtdAbs, unidade: 'un', preco_un: 0, total: 0,
+            categoria, aplicacao,
+            observacao: (observacao || '') + ' · CADASTRAR EM ACESSORIOS',
+          });
+          return;
+        }
+        const precoUn = Number(acess.preco) || 0;
+        linhas.push({
+          codigo:    acess.codigo,
+          descricao: acess.descricao || '',
+          familia:   acess.familia || '',
+          qtd:       qtdAbs,
+          unidade:   'un',
+          preco_un:  precoUn,
+          total:     precoUn * qtdAbs,
+          categoria, aplicacao,
+          observacao: observacao || '',
+        });
+      }
+
       if (!ehRevParede) {
         if (mFD19 > 0) {
           const rolos = Math.ceil(mFD19 / FD19_POR_ROLO);
-          add('PA-FITDF 19X20X1.0', rolos, 'Fita Dupla Face', 'fab',
+          addAbsoluto('PA-FITDF 19X20X1.0', rolos, 'Fita Dupla Face', 'fab',
               `${mFD19.toFixed(1)}m / ${FD19_POR_ROLO}m por rolo = ${rolos} rolo(s)`);
         }
         if (mFD12 > 0) {
           const rolos = Math.ceil(mFD12 / FD12_POR_ROLO);
-          add('PA-FITDF 12X20X1.0', rolos, 'Fita Dupla Face', 'fab',
+          addAbsoluto('PA-FITDF 12X20X1.0', rolos, 'Fita Dupla Face', 'fab',
               `${mFD12.toFixed(1)}m / ${FD12_POR_ROLO}m por rolo = ${rolos} rolo(s)`);
         }
         if (mMS > 0) {
           const tubos = Math.ceil(mMS / MS_POR_TUBO);
-          add('PA-DOWSIL 995', tubos, 'Selantes', 'fab',
+          addAbsoluto('PA-DOWSIL 995', tubos, 'Selantes', 'fab',
               `${mMS.toFixed(1)}m / ${MS_POR_TUBO}m por tubo = ${tubos} tubo(s)`);
         }
       }
@@ -1143,7 +1193,7 @@ const AcessoriosPortaExterna = (() => {
       // (mesmo bloco da Fabricacao no Lev. Acessorios).
       if (mHIGHTACK_fab > 0) {
         const tubos = Math.ceil(mHIGHTACK_fab / HIGHTACK_POR_TUBO);
-        add('PA-HIGHTACK BR', tubos, 'Selantes', 'fab',
+        addAbsoluto('PA-HIGHTACK BR', tubos, 'Selantes', 'fab',
             `${mHIGHTACK_fab.toFixed(1)}m / ${HIGHTACK_POR_TUBO}m por tubo = ${tubos} tubo(s) (fab)`);
       }
 
@@ -1153,17 +1203,17 @@ const AcessoriosPortaExterna = (() => {
       // de FAB que fica na fabrica).
       if (mFD19_obra > 0) {
         const rolos = Math.ceil(mFD19_obra / FD19_POR_ROLO);
-        add('PA-FITDF 19X20X1.0', rolos, 'Fita Dupla Face', 'obra',
+        addAbsoluto('PA-FITDF 19X20X1.0', rolos, 'Fita Dupla Face', 'obra',
             `${mFD19_obra.toFixed(1)}m / ${FD19_POR_ROLO}m por rolo = ${rolos} rolo(s) (obra)`);
       }
       if (mFD12_obra > 0) {
         const rolos = Math.ceil(mFD12_obra / FD12_POR_ROLO);
-        add('PA-FITDF 12X20X1.0', rolos, 'Fita Dupla Face', 'obra',
+        addAbsoluto('PA-FITDF 12X20X1.0', rolos, 'Fita Dupla Face', 'obra',
             `${mFD12_obra.toFixed(1)}m / ${FD12_POR_ROLO}m por rolo = ${rolos} rolo(s) (obra)`);
       }
       if (mHIGHTACK > 0) {
         const tubos = Math.ceil(mHIGHTACK / HIGHTACK_POR_TUBO);
-        add('PA-HIGHTACK BR', tubos, 'Selantes', 'obra',
+        addAbsoluto('PA-HIGHTACK BR', tubos, 'Selantes', 'obra',
             `${mHIGHTACK.toFixed(1)}m / ${HIGHTACK_POR_TUBO}m por tubo = ${tubos} tubo(s) (obra)`);
       }
       // Felipe sessao 2026-08: PA-DOWSIL CPS BR (sache 591ml). So' aparece
@@ -1171,7 +1221,7 @@ const AcessoriosPortaExterna = (() => {
       // Felipe: 'mesmo do 995, pegue do cadastro logica').
       if (mCPS > 0) {
         const sachesCPS = Math.ceil(mCPS / MS_POR_TUBO);
-        add('PA-DOWSIL CPS BR', sachesCPS, 'Selantes', 'fab',
+        addAbsoluto('PA-DOWSIL CPS BR', sachesCPS, 'Selantes', 'fab',
             `${mCPS.toFixed(1)}m / ${MS_POR_TUBO}m por sache = ${sachesCPS} sache(s)`);
       }
 
