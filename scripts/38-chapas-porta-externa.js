@@ -161,11 +161,19 @@ const ChapasPortaExterna = (() => {
     // dBC e tamCava (Tampa Maior, tm_base_2f, tm_base_2f_menos1) ficam
     // com os valores corretos da planilha. Sem fix: TAMPA_MAIOR 01 dava
     // 836 em vez de 1196 (diferenca 360 = 210+150 do item legado).
-    const _modeloEhMod23 = (
-      Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) === 23
-    );
-    const dBC_eff     = _modeloEhMod23 ? 0 : num('distanciaBordaCava');
-    const tamCava_eff = _modeloEhMod23 ? 0 : num('tamanhoCava');
+    //
+    // Felipe (sessao 18): aplicado tambem a TODOS modelos SEM cava.
+    // Pela CAMPOS_POR_MODELO (12-orcamento.js), modelos COM cava sao
+    // 1-9, 22 e 24 — o resto (10/11/12/13/14/15/16/23) tem dBC=0
+    // e tamCava=0 na planilha. Mesmo bug que sessao 14 resolveu pro
+    // Mod 23: Felipe pediu Mod 15 (3000x6500, 2F) e TM_01 saiu 1135.5
+    // em vez de 1495.5 (diferenca exata 360 = 2*dBC + 2*tamCava = 720
+    // dividido por 2 na formula tm_base_2f = 360).
+    const _modeloAtual = Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) || 0;
+    const _MODELOS_COM_CAVA = [1, 2, 3, 4, 5, 6, 7, 8, 9, 22, 24];
+    const _modeloTemCava = _MODELOS_COM_CAVA.indexOf(_modeloAtual) !== -1;
+    const dBC_eff     = _modeloTemCava ? num('distanciaBordaCava') : 0;
+    const tamCava_eff = _modeloTemCava ? num('tamanhoCava') : 0;
 
     return {
       item, lado, quadro,
