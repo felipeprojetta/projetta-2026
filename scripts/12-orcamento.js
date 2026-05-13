@@ -11068,6 +11068,63 @@ const Orcamento = (() => {
         alert('Erro ao salvar selecao: ' + err.message);
       }
     });
+
+    // Felipe sessao 18: 'me de a opcao de altera quantidade, as vezes
+    // deu uma chapa e meia, ou as vezes de 2 chapas mas tenho sobra
+    // que consigo fazer com uma'. Permite editar manualmente a qtd
+    // de chapas na tabela 'Custo por cor'. Aceita fracoes (ex 1.5 =
+    // 1 chapa e meia, 0.5 = meia chapa, 1 = chapa cheia mas usei sobra).
+    // Persiste em versao.chapasSelecionadas[cor].numChapas e recalcula
+    // custoTotal = numChapas × preco_un, atualizando subFab.
+    container.addEventListener('change', (e) => {
+      const inp = e.target.closest('[data-aprov-rev-qtd]');
+      if (!inp) return;
+      const cor = inp.getAttribute('data-aprov-rev-qtd');
+      const novaQtd = parseFloat(String(inp.value).replace(',', '.'));
+      if (!Number.isFinite(novaQtd) || novaQtd < 0) {
+        alert('Quantidade invalida. Use numeros (ex: 1, 1.5, 2).');
+        return;
+      }
+      try {
+        const r = obterVersao(UI.versaoAtivaId);
+        if (!r || !r.versao) return;
+        const versao = r.versao;
+        const sel = Object.assign({}, versao.chapasSelecionadas || {});
+        const linhaAtual = sel[cor];
+        if (!linhaAtual) {
+          // Linha veio do fallback 'auto' (cor sem selecao previa).
+          // Pra salvar override de qtd, precisamos primeiro materializar
+          // como selecao. Pega dados do auto via calcularDadosTotaisCor.
+          alert('Para editar a qtd, primeiro selecione uma chapa-mae (duplo-clique no card de aproveitamento).');
+          inp.value = inp.defaultValue;
+          return;
+        }
+        const precoUnit = (Number(linhaAtual.numChapas) > 0)
+          ? Number(linhaAtual.custoTotal) / Number(linhaAtual.numChapas)
+          : Number(linhaAtual.preco) || 0;
+        sel[cor] = Object.assign({}, linhaAtual, {
+          numChapas: novaQtd,
+          custoTotal: precoUnit * novaQtd,
+          _qtdManual: true,
+        });
+        // Recalcula total revestimento e subFab
+        const futVersao = Object.assign({}, versao, { chapasSelecionadas: sel });
+        const totalRev = computeRevestimentoPorCor(futVersao, pecasPorCor, todasSupGlobal).total;
+        const novoFab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
+        novoFab.total_revestimento = totalRev;
+        const rFab = calcularFab(novoFab, versao.itens);
+        atualizarVersao(versao.id, {
+          chapasSelecionadas: sel,
+          custoFab: novoFab,
+          subFab: rFab.total,
+        });
+        // Re-renderiza aba pra atualizar Subtotal, Resumo Total e DRE
+        renderLevSuperficiesTab(container);
+      } catch (err) {
+        console.warn('[Aproveitamento] erro ao atualizar qtd:', err);
+        alert('Erro ao atualizar quantidade: ' + err.message);
+      }
+    });
     } // fim if(!_levSupListenersAdded) — Felipe sessao 12: guard anti-duplo
 
     // Felipe (sessao 2026-05): re-aplica chapas ja' selecionadas (caso
@@ -11278,7 +11335,11 @@ const Orcamento = (() => {
                 <td>${escapeHtml(l.cor)}</td>
                 <td class="orc-aprov-rev-desc">${escapeHtml(l.descricao)}</td>
                 <td class="num">${fmtBR(l.precoUnit)}${l.fonte === 'vidro_m2' ? '<span style="font-size:10px;color:#666;"> /m²</span>' : ''}</td>
-                <td class="num">${l.fonte === 'vidro_m2' ? fmtBR(l.qtd) + ' m²' : l.qtd}</td>
+                <td class="num">${
+                  l.fonte === 'vidro_m2'
+                    ? fmtBR(l.qtd) + ' m²'
+                    : `<input type="number" min="0" step="0.5" value="${l.qtd}" data-aprov-rev-qtd="${escapeHtml(l.cor)}" style="width:60px;text-align:right;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px;font:inherit;" title="Editar quantidade de chapas (ex: 1.5 = 1 chapa e meia)">`
+                }</td>
                 <td class="num"><b>${fmtBR(l.subtotal)}</b></td>
                 <td class="orc-aprov-rev-fonte">${l.fonte === 'selecionada' ? '✓ selecionada' : (l.fonte === 'vidro_m2' ? '🔷 vidro m²' : 'auto (melhor)')}</td>
               </tr>
