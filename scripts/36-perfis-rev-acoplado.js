@@ -487,6 +487,26 @@ var PerfisRevAcoplado = (function() {
     );
     if (ehLateralVidro) return gerarPecasACMLatVidro(item, lado);
 
+    // Felipe (sessao 18): fixo lateral LISA NAO reutiliza motor da porta.
+    // Felipe: 'fixo lateral chapas tbm tudo errado, coloquei chapa lisa,
+    // ou vai ser chapa lisa ou com ripado ou clasissca, nao tem nada de
+    // cava nesse fixo lateral. chapa vai ser largura do fixo - folga
+    // lateral + 100 x altura do fixo - folga superior, 1 vez se for
+    // somente interno 2x se for interno e externo. considere mais fita
+    // de acabamento 50 + ref, 2x se for somente externo e 4x se for
+    // interno e externo pela altura do fixo + 100.'
+    // Caso real: fixo 400x2750mm lisa estava gerando Cava, L da Cava,
+    // Tampa Borda Cava, Fitas — tudo do mod 1 (cava). Agora gera
+    // apenas Tampa + Fita Acabamento. Ripado/Moldura/Superior NAO
+    // sao afetados (continuam reusando motor da porta).
+    var ehLateralLisa = String(item.posicao || '').toLowerCase() === 'lateral' &&
+                        (item.tipoLateral === 'lisa' || !item.tipoLateral);
+    if (ehLateralLisa) {
+      var ladosL = item.lados === '2lados' ? 2 : 1;
+      if (ladosL === 1 && lado === 'interno') return [];
+      return gerarPecasFixoLateralLisa(item, lado);
+    }
+
     var lados = item.lados === '2lados' ? 2 : 1;
     if (lados === 1 && lado === 'interno') return [];
     if (!window.ChapasPortaExterna || !window.ChapasPortaExterna.gerarPecasChapa) return [];
@@ -590,6 +610,84 @@ var PerfisRevAcoplado = (function() {
   //
   // qtdItem multiplica naturalmente cada qty de corte (item.quantidade
   // = numero de fixos, ex: 2 fixos -> dobra todas as pecas).
+  // ====================================================================
+  // gerarPecasFixoLateralLisa(item, lado)
+  // Felipe (sessao 18): chapas do fixo lateral LISA — NAO reusa motor
+  // da porta. Apenas 2 tipos de peca:
+  //   1. Tampa: 1 unidade por face
+  //      largura = larguraFixo - FGLD - FGLE + 100
+  //      altura  = alturaFixo  - FGSup
+  //   2. Fita Acabamento: 2 unidades por face
+  //      largura = 50 + REF (do cadastro, default 20)
+  //      altura  = alturaFixo + 100
+  // Totais (esperados pelo Felipe):
+  //   1 face : 1 tampa + 2 fitas
+  //   2 faces: 2 tampas + 4 fitas
+  // ====================================================================
+  function gerarPecasFixoLateralLisa(item, lado) {
+    var L = Number(item.largura) || 0;
+    var H = Number(item.altura)  || 0;
+    if (L <= 0 || H <= 0) return [];
+
+    var qtdItem = Math.max(1, parseInt(item.quantidade, 10) || 1);
+
+    // REF do cadastro (default 20mm)
+    var REF = 20;
+    try {
+      if (window.Storage && window.Storage.scope) {
+        var v = window.Storage.scope('cadastros').get('regras_variaveis_chapas');
+        if (v && Number(v.REF) > 0) REF = Number(v.REF);
+      }
+    } catch (_) {}
+
+    // Folgas editaveis por item (mesma logica do gerarCortes _fg helper)
+    function _fg(raw, fb) {
+      if (raw === '' || raw === null || raw === undefined) return fb;
+      var n = Number(String(raw).replace(',', '.'));
+      return (isFinite(n) && n >= 0) ? n : fb;
+    }
+    var FGLD  = _fg(item.fglDir, 10);
+    var FGLE  = _fg(item.fglEsq, 10);
+    var FGSup = _fg(item.fgSup, 10);
+
+    var corLado = (lado === 'externo')
+      ? String(item.corExterna || '').trim()
+      : String(item.corInterna || '').trim();
+    var corComPrefixo = corLado || 'ACM';
+
+    var largTampa = L - FGLD - FGLE + 100;
+    var altTampa  = H - FGSup;
+    var largFita  = 50 + REF;
+    var altFita   = H + 100;
+
+    var pecas = [];
+    var ord = 100;
+    function add(label, larg, comp, qty) {
+      if (!larg || comp <= 0 || qty <= 0) return;
+      var labelComSufixo = (String(label).indexOf(' - fixo lateral') >= 0)
+        ? label
+        : label + ' - fixo lateral';
+      pecas.push({
+        id: 'fll_' + label.toLowerCase().replace(/\W+/g, '_') + '_' + Math.round(comp),
+        label: labelComSufixo,
+        largura: Math.round(larg * 100) / 100,
+        altura:  Math.round(comp),
+        qtd:     qty * qtdItem,
+        podeRotacionar: false,
+        cor:     corComPrefixo,
+        lado:    lado,
+        categoria: 'fixo_lateral',
+        materialEspecial: null,
+        _ordem: ord++,
+      });
+    }
+
+    add('Tampa Maior',     largTampa, altTampa, 1);
+    add('Fita Acabamento', largFita,  altFita,  2);
+
+    return pecas;
+  }
+
   function gerarPecasACMLatVidro(item, lado) {
     var L = Number(item.largura) || 0;
     var H = Number(item.altura)  || 0;
