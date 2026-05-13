@@ -2982,6 +2982,17 @@ const Orcamento = (() => {
           · Opcao ${escapeHtml(opcao.letra)}
           · Versao ${versao.numero}
         </div>
+        <!-- Felipe sessao 18: 'se eu tiver somente revestimento parede
+             nao tem botao de calcular'. Banner do rev parede nao tinha
+             orc-banner-actions (so o orc-banner-info). Agora replica os
+             mesmos botoes do banner da porta_externa (calcular, salvar,
+             limpar, voltar). -->
+        <div class="orc-banner-actions">
+          <button type="button" class="orc-btn-calcular ${versao.calcDirty || !versao.calculadoEm ? 'is-dirty' : 'is-ok'}" id="orc-btn-calcular" title="${versao.calculadoEm ? 'Atualiza DRE, Levantamentos, Custo Fab/Inst com os valores atuais' : 'Roda os calculos pela primeira vez'}">${versao.calculadoEm ? '↻ Recalcular' : '▶ Calcular'}</button>
+          <button type="button" class="univ-btn-save" id="orc-btn-salvar">✓ Tudo salvo</button>
+          <button class="orc-btn-zerar" id="orc-btn-zerar" title="Limpa os inputs da tela e cria nova versao em branco preservando o historico.">🧹 Limpar Tela</button>
+          ${UI.leadAtivo ? `<button class="orc-btn-back" id="orc-btn-back-crm" title="Voltar para o card no CRM">← Voltar pro CRM</button>` : ''}
+        </div>
       </div>
 
       <!-- Felipe (sessao 2026-06): chips de items + botao "+ Adicionar item"
@@ -3485,6 +3496,21 @@ const Orcamento = (() => {
       if (window.showSavedDialog) window.showSavedDialog('Calculado.');
       // Re-renderiza pra atualizar visual do botao (↻ Calcular -> ↻ Recalcular)
       renderItemTab(container);
+    });
+
+    // Felipe sessao 18: 'se eu tiver somente revestimento parede nao
+    // tem botao de calcular'. Bug colateral: botoes Limpar Tela e
+    // Voltar pro CRM tambem nao tinham handler nesse caminho — sem
+    // o orc-banner-actions no banner, eles nem existiam. Agora que
+    // o banner foi adicionado, registra handlers tambem.
+    bindZerarButton(container, () => renderItemTab(container));
+    container.querySelector('#orc-btn-back-crm')?.addEventListener('click', () => {
+      limparLeadAtivo();
+      UI.negocioAtivoId = null;
+      UI.versaoAtivaId  = null;
+      UI.leadAtivo      = null;
+      UI.itemSelecionadoIdx = 0;
+      if (typeof App !== 'undefined' && App.navigateTo) App.navigateTo('crm');
     });
 
     // Felipe (sessao 2026-06): bindings do chip list (Item 1, Item 2... ✕)
