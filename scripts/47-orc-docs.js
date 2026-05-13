@@ -472,6 +472,15 @@
   }
 
   function obterVersaoMaisRelevante(leadId) {
+    // Felipe sessao 18: 'fiz uma versao 2, saiu versao 2 no pdf otimo
+    // isso, mas a descricao quando foi salvar o nome arquivo saiu v1
+    // em vez de v2'. Preferencia 1: versao ATUALMENTE ABERTA no
+    // orcamento (mesma que gera o PDF). Fallback: versao mais relevante
+    // (aprovada/imutavel) via resumoParaCardCRM.
+    if (window.Orcamento && window.Orcamento.obterVersaoAtivaParaDocs) {
+      const ativa = window.Orcamento.obterVersaoAtivaParaDocs(leadId);
+      if (ativa) return ativa;
+    }
     const resumo = window.Orcamento && window.Orcamento.resumoParaCardCRM
       ? window.Orcamento.resumoParaCardCRM(leadId) : null;
     if (!resumo || !resumo.versoes || resumo.versoes.length === 0) return null;

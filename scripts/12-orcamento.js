@@ -15566,6 +15566,24 @@ const Orcamento = (() => {
     gerarPropostaPDFBlob,
     // Felipe (sessao 2026-08): nova - PDF Proposta Comercial separado
     gerarPropostaComercialPDFBlob,
+    // Felipe sessao 18: 'fiz uma versao 2, saiu versao 2 no pdf otimo
+    // isso, mas a descricao quando foi salvar o nome arquivo saiu v1
+    // em vez de v2'. resumoParaCardCRM ordena por status imutavel ->
+    // se V1 estiver aprovada e V2 em draft, retorna V1. OrcDocs deve
+    // preferir a versao ATIVA aberta (mesma que gera o PDF), caindo
+    // pra resumoParaCardCRM so' como fallback.
+    obterVersaoAtivaParaDocs: function(leadId) {
+      try {
+        // Se ha versao ativa no UI, valida que pertence ao lead
+        if (UI && UI.versaoAtivaId) {
+          const r = obterVersao(UI.versaoAtivaId);
+          if (r && r.versao && r.negocio && r.negocio.leadId === leadId) {
+            return { id: r.versao.id, numero: r.versao.numero };
+          }
+        }
+      } catch(_) {}
+      return null;
+    },
     // helpers expostos pra debugging
     _snapshotPrecosAtual: snapshotPrecosAtual,
     _snapshotPrecosCompleto: snapshotPrecosCompleto,
