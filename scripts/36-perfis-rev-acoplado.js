@@ -180,7 +180,13 @@ var PerfisRevAcoplado = (function() {
 
     // ── Formulas Pasta1.xlsx ──
     var compAltura   = ALTURA - FGSup;                     // PERFIL ALTURA (desconta folga superior)
-    var compLargura  = LARGURA - FGLD - FGLE;              // PERFIL LARGURA (caso normal)
+    // Felipe (sessao 18): 'perfil da largura tem a mesma medida da
+    // travessa pois ele esta POR DENTRO do quadro, portanto o perfil
+    // da largura e LARGURA - FGLD - FGLE - 38 - 38 (fam 76) ou - 51 - 51
+    // (fam 101)'. Antes ficava 'LARGURA - FGLD - FGLE' sem descontar
+    // os 2 tubos de altura — gerava perfil 76mm maior que o real. Agora
+    // compLargura === compTravHor (ambos dentro do quadro).
+    var compLargura  = LARGURA - FGLD - FGLE - 2 * TUB1;   // PERFIL LARGURA (dentro do quadro)
     // Felipe (sessao 18): compTravVert tambem desconta FGSup. Antes
     // ficava 'ALTURA - 2*TUB1' (sem folga superior). Bug reportado:
     // "no fixo lateral acoplado a porta a travessa vertical nao esta
@@ -307,9 +313,11 @@ var PerfisRevAcoplado = (function() {
     //   compLargura > 2500 → 2 travessas
     //   compLargura > 1200 → 1 travessa
     //   compLargura <= 1200 → 0
-    // compLargura = LARGURA - FGLD - FGLE.
-    // Caso real Felipe: fixo lateral 400x2750mm lisa → compLargura
-    // = 380 → 0 travessas (antes: 4 herdadas da porta indevidamente).
+    // compLargura = LARGURA - FGLD - FGLE - 2*TUB1 (= medida real do
+    // perfil PA-76X38X1.98 dentro do quadro, igual compTravHor).
+    // Caso real Felipe: fixo lateral 400x2750mm lisa fam 76 →
+    // compLargura = 400-10-10-76 = 304 → 0 travessas (antes: 4
+    // herdadas da porta indevidamente).
     if (ehLateralLisa) {
       var bonusTV = 0;
       if (compLargura > 2500)      bonusTV = 2;
