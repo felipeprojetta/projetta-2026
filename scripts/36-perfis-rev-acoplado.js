@@ -301,22 +301,19 @@ var PerfisRevAcoplado = (function() {
     }
 
     // Felipe (sessao 18): Fixo lateral LISA tem travessa vertical
-    // PROPRIA (nao herda da porta). Mesma regra de bonus por largura
-    // DA FOLHA (PA-PA007V) usada na porta (sessao 18 fix):
-    //   VEDA > 2500 → +2 travessas
-    //   VEDA > 1500 → +1 travessa
-    //   VEDA <= 1500 → 0
-    // VEDA do fixo = compLargura + 220 (mesma formula da porta:
-    // LARG_INT_FOLHA + 110 + 110). Sem cava, sem obrigatorias —
-    // so' o bonus por largura.
+    // PROPRIA (nao herda da porta). Felipe (refinamento): regra baseada
+    // na largura do PERFIL LARGURA (PA-76X38X1.98 = compLargura), NAO
+    // em VEDA da porta. Limites tambem diferentes da porta:
+    //   compLargura > 2500 → 2 travessas
+    //   compLargura > 1200 → 1 travessa
+    //   compLargura <= 1200 → 0
+    // compLargura = LARGURA - FGLD - FGLE.
     // Caso real Felipe: fixo lateral 400x2750mm lisa → compLargura
-    // = 380, VEDA = 600 → bonus 0 → 0 travessas (antes: 4 herdadas
-    // da porta indevidamente).
+    // = 380 → 0 travessas (antes: 4 herdadas da porta indevidamente).
     if (ehLateralLisa) {
-      var vedaFixo = compLargura + 220;
       var bonusTV = 0;
-      if (vedaFixo > 2500)      bonusTV = 2;
-      else if (vedaFixo > 1500) bonusTV = 1;
+      if (compLargura > 2500)      bonusTV = 2;
+      else if (compLargura > 1200) bonusTV = 1;
       if (bonusTV > 0) {
         add(s.perfil, compTravVert, bonusTV, 'Travessa Vertical');
       }
