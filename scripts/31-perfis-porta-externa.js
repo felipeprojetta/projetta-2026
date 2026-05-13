@@ -47,7 +47,11 @@ const PerfisPortaExterna = (() => {
   // (PA-76X76X2.0 ou PA-101X101X2.5 conforme familia) por dentro do friso.
   // Comprimento = TRAV_VERT (altura util entre batentes).
   // Quantidade = qtdFrisos × nFolhas (Felipe sessao 2026-09).
-  const MODELOS_COM_FRISO_VERTICAL = new Set([2, 4, 5, 7, 11, 13, 14, 22]);
+  // Felipe (sessao 18): mod 25 adicionado. Gera tubo PA-76X76 (familia
+  // 76) / PA-101X101X2.5 (familia 101) atras dos frisos verticais.
+  // Qtd = qtdFrisos × nFolhas (mesma logica dos demais modelos com
+  // friso vertical — pra 2F, cada folha tem seus proprios frisos).
+  const MODELOS_COM_FRISO_VERTICAL = new Set([2, 4, 5, 7, 11, 13, 14, 22, 25]);
 
   /**
    * Detecta se o modelo tem cava lendo a descricao cadastrada (case-insensitive).
