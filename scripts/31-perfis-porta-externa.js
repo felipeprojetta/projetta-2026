@@ -164,22 +164,26 @@ const PerfisPortaExterna = (() => {
   //      → 2 travessas obrigatorias POR FOLHA
   //   2. CAVA DUPLA (modelo 9):
   //      → 4 travessas obrigatorias POR FOLHA
-  //   3. Bonus por LARGURA TOTAL da porta:
-  //      → L >  2500: +2 travessas adicionais (no total, nao por folha)
-  //      → L >  1500: +1 travessa adicional   (no total, nao por folha)
-  //      → L <= 1500: +0
+  //   3. Bonus por LARGURA — Felipe (sessao 18, refinamento):
+  //      Era baseado na largura do VAO (porta total). Agora e' baseado
+  //      na largura DA FOLHA (= medida do perfil PA-PA007V Veda Porta
+  //      Inferior & Superior, que e' LARG_INT_FOLHA + 220).
+  //      → larguraFolha >  2500: +2 travessas adicionais (no total)
+  //      → larguraFolha >  1500: +1 travessa adicional   (no total)
+  //      → larguraFolha <= 1500: +0
+  //      Se larguraFolha nao for passada (compatibilidade), cai no L.
   //   4. Multiplicar travessas obrigatorias POR FOLHA pelo n° de folhas.
   //      O bonus de largura NAO multiplica por folha (e' bonus pela
-  //      largura total da porta).
+  //      largura da porta — agora medida da folha via VEDA).
   //
-  //   Exemplos:
-  //     - Cava simples, 1 folha, L=900:    2 × 1 + 0 = 2
-  //     - Cava simples, 1 folha, L=1800:   2 × 1 + 1 = 3
-  //     - Cava simples, 1 folha, L=2800:   2 × 1 + 2 = 4
-  //     - Cava simples, 2 folhas, L=2200:  2 × 2 + 1 = 5
+  //   Exemplo Felipe (caso real — porta 3000x6500 2F mod 1):
+  //     LARG_INT_FOLHA = (3000-20-343-235)/2 ≈ 1201
+  //     VEDA = 1201+220 = 1421 (= PA-PA007V)
+  //     1421 <= 1500 → bonus 0 → qtdTV = 2×2 + 0 = 4
+  //
+  //   Outros exemplos:
   //     - Cava dupla, 1 folha, L=900:      4 × 1 + 0 = 4
   //     - Cava dupla, 2 folhas, L=900:     4 × 2 + 0 = 8
-  //     - Cava dupla, 2 folhas, L=2800:    4 × 2 + 2 = 10
   //
   //   Sem cava: por enquanto 0 (Felipe nao deu regra pra modelos
   //   sem cava; modelos com puxador/friso provavelmente nao usam
@@ -190,6 +194,12 @@ const PerfisPortaExterna = (() => {
     const modelo     = Number(args.modeloNumero) || 0;
     const modeloNome = String(args.modeloNome || '');
     const nFolhas    = Math.max(1, Number(args.nFolhas) || 1);
+    // Felipe (sessao 18): larguraFolha = PA-PA007V (Veda Porta).
+    // Quando passado, usa pro bonus em vez de L (largura do vao).
+    // Fallback no L pra compat com chamadas antigas.
+    const larguraFolha = (args.larguraFolha != null && Number.isFinite(Number(args.larguraFolha)))
+      ? Number(args.larguraFolha)
+      : L;
 
     const ehCava      = temCava(modeloNome, modelo);
     const ehCavaDupla = temCavaDupla(modeloNome, modelo);
@@ -201,10 +211,10 @@ const PerfisPortaExterna = (() => {
     }
     const travCavaTotal = travCavaPorFolha * nFolhas;
 
-    // Bonus por LARGURA TOTAL (nao multiplica por folha)
+    // Bonus por LARGURA DA FOLHA (Felipe sessao 18: era L, agora VEDA)
     let travLarguraBonus = 0;
-    if (L > 2500)      travLarguraBonus = 2;
-    else if (L > 1500) travLarguraBonus = 1;
+    if (larguraFolha > 2500)      travLarguraBonus = 2;
+    else if (larguraFolha > 1500) travLarguraBonus = 1;
 
     const qtyTotal = travCavaTotal + travLarguraBonus;
     // qtyPerFolha mantido p/ compat — nao tem mais sentido literal
@@ -320,23 +330,21 @@ const PerfisPortaExterna = (() => {
 
     // --------- Quantidades ---------
     const qtdTH = travessasHorizontais(A);
-    const tv    = travessasVerticais({ largura: L, modeloNumero: modelo, modeloNome, nFolhas, distBordaFriso: 0 });
+    // Felipe (sessao 18): bonus de travessa vertical usa largura da
+    // FOLHA (=PA-PA007V=VEDA), nao largura do VAO. Passa VEDA aqui.
+    const tv    = travessasVerticais({ largura: L, larguraFolha: VEDA, modeloNumero: modelo, modeloNome, nFolhas, distBordaFriso: 0 });
     // Felipe (sessao 18 — REVERTE ajuste da sessao 12):
     // Reportado caso real: porta 3000x6500 2F mod 1 (cava simples)
     // saiu com 8 travessas verticais e deveria ser 6.
     //
-    // Regra correta (volta ao comentario de travessasVerticais):
-    //   - 2 obrigatorias POR FOLHA da cava (×nFolhas)
-    //   - + bonus por largura TOTAL da porta (NAO multiplica por folha)
-    //     L > 2500 → +2 | L > 1500 → +1 | resto +0
+    // Regra correta: 2 obrigatorias × nFolhas + bonus por largura
+    // (bonus NAO multiplica por folha). A travessasVerticais() ja
+    // retorna o qtyTotal correto. Sessao 12 tinha adicionado um termo
+    // a mais (+ travLarguraBonus × (nFolhas-1)) — agora removido.
     //
-    // Exemplo Felipe: 3000mm 2F cava simples
-    //   2 × 2 + 2 = 6 ✓ (antes dava 6 + 2×(2-1) = 8 ✗)
-    //
-    // A travessasVerticais() ja retorna qtyTotal correto. Sessao 12
-    // tinha adicionado "+ tv.travLarguraBonus * (nFolhas - 1)" achando
-    // que o bonus deveria multiplicar por folha — Felipe confirmou
-    // que essa interpretacao estava errada.
+    // Refinamento sessao 18: bonus de largura agora usa larguraFolha
+    // (=VEDA=PA-PA007V), nao L (largura do vao). Pra porta 3000mm 2F
+    // VEDA=1421 <= 1500 → bonus 0 → qtdTV = 2×2 = 4.
     const qtdTV = tv.qtyTotal;
     const qtdTraPortal = Math.max(2, Math.floor(A / 2000) + 1);
 
