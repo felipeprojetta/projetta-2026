@@ -256,10 +256,23 @@ var PerfisRevAcoplado = (function() {
     // Felipe sessao 2026-05-10 (FIX 2): Lateral + Ripado/Moldura tambem
     // herda da porta (mesmo espacamento). Replicada a mesma logica do
     // criarItemVirtualChapas pra consistencia entre perfis e chapas.
+    //
+    // Felipe (sessao 18): Fixo lateral LISA NAO replica nada da porta.
+    // Felipe: 'fixo acoplado lateral da porta, ele nao replica nada da
+    // porta, somente quando e superior que colocamos se segue modelo
+    // da porta pois vai em cima da porta'.
+    // FORCA segueModelo=false quando lateral lisa, independente do
+    // fixoSegueModelo (default 'sim'). Bug reportado: fixo lateral
+    // 400x2750mm lisa estava gerando Tubo Cava, Cantoneira Cava e
+    // Travessa Vertical herdados da porta. A travessa vertical local
+    // (regra propria) e' adicionada depois do bloco da cava.
+    var ehLateralLisa = item.posicao === 'lateral' &&
+                        (item.tipoLateral === 'lisa' || !item.tipoLateral);
     var ehLateralRipadoOuMoldura = item.posicao === 'lateral' &&
                                    (item.tipoLateral === 'ripado' ||
                                     item.tipoLateral === 'moldura');
-    var segueModelo = item.fixoSegueModelo === 'sim' || ehLateralRipadoOuMoldura;
+    var segueModelo = !ehLateralLisa &&
+                      (item.fixoSegueModelo === 'sim' || ehLateralRipadoOuMoldura);
     var porta = segueModelo ? obterPortaPrincipal() : null;
 
     // TRAVESSA VERTICAL (76x38 / 101x51)
@@ -285,6 +298,28 @@ var PerfisRevAcoplado = (function() {
     if (qtdCv > 0) {
       add(COD_CAVA,       compCava,     qtdCv,     'Tubo Cava');
       add(COD_CANTONEIRA, compTravVert, qtdCv * 2, 'Cantoneira Cava');
+    }
+
+    // Felipe (sessao 18): Fixo lateral LISA tem travessa vertical
+    // PROPRIA (nao herda da porta). Mesma regra de bonus por largura
+    // DA FOLHA (PA-PA007V) usada na porta (sessao 18 fix):
+    //   VEDA > 2500 → +2 travessas
+    //   VEDA > 1500 → +1 travessa
+    //   VEDA <= 1500 → 0
+    // VEDA do fixo = compLargura + 220 (mesma formula da porta:
+    // LARG_INT_FOLHA + 110 + 110). Sem cava, sem obrigatorias —
+    // so' o bonus por largura.
+    // Caso real Felipe: fixo lateral 400x2750mm lisa → compLargura
+    // = 380, VEDA = 600 → bonus 0 → 0 travessas (antes: 4 herdadas
+    // da porta indevidamente).
+    if (ehLateralLisa) {
+      var vedaFixo = compLargura + 220;
+      var bonusTV = 0;
+      if (vedaFixo > 2500)      bonusTV = 2;
+      else if (vedaFixo > 1500) bonusTV = 1;
+      if (bonusTV > 0) {
+        add(s.perfil, compTravVert, bonusTV, 'Travessa Vertical');
+      }
     }
 
     // Felipe sessao 2026-05-10: 'Tubo Interno das Ripas' ja' foi gerado
