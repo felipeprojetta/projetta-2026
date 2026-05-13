@@ -37,8 +37,16 @@ const AcessoriosPortaExterna = (() => {
    * 4.5 / 5.0 → 5MT
    */
   function codigoPuxador(puxTam) {
-    const t = parseFloat(String(puxTam).replace(',', '.'));
+    let t = parseFloat(String(puxTam).replace(',', '.'));
     if (!t || isNaN(t)) return null;
+    // Felipe sessao 18: 'nao esta indo para acessorios os puxadores'.
+    // Bug: o select do form salva '1500 mm', '2000 mm' etc (em MM).
+    // A funcao esperava metros (1.0, 1.5...). parseFloat('1500 mm')=1500
+    // → caia em todos os if e retornava null → puxador nao era adicionado
+    // aos acessorios.
+    // FIX: se valor >= 100, considera que esta em mm e converte pra metros.
+    // Aceita ambos os formatos (legado em metros + novo em mm).
+    if (t >= 100) t = t / 1000;
     if (t === 1.0) return 'PA-PUX-1MT';
     if (t === 1.5) return 'PA-PUX-1,5MT';
     if (t === 2.0) return 'PA-PUX-2MT';
