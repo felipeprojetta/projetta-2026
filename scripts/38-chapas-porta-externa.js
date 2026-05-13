@@ -1047,89 +1047,116 @@ const ChapasPortaExterna = (() => {
     // ============================================================
     13: {
       '1F': [
-        // Felipe (sessao 18): mod 13 e' Puxador Externo + Friso H + Friso V.
-        // NAO tem CAVA nem L_DA_CAVA.
-        // TAMPA_MAIOR_CAVA: (larguraQuadro1F - dBC - 1 - tamCava - 1) + 2REF - dBFV - eF
-        // comp: alturaQuadro - dBFV - eF + REF - 1
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
-          largura: ctx => F.tampa_maior_1f_largura_com_cava(ctx) - ctx.dBFV - ctx.eF,
-          comp: ctx => ctx.alturaQuadro - ctx.dBFV - ctx.eF + ctx.REF - 1,
+        // Felipe (sessao 18): mod 13 = Puxador Externo + 01 Friso Vertical
+        // + 02 Friso Horizontal. SEM CAVA.
+        // LITERAL da planilha PRECIFICACAO_01_04_2026 aba MODELO 13:
+        //   L7  TAMPA_MAIOR             1074×2511 qty 2
+        //       F: (E3-C7-1-C8)+REF+REF-dBFV-eF  (mod 13 sem cava: C7=C8=0)
+        //       G: E4-2*dBFV-2*eF+REF-1
+        //   L9  TAMPA_FRISO_HORIZONTAL  1074×230  qty 4
+        //       F: (E3-1)+REF+REF-dBFV-eF
+        //       G: dBFH+REF
+        //   L10 TAMPA_MENOR_CANTO       250×230   qty 4
+        //       F: dBFH+REF+REF | G: dBFV+REF
+        //   L11 TAMPA_FRISO_VERTICAL    249×2511  qty 2
+        //       F: dBFV+REF+REF-1 | G: G7 (mesma do TAMPA_MAIOR)
+        //   L12 FRISO VERTICAL          110×2611  qty 2
+        //       F: eF+100 | G: G7+100
+        //   L13 FRISO HORIZONTAL        110×1255  qty 2
+        //       F: eF+100 | G: E3 (larguraQuadro1F)
+        // Vars exemplo: LARG=1400 ALT=3000 dBFH=210 dBFV=210 eF=10 REF=20
+        //   larguraQuadro1F=1255 alturaQuadro=2932
+        // Qty literal da planilha (planilha mostra TOTAL = ext + int).
+        // Convencao Projetta: ext + int = qty da planilha.
+        //   L7  qty 2 → ext 1, int 1
+        //   L9  qty 4 → ext 2, int 2  (2 frisos H, 1 tampa cada lado por face)
+        //   L10 qty 4 → ext 2, int 2  (cantos)
+        //   L11 qty 2 → ext 1, int 1
+        //   L12 qty 2 → ext 1, int 1
+        //   L13 qty 2 → ext 1, int 1
+        { id: 'tampa_maior_cava', label: 'Tampa Maior',
+          largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - 1 - ctx.tamCava) + 2*ctx.REF - ctx.dBFV - ctx.eF,
+          comp:    ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF + ctx.REF - 1,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'tampa_friso_horizontal', label: 'Tampa Friso Horizontal',
           largura: ctx => (ctx.larguraQuadro1F - 1) + 2*ctx.REF - ctx.dBFV - ctx.eF,
-          comp: ctx => ctx.dBFH + ctx.REF,
-          ext: 1, int: 1, categoria: 'porta' },
+          comp:    ctx => ctx.dBFH + ctx.REF,
+          ext: 2, int: 2, categoria: 'porta' },
         { id: 'tampa_menor_canto', label: 'Tampa Menor Canto',
           largura: ctx => ctx.dBFH + 2*ctx.REF,
-          comp: ctx => ctx.dBFV + ctx.REF,
-          ext: 1, int: 1, categoria: 'porta' },
-        // TAMPA_FRISO_VERTICAL: comp usa alturaQuadro (nao larguraQuadro)
+          comp:    ctx => ctx.dBFV + ctx.REF,
+          ext: 2, int: 2, categoria: 'porta' },
         { id: 'tampa_friso_vertical', label: 'Tampa Friso Vertical',
           largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
-          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF,
+          comp:    ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF + ctx.REF - 1,
           ext: 1, int: 1, categoria: 'porta' },
-        // FRISO VERTICAL: comp = G9 (alturaQuadro) + 100
         { id: 'friso_vertical', label: 'Friso Vertical',
           largura: ctx => ctx.eF + 100,
-          comp: ctx => ctx.alturaQuadro + 100,
+          comp:    ctx => (ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF + ctx.REF - 1) + 100,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'friso_horizontal', label: 'Friso Horizontal',
           largura: ctx => ctx.eF + 100,
-          comp: ctx => ctx.larguraQuadro1F,
+          comp:    ctx => ctx.larguraQuadro1F,
           ext: 1, int: 1, categoria: 'porta' },
       ],
       '2F': [
-        // Felipe (sessao 18): mod 13 NAO tem CAVA nem TAMPA_DA_CAVA.
-        // TAMPA_MAIOR 01/02/03 — comp = alturaQuadro - dBFV - eF + REF - 1
+        // Felipe (sessao 18): mod 13 2F derivado seguindo padrao mod 04
+        // (TM01/02/03). Planilha mostra apenas 1F. Estrutura 2F preservada
+        // mas aplicadas as mesmas correcoes do 1F:
+        //   - comp da tampa maior: alt - 2dBFV - 2eF + REF - 1
+        //   - comp da tampa_friso_vertical: igual ao da tampa maior
+        //   - comp do friso_vertical: tmc_comp + 100 (era alturaQuadro)
+        // tampa_friso_horizontal e tampa_menor_canto NAO mudaram
+        // (mesma logica em mod 04 2F que ja' funciona).
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
           largura: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1,
-          comp: ctx => ctx.alturaQuadro - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          comp:    ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF + ctx.REF - 1,
           ext: 1, int: 0, categoria: 'porta' },
         { id: 'tampa_maior_02', label: 'Tampa Maior 02',
           largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 1,
-          comp: ctx => ctx.alturaQuadro - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          comp:    ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF + ctx.REF - 1,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'tampa_maior_03', label: 'Tampa Maior 03',
           largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
-          comp: ctx => ctx.alturaQuadro - ctx.dBFV - ctx.eF + ctx.REF - 1,
+          comp:    ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF + ctx.REF - 1,
           ext: 0, int: 1, categoria: 'porta' },
         // 3 TAMPA_FRISO_HORIZONTAL: largura segue padrao TM01/02/03 sem dBFV
         { id: 'tampa_friso_horizontal_01', label: 'Tampa Friso Horizontal 01',
           largura: ctx => ctx.larguraQuadro2F/2 + 10.5,
-          comp: ctx => ctx.dBFH + ctx.REF,
-          ext: 1, int: 0, categoria: 'porta' },
+          comp:    ctx => ctx.dBFH + ctx.REF,
+          ext: 2, int: 0, categoria: 'porta' },
         { id: 'tampa_friso_horizontal_02', label: 'Tampa Friso Horizontal 02',
           largura: ctx => ctx.larguraQuadro2F/2 - 28,
-          comp: ctx => ctx.dBFH + ctx.REF,
-          ext: 1, int: 1, categoria: 'porta' },
+          comp:    ctx => ctx.dBFH + ctx.REF,
+          ext: 2, int: 2, categoria: 'porta' },
         { id: 'tampa_friso_horizontal_03', label: 'Tampa Friso Horizontal 03',
           largura: ctx => ctx.larguraQuadro2F/2 - 28 - 38,
-          comp: ctx => ctx.dBFH + ctx.REF,
-          ext: 0, int: 1, categoria: 'porta' },
+          comp:    ctx => ctx.dBFH + ctx.REF,
+          ext: 0, int: 2, categoria: 'porta' },
         { id: 'tampa_menor_canto', label: 'Tampa Menor Canto',
           largura: ctx => ctx.dBFH + 2*ctx.REF,
-          comp: ctx => ctx.dBFV + ctx.REF,
+          comp:    ctx => ctx.dBFV + ctx.REF,
           ext: 4, int: 4, categoria: 'porta' },
-        // 3 TAMPA_FRISO_VERTICAL: comp usa alturaQuadro
+        // 3 TAMPA_FRISO_VERTICAL: comp = mesma do tampa maior
         { id: 'tampa_01_friso_vertical', label: 'Tampa 01 Friso Vertical',
           largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
-          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF,
+          comp:    ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF + ctx.REF - 1,
           ext: 1, int: 0, categoria: 'porta' },
         { id: 'tampa_02_friso_vertical', label: 'Tampa 02 Friso Vertical',
           largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
-          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF,
+          comp:    ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF + ctx.REF - 1,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'tampa_03_friso_vertical', label: 'Tampa 03 Friso Vertical',
           largura: ctx => ctx.dBFV + 2*ctx.REF - 1,
-          comp: ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF,
+          comp:    ctx => ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF + ctx.REF - 1,
           ext: 0, int: 1, categoria: 'porta' },
         { id: 'friso_vertical', label: 'Friso Vertical',
           largura: ctx => ctx.eF + 100,
-          comp: ctx => ctx.alturaQuadro,
+          comp:    ctx => (ctx.alturaQuadro - 2*ctx.dBFV - 2*ctx.eF + ctx.REF - 1) + 100,
           ext: 2, int: 2, categoria: 'porta' },
         { id: 'friso_horizontal', label: 'Friso Horizontal',
           largura: ctx => ctx.eF + 100,
-          comp: ctx => ctx.larguraQuadro2F/2,
+          comp:    ctx => ctx.larguraQuadro2F/2,
           ext: 4, int: 4, categoria: 'porta' },
       ],
     },
