@@ -321,14 +321,23 @@ const PerfisPortaExterna = (() => {
     // --------- Quantidades ---------
     const qtdTH = travessasHorizontais(A);
     const tv    = travessasVerticais({ largura: L, modeloNumero: modelo, modeloNome, nFolhas, distBordaFriso: 0 });
-    // Felipe sessao 12: 'PORTA DUAS FOLHAS A QUANTIDADE DE TRAVESSA
-    // VERTICAL TAMBEM MULTIPLICA POR 2'. travessasVerticais() ja
-    // multiplica a parte das travessas obrigatorias da Cava (4 por
-    // folha) por nFolhas, mas o BONUS por largura (>2500=+2, >1500=+1)
-    // NAO era multiplicado. Felipe quer multiplicar tudo: bonus inclusive.
-    // Solucao: usa qtyTotal mas REMULTIPLICA o bonus pela diferenca
-    // pra refletir nFolhas tambem nele.
-    const qtdTV = tv.qtyTotal + tv.travLarguraBonus * (nFolhas - 1);
+    // Felipe (sessao 18 — REVERTE ajuste da sessao 12):
+    // Reportado caso real: porta 3000x6500 2F mod 1 (cava simples)
+    // saiu com 8 travessas verticais e deveria ser 6.
+    //
+    // Regra correta (volta ao comentario de travessasVerticais):
+    //   - 2 obrigatorias POR FOLHA da cava (×nFolhas)
+    //   - + bonus por largura TOTAL da porta (NAO multiplica por folha)
+    //     L > 2500 → +2 | L > 1500 → +1 | resto +0
+    //
+    // Exemplo Felipe: 3000mm 2F cava simples
+    //   2 × 2 + 2 = 6 ✓ (antes dava 6 + 2×(2-1) = 8 ✗)
+    //
+    // A travessasVerticais() ja retorna qtyTotal correto. Sessao 12
+    // tinha adicionado "+ tv.travLarguraBonus * (nFolhas - 1)" achando
+    // que o bonus deveria multiplicar por folha — Felipe confirmou
+    // que essa interpretacao estava errada.
+    const qtdTV = tv.qtyTotal;
     const qtdTraPortal = Math.max(2, Math.floor(A / 2000) + 1);
 
     function add(codigo, comp, qty, label) {
