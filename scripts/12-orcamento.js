@@ -2884,6 +2884,35 @@ const Orcamento = (() => {
     if (item.com_refilado === undefined) item.com_refilado = 'sim';
     if (!Array.isArray(item.pecas)) item.pecas = [];
 
+    // Felipe sessao 18: 'varias medidas nesse mesmo item revestimento
+    // medidas diferentes e quantidades mas calcula tudo junto. cada
+    // parede usa o que estiver marcado (compensar vs igual)'.
+    //
+    // Migracao back-compat: cria item.paredes derivado de
+    // largura_total/altura_total/quantidade. Mantem campos legados em
+    // espelho com a PRIMEIRA parede (23 sitios espalhados acessam
+    // item.largura_total/altura_total — preservar funcionalidade).
+    if (!Array.isArray(item.paredes)) item.paredes = [];
+    if (item.paredes.length === 0 && (item.largura_total || item.altura_total)) {
+      item.paredes.push({
+        largura_total: item.largura_total || '',
+        altura_total:  item.altura_total  || '',
+        quantidade:    Math.max(1, Number(item.quantidade) || 1),
+        divisao_largura: item.divisao_largura || 'maxima',
+        com_refilado:    item.com_refilado    || 'sim',
+      });
+    }
+    if (item.paredes.length === 0) {
+      // Item novo: 1 parede em branco
+      item.paredes.push({
+        largura_total: '',
+        altura_total:  '',
+        quantidade:    1,
+        divisao_largura: 'maxima',
+        com_refilado:    'sim',
+      });
+    }
+
     const cad = Storage.scope('cadastros');
     const superficies = cad.get('superficies_lista') || [];
 
@@ -3126,63 +3155,93 @@ const Orcamento = (() => {
   }
 
   /**
-   * Form do MODO AUTOMATICO — largura/altura da parede + 2 escolhas.
+   * Form do MODO AUTOMATICO — varias paredes, cada uma com medidas
+   * proprias + escolhas independentes de divisao/refilado.
+   * Felipe sessao 18: 'varias medidas nesse mesmo item revestimento
+   * medidas diferente e quantidades mas calcula tudo junto.
+   * Independente — cada parede usa o que estiver marcado'.
    */
   function renderRevAutomatico(item) {
+    const REF = (window.Storage?.scope?.('cadastros').get('regras_variaveis_chapas')?.REF) || 20;
+    const LARGURA_CHAPA = 1500;
+
+    function renderUmaParede(p, i) {
+      const larguraMax = (p.com_refilado === 'sim') ? (LARGURA_CHAPA - 2 * REF) : LARGURA_CHAPA;
+      const L = Number(p.largura_total) || 0;
+      let hint;
+      if (!L) {
+        hint = '<i>Preencha largura para ver o calculo.</i>';
+      } else if (p.divisao_largura === 'maxima') {
+        const nInt = Math.floor(L / larguraMax);
+        const sobra = L - nInt * larguraMax;
+        hint = `<b>Calculo:</b> ${nInt} faixa(s) de ${larguraMax}mm` +
+          (sobra > 0.5 ? ` + 1 faixa de sobra de ${sobra.toFixed(1)}mm` : ' (sem sobra)');
+      } else {
+        const n = Math.ceil(L / larguraMax);
+        const f = (L / n).toFixed(1);
+        hint = `<b>Calculo:</b> ${n} faixa(s) iguais de ${f}mm cada`;
+      }
+
+      return `
+        <div class="orc-rev-parede" data-parede-idx="${i}"
+             style="border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px;background:#fafbfc;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="font-weight:700;color:#1e3a8a;">Parede ${i + 1}</div>
+            ${item.paredes.length > 1 ? `
+              <button type="button" class="sup-btn-remove" data-action="remover-parede" data-parede-idx="${i}"
+                      style="padding:2px 8px;font-size:12px;" title="Remover parede">× remover</button>
+            ` : ''}
+          </div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-dim">
+              <label>Largura total (mm)</label>
+              <input type="number" min="0" data-field-parede="largura_total" data-parede-idx="${i}"
+                     value="${escapeHtml(String(p.largura_total || ''))}" placeholder="ex: 3860" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Altura total (mm)</label>
+              <input type="number" min="0" data-field-parede="altura_total" data-parede-idx="${i}"
+                     value="${escapeHtml(String(p.altura_total || ''))}" placeholder="ex: 7800" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Quantidade</label>
+              <input type="number" min="1" data-field-parede="quantidade" data-parede-idx="${i}"
+                     value="${escapeHtml(String(p.quantidade || 1))}" />
+            </div>
+          </div>
+          <div class="orc-form-row">
+            <div class="orc-field">
+              <label>Tipo de divisao da largura</label>
+              <select data-field-parede="divisao_largura" data-parede-idx="${i}">
+                <option value="maxima" ${p.divisao_largura === 'maxima' ? 'selected' : ''}>
+                  Largura maxima (faixas inteiras + sobra)
+                </option>
+                <option value="igual" ${p.divisao_largura === 'igual' ? 'selected' : ''}>
+                  Divisao igual (todas as faixas iguais)
+                </option>
+              </select>
+            </div>
+            <div class="orc-field">
+              <label>Com refilado?</label>
+              <select data-field-parede="com_refilado" data-parede-idx="${i}">
+                <option value="sim" ${p.com_refilado === 'sim' ? 'selected' : ''}>Sim — diminui 20mm de cada lado (REF)</option>
+                <option value="nao" ${p.com_refilado === 'nao' ? 'selected' : ''}>Nao — usa largura inteira</option>
+              </select>
+            </div>
+          </div>
+          <p class="orc-hint-text" style="margin-top:6px;margin-bottom:0;">${hint}</p>
+        </div>
+      `;
+    }
+
     return `
       <div class="orc-section">
         <div class="orc-section-title">Medidas da Parede (modo Automatico)</div>
-        <div class="orc-form-row">
-          <div class="orc-field orc-f-dim">
-            <label>Largura total da parede (mm)</label>
-            <input type="number" min="0" data-field="largura_total"
-                   value="${escapeHtml(String(item.largura_total || ''))}" />
-          </div>
-          <div class="orc-field orc-f-dim">
-            <label>Altura total da parede (mm)</label>
-            <input type="number" min="0" data-field="altura_total"
-                   value="${escapeHtml(String(item.altura_total || ''))}" />
-          </div>
+        <div id="orc-rev-paredes-wrap">
+          ${item.paredes.map((p, i) => renderUmaParede(p, i)).join('')}
         </div>
-        <div class="orc-form-row">
-          <div class="orc-field">
-            <label>Tipo de divisao da largura</label>
-            <select data-field="divisao_largura">
-              <option value="maxima" ${item.divisao_largura === 'maxima' ? 'selected' : ''}>
-                Largura maxima da chapa (faixas inteiras + sobra na ponta)
-              </option>
-              <option value="igual" ${item.divisao_largura === 'igual' ? 'selected' : ''}>
-                Divisao igual (todas as faixas com mesma largura)
-              </option>
-            </select>
-          </div>
-          <div class="orc-field">
-            <label>Com refilado?</label>
-            <select data-field="com_refilado">
-              <option value="sim" ${item.com_refilado === 'sim' ? 'selected' : ''}>Sim — diminui 20mm de cada lado (REF)</option>
-              <option value="nao" ${item.com_refilado === 'nao' ? 'selected' : ''}>Nao — usa largura inteira da chapa</option>
-            </select>
-          </div>
-        </div>
-        <p class="orc-hint-text" style="margin-top:8px;">
-          ${(() => {
-            const REF = (window.Storage?.scope?.('cadastros').get('regras_variaveis_chapas')?.REF) || 20;
-            const larguraChapa = 1500;
-            const larguraMax = item.com_refilado === 'sim' ? (larguraChapa - 2 * REF) : larguraChapa;
-            const L = Number(item.largura_total) || 0;
-            if (!L) return '<i>Preencha largura para ver o calculo.</i>';
-            if (item.divisao_largura === 'maxima') {
-              const nInteiras = Math.floor(L / larguraMax);
-              const sobra = L - nInteiras * larguraMax;
-              return `<b>Calculo:</b> ${nInteiras} faixa(s) de ${larguraMax}mm` +
-                (sobra > 0.5 ? ` + 1 faixa de sobra de ${sobra.toFixed(1)}mm` : ' (sem sobra)');
-            } else {
-              const n = Math.ceil(L / larguraMax);
-              const f = (L / n).toFixed(1);
-              return `<b>Calculo:</b> ${n} faixa(s) iguais de ${f}mm cada`;
-            }
-          })()}
-        </p>
+        <button type="button" class="orc-btn-add-peca" id="orc-rev-add-parede"
+                style="margin-top:6px;">+ adicionar parede</button>
       </div>
     `;
   }
@@ -3302,6 +3361,78 @@ const Orcamento = (() => {
           root.item.pecas[idx][field] = parseFloat(el.value.replace(',', '.')) || 0;
           persistir(root);
           if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+        }
+      });
+    });
+
+    // Felipe sessao 18: campos de paredes (modo automatico multi-parede).
+    // 'varias medidas nesse mesmo item revestimento medidas diferente
+    // e quantidades mas calcula tudo junto'.
+    function syncTopLevelComPrimeiraParede(item) {
+      // Mantem item.largura_total/altura_total/divisao_largura/com_refilado
+      // espelhados com a PRIMEIRA parede (back-compat com ~23 sitios que
+      // leem esses campos diretamente: gerarPecasAutomatico, perfis, etc).
+      const p0 = (item.paredes || [])[0];
+      if (p0) {
+        item.largura_total   = Number(p0.largura_total) || 0;
+        item.altura_total    = Number(p0.altura_total)  || 0;
+        item.divisao_largura = p0.divisao_largura || 'maxima';
+        item.com_refilado    = p0.com_refilado    || 'sim';
+      }
+    }
+    container.querySelectorAll('[data-field-parede]').forEach(el => {
+      el.addEventListener('change', () => {
+        const root = getRoot();
+        if (!root) return;
+        const item = root.item;
+        if (!Array.isArray(item.paredes)) item.paredes = [];
+        const idx = parseInt(el.dataset.paredeIdx, 10);
+        const field = el.dataset.fieldParede;
+        if (!(idx >= 0 && idx < item.paredes.length)) return;
+        if (field === 'quantidade') {
+          item.paredes[idx].quantidade = Math.max(1, parseInt(el.value, 10) || 1);
+        } else if (field === 'largura_total' || field === 'altura_total') {
+          item.paredes[idx][field] = parseFloat(String(el.value).replace(',', '.')) || 0;
+        } else {
+          item.paredes[idx][field] = el.value;
+        }
+        syncTopLevelComPrimeiraParede(item);
+        persistir(root);
+        if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+        // Sempre re-renderiza pra atualizar o hint de calculo
+        reRender();
+      });
+    });
+
+    // Botao + adicionar parede
+    container.querySelector('#orc-rev-add-parede')?.addEventListener('click', () => {
+      const root = getRoot();
+      if (!root) return;
+      if (!Array.isArray(root.item.paredes)) root.item.paredes = [];
+      root.item.paredes.push({
+        largura_total: '',
+        altura_total:  '',
+        quantidade:    1,
+        divisao_largura: 'maxima',
+        com_refilado:    'sim',
+      });
+      persistir(root);
+      reRender();
+    });
+
+    // Botao remover parede
+    container.querySelectorAll('[data-action="remover-parede"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const root = getRoot();
+        if (!root) return;
+        const idx = parseInt(btn.dataset.paredeIdx, 10);
+        if (!Array.isArray(root.item.paredes)) return;
+        if (root.item.paredes.length <= 1) return;  // mantem pelo menos 1
+        if (idx >= 0 && idx < root.item.paredes.length) {
+          root.item.paredes.splice(idx, 1);
+          syncTopLevelComPrimeiraParede(root.item);
+          persistir(root);
+          reRender();
         }
       });
     });
