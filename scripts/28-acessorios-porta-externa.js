@@ -875,6 +875,25 @@ const AcessoriosPortaExterna = (() => {
             const lblLow = String(p.label || '').toLowerCase().trim();
             const qtdTotal = qtd * qtdPortas;
             const perimM = ((lar + alt) * 2 * qtdTotal) / 1000;
+            const compM_alt = (alt * qtdTotal) / 1000;
+
+            // Felipe sessao 18: Fixo Lateral LISA - Fita Acabamento.
+            // Felipe: 'vai fita dupla face e high tack no comprimento da
+            // peca [...] high tack e dupla face em acessorios, ja tem
+            // uma logica la veja'.
+            // Reusa regra 'fita_acab_largura' (porta) que ja existe e
+            // ja' tem o padrao pedido:
+            //   fd19: 1  (1× Fita Dupla Face 19mm)
+            //   ms:   1  (vira PA-HIGHTACK BR pois 'fita_acab_largura'
+            //             esta em REGRAS_OBRA - vai pra obra)
+            //   tamanho: 'comprimento' (multiplica pela altura, nao perimetro)
+            // Match precisa vir ANTES dos === pq label tem sufixo
+            // ' - fixo lateral'. Tampa Maior - fixo lateral cai
+            // automaticamente em fixo_tampa via startsWith('tampa') logo
+            // abaixo, ja' com 1×FDF + 1×HT (no perimetro).
+            if (lblLow === 'fita acabamento - fixo lateral')
+              return aplicarRegra('fita_acab_largura', compM_alt,
+                `Fixo Lateral Lisa: ${p.label} ${alt}mm × ${qtdTotal}un (${compM_alt.toFixed(2)}m)`);
 
             if (lblLow === 'fita acabamento maior')   return aplicarRegraFixoFitaDupla('fixo_fita_acab_maior', lar, alt, qtdTotal,   `Fixo: ${p.label} ${lar}×${alt}mm`);
             if (lblLow === 'fita acabamento menor')   return aplicarRegraFixoFitaDupla('fixo_fita_acab_menor', lar, alt, qtdTotal,   `Fixo: ${p.label} ${lar}×${alt}mm`);
