@@ -619,15 +619,15 @@ var PerfisRevAcoplado = (function() {
   // gerarPecasFixoLateralLisa(item, lado)
   // Felipe (sessao 18): chapas do fixo lateral LISA — NAO reusa motor
   // da porta. Apenas 2 tipos de peca:
-  //   1. Tampa: 1 unidade por face
-  //      largura = larguraFixo - FGLD - FGLE + 100
+  //   1. Tampa Maior: 1 unidade por face
+  //      largura = larguraFixo - FGLD - FGLE + 100 + REF
   //      altura  = alturaFixo  - FGSup
-  //   2. Fita Acabamento: 2 unidades por face
+  //   2. Fita Acabamento: 1 unidade por face
   //      largura = 50 + REF (do cadastro, default 20)
   //      altura  = alturaFixo + 100
-  // Totais (esperados pelo Felipe):
-  //   1 face : 1 tampa + 2 fitas
-  //   2 faces: 2 tampas + 4 fitas
+  // Totais:
+  //   1 face : 1 tampa + 1 fita
+  //   2 faces: 2 tampas + 2 fitas
   // ====================================================================
   function gerarPecasFixoLateralLisa(item, lado) {
     var L = Number(item.largura) || 0;
@@ -660,7 +660,7 @@ var PerfisRevAcoplado = (function() {
       : String(item.corInterna || '').trim();
     var corComPrefixo = corLado || 'ACM';
 
-    var largTampa = L - FGLD - FGLE + 100;
+    var largTampa = L - FGLD - FGLE + 100 + REF;
     var altTampa  = H - FGSup;
     var largFita  = 50 + REF;
     var altFita   = H + 100;
@@ -687,8 +687,16 @@ var PerfisRevAcoplado = (function() {
       });
     }
 
+    // Felipe (sessao 18, refinamento):
+    //   - Largura tampa: + REF (era so' "+ 100", agora "+ 100 + REF").
+    //     Pra REF=20: L - folgas + 120.
+    //   - Fita Acabamento: 1 por face (era 2). Felipe: '2x fixo se for
+    //     revestimento 2 lados e 1 por fixo caso seja somente um lado'.
+    //     Como esta funcao e' chamada por face (externo/interno) e ja'
+    //     bloqueamos chamada interno quando lados=1, basta gerar 1 fita
+    //     por chamada → total 1 (1 lado) ou 2 (2 lados).
     add('Tampa Maior',     largTampa, altTampa, 1);
-    add('Fita Acabamento', largFita,  altFita,  2);
+    add('Fita Acabamento', largFita,  altFita,  1);
 
     return pecas;
   }
