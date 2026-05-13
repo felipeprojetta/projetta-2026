@@ -270,6 +270,22 @@ const PerfisPortaExterna = (() => {
     const VARS_FAM_ATIVAS = getVarsFam();
     const v   = VARS_FAM_ATIVAS[fam];
     const cod = COD_FAM[fam];
+
+    // Felipe (sessao 18): folgas EDITAVEIS POR ITEM (mesma logica do
+    // motor de chapas em 38-chapas-porta-externa.js linhas 91-93).
+    // Sessao 13 implementou pras chapas mas ESQUECEU dos perfis. Bug
+    // reportado: item.fglDir/fglEsq/fgSup era ignorado aqui — formulas
+    // usavam sempre v.FGLD/FGLE/FGA do cadastro global, fazendo o
+    // override por item ser "so' de enfeito" (palavras do Felipe).
+    // Override valido em qualquer valor >= 0 (zero permitido).
+    const _toNum = (raw, fallback) => {
+      if (raw === '' || raw === null || raw === undefined) return fallback;
+      const n = Number(String(raw).replace(',', '.'));
+      return (Number.isFinite(n) && n >= 0) ? n : fallback;
+    };
+    const FGLD_eff = _toNum(item.fglDir, v.FGLD);
+    const FGLE_eff = _toNum(item.fglEsq, v.FGLE);
+    const FGA_eff  = _toNum(item.fgSup,  v.FGA);
     const ESPACM = (window.PerfisCore || {}).espessuraRevestimento
       ? window.PerfisCore.espessuraRevestimento(item.revestimento)
       : 4;
@@ -278,7 +294,7 @@ const PerfisPortaExterna = (() => {
       || (c => c > 7000 ? '-8M' : c > 6000 ? '-7M' : '-6M');
 
     // --------- Formulas dos cortes (REGRAS_PERFIS.xlsx) ---------
-    const PA_F      = A - v.FGA - v.TUBLPORTAL - v.ESPPIV + v.TRANSPIV;
+    const PA_F      = A - FGA_eff - v.TUBLPORTAL - v.ESPPIV + v.TRANSPIV;
 
     // LARG_INT — Felipe:
     //   1 folha:  L - FGLD - FGLE - 171,7 - 171,5
@@ -290,16 +306,16 @@ const PerfisPortaExterna = (() => {
     // & Superior, nao a de 1 folha como antes). Pra 1 folha as duas
     // formulas coincidem.
     const LARG_INT_FOLHA = (nFolhas === 2)
-      ? (L - v.FGLD - v.FGLE - 171.7 - 171.5 - 235) / 2
-      :  L - v.FGLD - v.FGLE - 171.7 - 171.5;
+      ? (L - FGLD_eff - FGLE_eff - 171.7 - 171.5 - 235) / 2
+      :  L - FGLD_eff - FGLE_eff - 171.7 - 171.5;
     const LARG_INT_TRAV  = LARG_INT_FOLHA;
 
-    const TRAV_VERT = A - v.FGA - v.TUBLPORTAL - v.ESPPIV - v.VEDPT * 2 - v.TUBLPORTA * 2;
+    const TRAV_VERT = A - FGA_eff - v.TUBLPORTAL - v.ESPPIV - v.VEDPT * 2 - v.TUBLPORTA * 2;
     const VEDA      = LARG_INT_FOLHA + 110 + 110;
     const CANAL     = LARG_INT_FOLHA + 110 + 110 + 10;
     const CAVA_COMP = TRAV_VERT - 30;
-    const ALT_PORTAL= A - v.FGA - v.TUBLPORTAL - ESPACM;
-    const LAR_PORTAL= L - v.FGLD - v.FGLE;
+    const ALT_PORTAL= A - FGA_eff - v.TUBLPORTAL - ESPACM;
+    const LAR_PORTAL= L - FGLD_eff - FGLE_eff;
     const TRA_PORTAL_COMP = LAR_PORTAL - 93;
 
     // --------- Quantidades ---------
@@ -388,7 +404,7 @@ const PerfisPortaExterna = (() => {
       // Mesma formula do motor de chapas (calcularQtdRipas)
       const denom = 60 + espacRipas;
       const numerador = (tipoRipado === 'parcial')
-        ? (L - v.FGLD - v.tamCava - v.FGLE)
+        ? (L - FGLD_eff - v.tamCava - FGLE_eff)
         : L;
       const qtdRipas = denom > 0 ? Math.ceil(numerador / denom) : 0;
       // Pedacos de tubo por ripa = floor(altura / 1000)
@@ -460,10 +476,10 @@ const PerfisPortaExterna = (() => {
         // Felipe (sessao 13, planilha 01/04/2026): Mod23+AM usa
         // U_LARG_2F=133 e U_LARG_CENTRAL=133 (em vez de 128).
         const U_LARG_1F = 90, U_LARG_2F = 133, U_LARG_CENTRAL = 133;
-        const FGLD_FGLE_loc = v.FGLD + v.FGLE;
+        const FGLD_FGLE_loc = FGLD_eff + FGLE_eff;
         larguraQuadro1F = L - FGLD_FGLE_loc - PORTAL_LD - PORTAL_LE + U_LARG_1F + U_LARG_CENTRAL;
         larguraQuadro2F = L - 20            - PORTAL_LD - PORTAL_LE + U_LARG_2F + U_LARG_CENTRAL;
-        alturaQuadro    = A - v.FGA - v.TUBLPORTAL - v.ESPPIV + v.TRANSPIV;
+        alturaQuadro    = A - FGA_eff - v.TUBLPORTAL - v.ESPPIV + v.TRANSPIV;
       }
 
       const dBC     = parseFloat(String(item.distanciaBordaCava || 0).replace(',', '.')) || 0;
