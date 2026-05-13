@@ -1510,6 +1510,72 @@ const ChapasPortaExterna = (() => {
           categoria: 'porta' },
       ],
     },
+
+    // ===================================================================
+    // MODELO 25 — Felipe (sessao 18) — "Puxador Externo + ripado vertical
+    // sem elevacao".
+    //
+    // Base: mod 10 (puxador externo, liso, sem cava).
+    // Diferenca: adiciona quantidadeFrisos (qf) + espessuraFriso (eF).
+    // Os frisos verticais FATIAM a tampa maior em (qf+1) chapas iguais.
+    // Nao tem ripa fisica (PA-51X12X1.58 NAO e' gerado), nao tem perfil
+    // de friso vertical (PA-76X76 NAO e' gerado em 31-perfis pq mod 25
+    // nao entra em MODELOS_COM_FRISO_VERTICAL — Felipe pediu "exatamente
+    // o modelo 10"). Os "frisos" sao puramente espacos vazios entre as
+    // chapas.
+    //
+    // Formula (descrita pelo Felipe):
+    //   "largura da tampa maior sem refilados - qtdFrisos * espFriso
+    //    dividido por (qtdFrisos+1), assim teremos a largura da chapa
+    //    + 2 * refilado. Quantidade dessas tampas sera qtdFrisos+1."
+    //
+    // 1F: largura tampa sem refilados = larguraQuadro1F (sem cava)
+    //     largura chapa = (lq1F - qf*eF) / (qf+1) + 2*REF
+    //     qty/face = qf+1
+    //
+    // 2F: cada folha vira (qf+1) chapas. Largura de cada folha
+    //     simplificada como larguraQuadro2F/2 (Felipe: "mesma logica
+    //     de divisao"). Diferente do mod 10 2F que tem 3 tampas
+    //     TM_01/02/03 com encaixes diferentes (+10.5, -27, -28).
+    //     largura chapa = (lq2F/2 - qf*eF) / (qf+1) + 2*REF
+    //     qty/face = (qf+1) * 2 (duas folhas)
+    //
+    // Defensivo: Math.max(1, qf+1) — se qf vazio/zero, vira 1 chapa
+    // unica (= mod 10 puro). qf>=0 garantido pelo parseInt em buildCtx.
+    //
+    // Edge cases:
+    //   qf=0 → 1 chapa por folha, igual mod 10
+    //   qf=1 → 2 chapas por folha, 1 friso no meio
+    //   qf=3 → 4 chapas por folha, 3 frisos
+    // ===================================================================
+    25: {
+      '1F': [
+        { id: 'tampa_maior_cava', label: 'Tampa Maior',
+          largura: ctx => {
+            const qf = Math.max(0, parseInt(ctx.qtdFrisos, 10) || 0);
+            const eF = Number(ctx.eF) || 0;
+            const fatias = Math.max(1, qf + 1);
+            return (ctx.larguraQuadro1F - qf * eF) / fatias + 2 * ctx.REF;
+          },
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => Math.max(1, (parseInt(ctx.qtdFrisos, 10) || 0) + 1),
+          int: ctx => Math.max(1, (parseInt(ctx.qtdFrisos, 10) || 0) + 1),
+          categoria: 'porta' },
+      ],
+      '2F': [
+        { id: 'tampa_maior_cava', label: 'Tampa Maior',
+          largura: ctx => {
+            const qf = Math.max(0, parseInt(ctx.qtdFrisos, 10) || 0);
+            const eF = Number(ctx.eF) || 0;
+            const fatias = Math.max(1, qf + 1);
+            return (ctx.larguraQuadro2F / 2 - qf * eF) / fatias + 2 * ctx.REF;
+          },
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => Math.max(1, (parseInt(ctx.qtdFrisos, 10) || 0) + 1) * 2,
+          int: ctx => Math.max(1, (parseInt(ctx.qtdFrisos, 10) || 0) + 1) * 2,
+          categoria: 'porta' },
+      ],
+    },
   };
 
   // ------------------------------------------------------------------

@@ -2632,6 +2632,10 @@ const Orcamento = (() => {
     22: ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'quantidadeFrisos'],
     23: ['tipoMoldura', 'quantasDivisoesMoldura', 'quantidadeMolduras', 'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura', 'perfilMoldura'],
     24: ['tamanhoCava'],
+    // Felipe (sessao 18): Mod 25 = "Puxador Externo + ripado vertical sem
+    // elevacao". Base mod 10 (liso) + frisos verticais que FATIAM a tampa
+    // em (qtdFrisos+1) chapas. Sem cava, sem ripa fisica.
+    25: ['quantidadeFrisos', 'espessuraFriso'],
   };
 
   /**
