@@ -14678,7 +14678,7 @@ const Orcamento = (() => {
             <span style="display:inline-block;transition:transform 0.2s;font-size:12px;color:#b45309;" class="fsd-arrow">▶</span>
             📊 Abrir Detalhamento — Fita Dupla Face e Silicone Estrutural
             <span style="margin-left:auto;font-size:11px;font-weight:500;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:12px;">
-              ${(t.mFD19 || 0).toFixed(1)}m + ${(t.mFD12 || 0).toFixed(1)}m + ${(t.mMS || 0).toFixed(1)}m 995 + ${(t.mCPS || 0).toFixed(1)}m CPS${mHIGHTACK_total > 0 ? ' + ' + mHIGHTACK_total.toFixed(1) + 'm HIGHTACK' : ''} · clique pra ver de onde
+              ${((t.mFD19 || 0) + (t.mFD19_obra || 0)).toFixed(1)}m + ${((t.mFD12 || 0) + (t.mFD12_obra || 0)).toFixed(1)}m + ${(t.mMS || 0).toFixed(1)}m 995 + ${(t.mCPS || 0).toFixed(1)}m CPS${mHIGHTACK_total > 0 ? ' + ' + mHIGHTACK_total.toFixed(1) + 'm HIGHTACK' : ''} · clique pra ver de onde
             </span>
           </summary>
 
@@ -14702,8 +14702,8 @@ const Orcamento = (() => {
             <tfoot>
               <tr style="background:#fef3c7;font-weight:800;border-top:2px solid #f59e0b;">
                 <td style="padding:8px 10px;font-size:12px;color:#92400e;" colspan="3">TOTAL</td>
-                <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD19 || 0).toFixed(2)}m</td>
-                <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${(t.mFD12 || 0).toFixed(2)}m</td>
+                <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${((t.mFD19 || 0) + (t.mFD19_obra || 0)).toFixed(2)}m</td>
+                <td style="text-align:center;padding:8px 10px;font-size:12px;color:#1e3a8a;">${((t.mFD12 || 0) + (t.mFD12_obra || 0)).toFixed(2)}m</td>
                 <td style="text-align:center;padding:8px 10px;font-size:13px;color:#b45309;">${(t.mMS || 0).toFixed(2)}m</td>
                 <td style="text-align:center;padding:8px 10px;font-size:13px;color:#15803d;background:#dcfce7;">${(t.mCPS || 0).toFixed(2)}m</td>
                 <td style="text-align:center;padding:8px 10px;font-size:13px;color:#0369a1;background:#e0f2fe;">${mHIGHTACK_total.toFixed(2)}m</td>
