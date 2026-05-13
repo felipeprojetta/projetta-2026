@@ -93,6 +93,7 @@
         destino: '',         // '' | 'nacional' | 'internacional'
         responsavel: '',     // Felipe (sessao 09): responsavel pelo orcamento
         classificacao: '',   // Felipe sessao 12: Showroom/Representante/Vendedor/etc
+        modelo: '',          // Felipe (sessao 18): filtra por modelo da porta (porta_modelo + itens_extras[].modelo)
       },
       // KPIs Fechado: ano civil + mes fiscal (16-15).
       // Default: ano e mes atual.
@@ -1746,6 +1747,18 @@
         if (f.responsavel && (l.responsavel_orcamento || '') !== f.responsavel) return false;
         // Felipe sessao 12: filtro classificacao do representante
         if (f.classificacao && classificacaoDoLead(l) !== f.classificacao) return false;
+        // Felipe (sessao 18): filtro de modelo. Match se porta_modelo
+        // bate OU se algum item extra tem o mesmo modelo. Comparacao
+        // como string pra suportar formatos "08" (zero-padded) e "8".
+        if (f.modelo) {
+          const alvo = String(f.modelo).replace(/^0+/, '');
+          const normaliza = (v) => String(v || '').replace(/^0+/, '');
+          let bate = normaliza(l.porta_modelo) === alvo;
+          if (!bate && Array.isArray(l.itens_extras)) {
+            bate = l.itens_extras.some(it => normaliza(it && it.modelo) === alvo);
+          }
+          if (!bate) return false;
+        }
         return true;
       });
     }
@@ -1763,6 +1776,14 @@
       const coords = new Set();
       const sups = new Set();
       const resps = new Set();
+      // Felipe (sessao 18): modelos unicos em uso nos leads
+      // (porta_modelo + itens_extras[].modelo). Normaliza pra "08" formato.
+      const modelos = new Set();
+      const addModelo = (raw) => {
+        if (raw === undefined || raw === null || raw === '') return;
+        const s = String(raw).replace(/^0+/, '');
+        if (s) modelos.add(s.padStart(2, '0'));
+      };
       state.leads.forEach(l => {
         if (l.cidade) cidades.add(l.cidade);
         if (l.estado) estados.add(l.estado);
@@ -1772,8 +1793,14 @@
         if (h.gerente)     gers.add(h.gerente);
         if (h.coordenador) coords.add(h.coordenador);
         if (h.supervisor)  sups.add(h.supervisor);
+        addModelo(l.porta_modelo);
+        if (Array.isArray(l.itens_extras)) {
+          l.itens_extras.forEach(it => addModelo(it && it.modelo));
+        }
       });
       const sort = (s) => Array.from(s).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
+      // Felipe (sessao 18): modelos sorteados numericamente (01, 02, 08, 11...)
+      const sortModelos = (s) => Array.from(s).sort((a, b) => Number(a) - Number(b));
       return {
         cidades: sort(cidades),
         estados: sort(estados),
@@ -1782,6 +1809,7 @@
         coordenadores: sort(coords),
         supervisores: sort(sups),
         responsaveis: sort(resps),
+        modelos: sortModelos(modelos),
       };
     }
 
@@ -2291,7 +2319,7 @@
       const anos = anosFiltroKPI();
       const opcs = opcoesFiltros();
       const f = state.filtros;
-      const algumFiltroAtivo = !!(f.busca || f.cidade || f.estado || f.representante || f.gerente || f.coordenador || f.supervisor || f.responsavel || f.destino || f.classificacao);
+      const algumFiltroAtivo = !!(f.busca || f.cidade || f.estado || f.representante || f.gerente || f.coordenador || f.supervisor || f.responsavel || f.destino || f.classificacao || f.modelo);
       const MESES = [
         'Janeiro','Fevereiro','Marco','Abril','Maio','Junho',
         'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'
@@ -2411,6 +2439,26 @@
               <option value="nacional" ${f.destino === 'nacional' ? 'selected' : ''}>Nacional</option>
               <option value="internacional" ${f.destino === 'internacional' ? 'selected' : ''}>Internacional</option>
             </select>
+            <select class="crm-filtro-sel" id="crm-f-modelo">
+              <option value="">— modelo —</option>
+              ${(() => {
+                // Felipe (sessao 18): label do modelo busca nome no cadastro
+                // (Modelo 08 - Cava + Ripado) pra UX melhor. Fallback "Modelo XX".
+                let modelosCad = [];
+                try { modelosCad = Storage.scope('cadastros').get('modelos_lista') || []; } catch(_) {}
+                const nomePorNumero = {};
+                modelosCad.forEach(m => {
+                  const n = String(m.numero || '').replace(/^0+/, '');
+                  if (n) nomePorNumero[n] = m.nome || '';
+                });
+                return opcs.modelos.map(v => {
+                  const num = String(v).replace(/^0+/, '');
+                  const nome = nomePorNumero[num] || '';
+                  const label = 'Modelo ' + v + (nome ? ' - ' + nome : '');
+                  return `<option value="${escapeHtml(v)}" ${v === f.modelo ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                }).join('');
+              })()}
+            </select>
             ${algumFiltroAtivo ? '<button class="crm-filtro-limpar" id="crm-f-limpar" title="Limpar todos os filtros">🗑 Limpar</button>' : ''}
             <span class="crm-filtro-resumo"><b>${total}</b> ${total === 1 ? 'lead' : 'leads'} · <b>R$ ${fmtBR(totalValor)}</b></span>
           </div>
@@ -2524,8 +2572,9 @@
       bindSelectFiltro('#crm-f-supervisor',    'supervisor');
       bindSelectFiltro('#crm-f-responsavel',   'responsavel');
       bindSelectFiltro('#crm-f-destino',       'destino');
+      bindSelectFiltro('#crm-f-modelo',        'modelo');
       container.querySelector('#crm-f-limpar')?.addEventListener('click', () => {
-        state.filtros = { busca: '', cidade: '', estado: '', representante: '', gerente: '', coordenador: '', supervisor: '', responsavel: '', destino: '', classificacao: '' };
+        state.filtros = { busca: '', cidade: '', estado: '', representante: '', gerente: '', coordenador: '', supervisor: '', responsavel: '', destino: '', classificacao: '', modelo: '' };
         render(container);
       });
 
