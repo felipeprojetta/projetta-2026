@@ -377,14 +377,17 @@
         <div class="crm-aba-atp-content" style="${oculta}">
           <div class="crm-aba-atp-banner">
             <span class="crm-aba-atp-icone">📄</span>
-            <div>
+            <div style="flex:1;">
               <strong>Dados do Contrato (ATP)</strong>
               <div class="crm-aba-atp-hint">
-                Apos fechar o lead, o cliente pode mudar nome, endereco e dados no contrato.
-                Preencha aqui sem afetar os dados originais do orcamento (aba AGP).
-                <br><em>Em breve: botao pra puxar do intranet Weiku pelo numero ATP.</em>
+                Dados especificos do contrato (clonados do CRM ao fechar).
+                Pode editar aqui pra refletir mudancas pos-fechamento na producao.
               </div>
             </div>
+            <button type="button" class="crm-btn-importar-atp" id="crm-btn-importar-atp"
+                    title="Puxa dados do contrato direto da Intranet Weiku pelo numero ATP">
+              🔄 Importar do Intranet
+            </button>
           </div>
 
           <div class="crm-form-row cols-2">
@@ -1616,6 +1619,91 @@
         } catch (err) {
           console.error('[crm-btn-repuxar]', err);
           alert('Erro ao re-puxar Weiku:\n\n' + (err.message || err));
+          btn.textContent = originalText;
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        }
+      });
+
+      // Felipe sessao 18: Botao 'Importar do Intranet' (aba ATP)
+      // Le o numero ATP do campo data-atp-field='numeroAtp' e chama
+      // WeikuClient.buscarContrato. Depois preenche TODOS os campos
+      // ATP do form com a resposta normalizada. Sem mexer em AGP nem
+      // em outros dados do lead.
+      container.querySelector('#crm-btn-importar-atp')?.addEventListener('click', async () => {
+        if (!modalState.editandoId) return;
+        const lead = state.leads.find(l => l.id === modalState.editandoId);
+        if (!lead) return;
+        // Pega numero ATP do INPUT (Felipe pode ter digitado agora ainda
+        // nao salvou). Se vazio, cai pro atp.numeroAtp salvo no lead.
+        const inputAtp = container.querySelector('[data-atp-field="numeroAtp"]');
+        const numeroAtp = (inputAtp?.value || lead.atp?.numeroAtp || '').trim();
+        if (!numeroAtp) {
+          alert('Preencha o numero ATP antes de importar do Intranet.');
+          inputAtp?.focus();
+          return;
+        }
+        const btn = container.querySelector('#crm-btn-importar-atp');
+        if (!btn) return;
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.textContent = '⏳ Buscando contrato...';
+        try {
+          if (!window.WeikuClient || !window.WeikuClient.buscarContrato) {
+            throw new Error('Modulo WeikuClient nao carregado');
+          }
+          const dados = await window.WeikuClient.buscarContrato(numeroAtp);
+          if (!dados) throw new Error('Contrato vazio');
+
+          // Helper: preenche um input se o valor veio da API e o campo
+          // existe no DOM. Nao sobreescreve se a API retornou vazio.
+          const setField = (fieldName, valor) => {
+            if (!valor) return;
+            const el = container.querySelector(`[data-atp-field="${fieldName}"]`);
+            if (el && !el.value) {  // preserva ediao manual ja feita pelo usuario
+              el.value = valor;
+              // dispara evento change pra logica de persistencia engatilhar
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            } else if (el && el.value !== valor) {
+              // tem valor e e' diferente: pergunta antes de sobrescrever
+              if (confirm(`Campo '${fieldName}' ja tem '${el.value}'. Sobrescrever com '${valor}' do Intranet?`)) {
+                el.value = valor;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+            }
+          };
+
+          // Cliente / responsavel
+          setField('nomeContrato',      dados.nomeContrato);
+          setField('responsavelLegal',  dados.responsavelLegal);
+          setField('cpfCnpj',           dados.cpfCnpj);
+          setField('rg',                dados.rg);
+          setField('emailContrato',     dados.emailContrato);
+          // Cobranca
+          setField('cepCobranca',       dados.cobranca?.cep);
+          setField('cidadeCobranca',    dados.cobranca?.cidade);
+          setField('estadoCobranca',    dados.cobranca?.estado);
+          setField('enderecoCompletoCobranca', dados.cobranca?.enderecoCompleto);
+          // Entrega
+          setField('cepEntrega',        dados.entrega?.cep);
+          setField('cidadeEntrega',     dados.entrega?.cidade);
+          setField('estadoEntrega',     dados.entrega?.estado);
+          setField('enderecoCompletoEntrega', dados.entrega?.enderecoCompleto);
+          setField('telefoneObra',      dados.telefoneObra);
+          setField('pontoReferencia',   dados.entrega?.pontoReferencia);
+
+          btn.textContent = '✅ Importado!';
+          btn.style.background = '#dcfce7';
+          setTimeout(() => {
+            btn.textContent = originalText;
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.background = '';
+          }, 1500);
+        } catch (err) {
+          console.error('[crm-btn-importar-atp]', err);
+          alert('Erro ao importar do Intranet:\n\n' + (err.message || err));
           btn.textContent = originalText;
           btn.disabled = false;
           btn.style.opacity = '1';

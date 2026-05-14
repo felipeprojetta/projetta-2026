@@ -39,6 +39,12 @@ const WeikuClient = (() => {
     // Producao:    https://intranet.weiku.com.br/v2/api/reservas/reserva/{numero}
     // CORS liberado pra projetta-2026.netlify.app
     apiUrl: 'https://intranet.weiku.com.br/v2/api/reservas/reserva/',
+    // Felipe sessao 18: endpoint pra puxar dados do CONTRATO pelo ATP.
+    // URL provisoria sugerida pro John (TI Weiku). Quando ele responder
+    // confirmando o endpoint real, basta atualizar essa string aqui.
+    // Schema esperado da resposta JSON (definido por mim, pra confirmar
+    // com o John): vide buscarContrato abaixo (Documentation block).
+    apiUrlContrato: 'https://intranet.weiku.com.br/v2/api/contratos/contrato/',
   };
 
   function configure(opts) {
@@ -190,10 +196,175 @@ const WeikuClient = (() => {
     }
   }
 
-  // Expoe globalmente pra ser configurado de fora (futuro)
-  if (typeof window !== 'undefined') {
-    window.WeikuClient = { configure, getStatus, buscarReserva };
+  // ═══════════════════════════════════════════════════════════════════
+  // Felipe sessao 18: API CONTRATO (ATP)
+  // ═══════════════════════════════════════════════════════════════════
+  //
+  // Mesma estrutura do buscarReserva, mas pra buscar dados do CONTRATO
+  // a partir do numero ATP. Quando o John (TI Weiku) liberar o endpoint
+  // (igual ja foi feito pra reserva), basta:
+  //   1. Confirmar apiUrlContrato no config (linha ~42)
+  //   2. Ajustar os nomes dos campos em buscarApiContrato conforme
+  //      a resposta real da API
+  //   3. Pronto - botao 'Importar do Intranet' no modal ATP funciona
+  //
+  // ESQUEMA esperado de resposta (parseado da tela do Weiku
+  // editar-contrato.php?auftrag_nr={atp} - sessao 18 sondei via Chrome):
+  //   {
+  //     auftrag_nr: 'ATP000361',
+  //     num_reserva: '127619',
+  //     ang_numer: 'AGP003239',
+  //     dat_orc: '15/07/2024',
+  //     tipo_pessoa: 'J' | 'F',
+  //     cliente_nome: 'LMN EMPREENDIMENTOS E PARTICIPACOES S.A.',
+  //     cliente_sobrenome: 'LMN EMPREENDIMENTOS',
+  //     cliente_cnpj: '03.334.792/0001-29',  // se PJ
+  //     cliente_cpf: '086.448.996-00',       // CPF do responsavel
+  //     cliente_inscricao_estadual: 'ISENTO',
+  //     cliente_responsavel: 'CLAUDIA RONISE DA SILVA',
+  //     cliente_rg: 'MG8.475.543',
+  //     cliente_celular: '(31) 99604-6556',
+  //     cliente_fone: '(31) 99604-6556',
+  //     cliente_mail: 'CLAUDIA@LMNEMPREENDIMENTOS.COM.BR',
+  //     cliente_mailnfe: 'CLAUDIA@LMNEMPREENDIMENTOS.COM.BR',
+  //     // ENDERECO COBRANCA
+  //     cliente_cep: '30350-563',
+  //     cliente_estado: 'MG',
+  //     cliente_cidade: 'Belo Horizonte',
+  //     cliente_rua: 'AV RAJA GABAGLIA',
+  //     cliente_bairro: 'SAO BENTO',
+  //     cliente_ruanumero: '3095',
+  //     cliente_complemento: '2 ANDAR',
+  //     // ENDERECO ENTREGA
+  //     entrega_cep: '34007-134',
+  //     entrega_estado: 'MG',
+  //     entrega_cidade: 'Nova Lima',
+  //     entrega_rua: 'ALAMEDA MONTE CARLO',
+  //     entrega_bairro: 'CONDOMINIO RIVIERA',
+  //     entrega_numero: '229',
+  //     entrega_complemento: 'CONDOMINIO RIVIERA',
+  //     entrega_referencia: 'PROXIMO BH SHOPPING',
+  //     // METADATA
+  //     coord_pcp: '...',
+  //     gestor: '...',
+  //     gerente: '...',
+  //     representante: '...',
+  //   }
+  //
+  // Resposta normalizada (formato que o modal ATP consome):
+  //   {
+  //     numeroAtp, dataAssinatura, prazoEntrega,
+  //     nomeContrato, responsavelLegal, cpfCnpj, rg, emailContrato,
+  //     cobranca: { cep, cidade, estado, enderecoCompleto },
+  //     entrega:  { cep, cidade, estado, enderecoCompleto },
+  //     pessoaAutorizadaReceber, telefoneObra, pontoReferencia,
+  //     numeroReserva, numeroAgp,
+  //   }
+  // ═══════════════════════════════════════════════════════════════════
+
+  function normalizarContrato(raw) {
+    if (!raw) return null;
+    const ehPJ = String(raw.tipo_pessoa || '').toUpperCase() === 'J';
+    const cpfCnpj = ehPJ ? (raw.cliente_cnpj || '') : (raw.cliente_cpf || '');
+    function montarEndereco(rua, num, compl, bairro, cidade, estado) {
+      const partes = [];
+      if (rua) partes.push(rua);
+      if (num) partes.push(num);
+      if (compl) partes.push(compl);
+      if (bairro) partes.push(bairro);
+      if (cidade || estado) partes.push([cidade, estado].filter(Boolean).join('/'));
+      return partes.join(', ');
+    }
+    return {
+      numeroAtp:        raw.auftrag_nr || '',
+      numeroReserva:    raw.num_reserva || '',
+      numeroAgp:        raw.ang_numer || '',
+      // Cliente / responsavel
+      nomeContrato:     raw.cliente_nome || '',
+      responsavelLegal: raw.cliente_responsavel || '',
+      cpfCnpj:          cpfCnpj,
+      rg:               raw.cliente_rg || '',
+      emailContrato:    raw.cliente_mail || raw.cliente_mailnfe || '',
+      // Endereco cobranca
+      cobranca: {
+        cep:               (raw.cliente_cep || '').replace(/[^\d-]/g, ''),
+        cidade:            raw.cliente_cidade || '',
+        estado:            raw.cliente_estado || '',
+        enderecoCompleto:  montarEndereco(
+                             raw.cliente_rua, raw.cliente_ruanumero,
+                             raw.cliente_complemento, raw.cliente_bairro,
+                             raw.cliente_cidade, raw.cliente_estado),
+      },
+      // Endereco entrega (obra)
+      entrega: {
+        cep:               (raw.entrega_cep || '').replace(/[^\d-]/g, ''),
+        cidade:            raw.entrega_cidade || '',
+        estado:            raw.entrega_estado || '',
+        enderecoCompleto:  montarEndereco(
+                             raw.entrega_rua, raw.entrega_numero,
+                             raw.entrega_complemento, raw.entrega_bairro,
+                             raw.entrega_cidade, raw.entrega_estado),
+        cei:               raw.entrega_cei || '',
+        pontoReferencia:   raw.entrega_referencia || '',
+      },
+      telefoneObra:     raw.cliente_celular || raw.cliente_fone || '',
+      // Metadata (provavel uso futuro)
+      _raw: raw,
+    };
   }
 
-  return { configure, getStatus, buscarReserva };
+  async function buscarContrato(numeroAtp) {
+    const num = String(numeroAtp || '').trim();
+    if (!num) throw new Error('Numero ATP vazio');
+    if (config.mode === 'mock') {
+      // Mock simples — pra testes locais sem API
+      return normalizarContrato({
+        auftrag_nr: num,
+        tipo_pessoa: 'J',
+        cliente_nome: 'CLIENTE EXEMPLO LTDA (mock)',
+        cliente_cnpj: '00.000.000/0001-00',
+        cliente_responsavel: 'JOAO EXEMPLO',
+        cliente_cpf: '000.000.000-00',
+        cliente_mail: 'exemplo@cliente.com.br',
+        cliente_cep: '00000-000',
+        cliente_cidade: 'Sao Paulo', cliente_estado: 'SP',
+        cliente_rua: 'Rua Exemplo', cliente_ruanumero: '100',
+        cliente_bairro: 'Centro', cliente_complemento: '',
+        entrega_cep: '00000-000', entrega_cidade: 'Sao Paulo', entrega_estado: 'SP',
+        entrega_rua: 'Rua Entrega', entrega_numero: '200', entrega_bairro: 'Bairro Obra',
+      });
+    }
+    // Modo 'api' (default): chama endpoint Weiku
+    const url = config.apiUrlContrato + encodeURIComponent(num);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error('Contrato ' + num + ' nao encontrado na API Weiku');
+        }
+        throw new Error('HTTP ' + res.status);
+      }
+      const data = await res.json();
+      if (Array.isArray(data) && data.length === 0) {
+        throw new Error('Contrato ' + num + ' nao encontrado na API Weiku');
+      }
+      const raw = Array.isArray(data) ? data[0] : data;
+      if (!raw || (!raw.cliente_nome && !raw.auftrag_nr)) {
+        throw new Error('Contrato ' + num + ' retornou vazio');
+      }
+      return normalizarContrato(raw);
+    } catch (e) {
+      if (e.name === 'TypeError' && e.message.includes('fetch')) {
+        throw new Error('Erro CORS: API Contrato ainda nao liberada. Aguarde o John (TI Weiku) habilitar projetta-2026.netlify.app pro endpoint /v2/api/contratos/contrato/{atp}.');
+      }
+      throw e;
+    }
+  }
+
+  return { configure, getStatus, buscarReserva, buscarContrato };
 })();
+
+// Expoe globalmente
+if (typeof window !== 'undefined') {
+  window.WeikuClient = WeikuClient;
+}

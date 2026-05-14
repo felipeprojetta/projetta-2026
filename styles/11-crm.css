@@ -1121,6 +1121,27 @@
   font-style: italic;
   opacity: .85;
 }
+/* Felipe sessao 18: botao Importar do Intranet (aba ATP) */
+.crm-btn-importar-atp {
+  background: #fff;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background .15s ease, transform .1s ease;
+}
+.crm-btn-importar-atp:hover:not(:disabled) {
+  background: #fff7ed;
+  transform: translateY(-1px);
+}
+.crm-btn-importar-atp:disabled {
+  cursor: wait;
+}
 
 /* Dividers de secao dentro da aba ATP */
 .crm-aba-atp-divider {
