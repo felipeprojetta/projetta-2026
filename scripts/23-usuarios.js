@@ -46,9 +46,11 @@ const UsuariosCadastro = (() => {
             <span class="t-strong">${escapeHtml(u.username)}</span>${tags.join('')}
           </td>
           <td>
+            <!-- Felipe sessao 18: SEGURANCA - senha agora e' hash,
+                 nao tem texto puro pra mostrar. Botao 👁 removido
+                 (impossivel desfazer hash). Pra trocar usar 'Alterar Senha'. -->
             <span class="usr-pwd-cell">
-              <span class="usr-pwd-text" data-pwd="${escapeHtml(u.password)}">••••••</span>
-              <button type="button" class="usr-pwd-toggle" data-action="toggle-pwd" title="Mostrar/ocultar senha">👁</button>
+              <span class="usr-pwd-text" style="opacity:.5;font-style:italic;">••••••</span>
             </span>
           </td>
           <td>${cadastro}</td>
@@ -96,30 +98,21 @@ const UsuariosCadastro = (() => {
     // Adicionar usuario
     const btnAdd = container.querySelector('#usr-btn-add');
     if (btnAdd) {
-      btnAdd.addEventListener('click', () => {
+      btnAdd.addEventListener('click', async () => {
         const u = (container.querySelector('#usr-add-username')?.value || '').trim();
         const p = (container.querySelector('#usr-add-password')?.value || '').trim();
         if (!u || !p) { alert('Preencha o nome do usuario e a senha.'); return; }
-        const r = Auth.addUser({ username: u, password: p, name: u, role: 'user' });
+        // Felipe sessao 18: Auth.addUser agora e' async (faz hash)
+        const r = await Auth.addUser({ username: u, password: p, name: u, role: 'user' });
         if (!r.ok) { alert(r.error); return; }
         render(container);
         if (window.showSavedDialog) window.showSavedDialog('Usuario adicionado com sucesso!');
       });
     }
 
-    // Toggle de visibilidade da senha por linha
-    container.querySelectorAll('[data-action="toggle-pwd"]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const span = btn.parentElement.querySelector('.usr-pwd-text');
-        if (!span) return;
-        if (span.textContent === '••••••') {
-          span.textContent = span.dataset.pwd || '';
-        } else {
-          span.textContent = '••••••';
-        }
-      });
-    });
+    // Felipe sessao 18: botao toggle senha removido (senha agora e hash,
+    // nao tem texto puro pra mostrar). Handlers data-action="toggle-pwd"
+    // ainda existem em alguns lugares antigos mas nao tem efeito.
 
     // Alterar senha (inline)
     container.querySelectorAll('[data-action="alterar-senha"]').forEach(btn => {
@@ -129,20 +122,22 @@ const UsuariosCadastro = (() => {
         const tr = btn.closest('tr');
         const tdSenha = tr ? tr.children[1] : null;
         if (!tdSenha) return;
-        const currentPwd = tdSenha.querySelector('.usr-pwd-text')?.dataset.pwd || '';
+        // Felipe sessao 18: input comeca VAZIO (senha antiga e' hash,
+        // nao pode ser preenchida). Usuario digita a nova senha desejada.
         tdSenha.innerHTML = `
           <span class="usr-pwd-cell">
-            <input type="text" class="cad-input" data-pwd-input value="${escapeHtml(currentPwd)}" style="width:160px;" />
+            <input type="password" class="cad-input" data-pwd-input placeholder="Nova senha" style="width:160px;" autocomplete="new-password" />
             <button type="button" class="btn btn-primary btn-sm" data-action="save-pwd" data-username="${escapeHtml(username)}" style="height:30px;font-size:11px;padding:4px 10px;">Salvar</button>
             <button type="button" class="btn btn-sm" data-action="cancel-pwd" style="height:30px;font-size:11px;padding:4px 10px;">Cancelar</button>
           </span>
         `;
         const inp = tdSenha.querySelector('input[data-pwd-input]');
         if (inp) inp.focus();
-        tdSenha.querySelector('[data-action="save-pwd"]')?.addEventListener('click', () => {
+        tdSenha.querySelector('[data-action="save-pwd"]')?.addEventListener('click', async () => {
           const newPwd = (inp?.value || '').trim();
           if (!newPwd) { alert('A nova senha nao pode ser vazia.'); return; }
-          const r = Auth.changePassword(username, newPwd);
+          // Felipe sessao 18: Auth.changePassword agora e' async
+          const r = await Auth.changePassword(username, newPwd);
           if (!r.ok) { alert(r.error); return; }
           render(container);
           if (window.showSavedDialog) window.showSavedDialog('Senha alterada com sucesso!');

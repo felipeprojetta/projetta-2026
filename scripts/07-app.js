@@ -102,11 +102,13 @@ const App = (() => {
   function bindLogin() {
     const form = $('#login-form');
     const errorBox = $('#login-error');
-    form.addEventListener('submit', (e) => {
+    // Felipe sessao 18: Auth.login agora e' async (faz hash da senha
+    // antes de comparar). Form handler precisa await.
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const username = $('#login-user').value.trim();
       const password = $('#login-pass').value;
-      const session = Auth.login(username, password);
+      const session = await Auth.login(username, password);
       if (!session) { errorBox.classList.add('is-visible'); return; }
       errorBox.classList.remove('is-visible');
       showApp();
