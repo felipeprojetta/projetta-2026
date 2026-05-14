@@ -21,12 +21,13 @@ const ChapasPergolado = (() => {
 
   // Tubos disponiveis pro pergolado.
   // Felipe sessao 18: 'comece com esses 4, depois cadastro mais'.
-  // O segundo numero do par e' a MENOR medida que vai pra divisao.
+  // menor: usado pra qtdRipas (ceil(L / (menor+9+espac)))
+  // maior: usado nas formulas das chapas (Peca 1)
   const TUBOS = [
-    { id: 'PA-51X51',      label: '51 × 51',     menor: 51 },
-    { id: 'PA-101X51',     label: '101 × 51',    menor: 51 },
-    { id: 'PA-38X38',      label: '38 × 38',     menor: 38 },
-    { id: 'PA-76X38',      label: '76 × 38',     menor: 38 },
+    { id: 'PA-51X51',      label: '51 × 51',     menor: 51, maior: 51  },
+    { id: 'PA-101X51',     label: '101 × 51',    menor: 51, maior: 101 },
+    { id: 'PA-38X38',      label: '38 × 38',     menor: 38, maior: 38  },
+    { id: 'PA-76X38',      label: '76 × 38',     menor: 38, maior: 76  },
   ];
 
   function getTubo(id) {
@@ -55,18 +56,29 @@ const ChapasPergolado = (() => {
 
   /**
    * Gera as pecas de chapa pro item pergolado.
-   * Iguala estrutura do rev parede ripado: 1 chapa por ripa.
-   * Largura da chapa: 94mm placeholder (Felipe vai redefinir).
+   * Felipe sessao 18 (regra esclarecida):
+   *   Peca 1: (menor+9) + (maior+9)*2  × H   × qtdRipas
+   *   Peca 2: (menor + 2*REF)          × H   × qtdRipas
    *
-   * Suporta item.paredes[] (multi-parede). Cada parede tem:
-   *   { largura_total, altura_total, quantidade }
+   * Ex tubo 76×38 (menor=38, maior=76), REF=20:
+   *   Peca 1: (38+9) + (76+9)*2 = 47 + 170 = 217 × H
+   *   Peca 2: 38 + 40 = 78 × H
+   *
+   * Suporta item.paredes[] (multi-parede).
    */
   function gerarPecasPergolado(item) {
     if (!item || item.tipo !== 'pergolado') return [];
 
     const cor = String(item.cor || '').trim();
     const tubo = getTubo(item.tubo);
+    const REF = getREF();
     const espac = parseFloat(String(item.espacamentoRipas != null ? item.espacamentoRipas : 30).replace(',', '.')) || 30;
+
+    // Felipe sessao 18: P1 e P2 conforme regra esclarecida.
+    //   P1 = (menor+9) + (maior+9)*2
+    //   P2 = menor + 2*REF
+    const larguraP1 = (tubo.menor + 9) + (tubo.maior + 9) * 2;
+    const larguraP2 = tubo.menor + 2 * REF;
 
     let paredes = Array.isArray(item.paredes)
       ? item.paredes.filter(p => p && (Number(p.largura_total) > 0 || Number(p.altura_total) > 0))
@@ -88,22 +100,40 @@ const ChapasPergolado = (() => {
       const qtdRipas = calcularQtdRipas(L, tubo.menor, espac);
       if (qtdRipas <= 0) return;
       const sufixo = paredes.length > 1 ? ` — Parede ${paredeIdx + 1}` : '';
+      const totalChapas = qtdRipas * qtdParede;
 
-      // Chapa placeholder: 94 × H (medida do ripado, Felipe redefinira)
+      // Peca 1
       out.push({
-        id: `pergolado_chapa_p${paredeIdx + 1}`,
-        label: `Chapa Pergolado (94×${H}mm)` + sufixo,
-        labelCompleto: `Chapa Pergolado (94×${H}mm)${cor ? ` (${cor})` : ''}` + sufixo,
-        largura: 94,
+        id: `pergolado_chapa1_p${paredeIdx + 1}`,
+        label: `Pergolado Peca 1 (${larguraP1}×${H}mm)` + sufixo,
+        labelCompleto: `Pergolado Peca 1 (${larguraP1}×${H}mm)${cor ? ` (${cor})` : ''}` + sufixo,
+        largura: larguraP1,
         altura:  H,
-        qtd:     qtdRipas * qtdParede,
-        podeRotacionar: false,  // tem veio (placeholder)
+        qtd:     totalChapas,
+        podeRotacionar: false,
         cor,
         lado: 'externo',
         categoria: 'pergolado',
         modelo: 0,
         ehDaCava: false,
-        observacao: `pergolado — tubo ${tubo.label}, espacamento ${espac}mm, ${qtdRipas} ripas/parede` + sufixo,
+        observacao: `pergolado P1 — tubo ${tubo.label} (menor=${tubo.menor}, maior=${tubo.maior}), formula (menor+9)+(maior+9)*2` + sufixo,
+      });
+
+      // Peca 2
+      out.push({
+        id: `pergolado_chapa2_p${paredeIdx + 1}`,
+        label: `Pergolado Peca 2 (${larguraP2}×${H}mm)` + sufixo,
+        labelCompleto: `Pergolado Peca 2 (${larguraP2}×${H}mm)${cor ? ` (${cor})` : ''}` + sufixo,
+        largura: larguraP2,
+        altura:  H,
+        qtd:     totalChapas,
+        podeRotacionar: false,
+        cor,
+        lado: 'externo',
+        categoria: 'pergolado',
+        modelo: 0,
+        ehDaCava: false,
+        observacao: `pergolado P2 — tubo ${tubo.label} (menor=${tubo.menor}), formula menor+2*REF (REF=${REF})` + sufixo,
       });
     });
     return out;

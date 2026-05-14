@@ -910,35 +910,52 @@ const AcessoriosPortaExterna = (() => {
 
       // --- 0a-pergolado) PERGOLADO: mesma regra de RIPA do rev parede.
       // Felipe sessao 18: pergolado e' so' tubo aparente, sem chapa de
-      // fundo. Cada chapa (placeholder 94×H) usa a regra da ripa:
-      //   FD 19mm = 2 × comprimento dos tubos × qtdChapas
-      //   Silicone = 1 × comprimento dos tubos × qtdChapas
-      // Como no pergolado o perfil e' INTEIRO (altura), o comprimento
-      // dos tubos = altura da peca.
+      // fundo. Cada RIPA (tubo) leva:
+      //   FD 19mm = 2 × altura × qtdRipas
+      //   Silicone = 1 × altura × qtdRipas
+      // Itera POR RIPA (nao por chapa) porque o motor de chapas agora
+      // gera 2 pecas por ripa (P1 e P2 — Felipe sessao 18). Iterar pelas
+      // chapas duplicaria FD/silicone. A regra fisica e' "por tubo".
       if (item.tipo === 'pergolado') {
         try {
-          const pecasPergo = (window.ChapasPergolado?.gerarPecasPergolado?.(item)) || [];
-          pecasPergo.forEach(p => {
-            const lar = Number(p.largura) || 0;
-            const alt = Number(p.altura)  || 0;
-            const qtd = Number(p.qtd)     || 0;
-            if (!lar || !alt || !qtd) return;
-            // Pergolado: comp dos tubos = altura inteira (perfil inteiro)
-            const totalCompM = (alt * qtd) / 1000;
-            const cFD19 = 2 * totalCompM;
-            const cMS   = 1 * totalCompM;
-            mFD19 += cFD19;
-            mMS   += cMS;
-            _breakdown.push({
-              origem: `Pergolado: chapa ${lar}×${alt}mm × ${qtd}un (tubos ${alt}mm/un)`,
-              regra:  'pergolado_chapa',
-              tipo:   'pergolado',
-              metros: totalCompM,
-              dim:    { L: lar, H: alt, qtd, compTuboMm: alt },
-              mult:   { fd19: 2, fd12: 0, ms: 1, cps: 0 },
-              contrib:{ fd19: cFD19, fd12: 0, ms: cMS, cps: 0 },
+          const tubo = window.ChapasPergolado?.getTubo?.(item.tubo);
+          const espac = parseFloat(String(item.espacamentoRipas != null ? item.espacamentoRipas : 30).replace(',', '.')) || 30;
+          if (tubo) {
+            let paredes = Array.isArray(item.paredes)
+              ? item.paredes.filter(p => p && (Number(p.largura_total) > 0 || Number(p.altura_total) > 0))
+              : [];
+            if (paredes.length === 0) {
+              paredes = [{
+                largura_total: item.largura_total,
+                altura_total:  item.altura_total,
+                quantidade:    Math.max(1, Number(item.quantidade) || 1),
+              }];
+            }
+            paredes.forEach((p, paredeIdx) => {
+              const L = Number(p.largura_total) || 0;
+              const H = Number(p.altura_total)  || 0;
+              if (!L || !H) return;
+              const qtdParede = Math.max(1, Number(p.quantidade) || 1);
+              const qtdRipas = window.ChapasPergolado.calcularQtdRipas(L, tubo.menor, espac);
+              if (qtdRipas <= 0) return;
+              const totalRipas = qtdRipas * qtdParede;
+              const totalCompM = (H * totalRipas) / 1000;
+              const cFD19 = 2 * totalCompM;
+              const cMS   = 1 * totalCompM;
+              mFD19 += cFD19;
+              mMS   += cMS;
+              const sufixoP = paredes.length > 1 ? ` (Parede ${paredeIdx + 1})` : '';
+              _breakdown.push({
+                origem: `Pergolado: ${totalRipas} ripa(s) × ${H}mm (tubo ${tubo.label})${sufixoP}`,
+                regra:  'pergolado_ripa',
+                tipo:   'pergolado',
+                metros: totalCompM,
+                dim:    { L, H, qtdRipas: totalRipas, tubo: tubo.label },
+                mult:   { fd19: 2, fd12: 0, ms: 1, cps: 0 },
+                contrib:{ fd19: cFD19, fd12: 0, ms: cMS, cps: 0 },
+              });
             });
-          });
+          }
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas pergolado:', e); }
       }
 
