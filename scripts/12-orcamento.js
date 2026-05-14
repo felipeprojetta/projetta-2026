@@ -2473,6 +2473,25 @@ const Orcamento = (() => {
       largura_total: '',
       altura_total: '',
     };
+    // Felipe sessao 18: pergolado.
+    // Bug 'clico no card e nada acontece': novoItem('pergolado') caia no
+    // return {tipo:''} no final → item vazio → tela voltava pra Escolha
+    // Tipo. Agora cria item populado.
+    if (tipo === 'pergolado') return {
+      tipo: 'pergolado',
+      quantidade: 1,
+      tubo: 'PA-51X51',            // tubo default
+      espacamentoRipas: 30,        // espacamento default
+      revestimento: '',
+      cor: '',
+      largura_total: '',
+      altura_total: '',
+      paredes: [{
+        largura_total: '',
+        altura_total:  '',
+        quantidade:    1,
+      }],
+    };
     return { tipo: '', quantidade: 1 };
   }
 
