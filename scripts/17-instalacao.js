@@ -359,11 +359,15 @@
     // pequeno aumente 1,5 vezes a largura".
     // 24 * 1.5 = 36px pros 3 periodos curtos. Auto fica 24 (range
     // pode ser grande, 36 estouraria).
-    const PX_DIA_BASE = 24;
+    //
+    // Felipe sessao 18 (atualizacao): "aumenta a largura esta muito
+    // pequeno, aumente em duas vezes a largura ali de cada dia".
+    // Dobrei: base 24 → 48, periodos curtos 36 → 72.
+    const PX_DIA_BASE = 48;
     const periodosLargos = ['semana', 'mes-atual', 'mes-seguinte'];
     const PX_DIA = periodosLargos.indexOf(state.ganttPeriodo) >= 0
-      ? Math.round(PX_DIA_BASE * 1.5)  // 36px
-      : PX_DIA_BASE;                    // 24px (auto)
+      ? Math.round(PX_DIA_BASE * 1.5)  // 72px
+      : PX_DIA_BASE;                    // 48px (auto)
     const totalPx = totalDias * PX_DIA;
     const hoje = hojeISO();
     const offsetHoje = (hoje >= min && hoje <= max) ? diasEntre(min, hoje) * PX_DIA : -1;
