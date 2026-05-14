@@ -14100,6 +14100,15 @@ const Orcamento = (() => {
           ? '<td><span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #d97706;">AM</span></td>'
           : '<td><span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;background:#e5e7eb;color:#374151;border:1px solid #9ca3af;">ACM</span></td>'
       );
+      // Felipe sessao 18: COLUNA COR — mostra a cor que o sistema
+      // atribuiu a cada peca, pra Felipe validar se a logica
+      // (ehDaCava → corCava vs corLado) ta resolvendo a cor certa.
+      // Felipe pediu apos ver Tampa Borda Cava com cor errada.
+      // Sem cor explicita: cai pro corLado (parametro do render).
+      const corDaPeca = p.cor || corLado || '';
+      const corCellHtml = corDaPeca
+        ? `<td style="font-size:11px;color:#374151;">${escapeHtml(corDaPeca)}</td>`
+        : `<td style="font-size:11px;color:#9ca3af;font-style:italic;">— sem cor</td>`;
       return `
       <tr${trStyle}>
         <td>${inputLabel}</td>
@@ -14110,6 +14119,7 @@ const Orcamento = (() => {
         <td class="t-num">${inputQtd}</td>
         <td class="t-num">${fmtBR(peso.unidade)}</td>
         <td class="t-num"><b>${fmtBR(peso.total)}</b></td>
+        ${corCellHtml}
         <td class="orc-lev-sup-rot-cell ${p.podeRotacionar ? '' : 't-warn'}">${selectHtml}</td>
         <td style="text-align:center;width:54px;white-space:nowrap;">${acaoHtml}</td>
       </tr>`;
@@ -14151,6 +14161,7 @@ const Orcamento = (() => {
         </td>
         <td class="t-num" style="color:#9ca3af;font-style:italic;font-size:11px;">auto</td>
         <td class="t-num" style="color:#9ca3af;font-style:italic;font-size:11px;">auto</td>
+        <td style="font-size:11px;color:#9ca3af;font-style:italic;">${escapeHtml(corLado || '— sem cor')}</td>
         <td style="text-align:center;color:#9ca3af;font-size:10px;">—</td>
         <td style="text-align:center;width:34px;">
           <button type="button" class="orc-lev-sup-btn-add-peca"
@@ -14179,6 +14190,7 @@ const Orcamento = (() => {
               <th>Qtd</th>
               <th>Peso/un (kg)</th>
               <th>Peso total (kg)</th>
+              <th>Cor</th>
               <th>Rotaciona?</th>
               <th></th>
             </tr>
