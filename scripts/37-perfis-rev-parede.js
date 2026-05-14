@@ -135,6 +135,28 @@ const PerfisRevParede = (() => {
       const espacRipas = parseFloat(String(item.espacamentoRipas != null ? item.espacamentoRipas : 30).replace(',', '.')) || 30;
       const cortesRipa = {};
       cortesRipa['PA-51X12X1.58'] = [];
+      // Felipe sessao 18 (nova regra do encarregado): tubo INTERNO da
+      // ripa nao e' mais N pedacos de 500mm. Padrao agora:
+      //   [TUBO 2000mm] (base) + [ar 600] + [TUBO 600mm] + [ar 600] +
+      //   [TUBO 600mm] + [ar 600] + ... ate' acabar a altura H
+      //
+      // Por ripa:
+      //   - 1 pedaco de 2000mm (sempre, exceto se H < 2000)
+      //   - N pedacos de 600mm onde N = floor((H - 2000) / 1200)
+      //     (1200 = 600 ar + 600 tubo)
+      //
+      // Exemplos validados:
+      //   H=3000:  1×2000 + 0×600       (cobre 2000, ar topo 1000)
+      //   H=4400:  1×2000 + 2×600       (cobre 4400, ar topo 0)
+      //   H=6000:  1×2000 + 3×600       (cobre 5600, ar topo 400)
+      //   H=7800:  1×2000 + 4×600       (cobre 6800, ar topo 1000)
+      function tubosPorRipa(H) {
+        if (H <= 0) return { p2000: 0, p600: 0 };
+        if (H < 2000) return { p2000: 0, p600: 0, pUnico: Math.round(H) };
+        const p2000 = 1;
+        const p600 = Math.floor((H - 2000) / 1200);
+        return { p2000, p600 };
+      }
       paredes.forEach((p, paredeIdx) => {
         const L = Number(p.largura_total) || 0;
         const H = Number(p.altura_total)  || 0;
@@ -142,15 +164,33 @@ const PerfisRevParede = (() => {
         const qtdParede = Math.max(1, Number(p.quantidade) || 1);
         const denom = 60 + espacRipas;
         const qtdRipas = denom > 0 ? Math.ceil(L / denom) : 0;
-        const pedacosPorRipa = Math.max(1, Math.floor(H / 1000));
-        const qtdTubo = qtdRipas * pedacosPorRipa * qtdParede;
-        if (qtdTubo > 0) {
+        if (qtdRipas <= 0) return;
+        const t = tubosPorRipa(H);
+        const sufixo = paredes.length > 1 ? ` — Parede ${paredeIdx + 1}` : '';
+        const totalRipas = qtdRipas * qtdParede;
+        // Ripa baixa (H<2000): 1 pedaco unico cortado
+        if (t.pUnico) {
           cortesRipa['PA-51X12X1.58'].push({
-            comp: 500,
-            qty: qtdTubo,
-            label: paredes.length > 1
-              ? `Tubo Interno das Ripas — Parede ${paredeIdx + 1}`
-              : 'Tubo Interno das Ripas',
+            comp: t.pUnico,
+            qty: totalRipas,
+            label: 'Tubo Interno das Ripas (corte ' + t.pUnico + 'mm)' + sufixo,
+          });
+          return;
+        }
+        // Pedaco base de 2000mm
+        if (t.p2000 > 0) {
+          cortesRipa['PA-51X12X1.58'].push({
+            comp: 2000,
+            qty: t.p2000 * totalRipas,
+            label: 'Tubo Interno das Ripas (base 2m)' + sufixo,
+          });
+        }
+        // Pedacos extras de 600mm acima
+        if (t.p600 > 0) {
+          cortesRipa['PA-51X12X1.58'].push({
+            comp: 600,
+            qty: t.p600 * totalRipas,
+            label: 'Tubo Interno das Ripas (extra 600mm)' + sufixo,
           });
         }
       });

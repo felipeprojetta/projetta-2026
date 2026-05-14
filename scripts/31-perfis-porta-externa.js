@@ -415,24 +415,47 @@ const PerfisPortaExterna = (() => {
       add(cod.perfLargInt, TRAV_VERT, qtdFrisos * nFolhas, 'Friso Vertical');
     }
 
-    // Felipe (sessao 2026-05): tubo das ripas para modelos 08 e 15.
-    // Perfil: PA-51X12X1.58, comprimento fixo de 500mm cada pedaco.
-    // Quantidade: floor(altura/1000) pedacos por ripa × qtdRipas total.
-    // Exemplo: porta 3000mm com 22 ripas → 3 × 22 = 66 pedacos de 500mm.
+    // Felipe sessao 18 (nova regra do encarregado): tubo INTERNO da
+    // ripa nao e' mais N pedacos de 500mm. Padrao agora:
+    //   [TUBO 2000mm] (base) + [ar 600] + [TUBO 600mm] + [ar 600] +
+    //   [TUBO 600mm] + [ar 600] + ... ate' acabar a altura A
+    //
+    // Por ripa:
+    //   - 1 pedaco de 2000mm (sempre, exceto se A < 2000)
+    //   - N pedacos de 600mm onde N = floor((A - 2000) / 1200)
+    //     (1200 = 600 ar + 600 tubo)
+    //
+    // Exemplos validados:
+    //   A=3000:  1×2000 + 0×600  (porta padrao — so o tubo base)
+    //   A=4400:  1×2000 + 2×600
+    //   A=6000:  1×2000 + 3×600
+    //
+    // Aplica em modelos 8 e 15 (Ripado). Quantidade total = qtdRipas
+    // × nFolhas × pedacosDeCadaTipo.
     if (modelo === 8 || modelo === 15) {
       const espacRipas = parseFloat(String(item.espacRipas || 30).replace(',', '.')) || 30;
       const tipoRipado = item.tipoRipado || 'total';
-      // Mesma formula do motor de chapas (calcularQtdRipas)
       const denom = 60 + espacRipas;
       const numerador = (tipoRipado === 'parcial')
         ? (L - FGLD_eff - v.tamCava - FGLE_eff)
         : L;
       const qtdRipas = denom > 0 ? Math.ceil(numerador / denom) : 0;
-      // Pedacos de tubo por ripa = floor(altura / 1000)
-      const pedacosPorRipa = Math.max(1, Math.floor(A / 1000));
-      const qtdTuboRipa = qtdRipas * pedacosPorRipa * nFolhas;
-      if (qtdTuboRipa > 0) {
-        add('PA-51X12X1.58', 500, qtdTuboRipa, 'Tubo Interno das Ripas');
+      const totalRipas = qtdRipas * nFolhas;
+      if (totalRipas > 0 && A > 0) {
+        if (A < 2000) {
+          // Ripa baixa: 1 pedaco unico cortado em A
+          add('PA-51X12X1.58', Math.round(A), totalRipas,
+              `Tubo Interno das Ripas (corte ${Math.round(A)}mm)`);
+        } else {
+          const p2000 = 1;
+          const p600 = Math.floor((A - 2000) / 1200);
+          add('PA-51X12X1.58', 2000, p2000 * totalRipas,
+              'Tubo Interno das Ripas (base 2m)');
+          if (p600 > 0) {
+            add('PA-51X12X1.58', 600, p600 * totalRipas,
+                'Tubo Interno das Ripas (extra 600mm)');
+          }
+        }
       }
     }
 
