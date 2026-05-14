@@ -1975,8 +1975,14 @@
             ? (l.destinoPais ? `🌎 ${escapeHtml(l.destinoPais)}` : '🌎 Internacional')
             : '';
           // Botao "Montar Orcamento" so aparece a partir da etapa "Fazer Orcamento"
-          const etapasComBotao = ['fazer-orcamento', 'orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao'];
+          // Felipe sessao 18: 'quando vai pra fechado no crm some a opcao de
+          // abrir orcamento e rever o que orcamentos. deixe pelo menos o
+          // botao para abrir o orcamento'. Adiciona 'fechado' à lista mas
+          // com flag pra mostrar SO o botao Abrir Orcamento (Revisar/Nova
+          // Versao/Gerar Documentos nao fazem sentido apos fechamento).
+          const etapasComBotao = ['fazer-orcamento', 'orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'fechado'];
           const mostraBtnOrc = etapasComBotao.includes(l.etapa);
+          const somenteAbrirOrc = l.etapa === 'fechado';
           // Reserva: sempre que existir, em qualquer etapa
           const reservaLabel = l.numeroReserva
             ? `<span class="crm-card-reserva">Res ${escapeHtml(l.numeroReserva)}</span>`
@@ -2161,6 +2167,7 @@
                   <button class="crm-orcdocs-btn" data-action="abrir-orcamento" data-lead-id="${l.id}" title="Escolha versao e abra o orcamento">
                     <span class="icon">📂</span><span>Abrir Orçamento</span>
                   </button>
+                  ${somenteAbrirOrc ? '' : `
                   <button class="crm-orcdocs-btn" data-action="revisar-versao" data-lead-id="${l.id}" title="Revisar — sobrescreve versao atual">
                     <span class="icon">✏️</span><span>Revisar</span>
                   </button>
@@ -2170,6 +2177,7 @@
                   <button class="crm-orcdocs-btn is-primary" data-action="gerar-documentos" data-lead-id="${l.id}" title="Gera PDF Proposta + 4 PNGs">
                     <span class="icon">📄</span><span>Gerar Documentos</span>
                   </button>
+                  `}
                   <div class="crm-orcdocs-btn-secundarios">
                     <button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:6px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>
                     ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva" style="background:rgba(0,120,212,0.4);color:#1a5276;border:none;padding:6px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Email</button>` : ''}
