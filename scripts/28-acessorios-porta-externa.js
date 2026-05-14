@@ -159,9 +159,11 @@ const AcessoriosPortaExterna = (() => {
     // Felipe sessao 2026-08: tambem aceita revestimento_parede e fixo_acoplado.
     // Pra esses tipos, so' fita+silicone e' calculado (resto - fechadura,
     // dobradica, cilindro, EPS - e' especifico de porta).
+    // Felipe sessao 18: pergolado tambem entra (so' fita+silicone).
     const tipoOK = item.tipo === 'porta_externa'
                 || item.tipo === 'revestimento_parede'
-                || item.tipo === 'fixo_acoplado';
+                || item.tipo === 'fixo_acoplado'
+                || item.tipo === 'pergolado';
     if (!tipoOK) return [];
     opts = opts || {};
     // Felipe sessao 12: detecta marca do PROPRIO item.cilindro se nao
@@ -904,6 +906,40 @@ const AcessoriosPortaExterna = (() => {
               `Revestimento: tampa ${lar}×${alt}mm × ${qtd}un`);
           });
         } catch (e) { console.warn('[FD/MS] erro ao ler pecas revestimento:', e); }
+      }
+
+      // --- 0a-pergolado) PERGOLADO: mesma regra de RIPA do rev parede.
+      // Felipe sessao 18: pergolado e' so' tubo aparente, sem chapa de
+      // fundo. Cada chapa (placeholder 94×H) usa a regra da ripa:
+      //   FD 19mm = 2 × comprimento dos tubos × qtdChapas
+      //   Silicone = 1 × comprimento dos tubos × qtdChapas
+      // Como no pergolado o perfil e' INTEIRO (altura), o comprimento
+      // dos tubos = altura da peca.
+      if (item.tipo === 'pergolado') {
+        try {
+          const pecasPergo = (window.ChapasPergolado?.gerarPecasPergolado?.(item)) || [];
+          pecasPergo.forEach(p => {
+            const lar = Number(p.largura) || 0;
+            const alt = Number(p.altura)  || 0;
+            const qtd = Number(p.qtd)     || 0;
+            if (!lar || !alt || !qtd) return;
+            // Pergolado: comp dos tubos = altura inteira (perfil inteiro)
+            const totalCompM = (alt * qtd) / 1000;
+            const cFD19 = 2 * totalCompM;
+            const cMS   = 1 * totalCompM;
+            mFD19 += cFD19;
+            mMS   += cMS;
+            _breakdown.push({
+              origem: `Pergolado: chapa ${lar}×${alt}mm × ${qtd}un (tubos ${alt}mm/un)`,
+              regra:  'pergolado_chapa',
+              tipo:   'pergolado',
+              metros: totalCompM,
+              dim:    { L: lar, H: alt, qtd, compTuboMm: alt },
+              mult:   { fd19: 2, fd12: 0, ms: 1, cps: 0 },
+              contrib:{ fd19: cFD19, fd12: 0, ms: cMS, cps: 0 },
+            });
+          });
+        } catch (e) { console.warn('[FD/MS] erro ao ler pecas pergolado:', e); }
       }
 
       // --- 0b) FIXO ACOPLADO A PORTA: pecas do motor PerfisRevAcoplado ---

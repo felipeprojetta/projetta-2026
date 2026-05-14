@@ -55,6 +55,7 @@ const Orcamento = (() => {
     { id: 'porta_interna',       label: 'Porta Interna' },
     { id: 'fixo_acoplado',       label: 'Fixo Acoplado' },
     { id: 'revestimento_parede', label: 'Revestimento de Parede' },
+    { id: 'pergolado',           label: 'Pergolado' },
   ];
   function labelTipo(id) {
     return TIPOS_ITEM.find(t => t.id === id)?.label || id;
@@ -3185,6 +3186,264 @@ const Orcamento = (() => {
   }
 
   /**
+   * Felipe sessao 18: NOVO ITEM PERGOLADO.
+   * Form proprio: tubo (select), espacamento, multi-paredes.
+   * Motores: scripts/41-chapas-pergolado + 42-perfis-pergolado.
+   */
+  function renderItemPergolado(container, negocio, opcao, versao, item) {
+    // Defaults
+    if (!item.tubo) item.tubo = 'PA-51X51';
+    if (item.espacamentoRipas == null) item.espacamentoRipas = 30;
+    if (!Array.isArray(item.paredes)) item.paredes = [];
+    if (item.paredes.length === 0) {
+      // Migracao legado / item novo
+      item.paredes.push({
+        largura_total: item.largura_total || '',
+        altura_total:  item.altura_total  || '',
+        quantidade:    Math.max(1, Number(item.quantidade) || 1),
+      });
+    }
+    // Espelha primeira parede no top-level (back-compat)
+    function syncTopParede0(it) {
+      const p0 = it.paredes[0];
+      if (p0) {
+        it.largura_total = Number(p0.largura_total) || 0;
+        it.altura_total  = Number(p0.altura_total)  || 0;
+      }
+    }
+    syncTopParede0(item);
+
+    const cad = Storage.scope('cadastros');
+    const revestimentos = cad.get('revestimentos_lista') || ['ACM 4mm'];
+    const TUBOS = (window.ChapasPergolado?.TUBOS) || [];
+
+    function renderUmaParede(p, i) {
+      const tuboObj = (window.ChapasPergolado?.getTubo?.(item.tubo)) || { menor: 51 };
+      const espac = Number(item.espacamentoRipas) || 30;
+      const L = Number(p.largura_total) || 0;
+      const denom = tuboObj.menor + 9 + espac;
+      const qtdRipas = L > 0 && denom > 0 ? Math.ceil(L / denom) : 0;
+      const hint = L > 0
+        ? `<b>Calculo:</b> ${qtdRipas} ripas (${L} / ${denom} = ${qtdRipas})`
+        : '<i>Preencha largura para ver o calculo.</i>';
+      return `
+        <div class="orc-rev-parede" data-parede-idx="${i}"
+             style="border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px;background:#fafbfc;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="font-weight:700;color:#1e3a8a;">Parede ${i + 1}</div>
+            ${item.paredes.length > 1 ? `
+              <button type="button" class="sup-btn-remove" data-action="remover-parede-pergo" data-parede-idx="${i}"
+                      style="padding:2px 8px;font-size:12px;" title="Remover parede">× remover</button>
+            ` : ''}
+          </div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-dim">
+              <label>Largura total (mm)</label>
+              <input type="number" min="0" data-field-parede-pergo="largura_total" data-parede-idx="${i}"
+                     value="${escapeHtml(String(p.largura_total || ''))}" placeholder="ex: 3000" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Altura total (mm)</label>
+              <input type="number" min="0" data-field-parede-pergo="altura_total" data-parede-idx="${i}"
+                     value="${escapeHtml(String(p.altura_total || ''))}" placeholder="ex: 5000" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Quantidade</label>
+              <input type="number" min="1" data-field-parede-pergo="quantidade" data-parede-idx="${i}"
+                     value="${escapeHtml(String(p.quantidade || 1))}" />
+            </div>
+          </div>
+          <p class="orc-hint-text" style="margin-top:6px;margin-bottom:0;">${hint}</p>
+        </div>
+      `;
+    }
+
+    container.innerHTML = `
+      <div class="orc-banner">
+        <div class="orc-banner-info">
+          <span class="t-strong">Negocio em edicao:</span>
+          ${escapeHtml(negocio?.clienteNome || '—')}
+          ${tagsLeadHtml()}
+          · Opcao ${escapeHtml(opcao.letra)}
+          · Versao ${versao.numero}
+        </div>
+        <div class="orc-banner-actions">
+          <button type="button" class="orc-btn-calcular ${versao.calcDirty || !versao.calculadoEm ? 'is-dirty' : 'is-ok'}" id="orc-btn-calcular">${versao.calculadoEm ? '↻ Recalcular' : '▶ Calcular'}</button>
+          <button type="button" class="univ-btn-save" id="orc-btn-salvar">✓ Tudo salvo</button>
+          <button class="orc-btn-zerar" id="orc-btn-zerar" title="Limpa os inputs da tela e cria nova versao em branco preservando o historico.">🧹 Limpar Tela</button>
+          ${UI.leadAtivo ? `<button class="orc-btn-back" id="orc-btn-back-crm" title="Voltar para o card no CRM">← Voltar pro CRM</button>` : ''}
+        </div>
+      </div>
+
+      <div class="orc-tab-conteudo">
+        <h2 class="orc-tab-title">Item ${(versao.itens || []).indexOf(item) + 1} — Pergolado</h2>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Tubo e Espacamento</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-revestimento">
+              <label>Tubo</label>
+              <select data-field-pergo="tubo">
+                ${TUBOS.map(t => `<option value="${escapeHtml(t.id)}" ${item.tubo === t.id ? 'selected' : ''}>${escapeHtml(t.label)} (menor: ${t.menor}mm)</option>`).join('')}
+              </select>
+            </div>
+            <div class="orc-field orc-f-revestimento">
+              <label>Espacamento entre ripas (mm)</label>
+              <input type="number" min="0" data-field-pergo="espacamentoRipas"
+                     value="${escapeHtml(String(item.espacamentoRipas || 30))}" placeholder="30" />
+            </div>
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Acabamento</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-revestimento">
+              <label>Revestimento</label>
+              <select data-field-pergo="revestimento">
+                <option value=""></option>
+                ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="orc-field orc-f-revestimento">
+              <label>Cor</label>
+              <input type="text" data-field-pergo="cor" value="${escapeHtml(item.cor || '')}" placeholder="ex: Preto Fosco" />
+            </div>
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Medidas das Paredes</div>
+          <div id="orc-pergo-paredes-wrap">
+            ${item.paredes.map((p, i) => renderUmaParede(p, i)).join('')}
+          </div>
+          <button type="button" class="orc-btn-add-peca" id="orc-pergo-add-parede" style="margin-top:6px;">+ adicionar parede</button>
+        </div>
+      </div>
+    `;
+
+    bindItemPergoladoEvents(container);
+    adicionarBotaoWizard(container, 'item');
+  }
+
+  function bindItemPergoladoEvents(container) {
+    function getRoot() {
+      const r = obterVersao(UI.versaoAtivaId);
+      if (!r || !r.versao) return null;
+      const itens = r.versao.itens || [];
+      const item = itens[UI.itemSelecionadoIdx];
+      if (!item) return null;
+      return { versao: r.versao, item };
+    }
+    function persistir(root) {
+      atualizarVersao(root.versao.id, { itens: root.versao.itens });
+    }
+    function reRender() {
+      const r = obterVersao(UI.versaoAtivaId);
+      if (!r || !r.versao) return;
+      const item = (r.versao.itens || [])[UI.itemSelecionadoIdx];
+      if (!item) return;
+      const negocio = obterNegocio(UI.negocioAtivoId);
+      renderItemPergolado(container, negocio, r.opcao, r.versao, item);
+    }
+
+    // Campos top-level (tubo, espacamento, revestimento, cor)
+    container.querySelectorAll('[data-field-pergo]').forEach(el => {
+      el.addEventListener('change', () => {
+        const root = getRoot();
+        if (!root) return;
+        const field = el.dataset.fieldPergo;
+        const v = el.value;
+        if (field === 'espacamentoRipas') {
+          root.item.espacamentoRipas = parseFloat(String(v).replace(',', '.')) || 30;
+        } else {
+          root.item[field] = v;
+        }
+        persistir(root);
+        if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+        reRender();
+      });
+    });
+
+    // Campos das paredes
+    container.querySelectorAll('[data-field-parede-pergo]').forEach(el => {
+      el.addEventListener('change', () => {
+        const root = getRoot();
+        if (!root) return;
+        const item = root.item;
+        if (!Array.isArray(item.paredes)) item.paredes = [];
+        const idx = parseInt(el.dataset.paredeIdx, 10);
+        const field = el.dataset.fieldParedePergo;
+        if (!(idx >= 0 && idx < item.paredes.length)) return;
+        if (field === 'quantidade') {
+          item.paredes[idx].quantidade = Math.max(1, parseInt(el.value, 10) || 1);
+        } else {
+          item.paredes[idx][field] = parseFloat(String(el.value).replace(',', '.')) || 0;
+        }
+        // Sincroniza top-level com paredes[0]
+        const p0 = item.paredes[0];
+        if (p0) {
+          item.largura_total = Number(p0.largura_total) || 0;
+          item.altura_total  = Number(p0.altura_total)  || 0;
+        }
+        persistir(root);
+        if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+        reRender();
+      });
+    });
+
+    // Botoes adicionar/remover parede
+    container.querySelector('#orc-pergo-add-parede')?.addEventListener('click', () => {
+      const root = getRoot();
+      if (!root) return;
+      if (!Array.isArray(root.item.paredes)) root.item.paredes = [];
+      root.item.paredes.push({ largura_total: '', altura_total: '', quantidade: 1 });
+      persistir(root);
+      reRender();
+    });
+    container.querySelectorAll('[data-action="remover-parede-pergo"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const root = getRoot();
+        if (!root) return;
+        const idx = parseInt(btn.dataset.paredeIdx, 10);
+        if (!Array.isArray(root.item.paredes)) return;
+        if (root.item.paredes.length <= 1) return;
+        if (idx >= 0 && idx < root.item.paredes.length) {
+          root.item.paredes.splice(idx, 1);
+          const p0 = root.item.paredes[0];
+          if (p0) {
+            root.item.largura_total = Number(p0.largura_total) || 0;
+            root.item.altura_total  = Number(p0.altura_total)  || 0;
+          }
+          persistir(root);
+          reRender();
+        }
+      });
+    });
+
+    // Botoes do banner topo (reutiliza handlers existentes)
+    container.querySelector('#orc-btn-salvar')?.addEventListener('click', () => {
+      if (window.showSavedDialog) window.showSavedDialog('Salvo.');
+    });
+    container.querySelector('#orc-btn-calcular')?.addEventListener('click', () => {
+      const r = obterVersao(UI.versaoAtivaId);
+      if (!r?.versao) return;
+      atualizarVersao(r.versao.id, { calculadoEm: nowIso(), calcDirty: false });
+      if (window.showSavedDialog) window.showSavedDialog('Calculado.');
+      renderItemTab(container);
+    });
+    bindZerarButton(container, () => renderItemTab(container));
+    container.querySelector('#orc-btn-back-crm')?.addEventListener('click', () => {
+      limparLeadAtivo();
+      UI.negocioAtivoId = null;
+      UI.versaoAtivaId  = null;
+      UI.leadAtivo      = null;
+      UI.itemSelecionadoIdx = 0;
+      if (typeof App !== 'undefined' && App.navigateTo) App.navigateTo('crm');
+    });
+  }
+
+  /**
    * Form do MODO AUTOMATICO — varias paredes, cada uma com medidas
    * proprias + escolhas independentes de divisao/refilado.
    * Felipe sessao 18: 'varias medidas nesse mesmo item revestimento
@@ -3630,6 +3889,13 @@ const Orcamento = (() => {
     // funcao separada e retorna.
     if (item.tipo === 'revestimento_parede') {
       renderItemRevestimentoParede(container, negocio, opcao, versao, item);
+      return;
+    }
+    // Felipe sessao 18: novo item PERGOLADO. Form proprio com tubo
+    // selecionavel, espacamento, multi-paredes. Motor de chapas/perfis
+    // em scripts/41/42-pergolado.
+    if (item.tipo === 'pergolado') {
+      renderItemPergolado(container, negocio, opcao, versao, item);
       return;
     }
 
@@ -7344,6 +7610,7 @@ const Orcamento = (() => {
     if (tipo === 'porta_interna')       return window.PerfisPortaInterna;
     if (tipo === 'fixo_acoplado')       return window.PerfisRevAcoplado;
     if (tipo === 'revestimento_parede') return window.PerfisRevParede;
+    if (tipo === 'pergolado')           return window.PerfisPergolado;
     return null;
   }
 
@@ -8139,6 +8406,7 @@ const Orcamento = (() => {
                             : b.item?.tipo === 'porta_interna' ? window.PerfisPortaInterna
                             : b.item?.tipo === 'fixo_acoplado' ? window.PerfisRevAcoplado
                             : b.item?.tipo === 'revestimento_parede' ? window.PerfisRevParede
+                            : b.item?.tipo === 'pergolado' ? window.PerfisPergolado
                             : null;
         const motorAusente = !!b.item?.tipo && !motorEsperado;
         // Felipe sessao 2026-05-10: caso especifico - fixo_acoplado SEM
@@ -11416,6 +11684,19 @@ const Orcamento = (() => {
           }, p, { _manual: true })));
         }
         pecas.forEach(p => agrupar(grupos, p, idx, item));
+      } else if (item.tipo === 'pergolado' && window.ChapasPergolado) {
+        // Felipe sessao 18: pergolado tem motor proprio
+        let pecas = window.ChapasPergolado.gerarPecasPergolado(item) || [];
+        pecas = aplicarRotacionaOverrides(pecas, item);
+        pecas = aplicarQtdOverrides(pecas, item, null);
+        pecas = aplicarSuperficiesOverrides(pecas, item);
+        const extrasPergo = item.pecasManuaisExtras || [];
+        if (extrasPergo.length) {
+          pecas = pecas.concat(extrasPergo.map(p => Object.assign({
+            podeRotacionar: false, qtd: 1, categoria: p.categoria || 'pergolado',
+          }, p, { _manual: true })));
+        }
+        pecas.forEach(p => agrupar(grupos, p, idx, item));
       }
     });
     return grupos;
@@ -12785,11 +13066,16 @@ const Orcamento = (() => {
    */
   function renderItemRevSuperficies(item, idx) {
     const numItem = idx + 1;
-    if (!window.ChapasRevParede) {
+    // Felipe sessao 18: pergolado reusa essa funcao mas com seu proprio
+    // motor de chapas (ChapasPergolado.gerarPecasPergolado).
+    const ehPergolado = item.tipo === 'pergolado';
+    const Motor = ehPergolado ? window.ChapasPergolado : window.ChapasRevParede;
+    const tituloTipo = ehPergolado ? 'Pergolado' : 'Revestimento de Parede';
+    if (!Motor) {
       return `<div class="orc-section orc-lev-sup-item">
-        <div class="orc-section-title">Item ${numItem} — Revestimento de Parede</div>
+        <div class="orc-section-title">Item ${numItem} — ${tituloTipo}</div>
         <p class="orc-hint-text orc-banner-aviso-erro">
-          Motor (ChapasRevParede) nao carregado. Recarregue (Ctrl+F5).
+          Motor (${ehPergolado ? 'ChapasPergolado' : 'ChapasRevParede'}) nao carregado. Recarregue (Ctrl+F5).
         </p>
       </div>`;
     }
@@ -12797,7 +13083,9 @@ const Orcamento = (() => {
     // editaveis'. Aplica overrides ja' existentes (rotaciona +
     // largura/altura/qtd) que o motor de superficies do orcamento usa
     // pra portas externas. Reuso garante consistencia.
-    let pecas = window.ChapasRevParede.gerarPecasRevParede(item) || [];
+    let pecas = ehPergolado
+      ? (Motor.gerarPecasPergolado(item) || [])
+      : (Motor.gerarPecasRevParede(item) || []);
     pecas = aplicarRotacionaOverrides(pecas, item);
     pecas = aplicarSuperficiesOverrides(pecas, item);
     const modoLabel = item.modo === 'automatico' ? 'Modo Automatico' : 'Modo Manual';
@@ -12917,6 +13205,12 @@ const Orcamento = (() => {
     // Felipe (sessao 2026-05): revestimento_parede tem bloco proprio
     // (mostra peças geradas pelo motor ChapasRevParede).
     if (item.tipo === 'revestimento_parede') {
+      return renderItemRevSuperficies(item, idx);
+    }
+
+    // Felipe sessao 18: pergolado tambem usa renderItemRevSuperficies
+    // (mesma estrutura - lista de pecas do motor proprio).
+    if (item.tipo === 'pergolado') {
       return renderItemRevSuperficies(item, idx);
     }
 
@@ -13366,6 +13660,20 @@ const Orcamento = (() => {
         const pecas = aplicarRotacionaOverrides(ChapasRev.gerarPecasRevParede(item) || [], item);
         if (!pecas.length) return;
         linhas.push(`  <item indice="${idx + 1}" tipo="revestimento_parede">`);
+        pecas.forEach(p => {
+          linhas.push('    <peca>');
+          linhas.push(`      <label>${escXml(p.label)}</label>`);
+          linhas.push(`      <largura>${p.largura}</largura>`);
+          linhas.push(`      <altura>${p.altura}</altura>`);
+          linhas.push(`      <rotaciona>${p.podeRotacionar ? 'Sim' : 'Nao'}</rotaciona>`);
+          linhas.push('    </peca>');
+        });
+        linhas.push('  </item>');
+      } else if (item.tipo === 'pergolado' && window.ChapasPergolado) {
+        // Felipe sessao 18: pergolado no XML export
+        const pecas = aplicarRotacionaOverrides(window.ChapasPergolado.gerarPecasPergolado(item) || [], item);
+        if (!pecas.length) return;
+        linhas.push(`  <item indice="${idx + 1}" tipo="pergolado">`);
         pecas.forEach(p => {
           linhas.push('    <peca>');
           linhas.push(`      <label>${escXml(p.label)}</label>`);
