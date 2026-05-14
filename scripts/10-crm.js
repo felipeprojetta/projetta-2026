@@ -2396,13 +2396,14 @@
       // mas KPI somava — bug "valor 158k com cards zerados").
       // Espelha a regra de escondeValor do card kanban (linha 1542):
       // qualificacao/fazer-orcamento NAO contam.
-      const ANO_EM_ABERTO = state.kpiAno;
+      // Felipe sessao 18: REMOVIDO filtro por ano. "Em Aberto" agora
+      // soma TODOS leads em etapas com valor (independente do ano da data).
+      // Antes filtrava por state.kpiAno e excluia leads de anos anteriores,
+      // dando "26 leads / R$ 2.7M" em vez de "33 / R$ 2.97M" (= enviados).
       const ETAPAS_SEM_VALOR_VISIVEL = ['qualificacao', 'fazer-orcamento', 'fechado', 'perdido'];
       const leadsEmAberto = leadsFiltrados.filter(l => {
         if (ETAPAS_SEM_VALOR_VISIVEL.includes(l.etapa)) return false;
-        if (!l.data) return false;
-        const ano = parseInt(String(l.data).slice(0, 4), 10);
-        return ano === ANO_EM_ABERTO;
+        return true;
       });
       const kpiEmAberto = {
         // Felipe sessao 12: USAR mesmo valor que o card mostra (resumo.valor

@@ -106,13 +106,11 @@
     function load() {
       if (loaded) return;
       const lista = store.get('leads');
-      if (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('seeded'))) {
-        state.leads = SEED_LEADS.slice();
-        store.set('leads', state.leads);
-        store.set('seeded', true);
-      } else {
-        state.leads = lista || [];
-      }
+      // SEEDER DESATIVADO (Felipe sessao 18, pos-incidente 2026-05-14):
+      // O mesmo padrao no CRM (10-crm.js) apagou todos os leads quando
+      // store.get retornou null por race condition. AQUI tambem era perigoso.
+      // Se vier null/vazio NUNCA escrevemos no banco - apenas mantemos [] em memoria.
+      state.leads = Array.isArray(lista) ? lista : [];
       // Filtra leads deletados (impede sync trazer de volta)
       try {
         var deletados = JSON.parse(localStorage.getItem('kprod_cards_deletados') || '[]');
