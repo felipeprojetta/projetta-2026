@@ -166,7 +166,7 @@
   min-width: 100%;
 }
 .inst-gantt-label-spacer {
-  flex: 0 0 640px;
+  flex: 0 0 220px;
   padding: 0;
   font-size: 11px;
   font-weight: 700;
@@ -186,10 +186,7 @@
   border-right: 1px solid var(--border, #e5e7eb);
 }
 .inst-gantt-label-spacer > span:last-child { border-right: none; }
-.inst-gantt-col-cliente { flex: 0 0 180px; }
-.inst-gantt-col-servico { flex: 0 0 150px; }
-.inst-gantt-col-stat-inst { flex: 0 0 150px; }
-.inst-gantt-col-stat-prod { flex: 0 0 160px; }
+.inst-gantt-col-cliente { flex: 0 0 220px; }
 .inst-gantt-header {
   position: relative;
   height: 50px;
@@ -291,7 +288,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 640px;            /* alinha com inst-gantt-label flex-basis (Felipe sessao 18.b: 4 colunas) */
+  left: 220px;            /* alinha com inst-gantt-label flex-basis (Felipe sessao 18.b: so coluna cliente) */
   pointer-events: none;
   z-index: 0;             /* atras das rows (rows nao tem z-index, default 0, mas weekend nao bloqueia hover) */
 }
@@ -317,7 +314,7 @@
 }
 .inst-gantt-row:hover { background: var(--bg-hover, #f9fafb); }
 .inst-gantt-label {
-  flex: 0 0 640px;
+  flex: 0 0 220px;
   padding: 0;
   border-right: 2px solid var(--border, #e5e7eb);
   display: flex;
@@ -334,10 +331,7 @@
   border-right: 1px solid var(--border, #f1f5f9);
 }
 .inst-gantt-label > div:last-child { border-right: none; }
-.inst-gantt-label .inst-gantt-col-cliente { flex: 0 0 180px; }
-.inst-gantt-label .inst-gantt-col-servico { flex: 0 0 150px; }
-.inst-gantt-label .inst-gantt-col-stat-inst { flex: 0 0 150px; }
-.inst-gantt-label .inst-gantt-col-stat-prod { flex: 0 0 160px; }
+.inst-gantt-label .inst-gantt-col-cliente { flex: 0 0 220px; }
 /* Pills pequenas pras 3 colunas de status */
 .inst-gantt-pill {
   display: inline-block;

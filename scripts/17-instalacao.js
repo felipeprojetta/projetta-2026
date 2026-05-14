@@ -532,21 +532,6 @@
               <span class="inst-gantt-meta">${escapeHtml(t.numeroAGP || '')} · ${escapeHtml(local || '')}</span>
               <span class="inst-gantt-meta">${escapeHtml(t.instalador || '—')}</span>
             </div>
-            <div class="inst-gantt-col-servico">
-              <span class="inst-gantt-pill" style="background:#eef2ff;color:#3730a3;border-color:#c7d2fe;">
-                ${escapeHtml(servicoLabelById(t.servico || SERVICO_DEFAULT))}
-              </span>
-            </div>
-            <div class="inst-gantt-col-stat-inst">
-              <span class="inst-gantt-pill" style="background:${sInst.color}20;color:${sInst.color};border-color:${sInst.color};">
-                ${escapeHtml(sInst.label)}
-              </span>
-            </div>
-            <div class="inst-gantt-col-stat-prod">
-              <span class="inst-gantt-pill" style="background:#f1f5f9;color:#475569;border-color:#cbd5e1;">
-                ${escapeHtml(labelStatusProducao(t.statusProducao))}
-              </span>
-            </div>
           </div>
           <div class="inst-gantt-track" style="width:${totalPx}px;background-image:repeating-linear-gradient(to right,transparent 0,transparent ${PX_DIA-1}px,#f1f5f9 ${PX_DIA-1}px,#f1f5f9 ${PX_DIA}px)">
             ${barrasHtml}
@@ -560,9 +545,6 @@
         <div class="inst-gantt-header-row">
           <div class="inst-gantt-label-spacer">
             <span class="inst-gantt-col-cliente">Cliente / ATP / Cidade / Instalador</span>
-            <span class="inst-gantt-col-servico">Serviço</span>
-            <span class="inst-gantt-col-stat-inst">Status Inst.</span>
-            <span class="inst-gantt-col-stat-prod">Status Prod.</span>
           </div>
           <div class="inst-gantt-header" style="width:${totalPx}px;position:relative">
             <div class="inst-gantt-months">${headerMeses.join('')}</div>
