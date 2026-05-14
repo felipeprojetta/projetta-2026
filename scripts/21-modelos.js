@@ -92,7 +92,16 @@ const Modelos = (() => {
     // Antes: loaded=true ficava preso e nunca relia.
     if (loaded && dirty) return;
     const lista = store.get('modelos_lista');
-    if (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('modelos_seeded'))) {
+    // Felipe (sessao 30 - PROTECAO ANTI-SEED):
+    // Antes esse if disparava se lista === null OU vazia sem flag. Em
+    // sessao 18 um bug parecido no 10-crm.js sobrescreveu 100+ leads
+    // reais. Agora SystemProtection.podeRodarSeed() bloqueia o seed
+    // de forma global se o sistema ja' foi inicializado em qualquer
+    // scope (memoria + persistido + auto-deteccao).
+    const _seedPermitido = typeof SystemProtection !== 'undefined'
+      ? SystemProtection.podeRodarSeed()
+      : true; // fallback se SystemProtection falhar a carregar
+    if (_seedPermitido && (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('modelos_seeded')))) {
       state.modelos = SEED_MODELOS.map((m, i) => ({
         id: 'seed_modelo_' + String(i+1).padStart(2, '0'),
         numero: m.numero,

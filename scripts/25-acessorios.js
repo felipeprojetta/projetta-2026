@@ -40,7 +40,13 @@ const Acessorios = (() => {
   function load() {
     if (loaded) return;
     const lista = store.get('acessorios_lista');
-    if (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('acessorios_seeded'))) {
+    // Felipe (sessao 30 - PROTECAO ANTI-SEED): bloqueia seed global se
+    // sistema ja' foi inicializado em qualquer scope. Catalogo de
+    // acessorios tem precos/codigos negociados — sobrescrita zera tudo.
+    const _seedPermitido = typeof SystemProtection !== 'undefined'
+      ? SystemProtection.podeRodarSeed()
+      : true;
+    if (_seedPermitido && (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('acessorios_seeded')))) {
       // R20: aplica titleCase no SEED antes de salvar
       state.acessorios = SEED_ACESSORIOS.map(normalize);
       // Felipe sessao 2026-08-02: em read-only o Storage.set retorna

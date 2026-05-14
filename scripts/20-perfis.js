@@ -616,7 +616,13 @@ const Perfis = (() => {
       // no localStorage por seguranca (nao e' apagada), mas nao e' mais
       // usada nem renderizada.
     });
-    if (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('perfis_seeded'))) {
+    // Felipe (sessao 30 - PROTECAO ANTI-SEED): bloqueia seed global se
+    // sistema ja' foi inicializado em qualquer scope. Catalogo de perfis
+    // tem codigos/precos negociados — sobrescrita zera tudo.
+    const _seedPermitido = typeof SystemProtection !== 'undefined'
+      ? SystemProtection.podeRodarSeed()
+      : true;
+    if (_seedPermitido && (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('perfis_seeded')))) {
       // primeira carga: importa o seed do PDF automaticamente, sem pedir confirmacao
       state.perfis = SEED_PERFIS_PDF.map(p => normPerfil({
         ...p,

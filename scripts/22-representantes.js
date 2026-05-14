@@ -128,7 +128,14 @@ const Representantes = (() => {
   function load() {
     if (loaded) return;
     const lista = store.get('representantes_lista');
-    if (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('representantes_seeded'))) {
+    // Felipe (sessao 30 - PROTECAO ANTI-SEED): bloqueia seed global
+    // se sistema ja' foi inicializado em qualquer scope. Evita
+    // sobrescrita acidental dos 75+ representantes/vendedores reais
+    // que afetam comissoes, contatos e atribuicoes de orcamento.
+    const _seedPermitido = typeof SystemProtection !== 'undefined'
+      ? SystemProtection.podeRodarSeed()
+      : true;
+    if (_seedPermitido && (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('representantes_seeded')))) {
       state.reps = SEED_REPRESENTANTES.slice();
       store.set('representantes_lista', state.reps);
       store.set('representantes_seeded', true);

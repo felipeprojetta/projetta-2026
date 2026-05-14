@@ -27,17 +27,30 @@ const Superficies = (() => {
     // Mas se em algum momento o storage ficou com `superficies_seeded=true`
     // E `superficies_lista=[]` (importacao XLSX zerada, bug, limpeza), o seed
     // nunca mais rodava. Agora: SE LISTA VAZIA, REPOPULA — ignora flag.
-    const precisaSeed = lista === null
-                     || !Array.isArray(lista)
-                     || lista.length === 0;
+    //
+    // Felipe (sessao 30 - PROTECAO ANTI-SEED): a logica acima ficou
+    // MUITO permissiva (ignora flag local). Agora SystemProtection
+    // bloqueia globalmente se sistema ja' foi inicializado. 382 chapas
+    // com precos negociados — sobrescrita zera tudo (incidente parecido
+    // sessao 18 fez Felipe perder 100+ leads do CRM).
+    const _seedPermitido = typeof SystemProtection !== 'undefined'
+      ? SystemProtection.podeRodarSeed()
+      : true;
+    const precisaSeed = _seedPermitido && (
+      lista === null
+      || !Array.isArray(lista)
+      || lista.length === 0
+    );
     if (precisaSeed) {
       console.log(`[Superficies] Storage vazio/invalido — carregando ${SEED_SUPERFICIES.length} chapas do seed`);
       state.superficies = SEED_SUPERFICIES.map(normalize);
       store.set('superficies_lista', state.superficies);
       store.set('superficies_seeded', true);
     } else {
-      // Migracao: dados antigos podem nao ter categoria → injeta automaticamente
-      state.superficies = lista.map(s => {
+      // Pode cair aqui em 2 casos: (a) lista nao-vazia (normal),
+      // ou (b) sistema ja' bootstrapped e lista vazia/null (protecao
+      // ativa). No caso b, usa lista || [] pra nao quebrar UI.
+      state.superficies = (lista || []).map(s => {
         const norm = normalize(s);
         if (!s.categoria) norm.categoria = categoriaAuto(norm.descricao);
         return norm;
