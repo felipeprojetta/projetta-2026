@@ -150,14 +150,19 @@ window.ChapasRevParede = (function () {
     }
 
     const REF = getREF();
-    // Felipe sessao 18: 'coloquei ripado nao me perguntou qual
-    // espacamento, nem soltou perfis de aluminio nem os ripados nas
-    // chapas'. Comportamento igual mod 8/15 da porta externa:
-    //   - Cada ripa = chapa de 60mm × altura
-    //   - qtd ripas = ceil(L / (60 + espacamento))
-    //   - Sem estrutura (rev parede ripado = so chapa colada)
-    // Aplica POR PAREDE. Outros estilos (lisa, classica) seguem fluxo
-    // normal de faixas.
+    // Felipe sessao 18 (re-cap apos esclarecimento):
+    //   - 'chapas de fundo sempre vai existir independente se e lisa,
+    //     ripada ou moldura'
+    //   - 'as ripas tem 94 nao 60, chapa aberta em 94, a ripa dobrada
+    //     fica com 60 de frente'
+    //   - 'espacamento entre elas, que no caso e 30, entao 60+30=90'
+    //   - 'parede 2000 de largura: 2000/90 = qtdRipas'
+    //
+    // FLUXO:
+    //   - Chapa de fundo: SEMPRE (mesma logica do modo lisa, por parede)
+    //   - Ripas (94 × H): adicionadas EM CIMA quando estilo=ripada
+    //     qtdRipas = ceil(L / (60 + espac)) — distancia centro-a-centro
+    //     da face VISIVEL (60mm) + espacamento (30mm default)
     const ehRipada = String(item.estilo || '').toLowerCase() === 'ripada';
     const espacRipas = parseFloat(String(item.espacamentoRipas != null ? item.espacamentoRipas : 30).replace(',', '.')) || 30;
     const out = [];
@@ -168,24 +173,7 @@ window.ChapasRevParede = (function () {
       const qtdParede = Math.max(1, Number(p.quantidade) || 1);
       const sufixoLabel = paredes.length > 1 ? ` — Parede ${paredeIdx + 1}` : '';
 
-      // ========= ESTILO RIPADA =========
-      if (ehRipada) {
-        const denom = 60 + espacRipas;
-        const qtdRipas = denom > 0 ? Math.ceil(L / denom) : 0;
-        if (qtdRipas > 0) {
-          out.push({
-            id: `rev_parede_ripa_p${paredeIdx + 1}`,
-            label: `Ripa (60×${H}mm)` + sufixoLabel,
-            largura: 60,
-            altura: H,
-            qtd: qtdRipas * qtdParede,
-            observacao: `ripada — espacamento ${espacRipas}mm` + sufixoLabel,
-          });
-        }
-        return;  // pula divisao_largura/com_refilado nesse ramo
-      }
-
-      // ========= ESTILO LISA/CLASSICA (fluxo normal) =========
+      // ========= CHAPA DE FUNDO (sempre, igual modo lisa) =========
       const comRefilado = (p.com_refilado != null ? p.com_refilado : 'sim') !== 'nao';
       const larguraMaxima = comRefilado
         ? (LARGURA_CHAPA_BASE - 2 * REF)
@@ -232,6 +220,24 @@ window.ChapasRevParede = (function () {
             observacao: (ehFaixaUnica
               ? 'automatico — faixa unica (parede menor que largura maxima)'
               : 'automatico — complemento da largura') + sufixoLabel,
+          });
+        }
+      }
+
+      // ========= RIPAS (94 × H) — somente se estilo=ripada =========
+      // Vao POR CIMA da chapa de fundo. Largura da chapa aberta = 94mm
+      // (a ripa dobrada mostra 60mm de frente). qtdRipas = ceil(L/90).
+      if (ehRipada) {
+        const denom = 60 + espacRipas;  // 60 visivel + 30 espaco = 90
+        const qtdRipas = denom > 0 ? Math.ceil(L / denom) : 0;
+        if (qtdRipas > 0) {
+          out.push({
+            id: `rev_parede_ripa_p${paredeIdx + 1}`,
+            label: `Ripa (94×${H}mm)` + sufixoLabel,
+            largura: 94,
+            altura: H,
+            qtd: qtdRipas * qtdParede,
+            observacao: `ripada — chapa aberta 94mm (60 visivel + dobras), espacamento ${espacRipas}mm` + sufixoLabel,
           });
         }
       }
