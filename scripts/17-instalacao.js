@@ -38,6 +38,27 @@
   ];
   const statusInstById = (id) => STATUS_INSTALACAO.find(s => s.id === id) || STATUS_INSTALACAO[0];
 
+  // Felipe sessao 18: 'qual servico estou fazendo? qual status dessa
+  // instalacao? qual status da producao que puxa do kanban da
+  // producao'. Servico e' POR VISITA (1a visita = Instalacao,
+  // 2a = Manutencao, etc).
+  const SERVICOS_INSTALACAO = [
+    { id: 'medicao',         label: 'MEDICAO' },
+    { id: 'instalacao',      label: 'INSTALACAO' },
+    { id: 'finalizacao',     label: 'FINALIZACAO' },
+    { id: 'manutencao',      label: 'MANUTENCAO' },
+    { id: 'entrega',         label: 'ENTREGA' },
+    { id: 'ag-liberacao',    label: 'AG. LIBERACAO' },
+    { id: 'visita-tecnica',  label: 'VISITA TECNICA' },
+    { id: 'atencao-func',    label: 'ATENCAO FUNC.' },
+    { id: 'coleta',          label: 'COLETA' },
+  ];
+  const SERVICO_DEFAULT = 'instalacao';
+  const servicoLabelById = (id) => {
+    const s = SERVICOS_INSTALACAO.find(x => x.id === id);
+    return s ? s.label : (id || SERVICO_DEFAULT).toUpperCase();
+  };
+
   // Status producao (lido do Kanban Producao - cada etapa vira status producao).
   // Mapeamento sempre reflete a etapa atual do card no Kanban Producao.
 
@@ -144,12 +165,22 @@
 
         // Deltas (campos proprios de instalacao)
         instalador:        delta.instalador || '',
+        // Felipe sessao 18: servico da visita 1 (Medicao, Instalacao,
+        // Manutencao, etc). Default 'instalacao' pra cards antigos.
+        servico:           delta.servico || SERVICO_DEFAULT,
         dataInicio:        delta.dataInicio || '',
         dataTermino:       delta.dataTermino || '',
         statusInstalacao:  delta.statusInstalacao || 'ag-instalacao',
         dataEntrega:       delta.dataEntrega || '',
         confirmacao:       delta.confirmacao || '',
         observacoes:       delta.observacoes || '',
+        // Felipe sessao 18: 'coloque botao para adicionar mais datas
+        // saida e data termino, ai a nova data que colocar vai pro
+        // grafico de Gantt'. Cliente pode voltar mais vezes (retorno
+        // por garantia, ajuste, etc). Cada visita vira uma barra
+        // separada no mesmo gantt.
+        // Schema: [{ servico, motivo, dataInicio, dataTermino }, ...]
+        visitasExtras:     Array.isArray(delta.visitasExtras) ? delta.visitasExtras : [],
       };
     });
   }
@@ -246,17 +277,20 @@
     const rows = trabalhos.map(t => {
       const sInst = statusInstById(t.statusInstalacao);
       const local = [t.cidade, t.estado].filter(Boolean).join(' / ');
+      const visitasExtrasCount = (t.visitasExtras || [])
+        .filter(v => v.dataInicio || v.dataTermino).length;
       return `
         <tr data-card-id="${escapeHtml(t.cardId)}" class="inst-row">
-          <td class="inst-cli"><strong>${escapeHtml(t.cliente)}</strong></td>
+          <td class="inst-cli"><strong>${escapeHtml(t.cliente)}</strong>${visitasExtrasCount > 0 ? ` <span class="inst-pill" style="background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 6px;">+${visitasExtrasCount} visita${visitasExtrasCount > 1 ? 's' : ''}</span>` : ''}</td>
           <td class="inst-atp">${escapeHtml(t.numeroAGP || '—')}</td>
-          <td class="inst-status-prod">
-            <span class="inst-pill inst-pill-prod">${escapeHtml(labelStatusProducao(t.statusProducao))}</span>
-          </td>
+          <td>${escapeHtml(servicoLabelById(t.servico || SERVICO_DEFAULT))}</td>
           <td class="inst-status-inst">
             <span class="inst-pill" style="background:${sInst.color}20;border-color:${sInst.color};color:${sInst.color}">
               ${escapeHtml(sInst.label)}
             </span>
+          </td>
+          <td class="inst-status-prod">
+            <span class="inst-pill inst-pill-prod">${escapeHtml(labelStatusProducao(t.statusProducao))}</span>
           </td>
           <td>${escapeHtml(t.instalador || '—')}</td>
           <td>${escapeHtml(local || '—')}</td>
@@ -272,8 +306,9 @@
             <tr>
               <th>Cliente</th>
               <th>ATP</th>
-              <th>Status Producao</th>
+              <th>Servico</th>
               <th>Status Instalacao</th>
+              <th>Status Producao</th>
               <th>Instalador</th>
               <th>Cidade / Estado</th>
               <th>Data Saida</th>
@@ -325,6 +360,11 @@
       trabalhos.forEach(t => {
         if (t.dataInicio)  datas.push(t.dataInicio);
         if (t.dataTermino) datas.push(t.dataTermino);
+        // Felipe sessao 18: tambem inclui visitas extras no range
+        (t.visitasExtras || []).forEach(v => {
+          if (v.dataInicio)  datas.push(v.dataInicio);
+          if (v.dataTermino) datas.push(v.dataTermino);
+        });
       });
       if (datas.length === 0) {
         min = new Date(h.getFullYear(), h.getMonth(), h.getDate() - 14);
@@ -444,19 +484,53 @@
     const linhas = trabalhos.map(t => {
       const sInst = statusInstById(t.statusInstalacao);
       const local = [t.cidade, t.estado].filter(Boolean).join(' / ');
-      let bar = '';
-      if (t.dataInicio && t.dataTermino &&
-          t.dataInicio >= min && t.dataTermino <= max &&
-          t.dataInicio <= t.dataTermino) {
-        const offset = diasEntre(min, t.dataInicio) * PX_DIA;
-        const largura = (diasEntre(t.dataInicio, t.dataTermino) + 1) * PX_DIA - 4;
-        bar = `<div class="inst-gantt-bar"
-          style="left:${offset}px;width:${largura}px;background:${sInst.color};border-color:${sInst.color}"
-          title="${escapeHtml(t.cliente)} — ${fmtData(t.dataInicio)} ate ${fmtData(t.dataTermino)} — ${sInst.label}"
-          data-card-id="${escapeHtml(t.cardId)}">
-          ${escapeHtml(t.cliente)}
-        </div>`;
+      // Felipe sessao 18: cada visita gera 1 barra.
+      // Visita 1 = dataInicio/dataTermino originais. Visitas 2..N
+      // vem de t.visitasExtras (ja' filtradas pra ter pelo menos 1
+      // data ao salvar). Servico da visita 1 = t.servico; das extras
+      // = v.servico. Cor sempre do statusInstalacao (mesmo pra todas).
+      const todasVisitas = [];
+      if (t.dataInicio && t.dataTermino && t.dataInicio <= t.dataTermino) {
+        todasVisitas.push({
+          dataInicio: t.dataInicio, dataTermino: t.dataTermino,
+          servicoLabel: servicoLabelById(t.servico || SERVICO_DEFAULT),
+          motivo: '',  // visita 1 nao tem motivo (e' o trabalho original)
+          isPrincipal: true,
+        });
       }
+      (t.visitasExtras || []).forEach(v => {
+        if (v.dataInicio && v.dataTermino && v.dataInicio <= v.dataTermino) {
+          todasVisitas.push({
+            dataInicio: v.dataInicio, dataTermino: v.dataTermino,
+            servicoLabel: servicoLabelById(v.servico || SERVICO_DEFAULT),
+            motivo: v.motivo || '',
+            isPrincipal: false,
+          });
+        }
+      });
+      const barrasHtml = todasVisitas
+        .filter(v => v.dataInicio >= min && v.dataTermino <= max)
+        .map(v => {
+          const offset = diasEntre(min, v.dataInicio) * PX_DIA;
+          const largura = (diasEntre(v.dataInicio, v.dataTermino) + 1) * PX_DIA - 4;
+          // Visitas extras (retornos) ficam levemente translucidas + borda
+          // mais grossa pra diferenciar visualmente da visita principal.
+          const extraStyle = v.isPrincipal
+            ? `background:${sInst.color};border-color:${sInst.color}`
+            : `background:${sInst.color};border:2px dashed #fff;outline:1px solid ${sInst.color};opacity:.85`;
+          const tituloVisita = v.isPrincipal
+            ? `${v.servicoLabel} — ${fmtData(v.dataInicio)} ate ${fmtData(v.dataTermino)} — ${sInst.label}`
+            : `${v.servicoLabel}${v.motivo ? ' (' + v.motivo + ')' : ''} — ${fmtData(v.dataInicio)} ate ${fmtData(v.dataTermino)}`;
+          const labelBarra = v.isPrincipal
+            ? t.cliente
+            : `${v.servicoLabel}${v.motivo ? ' · ' + v.motivo : ''}`;
+          return `<div class="inst-gantt-bar"
+            style="left:${offset}px;width:${largura}px;${extraStyle}"
+            title="${escapeHtml(t.cliente)} — ${escapeHtml(tituloVisita)}"
+            data-card-id="${escapeHtml(t.cardId)}">
+            ${escapeHtml(labelBarra)}
+          </div>`;
+        }).join('');
       return `
         <div class="inst-gantt-row" data-card-id="${escapeHtml(t.cardId)}">
           <div class="inst-gantt-label">
@@ -465,7 +539,7 @@
             <span class="inst-gantt-meta">${escapeHtml(t.instalador || '—')}</span>
           </div>
           <div class="inst-gantt-track" style="width:${totalPx}px;background-image:repeating-linear-gradient(to right,transparent 0,transparent ${PX_DIA-1}px,#f1f5f9 ${PX_DIA-1}px,#f1f5f9 ${PX_DIA}px)">
-            ${bar}
+            ${barrasHtml}
           </div>
         </div>
       `;
@@ -576,6 +650,12 @@
             <h4>Instalacao <span class="inst-edit-tag">editavel</span></h4>
             <div class="inst-grid-2">
               <div>
+                <label for="inst-f-servico">Servico</label>
+                <select id="inst-f-servico" data-edit="servico">
+                  ${SERVICOS_INSTALACAO.map(s => `<option value="${s.id}" ${t.servico === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
+                </select>
+              </div>
+              <div>
                 <label for="inst-f-status">Status Instalacao</label>
                 <select id="inst-f-status" data-edit="statusInstalacao">
                   ${STATUS_INSTALACAO.map(s => `<option value="${s.id}" ${t.statusInstalacao === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
@@ -632,6 +712,50 @@
               <div>
                 <label for="inst-f-confirmacao">Confirmacao</label>
                 <input type="text" id="inst-f-confirmacao" data-edit="confirmacao" value="${escapeHtml(t.confirmacao)}" placeholder="ex: OK, AG. VIDEO, LEVAR PECA" />
+              </div>
+            </div>
+
+            <!-- Felipe sessao 18: visitas extras (cliente pode voltar
+                 mais vezes - retorno por garantia, ajuste, manutencao). -->
+            <div style="margin-top:14px;padding-top:14px;border-top:1px dashed #e5e7eb">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <label style="margin:0;font-weight:600;color:#1f2937;">Visitas Extras
+                  <span class="inst-readonly-tag" style="background:#e0e7ff;color:#3730a3;">aparecem como barras separadas no Gantt</span>
+                </label>
+                <button type="button" class="inst-btn-secundario" id="inst-btn-add-visita"
+                        style="padding:4px 10px;font-size:12px;">+ Adicionar Visita</button>
+              </div>
+              <div id="inst-visitas-list">
+                ${(t.visitasExtras || []).map((v, idx) => `
+                  <div class="inst-visita-row" data-visita-idx="${idx}"
+                       style="display:grid;grid-template-columns:1fr 1.2fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:8px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;">
+                    <div>
+                      <label style="font-size:11px;">Servico</label>
+                      <select data-visita-field="servico" data-visita-idx="${idx}">
+                        ${SERVICOS_INSTALACAO.map(s => `<option value="${s.id}" ${v.servico === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div>
+                      <label style="font-size:11px;">Motivo</label>
+                      <input type="text" data-visita-field="motivo" data-visita-idx="${idx}"
+                             value="${escapeHtml(v.motivo || '')}"
+                             placeholder="ex: retorno garantia, ajuste" />
+                    </div>
+                    <div>
+                      <label style="font-size:11px;">Data Saida</label>
+                      <input type="date" data-visita-field="dataInicio" data-visita-idx="${idx}"
+                             value="${escapeHtml(v.dataInicio || '')}" />
+                    </div>
+                    <div>
+                      <label style="font-size:11px;">Data Termino</label>
+                      <input type="date" data-visita-field="dataTermino" data-visita-idx="${idx}"
+                             value="${escapeHtml(v.dataTermino || '')}" />
+                    </div>
+                    <button type="button" data-action="remover-visita" data-visita-idx="${idx}"
+                            title="Remover visita"
+                            style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:14px;">×</button>
+                  </div>
+                `).join('') || '<div style="font-size:12px;color:#9ca3af;font-style:italic;">Nenhuma visita extra. Clique em + Adicionar Visita para registrar retornos ao cliente.</div>'}
               </div>
             </div>
             <div style="margin-top:10px">
@@ -779,6 +903,102 @@
       });
     }
 
+    // Felipe sessao 18: visitas extras (cliente pode voltar).
+    // Buffer em memoria com a lista de visitas extras editavel.
+    // Inicializa com o que ja' tem no trabalho.
+    let visitasExtrasTemp = (t.visitasExtras || []).map(v => ({
+      servico:     v.servico || SERVICO_DEFAULT,
+      motivo:      v.motivo || '',
+      dataInicio:  v.dataInicio || '',
+      dataTermino: v.dataTermino || '',
+    }));
+
+    function reRenderVisitas() {
+      const list = mount.querySelector('#inst-visitas-list');
+      if (!list) return;
+      if (visitasExtrasTemp.length === 0) {
+        list.innerHTML = '<div style="font-size:12px;color:#9ca3af;font-style:italic;">Nenhuma visita extra. Clique em + Adicionar Visita para registrar retornos ao cliente.</div>';
+      } else {
+        list.innerHTML = visitasExtrasTemp.map((v, idx) => `
+          <div class="inst-visita-row" data-visita-idx="${idx}"
+               style="display:grid;grid-template-columns:1fr 1.2fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:8px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;">
+            <div>
+              <label style="font-size:11px;">Servico</label>
+              <select data-visita-field="servico" data-visita-idx="${idx}">
+                ${SERVICOS_INSTALACAO.map(s => `<option value="${s.id}" ${v.servico === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;">Motivo</label>
+              <input type="text" data-visita-field="motivo" data-visita-idx="${idx}"
+                     value="${escapeHtml(v.motivo || '')}"
+                     placeholder="ex: retorno garantia, ajuste" />
+            </div>
+            <div>
+              <label style="font-size:11px;">Data Saida</label>
+              <input type="date" data-visita-field="dataInicio" data-visita-idx="${idx}"
+                     value="${escapeHtml(v.dataInicio || '')}" />
+            </div>
+            <div>
+              <label style="font-size:11px;">Data Termino</label>
+              <input type="date" data-visita-field="dataTermino" data-visita-idx="${idx}"
+                     value="${escapeHtml(v.dataTermino || '')}" />
+            </div>
+            <button type="button" data-action="remover-visita" data-visita-idx="${idx}"
+                    title="Remover visita"
+                    style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:14px;">×</button>
+          </div>
+        `).join('');
+      }
+      bindVisitaHandlers();
+    }
+
+    function bindVisitaHandlers() {
+      // Inputs de campo da visita: atualizam o buffer
+      mount.querySelectorAll('[data-visita-field]').forEach(el => {
+        el.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.dataset.visitaIdx, 10);
+          const field = e.target.dataset.visitaField;
+          if (visitasExtrasTemp[idx]) {
+            visitasExtrasTemp[idx][field] = e.target.value;
+          }
+        });
+        // 'change' tambem (selects)
+        el.addEventListener('change', (e) => {
+          const idx = parseInt(e.target.dataset.visitaIdx, 10);
+          const field = e.target.dataset.visitaField;
+          if (visitasExtrasTemp[idx]) {
+            visitasExtrasTemp[idx][field] = e.target.value;
+          }
+        });
+      });
+      // Botoes remover
+      mount.querySelectorAll('[data-action="remover-visita"]').forEach(b => {
+        b.addEventListener('click', (e) => {
+          const idx = parseInt(e.currentTarget.dataset.visitaIdx, 10);
+          if (Number.isFinite(idx)) {
+            visitasExtrasTemp.splice(idx, 1);
+            reRenderVisitas();
+          }
+        });
+      });
+    }
+
+    // Bind inicial
+    bindVisitaHandlers();
+
+    // Botao + Adicionar Visita
+    const btnAddVisita = mount.querySelector('#inst-btn-add-visita');
+    if (btnAddVisita) {
+      btnAddVisita.addEventListener('click', () => {
+        visitasExtrasTemp.push({
+          servico: SERVICO_DEFAULT, motivo: '',
+          dataInicio: '', dataTermino: '',
+        });
+        reRenderVisitas();
+      });
+    }
+
     // Salvar
     const btnSalvar = mount.querySelector('[data-action="salvar-modal"]');
     if (btnSalvar) {
@@ -787,6 +1007,10 @@
         mount.querySelectorAll('[data-edit]').forEach(el => {
           patch[el.dataset.edit] = el.value;
         });
+        // Felipe sessao 18: tambem salva visitas extras
+        patch.visitasExtras = visitasExtrasTemp.filter(v =>
+          v.dataInicio || v.dataTermino || v.motivo
+        );
         atualizarDelta(cardId, patch);
         fecharModal(container);
         render(container);
