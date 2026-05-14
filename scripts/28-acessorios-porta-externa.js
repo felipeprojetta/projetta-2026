@@ -863,6 +863,43 @@ const AcessoriosPortaExterna = (() => {
             const alt = Number(p.altura)  || 0;
             const qtd = Number(p.qtd)     || 0;
             if (!lar || !alt || !qtd) return;
+            // Felipe sessao 18: 'fita dupla face para ripa vai considerar
+            // comprimento dos tubos, ai sera 2x fita dupla face de 19
+            // e 1x silicone estrutural'.
+            //
+            // Comprimento dos tubos por ripa (vide motor 37-perfis-rev-
+            // parede): 1×2000mm (base) + N×600mm onde N=floor((H-2000)/1200).
+            // Edge case H<2000: 1 pedaco unico cortado em H.
+            //
+            // Chapa de fundo continua na regra revestimento_tampa
+            // (perimetro + cordoes internos a cada 1000mm).
+            const ehRipa = String(p.id || '').startsWith('rev_parede_ripa');
+            if (ehRipa) {
+              // Calcula comprimento total dos tubos da ripa
+              let compTuboMm = 0;
+              if (alt < 2000) {
+                compTuboMm = alt;
+              } else {
+                const N = Math.floor((alt - 2000) / 1200);
+                compTuboMm = 2000 + 600 * N;
+              }
+              const totalCompM = (compTuboMm * qtd) / 1000;
+              const cFD19 = 2 * totalCompM;
+              const cMS   = 1 * totalCompM;
+              mFD19 += cFD19;
+              mMS   += cMS;
+              _breakdown.push({
+                origem: `Revestimento RIPA: ${lar}×${alt}mm × ${qtd}un (tubos ${compTuboMm}mm/ripa)`,
+                regra:  'rev_parede_ripa',
+                tipo:   'rev_ripa',
+                metros: totalCompM,
+                dim:    { L: lar, H: alt, qtd, compTuboMm },
+                mult:   { fd19: 2, fd12: 0, ms: 1, cps: 0 },
+                contrib:{ fd19: cFD19, fd12: 0, ms: cMS, cps: 0 },
+              });
+              return;
+            }
+            // Chapa de fundo: regra normal (perimetro + cordoes internos)
             aplicarRegraRevParede('revestimento_tampa', lar, alt, qtd,
               `Revestimento: tampa ${lar}×${alt}mm × ${qtd}un`);
           });
