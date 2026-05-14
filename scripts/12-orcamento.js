@@ -3288,12 +3288,28 @@ const Orcamento = (() => {
       `;
     }
 
+    // Felipe sessao 18 (fix click pergolado): tagsLeadHtml e' funcao
+    // LOCAL de renderItemRevestimentoParede, nao visivel aqui.
+    // Inline a mesma logica pra evitar ReferenceError no template
+    // (que estourava silenciosamente e impedia o render).
+    const _tagsLeadHtml = (() => {
+      if (!UI.leadAtivo) return '';
+      const lead = UI.leadAtivo;
+      const partes = [];
+      if (lead.cliente) partes.push(escapeHtml(lead.cliente));
+      if (lead.agp)     partes.push('AGP ' + escapeHtml(lead.agp));
+      if (lead.reserva) partes.push('Reserva ' + escapeHtml(lead.reserva));
+      return partes.length
+        ? `<span class="orc-tag-lead">${partes.join(' · ')}</span>`
+        : '';
+    })();
+
     container.innerHTML = `
       <div class="orc-banner">
         <div class="orc-banner-info">
           <span class="t-strong">Negocio em edicao:</span>
           ${escapeHtml(negocio?.clienteNome || '—')}
-          ${tagsLeadHtml()}
+          ${_tagsLeadHtml}
           · Opcao ${escapeHtml(opcao.letra)}
           · Versao ${versao.numero}
         </div>
