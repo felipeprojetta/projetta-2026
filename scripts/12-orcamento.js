@@ -10346,6 +10346,12 @@ const Orcamento = (() => {
           ${imgSrc
             ? `<img src="${imgSrc}" alt="Modelo ${item.modeloNumero}" />`
             : `<div class="rel-prop-item-img-placeholder">Imagem do<br>modelo</div>`}
+          <!-- Felipe sessao 18: disclaimer abaixo da imagem - 'As imagens/Modelo
+               visual sao meramente ilustrativos. O cliente aprovara os desenhos
+               finais para producao.' -->
+          <div class="rel-prop-item-img-disclaimer">
+            Imagem meramente ilustrativa. O cliente aprovara os desenhos finais para producao.
+          </div>
         </div>
         <div class="rel-prop-item-info">
           <div class="rel-prop-item-titulo">PORTA PROJETTA BY WEIKU</div>
