@@ -2807,6 +2807,17 @@ const Orcamento = (() => {
         // E o form proprio em renderItemTab linha ~2398.
         ativo: true,
       },
+      {
+        id: 'pergolado',
+        label: 'Pergolado',
+        icon: '🟧',
+        desc: 'Pergolado de tubos espacados (51x51, 101x51, 38x38, 76x38).',
+        // Felipe sessao 18: novo item. Motores:
+        //   - scripts/41-chapas-pergolado.js (window.ChapasPergolado)
+        //   - scripts/42-perfis-pergolado.js (window.PerfisPergolado)
+        // Form proprio em renderItemPergolado.
+        ativo: true,
+      },
     ];
 
     const headerOrcamento = `
