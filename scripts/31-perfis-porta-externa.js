@@ -220,7 +220,11 @@ const PerfisPortaExterna = (() => {
     if (larguraFolha > 2500)      travLarguraBonus = 2;
     else if (larguraFolha > 1500) travLarguraBonus = 1;
 
-    const qtyTotal = travCavaTotal + travLarguraBonus;
+    let qtyTotal = travCavaTotal + travLarguraBonus;
+    // Felipe sessao 18: Modelo 23 (Boiserie) SEMPRE tem 1 travessa vertical
+    // obrigatoria pra fixar o puxador, independente de tamanho ou cava.
+    // Se o calculo normal deu 0, forca pra 1.
+    if (modelo === 23 && qtyTotal === 0) qtyTotal = 1;
     // qtyPerFolha mantido p/ compat — nao tem mais sentido literal
     const qtyPerFolha = travCavaPorFolha;
 

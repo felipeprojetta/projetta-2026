@@ -360,15 +360,17 @@
 }
 /* Felipe (do doc): foto da porta MAIS LARGA. Container proporcional
    a uma porta (alto+estreito), a imagem usa toda a area mantendo
-   proporcao via object-fit: contain (nao distorce). */
+   proporcao via object-fit: contain (nao distorce).
+   Felipe sessao 18 (pos-disclaimer): min-height 380px (era 320) pra
+   acomodar imagem grande + disclaimer no rodape, sem comprimir a img. */
 .rel-prop-item-img {
   background: var(--cinza-mais-claro);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   border-right: 1px solid var(--line);
-  min-height: 320px;
+  min-height: 380px;
   padding: 10px;
 }
 .rel-prop-item-img img {
@@ -389,9 +391,12 @@
 }
 /* Felipe sessao 18: disclaimer abaixo da imagem do modelo na proposta
    comercial. 'As imagens sao meramente ilustrativas. O cliente aprovara
-   os desenhos finais para producao'. */
+   os desenhos finais para producao'.
+   Felipe sessao 18 (ajuste 2): margin-top auto empurra pro RODAPE
+   do container sem comprimir a imagem. Imagem mantem tamanho original. */
 .rel-prop-item-img-disclaimer {
-  margin-top: 8px;
+  margin-top: auto;
+  padding-top: 16px;
   font-size: 8px;
   font-style: italic;
   color: var(--text-muted, #6b7280);
@@ -399,7 +404,6 @@
   line-height: 1.3;
   letter-spacing: 0.02em;
   max-width: 100%;
-  padding: 0 4px;
 }
 .rel-prop-item-info {
   padding: 10px 14px;
