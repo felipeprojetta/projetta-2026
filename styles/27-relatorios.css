@@ -362,7 +362,11 @@
    a uma porta (alto+estreito), a imagem usa toda a area mantendo
    proporcao via object-fit: contain (nao distorce).
    Felipe sessao 18 (pos-disclaimer): min-height 380px (era 320) pra
-   acomodar imagem grande + disclaimer no rodape, sem comprimir a img. */
+   acomodar imagem grande + disclaimer no rodape, sem comprimir a img.
+   Felipe sessao 30: imagem ainda parecia pequena porque max-height
+   da img era 290px. Bumped: container 380->460px e img max 290->400px,
+   ganhando ~110px de altura util pra imagem. Disclaimer continua
+   colado no rodape via margin-top: auto. */
 .rel-prop-item-img {
   background: var(--cinza-mais-claro);
   display: flex;
@@ -370,14 +374,14 @@
   align-items: center;
   justify-content: flex-start;
   border-right: 1px solid var(--line);
-  min-height: 380px;
+  min-height: 460px;
   padding: 10px;
 }
 .rel-prop-item-img img {
   width: 100%;
   height: auto;
   max-width: 100%;
-  max-height: 290px;
+  max-height: 400px;
   display: block;
   object-fit: contain;
   flex-shrink: 0;
