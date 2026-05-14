@@ -312,9 +312,12 @@ const ChapasPortaExterna = (() => {
     fit_acab_lar: ctx => F._ehMod23AM(ctx)
       ? ctx.TUBLPORTA + 10 + 4
       : ctx.TUBLPORTAL + 10 + 2 * ctx.REF,
-    // ALISAR — Felipe planilha: (espessuraParede - 80/2) + 5 + larguraAlisar + REF
-    // Nota: 80/2 é DIVIDIDO ANTES (=40), NÃO (esp-80)/2.
-    alisar_largura: ctx => (ctx.espessuraParede - 80/2) + 5 + ctx.larguraAlisar + ctx.REF,
+    // ALISAR — Felipe (sessao 30): formula NOVA, constante depende da familia.
+    //   PA-006 (familia 76):  (espParede - 52)/2 + 5 + larguraAlisar + REF
+    //   PA-007 (familia 101): (espParede - 78)/2 + 5 + larguraAlisar + REF
+    // Substitui a antiga "(espParede - 80/2) + 5 + larguraAlisar + REF" que
+    // dava o mesmo valor pras 2 familias (sem divisao depois da subtracao).
+    alisar_largura: ctx => (ctx.espessuraParede - (ctx.fam === 'PA006' ? 52 : 78)) / 2 + 5 + ctx.larguraAlisar + ctx.REF,
     alisar_altura_comp:  ctx => ctx.H + ctx.larguraAlisar + 100,
     alisar_largura_comp: ctx => ctx.L + 100,
     tm_base_2f: ctx => (ctx.larguraQuadro2F - ctx.dBC*2 - ctx.tamCava*2) / 2,
