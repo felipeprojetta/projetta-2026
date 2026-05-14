@@ -166,18 +166,30 @@
   min-width: 100%;
 }
 .inst-gantt-label-spacer {
-  flex: 0 0 280px;
-  padding: 8px 12px;
+  flex: 0 0 640px;
+  padding: 0;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .3px;
   color: var(--text-muted, #6b7280);
   border-right: 2px solid var(--border, #e5e7eb);
-  display: flex; align-items: center;
+  display: flex;
+  align-items: stretch;
   position: sticky; left: 0; z-index: 6;
   background: var(--bg-soft, #f8fafc);
 }
+.inst-gantt-label-spacer > span {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--border, #e5e7eb);
+}
+.inst-gantt-label-spacer > span:last-child { border-right: none; }
+.inst-gantt-col-cliente { flex: 0 0 180px; }
+.inst-gantt-col-servico { flex: 0 0 150px; }
+.inst-gantt-col-stat-inst { flex: 0 0 150px; }
+.inst-gantt-col-stat-prod { flex: 0 0 160px; }
 .inst-gantt-header {
   position: relative;
   height: 50px;
@@ -279,7 +291,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 280px;            /* alinha com inst-gantt-label flex-basis */
+  left: 640px;            /* alinha com inst-gantt-label flex-basis (Felipe sessao 18.b: 4 colunas) */
   pointer-events: none;
   z-index: 0;             /* atras das rows (rows nao tem z-index, default 0, mas weekend nao bloqueia hover) */
 }
@@ -305,14 +317,40 @@
 }
 .inst-gantt-row:hover { background: var(--bg-hover, #f9fafb); }
 .inst-gantt-label {
-  flex: 0 0 280px;
-  padding: 6px 12px;
+  flex: 0 0 640px;
+  padding: 0;
   border-right: 2px solid var(--border, #e5e7eb);
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: stretch;
   background: #fff;
   position: sticky; left: 0; z-index: 2;
+}
+.inst-gantt-label > div {
+  padding: 6px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  border-right: 1px solid var(--border, #f1f5f9);
+}
+.inst-gantt-label > div:last-child { border-right: none; }
+.inst-gantt-label .inst-gantt-col-cliente { flex: 0 0 180px; }
+.inst-gantt-label .inst-gantt-col-servico { flex: 0 0 150px; }
+.inst-gantt-label .inst-gantt-col-stat-inst { flex: 0 0 150px; }
+.inst-gantt-label .inst-gantt-col-stat-prod { flex: 0 0 160px; }
+/* Pills pequenas pras 3 colunas de status */
+.inst-gantt-pill {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1.3;
 }
 .inst-gantt-label strong {
   font-size: 12.5px;

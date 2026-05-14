@@ -484,18 +484,16 @@
     const linhas = trabalhos.map(t => {
       const sInst = statusInstById(t.statusInstalacao);
       const local = [t.cidade, t.estado].filter(Boolean).join(' / ');
-      // Felipe sessao 18: cada visita gera 1 barra.
-      // Visita 1 = dataInicio/dataTermino originais. Visitas 2..N
-      // vem de t.visitasExtras (ja' filtradas pra ter pelo menos 1
-      // data ao salvar). Servico da visita 1 = t.servico; das extras
-      // = v.servico. Cor sempre do statusInstalacao (mesmo pra todas).
+      // Felipe sessao 18.b: cada visita gera 1 barra. Cada uma com
+      // seu PROPRIO statusInstalacao (cor). Todas barras solidas.
+      // Label: '<cliente> - <servico>'.
       const todasVisitas = [];
       if (t.dataInicio && t.dataTermino && t.dataInicio <= t.dataTermino) {
         todasVisitas.push({
           dataInicio: t.dataInicio, dataTermino: t.dataTermino,
           servicoLabel: servicoLabelById(t.servico || SERVICO_DEFAULT),
+          statusInst: t.statusInstalacao,  // visita 1 usa o status do trabalho
           motivo: '',  // visita 1 nao tem motivo (e' o trabalho original)
-          isPrincipal: true,
         });
       }
       (t.visitasExtras || []).forEach(v => {
@@ -503,8 +501,9 @@
           todasVisitas.push({
             dataInicio: v.dataInicio, dataTermino: v.dataTermino,
             servicoLabel: servicoLabelById(v.servico || SERVICO_DEFAULT),
+            // Felipe sessao 18.b: cada visita extra com seu proprio status
+            statusInst: v.statusInstalacao || 'ag-instalacao',
             motivo: v.motivo || '',
-            isPrincipal: false,
           });
         }
       });
@@ -513,20 +512,14 @@
         .map(v => {
           const offset = diasEntre(min, v.dataInicio) * PX_DIA;
           const largura = (diasEntre(v.dataInicio, v.dataTermino) + 1) * PX_DIA - 4;
-          // Visitas extras (retornos) ficam levemente translucidas + borda
-          // mais grossa pra diferenciar visualmente da visita principal.
-          const extraStyle = v.isPrincipal
-            ? `background:${sInst.color};border-color:${sInst.color}`
-            : `background:${sInst.color};border:2px dashed #fff;outline:1px solid ${sInst.color};opacity:.85`;
-          const tituloVisita = v.isPrincipal
-            ? `${v.servicoLabel} — ${fmtData(v.dataInicio)} ate ${fmtData(v.dataTermino)} — ${sInst.label}`
-            : `${v.servicoLabel}${v.motivo ? ' (' + v.motivo + ')' : ''} — ${fmtData(v.dataInicio)} ate ${fmtData(v.dataTermino)}`;
-          const labelBarra = v.isPrincipal
-            ? t.cliente
-            : `${v.servicoLabel}${v.motivo ? ' · ' + v.motivo : ''}`;
+          // Felipe sessao 18.b: TODAS solidas com a cor do status da
+          // visita. Label sempre '<cliente> - <servico>'.
+          const sVisita = statusInstById(v.statusInst);
+          const tituloVisita = `${v.servicoLabel} — ${fmtData(v.dataInicio)} ate ${fmtData(v.dataTermino)} — ${sVisita.label}${v.motivo ? ' (' + v.motivo + ')' : ''}`;
+          const labelBarra = `${t.cliente} - ${v.servicoLabel}`;
           return `<div class="inst-gantt-bar"
-            style="left:${offset}px;width:${largura}px;${extraStyle}"
-            title="${escapeHtml(t.cliente)} — ${escapeHtml(tituloVisita)}"
+            style="left:${offset}px;width:${largura}px;background:${sVisita.color};border-color:${sVisita.color}"
+            title="${escapeHtml(tituloVisita)}"
             data-card-id="${escapeHtml(t.cardId)}">
             ${escapeHtml(labelBarra)}
           </div>`;
@@ -534,9 +527,26 @@
       return `
         <div class="inst-gantt-row" data-card-id="${escapeHtml(t.cardId)}">
           <div class="inst-gantt-label">
-            <strong>${escapeHtml(t.cliente)}</strong>
-            <span class="inst-gantt-meta">${escapeHtml(t.numeroAGP || '')} · ${escapeHtml(local || '')}</span>
-            <span class="inst-gantt-meta">${escapeHtml(t.instalador || '—')}</span>
+            <div class="inst-gantt-col-cliente">
+              <strong>${escapeHtml(t.cliente)}</strong>
+              <span class="inst-gantt-meta">${escapeHtml(t.numeroAGP || '')} · ${escapeHtml(local || '')}</span>
+              <span class="inst-gantt-meta">${escapeHtml(t.instalador || '—')}</span>
+            </div>
+            <div class="inst-gantt-col-servico">
+              <span class="inst-gantt-pill" style="background:#eef2ff;color:#3730a3;border-color:#c7d2fe;">
+                ${escapeHtml(servicoLabelById(t.servico || SERVICO_DEFAULT))}
+              </span>
+            </div>
+            <div class="inst-gantt-col-stat-inst">
+              <span class="inst-gantt-pill" style="background:${sInst.color}20;color:${sInst.color};border-color:${sInst.color};">
+                ${escapeHtml(sInst.label)}
+              </span>
+            </div>
+            <div class="inst-gantt-col-stat-prod">
+              <span class="inst-gantt-pill" style="background:#f1f5f9;color:#475569;border-color:#cbd5e1;">
+                ${escapeHtml(labelStatusProducao(t.statusProducao))}
+              </span>
+            </div>
           </div>
           <div class="inst-gantt-track" style="width:${totalPx}px;background-image:repeating-linear-gradient(to right,transparent 0,transparent ${PX_DIA-1}px,#f1f5f9 ${PX_DIA-1}px,#f1f5f9 ${PX_DIA}px)">
             ${barrasHtml}
@@ -548,7 +558,12 @@
     return `
       <div class="inst-gantt-wrap">
         <div class="inst-gantt-header-row">
-          <div class="inst-gantt-label-spacer">Cliente / ATP / Cidade / Instalador</div>
+          <div class="inst-gantt-label-spacer">
+            <span class="inst-gantt-col-cliente">Cliente / ATP / Cidade / Instalador</span>
+            <span class="inst-gantt-col-servico">Serviço</span>
+            <span class="inst-gantt-col-stat-inst">Status Inst.</span>
+            <span class="inst-gantt-col-stat-prod">Status Prod.</span>
+          </div>
           <div class="inst-gantt-header" style="width:${totalPx}px;position:relative">
             <div class="inst-gantt-months">${headerMeses.join('')}</div>
             <div class="inst-gantt-days">${headerDias.join('')}</div>
@@ -728,11 +743,17 @@
               <div id="inst-visitas-list">
                 ${(t.visitasExtras || []).map((v, idx) => `
                   <div class="inst-visita-row" data-visita-idx="${idx}"
-                       style="display:grid;grid-template-columns:1fr 1.2fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:8px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;">
+                       style="display:grid;grid-template-columns:1fr 1fr 1.2fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:8px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;">
                     <div>
                       <label style="font-size:11px;">Servico</label>
                       <select data-visita-field="servico" data-visita-idx="${idx}">
                         ${SERVICOS_INSTALACAO.map(s => `<option value="${s.id}" ${v.servico === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div>
+                      <label style="font-size:11px;">Status Inst.</label>
+                      <select data-visita-field="statusInstalacao" data-visita-idx="${idx}">
+                        ${STATUS_INSTALACAO.map(s => `<option value="${s.id}" ${(v.statusInstalacao || 'ag-instalacao') === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
                       </select>
                     </div>
                     <div>
@@ -907,10 +928,13 @@
     // Buffer em memoria com a lista de visitas extras editavel.
     // Inicializa com o que ja' tem no trabalho.
     let visitasExtrasTemp = (t.visitasExtras || []).map(v => ({
-      servico:     v.servico || SERVICO_DEFAULT,
-      motivo:      v.motivo || '',
-      dataInicio:  v.dataInicio || '',
-      dataTermino: v.dataTermino || '',
+      servico:          v.servico || SERVICO_DEFAULT,
+      // Felipe sessao 18.b: cada visita extra tem seu proprio
+      // statusInstalacao (cor da barra no Gantt). Default 'ag-instalacao'.
+      statusInstalacao: v.statusInstalacao || 'ag-instalacao',
+      motivo:           v.motivo || '',
+      dataInicio:       v.dataInicio || '',
+      dataTermino:      v.dataTermino || '',
     }));
 
     function reRenderVisitas() {
@@ -921,11 +945,17 @@
       } else {
         list.innerHTML = visitasExtrasTemp.map((v, idx) => `
           <div class="inst-visita-row" data-visita-idx="${idx}"
-               style="display:grid;grid-template-columns:1fr 1.2fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:8px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;">
+               style="display:grid;grid-template-columns:1fr 1fr 1.2fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:8px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;">
             <div>
               <label style="font-size:11px;">Servico</label>
               <select data-visita-field="servico" data-visita-idx="${idx}">
                 ${SERVICOS_INSTALACAO.map(s => `<option value="${s.id}" ${v.servico === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;">Status Inst.</label>
+              <select data-visita-field="statusInstalacao" data-visita-idx="${idx}">
+                ${STATUS_INSTALACAO.map(s => `<option value="${s.id}" ${(v.statusInstalacao || 'ag-instalacao') === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
               </select>
             </div>
             <div>
@@ -992,7 +1022,9 @@
     if (btnAddVisita) {
       btnAddVisita.addEventListener('click', () => {
         visitasExtrasTemp.push({
-          servico: SERVICO_DEFAULT, motivo: '',
+          servico: SERVICO_DEFAULT,
+          statusInstalacao: 'ag-instalacao',
+          motivo: '',
           dataInicio: '', dataTermino: '',
         });
         reRenderVisitas();
