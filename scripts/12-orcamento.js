@@ -11682,27 +11682,36 @@ const Orcamento = (() => {
       // recalcula tirando essa peca'.
       if (item.tipo === 'porta_externa' && Chapas) {
         // Felipe sessao 12 fix: pra COR UNICA (corExt = corInt), peças com
-        // override (_editado) NAO sao duplicadas entre os 2 lados. O override
-        // representa a qtd FINAL desejada pelo usuario, nao por lado. Sem
-        // isso o aproveitamento contava 2× (ext+int) o valor editado e
-        // calculava chapas-mae a mais.
+        // override de QTD (_qtdOverride) NAO sao duplicadas entre os 2 lados.
+        // O override de qtd representa a qtd FINAL desejada pelo usuario, nao
+        // por lado. Sem isso o aproveitamento contava 2× (ext+int) o valor
+        // editado e calculava chapas-mae a mais.
+        //
+        // Felipe sessao 30 fix: ANTES filtrava por _editado (qualquer edicao).
+        // Mas _editado=true tambem fica setado quando o usuario edita SO a
+        // largura ou SO a altura (sem mexer na qtd). Resultado: peca com
+        // altura editada (mas qtd original 1+1) tinha o lado interno filtrado
+        // erroneamente -> aproveitamento via 1 peca quando devia ver 2.
+        // Bug reportado: 'Tampa Maior qtd=2 mas no layout aparece 1'.
+        // Solucao igual a unificarPecas linha 13499: usar _qtdOverride (so
+        // marca true quando QTD foi editada, nao quando dimensao foi).
         const corExt2 = String(item.corExterna || '').trim();
         const corInt2 = String(item.corInterna || '').trim();
         const corUnica2 = corExt2 && corExt2 === corInt2;
-        // Coleta primeiro o externo e marca chaves _editadas pra pular no interno.
+        // Coleta primeiro o externo e marca chaves com qtd editada pra pular no interno.
         const chavesEditadasExt = new Set();
         ['externo', 'interno'].forEach(lado => {
           let pecas = Chapas.gerarPecasChapa(item, lado) || [];
           pecas = aplicarRotacionaOverrides(pecas, item);
           pecas = aplicarQtdOverrides(pecas, item, lado);
           pecas = aplicarSuperficiesOverrides(pecas, item);
-          // Cor unica: pula no INTERNO peças _editadas que ja foram contadas no EXTERNO
+          // Cor unica: pula no INTERNO peças com QTD editada ja contadas no EXTERNO
           if (corUnica2 && lado === 'interno') {
-            pecas = pecas.filter(p => !(p._editado && chavesEditadasExt.has(rotacionaKey(p))));
+            pecas = pecas.filter(p => !(p._qtdOverride && chavesEditadasExt.has(rotacionaKey(p))));
           }
-          // Marca chaves _editadas do externo pra usar no interno (1a passada)
+          // Marca chaves com QTD editada do externo pra usar no interno (1a passada)
           if (corUnica2 && lado === 'externo') {
-            pecas.forEach(p => { if (p._editado) chavesEditadasExt.add(rotacionaKey(p)); });
+            pecas.forEach(p => { if (p._qtdOverride) chavesEditadasExt.add(rotacionaKey(p)); });
           }
           pecas.forEach(p => agrupar(grupos, p, idx, item));
         });
