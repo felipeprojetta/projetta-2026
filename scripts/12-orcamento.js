@@ -3175,6 +3175,13 @@ const Orcamento = (() => {
     `;
 
     bindItemRevParedeEvents(container);
+    // Felipe sessao 18: 'botao ir para levantamento so tem em porta
+    // externa quando mudo para revestimento ele some'. O wizard
+    // (botao Proximo: Levantamento de Perfis) era anexado so no
+    // renderItemTab principal — quando o item e' rev parede, esse
+    // caminho retorna cedo e o botao sumia. Anexa o mesmo wizard
+    // aqui pra ter botao fixo em ambos os tipos de item.
+    adicionarBotaoWizard(container, 'item');
   }
 
   /**
