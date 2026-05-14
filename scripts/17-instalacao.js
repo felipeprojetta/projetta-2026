@@ -403,6 +403,10 @@
     // Header dos dias agora tem 2 linhas: dow (cima) + dia (baixo).
     const DOW_LABELS = ['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
     const headerDias = [];
+    // Felipe sessao 18: faixa vertical em cada dia de SAB/DOM.
+    // Coletado durante o loop de dias - depois injetado dentro do body.
+    // Largura = PX_DIA (cobre 1 dia inteiro).
+    const weekendStripes = [];
     const headerMeses = [];
     // Felipe (sessao 2026-05-10): bug timezone - new Date(min) era UTC.
     // parseISODate cria em LOCAL time pra alinhar com o resto do app.
@@ -418,6 +422,12 @@
       const fimDeSemana = (dow === 0 || dow === 6);
       const dowLabel = DOW_LABELS[dow];
       headerDias.push(`<div class="inst-gantt-day ${fimDeSemana ? 'is-weekend' : ''}" style="flex:0 0 ${PX_DIA}px;width:${PX_DIA}px" title="${d.toLocaleDateString('pt-BR')}"><div class="inst-gantt-day-dow">${dowLabel}</div><div class="inst-gantt-day-num">${dia}</div></div>`);
+      // Felipe sessao 18: faixa vertical preenchendo o dia inteiro
+      // (atras das barras/labels do body). Mesma cor #e2e8f0 do header.
+      if (fimDeSemana) {
+        const leftPx = i * PX_DIA;
+        weekendStripes.push(`<div class="inst-gantt-weekend-stripe" style="left:${leftPx}px;width:${PX_DIA}px"></div>`);
+      }
 
       if (d.getMonth() !== mesAtual) {
         if (mesAtual !== -1) {
@@ -471,7 +481,17 @@
             ${offsetHoje >= 0 ? `<div class="inst-gantt-today" style="left:${offsetHoje}px" title="Hoje (${fmtData(hoje)})"></div>` : ''}
           </div>
         </div>
-        <div class="inst-gantt-body">${linhas}</div>
+        <div class="inst-gantt-body" style="position:relative">
+          <!-- Felipe sessao 18: 'colocar preenchida toda as colunas de
+               sabado e domingo da mesma cor que ja tem em cima'. Cada
+               weekend vira uma faixa vertical absoluta cobrindo o corpo
+               inteiro (atras das barras/labels). z-index baixo pra
+               nao tampar as barras dos leads. -->
+          <div class="inst-gantt-weekends" aria-hidden="true">
+            ${weekendStripes.join('')}
+          </div>
+          ${linhas}
+        </div>
       </div>
     `;
   }

@@ -271,12 +271,37 @@
   width: max-content;
   min-width: 100%;
 }
+/* Felipe sessao 18: faixas verticais cinza-claras nas colunas
+   SAB/DOM ao longo de toda a altura do body. Sao posicionadas
+   absoluto dentro do body relative. Comecam apos o label sticky
+   (left: 280px = mesma largura da label) e cobrem altura inteira. */
+.inst-gantt-weekends {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 280px;            /* alinha com inst-gantt-label flex-basis */
+  pointer-events: none;
+  z-index: 0;             /* atras das rows (rows nao tem z-index, default 0, mas weekend nao bloqueia hover) */
+}
+.inst-gantt-weekend-stripe {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #e2e8f0;   /* mesma cor do header is-weekend */
+  opacity: .55;
+}
 .inst-gantt-row {
   display: flex;
   min-height: 44px;
   border-bottom: 1px solid var(--border, #f1f5f9);
   cursor: pointer;
   transition: background .12s ease;
+  /* Felipe sessao 18: posicao relativa pra row ficar ACIMA das
+     weekend-stripes do body (que sao absoluto z-index 0). Sem
+     position relative, row default z-index seria auto e poderia
+     ficar atras das stripes. */
+  position: relative;
+  z-index: 1;
 }
 .inst-gantt-row:hover { background: var(--bg-hover, #f9fafb); }
 .inst-gantt-label {
