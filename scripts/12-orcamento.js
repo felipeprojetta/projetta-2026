@@ -10403,8 +10403,15 @@ const Orcamento = (() => {
               .map(c => {
                 const meta = CATALOGO_CAMPOS_MODELO[c];
                 if (!meta) return '';
+                // Felipe sessao 30 fix: o sufixo " mm" so' deve aparecer em
+                // campos que SAO em milimetros. Antes adicionava em qualquer
+                // campo number, fazendo 'quantidadeFrisos' virar "1 mm" e
+                // 'quantasDivisoesMoldura' virar "3 mm" (errado: sao contagens).
+                // Decisao: usa o label original como fonte da verdade — se ele
+                // termina com "(mm)", adiciona " mm" no valor; senao, deixa puro.
+                const ehMm = /\(mm\)\s*$/i.test(meta.label);
                 let lbl = meta.label.replace(/\s*\(mm\)\s*$/, '');
-                let valor = `${item[c]}${meta.tipo === 'number' ? ' mm' : ''}`;
+                let valor = `${item[c]}${ehMm ? ' mm' : ''}`;
                 // Felipe sessao 13: customizacoes de DISPLAY na proposta
                 // comercial (so' aqui — nao afeta form/cadastros).
                 // - 'Padrao' vira frase explicativa
