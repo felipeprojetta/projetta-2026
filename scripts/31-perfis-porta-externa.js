@@ -356,6 +356,25 @@ const PerfisPortaExterna = (() => {
     const qtdTV = tv.qtyTotal;
     const qtdTraPortal = Math.max(2, Math.floor(A / 2000) + 1);
 
+    // Felipe (sessao 30): quando o modelo tem FRISO VERTICAL
+    // (MODELOS_COM_FRISO_VERTICAL) e qtdFrisos > 0, cada friso SUBSTITUI
+    // uma travessa vertical (PA-76X38X1.98 vira PA-76X76X2.0). Total de
+    // elementos verticais e' mantido, mas N viram frisos 76x76 em vez
+    // de travessas 76x38.
+    //
+    // Ex: Mod 02 (cava + 1 friso vertical), 1 folha, porta 1800mm:
+    //   - Antes: 3 travessas (2 cava obrigatorias + 1 bonus largura) + 1 friso = 4 verticais
+    //   - Agora: 2 travessas (so' as obrigatorias) + 1 friso = 3 verticais (o friso
+    //     substituiu a travessa de bonus por largura).
+    // Ex: porta com 2 frisos: 2 frisos substituem 2 travessas.
+    // qtdFrisos calculado uma so' vez (reusa em linhas 380 e ~420).
+    const qtdFrisosCfg = Math.max(0, parseInt(item.quantidadeFrisos, 10) || 0);
+    const ehModeloComFriso = MODELOS_COM_FRISO_VERTICAL.has(modelo);
+    const subtraiFrisos = (ehModeloComFriso && qtdFrisosCfg > 0)
+      ? qtdFrisosCfg * nFolhas
+      : 0;
+    const qtdTVFinal = Math.max(0, qtdTV - subtraiFrisos);
+
     function add(codigo, comp, qty, label) {
       if (qty <= 0 || comp <= 0) return;
       if (!cortes[codigo]) cortes[codigo] = [];
@@ -377,7 +396,7 @@ const PerfisPortaExterna = (() => {
     add(cod.veda,                                 VEDA,            2 * nFolhas,    'Veda Porta Inferior & Superior');
     add(cod.perfLargInt,                          LARG_INT_FOLHA,  2 * nFolhas,    'Largura Inferior & Superior');
     add(cod.canalEsc,                             CANAL,           2 * nFolhas,    'Canal Escova');
-    add(cod.travVert,                             TRAV_VERT,       qtdTV,          'Travessa Vertical');
+    add(cod.travVert,                             TRAV_VERT,       qtdTVFinal,     'Travessa Vertical');
     // Felipe sessao 12: modelo 6 (friso horizontal) NAO duplica - o
     // 'Friso Horizontal' SUBSTITUI a 'Travessa Horizontal'. Antes
     // adicionavam os 2 (mesmo PA-76X38X1.98, mesmo comprimento, mesmo
@@ -414,9 +433,11 @@ const PerfisPortaExterna = (() => {
     //   Comprimento: TRAV_VERT (altura util entre batentes)
     //   Quantidade : qtdFrisos × nFolhas (1 folha: qtdFrisos;
     //                2 folhas: qtdFrisos × 2)
-    const qtdFrisos = Math.max(0, parseInt(item.quantidadeFrisos, 10) || 0);
-    if (MODELOS_COM_FRISO_VERTICAL.has(modelo) && qtdFrisos > 0) {
-      add(cod.perfLargInt, TRAV_VERT, qtdFrisos * nFolhas, 'Friso Vertical');
+    // Felipe (sessao 30): reusa qtdFrisosCfg/ehModeloComFriso ja' calculados
+    // acima (linhas ~340) — usados tambem na regra de substituicao das
+    // travessas verticais.
+    if (ehModeloComFriso && qtdFrisosCfg > 0) {
+      add(cod.perfLargInt, TRAV_VERT, qtdFrisosCfg * nFolhas, 'Friso Vertical');
     }
 
     // Felipe sessao 18 (nova regra do encarregado): tubo INTERNO da
