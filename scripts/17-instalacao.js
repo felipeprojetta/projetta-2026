@@ -349,6 +349,32 @@
     if (trabalhos.length === 0) {
       return `<div class="inst-empty">Nenhum trabalho com datas pra exibir no Gantt.</div>`;
     }
+    // Felipe sessao 18: "coloque em cascata um em baixo do outro na
+    // sequencia". Ordena os trabalhos por dataInicio ASC pra que as
+    // barras apareçam em escada (linha 1 = trabalho mais cedo,
+    // linha N = trabalho mais tarde). Trabalhos SEM data vao pro
+    // final mantendo ordem alfabetica do cliente.
+    trabalhos = trabalhos.slice().sort((a, b) => {
+      const aHasDate = !!a.dataInicio;
+      const bHasDate = !!b.dataInicio;
+      if (aHasDate && bHasDate) {
+        // Ambos tem data: ordena pela data inicio
+        if (a.dataInicio < b.dataInicio) return -1;
+        if (a.dataInicio > b.dataInicio) return  1;
+        // Empate na inicio: usa dataTermino
+        if (a.dataTermino && b.dataTermino) {
+          if (a.dataTermino < b.dataTermino) return -1;
+          if (a.dataTermino > b.dataTermino) return  1;
+        }
+        return String(a.cliente || '').localeCompare(String(b.cliente || ''));
+      }
+      // So um deles tem data: o que tem data vem primeiro
+      if (aHasDate) return -1;
+      if (bHasDate) return  1;
+      // Nenhum tem data: alfabetico
+      return String(a.cliente || '').localeCompare(String(b.cliente || ''));
+    });
+
     const { min, max } = calcularRangeGantt(trabalhos);
     const totalDias = diasEntre(min, max) + 1;
     if (totalDias <= 0) {
