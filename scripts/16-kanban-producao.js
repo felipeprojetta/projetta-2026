@@ -318,6 +318,10 @@
       modo: 'reserva',
       editandoId: null,  // null = criando novo; string = editando lead existente
       numeroReserva: '', numeroAGP: '',
+      // Felipe sessao 18: campo de input do modo 'Por ATP'.
+      // Quando preenche e clica Buscar Weiku, traz dados do contrato.
+      numeroAtpBusca: '',
+      atp: null,  // objeto com dados completos do contrato (ATP) apos buscar
       cliente: '', telefone: '', email: '',
       cep: '', cidade: '', estado: '',
       // Felipe (do doc): card comeca VAZIO em representante. Apos integracao
@@ -334,6 +338,8 @@
         modo: 'reserva',
         editandoId: null,
         numeroReserva: '', numeroAGP: '',
+        numeroAtpBusca: '',
+        atp: null,
         cliente: '', telefone: '', email: '',
         cep: '', cidade: '', estado: '',
         representante: '',
@@ -670,6 +676,27 @@
           </div>
         </div>
       ` : '');
+
+      // Felipe sessao 18: 3o modo 'Por ATP'.
+      // Nessa etapa do Kanban Producao a reserva ja' nao importa tanto —
+      // o que interessa sao os dados do contrato (ATP). Por enquanto
+      // depende do endpoint da Weiku (aguardando John). Stub UI ja
+      // funciona mesmo sem CORS: o botao Buscar Weiku ATP chama
+      // WeikuClient.buscarContrato e preenche o modal.
+      const searchAtpSection = m.modo === 'atp' && !editando ? `
+        <div class="kprod-form-row cols-1">
+          <div class="kprod-field">
+            <label>Numero ATP <span class="kprod-field-hint">numero do contrato</span></label>
+            <div class="kprod-search-inline">
+              <input type="text" id="kprod-search-atp-input"
+                value="${escapeHtml(m.numeroAtpBusca || '')}"
+                placeholder="ATP000000" />
+              <button class="kprod-btn-search" id="kprod-btn-search-atp">Buscar Weiku</button>
+            </div>
+            <span class="kprod-field-hint" id="kprod-search-atp-status"></span>
+          </div>
+        </div>
+      ` : '';
       const etapasOpts = ETAPAS.map(e => `<option value="${e.id}" ${m.etapa===e.id?'selected':''}>${e.label}</option>`).join('');
       // Felipe (sessao 18): "tudo nessa etapa eh sobre o ATP, todo
       // campo deve mostrar o ATP ali". ATP no titulo aparece em TODAS
@@ -685,6 +712,7 @@
       const tabsHtml = editando ? '' : `
               <div class="kprod-modal-tabs">
                 ${tabBtn('reserva', 'Por Reserva')}
+                ${tabBtn('atp', 'Por ATP')}
                 ${tabBtn('manual', 'Manual')}
               </div>
       `;
@@ -724,6 +752,7 @@
               ${tabsAgpAtpHtml}
               <div class="kprod-aba-agp-content" style="${abaAtual === 'atp' ? 'display:none;' : ''}">
               ${searchSection}
+              ${searchAtpSection}
               <div class="kprod-form-row cols-3">
                 <div class="kprod-field">
                   <label>Nome do Cliente</label>
@@ -1314,6 +1343,84 @@
         });
       }
 
+      // Felipe sessao 18: Input de busca (ATP - novo modo 'Por ATP')
+      const searchAtpInput = container.querySelector('#kprod-search-atp-input');
+      if (searchAtpInput) {
+        searchAtpInput.addEventListener('input', (e) => {
+          modalState.numeroAtpBusca = e.target.value;
+        });
+      }
+
+      // Felipe sessao 18: Botao Buscar Weiku no modo 'Por ATP'.
+      // Chama WeikuClient.buscarContrato e preenche modalState com
+      // os dados do contrato (cliente, telefone, cep + atp completo).
+      // Enquanto o John nao libera CORS, exibe mensagem clara explicando
+      // que o endpoint /v2/api/contratos/contrato/ esta pendente.
+      container.querySelector('#kprod-btn-search-atp')?.addEventListener('click', async () => {
+        const btn = container.querySelector('#kprod-btn-search-atp');
+        const status = container.querySelector('#kprod-search-atp-status');
+        const num = modalState.numeroAtpBusca;
+        if (!num || !num.trim()) {
+          if (status) { status.textContent = 'Informe um numero ATP antes de buscar.'; status.className = 'kprod-field-hint crm-field-error'; }
+          return;
+        }
+        btn.disabled = true;
+        if (status) { status.textContent = 'Buscando contrato na intranet Weiku...'; status.className = 'kprod-field-hint'; }
+        try {
+          if (!window.WeikuClient || !window.WeikuClient.buscarContrato) {
+            throw new Error('Modulo WeikuClient.buscarContrato nao carregado');
+          }
+          const dados = await WeikuClient.buscarContrato(num.trim());
+          if (!dados) throw new Error('Contrato retornou vazio');
+          // Preenche os campos visiveis do modal (AGP padrao + ATP)
+          modalState.cliente  = dados.nomeContrato || '';
+          modalState.telefone = dados.telefoneObra || '';
+          modalState.email    = dados.emailContrato || '';
+          modalState.cep      = dados.cobranca?.cep || '';
+          modalState.numeroAGP    = dados.numeroAgp || '';
+          modalState.numeroReserva = dados.numeroReserva || '';
+          // Tenta resolver CEP automaticamente (cidade/estado)
+          if (modalState.cep) {
+            try {
+              const cepInfo = await buscarCEP(modalState.cep);
+              modalState.cidade = cepInfo.cidade;
+              modalState.estado = cepInfo.estado;
+            } catch (_) {}
+          }
+          // Guarda o objeto completo do contrato (sera persistido no
+          // lead.atp ao criar/salvar - igual o handler do CRM faz).
+          modalState.atp = {
+            numeroAtp:               dados.numeroAtp || num.trim(),
+            nomeContrato:            dados.nomeContrato || '',
+            responsavelLegal:        dados.responsavelLegal || '',
+            cpfCnpj:                 dados.cpfCnpj || '',
+            rg:                      dados.rg || '',
+            emailContrato:           dados.emailContrato || '',
+            cepCobranca:             dados.cobranca?.cep || '',
+            cidadeCobranca:          dados.cobranca?.cidade || '',
+            estadoCobranca:          dados.cobranca?.estado || '',
+            enderecoCompletoCobranca: dados.cobranca?.enderecoCompleto || '',
+            cepEntrega:              dados.entrega?.cep || '',
+            cidadeEntrega:           dados.entrega?.cidade || '',
+            estadoEntrega:           dados.entrega?.estado || '',
+            enderecoCompletoEntrega: dados.entrega?.enderecoCompleto || '',
+            telefoneObra:            dados.telefoneObra || '',
+            pontoReferencia:         dados.entrega?.pontoReferencia || '',
+          };
+          reRenderModal(container);
+          const s2 = container.querySelector('#kprod-search-atp-status');
+          if (s2) {
+            const st = WeikuClient.getStatus();
+            s2.textContent = `✓ Contrato carregado — fonte: ${st.source}`;
+            s2.className = 'kprod-field-hint crm-field-ok';
+          }
+        } catch (err) {
+          if (status) { status.textContent = '✗ ' + (err.message || 'Erro na busca'); status.className = 'kprod-field-hint crm-field-error'; }
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
       // Botao Buscar Weiku
       container.querySelector('#kprod-btn-search')?.addEventListener('click', async () => {
         const btn = container.querySelector('#kprod-btn-search');
@@ -1674,6 +1781,10 @@
             porta_modelo:            (m.porta_modelo || '').trim(),
             porta_cor:               (m.porta_cor || '').trim(),
             porta_fechadura_digital: (m.porta_fechadura_digital || '').trim(),
+            // Felipe sessao 18: persistir os dados ATP quando o lead
+            // foi criado via modo 'Por ATP'. Se modo nao foi 'atp' ou
+            // ainda nao buscou, m.atp e' null - nao salva nada.
+            atp: m.atp || null,
             data: new Date().toISOString().slice(0, 10),
           };
           state.leads.push(novo);
