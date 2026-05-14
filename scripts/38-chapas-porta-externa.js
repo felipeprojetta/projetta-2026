@@ -169,7 +169,23 @@ const ChapasPortaExterna = (() => {
     // Mod 23: Felipe pediu Mod 15 (3000x6500, 2F) e TM_01 saiu 1135.5
     // em vez de 1495.5 (diferenca exata 360 = 2*dBC + 2*tamCava = 720
     // dividido por 2 na formula tm_base_2f = 360).
-    const _modeloAtual = Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) || 0;
+    //
+    // BUG CRITICO (sessao 18, Felipe reportou):
+    // Antes: `Number(item.modeloExterno || item.modeloInterno || ...)`
+    // Esse OR pega SEMPRE o externo (pois mod1=1 é truthy). Quando o
+    // item tem modeloExterno=1 (Cava) E modeloInterno=15 (Puxador+Ripado)
+    // e calculamos o lado INTERNO, _modeloAtual virava 1, daí
+    // _modeloTemCava=true e dBC_eff/tamCava_eff vinham preenchidos do
+    // modelo externo. Resultado: lado interno do mod 15 saía com
+    // peças do mod 1 (com cava). Felipe: 'interno modelo 15 nao puxou
+    // calculos do modelo 15 daria outra medida da tampa e ficou igual
+    // ao de cima que era cava'.
+    //
+    // FIX: usar o parametro `lado` (que ja recebemos) pra escolher
+    // o modelo certo.
+    const _modeloAtual = (lado === 'externo')
+      ? Number(item.modeloExterno || item.modeloNumero) || 0
+      : Number(item.modeloInterno || item.modeloNumero) || 0;
     const _MODELOS_COM_CAVA = [1, 2, 3, 4, 5, 6, 7, 8, 9, 22, 24];
     const _modeloTemCava = _MODELOS_COM_CAVA.indexOf(_modeloAtual) !== -1;
     const dBC_eff     = _modeloTemCava ? num('distanciaBordaCava') : 0;
@@ -177,6 +193,10 @@ const ChapasPortaExterna = (() => {
 
     return {
       item, lado, quadro,
+      // Felipe sessao 18: modeloAtual = modelo do LADO sendo calculado.
+      // Necessario pra funcoes de F que precisam saber o modelo (ex
+      // _ehMod23AM) sem cair no bug do || (vide _modeloAtual acima).
+      modeloAtual: _modeloAtual,
       L: parseFloat(String(item.largura || '').replace(',', '.')) || 0,
       H: parseFloat(String(item.altura  || '').replace(',', '.')) || 0,
       familia: quadro.familia,
@@ -272,7 +292,10 @@ const ChapasPortaExterna = (() => {
     // Aplicado nas fitas (fit_acab_me/ma/lar) e nas tampas (modelo 23
     // direto, ja inline).
     _ehMod23AM: ctx => {
-      const mNum = Number(ctx.item?.modeloExterno || ctx.item?.modeloInterno || ctx.item?.modeloNumero) || 0;
+      // Felipe sessao 18: usar ctx.modeloAtual (modelo do lado sendo
+      // calculado) em vez do OR-truthy bug. Antes pegava
+      // modeloExterno || modeloInterno (sempre externo se truthy).
+      const mNum = Number(ctx.modeloAtual) || 0;
       if (mNum !== 23) return false;
       const rev = String(ctx.item?.revestimento || '').toLowerCase();
       return /aluminio.*macico/.test(rev) && /2\s*mm/.test(rev);
