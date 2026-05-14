@@ -62,8 +62,19 @@
       { id: 'perdido',             label: 'Perdido',              color: '#EF4444' },
     ];
 
-    // Cards de exemplo. Sera substituido por leads reais quando
-    // integrarmos com o modulo de Clientes/Orcamento.
+    // Felipe sessao 18.URGENTE 2026-05-14: SEED_LEADS DESATIVADO.
+    // ============================================================
+    // INCIDENTE: Em 2026-05-14 18:39 esses 8 dummies foram escritos
+    // por cima do CRM de producao (perda de leads do Felipe). Causa:
+    // store.get('leads') retornou null por timing/sync, load() entrou
+    // no if (lista === null) e fez state.leads = SEED_LEADS.slice() +
+    // store.set('leads', ...) sobrescrevendo o banco.
+    //
+    // CORRECAO: SEED_LEADS preservado como referencia historica mas
+    // load() agora NUNCA sobrescreve. Quando lista vem null/undefined,
+    // state.leads fica [] (vazio) e PRONTO - cabe ao usuario reabrir
+    // ou ao sync trazer de volta. NUNCA mais escreve dummies sozinho.
+    // ============================================================
     const SEED_LEADS = [
       { id: 'lead_01', cliente: 'Maria Silva',      valor: 25000, etapa: 'qualificacao',      data: '2026-04-22' },
       { id: 'lead_02', cliente: 'Joao Santos',      valor: 80000, etapa: 'qualificacao',      data: '2026-04-23' },
@@ -106,13 +117,12 @@
     function load() {
       if (loaded) return;
       const lista = store.get('leads');
-      if (lista === null || (Array.isArray(lista) && lista.length === 0 && !store.get('seeded'))) {
-        state.leads = SEED_LEADS.slice();
-        store.set('leads', state.leads);
-        store.set('seeded', true);
-      } else {
-        state.leads = lista || [];
-      }
+      // Felipe sessao 18.URGENTE: NUNCA sobrescreve.
+      // Antes: se lista===null fazia store.set('leads', SEED_LEADS) e
+      // perdia tudo. Agora aceita lista como array OU [] e pronto.
+      // Se store.get falhou (null), trata como array vazio na MEMORIA
+      // mas NAO escreve no banco. Sync trara os leads de volta.
+      state.leads = Array.isArray(lista) ? lista : [];
       // Filtra leads deletados (impede sync trazer de volta)
       try {
         var deletados = JSON.parse(localStorage.getItem('projetta_leads_deletados') || '[]');
