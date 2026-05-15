@@ -2996,7 +2996,7 @@ const Orcamento = (() => {
       ${(() => {
         const leadIt = lerLeadAtivo() || {};
         const numDocIt = `${(opcao?.letra || 'A')} - ${versao.numero}`;
-        return (window.Empresa && window.Empresa.montarHeaderRelatorio)
+        const headerItHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
           ? window.Empresa.montarHeaderRelatorio({
               lead: leadIt,
               tituloRelatorio: 'Caracteristicas do Item',
@@ -3004,6 +3004,12 @@ const Orcamento = (() => {
               validade: 15,
             })
           : '';
+        // Felipe sessao 31: bannerCaracteristicasItens (painel laranja com
+        // Item 1/2/3/4/5) FALTAVA em renderItemRevestimentoParede — antes so
+        // tinha headerItHtml sozinho. Felipe reclamou que so aparecia nos
+        // itens porta_externa. Agora replica padrao do renderItemTab pra
+        // cabecalho ser FIXO em todas as telas de itens.
+        return headerItHtml + bannerCaracteristicasItens(versao);
       })()}
       <div class="orc-banner">
         <div class="orc-banner-info">
@@ -3340,6 +3346,24 @@ const Orcamento = (() => {
     })();
 
     container.innerHTML = `
+      ${(() => {
+        // Felipe sessao 31: header empresa + painel "Caracteristicas dos
+        // Items" — antes pergolado nao tinha esse bloco, entao quando o
+        // item ativo era pergolado o painel laranja com Item 1/2/3/4/5
+        // sumia. Replica EXATAMENTE o padrao do renderItemTab (porta_externa)
+        // pra cabecalho ser FIXO em todas as telas de itens.
+        const leadIt = lerLeadAtivo() || {};
+        const numDocIt = `${(opcao?.letra || 'A')} - ${versao.numero}`;
+        const headerItHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
+          ? window.Empresa.montarHeaderRelatorio({
+              lead: leadIt,
+              tituloRelatorio: 'Caracteristicas do Item',
+              numeroDocumento: numDocIt,
+              validade: 15,
+            })
+          : '';
+        return headerItHtml + bannerCaracteristicasItens(versao);
+      })()}
       <div class="orc-banner">
         <div class="orc-banner-info">
           <span class="t-strong">Negocio em edicao:</span>
@@ -3383,7 +3407,7 @@ const Orcamento = (() => {
       </div>
 
       <div class="orc-tab-conteudo">
-        <h2 class="orc-tab-title">Item ${(versao.itens || []).indexOf(item) + 1} — Pergolado</h2>
+        <h2 class="orc-tab-title">Item ${UI.itemSelecionadoIdx + 1} — Pergolado</h2>
 
         <div class="orc-section">
           <div class="orc-section-title">Tubo e Espacamento</div>
