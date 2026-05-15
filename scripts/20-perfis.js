@@ -766,9 +766,13 @@ const Perfis = (() => {
   const _SUPABASE_URL_PERFIS = 'https://plmliavuwlgpwaizfeds.supabase.co';
   const _SUPABASE_KEY_PERFIS = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
   async function fetchPerfisFromSupabaseDirect() {
+    // Felipe sessao 31 v4: SIMPLIFICADO. Antes URL tinha `&_=Date.now()`
+    // como cache buster, mas PostgREST 11+ pode rejeitar parametros
+    // desconhecidos com HTTP 400. syncFromCloud (00-database.js) usa
+    // URL sem cache buster e funciona ("146 chaves carregadas do
+    // Supabase" no console). Replicando o mesmo padrao.
+    const url = _SUPABASE_URL_PERFIS + '/rest/v1/kv_store?scope=eq.cadastros&key=eq.perfis_lista&select=valor';
     try {
-      // Cache-buster: Safari iPhone cacheia GETs - garante versao fresca
-      const url = _SUPABASE_URL_PERFIS + '/rest/v1/kv_store?scope=eq.cadastros&key=eq.perfis_lista&select=valor&_=' + Date.now();
       const resp = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
@@ -776,11 +780,15 @@ const Perfis = (() => {
           'apikey': _SUPABASE_KEY_PERFIS,
           'Authorization': 'Bearer ' + _SUPABASE_KEY_PERFIS,
           'Accept-Profile': 'v7',
-          'Cache-Control': 'no-cache',
         },
       });
       if (!resp.ok) {
-        console.warn('[perfis] fetch direto: HTTP ' + resp.status);
+        // Felipe sessao 31 v4: loga o status + corpo da resposta pra
+        // diagnostico. Antes so' falava 'HTTP 400' sem dar pista.
+        let bodyTxt = '';
+        try { bodyTxt = await resp.text(); } catch(_) {}
+        console.warn('[perfis] fetch direto HTTP ' + resp.status + ' em ' + url +
+                     (bodyTxt ? ' body=' + bodyTxt.substring(0, 200) : ''));
         return null;
       }
       const rows = await resp.json();
@@ -790,7 +798,7 @@ const Perfis = (() => {
       const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
       return Array.isArray(parsed) ? parsed : null;
     } catch (e) {
-      console.warn('[perfis] fetch Supabase falhou:', e);
+      console.warn('[perfis] fetch Supabase falhou em ' + url + ':', e);
       return null;
     }
   }
