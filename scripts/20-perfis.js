@@ -893,6 +893,7 @@ const Perfis = (() => {
     // Roda em background pra nao bloquear UI inicial.
     fetchPerfisFromSupabaseDirect().then(function(perfisDoServer) {
       if (!perfisDoServer || !Array.isArray(perfisDoServer) || perfisDoServer.length === 0) {
+        console.warn('[perfis] fetch direto retornou vazio. Mantendo cache local (' + state.perfis.length + ' perfis).');
         return;
       }
       const tc = (s) => (window.Universal && window.Universal.titleCase) ? window.Universal.titleCase(s || '') : (s || '');
@@ -902,11 +903,34 @@ const Perfis = (() => {
         fornecedor: tc(p.fornecedor),
         tratamento: tc(p.tratamento),
       }));
-      // Compara - se diferente, atualiza UI E cache local
-      const atualJson = JSON.stringify(state.perfis);
-      const serverJson = JSON.stringify(normalizados);
-      if (atualJson !== serverJson) {
-        console.log('[perfis] ✅ Atualizando da fonte Supabase. ' + normalizados.length + ' perfis (era ' + state.perfis.length + ').');
+      // Felipe sessao 31 v3: regra mais robusta. Antes comparava JSON.stringify
+      // (sensivel a ordem de campos, em alguns navegadores dava 'iguais'
+      // quando nao eram). Agora dispara update se:
+      //   - quantidade de perfis diferente, OU
+      //   - algum codigo presente no server faltando no local, OU
+      //   - algum kg_m mudou entre versoes
+      const localByCod = {};
+      state.perfis.forEach(p => { if (p && p.codigo) localByCod[String(p.codigo).toUpperCase()] = p; });
+      const codigosFaltantes = [];
+      let temKgMDif = false;
+      normalizados.forEach(p => {
+        const c = p.codigo ? String(p.codigo).toUpperCase() : null;
+        if (!c) return;
+        if (!localByCod[c]) {
+          codigosFaltantes.push(c);
+        } else {
+          const localKg = Number(localByCod[c].kg_m) || 0;
+          const serverKg = Number(p.kg_m) || 0;
+          if (Math.abs(localKg - serverKg) > 0.001) temKgMDif = true;
+        }
+      });
+      const precisaAtualizar = (state.perfis.length !== normalizados.length) ||
+                               (codigosFaltantes.length > 0) ||
+                               temKgMDif;
+      if (precisaAtualizar) {
+        console.log('[perfis] ✅ Atualizando da fonte Supabase. ' + normalizados.length + ' perfis (era ' + state.perfis.length + ').' +
+                    (codigosFaltantes.length > 0 ? ' Codigos novos: ' + codigosFaltantes.join(', ') : '') +
+                    (temKgMDif ? ' (kg/m mudou em algum)' : ''));
         state.perfis = normalizados;
         try { store.set('perfis_lista', state.perfis); } catch (_) {}
         // Re-renderiza tabela com dados certos
@@ -916,6 +940,8 @@ const Perfis = (() => {
         if (count) count.textContent = state.perfis.length;
         // Re-bind handlers nos novos elementos da tabela
         bindEvents(container);
+      } else {
+        console.log('[perfis] Cache local em dia com Supabase (' + state.perfis.length + ' perfis).');
       }
     });
   }
