@@ -29,565 +29,628 @@ const Perfis = (() => {
 
   // Seed: 62 perfis extraidos do PDF de cadastro do CEM Pro
   const SEED_PERFIS_PDF = [
-    {
-            "id": "seed_1777474312348_000",
-            "codigo": "CDA-L-009",
-            "descricao": "CANTONEIRA DE ABAS IGUAIS 19,05 X 1,59 MM",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.15
-    },
-    {
-            "id": "seed_1777474312348_001",
-            "codigo": "PA-101X101X2.5",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 101.6 X 101.6 X 2.5 - TQ-034",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 2.69
-    },
-    {
-            "id": "seed_1777474312348_002",
-            "codigo": "PA-101X101X6.0",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 101.6 X 101.6 X 6.0 - TQ-076",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 6.56
-    },
-    {
-            "id": "seed_1777474312348_003",
-            "codigo": "PA-101X38X2.4",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 101.6 X 38.1 X 2.4 - TG-018",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 1.75
-    },
-    {
-            "id": "seed_1777474312348_004",
-            "codigo": "PA-101X51X2",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 101.6 X 50.8 X 2.0 - TG-072",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 1.61
-    },
-    {
-            "id": "seed_1777474312348_005",
-            "codigo": "PA-101X51X3.17",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 101.6 X 50.8 X 3.17 - TG-021",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 2.51
-    },
-    {
-            "id": "seed_1777474312348_006",
-            "codigo": "PA-12X12X1.58",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 12.7 X 12.7 X 1.58 - TQ-002",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.19
-    },
-    {
-            "id": "seed_1777474312348_007",
-            "codigo": "PA-152X38X3.2",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 152.4 X 38.1 X 3.2 - TG024",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 3.19
-    },
-    {
-            "id": "seed_1777474312348_008",
-            "codigo": "PA-15X15X1.58",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 15.87 X 15.87 X 1.58 - TQ-003",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.24
-    },
-    {
-            "id": "seed_1777474312348_009",
-            "codigo": "PA-19X19X1.6",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 19.05 X 19.05 X 1.6 - TQ-006",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.3
-    },
-    {
-            "id": "seed_1777474312348_010",
-            "codigo": "PA-25X12X1.58",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 25.4 X 12.7 X 1.58 - TG-001",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.3
-    },
-    {
-            "id": "seed_1777474312348_011",
-            "codigo": "PA-25X25X1.58",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 25.4 X 25.4 X 1.58 - TQ009",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.41
-    },
-    {
-            "id": "seed_1777474312348_012",
-            "codigo": "PA-31X31X1.58",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 31.75 X 31.75 X 1.58 - TQ-012",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.52
-    },
-    {
-            "id": "seed_1777474312348_013",
-            "codigo": "PA-35X25-OLHAL",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 35.1 X 25.4 COM OLHAL - D055 (CG-012)",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.5
-    },
-    {
-            "id": "seed_1777474312348_014",
-            "codigo": "PA-35X35-OLHAL",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 35.1 X 35.1 X 1,5 OLHAL - D081",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.67
-    },
-    {
-            "id": "seed_1777474312348_015",
-            "codigo": "PA-38X38X1.58",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 38.1 X 38.1 X 1.58 - TQ-014",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.59
-    },
-    {
-            "id": "seed_1777474312348_016",
-            "codigo": "PA-51X12X1.2",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 50.8 X 12.7 X 1.2",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.4
-    },
-    {
-            "id": "seed_1777474312348_017",
-            "codigo": "PA-51X12X1.58",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 50.8 X 12.7 X 1.58 - TG-004",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.52
-    },
-    {
-            "id": "seed_1777474312348_018",
-            "codigo": "PA-51X25X1.5",
-            "descricao": "FIL TUBULAR DE ALUMINIO 50.8 X 25.4 X 1.5 - TG005",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.59
-    },
-    {
-            "id": "seed_1777474312348_019",
-            "codigo": "PA-51X25X2.0",
-            "descricao": "FIL TUBULAR DE ALUMINIO 50.8 X 25.4 X 2.0 - TG007",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.78
-    },
-    {
-            "id": "seed_1777474312348_020",
-            "codigo": "PA-51X38X1.98",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 50.8 X 38.1 X 1.98 - TG008",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.91
-    },
-    {
-            "id": "seed_1777474312348_021",
-            "codigo": "PA-51X51X1.98",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 50.8 X 50.8 X 1.98 - TG017",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 1.05
-    },
-    {
-            "id": "seed_1777474312348_022",
-            "codigo": "PA-76X25X2.0",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 76.2 X 25.4 X 2.0 - TG013",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 1.06
-    },
-    {
-            "id": "seed_1777474312348_023",
-            "codigo": "PA-76X38X1.98",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 76.2 X 38.1 X 1.98 - TG-014",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 1.18
-    },
-    {
-            "id": "seed_1777474312348_024",
-            "codigo": "PA-76X76X2.0",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO 76.2 X 76.2 X 2.0 - TQ-072",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 1.61
-    },
-    {
-            "id": "seed_1777474312348_025",
-            "codigo": "PA-CANT-12X12X1.59",
-            "descricao": "PERFIL DE ALUMINIO CANT 12X12X1.59 - CT-001",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.1
-    },
-    {
-            "id": "seed_1777474312348_026",
-            "codigo": "PA-CANT-16X31X1.3",
-            "descricao": "PERFIL DE ALUMINIO CANT 16 X 31 X 1.3 - CT209",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.17
-    },
-    {
-            "id": "seed_1777474312348_027",
-            "codigo": "PA-CANT-25X25X1.59",
-            "descricao": "PERFIL DE ALUMINIO CANT 25 X 25 X 1.59 - CT-016",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.21
-    },
-    {
-            "id": "seed_1777474312348_028",
-            "codigo": "PA-CANT-30X30X2.0",
-            "descricao": "PERFIL DE ALUMINIO CANT 30 X 30 X 2.0 - CT-082",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Pintura",
-            "kg_m": 0.27
-    },
-    {
-            "id": "seed_1777474312348_029",
-            "codigo": "PA-CANT-32X32X3.18",
-            "descricao": "PERFIL DE ALUMINIO CANT 31.75 X 31.75 X 3.18 L-018",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.52
-    },
-    {
-            "id": "seed_1777474312348_030",
-            "codigo": "PA-CHR908",
-            "descricao": "CHR-908 ARREMATE INFERIOR CHROMA NATURAL",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.19
-    },
-    {
-            "id": "seed_1777474312348_031",
-            "codigo": "PA-CLICKPERFILBOISER",
-            "descricao": "PERFIL CONECTOR CLICK 01 JAT ANOD AN 6MT PLIBL",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.0
-    },
-    {
-            "id": "seed_1777474312348_032",
-            "codigo": "PA-DS152",
-            "descricao": "TRILHO SUPERIOR PORTA CORRER",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.77
-    },
-    {
-            "id": "seed_1777474312348_033",
-            "codigo": "PA-FV001",
-            "descricao": "PERFIL DE ALUMINIO FV001 PINT. PRETO",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.46
-    },
-    {
-            "id": "seed_1777474312348_034",
-            "codigo": "PA-LG028",
-            "descricao": "MATA JUNTA",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.46
-    },
-    {
-            "id": "seed_1777474312348_035",
-            "codigo": "PA-PA006F-6M",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8269/T5/6063/6000",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Pintura",
-            "kg_m": 3.45
-    },
-    {
-            "id": "seed_1777474312348_036",
-            "codigo": "PA-PA006P-6M",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8270/T5/6063/6000",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Pintura",
-            "kg_m": 1.7
-    },
-    {
-            "id": "seed_1777474312348_037",
-            "codigo": "PA-PA006V",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8271/T5/6063/6000",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Pintura",
-            "kg_m": 1.55
-    },
-    {
-            "id": "seed_1777474312348_038",
-            "codigo": "PA-PA007F-6M",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8240/T5/6063/6000",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Pintura",
-            "kg_m": 5.15
-    },
-    {
-            "id": "seed_1777474312348_039",
-            "codigo": "PA-PA007F-7M",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8240/T5/6063/7000",
-            "fornecedor": "Tecnoperfil",
-            "barra": 7,
-            "tratamento": "Pintura",
-            "kg_m": 5.15
-    },
-    {
-            "id": "seed_1777474312348_040",
-            "codigo": "PA-PA007F-8M",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8240/T5/6063/8000",
-            "fornecedor": "Tecnoperfil",
-            "barra": 8,
-            "tratamento": "Pintura",
-            "kg_m": 5.15
-    },
-    {
-            "id": "seed_1777474312348_041",
-            "codigo": "PA-PA007P-6M",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8267/T5/6063/6000",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Pintura",
-            "kg_m": 2.78
-    },
-    {
-            "id": "seed_1777474312348_042",
-            "codigo": "PA-PA007P-7M",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8267/T5/6063/7000",
-            "fornecedor": "Tecnoperfil",
-            "barra": 7,
-            "tratamento": "Pintura",
-            "kg_m": 2.78
-    },
-    {
-            "id": "seed_1777474312348_043",
-            "codigo": "PA-PA007P-8M",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8267/T5/6063/8000",
-            "fornecedor": "Tecnoperfil",
-            "barra": 8,
-            "tratamento": "Pintura",
-            "kg_m": 2.78
-    },
-    {
-            "id": "seed_1777474312348_044",
-            "codigo": "PA-PA007V",
-            "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8268/T5/6063/6000",
-            "fornecedor": "Tecnoperfil",
-            "barra": 6,
-            "tratamento": "Pintura",
-            "kg_m": 2.39
-    },
-    {
-            "id": "seed_1777474312348_045",
-            "codigo": "PA-PERFILBOISERIE",
-            "descricao": "PERFIL BOISERIE 9602 JAT ANOD 6,0 MT PLIBL",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.0
-    },
-    {
-            "id": "seed_1777474312348_046",
-            "codigo": "PA-PF-050",
-            "descricao": "PF 050 - 04 A 06 mm",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.28
-    },
-    {
-            "id": "seed_1777474312348_047",
-            "codigo": "PA-PF-051",
-            "descricao": "PF 051 - 08 A 10 mm",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.26
-    },
-    {
-            "id": "seed_1777474312348_048",
-            "codigo": "PA-PF-052",
-            "descricao": "PF 052 - 12 A 14 mm",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.24
-    },
-    {
-            "id": "seed_1777474312348_049",
-            "codigo": "PA-PF-053",
-            "descricao": "PF 053 - 16 A 18 mm",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.21
-    },
-    {
-            "id": "seed_1777474312348_050",
-            "codigo": "PA-PF-054",
-            "descricao": "PF054 - 20 A 22 mm",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.2
-    },
-    {
-            "id": "seed_1777474312348_051",
-            "codigo": "PA-PF-055",
-            "descricao": "PF055 - 26 A 28 mm",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.17
-    },
-    {
-            "id": "seed_1777474312348_052",
-            "codigo": "PA-PF-104",
-            "descricao": "MARCO FIXO PARA VIDRO",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.72
-    },
-    {
-            "id": "seed_1777474312348_053",
-            "codigo": "PA-WEIKUBAGUETE",
-            "descricao": "PERFIL ALU BAGUETE PIVONTANTE 12MM A 16MM PDS-1769",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.4
-    },
-    {
-            "id": "seed_1777474312348_054",
-            "codigo": "PA-WEIKU_BT_QLON",
-            "descricao": "PERFIL ALU BATENTE FOLHA PIVOTANTE PDS-1771",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 1.0
-    },
-    {
-            "id": "seed_1777474312348_055",
-            "codigo": "PA-WEIKU_FLH_ALTURA",
-            "descricao": "PERFIL ALU FOLHA PIVOTANTE LATERAL PDS-1768",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 2.91
-    },
-    {
-            "id": "seed_1777474312348_056",
-            "codigo": "PA-WEIKU_FLH_LARGURA",
-            "descricao": "PERFIL ALU FOLHA PIVOTANTE INFERIOR / SUPERIOR PDS-1770",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 2.84
-    },
-    {
-            "id": "seed_1777474312348_057",
-            "codigo": "PA-WEIKU_PORTAL",
-            "descricao": "PERFIL ALU CAIXILHO PIVOTANTE PDS-1774",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 2.23
-    },
-    {
-            "id": "seed_1777474312348_058",
-            "codigo": "PF45.017",
-            "descricao": "COMPLEMENTO PIVOTANTE",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.24
-    },
-    {
-            "id": "seed_1777474312348_059",
-            "codigo": "PF45.019",
-            "descricao": "MARCO PIVOTANTE",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 1.25
-    },
-    {
-            "id": "seed_1777474312348_060",
-            "codigo": "PF45.023",
-            "descricao": "MATAJUNTA PIVOTANTE",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 0.41
-    },
-    {
-            "id": "seed_1777474312348_061",
-            "codigo": "PF45.024",
-            "descricao": "FOLHA PIVOTANTE",
-            "fornecedor": "Mercado",
-            "barra": 6,
-            "tratamento": "Natural",
-            "kg_m": 1.56
-    }
-];
+      {
+          "id": "seed_1777474312348_000",
+          "codigo": "CDA-L-009",
+          "descricao": "CANTONEIRA DE ABAS IGUAIS 19,05 X 1,59 MM",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.15
+      },
+      {
+          "id": "seed_1777474312348_001",
+          "codigo": "PA-101X101X2.5",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 101.6 X 101.6 X 2.5 - TQ-034",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 2.69
+      },
+      {
+          "id": "seed_1777474312348_002",
+          "codigo": "PA-101X101X6.0",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 101.6 X 101.6 X 6.0 - TQ-076",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 6.56
+      },
+      {
+          "id": "seed_1777474312348_003",
+          "codigo": "PA-101X38X2.4",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 101.6 X 38.1 X 2.4 - TG-018",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 1.75
+      },
+      {
+          "id": "seed_1777474312348_004",
+          "codigo": "PA-101X51X2",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 101.6 X 50.8 X 2.0 - TG-072",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 1.61
+      },
+      {
+          "id": "seed_1777474312348_005",
+          "codigo": "PA-101X51X3.17",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 101.6 X 50.8 X 3.17 - TG-021",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 2.51
+      },
+      {
+          "id": "seed_1777474312348_006",
+          "codigo": "PA-12X12X1.58",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 12.7 X 12.7 X 1.58 - TQ-002",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.19
+      },
+      {
+          "id": "seed_1777474312348_007",
+          "codigo": "PA-152X38X3.2",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 152.4 X 38.1 X 3.2 - TG024",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 3.19
+      },
+      {
+          "id": "seed_1777474312348_008",
+          "codigo": "PA-15X15X1.58",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 15.87 X 15.87 X 1.58 - TQ-003",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.24
+      },
+      {
+          "id": "seed_1777474312348_009",
+          "codigo": "PA-19X19X1.6",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 19.05 X 19.05 X 1.6 - TQ-006",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.3
+      },
+      {
+          "id": "seed_1777474312348_010",
+          "codigo": "PA-25X12X1.58",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 25.4 X 12.7 X 1.58 - TG-001",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.3
+      },
+      {
+          "id": "seed_1777474312348_011",
+          "codigo": "PA-25X25X1.58",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 25.4 X 25.4 X 1.58 - TQ009",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.41
+      },
+      {
+          "id": "seed_1777474312348_012",
+          "codigo": "PA-31X31X1.58",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 31.75 X 31.75 X 1.58 - TQ-012",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.52
+      },
+      {
+          "id": "seed_1777474312348_013",
+          "codigo": "PA-35X25-OLHAL",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 35.1 X 25.4 COM OLHAL - D055 (CG-012)",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.5
+      },
+      {
+          "id": "seed_1777474312348_014",
+          "codigo": "PA-35X35-OLHAL",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 35.1 X 35.1 X 1,5 OLHAL - D081",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.67
+      },
+      {
+          "id": "seed_1777474312348_015",
+          "codigo": "PA-38X38X1.58",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 38.1 X 38.1 X 1.58 - TQ-014",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.59
+      },
+      {
+          "id": "seed_1777474312348_016",
+          "codigo": "PA-51X12X1.2",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 50.8 X 12.7 X 1.2",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.4
+      },
+      {
+          "id": "seed_1777474312348_017",
+          "codigo": "PA-51X12X1.58",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 50.8 X 12.7 X 1.58 - TG-004",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.52
+      },
+      {
+          "id": "seed_1777474312348_018",
+          "codigo": "PA-51X25X1.5",
+          "descricao": "FIL TUBULAR DE ALUMINIO 50.8 X 25.4 X 1.5 - TG005",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.59
+      },
+      {
+          "id": "seed_1777474312348_019",
+          "codigo": "PA-51X25X2.0",
+          "descricao": "FIL TUBULAR DE ALUMINIO 50.8 X 25.4 X 2.0 - TG007",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.78
+      },
+      {
+          "id": "seed_1777474312348_020",
+          "codigo": "PA-51X38X1.98",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 50.8 X 38.1 X 1.98 - TG008",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.91
+      },
+      {
+          "id": "seed_1777474312348_021",
+          "codigo": "PA-51X51X1.98",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 50.8 X 50.8 X 1.98 - TG017",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 1.05
+      },
+      {
+          "id": "seed_1777474312348_022",
+          "codigo": "PA-76X25X2.0",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 76.2 X 25.4 X 2.0 - TG013",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 1.06
+      },
+      {
+          "id": "seed_1777474312348_023",
+          "codigo": "PA-76X38X1.98",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 76.2 X 38.1 X 1.98 - TG-014",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 1.18
+      },
+      {
+          "id": "seed_1777474312348_024",
+          "codigo": "PA-76X76X2.0",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO 76.2 X 76.2 X 2.0 - TQ-072",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 1.61
+      },
+      {
+          "id": "seed_1777474312348_025",
+          "codigo": "PA-CANT-12X12X1.59",
+          "descricao": "PERFIL DE ALUMINIO CANT 12X12X1.59 - CT-001",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.1
+      },
+      {
+          "id": "seed_1777474312348_026",
+          "codigo": "PA-CANT-16X31X1.3",
+          "descricao": "PERFIL DE ALUMINIO CANT 16 X 31 X 1.3 - CT209",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.17
+      },
+      {
+          "id": "seed_1777474312348_027",
+          "codigo": "PA-CANT-25X25X1.59",
+          "descricao": "PERFIL DE ALUMINIO CANT 25 X 25 X 1.59 - CT-016",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.21
+      },
+      {
+          "id": "seed_1777474312348_028",
+          "codigo": "PA-CANT-30X30X2.0",
+          "descricao": "PERFIL DE ALUMINIO CANT 30 X 30 X 2.0 - CT-082",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Pintura",
+          "kg_m": 0.27
+      },
+      {
+          "id": "seed_1777474312348_029",
+          "codigo": "PA-CANT-32X32X3.18",
+          "descricao": "PERFIL DE ALUMINIO CANT 31.75 X 31.75 X 3.18 L-018",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.52
+      },
+      {
+          "id": "seed_1777474312348_030",
+          "codigo": "PA-CHR908",
+          "descricao": "CHR-908 ARREMATE INFERIOR CHROMA NATURAL",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.19
+      },
+      {
+          "id": "seed_1777474312348_031",
+          "codigo": "PA-CLICKPERFILBOISER",
+          "descricao": "PERFIL CONECTOR CLICK 01 JAT ANOD AN 6MT PLIBL",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.0
+      },
+      {
+          "id": "seed_1777474312348_032",
+          "codigo": "PA-DS152",
+          "descricao": "TRILHO SUPERIOR PORTA CORRER",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.77
+      },
+      {
+          "id": "seed_1777474312348_033",
+          "codigo": "PA-FV001",
+          "descricao": "PERFIL DE ALUMINIO FV001 PINT. PRETO",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.46
+      },
+      {
+          "id": "seed_1777474312348_034",
+          "codigo": "PA-LG028",
+          "descricao": "MATA JUNTA",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.46
+      },
+      {
+          "id": "seed_1777474312348_035",
+          "codigo": "PA-PA006F-6M",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8269/T5/6063/6000",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Pintura",
+          "kg_m": 3.45
+      },
+      {
+          "id": "seed_1777474312348_036",
+          "codigo": "PA-PA006P-6M",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8270/T5/6063/6000",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Pintura",
+          "kg_m": 1.7
+      },
+      {
+          "id": "seed_1777474312348_037",
+          "codigo": "PA-PA006V",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8271/T5/6063/6000",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Pintura",
+          "kg_m": 1.55
+      },
+      {
+          "id": "seed_1777474312348_038",
+          "codigo": "PA-PA007F-6M",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8240/T5/6063/6000",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Pintura",
+          "kg_m": 5.15
+      },
+      {
+          "id": "seed_1777474312348_039",
+          "codigo": "PA-PA007F-7M",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8240/T5/6063/7000",
+          "fornecedor": "Tecnoperfil",
+          "barra": 7,
+          "tratamento": "Pintura",
+          "kg_m": 5.15
+      },
+      {
+          "id": "seed_1777474312348_040",
+          "codigo": "PA-PA007F-8M",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8240/T5/6063/8000",
+          "fornecedor": "Tecnoperfil",
+          "barra": 8,
+          "tratamento": "Pintura",
+          "kg_m": 5.15
+      },
+      {
+          "id": "seed_1777474312348_041",
+          "codigo": "PA-PA007P-6M",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8267/T5/6063/6000",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Pintura",
+          "kg_m": 2.78
+      },
+      {
+          "id": "seed_1777474312348_042",
+          "codigo": "PA-PA007P-7M",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8267/T5/6063/7000",
+          "fornecedor": "Tecnoperfil",
+          "barra": 7,
+          "tratamento": "Pintura",
+          "kg_m": 2.78
+      },
+      {
+          "id": "seed_1777474312348_043",
+          "codigo": "PA-PA007P-8M",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8267/T5/6063/8000",
+          "fornecedor": "Tecnoperfil",
+          "barra": 8,
+          "tratamento": "Pintura",
+          "kg_m": 2.78
+      },
+      {
+          "id": "seed_1777474312348_044",
+          "codigo": "PA-PA007V",
+          "descricao": "PERFIL TUBULAR DE ALUMINIO TP-8268/T5/6063/6000",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Pintura",
+          "kg_m": 2.39
+      },
+      {
+          "id": "seed_1777474312348_045",
+          "codigo": "PA-PERFILBOISERIE",
+          "descricao": "PERFIL BOISERIE 9602 JAT ANOD 6,0 MT PLIBL",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.0
+      },
+      {
+          "id": "seed_1777474312348_046",
+          "codigo": "PA-PF-050",
+          "descricao": "PF 050 - 04 A 06 mm",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.28
+      },
+      {
+          "id": "seed_1777474312348_047",
+          "codigo": "PA-PF-051",
+          "descricao": "PF 051 - 08 A 10 mm",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.26
+      },
+      {
+          "id": "seed_1777474312348_048",
+          "codigo": "PA-PF-052",
+          "descricao": "PF 052 - 12 A 14 mm",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.24
+      },
+      {
+          "id": "seed_1777474312348_049",
+          "codigo": "PA-PF-053",
+          "descricao": "PF 053 - 16 A 18 mm",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.21
+      },
+      {
+          "id": "seed_1777474312348_050",
+          "codigo": "PA-PF-054",
+          "descricao": "PF054 - 20 A 22 mm",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.2
+      },
+      {
+          "id": "seed_1777474312348_051",
+          "codigo": "PA-PF-055",
+          "descricao": "PF055 - 26 A 28 mm",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.17
+      },
+      {
+          "id": "seed_1777474312348_052",
+          "codigo": "PA-PF-104",
+          "descricao": "MARCO FIXO PARA VIDRO",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.72
+      },
+      {
+          "id": "seed_1777474312348_053",
+          "codigo": "PA-WEIKUBAGUETE",
+          "descricao": "PERFIL ALU BAGUETE PIVONTANTE 12MM A 16MM PDS-1769",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.4
+      },
+      {
+          "id": "seed_1777474312348_054",
+          "codigo": "PA-WEIKU_BT_QLON",
+          "descricao": "PERFIL ALU BATENTE FOLHA PIVOTANTE PDS-1771",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 1.0
+      },
+      {
+          "id": "seed_1777474312348_055",
+          "codigo": "PA-WEIKU_FLH_ALTURA",
+          "descricao": "PERFIL ALU FOLHA PIVOTANTE LATERAL PDS-1768",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 2.91
+      },
+      {
+          "id": "seed_1777474312348_056",
+          "codigo": "PA-WEIKU_FLH_LARGURA",
+          "descricao": "PERFIL ALU FOLHA PIVOTANTE INFERIOR / SUPERIOR PDS-1770",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 2.84
+      },
+      {
+          "id": "seed_1777474312348_057",
+          "codigo": "PA-WEIKU_PORTAL",
+          "descricao": "PERFIL ALU CAIXILHO PIVOTANTE PDS-1774",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 2.23
+      },
+      {
+          "id": "seed_1777474312348_058",
+          "codigo": "PF45.017",
+          "descricao": "COMPLEMENTO PIVOTANTE",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.24
+      },
+      {
+          "id": "seed_1777474312348_059",
+          "codigo": "PF45.019",
+          "descricao": "MARCO PIVOTANTE",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 1.25
+      },
+      {
+          "id": "seed_1777474312348_060",
+          "codigo": "PF45.023",
+          "descricao": "MATAJUNTA PIVOTANTE",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.41
+      },
+      {
+          "id": "seed_1777474312348_061",
+          "codigo": "PF45.024",
+          "descricao": "FOLHA PIVOTANTE",
+          "fornecedor": "Mercado",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 1.56
+      },
+      {
+          "id": "seed_porta_int_001",
+          "codigo": "PA-CLICKBTINT",
+          "descricao": "CLICK BATENTE INTERNO 10,5 X 50 MM",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Pintado",
+          "kg_m": 0.237
+      },
+      {
+          "id": "seed_porta_int_002",
+          "codigo": "PA-CLICKFLHINT",
+          "descricao": "CLICK FOLHA INTERNO 22 X 57 MM",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Pintado",
+          "kg_m": 0.341
+      },
+      {
+          "id": "seed_porta_int_003",
+          "codigo": "PA-ALISARINT",
+          "descricao": "ALISAR INTERNO 60 X 37,5 MM",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Pintado",
+          "kg_m": 0.593
+      },
+      {
+          "id": "seed_porta_int_004",
+          "codigo": "PA-46X46X1.5",
+          "descricao": "TUBO QUADRADO 46 X 46 X 1,5 MM",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 0.723
+      },
+      {
+          "id": "seed_porta_int_005",
+          "codigo": "PA-VEDAINT",
+          "descricao": "VEDACAO INTERNA 50 X 57 MM",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Pintado",
+          "kg_m": 1.322
+      },
+      {
+          "id": "seed_porta_int_006",
+          "codigo": "PA-FLHINT",
+          "descricao": "FOLHA INTERNA 82 X 46 MM",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Natural",
+          "kg_m": 1.439
+      },
+      {
+          "id": "seed_porta_int_007",
+          "codigo": "PA-BATENTEINT",
+          "descricao": "BATENTE INTERNO 60 X 92 MM",
+          "fornecedor": "Tecnoperfil",
+          "barra": 6,
+          "tratamento": "Pintado",
+          "kg_m": 1.467
+      }
+  ];
   const PARAMS_DEFAULT = {
     tecnoperfil: { rs_kg: 0 },
     mercado:     { rs_kg: 0 },
