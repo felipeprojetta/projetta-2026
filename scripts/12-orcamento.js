@@ -4475,12 +4475,139 @@ const Orcamento = (() => {
         </div>
           `;
         })()}
-        ` : item.tipo === 'porta_externa' ? `` : `
+        ` : item.tipo === 'porta_externa' ? `` : item.tipo === 'porta_interna' ? (() => {
+          // Felipe sessao 31: form de PORTA INTERNA.
+          // Campos: Quantidade, Largura, Altura, Cor (1 so), Fechadura,
+          // Cor da Dobradica (Preta/Escovada/Branca).
+          // Modelo: por enquanto so' "Lisa" (sem variantes). Mais modelos
+          // serao adicionados via cadastros>Modelos>Internas.
+
+          // Carrega listas dos cadastros pra popular dropdowns
+          const modelosInt = (window.Modelos && window.Modelos.listarInternas)
+            ? window.Modelos.listarInternas()
+            : [{ id: 'seed_modelo_int_01', numero: 1, nome: 'Lisa' }];
+
+          // Fechaduras Hafele: aparecem todas (EXT e WC), o usuario escolhe
+          const fechHafele = (() => {
+            try {
+              const todos = (window.Acessorios && window.Acessorios.listar)
+                ? window.Acessorios.listar()
+                : [];
+              return todos.filter(a => /^PA-FECHINT 911\.80/.test(a.codigo || ''));
+            } catch (_) { return []; }
+          })();
+
+          // Dobradicas invisiveis internas (3 cores)
+          const dobInvInt = (() => {
+            try {
+              const todos = (window.Acessorios && window.Acessorios.listar)
+                ? window.Acessorios.listar()
+                : [];
+              return todos.filter(a => /^PA-DOBINVINT/.test(a.codigo || ''));
+            } catch (_) { return []; }
+          })();
+
+          // Default da cor da dobradica - mapeia label -> codigo
+          const dobMap = {
+            'Preta':    dobInvInt.find(d => /PRE$/.test(d.codigo))?.codigo || 'PA-DOBINVINTPRE',
+            'Escovada': dobInvInt.find(d => /ESC$/.test(d.codigo))?.codigo || 'PA-DOBINVINTESC',
+            'Branca':   dobInvInt.find(d => /BRA$/.test(d.codigo))?.codigo || 'PA-DOBINVINTBRA',
+          };
+
+          return `
+        <div class="orc-section">
+          <div class="orc-section-title">Dimensoes</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-qtd">
+              <label>Quantidade</label>
+              <input type="number" min="1" data-field="quantidade" value="${((item.quantidade || 1) === '' || (item.quantidade || 1) === null || (item.quantidade || 1) === undefined || Number(item.quantidade || 1) === 0) ? '' : escapeHtml(String(item.quantidade || 1))}" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Largura (mm)</label>
+              <input type="text" data-field="largura" value="${((item.largura || '') === '' || (item.largura || '') === null || (item.largura || '') === undefined || Number(item.largura || '') === 0) ? '' : escapeHtml(String(item.largura || ''))}" placeholder="" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Altura (mm)</label>
+              <input type="text" data-field="altura" value="${((item.altura || '') === '' || (item.altura || '') === null || (item.altura || '') === undefined || Number(item.altura || '') === 0) ? '' : escapeHtml(String(item.altura || ''))}" placeholder="" />
+            </div>
+            <div class="orc-field orc-f-modelo">
+              <label>Modelo</label>
+              <select data-field="modeloNumero">
+                ${modelosInt.map(m => `<option value="${m.numero}" ${Number(item.modeloNumero || 1) === m.numero ? 'selected' : ''}>${escapeHtml(String(m.numero).padStart(2,'0'))} - ${escapeHtml(m.nome)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Cor</div>
+          <div class="orc-form-row">
+            <div class="orc-field" style="grid-column: span 6;">
+              <label>Cor da porta</label>
+              <input type="text" data-field="corPorta" value="${escapeHtml(item.corPorta || '')}" placeholder="" />
+            </div>
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Fechadura</div>
+          <div class="orc-form-row">
+            <div class="orc-field" style="grid-column: span 6;">
+              <label>Fechadura Hafele</label>
+              <select data-field="fechaduraInternaCodigo">
+                <option value=""></option>
+                ${fechHafele.map(f => `<option value="${escapeHtml(f.codigo)}" ${item.fechaduraInternaCodigo === f.codigo ? 'selected' : ''}>${escapeHtml(f.codigo)} — ${escapeHtml(f.descricao)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          ${item.fechaduraInternaCodigo ? (() => {
+            // Felipe sessao 31: cor da fechadura derivada AUTOMATICAMENTE
+            // da descricao. PRETO -> Preta, NIQ FOSCO -> Niquel Fosco, TITANIUM -> Titanium.
+            const fechSel = fechHafele.find(f => f.codigo === item.fechaduraInternaCodigo);
+            const desc = String(fechSel?.descricao || '').toUpperCase();
+            let corFech = '';
+            if (desc.includes('NIQ FOSCO') || desc.includes('NIQUEL FOSCO')) corFech = 'Niquel Fosco';
+            else if (desc.includes('TITANIUM')) corFech = 'Titanium';
+            else if (desc.includes('PRETO')) corFech = 'Preta';
+            return `<div class="orc-form-row" style="margin-top:6px;">
+              <div class="orc-field" style="grid-column: span 6;">
+                <label>Cor da fechadura <span class="orc-hint-auto">auto: derivada da fechadura</span></label>
+                <input type="text" data-field="fechaduraInternaCor" value="${escapeHtml(corFech)}" readonly style="background:#f5f5f5;" />
+              </div>
+            </div>`;
+          })() : ''}
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Dobradica oculta</div>
+          <div class="orc-form-row">
+            <div class="orc-field" style="grid-column: span 6;">
+              <label>Cor da dobradica</label>
+              <select data-field="dobradicaCor">
+                <option value=""></option>
+                <option value="Preta" ${item.dobradicaCor === 'Preta' ? 'selected' : ''}>Preta — PA-DOBINVINTPRE</option>
+                <option value="Escovada" ${item.dobradicaCor === 'Escovada' ? 'selected' : ''}>Escovada — PA-DOBINVINTESC</option>
+                <option value="Branca" ${item.dobradicaCor === 'Branca' ? 'selected' : ''}>Branca — PA-DOBINVINTBRA</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="orc-section" style="background:#fffbeb; border:1px solid #fcd34d; border-radius:6px; padding:12px; margin-top:12px;">
+          <div class="orc-section-title" style="color:#92400e;">⚠ Modulo em construcao</div>
+          <p style="font-size:13px; color: #92400e; margin:6px 0 0;">
+            Porta interna esta com formulario basico funcionando. Motor de cortes
+            (perfis e chapas), aproveitamento de barras e calculo de preco ainda
+            serao implementados conforme Felipe definir as formulas de cada perfil.
+          </p>
+        </div>
+          `;
+        })() : `
         <div class="orc-section">
           <div class="orc-section-title">Em desenvolvimento</div>
           <p style="font-size:13px; color: var(--text-muted); padding: 8px 0;">
             O formulario detalhado de <span class="t-strong">${escapeHtml(labelTipo(item.tipo))}</span> ainda nao foi implementado.
-            Por enquanto so <span class="t-strong">Porta Externa</span>, <span class="t-strong">Fixo Acoplado</span> e <span class="t-strong">Revestimento de Parede</span> tem campos completos.
+            Por enquanto so <span class="t-strong">Porta Externa</span>, <span class="t-strong">Porta Interna</span>, <span class="t-strong">Fixo Acoplado</span> e <span class="t-strong">Revestimento de Parede</span> tem campos completos.
           </p>
           <div class="orc-form-row">
             <div class="orc-field orc-f-qtd">

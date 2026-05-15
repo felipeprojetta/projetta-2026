@@ -42,8 +42,20 @@ const Modelos = (() => {
     { numero: 24, nome: 'Cava Horizontal' },
   ];
 
+  // Felipe (sessao 31): modelos de PORTA INTERNA — lista separada da
+  // externa, ciclo de vida independente. Por enquanto so' "Lisa" (Felipe
+  // vai adicionar outros depois conforme for desenhando).
+  // Storage: scope 'cadastros', key 'modelos_internos_lista'.
+  const SEED_MODELOS_INT = [
+    { numero: 1, nome: 'Lisa' },
+  ];
+
   const state = {
     modelos: [],
+    modelosInt: [],
+    // Felipe sessao 31: sub-aba ativa em Cadastros>Modelos
+    //   'externas' (default) | 'internas'
+    subAba: 'externas',
   };
   let dirty = false;
   let loaded = false;
@@ -114,11 +126,29 @@ const Modelos = (() => {
     } else {
       state.modelos = lista || [];
     }
+
+    // Felipe sessao 31: carrega modelos INTERNOS (lista separada)
+    const listaInt = store.get('modelos_internos_lista');
+    if (_seedPermitido && (listaInt === null || (Array.isArray(listaInt) && listaInt.length === 0 && !store.get('modelos_internos_seeded')))) {
+      state.modelosInt = SEED_MODELOS_INT.map((m, i) => ({
+        id: 'seed_modelo_int_' + String(i+1).padStart(2, '0'),
+        numero: m.numero,
+        nome: m.nome,
+        img_1f: null,
+        img_2f: null,
+      }));
+      store.set('modelos_internos_lista', state.modelosInt);
+      store.set('modelos_internos_seeded', true);
+    } else {
+      state.modelosInt = listaInt || [];
+    }
     loaded = true;
   }
 
   function save() {
+    // Felipe sessao 31: salva ambas as listas (externa e interna)
     store.set('modelos_lista', state.modelos);
+    store.set('modelos_internos_lista', state.modelosInt);
     dirty = false;
     updateSaveButton();
     showSaved();
@@ -234,15 +264,33 @@ const Modelos = (() => {
   }
 
   function renderUI(container) {
+    // Felipe sessao 31: ordena as duas listas, escolhe qual exibir
     state.modelos.sort((a, b) => a.numero - b.numero);
+    state.modelosInt.sort((a, b) => a.numero - b.numero);
+
+    const ehInterna = state.subAba === 'internas';
+    const listaAtual = ehInterna ? state.modelosInt : state.modelos;
+    const labelAtual = ehInterna ? 'PORTAS INTERNAS' : 'PORTAS EXTERNAS';
+
     container.innerHTML = `
       <div class="mod-section">
-        <div class="mod-section-title">CADASTRO DE MODELOS</div>
+        <div class="mod-section-title">CADASTRO DE MODELOS — ${labelAtual}</div>
         <div class="mod-subtitle">Imagens das portas (1 folha / 2 folhas) sao salvas no Supabase Storage. Persistem entre dispositivos e sessoes.</div>
+
+        <div class="mod-subaba" style="display:flex; gap:8px; margin:12px 0; border-bottom:1px solid var(--line);">
+          <button class="mod-tab-btn ${!ehInterna ? 'is-active' : ''}" data-subaba="externas"
+                  style="padding:8px 16px; border:none; background:${!ehInterna ? 'var(--primary)' : 'transparent'}; color:${!ehInterna ? '#fff' : 'var(--text)'}; cursor:pointer; border-radius:6px 6px 0 0; font-weight:600;">
+            Externas (${state.modelos.length})
+          </button>
+          <button class="mod-tab-btn ${ehInterna ? 'is-active' : ''}" data-subaba="internas"
+                  style="padding:8px 16px; border:none; background:${ehInterna ? 'var(--primary)' : 'transparent'}; color:${ehInterna ? '#fff' : 'var(--text)'}; cursor:pointer; border-radius:6px 6px 0 0; font-weight:600;">
+            Internas (${state.modelosInt.length})
+          </button>
+        </div>
 
         <div class="mod-toolbar">
           <div class="mod-toolbar-left">
-            <span class="mod-count"><strong id="mod-count">${state.modelos.length}</span> modelos cadastrados</span>
+            <span class="mod-count"><strong id="mod-count">${listaAtual.length}</strong> modelos cadastrados</span>
             <span class="mod-saved-pill" id="mod-saved-pill">✓ salvo</span>
           </div>
           <div class="mod-toolbar-right">
@@ -251,11 +299,11 @@ const Modelos = (() => {
         </div>
 
         <div class="mod-list" id="mod-list">
-          ${state.modelos.map(renderCard).join('')}
+          ${listaAtual.map(renderCard).join('')}
         </div>
 
         <div class="mod-add-form">
-          <h4>+ Adicionar novo modelo</h4>
+          <h4>+ Adicionar novo modelo ${ehInterna ? '(interno)' : '(externo)'}</h4>
           <div class="mod-add-grid">
             <input id="mod-add-nome" class="cad-input" type="text" placeholder="" />
             <button class="btn btn-primary btn-sm" id="mod-btn-add" style="height:36px;">+ Adicionar Modelo</button>
@@ -408,13 +456,34 @@ const Modelos = (() => {
   }
 
   function bindEvents(container) {
+    // Felipe sessao 31: helper que retorna a lista de modelos da sub-aba ativa.
+    // Bind operations sempre olham aqui — uma so' UI manipula 2 listas via
+    // este getter, mantendo a logica unica.
+    const listaAtual = () => state.subAba === 'internas' ? state.modelosInt : state.modelos;
+    const setListaAtual = (novaLista) => {
+      if (state.subAba === 'internas') state.modelosInt = novaLista;
+      else state.modelos = novaLista;
+    };
+
+    // Felipe sessao 31: handlers da sub-aba (Externas / Internas)
+    container.querySelectorAll('button.mod-tab-btn[data-subaba]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const novaAba = btn.dataset.subaba;
+        if (novaAba && novaAba !== state.subAba) {
+          state.subAba = novaAba;
+          render(container);
+        }
+      });
+    });
+
     // Upload de imagem (1f ou 2f) — abre file picker
     container.querySelectorAll('button[data-action^="upload-"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         const tipo = btn.dataset.action.replace('upload-', ''); // '1f' ou '2f'
         const id = btn.dataset.id;
-        const m = state.modelos.find(x => x.id === id);
+        const m = listaAtual().find(x => x.id === id);
         if (!m) return;
         handleUpload(m, tipo, container);
       });
@@ -426,7 +495,7 @@ const Modelos = (() => {
         e.preventDefault();
         const tipo = btn.dataset.action.replace('remove-', '');
         const id = btn.dataset.id;
-        const m = state.modelos.find(x => x.id === id);
+        const m = listaAtual().find(x => x.id === id);
         if (!m) return;
         const folhasLabel = tipo === '1f' ? '1 folha' : '2 folhas';
         if (!confirm('Remover a imagem de ' + folhasLabel + ' do modelo "' + m.nome + '"?')) return;
@@ -444,7 +513,7 @@ const Modelos = (() => {
         const card = e.target.closest('.mod-card');
         const id = card?.dataset.id;
         if (!id) return;
-        const m = state.modelos.find(x => x.id === id);
+        const m = listaAtual().find(x => x.id === id);
         if (!m) return;
         m.nome = e.target.value;
         markDirty();
@@ -457,7 +526,7 @@ const Modelos = (() => {
       input.addEventListener('input', (e) => {
         const id = e.target.dataset.id;
         if (!id) return;
-        const m = state.modelos.find(x => x.id === id);
+        const m = listaAtual().find(x => x.id === id);
         if (!m) return;
         const n = parseInt(e.target.value, 10);
         if (!isNaN(n) && n > 0) {
@@ -471,10 +540,10 @@ const Modelos = (() => {
     container.querySelectorAll('.row-delete[data-action="delete"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const id = e.target.dataset.id;
-        const m = state.modelos.find(x => x.id === id);
+        const m = listaAtual().find(x => x.id === id);
         if (!m) return;
         if (!confirm(`Excluir o modelo "${m.nome}"?`)) return;
-        state.modelos = state.modelos.filter(x => x.id !== id);
+        setListaAtual(listaAtual().filter(x => x.id !== id));
         markDirty();
         render(container);
       });
@@ -486,9 +555,10 @@ const Modelos = (() => {
     const doAdd = () => {
       const nome = (inputAdd.value || '').trim();
       if (!nome) { inputAdd.focus(); return; }
-      const proxNum = state.modelos.length === 0 ? 1 : Math.max(...state.modelos.map(m => Number(m.numero) || 0)) + 1;
+      const lista = listaAtual();
+      const proxNum = lista.length === 0 ? 1 : Math.max(...lista.map(m => Number(m.numero) || 0)) + 1;
       const novoId = newId();
-      state.modelos.push({
+      lista.push({
         id: novoId,
         numero: proxNum,
         nome,
@@ -537,7 +607,14 @@ const Modelos = (() => {
     return state.modelos.slice();
   }
 
-  return { render, listar };
+  // Felipe sessao 31: expose lista interna pra modulo orcamento usar
+  // quando porta_interna for selecionada. Estrutura igual a externa.
+  function listarInternas() {
+    load();
+    return state.modelosInt.slice();
+  }
+
+  return { render, listar, listarInternas };
 })();
 
 if (typeof window !== 'undefined') {
