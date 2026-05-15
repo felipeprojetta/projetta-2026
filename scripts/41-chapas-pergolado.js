@@ -21,16 +21,24 @@ const ChapasPergolado = (() => {
 
   // Tubos disponiveis pro pergolado.
   // Felipe sessao 18: 'comece com esses 4, depois cadastro mais'.
+  // Felipe sessao 31: PA-51X51 trocado pelo codigo real cadastrado
+  // PA-51X51X1.98 (Perfil Tubular De Aluminio 50.8 X 50.8 X 1.98, 1.05 kg/m).
+  // Sem isso o motor pedia PA-51X51 que NAO existia em perfis_lista
+  // -> aviso "1 codigo(s) de perfil pedido(s) pelo motor NAO existem no
+  // cadastro". Migracao em getTubo() trata itens salvos com o ID antigo.
   // menor: usado pra qtdRipas (ceil(L / (menor+9+espac)))
   // maior: usado nas formulas das chapas (Peca 1)
   const TUBOS = [
-    { id: 'PA-51X51',      label: '51 × 51',     menor: 51, maior: 51  },
+    { id: 'PA-51X51X1.98', label: '51 × 51',     menor: 51, maior: 51  },
     { id: 'PA-101X51',     label: '101 × 51',    menor: 51, maior: 101 },
     { id: 'PA-38X38',      label: '38 × 38',     menor: 38, maior: 38  },
     { id: 'PA-76X38',      label: '76 × 38',     menor: 38, maior: 76  },
   ];
 
   function getTubo(id) {
+    // Felipe sessao 31: migracao silenciosa do ID antigo PA-51X51 -> PA-51X51X1.98
+    // Itens salvos com o ID antigo continuam funcionando.
+    if (id === 'PA-51X51') id = 'PA-51X51X1.98';
     return TUBOS.find(t => t.id === id) || TUBOS[0];
   }
 

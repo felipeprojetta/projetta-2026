@@ -2480,7 +2480,7 @@ const Orcamento = (() => {
     if (tipo === 'pergolado') return {
       tipo: 'pergolado',
       quantidade: 1,
-      tubo: 'PA-51X51',            // tubo default
+      tubo: 'PA-51X51X1.98',       // tubo default (Felipe sessao 31: codigo real)
       espacamentoRipas: 30,        // espacamento default
       revestimento: '',
       cor: '',
@@ -3228,7 +3228,11 @@ const Orcamento = (() => {
    */
   function renderItemPergolado(container, negocio, opcao, versao, item) {
     // Defaults
-    if (!item.tubo) item.tubo = 'PA-51X51';
+    // Felipe sessao 31: migracao silenciosa do ID antigo PA-51X51 -> PA-51X51X1.98
+    // (codigo real cadastrado em perfis_lista). Itens criados antes da
+    // troca do ID continuam funcionando sem refazer.
+    if (item.tubo === 'PA-51X51') item.tubo = 'PA-51X51X1.98';
+    if (!item.tubo) item.tubo = 'PA-51X51X1.98';
     if (item.espacamentoRipas == null) item.espacamentoRipas = 30;
     if (!Array.isArray(item.paredes)) item.paredes = [];
     if (item.paredes.length === 0) {
