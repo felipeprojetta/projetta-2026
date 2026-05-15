@@ -339,6 +339,21 @@ const Database = (() => {
                                || (Number(vCloud.subInst) || 0) > 0;
             if (!(localZerado && cloudPreenchido)) return;
 
+            // Felipe sessao 31: se a versao LOCAL tem _zeradoEm recente
+            // (< 60s), e' uma limpeza intencional do botao 'Limpar Tela',
+            // NAO cache stale. Pula a rehidratacao pra respeitar o
+            // intent do usuario. Bug observado: clicar Limpar Tela zerava
+            // subFab=0 local, merge via cloud com valores antigos e
+            // restaurava tudo -> 'botao nao limpa'.
+            try {
+              if (vLocal._zeradoEm) {
+                var zeradoMs = new Date(vLocal._zeradoEm).getTime();
+                if (!isNaN(zeradoMs) && (Date.now() - zeradoMs) < 60000) {
+                  return; // limpeza recente — respeita
+                }
+              }
+            } catch(_) {}
+
             // Rehidrata os campos de calculo/aprovacao do cloud.
             // Mantem ITENS do local intactos (preserva edicao em curso).
             var camposCloudWinners = [

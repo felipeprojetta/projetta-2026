@@ -86,6 +86,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 3. App.init
+  // Felipe sessao 31: 'sempre que iniciar sistema quero tela de
+  // orcamento limpa, nao precisa trazer o ultimo que estava carregado'.
+  // A chave 'orcamento_lead_ativo' persiste no localStorage entre
+  // sessoes — quando Felipe abria o sistema, o orcamento abria com
+  // o ultimo lead que tinha sido aberto (Fernando, etc). Limpa aqui
+  // antes do App.init pra garantir que orcamento entra em modo dev
+  // (limpo) ao boot. Se Felipe vai abrir um lead, ele faz isso pelo
+  // botao 'Montar Orcamento' do CRM (que seta a flag de novo).
+  try {
+    if (typeof Storage !== 'undefined' && Storage.scope) {
+      Storage.scope('app').remove('orcamento_lead_ativo');
+    }
+  } catch(_) {}
   App.init();
 
   // Felipe sessao 12: app inicializado, sync OK -> tira overlay de boot

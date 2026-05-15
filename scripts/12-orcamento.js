@@ -1759,6 +1759,13 @@ const Orcamento = (() => {
       delete versaoAtual.aprovacaoLocal;
       // Mantem id, numero, criadoEm, criadoPor, status (volta pra draft)
       versaoAtual.status = 'draft';
+      // Felipe sessao 31: marca o timestamp do zero pra mergeProtegido_negocios
+      // (00-database.js) saber que e' uma limpeza intencional recente e NAO
+      // rehidratar os campos do cloud. Sem essa marca, o merge detectava
+      // 'localZerado && cloudPreenchido' como stale e restaurava os dados
+      // antigos -> 'botao Limpar Tela nao esta limpando'. Marca vence em
+      // 60s (depois disso, e' cache real, nao limpeza recente).
+      versaoAtual._zeradoEm = nowIso();
     } else {
       // Versao ativa e' aprovada (ou nao existe). Cria nova versao DRAFT
       // em branco com numero maior. Versao aprovada NAO e' tocada.
