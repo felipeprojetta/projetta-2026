@@ -1977,25 +1977,17 @@
         // existe ainda, entao o total da coluna nao tem sentido. Esconde
         // nessas 2 colunas.
         const escondeTotal = (et.id === 'qualificacao' || et.id === 'fazer-orcamento');
-        // Felipe sessao 31: USA mesma logica do KPI 'Em Aberto' e dos
-        // cards (linha 2119, 2412): se ha versao fechada, prefere
-        // resumo.valor (Com Desconto da ultima versao) em vez de l.valor
-        // (cache stale do lead). Antes a soma da coluna divergia das
-        // outras 2 metricas: card e KPI mostravam X, coluna somava Y.
-        // 'aionda nao bate valor do crm conserte isso' — Felipe.
+        // Felipe sessao 31 (reversao): TOTAL usa l.valor direto pra
+        // bater com o Excel do Felipe (R$ 3.416.138,17 = soma dos
+        // 'VLR NOVO' do Excel). 'crm nao esta batendo com meu excel
+        // valor total 3.416.138,17 procure aonde esta problema'.
+        // Tentativa anterior usava resumo.valor (com desconto) mas isso
+        // dava R$ 3.381.189,33 — fonte de verdade do Felipe e' o Excel.
+        // Card individual continua mostrando 'Com Desconto: R$ X'
+        // como informacao extra, mas o TOTAL eh o original (l.valor).
         const totalCol = escondeTotal
           ? null
-          : leadsCol.reduce((s, l) => {
-              let valorReal = Number(l.valor) || 0;
-              try {
-                const resumo = (window.Orcamento && window.Orcamento.resumoParaCardCRM)
-                  ? window.Orcamento.resumoParaCardCRM(l.id) : null;
-                if (resumo && resumo.hasVersaoFechada) {
-                  valorReal = Number(resumo.valor) || 0;
-                }
-              } catch(_) {}
-              return s + valorReal;
-            }, 0);
+          : leadsCol.reduce((s, l) => s + (Number(l.valor) || 0), 0);
         const cards = leadsCol.map(l => {
           const destinoLabel = l.destinoTipo === 'internacional'
             ? (l.destinoPais ? `🌎 ${escapeHtml(l.destinoPais)}` : '🌎 Internacional')
@@ -2422,20 +2414,14 @@
         return true;
       });
       const kpiEmAberto = {
-        // Felipe sessao 12: USAR mesmo valor que o card mostra (resumo.valor
-        // da ultima versao aprovada). Antes usava l.valor que pode estar stale
-        // (cache de outra maquina sobrescreveu). Agora KPI sincroniza com card.
-        total: leadsEmAberto.reduce((s, l) => {
-          let valorReal = Number(l.valor) || 0;
-          try {
-            const resumo = (window.Orcamento && window.Orcamento.resumoParaCardCRM)
-              ? window.Orcamento.resumoParaCardCRM(l.id) : null;
-            if (resumo && resumo.hasVersaoFechada) {
-              valorReal = Number(resumo.valor) || 0;
-            }
-          } catch(_){}
-          return s + valorReal;
-        }, 0),
+        // Felipe sessao 31 (reversao): TOTAL usa l.valor direto pra
+        // bater com o Excel do Felipe (R$ 3.416.138,17 = soma 'VLR
+        // NOVO' do Excel). Tentativa anterior usava resumo.valor
+        // (Com Desconto) mas isso dava R$ 3.381.189,33 — fonte de
+        // verdade do Felipe e' o Excel. Card individual continua
+        // mostrando 'Com Desconto' como info extra, mas o TOTAL eh
+        // o original (l.valor).
+        total: leadsEmAberto.reduce((s, l) => s + (Number(l.valor) || 0), 0),
         count: leadsEmAberto.length,
       };
 
