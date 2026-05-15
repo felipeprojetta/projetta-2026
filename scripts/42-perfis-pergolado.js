@@ -27,8 +27,14 @@ const PerfisPergolado = (() => {
    */
   function gerarCortes(item) {
     if (!item || item.tipo !== 'pergolado') return {};
-    const tuboId = String(item.tubo || '').trim();
+    let tuboId = String(item.tubo || '').trim();
     if (!tuboId) return {};
+    // Felipe sessao 31: garante que o codigo usado eh o REAL do cadastro.
+    // Se o item foi salvo com ID antigo (PA-51X51 etc), migra aqui antes
+    // de produzir cortes (chave do dicionario eh o codigo do perfil).
+    if (window.ChapasPergolado?.migrarTuboId) {
+      tuboId = window.ChapasPergolado.migrarTuboId(tuboId);
+    }
     const tubo = window.ChapasPergolado?.getTubo?.(tuboId);
     if (!tubo) return {};
     const espac = parseFloat(String(item.espacamentoRipas != null ? item.espacamentoRipas : 30).replace(',', '.')) || 30;

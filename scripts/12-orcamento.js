@@ -3228,10 +3228,13 @@ const Orcamento = (() => {
    */
   function renderItemPergolado(container, negocio, opcao, versao, item) {
     // Defaults
-    // Felipe sessao 31: migracao silenciosa do ID antigo PA-51X51 -> PA-51X51X1.98
-    // (codigo real cadastrado em perfis_lista). Itens criados antes da
-    // troca do ID continuam funcionando sem refazer.
-    if (item.tubo === 'PA-51X51') item.tubo = 'PA-51X51X1.98';
+    // Felipe sessao 31: migracao silenciosa de IDs antigos inventados
+    // (PA-51X51, PA-101X51, PA-38X38, PA-76X38) pros codigos reais
+    // cadastrados em perfis_lista. Helper migrarTuboId() em
+    // 41-chapas-pergolado.js mantem a tabela de migracao centralizada.
+    if (window.ChapasPergolado && window.ChapasPergolado.migrarTuboId) {
+      if (item.tubo) item.tubo = window.ChapasPergolado.migrarTuboId(item.tubo);
+    }
     if (!item.tubo) item.tubo = 'PA-51X51X1.98';
     if (item.espacamentoRipas == null) item.espacamentoRipas = 30;
     if (!Array.isArray(item.paredes)) item.paredes = [];

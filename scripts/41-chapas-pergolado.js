@@ -21,24 +21,36 @@ const ChapasPergolado = (() => {
 
   // Tubos disponiveis pro pergolado.
   // Felipe sessao 18: 'comece com esses 4, depois cadastro mais'.
-  // Felipe sessao 31: PA-51X51 trocado pelo codigo real cadastrado
-  // PA-51X51X1.98 (Perfil Tubular De Aluminio 50.8 X 50.8 X 1.98, 1.05 kg/m).
-  // Sem isso o motor pedia PA-51X51 que NAO existia em perfis_lista
-  // -> aviso "1 codigo(s) de perfil pedido(s) pelo motor NAO existem no
-  // cadastro". Migracao em getTubo() trata itens salvos com o ID antigo.
+  // Felipe sessao 31 (regra OURO Felipe): "so deve ir para o calculo o
+  // item que estiver cadastrado". Todos os IDs aqui mapeiam pra codigos
+  // REAIS de perfis_lista (Supabase v7.kv_store cadastros/perfis_lista).
+  // Antes os IDs eram inventados (PA-51X51, PA-38X38 etc) e o motor
+  // pedia codigos que NAO existiam -> aviso vermelho no levantamento.
   // menor: usado pra qtdRipas (ceil(L / (menor+9+espac)))
   // maior: usado nas formulas das chapas (Peca 1)
   const TUBOS = [
-    { id: 'PA-51X51X1.98', label: '51 × 51',     menor: 51, maior: 51  },
-    { id: 'PA-101X51',     label: '101 × 51',    menor: 51, maior: 101 },
-    { id: 'PA-38X38',      label: '38 × 38',     menor: 38, maior: 38  },
-    { id: 'PA-76X38',      label: '76 × 38',     menor: 38, maior: 76  },
+    { id: 'PA-51X51X1.98',  label: '51 × 51',     menor: 51, maior: 51  }, // 50.8 X 50.8 X 1.98 Tg017  1.05 kg/m
+    { id: 'PA-101X51X2',    label: '101 × 51',    menor: 51, maior: 101 }, // 101.6 X 50.8 X 2.0 Tg-072 1.61 kg/m
+    { id: 'PA-38X38X1.58',  label: '38 × 38',     menor: 38, maior: 38  }, // 38.1 X 38.1 X 1.58 Tq-014  0.59 kg/m
+    { id: 'PA-76X38X1.98',  label: '76 × 38',     menor: 38, maior: 76  }, // 76.2 X 38.1 X 1.98 Tg-014  1.18 kg/m
   ];
 
+  // Felipe sessao 31: migracao silenciosa dos IDs antigos inventados
+  // pros codigos reais cadastrados. Itens salvos antes da troca dos IDs
+  // continuam funcionando.
+  const MIGRACAO_TUBOS = {
+    'PA-51X51':  'PA-51X51X1.98',
+    'PA-101X51': 'PA-101X51X2',
+    'PA-38X38':  'PA-38X38X1.58',
+    'PA-76X38':  'PA-76X38X1.98',
+  };
+
+  function migrarTuboId(id) {
+    return MIGRACAO_TUBOS[id] || id;
+  }
+
   function getTubo(id) {
-    // Felipe sessao 31: migracao silenciosa do ID antigo PA-51X51 -> PA-51X51X1.98
-    // Itens salvos com o ID antigo continuam funcionando.
-    if (id === 'PA-51X51') id = 'PA-51X51X1.98';
+    id = migrarTuboId(id);
     return TUBOS.find(t => t.id === id) || TUBOS[0];
   }
 
@@ -150,6 +162,7 @@ const ChapasPergolado = (() => {
   return {
     TUBOS,
     getTubo,
+    migrarTuboId,
     calcularQtdRipas,
     gerarPecasPergolado,
   };
