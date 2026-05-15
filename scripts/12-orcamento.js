@@ -10253,23 +10253,38 @@ const Orcamento = (() => {
       // largura_total/altura_total top-level ficam vazios. Antes saia
       // '0 × 0' tambem pra pergolado. Agora usa primeira parede com
       // largura/altura preenchidas.
+      //
+      // Felipe sessao 31 (v2): 'ou coloque medida de todas as paredes
+      // ou escreva variado'. Quando o item tem MULTIPLAS paredes
+      // preenchidas, em vez de 1 linha 'NxN', mostra a palavra
+      // 'Variado' (e o card detalha cada parede). Aplica a rev_parede
+      // E pergolado (ambos podem ter paredes[]).
       const ehRev = item.tipo === 'revestimento_parede';
       const ehPergolado = item.tipo === 'pergolado';
       let lar, alt;
-      if (ehPergolado) {
-        const primeiraParede = (Array.isArray(item.paredes) ? item.paredes : [])
-          .find(p => Number(p.largura_total) > 0 && Number(p.altura_total) > 0);
-        lar = primeiraParede ? Number(primeiraParede.largura_total) : (parseBR(item.largura_total) || 0);
-        alt = primeiraParede ? Number(primeiraParede.altura_total)  : (parseBR(item.altura_total)  || 0);
-      } else if (ehRev) {
-        lar = parseBR(item.largura_total) || 0;
-        alt = parseBR(item.altura_total)  || 0;
+      let medidasStr = '';
+      if (ehPergolado || ehRev) {
+        const paredesValidas = (Array.isArray(item.paredes) ? item.paredes : [])
+          .filter(p => Number(p.largura_total) > 0 && Number(p.altura_total) > 0);
+        if (paredesValidas.length > 1) {
+          medidasStr = 'Variado';
+          lar = Number(paredesValidas[0].largura_total);
+          alt = Number(paredesValidas[0].altura_total);
+        } else if (paredesValidas.length === 1) {
+          lar = Number(paredesValidas[0].largura_total);
+          alt = Number(paredesValidas[0].altura_total);
+          medidasStr = `${lar} × ${alt}`;
+        } else {
+          lar = parseBR(item.largura_total) || 0;
+          alt = parseBR(item.altura_total)  || 0;
+          medidasStr = `${lar} × ${alt}`;
+        }
       } else {
         lar = parseBR(item.largura) || 0;
         alt = parseBR(item.altura)  || 0;
+        medidasStr = `${lar} × ${alt}`;
       }
       const qtd = Number(item.quantidade) || 1;
-      const medidas = `${lar} × ${alt}`;
       const descricaoItem = obterDescricaoItem(item);
       // Valor por item — se nao temos calculado (fallback), mostra "—"
       const v = valoresPorIdx[idx];
@@ -10279,7 +10294,7 @@ const Orcamento = (() => {
         <tr>
           <td class="rel-prop-tabela-num">${String(idx + 1).padStart(2, '0')}</td>
           <td>${escapeHtml(descricaoItem)}</td>
-          <td>${escapeHtml(medidas)}</td>
+          <td>${escapeHtml(medidasStr)}</td>
           <td class="num">${qtd}</td>
           <td class="num">${valorUnStr}</td>
           <td class="num">${valorTotStr}</td>
@@ -10632,6 +10647,14 @@ const Orcamento = (() => {
       ? `<div class="rel-prop-banner-alisar is-nao">PUXADOR EXTERNO: <b>${escapeHtml(puxadorRaw.toUpperCase())} — NAO INCLUSO</b></div>`
       : `<div class="rel-prop-item-linha"><span class="lbl">PUXADOR:</span> <span>${escapeHtml(puxadorRaw)}</span></div>`;
 
+    // Felipe sessao 31: badge 'ITEM N' no titulo do card pra alinhar com
+    // o card de revestimento e a tabela final. Antes nao tinha nada
+    // identificando 'Item 2 / Item 3 / Item 4'.
+    const _numItem = (typeof idx === 'number' && idx >= 0) ? (idx + 1) : null;
+    const _tituloBadge = _numItem
+      ? `<span class="rel-prop-item-num-badge" style="display:inline-block;background:#c46b20;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-right:8px;letter-spacing:0.05em;">ITEM ${String(_numItem).padStart(2,'0')}</span>`
+      : '';
+
     return `
       <div class="rel-prop-item-card">
         <div class="rel-prop-item-img">
@@ -10646,7 +10669,7 @@ const Orcamento = (() => {
           </div>
         </div>
         <div class="rel-prop-item-info">
-          <div class="rel-prop-item-titulo">PORTA PROJETTA BY WEIKU</div>
+          <div class="rel-prop-item-titulo">${_tituloBadge}PORTA PROJETTA BY WEIKU</div>
           <!-- Felipe (msg "TUDO A ESQUERDA"): cada linha label+valor compacto,
                sem espacos largos, alinhado a esquerda. R04. -->
           <div class="rel-prop-item-linhas">
@@ -10768,24 +10791,49 @@ const Orcamento = (() => {
     const tubo = item.tuboEstrutura ? escapeHtml(item.tuboEstrutura) : '—';
     const modoTxt = (item.modo || 'manual').toUpperCase();
 
-    // Lista de pecas (cada peca com largura+altura+cor)
+    // Felipe sessao 31: 'esta trazendo somente medidas da primeira parede,
+    // ali tem varias preciso mostrar tudo que esta sendo considerado'.
+    // Antes mostrava so item.pecas (do modo manual) com PECA 1. Agora
+    // prioriza item.paredes[] (back-compat criado em runtime — linha
+    // 2926+), que contem TODAS as paredes do revestimento, e mostra
+    // todas como linhas PAREDE 1, PAREDE 2, ...
     let blocoPecas = '';
-    const pecas = (item.pecas || []).filter(p => p && (p.largura || p.altura || p.cor));
-    if (pecas.length) {
-      const linhasP = pecas.map((p, i) => {
-        const w = p.largura || '—';
-        const h = p.altura || '—';
-        const c = p.cor ? escapeHtml(p.cor) : '—';
-        const q = p.qtd || p.quantidade || 1;
-        return `<div class="rel-prop-item-linha"><span class="lbl">PECA ${i + 1}:</span> <span>${w} × ${h} mm — ${c}${q > 1 ? ` (qtd ${q})` : ''}</span></div>`;
+    const paredes = (Array.isArray(item.paredes) ? item.paredes : [])
+      .filter(p => p && (Number(p.largura_total) > 0 || Number(p.altura_total) > 0));
+    if (paredes.length) {
+      const linhasP = paredes.map((p, i) => {
+        const w = p.largura_total || '—';
+        const h = p.altura_total || '—';
+        const q = Number(p.quantidade) || 1;
+        return `<div class="rel-prop-item-linha"><span class="lbl">PAREDE ${i + 1}:</span> <span>${w} × ${h} mm${q > 1 ? ` (qtd ${q})` : ''}</span></div>`;
       }).join('');
       blocoPecas = `<div class="rel-prop-item-linhas rel-prop-item-rev-pecas" style="margin-top:6px;border-top:1px solid #e5e7eb;padding-top:6px;">${linhasP}</div>`;
+    } else {
+      // Fallback antigo (modo manual com item.pecas)
+      const pecas = (item.pecas || []).filter(p => p && (p.largura || p.altura || p.cor));
+      if (pecas.length) {
+        const linhasP = pecas.map((p, i) => {
+          const w = p.largura || '—';
+          const h = p.altura || '—';
+          const c = p.cor ? escapeHtml(p.cor) : '—';
+          const q = p.qtd || p.quantidade || 1;
+          return `<div class="rel-prop-item-linha"><span class="lbl">PECA ${i + 1}:</span> <span>${w} × ${h} mm — ${c}${q > 1 ? ` (qtd ${q})` : ''}</span></div>`;
+        }).join('');
+        blocoPecas = `<div class="rel-prop-item-linhas rel-prop-item-rev-pecas" style="margin-top:6px;border-top:1px solid #e5e7eb;padding-top:6px;">${linhasP}</div>`;
+      }
     }
+
+    // Felipe sessao 31: badge 'Item N' no titulo do card pra alinhar com
+    // outros cards (porta_externa). Antes nao aparecia em revestimento.
+    const numItem = (typeof idx === 'number' && idx >= 0) ? (idx + 1) : null;
+    const tituloBadge = numItem
+      ? `<span class="rel-prop-item-num-badge" style="display:inline-block;background:#c46b20;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-right:8px;letter-spacing:0.05em;">ITEM ${String(numItem).padStart(2,'0')}</span>`
+      : '';
 
     return `
       <div class="rel-prop-item-card rel-prop-item-card-no-img" style="display:flex;">
         <div class="rel-prop-item-info" style="width:100%;flex:1;">
-          <div class="rel-prop-item-titulo">REVESTIMENTO DE PAREDE PROJETTA BY WEIKU</div>
+          <div class="rel-prop-item-titulo">${tituloBadge}REVESTIMENTO DE PAREDE PROJETTA BY WEIKU</div>
           <div class="rel-prop-item-linhas">
             <div class="rel-prop-item-linha"><span class="lbl">Qtd:</span> <span>${qtd}</span></div>
             ${lar ? `<div class="rel-prop-item-linha"><span class="lbl">L total:</span> <span>${lar} mm</span></div>` : ''}
