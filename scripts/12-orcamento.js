@@ -10249,13 +10249,25 @@ const Orcamento = (() => {
     const linhasTabela = itens.map((item, idx) => {
       // Felipe sessao 12: rev_parede usa largura_total/altura_total (nao
       // largura/altura). Antes saia '0 x 0' nas tabelas pra revs.
+      // Felipe sessao 31: PERGOLADO tem dimensoes em paredes[0] —
+      // largura_total/altura_total top-level ficam vazios. Antes saia
+      // '0 × 0' tambem pra pergolado. Agora usa primeira parede com
+      // largura/altura preenchidas.
       const ehRev = item.tipo === 'revestimento_parede';
-      const lar = ehRev
-        ? (parseBR(item.largura_total) || 0)
-        : (parseBR(item.largura) || 0);
-      const alt = ehRev
-        ? (parseBR(item.altura_total) || 0)
-        : (parseBR(item.altura) || 0);
+      const ehPergolado = item.tipo === 'pergolado';
+      let lar, alt;
+      if (ehPergolado) {
+        const primeiraParede = (Array.isArray(item.paredes) ? item.paredes : [])
+          .find(p => Number(p.largura_total) > 0 && Number(p.altura_total) > 0);
+        lar = primeiraParede ? Number(primeiraParede.largura_total) : (parseBR(item.largura_total) || 0);
+        alt = primeiraParede ? Number(primeiraParede.altura_total)  : (parseBR(item.altura_total)  || 0);
+      } else if (ehRev) {
+        lar = parseBR(item.largura_total) || 0;
+        alt = parseBR(item.altura_total)  || 0;
+      } else {
+        lar = parseBR(item.largura) || 0;
+        alt = parseBR(item.altura)  || 0;
+      }
       const qtd = Number(item.quantidade) || 1;
       const medidas = `${lar} × ${alt}`;
       const descricaoItem = obterDescricaoItem(item);
@@ -10541,6 +10553,13 @@ const Orcamento = (() => {
     // 'E UM ITEM UNICO COM A PORTA - SOMENTE DESCRICAO E PRECO FICA
     // MESCLADO ENTRE PORTA E FIXO ACOPLADO A PORTA'.
     if (item.tipo === 'fixo_acoplado') return '';
+
+    // Felipe sessao 31: PERGOLADO tambem nao gera card visual.
+    // 'tenho 3 portas, um pergolado (saiu ali como se fosse porta retire
+    // isso tudo, deixe so na lista)'. Card de porta tem puxador, fechadura,
+    // cilindro, alisar, modelo, num folhas — nada disso aplica ao pergolado.
+    // So' aparece na tabela final (linhas 10249+).
+    if (item.tipo === 'pergolado') return '';
 
     // Felipe sessao 2026-08: revestimento de parede tem card sem imagem,
     // so' com as variaveis (cor da peca, dimensoes, area, estrutura, etc).
