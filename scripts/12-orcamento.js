@@ -3247,6 +3247,41 @@ const Orcamento = (() => {
     const revestimentos = cad.get('revestimentos_lista') || ['ACM 4mm'];
     const TUBOS = (window.ChapasPergolado?.TUBOS) || [];
 
+    // Felipe sessao 31: Pergolado tambem precisa de dropdown de cor
+    // filtrado pelo revestimento (igual rev_parede e porta_externa).
+    // Antes era input text livre, agora datalist com cores das chapas
+    // cadastradas em superficies_lista.
+    const superficies = cad.get('superficies_lista') || [];
+    function filtrarCoresPergo(rev) {
+      let lista = superficies;
+      if (rev) {
+        const cat = (rev === 'Aluminio Macico 2mm') ? 'aluminio_macico'
+                  : (rev === 'ACM 4mm')             ? 'acm'
+                  : (rev === 'HPL 4mm')             ? 'hpl'
+                  : (rev === 'Vidro') ? 'vidro'
+                  : null;
+        if (cat) {
+          const auto = window.Superficies?.categoriaAuto || (() => 'acm');
+          lista = (superficies || []).filter(s => (s.categoria || auto(s.descricao)) === cat);
+        }
+      }
+      // Dedup por nome curto (sem sufixo de tamanho)
+      const seen = new Set();
+      const dedup = [];
+      (lista || []).forEach(s => {
+        const nome = String(s.descricao || '')
+          .replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, '')
+          .trim();
+        if (!nome) return;
+        const k = nome.toUpperCase();
+        if (seen.has(k)) return;
+        seen.add(k);
+        dedup.push({ ...s, descricao: nome });
+      });
+      return dedup;
+    }
+    const coresFiltradasPergo = filtrarCoresPergo(item.revestimento);
+
     function renderUmaParede(p, i) {
       const tuboObj = (window.ChapasPergolado?.getTubo?.(item.tubo)) || { menor: 51 };
       const espac = Number(item.espacamentoRipas) || 30;
@@ -3321,6 +3356,32 @@ const Orcamento = (() => {
         </div>
       </div>
 
+      <!-- Felipe (sessao 31): chips de items + botao "+ Adicionar item"
+           — antes renderItemPergolado nao tinha esse bloco, entao quando
+           o item ativo era pergolado SUMIAM os chips dos outros itens.
+           Felipe reclamou: "quando clico pra adicionar um pergolado todo
+           restante dos outros itens some". Agora replica EXATAMENTE o
+           mesmo bloco do renderItemRevestimentoParede / renderItemTab. -->
+      <div class="orc-itens-list">
+        ${(versao.itens || []).map((it, idx) => {
+          const ativo = idx === UI.itemSelecionadoIdx;
+          return `
+            <div class="orc-item-chip ${ativo ? 'is-active' : ''}" data-idx="${idx}">
+              <button class="orc-item-chip-label" data-action="select-item" data-idx="${idx}">
+                Item ${idx + 1}: ${escapeHtml(labelTipo(it.tipo))}
+              </button>
+              <button class="orc-item-chip-remove" data-action="remove-item" data-idx="${idx}" title="Remover este item">✕</button>
+            </div>
+          `;
+        }).join('')}
+        <div class="orc-item-add-wrapper">
+          <select class="orc-item-add" id="orc-item-add">
+            <option value="">+ Adicionar item</option>
+            ${TIPOS_ITEM.map(t => `<option value="${t.id}">${escapeHtml(t.label)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
       <div class="orc-tab-conteudo">
         <h2 class="orc-tab-title">Item ${(versao.itens || []).indexOf(item) + 1} — Pergolado</h2>
 
@@ -3353,7 +3414,24 @@ const Orcamento = (() => {
             </div>
             <div class="orc-field orc-f-revestimento">
               <label>Cor</label>
-              <input type="text" data-field-pergo="cor" value="${escapeHtml(item.cor || '')}" placeholder="ex: Preto Fosco" />
+              <input type="text" list="orc-pergo-cores-list" data-field-pergo="cor" value="${escapeHtml(item.cor || '')}" placeholder="" title="${escapeHtml(item.cor || '')}" />
+              <datalist id="orc-pergo-cores-list">
+                ${(() => {
+                  // Felipe sessao 31: igual a porta_externa e rev_parede.
+                  // Datalist com cores filtradas pelo revestimento escolhido.
+                  // Comeca vazio se nao tem revestimento — Felipe escolhe rev,
+                  // dai abre as cores.
+                  const vistas = new Set();
+                  const opts = [];
+                  coresFiltradasPergo.forEach(s => {
+                    const limpo = String(s.descricao || '').trim();
+                    if (!limpo || vistas.has(limpo.toUpperCase())) return;
+                    vistas.add(limpo.toUpperCase());
+                    opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                  });
+                  return opts.join('');
+                })()}
+              </datalist>
             </div>
           </div>
         </div>
@@ -3486,6 +3564,43 @@ const Orcamento = (() => {
       UI.leadAtivo      = null;
       UI.itemSelecionadoIdx = 0;
       if (typeof App !== 'undefined' && App.navigateTo) App.navigateTo('crm');
+    });
+
+    // Felipe sessao 31: handlers dos chips de itens em pergolado
+    // (selecionar/remover item, adicionar novo).
+    container.querySelectorAll('button[data-action="select-item"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        if (Number.isNaN(idx)) return;
+        UI.itemSelecionadoIdx = idx;
+        renderItemTab(container);
+      });
+    });
+    container.querySelectorAll('button[data-action="remove-item"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.idx);
+        const versao = versaoAtiva();
+        if (!versao || Number.isNaN(idx)) return;
+        const lista = (versao.itens || []).slice();
+        if (idx < 0 || idx >= lista.length) return;
+        const tipoLabel = labelTipo(lista[idx].tipo) || 'item';
+        if (!confirm(`Remover este ${tipoLabel}?`)) return;
+        lista.splice(idx, 1);
+        atualizarVersao(versao.id, { itens: lista });
+        if (UI.itemSelecionadoIdx >= lista.length) UI.itemSelecionadoIdx = Math.max(0, lista.length - 1);
+        renderItemTab(container);
+      });
+    });
+    container.querySelector('#orc-item-add')?.addEventListener('change', (e) => {
+      const tipo = e.target.value;
+      if (!tipo) return;
+      const versao = versaoAtiva();
+      if (!versao) return;
+      const novaLista = [...(versao.itens || []), novoItem(tipo, versao)];
+      atualizarVersao(versao.id, { itens: novaLista });
+      UI.itemSelecionadoIdx = novaLista.length - 1;
+      renderItemTab(container);
     });
   }
 
