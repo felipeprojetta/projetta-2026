@@ -756,13 +756,19 @@ const Perfis = (() => {
   // baixou os perfis novos — o realtime polling so' pega mudancas
   // updated_at > _lastSync (que comeca no momento do load da pagina).
   // Mudancas FEITAS ANTES de o usuario abrir o app ficavam invisiveis.
-  // Solucao: replica padrao do 21-modelos.js (fetchModelosFromSupabaseDirect).
+  //
+  // Felipe sessao 31 v2 (FIX 400): primeira versao usava /rest/v1/cadastros
+  // que retornava HTTP 400 (causa desconhecida — modelos usa o mesmo
+  // endpoint e funciona, mas perfis nao). Trocado pra /rest/v1/kv_store
+  // (mesma tabela que o syncFromCloud do 00-database.js usa com sucesso —
+  // log "148 chaves carregadas do Supabase" confirma). Estrutura:
+  // kv_store(scope, key, valor[jsonb array]) vs cadastros(chave, valor[jsonb string]).
   const _SUPABASE_URL_PERFIS = 'https://plmliavuwlgpwaizfeds.supabase.co';
   const _SUPABASE_KEY_PERFIS = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
   async function fetchPerfisFromSupabaseDirect() {
     try {
       // Cache-buster: Safari iPhone cacheia GETs - garante versao fresca
-      const url = _SUPABASE_URL_PERFIS + '/rest/v1/cadastros?chave=eq.perfis_lista&_=' + Date.now();
+      const url = _SUPABASE_URL_PERFIS + '/rest/v1/kv_store?scope=eq.cadastros&key=eq.perfis_lista&select=valor&_=' + Date.now();
       const resp = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
@@ -779,6 +785,7 @@ const Perfis = (() => {
       }
       const rows = await resp.json();
       if (!rows || !rows.length) return null;
+      // kv_store.valor ja' eh array JSONB (nao precisa de JSON.parse de string)
       const raw = rows[0].valor;
       const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
       return Array.isArray(parsed) ? parsed : null;
