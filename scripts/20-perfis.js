@@ -749,6 +749,45 @@ const Perfis = (() => {
 
   function newId() { return 'p_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
 
+  // Felipe sessao 31: SUPABASE E' A FONTE PRIMARIA, sempre.
+  // localStorage apenas exibe enquanto a request termina.
+  // Bug reproduzido: depois de adicionar 7 perfis novos direto no banco
+  // via MCP, o navegador (que tinha cache localStorage antigo) NUNCA
+  // baixou os perfis novos — o realtime polling so' pega mudancas
+  // updated_at > _lastSync (que comeca no momento do load da pagina).
+  // Mudancas FEITAS ANTES de o usuario abrir o app ficavam invisiveis.
+  // Solucao: replica padrao do 21-modelos.js (fetchModelosFromSupabaseDirect).
+  const _SUPABASE_URL_PERFIS = 'https://plmliavuwlgpwaizfeds.supabase.co';
+  const _SUPABASE_KEY_PERFIS = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
+  async function fetchPerfisFromSupabaseDirect() {
+    try {
+      // Cache-buster: Safari iPhone cacheia GETs - garante versao fresca
+      const url = _SUPABASE_URL_PERFIS + '/rest/v1/cadastros?chave=eq.perfis_lista&_=' + Date.now();
+      const resp = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'apikey': _SUPABASE_KEY_PERFIS,
+          'Authorization': 'Bearer ' + _SUPABASE_KEY_PERFIS,
+          'Accept-Profile': 'v7',
+          'Cache-Control': 'no-cache',
+        },
+      });
+      if (!resp.ok) {
+        console.warn('[perfis] fetch direto: HTTP ' + resp.status);
+        return null;
+      }
+      const rows = await resp.json();
+      if (!rows || !rows.length) return null;
+      const raw = rows[0].valor;
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+      console.warn('[perfis] fetch Supabase falhou:', e);
+      return null;
+    }
+  }
+
   function render(container) {
     load();
 
@@ -840,6 +879,38 @@ const Perfis = (() => {
     `;
 
     bindEvents(container);
+
+    // Felipe sessao 31: SUPABASE COMO FONTE PRIMARIA (apos primeira render
+    // ja' ter mostrado o localStorage). Se Supabase tiver dados diferentes,
+    // atualiza UI E localStorage. Mesmo padrao do 21-modelos.js.
+    // Roda em background pra nao bloquear UI inicial.
+    fetchPerfisFromSupabaseDirect().then(function(perfisDoServer) {
+      if (!perfisDoServer || !Array.isArray(perfisDoServer) || perfisDoServer.length === 0) {
+        return;
+      }
+      const tc = (s) => (window.Universal && window.Universal.titleCase) ? window.Universal.titleCase(s || '') : (s || '');
+      const normalizados = perfisDoServer.map(p => ({
+        ...p,
+        descricao: tc(p.descricao),
+        fornecedor: tc(p.fornecedor),
+        tratamento: tc(p.tratamento),
+      }));
+      // Compara - se diferente, atualiza UI E cache local
+      const atualJson = JSON.stringify(state.perfis);
+      const serverJson = JSON.stringify(normalizados);
+      if (atualJson !== serverJson) {
+        console.log('[perfis] ✅ Atualizando da fonte Supabase. ' + normalizados.length + ' perfis (era ' + state.perfis.length + ').');
+        state.perfis = normalizados;
+        try { store.set('perfis_lista', state.perfis); } catch (_) {}
+        // Re-renderiza tabela com dados certos
+        const tbody = container.querySelector('#perfis-tbody');
+        if (tbody) tbody.innerHTML = renderRows();
+        const count = container.querySelector('#perfis-count');
+        if (count) count.textContent = state.perfis.length;
+        // Re-bind handlers nos novos elementos da tabela
+        bindEvents(container);
+      }
+    });
   }
 
   function paramRow(key, label, hasDed) {
