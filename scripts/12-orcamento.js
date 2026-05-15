@@ -12091,8 +12091,16 @@ const Orcamento = (() => {
       semPesoCadastrado: false,
     };
 
+    // Felipe sessao 31: le chapasSelecionadas ANTES de renderizar os
+    // blocos pra que renderBlocoCor consiga marcar o card escolhido
+    // como .is-selecionada no proprio template (sem depender de
+    // setTimeout pos-render — que falhava quando o parse de
+    // data-chapa-info quebrava). Render direto = robustez total.
+    const _versaoPraSelecao = (obterVersao(UI.versaoAtivaId) || {}).versao || {};
+    const _chapasSelMap = (_versaoPraSelecao && _versaoPraSelecao.chapasSelecionadas) || {};
+
     const blocos = cores.map(cor => {
-      const bloco = renderBlocoCor(cor, pecasPorCor[cor], todasSuperficies);
+      const bloco = renderBlocoCor(cor, pecasPorCor[cor], todasSuperficies, _chapasSelMap[cor] || null);
       const dadosTotal = calcularDadosTotaisCor(pecasPorCor[cor], todasSuperficies);
       if (dadosTotal) {
         totaisGerais.pesoPorta       += dadosTotal.pesoPorta;
@@ -12859,7 +12867,7 @@ const Orcamento = (() => {
     }, { passive: false });
   }
 
-  function renderBlocoCor(cor, pecas, todasSuperficies) {
+  function renderBlocoCor(cor, pecas, todasSuperficies, selecaoCor) {
     if (cor === '(sem cor)') {
       return `
         <div class="orc-aprov-cor">
@@ -13114,6 +13122,13 @@ const Orcamento = (() => {
     const cards = resultados.map((r, idx) => {
       const ehMelhor = r.isMelhor;
       const ehViavel = r.pecasNaoCouberam.length === 0;
+      // Felipe sessao 31: chapa selecionada pelo usuario (duplo-clique)
+      // renderiza com .is-selecionada DIRETO no template — sem depender
+      // de setTimeout pos-render que era fragil. Comparacao por largura
+      // x altura (apos validar viabilidade).
+      const ehSelecionada = ehViavel && selecaoCor &&
+        Number(selecaoCor.largura) === Number(r.chapaMae.largura) &&
+        Number(selecaoCor.altura)  === Number(r.chapaMae.altura);
       const dimSize = `${r.chapaMae.largura} × ${r.chapaMae.altura} mm`;
       const cardId = `aprov-${corNorm}-${idx}`;
       // Cacheia resultado completo pra dblclick salvar
@@ -13172,7 +13187,7 @@ const Orcamento = (() => {
 
       return `
         <div class="orc-aprov-card-wrap">
-          <div class="orc-aprov-card ${ehMelhor ? 'is-melhor' : ''}" id="${cardId}-card"
+          <div class="orc-aprov-card ${ehMelhor ? 'is-melhor' : ''} ${ehSelecionada ? 'is-selecionada' : ''}" id="${cardId}-card"
                data-chapa-info='${escapeHtml(dadosChapaSel)}'
                data-card-id="${cardId}"
                title="Duplo clique para selecionar esta chapa">
