@@ -1977,9 +1977,25 @@
         // existe ainda, entao o total da coluna nao tem sentido. Esconde
         // nessas 2 colunas.
         const escondeTotal = (et.id === 'qualificacao' || et.id === 'fazer-orcamento');
+        // Felipe sessao 31: USA mesma logica do KPI 'Em Aberto' e dos
+        // cards (linha 2119, 2412): se ha versao fechada, prefere
+        // resumo.valor (Com Desconto da ultima versao) em vez de l.valor
+        // (cache stale do lead). Antes a soma da coluna divergia das
+        // outras 2 metricas: card e KPI mostravam X, coluna somava Y.
+        // 'aionda nao bate valor do crm conserte isso' — Felipe.
         const totalCol = escondeTotal
           ? null
-          : leadsCol.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+          : leadsCol.reduce((s, l) => {
+              let valorReal = Number(l.valor) || 0;
+              try {
+                const resumo = (window.Orcamento && window.Orcamento.resumoParaCardCRM)
+                  ? window.Orcamento.resumoParaCardCRM(l.id) : null;
+                if (resumo && resumo.hasVersaoFechada) {
+                  valorReal = Number(resumo.valor) || 0;
+                }
+              } catch(_) {}
+              return s + valorReal;
+            }, 0);
         const cards = leadsCol.map(l => {
           const destinoLabel = l.destinoTipo === 'internacional'
             ? (l.destinoPais ? `🌎 ${escapeHtml(l.destinoPais)}` : '🌎 Internacional')
