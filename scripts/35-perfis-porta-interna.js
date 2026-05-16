@@ -18,6 +18,15 @@
 
 const PerfisPortaInterna = (() => {
 
+  // Aceita BR ("2139,5") ou EN ("2139.5"). Fallback se parseBR nao carregou.
+  function _toNum(v) {
+    if (typeof window !== 'undefined' && window.parseBR) return window.parseBR(v);
+    if (v === null || v === undefined || v === '') return 0;
+    if (typeof v === 'number') return v;
+    const n = parseFloat(String(v).trim().replace(/\./g, '').replace(',', '.'));
+    return isNaN(n) ? 0 : n;
+  }
+
   /**
    * Helper: emite cortes batendo a fronteira da barra padrao.
    * Por enquanto naive (1 corte = 1 peca); se Felipe quiser otimizacao
@@ -43,16 +52,16 @@ const PerfisPortaInterna = (() => {
   function gerarCortes(item) {
     if (!item || item.tipo !== 'porta_interna') return {};
 
-    const larguraVao = Number(item.largura) || 0;
-    const alturaVao  = Number(item.altura)  || 0;
+    const larguraVao = _toNum(item.largura);
+    const alturaVao  = _toNum(item.altura);
     if (larguraVao <= 0 || alturaVao <= 0) return {};
 
     const qtdPortas = Math.max(1, Number(item.quantidade) || 1);
 
     // Folgas unificadas. Fallback 5 quando vazio/null/undefined.
-    const fglEsq = Number(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5);
-    const fglDir = Number(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5);
-    const fgSup  = Number(item.fgSup  != null && item.fgSup  !== '' ? item.fgSup  : 5);
+    const fglEsq = _toNum(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5);
+    const fglDir = _toNum(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5);
+    const fgSup  = _toNum(item.fgSup  != null && item.fgSup  !== '' ? item.fgSup  : 5);
 
     // Reaproveitamento dos descontos de folga por orientacao
     const descontoLarg = fglEsq + fglDir;  // peças horizontais

@@ -12274,6 +12274,18 @@ const Orcamento = (() => {
         });
         // Felipe sessao 14 BUG FIX: idem porta_externa, manuais UMA VEZ por item
         adicionarPecasManuaisExtras([], item).forEach(p => agrupar(grupos, p, idx, item));
+      } else if (item.tipo === 'porta_interna' && window.ChapasPortaInterna) {
+        // Felipe sessao 31: chapas frontais da porta interna (externa 25,5 + interna 37,5).
+        // Padrao igual porta_externa: itera ['externo','interno'], passa pelos
+        // mesmos pipelines de overrides, e agrupa por cor.
+        ['externo', 'interno'].forEach(lado => {
+          let pecas = window.ChapasPortaInterna.gerarPecasChapa(item, lado) || [];
+          pecas = aplicarRotacionaOverrides(pecas, item);
+          pecas = aplicarQtdOverrides(pecas, item, lado);
+          pecas = aplicarSuperficiesOverrides(pecas, item);
+          pecas.forEach(p => agrupar(grupos, p, idx, item));
+        });
+        adicionarPecasManuaisExtras([], item).forEach(p => agrupar(grupos, p, idx, item));
       } else if (item.tipo === 'revestimento_parede' && ChapasRev) {
         let pecas = ChapasRev.gerarPecasRevParede(item) || [];
         pecas = aplicarRotacionaOverrides(pecas, item);
