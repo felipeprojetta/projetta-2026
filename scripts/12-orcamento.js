@@ -2383,7 +2383,24 @@ const Orcamento = (() => {
   function novoItem(tipo, versaoAtual) {
     if (!tipo)                    return { tipo: '', quantidade: 1 };
     if (tipo === 'porta_externa') return novoItemPortaExterna();
-    if (tipo === 'porta_interna') return { tipo: 'porta_interna', quantidade: 1, largura: '', altura: '' };
+    if (tipo === 'porta_interna') return {
+      tipo: 'porta_interna',
+      quantidade: 1,
+      largura: '',
+      altura: '',
+      modeloNumero: 1,
+      // Felipe sessao 31: revestimento+cor SEPARADOS pra cada face
+      revestimentoExterno: '',
+      revestimentoInterno: '',
+      corExterna: '',
+      corInterna: '',
+      // Felipe sessao 31: fechadura com modo conjunto/personalizado
+      fechaduraModo: 'conjunto',
+      fechaduraInternaCodigo: '',
+      fechaduraInternaCor: '',
+      macanetaInternaCodigo: '',
+      dobradicaCor: '',
+    };
     if (tipo === 'fixo_acoplado') {
       const fg = lerFolgasPadraoCadastro();
       const novo = {
@@ -3822,6 +3839,21 @@ const Orcamento = (() => {
           const antigo = item.revestimento || '';
           item.revestimento = v;
           if (antigo && antigo !== v) item.cor = '';
+        } else if (field === 'revestimentoExterno') {
+          // Felipe sessao 31 porta_interna: trocar revestimento externo zera cor externa
+          const antigo = item.revestimentoExterno || '';
+          item.revestimentoExterno = v;
+          if (antigo && antigo !== v) item.corExterna = '';
+        } else if (field === 'revestimentoInterno') {
+          // Felipe sessao 31 porta_interna: trocar revestimento interno zera cor interna
+          const antigo = item.revestimentoInterno || '';
+          item.revestimentoInterno = v;
+          if (antigo && antigo !== v) item.corInterna = '';
+        } else if (field === 'fechaduraInternaCodigo') {
+          // Felipe sessao 31 porta_interna: trocar fechadura zera cor derivada
+          // (proximo render recalcula a cor com base no novo codigo)
+          item.fechaduraInternaCodigo = v;
+          if (!v) item.fechaduraInternaCor = '';
         } else if (field === 'largura_total' || field === 'altura_total') {
           item[field] = parseFloat(v.replace(',', '.')) || 0;
         } else if (field === 'espacamentoRipas') {
@@ -3835,7 +3867,10 @@ const Orcamento = (() => {
         // Campos que mudam o layout precisam re-render
         if (['modo', 'revestimento', 'divisao_largura', 'com_refilado',
              'largura_total', 'altura_total',
-             'temEstrutura', 'estilo'].includes(field)) {
+             'temEstrutura', 'estilo',
+             // Felipe sessao 31 porta_interna: trocas que afetam o layout do form
+             'revestimentoExterno', 'revestimentoInterno',
+             'fechaduraModo', 'fechaduraInternaCodigo'].includes(field)) {
           reRender();
         }
       });
@@ -4629,43 +4664,73 @@ const Orcamento = (() => {
           `;
         })()}
         ` : item.tipo === 'porta_externa' ? `` : item.tipo === 'porta_interna' ? (() => {
-          // Felipe sessao 31: form de PORTA INTERNA.
-          // Campos: Quantidade, Largura, Altura, Cor (1 so), Fechadura,
-          // Cor da Dobradica (Preta/Escovada/Branca).
-          // Modelo: por enquanto so' "Lisa" (sem variantes). Mais modelos
-          // serao adicionados via cadastros>Modelos>Internas.
+          // Felipe sessao 31 v2: form de PORTA INTERNA REVISADO.
+          // Felipe pediu (mensagem):
+          //   - Largura, altura
+          //   - Cor INTERNA e cor EXTERNA (separadas) + REVESTIMENTO antes
+          //     pra filtrar as cores (ACM, HPL, Vidro, Aluminio Macico)
+          //   - Modo fechadura: Conjunto OU Personalizado
+          //   - Conjunto: 6 fechaduras Hafele (sem filtro EXT/WC)
+          //   - Personalizado: fechadura + macaneta separadas (com aviso
+          //     se nao tem macaneta cadastrada)
+          //   - Cor da dobradica oculta (Preta/Escovada/Branca)
 
-          // Carrega listas dos cadastros pra popular dropdowns
+          // 1) Modelos internos
           const modelosInt = (window.Modelos && window.Modelos.listarInternas)
             ? window.Modelos.listarInternas()
             : [{ id: 'seed_modelo_int_01', numero: 1, nome: 'Lisa' }];
 
-          // Fechaduras Hafele: aparecem todas (EXT e WC), o usuario escolhe
-          const fechHafele = (() => {
+          // 2) Listas dos cadastros
+          const _todosAcessorios = (() => {
             try {
-              const todos = (window.Acessorios && window.Acessorios.listar)
-                ? window.Acessorios.listar()
-                : [];
-              return todos.filter(a => /^PA-FECHINT 911\.80/.test(a.codigo || ''));
+              return (window.Acessorios && window.Acessorios.listar)
+                ? window.Acessorios.listar() : [];
             } catch (_) { return []; }
           })();
+          const fechHafele = _todosAcessorios.filter(a => /^PA-FECHINT 911\.80/.test(a.codigo || ''));
+          const dobInvInt  = _todosAcessorios.filter(a => /^PA-DOBINVINT/.test(a.codigo || ''));
+          const macanetas  = _todosAcessorios.filter(a => {
+            const fam = String(a.familia || '').toUpperCase();
+            return fam.indexOf('MACANETA') >= 0 || fam.indexOf('MAÇANETA') >= 0;
+          });
 
-          // Dobradicas invisiveis internas (3 cores)
-          const dobInvInt = (() => {
-            try {
-              const todos = (window.Acessorios && window.Acessorios.listar)
-                ? window.Acessorios.listar()
-                : [];
-              return todos.filter(a => /^PA-DOBINVINT/.test(a.codigo || ''));
-            } catch (_) { return []; }
-          })();
+          // 3) Superficies + revestimento
+          const cadInt = Storage.scope('cadastros');
+          const superficiesInt = cadInt.get('superficies_lista') || [];
+          const revestimentosInt = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro'];
+          function filtrarCoresPI(rev) {
+            let lista = superficiesInt;
+            if (rev) {
+              const cat = (rev === 'Aluminio Macico 2mm') ? 'aluminio_macico'
+                        : (rev === 'ACM 4mm')             ? 'acm'
+                        : (rev === 'HPL 4mm')             ? 'hpl'
+                        : (rev === 'Vidro')               ? 'vidro'
+                        : null;
+              if (cat) {
+                const auto = window.Superficies?.categoriaAuto || (() => 'acm');
+                lista = (superficiesInt || []).filter(s => (s.categoria || auto(s.descricao)) === cat);
+              }
+            }
+            const seenPI = new Set();
+            const dedupPI = [];
+            (lista || []).forEach(s => {
+              const nome = String(s.descricao || '')
+                .replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, '')
+                .trim();
+              if (!nome) return;
+              const k = nome.toUpperCase();
+              if (seenPI.has(k)) return;
+              seenPI.add(k);
+              dedupPI.push({ ...s, descricao: nome });
+            });
+            return dedupPI;
+          }
+          const coresExtPI = filtrarCoresPI(item.revestimentoExterno);
+          const coresIntPI = filtrarCoresPI(item.revestimentoInterno);
 
-          // Default da cor da dobradica - mapeia label -> codigo
-          const dobMap = {
-            'Preta':    dobInvInt.find(d => /PRE$/.test(d.codigo))?.codigo || 'PA-DOBINVINTPRE',
-            'Escovada': dobInvInt.find(d => /ESC$/.test(d.codigo))?.codigo || 'PA-DOBINVINTESC',
-            'Branca':   dobInvInt.find(d => /BRA$/.test(d.codigo))?.codigo || 'PA-DOBINVINTBRA',
-          };
+          // Modo da fechadura
+          const modoFech = item.fechaduraModo || 'conjunto'; // default conjunto
+          const semMacanetas = macanetas.length === 0;
 
           return `
         <div class="orc-section">
@@ -4673,15 +4738,15 @@ const Orcamento = (() => {
           <div class="orc-form-row">
             <div class="orc-field orc-f-qtd">
               <label>Quantidade</label>
-              <input type="number" min="1" data-field="quantidade" value="${((item.quantidade || 1) === '' || (item.quantidade || 1) === null || (item.quantidade || 1) === undefined || Number(item.quantidade || 1) === 0) ? '' : escapeHtml(String(item.quantidade || 1))}" />
+              <input type="number" min="1" data-field="quantidade" value="${escapeHtml(String(item.quantidade || 1))}" />
             </div>
             <div class="orc-field orc-f-dim">
               <label>Largura (mm)</label>
-              <input type="text" data-field="largura" value="${((item.largura || '') === '' || (item.largura || '') === null || (item.largura || '') === undefined || Number(item.largura || '') === 0) ? '' : escapeHtml(String(item.largura || ''))}" placeholder="" />
+              <input type="text" data-field="largura" value="${item.largura ? escapeHtml(String(item.largura)) : ''}" placeholder="" />
             </div>
             <div class="orc-field orc-f-dim">
               <label>Altura (mm)</label>
-              <input type="text" data-field="altura" value="${((item.altura || '') === '' || (item.altura || '') === null || (item.altura || '') === undefined || Number(item.altura || '') === 0) ? '' : escapeHtml(String(item.altura || ''))}" placeholder="" />
+              <input type="text" data-field="altura" value="${item.altura ? escapeHtml(String(item.altura)) : ''}" placeholder="" />
             </div>
             <div class="orc-field orc-f-modelo">
               <label>Modelo</label>
@@ -4693,11 +4758,61 @@ const Orcamento = (() => {
         </div>
 
         <div class="orc-section">
-          <div class="orc-section-title">Cor</div>
+          <div class="orc-section-title">Face Externa</div>
           <div class="orc-form-row">
-            <div class="orc-field" style="grid-column: span 6;">
-              <label>Cor da porta</label>
-              <input type="text" data-field="corPorta" value="${escapeHtml(item.corPorta || '')}" placeholder="" />
+            <div class="orc-field orc-f-revestimento">
+              <label>Revestimento</label>
+              <select data-field="revestimentoExterno">
+                <option value=""></option>
+                ${revestimentosInt.map(r => `<option value="${escapeHtml(r)}" ${item.revestimentoExterno === r ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="orc-field orc-f-revestimento">
+              <label>Cor externa</label>
+              <input type="text" list="orc-pi-cores-ext-list" data-field="corExterna" value="${escapeHtml(item.corExterna || '')}" placeholder="${item.revestimentoExterno ? '' : 'Escolha o revestimento primeiro'}" title="${escapeHtml(item.corExterna || '')}" />
+              <datalist id="orc-pi-cores-ext-list">
+                ${(() => {
+                  const vistas = new Set();
+                  const opts = [];
+                  coresExtPI.forEach(s => {
+                    const limpo = String(s.descricao || '').trim();
+                    if (!limpo || vistas.has(limpo.toUpperCase())) return;
+                    vistas.add(limpo.toUpperCase());
+                    opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                  });
+                  return opts.join('');
+                })()}
+              </datalist>
+            </div>
+          </div>
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Face Interna</div>
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-revestimento">
+              <label>Revestimento</label>
+              <select data-field="revestimentoInterno">
+                <option value=""></option>
+                ${revestimentosInt.map(r => `<option value="${escapeHtml(r)}" ${item.revestimentoInterno === r ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="orc-field orc-f-revestimento">
+              <label>Cor interna</label>
+              <input type="text" list="orc-pi-cores-int-list" data-field="corInterna" value="${escapeHtml(item.corInterna || '')}" placeholder="${item.revestimentoInterno ? '' : 'Escolha o revestimento primeiro'}" title="${escapeHtml(item.corInterna || '')}" />
+              <datalist id="orc-pi-cores-int-list">
+                ${(() => {
+                  const vistas = new Set();
+                  const opts = [];
+                  coresIntPI.forEach(s => {
+                    const limpo = String(s.descricao || '').trim();
+                    if (!limpo || vistas.has(limpo.toUpperCase())) return;
+                    vistas.add(limpo.toUpperCase());
+                    opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                  });
+                  return opts.join('');
+                })()}
+              </datalist>
             </div>
           </div>
         </div>
@@ -4706,29 +4821,67 @@ const Orcamento = (() => {
           <div class="orc-section-title">Fechadura</div>
           <div class="orc-form-row">
             <div class="orc-field" style="grid-column: span 6;">
-              <label>Fechadura Hafele</label>
-              <select data-field="fechaduraInternaCodigo">
-                <option value=""></option>
-                ${fechHafele.map(f => `<option value="${escapeHtml(f.codigo)}" ${item.fechaduraInternaCodigo === f.codigo ? 'selected' : ''}>${escapeHtml(f.codigo)} — ${escapeHtml(f.descricao)}</option>`).join('')}
-              </select>
+              <label>Modo</label>
+              <div style="display:flex;gap:16px;padding-top:6px;">
+                <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;">
+                  <input type="radio" name="fechaduraModo_${item.id || 'pi'}" data-field="fechaduraModo" value="conjunto" ${modoFech === 'conjunto' ? 'checked' : ''} />
+                  Conjunto (fechadura + macaneta juntos)
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;">
+                  <input type="radio" name="fechaduraModo_${item.id || 'pi'}" data-field="fechaduraModo" value="personalizado" ${modoFech === 'personalizado' ? 'checked' : ''} />
+                  Personalizado (escolher separado)
+                </label>
+              </div>
             </div>
           </div>
-          ${item.fechaduraInternaCodigo ? (() => {
-            // Felipe sessao 31: cor da fechadura derivada AUTOMATICAMENTE
-            // da descricao. PRETO -> Preta, NIQ FOSCO -> Niquel Fosco, TITANIUM -> Titanium.
-            const fechSel = fechHafele.find(f => f.codigo === item.fechaduraInternaCodigo);
-            const desc = String(fechSel?.descricao || '').toUpperCase();
-            let corFech = '';
-            if (desc.includes('NIQ FOSCO') || desc.includes('NIQUEL FOSCO')) corFech = 'Niquel Fosco';
-            else if (desc.includes('TITANIUM')) corFech = 'Titanium';
-            else if (desc.includes('PRETO')) corFech = 'Preta';
-            return `<div class="orc-form-row" style="margin-top:6px;">
+
+          ${modoFech === 'conjunto' ? `
+            <div class="orc-form-row" style="margin-top:8px;">
               <div class="orc-field" style="grid-column: span 6;">
-                <label>Cor da fechadura <span class="orc-hint-auto">auto: derivada da fechadura</span></label>
-                <input type="text" data-field="fechaduraInternaCor" value="${escapeHtml(corFech)}" readonly style="background:#f5f5f5;" />
+                <label>Conjunto Hafele</label>
+                <select data-field="fechaduraInternaCodigo">
+                  <option value=""></option>
+                  ${fechHafele.map(f => `<option value="${escapeHtml(f.codigo)}" ${item.fechaduraInternaCodigo === f.codigo ? 'selected' : ''}>${escapeHtml(f.codigo)} — ${escapeHtml(f.descricao)}</option>`).join('')}
+                </select>
               </div>
-            </div>`;
-          })() : ''}
+            </div>
+            ${item.fechaduraInternaCodigo ? (() => {
+              const fechSel = fechHafele.find(f => f.codigo === item.fechaduraInternaCodigo);
+              const desc = String(fechSel?.descricao || '').toUpperCase();
+              let corFech = '';
+              if (desc.includes('NIQ FOSCO') || desc.includes('NIQUEL FOSCO')) corFech = 'Niquel Fosco';
+              else if (desc.includes('TITANIUM')) corFech = 'Titanium';
+              else if (desc.includes('PRETO')) corFech = 'Preta';
+              return `<div class="orc-form-row" style="margin-top:6px;">
+                <div class="orc-field" style="grid-column: span 6;">
+                  <label>Cor do conjunto <span class="orc-hint-auto">auto: derivada do codigo</span></label>
+                  <input type="text" data-field="fechaduraInternaCor" value="${escapeHtml(corFech)}" readonly style="background:#f5f5f5;" />
+                </div>
+              </div>`;
+            })() : ''}
+          ` : `
+            ${semMacanetas ? `
+              <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:10px;margin:8px 0;font-size:13px;color:#92400e;">
+                ⚠ Nenhuma macaneta cadastrada para porta interna. Cadastre em <b>Cadastros &gt; Acessorios</b> primeiro.
+              </div>
+            ` : ''}
+            <div class="orc-form-row" style="margin-top:8px;">
+              <div class="orc-field" style="grid-column: span 6;">
+                <label>Fechadura</label>
+                <select data-field="fechaduraInternaCodigo">
+                  <option value=""></option>
+                  ${fechHafele.map(f => `<option value="${escapeHtml(f.codigo)}" ${item.fechaduraInternaCodigo === f.codigo ? 'selected' : ''}>${escapeHtml(f.codigo)} — ${escapeHtml(f.descricao)}</option>`).join('')}
+                </select>
+              </div>
+              <div class="orc-field" style="grid-column: span 6;">
+                <label>Macaneta</label>
+                <select data-field="macanetaInternaCodigo" ${semMacanetas ? 'disabled' : ''}>
+                  <option value=""></option>
+                  ${macanetas.map(m => `<option value="${escapeHtml(m.codigo)}" ${item.macanetaInternaCodigo === m.codigo ? 'selected' : ''}>${escapeHtml(m.codigo)} — ${escapeHtml(m.descricao)}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          `}
         </div>
 
         <div class="orc-section">
@@ -4749,9 +4902,10 @@ const Orcamento = (() => {
         <div class="orc-section" style="background:#fffbeb; border:1px solid #fcd34d; border-radius:6px; padding:12px; margin-top:12px;">
           <div class="orc-section-title" style="color:#92400e;">⚠ Modulo em construcao</div>
           <p style="font-size:13px; color: #92400e; margin:6px 0 0;">
-            Porta interna esta com formulario basico funcionando. Motor de cortes
-            (perfis e chapas), aproveitamento de barras e calculo de preco ainda
-            serao implementados conforme Felipe definir as formulas de cada perfil.
+            Porta interna: formulario completo. Motor de cortes ja' tem o BATENTE
+            (PA-BATENTEINT) implementado. Click batente, folha, click folha,
+            travessas 46×46 e demais perfis serao implementados conforme Felipe
+            definir as formulas (cotas do AutoCAD).
           </p>
         </div>
           `;
