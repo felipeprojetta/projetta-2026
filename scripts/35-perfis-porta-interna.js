@@ -93,10 +93,10 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== CLICK DO BATENTE (PA-CLICKBTINT) — PORTAL =====
-    //   - 1 horizontal: largura - (fglEsq+fglDir) - 21,5 - 21,5
-    //   - 2 verticais : altura  - fgSup           - 21,5
-    const compClickBatHor = larguraVao - descontoLarg - 21.5 - 21.5;
-    const compClickBatVer = alturaVao  - descontoAlt  - 21.5;
+    //   - 1 horizontal: largura - (fglEsq+fglDir) - 11 - 11
+    //   - 2 verticais : altura  - fgSup           - 11
+    const compClickBatHor = larguraVao - descontoLarg - 11 - 11;
+    const compClickBatVer = alturaVao  - descontoAlt  - 11;
     if (compClickBatHor > 0) {
       _add(cortes, 'PA-CLICKBTINT', compClickBatHor, 1 * qtdPortas, 'Click batente horizontal (topo)', 'portal');
     }
