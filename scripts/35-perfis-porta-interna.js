@@ -7,10 +7,10 @@
      gerarCortes(item) → { 'PA-XXX': [{ comp, qty, label }, ...] }
 
    ESTADO ATUAL (sessao 31):
-     [x] Batente (PA-BATENTEINT)        — 2 verticais + 1 horizontal
-     [x] Click do Batente (PA-CLICKBTINT)— 2 verticais + 1 horizontal
-     [x] Folha (PA-FLHINT)              — 2 verticais + 1 horizontal superior
-     [x] Click da Folha (PA-CLICKFLHINT)— 2 verticais (mesma formula vertical da folha)
+     [x] Batente (PA-BATENTEINT)        — PORTAL: 2 verticais + 1 horizontal
+     [x] Click do Batente (PA-CLICKBTINT)— PORTAL: 2 verticais + 1 horizontal
+     [x] Folha (PA-FLHINT)              — FOLHA:  2 verticais + 1 horizontal superior
+     [x] Click da Folha (PA-CLICKFLHINT)— FOLHA:  2 verticais + 1 horizontal
      [ ] Travessas (PA-46X46X1.5)
      [ ] Alisar (PA-ALISARINT) — se aplicavel
      [ ] Vedacao (PA-VEDAINT)  — se aplicavel
@@ -31,10 +31,17 @@ const PerfisPortaInterna = (() => {
    * Helper: emite cortes batendo a fronteira da barra padrao.
    * Por enquanto naive (1 corte = 1 peca); se Felipe quiser otimizacao
    * de aproveitamento de barra eu engancho depois.
+   *
+   * Felipe sessao 31: secao opcional ('folha' default, ou 'portal').
+   * Quem consome (12-orcamento.js) usa esse campo pra separar a peca
+   * na tabela do Levantamento de Perfis. Batente e Click Batente fazem
+   * parte do MARCO (portal), nao da folha.
    */
-  function _add(cortes, codigo, comp, qty, label) {
+  function _add(cortes, codigo, comp, qty, label, secao) {
     if (!cortes[codigo]) cortes[codigo] = [];
-    cortes[codigo].push({ comp: Math.round(comp), qty: qty, label: label });
+    const peca = { comp: Math.round(comp), qty: qty, label: label };
+    if (secao) peca.secao = secao;
+    cortes[codigo].push(peca);
   }
 
   /**
@@ -69,32 +76,32 @@ const PerfisPortaInterna = (() => {
 
     const cortes = {};
 
-    // ===== BATENTE (PA-BATENTEINT) =====
+    // ===== BATENTE (PA-BATENTEINT) — PORTAL =====
     //   - 1 horizontal (topo): largura - (fglEsq+fglDir)
     //   - 2 verticais (lateral): altura - fgSup
     // (Defaults 5+5+5 -> -10 e -5 = comportamento original.)
     const compBatHor = larguraVao - descontoLarg;
     const compBatVer = alturaVao  - descontoAlt;
     if (compBatHor > 0) {
-      _add(cortes, 'PA-BATENTEINT', compBatHor, 1 * qtdPortas, 'Batente horizontal (topo)');
+      _add(cortes, 'PA-BATENTEINT', compBatHor, 1 * qtdPortas, 'Batente horizontal (topo)', 'portal');
     }
     if (compBatVer > 0) {
-      _add(cortes, 'PA-BATENTEINT', compBatVer, 2 * qtdPortas, 'Batente vertical (lateral)');
+      _add(cortes, 'PA-BATENTEINT', compBatVer, 2 * qtdPortas, 'Batente vertical (lateral)', 'portal');
     }
 
-    // ===== CLICK DO BATENTE (PA-CLICKBTINT) =====
+    // ===== CLICK DO BATENTE (PA-CLICKBTINT) — PORTAL =====
     //   - 1 horizontal: largura - (fglEsq+fglDir) - 21,5 - 21,5
     //   - 2 verticais : altura  - fgSup           - 21,5
     const compClickBatHor = larguraVao - descontoLarg - 21.5 - 21.5;
     const compClickBatVer = alturaVao  - descontoAlt  - 21.5;
     if (compClickBatHor > 0) {
-      _add(cortes, 'PA-CLICKBTINT', compClickBatHor, 1 * qtdPortas, 'Click batente horizontal (topo)');
+      _add(cortes, 'PA-CLICKBTINT', compClickBatHor, 1 * qtdPortas, 'Click batente horizontal (topo)', 'portal');
     }
     if (compClickBatVer > 0) {
-      _add(cortes, 'PA-CLICKBTINT', compClickBatVer, 2 * qtdPortas, 'Click batente vertical (lateral)');
+      _add(cortes, 'PA-CLICKBTINT', compClickBatVer, 2 * qtdPortas, 'Click batente vertical (lateral)', 'portal');
     }
 
-    // ===== FOLHA (PA-FLHINT) =====
+    // ===== FOLHA (PA-FLHINT) — FOLHA =====
     //   - 1 horizontal (topo): largura - (fglEsq+fglDir) - 24,5 - 24,5
     //   - 2 verticais (lateral): altura - fgSup - 24,5 - 10
     const compFlhHor = larguraVao - descontoLarg - 24.5 - 24.5;
@@ -106,8 +113,12 @@ const PerfisPortaInterna = (() => {
       _add(cortes, 'PA-FLHINT', compFlhVer, 2 * qtdPortas, 'Folha vertical (lateral)');
     }
 
-    // ===== CLICK DA FOLHA (PA-CLICKFLHINT) =====
+    // ===== CLICK DA FOLHA (PA-CLICKFLHINT) — FOLHA =====
+    //   - 1 horizontal: mesma formula da folha horizontal (1 unidade)
     //   - 2 verticais: mesma formula do vertical da folha
+    if (compFlhHor > 0) {
+      _add(cortes, 'PA-CLICKFLHINT', compFlhHor, 1 * qtdPortas, 'Click da folha horizontal (topo)');
+    }
     if (compFlhVer > 0) {
       _add(cortes, 'PA-CLICKFLHINT', compFlhVer, 2 * qtdPortas, 'Click da folha vertical');
     }

@@ -9002,7 +9002,7 @@ const Orcamento = (() => {
         b.cortes[codigo].forEach(c => {
           const cad = perfisCadastro[codigo] || {};
           const kgM = cad.kgPorMetro || 0;
-          linhas.push({
+          const linha = {
             codigo,
             descricao: c.label,
             comp: c.comp,
@@ -9013,7 +9013,12 @@ const Orcamento = (() => {
             temPintura: !!cad.precoKgPintura,
             ordem: ordemDoLabel(c.label),
             ehManual: false,
-          });
+          };
+          // Felipe sessao 31: motor pode declarar secao explicita ('portal'|'folha'|'fixo').
+          // Quando declarada, vira forcaSecao (mesma semantica das linhas manuais).
+          // Quando nao declarada, segue o classificador de label (ehLinhaPortal).
+          if (c.secao) linha.forcaSecao = c.secao;
+          linhas.push(linha);
         });
       }
 
