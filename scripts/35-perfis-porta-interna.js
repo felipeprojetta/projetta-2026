@@ -31,15 +31,14 @@ const PerfisPortaInterna = (() => {
   /**
    * Gera cortes da porta interna.
    *
-   * Felipe sessao 31 — Regras do BATENTE (PA-BATENTEINT):
-   *   - largura do batente HORIZONTAL = largura_vao - 10 (folga 5+5)
-   *   - altura  do batente VERTICAL   = altura_vao  - 5
-   *   - 2 verticais + 1 horizontal por porta (so' em cima)
-   *   - Felipe: 'largura digitada e' o vao' (sem +10 compensado)
+   * Felipe sessao 31 — Folgas UNIFICADAS (igual porta externa):
+   *   - fglEsq (folga lateral esquerda) — default 5
+   *   - fglDir (folga lateral direita)  — default 5
+   *   - fgSup  (folga superior)         — default 5
+   * Convencao: peças HORIZONTAIS descontam fglEsq + fglDir.
+   *            peças VERTICAIS   descontam fgSup.
    *
    * Quantidade multiplica por item.quantidade (varias portas iguais).
-   *
-   * Retorno: { 'PA-BATENTEINT': [{comp, qty, label}, ...] }
    */
   function gerarCortes(item) {
     if (!item || item.tipo !== 'porta_interna') return {};
@@ -50,15 +49,23 @@ const PerfisPortaInterna = (() => {
 
     const qtdPortas = Math.max(1, Number(item.quantidade) || 1);
 
+    // Folgas unificadas. Fallback 5 quando vazio/null/undefined.
+    const fglEsq = Number(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5);
+    const fglDir = Number(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5);
+    const fgSup  = Number(item.fgSup  != null && item.fgSup  !== '' ? item.fgSup  : 5);
+
+    // Reaproveitamento dos descontos de folga por orientacao
+    const descontoLarg = fglEsq + fglDir;  // peças horizontais
+    const descontoAlt  = fgSup;             // peças verticais
+
     const cortes = {};
 
     // ===== BATENTE (PA-BATENTEINT) =====
-    // Felipe sessao 31:
-    //   '...largura do batente vai ser o vao, a largura do vao -5 -5'
-    //   '...altura do batente sera altura do vao - 5'
-    //   '2 verticais e 1 horizontal'
-    const compBatHor = larguraVao - 10;  // 5+5 folga
-    const compBatVer = alturaVao  - 5;   // 5 folga no topo
+    //   - 1 horizontal (topo): largura - (fglEsq+fglDir)
+    //   - 2 verticais (lateral): altura - fgSup
+    // (Defaults 5+5+5 -> -10 e -5 = comportamento original.)
+    const compBatHor = larguraVao - descontoLarg;
+    const compBatVer = alturaVao  - descontoAlt;
     if (compBatHor > 0) {
       _add(cortes, 'PA-BATENTEINT', compBatHor, 1 * qtdPortas, 'Batente horizontal (topo)');
     }
@@ -67,14 +74,10 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== CLICK DO BATENTE (PA-CLICKBTINT) =====
-    // Felipe sessao 31 (click do batente):
-    //   - 1 horizontal: largura_vao - folgaLargClickBat - 21,5 - 21,5
-    //   - 2 verticais : altura_vao  - folgaAltClickBat  - 21,5
-    // Folgas SEPARADAS do batente (defaults 5 cada). EDITAVEIS no form.
-    const folgaLargClickBat = Number(item.folgaLarguraClickBatente != null && item.folgaLarguraClickBatente !== '' ? item.folgaLarguraClickBatente : 5);
-    const folgaAltClickBat  = Number(item.folgaAlturaClickBatente   != null && item.folgaAlturaClickBatente   !== '' ? item.folgaAlturaClickBatente   : 5);
-    const compClickBatHor = larguraVao - folgaLargClickBat - 21.5 - 21.5;
-    const compClickBatVer = alturaVao  - folgaAltClickBat  - 21.5;
+    //   - 1 horizontal: largura - (fglEsq+fglDir) - 21,5 - 21,5
+    //   - 2 verticais : altura  - fgSup           - 21,5
+    const compClickBatHor = larguraVao - descontoLarg - 21.5 - 21.5;
+    const compClickBatVer = alturaVao  - descontoAlt  - 21.5;
     if (compClickBatHor > 0) {
       _add(cortes, 'PA-CLICKBTINT', compClickBatHor, 1 * qtdPortas, 'Click batente horizontal (topo)');
     }
@@ -83,16 +86,10 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== FOLHA (PA-FLHINT) =====
-    // Felipe sessao 31 (perfil folha):
-    //   - largura superior (HORIZONTAL) = largura_vao - folgaLargFolha - 24,5 - 24,5
-    //     → 1 unidade
-    //   - altura (VERTICAL)             = altura_vao  - folgaAltFolha  - 24,5 - 10
-    //     → 2 unidades
-    // Folgas sao EDITAVEIS no form (default 5).
-    const folgaLargFolha = Number(item.folgaLarguraFolha != null && item.folgaLarguraFolha !== '' ? item.folgaLarguraFolha : 5);
-    const folgaAltFolha  = Number(item.folgaAlturaFolha   != null && item.folgaAlturaFolha   !== '' ? item.folgaAlturaFolha   : 5);
-    const compFlhHor = larguraVao - folgaLargFolha - 24.5 - 24.5;
-    const compFlhVer = alturaVao  - folgaAltFolha  - 24.5 - 10;
+    //   - 1 horizontal (topo): largura - (fglEsq+fglDir) - 24,5 - 24,5
+    //   - 2 verticais (lateral): altura - fgSup - 24,5 - 10
+    const compFlhHor = larguraVao - descontoLarg - 24.5 - 24.5;
+    const compFlhVer = alturaVao  - descontoAlt  - 24.5 - 10;
     if (compFlhHor > 0) {
       _add(cortes, 'PA-FLHINT', compFlhHor, 1 * qtdPortas, 'Folha horizontal (topo)');
     }
@@ -101,9 +98,7 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== CLICK DA FOLHA (PA-CLICKFLHINT) =====
-    // Felipe sessao 31 (click folha):
-    //   - altura (VERTICAL) = altura_vao - folgaAltFolha - 24,5 - 10
-    //     → 2 unidades (mesma formula do vertical da folha)
+    //   - 2 verticais: mesma formula do vertical da folha
     if (compFlhVer > 0) {
       _add(cortes, 'PA-CLICKFLHINT', compFlhVer, 2 * qtdPortas, 'Click da folha vertical');
     }

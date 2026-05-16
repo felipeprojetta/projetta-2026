@@ -2389,20 +2389,14 @@ const Orcamento = (() => {
       largura: '',
       altura: '',
       modeloNumero: 1,
-      // Felipe sessao 31: folgas EDITAVEIS da folha (default 5mm cada)
-      //   folgaLarguraFolha → desconto na largura superior horizontal
-      //   folgaAlturaFolha  → desconto na altura vertical
-      // Formula:
-      //   horizontal folha = largura - folgaLarguraFolha - 24,5 - 24,5
-      //   vertical folha   = altura  - folgaAlturaFolha  - 24,5 - 10
-      //   vertical click   = altura  - folgaAlturaFolha  - 24,5 - 10
-      folgaLarguraFolha: 5,
-      folgaAlturaFolha:  5,
-      // Felipe sessao 31: folgas EDITAVEIS do click do batente (default 5mm cada)
-      //   horizontal click batente = largura - folgaLarguraClickBatente - 21,5 - 21,5
-      //   vertical   click batente = altura  - folgaAlturaClickBatente  - 21,5
-      folgaLarguraClickBatente: 5,
-      folgaAlturaClickBatente:  5,
+      // Felipe sessao 31: 3 folgas UNIFICADAS (igual porta externa), defaults 5
+      //   fglEsq → desconto na largura (esquerda)
+      //   fglDir → desconto na largura (direita)
+      //   fgSup  → desconto na altura (superior)
+      // Aplicam em TODOS os perfis: batente, click batente, folha, click folha.
+      fglEsq: 5,
+      fglDir: 5,
+      fgSup:  5,
       // Felipe sessao 31: revestimento+cor SEPARADOS pra cada face
       revestimentoExterno: '',
       revestimentoInterno: '',
@@ -4770,30 +4764,29 @@ const Orcamento = (() => {
               </select>
             </div>
           </div>
-          <!-- Felipe sessao 31: folgas EDITAVEIS da folha (default 5).
-               horizontal folha = largura - folgaLarguraFolha - 24,5 - 24,5
-               vertical folha/click = altura - folgaAlturaFolha - 24,5 - 10 -->
+        </div>
+
+        <div class="orc-section">
+          <div class="orc-section-title">Folgas (mm)</div>
+          <p style="font-size:12px; color: var(--text-muted); margin: 0 0 8px 0;">
+            Folgas entre o vao e a porta. Padrao 5mm em cada lado.
+            Aplicam em todos os perfis (batente, click batente, folha, click folha).
+          </p>
           <div class="orc-form-row">
-            <div class="orc-field orc-f-dim">
-              <label>Folga largura folha (mm)</label>
-              <input type="number" step="0.1" data-field="folgaLarguraFolha" value="${escapeHtml(String(item.folgaLarguraFolha != null && item.folgaLarguraFolha !== '' ? item.folgaLarguraFolha : 5))}" placeholder="5" />
+            <div class="orc-field orc-f-qtd">
+              <label>Lateral Esquerda</label>
+              <input type="number" min="0" step="0.1" data-field="fglEsq"
+                     value="${escapeHtml(String(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5))}" />
             </div>
-            <div class="orc-field orc-f-dim">
-              <label>Folga altura folha (mm)</label>
-              <input type="number" step="0.1" data-field="folgaAlturaFolha" value="${escapeHtml(String(item.folgaAlturaFolha != null && item.folgaAlturaFolha !== '' ? item.folgaAlturaFolha : 5))}" placeholder="5" />
+            <div class="orc-field orc-f-qtd">
+              <label>Lateral Direita</label>
+              <input type="number" min="0" step="0.1" data-field="fglDir"
+                     value="${escapeHtml(String(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5))}" />
             </div>
-          </div>
-          <!-- Felipe sessao 31: folgas EDITAVEIS do click do batente (default 5).
-               horizontal click batente = largura - folgaLarguraClickBatente - 21,5 - 21,5
-               vertical   click batente = altura  - folgaAlturaClickBatente  - 21,5 -->
-          <div class="orc-form-row">
-            <div class="orc-field orc-f-dim">
-              <label>Folga largura click batente (mm)</label>
-              <input type="number" step="0.1" data-field="folgaLarguraClickBatente" value="${escapeHtml(String(item.folgaLarguraClickBatente != null && item.folgaLarguraClickBatente !== '' ? item.folgaLarguraClickBatente : 5))}" placeholder="5" />
-            </div>
-            <div class="orc-field orc-f-dim">
-              <label>Folga altura click batente (mm)</label>
-              <input type="number" step="0.1" data-field="folgaAlturaClickBatente" value="${escapeHtml(String(item.folgaAlturaClickBatente != null && item.folgaAlturaClickBatente !== '' ? item.folgaAlturaClickBatente : 5))}" placeholder="5" />
+            <div class="orc-field orc-f-qtd">
+              <label>Superior</label>
+              <input type="number" min="0" step="0.1" data-field="fgSup"
+                     value="${escapeHtml(String(item.fgSup != null && item.fgSup !== '' ? item.fgSup : 5))}" />
             </div>
           </div>
         </div>
