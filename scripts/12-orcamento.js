@@ -13895,6 +13895,12 @@ const Orcamento = (() => {
       return renderItemFixoSuperficies(item, idx, todasSuperficies);
     }
 
+    // Felipe sessao 31: porta_interna tem 2 chapas frontais (externa + interna).
+    // Motor: window.ChapasPortaInterna (38b-chapas-porta-interna.js).
+    if (item.tipo === 'porta_interna') {
+      return renderItemPortaInternaSuperficies(item, idx, todasSuperficies);
+    }
+
     // Outros tipos sem motor de chapas ainda
     if (item.tipo !== 'porta_externa') {
       const tipoLabel = ({
@@ -13998,6 +14004,79 @@ const Orcamento = (() => {
    * adicionarPecasManuaisExtras) - zero duplicacao - chamando o motor
    * PerfisRevAcoplado.gerarPecasChapa que ja filtra/ajusta pecas.
    */
+  /**
+   * Felipe sessao 31: render do bloco de Superficies pra PORTA INTERNA.
+   * Espelhada em renderItemFixoSuperficies — 2 chapas (ext + int), formula
+   * propria do motor 38b-chapas-porta-interna.js.
+   */
+  function renderItemPortaInternaSuperficies(item, idx, todasSuperficies) {
+    const numItem = idx + 1;
+    const Motor = window.ChapasPortaInterna;
+    if (!Motor || !Motor.gerarPecasChapa) {
+      return `
+        <div class="orc-section orc-lev-sup-item">
+          <div class="orc-section-title">Item ${numItem} — Porta Interna</div>
+          <p class="orc-hint-text orc-lev-sup-empty">
+            Motor de chapas (ChapasPortaInterna) nao carregado. Recarregue a pagina (Ctrl+Shift+R).
+          </p>
+        </div>`;
+    }
+
+    // Aceita formato BR (virgula) — _toNum interno do motor ja lida
+    const larg = (window.parseBR ? window.parseBR(item.largura) : Number(item.largura)) || 0;
+    const alt  = (window.parseBR ? window.parseBR(item.altura)  : Number(item.altura))  || 0;
+    if (!larg || !alt) {
+      return `
+        <div class="orc-section orc-lev-sup-item">
+          <div class="orc-section-title">Item ${numItem} — Porta Interna — sem dimensoes</div>
+          <p class="orc-hint-text">Volte para "Caracteristicas do Item" e preencha largura e altura.</p>
+        </div>`;
+    }
+
+    let pecasExt = aplicarRotacionaOverrides(Motor.gerarPecasChapa(item, 'externo') || [], item);
+    let pecasInt = aplicarRotacionaOverrides(Motor.gerarPecasChapa(item, 'interno') || [], item);
+    pecasExt = aplicarSuperficiesOverrides(pecasExt, item);
+    pecasInt = aplicarSuperficiesOverrides(pecasInt, item);
+
+    const corExt = String(item.corExterna || '').trim();
+    const corInt = String(item.corInterna || '').trim();
+    const modeloEfetivo = Number(item.modeloNumero) || 0;
+    // Cor unica: ambas iguais (mesmo se ambas vazias — caso novo item)
+    const corUnica = corExt === corInt;
+
+    let tabelasHtml = '';
+    if (corUnica) {
+      let pecasUnificadas = unificarPecas(pecasExt, pecasInt);
+      pecasUnificadas = adicionarPecasManuaisExtras(pecasUnificadas, item);
+      tabelasHtml = renderTabelaPecas(
+        'Externo + Interno (cor unica)',
+        pecasUnificadas, modeloEfetivo, corExt, todasSuperficies, idx
+      );
+    } else {
+      const pecasExtComExtras = adicionarPecasManuaisExtras(pecasExt, item);
+      tabelasHtml = `
+        ${renderTabelaPecas('Lado Externo', pecasExtComExtras, modeloEfetivo, corExt, todasSuperficies, idx)}
+        ${renderTabelaPecas('Lado Interno', pecasInt,         modeloEfetivo, corInt, todasSuperficies, idx)}
+      `;
+    }
+
+    const qtdItem = Math.max(1, parseInt(item.quantidade, 10) || 1);
+
+    return `
+      <div class="orc-section orc-lev-sup-item">
+        <div class="orc-section-title">
+          Item ${numItem} — Porta Interna
+          <span class="orc-lev-sup-meta">
+            ${larg}×${alt} mm
+            · <b>${qtdItem} porta${qtdItem > 1 ? 's' : ''}</b>
+            · 2 chapas (ext + int)
+          </span>
+        </div>
+        ${tabelasHtml}
+      </div>
+    `;
+  }
+
   function renderItemFixoSuperficies(item, idx, todasSuperficies) {
     const numItem = idx + 1;
     const Motor = window.PerfisRevAcoplado;
