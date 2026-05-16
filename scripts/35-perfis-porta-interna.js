@@ -11,8 +11,9 @@
      [x] Click do Batente (PA-CLICKBTINT)— PORTAL: 2 verticais + 1 horizontal
      [x] Folha (PA-FLHINT)              — FOLHA:  2 verticais + 1 horizontal superior
      [x] Click da Folha (PA-CLICKFLHINT)— FOLHA:  2 verticais + 1 horizontal
-     [x] Alisar (PA-ALISARINT)          — PORTAL: 4 verticais + 2 horizontais
      [ ] Travessas (PA-46X46X1.5)
+     [ ] Alisar — PERFIL (aguardando formula; o 'alisar 59,5x...' do
+                  pedido anterior era CHAPA, foi pro 38b-chapas-porta-interna.js)
      [ ] Vedacao (PA-VEDAINT)  — se aplicavel
 */
 
@@ -124,23 +125,6 @@ const PerfisPortaInterna = (() => {
     }
     if (compFlhVer > 0) {
       _add(cortes, 'PA-CLICKFLHINT', compFlhVer, 2 * qtdPortas, 'Click da folha vertical');
-    }
-
-    // ===== ALISAR (PA-ALISARINT) — PORTAL =====
-    // Felipe sessao 31: 'sera 4 pecas de 59.5 mm x altura do vao + 100,
-    //                    sera 2 pecas de 59,5 x largura do vao +100'
-    // O 59,5mm e' a LARGURA do perfil (caracteristica), nao o corte.
-    // Cortes:
-    //   - 4 verticais (lateral): altura_vao + 100
-    //   - 2 horizontais (topo):  largura_vao + 100
-    // Como nao usa folgas (medida = vao + 100), nao depende de fglEsq/fglDir/fgSup.
-    const compAlisarVer = alturaVao  + 100;
-    const compAlisarHor = larguraVao + 100;
-    if (compAlisarVer > 0) {
-      _add(cortes, 'PA-ALISARINT', compAlisarVer, 4 * qtdPortas, 'Alisar vertical (lateral)', 'portal');
-    }
-    if (compAlisarHor > 0) {
-      _add(cortes, 'PA-ALISARINT', compAlisarHor, 2 * qtdPortas, 'Alisar horizontal (topo)', 'portal');
     }
 
     return cortes;

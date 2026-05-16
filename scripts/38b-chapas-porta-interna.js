@@ -19,7 +19,8 @@
  * ESTADO ATUAL (sessao 31):
  *   [x] Chapa frontal externa (25,5)
  *   [x] Chapa frontal interna (37,5)
- *   [ ] Chapa do batente / outras pecas (TBD)
+ *   [x] Alisar (chapa) — 59,5 x (vao+100), 2 vert + 1 hor por lado da parede
+ *                        (categoria='portal', cor da face correspondente)
  */
 const ChapasPortaInterna = (() => {
   'use strict';
@@ -71,6 +72,33 @@ const ChapasPortaInterna = (() => {
           podeRotacionar: true,
         });
       }
+
+      // Felipe sessao 31: ALISAR (chapa) — 'sera 4 pecas de 59,5 mm x altura+100,
+      // sera 2 pecas de 59,5 x largura+100'. 4+2 totais = 2 lados × (2 vert + 1 hor).
+      // Cada lado: 2 verticais (59,5 × A+100) + 1 horizontal (59,5 × L+100).
+      // Cor segue corExterna no lado externo; podeRotacionar true (tiras finas).
+      if (alturaVao > 0) {
+        pecas.push({
+          descricao:      'Alisar vertical (lateral)',
+          largura:        59.5,
+          altura:         _round1(alturaVao + 100),
+          qtd:            2 * qtdPortas,
+          cor:            String(item.corExterna || '').trim(),
+          categoria:      'portal',
+          podeRotacionar: true,
+        });
+      }
+      if (larguraVao > 0) {
+        pecas.push({
+          descricao:      'Alisar horizontal (topo)',
+          largura:        59.5,
+          altura:         _round1(larguraVao + 100),
+          qtd:            1 * qtdPortas,
+          cor:            String(item.corExterna || '').trim(),
+          categoria:      'portal',
+          podeRotacionar: true,
+        });
+      }
     } else if (lado === 'interno') {
       // Chapa frontal interna: recortes -37,5 -37,5 (largura) e -37,5 -12 (altura)
       const L = larguraVao - fglEsq - fglDir - 37.5 - 37.5;
@@ -83,6 +111,31 @@ const ChapasPortaInterna = (() => {
           qtd:            qtdPortas,
           cor:            String(item.corInterna || '').trim(),
           categoria:      'porta',
+          podeRotacionar: true,
+        });
+      }
+
+      // Felipe sessao 31: ALISAR (chapa) — espelho do lado externo, mas com
+      // cor da face interna.
+      if (alturaVao > 0) {
+        pecas.push({
+          descricao:      'Alisar vertical (lateral)',
+          largura:        59.5,
+          altura:         _round1(alturaVao + 100),
+          qtd:            2 * qtdPortas,
+          cor:            String(item.corInterna || '').trim(),
+          categoria:      'portal',
+          podeRotacionar: true,
+        });
+      }
+      if (larguraVao > 0) {
+        pecas.push({
+          descricao:      'Alisar horizontal (topo)',
+          largura:        59.5,
+          altura:         _round1(larguraVao + 100),
+          qtd:            1 * qtdPortas,
+          cor:            String(item.corInterna || '').trim(),
+          categoria:      'portal',
           podeRotacionar: true,
         });
       }
