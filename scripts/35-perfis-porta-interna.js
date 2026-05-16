@@ -11,9 +11,10 @@
      [x] Click do Batente (PA-CLICKBTINT)— PORTAL: 2 verticais + 1 horizontal
      [x] Folha (PA-FLHINT)              — FOLHA:  2 verticais + 1 horizontal superior
      [x] Click da Folha (PA-CLICKFLHINT)— FOLHA:  2 verticais + 1 horizontal
+     [x] Alisar (PA-ALISARINT) PERFIL   — PORTAL: 2 verticais + 1 horizontal
+                                          (NAO confundir com 'alisar chapa'
+                                          do 38b — sao coisas diferentes)
      [ ] Travessas (PA-46X46X1.5)
-     [ ] Alisar — PERFIL (aguardando formula; o 'alisar 59,5x...' do
-                  pedido anterior era CHAPA, foi pro 38b-chapas-porta-interna.js)
      [ ] Vedacao (PA-VEDAINT)  — se aplicavel
 */
 
@@ -106,10 +107,10 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== FOLHA (PA-FLHINT) — FOLHA =====
-    //   - 1 horizontal (topo): largura - (fglEsq+fglDir) - 24,5 - 24,5
-    //   - 2 verticais (lateral): altura - fgSup - 24,5 - 10
-    const compFlhHor = larguraVao - descontoLarg - 24.5 - 24.5;
-    const compFlhVer = alturaVao  - descontoAlt  - 24.5 - 10;
+    //   - 1 horizontal (topo): largura - (fglEsq+fglDir) - 26 - 26
+    //   - 2 verticais (lateral): altura - fgSup - 26 - 10
+    const compFlhHor = larguraVao - descontoLarg - 26 - 26;
+    const compFlhVer = alturaVao  - descontoAlt  - 26 - 10;
     if (compFlhHor > 0) {
       _add(cortes, 'PA-FLHINT', compFlhHor, 1 * qtdPortas, 'Folha horizontal (topo)');
     }
@@ -125,6 +126,23 @@ const PerfisPortaInterna = (() => {
     }
     if (compFlhVer > 0) {
       _add(cortes, 'PA-CLICKFLHINT', compFlhVer, 2 * qtdPortas, 'Click da folha vertical');
+    }
+
+    // ===== ALISAR (PA-ALISARINT) — PORTAL (perfil de aluminio) =====
+    // Felipe sessao 31: 'fomula e laruga +33,5 +33,5 para perfil uma peca e
+    // altura + 33,5 2 pecas esse sim fica em perfis'.
+    //   - 1 horizontal (topo):  largura_vao + 33,5 + 33,5
+    //   - 2 verticais (lateral): altura_vao  + 33,5
+    // NAO usa folgas (medida = vao + sobras). Perfil envolve o vao externamente.
+    // (Nao confundir com o 'alisar chapa' do 38b-chapas-porta-interna.js, que
+    // sao 4 tiras 59,5 x (vao+100) entrando como chapas decorativas externas.)
+    const compAlisarHor = larguraVao + 33.5 + 33.5;
+    const compAlisarVer = alturaVao  + 33.5;
+    if (compAlisarHor > 0) {
+      _add(cortes, 'PA-ALISARINT', compAlisarHor, 1 * qtdPortas, 'Alisar horizontal (topo)', 'portal');
+    }
+    if (compAlisarVer > 0) {
+      _add(cortes, 'PA-ALISARINT', compAlisarVer, 2 * qtdPortas, 'Alisar vertical (lateral)', 'portal');
     }
 
     return cortes;
