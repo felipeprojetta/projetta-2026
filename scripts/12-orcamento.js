@@ -15902,15 +15902,17 @@ const Orcamento = (() => {
     // Felipe sessao 2026-08: aceita revestimento_parede e fixo_acoplado
     // (so' calcula fita+silicone pra esses tipos, motor 28-acessorios-porta-
     // externa.js foi estendido pra processar os 3 tipos).
+    // Felipe sessao 31: tambem aceita porta_interna (fluxo simples - so'
+    // fechadura, macaneta e dobradicas, sem fita/silicone/pivo).
     const itens = (versao.itens || []).filter(it =>
-      it && (it.tipo === 'porta_externa' || it.tipo === 'revestimento_parede' || it.tipo === 'fixo_acoplado')
+      it && (it.tipo === 'porta_externa' || it.tipo === 'revestimento_parede' || it.tipo === 'fixo_acoplado' || it.tipo === 'porta_interna')
     );
 
     if (itens.length === 0) {
       container.innerHTML = `
         ${bannerCaracteristicasItens(versao)}
         <div class="info-banner">
-          <span class="t-strong">Sem item de Porta Externa, Revestimento de Parede ou Fixo Acoplado nesta versao.</span>
+          <span class="t-strong">Sem item de Porta Externa, Porta Interna, Revestimento de Parede ou Fixo Acoplado nesta versao.</span>
           Acessorios so' sao calculados para esses tipos.
         </div>`;
       return;

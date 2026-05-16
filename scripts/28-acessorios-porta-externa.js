@@ -154,8 +154,91 @@ const AcessoriosPortaExterna = (() => {
    *                                preco_un, total, categoria, aplicacao,
    *                                observacao }
    */
+
+  /**
+   * Felipe sessao 31: gerador de acessorios da PORTA INTERNA.
+   *
+   * Fluxo simples (sem fita/silicone/pivô — porta interna nao tem nada disso):
+   *   - Fechadura: codigo escolhido no form (item.fechaduraInternaCodigo).
+   *     Quando modo='conjunto' o codigo Hafele ja' inclui macaneta;
+   *     quando modo='personalizado' a macaneta vem separada.
+   *   - Macaneta: so' se modo='personalizado' (item.macanetaInternaCodigo).
+   *   - Dobradicas: 3 unidades (padrao porta interna). Codigo pego do
+   *     cadastro por prefixo PA-DOBINVINT (variante mais cara da familia).
+   *     Cor da dobradica vai no observacao (item.dobradicaCor).
+   *
+   * Qtd multiplica por item.quantidade (varias portas iguais).
+   */
+  function _gerarAcessoriosPortaInterna(item, cadastroAcessorios) {
+    const linhas = [];
+    const qtdPortas = Math.max(1, Number(item.quantidade) || 1);
+
+    function pushLinha(codigo, qtdUnit, categoria, observacao) {
+      if (!codigo) return;
+      const acess = buscarAcessorio(cadastroAcessorios, codigo);
+      const qtdTotal = qtdUnit * qtdPortas;
+      if (!acess) {
+        linhas.push({
+          codigo,
+          descricao: '(nao cadastrado)',
+          familia: '',
+          qtd: qtdTotal,
+          unidade: 'un',
+          preco_un: 0,
+          total: 0,
+          categoria,
+          aplicacao: 'fab',
+          observacao: (observacao || '') + ' · CADASTRAR EM ACESSORIOS',
+        });
+        return;
+      }
+      const precoUn = Number(acess.preco) || 0;
+      linhas.push({
+        codigo: acess.codigo,
+        descricao: acess.descricao || '',
+        familia: acess.familia || '',
+        qtd: qtdTotal,
+        unidade: 'un',
+        preco_un: precoUn,
+        total: precoUn * qtdTotal,
+        categoria,
+        aplicacao: 'fab',
+        observacao: observacao || '',
+      });
+    }
+
+    // 1) Fechadura — codigo escolhido no form
+    const codFech = String(item.fechaduraInternaCodigo || '').trim();
+    if (codFech) {
+      const cor = String(item.fechaduraInternaCor || '').trim();
+      pushLinha(codFech, 1, 'Fechadura', cor ? ('Cor: ' + cor) : '');
+    }
+
+    // 2) Macaneta (so' modo personalizado)
+    if (item.fechaduraModo === 'personalizado') {
+      const codMac = String(item.macanetaInternaCodigo || '').trim();
+      if (codMac) pushLinha(codMac, 1, 'Macaneta', '');
+    }
+
+    // 3) Dobradicas — 3 unidades, variante mais cara do prefixo PA-DOBINVINT.
+    //    Cor declarada pelo user vai no observacao.
+    const dobAcess = maxPrecoByPrefix(cadastroAcessorios, 'PA-DOBINVINT');
+    if (dobAcess) {
+      const cor = String(item.dobradicaCor || '').trim();
+      pushLinha(dobAcess.codigo, 3, 'Dobradica', cor ? ('Cor: ' + cor) : '');
+    }
+
+    return linhas;
+  }
+
   function calcularAcessoriosPorItem(item, cadastroAcessorios, opts) {
     if (!item) return [];
+    // Felipe sessao 31: porta_interna tem fluxo SIMPLES - sem fita/silicone/
+    // pivô/etc. So' lista: fechadura + (macaneta se modo personalizado) +
+    // dobradicas. Sai cedo pra nao executar todo o motor da porta externa.
+    if (item.tipo === 'porta_interna') {
+      return _gerarAcessoriosPortaInterna(item, cadastroAcessorios);
+    }
     // Felipe sessao 2026-08: tambem aceita revestimento_parede e fixo_acoplado.
     // Pra esses tipos, so' fita+silicone e' calculado (resto - fechadura,
     // dobradica, cilindro, EPS - e' especifico de porta).
