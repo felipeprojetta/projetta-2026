@@ -4822,13 +4822,15 @@ const Orcamento = (() => {
         </div>
 
         <div class="orc-section">
-          <div class="orc-section-title" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-            <span>Face Interna</span>
-            <button type="button" id="orc-btn-copiar-face-ext-pi"
-                    style="font-size:11px; font-weight:600; padding:4px 10px; border:1px solid var(--border-color, #d0d0d0); background:#f7f7f7; color:var(--text-strong, #333); border-radius:5px; cursor:pointer; letter-spacing:0.3px; text-transform:uppercase;"
-                    title="Copia revestimento e cor da Face Externa para a Face Interna">
-              ⇆ Copiar Face Externa
-            </button>
+          <div class="orc-section-title-bar">
+            <div class="orc-section-title">Face Interna</div>
+            <div class="orc-section-actions">
+              <button type="button" id="orc-btn-copiar-face-ext-pi"
+                      style="font-size:11px; font-weight:600; padding:5px 12px; border:1px solid var(--laranja, #d97706); background:#fff7ed; color:var(--laranja, #c2410c); border-radius:5px; cursor:pointer; letter-spacing:0.3px; text-transform:uppercase;"
+                      title="Copia revestimento e cor da Face Externa para a Face Interna">
+                ⇆ Copiar Face Externa
+              </button>
+            </div>
           </div>
           <div class="orc-form-row">
             <div class="orc-field orc-f-revestimento">
