@@ -2833,8 +2833,9 @@ const Orcamento = (() => {
         label: 'Porta Interna',
         icon: '🚪',
         desc: 'Porta interna (entre comodos). Calculo simplificado.',
-        ativo: false,
-        statusLabel: 'aguardando especificacao',
+        // Felipe sessao 31: liberado pra testes. Motor 35-perfis-porta-interna.js
+        // ja tem Batente + Folha + Click da Folha; demais perfis virao por commit.
+        ativo: true,
       },
       {
         id: 'fixo_acoplado',
