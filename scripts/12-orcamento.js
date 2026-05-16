@@ -2389,6 +2389,15 @@ const Orcamento = (() => {
       largura: '',
       altura: '',
       modeloNumero: 1,
+      // Felipe sessao 31: folgas EDITAVEIS da folha (default 5mm cada)
+      //   folgaLarguraFolha → desconto na largura superior horizontal
+      //   folgaAlturaFolha  → desconto na altura vertical
+      // Formula:
+      //   horizontal folha = largura - folgaLarguraFolha - 24,5 - 24,5
+      //   vertical folha   = altura  - folgaAlturaFolha  - 24,5 - 10
+      //   vertical click   = altura  - folgaAlturaFolha  - 24,5 - 10
+      folgaLarguraFolha: 5,
+      folgaAlturaFolha:  5,
       // Felipe sessao 31: revestimento+cor SEPARADOS pra cada face
       revestimentoExterno: '',
       revestimentoInterno: '',
@@ -4753,6 +4762,19 @@ const Orcamento = (() => {
               <select data-field="modeloNumero">
                 ${modelosInt.map(m => `<option value="${m.numero}" ${Number(item.modeloNumero || 1) === m.numero ? 'selected' : ''}>${escapeHtml(String(m.numero).padStart(2,'0'))} - ${escapeHtml(m.nome)}</option>`).join('')}
               </select>
+            </div>
+          </div>
+          <!-- Felipe sessao 31: folgas EDITAVEIS da folha (default 5).
+               horizontal folha = largura - folgaLarguraFolha - 24,5 - 24,5
+               vertical folha/click = altura - folgaAlturaFolha - 24,5 - 10 -->
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-dim">
+              <label>Folga largura folha (mm)</label>
+              <input type="number" step="0.1" data-field="folgaLarguraFolha" value="${escapeHtml(String(item.folgaLarguraFolha != null && item.folgaLarguraFolha !== '' ? item.folgaLarguraFolha : 5))}" placeholder="5" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Folga altura folha (mm)</label>
+              <input type="number" step="0.1" data-field="folgaAlturaFolha" value="${escapeHtml(String(item.folgaAlturaFolha != null && item.folgaAlturaFolha !== '' ? item.folgaAlturaFolha : 5))}" placeholder="5" />
             </div>
           </div>
         </div>

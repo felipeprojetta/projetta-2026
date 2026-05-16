@@ -9,8 +9,8 @@
    ESTADO ATUAL (sessao 31):
      [x] Batente (PA-BATENTEINT)        — 2 verticais + 1 horizontal
      [ ] Click do Batente (PA-CLICKBTINT)
-     [ ] Folha (PA-FLHINT)
-     [ ] Click da Folha (PA-CLICKFLHINT)
+     [x] Folha (PA-FLHINT)              — 2 verticais + 1 horizontal superior
+     [x] Click da Folha (PA-CLICKFLHINT)— 2 verticais (mesma formula vertical da folha)
      [ ] Travessas (PA-46X46X1.5)
      [ ] Alisar (PA-ALISARINT) — se aplicavel
      [ ] Vedacao (PA-VEDAINT)  — se aplicavel
@@ -64,6 +64,32 @@ const PerfisPortaInterna = (() => {
     }
     if (compBatVer > 0) {
       _add(cortes, 'PA-BATENTEINT', compBatVer, 2 * qtdPortas, 'Batente vertical (lateral)');
+    }
+
+    // ===== FOLHA (PA-FLHINT) =====
+    // Felipe sessao 31 (perfil folha):
+    //   - largura superior (HORIZONTAL) = largura_vao - folgaLargFolha - 24,5 - 24,5
+    //     → 1 unidade
+    //   - altura (VERTICAL)             = altura_vao  - folgaAltFolha  - 24,5 - 10
+    //     → 2 unidades
+    // Folgas sao EDITAVEIS no form (default 5).
+    const folgaLargFolha = Number(item.folgaLarguraFolha != null && item.folgaLarguraFolha !== '' ? item.folgaLarguraFolha : 5);
+    const folgaAltFolha  = Number(item.folgaAlturaFolha   != null && item.folgaAlturaFolha   !== '' ? item.folgaAlturaFolha   : 5);
+    const compFlhHor = larguraVao - folgaLargFolha - 24.5 - 24.5;
+    const compFlhVer = alturaVao  - folgaAltFolha  - 24.5 - 10;
+    if (compFlhHor > 0) {
+      _add(cortes, 'PA-FLHINT', compFlhHor, 1 * qtdPortas, 'Folha horizontal (topo)');
+    }
+    if (compFlhVer > 0) {
+      _add(cortes, 'PA-FLHINT', compFlhVer, 2 * qtdPortas, 'Folha vertical (lateral)');
+    }
+
+    // ===== CLICK DA FOLHA (PA-CLICKFLHINT) =====
+    // Felipe sessao 31 (click folha):
+    //   - altura (VERTICAL) = altura_vao - folgaAltFolha - 24,5 - 10
+    //     → 2 unidades (mesma formula do vertical da folha)
+    if (compFlhVer > 0) {
+      _add(cortes, 'PA-CLICKFLHINT', compFlhVer, 2 * qtdPortas, 'Click da folha vertical');
     }
 
     return cortes;
