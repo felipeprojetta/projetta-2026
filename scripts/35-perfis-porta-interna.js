@@ -77,11 +77,14 @@ const PerfisPortaInterna = (() => {
     const cortes = {};
 
     // ===== BATENTE (PA-BATENTEINT) — PORTAL =====
-    //   - 1 horizontal (topo): largura - (fglEsq+fglDir)
-    //   - 2 verticais (lateral): altura - fgSup
-    // (Defaults 5+5+5 -> -10 e -5 = comportamento original.)
-    const compBatHor = larguraVao - descontoLarg;
-    const compBatVer = alturaVao  - descontoAlt;
+    // Felipe sessao 31 (correcao): batente envolve o vao POR FORA, com
+    // overlap de 21,5 nas pontas onde encosta nos verticais.
+    //   - 1 horizontal (topo): largura_vao + 21,5 + 21,5
+    //   - 2 verticais (lateral): altura_vao + 21,5 (so' overlap no topo,
+    //     base toca no chao)
+    // NAO usa folgas (fglEsq/fglDir/fgSup) - medida e' o vao + sobras.
+    const compBatHor = larguraVao + 21.5 + 21.5;
+    const compBatVer = alturaVao  + 21.5;
     if (compBatHor > 0) {
       _add(cortes, 'PA-BATENTEINT', compBatHor, 1 * qtdPortas, 'Batente horizontal (topo)', 'portal');
     }
