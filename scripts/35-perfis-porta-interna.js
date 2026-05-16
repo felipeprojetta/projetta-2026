@@ -8,7 +8,7 @@
 
    ESTADO ATUAL (sessao 31):
      [x] Batente (PA-BATENTEINT)        — 2 verticais + 1 horizontal
-     [ ] Click do Batente (PA-CLICKBTINT)
+     [x] Click do Batente (PA-CLICKBTINT)— 2 verticais + 1 horizontal
      [x] Folha (PA-FLHINT)              — 2 verticais + 1 horizontal superior
      [x] Click da Folha (PA-CLICKFLHINT)— 2 verticais (mesma formula vertical da folha)
      [ ] Travessas (PA-46X46X1.5)
@@ -64,6 +64,22 @@ const PerfisPortaInterna = (() => {
     }
     if (compBatVer > 0) {
       _add(cortes, 'PA-BATENTEINT', compBatVer, 2 * qtdPortas, 'Batente vertical (lateral)');
+    }
+
+    // ===== CLICK DO BATENTE (PA-CLICKBTINT) =====
+    // Felipe sessao 31 (click do batente):
+    //   - 1 horizontal: largura_vao - folgaLargClickBat - 21,5 - 21,5
+    //   - 2 verticais : altura_vao  - folgaAltClickBat  - 21,5
+    // Folgas SEPARADAS do batente (defaults 5 cada). EDITAVEIS no form.
+    const folgaLargClickBat = Number(item.folgaLarguraClickBatente != null && item.folgaLarguraClickBatente !== '' ? item.folgaLarguraClickBatente : 5);
+    const folgaAltClickBat  = Number(item.folgaAlturaClickBatente   != null && item.folgaAlturaClickBatente   !== '' ? item.folgaAlturaClickBatente   : 5);
+    const compClickBatHor = larguraVao - folgaLargClickBat - 21.5 - 21.5;
+    const compClickBatVer = alturaVao  - folgaAltClickBat  - 21.5;
+    if (compClickBatHor > 0) {
+      _add(cortes, 'PA-CLICKBTINT', compClickBatHor, 1 * qtdPortas, 'Click batente horizontal (topo)');
+    }
+    if (compClickBatVer > 0) {
+      _add(cortes, 'PA-CLICKBTINT', compClickBatVer, 2 * qtdPortas, 'Click batente vertical (lateral)');
     }
 
     // ===== FOLHA (PA-FLHINT) =====

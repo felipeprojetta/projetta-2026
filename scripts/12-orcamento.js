@@ -2398,6 +2398,11 @@ const Orcamento = (() => {
       //   vertical click   = altura  - folgaAlturaFolha  - 24,5 - 10
       folgaLarguraFolha: 5,
       folgaAlturaFolha:  5,
+      // Felipe sessao 31: folgas EDITAVEIS do click do batente (default 5mm cada)
+      //   horizontal click batente = largura - folgaLarguraClickBatente - 21,5 - 21,5
+      //   vertical   click batente = altura  - folgaAlturaClickBatente  - 21,5
+      folgaLarguraClickBatente: 5,
+      folgaAlturaClickBatente:  5,
       // Felipe sessao 31: revestimento+cor SEPARADOS pra cada face
       revestimentoExterno: '',
       revestimentoInterno: '',
@@ -4776,6 +4781,19 @@ const Orcamento = (() => {
             <div class="orc-field orc-f-dim">
               <label>Folga altura folha (mm)</label>
               <input type="number" step="0.1" data-field="folgaAlturaFolha" value="${escapeHtml(String(item.folgaAlturaFolha != null && item.folgaAlturaFolha !== '' ? item.folgaAlturaFolha : 5))}" placeholder="5" />
+            </div>
+          </div>
+          <!-- Felipe sessao 31: folgas EDITAVEIS do click do batente (default 5).
+               horizontal click batente = largura - folgaLarguraClickBatente - 21,5 - 21,5
+               vertical   click batente = altura  - folgaAlturaClickBatente  - 21,5 -->
+          <div class="orc-form-row">
+            <div class="orc-field orc-f-dim">
+              <label>Folga largura click batente (mm)</label>
+              <input type="number" step="0.1" data-field="folgaLarguraClickBatente" value="${escapeHtml(String(item.folgaLarguraClickBatente != null && item.folgaLarguraClickBatente !== '' ? item.folgaLarguraClickBatente : 5))}" placeholder="5" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Folga altura click batente (mm)</label>
+              <input type="number" step="0.1" data-field="folgaAlturaClickBatente" value="${escapeHtml(String(item.folgaAlturaClickBatente != null && item.folgaAlturaClickBatente !== '' ? item.folgaAlturaClickBatente : 5))}" placeholder="5" />
             </div>
           </div>
         </div>
