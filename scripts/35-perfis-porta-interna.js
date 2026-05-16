@@ -119,13 +119,17 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== CLICK DA FOLHA (PA-CLICKFLHINT) — FOLHA =====
-    //   - 1 horizontal: mesma formula da folha horizontal (1 unidade)
-    //   - 2 verticais: mesma formula do vertical da folha
-    if (compFlhHor > 0) {
-      _add(cortes, 'PA-CLICKFLHINT', compFlhHor, 1 * qtdPortas, 'Click da folha horizontal (topo)');
+    // Felipe sessao 31 (correcao): 'nao e -26 e 24,5 para clickflhint'.
+    // Click folha tem recortes proprios (24,5), DIFERENTES da folha (26).
+    //   - 1 horizontal (topo):    largura - (fglEsq+fglDir) - 24,5 - 24,5
+    //   - 2 verticais (lateral):  altura  - fgSup           - 24,5 - 10
+    const compClickFlhHor = larguraVao - descontoLarg - 24.5 - 24.5;
+    const compClickFlhVer = alturaVao  - descontoAlt  - 24.5 - 10;
+    if (compClickFlhHor > 0) {
+      _add(cortes, 'PA-CLICKFLHINT', compClickFlhHor, 1 * qtdPortas, 'Click da folha horizontal (topo)');
     }
-    if (compFlhVer > 0) {
-      _add(cortes, 'PA-CLICKFLHINT', compFlhVer, 2 * qtdPortas, 'Click da folha vertical');
+    if (compClickFlhVer > 0) {
+      _add(cortes, 'PA-CLICKFLHINT', compClickFlhVer, 2 * qtdPortas, 'Click da folha vertical');
     }
 
     // ===== ALISAR (PA-ALISARINT) — PORTAL (perfil de aluminio) =====
