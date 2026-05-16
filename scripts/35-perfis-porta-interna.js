@@ -14,7 +14,7 @@
      [x] Alisar (PA-ALISARINT) PERFIL   — PORTAL: 2 verticais + 1 horizontal
                                           (NAO confundir com 'alisar chapa'
                                           do 38b — sao coisas diferentes)
-     [ ] Travessas (PA-46X46X1.5)
+     [x] Travessas (PA-46X46X1.5)       — FOLHA:  2 ou 3 unidades por altura
      [ ] Vedacao (PA-VEDAINT)  — se aplicavel
 */
 
@@ -130,6 +130,19 @@ const PerfisPortaInterna = (() => {
     }
     if (compClickFlhVer > 0) {
       _add(cortes, 'PA-CLICKFLHINT', compClickFlhVer, 2 * qtdPortas, 'Click da folha vertical');
+    }
+
+    // ===== TRAVESSAS VERTICAIS (PA-46X46X1.5) — FOLHA =====
+    // Felipe sessao 31: 'coloquye agora as travessas verticais e o tubo 46x46
+    // medida largura vao - folga direita - folga esquerda - 108,5 - 108,5.
+    // teremos 2 travessas para altura ate 2.2 mts acima disso considere 3
+    // travessas'.
+    //   - comp = largura_vao - fglEsq - fglDir - 108,5 - 108,5
+    //   - qtd  = 2 se altura_vao <= 2200mm; 3 se > 2200mm
+    const compTrav = larguraVao - descontoLarg - 108.5 - 108.5;
+    const qtdTrav  = alturaVao > 2200 ? 3 : 2;
+    if (compTrav > 0) {
+      _add(cortes, 'PA-46X46X1.5', compTrav, qtdTrav * qtdPortas, 'Travessa vertical');
     }
 
     // ===== ALISAR (PA-ALISARINT) — PORTAL (perfil de aluminio) =====
