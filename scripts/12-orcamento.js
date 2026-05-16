@@ -4822,7 +4822,14 @@ const Orcamento = (() => {
         </div>
 
         <div class="orc-section">
-          <div class="orc-section-title">Face Interna</div>
+          <div class="orc-section-title" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <span>Face Interna</span>
+            <button type="button" id="orc-btn-copiar-face-ext-pi"
+                    style="font-size:11px; font-weight:600; padding:4px 10px; border:1px solid var(--border-color, #d0d0d0); background:#f7f7f7; color:var(--text-strong, #333); border-radius:5px; cursor:pointer; letter-spacing:0.3px; text-transform:uppercase;"
+                    title="Copia revestimento e cor da Face Externa para a Face Interna">
+              ⇆ Copiar Face Externa
+            </button>
+          </div>
           <div class="orc-form-row">
             <div class="orc-field orc-f-revestimento">
               <label>Revestimento</label>
@@ -5686,6 +5693,35 @@ const Orcamento = (() => {
       }
       inpInt.value = valExt;
       inpInt.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // Felipe sessao 31: copiar Face Externa -> Face Interna no PORTA INTERNA.
+    // Copia AMBOS: revestimentoExterno -> revestimentoInterno E
+    //              corExterna           -> corInterna.
+    // 1) Seta revestimento primeiro (dispara change que pode zerar a cor interna)
+    // 2) Seta a cor por ultimo (pra nao ser sobrescrita)
+    container.querySelector('#orc-btn-copiar-face-ext-pi')?.addEventListener('click', () => {
+      const selRevExt = container.querySelector('select[data-field="revestimentoExterno"]');
+      const selRevInt = container.querySelector('select[data-field="revestimentoInterno"]');
+      const inpCorExt = container.querySelector('input[data-field="corExterna"]');
+      const inpCorInt = container.querySelector('input[data-field="corInterna"]');
+      if (!selRevExt || !selRevInt || !inpCorExt || !inpCorInt) return;
+      const valRev = selRevExt.value || '';
+      const valCor = inpCorExt.value || '';
+      if (!valRev.trim()) {
+        alert('Selecione primeiro o Revestimento Externo, depois copie pra Face Interna.');
+        return;
+      }
+      // 1) Revestimento (dispara re-render do form, que invalida refs do DOM)
+      selRevInt.value = valRev;
+      selRevInt.dispatchEvent(new Event('change', { bubbles: true }));
+      // 2) Cor — busca o input de novo (re-render pode ter recriado o nodo)
+      setTimeout(() => {
+        const inpCorInt2 = container.querySelector('input[data-field="corInterna"]');
+        if (!inpCorInt2) return;
+        inpCorInt2.value = valCor;
+        inpCorInt2.dispatchEvent(new Event('change', { bubbles: true }));
+      }, 0);
     });
 
     container.querySelector('#orc-btn-salvar')?.addEventListener('click', () => {
