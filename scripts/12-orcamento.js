@@ -11649,7 +11649,7 @@ const Orcamento = (() => {
             <span style="background:#0c5485; color:#fff; padding:3px 12px; border-radius:4px; font-size:14px; font-weight:700;">${escapeHtml(incoterm)}</span>
             <span style="font-size:12px; color:#666;">${escapeHtml(itc.nome)}</span>
           </div>
-          <p style="margin:0 0 12px 0; font-size:12px; color:#5a7a99; line-height:1.5;">${escapeHtml(itc.descricao)}</p>
+          <p style="margin:0 0 12px 0; font-size:12px; color:#5a7a99; line-height:1.5;">${escapeHtml(itc.descricaoEn || itc.descricao)}</p>
 
           ${svgDiagrama}
 
@@ -11946,7 +11946,7 @@ const Orcamento = (() => {
                   🌍 International Shipping &middot; Incoterm <span style="background:#0c5485; color:#fff; padding:2px 8px; border-radius:4px;">${escapeHtml(incoterm)}</span>
                 </div>
                 <p style="font-size:11px; color:#5a7a99; margin:0 0 10px 0;">
-                  <b>${escapeHtml(itc.nome)}</b>. ${escapeHtml(itc.descricao)}
+                  <b>${escapeHtml(itc.nome)}</b>. ${escapeHtml(itc.descricaoEn || itc.descricao)}
                 </p>
                 <table style="width:100%; font-size:12px; border-collapse:collapse;">
                   <thead>
