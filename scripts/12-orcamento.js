@@ -7934,6 +7934,38 @@ const Orcamento = (() => {
     const subInst = Number(versao.subInst) || 0;
     const params = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
 
+    // Felipe sessao 31: 'ainda nao esta com as margens que pedi para internacional'.
+    // Se o lead e' internacional E os params ainda sao os defaults nacionais
+    // (nunca foram salvos como internacionais), aplica AUTOMATICAMENTE os
+    // defaults internacionais (impostos=0, com_rep/rt/gest=0, markup/desconto=0,
+    // lucro_alvo=45). Funciona em orcamentos antigos que viraram internacional
+    // depois de terem sido criados como nacional.
+    //
+    // Deteccao: se NAO tem flag _intl_defaults_aplicados E o lead e' internacional.
+    // Apos aplicar, marca a flag pra nao reaplicar (Felipe pode editar livremente).
+    {
+      const leadAuto = lerLeadAtivo();
+      const paramsSalvos = versao.parametros || {};
+      const ehInternacional = leadAuto && leadAuto.destinoTipo === 'internacional';
+      const jaAplicou = paramsSalvos._intl_defaults_aplicados === true;
+      const ehManualOverride = paramsSalvos._intl_manual_override === true;
+      if (ehInternacional && !jaAplicou && !ehManualOverride) {
+        Object.assign(params, PARAMS_DEFAULT_INTERNACIONAL);
+        const novosSalvos = Object.assign({}, paramsSalvos, PARAMS_DEFAULT_INTERNACIONAL, {
+          _intl_defaults_aplicados: true,
+          // Limpa flags de manual auto-derivacao que poderiam interferir
+          _com_rep_manual: false,
+          _markup_desc_manual: false,
+          _desconto_manual: false,
+        });
+        try {
+          atualizarVersao(versao.id, { parametros: novosSalvos });
+        } catch (e) {
+          console.warn('[DRE] auto-aplicacao defaults internacionais falhou:', e);
+        }
+      }
+    }
+
     // Lookup representante ANTES de calcular DRE
     let repInfoDre = null;
     try {
@@ -7965,9 +7997,14 @@ const Orcamento = (() => {
     if (repInfoDre && repInfoDre.comissaoMaximaPct > 0) {
       const paramsSalvos = versao.parametros || {};
       const editouManual = !!paramsSalvos._com_rep_manual;
+      // Felipe sessao 31: nao aplica comissao de rep nacional em lead
+      // internacional - exportacao nao tem rep (venda direta).
+      const leadCom = lerLeadAtivo();
+      const ehInternacional = leadCom && leadCom.destinoTipo === 'internacional';
       const valorAtual   = paramsSalvos.com_rep;
       const precisaAtualizar = (
         !editouManual &&
+        !ehInternacional &&
         Number(valorAtual) !== Number(repInfoDre.comissaoMaximaPct)
       );
       if (precisaAtualizar) {
@@ -7987,12 +8024,16 @@ const Orcamento = (() => {
       const auto = 20 - rtVal;
       const editouMarkup   = !!paramsSalvos._markup_desc_manual;
       const editouDesconto = !!paramsSalvos._desconto_manual;
+      // Felipe sessao 31: nao auto-deriva markup/desconto pra internacional
+      // (deve permanecer 0 conforme PARAMS_DEFAULT_INTERNACIONAL).
+      const leadAd = lerLeadAtivo();
+      const ehInternacional = leadAd && leadAd.destinoTipo === 'internacional';
       const updates = Object.assign({}, paramsSalvos);
       let mudou = false;
-      if (!editouMarkup && Number(params.markup_desc) !== auto) {
+      if (!ehInternacional && !editouMarkup && Number(params.markup_desc) !== auto) {
         params.markup_desc = auto; updates.markup_desc = auto; mudou = true;
       }
-      if (!editouDesconto && Number(params.desconto) !== auto) {
+      if (!ehInternacional && !editouDesconto && Number(params.desconto) !== auto) {
         params.desconto = auto; updates.desconto = auto; mudou = true;
       }
       if (mudou) atualizarVersao(versao.id, { parametros: updates });
@@ -8820,6 +8861,10 @@ const Orcamento = (() => {
             delete novosParams._markup_desc_manual;
             delete novosParams._desconto_manual;
           }
+          // Felipe sessao 31: qualquer edicao manual em params de lead
+          // internacional marca _intl_manual_override pra impedir que a
+          // auto-aplicacao dos defaults internacionais sobrescreva depois.
+          novosParams._intl_manual_override = true;
           dadosUpdate.parametros = novosParams;
         }
         try {
@@ -8841,8 +8886,15 @@ const Orcamento = (() => {
           {},
           versao.parametros || {},
           PARAMS_DEFAULT_INTERNACIONAL,
-          // Limpa flags manuais pra nao bloquear futuros recalculos
-          { _com_rep_manual: false, _markup_desc_manual: false, _desconto_manual: false }
+          {
+            // Felipe sessao 31: clicar botao = reset completo pros defaults.
+            // Marca como aplicado e limpa override manual + auto-flags.
+            _intl_defaults_aplicados: true,
+            _intl_manual_override: false,
+            _com_rep_manual: false,
+            _markup_desc_manual: false,
+            _desconto_manual: false,
+          }
         );
         try {
           atualizarVersao(versao.id, { parametros: novosParams });
