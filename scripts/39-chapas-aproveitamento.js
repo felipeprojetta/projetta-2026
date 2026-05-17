@@ -1107,6 +1107,142 @@ window.ChapasAproveitamento = (function () {
   }
 
   // ============================================================
+  // GENETIC ALGORITHM — Felipe sessao 31 [2/N]
+  //
+  // Pesquisa: DeepNest e SVGnest usam GA sobre a ordem das pecas
+  // (cromossomo) + rotacoes. Fitness = -bins usados.
+  //
+  // Adaptacao Projetta:
+  //   Cromossomo = permutacao das pecas expandidas
+  //   Fitness    = MaxRects-BSSF(ordem) -> -numChapas (menos = melhor)
+  //   Selecao    = Tournament (k=3)
+  //   Crossover  = OX1 (Order Crossover)
+  //   Mutacao    = swap de 2 pecas (rate 0.1)
+  //   Elitismo   = mantem o melhor da geracao
+  //   Pop=16, Gen=12 — total ~200 evals MaxRects. UI responsiva.
+  //
+  // Como sao pecas iguais varias vezes (10 frontais identicas), o GA
+  // tende a CONVERGIR rapido — ele encontra o "padrao" canonico em
+  // poucas geracoes.
+  // ============================================================
+  function runGA(expandidas, chapaLarg, chapaAlt, cfg, seedSolucao) {
+    // Felipe sessao 31: parametros calibrados pra velocidade vs qualidade.
+    // Pop=12, Gen=8 = ~100 evals MaxRects. Cada eval ~5ms pra 110 pecas
+    // -> total ~500ms. Aceitavel pra orcamento (UI nao bloqueia).
+    const POP = 12;
+    const GENS = 8;
+    const TOURNEY = 3;
+    const TX_MUT = 0.25;
+    const N = expandidas.length;
+    if (N < 2) return null;
+
+    // Avalia uma ordem -> resultado MaxRects-BSSF
+    function fitness(ordem) {
+      // ordem = array de indices em expandidas. Reconstroi a lista.
+      const lista = ordem.map(i => expandidas[i]);
+      return nestingMaxRects(lista, chapaLarg, chapaAlt, cfg, 'BSSF');
+    }
+    function fitMenor(a, b) {
+      // Retorna negativo se a melhor que b
+      return compararResultados(a, b);
+    }
+
+    // Pop inicial: 4 sementes deterministicas (area/altura/largura/perim)
+    // + 12 permutacoes aleatorias.
+    const idxs = expandidas.map((_, i) => i);
+    function porChave(chave) {
+      return idxs.slice().sort((a, b) => chave(expandidas[b]) - chave(expandidas[a]));
+    }
+    const seeds = [
+      porChave(p => p.largura * p.altura),       // area DESC
+      porChave(p => p.altura),                   // altura DESC
+      porChave(p => p.largura),                  // largura DESC
+      porChave(p => p.largura + p.altura),       // perimetro DESC
+    ];
+    function embaralhar(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+    const populacao = [];
+    seeds.forEach(s => populacao.push(s));
+    while (populacao.length < POP) {
+      populacao.push(embaralhar(seeds[0]));
+    }
+    // Avalia toda populacao
+    let avaliacoes = populacao.map(ord => ({ ord, fit: fitness(ord) }));
+    avaliacoes.sort((a, b) => fitMenor(a.fit, b.fit));
+    let melhorGA = avaliacoes[0];
+
+    // Se a semente externa (melhor MaxRects ja' rodado) e' melhor que
+    // tudo aqui, usa ela como base inicial pra crossover.
+    if (seedSolucao && fitMenor(seedSolucao, melhorGA.fit) < 0) {
+      melhorGA = { ord: seeds[0], fit: seedSolucao };
+    }
+
+    function torneio() {
+      let best = avaliacoes[Math.floor(Math.random() * avaliacoes.length)];
+      for (let k = 1; k < TOURNEY; k++) {
+        const c = avaliacoes[Math.floor(Math.random() * avaliacoes.length)];
+        if (fitMenor(c.fit, best.fit) < 0) best = c;
+      }
+      return best.ord;
+    }
+    function crossoverOX1(p1, p2) {
+      // Order Crossover 1: pega um segmento de p1 e completa com p2
+      // mantendo a ordem.
+      const n = p1.length;
+      const ini = Math.floor(Math.random() * n);
+      const fim = Math.floor(Math.random() * n);
+      const lo = Math.min(ini, fim), hi = Math.max(ini, fim);
+      const filho = new Array(n);
+      const usados = new Set();
+      for (let i = lo; i <= hi; i++) {
+        filho[i] = p1[i];
+        usados.add(p1[i]);
+      }
+      let k = (hi + 1) % n;
+      for (let i = 0; i < n; i++) {
+        const g = p2[(hi + 1 + i) % n];
+        if (!usados.has(g)) {
+          filho[k] = g;
+          k = (k + 1) % n;
+        }
+      }
+      return filho;
+    }
+    function mutar(ord) {
+      const a = ord.slice();
+      const i = Math.floor(Math.random() * a.length);
+      const j = Math.floor(Math.random() * a.length);
+      [a[i], a[j]] = [a[j], a[i]];
+      return a;
+    }
+
+    for (let g = 0; g < GENS; g++) {
+      // Elitismo: mantem o melhor da geracao
+      const novaPop = [melhorGA.ord];
+      while (novaPop.length < POP) {
+        const p1 = torneio();
+        const p2 = torneio();
+        let filho = crossoverOX1(p1, p2);
+        if (Math.random() < TX_MUT) filho = mutar(filho);
+        novaPop.push(filho);
+      }
+      avaliacoes = novaPop.map(ord => ({ ord, fit: fitness(ord) }));
+      avaliacoes.sort((a, b) => fitMenor(a.fit, b.fit));
+      if (fitMenor(avaliacoes[0].fit, melhorGA.fit) < 0) {
+        melhorGA = avaliacoes[0];
+      }
+    }
+
+    return melhorGA.fit;
+  }
+
+  // ============================================================
   // FUNCAO PRINCIPAL — MULTI-START
   // Felipe (sessao 2026-05): roda VARIAS estrategias de ordenacao
   // (8 sementes diferentes) e pega a com MELHOR aproveitamento.
@@ -1235,6 +1371,29 @@ window.ChapasAproveitamento = (function () {
           } catch (e) {
             console.warn('[Aproveitamento] MaxRects ' + h + ' falhou', e);
           }
+        }
+      }
+
+      // Felipe sessao 31 [GA]: Genetic Algorithm sobre a ordem das pecas.
+      // DeepNest/SVGnest fazem isso. Cromossomo = ordem das pecas
+      // expandidas. Fitness = -numChapas (menos chapas = melhor). Pop
+      // inicial = pecasMR ja ordenadas (de cima) + algumas variacoes
+      // aleatorias. Crossover = OX1 (Order Crossover). Mutacao = swap.
+      //
+      // Felipe sessao 31: GA so' roda se vale a pena (>10 pecas E
+      // potencialmente > 1 chapa). Pra problemas pequenos o MaxRects
+      // ja' acerta. Pra problemas grandes o GA encontra layouts que
+      // ordenacoes deterministicas nao descobririam.
+      const valePenaGA = expandidas.length >= 10
+        && melhor && melhor.chapas && melhor.chapas.length > 1;
+      if (valePenaGA) {
+        try {
+          const candGA = runGA(expandidas, chapaLarg, chapaAlt, cfg, melhor);
+          if (candGA && (!melhor || compararResultados(candGA, melhor) < 0)) {
+            melhor = candGA;
+          }
+        } catch (e) {
+          console.warn('[Aproveitamento] GA falhou', e);
         }
       }
     }
