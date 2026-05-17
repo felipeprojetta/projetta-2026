@@ -7845,10 +7845,24 @@ const Orcamento = (() => {
 
     // Felipe sessao 31: botoes preset de margem da instalacao internacional
     // (Zerar / 10% / 15% / 20%). Aplicam direto e re-renderizam.
+    // Felipe sessao 31 (bug fix): 'os botoes zerar 10 20 30 nao estao
+    // funcionando se clicar nada muda'. Causa: o handler estava
+    // referenciando versao/inst/fab que existiam SO no scope do callback
+    // do outro forEach (data-field). Agora le tudo dentro do proprio
+    // handler.
     container.querySelectorAll('button[data-inst-margin-preset]').forEach(btn => {
       btn.addEventListener('click', () => {
+        const r = obterVersao(UI.versaoAtivaId);
+        if (!r || !r.versao) return;
+        const versao = r.versao;
+        if (versao.status === 'fechada') return;
+        const fab  = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
+        fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
+        const inst = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
+
         const v = Number(btn.dataset.instMarginPreset);
         inst.lucro_alvo_instalacao = v;
+
         const rFab  = calcularFab(fab, versao.itens);
         const rInst = calcularInst(inst);
         try {
@@ -8281,7 +8295,32 @@ const Orcamento = (() => {
           </div>
         </div>
 
-        ${(ehInternacionalDRE && instSepDRE) ? `
+        ${(ehInternacionalDRE && instSepDRE) ? (() => {
+          // Felipe sessao 31: 'na coluna dre nao esta aparecendo o frete
+          // internacional se houver'. Calcula o frete/caixa/seguro do
+          // incoterm pra incluir na faixa CLIENTE PAGA (porta + instalacao + frete).
+          const leadFr = lerLeadAtivo() || {};
+          const incoterm = leadFr.freteIncoterm || 'FOB';
+          const itc = window.Incoterms ? window.Incoterms.byCodigo(incoterm) : null;
+          let freteIntlBrl = 0;
+          if (itc && usdOk) {
+            const a = Number(leadFr.caixaAltura) || 0;
+            const e = Number(leadFr.caixaEspessura) || 0;
+            const c = Number(leadFr.caixaComprimento) || 0;
+            const m3 = (a * e * c) / 1e9;
+            const caixaUsd = (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
+            const terrUsd  = Number(leadFr.freteTerrestreUsd) || 0;
+            const marUsd   = Number(leadFr.freteMaritimoUsd)  || 0;
+            const valorCargaUsd = r.pFatReal / taxaDRE;
+            const seguroUsd = itc.seguroMaritimo ? Math.max(35, valorCargaUsd * 0.005 * 1.10) : 0;
+            const freteIntlUsd = caixaUsd
+                               + (itc.freteTerrestre ? terrUsd  : 0)
+                               + (itc.freteMaritimo  ? marUsd   : 0)
+                               + (itc.seguroMaritimo ? seguroUsd: 0);
+            freteIntlBrl = freteIntlUsd * taxaDRE;
+          }
+          const totalCliente = r.pFatReal + instSepDRE.precoFinal + freteIntlBrl;
+          return `
           <!-- Felipe sessao 31: instalacao em SEPARADO, com sua propria margem (10%). -->
           <div style="margin-top:14px; padding:12px 14px; background:#fff8e1; border:2px solid #d97706; border-radius:8px;">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
@@ -8298,17 +8337,36 @@ const Orcamento = (() => {
               </div>
             </div>
           </div>
+          ${freteIntlBrl > 0 ? `
+            <!-- Felipe sessao 31: bloco do frete internacional conforme incoterm. -->
+            <div style="margin-top:10px; padding:12px 14px; background:#eff8ff; border:2px solid #0c5485; border-radius:8px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+                <div>
+                  <div style="font-weight:700; font-size:13px; color:#0c5485;">🚢 Frete Internacional (Incoterm ${escapeHtml(incoterm)})</div>
+                  <div style="font-size:11px; color:#5a7a99; margin-top:2px;">
+                    Caixa fumigada${itc.freteTerrestre ? ' + frete terrestre' : ''}${itc.freteMaritimo ? ' + frete maritimo' : ''}${itc.seguroMaritimo ? ' + seguro' : ''}
+                  </div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:10px; color:#5a7a99; text-transform:uppercase;">Frete + extras</div>
+                  <div style="font-size:18px; font-weight:700; color:#0c5485;">R$ ${fmtBR(freteIntlBrl)}</div>
+                  ${usdOk ? `<div style="font-size:12px; color:#0c5485; font-weight:600;">${fmtUSD(freteIntlBrl / taxaDRE)}</div>` : ''}
+                </div>
+              </div>
+            </div>
+          ` : ''}
           <div style="margin-top:10px; padding:14px 16px; background:#0c5485; color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:space-between;">
             <div>
-              <div style="font-size:12px; opacity:0.85;">CLIENTE PAGA (porta + instalacao)</div>
-              <div style="font-size:11px; opacity:0.7;">R$ ${fmtBR(r.pFatReal)} (porta) + R$ ${fmtBR(instSepDRE.precoFinal)} (instalacao)</div>
+              <div style="font-size:12px; opacity:0.85;">CLIENTE PAGA (porta + instalacao${freteIntlBrl > 0 ? ' + frete ' + escapeHtml(incoterm) : ''})</div>
+              <div style="font-size:11px; opacity:0.7;">R$ ${fmtBR(r.pFatReal)} (porta) + R$ ${fmtBR(instSepDRE.precoFinal)} (instal.)${freteIntlBrl > 0 ? ' + R$ ' + fmtBR(freteIntlBrl) + ' (frete)' : ''}</div>
             </div>
             <div style="font-size:22px; font-weight:700; text-align:right;">
-              R$ ${fmtBR(r.pFatReal + instSepDRE.precoFinal)}
-              ${usdOk ? `<div style="font-size:14px; opacity:0.85; font-weight:600;">${fmtUSD((r.pFatReal + instSepDRE.precoFinal) / taxaDRE)}</div>` : ''}
+              R$ ${fmtBR(totalCliente)}
+              ${usdOk ? `<div style="font-size:14px; opacity:0.85; font-weight:600;">${fmtUSD(totalCliente / taxaDRE)}</div>` : ''}
             </div>
           </div>
-        ` : ''}
+        `;
+        })() : ''}
 
         <!-- Felipe sessao 31: bloco INTERNACIONAL no DRE detalhado.
              Detalha quais custos entram no preco final conforme o INCOTERM. -->
