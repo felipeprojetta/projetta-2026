@@ -7760,6 +7760,107 @@ const Orcamento = (() => {
           </div>
         </div>
 
+        <!-- Felipe sessao 31: bloco INTERNACIONAL no DRE detalhado.
+             Detalha quais custos entram no preco final conforme o INCOTERM. -->
+        ${(() => {
+          const lead = lerLeadAtivo();
+          if (!lead || lead.destinoTipo !== 'internacional') return '';
+          const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+          if (!taxa) {
+            return `
+              <div class="orc-section" style="margin-top:18px; padding:14px; background:#fff3cd; border:1px solid #ffc107; border-radius:8px;">
+                <div style="font-weight:700; color:#856404; font-size:13px;">⚠️ Internacional sem taxa USD</div>
+                <p style="font-size:12px; color:#856404; margin:8px 0 0 0;">Cadastre a taxa USD em Config → Cambio pra ver o desdobramento internacional.</p>
+              </div>
+            `;
+          }
+          const incoterm = lead.freteIncoterm || 'FOB';
+          const itc = window.Incoterms ? window.Incoterms.byCodigo(incoterm) : null;
+          if (!itc) return '';
+
+          const a = Number(lead.caixaAltura) || 0;
+          const e = Number(lead.caixaEspessura) || 0;
+          const c = Number(lead.caixaComprimento) || 0;
+          const m3 = (a * e * c) / 1e9;
+          const caixaUsd = (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
+          const terrUsd  = Number(lead.freteTerrestreUsd) || 0;
+          const marUsd   = Number(lead.freteMaritimoUsd)  || 0;
+
+          // Valor da carga (preco do produto, em BRL → converte pra USD)
+          const valorCargaUsd = r.pFatReal / taxa;
+          const seguroUsd = itc.seguroMaritimo ? Math.max(35, valorCargaUsd * 0.005 * 1.10) : 0;
+
+          // Decide o que entra conforme incoterm
+          const inclui = {
+            caixa:     true, // SEMPRE faz parte da exportacao
+            terrestre: itc.freteTerrestre,
+            maritimo:  itc.freteMaritimo,
+            seguro:    itc.seguroMaritimo,
+          };
+
+          const fmtUsd = v => 'USD ' + v.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+          const fmtBRL2 = v => 'R$ ' + (v * taxa).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+          const linha = (label, usd, incluso) => `
+            <div style="display:grid; grid-template-columns:1fr 100px 130px 60px; gap:8px; padding:6px 0; border-bottom:1px solid #eef3f8; align-items:center; ${incluso ? '' : 'opacity:0.4;'}">
+              <span style="font-size:12px;">${label}</span>
+              <span style="font-size:12px; text-align:right; color:#666;">${fmtUsd(usd)}</span>
+              <span style="font-size:12px; text-align:right; color:#155724;">${fmtBRL2(usd)}</span>
+              <span style="font-size:11px; text-align:center; font-weight:600; color:${incluso ? '#0c5485' : '#999'};">
+                ${incluso ? '✓ inc' : '— exc'}
+              </span>
+            </div>
+          `;
+
+          const totalFreteUsd = (inclui.terrestre ? terrUsd : 0)
+                              + (inclui.maritimo  ? marUsd  : 0)
+                              + (inclui.caixa     ? caixaUsd: 0)
+                              + (inclui.seguro    ? seguroUsd:0);
+          const totalFinalBrl = r.pFatReal + (totalFreteUsd * taxa);
+          const totalFinalUsd = (r.pFatReal / taxa) + totalFreteUsd;
+
+          return `
+            <div class="orc-section" style="margin-top:18px; padding:16px; background:#eff8ff; border:2px solid #0c5485; border-radius:8px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <span style="font-size:20px;">🌍</span>
+                <div style="font-weight:700; color:#0c5485; font-size:14px; text-transform:uppercase; letter-spacing:0.5px;">
+                  Desdobramento Internacional &middot; Incoterm <span style="background:#0c5485; color:#fff; padding:2px 8px; border-radius:4px; font-size:12px;">${escapeHtml(incoterm)}</span>
+                </div>
+              </div>
+              <p style="font-size:11px; color:#5a7a99; margin:0 0 10px 0;">
+                <b>${escapeHtml(itc.nome)}</b> (${escapeHtml(itc.nomePt)}). ${escapeHtml(itc.descricao)}
+              </p>
+              <div style="display:grid; grid-template-columns:1fr 100px 130px 60px; gap:8px; padding:6px 0; border-bottom:2px solid #0c5485; font-size:10px; font-weight:700; color:#0c5485; text-transform:uppercase;">
+                <span>Componente</span>
+                <span style="text-align:right;">USD</span>
+                <span style="text-align:right;">R$ convert.</span>
+                <span style="text-align:center;">No preco?</span>
+              </div>
+              ${linha('Valor do produto (FCA fabrica)', valorCargaUsd, true)}
+              ${linha('📦 Caixa de madeira fumigada (' + m3.toFixed(2) + ' m³)', caixaUsd, inclui.caixa)}
+              ${linha('🚛 Frete terrestre Uberlandia → Santos', terrUsd, inclui.terrestre)}
+              ${linha('🚢 Frete maritimo ' + (lead.freteModal || 'LCL'), marUsd, inclui.maritimo)}
+              ${linha('🛡️ Seguro maritimo (0,5% × valor × 110%)', seguroUsd, inclui.seguro)}
+              <div style="margin-top:12px; padding:12px 14px; background:#0c5485; color:#fff; border-radius:6px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                  <span style="font-size:11px; opacity:0.8;">TOTAL FRETE+CAIXA+SEGURO (incluso)</span>
+                  <span style="font-size:13px; font-weight:600;">${fmtUsd(totalFreteUsd)} &middot; ${fmtBRL2(totalFreteUsd)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px solid rgba(255,255,255,0.3);">
+                  <span style="font-size:13px; font-weight:600;">CLIENTE PAGA (com ${escapeHtml(incoterm)})</span>
+                  <div style="text-align:right;">
+                    <div style="font-size:17px; font-weight:700;">${fmtUsd(totalFinalUsd)}</div>
+                    <div style="font-size:13px; opacity:0.9;">R$ ${fmtBR(totalFinalBrl)}</div>
+                  </div>
+                </div>
+              </div>
+              <p style="font-size:10px; color:#5a7a99; margin:8px 0 0 0; font-style:italic;">
+                ✓ inc = componente incluso no preco final conforme incoterm ${escapeHtml(incoterm)} · — exc = comprador paga separado.
+                Em DDP, ainda haveria impostos/duties do pais destino (nao calculados aqui).
+              </p>
+            </div>
+          `;
+        })()}
+
         <!-- Felipe sessao 12: 'me de um campo ali valor manual, aonde
              eu coloco valor manual que quero final e voce ajusta a
              margem para chegar no valor por exemplo esse valor ai
