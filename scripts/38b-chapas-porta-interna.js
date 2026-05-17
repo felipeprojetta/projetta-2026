@@ -25,6 +25,12 @@
  *         2 verticais   (larguraParede-47) x altura_vao
  *         1 horizontal  (larguraParede-47) x largura_vao
  *       So' sai quando item.larguraParede > 47. Cor=corInterna.
+ *
+ * Felipe sessao 31: TODAS as pecas saem com podeRotacionar=false por
+ * padrao. As pecas tem orientacao definida (vertical vs horizontal) e
+ * rotacionar gera layouts confusos no aproveitamento. Bate o MaxCut
+ * em testes (10 chapas pra 10 portas em chapa 1500x5000). Usuario
+ * pode ligar rotacao caso a caso na tabela editavel do Lev. Superficies.
  */
 const ChapasPortaInterna = (() => {
   'use strict';
@@ -74,7 +80,7 @@ const ChapasPortaInterna = (() => {
           qtd:            qtdPortas,
           cor:            String(item.corExterna || '').trim(),
           categoria:      'porta',
-          podeRotacionar: true,
+          podeRotacionar: false,
         });
       }
 
@@ -91,7 +97,7 @@ const ChapasPortaInterna = (() => {
           qtd:            2 * qtdPortas,
           cor:            String(item.corExterna || '').trim(),
           categoria:      'portal',
-          podeRotacionar: true,
+          podeRotacionar: false,
         });
       }
       if (larguraVao > 0) {
@@ -103,7 +109,7 @@ const ChapasPortaInterna = (() => {
           qtd:            1 * qtdPortas,
           cor:            String(item.corExterna || '').trim(),
           categoria:      'portal',
-          podeRotacionar: true,
+          podeRotacionar: false,
         });
       }
     } else if (lado === 'interno') {
@@ -119,7 +125,7 @@ const ChapasPortaInterna = (() => {
           qtd:            qtdPortas,
           cor:            String(item.corInterna || '').trim(),
           categoria:      'porta',
-          podeRotacionar: true,
+          podeRotacionar: false,
         });
       }
 
@@ -134,7 +140,7 @@ const ChapasPortaInterna = (() => {
           qtd:            2 * qtdPortas,
           cor:            String(item.corInterna || '').trim(),
           categoria:      'portal',
-          podeRotacionar: true,
+          podeRotacionar: false,
         });
       }
       if (larguraVao > 0) {
@@ -146,7 +152,7 @@ const ChapasPortaInterna = (() => {
           qtd:            1 * qtdPortas,
           cor:            String(item.corInterna || '').trim(),
           categoria:      'portal',
-          podeRotacionar: true,
+          podeRotacionar: false,
         });
       }
 
@@ -171,7 +177,7 @@ const ChapasPortaInterna = (() => {
             qtd:            2 * qtdPortas,
             cor:            String(item.corInterna || '').trim(),
             categoria:      'portal',
-            podeRotacionar: true,
+            podeRotacionar: false,
           });
         }
         if (larguraVao > 0) {
@@ -183,7 +189,7 @@ const ChapasPortaInterna = (() => {
             qtd:            1 * qtdPortas,
             cor:            String(item.corInterna || '').trim(),
             categoria:      'portal',
-            podeRotacionar: true,
+            podeRotacionar: false,
           });
         }
       }
