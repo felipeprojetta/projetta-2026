@@ -281,25 +281,36 @@ const AcessoriosPortaExterna = (() => {
       }
     }
 
-    // 5) Felipe sessao 31: Silicone estrutural 995 nas TRAVESSAS.
-    //    'estrutura 995 2x por travessa pelo comprimento delas'.
-    //    Pega o comprimento da travessa direto do motor de perfis
-    //    (formula: largura_vao - fglEsq - fglDir - 108,5 - 108,5).
-    //    Qtd unidades de travessa: 2 se altura <= 2200, 3 se > 2200
-    //    (mesmo padrao do motor 35-perfis-porta-interna.js).
-    //    Metros lineares = 2 * (comp_travessa_mm / 1000) * qtdTravessas
-    //                                ↑ "2x"           * por porta
+    //    Felipe sessao 31 (3a parte): Fita Dupla Face 12mm + HighTack
+    //    nos ALISARES (chapa) + HighTack no COMPLEMENTO ALISAR.
+    //    'alisares fita dupla face de 12mm 2x comprimento total deles +
+    //     1x hightack' + 'complemento alisar somente hightack 2x comprimento'.
     //
-    //    Felipe sessao 31 (2a parte): Fita Dupla Face 19mm + Silicone 995
-    //    adicional nas CHAPAS FRONTAIS (ext + int):
-    //    'dupla face 19 sera o perimetro das chapas internas e externas
-    //     1x + 1x silicone estrutura 995'.
-    //    Perimetro = 2L + 2A de cada chapa frontal.
-    //    Acumula 995 junto com o das travessas pra calcular tubos uma vez so.
+    //    Alisares chapa (ext + int, ja considerados nos dois lados):
+    //      4 verticais 59,5 × (altura_vao + 100)
+    //      2 horizontais 59,5 × (largura_vao + 100)
+    //    Comprimento total alisares = 4*(A+100) + 2*(L+100) mm/porta.
     //
-    //    Rendimento: vem do cadastro Regras.getRendimentos (mesmo do
-    //    motor da porta externa), fallback 12m por tubo (995),
-    //    20m por rolo (FD19).
+    //    Complemento alisar (so quando larguraParede - 47 > 0):
+    //      2 verticais   (larguraParede-47) × altura_vao
+    //      1 horizontal  (larguraParede-47) × largura_vao
+    //    Comprimento total complemento = 2*altura_vao + 1*largura_vao mm/porta.
+    //    (a outra dimensao "larguraParede-47" e' a largura do retangulo,
+    //     o "comprimento" das tiras e' altura/largura do vao).
+    //
+    //    Rendimento: vem do cadastro Regras.getRendimentos (mesmo q porta_externa),
+    //    fallback 20m por rolo (FD12), 8m por tubo (HIGHTACK).
+    //
+    //    Acumuladores
+    let metros995 = 0;
+    let metrosFD19 = 0;
+    let metrosFD12 = 0;
+    let metrosHIGHTACK = 0;
+    let breakdown995 = [];
+    let breakdownFD19 = [];
+    let breakdownFD12 = [];
+    let breakdownHIGHTACK = [];
+
     if (larguraVaoPI > 0 && alturaVaoPI > 0) {
       const fglEsqPI = _toNumPI(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5);
       const fglDirPI = _toNumPI(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5);
@@ -311,34 +322,43 @@ const AcessoriosPortaExterna = (() => {
       const qtdTravPorPorta = alturaVaoPI > 2200 ? 3 : 2;
 
       // Chapas frontais (formulas identicas ao motor 38b)
-      // Externa: L = vao - fgl - 38,5 - 38,5 / A = vao - fgSup - 38,5 - 12
       const chFExtL = larguraVaoPI - descLargPI - 38.5 - 38.5;
       const chFExtA = alturaVaoPI  - fgSupPI    - 38.5 - 12;
-      // Interna: L = vao - fgl - 26,5 - 26,5 / A = vao - fgSup - 26,5 - 12
       const chFIntL = larguraVaoPI - descLargPI - 26.5 - 26.5;
       const chFIntA = alturaVaoPI  - fgSupPI    - 26.5 - 12;
 
-      // Perimetro das 2 chapas frontais (em metros, por porta)
+      // Perimetro das 2 chapas frontais (em metros, por porta * qtd)
       let perimChapasMm = 0;
       if (chFExtL > 0 && chFExtA > 0) perimChapasMm += 2 * chFExtL + 2 * chFExtA;
       if (chFIntL > 0 && chFIntA > 0) perimChapasMm += 2 * chFIntL + 2 * chFIntA;
       const perimChapasM = (perimChapasMm / 1000) * qtdPortas;
 
-      // Rendimento
-      let msPorTubo = 12, fd19PorRolo = 20;
+      // Comprimento total dos ALISARES chapa (ext+int combinados):
+      //   4 vert 59,5 × (A+100)  +  2 hor 59,5 × (L+100)   (por porta)
+      const compAlisarMm = 4 * (alturaVaoPI + 100) + 2 * (larguraVaoPI + 100);
+      const compAlisarM  = (compAlisarMm / 1000) * qtdPortas;
+
+      // Comprimento total do COMPLEMENTO ALISAR:
+      //   2 vert × altura_vao  +  1 hor × largura_vao   (so se parede > 47)
+      const larguraParedePI = _toNumPI(item.larguraParede);
+      const compLargComp = larguraParedePI - 47;
+      let compComplementoM = 0;
+      if (compLargComp > 0) {
+        const compComplementoMm = 2 * alturaVaoPI + 1 * larguraVaoPI;
+        compComplementoM = (compComplementoMm / 1000) * qtdPortas;
+      }
+
+      // Rendimentos
+      let msPorTubo = 12, fd19PorRolo = 20, fd12PorRolo = 20, hightackPorTubo = 8;
       try {
         if (window.Regras && typeof window.Regras.getRendimentos === 'function') {
           const rends = window.Regras.getRendimentos();
-          if (rends && Number(rends.ms_tubo)   > 0) msPorTubo   = Number(rends.ms_tubo);
-          if (rends && Number(rends.fd19_rolo) > 0) fd19PorRolo = Number(rends.fd19_rolo);
+          if (rends && Number(rends.ms_tubo)       > 0) msPorTubo       = Number(rends.ms_tubo);
+          if (rends && Number(rends.fd19_rolo)     > 0) fd19PorRolo     = Number(rends.fd19_rolo);
+          if (rends && Number(rends.fd12_rolo)     > 0) fd12PorRolo     = Number(rends.fd12_rolo);
+          if (rends && Number(rends.hightack_tubo) > 0) hightackPorTubo = Number(rends.hightack_tubo);
         }
       } catch (_) {}
-
-      // Acumuladores
-      let metros995 = 0;
-      let metrosFD19 = 0;
-      let breakdown995 = [];
-      let breakdownFD19 = [];
 
       // 995 das TRAVESSAS (2x por travessa)
       if (compTravMm > 0) {
@@ -357,75 +377,113 @@ const AcessoriosPortaExterna = (() => {
         metrosFD19 += perimChapasM;
         breakdownFD19.push('Perimetro chapas frontais: ' + perimChapasM.toFixed(2) + 'm');
       }
+      // FD12 dos ALISARES chapa (2x comprimento total)
+      if (compAlisarM > 0) {
+        const m = 2 * compAlisarM;
+        metrosFD12 += m;
+        breakdownFD12.push('Alisares chapa: 2× ' + compAlisarM.toFixed(2) + 'm = ' + m.toFixed(2) + 'm');
+      }
+      // HIGHTACK dos ALISARES chapa (1x comprimento total)
+      if (compAlisarM > 0) {
+        metrosHIGHTACK += compAlisarM;
+        breakdownHIGHTACK.push('Alisares chapa: ' + compAlisarM.toFixed(2) + 'm');
+      }
+      // HIGHTACK do COMPLEMENTO ALISAR (2x comprimento total)
+      if (compComplementoM > 0) {
+        const m = 2 * compComplementoM;
+        metrosHIGHTACK += m;
+        breakdownHIGHTACK.push('Complemento alisar: 2× ' + compComplementoM.toFixed(2) + 'm = ' + m.toFixed(2) + 'm');
+      }
 
-      // Emite Silicone 995 (acumulado: travessas + chapas)
+      // ===== Emite Silicone 995 (acumulado: travessas + perim chapas) =====
       if (metros995 > 0) {
         const tubos995 = Math.ceil(metros995 / msPorTubo);
         const acess995 = buscarAcessorio(cadastroAcessorios, 'PA-DOWSIL 995');
-        const obsParts = breakdown995.length
-          ? metros995.toFixed(1) + 'm / ' + msPorTubo + 'm por tubo = ' + tubos995 + ' tubo(s) — ' + breakdown995.join(' + ')
-          : metros995.toFixed(1) + 'm / ' + msPorTubo + 'm = ' + tubos995 + ' tubo(s)';
+        const obs = metros995.toFixed(1) + 'm / ' + msPorTubo + 'm por tubo = ' + tubos995 + ' tubo(s) — ' + breakdown995.join(' + ');
         if (acess995) {
           const precoUn = Number(acess995.preco) || 0;
           linhas.push({
             codigo:    acess995.codigo,
             descricao: acess995.descricao || 'Silicone Estrutural 995',
             familia:   acess995.familia || 'Selantes',
-            qtd:       tubos995,
-            unidade:   'un',
-            preco_un:  precoUn,
-            total:     precoUn * tubos995,
-            categoria: 'Selantes',
-            aplicacao: 'fab',
-            observacao: obsParts,
+            qtd:       tubos995, unidade: 'un', preco_un: precoUn, total: precoUn * tubos995,
+            categoria: 'Selantes', aplicacao: 'fab', observacao: obs,
           });
         } else {
           linhas.push({
-            codigo:    'PA-DOWSIL 995',
-            descricao: '(nao cadastrado)',
-            familia:   '',
-            qtd:       tubos995,
-            unidade:   'un',
-            preco_un:  0,
-            total:     0,
-            categoria: 'Selantes',
-            aplicacao: 'fab',
+            codigo: 'PA-DOWSIL 995', descricao: '(nao cadastrado)', familia: '',
+            qtd: tubos995, unidade: 'un', preco_un: 0, total: 0,
+            categoria: 'Selantes', aplicacao: 'fab',
             observacao: metros995.toFixed(1) + 'm necessarios · CADASTRAR EM ACESSORIOS',
           });
         }
       }
 
-      // Emite Fita Dupla Face 19mm (perimetro chapas frontais)
+      // ===== Emite FD19 (perim chapas frontais) =====
       if (metrosFD19 > 0) {
-        const rolosFD19 = Math.ceil(metrosFD19 / fd19PorRolo);
-        const acessFD19 = buscarAcessorio(cadastroAcessorios, 'PA-FITDF 19X20X1.0');
-        const obs = metrosFD19.toFixed(1) + 'm / ' + fd19PorRolo + 'm por rolo = ' + rolosFD19 + ' rolo(s) — ' + breakdownFD19.join(' + ');
-        if (acessFD19) {
-          const precoUn = Number(acessFD19.preco) || 0;
+        const rolos = Math.ceil(metrosFD19 / fd19PorRolo);
+        const acess = buscarAcessorio(cadastroAcessorios, 'PA-FITDF 19X20X1.0');
+        const obs = metrosFD19.toFixed(1) + 'm / ' + fd19PorRolo + 'm por rolo = ' + rolos + ' rolo(s) — ' + breakdownFD19.join(' + ');
+        if (acess) {
+          const precoUn = Number(acess.preco) || 0;
           linhas.push({
-            codigo:    acessFD19.codigo,
-            descricao: acessFD19.descricao || 'Fita Dupla Face 19mm',
-            familia:   acessFD19.familia || 'Fita Dupla Face',
-            qtd:       rolosFD19,
-            unidade:   'un',
-            preco_un:  precoUn,
-            total:     precoUn * rolosFD19,
-            categoria: 'Fita Dupla Face',
-            aplicacao: 'fab',
-            observacao: obs,
+            codigo: acess.codigo, descricao: acess.descricao || 'Fita Dupla Face 19mm',
+            familia: acess.familia || 'Fita Dupla Face',
+            qtd: rolos, unidade: 'un', preco_un: precoUn, total: precoUn * rolos,
+            categoria: 'Fita Dupla Face', aplicacao: 'fab', observacao: obs,
           });
         } else {
           linhas.push({
-            codigo:    'PA-FITDF 19X20X1.0',
-            descricao: '(nao cadastrado)',
-            familia:   '',
-            qtd:       rolosFD19,
-            unidade:   'un',
-            preco_un:  0,
-            total:     0,
-            categoria: 'Fita Dupla Face',
-            aplicacao: 'fab',
+            codigo: 'PA-FITDF 19X20X1.0', descricao: '(nao cadastrado)', familia: '',
+            qtd: rolos, unidade: 'un', preco_un: 0, total: 0,
+            categoria: 'Fita Dupla Face', aplicacao: 'fab',
             observacao: metrosFD19.toFixed(1) + 'm necessarios · CADASTRAR EM ACESSORIOS',
+          });
+        }
+      }
+
+      // ===== Emite FD12 (alisares chapa, 2x comprimento) =====
+      if (metrosFD12 > 0) {
+        const rolos = Math.ceil(metrosFD12 / fd12PorRolo);
+        const acess = buscarAcessorio(cadastroAcessorios, 'PA-FITDF 12X20X1.0');
+        const obs = metrosFD12.toFixed(1) + 'm / ' + fd12PorRolo + 'm por rolo = ' + rolos + ' rolo(s) — ' + breakdownFD12.join(' + ');
+        if (acess) {
+          const precoUn = Number(acess.preco) || 0;
+          linhas.push({
+            codigo: acess.codigo, descricao: acess.descricao || 'Fita Dupla Face 12mm',
+            familia: acess.familia || 'Fita Dupla Face',
+            qtd: rolos, unidade: 'un', preco_un: precoUn, total: precoUn * rolos,
+            categoria: 'Fita Dupla Face', aplicacao: 'fab', observacao: obs,
+          });
+        } else {
+          linhas.push({
+            codigo: 'PA-FITDF 12X20X1.0', descricao: '(nao cadastrado)', familia: '',
+            qtd: rolos, unidade: 'un', preco_un: 0, total: 0,
+            categoria: 'Fita Dupla Face', aplicacao: 'fab',
+            observacao: metrosFD12.toFixed(1) + 'm necessarios · CADASTRAR EM ACESSORIOS',
+          });
+        }
+      }
+
+      // ===== Emite HIGHTACK (alisares chapa + complemento alisar) =====
+      if (metrosHIGHTACK > 0) {
+        const tubos = Math.ceil(metrosHIGHTACK / hightackPorTubo);
+        const acess = buscarAcessorio(cadastroAcessorios, 'PA-HIGHTACK BR');
+        const obs = metrosHIGHTACK.toFixed(1) + 'm / ' + hightackPorTubo + 'm por tubo = ' + tubos + ' tubo(s) — ' + breakdownHIGHTACK.join(' + ');
+        if (acess) {
+          const precoUn = Number(acess.preco) || 0;
+          linhas.push({
+            codigo: acess.codigo, descricao: acess.descricao || 'HighTack Branco',
+            familia: acess.familia || 'Selantes',
+            qtd: tubos, unidade: 'un', preco_un: precoUn, total: precoUn * tubos,
+            categoria: 'Selantes', aplicacao: 'fab', observacao: obs,
+          });
+        } else {
+          linhas.push({
+            codigo: 'PA-HIGHTACK BR', descricao: '(nao cadastrado)', familia: '',
+            qtd: tubos, unidade: 'un', preco_un: 0, total: 0,
+            categoria: 'Selantes', aplicacao: 'fab',
+            observacao: metrosHIGHTACK.toFixed(1) + 'm necessarios · CADASTRAR EM ACESSORIOS',
           });
         }
       }
