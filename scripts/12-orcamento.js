@@ -11180,7 +11180,12 @@ const Orcamento = (() => {
     // proximos 3-4 cards. Ultima pagina: tabela final + totais +
     // observacoes + pagamento + assinaturas. Sem cortar item entre paginas.
     const CARDS_POR_PAGINA = 3;
-    const cardsList = itens.map((item, idx) => renderCardItemProposta(item, idx, versao));
+    // Felipe sessao 31: filtra cards vazios — fixo_acoplado e pergolado
+    // retornam '' (nao geram card proprio). Antes contava 2 itens (porta +
+    // fixo) e ia pra modo multi-pagina (tabela isolada na pag 2 = espaco
+    // em branco enorme). Agora conta so cards visiveis.
+    const cardsListRaw = itens.map((item, idx) => renderCardItemProposta(item, idx, versao));
+    const cardsList = cardsListRaw.filter(c => c && c.trim());
     // Divide em chunks
     const cardsChunks = [];
     for (let k = 0; k < cardsList.length; k += CARDS_POR_PAGINA) {
@@ -11567,56 +11572,10 @@ const Orcamento = (() => {
               <span class="rel-prop-total-valor">${fmtBR(totalArea)} m²</span>
             </div>
             <div class="rel-prop-total-orc">
-              <span class="rel-prop-total-label">${internacional ? 'Doors Total:' : tr('Total Orcamento:','Grand Total:')}</span>
+              <span class="rel-prop-total-label">${tr('Total Orcamento:','Grand Total:')}</span>
               <span class="rel-prop-total-valor">R$ ${fmtBR(totalGeral)}${(internacional && taxa > 0) ? ' · USD ' + (totalGeral / taxa).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : ''}</span>
             </div>
           </div>
-
-          ${(internacional && instSep && instSep.precoFinal > 0) ? (() => {
-            // Felipe sessao 31: 'instalacao nao entra no valor da porta cliente
-            // paga separado, entao deve entrar valor separado na proposta'.
-            // Mostra bloco DESTACADO com a instalacao em separado:
-            //   - Custo da viagem (subInst)
-            //   - Margem aplicada (ex: 10%)
-            //   - Total Installation
-            //   - Grand Total = Doors + Installation
-            const grandTotal = totalGeral + instSep.precoFinal;
-            const usdInst = taxa > 0 ? (instSep.precoFinal / taxa) : 0;
-            const usdGrand = taxa > 0 ? (grandTotal / taxa) : 0;
-            const pessoas = Number(inst.intl_pessoas) || 0;
-            const dias    = Number(inst.intl_dias)    || 0;
-            return `
-              <div style="margin-top:12px; padding:12px 14px; background:#fff8e1; border:2px solid #d97706; border-radius:8px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid #ffc107;">
-                  <div>
-                    <div style="font-weight:700; font-size:13px; color:#7c2d12;">🔧 Installation, Travel & Lodging — billed separately</div>
-                    <div style="font-size:11px; color:#92400e; margin-top:2px;">Projetta technicians on-site: ${pessoas} ${pessoas === 1 ? 'technician' : 'technicians'} · ${dias} days</div>
-                  </div>
-                  <div style="text-align:right;">
-                    <div style="font-size:16px; font-weight:700; color:#7c2d12;">R$ ${fmtBR(instSep.precoFinal)}</div>
-                    ${taxa > 0 ? `<div style="font-size:12px; color:#0c5485; font-weight:600;">USD ${usdInst.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })}</div>` : ''}
-                  </div>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:11px; color:#7c2d12;">
-                  <span>Travel cost (flights, hotel, meals, transport, insurance, labor):</span>
-                  <span style="font-family:'Courier New',monospace;">R$ ${fmtBR(instSep.custo)}${taxa > 0 ? ' / USD ' + (instSep.custo / taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:2px 0; font-size:11px; color:#7c2d12;">
-                  <span>Service margin (${instSep.lucroPct}%):</span>
-                  <span style="font-family:'Courier New',monospace;">R$ ${fmtBR(instSep.precoFinal - instSep.custo)}${taxa > 0 ? ' / USD ' + ((instSep.precoFinal - instSep.custo) / taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}</span>
-                </div>
-              </div>
-              <div class="rel-prop-totais-row" style="margin-top:8px; padding-top:8px; border-top:3px double #0c5485;">
-                <div class="rel-prop-total-area">
-                  <span class="rel-prop-total-label" style="font-size:13px;">Doors + Installation:</span>
-                </div>
-                <div class="rel-prop-total-orc">
-                  <span class="rel-prop-total-label">GRAND TOTAL:</span>
-                  <span class="rel-prop-total-valor" style="font-size:18px;">R$ ${fmtBR(grandTotal)}${taxa > 0 ? ' · USD ' + usdGrand.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : ''}</span>
-                </div>
-              </div>
-            `;
-          })() : ''}
 
           <div class="rel-prop-observacoes">
             <div class="rel-prop-obs-titulo">${tr('Observacoes','Remarks')}</div>
@@ -11663,11 +11622,19 @@ const Orcamento = (() => {
               maritimo:  itc.freteMaritimo,
               seguro:    itc.seguroMaritimo,
             };
+            // Felipe sessao 31: instalacao internacional separada DENTRO do
+            // quadro de International Shipping (linha extra abaixo de Marine
+            // Insurance). 'coloque instalacao quando tiver dentro destre quadro'.
+            const temInstalacao = !!(instSep && instSep.precoFinal > 0);
+            const instUsd = temInstalacao ? (instSep.precoFinal / taxa) : 0;
+            const pessoasInst = Number(inst.intl_pessoas) || 0;
+            const diasInst = Number(inst.intl_dias) || 0;
+
             const subFrete = (incluir.caixa     ? caixaUsd : 0)
                            + (incluir.terrestre ? terrUsd  : 0)
                            + (incluir.maritimo  ? marUsd   : 0)
                            + (incluir.seguro    ? seguroUsd: 0);
-            const finalUsd = valorUsd + subFrete;
+            const finalUsd = valorUsd + subFrete + (temInstalacao ? instUsd : 0);
             const fmtUsd = v => 'USD ' + v.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
             const linha = (label, usd, incluso) => `
               <tr style="${incluso ? '' : 'opacity:0.4; text-decoration:line-through;'}">
@@ -11698,11 +11665,12 @@ const Orcamento = (() => {
                     ${linha('🚛 Inland freight Uberlandia → Santos', terrUsd, incluir.terrestre)}
                     ${linha('🚢 Ocean freight ' + (lead.freteModal || 'LCL'), marUsd, incluir.maritimo)}
                     ${linha('🛡️ Marine insurance (0.5% × value × 110%)', seguroUsd, incluir.seguro)}
+                    ${temInstalacao ? linha('🔧 Installation, travel & lodging (' + pessoasInst + ' tech · ' + diasInst + ' days)', instUsd, true) : ''}
                   </tbody>
                 </table>
                 <div style="margin-top:10px; padding:10px 12px; background:#0c5485; color:#fff; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
-                  <span style="font-size:12px; font-weight:600;">TOTAL ${escapeHtml(incoterm)} ${escapeHtml(lead.destinoPais || '')}</span>
-                  <span style="font-size:17px; font-weight:700;">${fmtUsd(finalUsd)}</span>
+                  <span style="font-size:12px; font-weight:600;">GRAND TOTAL · ${escapeHtml(incoterm)} ${escapeHtml(lead.destinoPais || '')}</span>
+                  <span style="font-size:17px; font-weight:700;">${fmtUsd(finalUsd)} <span style="font-size:13px; opacity:0.9;">· R$ ${fmtBR(finalUsd * taxa)}</span></span>
                 </div>
                 <p style="font-size:10px; color:#5a7a99; margin-top:8px; font-style:italic;">
                   Origin: Uberlandia / Brazil &middot; Destination: ${escapeHtml(lead.destinoPais || '—')}
