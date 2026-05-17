@@ -1804,6 +1804,15 @@ window.ChapasAproveitamento = (function () {
     const areaTotalTodas = areaChapa * melhor.chapas.length;
     const taxaAproveitamento = areaTotalTodas > 0 ? areaUsadaTotal / areaTotalTodas : 0;
 
+    // Felipe sessao 31 [6/N]: ordena chapas por aproveitamento DESC.
+    // Felipe: 'OCUPAR O MAXIMO AS PRIMEIRAS E SOBRAR MAXIMO NAS ULTIMAS'.
+    // Apos todas otimizacoes (MaxRects + GA + SA + salvage), as N chapas
+    // necessarias estao definidas — mas o algoritmo pode ter colocado
+    // a chapa cheia no MEIO e chapas pela metade no inicio. Reordena
+    // pra cheias virem primeiro. Isso e' visual + facilita corte real
+    // (operador comeca com as chapas densas, deixa as 'sobra' pro fim).
+    melhor.chapas.sort((a, b) => (b.taxa || 0) - (a.taxa || 0));
+
     return {
       chapas: melhor.chapas,
       numChapas: melhor.chapas.length,
