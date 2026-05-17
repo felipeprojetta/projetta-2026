@@ -518,6 +518,7 @@ const Regras = (() => {
         mount.innerHTML = '<div class="info-banner">Modulo Precificacao nao carregado.</div>';
       }
     }
+    else if (UI.subaba === 'frete') renderFreteInternacional(mount);
     else renderEmDesenvolvimento(mount, UI.subaba);
   }
 
@@ -537,6 +538,233 @@ const Regras = (() => {
         <p>Quando voce me passar a logica desta sub-aba, ela vira editavel aqui (igual a de Porta Externa).</p>
       </div>
     `;
+  }
+
+  // ============================================================
+  // Felipe sessao 31: Sub-aba 'Frete Internacional' em Cadastros.
+  // Conteudo migrado do card 32-config.js (Felipe: 'passe todo essa
+  // configuracao para Cadastros, tire ai da aba lateral'). Edita as
+  // tarifas do modulo FreteTarifas (caixa, frete terrestre, ocean
+  // freight 18 regioes, origem fixos/variaveis, condicionais, seguro).
+  // ============================================================
+  let _regFreteEditado = null;
+  let _regFreteAbaAtiva = 'basicos';
+
+  function renderFreteInternacional(mount) {
+    if (!window.FreteTarifas) {
+      mount.innerHTML = '<div class="info-banner">Modulo FreteTarifas nao carregado.</div>';
+      return;
+    }
+    mount.innerHTML = `
+      <div class="info-banner">
+        <span class="t-strong">Frete Internacional:</span>
+        parametros usados pra calcular automaticamente o frete LCL no modal do lead Internacional.
+        Todos os valores sao em USD. Alteracoes salvas aqui aplicam <strong>imediatamente</strong>
+        em todos os calculos do sistema (modal lead, custo fab, DRE, proposta).
+      </div>
+
+      <div id="reg-frete-tabs" style="margin-top:14px; display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid #ddd; padding-bottom:0;">
+        <button class="reg-frete-tab is-ativa" data-reg-frete-tab="basicos">📦 Caixa + Terrestre</button>
+        <button class="reg-frete-tab" data-reg-frete-tab="origem_fixos">📋 Origem Fixos</button>
+        <button class="reg-frete-tab" data-reg-frete-tab="origem_var">📊 Origem Variaveis</button>
+        <button class="reg-frete-tab" data-reg-frete-tab="ocean">🌍 Ocean Freight por Regiao</button>
+        <button class="reg-frete-tab" data-reg-frete-tab="condicionais">⚙️ Condicionais</button>
+        <button class="reg-frete-tab" data-reg-frete-tab="seguro">🛡️ Seguro</button>
+      </div>
+
+      <div id="reg-frete-conteudo" style="padding:14px 0; min-height:200px;"></div>
+
+      <div style="display:flex; gap:8px; padding-top:12px; border-top:1px solid #ddd; align-items:center;">
+        <button class="btn btn-primary" id="reg-frete-salvar" style="background:#0c5485; color:#fff; padding:8px 16px; border:none; border-radius:5px; cursor:pointer; font-weight:600;">💾 Salvar alteracoes</button>
+        <button class="btn" id="reg-frete-restaurar" style="background:#fff; color:#666; padding:8px 16px; border:1px solid #cfd8e3; border-radius:5px; cursor:pointer;">↺ Restaurar padrao</button>
+        <span id="reg-frete-pill" style="font-size:11px; color:#155724; background:#d4edda; padding:4px 10px; border-radius:4px;">—</span>
+        <div style="flex:1;"></div>
+        <span id="reg-frete-modificado" style="font-size:11px; color:#999;"></span>
+      </div>
+      <div id="reg-frete-msg" style="margin-top:8px; font-size:12px;"></div>
+    `;
+
+    window.FreteTarifas.carregar().then(t => {
+      _regFreteEditado = JSON.parse(JSON.stringify(t));
+      renderRegFreteTab(mount);
+      const pill = mount.querySelector('#reg-frete-pill');
+      if (pill) pill.textContent = '✓ ' + Object.keys(t.ocean_freight_por_regiao).length + ' regioes';
+      // Tabs
+      mount.querySelectorAll('.reg-frete-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          _regFreteAbaAtiva = btn.dataset.regFreteTab;
+          mount.querySelectorAll('.reg-frete-tab').forEach(b => b.classList.toggle('is-ativa', b === btn));
+          renderRegFreteTab(mount);
+        });
+      });
+      // Salvar
+      const btnSalvar = mount.querySelector('#reg-frete-salvar');
+      if (btnSalvar) btnSalvar.addEventListener('click', () => salvarRegFrete(mount));
+      // Restaurar padrao
+      const btnRest = mount.querySelector('#reg-frete-restaurar');
+      if (btnRest) btnRest.addEventListener('click', () => {
+        if (!confirm('Restaurar todas as taxas pros valores padrao? Suas customizacoes serao perdidas.')) return;
+        _regFreteEditado = JSON.parse(JSON.stringify(window.FreteTarifas.defaults()));
+        renderRegFreteTab(mount);
+        showRegMsg(mount, 'info', 'Valores padrao carregados — clique em Salvar pra aplicar.');
+      });
+    });
+  }
+
+  function renderRegFreteTab(mount) {
+    const cont = mount.querySelector('#reg-frete-conteudo');
+    if (!cont || !_regFreteEditado) return;
+    let html = '';
+    if (_regFreteAbaAtiva === 'basicos') {
+      html = renderRegFreteBasicos(_regFreteEditado);
+    } else if (_regFreteAbaAtiva === 'origem_fixos') {
+      html = renderRegFreteGrupo(_regFreteEditado.origem_fixos, 'origem_fixos', 'Origem - Fixos (USD por embarque)');
+    } else if (_regFreteAbaAtiva === 'origem_var') {
+      html = renderRegFreteGrupo(_regFreteEditado.origem_variaveis, 'origem_variaveis', 'Origem - Variaveis (USD por m³)');
+    } else if (_regFreteAbaAtiva === 'ocean') {
+      html = renderRegFreteRegioes(_regFreteEditado.ocean_freight_por_regiao);
+    } else if (_regFreteAbaAtiva === 'condicionais') {
+      html = renderRegFreteGrupo(_regFreteEditado.condicionais, 'condicionais', 'Condicionais (USD - aplicam conforme regra)');
+    } else if (_regFreteAbaAtiva === 'seguro') {
+      html = renderRegFreteSeguro(_regFreteEditado);
+    }
+    cont.innerHTML = html;
+    bindRegFreteInputs(mount);
+  }
+
+  function renderRegFreteBasicos(t) {
+    return `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+        <div style="padding:12px; background:#fff8e1; border:1px solid #ffe0a3; border-radius:6px;">
+          <div style="font-weight:600; color:#856404; margin-bottom:8px;">📦 Caixa Fumigada</div>
+          <label style="display:block; font-size:11px; color:#666; margin-bottom:4px;">Preco USD por m³ (cotacao p/ cliente)</label>
+          <input type="number" min="0" step="1" data-reg-frete-path="caixa_fumigada.preco_usd_m3"
+                 value="${t.caixa_fumigada.preco_usd_m3}"
+                 style="width:100%; padding:8px 10px; border:1px solid #d4a418; border-radius:5px; font-weight:600;" />
+          <div style="font-size:10px; color:#856404; margin-top:6px; font-style:italic;">
+            ${t.caixa_fumigada.observacao}<br>
+            Media observada nos 4 ultimos pedidos: USD ${t.caixa_fumigada.media_real_obs}/m³
+          </div>
+        </div>
+        <div style="padding:12px; background:#e0f2fe; border:1px solid #b8dbff; border-radius:6px;">
+          <div style="font-weight:600; color:#0c5485; margin-bottom:8px;">🚛 Frete Terrestre</div>
+          <label style="display:block; font-size:11px; color:#666; margin-bottom:4px;">Uberlandia → Santos (USD por viagem)</label>
+          <input type="number" min="0" step="50" data-reg-frete-path="frete_terrestre.uberlandia_santos_usd"
+                 value="${t.frete_terrestre.uberlandia_santos_usd}"
+                 style="width:100%; padding:8px 10px; border:1px solid #0c5485; border-radius:5px; font-weight:600;" />
+          <div style="font-size:10px; color:#0c5485; margin-top:6px; font-style:italic;">
+            ${t.frete_terrestre.observacao}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRegFreteGrupo(grupo, path, titulo) {
+    const linhas = Object.entries(grupo).map(([k, v]) => `
+      <div style="display:grid; grid-template-columns:1fr 110px 100px; gap:10px; align-items:center; padding:6px 0; border-bottom:1px solid #eef3f8;">
+        <div>
+          <div style="font-size:12px; font-weight:500; color:#333;">${v.label}</div>
+          <div style="font-size:10px; color:#999;">${v.aplica ? '⚠️ ' + v.aplica : ''}${v.aplica ? ' · ' : ''}por ${v.unidade}</div>
+        </div>
+        <input type="number" min="0" step="1" data-reg-frete-path="${path}.${k}.valor"
+               value="${v.valor}" style="padding:6px 8px; border:1px solid #cfd8e3; border-radius:5px; text-align:right; font-weight:600;" />
+        <div style="font-size:10px; color:#999; text-align:right;">USD / ${v.unidade}</div>
+      </div>
+    `).join('');
+    return `<div style="font-size:13px; font-weight:600; color:#0c5485; margin-bottom:8px;">${titulo}</div>${linhas}`;
+  }
+
+  function renderRegFreteRegioes(regioes) {
+    const linhas = Object.entries(regioes).map(([k, v]) => `
+      <div style="display:grid; grid-template-columns:1fr 110px 100px; gap:10px; align-items:center; padding:6px 0; border-bottom:1px solid #eef3f8;">
+        <div>
+          <div style="font-size:12px; font-weight:500; color:#333;">${v.label}</div>
+          <div style="font-size:10px; color:#999;">${v.exemplos || ''}</div>
+        </div>
+        <input type="number" min="0" step="5" data-reg-frete-path="ocean_freight_por_regiao.${k}.valor"
+               value="${v.valor}" style="padding:6px 8px; border:1px solid #cfd8e3; border-radius:5px; text-align:right; font-weight:600;" />
+        <div style="font-size:10px; color:#999; text-align:right;">USD / m³</div>
+      </div>
+    `).join('');
+    return `
+      <div style="font-size:13px; font-weight:600; color:#0c5485; margin-bottom:8px;">Ocean Freight LCL — Base por Regiao (USD/m³)</div>
+      <div style="font-size:11px; color:#666; margin-bottom:12px;">
+        Tarifa base do frete maritimo por regiao do mundo. Valor multiplicado pelo m³ da caixa.
+        Editar conforme cotacoes vigentes do seu agente de frete (TPLProvider ou outro).
+      </div>
+      ${linhas}
+    `;
+  }
+
+  function renderRegFreteSeguro(t) {
+    return `
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;">
+        <div>
+          <label style="display:block; font-size:11px; color:#666; margin-bottom:4px;">Percentual do seguro</label>
+          <input type="number" min="0" step="0.05" data-reg-frete-path="seguro.percentual"
+                 value="${t.seguro.percentual}"
+                 style="width:100%; padding:8px 10px; border:1px solid #cfd8e3; border-radius:5px;" />
+          <div style="font-size:10px; color:#999; margin-top:4px;">% sobre valor da carga</div>
+        </div>
+        <div>
+          <label style="display:block; font-size:11px; color:#666; margin-bottom:4px;">Multiplicador (Cobertura)</label>
+          <input type="number" min="1" step="0.05" data-reg-frete-path="seguro.cobertura"
+                 value="${t.seguro.cobertura}"
+                 style="width:100%; padding:8px 10px; border:1px solid #cfd8e3; border-radius:5px;" />
+          <div style="font-size:10px; color:#999; margin-top:4px;">1.10 = 110% padrao ICC</div>
+        </div>
+        <div>
+          <label style="display:block; font-size:11px; color:#666; margin-bottom:4px;">Minimo da apolice (USD)</label>
+          <input type="number" min="0" step="5" data-reg-frete-path="seguro.minimo_usd"
+                 value="${t.seguro.minimo_usd}"
+                 style="width:100%; padding:8px 10px; border:1px solid #cfd8e3; border-radius:5px;" />
+          <div style="font-size:10px; color:#999; margin-top:4px;">USD por embarque</div>
+        </div>
+      </div>
+      <div style="margin-top:12px; padding:10px; background:#f0f7ff; border-left:3px solid #0c5485; font-size:11px; color:#0c5485;">
+        Aplicado quando incoterm = <b>CIF</b> · <b>CIP</b> · <b>DAP</b> · <b>DPU</b> · <b>DDP</b>. Formula:
+        <br><code style="background:#fff; padding:2px 6px; border-radius:3px;">max(minimo, valor_carga × percentual × cobertura)</code>
+      </div>
+    `;
+  }
+
+  function bindRegFreteInputs(mount) {
+    mount.querySelectorAll('input[data-reg-frete-path]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const path = inp.dataset.regFretePath.split('.');
+        let obj = _regFreteEditado;
+        for (let i = 0; i < path.length - 1; i++) obj = obj[path[i]];
+        obj[path[path.length - 1]] = Number(inp.value) || 0;
+        const mod = mount.querySelector('#reg-frete-modificado');
+        if (mod) mod.textContent = '⚠️ Alteracoes nao salvas';
+      });
+    });
+  }
+
+  async function salvarRegFrete(mount) {
+    if (!window.FreteTarifas || !_regFreteEditado) return;
+    try {
+      await window.FreteTarifas.salvar(_regFreteEditado);
+      const mod = mount.querySelector('#reg-frete-modificado');
+      if (mod) mod.textContent = '';
+      showRegMsg(mount, 'sucesso', '✓ Tarifas salvas! Aplicadas imediatamente em todos os calculos do sistema.');
+    } catch (e) {
+      showRegMsg(mount, 'erro', 'Erro ao salvar: ' + e.message);
+    }
+  }
+
+  function showRegMsg(mount, tipo, texto) {
+    const msg = mount.querySelector('#reg-frete-msg');
+    if (!msg) return;
+    const cores = {
+      sucesso: { bg:'#d4edda', border:'#a3d9b1', color:'#155724' },
+      erro:    { bg:'#f8d7da', border:'#f5c6cb', color:'#721c24' },
+      info:    { bg:'#fff3cd', border:'#ffe0a3', color:'#856404' },
+    };
+    const c = cores[tipo] || cores.info;
+    msg.innerHTML = `<div style="padding:8px 12px; background:${c.bg}; border:1px solid ${c.border}; color:${c.color}; border-radius:5px;">${texto}</div>`;
+    setTimeout(() => { msg.innerHTML = ''; }, tipo === 'sucesso' ? 4000 : 6000);
   }
 
   /**

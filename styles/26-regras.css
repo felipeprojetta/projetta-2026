@@ -283,3 +283,28 @@
   color: var(--text-soft);
   line-height: 1.5;
 }
+
+/* Felipe sessao 31: tabs da sub-aba 'Frete Internacional' (migrada de Config). */
+.reg-frete-tab {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.reg-frete-tab:hover {
+  background: #f0f7ff;
+  color: #0c5485;
+}
+.reg-frete-tab.is-ativa {
+  background: #fff;
+  border-color: #ddd #ddd transparent;
+  color: #0c5485;
+  font-weight: 600;
+  margin-bottom: -1px;
+}
