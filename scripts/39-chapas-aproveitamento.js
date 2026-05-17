@@ -603,6 +603,105 @@ window.ChapasAproveitamento = (function () {
       }
     }
 
+    // Felipe sessao 31: SALVAGE INVERSO — move PEQUENAS das chapas
+    // mais cheias pra sobras das chapas com poucas pecas grandes.
+    // Caso: chapa A tem 30 alisares verticais (cheia) e chapa B tem 2
+    // frontais (44%, sobra horizontal embaixo livre). Os alisares
+    // horizontais e complementos da chapa A poderiam ir pras sobras
+    // da chapa B SEM aumentar o numero de chapas.
+    //
+    // Diferente do salvage normal, NAO move pra reduzir chapas — move
+    // pra DISTRIBUIR carga, equilibrando aproveitamento. So' aceita
+    // movimento se:
+    //   1) Chapa destino tem aprov < 70% (tem espaco real sobrando)
+    //   2) Peca cabe numa sobra grande (area sobra > 5x area peca)
+    //   3) Peca e' "pequena" (area < 25% area da chapa)
+    //
+    // Pre-requisito: rodou apos o salvage normal, entao chapas vazias
+    // ja foram removidas.
+    let mudouInv = true;
+    let safetyInv = 0;
+    while (mudouInv && safetyInv < 3) {
+      mudouInv = false;
+      safetyInv++;
+      for (const k in sobrasCache) delete sobrasCache[k];
+      const dispLarg = (chapas[0]?.largura || 0) - 2 * margem;
+      const dispAlt  = (chapas[0]?.altura  || 0) - 2 * margem;
+      const areaChapa = dispLarg * dispAlt;
+      if (areaChapa <= 0) break;
+      // Para cada chapa CHEIA (origem), tenta mover pecas pequenas pra
+      // chapas POSTERIORES com sobra real.
+      for (let i = 0; i < chapas.length - 1; i++) {
+        const cOrig = chapas[i];
+        if (!cOrig.pecasPosicionadas.length) continue;
+        const areaOrig = cOrig.pecasPosicionadas.reduce((s, p) => s + p.larg * p.alt, 0);
+        const aprovOrig = areaOrig / areaChapa;
+        // So' move se chapa origem tiver aprov alta (>60%) — chapas
+        // pouco aproveitadas nao tem pecas "sobrando" pra distribuir.
+        if (aprovOrig < 0.60) continue;
+        // Pega pecas candidatas (pequenas)
+        const pecasCandidatas = cOrig.pecasPosicionadas
+          .filter(pp => (pp.larg * pp.alt) < 0.25 * areaChapa)
+          .slice();
+        if (!pecasCandidatas.length) continue;
+        const movidas = [];
+        pecasCandidatas.forEach(placedPeca => {
+          const peca = placedPeca.peca;
+          if (!peca) return;
+          const orientacoes = peca.podeRotacionar
+            ? [{ larg: peca.largura, alt: peca.altura, rotada: false },
+               { larg: peca.altura,  alt: peca.largura, rotada: true }]
+            : [{ larg: peca.largura, alt: peca.altura, rotada: false }];
+          // Procura chapa destino POSTERIOR com aprov <70% e sobra suficiente
+          for (let j = i + 1; j < chapas.length; j++) {
+            const cDest = chapas[j];
+            const areaDest = cDest.pecasPosicionadas.reduce((s, p) => s + p.larg * p.alt, 0);
+            const aprovDest = areaDest / areaChapa;
+            if (aprovDest >= 0.70) continue;
+            const sobras = getSobras(j);
+            if (!sobras.length) continue;
+            let achou = false;
+            for (const o of orientacoes) {
+              for (const sobra of sobras) {
+                if (o.larg <= sobra.w + 0.01 && o.alt <= sobra.h + 0.01) {
+                  // Ancora em peca adjacente (mesmo padrao do salvage normal)
+                  let placeX = sobra.x;
+                  const placeY = sobra.y;
+                  let melhorAnc = null;
+                  cDest.pecasPosicionadas.forEach(pp => {
+                    if (Math.abs(pp.y - sobra.y) > 1) return;
+                    if (pp.alt < o.alt - 0.01) return;
+                    const xDir = pp.x + pp.larg;
+                    if (xDir + o.larg > sobra.x + sobra.w + 0.01) return;
+                    if (xDir < sobra.x - 1 || xDir > sobra.x + 1) return;
+                    if (!melhorAnc || xDir < melhorAnc.xDir) melhorAnc = { xDir };
+                  });
+                  if (melhorAnc) placeX = melhorAnc.xDir;
+
+                  cDest.pecasPosicionadas.push({
+                    peca, x: placeX, y: placeY,
+                    larg: o.larg, alt: o.alt, rotada: o.rotada,
+                  });
+                  invalidarSobras(j);
+                  movidas.push(placedPeca);
+                  mudouInv = true;
+                  achou = true;
+                  break;
+                }
+              }
+              if (achou) break;
+            }
+            if (achou) break;
+          }
+        });
+        if (movidas.length) {
+          cOrig.pecasPosicionadas = cOrig.pecasPosicionadas.filter(
+            p => !movidas.includes(p));
+          invalidarSobras(i);
+        }
+      }
+    }
+
     // Felipe sessao 12: PASS FINAL AGRESSIVO PRA PECAS PEQUENAS.
     // Mesmo apos salvage acima, podem sobrar pecas pequenas em chapas com
     // aproveitamento bom (>50%) que poderiam ir pra sobras de chapas
@@ -834,65 +933,110 @@ window.ChapasAproveitamento = (function () {
       });
     }
 
-    // Felipe sessao 12: REPACK FINAL GLOBAL. 'melhore e muito esse seu
-    // motor de calculo de chapas... ainda tem que melhorar muito esse
-    // algoritmo'. Print mostrava Chapa 10 (52%) + Chapa 11 (6%) - todas
-    // as pecas dessas 2 chapas (4 acabamentos + 1 portal) caberiam fácil
-    // em UMA chapa só. Salvage individual nao consegue mover pecas pra
-    // sobras complexas; este repack pega TODAS as pecas das chapas com
-    // aproveitamento <50% E tenta refazer o nesting global delas com BLF.
-    // Se reduzir o numero de chapas, substitui.
+    // Felipe sessao 12 + sessao 31: REPACK FINAL GLOBAL com MULTI-START
+    // E LOOP. Antes rodava 1 vez com area-DESC -> ficava preso em minimos
+    // locais. Agora:
+    //   1) Pega TODAS chapas com aprov <60% (era 50%) — pega mais casos
+    //      como chapa 6 da imagem (44%).
+    //   2) Tenta 12+ estrategias diferentes de ordenacao + multi_horiz E BLF.
+    //   3) Pega a com MENOS chapas (tiebreak: mais concentrado).
+    //   4) Repete enquanto reduzir — uma reducao pode habilitar a proxima.
+    //   5) Safety: max 5 iteracoes (evita loop infinito em casos patologicos).
+    function _coletarPecasRepack(chapasRefazer) {
+      const pecas = [];
+      chapasRefazer.forEach(c => {
+        c.pecasPosicionadas.forEach(pp => {
+          pecas.push({
+            label: pp.peca.label,
+            largura: pp.peca.largura,  // dim ORIGINAL (nao rotacionada)
+            altura: pp.peca.altura,
+            podeRotacionar: pp.peca.podeRotacionar,
+            cor: pp.peca.cor,
+            categoria: pp.peca.categoria,
+            ref: pp.peca,
+            id: pp.peca.id,
+          });
+        });
+      });
+      return pecas;
+    }
+
+    function _melhorRepack(pecasRefazer) {
+      // Roda multi_horiz com TODAS as estrategias do multi-start + BLF.
+      // Retorna o melhor resultado (menos chapas, tiebreak: concentracao).
+      let melhorRP = null;
+      const estrategiasRP = [
+        (arr) => arr.slice().sort((a, b) => (b.largura * b.altura) - (a.largura * a.altura) || b.altura - a.altura),
+        (arr) => arr.slice().sort((a, b) => b.altura - a.altura || b.largura - a.largura),
+        (arr) => arr.slice().sort((a, b) => b.largura - a.largura || b.altura - a.altura),
+        (arr) => arr.slice().sort((a, b) => b.altura - a.altura || a.largura - b.largura),
+        (arr) => agruparPorAltura(arr, 0.10),
+        (arr) => agruparPorAltura(arr, 0.05),
+        (arr) => arr.slice().sort((a, b) => {
+          const ca = a.categoria === 'portal' ? 0 : 1;
+          const cb = b.categoria === 'portal' ? 0 : 1;
+          if (ca !== cb) return ca - cb;
+          return b.altura - a.altura || b.largura - a.largura;
+        }),
+        (arr) => arr.slice().sort((a, b) => (b.largura + b.altura) - (a.largura + a.altura) || (b.largura * b.altura) - (a.largura * a.altura)),
+        (arr) => agruparPorLabelSimilar(arr),
+        (arr) => concentrarPequenas(arr, 0.30),
+        (arr) => concentrarPequenas(arr, 0.50),
+      ];
+      for (const estrat of estrategiasRP) {
+        try {
+          const ordenadas = estrat(pecasRefazer);
+          const cand = cfg.METODO === 'multi_vert'
+            ? nestingMultiVert(ordenadas, chapaLarg, chapaAlt, cfg)
+            : nestingMultiHoriz(ordenadas, chapaLarg, chapaAlt, cfg);
+          if (!melhorRP || compararResultados(cand, melhorRP) < 0) melhorRP = cand;
+        } catch (e) { /* skip */ }
+      }
+      // Tambem tenta BLF puro (otimo pra compactacao vertical)
+      try {
+        const candBLF = nestingBLF(pecasRefazer, chapaLarg, chapaAlt, cfg);
+        if (!melhorRP || compararResultados(candBLF, melhorRP) < 0) melhorRP = candBLF;
+      } catch (e) { /* skip */ }
+      return melhorRP;
+    }
+
     if (melhor && melhor.chapas && melhor.chapas.length >= 2) {
       const dispLarg = chapaLarg - 2 * cfg.APARAR;
       const dispAlt  = chapaAlt  - 2 * cfg.APARAR;
       const areaTot = dispLarg * dispAlt;
-      // Identifica chapas com aproveitamento <50% (candidatas a refazer)
-      const indicesRefazer = [];
-      melhor.chapas.forEach((c, i) => {
-        const areaUs = c.pecasPosicionadas.reduce((s, p) => s + p.larg * p.alt, 0);
-        const taxa = areaTot > 0 ? areaUs / areaTot : 0;
-        if (taxa < 0.50) indicesRefazer.push(i);
-      });
 
-      // Se tem >=2 chapas mal aproveitadas, vale tentar combinar
-      if (indicesRefazer.length >= 2) {
-        // Coleta TODAS as pecas dessas chapas (preservando dimensoes
-        // posicionadas - ja podem estar rotacionadas)
-        const pecasParaRefazer = [];
-        indicesRefazer.forEach(i => {
-          melhor.chapas[i].pecasPosicionadas.forEach(pp => {
-            pecasParaRefazer.push({
-              label: pp.peca.label,
-              largura: pp.peca.largura,  // dim ORIGINAL (nao rotacionada)
-              altura: pp.peca.altura,
-              podeRotacionar: pp.peca.podeRotacionar,
-              cor: pp.peca.cor,
-              categoria: pp.peca.categoria,
-              ref: pp.peca,
-              id: pp.peca.id,
-            });
-          });
+      let iter = 0;
+      let reduziu = true;
+      while (reduziu && iter < 5) {
+        iter++;
+        reduziu = false;
+
+        // Identifica chapas com aproveitamento <60% (candidatas a refazer)
+        const indicesRefazer = [];
+        melhor.chapas.forEach((c, i) => {
+          const areaUs = c.pecasPosicionadas.reduce((s, p) => s + p.larg * p.alt, 0);
+          const taxa = areaTot > 0 ? areaUs / areaTot : 0;
+          if (taxa < 0.60) indicesRefazer.push(i);
         });
 
-        // Tenta refazer com BLF (que e' mais agressivo em compactacao)
-        try {
-          // Ordena por area DESC pra BLF colocar grandes primeiro
-          pecasParaRefazer.sort((a, b) =>
-            (b.largura * b.altura) - (a.largura * a.altura));
-          const refeitas = nestingBLF(pecasParaRefazer, chapaLarg, chapaAlt, cfg);
-          // So' substitui se reduzir num. de chapas
-          if (refeitas.chapas.length < indicesRefazer.length &&
-              !refeitas.naoCouberam.length) {
-            // Remove as chapas antigas (de tras pra frente pra preservar idx)
-            indicesRefazer.slice().reverse().forEach(i => {
-              melhor.chapas.splice(i, 1);
-            });
-            // Adiciona as novas no fim
-            refeitas.chapas.forEach(c => melhor.chapas.push(c));
-            console.log(`[Aproveitamento] Repack final: ${indicesRefazer.length} chapas mal-aprov. → ${refeitas.chapas.length} chapas`);
-          }
-        } catch (e) {
-          console.warn('[Aproveitamento] repack final falhou', e);
+        if (indicesRefazer.length < 2) break;
+
+        const pecasRefazer = _coletarPecasRepack(
+          indicesRefazer.map(i => melhor.chapas[i])
+        );
+
+        const refeitas = _melhorRepack(pecasRefazer);
+
+        if (refeitas
+            && refeitas.chapas.length < indicesRefazer.length
+            && !refeitas.naoCouberam.length) {
+          // Remove as chapas antigas
+          indicesRefazer.slice().reverse().forEach(i => melhor.chapas.splice(i, 1));
+          // Adiciona as novas
+          refeitas.chapas.forEach(c => melhor.chapas.push(c));
+          console.log('[Aproveitamento] Repack iter ' + iter + ': '
+            + indicesRefazer.length + ' chapas <60% -> ' + refeitas.chapas.length + ' chapas');
+          reduziu = true;
         }
       }
     }
