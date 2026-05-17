@@ -12181,9 +12181,33 @@ const Orcamento = (() => {
       const lista = window.Modelos.listar();
       modeloInfo = lista.find(m => Number(m.numero) === Number(item.modeloNumero));
     }
+    // Felipe sessao 31: 'ainda aparece cava ali na proposta internacional,
+    // deve ser hidden handle quando for em ingles'. Traduz tokens nos
+    // nomes dos modelos (Cava -> Hidden Handle, Puxador Externo -> External
+    // Handle, etc) quando lead.destinoTipo='internacional'.
+    function _traduzirNomeModelo(nome) {
+      if (!nome) return nome;
+      let n = String(nome);
+      if (internacional) {
+        n = n.replace(/\bCava Dupla\b/gi, 'Double Hidden Handle')
+             .replace(/\bCava\b/gi, 'Hidden Handle')
+             .replace(/\bPuxador Externo\b/gi, 'External Handle')
+             .replace(/\bFriso(s)?\b/gi, 'Groove$1')
+             .replace(/\bVertical\b/gi, 'Vertical')
+             .replace(/\bHorizontal\b/gi, 'Horizontal')
+             .replace(/\bVariavel\b/gi, 'Variable')
+             .replace(/\bInclinado\b/gi, 'Inclined')
+             .replace(/\bMultiplo\b/gi, 'Multiple')
+             .replace(/\bRipado\b/gi, 'Slat')
+             .replace(/\bLisa\b/gi, 'Smooth')
+             .replace(/\bModuladas?\b/gi, 'Modular')
+             .replace(/\bMoldura(s)?\b/gi, 'Frame$1');
+      }
+      return n;
+    }
     const modeloNome = modeloInfo
-      ? `${item.modeloNumero} — ${modeloInfo.nome}`
-      : (item.modeloNumero ? `Modelo ${item.modeloNumero}` : '—');
+      ? `${item.modeloNumero} — ${_traduzirNomeModelo(modeloInfo.nome)}`
+      : (item.modeloNumero ? `${internacional ? 'Model' : 'Modelo'} ${item.modeloNumero}` : '—');
 
     // Imagem: usa img_1f ou img_2f conforme nFolhas
     const nFolhas = Number(item.nFolhas) || 1;
@@ -12235,8 +12259,12 @@ const Orcamento = (() => {
     // 'ALISAR NAO — SEM ALISAR'). Outros tamanhos (Cava, XX mm) saem
     // como linha simples.
     const ehModeloCava = isCava(item.modeloNumero);
+    // Felipe sessao 31: 'ainda aparece cava ali na proposta internacional,
+    // deve ser hidden handle quando for em ingles'. Traduz o puxador
+    // hardcoded de 'Cava' pra 'Hidden Handle' em internacional, e tambem
+    // o termo nacional pra 'Puxador Embutido' (consistencia).
     const puxadorRaw = ehModeloCava
-      ? 'Cava'
+      ? (internacional ? 'Hidden Handle' : 'Puxador Embutido')
       : (item.tamanhoPuxador || 'Enviado pelo cliente');
     const puxadorPorContaDoCliente = !ehModeloCava && (
       puxadorRaw === 'Enviado pelo cliente' ||
