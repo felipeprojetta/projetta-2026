@@ -7801,12 +7801,12 @@ const Orcamento = (() => {
           const fmtUsd = v => 'USD ' + v.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
           const fmtBRL2 = v => 'R$ ' + (v * taxa).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
           const linha = (label, usd, incluso) => `
-            <div style="display:grid; grid-template-columns:1fr 100px 130px 60px; gap:8px; padding:6px 0; border-bottom:1px solid #eef3f8; align-items:center; ${incluso ? '' : 'opacity:0.4;'}">
+            <div style="display:grid; grid-template-columns:1fr 100px 130px 70px; gap:8px; padding:6px 0; border-bottom:1px solid #eef3f8; align-items:center; ${incluso ? '' : 'opacity:0.45; text-decoration:line-through;'}">
               <span style="font-size:12px;">${label}</span>
               <span style="font-size:12px; text-align:right; color:#666;">${fmtUsd(usd)}</span>
               <span style="font-size:12px; text-align:right; color:#155724;">${fmtBRL2(usd)}</span>
-              <span style="font-size:11px; text-align:center; font-weight:600; color:${incluso ? '#0c5485' : '#999'};">
-                ${incluso ? '✓ inc' : '— exc'}
+              <span style="font-size:11px; text-align:center; font-weight:700; color:${incluso ? '#0c5485' : '#999'};">
+                ${incluso ? '✓ SIM' : '✗ NAO'}
               </span>
             </div>
           `;
@@ -7829,7 +7829,7 @@ const Orcamento = (() => {
               <p style="font-size:11px; color:#5a7a99; margin:0 0 10px 0;">
                 <b>${escapeHtml(itc.nome)}</b> (${escapeHtml(itc.nomePt)}). ${escapeHtml(itc.descricao)}
               </p>
-              <div style="display:grid; grid-template-columns:1fr 100px 130px 60px; gap:8px; padding:6px 0; border-bottom:2px solid #0c5485; font-size:10px; font-weight:700; color:#0c5485; text-transform:uppercase;">
+              <div style="display:grid; grid-template-columns:1fr 100px 130px 70px; gap:8px; padding:6px 0; border-bottom:2px solid #0c5485; font-size:10px; font-weight:700; color:#0c5485; text-transform:uppercase;">
                 <span>Componente</span>
                 <span style="text-align:right;">USD</span>
                 <span style="text-align:right;">R$ convert.</span>
@@ -10780,7 +10780,7 @@ const Orcamento = (() => {
         medidasStr = `${lar} × ${alt}`;
       }
       const qtd = Number(item.quantidade) || 1;
-      const descricaoItem = obterDescricaoItem(item);
+      const descricaoItem = obterDescricaoItem(item, internacional);
       // Valor por item — se nao temos calculado (fallback), mostra "—"
       const v = valoresPorIdx[idx];
       const valorUnStr   = (v && v.precoFinal > 0) ? `R$ ${fmtBR(v.valorUn)}`    : '—';
@@ -10911,10 +10911,10 @@ const Orcamento = (() => {
             const finalUsd = valorUsd + subFrete;
             const fmtUsd = v => 'USD ' + v.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
             const linha = (label, usd, incluso) => `
-              <tr style="${incluso ? '' : 'opacity:0.4;'}">
+              <tr style="${incluso ? '' : 'opacity:0.4; text-decoration:line-through;'}">
                 <td>${label}</td>
                 <td class="num">${fmtUsd(usd)}</td>
-                <td class="num" style="font-weight:600; color:${incluso ? '#0c5485' : '#999'};">${incluso ? '✓' : '—'}</td>
+                <td class="num" style="font-weight:700; color:${incluso ? '#0c5485' : '#999'}; font-size:14px;">${incluso ? '✓ YES' : '✗ NO'}</td>
               </tr>
             `;
             return `
@@ -11024,46 +11024,39 @@ const Orcamento = (() => {
    *   - tipo='revestimento_parede' → "REVESTIMENTO DE PAREDE"
    *   - tipo vazio → "—"
    */
-  function obterDescricaoItem(item) {
+  function obterDescricaoItem(item, internacional) {
     if (!item || !item.tipo) return '—';
+    const tr = (pt, en) => internacional ? en : pt;
     if (item.tipo === 'porta_externa') {
       const sistema = (item.sistema || '').toLowerCase();
       let abertura = '';
-      if (sistema.includes('pivot')) abertura = 'Pivotante';
-      else if (sistema.includes('dobrad')) abertura = 'Dobradica';
+      if (sistema.includes('pivot'))      abertura = tr('Pivotante','Pivoting');
+      else if (sistema.includes('dobrad')) abertura = tr('Dobradica','Hinged');
       else if (sistema) abertura = item.sistema;
-      return abertura ? `PORTA EXTERNA (${abertura})` : 'PORTA EXTERNA';
+      return abertura
+        ? `${tr('PORTA EXTERNA','EXTERIOR DOOR')} (${abertura})`
+        : tr('PORTA EXTERNA','EXTERIOR DOOR');
     }
-    if (item.tipo === 'porta_interna') return 'PORTA INTERNA';
+    if (item.tipo === 'porta_interna') return tr('PORTA INTERNA','INTERIOR DOOR');
     if (item.tipo === 'fixo_acoplado') {
-      // Felipe sessao 13: 'sempre que tiver vidro tem que sair o vidro
-      // que esta sendo usado'. Quando revestimento='Vidro', adiciona
-      // o tipo de vidro na descricao da tabela final da proposta.
-      let base = 'FIXO ACOPLADO A PORTA';
+      let base = tr('FIXO ACOPLADO A PORTA','COUPLED FIXED PANEL');
       const pos = String(item.posicao || '').toLowerCase();
-      if (pos === 'lateral')  base += ' (Lateral)';
-      if (pos === 'superior') base += ' (Superior)';
+      if (pos === 'lateral')  base += ` (${tr('Lateral','Side')})`;
+      if (pos === 'superior') base += ` (${tr('Superior','Top')})`;
       if (item.revestimento === 'Vidro' && item.vidroDescricao) {
-        base += ` — Vidro: ${item.vidroDescricao}`;
+        base += ` — ${tr('Vidro','Glass')}: ${item.vidroDescricao}`;
       }
-      // Felipe sessao 2026-05-10: 'quando tiver fixo acoplado a porta
-      // deve se informar ali na proposta se ele e revestido de um lado
-      // ou dos dois lados, pois o cliente nao pode ter duvida se esta
-      // comprando somente um lado da parede revestido ou os dois lados'.
-      // Campo item.lados: '1lado' (so externo) ou '2lados' (externo +
-      // interno). Ignorado quando revestimento=Vidro (nao tem face de
-      // revestimento - so' a chapa de vidro).
       if (item.revestimento !== 'Vidro') {
         const lados = String(item.lados || '1lado').toLowerCase();
         if (lados === '2lados') {
-          base += ' — Revestido nos 2 lados (externo + interno)';
+          base += tr(' — Revestido nos 2 lados (externo + interno)',' — Coated on both sides (exterior + interior)');
         } else {
-          base += ' — Revestido em 1 lado (somente externo)';
+          base += tr(' — Revestido em 1 lado (somente externo)',' — Coated on one side (exterior only)');
         }
       }
       return base;
     }
-    if (item.tipo === 'revestimento_parede') return 'REVESTIMENTO DE PAREDE';
+    if (item.tipo === 'revestimento_parede') return tr('REVESTIMENTO DE PAREDE','WALL CLADDING');
     return item.tipo.toUpperCase();
   }
 
@@ -11136,6 +11129,11 @@ const Orcamento = (() => {
     // So' aparece na tabela final (linhas 10249+).
     if (item.tipo === 'pergolado') return '';
 
+    // Felipe sessao 31: detecta destino internacional pra traduzir labels.
+    const _lead = (typeof lerLeadAtivo === 'function') ? (lerLeadAtivo() || {}) : {};
+    const internacional = _lead.destinoTipo === 'internacional';
+    const tr = (pt, en) => internacional ? en : pt;
+
     // Felipe sessao 2026-08: revestimento de parede tem card sem imagem,
     // so' com as variaveis (cor da peca, dimensoes, area, estrutura, etc).
     if (item.tipo === 'revestimento_parede') {
@@ -11165,18 +11163,25 @@ const Orcamento = (() => {
     // Felipe (do doc): banners de alertas — alisar, fechadura, cilindro
     const temAlisar = (item.tem_alisar || 'Sim') === 'Sim';
     const bannerAlisar = temAlisar
-      ? `<div class="rel-prop-banner-alisar is-sim">ALISAR: <b>SIM — COM ALISAR</b> (largura ${item.largura_alisar || 100}mm · parede ${item.espessura_parede || 250}mm)</div>`
-      : `<div class="rel-prop-banner-alisar is-nao">ALISAR: <b>NAO — SEM ALISAR</b></div>`;
+      ? `<div class="rel-prop-banner-alisar is-sim">${tr('ALISAR','WALL TRIM')}: <b>${tr('SIM — COM ALISAR','YES — WITH TRIM')}</b> (${tr('largura','width')} ${item.largura_alisar || 100}mm · ${tr('parede','wall')} ${item.espessura_parede || 250}mm)</div>`
+      : `<div class="rel-prop-banner-alisar is-nao">${tr('ALISAR','WALL TRIM')}: <b>${tr('NAO — SEM ALISAR','NO — WITHOUT TRIM')}</b></div>`;
 
     const temFechDigital = item.fechaduraDigital && item.fechaduraDigital !== 'Nao se aplica' && item.fechaduraDigital !== '';
     const bannerFechDigital = temFechDigital
-      ? `<div class="rel-prop-banner-fech is-sim">FECHADURA DIGITAL: <b>${escapeHtml(item.fechaduraDigital)}</b></div>`
-      : `<div class="rel-prop-banner-fech is-nao">FECHADURA DIGITAL: <b>NAO SE APLICA</b></div>`;
+      ? `<div class="rel-prop-banner-fech is-sim">${tr('FECHADURA DIGITAL','DIGITAL LOCK')}: <b>${escapeHtml(item.fechaduraDigital)}</b></div>`
+      : `<div class="rel-prop-banner-fech is-nao">${tr('FECHADURA DIGITAL','DIGITAL LOCK')}: <b>${tr('NAO SE APLICA','NOT APPLICABLE')}</b></div>`;
 
     const sistema = item.sistema || '—';
-    // Felipe sessao 2026-08-03: 'Pivotante' em vez de 'pivotante' (capitaliza)
     const sistemaFmt = sistema && sistema !== '—'
-      ? sistema.charAt(0).toUpperCase() + sistema.slice(1).toLowerCase()
+      ? (() => {
+          const base = sistema.charAt(0).toUpperCase() + sistema.slice(1).toLowerCase();
+          if (internacional) {
+            const low = base.toLowerCase();
+            if (low === 'pivotante') return 'Pivoting';
+            if (low === 'dobradica' || low === 'dobradiça') return 'Hinged';
+          }
+          return base;
+        })()
       : '—';
 
     // Felipe sessao 2026-08-03: em modelo CAVA, puxador deve aparecer como 'Cava'
@@ -11204,8 +11209,8 @@ const Orcamento = (() => {
       puxadorRaw === ''
     );
     const linhaPuxador = puxadorPorContaDoCliente
-      ? `<div class="rel-prop-banner-alisar is-nao">PUXADOR EXTERNO: <b>${escapeHtml(puxadorRaw.toUpperCase())} — NAO INCLUSO</b></div>`
-      : `<div class="rel-prop-item-linha"><span class="lbl">PUXADOR:</span> <span>${escapeHtml(puxadorRaw)}</span></div>`;
+      ? `<div class="rel-prop-banner-alisar is-nao">${tr('PUXADOR EXTERNO','EXTERIOR HANDLE')}: <b>${escapeHtml((internacional && /enviado/i.test(puxadorRaw) ? 'SENT BY CLIENT' : puxadorRaw).toUpperCase())} — ${tr('NAO INCLUSO','NOT INCLUDED')}</b></div>`
+      : `<div class="rel-prop-item-linha"><span class="lbl">${tr('PUXADOR','HANDLE')}:</span> <span>${escapeHtml(puxadorRaw)}</span></div>`;
 
     // Felipe sessao 31: badge 'ITEM N' no titulo do card pra alinhar com
     // o card de revestimento e a tabela final. Antes nao tinha nada
@@ -11225,22 +11230,22 @@ const Orcamento = (() => {
                visual sao meramente ilustrativos. O cliente aprovara os desenhos
                finais para producao.' -->
           <div class="rel-prop-item-img-disclaimer">
-            Imagem meramente ilustrativa. O cliente aprovara os desenhos finais para producao.
+            ${tr('Imagem meramente ilustrativa. O cliente aprovara os desenhos finais para producao.','Image for illustration only. Client will approve final drawings for production.')}
           </div>
         </div>
         <div class="rel-prop-item-info">
-          <div class="rel-prop-item-titulo">${_tituloBadge}PORTA PROJETTA BY WEIKU</div>
+          <div class="rel-prop-item-titulo">${_tituloBadge}${tr('PORTA PROJETTA BY WEIKU','PROJETTA DOOR BY WEIKU')}</div>
           <!-- Felipe (msg "TUDO A ESQUERDA"): cada linha label+valor compacto,
                sem espacos largos, alinhado a esquerda. R04. -->
           <div class="rel-prop-item-linhas">
-            <div class="rel-prop-item-linha"><span class="lbl">Qtd:</span> <span>${Number(item.quantidade) || 1}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">L:</span> <span>${lar}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('Qtd','Qty')}:</span> <span>${Number(item.quantidade) || 1}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('L','W')}:</span> <span>${lar}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">H:</span> <span>${alt}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">Area Porta:</span> <span>${fmtBR(areaM2)} m²</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">SISTEMA:</span> <span>${escapeHtml(sistemaFmt)}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">NUMERO DE FOLHAS:</span> <span>${nFolhas} FOLHA${nFolhas > 1 ? 'S' : ''}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">MODELO:</span> <span>${escapeHtml(modeloNome)}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">FECHADURA MECANICA:</span> <span>${escapeHtml(item.fechaduraMecanica || '—')}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('Area Porta','Door Area')}:</span> <span>${fmtBR(areaM2)} m²</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('SISTEMA','SYSTEM')}:</span> <span>${escapeHtml(sistemaFmt)}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('NUMERO DE FOLHAS','NUMBER OF LEAVES')}:</span> <span>${nFolhas} ${tr('FOLHA','LEAF')}${nFolhas > 1 ? (internacional ? 'S' : 'S') : ''}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('MODELO','MODEL')}:</span> <span>${escapeHtml(modeloNome)}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('FECHADURA MECANICA','MECHANICAL LOCK')}:</span> <span>${escapeHtml(item.fechaduraMecanica || '—')}</span></div>
           </div>
           ${bannerFechDigital}
           <div class="rel-prop-item-linhas">
@@ -11255,18 +11260,18 @@ const Orcamento = (() => {
               const ehMod23AM = m === 23 && /aluminio.*macico/.test(rev) && /2\s*mm/.test(rev);
               if (ehMod23AM) {
                 return `
-                  <div class="rel-prop-item-linha"><span class="lbl">CHAPA ACM ACABAMENTO EXTERNO:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
-                  <div class="rel-prop-item-linha"><span class="lbl">CHAPA ACM ACABAMENTO INTERNO:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
-                  <div class="rel-prop-item-linha"><span class="lbl">CHAPA AM EXTERNA:</span> <span>${escapeHtml(item.corChapaAM_Ext || '—')}</span></div>
-                  <div class="rel-prop-item-linha"><span class="lbl">CHAPA AM INTERNA:</span> <span>${escapeHtml(item.corChapaAM_Int || '—')}</span></div>
+                  <div class="rel-prop-item-linha"><span class="lbl">${tr('CHAPA ACM ACABAMENTO EXTERNO','ACM SHEET EXTERIOR FINISH')}:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
+                  <div class="rel-prop-item-linha"><span class="lbl">${tr('CHAPA ACM ACABAMENTO INTERNO','ACM SHEET INTERIOR FINISH')}:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
+                  <div class="rel-prop-item-linha"><span class="lbl">${tr('CHAPA AM EXTERNA','AM SHEET EXTERIOR')}:</span> <span>${escapeHtml(item.corChapaAM_Ext || '—')}</span></div>
+                  <div class="rel-prop-item-linha"><span class="lbl">${tr('CHAPA AM INTERNA','AM SHEET INTERIOR')}:</span> <span>${escapeHtml(item.corChapaAM_Int || '—')}</span></div>
                 `;
               }
               return `
-                <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA EXTERNA:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
-                <div class="rel-prop-item-linha"><span class="lbl">COR CHAPA INTERNA:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
+                <div class="rel-prop-item-linha"><span class="lbl">${tr('COR CHAPA EXTERNA','EXTERIOR SHEET COLOR')}:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
+                <div class="rel-prop-item-linha"><span class="lbl">${tr('COR CHAPA INTERNA','INTERIOR SHEET COLOR')}:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
               `;
             })()}
-            <div class="rel-prop-item-linha"><span class="lbl">CILINDRO:</span> <span>${escapeHtml(item.cilindro || '—')}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('CILINDRO','CYLINDER')}:</span> <span>${escapeHtml(item.cilindro || '—')}</span></div>
           </div>
           ${(() => {
             // Caracteristicas do modelo (so se preenchidas)

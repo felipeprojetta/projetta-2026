@@ -86,6 +86,15 @@
       }
     }
 
+    // Felipe sessao 31: detecta lead internacional pra traduzir labels do header.
+    const internacional = lead && lead.destinoTipo === 'internacional';
+    const tr = (pt, en) => internacional ? en : pt;
+
+    // 'PROJETTA (venda interna)' tambem vira EN se internacional
+    if (vendedor === 'PROJETTA (venda interna)' && internacional) {
+      vendedor = 'PROJETTA (internal sales)';
+    }
+
     return `
       <div class="rel-header-wrap">
         <!-- Bloco 1: Logo + dados da empresa -->
@@ -110,19 +119,19 @@
         <table class="rel-header-cliente-table">
           <tbody>
             <tr>
-              <th>Obra:</th>
+              <th>${tr('Obra:','Project:')}</th>
               <td>${escapeHtml(agp)}</td>
-              <th>Reserva:</th>
+              <th>${tr('Reserva:','Reservation:')}</th>
               <td>${escapeHtml(reserva)}</td>
             </tr>
             <tr>
-              <th>Cliente:</th>
+              <th>${tr('Cliente:','Customer:')}</th>
               <td colspan="3">${escapeHtml(cliente)}</td>
             </tr>
             <tr>
-              <th>Cidade:</th>
+              <th>${tr('Cidade:','City:')}</th>
               <td>${escapeHtml(cidadeUf)}</td>
-              <th>Representante:</th>
+              <th>${tr('Representante:','Representative:')}</th>
               <td>${escapeHtml(vendedor)}</td>
             </tr>
           </tbody>
@@ -130,9 +139,9 @@
 
         <!-- Bloco 4: Banner de validade + emissao -->
         <div class="rel-header-validade">
-          <span class="rel-header-validade-emissao">Emitido por ${escapeHtml(window.Auth?.usuarioAtual?.()?.nome || 'Sistema')}
-            em ${dataEmissao}, as ${horaEmissao}</span>
-          <span class="rel-header-validade-prazo">Validade: ${validade} dias uteis</span>
+          <span class="rel-header-validade-emissao">${tr('Emitido por','Issued by')} ${escapeHtml(window.Auth?.usuarioAtual?.()?.nome || 'Sistema')}
+            ${tr('em','on')} ${dataEmissao}, ${tr('as','at')} ${horaEmissao}</span>
+          <span class="rel-header-validade-prazo">${tr('Validade','Validity')}: ${validade} ${tr('dias uteis','business days')}</span>
         </div>
       </div>
     `;
