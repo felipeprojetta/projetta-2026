@@ -2388,6 +2388,10 @@ const Orcamento = (() => {
       quantidade: 1,
       largura: '',
       altura: '',
+      // Felipe sessao 31: largura da parede (espessura) — campo
+      // informativo nas Caracteristicas. Pode ser usado em peças
+      // futuras (vedações que dependem da parede).
+      larguraParede: '',
       modeloNumero: 1,
       // Felipe sessao 31: 3 folgas UNIFICADAS (igual porta externa), defaults 5
       //   fglEsq → desconto na largura (esquerda)
@@ -4756,6 +4760,10 @@ const Orcamento = (() => {
             <div class="orc-field orc-f-dim">
               <label>Altura (mm)</label>
               <input type="text" data-field="altura" value="${item.altura ? escapeHtml(String(item.altura)) : ''}" placeholder="" />
+            </div>
+            <div class="orc-field orc-f-dim">
+              <label>Largura da Parede (mm)</label>
+              <input type="text" data-field="larguraParede" value="${item.larguraParede ? escapeHtml(String(item.larguraParede)) : ''}" placeholder="ex: 150" title="Espessura da parede. Informativo." />
             </div>
             <div class="orc-field orc-f-modelo">
               <label>Modelo</label>
