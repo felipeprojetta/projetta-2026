@@ -8358,16 +8358,6 @@ const Orcamento = (() => {
               </div>
             </div>
           ` : ''}
-          <div style="margin-top:10px; padding:14px 16px; background:#0c5485; color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:space-between;">
-            <div>
-              <div style="font-size:12px; opacity:0.85;">CLIENTE PAGA (porta + instalacao${freteIntlBrl > 0 ? ' + frete ' + escapeHtml(incoterm) : ''})</div>
-              <div style="font-size:11px; opacity:0.7;">R$ ${fmtBR(r.pFatReal)} (porta) + R$ ${fmtBR(instSepDRE.precoFinal)} (instal.)${freteIntlBrl > 0 ? ' + R$ ' + fmtBR(freteIntlBrl) + ' (frete)' : ''}</div>
-            </div>
-            <div style="font-size:22px; font-weight:700; text-align:right;">
-              R$ ${fmtBR(totalCliente)}
-              ${usdOk ? `<div style="font-size:14px; opacity:0.85; font-weight:600;">${fmtUSD(totalCliente / taxaDRE)}</div>` : ''}
-            </div>
-          </div>
         `;
         })() : ''}
 
@@ -8426,8 +8416,14 @@ const Orcamento = (() => {
                               + (inclui.maritimo  ? marUsd  : 0)
                               + (inclui.caixa     ? caixaUsd: 0)
                               + (inclui.seguro    ? seguroUsd:0);
-          const totalFinalBrl = r.pFatReal + (totalFreteUsd * taxa);
-          const totalFinalUsd = (r.pFatReal / taxa) + totalFreteUsd;
+          // Felipe sessao 31: 'passe o valor maior claro para a parte de
+          // baixo nao em cima'. Inclui a instalacao na faixa CLIENTE PAGA
+          // final do desdobramento, gerando o TOTAL final (porta + frete
+          // + instalacao) AQUI EMBAIXO, em vez de na faixa logo apos a
+          // Conferencia (que era em cima).
+          const instSepBrl = instSepDRE ? instSepDRE.precoFinal : 0;
+          const totalFinalBrl = r.pFatReal + (totalFreteUsd * taxa) + instSepBrl;
+          const totalFinalUsd = (r.pFatReal / taxa) + totalFreteUsd + (instSepBrl / taxa);
 
           return `
             <div class="orc-section" style="margin-top:18px; padding:16px; background:#eff8ff; border:2px solid #0c5485; border-radius:8px;">
@@ -8451,16 +8447,17 @@ const Orcamento = (() => {
               ${linha('🚛 Frete terrestre Uberlandia → Santos', terrUsd, inclui.terrestre)}
               ${linha('🚢 Frete maritimo ' + (lead.freteModal || 'LCL'), marUsd, inclui.maritimo)}
               ${linha('🛡️ Seguro maritimo (0,5% × valor × 110%)', seguroUsd, inclui.seguro)}
+              ${instSepBrl > 0 ? linha('🔧 Instalacao (cobrada separado, margem ' + (instSepDRE ? instSepDRE.lucroPct : 10) + '%)', instSepBrl / taxa, true) : ''}
               <div style="margin-top:12px; padding:12px 14px; background:#0c5485; color:#fff; border-radius:6px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                  <span style="font-size:11px; opacity:0.8;">TOTAL FRETE+CAIXA+SEGURO (incluso)</span>
-                  <span style="font-size:13px; font-weight:600;">${fmtUsd(totalFreteUsd)} &middot; ${fmtBRL2(totalFreteUsd)}</span>
+                  <span style="font-size:11px; opacity:0.8;">TOTAL FRETE+CAIXA+SEGURO${instSepBrl > 0 ? '+INSTALACAO' : ''} (incluso)</span>
+                  <span style="font-size:13px; font-weight:600;">${fmtUsd(totalFreteUsd + (instSepBrl / taxa))} &middot; R$ ${fmtBR((totalFreteUsd * taxa) + instSepBrl)}</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px solid rgba(255,255,255,0.3);">
-                  <span style="font-size:13px; font-weight:600;">CLIENTE PAGA (com ${escapeHtml(incoterm)})</span>
+                  <span style="font-size:14px; font-weight:700;">CLIENTE PAGA (porta + frete ${escapeHtml(incoterm)}${instSepBrl > 0 ? ' + instalacao' : ''})</span>
                   <div style="text-align:right;">
-                    <div style="font-size:17px; font-weight:700;">${fmtUsd(totalFinalUsd)}</div>
-                    <div style="font-size:13px; opacity:0.9;">R$ ${fmtBR(totalFinalBrl)}</div>
+                    <div style="font-size:22px; font-weight:700;">R$ ${fmtBR(totalFinalBrl)}</div>
+                    <div style="font-size:14px; opacity:0.9; font-weight:600;">${fmtUsd(totalFinalUsd)}</div>
                   </div>
                 </div>
               </div>
