@@ -6915,6 +6915,67 @@ const Orcamento = (() => {
         `;
       })() : ''}
 
+      <!-- ========== Felipe sessao 31: CUSTOS INTERNACIONAIS ========== 
+           So' aparece se o lead esta marcado como destino=Internacional.
+           Mostra caixa fumigada + frete terrestre + frete maritimo em R$ + USD. -->
+      ${(() => {
+        const lead = lerLeadAtivo();
+        if (!lead || lead.destinoTipo !== 'internacional') return '';
+        const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+        const a = Number(lead.caixaAltura) || 0;
+        const e = Number(lead.caixaEspessura) || 0;
+        const c = Number(lead.caixaComprimento) || 0;
+        const m3 = (a * e * c) / 1e9;
+        const caixaUsd = (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
+        const terrUsd  = Number(lead.freteTerrestreUsd) || 0;
+        const marUsd   = Number(lead.freteMaritimoUsd)  || 0;
+        const totalUsd = caixaUsd + terrUsd + marUsd;
+        const fmtUsd = v => 'USD ' + v.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+        const fmtBRL = v => taxa > 0 ? 'R$ ' + (v * taxa).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }) : '—';
+        const incoterm = lead.freteIncoterm || 'FOB';
+        const modal    = lead.freteModal    || 'LCL';
+        const regiao   = lead.freteRegiao   || '—';
+        return `
+          <div class="orc-section-card" style="background:#eff8ff; border:1px solid #b8dbff;">
+            <div class="orc-section-title" style="color:#0c5485;">🚢 Custos Internacionais</div>
+            <p class="orc-helptext">
+              Origem: <b>Uberlandia / Brasil</b> · Destino: <b>${escapeHtml(lead.destinoPais || '—')}</b> ·
+              Incoterm <b>${escapeHtml(incoterm)}</b> · Modal <b>${escapeHtml(modal)}</b>
+              ${modal === 'FCL' ? '· Container <b>' + escapeHtml(lead.freteContainer || '40HC') + '</b>' : ''}
+              ${taxa > 0 ? '· Taxa USD ' + taxa.toFixed(4) : '· Taxa USD nao configurada'}
+            </p>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:8px;">
+              <div style="background:#fff; border:1px solid #cfd8e3; border-radius:6px; padding:10px;">
+                <div style="font-size:10px; color:#888; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">📦 Caixa Fumigada</div>
+                <div style="font-size:11px; color:#666;">Vol: ${m3.toFixed(3)} m³</div>
+                <div style="font-size:15px; font-weight:700; color:#0c5485; margin-top:4px;">${fmtUsd(caixaUsd)}</div>
+                <div style="font-size:12px; color:#155724;">${fmtBRL(caixaUsd)}</div>
+              </div>
+              <div style="background:#fff; border:1px solid #cfd8e3; border-radius:6px; padding:10px;">
+                <div style="font-size:10px; color:#888; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">🚛 Frete Terrestre</div>
+                <div style="font-size:11px; color:#666;">Uberlandia → Santos</div>
+                <div style="font-size:15px; font-weight:700; color:#0c5485; margin-top:4px;">${fmtUsd(terrUsd)}</div>
+                <div style="font-size:12px; color:#155724;">${fmtBRL(terrUsd)}</div>
+              </div>
+              <div style="background:#fff; border:1px solid #cfd8e3; border-radius:6px; padding:10px;">
+                <div style="font-size:10px; color:#888; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">🚢 Frete Maritimo ${modal}</div>
+                <div style="font-size:11px; color:#666;">${escapeHtml(regiao)}</div>
+                <div style="font-size:15px; font-weight:700; color:#0c5485; margin-top:4px;">${fmtUsd(marUsd)}</div>
+                <div style="font-size:12px; color:#155724;">${fmtBRL(marUsd)}</div>
+              </div>
+            </div>
+            <div style="margin-top:10px; padding:10px 12px; background:#0c5485; color:#fff; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:13px; font-weight:600;">TOTAL CUSTOS INTERNACIONAIS</span>
+              <span style="font-size:16px; font-weight:700;">${fmtUsd(totalUsd)} ${taxa > 0 ? ' · ' + fmtBRL(totalUsd) : ''}</span>
+            </div>
+            <p class="orc-helptext" style="margin-top:8px;">
+              Valores editaveis no card do lead (CRM). Estes custos entram no DRE conforme o
+              incoterm escolhido: EXW = nada · FOB = caixa + terrestre · CIF/CIP = +maritimo +seguro · DAP/DDP = entrega no destino.
+            </p>
+          </div>
+        `;
+      })()}
+
       <!-- ========== INSTALACAO — 10 regras ========== -->
       <div class="orc-section-card">
         <div class="orc-fi-inst-header">
