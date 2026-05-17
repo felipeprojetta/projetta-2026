@@ -6949,6 +6949,38 @@ const Orcamento = (() => {
               <input type="text" data-field="inst_terceiros_transp" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.inst_terceiros_transp))}" />
             </div>
           </div>
+          ${inst.modo === 'internacional' ? `
+            <!-- Felipe sessao 31: links rapidos pra cotar passagens (Decolar) e hotel (Booking).
+                 Felipe preenche os 2 campos acima manualmente apos cotar nos sites. -->
+            <div class="orc-fi-inst-links" style="margin-top:10px; padding:10px 12px; background:#f0f7ff; border:1px solid #cfe2ff; border-radius:6px;">
+              <div style="font-size:11px; font-weight:600; color:#0c5485; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">
+                🌐 Cotar custos da viagem
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <a href="https://www.decolar.com/passagens-aereas" target="_blank" rel="noopener"
+                   style="display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:#fff; border:1px solid #cfe2ff; border-radius:6px; color:#0c5485; text-decoration:none; font-size:12px; font-weight:500; transition:all 0.2s;"
+                   onmouseover="this.style.background='#0c5485'; this.style.color='#fff';"
+                   onmouseout="this.style.background='#fff'; this.style.color='#0c5485';">
+                  ✈️ Decolar &middot; Passagens aereas
+                </a>
+                <a href="https://www.booking.com" target="_blank" rel="noopener"
+                   style="display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:#fff; border:1px solid #cfe2ff; border-radius:6px; color:#0c5485; text-decoration:none; font-size:12px; font-weight:500; transition:all 0.2s;"
+                   onmouseover="this.style.background='#003580'; this.style.color='#fff';"
+                   onmouseout="this.style.background='#fff'; this.style.color='#0c5485';">
+                  🏨 Booking &middot; Hoteis
+                </a>
+                <a href="https://www.google.com/flights" target="_blank" rel="noopener"
+                   style="display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:#fff; border:1px solid #cfe2ff; border-radius:6px; color:#0c5485; text-decoration:none; font-size:12px; font-weight:500; transition:all 0.2s;"
+                   onmouseover="this.style.background='#1a73e8'; this.style.color='#fff';"
+                   onmouseout="this.style.background='#fff'; this.style.color='#0c5485';">
+                  🔎 Google Flights
+                </a>
+              </div>
+              <div style="font-size:10px; color:#5a7a99; margin-top:6px;">
+                Depois de cotar nos sites, preencha os valores acima manualmente.
+              </div>
+            </div>
+          ` : ''}
         ` : `
           <p class="orc-helptext">Equipe propria. Componentes calculados automaticamente; preenchimento manual apenas onde indicado.</p>
 
