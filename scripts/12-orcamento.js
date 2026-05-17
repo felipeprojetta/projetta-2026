@@ -335,11 +335,14 @@ const Orcamento = (() => {
 
   // Felipe sessao 31: tarifas padrao da viagem internacional (Pasta3.xlsx).
   // Valores aplicados como default quando o usuario nao preencheu manualmente.
+  // Felipe correcao sessao 31: 'de udi para gru vamos de carro que ja estava
+  // na planilha 2 mil reais'. UDI-GRU NAO multiplica por pessoa (1 carro pra
+  // todo o time). GRU-Destino e' passagem aerea, por pessoa.
   const INTL_TARIFAS_DEFAULT = {
-    passagem_udi_gru:  2000,    // R$/pessoa (Uberlandia → Sao Paulo)
-    passagem_gru_dest: 10000,   // R$/pessoa (Sao Paulo → destino internacional)
+    passagem_udi_gru:  2000,    // R$/VIAGEM (1 carro toda equipe - ida+volta)
+    passagem_gru_dest: 10000,   // R$/pessoa (passagem aerea ida+volta)
     hotel_dia:         1700,    // R$/dia
-    carro_dia:          850,    // R$/dia
+    carro_dia:          850,    // R$/dia (aluguel de carro no destino)
     alimentacao_pdia:   300,    // R$/pessoa/dia
     seguro_pessoa:      300,    // R$/pessoa
     mao_obra_dia:       500,    // R$/dia (mao de obra Projetta)
@@ -348,12 +351,20 @@ const Orcamento = (() => {
   /**
    * Calcula custos da viagem internacional a partir dos parametros do INST.
    * Retorna o desdobramento detalhado + total geral em R$.
+   *
+   * REGRAS DE MULTIPLICACAO:
+   *   passagens_udi_gru  = udi_gru × nInst       (1 carro p/ toda equipe)
+   *   passagens_gru_dest = pessoas × gru_dest × nInst
+   *   hotel              = dias × hotel_dia × nInst
+   *   carro              = dias × carro_dia × nInst
+   *   alimentacao        = pessoas × dias × alim × nInst
+   *   seguro             = pessoas × seguro × nInst
+   *   mao_obra           = dias × mao_obra × nInst
    */
   function calcularCustosViagemInternacional(inst) {
     const pessoas = Number(inst.intl_pessoas) || 0;
     const dias    = Number(inst.intl_dias) || 0;
     const nInst   = Number(inst.intl_n_instalacoes) || 1;
-    // Tarifas: usa valor manual se preenchido, senao default
     const t = INTL_TARIFAS_DEFAULT;
     const tar = {
       udi_gru:    Number(inst.intl_passagem_udi_gru)  || t.passagem_udi_gru,
@@ -365,7 +376,7 @@ const Orcamento = (() => {
       mao_obra:   Number(inst.intl_mao_obra_dia)      || t.mao_obra_dia,
     };
     const itens = {
-      passagens_udi_gru:  pessoas * tar.udi_gru  * nInst,
+      passagens_udi_gru:  tar.udi_gru * nInst,                      // ✏️ NAO multiplica por pessoa
       passagens_gru_dest: pessoas * tar.gru_dest * nInst,
       hotel:              dias * tar.hotel       * nInst,
       carro:              dias * tar.carro       * nInst,
@@ -7180,15 +7191,15 @@ const Orcamento = (() => {
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 12px;">
                   <div class="orc-field">
-                    <label>✈️ Passagem UDI → GRU</label>
+                    <label>🚗 UDI → GRU (carro, ida+volta)</label>
                     <div style="display:flex; gap:4px; align-items:center;">
                       <span style="font-size:11px; color:#666;">R$</span>
                       <input type="number" min="0" step="100" data-field="intl_passagem_udi_gru" data-inst="1" value="${escapeHtml(v.intl_passagem_udi_gru || '')}" placeholder="${t.passagem_udi_gru}" style="flex:1; box-sizing:border-box;" />
-                      <span style="font-size:10px; color:#999;">/pessoa</span>
+                      <span style="font-size:10px; color:#999;">/viagem</span>
                     </div>
                   </div>
                   <div class="orc-field">
-                    <label>✈️ Passagem GRU → Destino</label>
+                    <label>✈️ Passagem GRU → Destino (aerea, ida+volta)</label>
                     <div style="display:flex; gap:4px; align-items:center;">
                       <span style="font-size:11px; color:#666;">R$</span>
                       <input type="number" min="0" step="500" data-field="intl_passagem_gru_dest" data-inst="1" value="${escapeHtml(v.intl_passagem_gru_dest || '')}" placeholder="${t.passagem_gru_dest}" style="flex:1; box-sizing:border-box;" />
@@ -7241,41 +7252,60 @@ const Orcamento = (() => {
               <!-- Resumo calculado automaticamente -->
               <div style="background:#ecfdf5; border:2px solid #34d399; border-radius:6px; padding:12px;">
                 <div style="font-size:11px; font-weight:700; color:#065f46; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
-                  📊 Calculo Automatico (${viagem.pessoas} pessoas · ${viagem.dias} dias · ${viagem.nInst} instal.)
+                  📊 Calculo Automatico (${viagem.pessoas} pessoas · ${viagem.dias} dias · ${viagem.nInst} instal.) ${(() => {
+                    const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+                    return taxa > 0 ? `<span style="font-size:10px; font-weight:500; color:#888;">· USD ${taxa.toFixed(4)} (PTAX)</span>` : '<span style="font-size:10px; font-weight:500; color:#dc2626;">· ⚠️ taxa USD nao configurada</span>';
+                  })()}
                 </div>
-                <div style="font-size:12px;">
-                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
-                    <span>✈️ Passagens UDI-GRU (${viagem.pessoas} × R$ ${viagem.tarifasAplicadas.udi_gru.toLocaleString('pt-BR')})</span>
-                    <strong>R$ ${viagem.itens.passagens_udi_gru.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
-                    <span>✈️ Passagens GRU-Destino (${viagem.pessoas} × R$ ${viagem.tarifasAplicadas.gru_dest.toLocaleString('pt-BR')})</span>
-                    <strong>R$ ${viagem.itens.passagens_gru_dest.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
-                    <span>🏨 Hotel (${viagem.dias} dias × R$ ${viagem.tarifasAplicadas.hotel.toLocaleString('pt-BR')})</span>
-                    <strong>R$ ${viagem.itens.hotel.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
-                    <span>🚗 Carro (${viagem.dias} dias × R$ ${viagem.tarifasAplicadas.carro.toLocaleString('pt-BR')})</span>
-                    <strong>R$ ${viagem.itens.carro.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
-                    <span>🍽️ Alimentacao (${viagem.pessoas} × ${viagem.dias} × R$ ${viagem.tarifasAplicadas.alim.toLocaleString('pt-BR')})</span>
-                    <strong>R$ ${viagem.itens.alimentacao.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
-                    <span>🛡️ Seguro (${viagem.pessoas} × R$ ${viagem.tarifasAplicadas.seguro.toLocaleString('pt-BR')})</span>
-                    <strong>R$ ${viagem.itens.seguro.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
-                    <span>👷 Mao de obra Projetta (${viagem.dias} dias × R$ ${viagem.tarifasAplicadas.mao_obra.toLocaleString('pt-BR')})</span>
-                    <strong>R$ ${viagem.itens.mao_obra.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; padding:8px 0 0; margin-top:4px; border-top:2px solid #34d399; font-weight:700; font-size:14px; color:#065f46;">
-                    <span>TOTAL INSTALACAO INTERNACIONAL</span>
-                    <span>R$ ${viagem.total.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
-                  </div>
+                ${(() => {
+                  const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+                  const fmtBR = v => v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+                  const fmtUsd = v => taxa > 0 ? `<span style="color:#0c5485; margin-left:6px; font-size:11px;">(USD ${(v / taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})})</span>` : '';
+                  const linhaResumo = (label, calc, total) => `
+                    <div style="display:grid; grid-template-columns:1fr auto; gap:8px; padding:4px 0; border-bottom:1px solid #d1fae5; align-items:center;">
+                      <div>
+                        <div style="font-size:12px;">${label}</div>
+                        <div style="font-size:10px; color:#888; font-family:'Courier New',monospace;">${calc}</div>
+                      </div>
+                      <div style="text-align:right;">
+                        <strong style="font-size:12px;">R$ ${fmtBR(total)}</strong>
+                        ${fmtUsd(total)}
+                      </div>
+                    </div>
+                  `;
+                  return [
+                    linhaResumo('🚗 UDI → GRU (carro, ida+volta)',
+                                `1 viagem × R$ ${fmtBR(viagem.tarifasAplicadas.udi_gru)} × ${viagem.nInst} instal.`,
+                                viagem.itens.passagens_udi_gru),
+                    linhaResumo('✈️ Passagem GRU → Destino',
+                                `${viagem.pessoas}p × R$ ${fmtBR(viagem.tarifasAplicadas.gru_dest)} × ${viagem.nInst} instal.`,
+                                viagem.itens.passagens_gru_dest),
+                    linhaResumo('🏨 Hotel',
+                                `${viagem.dias}d × R$ ${fmtBR(viagem.tarifasAplicadas.hotel)} × ${viagem.nInst} instal.`,
+                                viagem.itens.hotel),
+                    linhaResumo('🚙 Carro (aluguel no destino)',
+                                `${viagem.dias}d × R$ ${fmtBR(viagem.tarifasAplicadas.carro)} × ${viagem.nInst} instal.`,
+                                viagem.itens.carro),
+                    linhaResumo('🍽️ Alimentacao',
+                                `${viagem.pessoas}p × ${viagem.dias}d × R$ ${fmtBR(viagem.tarifasAplicadas.alim)} × ${viagem.nInst} inst.`,
+                                viagem.itens.alimentacao),
+                    linhaResumo('🛡️ Seguro saude',
+                                `${viagem.pessoas}p × R$ ${fmtBR(viagem.tarifasAplicadas.seguro)} × ${viagem.nInst} instal.`,
+                                viagem.itens.seguro),
+                    linhaResumo('👷 Mao de obra Projetta',
+                                `${viagem.dias}d × R$ ${fmtBR(viagem.tarifasAplicadas.mao_obra)} × ${viagem.nInst} instal.`,
+                                viagem.itens.mao_obra),
+                  ].join('');
+                })()}
+                <div style="display:grid; grid-template-columns:1fr auto; gap:8px; padding:10px 0 0; margin-top:4px; border-top:2px solid #34d399; font-weight:700; font-size:14px; color:#065f46;">
+                  <span>TOTAL INSTALACAO INTERNACIONAL</span>
+                  <span style="text-align:right;">
+                    R$ ${viagem.total.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}
+                    ${(() => {
+                      const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+                      return taxa > 0 ? `<div style="font-size:12px; color:#0c5485; font-weight:600;">USD ${(viagem.total / taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>` : '';
+                    })()}
+                  </span>
                 </div>
                 ${viagem.nInst > 1 ? `
                   <div style="margin-top:8px; padding:6px 10px; background:#fff; border-left:3px solid #0c5485; font-size:11px; color:#0c5485;">
