@@ -244,11 +244,13 @@ const AcessoriosPortaExterna = (() => {
     //    'PA-QL 48750 em metros fica em acessorios.
     //     Largura do vao + 2x altura do vao' (1 lado + 2 verticais).
     //    Multiplica por qtdPortas (varias portas iguais).
+    //    Felipe sessao 31 (correcao): 'arredonde nao deixe numero picado' —
+    //    arredonda PRA CIMA pro proximo metro inteiro.
     if (larguraVaoPI > 0 && alturaVaoPI > 0) {
       const metrosQL = ((larguraVaoPI + 2 * alturaVaoPI) / 1000) * qtdPortas;
       const acessQL  = buscarAcessorio(cadastroAcessorios, 'PA-QL 48750');
-      // Felipe: 'em metros' -> qtd em metros lineares (com 2 casas), unidade='m'
-      const qtdM = Math.round(metrosQL * 100) / 100;
+      // Math.ceil pra subir pro proximo metro inteiro (sem ficar 5,14)
+      const qtdM = Math.ceil(metrosQL);
       if (acessQL) {
         const precoUn = Number(acessQL.preco) || 0;
         linhas.push({
@@ -263,7 +265,8 @@ const AcessoriosPortaExterna = (() => {
           aplicacao: 'fab',
           observacao: 'L + 2×A = ' + larguraVaoPI + ' + 2×' + alturaVaoPI
                       + ' = ' + (larguraVaoPI + 2 * alturaVaoPI) + 'mm/porta · '
-                      + qtdPortas + ' porta(s) = ' + qtdM + 'm',
+                      + qtdPortas + ' porta(s) = ' + metrosQL.toFixed(2)
+                      + 'm → arredondado ' + qtdM + 'm',
         });
       } else {
         linhas.push({
@@ -276,7 +279,8 @@ const AcessoriosPortaExterna = (() => {
           total:     0,
           categoria: 'Vedacoes',
           aplicacao: 'fab',
-          observacao: qtdM + 'm necessarios · CADASTRAR EM ACESSORIOS',
+          observacao: metrosQL.toFixed(2) + 'm → arredondado ' + qtdM
+                      + 'm necessarios · CADASTRAR EM ACESSORIOS',
         });
       }
     }
@@ -310,6 +314,26 @@ const AcessoriosPortaExterna = (() => {
     let breakdownFD19 = [];
     let breakdownFD12 = [];
     let breakdownHIGHTACK = [];
+
+    // Felipe sessao 31: entradas do _fitaSiliconeBreakdownCache pra o
+    // demonstrativo renderBreakdownInline em 12-orcamento.js.
+    // Cada entrada tem mesma forma do motor da porta externa:
+    //   { origem, metros, mult: {fd19,fd12,ms,cps,hightack},
+    //     contrib: {fd19,fd12,ms,cps,hightack} }
+    const _breakdownPI = [];
+    function _pushBreakdown(origem, metrosFonte, mult) {
+      const fd19 = (mult.fd19 || 0) * metrosFonte;
+      const fd12 = (mult.fd12 || 0) * metrosFonte;
+      const ms   = (mult.ms   || 0) * metrosFonte;
+      const ht   = (mult.hightack || 0) * metrosFonte;
+      _breakdownPI.push({
+        origem,
+        metros: metrosFonte,
+        mult: { fd19: mult.fd19 || 0, fd12: mult.fd12 || 0,
+                ms: mult.ms || 0, cps: 0, hightack: mult.hightack || 0 },
+        contrib: { fd19, fd12, ms, cps: 0, hightack: ht },
+      });
+    }
 
     if (larguraVaoPI > 0 && alturaVaoPI > 0) {
       const fglEsqPI = _toNumPI(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5);
@@ -362,10 +386,20 @@ const AcessoriosPortaExterna = (() => {
 
       // 995 das TRAVESSAS (2x por travessa)
       if (compTravMm > 0) {
-        const m = 2 * (compTravMm / 1000) * qtdTravPorPorta * qtdPortas;
+        const compTravM = compTravMm / 1000;
+        // Linha do breakdown: representa o TOTAL de travessas como
+        // "metros" da fonte (qtd_travessas * comp) e mult.ms = 2.
+        // ms = 2 * (qtd_trav_total * compM) = m^2 visualizados igual porta externa.
+        const qtdTravTotal = qtdTravPorPorta * qtdPortas;
+        const metrosFonteTrav = qtdTravTotal * compTravM;
+        _pushBreakdown(
+          'Travessas verticais (' + qtdTravTotal + 'un × ' + compTravM.toFixed(3) + 'm)',
+          metrosFonteTrav,
+          { ms: 2 }
+        );
+        const m = 2 * metrosFonteTrav;
         metros995 += m;
-        breakdown995.push((2 * qtdTravPorPorta * qtdPortas) + ' travessas × '
-                          + (compTravMm / 1000).toFixed(3) + 'm = ' + m.toFixed(2) + 'm');
+        breakdown995.push(qtdTravTotal + ' travessas × ' + compTravM.toFixed(3) + 'm = ' + m.toFixed(2) + 'm');
       }
       // 995 do PERIMETRO das chapas frontais (1x)
       if (perimChapasM > 0) {
@@ -376,23 +410,37 @@ const AcessoriosPortaExterna = (() => {
       if (perimChapasM > 0) {
         metrosFD19 += perimChapasM;
         breakdownFD19.push('Perimetro chapas frontais: ' + perimChapasM.toFixed(2) + 'm');
+        // breakdown unico pra Chapas Frontais: FD19 1x + 995 1x
+        _pushBreakdown(
+          'Perimetro chapas frontais (ext + int)',
+          perimChapasM,
+          { fd19: 1, ms: 1 }
+        );
       }
       // FD12 dos ALISARES chapa (2x comprimento total)
-      if (compAlisarM > 0) {
-        const m = 2 * compAlisarM;
-        metrosFD12 += m;
-        breakdownFD12.push('Alisares chapa: 2× ' + compAlisarM.toFixed(2) + 'm = ' + m.toFixed(2) + 'm');
-      }
       // HIGHTACK dos ALISARES chapa (1x comprimento total)
       if (compAlisarM > 0) {
+        metrosFD12 += 2 * compAlisarM;
+        breakdownFD12.push('Alisares chapa: 2× ' + compAlisarM.toFixed(2) + 'm = ' + (2 * compAlisarM).toFixed(2) + 'm');
         metrosHIGHTACK += compAlisarM;
         breakdownHIGHTACK.push('Alisares chapa: ' + compAlisarM.toFixed(2) + 'm');
+        // breakdown unico: FD12 2x + HighTack 1x
+        _pushBreakdown(
+          'Alisares chapa (4 vert + 2 hor)',
+          compAlisarM,
+          { fd12: 2, hightack: 1 }
+        );
       }
       // HIGHTACK do COMPLEMENTO ALISAR (2x comprimento total)
       if (compComplementoM > 0) {
         const m = 2 * compComplementoM;
         metrosHIGHTACK += m;
         breakdownHIGHTACK.push('Complemento alisar: 2× ' + compComplementoM.toFixed(2) + 'm = ' + m.toFixed(2) + 'm');
+        _pushBreakdown(
+          'Complemento alisar (2 vert + 1 hor)',
+          compComplementoM,
+          { hightack: 2 }
+        );
       }
 
       // ===== Emite Silicone 995 (acumulado: travessas + perim chapas) =====
@@ -487,6 +535,42 @@ const AcessoriosPortaExterna = (() => {
           });
         }
       }
+
+      // Felipe sessao 31: grava cache pro demonstrativo renderBreakdownInline
+      // (12-orcamento.js linha ~15980) ler e mostrar a tabela "📊 Abrir
+      // Detalhamento — Fita Dupla Face e Silicone Estrutural" igual porta
+      // externa. Estrutura identica ao motor da porta externa (linha 1684).
+      try {
+        window._fitaSiliconeBreakdownCache = window._fitaSiliconeBreakdownCache || {};
+        const ckey = item._cacheKey || item.id || ('item_' + Date.now());
+        window._fitaSiliconeBreakdownCache[ckey] = {
+          itemId:    item.id,
+          cacheKey:  ckey,
+          itemTipo:  item.tipo,
+          itemDim:   { L: larguraVaoPI, H: alturaVaoPI, nFolhas: 1, qtdPortas: qtdPortas },
+          totais: {
+            mFD19: metrosFD19, mFD12: metrosFD12, mMS: metros995, mCPS: 0,
+            mFD19_obra: 0, mFD12_obra: 0,
+            mHIGHTACK: metrosHIGHTACK,  // porta interna: tudo 'fab'
+            mHIGHTACK_fab: 0,
+          },
+          rendimentos: {
+            fd19_rolo: fd19PorRolo, fd12_rolo: fd12PorRolo,
+            ms_tubo:   msPorTubo,   cps_sache: msPorTubo,
+            hightack_tubo: hightackPorTubo,
+          },
+          rolosFD19: metrosFD19 > 0 ? Math.ceil(metrosFD19 / fd19PorRolo) : 0,
+          rolosFD12: metrosFD12 > 0 ? Math.ceil(metrosFD12 / fd12PorRolo) : 0,
+          tubosMS:   metros995  > 0 ? Math.ceil(metros995  / msPorTubo)   : 0,
+          sachesCPS: 0,
+          rolosFD19_obra: 0,
+          rolosFD12_obra: 0,
+          tubosHIGHTACK:     metrosHIGHTACK > 0 ? Math.ceil(metrosHIGHTACK / hightackPorTubo) : 0,
+          tubosHIGHTACK_fab: 0,
+          breakdown: _breakdownPI.slice(),
+          ts: Date.now(),
+        };
+      } catch (e) { /* nao crit */ }
     }
 
     return linhas;
