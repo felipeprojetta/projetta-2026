@@ -713,6 +713,15 @@ window.ChapasAproveitamento = (function () {
           // por altura DESC, mantendo grupos
           return porLabel; // ja' ordenado por altura dentro do grupo
         },
+        // 11. Felipe sessao 31: 'sempre tem que deixar as pecas mais
+        // proximas possiveis, se eu acumulo tudo esses pequenos nas
+        // primeiras chapas me sobra mais nas outras, as sobras a gente
+        // aproveita'. Estrategia: GRANDES primeiro (ocupam suas chapas),
+        // PEQUENAS depois TODAS JUNTAS (concentram no fim das primeiras
+        // chapas que ainda tem sobra, em vez de espalhar 1 por chapa).
+        (arr) => concentrarPequenas(arr, 0.30),
+        // 12. Variacao: pequenas = area < 50% da mediana (mais agressivo).
+        (arr) => concentrarPequenas(arr, 0.50),
       ];
 
       for (const estrat of estrategias) {
@@ -883,8 +892,95 @@ window.ChapasAproveitamento = (function () {
     if (naoA !== naoB) return naoA - naoB;
     // Menos chapas e' melhor
     if (a.chapas.length !== b.chapas.length) return a.chapas.length - b.chapas.length;
-    // Tiebreak: maior aproveitamento (menor area total mae)
+    // Felipe sessao 31: 'sempre tem que deixar as pecas mais proximas
+    // possiveis ... as sobras a gente aproveita'. Quando 2 estrategias
+    // empatam em numero de chapas, prefere a que CONCENTRA mais peças
+    // nas primeiras (sobra grande contigua no final em vez de retalhos
+    // espalhados em todas as chapas).
+    //
+    // Score: soma do aproveitamento das (N-1) primeiras chapas.
+    // Quanto MAIOR esse score, mais cheia ficou a parte inicial e
+    // mais "limpa" ficou a ultima chapa pra sobra reutilizavel.
+    const scoreA = somaAproveitamentoIniciais(a);
+    const scoreB = somaAproveitamentoIniciais(b);
+    if (Math.abs(scoreA - scoreB) > 0.001) return scoreB - scoreA;
     return 0;
+  }
+
+  /**
+   * Felipe sessao 31: usado no tiebreak de compararResultados.
+   * Soma o aproveitamento das (N-1) primeiras chapas. Se N=1, retorna
+   * o aproveitamento da unica chapa. Quanto maior, mais concentrado
+   * ficou — peças pequenas espalhadas em todas as chapas baixam essa
+   * soma (varias chapas com pouco uso).
+   */
+  function somaAproveitamentoIniciais(resultado) {
+    const chapas = resultado.chapas || [];
+    if (!chapas.length) return 0;
+    const limite = chapas.length === 1 ? 1 : chapas.length - 1;
+    let soma = 0;
+    for (let i = 0; i < limite; i++) {
+      const c = chapas[i];
+      const areaTotal = (c.dispLarg || 1) * (c.dispAlt || 1);
+      const areaUsada = (c.pecasPosicionadas || []).reduce(
+        (s, p) => s + (p.larg || 0) * (p.alt || 0), 0);
+      soma += areaTotal > 0 ? areaUsada / areaTotal : 0;
+    }
+    return soma;
+  }
+
+  /**
+   * Felipe sessao 31: ordena pecas pra "concentrar pequenas".
+   *
+   * Motivacao: a estrategia de area DESC coloca grandes primeiro e
+   * deixa pequenas como aterro — pequenas espalham 1 por chapa (uma
+   * em cada sobra), gerando retalhos pequenos e dificeis de reusar.
+   *
+   * Esta estrategia:
+   *   1) Classifica pecas em GRANDES e PEQUENAS pela area mediana.
+   *      Pequena = area < (mediana * thresholdMediana).
+   *   2) Grupos GRANDES vem primeiro, ordenados por altura DESC
+   *      (depois largura DESC) — preenchem o topo das chapas.
+   *   3) Grupos PEQUENAS vem depois, todos juntos, ordenados por
+   *      altura DESC + largura DESC — acumulam nas sobras das
+   *      primeiras chapas em fileiras contiguas.
+   *
+   * Resultado: peças pequenas se empilham na 1a/2a chapa nas sobras,
+   * deixando as ultimas chapas mais limpas (ou ate desnecessarias).
+   *
+   * @param {Array} pecas - pecas expandidas
+   * @param {number} thresholdMediana - 0.30 (pequena = < 30% mediana)
+   */
+  function concentrarPequenas(pecas, thresholdMediana) {
+    if (!pecas.length) return [];
+    if (pecas.length === 1) return pecas.slice();
+
+    // Calcula areas e mediana
+    const areas = pecas.map(p => (p.largura || 0) * (p.altura || 0))
+                       .sort((a, b) => a - b);
+    const mediana = areas[Math.floor(areas.length / 2)] || 0;
+    const corteArea = mediana * (Number(thresholdMediana) || 0.30);
+
+    // Particiona em grandes / pequenas
+    const grandes = [];
+    const pequenas = [];
+    pecas.forEach(p => {
+      const area = (p.largura || 0) * (p.altura || 0);
+      if (area >= corteArea) grandes.push(p);
+      else pequenas.push(p);
+    });
+
+    // Grandes: altura DESC + largura DESC (preenchem topo)
+    grandes.sort((a, b) =>
+      (b.altura - a.altura) || (b.largura - a.largura));
+
+    // Pequenas: altura DESC + largura DESC (acumulam nas sobras)
+    pequenas.sort((a, b) =>
+      (b.altura - a.altura) || (b.largura - a.largura));
+
+    // Grandes primeiro, pequenas depois — todas elas em sequencia
+    // pra ficarem contiguas (uma puxa a proxima na mesma sobra).
+    return grandes.concat(pequenas);
   }
 
   /**
