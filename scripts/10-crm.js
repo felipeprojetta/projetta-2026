@@ -232,6 +232,11 @@
       valor: '', etapa: 'qualificacao',
       destinoTipo: 'nacional',
       destinoPais: '',
+      // Felipe sessao 31: caixa de madeira fumigada (1 caixa/orcamento)
+      // pra envio Internacional. So' aparece quando destinoTipo=internacional.
+      caixaAltura: '',      // mm
+      caixaEspessura: '',   // mm
+      caixaComprimento: '', // mm
     };
     function resetModalState() {
       Object.assign(modalState, {
@@ -246,6 +251,7 @@
         valor: '', etapa: 'qualificacao',
         destinoTipo: 'nacional',
         destinoPais: '',
+        caixaAltura: '', caixaEspessura: '', caixaComprimento: '',
         porta_largura: '', porta_altura: '', porta_modelo: '', porta_cor: '',
         porta_fechadura_digital: '',
         porta_quantidade: 1,  // Felipe sessao 12
@@ -274,6 +280,9 @@
         fechadoEm: lead.fechadoEm || '',
         destinoTipo: lead.destinoTipo || 'nacional',
         destinoPais: lead.destinoPais || '',
+        caixaAltura:      lead.caixaAltura      || '',
+        caixaEspessura:   lead.caixaEspessura   || '',
+        caixaComprimento: lead.caixaComprimento || '',
         porta_largura: lead.porta_largura || '',
         porta_altura: lead.porta_altura || '',
         porta_modelo: lead.porta_modelo || '',
@@ -729,6 +738,29 @@
                   </datalist>
                 </div>
               </div>
+
+              <!-- Felipe sessao 31: caixa de madeira fumigada. So' aparece se destino=Internacional.
+                   1 caixa pro orcamento INTEIRO (mesmo se tem 10 portas, e' so' 1 caixa). -->
+              <div id="crm-caixa-fumigada" style="${m.destinoTipo === 'internacional' ? '' : 'display:none;'}; background:#fff8e1; border:1px solid #ffe0a3; border-radius:8px; padding:12px; margin:8px 0;">
+                <div style="font-weight:600; margin-bottom:8px; font-size:13px;">📦 Caixa de Madeira Fumigada (1 por orcamento)</div>
+                <div class="crm-form-row cols-3">
+                  <div class="crm-field">
+                    <label>Altura (mm)</label>
+                    <input type="number" min="0" step="1" data-field="caixaAltura" value="${escapeHtml(m.caixaAltura)}" placeholder="ex.: 2200" />
+                  </div>
+                  <div class="crm-field">
+                    <label>Espessura (mm)</label>
+                    <input type="number" min="0" step="1" data-field="caixaEspessura" value="${escapeHtml(m.caixaEspessura)}" placeholder="ex.: 300" />
+                  </div>
+                  <div class="crm-field">
+                    <label>Comprimento (mm)</label>
+                    <input type="number" min="0" step="1" data-field="caixaComprimento" value="${escapeHtml(m.caixaComprimento)}" placeholder="ex.: 1100" />
+                  </div>
+                </div>
+                <div id="crm-caixa-m3" style="margin-top:6px; font-size:13px; color:#666;">
+                  Volume: <strong id="crm-caixa-m3-valor">—</strong>
+                </div>
+              </div>
               ${(() => {
                 // Felipe (sessao 2026-05): "valor estimado" foi REMOVIDO
                 // do modal de criacao. So' aparece em EDICAO E APENAS se
@@ -960,6 +992,29 @@
         el.addEventListener(evt, (e) => { modalState[el.dataset.field] = e.target.value; });
       });
 
+      // Felipe sessao 31: caixa de madeira fumigada — recalcula m³ quando
+      // qualquer dimensao muda. Formula: A x E x C (em mm) / 1.000.000.000 = m³.
+      function recalcCaixaM3() {
+        const valorEl = container.querySelector('#crm-caixa-m3-valor');
+        if (!valorEl) return;
+        const a = Number(modalState.caixaAltura) || 0;
+        const e = Number(modalState.caixaEspessura) || 0;
+        const c = Number(modalState.caixaComprimento) || 0;
+        if (a > 0 && e > 0 && c > 0) {
+          const m3 = (a * e * c) / 1e9;
+          valorEl.textContent = m3.toFixed(3) + ' m³';
+          valorEl.style.color = '#1f7a3a';
+        } else {
+          valorEl.textContent = '—';
+          valorEl.style.color = '#999';
+        }
+      }
+      ['caixaAltura','caixaEspessura','caixaComprimento'].forEach(f => {
+        const inp = container.querySelector(`input[data-field="${f}"]`);
+        if (inp) inp.addEventListener('input', recalcCaixaM3);
+      });
+      recalcCaixaM3(); // inicial
+
       // Felipe (sessao 2026-05-10): inputs da aba ATP - gravam em
       // modalState.atp = { ... } pra preservar dados originais (AGP).
       container.querySelectorAll('.crm-modal [data-atp-field]').forEach(el => {
@@ -1119,12 +1174,23 @@
       function aplicarDestino(tipo) {
         const paisField = container.querySelector('#crm-field-pais');
         const enderecoBR = container.querySelector('#crm-field-endereco-br');
+        const caixaSection = container.querySelector('#crm-caixa-fumigada');
         if (paisField)  paisField.style.display  = (tipo === 'internacional') ? '' : 'none';
         if (enderecoBR) enderecoBR.style.display = (tipo === 'internacional') ? 'none' : '';
+        // Felipe sessao 31: caixa fumigada so' aparece em Internacional.
+        if (caixaSection) caixaSection.style.display = (tipo === 'internacional') ? '' : 'none';
         if (tipo === 'nacional') {
           modalState.destinoPais = '';
           const paisInput = container.querySelector('input[data-field="destinoPais"]');
           if (paisInput) paisInput.value = '';
+          // Limpa tambem campos da caixa quando vira Nacional
+          modalState.caixaAltura = '';
+          modalState.caixaEspessura = '';
+          modalState.caixaComprimento = '';
+          ['caixaAltura','caixaEspessura','caixaComprimento'].forEach(f => {
+            const el = container.querySelector(`input[data-field="${f}"]`);
+            if (el) el.value = '';
+          });
         } else {
           // Internacional: limpa CEP/Cidade/Estado pra nao gravar dado de outro destino
           modalState.cep = '';
@@ -1466,6 +1532,10 @@
           lead.valor = valorNum;
           lead.destinoTipo = m.destinoTipo || 'nacional';
           lead.destinoPais = m.destinoTipo === 'internacional' ? (m.destinoPais || '') : '';
+          // Felipe sessao 31: caixa de madeira fumigada (so' internacional)
+          lead.caixaAltura      = m.destinoTipo === 'internacional' ? (String(m.caixaAltura      || '').trim()) : '';
+          lead.caixaEspessura   = m.destinoTipo === 'internacional' ? (String(m.caixaEspessura   || '').trim()) : '';
+          lead.caixaComprimento = m.destinoTipo === 'internacional' ? (String(m.caixaComprimento || '').trim()) : '';
           lead.porta_largura = (m.porta_largura || '').trim();
           lead.porta_altura = (m.porta_altura || '').trim();
           lead.porta_modelo = (m.porta_modelo || '').trim();
@@ -1564,6 +1634,11 @@
             etapa: m.etapa,
             destinoTipo: m.destinoTipo || 'nacional',
             destinoPais: m.destinoTipo === 'internacional' ? (m.destinoPais || '') : '',
+            // Felipe sessao 31: caixa de madeira fumigada. Salva so' se
+            // destino=internacional, caso contrario fica vazio.
+            caixaAltura:      m.destinoTipo === 'internacional' ? (String(m.caixaAltura      || '').trim()) : '',
+            caixaEspessura:   m.destinoTipo === 'internacional' ? (String(m.caixaEspessura   || '').trim()) : '',
+            caixaComprimento: m.destinoTipo === 'internacional' ? (String(m.caixaComprimento || '').trim()) : '',
             // Felipe sessao 2026-05: BUG FIX CRITICO - dados da porta
             // do card "Novo Lead" estavam sumindo. Felipe preenchia
             // Largura/Altura/Modelo/Cor/Fechadura e arrastava pra
