@@ -207,17 +207,31 @@ const AcessoriosPortaExterna = (() => {
       });
     }
 
-    // 1) Fechadura — codigo escolhido no form
-    const codFech = String(item.fechaduraInternaCodigo || '').trim();
-    if (codFech) {
-      const cor = String(item.fechaduraInternaCor || '').trim();
-      pushLinha(codFech, 1, 'Fechadura', cor ? ('Cor: ' + cor) : '');
-    }
-
-    // 2) Macaneta (so' modo personalizado)
+    // 1) Fechadura/Maquina + Macaneta + Cilindro
+    //
+    // Felipe sessao 31: dois modos.
+    //   CONJUNTO       -> 1 kit Hafele (PA-FECHINT 911.80.*) que ja' inclui
+    //                     maquina + macaneta + roseta + cilindro.
+    //                     Le item.fechaduraInternaCodigo.
+    //   PERSONALIZADO  -> 3 itens separados (maquina + macaneta + cilindro).
+    //                     A macaneta ja' vem com rosetas integradas, nao
+    //                     precisa de roseta avulsa.
+    //                     Le maquinaInternaCodigo, macanetaInternaCodigo,
+    //                     cilindroInternaCodigo.
     if (item.fechaduraModo === 'personalizado') {
+      const codMaq = String(item.maquinaInternaCodigo || '').trim();
+      if (codMaq) pushLinha(codMaq, 1, 'Maquina/Fechadura', '');
       const codMac = String(item.macanetaInternaCodigo || '').trim();
-      if (codMac) pushLinha(codMac, 1, 'Macaneta', '');
+      if (codMac) pushLinha(codMac, 1, 'Macaneta', 'com rosetas integradas');
+      const codCil = String(item.cilindroInternaCodigo || '').trim();
+      if (codCil) pushLinha(codCil, 1, 'Cilindro', '');
+    } else {
+      // Modo conjunto (default)
+      const codFech = String(item.fechaduraInternaCodigo || '').trim();
+      if (codFech) {
+        const cor = String(item.fechaduraInternaCor || '').trim();
+        pushLinha(codFech, 1, 'Fechadura', cor ? ('Cor: ' + cor) : '');
+      }
     }
 
     // 3) Dobradicas — 3 unidades, variante mais cara do prefixo PA-DOBINVINT.

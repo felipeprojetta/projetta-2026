@@ -2407,10 +2407,14 @@ const Orcamento = (() => {
       corExterna: '',
       corInterna: '',
       // Felipe sessao 31: fechadura com modo conjunto/personalizado
+      // Conjunto: 1 kit Hafele (fechaduraInternaCodigo)
+      // Personalizado: maquina + macaneta + cilindro separados
       fechaduraModo: 'conjunto',
-      fechaduraInternaCodigo: '',
+      fechaduraInternaCodigo: '',  // usado no modo CONJUNTO (kit Hafele)
       fechaduraInternaCor: '',
-      macanetaInternaCodigo: '',
+      maquinaInternaCodigo: '',    // usado no modo PERSONALIZADO (familia Fechadura Mecanica)
+      macanetaInternaCodigo: '',   // usado em PERSONALIZADO (familia Macanetas)
+      cilindroInternaCodigo: '',   // usado em PERSONALIZADO (familia Cilindros)
       dobradicaCor: '',
     };
     if (tipo === 'fixo_acoplado') {
@@ -4706,6 +4710,18 @@ const Orcamento = (() => {
             const fam = String(a.familia || '').toUpperCase();
             return fam.indexOf('MACANETA') >= 0 || fam.indexOf('MAÇANETA') >= 0;
           });
+          // Felipe sessao 31: modo personalizado precisa de 3 listas
+          // separadas (familia exata no cadastro de acessorios).
+          // Kits Hafele (PA-FECHINT 911.*) tem familia "Fechaduras Internas"
+          // e SO aparecem no modo conjunto — sao excluidos das maquinas.
+          const maquinas  = _todosAcessorios.filter(a => {
+            const fam = String(a.familia || '').toUpperCase();
+            return fam.indexOf('FECHADURA MEC') >= 0;
+          });
+          const cilindros = _todosAcessorios.filter(a => {
+            const fam = String(a.familia || '').toUpperCase();
+            return fam.indexOf('CILINDRO') >= 0;
+          });
 
           // 3) Superficies + revestimento
           const cadInt = Storage.scope('cadastros');
@@ -4744,6 +4760,8 @@ const Orcamento = (() => {
           // Modo da fechadura
           const modoFech = item.fechaduraModo || 'conjunto'; // default conjunto
           const semMacanetas = macanetas.length === 0;
+          const semMaquinas  = maquinas.length === 0;
+          const semCilindros = cilindros.length === 0;
 
           return `
         <div class="orc-section">
@@ -4911,24 +4929,35 @@ const Orcamento = (() => {
               </div>`;
             })() : ''}
           ` : `
-            ${semMacanetas ? `
+            ${semMaquinas || semMacanetas || semCilindros ? `
               <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:10px;margin:8px 0;font-size:13px;color:#92400e;">
-                ⚠ Nenhuma macaneta cadastrada para porta interna. Cadastre em <b>Cadastros &gt; Acessorios</b> primeiro.
+                ⚠ Faltam acessorios cadastrados para o modo personalizado:
+                ${semMaquinas ? '<b>Maquinas</b> (familia "Fechadura Mecanica") ' : ''}
+                ${semMacanetas ? '<b>Macanetas</b> (familia "Macanetas/Maçanetas") ' : ''}
+                ${semCilindros ? '<b>Cilindros</b> (familia "Cilindros") ' : ''}
+                — cadastre em <b>Cadastros &gt; Acessorios</b>.
               </div>
             ` : ''}
             <div class="orc-form-row" style="margin-top:8px;">
-              <div class="orc-field" style="grid-column: span 6;">
-                <label>Fechadura</label>
-                <select data-field="fechaduraInternaCodigo">
+              <div class="orc-field" style="grid-column: span 4;">
+                <label>Maquina / Fechadura mecanica</label>
+                <select data-field="maquinaInternaCodigo" ${semMaquinas ? 'disabled' : ''}>
                   <option value=""></option>
-                  ${fechHafele.map(f => `<option value="${escapeHtml(f.codigo)}" ${item.fechaduraInternaCodigo === f.codigo ? 'selected' : ''}>${escapeHtml(f.codigo)} — ${escapeHtml(f.descricao)}</option>`).join('')}
+                  ${maquinas.map(f => `<option value="${escapeHtml(f.codigo)}" ${item.maquinaInternaCodigo === f.codigo ? 'selected' : ''}>${escapeHtml(f.codigo)} — ${escapeHtml(f.descricao)}</option>`).join('')}
                 </select>
               </div>
-              <div class="orc-field" style="grid-column: span 6;">
-                <label>Macaneta</label>
+              <div class="orc-field" style="grid-column: span 4;">
+                <label>Macaneta <span class="orc-hint-auto">com rosetas integradas</span></label>
                 <select data-field="macanetaInternaCodigo" ${semMacanetas ? 'disabled' : ''}>
                   <option value=""></option>
                   ${macanetas.map(m => `<option value="${escapeHtml(m.codigo)}" ${item.macanetaInternaCodigo === m.codigo ? 'selected' : ''}>${escapeHtml(m.codigo)} — ${escapeHtml(m.descricao)}</option>`).join('')}
+                </select>
+              </div>
+              <div class="orc-field" style="grid-column: span 4;">
+                <label>Cilindro</label>
+                <select data-field="cilindroInternaCodigo" ${semCilindros ? 'disabled' : ''}>
+                  <option value=""></option>
+                  ${cilindros.map(c => `<option value="${escapeHtml(c.codigo)}" ${item.cilindroInternaCodigo === c.codigo ? 'selected' : ''}>${escapeHtml(c.codigo)} — ${escapeHtml(c.descricao)}</option>`).join('')}
                 </select>
               </div>
             </div>
