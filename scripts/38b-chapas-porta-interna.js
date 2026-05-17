@@ -8,11 +8,11 @@
  *
  * Felipe sessao 31 — Regras das chapas frontais:
  *   Chapa frontal EXTERNA (lado='externo'):
- *     L = largura_vao - fglEsq - fglDir - 25,5 - 25,5
- *     A = altura_vao  - fgSup           - 25,5 - 12
+ *     L = largura_vao - fglEsq - fglDir - 38,5 - 38,5
+ *     A = altura_vao  - fgSup           - 38,5 - 12
  *   Chapa frontal INTERNA (lado='interno'):
- *     L = largura_vao - fglEsq - fglDir - 37,5 - 37,5
- *     A = altura_vao  - fgSup           - 37,5 - 12
+ *     L = largura_vao - fglEsq - fglDir - 26,5 - 26,5
+ *     A = altura_vao  - fgSup           - 26,5 - 12
  *
  *   Folgas unificadas (fglEsq/fglDir/fgSup) com fallback 5 (igual motor de perfis).
  *
@@ -58,9 +58,9 @@ const ChapasPortaInterna = (() => {
     const pecas = [];
 
     if (lado === 'externo') {
-      // Chapa frontal externa: recortes -25,5 -25,5 (largura) e -25,5 -12 (altura)
-      const L = larguraVao - fglEsq - fglDir - 25.5 - 25.5;
-      const A = alturaVao  - fgSup           - 25.5 - 12;
+      // Chapa frontal externa: recortes -38,5 -38,5 (largura) e -38,5 -12 (altura)
+      const L = larguraVao - fglEsq - fglDir - 38.5 - 38.5;
+      const A = alturaVao  - fgSup           - 38.5 - 12;
       if (L > 0 && A > 0) {
         pecas.push({
           label:          'Chapa frontal externa',
@@ -103,9 +103,9 @@ const ChapasPortaInterna = (() => {
         });
       }
     } else if (lado === 'interno') {
-      // Chapa frontal interna: recortes -37,5 -37,5 (largura) e -37,5 -12 (altura)
-      const L = larguraVao - fglEsq - fglDir - 37.5 - 37.5;
-      const A = alturaVao  - fgSup           - 37.5 - 12;
+      // Chapa frontal interna: recortes -26,5 -26,5 (largura) e -26,5 -12 (altura)
+      const L = larguraVao - fglEsq - fglDir - 26.5 - 26.5;
+      const A = alturaVao  - fgSup           - 26.5 - 12;
       if (L > 0 && A > 0) {
         pecas.push({
           label:          'Chapa frontal interna',
