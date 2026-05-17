@@ -311,7 +311,71 @@ const Orcamento = (() => {
     // Modo TERCEIROS / INTERNACIONAL (manual sempre)
     inst_terceiros_valor:  '',
     inst_terceiros_transp: '',
+
+    // Felipe sessao 31: 'sem instalacao' opcional pra qualquer modo.
+    // Quando true, ignora todos os valores acima e subInst = 0.
+    sem_instalacao: false,
+
+    // Felipe sessao 31: campos especificos da viagem INTERNACIONAL
+    // (Pasta3.xlsx anexada). Calculo automatico via INTL_TARIFAS_DEFAULT
+    // multiplicado por pessoas/dias/instalacoes. Sobrescreve inst_terceiros_*
+    // quando preenchido.
+    intl_pessoas:       3,      // default 3 pessoas (Felipe: 3 × 8 dias × 4 inst)
+    intl_dias:          8,      // default 8 dias
+    intl_n_instalacoes: 1,      // quantas portas/obras (multi-instalacao)
+    intl_passagem_udi_gru:  '', // R$ por pessoa
+    intl_passagem_gru_dest: '', // R$ por pessoa
+    intl_hotel_dia:         '', // R$ por dia
+    intl_carro_dia:         '', // R$ por dia
+    intl_alimentacao_pdia:  '', // R$ por pessoa/dia
+    intl_seguro_pessoa:     '', // R$ por pessoa
+    intl_mao_obra_dia:      '', // R$ por dia (instalacao Projetta)
+    intl_manual:        false,  // true = Felipe sobrescreveu nos campos 'valor' / 'frete'
   };
+
+  // Felipe sessao 31: tarifas padrao da viagem internacional (Pasta3.xlsx).
+  // Valores aplicados como default quando o usuario nao preencheu manualmente.
+  const INTL_TARIFAS_DEFAULT = {
+    passagem_udi_gru:  2000,    // R$/pessoa (Uberlandia → Sao Paulo)
+    passagem_gru_dest: 10000,   // R$/pessoa (Sao Paulo → destino internacional)
+    hotel_dia:         1700,    // R$/dia
+    carro_dia:          850,    // R$/dia
+    alimentacao_pdia:   300,    // R$/pessoa/dia
+    seguro_pessoa:      300,    // R$/pessoa
+    mao_obra_dia:       500,    // R$/dia (mao de obra Projetta)
+  };
+
+  /**
+   * Calcula custos da viagem internacional a partir dos parametros do INST.
+   * Retorna o desdobramento detalhado + total geral em R$.
+   */
+  function calcularCustosViagemInternacional(inst) {
+    const pessoas = Number(inst.intl_pessoas) || 0;
+    const dias    = Number(inst.intl_dias) || 0;
+    const nInst   = Number(inst.intl_n_instalacoes) || 1;
+    // Tarifas: usa valor manual se preenchido, senao default
+    const t = INTL_TARIFAS_DEFAULT;
+    const tar = {
+      udi_gru:    Number(inst.intl_passagem_udi_gru)  || t.passagem_udi_gru,
+      gru_dest:   Number(inst.intl_passagem_gru_dest) || t.passagem_gru_dest,
+      hotel:      Number(inst.intl_hotel_dia)         || t.hotel_dia,
+      carro:      Number(inst.intl_carro_dia)         || t.carro_dia,
+      alim:       Number(inst.intl_alimentacao_pdia)  || t.alimentacao_pdia,
+      seguro:     Number(inst.intl_seguro_pessoa)     || t.seguro_pessoa,
+      mao_obra:   Number(inst.intl_mao_obra_dia)      || t.mao_obra_dia,
+    };
+    const itens = {
+      passagens_udi_gru:  pessoas * tar.udi_gru  * nInst,
+      passagens_gru_dest: pessoas * tar.gru_dest * nInst,
+      hotel:              dias * tar.hotel       * nInst,
+      carro:              dias * tar.carro       * nInst,
+      alimentacao:        pessoas * dias * tar.alim * nInst,
+      seguro:             pessoas * tar.seguro   * nInst,
+      mao_obra:           dias * tar.mao_obra    * nInst,
+    };
+    const total = Object.values(itens).reduce((s, v) => s + v, 0);
+    return { itens, tarifasAplicadas: tar, pessoas, dias, nInst, total };
+  }
 
   // Tabela de dias de deslocamento por km (regra 1)
   function deslocamentoPorKm(km) {
@@ -493,10 +557,61 @@ const Orcamento = (() => {
     const diasInst  = Number(i.dias_instalacao) || 0;
     const diasTotal = deslocamentoDias + diasInst;
 
-    // Modo TERCEIROS / INTERNACIONAL — soma simples, componentes individuais "—"
-    // Felipe (do doc - msg frete/inst): "Internacional" se comporta igual
-    // a "Terceiros" (valores manuais).
-    if (i.modo === 'terceiros' || i.modo === 'internacional') {
+    // Felipe sessao 31: 'sem instalacao' - cliente pega as portas e instala
+    // por conta. Aplica em qualquer modo. subInst = 0 + todos os componentes null.
+    if (i.sem_instalacao === true) {
+      return {
+        modo: i.modo,
+        sem_instalacao: true,
+        deslocamentoDias: 0, diasInst: 0, diasTotal: 0,
+        salarios: null, diesel: null, hotel: null, alimentacao: null,
+        andaime: null, munk: null, munk_alerta: false, pedagio: null,
+        noites: null, quartos: null,
+        inst_terceiros_valor: 0, inst_terceiros_transp: 0,
+        total: 0,
+      };
+    }
+
+    // Modo INTERNACIONAL — calcula a partir dos campos da viagem (Pasta3.xlsx)
+    // a menos que o Felipe tenha marcado intl_manual=true (sobrescreveu nos
+    // campos 'Valor da instalacao' + 'Frete' antigos).
+    if (i.modo === 'internacional') {
+      const valor  = Number(i.inst_terceiros_valor)  || 0;
+      const transp = Number(i.inst_terceiros_transp) || 0;
+      if (i.intl_manual === true && (valor > 0 || transp > 0)) {
+        return {
+          modo: i.modo, deslocamentoDias, diasInst, diasTotal,
+          salarios: null, diesel: null, hotel: null, alimentacao: null,
+          andaime: null, munk: null, munk_alerta: false, pedagio: null,
+          noites: null, quartos: null,
+          inst_terceiros_valor: valor, inst_terceiros_transp: transp,
+          total: valor + transp, intl_manual: true,
+        };
+      }
+      // Calculo automatico via tarifas
+      const viagem = calcularCustosViagemInternacional(i);
+      return {
+        modo: i.modo, deslocamentoDias, diasInst: viagem.dias, diasTotal: viagem.dias,
+        // Mapeia campos da viagem nos slots tradicionais pra UI mostrar resumo unificado
+        salarios:    viagem.itens.mao_obra,
+        diesel:      null,
+        hotel:       viagem.itens.hotel,
+        alimentacao: viagem.itens.alimentacao,
+        andaime:     null,
+        munk:        null, munk_alerta: false,
+        pedagio:     null,
+        noites:      null, quartos: null,
+        inst_terceiros_valor:  0,
+        inst_terceiros_transp: 0,
+        // Campos especificos da viagem internacional
+        intl_viagem: viagem,
+        intl_manual: false,
+        total: viagem.total,
+      };
+    }
+
+    // Modo TERCEIROS — soma simples, componentes individuais "—"
+    if (i.modo === 'terceiros') {
       const valor  = Number(i.inst_terceiros_valor)  || 0;
       const transp = Number(i.inst_terceiros_transp) || 0;
       return {
@@ -504,17 +619,9 @@ const Orcamento = (() => {
         deslocamentoDias,
         diasInst,
         diasTotal,
-        // null sinaliza pra UI exibir "—"
-        salarios:    null,
-        diesel:      null,
-        hotel:       null,
-        alimentacao: null,
-        andaime:     null,
-        munk:        null,
-        munk_alerta: false,
-        pedagio:     null,
-        noites:      null,
-        quartos:     null,
+        salarios:    null, diesel: null, hotel: null, alimentacao: null,
+        andaime:     null, munk: null, munk_alerta: false, pedagio: null,
+        noites:      null, quartos: null,
         inst_terceiros_valor:  valor,
         inst_terceiros_transp: transp,
         total: valor + transp,
@@ -7012,68 +7119,210 @@ const Orcamento = (() => {
         <div class="orc-fi-inst-header">
           <div class="orc-section-title">Custo Instalacao</div>
           <div class="orc-fi-modo-toggle">
-            <label class="${inst.modo === 'projetta' ? 'is-ativo' : ''}">
-              <input type="radio" name="inst-modo" data-field="modo" data-inst="1" value="projetta" ${inst.modo === 'projetta' ? 'checked' : ''} />
+            <!-- Felipe sessao 31: 'sem instalacao' opcional - cliente faz por conta -->
+            <label class="${inst.sem_instalacao ? 'is-ativo' : ''}" style="background:${inst.sem_instalacao ? '#dc2626' : ''}; color:${inst.sem_instalacao ? '#fff' : ''};">
+              <input type="checkbox" data-field="sem_instalacao" data-inst="1" ${inst.sem_instalacao ? 'checked' : ''} />
+              Sem instalacao
+            </label>
+            <label class="${inst.modo === 'projetta' && !inst.sem_instalacao ? 'is-ativo' : ''}" style="${inst.sem_instalacao ? 'opacity:0.4;' : ''}">
+              <input type="radio" name="inst-modo" data-field="modo" data-inst="1" value="projetta" ${inst.modo === 'projetta' ? 'checked' : ''} ${inst.sem_instalacao ? 'disabled' : ''} />
               Projetta
             </label>
-            <label class="${inst.modo === 'terceiros' ? 'is-ativo' : ''}">
-              <input type="radio" name="inst-modo" data-field="modo" data-inst="1" value="terceiros" ${inst.modo === 'terceiros' ? 'checked' : ''} />
+            <label class="${inst.modo === 'terceiros' && !inst.sem_instalacao ? 'is-ativo' : ''}" style="${inst.sem_instalacao ? 'opacity:0.4;' : ''}">
+              <input type="radio" name="inst-modo" data-field="modo" data-inst="1" value="terceiros" ${inst.modo === 'terceiros' ? 'checked' : ''} ${inst.sem_instalacao ? 'disabled' : ''} />
               Terceiros
             </label>
-            <!-- Felipe (do doc - msg frete/inst): novo modo "Projetta Internacional".
-                 Funciona igual ao Terceiros (valores manuais de instalacao + frete) -->
-            <label class="${inst.modo === 'internacional' ? 'is-ativo' : ''}">
-              <input type="radio" name="inst-modo" data-field="modo" data-inst="1" value="internacional" ${inst.modo === 'internacional' ? 'checked' : ''} />
+            <label class="${inst.modo === 'internacional' && !inst.sem_instalacao ? 'is-ativo' : ''}" style="${inst.sem_instalacao ? 'opacity:0.4;' : ''}">
+              <input type="radio" name="inst-modo" data-field="modo" data-inst="1" value="internacional" ${inst.modo === 'internacional' ? 'checked' : ''} ${inst.sem_instalacao ? 'disabled' : ''} />
               Projetta Internacional
             </label>
           </div>
         </div>
 
-        ${(inst.modo === 'terceiros' || inst.modo === 'internacional') ? `
-          <p class="orc-helptext">${inst.modo === 'internacional' ? 'Modo Projetta Internacional: equipe deslocada para o exterior — valores manuais de instalacao e frete.' : 'Modo terceiros: subcontratado faz a instalacao. Apenas dois valores manuais; componentes individuais ficam como "—".'}</p>
-          <div class="orc-fi-inst-grid">
-            <div class="orc-field orc-fi-w-money">
-              <label>Valor da instalacao (R$)</label>
-              <input type="text" data-field="inst_terceiros_valor" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.inst_terceiros_valor))}" />
-            </div>
-            <div class="orc-field orc-fi-w-money">
-              <label>Frete / transporte (R$)</label>
-              <input type="text" data-field="inst_terceiros_transp" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.inst_terceiros_transp))}" />
-            </div>
-          </div>
-          ${inst.modo === 'internacional' ? `
-            <!-- Felipe sessao 31: links rapidos pra cotar passagens (Decolar) e hotel (Booking).
-                 Felipe preenche os 2 campos acima manualmente apos cotar nos sites. -->
-            <div class="orc-fi-inst-links" style="margin-top:10px; padding:10px 12px; background:#f0f7ff; border:1px solid #cfe2ff; border-radius:6px;">
-              <div style="font-size:11px; font-weight:600; color:#0c5485; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">
-                🌐 Cotar custos da viagem
+        ${(inst.modo === 'terceiros' || inst.modo === 'internacional') && !inst.sem_instalacao ? `
+          <p class="orc-helptext">${inst.modo === 'internacional' ? 'Modo Projetta Internacional: equipe deslocada para o exterior — calculo automatico via Pasta3.xlsx (passagens + hotel + carro + comida + seguro + mao de obra).' : 'Modo terceiros: subcontratado faz a instalacao. Apenas dois valores manuais; componentes individuais ficam como "—".'}</p>
+
+          ${inst.modo === 'internacional' ? (() => {
+            // Felipe sessao 31: card detalhado dos custos de viagem internacional.
+            // Calcula automatico via INTL_TARIFAS_DEFAULT * pessoas/dias/instalacoes.
+            const t = INTL_TARIFAS_DEFAULT;
+            const v = inst;
+            const viagem = calcularCustosViagemInternacional(v);
+            return `
+              <!-- Quantidades base -->
+              <div style="background:#f0f7ff; border:1px solid #cfe2ff; border-radius:6px; padding:12px; margin-bottom:10px;">
+                <div style="font-size:11px; font-weight:600; color:#0c5485; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
+                  👥 Equipe & Duracao
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+                  <div class="orc-field">
+                    <label>Pessoas</label>
+                    <input type="number" min="1" max="6" step="1" data-field="intl_pessoas" data-inst="1" value="${v.intl_pessoas || 3}" style="width:100%; box-sizing:border-box;" />
+                    <span class="orc-fi-help">qtd. instaladores</span>
+                  </div>
+                  <div class="orc-field">
+                    <label>Dias de instalacao</label>
+                    <input type="number" min="0" max="60" step="1" data-field="intl_dias" data-inst="1" value="${v.intl_dias || 8}" style="width:100%; box-sizing:border-box;" />
+                    <span class="orc-fi-help">por viagem</span>
+                  </div>
+                  <div class="orc-field">
+                    <label>Qtd. instalacoes</label>
+                    <input type="number" min="1" max="10" step="1" data-field="intl_n_instalacoes" data-inst="1" value="${v.intl_n_instalacoes || 1}" style="width:100%; box-sizing:border-box;" />
+                    <span class="orc-fi-help">obras na mesma viagem</span>
+                  </div>
+                </div>
               </div>
-              <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <a href="https://www.decolar.com/passagens-aereas" target="_blank" rel="noopener"
-                   style="display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:#fff; border:1px solid #cfe2ff; border-radius:6px; color:#0c5485; text-decoration:none; font-size:12px; font-weight:500; transition:all 0.2s;"
-                   onmouseover="this.style.background='#0c5485'; this.style.color='#fff';"
-                   onmouseout="this.style.background='#fff'; this.style.color='#0c5485';">
-                  ✈️ Decolar &middot; Passagens aereas
-                </a>
-                <a href="https://www.booking.com" target="_blank" rel="noopener"
-                   style="display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:#fff; border:1px solid #cfe2ff; border-radius:6px; color:#0c5485; text-decoration:none; font-size:12px; font-weight:500; transition:all 0.2s;"
-                   onmouseover="this.style.background='#003580'; this.style.color='#fff';"
-                   onmouseout="this.style.background='#fff'; this.style.color='#0c5485';">
-                  🏨 Booking &middot; Hoteis
-                </a>
-                <a href="https://www.google.com/flights" target="_blank" rel="noopener"
-                   style="display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:#fff; border:1px solid #cfe2ff; border-radius:6px; color:#0c5485; text-decoration:none; font-size:12px; font-weight:500; transition:all 0.2s;"
-                   onmouseover="this.style.background='#1a73e8'; this.style.color='#fff';"
-                   onmouseout="this.style.background='#fff'; this.style.color='#0c5485';">
-                  🔎 Google Flights
-                </a>
+
+              <!-- Tarifas unitarias editaveis -->
+              <div style="background:#fff8e1; border:1px solid #ffe0a3; border-radius:6px; padding:12px; margin-bottom:10px;">
+                <div style="font-size:11px; font-weight:600; color:#856404; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
+                  💰 Tarifas (deixe vazio pra usar padrao)
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 12px;">
+                  <div class="orc-field">
+                    <label>✈️ Passagem UDI → GRU</label>
+                    <div style="display:flex; gap:4px; align-items:center;">
+                      <span style="font-size:11px; color:#666;">R$</span>
+                      <input type="number" min="0" step="100" data-field="intl_passagem_udi_gru" data-inst="1" value="${escapeHtml(v.intl_passagem_udi_gru || '')}" placeholder="${t.passagem_udi_gru}" style="flex:1; box-sizing:border-box;" />
+                      <span style="font-size:10px; color:#999;">/pessoa</span>
+                    </div>
+                  </div>
+                  <div class="orc-field">
+                    <label>✈️ Passagem GRU → Destino</label>
+                    <div style="display:flex; gap:4px; align-items:center;">
+                      <span style="font-size:11px; color:#666;">R$</span>
+                      <input type="number" min="0" step="500" data-field="intl_passagem_gru_dest" data-inst="1" value="${escapeHtml(v.intl_passagem_gru_dest || '')}" placeholder="${t.passagem_gru_dest}" style="flex:1; box-sizing:border-box;" />
+                      <span style="font-size:10px; color:#999;">/pessoa</span>
+                    </div>
+                  </div>
+                  <div class="orc-field">
+                    <label>🏨 Hotel</label>
+                    <div style="display:flex; gap:4px; align-items:center;">
+                      <span style="font-size:11px; color:#666;">R$</span>
+                      <input type="number" min="0" step="100" data-field="intl_hotel_dia" data-inst="1" value="${escapeHtml(v.intl_hotel_dia || '')}" placeholder="${t.hotel_dia}" style="flex:1; box-sizing:border-box;" />
+                      <span style="font-size:10px; color:#999;">/dia</span>
+                    </div>
+                  </div>
+                  <div class="orc-field">
+                    <label>🚗 Carro / Aluguel</label>
+                    <div style="display:flex; gap:4px; align-items:center;">
+                      <span style="font-size:11px; color:#666;">R$</span>
+                      <input type="number" min="0" step="50" data-field="intl_carro_dia" data-inst="1" value="${escapeHtml(v.intl_carro_dia || '')}" placeholder="${t.carro_dia}" style="flex:1; box-sizing:border-box;" />
+                      <span style="font-size:10px; color:#999;">/dia</span>
+                    </div>
+                  </div>
+                  <div class="orc-field">
+                    <label>🍽️ Alimentacao</label>
+                    <div style="display:flex; gap:4px; align-items:center;">
+                      <span style="font-size:11px; color:#666;">R$</span>
+                      <input type="number" min="0" step="50" data-field="intl_alimentacao_pdia" data-inst="1" value="${escapeHtml(v.intl_alimentacao_pdia || '')}" placeholder="${t.alimentacao_pdia}" style="flex:1; box-sizing:border-box;" />
+                      <span style="font-size:10px; color:#999;">/pessoa/dia</span>
+                    </div>
+                  </div>
+                  <div class="orc-field">
+                    <label>🛡️ Seguro saude</label>
+                    <div style="display:flex; gap:4px; align-items:center;">
+                      <span style="font-size:11px; color:#666;">R$</span>
+                      <input type="number" min="0" step="50" data-field="intl_seguro_pessoa" data-inst="1" value="${escapeHtml(v.intl_seguro_pessoa || '')}" placeholder="${t.seguro_pessoa}" style="flex:1; box-sizing:border-box;" />
+                      <span style="font-size:10px; color:#999;">/pessoa</span>
+                    </div>
+                  </div>
+                  <div class="orc-field" style="grid-column:1 / -1;">
+                    <label>👷 Mao de obra Projetta</label>
+                    <div style="display:flex; gap:4px; align-items:center;">
+                      <span style="font-size:11px; color:#666;">R$</span>
+                      <input type="number" min="0" step="50" data-field="intl_mao_obra_dia" data-inst="1" value="${escapeHtml(v.intl_mao_obra_dia || '')}" placeholder="${t.mao_obra_dia}" style="flex:1; box-sizing:border-box; max-width:200px;" />
+                      <span style="font-size:10px; color:#999;">/dia (instalacao)</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div style="font-size:10px; color:#5a7a99; margin-top:6px;">
-                Depois de cotar nos sites, preencha os valores acima manualmente.
+
+              <!-- Resumo calculado automaticamente -->
+              <div style="background:#ecfdf5; border:2px solid #34d399; border-radius:6px; padding:12px;">
+                <div style="font-size:11px; font-weight:700; color:#065f46; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
+                  📊 Calculo Automatico (${viagem.pessoas} pessoas · ${viagem.dias} dias · ${viagem.nInst} instal.)
+                </div>
+                <div style="font-size:12px;">
+                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
+                    <span>✈️ Passagens UDI-GRU (${viagem.pessoas} × R$ ${viagem.tarifasAplicadas.udi_gru.toLocaleString('pt-BR')})</span>
+                    <strong>R$ ${viagem.itens.passagens_udi_gru.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
+                    <span>✈️ Passagens GRU-Destino (${viagem.pessoas} × R$ ${viagem.tarifasAplicadas.gru_dest.toLocaleString('pt-BR')})</span>
+                    <strong>R$ ${viagem.itens.passagens_gru_dest.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
+                    <span>🏨 Hotel (${viagem.dias} dias × R$ ${viagem.tarifasAplicadas.hotel.toLocaleString('pt-BR')})</span>
+                    <strong>R$ ${viagem.itens.hotel.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
+                    <span>🚗 Carro (${viagem.dias} dias × R$ ${viagem.tarifasAplicadas.carro.toLocaleString('pt-BR')})</span>
+                    <strong>R$ ${viagem.itens.carro.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
+                    <span>🍽️ Alimentacao (${viagem.pessoas} × ${viagem.dias} × R$ ${viagem.tarifasAplicadas.alim.toLocaleString('pt-BR')})</span>
+                    <strong>R$ ${viagem.itens.alimentacao.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
+                    <span>🛡️ Seguro (${viagem.pessoas} × R$ ${viagem.tarifasAplicadas.seguro.toLocaleString('pt-BR')})</span>
+                    <strong>R$ ${viagem.itens.seguro.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #d1fae5;">
+                    <span>👷 Mao de obra Projetta (${viagem.dias} dias × R$ ${viagem.tarifasAplicadas.mao_obra.toLocaleString('pt-BR')})</span>
+                    <strong>R$ ${viagem.itens.mao_obra.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; padding:8px 0 0; margin-top:4px; border-top:2px solid #34d399; font-weight:700; font-size:14px; color:#065f46;">
+                    <span>TOTAL INSTALACAO INTERNACIONAL</span>
+                    <span>R$ ${viagem.total.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                  </div>
+                </div>
+                ${viagem.nInst > 1 ? `
+                  <div style="margin-top:8px; padding:6px 10px; background:#fff; border-left:3px solid #0c5485; font-size:11px; color:#0c5485;">
+                    Custo ja' multiplicado por ${viagem.nInst} viagens/instalacoes.
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Override manual opcional -->
+              <details style="margin-top:10px;">
+                <summary style="cursor:pointer; font-size:11px; color:#888; padding:6px 10px; background:#f4f4f4; border-radius:4px; user-select:none;">
+                  ⚙️ Sobrescrever manualmente (ignora calculo automatico)
+                </summary>
+                <div class="orc-fi-inst-grid" style="margin-top:8px;">
+                  <div class="orc-field orc-fi-w-money">
+                    <label>Valor da instalacao (R$) — manual</label>
+                    <input type="text" data-field="inst_terceiros_valor" data-inst="1" data-intl-manual="1" value="${escapeHtml(fmtBROrEmpty(inst.inst_terceiros_valor))}" />
+                  </div>
+                  <div class="orc-field orc-fi-w-money">
+                    <label>Frete / transporte (R$) — manual</label>
+                    <input type="text" data-field="inst_terceiros_transp" data-inst="1" data-intl-manual="1" value="${escapeHtml(fmtBROrEmpty(inst.inst_terceiros_transp))}" />
+                  </div>
+                </div>
+                <p style="font-size:10px; color:#999; margin-top:4px;">
+                  Preencher esses 2 campos sobrescreve o calculo automatico acima.
+                </p>
+              </details>
+            `;
+          })() : `
+            <div class="orc-fi-inst-grid">
+              <div class="orc-field orc-fi-w-money">
+                <label>Valor da instalacao (R$)</label>
+                <input type="text" data-field="inst_terceiros_valor" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.inst_terceiros_valor))}" />
+              </div>
+              <div class="orc-field orc-fi-w-money">
+                <label>Frete / transporte (R$)</label>
+                <input type="text" data-field="inst_terceiros_transp" data-inst="1" value="${escapeHtml(fmtBROrEmpty(inst.inst_terceiros_transp))}" />
               </div>
             </div>
-          ` : ''}
-        ` : `
+          `}
+        ` : ''}
+        ${inst.sem_instalacao ? `
+          <p class="orc-helptext" style="padding:14px; background:#fff3cd; border:1px solid #ffc107; border-radius:6px; color:#856404;">
+            <strong>⚠️ Sem instalacao</strong> — cliente recebe as portas e cuida da instalacao por conta propria. Nenhum custo de instalacao sera somado ao orcamento.
+          </p>
+        ` : ''}
+        ${(inst.modo !== 'terceiros' && inst.modo !== 'internacional' && !inst.sem_instalacao) ? `
           <p class="orc-helptext">Equipe propria. Componentes calculados automaticamente; preenchimento manual apenas onde indicado.</p>
 
           <!-- Bloco: dados da rota (Distancia se mantem por orcamento) -->
@@ -7208,8 +7457,9 @@ const Orcamento = (() => {
           <div class="orc-fi-bloco orc-fi-bloco-info">
             <span class="t-strong">Hotel:</span> ${rInst.quartos} quarto${rInst.quartos > 1 ? 's' : ''} × ${rInst.noites} noite${rInst.noites !== 1 ? 's' : ''} × R$ ${fmtBR(Number(inst.diaria_hotel) || 0)} / noite
           </div>
-        `}
+        ` : ''}
 
+        ${!inst.sem_instalacao ? `
         <!-- Resumo da instalacao -->
         <div class="orc-fi-resumo">
           <div class="orc-fi-resumo-titulo">Resumo Instalacao</div>
@@ -7224,15 +7474,29 @@ const Orcamento = (() => {
             const ehManual = (inst.modo === 'terceiros' || inst.modo === 'internacional');
             const labelModo = inst.modo === 'internacional' ? 'Projetta Internacional' : 'Terceiros';
             if (ehManual) {
-              linhas.push(linha('Salarios da equipe', null));
-              linhas.push(linha('Combustivel (diesel)', null));
-              linhas.push(linha('Hotel', null));
-              linhas.push(linha('Alimentacao', null));
-              linhas.push(linha('Andaime', null));
-              linhas.push(linha('Munk / caminhao', null));
-              linhas.push(linha('Pedagio', null));
-              linhas.push(linha(`Instalacao (${labelModo}) — valor`, rInst.inst_terceiros_valor));
-              linhas.push(linha(`Frete / transporte (${labelModo})`, rInst.inst_terceiros_transp));
+              // Felipe sessao 31: modo internacional com calculo automatico
+              // mostra desdobramento da viagem (passagens + hotel + carro + alim + seguro + mao_obra).
+              if (inst.modo === 'internacional' && rInst.intl_viagem && !rInst.intl_manual) {
+                const vg = rInst.intl_viagem;
+                linhas.push(`<div class="orc-fi-resumo-row"><span>Pessoas / Dias / Obras</span><span>${vg.pessoas} × ${vg.dias} × ${vg.nInst}</span></div>`);
+                linhas.push(linha('✈️ Passagens UDI → GRU',     vg.itens.passagens_udi_gru));
+                linhas.push(linha('✈️ Passagens GRU → Destino', vg.itens.passagens_gru_dest));
+                linhas.push(linha('🏨 Hotel',                    vg.itens.hotel));
+                linhas.push(linha('🚗 Carro',                    vg.itens.carro));
+                linhas.push(linha('🍽️ Alimentacao',              vg.itens.alimentacao));
+                linhas.push(linha('🛡️ Seguro saude',             vg.itens.seguro));
+                linhas.push(linha('👷 Mao de obra Projetta',     vg.itens.mao_obra));
+              } else {
+                linhas.push(linha('Salarios da equipe', null));
+                linhas.push(linha('Combustivel (diesel)', null));
+                linhas.push(linha('Hotel', null));
+                linhas.push(linha('Alimentacao', null));
+                linhas.push(linha('Andaime', null));
+                linhas.push(linha('Munk / caminhao', null));
+                linhas.push(linha('Pedagio', null));
+                linhas.push(linha(`Instalacao (${labelModo}) — valor`, rInst.inst_terceiros_valor));
+                linhas.push(linha(`Frete / transporte (${labelModo})`, rInst.inst_terceiros_transp));
+              }
             } else {
               linhas.push(`<div class="orc-fi-resumo-row"><span>Total dias</span><span>${rInst.diasTotal} dia${rInst.diasTotal !== 1 ? 's' : ''}</span></div>`);
               linhas.push(linha(`Salarios da equipe (${rInst.diasTotal} d × ${Number(inst.n_pessoas) || 0} p × R$ ${fmtBR(Number(inst.diaria_pessoa) || 0)})`, rInst.salarios));
@@ -7250,6 +7514,15 @@ const Orcamento = (() => {
             <span>R$ ${fmtBR(rInst.total)}</span>
           </div>
         </div>
+        ` : `
+        <!-- Felipe sessao 31: sem instalacao - resumo simplificado mostrando Total R$ 0,00 -->
+        <div class="orc-fi-resumo" style="background:#f4f4f4;">
+          <div class="orc-fi-resumo-row orc-fi-total-final">
+            <span>Total Instalacao</span>
+            <span>R$ 0,00</span>
+          </div>
+        </div>
+        `}
       </div>
 
       <!-- ========== TOTAIS QUE VAO PRA DRE ========== -->
@@ -7450,6 +7723,12 @@ const Orcamento = (() => {
             inst[field] = raw === '' ? null : (parseBR(raw) || 0);
           } else {
             inst[field] = parseBR(el.value) || 0;
+            // Felipe sessao 31: edicao manual de inst_terceiros_valor/transp
+            // no modo internacional DENTRO do <details> de override desliga
+            // o calculo automatico (intl_manual=true).
+            if (el.dataset.intlManual === '1' && (field === 'inst_terceiros_valor' || field === 'inst_terceiros_transp')) {
+              inst.intl_manual = true;
+            }
           }
         }
 
@@ -11234,8 +11513,8 @@ const Orcamento = (() => {
     // Felipe (do doc): banners de alertas — alisar, fechadura, cilindro
     const temAlisar = (item.tem_alisar || 'Sim') === 'Sim';
     const bannerAlisar = temAlisar
-      ? `<div class="rel-prop-banner-alisar is-sim">${tr('ALISAR','WALL TRIM')}: <b>${tr('SIM — COM ALISAR','YES — WITH TRIM')}</b> (${tr('largura','width')} ${item.largura_alisar || 100}mm · ${tr('parede','wall')} ${item.espessura_parede || 250}mm)</div>`
-      : `<div class="rel-prop-banner-alisar is-nao">${tr('ALISAR','WALL TRIM')}: <b>${tr('NAO — SEM ALISAR','NO — WITHOUT TRIM')}</b></div>`;
+      ? `<div class="rel-prop-banner-alisar is-sim">${tr('ALISAR','Architrave')}: <b>${tr('SIM — COM ALISAR','YES — WITH ARCHITRAVE')}</b> (${tr('largura','width')} ${item.largura_alisar || 100}mm · ${tr('parede','wall')} ${item.espessura_parede || 250}mm)</div>`
+      : `<div class="rel-prop-banner-alisar is-nao">${tr('ALISAR','Architrave')}: <b>${tr('NAO — SEM ALISAR','NO — WITHOUT ARCHITRAVE')}</b></div>`;
 
     const temFechDigital = item.fechaduraDigital && item.fechaduraDigital !== 'Nao se aplica' && item.fechaduraDigital !== '';
     const bannerFechDigital = temFechDigital
