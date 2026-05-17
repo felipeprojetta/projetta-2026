@@ -997,12 +997,85 @@ window.ChapasAproveitamento = (function () {
       });
       restantes.splice(melhor.idx, 1);
 
-      // SPLIT: a peca foi colocada em (melhor.x, melhor.y, melhor.w +
-      // KERF, melhor.h + KERF) — inclui kerf nos dois lados pra serrar.
-      const cutX = melhor.x;
-      const cutY = melhor.y;
-      const cutW = melhor.w + KERF;
-      const cutH = melhor.h + KERF;
+      // Felipe sessao 31 [5/N]: STRIP PACKING — agrupamento de pecas
+      // idênticas. Apos colocar uma peca, ANTES de quebrar os
+      // retangulos livres, tenta enfileirar OUTRAS pecas IGUAIS ao
+      // lado da que acabou de ser colocada.
+      //
+      // Pesquisa: MaxCut/SigmaNEST/DeepNest fazem isso (visualmente
+      // peças iguais aparecem em fileiras). Em CNC reduz tempo de corte
+      // e habilita common-line cutting. Tecnicamente: para cada peca
+      // idêntica restante, calcula a posicao "encostada" a' direita ou
+      // acima da recem-colocada. Se cabe NO MESMO retangulo livre original
+      // (sem ultrapassar bordas), coloca. Repete enquanto cabe.
+      //
+      // Beneficio: layout final parece igual ao MaxCut (fileira de pecas
+      // iguais). Mesma quantidade de chapas, mas visual organizado e
+      // pronto pra otimizacao CNC futura.
+      const recemColoc = colocadas[colocadas.length - 1];
+      // Acha o retangulo livre original que contem essa peca (a livre
+      // onde ela foi colocada — antes do split). Usa melhor.x,melhor.y
+      // como ponto de referencia.
+      const livreOrig = livres.find(l =>
+        l.x <= melhor.x + 0.01
+        && l.y <= melhor.y + 0.01
+        && l.x + l.w >= melhor.x + melhor.w - 0.01
+        && l.y + l.h >= melhor.y + melhor.h - 0.01);
+      if (livreOrig) {
+        // Empilha em X (a' direita) E em Y (acima) — testa as duas direcoes
+        // e mantem a que enfileirou mais.
+        function pecasIdenticas(p1) {
+          return restantes
+            .map((p, i) => ({ p, i }))
+            .filter(({ p }) =>
+              Math.abs(p.largura - p1.peca.largura) < 0.1
+              && Math.abs(p.altura - p1.peca.altura) < 0.1
+              && (!!p.podeRotacionar) === (!!p1.peca.podeRotacionar)
+              && (p.label || '') === (p1.peca.label || '')
+            );
+        }
+        const iguais = pecasIdenticas(recemColoc);
+        if (iguais.length > 0) {
+          // Tenta empilhar à direita (mesma fileira em X)
+          let cursorX = recemColoc.x + recemColoc.larg + KERF;
+          let nEnfileiradas = 0;
+          for (const { p, i: origIdx } of iguais) {
+            const fimX = cursorX + recemColoc.larg;
+            if (fimX > livreOrig.x + livreOrig.w + 0.01) break;
+            // Posiciona
+            colocadas.push({
+              peca: p,
+              x: cursorX, y: recemColoc.y,
+              larg: recemColoc.larg, alt: recemColoc.alt,
+              rotada: recemColoc.rotada,
+            });
+            cursorX = fimX + KERF;
+            nEnfileiradas++;
+          }
+          // Remove as enfileiradas de restantes — pega os iguais.slice(0, nEnfileiradas)
+          if (nEnfileiradas > 0) {
+            const idxsRemover = iguais.slice(0, nEnfileiradas).map(o => o.i).sort((a, b) => b - a);
+            idxsRemover.forEach(idx => restantes.splice(idx, 1));
+          }
+        }
+      }
+
+      // SPLIT: o retangulo "cortado" agora cobre a recem-colocada E todas
+      // as pecas enfileiradas. Pra simplificar, calcula o bounding-box
+      // de tudo que foi colocado nesta rodada (uma ou varias).
+      const lastBatch = [recemColoc];
+      // Pecas adicionadas apos recemColoc no batch atual:
+      for (let k = colocadas.indexOf(recemColoc) + 1; k < colocadas.length; k++) {
+        lastBatch.push(colocadas[k]);
+      }
+      const bbX1 = Math.min(...lastBatch.map(p => p.x));
+      const bbY1 = Math.min(...lastBatch.map(p => p.y));
+      const bbX2 = Math.max(...lastBatch.map(p => p.x + p.larg));
+      const bbY2 = Math.max(...lastBatch.map(p => p.y + p.alt));
+      const cutX = bbX1;
+      const cutY = bbY1;
+      const cutW = (bbX2 - bbX1) + KERF;
+      const cutH = (bbY2 - bbY1) + KERF;
       const novosLivres = [];
       for (const livre of livres) {
         if (!retsIntersect(livre, { x: cutX, y: cutY, w: cutW, h: cutH })) {
