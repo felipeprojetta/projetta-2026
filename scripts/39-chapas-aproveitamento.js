@@ -832,39 +832,120 @@ window.ChapasAproveitamento = (function () {
   // MODO MaxRects — algoritmo industrial usado pelo MaxCut/DeepNest.
   //
   // Felipe sessao 31: 'QUERO MELHOR ALGORITMO DE CORTE DE CHAPAS DO
-  // MUNDO'. Implementacao completa do MaxRects + Best Short Side Fit.
+  // MUNDO'. Implementacao completa do MaxRects + 5 heuristicas do
+  // paper de Jukka Jylanki "A Thousand Ways to Pack the Bin" (mesmo
+  // paper que MaxCut/DeepNest/SigmaNEST seguem):
+  //   BSSF — Best Short Side Fit (94.06% no paper)
+  //   BLSF — Best Long Side Fit
+  //   BAF  — Best Area Fit
+  //   BL   — Bottom-Left (Tetris)
+  //   CP   — Contact Point Rule (93.35% no paper, maximiza contato)
+  //
+  // Felipe sessao 31: cada heuristica vence em cenarios diferentes,
+  // entao a estrategia industrial e' rodar TODAS e ficar com a melhor
+  // (mesmo que FitPlot.it/SigmaNEST fazem). O custo extra e' linear
+  // no numero de heuristicas, paga muito barato em desperdicio.
   //
   // Diferente do multi_horiz (que abre fileiras de altura fixa) e do
   // BLF (que so' considera o skyline), o MaxRects mantem uma LISTA de
   // RETANGULOS LIVRES e, pra cada peca, testa o ENCAIXE EM TODOS eles,
-  // escolhendo o que MINIMIZA a sobra lateral (Best Short Side Fit).
-  // Quando coloca a peca, divide o retangulo livre em ate 2 partes e
-  // depois LIMPA retangulos cobertos por outros maiores.
+  // escolhendo o que MINIMIZA o score selecionado. Quando coloca a
+  // peca, divide o retangulo livre em ate 4 partes e depois LIMPA
+  // retangulos cobertos por outros maiores.
   //
-  // Pipeline (documento Felipe sessao 31):
-  //   pre-processamento  → ordena por area DESC (peca grande primeiro)
-  //   MaxRects           → tenta cada peca em todos retangulos livres
-  //   Best Short Side    → score = min(sobra_w, sobra_h) — menos
-  //                        fragmentacao
-  //   Split retangular   → divide livre em (esquerda, direita, topo,
-  //                        embaixo) e descarta as 2 menores
-  //   Cleanup            → remove livres contidos em outros
-  //
-  // Aproveitamento esperado: 75-90% pra mix simples, 85-95% pra
-  // padronizado.
+  // Aproveitamento esperado: 85-94% pra mix razoavel, 95%+ pra
+  // padronizado (paper Jylanki).
   // ============================================================
 
   /**
-   * Felipe sessao 31: MaxRects (1 chapa). Coloca quantas pecas couberem.
-   * Pecas que nao caberem voltam em `restantes`.
+   * Felipe sessao 31: calcula score MaxRects pra um par (peca, livre,
+   * orientacao). Retorna { primary, secondary } — menor = melhor.
+   *
+   * @param {string} heuristica - 'BSSF' | 'BLSF' | 'BAF' | 'BL' | 'CP'
+   * @param {Object} livre - { x, y, w, h }
+   * @param {Object} o     - { w, h } da peca na orientacao
+   * @param {Array}  colocadas - pecas ja colocadas (pra CP)
+   * @param {number} chapaLarg
+   * @param {number} chapaAlt
+   * @return {Object} { primary, secondary } — par (menor, tiebreak)
+   */
+  function scoreMaxRects(heuristica, livre, o, colocadas, chapaLarg, chapaAlt) {
+    const sobraW = livre.w - o.w;
+    const sobraH = livre.h - o.h;
+    const shortSide = Math.min(sobraW, sobraH);
+    const longSide  = Math.max(sobraW, sobraH);
+    switch (heuristica) {
+      case 'BSSF':
+        return { primary: shortSide, secondary: longSide };
+      case 'BLSF':
+        return { primary: longSide, secondary: shortSide };
+      case 'BAF': {
+        // Best Area Fit: menor sobra de area. Tiebreak por short side.
+        const areaSobra = (livre.w * livre.h) - (o.w * o.h);
+        return { primary: areaSobra, secondary: shortSide };
+      }
+      case 'BL':
+        // Bottom-Left (Tetris): mais baixo (y+h), depois mais a esquerda (x)
+        return { primary: livre.y + o.h, secondary: livre.x };
+      case 'CP': {
+        // Contact Point Rule: maximiza pontos de contato (com bordas
+        // da chapa + bordas de pecas ja colocadas). Score = -contato,
+        // pra que menor seja melhor (= mais contato).
+        let contato = 0;
+        const x1 = livre.x, x2 = livre.x + o.w;
+        const y1 = livre.y, y2 = livre.y + o.h;
+        // Contato com bordas da chapa
+        if (x1 <= 0.5) contato += o.h;
+        if (x2 >= chapaLarg - 0.5) contato += o.h;
+        if (y1 <= 0.5) contato += o.w;
+        if (y2 >= chapaAlt - 0.5) contato += o.w;
+        // Contato com pecas ja colocadas
+        for (const p of colocadas) {
+          const px1 = p.x, px2 = p.x + p.larg;
+          const py1 = p.y, py2 = p.y + p.alt;
+          // Borda direita da peca encosta na esquerda do livre?
+          if (Math.abs(px2 - x1) < 1) {
+            contato += sobrePosY(y1, y2, py1, py2);
+          }
+          if (Math.abs(px1 - x2) < 1) {
+            contato += sobrePosY(y1, y2, py1, py2);
+          }
+          if (Math.abs(py2 - y1) < 1) {
+            contato += sobrePosX(x1, x2, px1, px2);
+          }
+          if (Math.abs(py1 - y2) < 1) {
+            contato += sobrePosX(x1, x2, px1, px2);
+          }
+        }
+        return { primary: -contato, secondary: shortSide };
+      }
+      default:
+        return { primary: shortSide, secondary: longSide };
+    }
+  }
+
+  /** Helper: comprimento de sobreposicao em Y entre 2 intervalos */
+  function sobrePosY(a1, a2, b1, b2) {
+    return Math.max(0, Math.min(a2, b2) - Math.max(a1, b1));
+  }
+  function sobrePosX(a1, a2, b1, b2) {
+    return Math.max(0, Math.min(a2, b2) - Math.max(a1, b1));
+  }
+
+  /**
+   * Felipe sessao 31: MaxRects (1 chapa) parametrizado por heuristica.
+   * Coloca quantas pecas couberem. Pecas que nao caberem voltam em
+   * `restantes`.
    *
    * @param {Array} pecas - pecas expandidas (cada uma 1 unidade)
    * @param {number} chapaLarg
    * @param {number} chapaAlt
    * @param {Object} cfg - {KERF, APARAR}
+   * @param {string} heuristica - 'BSSF' | 'BLSF' | 'BAF' | 'BL' | 'CP'
    * @return {Object} {chapa, restantes}
    */
-  function maxRectsUmaChapa(pecas, chapaLarg, chapaAlt, cfg) {
+  function maxRectsUmaChapa(pecas, chapaLarg, chapaAlt, cfg, heuristica) {
+    heuristica = heuristica || 'BSSF';
     const KERF = cfg.KERF;
     const M = cfg.APARAR;
     const dispLarg = chapaLarg - 2 * M;
@@ -878,8 +959,7 @@ window.ChapasAproveitamento = (function () {
 
     while (restantes.length > 0) {
       // Encontra a MELHOR (peca, livre, orientacao) combinacao.
-      // Score: Best Short Side Fit + tiebreak Best Long Side Fit.
-      // Menor = melhor.
+      // Score depende da heuristica. Menor = melhor.
       let melhor = null;
       for (let i = 0; i < restantes.length; i++) {
         const p = restantes[i];
@@ -892,18 +972,15 @@ window.ChapasAproveitamento = (function () {
             // Cabe?
             if (o.w > livre.w + 0.01) continue;
             if (o.h > livre.h + 0.01) continue;
-            // Score Best Short Side Fit: a menor das duas sobras.
-            const sobraW = livre.w - o.w;
-            const sobraH = livre.h - o.h;
-            const shortSide = Math.min(sobraW, sobraH);
-            const longSide  = Math.max(sobraW, sobraH);
-            const score = shortSide * 10000 + longSide;
-            if (!melhor || score < melhor.score) {
+            const sc = scoreMaxRects(heuristica, livre, o, colocadas, chapaLarg, chapaAlt);
+            if (!melhor
+                || sc.primary < melhor.primary - 0.001
+                || (Math.abs(sc.primary - melhor.primary) < 0.001 && sc.secondary < melhor.secondary)) {
               melhor = {
                 idx: i, p,
                 x: livre.x, y: livre.y,
                 w: o.w, h: o.h, rotada: o.rotada,
-                score,
+                primary: sc.primary, secondary: sc.secondary,
               };
             }
           }
@@ -921,10 +998,7 @@ window.ChapasAproveitamento = (function () {
       restantes.splice(melhor.idx, 1);
 
       // SPLIT: a peca foi colocada em (melhor.x, melhor.y, melhor.w +
-      // KERF, melhor.h + KERF) — inclui kerf nos dois lados pra
-      // serrar. Atualiza a lista de livres:
-      //   1) Quebra cada livre que intersecta com o retangulo cortado.
-      //   2) Cleanup: remove livres contidos em outros.
+      // KERF, melhor.h + KERF) — inclui kerf nos dois lados pra serrar.
       const cutX = melhor.x;
       const cutY = melhor.y;
       const cutW = melhor.w + KERF;
@@ -936,14 +1010,12 @@ window.ChapasAproveitamento = (function () {
           continue;
         }
         // Quebra livre em ate 4 retangulos (esquerda, direita, embaixo, em cima).
-        // Embaixo de cutY (espaco antes da peca em y)
         if (cutY > livre.y) {
           novosLivres.push({
             x: livre.x, y: livre.y,
             w: livre.w, h: cutY - livre.y,
           });
         }
-        // Acima de cutY + cutH (espaco depois da peca em y)
         const cutYFim = cutY + cutH;
         const livreYFim = livre.y + livre.h;
         if (cutYFim < livreYFim) {
@@ -952,14 +1024,12 @@ window.ChapasAproveitamento = (function () {
             w: livre.w, h: livreYFim - cutYFim,
           });
         }
-        // Esquerda de cutX
         if (cutX > livre.x) {
           novosLivres.push({
             x: livre.x, y: livre.y,
             w: cutX - livre.x, h: livre.h,
           });
         }
-        // Direita de cutX + cutW
         const cutXFim = cutX + cutW;
         const livreXFim = livre.x + livre.w;
         if (cutXFim < livreXFim) {
@@ -969,9 +1039,7 @@ window.ChapasAproveitamento = (function () {
           });
         }
       }
-      // CLEANUP: remove retangulos contidos em outros maiores (eles
-      // sao redundantes — qualquer peca que caberia no menor tambem
-      // cabe no maior).
+      // CLEANUP: remove retangulos contidos em outros maiores.
       livres.length = 0;
       for (let i = 0; i < novosLivres.length; i++) {
         let contido = false;
@@ -1018,14 +1086,14 @@ window.ChapasAproveitamento = (function () {
    * vezes ate todas as pecas serem alocadas. Retorna no formato {chapas,
    * naoCouberam} igual aos outros motores.
    */
-  function nestingMaxRects(pecas, chapaLarg, chapaAlt, cfg) {
+  function nestingMaxRects(pecas, chapaLarg, chapaAlt, cfg, heuristica) {
     const chapas = [];
     let restantes = pecas.slice();
     const naoCouberam = [];
     let limite = 500; // Safety: evita loop infinito
     while (restantes.length > 0 && limite-- > 0) {
       const { chapa, restantes: novoRest } =
-        maxRectsUmaChapa(restantes, chapaLarg, chapaAlt, cfg);
+        maxRectsUmaChapa(restantes, chapaLarg, chapaAlt, cfg, heuristica);
       if (chapa.pecasPosicionadas.length === 0) {
         // Nenhuma peca coube na chapa nova — todas as restantes sao maiores
         // que a chapa. Coloca em naoCouberam.
@@ -1145,12 +1213,13 @@ window.ChapasAproveitamento = (function () {
         if (!melhor || compararResultados(candBLF, melhor) < 0) melhor = candBLF;
       } catch (e) { /* skip */ }
       // Felipe sessao 31: MaxRects e' o algoritmo INDUSTRIAL — mesmo
-      // que o MaxCut/DeepNest usam. Mantem retangulos livres e escolhe
-      // o MELHOR encaixe por Best Short Side Fit. Testa com 4
-      // ordenacoes diferentes (area DESC e variacoes — MaxRects e' bem
-      // mais sensivel a ordem que multi_horiz porque a 1a peca define
-      // a quebra inicial). 'QUERO MELHOR ALGORITMO DE CORTE DE CHAPAS
-      // DO MUNDO'.
+      // que MaxCut/DeepNest/SigmaNEST usam. Roda TODAS as 5 heuristicas
+      // do paper Jukka Jylanki "A Thousand Ways to Pack the Bin":
+      //   BSSF (best short side), BLSF (best long side), BAF (best area),
+      //   BL (bottom-left), CP (contact point).
+      // E TODAS as 4 ordenacoes iniciais. Total: 5 × 4 = 20 candidatos
+      // MaxRects. Pega o melhor.
+      const heuristicasMR = ['BSSF', 'BLSF', 'BAF', 'BL', 'CP'];
       const ordsMaxRects = [
         (arr) => arr.slice().sort((a, b) => (b.largura * b.altura) - (a.largura * a.altura)),
         (arr) => arr.slice().sort((a, b) => b.altura - a.altura || b.largura - a.largura),
@@ -1158,12 +1227,14 @@ window.ChapasAproveitamento = (function () {
         (arr) => arr.slice().sort((a, b) => (b.largura + b.altura) - (a.largura + a.altura)),
       ];
       for (const ord of ordsMaxRects) {
-        try {
-          const pecasMR = ord(expandidas);
-          const candMR = nestingMaxRects(pecasMR, chapaLarg, chapaAlt, cfg);
-          if (!melhor || compararResultados(candMR, melhor) < 0) melhor = candMR;
-        } catch (e) {
-          console.warn('[Aproveitamento] MaxRects falhou', e);
+        for (const h of heuristicasMR) {
+          try {
+            const pecasMR = ord(expandidas);
+            const candMR = nestingMaxRects(pecasMR, chapaLarg, chapaAlt, cfg, h);
+            if (!melhor || compararResultados(candMR, melhor) < 0) melhor = candMR;
+          } catch (e) {
+            console.warn('[Aproveitamento] MaxRects ' + h + ' falhou', e);
+          }
         }
       }
     }
