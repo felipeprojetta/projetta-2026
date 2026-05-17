@@ -105,11 +105,13 @@ const Cambio = (() => {
       // BCB API publica — cotacao do dolar dos ultimos ~90 dias uteis.
       // Endpoint: https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/
       // CotacaoDolarPeriodo(...) — formato OData JSON.
-      // Felipe sessao 31: busca 95 dias corridos pra ter 90+ dias uteis
-      // pra calcular medias de 30/60/90 dias.
+      // Felipe sessao 31: pra ter 90 dias UTEIS no historico precisa
+      // baixar ~140 dias CORRIDOS. 100 corridos da no maximo 65-70 uteis
+      // (descontando fins de semana 2/7 + feriados ~3 no periodo), nao
+      // chega aos 90 que Felipe quer. 140 corridos = ~95 uteis com folga.
       const hoje = new Date();
       const dInicio = new Date(hoje);
-      dInicio.setDate(hoje.getDate() - 100); // 100 dias corridos = ~70 uteis com folga
+      dInicio.setDate(hoje.getDate() - 140);
       function fmt(d) {
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
