@@ -7630,11 +7630,20 @@ const Orcamento = (() => {
         // Felipe sessao 31: em internacional, subInst NAO entra na DRE da
         // porta (vai em separado com margem 10%). Mostra como "Instalacao
         // (separada)" com badge informativo.
+        // Felipe sessao 31 (ajuste): 'aqui pode ser em reais e em dollar'.
+        // Em internacional mostra R$ em destaque + USD em linha menor abaixo.
         const leadTot = lerLeadAtivo();
         const internacionalTot = leadTot && leadTot.destinoTipo === 'internacional';
         const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
         const usd = internacionalTot && taxa > 0;
-        const fmtV = v => usd ? 'USD ' + (v/taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : 'R$ ' + fmtBR(v);
+        // fmtV retorna HTML com R$ em destaque + USD logo abaixo (so' internacional).
+        // Nacional continua so R$.
+        const fmtV = v => {
+          const brl = 'R$ ' + fmtBR(v);
+          if (!usd) return brl;
+          const usdStr = 'USD ' + (v/taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+          return `${brl}<div style="font-size:11px; color:#0c5485; font-weight:600; margin-top:2px;">${usdStr}</div>`;
+        };
         return `
       <div class="orc-section-card orc-conferencia">
         <div class="orc-section-title">Totais que alimentam a DRE${internacionalTot ? ' <span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:3px 8px; border-radius:4px; font-weight:600; margin-left:8px;">🌍 internacional</span>' : ''}</div>
