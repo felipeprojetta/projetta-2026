@@ -439,6 +439,15 @@ window.ChapasAproveitamento = (function () {
       o.y + o.h >= s.y + s.h - 0.01
     ));
 
+    // Felipe sessao 31: ordena sobras top-to-bottom, left-to-right
+    // pra que o salvage POSICIONE pecas em sequencia previsivel.
+    // Antes vinham em ordem indeterminada -> pecas pequenas iam pra
+    // sobras espalhadas (uma em cada coluna) criando gaps. Agora a
+    // primeira peca vai pra sobra mais alta+esquerda, e quando essa
+    // sobra ganha a peca, a proxima sobra (recalculada apos invalidate)
+    // fica imediatamente A DIREITA da peca colocada, encostando.
+    sobras.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
     // Filtra retangulos minusculos que nao servem pra nada (< 20mm)
     sobras = sobras.filter(s => s.w >= 20 && s.h >= 20);
     return sobras;
@@ -527,10 +536,41 @@ window.ChapasAproveitamento = (function () {
               for (const sobra of sobras) {
                 if (o.larg <= sobra.w + 0.01 && o.alt <= sobra.h + 0.01) {
                   // Cabe! Move
+                  // Felipe sessao 31: 'JUNTE AS PECAS NAO QUERO PECAS
+                  // SOLTAS'. Antes a peca ia pro CANTO da sobra (sobra.x,
+                  // sobra.y), criando gaps quando varias pecas iam pra
+                  // sobras diferentes. Fix: ancorar nas pecas existentes.
+                  // Procura a peca da chapa j com:
+                  //   1) mesma fileira (y aproximadamente igual ao topo)
+                  //   2) altura igual ou maior
+                  // Se achar, posiciona na borda direita dela (x + larg + KERF).
+                  // Senao, mantém comportamento antigo (sobra.x, sobra.y).
+                  let placeX = sobra.x;
+                  const placeY = sobra.y;
+                  let melhorAnc = null;
+                  chapas[j].pecasPosicionadas.forEach(pp => {
+                    // Mesma altura de topo (y) que a sobra?
+                    if (Math.abs(pp.y - sobra.y) > 1) return;
+                    // Altura compativel (peca cabe no mesmo "andar")?
+                    if (pp.alt < o.alt - 0.01) return;
+                    // Borda direita da peca existente
+                    const xDir = pp.x + pp.larg;
+                    // Cabe nesta posicao? (xDir + o.larg <= sobra.x + sobra.w)
+                    if (xDir + o.larg > sobra.x + sobra.w + 0.01) return;
+                    // Borda direita esta DENTRO da sobra (e' uma peca
+                    // adjacente a esquerda da sobra)?
+                    if (xDir < sobra.x - 1 || xDir > sobra.x + 1) return;
+                    // Candidato: prefere o que ta mais a esquerda
+                    if (!melhorAnc || xDir < melhorAnc.xDir) {
+                      melhorAnc = { xDir, pp };
+                    }
+                  });
+                  if (melhorAnc) placeX = melhorAnc.xDir;
+
                   chapas[j].pecasPosicionadas.push({
                     peca,
-                    x: sobra.x,
-                    y: sobra.y,
+                    x: placeX,
+                    y: placeY,
                     larg: o.larg,
                     alt: o.alt,
                     rotada: o.rotada,
