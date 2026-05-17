@@ -155,12 +155,36 @@ const Config = (() => {
     }
 
     if (hist && hist.length) {
-      const linhas = hist.slice(0, 30).map(h => {
+      // Felipe sessao 31: medias dos ultimos 30/60/90 dias uteis.
+      // Util pra ver se hoje o dolar esta em pico ou vale.
+      const m30 = window.Cambio.mediaPtax(30);
+      const m60 = window.Cambio.mediaPtax(60);
+      const m90 = window.Cambio.mediaPtax(90);
+      function celMedia(label, valor, qtdDias) {
+        const usado = Math.min(qtdDias, hist.length);
+        if (!valor) {
+          return '<div style="padding:8px 12px;"><div style="font-size:11px; color:#666; text-transform:uppercase;">' + label + '</div><div style="font-size:14px; color:#aaa;">—</div></div>';
+        }
+        return '<div style="padding:8px 12px;">' +
+          '<div style="font-size:11px; color:#666; text-transform:uppercase;">' + label + '</div>' +
+          '<div style="font-size:15px; font-weight:600; font-variant-numeric:tabular-nums;">R$ ' + valor.toFixed(4) + '</div>' +
+          '<div style="font-size:10px; color:#999;">' + usado + ' dias</div>' +
+          '</div>';
+      }
+      const cards =
+        '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px; background:#f7f8fa; border:1px solid #e5e7eb; border-radius:8px; padding:6px;">' +
+          celMedia('Media 30d', m30, 30) +
+          celMedia('Media 60d', m60, 60) +
+          celMedia('Media 90d', m90, 90) +
+        '</div>';
+
+      const linhas = hist.slice(0, 90).map(h => {
         const d = (h.data || '').split('-').reverse().join('/');
         return '<tr><td style="padding:3px 8px;">' + d + '</td><td style="padding:3px 8px; text-align:right; font-variant-numeric:tabular-nums;">R$ ' + Number(h.valor).toFixed(4) + '</td></tr>';
       }).join('');
       histDiv.innerHTML =
-        '<div style="font-size:12px; color:#666; margin-bottom:4px;">Historico PTAX (ultimos 30 dias uteis):</div>' +
+        cards +
+        '<div style="font-size:12px; color:#666; margin-bottom:4px;">Historico PTAX (' + hist.length + ' dias uteis):</div>' +
         '<div style="max-height:180px; overflow:auto; border:1px solid #eee; border-radius:6px;">' +
         '<table style="width:100%; font-size:12px; border-collapse:collapse;"><tbody>' + linhas + '</tbody></table>' +
         '</div>';
@@ -256,7 +280,7 @@ const Config = (() => {
         if (r.ok) {
           showMsg(msgCambio, 'ok',
             '✓ PTAX atualizada: R$ ' + Number(r.ptax.valor).toFixed(4) +
-            ' (' + (r.ptax.data || '?') + ') — ' + r.historico.length + ' dias no historico');
+            ' (' + (r.ptax.data || '?') + ') — ' + r.historico.length + ' dias uteis baixados');
         } else {
           showMsg(msgCambio, 'error', '✗ Falhou: ' + (r.erro || 'erro desconhecido'));
         }

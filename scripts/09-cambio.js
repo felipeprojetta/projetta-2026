@@ -79,6 +79,21 @@ const Cambio = (() => {
   }
 
   /**
+   * Felipe sessao 31: calcula media simples dos primeiros N valores do
+   * historico PTAX (dias mais recentes primeiro). Retorna 0 se nao tem
+   * historico suficiente. Usado pra dar contexto no card de Configuracao
+   * (medias de 30, 60, 90 dias) e ajudar Felipe a decidir a taxa manual.
+   */
+  function mediaPtax(n) {
+    const hist = getHistorico();
+    if (!hist.length) return 0;
+    const slice = hist.slice(0, Math.min(n, hist.length));
+    if (!slice.length) return 0;
+    const soma = slice.reduce((s, h) => s + (Number(h.valor) || 0), 0);
+    return soma / slice.length;
+  }
+
+  /**
    * Busca PTAX dos ultimos 30 dias na API do BCB. Atualiza cache local.
    * Felipe sessao 31: usa endpoint publico do BCB, retorna ASP-WS.
    * Em caso de falha (offline, CORS), mantem o cache existente.
@@ -87,12 +102,14 @@ const Cambio = (() => {
     const s = store();
     if (!s) return { ok: false, erro: 'Storage nao disponivel' };
     try {
-      // BCB API publica — cotacao do dolar dos ultimos 30 dias uteis.
+      // BCB API publica — cotacao do dolar dos ultimos ~90 dias uteis.
       // Endpoint: https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/
       // CotacaoDolarPeriodo(...) — formato OData JSON.
+      // Felipe sessao 31: busca 95 dias corridos pra ter 90+ dias uteis
+      // pra calcular medias de 30/60/90 dias.
       const hoje = new Date();
       const dInicio = new Date(hoje);
-      dInicio.setDate(hoje.getDate() - 35); // 35 dias pra ter folga de fins-de-semana
+      dInicio.setDate(hoje.getDate() - 100); // 100 dias corridos = ~70 uteis com folga
       function fmt(d) {
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
@@ -103,7 +120,7 @@ const Cambio = (() => {
         "(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)" +
         "?@dataInicial='" + fmt(dInicio) + "'" +
         "&@dataFinalCotacao='" + fmt(hoje) + "'" +
-        "&$top=200&$format=json&$select=cotacaoVenda,dataHoraCotacao";
+        "&$top=500&$format=json&$select=cotacaoVenda,dataHoraCotacao";
       const res = await fetch(url);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const json = await res.json();
@@ -116,8 +133,9 @@ const Cambio = (() => {
       vals.sort((a, b) => b.data.localeCompare(a.data));
       const ultimo = vals[0];
       s.set(KEY_PTAX, ultimo);
-      s.set(KEY_HISTORICO, vals.slice(0, 30));
-      return { ok: true, ptax: ultimo, historico: vals.slice(0, 30) };
+      // Felipe sessao 31: guarda ate 90 dias pra calcular medias.
+      s.set(KEY_HISTORICO, vals.slice(0, 90));
+      return { ok: true, ptax: ultimo, historico: vals.slice(0, 90) };
     } catch (err) {
       return { ok: false, erro: err.message || String(err) };
     }
@@ -164,7 +182,7 @@ const Cambio = (() => {
 
   return {
     taxaAtual, setManual, getManual,
-    getPtax, getHistorico, atualizarPtax,
+    getPtax, getHistorico, mediaPtax, atualizarPtax,
     brlParaUsd, usdParaBrl,
     formatarUsd, formatarBrl, fmtPar,
   };
