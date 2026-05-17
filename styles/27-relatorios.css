@@ -374,7 +374,9 @@
   align-items: center;
   justify-content: flex-start;
   border-right: 1px solid var(--line);
-  min-height: 460px;
+  /* Felipe sessao 31: removido min-height: 460px - container agora se
+     ajusta ao conteudo da info (porta sem alisar ficava com gap vazio
+     entre imagem e disclaimer). Imagem mantem max-height de 400px. */
   padding: 10px;
 }
 .rel-prop-item-img img {
@@ -393,14 +395,13 @@
   text-align: center;
   font-style: italic;
 }
-/* Felipe sessao 18: disclaimer abaixo da imagem do modelo na proposta
-   comercial. 'As imagens sao meramente ilustrativas. O cliente aprovara
-   os desenhos finais para producao'.
-   Felipe sessao 18 (ajuste 2): margin-top auto empurra pro RODAPE
-   do container sem comprimir a imagem. Imagem mantem tamanho original. */
+/* Felipe sessao 18: disclaimer abaixo da imagem do modelo na proposta.
+   Felipe sessao 31: 'suba descricao ali da imagem ilustrativa quadro
+   alinhado com ulima item da descricao'. Trocado margin-top: auto
+   (empurrava pro rodape do container = gap vazio) por margin-top: 12px
+   (cola direto na imagem). */
 .rel-prop-item-img-disclaimer {
-  margin-top: auto;
-  padding-top: 16px;
+  margin-top: 12px;
   font-size: 8px;
   font-style: italic;
   color: var(--text-muted, #6b7280);

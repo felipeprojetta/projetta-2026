@@ -11553,8 +11553,15 @@ const Orcamento = (() => {
       const descricaoItem = obterDescricaoItem(item, internacional);
       // Valor por item — se nao temos calculado (fallback), mostra "—"
       const v = valoresPorIdx[idx];
-      const valorUnStr   = (v && v.precoFinal > 0) ? `R$ ${fmtBR(v.valorUn)}`    : '—';
-      const valorTotStr  = (v && v.precoFinal > 0) ? `R$ ${fmtBR(v.precoFinal)}` : '—';
+      // Felipe sessao 31: na proposta INTERNACIONAL mostra so USD (sem R$).
+      // 'deixe somente valores em dolares'.
+      const fmtUsdProp = n => 'USD ' + Number(n).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+      const valorUnStr = (v && v.precoFinal > 0)
+        ? (internacional && taxa > 0 ? fmtUsdProp(v.valorUn / taxa) : `R$ ${fmtBR(v.valorUn)}`)
+        : '—';
+      const valorTotStr = (v && v.precoFinal > 0)
+        ? (internacional && taxa > 0 ? fmtUsdProp(v.precoFinal / taxa) : `R$ ${fmtBR(v.precoFinal)}`)
+        : '—';
       return `
         <tr>
           <td class="rel-prop-tabela-num">${String(idx + 1).padStart(2, '0')}</td>
@@ -11625,7 +11632,7 @@ const Orcamento = (() => {
             </div>
             <div class="rel-prop-total-orc">
               <span class="rel-prop-total-label">${tr('Total Orcamento:','Grand Total:')}</span>
-              <span class="rel-prop-total-valor">R$ ${fmtBR(totalGeral)}${(internacional && taxa > 0) ? ' · USD ' + (totalGeral / taxa).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : ''}</span>
+              <span class="rel-prop-total-valor">${(internacional && taxa > 0) ? 'USD ' + (totalGeral / taxa).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : 'R$ ' + fmtBR(totalGeral)}</span>
             </div>
           </div>
 
@@ -11654,6 +11661,7 @@ const Orcamento = (() => {
               <li><b>*** ${escapeHtml(fraseFreteInst.toUpperCase())}</b></li>
             </ul>
           </div>
+          ${internacional ? `</div><div class="rel-prop-pagina rel-prop-pagina-conteudo">${headerHtml}` : ''}
 
           ${internacional && taxa > 0 ? (() => {
             const incoterm = lead.freteIncoterm || 'FOB';
@@ -11722,7 +11730,7 @@ const Orcamento = (() => {
                 </table>
                 <div style="margin-top:10px; padding:10px 12px; background:#0c5485; color:#fff; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
                   <span style="font-size:12px; font-weight:600;">GRAND TOTAL · ${escapeHtml(incoterm)} ${escapeHtml(lead.destinoPais || '')}</span>
-                  <span style="font-size:17px; font-weight:700;">${fmtUsd(finalUsd)} <span style="font-size:13px; opacity:0.9;">· R$ ${fmtBR(finalUsd * taxa)}</span></span>
+                  <span style="font-size:17px; font-weight:700;">${fmtUsd(finalUsd)}</span>
                 </div>
                 <p style="font-size:10px; color:#5a7a99; margin-top:8px; font-style:italic;">
                   Origin: Uberlandia / Brazil &middot; Destination: ${escapeHtml(lead.destinoPais || '—')}
