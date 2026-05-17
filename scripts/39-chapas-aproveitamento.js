@@ -1243,6 +1243,92 @@ window.ChapasAproveitamento = (function () {
   }
 
   // ============================================================
+  // SIMULATED ANNEALING — Felipe sessao 31 [3/N]
+  //
+  // Pesquisa: paper Kirkpatrick 1983 + 'Bin-packing by simulated
+  // annealing' (Coffman, Lueker). SigmaNEST e SA-FGS (paper 2023)
+  // usam SA pra refinar solucoes do GA.
+  //
+  // Conceito: pega a melhor ordem ja' encontrada e faz pequenas
+  // perturbacoes (swap de 2 pecas vizinhas). Calcula novo fitness:
+  //   se melhor   -> aceita
+  //   se pior     -> aceita com probabilidade e^(-delta/T)
+  // T (temperatura) comeca alta e diminui exponencialmente. No fim
+  // o SA so' aceita melhoras (ja' "esfriou"). Isso escapa de minimos
+  // locais que o GA empacou.
+  //
+  // Parametros conservadores: 30 iteracoes (cada uma 1 eval MaxRects).
+  // Tempo extra: ~150ms pra 110 pecas. SO' roda se ja' tem solucao
+  // (GA ou MaxRects). Logo apos o GA.
+  // ============================================================
+  function runSA(seedSolucao, expandidasBase, chapaLarg, chapaAlt, cfg) {
+    if (!seedSolucao || !seedSolucao.chapas || seedSolucao.chapas.length === 0) return null;
+    const N = expandidasBase.length;
+    if (N < 3) return seedSolucao;
+
+    // Reconstrói a ordem que gerou seedSolucao. Como nao temos isso
+    // direto, usa a ordem das pecas COLOCADAS pra aproximar.
+    // (Cada peca em seedSolucao.chapas[].pecasPosicionadas.peca tem
+    // referencia a' ref ou ela mesma — mas pode haver perdas.)
+    // Solucao mais simples: pega ordem por area DESC (a mais comum
+    // que gera o melhor MaxRects).
+    let melhorOrd = expandidasBase.map((_, i) => i).sort((a, b) => {
+      const pa = expandidasBase[a], pb = expandidasBase[b];
+      return (pb.largura * pb.altura) - (pa.largura * pa.altura);
+    });
+    let melhorFit = seedSolucao;
+
+    // Temperatura inicial: proporcional ao numero de chapas atual.
+    // Cool rate 0.85 (rapido).
+    let T = 1.0;
+    const COOL = 0.88;
+    const ITER = 30;
+
+    let ordAtual = melhorOrd.slice();
+    let fitAtual = melhorFit;
+
+    for (let it = 0; it < ITER; it++) {
+      // Perturba: swap de 2 pecas aleatorias (ou 3 com prob baixa)
+      const nova = ordAtual.slice();
+      const i = Math.floor(Math.random() * N);
+      let j = Math.floor(Math.random() * N);
+      while (j === i) j = Math.floor(Math.random() * N);
+      [nova[i], nova[j]] = [nova[j], nova[i]];
+      // Eventualmente troca um terceiro elemento (perturbacao maior)
+      if (Math.random() < 0.15) {
+        const k = Math.floor(Math.random() * N);
+        [nova[i], nova[k]] = [nova[k], nova[i]];
+      }
+
+      // Avalia
+      const novaFit = nestingMaxRects(
+        nova.map(idx => expandidasBase[idx]),
+        chapaLarg, chapaAlt, cfg, 'BSSF');
+      const cmp = compararResultados(novaFit, fitAtual);
+      if (cmp < 0) {
+        // Melhor: aceita sempre
+        ordAtual = nova;
+        fitAtual = novaFit;
+        if (compararResultados(novaFit, melhorFit) < 0) {
+          melhorOrd = nova;
+          melhorFit = novaFit;
+        }
+      } else if (cmp > 0) {
+        // Pior: aceita com probabilidade e^(-delta/T)
+        // delta = diferenca de chapas (1 = aumentou 1 chapa)
+        const delta = (novaFit.chapas.length - fitAtual.chapas.length);
+        const prob = Math.exp(-delta / T);
+        if (Math.random() < prob) {
+          ordAtual = nova;
+          fitAtual = novaFit;
+        }
+      }
+      T *= COOL;
+    }
+    return melhorFit;
+  }
+
+  // ============================================================
   // FUNCAO PRINCIPAL — MULTI-START
   // Felipe (sessao 2026-05): roda VARIAS estrategias de ordenacao
   // (8 sementes diferentes) e pega a com MELHOR aproveitamento.
@@ -1394,6 +1480,18 @@ window.ChapasAproveitamento = (function () {
           }
         } catch (e) {
           console.warn('[Aproveitamento] GA falhou', e);
+        }
+        // Felipe sessao 31 [3/N]: Simulated Annealing refinement.
+        // Pega o melhor encontrado ate aqui e tenta micro-perturbacoes
+        // (swap de 2 pecas) com aceitacao probabilistica de pioras.
+        // Permite escapar de minimos locais do GA.
+        try {
+          const candSA = runSA(melhor, expandidas, chapaLarg, chapaAlt, cfg);
+          if (candSA && (!melhor || compararResultados(candSA, melhor) < 0)) {
+            melhor = candSA;
+          }
+        } catch (e) {
+          console.warn('[Aproveitamento] SA falhou', e);
         }
       }
     }
