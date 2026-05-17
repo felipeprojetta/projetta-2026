@@ -829,6 +829,216 @@ window.ChapasAproveitamento = (function () {
   }
 
   // ============================================================
+  // MODO MaxRects — algoritmo industrial usado pelo MaxCut/DeepNest.
+  //
+  // Felipe sessao 31: 'QUERO MELHOR ALGORITMO DE CORTE DE CHAPAS DO
+  // MUNDO'. Implementacao completa do MaxRects + Best Short Side Fit.
+  //
+  // Diferente do multi_horiz (que abre fileiras de altura fixa) e do
+  // BLF (que so' considera o skyline), o MaxRects mantem uma LISTA de
+  // RETANGULOS LIVRES e, pra cada peca, testa o ENCAIXE EM TODOS eles,
+  // escolhendo o que MINIMIZA a sobra lateral (Best Short Side Fit).
+  // Quando coloca a peca, divide o retangulo livre em ate 2 partes e
+  // depois LIMPA retangulos cobertos por outros maiores.
+  //
+  // Pipeline (documento Felipe sessao 31):
+  //   pre-processamento  → ordena por area DESC (peca grande primeiro)
+  //   MaxRects           → tenta cada peca em todos retangulos livres
+  //   Best Short Side    → score = min(sobra_w, sobra_h) — menos
+  //                        fragmentacao
+  //   Split retangular   → divide livre em (esquerda, direita, topo,
+  //                        embaixo) e descarta as 2 menores
+  //   Cleanup            → remove livres contidos em outros
+  //
+  // Aproveitamento esperado: 75-90% pra mix simples, 85-95% pra
+  // padronizado.
+  // ============================================================
+
+  /**
+   * Felipe sessao 31: MaxRects (1 chapa). Coloca quantas pecas couberem.
+   * Pecas que nao caberem voltam em `restantes`.
+   *
+   * @param {Array} pecas - pecas expandidas (cada uma 1 unidade)
+   * @param {number} chapaLarg
+   * @param {number} chapaAlt
+   * @param {Object} cfg - {KERF, APARAR}
+   * @return {Object} {chapa, restantes}
+   */
+  function maxRectsUmaChapa(pecas, chapaLarg, chapaAlt, cfg) {
+    const KERF = cfg.KERF;
+    const M = cfg.APARAR;
+    const dispLarg = chapaLarg - 2 * M;
+    const dispAlt = chapaAlt - 2 * M;
+
+    // Lista de retangulos livres. Comeca com a chapa inteira (descontando
+    // a margem de aparar).
+    const livres = [{ x: M, y: M, w: dispLarg, h: dispAlt }];
+    const colocadas = [];
+    const restantes = pecas.slice();
+
+    while (restantes.length > 0) {
+      // Encontra a MELHOR (peca, livre, orientacao) combinacao.
+      // Score: Best Short Side Fit + tiebreak Best Long Side Fit.
+      // Menor = melhor.
+      let melhor = null;
+      for (let i = 0; i < restantes.length; i++) {
+        const p = restantes[i];
+        const orientacoes = p.podeRotacionar
+          ? [{ w: p.largura, h: p.altura, rotada: false },
+             { w: p.altura, h: p.largura, rotada: true }]
+          : [{ w: p.largura, h: p.altura, rotada: false }];
+        for (const o of orientacoes) {
+          for (const livre of livres) {
+            // Cabe?
+            if (o.w > livre.w + 0.01) continue;
+            if (o.h > livre.h + 0.01) continue;
+            // Score Best Short Side Fit: a menor das duas sobras.
+            const sobraW = livre.w - o.w;
+            const sobraH = livre.h - o.h;
+            const shortSide = Math.min(sobraW, sobraH);
+            const longSide  = Math.max(sobraW, sobraH);
+            const score = shortSide * 10000 + longSide;
+            if (!melhor || score < melhor.score) {
+              melhor = {
+                idx: i, p,
+                x: livre.x, y: livre.y,
+                w: o.w, h: o.h, rotada: o.rotada,
+                score,
+              };
+            }
+          }
+        }
+      }
+      if (!melhor) break; // Nenhuma peca cabe mais
+
+      // Coloca a peca
+      colocadas.push({
+        peca: melhor.p,
+        x: melhor.x, y: melhor.y,
+        larg: melhor.w, alt: melhor.h,
+        rotada: melhor.rotada,
+      });
+      restantes.splice(melhor.idx, 1);
+
+      // SPLIT: a peca foi colocada em (melhor.x, melhor.y, melhor.w +
+      // KERF, melhor.h + KERF) — inclui kerf nos dois lados pra
+      // serrar. Atualiza a lista de livres:
+      //   1) Quebra cada livre que intersecta com o retangulo cortado.
+      //   2) Cleanup: remove livres contidos em outros.
+      const cutX = melhor.x;
+      const cutY = melhor.y;
+      const cutW = melhor.w + KERF;
+      const cutH = melhor.h + KERF;
+      const novosLivres = [];
+      for (const livre of livres) {
+        if (!retsIntersect(livre, { x: cutX, y: cutY, w: cutW, h: cutH })) {
+          novosLivres.push(livre);
+          continue;
+        }
+        // Quebra livre em ate 4 retangulos (esquerda, direita, embaixo, em cima).
+        // Embaixo de cutY (espaco antes da peca em y)
+        if (cutY > livre.y) {
+          novosLivres.push({
+            x: livre.x, y: livre.y,
+            w: livre.w, h: cutY - livre.y,
+          });
+        }
+        // Acima de cutY + cutH (espaco depois da peca em y)
+        const cutYFim = cutY + cutH;
+        const livreYFim = livre.y + livre.h;
+        if (cutYFim < livreYFim) {
+          novosLivres.push({
+            x: livre.x, y: cutYFim,
+            w: livre.w, h: livreYFim - cutYFim,
+          });
+        }
+        // Esquerda de cutX
+        if (cutX > livre.x) {
+          novosLivres.push({
+            x: livre.x, y: livre.y,
+            w: cutX - livre.x, h: livre.h,
+          });
+        }
+        // Direita de cutX + cutW
+        const cutXFim = cutX + cutW;
+        const livreXFim = livre.x + livre.w;
+        if (cutXFim < livreXFim) {
+          novosLivres.push({
+            x: cutXFim, y: livre.y,
+            w: livreXFim - cutXFim, h: livre.h,
+          });
+        }
+      }
+      // CLEANUP: remove retangulos contidos em outros maiores (eles
+      // sao redundantes — qualquer peca que caberia no menor tambem
+      // cabe no maior).
+      livres.length = 0;
+      for (let i = 0; i < novosLivres.length; i++) {
+        let contido = false;
+        for (let j = 0; j < novosLivres.length; j++) {
+          if (i === j) continue;
+          if (retContemRet(novosLivres[j], novosLivres[i])) {
+            contido = true;
+            break;
+          }
+        }
+        if (!contido && novosLivres[i].w > 0.5 && novosLivres[i].h > 0.5) {
+          livres.push(novosLivres[i]);
+        }
+      }
+    }
+
+    const chapa = {
+      largura: chapaLarg, altura: chapaAlt,
+      pecasPosicionadas: colocadas,
+      sobrasRetangulos: [],
+    };
+    chapa.sobrasRetangulos = calcularSobras(chapa, M);
+    return { chapa, restantes };
+  }
+
+  /** Felipe sessao 31: dois retangulos se intersectam? */
+  function retsIntersect(a, b) {
+    return a.x < b.x + b.w - 0.01
+        && a.x + a.w > b.x + 0.01
+        && a.y < b.y + b.h - 0.01
+        && a.y + a.h > b.y + 0.01;
+  }
+
+  /** Felipe sessao 31: outer contem inner? */
+  function retContemRet(outer, inner) {
+    return inner.x >= outer.x - 0.01
+        && inner.y >= outer.y - 0.01
+        && inner.x + inner.w <= outer.x + outer.w + 0.01
+        && inner.y + inner.h <= outer.y + outer.h + 0.01;
+  }
+
+  /**
+   * Felipe sessao 31: MaxRects multi-chapa. Roda maxRectsUmaChapa varias
+   * vezes ate todas as pecas serem alocadas. Retorna no formato {chapas,
+   * naoCouberam} igual aos outros motores.
+   */
+  function nestingMaxRects(pecas, chapaLarg, chapaAlt, cfg) {
+    const chapas = [];
+    let restantes = pecas.slice();
+    const naoCouberam = [];
+    let limite = 500; // Safety: evita loop infinito
+    while (restantes.length > 0 && limite-- > 0) {
+      const { chapa, restantes: novoRest } =
+        maxRectsUmaChapa(restantes, chapaLarg, chapaAlt, cfg);
+      if (chapa.pecasPosicionadas.length === 0) {
+        // Nenhuma peca coube na chapa nova — todas as restantes sao maiores
+        // que a chapa. Coloca em naoCouberam.
+        novoRest.forEach(p => naoCouberam.push(p.ref || p));
+        break;
+      }
+      chapas.push(chapa);
+      restantes = novoRest;
+    }
+    return { chapas, naoCouberam };
+  }
+
+  // ============================================================
   // FUNCAO PRINCIPAL — MULTI-START
   // Felipe (sessao 2026-05): roda VARIAS estrategias de ordenacao
   // (8 sementes diferentes) e pega a com MELHOR aproveitamento.
@@ -934,6 +1144,28 @@ window.ChapasAproveitamento = (function () {
         const candBLF = nestingBLF(expandidas, chapaLarg, chapaAlt, cfg);
         if (!melhor || compararResultados(candBLF, melhor) < 0) melhor = candBLF;
       } catch (e) { /* skip */ }
+      // Felipe sessao 31: MaxRects e' o algoritmo INDUSTRIAL — mesmo
+      // que o MaxCut/DeepNest usam. Mantem retangulos livres e escolhe
+      // o MELHOR encaixe por Best Short Side Fit. Testa com 4
+      // ordenacoes diferentes (area DESC e variacoes — MaxRects e' bem
+      // mais sensivel a ordem que multi_horiz porque a 1a peca define
+      // a quebra inicial). 'QUERO MELHOR ALGORITMO DE CORTE DE CHAPAS
+      // DO MUNDO'.
+      const ordsMaxRects = [
+        (arr) => arr.slice().sort((a, b) => (b.largura * b.altura) - (a.largura * a.altura)),
+        (arr) => arr.slice().sort((a, b) => b.altura - a.altura || b.largura - a.largura),
+        (arr) => arr.slice().sort((a, b) => Math.max(b.largura, b.altura) - Math.max(a.largura, a.altura)),
+        (arr) => arr.slice().sort((a, b) => (b.largura + b.altura) - (a.largura + a.altura)),
+      ];
+      for (const ord of ordsMaxRects) {
+        try {
+          const pecasMR = ord(expandidas);
+          const candMR = nestingMaxRects(pecasMR, chapaLarg, chapaAlt, cfg);
+          if (!melhor || compararResultados(candMR, melhor) < 0) melhor = candMR;
+        } catch (e) {
+          console.warn('[Aproveitamento] MaxRects falhou', e);
+        }
+      }
     }
 
     // Felipe (sessao 2026-05): SALVAGE PASS — depois de escolhida a
