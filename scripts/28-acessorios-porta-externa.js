@@ -228,16 +228,8 @@ const AcessoriosPortaExterna = (() => {
       pushLinha(dobAcess.codigo, 3, 'Dobradica', cor ? ('Cor: ' + cor) : '');
     }
 
-    // 4) Felipe sessao 31: Silicone estrutural 995 nas TRAVESSAS.
-    //    'estrutura 995 2x por travessa pelo comprimento delas'.
-    //    Pega o comprimento da travessa direto do motor de perfis
-    //    (formula: largura_vao - fglEsq - fglDir - 108,5 - 108,5).
-    //    Qtd unidades de travessa: 2 se altura <= 2200, 3 se > 2200
-    //    (mesmo padrao do motor 35-perfis-porta-interna.js).
-    //    Metros lineares = 2 * (comp_travessa_mm / 1000) * qtdTravessas
-    //                                ↑ "2x"           * por porta
-    //    Rendimento: vem do cadastro Regras.getRendimentos (mesmo do
-    //    motor da porta externa), fallback 12m por tubo.
+    // Felipe sessao 31: helpers de geometria reusados pelos consumiveis abaixo
+    // (silicone 995, fita dupla face, hightack, PA-QL 48750). Le tudo do item.
     function _toNumPI(v) {
       if (typeof window !== 'undefined' && window.parseBR) return window.parseBR(v);
       if (v === null || v === undefined || v === '') return 0;
@@ -247,6 +239,58 @@ const AcessoriosPortaExterna = (() => {
     }
     const larguraVaoPI = _toNumPI(item.largura);
     const alturaVaoPI  = _toNumPI(item.altura);
+
+    // 4) Felipe sessao 31: PA-QL 48750 — vedacao perimetral, em METROS.
+    //    'PA-QL 48750 em metros fica em acessorios.
+    //     Largura do vao + 2x altura do vao' (1 lado + 2 verticais).
+    //    Multiplica por qtdPortas (varias portas iguais).
+    if (larguraVaoPI > 0 && alturaVaoPI > 0) {
+      const metrosQL = ((larguraVaoPI + 2 * alturaVaoPI) / 1000) * qtdPortas;
+      const acessQL  = buscarAcessorio(cadastroAcessorios, 'PA-QL 48750');
+      // Felipe: 'em metros' -> qtd em metros lineares (com 2 casas), unidade='m'
+      const qtdM = Math.round(metrosQL * 100) / 100;
+      if (acessQL) {
+        const precoUn = Number(acessQL.preco) || 0;
+        linhas.push({
+          codigo:    acessQL.codigo,
+          descricao: acessQL.descricao || 'PA-QL 48750',
+          familia:   acessQL.familia || 'Vedacoes',
+          qtd:       qtdM,
+          unidade:   'm',
+          preco_un:  precoUn,
+          total:     precoUn * qtdM,
+          categoria: 'Vedacoes',
+          aplicacao: 'fab',
+          observacao: 'L + 2×A = ' + larguraVaoPI + ' + 2×' + alturaVaoPI
+                      + ' = ' + (larguraVaoPI + 2 * alturaVaoPI) + 'mm/porta · '
+                      + qtdPortas + ' porta(s) = ' + qtdM + 'm',
+        });
+      } else {
+        linhas.push({
+          codigo:    'PA-QL 48750',
+          descricao: '(nao cadastrado)',
+          familia:   '',
+          qtd:       qtdM,
+          unidade:   'm',
+          preco_un:  0,
+          total:     0,
+          categoria: 'Vedacoes',
+          aplicacao: 'fab',
+          observacao: qtdM + 'm necessarios · CADASTRAR EM ACESSORIOS',
+        });
+      }
+    }
+
+    // 5) Felipe sessao 31: Silicone estrutural 995 nas TRAVESSAS.
+    //    'estrutura 995 2x por travessa pelo comprimento delas'.
+    //    Pega o comprimento da travessa direto do motor de perfis
+    //    (formula: largura_vao - fglEsq - fglDir - 108,5 - 108,5).
+    //    Qtd unidades de travessa: 2 se altura <= 2200, 3 se > 2200
+    //    (mesmo padrao do motor 35-perfis-porta-interna.js).
+    //    Metros lineares = 2 * (comp_travessa_mm / 1000) * qtdTravessas
+    //                                ↑ "2x"           * por porta
+    //    Rendimento: vem do cadastro Regras.getRendimentos (mesmo do
+    //    motor da porta externa), fallback 12m por tubo.
     if (larguraVaoPI > 0 && alturaVaoPI > 0) {
       const fglEsqPI = _toNumPI(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5);
       const fglDirPI = _toNumPI(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5);
