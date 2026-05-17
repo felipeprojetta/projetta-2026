@@ -593,7 +593,7 @@ const Perfis = (() => {
           "descricao": "CLICK BATENTE INTERNO 10,5 X 50 MM",
           "fornecedor": "Tecnoperfil",
           "barra": 6,
-          "tratamento": "Pintado",
+          "tratamento": "Pintura",
           "kg_m": 0.237
       },
       {
@@ -602,7 +602,7 @@ const Perfis = (() => {
           "descricao": "CLICK FOLHA INTERNO 22 X 57 MM",
           "fornecedor": "Tecnoperfil",
           "barra": 6,
-          "tratamento": "Pintado",
+          "tratamento": "Pintura",
           "kg_m": 0.341
       },
       {
@@ -611,7 +611,7 @@ const Perfis = (() => {
           "descricao": "ALISAR INTERNO 60 X 37,5 MM",
           "fornecedor": "Tecnoperfil",
           "barra": 6,
-          "tratamento": "Pintado",
+          "tratamento": "Pintura",
           "kg_m": 0.593
       },
       {
@@ -629,7 +629,7 @@ const Perfis = (() => {
           "descricao": "VEDACAO INTERNA 50 X 57 MM",
           "fornecedor": "Tecnoperfil",
           "barra": 6,
-          "tratamento": "Pintado",
+          "tratamento": "Pintura",
           "kg_m": 1.322
       },
       {
@@ -647,7 +647,7 @@ const Perfis = (() => {
           "descricao": "BATENTE INTERNO 60 X 92 MM",
           "fornecedor": "Tecnoperfil",
           "barra": 6,
-          "tratamento": "Pintado",
+          "tratamento": "Pintura",
           "kg_m": 1.467
       }
   ];
@@ -736,9 +736,12 @@ const Perfis = (() => {
     const forn   = state.params[fornKey];
     const rs_kg  = Number(forn.rs_kg) || 0;
     const pintRs = Number(state.params.pintura.rs_kg) || 0;
-    // Tratamento: 'Pintura' soma pintura, 'Natural' nao soma. Padrao 'Pintura' (compatibilidade).
+    // Tratamento: 'Pintura' (oficial) ou 'Pintado' (legado seed porta
+    // interna) soma pintura. 'Natural' nao. Padrao 'Pintura'.
+    // Felipe sessao 31 fix: vide nota em 12-orcamento.js mesmo bug.
     const tratamento = perfil.tratamento || 'Pintura';
-    const aplicaPintura = (tratamento === 'Pintura');
+    const tratNorm   = String(tratamento).toLowerCase().trim();
+    const aplicaPintura = (tratNorm === 'pintura' || tratNorm === 'pintado');
 
     const kg_barra   = kg_m * barra;
     const rs_perfil  = kg_barra * rs_kg;

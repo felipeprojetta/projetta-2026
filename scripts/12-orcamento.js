@@ -9675,9 +9675,15 @@ const Orcamento = (() => {
         const fornKey = String(p.fornecedor || 'mercado').toLowerCase();
         const forn = params[fornKey] || params.mercado || {};
         const precoKg = Number(forn.rs_kg || 0);
-        // Tratamento: 'Pintura' soma preco de pintura, 'Natural' nao
+        // Tratamento: 'Pintura' (oficial) ou 'Pintado' (variacao histor.
+        // do seed da porta interna) somam preco de pintura. 'Natural' nao.
+        // Felipe sessao 31 fix: cadastro seed de porta interna (20-perfis.js
+        // linha 596+) tinha "Pintado" enquanto a UI oferece "Pintura".
+        // Comparacao strict "=== 'Pintura'" deixava esses perfis sempre
+        // como BRUTO. Fix: normaliza e aceita ambos os formatos.
         const tratamento = p.tratamento || 'Pintura';
-        const aplicaPintura = (tratamento === 'Pintura');
+        const tratNorm   = String(tratamento).toLowerCase().trim();
+        const aplicaPintura = (tratNorm === 'pintura' || tratNorm === 'pintado');
         const precoPintura = aplicaPintura ? Number((params.pintura || {}).rs_kg || 0) : 0;
         cadastro[cod] = {
           kgPorMetro:    kgM,
