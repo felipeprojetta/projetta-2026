@@ -10594,6 +10594,13 @@ const Orcamento = (() => {
     const lead    = lerLeadAtivo() || {};
     const inst    = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
 
+    // Felipe sessao 31: detecta internacional e cria helper de traducao
+    // pra renderizar a proposta em INGLES quando o destino e' internacional.
+    // Helper tr(pt, en) retorna a string apropriada conforme bandeira.
+    const internacional = lead.destinoTipo === 'internacional';
+    const tr = (pt, en) => internacional ? en : pt;
+    const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+
     // Felipe (do doc - msg frete/inst): frase dinamica baseada no modo
     // de instalacao + valores manuais. Regras:
     //   modo 'projetta'                   → "Frete e instalacao inclusos"
@@ -10605,16 +10612,16 @@ const Orcamento = (() => {
     // Considera "incluso" apenas se valor > 0 (zero/null/vazio = nao incluso).
     const fraseFreteInst = (() => {
       if (inst.modo === 'projetta') {
-        return 'Frete e instalacao inclusos';
+        return tr('Frete e instalacao inclusos', 'Freight and installation included');
       }
       const valInst  = Number(inst.inst_terceiros_valor)  || 0;
       const valFrete = Number(inst.inst_terceiros_transp) || 0;
       const temInst  = valInst > 0;
       const temFrete = valFrete > 0;
-      if (temInst && temFrete)   return 'Frete e instalacao inclusos';
-      if (temInst && !temFrete)  return 'Instalacao inclusa, frete nao incluso';
-      if (!temInst && temFrete)  return 'Frete incluso, instalacao nao inclusa';
-      return 'Frete e instalacao nao inclusos';
+      if (temInst && temFrete)   return tr('Frete e instalacao inclusos',            'Freight and installation included');
+      if (temInst && !temFrete)  return tr('Instalacao inclusa, frete nao incluso',  'Installation included, freight not included');
+      if (!temInst && temFrete)  return tr('Frete incluso, instalacao nao inclusa',  'Freight included, installation not included');
+      return                              tr('Frete e instalacao nao inclusos',      'Freight and installation not included');
     })();
 
     // Cabecalho via modulo Empresa
@@ -10625,7 +10632,9 @@ const Orcamento = (() => {
     // (A) que confundia. Numero do doc agora reflete numero da versao.
     const numVersao = versao.numero || 1;
     // Sufixos ordinais: 1ª, 2ª, 3ª... (em PT-BR sempre o mesmo "ª")
-    const tituloProposta = `Proposta Comercial - ${numVersao}ª Versao`;
+    const tituloProposta = internacional
+      ? `Commercial Proposal - Version ${numVersao}`
+      : `Proposta Comercial - ${numVersao}ª Versao`;
     const numeroDoc = `V${numVersao}`;
     const headerHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
       ? window.Empresa.montarHeaderRelatorio({
@@ -10791,12 +10800,12 @@ const Orcamento = (() => {
     container.innerHTML = `
       <div class="orc-banner">
         <div class="orc-banner-info">
-          <span class="t-strong">Proposta Comercial</span>
+          <span class="t-strong">${tr('Proposta Comercial', 'Commercial Proposal')}</span>
           · ${escapeHtml(negocio?.clienteNome || '—')}
-          · Opcao ${escapeHtml(opcao.letra)} V${versao.numero}
+          · ${tr('Opcao', 'Option')} ${escapeHtml(opcao.letra)} V${versao.numero}
         </div>
         <div class="orc-banner-actions">
-          <button type="button" class="univ-btn-save" id="orc-prop-imprimir" title="Baixa o PDF da proposta direto (nao abre impressora)">📄 Exportar PDF</button>
+          <button type="button" class="univ-btn-save" id="orc-prop-imprimir" title="${tr('Baixa o PDF da proposta direto (nao abre impressora)', 'Download PDF directly')}">📄 ${tr('Exportar PDF', 'Export PDF')}</button>
         </div>
       </div>
 
@@ -10829,40 +10838,36 @@ const Orcamento = (() => {
           <table class="rel-prop-tabela-final">
             <thead>
               <tr>
-                <th class="rel-prop-tabela-num">Item</th>
-                <th>Descricao</th>
-                <th>Medidas</th>
-                <th class="num">Qtd</th>
-                <th class="num">Valor (un.)</th>
-                <th class="num">Valor Total</th>
+                <th class="rel-prop-tabela-num">${tr('Item','Item')}</th>
+                <th>${tr('Descricao','Description')}</th>
+                <th>${tr('Medidas','Dimensions')}</th>
+                <th class="num">${tr('Qtd','Qty')}</th>
+                <th class="num">${tr('Valor (un.)','Unit Price')}</th>
+                <th class="num">${tr('Valor Total','Total')}</th>
               </tr>
             </thead>
             <tbody>${linhasTabela}</tbody>
           </table>
           <div class="rel-prop-totais-row">
             <div class="rel-prop-total-area">
-              <span class="rel-prop-total-label">Total Area Portas:</span>
+              <span class="rel-prop-total-label">${tr('Total Area Portas:','Total Door Area:')}</span>
               <span class="rel-prop-total-valor">${fmtBR(totalArea)} m²</span>
             </div>
             <div class="rel-prop-total-orc">
-              <span class="rel-prop-total-label">Total Orcamento:</span>
-              <span class="rel-prop-total-valor">R$ ${fmtBR(totalGeral)}</span>
+              <span class="rel-prop-total-label">${tr('Total Orcamento:','Grand Total:')}</span>
+              <span class="rel-prop-total-valor">R$ ${fmtBR(totalGeral)}${(internacional && taxa > 0) ? ' · USD ' + (totalGeral / taxa).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : ''}</span>
             </div>
           </div>
 
           <div class="rel-prop-observacoes">
-            <div class="rel-prop-obs-titulo">Observacoes</div>
+            <div class="rel-prop-obs-titulo">${tr('Observacoes','Remarks')}</div>
             <ul class="rel-prop-obs-lista">
-              <li>Chapa 4 mm com pintura Kynar — 15 anos pro-rata</li>
-              <li>Fechaduras de seguranca KESO</li>
-              <li>Pivo em aco inox 304 / 316 L</li>
-              <li>Vedacao da porta automatica superior e inferior</li>
-              <li>Vedacao dupla (folha e batente) por Q-LON</li>
+              <li>${tr('Chapa 4 mm com pintura Kynar — 15 anos pro-rata','4 mm sheet with Kynar paint — 15 year pro-rata warranty')}</li>
+              <li>${tr('Fechaduras de seguranca KESO','KESO security locks')}</li>
+              <li>${tr('Pivo em aco inox 304 / 316 L','Stainless steel pivot 304 / 316 L')}</li>
+              <li>${tr('Vedacao da porta automatica superior e inferior','Automatic top and bottom door seal')}</li>
+              <li>${tr('Vedacao dupla (folha e batente) por Q-LON','Double seal (leaf and frame) by Q-LON')}</li>
               ${(() => {
-                // Felipe sessao 13: 'sempre que tiver vidro tem que sair o
-                // vidro que esta sendo usado, entao procure algum lugar
-                // para especificar o vidro do fixo lateral'. Lista todos
-                // os itens com revestimento=Vidro nas Observacoes.
                 const itensVidro = (versao.itens || [])
                   .map((it, i) => ({ it, i }))
                   .filter(({ it }) => it && it.tipo === 'fixo_acoplado'
@@ -10871,19 +10876,88 @@ const Orcamento = (() => {
                 if (!itensVidro.length) return '';
                 return itensVidro.map(({ it, i }) => {
                   const pos = String(it.posicao || '').toLowerCase() === 'lateral'
-                    ? 'Lateral' : (String(it.posicao || '').toLowerCase() === 'superior' ? 'Superior' : '');
-                  const label = `Item ${i + 1} (Fixo Acoplado${pos ? ' ' + pos : ''})`;
-                  return `<li><b>VIDRO ${escapeHtml(label)}:</b> ${escapeHtml(it.vidroDescricao)}</li>`;
+                    ? tr('Lateral','Side') : (String(it.posicao || '').toLowerCase() === 'superior' ? tr('Superior','Top') : '');
+                  const label = tr('Item','Item') + ` ${i + 1} (${tr('Fixo Acoplado','Coupled Fixed')}${pos ? ' ' + pos : ''})`;
+                  return `<li><b>${tr('VIDRO','GLASS')} ${escapeHtml(label)}:</b> ${escapeHtml(it.vidroDescricao)}</li>`;
                 }).join('');
               })()}
               <li><b>*** ${escapeHtml(fraseFreteInst.toUpperCase())}</b></li>
             </ul>
           </div>
 
+          ${internacional && taxa > 0 ? (() => {
+            const incoterm = lead.freteIncoterm || 'FOB';
+            const itc = window.Incoterms ? window.Incoterms.byCodigo(incoterm) : null;
+            if (!itc) return '';
+            const a = Number(lead.caixaAltura) || 0;
+            const e = Number(lead.caixaEspessura) || 0;
+            const c = Number(lead.caixaComprimento) || 0;
+            const m3 = (a * e * c) / 1e9;
+            const caixaUsd = (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
+            const terrUsd  = Number(lead.freteTerrestreUsd) || 0;
+            const marUsd   = Number(lead.freteMaritimoUsd)  || 0;
+            const valorUsd = totalGeral / taxa;
+            const seguroUsd = itc.seguroMaritimo ? Math.max(35, valorUsd * 0.005 * 1.10) : 0;
+            const incluir = {
+              caixa:     true,
+              terrestre: itc.freteTerrestre,
+              maritimo:  itc.freteMaritimo,
+              seguro:    itc.seguroMaritimo,
+            };
+            const subFrete = (incluir.caixa     ? caixaUsd : 0)
+                           + (incluir.terrestre ? terrUsd  : 0)
+                           + (incluir.maritimo  ? marUsd   : 0)
+                           + (incluir.seguro    ? seguroUsd: 0);
+            const finalUsd = valorUsd + subFrete;
+            const fmtUsd = v => 'USD ' + v.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+            const linha = (label, usd, incluso) => `
+              <tr style="${incluso ? '' : 'opacity:0.4;'}">
+                <td>${label}</td>
+                <td class="num">${fmtUsd(usd)}</td>
+                <td class="num" style="font-weight:600; color:${incluso ? '#0c5485' : '#999'};">${incluso ? '✓' : '—'}</td>
+              </tr>
+            `;
+            return `
+              <div class="rel-prop-internacional" style="margin-top:18px; padding:14px; background:#eff8ff; border:2px solid #0c5485; border-radius:8px;">
+                <div style="font-weight:700; color:#0c5485; font-size:13px; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
+                  🌍 International Shipping &middot; Incoterm <span style="background:#0c5485; color:#fff; padding:2px 8px; border-radius:4px;">${escapeHtml(incoterm)}</span>
+                </div>
+                <p style="font-size:11px; color:#5a7a99; margin:0 0 10px 0;">
+                  <b>${escapeHtml(itc.nome)}</b>. ${escapeHtml(itc.descricao)}
+                </p>
+                <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                  <thead>
+                    <tr style="border-bottom:2px solid #0c5485; color:#0c5485; font-weight:700;">
+                      <th style="text-align:left; padding:4px 0;">Component</th>
+                      <th style="text-align:right; padding:4px 0;">USD</th>
+                      <th style="text-align:center; padding:4px 0; width:60px;">Included</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${linha('Product value (FCA factory)', valorUsd, true)}
+                    ${linha('📦 Fumigated wood crate (' + m3.toFixed(2) + ' m³)', caixaUsd, incluir.caixa)}
+                    ${linha('🚛 Inland freight Uberlandia → Santos', terrUsd, incluir.terrestre)}
+                    ${linha('🚢 Ocean freight ' + (lead.freteModal || 'LCL'), marUsd, incluir.maritimo)}
+                    ${linha('🛡️ Marine insurance (0.5% × value × 110%)', seguroUsd, incluir.seguro)}
+                  </tbody>
+                </table>
+                <div style="margin-top:10px; padding:10px 12px; background:#0c5485; color:#fff; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                  <span style="font-size:12px; font-weight:600;">TOTAL ${escapeHtml(incoterm)} ${escapeHtml(lead.destinoPais || '')}</span>
+                  <span style="font-size:17px; font-weight:700;">${fmtUsd(finalUsd)}</span>
+                </div>
+                <p style="font-size:10px; color:#5a7a99; margin-top:8px; font-style:italic;">
+                  Origin: Uberlandia / Brazil &middot; Destination: ${escapeHtml(lead.destinoPais || '—')}
+                  ${lead.freteModal === 'FCL' ? '&middot; Container: ' + escapeHtml(lead.freteContainer || '40HC') : ''}
+                  &middot; USD rate: ${taxa.toFixed(4)} (BCB PTAX)
+                </p>
+              </div>
+            `;
+          })() : ''}
+
           <div class="rel-prop-pagamento">
-            <div class="rel-prop-pag-row"><b>Condicoes de Pagamento:</b> 6X</div>
-            <div class="rel-prop-pag-row"><b>Forma de Pagamento:</b> Boleto</div>
-            <div class="rel-prop-pag-row"><b>Prazo de Entrega:</b> 90 dias apos aprovacao do recalculo.</div>
+            <div class="rel-prop-pag-row"><b>${tr('Condicoes de Pagamento:','Payment Terms:')}</b> ${tr('6X','6 installments')}</div>
+            <div class="rel-prop-pag-row"><b>${tr('Forma de Pagamento:','Payment Method:')}</b> ${tr('Boleto', internacional ? 'Wire Transfer' : 'Boleto')}</div>
+            <div class="rel-prop-pag-row"><b>${tr('Prazo de Entrega:','Delivery Time:')}</b> ${tr('90 dias apos aprovacao do recalculo.','90 days after approval of recalculation.')}</div>
           </div>
 
           <div class="rel-prop-assinaturas">
@@ -10905,7 +10979,7 @@ const Orcamento = (() => {
                   📷 @projettaaluminio
                   🌐 www.projettaaluminio.com -->
           <div class="rel-prop-footer-redes">
-            <div class="rel-prop-footer-cta">Siga-nos nas redes sociais</div>
+            <div class="rel-prop-footer-cta">${tr('Siga-nos nas redes sociais','Follow us on social media')}</div>
             <div class="rel-prop-footer-rede">
               <span class="rel-prop-footer-icon">
                 <!-- Instagram (SVG simples — camera + circulo) -->
