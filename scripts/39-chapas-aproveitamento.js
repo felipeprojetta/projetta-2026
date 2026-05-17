@@ -863,20 +863,28 @@ window.ChapasAproveitamento = (function () {
         (arr) => concentrarPequenas(arr, 0.50),
       ];
 
+      // Felipe sessao 31: agora testa AMBOS multi_horiz E multi_vert com
+      // CADA estrategia + BLF puro no fim. Antes so' rodava o METODO
+      // configurado, perdendo casos onde a outra orientacao funcionava
+      // muito melhor (ex: chapa 1500x5000 com pecas altas — vert eh' bem
+      // melhor que horiz). Total: 12 estrategias × 2 metodos + 1 BLF = 25
+      // tentativas. Pega a com menos chapas (tiebreak: concentracao).
       for (const estrat of estrategias) {
         try {
           const ordenadas = estrat(expandidas);
-          const candidato = cfg.METODO === 'multi_vert'
-            ? nestingMultiVert(ordenadas, chapaLarg, chapaAlt, cfg)
-            : nestingMultiHoriz(ordenadas, chapaLarg, chapaAlt, cfg);
-          // Score: numero de chapas (menor melhor), tiebreak aproveitamento
-          if (!melhor || compararResultados(candidato, melhor) < 0) {
-            melhor = candidato;
-          }
+          const candH = nestingMultiHoriz(ordenadas, chapaLarg, chapaAlt, cfg);
+          if (!melhor || compararResultados(candH, melhor) < 0) melhor = candH;
+          const candV = nestingMultiVert(ordenadas, chapaLarg, chapaAlt, cfg);
+          if (!melhor || compararResultados(candV, melhor) < 0) melhor = candV;
         } catch (e) {
           console.warn('[Aproveitamento] estrategia falhou', e);
         }
       }
+      // BLF puro como ultima tentativa (otimo pra layouts mistos)
+      try {
+        const candBLF = nestingBLF(expandidas, chapaLarg, chapaAlt, cfg);
+        if (!melhor || compararResultados(candBLF, melhor) < 0) melhor = candBLF;
+      } catch (e) { /* skip */ }
     }
 
     // Felipe (sessao 2026-05): SALVAGE PASS — depois de escolhida a
@@ -986,10 +994,10 @@ window.ChapasAproveitamento = (function () {
       for (const estrat of estrategiasRP) {
         try {
           const ordenadas = estrat(pecasRefazer);
-          const cand = cfg.METODO === 'multi_vert'
-            ? nestingMultiVert(ordenadas, chapaLarg, chapaAlt, cfg)
-            : nestingMultiHoriz(ordenadas, chapaLarg, chapaAlt, cfg);
-          if (!melhorRP || compararResultados(cand, melhorRP) < 0) melhorRP = cand;
+          const candH = nestingMultiHoriz(ordenadas, chapaLarg, chapaAlt, cfg);
+          if (!melhorRP || compararResultados(candH, melhorRP) < 0) melhorRP = candH;
+          const candV = nestingMultiVert(ordenadas, chapaLarg, chapaAlt, cfg);
+          if (!melhorRP || compararResultados(candV, melhorRP) < 0) melhorRP = candV;
         } catch (e) { /* skip */ }
       }
       // Tambem tenta BLF puro (otimo pra compactacao vertical)
