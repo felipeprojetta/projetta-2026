@@ -2860,11 +2860,13 @@ const Orcamento = (() => {
   // tipo novo de campo, adicionar tambem em CATALOGO_CAMPOS_MODELO.
   // ============================================================
   const CATALOGO_CAMPOS_MODELO = {
-    distanciaBordaCava:         { label: 'Distancia da borda ate a cava (mm)', tipo: 'number', min: 0, step: 1 },
+    distanciaBordaCava:         { label: 'Distancia da borda ate o puxador embutido (mm)', tipo: 'number', min: 0, step: 1 },
     // Felipe (sessao 2026-05): renomeado de "Tamanho da cava" pra
     // "Largura da cava" — mais descritivo. Chave interna `tamanhoCava`
     // mantida pra preservar compat com dados ja salvos.
-    tamanhoCava:                { label: 'Largura da cava (mm)', tipo: 'number', min: 0, step: 1 },
+    // Felipe sessao 31: 'mude a todo local que tenha palavra CAVA
+    // para hidden handle'. Labels do form: cava -> puxador embutido.
+    tamanhoCava:                { label: 'Largura do puxador embutido (mm)', tipo: 'number', min: 0, step: 1 },
     distanciaBordaFrisoVertical:    { label: 'Distancia da borda ao friso vertical (mm)', tipo: 'number', min: 0, step: 1 },
     distanciaBordaFrisoHorizontal:  { label: 'Distancia da borda ao friso horizontal (mm)', tipo: 'number', min: 0, step: 1 },
     distanciaBordaFrisoHorizontal1: { label: 'Distancia da borda ao friso horizontal 1 (mm)', tipo: 'number', min: 0, step: 1 },
@@ -5445,11 +5447,11 @@ const Orcamento = (() => {
               </div>
               ${modeloTemCava(item.modeloExterno || item.modeloNumero) ? `
               <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-ext-cava"
-                      title="Copia a Cor Externa para a Cor da Cava (caso sejam iguais)">
-                ↓ Copiar Externo → Cava
+                      title="Copia a Cor Externa para a Cor do Puxador Embutido (caso sejam iguais)">
+                ↓ Copiar Externo → Puxador Embutido
               </button>
               <div class="orc-field orc-f-cor">
-                <label>Cor da Cava</label>
+                <label>Cor do Puxador Embutido</label>
                 <input type="text" list="orc-superficies-list" data-field="corCava" value="${escapeHtml(item.corCava || '')}" placeholder="" title="${escapeHtml(item.corCava || '')}" />
               </div>
               ` : ''}
@@ -5924,7 +5926,7 @@ const Orcamento = (() => {
       if (!inpExt || !inpCava) return;
       const valExt = inpExt.value || '';
       if (!valExt.trim()) {
-        alert('Selecione primeiro a Cor Externa, depois copie pra Cor da Cava.');
+        alert('Selecione primeiro a Cor Externa, depois copie pra Cor do Puxador Embutido.');
         return;
       }
       inpCava.value = valExt;
@@ -9190,14 +9192,14 @@ const Orcamento = (() => {
     'ALTURA FOLHA',
     'TRAVESSA VERTICAL',
     'FRISO VERTICAL',
-    'CANTONEIRA CAVA',
-    'TUBO CAVA',
+    'CANTONEIRA PUXADOR EMBUTIDO',
+    'TUBO PUXADOR EMBUTIDO',
     'LARGURA INFERIOR & SUPERIOR',
     'TRAVESSA HORIZONTAL',
     'FRISO HORIZONTAL',
     'VEDA PORTA INFERIOR & SUPERIOR',
     'CANAL ESCOVA',
-    'TRAVAMENTO CAVA',
+    'TRAVAMENTO PUXADOR EMBUTIDO',
   ];
   const ORDEM_PORTAL = ['ALTURA PORTAL', 'LARGURA PORTAL', 'TRAVESSA PORTAL'];
   // Felipe (R20): labels do motor estao em Title Case ('Altura Portal'),
@@ -12329,8 +12331,8 @@ const Orcamento = (() => {
                 // quando lead.destinoTipo='internacional'. Sem alterar o catalogo (usado
                 // em form/validacao), so a exibicao na proposta.
                 const LBL_EN = {
-                  'Distancia da borda ate a cava':           'Distance from edge to cava',
-                  'Largura da cava':                          'Cava width',
+                  'Distancia da borda ate o puxador embutido': 'Distance from edge to hidden handle',
+                  'Largura do puxador embutido':              'Hidden handle width',
                   'Distancia da borda ao friso vertical':     'Distance from edge to vertical groove',
                   'Distancia da borda ao friso horizontal':   'Distance from edge to horizontal groove',
                   'Distancia da borda ao friso horizontal 1': 'Distance from edge to horizontal groove 1',

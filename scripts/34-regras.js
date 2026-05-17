@@ -193,7 +193,7 @@ const Regras = (() => {
 
     // Felipe 2026-05-06: Excel CALCULO_DE_FITA_DULPA_FACE.xlsx atualizado.
     // PA-CANT-30X30X2.0: FD19=1, FD12=0, Silicone=0.
-    'cantoneira_cava':     { label: 'Cantoneira Cava · PA-CANT-30X30X2.0', fd19: 1, fd12: 0, ms: 0, cps: 0,  tamanho: 'comprimento',
+    'cantoneira_cava':     { label: 'Cantoneira Puxador Embutido · PA-CANT-30X30X2.0', fd19: 1, fd12: 0, ms: 0, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento da Cantoneira Cava (só em modelo cava — Lev. Perfis)' },
 
     // Felipe 2026-05-06: regras que faltavam no FITA_SILICONE_DEFAULT
@@ -203,7 +203,7 @@ const Regras = (() => {
       tamanhoDescricao: 'comprimento da fita de acabamento maior (Lev. Superfícies)' },
     'fita_acab_largura':   { label: 'Fita Acabamento Largura',              fd19: 1, fd12: 0, ms: 1, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento da fita de acabamento largura (Lev. Superfícies)' },
-    'cava_porta':          { label: 'Cava da Porta',                        fd19: 2, fd12: 0, ms: 2, cps: 0,  tamanho: 'comprimento',
+    'cava_porta':          { label: 'Puxador Embutido da Porta',                        fd19: 2, fd12: 0, ms: 2, cps: 0,  tamanho: 'comprimento',
       tamanhoDescricao: 'comprimento da peça Cava (×2 folhas, ×2 se cava dupla mod 09)' },
 
     // Felipe sessao 2026-08: REVESTIMENTO DE PAREDE
@@ -446,7 +446,7 @@ const Regras = (() => {
       explica: 'Igual Veda Porta + 10mm de folga. Inferior e superior, 2 por folha.',
     },
     {
-      label: 'Cava (Tubo)',
+      label: 'Puxador Embutido (Tubo)',
       codigo: 'PA-38X38X1.58',
       comp1F: 'TRAV_VERT − 30',
       qty1F:  '2 (so em modelos com cava)',
@@ -1019,7 +1019,7 @@ const Regras = (() => {
       </div>
 
       <div class="reg-section">
-        <div class="reg-section-title">Modelo 01 (Cava) — 1 Folha · pecas exclusivas</div>
+        <div class="reg-section-title">Modelo 01 (Puxador Embutido) — 1 Folha · pecas exclusivas</div>
         <p class="reg-section-help">
           Pecas que aparecem <b>apenas no Modelo 01</b>. Somam com as
           universais acima. As pecas da CAVA usam <code>corCava</code>

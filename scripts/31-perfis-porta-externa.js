@@ -415,7 +415,7 @@ const PerfisPortaExterna = (() => {
       const qtdTuboCava = ehCavaDupla ? 4 : 2 * nFolhas;
       add(cod.cava,     CAVA_COMP, qtdTuboCava,        'Tubo Cava');
       add(cod.cantCava, TRAV_VERT, 4 * nFolhas,        'Cantoneira Cava');
-      add(cod.travCava, 250,       qtdTH * nFolhas,    'Travamento Cava');
+      add(cod.travCava, 250,       qtdTH * nFolhas,    'Travamento Puxador Embutido');
     }
     if (ehFriso6) {
       // Felipe sessao 12: modelo 6 = SO friso horizontal. Sem friso

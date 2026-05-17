@@ -326,8 +326,8 @@ var PerfisRevAcoplado = (function() {
     // Planilha: "MESMA QTD QUE TIVER NA PORTA"
     var qtdCv = segueModelo ? qtdCavaPorta(porta) : 0;
     if (qtdCv > 0) {
-      add(COD_CAVA,       compCava,     qtdCv,     'Tubo Cava');
-      add(COD_CANTONEIRA, compTravVert, qtdCv * 2, 'Cantoneira Cava');
+      add(COD_CAVA,       compCava,     qtdCv,     'Tubo Puxador Embutido');
+      add(COD_CANTONEIRA, compTravVert, qtdCv * 2, 'Cantoneira Puxador Embutido');
     }
 
     // Felipe (sessao 18): Fixo lateral LISA tem travessa vertical

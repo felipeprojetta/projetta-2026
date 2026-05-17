@@ -520,24 +520,24 @@ const ChapasPortaExterna = (() => {
   const TABELA = {
     1: {
       '1F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
-        { id: 'l_da_cava', label: 'L da Cava',
+        { id: 'l_da_cava', label: 'L do Puxador Embutido',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           largura: F.tampa_maior_1f_largura_com_cava, comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
-        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Puxador Embutido',
           largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
       ],
       '2F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+        { id: 'tampa_da_cava', label: 'Tampa do Puxador Embutido',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
@@ -563,17 +563,17 @@ const ChapasPortaExterna = (() => {
 
     2: {
       '1F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
-        { id: 'l_da_cava', label: 'L da Cava',
+        { id: 'l_da_cava', label: 'L do Puxador Embutido',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - 1 - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + 2*ctx.REF,
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
-        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Puxador Embutido',
           largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
@@ -587,10 +587,10 @@ const ChapasPortaExterna = (() => {
           categoria: 'porta' },
       ],
       '2F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+        { id: 'tampa_da_cava', label: 'Tampa do Puxador Embutido',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
@@ -624,18 +624,18 @@ const ChapasPortaExterna = (() => {
 
     3: {
       '1F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
-        { id: 'friso_horizontal_cava', label: 'Friso Horizontal Cava',
+        { id: 'friso_horizontal_cava', label: 'Friso Horizontal Puxador Embutido',
           largura: ctx => ctx.larguraQuadro1F, comp: ctx => 250,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true,
           observacao: 'Felipe: confirmar dimensoes (planilha truncada)' },
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           largura: F.tampa_maior_1f_largura_com_cava,
           comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF,
           ext: 1, int: 1, categoria: 'porta' },
-        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Puxador Embutido',
           largura: F.tampa_borda_cava_largura,
           comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF,
           ext: 1, int: 1, categoria: 'porta' },
@@ -649,10 +649,10 @@ const ChapasPortaExterna = (() => {
           ext: 1, int: 1, categoria: 'porta' },
       ],
       '2F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+        { id: 'tampa_da_cava', label: 'Tampa do Puxador Embutido',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
@@ -667,7 +667,7 @@ const ChapasPortaExterna = (() => {
           largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
           comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF,
           ext: 0, int: 1, categoria: 'porta' },
-        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Puxador Embutido',
           largura: F.tampa_borda_cava_largura,
           comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF,
           ext: 2, int: 2, categoria: 'porta' },
@@ -692,17 +692,17 @@ const ChapasPortaExterna = (() => {
 
     4: {
       '1F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
-        { id: 'l_da_cava', label: 'L da Cava',
+        { id: 'l_da_cava', label: 'L do Puxador Embutido',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           largura: ctx => F.tampa_maior_1f_largura_com_cava(ctx) - ctx.dBFV - ctx.eF,
           comp: ctx => ctx.larguraQuadro1F - ctx.dBFV - ctx.eF + ctx.REF - 1,
           ext: 1, int: 1, categoria: 'porta' },
-        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Puxador Embutido',
           largura: F.tampa_borda_cava_largura,
           comp: ctx => ctx.larguraQuadro1F - ctx.dBFV - ctx.eF + ctx.REF - 1,
           ext: 1, int: 1, categoria: 'porta' },
@@ -728,10 +728,10 @@ const ChapasPortaExterna = (() => {
           ext: 1, int: 1, categoria: 'porta' },
       ],
       '2F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+        { id: 'tampa_da_cava', label: 'Tampa do Puxador Embutido',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
@@ -746,7 +746,7 @@ const ChapasPortaExterna = (() => {
           largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
           comp: ctx => ctx.larguraQuadro2F - ctx.dBFV - ctx.eF + ctx.REF - 1,
           ext: 0, int: 1, categoria: 'porta' },
-        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Puxador Embutido',
           largura: F.tampa_borda_cava_largura,
           comp: ctx => ctx.larguraQuadro2F - ctx.dBFV - ctx.eF + ctx.REF - 1,
           ext: 2, int: 2, categoria: 'porta' },
@@ -791,27 +791,27 @@ const ChapasPortaExterna = (() => {
 
     6: {
       '1F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
-        { id: 'l_da_cava', label: 'L da Cava',
+        { id: 'l_da_cava', label: 'L do Puxador Embutido',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
         // TAMPA_MAIOR_CAVA mod 06: largura igual mod 01, COMP varia, qty = qtdFrisos por face
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           largura: F.tampa_maior_1f_largura_com_cava,
           comp: F.tampa_maior_06_comp,
           ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
           categoria: 'porta' },
-        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Puxador Embutido',
           largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
       ],
       '2F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+        { id: 'tampa_da_cava', label: 'Tampa do Puxador Embutido',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
@@ -836,16 +836,16 @@ const ChapasPortaExterna = (() => {
 
     8: {
       '1F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
-        { id: 'l_da_cava', label: 'L da Cava',
+        { id: 'l_da_cava', label: 'L do Puxador Embutido',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           largura: F.tampa_maior_1f_largura_com_cava, comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
-        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Puxador Embutido',
           largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'ripas', label: 'Ripas',
@@ -856,10 +856,10 @@ const ChapasPortaExterna = (() => {
           categoria: 'porta' },
       ],
       '2F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           largura: F.cava_largura, comp: F.cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
-        { id: 'tampa_da_cava', label: 'Tampa da Cava',
+        { id: 'tampa_da_cava', label: 'Tampa do Puxador Embutido',
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 4, int: 4, categoria: 'porta', ehDaCava: true },
         { id: 'tampa_maior_01', label: 'Tampa Maior 01',
@@ -889,7 +889,7 @@ const ChapasPortaExterna = (() => {
     10: {
       '1F': [
         // Mod 10: lisa, sem cava real (planilha v2 não mostra CAVA/L_DA_CAVA)
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           largura: F.tampa_maior_1f_largura_lisa, comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
       ],
@@ -924,7 +924,7 @@ const ChapasPortaExterna = (() => {
       '1F': [
         // Felipe (sessao 18): mod 11 e' Puxador Externo + Friso Vertical.
         // NAO tem CAVA nem L_DA_CAVA. Antes geravam peca fantasma.
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           // Planilha: (E3-C7-C8-1-C20*C22-C21*C22)+C15+C15
           largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + 2*ctx.REF,
           comp: ctx => ctx.alturaQuadro,
@@ -975,7 +975,7 @@ const ChapasPortaExterna = (() => {
 
     15: {
       '1F': [
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           largura: F.tampa_maior_1f_largura_com_cava, comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'ripas', label: 'Ripas',
@@ -1017,7 +1017,7 @@ const ChapasPortaExterna = (() => {
         // Felipe (sessao 18): mod 12 e' Puxador Externo + Friso Horizontal.
         // NAO tem CAVA. Pecas 'cava' e 'friso_horizontal_cava' removidas.
         // TAMPA_MAIOR_CAVA: largura igual mod 03 (com cava), comp = alturaQuadro - 2dBFH - 2eF + 2REF - 1
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           largura: F.tampa_maior_1f_largura_com_cava,
           comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF - 1,
           ext: 1, int: 1, categoria: 'porta' },
@@ -1202,7 +1202,7 @@ const ChapasPortaExterna = (() => {
         // Mod 16: TAMPA_MAIOR_CAVA NAO desconta cava na largura.
         // Comp varia com qtdFrisos (mesma fórmula do mod 06).
         // qty = qtdFrisos por face.
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           largura: ctx => (ctx.larguraQuadro1F - 1) + 2*ctx.REF,
           comp: F.tampa_maior_06_comp,
           ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
@@ -1244,20 +1244,20 @@ const ChapasPortaExterna = (() => {
     //     Formulas 2F O9-O11 com base = (E2-C7*2-C8*2-34*4)/2
     22: {
       '1F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           // Formula F7: (50+48+34+48+C8+48+34+48+50) = tamCava + 360
           largura: ctx => ctx.tamCava + 50 + 48 + 34 + 48 + 48 + 34 + 48 + 50,
           comp: F.cava_comp,
           ext: 1, int: 1, categoria: 'porta', ehDaCava: true },
         // SEM l_da_cava no modelo 22 (planilha nao tem essa peca)
-        { id: 'tampa_maior_cava', label: 'Tampa Maior Cava',
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
           // Formula F9: (E3-C7-34-C8-34-C20*C22-C21*C22)+C15+C15-1
           largura: ctx => (ctx.larguraQuadro1F - ctx.dBC - 34 - ctx.tamCava - 34
                            - ctx.dBFV * ctx.qtdFrisos - ctx.eF * ctx.qtdFrisos)
                           + 2 * ctx.REF - 1,
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
-        { id: 'tampa_borda_cava', label: 'Tampa Borda Cava',
+        { id: 'tampa_borda_cava', label: 'Tampa Borda Puxador Embutido',
           // Formula F10: C7+C15*2-1-1 = mesma do modelo 02
           largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
@@ -1276,7 +1276,7 @@ const ChapasPortaExterna = (() => {
           categoria: 'porta' },
       ],
       '2F': [
-        { id: 'cava', label: 'Cava',
+        { id: 'cava', label: 'Puxador Embutido',
           // Formula N7 igual F7
           largura: ctx => ctx.tamCava + 50 + 48 + 34 + 48 + 48 + 34 + 48 + 50,
           comp: F.cava_comp,
