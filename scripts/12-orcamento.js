@@ -377,7 +377,7 @@ const Orcamento = (() => {
    *   carro              = (dias + 2) × carro_dia × nInst (aluguel no destino)
    *   alimentacao        = pessoas × (dias + 2) × alim × nInst
    *   seguro             = pessoas × seguro × nInst
-   *   mao_obra           = dias × mao_obra × nInst  (so dias efetivos de instalacao)
+   *   mao_obra           = (dias + 4) × mao_obra × nInst  (Felipe: 'desde dia da saida' = total dias fora)
    */
   function calcularCustosViagemInternacional(inst) {
     const pessoas = Number(inst.intl_pessoas) || 0;
@@ -405,7 +405,10 @@ const Orcamento = (() => {
       carro:              diasComDespesas * tar.carro    * nInst,       // dias + 2
       alimentacao:        pessoas * diasComDespesas * tar.alim * nInst, // dias + 2
       seguro:             pessoas * tar.seguro * nInst,
-      mao_obra:           dias * tar.mao_obra  * nInst,                 // so dias efetivos
+      // Felipe sessao 31: 'mao de obra considera desde dia da saida entao
+      // sao os 2 dias de viagem + 4 dias de instalacao + 2 dias da volta
+      // entao total 8'. Mao de obra usa totalDiasFora (= dias + 4).
+      mao_obra:           totalDiasFora * tar.mao_obra * nInst,
     };
     const total = Object.values(itens).reduce((s, v) => s + v, 0);
     return {
@@ -7335,8 +7338,8 @@ const Orcamento = (() => {
                     linhaResumo('🛡️ Seguro saude',
                                 `${viagem.pessoas}p × R$ ${fmtBR(viagem.tarifasAplicadas.seguro)} × ${viagem.nInst} instal.`,
                                 viagem.itens.seguro),
-                    linhaResumo(`👷 Mao de obra Projetta (${viagem.dias}d trabalho efetivo)`,
-                                `${viagem.dias}d × R$ ${fmtBR(viagem.tarifasAplicadas.mao_obra)} × ${viagem.nInst} instal.`,
+                    linhaResumo(`👷 Mao de obra Projetta (${viagem.totalDiasFora}d — desde a saida ate a volta)`,
+                                `${viagem.totalDiasFora}d × R$ ${fmtBR(viagem.tarifasAplicadas.mao_obra)} × ${viagem.nInst} instal.`,
                                 viagem.itens.mao_obra),
                   ].join('');
                 })()}
