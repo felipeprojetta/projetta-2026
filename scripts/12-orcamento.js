@@ -10951,23 +10951,61 @@ const Orcamento = (() => {
     const tr = (pt, en) => internacional ? en : pt;
     const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
 
-    // Felipe (do doc - msg frete/inst): frase dinamica baseada no modo
-    // de instalacao + valores manuais. Regras:
-    //   modo 'projetta'                   → "Frete e instalacao inclusos"
-    //   modo 'terceiros' | 'internacional' → depende dos valores:
-    //     inst > 0, frete = 0  → "Instalacao inclusa, frete nao incluso"
-    //     inst = 0, frete > 0  → "Frete incluso, instalacao nao inclusa"
-    //     inst > 0, frete > 0  → "Frete e instalacao inclusos"
-    //     inst = 0, frete = 0  → "Frete e instalacao nao inclusos"
-    // Considera "incluso" apenas se valor > 0 (zero/null/vazio = nao incluso).
+    // Felipe sessao 31: frase inteligente que considera:
+    //   - Internacional + incoterm: se o incoterm cobre frete (CFR/CIF/CPT/
+    //     CIP/DAP/DPU/DDP), informa explicitamente que esta incluso e cita
+    //     o incoterm. Se nao cobre (EXW/FCA/FAS/FOB), informa que e' por
+    //     conta do comprador.
+    //   - Instalacao: pra internacional, considera o calculo automatico
+    //     da viagem (intl_viagem.total > 0) OU o override manual (intl_manual).
+    //   - sem_instalacao=true: forca 'instalacao nao inclusa'.
     const fraseFreteInst = (() => {
-      if (inst.modo === 'projetta') {
-        return tr('Frete e instalacao inclusos', 'Freight and installation included');
+      // Determina se tem instalacao incluida
+      let temInst = false;
+      if (!inst.sem_instalacao) {
+        if (inst.modo === 'projetta') {
+          temInst = true;
+        } else if (inst.modo === 'internacional') {
+          // Internacional: tem instalacao se calculo automatico > 0 OU override manual com valor
+          if (inst.intl_manual) {
+            temInst = (Number(inst.inst_terceiros_valor) || 0) > 0;
+          } else {
+            const pessoas = Number(inst.intl_pessoas) || 0;
+            const dias    = Number(inst.intl_dias)    || 0;
+            temInst = pessoas > 0 && dias > 0;
+          }
+        } else if (inst.modo === 'terceiros') {
+          temInst = (Number(inst.inst_terceiros_valor) || 0) > 0;
+        }
       }
-      const valInst  = Number(inst.inst_terceiros_valor)  || 0;
-      const valFrete = Number(inst.inst_terceiros_transp) || 0;
-      const temInst  = valInst > 0;
-      const temFrete = valFrete > 0;
+
+      // Determina se tem frete incluido — considerando incoterm pra internacional
+      let temFrete = false;
+      let incotermLabel = '';
+      if (internacional) {
+        const incoterm = lead.freteIncoterm || 'FOB';
+        const itc = (window.Incoterms && window.Incoterms.byCodigo(incoterm)) || null;
+        // 'Tem frete incluso' = incoterm inclui frete maritimo
+        temFrete = itc && itc.freteMaritimo === true;
+        incotermLabel = incoterm;
+      } else {
+        // Nacional: frete = valor manual (inst_terceiros_transp) ou modo projetta
+        if (inst.modo === 'projetta') {
+          temFrete = true;
+        } else {
+          temFrete = (Number(inst.inst_terceiros_transp) || 0) > 0;
+        }
+      }
+
+      // Monta a frase final, com incoterm citado quando internacional
+      if (internacional && incotermLabel) {
+        // 4 casos para internacional
+        if (temInst && temFrete)   return `Freight included (Incoterm: ${incotermLabel}) and installation included`;
+        if (temInst && !temFrete)  return `Installation included · Freight at buyer's expense (Incoterm: ${incotermLabel} — buyer arranges ocean shipping)`;
+        if (!temInst && temFrete)  return `Freight included (Incoterm: ${incotermLabel}) · Installation not included`;
+        return                          `Freight not included (Incoterm: ${incotermLabel} — buyer arranges shipping) · Installation not included`;
+      }
+      // Nacional
       if (temInst && temFrete)   return tr('Frete e instalacao inclusos',            'Freight and installation included');
       if (temInst && !temFrete)  return tr('Instalacao inclusa, frete nao incluso',  'Installation included, freight not included');
       if (!temInst && temFrete)  return tr('Frete incluso, instalacao nao inclusa',  'Freight included, installation not included');
@@ -11036,14 +11074,111 @@ const Orcamento = (() => {
     // unica .rel-prop-pagina (sem paginaItensHtml separada da pagina final).
     const unicaPagina = (cardsList.length <= 1);
 
+    // Felipe sessao 31: gera bloco com as RESPONSABILIDADES detalhadas do
+    // incoterm escolhido (vendedor x comprador). Aparece junto com os cards
+    // de item pra preencher o espaco em branco e detalhar quem paga o que.
+    // 'ja tivemos probelmas com clientes pq nao sabem sobre isso'.
+    function blocoResponsabilidadesIncoterm() {
+      if (!internacional) return '';
+      const incoterm = lead.freteIncoterm || 'FOB';
+      const itc = (window.Incoterms && window.Incoterms.byCodigo(incoterm)) || null;
+      if (!itc) return '';
+
+      // Matriz de responsabilidades por incoterm: V=Vendedor (Projetta), C=Comprador
+      // Baseada nas regras oficiais ICC Incoterms 2020.
+      const RESP = {
+        EXW: { embalagem:'V', carga_fabrica:'C', transp_interno:'C', desemb_exp:'C', port_origem:'C', frete_mar:'C', seguro:'C', port_dest:'C', transp_dest:'C', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'At Seller\'s premises (factory)' },
+        FCA: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'C', seguro:'C', port_dest:'C', transp_dest:'C', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'When goods are delivered to carrier (named place)' },
+        FAS: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'C', seguro:'C', port_dest:'C', transp_dest:'C', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'Alongside the vessel at port of shipment' },
+        FOB: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'C', seguro:'C', port_dest:'C', transp_dest:'C', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'On board the vessel at port of shipment' },
+        CFR: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'V', seguro:'C', port_dest:'C', transp_dest:'C', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'On board the vessel at port of shipment (cost continues to destination)' },
+        CIF: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'V', seguro:'V', port_dest:'C', transp_dest:'C', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'On board the vessel at port of shipment (cost+insurance continue to destination)' },
+        CPT: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'V', seguro:'C', port_dest:'C', transp_dest:'V', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'When goods are delivered to first carrier' },
+        CIP: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'V', seguro:'V', port_dest:'C', transp_dest:'V', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'When goods are delivered to first carrier (with insurance to destination)' },
+        DAP: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'V', seguro:'V', port_dest:'V', transp_dest:'V', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'At named place of destination (ready for unloading)' },
+        DPU: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'V', seguro:'V', port_dest:'V', transp_dest:'V', descarga:'V', desemb_imp:'C', impostos:'C', risco_passa:'At named place of destination (unloaded)' },
+        DDP: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'V', seguro:'V', port_dest:'V', transp_dest:'V', descarga:'V', desemb_imp:'V', impostos:'V', risco_passa:'At named place of destination (cleared for import, duties paid)' },
+      };
+      const r = RESP[incoterm] || RESP.FOB;
+
+      const itens = [
+        { label: 'Packaging / Crating',              who: r.embalagem },
+        { label: 'Loading at factory',               who: r.carga_fabrica },
+        { label: 'Inland transport (factory → port)', who: r.transp_interno },
+        { label: 'Export customs clearance',         who: r.desemb_exp },
+        { label: 'Port of origin handling',          who: r.port_origem },
+        { label: 'Ocean / Main freight',             who: r.frete_mar },
+        { label: 'Marine insurance',                 who: r.seguro },
+        { label: 'Port of destination handling',     who: r.port_dest },
+        { label: 'Inland transport to final destination', who: r.transp_dest },
+        { label: 'Unloading at destination',         who: r.descarga },
+        { label: 'Import customs clearance',         who: r.desemb_imp },
+        { label: 'Import duties & taxes',            who: r.impostos },
+      ];
+
+      const linha = (it) => `
+        <tr>
+          <td style="padding:4px 8px; font-size:11px; border-bottom:1px solid #eef3f8;">${it.label}</td>
+          <td style="padding:4px 8px; text-align:center; border-bottom:1px solid #eef3f8;">
+            ${it.who === 'V'
+              ? '<span style="display:inline-block; padding:2px 8px; background:#0c5485; color:#fff; border-radius:3px; font-size:10px; font-weight:700;">SELLER</span>'
+              : '<span style="display:inline-block; padding:2px 8px; background:#fef3cd; color:#856404; border-radius:3px; font-size:10px; font-weight:700;">BUYER</span>'}
+          </td>
+        </tr>
+      `;
+
+      return `
+        <div style="margin-top:16px; padding:14px; background:#f8fafc; border:1px solid #cfd8e3; border-radius:8px; page-break-inside:avoid;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+            <span style="font-size:14px; font-weight:700; color:#0c5485;">📋 Incoterm Responsibilities</span>
+            <span style="background:#0c5485; color:#fff; padding:2px 10px; border-radius:4px; font-size:12px; font-weight:700;">${escapeHtml(incoterm)}</span>
+            <span style="font-size:11px; color:#666;">${escapeHtml(itc.nome)}</span>
+          </div>
+          <p style="margin:0 0 8px 0; font-size:11px; color:#5a7a99; line-height:1.4;">${escapeHtml(itc.descricao)}</p>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <table style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="background:#0c5485; color:#fff;">
+                  <th style="padding:6px 8px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase;">Responsibility</th>
+                  <th style="padding:6px 8px; text-align:center; font-size:10px; font-weight:700; text-transform:uppercase; width:90px;">Paid by</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itens.slice(0, 6).map(linha).join('')}
+              </tbody>
+            </table>
+            <table style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="background:#0c5485; color:#fff;">
+                  <th style="padding:6px 8px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase;">Responsibility</th>
+                  <th style="padding:6px 8px; text-align:center; font-size:10px; font-weight:700; text-transform:uppercase; width:90px;">Paid by</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itens.slice(6).map(linha).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:10px; padding:8px 12px; background:#fff8e1; border-left:3px solid #d97706; border-radius:3px;">
+            <strong style="font-size:11px; color:#7c2d12;">⚠️ Risk transfer:</strong>
+            <span style="font-size:11px; color:#7c2d12;">${escapeHtml(r.risco_passa)}</span>
+          </div>
+        </div>
+      `;
+    }
+
     // Se for unicaPagina, paginaItensHtml fica vazio (header+card vao na
     // pagina final). Se for multi-itens, mantem comportamento da sessao 12.
     const paginaItensHtml = unicaPagina ? '' : cardsChunks.map((chunk, pgIdx) => {
       const headerNaPagina = pgIdx === 0 ? headerHtml : '';
+      const isLastChunk = pgIdx === cardsChunks.length - 1;
+      // Felipe sessao 31: no ultimo chunk da pagina de itens, anexa o
+      // bloco de responsabilidades do incoterm (preenche o espaco em branco).
       return `
         <div class="rel-prop-pagina rel-prop-pagina-conteudo">
           ${headerNaPagina}
           ${chunk.length ? chunk.join('') : '<div class="rel-prop-empty">Nenhum item.</div>'}
+          ${isLastChunk ? blocoResponsabilidadesIncoterm() : ''}
         </div>`;
     }).join('');
     // Manter cardsItens pra compatibilidade (nao usado mais no innerHTML)
@@ -11185,6 +11320,7 @@ const Orcamento = (() => {
         <div class="rel-prop-pagina rel-prop-pagina-conteudo">
           ${unicaPagina ? headerHtml : ''}
           ${unicaPagina ? (cardsList[0] || '') : ''}
+          ${unicaPagina ? blocoResponsabilidadesIncoterm() : ''}
           <table class="rel-prop-tabela-final">
             <thead>
               <tr>
@@ -11305,9 +11441,9 @@ const Orcamento = (() => {
           })() : ''}
 
           <div class="rel-prop-pagamento">
-            <div class="rel-prop-pag-row"><b>${tr('Condicoes de Pagamento:','Payment Terms:')}</b> ${tr('6X','6 installments')}</div>
-            <div class="rel-prop-pag-row"><b>${tr('Forma de Pagamento:','Payment Method:')}</b> ${tr('Boleto', internacional ? 'Wire Transfer' : 'Boleto')}</div>
-            <div class="rel-prop-pag-row"><b>${tr('Prazo de Entrega:','Delivery Time:')}</b> ${tr('90 dias apos aprovacao do recalculo.','90 days after approval of recalculation.')}</div>
+            <div class="rel-prop-pag-row"><b>${tr('Condicoes de Pagamento:','Payment Terms:')}</b> ${internacional ? '70% upfront · 30% upon door completion and shipment to maritime port' : tr('6X','6 installments')}</div>
+            <div class="rel-prop-pag-row"><b>${tr('Forma de Pagamento:','Payment Method:')}</b> ${tr('Boleto', internacional ? 'Wire Transfer (international bank transfer)' : 'Boleto')}</div>
+            <div class="rel-prop-pag-row"><b>${tr('Prazo de Entrega:','Delivery Time:')}</b> ${internacional ? 'Delivery to maritime port: 60 days. After delivery to the port, Projetta is not responsible for delays caused by the shipping company or any other external global agent (e.g., crises, wars, port disruptions, etc).' : tr('90 dias apos aprovacao do recalculo.','90 days after approval of recalculation.')}</div>
           </div>
 
           <div class="rel-prop-assinaturas">
@@ -11642,22 +11778,44 @@ const Orcamento = (() => {
                 const ehMm = /\(mm\)\s*$/i.test(meta.label);
                 let lbl = meta.label.replace(/\s*\(mm\)\s*$/, '');
                 let valor = `${item[c]}${ehMm ? ' mm' : ''}`;
+                // Felipe sessao 31: traducao de labels especificos do CATALOGO_CAMPOS_MODELO
+                // quando lead.destinoTipo='internacional'. Sem alterar o catalogo (usado
+                // em form/validacao), so a exibicao na proposta.
+                const LBL_EN = {
+                  'Distancia da borda ate a cava':           'Distance from edge to cava',
+                  'Largura da cava':                          'Cava width',
+                  'Distancia da borda ao friso vertical':     'Distance from edge to vertical groove',
+                  'Distancia da borda ao friso horizontal':   'Distance from edge to horizontal groove',
+                  'Distancia da borda ao friso horizontal 1': 'Distance from edge to horizontal groove 1',
+                  'Distancia da borda ao friso horizontal 2': 'Distance from edge to horizontal groove 2',
+                  'Espessura do friso':                       'Groove thickness',
+                  'Quantidade de frisos':                     'Number of grooves',
+                  'Largura das ripas':                        'Slat width',
+                  'Ripado':                                   'Slat layout',
+                  'Espacamento entre ripas':                  'Slat spacing',
+                  'Configuracao da moldura':                  'Frame configuration',
+                  'Quantas divisoes':                         'Number of divisions',
+                  'Quantidade de molduras':                   'Number of frames',
+                  'Distancia da borda a 1a moldura':          'Distance from edge to 1st frame',
+                  'Distancia da 1a a 2a moldura':             'Distance from 1st to 2nd frame',
+                  'Distancia da 2a a 3a moldura':             'Distance from 2nd to 3rd frame',
+                  'Tipo de moldura (perfil)':                 'Frame type (profile)',
+                };
+                if (internacional && LBL_EN[lbl]) lbl = LBL_EN[lbl];
                 // Felipe sessao 13: customizacoes de DISPLAY na proposta
                 // comercial (so' aqui — nao afeta form/cadastros).
-                // - 'Padrao' vira frase explicativa
-                // - 'Quantidade de molduras' vira 'Quantidade moldura por modulo'
-                // - 'Distancia da borda a 1a moldura' vira '1ª' (ordinal feminino)
-                // - 'Distancia da 1a a 2a' tambem -> '1ª a 2ª'
                 if (c === 'tipoMoldura' && item[c] === 'Padrao') {
-                  valor = 'Padrão — 2 molduras com divisão central centralizada ao eixo do cilindro';
+                  valor = internacional
+                    ? 'Standard — 2 frames with central division aligned to cylinder axis'
+                    : 'Padrão — 2 molduras com divisão central centralizada ao eixo do cilindro';
                 } else if (c === 'quantidadeMolduras') {
-                  lbl = 'Quantidade moldura por módulo';
+                  lbl = internacional ? 'Frames per module' : 'Quantidade moldura por módulo';
                 } else if (c === 'distanciaBorda1aMoldura') {
-                  lbl = 'Distancia da borda a 1ª moldura';
+                  lbl = internacional ? 'Distance from edge to 1st frame' : 'Distancia da borda a 1ª moldura';
                 } else if (c === 'distancia1a2aMoldura') {
-                  lbl = 'Distancia da 1ª a 2ª moldura';
+                  lbl = internacional ? 'Distance from 1st to 2nd frame' : 'Distancia da 1ª a 2ª moldura';
                 } else if (c === 'distancia2a3aMoldura') {
-                  lbl = 'Distancia da 2ª a 3ª moldura';
+                  lbl = internacional ? 'Distance from 2nd to 3rd frame' : 'Distancia da 2ª a 3ª moldura';
                 }
                 return `<div class="rel-prop-item-linha"><span class="lbl">${escapeHtml(lbl.toUpperCase())}:</span> <span>${escapeHtml(valor)}</span></div>`;
               }).join('');
