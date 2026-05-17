@@ -1054,6 +1054,62 @@ window.ChapasAproveitamento = (function () {
           livres.push(novosLivres[i]);
         }
       }
+
+      // Felipe sessao 31 [4/N]: SKYLINE MERGE — junta retangulos
+      // livres adjacentes em retangulos maiores (mais uteis).
+      // Pesquisa: SigmaNEST e DeepNest fazem 'rectangle merging' pra
+      // reduzir fragmentacao e aumentar aproveitamento. Sem isso,
+      // depois de muitos splits a chapa fica cheia de sliverzinhos
+      // que nao cabem nada apesar de juntos darem espaco bom.
+      //
+      // Regras simples (conservadoras): 2 retangulos podem ser
+      // fundidos se:
+      //   1) Compartilham uma borda inteira (mesma altura compativel
+      //      ou mesma largura compativel)
+      //   2) Ficam adjacentes (sem gap nem overlap)
+      // Resultado da fusao: 1 retangulo cobrindo a uniao.
+      let mergeRound = true;
+      let mergeLimit = 5;
+      while (mergeRound && mergeLimit-- > 0) {
+        mergeRound = false;
+        outer: for (let i = 0; i < livres.length; i++) {
+          for (let j = i + 1; j < livres.length; j++) {
+            const a = livres[i], b = livres[j];
+            // Caso 1: a esta a' esquerda de b, mesma altura
+            if (Math.abs(a.y - b.y) < 0.5 && Math.abs(a.h - b.h) < 0.5
+                && Math.abs((a.x + a.w) - b.x) < 0.5) {
+              livres[i] = { x: a.x, y: a.y, w: a.w + b.w, h: a.h };
+              livres.splice(j, 1);
+              mergeRound = true;
+              break outer;
+            }
+            // Caso 2: b esta a' esquerda de a, mesma altura
+            if (Math.abs(a.y - b.y) < 0.5 && Math.abs(a.h - b.h) < 0.5
+                && Math.abs((b.x + b.w) - a.x) < 0.5) {
+              livres[i] = { x: b.x, y: a.y, w: a.w + b.w, h: a.h };
+              livres.splice(j, 1);
+              mergeRound = true;
+              break outer;
+            }
+            // Caso 3: a esta acima de b, mesma largura
+            if (Math.abs(a.x - b.x) < 0.5 && Math.abs(a.w - b.w) < 0.5
+                && Math.abs((a.y + a.h) - b.y) < 0.5) {
+              livres[i] = { x: a.x, y: a.y, w: a.w, h: a.h + b.h };
+              livres.splice(j, 1);
+              mergeRound = true;
+              break outer;
+            }
+            // Caso 4: b esta acima de a, mesma largura
+            if (Math.abs(a.x - b.x) < 0.5 && Math.abs(a.w - b.w) < 0.5
+                && Math.abs((b.y + b.h) - a.y) < 0.5) {
+              livres[i] = { x: a.x, y: b.y, w: a.w, h: a.h + b.h };
+              livres.splice(j, 1);
+              mergeRound = true;
+              break outer;
+            }
+          }
+        }
+      }
     }
 
     const chapa = {
