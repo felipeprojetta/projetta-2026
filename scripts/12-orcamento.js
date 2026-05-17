@@ -7626,26 +7626,38 @@ const Orcamento = (() => {
       </div>
 
       <!-- ========== TOTAIS QUE VAO PRA DRE ========== -->
+      ${(() => {
+        // Felipe sessao 31: em internacional, subInst NAO entra na DRE da
+        // porta (vai em separado com margem 10%). Mostra como "Instalacao
+        // (separada)" com badge informativo.
+        const leadTot = lerLeadAtivo();
+        const internacionalTot = leadTot && leadTot.destinoTipo === 'internacional';
+        const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+        const usd = internacionalTot && taxa > 0;
+        const fmtV = v => usd ? 'USD ' + (v/taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : 'R$ ' + fmtBR(v);
+        return `
       <div class="orc-section-card orc-conferencia">
-        <div class="orc-section-title">Totais que alimentam a DRE</div>
+        <div class="orc-section-title">Totais que alimentam a DRE${internacionalTot ? ' <span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:3px 8px; border-radius:4px; font-weight:600; margin-left:8px;">🌍 internacional</span>' : ''}</div>
         <div class="orc-conf-resumo">
           <div class="orc-conf-resumo-bloco orc-conf-destaque">
-            <div class="orc-conf-resumo-label">subFab</div>
-            <div class="orc-conf-resumo-valor">R$ ${fmtBR(rFab.total)}</div>
-            <div class="orc-conf-resumo-detalhe">soma do card Fabricacao</div>
+            <div class="orc-conf-resumo-label">subFab${internacionalTot ? ' (PORTA → DRE)' : ''}</div>
+            <div class="orc-conf-resumo-valor">${fmtV(rFab.total)}</div>
+            <div class="orc-conf-resumo-detalhe">${internacionalTot ? 'so a porta entra no markup 45%' : 'soma do card Fabricacao'}</div>
           </div>
-          <div class="orc-conf-resumo-bloco orc-conf-destaque">
-            <div class="orc-conf-resumo-label">subInst</div>
-            <div class="orc-conf-resumo-valor">R$ ${fmtBR(rInst.total)}</div>
-            <div class="orc-conf-resumo-detalhe">soma do card Instalacao</div>
+          <div class="orc-conf-resumo-bloco" style="${internacionalTot ? 'background:#fff8e1; border:1px solid #d97706;' : ''}">
+            <div class="orc-conf-resumo-label">${internacionalTot ? 'Instalacao (separada)' : 'subInst'}</div>
+            <div class="orc-conf-resumo-valor" style="${internacionalTot ? 'color:#7c2d12;' : ''}">${fmtV(rInst.total)}</div>
+            <div class="orc-conf-resumo-detalhe">${internacionalTot ? 'NAO entra no markup 45% · cobrada separada com margem 10%' : 'soma do card Instalacao'}</div>
           </div>
           <div class="orc-conf-resumo-bloco">
-            <div class="orc-conf-resumo-label">Total bruto (antes overhead)</div>
-            <div class="orc-conf-resumo-valor">R$ ${fmtBR(rFab.total + rInst.total)}</div>
-            <div class="orc-conf-resumo-detalhe">subFab + subInst</div>
+            <div class="orc-conf-resumo-label">${internacionalTot ? 'Custo da porta (subFab)' : 'Total bruto (antes overhead)'}</div>
+            <div class="orc-conf-resumo-valor">${fmtV(internacionalTot ? rFab.total : (rFab.total + rInst.total))}</div>
+            <div class="orc-conf-resumo-detalhe">${internacionalTot ? 'so subFab vai pro custo da porta' : 'subFab + subInst'}</div>
           </div>
         </div>
       </div>
+      `;
+      })()}
     `;
 
     bindFabInstEvents(container);
@@ -8039,7 +8051,37 @@ const Orcamento = (() => {
       if (mudou) atualizarVersao(versao.id, { parametros: updates });
     }
 
-    const r = calcularDRE(subFab, subInst, params);
+    // Felipe sessao 31: 'no custo nao deve entrar a instalacao aqui, deve
+    // se colocar materiais + fabricacao, instalacao sera colocado no custo
+    // sem entrar na margem de 45%. dre e somente a porta'.
+    //
+    // INTERNACIONAL: o DRE calcula SO a porta (subInst nao entra no custo
+    // que recebe markup 45%). A instalacao e' cobrada SEPARADO com margem
+    // propria (10% padrao, editavel em Custo Inst). Total final = porta com
+    // markup 45% + instalacao com markup 10%.
+    //
+    // NACIONAL: continua como antes (subFab + subInst no custo, margem
+    // unica aplicada).
+    const leadParaDRE = lerLeadAtivo();
+    const ehInternacionalDRE = leadParaDRE && leadParaDRE.destinoTipo === 'internacional';
+    const subInstParaDRE = ehInternacionalDRE ? 0 : subInst;
+    const r = calcularDRE(subFab, subInstParaDRE, params);
+
+    // Calcula instalacao SEPARADA pra exibir em separado no DRE internacional
+    const lucroInstPct = ehInternacionalDRE
+      ? (Number((versao.custoInst || {}).lucro_alvo_instalacao))
+      : NaN;
+    const lucroInstFinalDRE = isNaN(lucroInstPct) ? 10 : lucroInstPct;
+    const instSepDRE = (ehInternacionalDRE && subInst > 0)
+      ? calcularPrecoInstalacao(subInst, lucroInstFinalDRE)
+      : null;
+
+    // Taxa USD pra exibicao em internacional
+    const taxaDRE = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+    const usdOk = ehInternacionalDRE && taxaDRE > 0;
+    const fmtUSD = v => 'USD ' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+    // fmtMoeda: em internacional retorna USD; caso contrario R$
+    const fmtMoeda = v => usdOk ? fmtUSD(v / taxaDRE) : ('R$ ' + fmtBR(v));
 
     const fmtPct = (frac) => fmtBR((frac || 0) * 100) + ' %';
     const fmtN3  = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -8180,12 +8222,12 @@ const Orcamento = (() => {
       </div>
 
       <div class="orc-section-card orc-resultado">
-        <div class="orc-section-title">Resultado DRE</div>
+        <div class="orc-section-title">Resultado DRE${ehInternacionalDRE ? ' <span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:3px 8px; border-radius:4px; font-weight:600; margin-left:8px;">🌍 SO A PORTA · valores em USD</span>' : ''}</div>
         <div class="orc-dre">
           <div class="orc-dre-row is-custo">
-            <span class="orc-dre-label">Custo total</span>
-            <span class="orc-dre-formula">(subFab + subInst) × (1 + overhead)</span>
-            <span class="orc-dre-valor">R$ ${fmtBR(r.custo)}</span>
+            <span class="orc-dre-label">Custo total${ehInternacionalDRE ? ' (porta)' : ''}</span>
+            <span class="orc-dre-formula">${ehInternacionalDRE ? 'subFab × (1 + overhead) — instalacao separada' : '(subFab + subInst) × (1 + overhead)'}</span>
+            <span class="orc-dre-valor">${fmtMoeda(r.custo)}</span>
           </div>
           <div class="orc-dre-row">
             <span class="orc-dre-label">Lucro bruto necessario (LBN)</span>
@@ -8211,17 +8253,17 @@ const Orcamento = (() => {
           <div class="orc-dre-row orc-dre-destaque is-receita is-subtotal">
             <span class="orc-dre-label">Com Desconto</span>
             <span class="orc-dre-formula">custo × fF</span>
-            <span class="orc-dre-valor">R$ ${fmtBR(r.pFat)}</span>
+            <span class="orc-dre-valor">${fmtMoeda(r.pFat)}</span>
           </div>
           <div class="orc-dre-row orc-dre-destaque is-receita is-subtotal">
             <span class="orc-dre-label">Original</span>
             <span class="orc-dre-formula">custo × fT</span>
-            <span class="orc-dre-valor">R$ ${fmtBR(r.pTab)}</span>
+            <span class="orc-dre-valor">${fmtMoeda(r.pTab)}</span>
           </div>
           <div class="orc-dre-row orc-dre-destaque is-receita is-total">
             <span class="orc-dre-label">Preco real (apos desconto)</span>
             <span class="orc-dre-formula">pTab × (1 − desconto)</span>
-            <span class="orc-dre-valor">R$ ${fmtBR(r.pFatReal)}</span>
+            <span class="orc-dre-valor">${fmtMoeda(r.pFatReal)}</span>
           </div>
           <div class="orc-dre-row">
             <span class="orc-dre-label">Markup visual</span>
@@ -8232,24 +8274,49 @@ const Orcamento = (() => {
       </div>
 
       <div class="orc-section-card orc-conferencia">
-        <div class="orc-section-title">Conferencia — Custo e Preco Final</div>
+        <div class="orc-section-title">Conferencia — Custo e Preco Final${ehInternacionalDRE ? ' <span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:3px 8px; border-radius:4px; font-weight:600; margin-left:8px;">🌍 valores em USD</span>' : ''}</div>
         <div class="orc-conf-resumo">
           <div class="orc-conf-resumo-bloco">
-            <div class="orc-conf-resumo-label">Custo total</div>
-            <div class="orc-conf-resumo-valor">R$ ${fmtBR(r.custo)}</div>
-            <div class="orc-conf-resumo-detalhe">subFab + subInst + overhead</div>
+            <div class="orc-conf-resumo-label">Custo${ehInternacionalDRE ? ' da porta' : ' total'}</div>
+            <div class="orc-conf-resumo-valor">${fmtMoeda(r.custo)}</div>
+            <div class="orc-conf-resumo-detalhe">${ehInternacionalDRE ? 'subFab + overhead' : 'subFab + subInst + overhead'}</div>
           </div>
           <div class="orc-conf-resumo-bloco orc-conf-destaque">
-            <div class="orc-conf-resumo-label">Preco da Proposta</div>
-            <div class="orc-conf-resumo-valor">R$ ${fmtBR(r.pTab)}</div>
-            <div class="orc-conf-resumo-detalhe">preco de tabela (pTab)</div>
+            <div class="orc-conf-resumo-label">Preco da Porta${ehInternacionalDRE ? '' : ' (Proposta)'}</div>
+            <div class="orc-conf-resumo-valor">${fmtMoeda(r.pTab)}</div>
+            <div class="orc-conf-resumo-detalhe">${ehInternacionalDRE ? 'porta com markup 45%' : 'preco de tabela (pTab)'}</div>
           </div>
           <div class="orc-conf-resumo-bloco orc-conf-destaque">
-            <div class="orc-conf-resumo-label">Cliente Paga</div>
-            <div class="orc-conf-resumo-valor">R$ ${fmtBR(r.pFatReal)}</div>
+            <div class="orc-conf-resumo-label">${ehInternacionalDRE ? 'Cliente Paga (porta)' : 'Cliente Paga'}</div>
+            <div class="orc-conf-resumo-valor">${fmtMoeda(r.pFatReal)}</div>
             <div class="orc-conf-resumo-detalhe">apos ${fmtBR(params.desconto)} % de desconto</div>
           </div>
         </div>
+
+        ${(ehInternacionalDRE && instSepDRE) ? `
+          <!-- Felipe sessao 31: instalacao em SEPARADO, com sua propria margem (10%). -->
+          <div style="margin-top:14px; padding:12px 14px; background:#fff8e1; border:2px solid #d97706; border-radius:8px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:700; font-size:13px; color:#7c2d12;">🔧 Instalacao (cobrada separado · nao entra no markup 45%)</div>
+                <div style="font-size:11px; color:#92400e; margin-top:2px;">
+                  Custo viagem: <b>${fmtMoeda(instSepDRE.custo)}</b> · Margem ${instSepDRE.lucroPct}% = <b>${fmtMoeda(instSepDRE.precoFinal - instSepDRE.custo)}</b>
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:10px; color:#92400e; text-transform:uppercase;">Preco instalacao</div>
+                <div style="font-size:18px; font-weight:700; color:#7c2d12;">${fmtMoeda(instSepDRE.precoFinal)}</div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:10px; padding:14px 16px; background:#0c5485; color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <div style="font-size:12px; opacity:0.85;">CLIENTE PAGA (porta + instalacao)</div>
+              <div style="font-size:11px; opacity:0.7;">${fmtMoeda(r.pFatReal)} (porta) + ${fmtMoeda(instSepDRE.precoFinal)} (instalacao)</div>
+            </div>
+            <div style="font-size:22px; font-weight:700;">${fmtMoeda(r.pFatReal + instSepDRE.precoFinal)}</div>
+          </div>
+        ` : ''}
 
         <!-- Felipe sessao 31: bloco INTERNACIONAL no DRE detalhado.
              Detalha quais custos entram no preco final conforme o INCOTERM. -->
