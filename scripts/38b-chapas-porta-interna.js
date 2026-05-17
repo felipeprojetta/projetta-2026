@@ -17,10 +17,14 @@
  *   Folgas unificadas (fglEsq/fglDir/fgSup) com fallback 5 (igual motor de perfis).
  *
  * ESTADO ATUAL (sessao 31):
- *   [x] Chapa frontal externa (25,5)
- *   [x] Chapa frontal interna (37,5)
+ *   [x] Chapa frontal externa (38,5)
+ *   [x] Chapa frontal interna (26,5)
  *   [x] Alisar (chapa) — 59,5 x (vao+100), 2 vert + 1 hor por lado da parede
  *                        (categoria='portal', cor da face correspondente)
+ *   [x] Complemento alisar — UM conjunto so' (nao espelha):
+ *         2 verticais   (larguraParede-47) x altura_vao
+ *         1 horizontal  (larguraParede-47) x largura_vao
+ *       So' sai quando item.larguraParede > 47. Cor=corInterna.
  */
 const ChapasPortaInterna = (() => {
   'use strict';
@@ -144,6 +148,44 @@ const ChapasPortaInterna = (() => {
           categoria:      'portal',
           podeRotacionar: true,
         });
+      }
+
+      // Felipe sessao 31: COMPLEMENTO ALISAR — UM CONJUNTO so' por porta
+      // (NAO espelha ext/int, diferente do alisar normal). 3 pecas por
+      // porta: 2 verticais + 1 horizontal. Largura = espessura da parede
+      // - 47mm. Outras dimensoes seguem o vao.
+      //   Vertical:   (larguraParede - 47) x altura_vao    -> qtd 2
+      //   Horizontal: (larguraParede - 47) x largura_vao   -> qtd 1
+      // Felipe pediu cor INTERNA. Renderizado no lado='interno' pra
+      // nao duplicar (pipeline ja itera externo+interno). Se a parede
+      // nao tiver valor (vazio/0/<=47), as pecas nao saem.
+      const larguraParede = _toNum(item.larguraParede);
+      const compLarg = larguraParede - 47;
+      if (compLarg > 0) {
+        if (alturaVao > 0) {
+          pecas.push({
+            label:          'Complemento alisar vertical',
+            descricao:      'Complemento alisar vertical',
+            largura:        _round1(compLarg),
+            altura:         _round1(alturaVao),
+            qtd:            2 * qtdPortas,
+            cor:            String(item.corInterna || '').trim(),
+            categoria:      'portal',
+            podeRotacionar: true,
+          });
+        }
+        if (larguraVao > 0) {
+          pecas.push({
+            label:          'Complemento alisar horizontal',
+            descricao:      'Complemento alisar horizontal',
+            largura:        _round1(compLarg),
+            altura:         _round1(larguraVao),
+            qtd:            1 * qtdPortas,
+            cor:            String(item.corInterna || '').trim(),
+            categoria:      'portal',
+            podeRotacionar: true,
+          });
+        }
       }
     }
 
