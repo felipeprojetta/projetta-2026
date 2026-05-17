@@ -237,6 +237,11 @@
       caixaAltura: '',      // mm
       caixaEspessura: '',   // mm
       caixaComprimento: '', // mm
+      // Felipe sessao 31: flag por campo. true = Felipe digitou manualmente
+      // (destaca em amarelo). false/undefined = veio do calc automatico.
+      caixaAlturaManual: false,
+      caixaEspessuraManual: false,
+      caixaComprimentoManual: false,
     };
     function resetModalState() {
       Object.assign(modalState, {
@@ -252,6 +257,7 @@
         destinoTipo: 'nacional',
         destinoPais: '',
         caixaAltura: '', caixaEspessura: '', caixaComprimento: '',
+        caixaAlturaManual: false, caixaEspessuraManual: false, caixaComprimentoManual: false,
         porta_largura: '', porta_altura: '', porta_modelo: '', porta_cor: '',
         porta_fechadura_digital: '',
         porta_quantidade: 1,  // Felipe sessao 12
@@ -283,6 +289,9 @@
         caixaAltura:      lead.caixaAltura      || '',
         caixaEspessura:   lead.caixaEspessura   || '',
         caixaComprimento: lead.caixaComprimento || '',
+        caixaAlturaManual:      !!lead.caixaAlturaManual,
+        caixaEspessuraManual:   !!lead.caixaEspessuraManual,
+        caixaComprimentoManual: !!lead.caixaComprimentoManual,
         porta_largura: lead.porta_largura || '',
         porta_altura: lead.porta_altura || '',
         porta_modelo: lead.porta_modelo || '',
@@ -740,25 +749,32 @@
               </div>
 
               <!-- Felipe sessao 31: caixa de madeira fumigada. So' aparece se destino=Internacional.
-                   1 caixa pro orcamento INTEIRO (mesmo se tem 10 portas, e' so' 1 caixa). -->
+                   1 caixa pro orcamento INTEIRO (mesmo se tem 10 portas, e' so' 1 caixa).
+                   AUTOMATICO por padrao (calc a partir dos itens), Felipe pode mudar manual e
+                   o sistema destaca o campo alterado em amarelo. -->
               <div id="crm-caixa-fumigada" style="${m.destinoTipo === 'internacional' ? '' : 'display:none;'}; background:#fff8e1; border:1px solid #ffe0a3; border-radius:8px; padding:12px; margin:8px 0;">
-                <div style="font-weight:600; margin-bottom:8px; font-size:13px;">📦 Caixa de Madeira Fumigada (1 por orcamento)</div>
-                <div class="crm-form-row cols-3">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                  <div style="font-weight:600; font-size:13px;">📦 Caixa de Madeira Fumigada (1 por orcamento)</div>
+                  <button type="button" id="crm-caixa-reset" style="background:none; border:1px solid #d4a418; color:#8a6912; padding:4px 10px; border-radius:6px; font-size:11px; cursor:pointer; display:none;">
+                    ↺ Voltar ao automatico
+                  </button>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
                   <div class="crm-field">
-                    <label>Altura (mm)</label>
-                    <input type="number" min="0" step="1" data-field="caixaAltura" value="${escapeHtml(m.caixaAltura)}" placeholder="ex.: 2200" />
+                    <label>Altura (mm) <span style="color:#999; font-weight:normal; font-size:10px;">larg porta + 250 · max 2550</span></label>
+                    <input type="number" min="0" max="2550" step="1" data-field="caixaAltura" data-caixa-auto value="${escapeHtml(m.caixaAltura)}" placeholder="auto" style="width:100%; box-sizing:border-box;" />
                   </div>
                   <div class="crm-field">
-                    <label>Espessura (mm)</label>
-                    <input type="number" min="0" step="1" data-field="caixaEspessura" value="${escapeHtml(m.caixaEspessura)}" placeholder="ex.: 300" />
+                    <label>Espessura (mm) <span style="color:#999; font-weight:normal; font-size:10px;">600 × cada porta/fixo</span></label>
+                    <input type="number" min="0" step="1" data-field="caixaEspessura" data-caixa-auto value="${escapeHtml(m.caixaEspessura)}" placeholder="auto" style="width:100%; box-sizing:border-box;" />
                   </div>
                   <div class="crm-field">
-                    <label>Comprimento (mm)</label>
-                    <input type="number" min="0" step="1" data-field="caixaComprimento" value="${escapeHtml(m.caixaComprimento)}" placeholder="ex.: 1100" />
+                    <label>Comprimento (mm) <span style="color:#999; font-weight:normal; font-size:10px;">alt porta + 200</span></label>
+                    <input type="number" min="0" step="1" data-field="caixaComprimento" data-caixa-auto value="${escapeHtml(m.caixaComprimento)}" placeholder="auto" style="width:100%; box-sizing:border-box;" />
                   </div>
                 </div>
-                <div id="crm-caixa-m3" style="margin-top:6px; font-size:13px; color:#666;">
-                  Volume: <strong id="crm-caixa-m3-valor">—</strong>
+                <div id="crm-caixa-m3" style="margin-top:8px; font-size:13px; color:#666;">
+                  Volume: <strong id="crm-caixa-m3-valor">—</strong> &nbsp; · &nbsp; Custo (USD 100/m³): <strong id="crm-caixa-custo-valor">—</strong>
                 </div>
               </div>
               ${(() => {
@@ -992,10 +1008,94 @@
         el.addEventListener(evt, (e) => { modalState[el.dataset.field] = e.target.value; });
       });
 
-      // Felipe sessao 31: caixa de madeira fumigada — recalcula m³ quando
-      // qualquer dimensao muda. Formula: A x E x C (em mm) / 1.000.000.000 = m³.
-      function recalcCaixaM3() {
+      // Felipe sessao 31: caixa de madeira fumigada — calculo automatico
+      // baseado nas dimensoes da porta principal + itens extras. Felipe
+      // pode mudar manualmente e o sistema destaca em amarelo.
+      //
+      // Regras (Felipe):
+      //   ALTURA caixa     = larguraPorta + 250 mm   (MAX 2550 mm — limite da caixa)
+      //   COMPRIMENTO caixa = alturaPorta + 200 mm
+      //   ESPESSURA caixa   = 600 mm × (qtd portas + qtd fixos/revestimentos acoplados)
+      //
+      // Considera maior largura + maior altura entre todos os itens
+      // (Item 1 principal + itens_extras). Contagem de portas considera
+      // o campo `quantidade` dentro de cada item.
+      function calcularCaixaAuto() {
+        let maxLarg = 0, maxAlt = 0, qtdPorta = 0, qtdFixo = 0;
+        // Item 1 (porta principal)
+        const lP = Number(modalState.porta_largura) || 0;
+        const aP = Number(modalState.porta_altura)  || 0;
+        const qP = Math.max(1, parseInt(modalState.porta_quantidade, 10) || 1);
+        if (lP > 0) maxLarg = Math.max(maxLarg, lP);
+        if (aP > 0) maxAlt  = Math.max(maxAlt, aP);
+        if (lP > 0 || aP > 0) qtdPorta += qP;
+        // itens_extras
+        (modalState.itens_extras || []).forEach(it => {
+          const l = Number(it.largura) || 0;
+          const a = Number(it.altura)  || 0;
+          const q = Math.max(1, parseInt(it.quantidade, 10) || 1);
+          if (l > 0) maxLarg = Math.max(maxLarg, l);
+          if (a > 0) maxAlt  = Math.max(maxAlt, a);
+          if (it.tipo === 'porta_externa' || it.tipo === 'porta_interna') qtdPorta += q;
+          else if (it.tipo === 'rev_acoplado_porta') qtdFixo += q;
+          // rev_parede ignora pra caixa
+        });
+        return {
+          altura:      maxLarg > 0 ? Math.min(2550, maxLarg + 250) : 0,
+          comprimento: maxAlt  > 0 ? maxAlt + 200 : 0,
+          espessura:   (qtdPorta + qtdFixo) > 0 ? 600 * (qtdPorta + qtdFixo) : 0,
+        };
+      }
+
+      function aplicarAutoCaixa() {
+        const auto = calcularCaixaAuto();
+        // So' aplica em campos que NAO foram editados manualmente
+        if (!modalState.caixaAlturaManual && auto.altura > 0) {
+          modalState.caixaAltura = String(auto.altura);
+          const el = container.querySelector('input[data-field="caixaAltura"]');
+          if (el) el.value = auto.altura;
+        }
+        if (!modalState.caixaEspessuraManual && auto.espessura > 0) {
+          modalState.caixaEspessura = String(auto.espessura);
+          const el = container.querySelector('input[data-field="caixaEspessura"]');
+          if (el) el.value = auto.espessura;
+        }
+        if (!modalState.caixaComprimentoManual && auto.comprimento > 0) {
+          modalState.caixaComprimento = String(auto.comprimento);
+          const el = container.querySelector('input[data-field="caixaComprimento"]');
+          if (el) el.value = auto.comprimento;
+        }
+        atualizarEstiloCampoCaixa();
+        recalcCaixaVolume();
+      }
+
+      function atualizarEstiloCampoCaixa() {
+        // Aplica fundo amarelo nos campos que estao em modo MANUAL
+        // pra Felipe ver quais ele alterou. Botao "voltar ao automatico"
+        // aparece se algum esta manual.
+        let algumManual = false;
+        ['Altura','Espessura','Comprimento'].forEach(s => {
+          const f = 'caixa' + s + 'Manual';
+          const el = container.querySelector('input[data-field="caixa' + s + '"]');
+          if (!el) return;
+          if (modalState[f]) {
+            el.style.background = '#fff4c2';
+            el.style.borderColor = '#d4a418';
+            el.style.fontWeight = '600';
+            algumManual = true;
+          } else {
+            el.style.background = '';
+            el.style.borderColor = '';
+            el.style.fontWeight = '';
+          }
+        });
+        const btnReset = container.querySelector('#crm-caixa-reset');
+        if (btnReset) btnReset.style.display = algumManual ? '' : 'none';
+      }
+
+      function recalcCaixaVolume() {
         const valorEl = container.querySelector('#crm-caixa-m3-valor');
+        const custoEl = container.querySelector('#crm-caixa-custo-valor');
         if (!valorEl) return;
         const a = Number(modalState.caixaAltura) || 0;
         const e = Number(modalState.caixaEspessura) || 0;
@@ -1004,16 +1104,61 @@
           const m3 = (a * e * c) / 1e9;
           valorEl.textContent = m3.toFixed(3) + ' m³';
           valorEl.style.color = '#1f7a3a';
+          if (custoEl) {
+            const usd = m3 * 100;
+            const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+            const brl = taxa > 0 ? usd * taxa : 0;
+            custoEl.textContent = 'USD ' + usd.toFixed(2)
+              + (taxa > 0 ? ' (R$ ' + brl.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ')' : '');
+            custoEl.style.color = '#1f7a3a';
+          }
         } else {
           valorEl.textContent = '—';
           valorEl.style.color = '#999';
+          if (custoEl) { custoEl.textContent = '—'; custoEl.style.color = '#999'; }
         }
       }
-      ['caixaAltura','caixaEspessura','caixaComprimento'].forEach(f => {
-        const inp = container.querySelector(`input[data-field="${f}"]`);
-        if (inp) inp.addEventListener('input', recalcCaixaM3);
+
+      // Quando Felipe digita num campo da caixa: vira MANUAL
+      ['Altura','Espessura','Comprimento'].forEach(s => {
+        const f = 'caixa' + s;
+        const inp = container.querySelector('input[data-field="' + f + '"]');
+        if (!inp) return;
+        inp.addEventListener('input', () => {
+          modalState[f + 'Manual'] = true;
+          atualizarEstiloCampoCaixa();
+          recalcCaixaVolume();
+        });
       });
-      recalcCaixaM3(); // inicial
+
+      // Botao "voltar ao automatico": zera as flags manuais e recalcula
+      const btnResetCaixa = container.querySelector('#crm-caixa-reset');
+      if (btnResetCaixa) {
+        btnResetCaixa.addEventListener('click', () => {
+          modalState.caixaAlturaManual = false;
+          modalState.caixaEspessuraManual = false;
+          modalState.caixaComprimentoManual = false;
+          aplicarAutoCaixa();
+        });
+      }
+
+      // Inicializa: se nao tem nada salvo, calcula automatico
+      if (!modalState.caixaAlturaManual && !modalState.caixaAltura) aplicarAutoCaixa();
+      else { atualizarEstiloCampoCaixa(); recalcCaixaVolume(); }
+
+      // Tambem recalcula auto se Felipe mudar dimensoes da porta principal
+      // ou de itens extras (mesma janela aberta). Listener simples.
+      ['porta_largura','porta_altura','porta_quantidade'].forEach(f => {
+        const el = container.querySelector('input[data-field="' + f + '"]');
+        if (el) el.addEventListener('input', () => setTimeout(aplicarAutoCaixa, 50));
+      });
+      // Itens extras: quando muda largura/altura/quantidade neles
+      container.querySelectorAll('.crm-modal [data-item-extra-field]').forEach(el => {
+        const f = el.dataset.itemExtraField;
+        if (['largura','altura','quantidade'].includes(f)) {
+          el.addEventListener('input', () => setTimeout(aplicarAutoCaixa, 50));
+        }
+      });
 
       // Felipe (sessao 2026-05-10): inputs da aba ATP - gravam em
       // modalState.atp = { ... } pra preservar dados originais (AGP).
@@ -1187,6 +1332,9 @@
           modalState.caixaAltura = '';
           modalState.caixaEspessura = '';
           modalState.caixaComprimento = '';
+          modalState.caixaAlturaManual = false;
+          modalState.caixaEspessuraManual = false;
+          modalState.caixaComprimentoManual = false;
           ['caixaAltura','caixaEspessura','caixaComprimento'].forEach(f => {
             const el = container.querySelector(`input[data-field="${f}"]`);
             if (el) el.value = '';
@@ -1536,6 +1684,10 @@
           lead.caixaAltura      = m.destinoTipo === 'internacional' ? (String(m.caixaAltura      || '').trim()) : '';
           lead.caixaEspessura   = m.destinoTipo === 'internacional' ? (String(m.caixaEspessura   || '').trim()) : '';
           lead.caixaComprimento = m.destinoTipo === 'internacional' ? (String(m.caixaComprimento || '').trim()) : '';
+          // Flags de manual (true se Felipe digitou, false se veio do auto)
+          lead.caixaAlturaManual      = m.destinoTipo === 'internacional' ? !!m.caixaAlturaManual      : false;
+          lead.caixaEspessuraManual   = m.destinoTipo === 'internacional' ? !!m.caixaEspessuraManual   : false;
+          lead.caixaComprimentoManual = m.destinoTipo === 'internacional' ? !!m.caixaComprimentoManual : false;
           lead.porta_largura = (m.porta_largura || '').trim();
           lead.porta_altura = (m.porta_altura || '').trim();
           lead.porta_modelo = (m.porta_modelo || '').trim();
@@ -1639,6 +1791,9 @@
             caixaAltura:      m.destinoTipo === 'internacional' ? (String(m.caixaAltura      || '').trim()) : '',
             caixaEspessura:   m.destinoTipo === 'internacional' ? (String(m.caixaEspessura   || '').trim()) : '',
             caixaComprimento: m.destinoTipo === 'internacional' ? (String(m.caixaComprimento || '').trim()) : '',
+            caixaAlturaManual:      m.destinoTipo === 'internacional' ? !!m.caixaAlturaManual      : false,
+            caixaEspessuraManual:   m.destinoTipo === 'internacional' ? !!m.caixaEspessuraManual   : false,
+            caixaComprimentoManual: m.destinoTipo === 'internacional' ? !!m.caixaComprimentoManual : false,
             // Felipe sessao 2026-05: BUG FIX CRITICO - dados da porta
             // do card "Novo Lead" estavam sumindo. Felipe preenchia
             // Largura/Altura/Modelo/Cor/Fechadura e arrastava pra
