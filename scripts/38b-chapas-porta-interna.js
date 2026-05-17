@@ -63,6 +63,7 @@ const ChapasPortaInterna = (() => {
       const A = alturaVao  - fgSup           - 25.5 - 12;
       if (L > 0 && A > 0) {
         pecas.push({
+          label:          'Chapa frontal externa',
           descricao:      'Chapa frontal externa',
           largura:        _round1(L),
           altura:         _round1(A),
@@ -79,7 +80,8 @@ const ChapasPortaInterna = (() => {
       // Cor segue corExterna no lado externo; podeRotacionar true (tiras finas).
       if (alturaVao > 0) {
         pecas.push({
-          descricao:      'Alisar vertical (lateral)',
+          label:          'Alisar chapa exterior vertical',
+          descricao:      'Alisar chapa exterior vertical',
           largura:        59.5,
           altura:         _round1(alturaVao + 100),
           qtd:            2 * qtdPortas,
@@ -90,7 +92,8 @@ const ChapasPortaInterna = (() => {
       }
       if (larguraVao > 0) {
         pecas.push({
-          descricao:      'Alisar horizontal (topo)',
+          label:          'Alisar chapa exterior horizontal',
+          descricao:      'Alisar chapa exterior horizontal',
           largura:        59.5,
           altura:         _round1(larguraVao + 100),
           qtd:            1 * qtdPortas,
@@ -105,6 +108,7 @@ const ChapasPortaInterna = (() => {
       const A = alturaVao  - fgSup           - 37.5 - 12;
       if (L > 0 && A > 0) {
         pecas.push({
+          label:          'Chapa frontal interna',
           descricao:      'Chapa frontal interna',
           largura:        _round1(L),
           altura:         _round1(A),
@@ -119,7 +123,8 @@ const ChapasPortaInterna = (() => {
       // cor da face interna.
       if (alturaVao > 0) {
         pecas.push({
-          descricao:      'Alisar vertical (lateral)',
+          label:          'Alisar chapa interior vertical',
+          descricao:      'Alisar chapa interior vertical',
           largura:        59.5,
           altura:         _round1(alturaVao + 100),
           qtd:            2 * qtdPortas,
@@ -130,7 +135,8 @@ const ChapasPortaInterna = (() => {
       }
       if (larguraVao > 0) {
         pecas.push({
-          descricao:      'Alisar horizontal (topo)',
+          label:          'Alisar chapa interior horizontal',
+          descricao:      'Alisar chapa interior horizontal',
           largura:        59.5,
           altura:         _round1(larguraVao + 100),
           qtd:            1 * qtdPortas,
