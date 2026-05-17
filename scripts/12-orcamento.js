@@ -8089,8 +8089,14 @@ const Orcamento = (() => {
     const taxaDRE = (window.Cambio && window.Cambio.taxaAtual()) || 0;
     const usdOk = ehInternacionalDRE && taxaDRE > 0;
     const fmtUSD = v => 'USD ' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
-    // fmtMoeda: em internacional retorna USD; caso contrario R$
-    const fmtMoeda = v => usdOk ? fmtUSD(v / taxaDRE) : ('R$ ' + fmtBR(v));
+    // fmtMoeda: em internacional retorna R$ em destaque + USD logo abaixo (HTML).
+    // Felipe sessao 31: 'essa parte tbm em reais e dollar' (Resultado DRE + Conferencia).
+    // Nacional retorna so R$.
+    const fmtMoeda = v => {
+      const brl = 'R$ ' + fmtBR(v);
+      if (!usdOk) return brl;
+      return `${brl}<div style="font-size:11px; color:#0c5485; font-weight:600; margin-top:2px;">${fmtUSD(v / taxaDRE)}</div>`;
+    };
 
     const fmtPct = (frac) => fmtBR((frac || 0) * 100) + ' %';
     const fmtN3  = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -8231,7 +8237,7 @@ const Orcamento = (() => {
       </div>
 
       <div class="orc-section-card orc-resultado">
-        <div class="orc-section-title">Resultado DRE${ehInternacionalDRE ? ' <span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:3px 8px; border-radius:4px; font-weight:600; margin-left:8px;">🌍 SO A PORTA · valores em USD</span>' : ''}</div>
+        <div class="orc-section-title">Resultado DRE${ehInternacionalDRE ? ' <span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:3px 8px; border-radius:4px; font-weight:600; margin-left:8px;">🌍 SO A PORTA · R$ + USD</span>' : ''}</div>
         <div class="orc-dre">
           <div class="orc-dre-row is-custo">
             <span class="orc-dre-label">Custo total${ehInternacionalDRE ? ' (porta)' : ''}</span>
@@ -8283,7 +8289,7 @@ const Orcamento = (() => {
       </div>
 
       <div class="orc-section-card orc-conferencia">
-        <div class="orc-section-title">Conferencia — Custo e Preco Final${ehInternacionalDRE ? ' <span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:3px 8px; border-radius:4px; font-weight:600; margin-left:8px;">🌍 valores em USD</span>' : ''}</div>
+        <div class="orc-section-title">Conferencia — Custo e Preco Final${ehInternacionalDRE ? ' <span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:3px 8px; border-radius:4px; font-weight:600; margin-left:8px;">🌍 R$ + USD</span>' : ''}</div>
         <div class="orc-conf-resumo">
           <div class="orc-conf-resumo-bloco">
             <div class="orc-conf-resumo-label">Custo${ehInternacionalDRE ? ' da porta' : ' total'}</div>
@@ -8309,21 +8315,25 @@ const Orcamento = (() => {
               <div>
                 <div style="font-weight:700; font-size:13px; color:#7c2d12;">🔧 Instalacao (cobrada separado · nao entra no markup 45%)</div>
                 <div style="font-size:11px; color:#92400e; margin-top:2px;">
-                  Custo viagem: <b>${fmtMoeda(instSepDRE.custo)}</b> · Margem ${instSepDRE.lucroPct}% = <b>${fmtMoeda(instSepDRE.precoFinal - instSepDRE.custo)}</b>
+                  Custo viagem: <b>R$ ${fmtBR(instSepDRE.custo)}${usdOk ? ' / ' + fmtUSD(instSepDRE.custo / taxaDRE) : ''}</b> · Margem ${instSepDRE.lucroPct}% = <b>R$ ${fmtBR(instSepDRE.precoFinal - instSepDRE.custo)}${usdOk ? ' / ' + fmtUSD((instSepDRE.precoFinal - instSepDRE.custo) / taxaDRE) : ''}</b>
                 </div>
               </div>
               <div style="text-align:right;">
                 <div style="font-size:10px; color:#92400e; text-transform:uppercase;">Preco instalacao</div>
-                <div style="font-size:18px; font-weight:700; color:#7c2d12;">${fmtMoeda(instSepDRE.precoFinal)}</div>
+                <div style="font-size:18px; font-weight:700; color:#7c2d12;">R$ ${fmtBR(instSepDRE.precoFinal)}</div>
+                ${usdOk ? `<div style="font-size:12px; color:#0c5485; font-weight:600;">${fmtUSD(instSepDRE.precoFinal / taxaDRE)}</div>` : ''}
               </div>
             </div>
           </div>
           <div style="margin-top:10px; padding:14px 16px; background:#0c5485; color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:space-between;">
             <div>
               <div style="font-size:12px; opacity:0.85;">CLIENTE PAGA (porta + instalacao)</div>
-              <div style="font-size:11px; opacity:0.7;">${fmtMoeda(r.pFatReal)} (porta) + ${fmtMoeda(instSepDRE.precoFinal)} (instalacao)</div>
+              <div style="font-size:11px; opacity:0.7;">R$ ${fmtBR(r.pFatReal)} (porta) + R$ ${fmtBR(instSepDRE.precoFinal)} (instalacao)</div>
             </div>
-            <div style="font-size:22px; font-weight:700;">${fmtMoeda(r.pFatReal + instSepDRE.precoFinal)}</div>
+            <div style="font-size:22px; font-weight:700; text-align:right;">
+              R$ ${fmtBR(r.pFatReal + instSepDRE.precoFinal)}
+              ${usdOk ? `<div style="font-size:14px; opacity:0.85; font-weight:600;">${fmtUSD((r.pFatReal + instSepDRE.precoFinal) / taxaDRE)}</div>` : ''}
+            </div>
           </div>
         ` : ''}
 
