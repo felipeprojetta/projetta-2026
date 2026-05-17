@@ -6465,7 +6465,18 @@ const Orcamento = (() => {
         let totalAcess = 0;
         let totalDigital = 0;
         (versao.itens || []).forEach(item => {
-          if (!item || item.tipo !== 'porta_externa') return;
+          // Felipe sessao 31: filtro alinhado com o motor 28-acessorios-porta-
+          // externa.js, que ja' processa porta_interna, fixo_acoplado,
+          // revestimento_parede e pergolado. Antes filtrava SO' porta_externa
+          // -> acessorios da porta interna (fechadura+macaneta+dobradicas)
+          // nao iam pro campo Acessorios do Custo Fab/Inst.
+          if (!item) return;
+          const tipoOK = item.tipo === 'porta_externa'
+                      || item.tipo === 'porta_interna'
+                      || item.tipo === 'fixo_acoplado'
+                      || item.tipo === 'revestimento_parede'
+                      || item.tipo === 'pergolado';
+          if (!tipoOK) return;
           let pesoFolhaTotal = 0;
           let pesoFolhaPerfis = 0;
           let pesoFolhaChapas = 0;
