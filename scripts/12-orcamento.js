@@ -331,6 +331,14 @@ const Orcamento = (() => {
     intl_seguro_pessoa:     '', // R$ por pessoa
     intl_mao_obra_dia:      '', // R$ por dia (instalacao Projetta)
     intl_manual:        false,  // true = Felipe sobrescreveu nos campos 'valor' / 'frete'
+
+    // Felipe sessao 31: 'instalacao nao entra naquela margem de 45% margem
+    // e somente 10% e tbm se quiser posso zerar essa margem, nao entra no
+    // valor da porta a instalacao cliente paga separado'.
+    // Margem propria da instalacao internacional (padrao 10%, pode zerar).
+    // SO' aplica quando lead.destinoTipo='internacional'. Default no orcamento
+    // = 10. Felipe pode zerar (cobrar custo puro) ou aumentar livremente.
+    lucro_alvo_instalacao: 10,  // %
   };
 
   // Felipe sessao 31: tarifas padrao da viagem internacional (Pasta3.xlsx).
@@ -744,6 +752,28 @@ const Orcamento = (() => {
   }
 
   /**
+   * Felipe sessao 31: calcula o preco da INSTALACAO SEPARADA do valor
+   * da porta (so' faz sentido pra internacional onde Felipe disse
+   * 'instalacao nao entra naquela margem de 45% margem e somente 10%
+   * e tbm se quiser posso zerar essa margem, nao entra no valor da
+   * porta a instalacao cliente paga separado').
+   *
+   * Formula simplificada (export tem aliquota zero, sem comissoes):
+   *   precoInstalacao = subInst × (1 + lucroPct/100)
+   *
+   * @param {number} subInst - custo total da viagem em R$
+   * @param {number} lucroPct - margem aplicada (% sobre o custo). Default 10.
+   * @returns {{custo,lucroPct,precoFinal}} R$ em cada campo
+   */
+  function calcularPrecoInstalacao(subInst, lucroPct) {
+    const custo = Number(subInst) || 0;
+    const pct   = Number(lucroPct);
+    const lucro = isNaN(pct) ? 10 : pct;
+    const precoFinal = custo * (1 + lucro / 100);
+    return { custo, lucroPct: lucro, precoFinal };
+  }
+
+  /**
    * Felipe (sessao 2026-06): calcula valores POR ITEM pra exibir na
    * proposta comercial.
    *
@@ -767,7 +797,7 @@ const Orcamento = (() => {
    *
    * Retorna { porItem: [...], totalGeral }.
    */
-  function calcularValoresProposta(versao, params) {
+  function calcularValoresProposta(versao, params, internacional) {
     const itens = (versao && versao.itens) || [];
     if (!itens.length) return { porItem: [], totalGeral: 0 };
 
@@ -787,8 +817,10 @@ const Orcamento = (() => {
     });
 
     // 2. SubFab e SubInst totais (vem do storage, ja' calculados)
+    // Felipe sessao 31: internacional NAO inclui subInst no calculo por
+    // item — a instalacao e' cobrada SEPARADO na proposta.
     const subFabTotal  = Number(versao.subFab)  || 0;
-    const subInstTotal = Number(versao.subInst) || 0;
+    const subInstTotal = internacional ? 0 : (Number(versao.subInst) || 0);
 
     // 3. Distribui subFab proporcional as horas
     const subFabPorIdx  = [];
@@ -7154,12 +7186,50 @@ const Orcamento = (() => {
           <p class="orc-helptext">${inst.modo === 'internacional' ? 'Modo Projetta Internacional: equipe deslocada para o exterior — calculo automatico via Pasta3.xlsx (passagens + hotel + carro + comida + seguro + mao de obra).' : 'Modo terceiros: subcontratado faz a instalacao. Apenas dois valores manuais; componentes individuais ficam como "—".'}</p>
 
           ${inst.modo === 'internacional' ? (() => {
-            // Felipe sessao 31: card detalhado dos custos de viagem internacional.
-            // Calcula automatico via INTL_TARIFAS_DEFAULT * pessoas/dias/instalacoes.
             const t = INTL_TARIFAS_DEFAULT;
             const v = inst;
             const viagem = calcularCustosViagemInternacional(v);
+            const lucroInst = Number(v.lucro_alvo_instalacao);
+            const lucroInstFinal = isNaN(lucroInst) ? 10 : lucroInst;
+            const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+            const precoInstFinal = viagem.total * (1 + lucroInstFinal / 100);
             return `
+              <!-- Felipe sessao 31: Margem propria da instalacao (10% default, pode zerar).
+                   Aplica SO sobre a viagem - nao mistura com a margem da porta (45%). -->
+              <div style="background:#fef3cd; border:2px solid #d97706; border-radius:6px; padding:12px; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                  <div>
+                    <div style="font-size:11px; font-weight:700; color:#7c2d12; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">
+                      💰 Margem propria da instalacao
+                    </div>
+                    <div style="font-size:11px; color:#92400e;">
+                      A instalacao tem margem SEPARADA da margem da porta (45%). Cliente paga separado na proposta.
+                    </div>
+                  </div>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <div class="orc-field" style="margin:0;">
+                      <label style="margin:0;">Margem (%)</label>
+                      <input type="number" min="0" max="100" step="0.5" data-field="lucro_alvo_instalacao" data-inst="1" value="${escapeHtml(v.lucro_alvo_instalacao || '')}" placeholder="10" style="width:80px; padding:6px 8px; font-weight:700; text-align:center;" />
+                    </div>
+                    <button type="button" data-inst-margin-preset="0" style="padding:6px 12px; background:#fff; border:1px solid #d97706; border-radius:5px; color:#7c2d12; cursor:pointer; font-size:11px; font-weight:600;">Zerar</button>
+                    <button type="button" data-inst-margin-preset="10" style="padding:6px 12px; background:#fff; border:1px solid #d97706; border-radius:5px; color:#7c2d12; cursor:pointer; font-size:11px; font-weight:600;">10%</button>
+                    <button type="button" data-inst-margin-preset="15" style="padding:6px 12px; background:#fff; border:1px solid #d97706; border-radius:5px; color:#7c2d12; cursor:pointer; font-size:11px; font-weight:600;">15%</button>
+                    <button type="button" data-inst-margin-preset="20" style="padding:6px 12px; background:#fff; border:1px solid #d97706; border-radius:5px; color:#7c2d12; cursor:pointer; font-size:11px; font-weight:600;">20%</button>
+                  </div>
+                </div>
+                <div style="margin-top:10px; padding:8px 12px; background:#fff; border-radius:4px; display:flex; justify-content:space-between; align-items:center;">
+                  <div style="font-size:11px; color:#7c2d12;">
+                    <div>Custo da viagem: <b>R$ ${viagem.total.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</b></div>
+                    <div>Margem aplicada (${lucroInstFinal}%): <b>R$ ${(precoInstFinal - viagem.total).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</b></div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-size:10px; color:#92400e;">PRECO FINAL DA INSTALACAO</div>
+                    <div style="font-size:16px; font-weight:700; color:#7c2d12;">R$ ${precoInstFinal.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                    ${taxa > 0 ? `<div style="font-size:12px; color:#0c5485; font-weight:600;">USD ${(precoInstFinal / taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>` : ''}
+                  </div>
+                </div>
+              </div>
+
               <!-- Quantidades base -->
               <div style="background:#f0f7ff; border:1px solid #cfe2ff; border-radius:6px; padding:12px; margin-bottom:10px;">
                 <div style="font-size:11px; font-weight:600; color:#0c5485; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
@@ -7774,6 +7844,28 @@ const Orcamento = (() => {
           });
         } catch (e) {
           console.warn('[orcamento] erro ao salvar fab/inst:', e.message);
+        }
+        renderFabInstTab(container);
+      });
+    });
+
+    // Felipe sessao 31: botoes preset de margem da instalacao internacional
+    // (Zerar / 10% / 15% / 20%). Aplicam direto e re-renderizam.
+    container.querySelectorAll('button[data-inst-margin-preset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = Number(btn.dataset.instMarginPreset);
+        inst.lucro_alvo_instalacao = v;
+        const rFab  = calcularFab(fab, versao.itens);
+        const rInst = calcularInst(inst);
+        try {
+          atualizarVersao(versao.id, {
+            custoFab: fab,
+            custoInst: inst,
+            subFab: rFab.total,
+            subInst: rInst.total,
+          });
+        } catch (e) {
+          console.warn('[orcamento] erro ao aplicar preset margem inst:', e.message);
         }
         renderFabInstTab(container);
       });
@@ -11104,20 +11196,20 @@ const Orcamento = (() => {
     // unica .rel-prop-pagina (sem paginaItensHtml separada da pagina final).
     const unicaPagina = (cardsList.length <= 1);
 
-    // Felipe sessao 31: gera bloco com as RESPONSABILIDADES detalhadas do
-    // incoterm escolhido (vendedor x comprador). Aparece junto com os cards
-    // de item pra preencher o espaco em branco e detalhar quem paga o que.
-    // 'ja tivemos probelmas com clientes pq nao sabem sobre isso'.
+    // Felipe sessao 31: gera bloco de RESPONSABILIDADES do incoterm escolhido.
+    // Versao 2 (Felipe: 'coloque algo assim das responsalbilade em alta
+    // resolucao'): agora tem DIAGRAMA SVG inspirado no Incoterms 2020 ICC
+    // mostrando os 11 termos com barras coloridas + marcadores de transferencia
+    // de risco. Aparece no FINAL da proposta (depois das assinaturas).
     function blocoResponsabilidadesIncoterm() {
       if (!internacional) return '';
       const incoterm = lead.freteIncoterm || 'FOB';
       const itc = (window.Incoterms && window.Incoterms.byCodigo(incoterm)) || null;
       if (!itc) return '';
 
-      // Matriz de responsabilidades por incoterm: V=Vendedor (Projetta), C=Comprador
-      // Baseada nas regras oficiais ICC Incoterms 2020.
+      // Matriz de responsabilidades por incoterm. V=Seller, C=Buyer.
       const RESP = {
-        EXW: { embalagem:'V', carga_fabrica:'C', transp_interno:'C', desemb_exp:'C', port_origem:'C', frete_mar:'C', seguro:'C', port_dest:'C', transp_dest:'C', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'At Seller\'s premises (factory)' },
+        EXW: { embalagem:'V', carga_fabrica:'C', transp_interno:'C', desemb_exp:'C', port_origem:'C', frete_mar:'C', seguro:'C', port_dest:'C', transp_dest:'C', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'At Sellers premises (factory)' },
         FCA: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'C', seguro:'C', port_dest:'C', transp_dest:'C', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'When goods are delivered to carrier (named place)' },
         FAS: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'C', seguro:'C', port_dest:'C', transp_dest:'C', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'Alongside the vessel at port of shipment' },
         FOB: { embalagem:'V', carga_fabrica:'V', transp_interno:'V', desemb_exp:'V', port_origem:'V', frete_mar:'C', seguro:'C', port_dest:'C', transp_dest:'C', descarga:'C', desemb_imp:'C', impostos:'C', risco_passa:'On board the vessel at port of shipment' },
@@ -11131,67 +11223,166 @@ const Orcamento = (() => {
       };
       const r = RESP[incoterm] || RESP.FOB;
 
-      const itens = [
-        { label: 'Packaging / Crating',              who: r.embalagem },
-        { label: 'Loading at factory',               who: r.carga_fabrica },
-        { label: 'Inland transport (factory → port)', who: r.transp_interno },
-        { label: 'Export customs clearance',         who: r.desemb_exp },
-        { label: 'Port of origin handling',          who: r.port_origem },
-        { label: 'Ocean / Main freight',             who: r.frete_mar },
-        { label: 'Marine insurance',                 who: r.seguro },
-        { label: 'Port of destination handling',     who: r.port_dest },
-        { label: 'Inland transport to final destination', who: r.transp_dest },
-        { label: 'Unloading at destination',         who: r.descarga },
-        { label: 'Import customs clearance',         who: r.desemb_imp },
-        { label: 'Import duties & taxes',            who: r.impostos },
+      // Construcao do DIAGRAMA SVG dos 11 incoterms 2020.
+      // Eixo X: 7 etapas do transporte (Factory -> First Carrier -> Port of
+      // shipment -> On Board -> Port of destination -> Place of destination -> Buyer's warehouse).
+      // Cada incoterm e' uma linha; barras vermelhas = seller paga / azuis = buyer paga.
+      // Marcador 'X' no ponto de transferencia de risco.
+      const TODOS_INCOTERMS = ['EXW','FCA','FAS','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP'];
+      // sellerEnd: posicao final (em coluna 1-8) ate onde o vendedor cobre os CUSTOS.
+      // riskPoint: coluna onde o risco passa.
+      const DIAG = {
+        EXW: { sellerEnd: 1, riskAt: 1, label: 'Ex Works' },
+        FCA: { sellerEnd: 2, riskAt: 2, label: 'Free Carrier' },
+        FAS: { sellerEnd: 3, riskAt: 3, label: 'Free Alongside Ship' },
+        FOB: { sellerEnd: 4, riskAt: 4, label: 'Free On Board' },
+        CFR: { sellerEnd: 5, riskAt: 4, label: 'Cost and Freight' },
+        CIF: { sellerEnd: 5, riskAt: 4, label: 'Cost, Insurance & Freight' },
+        CPT: { sellerEnd: 6, riskAt: 2, label: 'Carriage Paid To' },
+        CIP: { sellerEnd: 6, riskAt: 2, label: 'Carriage & Insurance Paid' },
+        DAP: { sellerEnd: 6, riskAt: 6, label: 'Delivered at Place' },
+        DPU: { sellerEnd: 7, riskAt: 7, label: 'Delivered at Place Unloaded' },
+        DDP: { sellerEnd: 8, riskAt: 8, label: 'Delivered Duty Paid' },
+      };
+      const W = 900; // largura SVG
+      const H = 320; // altura SVG (ajustar conforme rows)
+      const colX = [80, 165, 245, 325, 425, 530, 635, 745, 845]; // 9 marcos
+      const cabecalhos = [
+        'FACTORY', 'FIRST\nCARRIER', 'ALONGSIDE\nSHIP', 'ON BOARD',
+        'ON ARRIVAL', 'ALONGSIDE\nPLACE', 'DESTINATION\nPLACE', 'BUYER\nWAREHOUSE'
       ];
+      const ROW_H = 18;
+      const HEADER_Y = 50;
+      const FIRST_ROW_Y = 88;
 
-      const linha = (it) => `
+      // Header com etiquetas
+      const headerSvg = cabecalhos.map((txt, i) => {
+        const x = (colX[i] + colX[i+1]) / 2;
+        const linhas = txt.split('\\n');
+        return linhas.map((l, lIdx) => `<text x="${x}" y="${HEADER_Y - 8 + lIdx*10}" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#0c5485">${l}</text>`).join('');
+      }).join('');
+
+      // Linha de cada incoterm
+      const linhasSvg = TODOS_INCOTERMS.map((cod, idx) => {
+        const d = DIAG[cod];
+        const ehAtivo = cod === incoterm;
+        const y = FIRST_ROW_Y + idx * ROW_H;
+        const x1 = colX[0];
+        const xEnd = colX[d.sellerEnd];
+        const xMax = colX[8];
+        // Barra vermelha (seller)
+        const barSeller = `<rect x="${x1}" y="${y - 6}" width="${xEnd - x1}" height="11" fill="${ehAtivo ? '#dc2626' : '#fca5a5'}" rx="2" />`;
+        // Barra azul (buyer) — do final da seller ate o destino
+        const barBuyer = (xEnd < xMax)
+          ? `<rect x="${xEnd}" y="${y - 6}" width="${xMax - xEnd}" height="11" fill="${ehAtivo ? '#2563eb' : '#bfdbfe'}" rx="2" />`
+          : '';
+        // Label do incoterm a esquerda
+        const lblCor = ehAtivo ? '#0c5485' : '#666';
+        const lblFs  = ehAtivo ? 700 : 500;
+        const lblSize = ehAtivo ? 11 : 10;
+        const labelTxt = `<text x="${x1 - 8}" y="${y + 2}" text-anchor="end" font-family="Arial,sans-serif" font-size="${lblSize}" font-weight="${lblFs}" fill="${lblCor}">${cod}</text>`;
+        // Marcador de transferencia de risco (X)
+        const xRisk = colX[d.riskAt];
+        const marker = `<g transform="translate(${xRisk}, ${y})">
+          <circle r="6" fill="#fff" stroke="${ehAtivo ? '#7c2d12' : '#fbbf24'}" stroke-width="${ehAtivo ? 2 : 1.5}" />
+          <text y="3" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" font-weight="700" fill="${ehAtivo ? '#7c2d12' : '#92400e'}">⚡</text>
+        </g>`;
+        // Linha de borda destacando o ativo
+        const destaque = ehAtivo
+          ? `<rect x="${x1 - 50}" y="${y - 9}" width="${xMax - x1 + 60}" height="17" fill="none" stroke="#fbbf24" stroke-width="2" rx="3" />`
+          : '';
+        return destaque + labelTxt + barSeller + barBuyer + marker;
+      }).join('');
+
+      // Eixo X (linha de chao)
+      const eixoX = `<line x1="${colX[0]}" y1="${FIRST_ROW_Y + TODOS_INCOTERMS.length * ROW_H + 5}" x2="${colX[8]}" y2="${FIRST_ROW_Y + TODOS_INCOTERMS.length * ROW_H + 5}" stroke="#666" stroke-width="1" />`;
+      // Marcadores verticais nas etapas
+      const tickXs = colX.map(x => `<line x1="${x}" y1="${HEADER_Y + 8}" x2="${x}" y2="${FIRST_ROW_Y + TODOS_INCOTERMS.length * ROW_H + 5}" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="3,3" />`).join('');
+      // Legenda
+      const legendaY = FIRST_ROW_Y + TODOS_INCOTERMS.length * ROW_H + 30;
+      const legenda = `
+        <rect x="80" y="${legendaY}" width="14" height="10" fill="#dc2626" rx="2"/>
+        <text x="100" y="${legendaY + 9}" font-family="Arial,sans-serif" font-size="11" fill="#333">Seller pays (Projetta)</text>
+        <rect x="240" y="${legendaY}" width="14" height="10" fill="#2563eb" rx="2"/>
+        <text x="260" y="${legendaY + 9}" font-family="Arial,sans-serif" font-size="11" fill="#333">Buyer pays</text>
+        <circle cx="395" cy="${legendaY + 5}" r="6" fill="#fff" stroke="#7c2d12" stroke-width="2"/>
+        <text x="395" y="${legendaY + 8}" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" font-weight="700" fill="#7c2d12">⚡</text>
+        <text x="410" y="${legendaY + 9}" font-family="Arial,sans-serif" font-size="11" fill="#333">Risk transfer point</text>
+      `;
+      const totalH = legendaY + 24;
+      const svgDiagrama = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${totalH}" style="width:100%; max-width:900px; height:auto; display:block;">
+          <rect width="${W}" height="${totalH}" fill="#fafbfc" />
+          <text x="${W/2}" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#0c5485">INCOTERMS 2020 · Cost and Risk Transfer</text>
+          ${tickXs}
+          ${headerSvg}
+          ${linhasSvg}
+          ${eixoX}
+          ${legenda}
+        </svg>
+      `;
+
+      // Tabela detalhada do incoterm selecionado
+      const itens = [
+        { label: 'Packaging / Crating',                  who: r.embalagem },
+        { label: 'Loading at factory',                   who: r.carga_fabrica },
+        { label: 'Inland transport (factory → port)',    who: r.transp_interno },
+        { label: 'Export customs clearance',             who: r.desemb_exp },
+        { label: 'Port of origin handling',              who: r.port_origem },
+        { label: 'Ocean / Main freight',                 who: r.frete_mar },
+        { label: 'Marine insurance',                     who: r.seguro },
+        { label: 'Port of destination handling',         who: r.port_dest },
+        { label: 'Inland transport to final destination',who: r.transp_dest },
+        { label: 'Unloading at destination',             who: r.descarga },
+        { label: 'Import customs clearance',             who: r.desemb_imp },
+        { label: 'Import duties & taxes',                who: r.impostos },
+      ];
+      const linhaResp = (it) => `
         <tr>
-          <td style="padding:4px 8px; font-size:11px; border-bottom:1px solid #eef3f8;">${it.label}</td>
-          <td style="padding:4px 8px; text-align:center; border-bottom:1px solid #eef3f8;">
+          <td style="padding:5px 8px; font-size:11px; border-bottom:1px solid #eef3f8;">${it.label}</td>
+          <td style="padding:5px 8px; text-align:center; border-bottom:1px solid #eef3f8;">
             ${it.who === 'V'
-              ? '<span style="display:inline-block; padding:2px 8px; background:#0c5485; color:#fff; border-radius:3px; font-size:10px; font-weight:700;">SELLER</span>'
-              : '<span style="display:inline-block; padding:2px 8px; background:#fef3cd; color:#856404; border-radius:3px; font-size:10px; font-weight:700;">BUYER</span>'}
+              ? '<span style="display:inline-block; padding:2px 10px; background:#dc2626; color:#fff; border-radius:3px; font-size:10px; font-weight:700;">SELLER</span>'
+              : '<span style="display:inline-block; padding:2px 10px; background:#2563eb; color:#fff; border-radius:3px; font-size:10px; font-weight:700;">BUYER</span>'}
           </td>
         </tr>
       `;
 
       return `
-        <div style="margin-top:16px; padding:14px; background:#f8fafc; border:1px solid #cfd8e3; border-radius:8px; page-break-inside:avoid;">
-          <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-            <span style="font-size:14px; font-weight:700; color:#0c5485;">📋 Incoterm Responsibilities</span>
-            <span style="background:#0c5485; color:#fff; padding:2px 10px; border-radius:4px; font-size:12px; font-weight:700;">${escapeHtml(incoterm)}</span>
-            <span style="font-size:11px; color:#666;">${escapeHtml(itc.nome)}</span>
+        <div style="margin-top:24px; padding:18px; background:#f8fafc; border:2px solid #0c5485; border-radius:10px; page-break-before:auto; page-break-inside:avoid;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <span style="font-size:18px; font-weight:700; color:#0c5485;">📋 Incoterm Responsibilities</span>
+            <span style="background:#0c5485; color:#fff; padding:3px 12px; border-radius:4px; font-size:14px; font-weight:700;">${escapeHtml(incoterm)}</span>
+            <span style="font-size:12px; color:#666;">${escapeHtml(itc.nome)}</span>
           </div>
-          <p style="margin:0 0 8px 0; font-size:11px; color:#5a7a99; line-height:1.4;">${escapeHtml(itc.descricao)}</p>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <p style="margin:0 0 12px 0; font-size:12px; color:#5a7a99; line-height:1.5;">${escapeHtml(itc.descricao)}</p>
+
+          ${svgDiagrama}
+
+          <div style="margin-top:12px; padding:10px 14px; background:#fff8e1; border-left:4px solid #d97706; border-radius:4px;">
+            <strong style="font-size:12px; color:#7c2d12;">⚡ Risk transfer (Incoterm ${escapeHtml(incoterm)}):</strong>
+            <span style="font-size:12px; color:#7c2d12;">${escapeHtml(r.risco_passa)}</span>
+          </div>
+
+          <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
             <table style="width:100%; border-collapse:collapse;">
               <thead>
                 <tr style="background:#0c5485; color:#fff;">
-                  <th style="padding:6px 8px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase;">Responsibility</th>
-                  <th style="padding:6px 8px; text-align:center; font-size:10px; font-weight:700; text-transform:uppercase; width:90px;">Paid by</th>
+                  <th style="padding:7px 8px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase;">Responsibility</th>
+                  <th style="padding:7px 8px; text-align:center; font-size:11px; font-weight:700; text-transform:uppercase; width:90px;">Paid by</th>
                 </tr>
               </thead>
-              <tbody>
-                ${itens.slice(0, 6).map(linha).join('')}
-              </tbody>
+              <tbody>${itens.slice(0, 6).map(linhaResp).join('')}</tbody>
             </table>
             <table style="width:100%; border-collapse:collapse;">
               <thead>
                 <tr style="background:#0c5485; color:#fff;">
-                  <th style="padding:6px 8px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase;">Responsibility</th>
-                  <th style="padding:6px 8px; text-align:center; font-size:10px; font-weight:700; text-transform:uppercase; width:90px;">Paid by</th>
+                  <th style="padding:7px 8px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase;">Responsibility</th>
+                  <th style="padding:7px 8px; text-align:center; font-size:11px; font-weight:700; text-transform:uppercase; width:90px;">Paid by</th>
                 </tr>
               </thead>
-              <tbody>
-                ${itens.slice(6).map(linha).join('')}
-              </tbody>
+              <tbody>${itens.slice(6).map(linhaResp).join('')}</tbody>
             </table>
-          </div>
-          <div style="margin-top:10px; padding:8px 12px; background:#fff8e1; border-left:3px solid #d97706; border-radius:3px;">
-            <strong style="font-size:11px; color:#7c2d12;">⚠️ Risk transfer:</strong>
-            <span style="font-size:11px; color:#7c2d12;">${escapeHtml(r.risco_passa)}</span>
           </div>
         </div>
       `;
@@ -11201,14 +11392,10 @@ const Orcamento = (() => {
     // pagina final). Se for multi-itens, mantem comportamento da sessao 12.
     const paginaItensHtml = unicaPagina ? '' : cardsChunks.map((chunk, pgIdx) => {
       const headerNaPagina = pgIdx === 0 ? headerHtml : '';
-      const isLastChunk = pgIdx === cardsChunks.length - 1;
-      // Felipe sessao 31: no ultimo chunk da pagina de itens, anexa o
-      // bloco de responsabilidades do incoterm (preenche o espaco em branco).
       return `
         <div class="rel-prop-pagina rel-prop-pagina-conteudo">
           ${headerNaPagina}
           ${chunk.length ? chunk.join('') : '<div class="rel-prop-empty">Nenhum item.</div>'}
-          ${isLastChunk ? blocoResponsabilidadesIncoterm() : ''}
         </div>`;
     }).join('');
     // Manter cardsItens pra compatibilidade (nao usado mais no innerHTML)
@@ -11243,7 +11430,18 @@ const Orcamento = (() => {
     const subFab  = Number(versao.subFab) || 0;
     const subInst = Number(versao.subInst) || 0;
     const params  = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
-    const dre     = calcularDRE(subFab, subInst, params);
+
+    // Felipe sessao 31: quando lead.destinoTipo='internacional', a INSTALACAO
+    // NAO entra no preco da porta — fica separada com sua propria margem (10%).
+    // 'nao entra no valor da porta a instalacao cliente paga separado, entao
+    // deve entrar valor separado na proposta'.
+    const lucroInstPct = Number(inst.lucro_alvo_instalacao);
+    const lucroInstFinal = isNaN(lucroInstPct) ? 10 : lucroInstPct;
+    const subInstPraDRE = internacional ? 0 : subInst;
+    const dre     = calcularDRE(subFab, subInstPraDRE, params);
+    const instSep = internacional
+      ? calcularPrecoInstalacao(subInst, lucroInstFinal)
+      : null;
     totalGeral    = Number(dre.pTab) || 0;
 
     // Tabela com 1 linha por item — valores calculados via
@@ -11252,7 +11450,7 @@ const Orcamento = (() => {
     //   subInst por item: proporcional ao subFab de cada item
     //   precoFinal por item = pTab (preco com markup, antes do desconto)
     //   valorUn = precoFinal / item.quantidade
-    const valoresProposta = calcularValoresProposta(versao, params);
+    const valoresProposta = calcularValoresProposta(versao, params, internacional);
     const valoresPorIdx = {};
     valoresProposta.porItem.forEach(v => { valoresPorIdx[v.idx] = v; });
 
@@ -11350,7 +11548,6 @@ const Orcamento = (() => {
         <div class="rel-prop-pagina rel-prop-pagina-conteudo">
           ${unicaPagina ? headerHtml : ''}
           ${unicaPagina ? (cardsList[0] || '') : ''}
-          ${unicaPagina ? blocoResponsabilidadesIncoterm() : ''}
           <table class="rel-prop-tabela-final">
             <thead>
               <tr>
@@ -11370,10 +11567,56 @@ const Orcamento = (() => {
               <span class="rel-prop-total-valor">${fmtBR(totalArea)} m²</span>
             </div>
             <div class="rel-prop-total-orc">
-              <span class="rel-prop-total-label">${tr('Total Orcamento:','Grand Total:')}</span>
+              <span class="rel-prop-total-label">${internacional ? 'Doors Total:' : tr('Total Orcamento:','Grand Total:')}</span>
               <span class="rel-prop-total-valor">R$ ${fmtBR(totalGeral)}${(internacional && taxa > 0) ? ' · USD ' + (totalGeral / taxa).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : ''}</span>
             </div>
           </div>
+
+          ${(internacional && instSep && instSep.precoFinal > 0) ? (() => {
+            // Felipe sessao 31: 'instalacao nao entra no valor da porta cliente
+            // paga separado, entao deve entrar valor separado na proposta'.
+            // Mostra bloco DESTACADO com a instalacao em separado:
+            //   - Custo da viagem (subInst)
+            //   - Margem aplicada (ex: 10%)
+            //   - Total Installation
+            //   - Grand Total = Doors + Installation
+            const grandTotal = totalGeral + instSep.precoFinal;
+            const usdInst = taxa > 0 ? (instSep.precoFinal / taxa) : 0;
+            const usdGrand = taxa > 0 ? (grandTotal / taxa) : 0;
+            const pessoas = Number(inst.intl_pessoas) || 0;
+            const dias    = Number(inst.intl_dias)    || 0;
+            return `
+              <div style="margin-top:12px; padding:12px 14px; background:#fff8e1; border:2px solid #d97706; border-radius:8px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid #ffc107;">
+                  <div>
+                    <div style="font-weight:700; font-size:13px; color:#7c2d12;">🔧 Installation, Travel & Lodging — billed separately</div>
+                    <div style="font-size:11px; color:#92400e; margin-top:2px;">Projetta technicians on-site: ${pessoas} ${pessoas === 1 ? 'technician' : 'technicians'} · ${dias} days</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-size:16px; font-weight:700; color:#7c2d12;">R$ ${fmtBR(instSep.precoFinal)}</div>
+                    ${taxa > 0 ? `<div style="font-size:12px; color:#0c5485; font-weight:600;">USD ${usdInst.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })}</div>` : ''}
+                  </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:11px; color:#7c2d12;">
+                  <span>Travel cost (flights, hotel, meals, transport, insurance, labor):</span>
+                  <span style="font-family:'Courier New',monospace;">R$ ${fmtBR(instSep.custo)}${taxa > 0 ? ' / USD ' + (instSep.custo / taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:2px 0; font-size:11px; color:#7c2d12;">
+                  <span>Service margin (${instSep.lucroPct}%):</span>
+                  <span style="font-family:'Courier New',monospace;">R$ ${fmtBR(instSep.precoFinal - instSep.custo)}${taxa > 0 ? ' / USD ' + ((instSep.precoFinal - instSep.custo) / taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}</span>
+                </div>
+              </div>
+              <div class="rel-prop-totais-row" style="margin-top:8px; padding-top:8px; border-top:3px double #0c5485;">
+                <div class="rel-prop-total-area">
+                  <span class="rel-prop-total-label" style="font-size:13px;">Doors + Installation:</span>
+                </div>
+                <div class="rel-prop-total-orc">
+                  <span class="rel-prop-total-label">GRAND TOTAL:</span>
+                  <span class="rel-prop-total-valor" style="font-size:18px;">R$ ${fmtBR(grandTotal)}${taxa > 0 ? ' · USD ' + usdGrand.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : ''}</span>
+                </div>
+              </div>
+            `;
+          })() : ''}
 
           <div class="rel-prop-observacoes">
             <div class="rel-prop-obs-titulo">${tr('Observacoes','Remarks')}</div>
@@ -11520,6 +11763,17 @@ const Orcamento = (() => {
             </div>
           </div>
         </div>
+
+        ${(() => {
+          // Felipe sessao 31: 'esse incoterms repsonsalvildiade cliente e
+          // empresa e no final nao nesse lugar, coloque algo assim das
+          // responsalbilade em alta resolucao'.
+          // Bloco completo no FINAL como pagina adicional A4.
+          if (!internacional) return '';
+          return `<div class="rel-prop-pagina rel-prop-pagina-conteudo" style="page-break-before:always;">
+            ${blocoResponsabilidadesIncoterm()}
+          </div>`;
+        })()}
       </div>
     `;
 
