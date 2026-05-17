@@ -228,6 +228,78 @@ const AcessoriosPortaExterna = (() => {
       pushLinha(dobAcess.codigo, 3, 'Dobradica', cor ? ('Cor: ' + cor) : '');
     }
 
+    // 4) Felipe sessao 31: Silicone estrutural 995 nas TRAVESSAS.
+    //    'estrutura 995 2x por travessa pelo comprimento delas'.
+    //    Pega o comprimento da travessa direto do motor de perfis
+    //    (formula: largura_vao - fglEsq - fglDir - 108,5 - 108,5).
+    //    Qtd unidades de travessa: 2 se altura <= 2200, 3 se > 2200
+    //    (mesmo padrao do motor 35-perfis-porta-interna.js).
+    //    Metros lineares = 2 * (comp_travessa_mm / 1000) * qtdTravessas
+    //                                ↑ "2x"           * por porta
+    //    Rendimento: vem do cadastro Regras.getRendimentos (mesmo do
+    //    motor da porta externa), fallback 12m por tubo.
+    function _toNumPI(v) {
+      if (typeof window !== 'undefined' && window.parseBR) return window.parseBR(v);
+      if (v === null || v === undefined || v === '') return 0;
+      if (typeof v === 'number') return v;
+      const n = parseFloat(String(v).trim().replace(/\./g, '').replace(',', '.'));
+      return isNaN(n) ? 0 : n;
+    }
+    const larguraVaoPI = _toNumPI(item.largura);
+    const alturaVaoPI  = _toNumPI(item.altura);
+    if (larguraVaoPI > 0 && alturaVaoPI > 0) {
+      const fglEsqPI = _toNumPI(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5);
+      const fglDirPI = _toNumPI(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5);
+      const compTravMm = larguraVaoPI - fglEsqPI - fglDirPI - 108.5 - 108.5;
+      const qtdTravPorPorta = alturaVaoPI > 2200 ? 3 : 2;
+      if (compTravMm > 0) {
+        // metros totais = 2x * (mm / 1000) * qtdTravessas * qtdPortas
+        const metros995 = 2 * (compTravMm / 1000) * qtdTravPorPorta * qtdPortas;
+        // Rendimento — pega do cadastro de regras (mesmo q porta_externa).
+        // Fallback 12m por tubo (PA-DOWSIL 995 padrao).
+        let msPorTubo = 12;
+        try {
+          if (window.Regras && typeof window.Regras.getRendimentos === 'function') {
+            const rends = window.Regras.getRendimentos();
+            if (rends && Number(rends.ms_tubo) > 0) msPorTubo = Number(rends.ms_tubo);
+          }
+        } catch (_) {}
+        const tubos995 = Math.ceil(metros995 / msPorTubo);
+        const acess995 = buscarAcessorio(cadastroAcessorios, 'PA-DOWSIL 995');
+        if (acess995) {
+          const precoUn = Number(acess995.preco) || 0;
+          linhas.push({
+            codigo:    acess995.codigo,
+            descricao: acess995.descricao || 'Silicone Estrutural 995',
+            familia:   acess995.familia || 'Selantes',
+            qtd:       tubos995,
+            unidade:   'un',
+            preco_un:  precoUn,
+            total:     precoUn * tubos995,
+            categoria: 'Selantes',
+            aplicacao: 'fab',
+            observacao: metros995.toFixed(1) + 'm / ' + msPorTubo + 'm por tubo = '
+                        + tubos995 + ' tubo(s) — '
+                        + (2 * qtdTravPorPorta * qtdPortas) + ' lados × '
+                        + (compTravMm / 1000).toFixed(3) + 'm cada',
+          });
+        } else {
+          linhas.push({
+            codigo:    'PA-DOWSIL 995',
+            descricao: '(nao cadastrado)',
+            familia:   '',
+            qtd:       tubos995,
+            unidade:   'un',
+            preco_un:  0,
+            total:     0,
+            categoria: 'Selantes',
+            aplicacao: 'fab',
+            observacao: metros995.toFixed(1) + 'm necessarios · CADASTRAR EM ACESSORIOS',
+          });
+        }
+      }
+    }
+
     return linhas;
   }
 
