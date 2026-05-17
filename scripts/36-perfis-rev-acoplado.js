@@ -31,8 +31,32 @@ var PerfisRevAcoplado = (function() {
       && Number(item.altura)  > 0);
   }
 
+  // Felipe sessao 31: 'fixo acoplado a porta busca ali pa006 ou pa007, e
+  // saiu os bloco errado de perfis 76 x 38 // 76 x 76 usamos para pa006
+  // para pa007 usamos 101 x 51 e 101 x 101'.
+  //
+  // BUG: item.sistema fica defasado quando a porta principal e' editada
+  // depois do fixo ter sido criado. A logica de auto-set acontece no
+  // render do form (linha 4730 de 12-orcamento.js), mas o motor de perfis
+  // confiava no item.sistema. Solucao: getSis() agora deriva da porta
+  // principal SEMPRE (autoritative), igual o helper faz no render.
+  // Regra: alt da porta >= 4000mm -> PA007 (perfis 101x51 / cantos 101x101)
+  //        senao                  -> PA006 (perfis 76x38 / cantos 76x76)
   function getSis(item) {
-    var k = String(item.sistema || 'PA006').toUpperCase();
+    var k = 'PA006';
+    // 1) Sempre tenta deduzir da porta principal (autoritative)
+    try {
+      var porta = obterPortaPrincipal();
+      if (porta) {
+        var h = parseFloat(String(porta.altura || '').replace(',', '.')) || 0;
+        if (h > 0) k = (h < 4000) ? 'PA006' : 'PA007';
+      } else if (item && item.sistema) {
+        // 2) Fallback se nao tem porta: usa o que ja' tava no item
+        k = String(item.sistema).toUpperCase();
+      }
+    } catch (_) {
+      if (item && item.sistema) k = String(item.sistema).toUpperCase();
+    }
     return SIS[k] || SIS.PA006;
   }
 
@@ -373,7 +397,11 @@ var PerfisRevAcoplado = (function() {
     var segueModelo = item.fixoSegueModelo === 'sim' || ehLateralRipadoOuMoldura;
     var porta = segueModelo ? obterPortaPrincipal() : null;
     var fonte = porta || item;
-    var fam = String(item.sistema || 'PA006') === 'PA007' ? '101' : '76';
+    // Felipe sessao 31: deriva sistema correto via getSis (autoritative pela
+    // porta principal). Antes usava item.sistema direto que podia estar
+    // defasado.
+    var sisAtual = getSis(item);
+    var fam = sisAtual === SIS.PA007 ? '101' : '76';
     var tublportal = TUBLPORTAL_BY_FAM[fam] || 38;
     var alturaEfetiva = Number(item.altura) + tublportal + REF_CHAPA;
 
@@ -718,7 +746,9 @@ var PerfisRevAcoplado = (function() {
     } catch (_) {}
 
     var largFita = 52 + REF;
-    var largRev  = (String(item.sistema).toUpperCase() === 'PA007') ? 221 : 131;
+    // Felipe sessao 31: largRev via getSis (autoritative pela porta).
+    var sisRev = getSis(item);
+    var largRev  = (sisRev === SIS.PA007) ? 221 : 131;
 
     var corLado = (lado === 'externo')
       ? String(item.corExterna || '').trim()
