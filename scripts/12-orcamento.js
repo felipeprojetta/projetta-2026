@@ -321,7 +321,7 @@ const Orcamento = (() => {
     // multiplicado por pessoas/dias/instalacoes. Sobrescreve inst_terceiros_*
     // quando preenchido.
     intl_pessoas:       3,      // default 3 pessoas (Felipe: 3 × 8 dias × 4 inst)
-    intl_dias:          8,      // default 8 dias
+    intl_dias:          4,      // default 4 dias EFETIVOS de instalacao (sistema +4 dias viagem)
     intl_n_instalacoes: 1,      // quantas portas/obras (multi-instalacao)
     intl_passagem_udi_gru:  '', // R$ por pessoa
     intl_passagem_gru_dest: '', // R$ por pessoa
@@ -360,14 +360,24 @@ const Orcamento = (() => {
    * Calcula custos da viagem internacional a partir dos parametros do INST.
    * Retorna o desdobramento detalhado + total geral em R$.
    *
+   * Felipe sessao 31 (msg explicacao detalhada):
+   *   - dias_instalacao = N (CAMPO 'Dias de instalacao'): SOMENTE dias de
+   *     trabalho efetivo na obra (tipico 4). NAO inclui viagem.
+   *   - DIAS_VIAGEM = 4 constante (1 UDI->GRU + 1 GRU->destino + 1
+   *     destino->GRU + 1 GRU->UDI = ida 2 dias + volta 2 dias).
+   *   - total_dias_fora = dias + 4
+   *   - diasComDespesas = total_dias_fora - 2 = dias + 2
+   *     (no 1o dia de ida e no ultimo dia de volta estamos no carro/aviao,
+   *     sem hotel/carro/alimentacao no destino — comida no aviao inclusa).
+   *
    * REGRAS DE MULTIPLICACAO:
-   *   passagens_udi_gru  = udi_gru × nInst       (1 carro p/ toda equipe)
-   *   passagens_gru_dest = pessoas × gru_dest × nInst
-   *   hotel              = dias × hotel_dia × nInst
-   *   carro              = dias × carro_dia × nInst
-   *   alimentacao        = pessoas × dias × alim × nInst
+   *   passagens_udi_gru  = udi_gru × nInst       (1 carro p/ toda equipe ida+volta)
+   *   passagens_gru_dest = pessoas × gru_dest × nInst  (aerea ida+volta)
+   *   hotel              = (dias + 2) × hotel_dia × nInst
+   *   carro              = (dias + 2) × carro_dia × nInst (aluguel no destino)
+   *   alimentacao        = pessoas × (dias + 2) × alim × nInst
    *   seguro             = pessoas × seguro × nInst
-   *   mao_obra           = dias × mao_obra × nInst
+   *   mao_obra           = dias × mao_obra × nInst  (so dias efetivos de instalacao)
    */
   function calcularCustosViagemInternacional(inst) {
     const pessoas = Number(inst.intl_pessoas) || 0;
@@ -383,17 +393,30 @@ const Orcamento = (() => {
       seguro:     Number(inst.intl_seguro_pessoa)     || t.seguro_pessoa,
       mao_obra:   Number(inst.intl_mao_obra_dia)      || t.mao_obra_dia,
     };
+    // Felipe sessao 31: derivado da estrutura da viagem (4 dias de viagem
+    // ida+volta, -2 dias dentro do carro/aviao).
+    const DIAS_VIAGEM = 4;
+    const totalDiasFora = dias + DIAS_VIAGEM;
+    const diasComDespesas = Math.max(0, totalDiasFora - 2);
     const itens = {
-      passagens_udi_gru:  tar.udi_gru * nInst,                      // ✏️ NAO multiplica por pessoa
-      passagens_gru_dest: pessoas * tar.gru_dest * nInst,
-      hotel:              dias * tar.hotel       * nInst,
-      carro:              dias * tar.carro       * nInst,
-      alimentacao:        pessoas * dias * tar.alim * nInst,
-      seguro:             pessoas * tar.seguro   * nInst,
-      mao_obra:           dias * tar.mao_obra    * nInst,
+      passagens_udi_gru:  tar.udi_gru * nInst,                          // 1 carro toda equipe
+      passagens_gru_dest: pessoas * tar.gru_dest * nInst,               // aviao por pessoa
+      hotel:              diasComDespesas * tar.hotel    * nInst,       // dias + 2
+      carro:              diasComDespesas * tar.carro    * nInst,       // dias + 2
+      alimentacao:        pessoas * diasComDespesas * tar.alim * nInst, // dias + 2
+      seguro:             pessoas * tar.seguro * nInst,
+      mao_obra:           dias * tar.mao_obra  * nInst,                 // so dias efetivos
     };
     const total = Object.values(itens).reduce((s, v) => s + v, 0);
-    return { itens, tarifasAplicadas: tar, pessoas, dias, nInst, total };
+    return {
+      itens,
+      tarifasAplicadas: tar,
+      pessoas, dias, nInst,
+      diasViagem: DIAS_VIAGEM,
+      totalDiasFora,
+      diasComDespesas,
+      total,
+    };
   }
 
   // Tabela de dias de deslocamento por km (regra 1)
@@ -7188,14 +7211,18 @@ const Orcamento = (() => {
                   </div>
                   <div class="orc-field">
                     <label>Dias de instalacao</label>
-                    <input type="number" min="0" max="60" step="1" data-field="intl_dias" data-inst="1" value="${v.intl_dias || 8}" style="width:100%; box-sizing:border-box;" />
-                    <span class="orc-fi-help">por viagem</span>
+                    <input type="number" min="0" max="60" step="1" data-field="intl_dias" data-inst="1" value="${v.intl_dias || 4}" style="width:100%; box-sizing:border-box;" />
+                    <span class="orc-fi-help">trabalho efetivo (+4d viagem)</span>
                   </div>
                   <div class="orc-field">
                     <label>Qtd. instalacoes</label>
                     <input type="number" min="1" max="10" step="1" data-field="intl_n_instalacoes" data-inst="1" value="${v.intl_n_instalacoes || 1}" style="width:100%; box-sizing:border-box;" />
                     <span class="orc-fi-help">obras na mesma viagem</span>
                   </div>
+                </div>
+                <div style="margin-top:8px; padding:6px 10px; background:#fff; border-left:3px solid #0c5485; font-size:11px; color:#0c5485; line-height:1.4;">
+                  <b>📅 Estrutura da viagem:</b> 4 dias de deslocamento (1 UDI→GRU · 1 GRU→destino · ida+volta) + N dias de instalacao.
+                  Hotel/Carro/Alimentacao usam <b>(N + 2) dias</b> — descontados 2 dias dentro do carro/aviao.
                 </div>
               </div>
 
@@ -7267,7 +7294,7 @@ const Orcamento = (() => {
               <!-- Resumo calculado automaticamente -->
               <div style="background:#ecfdf5; border:2px solid #34d399; border-radius:6px; padding:12px;">
                 <div style="font-size:11px; font-weight:700; color:#065f46; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
-                  📊 Calculo Automatico (${viagem.pessoas} pessoas · ${viagem.dias} dias · ${viagem.nInst} instal.) ${(() => {
+                  📊 Calculo Automatico (${viagem.pessoas}p · ${viagem.dias}d instal. + ${viagem.diasViagem}d viagem = ${viagem.totalDiasFora}d fora · ${viagem.nInst} instal.) ${(() => {
                     const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
                     return taxa > 0 ? `<span style="font-size:10px; font-weight:500; color:#888;">· USD ${taxa.toFixed(4)} (PTAX)</span>` : '<span style="font-size:10px; font-weight:500; color:#dc2626;">· ⚠️ taxa USD nao configurada</span>';
                   })()}
@@ -7288,26 +7315,27 @@ const Orcamento = (() => {
                       </div>
                     </div>
                   `;
+                  const dcd = viagem.diasComDespesas; // dias com despesas (hotel/carro/alim)
                   return [
                     linhaResumo('🚗 UDI → GRU (carro, ida+volta)',
                                 `1 viagem × R$ ${fmtBR(viagem.tarifasAplicadas.udi_gru)} × ${viagem.nInst} instal.`,
                                 viagem.itens.passagens_udi_gru),
-                    linhaResumo('✈️ Passagem GRU → Destino',
+                    linhaResumo('✈️ Passagem GRU → Destino (ida+volta)',
                                 `${viagem.pessoas}p × R$ ${fmtBR(viagem.tarifasAplicadas.gru_dest)} × ${viagem.nInst} instal.`,
                                 viagem.itens.passagens_gru_dest),
-                    linhaResumo('🏨 Hotel',
-                                `${viagem.dias}d × R$ ${fmtBR(viagem.tarifasAplicadas.hotel)} × ${viagem.nInst} instal.`,
+                    linhaResumo(`🏨 Hotel (${dcd}d = ${viagem.totalDiasFora}d fora − 2d viagem em carro/aviao)`,
+                                `${dcd}d × R$ ${fmtBR(viagem.tarifasAplicadas.hotel)} × ${viagem.nInst} instal.`,
                                 viagem.itens.hotel),
-                    linhaResumo('🚙 Carro (aluguel no destino)',
-                                `${viagem.dias}d × R$ ${fmtBR(viagem.tarifasAplicadas.carro)} × ${viagem.nInst} instal.`,
+                    linhaResumo(`🚙 Carro (${dcd}d aluguel no destino)`,
+                                `${dcd}d × R$ ${fmtBR(viagem.tarifasAplicadas.carro)} × ${viagem.nInst} instal.`,
                                 viagem.itens.carro),
-                    linhaResumo('🍽️ Alimentacao',
-                                `${viagem.pessoas}p × ${viagem.dias}d × R$ ${fmtBR(viagem.tarifasAplicadas.alim)} × ${viagem.nInst} inst.`,
+                    linhaResumo(`🍽️ Alimentacao (${dcd}d — sem o aviao/carro Brasil)`,
+                                `${viagem.pessoas}p × ${dcd}d × R$ ${fmtBR(viagem.tarifasAplicadas.alim)} × ${viagem.nInst} inst.`,
                                 viagem.itens.alimentacao),
                     linhaResumo('🛡️ Seguro saude',
                                 `${viagem.pessoas}p × R$ ${fmtBR(viagem.tarifasAplicadas.seguro)} × ${viagem.nInst} instal.`,
                                 viagem.itens.seguro),
-                    linhaResumo('👷 Mao de obra Projetta',
+                    linhaResumo(`👷 Mao de obra Projetta (${viagem.dias}d trabalho efetivo)`,
                                 `${viagem.dias}d × R$ ${fmtBR(viagem.tarifasAplicadas.mao_obra)} × ${viagem.nInst} instal.`,
                                 viagem.itens.mao_obra),
                   ].join('');
