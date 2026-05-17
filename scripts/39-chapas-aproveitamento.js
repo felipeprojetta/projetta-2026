@@ -188,36 +188,72 @@ window.ChapasAproveitamento = (function () {
 
   // ============================================================
   // MODO multi_vert — guillotine vertical (peças em colunas)
+  //
+  // Felipe sessao 31: REIMPLEMENTADO. A versao anterior trocava
+  // largura<->altura DAS PECAS, o que so' funciona se podeRotacionar=true.
+  // Agora trata isso como ROTACAO DO SISTEMA DE COORDENADAS: chapa e
+  // pecas todas giradas juntas em 90 graus. Fisicamente equivalente a
+  // ver a chapa de outro angulo — nao gira fisicamente as pecas.
+  // Ao fim, desgira tudo de volta pras coordenadas originais.
+  //
+  // Isso permite encontrar layouts onde a chapa 1500x5000 + pecas
+  // grandes funcionam melhor como se fosse 5000x1500 (e' a mesma chapa,
+  // mas as fileiras crescem em outro eixo). FUNCIONA mesmo com
+  // pecas nao-rotacionaveis: a peca 796x2096 vista por outro angulo
+  // continua sendo 796x2096 — so' o algoritmo a posiciona diferente
+  // no espaco. As dimensoes FISICAS retornadas no fim sao identicas.
   // ============================================================
   function nestingMultiVert(pecas, chapaLarg, chapaAlt, cfg) {
-    // Roda 90 graus: troca largura<->altura
+    // Roda 90 graus o SISTEMA DE COORDENADAS:
+    //   - chapa 1500x5000 vira 5000x1500
+    //   - peca 796x2096 vira 2096x796
+    //   - posicao (x, y) vira (y, x)
+    // Isso eh apenas um TRUQUE de busca - no fim revertemos tudo.
     const pecasGiradas = pecas.map(p => ({
       ref: p.ref || p,
       id: p.id,
       label: p.label,
+      // Felipe sessao 31 FIX BUG: roda dimensoes pra dentro do algoritmo,
+      // mas TRATA AS PECAS ROTACIONADAS COMO 'naoRotacionaveis'. Isso
+      // evita que o tentarPosicionarChapa tente girar mais uma vez (o
+      // que faria a peca voltar pra orientacao original dentro do espaco
+      // ja girado — efeito anulado).
       largura: p.altura,
       altura: p.largura,
-      podeRotacionar: p.podeRotacionar,
+      podeRotacionar: false,
       cor: p.cor,
       categoria: p.categoria,
     }));
     const r = nestingMultiHoriz(pecasGiradas, chapaAlt, chapaLarg, cfg);
-    // Volta as posicoes
+    // Reverte: desgira o sistema de coordenadas. Posicoes (x',y') no
+    // espaco girado voltam pra (y', x') no original. Larguras e alturas
+    // tambem trocam — mas isso restaura as dimensoes ORIGINAIS da peca
+    // (porque ela foi enviada com larg/alt trocadas pra simular o giro).
     r.chapas.forEach(chapa => {
       chapa.largura = chapaLarg;
       chapa.altura = chapaAlt;
       chapa.pecasPosicionadas.forEach(pp => {
-        const ovX = pp.x, ovY = pp.y, ovL = pp.larg, ovA = pp.alt;
-        pp.x = ovY;
+        const ovX = pp.x, ovL = pp.larg, ovA = pp.alt;
+        pp.x = pp.y;
         pp.y = ovX;
-        pp.larg = ovA;
+        pp.larg = ovA;  // dim girada (==largura original da peca)
         pp.alt = ovL;
-        pp.rotada = !pp.rotada;
+        pp.rotada = false;  // a peca NAO foi fisicamente rotacionada
       });
       chapa.sobrasRetangulos = calcularSobras(chapa, cfg.APARAR);
     });
     r.naoCouberam = r.naoCouberam.map(p => p.ref || p);
     return r;
+  }
+
+  /**
+   * Felipe sessao 31: helper — todas as pecas permitem rotacao?
+   * Usado pra decidir se tentamos rotacionar pecas individualmente.
+   * Note: multi_vert ROTACIONA O ESPACO (nao as pecas), entao funciona
+   * mesmo quando esta retorna false.
+   */
+  function todasPodemRotacionar(pecas) {
+    return pecas.every(p => !!p.podeRotacionar);
   }
 
   // ============================================================
@@ -282,7 +318,14 @@ window.ChapasAproveitamento = (function () {
             larg: melhor.larg, alt: melhor.alt,
             rotada: melhor.rotada,
           });
-          atualizarSkyline(skyline, melhor.x, melhor.larg, melhor.y + melhor.alt + KERF);
+          // Felipe sessao 31 FIX: atualizarSkyline deve incluir KERF
+          // tanto em altura (Y) quanto em largura (X), pra que pecas
+          // adjacentes deixem um gap de KERF. Antes so' Y tinha kerf —
+          // resultava em pecas grudadas horizontalmente (bug visivel
+          // quando 2 alisares saem em x=5 e x=64.5 sem o gap de 4mm).
+          atualizarSkyline(skyline,
+            melhor.x, melhor.larg + KERF,
+            melhor.y + melhor.alt + KERF);
           restantes.splice(melhor.idx, 1);
           mudou = true;
         }
@@ -470,7 +513,7 @@ window.ChapasAproveitamento = (function () {
    * Usa a funcao calcularSobras existente — atualiza sobras a cada
    * peca posicionada (re-calcula). Nao modifica posicoes ja existentes.
    */
-  function salvagePass(chapas, margem) {
+  function salvagePass(chapas, margem, kerf) {
     if (chapas.length < 2) return chapas;
 
     // Felipe (sessao 2026-05): salvage AGRESSIVO. Iteração:
@@ -548,18 +591,21 @@ window.ChapasAproveitamento = (function () {
                   let placeX = sobra.x;
                   const placeY = sobra.y;
                   let melhorAnc = null;
+                  // Felipe sessao 31 FIX: KERF entre pecas adjacentes.
+                  // Antes xDir = pp.x + pp.larg (sem KERF), grudava as
+                  // pecas (bug 2 alisares colados sem 4mm de gap).
+                  const kerfUse = Number(kerf) || 0;
                   chapas[j].pecasPosicionadas.forEach(pp => {
                     // Mesma altura de topo (y) que a sobra?
                     if (Math.abs(pp.y - sobra.y) > 1) return;
                     // Altura compativel (peca cabe no mesmo "andar")?
                     if (pp.alt < o.alt - 0.01) return;
-                    // Borda direita da peca existente
-                    const xDir = pp.x + pp.larg;
+                    // Borda direita da peca existente + KERF
+                    const xDir = pp.x + pp.larg + kerfUse;
                     // Cabe nesta posicao? (xDir + o.larg <= sobra.x + sobra.w)
                     if (xDir + o.larg > sobra.x + sobra.w + 0.01) return;
-                    // Borda direita esta DENTRO da sobra (e' uma peca
-                    // adjacente a esquerda da sobra)?
-                    if (xDir < sobra.x - 1 || xDir > sobra.x + 1) return;
+                    // Borda direita esta DENTRO da sobra (com tolerancia de KERF)?
+                    if (xDir < sobra.x - kerfUse - 1 || xDir > sobra.x + kerfUse + 1) return;
                     // Candidato: prefere o que ta mais a esquerda
                     if (!melhorAnc || xDir < melhorAnc.xDir) {
                       melhorAnc = { xDir, pp };
@@ -665,15 +711,17 @@ window.ChapasAproveitamento = (function () {
               for (const sobra of sobras) {
                 if (o.larg <= sobra.w + 0.01 && o.alt <= sobra.h + 0.01) {
                   // Ancora em peca adjacente (mesmo padrao do salvage normal)
+                  // Felipe sessao 31 FIX: KERF entre pecas adjacentes
                   let placeX = sobra.x;
                   const placeY = sobra.y;
                   let melhorAnc = null;
+                  const kerfUse2 = Number(kerf) || 0;
                   cDest.pecasPosicionadas.forEach(pp => {
                     if (Math.abs(pp.y - sobra.y) > 1) return;
                     if (pp.alt < o.alt - 0.01) return;
-                    const xDir = pp.x + pp.larg;
+                    const xDir = pp.x + pp.larg + kerfUse2;
                     if (xDir + o.larg > sobra.x + sobra.w + 0.01) return;
-                    if (xDir < sobra.x - 1 || xDir > sobra.x + 1) return;
+                    if (xDir < sobra.x - kerfUse2 - 1 || xDir > sobra.x + kerfUse2 + 1) return;
                     if (!melhorAnc || xDir < melhorAnc.xDir) melhorAnc = { xDir };
                   });
                   if (melhorAnc) placeX = melhorAnc.xDir;
@@ -863,19 +911,20 @@ window.ChapasAproveitamento = (function () {
         (arr) => concentrarPequenas(arr, 0.50),
       ];
 
-      // Felipe sessao 31: agora testa AMBOS multi_horiz E multi_vert com
-      // CADA estrategia + BLF puro no fim. Antes so' rodava o METODO
-      // configurado, perdendo casos onde a outra orientacao funcionava
-      // muito melhor (ex: chapa 1500x5000 com pecas altas — vert eh' bem
-      // melhor que horiz). Total: 12 estrategias × 2 metodos + 1 BLF = 25
-      // tentativas. Pega a com menos chapas (tiebreak: concentracao).
+      // Felipe sessao 31: testa multi_horiz com cada estrategia. Testa
+      // multi_vert TAMBEM, MAS so' se TODAS as pecas podem rotacionar
+      // (caso contrario, multi_vert gira fisicamente as pecas — bug).
+      // BLF e' opcional no fim.
+      const podeVert = todasPodemRotacionar(expandidas);
       for (const estrat of estrategias) {
         try {
           const ordenadas = estrat(expandidas);
           const candH = nestingMultiHoriz(ordenadas, chapaLarg, chapaAlt, cfg);
           if (!melhor || compararResultados(candH, melhor) < 0) melhor = candH;
-          const candV = nestingMultiVert(ordenadas, chapaLarg, chapaAlt, cfg);
-          if (!melhor || compararResultados(candV, melhor) < 0) melhor = candV;
+          if (podeVert) {
+            const candV = nestingMultiVert(ordenadas, chapaLarg, chapaAlt, cfg);
+            if (!melhor || compararResultados(candV, melhor) < 0) melhor = candV;
+          }
         } catch (e) {
           console.warn('[Aproveitamento] estrategia falhou', e);
         }
@@ -893,7 +942,7 @@ window.ChapasAproveitamento = (function () {
     // bug "3 pecas pequenas viram chapa nova" (Imagem 3) e "Chapa
     // 3 com 1 peca de 2%" (Imagem 5).
     if (melhor && melhor.chapas && melhor.chapas.length > 1) {
-      melhor.chapas = salvagePass(melhor.chapas, cfg.APARAR);
+      melhor.chapas = salvagePass(melhor.chapas, cfg.APARAR, cfg.KERF);
     }
 
     // Felipe (sessao 2026-06): COMPACTACAO BLF — Felipe enviou imagem
@@ -970,8 +1019,10 @@ window.ChapasAproveitamento = (function () {
     }
 
     function _melhorRepack(pecasRefazer) {
-      // Roda multi_horiz com TODAS as estrategias do multi-start + BLF.
-      // Retorna o melhor resultado (menos chapas, tiebreak: concentracao).
+      // Roda multi_horiz com TODAS as estrategias do multi-start.
+      // multi_vert SO' se todas as pecas podem rotacionar (caso contrario
+      // ele gira fisicamente as pecas - bug).
+      const podeVertRP = pecasRefazer.every(p => !!p.podeRotacionar);
       let melhorRP = null;
       const estrategiasRP = [
         (arr) => arr.slice().sort((a, b) => (b.largura * b.altura) - (a.largura * a.altura) || b.altura - a.altura),
@@ -996,8 +1047,10 @@ window.ChapasAproveitamento = (function () {
           const ordenadas = estrat(pecasRefazer);
           const candH = nestingMultiHoriz(ordenadas, chapaLarg, chapaAlt, cfg);
           if (!melhorRP || compararResultados(candH, melhorRP) < 0) melhorRP = candH;
-          const candV = nestingMultiVert(ordenadas, chapaLarg, chapaAlt, cfg);
-          if (!melhorRP || compararResultados(candV, melhorRP) < 0) melhorRP = candV;
+          if (podeVertRP) {
+            const candV = nestingMultiVert(ordenadas, chapaLarg, chapaAlt, cfg);
+            if (!melhorRP || compararResultados(candV, melhorRP) < 0) melhorRP = candV;
+          }
         } catch (e) { /* skip */ }
       }
       // Tambem tenta BLF puro (otimo pra compactacao vertical)
