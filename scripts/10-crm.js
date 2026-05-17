@@ -242,6 +242,15 @@
       caixaAlturaManual: false,
       caixaEspessuraManual: false,
       caixaComprimentoManual: false,
+      // Felipe sessao 31: frete internacional. So' aparece quando destinoTipo=internacional.
+      freteIncoterm:        'FOB',                // default mais comum
+      freteModal:           'LCL',                // LCL ou FCL (Felipe disse LCL padrao)
+      freteContainer:       '40HC',               // se FCL, default 40HC (Felipe)
+      freteRegiao:          'america_norte_eua',  // default
+      freteMaritimoUsd:     '',                   // manual, USD
+      freteTerrestreUsd:    '',                   // manual, USD (default 1800 via auto)
+      freteMaritimoManual:  false,                // se Felipe sobrescreveu o auto
+      freteTerrestreManual: false,
     };
     function resetModalState() {
       Object.assign(modalState, {
@@ -258,6 +267,10 @@
         destinoPais: '',
         caixaAltura: '', caixaEspessura: '', caixaComprimento: '',
         caixaAlturaManual: false, caixaEspessuraManual: false, caixaComprimentoManual: false,
+        freteIncoterm: 'FOB', freteModal: 'LCL', freteContainer: '40HC',
+        freteRegiao: 'america_norte_eua',
+        freteMaritimoUsd: '', freteTerrestreUsd: '',
+        freteMaritimoManual: false, freteTerrestreManual: false,
         porta_largura: '', porta_altura: '', porta_modelo: '', porta_cor: '',
         porta_fechadura_digital: '',
         porta_quantidade: 1,  // Felipe sessao 12
@@ -292,6 +305,14 @@
         caixaAlturaManual:      !!lead.caixaAlturaManual,
         caixaEspessuraManual:   !!lead.caixaEspessuraManual,
         caixaComprimentoManual: !!lead.caixaComprimentoManual,
+        freteIncoterm:        lead.freteIncoterm        || 'FOB',
+        freteModal:           lead.freteModal           || 'LCL',
+        freteContainer:       lead.freteContainer       || '40HC',
+        freteRegiao:          lead.freteRegiao          || 'america_norte_eua',
+        freteMaritimoUsd:     lead.freteMaritimoUsd     || '',
+        freteTerrestreUsd:    lead.freteTerrestreUsd    || '',
+        freteMaritimoManual:  !!lead.freteMaritimoManual,
+        freteTerrestreManual: !!lead.freteTerrestreManual,
         porta_largura: lead.porta_largura || '',
         porta_altura: lead.porta_altura || '',
         porta_modelo: lead.porta_modelo || '',
@@ -777,6 +798,81 @@
                   Volume: <strong id="crm-caixa-m3-valor">—</strong> &nbsp; · &nbsp; Custo (USD 100/m³): <strong id="crm-caixa-custo-valor">—</strong>
                 </div>
               </div>
+
+              <!-- Felipe sessao 31: bloco FRETE INTERNACIONAL.
+                   So' aparece quando destinoTipo=internacional. Usa modulos
+                   09b-incoterms, 09c-containers e 09d-frete-tarifas. -->
+              <div id="crm-frete-internacional" style="${m.destinoTipo === 'internacional' ? '' : 'display:none;'}; background:#eff8ff; border:1px solid #b8dbff; border-radius:8px; padding:12px; margin:8px 0;">
+                <div style="font-weight:600; margin-bottom:10px; font-size:13px; color:#0c5485;">🚢 Frete Internacional</div>
+
+                <!-- Linha 1: Incoterm + Modal (LCL/FCL) + Container -->
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+                  <div class="crm-field">
+                    <label>Incoterm <span style="color:#999; font-weight:normal; font-size:10px;">11 termos ICC 2020</span></label>
+                    <select data-field="freteIncoterm" id="crm-frete-incoterm" style="width:100%; box-sizing:border-box;">
+                      ${(window.Incoterms ? window.Incoterms.LISTA : []).map(it => `
+                        <option value="${it.codigo}" ${m.freteIncoterm === it.codigo ? 'selected' : ''}>${it.codigo} — ${it.nome}</option>
+                      `).join('')}
+                    </select>
+                  </div>
+                  <div class="crm-field">
+                    <label>Modal</label>
+                    <div style="display:flex; gap:0; border:1px solid #cfd8e3; border-radius:6px; overflow:hidden;">
+                      <button type="button" data-frete-modal="LCL" class="crm-frete-modal-btn" style="flex:1; padding:7px; border:none; background:${m.freteModal === 'LCL' ? '#0c5485' : '#fff'}; color:${m.freteModal === 'LCL' ? '#fff' : '#333'}; cursor:pointer; font-size:12px; font-weight:500;">LCL</button>
+                      <button type="button" data-frete-modal="FCL" class="crm-frete-modal-btn" style="flex:1; padding:7px; border:none; border-left:1px solid #cfd8e3; background:${m.freteModal === 'FCL' ? '#0c5485' : '#fff'}; color:${m.freteModal === 'FCL' ? '#fff' : '#333'}; cursor:pointer; font-size:12px; font-weight:500;">FCL</button>
+                    </div>
+                  </div>
+                  <div class="crm-field" id="crm-frete-container-wrap" style="${m.freteModal === 'FCL' ? '' : 'opacity:0.4; pointer-events:none;'}">
+                    <label>Container ${m.freteModal === 'FCL' ? '' : '<span style="color:#999; font-weight:normal; font-size:10px;">(so FCL)</span>'}</label>
+                    <select data-field="freteContainer" id="crm-frete-container" style="width:100%; box-sizing:border-box;">
+                      ${(window.Containers ? window.Containers.LISTA : []).map(c => `
+                        <option value="${c.codigo}" ${m.freteContainer === c.codigo ? 'selected' : ''}>${c.nome} (${c.volumeM3} m³)</option>
+                      `).join('')}
+                    </select>
+                  </div>
+                  <div class="crm-field">
+                    <label>Regiao destino</label>
+                    <select data-field="freteRegiao" id="crm-frete-regiao" style="width:100%; box-sizing:border-box;">
+                      ${window.FreteTarifas ? Object.entries(window.FreteTarifas._getCache().ocean_freight_por_regiao).map(([k, v]) => `
+                        <option value="${k}" ${m.freteRegiao === k ? 'selected' : ''}>${v.label}</option>
+                      `).join('') : ''}
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Linha 2: Valores manuais USD com botao 'calcular auto' -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                  <div class="crm-field">
+                    <label>Frete Terrestre USD <span style="color:#999; font-weight:normal; font-size:10px;">Uberlandia → Santos</span></label>
+                    <div style="display:flex; gap:6px;">
+                      <input type="number" min="0" step="1" data-field="freteTerrestreUsd" id="crm-frete-terrestre-usd" value="${escapeHtml(m.freteTerrestreUsd)}" placeholder="auto: 1800" style="flex:1; box-sizing:border-box;" />
+                      <button type="button" id="crm-frete-terrestre-auto" title="Aplicar valor padrao 1800 USD" style="padding:6px 10px; background:#fff; border:1px solid #cfd8e3; border-radius:5px; cursor:pointer; font-size:11px;">auto</button>
+                    </div>
+                  </div>
+                  <div class="crm-field">
+                    <label>Frete Maritimo USD <span style="color:#999; font-weight:normal; font-size:10px;">LCL: USD/m³ × m³ + taxas · FCL: container</span></label>
+                    <div style="display:flex; gap:6px;">
+                      <input type="number" min="0" step="1" data-field="freteMaritimoUsd" id="crm-frete-maritimo-usd" value="${escapeHtml(m.freteMaritimoUsd)}" placeholder="auto" style="flex:1; box-sizing:border-box;" />
+                      <button type="button" id="crm-frete-maritimo-auto" title="Calcular automaticamente com base na regiao + caixa" style="padding:6px 10px; background:#0c5485; color:#fff; border:1px solid #0c5485; border-radius:5px; cursor:pointer; font-size:11px;">⚡ calcular</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Alerta caixa nao cabe no container (se FCL) -->
+                <div id="crm-frete-alerta-container" style="display:none; padding:8px 10px; background:#fef3cd; border:1px solid #ffd966; border-radius:5px; margin-bottom:8px; font-size:11px; color:#856404;">
+                  ⚠️ <strong id="crm-frete-alerta-msg"></strong>
+                </div>
+
+                <!-- Resumo detalhado das taxas (gerado pelo modulo FreteTarifas) -->
+                <div id="crm-frete-resumo" style="background:#fff; border:1px solid #cfd8e3; border-radius:6px; padding:8px 10px; font-size:11px; color:#555;">
+                  Clique em <strong>⚡ calcular</strong> pra ver desdobramento detalhado das taxas.
+                </div>
+
+                <!-- Total -->
+                <div id="crm-frete-total" style="margin-top:8px; font-size:13px; color:#0c5485; font-weight:600; text-align:right;">
+                  Total frete internacional: <span id="crm-frete-total-valor">—</span>
+                </div>
+              </div>
               ${(() => {
                 // Felipe (sessao 2026-05): "valor estimado" foi REMOVIDO
                 // do modal de criacao. So' aparece em EDICAO E APENAS se
@@ -1160,6 +1256,209 @@
         }
       });
 
+      // ===== Felipe sessao 31: FRETE INTERNACIONAL =====
+      // Toggle LCL/FCL (2 botoes)
+      container.querySelectorAll('button[data-frete-modal]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const modal = btn.dataset.freteModal;
+          modalState.freteModal = modal;
+          // Atualiza visual dos 2 botoes
+          container.querySelectorAll('button[data-frete-modal]').forEach(b => {
+            const ativo = b.dataset.freteModal === modal;
+            b.style.background = ativo ? '#0c5485' : '#fff';
+            b.style.color      = ativo ? '#fff'    : '#333';
+          });
+          // Desabilita/habilita o select de container
+          const wrap = container.querySelector('#crm-frete-container-wrap');
+          if (wrap) {
+            wrap.style.opacity = modal === 'FCL' ? '1' : '0.4';
+            wrap.style.pointerEvents = modal === 'FCL' ? 'auto' : 'none';
+          }
+          atualizarAlertaContainer();
+        });
+      });
+
+      // Alerta: caixa cabe no container? (so' faz sentido em FCL ou mesmo em LCL pra ver se cabe)
+      function atualizarAlertaContainer() {
+        const alerta = container.querySelector('#crm-frete-alerta-container');
+        const msg    = container.querySelector('#crm-frete-alerta-msg');
+        if (!alerta || !msg) return;
+        const a = Number(modalState.caixaAltura)      || 0;
+        const e = Number(modalState.caixaEspessura)   || 0;
+        const c = Number(modalState.caixaComprimento) || 0;
+        const cont = window.Containers && window.Containers.byCodigo(modalState.freteContainer);
+        if (!a || !e || !c || !cont || !window.Containers) {
+          alerta.style.display = 'none';
+          return;
+        }
+        const cabe = window.Containers.cabeNaPorta(a, e, c, cont);
+        if (!cabe) {
+          msg.textContent = 'Caixa ' + a + 'mm × ' + e + 'mm NAO cabe na porta do container ' + cont.codigo + ' (' + cont.porta.larg + ' × ' + cont.porta.alt + ' mm). Considere 40HC ou 45HC.';
+          alerta.style.display = '';
+        } else if (modalState.freteModal === 'FCL') {
+          const qtd = window.Containers.quantasCabemEstimativa(a, e, c, cont);
+          msg.innerHTML = '✓ Caixa cabe na porta · ~' + qtd + ' caixas no container ' + cont.codigo;
+          alerta.style.background = '#d4edda';
+          alerta.style.borderColor = '#a3d9b1';
+          alerta.style.color = '#155724';
+          alerta.style.display = '';
+        } else {
+          alerta.style.display = 'none';
+        }
+      }
+
+      // Recalcula frete maritimo auto
+      function calcularFreteMaritimoAuto() {
+        if (!window.FreteTarifas) return;
+        const a = Number(modalState.caixaAltura)      || 0;
+        const e = Number(modalState.caixaEspessura)   || 0;
+        const c = Number(modalState.caixaComprimento) || 0;
+        const m3 = (a * e * c) / 1e9;
+        if (m3 <= 0) {
+          const resumo = container.querySelector('#crm-frete-resumo');
+          if (resumo) resumo.innerHTML = '<span style="color:#999;">Preencha as dimensoes da caixa pra calcular.</span>';
+          return;
+        }
+        const opcoes = {
+          incoterm:      modalState.freteIncoterm,
+          comprimentoMm: c,
+          eua:           ['america_norte_eua'].includes(modalState.freteRegiao),
+          ue:            ['europa_ocidental','europa_oriental','mediterraneo','reino_unido'].includes(modalState.freteRegiao),
+        };
+        const result = window.FreteTarifas.calcularLCL(m3, modalState.freteRegiao, opcoes);
+        renderResumoFrete(result, m3);
+        // Aplica auto no campo se nao for manual
+        if (!modalState.freteMaritimoManual) {
+          modalState.freteMaritimoUsd = result.totalGeralUsd.toFixed(0);
+          const el = container.querySelector('#crm-frete-maritimo-usd');
+          if (el) el.value = result.totalGeralUsd.toFixed(0);
+        }
+        atualizarTotalFrete();
+      }
+
+      function renderResumoFrete(result, m3) {
+        const resumo = container.querySelector('#crm-frete-resumo');
+        if (!resumo || !result) return;
+        const grupos = [
+          { key: 'ocean',            label: '🚢 Ocean Freight',     codigos: ['ocean_freight'] },
+          { key: 'origem_variaveis', label: '📦 Origem (variaveis)', codigos: ['thc_origin','loading_fee','xray_scanner'] },
+          { key: 'origem_fixos',     label: '📋 Origem (fixos)',     codigos: ['origin_equipment_surcharge','bl_fee','verified_gross_mass','handling','customs_clearance'] },
+          { key: 'condicionais',     label: '⚙️ Condicionais',       codigos: ['ams_filing','ens_filing','isps','overlength','overweight','dap_charges'] },
+        ];
+        const linhas = grupos.map(g => {
+          const itens = result.itens.filter(it => g.codigos.includes(it.codigo));
+          if (!itens.length) return '';
+          const subtotal = itens.reduce((s, it) => s + it.totalUsd, 0);
+          const detalhes = itens.map(it => `
+            <div style="display:flex; justify-content:space-between; padding:2px 0; color:#666;">
+              <span>${it.label}</span>
+              <span>USD ${it.totalUsd.toFixed(2)}</span>
+            </div>
+          `).join('');
+          return `
+            <div style="margin-bottom:6px;">
+              <div style="display:flex; justify-content:space-between; font-weight:600; color:#0c5485; border-bottom:1px solid #eef3f8; padding-bottom:2px; margin-bottom:3px;">
+                <span>${g.label}</span>
+                <span>USD ${subtotal.toFixed(2)}</span>
+              </div>
+              ${detalhes}
+            </div>
+          `;
+        }).filter(Boolean).join('');
+        resumo.innerHTML = `
+          <div style="font-size:10px; color:#999; margin-bottom:6px;">Volume: ${m3.toFixed(3)} m³ · Regiao: ${modalState.freteRegiao}</div>
+          ${linhas}
+          <div style="display:flex; justify-content:space-between; font-weight:700; color:#155724; border-top:2px solid #0c5485; padding-top:4px; margin-top:4px;">
+            <span>TOTAL FRETE MARITIMO</span>
+            <span>USD ${result.totalGeralUsd.toFixed(2)}</span>
+          </div>
+        `;
+      }
+
+      function atualizarTotalFrete() {
+        const totalEl = container.querySelector('#crm-frete-total-valor');
+        if (!totalEl) return;
+        const terr = Number(modalState.freteTerrestreUsd) || 0;
+        const mar  = Number(modalState.freteMaritimoUsd)  || 0;
+        const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+        const usd = terr + mar;
+        if (usd > 0) {
+          totalEl.textContent = 'USD ' + usd.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })
+            + (taxa > 0 ? ' (R$ ' + (usd * taxa).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ')' : '');
+        } else {
+          totalEl.textContent = '—';
+        }
+      }
+
+      // Botao calcular auto frete maritimo
+      const btnCalcMar = container.querySelector('#crm-frete-maritimo-auto');
+      if (btnCalcMar) {
+        btnCalcMar.addEventListener('click', () => {
+          modalState.freteMaritimoManual = false;
+          calcularFreteMaritimoAuto();
+        });
+      }
+
+      // Botao auto frete terrestre (1800 USD default)
+      const btnTerrAuto = container.querySelector('#crm-frete-terrestre-auto');
+      if (btnTerrAuto) {
+        btnTerrAuto.addEventListener('click', () => {
+          modalState.freteTerrestreManual = false;
+          const v = window.FreteTarifas ? window.FreteTarifas.calcularFreteTerrestre() : 1800;
+          modalState.freteTerrestreUsd = String(v);
+          const el = container.querySelector('#crm-frete-terrestre-usd');
+          if (el) el.value = v;
+          atualizarTotalFrete();
+        });
+      }
+
+      // Input manual desliga o auto
+      const inpMar = container.querySelector('#crm-frete-maritimo-usd');
+      if (inpMar) inpMar.addEventListener('input', () => {
+        modalState.freteMaritimoManual = true;
+        atualizarTotalFrete();
+      });
+      const inpTerr = container.querySelector('#crm-frete-terrestre-usd');
+      if (inpTerr) inpTerr.addEventListener('input', () => {
+        modalState.freteTerrestreManual = true;
+        atualizarTotalFrete();
+      });
+
+      // Quando muda incoterm/regiao/container/modal, recalcula alerta + auto se aplicavel
+      ['freteIncoterm','freteRegiao','freteContainer'].forEach(f => {
+        const el = container.querySelector('select[data-field="' + f + '"]');
+        if (el) el.addEventListener('change', () => {
+          atualizarAlertaContainer();
+          if (!modalState.freteMaritimoManual) calcularFreteMaritimoAuto();
+        });
+      });
+
+      // Init: aplica defaults
+      if (modalState.destinoTipo === 'internacional') {
+        // Frete terrestre default
+        if (!modalState.freteTerrestreUsd && !modalState.freteTerrestreManual) {
+          const v = window.FreteTarifas ? window.FreteTarifas.calcularFreteTerrestre() : 1800;
+          modalState.freteTerrestreUsd = String(v);
+          const el = container.querySelector('#crm-frete-terrestre-usd');
+          if (el) el.value = v;
+        }
+        atualizarAlertaContainer();
+        atualizarTotalFrete();
+        // Se ja' tem caixa, calc maritimo auto
+        if (modalState.caixaAltura && modalState.caixaEspessura && modalState.caixaComprimento && !modalState.freteMaritimoManual) {
+          calcularFreteMaritimoAuto();
+        }
+      }
+
+      // Quando caixa muda dimensoes, recalcula frete auto + alerta
+      ['caixaAltura','caixaEspessura','caixaComprimento'].forEach(f => {
+        const inp = container.querySelector('input[data-field="' + f + '"]');
+        if (inp) inp.addEventListener('input', () => setTimeout(() => {
+          atualizarAlertaContainer();
+          if (!modalState.freteMaritimoManual) calcularFreteMaritimoAuto();
+        }, 60));
+      });
+
       // Felipe (sessao 2026-05-10): inputs da aba ATP - gravam em
       // modalState.atp = { ... } pra preservar dados originais (AGP).
       container.querySelectorAll('.crm-modal [data-atp-field]').forEach(el => {
@@ -1320,10 +1619,12 @@
         const paisField = container.querySelector('#crm-field-pais');
         const enderecoBR = container.querySelector('#crm-field-endereco-br');
         const caixaSection = container.querySelector('#crm-caixa-fumigada');
+        const freteSection = container.querySelector('#crm-frete-internacional');
         if (paisField)  paisField.style.display  = (tipo === 'internacional') ? '' : 'none';
         if (enderecoBR) enderecoBR.style.display = (tipo === 'internacional') ? 'none' : '';
-        // Felipe sessao 31: caixa fumigada so' aparece em Internacional.
+        // Felipe sessao 31: caixa fumigada + frete so' aparecem em Internacional.
         if (caixaSection) caixaSection.style.display = (tipo === 'internacional') ? '' : 'none';
+        if (freteSection) freteSection.style.display = (tipo === 'internacional') ? '' : 'none';
         if (tipo === 'nacional') {
           modalState.destinoPais = '';
           const paisInput = container.querySelector('input[data-field="destinoPais"]');
@@ -1688,6 +1989,21 @@
           lead.caixaAlturaManual      = m.destinoTipo === 'internacional' ? !!m.caixaAlturaManual      : false;
           lead.caixaEspessuraManual   = m.destinoTipo === 'internacional' ? !!m.caixaEspessuraManual   : false;
           lead.caixaComprimentoManual = m.destinoTipo === 'internacional' ? !!m.caixaComprimentoManual : false;
+          // Felipe sessao 31: frete internacional (so' internacional)
+          if (m.destinoTipo === 'internacional') {
+            lead.freteIncoterm        = String(m.freteIncoterm || 'FOB').toUpperCase();
+            lead.freteModal           = String(m.freteModal || 'LCL').toUpperCase();
+            lead.freteContainer       = String(m.freteContainer || '40HC');
+            lead.freteRegiao          = String(m.freteRegiao || 'america_norte_eua');
+            lead.freteMaritimoUsd     = String(m.freteMaritimoUsd || '').trim();
+            lead.freteTerrestreUsd    = String(m.freteTerrestreUsd || '').trim();
+            lead.freteMaritimoManual  = !!m.freteMaritimoManual;
+            lead.freteTerrestreManual = !!m.freteTerrestreManual;
+          } else {
+            lead.freteIncoterm = ''; lead.freteModal = ''; lead.freteContainer = '';
+            lead.freteRegiao = ''; lead.freteMaritimoUsd = ''; lead.freteTerrestreUsd = '';
+            lead.freteMaritimoManual = false; lead.freteTerrestreManual = false;
+          }
           lead.porta_largura = (m.porta_largura || '').trim();
           lead.porta_altura = (m.porta_altura || '').trim();
           lead.porta_modelo = (m.porta_modelo || '').trim();
@@ -1794,6 +2110,14 @@
             caixaAlturaManual:      m.destinoTipo === 'internacional' ? !!m.caixaAlturaManual      : false,
             caixaEspessuraManual:   m.destinoTipo === 'internacional' ? !!m.caixaEspessuraManual   : false,
             caixaComprimentoManual: m.destinoTipo === 'internacional' ? !!m.caixaComprimentoManual : false,
+            freteIncoterm:        m.destinoTipo === 'internacional' ? String(m.freteIncoterm || 'FOB').toUpperCase() : '',
+            freteModal:           m.destinoTipo === 'internacional' ? String(m.freteModal || 'LCL').toUpperCase() : '',
+            freteContainer:       m.destinoTipo === 'internacional' ? String(m.freteContainer || '40HC') : '',
+            freteRegiao:          m.destinoTipo === 'internacional' ? String(m.freteRegiao || 'america_norte_eua') : '',
+            freteMaritimoUsd:     m.destinoTipo === 'internacional' ? String(m.freteMaritimoUsd || '').trim() : '',
+            freteTerrestreUsd:    m.destinoTipo === 'internacional' ? String(m.freteTerrestreUsd || '').trim() : '',
+            freteMaritimoManual:  m.destinoTipo === 'internacional' ? !!m.freteMaritimoManual  : false,
+            freteTerrestreManual: m.destinoTipo === 'internacional' ? !!m.freteTerrestreManual : false,
             // Felipe sessao 2026-05: BUG FIX CRITICO - dados da porta
             // do card "Novo Lead" estavam sumindo. Felipe preenchia
             // Largura/Altura/Modelo/Cor/Fechadura e arrastava pra
