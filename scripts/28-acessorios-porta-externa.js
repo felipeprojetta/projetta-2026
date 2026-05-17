@@ -289,27 +289,82 @@ const AcessoriosPortaExterna = (() => {
     //    (mesmo padrao do motor 35-perfis-porta-interna.js).
     //    Metros lineares = 2 * (comp_travessa_mm / 1000) * qtdTravessas
     //                                ↑ "2x"           * por porta
+    //
+    //    Felipe sessao 31 (2a parte): Fita Dupla Face 19mm + Silicone 995
+    //    adicional nas CHAPAS FRONTAIS (ext + int):
+    //    'dupla face 19 sera o perimetro das chapas internas e externas
+    //     1x + 1x silicone estrutura 995'.
+    //    Perimetro = 2L + 2A de cada chapa frontal.
+    //    Acumula 995 junto com o das travessas pra calcular tubos uma vez so.
+    //
     //    Rendimento: vem do cadastro Regras.getRendimentos (mesmo do
-    //    motor da porta externa), fallback 12m por tubo.
+    //    motor da porta externa), fallback 12m por tubo (995),
+    //    20m por rolo (FD19).
     if (larguraVaoPI > 0 && alturaVaoPI > 0) {
       const fglEsqPI = _toNumPI(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5);
       const fglDirPI = _toNumPI(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5);
-      const compTravMm = larguraVaoPI - fglEsqPI - fglDirPI - 108.5 - 108.5;
+      const fgSupPI  = _toNumPI(item.fgSup  != null && item.fgSup  !== '' ? item.fgSup  : 5);
+      const descLargPI = fglEsqPI + fglDirPI;
+
+      // Comprimento da travessa (formula identica ao motor 35)
+      const compTravMm = larguraVaoPI - descLargPI - 108.5 - 108.5;
       const qtdTravPorPorta = alturaVaoPI > 2200 ? 3 : 2;
+
+      // Chapas frontais (formulas identicas ao motor 38b)
+      // Externa: L = vao - fgl - 38,5 - 38,5 / A = vao - fgSup - 38,5 - 12
+      const chFExtL = larguraVaoPI - descLargPI - 38.5 - 38.5;
+      const chFExtA = alturaVaoPI  - fgSupPI    - 38.5 - 12;
+      // Interna: L = vao - fgl - 26,5 - 26,5 / A = vao - fgSup - 26,5 - 12
+      const chFIntL = larguraVaoPI - descLargPI - 26.5 - 26.5;
+      const chFIntA = alturaVaoPI  - fgSupPI    - 26.5 - 12;
+
+      // Perimetro das 2 chapas frontais (em metros, por porta)
+      let perimChapasMm = 0;
+      if (chFExtL > 0 && chFExtA > 0) perimChapasMm += 2 * chFExtL + 2 * chFExtA;
+      if (chFIntL > 0 && chFIntA > 0) perimChapasMm += 2 * chFIntL + 2 * chFIntA;
+      const perimChapasM = (perimChapasMm / 1000) * qtdPortas;
+
+      // Rendimento
+      let msPorTubo = 12, fd19PorRolo = 20;
+      try {
+        if (window.Regras && typeof window.Regras.getRendimentos === 'function') {
+          const rends = window.Regras.getRendimentos();
+          if (rends && Number(rends.ms_tubo)   > 0) msPorTubo   = Number(rends.ms_tubo);
+          if (rends && Number(rends.fd19_rolo) > 0) fd19PorRolo = Number(rends.fd19_rolo);
+        }
+      } catch (_) {}
+
+      // Acumuladores
+      let metros995 = 0;
+      let metrosFD19 = 0;
+      let breakdown995 = [];
+      let breakdownFD19 = [];
+
+      // 995 das TRAVESSAS (2x por travessa)
       if (compTravMm > 0) {
-        // metros totais = 2x * (mm / 1000) * qtdTravessas * qtdPortas
-        const metros995 = 2 * (compTravMm / 1000) * qtdTravPorPorta * qtdPortas;
-        // Rendimento — pega do cadastro de regras (mesmo q porta_externa).
-        // Fallback 12m por tubo (PA-DOWSIL 995 padrao).
-        let msPorTubo = 12;
-        try {
-          if (window.Regras && typeof window.Regras.getRendimentos === 'function') {
-            const rends = window.Regras.getRendimentos();
-            if (rends && Number(rends.ms_tubo) > 0) msPorTubo = Number(rends.ms_tubo);
-          }
-        } catch (_) {}
+        const m = 2 * (compTravMm / 1000) * qtdTravPorPorta * qtdPortas;
+        metros995 += m;
+        breakdown995.push((2 * qtdTravPorPorta * qtdPortas) + ' travessas × '
+                          + (compTravMm / 1000).toFixed(3) + 'm = ' + m.toFixed(2) + 'm');
+      }
+      // 995 do PERIMETRO das chapas frontais (1x)
+      if (perimChapasM > 0) {
+        metros995 += perimChapasM;
+        breakdown995.push('Perimetro chapas frontais: ' + perimChapasM.toFixed(2) + 'm');
+      }
+      // FD19 do PERIMETRO das chapas frontais (1x)
+      if (perimChapasM > 0) {
+        metrosFD19 += perimChapasM;
+        breakdownFD19.push('Perimetro chapas frontais: ' + perimChapasM.toFixed(2) + 'm');
+      }
+
+      // Emite Silicone 995 (acumulado: travessas + chapas)
+      if (metros995 > 0) {
         const tubos995 = Math.ceil(metros995 / msPorTubo);
         const acess995 = buscarAcessorio(cadastroAcessorios, 'PA-DOWSIL 995');
+        const obsParts = breakdown995.length
+          ? metros995.toFixed(1) + 'm / ' + msPorTubo + 'm por tubo = ' + tubos995 + ' tubo(s) — ' + breakdown995.join(' + ')
+          : metros995.toFixed(1) + 'm / ' + msPorTubo + 'm = ' + tubos995 + ' tubo(s)';
         if (acess995) {
           const precoUn = Number(acess995.preco) || 0;
           linhas.push({
@@ -322,10 +377,7 @@ const AcessoriosPortaExterna = (() => {
             total:     precoUn * tubos995,
             categoria: 'Selantes',
             aplicacao: 'fab',
-            observacao: metros995.toFixed(1) + 'm / ' + msPorTubo + 'm por tubo = '
-                        + tubos995 + ' tubo(s) — '
-                        + (2 * qtdTravPorPorta * qtdPortas) + ' lados × '
-                        + (compTravMm / 1000).toFixed(3) + 'm cada',
+            observacao: obsParts,
           });
         } else {
           linhas.push({
@@ -339,6 +391,41 @@ const AcessoriosPortaExterna = (() => {
             categoria: 'Selantes',
             aplicacao: 'fab',
             observacao: metros995.toFixed(1) + 'm necessarios · CADASTRAR EM ACESSORIOS',
+          });
+        }
+      }
+
+      // Emite Fita Dupla Face 19mm (perimetro chapas frontais)
+      if (metrosFD19 > 0) {
+        const rolosFD19 = Math.ceil(metrosFD19 / fd19PorRolo);
+        const acessFD19 = buscarAcessorio(cadastroAcessorios, 'PA-FITDF 19X20X1.0');
+        const obs = metrosFD19.toFixed(1) + 'm / ' + fd19PorRolo + 'm por rolo = ' + rolosFD19 + ' rolo(s) — ' + breakdownFD19.join(' + ');
+        if (acessFD19) {
+          const precoUn = Number(acessFD19.preco) || 0;
+          linhas.push({
+            codigo:    acessFD19.codigo,
+            descricao: acessFD19.descricao || 'Fita Dupla Face 19mm',
+            familia:   acessFD19.familia || 'Fita Dupla Face',
+            qtd:       rolosFD19,
+            unidade:   'un',
+            preco_un:  precoUn,
+            total:     precoUn * rolosFD19,
+            categoria: 'Fita Dupla Face',
+            aplicacao: 'fab',
+            observacao: obs,
+          });
+        } else {
+          linhas.push({
+            codigo:    'PA-FITDF 19X20X1.0',
+            descricao: '(nao cadastrado)',
+            familia:   '',
+            qtd:       rolosFD19,
+            unidade:   'un',
+            preco_un:  0,
+            total:     0,
+            categoria: 'Fita Dupla Face',
+            aplicacao: 'fab',
+            observacao: metrosFD19.toFixed(1) + 'm necessarios · CADASTRAR EM ACESSORIOS',
           });
         }
       }
