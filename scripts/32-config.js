@@ -53,6 +53,31 @@ const Config = (() => {
 
         <div class="cfg-card">
           <div class="cfg-card-header">
+            <div class="cfg-card-title">💵 Cambio USD - BRL</div>
+            <span class="cfg-status-pill ativo" id="cfg-cambio-pill">—</span>
+          </div>
+          <div class="cfg-info" id="cfg-cambio-info">
+            Taxa usada em <strong>todo o sistema</strong> quando o destino e' Internacional
+            (proposta comercial, DRE, frete maritimo).
+            A PTAX (BCB) e' baixada automaticamente, mas voce pode inserir uma taxa manual
+            que vai <strong>sobrescrever</strong> a oficial em todos os calculos.
+          </div>
+          <div class="cfg-form-row" style="margin-top:12px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+            <div style="flex:1; min-width:180px;">
+              <label class="cfg-label">Taxa manual (BRL/USD)</label>
+              <input type="number" step="0.0001" min="0" id="cfg-cambio-manual"
+                     placeholder="ex.: 5.4200" style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px;" />
+            </div>
+            <button class="cfg-btn cfg-btn-primary" id="cfg-cambio-salvar">Salvar taxa</button>
+            <button class="cfg-btn cfg-btn-secondary" id="cfg-cambio-limpar">Usar PTAX</button>
+            <button class="cfg-btn cfg-btn-secondary" id="cfg-cambio-atualizar">⟳ Atualizar PTAX</button>
+          </div>
+          <div id="cfg-cambio-hist" style="margin-top:12px;"></div>
+          <div class="cfg-msg" id="cfg-cambio-msg"></div>
+        </div>
+
+        <div class="cfg-card">
+          <div class="cfg-card-header">
             <div class="cfg-card-title">ViaCEP</div>
             <span class="cfg-status-pill ativo">✓ Ativo</span>
           </div>
@@ -98,6 +123,51 @@ const Config = (() => {
     bindEvents(container);
     updateStorageUsage(container);
     updateSyncStatus(container);
+    updateCambioCard(container);
+  }
+
+  /**
+   * Felipe sessao 31: atualiza o card de cambio com PTAX em cache,
+   * historico dos ultimos 30 dias e taxa manual atual.
+   */
+  function updateCambioCard(container) {
+    if (!window.Cambio) return;
+    const inpManual = container.querySelector('#cfg-cambio-manual');
+    const pill = container.querySelector('#cfg-cambio-pill');
+    const histDiv = container.querySelector('#cfg-cambio-hist');
+    if (!inpManual || !pill || !histDiv) return;
+
+    const manual = window.Cambio.getManual();
+    const ptax = window.Cambio.getPtax();
+    const hist = window.Cambio.getHistorico();
+
+    inpManual.value = manual > 0 ? manual.toFixed(4) : '';
+
+    if (manual > 0) {
+      pill.textContent = 'Manual: R$ ' + manual.toFixed(4);
+      pill.className = 'cfg-status-pill ativo';
+    } else if (ptax && ptax.valor) {
+      pill.textContent = 'PTAX: R$ ' + Number(ptax.valor).toFixed(4) + ' (' + (ptax.data || '?') + ')';
+      pill.className = 'cfg-status-pill ativo';
+    } else {
+      pill.textContent = '⚠ Sem taxa';
+      pill.className = 'cfg-status-pill inativo';
+    }
+
+    if (hist && hist.length) {
+      const linhas = hist.slice(0, 30).map(h => {
+        const d = (h.data || '').split('-').reverse().join('/');
+        return '<tr><td style="padding:3px 8px;">' + d + '</td><td style="padding:3px 8px; text-align:right; font-variant-numeric:tabular-nums;">R$ ' + Number(h.valor).toFixed(4) + '</td></tr>';
+      }).join('');
+      histDiv.innerHTML =
+        '<div style="font-size:12px; color:#666; margin-bottom:4px;">Historico PTAX (ultimos 30 dias uteis):</div>' +
+        '<div style="max-height:180px; overflow:auto; border:1px solid #eee; border-radius:6px;">' +
+        '<table style="width:100%; font-size:12px; border-collapse:collapse;"><tbody>' + linhas + '</tbody></table>' +
+        '</div>';
+    } else {
+      histDiv.innerHTML =
+        '<div style="font-size:12px; color:#999;">Historico PTAX nao baixado ainda. Clique em "Atualizar PTAX".</div>';
+    }
   }
 
   function updateSyncStatus(container) {
@@ -142,6 +212,57 @@ const Config = (() => {
     const btnSyncTest = container.querySelector('#cfg-sync-test');
     const btnMigrarImgs = container.querySelector('#cfg-migrar-imgs');
     const msgSync = container.querySelector('#cfg-sync-msg');
+
+    // Felipe sessao 31: card de cambio
+    const inpCambio = container.querySelector('#cfg-cambio-manual');
+    const btnSalvar = container.querySelector('#cfg-cambio-salvar');
+    const btnLimpar = container.querySelector('#cfg-cambio-limpar');
+    const btnAtualizar = container.querySelector('#cfg-cambio-atualizar');
+    const msgCambio = container.querySelector('#cfg-cambio-msg');
+
+    if (btnSalvar && inpCambio) {
+      btnSalvar.addEventListener('click', () => {
+        if (!window.Cambio) return;
+        const v = Number(inpCambio.value) || 0;
+        if (v <= 0) {
+          showMsg(msgCambio, 'error', '✗ Informe um valor maior que zero');
+          return;
+        }
+        window.Cambio.setManual(v);
+        showMsg(msgCambio, 'ok', '✓ Taxa manual salva: R$ ' + v.toFixed(4) + ' / USD. Vai ser usada em todo o sistema.');
+        updateCambioCard(container);
+      });
+    }
+
+    if (btnLimpar) {
+      btnLimpar.addEventListener('click', () => {
+        if (!window.Cambio) return;
+        window.Cambio.setManual(0);
+        if (inpCambio) inpCambio.value = '';
+        showMsg(msgCambio, 'ok', '✓ Taxa manual removida. Sistema vai usar PTAX (BCB).');
+        updateCambioCard(container);
+      });
+    }
+
+    if (btnAtualizar) {
+      btnAtualizar.addEventListener('click', async () => {
+        if (!window.Cambio) return;
+        btnAtualizar.disabled = true;
+        btnAtualizar.textContent = '⏳ Baixando...';
+        showMsg(msgCambio, 'info', 'Baixando cotacao PTAX dos ultimos 30 dias do BCB...');
+        const r = await window.Cambio.atualizarPtax();
+        btnAtualizar.disabled = false;
+        btnAtualizar.textContent = '⟳ Atualizar PTAX';
+        if (r.ok) {
+          showMsg(msgCambio, 'ok',
+            '✓ PTAX atualizada: R$ ' + Number(r.ptax.valor).toFixed(4) +
+            ' (' + (r.ptax.data || '?') + ') — ' + r.historico.length + ' dias no historico');
+        } else {
+          showMsg(msgCambio, 'error', '✗ Falhou: ' + (r.erro || 'erro desconhecido'));
+        }
+        updateCambioCard(container);
+      });
+    }
 
     if (btnMigrarImgs) {
       btnMigrarImgs.addEventListener('click', async () => {
