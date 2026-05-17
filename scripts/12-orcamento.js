@@ -48,6 +48,37 @@ const Orcamento = (() => {
     desconto:    20,  // % desconto negociado (auto: mesma regra)
   };
 
+  // Felipe sessao 31: 'internacional deixe r.t = 0 markup desconto = 0
+  // desconto = 0 imposto = 0 Comissao Gest = 0 Lucro Alvo 45% Comissao RT = 0
+  // Comissao Rep = 0'. Defaults aplicados quando lead.destinoTipo='internacional'
+  // (exportacao nao tem PIS/COFINS/ISS/ICMS, sem comissao de representante
+  // local, e Felipe quer lucro 45% pra absorver os custos internacionais).
+  const PARAMS_DEFAULT_INTERNACIONAL = {
+    overhead:    5,   // mantem rateio interno
+    impostos:    0,   // exportacao tem aliquota zero
+    com_rep:     0,   // sem rep nacional na exportacao
+    com_rt:      0,   // sem RT/arquiteto
+    com_gest:    0,   // sem gestao interna
+    lucro_alvo: 45,   // lucro alvo Felipe definiu
+    markup_desc: 0,   // sem markup de desconto na exportacao
+    desconto:    0,   // sem desconto negociado
+  };
+
+  /**
+   * Retorna o conjunto de defaults apropriado:
+   * - Internacional se o lead ativo for internacional
+   * - Nacional padrao caso contrario
+   */
+  function paramsDefaultParaLead() {
+    try {
+      const lead = (typeof lerLeadAtivo === 'function') ? lerLeadAtivo() : null;
+      if (lead && lead.destinoTipo === 'internacional') {
+        return Object.assign({}, PARAMS_DEFAULT_INTERNACIONAL);
+      }
+    } catch (e) { /* fallback abaixo */ }
+    return Object.assign({}, PARAMS_DEFAULT);
+  }
+
   // Tipos de item suportados. Por agora so porta_externa tem form completo;
   // os outros sao placeholder ate Felipe especificar a regra de cada um.
   const TIPOS_ITEM = [
@@ -853,7 +884,7 @@ const Orcamento = (() => {
       subInst: 0,
       custoFab: Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) }),
       custoInst: Object.assign({}, INST_DEFAULT),
-      parametros: Object.assign({}, PARAMS_DEFAULT),
+      parametros: paramsDefaultParaLead(),
       subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
       total: 0,
     };
@@ -1051,7 +1082,7 @@ const Orcamento = (() => {
       subInst: 0,
       custoFab: Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) }),
       custoInst: Object.assign({}, INST_DEFAULT),
-      parametros: Object.assign({}, PARAMS_DEFAULT),
+      parametros: paramsDefaultParaLead(),
       subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
       total: 0,
     };
@@ -1218,7 +1249,7 @@ const Orcamento = (() => {
             v.subInst   = 0;
             v.custoFab  = Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) });
             v.custoInst = Object.assign({}, INST_DEFAULT);
-            v.parametros = Object.assign({}, PARAMS_DEFAULT);
+            v.parametros = paramsDefaultParaLead();
             v.subtotais  = { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 };
             v.total      = 0;
             v.calculadoEm = null;
@@ -1248,7 +1279,7 @@ const Orcamento = (() => {
             v.subInst   = 0;
             v.custoFab  = Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) });
             v.custoInst = Object.assign({}, INST_DEFAULT);
-            v.parametros = Object.assign({}, PARAMS_DEFAULT);
+            v.parametros = paramsDefaultParaLead();
             v.subtotais  = { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 };
             v.total      = 0;
             v.calculadoEm = null;
@@ -1390,7 +1421,7 @@ const Orcamento = (() => {
               subInst: 0,
               custoFab:  Object.assign({}, FAB_DEFAULT,  { etapas: Object.assign({}, FAB_DEFAULT.etapas) }),
               custoInst: Object.assign({}, INST_DEFAULT),
-              parametros: Object.assign({}, PARAMS_DEFAULT),
+              parametros: paramsDefaultParaLead(),
               subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
               total: 0,
             };
@@ -1746,7 +1777,7 @@ const Orcamento = (() => {
       versaoAtual.subInst = 0;
       versaoAtual.custoFab = Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) });
       versaoAtual.custoInst = Object.assign({}, INST_DEFAULT);
-      versaoAtual.parametros = Object.assign({}, PARAMS_DEFAULT);
+      versaoAtual.parametros = paramsDefaultParaLead();
       versaoAtual.subtotais = { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 };
       versaoAtual.total = 0;
       versaoAtual.calculadoEm = null;
@@ -1800,7 +1831,7 @@ const Orcamento = (() => {
         subInst: 0,
         custoFab: Object.assign({}, FAB_DEFAULT, { etapas: Object.assign({}, FAB_DEFAULT.etapas) }),
         custoInst: Object.assign({}, INST_DEFAULT),
-        parametros: Object.assign({}, PARAMS_DEFAULT),
+        parametros: paramsDefaultParaLead(),
         subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
         total: 0,
       };
@@ -7627,7 +7658,25 @@ const Orcamento = (() => {
       </div>
 
       <div class="orc-section-card">
-        <div class="orc-section-title">Parametros (% sobre o preco)</div>
+        <div class="orc-section-title" style="display:flex; align-items:center; justify-content:space-between;">
+          <span>Parametros (% sobre o preco)</span>
+          ${(() => {
+            const lead = lerLeadAtivo();
+            if (!lead || lead.destinoTipo !== 'internacional') return '';
+            // So' mostra o botao se os params atuais NAO sao os internacionais
+            const ehInternacional =
+              Number(params.impostos)    === 0 &&
+              Number(params.com_rep)     === 0 &&
+              Number(params.com_rt)      === 0 &&
+              Number(params.com_gest)    === 0 &&
+              Number(params.markup_desc) === 0 &&
+              Number(params.desconto)    === 0 &&
+              Number(params.lucro_alvo)  === 45;
+            return ehInternacional
+              ? `<span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:4px 10px; border-radius:4px; font-weight:600;">🌍 INTERNACIONAL — defaults aplicados</span>`
+              : `<button type="button" id="orc-dre-aplicar-intl" style="font-size:11px; color:#fff; background:#0c5485; border:none; padding:6px 12px; border-radius:5px; cursor:pointer; font-weight:600;">🌍 Aplicar defaults Internacional</button>`;
+          })()}
+        </div>
         <div class="orc-form-row">
           <div class="orc-field orc-f-pct">
             <label>Overhead</label>
@@ -8380,6 +8429,28 @@ const Orcamento = (() => {
         }
       });
     });
+
+    // Felipe sessao 31: botao 'Aplicar defaults Internacional' no DRE.
+    // So' aparece quando lead.destinoTipo='internacional'. Aplica os valores
+    // padrao internacionais (impostos=0, com_rep/rt/gest=0, lucro=45, sem markup/desconto).
+    const btnIntl = container.querySelector('#orc-dre-aplicar-intl');
+    if (btnIntl) {
+      btnIntl.addEventListener('click', () => {
+        const novosParams = Object.assign(
+          {},
+          versao.parametros || {},
+          PARAMS_DEFAULT_INTERNACIONAL,
+          // Limpa flags manuais pra nao bloquear futuros recalculos
+          { _com_rep_manual: false, _markup_desc_manual: false, _desconto_manual: false }
+        );
+        try {
+          atualizarVersao(versao.id, { parametros: novosParams });
+          renderCustoTab(container);
+        } catch (e) {
+          console.warn('[orcamento] erro ao aplicar defaults internacional:', e.message);
+        }
+      });
+    }
   }
 
   // ============================================================
