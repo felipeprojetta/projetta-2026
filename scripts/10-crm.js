@@ -1345,19 +1345,43 @@
           { key: 'origem_fixos',     label: '📋 Origem (fixos)',     codigos: ['origin_equipment_surcharge','bl_fee','verified_gross_mass','handling','customs_clearance'] },
           { key: 'condicionais',     label: '⚙️ Condicionais',       codigos: ['ams_filing','ens_filing','isps','overlength','overweight','dap_charges'] },
         ];
+        // Felipe sessao 31: 'detalhe melhor tipo valor unitario x m3 que deu
+        // o valor do frete para ficar mais facil de conferir'. Cada linha
+        // agora mostra a formula em texto pequeno cinza embaixo do label.
+        // Casos:
+        //   - Variavel por m³ (Ocean Freight, THC, Loading, X-Ray):
+        //       'X.XXX m³ x USD YY,YY = USD ZZZ,ZZ'
+        //   - Fixo por embarque (OES, B/L, VGM, Handling, Customs, etc.):
+        //       'fixo: USD YY,YY por embarque/B/L'
+        const formulaTexto = (it, m3) => {
+          const valUnit = Number(it.valorUnitUsd || 0);
+          // Detecta tipo pela unidade
+          const ehPorM3 = /m³/i.test(String(it.unidade || ''));
+          if (ehPorM3 && m3 > 0) {
+            return `${m3.toFixed(3)} m³ × USD ${valUnit.toFixed(2)} = USD ${it.totalUsd.toFixed(2)}`;
+          }
+          // Fixo: mostra unidade aplicada
+          const unidLabel = String(it.unidade || 'embarque').replace(/^USD\//, '');
+          return `fixo · USD ${valUnit.toFixed(2)} por ${unidLabel}`;
+        };
         const linhas = grupos.map(g => {
           const itens = result.itens.filter(it => g.codigos.includes(it.codigo));
           if (!itens.length) return '';
           const subtotal = itens.reduce((s, it) => s + it.totalUsd, 0);
           const detalhes = itens.map(it => `
-            <div style="display:flex; justify-content:space-between; padding:2px 0; color:#666;">
-              <span>${it.label}</span>
-              <span>USD ${it.totalUsd.toFixed(2)}</span>
+            <div style="padding:4px 0; border-bottom:1px dotted #f0f0f0;">
+              <div style="display:flex; justify-content:space-between; color:#444; font-size:11px;">
+                <span>${it.label}</span>
+                <span style="font-weight:600;">USD ${it.totalUsd.toFixed(2)}</span>
+              </div>
+              <div style="color:#999; font-size:10px; font-family:'Courier New',monospace; padding-left:8px; margin-top:1px;">
+                ${formulaTexto(it, m3)}
+              </div>
             </div>
           `).join('');
           return `
-            <div style="margin-bottom:6px;">
-              <div style="display:flex; justify-content:space-between; font-weight:600; color:#0c5485; border-bottom:1px solid #eef3f8; padding-bottom:2px; margin-bottom:3px;">
+            <div style="margin-bottom:8px;">
+              <div style="display:flex; justify-content:space-between; font-weight:600; color:#0c5485; border-bottom:2px solid #0c5485; padding-bottom:3px; margin-bottom:4px;">
                 <span>${g.label}</span>
                 <span>USD ${subtotal.toFixed(2)}</span>
               </div>
@@ -1366,9 +1390,11 @@
           `;
         }).filter(Boolean).join('');
         resumo.innerHTML = `
-          <div style="font-size:10px; color:#999; margin-bottom:6px;">Volume: ${m3.toFixed(3)} m³ · Regiao: ${modalState.freteRegiao}</div>
+          <div style="font-size:10px; color:#999; margin-bottom:8px; padding:6px 8px; background:#f8f9fa; border-radius:4px;">
+            <strong>Base de calculo:</strong> Volume <b>${m3.toFixed(3)} m³</b> · Regiao: <b>${modalState.freteRegiao}</b>
+          </div>
           ${linhas}
-          <div style="display:flex; justify-content:space-between; font-weight:700; color:#155724; border-top:2px solid #0c5485; padding-top:4px; margin-top:4px;">
+          <div style="display:flex; justify-content:space-between; font-weight:700; color:#155724; border-top:2px solid #0c5485; padding-top:6px; margin-top:6px; font-size:13px;">
             <span>TOTAL FRETE MARITIMO</span>
             <span>USD ${result.totalGeralUsd.toFixed(2)}</span>
           </div>
