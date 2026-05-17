@@ -2715,6 +2715,35 @@
               const precoProposta = (resumo && resumo.hasVersaoFechada)
                 ? resumo.precoProposta
                 : (Number(l.precoProposta) || 0);
+
+              // Felipe sessao 31: 'deve ir valor total da proposta, pro
+              // card e somar no pipline, mas deixe separado valor de
+              // cada um'. Em internacional, mostra breakdown porta +
+              // caixa + frete terrestre + frete maritimo + seguro +
+              // instalacao com TOTAL no fim.
+              const bk = l.breakdownInternacional;
+              if (bk && bk.total > 0) {
+                const linha = (label, valor) => valor > 0 ? `
+                    <div class="crm-card-bk-row">
+                      <span class="crm-card-bk-label">${label}</span>
+                      <span class="crm-card-bk-valor">R$ ${fmtBR(valor)}</span>
+                    </div>` : '';
+                return `
+                  <div class="crm-card-valor-bloco crm-card-valor-bloco-intl">
+                    <div class="crm-card-bk-titulo">🌍 ${bk.incoterm || 'CIF'} — desdobramento</div>
+                    ${linha('Porta', bk.porta)}
+                    ${linha('Caixa fumigada', bk.caixa)}
+                    ${linha('Frete terrestre', bk.freteTerrestre)}
+                    ${linha('Frete maritimo', bk.freteMaritimo)}
+                    ${linha('Seguro maritimo', bk.seguro)}
+                    ${linha('Instalacao', bk.instalacao)}
+                    <div class="crm-card-bk-total">
+                      <span class="crm-card-valor-label">TOTAL Cliente Paga:</span>
+                      <span class="crm-card-valor">R$ ${fmtBR(bk.total)}</span>
+                    </div>
+                  </div>`;
+              }
+
               // Felipe (sessao 2026-08): "LEVE DOIS VALORES PARA CARD,
               // ORIGINAL E COM DESCONTO". Antes mostrava 3 linhas
               // (Preco Proposta + Com desconto + Cliente Paga) sendo

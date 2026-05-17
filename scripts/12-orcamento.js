@@ -1676,6 +1676,19 @@ const Orcamento = (() => {
    * Regra: o card do CRM SO mostra valor a partir de "orcamento-pronto"
    * pra frente. Antes disso o valor fica oculto, porque o sistema ainda
    * nao sabe o preco. O botao Aprovar e' o que dispara essa transicao.
+   *
+   * Felipe sessao 31: 'deve ir valor total da proposta, pro card e
+   * somar no pipline, mas deixe separado valor de cada um'. Em
+   * internacional, o valor empurrado pro CRM e' o TOTAL (porta + frete
+   * + caixa + seguro + instalacao). O breakdown e' salvo em
+   * lead.breakdownInternacional pra exibir separado se necessario.
+   *
+   * @param {string} versaoId
+   * @param {number} valorFaturamento  - valor final que cliente paga (R$)
+   * @param {number} precoPropostaSemDesconto - pTab antes do desconto (R$)
+   * @param {object} opts
+   *   opts.enviarParaCard {boolean}
+   *   opts.breakdownIntl  {{porta,frete,caixa,seguro,instalacao,total}} valores em R$
    */
   function aprovarOrcamento(versaoId, valorFaturamento, precoPropostaSemDesconto, opts) {
     const valor = Number(valorFaturamento) || 0;
@@ -1687,6 +1700,7 @@ const Orcamento = (() => {
     // (sem substituir valor da V1 no card), passa { enviarParaCard: false }.
     // Default true preserva retrocompat (V1 e Reaprovacao continuam empurrando).
     const enviarParaCard = !opts || opts.enviarParaCard !== false;
+    const breakdownIntl = (opts && opts.breakdownIntl) || null;
     // 1. Marca a versao como aprovada
     const negocios = loadAll();
     let alvo = null;
@@ -1731,6 +1745,14 @@ const Orcamento = (() => {
           if (lead) {
             lead.valor = valor;
             lead.precoProposta = precoProposta;  // novo campo
+            // Felipe sessao 31: salva breakdown internacional (porta/frete/
+            // caixa/seguro/instalacao) pro card do CRM exibir separado.
+            if (breakdownIntl) {
+              lead.breakdownInternacional = breakdownIntl;
+            } else {
+              // Limpa se nao for mais internacional (lead pode ter mudado)
+              delete lead.breakdownInternacional;
+            }
             // So' avanca a etapa se estiver ANTES de orcamento-pronto.
             // Se ja estiver em etapa avancada (negociacao, fechado), preserva.
             const etapasAntes = ['qualificacao', 'fazer-orcamento'];
@@ -8494,18 +8516,27 @@ const Orcamento = (() => {
           <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
             <div style="flex:1;min-width:200px;">
               <label style="display:block;font-size:11px;color:#92400e;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">
-                Valor Final Desejado (Cliente Paga)
+                Valor Final Desejado (R$) — Cliente Paga
               </label>
-              <!-- Felipe sessao 12: 'quando for colocar o numero ali deixei
-                   normal 0 0,0 00,0 000,0 nao tem segredo igual esta ali'.
-                   Trocado type=number pra type=text - aceita formato BR
-                   livre (1234, 1.234, 1234,56, 1.234,56). parseBR no
-                   handler converte. -->
               <input type="text" id="orc-input-valor-manual"
                      placeholder="Ex: 120.000,00"
                      style="width:100%;padding:10px 14px;font-size:18px;font-weight:700;color:#7c2d12;border:2px solid #fbbf24;border-radius:6px;background:#fff;font-variant-numeric:tabular-nums;"
                      value="${(r.pFatReal && r.pFatReal > 0) ? fmtBR(r.pFatReal) : ''}" />
             </div>
+            ${ehInternacionalDRE && taxaDRE > 0 ? `
+            <div style="flex:1;min-width:200px;">
+              <label style="display:block;font-size:11px;color:#0c5485;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">
+                Valor Final Desejado (USD) — alternativa
+              </label>
+              <!-- Felipe sessao 31: 'coloque ali abaixo valor para ajustar a
+                   margem em dollar tbm ajusto ou em reais ou em dollar'. -->
+              <input type="text" id="orc-input-valor-manual-usd"
+                     placeholder="Ex: 24,500.00"
+                     style="width:100%;padding:10px 14px;font-size:18px;font-weight:700;color:#0c5485;border:2px solid #0c5485;border-radius:6px;background:#fff;font-variant-numeric:tabular-nums;"
+                     value="${(r.pFatReal && r.pFatReal > 0) ? (r.pFatReal / taxaDRE).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : ''}" />
+              <div style="font-size:10px;color:#5a7a99;margin-top:3px;">taxa USD ${taxaDRE.toFixed(4)} (PTAX)</div>
+            </div>
+            ` : ''}
             <button type="button" id="orc-btn-aplicar-valor-manual"
                     style="padding:10px 20px;background:#92400e;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;height:44px;white-space:nowrap;">
               ⚡ Ajustar Margem
@@ -8706,20 +8737,78 @@ const Orcamento = (() => {
       const subFab  = Number(versao.subFab) || 0;
       const subInst = Number(versao.subInst) || 0;
       const params  = Object.assign({}, PARAMS_DEFAULT, versao.parametros || {});
-      const dre     = calcularDRE(subFab, subInst, params);
-      const precoProposta     = Number(dre.pTab) || 0;       // preco de tabela (com markup)
-      const precoComDesconto  = Number(dre.pFatReal) || 0;   // apos desconto (cliente paga)
-      if (precoComDesconto <= 0) {
+      // Felipe sessao 31: detecta internacional. Quando true:
+      //   - DRE recebe subInstParaDRE=0 (instalacao nao entra no markup 45%)
+      //   - Total enviado pro card = porta + frete + caixa + seguro + instalacao
+      //   - Breakdown salvo no lead pra exibir separado
+      const leadAprov = lerLeadAtivo();
+      const ehInternacionalAprov = leadAprov && leadAprov.destinoTipo === 'internacional';
+      const subInstParaDRE = ehInternacionalAprov ? 0 : subInst;
+      const dre     = calcularDRE(subFab, subInstParaDRE, params);
+      const precoProposta     = Number(dre.pTab) || 0;       // preco da PORTA (com markup)
+      const precoPortaFinal   = Number(dre.pFatReal) || 0;   // porta apos desconto
+      if (precoPortaFinal <= 0) {
         alert('Calcule o orcamento primeiro — preco real esta em zero.');
         return;
       }
+
+      // Calculo do total internacional (porta + frete + caixa + seguro + instalacao)
+      let precoComDesconto = precoPortaFinal;
+      let opcoes = opts || {};
+      if (ehInternacionalAprov) {
+        const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+        // Instalacao com margem propria
+        const instConfig = versao.custoInst || {};
+        const lucroInstPct = Number(instConfig.lucro_alvo_instalacao);
+        const lucroInstFinal = isNaN(lucroInstPct) ? 10 : lucroInstPct;
+        const precoInstalacao = subInst > 0 ? (subInst * (1 + lucroInstFinal / 100)) : 0;
+
+        // Frete + caixa + seguro (em R$, derivado dos USD do lead)
+        let freteBrl = 0, caixaBrl = 0, seguroBrl = 0, terrestreBrl = 0, maritimoBrl = 0;
+        if (taxa > 0) {
+          const incoterm = leadAprov.freteIncoterm || 'FOB';
+          const itc = window.Incoterms ? window.Incoterms.byCodigo(incoterm) : null;
+          if (itc) {
+            const a = Number(leadAprov.caixaAltura) || 0;
+            const e = Number(leadAprov.caixaEspessura) || 0;
+            const c = Number(leadAprov.caixaComprimento) || 0;
+            const m3 = (a * e * c) / 1e9;
+            const caixaUsd = (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
+            const terrUsd  = Number(leadAprov.freteTerrestreUsd) || 0;
+            const marUsd   = Number(leadAprov.freteMaritimoUsd)  || 0;
+            const valorCargaUsd = precoPortaFinal / taxa;
+            const seguroUsd = itc.seguroMaritimo ? Math.max(35, valorCargaUsd * 0.005 * 1.10) : 0;
+            caixaBrl     = caixaUsd * taxa;
+            terrestreBrl = (itc.freteTerrestre ? terrUsd : 0) * taxa;
+            maritimoBrl  = (itc.freteMaritimo  ? marUsd  : 0) * taxa;
+            seguroBrl    = (itc.seguroMaritimo ? seguroUsd: 0) * taxa;
+            freteBrl     = caixaBrl + terrestreBrl + maritimoBrl + seguroBrl;
+          }
+        }
+        precoComDesconto = precoPortaFinal + freteBrl + precoInstalacao;
+        opcoes = Object.assign({}, opts || {}, {
+          breakdownIntl: {
+            porta:        precoPortaFinal,
+            caixa:        caixaBrl,
+            freteTerrestre: terrestreBrl,
+            freteMaritimo:  maritimoBrl,
+            seguro:       seguroBrl,
+            frete:        freteBrl,    // soma caixa+terrestre+maritimo+seguro
+            instalacao:   precoInstalacao,
+            total:        precoComDesconto,
+            taxaUsd:      taxa,
+            incoterm:     leadAprov.freteIncoterm || 'FOB',
+          },
+        });
+      }
+
       try {
-        aprovarOrcamento(versao.id, precoComDesconto, precoProposta, opts);
+        aprovarOrcamento(versao.id, precoComDesconto, precoProposta, opcoes);
         renderCustoTab(container);
         if (window.showSavedDialog) {
-          const enviou = !opts || opts.enviarParaCard !== false;
+          const enviou = !opcoes || opcoes.enviarParaCard !== false;
           if (enviou) {
-            window.showSavedDialog(`Orcamento aprovado: R$ ${fmtBR(precoComDesconto)} enviado pro CRM.`);
+            window.showSavedDialog(`Orcamento aprovado: R$ ${fmtBR(precoComDesconto)} enviado pro CRM${ehInternacionalAprov ? ' (porta + frete + instalacao)' : ''}.`);
           } else {
             window.showSavedDialog(`Versao ${versao.numero} aprovada localmente. Card do CRM mantem valor anterior.`);
           }
@@ -8811,6 +8900,35 @@ const Orcamento = (() => {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         });
+        // Felipe sessao 31: sincroniza com campo USD se ele existe (internacional).
+        const inpUsd = container.querySelector('#orc-input-valor-manual-usd');
+        const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+        if (inpUsd && taxa > 0) {
+          inpUsd.value = (num / taxa).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+        }
+      });
+    }
+
+    // Felipe sessao 31: campo USD do ajuste de margem (internacional).
+    // Aceita formato US (1,234.56) e sincroniza com o campo R$.
+    const inputValorManualUsd = container.querySelector('#orc-input-valor-manual-usd');
+    if (inputValorManualUsd) {
+      inputValorManualUsd.addEventListener('input', (e) => {
+        const raw = String(e.target.value || '').replace(/\D/g, '');
+        if (!raw) {
+          e.target.value = '';
+          const inpBr = container.querySelector('#orc-input-valor-manual');
+          if (inpBr) inpBr.value = '';
+          return;
+        }
+        const num = parseInt(raw, 10) / 100;
+        e.target.value = num.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+        // Sincroniza com campo BR (USD × taxa)
+        const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+        const inpBr = container.querySelector('#orc-input-valor-manual');
+        if (inpBr && taxa > 0) {
+          inpBr.value = (num * taxa).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+        }
       });
     }
 
