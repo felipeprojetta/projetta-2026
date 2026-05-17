@@ -1238,8 +1238,15 @@
         });
       }
 
-      // Inicializa: se nao tem nada salvo, calcula automatico
-      if (!modalState.caixaAlturaManual && !modalState.caixaAltura) aplicarAutoCaixa();
+      // Felipe sessao 31: na primeira abertura, calcula automatico.
+      // Em re-renders subsequentes (depois de adicionar/remover item extra),
+      // SEMPRE chama aplicarAutoCaixa() pra atualizar contando todos os itens
+      // atuais (sem o '&& !modalState.caixaAltura' que pulava se ja tinha valor).
+      // 'tenho fixo e nao aumentou a medida de 600 para 1200' - quando adiciona
+      // 1 fixo, espessura deve ir de 600 (porta) pra 1200 (porta + fixo).
+      // O respeito a edicao manual ja' acontece dentro do proprio aplicarAutoCaixa
+      // via flags caixaXxxxManual.
+      if (modalState.destinoTipo === 'internacional') aplicarAutoCaixa();
       else { atualizarEstiloCampoCaixa(); recalcCaixaVolume(); }
 
       // Tambem recalcula auto se Felipe mudar dimensoes da porta principal
