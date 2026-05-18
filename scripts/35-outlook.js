@@ -97,6 +97,45 @@
     return expires > Date.now();
   };
 
+  /* Felipe (sessao 32): localStorage as vezes esta cheio de backups locais
+     (cache de v7.kv_store/backup_diario,backup_manual). Esses backups vivem
+     no Supabase como source-of-truth — o cache local e' opcional. Antes de
+     gravar chaves CRITICAS como OAuth state/verifier (sem elas o login nao
+     funciona), garantimos espaco limpando backups locais se necessario.
+     Tentativa idempotente: chama de novo o setItem; se ainda falhar com
+     quota, mostra erro claro pro usuario. */
+  function _setItemSeguro(chave, valor) {
+    try {
+      localStorage.setItem(chave, valor);
+      return true;
+    } catch(e) {
+      var ehQuota = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014
+                   || /quota|exceeded/i.test(String(e.message || '')));
+      if (!ehQuota) throw e;
+
+      // Limpa backups locais (Supabase tem copia)
+      var liberados = 0, bytes = 0;
+      try {
+        for (var i = localStorage.length - 1; i >= 0; i--) {
+          var k = localStorage.key(i);
+          if (!k) continue;
+          if (k.indexOf('projetta:backup_diario') === 0
+           || k.indexOf('projetta:backup_manual') === 0) {
+            bytes += (localStorage.getItem(k) || '').length;
+            localStorage.removeItem(k);
+            liberados++;
+          }
+        }
+      } catch(_) {}
+      console.warn('[outlook] localStorage cheio - liberados ' + liberados
+        + ' backups locais (' + (bytes/1024).toFixed(1) + ' KB). Re-tentando...');
+
+      // Re-tenta apos limpeza
+      localStorage.setItem(chave, valor);
+      return true;
+    }
+  }
+
   /* Inicia OAuth flow: redireciona pra login Microsoft. */
   window.outlookLogin = async function(){
     try {
@@ -105,9 +144,9 @@
       var challenge = await _sha256b64url(verifier);
       var state = _randomBase64url(16);
 
-      // Salvar pra usar no callback
-      localStorage.setItem(LS_PKCE_VERIFIER, verifier);
-      localStorage.setItem(LS_STATE, state);
+      // Salvar pra usar no callback (auto-limpa backups se quota cheia)
+      _setItemSeguro(LS_PKCE_VERIFIER, verifier);
+      _setItemSeguro(LS_STATE, state);
 
       // Construir URL de autorizacao
       var authUrl = AZURE_CONFIG.authority + '/oauth2/v2.0/authorize?'
@@ -213,14 +252,14 @@
     }
   }
 
-  /* Salva tokens no localStorage. */
+  /* Salva tokens no localStorage. (usa _setItemSeguro pra evitar quota) */
   function _saveTokens(tokResponse){
-    localStorage.setItem(LS_TOKEN, tokResponse.access_token);
+    _setItemSeguro(LS_TOKEN, tokResponse.access_token);
     if(tokResponse.refresh_token){
-      localStorage.setItem(LS_REFRESH, tokResponse.refresh_token);
+      _setItemSeguro(LS_REFRESH, tokResponse.refresh_token);
     }
     var expMs = Date.now() + ((tokResponse.expires_in || 3600) * 1000);
-    localStorage.setItem(LS_EXPIRES, String(expMs));
+    _setItemSeguro(LS_EXPIRES, String(expMs));
   }
 
   /* Troca refresh_token por novo access_token. */
@@ -308,7 +347,7 @@
   async function _fetchUserInfo(){
     try {
       var me = await _graphCall('/me');
-      localStorage.setItem(LS_USER, JSON.stringify({
+      _setItemSeguro(LS_USER, JSON.stringify({
         displayName: me.displayName,
         email: me.mail || me.userPrincipalName,
         id: me.id
