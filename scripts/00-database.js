@@ -576,29 +576,107 @@ const Database = (() => {
       // 'session', 'session_user', 'last_login' continuam locais (per-device).
       var NEVER_SYNC_KEYS = ['session', 'session_user', 'last_login'];
       var NEVER_SYNC_SCOPES = ['auth_session']; // 'auth' continua liberado pra users
-      rows.forEach(function(r) {
-        // Bloqueia chaves de autenticação
-        if (NEVER_SYNC_SCOPES.indexOf(r.scope) >= 0) return;
-        if (NEVER_SYNC_KEYS.indexOf(r.key) >= 0) return;
-        var lsKey = PREFIX + r.scope + ':' + r.key;
+      // Felipe sessao 32: PARTICIONAMENTO + AUTO-LIMPEZA DE QUOTA
+      // BUG anterior: try/catch engolia QuotaExceededError silenciosamente.
+      // localStorage estourava (10MB cheio de backup_diario/manual) e
+      // chaves grandes como orcamentos/negocios falhavam em ser gravadas,
+      // mantendo cache stale e sumindo dados pro usuario.
+      // FIX: separa CORE (negocio) vs BACKUPS (recuperaveis do Supabase).
+      // Escreve CORE primeiro. Se quota estourar, limpa backups LOCAIS
+      // (sao copias - source-of-truth e' o Supabase) e tenta de novo.
+
+      function _ehChaveBackupLocal(scope, key) {
+        return scope === 'backup_diario'
+            || scope === 'backup_manual'
+            || (typeof key === 'string' && (key.indexOf('backup_diario') === 0 || key.indexOf('backup_manual') === 0));
+      }
+
+      function _limparBackupsLocais() {
+        var liberados = 0, bytes = 0;
         try {
-          var valorSb = r.valor;
-          if (Array.isArray(valorSb) && valorSb.length === 0) {
-            var localRaw = localStorage.getItem(lsKey);
-            if (localRaw !== null) {
-              try {
-                var localVal = JSON.parse(localRaw);
-                if (Array.isArray(localVal) && localVal.length > 0) {
-                  return;
-                }
-              } catch(_) {}
+          for (var i = localStorage.length - 1; i >= 0; i--) {
+            var k = localStorage.key(i);
+            if (!k) continue;
+            if (k.indexOf(PREFIX + 'backup_diario') === 0
+             || k.indexOf(PREFIX + 'backup_manual') === 0) {
+              bytes += (localStorage.getItem(k) || '').length;
+              localStorage.removeItem(k);
+              liberados++;
             }
           }
-          localStorage.setItem(lsKey, JSON.stringify(valorSb));
-          count++;
-        } catch(e) {}
+        } catch(_) {}
+        return { liberados: liberados, kb: (bytes/1024).toFixed(1) };
+      }
+
+      function _ehErroDeQuota(e) {
+        if (!e) return false;
+        return e.name === 'QuotaExceededError'
+            || e.code === 22 || e.code === 1014
+            || /quota/i.test(String(e.message || ''));
+      }
+
+      // Particiona
+      var rowsCore = [];
+      var rowsBackup = [];
+      rows.forEach(function(r) {
+        if (NEVER_SYNC_SCOPES.indexOf(r.scope) >= 0) return;
+        if (NEVER_SYNC_KEYS.indexOf(r.key) >= 0) return;
+        if (_ehChaveBackupLocal(r.scope, r.key)) rowsBackup.push(r);
+        else rowsCore.push(r);
       });
-      console.log('[DB] syncFromCloud: ' + count + ' chaves carregadas do Supabase');
+
+      var jaLimpouBackups = false;
+
+      function _gravarUmaRow(r) {
+        var lsKey = PREFIX + r.scope + ':' + r.key;
+        var valorSb = r.valor;
+        // Protecao: nao sobrescreve local nao-vazio com cloud vazio
+        if (Array.isArray(valorSb) && valorSb.length === 0) {
+          var localRaw = localStorage.getItem(lsKey);
+          if (localRaw !== null) {
+            try {
+              var localVal = JSON.parse(localRaw);
+              if (Array.isArray(localVal) && localVal.length > 0) return true;
+            } catch(_) {}
+          }
+        }
+        try {
+          localStorage.setItem(lsKey, JSON.stringify(valorSb));
+          return true;
+        } catch(e) {
+          if (_ehErroDeQuota(e) && !jaLimpouBackups) {
+            jaLimpouBackups = true;
+            var stats = _limparBackupsLocais();
+            console.warn('[DB] localStorage cheio durante sync — liberados '
+              + stats.liberados + ' backups locais (' + stats.kb + ' KB). Re-tentando...');
+            try {
+              localStorage.setItem(lsKey, JSON.stringify(valorSb));
+              return true;
+            } catch(e2) {
+              console.error('[DB] ❌ Quota ainda excedida apos limpar backups. Chave: '
+                + lsKey + ' (' + (JSON.stringify(valorSb).length/1024).toFixed(1) + ' KB)');
+              return false;
+            }
+          }
+          if (_ehErroDeQuota(e)) {
+            console.error('[DB] ❌ Quota localStorage excedida. Chave: ' + lsKey);
+            return false;
+          }
+          // outro erro qualquer — loga mas nao quebra
+          console.warn('[DB] erro ao gravar ' + lsKey + ':', e.message);
+          return false;
+        }
+      }
+
+      // PASSO 1: grava CORE (negocios, leads, cadastros, etc) — prioridade maxima
+      rowsCore.forEach(function(r) { if (_gravarUmaRow(r)) count++; });
+
+      // PASSO 2: grava BACKUPS por ultimo, best-effort.
+      // Se quota estourar agora, tudo bem — source-of-truth e' o Supabase.
+      rowsBackup.forEach(function(r) { if (_gravarUmaRow(r)) count++; });
+
+      console.log('[DB] syncFromCloud: ' + count + ' chaves carregadas do Supabase'
+        + ' (core=' + rowsCore.length + ', backups=' + rowsBackup.length + ')');
 
       // ✅ SUCESSO TOTAL → libera write mode
       _readOnlyMode = false;
