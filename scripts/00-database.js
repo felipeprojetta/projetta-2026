@@ -504,8 +504,25 @@ const Database = (() => {
       // Retorna Promise pra flushSbUpsertPendentes poder esperar com Promise.all
       return fetch(SUPABASE_URL + '/rest/v1/kv_store', fetchOpts).then(function(res) {
         if (!res.ok) {
-          console.error('[DB] sbUpsert FALHOU:', scope, '/', key, 'HTTP', res.status);
-          return false;
+          // Felipe (sessao 32): classifica 4xx pra distinguir BUG real vs
+          // PROTECAO legitima (triggers anti-perda/anti-seed do banco).
+          // Mensagens de protecao -> console.info (esperado). Bug real -> error.
+          return res.text().then(function(body) {
+            var msg = String(body || '');
+            var ehProtecao = /anti-perda|anti-seed|BLOQUEADA|provavel perda de dados/i.test(msg);
+            if (ehProtecao) {
+              console.info('[DB] sync nao aplicado por protecao do banco:',
+                scope + '/' + key,
+                '— Postgres retornou:', msg.substring(0, 200));
+            } else {
+              console.error('[DB] sbUpsert FALHOU:', scope, '/', key, 'HTTP', res.status,
+                msg ? '— ' + msg.substring(0, 200) : '');
+            }
+            return false;
+          }).catch(function() {
+            console.error('[DB] sbUpsert FALHOU:', scope, '/', key, 'HTTP', res.status);
+            return false;
+          });
         }
         return true;
       }).catch(function(e) {
@@ -630,6 +647,10 @@ const Database = (() => {
       function _gravarUmaRow(r) {
         var lsKey = PREFIX + r.scope + ':' + r.key;
         var valorSb = r.valor;
+        // Felipe (sessao 32): backups tem Supabase como source-of-truth.
+        // Quota excedida em backup local NAO e' erro real — e' o cache
+        // limitando enquanto o backup ja' vive no cloud. Loga em debug.
+        var ehBackup = _ehChaveBackupLocal(r.scope, r.key);
         // Protecao: nao sobrescreve local nao-vazio com cloud vazio
         if (Array.isArray(valorSb) && valorSb.length === 0) {
           var localRaw = localStorage.getItem(lsKey);
@@ -653,13 +674,24 @@ const Database = (() => {
               localStorage.setItem(lsKey, JSON.stringify(valorSb));
               return true;
             } catch(e2) {
-              console.error('[DB] ❌ Quota ainda excedida apos limpar backups. Chave: '
-                + lsKey + ' (' + (JSON.stringify(valorSb).length/1024).toFixed(1) + ' KB)');
+              // Backup ainda nao cabe → debug. Core ainda nao cabe → error real.
+              if (ehBackup) {
+                console.debug('[DB] backup local nao cacheado (Supabase permanece source-of-truth):',
+                  lsKey, '(' + (JSON.stringify(valorSb).length/1024).toFixed(1) + ' KB)');
+              } else {
+                console.error('[DB] ❌ Quota ainda excedida apos limpar backups. Chave CRITICA: '
+                  + lsKey + ' (' + (JSON.stringify(valorSb).length/1024).toFixed(1) + ' KB)');
+              }
               return false;
             }
           }
           if (_ehErroDeQuota(e)) {
-            console.error('[DB] ❌ Quota localStorage excedida. Chave: ' + lsKey);
+            if (ehBackup) {
+              // Sem rumor no console — esperado, Supabase tem o backup
+              console.debug('[DB] backup local nao cacheado:', lsKey);
+            } else {
+              console.error('[DB] ❌ Quota localStorage excedida. Chave CRITICA: ' + lsKey);
+            }
             return false;
           }
           // outro erro qualquer — loga mas nao quebra
