@@ -1544,6 +1544,34 @@ const Orcamento = (() => {
     if (!alvo.precos_snapshot || alvo.precos_snapshot.pendente) {
       alvo.precos_snapshot = snapshotPrecosCompleto();
     }
+    // Felipe (sessao 32): "depois de fechado, nao se deve permitir alterar
+    // nada, nem deve puxar valores atualizados dos cadastros. Deve ser a
+    // foto, o estado real de quando eu fechei." → congela ENTRADAS e
+    // RESULTADO do DRE neste momento. Renderizador usara essa foto em
+    // vez de recalcular com precos atuais.
+    if (!alvo.dre_congelado) {
+      const subFab  = Number(alvo.subFab)  || 0;
+      const subInst = Number(alvo.subInst) || 0;
+      const paramsAtual = Object.assign({}, PARAMS_DEFAULT, alvo.parametros || {});
+      const dreCalc = calcularDRE(subFab, subInst, paramsAtual);
+      alvo.dre_congelado = {
+        congeladoEm:    nowIso(),
+        subFab:         subFab,
+        subInst:        subInst,
+        custoFab:       alvo.custoFab  || null,
+        custoInst:      alvo.custoInst || null,
+        parametros:     paramsAtual,
+        // Resultados do DRE no momento do fechamento
+        custo:          dreCalc.custo,
+        pFat:           dreCalc.pFat,
+        pTab:           dreCalc.pTab,
+        pFatReal:       dreCalc.pFatReal,
+        markupPct:      dreCalc.markupPct,
+        // Valor contratual (oficial) — o que cliente paga de fato
+        valorAprovado:  Number(alvo.valorAprovado)  || 0,
+        precoProposta:  Number(alvo.precoProposta)  || 0,
+      };
+    }
     saveAll(negocios);
     return alvo;
   }
