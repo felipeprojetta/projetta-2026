@@ -26,16 +26,31 @@
 (() => {
   'use strict';
 
-  // Status de instalacao (cores das imagens da planilha CONTROLE DE LIBERACAO).
+  // Felipe (sessao 32): simplificacao do status de instalacao para 4 opcoes
+  // claras. Status legados (ag-instalacao, em-producao, ag-os, ag-fazer-
+  // liberacao) sao migrados automaticamente pra 'programado' via
+  // _normalizarStatusAntigo() — chamado em toda leitura/render do status.
   const STATUS_INSTALACAO = [
-    { id: 'ag-instalacao',     label: 'AG. INSTALACAO',     color: '#3B82F6' },
-    { id: 'em-producao',       label: 'EM PRODUCAO',        color: '#D97706' },
-    { id: 'ag-os',             label: 'AG. O.S',            color: '#94A3B8' },
-    { id: 'ag-fazer-liberacao',label: 'AG. FAZER LIBERACAO',color: '#EAB308' },
-    { id: 'finalizado',        label: 'FINALIZADO',         color: '#10B981' },
-    { id: 'a-programar',       label: 'A PROGRAMAR',        color: '#FACC15' },
-    { id: 'programado',        label: 'PROGRAMADO',         color: '#06B6D4' },
+    { id: 'a-programar',    label: 'A PROGRAMAR',    color: '#FACC15' },
+    { id: 'programado',     label: 'PROGRAMADO',     color: '#06B6D4' },
+    { id: 'finalizado',     label: 'FINALIZADO',     color: '#10B981' },
+    { id: 'nao-finalizado', label: 'NAO FINALIZADO', color: '#EF4444' },
   ];
+
+  // Mapa de migracao: status antigo -> novo
+  const _STATUS_LEGADO_PARA_NOVO = {
+    'ag-instalacao':      'programado',
+    'em-producao':        'programado',
+    'ag-os':              'programado',
+    'ag-fazer-liberacao': 'programado',
+  };
+
+  // Normaliza status legado pra novo. Idempotente: status valido passa direto.
+  function _normalizarStatusAntigo(statusId) {
+    if (!statusId) return 'a-programar';
+    if (_STATUS_LEGADO_PARA_NOVO[statusId]) return _STATUS_LEGADO_PARA_NOVO[statusId];
+    return statusId;
+  }
   const statusInstById = (id) => STATUS_INSTALACAO.find(s => s.id === id) || STATUS_INSTALACAO[0];
 
   // Felipe sessao 18: 'qual servico estou fazendo? qual status dessa
@@ -170,7 +185,7 @@
         servico:           delta.servico || SERVICO_DEFAULT,
         dataInicio:        delta.dataInicio || '',
         dataTermino:       delta.dataTermino || '',
-        statusInstalacao:  delta.statusInstalacao || 'ag-instalacao',
+        statusInstalacao:  _normalizarStatusAntigo(delta.statusInstalacao),
         dataEntrega:       delta.dataEntrega || '',
         confirmacao:       delta.confirmacao || '',
         observacoes:       delta.observacoes || '',
@@ -502,7 +517,7 @@
             dataInicio: v.dataInicio, dataTermino: v.dataTermino,
             servicoLabel: servicoLabelById(v.servico || SERVICO_DEFAULT),
             // Felipe sessao 18.b: cada visita extra com seu proprio status
-            statusInst: v.statusInstalacao || 'ag-instalacao',
+            statusInst: _normalizarStatusAntigo(v.statusInstalacao),
             motivo: v.motivo || '',
           });
         }
@@ -735,7 +750,7 @@
                     <div>
                       <label style="font-size:11px;">Status Inst.</label>
                       <select data-visita-field="statusInstalacao" data-visita-idx="${idx}">
-                        ${STATUS_INSTALACAO.map(s => `<option value="${s.id}" ${(v.statusInstalacao || 'ag-instalacao') === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
+                        ${STATUS_INSTALACAO.map(s => `<option value="${s.id}" ${_normalizarStatusAntigo(v.statusInstalacao) === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
                       </select>
                     </div>
                     <div>
@@ -912,8 +927,9 @@
     let visitasExtrasTemp = (t.visitasExtras || []).map(v => ({
       servico:          v.servico || SERVICO_DEFAULT,
       // Felipe sessao 18.b: cada visita extra tem seu proprio
-      // statusInstalacao (cor da barra no Gantt). Default 'ag-instalacao'.
-      statusInstalacao: v.statusInstalacao || 'ag-instalacao',
+      // statusInstalacao (cor da barra no Gantt). Default 'a-programar'.
+      // Felipe sessao 32: legados (ag-instalacao etc) viram 'programado'.
+      statusInstalacao: _normalizarStatusAntigo(v.statusInstalacao),
       motivo:           v.motivo || '',
       dataInicio:       v.dataInicio || '',
       dataTermino:      v.dataTermino || '',
@@ -937,7 +953,7 @@
             <div>
               <label style="font-size:11px;">Status Inst.</label>
               <select data-visita-field="statusInstalacao" data-visita-idx="${idx}">
-                ${STATUS_INSTALACAO.map(s => `<option value="${s.id}" ${(v.statusInstalacao || 'ag-instalacao') === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
+                ${STATUS_INSTALACAO.map(s => `<option value="${s.id}" ${_normalizarStatusAntigo(v.statusInstalacao) === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
               </select>
             </div>
             <div>
@@ -1005,7 +1021,7 @@
       btnAddVisita.addEventListener('click', () => {
         visitasExtrasTemp.push({
           servico: SERVICO_DEFAULT,
-          statusInstalacao: 'ag-instalacao',
+          statusInstalacao: 'a-programar',
           motivo: '',
           dataInicio: '', dataTermino: '',
         });
