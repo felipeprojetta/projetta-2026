@@ -1577,6 +1577,57 @@ const Orcamento = (() => {
   }
 
   /**
+   * Felipe (sessao 32): quando um lead vai pra etapa 'fechado' no CRM,
+   * a versao aprovada ativa do negocio deve virar FOTOGRAFIA IMUTAVEL
+   * (status='fechada' + dre_congelado capturado).
+   *
+   * "depois de fechado, nao se deve permitir alterar nada, nem deve
+   * puxar valores atualizados dos cadastros. Deve ser a foto."
+   *
+   * Idempotente: se ja' tem versao fechada com dre_congelado, nao faz nada.
+   * Best-effort: erros sao logados mas nao bloqueiam o fluxo do CRM.
+   *
+   * @param {string} leadId  - ID do lead no CRM
+   * @returns {object|null}  - { versaoId, negocioId } se fechou, null se nao tinha o que fechar
+   */
+  function fecharVersaoAprovadaDoLead(leadId) {
+    if (!leadId) return null;
+    try {
+      const negocio = obterNegocioPorLeadId(leadId);
+      if (!negocio) return null;
+
+      // Procura a versao aprovada mais recente (aprovadoEm seteado, ainda em draft)
+      let alvoVersao = null;
+      let alvoOpcao = null;
+      let maisRecente = '';
+      (negocio.opcoes || []).forEach(o => {
+        (o.versoes || []).forEach(v => {
+          if (v.status === 'fechada') return;  // ja' fechada — pula
+          if (!v.aprovadoEm) return;            // nao aprovada — nao pode fechar
+          const ts = String(v.aprovadoEm || v.criadoEm || '');
+          if (ts > maisRecente) {
+            maisRecente = ts;
+            alvoVersao = v;
+            alvoOpcao = o;
+          }
+        });
+      });
+
+      if (!alvoVersao) {
+        console.info('[orcamento] fecharVersaoAprovadaDoLead: lead', leadId, 'sem versao aprovada — nada a fechar');
+        return null;
+      }
+
+      fecharVersao(alvoVersao.id);
+      console.info('[orcamento] ✅ versao', alvoVersao.numero, 'do negocio', negocio.id, 'fechada como FOTOGRAFIA IMUTAVEL');
+      return { versaoId: alvoVersao.id, negocioId: negocio.id };
+    } catch (e) {
+      console.warn('[orcamento] fecharVersaoAprovadaDoLead falhou:', e.message);
+      return null;
+    }
+  }
+
+  /**
    * Felipe (sessao 2026-06): "preciso de uma opcao para deletar as
    * versoes". Remove uma versao do array da opcao. Protecoes:
    *   - Nao deleta a ultima versao (precisa sobrar pelo menos 1)
@@ -18333,6 +18384,7 @@ const Orcamento = (() => {
     criarNovaVersao,
     atualizarVersao,
     fecharVersao,
+    fecharVersaoAprovadaDoLead,
     destravarVersao,
     deletarVersao,
     deletarNegocio,

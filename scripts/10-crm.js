@@ -2075,6 +2075,12 @@
               if (!dataConfirmada) return;  // cancelou — fica na etapa antiga
               lead.etapa = 'fechado';
               lead.fechadoEm = dataConfirmada;
+              // Felipe (sessao 32): fotografia imutavel ao fechar
+              try {
+                if (window.Orcamento && window.Orcamento.fecharVersaoAprovadaDoLead) {
+                  window.Orcamento.fecharVersaoAprovadaDoLead(lead.id);
+                }
+              } catch (e) { console.warn('[crm] fechar versao aprovada falhou:', e); }
               save();
               render(container);
             });
@@ -4048,6 +4054,12 @@
               if (!dataConfirmada) return;  // cancelou
               lead.etapa = 'fechado';
               lead.fechadoEm = dataConfirmada;
+              // Felipe (sessao 32): fotografia imutavel ao fechar
+              try {
+                if (window.Orcamento && window.Orcamento.fecharVersaoAprovadaDoLead) {
+                  window.Orcamento.fecharVersaoAprovadaDoLead(lead.id);
+                }
+              } catch (e) { console.warn('[crm] fechar versao aprovada falhou:', e); }
               save();
               render(container);
             });
