@@ -8116,7 +8116,28 @@ const Orcamento = (() => {
     const leadParaDRE = lerLeadAtivo();
     const ehInternacionalDRE = leadParaDRE && leadParaDRE.destinoTipo === 'internacional';
     const subInstParaDRE = ehInternacionalDRE ? 0 : subInst;
-    const r = calcularDRE(subFab, subInstParaDRE, params);
+
+    // Felipe (sessao 32): versao 'fechada' usa FOTOGRAFIA IMUTAVEL do
+    // momento do fechamento (dre_congelado). Aluminio sobe de R$28→R$35/kg?
+    // Aluguel muda? Acessorios reajustam? Nao importa: o que foi fechado
+    // permanece como foi orcado. Drafts continuam recalculando vivo.
+    let r;
+    let ehFotografiaImutavel = false;
+    let fotoCongeladoEm = null;
+    if (versao.status === 'fechada' && versao.dre_congelado) {
+      const dc = versao.dre_congelado;
+      // Recalcula com INPUTS CONGELADOS — mesma formula, dados antigos
+      r = calcularDRE(dc.subFab, dc.subInst, dc.parametros);
+      // Valor contratual oficial (o que cliente paga de fato) sobrescreve
+      // o pFatReal calculado — fonte de verdade e' o que foi assinado.
+      if (Number(dc.valorAprovado) > 0) {
+        r.pFatReal = Number(dc.valorAprovado);
+      }
+      ehFotografiaImutavel = true;
+      fotoCongeladoEm = dc.congeladoEm;
+    } else {
+      r = calcularDRE(subFab, subInstParaDRE, params);
+    }
 
     // Calcula instalacao SEPARADA pra exibir em separado no DRE internacional
     const lucroInstPct = ehInternacionalDRE
@@ -8279,7 +8300,7 @@ const Orcamento = (() => {
       </div>
 
       <div class="orc-section-card orc-resultado">
-        <div class="orc-section-title">Resultado DRE${ehInternacionalDRE ? ' <span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:3px 8px; border-radius:4px; font-weight:600; margin-left:8px;">🌍 SO A PORTA · R$ + USD</span>' : ''}</div>
+        <div class="orc-section-title">Resultado DRE${ehInternacionalDRE ? ' <span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:3px 8px; border-radius:4px; font-weight:600; margin-left:8px;">🌍 SO A PORTA · R$ + USD</span>' : ''}${ehFotografiaImutavel ? ' <span style="font-size:11px; color:#7c2d12; background:#fef3c7; padding:3px 8px; border-radius:4px; font-weight:600; margin-left:8px;" title="Versao fechada — valores congelados no momento do fechamento (' + new Date(fotoCongeladoEm).toLocaleDateString('pt-BR') + '). Cadastros atuais nao afetam.">📷 FOTOGRAFIA IMUTAVEL</span>' : ''}</div>
         <div class="orc-dre">
           <div class="orc-dre-row is-custo">
             <span class="orc-dre-label">Custo total${ehInternacionalDRE ? ' (porta)' : ''}</span>
