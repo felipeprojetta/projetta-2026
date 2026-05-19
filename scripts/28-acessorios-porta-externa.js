@@ -725,12 +725,12 @@ const AcessoriosPortaExterna = (() => {
     if (pinos === 16) addMaxPreco('PA-KESO16',  1, 'Fechaduras', 'fab');
     if (pinos === 24) addMaxPreco('PA-KESO24P', 1, 'Fechaduras', 'fab');
 
-    // 2. ROSETA — 2 unidades por folha (frente + verso de cada folha)
-    // Felipe sessao 12: porta 2 folhas precisa de 4 rosetas (2 por folha),
-    // antes vinha fixo em 2. Pivo ja e' * nFolhas, fecho unha ja e' 2.
+    // 2. ROSETA — 2 unidades FIXAS (frente + verso da fechadura)
+    // Felipe sessao 32 (revisao da sessao 12): antes multiplicava por nFolhas
+    // (saia 4 em 2F). A regra correta e' 2 unidades fixas em qualquer caso —
+    // a fechadura fica em UMA folha so', precisa de 1 roseta frente + 1 verso.
     if (pinos > 0) {
-      addMaxPreco('PA-KESO ROS', 2 * nFolhas, 'Fechaduras', 'fab',
-        nFolhas === 2 ? '2 por folha · frente+verso' : 'frente + verso');
+      addMaxPreco('PA-KESO ROS', 2, 'Fechaduras', 'fab', 'frente + verso');
     }
 
     // 3. CILINDRO
