@@ -1832,7 +1832,11 @@ const AcessoriosPortaExterna = (() => {
     // (chapa colada na parede) e fixo_acoplado nao tem veda porta.
     if (L > 0 && item.tipo === 'porta_externa') {
       const medida = calcularVedaPorta(L, nFolhas, FGLD, FGLE);
-      const codVeda = `PA-VED${medida}`;
+      // Felipe sessao 32: cadastro usa medida com zero a esquerda (4 digitos):
+      // PA-VED0820, PA-VED0920, PA-VED1020... Padding necessario pra
+      // bater com o codigo do cadastro (antes saia PA-VED920 sem zero).
+      const medidaPad = String(medida).padStart(4, '0');
+      const codVeda = `PA-VED${medidaPad}`;
       const qtdVeda = nFolhas === 2 ? 4 : 2;
       // Tamanho do corte do perfil PA-PA006V / PA-PA007V (BRUTO):
       //   1F:  L - FGLD - FGLE - 171.7 - 171.5 + 110 + 110
