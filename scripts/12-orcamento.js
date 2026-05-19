@@ -1494,7 +1494,21 @@ const Orcamento = (() => {
       }
       if (alvo) break;
     }
-    if (!alvo) throw new Error('atualizarVersao: versao nao encontrada');
+    if (!alvo) {
+      // Felipe sessao 32: diagnostico expandido p/ ajudar a localizar
+      // o lead/versao orfa quando o erro acontecer.
+      const totalNegocios = negocios.length;
+      const totalVersoes = negocios.reduce((acc, n) =>
+        acc + (n.opcoes || []).reduce((a, o) => a + (o.versoes || []).length, 0), 0);
+      const idsAmostra = negocios.slice(0, 3).flatMap(n =>
+        (n.opcoes || []).flatMap(o => (o.versoes || []).map(v => v.id))).slice(0, 5);
+      console.error('[atualizarVersao] versaoId procurado:', versaoId,
+        '| negocios:', totalNegocios, '| versoes totais:', totalVersoes,
+        '| UI.negocioAtivoId:', (typeof UI !== 'undefined' ? UI.negocioAtivoId : '?'),
+        '| UI.versaoAtivaId:', (typeof UI !== 'undefined' ? UI.versaoAtivaId : '?'),
+        '| amostra IDs existentes:', idsAmostra);
+      throw new Error('atualizarVersao: versao nao encontrada (id=' + versaoId + ')');
+    }
     if (alvo.status === 'fechada') {
       throw new Error('atualizarVersao: versao fechada eh imutavel — crie nova versao com criarVersao()');
     }
@@ -2222,15 +2236,62 @@ const Orcamento = (() => {
       // sobrescrevia a V1 - a V2 ficava orfa.
       // FIX: prioriza versoes NAO fechadas. Se houver alguma com status='draft',
       // pega a MAIOR numero. Se todas fechadas, pega a MAIOR numero (mais recente).
-      const todasVersoes = neg.opcoes[0].versoes || [];
+
+      // Felipe sessao 32: defesa para edge cases do restore. Negocio pode ter:
+      // 1) opcoes=[]      -> criar opcao A com versao 1
+      // 2) opcoes[0].versoes=[] -> criar versao 1 na opcao existente
+      // 3) so' tem versoes fechadas -> criar nova versao em draft pra editar
+      const negocios = loadAll();
+      const negFresh = negocios.find(n => n.id === neg.id) || neg;
+      let opcaoZero = (negFresh.opcoes && negFresh.opcoes[0]) || null;
+      if (!opcaoZero) {
+        // Caso 1: nao tem opcao. Cria A com versao 1.
+        const novaOpcaoR = criarOpcao(negFresh.id, 'A');
+        opcaoZero = novaOpcaoR.opcao;
+        // Recarrega neg fresh
+        const negPosOpcao = obterNegocio(negFresh.id);
+        if (negPosOpcao) { Object.assign(neg, negPosOpcao); }
+      }
+      let todasVersoes = (opcaoZero.versoes || []);
+      if (todasVersoes.length === 0) {
+        // Caso 2: opcao sem versao. Cria versao 1.
+        const novaVR = criarVersao(opcaoZero.id);
+        opcaoZero = (obterNegocio(neg.id) || neg).opcoes.find(o => o.id === opcaoZero.id);
+        todasVersoes = (opcaoZero && opcaoZero.versoes) || [];
+      }
       const naoFechadas = todasVersoes.filter(v => v.status !== 'fechada');
-      const candidatas = naoFechadas.length > 0 ? naoFechadas : todasVersoes;
-      // Pega versao com MAIOR numero (mais recente)
-      versaoAlvo = candidatas.reduce((maior, v) => {
-        if (!maior) return v;
-        return (Number(v.numero) || 0) > (Number(maior.numero) || 0) ? v : maior;
-      }, null);
-      if (!versaoAlvo) versaoAlvo = todasVersoes[0]; // fallback final
+      // Caso 3: so tem fechadas — cria nova versao editavel baseada na ultima fechada
+      if (naoFechadas.length === 0 && todasVersoes.length > 0) {
+        const ultimaFechada = todasVersoes.reduce((maior, v) => {
+          if (!maior) return v;
+          return (Number(v.numero) || 0) > (Number(maior.numero) || 0) ? v : maior;
+        }, null);
+        if (ultimaFechada) {
+          try {
+            const nv = criarNovaVersao(ultimaFechada.id);
+            versaoAlvo = nv;
+          } catch (e) {
+            console.warn('[inicializarSessao] criarNovaVersao falhou, fallback:', e.message);
+          }
+        }
+      }
+      if (!versaoAlvo) {
+        const candidatas = naoFechadas.length > 0 ? naoFechadas : todasVersoes;
+        // Pega versao com MAIOR numero (mais recente)
+        versaoAlvo = candidatas.reduce((maior, v) => {
+          if (!maior) return v;
+          return (Number(v.numero) || 0) > (Number(maior.numero) || 0) ? v : maior;
+        }, null);
+        if (!versaoAlvo) versaoAlvo = todasVersoes[0]; // fallback final
+      }
+    }
+    if (!versaoAlvo) {
+      // Defesa final: se ainda nao temos versao apos todos os fallbacks,
+      // algo esta MUITO errado. Log diagnostico antes de explodir.
+      console.error('[inicializarSessao] FATAL: negocio sem versao alguma apos todos os fallbacks.',
+        'negocio.id=', neg && neg.id, 'leadId=', leadIdAlvo,
+        'opcoes=', (neg && neg.opcoes && neg.opcoes.length) || 0);
+      throw new Error('inicializarSessao: negocio sem versao editavel (id=' + (neg && neg.id) + ')');
     }
     UI.versaoAtivaId = versaoAlvo.id;
     // FIX 2026-05-04: prepopular tambem quando ja existe Item 1 mas
