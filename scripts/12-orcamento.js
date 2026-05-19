@@ -2246,8 +2246,9 @@ const Orcamento = (() => {
       let opcaoZero = (negFresh.opcoes && negFresh.opcoes[0]) || null;
       if (!opcaoZero) {
         // Caso 1: nao tem opcao. Cria A com versao 1.
-        const novaOpcaoR = criarOpcao(negFresh.id, 'A');
-        opcaoZero = novaOpcaoR.opcao;
+        // Felipe sessao 32 (hotfix): criarOpcao recebe {negocioId} (objeto
+        // desestruturado), nao posicional. Retorna a opcao diretamente.
+        opcaoZero = criarOpcao({ negocioId: negFresh.id });
         // Recarrega neg fresh
         const negPosOpcao = obterNegocio(negFresh.id);
         if (negPosOpcao) { Object.assign(neg, negPosOpcao); }
@@ -2255,7 +2256,8 @@ const Orcamento = (() => {
       let todasVersoes = (opcaoZero.versoes || []);
       if (todasVersoes.length === 0) {
         // Caso 2: opcao sem versao. Cria versao 1.
-        const novaVR = criarVersao(opcaoZero.id);
+        // Felipe sessao 32 (hotfix): criarVersao recebe {opcaoId}, nao posicional.
+        const novaVR = criarVersao({ opcaoId: opcaoZero.id });
         opcaoZero = (obterNegocio(neg.id) || neg).opcoes.find(o => o.id === opcaoZero.id);
         todasVersoes = (opcaoZero && opcaoZero.versoes) || [];
       }
