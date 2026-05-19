@@ -52,6 +52,37 @@ const Storage = (() => {
   const _dirtyKeys = new Set();
   function _memKey(scope, k) { return scope + ':' + k; }
 
+  // Felipe sessao 32 (auto-cleanup): quando localStorage estoura quota,
+  // tenta liberar espaco automaticamente apagando chaves descartaveis
+  // (backups diarios auto-regeneram; forensics ja estao no Supabase).
+  // Retorna numero de chaves removidas. Se >0, vale a pena tentar setItem
+  // de novo.
+  function _tentarLiberarEspaco() {
+    var removidos = 0;
+    var keysParaRemover = [];
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (!k || k.indexOf(PREFIX) !== 0) continue;
+        // backup_diario:* (auto-regeneram a cada dia)
+        // forensic_*       (snapshots antigos da corrupcao 14/05 — ja no Supabase)
+        // *backup_2026*    (backups manuais antigos)
+        if (k.indexOf(PREFIX + 'backup_diario:') === 0
+            || k.indexOf(':forensic_') !== -1
+            || /:.*backup_20\d{2}/.test(k)) {
+          keysParaRemover.push(k);
+        }
+      }
+      keysParaRemover.forEach(function(k) {
+        try { localStorage.removeItem(k); removidos++; } catch(_) {}
+      });
+      if (removidos > 0) {
+        console.warn('[Storage] 🧹 Auto-cleanup: ' + removidos + ' chaves descartaveis removidas pra liberar espaco.');
+      }
+    } catch(_) {}
+    return removidos;
+  }
+
   // Whitelist de chaves/scopes seguras (mesmo do Database)
   // que podem ser escritas mesmo em read-only.
   function _isReadOnlyBlocked(scopeName, k) {
@@ -177,8 +208,22 @@ const Storage = (() => {
             _dirtyKeys.delete(mk);
           } catch (lsErr) {
             if (lsErr && (lsErr.name === 'QuotaExceededError' || /quota/i.test(lsErr.message || ''))) {
-              _dirtyKeys.add(mk);
-              console.warn('[Storage] ⚠️ localStorage quota cheia — usando cache em memoria. Supabase permanece source-of-truth.', scopeName + '/' + k);
+              // Felipe sessao 32: tenta liberar espaco automaticamente
+              // (backup_diario, forensics) e refaz setItem. Se conseguir,
+              // sai limpo. Se nao, marca dirty.
+              const liberadas = _tentarLiberarEspaco();
+              let recuperou = false;
+              if (liberadas > 0) {
+                try {
+                  localStorage.setItem(PREFIX + scopeName + ':' + k, JSON.stringify(value));
+                  _dirtyKeys.delete(mk);
+                  recuperou = true;
+                } catch (_) { /* ainda nao coube */ }
+              }
+              if (!recuperou) {
+                _dirtyKeys.add(mk);
+                console.warn('[Storage] ⚠️ localStorage quota cheia (mesmo apos cleanup) — usando cache em memoria. Supabase permanece source-of-truth.', scopeName + '/' + k);
+              }
             } else {
               console.warn('[Storage] localStorage.setItem falhou (nao-quota):', lsErr);
             }
