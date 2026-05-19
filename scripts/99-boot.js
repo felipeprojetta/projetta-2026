@@ -32,7 +32,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   // botao "tentar novamente" no overlay. Antes seguia em modo offline
   // silencioso e o user achava que estava tudo OK, mas ao salvar sobre-
   // -escrevia dados de outros (last-write-wins com cache stale).
-  if (Database && Database.syncFromCloud) {
+  // Felipe sessao 32: ATALHO DE EMERGENCIA. URL com ?offline=1 pula o
+  // syncFromCloud bloqueante e entra direto em modo offline. Usar quando:
+  //   - Boot travado em 'Carregando banco de dados...'
+  //   - Rede pessimo e nao quer esperar 7 tentativas (~3.5min)
+  //   - Quer trabalhar com cache local AGORA
+  // URL: https://projetta-2026.netlify.app/?offline=1
+  var _ehOfflineFlag = false;
+  try {
+    _ehOfflineFlag = new URLSearchParams(location.search).get('offline') === '1';
+  } catch(_) {}
+
+  if (_ehOfflineFlag) {
+    console.warn('[Boot] ⚠️ ATALHO ?offline=1 detectado. Pulando syncFromCloud e entrando em MODO OFFLINE.');
+    bootSetMsg('Entrando em modo offline...');
+    if (Database && Database.forceLiberarEscrita) {
+      try { Database.forceLiberarEscrita(); } catch(_) {}
+    }
+    // Tenta sync em background sem bloquear (best-effort)
+    if (Database && Database.syncFromCloud) {
+      setTimeout(function() {
+        Database.syncFromCloud().catch(function(e) {
+          console.warn('[Boot] sync background falhou (esperado em modo offline):', e.message);
+        });
+      }, 500);
+    }
+  } else if (Database && Database.syncFromCloud) {
     let tentativa = 0;
     let ok = false;
     // Felipe sessao 32: retries silenciosos com backoff antes de incomodar
