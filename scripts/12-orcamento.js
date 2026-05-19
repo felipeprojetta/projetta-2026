@@ -40,7 +40,11 @@ const Orcamento = (() => {
   const PARAMS_DEFAULT = {
     overhead:    5,   // % rateio fixo (0-30)
     impostos:    18,  // % PIS + COFINS + ISS + ICMS (0-40)
-    com_rep:     7,   // % comissao representante (0-20) — vem do cadastro de Reps
+    com_rep:     6,   // % comissao representante (0-20). Felipe sessao 32:
+                      // default 6% quando rep nao tem cadastro de comissao.
+                      // Cadastro de Reps com comissao_maxima > 0 SOBRESCREVE
+                      // (auto-aplica). Edicao manual tambem sobrescreve via
+                      // flag _com_rep_manual.
     com_rt:      5,   // % comissao RT/arquiteto (0-15)
     com_gest:    1,   // % comissao gestao interna (0-10)
     lucro_alvo:  15,  // % lucro liquido apos IRPJ+CSLL
