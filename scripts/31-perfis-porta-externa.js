@@ -284,7 +284,17 @@ const PerfisPortaExterna = (() => {
     const cortes = {};
     if (A <= 0 || L <= 0) return cortes;
 
-    const fam = (A < 4000) ? '76' : '101';
+    // Felipe sessao 32: MOLA AEREA forca PA007 (fam=101) mesmo se altura<4000.
+    // Detecta itens extras (item.itensExtras) cujo codigo contem 'MOLA'.
+    // O cadastro completo de acessorios nao esta disponivel aqui — usa so'
+    // detecao por nome do codigo (mais confiavel q assumir cadastro).
+    var _temMolaAerea = false;
+    if (item && Array.isArray(item.itensExtras) && item.itensExtras.length > 0) {
+      _temMolaAerea = item.itensExtras.some(function(cod) {
+        return /MOLA/i.test(String(cod || ''));
+      });
+    }
+    const fam = _temMolaAerea ? '101' : ((A < 4000) ? '76' : '101');
     const VARS_FAM_ATIVAS = getVarsFam();
     const v   = VARS_FAM_ATIVAS[fam];
     const cod = COD_FAM[fam];

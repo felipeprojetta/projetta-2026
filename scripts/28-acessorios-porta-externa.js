@@ -638,8 +638,24 @@ const AcessoriosPortaExterna = (() => {
     //    fam = altura<4000 ? '76' : '101', onde 76=PA006, 101=PA007).
     // Pra FIXO_ACOPLADO, item.sistema = 'PA006' ou 'PA007' explicito - usa direto.
     // Antes: 'sis === PA006' nunca era true pra porta -> sempre caia em PA007/150.
+    //
+    // Felipe sessao 32: MOLA AEREA forca PA007 mesmo se altura<4000.
+    // Detecta itens extras cujo codigo contem 'MOLA' (ex: PA-MOLAAEREA) ou
+    // cuja familia no cadastro e' 'Mola Aerea'.
+    const _temMolaAerea = (function() {
+      if (!item || !Array.isArray(item.itensExtras) || item.itensExtras.length === 0) return false;
+      return item.itensExtras.some(function(cod) {
+        var c = String(cod || '').toUpperCase();
+        if (c.indexOf('MOLA') !== -1) return true;
+        var acess = (cadastroAcessorios || []).find(function(a) {
+          return String(a.codigo || '').toUpperCase() === c;
+        });
+        return !!(acess && /mola/i.test(String(acess.familia || '')));
+      });
+    })();
     const ehPA006 = (sis === 'PA006') ? true
                   : (sis === 'PA007') ? false
+                  : _temMolaAerea ? false  // mola aerea forca PA007
                   : (H > 0 && H < 4000); // porta: altura<4000 = PA006
     const fechMec = item.fechaduraMecanica || '';
     const fechDig = item.fechaduraDigital || '';
