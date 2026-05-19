@@ -1935,6 +1935,17 @@ const AcessoriosPortaExterna = (() => {
 
     }  // ← fim do if (item.tipo === 'porta_externa') da OBRA
 
+    // Felipe sessao 32: Itens Extras (multi-select nas Caracteristicas).
+    // Cada codigo marcado em item.itensExtras vira uma linha no levantamento.
+    // Quantidade = 1 por porta (multiplicada por qtdPortas dentro de add()).
+    // So' processa se o toggle 'possuiItensExtras' estiver ativo E o array
+    // tiver pelo menos 1 codigo.
+    if (item.possuiItensExtras && Array.isArray(item.itensExtras) && item.itensExtras.length > 0) {
+      item.itensExtras.forEach(codigo => {
+        add(codigo, 1, 'Itens Extras', 'obra', 'Selecionado nas Caracteristicas');
+      });
+    }
+
     return linhas;
   }
 
