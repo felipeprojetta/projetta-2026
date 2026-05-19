@@ -27,17 +27,29 @@ const Storage = (() => {
   //
   // Bug observado: quando localStorage estoura quota (~10MB no Chrome),
   // setItem falha silenciosamente. O get subsequente le do localStorage
-  // (NAO encontra) e retorna null. Sintoma: lead recem-criado some,
-  // 'orcamento_lead_ativo' fica null, sistema cai no modo dev.
+  // (que nao tem o valor novo OU tem valor STALE de antes da falha).
+  // Sintoma: lead recem-criado some, 'orcamento_lead_ativo' fica null,
+  // versao recem-criada nao e' encontrada por atualizarVersao.
   //
-  // Fix: _memCache funciona como camada extra. set() sempre grava nele
-  // (Map em memoria, nao tem limite pratico). get() tenta localStorage
-  // primeiro (cache rapido + persistente entre reloads) e cai pra
-  // _memCache se localStorage nao tiver a chave. Reload zera _memCache,
-  // mas syncFromCloud do Database puxa tudo do Supabase no boot.
+  // Fix v2 (commit em curso): _memCache + _dirtyKeys.
+  //   - _memCache: Map<scope+key, value> em memoria. set() sempre grava aqui.
+  //   - _dirtyKeys: Set<scope+key>. Marca chaves onde localStorage falhou
+  //     no ultimo set (stale). get() consulta _dirtyKeys: se chave dirty,
+  //     confia no memCache em vez do localStorage stale.
   //
-  // Supabase continua sendo source-of-truth (set() ja dispara sbUpsert).
+  // Pra chaves nao-dirty (caso comum), comportamento e' identico ao antes:
+  //   - get le do localStorage primeiro
+  //   - memCache so' e' usado como fallback final se localStorage nao tem
+  //
+  // Isso preserva integracoes com Database.js (syncFromCloud, mergeProtegido,
+  // realtime) que escrevem direto no localStorage — get continua respeitando
+  // esses writes, EXCETO em chaves marcadas como dirty (onde memCache e' mais
+  // novo que localStorage stale).
+  //
+  // Reload zera memCache+dirtyKeys (closure novo). syncFromCloud do Database
+  // puxa tudo do Supabase no boot. Supabase = source-of-truth.
   const _memCache = new Map();
+  const _dirtyKeys = new Set();
   function _memKey(scope, k) { return scope + ':' + k; }
 
   // Whitelist de chaves/scopes seguras (mesmo do Database)
@@ -89,14 +101,23 @@ const Storage = (() => {
     scope(scopeName) {
       return {
         get(k, fallback = null) {
+          const mk = _memKey(scopeName, k);
+          // Felipe sessao 32 (fix v2): se localStorage esta marcado dirty
+          // (ultimo set falhou por quota), confia direto no memCache pra essa
+          // chave. Resolve: lead novo some, atualizarVersao nao acha versao
+          // recem-criada, etc.
+          if (_dirtyKeys.has(mk)) {
+            const memVal = _memCache.get(mk);
+            if (memVal !== undefined) return memVal;
+          }
           try {
             const raw = localStorage.getItem(PREFIX + scopeName + ':' + k);
             if (raw !== null) return JSON.parse(raw);
           } catch (e) { /* corrupted localStorage entry — falls back below */ }
-          // Felipe sessao 32: fallback pro cache em memoria. Resolve o caso
-          // onde set() acabou de gravar mas localStorage rejeitou por quota
-          // cheia. Sem isso, o lead recem-criado some no proximo get.
-          const memVal = _memCache.get(_memKey(scopeName, k));
+          // Fallback final: memCache mesmo quando nao dirty (caso onde
+          // localStorage esta vazio mas set anterior nao falhou — improvavel
+          // mas defensivo).
+          const memVal = _memCache.get(mk);
           if (memVal !== undefined) return memVal;
           return fallback;
         },
@@ -145,11 +166,18 @@ const Storage = (() => {
           // Felipe sessao 32: SEMPRE grava no _memCache primeiro. Garante que
           // get() subsequente acha a chave mesmo se localStorage estiver cheio
           // (caso 'novo lead some apos clicar Montar Orcamento').
-          _memCache.set(_memKey(scopeName, k), value);
+          //
+          // Felipe sessao 32 (v2): rastreia _dirtyKeys. Sucesso no localStorage
+          // -> limpa dirty (memCache e localStorage sincronizados). Falha por
+          // quota -> marca dirty (memCache mais novo que localStorage stale).
+          const mk = _memKey(scopeName, k);
+          _memCache.set(mk, value);
           try {
             localStorage.setItem(PREFIX + scopeName + ':' + k, JSON.stringify(value));
+            _dirtyKeys.delete(mk);
           } catch (lsErr) {
             if (lsErr && (lsErr.name === 'QuotaExceededError' || /quota/i.test(lsErr.message || ''))) {
+              _dirtyKeys.add(mk);
               console.warn('[Storage] ⚠️ localStorage quota cheia — usando cache em memoria. Supabase permanece source-of-truth.', scopeName + '/' + k);
             } else {
               console.warn('[Storage] localStorage.setItem falhou (nao-quota):', lsErr);
@@ -178,8 +206,10 @@ const Storage = (() => {
             console.warn('[Storage] ⛔ Remove bloqueado (sem permissao):', scopeName, '/', k);
             return;
           }
-          // Felipe sessao 32: limpa cache em memoria tambem
-          _memCache.delete(_memKey(scopeName, k));
+          // Felipe sessao 32: limpa cache em memoria + dirty state tambem
+          const mk = _memKey(scopeName, k);
+          _memCache.delete(mk);
+          _dirtyKeys.delete(mk);
           localStorage.removeItem(PREFIX + scopeName + ':' + k);
           Events.emit('db:change', { scope: scopeName, key: k, value: null });
         },
