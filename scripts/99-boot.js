@@ -35,9 +35,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (Database && Database.syncFromCloud) {
     let tentativa = 0;
     let ok = false;
+    // Felipe sessao 32: retries silenciosos com backoff antes de incomodar
+    // o user. Sintoma anterior: "Erro ao conectar" aparecia VARIAS VEZES
+    // antes do sistema entrar. Agora as 4 primeiras falhas ficam invisiveis
+    // (so' log no console). Total ~7.5s no pior caso antes de mostrar
+    // popup vermelho.
+    const MAX_SILENT_RETRIES = 4;
+    const RETRY_DELAYS_MS = [500, 1000, 2000, 4000];
     while (!ok) {
       tentativa++;
-      bootSetMsg(tentativa === 1 ? 'Carregando banco de dados...' : 'Tentativa ' + tentativa + '...');
+      // Mensagem amigavel - nao expoe contagem de tentativa nas primeiras
+      if (tentativa === 1) {
+        bootSetMsg('Carregando banco de dados...');
+      } else if (tentativa <= MAX_SILENT_RETRIES) {
+        bootSetMsg('Sincronizando...');
+      } else {
+        bootSetMsg('Tentativa ' + tentativa + '...');
+      }
       try {
         await Database.syncFromCloud();
         // syncFromCloud so' libera _readOnlyMode se sucesso.
@@ -48,6 +62,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         ok = true;
       } catch (e) {
         console.warn('[Boot] syncFromCloud tentativa ' + tentativa + ' falhou:', e.message);
+        // Felipe sessao 32: nas primeiras N tentativas, retry AUTOMATICO
+        // sem mostrar erro vermelho. Backoff exponencial pra dar tempo
+        // pra rede estabilizar.
+        if (tentativa <= MAX_SILENT_RETRIES) {
+          const delayIdx = Math.min(tentativa - 1, RETRY_DELAYS_MS.length - 1);
+          await new Promise(function(resolve) { setTimeout(resolve, RETRY_DELAYS_MS[delayIdx]); });
+          continue;
+        }
+        // So' apos esgotar retries silenciosos, mostra popup pro user
         bootShowError(e.message || 'Falha desconhecida');
         // Espera o usuario clicar em "tentar novamente"
         await new Promise(function(resolve) {
