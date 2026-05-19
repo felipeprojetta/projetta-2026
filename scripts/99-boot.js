@@ -37,18 +37,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     let ok = false;
     // Felipe sessao 32: retries silenciosos com backoff antes de incomodar
     // o user. Sintoma anterior: "Erro ao conectar" aparecia VARIAS VEZES
-    // antes do sistema entrar. Agora as 4 primeiras falhas ficam invisiveis
-    // (so' log no console). Total ~7.5s no pior caso antes de mostrar
-    // popup vermelho.
-    const MAX_SILENT_RETRIES = 4;
-    const RETRY_DELAYS_MS = [500, 1000, 2000, 4000];
+    // antes do sistema entrar. Agora as 6 primeiras falhas ficam visiveis
+    // como progresso ("Sincronizando... (N/6)"), sem popup vermelho.
+    // Backoff curto pra acelerar recovery em redes lentas.
+    const MAX_SILENT_RETRIES = 6;
+    const RETRY_DELAYS_MS = [200, 500, 1000, 1500, 2000, 3000];
     while (!ok) {
       tentativa++;
-      // Mensagem amigavel - nao expoe contagem de tentativa nas primeiras
+      // Mensagem amigavel - mostra progresso explicito a partir da 2a tentativa
       if (tentativa === 1) {
         bootSetMsg('Carregando banco de dados...');
       } else if (tentativa <= MAX_SILENT_RETRIES) {
-        bootSetMsg('Sincronizando...');
+        bootSetMsg('Sincronizando... (tentativa ' + tentativa + '/' + (MAX_SILENT_RETRIES + 1) + ')');
       } else {
         bootSetMsg('Tentativa ' + tentativa + '...');
       }
@@ -72,19 +72,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         // So' apos esgotar retries silenciosos, mostra popup pro user
         bootShowError(e.message || 'Falha desconhecida');
-        // Espera o usuario clicar em "tentar novamente"
-        await new Promise(function(resolve) {
-          var btn = document.getElementById('boot-retry-btn');
-          if (!btn) return resolve(); // fallback se HTML faltar
-          btn.onclick = function() {
-            // Reseta UI pra estado de loading
-            var sub = document.getElementById('boot-loading-sub');
-            var retry = document.getElementById('boot-loading-retry');
-            if (sub) sub.style.display = 'block';
-            if (retry) retry.style.display = 'none';
-            resolve();
-          };
+        // Espera o usuario clicar em "tentar novamente" OU "continuar offline"
+        // Felipe sessao 32: novo botao "continuar offline" pra desbloquear
+        // o user quando Supabase esta lento/offline. Libera modo escrita
+        // com cache local (Supabase volta a sync assim que conectar).
+        var resolveAcao = await new Promise(function(resolve) {
+          var btnRetry   = document.getElementById('boot-retry-btn');
+          var btnOffline = document.getElementById('boot-offline-btn');
+          if (!btnRetry && !btnOffline) return resolve('retry');
+          if (btnRetry) {
+            btnRetry.onclick = function() {
+              // Reseta UI pra estado de loading
+              var sub = document.getElementById('boot-loading-sub');
+              var retry = document.getElementById('boot-loading-retry');
+              if (sub) sub.style.display = 'block';
+              if (retry) retry.style.display = 'none';
+              resolve('retry');
+            };
+          }
+          if (btnOffline) {
+            btnOffline.onclick = function() {
+              resolve('offline');
+            };
+          }
         });
+        if (resolveAcao === 'offline') {
+          // Sai do loop em modo offline. Libera escrita local (Supabase
+          // continua tentando em background via realtime polling).
+          console.warn('[Boot] Usuario escolheu CONTINUAR OFFLINE. Sistema em modo local.');
+          if (Database && Database.forceLiberarEscrita) {
+            try { Database.forceLiberarEscrita(); } catch(_) {}
+          }
+          ok = true; // sai do while
+        }
       }
     }
   }

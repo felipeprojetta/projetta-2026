@@ -566,13 +566,13 @@ const Database = (() => {
   // _readOnlyMode = false. Sucesso aqui = sistema pode escrever.
   async function syncFromCloud() {
     try {
-      // Felipe sessao 32: timeout de 15s no fetch. Sem isso, se a conexao
+      // Felipe sessao 32: timeout de 30s no fetch. Sem isso, se a conexao
       // travar (rede pessima, DNS pendurado, Supabase nao respondendo),
       // o boot ficava preso pra sempre na tela 'Carregando banco de dados...'
-      // sem nunca cair no retry. Agora aborta apos 15s -> throw -> retry
+      // sem nunca cair no retry. Agora aborta apos 30s -> throw -> retry
       // silencioso do boot (99-boot.js).
       var controller = new AbortController();
-      var timer = setTimeout(function() { controller.abort(); }, 15000);
+      var timer = setTimeout(function() { controller.abort(); }, 30000);
       var res;
       try {
         res = await fetch(SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor&order=scope,key', {
@@ -1031,6 +1031,16 @@ const Database = (() => {
     SUPABASE_URL: SUPABASE_URL,
     // Felipe sessao 2026-08-02: protecao anti-perda
     isReadOnly: isReadOnly,
+    // Felipe sessao 32: usado pelo botao "Continuar Offline" do boot
+    // quando Supabase esta inacessivel. Libera modo escrita pro user
+    // poder trabalhar com cache local. Realtime polling continua tentando
+    // sync em background — quando voltar, write-through retoma.
+    forceLiberarEscrita: function() {
+      _readOnlyMode = false;
+      _syncStatus = { lastSync: null, online: false, error: 'offline_mode_user_choice' };
+      _emitStatus();
+      console.warn('[DB] forceLiberarEscrita: modo escrita liberado em MODO OFFLINE. Use com cuidado.');
+    },
     getSyncStatus: getSyncStatus,
     onSyncStatusChange: onSyncStatusChange,
     // Felipe sessao 14: tombstones (delecoes intencionais)

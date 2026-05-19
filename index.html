@@ -104,9 +104,14 @@
         <div style="font-weight:600; margin-bottom:4px;">Erro ao conectar com o servidor</div>
         <div id="boot-loading-err" style="font-size:13px; opacity:0.9;"></div>
       </div>
-      <button id="boot-retry-btn" style="background:#c47012; color:#fff; border:0;
-              padding:12px 28px; border-radius:6px; font-size:14px; font-weight:600;
-              cursor:pointer; letter-spacing:0.5px;">TENTAR NOVAMENTE</button>
+      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+        <button id="boot-retry-btn" style="background:#c47012; color:#fff; border:0;
+                padding:12px 28px; border-radius:6px; font-size:14px; font-weight:600;
+                cursor:pointer; letter-spacing:0.5px;">TENTAR NOVAMENTE</button>
+        <button id="boot-offline-btn" style="background:transparent; color:#fff; border:1px solid #fff;
+                padding:12px 28px; border-radius:6px; font-size:14px; font-weight:600;
+                cursor:pointer; letter-spacing:0.5px;" title="Trabalhar com cache local. Sincroniza assim que a conexao voltar.">CONTINUAR OFFLINE</button>
+      </div>
     </div>
   </div>
   <style>@keyframes bootSpin { to { transform: rotate(360deg); } }</style>
@@ -198,7 +203,7 @@
        ============================================================ -->
 
   <!-- INFRA CORE (carregar nesta ordem) -->
-  <script src="scripts/00-database.js?v=20260518204500"></script>
+  <script src="scripts/00-database.js?v=20260518210000"></script>
   <script src="scripts/01-storage.js?v=20260518193000"></script>
   <script src="scripts/01b-system-protection.js?v=20260514308000"></script>
   <script src="scripts/02-events.js?v=20260504165008"></script>
@@ -285,7 +290,7 @@
   <script src="scripts/53-auto-rerender.js?v=20260505201000"></script>
   <script src="scripts/54-permissoes.js?v=20260505207000"></script>
   <script src="scripts/55-version-check.js?v=20260514212401"></script>
-  <script src="scripts/99-boot.js?v=20260518195000"></script>
+  <script src="scripts/99-boot.js?v=20260518210000"></script>
 
 </body>
 </html>
