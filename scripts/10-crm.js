@@ -3640,8 +3640,39 @@
                 // usa from.emailAddress.address (Microsoft Graph API) - NAO
                 // from.address. Antes a opcao 'Email da Reserva' NUNCA
                 // aparecia porque remetenteReserva ficava sempre vazio.
-                const remetenteReserva = (emailOrigem.from && emailOrigem.from.emailAddress && emailOrigem.from.emailAddress.address) || '';
-                const remetenteNome    = (emailOrigem.from && emailOrigem.from.emailAddress && emailOrigem.from.emailAddress.name) || '';
+                //
+                // Felipe sessao 32: BUG quando Projetta envia V01 pelo sistema,
+                // o ULTIMO email da thread tem from=vendas01@projettaaluminio.com.
+                // No V02 ao clicar Enviar Proposta, o sistema respondia A SI MESMO
+                // (vendas01) em vez do representante. Fix: detecta dominio
+                // projettaaluminio.com e, se o ultimo from for Projetta, busca
+                // nos emails anteriores o primeiro from que NAO seja Projetta -
+                // esse e' o representante/cliente externo real.
+                function _ehDominioProjetta(addr) {
+                  return !!(addr && String(addr).toLowerCase().endsWith('@projettaaluminio.com'));
+                }
+                // Acha o email "remetente externo" - 1o from da thread que nao seja Projetta.
+                // Itera em ordem DESC (emails ja foram sorted desc), entao pega o mais
+                // recente nao-Projetta.
+                let emailRemetenteExterno = null;
+                for (let i = 0; i < emails.length; i++) {
+                  const fAddr = emails[i].from && emails[i].from.emailAddress && emails[i].from.emailAddress.address;
+                  if (fAddr && !_ehDominioProjetta(fAddr)) {
+                    emailRemetenteExterno = emails[i];
+                    break;
+                  }
+                }
+                // remetenteReserva: usado pra MOSTRAR no modal e como TO do reply-all.
+                // Se o ultimo email for de Projetta, usa o externo encontrado.
+                // Senao usa o ultimo (comportamento original).
+                const fromUltimoRaw = (emailOrigem.from && emailOrigem.from.emailAddress && emailOrigem.from.emailAddress.address) || '';
+                const fromUltimoEhProjetta = _ehDominioProjetta(fromUltimoRaw);
+                const remetenteReserva = (fromUltimoEhProjetta && emailRemetenteExterno)
+                  ? (emailRemetenteExterno.from.emailAddress.address || '')
+                  : fromUltimoRaw;
+                const remetenteNome = (fromUltimoEhProjetta && emailRemetenteExterno)
+                  ? (emailRemetenteExterno.from.emailAddress.name || '')
+                  : ((emailOrigem.from && emailOrigem.from.emailAddress && emailOrigem.from.emailAddress.name) || '');
                 const clienteEmail = (lead.email || '').trim();
 
                 // Templates editaveis vindos do modulo Mensagens
@@ -3877,10 +3908,14 @@
                     } catch(_){}
 
                     // TO = remetente do ultimo email (mais recente),
-                    // ja' que emails[0] e' o mais recente apos sort DESC
-                    const toFromUltimo = (emailOrigem.from
-                      && emailOrigem.from.emailAddress
-                      && emailOrigem.from.emailAddress.address) || '';
+                    // ja' que emails[0] e' o mais recente apos sort DESC.
+                    //
+                    // Felipe sessao 32: BUG quando Projetta envia o ultimo email
+                    // (V01 pelo sistema), o from e' vendas01@projettaaluminio.com.
+                    // V02 ao clicar Enviar Proposta respondia A SI MESMO. Fix:
+                    // usa `remetenteReserva` (ja computado acima) que ja resolve
+                    // pro 1o externo nao-Projetta quando o ultimo from e' Projetta.
+                    const toFromUltimo = remetenteReserva || '';
                     const toFinal = [];
                     if (toFromUltimo && toFromUltimo.toLowerCase() !== meuEmail) {
                       toFinal.push(toFromUltimo);
