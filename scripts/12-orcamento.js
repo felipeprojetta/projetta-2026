@@ -2270,7 +2270,10 @@ const Orcamento = (() => {
         }, null);
         if (ultimaFechada) {
           try {
-            const nv = criarNovaVersao(ultimaFechada.id);
+            // Felipe sessao 32 (hotfix): criarNovaVersao exige modo
+            // valido. 'reset-calculos' mantem caracteristicas (modelo,
+            // cor, largura, altura, alisar etc) e zera apenas calculos/DRE.
+            const nv = criarNovaVersao(ultimaFechada.id, 'reset-calculos');
             versaoAlvo = nv;
           } catch (e) {
             console.warn('[inicializarSessao] criarNovaVersao falhou, fallback:', e.message);
