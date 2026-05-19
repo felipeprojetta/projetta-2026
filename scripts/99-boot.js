@@ -82,7 +82,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         // syncFromCloud so' libera _readOnlyMode se sucesso.
         // Se nao liberou, considera falha (servidor offline / sem rows).
         if (Database.isReadOnly && Database.isReadOnly()) {
-          throw new Error('Servidor nao retornou dados (offline ou banco vazio)');
+          // Felipe sessao 32: usa o erro REAL do syncStatus pra dar contexto
+          // ao usuario. Antes mostrava generico 'offline ou banco vazio' que
+          // mascarava bug HTTP (filtro malformado, RLS bloqueando, etc).
+          var statusReal = (Database.getSyncStatus && Database.getSyncStatus()) || {};
+          var msgReal = statusReal.error
+            ? 'Falha: ' + statusReal.error
+            : 'Servidor nao retornou dados (offline ou banco vazio)';
+          throw new Error(msgReal);
         }
         ok = true;
       } catch (e) {

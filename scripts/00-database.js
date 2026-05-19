@@ -641,15 +641,12 @@ const Database = (() => {
       var timer = setTimeout(function() { controller.abort(); }, 30000);
       var res;
       try {
-        // Felipe sessao 32: FILTRA backups e forensics no SERVIDOR.
-        // Reduz payload de ~14 MB (193 rows com modelos_lista de 1.87 MB
-        // × 5 dias de backup_diario + backup_manual + forensics) pra ~3 MB
-        // so' com core. Drasticamente mais rapido em redes lentas.
-        // Sintaxe PostgREST: not.in.(...) pra excluir scopes; not.like.*
-        // pra forensics (sao varios scopes distintos).
-        var _scopeFilter = '&scope=not.in.(backup_diario,backup_manual)'
-                         + '&scope=not.like.forensic*';
-        res = await fetch(SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor&order=scope,key' + _scopeFilter, {
+        // Felipe sessao 32: filtro de scope REMOVIDO. PostgREST tava
+        // retornando 4xx por causa do '*' no not.like, ou alguma quirk
+        // da versao. Volta a baixar tudo e filtra no cliente (mais lento
+        // mas funcional). Anti-cache de backups e' aplicado em rowsBackup
+        // depois.
+        res = await fetch(SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor&order=scope,key', {
           headers: sbHeaders(false),
           signal: controller.signal,
         });
@@ -657,14 +654,31 @@ const Database = (() => {
         clearTimeout(timer);
       }
       if (!res.ok) {
-        console.warn('[DB] syncFromCloud HTTP', res.status, '- READ-ONLY mantido');
-        _syncStatus = { lastSync: null, online: false, error: 'http_' + res.status };
+        var bodyTxt = '';
+        try { bodyTxt = await res.text(); } catch(_) {}
+        console.error('[DB] syncFromCloud HTTP', res.status, '- body:', (bodyTxt||'').substring(0, 200));
+        _syncStatus = { lastSync: null, online: false, error: 'http_' + res.status + (bodyTxt ? ': ' + bodyTxt.substring(0,80) : '') };
         _emitStatus();
         return false;
       }
-      var rows = await res.json();
+      var rows;
+      try {
+        rows = await res.json();
+      } catch(eJson) {
+        console.error('[DB] syncFromCloud parse error:', eJson.message);
+        _syncStatus = { lastSync: null, online: false, error: 'parse_error: ' + eJson.message };
+        _emitStatus();
+        return false;
+      }
       if (!Array.isArray(rows)) {
-        _syncStatus = { lastSync: null, online: false, error: 'resposta_invalida' };
+        console.error('[DB] syncFromCloud resposta nao e array. Tipo:', typeof rows, '- conteudo:', JSON.stringify(rows).substring(0, 200));
+        _syncStatus = { lastSync: null, online: false, error: 'resposta_invalida: ' + JSON.stringify(rows).substring(0,80) };
+        _emitStatus();
+        return false;
+      }
+      if (rows.length === 0) {
+        console.error('[DB] syncFromCloud retornou array VAZIO. Banco realmente vazio? Possivel RLS bloqueando.');
+        _syncStatus = { lastSync: null, online: false, error: 'banco_vazio' };
         _emitStatus();
         return false;
       }
