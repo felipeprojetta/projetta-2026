@@ -566,9 +566,22 @@ const Database = (() => {
   // _readOnlyMode = false. Sucesso aqui = sistema pode escrever.
   async function syncFromCloud() {
     try {
-      var res = await fetch(SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor&order=scope,key', {
-        headers: sbHeaders(false),
-      });
+      // Felipe sessao 32: timeout de 15s no fetch. Sem isso, se a conexao
+      // travar (rede pessima, DNS pendurado, Supabase nao respondendo),
+      // o boot ficava preso pra sempre na tela 'Carregando banco de dados...'
+      // sem nunca cair no retry. Agora aborta apos 15s -> throw -> retry
+      // silencioso do boot (99-boot.js).
+      var controller = new AbortController();
+      var timer = setTimeout(function() { controller.abort(); }, 15000);
+      var res;
+      try {
+        res = await fetch(SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor&order=scope,key', {
+          headers: sbHeaders(false),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
       if (!res.ok) {
         console.warn('[DB] syncFromCloud HTTP', res.status, '- READ-ONLY mantido');
         _syncStatus = { lastSync: null, online: false, error: 'http_' + res.status };
