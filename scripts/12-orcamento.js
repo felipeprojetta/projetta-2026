@@ -16335,14 +16335,23 @@ const Orcamento = (() => {
     // (label/largura/altura podem mudar; o indice nao muda durante uma
     // sessao de edicao). Sem isso, editar largura+altura simultaneamente
     // perdia a 2a edicao porque a chave mudava entre passadas.
+    // FIX 32.1: renderTabelaPecas recebe itemIdx (nao item). Resolve o
+    // objeto item via versao atual.
+    let _itemParaIdx = null;
+    try {
+      const _r = obterVersao(UI.versaoAtivaId);
+      if (_r && _r.versao && Array.isArray(_r.versao.itens)) {
+        _itemParaIdx = _r.versao.itens[itemIdx] || null;
+      }
+    } catch (_) {}
     const _idxsManuais = new Map(); // peca obj -> indice no pecasManuaisExtras
-    if (item && Array.isArray(item.pecasManuaisExtras)) {
-      // Match por (label, largura, altura, cor) original — primeira vez,
+    if (_itemParaIdx && Array.isArray(_itemParaIdx.pecasManuaisExtras)) {
+      // Match por (label, largura, altura) original — primeira vez,
       // antes de qualquer edicao, esses campos batem 1:1 com a peca renderizada.
       const usados = new Set();
       pecas.forEach(p => {
         if (!p._manual) return;
-        const idx = item.pecasManuaisExtras.findIndex((m, i) =>
+        const idx = _itemParaIdx.pecasManuaisExtras.findIndex((m, i) =>
           !usados.has(i) &&
           m.label === p.label &&
           Number(m.largura) === Number(p.largura) &&
