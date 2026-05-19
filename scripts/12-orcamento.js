@@ -11561,8 +11561,13 @@ const Orcamento = (() => {
         temFrete = itc && itc.freteMaritimo === true;
         incotermLabel = incoterm;
       } else {
-        // Nacional: frete = valor manual (inst_terceiros_transp) ou modo projetta
-        if (inst.modo === 'projetta') {
+        // Nacional: frete = valor manual (inst_terceiros_transp) ou modo projetta.
+        // Felipe sessao 32: 'sem_instalacao' DESLIGA o modo projetta — sem
+        // instalacao da Projetta, nao tem frete da Projetta tambem.
+        // Frete passa a ser apenas o que estiver em inst_terceiros_transp.
+        if (inst.sem_instalacao) {
+          temFrete = (Number(inst.inst_terceiros_transp) || 0) > 0;
+        } else if (inst.modo === 'projetta') {
           temFrete = true;
         } else {
           temFrete = (Number(inst.inst_terceiros_transp) || 0) > 0;
