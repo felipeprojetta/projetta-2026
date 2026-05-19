@@ -2991,6 +2991,12 @@ const Orcamento = (() => {
       fglDir: fg.fglDir,
       fglEsq: fg.fglEsq,
       fgSup:  fg.fgSup,
+      // Felipe sessao 32: Itens Extras — toggle + array de codigos de
+      // acessorios marcados (familia 'Itens Extras' no cadastro). Default
+      // false (= 'Nao se aplica'). Quando true, user escolhe quais
+      // acessorios extras incluir; eles entram no Levantamento de Acessorios.
+      possuiItensExtras: false,
+      itensExtras: [],
       // marcadores: campos editados manualmente pelo usuario sao registrados aqui
       // pra exibir o aviso "fora da regra" quando saem do valor calculado
       _overrides: {},
@@ -5731,6 +5737,57 @@ const Orcamento = (() => {
             </div>
           </div>
         </div>` : ''}
+
+        ${(() => {
+          // Felipe sessao 32: secao Itens Extras. Default desativado
+          // ('Nao se aplica'). Quando ativa, lista todos acessorios com
+          // familia='Itens Extras' como checkboxes. Marcados entram no
+          // Levantamento de Acessorios (integracao no commit seguinte).
+          const acessoriosFull = (typeof Storage !== 'undefined' && Storage.scope)
+            ? (Storage.scope('cadastros').get('acessorios_lista') || [])
+            : [];
+          const itensExtrasCat = acessoriosFull.filter(a =>
+            /^itens\s*extras$/i.test(String(a.familia || '').trim())
+          );
+          const possui = !!item.possuiItensExtras;
+          const selecionados = Array.isArray(item.itensExtras) ? item.itensExtras : [];
+          return `
+        <div class="orc-section" id="orc-field-itens-extras">
+          <div class="orc-section-title">Itens Extras</div>
+          <div class="orc-form-row">
+            <div class="orc-field" style="flex: 0 0 auto;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight: normal;">
+                <input type="checkbox" data-field="possuiItensExtras"
+                       ${possui ? 'checked' : ''}
+                       style="margin:0; width:16px; height:16px; cursor:pointer;" />
+                <span>${possui ? 'Selecionar itens extras abaixo:' : 'Nao se aplica'}</span>
+              </label>
+            </div>
+          </div>
+          ${possui ? (
+            itensExtrasCat.length === 0
+              ? `<p style="font-size:12px; color: var(--text-muted); margin: 8px 0 0 0;">
+                   Nenhum acessorio cadastrado com familia "Itens Extras". Cadastre em <strong>Cadastros &gt; Acessorios</strong>.
+                 </p>`
+              : `<div style="display:flex; flex-direction:column; gap:6px; margin-top:8px; padding:10px; background: var(--bg-subtle, #f8fafc); border-radius:6px;">
+                   ${itensExtrasCat.map(a => {
+                     const checked = selecionados.includes(a.codigo) ? 'checked' : '';
+                     const preco = Number(a.preco || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                     return `
+                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:normal; padding:4px 0;">
+                       <input type="checkbox" class="orc-item-extra-chk" data-codigo="${escapeHtml(a.codigo)}" ${checked}
+                              style="margin:0; width:16px; height:16px; cursor:pointer;" />
+                       <span style="flex:1;">
+                         <strong>${escapeHtml(a.codigo)}</strong>
+                         ${a.descricao && a.descricao !== a.codigo ? ` — ${escapeHtml(a.descricao)}` : ''}
+                         <span style="color: var(--text-muted, #64748b); font-size:12px;"> · R$ ${preco}${a.fornecedor ? ' · ' + escapeHtml(a.fornecedor) : ''}</span>
+                       </span>
+                     </label>`;
+                   }).join('')}
+                 </div>`
+          ) : ''}
+        </div>`;
+        })()}
         ` : ''}
       </div>
     `;
@@ -5826,7 +5883,9 @@ const Orcamento = (() => {
       // os campos gatilho (largura, altura, modelo, revestimento, fechaduraDigital)
       // re-renderizam a aba, o que faria o usuario perder o foco a cada tecla.
       el.addEventListener('change', () => {
-        const v = el.value;
+        // Felipe sessao 32: suporta checkboxes (ex: possuiItensExtras).
+        // Pra checkbox, el.value e' sempre 'on' — leitura correta e' el.checked.
+        const v = (el.type === 'checkbox') ? el.checked : el.value;
 
         // CRITICO: 1 load so por handler.
         const r = obterVersao(UI.versaoAtivaId);
@@ -6029,10 +6088,42 @@ const Orcamento = (() => {
         // tambem (pra mostrar/esconder perfilMoldura). Mudar tipoMoldura
         // (pra mostrar quantasDivisoes quando = Divisoes Iguais). Mudar
         // tem_alisar (pra esconder largura_alisar/espessura_parede).
-        const camposGatilho = ['largura', 'altura', 'modeloNumero', 'modeloExterno', 'modeloInterno', 'revestimento', 'fechaduraDigital', 'quantidadeMolduras', 'tipoMoldura', 'tem_alisar'];
+        const camposGatilho = ['largura', 'altura', 'modeloNumero', 'modeloExterno', 'modeloInterno', 'revestimento', 'fechaduraDigital', 'quantidadeMolduras', 'tipoMoldura', 'tem_alisar', 'possuiItensExtras'];
         const camposComRegraRender = ['sistema', 'fechaduraMecanica', 'cilindro'];
         if (camposGatilho.includes(field) || camposComRegraRender.includes(field)) {
           renderItemTab(container);
+        }
+      });
+    });
+
+    // Felipe sessao 32: checkboxes de Itens Extras (multi-select).
+    // Cada checkbox tem data-codigo='PA-XXX'. Marcado adiciona ao array
+    // item.itensExtras; desmarcado remove. Sem re-render (preserva foco
+    // do user em outros checkboxes).
+    container.querySelectorAll('.orc-item-extra-chk').forEach(chk => {
+      chk.addEventListener('change', () => {
+        const r = obterVersao(UI.versaoAtivaId);
+        if (!r || !r.versao) return;
+        const versao = r.versao;
+        const idx = UI.itemSelecionadoIdx;
+        const item = (versao.itens || [])[idx];
+        if (!item) return;
+        const codigo = chk.dataset.codigo;
+        if (!codigo) return;
+        if (!Array.isArray(item.itensExtras)) item.itensExtras = [];
+        const pos = item.itensExtras.indexOf(codigo);
+        if (chk.checked && pos === -1) {
+          item.itensExtras.push(codigo);
+        } else if (!chk.checked && pos !== -1) {
+          item.itensExtras.splice(pos, 1);
+        }
+        try {
+          atualizarVersao(versao.id, { itens: versao.itens });
+          if (window.OrcamentoWizard && typeof window.OrcamentoWizard.resetar === 'function') {
+            window.OrcamentoWizard.resetar();
+          }
+        } catch (e) {
+          console.warn('[orcamento] erro ao salvar itensExtras:', e.message);
         }
       });
     });
