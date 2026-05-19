@@ -75,6 +75,63 @@ const Database = (() => {
   // pro cloud antes de qualquer fechamento de aba.
   var _sbUpsertPayloads = {};
 
+  // Felipe sessao 32: FILA DE UPSERTS PENDENTES quando rede falha.
+  // Persistida em localStorage pra sobreviver a reload. Quando _sbUpsertExecuta
+  // falha (rede), o item entra na fila. Drenagem automatica a cada 30s e
+  // imediata ao detectar volta de conexao (syncFromCloud OK).
+  //
+  // Politica: pra mesma (scope, key), so' o ULTIMO valor fica na fila
+  // (dedupe automatico). Maximo 100 itens (se passar, descarta os mais antigos).
+  var _FILA_PENDENTES_KEY = PREFIX + '_sync_fila_pendentes';
+  var _FILA_MAX = 100;
+  function _filaCarregar() {
+    try {
+      var raw = localStorage.getItem(_FILA_PENDENTES_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch(_) { return []; }
+  }
+  function _filaSalvar(arr) {
+    try {
+      localStorage.setItem(_FILA_PENDENTES_KEY, JSON.stringify(arr.slice(-_FILA_MAX)));
+    } catch(_) {}
+  }
+  function _filaEnfileirar(scope, key, value) {
+    var fila = _filaCarregar();
+    // Dedupe: remove anteriores pra mesma chave (ultimo vence)
+    for (var i = fila.length - 1; i >= 0; i--) {
+      if (fila[i].scope === scope && fila[i].key === key) fila.splice(i, 1);
+    }
+    fila.push({ scope: scope, key: key, value: value, ts: Date.now() });
+    _filaSalvar(fila);
+    console.warn('[DB] 📦 upsert enfileirado pra retry (offline): ' + scope + '/' + key + ' (total fila: ' + fila.length + ')');
+  }
+  async function _filaDrenar() {
+    var fila = _filaCarregar();
+    if (fila.length === 0) return 0;
+    console.log('[DB] 🔄 tentando drenar fila pendente: ' + fila.length + ' itens');
+    var aindaPendentes = [];
+    var ok = 0;
+    for (var i = 0; i < fila.length; i++) {
+      var item = fila[i];
+      try {
+        var sucesso = await _sbUpsertExecuta(item.scope, item.key, item.value);
+        if (sucesso) ok++;
+        else aindaPendentes.push(item);
+      } catch(_) {
+        aindaPendentes.push(item);
+      }
+    }
+    _filaSalvar(aindaPendentes);
+    if (ok > 0) console.log('[DB] ✅ drenado ' + ok + ' itens da fila. Restam ' + aindaPendentes.length + '.');
+    return ok;
+  }
+  // Drenagem automatica a cada 30s
+  setInterval(function() {
+    var fila = _filaCarregar();
+    if (fila.length > 0 && !_readOnlyMode) _filaDrenar();
+  }, 30000);
+
   // Felipe sessao 13 — BUG CRITICO "cadastro mostra 7,09 mas orcamento usa 14,18".
   // Causa-raiz: usuario importa planilha → set() local atualiza localStorage
   // imediato, mas sbUpsert tem debounce 500ms. Antes do upload propagar,
@@ -517,6 +574,11 @@ const Database = (() => {
             } else {
               console.error('[DB] sbUpsert FALHOU:', scope, '/', key, 'HTTP', res.status,
                 msg ? '— ' + msg.substring(0, 200) : '');
+              // Felipe sessao 32: 5xx vai pra fila (servidor temporariamente fora).
+              // 4xx geralmente e' bug do request — nao enfileira pra nao spammar.
+              if (res.status >= 500 && res.status < 600) {
+                _filaEnfileirar(scope, key, value);
+              }
             }
             return false;
           }).catch(function() {
@@ -527,6 +589,10 @@ const Database = (() => {
         return true;
       }).catch(function(e) {
         console.error('[DB] sbUpsert FALHOU (rede):', scope, '/', key, e.message);
+        // Felipe sessao 32: erro de rede -> enfileira pra retry quando voltar.
+        // Garante que dados nao se perdem em modo offline. Drenagem automatica
+        // a cada 30s e' imediata quando syncFromCloud volta a funcionar.
+        _filaEnfileirar(scope, key, value);
         return false;
       });
   }
@@ -575,7 +641,15 @@ const Database = (() => {
       var timer = setTimeout(function() { controller.abort(); }, 30000);
       var res;
       try {
-        res = await fetch(SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor&order=scope,key', {
+        // Felipe sessao 32: FILTRA backups e forensics no SERVIDOR.
+        // Reduz payload de ~14 MB (193 rows com modelos_lista de 1.87 MB
+        // × 5 dias de backup_diario + backup_manual + forensics) pra ~3 MB
+        // so' com core. Drasticamente mais rapido em redes lentas.
+        // Sintaxe PostgREST: not.in.(...) pra excluir scopes; not.like.*
+        // pra forensics (sao varios scopes distintos).
+        var _scopeFilter = '&scope=not.in.(backup_diario,backup_manual)'
+                         + '&scope=not.like.forensic*';
+        res = await fetch(SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor&order=scope,key' + _scopeFilter, {
           headers: sbHeaders(false),
           signal: controller.signal,
         });
@@ -747,6 +821,9 @@ const Database = (() => {
       _syncStatus = { lastSync: Date.now(), online: true, error: null };
       _emitStatus();
       console.log('[DB] ✅ Modo de escrita LIBERADO. Sistema pronto pra editar.');
+      // Felipe sessao 32: voltou online -> drena fila de pendentes do modo offline.
+      // Best-effort, nao bloqueia o boot.
+      setTimeout(function() { _filaDrenar(); }, 1000);
       return true;
     } catch(e) {
       console.warn('[DB] syncFromCloud falhou (modo offline):', e.message, '- READ-ONLY mantido');
