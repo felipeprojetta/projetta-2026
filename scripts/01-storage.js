@@ -23,6 +23,23 @@ const Storage = (() => {
      BLOQUEADAS com throw. */
   const PREFIX = 'projetta:';
 
+  // Felipe sessao 32: CACHE EM MEMORIA pra contornar localStorage quota cheia.
+  //
+  // Bug observado: quando localStorage estoura quota (~10MB no Chrome),
+  // setItem falha silenciosamente. O get subsequente le do localStorage
+  // (NAO encontra) e retorna null. Sintoma: lead recem-criado some,
+  // 'orcamento_lead_ativo' fica null, sistema cai no modo dev.
+  //
+  // Fix: _memCache funciona como camada extra. set() sempre grava nele
+  // (Map em memoria, nao tem limite pratico). get() tenta localStorage
+  // primeiro (cache rapido + persistente entre reloads) e cai pra
+  // _memCache se localStorage nao tiver a chave. Reload zera _memCache,
+  // mas syncFromCloud do Database puxa tudo do Supabase no boot.
+  //
+  // Supabase continua sendo source-of-truth (set() ja dispara sbUpsert).
+  const _memCache = new Map();
+  function _memKey(scope, k) { return scope + ':' + k; }
+
   // Whitelist de chaves/scopes seguras (mesmo do Database)
   // que podem ser escritas mesmo em read-only.
   function _isReadOnlyBlocked(scopeName, k) {
@@ -74,8 +91,14 @@ const Storage = (() => {
         get(k, fallback = null) {
           try {
             const raw = localStorage.getItem(PREFIX + scopeName + ':' + k);
-            return raw === null ? fallback : JSON.parse(raw);
-          } catch (e) { return fallback; }
+            if (raw !== null) return JSON.parse(raw);
+          } catch (e) { /* corrupted localStorage entry — falls back below */ }
+          // Felipe sessao 32: fallback pro cache em memoria. Resolve o caso
+          // onde set() acabou de gravar mas localStorage rejeitou por quota
+          // cheia. Sem isso, o lead recem-criado some no proximo get.
+          const memVal = _memCache.get(_memKey(scopeName, k));
+          if (memVal !== undefined) return memVal;
+          return fallback;
         },
         set(k, value) {
           // Felipe sessao 2026-08-02: bloqueio anti-perda em read-only
@@ -118,11 +141,16 @@ const Storage = (() => {
           // segue normalmente pra sbUpsert. Sintoma anterior: nao deixava
           // selecionar chapa em Lev. Superficies pq atualizarVersao -> saveAll
           // -> Storage.set falhava aqui ANTES do sbUpsert rodar.
+          //
+          // Felipe sessao 32: SEMPRE grava no _memCache primeiro. Garante que
+          // get() subsequente acha a chave mesmo se localStorage estiver cheio
+          // (caso 'novo lead some apos clicar Montar Orcamento').
+          _memCache.set(_memKey(scopeName, k), value);
           try {
             localStorage.setItem(PREFIX + scopeName + ':' + k, JSON.stringify(value));
           } catch (lsErr) {
             if (lsErr && (lsErr.name === 'QuotaExceededError' || /quota/i.test(lsErr.message || ''))) {
-              console.warn('[Storage] ⚠️ localStorage quota cheia — pulando cache local. Supabase permanece source-of-truth.', scopeName + '/' + k);
+              console.warn('[Storage] ⚠️ localStorage quota cheia — usando cache em memoria. Supabase permanece source-of-truth.', scopeName + '/' + k);
             } else {
               console.warn('[Storage] localStorage.setItem falhou (nao-quota):', lsErr);
             }
@@ -150,6 +178,8 @@ const Storage = (() => {
             console.warn('[Storage] ⛔ Remove bloqueado (sem permissao):', scopeName, '/', k);
             return;
           }
+          // Felipe sessao 32: limpa cache em memoria tambem
+          _memCache.delete(_memKey(scopeName, k));
           localStorage.removeItem(PREFIX + scopeName + ':' + k);
           Events.emit('db:change', { scope: scopeName, key: k, value: null });
         },
