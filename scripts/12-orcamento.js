@@ -13470,16 +13470,33 @@ const Orcamento = (() => {
         if (!r2 || !r2.versao) return;
         const item = (r2.versao.itens || [])[idx];
         if (!item) return;
-        const partes = chave.split('|');
-        const labelAlvo = partes[0];
-        const largAlvo  = Number(partes[1]);
-        const altAlvo   = Number(partes[2]);
+        // Felipe sessao 32: chave estavel manual:idx pra remover manuais.
+        // Pecas automaticas continuam usando label|largura|altura como chave
+        // (necessario pra pecasRemovidas guardar referencia estavel ao label).
+        let labelAlvo, largAlvo, altAlvo, idxRemoverManual = -1;
+        if (isManual && typeof chave === 'string' && chave.indexOf('manual:') === 0) {
+          idxRemoverManual = parseInt(chave.substring(7), 10);
+          if (Number.isInteger(idxRemoverManual) && item.pecasManuaisExtras
+              && idxRemoverManual >= 0 && idxRemoverManual < item.pecasManuaisExtras.length) {
+            const p = item.pecasManuaisExtras[idxRemoverManual];
+            labelAlvo = p.label; largAlvo = p.largura; altAlvo = p.altura;
+          } else {
+            return;
+          }
+        } else {
+          const partes = chave.split('|');
+          labelAlvo = partes[0];
+          largAlvo  = Number(partes[1]);
+          altAlvo   = Number(partes[2]);
+        }
         if (isManual) {
           // peca manual: splice direto de pecasManuaisExtras
           if (!item.pecasManuaisExtras) return;
-          const idxRemover = item.pecasManuaisExtras.findIndex(p =>
-            p.label === labelAlvo && Number(p.largura) === largAlvo && Number(p.altura) === altAlvo
-          );
+          const idxRemover = idxRemoverManual !== -1
+            ? idxRemoverManual
+            : item.pecasManuaisExtras.findIndex(p =>
+                p.label === labelAlvo && Number(p.largura) === largAlvo && Number(p.altura) === altAlvo
+              );
           if (idxRemover === -1) return;
           if (!confirm(`Remover peça manual "${labelAlvo}" (${largAlvo}×${altAlvo})?`)) return;
           item.pecasManuaisExtras.splice(idxRemover, 1);
@@ -13579,13 +13596,25 @@ const Orcamento = (() => {
           if (isManual) {
             // Edicao em peca manual: atualiza diretamente em pecasManuaisExtras
             if (!item.pecasManuaisExtras) return;
-            const partes = chave.split('|');
-            const labelAlvo = partes[0];
-            const largAlvo  = Number(partes[1]);
-            const altAlvo   = Number(partes[2]);
-            const pecaManual = item.pecasManuaisExtras.find(p =>
-              p.label === labelAlvo && Number(p.largura) === largAlvo && Number(p.altura) === altAlvo
-            );
+            // Felipe sessao 32: chave estavel 'manual:idx' funciona mesmo
+            // editando varios campos simultaneos. Fallback pra chave antiga
+            // (label|largura|altura) so' se renderizou antes do fix.
+            let pecaManual = null;
+            if (typeof chave === 'string' && chave.indexOf('manual:') === 0) {
+              const idxStable = parseInt(chave.substring(7), 10);
+              if (Number.isInteger(idxStable) && idxStable >= 0 && idxStable < item.pecasManuaisExtras.length) {
+                pecaManual = item.pecasManuaisExtras[idxStable];
+              }
+            } else {
+              // Fallback legacy: busca por (label, largura, altura)
+              const partes = chave.split('|');
+              const labelAlvo = partes[0];
+              const largAlvo  = Number(partes[1]);
+              const altAlvo   = Number(partes[2]);
+              pecaManual = item.pecasManuaisExtras.find(p =>
+                p.label === labelAlvo && Number(p.largura) === largAlvo && Number(p.altura) === altAlvo
+              );
+            }
             if (pecaManual) {
               pecaManual[field] = valor;
             }
@@ -16301,6 +16330,26 @@ const Orcamento = (() => {
     }
 
     let pesoTotalLado = 0;
+    // Felipe sessao 32: descobre o indice de cada peca manual no array
+    // pecasManuaisExtras do item — pra usar como chave ESTAVEL nas edicoes
+    // (label/largura/altura podem mudar; o indice nao muda durante uma
+    // sessao de edicao). Sem isso, editar largura+altura simultaneamente
+    // perdia a 2a edicao porque a chave mudava entre passadas.
+    const _idxsManuais = new Map(); // peca obj -> indice no pecasManuaisExtras
+    if (item && Array.isArray(item.pecasManuaisExtras)) {
+      // Match por (label, largura, altura, cor) original — primeira vez,
+      // antes de qualquer edicao, esses campos batem 1:1 com a peca renderizada.
+      const usados = new Set();
+      pecas.forEach(p => {
+        if (!p._manual) return;
+        const idx = item.pecasManuaisExtras.findIndex((m, i) =>
+          !usados.has(i) &&
+          m.label === p.label &&
+          Number(m.largura) === Number(p.largura) &&
+          Number(m.altura)  === Number(p.altura));
+        if (idx !== -1) { _idxsManuais.set(p, idx); usados.add(idx); }
+      });
+    }
     const linhas = pecas.map(p => {
       const peso = pesoPorPeca(p);
       pesoTotalLado += peso.total;
@@ -16308,7 +16357,13 @@ const Orcamento = (() => {
       // texto estatico "Nao (veio)". Felipe controla manualmente
       // quando uma peca pode ou nao rotacionar (override salvo
       // em item.rotacionaOverrides via change event).
-      const chave = rotacionaKey(p);
+      // Felipe sessao 32: pecas manuais usam chave ESTAVEL (manual:idx)
+      // pra que multiplas edicoes simultaneas (larg+alt+qtd) funcionem.
+      // Pecas auto continuam com chave baseada em dims (necessario pra
+      // superficiesOverrides bater com a chave de origem do motor).
+      const chave = p._manual && _idxsManuais.has(p)
+        ? ('manual:' + _idxsManuais.get(p))
+        : rotacionaKey(p);
       const valor = p.podeRotacionar ? 'sim' : 'nao';
       const selectHtml = `
         <select class="orc-lev-sup-rot-select"
