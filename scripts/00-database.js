@@ -642,6 +642,18 @@ const Database = (() => {
         else rowsCore.push(r);
       });
 
+      // Felipe sessao 32: LIMPEZA PROATIVA. Antes de baixar o CORE, remove
+      // qualquer backup que tenha sobrado no localStorage de syncs antigos
+      // (quando ainda baixavamos backups). Libera espaco preventivamente
+      // pra evitar quota cheia durante a gravacao do core.
+      try {
+        var preLimpos = _limparBackupsLocais();
+        if (preLimpos.liberados > 0) {
+          console.log('[DB] syncFromCloud: pre-limpeza removeu ' + preLimpos.liberados
+            + ' backups locais (' + preLimpos.kb + ' KB liberados)');
+        }
+      } catch(_) {}
+
       var jaLimpouBackups = false;
 
       function _gravarUmaRow(r) {
@@ -703,12 +715,19 @@ const Database = (() => {
       // PASSO 1: grava CORE (negocios, leads, cadastros, etc) — prioridade maxima
       rowsCore.forEach(function(r) { if (_gravarUmaRow(r)) count++; });
 
-      // PASSO 2: grava BACKUPS por ultimo, best-effort.
-      // Se quota estourar agora, tudo bem — source-of-truth e' o Supabase.
-      rowsBackup.forEach(function(r) { if (_gravarUmaRow(r)) count++; });
+      // Felipe sessao 32: PASSO 2 (backups locais) DESATIVADO. Backups
+      // (backup_diario, backup_manual) sao COPIAS — source-of-truth e' o
+      // Supabase. Nao tem porque baixar pro localStorage:
+      //   - 5 dias × 1.87 MB de backup_diario:modelos_lista = 9.35 MB
+      //   - + backup_manual com snapshots de 2 MB cada
+      //   = enchia o localStorage (~10 MB limite Chrome) so' com COPIAS
+      //   - cache stale, dados sumindo, popups 'Erro ao conectar'
+      // Se algum dia precisar restaurar um backup, le direto do Supabase
+      // via SQL. Nao precisa estar local.
+      // rowsBackup.forEach(function(r) { if (_gravarUmaRow(r)) count++; });
 
       console.log('[DB] syncFromCloud: ' + count + ' chaves carregadas do Supabase'
-        + ' (core=' + rowsCore.length + ', backups=' + rowsBackup.length + ')');
+        + ' (core=' + rowsCore.length + ', backups skipped=' + rowsBackup.length + ')');
 
       // ✅ SUCESSO TOTAL → libera write mode
       _readOnlyMode = false;
