@@ -878,6 +878,11 @@
 .crm-kpi.crm-kpi-em-aberto {
   border-left-color: var(--azul-escuro);
 }
+/* Felipe sessao 33: KPI Valor Gerado no Ano — borda verde de destaque
+   (Enviado + Negociacao + Fechado do ano). */
+.crm-kpi.crm-kpi-gerado {
+  border-left-color: var(--verde, #10B981);
+}
 .crm-kpi-fixo {
   font-size: 12px;
   color: var(--text);            /* era text-soft (cinza) — agora azul-escuro */

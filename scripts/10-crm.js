@@ -2553,6 +2553,34 @@
       return { total, count };
     }
 
+    /**
+     * Felipe sessao 33: KPI "Valor Gerado no Ano".
+     * Soma o valor de TODOS os leads que viraram orcamento no ano
+     * selecionado: etapas orcamento-enviado + negociacao + fechado.
+     * Filtra pelo ano de l.data (data do lead); se nao houver l.data,
+     * usa l.fechadoEm como fallback. Sem filtro de data especifica —
+     * conta o ano inteiro. NAO altera nenhum KPI existente.
+     */
+    function somarGeradoNoAno(leadsBase, ano) {
+      const ETAPAS_GERADO = ['orcamento-enviado', 'negociacao', 'fechado'];
+      const anoNum = Number(ano);
+      let total = 0;
+      let count = 0;
+      leadsBase.forEach(l => {
+        if (!ETAPAS_GERADO.includes(l.etapa)) return;
+        // Determina o ano do lead: prioriza l.data, fallback l.fechadoEm
+        const dataRef = l.data || l.fechadoEm || '';
+        if (!dataRef) return;
+        const d = new Date(String(dataRef) + 'T00:00:00');
+        if (isNaN(d.getTime())) return;
+        if (d.getFullYear() === anoNum) {
+          total += Number(l.valor) || 0;
+          count++;
+        }
+      });
+      return { total, count };
+    }
+
     /** Anos disponiveis no filtro do KPI: 2021 ate ano atual */
     function anosFiltroKPI() {
       const atual = (new Date()).getFullYear();
@@ -3018,6 +3046,8 @@
       // KPIs (Fechado Ano e Fechado Mes) — calculados sobre leadsFiltrados
       const kpiAno = somarFechadosNoPeriodo(leadsFiltrados, state.kpiAno, null);
       const kpiMes = somarFechadosNoPeriodo(leadsFiltrados, state.kpiMesAno, state.kpiMes);
+      // Felipe sessao 33: KPI "Valor Gerado no Ano" — Enviado+Negociacao+Fechado
+      const kpiGerado = somarGeradoNoAno(leadsFiltrados, state.kpiAno);
 
       // Felipe sessao 12: KPI "Em Aberto" só conta leads que tem VALOR
       // VISIVEL no card. Antes somava qualquer lead.valor != fechado/perdido,
@@ -3094,11 +3124,23 @@
               <span class="crm-kpi-count">${kpiEmAberto.count} ${kpiEmAberto.count === 1 ? 'lead' : 'leads'}</span>
             </div>
           </div>`,
+        'gerado': `
+          <div class="crm-kpi crm-kpi-gerado" data-kpi-id="gerado" draggable="true">
+            <div class="crm-kpi-lbl">Valor Gerado no Ano <span class="crm-kpi-help" title="Soma do valor de todos os leads que viraram orcamento no ano: Orcamento Enviado + Negociacao + Fechado. Filtra pelo ano da data do lead.">?</span></div>
+            <div class="crm-kpi-val">R$ ${fmtBR(kpiGerado.total)}</div>
+            <div class="crm-kpi-sub">
+              <span class="crm-kpi-fixo">${state.kpiAno}</span>
+              <span class="crm-kpi-count">${kpiGerado.count} ${kpiGerado.count === 1 ? 'lead' : 'leads'}</span>
+            </div>
+          </div>`,
       };
-      const KPI_DEFAULT_ORDER = ['ano', 'mes', 'em-aberto'];
+      const KPI_DEFAULT_ORDER = ['ano', 'mes', 'em-aberto', 'gerado'];
       const _appStore = Storage.scope('app');
       const ordemSalva = _appStore.get('crm_kpis_order');
-      let ordemKpis = Array.isArray(ordemSalva) && ordemSalva.length === 3
+      // Felipe sessao 33: era 'length === 3' (hardcoded). Com a entrada do
+      // 4o KPI 'gerado', troquei pra 'length > 0' — aceita ordem salva de
+      // qualquer tamanho. O forEach abaixo ja garante KPIs faltantes.
+      let ordemKpis = Array.isArray(ordemSalva) && ordemSalva.length > 0
         ? ordemSalva.filter(id => KPI_BLOCKS[id])
         : KPI_DEFAULT_ORDER.slice();
       // Garante que todos os KPIs aparecem (caso storage tenha lista incompleta)
