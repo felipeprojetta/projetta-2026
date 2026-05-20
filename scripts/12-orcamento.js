@@ -15497,6 +15497,9 @@ const Orcamento = (() => {
     const linhas = pecas.map(p => {
       // Felipe (sessao 2026-05): SELECT editavel Sim/Nao em vez de "Nao (veio)"
       const chave = rotacionaKey(p);
+      // Felipe sessao 33: chave ESTAVEL pros inputs largura/altura/qtd —
+      // mesmo fix do bug do override fantasma da porta externa.
+      const chaveDim = superficieKey(p);
       const valor = p.podeRotacionar ? 'sim' : 'nao';
       const editado = !!p._editado;
       const selectHtml = `
@@ -15526,13 +15529,13 @@ const Orcamento = (() => {
       const _hintAlt  = (_ehTampaOuFita && Number.isFinite(_altSec)  && _altSec  > 0 && Math.abs(_altSec  - Number(p.altura))  >= 0.5)
         ? `<div class="orc-lev-sup-hint-sec">sec ${_altSec}</div>` : '';
       const inputLargura = `<input type="number" class="orc-lev-sup-input ${cssEdit}"
-        data-rev-edit="largura" data-item-idx="${idx}" data-peca-key="${escapeHtml(chave)}"
+        data-rev-edit="largura" data-item-idx="${idx}" data-peca-key="${escapeHtml(chaveDim)}"
         value="${p.largura}" min="1" step="1" style="width:70px;text-align:right;" />${_hintLarg}`;
       const inputAltura = `<input type="number" class="orc-lev-sup-input ${cssEdit}"
-        data-rev-edit="altura" data-item-idx="${idx}" data-peca-key="${escapeHtml(chave)}"
+        data-rev-edit="altura" data-item-idx="${idx}" data-peca-key="${escapeHtml(chaveDim)}"
         value="${p.altura}" min="1" step="1" style="width:70px;text-align:right;" />${_hintAlt}`;
       const inputQtd = `<input type="number" class="orc-lev-sup-input ${cssEdit}"
-        data-rev-edit="qtd" data-item-idx="${idx}" data-peca-key="${escapeHtml(chave)}"
+        data-rev-edit="qtd" data-item-idx="${idx}" data-peca-key="${escapeHtml(chaveDim)}"
         value="${p.qtd}" min="1" step="1" style="width:60px;text-align:right;" />`;
       return `
       <tr>
@@ -15963,6 +15966,22 @@ const Orcamento = (() => {
   function rotacionaKey(p) {
     return `${p.label}|${p.largura}|${p.altura}`;
   }
+  // Felipe sessao 33: BUG FIX - editar largura de peca e salvar voltava ao
+  // valor antigo. CAUSA: rotacionaKey inclui largura/altura, entao a chave
+  // do superficiesOverrides MUDAVA quando o user editava a dimensao. O
+  // override antigo (chave com dim original) continuava no objeto e o motor
+  // sempre gera a peca com a dim original, fazendo o override velho ganhar.
+  // FIX: chave ESTAVEL baseada em id+lado+_ordem (imutaveis durante edicao).
+  // Retrocompat: aplicarSuperficiesOverrides aceita chave nova E a antiga.
+  function superficieKey(p) {
+    const id = (p && p.id != null) ? String(p.id) : '';
+    const lado = (p && p.lado != null) ? String(p.lado) : '';
+    const ordem = (p && p._ordem != null) ? String(p._ordem) : '';
+    // Se a peca tem id (toda peca do motor tem), usa chave estavel.
+    // Sem id (caso raro/legado), cai no rotacionaKey antigo.
+    if (id) return `sk:${id}|${lado}|${ordem}`;
+    return rotacionaKey(p);
+  }
   function aplicarRotacionaOverrides(pecas, item) {
     const ov = (item && item.rotacionaOverrides) || {};
     if (!Object.keys(ov).length) return pecas;
@@ -15991,8 +16010,14 @@ const Orcamento = (() => {
       : pecas;
     if (!Object.keys(ov).length) return base;
     return base.map(p => {
-      const k = rotacionaKey(p);
-      if (k in ov) {
+      // Felipe sessao 33: procura chave ESTAVEL primeiro (sk:id|lado|ordem),
+      // depois cai na chave antiga (label|larg|alt) pra retrocompat com
+      // overrides salvos antes do fix. A chave estavel nao muda quando o
+      // user edita a largura/altura, eliminando o bug do override fantasma.
+      const kEstavel = superficieKey(p);
+      const kLegado  = rotacionaKey(p);
+      const k = (kEstavel in ov) ? kEstavel : ((kLegado in ov) ? kLegado : null);
+      if (k) {
         const o = ov[k];
         const ret = Object.assign({}, p);
         let qtdEditada = false;
@@ -16478,6 +16503,12 @@ const Orcamento = (() => {
       const chave = p._manual && _idxsManuais.has(p)
         ? ('manual:' + _idxsManuais.get(p))
         : rotacionaKey(p);
+      // Felipe sessao 33: chave ESTAVEL pros inputs de dimensao (larg/alt/qtd)
+      // de pecas auto. Nao muda quando o user edita a medida, eliminando o
+      // bug do override fantasma. Pecas manuais seguem com 'manual:idx'.
+      const chaveDim = p._manual && _idxsManuais.has(p)
+        ? ('manual:' + _idxsManuais.get(p))
+        : superficieKey(p);
       const valor = p.podeRotacionar ? 'sim' : 'nao';
       const selectHtml = `
         <select class="orc-lev-sup-rot-select"
@@ -16504,15 +16535,15 @@ const Orcamento = (() => {
       const _hintAltSec = (_ehTampaOuFita && Number.isFinite(_altSecVal)  && _altSecVal  > 0 && Math.abs(_altSecVal  - Number(p.altura))  >= 0.5)
         ? `<div class="orc-lev-sup-hint-sec">sem REF ${_altSecVal}</div>` : '';
       const inputLargura = `<input type="number" min="1" step="1" class="orc-lev-sup-input-edit${editClass}${manualClass}"
-                              data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="largura"
+                              data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chaveDim)}" data-field="largura"
                               data-manual="${p._manual ? '1' : '0'}"
                               value="${p.largura}" style="${inputStyle}" />${_hintLargSec}`;
       const inputAltura = `<input type="number" min="1" step="1" class="orc-lev-sup-input-edit${editClass}${manualClass}"
-                              data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="altura"
+                              data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chaveDim)}" data-field="altura"
                               data-manual="${p._manual ? '1' : '0'}"
                               value="${p.altura}" style="${inputStyle}" />${_hintAltSec}`;
       const inputQtd = `<input type="number" min="1" step="1" class="orc-lev-sup-input-edit${editClass}${manualClass}"
-                              data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="qtd"
+                              data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chaveDim)}" data-field="qtd"
                               data-manual="${p._manual ? '1' : '0'}"
                               value="${p.qtd}" style="${inputStyleQtd}" />`;
       // Felipe sessao 14: nome e categoria editaveis inline em TODAS as pecas
@@ -16520,13 +16551,13 @@ const Orcamento = (() => {
       const inputLabelStyle = 'width:100%;min-width:130px;padding:3px 6px;border:1px solid #d1d5db;border-radius:3px;font-size:12px;background:#fff;'
         + (p._manual ? 'color:#7c3aed;font-weight:600;' : '');
       const inputLabel = `<input type="text" class="orc-lev-sup-input-edit${editClass}${manualClass}"
-                            data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="label"
+                            data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chaveDim)}" data-field="label"
                             data-manual="${p._manual ? '1' : '0'}"
                             value="${escapeHtml(p.label || '')}" style="${inputLabelStyle}" />`
         + (p._manual ? ' <span style="font-size:9px;background:#ddd6fe;color:#5b21b6;padding:1px 5px;border-radius:8px;font-weight:700;">MANUAL</span>' : '');
       const catVal = p.categoria || 'porta';
       const selectCategoria = `<select class="orc-lev-sup-input-edit${editClass}${manualClass}"
-                                  data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chave)}" data-field="categoria"
+                                  data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chaveDim)}" data-field="categoria"
                                   data-manual="${p._manual ? '1' : '0'}"
                                   style="padding:3px 4px;border:1px solid #d1d5db;border-radius:3px;font-size:11px;background:#fff;">
           <option value="porta" ${catVal === 'porta' ? 'selected' : ''}>Porta</option>
