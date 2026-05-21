@@ -221,6 +221,23 @@ const PerfisPortaExterna = (() => {
     else if (larguraFolha > 1500) travLarguraBonus = 1;
 
     let qtyTotal = travCavaTotal + travLarguraBonus;
+
+    // Felipe sessao 33: regra de travessa vertical para modelos SEM CAVA.
+    // Todo modelo que NAO e' cava tem 1 travessa vertical obrigatoria POR
+    // FOLHA (e' onde vai o puxador). Adicionais por largura interna da
+    // folha (= larguraFolha = comprimento do PA-PA007V/PA-PA006V = VEDA):
+    //   > 1800: +1 por folha    > 2500: +1 por folha (total 3 por folha)
+    // Antes os modelos sem cava ficavam com 0 travessas se a largura
+    // fosse pequena — bug: porta saia sem a travessa do puxador.
+    // Esta regra SUBSTITUI o calculo (qtyTotal) para o caso sem-cava;
+    // a logica de cava acima fica intocada.
+    if (!ehCava) {
+      let travSemCavaPorFolha = 1;             // obrigatoria (puxador)
+      if (larguraFolha > 2500)      travSemCavaPorFolha = 3;
+      else if (larguraFolha > 1800) travSemCavaPorFolha = 2;
+      qtyTotal = travSemCavaPorFolha * nFolhas;
+    }
+
     // Felipe sessao 18: Modelo 23 (Boiserie) SEMPRE tem 1 travessa vertical
     // obrigatoria pra fixar o puxador, independente de tamanho ou cava.
     // Se o calculo normal deu 0, forca pra 1.
