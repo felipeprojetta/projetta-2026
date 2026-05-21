@@ -12494,7 +12494,7 @@ const Orcamento = (() => {
     const temFechDigital = item.fechaduraDigital && item.fechaduraDigital !== 'Nao se aplica' && item.fechaduraDigital !== '';
     const bannerFechDigital = temFechDigital
       ? `<div class="rel-prop-banner-fech is-sim">${tr('FECHADURA DIGITAL','DIGITAL LOCK')}: <b>${escapeHtml(item.fechaduraDigital)}</b></div>`
-      : `<div class="rel-prop-banner-fech is-nao">${tr('FECHADURA DIGITAL','DIGITAL LOCK')}: <b>${tr('NAO SE APLICA','NOT APPLICABLE')}</b></div>`;
+      : `<div class="rel-prop-banner-fech is-nao">${tr('FECHADURA DIGITAL','DIGITAL LOCK')}: <b>${tr('NAO INCLUSO NO ORCAMENTO','NOT INCLUDED IN QUOTE')}</b></div>`;
 
     const sistema = item.sistema || '—';
     const sistemaFmt = sistema && sistema !== '—'
