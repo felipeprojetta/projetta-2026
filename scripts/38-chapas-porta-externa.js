@@ -216,6 +216,9 @@ const ChapasPortaExterna = (() => {
       dBFH:    num('distanciaBordaFrisoHorizontal'),
       eF:        num('espessuraFriso'),
       qtdFrisos: Math.max(0, num('quantidadeFrisos') || 0),
+      // Felipe sessao 33: larguraRipas usada no modelo 14 (Puxador
+      // Externo + Frisos Vertical Multiplo). C23 da planilha.
+      larguraRipas: num('larguraRipas'),
       espacRipas: num('espacamentoRipas'),
       tipoRipado: String(item.tipoRipado || 'Total').toLowerCase(),
       duasFaces:  String(item.modeloDuasFaces || 'sim').toLowerCase() === 'sim',
@@ -978,6 +981,53 @@ const ChapasPortaExterna = (() => {
           ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
           categoria: 'porta' },
       ],
+    },
+
+    // Felipe sessao 33: MODELO 14 — Puxador Externo + Frisos Vertical
+    // Multiplo. Cadastrado SOMENTE 1 folha (Felipe). Estrutura = modelo
+    // 11 (Puxador Externo + Friso Vertical) + peca RIPAS. As ripas sao
+    // SO CHACA (sem perfil) — nao engancha em 31-perfis. Tamanho da ripa
+    // vem do campo 'Largura das ripas' (larguraRipas / C23 da planilha).
+    // Formulas extraidas da planilha PRECIFICACAO 01/04/2026 aba MODELO 14
+    // (colunas F-K = 1 folha). Variaveis: C15=REF, C20=dBFV, C21=eF,
+    // C22=qtdFrisos, C23=larguraRipas, E3=larguraQuadro1F.
+    14: {
+      '1F': [
+        // TAMPA_MAIOR (planilha F7):
+        // (E3 - C7 - C8 - 1 - C20 - C21*C22 - C23*(C22-1)) + C15 + C15
+        // C7 e C8 vazios na planilha = 0. C20 entra 1x (nao *qtdFrisos).
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
+          largura: ctx => (ctx.larguraQuadro1F - 1 - ctx.dBFV
+                           - ctx.eF * ctx.qtdFrisos
+                           - ctx.larguraRipas * Math.max(0, ctx.qtdFrisos - 1))
+                          + 2 * ctx.REF,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        // TAMPA_BORDA_FRISO_VERTICAL (planilha F8): C20 + C15*2 - 1
+        // qty = C22 (qtdFrisos), 1 externo / 1 interno.
+        { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
+          largura: ctx => ctx.dBFV + 2 * ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
+        // RIPAS (planilha F9): C23 + C15*2 = larguraRipas + 2*REF.
+        // qty = C22-1 (qtdFrisos - 1). SO CHAPA, sem perfil.
+        { id: 'ripas', label: 'Ripas',
+          largura: ctx => ctx.larguraRipas + 2 * ctx.REF,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => Math.max(0, ctx.qtdFrisos - 1),
+          int: ctx => Math.max(0, ctx.qtdFrisos - 1),
+          categoria: 'porta' },
+        // FRISO (planilha F10): 100 + C21. qty = C22*2 (qtdFrisos*2).
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => 100 + ctx.eF,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          categoria: 'porta' },
+      ],
+      // Felipe pediu SOMENTE 1 folha. 2F sem pecas -> motor retorna []
+      // e a tela mostra 'tipo nao implementado' se alguem usar 2 folhas.
+      '2F': [],
     },
 
     15: {
