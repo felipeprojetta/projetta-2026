@@ -153,10 +153,28 @@ var PerfisRevAcoplado = (function() {
           ? (LARGURA - FGLD_pre - tamCavaPortaPre - FGLE_pre)
           : LARGURA;
         var qtdRipasPre = denomPre > 0 ? Math.ceil(numeradorPre / denomPre) : 0;
-        var pedacosPorRipaPre = Math.max(1, Math.floor(ALTURA / 1000));
-        var qtdTuboRipaPre = qtdRipasPre * pedacosPorRipaPre;
-        if (qtdTuboRipaPre > 0) {
-          addPreEst('PA-51X12X1.58', 500, qtdTuboRipaPre, 'Tubo Interno das Ripas');
+        // Felipe sessao 33: o Tubo Interno das Ripas no Fixo Acoplado
+        // deve seguir a MESMA regra do ripado da porta (31-perfis linha
+        // ~497): base de 2000mm + pedacos extras de 600mm a cada 1200mm
+        // de altura acima de 2000. Antes o fixo acoplado usava pedacos
+        // fixos de 500mm (Math.floor(ALTURA/1000)) — regra diferente,
+        // o corte saia errado.
+        //   A < 2000 : 1 corte unico no tamanho A
+        //   A >= 2000: 1x base 2000mm + floor((A-2000)/1200)x 600mm
+        // A = ALTURA da ripa do fixo acoplado.
+        if (qtdRipasPre > 0 && ALTURA > 0) {
+          if (ALTURA < 2000) {
+            addPreEst('PA-51X12X1.58', Math.round(ALTURA), qtdRipasPre,
+              'Tubo Interno das Ripas (corte ' + Math.round(ALTURA) + 'mm)');
+          } else {
+            var p600pre = Math.floor((ALTURA - 2000) / 1200);
+            addPreEst('PA-51X12X1.58', 2000, qtdRipasPre,
+              'Tubo Interno das Ripas (base 2m)');
+            if (p600pre > 0) {
+              addPreEst('PA-51X12X1.58', 600, p600pre * qtdRipasPre,
+                'Tubo Interno das Ripas (extra 600mm)');
+            }
+          }
         }
       }
     }
