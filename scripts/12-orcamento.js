@@ -15976,15 +15976,24 @@ const Orcamento = (() => {
   // do superficiesOverrides MUDAVA quando o user editava a dimensao. O
   // override antigo (chave com dim original) continuava no objeto e o motor
   // sempre gera a peca com a dim original, fazendo o override velho ganhar.
-  // FIX: chave ESTAVEL baseada em id+lado+_ordem (imutaveis durante edicao).
+  // FIX: chave ESTAVEL baseada em id+_ordem (imutaveis durante edicao).
   // Retrocompat: aplicarSuperficiesOverrides aceita chave nova E a antiga.
+  //
+  // Felipe sessao 33 (fix 2): a chave NAO inclui o 'lado'. A tabela do
+  // Lev. Superficies mostra a peca UNIFICADA (externo+interno na mesma
+  // linha — unificarPecas junta os 2 lados). Se a chave tivesse 'lado',
+  // editar a linha unificada salvava o override so' pra UM lado; no
+  // re-render aplicarSuperficiesOverrides roda por lado, batia so' no
+  // externo e o interno ficava com a medida velha -> unificarPecas via
+  // 2 medidas diferentes e NAO agrupava -> a peca DUPLICAVA na tela.
+  // Sem 'lado' a chave e' a mesma pros 2 lados -> override aplica em
+  // ambos -> unificarPecas junta -> 1 linha so'.
   function superficieKey(p) {
     const id = (p && p.id != null) ? String(p.id) : '';
-    const lado = (p && p.lado != null) ? String(p.lado) : '';
     const ordem = (p && p._ordem != null) ? String(p._ordem) : '';
     // Se a peca tem id (toda peca do motor tem), usa chave estavel.
     // Sem id (caso raro/legado), cai no rotacionaKey antigo.
-    if (id) return `sk:${id}|${lado}|${ordem}`;
+    if (id) return `sk:${id}|${ordem}`;
     return rotacionaKey(p);
   }
   function aplicarRotacionaOverrides(pecas, item) {
@@ -16015,13 +16024,19 @@ const Orcamento = (() => {
       : pecas;
     if (!Object.keys(ov).length) return base;
     return base.map(p => {
-      // Felipe sessao 33: procura chave ESTAVEL primeiro (sk:id|lado|ordem),
-      // depois cai na chave antiga (label|larg|alt) pra retrocompat com
-      // overrides salvos antes do fix. A chave estavel nao muda quando o
-      // user edita a largura/altura, eliminando o bug do override fantasma.
+      // Felipe sessao 33: procura chave ESTAVEL primeiro (sk:id|ordem),
+      // depois a variante COM lado (sk:id|lado|ordem, salva entre o 1o
+      // e o 2o fix da sessao 33), depois a legada (label|larg|alt).
+      // Retrocompat total com qualquer override ja salvo.
       const kEstavel = superficieKey(p);
+      const kComLado = (p && p.id != null)
+        ? `sk:${String(p.id)}|${p.lado != null ? String(p.lado) : ''}|${p._ordem != null ? String(p._ordem) : ''}`
+        : null;
       const kLegado  = rotacionaKey(p);
-      const k = (kEstavel in ov) ? kEstavel : ((kLegado in ov) ? kLegado : null);
+      const k = (kEstavel in ov) ? kEstavel
+              : (kComLado && (kComLado in ov)) ? kComLado
+              : (kLegado in ov) ? kLegado
+              : null;
       if (k) {
         const o = ov[k];
         const ret = Object.assign({}, p);
