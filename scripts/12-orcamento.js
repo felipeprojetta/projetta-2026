@@ -1842,6 +1842,11 @@ const Orcamento = (() => {
           if (lead) {
             lead.valor = valor;
             lead.precoProposta = precoProposta;  // novo campo
+            // Felipe sessao 33: data em que o orcamento foi gerado/aprovado.
+            // Usada pelo KPI "Valor Gerado no Ano" do CRM — o que vale e' a
+            // data do orcamento, NAO a data de chegada do lead (l.data),
+            // que pode ser de anos anteriores. alvo.aprovadoEm e' ISO.
+            lead.orcadoEm = (alvo && alvo.aprovadoEm) ? alvo.aprovadoEm : nowIso();
             // Felipe sessao 31: salva breakdown internacional (porta/frete/
             // caixa/seguro/instalacao) pro card do CRM exibir separado.
             if (breakdownIntl) {

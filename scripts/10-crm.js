@@ -2557,9 +2557,15 @@
      * Felipe sessao 33: KPI "Valor Gerado no Ano".
      * Soma o valor de TODOS os leads que viraram orcamento no ano
      * selecionado: etapas orcamento-enviado + negociacao + fechado.
-     * Filtra pelo ano de l.data (data do lead); se nao houver l.data,
-     * usa l.fechadoEm como fallback. Sem filtro de data especifica —
-     * conta o ano inteiro. NAO altera nenhum KPI existente.
+     *
+     * O que define o ANO e' a data em que o ORCAMENTO foi gerado/
+     * aprovado (l.orcadoEm), NAO a data de chegada do lead (l.data).
+     * Um cliente pode ter chegado em 2023 mas o orcamento foi feito
+     * em 2026 — vale 2026. Ordem de fallback da data:
+     *   1. l.orcadoEm  (data da aprovacao do orcamento - a correta)
+     *   2. l.fechadoEm (se fechado e sem orcadoEm)
+     *   3. l.data      (ultimo recurso - data de chegada do lead)
+     * NAO altera nenhum KPI existente.
      */
     function somarGeradoNoAno(leadsBase, ano) {
       const ETAPAS_GERADO = ['orcamento-enviado', 'negociacao', 'fechado'];
@@ -2568,10 +2574,11 @@
       let count = 0;
       leadsBase.forEach(l => {
         if (!ETAPAS_GERADO.includes(l.etapa)) return;
-        // Determina o ano do lead: prioriza l.data, fallback l.fechadoEm
-        const dataRef = l.data || l.fechadoEm || '';
+        // Prioriza orcadoEm (data do orcamento). orcadoEm e' ISO
+        // (2026-05-13T...), os outros sao YYYY-MM-DD — Date() le os dois.
+        const dataRef = l.orcadoEm || l.fechadoEm || l.data || '';
         if (!dataRef) return;
-        const d = new Date(String(dataRef) + 'T00:00:00');
+        const d = new Date(String(dataRef));
         if (isNaN(d.getTime())) return;
         if (d.getFullYear() === anoNum) {
           total += Number(l.valor) || 0;
