@@ -397,8 +397,12 @@ const PerfisPortaExterna = (() => {
     // qtdFrisos calculado uma so' vez (reusa em linhas 380 e ~420).
     const qtdFrisosCfg = Math.max(0, parseInt(item.quantidadeFrisos, 10) || 0);
     const ehModeloComFriso = MODELOS_COM_FRISO_VERTICAL.has(modelo);
+    // Felipe sessao 33: MODELO 14 e' excecao. Tem so 2 tubos de friso
+    // (nao 1 por friso) porque a chapa de tras da' o suporte. Entao os
+    // frisos do mod 14 substituem so 2 travessas verticais (igual ao
+    // numero de tubos), nao qtdFrisos travessas como os demais modelos.
     const subtraiFrisos = (ehModeloComFriso && qtdFrisosCfg > 0)
-      ? qtdFrisosCfg * nFolhas
+      ? ((modelo === 14) ? 2 * nFolhas : qtdFrisosCfg * nFolhas)
       : 0;
     const qtdTVFinal = Math.max(0, qtdTV - subtraiFrisos);
 
@@ -463,8 +467,16 @@ const PerfisPortaExterna = (() => {
     // Felipe (sessao 30): reusa qtdFrisosCfg/ehModeloComFriso ja' calculados
     // acima (linhas ~340) — usados tambem na regra de substituicao das
     // travessas verticais.
+    //
+    // Felipe sessao 33: MODELO 14 (Puxador Externo + Frisos Vertical
+    // Multiplo) e' EXCECAO. Mesmo com N frisos, leva so' 2 TUBOS de
+    // reforco fixos (× nFolhas) — a chapa de tras do modelo 14 da' o
+    // suporte estrutural, entao nao precisa de 1 tubo por friso.
     if (ehModeloComFriso && qtdFrisosCfg > 0) {
-      add(cod.perfLargInt, TRAV_VERT, qtdFrisosCfg * nFolhas, 'Friso Vertical');
+      const qtdTuboFriso = (modelo === 14)
+        ? 2 * nFolhas               // mod 14: 2 tubos fixos (chapa de tras suporta)
+        : qtdFrisosCfg * nFolhas;   // demais modelos: 1 tubo por friso
+      add(cod.perfLargInt, TRAV_VERT, qtdTuboFriso, 'Friso Vertical');
     }
 
     // Felipe sessao 18 (nova regra do encarregado): tubo INTERNO da
