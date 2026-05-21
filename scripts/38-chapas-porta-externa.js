@@ -803,9 +803,16 @@ const ChapasPortaExterna = (() => {
           comp: F.tampa_maior_06_comp,
           ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
           categoria: 'porta' },
+        // Felipe sessao 33: Tampa Borda mod 06 dividida pelos frisos
+        // horizontais, IGUAL a Tampa Maior. Os frisos cortam a porta em
+        // (n+1) faixas; toda faixa que tem Tampa Maior tem a Tampa Borda
+        // do lado. Antes: comp=alturaQuadro (peca inteira) + ext/int=1.
+        // Agora: comp dividido (tampa_maior_06_comp) + qty=qtdFrisos/face.
         { id: 'tampa_borda_cava', label: 'Tampa Borda Puxador Embutido',
-          largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
-          ext: 1, int: 1, categoria: 'porta' },
+          largura: F.tampa_borda_cava_largura,
+          comp: F.tampa_maior_06_comp,
+          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          categoria: 'porta' },
       ],
       '2F': [
         { id: 'cava', label: 'Puxador Embutido',
