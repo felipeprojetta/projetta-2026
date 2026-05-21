@@ -12718,15 +12718,27 @@ const Orcamento = (() => {
     // prioriza item.paredes[] (back-compat criado em runtime — linha
     // 2926+), que contem TODAS as paredes do revestimento, e mostra
     // todas como linhas PAREDE 1, PAREDE 2, ...
+    //
+    // Felipe sessao 33: nao DUPLICAR a Parede 1. Quando ha paredes[],
+    // o L total / H total / Area do item sao da 1a parede (campo legado
+    // largura_total/altura_total) — repetir eles E a lista PAREDE 1/2/3
+    // mostrava a Parede 1 duas vezes. Agora: SE ha paredes[], mostra so'
+    // a lista (cada parede com sua propria area). Se NAO ha (item antigo
+    // single-parede), mantem o L total/H total/Area do item.
     let blocoPecas = '';
     const paredes = (Array.isArray(item.paredes) ? item.paredes : [])
       .filter(p => p && (Number(p.largura_total) > 0 || Number(p.altura_total) > 0));
-    if (paredes.length) {
+    const temParedesArray = paredes.length > 0;
+    if (temParedesArray) {
       const linhasP = paredes.map((p, i) => {
-        const w = p.largura_total || '—';
-        const h = p.altura_total || '—';
+        const w = Number(p.largura_total) || 0;
+        const h = Number(p.altura_total) || 0;
         const q = Number(p.quantidade) || 1;
-        return `<div class="rel-prop-item-linha"><span class="lbl">PAREDE ${i + 1}:</span> <span>${w} × ${h} mm${q > 1 ? ` (qtd ${q})` : ''}</span></div>`;
+        const aP = (w > 0 && h > 0) ? (w / 1000) * (h / 1000) : 0;
+        const wTxt = w > 0 ? w : '—';
+        const hTxt = h > 0 ? h : '—';
+        const areaTxt = aP > 0 ? ` · ${fmtBR(aP)} m²` : '';
+        return `<div class="rel-prop-item-linha"><span class="lbl">PAREDE ${i + 1}:</span> <span>${wTxt} × ${hTxt} mm${q > 1 ? ` (qtd ${q})` : ''}${areaTxt}</span></div>`;
       }).join('');
       blocoPecas = `<div class="rel-prop-item-linhas rel-prop-item-rev-pecas" style="margin-top:6px;border-top:1px solid #e5e7eb;padding-top:6px;">${linhasP}</div>`;
     } else {
@@ -12751,15 +12763,28 @@ const Orcamento = (() => {
       ? `<span class="rel-prop-item-num-badge" style="display:inline-block;background:#c46b20;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-right:8px;letter-spacing:0.05em;">ITEM ${String(numItem).padStart(2,'0')}</span>`
       : '';
 
+    // Felipe sessao 33: quando ha paredes[], a area exibida no topo e' a
+    // SOMA de todas as paredes (cada parede tambem mostra a sua na lista).
+    // Sem paredes[], usa a area do item (lar x alt) como antes.
+    const areaTotalParedes = temParedesArray
+      ? paredes.reduce((s, p) => {
+          const w = Number(p.largura_total) || 0;
+          const h = Number(p.altura_total) || 0;
+          return s + ((w > 0 && h > 0) ? (w / 1000) * (h / 1000) : 0);
+        }, 0)
+      : areaM2;
+
     return `
       <div class="rel-prop-item-card rel-prop-item-card-no-img" style="display:flex;">
         <div class="rel-prop-item-info" style="width:100%;flex:1;">
           <div class="rel-prop-item-titulo">${tituloBadge}REVESTIMENTO DE PAREDE PROJETTA BY WEIKU</div>
           <div class="rel-prop-item-linhas">
             <div class="rel-prop-item-linha"><span class="lbl">Qtd:</span> <span>${qtd}</span></div>
-            ${lar ? `<div class="rel-prop-item-linha"><span class="lbl">L total:</span> <span>${lar} mm</span></div>` : ''}
+            ${temParedesArray
+              ? `<div class="rel-prop-item-linha"><span class="lbl">Area total:</span> <span>${fmtBR(areaTotalParedes)} m²</span></div>`
+              : `${lar ? `<div class="rel-prop-item-linha"><span class="lbl">L total:</span> <span>${lar} mm</span></div>` : ''}
             ${alt ? `<div class="rel-prop-item-linha"><span class="lbl">H total:</span> <span>${alt} mm</span></div>` : ''}
-            ${(lar && alt) ? `<div class="rel-prop-item-linha"><span class="lbl">Area:</span> <span>${fmtBR(areaM2)} m²</span></div>` : ''}
+            ${(lar && alt) ? `<div class="rel-prop-item-linha"><span class="lbl">Area:</span> <span>${fmtBR(areaM2)} m²</span></div>` : ''}`}
             <div class="rel-prop-item-linha"><span class="lbl">TEM ESTRUTURA:</span> <span>${temEstr ? 'SIM' : 'NAO'}</span></div>
             ${temEstr ? `<div class="rel-prop-item-linha"><span class="lbl">TUBO DA ESTRUTURA:</span> <span>${tubo}</span></div>` : ''}
           </div>
