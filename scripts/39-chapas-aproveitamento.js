@@ -1791,6 +1791,15 @@ window.ChapasAproveitamento = (function () {
       }
     }
 
+    // Felipe sessao 33: COMPACTACAO POR GRAVIDADE. Reportado: planificador
+    // deixava gaps grandes entre pecas. Felipe: 'as pecas devem ficar
+    // todas juntas, sem espaco alem dos 12mm da serra'. Qualquer algoritmo
+    // (FFDH com fileiras de altura fixa, BLF, MaxRects) pode deixar buracos.
+    // Aqui, depois do nesting, empurra cada peca pra ESQUERDA e pra BAIXO
+    // ate encostar em outra peca ou na borda, deixando so' o KERF de gap.
+    // Nao muda numero de chapas nem dimensoes — so' "cola" as pecas.
+    melhor.chapas.forEach(c => compactarChapaGravidade(c, cfg));
+
     // Calcula areas
     const areaChapa = chapaLarg * chapaAlt;
     let areaUsadaTotal = 0;
@@ -1826,6 +1835,87 @@ window.ChapasAproveitamento = (function () {
   }
 
   /**
+   * Felipe sessao 33: compacta as pecas de uma chapa por "gravidade".
+   * Empurra cada peca pra ESQUERDA e pra BAIXO ate encostar em outra
+   * peca ou na borda da area util, deixando exatamente o KERF de gap.
+   * Itera ate estabilizar (uma peca que desceu pode liberar espaco
+   * pra outra descer/ir pra esquerda). Nao rotaciona, nao reordena,
+   * nao muda dimensoes — so' reposiciona pra eliminar buracos.
+   */
+  function compactarChapaGravidade(chapa, cfg) {
+    const pecas = chapa.pecasPosicionadas || [];
+    if (pecas.length < 2) return;
+    const KERF = cfg.KERF || 0;
+    const M = cfg.APARAR || 0;
+    const limX = M;  // borda esquerda da area util
+    const limY = M;  // borda inferior da area util
+
+    // Colisao: duas pecas se sobrepoem (com folga do KERF entre elas)?
+    function colide(ax, ay, aw, ah, bx, by, bw, bh) {
+      return ax < bx + bw + KERF - 0.01 &&
+             bx < ax + aw + KERF - 0.01 &&
+             ay < by + bh + KERF - 0.01 &&
+             by < ay + ah + KERF - 0.01;
+    }
+
+    let mexeu = true, voltas = 0;
+    while (mexeu && voltas < 30) {
+      mexeu = false;
+      voltas++;
+      for (let i = 0; i < pecas.length; i++) {
+        const p = pecas[i];
+        // --- empurra pra BAIXO ---
+        let novoY = limY;
+        for (let j = 0; j < pecas.length; j++) {
+          if (j === i) continue;
+          const o = pecas[j];
+          // outra peca esta na faixa X de p (com kerf)?
+          const sobrepoeX = p.x < o.x + o.larg + KERF - 0.01 &&
+                            o.x < p.x + p.larg + KERF - 0.01;
+          if (!sobrepoeX) continue;
+          // e' uma peca que esta ABAIXO do topo atual de p?
+          if (o.y + o.alt <= p.y + 0.01) {
+            const topoComKerf = o.y + o.alt + KERF;
+            if (topoComKerf > novoY) novoY = topoComKerf;
+          }
+        }
+        if (novoY < p.y - 0.01) {
+          // valida que descer nao colide com ninguem
+          let ok = true;
+          for (let j = 0; j < pecas.length; j++) {
+            if (j === i) continue;
+            const o = pecas[j];
+            if (colide(p.x, novoY, p.larg, p.alt, o.x, o.y, o.larg, o.alt)) { ok = false; break; }
+          }
+          if (ok) { p.y = novoY; mexeu = true; }
+        }
+        // --- empurra pra ESQUERDA ---
+        let novoX = limX;
+        for (let j = 0; j < pecas.length; j++) {
+          if (j === i) continue;
+          const o = pecas[j];
+          const sobrepoeY = p.y < o.y + o.alt + KERF - 0.01 &&
+                            o.y < p.y + p.alt + KERF - 0.01;
+          if (!sobrepoeY) continue;
+          if (o.x + o.larg <= p.x + 0.01) {
+            const dirComKerf = o.x + o.larg + KERF;
+            if (dirComKerf > novoX) novoX = dirComKerf;
+          }
+        }
+        if (novoX < p.x - 0.01) {
+          let ok = true;
+          for (let j = 0; j < pecas.length; j++) {
+            if (j === i) continue;
+            const o = pecas[j];
+            if (colide(novoX, p.y, p.larg, p.alt, o.x, o.y, o.larg, o.alt)) { ok = false; break; }
+          }
+          if (ok) { p.x = novoX; mexeu = true; }
+        }
+      }
+    }
+  }
+
+  /**
    * Compara dois resultados: retorna negativo se A e' melhor que B.
    * Criterio: menos chapas > maior aproveitamento > menos pecas nao couberam.
    */
@@ -1835,41 +1925,65 @@ window.ChapasAproveitamento = (function () {
     if (naoA !== naoB) return naoA - naoB;
     // Menos chapas e' melhor
     if (a.chapas.length !== b.chapas.length) return a.chapas.length - b.chapas.length;
-    // Felipe sessao 31: 'sempre tem que deixar as pecas mais proximas
-    // possiveis ... as sobras a gente aproveita'. Quando 2 estrategias
-    // empatam em numero de chapas, prefere a que CONCENTRA mais peças
-    // nas primeiras (sobra grande contigua no final em vez de retalhos
-    // espalhados em todas as chapas).
-    //
-    // Score: soma do aproveitamento das (N-1) primeiras chapas.
-    // Quanto MAIOR esse score, mais cheia ficou a parte inicial e
-    // mais "limpa" ficou a ultima chapa pra sobra reutilizavel.
-    const scoreA = somaAproveitamentoIniciais(a);
-    const scoreB = somaAproveitamentoIniciais(b);
+    // Felipe sessao 33: tiebreak REESCRITO. O antigo somava
+    // areaUsada/areaTotal das (N-1) primeiras chapas, mas:
+    //   1. usava c.dispLarg/c.dispAlt — campos que NAO existem na
+    //      chapa (ela guarda largura/altura) -> caia no '|| 1' e o
+    //      score virava lixo. Tiebreak quebrado desde a sessao 31.
+    //   2. ignorava a ULTIMA chapa -> layout horroroso na ultima
+    //      chapa nunca era penalizado (e' onde Felipe viu os gaps).
+    //   3. media so' AREA das pecas — nao detecta GAPS. Layout
+    //      espalhado e layout compacto tem a mesma area.
+    // Agora usa scoreCompactacao: mede o quao AGRUPADAS as pecas
+    // estao (densidade dentro do bounding box), em TODAS as chapas.
+    // Quanto maior, menos buracos. Felipe: 'pecas todas juntas, sem
+    // espaco alem dos 12mm da serra'.
+    const scoreA = scoreCompactacao(a);
+    const scoreB = scoreCompactacao(b);
     if (Math.abs(scoreA - scoreB) > 0.001) return scoreB - scoreA;
     return 0;
   }
 
   /**
-   * Felipe sessao 31: usado no tiebreak de compararResultados.
-   * Soma o aproveitamento das (N-1) primeiras chapas. Se N=1, retorna
-   * o aproveitamento da unica chapa. Quanto maior, mais concentrado
-   * ficou — peças pequenas espalhadas em todas as chapas baixam essa
-   * soma (varias chapas com pouco uso).
+   * Felipe sessao 33: mede a COMPACTACAO de um resultado de nesting.
+   * Para cada chapa: calcula o bounding box que envolve todas as
+   * pecas e a densidade (areaPecas / areaBoundingBox). Densidade
+   * alta = pecas agrupadas sem buracos. Densidade baixa = pecas
+   * espalhadas com gaps. Soma ponderada por area de todas as chapas.
+   *
+   * Tambem aplica um bonus pela area total bem usada (areaPecas /
+   * areaChapa) — pra nao premiar um layout que so concentrou tudo
+   * num cantinho minusculo.
    */
-  function somaAproveitamentoIniciais(resultado) {
+  function scoreCompactacao(resultado) {
     const chapas = resultado.chapas || [];
     if (!chapas.length) return 0;
-    const limite = chapas.length === 1 ? 1 : chapas.length - 1;
-    let soma = 0;
-    for (let i = 0; i < limite; i++) {
-      const c = chapas[i];
-      const areaTotal = (c.dispLarg || 1) * (c.dispAlt || 1);
-      const areaUsada = (c.pecasPosicionadas || []).reduce(
-        (s, p) => s + (p.larg || 0) * (p.alt || 0), 0);
-      soma += areaTotal > 0 ? areaUsada / areaTotal : 0;
+    let somaScore = 0;
+    let nChapas = 0;
+    for (const c of chapas) {
+      const pecas = c.pecasPosicionadas || [];
+      if (!pecas.length) continue;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let areaPecas = 0;
+      for (const p of pecas) {
+        const px = p.x || 0, py = p.y || 0;
+        const pw = p.larg || 0, ph = p.alt || 0;
+        if (px < minX) minX = px;
+        if (py < minY) minY = py;
+        if (px + pw > maxX) maxX = px + pw;
+        if (py + ph > maxY) maxY = py + ph;
+        areaPecas += pw * ph;
+      }
+      const bbW = Math.max(1, maxX - minX);
+      const bbH = Math.max(1, maxY - minY);
+      const densidadeBB = areaPecas / (bbW * bbH);   // 0..1 — sem gaps = ~1
+      const areaChapa = Math.max(1, (c.largura || 1) * (c.altura || 1));
+      const usoChapa = areaPecas / areaChapa;        // 0..1 — area total usada
+      // 70% compactacao (sem gaps) + 30% uso da chapa
+      somaScore += 0.7 * densidadeBB + 0.3 * usoChapa;
+      nChapas++;
     }
-    return soma;
+    return nChapas > 0 ? somaScore / nChapas : 0;
   }
 
   /**
