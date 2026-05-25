@@ -67,6 +67,33 @@
       + '}'
       + '.ec-editor:focus { border-color: #0078d4; box-shadow: 0 0 0 2px rgba(0,120,212,0.15); }'
       + '.ec-editor p { margin: 0 0 8px; }'
+      // Felipe sessao 33: toolbar de formatacao (negrito + cor da fonte)
+      + '.ec-toolbar {'
+      + '  display: flex; align-items: center; gap: 4px; padding: 6px 8px;'
+      + '  border: 1px solid #d1d5db; border-bottom: none;'
+      + '  border-radius: 6px 6px 0 0; background: #f9fafb;'
+      + '}'
+      + '.ec-toolbar + .ec-editor { border-radius: 0 0 6px 6px; }'
+      + '.ec-tb-btn {'
+      + '  min-width: 28px; height: 28px; padding: 0 6px; cursor: pointer;'
+      + '  background: #fff; border: 1px solid #d1d5db; border-radius: 4px;'
+      + '  font-size: 13px; color: #1f2937; line-height: 1;'
+      + '  display: inline-flex; align-items: center; justify-content: center;'
+      + '}'
+      + '.ec-tb-btn:hover { border-color: #0078d4; color: #0078d4; }'
+      + '.ec-tb-btn.is-ativo { background: #e0edff; border-color: #0078d4; color: #0078d4; }'
+      + '.ec-tb-sep { width: 1px; height: 20px; background: #d1d5db; margin: 0 4px; }'
+      + '.ec-tb-cor {'
+      + '  position: relative; display: inline-flex; align-items: center;'
+      + '  justify-content: center; min-width: 28px; height: 28px; cursor: pointer;'
+      + '  background: #fff; border: 1px solid #d1d5db; border-radius: 4px;'
+      + '}'
+      + '.ec-tb-cor:hover { border-color: #0078d4; }'
+      + '.ec-tb-cor-icone { font-size: 13px; font-weight: 700; pointer-events: none; }'
+      + '.ec-tb-cor-input {'
+      + '  position: absolute; inset: 0; width: 100%; height: 100%;'
+      + '  opacity: 0; cursor: pointer; border: none; padding: 0;'
+      + '}'
       + '.ec-anexos {'
       + '  margin-top: 14px; padding: 12px; background: #f9fafb;'
       + '  border-radius: 6px; border: 1px solid #e5e7eb;'
@@ -233,6 +260,17 @@
         +     chipsTO
         +     chipsCC
         +     '<div class="ec-subject"><b>Assunto:</b> ' + escapeHtml(subject) + '</div>'
+        +     '<div class="ec-toolbar">'
+        +       '<button class="ec-tb-btn" type="button" data-cmd="bold" title="Negrito (Ctrl+B)"><b>N</b></button>'
+        +       '<button class="ec-tb-btn" type="button" data-cmd="italic" title="Italico (Ctrl+I)"><i>I</i></button>'
+        +       '<button class="ec-tb-btn" type="button" data-cmd="underline" title="Sublinhado (Ctrl+U)"><u>S</u></button>'
+        +       '<span class="ec-tb-sep"></span>'
+        +       '<label class="ec-tb-cor" title="Cor da fonte">'
+        +         '<span class="ec-tb-cor-icone">A</span>'
+        +         '<input type="color" class="ec-tb-cor-input" value="#c47012" />'
+        +       '</label>'
+        +       '<button class="ec-tb-btn ec-tb-cor-reset" type="button" data-cmd="forecolor-reset" title="Cor padrao (preto)">A<span style="color:#c47012;font-weight:700;">↺</span></button>'
+        +     '</div>'
         +     '<div class="ec-editor" contenteditable="true"></div>'
         +     '<div class="ec-anexos">'
         +       '<div class="ec-anexos-titulo">📎 Anexos</div>'
@@ -305,6 +343,69 @@
       // Define HTML inicial do editor (preserva formatacao)
       editor.innerHTML = bodyHtml;
       editor.focus();
+
+      // Felipe sessao 33: toolbar de formatacao (negrito/italico/sublinhado
+      // + cor da fonte). Usa document.execCommand sobre o contenteditable.
+      // execCommand e' deprecated mas e' o caminho mais simples e estavel
+      // pra rich-text inline; funciona em todos os browsers atuais e o
+      // resultado (tags <b>/<font color>) e' compativel com email HTML.
+      var tbBtns   = overlay.querySelectorAll('.ec-tb-btn[data-cmd]');
+      var corInput = overlay.querySelector('.ec-tb-cor-input');
+      var corIcone = overlay.querySelector('.ec-tb-cor-icone');
+
+      // Aplica um comando preservando a selecao do editor.
+      function execNoEditor(fn) {
+        editor.focus();
+        fn();
+      }
+
+      tbBtns.forEach(function(btn) {
+        // mousedown (nao click) pra nao perder a selecao de texto do editor
+        btn.addEventListener('mousedown', function(ev) {
+          ev.preventDefault();
+          var cmd = btn.getAttribute('data-cmd');
+          if (cmd === 'forecolor-reset') {
+            execNoEditor(function() {
+              try { document.execCommand('foreColor', false, '#000000'); } catch (_) {}
+            });
+            return;
+          }
+          // bold / italic / underline
+          execNoEditor(function() {
+            try { document.execCommand(cmd, false, null); } catch (_) {}
+          });
+          atualizarEstadoBotoes();
+        });
+      });
+
+      // Seletor de cor: aplica foreColor com a cor escolhida.
+      if (corInput) {
+        corInput.addEventListener('mousedown', function() {
+          // guarda a selecao atual antes do color picker abrir
+          editor.focus();
+        });
+        corInput.addEventListener('input', function() {
+          var cor = corInput.value || '#000000';
+          if (corIcone) corIcone.style.color = cor;
+          execNoEditor(function() {
+            try { document.execCommand('foreColor', false, cor); } catch (_) {}
+          });
+        });
+      }
+
+      // Realca os botoes B/I/U quando o cursor esta sobre texto formatado.
+      function atualizarEstadoBotoes() {
+        tbBtns.forEach(function(btn) {
+          var cmd = btn.getAttribute('data-cmd');
+          if (cmd === 'bold' || cmd === 'italic' || cmd === 'underline') {
+            var ativo = false;
+            try { ativo = document.queryCommandState(cmd); } catch (_) {}
+            btn.classList.toggle('is-ativo', !!ativo);
+          }
+        });
+      }
+      editor.addEventListener('keyup', atualizarEstadoBotoes);
+      editor.addEventListener('mouseup', atualizarEstadoBotoes);
 
       // ---- Renderiza lista de anexos ----
       function renderizarAnexos() {
