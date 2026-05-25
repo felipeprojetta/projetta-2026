@@ -2649,12 +2649,17 @@
           const resumo = (window.Orcamento && window.Orcamento.resumoParaCardCRM)
             ? window.Orcamento.resumoParaCardCRM(l.id) : null;
           const temVersaoFechada = !!(resumo && resumo.hasVersaoFechada);
+          // Felipe sessao 33: temVersao = true se ha QUALQUER versao do
+          // orcamento (mesmo draft, nao aprovada). Usado pra mostrar os
+          // botoes Abrir/Revisar mesmo antes de aprovar — 'orcamento
+          // feito com preco deve ter botao de abrir memoria de calculo'.
+          const temVersao = !!(resumo && resumo.temVersao);
 
           // Cor: prefere corInterna; se vazia, usa corExterna
           const corPrefere = (resumo && (resumo.corInterna || resumo.corExterna)) || '';
 
           // Linhas do bloco "produto" (so se tem versao fechada)
-          const blocoProduto = temVersaoFechada ? `
+          const blocoProduto = temVersao ? `
             <div class="crm-card-produto">
               ${resumo.modelo  ? `<div class="crm-card-prod-row"><span class="crm-card-prod-lbl">Modelo:</span> ${escapeHtml(resumo.modelo)}</div>` : ''}
               ${resumo.nFolhas ? `<div class="crm-card-prod-row"><span class="crm-card-prod-lbl">Folhas:</span> ${escapeHtml(resumo.nFolhas)}</div>` : ''}
@@ -2710,18 +2715,26 @@
           // (temVersaoFechada ja' foi declarada na linha 1354)
           const totalVersoes = (resumo && resumo.versoes) ? resumo.versoes.length : 0;
           let versoesUI = '';
-          if (temVersaoFechada && resumo) {
+          if (temVersao && resumo) {
             const ultimaVersao = (resumo.versoes || [])[0]; // ja vem ordenada (imutaveis primeiro)
             const numAprovadas = (resumo.versoes || []).filter(v => v.ehImutavelParaCard).length;
+            // Felipe sessao 33: badge adapta — verde 'V' se ha versao
+            // aprovada, cinza se so' tem draft (orcamento ainda em edicao).
+            const temAprovada = numAprovadas > 0;
+            const corBg   = temAprovada ? '#f0fdf4' : '#f3f4f6';
+            const corBd   = temAprovada ? '#86efac' : '#d1d5db';
+            const corTxt  = temAprovada ? '#14532d' : '#374151';
+            const badgeBg = temAprovada ? '#16a34a' : '#6b7280';
+            const badgePrefix = temAprovada ? '✓ V' : 'V';
             versoesUI = `
               <div class="crm-card-versoes-resumo" style="
-                background:#f0fdf4;border:1px solid #86efac;border-radius:4px;
-                padding:6px 8px;margin:6px 0;font-size:11px;color:#14532d;
+                background:${corBg};border:1px solid ${corBd};border-radius:4px;
+                padding:6px 8px;margin:6px 0;font-size:11px;color:${corTxt};
               ">
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="background:#16a34a;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;">✓ V${ultimaVersao.numero}</span>
+                  <span style="background:${badgeBg};color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;">${badgePrefix}${ultimaVersao.numero}</span>
                   <span style="font-weight:700;">${totalVersoes} ${totalVersoes === 1 ? 'versão' : 'versões'}</span>
-                  ${numAprovadas > 0 ? `<span style="color:#15803d;">(${numAprovadas} aprovada${numAprovadas > 1 ? 's' : ''})</span>` : ''}
+                  ${numAprovadas > 0 ? `<span style="color:#15803d;">(${numAprovadas} aprovada${numAprovadas > 1 ? 's' : ''})</span>` : '<span style="color:#9ca3af;">(em edição)</span>'}
                 </div>
               </div>
             `;
@@ -2835,8 +2848,8 @@
             ` : ''}
             ${versoesUI}
             ${mostraBtnOrc ? `
-              <div class="crm-card-actions ${temVersaoFechada ? 'is-orcdocs' : ''}">
-                ${!temVersaoFechada ? `
+              <div class="crm-card-actions ${temVersao ? 'is-orcdocs' : ''}">
+                ${!temVersao ? `
                   <button class="crm-card-btn-orc" data-action="montar-orcamento" data-lead-id="${l.id}" title="Abrir orcamento deste lead">📐 Montar Orcamento</button>
                 ` : `
                   <button class="crm-orcdocs-btn" data-action="abrir-orcamento" data-lead-id="${l.id}" title="Escolha versao e abra o orcamento">
@@ -2859,7 +2872,7 @@
                     ${l.numeroReserva ? `<button data-action="ver-thread" data-lead-id="${l.id}" title="Ver todos emails desta reserva" style="background:rgba(0,120,212,0.15);color:#0078d4;border:1px solid rgba(0,120,212,0.3);padding:6px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Ver Emails</button>` : ''}
                   </div>
                 `}
-                ${!temVersaoFechada ? `
+                ${!temVersao ? `
                   <div class="crm-orcdocs-btn-secundarios">
                   <button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>
                   ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva com proposta" style="background:rgba(0,120,212,0.4);color:#1a5276;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Enviar Proposta</button>` : ''}

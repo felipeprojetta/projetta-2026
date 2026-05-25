@@ -1150,20 +1150,32 @@ const Orcamento = (() => {
     // Felipe (sessao 2026-08): aceita aprovadoEm OU status='fechada'.
     const ultimaFechada = versoesFlat.find(v => v.ehImutavelParaCard) || null;
 
-    if (!ultimaFechada) {
-      return { hasVersaoFechada: false, valor: 0, precoProposta: 0, versoes: versoesFlat };
+    // Felipe sessao 33: 'orcamentos feitos com preco mas sem botao de
+    // abrir memoria de calculo / revisao'. Antes, se NAO havia versao
+    // aprovada/fechada, retornava {hasVersaoFechada:false} sem dados —
+    // o card caia no ramo 'Montar Orcamento' simples, sem Abrir/Revisar.
+    // Agora: se ha QUALQUER versao (mesmo draft, nao aprovada), retorna
+    // os dados da versao mais recente + flag temVersao=true. O card usa
+    // temVersao pra mostrar os botoes Abrir/Revisar/Nova Versao/Gerar.
+    // 'alvo' = versao aprovada se houver, senao a versao mais recente.
+    const alvoCard = ultimaFechada || versoesFlat[0] || null;
+
+    if (!alvoCard) {
+      // Negocio sem nenhuma versao — card fica enxuto (Montar Orcamento).
+      return { hasVersaoFechada: false, temVersao: false, valor: 0,
+               precoProposta: 0, versoes: versoesFlat };
     }
 
     // Pega versao completa pra ler itens
-    const r = obterVersao(ultimaFechada.id);
+    const r = obterVersao(alvoCard.id);
     const item0 = (r && r.versao && r.versao.itens && r.versao.itens[0]) || {};
 
     // Felipe (sessao 2026-05): expoe comissoes e desconto pro template
     // de email/whatsapp do representante. params da versao tem com_rep,
     // com_rt e desconto em %. Calcula R$ sobre o valorComDesconto.
     const params = Object.assign({}, PARAMS_DEFAULT, (r && r.versao && r.versao.parametros) || {});
-    const valorComDesc  = Number(ultimaFechada.valor) || 0;
-    const valorOriginal = Number(ultimaFechada.precoProposta) || 0;
+    const valorComDesc  = Number(alvoCard.valor) || 0;
+    const valorOriginal = Number(alvoCard.precoProposta) || 0;
     const com_rep_pct   = Number(params.com_rep) || 0;
     const com_rt_pct    = Number(params.com_rt)  || 0;
     const desconto_pct  = valorOriginal > 0 ? Math.max(0, (1 - (valorComDesc / valorOriginal)) * 100) : 0;
@@ -1172,9 +1184,14 @@ const Orcamento = (() => {
     const desconto_rs   = Math.max(0, valorOriginal - valorComDesc);
 
     return {
-      hasVersaoFechada: true,
-      valor: ultimaFechada.valor,                  // pFatReal — Cliente Paga (com desconto)
-      precoProposta: ultimaFechada.precoProposta,  // pTab — Preco da Proposta (sem desconto)
+      // hasVersaoFechada: so' true se ha versao aprovada/fechada (mantem
+      // semantica antiga — usado p/ saber se pode Gerar Documentos etc).
+      hasVersaoFechada: !!ultimaFechada,
+      // temVersao: true se ha QUALQUER versao (inclusive draft). O card
+      // usa pra mostrar Abrir/Revisar mesmo em orcamento nao aprovado.
+      temVersao: true,
+      valor: alvoCard.valor,                  // pFatReal — Cliente Paga (com desconto)
+      precoProposta: alvoCard.precoProposta,  // pTab — Preco da Proposta (sem desconto)
       // Felipe sessao 2026-05: dados pro template de email rep
       comissaoRepPct:  com_rep_pct,
       comissaoRepRs:   com_rep_rs,
