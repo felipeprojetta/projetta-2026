@@ -12738,15 +12738,21 @@ const Orcamento = (() => {
     const tr = (pt, en) => internacional ? en : pt;
 
     // Modelo (nome do cadastro). Porta interna: default Modelo 1 = Lisa.
+    // Felipe sessao 33: usa listarInternas() — a lista de modelos
+    // INTERNOS (modelo 1 = Lisa). Antes usava listar() (modelos
+    // EXTERNOS, onde modelo 1 = Cava) e o card saia 'Modelo 1 — Cava'
+    // com a imagem da Cava. Modelos internos nao tem imagem propria,
+    // entao o card mostra o placeholder.
     let modeloInfo = null;
-    if (window.Modelos && typeof window.Modelos.listar === 'function') {
-      const lista = window.Modelos.listar();
-      modeloInfo = lista.find(m => Number(m.numero) === Number(item.modeloNumero));
+    if (window.Modelos && typeof window.Modelos.listarInternas === 'function') {
+      const listaInt = window.Modelos.listarInternas();
+      modeloInfo = listaInt.find(m => Number(m.numero) === Number(item.modeloNumero));
     }
     const modeloNome = modeloInfo
       ? `${item.modeloNumero} — ${modeloInfo.nome}`
       : (item.modeloNumero ? `${tr('Modelo','Model')} ${item.modeloNumero}` : '—');
-    const imgSrc = modeloInfo ? modeloInfo.img_1f : null;
+    // Modelo interno normalmente nao tem imagem — usa img_1f so' se existir.
+    const imgSrc = (modeloInfo && modeloInfo.img_1f) ? modeloInfo.img_1f : null;
 
     const lar = parseBR(item.largura) || 0;
     const alt = parseBR(item.altura)  || 0;
