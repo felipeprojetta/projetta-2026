@@ -15073,12 +15073,31 @@ const Orcamento = (() => {
       .map(s => {
         const larg = Number(s.largura) || 0;
         const alt  = Number(s.altura)  || 0;
+        // Felipe sessao 33: a DESCRICAO manda. Se ela termina com uma
+        // dimensao ("... - 1500 X 6000"), essa dimensao tem prioridade
+        // sobre os campos largura/altura. Motivo: foram encontradas 8
+        // chapas no cadastro com o campo errado — ex: descricao diz
+        // "1500 X 6000" mas altura=3000. Isso fazia o nesting achar
+        // que a chapa era menor e dizer "nenhuma chapa comporta as
+        // pecas" mesmo a chapa de 6m existindo. dimsChapaSaoValidas
+        // aceitava 1500x3000 como valida, entao o fallback nem
+        // disparava. Agora: extrai da descricao SEMPRE que ela tiver
+        // dimensao no final; so' usa os campos se a descricao nao tem.
+        const dimsDesc = extrairDimsDaDesc(s.descricao);
+        if (dimsDesc.largura > 0 && dimsDesc.altura > 0) {
+          // Descricao tem dimensao explicita -> ela vence.
+          if (dimsDesc.largura !== larg || dimsDesc.altura !== alt) {
+            console.warn('[Aproveitamento] Chapa com campo divergente da descricao — usando a descricao:',
+              s.descricao, '| campo:', larg + 'x' + alt, '| descricao:', dimsDesc.largura + 'x' + dimsDesc.altura);
+          }
+          return Object.assign({}, s, { largura: dimsDesc.largura, altura: dimsDesc.altura });
+        }
+        // Descricao sem dimensao: usa os campos se forem validos.
         if (larg > 0 && alt > 0 && dimsChapaSaoValidas(larg, alt)) return s;
-        // Fallback: extrai da descricao (valores ausentes OU insanos)
-        const dims = extrairDimsDaDesc(s.descricao);
+        // Ultimo recurso: campos invalidos e descricao sem dimensao.
         return Object.assign({}, s, {
-          largura: dims.largura,
-          altura:  dims.altura,
+          largura: dimsDesc.largura,
+          altura:  dimsDesc.altura,
         });
       })
       .filter(s => Number(s.largura) > 0 && Number(s.altura) > 0);
