@@ -12463,6 +12463,17 @@ const Orcamento = (() => {
       return renderCardItemPropostaRevestimento(item, idx, versao);
     }
 
+    // Felipe sessao 33: porta INTERNA tem card proprio. O card generico
+    // abaixo e' da porta EXTERNA — trazia fechadura mecanica 8 pinos,
+    // cilindro Keso, puxador externo, fechadura digital: nada disso
+    // existe na porta interna. O card de porta interna mostra SO o que
+    // o item de porta interna tem: dimensoes, modelo, sistema, alisar,
+    // revestimento+cores das 2 faces, tipo de fechadura (kit Hafele ou
+    // maquina/macaneta/cilindro) e cor da dobradica.
+    if (item.tipo === 'porta_interna') {
+      return renderCardItemPropostaInterna(item, idx, versao);
+    }
+
     // Lookup do modelo no cadastro pra pegar imagem e nome
     let modeloInfo = null;
     if (window.Modelos && typeof window.Modelos.listar === 'function') {
@@ -12707,6 +12718,112 @@ const Orcamento = (() => {
             return `<div class="rel-prop-item-linhas rel-prop-item-modelo-vars">${linhas}${notaPintura}</div>`;
           })()}
           ${bannerAlisar}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Felipe sessao 33: card especifico pra PORTA INTERNA na proposta
+   * comercial. O card generico (renderCardItemProposta) e' da porta
+   * EXTERNA e trazia campos que a porta interna NAO tem (fechadura
+   * mecanica 8 pinos, cilindro Keso, puxador externo, fechadura
+   * digital). Este card mostra SO o que foi cadastrado na porta
+   * interna: dimensoes, modelo, sistema, alisar, revestimento+cores
+   * das 2 faces, tipo de fechadura e cor da dobradica.
+   */
+  function renderCardItemPropostaInterna(item, idx, versao) {
+    const _lead = (typeof lerLeadAtivo === 'function') ? (lerLeadAtivo() || {}) : {};
+    const internacional = _lead.destinoTipo === 'internacional';
+    const tr = (pt, en) => internacional ? en : pt;
+
+    // Modelo (nome do cadastro). Porta interna: default Modelo 1 = Lisa.
+    let modeloInfo = null;
+    if (window.Modelos && typeof window.Modelos.listar === 'function') {
+      const lista = window.Modelos.listar();
+      modeloInfo = lista.find(m => Number(m.numero) === Number(item.modeloNumero));
+    }
+    const modeloNome = modeloInfo
+      ? `${item.modeloNumero} — ${modeloInfo.nome}`
+      : (item.modeloNumero ? `${tr('Modelo','Model')} ${item.modeloNumero}` : '—');
+    const imgSrc = modeloInfo ? modeloInfo.img_1f : null;
+
+    const lar = parseBR(item.largura) || 0;
+    const alt = parseBR(item.altura)  || 0;
+    const areaM2 = (lar / 1000) * (alt / 1000);
+
+    // Sistema (pivotante / dobradica) — formatado
+    const sistema = item.sistema || '';
+    const sistemaFmt = sistema
+      ? (() => {
+          const base = sistema.charAt(0).toUpperCase() + sistema.slice(1).toLowerCase();
+          if (internacional) {
+            const low = base.toLowerCase();
+            if (low === 'pivotante') return 'Pivoting';
+            if (low === 'dobradica' || low === 'dobradiça') return 'Hinged';
+          }
+          return base;
+        })()
+      : '—';
+
+    // Alisar — banner (igual porta externa)
+    const temAlisar = (item.tem_alisar || 'Sim') === 'Sim';
+    const bannerAlisar = temAlisar
+      ? `<div class="rel-prop-banner-alisar is-sim">${tr('ALISAR','Architrave')}: <b>${tr('SIM — COM ALISAR','YES — WITH ARCHITRAVE')}</b></div>`
+      : `<div class="rel-prop-banner-alisar is-nao">${tr('ALISAR','Architrave')}: <b>${tr('NAO — SEM ALISAR','NO — WITHOUT ARCHITRAVE')}</b></div>`;
+
+    // Fechadura — modo conjunto (kit Hafele) ou personalizado
+    const modoFech = item.fechaduraModo || 'conjunto';
+    let blocoFechadura = '';
+    if (modoFech === 'conjunto') {
+      const cod = item.fechaduraInternaCodigo || '';
+      const corF = item.fechaduraInternaCor || '';
+      blocoFechadura = cod
+        ? `<div class="rel-prop-item-linha"><span class="lbl">${tr('FECHADURA','LOCK')}:</span> <span>${escapeHtml(cod)}${corF ? ' — ' + escapeHtml(corF) : ''}</span></div>`
+        : `<div class="rel-prop-item-linha"><span class="lbl">${tr('FECHADURA','LOCK')}:</span> <span>—</span></div>`;
+    } else {
+      const linhas = [];
+      if (item.maquinaInternaCodigo)  linhas.push(`<div class="rel-prop-item-linha"><span class="lbl">${tr('MAQUINA','MACHINE')}:</span> <span>${escapeHtml(item.maquinaInternaCodigo)}</span></div>`);
+      if (item.macanetaInternaCodigo) linhas.push(`<div class="rel-prop-item-linha"><span class="lbl">${tr('MACANETA','HANDLE')}:</span> <span>${escapeHtml(item.macanetaInternaCodigo)}</span></div>`);
+      if (item.cilindroInternaCodigo) linhas.push(`<div class="rel-prop-item-linha"><span class="lbl">${tr('CILINDRO','CYLINDER')}:</span> <span>${escapeHtml(item.cilindroInternaCodigo)}</span></div>`);
+      blocoFechadura = linhas.length
+        ? linhas.join('')
+        : `<div class="rel-prop-item-linha"><span class="lbl">${tr('FECHADURA','LOCK')}:</span> <span>—</span></div>`;
+    }
+
+    // Badge ITEM N
+    const _numItem = (typeof idx === 'number' && idx >= 0) ? (idx + 1) : null;
+    const _tituloBadge = _numItem
+      ? `<span class="rel-prop-item-num-badge" style="display:inline-block;background:#c46b20;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-right:8px;letter-spacing:0.05em;">ITEM ${String(_numItem).padStart(2,'0')}</span>`
+      : '';
+
+    return `
+      <div class="rel-prop-item-card">
+        <div class="rel-prop-item-img">
+          ${imgSrc
+            ? `<img src="${imgSrc}" alt="Modelo ${item.modeloNumero}" />`
+            : `<div class="rel-prop-item-img-placeholder">${tr('Imagem do<br>modelo','Model<br>image')}</div>`}
+          <div class="rel-prop-item-img-disclaimer">
+            ${tr('Imagem meramente ilustrativa. O cliente aprovara os desenhos finais para producao.','Image for illustration only. Client will approve final drawings for production.')}
+          </div>
+        </div>
+        <div class="rel-prop-item-info">
+          <div class="rel-prop-item-titulo">${_tituloBadge}${tr('PORTA INTERNA PROJETTA BY WEIKU','PROJETTA INTERIOR DOOR BY WEIKU')}</div>
+          <div class="rel-prop-item-linhas">
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('Qtd','Qty')}:</span> <span>${Number(item.quantidade) || 1}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('L','W')}:</span> <span>${lar}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">H:</span> <span>${alt}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('Area Porta','Door Area')}:</span> <span>${fmtBR(areaM2)} m²</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('SISTEMA','SYSTEM')}:</span> <span>${escapeHtml(sistemaFmt)}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('MODELO','MODEL')}:</span> <span>${escapeHtml(modeloNome)}</span></div>
+          </div>
+          ${bannerAlisar}
+          <div class="rel-prop-item-linhas">
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('COR FACE EXTERNA','EXTERIOR FACE COLOR')}:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('COR FACE INTERNA','INTERIOR FACE COLOR')}:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
+            ${blocoFechadura}
+            ${item.dobradicaCor ? `<div class="rel-prop-item-linha"><span class="lbl">${tr('DOBRADICA','HINGE')}:</span> <span>${escapeHtml(item.dobradicaCor)}</span></div>` : ''}
+          </div>
         </div>
       </div>
     `;
