@@ -493,58 +493,111 @@
      attachments: [{name, contentBytes, contentType}] */
   window.outlookReplyAllCustom = async function(msgId, body, toEmails, ccEmails, attachments){
     // Passo 1: cria draft via createReplyAll
-    var draft = await _graphCall(
-      '/me/messages/' + encodeURIComponent(msgId) + '/createReplyAll',
-      { method: 'POST', body: '{}' }
-    );
-    if(!draft || !draft.id) {
-      throw new Error('createReplyAll nao retornou draft.id');
+    // Felipe sessao 33: o Graph as vezes recusa createReplyAll com
+    // "Item type is invalid for creating a ReplyAll" — acontece quando
+    // o msgId aponta pra um item que nao e' uma mensagem recebida
+    // normal (rascunho, item da pasta Enviados, item de outro tipo).
+    // Nesse caso cai pro FALLBACK: cria uma mensagem nova preservando
+    // o assunto (Re: ...) e, se possivel, o conversationId da thread,
+    // pra a resposta ainda ficar agrupada na conversa do Outlook.
+    var draft = null;
+    var erroReplyAll = null;
+    try {
+      draft = await _graphCall(
+        '/me/messages/' + encodeURIComponent(msgId) + '/createReplyAll',
+        { method: 'POST', body: '{}' }
+      );
+    } catch (e) {
+      erroReplyAll = e;
+      console.warn('[Outlook] createReplyAll falhou, usando fallback de mensagem nova:', e && e.message);
     }
-    var draftId = draft.id;
 
-    // Passo 2: PATCH pra atualizar destinatarios e body
-    var patchPayload = {
+    if (draft && draft.id) {
+      // Caminho normal: PATCH no draft do createReplyAll.
+      var draftId = draft.id;
+      var patchPayload = {
+        toRecipients: (toEmails || []).map(function(e){
+          return { emailAddress: { address: e } };
+        }),
+        ccRecipients: (ccEmails || []).map(function(e){
+          return { emailAddress: { address: e } };
+        }),
+        body: { contentType: 'HTML', content: body }
+      };
+      await _graphCall(
+        '/me/messages/' + encodeURIComponent(draftId),
+        { method: 'PATCH', body: JSON.stringify(patchPayload) }
+      );
+      if (attachments && attachments.length) {
+        for (var i = 0; i < attachments.length; i++) {
+          var a = attachments[i];
+          await _graphCall(
+            '/me/messages/' + encodeURIComponent(draftId) + '/attachments',
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                '@odata.type': '#microsoft.graph.fileAttachment',
+                name: a.name,
+                contentType: a.contentType || 'application/octet-stream',
+                contentBytes: a.contentBytes
+              })
+            }
+          );
+        }
+      }
+      await _graphCall(
+        '/me/messages/' + encodeURIComponent(draftId) + '/send',
+        { method: 'POST', body: '' }
+      );
+      return { ok: true, draftId: draftId };
+    }
+
+    // FALLBACK: createReplyAll falhou. Monta uma mensagem nova.
+    // Tenta ler o email original pra reaproveitar subject + conversationId.
+    var subjOrig = '';
+    var convId = '';
+    try {
+      var orig = await _graphCall(
+        '/me/messages/' + encodeURIComponent(msgId)
+          + '?$select=subject,conversationId',
+        { method: 'GET' }
+      );
+      subjOrig = (orig && orig.subject) || '';
+      convId   = (orig && orig.conversationId) || '';
+    } catch (e2) {
+      console.warn('[Outlook] nao conseguiu ler email original no fallback:', e2 && e2.message);
+    }
+    // Garante prefixo "Re:" no assunto
+    var subjReply = subjOrig
+      ? (/^re:/i.test(subjOrig.trim()) ? subjOrig : ('Re: ' + subjOrig))
+      : 'Re: (sem assunto)';
+
+    var msgNova = {
+      subject: subjReply,
+      body: { contentType: 'HTML', content: body },
       toRecipients: (toEmails || []).map(function(e){
         return { emailAddress: { address: e } };
       }),
       ccRecipients: (ccEmails || []).map(function(e){
         return { emailAddress: { address: e } };
-      }),
-      body: {
-        contentType: 'HTML',
-        content: body
-      }
+      })
     };
-    await _graphCall(
-      '/me/messages/' + encodeURIComponent(draftId),
-      { method: 'PATCH', body: JSON.stringify(patchPayload) }
-    );
-
-    // Passo 3: anexos (se tiver) - cada um e' um POST separado
-    if(attachments && attachments.length){
-      for(var i = 0; i < attachments.length; i++){
-        var a = attachments[i];
-        await _graphCall(
-          '/me/messages/' + encodeURIComponent(draftId) + '/attachments',
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              '@odata.type': '#microsoft.graph.fileAttachment',
-              name: a.name,
-              contentType: a.contentType || 'application/octet-stream',
-              contentBytes: a.contentBytes
-            })
-          }
-        );
-      }
+    if (convId) msgNova.conversationId = convId;
+    if (attachments && attachments.length) {
+      msgNova.attachments = attachments.map(function(a){
+        return {
+          '@odata.type': '#microsoft.graph.fileAttachment',
+          name: a.name,
+          contentType: a.contentType || 'application/octet-stream',
+          contentBytes: a.contentBytes
+        };
+      });
     }
-
-    // Passo 4: send
-    await _graphCall(
-      '/me/messages/' + encodeURIComponent(draftId) + '/send',
-      { method: 'POST', body: '' }
-    );
-    return { ok: true, draftId: draftId };
+    await _graphCall('/me/sendMail', {
+      method: 'POST',
+      body: JSON.stringify({ message: msgNova, saveToSentItems: true })
+    });
+    return { ok: true, fallback: true };
   };
 
   // ═══ UI: ABA EMAIL ═══
