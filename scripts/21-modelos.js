@@ -385,8 +385,17 @@ const Modelos = (() => {
   }
 
   // ── Supabase Storage (bucket modelos-portas) ──
-  const SUPABASE_URL = 'https://plmliavuwlgpwaizfeds.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
+  // Felipe sessao 33: REUSA a URL e a KEY do window.Database em vez de
+  // hardcodar. Antes estava fixo no banco ANTIGO (plmliavuwlgpwaizfeds,
+  // us-east-1) — apos a migracao pro banco SP (maqmawofimmfxeyfmcmp) o
+  // upload de imagem dos modelos ia pro bucket do banco velho e a
+  // imagem nunca aparecia no sistema. Agora segue sempre o banco ativo
+  // configurado no 00-database.js. Fallback pro SP caso Database nao
+  // esteja carregado ainda.
+  const SUPABASE_URL = (window.Database && window.Database.SUPABASE_URL)
+    || 'https://maqmawofimmfxeyfmcmp.supabase.co';
+  const SUPABASE_KEY = (window.Database && window.Database.SUPABASE_KEY)
+    || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hcW1hd29maW1tZnhleWZtY21wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMTUzOTEsImV4cCI6MjA5NDc5MTM5MX0.7NNp2SynjxSVSyBvbh4Jm5TFbaybYnny-HzaKUPefrc';
   const STORAGE_BUCKET = 'modelos-portas';
 
   async function uploadParaStorage(blob, modeloNumero, tipo) {

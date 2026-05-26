@@ -1122,6 +1122,10 @@ const Database = (() => {
     startRealtime: startRealtime,
     stopRealtime: stopRealtime,
     SUPABASE_URL: SUPABASE_URL,
+    // Felipe sessao 33: expoe a KEY tambem pra outros modulos (ex:
+    // 21-modelos.js upload de imagem pro Storage) reusarem em vez de
+    // hardcodar — evita ficar apontando pro banco antigo numa migracao.
+    SUPABASE_KEY: SUPABASE_KEY,
     // Felipe sessao 2026-08-02: protecao anti-perda
     isReadOnly: isReadOnly,
     // Felipe sessao 32: usado pelo botao "Continuar Offline" do boot
