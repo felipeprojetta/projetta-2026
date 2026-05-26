@@ -68,10 +68,16 @@ const Modelos = (() => {
   // Garantia extra: nao depende do CadastrosAutosync ter rodado direito.
   async function fetchModelosFromSupabaseDirect() {
     try {
-      var SUPABASE_URL = 'https://plmliavuwlgpwaizfeds.supabase.co';
-      var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbWxpYXZ1d2xncHdhaXpmZWRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzI3NTUsImV4cCI6MjA5MDkwODc1NX0.VY8H3RWFGXK11-86Krt7Z-DCbWuiclRKtD3A3h7W858';
+      // Felipe sessao 33: usa o banco ATIVO (SP) via window.Database, nao
+      // mais o hardcode do banco antigo (plmliavuwlgpwaizfeds). E a tabela
+      // correta e' kv_store (scope=cadastros, key=modelos_lista) — no banco
+      // antigo era a tabela 'cadastros' com coluna 'chave'.
+      var SUPABASE_URL = (window.Database && window.Database.SUPABASE_URL)
+        || 'https://maqmawofimmfxeyfmcmp.supabase.co';
+      var SUPABASE_KEY = (window.Database && window.Database.SUPABASE_KEY)
+        || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hcW1hd29maW1tZnhleWZtY21wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMTUzOTEsImV4cCI6MjA5NDc5MTM5MX0.7NNp2SynjxSVSyBvbh4Jm5TFbaybYnny-HzaKUPefrc';
       // Cache-buster: Safari iPhone cacheia GETs - garante versao fresca
-      var url = SUPABASE_URL + '/rest/v1/cadastros?chave=eq.modelos_lista&_=' + Date.now();
+      var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.cadastros&key=eq.modelos_lista&select=valor&_=' + Date.now();
       var res = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
