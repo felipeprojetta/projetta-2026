@@ -12093,7 +12093,6 @@ const Orcamento = (() => {
           <td>${escapeHtml(descricaoItem)}</td>
           <td>${escapeHtml(medidasStr)}</td>
           <td class="num">${qtd}</td>
-          <td class="num">${valorUnStr}</td>
           <td class="num">${valorTotStr}</td>
         </tr>
       `;
@@ -12144,7 +12143,9 @@ const Orcamento = (() => {
                 <th>${tr('Descricao','Description')}</th>
                 <th>${tr('Medidas','Dimensions')}</th>
                 <th class="num">${tr('Qtd','Qty')}</th>
-                <th class="num">${tr('Valor (un.)','Unit Price')}</th>
+                <!-- Felipe sessao 33: removida coluna 'Valor (un.)' a pedido.
+                     Mostra so' o Valor Total — preco unitario nao aparece
+                     mais na tabela final da proposta. -->
                 <th class="num">${tr('Valor Total','Total')}</th>
               </tr>
             </thead>
