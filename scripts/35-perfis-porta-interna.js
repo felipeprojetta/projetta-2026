@@ -67,6 +67,14 @@ const PerfisPortaInterna = (() => {
 
     const qtdPortas = Math.max(1, Number(item.quantidade) || 1);
 
+    // Felipe sessao 33: painel superior — usado SO no alisar vertical
+    // (perfil PA-ALISARINT) pra englobar porta+painel num bloco so'.
+    // Outros perfis (batente, click batente, folha, click folha,
+    // travessa) NAO mudam — o painel nao tem perfis proprios.
+    const temPainelSup = item.temPainelSuperior === 'sim';
+    const painelSupAlt = temPainelSup ? _toNum(item.painelSupAltura) : 0;
+    const painelOk = temPainelSup && painelSupAlt > 0;
+
     // Folgas unificadas. Fallback 5 quando vazio/null/undefined.
     const fglEsq = _toNum(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5);
     const fglDir = _toNum(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5);
@@ -153,8 +161,10 @@ const PerfisPortaInterna = (() => {
     // NAO usa folgas (medida = vao + sobras). Perfil envolve o vao externamente.
     // (Nao confundir com o 'alisar chapa' do 38b-chapas-porta-interna.js, que
     // sao 4 tiras 59,5 x (vao+100) entrando como chapas decorativas externas.)
+    // Felipe sessao 33: com painel superior, o vertical engloba porta+painel
+    // num bloco so' (igual ja' faz na chapa) — altura += painelSupAlt.
     const compAlisarHor = larguraVao + 33.5 + 33.5;
-    const compAlisarVer = alturaVao  + 33.5;
+    const compAlisarVer = alturaVao + (painelOk ? painelSupAlt : 0) + 33.5;
     if (compAlisarHor > 0) {
       _add(cortes, 'PA-ALISARINT', compAlisarHor, 1 * qtdPortas, 'Alisar horizontal (topo)', 'portal');
     }

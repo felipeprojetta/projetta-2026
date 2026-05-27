@@ -5435,16 +5435,16 @@ const Orcamento = (() => {
             </div>
             ${item.temPainelSuperior === 'sim' ? `
               <div class="orc-field orc-f-qtd">
-                <label>Altura do painel (mm)</label>
-                <input type="number" min="0" step="1" data-field="painelSupAltura"
-                       value="${escapeHtml(String(item.painelSupAltura != null ? item.painelSupAltura : ''))}"
-                       placeholder="ex: 600" />
-              </div>
-              <div class="orc-field orc-f-qtd">
                 <label>Largura do painel (mm)</label>
                 <input type="number" min="0" step="1" data-field="painelSupLargura"
                        value="${escapeHtml(String(item.painelSupLargura != null ? item.painelSupLargura : ''))}"
                        placeholder="igual a porta: ${item.largura || '—'}" />
+              </div>
+              <div class="orc-field orc-f-qtd">
+                <label>Altura do painel (mm)</label>
+                <input type="number" min="0" step="1" data-field="painelSupAltura"
+                       value="${escapeHtml(String(item.painelSupAltura != null ? item.painelSupAltura : ''))}"
+                       placeholder="ex: 600" />
               </div>
             ` : ''}
           </div>
