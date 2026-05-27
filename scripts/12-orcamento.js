@@ -831,7 +831,36 @@ const Orcamento = (() => {
     const itens = (versao && versao.itens) || [];
     if (!itens.length) return { porItem: [], totalGeral: 0 };
 
-    // 1. Horas por item (considera quantidade interna do horasItemPortaExterna)
+    // ════════════════════════════════════════════════════════════════
+    // Felipe sessao 33: distribuicao de custos por COMPONENTE em vez de
+    // 'tudo por horas' (que dava valor unitario igual entre portas
+    // diferentes). Cada componente do custo de fabricacao usa o peso
+    // proprio:
+    //   Perfis  -> proporcional ao kg LIQUIDO de cada porta
+    //   Pintura -> idem perfis (acompanha o peso)
+    //   Chapas  -> proporcional ao m² de cada porta
+    //   Acessorios + Fech.Digital -> ja vem por porta (motor existe)
+    //   Mao de obra -> proporcional as HORAS (como antes)
+    //   Instalacao -> proporcional ao SUBTOTAL fab de cada porta
+    // Se algum cache nao existe (orcamento antigo, ou cadastro nao
+    // carregado), faz FALLBACK pro metodo antigo (horas) com aviso.
+    // ════════════════════════════════════════════════════════════════
+
+    // 1. Decompoe o custo de fabricacao em componentes (vem do custoFab).
+    const fab = versao.custoFab || {};
+    const tPerfis      = Number(fab.total_perfis)            || 0;
+    const tPintura     = Number(fab.total_pintura)           || 0;
+    const tAcessorios  = Number(fab.total_acessorios)        || 0;
+    const tFechDig     = Number(fab.total_fechadura_digital) || 0;
+    const tRevest      = Number(fab.total_revestimento)      || 0;
+    const tExtras      = Number(fab.total_extras)            || 0;
+    const subFabTotal  = Number(versao.subFab)  || 0;
+    const subInstTotal = internacional ? 0 : (Number(versao.subInst) || 0);
+    // Mao de obra = subFab - insumos. E' o que sobra (etapas × horas × r_h × n_op).
+    const tMaoObra = Math.max(0, subFabTotal
+      - (tPerfis + tPintura + tAcessorios + tFechDig + tRevest + tExtras));
+
+    // 2. Pesos por item (kg liq, m², horas, acessorios, fech digital).
     const horasPorIdx = {};
     let horasTotal = 0;
     itens.forEach((it, idx) => {
@@ -846,32 +875,171 @@ const Orcamento = (() => {
       horasTotal += horasPorIdx[idx];
     });
 
-    // 2. SubFab e SubInst totais (vem do storage, ja' calculados)
-    // Felipe sessao 31: internacional NAO inclui subInst no calculo por
-    // item — a instalacao e' cobrada SEPARADO na proposta.
-    const subFabTotal  = Number(versao.subFab)  || 0;
-    const subInstTotal = internacional ? 0 : (Number(versao.subInst) || 0);
-
-    // 3. Distribui subFab proporcional as horas
-    const subFabPorIdx  = [];
-    const subInstPorIdx = [];
+    // 2.1 KG LIQUIDO POR ITEM (cache em fab._meta.kgLiqPorItem).
+    // Se ausente (orcamento antigo) -> fallback usa horas.
+    const kgLiqCache = (fab._meta && fab._meta.kgLiqPorItem) || null;
+    const kgLiqPorIdx = {};
+    let kgLiqTotal = 0;
     itens.forEach((it, idx) => {
-      const propHoras = horasTotal > 0
-        ? (horasPorIdx[idx] / horasTotal)
-        : (1 / itens.length);
-      subFabPorIdx.push(subFabTotal * propHoras);
+      const v = kgLiqCache ? Number(kgLiqCache[idx]) || 0 : 0;
+      kgLiqPorIdx[idx] = v;
+      kgLiqTotal += v;
     });
+    const usaPesoKgLiq = kgLiqTotal > 0;
+    if (!usaPesoKgLiq && (tPerfis > 0 || tPintura > 0)) {
+      console.warn('[Proposta] kgLiqPorItem ausente — perfis/pintura caem no fallback de horas. Rode a aba Custo Fab/Inst pra gerar o cache.');
+    }
 
-    // 4. Distribui subInst proporcional ao subFab de cada item
-    const subFabSomado = subFabPorIdx.reduce((s, v) => s + v, 0);
+    // 2.2 m² POR ITEM. Pra porta externa/interna usa largura×altura×qtd.
+    //     Pra revestimento_parede usa area total das paredes.
+    const m2PorIdx = {};
+    let m2Total = 0;
     itens.forEach((it, idx) => {
+      const qtd = Math.max(1, Number(it.quantidade) || 1);
+      let m2 = 0;
+      if (it && it.tipo === 'revestimento_parede') {
+        const paredes = Array.isArray(it.paredes) ? it.paredes : [];
+        if (paredes.length) {
+          paredes.forEach(p => {
+            const w = Number(p.largura_total) || 0;
+            const h = Number(p.altura_total)  || 0;
+            if (w > 0 && h > 0) m2 += (w / 1000) * (h / 1000);
+          });
+        } else {
+          const w = Number(it.largura_total) || 0;
+          const h = Number(it.altura_total)  || 0;
+          m2 = (w / 1000) * (h / 1000);
+        }
+      } else {
+        const w = Number(it.largura) || 0;
+        const h = Number(it.altura)  || 0;
+        m2 = (w / 1000) * (h / 1000);
+      }
+      m2 = m2 * qtd;
+      m2PorIdx[idx] = m2;
+      m2Total += m2;
+    });
+    const usaM2 = m2Total > 0;
+
+    // 2.3 ACESSORIOS + FECHADURA DIGITAL POR ITEM (motor real).
+    // Soma deve bater com tAcessorios e tFechDig do custoFab.
+    // Se cadastro nao carregado -> fallback proporcional a horas.
+    const acessPorIdx = {};
+    const fechDigPorIdx = {};
+    let acessTotalReal = 0;
+    let fechDigTotalReal = 0;
+    let acessOk = false;
+    try {
+      const cadAcess = (window.Storage ? Storage.scope('cadastros').get('acessorios_lista') : null) || [];
+      if (cadAcess.length && window.AcessoriosPortaExterna
+          && typeof window.AcessoriosPortaExterna.calcularAcessoriosPorItem === 'function') {
+        itens.forEach((it, idx) => {
+          if (!it || it.tipo !== 'porta_externa') {
+            acessPorIdx[idx] = 0; fechDigPorIdx[idx] = 0; return;
+          }
+          // Peso da folha pra acessorios que escalam (PA005/PA006/etc)
+          let pesoFolhaTotal = 0, pesoFolhaPerfis = 0, pesoFolhaChapas = 0;
+          try {
+            if (window.PesoFolha && typeof window.PesoFolha.calcular === 'function') {
+              const r = window.PesoFolha.calcular(it);
+              pesoFolhaTotal = (r && r.peso_kg) || 0;
+              pesoFolhaPerfis = (r && r.detalhe && r.detalhe.perfis) || 0;
+              pesoFolhaChapas = (r && r.detalhe && r.detalhe.chapas) || 0;
+            }
+          } catch(_){}
+          const linhas = window.AcessoriosPortaExterna.calcularAcessoriosPorItem(
+            it, cadAcess, { pesoFolhaTotal, pesoFolhaPerfis, pesoFolhaChapas }
+          );
+          let custoIt = 0, fechDigIt = 0;
+          (linhas || []).forEach(l => {
+            const v = Number(l.total) || 0;
+            if (String(l.categoria || '').toLowerCase().includes('fechadura digital')) {
+              fechDigIt += v;
+            } else {
+              custoIt += v;
+            }
+          });
+          acessPorIdx[idx] = custoIt;
+          fechDigPorIdx[idx] = fechDigIt;
+          acessTotalReal += custoIt;
+          fechDigTotalReal += fechDigIt;
+        });
+        acessOk = (acessTotalReal > 0 || fechDigTotalReal > 0);
+      }
+    } catch(e) { console.warn('[Proposta] calc acessorios por item:', e); }
+    if (!acessOk && (tAcessorios > 0 || tFechDig > 0)) {
+      console.warn('[Proposta] acessorios/fechDigital por item nao calculados — caem no fallback de horas.');
+    }
+
+    // 3. Distribui cada componente por seu peso proprio.
+    // Helper: distribui um total entre os itens segundo um vetor de pesos.
+    function distribuir(total, pesos, somaPesos) {
+      const out = [];
+      itens.forEach((_, idx) => {
+        const p = pesos[idx] || 0;
+        const frac = somaPesos > 0 ? (p / somaPesos) : (1 / itens.length);
+        out.push(total * frac);
+      });
+      return out;
+    }
+
+    // Perfis + Pintura -> kg liq (fallback horas)
+    const perfisPorIdx = usaPesoKgLiq
+      ? distribuir(tPerfis, kgLiqPorIdx, kgLiqTotal)
+      : distribuir(tPerfis, horasPorIdx, horasTotal);
+    const pinturaPorIdx = usaPesoKgLiq
+      ? distribuir(tPintura, kgLiqPorIdx, kgLiqTotal)
+      : distribuir(tPintura, horasPorIdx, horasTotal);
+
+    // Chapas -> m² (fallback horas)
+    const chapasPorIdx = usaM2
+      ? distribuir(tRevest, m2PorIdx, m2Total)
+      : distribuir(tRevest, horasPorIdx, horasTotal);
+
+    // Acessorios -> motor por item (fallback horas com o TOTAL do custoFab)
+    // Se motor rodou OK mas o total dele difere do tAcessorios (ex: edicao
+    // manual no Custo Fab/Inst), escalona pra bater com o total persistido.
+    let acessPorIdxFinal;
+    if (acessOk && acessTotalReal > 0) {
+      const escala = tAcessorios > 0 ? (tAcessorios / acessTotalReal) : 1;
+      acessPorIdxFinal = itens.map((_, idx) => (acessPorIdx[idx] || 0) * escala);
+    } else {
+      acessPorIdxFinal = distribuir(tAcessorios, horasPorIdx, horasTotal);
+    }
+    let fechDigPorIdxFinal;
+    if (acessOk && fechDigTotalReal > 0) {
+      const escala = tFechDig > 0 ? (tFechDig / fechDigTotalReal) : 1;
+      fechDigPorIdxFinal = itens.map((_, idx) => (fechDigPorIdx[idx] || 0) * escala);
+    } else {
+      fechDigPorIdxFinal = distribuir(tFechDig, horasPorIdx, horasTotal);
+    }
+
+    // Extras (campo livre) e Mao de obra -> horas
+    const extrasPorIdx = distribuir(tExtras, horasPorIdx, horasTotal);
+    const maoObraPorIdx = distribuir(tMaoObra, horasPorIdx, horasTotal);
+
+    // 4. SubFab por item = soma dos componentes.
+    const subFabPorIdx = itens.map((_, idx) =>
+      (perfisPorIdx[idx]    || 0) +
+      (pinturaPorIdx[idx]   || 0) +
+      (chapasPorIdx[idx]    || 0) +
+      (acessPorIdxFinal[idx]|| 0) +
+      (fechDigPorIdxFinal[idx]|| 0) +
+      (extrasPorIdx[idx]    || 0) +
+      (maoObraPorIdx[idx]   || 0)
+    );
+
+    // 5. Instalacao proporcional ao SubFab de cada item (Felipe: "divida
+    // proporcional ao custo de cada uma"). Internacional nao entra aqui.
+    const subFabSomado = subFabPorIdx.reduce((s, v) => s + v, 0);
+    const subInstPorIdx = itens.map((_, idx) => {
       const propFab = subFabSomado > 0
         ? (subFabPorIdx[idx] / subFabSomado)
         : (1 / itens.length);
-      subInstPorIdx.push(subInstTotal * propFab);
+      return subInstTotal * propFab;
     });
 
-    // 5. DRE por item — mesmos parametros, custos diferentes
+    // 6. DRE por item — mesmos parametros, custos diferentes
     const porItem = itens.map((it, idx) => {
       const dreItem = calcularDRE(subFabPorIdx[idx], subInstPorIdx[idx], params);
       const qtd = Math.max(1, Number(it.quantidade) || 1);
@@ -885,6 +1053,19 @@ const Orcamento = (() => {
         custo:     dreItem.custo,
         precoFinal,
         valorUn:   qtd > 0 ? precoFinal / qtd : 0,
+        // Detalhe pra debug / tooltip futuro
+        _detalhe: {
+          perfis:    perfisPorIdx[idx]    || 0,
+          pintura:   pinturaPorIdx[idx]   || 0,
+          chapas:    chapasPorIdx[idx]    || 0,
+          acess:     acessPorIdxFinal[idx]|| 0,
+          fechDig:   fechDigPorIdxFinal[idx]|| 0,
+          extras:    extrasPorIdx[idx]    || 0,
+          maoObra:   maoObraPorIdx[idx]   || 0,
+          kgLiq:     kgLiqPorIdx[idx]     || 0,
+          m2:        m2PorIdx[idx]        || 0,
+          horas:     horasPorIdx[idx]     || 0,
+        },
       };
     });
 
@@ -9967,6 +10148,36 @@ const Orcamento = (() => {
     const perda = result.kgBrutoTotal - result.kgLiqTotal;
     const aprovGeral = result.kgBrutoTotal > 0 ? (result.kgLiqTotal / result.kgBrutoTotal) * 100 : 0;
 
+    // Felipe sessao 33: calcula KG LIQUIDO POR ITEM rodando o motor de
+    // perfis ISOLADO em cada item (cortes daquele item separados, sem
+    // aproveitamento entre itens). Liquido nao muda com aproveitamento
+    // (so o bruto muda); por isso da' pra rodar item por item e usar
+    // como peso proporcional na distribuicao do CUSTO bruto de perfis
+    // entre as portas na proposta comercial.
+    //
+    // Cache salvo em fab._meta.kgLiqPorItem (indexed por idx do item).
+    // Sem isso, calcularValoresProposta nao tem como saber qual porta
+    // pesa mais e cai no fallback antigo (proporcional a horas).
+    const kgLiqPorItem = {};
+    blocosPorItem.forEach((bloco, idx) => {
+      const cortesIt = {};
+      for (const cod in (bloco.cortes || {})) {
+        if (Array.isArray(bloco.cortes[cod]) && bloco.cortes[cod].length) {
+          cortesIt[cod] = bloco.cortes[cod].map(c => ({ ...c }));
+        }
+      }
+      if (Object.keys(cortesIt).length === 0) {
+        kgLiqPorItem[idx] = 0;
+        return;
+      }
+      try {
+        const rIt = window.PerfisCore.calcularPorCodigo(cortesIt, perfisCadastro);
+        kgLiqPorItem[idx] = Math.round((rIt.kgLiqTotal || 0) * 100) / 100;
+      } catch (_) {
+        kgLiqPorItem[idx] = 0;
+      }
+    });
+
     // === AUTO-SALVA no fab.total_perfis e fab.total_pintura ===
     // Se o usuario nao editou manualmente esses campos (auto-fill).
     if (versao && versao.status !== 'fechada') {
@@ -9976,14 +10187,18 @@ const Orcamento = (() => {
       const novoTPintura = Math.round(result.custoPintura * 100) / 100;
       const mudou = (Math.abs((Number(fab.total_perfis)  || 0) - novoTPerfis)  > 0.01)
                  || (Math.abs((Number(fab.total_pintura) || 0) - novoTPintura) > 0.01);
-      if (mudou) {
+      // Felipe sessao 33: salva o cache de kgLiq tambem.
+      const metaAntigo = (fab._meta && fab._meta.kgLiqPorItem) || {};
+      const metaMudou = JSON.stringify(metaAntigo) !== JSON.stringify(kgLiqPorItem);
+      if (mudou || metaMudou) {
         fab.total_perfis  = novoTPerfis;
         fab.total_pintura = novoTPintura;
+        fab._meta = Object.assign({}, fab._meta || {}, { kgLiqPorItem });
         atualizarVersao(UI.versaoAtivaId, { custoFab: fab });
       }
     }
 
-    return { result, blocosPorItem, totalBarras, perda, aprovGeral, perfisCadastro };
+    return { result, blocosPorItem, totalBarras, perda, aprovGeral, perfisCadastro, kgLiqPorItem };
   }
 
   function renderLevPerfisTab(container) {
