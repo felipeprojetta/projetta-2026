@@ -13164,6 +13164,19 @@ const Orcamento = (() => {
             <div class="rel-prop-item-linha"><span class="lbl">${tr('Area Porta','Door Area')}:</span> <span>${fmtBR(areaM2)} m²</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">${tr('SISTEMA','SYSTEM')}:</span> <span>${escapeHtml(sistemaFmt)}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">${tr('MODELO','MODEL')}:</span> <span>${escapeHtml(modeloNome)}</span></div>
+            ${(() => {
+              // Felipe sessao 33: mostra painel superior na proposta com
+              // suas medidas. Largura: se painelSupLargura vazio, usa
+              // largura da porta (mesma logica do motor de chapas).
+              if (item.temPainelSuperior !== 'sim') return '';
+              const pAlt  = Number(item.painelSupAltura) || 0;
+              const pLargRaw = Number(item.painelSupLargura) || 0;
+              const pLarg = pLargRaw > 0 ? pLargRaw : (Number(item.largura) || 0);
+              if (pAlt <= 0 || pLarg <= 0) {
+                return `<div class="rel-prop-item-linha"><span class="lbl">${tr('PAINEL SUPERIOR','UPPER PANEL')}:</span> <span>${tr('SIM','YES')}</span></div>`;
+              }
+              return `<div class="rel-prop-item-linha"><span class="lbl">${tr('PAINEL SUPERIOR','UPPER PANEL')}:</span> <span>${pLarg} × ${pAlt} mm</span></div>`;
+            })()}
           </div>
           ${bannerAlisar}
           <div class="rel-prop-item-linhas">
