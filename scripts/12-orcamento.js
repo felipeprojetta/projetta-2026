@@ -8634,6 +8634,52 @@ const Orcamento = (() => {
         </div>
       </div>
 
+      ${(() => {
+        // Felipe sessao 33: quando ha mais de 1 item, pergunta no DRE como
+        // mostrar o valor de cada item na PROPOSTA comercial:
+        //  proporcional -> tabela mostra valor unitario + total por item
+        //                  (distribuicao real por componente — kg liq /
+        //                   m² / horas / acessorios reais)
+        //  unico        -> tabela mostra os itens sem valores; so' o
+        //                  Total Orcamento aparece no final
+        // Default: proporcional (compativel com o que ja existe).
+        const itensCount = (versao.itens || []).length;
+        if (itensCount < 2) return '';
+        const modoValor = versao.modoValorProposta === 'unico' ? 'unico' : 'proporcional';
+        return `
+          <div class="orc-section-card" style="border-left:4px solid #c46b20;">
+            <div class="orc-section-title">Como mostrar valor na proposta?</div>
+            <p class="orc-helptext">
+              Voce tem <b>${itensCount} itens</b> nesta versao. Escolha como o valor de cada um vai aparecer na proposta comercial.
+            </p>
+            <div class="orc-form-row" style="gap:24px;">
+              <label class="orc-radio-card ${modoValor === 'proporcional' ? 'is-ativo' : ''}" style="
+                flex:1; cursor:pointer; padding:12px;
+                border:2px solid ${modoValor === 'proporcional' ? '#c46b20' : '#d1d5db'};
+                border-radius:8px; background:${modoValor === 'proporcional' ? '#fffaf3' : '#fff'};">
+                <input type="radio" name="dre-modo-valor" value="proporcional" ${modoValor === 'proporcional' ? 'checked' : ''} style="margin-right:8px;" />
+                <b>Valor por item (proporcional)</b>
+                <div style="font-size:12px; color:#6b7280; margin-top:4px;">
+                  Cada porta com seu proprio Valor Total. Custo dividido por kg liquido (perfis),
+                  m² (chapas) e horas (mao de obra) — porta maior fica mais cara.
+                </div>
+              </label>
+              <label class="orc-radio-card ${modoValor === 'unico' ? 'is-ativo' : ''}" style="
+                flex:1; cursor:pointer; padding:12px;
+                border:2px solid ${modoValor === 'unico' ? '#c46b20' : '#d1d5db'};
+                border-radius:8px; background:${modoValor === 'unico' ? '#fffaf3' : '#fff'};">
+                <input type="radio" name="dre-modo-valor" value="unico" ${modoValor === 'unico' ? 'checked' : ''} style="margin-right:8px;" />
+                <b>Valor unico final</b>
+                <div style="font-size:12px; color:#6b7280; margin-top:4px;">
+                  Tabela mostra os itens sem valor unitario. Apenas o Total Orcamento
+                  aparece no final — cliente nao ve o preco de cada porta separado.
+                </div>
+              </label>
+            </div>
+          </div>
+        `;
+      })()}
+
       <div class="orc-section-card">
         <div class="orc-section-title" style="display:flex; align-items:center; justify-content:space-between;">
           <span>Parametros (% sobre o preco)</span>
@@ -9192,6 +9238,25 @@ const Orcamento = (() => {
       } catch (e) {
         console.warn('[DRE] aplicar comissao falhou:', e);
       }
+    });
+
+    // Felipe sessao 33: handler do radio 'Como mostrar valor na proposta?'
+    // Salva versao.modoValorProposta = 'proporcional' (default) | 'unico'.
+    // A proposta comercial le esse campo pra decidir se mostra valor
+    // unitario por item ou so' o Total Orcamento.
+    container.querySelectorAll('input[name="dre-modo-valor"]').forEach(rb => {
+      rb.addEventListener('change', () => {
+        try {
+          const versao = versaoAtiva();
+          if (!versao) return;
+          const novoModo = rb.value === 'unico' ? 'unico' : 'proporcional';
+          if (versao.modoValorProposta === novoModo) return;
+          atualizarVersao(versao.id, { modoValorProposta: novoModo });
+          renderCustoTab(container);
+        } catch (e) {
+          console.warn('[DRE] salvar modoValorProposta:', e);
+        }
+      });
     });
 
     // Felipe (sessao 2026-05): botao "Aprovar Orcamento" — empurra
@@ -12251,6 +12316,14 @@ const Orcamento = (() => {
     const valoresPorIdx = {};
     valoresProposta.porItem.forEach(v => { valoresPorIdx[v.idx] = v; });
 
+    // Felipe sessao 33: modo de exibicao da tabela final (escolhido no DRE).
+    // 'proporcional' (default): mostra Valor Total por item.
+    // 'unico': esconde a coluna Valor Total — so' o Total Orcamento no
+    // rodape aparece. So' faz sentido com >1 item; com 1 item ignora.
+    const modoValorProposta = (itens.length > 1 && versao.modoValorProposta === 'unico')
+      ? 'unico' : 'proporcional';
+    const mostraValorPorItem = modoValorProposta !== 'unico';
+
     const linhasTabela = itens.map((item, idx) => {
       // Felipe sessao 12: rev_parede usa largura_total/altura_total (nao
       // largura/altura). Antes saia '0 x 0' nas tabelas pra revs.
@@ -12308,7 +12381,7 @@ const Orcamento = (() => {
           <td>${escapeHtml(descricaoItem)}</td>
           <td>${escapeHtml(medidasStr)}</td>
           <td class="num">${qtd}</td>
-          <td class="num">${valorTotStr}</td>
+          ${mostraValorPorItem ? `<td class="num">${valorTotStr}</td>` : ''}
         </tr>
       `;
     }).join('');
@@ -12360,8 +12433,10 @@ const Orcamento = (() => {
                 <th class="num">${tr('Qtd','Qty')}</th>
                 <!-- Felipe sessao 33: removida coluna 'Valor (un.)' a pedido.
                      Mostra so' o Valor Total — preco unitario nao aparece
-                     mais na tabela final da proposta. -->
-                <th class="num">${tr('Valor Total','Total')}</th>
+                     mais na tabela final da proposta.
+                     Quando modoValorProposta='unico' (>1 item), tambem
+                     esconde o Valor Total — so' o Total Orcamento no rodape. -->
+                ${mostraValorPorItem ? `<th class="num">${tr('Valor Total','Total')}</th>` : ''}
               </tr>
             </thead>
             <tbody>${linhasTabela}</tbody>
