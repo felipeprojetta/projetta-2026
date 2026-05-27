@@ -99,23 +99,21 @@ const ChapasPortaInterna = (() => {
         });
       }
 
-      // Felipe sessao 33: chapa do PAINEL SUPERIOR externo. Mesmas
-      // formulas da frontal externa, mas com as medidas do painel.
+      // Felipe sessao 33: chapa do PAINEL SUPERIOR externo. Como o painel
+      // NAO tem perfis (sem batente/click batente), a chapa e' direto
+      // largura x altura do vao do painel — sem descontos. (As folgas/
+      // 38,5/12 da frontal vem dos perfis que ali nao existem.)
       if (painelOk) {
-        const Lp = painelSupLarg - fglEsq - fglDir - 38.5 - 38.5;
-        const Ap = painelSupAlt  - fgSup           - 38.5 - 12;
-        if (Lp > 0 && Ap > 0) {
-          pecas.push({
-            label:          'Chapa painel superior externo',
-            descricao:      'Chapa painel superior externo',
-            largura:        _round1(Lp),
-            altura:         _round1(Ap),
-            qtd:            qtdPortas,
-            cor:            String(item.corExterna || '').trim(),
-            categoria:      'porta',
-            podeRotacionar: false,
-          });
-        }
+        pecas.push({
+          label:          'Chapa painel superior externo',
+          descricao:      'Chapa painel superior externo',
+          largura:        _round1(painelSupLarg),
+          altura:         _round1(painelSupAlt),
+          qtd:            qtdPortas,
+          cor:            String(item.corExterna || '').trim(),
+          categoria:      'porta',
+          podeRotacionar: false,
+        });
       }
 
       // Felipe sessao 31: ALISAR (chapa) — 2 vert + 1 hor por lado.
@@ -164,23 +162,20 @@ const ChapasPortaInterna = (() => {
         });
       }
 
-      // Felipe sessao 33: chapa do PAINEL SUPERIOR interno (mesma logica
-      // da externa, com recortes -26,5).
+      // Felipe sessao 33: chapa do PAINEL SUPERIOR interno. Igual a
+      // externa — largura x altura do vao do painel direto, sem
+      // descontos (painel nao tem perfis).
       if (painelOk) {
-        const Lp = painelSupLarg - fglEsq - fglDir - 26.5 - 26.5;
-        const Ap = painelSupAlt  - fgSup           - 26.5 - 12;
-        if (Lp > 0 && Ap > 0) {
-          pecas.push({
-            label:          'Chapa painel superior interno',
-            descricao:      'Chapa painel superior interno',
-            largura:        _round1(Lp),
-            altura:         _round1(Ap),
-            qtd:            qtdPortas,
-            cor:            String(item.corInterna || '').trim(),
-            categoria:      'porta',
-            podeRotacionar: false,
-          });
-        }
+        pecas.push({
+          label:          'Chapa painel superior interno',
+          descricao:      'Chapa painel superior interno',
+          largura:        _round1(painelSupLarg),
+          altura:         _round1(painelSupAlt),
+          qtd:            qtdPortas,
+          cor:            String(item.corInterna || '').trim(),
+          categoria:      'porta',
+          podeRotacionar: false,
+        });
       }
 
       // Felipe sessao 31: ALISAR (chapa) — espelho do lado externo, mas
