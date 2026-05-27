@@ -2997,6 +2997,16 @@ const Orcamento = (() => {
       macanetaInternaCodigo: '',   // usado em PERSONALIZADO (familia Macanetas)
       cilindroInternaCodigo: '',   // usado em PERSONALIZADO (familia Cilindros)
       dobradicaCor: '',
+      // Felipe sessao 33: painel superior (fixo em cima da porta).
+      //   temPainelSuperior: 'nao' (default) | 'sim'
+      //   painelSupAltura/painelSupLargura: medidas do fixo, so' usadas
+      //   quando temPainelSuperior='sim'. Quando ativo:
+      //     - gera 2 chapas (1 face ext + 1 face int) com as fórmulas
+      //       da frontal aplicadas nas medidas do painel
+      //     - aumenta o alisar vertical em painelSupAltura
+      temPainelSuperior: 'nao',
+      painelSupAltura: '',
+      painelSupLargura: '',
     };
     if (tipo === 'fixo_acoplado') {
       const fg = lerFolgasPadraoCadastro();
@@ -4476,7 +4486,9 @@ const Orcamento = (() => {
              'temEstrutura', 'estilo',
              // Felipe sessao 31 porta_interna: trocas que afetam o layout do form
              'revestimentoExterno', 'revestimentoInterno',
-             'fechaduraModo', 'fechaduraInternaCodigo'].includes(field)) {
+             'fechaduraModo', 'fechaduraInternaCodigo',
+             // Felipe sessao 33: painel superior aparece/some os campos de medidas
+             'temPainelSuperior'].includes(field)) {
           reRender();
         }
       });
@@ -5404,6 +5416,45 @@ const Orcamento = (() => {
                      value="${escapeHtml(String(item.fgSup != null && item.fgSup !== '' ? item.fgSup : 5))}" />
             </div>
           </div>
+        </div>
+
+        <!-- Felipe sessao 33: Painel Superior (fixo em cima da porta).
+             Sim/Nao + altura/largura. Quando Sim: motor de chapas gera
+             2 chapas extras (1 face ext + 1 face int) e o alisar
+             vertical fica maior (porta+painel). Por padrao a largura
+             do painel e' igual a da porta — pode editar. -->
+        <div class="orc-section">
+          <div class="orc-section-title">Painel Superior</div>
+          <div class="orc-form-row">
+            <div class="orc-field">
+              <label>Tem painel superior?</label>
+              <select data-field="temPainelSuperior">
+                <option value="nao" ${(item.temPainelSuperior || 'nao') === 'nao' ? 'selected' : ''}>Nao</option>
+                <option value="sim" ${item.temPainelSuperior === 'sim' ? 'selected' : ''}>Sim</option>
+              </select>
+            </div>
+            ${item.temPainelSuperior === 'sim' ? `
+              <div class="orc-field orc-f-qtd">
+                <label>Altura do painel (mm)</label>
+                <input type="number" min="0" step="1" data-field="painelSupAltura"
+                       value="${escapeHtml(String(item.painelSupAltura != null ? item.painelSupAltura : ''))}"
+                       placeholder="ex: 600" />
+              </div>
+              <div class="orc-field orc-f-qtd">
+                <label>Largura do painel (mm)</label>
+                <input type="number" min="0" step="1" data-field="painelSupLargura"
+                       value="${escapeHtml(String(item.painelSupLargura != null ? item.painelSupLargura : ''))}"
+                       placeholder="igual a porta: ${item.largura || '—'}" />
+              </div>
+            ` : ''}
+          </div>
+          ${item.temPainelSuperior === 'sim' ? `
+            <p style="font-size:11px; color: var(--text-muted); margin: 8px 0 0 0;">
+              Sao geradas 2 chapas extras (1 face externa + 1 face interna) com as medidas do painel.
+              O alisar vertical e' aumentado em <b>${item.painelSupAltura || '—'} mm</b> (altura do painel).
+              Se a largura do painel ficar vazia, usa a largura da porta.
+            </p>
+          ` : ''}
         </div>
 
         <div class="orc-section">

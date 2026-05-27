@@ -65,6 +65,21 @@ const ChapasPortaInterna = (() => {
     const fglDir = _toNum(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5);
     const fgSup  = _toNum(item.fgSup  != null && item.fgSup  !== '' ? item.fgSup  : 5);
 
+    // Felipe sessao 33: painel superior (fixo em cima da porta).
+    // Quando temPainelSuperior='sim':
+    //   - Gera 2 chapas extras (1 face ext + 1 face int) com as mesmas
+    //     formulas da chapa frontal aplicadas em painelSupLargura/Altura
+    //     (mesmos descontos -38,5 ext / -26,5 int / -12).
+    //   - Aumenta a altura do alisar vertical em painelSupAltura
+    //     (alisar engloba porta+painel num bloco so').
+    // Largura do painel: usa painelSupLargura se preenchido; senao
+    // assume == larguraVao (caso comum).
+    const temPainelSup = item.temPainelSuperior === 'sim';
+    const painelSupAlt = temPainelSup ? _toNum(item.painelSupAltura) : 0;
+    const painelSupLargRaw = temPainelSup ? _toNum(item.painelSupLargura) : 0;
+    const painelSupLarg = painelSupLargRaw > 0 ? painelSupLargRaw : larguraVao;
+    const painelOk = temPainelSup && painelSupAlt > 0 && painelSupLarg > 0;
+
     const pecas = [];
 
     if (lado === 'externo') {
@@ -84,16 +99,36 @@ const ChapasPortaInterna = (() => {
         });
       }
 
-      // Felipe sessao 31: ALISAR (chapa) — 'sera 4 pecas de 59,5 mm x altura+100,
-      // sera 2 pecas de 59,5 x largura+100'. 4+2 totais = 2 lados × (2 vert + 1 hor).
+      // Felipe sessao 33: chapa do PAINEL SUPERIOR externo. Mesmas
+      // formulas da frontal externa, mas com as medidas do painel.
+      if (painelOk) {
+        const Lp = painelSupLarg - fglEsq - fglDir - 38.5 - 38.5;
+        const Ap = painelSupAlt  - fgSup           - 38.5 - 12;
+        if (Lp > 0 && Ap > 0) {
+          pecas.push({
+            label:          'Chapa painel superior externo',
+            descricao:      'Chapa painel superior externo',
+            largura:        _round1(Lp),
+            altura:         _round1(Ap),
+            qtd:            qtdPortas,
+            cor:            String(item.corExterna || '').trim(),
+            categoria:      'porta',
+            podeRotacionar: false,
+          });
+        }
+      }
+
+      // Felipe sessao 31: ALISAR (chapa) — 2 vert + 1 hor por lado.
       // Cada lado: 2 verticais (59,5 × A+100) + 1 horizontal (59,5 × L+100).
-      // Cor segue corExterna no lado externo; podeRotacionar true (tiras finas).
+      // Felipe sessao 33: com painel superior, o vertical engloba
+      // porta+painel — altura += painelSupAlt.
       if (alturaVao > 0) {
+        const altAlisarVertExt = alturaVao + (painelOk ? painelSupAlt : 0) + 100;
         pecas.push({
           label:          'Alisar chapa exterior vertical',
           descricao:      'Alisar chapa exterior vertical',
           largura:        59.5,
-          altura:         _round1(alturaVao + 100),
+          altura:         _round1(altAlisarVertExt),
           qtd:            2 * qtdPortas,
           cor:            String(item.corExterna || '').trim(),
           categoria:      'portal',
@@ -129,14 +164,34 @@ const ChapasPortaInterna = (() => {
         });
       }
 
-      // Felipe sessao 31: ALISAR (chapa) — espelho do lado externo, mas com
-      // cor da face interna.
+      // Felipe sessao 33: chapa do PAINEL SUPERIOR interno (mesma logica
+      // da externa, com recortes -26,5).
+      if (painelOk) {
+        const Lp = painelSupLarg - fglEsq - fglDir - 26.5 - 26.5;
+        const Ap = painelSupAlt  - fgSup           - 26.5 - 12;
+        if (Lp > 0 && Ap > 0) {
+          pecas.push({
+            label:          'Chapa painel superior interno',
+            descricao:      'Chapa painel superior interno',
+            largura:        _round1(Lp),
+            altura:         _round1(Ap),
+            qtd:            qtdPortas,
+            cor:            String(item.corInterna || '').trim(),
+            categoria:      'porta',
+            podeRotacionar: false,
+          });
+        }
+      }
+
+      // Felipe sessao 31: ALISAR (chapa) — espelho do lado externo, mas
+      // com cor da face interna. Felipe sessao 33: altura inclui painel.
       if (alturaVao > 0) {
+        const altAlisarVertInt = alturaVao + (painelOk ? painelSupAlt : 0) + 100;
         pecas.push({
           label:          'Alisar chapa interior vertical',
           descricao:      'Alisar chapa interior vertical',
           largura:        59.5,
-          altura:         _round1(alturaVao + 100),
+          altura:         _round1(altAlisarVertInt),
           qtd:            2 * qtdPortas,
           cor:            String(item.corInterna || '').trim(),
           categoria:      'portal',
