@@ -14067,11 +14067,14 @@ const Orcamento = (() => {
         const largInp  = linhaAdd.querySelector('.orc-lev-sup-input-add-largura');
         const altInp   = linhaAdd.querySelector('.orc-lev-sup-input-add-altura');
         const qtdInp   = linhaAdd.querySelector('.orc-lev-sup-input-add-qtd');
+        const matInp   = linhaAdd.querySelector('.orc-lev-sup-input-add-material');
         const label = (labelInp.value || '').trim();
         const cat   = catInp.value || 'porta';
         const larg  = parseInt(largInp.value, 10) || 0;
         const alt   = parseInt(altInp.value, 10) || 0;
         const qtd   = parseInt(qtdInp.value, 10) || 1;
+        // Felipe sessao 34: material da peca nova (ACM/AM/VIDRO/HPL). Default ACM.
+        const mat   = (matInp && matInp.value) ? String(matInp.value).toUpperCase() : 'ACM';
         if (!label) { alert('Preencha o nome da peça.'); labelInp.focus(); return; }
         if (larg <= 0) { alert('Largura inválida.'); largInp.focus(); return; }
         if (alt <= 0)  { alert('Altura inválida.');  altInp.focus(); return; }
@@ -14079,7 +14082,7 @@ const Orcamento = (() => {
         if (!item.pecasManuaisExtras) item.pecasManuaisExtras = [];
         item.pecasManuaisExtras.push({
           label, categoria: cat, largura: larg, altura: alt, qtd,
-          cor: corLado, podeRotacionar: false,
+          cor: corLado, podeRotacionar: false, material: mat,
         });
         // Salva e re-renderiza
         try {
@@ -14212,7 +14215,7 @@ const Orcamento = (() => {
           const isManual = inp.dataset.manual === '1';
           // Felipe sessao 14: campos string (label, categoria) sao tratados
           // diferente dos numericos. Categoria vem de <select>, label de <input text>.
-          const isStringField = (field === 'label' || field === 'categoria');
+          const isStringField = (field === 'label' || field === 'categoria' || field === 'material');
           const valor = isStringField
             ? String(inp.value || '').trim()
             : (parseInt(inp.value, 10) || 0);
@@ -16547,6 +16550,61 @@ const Orcamento = (() => {
     });
   }
 
+  // ============================================================
+  // Felipe sessao 34: MATERIAL EDITAVEL POR PECA (ACM/AM/Vidro/HPL)
+  // ============================================================
+  // Ate a sessao 33 o material da peca so' podia ser AM (set pelo
+  // motor no Mod23+AM) ou ACM (resto). Felipe pediu pra ESCOLHER o
+  // material por linha no Lev. Superficies — inclusive em peca manual,
+  // que antes nascia sempre ACM sem opcao de troca.
+  //
+  // Convencao (a MESMA que o motor ja usa pro AM): o MATERIAL define o
+  // prefixo da COR; a cor e' quem resolve a chapa-mae (peso) e o
+  // agrupamento do aproveitamento. materialEspecial guarda o material
+  // atual e e' a UNICA fonte de verdade:
+  //   ACM   -> cor base (sem prefixo)        materialEspecial = null
+  //   AM    -> "Aluminio Macico — base"      materialEspecial = 'AM'
+  //   VIDRO -> "Vidro — base"                materialEspecial = 'VIDRO'
+  //   HPL   -> "HPL — base"                  materialEspecial = 'HPL'
+  // Se a chapa-mae do material/cor nao existir no cadastro, peso = 0
+  // (REGRA OURO: nunca puxa peso que nao sabe).
+  const MATERIAIS_PECA = ['ACM', 'AM', 'VIDRO', 'HPL'];
+  const _PREFIXO_MATERIAL = { AM: 'Aluminio Macico — ', VIDRO: 'Vidro — ', HPL: 'HPL — ' };
+
+  // Remove qualquer prefixo de material da cor -> devolve a cor base pura.
+  function _corBaseSemMaterial(cor) {
+    let c = String(cor || '').trim();
+    // "Aluminio Macico — X" | "Vidro - X" | "HPL — X" -> X
+    c = c.replace(/^\s*(alumin[ií]o\s*maci[cç]o|vidro|hpl)\s*[—\-–]\s*/i, '');
+    // caso generico sem cor: "Aluminio Macico" puro -> vazio
+    c = c.replace(/^\s*alumin[ií]o\s*maci[cç]o\s*$/i, '');
+    return c.trim();
+  }
+
+  // Le o material atual de uma peca (a partir de materialEspecial).
+  function materialDaPeca(p) {
+    const me = p && p.materialEspecial;
+    if (me === 'AM' || me === 'VIDRO' || me === 'HPL') return me;
+    return 'ACM';
+  }
+
+  // Aplica um material escolhido a uma peca: re-deriva cor + materialEspecial.
+  // NAO muta o original — retorna copia. Base da cor sempre recalculada do
+  // zero (strip de prefixo), entao trocar material varias vezes nao acumula.
+  function aplicarMaterialNaPeca(p, material) {
+    const mat = MATERIAIS_PECA.indexOf(material) !== -1 ? material : 'ACM';
+    const base = _corBaseSemMaterial(p && p.cor);
+    const ret = Object.assign({}, p);
+    if (mat === 'ACM') {
+      ret.cor = base;
+      ret.materialEspecial = null;
+    } else {
+      ret.cor = (_PREFIXO_MATERIAL[mat] || '') + base;
+      ret.materialEspecial = mat;
+    }
+    return ret;
+  }
+
   // Felipe sessao 2026-08: overrides editaveis de Largura/Altura/Qtd nas
   // pecas calculadas pelo motor. Salvos em item.superficiesOverrides:
   //   item.superficiesOverrides[chave] = { largura?, altura?, qtd? }
@@ -16602,6 +16660,13 @@ const Orcamento = (() => {
         if (typeof o.categoria === 'string' && o.categoria.trim() !== '') {
           ret.categoria = o.categoria.trim();
         }
+        // Felipe sessao 34: override de MATERIAL (ACM/AM/VIDRO/HPL) re-deriva
+        // cor + materialEspecial pela mesma convencao do motor (prefixo na cor).
+        if (typeof o.material === 'string' && o.material.trim() !== '') {
+          const _m = aplicarMaterialNaPeca(ret, o.material.trim().toUpperCase());
+          ret.cor = _m.cor;
+          ret.materialEspecial = _m.materialEspecial;
+        }
         ret._editado = true;  // pra UI marcar visualmente (qualquer edicao)
         // Felipe sessao 13: flag especifica pra qtd. unificarPecas precisa
         // distinguir 'qtd editada manualmente' (nao somar ext+int) de
@@ -16621,11 +16686,21 @@ const Orcamento = (() => {
   function adicionarPecasManuaisExtras(pecas, item) {
     const extras = (item && item.pecasManuaisExtras) || [];
     if (!extras.length) return pecas;
-    return pecas.concat(extras.map(p => Object.assign({
-      podeRotacionar: false,
-      qtd: 1,
-      categoria: p.categoria || 'porta',
-    }, p, { _manual: true })));
+    return pecas.concat(extras.map(p => {
+      const base = Object.assign({
+        podeRotacionar: false,
+        qtd: 1,
+        categoria: p.categoria || 'porta',
+      }, p, { _manual: true });
+      // Felipe sessao 34: peca manual com material escolhido (ACM/AM/VIDRO/HPL)
+      // re-deriva cor + materialEspecial. Sem material -> ACM (cor crua = base).
+      if (base.material) {
+        const _m = aplicarMaterialNaPeca(base, String(base.material).toUpperCase());
+        base.cor = _m.cor;
+        base.materialEspecial = _m.materialEspecial;
+      }
+      return base;
+    }));
   }
   /**
    * Felipe (sessao 28 fix): override de QUANTIDADE por peca×face.
@@ -16969,16 +17044,10 @@ const Orcamento = (() => {
         </div>`;
     }
 
-    // Felipe sessao 13: 'na frente o que for aluminio macico, descreva como
-    // aluminio macico. O que nao for aluminio macico voce ja sabe que e ACM,
-    // descreva na frente tambem como ACM. Isso somente para o modelo 23,
-    // quando o revestimento for aluminio macico.'
-    // Quando ALGUMA peca do conjunto tem materialEspecial='AM', e' Mod23+AM
-    // (so' esse caso seta materialEspecial). Nessa condicao adiciona uma
-    // COLUNA EXTRA 'Material' com badge AM/ACM na frente de cada peca.
-    // Nos demais casos (modelos normais, Mod23 ACM, vidro etc) a coluna
-    // nao aparece — layout original preservado.
-    const temAM_naLista = pecas.some(p => p.materialEspecial === 'AM');
+    // Felipe sessao 34: a COLUNA Material agora aparece SEMPRE (select
+    // editavel ACM/AM/Vidro/HPL por linha). Ate a sessao 33 ela so' surgia
+    // no Mod23+AM, como badge estatico. Ver helpers materialDaPeca /
+    // aplicarMaterialNaPeca e a montagem de selectMaterial mais abaixo.
 
     // Felipe (sessao 2026-05 / sessao 30 fix): pra cada peca, calcula
     // peso individual baseado no kg/m² da CHAPA-MAE da cor da peca.
@@ -17146,14 +17215,20 @@ const Orcamento = (() => {
       // Felipe sessao 13: linha destacada (amarelo claro) quando peça
       // e' de aluminio macico — visual claro pro usuario distinguir.
       const trStyle = (p.categoria === 'aluminio_macico') ? ' style="background:#fffbeb;"' : '';
-      // Felipe sessao 13: badge Material so' quando a tabela tem pecas AM.
-      // Mostra 'AM' (laranja) ou 'ACM' (cinza) — ajuda Felipe a separar
-      // visualmente as 2 chapas do Mod23+AM.
-      const badgeMaterial = !temAM_naLista ? '' : (
-        p.materialEspecial === 'AM'
-          ? '<td><span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #d97706;">AM</span></td>'
-          : '<td><span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;background:#e5e7eb;color:#374151;border:1px solid #9ca3af;">ACM</span></td>'
-      );
+      // Felipe sessao 34: COLUNA Material agora e' um SELECT editavel por
+      // linha (ACM/AM/Vidro/HPL), sempre visivel. Trocar o material re-deriva
+      // cor+peso+chapa-mae (via superficiesOverrides.material / peca manual).
+      // Mesma chave de edicao das outras colunas (chaveDim) + classe
+      // .orc-lev-sup-input-edit -> entra no fluxo "pendente -> Salvar".
+      const _matAtual = materialDaPeca(p);
+      const _optsMaterial = MATERIAIS_PECA.map(m =>
+        `<option value="${m}" ${_matAtual === m ? 'selected' : ''}>${m === 'AM' ? 'Al. Maciço' : m}</option>`
+      ).join('');
+      const selectMaterial = `<td><select class="orc-lev-sup-input-edit${editClass}${manualClass}"
+                                data-item-idx="${itemIdx}" data-peca-key="${escapeHtml(chaveDim)}" data-field="material"
+                                data-manual="${p._manual ? '1' : '0'}"
+                                title="Material da peca — re-calcula cor/peso/chapa pela cor"
+                                style="padding:3px 4px;border:1px solid #d1d5db;border-radius:3px;font-size:11px;background:#fff;">${_optsMaterial}</select></td>`;
       // Felipe sessao 18: COLUNA COR — mostra a cor que o sistema
       // atribuiu a cada peca, pra Felipe validar se a logica
       // (ehDaCava → corCava vs corLado) ta resolvendo a cor certa.
@@ -17167,7 +17242,7 @@ const Orcamento = (() => {
       <tr${trStyle}>
         <td>${inputLabel}</td>
         <td>${selectCategoria}</td>
-        ${badgeMaterial}
+        ${selectMaterial}
         <td class="t-num">${inputLargura}</td>
         <td class="t-num">${inputAltura}</td>
         <td class="t-num">${inputQtd}</td>
@@ -17197,7 +17272,16 @@ const Orcamento = (() => {
             <option value="revestimento">Rev.</option>
           </select>
         </td>
-        ${temAM_naLista ? '<td style="text-align:center;color:#9ca3af;font-size:10px;">—</td>' : ''}
+        <td>
+          <select class="orc-lev-sup-input-add-material" data-item-idx="${itemIdx}"
+                  title="Material da peca nova (ACM/AM/Vidro/HPL)"
+                  style="padding:3px 4px;border:1px solid #d1d5db;border-radius:3px;font-size:11px;background:#fff;">
+            <option value="ACM">ACM</option>
+            <option value="AM">Al. Maciço</option>
+            <option value="VIDRO">VIDRO</option>
+            <option value="HPL">HPL</option>
+          </select>
+        </td>
         <td class="t-num">
           <input type="number" min="1" step="1" class="orc-lev-sup-input-add-largura"
                  data-item-idx="${itemIdx}"
@@ -17238,7 +17322,7 @@ const Orcamento = (() => {
             <tr>
               <th>Peca</th>
               <th>Cat</th>
-              ${temAM_naLista ? '<th>Material</th>' : ''}
+              <th>Material</th>
               <th>Largura (mm)</th>
               <th>Altura (mm)</th>
               <th>Qtd</th>
