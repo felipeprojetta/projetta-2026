@@ -621,6 +621,10 @@ const AcessoriosPortaExterna = (() => {
       }
     }
     const marcaCilindro = (opts.marcaCilindro || marcaDetectada).toUpperCase();
+    // Felipe sessao 34: PA-DIG EMTECO BAR II (Barcelona II) NAO usa cilindro.
+    // Quando essa fechadura digital esta selecionada, o cilindro nao entra
+    // no custo (guard no bloco 3 abaixo).
+    const ehEmtecoBarII = detectarMarcaDigital(item.fechaduraDigital) === 'EMTECO';
 
     // Felipe sessao 2026-08: revestimento_parede usa largura_total/altura_total
     // (nao tem item.largura/altura). Outros campos especificos de porta
@@ -763,7 +767,8 @@ const AcessoriosPortaExterna = (() => {
     // linha 269: fam = altura<4000 ? '76' : '101', onde 76=PA006, 101=PA007).
     // Antes: e130 = sis === 'PA006' -> sempre FALSE pra porta -> sempre 150.
     // Agora: detecta PA006 explicito (fixo_acoplado) ou via altura (porta).
-    if (pinos > 0) {
+    // Felipe sessao 34: EMTECO BAR II nao leva cilindro -> pula o bloco.
+    if (pinos > 0 && !ehEmtecoBarII) {
       var e130 = ehPA006;
       if (marcaCilindro === 'UDINESE') {
         add(e130 ? 'PA-CIL UDINE 130 BL' : 'PA-CIL UDINE 150 BL', 1, 'Fechaduras', 'fab',

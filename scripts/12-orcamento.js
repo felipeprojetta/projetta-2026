@@ -4804,6 +4804,10 @@ const Orcamento = (() => {
     const ehTedee = /tedee/i.test(item.fechaduraDigital || '');
     const cilindroTravado = ehTedee;
     const cilindroAuto = 'KESO seguranca';
+    // Felipe sessao 34: PA-DIG EMTECO BAR II (Barcelona II) NAO usa cilindro.
+    // Quando selecionada, o campo Cilindro vira "Sem cilindro" (desabilitado)
+    // e o cilindro nao entra no custo (guard em 28-acessorios-porta-externa.js).
+    const ehEmtecoBarII = /emteco|barcelona/i.test(item.fechaduraDigital || '');
 
     const ehCava = /\bcava\b/i.test(nomeModelo);
     const ehFriso = /friso/i.test(nomeModelo);
@@ -5969,12 +5973,16 @@ const Orcamento = (() => {
               </datalist>
             </div>
             <div class="orc-field orc-f-cilindro">
-              <label>Cilindro ${cilindroTravado ? '<span class="orc-hint-auto">Tedee → KESO obrigatorio</span>' : ''} ${item._overrides?.cilindro ? '<span class="orc-hint-warn">⚠ editado fora da regra</span>' : ''}</label>
+              <label>Cilindro ${ehEmtecoBarII ? '<span class="orc-hint-auto">EMTECO BAR II → sem cilindro</span>' : (cilindroTravado ? '<span class="orc-hint-auto">Tedee → KESO obrigatorio</span>' : '')} ${(!ehEmtecoBarII && item._overrides?.cilindro) ? '<span class="orc-hint-warn">⚠ editado fora da regra</span>' : ''}</label>
+              ${ehEmtecoBarII ? `
+              <select data-field="cilindro" disabled>
+                <option value="" selected>Sem cilindro</option>
+              </select>` : `
               <select data-field="cilindro" ${cilindroTravado ? 'disabled' : ''}>
                 <option value=""></option>
                 ${opt('KESO seguranca', cilindroTravado ? 'KESO seguranca' : item.cilindro)}
                 ${opt('Udinese chave comum', item.cilindro)}
-              </select>
+              </select>`}
             </div>
           </div>
         </div>
@@ -6098,7 +6106,12 @@ const Orcamento = (() => {
     }
 
     // Cilindro: Tedee trava em KESO. Se nao Tedee e nao foi editado manualmente, default KESO.
-    if (tedee) {
+    // Felipe sessao 34: EMTECO BAR II nao usa cilindro -> zera (sobrepoe ate override).
+    const emtecoBarII = /emteco|barcelona/i.test(item.fechaduraDigital || '');
+    if (emtecoBarII) {
+      item.cilindro = '';
+      delete item._overrides.cilindro;
+    } else if (tedee) {
       item.cilindro = 'KESO seguranca';
       delete item._overrides.cilindro;
     } else if (!item._overrides.cilindro && !item.cilindro) {
