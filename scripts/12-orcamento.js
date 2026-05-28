@@ -2434,6 +2434,21 @@ const Orcamento = (() => {
       // Limpa pra nao "grudar" — proxima abertura volta pra padrao
       Storage.scope('app').remove('orcamento_versao_ativa');
     }
+    if (!versaoAlvo && UI.versaoAtivaId) {
+      // Felipe sessao 34: BUG "clicar V1 abre, mas Historico/Memorial/Proposta
+      // mostram V2". CAUSA: o signal orcamento_versao_ativa e' one-shot
+      // (consumido + removido acima). Mas CADA aba (item, proposta, custo,
+      // relatorios...) chama inicializarSessao no seu render. A 1a chamada
+      // honra o signal (ex: V1) e o remove; as chamadas seguintes nao acham
+      // mais o signal e caiam no fallback "maior numero" -> pulavam pra V2.
+      // FIX: se ja' ha uma versao ativa na UI que pertence a ESTE negocio,
+      // mantem ela (selecao "pegajosa") em vez de cair no fallback. So' nao
+      // gruda entre negocios diferentes (a checagem de neg.id garante isso).
+      const rAtiva = obterVersao(UI.versaoAtivaId);
+      if (rAtiva && rAtiva.negocio && rAtiva.negocio.id === neg.id) {
+        versaoAlvo = rAtiva.versao;
+      }
+    }
     if (!versaoAlvo) {
       // Felipe sessao 12: ANTES pegava versoes[0] cegamente. Como criarVersao
       // faz .push (nova versao vai pro fim), versoes[0] era a MAIS ANTIGA -
