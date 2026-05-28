@@ -2013,7 +2013,13 @@ const Orcamento = (() => {
     // Cenario do bug Julliana Wagner (sessao 12): UI carregou V1 fechada por
     // engano, Felipe editou DRE, aprovou - sobrescreveu valorAprovado da V1
     // com numeros da "V2" e a V2 foi perdida. Agora rejeita explicitamente.
-    if (alvo.status === 'fechada') {
+    // Felipe sessao 34: o guard agora cede a opts.permitirFechada — usado SO'
+    // pelos botoes Aprovar/Re-aprovar (caminho explicito do usuario) pra
+    // alternar a versao aprovada do card quando o cliente pede outra opcao.
+    // Seguro porque a versao fechada e' read-only (sem edicao/ajuste de
+    // margem), entao aprovar so' re-empurra o valor JA' congelado. Qualquer
+    // outro caminho (automatico) continua bloqueado.
+    if (alvo.status === 'fechada' && !(opts && opts.permitirFechada)) {
       throw new Error('aprovarOrcamento: versao ' + alvo.numero + ' esta fechada (historico imutavel). Use Revisar ou crie Nova Versao.');
     }
     alvo.aprovadoEm    = nowIso();
@@ -9428,12 +9434,13 @@ const Orcamento = (() => {
       }
     }
     // Felipe sessao 2026-08: helper — pergunta na V2+ se quer enviar pro card
-    function _perguntarEnvioCardEAprovar(versao) {
+    function _perguntarEnvioCardEAprovar(versao, extraOpts) {
+      const _extra = extraOpts || {};
       if (versao.numero <= 1) {
         // V1: fluxo padrao - sempre envia pro card
         const ok = confirm('Aprovar este orcamento e enviar valor pro CRM?\n\nO card do lead vai mostrar o valor e a etapa avanca para "Orcamento Pronto" (se ainda nao estiver).');
         if (!ok) return;
-        _executarAprovacao(versao, { enviarParaCard: true });
+        _executarAprovacao(versao, Object.assign({ enviarParaCard: true }, _extra));
         return;
       }
       // V2+: pergunta antes
@@ -9449,27 +9456,28 @@ const Orcamento = (() => {
         `  Cancelar\n\n` +
         'Digite 1 ou 2:'
       );
-      if (escolha === '1')      _executarAprovacao(versao, { enviarParaCard: true });
-      else if (escolha === '2') _executarAprovacao(versao, { enviarParaCard: false });
+      if (escolha === '1')      _executarAprovacao(versao, Object.assign({ enviarParaCard: true }, _extra));
+      else if (escolha === '2') _executarAprovacao(versao, Object.assign({ enviarParaCard: false }, _extra));
       // qualquer outra coisa = cancelou
     }
     container.querySelector('#orc-btn-aprovar')?.addEventListener('click', () => {
       const versao = versaoAtiva();
       if (!versao) return;
-      if (versao.status === 'fechada') {
-        alert('Versao fechada — nao e possivel aprovar.');
-        return;
-      }
-      _perguntarEnvioCardEAprovar(versao);
+      // Felipe sessao 34: removido bloqueio de versao fechada. Cliente pode
+      // pedir outra opcao e Felipe precisa alternar/aprovar entre versoes
+      // mesmo fechadas. Aprovar so' re-empurra o valor CONGELADO da versao
+      // pro card (DRE recalculada de subFab/subInst/parametros congelados;
+      // edicao/ajuste de margem continua bloqueado em versao fechada, entao
+      // nao ha risco do incidente Julliana). permitirFechada libera o guard
+      // de aprovarOrcamento so' por este caminho explicito.
+      _perguntarEnvioCardEAprovar(versao, { permitirFechada: true });
     });
     container.querySelector('#orc-btn-reaprovar')?.addEventListener('click', () => {
       const versao = versaoAtiva();
       if (!versao) return;
-      if (versao.status === 'fechada') {
-        alert('Versao fechada — nao e possivel re-aprovar.');
-        return;
-      }
-      _perguntarEnvioCardEAprovar(versao);
+      // Felipe sessao 34: ver comentario no #orc-btn-aprovar. Re-aprovar
+      // versao fechada e' seguro (so' re-empurra valor congelado).
+      _perguntarEnvioCardEAprovar(versao, { permitirFechada: true });
     });
     // Felipe sessao 12: 'me de um campo ali valor manual, aonde eu coloco
     // valor manual que quero final e voce ajusta a margem para chegar no
