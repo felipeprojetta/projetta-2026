@@ -749,7 +749,8 @@ const AcessoriosPortaExterna = (() => {
     // Felipe sessao 32 (revisao da sessao 12): antes multiplicava por nFolhas
     // (saia 4 em 2F). A regra correta e' 2 unidades fixas em qualquer caso —
     // a fechadura fica em UMA folha so', precisa de 1 roseta frente + 1 verso.
-    if (pinos > 0) {
+    // Felipe sessao 34: EMTECO BAR II nao leva roseta (nem cilindro) -> pula.
+    if (pinos > 0 && !ehEmtecoBarII) {
       addMaxPreco('PA-KESO ROS', 2, 'Fechaduras', 'fab', 'frente + verso');
     }
 
