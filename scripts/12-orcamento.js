@@ -1686,7 +1686,7 @@ const Orcamento = (() => {
    * Use isto durante a edicao do orcamento; quando user salvar definitivo,
    * chame fecharVersao() pra travar.
    */
-  function atualizarVersao(versaoId, dadosNovos) {
+  function atualizarVersao(versaoId, dadosNovos, opts) {
     const negocios = loadAll();
     let alvo = null;
     for (const n of negocios) {
@@ -1711,7 +1711,7 @@ const Orcamento = (() => {
         '| amostra IDs existentes:', idsAmostra);
       throw new Error('atualizarVersao: versao nao encontrada (id=' + versaoId + ')');
     }
-    if (alvo.status === 'fechada') {
+    if (alvo.status === 'fechada' && !(opts && opts.permitirFechada)) {
       throw new Error('atualizarVersao: versao fechada eh imutavel — crie nova versao com criarVersao()');
     }
     // campos permitidos de atualizar
@@ -9553,10 +9553,12 @@ const Orcamento = (() => {
     container.querySelector('#orc-btn-aplicar-valor-manual')?.addEventListener('click', () => {
       const versao = versaoAtiva();
       if (!versao) return;
-      if (versao.status === 'fechada') {
-        alert('Versao fechada — nao e possivel ajustar margem.');
-        return;
-      }
+      // Felipe sessao 34: removido bloqueio de versao fechada no Ajustar
+      // Margem. Cliente pode renegociar valor de uma versao ja' fechada;
+      // o ajuste muda lucro_alvo (parametros) -> recalcula pTab/pFatReal do
+      // CUSTO congelado. Salva via atualizarVersao com permitirFechada (o
+      // guard global de atualizarVersao segue protegendo todos os outros
+      // caminhos). Apos ajustar, use Re-aprovar pra empurrar o novo valor.
       const inp = container.querySelector('#orc-input-valor-manual');
       const fb = container.querySelector('#orc-valor-manual-feedback');
       // Felipe sessao 12: 'pode ser por causa do numero de casas decimais'.
@@ -9612,7 +9614,7 @@ const Orcamento = (() => {
       const paramsNovos = Object.assign({}, params, {
         lucro_alvo: lucro_alvo_novo,  // SEM toFixed - precisao maxima
       });
-      atualizarVersao(versao.id, { parametros: paramsNovos });
+      atualizarVersao(versao.id, { parametros: paramsNovos }, { permitirFechada: true });
 
       const lucroAntigo = (Number(params.lucro_alvo) || 0).toFixed(2);
       const lucroNovo = lucro_alvo_novo.toFixed(4);  // mostra 4 casas no feedback
@@ -9628,10 +9630,10 @@ const Orcamento = (() => {
     container.querySelector('#orc-btn-resetar-margem')?.addEventListener('click', () => {
       const versao = versaoAtiva();
       if (!versao) return;
-      if (versao.status === 'fechada') return;
+      // Felipe sessao 34: liberado em versao fechada (mesma logica do Ajustar Margem).
       const params = Object.assign({}, versao.parametros || {});
       params.lucro_alvo = 15;
-      atualizarVersao(versao.id, { parametros: params });
+      atualizarVersao(versao.id, { parametros: params }, { permitirFechada: true });
       setTimeout(() => renderCustoTab(container), 100);
     });
 
