@@ -1329,7 +1329,23 @@ const Orcamento = (() => {
     });
 
     // Felipe (sessao 2026-08): aceita aprovadoEm OU status='fechada'.
-    const ultimaFechada = versoesFlat.find(v => v.ehImutavelParaCard) || null;
+    // Felipe sessao 34: BUG "aprovo V1 mas card mostra V2". A ultimaFechada
+    // (= versao que dita o valor do card) era escolhida por criadoEm (a mais
+    // RECENTEMENTE CRIADA). Com V1 e V2 ambas fechadas, V2 (criada depois)
+    // ganhava — entao re-aprovar a V1 setava lead.valor=120k mas o card
+    // continuava exibindo a V2. FIX: escolhe a imutavel com aprovadoEm mais
+    // recente (a versao que o usuario aprovou por ultimo). Re-aprovar
+    // re-carimba aprovadoEm (aprovarOrcamento), entao a versao reaprovada
+    // passa a mandar no card — batendo com lead.valor. Fallback criadoEm
+    // pra imutaveis fechadas sem aprovadoEm (historico legado).
+    const _imutaveis = versoesFlat.filter(v => v.ehImutavelParaCard);
+    const ultimaFechada = _imutaveis.length
+      ? _imutaveis.reduce((maior, v) => {
+          const dMaior = String(maior.aprovadoEm || maior.criadoEm || '');
+          const dV     = String(v.aprovadoEm || v.criadoEm || '');
+          return dV.localeCompare(dMaior) > 0 ? v : maior;
+        })
+      : null;
 
     // Felipe sessao 33: 'orcamentos feitos com preco mas sem botao de
     // abrir memoria de calculo / revisao'. Antes, se NAO havia versao
