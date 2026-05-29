@@ -471,11 +471,17 @@ const Orcamento = (() => {
     const tFechDigital = Number(f.total_fechadura_digital) || 0;
     const tInsumos     = tPerfis + tPintura + tAcessorios + tRevestiment + tExtras + tFechDigital;
 
-    // Soma horas calculadas das regras pra cada etapa (todos os itens porta_externa)
-    const portas = (itens || []).filter(i => i && i.tipo === 'porta_externa');
+    // Soma horas calculadas das regras pra cada etapa (todos os itens porta_externa).
+    // Felipe sessao 34: tabela de horas agora inclui revestimento_parede tambem
+    // (Felipe quer 'campo para colocar horas de fabricacao' do rev). Mas rev_parede
+    // nao tem regras automaticas (largura×altura×modelo nao mapeia pra Portal/Folha/
+    // Colagem como porta) - so' manual. Entao itera 'itensComHoras' pra montar a
+    // tabela, mas horasAuto so' acumula pra porta_externa.
+    const portas = (itens || []).filter(i => i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'));
     const horasAuto = ETAPAS_FAB.reduce((acc, e) => { acc[e.id] = 0; return acc; }, {});
     let diasColagem = 0;  // pra exibir o detalhe
     portas.forEach(it => {
+      if (it.tipo !== 'porta_externa') return;  // rev_parede: sem horas auto, so' manual
       const h = horasItemPortaExterna(it);
       horasAuto.portal         += h.portal;
       horasAuto.folha_porta    += h.quadro;          // quadro → folha_porta (renomeado)
@@ -861,6 +867,14 @@ const Orcamento = (() => {
       - (tPerfis + tPintura + tAcessorios + tFechDig + tRevest + tExtras));
 
     // 2. Pesos por item (kg liq, m², horas, acessorios, fech digital).
+    // Felipe sessao 34: itensFab agora inclui rev_parede tambem (mesma mudanca
+    // de calcularFab/tabela de horas). O idx em fab.etapas[].horasPorItem
+    // refere o array FILTRADO portas+rev, nao o global. Aqui mapeamos
+    // it (global) -> idx no array filtrado pra ler as horas manuais salvas
+    // pro rev_parede. Porta_externa continua usando horasItemPortaExterna
+    // (regras automaticas).
+    const itensFiltradosFab = itens.filter(i =>
+      i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'));
     const horasPorIdx = {};
     let horasTotal = 0;
     itens.forEach((it, idx) => {
@@ -869,6 +883,18 @@ const Orcamento = (() => {
         horasPorIdx[idx] = (h.portal || 0) + (h.quadro || 0) +
                            (h.corte_usinagem || 0) + (h.colagem || 0) +
                            (h.conf_bem || 0);
+      } else if (it && it.tipo === 'revestimento_parede') {
+        // Soma horas manuais salvas em fab.etapas[<etapa>].horasPorItem[idxFiltrado]
+        const idxFiltrado = itensFiltradosFab.indexOf(it);
+        const etapas = (fab && fab.etapas) || {};
+        let totalH = 0;
+        if (idxFiltrado >= 0) {
+          Object.keys(etapas).forEach(eid => {
+            const v = ((etapas[eid] || {}).horasPorItem || {})[String(idxFiltrado)];
+            if (v != null && v !== '' && Number.isFinite(Number(v))) totalH += Number(v);
+          });
+        }
+        horasPorIdx[idx] = totalH;
       } else {
         horasPorIdx[idx] = 0;
       }
@@ -7533,12 +7559,31 @@ const Orcamento = (() => {
              etapas[id].horasPorItem[idx]. Se ha um unico item, mostra so' 1
              coluna (compat). -->
         ${(() => {
-          const itensFab = (versao.itens || []).filter(i => i && i.tipo === 'porta_externa');
+          // Felipe sessao 34: tabela de horas inclui revestimento_parede tambem
+          // (Felipe: 'nao temos campo para colocar horas de fabricacao deste item').
+          // Rev_parede entra com seu proprio idx no array filtrado; o cabecalho
+          // mostra largura×altura da PRIMEIRA parede preenchida (ou label).
+          const itensFab = (versao.itens || []).filter(i =>
+            i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'));
           const nItens = itensFab.length;
           // Cabecalho dinamico — uma coluna por item
           const colunasItens = nItens > 0
             ? itensFab.map((it, idx) => {
-                const dim = (it.largura && it.altura) ? `${it.largura}×${it.altura}` : `Item ${idx + 1}`;
+                let dim;
+                if (it.tipo === 'revestimento_parede') {
+                  const paredes = Array.isArray(it.paredes) ? it.paredes : [];
+                  const p = paredes.find(pp => Number(pp.largura_total) > 0
+                                            && Number(pp.altura_total)  > 0);
+                  if (p) {
+                    dim = `${Number(p.largura_total)}×${Number(p.altura_total)}`;
+                  } else if (it.largura_total && it.altura_total) {
+                    dim = `${Number(it.largura_total)}×${Number(it.altura_total)}`;
+                  } else {
+                    dim = 'Rev. parede';
+                  }
+                } else {
+                  dim = (it.largura && it.altura) ? `${it.largura}×${it.altura}` : `Item ${idx + 1}`;
+                }
                 return `<span class="orc-fi-col-item-h" title="Item ${idx + 1}: ${escapeHtml(dim)}">It ${idx + 1}<small style="display:block;font-weight:400;font-size:10px;opacity:0.7;">${escapeHtml(dim)}</small></span>`;
               }).join('')
             : '<span class="orc-fi-col-horas">Horas (editavel)</span>';
