@@ -1867,6 +1867,62 @@ const Orcamento = (() => {
   }
 
   /**
+   * Felipe sessao 34: INVERSO do fecharVersaoAprovadaDoLead. Quando o
+   * card do CRM sai de 'fechado' pra outra etapa (ex: cliente pediu pra
+   * renegociar), TODAS as travas da versao fechada devem cair. Sem isto,
+   * o input 'Lucro Alvo' do topo da tela (handler atualizarVersao SEM
+   * permitirFechada) falhava silenciosamente no try/catch -> 'coloquei
+   * zero, nada mudou'. Tambem o renderCustoTab continuava usando
+   * dre_congelado como fotografia imutavel.
+   *
+   * Acao: pra cada versao com status='fechada' no negocio do lead:
+   *   - status='fechada' -> status='draft' (destrava atualizarVersao)
+   *   - remove dre_congelado (renderCustoTab volta a calcular vivo)
+   *   - PRESERVA: valorAprovado, aprovadoEm, precoProposta (historico
+   *     e KPIs do CRM continuam batendo; se o usuario aprovar de novo
+   *     depois, os campos sao re-carimbados normalmente)
+   *
+   * Idempotente: se nao tem versao fechada, nao faz nada.
+   *
+   * @param {string} leadId
+   * @returns {{versoesDestravadas: number}|null}
+   */
+  function destravarVersaoFechadaDoLead(leadId) {
+    if (!leadId) return null;
+    try {
+      const negocios = loadAll();
+      const idx = negocios.findIndex(n => n.leadId === leadId);
+      if (idx < 0) return null;
+      const negocio = negocios[idx];
+
+      let destravadas = 0;
+      (negocio.opcoes || []).forEach(o => {
+        (o.versoes || []).forEach(v => {
+          if (v.status !== 'fechada') return;
+          v.status = 'draft';
+          // Remove a fotografia imutavel — renderCustoTab volta a calcular
+          // DRE vivo (com versao.parametros/subFab/subInst). Edicao de
+          // parametros e itens fica liberada de novo.
+          delete v.dre_congelado;
+          destravadas++;
+        });
+      });
+
+      if (destravadas === 0) {
+        return { versoesDestravadas: 0 };
+      }
+
+      saveAll(negocios);
+      console.info('[orcamento] 🔓 destravarVersaoFechadaDoLead: lead', leadId,
+        '-', destravadas, 'versao(es) voltaram pra draft (saiu de fechado no CRM)');
+      return { versoesDestravadas: destravadas };
+    } catch (e) {
+      console.warn('[orcamento] destravarVersaoFechadaDoLead falhou:', e.message);
+      return null;
+    }
+  }
+
+  /**
    * Felipe (sessao 2026-06): "preciso de uma opcao para deletar as
    * versoes". Remove uma versao do array da opcao. Protecoes:
    *   - Nao deleta a ultima versao (precisa sobrar pelo menos 1)
@@ -2419,6 +2475,29 @@ const Orcamento = (() => {
     let neg = obterNegocioPorLeadId(leadIdAlvo);
     if (!neg) neg = criarNegocio({ leadId: leadIdAlvo, clienteNome });
     UI.negocioAtivoId = neg.id;
+
+    // Felipe sessao 34: AUTO-CURA pra dados pre-fix. Se o lead esta em
+    // qualquer etapa != 'fechado' MAS o negocio tem versoes com
+    // status='fechada' (orfas — card saiu de fechado antes do fix novo),
+    // destrava automaticamente. Cobre casos como o Mhamad Kamel Fayad
+    // que ja' estava em 'negociacao' quando o fix foi deployado.
+    // Best-effort, nao bloqueia o boot do orcamento.
+    try {
+      if (lead && lead.etapa && lead.etapa !== 'fechado'
+          && typeof destravarVersaoFechadaDoLead === 'function') {
+        const temVersaoFechadaOrfa = (neg.opcoes || []).some(o =>
+          (o.versoes || []).some(v => v.status === 'fechada'));
+        if (temVersaoFechadaOrfa) {
+          const r = destravarVersaoFechadaDoLead(lead.id);
+          if (r && r.versoesDestravadas > 0) {
+            console.info('[orcamento] auto-cura: lead', lead.id, 'em etapa',
+              lead.etapa, '- destravou', r.versoesDestravadas, 'versao(es) orfa(s)');
+            // Recarrega o neg pra pegar o estado destravado
+            neg = obterNegocioPorLeadId(leadIdAlvo);
+          }
+        }
+      }
+    } catch (e) { console.warn('[orcamento] auto-cura falhou:', e.message); }
 
     // Felipe (sessao 2026-08): "PERMITA EU FAZER CALCULOS DE TODOS OS
     // ITENS SEM CARD CRM, POSSO COLOCAR TUDO CALCULAR ELE SO NAO VAI
@@ -19417,6 +19496,7 @@ const Orcamento = (() => {
     atualizarVersao,
     fecharVersao,
     fecharVersaoAprovadaDoLead,
+    destravarVersaoFechadaDoLead,
     destravarVersao,
     deletarVersao,
     deletarNegocio,

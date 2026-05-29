@@ -2088,6 +2088,16 @@
           }
           if (etapaAntiga === 'fechado' && etapaNova !== 'fechado') {
             lead.fechadoEm = null;
+            // Felipe sessao 34: 'estava em fechado e deveria ter alguma trava;
+            // assim que volto para negociacao deve sair toda e qualquer trava'.
+            // Destrava a versao fechada do lead (status='fechada' -> 'draft',
+            // remove dre_congelado). Preserva valorAprovado/aprovadoEm pros
+            // KPIs do CRM. Best-effort.
+            try {
+              if (window.Orcamento && window.Orcamento.destravarVersaoFechadaDoLead) {
+                window.Orcamento.destravarVersaoFechadaDoLead(lead.id);
+              }
+            } catch (e) { console.warn('[crm] destravar versao fechada falhou:', e); }
           }
           lead.etapa = etapaNova;
 
@@ -4167,6 +4177,13 @@
           // nao contar nos KPIs como fechado anterior.
           if (lead.etapa === 'fechado' && novaEtapa !== 'fechado') {
             lead.fechadoEm = null;
+            // Felipe sessao 34: destrava versao fechada (status->draft,
+            // remove dre_congelado). Espelha logica do modal de edicao.
+            try {
+              if (window.Orcamento && window.Orcamento.destravarVersaoFechadaDoLead) {
+                window.Orcamento.destravarVersaoFechadaDoLead(lead.id);
+              }
+            } catch (e) { console.warn('[crm] destravar versao fechada falhou:', e); }
           }
           lead.etapa = novaEtapa;
           save();
