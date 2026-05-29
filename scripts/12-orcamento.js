@@ -9377,8 +9377,29 @@ const Orcamento = (() => {
       const ehInternacionalAprov = leadAprov && leadAprov.destinoTipo === 'internacional';
       const subInstParaDRE = ehInternacionalAprov ? 0 : subInst;
       const dre     = calcularDRE(subFab, subInstParaDRE, params);
-      const precoProposta     = Number(dre.pTab) || 0;       // preco da PORTA (com markup)
-      const precoPortaFinal   = Number(dre.pFatReal) || 0;   // porta apos desconto
+      let precoProposta     = Number(dre.pTab) || 0;       // preco da PORTA (com markup)
+      let precoPortaFinal   = Number(dre.pFatReal) || 0;   // porta apos desconto
+
+      // Felipe sessao 34: versao FECHADA com dre_congelado tem 'fotografia
+      // imutavel'. A tela (renderCustoTab linha 8650) mostra pFatReal =
+      // dc.valorAprovado. Mas o calcularDRE acima recalcula com
+      // versao.parametros (que pode estar dessincronizado do snapshot,
+      // ex: lucro_alvo alterado por Ajustar Margem mas dre_congelado nao
+      // atualizado). Resultado: tela mostra R$ 120.000 mas re-aprovar
+      // mandava R$ 118.551,57 pro CRM. INCONSISTENCIA.
+      // Fix: em versao fechada, usar o valor da FOTOGRAFIA (= o que aparece
+      // na tela). Garante 'WYSIWYG' no re-aprovar.
+      // Internacional NAO sofre override — tem breakdown proprio (porta +
+      // frete + caixa + seguro + instalacao) calculado abaixo.
+      if (!ehInternacionalAprov
+          && versao.status === 'fechada'
+          && versao.dre_congelado
+          && Number(versao.dre_congelado.valorAprovado) > 0) {
+        const dc = versao.dre_congelado;
+        precoPortaFinal = Number(dc.valorAprovado);
+        precoProposta   = Number(dc.precoProposta) || Number(dc.pTab) || precoPortaFinal;
+      }
+
       if (precoPortaFinal <= 0) {
         alert('Calcule o orcamento primeiro — preco real esta em zero.');
         return;
