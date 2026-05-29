@@ -7727,7 +7727,24 @@ const Orcamento = (() => {
           const desc = (typeof obterDescricaoItem === 'function')
             ? obterDescricaoItem(it)
             : 'Item';
-          const med = `${parseBR(it.largura) || it.largura || ''} × ${parseBR(it.altura) || it.altura || ''}`;
+          // Felipe sessao 34: rev_parede e pergolado guardam dim em paredes[]
+          // ou largura_total/altura_total. Sem este branch, mostrava ' × '.
+          let med;
+          if (it.tipo === 'revestimento_parede' || it.tipo === 'pergolado') {
+            const paredesValidas = (Array.isArray(it.paredes) ? it.paredes : [])
+              .filter(p => Number(p.largura_total) > 0 && Number(p.altura_total) > 0);
+            if (paredesValidas.length > 1) {
+              med = 'Variado';
+            } else if (paredesValidas.length === 1) {
+              med = `${Number(paredesValidas[0].largura_total)} × ${Number(paredesValidas[0].altura_total)}`;
+            } else {
+              const w = parseBR(it.largura_total) || 0;
+              const h = parseBR(it.altura_total)  || 0;
+              med = (w > 0 && h > 0) ? `${w} × ${h}` : '—';
+            }
+          } else {
+            med = `${parseBR(it.largura) || it.largura || ''} × ${parseBR(it.altura) || it.altura || ''}`;
+          }
           const pctFab = subFabSum > 0 ? (v.subFab / subFabSum * 100) : 0;
           return `
             <tr>
@@ -12272,6 +12289,11 @@ const Orcamento = (() => {
 
     // Felipe sessao 12: filtra itens vazios (sem dim alguma) - nao adianta
     // mostrar 'Item 06 - Revestimento de Parede 0x0 R$ 0,00' na proposta.
+    // Felipe sessao 34: revestimento_parede usa schema diferente (paredes[]
+    // ou largura_total/altura_total no root, NAO largura/altura). Sem isso
+    // o item 4 'todo preenchido e calculado' era filtrado fora porque o
+    // teste so olhava largura/altura. Agora reconhece tambem os formatos
+    // de rev_parede.
     const itens = (versao.itens || []).filter(it => {
       if (!it.tipo) return false;
       const lar = parseBR(it.largura) || parseBR(it.largura_total) || 0;
@@ -12279,7 +12301,12 @@ const Orcamento = (() => {
       const temPecasManuais = Array.isArray(it.pecas) && it.pecas.some(
         p => Number(p.largura) > 0 && Number(p.altura) > 0
       );
-      return (lar > 0 && alt > 0) || temPecasManuais;
+      // Rev_parede: aceita paredes[] preenchidas
+      const temParedes = it.tipo === 'revestimento_parede'
+        && Array.isArray(it.paredes)
+        && it.paredes.some(p => (Number(p.largura_total) || 0) > 0
+                             && (Number(p.altura_total)  || 0) > 0);
+      return (lar > 0 && alt > 0) || temPecasManuais || temParedes;
     });
 
     // Felipe sessao 12: 'quero a proposta igual quando tem so uma porta,
@@ -12949,8 +12976,25 @@ const Orcamento = (() => {
     const linhas = itens.map((item, idx) => {
       const numero = idx + 1;
       const tipo = obterDescricaoItem(item);
-      const lar = Number(item.largura) || null;
-      const alt = Number(item.altura) || null;
+      // Felipe sessao 34: revestimento_parede armazena dimensoes em
+      // paredes[].largura_total/altura_total OU em largura_total/altura_total
+      // do root, NAO em largura/altura. Sem este branch, o cabecalho da
+      // proposta mostrava 'ITEM 4 REVESTIMENTO DE PAREDE — —' mesmo com
+      // tudo preenchido.
+      let lar = Number(item.largura) || null;
+      let alt = Number(item.altura) || null;
+      if (item.tipo === 'revestimento_parede' && (!lar || !alt)) {
+        const paredes = Array.isArray(item.paredes) ? item.paredes : [];
+        const primeira = paredes.find(p => (Number(p.largura_total) || 0) > 0
+                                        && (Number(p.altura_total)  || 0) > 0);
+        if (primeira) {
+          lar = Number(primeira.largura_total) || null;
+          alt = Number(primeira.altura_total)  || null;
+        } else if (item.largura_total && item.altura_total) {
+          lar = Number(item.largura_total) || null;
+          alt = Number(item.altura_total)  || null;
+        }
+      }
       const medidas = (lar && alt) ? `${lar} × ${alt} mm` : '—';
       let modeloLabel = '—';
       if (item.modeloNumero) {
