@@ -4647,8 +4647,16 @@ const Orcamento = (() => {
         item.com_refilado    = p0.com_refilado    || 'sim';
       }
     }
+    // Felipe sessao 34: troca 'change' unico por 'input'+'change' separados.
+    // BUG ORIGINAL: digitar largura na parede e clicar Recalcular sem sair
+    // do input -> click handler dispara antes do change (race) -> 
+    // atualizarVersao chama loadAll (storage sem digitacao) + saveAll
+    // (sobrescreve por cima do valor pendente). Resultado: largura zera.
+    // FIX: 'input' salva imediatamente a cada teclada (garante storage
+    // sempre em dia, sem race), 'change' continua re-renderizando no blur
+    // pra atualizar hint visual sem perder foco enquanto user digita.
     container.querySelectorAll('[data-field-parede]').forEach(el => {
-      el.addEventListener('change', () => {
+      function aplicar() {
         const root = getRoot();
         if (!root) return;
         const item = root.item;
@@ -4666,9 +4674,9 @@ const Orcamento = (() => {
         syncTopLevelComPrimeiraParede(item);
         persistir(root);
         if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
-        // Sempre re-renderiza pra atualizar o hint de calculo
-        reRender();
-      });
+      }
+      el.addEventListener('input',  aplicar);          // salva a cada teclada
+      el.addEventListener('change', () => { aplicar(); reRender(); });  // re-renderiza no blur
     });
 
     // Botao + adicionar parede
