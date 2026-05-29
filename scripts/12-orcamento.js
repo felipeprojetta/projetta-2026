@@ -1735,7 +1735,14 @@ const Orcamento = (() => {
     // o duplo clique tentava salvar via window.OrcamentoCore (que NUNCA
     // foi definido), entao a selecao virava lixo. Agora persiste de
     // verdade na versao.
-    const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas'];
+    // Felipe sessao 34: adicionado 'dre_congelado'. Usado SO' pelo Ajustar/
+    // Resetar Margem em versao fechada — pra reajustar a 'fotografia' quando
+    // o usuario explicitamente muda a margem de um orcamento ja' fechado
+    // (caso 'cliente pediu pra renegociar'). Custos permanecem congelados
+    // (dc.subFab/subInst/custoFab/custoInst), so' parametros/pFat/pTab/
+    // pFatReal/valorAprovado/precoProposta sao recalculados. Outros
+    // chamadores nao passam este campo.
+    const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas', 'dre_congelado'];
     camposPermitidos.forEach(k => {
       if (k in dadosNovos) alvo[k] = dadosNovos[k];
     });
@@ -9651,7 +9658,35 @@ const Orcamento = (() => {
       const paramsNovos = Object.assign({}, params, {
         lucro_alvo: lucro_alvo_novo,  // SEM toFixed - precisao maxima
       });
-      atualizarVersao(versao.id, { parametros: paramsNovos }, { permitirFechada: true });
+
+      const dadosUpdate = { parametros: paramsNovos };
+
+      // Felipe sessao 34: em versao FECHADA com dre_congelado, tambem
+      // atualiza a 'fotografia' pra refletir a nova margem nos calculos
+      // do RESULTADO DRE. Felipe: 'foi para o card 120 mil, mas a margem
+      // nao foi reajustada'. Sem isto, o topo da tela mostra lucro_alvo
+      // novo (versao.parametros) mas o RESULTADO DRE intermediario calcula
+      // com lucro_alvo VELHO (dc.parametros, renderCustoTab linha 8654
+      // usa dc se versao.status==='fechada' && dc existe).
+      // CUSTOS permanecem CONGELADOS (dc.subFab/subInst/custoFab/custoInst
+      // intactos) — so' a MARGEM muda. Essa e' a definicao do 'ajustar
+      // margem em fechada': renegociar valor sem refazer o orcamento.
+      if (versao.status === 'fechada' && versao.dre_congelado) {
+        const dcAtual = versao.dre_congelado;
+        const dreNovo = calcularDRE(dcAtual.subFab, dcAtual.subInst, paramsNovos);
+        dadosUpdate.dre_congelado = Object.assign({}, dcAtual, {
+          parametros:    paramsNovos,
+          custo:         dreNovo.custo,
+          pFat:          dreNovo.pFat,
+          pTab:          dreNovo.pTab,
+          pFatReal:      dreNovo.pFatReal,
+          markupPct:     dreNovo.markupPct,
+          valorAprovado: valorAlvo,    // o que o usuario digitou
+          precoProposta: dreNovo.pTab, // pTab novo (sem desconto)
+        });
+      }
+
+      atualizarVersao(versao.id, dadosUpdate, { permitirFechada: true });
 
       const lucroAntigo = (Number(params.lucro_alvo) || 0).toFixed(2);
       const lucroNovo = lucro_alvo_novo.toFixed(4);  // mostra 4 casas no feedback
@@ -9670,7 +9705,25 @@ const Orcamento = (() => {
       // Felipe sessao 34: liberado em versao fechada (mesma logica do Ajustar Margem).
       const params = Object.assign({}, versao.parametros || {});
       params.lucro_alvo = 15;
-      atualizarVersao(versao.id, { parametros: params }, { permitirFechada: true });
+      const dadosUpdate = { parametros: params };
+      // Felipe sessao 34: em fechada, recalcula a 'fotografia' tambem (custos
+      // congelados, margem volta pra 15%). valorAprovado vira o pFatReal
+      // calculado (= preco que sairia com lucro_alvo=15%).
+      if (versao.status === 'fechada' && versao.dre_congelado) {
+        const dcAtual = versao.dre_congelado;
+        const dreNovo = calcularDRE(dcAtual.subFab, dcAtual.subInst, params);
+        dadosUpdate.dre_congelado = Object.assign({}, dcAtual, {
+          parametros:    params,
+          custo:         dreNovo.custo,
+          pFat:          dreNovo.pFat,
+          pTab:          dreNovo.pTab,
+          pFatReal:      dreNovo.pFatReal,
+          markupPct:     dreNovo.markupPct,
+          valorAprovado: dreNovo.pFatReal,  // reset -> recalculado
+          precoProposta: dreNovo.pTab,
+        });
+      }
+      atualizarVersao(versao.id, dadosUpdate, { permitirFechada: true });
       setTimeout(() => renderCustoTab(container), 100);
     });
 
