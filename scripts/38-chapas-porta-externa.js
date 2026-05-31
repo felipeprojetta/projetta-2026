@@ -1686,11 +1686,43 @@ const ChapasPortaExterna = (() => {
           categoria: 'porta' },
       ],
     },
-  };
 
-  // ------------------------------------------------------------------
-  // GERADOR PRINCIPAL
-  // ------------------------------------------------------------------
+    // ===================================================================
+    // MODELO 26 — Puxador Externo + Vidro Central (Felipe sessao 34).
+    // PERFIS: identicos ao mod 10 (Puxador Externo Lisa). Felipe esta
+    // mandando a planilha PRECIFICACAO_01_04_2026 aba "MODELO 26" pra
+    // formula exata das pecas (porta dividida em ACM lateral + VIDRO
+    // central). Por enquanto, STUB com mesma peca do mod 10 (tampa maior
+    // lisa) — o usuario consegue cadastrar o item, escolher tipo de
+    // vidro/espessura da borda na UI, calcular perfis e acessorios. So'
+    // o Lev Chapas ficara' identico ao mod 10 ate o commit das formulas
+    // novas. Apos receber a planilha: substituir pelas formulas reais
+    // com peca central de categoria 'porta' + materialEspecial='VIDRO'.
+    // ===================================================================
+    26: {
+      '1F': [
+        // STUB: igual mod 10 ate' Felipe mandar a planilha.
+        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
+          largura: F.tampa_maior_1f_largura_lisa, comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+      ],
+      '2F': [
+        // STUB: igual mod 10 ate' Felipe mandar a planilha.
+        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
+          largura: ctx => (ctx.larguraQuadro2F)/2 + 10.5 + 2*ctx.REF - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 0, categoria: 'porta' },
+        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
+          largura: ctx => (ctx.larguraQuadro2F - 1)/2 + 2*ctx.REF - 27 - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
+          largura: ctx => (ctx.larguraQuadro2F - 1)/2 + 2*ctx.REF - 28 - 1,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 0, int: 1, categoria: 'porta' },
+      ],
+    },
+  };
   function gerarPecasChapa(item, lado) {
     if (!item || item.tipo !== 'porta_externa') return [];
     if (lado !== 'externo' && lado !== 'interno') {

@@ -40,6 +40,10 @@ const Modelos = (() => {
     { numero: 22, nome: 'Cava Premium' },
     { numero: 23, nome: 'Classica com Molduras' },
     { numero: 24, nome: 'Cava Horizontal' },
+    // Felipe sessao 18: mod 25 (puxador ext + ripado vertical total)
+    // Felipe sessao 34: mod 26 (puxador ext + vidro central) - perfis = mod 10
+    { numero: 25, nome: 'Puxador Externo + Ripado Vertical Total' },
+    { numero: 26, nome: 'Puxador Externo + Vidro Central' },
   ];
 
   // Felipe (sessao 31): modelos de PORTA INTERNA — lista separada da

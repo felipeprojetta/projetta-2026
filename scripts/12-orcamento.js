@@ -3347,6 +3347,14 @@ const Orcamento = (() => {
       distancia2a3aMoldura: '',       // Modelo 23 — so' se qtde >= 3
       // Felipe: perfil/codigo da moldura — so' aparece se Revestimento = Aluminio Macico 2mm
       perfilMoldura: '',
+      // Felipe sessao 34: Modelo 26 (Puxador Externo + Vidro Central).
+      // tipoVidroCentral = descricao do cadastro de Vidros (Storage.scope(
+      // 'cadastros').get('superficies_lista') filtrado por categoria='vidro').
+      // bordaVidroCentral = espessura da borda em mm (largura da chapa de
+      // ACM ao redor do vidro central — usado pela formula em chapas-porta-
+      // externa.js quando a planilha do mod 26 for cadastrada).
+      tipoVidroCentral: '',
+      bordaVidroCentral: '',
       // Felipe sessao 14: folgas vem POPULADAS do cadastro Regras >
       // Variaveis (FGLD/FGLE/FGA). Usuario pode editar caso queira
       // override por item.
@@ -3408,6 +3416,14 @@ const Orcamento = (() => {
     // pra escolher: PA-PERFILBOISERIE etc).
     perfilMoldura:              { label: 'Tipo de moldura (perfil)', tipo: 'select',
                                   opcoes: ['', 'PA-PERFILBOISERIE'] },
+    // Felipe sessao 34: Modelo 26 (Puxador Externo + Vidro Central).
+    // tipoVidroCentral: opcoes vem do cadastro Superficies > Vidros (dinamico,
+    // resolvido no momento do render). Marker '__VIDROS_CADASTRO__' indica
+    // que o renderItemTab deve popular as opcoes a partir do storage em vez
+    // do array fixo.
+    tipoVidroCentral:           { label: 'Tipo de vidro central', tipo: 'select',
+                                  opcoes: ['', '__VIDROS_CADASTRO__'] },
+    bordaVidroCentral:          { label: 'Espessura da borda do vidro (mm)', tipo: 'number', min: 0, step: 1 },
   };
 
   // Mapeamento modelo → array de campos. As chaves sao numeros do modelo
@@ -3444,6 +3460,12 @@ const Orcamento = (() => {
     // elevacao". Base mod 10 (liso) + frisos verticais que FATIAM a tampa
     // em (qtdFrisos+1) chapas. Sem cava, sem ripa fisica.
     25: ['quantidadeFrisos', 'espessuraFriso'],
+    // Felipe sessao 34: Mod 26 = "Puxador Externo + Vidro Central". Perfis
+    // = mod 10 (sem cava, sem friso, sem ripa). Acessorios = padrao. Chapas
+    // a definir quando Felipe mandar a planilha — por enquanto cai no
+    // fallback de mod 10 (peca lisa). UI pergunta tipo de vidro (do cadastro
+    // Superficies>Vidros) e espessura da borda.
+    26: ['tipoVidroCentral', 'bordaVidroCentral'],
   };
 
   /**
@@ -3513,7 +3535,20 @@ const Orcamento = (() => {
         if (!meta) return '';
         const val = item[chave] != null ? String(item[chave]) : '';
         if (meta.tipo === 'select') {
-          const opts = (meta.opcoes || []).map(op =>
+          // Felipe sessao 34: marker '__VIDROS_CADASTRO__' resolve a lista
+          // dinamica do cadastro Superficies > Vidros (mod 26 tipo de vidro).
+          // Mantem o '' (placeholder) e substitui o marker pela lista real.
+          let opcoes = meta.opcoes || [];
+          if (opcoes.indexOf('__VIDROS_CADASTRO__') !== -1) {
+            const sups = (window.Storage ? Storage.scope('cadastros').get('superficies_lista') : null) || [];
+            const vidros = sups
+              .filter(s => s && (s.categoria === 'vidro'))
+              .map(s => s.descricao)
+              .filter(Boolean);
+            // Remove o marker, mantem '' (placeholder), adiciona vidros do cadastro
+            opcoes = opcoes.filter(o => o !== '__VIDROS_CADASTRO__').concat(vidros);
+          }
+          const opts = opcoes.map(op =>
             `<option value="${escapeHtml(op)}" ${val === op ? 'selected' : ''}>${escapeHtml(op || '—')}</option>`
           ).join('');
           return `
