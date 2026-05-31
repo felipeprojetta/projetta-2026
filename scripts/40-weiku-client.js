@@ -39,12 +39,18 @@ const WeikuClient = (() => {
     // Producao:    https://intranet.weiku.com.br/v2/api/reservas/reserva/{numero}
     // CORS liberado pra projetta-2026.netlify.app
     apiUrl: 'https://intranet.weiku.com.br/v2/api/reservas/reserva/',
-    // Felipe sessao 18: endpoint pra puxar dados do CONTRATO pelo ATP.
-    // URL provisoria sugerida pro John (TI Weiku). Quando ele responder
-    // confirmando o endpoint real, basta atualizar essa string aqui.
-    // Schema esperado da resposta JSON (definido por mim, pra confirmar
-    // com o John): vide buscarContrato abaixo (Documentation block).
-    apiUrlContrato: 'https://intranet.weiku.com.br/v2/api/contratos/contrato/',
+    // Felipe sessao 34: endpoint NOVO de ATP/contrato liberado pelo Ruan
+    // (TI Weiku) em 29/05/2026. Antes era URL especulativa
+    // (intranet.weiku.com.br/v2/api/contratos/contrato/) que ainda nao
+    // existia. Agora:
+    //   URL: https://hub.weiku.com.br/api/pedido/{numero_pedido}
+    //   Auth: Bearer <token>
+    //   Felipe confirmou: 'numero do pedido' = numero ATP que vai no card
+    //   apos fechamento do lead.
+    // Ambiente novo das integracoes Weiku — Ruan avisou que pode ter
+    // instabilidades iniciais. Reporte qualquer erro pra ele investigar.
+    apiUrlContrato: 'https://hub.weiku.com.br/api/pedido/',
+    apiTokenContrato: 'LPPC6kN2HiJ3K243oxg632GprNHbcRh8rc4pCk2oHzJnKpBDQK',
   };
 
   function configure(opts) {
@@ -264,8 +270,25 @@ const WeikuClient = (() => {
 
   function normalizarContrato(raw) {
     if (!raw) return null;
-    const ehPJ = String(raw.tipo_pessoa || '').toUpperCase() === 'J';
-    const cpfCnpj = ehPJ ? (raw.cliente_cnpj || '') : (raw.cliente_cpf || '');
+    // Felipe sessao 34: API nova /api/pedido/ pode retornar schema diferente
+    // do esperado (Ruan ainda esta normalizando o ambiente). Funcao tolerante:
+    // aceita BOTH (1) schema antigo snake_case (auftrag_nr, cliente_nome, ...)
+    // e (2) variantes camelCase ou abreviadas que possam vir. Pega o primeiro
+    // valor nao-vazio. Se um campo nao aparece no raw, fica string vazia
+    // (nao trava o fluxo, nao sobrescreve campos do form com vazio - o
+    // helper setField la no CRM ja' preserva edicao manual feita pelo user).
+    function pick(...keys) {
+      for (const k of keys) {
+        if (raw[k] != null && raw[k] !== '') return raw[k];
+      }
+      return '';
+    }
+    // tipo_pessoa: 'J' (PJ) ou 'F' (PF). Se vier vazio, infere por presenca de CNPJ.
+    const tipoPessoaRaw = String(pick('tipo_pessoa', 'tipoPessoa', 'tipo')).toUpperCase();
+    const cnpj = pick('cliente_cnpj', 'clienteCnpj', 'cnpj');
+    const cpf  = pick('cliente_cpf',  'clienteCpf',  'cpf');
+    const ehPJ = tipoPessoaRaw === 'J' || (tipoPessoaRaw === '' && !!cnpj);
+    const cpfCnpj = ehPJ ? cnpj : cpf;
     function montarEndereco(rua, num, compl, bairro, cidade, estado) {
       const partes = [];
       if (rua) partes.push(rua);
@@ -275,39 +298,47 @@ const WeikuClient = (() => {
       if (cidade || estado) partes.push([cidade, estado].filter(Boolean).join('/'));
       return partes.join(', ');
     }
+    // Endereco cobranca: campos cliente_*
+    const ec_rua    = pick('cliente_rua', 'clienteRua', 'cobranca_rua');
+    const ec_num    = pick('cliente_ruanumero', 'cliente_numero', 'clienteNumero', 'cobranca_numero');
+    const ec_compl  = pick('cliente_complemento', 'clienteComplemento', 'cobranca_complemento');
+    const ec_bairro = pick('cliente_bairro', 'clienteBairro', 'cobranca_bairro');
+    const ec_cidade = pick('cliente_cidade', 'clienteCidade', 'cobranca_cidade');
+    const ec_estado = pick('cliente_estado', 'clienteEstado', 'cobranca_estado');
+    // Endereco entrega: campos entrega_*
+    const ee_rua    = pick('entrega_rua', 'entregaRua');
+    const ee_num    = pick('entrega_numero', 'entregaNumero', 'entrega_ruanumero');
+    const ee_compl  = pick('entrega_complemento', 'entregaComplemento');
+    const ee_bairro = pick('entrega_bairro', 'entregaBairro');
+    const ee_cidade = pick('entrega_cidade', 'entregaCidade');
+    const ee_estado = pick('entrega_estado', 'entregaEstado');
     return {
-      numeroAtp:        raw.auftrag_nr || '',
-      numeroReserva:    raw.num_reserva || '',
-      numeroAgp:        raw.ang_numer || '',
+      numeroAtp:        pick('auftrag_nr', 'auftragNr', 'numero_pedido', 'numeroPedido', 'numero_atp', 'numeroAtp', 'atp'),
+      numeroReserva:    pick('num_reserva', 'numReserva', 'numero_reserva', 'numeroReserva', 'reserva'),
+      numeroAgp:        pick('ang_numer', 'angNumer', 'numero_agp', 'numeroAgp', 'agp'),
       // Cliente / responsavel
-      nomeContrato:     raw.cliente_nome || '',
-      responsavelLegal: raw.cliente_responsavel || '',
+      nomeContrato:     pick('cliente_nome', 'clienteNome', 'nome_cliente', 'nomeCliente'),
+      responsavelLegal: pick('cliente_responsavel', 'clienteResponsavel', 'responsavel', 'responsavel_legal'),
       cpfCnpj:          cpfCnpj,
-      rg:               raw.cliente_rg || '',
-      emailContrato:    raw.cliente_mail || raw.cliente_mailnfe || '',
+      rg:               pick('cliente_rg', 'clienteRg', 'rg'),
+      emailContrato:    pick('cliente_mail', 'cliente_mailnfe', 'clienteMail', 'clienteEmail', 'email'),
       // Endereco cobranca
       cobranca: {
-        cep:               (raw.cliente_cep || '').replace(/[^\d-]/g, ''),
-        cidade:            raw.cliente_cidade || '',
-        estado:            raw.cliente_estado || '',
-        enderecoCompleto:  montarEndereco(
-                             raw.cliente_rua, raw.cliente_ruanumero,
-                             raw.cliente_complemento, raw.cliente_bairro,
-                             raw.cliente_cidade, raw.cliente_estado),
+        cep:               String(pick('cliente_cep', 'clienteCep', 'cobranca_cep', 'cep_cobranca') || '').replace(/[^\d-]/g, ''),
+        cidade:            ec_cidade,
+        estado:            ec_estado,
+        enderecoCompleto:  montarEndereco(ec_rua, ec_num, ec_compl, ec_bairro, ec_cidade, ec_estado),
       },
       // Endereco entrega (obra)
       entrega: {
-        cep:               (raw.entrega_cep || '').replace(/[^\d-]/g, ''),
-        cidade:            raw.entrega_cidade || '',
-        estado:            raw.entrega_estado || '',
-        enderecoCompleto:  montarEndereco(
-                             raw.entrega_rua, raw.entrega_numero,
-                             raw.entrega_complemento, raw.entrega_bairro,
-                             raw.entrega_cidade, raw.entrega_estado),
-        cei:               raw.entrega_cei || '',
-        pontoReferencia:   raw.entrega_referencia || '',
+        cep:               String(pick('entrega_cep', 'entregaCep', 'cep_entrega') || '').replace(/[^\d-]/g, ''),
+        cidade:            ee_cidade,
+        estado:            ee_estado,
+        enderecoCompleto:  montarEndereco(ee_rua, ee_num, ee_compl, ee_bairro, ee_cidade, ee_estado),
+        cei:               pick('entrega_cei', 'entregaCei', 'cei'),
+        pontoReferencia:   pick('entrega_referencia', 'entregaReferencia', 'ponto_referencia', 'pontoReferencia', 'referencia'),
       },
-      telefoneObra:     raw.cliente_celular || raw.cliente_fone || '',
+      telefoneObra:     pick('cliente_celular', 'cliente_fone', 'clienteCelular', 'clienteFone', 'celular', 'telefone'),
       // Metadata (provavel uso futuro)
       _raw: raw,
     };
@@ -335,27 +366,54 @@ const WeikuClient = (() => {
       });
     }
     // Modo 'api' (default): chama endpoint Weiku
+    // Felipe sessao 34: hub.weiku.com.br/api/pedido/{numero} requer
+    // Authorization Bearer com token configurado (apiTokenContrato).
     const url = config.apiUrlContrato + encodeURIComponent(num);
     try {
-      const res = await fetch(url);
+      const headers = {};
+      if (config.apiTokenContrato) {
+        headers['Authorization'] = 'Bearer ' + config.apiTokenContrato;
+      }
+      const res = await fetch(url, { headers });
       if (!res.ok) {
-        if (res.status === 404) {
-          throw new Error('Contrato ' + num + ' nao encontrado na API Weiku');
+        // Ler corpo do erro pra mensagem mais util
+        let bodyTxt = '';
+        try { bodyTxt = await res.text(); } catch (_) {}
+        if (res.status === 401 || res.status === 403) {
+          throw new Error('API ATP retornou ' + res.status + ' (autenticacao). Token invalido ou expirado — reporte ao Ruan (TI Weiku). Resposta: ' + bodyTxt.slice(0, 200));
         }
-        throw new Error('HTTP ' + res.status);
+        if (res.status === 404) {
+          throw new Error('Pedido ' + num + ' nao encontrado na API Weiku (' + res.status + ').');
+        }
+        throw new Error('API ATP HTTP ' + res.status + ': ' + bodyTxt.slice(0, 200));
       }
       const data = await res.json();
       if (Array.isArray(data) && data.length === 0) {
-        throw new Error('Contrato ' + num + ' nao encontrado na API Weiku');
+        throw new Error('Pedido ' + num + ' nao encontrado na API Weiku');
       }
       const raw = Array.isArray(data) ? data[0] : data;
-      if (!raw || (!raw.cliente_nome && !raw.auftrag_nr)) {
-        throw new Error('Contrato ' + num + ' retornou vazio');
+      // Felipe sessao 34: LOG do raw pra Felipe me mandar print durante a
+      // fase de instabilidades iniciais da API nova. Ajuda a identificar
+      // schema real vs schema antigo e ajustar normalizarContrato se algum
+      // campo nao bater.
+      try { console.info('[WeikuClient.buscarContrato] raw da API /api/pedido/' + num + ':', raw); } catch (_) {}
+      if (!raw || typeof raw !== 'object') {
+        throw new Error('Pedido ' + num + ' retornou resposta invalida (esperado objeto JSON, recebeu ' + typeof raw + ')');
+      }
+      // Aceita se tem ALGUM dado minimo pra preencher contrato (nome do
+      // cliente em alguma variante OU numero ATP). Se vier 100% vazio,
+      // avisa em vez de preencher form com nada.
+      const temAlgumDado = ['cliente_nome', 'clienteNome', 'nome_cliente',
+                            'auftrag_nr', 'auftragNr', 'numero_pedido']
+        .some(k => raw[k] != null && raw[k] !== '');
+      if (!temAlgumDado) {
+        console.warn('[WeikuClient.buscarContrato] resposta nao parece ter os campos esperados. Raw:', raw);
+        throw new Error('Pedido ' + num + ' retornou resposta sem campos reconhecidos. Veja o console (F12) e reporte ao Ruan (TI Weiku) com o JSON.');
       }
       return normalizarContrato(raw);
     } catch (e) {
       if (e.name === 'TypeError' && e.message.includes('fetch')) {
-        throw new Error('Erro CORS: API Contrato ainda nao liberada. Aguarde o John (TI Weiku) habilitar projetta-2026.netlify.app pro endpoint /v2/api/contratos/contrato/{atp}.');
+        throw new Error('Erro de rede ou CORS: API ATP em hub.weiku.com.br nao respondeu. Verifique se CORS esta liberado pra projetta-2026.netlify.app — reporte ao Ruan (TI Weiku).');
       }
       throw e;
     }
