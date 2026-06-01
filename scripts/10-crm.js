@@ -1527,12 +1527,20 @@
 
       // Felipe (sessao 2026-05-10): inputs da aba ATP - gravam em
       // modalState.atp = { ... } pra preservar dados originais (AGP).
+      // Felipe sessao 34: BUG CRITICO. Importar do Intranet preenchia os
+      // inputs via el.value = ... + dispatchEvent('change'), mas este
+      // handler so' escutava 'input' (mudanca manual do teclado). Como
+      // setField programatico dispara 'change' (nao 'input'), modalState.atp
+      // ficava VAZIO -> ao salvar e reabrir o card, todos os campos voltavam
+      // em branco. Fix: escuta AMBOS 'input' E 'change' pra capturar tanto
+      // digitacao manual quanto preenchimento programatico.
       container.querySelectorAll('.crm-modal [data-atp-field]').forEach(el => {
-        const evt = (el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') ? 'change' : 'input';
-        el.addEventListener(evt, (e) => {
+        const handler = (e) => {
           if (!modalState.atp) modalState.atp = {};
           modalState.atp[el.dataset.atpField] = e.target.value;
-        });
+        };
+        el.addEventListener('input',  handler);
+        el.addEventListener('change', handler);
       });
 
       // Felipe sessao 12: handlers de itens dinamicos
