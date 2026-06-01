@@ -6243,6 +6243,25 @@ const Orcamento = (() => {
         </div>`;
         })()}
         ` : ''}
+
+        <!-- Felipe sessao 34: campo OBSERVACAO DO ITEM (universal).
+             Aparece pra todos os tipos (porta externa, interna, fixo,
+             revestimento de parede etc) porque esta FORA dos blocos
+             condicionais por tipo, mas DENTRO do container do item.
+             Renderiza na proposta (PDF pagina 1 card + pagina 2 tabela)
+             com destaque amarelo quando preenchido. -->
+        <div class="orc-section">
+          <div class="orc-section-title">Observacao do Item <span class="orc-hint-auto">(aparece na proposta em destaque, se preenchida)</span></div>
+          <div class="orc-form-row">
+            <div class="orc-field" style="grid-column: 1 / -1;">
+              <textarea data-field="observacao"
+                        rows="3"
+                        placeholder="Ex: Cliente solicitou tampo escovado / Sem alisar na lateral direita / etc."
+                        style="width:100%; resize:vertical; min-height:60px; padding:8px; border:1px solid var(--border-color, #e2e8f0); border-radius:4px; font-family:inherit; font-size:13px;"
+              >${escapeHtml(item.observacao || '')}</textarea>
+            </div>
+          </div>
+        </div>
       </div>
     `;
 
@@ -12748,6 +12767,13 @@ const Orcamento = (() => {
       const valorTotStr = (v && v.precoFinal > 0)
         ? (internacional && taxa > 0 ? fmtUsdProp(v.precoFinal / taxa) : `R$ ${fmtBR(v.precoFinal)}`)
         : '—';
+      // Felipe sessao 34: linha extra com a OBSERVACAO do item, logo abaixo
+      // da linha do item, no mesmo destaque amarelo do banner. Aparece so
+      // quando ha observacao preenchida.
+      const obsItem = item.observacao && String(item.observacao).trim();
+      const linhaObservacao = obsItem
+        ? `<tr class="rel-prop-tabela-obs-row"><td colspan="${mostraValorPorItem ? 5 : 4}" style="padding:6px 10px;background:#fef3c7;border-left:4px solid #d97706;font-size:11px;color:#78350f;"><strong style="font-size:10px;letter-spacing:0.04em;">${tr('OBS','NOTE')}:</strong> <span style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</span></td></tr>`
+        : '';
       return `
         <tr>
           <td class="rel-prop-tabela-num">${String(idx + 1).padStart(2, '0')}</td>
@@ -12756,6 +12782,7 @@ const Orcamento = (() => {
           <td class="num">${qtd}</td>
           ${mostraValorPorItem ? `<td class="num">${valorTotStr}</td>` : ''}
         </tr>
+        ${linhaObservacao}
       `;
     }).join('');
 
@@ -13399,6 +13426,7 @@ const Orcamento = (() => {
             return `<div class="rel-prop-item-linhas rel-prop-item-modelo-vars">${linhas}${notaPintura}</div>`;
           })()}
           ${bannerAlisar}
+          ${item.observacao && String(item.observacao).trim() ? `<div class="rel-prop-banner-observacao" style="margin-top:8px;padding:10px 12px;background:#fef3c7;border:1px solid #f59e0b;border-left:4px solid #d97706;border-radius:4px;font-size:12px;color:#78350f;"><div style="font-weight:700;font-size:11px;letter-spacing:0.05em;margin-bottom:4px;color:#92400e;">${tr('OBSERVACOES','NOTES')}:</div><div style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</div></div>` : ''}
         </div>
       </div>
     `;
@@ -13524,6 +13552,7 @@ const Orcamento = (() => {
             ${blocoFechadura}
             ${item.dobradicaCor ? `<div class="rel-prop-item-linha"><span class="lbl">${tr('DOBRADICA','HINGE')}:</span> <span>${escapeHtml(item.dobradicaCor)}</span></div>` : ''}
           </div>
+          ${item.observacao && String(item.observacao).trim() ? `<div class="rel-prop-banner-observacao" style="margin-top:8px;padding:10px 12px;background:#fef3c7;border:1px solid #f59e0b;border-left:4px solid #d97706;border-radius:4px;font-size:12px;color:#78350f;"><div style="font-weight:700;font-size:11px;letter-spacing:0.05em;margin-bottom:4px;color:#92400e;">${tr('OBSERVACOES','NOTES')}:</div><div style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</div></div>` : ''}
         </div>
       </div>
     `;
@@ -13623,6 +13652,7 @@ const Orcamento = (() => {
             ${temEstr ? `<div class="rel-prop-item-linha"><span class="lbl">TUBO DA ESTRUTURA:</span> <span>${tubo}</span></div>` : ''}
           </div>
           ${blocoPecas}
+          ${item.observacao && String(item.observacao).trim() ? `<div class="rel-prop-banner-observacao" style="margin-top:8px;padding:10px 12px;background:#fef3c7;border:1px solid #f59e0b;border-left:4px solid #d97706;border-radius:4px;font-size:12px;color:#78350f;"><div style="font-weight:700;font-size:11px;letter-spacing:0.05em;margin-bottom:4px;color:#92400e;">OBSERVACOES:</div><div style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</div></div>` : ''}
         </div>
       </div>
     `;
