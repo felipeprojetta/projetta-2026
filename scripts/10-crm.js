@@ -479,8 +479,19 @@
               <input type="text" data-atp-field="nomeContrato" data-titlecase="1" value="${escapeHtml(atp.nomeContrato || '')}" placeholder="ex: Roberto Bergantini" />
             </div>
             <div class="crm-field">
+              <label>Sobrenome</label>
+              <input type="text" data-atp-field="sobrenomeContrato" data-titlecase="1" value="${escapeHtml(atp.sobrenomeContrato || '')}" placeholder="ex: Bergantini" />
+            </div>
+          </div>
+
+          <div class="crm-form-row cols-2">
+            <div class="crm-field">
               <label>Responsavel Legal</label>
               <input type="text" data-atp-field="responsavelLegal" data-titlecase="1" value="${escapeHtml(atp.responsavelLegal || '')}" />
+            </div>
+            <div class="crm-field">
+              <label>Numero Reserva <span class="crm-field-hint">numero da reserva original</span></label>
+              <input type="text" data-atp-field="numeroReserva" value="${escapeHtml(atp.numeroReserva || '')}" placeholder="000000" />
             </div>
           </div>
 
@@ -494,8 +505,30 @@
               <input type="text" data-atp-field="rg" value="${escapeHtml(atp.rg || '')}" />
             </div>
             <div class="crm-field">
-              <label>Email no Contrato</label>
+              <label>Inscricao Estadual</label>
+              <input type="text" data-atp-field="inscricaoEstadual" value="${escapeHtml(atp.inscricaoEstadual || '')}" placeholder="—" />
+            </div>
+          </div>
+
+          <div class="crm-form-row cols-2">
+            <div class="crm-field">
+              <label>Email no Contrato <span class="crm-field-hint">para cobranca</span></label>
               <input type="email" data-atp-field="emailContrato" value="${escapeHtml(atp.emailContrato || '')}" />
+            </div>
+            <div class="crm-field">
+              <label>Email NFe</label>
+              <input type="email" data-atp-field="emailNfe" value="${escapeHtml(atp.emailNfe || '')}" placeholder="email para nota fiscal" />
+            </div>
+          </div>
+
+          <div class="crm-form-row cols-2">
+            <div class="crm-field">
+              <label>Telefone Fixo</label>
+              <input type="text" data-atp-field="telefoneFixo" value="${escapeHtml(atp.telefoneFixo || '')}" placeholder="(00) 0000-0000" />
+            </div>
+            <div class="crm-field">
+              <label>Data Orcamento <span class="crm-field-hint">do Intranet Weiku</span></label>
+              <input type="date" data-atp-field="dataOrcamento" value="${escapeHtml(atp.dataOrcamento || '')}" />
             </div>
           </div>
 
@@ -2289,10 +2322,17 @@
 
           // Cliente / responsavel
           setField('nomeContrato',      dados.nomeContrato);
+          // Felipe sessao 34: novos campos puxados da API
+          setField('sobrenomeContrato', dados.sobrenomeContrato);
           setField('responsavelLegal',  dados.responsavelLegal);
+          setField('numeroReserva',     dados.numeroReserva);
           setField('cpfCnpj',           dados.cpfCnpj);
           setField('rg',                dados.rg);
+          setField('inscricaoEstadual', dados.inscricaoEstadual);
           setField('emailContrato',     dados.emailContrato);
+          setField('emailNfe',          dados.emailNfe);
+          setField('telefoneFixo',      dados.telefoneFixo);
+          setField('dataOrcamento',     dados.dataOrcamento);
           // Cobranca
           setField('cepCobranca',       dados.cobranca?.cep);
           setField('cidadeCobranca',    dados.cobranca?.cidade);

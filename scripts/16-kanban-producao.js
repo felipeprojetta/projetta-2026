@@ -1389,11 +1389,17 @@
           // lead.atp ao criar/salvar - igual o handler do CRM faz).
           modalState.atp = {
             numeroAtp:               dados.numeroAtp || num.trim(),
+            numeroReserva:           dados.numeroReserva || '',
+            dataOrcamento:           dados.dataOrcamento || '',
             nomeContrato:            dados.nomeContrato || '',
+            sobrenomeContrato:       dados.sobrenomeContrato || '',
             responsavelLegal:        dados.responsavelLegal || '',
             cpfCnpj:                 dados.cpfCnpj || '',
             rg:                      dados.rg || '',
+            inscricaoEstadual:       dados.inscricaoEstadual || '',
             emailContrato:           dados.emailContrato || '',
+            emailNfe:                dados.emailNfe || '',
+            telefoneFixo:            dados.telefoneFixo || '',
             cepCobranca:             dados.cobranca?.cep || '',
             cidadeCobranca:          dados.cobranca?.cidade || '',
             estadoCobranca:          dados.cobranca?.estado || '',

@@ -314,20 +314,36 @@ const WeikuClient = (() => {
     const ee_estado = pick('entrega_estado', 'entregaEstado');
     return {
       numeroAtp:        pick('auftrag_nr', 'auftragNr', 'numero_pedido', 'numeroPedido', 'numero_atp', 'numeroAtp', 'atp'),
-      numeroReserva:    pick('num_reserva', 'numReserva', 'numero_reserva', 'numeroReserva', 'reserva'),
+      numeroReserva:    String(pick('num_reserva', 'numReserva', 'numero_reserva', 'numeroReserva', 'reserva') || ''),
       numeroAgp:        pick('ang_numer', 'angNumer', 'numero_agp', 'numeroAgp', 'agp'),
+      // Felipe sessao 34: data do orcamento (campo dat_orc da API)
+      dataOrcamento:    String(pick('dat_orc', 'datOrc', 'data_orcamento', 'dataOrcamento') || '').slice(0, 10),  // YYYY-MM-DD
       // Cliente / responsavel
       nomeContrato:     pick('cliente_nome', 'clienteNome', 'nome_cliente', 'nomeCliente'),
+      // Felipe sessao 34: sobrenome separado (vem na API como cliente_sobrenome).
+      // Permite exibir 'Nome' + 'Sobrenome' separados no form (igual Intranet).
+      sobrenomeContrato: pick('cliente_sobrenome', 'clienteSobrenome', 'sobrenome'),
       responsavelLegal: pick('cliente_responsavel', 'clienteResponsavel', 'responsavel', 'responsavel_legal'),
       cpfCnpj:          cpfCnpj,
       rg:               pick('cliente_rg', 'clienteRg', 'rg'),
-      emailContrato:    pick('cliente_mail', 'cliente_mailnfe', 'clienteMail', 'clienteEmail', 'email'),
+      // Felipe sessao 34: inscricao estadual separada (cliente_inscrest da API)
+      inscricaoEstadual: pick('cliente_inscrest', 'clienteInscrest', 'inscricao_estadual', 'inscricaoEstadual'),
+      // Felipe sessao 34: emailContrato pega cliente_mail (cobranca);
+      // emailNfe agora separado pra acompanhar o Intranet (que tem 2 emails).
+      emailContrato:    pick('cliente_mail', 'clienteMail', 'email'),
+      emailNfe:         pick('cliente_mailnfe', 'clienteMailnfe', 'email_nfe', 'emailNfe'),
       // Endereco cobranca
       cobranca: {
         cep:               String(pick('cliente_cep', 'clienteCep', 'cobranca_cep', 'cep_cobranca') || '').replace(/[^\d-]/g, ''),
         cidade:            ec_cidade,
         estado:            ec_estado,
         enderecoCompleto:  montarEndereco(ec_rua, ec_num, ec_compl, ec_bairro, ec_cidade, ec_estado),
+        // Felipe sessao 34: tambem expoe os campos SEPARADOS, pra UI poder
+        // mostrar Rua/Bairro/Numero/Complemento individualmente igual o Intranet
+        rua:               ec_rua,
+        numero:            String(ec_num || ''),
+        complemento:       ec_compl,
+        bairro:            ec_bairro,
       },
       // Endereco entrega (obra)
       entrega: {
@@ -337,8 +353,17 @@ const WeikuClient = (() => {
         enderecoCompleto:  montarEndereco(ee_rua, ee_num, ee_compl, ee_bairro, ee_cidade, ee_estado),
         cei:               pick('entrega_cei', 'entregaCei', 'cei'),
         pontoReferencia:   pick('entrega_referencia', 'entregaReferencia', 'ponto_referencia', 'pontoReferencia', 'referencia'),
+        // Felipe sessao 34: idem cobranca - tambem expoe campos separados
+        rua:               ee_rua,
+        numero:            String(ee_num || ''),
+        complemento:       ee_compl,
+        bairro:            ee_bairro,
       },
-      telefoneObra:     pick('cliente_celular', 'cliente_fone', 'clienteCelular', 'clienteFone', 'celular', 'telefone'),
+      // Felipe sessao 34: telefones separados. telefoneObra = celular (padrao
+      // atual). telefoneFixo = cliente_fone (existe no Intranet aba 'Celular'
+      // e 'Telefone' separados).
+      telefoneObra:     pick('cliente_celular', 'clienteCelular', 'celular'),
+      telefoneFixo:     pick('cliente_fone', 'clienteFone', 'telefone_fixo', 'telefoneFixo', 'telefone'),
       // Metadata (provavel uso futuro)
       _raw: raw,
     };
