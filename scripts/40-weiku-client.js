@@ -365,9 +365,49 @@ const WeikuClient = (() => {
         entrega_rua: 'Rua Entrega', entrega_numero: '200', entrega_bairro: 'Bairro Obra',
       });
     }
-    // Modo 'api' (default): chama endpoint Weiku
-    // Felipe sessao 34: hub.weiku.com.br/api/pedido/{numero} requer
-    // Authorization Bearer com token configurado (apiTokenContrato).
+    // Modo 'api' (default): chama endpoint hub.weiku.
+    // Felipe sessao 34: tenta variantes do numero antes de desistir.
+    // Felipe digita 'ATP000469' no card, mas a API pode querer formato
+    // diferente (so digitos, com/sem zero a esquerda). Variantes:
+    //   1. valor original ('ATP000469')
+    //   2. so digitos com prefixo zerado ('000469')
+    //   3. so digitos sem zero a esquerda ('469')
+    //   4. so digitos brutos do input (caso digite 'ATP 469' por erro)
+    // Para na primeira que retornar 200. Se TODAS falharem, agrega o erro.
+    const digitos = num.replace(/\D/g, '');
+    const variantes = [];
+    variantes.push(num);                                       // ex: 'ATP000469'
+    if (digitos && digitos !== num) variantes.push(digitos);   // ex: '000469'
+    const semZero = digitos.replace(/^0+/, '');
+    if (semZero && semZero !== digitos) variantes.push(semZero); // ex: '469'
+    // Dedup
+    const tentativas = Array.from(new Set(variantes)).filter(Boolean);
+    const erros = [];
+    for (const tentativa of tentativas) {
+      try {
+        const resultado = await _tentarBuscarContrato(tentativa);
+        if (resultado) {
+          if (tentativa !== num) {
+            console.info('[WeikuClient.buscarContrato] sucesso com variante "' + tentativa + '" (input original: "' + num + '")');
+          }
+          return resultado;
+        }
+      } catch (e) {
+        erros.push('"' + tentativa + '": ' + e.message);
+        // Se for erro NAO-404 (autenticacao, rede, etc), nao adianta tentar
+        // outras variantes — para imediatamente.
+        if (!/404|nao encontrado/i.test(e.message)) {
+          throw e;
+        }
+      }
+    }
+    // Todas as variantes deram 404
+    throw new Error('Pedido nao encontrado na API Weiku. Tentei: ' + tentativas.join(', ') + '. Confirme o numero ATP ou peca ao Ruan (TI Weiku) pra verificar.');
+  }
+
+  // Helper interno — chamada unica pra uma variante de numero. Lanca erro
+  // contextualizado pra _buscarContrato decidir se vale tentar proximas.
+  async function _tentarBuscarContrato(num) {
     const url = config.apiUrlContrato + encodeURIComponent(num);
     try {
       const headers = {};
@@ -392,10 +432,6 @@ const WeikuClient = (() => {
         throw new Error('Pedido ' + num + ' nao encontrado na API Weiku');
       }
       const raw = Array.isArray(data) ? data[0] : data;
-      // Felipe sessao 34: LOG do raw pra Felipe me mandar print durante a
-      // fase de instabilidades iniciais da API nova. Ajuda a identificar
-      // schema real vs schema antigo e ajustar normalizarContrato se algum
-      // campo nao bater.
       try { console.info('[WeikuClient.buscarContrato] raw da API /api/pedido/' + num + ':', raw); } catch (_) {}
       if (!raw || typeof raw !== 'object') {
         throw new Error('Pedido ' + num + ' retornou resposta invalida (esperado objeto JSON, recebeu ' + typeof raw + ')');
