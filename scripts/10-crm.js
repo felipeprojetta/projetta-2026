@@ -2297,12 +2297,18 @@
           setField('cepCobranca',       dados.cobranca?.cep);
           setField('cidadeCobranca',    dados.cobranca?.cidade);
           setField('estadoCobranca',    dados.cobranca?.estado);
-          setField('enderecoCompletoCobranca', dados.cobranca?.enderecoCompleto);
+          // Felipe sessao 34: o input usa data-atp-field="enderecoCobranca"
+          // (sem 'Completo'), mas o handler estava chamando setField com
+          // 'enderecoCompletoCobranca' -> querySelector retornava null e o
+          // valor sumia silenciosamente. Por isso a Rua/Numero/Bairro do
+          // ATP nunca preencheu mesmo a API retornando os dados certinhos.
+          // Mesma coisa pra entrega.
+          setField('enderecoCobranca',  dados.cobranca?.enderecoCompleto);
           // Entrega
           setField('cepEntrega',        dados.entrega?.cep);
           setField('cidadeEntrega',     dados.entrega?.cidade);
           setField('estadoEntrega',     dados.entrega?.estado);
-          setField('enderecoCompletoEntrega', dados.entrega?.enderecoCompleto);
+          setField('enderecoEntrega',   dados.entrega?.enderecoCompleto);
           setField('telefoneObra',      dados.telefoneObra);
           setField('pontoReferencia',   dados.entrega?.pontoReferencia);
 

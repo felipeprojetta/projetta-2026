@@ -1397,11 +1397,17 @@
             cepCobranca:             dados.cobranca?.cep || '',
             cidadeCobranca:          dados.cobranca?.cidade || '',
             estadoCobranca:          dados.cobranca?.estado || '',
-            enderecoCompletoCobranca: dados.cobranca?.enderecoCompleto || '',
+            // Felipe sessao 34: schema padronizado com 'enderecoCobranca'
+            // (sem 'Completo') pra bater com os inputs data-atp-field
+            // tanto aqui no kanban quanto no modal Editar Lead do CRM.
+            // Antes salvava como 'enderecoCompletoCobranca' mas o input
+            // que renderiza esse valor le de 'enderecoCobranca' -> ao
+            // reabrir o modal, campo vinha vazio mesmo tendo sido importado.
+            enderecoCobranca:        dados.cobranca?.enderecoCompleto || '',
             cepEntrega:              dados.entrega?.cep || '',
             cidadeEntrega:           dados.entrega?.cidade || '',
             estadoEntrega:           dados.entrega?.estado || '',
-            enderecoCompletoEntrega: dados.entrega?.enderecoCompleto || '',
+            enderecoEntrega:         dados.entrega?.enderecoCompleto || '',
             telefoneObra:            dados.telefoneObra || '',
             pontoReferencia:         dados.entrega?.pontoReferencia || '',
           };
