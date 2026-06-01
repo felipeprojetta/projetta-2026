@@ -404,7 +404,18 @@ const PerfisPortaExterna = (() => {
     const subtraiFrisos = (ehModeloComFriso && qtdFrisosCfg > 0)
       ? ((modelo === 14) ? 2 * nFolhas : qtdFrisosCfg * nFolhas)
       : 0;
-    const qtdTVFinal = Math.max(0, qtdTV - subtraiFrisos);
+    // Felipe sessao 34: quando o modelo tem PUXADOR EXTERNO (!ehCava) +
+    // friso vertical (mod 11, 13, 14, 25), garante MINIMO de 1 travessa
+    // vertical por folha (PA-76X38X1.98 ou PA-101X51X2). Essa travessa e'
+    // OBRIGATORIA pra fixar o puxador externo - o friso vertical
+    // (PA-76X76 ou PA-101X101) e' estrutura adicional/estetica, NAO
+    // substitui o perfil do puxador.
+    // Antes deste fix, mod 11 1F porta 1840×2690 c/ 1 friso ficava com
+    // qtdTV=1 mas subtraiFrisos=1 → qtdTVFinal=0 (sem perfil do puxador!).
+    // Pra modelos com CAVA + friso (mod 2, 4, 5, 7, 22), regra antiga
+    // mantida (cava ja' tem perfis proprios pra fixar puxador embutido).
+    const minTravVertPuxadorExt = (!ehCava && ehModeloComFriso) ? nFolhas : 0;
+    const qtdTVFinal = Math.max(minTravVertPuxadorExt, qtdTV - subtraiFrisos);
 
     function add(codigo, comp, qty, label) {
       if (qty <= 0 || comp <= 0) return;
