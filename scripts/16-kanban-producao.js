@@ -190,6 +190,39 @@
       var fechadosCrm = crmLeads.filter(function(l) { return l && l.etapa === 'fechado'; });
       if (fechadosCrm.length === 0) return;
 
+      // Felipe sessao 34: MIGRACAO RETROATIVA. Cards importados via Excel
+      // (id 'kprod_excel_<crmId>') foram criados em massa SEM popular o
+      // campo crmLeadId, entao a sync atual nao encontra eles pra atualizar.
+      // Aqui detectamos esse padrao e fazemos backfill do crmLeadId UMA UNICA
+      // VEZ (idempotente - so' age em leads que tem o prefixo e crmLeadId
+      // vazio). Fallback de match: 1) padrao do id, 2) cliente exato + AGP.
+      var migrados = 0;
+      var crmById = new Map(crmLeads.map(function(l) { return [l.id, l]; }));
+      state.leads.forEach(function(kp) {
+        if (!kp || kp.crmLeadId) return;  // ja' linkado, pula
+        // 1. Padrao 'kprod_excel_<crmId>'
+        var idMatch = String(kp.id || '').match(/^kprod_excel_(.+)$/);
+        if (idMatch && crmById.has(idMatch[1])) {
+          kp.crmLeadId = idMatch[1];
+          migrados++;
+          return;
+        }
+        // 2. Fallback: cliente exato + AGP exato
+        var candidato = crmLeads.find(function(c) {
+          return c && c.cliente && kp.cliente
+              && c.cliente.trim().toLowerCase() === kp.cliente.trim().toLowerCase()
+              && (c.numeroAGP || '') === (kp.numeroAGP || '');
+        });
+        if (candidato) {
+          kp.crmLeadId = candidato.id;
+          migrados++;
+        }
+      });
+      if (migrados > 0) {
+        console.log('[KanbanProducao] migracao crmLeadId: ' + migrados + ' lead(s) linkado(s) ao CRM');
+        // save() acontece no final junto com sync, evita 2 escritas
+      }
+
       // crmLeadIds ja clonados (procura no state local) -> Map p/ pegar o clone
       var cloneByCrmId = new Map();
       state.leads.forEach(function(l) {
@@ -248,9 +281,10 @@
         criados++;
       });
 
-      if (criados > 0 || atualizadosAtp > 0) {
+      if (criados > 0 || atualizadosAtp > 0 || migrados > 0) {
         save();
         var msgs = [];
+        if (migrados > 0)       msgs.push(migrados + ' link(s) crmLeadId migrado(s)');
         if (criados > 0)        msgs.push(criados + ' card(s) clonado(s)');
         if (atualizadosAtp > 0) msgs.push(atualizadosAtp + ' ATP(s) atualizado(s) do CRM');
         console.log('[KanbanProducao] ' + msgs.join(' + '));
