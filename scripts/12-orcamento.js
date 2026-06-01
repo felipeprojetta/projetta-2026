@@ -2875,14 +2875,19 @@ const Orcamento = (() => {
         'rev_parede':         'revestimento_parede',
       };
       const itensJa = versaoAlvo.itens || [];
-      // Felipe sessao 12: chave usa cor pra rev_parede (item.cor) E corExterna pra portas/fixo
+      // Felipe sessao 34: chave do sync itens_extras agora ignora cor.
+      // BUG ANTERIOR (Stefano AGP004695): chaveItem usava cor (corExterna
+      // pra portas/fixo, cor pra rev_parede). Quando Felipe editava a cor
+      // do item no orcamento (ex: Pro209 -> Pro170414), a chave do item
+      // no orcamento mudava, mas itens_extras[0] mantinha a cor original.
+      // setExistente.has retornava false -> sync recriava o item como
+      // fantasma (Item 3 duplicado de Item 2 com cores diferentes).
+      // Fix cirurgico: chave so tipo+largura+altura. Cor editada nao
+      // gera mais duplicata. Idempotente: rodar 2x nao adiciona nada novo.
       const chaveItem = (it) => {
-        const corChave = it.tipo === 'revestimento_parede'
-          ? (it.cor || '')
-          : (it.corExterna || '');
         const larChave = it.tipo === 'revestimento_parede' ? (it.largura_total || '') : (it.largura || '');
         const altChave = it.tipo === 'revestimento_parede' ? (it.altura_total  || '') : (it.altura  || '');
-        return [it.tipo, larChave, altChave, corChave].join('|');
+        return [it.tipo, larChave, altChave].join('|');
       };
       const setExistente = new Set(itensJa.map(chaveItem));
       const novosItens = [];
