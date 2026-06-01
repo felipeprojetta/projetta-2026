@@ -450,15 +450,12 @@
             </div>
           </div>
 
-          <div class="crm-form-row cols-2">
+          <div class="crm-form-row cols-1">
             <div class="crm-field">
               <label>Data Assinatura Contrato</label>
               <input type="date" data-atp-field="dataAssinaturaContrato" value="${escapeHtml(atp.dataAssinaturaContrato || '')}" />
             </div>
-            <div class="crm-field">
-              <label>Numero Garantia</label>
-              <input type="text" data-atp-field="numeroGarantia" value="${escapeHtml(atp.numeroGarantia || '')}" />
-            </div>
+            <!-- Felipe sessao 34: Numero Garantia removido do form ATP -->
           </div>
 
           <div class="crm-form-row cols-2">
