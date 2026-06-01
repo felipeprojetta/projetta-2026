@@ -190,11 +190,11 @@
       var fechadosCrm = crmLeads.filter(function(l) { return l && l.etapa === 'fechado'; });
       if (fechadosCrm.length === 0) return;
 
-      // crmLeadIds ja clonados (procura no state local)
-      var jaClonados = new Set(
-        state.leads.filter(function(l) { return l && l.crmLeadId; })
-                   .map(function(l) { return l.crmLeadId; })
-      );
+      // crmLeadIds ja clonados (procura no state local) -> Map p/ pegar o clone
+      var cloneByCrmId = new Map();
+      state.leads.forEach(function(l) {
+        if (l && l.crmLeadId) cloneByCrmId.set(l.crmLeadId, l);
+      });
 
       // Carrega lista de deletados (mesmo storage existente)
       var deletados = [];
@@ -204,12 +204,31 @@
       var setDeletados = new Set(deletados);
 
       var criados = 0;
+      var atualizadosAtp = 0;
       fechadosCrm.forEach(function(crmLead) {
-        if (jaClonados.has(crmLead.id)) return;
-        // Se algum card com este crmLeadId foi deletado, nao recria
+        // Se algum card com este crmLeadId foi deletado, nao recria nem atualiza
         if (setDeletados.has('crm:' + crmLead.id)) return;
 
-        // CLONE: copia todos os campos do lead CRM, gera novo id local,
+        var jaCloneExistente = cloneByCrmId.get(crmLead.id);
+        if (jaCloneExistente) {
+          // Felipe sessao 34: lead JA clonado -> sincroniza apenas o sub-objeto
+          // ATP (CRM = fonte da verdade do ATP, Felipe pediu explicito:
+          // 'Sempre que CRM tiver novo ATP, SOBRESCREVE o ATP do Kanban').
+          // NAO sobrescreve outros campos (etapa, fechadoEm, equipe, datas
+          // de medicao etc) - esses sao operacionais do Kanban e devem ficar
+          // imunes a re-sync. Compara JSON pra so' salvar quando mudou.
+          var atpCrm  = (crmLead.atp && typeof crmLead.atp === 'object') ? crmLead.atp : {};
+          var atpAtual = (jaCloneExistente.atp && typeof jaCloneExistente.atp === 'object') ? jaCloneExistente.atp : {};
+          var jsonNovo  = JSON.stringify(atpCrm);
+          var jsonAtual = JSON.stringify(atpAtual);
+          if (jsonNovo !== jsonAtual) {
+            jaCloneExistente.atp = JSON.parse(jsonNovo);  // deep clone via JSON
+            atualizadosAtp++;
+          }
+          return;
+        }
+
+        // CLONE NOVO: copia todos os campos do lead CRM, gera novo id local,
         // marca crmLeadId, redefine etapa pra ag-liberacao-medidas.
         var clone = Object.assign({}, crmLead);
         clone.id = 'kprod_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
@@ -229,9 +248,12 @@
         criados++;
       });
 
-      if (criados > 0) {
+      if (criados > 0 || atualizadosAtp > 0) {
         save();
-        console.log('[KanbanProducao] ' + criados + ' card(s) clonado(s) do CRM (etapa fechado)');
+        var msgs = [];
+        if (criados > 0)        msgs.push(criados + ' card(s) clonado(s)');
+        if (atualizadosAtp > 0) msgs.push(atualizadosAtp + ' ATP(s) atualizado(s) do CRM');
+        console.log('[KanbanProducao] ' + msgs.join(' + '));
       }
     }
 
@@ -389,7 +411,12 @@
         // CRM fechado - entao aba ATP SEMPRE aparece (todos foram
         // 'fechados' no CRM antes de cair aqui).
         atp: lead.atp ? JSON.parse(JSON.stringify(lead.atp)) : {},
-        abaAgpAtp: 'agp',
+        // Felipe sessao 34: aba ATP por padrao no Kanban Producao.
+        // Felipe: 'tudo na aba producao sera pelo numero do ATP e dados
+        // nessa aba'. Card aqui sempre e' clone de lead fechado do CRM,
+        // entao o ATP ja' veio importado do Intranet (espelho automatico
+        // via lead.atp). AGP eh fonte original mas o operacional usa ATP.
+        abaAgpAtp: 'atp',
       });
     }
 
@@ -726,8 +753,8 @@
       const abaAtual = mostrarTabsAgpAtp ? (m.abaAgpAtp || 'agp') : 'agp';
       const tabsAgpAtpHtml = mostrarTabsAgpAtp ? `
               <div class="kprod-modal-tabs kprod-tabs-agp-atp">
-                <button class="kprod-modal-tab ${abaAtual === 'agp' ? 'is-active' : ''}" data-aba-agp-atp="agp">📋 AGP <span class="kprod-tab-sub">orcamento original</span></button>
                 <button class="kprod-modal-tab ${abaAtual === 'atp' ? 'is-active' : ''}" data-aba-agp-atp="atp">📄 ATP <span class="kprod-tab-sub">contrato</span></button>
+                <button class="kprod-modal-tab ${abaAtual === 'agp' ? 'is-active' : ''}" data-aba-agp-atp="agp">📋 AGP <span class="kprod-tab-sub">orcamento original</span></button>
               </div>
       ` : '';
       // Felipe sessao 2026-08: botao Re-puxar Weiku - so' em edicao + reserva existente
@@ -1089,12 +1116,17 @@
       });
 
       // Felipe (sessao 2026-05-10): inputs da aba ATP - sub-objeto m.atp.
+      // Felipe sessao 34: BUG CRITICO (mesmo do CRM). Handler escutava SO
+      // 'input' (digitacao manual). Mas setField do botao 'Importar do
+      // Intranet' dispara 'change' programatico -> modalState.atp ficava
+      // vazio mesmo com inputs visualmente preenchidos. Fix: bind ambos.
       container.querySelectorAll('.kprod-modal [data-atp-field]').forEach(el => {
-        const evt = (el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') ? 'change' : 'input';
-        el.addEventListener(evt, (e) => {
+        const handler = (e) => {
           if (!modalState.atp) modalState.atp = {};
           modalState.atp[el.dataset.atpField] = e.target.value;
-        });
+        };
+        el.addEventListener('input',  handler);
+        el.addEventListener('change', handler);
       });
 
       // Felipe sessao 12: handlers de itens dinamicos
