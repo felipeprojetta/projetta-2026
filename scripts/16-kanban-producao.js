@@ -406,6 +406,7 @@
         porta_fechadura_digital: '',
         porta_quantidade: 1,  // Felipe sessao 12
         itens_extras: [],  // Felipe sessao 12
+        medicao: null,  // Felipe sessao 34 - sub-objeto papel medicao
       });
     }
     function preencherModalComLead(lead) {
@@ -445,6 +446,10 @@
         // CRM fechado - entao aba ATP SEMPRE aparece (todos foram
         // 'fechados' no CRM antes de cair aqui).
         atp: lead.atp ? JSON.parse(JSON.stringify(lead.atp)) : {},
+        // Felipe sessao 34: aba MEDICAO (papel do fiscal em obra).
+        // Sub-objeto preservado igual atp - clone profundo pra nao mutar
+        // o lead original ate o save.
+        medicao: lead.medicao ? JSON.parse(JSON.stringify(lead.medicao)) : {},
         // Felipe sessao 34: aba ATP por padrao no Kanban Producao.
         // Felipe: 'tudo na aba producao sera pelo numero do ATP e dados
         // nessa aba'. Card aqui sempre e' clone de lead fechado do CRM,
@@ -543,7 +548,10 @@
      */
     function renderAbaAtp(m, abaAtual) {
       const atp = m.atp || {};
-      const oculta = abaAtual === 'agp' ? 'display:none;' : '';
+      // Felipe sessao 34: esconde quando NAO eh aba atp (antes era 'agp ? hide').
+      // Agora tem 3 abas (agp, atp, medicao), entao a logica inverte: esconde
+      // se a aba ativa nao for esta.
+      const oculta = abaAtual === 'atp' ? '' : 'display:none;';
       return `
         <div class="kprod-aba-atp-content" style="${oculta}">
           <div class="kprod-aba-atp-banner">
@@ -703,6 +711,297 @@
       `;
     }
 
+    /**
+     * Felipe sessao 34: nova aba MEDICAO no modal de Editar Lead do Kanban.
+     * Aparece SOMENTE quando etapa >= AG. FAZER LIBERACAO (indice 2 do ETAPAS).
+     * Felipe: 'quando passar card para AG. FAZER LIBERACAO quer dizer que ja
+     * temos as medidas e sentido de abertura. Vamos abrir um campo dentro do
+     * card ao lado de ATP de medidas e caracteristicas da porta'.
+     *
+     * Origem dos campos: papel 'Relatorio de Medicao 2025' que Felipe usa em
+     * obra. Andressa/Thays transcreve do papel pro card aqui. 5 secoes:
+     *   1. CABECALHO: data medicao + n.posicao + fiscal
+     *   2. CHECKLIST: 4 perguntas sim/nao
+     *   3. DIMENSOES DA ABERTURA: 5 alturas (A1-A5) + 5 larguras (L1-L5)
+     *   4. ESPESSURAS: alvenaria + complemento ext + complemento int (esq/dir/sup)
+     *   5. TIPO DE INSTALACAO: 11 combos com mini-icones SVG (radio)
+     *   6. SENTIDO ABERTURA: 4 combos com mini-icones (radio)
+     *   7. OBSERVACOES DO CROQUI
+     *
+     * Persistencia: m.medicao = { dataMedicao, numeroPosicao, fiscal, vaoRequadrado,
+     *   soleiraInstalada, massaForteTestada, pisoAssentado, alturas:[A1,A2,A3,A4,A5],
+     *   larguras:[L1,L2,L3,L4,L5], alvenaria:{esq,dir,sup}, complementoExt:{esq,dir,sup},
+     *   complementoInt:{esq,dir,sup}, tipoInstalacao, sentidoAbertura, observacoes }
+     */
+    function renderAbaMedicao(m, abaAtual) {
+      const med = m.medicao || {};
+      const oculta = abaAtual === 'medicao' ? '' : 'display:none;';
+      const alturas  = Array.isArray(med.alturas)  ? med.alturas  : ['', '', '', '', ''];
+      const larguras = Array.isArray(med.larguras) ? med.larguras : ['', '', '', '', ''];
+      const alv  = med.alvenaria        || {};
+      const cExt = med.complementoExt   || {};
+      const cInt = med.complementoInt   || {};
+
+      // 11 opcoes de tipo instalacao - mesma divisao do papel
+      // (4 lado interno + 4 lado externo + 3 centralizada)
+      const TIPOS_INSTALACAO = [
+        // LADO INTERNO
+        { id: 'int-fita',         grupo: 'Lado Interno',  label: 'Fita lados + fita superior',           svg: svgPortaLado('interno','fita','fita') },
+        { id: 'int-reto-fita',    grupo: 'Lado Interno',  label: 'Alisar reto lados + fita superior',    svg: svgPortaLado('interno','reto','fita') },
+        { id: 'int-l-fita',       grupo: 'Lado Interno',  label: 'Alisar L lados + fita superior',       svg: svgPortaLado('interno','L','fita') },
+        { id: 'int-reto-l',       grupo: 'Lado Interno',  label: 'Alisar reto lados + alisar L sup',     svg: svgPortaLado('interno','reto','L') },
+        // LADO EXTERNO
+        { id: 'ext-fita',         grupo: 'Lado Externo',  label: 'Fita lados + fita superior',           svg: svgPortaLado('externo','fita','fita') },
+        { id: 'ext-reto-fita',    grupo: 'Lado Externo',  label: 'Alisar reto lados + fita superior',    svg: svgPortaLado('externo','reto','fita') },
+        { id: 'ext-l-fita',       grupo: 'Lado Externo',  label: 'Alisar L lados + fita superior',       svg: svgPortaLado('externo','L','fita') },
+        { id: 'ext-reto-l',       grupo: 'Lado Externo',  label: 'Alisar reto lados + alisar L sup',     svg: svgPortaLado('externo','reto','L') },
+        // CENTRALIZADA
+        { id: 'cent-fita',        grupo: 'Centralizada',  label: 'Fita lados + fita superior',           svg: svgPortaLado('centro','fita','fita') },
+        { id: 'cent-l-fita',      grupo: 'Centralizada',  label: 'Alisar L lados + fita superior',       svg: svgPortaLado('centro','L','fita') },
+        { id: 'cent-l-l',         grupo: 'Centralizada',  label: 'Alisar L lados + alisar L sup',        svg: svgPortaLado('centro','L','L') },
+      ];
+
+      const SENTIDOS = [
+        { id: 'dir-int', label: 'Mao Direita (interno)',  svg: svgSentido('direita', 'interno') },
+        { id: 'esq-int', label: 'Mao Esquerda (interno)', svg: svgSentido('esquerda','interno') },
+        { id: 'dir-ext', label: 'Mao Direita (externo)',  svg: svgSentido('direita', 'externo') },
+        { id: 'esq-ext', label: 'Mao Esquerda (externo)', svg: svgSentido('esquerda','externo') },
+      ];
+
+      // Helper: agrupa TIPOS por 'grupo'
+      const tiposPorGrupo = TIPOS_INSTALACAO.reduce((acc, t) => {
+        if (!acc[t.grupo]) acc[t.grupo] = [];
+        acc[t.grupo].push(t);
+        return acc;
+      }, {});
+
+      // Render dos tipos: 3 colunas (Lado Interno / Externo / Centralizada)
+      const tiposHtml = Object.keys(tiposPorGrupo).map(gr => `
+        <div class="kprod-med-tipo-grupo">
+          <div class="kprod-med-tipo-grupo-titulo">${escapeHtml(gr)}</div>
+          ${tiposPorGrupo[gr].map(t => `
+            <label class="kprod-med-tipo-opcao ${med.tipoInstalacao === t.id ? 'is-selected' : ''}">
+              <input type="radio" name="kprod-med-tipo" value="${t.id}" data-medicao-field="tipoInstalacao"
+                ${med.tipoInstalacao === t.id ? 'checked' : ''} />
+              <div class="kprod-med-tipo-svg">${t.svg}</div>
+              <span class="kprod-med-tipo-label">${escapeHtml(t.label)}</span>
+            </label>
+          `).join('')}
+        </div>
+      `).join('');
+
+      const sentidosHtml = SENTIDOS.map(s => `
+        <label class="kprod-med-sentido-opcao ${med.sentidoAbertura === s.id ? 'is-selected' : ''}">
+          <input type="radio" name="kprod-med-sentido" value="${s.id}" data-medicao-field="sentidoAbertura"
+            ${med.sentidoAbertura === s.id ? 'checked' : ''} />
+          <div class="kprod-med-sentido-svg">${s.svg}</div>
+          <span class="kprod-med-sentido-label">${escapeHtml(s.label)}</span>
+        </label>
+      `).join('');
+
+      // Checklist (4 sim/nao)
+      function checkBox(field, label) {
+        const valor = med[field] || ''; // 'sim' | 'nao' | ''
+        return `
+          <div class="kprod-med-check">
+            <span class="kprod-med-check-label">${escapeHtml(label)}</span>
+            <div class="kprod-med-check-radios">
+              <label><input type="radio" name="kprod-med-${field}" value="sim"
+                data-medicao-field="${field}" ${valor === 'sim' ? 'checked' : ''} /> Sim</label>
+              <label><input type="radio" name="kprod-med-${field}" value="nao"
+                data-medicao-field="${field}" ${valor === 'nao' ? 'checked' : ''} /> Nao</label>
+            </div>
+          </div>
+        `;
+      }
+
+      // Inputs A1-A5 e L1-L5
+      function dimInput(idx, prefixo) {
+        const valor = (prefixo === 'A' ? alturas : larguras)[idx] || '';
+        return `
+          <div class="kprod-field">
+            <label>${prefixo}${idx + 1} <span class="kprod-field-hint">mm</span></label>
+            <input type="number" data-medicao-field="${prefixo === 'A' ? 'alturas' : 'larguras'}"
+              data-medicao-idx="${idx}" value="${escapeHtml(String(valor))}" placeholder="0" min="0" step="1" />
+          </div>
+        `;
+      }
+
+      // Inputs espessuras (3 lados)
+      function espessuraInput(obj, fieldRaiz, lado, label) {
+        const v = obj[lado] || '';
+        return `
+          <div class="kprod-field">
+            <label>${escapeHtml(label)} <span class="kprod-field-hint">mm</span></label>
+            <input type="number" data-medicao-field="${fieldRaiz}" data-medicao-lado="${lado}"
+              value="${escapeHtml(String(v))}" placeholder="0" min="0" step="1" />
+          </div>
+        `;
+      }
+
+      return `
+        <div class="kprod-aba-medicao-content" style="${oculta}">
+          <div class="kprod-aba-atp-banner" style="background:#fef3c7;border-left-color:#d97706;">
+            <span class="kprod-aba-atp-icone">📏</span>
+            <div style="flex:1;">
+              <strong>Relatorio de Medicao</strong>
+              <div class="kprod-aba-atp-hint">
+                Transcricao do papel 'Relatorio de Medicao' preenchido pelo fiscal em obra.
+                Preencher quando o card chega em AG. FAZER LIBERACAO.
+              </div>
+            </div>
+          </div>
+
+          <div class="kprod-aba-atp-divider">CABECALHO DA MEDICAO</div>
+          <div class="kprod-form-row cols-3">
+            <div class="kprod-field">
+              <label>Data da Medicao</label>
+              <input type="date" data-medicao-field="dataMedicao" value="${escapeHtml(med.dataMedicao || '')}" />
+            </div>
+            <div class="kprod-field">
+              <label>N. Posicao <span class="kprod-field-hint">porta na obra</span></label>
+              <input type="number" data-medicao-field="numeroPosicao" value="${escapeHtml(String(med.numeroPosicao || ''))}" placeholder="1" min="1" step="1" />
+            </div>
+            <div class="kprod-field">
+              <label>Fiscal</label>
+              <input type="text" data-medicao-field="fiscal" value="${escapeHtml(med.fiscal || '')}" placeholder="Nome do fiscal" />
+            </div>
+          </div>
+
+          <div class="kprod-aba-atp-divider">CHECKLIST DO VAO</div>
+          <div class="kprod-med-checklist">
+            ${checkBox('vaoRequadrado',    'Vao Requadrado')}
+            ${checkBox('soleiraInstalada', 'Soleira Instalada')}
+            ${checkBox('massaForteTestada','Massa Forte Testada')}
+            ${checkBox('pisoAssentado',    'Piso Assentado')}
+          </div>
+
+          <div class="kprod-aba-atp-divider">DIMENSOES DA ABERTURA <span class="kprod-field-hint">A=alturas, L=larguras (mm)</span></div>
+          <div class="kprod-form-row cols-5">
+            ${[0,1,2,3,4].map(i => dimInput(i, 'A')).join('')}
+          </div>
+          <div class="kprod-form-row cols-5">
+            ${[0,1,2,3,4].map(i => dimInput(i, 'L')).join('')}
+          </div>
+
+          <div class="kprod-aba-atp-divider">ESPESSURA DA ALVENARIA</div>
+          <div class="kprod-form-row cols-3">
+            ${espessuraInput(alv, 'alvenaria', 'esq', 'Esquerda')}
+            ${espessuraInput(alv, 'alvenaria', 'dir', 'Direita')}
+            ${espessuraInput(alv, 'alvenaria', 'sup', 'Superior')}
+          </div>
+
+          <div class="kprod-aba-atp-divider">COMPLEMENTO PAREDE EXTERNO</div>
+          <div class="kprod-form-row cols-3">
+            ${espessuraInput(cExt, 'complementoExt', 'esq', 'Esquerda')}
+            ${espessuraInput(cExt, 'complementoExt', 'dir', 'Direita')}
+            ${espessuraInput(cExt, 'complementoExt', 'sup', 'Superior')}
+          </div>
+
+          <div class="kprod-aba-atp-divider">COMPLEMENTO PAREDE INTERNO</div>
+          <div class="kprod-form-row cols-3">
+            ${espessuraInput(cInt, 'complementoInt', 'esq', 'Esquerda')}
+            ${espessuraInput(cInt, 'complementoInt', 'dir', 'Direita')}
+            ${espessuraInput(cInt, 'complementoInt', 'sup', 'Superior')}
+          </div>
+
+          <div class="kprod-aba-atp-divider">TIPO DE INSTALACAO <span class="kprod-field-hint">posicao da porta + acabamento</span></div>
+          <div class="kprod-med-tipos-grid">
+            ${tiposHtml}
+          </div>
+
+          <div class="kprod-aba-atp-divider">SENTIDO DE ABERTURA</div>
+          <div class="kprod-med-sentidos-grid">
+            ${sentidosHtml}
+          </div>
+
+          <div class="kprod-aba-atp-divider">OBSERVACOES DO CROQUI</div>
+          <div class="kprod-form-row cols-1">
+            <div class="kprod-field">
+              <label>Observacoes / Notas do croqui</label>
+              <textarea data-medicao-field="observacoes" rows="3" placeholder="Ex: Vao nao sao pilares, sao feito de lajotas com buracos cheios de massa forte">${escapeHtml(med.observacoes || '')}</textarea>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * Helpers SVG dos mini-icones de tipo de instalacao.
+     * Desenha a porta dentro de uma parede em corte vista de cima.
+     * Parametros:
+     *   posicao  - 'interno' | 'externo' | 'centro'  (posicao da porta na parede)
+     *   alisar   - 'fita' | 'reto' | 'L'             (acabamento nas laterais)
+     *   superior - 'fita' | 'reto' | 'L'             (acabamento no topo)
+     */
+    function svgPortaLado(posicao, alisar, superior) {
+      // Parede: 2 retangulos cinza em corte (vista de cima)
+      // Porta: linha vertical preta dentro da parede
+      // Posicao da porta na espessura da parede (0=interno, 1=externo, 0.5=centro)
+      const posX = posicao === 'interno' ? 12 : posicao === 'externo' ? 28 : 20;
+      // Cor do alisar: rosa (#ec4899) igual papel
+      // Fita: nada visivel (so' uma marca pequena azul)
+      const alisarLado = (lado) => {
+        if (alisar === 'fita') return '';
+        const x = lado === 'esq' ? 4 : 36;
+        const xExt = lado === 'esq' ? -1 : 41;
+        if (alisar === 'reto') {
+          return `<rect x="${x}" y="11" width="3" height="2" fill="#ec4899"/>`;
+        }
+        // L: barra lateral mais alta + cabeca
+        return `<path d="M${x} 11 L${x+3} 11 L${x+3} 13 L${x-1} 13 L${x-1} 9 L${x} 9 Z" fill="#ec4899"/>`;
+      };
+      // Alisar superior (topo da porta na vista lateral). Como icone e' top-down,
+      // representamos com uma marca pequena no topo
+      const supMark = superior === 'fita'
+        ? '<rect x="18" y="3" width="4" height="1" fill="#3b82f6"/>'  // fita azul fina
+        : superior === 'reto'
+          ? '<rect x="17" y="2" width="6" height="2" fill="#ec4899"/>'  // alisar reto rosa
+          : '<path d="M16 1 L24 1 L24 4 L20 4 L20 2 L16 2 Z" fill="#ec4899"/>';  // L
+      return `
+        <svg viewBox="0 0 40 20" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="8" width="40" height="5" fill="#9ca3af"/>
+          ${alisarLado('esq')}
+          ${alisarLado('dir')}
+          ${supMark}
+          <line x1="${posX}" y1="6" x2="${posX}" y2="15" stroke="#1f2937" stroke-width="1.5"/>
+          <circle cx="${posX}" cy="10.5" r="1.2" fill="#1f2937"/>
+        </svg>
+      `;
+    }
+
+    /**
+     * Helper SVG do icone de sentido de abertura.
+     * Mostra: caixa de ambiente interno + porta aberta no canto + seta indicando
+     * pra qual lado abre.
+     */
+    function svgSentido(mao, lado) {
+      // Posicao da porta: mao direita = direita, esquerda = esquerda
+      // Abertura: interno = porta abre pra dentro, externo = abre pra fora
+      const portaX = mao === 'direita' ? 28 : 12;
+      const ang = mao === 'direita' ? -45 : -135; // angulo da porta aberta
+      const xPivot = mao === 'direita' ? 32 : 8;
+      const yPivot = 24;
+      const rad = ang * Math.PI / 180;
+      const xPonta = xPivot + 12 * Math.cos(rad);
+      const yPonta = yPivot + 12 * Math.sin(rad);
+      // Seta: interno = seta apontando pra baixo (entrar), externo = pra cima (sair)
+      const setaY1 = lado === 'interno' ? 8  : 18;
+      const setaY2 = lado === 'interno' ? 18 : 8;
+      const setaTri = lado === 'interno'
+        ? '<polygon points="18,16 22,16 20,20" fill="#3b82f6"/>'
+        : '<polygon points="18,10 22,10 20,6"  fill="#3b82f6"/>';
+      return `
+        <svg viewBox="0 0 40 28" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="32" height="20" fill="#fff" stroke="#9ca3af" stroke-width="1"/>
+          <line x1="${xPivot}" y1="${yPivot}" x2="${xPonta.toFixed(1)}" y2="${yPonta.toFixed(1)}" stroke="#1f2937" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="${xPivot}" cy="${yPivot}" r="1.2" fill="#1f2937"/>
+          <line x1="20" y1="${setaY1}" x2="20" y2="${setaY2}" stroke="#3b82f6" stroke-width="1.2"/>
+          ${setaTri}
+        </svg>
+      `;
+    }
+
     function renderModal() {
       const m = modalState;
       const tabBtn = (id, label) => `<button class="kprod-modal-tab ${m.modo===id?'is-active':''}" data-modo="${id}">${label}</button>`;
@@ -782,12 +1081,19 @@
       // Felipe (sessao 2026-05-10): tabs AGP/ATP no Kanban Producao.
       // TODO card aqui eh clone de lead 'fechado' do CRM, entao a aba
       // ATP esta sempre disponivel em modo edicao.
+      // Felipe sessao 34: aba MEDICAO so' aparece quando etapa >= AG. FAZER
+      // LIBERACAO (indice 2 em ETAPAS) - quando 'ja temos as medidas'.
       const mostrarTabsAgpAtp = editando;
+      const ETAPA_MEDICAO_DESBLOQUEIO = 'ag-fazer-liberacao';
+      const idxEtapaAtual = ETAPAS.findIndex(e => e.id === m.etapa);
+      const idxDesbloqueio = ETAPAS.findIndex(e => e.id === ETAPA_MEDICAO_DESBLOQUEIO);
+      const mostrarTabMedicao = editando && idxEtapaAtual >= idxDesbloqueio && idxDesbloqueio >= 0;
       const abaAtual = mostrarTabsAgpAtp ? (m.abaAgpAtp || 'agp') : 'agp';
       const tabsAgpAtpHtml = mostrarTabsAgpAtp ? `
               <div class="kprod-modal-tabs kprod-tabs-agp-atp">
                 <button class="kprod-modal-tab ${abaAtual === 'atp' ? 'is-active' : ''}" data-aba-agp-atp="atp">📄 ATP <span class="kprod-tab-sub">contrato</span></button>
                 <button class="kprod-modal-tab ${abaAtual === 'agp' ? 'is-active' : ''}" data-aba-agp-atp="agp">📋 AGP <span class="kprod-tab-sub">orcamento original</span></button>
+                ${mostrarTabMedicao ? `<button class="kprod-modal-tab ${abaAtual === 'medicao' ? 'is-active' : ''}" data-aba-agp-atp="medicao">📏 MEDICAO <span class="kprod-tab-sub">obra</span></button>` : ''}
               </div>
       ` : '';
       // Felipe sessao 2026-08: botao Re-puxar Weiku - so' em edicao + reserva existente
@@ -808,7 +1114,7 @@
             <div class="kprod-modal-body">
               ${tabsHtml}
               ${tabsAgpAtpHtml}
-              <div class="kprod-aba-agp-content" style="${abaAtual === 'atp' ? 'display:none;' : ''}">
+              <div class="kprod-aba-agp-content" style="${abaAtual !== 'agp' ? 'display:none;' : ''}">
               ${searchSection}
               ${searchAtpSection}
               <div class="kprod-form-row cols-3">
@@ -1072,6 +1378,7 @@
               </div>
               </div><!-- /kprod-aba-agp-content -->
               ${mostrarTabsAgpAtp ? renderAbaAtp(m, abaAtual) : ''}
+              ${mostrarTabMedicao ? renderAbaMedicao(m, abaAtual) : ''}
             </div>
             <div class="kprod-modal-footer">
               ${botaoExcluir}
@@ -1157,6 +1464,49 @@
         const handler = (e) => {
           if (!modalState.atp) modalState.atp = {};
           modalState.atp[el.dataset.atpField] = e.target.value;
+        };
+        el.addEventListener('input',  handler);
+        el.addEventListener('change', handler);
+      });
+
+      // Felipe sessao 34: inputs da aba MEDICAO - sub-objeto m.medicao.
+      // 3 padroes de campo:
+      //   1. Simples:        data-medicao-field="fiscal"             -> m.medicao.fiscal
+      //   2. Array indexado: data-medicao-field="alturas"   + data-medicao-idx="0"  -> m.medicao.alturas[0]
+      //   3. Objeto lado:    data-medicao-field="alvenaria" + data-medicao-lado="esq" -> m.medicao.alvenaria.esq
+      container.querySelectorAll('.kprod-modal [data-medicao-field]').forEach(el => {
+        const handler = (e) => {
+          if (!modalState.medicao) modalState.medicao = {};
+          const field = el.dataset.medicaoField;
+          const valor = e.target.value;
+          const idx = el.dataset.medicaoIdx;
+          const lado = el.dataset.medicaoLado;
+          if (idx != null) {
+            // Array indexado (alturas/larguras)
+            if (!Array.isArray(modalState.medicao[field])) {
+              modalState.medicao[field] = ['', '', '', '', ''];
+            }
+            modalState.medicao[field][Number(idx)] = valor;
+          } else if (lado != null) {
+            // Objeto com sub-campo (alvenaria/complementoExt/complementoInt)
+            if (!modalState.medicao[field] || typeof modalState.medicao[field] !== 'object') {
+              modalState.medicao[field] = {};
+            }
+            modalState.medicao[field][lado] = valor;
+          } else {
+            // Simples (campo direto)
+            modalState.medicao[field] = valor;
+          }
+          // Para radios de tipoInstalacao/sentidoAbertura, re-render apenas pra
+          // atualizar o highlight 'is-selected' do label
+          if (e.target.type === 'radio' && (field === 'tipoInstalacao' || field === 'sentidoAbertura')) {
+            // Toggle apenas a classe is-selected sem re-renderizar tudo
+            const grupo = el.name;
+            container.querySelectorAll(`input[name="${grupo}"]`).forEach(inp => {
+              const lbl = inp.closest('label');
+              if (lbl) lbl.classList.toggle('is-selected', inp.checked);
+            });
+          }
         };
         el.addEventListener('input',  handler);
         el.addEventListener('change', handler);
@@ -1771,6 +2121,20 @@
           // Felipe (sessao 2026-05-10): persistir sub-objeto ATP (contrato).
           if (m.atp && typeof m.atp === 'object') {
             lead.atp = JSON.parse(JSON.stringify(m.atp));
+          }
+          // Felipe sessao 34: persistir sub-objeto MEDICAO (papel fiscal).
+          // Soh salva se tem ao menos 1 campo preenchido (evita criar
+          // {} vazio em leads que nunca passaram por AG. FAZER LIBERACAO).
+          if (m.medicao && typeof m.medicao === 'object') {
+            const temAlgo = Object.keys(m.medicao).some(k => {
+              const v = m.medicao[k];
+              if (Array.isArray(v)) return v.some(x => x !== '' && x != null);
+              if (v && typeof v === 'object') return Object.values(v).some(x => x !== '' && x != null);
+              return v !== '' && v != null;
+            });
+            if (temAlgo) {
+              lead.medicao = JSON.parse(JSON.stringify(m.medicao));
+            }
           }
           // data NAO eh atualizada — fica como criacao
 
