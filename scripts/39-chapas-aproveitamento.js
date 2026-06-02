@@ -474,13 +474,37 @@ window.ChapasAproveitamento = (function () {
       sobras = novasSobras;
     });
 
-    // Remove redundancias: sobra totalmente contida em outra
-    sobras = sobras.filter((s, i) => !sobras.some((o, j) =>
-      i !== j &&
-      o.x <= s.x + 0.01 && o.y <= s.y + 0.01 &&
-      o.x + o.w >= s.x + s.w - 0.01 &&
-      o.y + o.h >= s.y + s.h - 0.01
-    ));
+    // Felipe sessao 34 FIX: caso bug AGP004435. A funcao gerava 114
+    // sobras por divisao das pecas, com MUITAS DUPLICATAS exatas
+    // (mesma sobra recriada pra cada peca que dividia a regiao).
+    // O filtro antigo "i!==j && o.contem(s)" tinha bug: quando 2
+    // sobras sao IDENTICAS, cada uma 'contem' a outra -> AMBAS
+    // removidas. Resultado: sobra grande de 1.12m² (399x2800) que
+    // caberia 14 pecas da chapa 3 desaparecia.
+    //
+    // FIX em 2 passos:
+    // 1) Dedup exato primeiro (Map por chave x|y|w|h arredondada).
+    // 2) Filtro de contem agora exige que outra seja ESTRITAMENTE
+    //    maior (area maior) — sobras de mesmo tamanho convivem.
+    const dedupMap = new Map();
+    sobras.forEach(s => {
+      const k = Math.round(s.x) + '|' + Math.round(s.y) + '|' + Math.round(s.w) + '|' + Math.round(s.h);
+      if (!dedupMap.has(k)) dedupMap.set(k, s);
+    });
+    sobras = Array.from(dedupMap.values());
+
+    // Remove redundancias: sobra totalmente contida em outra MAIOR
+    // (area estritamente maior, pra evitar mutua-exclusao em pares).
+    sobras = sobras.filter((s, i) => {
+      const areaS = s.w * s.h;
+      return !sobras.some((o, j) =>
+        i !== j &&
+        o.x <= s.x + 0.01 && o.y <= s.y + 0.01 &&
+        o.x + o.w >= s.x + s.w - 0.01 &&
+        o.y + o.h >= s.y + s.h - 0.01 &&
+        (o.w * o.h) > areaS + 0.01  // ESTRITAMENTE maior
+      );
+    });
 
     // Felipe sessao 31: ordena sobras top-to-bottom, left-to-right
     // pra que o salvage POSICIONE pecas em sequencia previsivel.
@@ -1769,7 +1793,21 @@ window.ChapasAproveitamento = (function () {
           if (taxa < 0.60) indicesRefazer.push(i);
         });
 
-        if (indicesRefazer.length < 2) break;
+        // Felipe sessao 34: ANTES exigia >= 2 chapas baixas pra repack. Mas:
+        // caso AGP004435 tem 3 chapas (62.7%, 69.3%, 78.6%) -> chapa 3 isolada
+        // com 14 pecas que CABEM nas sobras das outras (validado por
+        // simulacao). Quando so' 1 chapa esta abaixo de 60%, tentar JUNTAR
+        // ela com a chapa anterior + repack: se conseguir empacotar tudo em
+        // 1 chapa, economizou 1 chapa. Se nao melhorar, mantem o original
+        // (validado por compararResultados <0).
+        if (indicesRefazer.length === 0) break;
+        if (indicesRefazer.length === 1) {
+          // Junta a chapa-com-baixo-aproveitamento + chapa imediatamente
+          // anterior (que tem sobra) e tenta repack das duas.
+          const idxBaixa = indicesRefazer[0];
+          if (idxBaixa === 0) break;  // nao tem chapa anterior
+          indicesRefazer.unshift(idxBaixa - 1);  // adiciona a anterior
+        }
 
         const pecasRefazer = _coletarPecasRepack(
           indicesRefazer.map(i => melhor.chapas[i])
@@ -1785,7 +1823,7 @@ window.ChapasAproveitamento = (function () {
           // Adiciona as novas
           refeitas.chapas.forEach(c => melhor.chapas.push(c));
           console.log('[Aproveitamento] Repack iter ' + iter + ': '
-            + indicesRefazer.length + ' chapas <60% -> ' + refeitas.chapas.length + ' chapas');
+            + indicesRefazer.length + ' chapas -> ' + refeitas.chapas.length + ' chapas');
           reduziu = true;
         }
       }
