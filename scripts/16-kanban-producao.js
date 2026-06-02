@@ -591,7 +591,9 @@
               <input type="number" data-atp-field="prazoEntrega" value="${escapeHtml(atp.prazoEntrega || '')}" min="1" max="365" placeholder="90" />
             </div>
             <div class="kprod-field">
-              <!-- vazio (espaco pra quando tiver botao 'Puxar do Weiku') -->
+              <!-- Felipe sessao 34: novo campo 'Previsao de Medicao' (puxado da API Weiku) -->
+              <label>Previsao de Medicao <span class="kprod-field-hint">do Intranet Weiku</span></label>
+              <input type="date" data-atp-field="previsaoMedicao" value="${escapeHtml(atp.previsaoMedicao || '')}" />
             </div>
           </div>
 
@@ -1454,6 +1456,11 @@
             numeroAtp:               dados.numeroAtp || num.trim(),
             numeroReserva:           dados.numeroReserva || '',
             dataOrcamento:           dados.dataOrcamento || '',
+            // Felipe sessao 34: 3 campos novos do endpoint Ruan (previsao_medicao,
+            // prazo_entrega_dias, dt_assinadoEm). dataOrcamento ja existia.
+            dataAssinaturaContrato:  dados.dataAssinaturaContrato || '',
+            prazoEntrega:            dados.prazoEntrega || '',
+            previsaoMedicao:         dados.previsaoMedicao || '',
             nomeContrato:            dados.nomeContrato || '',
             sobrenomeContrato:       dados.sobrenomeContrato || '',
             responsavelLegal:        dados.responsavelLegal || '',

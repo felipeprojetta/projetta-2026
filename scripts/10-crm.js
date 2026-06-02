@@ -536,6 +536,14 @@
             </div>
           </div>
 
+          <div class="crm-form-row cols-1">
+            <div class="crm-field">
+              <!-- Felipe sessao 34: novo campo 'Previsao de Medicao' (puxado da API Weiku) -->
+              <label>Previsao de Medicao <span class="crm-field-hint">do Intranet Weiku</span></label>
+              <input type="date" data-atp-field="previsaoMedicao" value="${escapeHtml(atp.previsaoMedicao || '')}" />
+            </div>
+          </div>
+
           <div class="crm-aba-atp-divider">ENDERECO DE COBRANCA</div>
 
           <div class="crm-form-row cols-3">
@@ -2345,6 +2353,12 @@
           setField('emailNfe',          dados.emailNfe);
           setField('telefoneFixo',      dados.telefoneFixo);
           setField('dataOrcamento',     dados.dataOrcamento);
+          // Felipe sessao 34: 3 campos novos do endpoint (Ruan ja incluiu na API).
+          // Datas vem 'YYYY-MM-DD' (input type=date aceita direto).
+          // prazoEntrega vem string com so digitos (input type=number aceita).
+          setField('dataAssinaturaContrato', dados.dataAssinaturaContrato);
+          setField('prazoEntrega',           dados.prazoEntrega);
+          setField('previsaoMedicao',        dados.previsaoMedicao);
           // Cobranca
           setField('cepCobranca',       dados.cobranca?.cep);
           setField('cidadeCobranca',    dados.cobranca?.cidade);

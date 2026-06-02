@@ -318,6 +318,13 @@ const WeikuClient = (() => {
       numeroAgp:        pick('ang_numer', 'angNumer', 'numero_agp', 'numeroAgp', 'agp'),
       // Felipe sessao 34: data do orcamento (campo dat_orc da API)
       dataOrcamento:    String(pick('dat_orc', 'datOrc', 'data_orcamento', 'dataOrcamento') || '').slice(0, 10),  // YYYY-MM-DD
+      // Felipe sessao 34: Ruan incluiu no endpoint os campos previsao_medicao,
+      // prazo_entrega_dias, dt_assinadoEm, dat_orc. Mapeia pros 3 fields novos
+      // do form ATP. Datas: pick + slice(0,10) pra normalizar 'YYYY-MM-DD'
+      // (ignora qualquer timestamp/timezone que venha junto).
+      dataAssinaturaContrato: String(pick('dt_assinadoEm', 'dtAssinadoEm', 'data_assinatura_contrato', 'dataAssinaturaContrato', 'data_assinatura', 'dataAssinatura') || '').slice(0, 10),
+      prazoEntrega:           String(pick('prazo_entrega_dias', 'prazoEntregaDias', 'prazo_entrega', 'prazoEntrega') || '').replace(/[^\d]/g, ''),
+      previsaoMedicao:        String(pick('previsao_medicao', 'previsaoMedicao', 'prev_medicao', 'prevMedicao') || '').slice(0, 10),
       // Cliente / responsavel
       nomeContrato:     pick('cliente_nome', 'clienteNome', 'nome_cliente', 'nomeCliente'),
       // Felipe sessao 34: sobrenome separado (vem na API como cliente_sobrenome).
