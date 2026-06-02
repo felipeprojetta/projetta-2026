@@ -55,7 +55,14 @@
       { id: 'qualificacao',        label: 'Qualificacao',        color: '#94A3B8' },
       { id: 'fazer-orcamento',     label: 'Fazer Orcamento',     color: '#3B82F6' },
       { id: 'orcamento-pronto',    label: 'Orcamento Pronto',    color: '#8B5CF6' },
-      { id: 'orcamento-aprovado',  label: 'Orcamento Aprovado',  color: '#06B6D4' },
+      // Felipe sessao 34: 'ELIMINE ESSE ORCAMENTO APROVADO DO CRM' - coluna
+      // removida do kanban. Validado banco antes: 0 leads em 'orcamento-aprovado'.
+      // Comparacoes 'lead.etapa === orcamento-aprovado' em outros lugares
+      // (12-orcamento.js, 16-kanban-producao.js, 11-clientes.js, 35-outlook.js)
+      // sao defensivas via includes() e nao causam efeito ja' que nenhum lead
+      // mais usa essa etapa. Caso lead legado seja importado com essa etapa,
+      // ele cai num bucket sem coluna — UI quebra graciosamente.
+      // { id: 'orcamento-aprovado',  label: 'Orcamento Aprovado',  color: '#06B6D4' },
       { id: 'orcamento-enviado',   label: 'Orcamento Enviado',   color: '#F59E0B' },
       { id: 'negociacao',          label: 'Negociacao',           color: '#EAB308' },
       { id: 'fechado',             label: 'Fechado',              color: '#10B981' },
