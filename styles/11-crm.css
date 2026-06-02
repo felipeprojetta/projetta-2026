@@ -958,6 +958,18 @@
   background: #fed7aa !important;
   border-color: #ea580c !important;
 }
+/* Felipe sessao 34: botao 'Enviar por Email' (Outlook integrado) -
+   azul pra diferenciar do PDF laranja. */
+.crm-btn-email-rep {
+  background: #eff6ff !important;
+  border-color: #60a5fa !important;
+  color: #1e40af !important;
+  font-weight: 600 !important;
+}
+.crm-btn-email-rep:hover {
+  background: #dbeafe !important;
+  border-color: #2563eb !important;
+}
 .crm-kpi-fixo {
   font-size: 12px;
   color: var(--text);            /* era text-soft (cinza) — agora azul-escuro */

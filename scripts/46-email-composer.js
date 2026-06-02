@@ -225,9 +225,16 @@
       //   reply-all:    tem msgId, sem toEmails (modo legado, sem CC custom)
       //   novo:         tem 'to', sem msgId (cria email novo)
       var modoNovo = !msgId && !!to;
+      // Felipe sessao 34: modoNovo agora aceita opts.cc (array de emails) -
+      // mostra linha "Cc:" estatica abaixo do Para. Usado pelo relatorio
+      // do representante que precisa pre-encher coord/gerente em copia.
+      var ccNovo = (modoNovo && Array.isArray(opts.cc)) ? opts.cc.filter(Boolean) : [];
       var headerTitulo = modoNovo ? '📧 Novo Email' : '📧 Responder Email';
       var paraLinha = modoNovo
         ? '<div class="ec-subject"><b>Para:</b> ' + escapeHtml(to) + '</div>'
+          + (ccNovo.length
+              ? '<div class="ec-subject"><b>Cc:</b> ' + escapeHtml(ccNovo.join(', ')) + '</div>'
+              : '')
         : '';
 
       // Linhas de chips TO/CC quando modoReplyCustom
@@ -521,6 +528,7 @@
           if (modoNovo) {
             await window.outlookSendMail({
               to: [to],
+              cc: ccNovo,  // Felipe sessao 34: array vazio ou emails de copia
               subject: subject,
               body: bodyAtual,
               bodyType: 'HTML',

@@ -2979,7 +2979,6 @@ Equipe Comercial Projetta`;
 </head>
 <body>
   <div class="rep-no-print">
-    <button class="rep-btn-email" onclick="enviarEmail()">📧 Enviar por Email</button>
     <button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
   </div>
   <header class="rep-header">
@@ -3019,80 +3018,11 @@ Equipe Comercial Projetta`;
   <script>
     document.title = ${JSON.stringify(filename.replace(/\.pdf$/, ''))};
 
-    // Felipe sessao 34: dados embedded pra montar mailto:
-    var emailRep = ${JSON.stringify(emailRep)};
-    var nomeContatoRep = ${JSON.stringify(nomeContatoRep)};
-    var gerenteNome = ${JSON.stringify(gerenteNome)};
-    var coordenadorNome = ${JSON.stringify(coordenadorNome)};
-    var emailSubject = ${JSON.stringify(emailSubject)};
-    var emailBody = ${JSON.stringify(emailBody)};
-
     function showToast(msg, ms) {
       var t = document.getElementById('rep-toast');
       t.textContent = msg;
       t.classList.add('show');
       setTimeout(function(){ t.classList.remove('show'); }, ms || 3500);
-    }
-
-    function copiarTextoParaClipboard(texto) {
-      try {
-        return navigator.clipboard.writeText(texto).then(function(){ return true; }).catch(function(){ return fallbackCopy(texto); });
-      } catch(_) { return Promise.resolve(fallbackCopy(texto)); }
-    }
-    function fallbackCopy(texto) {
-      var ta = document.createElement('textarea');
-      ta.value = texto;
-      ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      var ok = false;
-      try { ok = document.execCommand('copy'); } catch(_) {}
-      document.body.removeChild(ta);
-      return ok;
-    }
-
-    function enviarEmail() {
-      // Se nao tem email do rep cadastrado, pede manualmente
-      var to = emailRep;
-      if (!to) {
-        to = prompt('Email do representante nao esta cadastrado.\\n\\nDigite o email manualmente:');
-        if (!to) return;
-        to = String(to).trim();
-      }
-
-      // CC: se gerente/coordenador tem nome cadastrado, alerta o Felipe pra
-      // adicionar email manualmente no cliente apos abrir o mailto. Hoje so'
-      // temos nomes (nao emails) cadastrados.
-      var infoCC = '';
-      if (gerenteNome || coordenadorNome) {
-        var partes = [];
-        if (gerenteNome)     partes.push('Gerente: ' + gerenteNome);
-        if (coordenadorNome) partes.push('Coordenador: ' + coordenadorNome);
-        infoCC = partes.join(' | ');
-      }
-
-      // mailto: tem limite de URL (~2000 chars). Calcula tamanho;
-      // se passar, copia corpo pro clipboard e abre mailto SEM body
-      // (usuario cola Ctrl+V no cliente de email).
-      var mailtoBase = 'mailto:' + encodeURIComponent(to) +
-                      '?subject=' + encodeURIComponent(emailSubject);
-      var mailtoCompleto = mailtoBase + '&body=' + encodeURIComponent(emailBody);
-
-      copiarTextoParaClipboard(emailBody).then(function(copiou) {
-        if (mailtoCompleto.length > 1800) {
-          // Body muito grande - abre so' mailto basico, corpo no clipboard
-          window.location.href = mailtoBase;
-          var msg = 'Corpo do email copiado pro clipboard (Ctrl+V no cliente).';
-          if (infoCC) msg += ' Adicione em CC: ' + infoCC;
-          showToast(msg, 6000);
-        } else {
-          // Tudo cabe no mailto - abre direto
-          window.location.href = mailtoCompleto;
-          if (infoCC) showToast('Adicione em CC no cliente: ' + infoCC, 6000);
-          else if (copiou) showToast('Email aberto. Corpo tambem foi copiado pro clipboard.', 4000);
-          else showToast('Email aberto no cliente padrao.', 3000);
-        }
-      });
     }
   <\/script>
 </body></html>`;
@@ -3106,6 +3036,205 @@ Equipe Comercial Projetta`;
       win.document.open();
       win.document.write(html);
       win.document.close();
+    }
+
+    /**
+     * Felipe sessao 34: Enviar Relatorio do Representante POR EMAIL pelo
+     * Outlook integrado do sistema (window.OutlookComposer + window.outlookSendMail
+     * de 35-outlook.js). Felipe: 'quando for enviar email envie por dentro do
+     * sistema ja temos outlook integrado dentro do sistema'.
+     *
+     * Diferenca pro gerarRelatorioRepresentante (que gera HTML em nova aba pra
+     * imprimir/PDF):
+     *   - Monta o MESMO conteudo (texto formal + tabelas por etapa)
+     *   - Mas em HTML INLINE compativel com Outlook web/desktop (tables, sem
+     *     CSS externo, sem flex - estilos inline em cada element)
+     *   - Abre o OutlookComposer com:
+     *       to = email do 1o contato do rep
+     *       cc = [] (Felipe edita manualmente - gerente/coordenador ainda nao
+     *              tem email cadastrado, so' nome string)
+     *       subject = 'Status de Leads em Aberto - {razao} - {data}'
+     *       bodyHtml = HTML inline (textos formais + tabelas)
+     */
+    function enviarRelatorioPorEmail(repKey) {
+      if (!repKey) { alert('Selecione um representante no filtro primeiro.'); return; }
+      if (!window.OutlookComposer || typeof window.OutlookComposer.open !== 'function') {
+        alert('Modulo de email Outlook nao carregado. Recarregue a pagina.');
+        return;
+      }
+      const ETAPAS_ABERTAS = [
+        { id: 'fazer-orcamento',  label: 'Aguardando Orcamento',     cor: '#3B82F6' },
+        { id: 'orcamento-pronto', label: 'Orcamento Pronto',          cor: '#8B5CF6' },
+        { id: 'orcamento-enviado',label: 'Orcamento Enviado',         cor: '#F59E0B' },
+        { id: 'negociacao',       label: 'Em Negociacao',             cor: '#EAB308' },
+      ];
+      const leadsRep = state.leads.filter(l =>
+        (l.representante_followup || '') === repKey
+        && ETAPAS_ABERTAS.some(e => e.id === l.etapa)
+      );
+      if (leadsRep.length === 0) {
+        alert('Nenhum lead em aberto encontrado pra ' + repKey + '.');
+        return;
+      }
+      const razaoSocial = (leadsRep.find(l => l.representante)?.representante) || repKey;
+
+      // Lookup do email do rep + nomes coord/gerente (mesmo do PDF)
+      let emailRep = '';
+      let nomeContatoRep = '';
+      let gerenteNome = '';
+      let coordenadorNome = '';
+      try {
+        const reps = (Storage.scope('cadastros').get('representantes_lista') || []);
+        const r = reps.find(x => String(x.followup || '').trim() === String(repKey).trim());
+        if (r) {
+          gerenteNome = String(r.gerente || '').trim();
+          coordenadorNome = String(r.coordenador || '').trim();
+          const contatos = Array.isArray(r.contatos) ? r.contatos : [];
+          const c = contatos.find(ct => ct && ct.email);
+          if (c) {
+            emailRep = String(c.email || '').trim();
+            nomeContatoRep = String(c.nome || '').trim();
+          }
+        }
+      } catch(_) {}
+
+      if (!emailRep) {
+        const digitado = prompt(
+          'Representante ' + repKey + ' nao tem email cadastrado.\n\n' +
+          'Digite o email do destinatario:'
+        );
+        if (!digitado) return;
+        emailRep = String(digitado).trim();
+      }
+
+      // Agrupa por etapa, ordenando cada secao por valor desc
+      const porEtapa = {};
+      ETAPAS_ABERTAS.forEach(e => { porEtapa[e.id] = []; });
+      leadsRep.forEach(l => { porEtapa[l.etapa].push(l); });
+
+      const totalLeads = leadsRep.length;
+      const totalValor = leadsRep.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+
+      const hoje = new Date();
+      const dd = String(hoje.getDate()).padStart(2, '0');
+      const mm = String(hoje.getMonth() + 1).padStart(2, '0');
+      const yyyy = hoje.getFullYear();
+      const dataEmissao = `${dd}/${mm}/${yyyy}`;
+
+      function fmtData(s) {
+        if (!s) return '';
+        const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+        return String(s);
+      }
+      function esc(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+
+      // Felipe sessao 34: HTML inline compatible com Outlook web/desktop.
+      // Outlook nao suporta flexbox e tem suporte limitado a CSS externo.
+      // Usa <table> + <td> com inline styles. Sem class/CSS - tudo style="".
+      function blocoLeadEmail(l) {
+        const especs = [
+          l.modelo  ? 'Modelo ' + l.modelo : '',
+          l.numFolhas ? l.numFolhas + 'F' : '',
+          l.cor     ? 'Cor: ' + l.cor : '',
+        ].filter(Boolean).join(' &middot; ');
+        const cidade = l.cidade ? `${l.cidade}${l.estado ? '/' + l.estado : ''}` : '';
+        const valor = Number(l.valor) || 0;
+        const precoProposta = Number(l.precoProposta) || 0;
+        let valorTxt = '';
+        if (valor > 0) {
+          if (precoProposta > 0 && Math.abs(precoProposta - valor) > 0.01) {
+            valorTxt = `<span style="color:#9ca3af;text-decoration:line-through;">R$ ${fmtBR(precoProposta)}</span> &middot; <strong style="color:#1f2937;">R$ ${fmtBR(valor)}</strong>`;
+          } else {
+            valorTxt = `<strong style="color:#1f2937;">R$ ${fmtBR(valor)}</strong>`;
+          }
+        }
+        return `
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-family:Arial,sans-serif;font-size:12px;color:#1f2937;background:#ffffff;">
+  <div style="display:block;margin-bottom:4px;"><strong style="font-size:13px;">${esc(l.cliente || '(sem nome)')}</strong> <span style="color:#6b7280;font-size:11px;float:right;">${l.numeroAGP ? 'AGP ' + esc(l.numeroAGP) : ''}${l.reserva ? ' &middot; Res ' + esc(l.reserva) : ''}</span></div>
+  <div style="color:#4b5563;font-size:11px;line-height:1.5;">
+    ${l.data ? `<strong>Data:</strong> ${esc(fmtData(l.data))} &nbsp;` : ''}
+    ${cidade ? `<strong>Local:</strong> ${esc(cidade)} &nbsp;` : ''}
+    ${especs ? `${especs}` : ''}
+  </div>
+  ${valorTxt ? `<div style="font-size:12px;margin-top:4px;">${valorTxt}</div>` : ''}
+</td></tr>`;
+      }
+
+      const secoesHtml = ETAPAS_ABERTAS.map(e => {
+        const leads = porEtapa[e.id] || [];
+        if (leads.length === 0) return '';
+        const valorSecao = leads.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+        const leadsHtml = leads
+          .slice()
+          .sort((a, b) => (Number(b.valor) || 0) - (Number(a.valor) || 0))
+          .map(blocoLeadEmail).join('');
+        return `
+<div style="margin:18px 0;">
+  <table style="width:100%;border-collapse:collapse;background:${e.cor};color:#ffffff;font-family:Arial,sans-serif;">
+    <tr>
+      <td style="padding:6px 12px;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;">${esc(e.label)}</td>
+      <td style="padding:6px 12px;font-size:11px;text-align:right;">${leads.length} ${leads.length === 1 ? 'lead' : 'leads'} &middot; R$ ${fmtBR(valorSecao)}</td>
+    </tr>
+  </table>
+  <table style="width:100%;border-collapse:collapse;margin-top:6px;">${leadsHtml}</table>
+</div>`;
+      }).join('');
+
+      const saudacao = nomeContatoRep
+        ? `Prezado(a) ${nomeContatoRep},`
+        : `Prezado(a) Representante,`;
+
+      const bodyHtml = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1f2937;line-height:1.5;max-width:760px;">
+<p>${esc(saudacao)}</p>
+<p>Encaminhamos a relacao dos leads em aberto sob sua responsabilidade comercial. Solicitamos a gentileza de retornar com o status atualizado de cada negociacao, contemplando:</p>
+<ul style="margin:6px 0 10px 22px;padding:0;">
+  <li>Estagio atual da negociacao</li>
+  <li>Previsao de fechamento (quando aplicavel)</li>
+  <li>Eventuais objecoes do cliente</li>
+  <li>Indicacao dos leads que podem ser arquivados</li>
+</ul>
+<div style="margin:14px 0;padding:10px 14px;background:#f9fafb;border-left:3px solid #C47012;">
+  <strong>Resumo:</strong> ${totalLeads} ${totalLeads === 1 ? 'lead em aberto' : 'leads em aberto'} &middot;
+  Valor total em pipeline: <strong>R$ ${fmtBR(totalValor)}</strong>
+  &middot; Data emissao: ${dataEmissao}
+</div>
+${secoesHtml}
+<p style="margin-top:18px;">Aguardamos retorno e permanecemos a disposicao para esclarecimentos.</p>
+<p style="margin-top:14px;font-style:italic;color:#4b5563;">Atenciosamente,<br>Equipe Comercial Projetta</p>
+</div>`;
+
+      const emailSubject = `Status de Leads em Aberto - ${razaoSocial} - ${dataEmissao}`;
+
+      // Felipe sessao 34: gerente/coordenador ainda sao strings de NOME no
+      // cadastro (nao email). Nao posso pre-popular CC com emails reais.
+      // Mostra info pro Felipe digitar manualmente no campo Cc do composer
+      // se quiser.
+      const infoExtra = [];
+      if (gerenteNome)     infoExtra.push('Gerente: ' + gerenteNome);
+      if (coordenadorNome) infoExtra.push('Coordenador: ' + coordenadorNome);
+      if (infoExtra.length) {
+        console.log('[relatorio-email] Info extras (nao tenho email cadastrado): ' + infoExtra.join(' | '));
+      }
+
+      // Abre composer do Outlook integrado
+      window.OutlookComposer.open({
+        to: emailRep,
+        cc: [],  // vazio - Felipe edita se quiser
+        subject: emailSubject,
+        bodyHtml: bodyHtml,
+        attachments: [],
+        onSent: function() {
+          if (window.showSavedDialog) {
+            window.showSavedDialog('Email enviado pelo Outlook: ' + emailRep);
+          }
+        },
+        onCancel: function() {},
+      });
     }
 
     /** Anos disponiveis no filtro do KPI: 2021 ate ano atual */
@@ -3761,6 +3890,7 @@ Equipe Comercial Projetta`;
               <button data-view="lista"  class="${state.view === 'lista'  ? 'is-active' : ''}">Lista</button>
             </div>
             ${state.filtros.representante ? `<button class="btn btn-ghost btn-sm crm-btn-relatorio-rep" id="crm-btn-relatorio-rep" title="Gera relatorio em PDF dos leads em aberto deste representante pra enviar e pedir feedback">📄 Relatorio do Representante</button>` : ''}
+            ${state.filtros.representante ? `<button class="btn btn-ghost btn-sm crm-btn-email-rep" id="crm-btn-email-rep" title="Envia relatorio pelo Outlook integrado (pega email do contato cadastrado do representante)">📧 Enviar por Email</button>` : ''}
             <button class="btn btn-ghost btn-sm" id="crm-btn-import">⤓ Importar planilha</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-export">⬇ Exportar Excel</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-modelo" title="Baixa modelo Excel em branco com todos os campos para preencher e reimportar">📋 Modelo Excel</button>
@@ -3960,6 +4090,10 @@ Equipe Comercial Projetta`;
       // Felipe sessao 34: Relatorio do Representante (PDF via print do navegador)
       container.querySelector('#crm-btn-relatorio-rep')?.addEventListener('click', () => {
         gerarRelatorioRepresentante(state.filtros.representante);
+      });
+      // Felipe sessao 34: Enviar Relatorio por Email pelo Outlook integrado
+      container.querySelector('#crm-btn-email-rep')?.addEventListener('click', () => {
+        enviarRelatorioPorEmail(state.filtros.representante);
       });
       const fileInputCrm = container.querySelector('#crm-import-file');
       container.querySelector('#crm-btn-import')?.addEventListener('click', () => fileInputCrm?.click());
