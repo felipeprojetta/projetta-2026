@@ -4245,17 +4245,17 @@ const Orcamento = (() => {
           <div class="orc-form-row">
             <div class="orc-field orc-f-dim">
               <label>Largura total (mm)</label>
-              <input type="number" min="0" data-field-parede-pergo="largura_total" data-parede-idx="${i}"
+              <input type="text" inputmode="numeric" pattern="[0-9]*" data-field-parede-pergo="largura_total" data-parede-idx="${i}"
                      value="${escapeHtml(String(p.largura_total || ''))}" placeholder="ex: 3000" />
             </div>
             <div class="orc-field orc-f-dim">
               <label>Altura total (mm)</label>
-              <input type="number" min="0" data-field-parede-pergo="altura_total" data-parede-idx="${i}"
+              <input type="text" inputmode="numeric" pattern="[0-9]*" data-field-parede-pergo="altura_total" data-parede-idx="${i}"
                      value="${escapeHtml(String(p.altura_total || ''))}" placeholder="ex: 5000" />
             </div>
             <div class="orc-field orc-f-dim">
               <label>Quantidade</label>
-              <input type="number" min="1" data-field-parede-pergo="quantidade" data-parede-idx="${i}"
+              <input type="text" inputmode="numeric" pattern="[0-9]*" data-field-parede-pergo="quantidade" data-parede-idx="${i}"
                      value="${escapeHtml(String(p.quantidade || 1))}" />
             </div>
           </div>
@@ -4449,8 +4449,9 @@ const Orcamento = (() => {
     });
 
     // Campos das paredes
+    // Felipe sessao 34: mesmo fix do rev_parede (preserva foco).
     container.querySelectorAll('[data-field-parede-pergo]').forEach(el => {
-      el.addEventListener('change', () => {
+      function aplicar() {
         const root = getRoot();
         if (!root) return;
         const item = root.item;
@@ -4461,9 +4462,10 @@ const Orcamento = (() => {
         if (field === 'quantidade') {
           item.paredes[idx].quantidade = Math.max(1, parseInt(el.value, 10) || 1);
         } else {
-          item.paredes[idx][field] = parseFloat(String(el.value).replace(',', '.')) || 0;
+          // Filtra so' digitos
+          const limpo = String(el.value).replace(/[^\d]/g, '');
+          item.paredes[idx][field] = parseFloat(limpo) || 0;
         }
-        // Sincroniza top-level com paredes[0]
         const p0 = item.paredes[0];
         if (p0) {
           item.largura_total = Number(p0.largura_total) || 0;
@@ -4471,8 +4473,9 @@ const Orcamento = (() => {
         }
         persistir(root);
         if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
-        reRender();
-      });
+      }
+      el.addEventListener('input',  aplicar);
+      el.addEventListener('change', aplicar);  // sem reRender (mantem foco)
     });
 
     // Botoes adicionar/remover parede
@@ -4604,17 +4607,17 @@ const Orcamento = (() => {
           <div class="orc-form-row">
             <div class="orc-field orc-f-dim">
               <label>Largura total (mm)</label>
-              <input type="number" min="0" data-field-parede="largura_total" data-parede-idx="${i}"
+              <input type="text" inputmode="numeric" pattern="[0-9]*" data-field-parede="largura_total" data-parede-idx="${i}"
                      value="${escapeHtml(String(p.largura_total || ''))}" placeholder="ex: 3860" />
             </div>
             <div class="orc-field orc-f-dim">
               <label>Altura total (mm)</label>
-              <input type="number" min="0" data-field-parede="altura_total" data-parede-idx="${i}"
+              <input type="text" inputmode="numeric" pattern="[0-9]*" data-field-parede="altura_total" data-parede-idx="${i}"
                      value="${escapeHtml(String(p.altura_total || ''))}" placeholder="ex: 7800" />
             </div>
             <div class="orc-field orc-f-dim">
               <label>Quantidade</label>
-              <input type="number" min="1" data-field-parede="quantidade" data-parede-idx="${i}"
+              <input type="text" inputmode="numeric" pattern="[0-9]*" data-field-parede="quantidade" data-parede-idx="${i}"
                      value="${escapeHtml(String(p.quantidade || 1))}" />
             </div>
           </div>
@@ -4815,11 +4818,22 @@ const Orcamento = (() => {
     // Felipe sessao 34: troca 'change' unico por 'input'+'change' separados.
     // BUG ORIGINAL: digitar largura na parede e clicar Recalcular sem sair
     // do input -> click handler dispara antes do change (race) -> 
-    // atualizarVersao chama loadAll (storage sem digitacao) + saveAll
-    // (sobrescreve por cima do valor pendente). Resultado: largura zera.
-    // FIX: 'input' salva imediatamente a cada teclada (garante storage
-    // sempre em dia, sem race), 'change' continua re-renderizando no blur
-    // pra atualizar hint visual sem perder foco enquanto user digita.
+    // Felipe sessao 34: bug 'digito largura, ao passar pra altura deleta valor /
+    // ao digitar 1 a pagina sobe / ao digitar 5 sobe de novo, ta horrivel'.
+    //
+    // 3 causas combinadas:
+    //   A) reRender() no 'change' destruia o input → perdia foco → ao
+    //      voltar pro campo aparecia vazio mesmo o valor estando salvo.
+    //   B) <input type="number"> reage a setas/scroll do navegador,
+    //      causando 'rolar pagina' inesperado.
+    //   C) Tab/blur dispara change ANTES de chrome consolidar valor, e
+    //      o re-render mata o input antes do storage receber input.
+    //
+    // Fix:
+    //   - Inputs viraram type="text" inputmode="numeric" (numerico mobile,
+    //     sem setas/scroll do navegador) - feito acima na renderUmaParede.
+    //   - Handler salva no 'input' (cada teclada) e atualiza so' o HINT
+    //     inline no 'change' (sem reRender). Foco preservado.
     container.querySelectorAll('[data-field-parede]').forEach(el => {
       function aplicar() {
         const root = getRoot();
@@ -4832,7 +4846,9 @@ const Orcamento = (() => {
         if (field === 'quantidade') {
           item.paredes[idx].quantidade = Math.max(1, parseInt(el.value, 10) || 1);
         } else if (field === 'largura_total' || field === 'altura_total') {
-          item.paredes[idx][field] = parseFloat(String(el.value).replace(',', '.')) || 0;
+          // Filtra so' digitos antes de parsear (campo type=text agora)
+          const limpo = String(el.value).replace(/[^\d]/g, '');
+          item.paredes[idx][field] = parseFloat(limpo) || 0;
         } else {
           item.paredes[idx][field] = el.value;
         }
@@ -4840,8 +4856,39 @@ const Orcamento = (() => {
         persistir(root);
         if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
       }
-      el.addEventListener('input',  aplicar);          // salva a cada teclada
-      el.addEventListener('change', () => { aplicar(); reRender(); });  // re-renderiza no blur
+
+      // Felipe sessao 34: atualiza HINT inline sem destruir DOM. Mantem foco.
+      function atualizarHintParede() {
+        const root = getRoot();
+        if (!root) return;
+        const item = root.item;
+        const idx = parseInt(el.dataset.paredeIdx, 10);
+        if (!Array.isArray(item.paredes) || !(idx >= 0 && idx < item.paredes.length)) return;
+        const p = item.paredes[idx];
+        const REF = (window.Storage?.scope?.('cadastros').get('regras_variaveis_chapas')?.REF) || 20;
+        const LARGURA_CHAPA = 1500;
+        const larguraMax = (p.com_refilado === 'sim') ? (LARGURA_CHAPA - 2 * REF) : LARGURA_CHAPA;
+        const L = Number(p.largura_total) || 0;
+        let hint;
+        if (!L) {
+          hint = '<i>Preencha largura para ver o calculo.</i>';
+        } else if (p.divisao_largura === 'maxima') {
+          const nInt = Math.floor(L / larguraMax);
+          const sobra = L - nInt * larguraMax;
+          hint = `<b>Calculo:</b> ${nInt} faixa(s) de ${larguraMax}mm` +
+            (sobra > 0.5 ? ` + 1 faixa de sobra de ${sobra.toFixed(1)}mm` : ' (sem sobra)');
+        } else {
+          const n = Math.ceil(L / larguraMax);
+          const f = (L / n).toFixed(1);
+          hint = `<b>Calculo:</b> ${n} faixa(s) iguais de ${f}mm cada`;
+        }
+        const parede = container.querySelector(`.orc-rev-parede[data-parede-idx="${idx}"]`);
+        const hintEl = parede?.querySelector('.orc-hint-text');
+        if (hintEl) hintEl.innerHTML = hint;
+      }
+
+      el.addEventListener('input',  () => { aplicar(); atualizarHintParede(); });
+      el.addEventListener('change', () => { aplicar(); atualizarHintParede(); });
     });
 
     // Botao + adicionar parede
