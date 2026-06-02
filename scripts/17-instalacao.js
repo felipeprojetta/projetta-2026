@@ -158,19 +158,33 @@
 
     return cards.map(card => {
       const delta = state.instalacoes[card.id] || {};
+      // Felipe sessao 34: 'de producao para baixo tudo linkado pelo ato'.
+      // Dados da Agenda de Obras priorizam o que esta no ATP/contrato sobre
+      // o que veio do AGP/orcamento original. Nome do contrato pode ser
+      // diferente do orcamento (ex: AGP 'Jose Ricardo' mas ATP 'Renata
+      // Pereira Cunha'); endereco de entrega pode ser diferente do
+      // cadastrado no lead; etc. Fallback campo-a-campo pro AGP quando
+      // ATP nao tem o dado.
+      const atp = card.atp || {};
+      const _nomeAtp = atp.nomeContrato
+        ? (atp.nomeContrato + (atp.sobrenomeContrato ? ' ' + atp.sobrenomeContrato : '')).trim()
+        : '';
       return {
         // Identificacao
         cardId: card.id,
         crmLeadId: card.crmLeadId || null,
 
-        // Dados do CRM/Producao (read-only)
-        cliente:        card.cliente || '(sem nome)',
-        telefone:       card.telefone || '',
-        email:          card.email || '',
-        numeroAGP:      card.numeroAGP || '',         // ATP no Excel
-        numeroReserva:  card.numeroReserva || '',
-        cidade:         card.cidade || '',
-        estado:         card.estado || '',
+        // Dados (priorizam ATP, fallback AGP)
+        cliente:        _nomeAtp || card.cliente || '(sem nome)',
+        telefone:       atp.telefoneObra   || card.telefone || '',
+        email:          atp.emailContrato  || card.email    || '',
+        // Felipe sessao 34: 'numeroAGP' historico continua com AGP pra busca,
+        // mas adiciona numeroAtp separado pra UI mostrar 'ATP000469'.
+        numeroAGP:      card.numeroAGP || '',
+        numeroAtp:      atp.numeroAtp || '',
+        numeroReserva:  atp.numeroReserva  || card.numeroReserva || '',
+        cidade:         atp.cidadeEntrega  || card.cidade || '',
+        estado:         atp.estadoEntrega  || card.estado || '',
         representante:  card.representante_followup || '',
         statusProducao: card.etapa || '',             // etapa do Kanban Producao
         portaModelo:    card.porta_modelo || '',
@@ -264,7 +278,8 @@
     return trabalhos.filter(t => {
       if (f.busca) {
         const q = f.busca.toLowerCase();
-        const hay = [t.cliente, t.numeroAGP, t.cidade, t.estado, t.instalador]
+        // Felipe sessao 34: busca tambem encontra pelo numeroAtp
+        const hay = [t.cliente, t.numeroAGP, t.numeroAtp, t.cidade, t.estado, t.instalador]
           .map(x => String(x || '').toLowerCase()).join(' ');
         if (hay.indexOf(q) === -1) return false;
       }
@@ -297,7 +312,7 @@
       return `
         <tr data-card-id="${escapeHtml(t.cardId)}" class="inst-row">
           <td class="inst-cli"><strong>${escapeHtml(t.cliente)}</strong>${visitasExtrasCount > 0 ? ` <span class="inst-pill" style="background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 6px;">+${visitasExtrasCount} visita${visitasExtrasCount > 1 ? 's' : ''}</span>` : ''}</td>
-          <td class="inst-atp">${escapeHtml(t.numeroAGP || '—')}</td>
+          <td class="inst-atp">${escapeHtml(t.numeroAtp || t.numeroAGP || "—")}</td>
           <td>${escapeHtml(servicoLabelById(t.servico || SERVICO_DEFAULT))}</td>
           <td class="inst-status-inst">
             <span class="inst-pill" style="background:${sInst.color}20;border-color:${sInst.color};color:${sInst.color}">
@@ -544,7 +559,7 @@
           <div class="inst-gantt-label">
             <div class="inst-gantt-col-cliente">
               <strong>${escapeHtml(t.cliente)}</strong>
-              <span class="inst-gantt-meta">${escapeHtml(t.numeroAGP || '')} · ${escapeHtml(local || '')}</span>
+              <span class="inst-gantt-meta">${escapeHtml(t.numeroAtp || t.numeroAGP || '')} · ${escapeHtml(local || '')}</span>
               <span class="inst-gantt-meta">${escapeHtml(t.instalador || '—')}</span>
             </div>
           </div>
@@ -628,7 +643,7 @@
         <div class="inst-modal-header" style="border-left:6px solid ${sInst.color}">
           <div>
             <h3>${escapeHtml(t.cliente)}</h3>
-            <p class="inst-modal-sub">${escapeHtml(t.numeroAGP || 'sem ATP')} · ${escapeHtml(local || '—')}</p>
+            <p class="inst-modal-sub">${escapeHtml(t.numeroAtp || t.numeroAGP || "sem ATP")} · ${escapeHtml(local || '—')}</p>
           </div>
           <button class="inst-modal-close" data-action="fechar-modal" title="Fechar">×</button>
         </div>
@@ -638,7 +653,7 @@
             <h4>Dados do Cliente <span class="inst-readonly-tag">somente leitura · vem do CRM</span></h4>
             <div class="inst-grid-2">
               <div><label>Cliente</label><div class="inst-readonly">${escapeHtml(t.cliente)}</div></div>
-              <div><label>ATP</label><div class="inst-readonly">${escapeHtml(t.numeroAGP || '—')}</div></div>
+              <div><label>ATP</label><div class="inst-readonly">${escapeHtml(t.numeroAtp || t.numeroAGP || "—")}</div></div>
               <div><label>Telefone</label><div class="inst-readonly">${escapeHtml(t.telefone || '—')}</div></div>
               <div><label>Email</label><div class="inst-readonly">${escapeHtml(t.email || '—')}</div></div>
               <div><label>Cidade</label><div class="inst-readonly">${escapeHtml(t.cidade || '—')}</div></div>

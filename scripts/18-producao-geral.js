@@ -217,12 +217,17 @@
       return {
         cardId:        card.id,
         crmLeadId:     card.crmLeadId || null,
-        cliente:       card.cliente || '(sem nome)',
+        // Felipe sessao 34: 'de producao para baixo tudo linkado pelo ato'.
+        // Producao Geral prioriza dados do ATP (contrato) sobre AGP (orcamento).
+        // Fallback campo-a-campo pro AGP quando ATP nao tem o dado.
+        cliente:       ((card.atp && card.atp.nomeContrato)
+                          ? (card.atp.nomeContrato + (card.atp.sobrenomeContrato ? ' ' + card.atp.sobrenomeContrato : '')).trim()
+                          : '') || card.cliente || '(sem nome)',
         atp:           atpContrato,
         agp:           card.numeroAGP || '',  // tambem disponivel em busca
-        reserva:       card.numeroReserva || '',
-        cidade:        card.cidade || '',
-        estado:        card.estado || '',
+        reserva:       (card.atp && card.atp.numeroReserva) || card.numeroReserva || '',
+        cidade:        (card.atp && card.atp.cidadeEntrega) || card.cidade || '',
+        estado:        (card.atp && card.atp.estadoEntrega) || card.estado || '',
         tipo:          tipoId,
         tipoManual:    tipoManual,
         tipoLabel:     tipoId === 'manual' ? (tipoManual || '(escrever)') : (LABEL_TIPO[tipoId] || ''),

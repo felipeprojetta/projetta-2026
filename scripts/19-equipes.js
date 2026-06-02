@@ -243,7 +243,12 @@
       if (!out.has(dia)) out.set(dia, []);
       out.get(dia).push({
         cardId,
-        cliente: card.cliente || '(sem nome)',
+        // Felipe sessao 34: cliente do ATP/contrato (Renata) tem prioridade
+        // sobre o cliente do AGP/orcamento (Jose). Equipes precisa do nome
+        // do contrato pra agendar a obra/visita.
+        cliente: ((card.atp && card.atp.nomeContrato)
+                    ? (card.atp.nomeContrato + (card.atp.sobrenomeContrato ? ' ' + card.atp.sobrenomeContrato : '')).trim()
+                    : '') || card.cliente || '(sem nome)',
         // Felipe (sessao 2026-05-10): "campo de ATP nao traga numero
         // de AGP somente o ATP". Le da aba ATP do Kanban (sub-objeto).
         atp:     (card.atp && card.atp.numeroAtp) ? String(card.atp.numeroAtp).trim() : '—',
@@ -445,11 +450,15 @@
           const notasHtml = (ag.notas && String(ag.notas).trim())
             ? `<div class="eq-job-notas" title="${escapeHtml(ag.notas)}">📝 ${escapeHtml(ag.notas)}</div>`
             : '';
+          // Felipe sessao 34: cliente do ATP (Renata) sobre AGP (Jose).
+          const clienteCard = ((card.atp && card.atp.nomeContrato)
+                    ? (card.atp.nomeContrato + (card.atp.sobrenomeContrato ? ' ' + card.atp.sobrenomeContrato : '')).trim()
+                    : '') || card.cliente || '(sem nome)';
           return `
-            <div class="eq-job-card ${finalizado ? 'eq-job-finalizado' : ''}" style="${styleBg}" title="${escapeHtml(card.cliente)} · ATP ${escapeHtml(numeroAtpExibir)}${marcoLabel ? ' · ' + marcoLabel : ''}${finalizado ? ' (finalizado em ' + dataFmt + ')' : ''}">
+            <div class="eq-job-card ${finalizado ? 'eq-job-finalizado' : ''}" style="${styleBg}" title="${escapeHtml(clienteCard)} · ATP ${escapeHtml(numeroAtpExibir)}${marcoLabel ? ' · ' + marcoLabel : ''}${finalizado ? ' (finalizado em ' + dataFmt + ')' : ''}">
               <button class="eq-job-edit" data-action="editar" data-ag-id="${escapeHtml(ag.id)}" title="Editar agendamento">✏️</button>
               <button class="eq-job-del" data-action="remover" data-ag-id="${escapeHtml(ag.id)}" title="Remover">×</button>
-              <div class="eq-job-cliente">${escapeHtml(card.cliente || '(sem nome)')}</div>
+              <div class="eq-job-cliente">${escapeHtml(clienteCard)}</div>
               <div class="eq-job-atp">${escapeHtml(numeroAtpExibir)}${marcoLabel ? ' · ' + escapeHtml(marcoLabel) : ''}</div>
               ${notasHtml}
               ${finalizado
