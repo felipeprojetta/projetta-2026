@@ -16047,16 +16047,25 @@ const Orcamento = (() => {
     }
 
     // Felipe (sessao 2026-05): 3a camada — primeira palavra-chave (codigo).
+    // Felipe sessao 34 (BUG FIX): troca startsWith por match EXATO da
+    // primeira palavra. Bug: cor 'PRO-7263 ...' tinha primeira palavra
+    // 'PRO7263'. startsWith('PRO7263') captura tanto 'Pro7263 - ...'
+    // quanto 'Pro7263t - ...' (chapa Texturizada DIFERENTE com mesmo
+    // prefixo + 't'). Resultado: aproveitamento mostrava 8 cards (4
+    // tamanhos × 2 chapas) duplicado. Solucao: comparar 1a palavra
+    // como token completo. 'PRO7263' === 'PRO7263' ✓ mas
+    // 'PRO7263' !== 'PRO7263T' ✗.
     if (variantesBrutas.length === 0) {
       const primeiraPalavraOriginal = String(cor || '').trim().split(/[\s\-–—]+/)[0] || '';
       const primeiraPalavraNorm = normalizarParaMatch(primeiraPalavraOriginal);
       if (primeiraPalavraNorm.length >= 5) {
         variantesBrutas = todasSuperficies.filter(s => {
-          const sNorm = normalizarParaMatch(s.descricao);
-          return sNorm.startsWith(primeiraPalavraNorm);
+          const sPrimeiraOriginal = String(s.descricao || '').trim().split(/[\s\-–—]+/)[0] || '';
+          const sPrimeiraNorm = normalizarParaMatch(sPrimeiraOriginal);
+          return sPrimeiraNorm === primeiraPalavraNorm;
         });
         if (variantesBrutas.length > 0) {
-          console.log('[Aproveitamento] Match por 1a palavra-chave achou',
+          console.log('[Aproveitamento] Match por 1a palavra-chave (exato) achou',
             variantesBrutas.length, 'variante(s) com codigo', primeiraPalavraNorm);
         }
       }
@@ -16067,15 +16076,23 @@ const Orcamento = (() => {
     // do cadastro contem "37524" (sequencia de 4+ digitos), considera
     // match. Resolve casos onde o codigo tem prefixo diferente (Pro/PR/
     // sem prefixo) ou caracteres especiais "PR0" vs "PRO".
+    // Felipe sessao 34: bordas de palavra pra evitar match com prefixos
+    // estendidos. Antes: '7263' bateria em '7263' e '72635'. Agora exige
+    // que os digitos NAO sejam seguidos por outro digito (ex: '7263a' OK
+    // mas '7263t' nao, pq 't' nao e' digito mas faz parte do codigo).
+    // Solucao mais segura: digitos isolados por delimitadores nao-alfanum
+    // (espaco, hifen, etc.) OU no inicio/fim. Ex: 'Pro 7263 - ' OK,
+    // 'Pro7263t-' nao.
     if (variantesBrutas.length === 0) {
       const matchDigitos = String(cor || '').match(/\d{4,}/);
       if (matchDigitos) {
         const digitos = matchDigitos[0];
+        const reBoundary = new RegExp('(?:^|[^A-Za-z0-9])' + digitos + '(?:[^A-Za-z0-9]|$)');
         variantesBrutas = todasSuperficies.filter(s => {
-          return String(s.descricao || '').includes(digitos);
+          return reBoundary.test(String(s.descricao || ''));
         });
         if (variantesBrutas.length > 0) {
-          console.log('[Aproveitamento] Match por digitos do codigo achou',
+          console.log('[Aproveitamento] Match por digitos isolados achou',
             variantesBrutas.length, 'variante(s) com', digitos);
         }
       }
