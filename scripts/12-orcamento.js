@@ -1484,6 +1484,7 @@ const Orcamento = (() => {
           numero: v.numero,
           status: v.status,
           aprovadoEm: v.aprovadoEm,                      // novo: card precisa saber
+          enviadoParaCard: v.enviadoParaCard,            // Felipe sessao 34: filtra "aprovacao local"
           ehImutavelParaCard,                            // novo: marca pra ordenacao/filter
           valor: Number(v.valorAprovado) || Number(v.total) || 0,
           precoProposta: Number(v.precoProposta) || Number(v.valorAprovado) || 0,
@@ -1510,7 +1511,21 @@ const Orcamento = (() => {
     // re-carimba aprovadoEm (aprovarOrcamento), entao a versao reaprovada
     // passa a mandar no card — batendo com lead.valor. Fallback criadoEm
     // pra imutaveis fechadas sem aprovadoEm (historico legado).
-    const _imutaveis = versoesFlat.filter(v => v.ehImutavelParaCard);
+    //
+    // Felipe sessao 34 (segundo fix): BUG "opcao 2 deveria ser SO local mas
+    // alterou valor no CRM". Cenario: V1 aprovada via opcao 1 (enviada pro
+    // card R$ 56.916). V2 depois aprovada via opcao 2 (SO local, V1 mantida
+    // no card). Mas o card mostrava R$ 54.668 (V2)! Causa: V2.aprovadoEm
+    // ficou mais recente que V1.aprovadoEm, entao 'ultimaFechada' escolhia
+    // V2 mesmo com enviadoParaCard=false. FIX: filtra imutaveis ignorando
+    // versoes com enviadoParaCard===false. Quem foi explicitamente marcada
+    // "local" nao concorre como 'dona do card' — quem manda continua sendo
+    // a ultima APROVADA-E-ENVIADA. lead.valor (que tambem nao foi atualizado
+    // por opcao 2) e o card agora batem.
+    const _imutaveis = versoesFlat.filter(v =>
+      v.ehImutavelParaCard
+      && v.enviadoParaCard !== false  // ignora aprovacao SO local
+    );
     const ultimaFechada = _imutaveis.length
       ? _imutaveis.reduce((maior, v) => {
           const dMaior = String(maior.aprovadoEm || maior.criadoEm || '');
