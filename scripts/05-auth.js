@@ -279,7 +279,28 @@ const Auth = (() => {
       const target = users.find(u => u.username === username);
       if (!target) return { ok: false, error: 'Usuario nao encontrado.' };
       if (target.fixed) return { ok: false, error: 'Usuario fixo nao pode ser removido.' };
+      // Remove do array de usuarios
       store.set('users', users.filter(u => u.username !== username));
+      // Felipe sessao 34 (Andressa demitida volta no merge): adiciona username
+      // ao TOMBSTONE em auth/users_deletados. Esse tombstone bloqueia o
+      // mergeProtegido_users de ressuscitar o usuario via cache stale de
+      // outro browser. Sem isso, deletar so' apagava localmente e o merge
+      // trazia de volta do cloud ou do cache do outro browser.
+      try {
+        const deletados = store.get('users_deletados') || [];
+        const ja = Array.isArray(deletados) && deletados.some(t => t && t.username === username);
+        if (!ja) {
+          const arr = Array.isArray(deletados) ? deletados.slice() : [];
+          arr.push({
+            username: username,
+            deletadoEm: new Date().toISOString(),
+            motivo: 'removido_via_ui'
+          });
+          store.set('users_deletados', arr);
+        }
+      } catch(e) {
+        console.warn('[Auth.removeUser] falha ao adicionar tombstone:', e);
+      }
       return { ok: true };
     },
     // Felipe sessao 18: changePassword agora armazena hash

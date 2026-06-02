@@ -173,29 +173,72 @@ const Database = (() => {
   // Sem isso, navegador velho com [Felipe] sobrescrevia [Felipe,Andressa]
   // do cloud. Acontece quando o usuario abre o sistema antes do sync
   // inicial completar e algum failsafe chama store.set('users', users).
+  //
+  // Felipe sessao 34 (Andressa demitida volta no merge): adicionada lista
+  // de TOMBSTONES (auth/users_deletados). Usernames nessa lista NUNCA voltam
+  // ao auth/users em nenhuma direcao - filtrados tanto do cloud quanto do
+  // local antes do merge. Sem tombstone, deletar usuario era impossivel
+  // se ele continuasse vivo em cache de outro browser - o merge resurectava.
   async function mergeProtegido_users(localValue) {
     if (!Array.isArray(localValue)) return localValue;
     try {
+      // Busca tombstones ANTES de tudo
+      var deletadosUrl = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.auth&key=eq.users_deletados&select=valor';
+      var deletadosRes = await fetch(deletadosUrl, { headers: sbHeaders(false) });
+      var deletadosSet = {};
+      if (deletadosRes.ok) {
+        var deletadosRows = await deletadosRes.json();
+        if (Array.isArray(deletadosRows) && deletadosRows.length > 0 && Array.isArray(deletadosRows[0].valor)) {
+          deletadosRows[0].valor.forEach(function(t) {
+            if (t && t.username) deletadosSet[t.username] = true;
+          });
+        }
+      }
+
       var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.auth&key=eq.users&select=valor';
       var res = await fetch(url, { headers: sbHeaders(false) });
-      if (!res.ok) return localValue;
+      if (!res.ok) {
+        // Mesmo sem cloud, aplica tombstones no local
+        return localValue.filter(function(u) {
+          return !(u && u.username && deletadosSet[u.username]);
+        });
+      }
       var rows = await res.json();
-      if (!Array.isArray(rows) || rows.length === 0) return localValue;
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return localValue.filter(function(u) {
+          return !(u && u.username && deletadosSet[u.username]);
+        });
+      }
       var cloudValue = rows[0].valor;
-      if (!Array.isArray(cloudValue)) return localValue;
-      // Merge: cloud + locais novos (locais que nao tem no cloud)
+      if (!Array.isArray(cloudValue)) {
+        return localValue.filter(function(u) {
+          return !(u && u.username && deletadosSet[u.username]);
+        });
+      }
+      // Merge: cloud + locais novos (locais que nao tem no cloud),
+      // EXCLUINDO tombstones em ambos os lados
       var byUsername = {};
       cloudValue.forEach(function(u) {
-        if (u && u.username) byUsername[u.username] = u;
+        if (u && u.username && !deletadosSet[u.username]) byUsername[u.username] = u;
       });
       var adicionados = 0;
+      var filtradosPorTombstone = 0;
       localValue.forEach(function(u) {
-        if (u && u.username && !byUsername[u.username]) {
+        if (!u || !u.username) return;
+        if (deletadosSet[u.username]) {
+          filtradosPorTombstone++;
+          return;
+        }
+        if (!byUsername[u.username]) {
           byUsername[u.username] = u;
           adicionados++;
         }
       });
       var merged = Object.values(byUsername);
+      if (filtradosPorTombstone > 0) {
+        console.warn('[DB] mergeProtegido_users: ' + filtradosPorTombstone +
+                     ' usuario(s) filtrado(s) por tombstone (auth/users_deletados)');
+      }
       if (merged.length > localValue.length) {
         console.warn('[DB] mergeProtegido_users: cloud tinha ' + cloudValue.length +
                      ' usuarios, local ' + localValue.length + ' — uniao = ' +
