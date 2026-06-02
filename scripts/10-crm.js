@@ -2649,6 +2649,65 @@
       return { total, count };
     }
 
+    /**
+     * Felipe sessao 34: Top Representantes em 2 rankings:
+     *   - Por VALOR (R$ total)
+     *   - Por QUANTIDADE de leads
+     *
+     * Inclui:
+     *   - Em Aberto (orcamento-pronto/aprovado/enviado/negociacao - mesma regra
+     *     de kpiEmAberto: nao conta qualificacao/fazer-orcamento/perdido)
+     *   - Fechados NO ANO state.kpiAno (mesma regra de kpiAno)
+     *
+     * Agrupa por l.representante_followup (label preferido) ou 'Showroom'
+     * quando vazio. Felipe: 'TODOS, REPRESENTANTE E SHOWROOM APENAS'.
+     *
+     * Devolve {porValor: [{nome, total, count}], porQtd: [{nome, total, count}]}
+     * cada um limitado aos top 5.
+     */
+    function topRepresentantes(leadsBase, ano) {
+      const ETAPAS_SEM_VALOR_VISIVEL = ['qualificacao', 'fazer-orcamento', 'fechado', 'perdido'];
+      const anoNum = Number(ano);
+      const agg = {};  // {nome: {total, count}}
+
+      function chaveRep(l) {
+        const r = String(l.representante_followup || '').trim();
+        return r || 'Showroom';
+      }
+      function add(nome, valor) {
+        if (!agg[nome]) agg[nome] = { total: 0, count: 0 };
+        agg[nome].total += valor;
+        agg[nome].count += 1;
+      }
+
+      leadsBase.forEach(l => {
+        // Em Aberto (etapas com valor visivel, exceto fechado/perdido/etc.)
+        if (!ETAPAS_SEM_VALOR_VISIVEL.includes(l.etapa)) {
+          add(chaveRep(l), Number(l.valor) || 0);
+          return;
+        }
+        // Fechado no ano
+        if (l.etapa === 'fechado') {
+          const dataRef = l.fechadoEm || l.orcadoEm || l.data || '';
+          if (!dataRef) return;
+          const d = new Date(String(dataRef));
+          if (isNaN(d.getTime())) return;
+          if (d.getFullYear() === anoNum) {
+            add(chaveRep(l), Number(l.valor) || 0);
+          }
+        }
+      });
+
+      const todos = Object.keys(agg).map(nome => ({
+        nome,
+        total: agg[nome].total,
+        count: agg[nome].count,
+      }));
+      const porValor = todos.slice().sort((a, b) => b.total - a.total).slice(0, 5);
+      const porQtd   = todos.slice().sort((a, b) => b.count - a.count).slice(0, 5);
+      return { porValor, porQtd };
+    }
+
     /** Anos disponiveis no filtro do KPI: 2021 ate ano atual */
     function anosFiltroKPI() {
       const atual = (new Date()).getFullYear();
@@ -3129,6 +3188,8 @@
       const kpiMes = somarFechadosNoPeriodo(leadsFiltrados, state.kpiMesAno, state.kpiMes);
       // Felipe sessao 33: KPI "Valor Gerado no Ano" — Enviado+Negociacao+Fechado
       const kpiGerado = somarGeradoNoAno(leadsFiltrados, state.kpiAno);
+      // Felipe sessao 34: Top 5 Representantes - 2 rankings (valor e qtd)
+      const topReps = topRepresentantes(leadsFiltrados, state.kpiAno);
 
       // Felipe sessao 12: KPI "Em Aberto" só conta leads que tem VALOR
       // VISIVEL no card. Antes somava qualquer lead.valor != fechado/perdido,
@@ -3214,8 +3275,47 @@
               <span class="crm-kpi-count">${kpiGerado.count} ${kpiGerado.count === 1 ? 'lead' : 'leads'}</span>
             </div>
           </div>`,
+        // Felipe sessao 34: Top 5 Representantes - 2 rankings (valor e qtd).
+        // Inclui: Em Aberto + Fechados no ano state.kpiAno. Showroom (lead
+        // sem representante_followup) entra como 'Showroom'.
+        'top-rep-valor': `
+          <div class="crm-kpi crm-kpi-top crm-kpi-top-valor" data-kpi-id="top-rep-valor" draggable="true">
+            <div class="crm-kpi-lbl">Top 5 Representantes <small style="color:#9a3412;font-weight:500;">(por valor)</small></div>
+            <div class="crm-kpi-top-lista">
+              ${topReps.porValor.length === 0
+                ? '<div class="crm-kpi-top-vazio">sem dados</div>'
+                : topReps.porValor.map((r, i) => `
+                  <div class="crm-kpi-top-row">
+                    <span class="crm-kpi-top-pos">${i + 1}.</span>
+                    <span class="crm-kpi-top-nome" title="${escapeHtml(r.nome)}">${escapeHtml(r.nome)}</span>
+                    <span class="crm-kpi-top-valor">R$ ${fmtBR(r.total)}</span>
+                  </div>`).join('')}
+            </div>
+            <div class="crm-kpi-sub">
+              <span class="crm-kpi-fixo">${state.kpiAno}</span>
+              <span class="crm-kpi-help" title="Soma do valor dos leads de cada representante: em aberto + fechado no ano. Inclui 'Showroom' quando lead nao tem representante.">?</span>
+            </div>
+          </div>`,
+        'top-rep-qtd': `
+          <div class="crm-kpi crm-kpi-top crm-kpi-top-qtd" data-kpi-id="top-rep-qtd" draggable="true">
+            <div class="crm-kpi-lbl">Top 5 Representantes <small style="color:#9a3412;font-weight:500;">(por quantidade)</small></div>
+            <div class="crm-kpi-top-lista">
+              ${topReps.porQtd.length === 0
+                ? '<div class="crm-kpi-top-vazio">sem dados</div>'
+                : topReps.porQtd.map((r, i) => `
+                  <div class="crm-kpi-top-row">
+                    <span class="crm-kpi-top-pos">${i + 1}.</span>
+                    <span class="crm-kpi-top-nome" title="${escapeHtml(r.nome)}">${escapeHtml(r.nome)}</span>
+                    <span class="crm-kpi-top-valor">${r.count} ${r.count === 1 ? 'lead' : 'leads'}</span>
+                  </div>`).join('')}
+            </div>
+            <div class="crm-kpi-sub">
+              <span class="crm-kpi-fixo">${state.kpiAno}</span>
+              <span class="crm-kpi-help" title="Quantidade de leads por representante: em aberto + fechado no ano. Inclui 'Showroom' quando lead nao tem representante.">?</span>
+            </div>
+          </div>`,
       };
-      const KPI_DEFAULT_ORDER = ['ano', 'mes', 'em-aberto', 'gerado'];
+      const KPI_DEFAULT_ORDER = ['ano', 'mes', 'em-aberto', 'gerado', 'top-rep-valor', 'top-rep-qtd'];
       const _appStore = Storage.scope('app');
       const ordemSalva = _appStore.get('crm_kpis_order');
       // Felipe sessao 33: era 'length === 3' (hardcoded). Com a entrada do

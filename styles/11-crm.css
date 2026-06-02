@@ -862,6 +862,10 @@
 .crm-kpis {
   display: flex;
   gap: 12px;
+  /* Felipe sessao 34: 6 KPIs (4 simples + 2 top representantes largos)
+     nao cabem mais em 1 linha em telas medias. Wrap pra quebrar pra
+     proxima linha sem cortar. */
+  flex-wrap: wrap;
 }
 .crm-kpi {
   background: var(--branco);
@@ -882,6 +886,57 @@
    (Enviado + Negociacao + Fechado do ano). */
 .crm-kpi.crm-kpi-gerado {
   border-left-color: var(--verde, #10B981);
+}
+/* Felipe sessao 34: KPI Top 5 Representantes - 2 cards (valor e quantidade).
+   Mais largos pra caber lista de 5 com nome + valor. Borda roxa pra
+   diferenciar dos outros KPIs. */
+.crm-kpi.crm-kpi-top {
+  min-width: 320px;
+  max-width: 380px;
+  border-left-color: #7c3aed;
+}
+.crm-kpi.crm-kpi-top .crm-kpi-lbl {
+  margin-bottom: 4px;
+}
+.crm-kpi-top-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2px 0;
+}
+.crm-kpi-top-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.crm-kpi-top-pos {
+  font-weight: 700;
+  color: #7c3aed;
+  min-width: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.crm-kpi-top-nome {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 500;
+}
+.crm-kpi-top-valor {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  white-space: nowrap;
+  font-size: 11px;
+}
+.crm-kpi-top-vazio {
+  font-size: 11px;
+  color: var(--text-soft);
+  font-style: italic;
+  padding: 4px 0;
 }
 .crm-kpi-fixo {
   font-size: 12px;
