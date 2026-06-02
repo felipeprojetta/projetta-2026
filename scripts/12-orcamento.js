@@ -519,7 +519,7 @@ const Orcamento = (() => {
    *   subMO        = total_horas × custo_hora           (R$ 110/h default)
    *   subFab       = subMO + total_perfis_pintura_acessorios + chapas
    */
-  function calcularFab(fab, itens) {
+  function calcularFab(fab, itens, versao) {
     const f = Object.assign({}, FAB_DEFAULT, fab || {});
     const etapas = Object.assign({}, FAB_DEFAULT.etapas, f.etapas || {});
     const n_op   = Number(f.n_operarios) || 0;
@@ -544,9 +544,56 @@ const Orcamento = (() => {
     // horasAutoPorItem[etapaId][idx] = auto desse item nessa etapa
     const horasAutoPorItem = ETAPAS_FAB.reduce((acc, e) => { acc[e.id] = {}; return acc; }, {});
     let diasColagem = 0;
+
+    // Felipe sessao 34: calcula CHAPAS REAIS por item a partir do
+    // versao.chapasSelecionadas (Lev Superficies). Antes pegava de
+    // item.qtdChapas que vinha vazio na maioria dos casos -> regra
+    // (qtdChapas + 1) calculava 0 mesmo com 2 chapas selecionadas.
+    //
+    // chapasSelecionadas tem formato: { cor: {numChapas, custoTotal, ...} }
+    // Total de chapas dessa porta = soma de numChapas das cores que ela usa
+    // (corExterna + corInterna - se for unica usa 1 valor).
+    // Pra distribuir entre os itens proporcionalmente: cada item recebe
+    // sua "fatia" baseada em quantas pecas ele contribui pra cada cor.
+    // Pragmatico: divide o total de chapas pelo numero de portas se nao
+    // tem como saber a contribuicao exata.
+    const chapasReaisPorItem = {};
+    if (versao && versao.chapasSelecionadas && f.chapasReaisPorItem == null) {
+      const sel = versao.chapasSelecionadas;
+      // Total de chapas em TODAS as cores usadas pelas portas
+      let totalChapas = 0;
+      const coresUsadas = new Set();
+      portas.forEach(it => {
+        if (it.tipo !== 'porta_externa') return;
+        if (it.corExterna) coresUsadas.add(String(it.corExterna).trim());
+        if (it.corInterna) coresUsadas.add(String(it.corInterna).trim());
+      });
+      coresUsadas.forEach(cor => {
+        const dado = sel[cor];
+        if (dado) totalChapas += Number(dado.numChapas) || 0;
+      });
+      // Distribuicao: total / num portas com qtd
+      const portasComQtd = portas.filter(i => i.tipo === 'porta_externa');
+      if (portasComQtd.length > 0 && totalChapas > 0) {
+        const porPorta = totalChapas / portasComQtd.length;
+        portas.forEach((it, idx) => {
+          if (it.tipo === 'porta_externa') {
+            chapasReaisPorItem[idx] = Math.round(porPorta);
+          }
+        });
+      }
+    }
+
     portas.forEach((it, idx) => {
       if (it.tipo !== 'porta_externa') return;
-      const h = horasItemPortaExterna(it);
+      // Felipe sessao 34: chapas reais por item (do Lev Superficies) tem
+      // prioridade sobre item.qtdChapas. Se passado em fab.chapasReaisPorItem
+      // (manual via UI futura) usa esse; senao, usa o que foi calculado de
+      // versao.chapasSelecionadas; senao item.qtdChapas (fallback).
+      const chapasReais = (f.chapasReaisPorItem && f.chapasReaisPorItem[idx] != null)
+                            ? Number(f.chapasReaisPorItem[idx])
+                            : (chapasReaisPorItem[idx] != null ? chapasReaisPorItem[idx] : null);
+      const h = horasItemPortaExterna(it, chapasReais);
       horasAuto.portal         += h.portal;
       horasAuto.folha_porta    += h.quadro;
       horasAuto.corte_usinagem += h.corte_usinagem;
@@ -6694,7 +6741,7 @@ const Orcamento = (() => {
           if (camposAfetamFab.includes(field)) {
             const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
             fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
-            const rFab = calcularFab(fab, versao.itens);
+            const rFab = calcularFab(fab, versao.itens, versao);
             atualizarVersao(versao.id, { itens: versao.itens, subFab: rFab.total });
           } else {
             atualizarVersao(versao.id, { itens: versao.itens });
@@ -7655,7 +7702,7 @@ const Orcamento = (() => {
         }
         // Persiste custoFab + recalcula subFab
         {
-          const rFab = calcularFab(fab, versao.itens);
+          const rFab = calcularFab(fab, versao.itens, versao);
           atualizarVersao(versao.id, {
             custoFab: Object.assign({}, versao.custoFab || {}, fab),
             subFab: rFab.total,
@@ -7666,7 +7713,7 @@ const Orcamento = (() => {
       console.warn('[Custo Fab/Inst] auto-acessorios falhou:', e);
     }
 
-    const rFab  = calcularFab(fab, versao.itens);
+    const rFab  = calcularFab(fab, versao.itens, versao);
     const rInst = calcularInst(inst, versao.itens);
 
     // Felipe (do doc): TODO relatorio tem cabecalho padronizado.
@@ -8777,7 +8824,7 @@ const Orcamento = (() => {
         }
 
         // Recalcula e salva subFab/subInst direto na versao (alimenta a DRE)
-        const rFab  = calcularFab(fab, versao.itens);
+        const rFab  = calcularFab(fab, versao.itens, versao);
         const rInst = calcularInst(inst, versao.itens);
         try {
           atualizarVersao(versao.id, {
@@ -8813,7 +8860,7 @@ const Orcamento = (() => {
         const v = Number(btn.dataset.instMarginPreset);
         inst.lucro_alvo_instalacao = v;
 
-        const rFab  = calcularFab(fab, versao.itens);
+        const rFab  = calcularFab(fab, versao.itens, versao);
         const rInst = calcularInst(inst, versao.itens);
         try {
           atualizarVersao(versao.id, {
@@ -8852,7 +8899,7 @@ const Orcamento = (() => {
         .map(it => Number(it.altura) || 0).filter(v => v > 0);
       if (alturasDre.length > 0) instDre.altura_porta_mm = Math.max(...alturasDre);
       // Recalcula subFab/subInst SEM rodar motores
-      const rFabDre  = calcularFab(fabDre, versao.itens);
+      const rFabDre  = calcularFab(fabDre, versao.itens, versao);
       const rInstDre = calcularInst(instDre, versao.itens);
       const newSubFab  = rFabDre.total;
       const newSubInst = rInstDre.total;
@@ -14044,7 +14091,7 @@ const Orcamento = (() => {
         const dif = Math.abs((Number(fabAtual.total_revestimento) || 0) - totalRevSync);
         if (dif > 0.01) {
           fabAtual.total_revestimento = totalRevSync;
-          const rFabSync = calcularFab(fabAtual, rSync.versao.itens);
+          const rFabSync = calcularFab(fabAtual, rSync.versao.itens, rSync.versao);
           atualizarVersao(rSync.versao.id, {
             custoFab: fabAtual,
             subFab: rFabSync.total,
@@ -14900,7 +14947,7 @@ const Orcamento = (() => {
         const novoFab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
         novoFab.total_revestimento = totalRev;
         // Recalcula subFab pra DRE refletir mudanca instantaneamente
-        const rFab = calcularFab(novoFab, versao.itens);
+        const rFab = calcularFab(novoFab, versao.itens, versao);
 
         atualizarVersao(versao.id, {
           chapasSelecionadas: chapasSel,
@@ -14969,7 +15016,7 @@ const Orcamento = (() => {
         const totalRev = computeRevestimentoPorCor(futVersao, pecasPorCor, todasSupGlobal).total;
         const novoFab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
         novoFab.total_revestimento = totalRev;
-        const rFab = calcularFab(novoFab, versao.itens);
+        const rFab = calcularFab(novoFab, versao.itens, versao);
         atualizarVersao(versao.id, {
           chapasSelecionadas: sel,
           custoFab: novoFab,
