@@ -349,7 +349,6 @@
         <div class="eq-equipes-legend">
           ${EQUIPES.map(e => `
             <span class="eq-equipe-chip" style="border-color:${e.cor};background:${e.cor}15;color:${e.cor}">
-              <span class="eq-equipe-chip-icon">${e.icon}</span>
               <span class="eq-equipe-chip-text">
                 <strong>${escapeHtml(e.label)}</strong>
                 <small>${escapeHtml(e.responsavel)}</small>
@@ -378,7 +377,6 @@
     // Header row: dia + 9 colunas equipe
     const headerEquipes = EQUIPES.map(e => `
       <th class="eq-th-equipe" style="background:${e.cor}15;border-bottom-color:${e.cor}">
-        <div class="eq-th-equipe-icon">${e.icon}</div>
         <div class="eq-th-equipe-label" style="color:${e.cor}">${escapeHtml(e.label)}</div>
         <div class="eq-th-equipe-resp">${escapeHtml(e.responsavel)}</div>
       </th>
