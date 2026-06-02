@@ -2724,6 +2724,219 @@
       return { porValor, porQtd, porValorFechado };
     }
 
+    /**
+     * Felipe sessao 34: RELATORIO DO REPRESENTANTE em PDF.
+     * Felipe: 'PRECISO AGORA DE UM RELATORIO QUE POSSA ENVIAR PARA O
+     * REPRESENTANTE MOSTRANDO TODOS LEADS DELE EM ABERTO, QUAIS ESTAO
+     * ENVIADOS, QUAIS ESTAO AGUARDANDO ORCAEMTNO QUAIS ESTAO EM NEGOCIACAO.
+     * ELE PRECISA VER TODOS E ME DA UM RETORNO COMO ESTA CADA NEGOCIACAO'.
+     *
+     * Abordagem: gera HTML standalone em nova aba + dispara window.print().
+     * Usuario escolhe 'Salvar como PDF' no dialogo do navegador.
+     *
+     * Estrutura:
+     *   Cabecalho: nome rep, data emissao, total leads em aberto + valor
+     *   Secoes (1 por etapa - so' as etapas em aberto):
+     *     Fazer Orcamento: leads aguardando o Felipe orcar
+     *     Orcamento Pronto: leads orcados mas nao enviados ainda
+     *     Orcamento Enviado: leads enviados ao cliente
+     *     Negociacao: leads em negociacao ativa
+     *   Cada lead: cliente, AGP, data, modelo+cor, valor, espaco vazio
+     *     'Status / Retorno do Representante' pra ele anotar caso imprima.
+     */
+    function gerarRelatorioRepresentante(repKey) {
+      if (!repKey) { alert('Selecione um representante no filtro primeiro.'); return; }
+      const ETAPAS_ABERTAS = [
+        { id: 'fazer-orcamento',  label: 'Aguardando Orcamento',     cor: '#3B82F6' },
+        { id: 'orcamento-pronto', label: 'Orcamento Pronto',          cor: '#8B5CF6' },
+        { id: 'orcamento-enviado',label: 'Orcamento Enviado',         cor: '#F59E0B' },
+        { id: 'negociacao',       label: 'Em Negociacao',             cor: '#EAB308' },
+      ];
+
+      // Filtra leads do rep selecionado nas etapas em aberto
+      const leadsRep = state.leads.filter(l =>
+        (l.representante_followup || '') === repKey
+        && ETAPAS_ABERTAS.some(e => e.id === l.etapa)
+      );
+
+      if (leadsRep.length === 0) {
+        alert('Nenhum lead em aberto encontrado pra ' + repKey + '.');
+        return;
+      }
+
+      // Razao social (puxa do 1o lead que tem)
+      const razaoSocial = (leadsRep.find(l => l.representante)?.representante) || repKey;
+
+      // Agrupa por etapa
+      const porEtapa = {};
+      ETAPAS_ABERTAS.forEach(e => { porEtapa[e.id] = []; });
+      leadsRep.forEach(l => { porEtapa[l.etapa].push(l); });
+
+      // Totais
+      const totalLeads = leadsRep.length;
+      const totalValor = leadsRep.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+
+      // Data emissao
+      const hoje = new Date();
+      const dd = String(hoje.getDate()).padStart(2, '0');
+      const mm = String(hoje.getMonth() + 1).padStart(2, '0');
+      const yyyy = hoje.getFullYear();
+      const dataEmissao = `${dd}/${mm}/${yyyy}`;
+
+      function fmtData(s) {
+        if (!s) return '';
+        // YYYY-MM-DD ou ISO
+        const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+        return String(s);
+      }
+      function escapeXml(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+      function blocoLead(l) {
+        const modelo = l.modelo ? `Modelo ${escapeXml(l.modelo)}` : '';
+        const folhas = l.numFolhas ? `${escapeXml(l.numFolhas)}F` : '';
+        const cor = l.cor ? `· Cor: ${escapeXml(l.cor)}` : '';
+        const cidade = l.cidade ? `${escapeXml(l.cidade)}${l.estado ? '/' + escapeXml(l.estado) : ''}` : '';
+        const valor = Number(l.valor) || 0;
+        const precoProposta = Number(l.precoProposta) || 0;
+        let valorBlock = '';
+        if (valor > 0) {
+          if (precoProposta > 0 && Math.abs(precoProposta - valor) > 0.01) {
+            valorBlock = `<div class="rep-lead-valor"><span class="rep-lbl">Original:</span> <span class="rep-orig">R$ ${fmtBR(precoProposta)}</span> · <span class="rep-lbl">Com Desconto:</span> <strong>R$ ${fmtBR(valor)}</strong></div>`;
+          } else {
+            valorBlock = `<div class="rep-lead-valor"><span class="rep-lbl">Valor:</span> <strong>R$ ${fmtBR(valor)}</strong></div>`;
+          }
+        }
+        const especs = [modelo, folhas, cor].filter(Boolean).join(' · ');
+        return `
+          <div class="rep-lead">
+            <div class="rep-lead-cab">
+              <div class="rep-lead-titulo">${escapeXml(l.cliente || '(sem nome)')}</div>
+              <div class="rep-lead-agp">${l.numeroAGP ? 'AGP ' + escapeXml(l.numeroAGP) : ''}${l.reserva ? ' · Res ' + escapeXml(l.reserva) : ''}</div>
+            </div>
+            <div class="rep-lead-info">
+              ${l.data ? `<span><strong>Data:</strong> ${escapeXml(fmtData(l.data))}</span>` : ''}
+              ${cidade ? `<span><strong>Local:</strong> ${cidade}</span>` : ''}
+              ${especs ? `<span><strong>${especs}</strong></span>` : ''}
+            </div>
+            ${valorBlock}
+            <div class="rep-lead-retorno">
+              <div class="rep-retorno-titulo">Retorno do Representante:</div>
+              <div class="rep-retorno-linhas"></div>
+            </div>
+          </div>`;
+      }
+
+      const secoesHtml = ETAPAS_ABERTAS.map(e => {
+        const leads = porEtapa[e.id] || [];
+        if (leads.length === 0) return '';
+        const valorSecao = leads.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+        return `
+          <section class="rep-secao">
+            <div class="rep-secao-titulo" style="border-left-color:${e.cor};">
+              <div class="rep-secao-h">${escapeXml(e.label)}</div>
+              <div class="rep-secao-meta">${leads.length} ${leads.length === 1 ? 'lead' : 'leads'} · R$ ${fmtBR(valorSecao)}</div>
+            </div>
+            <div class="rep-secao-leads">
+              ${leads.sort((a,b) => (Number(b.valor)||0) - (Number(a.valor)||0)).map(blocoLead).join('')}
+            </div>
+          </section>`;
+      }).join('');
+
+      const filename = `Relatorio_${repKey.replace(/[^a-zA-Z0-9]/g,'_')}_${yyyy}${mm}${dd}.pdf`;
+
+      const html = `<!doctype html>
+<html lang="pt-br"><head><meta charset="utf-8">
+<title>Relatorio ${escapeXml(repKey)} - ${dataEmissao}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1f2937; margin: 24px 28px; font-size: 12px; line-height: 1.4; }
+  .rep-header { border-bottom: 3px solid #C47012; padding-bottom: 12px; margin-bottom: 18px; }
+  .rep-header-top { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .rep-titulo { font-size: 22px; font-weight: 700; color: #1f2937; margin: 0; }
+  .rep-data { font-size: 12px; color: #6b7280; }
+  .rep-subtitulo { font-size: 14px; color: #374151; margin-top: 4px; }
+  .rep-resumo { display: flex; gap: 24px; margin-top: 10px; padding: 10px 14px; background: #f9fafb; border-radius: 6px; }
+  .rep-resumo-item { font-size: 12px; }
+  .rep-resumo-item strong { font-size: 16px; color: #C47012; display: block; }
+  .rep-instrucao { margin: 14px 0 18px; padding: 10px 14px; background: #fef3c7; border-left: 4px solid #d97706; font-size: 12px; color: #78350f; }
+  .rep-secao { margin-bottom: 22px; page-break-inside: auto; }
+  .rep-secao-titulo { display: flex; justify-content: space-between; align-items: baseline; border-left: 4px solid #999; padding: 4px 12px; background: #f3f4f6; margin-bottom: 10px; }
+  .rep-secao-h { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .rep-secao-meta { font-size: 12px; color: #6b7280; font-weight: 600; }
+  .rep-lead { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 14px; margin-bottom: 10px; page-break-inside: avoid; }
+  .rep-lead-cab { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .rep-lead-titulo { font-size: 13px; font-weight: 700; color: #1f2937; }
+  .rep-lead-agp { font-size: 11px; color: #6b7280; font-variant-numeric: tabular-nums; }
+  .rep-lead-info { font-size: 11px; color: #4b5563; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 14px; }
+  .rep-lead-info span strong { color: #1f2937; }
+  .rep-lead-valor { font-size: 12px; margin: 4px 0 8px; }
+  .rep-lbl { color: #6b7280; }
+  .rep-orig { text-decoration: line-through; color: #9ca3af; }
+  .rep-lead-retorno { border-top: 1px dashed #d1d5db; padding-top: 8px; margin-top: 6px; }
+  .rep-retorno-titulo { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; font-weight: 600; margin-bottom: 4px; }
+  .rep-retorno-linhas { min-height: 36px; border-bottom: 1px solid #d1d5db; }
+  .rep-rodape { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #9ca3af; text-align: center; }
+  @media print {
+    body { margin: 16px 18px; }
+    .rep-secao { break-inside: auto; }
+    .rep-lead { break-inside: avoid; }
+    .rep-no-print { display: none; }
+  }
+  .rep-no-print { position: fixed; top: 12px; right: 12px; }
+  .rep-no-print button { background: #C47012; color: #fff; border: none; padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+</style>
+</head>
+<body>
+  <div class="rep-no-print">
+    <button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  </div>
+  <header class="rep-header">
+    <div class="rep-header-top">
+      <h1 class="rep-titulo">Relatorio de Leads em Aberto</h1>
+      <div class="rep-data">Emitido em ${dataEmissao}</div>
+    </div>
+    <div class="rep-subtitulo"><strong>Representante:</strong> ${escapeXml(razaoSocial)}${razaoSocial !== repKey ? ` <span style="color:#6b7280;">(${escapeXml(repKey)})</span>` : ''}</div>
+    <div class="rep-resumo">
+      <div class="rep-resumo-item">
+        <strong>${totalLeads}</strong>
+        Leads em aberto
+      </div>
+      <div class="rep-resumo-item">
+        <strong>R$ ${fmtBR(totalValor)}</strong>
+        Valor total em pipeline
+      </div>
+    </div>
+  </header>
+  <div class="rep-instrucao">
+    <strong>Olá!</strong> Segue abaixo a lista de todos os leads em aberto sob sua responsabilidade. Por favor, me retorne o status atualizado de cada um — em que pe esta a negociacao, se ha previsao de fechamento, alguma objecao do cliente, ou se podemos arquivar.
+  </div>
+  ${secoesHtml}
+  <footer class="rep-rodape">
+    Projetta · Relatorio gerado em ${dataEmissao} · ${totalLeads} leads · R$ ${fmtBR(totalValor)}
+  </footer>
+  <script>
+    // Sugere o nome do arquivo no dialogo de impressao
+    document.title = ${JSON.stringify(filename.replace(/\.pdf$/, ''))};
+    // Auto-abre o dialogo de impressao apos render (delay 500ms pra DOM acomodar)
+    setTimeout(function() { window.print(); }, 500);
+  <\/script>
+</body></html>`;
+
+      // Abre em nova aba
+      const win = window.open('', '_blank');
+      if (!win) {
+        alert('Pop-up bloqueado. Permita pop-ups e tente novamente.');
+        return;
+      }
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    }
+
     /** Anos disponiveis no filtro do KPI: 2021 ate ano atual */
     function anosFiltroKPI() {
       const atual = (new Date()).getFullYear();
@@ -3376,6 +3589,7 @@
               <button data-view="kanban" class="${state.view === 'kanban' ? 'is-active' : ''}">Kanban</button>
               <button data-view="lista"  class="${state.view === 'lista'  ? 'is-active' : ''}">Lista</button>
             </div>
+            ${state.filtros.representante ? `<button class="btn btn-ghost btn-sm crm-btn-relatorio-rep" id="crm-btn-relatorio-rep" title="Gera relatorio em PDF dos leads em aberto deste representante pra enviar e pedir feedback">📄 Relatorio do Representante</button>` : ''}
             <button class="btn btn-ghost btn-sm" id="crm-btn-import">⤓ Importar planilha</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-export">⬇ Exportar Excel</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-modelo" title="Baixa modelo Excel em branco com todos os campos para preencher e reimportar">📋 Modelo Excel</button>
@@ -3572,6 +3786,10 @@
       // R16: Importar/Exportar Excel
       container.querySelector('#crm-btn-export')?.addEventListener('click', exportarLeadsXLSX);
       container.querySelector('#crm-btn-modelo')?.addEventListener('click', exportarTemplateXLSX);
+      // Felipe sessao 34: Relatorio do Representante (PDF via print do navegador)
+      container.querySelector('#crm-btn-relatorio-rep')?.addEventListener('click', () => {
+        gerarRelatorioRepresentante(state.filtros.representante);
+      });
       const fileInputCrm = container.querySelector('#crm-import-file');
       container.querySelector('#crm-btn-import')?.addEventListener('click', () => fileInputCrm?.click());
       fileInputCrm?.addEventListener('change', (e) => {

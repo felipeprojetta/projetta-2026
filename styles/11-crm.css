@@ -944,6 +944,20 @@
   font-style: italic;
   padding: 4px 0;
 }
+
+/* Felipe sessao 34: botao 'Relatorio do Representante' aparece somente
+   quando o filtro de representante esta ativo. Cor laranja pra chamar
+   atencao - acao especifica e contextual. */
+.crm-btn-relatorio-rep {
+  background: #fff7ed !important;
+  border-color: #fb923c !important;
+  color: #9a3412 !important;
+  font-weight: 600 !important;
+}
+.crm-btn-relatorio-rep:hover {
+  background: #fed7aa !important;
+  border-color: #ea580c !important;
+}
 .crm-kpi-fixo {
   font-size: 12px;
   color: var(--text);            /* era text-soft (cinza) — agora azul-escuro */
