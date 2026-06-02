@@ -1936,24 +1936,32 @@ const ChapasPortaExterna = (() => {
   }
 
   /**
-   * Felipe sessao 34: Modelos 08 e 15 (ripados) - quando 'Tampa Maior 01'
-   * passa de 1480mm de largura, divide em:
-   *   - 'Tampa Maior 01' com largura 1480 (mantem qtd/altura/cor originais)
+   * Felipe sessao 34: Modelos 08 e 15 (ripados) - quando a TAMPA MAIOR
+   * principal passa de 1480mm de largura, divide em:
+   *   - Tampa Maior (mesmo label) com largura 1480 (mantem qtd/altura/cor)
    *   - 'Tampa Complemento' com largura = original - 1480 (mantem altura/qtd)
    *
-   * Aplica apenas em peca.id === 'tampa_maior_01' E modelo in {8,15}.
+   * Tampa Maior principal por variante:
+   *   1F: id='tampa_maior_cava' (label 'Tampa Maior do Puxador Embutido')
+   *   2F: id='tampa_maior_01' (label 'Tampa Maior 01')
+   * Demais (Tampa Borda, Tampa Maior 02/03, etc.) NAO levam split conforme
+   * regra Felipe: 'so' a Tampa Maior principal'.
+   *
+   * Aplica apenas em modelo in {8,15} E id in {tampa_maior_01, tampa_maior_cava}.
    * Retorna true se split foi feito (caller NAO faz push original).
    * Retorna false caso contrario.
    *
-   * Felipe: 'QUANTO EU TIVER MODELO 08 OU MODELO 15 QUE SAO RIPADOS, CASO PASSE
-   * DE 1480 A TAMPA MAIOOR, PEGUE A MEDIDA DA TAMPA MAIOR MENOS 1480 E FACA UM
-   * COMPLEMENTEO POR EXEMPELO SE DEU 1700 FACA 1700 - 1480, AI VAI TER 2 PECAS
-   * DE 1480 E MAIS 2 COMPLEMENTOS DE 220 PELA ALTURA DA PECA'.
+   * Felipe sessao 34: 'modelo 15 nao esta ainda automatico se tampa maior
+   * for maior que 1480 fazer o complemento' [print mostrava 1F com
+   * tampa_maior_cava 1643×2732 nao gerando complemento, so' 2F estava OK].
    */
   function _splitTampaMaior01Ripado(peca, modelo, out) {
     const LIMITE_TAMPA = 1480;
     if (modelo !== 8 && modelo !== 15) return false;
-    if (peca.id !== 'tampa_maior_01') return false;
+    // Felipe sessao 34: tampa principal do ripado em 1F e' 'tampa_maior_cava',
+    // em 2F e' 'tampa_maior_01'. Ambos batem na mesma regra.
+    const ehTampaMaiorPrincipal = (peca.id === 'tampa_maior_01' || peca.id === 'tampa_maior_cava');
+    if (!ehTampaMaiorPrincipal) return false;
     if (Number(peca.largura) <= LIMITE_TAMPA) return false;
 
     const larguraOriginal = Number(peca.largura);
