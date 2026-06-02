@@ -2781,6 +2781,30 @@
       // Razao social (puxa do 1o lead que tem)
       const razaoSocial = (leadsRep.find(l => l.representante)?.representante) || repKey;
 
+      // Felipe sessao 34: busca email do rep + gerente/coordenador do cadastro
+      // pra montar o mailto:. Email vem do 1o contato com email cadastrado.
+      // Gerente/coordenador atualmente sao strings de NOME (nao email) - sao
+      // exibidos como info pra Felipe digitar manualmente no CC do cliente
+      // de email apos o mailto: abrir.
+      let emailRep = '';
+      let nomeContatoRep = '';
+      let gerenteNome = '';
+      let coordenadorNome = '';
+      try {
+        const reps = (Storage.scope('cadastros').get('representantes_lista') || []);
+        const r = reps.find(x => String(x.followup || '').trim() === String(repKey).trim());
+        if (r) {
+          gerenteNome = String(r.gerente || '').trim();
+          coordenadorNome = String(r.coordenador || '').trim();
+          const contatos = Array.isArray(r.contatos) ? r.contatos : [];
+          const c = contatos.find(ct => ct && ct.email);
+          if (c) {
+            emailRep = String(c.email || '').trim();
+            nomeContatoRep = String(c.nome || '').trim();
+          }
+        }
+      } catch(_) {}
+
       // Agrupa por etapa
       const porEtapa = {};
       ETAPAS_ABERTAS.forEach(e => { porEtapa[e.id] = []; });
@@ -2862,6 +2886,44 @@
 
       const filename = `Relatorio_${repKey.replace(/[^a-zA-Z0-9]/g,'_')}_${yyyy}${mm}${dd}.pdf`;
 
+      // Felipe sessao 34: monta corpo do email em TEXTO PLANO (mailto: nao
+      // suporta HTML). Versao compacta - 1 linha por lead pra caber no
+      // limite de URL do mailto (~2000 chars). Caso passe do limite, o
+      // proprio handler do navegador trunca - solucao: tambem copia o
+      // body completo pro clipboard pra usuario poder colar.
+      function blocoLeadTxt(l) {
+        const valor = Number(l.valor) || 0;
+        const cidade = l.cidade ? `${l.cidade}${l.estado ? '/' + l.estado : ''}` : '';
+        const dt = l.data ? fmtData(l.data) : '';
+        const agp = l.numeroAGP ? `AGP ${l.numeroAGP}` : (l.reserva ? `Res ${l.reserva}` : 'sem AGP');
+        const linha1 = `- ${l.cliente || '(sem nome)'} | ${agp}${cidade ? ' | ' + cidade : ''}${dt ? ' | ' + dt : ''}${valor > 0 ? ' | R$ ' + fmtBR(valor) : ''}`;
+        return linha1 + '\n  Retorno: ____________________________________________';
+      }
+      const secoesTxt = ETAPAS_ABERTAS.map(e => {
+        const leads = porEtapa[e.id] || [];
+        if (leads.length === 0) return '';
+        const valorSecao = leads.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+        const ord = leads.slice().sort((a,b) => (Number(b.valor)||0) - (Number(a.valor)||0));
+        return `\n>>> ${e.label.toUpperCase()} (${leads.length} ${leads.length === 1 ? 'lead' : 'leads'}${valorSecao > 0 ? ' - R$ ' + fmtBR(valorSecao) : ''})\n\n${ord.map(blocoLeadTxt).join('\n\n')}\n`;
+      }).filter(Boolean).join('\n');
+
+      const emailSubject = `Status de Leads em Aberto - ${razaoSocial} - ${dataEmissao}`;
+      const emailSaudacao = nomeContatoRep
+        ? `Prezado(a) ${nomeContatoRep},`
+        : `Prezado(a) Representante,`;
+      const emailBody =
+`${emailSaudacao}
+
+Encaminhamos a relacao dos leads em aberto sob sua responsabilidade comercial. Solicitamos retorno com o status atualizado de cada negociacao, contemplando estagio atual, previsao de fechamento, eventuais objecoes do cliente e indicacao dos leads que podem ser arquivados.
+
+RESUMO: ${totalLeads} ${totalLeads === 1 ? 'lead' : 'leads'} - Total em pipeline: R$ ${fmtBR(totalValor)}
+${secoesTxt}
+
+Aguardamos retorno e permanecemos a disposicao para esclarecimentos.
+
+Atenciosamente,
+Equipe Comercial Projetta`;
+
       const html = `<!doctype html>
 <html lang="pt-br"><head><meta charset="utf-8">
 <title>Relatorio ${escapeXml(repKey)} - ${dataEmissao}</title>
@@ -2876,7 +2938,12 @@
   .rep-resumo { display: flex; gap: 24px; margin-top: 10px; padding: 10px 14px; background: #f9fafb; border-radius: 6px; }
   .rep-resumo-item { font-size: 12px; }
   .rep-resumo-item strong { font-size: 16px; color: #C47012; display: block; }
-  .rep-instrucao { margin: 14px 0 18px; padding: 10px 14px; background: #fef3c7; border-left: 4px solid #d97706; font-size: 12px; color: #78350f; }
+  .rep-instrucao { margin: 14px 0 18px; padding: 14px 18px; background: #f9fafb; border-left: 4px solid #C47012; font-size: 12px; color: #1f2937; line-height: 1.6; }
+  .rep-instrucao p { margin: 0 0 8px; }
+  .rep-instrucao p:last-child { margin-bottom: 0; }
+  .rep-instrucao ul { margin: 6px 0 8px 22px; padding: 0; }
+  .rep-instrucao li { margin-bottom: 3px; }
+  .rep-assinatura { font-size: 12px; color: #4b5563; font-style: italic; }
   .rep-secao { margin-bottom: 22px; page-break-inside: auto; }
   .rep-secao-titulo { display: flex; justify-content: space-between; align-items: baseline; border-left: 4px solid #999; padding: 4px 12px; background: #f3f4f6; margin-bottom: 10px; }
   .rep-secao-h { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -2900,12 +2967,17 @@
     .rep-lead { break-inside: avoid; }
     .rep-no-print { display: none; }
   }
-  .rep-no-print { position: fixed; top: 12px; right: 12px; }
-  .rep-no-print button { background: #C47012; color: #fff; border: none; padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .rep-no-print { position: fixed; top: 12px; right: 12px; display: flex; gap: 8px; z-index: 1000; }
+  .rep-no-print button { background: #C47012; color: #fff; border: none; padding: 10px 18px; font-size: 13px; font-weight: 600; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .rep-no-print button.rep-btn-email { background: #2563eb; }
+  .rep-no-print button:hover { opacity: 0.9; }
+  .rep-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 12px 20px; border-radius: 6px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.3s; pointer-events: none; max-width: 80%; }
+  .rep-toast.show { opacity: 1; }
 </style>
 </head>
 <body>
   <div class="rep-no-print">
+    <button class="rep-btn-email" onclick="enviarEmail()">📧 Enviar por Email</button>
     <button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
   </div>
   <header class="rep-header">
@@ -2926,17 +2998,100 @@
     </div>
   </header>
   <div class="rep-instrucao">
-    <strong>Olá!</strong> Segue abaixo a lista de todos os leads em aberto sob sua responsabilidade. Por favor, me retorne o status atualizado de cada um — em que pe esta a negociacao, se ha previsao de fechamento, alguma objecao do cliente, ou se podemos arquivar.
+    <p>${escapeXml(emailSaudacao)}</p>
+    <p>Encaminhamos a relacao dos leads em aberto sob sua responsabilidade comercial. Solicitamos a gentileza de retornar com o status atualizado de cada negociacao, contemplando:</p>
+    <ul>
+      <li>Estagio atual da negociacao</li>
+      <li>Previsao de fechamento (quando aplicavel)</li>
+      <li>Eventuais objecoes do cliente</li>
+      <li>Indicacao dos leads que podem ser arquivados</li>
+    </ul>
+    <p>Aguardamos retorno e permanecemos a disposicao para esclarecimentos.</p>
+    <p class="rep-assinatura">Atenciosamente,<br>Equipe Comercial Projetta</p>
   </div>
   ${secoesHtml}
   <footer class="rep-rodape">
     Projetta · Relatorio gerado em ${dataEmissao} · ${totalLeads} leads · R$ ${fmtBR(totalValor)}
   </footer>
+  <div id="rep-toast" class="rep-toast"></div>
   <script>
-    // Sugere o nome do arquivo no dialogo de impressao
     document.title = ${JSON.stringify(filename.replace(/\.pdf$/, ''))};
-    // Auto-abre o dialogo de impressao apos render (delay 500ms pra DOM acomodar)
-    setTimeout(function() { window.print(); }, 500);
+
+    // Felipe sessao 34: dados embedded pra montar mailto:
+    var emailRep = ${JSON.stringify(emailRep)};
+    var nomeContatoRep = ${JSON.stringify(nomeContatoRep)};
+    var gerenteNome = ${JSON.stringify(gerenteNome)};
+    var coordenadorNome = ${JSON.stringify(coordenadorNome)};
+    var emailSubject = ${JSON.stringify(emailSubject)};
+    var emailBody = ${JSON.stringify(emailBody)};
+
+    function showToast(msg, ms) {
+      var t = document.getElementById('rep-toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(function(){ t.classList.remove('show'); }, ms || 3500);
+    }
+
+    function copiarTextoParaClipboard(texto) {
+      try {
+        return navigator.clipboard.writeText(texto).then(function(){ return true; }).catch(function(){ return fallbackCopy(texto); });
+      } catch(_) { return Promise.resolve(fallbackCopy(texto)); }
+    }
+    function fallbackCopy(texto) {
+      var ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch(_) {}
+      document.body.removeChild(ta);
+      return ok;
+    }
+
+    function enviarEmail() {
+      // Se nao tem email do rep cadastrado, pede manualmente
+      var to = emailRep;
+      if (!to) {
+        to = prompt('Email do representante nao esta cadastrado.\\n\\nDigite o email manualmente:');
+        if (!to) return;
+        to = String(to).trim();
+      }
+
+      // CC: se gerente/coordenador tem nome cadastrado, alerta o Felipe pra
+      // adicionar email manualmente no cliente apos abrir o mailto. Hoje so'
+      // temos nomes (nao emails) cadastrados.
+      var infoCC = '';
+      if (gerenteNome || coordenadorNome) {
+        var partes = [];
+        if (gerenteNome)     partes.push('Gerente: ' + gerenteNome);
+        if (coordenadorNome) partes.push('Coordenador: ' + coordenadorNome);
+        infoCC = partes.join(' | ');
+      }
+
+      // mailto: tem limite de URL (~2000 chars). Calcula tamanho;
+      // se passar, copia corpo pro clipboard e abre mailto SEM body
+      // (usuario cola Ctrl+V no cliente de email).
+      var mailtoBase = 'mailto:' + encodeURIComponent(to) +
+                      '?subject=' + encodeURIComponent(emailSubject);
+      var mailtoCompleto = mailtoBase + '&body=' + encodeURIComponent(emailBody);
+
+      copiarTextoParaClipboard(emailBody).then(function(copiou) {
+        if (mailtoCompleto.length > 1800) {
+          // Body muito grande - abre so' mailto basico, corpo no clipboard
+          window.location.href = mailtoBase;
+          var msg = 'Corpo do email copiado pro clipboard (Ctrl+V no cliente).';
+          if (infoCC) msg += ' Adicione em CC: ' + infoCC;
+          showToast(msg, 6000);
+        } else {
+          // Tudo cabe no mailto - abre direto
+          window.location.href = mailtoCompleto;
+          if (infoCC) showToast('Adicione em CC no cliente: ' + infoCC, 6000);
+          else if (copiou) showToast('Email aberto. Corpo tambem foi copiado pro clipboard.', 4000);
+          else showToast('Email aberto no cliente padrao.', 3000);
+        }
+      });
+    }
   <\/script>
 </body></html>`;
 
