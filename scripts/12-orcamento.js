@@ -124,53 +124,57 @@ const Orcamento = (() => {
 
   /**
    * REGRA 1 — Portal (montagem do aro), em horas.
-   *   altura ≤ 2500mm → 5h
-   *   altura ≤ 3800mm → 7h
-   *   altura ≤ 6500mm → 9h
-   *   altura > 6500mm → 14h
-   *   Se 2 folhas: +3h (não multiplica)
+   * Felipe sessao 34 (atualizacao):
+   *   SEM alisar:  altura ≤ 2600 → 5h
+   *                ≤ 3600 → 7h
+   *                ≤ 6000 → 9h
+   *                > 6000 → 12h
+   *   COM alisar:  +2h em todas as faixas
+   *   Portal NAO multiplica por nFolhas (e' um aro so').
    *   × qtd de portas
    */
-  function regraPortal(altura, nFolhas, qtdPortas) {
+  function regraPortal(altura, nFolhas, qtdPortas, temAlisar) {
     if (!altura || !qtdPortas) return 0;
     let base;
-    if (altura <= 2500)      base = 5;
-    else if (altura <= 3800) base = 7;
-    else if (altura <= 6500) base = 9;
-    else                     base = 14;
-    if (Number(nFolhas) === 2) base += 3;
+    if (altura <= 2600)      base = 5;
+    else if (altura <= 3600) base = 7;
+    else if (altura <= 6000) base = 9;
+    else                     base = 12;
+    if (temAlisar) base += 2;
     return base * qtdPortas;
   }
 
   /**
-   * REGRA 2 — Quadro (montagem da folha), em horas.
-   *   Mesmas faixas do Portal por altura.
+   * REGRA 2 — Quadro (Folha da Porta), em horas.
+   * Felipe sessao 34 (atualizacao): mesmas faixas do Portal por altura.
+   *   ≤ 2600 → 5h | ≤ 3600 → 7h | ≤ 6000 → 9h | > 6000 → 12h
    *   Se 2 folhas: ×2 (multiplica)
    *   × qtd de portas
    */
   function regraQuadro(altura, nFolhas, qtdPortas) {
     if (!altura || !qtdPortas) return 0;
     let base;
-    if (altura <= 2500)      base = 5;
-    else if (altura <= 3800) base = 7;
-    else if (altura <= 6500) base = 9;
-    else                     base = 14;
+    if (altura <= 2600)      base = 5;
+    else if (altura <= 3600) base = 7;
+    else if (altura <= 6000) base = 9;
+    else                     base = 12;
     if (Number(nFolhas) === 2) base *= 2;
     return base * qtdPortas;
   }
 
   /**
    * REGRA 3 — Corte e usinagem, em horas.
-   *   qtd_chapas + 1   → porta lisa (default)
-   *   qtd_chapas + 2   → porta ripado (modelos 08, 15, 20, 21)
+   * Felipe sessao 34 (atualizacao):
+   *   horas = qtdChapas + 1
+   *   (e' a quantidade de chapas de revestimento + 1 hora pra
+   *   preparacao/finalizacao. Total para a porta inteira.)
    *   × qtd de portas (cada porta consome chapas separadamente)
-   *   Tambem aplica × 2 quando 2 folhas (mais chapas).
    */
   function regraCorte(qtdChapas, modeloNumero, nFolhas, qtdPortas) {
-    if (!qtdChapas || !qtdPortas) return 0;
-    const base = Number(qtdChapas) + (isRipado(modeloNumero) ? 2 : 1);
-    const fol = Number(nFolhas) === 2 ? base * 2 : base;
-    return fol * qtdPortas;
+    if (!qtdPortas) return 0;
+    const ch = Number(qtdChapas) || 0;
+    if (ch === 0) return 0;
+    return (ch + 1) * qtdPortas;
   }
 
   /**
@@ -206,15 +210,19 @@ const Orcamento = (() => {
 
   /**
    * REGRA 5 — Conferencia & Embalagem, em horas.
-   *   altura < 6000mm → 3h base
-   *   altura ≥ 6000mm → 4h base
-   *   Se 2 folhas: ×2.
+   * Felipe sessao 34 (atualizacao):
+   *   altura ≤ 2500mm  → 2h
+   *   altura ≤ 5000mm  → 3h
+   *   altura > 5000mm  → 4h
+   *   (NAO multiplica por folhas - e' conferencia da porta completa)
    *   × qtd de portas.
    */
   function regraConferencia(altura, nFolhas, qtdPortas) {
     if (!altura || !qtdPortas) return 0;
-    let base = altura < 6000 ? 3 : 4;
-    if (Number(nFolhas) === 2) base *= 2;
+    let base;
+    if (altura <= 2500)      base = 2;
+    else if (altura <= 5000) base = 3;
+    else                     base = 4;
     return base * qtdPortas;
   }
 
@@ -231,24 +239,80 @@ const Orcamento = (() => {
   /**
    * Calcula horas auto por etapa pra UM item porta_externa.
    * Devolve um objeto com as 5 etapas + dias da colagem (pra exibir).
+   * Felipe sessao 34:
+   *   - chapasReais: qtde de chapas REAIS do item (do Lev Superficies).
+   *     Se passada, usa em vez de item.qtdChapas. Permite regra de Corte
+   *     refletir as chapas selecionadas em tempo real.
+   *   - Portal: detecta temAlisar pelo item.alisar ('sim' ou 'nao')
    */
-  function horasItemPortaExterna(item) {
+  function horasItemPortaExterna(item, chapasReais) {
     const altura  = parseFloat(String(item.altura || '').replace(',', '.')) || 0;
     const qtd     = Math.max(1, Number(item.quantidade) || 1);
     const folhas  = Number(item.nFolhas) || 1;
-    const chapas  = Number(item.qtdChapas) || 0;
+    const chapas  = (chapasReais != null && Number.isFinite(Number(chapasReais)))
+                      ? Number(chapasReais)
+                      : (Number(item.qtdChapas) || 0);
     const modelo  = Number(item.modeloNumero) || 0;
     const alus    = corEhAlusense(item);
+    const temAlisar = /sim/i.test(String(item.alisar || '')) || item.alisar === true;
 
     const colag = regraColagem(altura, modelo, folhas, qtd, alus);
     return {
-      portal:         regraPortal(altura, folhas, qtd),
+      portal:         regraPortal(altura, folhas, qtd, temAlisar),
       quadro:         regraQuadro(altura, folhas, qtd),
       corte_usinagem: regraCorte(chapas, modelo, folhas, qtd),
       colagem:        colag.horas,
       colagem_dias:   colag.dias,
       conf_bem:       regraConferencia(altura, folhas, qtd),
     };
+  }
+
+  /**
+   * Felipe sessao 34: REGRA AUTOMATICA DE INSTALACAO baseada nos itens.
+   *
+   *   ate 4m (4000mm)  altura folha → 1 dia, 2 pessoas
+   *   ate 5.5m (5500mm)            → 2 dias, 2 pessoas
+   *   acima 5.5m                   → 2 dias, 3 pessoas
+   *
+   *   SE existe fixo lateral/superior com altura > 3m DA FOLHA DA PORTA:
+   *   forca 3 pessoas E forca minimo 2 dias.
+   *
+   * Retorna {dias, pessoas, motivo} pra UI exibir/usar como default.
+   */
+  function regrasInstalacaoAuto(itens) {
+    if (!Array.isArray(itens) || itens.length === 0) {
+      return { dias: 0, pessoas: 0, motivo: 'sem itens' };
+    }
+    let maiorAlturaPorta = 0;
+    let temFixoGrande   = false;     // fixo lateral/superior > 3m
+    let alturaFolhaPorta = 0;        // pra comparar com fixo
+    itens.forEach(it => {
+      if (!it || !it.tipo) return;
+      const alt = parseFloat(String(it.altura || '').replace(',', '.')) || 0;
+      if (it.tipo === 'porta_externa') {
+        if (alt > maiorAlturaPorta) maiorAlturaPorta = alt;
+        if (alt > alturaFolhaPorta) alturaFolhaPorta = alt;
+      } else if (it.tipo === 'fixo_acoplado') {
+        if (alt > 3000) temFixoGrande = true;
+      }
+    });
+
+    // Faixa base pela maior altura de porta
+    let dias, pessoas;
+    if (maiorAlturaPorta <= 4000)      { dias = 1; pessoas = 2; }
+    else if (maiorAlturaPorta <= 5500) { dias = 2; pessoas = 2; }
+    else                                { dias = 2; pessoas = 3; }
+
+    let motivo = `altura porta ${maiorAlturaPorta}mm`;
+
+    // Fixo lateral/superior > 3m forca 3 pessoas + min 2 dias
+    if (temFixoGrande) {
+      if (pessoas < 3) pessoas = 3;
+      if (dias < 2)    dias = 2;
+      motivo += ' + fixo >3m (forcando 3 pessoas, min 2 dias)';
+    }
+
+    return { dias, pessoas, motivo };
   }
 
   // Defaults da fabricacao (sao salvos por versao, editaveis)
@@ -472,80 +536,90 @@ const Orcamento = (() => {
     const tInsumos     = tPerfis + tPintura + tAcessorios + tRevestiment + tExtras + tFechDigital;
 
     // Soma horas calculadas das regras pra cada etapa (todos os itens porta_externa).
-    // Felipe sessao 34: tabela de horas agora inclui revestimento_parede tambem
-    // (Felipe quer 'campo para colocar horas de fabricacao' do rev). Mas rev_parede
-    // nao tem regras automaticas (largura×altura×modelo nao mapeia pra Portal/Folha/
-    // Colagem como porta) - so' manual. Entao itera 'itensComHoras' pra montar a
-    // tabela, mas horasAuto so' acumula pra porta_externa.
+    // Felipe sessao 34: agora calcula AUTO POR ITEM tambem (horasAutoPorItem)
+    // pra UI usar como valor inicial quando campo vazio + flag de override visual.
+    // Tambem usa qtdChapas REAL (chapasReaisPorItem) do Lev Superficies se passado.
     const portas = (itens || []).filter(i => i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'));
     const horasAuto = ETAPAS_FAB.reduce((acc, e) => { acc[e.id] = 0; return acc; }, {});
-    let diasColagem = 0;  // pra exibir o detalhe
-    portas.forEach(it => {
-      if (it.tipo !== 'porta_externa') return;  // rev_parede: sem horas auto, so' manual
+    // horasAutoPorItem[etapaId][idx] = auto desse item nessa etapa
+    const horasAutoPorItem = ETAPAS_FAB.reduce((acc, e) => { acc[e.id] = {}; return acc; }, {});
+    let diasColagem = 0;
+    portas.forEach((it, idx) => {
+      if (it.tipo !== 'porta_externa') return;
       const h = horasItemPortaExterna(it);
       horasAuto.portal         += h.portal;
-      horasAuto.folha_porta    += h.quadro;          // quadro → folha_porta (renomeado)
+      horasAuto.folha_porta    += h.quadro;
       horasAuto.corte_usinagem += h.corte_usinagem;
       horasAuto.colagem        += h.colagem;
-      horasAuto.conf_embalagem += h.conf_bem;        // conf_bem → conf_embalagem (renomeado)
+      horasAuto.conf_embalagem += h.conf_bem;
+      horasAutoPorItem.portal[idx]         = h.portal;
+      horasAutoPorItem.folha_porta[idx]    = h.quadro;
+      horasAutoPorItem.corte_usinagem[idx] = h.corte_usinagem;
+      horasAutoPorItem.colagem[idx]        = h.colagem;
+      horasAutoPorItem.conf_embalagem[idx] = h.conf_bem;
       diasColagem = Math.max(diasColagem, h.colagem_dias || 0);
     });
 
-    // Aplica override por etapa (se preenchido)
-    // Felipe (sessao 28): "QUANDO TENHO MULTI ITENS COLOQUE AO LADO Custo
-    // de Fabricacao OUTRA COLUNA POIS CADA ITEM TEM SEU TEMPO E DEPOIS
-    // SOMA TODAS AS HORAS". Estrutura nova:
-    //   etapas[id].horasPorItem = { '0': N, '1': N, ... }  (1 valor por item)
-    //   etapas[id].horasOverride = N                       (fallback global, compat)
+    // Felipe sessao 34: NOVA logica - "automatize as horas, mas eu posso
+    // alterar manual; se alterar manual destaque visualmente"
     //
-    // Logica:
-    //   - Se horasPorItem tem qualquer chave preenchida → soma TODAS as
-    //     entradas (chaves vazias = 0). horasOverride e' ignorado.
-    //   - Se horasPorItem vazio e horasOverride preenchido → usa
-    //     horasOverride (comportamento antigo).
-    //   - Se ambos vazios → usa o calculado automatico.
+    //   - Campo VAZIO → usa valor AUTO calculado pela regra
+    //   - Campo PREENCHIDO → usa o valor manual (override).
+    //     Se valor manual != auto → flag override pra UI pintar diferente.
+    //
+    // horasOverride global (compat antigo): se preenchido E horasPorItem
+    // vazio, soma esse no item 0 e zera os demais.
     const detalhes = ETAPAS_FAB.map(e => {
       const ent = etapas[e.id] || {};
       const auto = horasAuto[e.id] || 0;
+      const autoPorItem = horasAutoPorItem[e.id] || {};
       const ov = ent.horasOverride;
       const porItem = ent.horasPorItem || {};
 
-      // Soma horasPorItem (alguma entrada preenchida → ja conta como override)
-      const chavesPorItem = Object.keys(porItem);
-      const algumPreenchidoPorItem = chavesPorItem.some(k => {
+      // horasFinaisPorItem: o que cada item realmente conta (manual ou auto)
+      // overridesPorItem: flag por item indicando se foi sobrescrito manual
+      const horasFinaisPorItem = {};
+      const overridesPorItem = {};
+      let horasTotalEtapa = 0;
+
+      portas.forEach((_it, idx) => {
+        const valManual = porItem[String(idx)];
+        const a = Number(autoPorItem[idx]) || 0;
+        const temManual = (valManual != null && valManual !== '' && Number.isFinite(Number(valManual)));
+        if (temManual) {
+          const v = Number(valManual);
+          horasFinaisPorItem[idx] = v;
+          overridesPorItem[idx] = (v !== a);  // pinta se diferente do auto
+          horasTotalEtapa += v;
+        } else {
+          // Vazio = usa AUTO
+          horasFinaisPorItem[idx] = a;
+          overridesPorItem[idx] = false;
+          horasTotalEtapa += a;
+        }
+      });
+
+      // Caso legado: horasOverride global (sem horasPorItem)
+      const chavesPorItem = Object.keys(porItem).filter(k => {
         const v = porItem[k];
         return v != null && v !== '' && Number.isFinite(Number(v));
       });
-
-      let horas;
-      let temOverride;
-      if (algumPreenchidoPorItem) {
-        horas = chavesPorItem.reduce((s, k) => {
-          const v = Number(porItem[k]);
-          return s + (Number.isFinite(v) ? v : 0);
-        }, 0);
-        temOverride = true;
-      } else if (ov != null && ov !== '') {
-        horas = Number(ov);
-        temOverride = (Number(ov) !== auto);
-      } else {
-        // Felipe (sessao 31): "continua puxando 100 hora e pra ficar
-        // 100% manual". Quando vazio, horas = 0 (nao usa auto).
-        // O auto fica APENAS como referencia visual na coluna
-        // "Calculado pelas regras" — nao entra no calculo.
-        horas = 0;
-        temOverride = false;
+      if (chavesPorItem.length === 0 && ov != null && ov !== '' && Number.isFinite(Number(ov))) {
+        horasTotalEtapa = Number(ov);
+        overridesPorItem[0] = (Number(ov) !== auto);
+        horasFinaisPorItem[0] = Number(ov);
       }
 
       return {
         id: e.id,
         label: e.label,
         horasAuto: auto,
-        horas,
-        // Felipe (sessao 28): expoe horasPorItem pra UI renderizar coluna
-        // de cada item. UI vai usar e.horasPorItem[idx] OU calcular fallback.
-        horasPorItem: porItem,
-        override: temOverride,
+        horasAutoPorItem: autoPorItem,     // {idx: horasAuto desse item}
+        horas: horasTotalEtapa,
+        horasPorItem: horasFinaisPorItem,  // {idx: valor final (manual ou auto)}
+        horasManualPorItem: porItem,       // {idx: valor manual cru} - pra UI saber o que ta digitado
+        overridesPorItem,                  // {idx: bool} - se diferente do auto
+        override: Object.values(overridesPorItem).some(Boolean),
       };
     });
 
@@ -591,15 +665,27 @@ const Orcamento = (() => {
    * 10. SubInst TERCEIROS = inst_terceiros_valor + inst_terceiros_transp
    *     (componentes individuais ficam como "—")
    */
-  function calcularInst(inst) {
+  function calcularInst(inst, itens) {
     const i = Object.assign({}, INST_DEFAULT, inst || {});
     const km       = Number(i.distancia_km)     || 0;
     const altura   = Number(i.altura_porta_mm)  || 0;
     const peso     = Number(i.peso_bruto_kg)    || 0;
-    const pessoas  = Number(i.n_pessoas)        || 0;
+
+    // Felipe sessao 34: pessoas e dias_instalacao agora tem AUTO baseado
+    // nos itens. Campo vazio = usa auto. Campo preenchido = manual.
+    // regrasInstalacaoAuto retorna {dias, pessoas, motivo} baseado em:
+    //   altura porta + presença de fixo lateral/superior > 3m.
+    const auto = (Array.isArray(itens) && itens.length > 0)
+      ? regrasInstalacaoAuto(itens)
+      : { dias: 0, pessoas: 0, motivo: '' };
+
+    const pessoasRaw = i.n_pessoas;
+    const pessoas = (pessoasRaw != null && pessoasRaw !== '' && Number.isFinite(Number(pessoasRaw)))
+      ? Number(pessoasRaw)
+      : (auto.pessoas || 0);
+    const pessoasOverride = (pessoasRaw != null && pessoasRaw !== '' && Number(pessoasRaw) !== auto.pessoas);
+
     const diaria   = Number(i.diaria_pessoa)    || 0;
-    // Felipe sessao 13: n_carros default automatico = 1 (nao 0). Se item
-    // legado/novo vier sem n_carros, assume 1 carro pra calculo.
     const carros   = Number(i.n_carros) >= 1 ? Number(i.n_carros) : 1;
     const hotelDia = Number(i.diaria_hotel)     || 0;
     const alim     = Number(i.alimentacao_dia)  || 0;
@@ -609,7 +695,13 @@ const Orcamento = (() => {
     const temOverride = overrideRaw !== null && overrideRaw !== '' && overrideRaw !== undefined && !Number.isNaN(Number(overrideRaw));
     const deslocamentoDias = temOverride ? (Number(overrideRaw) || 0) : deslocamentoPorKm(km);
 
-    const diasInst  = Number(i.dias_instalacao) || 0;
+    // Felipe sessao 34: dias_instalacao tambem usa auto quando vazio
+    const diasRaw = i.dias_instalacao;
+    const diasInst = (diasRaw != null && diasRaw !== '' && Number.isFinite(Number(diasRaw)) && Number(diasRaw) > 0)
+      ? Number(diasRaw)
+      : (auto.dias || 0);
+    const diasOverride = (diasRaw != null && diasRaw !== '' && Number(diasRaw) > 0 && Number(diasRaw) !== auto.dias);
+
     const diasTotal = deslocamentoDias + diasInst;
 
     // Felipe sessao 31: 'sem instalacao' - cliente pega as portas e instala
@@ -720,6 +812,13 @@ const Orcamento = (() => {
       deslocamentoDias,
       diasInst,
       diasTotal,
+      // Felipe sessao 34: expoe pessoas + flags de override + auto sugerido
+      pessoas,
+      diasInst_auto:  auto.dias,
+      pessoas_auto:   auto.pessoas,
+      diasInst_override: diasOverride,
+      pessoas_override:  pessoasOverride,
+      motivo_auto:    auto.motivo,
       noites,
       quartos,
       salarios,
@@ -7521,7 +7620,7 @@ const Orcamento = (() => {
     }
 
     const rFab  = calcularFab(fab, versao.itens);
-    const rInst = calcularInst(inst);
+    const rInst = calcularInst(inst, versao.itens);
 
     // Felipe (do doc): TODO relatorio tem cabecalho padronizado.
     const leadFi = lerLeadAtivo() || {};
@@ -7729,13 +7828,16 @@ const Orcamento = (() => {
                 }
 
                 // Inputs por item
+                // Felipe sessao 34: placeholder = valor AUTO da regra.
+                //   - Campo vazio → mostra auto (cinza, em placeholder)
+                //     e usa esse valor pro total.
+                //   - Campo preenchido manual → mostra valor digitado.
+                //     Se != auto, pinta de amarelo (background) + tooltip
+                //     com o valor automatico pra referencia.
                 let inputsPorItem;
                 let totalEtapa = 0;
                 if (nItens > 0) {
                   inputsPorItem = itensFab.map((it, idx) => {
-                    // Valor da celula: prefer horasPorItem[idx], senao
-                    // horasOverride (so' pro primeiro item — pra Felipe ver o
-                    // valor antigo migrado), senao vazio.
                     let val = porItem[String(idx)];
                     if ((val == null || val === '') && idx === 0
                         && horasManual != null && horasManual !== ''
@@ -7743,11 +7845,29 @@ const Orcamento = (() => {
                       val = horasManual;
                     }
                     const valStr = (val != null && val !== '') ? String(val) : '';
+
+                    // valor auto pra esse item nessa etapa
+                    const autoEtapaItem = (detalheEtapa.horasAutoPorItem || {})[idx] || 0;
+
+                    // Valor que conta no total: manual se preenchido, senao auto
+                    let valConta;
                     if (valStr !== '' && Number.isFinite(Number(valStr))) {
-                      totalEtapa += Number(valStr);
+                      valConta = Number(valStr);
+                    } else {
+                      valConta = autoEtapaItem;
                     }
+                    totalEtapa += valConta;
+
+                    // Marca de override (manual diferente do auto)
+                    const ehOverride = (valStr !== '' && Number.isFinite(Number(valStr)) && Number(valStr) !== autoEtapaItem);
+                    const styleOverride = ehOverride
+                      ? 'background:#fef3c7;border-color:#d97706;color:#78350f;font-weight:600;'
+                      : '';
+                    const tituloHint = autoEtapaItem > 0
+                      ? `Automatico (regra): ${autoEtapaItem}h. Vazio = usa o automatico. Aceita expressao: 9+5, 8*2.`
+                      : 'Aceita expressao: 9+5, 8*2, 10-3.';
                     return `<span class="orc-fi-col-item-h">
-                      <input type="text" data-fab-etapa="${et.id}" data-fab-sub="horas-item" data-item-idx="${idx}" value="${escapeHtml(valStr)}" placeholder="" title="Aceita expressao: 9+5, 8*2, 10-3. Vazio = zero horas." />
+                      <input type="text" data-fab-etapa="${et.id}" data-fab-sub="horas-item" data-item-idx="${idx}" value="${escapeHtml(valStr)}" placeholder="${autoEtapaItem || ''}" title="${tituloHint}" style="${styleOverride}" />
                     </span>`;
                   }).join('');
                 } else {
@@ -7775,16 +7895,12 @@ const Orcamento = (() => {
               <div class="orc-fi-etapa-row orc-fi-etapa-total">
                 <span class="orc-fi-col-etapa"><span class="t-strong">Total de horas</span></span>
                 ${nItens > 0 ? itensFab.map((_, idx) => {
-                  // Soma vertical: soma de horasPorItem[idx] em todas as etapas
+                  // Felipe sessao 34: total por item agora usa horasFinaisPorItem
+                  // dos detalhes (que ja' considera vazio=auto, preenchido=manual).
                   let totalItem = 0;
-                  ETAPAS_FAB.forEach(et => {
-                    const ent2 = (fab.etapas && fab.etapas[et.id]) || {};
-                    const v = (ent2.horasPorItem || {})[String(idx)];
-                    if (v != null && v !== '') totalItem += Number(v) || 0;
-                    else if (idx === 0 && Object.keys(ent2.horasPorItem || {}).length === 0
-                             && ent2.horasOverride != null && ent2.horasOverride !== '') {
-                      totalItem += Number(ent2.horasOverride) || 0;
-                    }
+                  (rFab.detalhes || []).forEach(d => {
+                    const h = (d.horasPorItem || {})[idx];
+                    if (h != null) totalItem += Number(h) || 0;
                   });
                   return `<span class="orc-fi-col-item-h"><span class="t-strong">${totalItem || ''}</span></span>`;
                 }).join('') : `<span class="orc-fi-col-horas orc-fi-total-horas-valor"><span class="t-strong">${rFab.total_horas} h</span></span>`}
@@ -8260,9 +8376,9 @@ const Orcamento = (() => {
 
           <div class="orc-fi-inst-grid">
             <div class="orc-field orc-fi-w-num">
-              <label>Dias de instalacao</label>
-              <input type="text" data-field="dias_instalacao" data-inst="1" value="${((inst.dias_instalacao) === '' || (inst.dias_instalacao) === null || (inst.dias_instalacao) === undefined || Number(inst.dias_instalacao) === 0) ? '' : escapeHtml(String(inst.dias_instalacao))}" />
-              <span class="orc-fi-help">somente dias de trabalho no local</span>
+              <label>Dias de instalacao ${rInst.diasInst_auto ? `<small style="color:#9a3412;font-weight:500;">(auto: ${rInst.diasInst_auto})</small>` : ''}</label>
+              <input type="text" data-field="dias_instalacao" data-inst="1" value="${((inst.dias_instalacao) === '' || (inst.dias_instalacao) === null || (inst.dias_instalacao) === undefined || Number(inst.dias_instalacao) === 0) ? '' : escapeHtml(String(inst.dias_instalacao))}" placeholder="${rInst.diasInst_auto || ''}" title="${rInst.motivo_auto ? 'Automatico: ' + rInst.motivo_auto + '. Vazio = usa o automatico.' : 'somente dias de trabalho no local'}" style="${rInst.diasInst_override ? 'background:#fef3c7;border-color:#d97706;color:#78350f;font-weight:600;' : ''}" />
+              <span class="orc-fi-help">somente dias de trabalho no local${rInst.diasInst_override ? ' · <b style="color:#d97706;">MANUAL</b>' : ''}</span>
             </div>
           </div>
 
@@ -8275,8 +8391,9 @@ const Orcamento = (() => {
           <!-- Bloco: equipe e custos -->
           <div class="orc-fi-inst-grid">
             <div class="orc-field orc-fi-w-num">
-              <label>Quantidade de pessoas</label>
-              <input type="text" data-field="n_pessoas" data-inst="1" value="${((inst.n_pessoas) === '' || (inst.n_pessoas) === null || (inst.n_pessoas) === undefined || Number(inst.n_pessoas) === 0) ? '' : escapeHtml(String(inst.n_pessoas))}" />
+              <label>Quantidade de pessoas ${rInst.pessoas_auto ? `<small style="color:#9a3412;font-weight:500;">(auto: ${rInst.pessoas_auto})</small>` : ''}</label>
+              <input type="text" data-field="n_pessoas" data-inst="1" value="${((inst.n_pessoas) === '' || (inst.n_pessoas) === null || (inst.n_pessoas) === undefined || Number(inst.n_pessoas) === 0) ? '' : escapeHtml(String(inst.n_pessoas))}" placeholder="${rInst.pessoas_auto || ''}" title="${rInst.motivo_auto ? 'Automatico: ' + rInst.motivo_auto + '. Vazio = usa o automatico.' : ''}" style="${rInst.pessoas_override ? 'background:#fef3c7;border-color:#d97706;color:#78350f;font-weight:600;' : ''}" />
+              ${rInst.pessoas_override ? '<span class="orc-fi-help"><b style="color:#d97706;">MANUAL</b></span>' : ''}
             </div>
             <div class="orc-field orc-fi-w-money">
               <label>Diaria por pessoa (R$)</label>
@@ -8614,7 +8731,7 @@ const Orcamento = (() => {
 
         // Recalcula e salva subFab/subInst direto na versao (alimenta a DRE)
         const rFab  = calcularFab(fab, versao.itens);
-        const rInst = calcularInst(inst);
+        const rInst = calcularInst(inst, versao.itens);
         try {
           atualizarVersao(versao.id, {
             custoFab: fab,
@@ -8650,7 +8767,7 @@ const Orcamento = (() => {
         inst.lucro_alvo_instalacao = v;
 
         const rFab  = calcularFab(fab, versao.itens);
-        const rInst = calcularInst(inst);
+        const rInst = calcularInst(inst, versao.itens);
         try {
           atualizarVersao(versao.id, {
             custoFab: fab,
@@ -8689,7 +8806,7 @@ const Orcamento = (() => {
       if (alturasDre.length > 0) instDre.altura_porta_mm = Math.max(...alturasDre);
       // Recalcula subFab/subInst SEM rodar motores
       const rFabDre  = calcularFab(fabDre, versao.itens);
-      const rInstDre = calcularInst(instDre);
+      const rInstDre = calcularInst(instDre, versao.itens);
       const newSubFab  = rFabDre.total;
       const newSubInst = rInstDre.total;
       const mudouFab  = Math.abs(newSubFab  - (Number(versao.subFab)  || 0)) > 0.005;
