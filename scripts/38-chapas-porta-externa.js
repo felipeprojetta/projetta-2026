@@ -1922,10 +1922,69 @@ const ChapasPortaExterna = (() => {
       // de complemento mais 2 chapas de 1500 no meio'.
       const _splitOk = _splitPecaAMOversize(pecaBase, ctx.item, out);
       if (!_splitOk) {
-        out.push(pecaBase);
+        // Felipe sessao 34: modelos 8 e 15 (ripados) - quando 'Tampa Maior 01'
+        // passa de 1480mm, divide em 2 pecas: 1 'Tampa Maior 01' de 1480 + 1
+        // 'Tampa Complemento' com o resto. Mantem altura/qtd originais.
+        // SO peca id='tampa_maior_01' (existe so' no 2F dos modelos 8 e 15).
+        const _splitRipOk = _splitTampaMaior01Ripado(pecaBase, modelo, out);
+        if (!_splitRipOk) {
+          out.push(pecaBase);
+        }
       }
     }
     return out;
+  }
+
+  /**
+   * Felipe sessao 34: Modelos 08 e 15 (ripados) - quando 'Tampa Maior 01'
+   * passa de 1480mm de largura, divide em:
+   *   - 'Tampa Maior 01' com largura 1480 (mantem qtd/altura/cor originais)
+   *   - 'Tampa Complemento' com largura = original - 1480 (mantem altura/qtd)
+   *
+   * Aplica apenas em peca.id === 'tampa_maior_01' E modelo in {8,15}.
+   * Retorna true se split foi feito (caller NAO faz push original).
+   * Retorna false caso contrario.
+   *
+   * Felipe: 'QUANTO EU TIVER MODELO 08 OU MODELO 15 QUE SAO RIPADOS, CASO PASSE
+   * DE 1480 A TAMPA MAIOOR, PEGUE A MEDIDA DA TAMPA MAIOR MENOS 1480 E FACA UM
+   * COMPLEMENTEO POR EXEMPELO SE DEU 1700 FACA 1700 - 1480, AI VAI TER 2 PECAS
+   * DE 1480 E MAIS 2 COMPLEMENTOS DE 220 PELA ALTURA DA PECA'.
+   */
+  function _splitTampaMaior01Ripado(peca, modelo, out) {
+    const LIMITE_TAMPA = 1480;
+    if (modelo !== 8 && modelo !== 15) return false;
+    if (peca.id !== 'tampa_maior_01') return false;
+    if (Number(peca.largura) <= LIMITE_TAMPA) return false;
+
+    const larguraOriginal = Number(peca.largura);
+    const larguraComplemento = larguraOriginal - LIMITE_TAMPA;
+    if (larguraComplemento <= 0) return false;
+
+    // larguraSemRef proporcional (manter coerencia caso peca tenha REF)
+    const larguraSemRefOriginal = Number(peca.larguraSemRef) || larguraOriginal;
+    const reduzRef = larguraOriginal - larguraSemRefOriginal;  // diferenca causada por REF
+    const limiteSemRef = Math.max(0, LIMITE_TAMPA - reduzRef);
+    const complementoSemRef = Math.max(0, larguraSemRefOriginal - limiteSemRef);
+
+    // Peca 1: Tampa Maior 01 reduzida a 1480 (mantem qtd, label, altura)
+    out.push(Object.assign({}, peca, {
+      largura: LIMITE_TAMPA,
+      larguraSemRef: limiteSemRef,
+      _splitOrigem: peca.label,
+      _splitTipo: 'tampa_principal',
+    }));
+    // Peca 2: Tampa Complemento (mesma qtd, mesma altura, label novo)
+    out.push(Object.assign({}, peca, {
+      id: 'tampa_maior_01_complemento',
+      label: 'Tampa Complemento',
+      labelCompleto: (peca.labelCompleto || '').replace(peca.label, 'Tampa Complemento'),
+      largura: larguraComplemento,
+      larguraSemRef: complementoSemRef,
+      _splitOrigem: peca.label,
+      _splitTipo: 'tampa_complemento',
+      _ordem: (peca._ordem || 0) + 0.5,  // logo apos a tampa principal
+    }));
+    return true;
   }
 
   /**
