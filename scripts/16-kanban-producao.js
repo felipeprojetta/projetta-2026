@@ -2236,7 +2236,22 @@
               repInfo = { nome: fup, classificacao: '—', comissaoPct: '—' };
             }
           }
-          const cidadeEstado = [l.cidade, l.estado].filter(Boolean).join(' / ');
+          // Felipe sessao 34: 'tudo na producao tem que ser pelo atp entao nome
+          // nao deveria aparecer jose e sim Renata, tudo vai pegar pelo card mas
+          // na aba atp, nome endereco tudo'. Card prioriza dados do ATP/contrato
+          // (quando preenchido) sobre os do AGP/orcamento - representante e
+          // gerente nao precisa ver o nome do orcamento, ja' deveria estar no
+          // contrato. Fallback p/ AGP se ATP ainda nao foi preenchido.
+          const atpProd = l.atp || {};
+          const _nomeAtp = atpProd.nomeContrato
+            ? (atpProd.nomeContrato + (atpProd.sobrenomeContrato ? ' ' + atpProd.sobrenomeContrato : '')).trim()
+            : '';
+          const clienteCard   = _nomeAtp || l.cliente || '';
+          const telefoneCard  = atpProd.telefoneObra || l.telefone || '';
+          const emailCard     = atpProd.emailContrato || l.email || '';
+          const cidadeCard    = atpProd.cidadeEntrega || l.cidade  || '';
+          const estadoCard    = atpProd.estadoEntrega || l.estado  || '';
+          const cidadeEstado  = [cidadeCard, estadoCard].filter(Boolean).join(' / ');
           const blocoLocal = (repInfo || cidadeEstado) ? `
             <div class="kprod-card-local">
               ${repInfo ? `
@@ -2280,11 +2295,11 @@
 
           return `
           <div class="kprod-card" draggable="true" data-id="${l.id}">
-            <div class="kprod-card-titulo">${escapeHtml(l.cliente || '(sem nome)')}</div>
+            <div class="kprod-card-titulo">${escapeHtml(clienteCard || '(sem nome)')}</div>
             ${reservaLabel ? `<div class="kprod-card-numeros">${reservaLabel}</div>` : ''}
             ${l.data ? `<div class="kprod-card-contato" style="font-size:11px;color:var(--text-muted);">📅 ${escapeHtml(fmtData(l.data))}</div>` : ''}
-            ${l.telefone ? `<div class="kprod-card-contato">📞 ${escapeHtml(l.telefone)}</div>` : ''}
-            ${l.email ? `<div class="kprod-card-contato">✉ ${escapeHtml(l.email)}</div>` : ''}
+            ${telefoneCard ? `<div class="kprod-card-contato">📞 ${escapeHtml(telefoneCard)}</div>` : ''}
+            ${emailCard ? `<div class="kprod-card-contato">✉ ${escapeHtml(emailCard)}</div>` : ''}
             ${agpField}
             ${blocoProduto}
             ${blocoLocal}

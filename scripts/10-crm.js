@@ -471,7 +471,10 @@
               <input type="number" data-atp-field="prazoEntrega" value="${escapeHtml(atp.prazoEntrega || '')}" min="1" max="365" placeholder="90" />
             </div>
             <div class="crm-field">
-              <!-- vazio (espaco pra quando tiver botao 'Puxar do Weiku') -->
+              <!-- Felipe sessao 34: 'Previsao de Medicao' fica AO LADO de Prazo
+                   de Entrega (cols-2) - layout espelho do kanban-producao. -->
+              <label>Previsao de Medicao <span class="crm-field-hint">do Intranet Weiku</span></label>
+              <input type="date" data-atp-field="previsaoMedicao" value="${escapeHtml(atp.previsaoMedicao || '')}" />
             </div>
           </div>
 
@@ -499,7 +502,7 @@
             </div>
           </div>
 
-          <div class="crm-form-row cols-3">
+          <div class="crm-form-row cols-2">
             <div class="crm-field">
               <label>CPF / CNPJ</label>
               <input type="text" data-atp-field="cpfCnpj" value="${escapeHtml(atp.cpfCnpj || '')}" placeholder="000.000.000-00" />
@@ -508,10 +511,9 @@
               <label>RG</label>
               <input type="text" data-atp-field="rg" value="${escapeHtml(atp.rg || '')}" />
             </div>
-            <div class="crm-field">
-              <label>Inscricao Estadual</label>
-              <input type="text" data-atp-field="inscricaoEstadual" value="${escapeHtml(atp.inscricaoEstadual || '')}" placeholder="—" />
-            </div>
+            <!-- Felipe sessao 34: 'Inscricao Estadual nao me interessa' - removida.
+                 Mapping em normalizarContrato (40-weiku-client.js) mantido pra
+                 historico/compat, mas nao tem mais input no form. -->
           </div>
 
           <div class="crm-form-row cols-2">
