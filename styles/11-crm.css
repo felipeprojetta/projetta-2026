@@ -895,6 +895,12 @@
   max-width: 380px;
   border-left-color: #7c3aed;
 }
+/* Felipe sessao 34 (3o card): top-rep-fechado tem borda LARANJA pra
+   associar visualmente ao 'Fechado no Ano' (que tambem e' laranja, default
+   var(--laranja) do .crm-kpi). So fechados, valor R$, etc. */
+.crm-kpi.crm-kpi-top-fechado {
+  border-left-color: var(--laranja);
+}
 .crm-kpi.crm-kpi-top .crm-kpi-lbl {
   margin-bottom: 4px;
 }

@@ -2668,22 +2668,23 @@
     function topRepresentantes(leadsBase, ano) {
       const ETAPAS_SEM_VALOR_VISIVEL = ['qualificacao', 'fazer-orcamento', 'fechado', 'perdido'];
       const anoNum = Number(ano);
-      const agg = {};  // {nome: {total, count}}
+      const agg = {};        // {nome: {total, count}} - em aberto + fechado
+      const aggFechado = {}; // {nome: {total, count}} - so' fechados no ano
 
       function chaveRep(l) {
         const r = String(l.representante_followup || '').trim();
         return r || 'Showroom';
       }
-      function add(nome, valor) {
-        if (!agg[nome]) agg[nome] = { total: 0, count: 0 };
-        agg[nome].total += valor;
-        agg[nome].count += 1;
+      function addEm(bucket, nome, valor) {
+        if (!bucket[nome]) bucket[nome] = { total: 0, count: 0 };
+        bucket[nome].total += valor;
+        bucket[nome].count += 1;
       }
 
       leadsBase.forEach(l => {
         // Em Aberto (etapas com valor visivel, exceto fechado/perdido/etc.)
         if (!ETAPAS_SEM_VALOR_VISIVEL.includes(l.etapa)) {
-          add(chaveRep(l), Number(l.valor) || 0);
+          addEm(agg, chaveRep(l), Number(l.valor) || 0);
           return;
         }
         // Fechado no ano
@@ -2693,7 +2694,9 @@
           const d = new Date(String(dataRef));
           if (isNaN(d.getTime())) return;
           if (d.getFullYear() === anoNum) {
-            add(chaveRep(l), Number(l.valor) || 0);
+            addEm(agg, chaveRep(l), Number(l.valor) || 0);
+            // Felipe sessao 34: ranking separado SO de fechados (ano)
+            addEm(aggFechado, chaveRep(l), Number(l.valor) || 0);
           }
         }
       });
@@ -2703,9 +2706,15 @@
         total: agg[nome].total,
         count: agg[nome].count,
       }));
-      const porValor = todos.slice().sort((a, b) => b.total - a.total).slice(0, 5);
-      const porQtd   = todos.slice().sort((a, b) => b.count - a.count).slice(0, 5);
-      return { porValor, porQtd };
+      const todosFechado = Object.keys(aggFechado).map(nome => ({
+        nome,
+        total: aggFechado[nome].total,
+        count: aggFechado[nome].count,
+      }));
+      const porValor   = todos.slice().sort((a, b) => b.total - a.total).slice(0, 5);
+      const porQtd     = todos.slice().sort((a, b) => b.count - a.count).slice(0, 5);
+      const porValorFechado = todosFechado.slice().sort((a, b) => b.total - a.total).slice(0, 5);
+      return { porValor, porQtd, porValorFechado };
     }
 
     /** Anos disponiveis no filtro do KPI: 2021 ate ano atual */
@@ -3314,8 +3323,29 @@
               <span class="crm-kpi-help" title="Quantidade de leads por representante: em aberto + fechado no ano. Inclui 'Showroom' quando lead nao tem representante.">?</span>
             </div>
           </div>`,
+        // Felipe sessao 34: 3o ranking - SO de pedidos fechados no ano.
+        // Borda verde-laranja pra diferenciar dos 2 anteriores (que sao
+        // em-aberto+fechado). Mostra valor + qtd na mesma linha.
+        'top-rep-fechado': `
+          <div class="crm-kpi crm-kpi-top crm-kpi-top-fechado" data-kpi-id="top-rep-fechado" draggable="true">
+            <div class="crm-kpi-lbl">Top 5 Representantes <small style="color:#9a3412;font-weight:500;">(s\u00f3 fechados)</small></div>
+            <div class="crm-kpi-top-lista">
+              ${topReps.porValorFechado.length === 0
+                ? '<div class="crm-kpi-top-vazio">sem fechados no ano</div>'
+                : topReps.porValorFechado.map((r, i) => `
+                  <div class="crm-kpi-top-row">
+                    <span class="crm-kpi-top-pos">${i + 1}.</span>
+                    <span class="crm-kpi-top-nome" title="${escapeHtml(r.nome)}">${escapeHtml(r.nome)}</span>
+                    <span class="crm-kpi-top-valor">R$ ${fmtBR(r.total)}</span>
+                  </div>`).join('')}
+            </div>
+            <div class="crm-kpi-sub">
+              <span class="crm-kpi-fixo">${state.kpiAno}</span>
+              <span class="crm-kpi-help" title="Soma do valor APENAS de leads na etapa Fechado no ano selecionado. Inclui 'Showroom' quando lead nao tem representante.">?</span>
+            </div>
+          </div>`,
       };
-      const KPI_DEFAULT_ORDER = ['ano', 'mes', 'em-aberto', 'gerado', 'top-rep-valor', 'top-rep-qtd'];
+      const KPI_DEFAULT_ORDER = ['ano', 'mes', 'em-aberto', 'gerado', 'top-rep-valor', 'top-rep-qtd', 'top-rep-fechado'];
       const _appStore = Storage.scope('app');
       const ordemSalva = _appStore.get('crm_kpis_order');
       // Felipe sessao 33: era 'length === 3' (hardcoded). Com a entrada do
