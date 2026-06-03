@@ -93,17 +93,29 @@
     var store = Storage.scope('crm');
     var leads = store.get('leads') || [];
 
+    // Felipe sessao 34: aplica titleCase nos campos de texto livre (nomes,
+    // cidades) vindos do email/Weiku. A intranet retorna tudo em CAIXA ALTA
+    // ('JULIANA E EDSON', 'BELO HORIZONTE', 'CARINA AP DA CUNHA KAZAHAYA') e
+    // o usuario tinha que clicar dentro/fora de cada campo pra disparar o
+    // attachTitleCase do data-titlecase. Agora ja' entra formatado.
+    //
+    // NAO aplicar em: telefone, email, cep, numeroAGP, numeroReserva,
+    // representante_followup (sao codigos/numeros - titleCase quebraria).
+    var tc = (window.Universal && window.Universal.titleCase)
+      ? window.Universal.titleCase
+      : function(s) { return s; };  // fallback se Universal nao carregou
+
     var novo = {
       id: 'lead_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-      cliente: dadosWeiku.nome_cliente || '',
+      cliente: tc(dadosWeiku.nome_cliente || ''),
       telefone: dadosWeiku.telefone || '',
       email: dadosWeiku.email || '',
       cep: dadosWeiku.cep || '',
-      cidade: dadosWeiku.cidade || '',
+      cidade: tc(dadosWeiku.cidade || ''),
       estado: dadosWeiku.estado || '',
-      representante: dadosWeiku.representante || '',
+      representante: tc(dadosWeiku.representante || ''),
       representante_followup: dadosWeiku.representante_followup || '',
-      representante_contato: dadosWeiku.representante_contato || '',
+      representante_contato: tc(dadosWeiku.representante_contato || ''),
       numeroReserva: String(reserva),
       numeroAGP: agp,
       valor: 0,
