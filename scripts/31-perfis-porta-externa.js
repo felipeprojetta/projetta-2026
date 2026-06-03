@@ -404,18 +404,20 @@ const PerfisPortaExterna = (() => {
     const subtraiFrisos = (ehModeloComFriso && qtdFrisosCfg > 0)
       ? ((modelo === 14) ? 2 * nFolhas : qtdFrisosCfg * nFolhas)
       : 0;
-    // Felipe sessao 34: quando o modelo tem PUXADOR EXTERNO (!ehCava) +
-    // friso vertical (mod 11, 13, 14, 25), garante MINIMO de 1 travessa
-    // vertical por folha (PA-76X38X1.98 ou PA-101X51X2). Essa travessa e'
-    // OBRIGATORIA pra fixar o puxador externo - o friso vertical
-    // (PA-76X76 ou PA-101X101) e' estrutura adicional/estetica, NAO
-    // substitui o perfil do puxador.
-    // Antes deste fix, mod 11 1F porta 1840×2690 c/ 1 friso ficava com
-    // qtdTV=1 mas subtraiFrisos=1 → qtdTVFinal=0 (sem perfil do puxador!).
-    // Pra modelos com CAVA + friso (mod 2, 4, 5, 7, 22), regra antiga
-    // mantida (cava ja' tem perfis proprios pra fixar puxador embutido).
-    const minTravVertPuxadorExt = (!ehCava && ehModeloComFriso) ? nFolhas : 0;
-    const qtdTVFinal = Math.max(minTravVertPuxadorExt, qtdTV - subtraiFrisos);
+    // Felipe sessao 34 (bug Juscelio mod 02 1524mm): friso vertical podia
+    // substituir AS OBRIGATORIAS DA CAVA. Bug: porta 1524mm 1F mod 02 c/ 1
+    // friso ficava com qtdTV=1 (subtraiFrisos=1 comeu uma das 2
+    // obrigatorias da cava). Regra correta: friso substitui SO o BONUS
+    // DE LARGURA, nunca as obrigatorias da cava (2 ou 4 conforme tipo).
+    //
+    // Felipe sessao 34: tambem unifica com o caso !ehCava (mod 11, 13, 14, 25):
+    // pra modelos com PUXADOR EXTERNO + friso, minimo de 1 travessa por
+    // folha pra fixar puxador. O substitui anterior 'minTravVertPuxadorExt'
+    // e' incorporado aqui como caso particular de minObrigatorio.
+    const minObrigatorio = ehCava
+      ? (ehCavaDupla ? 4 : 2) * nFolhas       // cava: 2 ou 4 por folha
+      : (ehModeloComFriso ? nFolhas : 0);     // sem cava + friso: 1 por folha (puxador)
+    const qtdTVFinal = Math.max(minObrigatorio, qtdTV - subtraiFrisos);
 
     function add(codigo, comp, qty, label) {
       if (qty <= 0 || comp <= 0) return;
