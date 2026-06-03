@@ -12249,6 +12249,82 @@ const Orcamento = (() => {
       document.head.appendChild(s);
     });
   }
+
+  /**
+   * Felipe sessao 34 (bug Thays - PDF saindo todo preto/branco aleatoriamente):
+   * Aguarda TODAS as imagens, fontes e layout do elemento estarem prontos
+   * antes de capturar com html2canvas. Sem isso, o canvas captura HTML antes
+   * das imagens carregarem -> proposta-pag1.jpg/proposta-pag2.jpg aparecem
+   * branco (image not loaded) ou preto (decode incompleto) dependendo de
+   * timing do browser.
+   *
+   * 3 esperas em sequencia:
+   *   1. document.fonts.ready - aguarda fontes web carregarem
+   *   2. todas as <img> dentro do elemento (img.complete + naturalHeight>0)
+   *      com timeout individual de 5s pra nao travar
+   *   3. requestAnimationFrame x2 - garante que browser reflowou + repintou
+   *      (algumas vezes layout-shift acontece apos imagens carregarem)
+   *
+   * @param {HTMLElement} elemento - container com possiveis <img> dentro
+   * @param {number} timeoutMs - tempo maximo total (default 10s)
+   */
+  async function aguardarMidiasCarregarem(elemento, timeoutMs) {
+    const TIMEOUT_TOTAL = timeoutMs || 10000;
+    const inicio = Date.now();
+
+    // 1. Fontes
+    try {
+      if (document.fonts && document.fonts.ready) {
+        // Promise.race com timeout pra fontes nao travarem
+        await Promise.race([
+          document.fonts.ready,
+          new Promise(r => setTimeout(r, 3000)),
+        ]);
+      }
+    } catch (_) { /* ignore */ }
+
+    // 2. Imagens - aguarda cada uma com timeout individual
+    if (elemento && typeof elemento.querySelectorAll === 'function') {
+      const imgs = elemento.querySelectorAll('img');
+      const tempoRestante = Math.max(1000, TIMEOUT_TOTAL - (Date.now() - inicio));
+      const timeoutImg = Math.min(5000, tempoRestante);
+
+      await Promise.all(Array.from(imgs).map(img => {
+        // Ja' carregada (do cache, com dimensoes validas)
+        if (img.complete && img.naturalHeight > 0 && img.naturalWidth > 0) {
+          return Promise.resolve();
+        }
+        return new Promise((resolve) => {
+          let resolvido = false;
+          const finalizar = () => {
+            if (resolvido) return;
+            resolvido = true;
+            img.removeEventListener('load',  onLoad);
+            img.removeEventListener('error', onError);
+            resolve();
+          };
+          const onLoad  = finalizar;
+          const onError = () => {
+            console.warn('[PDF] imagem nao carregou:', img.src);
+            finalizar();
+          };
+          img.addEventListener('load',  onLoad);
+          img.addEventListener('error', onError);
+          // Timeout individual
+          setTimeout(finalizar, timeoutImg);
+
+          // Edge case: se src foi setado e ja' ta complete mas ainda nao
+          // disparou onload (raro mas acontece), checa novamente
+          if (img.complete && img.naturalHeight > 0) finalizar();
+        });
+      }));
+    }
+
+    // 3. Aguarda 2 frames de animacao pro browser reflowar + pintar
+    await new Promise(r => requestAnimationFrame(r));
+    await new Promise(r => requestAnimationFrame(r));
+  }
+
   async function exportarPadroesCortesPDF() {
     const corpo = document.getElementById('lvp-modal-body-print');
     if (!corpo) return;
@@ -12283,12 +12359,17 @@ const Orcamento = (() => {
       document.body.appendChild(cloneHost);
 
       // Captura o conteudo COMPLETO (sem scroll cropando)
+      // Felipe sessao 34: aguarda imgs+fonts+layout antes do canvas
+      await aguardarMidiasCarregarem(cloneHost);
       const canvas = await html2canvas(cloneHost, {
         scale: 2,
         backgroundColor: '#ffffff',
         useCORS: true,
         windowWidth:  cloneHost.scrollWidth,
         windowHeight: cloneHost.scrollHeight,
+        imageTimeout: 15000,
+        logging: false,
+        allowTaint: false,
       });
 
       // PDF A4 retrato (210x297 mm) com margem 10mm
@@ -12388,12 +12469,17 @@ const Orcamento = (() => {
       const pag = paginas[i];
       pag.style.boxSizing = 'border-box';
       // IMPORTANTE: NAO setar pag.style.minHeight - quer altura real do conteudo
+      // Felipe sessao 34: aguarda imgs+fonts+layout antes do canvas
+      await aguardarMidiasCarregarem(pag);
       const canvas = await html2canvas(pag, {
         scale,
         backgroundColor: '#ffffff',
         useCORS: true,
         windowWidth:  pag.scrollWidth,
         windowHeight: pag.scrollHeight,
+        imageTimeout: 15000,
+        logging: false,
+        allowTaint: false,
       });
       const larguraImg = pageW;
       const alturaImg = (canvas.height * larguraImg) / canvas.width;
@@ -18808,12 +18894,17 @@ const Orcamento = (() => {
       cloneHost.innerHTML = conteudoHtml;
       document.body.appendChild(cloneHost);
 
+      // Felipe sessao 34: aguarda imgs+fonts+layout antes do canvas
+      await aguardarMidiasCarregarem(cloneHost);
       const canvas = await html2canvas(cloneHost, {
         scale: 2,
         backgroundColor: '#ffffff',
         useCORS: true,
         windowWidth:  cloneHost.scrollWidth,
         windowHeight: cloneHost.scrollHeight,
+        imageTimeout: 15000,
+        logging: false,
+        allowTaint: false,
       });
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
@@ -18865,9 +18956,12 @@ const Orcamento = (() => {
       cloneHost.innerHTML = conteudoHtml;
       document.body.appendChild(cloneHost);
 
+      // Felipe sessao 34: aguarda imgs+fonts+layout antes do canvas
+      await aguardarMidiasCarregarem(cloneHost);
       const canvas = await html2canvas(cloneHost, {
         scale: 2, backgroundColor: '#ffffff', useCORS: true,
         windowWidth: cloneHost.scrollWidth, windowHeight: cloneHost.scrollHeight,
+        imageTimeout: 15000, logging: false, allowTaint: false,
       });
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -19733,12 +19827,17 @@ const Orcamento = (() => {
       // Aguarda fonts/imgs renderizarem
       await new Promise(r => setTimeout(r, 200));
 
+      // Felipe sessao 34: aguarda imgs+fonts+layout antes do canvas
+      await aguardarMidiasCarregarem(host);
       const canvas = await html2canvas(host, {
         scale: 2,
         backgroundColor: '#ffffff',
         useCORS: true,
         windowWidth:  host.scrollWidth,
         windowHeight: host.scrollHeight,
+        imageTimeout: 15000,
+        logging: false,
+        allowTaint: false,
       });
 
       return await new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/png'));
@@ -19772,12 +19871,17 @@ const Orcamento = (() => {
       try {
         host = _montarHostOffscreen(versaoId, subAba);
         await new Promise(r => setTimeout(r, 200));
+        // Felipe sessao 34: aguarda imgs+fonts+layout antes do canvas
+        await aguardarMidiasCarregarem(host);
         const canvas = await html2canvas(host, {
           scale: 2,
           backgroundColor: '#ffffff',
           useCORS: true,
           windowWidth:  host.scrollWidth,
           windowHeight: host.scrollHeight,
+          imageTimeout: 15000,
+          logging: false,
+          allowTaint: false,
         });
         const imgData = canvas.toDataURL('image/jpeg', 0.92);
         // Calcula tamanho proporcional cabendo na pagina
