@@ -1318,12 +1318,13 @@ const Orcamento = (() => {
       }
       throw e;  // sem nada pra limpar, propaga
     }
-    // Felipe (sessao 31): sync pro Supabase em background (nao bloqueia)
-    if (window.SupabaseSync && window.SupabaseSync.syncAll) {
-      window.SupabaseSync.syncAll(negocios).catch(function(err) {
-        console.warn('[Orcamento] Supabase sync falhou (dados locais OK):', err.message);
-      });
-    }
+    // Felipe sessao 35: REMOVIDA a escrita no banco us-east-1 (SupabaseSync).
+    // Migracao p/ SP (maqmawof...) e' definitiva — TODOS os usuarios usam SP.
+    // O save no SP ja' acontece acima via store.set('negocios') -> Storage ->
+    // Database -> kv_store (SP), com mergeProtegido_negocios. A chamada antiga
+    // window.SupabaseSync.syncAll(negocios) escrevia no banco VELHO (plmliavu,
+    // us-east-1), que era so' fallback e estava poluindo/confundindo os dados.
+    // Mantida desativada de proposito.
   }
 
   // ---------- snapshot de precos (Etapa 3 vai usar de verdade) ----------
