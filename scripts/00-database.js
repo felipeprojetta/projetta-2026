@@ -77,6 +77,20 @@ const Database = (() => {
   // pro cloud antes de qualquer fechamento de aba.
   var _sbUpsertPayloads = {};
 
+  // Felipe sessao 34 (bug Thays Juliana - orcamento aprovado nao foi pro banco):
+  // MAX-WAIT TIMER. Antes, cada call do sbUpsert resetava o debounce - se o
+  // usuario digitava continuamente (typing reativo, recalculo iterativo, etc),
+  // o flush ficava ADIADO INFINITAMENTE. Em cenarios reais, a Thays editou
+  // varios campos em sequencia, cada um resetando o debounce, ate' ela
+  // aprovar e fechar a aba. Resultado: somente o save inicial (12:56:59)
+  // chegou no banco, todos os updates subsequentes presos no debounce
+  // foram CANCELADOS quando ela fechou.
+  // FIX: marca quando o primeiro upsert pra esse timerKey foi agendado.
+  // Se passou MAX_WAIT desde entao, forca flush imediato em vez de reagendar.
+  var _sbUpsertFirstAt = {};
+  var SBUPSERT_DEBOUNCE_MS = 500;
+  var SBUPSERT_MAX_WAIT_MS = 3000;  // forca flush apos 3s mesmo com novos triggers
+
   // Felipe sessao 32: FILA DE UPSERTS PENDENTES quando rede falha.
   // Persistida em localStorage pra sobreviver a reload. Quando _sbUpsertExecuta
   // falha (rede), o item entra na fila. Drenagem automatica a cada 30s e
@@ -518,14 +532,38 @@ const Database = (() => {
     // Se for array vazio, NAO sobrescreve o cloud
     if (Array.isArray(value) && value.length === 0) return;
     var timerKey = scope + '::' + key;
+    var agora = Date.now();
+
+    // Felipe sessao 34: MAX-WAIT protege contra debounce infinito.
+    // Quando primeiro upsert pra esse key chega, marca timestamp. Se
+    // ja' passou MAX_WAIT_MS desde entao, FLUSH IMEDIATO (nao reagenda).
+    // Sem isso, usuario digitando continuamente nunca dispara o flush.
+    if (!_sbUpsertFirstAt[timerKey]) {
+      _sbUpsertFirstAt[timerKey] = agora;
+    }
+    var esperando = agora - _sbUpsertFirstAt[timerKey];
+
     if (_sbUpsertTimers[timerKey]) clearTimeout(_sbUpsertTimers[timerKey]);
     // Felipe sessao 12: guarda ultimo payload pra flushSbUpsertPendentes
     _sbUpsertPayloads[timerKey] = { scope: scope, key: key, value: value };
+
+    if (esperando >= SBUPSERT_MAX_WAIT_MS) {
+      // Felipe sessao 34: max-wait atingido - flush imediato em vez de
+      // reagendar 500ms. Evita perda total em digitacao continua.
+      delete _sbUpsertTimers[timerKey];
+      delete _sbUpsertPayloads[timerKey];
+      delete _sbUpsertFirstAt[timerKey];
+      console.info('[DB] sbUpsert max-wait (' + esperando + 'ms) - flush imediato: ' + timerKey);
+      _sbUpsertExecuta(scope, key, value);
+      return;
+    }
+
     _sbUpsertTimers[timerKey] = setTimeout(function() {
       delete _sbUpsertTimers[timerKey];
       delete _sbUpsertPayloads[timerKey];
+      delete _sbUpsertFirstAt[timerKey];
       _sbUpsertExecuta(scope, key, value);
-    }, 500);  // 500ms debounce — ultimo valor ganha
+    }, SBUPSERT_DEBOUNCE_MS);  // 500ms debounce — ultimo valor ganha
   }
 
   // Felipe sessao 12: extraido pra _sbUpsertExecuta pra ser reutilizado
@@ -655,12 +693,88 @@ const Database = (() => {
       delete _sbUpsertTimers[timerKey];
       var p = _sbUpsertPayloads[timerKey];
       delete _sbUpsertPayloads[timerKey];
+      delete _sbUpsertFirstAt[timerKey];  // Felipe sessao 34: limpa max-wait tb
       if (p) {
         promises.push(_sbUpsertExecuta(p.scope, p.key, p.value));
       }
     });
     return Promise.all(promises);
   }
+
+  // Felipe sessao 34 (bug Thays Juliana - tudo na Producao sumiu no PC do
+  // Felipe). CAUSA: Thays editou orcamento no PC dela, cada Storage.set
+  // disparou sbUpsert com debounce de 500ms. Ela fechou aba (ou trocou pra
+  // outra) antes do timer disparar. Resultado: dados perdidos silenciosamente.
+  //
+  // FIX: handlers de beforeunload/pagehide/visibilitychange disparam
+  // _sbFlushBeforeUnload(), que faz fetch SINCRONO com keepalive:true
+  // pra cada payload pendente. keepalive permite browser manter a request
+  // viva ate' completar mesmo apos aba fechar (limite 64kb por request).
+  //
+  // pagehide e' o evento mais confiavel pra detectar saida da pagina em
+  // mobile/safari. beforeunload funciona em desktop. visibilitychange
+  // 'hidden' captura troca de aba ou minimizar janela. Os 3 juntos cobrem
+  // ~100% dos casos de saida.
+  function _sbFlushBeforeUnload() {
+    var keys = Object.keys(_sbUpsertPayloads);
+    if (keys.length === 0) return;
+
+    var usuario = '';
+    try {
+      var u = window.Auth && window.Auth.currentUser && window.Auth.currentUser();
+      if (u && u.username) usuario = u.username;
+    } catch(_){}
+
+    keys.forEach(function(timerKey) {
+      var p = _sbUpsertPayloads[timerKey];
+      if (!p) return;
+      // Cancela debounce
+      clearTimeout(_sbUpsertTimers[timerKey]);
+      delete _sbUpsertTimers[timerKey];
+      delete _sbUpsertPayloads[timerKey];
+      delete _sbUpsertFirstAt[timerKey];
+
+      // Body direto (sem mergeProtegido - tarde demais pra fazer fetch
+      // de merge num beforeunload). keepalive obrigatorio.
+      try {
+        var body = JSON.stringify({
+          scope: p.scope,
+          key: p.key,
+          valor: p.value,
+          updated_by: String(usuario),
+        });
+        if (body.length > 60000) {
+          console.warn('[DB] _sbFlushBeforeUnload: payload ' + p.scope + '/' + p.key +
+                       ' tem ' + body.length + 'b - excede 60kb keepalive, pode falhar');
+        }
+        // fetch sincrono com keepalive:true - browser mantem rodando
+        // mesmo apos aba fechar. NAO da' pra await aqui (a aba ja' foi).
+        fetch(SUPABASE_URL + '/rest/v1/kv_store', {
+          method: 'POST',
+          headers: sbHeaders(true),
+          body: body,
+          keepalive: true,
+        }).catch(function(e) {
+          // Fallback: enfileira pra retry no proximo boot
+          try { _filaEnfileirar(p.scope, p.key, p.value); } catch(_){}
+        });
+      } catch(e) {
+        // Em caso de erro, enfileira pra proxima sessao
+        try { _filaEnfileirar(p.scope, p.key, p.value); } catch(_){}
+      }
+    });
+  }
+
+  // Felipe sessao 34: registra os 3 handlers. Quando qualquer um dispara,
+  // tenta enviar pendentes com keepalive. pagehide e' o mais confiavel
+  // (especialmente mobile/safari onde beforeunload nao sempre dispara).
+  // visibilitychange captura troca de aba ou minimizar (caso mais comum
+  // do dia-a-dia onde usuario nao fecha mas tira foco da pagina).
+  window.addEventListener('beforeunload', _sbFlushBeforeUnload);
+  window.addEventListener('pagehide',     _sbFlushBeforeUnload);
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') _sbFlushBeforeUnload();
+  });
 
   // Delete no Supabase (background)
   function sbDelete(scope, key) {
