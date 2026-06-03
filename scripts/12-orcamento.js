@@ -3200,7 +3200,7 @@ const Orcamento = (() => {
     const camposNovos = ['distanciaBordaFrisoHorizontal1', 'distanciaBordaFrisoHorizontal2',
                           'espessuraFriso', 'quantidadeFrisos', 'larguraRipas',
                           'tipoRipado', 'espacamentoRipas',
-                          'tipoMoldura', 'quantasDivisoesMoldura', 'quantidadeMolduras',
+                          'tipoMoldura', 'quantidadeMolduras',
                           'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura',
                           'perfilMoldura',
                           // Felipe (sessao 2026-05): corCava — em modelos
@@ -3506,7 +3506,6 @@ const Orcamento = (() => {
       tipoRipado: '',                 // Modelos 08,15  ('Total' / 'Parcial')
       espacamentoRipas: '',           // Modelos 08,15
       tipoMoldura: '',                // Modelo 23 ('Padrao' / 'Divisoes Iguais' / 'Personalizado')
-      quantasDivisoesMoldura: '',     // Modelo 23 — so' se tipoMoldura = 'Divisoes Iguais'
       quantidadeMolduras: '',         // Modelo 23 ('1' / '2' / '3')
       // Felipe (do doc): distancias progressivas conforme qtde de molduras
       distanciaBorda1aMoldura: '',    // Modelo 23 — sempre se qtde >= 1
@@ -3572,8 +3571,6 @@ const Orcamento = (() => {
     // (Padrao/Divisoes Iguais/Personalizado) e' SEMPRE visivel. As distancias
     // sao progressivas conforme quantidade de molduras (1, 2 ou 3).
     tipoMoldura:                { label: 'Configuracao da moldura', tipo: 'select', opcoes: ['', 'Padrao', 'Divisoes Iguais', 'Personalizado'] },
-    // Felipe: se Configuracao = "Divisoes Iguais", abre campo "Quantas divisoes"
-    quantasDivisoesMoldura:     { label: 'Quantas divisoes', tipo: 'number', min: 1, step: 1 },
     quantidadeMolduras:         { label: 'Quantidade de molduras', tipo: 'select', opcoes: ['', '1', '2', '3'] },
     distanciaBorda1aMoldura:    { label: 'Distancia da borda a 1a moldura (mm)', tipo: 'number', min: 0, step: 1 },
     distancia1a2aMoldura:       { label: 'Distancia da 1a a 2a moldura (mm)', tipo: 'number', min: 0, step: 1 },
@@ -3621,7 +3618,7 @@ const Orcamento = (() => {
     15: ['tipoRipado', 'espacamentoRipas'],
     16: ['quantidadeFrisos', 'espessuraFriso'],
     22: ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'quantidadeFrisos'],
-    23: ['tipoMoldura', 'quantasDivisoesMoldura', 'quantidadeMolduras', 'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura', 'perfilMoldura'],
+    23: ['tipoMoldura', 'quantidadeMolduras', 'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura', 'perfilMoldura'],
     24: ['tamanhoCava'],
     // Felipe (sessao 18): Mod 25 = "Puxador Externo + ripado vertical sem
     // elevacao". Base mod 10 (liso) + frisos verticais que FATIAM a tampa
@@ -3665,9 +3662,9 @@ const Orcamento = (() => {
     if (chave === 'distancia2a3aMoldura')    return qtdMolduras >= 3;
     // Felipe (do doc - msg modelo 23 divisoes iguais): "Quantas divisoes"
     // so' aparece se Configuracao da moldura = "Divisoes Iguais"
-    if (chave === 'quantasDivisoesMoldura') {
-      return item.tipoMoldura === 'Divisoes Iguais';
-    }
+    // Felipe sessao 35: campo "Quantas divisoes" ELIMINADO. Quando a config
+    // for "Divisoes Iguais", o texto da Configuracao da moldura ja' mostra
+    // a quantidade (ver display na proposta). Nada de campo separado.
     // Felipe: perfilMoldura (PA-PERFILBOISERIE etc) so' aparece quando
     // o Revestimento e' "Aluminio Macico 2mm" (ou similar).
     if (chave === 'perfilMoldura') {
@@ -13724,8 +13721,15 @@ const Orcamento = (() => {
                 // comercial (so' aqui — nao afeta form/cadastros).
                 if (c === 'tipoMoldura' && item[c] === 'Padrao') {
                   valor = internacional
-                    ? 'Standard — 2 frames with central division aligned to cylinder axis'
-                    : 'Padrão — 2 molduras com divisão central centralizada ao eixo do cilindro';
+                    ? '2 frames per leaf, with division aligned to the cylinder axis'
+                    : '2 molduras por folha, com divisão centralizada ao eixo do cilindro';
+                } else if (c === 'tipoMoldura' && item[c] === 'Divisoes Iguais') {
+                  // Felipe sessao 35: texto dinamico — usa a quantidade de
+                  // molduras escolhida no campo "Quantidade de molduras".
+                  const qtdMold = item.quantidadeMolduras || '';
+                  valor = internacional
+                    ? `${qtdMold} frames per leaf, evenly divided`.trim()
+                    : `${qtdMold} molduras por folha, com divisão igual`.trim();
                 } else if (c === 'quantidadeMolduras') {
                   lbl = internacional ? 'Frames per module' : 'Quantidade moldura por módulo';
                 } else if (c === 'distanciaBorda1aMoldura') {
