@@ -4534,10 +4534,15 @@ const Orcamento = (() => {
           item.altura_total  = Number(p0.altura_total)  || 0;
         }
         persistir(root);
-        if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+        // Felipe sessao 35: resetar() saiu daqui. Ele re-renderiza o
+        // orcamento inteiro (navigateTo) e matava o foco do input a cada
+        // tecla. Agora so' no 'change' (ao sair do campo).
       }
       el.addEventListener('input',  aplicar);
-      el.addEventListener('change', aplicar);  // sem reRender (mantem foco)
+      el.addEventListener('change', () => {
+        aplicar();
+        if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+      });
     });
 
     // Botoes adicionar/remover parede
@@ -4916,7 +4921,12 @@ const Orcamento = (() => {
         }
         syncTopLevelComPrimeiraParede(item);
         persistir(root);
-        if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+        // Felipe sessao 35: resetar() NAO entra aqui. Ele chama
+        // App.navigateTo -> re-render do orcamento inteiro -> o <input> da
+        // parede e' recriado e PERDE O FOCO a cada tecla ("coloco 3 e sai
+        // do campo, tenho que clicar de novo"). Movido pro handler de
+        // 'change' (so' quando o usuario SAI do campo), mantendo a
+        // digitacao livre. O valor ja' e' salvo a cada tecla no 'input'.
       }
 
       // Felipe sessao 34: atualiza HINT inline sem destruir DOM. Mantem foco.
@@ -4950,7 +4960,13 @@ const Orcamento = (() => {
       }
 
       el.addEventListener('input',  () => { aplicar(); atualizarHintParede(); });
-      el.addEventListener('change', () => { aplicar(); atualizarHintParede(); });
+      el.addEventListener('change', () => {
+        aplicar();
+        atualizarHintParede();
+        // Felipe sessao 35: re-trava as etapas seguintes do wizard so' ao
+        // SAIR do campo, nao a cada tecla (ver comentario em aplicar()).
+        if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+      });
     });
 
     // Botao + adicionar parede
