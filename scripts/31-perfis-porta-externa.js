@@ -53,6 +53,37 @@ const PerfisPortaExterna = (() => {
   // friso vertical — pra 2F, cada folha tem seus proprios frisos).
   const MODELOS_COM_FRISO_VERTICAL = new Set([2, 4, 5, 7, 11, 13, 14, 22, 25]);
 
+  // Felipe sessao 34 (bug Cristina AGP004710 mod 16 12 frisos -> saiu 2
+  // travessas): modelos com FRISO HORIZONTAL. Lista derivada de
+  // CAMPOS_POR_MODELO em 12-orcamento.js:
+  //   - 3, 12: 1 friso horizontal (distanciaBordaFrisoHorizontal)
+  //   - 4, 13: 1 friso horizontal + frisos verticais
+  //   - 5:     2 frisos horizontais (distanciaBordaFrisoHorizontal1+2)
+  //   - 6, 16: N frisos horizontais (campo quantidadeFrisos)
+  // A regra de substituicao (Felipe sessao 34): qtdFrisosH SUBSTITUI
+  // travessas horizontais ate' qtdTHBase. Se qtdFrisosH > qtdTHBase,
+  // o total de perfis horizontais aumenta (caso da Cristina: 12 frisos
+  // numa porta de 2460mm -> 12 perfis horizontais, nao 2).
+  const MODELOS_COM_FRISO_HORIZONTAL = new Set([3, 4, 5, 6, 12, 13, 16]);
+
+  /**
+   * Felipe sessao 34: retorna a quantidade de frisos HORIZONTAIS do modelo.
+   * Cada modelo tem sua propria forma de declarar frisos horizontais:
+   *   - 3, 4, 12, 13: 1 fixo (campo distanciaBordaFrisoHorizontal)
+   *   - 5:           2 fixos (campos H1 + H2)
+   *   - 6, 16:       N variavel (campo quantidadeFrisos)
+   *   - outros:      0 (modelo nao tem friso horizontal)
+   */
+  function qtdFrisosHorizontais(modelo, item) {
+    const m = Number(modelo) || 0;
+    if (m === 6 || m === 16) {
+      return Math.max(0, parseInt(item && item.quantidadeFrisos, 10) || 0);
+    }
+    if (m === 5) return 2;
+    if (m === 3 || m === 4 || m === 12 || m === 13) return 1;
+    return 0;
+  }
+
   /**
    * Detecta se o modelo tem cava lendo a descricao cadastrada (case-insensitive).
    * Felipe: "leia modelo que tem cava contido na descricao para aplicar regra"
@@ -441,14 +472,33 @@ const PerfisPortaExterna = (() => {
     add(cod.perfLargInt,                          LARG_INT_FOLHA,  2 * nFolhas,    'Largura Inferior & Superior');
     add(cod.canalEsc,                             CANAL,           2 * nFolhas,    'Canal Escova');
     add(cod.travVert,                             TRAV_VERT,       qtdTVFinal,     'Travessa Vertical');
-    // Felipe sessao 12: modelo 6 (friso horizontal) NAO duplica - o
-    // 'Friso Horizontal' SUBSTITUI a 'Travessa Horizontal'. Antes
-    // adicionavam os 2 (mesmo PA-76X38X1.98, mesmo comprimento, mesmo
-    // qtd) - duplicacao. Felipe: 'o friso na horizontal substitui a
-    // travessa vertcal' (errou: queria dizer travessa horizontal,
-    // pq sao ambas horizontais e mesmas dimensoes).
-    if (!ehFriso6) {
-      add(cod.travHor,                            LARG_INT_TRAV,   qtdTH * nFolhas,'Travessa Horizontal');
+    // Felipe sessao 34 (bug Cristina AGP004710 mod 16 12 frisos -> saiu 2
+    // travessas, 0 frisos): regra UNIFICADA de travessa horizontal +
+    // friso horizontal. Mesma logica do friso vertical:
+    //   - qtdTHBase: travessas obrigatorias por altura (floor(A/1000))
+    //   - qtdFrisosHor: numero de frisos H do modelo (3,4,5,6,12,13,16)
+    //   - qtdTotalHor: MAX entre os dois (frisos podem AUMENTAR o total)
+    //   - qtdTravessaHor: total - frisos (sobra como Travessa Horizontal)
+    //
+    // Caso Cristina (mod 16, 2460mm, 12 frisos):
+    //   qtdTHBase=2, qtdFrisosHor=12 -> qtdTotalHor=12 -> 12 frisos + 0 travessas
+    // Caso Felipe (5680mm, mod 05, 2 frisos H intrinsecos):
+    //   qtdTHBase=5, qtdFrisosHor=2 -> qtdTotalHor=5 -> 2 frisos + 3 travessas
+    // Caso modelo SEM friso horizontal (mod 1, 10, 11, ...):
+    //   qtdFrisosHor=0 -> qtdTotalHor=qtdTHBase -> tudo vira Travessa
+    //
+    // ANTES: ehFriso6 (modelo 6) era unico caso especial - todas travessas
+    // viravam frisos. Demais modelos com friso horizontal nem geravam o
+    // perfil de friso. AGORA: tabela unificada cobre todos os 7 modelos.
+    const ehModeloComFrisoHor = MODELOS_COM_FRISO_HORIZONTAL.has(modelo);
+    const qtdFrisosHor = ehModeloComFrisoHor ? qtdFrisosHorizontais(modelo, item) : 0;
+    const qtdTotalHor = Math.max(qtdTH, qtdFrisosHor);
+    const qtdTravessaHor = qtdTotalHor - qtdFrisosHor;
+    if (qtdTravessaHor > 0) {
+      add(cod.travHor,   LARG_INT_TRAV, qtdTravessaHor * nFolhas, 'Travessa Horizontal');
+    }
+    if (qtdFrisosHor > 0) {
+      add(cod.travHor,   LARG_INT_TRAV, qtdFrisosHor * nFolhas,   'Friso Horizontal');
     }
 
     if (ehCava) {
@@ -461,11 +511,9 @@ const PerfisPortaExterna = (() => {
       add(cod.cantCava, TRAV_VERT, 4 * nFolhas,        'Cantoneira Cava');
       add(cod.travCava, 250,       qtdTH * nFolhas,    'Travamento Puxador Embutido');
     }
-    if (ehFriso6) {
-      // Felipe sessao 12: modelo 6 = SO friso horizontal. Sem friso
-      // vertical (era erro). Travessa Vertical (acima) mantem padrao.
-      add(cod.travHor,     LARG_INT_TRAV, qtdTH * nFolhas, 'Friso Horizontal');
-    }
+    // Felipe sessao 34: removido bloco "if (ehFriso6) add('Friso Horizontal')".
+    // Substituido pela regra unificada acima que cobre TODOS os modelos com
+    // friso horizontal (3, 4, 5, 6, 12, 13, 16), nao apenas mod 6.
 
     // Felipe (sessao 2026-09): tubo de reforco do FRISO VERTICAL.
     // Adicionado quando o modelo tem friso vertical (lista
