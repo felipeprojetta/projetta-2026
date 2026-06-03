@@ -57,19 +57,41 @@ const Storage = (() => {
   // (backups diarios auto-regeneram; forensics ja estao no Supabase).
   // Retorna numero de chaves removidas. Se >0, vale a pena tentar setItem
   // de novo.
+  //
+  // Felipe sessao 34: expandido pra cobrir TODOS os padroes de lixo
+  // historico que enchiam o localStorage do Felipe (diagnostico: 9.99MB
+  // de 10MB ocupados, PKCE verifier nao conseguia salvar). Adicionados:
+  //   - *_backup_sessao\d+      (backups antigos de sessao de dev)
+  //   - *__pre_*                (snapshots pre-mudancas)
+  //   - projetta_crm_v1         (legado V1, ja' migrou)
   function _tentarLiberarEspaco() {
     var removidos = 0;
     var keysParaRemover = [];
+    var bytesLiberados = 0;
     try {
       for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
-        if (!k || k.indexOf(PREFIX) !== 0) continue;
-        // backup_diario:* (auto-regeneram a cada dia)
-        // forensic_*       (snapshots antigos da corrupcao 14/05 — ja no Supabase)
-        // *backup_2026*    (backups manuais antigos)
-        if (k.indexOf(PREFIX + 'backup_diario:') === 0
-            || k.indexOf(':forensic_') !== -1
-            || /:.*backup_20\d{2}/.test(k)) {
+        if (!k) continue;
+        // Felipe sessao 34: padroes ampliados de "lixo descartavel local"
+        // (todos sao redundantes - existem no Supabase ou nao sao mais usados)
+        var ehLixo = false;
+        if (k.indexOf(PREFIX) === 0) {
+          // Chaves do projetta:* com prefixo
+          if (k.indexOf(PREFIX + 'backup_diario:') === 0
+              || k.indexOf(PREFIX + 'backup_manual:') === 0
+              || k.indexOf(':forensic_') !== -1
+              || /:.*backup_20\d{2}/.test(k)            // backup_2026*
+              || /_backup_sessao\d+/.test(k)            // _backup_sessao13/14
+              || /__pre_/.test(k)) {                    // __pre_ezy_color etc
+            ehLixo = true;
+          }
+        } else if (k === 'projetta_crm_v1') {
+          // Legado V1 (sem prefixo projetta:) - migrou pra V7 ja' faz tempo
+          ehLixo = true;
+        }
+        if (ehLixo) {
+          var v = localStorage.getItem(k) || '';
+          bytesLiberados += (k.length + v.length) * 2;
           keysParaRemover.push(k);
         }
       }
@@ -77,11 +99,42 @@ const Storage = (() => {
         try { localStorage.removeItem(k); removidos++; } catch(_) {}
       });
       if (removidos > 0) {
-        console.warn('[Storage] 🧹 Auto-cleanup: ' + removidos + ' chaves descartaveis removidas pra liberar espaco.');
+        console.warn('[Storage] 🧹 Auto-cleanup: ' + removidos + ' chaves descartaveis removidas, ~'
+          + (bytesLiberados/1024).toFixed(0) + ' KB liberados.');
       }
     } catch(_) {}
     return removidos;
   }
+
+  // Felipe sessao 34: LIMPEZA PROATIVA NO BOOT. Em vez de esperar
+  // QuotaExceeded acontecer (que ai' o erro chega em ponto critico tipo
+  // PKCE verifier do login), limpa o lixo conhecido JA' no carregamento
+  // do modulo Storage. Roda silencioso se quota < 80%, ou avisa no console
+  // se passou disso.
+  (function _limpezaBootProativa() {
+    try {
+      // Mede quota usada
+      var totalBytes = 0;
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        totalBytes += (k.length + (localStorage.getItem(k) || '').length) * 2;
+      }
+      var totalMB = totalBytes / 1024 / 1024;
+      // Quota tipica de localStorage e' 5-10MB. Acima de 7MB ja' e' risco.
+      var QUOTA_ALVO_MB = 7;
+      if (totalMB > QUOTA_ALVO_MB) {
+        console.warn('[Storage] 🚨 localStorage usando ' + totalMB.toFixed(2)
+          + 'MB (alvo: <' + QUOTA_ALVO_MB + 'MB). Rodando limpeza preventiva...');
+        var removidos = _tentarLiberarEspaco();
+        if (removidos === 0) {
+          console.warn('[Storage] ⚠️ Nada pra limpar, mas espaco apertado. PKCE e outros saves podem falhar.');
+        }
+      }
+    } catch(e) {
+      // Boot resiliente - se algo der erro aqui, continua sem limpar
+      console.warn('[Storage] limpeza boot falhou (ignorando):', e.message);
+    }
+  })();
 
   // Whitelist de chaves/scopes seguras (mesmo do Database)
   // que podem ser escritas mesmo em read-only.

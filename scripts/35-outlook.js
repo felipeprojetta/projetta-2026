@@ -50,12 +50,19 @@
   };
 
   // ═══ STORAGE KEYS ═══
+  // Felipe sessao 34: PKCE verifier e OAuth state migrados pra
+  // sessionStorage. Esses 2 sao TRANSIENTES - so' precisam durar do
+  // outlookLogin() ate' o callback (mesma aba, mesma sessao do browser).
+  // localStorage estava enchendo quota (9.99/10MB) e o PKCE falhava no
+  // setItem, impedindo login. sessionStorage tem quota separada e
+  // limpa automatico quando a aba fecha - perfeito pro PKCE flow.
+  // Tokens, refresh e user PRECISAM persistir entre sessoes -> localStorage.
   var LS_TOKEN       = 'projetta_outlook_access_token';
   var LS_REFRESH     = 'projetta_outlook_refresh_token';
   var LS_EXPIRES     = 'projetta_outlook_expires_at';   // unix ms
   var LS_USER        = 'projetta_outlook_user';
-  var LS_PKCE_VERIFIER = 'projetta_outlook_pkce_verifier';
-  var LS_STATE       = 'projetta_outlook_oauth_state';
+  var SS_PKCE_VERIFIER = 'projetta_outlook_pkce_verifier';   // sessionStorage
+  var SS_STATE         = 'projetta_outlook_oauth_state';     // sessionStorage
 
   // ═══ HELPERS ═══
 
@@ -145,8 +152,12 @@
       var state = _randomBase64url(16);
 
       // Salvar pra usar no callback (auto-limpa backups se quota cheia)
-      _setItemSeguro(LS_PKCE_VERIFIER, verifier);
-      _setItemSeguro(LS_STATE, state);
+      // Felipe sessao 34: sessionStorage em vez de localStorage. PKCE/state
+      // sao transientes (so' precisam sobreviver ate' o callback dessa MESMA
+      // sessao do browser). Evita o problema de QuotaExceeded quando o
+      // localStorage esta cheio. sessionStorage tem quota separada.
+      sessionStorage.setItem(SS_PKCE_VERIFIER, verifier);
+      sessionStorage.setItem(SS_STATE, state);
 
       // Construir URL de autorizacao
       var authUrl = AZURE_CONFIG.authority + '/oauth2/v2.0/authorize?'
@@ -186,15 +197,16 @@
 
     if(!code) return; // Nao e callback
 
-    // Validar state
-    var savedState = localStorage.getItem(LS_STATE);
+    // Felipe sessao 34: leitura em sessionStorage (fallback localStorage
+    // pra retrocompat caso usuario ainda tenha verifier antigo gravado la').
+    var savedState = sessionStorage.getItem(SS_STATE) || localStorage.getItem(SS_STATE);
     if(state !== savedState){
       _err('State mismatch', {received: state, saved: savedState});
       alert('Erro de seguranca: state mismatch. Tente fazer login novamente.');
       return;
     }
 
-    var verifier = localStorage.getItem(LS_PKCE_VERIFIER);
+    var verifier = sessionStorage.getItem(SS_PKCE_VERIFIER) || localStorage.getItem(SS_PKCE_VERIFIER);
     if(!verifier){
       _err('PKCE verifier ausente');
       alert('Erro: PKCE verifier perdido. Tente novamente.');
@@ -224,9 +236,12 @@
       var tok = await resp.json();
       _saveTokens(tok);
 
-      // Limpar estado temporario
-      localStorage.removeItem(LS_PKCE_VERIFIER);
-      localStorage.removeItem(LS_STATE);
+      // Felipe sessao 34: limpa em ambos (sessionStorage atual + localStorage
+      // legado pra ex-usuarios que ainda tem o verifier antigo gravado la').
+      sessionStorage.removeItem(SS_PKCE_VERIFIER);
+      sessionStorage.removeItem(SS_STATE);
+      try { localStorage.removeItem(SS_PKCE_VERIFIER); } catch(_) {}
+      try { localStorage.removeItem(SS_STATE); } catch(_) {}
 
       // Limpar URL (remover ?code=...)
       window.history.replaceState({}, document.title, window.location.pathname);
