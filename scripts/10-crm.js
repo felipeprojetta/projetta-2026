@@ -4055,12 +4055,25 @@ ${secoesHtml}
       // FILTROS — busca livre + 6 selects + limpar
       const filtroBusca = container.querySelector('#crm-f-busca');
       if (filtroBusca) {
-        // Debounce simples pra busca: aplica no `input`, mas s/ render a cada tecla
+        // Felipe sessao 34: o campo de busca "travava" depois da 1a tecla.
+        // Causa: render(container) reconstroi o innerHTML inteiro do CRM,
+        // recriando o proprio <input> -> ele perde o foco e o usuario tinha
+        // que clicar de novo a cada caractere. Fix: depois do render
+        // (debounced), devolve o foco e a posicao do cursor pro mesmo input,
+        // pra digitacao continuar livre sem precisar clicar.
         let t = null;
         filtroBusca.addEventListener('input', (e) => {
           state.filtros.busca = e.target.value;
+          const caret = e.target.selectionStart;
           if (t) clearTimeout(t);
-          t = setTimeout(() => render(container), 200);
+          t = setTimeout(() => {
+            render(container);
+            const novo = container.querySelector('#crm-f-busca');
+            if (novo) {
+              novo.focus();
+              try { novo.setSelectionRange(caret, caret); } catch (_) {}
+            }
+          }, 200);
         });
       }
       const bindSelectFiltro = (selId, campo) => {
