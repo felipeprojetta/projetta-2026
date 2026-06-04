@@ -150,13 +150,20 @@ const Acessorios = (() => {
    * preto. A porta interna passa a incluir 1 unidade automaticamente,
    * escolhendo o tamanho pelo PROXIMO disponivel acima da medida do click
    * folha horizontal (ver _gerarAcessoriosPortaInterna em
-   * 28-acessorios-porta-externa.js). Idempotente via flag.
+   * 28-acessorios-porta-externa.js).
+   *
+   * Felipe sessao 35 (FIX): SEM FLAG — idempotente de verdade. Antes era
+   * gated por 'migracao_veda_porta_interna_v1'; o problema: se a flag
+   * sincronizava=true de outro browser mas a acessorios_lista local ficava
+   * defasada (sem os itens), o load() PULAVA a migracao e os codigos nunca
+   * eram inseridos nesse browser -> orcamento mostrava "(nao cadastrado)".
+   * Agora confere SEMPRE e adiciona o que faltar (mesmo padrao dos vidros/AM
+   * em superficies). So' grava quando muda algo, entao nao gera churn.
    * Precos iniciais: 820 = R$230,40 e 920 = R$250,00 (demais 0 — Felipe
    * envia depois). So' atualiza preco se o atual for 0 (preserva edicao
    * manual do usuario), mesmo padrao de migrarPrecosAcessPdf.
    */
   function migrarVedaPortaInterna() {
-    if (store.get('migracao_veda_porta_interna_v1')) return;
     const PRECOS = { 'PA-VED0820INT': 230.40, 'PA-VED0920INT': 250.00 };
     const NOVOS = [620, 720, 820, 920, 1020, 1120].map(function (m) {
       const cod = 'PA-VED' + String(m).padStart(4, '0') + 'INT';
@@ -188,7 +195,6 @@ const Acessorios = (() => {
         + ' novo(s) adicionado(s), ' + precosAtualizados + ' preco(s) atualizado(s)');
       store.set('acessorios_lista', state.acessorios);
     }
-    store.set('migracao_veda_porta_interna_v1', true);
   }
 
   // ────────────────────────────────────────────────────────────────────
