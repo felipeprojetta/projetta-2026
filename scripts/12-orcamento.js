@@ -1988,7 +1988,11 @@ const Orcamento = (() => {
     // (dc.subFab/subInst/custoFab/custoInst), so' parametros/pFat/pTab/
     // pFatReal/valorAprovado/precoProposta sao recalculados. Outros
     // chamadores nao passam este campo.
-    const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas', 'dre_congelado'];
+    // Felipe sessao 35 (FIX): 'modoValorProposta' faltava na whitelist —
+    // por isso o toggle "Valor unico final / Valor por item" NAO salvava
+    // (atualizarVersao descartava o campo silenciosamente) e o botao
+    // parecia nao funcionar.
+    const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas', 'dre_congelado', 'modoValorProposta'];
     camposPermitidos.forEach(k => {
       if (k in dadosNovos) alvo[k] = dadosNovos[k];
     });
