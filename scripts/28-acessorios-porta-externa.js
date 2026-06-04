@@ -254,6 +254,28 @@ const AcessoriosPortaExterna = (() => {
     const larguraVaoPI = _toNumPI(item.largura);
     const alturaVaoPI  = _toNumPI(item.altura);
 
+    // 3b) Felipe sessao 35: VEDA PORTA interna — 1 unidade por porta.
+    //     Tamanho escolhido pela medida do CLICK FOLHA HORIZONTAL (mesma
+    //     formula de 35-perfis-porta-interna):
+    //        compClickFlhHor = largura_vao - (fglEsq + fglDir) - 24,5 - 24,5
+    //     O veda porta so' vem em 620, 720, 820, 920, 1020, 1120 mm; pega o
+    //     PROXIMO tamanho disponivel ACIMA da medida (arredonda pra cima).
+    //     Ex (Felipe): medida 841 -> 820 ficaria pequeno -> usa 920.
+    //     Acima de 1120 (maior fabricado) usa o 1120. Codigo PA-VED<med>INT.
+    (function vedaPortaInterna() {
+      const fglEsq = _toNumPI(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5);
+      const fglDir = _toNumPI(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5);
+      const compClickFlhHor = larguraVaoPI - (fglEsq + fglDir) - 24.5 - 24.5;
+      if (compClickFlhHor > 0) {
+        const TAMANHOS = [620, 720, 820, 920, 1020, 1120];
+        let medida = TAMANHOS.find(t => t >= compClickFlhHor);
+        if (medida == null) medida = TAMANHOS[TAMANHOS.length - 1]; // cap no maior (1120)
+        const codVeda = 'PA-VED' + String(medida).padStart(4, '0') + 'INT';
+        pushLinha(codVeda, 1, 'Veda Porta',
+          'Click folha ' + Math.round(compClickFlhHor) + 'mm -> veda ' + medida + 'mm');
+      }
+    })();
+
     // 4) Felipe sessao 31: PA-QL 48750 — vedacao perimetral, em METROS.
     //    'PA-QL 48750 em metros fica em acessorios.
     //     Largura do vao + 2x altura do vao' (1 lado + 2 verticais).
