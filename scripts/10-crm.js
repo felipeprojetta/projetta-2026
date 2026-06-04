@@ -3705,8 +3705,34 @@ ${secoesHtml}
       setTimeout(() => { mount.querySelector('#crm-fech-input')?.focus(); }, 50);
     }
 
+    // Felipe sessao 35: timestamp do ultimo pull aditivo de negocios da nuvem
+    // (usado pelo cooldown dentro de render). Escopo do modulo p/ persistir
+    // entre re-renders.
+    var _ultimoPullNegocios = 0;
+
     function render(container) {
       load();
+
+      // Felipe sessao 35: ao abrir/renderizar o CRM, puxa da nuvem negocios
+      // construidos em OUTRA maquina (ex: Paula) que ainda nao estao no store
+      // local — senao os cards (sobretudo "Orcamento Pronto") aparecem so' com
+      // "Montar Orcamento", sem Abrir/Revisar/Nova Versao, mesmo o orcamento
+      // existindo. Pull ADITIVO (so' adiciona, nunca sobrescreve/apaga). Cooldown
+      // de 45s pra nao refazer o fetch a cada re-render. Re-renderiza 1x se
+      // trouxe algo novo (cooldown impede loop).
+      (function tentarPullNegocios() {
+        try {
+          var agora = Date.now();
+          if (agora - _ultimoPullNegocios < 45000) return;
+          _ultimoPullNegocios = agora;
+          if (window.Orcamento && typeof window.Orcamento.pullNegociosDaNuvem === 'function') {
+            window.Orcamento.pullNegociosDaNuvem().then(function (mudou) {
+              if (mudou) { try { render(container); } catch (_) {} }
+            }).catch(function () {});
+          }
+        } catch (_) {}
+      })();
+
       // Filtros aplicados ao pipeline para os contadores e o kanban
       const leadsFiltrados = aplicarFiltros(state.leads);
       const total = leadsFiltrados.length;

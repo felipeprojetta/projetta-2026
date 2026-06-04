@@ -1327,6 +1327,53 @@ const Orcamento = (() => {
     // Mantida desativada de proposito.
   }
 
+  // Felipe sessao 35: PULL ADITIVO de negocios da nuvem.
+  // PROBLEMA: orcamento construido em OUTRA maquina (ex: Paula) fica no
+  // Supabase mas NAO no store local deste navegador. Resultado:
+  // resumoParaCardCRM nao acha o negocio por leadId -> o card do CRM
+  // (principalmente a coluna "Orcamento Pronto") esconde os botoes
+  // Abrir Orcamento / Revisar / Nova Versao / Gerar Documentos, mesmo
+  // o orcamento existindo. No PC de quem construiu, os botoes aparecem.
+  //
+  // SOLUCAO: busca o blob de negocios direto do Supabase e ADICIONA ao
+  // store local APENAS os negocios cujo id ainda nao existe localmente.
+  // NUNCA sobrescreve nem apaga negocio local (so' adiciona) — portanto
+  // SEM risco de perda de dados (a parte critica desse subsistema).
+  // Alinhado com a diretriz: "Supabase e' a fonte da verdade; navegadores
+  // puxam do Supabase". Retorna true se adicionou algo (pra UI re-render).
+  async function pullNegociosDaNuvem() {
+    try {
+      if (!window.Database || !window.Database.SUPABASE_URL || !window.Database.SUPABASE_KEY) return false;
+      const url = window.Database.SUPABASE_URL
+        + '/rest/v1/kv_store?scope=eq.orcamentos&key=eq.negocios&select=valor';
+      const res = await fetch(url, {
+        headers: {
+          apikey: window.Database.SUPABASE_KEY,
+          Authorization: 'Bearer ' + window.Database.SUPABASE_KEY,
+          'Accept-Profile': 'v7',
+        },
+      });
+      if (!res.ok) return false;
+      const rows = await res.json();
+      if (!Array.isArray(rows) || !rows.length) return false;
+      let cloud = rows[0] && rows[0].valor;
+      // valor pode vir como string jsonb (double-encoded) ou ja' como array
+      if (typeof cloud === 'string') { try { cloud = JSON.parse(cloud); } catch (_) { return false; } }
+      if (!Array.isArray(cloud) || !cloud.length) return false;
+      const local = loadAll();
+      const idsLocais = new Set(local.map(n => n && n.id).filter(Boolean));
+      const faltantes = cloud.filter(n => n && n.id && !idsLocais.has(n.id));
+      if (!faltantes.length) return false;
+      saveAll(local.concat(faltantes));
+      console.log('[Orcamento] pullNegociosDaNuvem: +' + faltantes.length
+        + ' negocio(s) baixado(s) da nuvem (total local agora: ' + (local.length + faltantes.length) + ')');
+      return true;
+    } catch (e) {
+      console.warn('[Orcamento] pullNegociosDaNuvem falhou:', e && e.message);
+      return false;
+    }
+  }
+
   // ---------- snapshot de precos (Etapa 3 vai usar de verdade) ----------
   // Felipe (sessao 2026-09 — fix de quota localStorage):
   //
@@ -20019,6 +20066,10 @@ const Orcamento = (() => {
     criarNegocio,
     obterNegocioPorLeadId,
     resumoParaCardCRM,
+    // Felipe sessao 35: pull aditivo de negocios da nuvem (ver definicao
+    // perto de saveAll). Usado pelo CRM ao abrir o board pra trazer
+    // orcamentos construidos em outras maquinas (ex: Paula).
+    pullNegociosDaNuvem,
     obterNegocio,
     obterOpcao,
     obterVersao,
