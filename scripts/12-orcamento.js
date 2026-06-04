@@ -539,7 +539,16 @@ const Orcamento = (() => {
     // Felipe sessao 34: agora calcula AUTO POR ITEM tambem (horasAutoPorItem)
     // pra UI usar como valor inicial quando campo vazio + flag de override visual.
     // Tambem usa qtdChapas REAL (chapasReaisPorItem) do Lev Superficies se passado.
-    const portas = (itens || []).filter(i => i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'));
+    // Felipe sessao 35 (FIX GRAVE): porta_interna NAO entrava no calculo de
+    // horas de fabricacao. As horas digitadas (horasPorItem) eram lidas no
+    // loop abaixo que iterava 'portas' — e porta_interna ficava de fora ->
+    // as horas eram JOGADAS FORA (ex: Portal 90 + Colagem 330 + Folha 90 =
+    // 510h sumiam, subfaturando a mao de obra). Agora porta_interna entra.
+    // Importante: interna vai no FIM do array (apos ext/rev) pra NAO deslocar
+    // os indices dos itens externos ja' salvos em orcamentos existentes.
+    const portas = (itens || [])
+      .filter(i => i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'))
+      .concat((itens || []).filter(i => i && i.tipo === 'porta_interna'));
     const horasAuto = ETAPAS_FAB.reduce((acc, e) => { acc[e.id] = 0; return acc; }, {});
     // horasAutoPorItem[etapaId][idx] = auto desse item nessa etapa
     const horasAutoPorItem = ETAPAS_FAB.reduce((acc, e) => { acc[e.id] = {}; return acc; }, {});
@@ -1019,8 +1028,9 @@ const Orcamento = (() => {
     // it (global) -> idx no array filtrado pra ler as horas manuais salvas
     // pro rev_parede. Porta_externa continua usando horasItemPortaExterna
     // (regras automaticas).
-    const itensFiltradosFab = itens.filter(i =>
-      i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'));
+    const itensFiltradosFab = (itens || [])
+      .filter(i => i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'))
+      .concat((itens || []).filter(i => i && i.tipo === 'porta_interna'));
     const horasPorIdx = {};
     let horasTotal = 0;
     itens.forEach((it, idx) => {
@@ -1029,8 +1039,9 @@ const Orcamento = (() => {
         horasPorIdx[idx] = (h.portal || 0) + (h.quadro || 0) +
                            (h.corte_usinagem || 0) + (h.colagem || 0) +
                            (h.conf_bem || 0);
-      } else if (it && it.tipo === 'revestimento_parede') {
+      } else if (it && (it.tipo === 'revestimento_parede' || it.tipo === 'porta_interna')) {
         // Soma horas manuais salvas em fab.etapas[<etapa>].horasPorItem[idxFiltrado]
+        // (rev_parede e porta_interna nao tem regra automatica — Felipe sessao 35)
         const idxFiltrado = itensFiltradosFab.indexOf(it);
         const etapas = (fab && fab.etapas) || {};
         let totalH = 0;
@@ -7891,8 +7902,13 @@ const Orcamento = (() => {
           // (Felipe: 'nao temos campo para colocar horas de fabricacao deste item').
           // Rev_parede entra com seu proprio idx no array filtrado; o cabecalho
           // mostra largura×altura da PRIMEIRA parede preenchida (ou label).
-          const itensFab = (versao.itens || []).filter(i =>
-            i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'));
+          // Felipe sessao 35 (FIX GRAVE): inclui porta_interna na tabela de
+          // horas (mesmo filtro/ordem do calcularFab — interna no FIM pra nao
+          // deslocar indices de itens externos ja' salvos). Sem isso a porta
+          // interna caia no fallback antigo e as horas por-item nao somavam.
+          const itensFab = (versao.itens || [])
+            .filter(i => i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'))
+            .concat((versao.itens || []).filter(i => i && i.tipo === 'porta_interna'));
           const nItens = itensFab.length;
           // Cabecalho dinamico — uma coluna por item
           const colunasItens = nItens > 0
