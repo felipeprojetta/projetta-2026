@@ -61,6 +61,43 @@
     } catch (_) {}
   }
 
+  // ---- cruzamento com CRM Projetta (Felipe sessao 35) -------------
+  // Cruza cada reserva Weiku com os leads do CRM Projetta por RESERVA
+  // ou por NOME (tokens — a reserva muda entre os sistemas quando o
+  // cliente re-orca). Somente leitura; nao altera nada do CRM.
+  var _projIdx = null;
+  function _pnorm(s){ return String(s==null?'':s).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+  var _PSTOP={E:1,DE:1,DA:1,DO:1,DAS:1,DOS:1,PV:1,ARQ:1,SR:1,SRA:1,CASA:1,PORTAS:1,PORTA:1,INTERNAS:1,LTDA:1,PROJETO:1,RESIDENCIAL:1,RESIDENCIA:1,EMPREENDIMENTOS:1,HOLDING:1,SA:1,ME:1,JUNIOR:1,NETO:1};
+  function _ptoks(s){ return _pnorm(s).split(' ').filter(function(t){ return t.length>2 && !_PSTOP[t]; }); }
+  function _psub(a,b){ for(var i=0;i<a.length;i++){ if(b.indexOf(a[i])<0) return false; } return a.length>0; }
+  function _getCrmLeads(){ try{ if(!window.Storage) return []; var a=Storage.scope('crm').get('leads',[]); return Array.isArray(a)?a:[]; }catch(_){ return []; } }
+  function _buildProjIdx(){
+    var byRes={}, list=[];
+    _getCrmLeads().forEach(function(l){
+      var r=String(l.numeroReserva||'').replace(/\D/g,'');
+      if(r) byRes[r]=l;
+      list.push({ l:l, t:_ptoks(l.cliente||l.nome||'') });
+    });
+    _projIdx={ byRes:byRes, list:list };
+  }
+  function matchProjetta(d){
+    if(!_projIdx) _buildProjIdx();
+    var r=String(d.r||'').replace(/\D/g,'');
+    if(r && _projIdx.byRes[r]) return _projIdx.byRes[r];
+    var wt=_ptoks(d.nome||'');
+    if(wt.length>=2){
+      for(var i=0;i<_projIdx.list.length;i++){
+        var pt=_projIdx.list[i].t;
+        if(pt.length>=2 && (_psub(pt,wt)||_psub(wt,pt))) return _projIdx.list[i].l;
+      }
+    }
+    return null;
+  }
+  function stageCurto(e){
+    var m={'fazer-orcamento':'A orçar','orcamento-pronto':'Orç. pronto','orcamento-enviado':'Orç. enviado','negociacao':'Negociação','fechado':'Fechado','perdido':'Perdido'};
+    return m[e]||e||'\u2713';
+  }
+
   // ---- helpers ----------------------------------------------------
   function fmtMoeda(v) {
     return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -300,6 +337,7 @@
       + '        <th data-s="nome">Cliente</th><th data-s="uf">Local</th><th data-s="tipo">Tipo</th>'
       + '        <th data-s="pav" style="text-align:center">Pav.</th><th data-s="esq" style="text-align:center">Esq.</th>'
       + '        <th data-s="v" style="text-align:right">Valor aprovado</th><th data-s="rep">Representante</th>'
+      + '        <th style="text-align:center">Projetta</th>'
       + '        <th style="text-align:center">Contato</th>'
       + '      </tr></thead><tbody id="wkv-tb"></tbody>'
       + '    </table></div>'
@@ -323,6 +361,7 @@
 
   // ---- render da tabela + KPIs ------------------------------------
   function renderTabela(container) {
+    _projIdx = null; // recarrega leads do CRM a cada render
     var lista = aplicarFiltro();
     var k = ui.sortKey;
     lista.sort(function (a, b) {
@@ -346,6 +385,10 @@
     var msg = ui.msg;
     var rows = lista.map(function (d) {
       var primeiro = (d.nome || '').split(' ')[0] || '';
+      var mp = matchProjetta(d);
+      var projTd = mp
+        ? '<span class="wkv-tag casa" title="Projetta: ' + esc(mp.cliente || mp.nome || '') + (mp.numeroAGP ? ' (AGP ' + esc(mp.numeroAGP) + ')' : '') + ' \u2014 etapa: ' + esc(mp.etapa || '') + '">\u2713 ' + esc(stageCurto(mp.etapa)) + '</span>'
+        : '<span class="wkv-loc" style="color:#9ca3af">\u2014</span>';
       var txt = encodeURIComponent(msg.replace(/\{nome\}/g, primeiro));
       var wa = temWa(d)
         ? '<a class="wkv-ico wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(d.wa) + '?text=' + txt + '" title="WhatsApp">\u2706</a>'
@@ -364,13 +407,14 @@
         + '<td style="text-align:center" class="wkv-num">' + esc(d.esq || '\u2014') + '</td>'
         + '<td class="wkv-vlr wkv-num">' + fmtMoeda(d.v) + '</td>'
         + '<td class="wkv-loc">' + esc(d.rep || '\u2014') + '</td>'
+        + '<td style="text-align:center">' + projTd + '</td>'
         + '<td style="text-align:center;white-space:nowrap">' + wa + ' ' + ml
         + ' <button class="wkv-rmv" data-r="' + esc(d.r) + '" title="Remover (opt-out)">\u2715</button></td>'
         + '</tr>';
     }).join('');
 
     var tb = $('wkv-tb');
-    if (tb) tb.innerHTML = rows || '<tr><td colspan="8" style="text-align:center;padding:40px;color:#6b7280">Nenhum cliente nesse filtro.</td></tr>';
+    if (tb) tb.innerHTML = rows || '<tr><td colspan="9" style="text-align:center;padding:40px;color:#6b7280">Nenhum cliente nesse filtro.</td></tr>';
 
     // indicadores de ordenacao
     container.querySelectorAll('thead th[data-s]').forEach(function (th) {
