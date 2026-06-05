@@ -2652,7 +2652,9 @@
      * NAO altera nenhum KPI existente.
      */
     function somarGeradoNoAno(leadsBase, ano) {
-      const ETAPAS_GERADO = ['orcamento-enviado', 'negociacao', 'fechado'];
+      // Felipe sessao 35: perdidos TAMBEM contam — fazem parte dos orcamentos
+      // gerados (e dos leads) no ano, mesmo perdidos.
+      const ETAPAS_GERADO = ['orcamento-enviado', 'negociacao', 'fechado', 'perdido'];
       const anoNum = Number(ano);
       let total = 0;
       let count = 0;
@@ -2720,6 +2722,18 @@
             addEm(agg, chaveRep(l), Number(l.valor) || 0);
             // Felipe sessao 34: ranking separado SO de fechados (ano)
             addEm(aggFechado, chaveRep(l), Number(l.valor) || 0);
+          }
+        }
+        // Felipe sessao 35: perdidos tambem contam nos rankings por VALOR e
+        // por QUANTIDADE (fazem parte dos leads/orcamentos gerados, mesmo
+        // perdidos), filtrados pelo ano. NAO entram no ranking "so fechados".
+        if (l.etapa === 'perdido') {
+          const dataRef = l.orcadoEm || l.fechadoEm || l.data || '';
+          if (!dataRef) return;
+          const d = new Date(String(dataRef));
+          if (isNaN(d.getTime())) return;
+          if (d.getFullYear() === anoNum) {
+            addEm(agg, chaveRep(l), Number(l.valor) || 0);
           }
         }
       });
@@ -3832,7 +3846,7 @@ ${secoesHtml}
           </div>`,
         'gerado': `
           <div class="crm-kpi crm-kpi-gerado" data-kpi-id="gerado" draggable="true">
-            <div class="crm-kpi-lbl">Valor Gerado no Ano <span class="crm-kpi-help" title="Soma do valor de todos os leads que viraram orcamento no ano: Orcamento Enviado + Negociacao + Fechado. Filtra pelo ano da data do lead.">?</span></div>
+            <div class="crm-kpi-lbl">Valor Gerado no Ano <span class="crm-kpi-help" title="Soma do valor de todos os leads que viraram orcamento no ano: Orcamento Enviado + Negociacao + Fechado + Perdido (perdidos contam pois o orcamento foi gerado). Filtra pelo ano da data do orcamento.">?</span></div>
             <div class="crm-kpi-val">R$ ${fmtBR(kpiGerado.total)}</div>
             <div class="crm-kpi-sub">
               <span class="crm-kpi-fixo">${state.kpiAno}</span>
