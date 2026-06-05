@@ -7387,6 +7387,19 @@ const Orcamento = (() => {
     const inst = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
     const zeros = (versao._zerosIntencionais || {});
 
+    // Felipe sessao 35: dias_instalacao e n_pessoas tem valor AUTOMATICO
+    // (auto: N, baseado na altura da porta / fixo). Campo vazio = usa o
+    // auto. A checagem de "zerado" precisa olhar o valor EFETIVO (auto
+    // quando vazio), senao acusa "vazio" mesmo com auto 2/3 preenchido.
+    const _itensV = (versao.itens) || [];
+    const _autoInst = (Array.isArray(_itensV) && _itensV.length > 0)
+      ? regrasInstalacaoAuto(_itensV)
+      : { dias: 0, pessoas: 0 };
+    function _efetivo(raw, autoVal) {
+      const n = Number(String(raw == null ? '' : raw).replace(/\./g, '').replace(',', '.'));
+      return (raw != null && String(raw).trim() !== '' && Number.isFinite(n) && n > 0) ? raw : autoVal;
+    }
+
     function ehZero(v) {
       if (v === null || v === undefined) return true;
       const s = String(v).trim();
@@ -7418,8 +7431,8 @@ const Orcamento = (() => {
     } else {
       // Modo Projetta — equipe propria
       checkar('inst.distancia_km',    'Distancia (km)',           inst.distancia_km,    'Instalacao');
-      checkar('inst.dias_instalacao', 'Dias de instalacao',       inst.dias_instalacao, 'Instalacao');
-      checkar('inst.n_pessoas',       'Quantidade de pessoas',    inst.n_pessoas,       'Instalacao');
+      checkar('inst.dias_instalacao', 'Dias de instalacao',       _efetivo(inst.dias_instalacao, _autoInst.dias),  'Instalacao');
+      checkar('inst.n_pessoas',       'Quantidade de pessoas',    _efetivo(inst.n_pessoas, _autoInst.pessoas),     'Instalacao');
       checkar('inst.diaria_pessoa',   'Diaria por pessoa',        inst.diaria_pessoa,   'Instalacao');
       checkar('inst.n_carros',        'Qtd de carros',            inst.n_carros,        'Instalacao');
       checkar('inst.diaria_hotel',    'Diaria de hotel',          inst.diaria_hotel,    'Instalacao');
