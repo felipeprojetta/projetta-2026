@@ -8084,9 +8084,17 @@ const Orcamento = (() => {
                 const totalCol = nItens >= 2
                   ? `<span class="orc-fi-col-total-h"><b>${totalEtapa || ''}</b></span>`
                   : '';
+                // Felipe sessao 35: na Colagem, mostra os dias (9h = 1 dia).
+                // Ex: 36h -> 4 dias. Calculado pelo total de horas da etapa.
+                let colagemDiasExtra = '';
+                if (et.id === 'colagem' && totalEtapa > 0) {
+                  const d = totalEtapa / 9;
+                  const dStr = (Math.round(d * 10) / 10).toString().replace('.', ',');
+                  colagemDiasExtra = `<small style="display:block;font-weight:600;font-size:11px;color:#c46b20;margin-top:4px;letter-spacing:0.02em;">🕘 ${dStr} dia${d === 1 ? '' : 's'} (9h = 1 dia)</small>`;
+                }
                 return `
                   <div class="orc-fi-etapa-row">
-                    <span class="orc-fi-col-etapa">${escapeHtml(et.label)}${labelExtra}</span>
+                    <span class="orc-fi-col-etapa">${escapeHtml(et.label)}${labelExtra}${colagemDiasExtra}</span>
                     ${inputsPorItem}
                     ${totalCol}
                   </div>

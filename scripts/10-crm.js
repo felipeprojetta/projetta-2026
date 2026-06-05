@@ -3284,11 +3284,20 @@ ${secoesHtml}
             : '';
           // AGP: campo EDITAVEL no card quando em fase de orcamento.
           // Se ja preenchido, mostra como label clicavel pra editar.
+          // Felipe sessao 35: traz o numero do ATP (contrato) logo abaixo
+          // do AGP — aparece quando preenchido (na pratica, nos fechados).
+          const atpNum = (l.atp && l.atp.numeroAtp) ? String(l.atp.numeroAtp).trim() : '';
           const agpField = etapasComBotao.includes(l.etapa)
             ? `<div class="crm-card-agp-field">
                  <label>AGP:</label>
                  <input type="text" data-action="edit-agp" data-lead-id="${l.id}" value="${escapeHtml(l.numeroAGP || '')}" placeholder="" />
                </div>`
+               + (atpNum
+                 ? `<div class="crm-card-agp-field crm-card-atp-field">
+                      <label>ATP:</label>
+                      <input type="text" value="${escapeHtml(atpNum)}" readonly style="background:#F2F4F8;cursor:default;color:var(--text-muted);" />
+                    </div>`
+                 : '')
             : '';
 
           // Felipe: caracteristicas do produto (Modelo / N folhas / Cor /
