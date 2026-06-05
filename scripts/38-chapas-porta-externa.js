@@ -351,6 +351,12 @@ const ChapasPortaExterna = (() => {
     mold_J9: ctx =>
       ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1
       - ctx.dBFV * ctx.qtdFrisos - ctx.eF * ctx.qtdFrisos,
+    // Felipe sessao 35: Mod 23 ACM — quando a Tampa Maior (1F, JA com REF)
+    // passa de 1480mm, ela e' dividida: largura vira (base - 2*C29) e
+    // entra um Complemento de C29 (distancia borda -> 1a moldura) por
+    // lado. base ACM (com REF) = mold_J9 + 2*REF.
+    _mod23TM_baseACM: ctx => F.mold_J9(ctx) + 2*ctx.REF,
+    _mod23TM_split:   ctx => !F._ehMod23AM(ctx) && (F._mod23TM_baseACM(ctx) > 1480),
     mold_horiz_1F: ctx => {
       const J9 = F.mold_J9(ctx);
       const C29 = F._C29(ctx);
@@ -1417,11 +1423,27 @@ const ChapasPortaExterna = (() => {
           // com codigo legado mas trocei label pra "Tampa Maior".
           // Planilha mod 23 ACM: (E3-C7-C8-1-C20*C22-C21*C22)+C15+C15
           // Planilha mod 23 AM:  (E3-C7-C8-C20*C22-C21*C22)         (sem -1, sem +2*REF)
-          largura: ctx => F._ehMod23AM(ctx)
-            ? (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos)
-            : (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos) + 2*ctx.REF,
+          // Felipe sessao 35: em ACM, se a Tampa Maior (com REF) passa de
+          // 1480, divide: largura = base - 2*C29 (e entra o Complemento).
+          largura: ctx => {
+            if (F._ehMod23AM(ctx))
+              return (ctx.larguraQuadro1F - ctx.dBC - ctx.tamCava - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos);
+            var larg = F._mod23TM_baseACM(ctx);
+            if (larg > 1480) larg = larg - 2*F._C29(ctx);
+            return larg;
+          },
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
+        // Felipe sessao 35: Complemento da Tampa Maior — so' quando ela e'
+        // dividida (Mod 23 ACM, largura > 1480). Largura = C29 (distancia
+        // borda -> 1a moldura), altura = altura da tampa. Uma tira por lado
+        // (2 lados) x 2 faces = 4 no total. Qtd 0 quando nao ha divisao.
+        { id: 'tampa_maior_complemento', label: 'Complemento Tampa Maior',
+          largura: ctx => F._C29(ctx),
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => F._mod23TM_split(ctx) ? 2 : 0,
+          int: ctx => F._mod23TM_split(ctx) ? 2 : 0,
+          categoria: 'porta' },
         { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
           // Planilha mod 23: C20+(C15*2)-1 = dBFV+2*REF-1
           // qty = qtdFrisos. Quando qtdFrisos=0 (AM tipico), nao gera (qtd 0).
