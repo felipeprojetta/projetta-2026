@@ -31,6 +31,7 @@
     pavMax: null,
     uf: '',
     rep: '',
+    cidade: '',
     ano: '',
     mes: '',
     excluiPredio: false,
@@ -161,6 +162,7 @@
       if (ui.excluiPredio && ehPredio(d)) return false;
       if ((d.pav || 0) > pavMax) return false;
       if (ui.uf && d.uf !== ui.uf) return false;
+      if (ui.cidade && d.cidade !== ui.cidade) return false;
       if (ui.rep && d.rep !== ui.rep) return false;
       if (ui.soComWa && !temWa(d)) return false;
       if (ui.ano || ui.mes) {
@@ -337,7 +339,7 @@
   }
 
   // ---- layout (uma vez) -------------------------------------------
-  function layoutHTML(ufs, reps) {
+  function layoutHTML(ufs, reps, cidades) {
     return ''
       + '<div class="wkv-app">'
       + '  <div class="wkv-kpis">'
@@ -359,6 +361,7 @@
       +          ['01 Jan','02 Fev','03 Mar','04 Abr','05 Mai','06 Jun','07 Jul','08 Ago','09 Set','10 Out','11 Nov','12 Dez'].map(function (m) { var n = m.slice(0, 2); return '<option value="' + n + '"' + (ui.mes === n ? ' selected' : '') + '>' + m + '</option>'; }).join('')
       +          '</select></div>'
       + '      <div class="wkv-fld"><label>Estado</label><select id="wkv-f-uf"><option value="">Todos</option>' + ufs.map(function (u) { return '<option>' + esc(u) + '</option>'; }).join('') + '</select></div>'
+      + '      <div class="wkv-fld"><label>Cidade</label><select id="wkv-f-cidade"><option value="">Todas</option>' + (cidades || []).map(function (c) { return '<option' + (ui.cidade === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></div>'
       + '      <div class="wkv-fld"><label>Representante</label><select id="wkv-f-rep"><option value="">Todos</option>' + reps.map(function (r) { return '<option>' + esc(r) + '</option>'; }).join('') + '</select></div>'
       + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-npredio"' + (ui.excluiPredio ? ' checked' : '') + '> Excluir predios</label>'
       + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-comwa"' + (ui.soComWa ? ' checked' : '') + '> So com WhatsApp</label>'
@@ -495,6 +498,7 @@
       ui.vmax = $('wkv-f-vmax').value === '' ? null : parseFloat($('wkv-f-vmax').value);
       ui.pavMax = $('wkv-f-pav').value === '' ? null : parseInt($('wkv-f-pav').value, 10);
       ui.uf = $('wkv-f-uf').value;
+      ui.cidade = $('wkv-f-cidade') ? $('wkv-f-cidade').value : '';
       ui.rep = $('wkv-f-rep').value;
       ui.ano = $('wkv-f-ano') ? $('wkv-f-ano').value : '';
       ui.mes = $('wkv-f-mes') ? $('wkv-f-mes').value : '';
@@ -507,17 +511,19 @@
     ['wkv-f-busca', 'wkv-f-vmin', 'wkv-f-vmax', 'wkv-f-pav', 'wkv-msg'].forEach(function (id) {
       var e = $(id); if (e) e.addEventListener('input', pull);
     });
-    ['wkv-f-uf', 'wkv-f-rep', 'wkv-f-ano', 'wkv-f-mes', 'wkv-f-npredio', 'wkv-f-comwa'].forEach(function (id) {
+    ['wkv-f-uf', 'wkv-f-cidade', 'wkv-f-rep', 'wkv-f-ano', 'wkv-f-mes', 'wkv-f-npredio', 'wkv-f-comwa'].forEach(function (id) {
       var e = $(id); if (e) e.addEventListener('change', pull);
     });
 
     var reset = $('wkv-reset');
     if (reset) reset.addEventListener('click', function () {
       ui.busca = ''; ui.vmin = null; ui.vmax = null; ui.pavMax = null; ui.uf = ''; ui.rep = '';
+      ui.cidade = '';
       ui.ano = ''; ui.mes = '';
       ui.excluiPredio = false; ui.soComWa = false;
       $('wkv-f-busca').value = ''; $('wkv-f-vmin').value = ''; $('wkv-f-vmax').value = '';
       $('wkv-f-pav').value = ''; $('wkv-f-uf').value = ''; $('wkv-f-rep').value = '';
+      if ($('wkv-f-cidade')) $('wkv-f-cidade').value = '';
       if ($('wkv-f-ano')) $('wkv-f-ano').value = ''; if ($('wkv-f-mes')) $('wkv-f-mes').value = '';
       $('wkv-f-npredio').checked = false; $('wkv-f-comwa').checked = false;
       renderTabela(container);
@@ -555,7 +561,8 @@
     if (!dados.length) { container.innerHTML = emptyHTML(); bindImport(container); return; }
     var ufs = Array.from(new Set(dados.map(function (d) { return d.uf; }).filter(Boolean))).sort();
     var reps = Array.from(new Set(dados.map(function (d) { return d.rep; }).filter(Boolean))).sort();
-    container.innerHTML = layoutHTML(ufs, reps);
+    var cidades = Array.from(new Set(dados.map(function (d) { return (d.cidade || '').trim(); }).filter(Boolean))).sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); });
+    container.innerHTML = layoutHTML(ufs, reps, cidades);
     bindEventos(container);
     bindImport(container);
     renderTabela(container);
