@@ -31,6 +31,8 @@
     pavMax: null,
     uf: '',
     rep: '',
+    ano: '',
+    mes: '',
     excluiPredio: false,
     soComWa: false,
     sortKey: 'v',
@@ -140,6 +142,13 @@
   }); }
 
   // ---- filtro -----------------------------------------------------
+  // Felipe sessao 35: data de fechamento (vem do campo 'data' do export —
+  // Data Orcamento da reserva). Formato dd/mm/aaaa. Extrai ano e mes.
+  function dataAnoMes(s) {
+    var m = String(s || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (!m) return { ano: '', mes: '' };
+    return { ano: m[3], mes: m[2] };
+  }
   function aplicarFiltro() {
     var optout = getOptout();
     var vmin = (ui.vmin == null ? 0 : ui.vmin);
@@ -154,6 +163,11 @@
       if (ui.uf && d.uf !== ui.uf) return false;
       if (ui.rep && d.rep !== ui.rep) return false;
       if (ui.soComWa && !temWa(d)) return false;
+      if (ui.ano || ui.mes) {
+        var dm = dataAnoMes(d.data);
+        if (ui.ano && dm.ano !== ui.ano) return false;
+        if (ui.mes && dm.mes !== ui.mes) return false;
+      }
       if (busca && ((d.nome || '') + ' ' + (d.cidade || '')).toLowerCase().indexOf(busca) < 0) return false;
       return true;
     });
@@ -335,13 +349,19 @@
       + '  <div class="wkv-panel"><h3>Filtro inteligente</h3>'
       + '    <div class="wkv-filtros">'
       + '      <div class="wkv-fld"><label>Buscar nome / cidade</label><input id="wkv-f-busca" placeholder="ex: Joinville..."></div>'
-      + '      <div class="wkv-fld"><label>Valor minimo (R$)</label><input id="wkv-f-vmin" type="number" value="200000" step="10000"></div>'
-      + '      <div class="wkv-fld"><label>Valor maximo (R$)</label><input id="wkv-f-vmax" type="number" placeholder="sem limite"></div>'
+      + '      <div class="wkv-fld"><label>Valor minimo (R$)</label><input id="wkv-f-vmin" type="number" value="' + (ui.vmin == null ? '' : ui.vmin) + '" step="10000" placeholder="sem minimo"></div>'
+      + '      <div class="wkv-fld"><label>Valor maximo (R$)</label><input id="wkv-f-vmax" type="number" placeholder="sem limite" value="' + (ui.vmax == null ? '' : ui.vmax) + '"></div>'
       + '      <div class="wkv-fld"><label>Max. pavimentos</label><input id="wkv-f-pav" type="number" placeholder="qualquer" min="1"></div>'
+      + '      <div class="wkv-fld"><label>Ano fechamento</label><select id="wkv-f-ano"><option value="">Todos</option>'
+      +          '<option value="2025"' + (ui.ano === '2025' ? ' selected' : '') + '>2025</option>'
+      +          '<option value="2026"' + (ui.ano === '2026' ? ' selected' : '') + '>2026</option></select></div>'
+      + '      <div class="wkv-fld"><label>Mes</label><select id="wkv-f-mes"><option value="">Todos</option>'
+      +          ['01 Jan','02 Fev','03 Mar','04 Abr','05 Mai','06 Jun','07 Jul','08 Ago','09 Set','10 Out','11 Nov','12 Dez'].map(function (m) { var n = m.slice(0, 2); return '<option value="' + n + '"' + (ui.mes === n ? ' selected' : '') + '>' + m + '</option>'; }).join('')
+      +          '</select></div>'
       + '      <div class="wkv-fld"><label>Estado</label><select id="wkv-f-uf"><option value="">Todos</option>' + ufs.map(function (u) { return '<option>' + esc(u) + '</option>'; }).join('') + '</select></div>'
       + '      <div class="wkv-fld"><label>Representante</label><select id="wkv-f-rep"><option value="">Todos</option>' + reps.map(function (r) { return '<option>' + esc(r) + '</option>'; }).join('') + '</select></div>'
-      + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-npredio" checked> Excluir predios</label>'
-      + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-comwa" checked> So com WhatsApp</label>'
+      + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-npredio"' + (ui.excluiPredio ? ' checked' : '') + '> Excluir predios</label>'
+      + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-comwa"' + (ui.soComWa ? ' checked' : '') + '> So com WhatsApp</label>'
       + '    </div>'
       + '    <div class="wkv-acoes">'
       + '      <button class="wkv-btn wkv-btn-out" id="wkv-reset">\u21ba Limpar filtros</button>'
@@ -360,7 +380,9 @@
       + '      <thead><tr>'
       + '        <th data-s="nome">Cliente</th><th data-s="uf">Local</th><th data-s="tipo">Tipo</th>'
       + '        <th data-s="pav" style="text-align:center">Pav.</th><th data-s="esq" style="text-align:center">Esq.</th>'
-      + '        <th data-s="v" style="text-align:right">Valor aprovado</th><th data-s="rep">Representante</th>'
+      + '        <th data-s="v" style="text-align:right">Valor aprovado</th>'
+      + '        <th data-s="data" style="text-align:center">Fechamento</th>'
+      + '        <th data-s="rep">Representante</th>'
       + '        <th style="text-align:center">Projetta</th>'
       + '        <th style="text-align:center">Contato</th>'
       + '      </tr></thead><tbody id="wkv-tb"></tbody>'
@@ -430,6 +452,7 @@
         + '<td style="text-align:center" class="wkv-num">' + (d.pav || '\u2014') + '</td>'
         + '<td style="text-align:center" class="wkv-num">' + esc(d.esq || '\u2014') + '</td>'
         + '<td class="wkv-vlr wkv-num">' + fmtMoeda(d.v) + '</td>'
+        + '<td style="text-align:center" class="wkv-loc">' + esc(d.data || '\u2014') + '</td>'
         + '<td class="wkv-loc">' + esc(d.rep || '\u2014') + '</td>'
         + '<td style="text-align:center">' + projTd + '</td>'
         + '<td style="text-align:center;white-space:nowrap">' + wa + ' ' + ml
@@ -438,7 +461,7 @@
     }).join('');
 
     var tb = $('wkv-tb');
-    if (tb) tb.innerHTML = rows || '<tr><td colspan="9" style="text-align:center;padding:40px;color:#6b7280">Nenhum cliente nesse filtro.</td></tr>';
+    if (tb) tb.innerHTML = rows || '<tr><td colspan="10" style="text-align:center;padding:40px;color:#6b7280">Nenhum cliente nesse filtro.</td></tr>';
 
     // indicadores de ordenacao
     container.querySelectorAll('thead th[data-s]').forEach(function (th) {
@@ -473,6 +496,8 @@
       ui.pavMax = $('wkv-f-pav').value === '' ? null : parseInt($('wkv-f-pav').value, 10);
       ui.uf = $('wkv-f-uf').value;
       ui.rep = $('wkv-f-rep').value;
+      ui.ano = $('wkv-f-ano') ? $('wkv-f-ano').value : '';
+      ui.mes = $('wkv-f-mes') ? $('wkv-f-mes').value : '';
       ui.excluiPredio = $('wkv-f-npredio').checked;
       ui.soComWa = $('wkv-f-comwa').checked;
       ui.msg = $('wkv-msg').value;
@@ -482,16 +507,18 @@
     ['wkv-f-busca', 'wkv-f-vmin', 'wkv-f-vmax', 'wkv-f-pav', 'wkv-msg'].forEach(function (id) {
       var e = $(id); if (e) e.addEventListener('input', pull);
     });
-    ['wkv-f-uf', 'wkv-f-rep', 'wkv-f-npredio', 'wkv-f-comwa'].forEach(function (id) {
+    ['wkv-f-uf', 'wkv-f-rep', 'wkv-f-ano', 'wkv-f-mes', 'wkv-f-npredio', 'wkv-f-comwa'].forEach(function (id) {
       var e = $(id); if (e) e.addEventListener('change', pull);
     });
 
     var reset = $('wkv-reset');
     if (reset) reset.addEventListener('click', function () {
       ui.busca = ''; ui.vmin = null; ui.vmax = null; ui.pavMax = null; ui.uf = ''; ui.rep = '';
+      ui.ano = ''; ui.mes = '';
       ui.excluiPredio = false; ui.soComWa = false;
       $('wkv-f-busca').value = ''; $('wkv-f-vmin').value = ''; $('wkv-f-vmax').value = '';
       $('wkv-f-pav').value = ''; $('wkv-f-uf').value = ''; $('wkv-f-rep').value = '';
+      if ($('wkv-f-ano')) $('wkv-f-ano').value = ''; if ($('wkv-f-mes')) $('wkv-f-mes').value = '';
       $('wkv-f-npredio').checked = false; $('wkv-f-comwa').checked = false;
       renderTabela(container);
     });
