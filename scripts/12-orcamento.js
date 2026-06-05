@@ -15866,7 +15866,7 @@ const Orcamento = (() => {
           if (!vidroChapaAgg[corChave]) {
             vidroChapaAgg[corChave] = { sup, L_chapa, H_chapa, preco: Number(sup.preco) || 0, panes: [] };
           }
-          vidroChapaAgg[corChave].panes.push({ w: L_mm, h: H_mm, qty });
+          vidroChapaAgg[corChave].panes.push({ w: L_mm, h: H_mm, qty: qtd });
         }
       });
       // Felipe sessao 35: nesta os vidros por chapa (aproveitamento real) e
