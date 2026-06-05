@@ -3215,17 +3215,21 @@ const Orcamento = (() => {
     // modeloNumero preenchido E modeloExterno vazio → copia. Mesmo pra
     // modeloInterno (assume que itens antigos tinham mesmo modelo nos
     // 2 lados). Idempotente: se ja foi migrado, nao sobrescreve.
-    if (item.modeloExterno === undefined || item.modeloExterno === null || item.modeloExterno === '') {
+    if ((item.modeloExterno === undefined || item.modeloExterno === null || item.modeloExterno === '') && !item._semModeloExterno) {
       item.modeloExterno = item.modeloNumero || '';
     }
-    if (item.modeloInterno === undefined || item.modeloInterno === null || item.modeloInterno === '') {
+    if ((item.modeloInterno === undefined || item.modeloInterno === null || item.modeloInterno === '') && !item._semModeloInterno) {
       item.modeloInterno = item.modeloNumero || '';
     }
-    // Mantem modeloNumero sincronizado com modeloExterno (calculo legado
-    // de regras de fabricacao usa modeloNumero — se mudar so o externo,
-    // o codigo legado continua funcionando porque modeloNumero acompanha).
-    if (item.modeloExterno && item.modeloNumero !== item.modeloExterno) {
-      item.modeloNumero = item.modeloExterno;
+    // Mantem modeloNumero (regras de fabricacao) sincronizado com o lado
+    // que TEM modelo. Felipe sessao 35: um dos lados pode estar sem modelo
+    // (flag _semModelo*) — modeloNumero segue o lado real (externo tem
+    // prioridade; se externo vazio, usa o interno).
+    {
+      const _extReal = item.modeloExterno && !item._semModeloExterno;
+      const _intReal = item.modeloInterno && !item._semModeloInterno;
+      if (_extReal && item.modeloNumero !== item.modeloExterno) item.modeloNumero = item.modeloExterno;
+      else if (!_extReal && _intReal && item.modeloNumero !== item.modeloInterno) item.modeloNumero = item.modeloInterno;
     }
     // Felipe (do doc): renomeacao dos campos da CAVA. Antes:
     //   larguraBordaCava → agora: distanciaBordaCava
@@ -6220,6 +6224,7 @@ const Orcamento = (() => {
             <datalist id="orc-modelos-list">
               ${modelos.map(m => `<option value="${m.numero} — ${escapeHtml(m.nome)}"></option>`).join('')}
             </datalist>
+            <div class="orc-hint-auto" style="margin-top:2px;">Dica: apague o texto de um dos lados para deixá-lo <b>sem modelo</b> — aí o cálculo considera só o lado preenchido.</div>
           </div>
           ${(() => {
             // Felipe (sessao 2026-05): renderiza Características DE AMBOS
@@ -6673,22 +6678,35 @@ const Orcamento = (() => {
           item.modeloExterno = item.modeloNumero;
           if (!item.modeloInterno) item.modeloInterno = item.modeloNumero;
         } else if (field === 'modeloExterno') {
-          // Felipe (sessao 2026-05): novo campo. Atualiza tambem o
-          // modeloNumero legado (regras de fabricacao usam ele) — ele
-          // segue o EXTERNO. Se modeloInterno estiver vazio, herda
-          // do externo (defensivo).
+          // Felipe sessao 35: campo apagado (vazio) = SEM modelo no lado
+          // externo. Calcula somente o lado que tiver modelo. Flag
+          // _semModeloExterno sobrevive a normalizacao e ao fallback.
           const num = parseInt(v, 10);
-          item.modeloExterno = isNaN(num) ? '' : num;
-          item.modeloNumero  = item.modeloExterno;
-          if (item.modeloInterno === '' || item.modeloInterno === undefined) {
-            item.modeloInterno = item.modeloExterno;
+          if (isNaN(num)) {
+            item.modeloExterno = '';
+            item._semModeloExterno = true;
+            // modeloNumero (regras de fab) passa a seguir o INTERNO, se ele tiver modelo
+            item.modeloNumero = (item.modeloInterno && !item._semModeloInterno) ? item.modeloInterno : '';
+          } else {
+            item.modeloExterno = num;
+            item._semModeloExterno = false;
+            item.modeloNumero = num;
+            if ((item.modeloInterno === '' || item.modeloInterno === undefined) && !item._semModeloInterno) {
+              item.modeloInterno = num;
+            }
           }
         } else if (field === 'modeloInterno') {
-          // Felipe (sessao 2026-05): novo campo independente do externo.
-          // Pode ser diferente — ai levantamento de chapas calcula 2x
-          // conjuntos de pecas (1 pra cada lado).
+          // Felipe sessao 35: campo apagado (vazio) = SEM modelo no lado interno.
           const num = parseInt(v, 10);
-          item.modeloInterno = isNaN(num) ? '' : num;
+          if (isNaN(num)) {
+            item.modeloInterno = '';
+            item._semModeloInterno = true;
+            // se o externo tambem nao tem modelo, zera modeloNumero
+            if (!(item.modeloExterno && !item._semModeloExterno)) item.modeloNumero = '';
+          } else {
+            item.modeloInterno = num;
+            item._semModeloInterno = false;
+          }
         } else if (field === 'quantidade') {
           item.quantidade = Math.max(1, parseInt(v, 10) || 1);
         } else if (field === 'revestimento') {
@@ -7472,9 +7490,12 @@ const Orcamento = (() => {
   function itemEstaIncompleto(item) {
     if (!item || !item.tipo) return true;
     if (item.tipo !== 'porta_externa') return false; // outros tipos nao bloqueiam (ainda)
+    // Felipe sessao 35: um lado pode estar SEM modelo. Nesse caso a cor
+    // daquele lado nao e' exigida (nao ha revestimento pra calcular).
     const camposObr = ['largura', 'altura', 'nFolhas', 'modeloNumero',
-                        'sistema', 'fechaduraMecanica', 'cilindro',
-                        'corInterna', 'corExterna'];
+                        'sistema', 'fechaduraMecanica', 'cilindro'];
+    if (!item._semModeloExterno) camposObr.push('corExterna');
+    if (!item._semModeloInterno) camposObr.push('corInterna');
     for (const c of camposObr) {
       const v = item[c];
       if (v === null || v === undefined) return true;
@@ -7500,8 +7521,11 @@ const Orcamento = (() => {
         if (!item.tipo) {
           detalhes.push(`Item ${idx+1}: tipo nao escolhido`);
         } else if (item.tipo === 'porta_externa') {
-          const faltam = ['largura', 'altura', 'nFolhas', 'modeloNumero', 'sistema',
-                          'fechaduraMecanica', 'cilindro', 'corInterna', 'corExterna']
+          const obrig = ['largura', 'altura', 'nFolhas', 'modeloNumero', 'sistema',
+                          'fechaduraMecanica', 'cilindro'];
+          if (!item._semModeloExterno) obrig.push('corExterna');
+          if (!item._semModeloInterno) obrig.push('corInterna');
+          const faltam = obrig
             .filter(c => {
               const v = item[c];
               return v === null || v === undefined || String(v).trim() === '';

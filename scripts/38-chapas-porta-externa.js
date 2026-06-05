@@ -1750,6 +1750,11 @@ const ChapasPortaExterna = (() => {
     if (lado !== 'externo' && lado !== 'interno') {
       throw new Error('gerarPecasChapa: lado deve ser "externo" ou "interno"');
     }
+    // Felipe sessao 35: permite um lado SEM modelo (campo apagado). Quando
+    // o lado esta marcado sem modelo, nao gera nenhuma peca desse lado —
+    // calcula somente o lado que tem modelo.
+    if (lado === 'externo' && item._semModeloExterno) return [];
+    if (lado === 'interno' && item._semModeloInterno) return [];
     const quadro = calcularQuadro(item);
     if (!quadro) return [];
     if (quadro.nFolhas !== 1 && quadro.nFolhas !== 2) return [];
