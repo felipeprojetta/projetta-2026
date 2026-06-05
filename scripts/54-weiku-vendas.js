@@ -99,6 +99,106 @@
     });
   }
 
+  // ---- importacao de CSV (extracao da intranet Weiku) -------------
+  // O CSV e lido no navegador do usuario (disco -> browser -> Supabase).
+  // CPF e RG NAO sao importados. Reutilizavel a cada nova extracao.
+  function parseCSVTexto(text) {
+    text = String(text || '').replace(/^\uFEFF/, '');
+    var rows = [], row = [], field = '', q = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (q) {
+        if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
+        else field += c;
+      } else {
+        if (c === '"') q = true;
+        else if (c === ';') { row.push(field); field = ''; }
+        else if (c === '\r') { /* skip */ }
+        else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+        else field += c;
+      }
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return rows.filter(function (r) {
+      return r.length > 1 && r.some(function (c) { return (c || '').trim(); });
+    });
+  }
+
+  var _small = { de: 1, do: 1, da: 1, dos: 1, das: 1, e: 1, di: 1, del: 1 };
+  function tituloCase(s) {
+    if (!s) return '';
+    return s.toUpperCase().toLowerCase().split(/\s+/).map(function (w, i) {
+      if (i > 0 && _small[w]) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(' ');
+  }
+  function moedaNum(s) {
+    if (!s) return 0;
+    var n = s.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
+    var v = parseFloat(n); return isNaN(v) ? 0 : v;
+  }
+  function waNum(tel) {
+    var d = (tel || '').replace(/\D/g, '');
+    if (!d) return '';
+    if (d.length >= 10 && d.length <= 11) d = '55' + d;
+    return d;
+  }
+  function limparCSV(rows) {
+    var header = rows[0].map(function (h) { return (h || '').trim(); });
+    var idx = {}; header.forEach(function (h, i) { idx[h] = i; });
+    function g(r, name) { var i = idx[name]; return i == null ? '' : (r[i] || '').trim(); }
+    return rows.slice(1).map(function (r) {
+      var cel = g(r, 'Celular'), tel = g(r, 'Telefone');
+      return {
+        r: g(r, 'N\u00ba Reserva'),
+        nome: tituloCase(g(r, 'Nome Completo')),
+        cidade: tituloCase(g(r, 'Cidade')),
+        uf: g(r, 'Estado').toUpperCase().slice(0, 2),
+        tipo: g(r, 'Tipo Constru\u00e7\u00e3o').toUpperCase().toLowerCase(),
+        pav: parseInt(g(r, 'N\u00ba Pavimentos').replace(/\D/g, ''), 10) || 0,
+        esq: g(r, 'Qtd Esquadrias'),
+        v: moedaNum(g(r, 'Valor Aprovado')),
+        rep: tituloCase(g(r, 'Representante')),
+        data: g(r, 'Data Or\u00e7amento'),
+        wa: waNum(cel || tel),
+        email: (g(r, 'E-mail Cobran\u00e7a') || g(r, 'E-mail NFe') || '').toLowerCase(),
+        tel: cel || tel
+        // CPF / RG: deliberadamente NAO importados
+      };
+    }).filter(function (x) { return x.r; });
+  }
+  function processarArquivo(file, container) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var rows = parseCSVTexto(e.target.result);
+        if (!rows.length) { window.alert('CSV vazio ou ilegivel.'); return; }
+        var regs = limparCSV(rows);
+        if (!regs.length) { window.alert('Nenhum registro valido no CSV. Confira se e o arquivo certo.'); return; }
+        if (!window.Storage) { window.alert('Storage indisponivel.'); return; }
+        if (!window.confirm('Importar ' + regs.length + ' reservas Weiku?\n\nCPF/RG NAO serao salvos. Isso substitui a base atual da aba WEIKU (o opt-out e mantido).')) return;
+        Storage.scope(SCOPE).set('reservas', regs);
+        window.alert(regs.length + ' reservas importadas com sucesso.\nSincronizando com o Supabase em segundo plano.');
+        render(container);
+      } catch (err) {
+        console.error('[weiku-vendas] erro ao importar CSV', err);
+        window.alert('Erro ao processar o CSV: ' + (err && err.message));
+      }
+    };
+    reader.onerror = function () { window.alert('Nao consegui ler o arquivo.'); };
+    reader.readAsText(file, 'utf-8');
+  }
+  function bindImport(container) {
+    var btn = container.querySelector('#wkv-import-btn');
+    var inp = container.querySelector('#wkv-file');
+    if (!btn || !inp) return;
+    btn.addEventListener('click', function () { inp.click(); });
+    inp.addEventListener('change', function () {
+      if (inp.files && inp.files[0]) processarArquivo(inp.files[0], container);
+      inp.value = '';
+    });
+  }
+
   // ---- CSS (escopado .wkv-) ---------------------------------------
   function injectCSS() {
     if (document.getElementById(CSS_ID)) return;
@@ -185,6 +285,8 @@
       + '    <div class="wkv-acoes">'
       + '      <button class="wkv-btn wkv-btn-out" id="wkv-reset">\u21ba Limpar filtros</button>'
       + '      <button class="wkv-btn wkv-btn-tinta" id="wkv-export">\u2b07 Exportar lista filtrada (CSV)</button>'
+      + '      <button class="wkv-btn wkv-btn-out" id="wkv-import-btn">\u2b06 Importar/atualizar base (CSV)</button>'
+      + '      <input type="file" id="wkv-file" accept=".csv,text/csv" style="display:none">'
       + '    </div>'
       + '  </div>'
       + '  <div class="wkv-panel"><h3>Mensagem de WhatsApp</h3>'
@@ -213,7 +315,9 @@
       + '  <div class="wkv-big">\ud83c\udfd7\ufe0f</div>'
       + '  <h3>Nenhuma reserva Weiku importada ainda</h3>'
       + '  <p>A base de prospeccao ainda nao foi carregada no Supabase (scope <code>weiku/reservas</code>).<br>'
-      + '  Assim que a importacao rodar, os clientes aparecem aqui automaticamente.</p>'
+      + '  Clique abaixo e selecione o CSV extraido da intranet Weiku — os clientes aparecem aqui automaticamente.</p>'
+      + '  <button class="wkv-btn wkv-btn-tinta" id="wkv-import-btn" style="margin-top:10px">\u2b06 Importar CSV de reservas</button>'
+      + '  <input type="file" id="wkv-file" accept=".csv,text/csv" style="display:none">'
       + '</div></div></div>';
   }
 
@@ -353,11 +457,12 @@
   function render(container) {
     injectCSS();
     var dados = getReservas();
-    if (!dados.length) { container.innerHTML = emptyHTML(); return; }
+    if (!dados.length) { container.innerHTML = emptyHTML(); bindImport(container); return; }
     var ufs = Array.from(new Set(dados.map(function (d) { return d.uf; }).filter(Boolean))).sort();
     var reps = Array.from(new Set(dados.map(function (d) { return d.rep; }).filter(Boolean))).sort();
     container.innerHTML = layoutHTML(ufs, reps);
     bindEventos(container);
+    bindImport(container);
     renderTabela(container);
   }
 
