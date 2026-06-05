@@ -188,7 +188,7 @@
       var cel = g(r, 'Celular'), tel = g(r, 'Telefone');
       return {
         r: g(r, 'N\u00ba Reserva'),
-        nome: tituloCase(g(r, 'Nome Completo')),
+        nome: tituloCase(g(r, 'Nome Completo') || g(r, 'Respons\u00e1vel Legal')),
         cidade: tituloCase(g(r, 'Cidade')),
         uf: g(r, 'Estado').toUpperCase().slice(0, 2),
         tipo: g(r, 'Tipo Constru\u00e7\u00e3o').toUpperCase().toLowerCase(),
