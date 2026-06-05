@@ -859,7 +859,14 @@ const ChapasPortaExterna = (() => {
           largura: F.l_da_cava_largura, comp: F.l_da_cava_comp,
           ext: 2, int: 2, categoria: 'porta', ehDaCava: true },
         { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
-          largura: F.tampa_maior_1f_largura_com_cava, comp: ctx => ctx.alturaQuadro,
+          // Felipe sessao 35: a Tampa Maior (blank seco) e' o QUADRO INTEIRO
+          // (largura do quadro), pois o puxador embutido e' fresado nela e as
+          // pecas do puxador (cava/L/borda) sao revestimento separado do canal.
+          // Antes descontava a regiao do puxador (tampa_maior_1f_largura_com_cava),
+          // o que subdimensionava o blank e fazia o Complemento sair errado
+          // (53 em vez de 415 = 1855 - 1440). Com o quadro inteiro, o split
+          // >1480 gera 1480/1440 + Complemento 415/415.
+          largura: ctx => ctx.larguraQuadro1F + 2*ctx.REF, comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
         { id: 'tampa_borda_cava', label: 'Tampa Borda Puxador Embutido',
           largura: F.tampa_borda_cava_largura, comp: ctx => ctx.alturaQuadro,
