@@ -1439,7 +1439,7 @@ const ChapasPortaExterna = (() => {
         // borda -> 1a moldura), altura = altura da tampa. Uma tira por lado
         // (2 lados) x 2 faces = 4 no total. Qtd 0 quando nao ha divisao.
         { id: 'tampa_maior_complemento', label: 'Complemento Tampa Maior',
-          largura: ctx => F._C29(ctx),
+          largura: ctx => F._C29(ctx) + 2*ctx.REF,
           comp: ctx => ctx.alturaQuadro,
           ext: ctx => F._mod23TM_split(ctx) ? 2 : 0,
           int: ctx => F._mod23TM_split(ctx) ? 2 : 0,

@@ -26,25 +26,48 @@
   // ---- estado da tela (memoria, por sessao de render) -------------
   var ui = {
     busca: '',
-    vmin: 200000,
+    vmin: null,
     vmax: null,
     pavMax: null,
     uf: '',
     rep: '',
-    excluiPredio: true,
-    soComWa: true,
+    excluiPredio: false,
+    soComWa: false,
     sortKey: 'v',
     sortAsc: false,
     msg: 'Ola {nome}, tudo bem? Aqui e da Projetta. Vi que voce esta com um projeto de esquadrias em andamento e nos trabalhamos com portas e solucoes em aluminio de alto padrao que combinam com o seu projeto. Posso te enviar algumas referencias?'
   };
 
   // ---- acesso a dados (Supabase via Storage) ----------------------
+  // Felipe sessao 35: localStorage tem limite e truncava a base (>1000
+  // reservas davam ~763). Agora puxamos DIRETO da nuvem (kv_store) e
+  // guardamos em memoria; o cache local vira so' fallback offline.
+  var _cloudReservas = null;
   function getReservas() {
     try {
+      if (_cloudReservas && _cloudReservas.length) return _cloudReservas;
       if (!window.Storage) return [];
       var arr = Storage.scope(SCOPE).get('reservas', []);
       return Array.isArray(arr) ? arr : [];
     } catch (_) { return []; }
+  }
+  function pullCloud(container) {
+    try {
+      if (!window.Database || !Database.SUPABASE_URL) return;
+      var url = Database.SUPABASE_URL + '/rest/v1/kv_store?scope=eq.weiku&key=eq.reservas&select=valor';
+      fetch(url, { headers: {
+        'apikey': Database.SUPABASE_KEY,
+        'Authorization': 'Bearer ' + Database.SUPABASE_KEY,
+        'Accept-Profile': 'v7'
+      } }).then(function (r) { return r.ok ? r.json() : null; }).then(function (rows) {
+        if (!rows || !rows[0]) return;
+        var arr = rows[0].valor;
+        if (Array.isArray(arr) && arr.length > (_cloudReservas ? _cloudReservas.length : -1)) {
+          _cloudReservas = arr;            // fonte de verdade em memoria
+          if (container) _draw(container);
+        }
+      }).catch(function () {});
+    } catch (_) {}
   }
   function getOptout() {
     try {
@@ -215,6 +238,7 @@
         if (!window.Storage) { window.alert('Storage indisponivel.'); return; }
         if (!window.confirm('Importar ' + regs.length + ' reservas Weiku?\n\nCPF/RG NAO serao salvos. Isso substitui a base atual da aba WEIKU (o opt-out e mantido).')) return;
         Storage.scope(SCOPE).set('reservas', regs);
+        _cloudReservas = regs; // mostra a base completa na hora (sem truncar no localStorage)
         window.alert(regs.length + ' reservas importadas com sucesso.\nSincronizando com o Supabase em segundo plano.');
         render(container);
       } catch (err) {
@@ -464,11 +488,11 @@
 
     var reset = $('wkv-reset');
     if (reset) reset.addEventListener('click', function () {
-      ui.busca = ''; ui.vmin = 200000; ui.vmax = null; ui.pavMax = null; ui.uf = ''; ui.rep = '';
-      ui.excluiPredio = true; ui.soComWa = true;
-      $('wkv-f-busca').value = ''; $('wkv-f-vmin').value = '200000'; $('wkv-f-vmax').value = '';
+      ui.busca = ''; ui.vmin = null; ui.vmax = null; ui.pavMax = null; ui.uf = ''; ui.rep = '';
+      ui.excluiPredio = false; ui.soComWa = false;
+      $('wkv-f-busca').value = ''; $('wkv-f-vmin').value = ''; $('wkv-f-vmax').value = '';
       $('wkv-f-pav').value = ''; $('wkv-f-uf').value = ''; $('wkv-f-rep').value = '';
-      $('wkv-f-npredio').checked = true; $('wkv-f-comwa').checked = true;
+      $('wkv-f-npredio').checked = false; $('wkv-f-comwa').checked = false;
       renderTabela(container);
     });
 
@@ -498,7 +522,7 @@
   }
 
   // ---- render principal -------------------------------------------
-  function render(container) {
+  function _draw(container) {
     injectCSS();
     var dados = getReservas();
     if (!dados.length) { container.innerHTML = emptyHTML(); bindImport(container); return; }
@@ -508,6 +532,10 @@
     bindEventos(container);
     bindImport(container);
     renderTabela(container);
+  }
+  function render(container) {
+    _draw(container);
+    pullCloud(container); // puxa a base completa da nuvem e redesenha quando chegar
   }
 
   window.WeikuVendas = { render: render };
