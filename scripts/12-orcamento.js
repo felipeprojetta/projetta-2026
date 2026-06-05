@@ -15511,7 +15511,7 @@ const Orcamento = (() => {
           </thead>
           <tbody>
             ${revPorCor.linhas.map(l => `
-              <tr class="${l.fonte === 'selecionada' ? 'orc-aprov-rev-sel' : (l.fonte === 'vidro_m2' ? 'orc-aprov-rev-vidro' : 'orc-aprov-rev-auto')}">
+              <tr class="${l.fonte === 'selecionada' ? 'orc-aprov-rev-sel' : ((l.fonte === 'vidro_m2' || l.fonte === 'vidro_chapa') ? 'orc-aprov-rev-vidro' : 'orc-aprov-rev-auto')}">
                 <td>${escapeHtml(l.cor)}</td>
                 <td class="orc-aprov-rev-desc">${escapeHtml(l.descricao)}</td>
                 <td class="num">${fmtBR(l.precoUnit)}${l.fonte === 'vidro_m2' ? '<span style="font-size:10px;color:#666;"> /m²</span>' : ''}</td>
@@ -15521,7 +15521,7 @@ const Orcamento = (() => {
                     : `<input type="number" min="0" step="0.5" value="${l.qtd}" data-aprov-rev-qtd="${escapeHtml(l.cor)}" style="width:60px;text-align:right;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px;font:inherit;" title="Editar quantidade de chapas (ex: 1.5 = 1 chapa e meia)">`
                 }</td>
                 <td class="num"><b>${fmtBR(l.subtotal)}</b></td>
-                <td class="orc-aprov-rev-fonte">${l.fonte === 'selecionada' ? '✓ selecionada' : (l.fonte === 'vidro_m2' ? '🔷 vidro m²' : 'auto (melhor)')}</td>
+                <td class="orc-aprov-rev-fonte">${l.fonte === 'selecionada' ? '✓ selecionada' : (l.fonte === 'vidro_m2' ? '🔷 vidro m²' : (l.fonte === 'vidro_chapa' ? '🔲 vidro (aproveitamento)' : 'auto (melhor)'))}</td>
               </tr>
             `).join('')}
             <tr class="orc-aprov-rev-total">
@@ -15782,6 +15782,43 @@ const Orcamento = (() => {
     try {
       const itens = (versao && versao.itens) || [];
       const sups = todasSuperficies || [];
+      // Felipe sessao 35: vidros por CHAPA agora fazem APROVEITAMENTO real
+      // (nesting com rotacao), em vez de ceil(L/Lchapa)*ceil(H/Hchapa) por item
+      // — que contava 2 chapas pra um vidro so' (altura > 2400 sem rotacionar),
+      // dando 4 chapas pra 2 fixos. Acumula os panes por cor e nesta no fim.
+      const vidroChapaAgg = {};
+      const _nestarVidroChapas = function (panes, Lc, Hc) {
+        const rects = [];
+        let semCabe = 0;
+        panes.forEach(function (p) {
+          const n = Math.max(1, p.qty | 0);
+          for (let i = 0; i < n; i++) {
+            let w = p.w, h = p.h;
+            const fitN = (w <= Lc && h <= Hc), fitR = (h <= Lc && w <= Hc);
+            if (!fitN && !fitR) { semCabe++; rects.push({ w: Math.min(w, Lc), h: Math.min(h, Hc) }); continue; }
+            if (!fitN && fitR) { const t = w; w = h; h = t; } // rotaciona pra caber
+            rects.push({ w: w, h: h });
+          }
+        });
+        // maior (mais alto) primeiro — shelf packing first-fit
+        rects.sort(function (a, b) { return (b.h - a.h) || (b.w - a.w); });
+        const sheets = [];
+        const place = function (sheet, r) {
+          for (let i = 0; i < sheet.shelves.length; i++) {
+            const sh = sheet.shelves[i];
+            if (r.h <= sh.h && sh.x + r.w <= Lc) { sh.x += r.w; return true; }
+          }
+          const usedH = sheet.shelves.reduce(function (s, sh) { return s + sh.h; }, 0);
+          if (usedH + r.h <= Hc && r.w <= Lc) { sheet.shelves.push({ h: r.h, x: r.w }); return true; }
+          return false;
+        };
+        rects.forEach(function (r) {
+          let placed = false;
+          for (let s = 0; s < sheets.length; s++) { if (place(sheets[s], r)) { placed = true; break; } }
+          if (!placed) { const ns = { shelves: [] }; place(ns, r); sheets.push(ns); }
+        });
+        return { chapas: Math.max(1, sheets.length), semCabe: semCabe };
+      };
       itens.forEach(item => {
         if (!item) return;
         // Por enquanto so' fixo_acoplado tem campo vidroDescricao. Quando
@@ -15819,34 +15856,51 @@ const Orcamento = (() => {
           });
           total += subtotal;
         } else if (cobranca === 'chapa') {
-          // Felipe sessao 14: vidros com cobranca=chapa (ex: Switchglass,
-          // Corstone) sao vendidos por chapa inteira do tamanho cadastrado.
-          // Antes: caia em "if (cobranca !== 'm2') return" e nao aparecia
-          // no resumo - vidro Switchglass nunca era cobrado.
-          // Calculo: ceil(L_item/L_chapa) × ceil(H_item/H_chapa) × qtd_item.
+          // Felipe sessao 35: acumula os vidros (panes) por cor pra nestar
+          // depois com aproveitamento real (rotacao). Antes: ceil(L/Lchapa) x
+          // ceil(H/Hchapa) por item, sem rotacao -> 1 vidro 2000x2750 contava
+          // 2 chapas, 2 fixos = 4. A medida do vidro tambem nao aparecia.
           const L_chapa = Number(sup.largura) || 0;
           const H_chapa = Number(sup.altura)  || 0;
-          const preco_chapa = Number(sup.preco) || 0;
-          // Se a chapa cadastrada nao tem dimensao, fallback 1 chapa por item
-          const nLargura = (L_chapa > 0) ? Math.ceil(L_mm / L_chapa) : 1;
-          const nAltura  = (H_chapa > 0) ? Math.ceil(H_mm / H_chapa) : 1;
-          const chapasPorItem = Math.max(1, nLargura * nAltura);
-          const totalChapas = chapasPorItem * qtd;
-          const subtotal = totalChapas * preco_chapa;
           const corChave = `Vidro — ${sup.descricao}`;
-          linhas.push({
-            cor: corChave,
-            descricao: `${sup.descricao} [chapa ${L_chapa}×${H_chapa}]`,
-            largura: L_chapa,
-            altura: H_chapa,
-            precoUnit: preco_chapa,
-            qtd: totalChapas,
-            subtotal,
-            fonte: 'vidro_chapa',
-            unidade: 'chapa',
-          });
-          total += subtotal;
+          if (!vidroChapaAgg[corChave]) {
+            vidroChapaAgg[corChave] = { sup, L_chapa, H_chapa, preco: Number(sup.preco) || 0, panes: [] };
+          }
+          vidroChapaAgg[corChave].panes.push({ w: L_mm, h: H_mm, qty });
         }
+      });
+      // Felipe sessao 35: nesta os vidros por chapa (aproveitamento real) e
+      // gera 1 linha por cor, mostrando a MEDIDA de cada vidro e quantas
+      // chapas o nesting consumiu.
+      Object.keys(vidroChapaAgg).forEach(function (corChave) {
+        const ag = vidroChapaAgg[corChave];
+        const Lc = ag.L_chapa, Hc = ag.H_chapa;
+        let chapas, semCabe = 0;
+        if (Lc > 0 && Hc > 0) {
+          const r = _nestarVidroChapas(ag.panes, Lc, Hc);
+          chapas = r.chapas; semCabe = r.semCabe;
+        } else {
+          chapas = ag.panes.reduce(function (s, p) { return s + Math.max(1, p.qty); }, 0);
+        }
+        const subtotal = chapas * ag.preco;
+        const medidas = ag.panes.map(function (p) {
+          return (p.qty > 1 ? p.qty + '× ' : '') + Math.round(p.w) + '×' + Math.round(p.h);
+        }).join(', ');
+        const totalPanes = ag.panes.reduce(function (s, p) { return s + Math.max(1, p.qty); }, 0);
+        linhas.push({
+          cor: corChave,
+          descricao: ag.sup.descricao + ' — ' + totalPanes + ' vidro(s): ' + medidas
+            + ' → chapa ' + Lc + '×' + Hc
+            + (semCabe ? ' ⚠ ' + semCabe + ' nao cabe(m) na chapa' : ''),
+          largura: Lc,
+          altura: Hc,
+          precoUnit: ag.preco,
+          qtd: chapas,
+          subtotal: subtotal,
+          fonte: 'vidro_chapa',
+          unidade: 'chapa',
+        });
+        total += subtotal;
       });
     } catch (e) {
       console.error('[computeRevestimentoPorCor vidros] erro:', e);
