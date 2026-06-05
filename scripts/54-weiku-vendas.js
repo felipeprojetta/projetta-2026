@@ -1,0 +1,366 @@
+/* ================================================================
+ * 54-weiku-vendas.js — Aba WEIKU: prospeccao de alto padrao
+ * ================================================================
+ * Felipe sessao 35: painel pra trabalhar a base de reservas Weiku
+ * fechadas (grupo Weiku/Projetta) e prospectar clientes pra Projetta.
+ *
+ * Origem dos dados: reservas extraidas da intranet Weiku.
+ *   - SCOPE Supabase: weiku / reservas  (array de registros)
+ *   - SCOPE Supabase: weiku / optout    (mapa {numReserva:true})
+ *   - CPF e RG NAO sao armazenados (minimizacao de dado sensivel).
+ *   - Os dados NAO ficam no codigo (Git/Netlify sao publicos) —
+ *     vivem so no Supabase autenticado e sao lidos via Storage.
+ *
+ * Filtro "alto padrao": exclui predios (tipo OU pavimentos>=5) e
+ * por padrao abre em valor aprovado >= R$ 200 mil.
+ *
+ * Modulo 100% isolado (IIFE + prefixo CSS .wkv-). Nao toca em
+ * nenhum outro modulo. Registrado em 99-boot.js como 'weiku'.
+ * ================================================================ */
+(function () {
+  'use strict';
+
+  var SCOPE = 'weiku';
+  var CSS_ID = 'wkv-styles';
+
+  // ---- estado da tela (memoria, por sessao de render) -------------
+  var ui = {
+    busca: '',
+    vmin: 200000,
+    vmax: null,
+    pavMax: null,
+    uf: '',
+    rep: '',
+    excluiPredio: true,
+    soComWa: true,
+    sortKey: 'v',
+    sortAsc: false,
+    msg: 'Ola {nome}, tudo bem? Aqui e da Projetta. Vi que voce esta com um projeto de esquadrias em andamento e nos trabalhamos com portas e solucoes em aluminio de alto padrao que combinam com o seu projeto. Posso te enviar algumas referencias?'
+  };
+
+  // ---- acesso a dados (Supabase via Storage) ----------------------
+  function getReservas() {
+    try {
+      if (!window.Storage) return [];
+      var arr = Storage.scope(SCOPE).get('reservas', []);
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) { return []; }
+  }
+  function getOptout() {
+    try {
+      if (!window.Storage) return {};
+      var m = Storage.scope(SCOPE).get('optout', {});
+      return (m && typeof m === 'object') ? m : {};
+    } catch (_) { return {}; }
+  }
+  function marcarOptout(r) {
+    try {
+      var m = getOptout();
+      m[r] = true;
+      Storage.scope(SCOPE).set('optout', m);
+    } catch (_) {}
+  }
+
+  // ---- helpers ----------------------------------------------------
+  function fmtMoeda(v) {
+    return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtCurto(v) {
+    v = Number(v || 0);
+    if (v >= 1e6) return 'R$ ' + (v / 1e6).toFixed(2).replace('.', ',') + ' mi';
+    return 'R$ ' + Math.round(v / 1000) + ' mil';
+  }
+  function ehPredio(d) {
+    var t = (d.tipo || '').toLowerCase();
+    return /predio|pr\u00e9dio|edif|apart|apto|torre/.test(t) || (d.pav || 0) >= 5;
+  }
+  function temWa(d) { return d.wa && String(d.wa).length >= 12; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  }); }
+
+  // ---- filtro -----------------------------------------------------
+  function aplicarFiltro() {
+    var optout = getOptout();
+    var vmin = (ui.vmin == null ? 0 : ui.vmin);
+    var vmax = (ui.vmax == null ? Infinity : ui.vmax);
+    var pavMax = (ui.pavMax == null ? Infinity : ui.pavMax);
+    var busca = (ui.busca || '').toLowerCase().trim();
+    return getReservas().filter(function (d) {
+      if (optout[d.r]) return false;
+      if ((d.v || 0) < vmin || (d.v || 0) > vmax) return false;
+      if (ui.excluiPredio && ehPredio(d)) return false;
+      if ((d.pav || 0) > pavMax) return false;
+      if (ui.uf && d.uf !== ui.uf) return false;
+      if (ui.rep && d.rep !== ui.rep) return false;
+      if (ui.soComWa && !temWa(d)) return false;
+      if (busca && ((d.nome || '') + ' ' + (d.cidade || '')).toLowerCase().indexOf(busca) < 0) return false;
+      return true;
+    });
+  }
+
+  // ---- CSS (escopado .wkv-) ---------------------------------------
+  function injectCSS() {
+    if (document.getElementById(CSS_ID)) return;
+    var s = document.createElement('style');
+    s.id = CSS_ID;
+    s.textContent = [
+      '.wkv-app{--wkv-tinta:#003144;--wkv-tinta2:#0a4256;--wkv-teal:#0f766e;--wkv-amb:#c47012;--wkv-amb-bg:#FFF4E6;--wkv-linha:#E4E8EE;--wkv-cinza:#6b7280;--wkv-cinza2:#4a5160;max-width:1320px;margin:0 auto;padding:4px 6px 50px;font-size:14px}',
+      '.wkv-app .wkv-num{font-variant-numeric:tabular-nums}',
+      '.wkv-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:6px 0 16px}',
+      '.wkv-kpi{background:#fff;border:1px solid var(--wkv-linha);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden}',
+      '.wkv-kpi:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--wkv-amb)}',
+      '.wkv-kpi .wkv-lab{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--wkv-cinza)}',
+      '.wkv-kpi .wkv-val{font-weight:800;font-size:24px;color:var(--wkv-tinta);margin-top:5px}',
+      '.wkv-kpi .wkv-val small{font-size:13px;font-weight:600;color:var(--wkv-cinza2)}',
+      '.wkv-panel{background:#fff;border:1px solid var(--wkv-linha);border-radius:14px;padding:16px 18px;margin-bottom:16px}',
+      '.wkv-panel h3{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--wkv-tinta);margin:0 0 13px;display:flex;align-items:center;gap:8px}',
+      '.wkv-panel h3:before{content:"";width:8px;height:8px;background:var(--wkv-amb);border-radius:2px;transform:rotate(45deg)}',
+      '.wkv-filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:13px;align-items:end}',
+      '.wkv-fld label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--wkv-cinza);margin-bottom:5px;font-weight:600}',
+      '.wkv-fld input,.wkv-fld select{width:100%;padding:9px 11px;border:1px solid var(--wkv-linha);border-radius:8px;font:inherit;background:#fafbfc;color:#1f2937}',
+      '.wkv-fld input:focus,.wkv-fld select:focus{outline:none;border-color:var(--wkv-teal);background:#fff;box-shadow:0 0 0 3px rgba(15,118,110,.12)}',
+      '.wkv-chk{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--wkv-tinta);cursor:pointer;user-select:none;padding-bottom:9px}',
+      '.wkv-chk input{width:17px;height:17px;accent-color:var(--wkv-amb)}',
+      '.wkv-acoes{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}',
+      '.wkv-btn{border:none;border-radius:8px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}',
+      '.wkv-btn-tinta{background:var(--wkv-tinta);color:#fff}.wkv-btn-tinta:hover{background:var(--wkv-tinta2)}',
+      '.wkv-btn-out{background:#fff;color:var(--wkv-tinta);border:1px solid var(--wkv-linha)}.wkv-btn-out:hover{border-color:var(--wkv-teal);color:var(--wkv-teal)}',
+      '.wkv-tmpl textarea{width:100%;min-height:70px;padding:11px 13px;border:1px solid var(--wkv-linha);border-radius:8px;font:inherit;resize:vertical;background:#fafbfc}',
+      '.wkv-hint{font-size:11px;color:var(--wkv-cinza);margin-top:6px}',
+      '.wkv-hint code{background:var(--wkv-amb-bg);color:var(--wkv-amb);padding:1px 6px;border-radius:4px;font-weight:600}',
+      '.wkv-tablewrap{background:#fff;border:1px solid var(--wkv-linha);border-radius:14px;overflow:hidden}',
+      '.wkv-tbar{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--wkv-linha);background:#fbfcfd}',
+      '.wkv-tbar .wkv-cnt{font-weight:700;color:var(--wkv-tinta)}.wkv-tbar .wkv-cnt b{color:var(--wkv-amb)}',
+      '.wkv-scroll{overflow:auto;max-height:620px}',
+      '.wkv-app table{width:100%;border-collapse:collapse}',
+      '.wkv-app thead th{background:var(--wkv-tinta);color:#cfe0e8;font-size:11px;text-transform:uppercase;letter-spacing:.5px;text-align:left;padding:11px 12px;font-weight:600;cursor:pointer;white-space:nowrap;position:sticky;top:0;z-index:1}',
+      '.wkv-app thead th:hover{color:#fff}',
+      '.wkv-app thead th.wkv-so:after{content:" \u25be";color:var(--wkv-amb)}',
+      '.wkv-app thead th.wkv-sa:after{content:" \u25b4";color:var(--wkv-amb)}',
+      '.wkv-app tbody td{padding:10px 12px;border-bottom:1px solid var(--wkv-linha);vertical-align:middle}',
+      '.wkv-app tbody tr:nth-child(even){background:#fafbfc}',
+      '.wkv-app tbody tr:hover{background:var(--wkv-amb-bg)}',
+      '.wkv-nome{font-weight:600;color:var(--wkv-tinta)}',
+      '.wkv-loc{font-size:12px;color:var(--wkv-cinza2)}',
+      '.wkv-tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;text-transform:capitalize}',
+      '.wkv-tag.casa{background:#e7f5ee;color:#0f766e}.wkv-tag.predio{background:#fde8e8;color:#c0392b}.wkv-tag.outro{background:#eef0f3;color:#6b7280}',
+      '.wkv-vlr{font-weight:700;color:var(--wkv-tinta);text-align:right;white-space:nowrap}',
+      '.wkv-ico{width:30px;height:30px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;border:1px solid var(--wkv-linha);background:#fff;cursor:pointer}',
+      '.wkv-ico.wa{color:#25D366;border-color:#cdebd6}.wkv-ico.wa:hover{background:#25D366;color:#fff}',
+      '.wkv-ico.mail{color:var(--wkv-amb);border-color:#f3dcc0}.wkv-ico.mail:hover{background:var(--wkv-amb);color:#fff}',
+      '.wkv-ico.dis{opacity:.3;pointer-events:none}',
+      '.wkv-rmv{background:none;border:none;color:var(--wkv-cinza);cursor:pointer;font-size:13px}.wkv-rmv:hover{color:#c0392b}',
+      '.wkv-foot{font-size:12px;color:var(--wkv-cinza);margin-top:14px;line-height:1.6;background:#fff;border:1px dashed var(--wkv-linha);border-radius:10px;padding:13px 16px}',
+      '.wkv-foot b{color:var(--wkv-amb)}',
+      '.wkv-empty{text-align:center;padding:54px 20px;color:var(--wkv-cinza)}',
+      '.wkv-empty .wkv-big{font-size:40px;margin-bottom:10px}',
+      '.wkv-empty h3{color:var(--wkv-tinta);margin:0 0 8px;text-transform:none;letter-spacing:0;font-size:18px}',
+      '@media(max-width:760px){.wkv-kpis{grid-template-columns:repeat(2,1fr)}}'
+    ].join('\n');
+    document.head.appendChild(s);
+  }
+
+  // ---- layout (uma vez) -------------------------------------------
+  function layoutHTML(ufs, reps) {
+    return ''
+      + '<div class="wkv-app">'
+      + '  <div class="wkv-kpis">'
+      + '    <div class="wkv-kpi"><div class="wkv-lab">Clientes no filtro</div><div class="wkv-val wkv-num" id="wkv-k-cnt">\u2014</div></div>'
+      + '    <div class="wkv-kpi"><div class="wkv-lab">Valor aprovado (soma)</div><div class="wkv-val wkv-num" id="wkv-k-soma">\u2014</div></div>'
+      + '    <div class="wkv-kpi"><div class="wkv-lab">Ticket medio</div><div class="wkv-val wkv-num" id="wkv-k-med">\u2014</div></div>'
+      + '    <div class="wkv-kpi"><div class="wkv-lab">Com WhatsApp</div><div class="wkv-val wkv-num" id="wkv-k-wa">\u2014</div></div>'
+      + '  </div>'
+      + '  <div class="wkv-panel"><h3>Filtro inteligente</h3>'
+      + '    <div class="wkv-filtros">'
+      + '      <div class="wkv-fld"><label>Buscar nome / cidade</label><input id="wkv-f-busca" placeholder="ex: Joinville..."></div>'
+      + '      <div class="wkv-fld"><label>Valor minimo (R$)</label><input id="wkv-f-vmin" type="number" value="200000" step="10000"></div>'
+      + '      <div class="wkv-fld"><label>Valor maximo (R$)</label><input id="wkv-f-vmax" type="number" placeholder="sem limite"></div>'
+      + '      <div class="wkv-fld"><label>Max. pavimentos</label><input id="wkv-f-pav" type="number" placeholder="qualquer" min="1"></div>'
+      + '      <div class="wkv-fld"><label>Estado</label><select id="wkv-f-uf"><option value="">Todos</option>' + ufs.map(function (u) { return '<option>' + esc(u) + '</option>'; }).join('') + '</select></div>'
+      + '      <div class="wkv-fld"><label>Representante</label><select id="wkv-f-rep"><option value="">Todos</option>' + reps.map(function (r) { return '<option>' + esc(r) + '</option>'; }).join('') + '</select></div>'
+      + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-npredio" checked> Excluir predios</label>'
+      + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-comwa" checked> So com WhatsApp</label>'
+      + '    </div>'
+      + '    <div class="wkv-acoes">'
+      + '      <button class="wkv-btn wkv-btn-out" id="wkv-reset">\u21ba Limpar filtros</button>'
+      + '      <button class="wkv-btn wkv-btn-tinta" id="wkv-export">\u2b07 Exportar lista filtrada (CSV)</button>'
+      + '    </div>'
+      + '  </div>'
+      + '  <div class="wkv-panel"><h3>Mensagem de WhatsApp</h3>'
+      + '    <div class="wkv-tmpl"><textarea id="wkv-msg">' + esc(ui.msg) + '</textarea>'
+      + '      <div class="wkv-hint">Use <code>{nome}</code> para inserir o primeiro nome do cliente automaticamente no link.</div></div>'
+      + '  </div>'
+      + '  <div class="wkv-tablewrap">'
+      + '    <div class="wkv-tbar"><div class="wkv-cnt"><b id="wkv-t-cnt">0</b> clientes \u00b7 <span class="wkv-num" id="wkv-t-soma">R$ 0,00</span></div></div>'
+      + '    <div class="wkv-scroll"><table>'
+      + '      <thead><tr>'
+      + '        <th data-s="nome">Cliente</th><th data-s="uf">Local</th><th data-s="tipo">Tipo</th>'
+      + '        <th data-s="pav" style="text-align:center">Pav.</th><th data-s="esq" style="text-align:center">Esq.</th>'
+      + '        <th data-s="v" style="text-align:right">Valor aprovado</th><th data-s="rep">Representante</th>'
+      + '        <th style="text-align:center">Contato</th>'
+      + '      </tr></thead><tbody id="wkv-tb"></tbody>'
+      + '    </table></div>'
+      + '  </div>'
+      + '  <div class="wkv-foot"><b>Dados:</b> reservas Weiku fechadas (grupo Weiku/Projetta). CPF/RG nao sao armazenados. '
+      + '  <b>Opt-out:</b> ao remover (\u2715) um contato, ele fica salvo e nao aparece mais — respeite quem pedir pra nao receber.</div>'
+      + '</div>';
+  }
+
+  function emptyHTML() {
+    return ''
+      + '<div class="wkv-app"><div class="wkv-tablewrap"><div class="wkv-empty">'
+      + '  <div class="wkv-big">\ud83c\udfd7\ufe0f</div>'
+      + '  <h3>Nenhuma reserva Weiku importada ainda</h3>'
+      + '  <p>A base de prospeccao ainda nao foi carregada no Supabase (scope <code>weiku/reservas</code>).<br>'
+      + '  Assim que a importacao rodar, os clientes aparecem aqui automaticamente.</p>'
+      + '</div></div></div>';
+  }
+
+  // ---- render da tabela + KPIs ------------------------------------
+  function renderTabela(container) {
+    var lista = aplicarFiltro();
+    var k = ui.sortKey;
+    lista.sort(function (a, b) {
+      var x = a[k], y = b[k];
+      if (typeof x === 'string') { x = x.toLowerCase(); y = (y || '').toLowerCase(); }
+      else { x = x || 0; y = y || 0; }
+      return (x < y ? -1 : x > y ? 1 : 0) * (ui.sortAsc ? 1 : -1);
+    });
+
+    var soma = lista.reduce(function (s, d) { return s + (d.v || 0); }, 0);
+    var comWa = lista.filter(temWa).length;
+    var $ = function (id) { return container.querySelector('#' + id); };
+
+    if ($('wkv-k-cnt')) $('wkv-k-cnt').textContent = lista.length;
+    if ($('wkv-k-soma')) $('wkv-k-soma').textContent = fmtCurto(soma);
+    if ($('wkv-k-med')) $('wkv-k-med').textContent = lista.length ? fmtCurto(soma / lista.length) : '\u2014';
+    if ($('wkv-k-wa')) $('wkv-k-wa').innerHTML = comWa + ' <small>de ' + lista.length + '</small>';
+    if ($('wkv-t-cnt')) $('wkv-t-cnt').textContent = lista.length;
+    if ($('wkv-t-soma')) $('wkv-t-soma').textContent = fmtMoeda(soma);
+
+    var msg = ui.msg;
+    var rows = lista.map(function (d) {
+      var primeiro = (d.nome || '').split(' ')[0] || '';
+      var txt = encodeURIComponent(msg.replace(/\{nome\}/g, primeiro));
+      var wa = temWa(d)
+        ? '<a class="wkv-ico wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(d.wa) + '?text=' + txt + '" title="WhatsApp">\u2706</a>'
+        : '<span class="wkv-ico wa dis">\u2706</span>';
+      var ml = (d.email && d.email.indexOf('@') > 0)
+        ? '<a class="wkv-ico mail" href="mailto:' + esc(d.email) + '" title="' + esc(d.email) + '">\u2709</a>'
+        : '<span class="wkv-ico mail dis">\u2709</span>';
+      var tag = ehPredio(d) ? '<span class="wkv-tag predio">' + esc(d.tipo || 'predio') + '</span>'
+        : (/casa/.test((d.tipo || '').toLowerCase()) ? '<span class="wkv-tag casa">casa</span>'
+          : '<span class="wkv-tag outro">' + esc(d.tipo || '\u2014') + '</span>');
+      return '<tr>'
+        + '<td><div class="wkv-nome">' + esc(d.nome || '\u2014') + '</div><div class="wkv-loc">Reserva ' + esc(d.r) + '</div></td>'
+        + '<td class="wkv-loc">' + esc(d.cidade || '\u2014') + (d.uf ? ' \u00b7 ' + esc(d.uf) : '') + '</td>'
+        + '<td>' + tag + '</td>'
+        + '<td style="text-align:center" class="wkv-num">' + (d.pav || '\u2014') + '</td>'
+        + '<td style="text-align:center" class="wkv-num">' + esc(d.esq || '\u2014') + '</td>'
+        + '<td class="wkv-vlr wkv-num">' + fmtMoeda(d.v) + '</td>'
+        + '<td class="wkv-loc">' + esc(d.rep || '\u2014') + '</td>'
+        + '<td style="text-align:center;white-space:nowrap">' + wa + ' ' + ml
+        + ' <button class="wkv-rmv" data-r="' + esc(d.r) + '" title="Remover (opt-out)">\u2715</button></td>'
+        + '</tr>';
+    }).join('');
+
+    var tb = $('wkv-tb');
+    if (tb) tb.innerHTML = rows || '<tr><td colspan="8" style="text-align:center;padding:40px;color:#6b7280">Nenhum cliente nesse filtro.</td></tr>';
+
+    // indicadores de ordenacao
+    container.querySelectorAll('thead th[data-s]').forEach(function (th) {
+      th.classList.remove('wkv-so', 'wkv-sa');
+      if (th.getAttribute('data-s') === ui.sortKey) th.classList.add(ui.sortAsc ? 'wkv-sa' : 'wkv-so');
+    });
+  }
+
+  // ---- export CSV -------------------------------------------------
+  function exportarCSV() {
+    var lista = aplicarFiltro().sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
+    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email'];
+    var linhas = lista.map(function (d) {
+      return [d.r, d.nome, d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email]
+        .map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';');
+    });
+    var csv = '\ufeff' + [cols.join(';')].concat(linhas).join('\r\n');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'projetta_weiku_prospeccao.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  // ---- bind eventos (uma vez por render) --------------------------
+  function bindEventos(container) {
+    var $ = function (id) { return container.querySelector('#' + id); };
+
+    function pull() {
+      ui.busca = $('wkv-f-busca').value;
+      ui.vmin = $('wkv-f-vmin').value === '' ? null : parseFloat($('wkv-f-vmin').value);
+      ui.vmax = $('wkv-f-vmax').value === '' ? null : parseFloat($('wkv-f-vmax').value);
+      ui.pavMax = $('wkv-f-pav').value === '' ? null : parseInt($('wkv-f-pav').value, 10);
+      ui.uf = $('wkv-f-uf').value;
+      ui.rep = $('wkv-f-rep').value;
+      ui.excluiPredio = $('wkv-f-npredio').checked;
+      ui.soComWa = $('wkv-f-comwa').checked;
+      ui.msg = $('wkv-msg').value;
+      renderTabela(container);
+    }
+
+    ['wkv-f-busca', 'wkv-f-vmin', 'wkv-f-vmax', 'wkv-f-pav', 'wkv-msg'].forEach(function (id) {
+      var e = $(id); if (e) e.addEventListener('input', pull);
+    });
+    ['wkv-f-uf', 'wkv-f-rep', 'wkv-f-npredio', 'wkv-f-comwa'].forEach(function (id) {
+      var e = $(id); if (e) e.addEventListener('change', pull);
+    });
+
+    var reset = $('wkv-reset');
+    if (reset) reset.addEventListener('click', function () {
+      ui.busca = ''; ui.vmin = 200000; ui.vmax = null; ui.pavMax = null; ui.uf = ''; ui.rep = '';
+      ui.excluiPredio = true; ui.soComWa = true;
+      $('wkv-f-busca').value = ''; $('wkv-f-vmin').value = '200000'; $('wkv-f-vmax').value = '';
+      $('wkv-f-pav').value = ''; $('wkv-f-uf').value = ''; $('wkv-f-rep').value = '';
+      $('wkv-f-npredio').checked = true; $('wkv-f-comwa').checked = true;
+      renderTabela(container);
+    });
+
+    var exp = $('wkv-export');
+    if (exp) exp.addEventListener('click', exportarCSV);
+
+    container.querySelectorAll('thead th[data-s]').forEach(function (th) {
+      th.addEventListener('click', function () {
+        var k = th.getAttribute('data-s');
+        if (ui.sortKey === k) ui.sortAsc = !ui.sortAsc;
+        else { ui.sortKey = k; ui.sortAsc = (k === 'nome' || k === 'cidade' || k === 'uf' || k === 'rep'); }
+        renderTabela(container);
+      });
+    });
+
+    // delegacao pro botao de opt-out (tbody re-renderiza)
+    var tb = $('wkv-tb');
+    if (tb) tb.addEventListener('click', function (ev) {
+      var btn = ev.target.closest('.wkv-rmv');
+      if (!btn) return;
+      var r = btn.getAttribute('data-r');
+      if (r && window.confirm('Remover este contato da prospeccao (opt-out)?')) {
+        marcarOptout(r);
+        renderTabela(container);
+      }
+    });
+  }
+
+  // ---- render principal -------------------------------------------
+  function render(container) {
+    injectCSS();
+    var dados = getReservas();
+    if (!dados.length) { container.innerHTML = emptyHTML(); return; }
+    var ufs = Array.from(new Set(dados.map(function (d) { return d.uf; }).filter(Boolean))).sort();
+    var reps = Array.from(new Set(dados.map(function (d) { return d.rep; }).filter(Boolean))).sort();
+    container.innerHTML = layoutHTML(ufs, reps);
+    bindEventos(container);
+    renderTabela(container);
+  }
+
+  window.WeikuVendas = { render: render };
+  console.log('[weiku-vendas] Modulo carregado (prospeccao alto padrao)');
+})();

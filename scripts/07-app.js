@@ -87,6 +87,11 @@ const App = (() => {
       subtitle: 'Envio de propostas e mensagens padronizadas.',
       breadcrumb: 'Integracoes · Email',
     },
+    weiku: {
+      title: 'Weiku',
+      subtitle: 'Prospeccao de alto padrao a partir das reservas Weiku fechadas (grupo Weiku/Projetta).',
+      breadcrumb: 'Integracoes · Weiku',
+    },
     config: {
       title: 'Configuracoes',
       subtitle: 'Informacoes do sistema e manutencao do storage local.',

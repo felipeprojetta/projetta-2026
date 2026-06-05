@@ -282,4 +282,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }, 800);
+
+  // Registrar módulo Weiku (prospeccao alto padrao a partir das reservas Weiku)
+  setTimeout(function() {
+    if (!App.register) return;
+    App.register('weiku', {
+      render: function(container) {
+        if (window.WeikuVendas) {
+          window.WeikuVendas.render(container);
+        } else {
+          container.innerHTML = '<div class="info-banner">Modulo Weiku carregando...</div>';
+          setTimeout(function() {
+            if (window.WeikuVendas) window.WeikuVendas.render(container);
+          }, 1500);
+        }
+      }
+    });
+  }, 800);
 });
