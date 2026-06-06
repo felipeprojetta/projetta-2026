@@ -2604,15 +2604,14 @@
           fim: new Date(ano + 1, 0, 1),
         };
       }
-      // Mes fiscal: 16 do mes anterior ate 15 do mes corrente (inclusive).
-      // Em Date: ini = (mes-1) dia 16, fim = mes dia 16 (exclusivo).
-      const m0 = mes - 1;             // mes do ini (mes anterior em base 0)
-      // Se mes corrente eh janeiro (1), o anterior eh dezembro do ano-1.
-      const iniAno = (m0 - 1) < 0 ? ano - 1 : ano;
-      const iniMes = (m0 - 1 + 12) % 12;
+      // Felipe sessao 36: mes fiscal Projetta = do dia 16 do mes corrente ate
+      // o dia 15 do mes SEGUINTE. Ex: Janeiro = 16/01 a 15/02; Fevereiro =
+      // 16/02 a 15/03; Dezembro = 16/12 a 15/01 do ano seguinte.
+      // Em Date (base 0): ini = (mes-1) dia 16; fim = (mes) dia 16 exclusivo
+      // (o JS rola automaticamente pro ano seguinte quando passa de dezembro).
       return {
-        ini: new Date(iniAno, iniMes, 16),
-        fim: new Date(ano, m0, 16),
+        ini: new Date(ano, mes - 1, 16),
+        fim: new Date(ano, mes, 16),
       };
     }
 
@@ -3823,7 +3822,7 @@ ${secoesHtml}
           </div>`,
         'mes': `
           <div class="crm-kpi" data-kpi-id="mes" draggable="true">
-            <div class="crm-kpi-lbl">Fechado no Mes <span class="crm-kpi-help" title="Mes fiscal: dia 16 do mes anterior ate dia 15 do mes corrente">?</span></div>
+            <div class="crm-kpi-lbl">Fechado no Mes <span class="crm-kpi-help" title="Mes fiscal Projetta: do dia 16 do mes corrente ate o dia 15 do mes seguinte. Ex: Janeiro = 16/01 a 15/02.">?</span></div>
             <div class="crm-kpi-val">R$ ${fmtBR(kpiMes.total)}</div>
             <div class="crm-kpi-sub">
               <select class="crm-kpi-select" data-kpi="mes-ano">
