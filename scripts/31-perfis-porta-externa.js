@@ -79,8 +79,8 @@ const PerfisPortaExterna = (() => {
     if (m === 6 || m === 16) {
       return Math.max(0, parseInt(item && item.quantidadeFrisos, 10) || 0);
     }
-    if (m === 5) return 2;
-    if (m === 3 || m === 4 || m === 12 || m === 13) return 1;
+    if (m === 5 || m === 13) return 2;
+    if (m === 3 || m === 4 || m === 12) return 1;
     return 0;
   }
 
@@ -507,7 +507,24 @@ const PerfisPortaExterna = (() => {
     // perfil de friso. AGORA: tabela unificada cobre todos os 7 modelos.
     const ehModeloComFrisoHor = MODELOS_COM_FRISO_HORIZONTAL.has(modelo);
     const qtdFrisosHor = ehModeloComFrisoHor ? qtdFrisosHorizontais(modelo, item) : 0;
-    const qtdTotalHor = Math.max(qtdTH, qtdFrisosHor);
+    let qtdTotalHor;
+    if (modelo === 13) {
+      // Felipe sessao 36: modelo 13 tem 2 frisos horizontais fixos a
+      // `distBorda` mm das bordas (default 250). As travessas horizontais
+      // sao distribuidas DENTRO do vao entre esses 2 frisos, com
+      // espacamento minimo de 1000mm (entre travessas e entre friso/travessa).
+      //   vao        = AlturaFolha(PA_F) - 2 × distBorda
+      //   nSegmentos = floor(vao / 1000)   (cada segmento >= 1000mm)
+      //   nTravessas = max(0, nSegmentos - 1)
+      // Ex: PA_F=3882, distBorda=250 -> vao=3382 -> floor(3382/1000)=3
+      //     -> 2 travessas (vaos de ~1127mm). Com 3 daria 845mm (<1000).
+      const distBorda = parseFloat(String(item.distanciaBordaFrisoHorizontal || '').replace(',', '.')) || 250;
+      const vaoFrisos = Math.max(0, PA_F - 2 * distBorda);
+      const nTravMod13 = Math.max(0, Math.floor(vaoFrisos / 1000) - 1);
+      qtdTotalHor = qtdFrisosHor + nTravMod13;   // 2 frisos + N travessas
+    } else {
+      qtdTotalHor = Math.max(qtdTH, qtdFrisosHor);
+    }
     const qtdTravessaHor = qtdTotalHor - qtdFrisosHor;
     if (qtdTravessaHor > 0) {
       add(cod.travHor,   LARG_INT_TRAV, qtdTravessaHor * nFolhas, 'Travessa Horizontal');
@@ -550,10 +567,17 @@ const PerfisPortaExterna = (() => {
     // Multiplo) e' EXCECAO. Mesmo com N frisos, leva so' 2 TUBOS de
     // reforco fixos (× nFolhas) — a chapa de tras do modelo 14 da' o
     // suporte estrutural, entao nao precisa de 1 tubo por friso.
-    if (ehModeloComFriso && qtdFrisosCfg > 0) {
-      const qtdTuboFriso = (modelo === 14)
-        ? 2 * nFolhas               // mod 14: 2 tubos fixos (chapa de tras suporta)
-        : qtdFrisosCfg * nFolhas;   // demais modelos: 1 tubo por friso
+    if (ehModeloComFriso && (qtdFrisosCfg > 0 || modelo === 13)) {
+      let qtdTuboFriso;
+      if (modelo === 14) {
+        qtdTuboFriso = 2 * nFolhas;               // mod 14: 2 tubos fixos (chapa de tras suporta)
+      } else if (modelo === 13) {
+        // Felipe sessao 36: modelo 13 tem 1 friso vertical OBRIGATORIO
+        // (76x76 / 101x101), independente do campo quantidadeFrisos.
+        qtdTuboFriso = Math.max(1, qtdFrisosCfg) * nFolhas;
+      } else {
+        qtdTuboFriso = qtdFrisosCfg * nFolhas;    // demais modelos: 1 tubo por friso
+      }
       add(cod.perfLargInt, TRAV_VERT, qtdTuboFriso, 'Friso Vertical');
     }
 
