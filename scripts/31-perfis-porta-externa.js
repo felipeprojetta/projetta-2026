@@ -110,6 +110,20 @@ const PerfisPortaExterna = (() => {
     return false;
   }
 
+  /**
+   * Felipe sessao 36: detecta CAVA PREMIUM (modelo 22 "Cava Premium").
+   * A Cava Premium e' uma cava DIFERENTE — NAO usa os perfis tubulares da
+   * cava comum (Tubo Cava PA-38X38, Cantoneira Cava PA-CANT-30X30,
+   * Travamento Puxador Embutido PA-25X12). As demais regras de cava
+   * (travessas etc.) continuam valendo.
+   */
+  function temCavaPremium(modeloNome, modeloNumero) {
+    const nome = String(modeloNome || '').toLowerCase();
+    if (nome.includes('cava premium')) return true;
+    if (Number(modeloNumero) === 22) return true;
+    return false;
+  }
+
   // ---------------------------------------------------------
   // Variaveis fixas por familia (REGRAS_PERFIS.xlsx)
   // Felipe (req: Regras e Logicas em Cadastros): variaveis sao
@@ -322,6 +336,7 @@ const PerfisPortaExterna = (() => {
     const modeloNome = String(item.modeloNome || '');
     const ehCava     = temCava(modeloNome, modelo);
     const ehCavaDupla = temCavaDupla(modeloNome, modelo);
+    const ehCavaPremium = temCavaPremium(modeloNome, modelo);
     const ehFriso6   = (modelo === MODELO_FRISO_HORIZONTAL);
 
     // Log de diagnostico (Felipe pode ver no DevTools que esta detectando certo)
@@ -501,11 +516,13 @@ const PerfisPortaExterna = (() => {
       add(cod.travHor,   LARG_INT_TRAV, qtdFrisosHor * nFolhas,   'Friso Horizontal');
     }
 
-    if (ehCava) {
+    if (ehCava && !ehCavaPremium) {
       // Felipe (sessao 30 — fix v2): "1F com cava: 2 unidades, 2F com
       // cava: 4 unidades, modelo 09 cava dupla: 4 fixo".
       // Regra: 2 × nFolhas (default), exceto cava dupla que e' 4 fixo.
       // Felipe corrigiu meu erro v1 anterior (eu tinha tirado o nFolhas).
+      // Felipe sessao 36: Cava Premium (modelo 22) NAO tem estes perfis
+      // tubulares de cava — pulado via !ehCavaPremium.
       const qtdTuboCava = ehCavaDupla ? 4 : 2 * nFolhas;
       add(cod.cava,     CAVA_COMP, qtdTuboCava,        'Tubo Cava');
       add(cod.cantCava, TRAV_VERT, 4 * nFolhas,        'Cantoneira Cava');
