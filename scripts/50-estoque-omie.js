@@ -249,9 +249,22 @@
     el.innerHTML = html;
     var inp = document.getElementById('omie-busca');
     if (inp) {
+      // Felipe sessao 36: digitacao travava porque cada tecla re-renderizava a
+      // tabela inteira (500 linhas) e recriava o proprio input, perdendo o foco.
+      // Agora: debounce (so re-renderiza ao parar de digitar) + restaura foco e
+      // posicao do cursor no campo novo. Digitacao fica livre/fluida.
       inp.addEventListener('input', function(e) {
         state.buscaTermo = e.target.value;
-        renderListaEstoque(el);
+        var caret = e.target.selectionStart;
+        clearTimeout(state._buscaTimer);
+        state._buscaTimer = setTimeout(function() {
+          renderListaEstoque(el);
+          var novo = document.getElementById('omie-busca');
+          if (novo) {
+            novo.focus();
+            try { novo.setSelectionRange(caret, caret); } catch (_) {}
+          }
+        }, 130);
       });
     }
   }
