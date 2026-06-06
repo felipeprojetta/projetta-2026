@@ -456,6 +456,22 @@
   font-size: 12px;
   color: #1f6630;
 }
+/* Felipe sessao 36: margem liquida realizada no fechamento (destaque verde) */
+.crm-card-margem-fechada {
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #1b6e3a;
+  background: #DDF1E2;
+  border: 1px solid #b8e0c5;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+.crm-card-margem-fechada strong {
+  font-weight: 800;
+  font-size: 13px;
+  color: #14532d;
+}
 
 /* Dropdown de versoes do orcamento */
 .crm-card-versoes {

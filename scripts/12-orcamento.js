@@ -1626,6 +1626,24 @@ const Orcamento = (() => {
     const com_rt_rs     = valorComDesc * (com_rt_pct  / 100);
     const desconto_rs   = Math.max(0, valorOriginal - valorComDesc);
 
+    // Felipe sessao 36: margem liquida (lucro liquido %) REALIZADA no preco de
+    // fechamento (com desconto). Recalcula o DRE a partir dos subtotais da
+    // versao fechada e mede o lucro liquido sobre o valor realmente cobrado —
+    // usando as mesmas formulas do DRE (calcularDRE + demonstracaoResultado).
+    let margemLiquidaPct = null;
+    try {
+      const subFab  = Number(r && r.versao && r.versao.subFab)  || 0;
+      const subInst = Number(r && r.versao && r.versao.subInst) || 0;
+      const precoReal = valorComDesc > 0 ? valorComDesc : valorOriginal;
+      if ((subFab + subInst) > 0 && precoReal > 0) {
+        const dreCalc = calcularDRE(subFab, subInst, params);
+        const dem = demonstracaoResultado(Object.assign({}, dreCalc, { pFatReal: precoReal }));
+        if (dem && dem.pct && isFinite(dem.pct.lucro_liquido)) {
+          margemLiquidaPct = dem.pct.lucro_liquido;
+        }
+      }
+    } catch (e) { /* sem dados de DRE -> nao mostra margem */ }
+
     return {
       // hasVersaoFechada: so' true se ha versao aprovada/fechada (mantem
       // semantica antiga — usado p/ saber se pode Gerar Documentos etc).
@@ -1642,6 +1660,7 @@ const Orcamento = (() => {
       comissaoArqRs:   com_rt_rs,
       descontoPct:     desconto_pct,
       descontoRs:      desconto_rs,
+      margemLiquidaPct: margemLiquidaPct,
       modelo: item0.modeloNumero || item0.modelo || '',
       nFolhas: item0.nFolhas ? `${item0.nFolhas} folha${String(item0.nFolhas) === '1' ? '' : 's'}` : '',
       corInterna: item0.corInterna || '',

@@ -3379,6 +3379,13 @@ ${secoesHtml}
             ? `<div class="crm-card-fechado-em">✓ Fechado em <strong>${fmtData(l.fechadoEm)}</strong></div>`
             : '';
 
+          // Felipe sessao 36: abaixo da data de fechamento, mostra com QUANTOS %
+          // de margem liquida o pedido foi fechado (destaque verde).
+          const margemFechadaLabel = (l.etapa === 'fechado' && resumo && resumo.hasVersaoFechada
+                                       && resumo.margemLiquidaPct != null && isFinite(resumo.margemLiquidaPct))
+            ? `<div class="crm-card-margem-fechada">📈 Fechado com <strong>${resumo.margemLiquidaPct.toFixed(1).replace('.', ',')}%</strong> de margem liquida</div>`
+            : '';
+
           // Lista de versoes — Felipe (sessao 2026-11): nova UI com botoes
           // de Abrir/Revisar/Nova Versao/Gerar Documentos. Quando lead tem
           // versao fechada, aparece resumo compacto da ultima versao + os
@@ -3495,6 +3502,7 @@ ${secoesHtml}
               ${destinoLabel ? `<span class="crm-card-destino">${destinoLabel}</span>` : ''}
             </div>
             ${fechadoEmLabel}
+            ${margemFechadaLabel}
             <div class="crm-card-expand-toggle" data-action="toggle-card-expand" title="Expandir/recolher detalhes">▼</div>
             <div class="crm-card-expandable" style="display:none">
             ${(l.porta_largura || l.porta_modelo || l.porta_cor || mostraBtnOrc) ? `
