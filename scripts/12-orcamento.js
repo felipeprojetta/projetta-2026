@@ -3987,6 +3987,14 @@ const Orcamento = (() => {
     if (item.divisao_largura === undefined) item.divisao_largura = 'maxima';
     if (item.com_refilado === undefined) item.com_refilado = 'sim';
     if (!Array.isArray(item.pecas)) item.pecas = [];
+    // Felipe sessao 36: no modo manual tambem ja' nasce 1 peca em branco
+    // (igual ao automatico que cria 1 parede em branco logo abaixo). Sem
+    // isso a tabela fica vazia e os campos de Largura/Altura so' aparecem
+    // depois de clicar "+ Adicionar peca" — o usuario achava que tinham
+    // sumido.
+    if (item.modo === 'manual' && item.pecas.length === 0) {
+      item.pecas.push({ largura: 0, altura: 0, quantidade: 1 });
+    }
 
     // Felipe sessao 18: 'varias medidas nesse mesmo item revestimento
     // medidas diferentes e quantidades mas calcula tudo junto. cada
