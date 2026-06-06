@@ -2607,8 +2607,21 @@
           // gerente nao precisa ver o nome do orcamento, ja' deveria estar no
           // contrato. Fallback p/ AGP se ATP ainda nao foi preenchido.
           const atpProd = l.atp || {};
+          // Felipe sessao 36: sobrenomeContrato do ATP as vezes vem em CAIXA
+          // ALTA (ex: "FAVILLA ELIAS SARTORIO") e o nome do card ficava
+          // "Soraya FAVILLA ELIAS SARTORIO", re-maiusculando a cada render/sync.
+          // Normaliza SO' palavras 100% maiusculas (preserva "de/da" e nomes
+          // ja' corretos). Render-time => sobrevive a qualquer sync.
+          const _normNomeCaps = (nome) => String(nome || '').split(/(\s+)/).map((tok) => {
+            if (/\p{Lu}/u.test(tok) && !/\p{Ll}/u.test(tok)) {
+              return (window.Universal && window.Universal.titleCase)
+                ? window.Universal.titleCase(tok)
+                : tok.charAt(0) + tok.slice(1).toLowerCase();
+            }
+            return tok;
+          }).join('');
           const _nomeAtp = atpProd.nomeContrato
-            ? (atpProd.nomeContrato + (atpProd.sobrenomeContrato ? ' ' + atpProd.sobrenomeContrato : '')).trim()
+            ? _normNomeCaps((atpProd.nomeContrato + (atpProd.sobrenomeContrato ? ' ' + atpProd.sobrenomeContrato : '')).trim())
             : '';
           const clienteCard   = _nomeAtp || l.cliente || '';
           const telefoneCard  = atpProd.telefoneObra || l.telefone || '';

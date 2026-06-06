@@ -179,8 +179,19 @@
       // cadastrado no lead; etc. Fallback campo-a-campo pro AGP quando
       // ATP nao tem o dado.
       const atp = card.atp || {};
+      // Felipe sessao 36: normaliza palavras 100% MAIUSCULAS do nome ATP
+      // (ex: sobrenome "FAVILLA ELIAS SARTORIO") preservando "de/da" e nomes
+      // ja' corretos. Render-time => sobrevive a sync.
+      const _normNomeCaps = (nome) => String(nome || '').split(/(\s+)/).map((tok) => {
+        if (/\p{Lu}/u.test(tok) && !/\p{Ll}/u.test(tok)) {
+          return (window.Universal && window.Universal.titleCase)
+            ? window.Universal.titleCase(tok)
+            : tok.charAt(0) + tok.slice(1).toLowerCase();
+        }
+        return tok;
+      }).join('');
       const _nomeAtp = atp.nomeContrato
-        ? (atp.nomeContrato + (atp.sobrenomeContrato ? ' ' + atp.sobrenomeContrato : '')).trim()
+        ? _normNomeCaps((atp.nomeContrato + (atp.sobrenomeContrato ? ' ' + atp.sobrenomeContrato : '')).trim())
         : '';
       return {
         // Identificacao
