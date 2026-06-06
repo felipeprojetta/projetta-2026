@@ -156,7 +156,20 @@
       cards = Array.isArray(raw) ? raw : [];
     } catch (_) { cards = []; }
 
-    return cards.map(card => {
+    // Felipe sessao 36: a Agenda de Obras mostra SOMENTE obras que no Kanban
+    // Producao estao em AG. MEDICAO pra frente. Exclui AG. LIBERACAO DE MEDIDAS
+    // (1a coluna) e cards sem etapa valida — a obra so' "entra" pra instalacao
+    // quando ja' esta pra medir ou adiante.
+    const ETAPAS_OBRA_ORDEM = [
+      'ag-liberacao-medidas', 'ag-medicao', 'ag-fazer-liberacao',
+      'ag-aprovacao-final-cliente', 'ag-os', 'ag-producao', 'em-producao',
+      'ag-conferencia', 'ag-embalagem', 'ag-embarque', 'finalizado',
+    ];
+    const IDX_MIN_OBRA = ETAPAS_OBRA_ORDEM.indexOf('ag-medicao'); // 1
+
+    return cards
+      .filter(card => ETAPAS_OBRA_ORDEM.indexOf(card && card.etapa) >= IDX_MIN_OBRA)
+      .map(card => {
       const delta = state.instalacoes[card.id] || {};
       // Felipe sessao 34: 'de producao para baixo tudo linkado pelo ato'.
       // Dados da Agenda de Obras priorizam o que esta no ATP/contrato sobre
