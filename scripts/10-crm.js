@@ -3288,9 +3288,13 @@ ${secoesHtml}
           // botao para abrir o orcamento'. Adiciona 'fechado' à lista mas
           // com flag pra mostrar SO o botao Abrir Orcamento (Revisar/Nova
           // Versao/Gerar Documentos nao fazem sentido apos fechamento).
-          const etapasComBotao = ['fazer-orcamento', 'orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'fechado'];
+          const etapasComBotao = ['fazer-orcamento', 'orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'fechado', 'perdido'];
           const mostraBtnOrc = etapasComBotao.includes(l.etapa);
-          const somenteAbrirOrc = l.etapa === 'fechado';
+          // Felipe sessao 18: fechado mostra SO o botao Abrir Orcamento.
+          // Felipe sessao 36: card 'perdido' tambem deve mostrar o botao de
+          // Abrir Orcamento + versoes (estava sem nenhum botao). Trata igual
+          // ao fechado (so' Abrir Orcamento, sem Revisar/Nova/Gerar).
+          const somenteAbrirOrc = (l.etapa === 'fechado' || l.etapa === 'perdido');
           // Reserva: sempre que existir, em qualquer etapa
           const reservaLabel = l.numeroReserva
             ? `<span class="crm-card-reserva">Res ${escapeHtml(l.numeroReserva)}</span>`
