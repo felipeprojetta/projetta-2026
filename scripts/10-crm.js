@@ -282,6 +282,7 @@
         porta_fechadura_digital: '',
         porta_quantidade: 1,  // Felipe sessao 12
         itens_extras: [],  // Felipe sessao 12
+        observacoes: '',  // Felipe sessao 36: observacoes por lead/card
       });
     }
     function preencherModalComLead(lead) {
@@ -335,6 +336,7 @@
         // Default = aba AGP (dados originais).
         atp: lead.atp ? JSON.parse(JSON.stringify(lead.atp)) : {},
         abaAgpAtp: 'agp',
+        observacoes: lead.observacoes || '',  // Felipe sessao 36
       });
     }
 
@@ -955,6 +957,12 @@
                 </div>
               </div>
               ` : ''}
+              <div class="crm-form-row cols-1">
+                <div class="crm-field">
+                  <label>Observacoes</label>
+                  <textarea data-field="observacoes" rows="3" placeholder="Anotacoes sobre este lead (uso interno)" style="width:100%;resize:vertical;font-family:inherit;font-size:13px;line-height:1.4;padding:8px 10px;border:1px solid #cdd5df;border-radius:6px;box-sizing:border-box;">${escapeHtml(m.observacoes || '')}</textarea>
+                </div>
+              </div>
               <div style="border-top:2px solid #1a5276;margin-top:16px;padding-top:14px">
                 <!-- Felipe sessao 12: 'Dados da Porta' virou 'Item 1 - Porta Externa'
                      com header colapsavel. Botao + Adicionar Item embaixo permite
@@ -2112,6 +2120,7 @@
           if (m.atp && typeof m.atp === 'object') {
             lead.atp = JSON.parse(JSON.stringify(m.atp));
           }
+          lead.observacoes = (m.observacoes || '').trim();  // Felipe sessao 36
           // data NAO eh atualizada — fica como criacao
 
           // Felipe (req 1 do CRM): mudanca de etapa via modal precisa do
@@ -2233,6 +2242,7 @@
             porta_modelo:            (m.porta_modelo || '').trim(),
             porta_cor:               (m.porta_cor || '').trim(),
             porta_fechadura_digital: (m.porta_fechadura_digital || '').trim(),
+            observacoes: (m.observacoes || '').trim(),  // Felipe sessao 36
             data: new Date().toISOString().slice(0, 10),
           };
           state.leads.push(novo);
