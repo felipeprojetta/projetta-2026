@@ -354,6 +354,43 @@ const FreteTarifas = (() => {
     return (t.frete_terrestre && t.frete_terrestre.uberlandia_santos_usd) || 1800;
   }
 
+  /**
+   * Felipe sessao 36: decide a EMBALAGEM de transporte conforme a largura
+   * da porta.
+   *   - Largura <= 2,40 m: caixa de madeira fumigada normal (USD = m³ × 100).
+   *   - Largura  > 2,40 m: a porta NAO cabe no container normal, entao usa
+   *     uma ESTRUTURA DE ACO (cavalete de ferro inclinado). Valor FIXO de
+   *     R$ 4.500 (convertido pra USD pela taxa, pra exibir na proposta).
+   *
+   * @param {number} m3            volume CBM da caixa
+   * @param {number} larguraMaxMm  maior largura de porta do orcamento (mm)
+   * @param {number} taxaBrlUsd    cambio R$ por USD (pra converter o R$4.500)
+   * @returns {{tipo, usd, brl, labelPt, labelEn}}
+   */
+  function calcularEmbalagem(m3, larguraMaxMm, taxaBrlUsd) {
+    const LIMITE_MM = 2400;      // 2,40 m
+    const VALOR_ACO_BRL = 4500;  // valor fixo da estrutura de aco
+    const lmax = Number(larguraMaxMm) || 0;
+    const taxa = Number(taxaBrlUsd) || 0;
+    if (lmax > LIMITE_MM) {
+      return {
+        tipo: 'estrutura_aco',
+        brl: VALOR_ACO_BRL,
+        usd: taxa > 0 ? VALOR_ACO_BRL / taxa : 0,
+        labelPt: 'Estrutura de aco para transporte (porta > 2,40 m)',
+        labelEn: 'Steel transport structure (oversized door > 2.4 m)',
+      };
+    }
+    const usd = calcularCaixa(m3);
+    return {
+      tipo: 'caixa',
+      usd: usd,
+      brl: usd * taxa,
+      labelPt: 'Caixa de madeira fumigada',
+      labelEn: 'Fumigated wood crate',
+    };
+  }
+
   // Carrega de imediato em browser (assincrono, mas defaults ficam disponiveis)
   if (typeof window !== 'undefined') {
     carregar().catch(() => { /* ja tem fallback _cache=DEFAULTS na proxima leitura */ });
@@ -364,7 +401,7 @@ const FreteTarifas = (() => {
   return {
     DEFAULTS,
     carregar, salvar, defaults, regioes,
-    calcularLCL, calcularCaixa, calcularFreteTerrestre,
+    calcularLCL, calcularCaixa, calcularFreteTerrestre, calcularEmbalagem,
     _getCache: () => _cache || DEFAULTS,
   };
 })();

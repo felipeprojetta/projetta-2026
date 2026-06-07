@@ -13357,7 +13357,14 @@ const Orcamento = (() => {
             const e = Number(lead.caixaEspessura) || 0;
             const c = Number(lead.caixaComprimento) || 0;
             const m3 = (a * e * c) / 1e9;
-            const caixaUsd = (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
+            // Felipe sessao 36: porta > 2,40 m de largura nao cabe no
+            // container normal -> em vez da caixa fumigada, entra uma
+            // estrutura de aco (cavalete) de R$ 4.500 fixos (exibida em USD).
+            const larguraMaxMm = Math.max(0, ...(versao.itens || []).map(it => Number(it.largura) || 0));
+            const emb = (window.FreteTarifas && window.FreteTarifas.calcularEmbalagem)
+              ? window.FreteTarifas.calcularEmbalagem(m3, larguraMaxMm, taxa)
+              : { tipo: 'caixa', usd: (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100), labelEn: 'Fumigated wood crate' };
+            const caixaUsd = emb.usd;
             const terrUsd  = Number(lead.freteTerrestreUsd) || 0;
             const marUsd   = Number(lead.freteMaritimoUsd)  || 0;
             const valorUsd = totalGeral / taxa;
@@ -13407,7 +13414,12 @@ const Orcamento = (() => {
                   </thead>
                   <tbody>
                     ${linha('Product value (FCA factory)', valorUsd, true)}
-                    ${linha('📦 Fumigated wood crate (' + m3.toFixed(2) + ' m³)', caixaUsd, incluir.caixa)}
+                    ${linha(
+                      emb.tipo === 'estrutura_aco'
+                        ? '🏗️ ' + emb.labelEn
+                        : '📦 ' + emb.labelEn + ' (' + m3.toFixed(2) + ' m³)',
+                      caixaUsd, incluir.caixa
+                    )}
                     ${linha('🚛 Inland freight Uberlandia → Santos', terrUsd, incluir.terrestre)}
                     ${linha('🚢 Ocean freight ' + (lead.freteModal || 'LCL'), marUsd, incluir.maritimo)}
                     ${linha('🛡️ Marine insurance (0.5% × value × 110%)', seguroUsd, incluir.seguro)}
