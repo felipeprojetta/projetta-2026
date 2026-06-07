@@ -9540,7 +9540,11 @@ const Orcamento = (() => {
             const e = Number(leadFr.caixaEspessura) || 0;
             const c = Number(leadFr.caixaComprimento) || 0;
             const m3 = (a * e * c) / 1e9;
-            const caixaUsd = (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
+            const _vEmbF = (typeof obterVersao === 'function' && typeof UI !== 'undefined') ? obterVersao(UI.versaoAtivaId) : null;
+            const _lmaxF = Math.max(0, ...(((_vEmbF && _vEmbF.versao && _vEmbF.versao.itens) || [])).map(it => Number(it.largura) || 0));
+            const caixaUsd = (window.FreteTarifas && window.FreteTarifas.calcularEmbalagem)
+              ? window.FreteTarifas.calcularEmbalagem(m3, _lmaxF, taxaDRE).usd
+              : (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
             const terrUsd  = Number(leadFr.freteTerrestreUsd) || 0;
             const marUsd   = Number(leadFr.freteMaritimoUsd)  || 0;
             const valorCargaUsd = r.pFatReal / taxaDRE;
@@ -9612,7 +9616,15 @@ const Orcamento = (() => {
           const e = Number(lead.caixaEspessura) || 0;
           const c = Number(lead.caixaComprimento) || 0;
           const m3 = (a * e * c) / 1e9;
-          const caixaUsd = (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
+          // Felipe sessao 36: MESMA regra da proposta — porta > 2,40 m de
+          // largura nao cabe no container -> estrutura de aco (R$ 4.500) no
+          // lugar da caixa fumigada. Desdobramento e proposta SEMPRE iguais.
+          const _vEmb = (typeof obterVersao === 'function' && typeof UI !== 'undefined') ? obterVersao(UI.versaoAtivaId) : null;
+          const _larguraMaxMm = Math.max(0, ...(((_vEmb && _vEmb.versao && _vEmb.versao.itens) || [])).map(it => Number(it.largura) || 0));
+          const _emb = (window.FreteTarifas && window.FreteTarifas.calcularEmbalagem)
+            ? window.FreteTarifas.calcularEmbalagem(m3, _larguraMaxMm, taxa)
+            : { tipo: 'caixa', usd: (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100) };
+          const caixaUsd = _emb.usd;
           const terrUsd  = Number(lead.freteTerrestreUsd) || 0;
           const marUsd   = Number(lead.freteMaritimoUsd)  || 0;
 
@@ -9672,7 +9684,12 @@ const Orcamento = (() => {
                 <span style="text-align:center;">No preco?</span>
               </div>
               ${linha('Valor do produto (FCA fabrica)', valorCargaUsd, true)}
-              ${linha('📦 Caixa de madeira fumigada (' + m3.toFixed(2) + ' m³)', caixaUsd, inclui.caixa)}
+              ${linha(
+                _emb.tipo === 'estrutura_aco'
+                  ? '🏗️ Estrutura de aço para transporte (porta > 2,40 m)'
+                  : '📦 Caixa de madeira fumigada (' + m3.toFixed(2) + ' m³)',
+                caixaUsd, inclui.caixa
+              )}
               ${linha('🚛 Frete terrestre Uberlandia → Santos', terrUsd, inclui.terrestre)}
               ${linha('🚢 Frete maritimo ' + (lead.freteModal || 'LCL'), marUsd, inclui.maritimo)}
               ${linha('🛡️ Seguro maritimo (0,5% × valor × 110%)', seguroUsd, inclui.seguro)}
@@ -10020,7 +10037,11 @@ const Orcamento = (() => {
             const e = Number(leadAprov.caixaEspessura) || 0;
             const c = Number(leadAprov.caixaComprimento) || 0;
             const m3 = (a * e * c) / 1e9;
-            const caixaUsd = (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
+            const _vEmbA = (typeof obterVersao === 'function' && typeof UI !== 'undefined') ? obterVersao(UI.versaoAtivaId) : null;
+            const _lmaxA = Math.max(0, ...(((_vEmbA && _vEmbA.versao && _vEmbA.versao.itens) || [])).map(it => Number(it.largura) || 0));
+            const caixaUsd = (window.FreteTarifas && window.FreteTarifas.calcularEmbalagem)
+              ? window.FreteTarifas.calcularEmbalagem(m3, _lmaxA, taxa).usd
+              : (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
             const terrUsd  = Number(leadAprov.freteTerrestreUsd) || 0;
             const marUsd   = Number(leadAprov.freteMaritimoUsd)  || 0;
             const valorCargaUsd = precoPortaFinal / taxa;
