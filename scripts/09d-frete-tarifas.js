@@ -70,24 +70,24 @@ const FreteTarifas = (() => {
     // Felipe edita conforme rota.
     // -------------------------------------------------------------
     ocean_freight_por_regiao: {
-      america_sul:        { valor:  90, label: 'America do Sul',         exemplos: 'Buenos Aires, Montevideo, Lima' },
-      america_central:    { valor: 175, label: 'America Central/Caribe', exemplos: 'Panama, Costa Rica, R. Dominicana' },
-      america_norte_eua:  { valor: 140, label: 'America do Norte (EUA)', exemplos: 'Houston, NY, LA, Miami' },
-      america_norte_can:  { valor: 160, label: 'America do Norte (CA)',  exemplos: 'Montreal, Toronto, Vancouver' },
-      america_norte_mex:  { valor: 130, label: 'America do Norte (MX)',  exemplos: 'Veracruz, Manzanillo' },
-      caribe:             { valor: 201, label: 'Caribe',                 exemplos: 'San Juan PR, Kingston, Bridgetown' },
-      europa_ocidental:   { valor: 110, label: 'Europa Ocidental',       exemplos: 'Rotterdam, Hamburg, Le Havre' },
-      europa_oriental:    { valor: 150, label: 'Europa Oriental',        exemplos: 'Gdansk, Constanta' },
-      mediterraneo:       { valor: 130, label: 'Mediterraneo',           exemplos: 'Barcelona, Genova, Pireus' },
-      reino_unido:        { valor: 120, label: 'Reino Unido/Irlanda',    exemplos: 'Felixstowe, Southampton, Dublin' },
-      africa_norte:       { valor: 150, label: 'Africa do Norte',        exemplos: 'Casablanca, Alexandria' },
-      africa_subsaariana: { valor: 200, label: 'Africa Subsaariana',     exemplos: 'Lagos, Mombasa, Durban' },
-      africa_do_sul:      { valor: 180, label: 'Africa do Sul',          exemplos: 'Cape Town, Durban' },
-      oriente_medio:      { valor: 160, label: 'Oriente Medio',          exemplos: 'Dubai, Jeddah, Doha' },
-      asia_leste:         { valor: 180, label: 'Asia (Leste)',           exemplos: 'Shanghai, Hong Kong, Tokyo, Busan' },
-      sudeste_asiatico:   { valor: 170, label: 'Sudeste Asiatico',       exemplos: 'Singapura, Bangkok, Ho Chi Minh' },
-      asia_sul:           { valor: 175, label: 'Asia do Sul',            exemplos: 'Mumbai, Chennai, Karachi' },
-      oceania:            { valor: 170, label: 'Oceania',                exemplos: 'Sydney, Melbourne, Auckland' },
+      america_sul:        { valor: 0, label: 'America do Sul',         exemplos: 'Buenos Aires, Montevideo, Lima' },
+      america_central:    { valor: 0, label: 'America Central/Caribe', exemplos: 'Panama, Costa Rica, R. Dominicana' },
+      america_norte_eua:  { valor: 0, label: 'America do Norte (EUA)', exemplos: 'Houston, NY, LA, Miami' },
+      america_norte_can:  { valor: 0, label: 'America do Norte (CA)',  exemplos: 'Montreal, Toronto, Vancouver' },
+      america_norte_mex:  { valor: 0, label: 'America do Norte (MX)',  exemplos: 'Veracruz, Manzanillo' },
+      caribe:             { valor: 0, label: 'Caribe',                 exemplos: 'San Juan PR, Kingston, Bridgetown' },
+      europa_ocidental:   { valor: 0, label: 'Europa Ocidental',       exemplos: 'Rotterdam, Hamburg, Le Havre' },
+      europa_oriental:    { valor: 0, label: 'Europa Oriental',        exemplos: 'Gdansk, Constanta' },
+      mediterraneo:       { valor: 0, label: 'Mediterraneo',           exemplos: 'Barcelona, Genova, Pireus' },
+      reino_unido:        { valor: 0, label: 'Reino Unido/Irlanda',    exemplos: 'Felixstowe, Southampton, Dublin' },
+      africa_norte:       { valor: 0, label: 'Africa do Norte',        exemplos: 'Casablanca, Alexandria' },
+      africa_subsaariana: { valor: 0, label: 'Africa Subsaariana',     exemplos: 'Lagos, Mombasa, Durban' },
+      africa_do_sul:      { valor: 0, label: 'Africa do Sul',          exemplos: 'Cape Town, Durban' },
+      oriente_medio:      { valor: 0, label: 'Oriente Medio',          exemplos: 'Dubai, Jeddah, Doha' },
+      asia_leste:         { valor: 0, label: 'Asia (Leste)',           exemplos: 'Shanghai, Hong Kong, Tokyo, Busan' },
+      sudeste_asiatico:   { valor: 0, label: 'Sudeste Asiatico',       exemplos: 'Singapura, Bangkok, Ho Chi Minh' },
+      asia_sul:           { valor: 0, label: 'Asia do Sul',            exemplos: 'Mumbai, Chennai, Karachi' },
+      oceania:            { valor: 0, label: 'Oceania',                exemplos: 'Sydney, Melbourne, Auckland' },
     },
 
     // -------------------------------------------------------------
@@ -148,8 +148,12 @@ const FreteTarifas = (() => {
     if (_cache) return _cache;
     let saved = null;
     try {
-      if (window.store && typeof window.store.get === 'function') {
-        saved = await window.store.get(STORAGE_SCOPE, STORAGE_KEY);
+      // Felipe sessao 36: bug — usava window.store (inexistente), entao
+      // NUNCA lia o salvo e sempre caia no DEFAULT. O store autoritativo
+      // (que grava no Supabase e sobrevive ao syncFromCloud) e' o
+      // Storage.scope(...). Mesmo bug ja' corrigido antes no 12-orcamento.
+      if (typeof Storage !== 'undefined' && Storage.scope) {
+        saved = Storage.scope(STORAGE_SCOPE).get(STORAGE_KEY, null);
       }
     } catch (e) { /* sem store ainda, usa defaults */ }
     _cache = mesclar(DEFAULTS, saved);
@@ -162,8 +166,11 @@ const FreteTarifas = (() => {
    */
   async function salvar(tarifas) {
     _cache = mesclar(DEFAULTS, tarifas);
-    if (window.store && typeof window.store.set === 'function') {
-      await window.store.set(STORAGE_SCOPE, STORAGE_KEY, _cache);
+    // Felipe sessao 36: grava no store autoritativo (Storage.scope ->
+    // Supabase kv_store scope 'frete'). Antes usava window.store
+    // (inexistente) e nao salvava nada — por isso "sempre voltava".
+    if (typeof Storage !== 'undefined' && Storage.scope) {
+      Storage.scope(STORAGE_SCOPE).set(STORAGE_KEY, _cache);
     }
     // Avisa o resto do sistema
     try {
