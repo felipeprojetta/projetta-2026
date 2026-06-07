@@ -220,8 +220,21 @@ const FreteTarifas = (() => {
     const itens = [];
 
     // (1) Ocean Freight base por regiao
+    // Felipe sessao 36: o frete maritimo (ocean freight) SO' entra no preco
+    // do vendedor quando o INCOTERM cobre o frete principal. Em
+    // EXW / FCA / FAS / FOB o frete maritimo e' por conta do COMPRADOR —
+    // entao NAO deve aparecer nem somar. Fonte da verdade: flags do modulo
+    // Incoterms (incluiFreteMaritimo); fallback local se nao carregado.
+    const _inc = String(opcoes.incoterm || '').toUpperCase();
+    let _incluiMaritimo;
+    if (typeof window !== 'undefined' && window.Incoterms
+        && typeof window.Incoterms.incluiFreteMaritimo === 'function') {
+      _incluiMaritimo = window.Incoterms.incluiFreteMaritimo(_inc);
+    } else {
+      _incluiMaritimo = !['EXW', 'FCA', 'FAS', 'FOB'].includes(_inc);
+    }
     const reg = t.ocean_freight_por_regiao[regiao] || t.ocean_freight_por_regiao.america_norte_eua;
-    if (reg) {
+    if (reg && _incluiMaritimo) {
       itens.push({
         codigo: 'ocean_freight',
         grupo: 'ocean',
