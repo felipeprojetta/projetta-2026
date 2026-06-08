@@ -851,7 +851,10 @@ const Database = (() => {
       // novos cadastros propagarem entre maquinas. Bug Andressa: cadastrava
       // no PC do Felipe e nao conseguia logar do PC dela.
       // 'session', 'session_user', 'last_login' continuam locais (per-device).
-      var NEVER_SYNC_KEYS = ['session', 'session_user', 'last_login'];
+      // Felipe sessao 37: 'negocios' (array legado) NAO e' mais baixado pro
+      // localStorage — o app usa as linhas por orcamento (neg_*). Continua no
+      // banco apenas como backup. Evita duplicar ~3.6MB e estourar a quota.
+      var NEVER_SYNC_KEYS = ['session', 'session_user', 'last_login', 'negocios'];
       var NEVER_SYNC_SCOPES = ['auth_session']; // 'auth' continua liberado pra users
       // Felipe sessao 32: PARTICIONAMENTO + AUTO-LIMPEZA DE QUOTA
       // BUG anterior: try/catch engolia QuotaExceededError silenciosamente.
