@@ -213,6 +213,21 @@
   background: var(--cinza-mais-claro);
   color: var(--azul-escuro);
 }
+/* Felipe (sessao final-25): botao trocar tipo do item (⇄), espelha o de remover */
+.orc-item-chip-trocar {
+  font-size: 11px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-left: 1px solid var(--line);
+  cursor: pointer;
+  font-family: inherit;
+}
+.orc-item-chip-trocar:hover {
+  background: var(--cinza-mais-claro);
+  color: var(--azul-escuro);
+}
 .orc-item-add-wrapper {
   margin-left: 4px;
 }

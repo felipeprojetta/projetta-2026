@@ -96,6 +96,37 @@ const Orcamento = (() => {
     return TIPOS_ITEM.find(t => t.id === id)?.label || id;
   }
 
+  // Felipe (sessao final-25): "quero poder alterar o tipo do item sem ter
+  // que deletar". O botao ⇄ no chip reseta tipo:'' do item -> renderItemTab
+  // cai em renderEscolhaTipo, que ao escolher um tipo cria novoItem(tipo)
+  // preservando a quantidade. Reusa EXATAMENTE o mecanismo ja' testado do
+  // "remover ultimo item" (que tambem reseta tipo:''). Handler unico p/ os
+  // 3 caminhos de render (porta / revestimento / pergolado) — paridade total.
+  function bindTrocarTipoItem(container) {
+    container.querySelectorAll('[data-action="trocar-tipo-item"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.idx, 10);
+        if (isNaN(idx)) return;
+        const versao = versaoAtiva();
+        if (!versao) return;
+        const lista = (versao.itens || []).slice();
+        if (!lista[idx]) return;
+        if (!confirm(
+          `Trocar o tipo do Item ${idx + 1} (${labelTipo(lista[idx].tipo)})?\n\n` +
+          `Os dados especificos desse item (modelo, medidas, acessorios) serao ` +
+          `zerados ao escolher o novo tipo. A quantidade e' mantida.`
+        )) return;
+        // Reseta o tipo desse item. renderEscolhaTipo usa UI.itemSelecionadoIdx
+        // pra saber qual item recriar, entao garantimos que aponta pra esse.
+        lista[idx] = { ...lista[idx], tipo: '' };
+        atualizarVersao(versao.id, { itens: lista });
+        UI.itemSelecionadoIdx = idx;
+        renderItemTab(container);
+      });
+    });
+  }
+
   // Etapas de fabricacao. Calculadas automaticamente pelas regras Felipe
   // (Portal/Quadro/Corte/Colagem/Conferencia) baseadas em altura/modelo/folhas/qtd.
   // O usuario ainda pode dar override manual por etapa.
@@ -4132,6 +4163,7 @@ const Orcamento = (() => {
               <button class="orc-item-chip-label" data-action="select-item" data-idx="${idx}">
                 Item ${idx + 1}: ${escapeHtml(labelTipo(it.tipo))}
               </button>
+              <button class="orc-item-chip-trocar" data-action="trocar-tipo-item" data-idx="${idx}" title="Trocar o tipo deste item">⇄</button>
               <button class="orc-item-chip-remove" data-action="remove-item" data-idx="${idx}" title="Remover este item">✕</button>
             </div>
           `;
@@ -4482,6 +4514,7 @@ const Orcamento = (() => {
               <button class="orc-item-chip-label" data-action="select-item" data-idx="${idx}">
                 Item ${idx + 1}: ${escapeHtml(labelTipo(it.tipo))}
               </button>
+              <button class="orc-item-chip-trocar" data-action="trocar-tipo-item" data-idx="${idx}" title="Trocar o tipo deste item">⇄</button>
               <button class="orc-item-chip-remove" data-action="remove-item" data-idx="${idx}" title="Remover este item">✕</button>
             </div>
           `;
@@ -4696,6 +4729,7 @@ const Orcamento = (() => {
         renderItemTab(container);
       });
     });
+    bindTrocarTipoItem(container);
     container.querySelectorAll('button[data-action="remove-item"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -5178,6 +5212,7 @@ const Orcamento = (() => {
     });
 
     // Remover item (botao X)
+    bindTrocarTipoItem(container);
     container.querySelectorAll('[data-action="remove-item"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -5504,6 +5539,7 @@ const Orcamento = (() => {
               <button class="orc-item-chip-label" data-action="select-item" data-idx="${idx}">
                 Item ${idx + 1}: ${escapeHtml(labelTipo(it.tipo))}
               </button>
+              <button class="orc-item-chip-trocar" data-action="trocar-tipo-item" data-idx="${idx}" title="Trocar o tipo deste item">⇄</button>
               <button class="orc-item-chip-remove" data-action="remove-item" data-idx="${idx}" title="Remover este item">✕</button>
             </div>
           `;
@@ -7183,6 +7219,7 @@ const Orcamento = (() => {
     });
 
     // Remover item (botao X)
+    bindTrocarTipoItem(container);
     container.querySelectorAll('[data-action="remove-item"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
