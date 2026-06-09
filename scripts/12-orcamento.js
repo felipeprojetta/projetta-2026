@@ -1286,81 +1286,56 @@ const Orcamento = (() => {
   }
 
   // ---------- camada de armazenamento ----------
-  // Felipe sessao 37 (ARQUITETURA MULTIUSUARIO): cada negocio e' uma LINHA
-  // independente no banco (scope 'orcamentos', key = neg.id, prefixo 'neg_').
-  // Gravar um orcamento mexe SO na linha dele -> usuarios em orcamentos
-  // diferentes nunca se atropelam. O array unico legado ('negocios') vira
-  // apenas fallback de leitura (pre-migracao / antes do 1o sync).
-  // _snapSalvo guarda o JSON do ultimo estado persistido de cada negocio,
-  // pra que saveAll grave APENAS o que realmente mudou (nunca os 154 juntos).
-  // _snapSalvo: JSON do ultimo estado persistido de cada negocio (diff p/ gravar so o que muda).
-  // _cacheNeg: cache EM MEMORIA do array (referencia ESTAVEL). Restaura a semantica
-  //   antiga em que loadAll() reflete mutacoes feitas em memoria (criarVersao faz
-  //   push e depois atualizarVersao precisa enxergar) e evita reprocessar as 154
-  //   linhas a cada render (lentidao). Invalidado SO quando outro usuario altera
-  //   um orcamento (db:change remoto) — ai o proximo loadAll reconstroi do banco.
-  let _snapSalvo = {};
-  let _cacheNeg = null;
-  function _reconstruirNeg() {
-    var negocios = [];
-    try {
-      var mapa = store.list('neg_') || {};   // { 'neg_xxx': negObj } do cache local (vem do syncFromCloud)
-      Object.keys(mapa).forEach(function(k) {
-        var neg = mapa[k];
-        if (neg && neg.id) negocios.push(neg);
-      });
-    } catch (_) {}
-    if (negocios.length === 0) {
-      // Fallback legado: array unico 'negocios'.
-      var legado = store.get('negocios');
-      if (Array.isArray(legado) && legado.length) negocios = legado.slice();
-    }
-    _snapSalvo = {};
-    negocios.forEach(function(n) {
-      if (n && n.id) { try { _snapSalvo[n.id] = JSON.stringify(n); } catch (_) {} }
-    });
-    _cacheNeg = negocios;
-    return negocios;
-  }
   function loadAll() {
-    if (_cacheNeg === null || _cacheNeg.length === 0) {
-      var n = _reconstruirNeg();
-      if (n.length === 0) _cacheNeg = null;   // nao gruda vazio: tenta de novo quando o sync popular
-      return n;
-    }
-    return _cacheNeg;
+    return store.get('negocios') || [];
   }
-  // Quando OUTRO usuario altera/inclui/remove um orcamento, o sync remoto emite
-  // db:change com remote:true -> invalida o cache pra reconstruir com o dado fresco.
-  try {
-    if (store.subscribe) {
-      store.subscribe(function(payload) {
-        if (payload && payload.remote) _cacheNeg = null;
-      });
-    }
-  } catch (_) {}
   function saveAll(negocios) {
-    if (!Array.isArray(negocios)) return;
-    // Felipe sessao 37: grava SO os negocios que mudaram, cada um na sua
-    // propria linha (key = neg.id). Nunca mais regrava os 154 de uma vez,
-    // entao um usuario nao atropela o orcamento que outro acabou de salvar.
-    var gravados = 0;
-    negocios.forEach(function(neg) {
-      if (!neg || !neg.id) return;
-      var js = null;
-      try { js = JSON.stringify(neg); } catch (_) {}
-      if (js === null || _snapSalvo[neg.id] !== js) {
-        store.set(neg.id, neg);                 // grava SO essa linha (localStorage + Supabase)
-        if (js !== null) _snapSalvo[neg.id] = js;
-        gravados++;
+    try {
+      store.set('negocios', negocios);
+      store.set('schema_version', SCHEMA_VERSION);
+    } catch (e) {
+      // Felipe (sessao 2026-09): saveAll defensivo.
+      // Quando localStorage estoura (QuotaExceededError), antes de
+      // explodir o app inteiro, tenta:
+      //   1) Auto-limpar precos_snapshot de drafts (sem perder dados)
+      //   2) Salvar de novo
+      //   3) Se ainda falhar, propaga o erro (UI ja deve estar resiliente)
+      const isQuota = (e && (e.name === 'QuotaExceededError'
+                           || e.code === 22
+                           || e.code === 1014
+                           || /quota/i.test(String(e.message || ''))));
+      if (!isQuota) throw e;
+      console.warn('[Orcamento] localStorage cheio — tentando auto-limpar snapshots de drafts...');
+      let liberados = 0;
+      negocios.forEach(n => (n.opcoes || []).forEach(o => (o.versoes || []).forEach(v => {
+        // Drafts nao precisam de snapshot completo. Versoes fechadas
+        // sao preservadas (snapshot legitimo de historico imutavel).
+        if (v.status !== 'fechada' && v.precos_snapshot
+            && (v.precos_snapshot.acessorios || v.precos_snapshot.perfis)) {
+          v.precos_snapshot = { pendente: true, tiradoEm: v.precos_snapshot.tiradoEm || nowIso() };
+          liberados++;
+        }
+      })));
+      if (liberados > 0) {
+        try {
+          store.set('negocios', negocios);
+          store.set('schema_version', SCHEMA_VERSION);
+          console.warn(`[Orcamento] Auto-limpou ${liberados} snapshots de drafts. Storage salvo.`);
+          return;
+        } catch (e2) {
+          console.error('[Orcamento] Auto-limpeza nao foi suficiente. Erro:', e2);
+          throw e2;
+        }
       }
-    });
-    try { store.set('schema_version', SCHEMA_VERSION); } catch (_) {}
-    _cacheNeg = negocios;   // mantem a referencia em memoria (loadAll reflete mutacoes)
-    // SEGURANCA ANTI-PERDA: saveAll NUNCA apaga linhas que sumiram do array.
-    // Se um loadAll vier parcial (sync incompleto), nada e' deletado por engano.
-    // Exclusao de negocio e' explicita, via deletarNegocio() -> store.remove().
-    if (gravados > 0) console.log('[Orcamento] saveAll: ' + gravados + ' orcamento(s) gravado(s) (por linha).');
+      throw e;  // sem nada pra limpar, propaga
+    }
+    // Felipe sessao 35: REMOVIDA a escrita no banco us-east-1 (SupabaseSync).
+    // Migracao p/ SP (maqmawof...) e' definitiva — TODOS os usuarios usam SP.
+    // O save no SP ja' acontece acima via store.set('negocios') -> Storage ->
+    // Database -> kv_store (SP), com mergeProtegido_negocios. A chamada antiga
+    // window.SupabaseSync.syncAll(negocios) escrevia no banco VELHO (plmliavu,
+    // us-east-1), que era so' fallback e estava poluindo/confundindo os dados.
+    // Mantida desativada de proposito.
   }
 
   // Felipe sessao 35: PULL ADITIVO de negocios da nuvem.
@@ -1380,10 +1355,8 @@ const Orcamento = (() => {
   async function pullNegociosDaNuvem() {
     try {
       if (!window.Database || !window.Database.SUPABASE_URL || !window.Database.SUPABASE_KEY) return false;
-      // Felipe sessao 37: le as LINHAS por negocio (scope orcamentos, key neg_*)
-      // direto do banco — fonte da verdade. Adiciona ao local os que faltam.
       const url = window.Database.SUPABASE_URL
-        + '/rest/v1/kv_store?scope=eq.orcamentos&key=like.neg\\_%25&select=key,valor';
+        + '/rest/v1/kv_store?scope=eq.orcamentos&key=eq.negocios&select=valor';
       const res = await fetch(url, {
         headers: {
           apikey: window.Database.SUPABASE_KEY,
@@ -1394,23 +1367,18 @@ const Orcamento = (() => {
       if (!res.ok) return false;
       const rows = await res.json();
       if (!Array.isArray(rows) || !rows.length) return false;
+      let cloud = rows[0] && rows[0].valor;
+      // valor pode vir como string jsonb (double-encoded) ou ja' como array
+      if (typeof cloud === 'string') { try { cloud = JSON.parse(cloud); } catch (_) { return false; } }
+      if (!Array.isArray(cloud) || !cloud.length) return false;
       const local = loadAll();
       const idsLocais = new Set(local.map(n => n && n.id).filter(Boolean));
-      let add = 0;
-      rows.forEach(function(row) {
-        let neg = row && row.valor;
-        if (typeof neg === 'string') { try { neg = JSON.parse(neg); } catch (_) { neg = null; } }
-        if (neg && neg.id && !idsLocais.has(neg.id)) {
-          store.set(neg.id, neg);            // grava a linha localmente (sem re-empurrar pro banco e' impossivel aqui; mas e' aditivo e seguro)
-          try { _snapSalvo[neg.id] = JSON.stringify(neg); } catch (_) {}
-          add++;
-        }
-      });
-      if (add > 0) {
-        _cacheNeg = null;   // reconstroi incluindo os baixados
-        console.log('[Orcamento] pullNegociosDaNuvem: +' + add + ' orcamento(s) baixado(s) da nuvem.');
-      }
-      return add > 0;
+      const faltantes = cloud.filter(n => n && n.id && !idsLocais.has(n.id));
+      if (!faltantes.length) return false;
+      saveAll(local.concat(faltantes));
+      console.log('[Orcamento] pullNegociosDaNuvem: +' + faltantes.length
+        + ' negocio(s) baixado(s) da nuvem (total local agora: ' + (local.length + faltantes.length) + ')');
+      return true;
     } catch (e) {
       console.warn('[Orcamento] pullNegociosDaNuvem falhou:', e && e.message);
       return false;
@@ -2529,12 +2497,8 @@ const Orcamento = (() => {
    * Uso restrito — em geral nunca se apaga, fica historico.
    */
   function deletarNegocio(negocioId) {
-    if (!negocioId) return;
-    // Felipe sessao 37: exclusao explicita remove a LINHA do negocio
-    // (localStorage + Supabase). Nao depende de saveAll (que nunca apaga).
-    try { store.remove(negocioId); } catch (_) {}
-    delete _snapSalvo[negocioId];
-    _cacheNeg = null;   // reconstroi sem o negocio removido
+    const negocios = loadAll().filter(n => n.id !== negocioId);
+    saveAll(negocios);
   }
 
   /**

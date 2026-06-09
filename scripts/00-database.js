@@ -851,10 +851,7 @@ const Database = (() => {
       // novos cadastros propagarem entre maquinas. Bug Andressa: cadastrava
       // no PC do Felipe e nao conseguia logar do PC dela.
       // 'session', 'session_user', 'last_login' continuam locais (per-device).
-      // Felipe sessao 37: 'negocios' (array legado) NAO e' mais baixado pro
-      // localStorage — o app usa as linhas por orcamento (neg_*). Continua no
-      // banco apenas como backup. Evita duplicar ~3.6MB e estourar a quota.
-      var NEVER_SYNC_KEYS = ['session', 'session_user', 'last_login', 'negocios'];
+      var NEVER_SYNC_KEYS = ['session', 'session_user', 'last_login'];
       var NEVER_SYNC_SCOPES = ['auth_session']; // 'auth' continua liberado pra users
       // Felipe sessao 32: PARTICIONAMENTO + AUTO-LIMPEZA DE QUOTA
       // BUG anterior: try/catch engolia QuotaExceededError silenciosamente.
@@ -888,6 +885,26 @@ const Database = (() => {
         return { liberados: liberados, kb: (bytes/1024).toFixed(1) };
       }
 
+      // Limpa as linhas neg_* (formato 1-linha-por-orcamento desta sessao) que
+      // ficaram ENTULHADAS no localStorage. No modelo array restaurado elas nao
+      // sao usadas e so' ocupam espaco (~3.5MB) — causavam quota cheia e card
+      // sem botao "Abrir Orcamento". Source-of-truth e' o array 'negocios'.
+      function _limparNegRowsLocais() {
+        var n = 0, bytes = 0;
+        try {
+          for (var i = localStorage.length - 1; i >= 0; i--) {
+            var k = localStorage.key(i);
+            if (!k) continue;
+            if (k.indexOf(PREFIX + 'orcamentos:neg_') === 0) {
+              bytes += (localStorage.getItem(k) || '').length;
+              localStorage.removeItem(k);
+              n++;
+            }
+          }
+        } catch(_) {}
+        return { n: n, kb: (bytes/1024).toFixed(1) };
+      }
+
       function _ehErroDeQuota(e) {
         if (!e) return false;
         return e.name === 'QuotaExceededError'
@@ -901,6 +918,11 @@ const Database = (() => {
       rows.forEach(function(r) {
         if (NEVER_SYNC_SCOPES.indexOf(r.scope) >= 0) return;
         if (NEVER_SYNC_KEYS.indexOf(r.key) >= 0) return;
+        // Modelo array restaurado: os orcamentos vivem no array 'negocios'.
+        // As linhas neg_* (formato 1-linha-por-orcamento desta sessao) viram
+        // apenas backup no banco — NAO baixar pro local (evita quota; o array
+        // ja' contem o estado consolidado de todas elas).
+        if (r.scope === 'orcamentos' && typeof r.key === 'string' && r.key.indexOf('neg_') === 0) return;
         if (_ehChaveBackupLocal(r.scope, r.key)) rowsBackup.push(r);
         else rowsCore.push(r);
       });
@@ -917,18 +939,12 @@ const Database = (() => {
         }
       } catch(_) {}
 
-      // Felipe sessao 37: remove o BLOCO LEGADO 'orcamentos:negocios' do
-      // localStorage. Migramos pra 1 linha por orcamento (neg_*); o bloco
-      // antigo (~3.5MB) ficava "entulhado" no navegador estourando a quota
-      // (gravacao local falhava -> alteracoes "revertiam" na tela; download
-      // vinha parcial -> card nao achava o orcamento). Ele continua no banco
-      // como backup; aqui so' liberamos o espaco local. So' roda uma vez
-      // (depois a chave nao existe mais).
+      // Limpa tambem as linhas neg_* antigas entulhadas (modelo array restaurado)
       try {
-        var _legKey = PREFIX + 'orcamentos:negocios';
-        if (localStorage.getItem(_legKey) !== null) {
-          localStorage.removeItem(_legKey);
-          console.log('[DB] syncFromCloud: bloco legado orcamentos:negocios removido do localStorage (espaco liberado).');
+        var negLimpos = _limparNegRowsLocais();
+        if (negLimpos.n > 0) {
+          console.log('[DB] syncFromCloud: removidas ' + negLimpos.n
+            + ' linhas neg_* locais do formato antigo (' + negLimpos.kb + ' KB liberados)');
         }
       } catch(_) {}
 

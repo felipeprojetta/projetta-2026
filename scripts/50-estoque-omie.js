@@ -281,9 +281,7 @@
     var negocios;
     try {
       var st = window.Storage.scope('orcamentos');
-      var _mapa = (st && st.list) ? (st.list('neg_') || {}) : {};
-      negocios = Object.keys(_mapa).map(function(k){ return _mapa[k]; }).filter(function(n){ return n && n.id; });
-      if (!negocios.length) negocios = (st && st.get('negocios')) || [];
+      negocios = (st && st.get('negocios')) || [];
     } catch (e) { negocios = []; }
     var negociosComOrc = negocios.filter(function(n) {
       return Array.isArray(n.opcoes) && n.opcoes.some(function(o) {
@@ -614,9 +612,7 @@
 
   function executarCruzamento(negocioId, opcaoLetra, versaoNumero) {
     var st = window.Storage.scope('orcamentos');
-    var _mapa = (st && st.list) ? (st.list('neg_') || {}) : {};
-    var negocios = Object.keys(_mapa).map(function(k){ return _mapa[k]; }).filter(function(n){ return n && n.id; });
-    if (!negocios.length) negocios = (st && st.get('negocios')) || [];
+    var negocios = (st && st.get('negocios')) || [];
     var n = negocios.find(function(x) { return x.id === negocioId; });
     var o = n && (n.opcoes || []).find(function(x) { return x.letra === opcaoLetra; });
     var v = o && (o.versoes || []).find(function(x) { return String(x.numero) === String(versaoNumero); });
