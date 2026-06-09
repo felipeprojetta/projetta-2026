@@ -1323,7 +1323,11 @@ const Orcamento = (() => {
     return negocios;
   }
   function loadAll() {
-    if (_cacheNeg === null) return _reconstruirNeg();
+    if (_cacheNeg === null || _cacheNeg.length === 0) {
+      var n = _reconstruirNeg();
+      if (n.length === 0) _cacheNeg = null;   // nao gruda vazio: tenta de novo quando o sync popular
+      return n;
+    }
     return _cacheNeg;
   }
   // Quando OUTRO usuario altera/inclui/remove um orcamento, o sync remoto emite

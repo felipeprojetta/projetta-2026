@@ -917,6 +917,21 @@ const Database = (() => {
         }
       } catch(_) {}
 
+      // Felipe sessao 37: remove o BLOCO LEGADO 'orcamentos:negocios' do
+      // localStorage. Migramos pra 1 linha por orcamento (neg_*); o bloco
+      // antigo (~3.5MB) ficava "entulhado" no navegador estourando a quota
+      // (gravacao local falhava -> alteracoes "revertiam" na tela; download
+      // vinha parcial -> card nao achava o orcamento). Ele continua no banco
+      // como backup; aqui so' liberamos o espaco local. So' roda uma vez
+      // (depois a chave nao existe mais).
+      try {
+        var _legKey = PREFIX + 'orcamentos:negocios';
+        if (localStorage.getItem(_legKey) !== null) {
+          localStorage.removeItem(_legKey);
+          console.log('[DB] syncFromCloud: bloco legado orcamentos:negocios removido do localStorage (espaco liberado).');
+        }
+      } catch(_) {}
+
       var jaLimpouBackups = false;
 
       function _gravarUmaRow(r) {
