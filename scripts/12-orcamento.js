@@ -114,9 +114,13 @@ const Orcamento = (() => {
         if (!lista[idx]) return;
         if (!confirm(
           `Trocar o tipo do Item ${idx + 1} (${labelTipo(lista[idx].tipo)})?\n\n` +
-          `Os dados especificos desse item (modelo, medidas, acessorios) serao ` +
-          `zerados ao escolher o novo tipo. A quantidade e' mantida.`
+          `Medidas (largura/altura), quantidade e cores sao MANTIDAS. Apenas os ` +
+          `dados especificos do tipo (modelo, acessorios, perfis) sao redefinidos ` +
+          `ao escolher o novo tipo.`
         )) return;
+        // Felipe (sessao final-25): marca que e' TROCA de tipo (nao item novo
+        // nem delete) pra renderEscolhaTipo preservar medidas+cores ao recriar.
+        UI._trocarTipoPreserva = idx;
         // Reseta o tipo desse item. renderEscolhaTipo usa UI.itemSelecionadoIdx
         // pra saber qual item recriar, entao garantimos que aponta pra esse.
         lista[idx] = { ...lista[idx], tipo: '' };
@@ -4033,10 +4037,35 @@ const Orcamento = (() => {
         const lista = (v.itens || []).slice();
         // Substitui o item atual (que era vazio) por um do tipo escolhido
         const idx = Math.min(UI.itemSelecionadoIdx, lista.length - 1);
+        const antigo = lista[idx] || {};
+        // Felipe (sessao final-25): se veio de TROCA de tipo (botao ⇄), preserva
+        // medidas + cores. Item NOVO ou pos-DELETE nao seta a flag -> limpa tudo
+        // (comportamento antigo intacto). Consome a flag sempre.
+        const preservaTroca = (UI._trocarTipoPreserva === idx);
+        UI._trocarTipoPreserva = null;
         // Mantem quantidade se ja foi setada
-        const qtdAntiga = (lista[idx] && lista[idx].quantidade) || 1;
-        lista[idx] = novoItem(tipo);
-        if (qtdAntiga > 1) lista[idx].quantidade = qtdAntiga;
+        const qtdAntiga = (antigo && antigo.quantidade) || 1;
+        const novo = novoItem(tipo);
+        if (qtdAntiga > 1) novo.quantidade = qtdAntiga;
+        if (preservaTroca) {
+          // So' copia campos que EXISTEM no schema do novo tipo e estao vazios
+          // no item novo (porta<->porta usa largura/altura/corExterna/Interna;
+          // rev_parede usa largura_total/altura_total/cor). 'k in novo' evita
+          // jogar campo incompativel num tipo que nao o usa.
+          ['largura','altura','largura_total','altura_total',
+           'corExterna','corInterna','cor'].forEach(k => {
+            if (k in novo && (novo[k] === '' || novo[k] == null)
+                && antigo[k] != null && antigo[k] !== '') {
+              novo[k] = antigo[k];
+            }
+          });
+          // corCava (Puxador Embutido) nao e' chave base do novoItem — so'
+          // nasce via normalizarItem. Preserva manualmente nos tipos que a usam.
+          if (antigo.corCava && /^(porta_externa|porta_interna|fixo_acoplado)$/.test(tipo)) {
+            novo.corCava = antigo.corCava;
+          }
+        }
+        lista[idx] = novo;
         atualizarVersao(v.id, { itens: lista });
         renderItemTab(container);
       });
