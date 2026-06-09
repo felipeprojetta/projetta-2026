@@ -579,7 +579,8 @@ const Orcamento = (() => {
     // os indices dos itens externos ja' salvos em orcamentos existentes.
     const portas = (itens || [])
       .filter(i => i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'))
-      .concat((itens || []).filter(i => i && i.tipo === 'porta_interna'));
+      .concat((itens || []).filter(i => i && i.tipo === 'porta_interna'))
+      .concat((itens || []).filter(i => i && i.tipo === 'fixo_acoplado'));
     const horasAuto = ETAPAS_FAB.reduce((acc, e) => { acc[e.id] = 0; return acc; }, {});
     // horasAutoPorItem[etapaId][idx] = auto desse item nessa etapa
     const horasAutoPorItem = ETAPAS_FAB.reduce((acc, e) => { acc[e.id] = {}; return acc; }, {});
@@ -1061,7 +1062,8 @@ const Orcamento = (() => {
     // (regras automaticas).
     const itensFiltradosFab = (itens || [])
       .filter(i => i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'))
-      .concat((itens || []).filter(i => i && i.tipo === 'porta_interna'));
+      .concat((itens || []).filter(i => i && i.tipo === 'porta_interna'))
+      .concat((itens || []).filter(i => i && i.tipo === 'fixo_acoplado'));
     const horasPorIdx = {};
     let horasTotal = 0;
     itens.forEach((it, idx) => {
@@ -1070,7 +1072,7 @@ const Orcamento = (() => {
         horasPorIdx[idx] = (h.portal || 0) + (h.quadro || 0) +
                            (h.corte_usinagem || 0) + (h.colagem || 0) +
                            (h.conf_bem || 0);
-      } else if (it && (it.tipo === 'revestimento_parede' || it.tipo === 'porta_interna')) {
+      } else if (it && (it.tipo === 'revestimento_parede' || it.tipo === 'porta_interna' || it.tipo === 'fixo_acoplado')) {
         // Soma horas manuais salvas em fab.etapas[<etapa>].horasPorItem[idxFiltrado]
         // (rev_parede e porta_interna nao tem regra automatica — Felipe sessao 35)
         const idxFiltrado = itensFiltradosFab.indexOf(it);
@@ -8013,7 +8015,8 @@ const Orcamento = (() => {
           // interna caia no fallback antigo e as horas por-item nao somavam.
           const itensFab = (versao.itens || [])
             .filter(i => i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'))
-            .concat((versao.itens || []).filter(i => i && i.tipo === 'porta_interna'));
+            .concat((versao.itens || []).filter(i => i && i.tipo === 'porta_interna'))
+            .concat((versao.itens || []).filter(i => i && i.tipo === 'fixo_acoplado'));
           const nItens = itensFab.length;
           // Cabecalho dinamico — uma coluna por item
           const colunasItens = nItens > 0
