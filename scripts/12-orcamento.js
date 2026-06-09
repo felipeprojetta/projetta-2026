@@ -9788,9 +9788,16 @@ const Orcamento = (() => {
           if (aprovado) {
             const cardClass = enviadoParaCard ? 'is-aprovado' : 'is-aprovado-local';
             const tituloTxt = enviadoParaCard ? 'Orcamento Aprovado' : 'Aprovado Localmente';
+            // Felipe (sessao final-25): exibe QUEM aprovou/reaprovou na DRE.
+            // aprovadoPor ja' e' gravado por aprovarOrcamento (userAtual) e
+            // re-carimbado a cada re-aprovacao. Guard: versoes legadas sem o
+            // campo nao mostram nada (evita "por undefined").
+            const quemAprovou = versao.aprovadoPor
+              ? ` — por <span class="t-strong">${escapeHtml(versao.aprovadoPor)}</span>`
+              : '';
             const detalheTxt = enviadoParaCard
-              ? `Valor de <span class="t-strong">R$ ${fmtBR(valorAprovado)}</span> enviado pro CRM em ${fmtData(versao.aprovadoEm)}.`
-              : `Versao ${versao.numero} aprovada por <span class="t-strong">R$ ${fmtBR(valorAprovado)}</span> em ${fmtData(versao.aprovadoEm)}. <br><span style="color:#b45309;">Card do CRM mantem o valor da versao anterior.</span>`;
+              ? `Valor de <span class="t-strong">R$ ${fmtBR(valorAprovado)}</span> enviado pro CRM em ${fmtData(versao.aprovadoEm)}${quemAprovou}.`
+              : `Versao ${versao.numero} aprovada por <span class="t-strong">R$ ${fmtBR(valorAprovado)}</span> em ${fmtData(versao.aprovadoEm)}${quemAprovou}. <br><span style="color:#b45309;">Card do CRM mantem o valor da versao anterior.</span>`;
             const btnReaprovarTxt = enviadoParaCard
               ? `↻ Re-aprovar com R$ ${fmtBR(r.pFatReal)}`
               : `↻ Aprovar de novo (e escolher se envia pro card)`;
