@@ -2993,6 +2993,52 @@ const Orcamento = (() => {
         return '';
       }
     }
+
+    // Felipe (sessao final-25): a cor vem do email/checklist em formato cru
+    // (ex "PRO-37373 WOOD CASTANHA") e nao bate EXATO com o cadastro
+    // (ex "Pro37373 - Wood Castanha Pvdf4300 Ldpe"). Ao Montar Orcamento,
+    // casa a cor importada com a cor cadastrada em superficies_lista mais
+    // parecida (prioridade: codigo, ex PRO37373) e devolve o NOME CANONICO
+    // do cadastro (descricao sem o sufixo de tamanho " - 1500x5000").
+    // Se nao achar candidato confiavel, devolve a string original (nao chuta).
+    function _matchCorCadastro(corStr) {
+      if (!corStr) return '';
+      const raw = String(corStr).trim();
+      if (!raw) return raw;
+      try {
+        const lista = Storage.scope('cadastros').get('superficies_lista') || [];
+        if (!lista.length) return raw;
+        // canonico = descricao sem sufixo de tamanho
+        const canon = (d) => String(d || '')
+          .replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, '').trim();
+        // chave de comparacao = so' alfanumerico maiusculo
+        const norm = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const alvoNorm = norm(raw);
+        if (!alvoNorm) return raw;
+        // codigo do alvo: primeira sequencia letras+digitos (PRO-37373 -> PRO37373)
+        const codMatch = raw.toUpperCase().match(/[A-Z]+[\s\-]?\d+/);
+        const codAlvo  = codMatch ? codMatch[0].replace(/[^A-Z0-9]/g, '') : '';
+
+        // 1) ja' e' exatamente uma cor cadastrada
+        let achada = lista.find(s => norm(canon(s.descricao)) === alvoNorm);
+        // 2) match pelo codigo (PRO37373 contido na descricao)
+        if (!achada && codAlvo && codAlvo.length >= 4) {
+          achada = lista.find(s => norm(s.descricao).indexOf(codAlvo) >= 0);
+        }
+        // 3) descricao contem o alvo inteiro (ou vice-versa, se alvo for grande)
+        if (!achada) {
+          achada = lista.find(s => {
+            const dn = norm(s.descricao);
+            return dn.indexOf(alvoNorm) >= 0
+                || (alvoNorm.length >= 6 && alvoNorm.indexOf(dn) >= 0);
+          });
+        }
+        return achada ? canon(achada.descricao) : raw;
+      } catch (e) {
+        console.warn('[orcamento] _matchCorCadastro falhou:', e);
+        return String(corStr).trim();
+      }
+    }
     const itensAtuais = versaoAlvo.itens || [];
     const versaoVazia = itensAtuais.length === 0;
     const primeiroVirgem = itensAtuais.length === 1 && _itemVirgem(itensAtuais[0]);
@@ -3030,8 +3076,14 @@ const Orcamento = (() => {
           if (!itemInicial.modeloInterno) itemInicial.modeloInterno = lead.porta_modelo;
         }
         if (lead.porta_cor) {
-          if (!itemInicial.corExterna) itemInicial.corExterna = lead.porta_cor;
-          if (!itemInicial.corInterna) itemInicial.corInterna = lead.porta_cor;
+          // Felipe (sessao final-25): casa a cor crua do email/checklist com a
+          // cor cadastrada mais parecida ANTES de aplicar (externa/interna/cava).
+          const corMatch = _matchCorCadastro(lead.porta_cor) || lead.porta_cor;
+          if (!itemInicial.corExterna) itemInicial.corExterna = corMatch;
+          if (!itemInicial.corInterna) itemInicial.corInterna = corMatch;
+          // Puxador Embutido (corCava): por padrao acompanha a cor da porta.
+          // So' preenche se vazio — usuario troca depois pelo dropdown.
+          if (!itemInicial.corCava)    itemInicial.corCava    = corMatch;
           // Felipe sessao 2026-08: auto-detecta revestimento pela cor.
           // Se a cor importada esta cadastrada em Superficies (acm/hpl/
           // aluminio_macico/vidro), preenche o select de Revestimento
@@ -3083,7 +3135,7 @@ const Orcamento = (() => {
           if (ext.largura && ext.altura) novo.modo = 'automatico';
           // Cor: rev_parede tem 1 face so' (campo 'cor', nao corExterna/Interna)
           if (ext.cor) {
-            novo.cor = ext.cor;
+            novo.cor = _matchCorCadastro(ext.cor) || ext.cor;
             // Detecta revestimento (ACM/HPL/Aluminio/Vidro) pela cor
             if (!novo.revestimento) {
               const revAutoR = _detectarRevestimentoPorCor(ext.cor);
@@ -3109,8 +3161,8 @@ const Orcamento = (() => {
         }
         // Cor (porta_externa/fixo_acoplado tem corExterna+corInterna; outros so corExterna)
         if (ext.cor) {
-          if ('corExterna' in novo) novo.corExterna = ext.cor;
-          if ('corInterna' in novo) novo.corInterna = ext.cor;
+          if ('corExterna' in novo) novo.corExterna = _matchCorCadastro(ext.cor) || ext.cor;
+          if ('corInterna' in novo) novo.corInterna = _matchCorCadastro(ext.cor) || ext.cor;
           // Detecta revestimento automatico pela cor
           if ('revestimento' in novo && !novo.revestimento) {
             const revAuto = _detectarRevestimentoPorCor(ext.cor);
@@ -3184,7 +3236,7 @@ const Orcamento = (() => {
           if (ext.altura)  novo.altura_total  = ext.altura;
           if (ext.largura && ext.altura) novo.modo = 'automatico';
           if (ext.cor) {
-            novo.cor = ext.cor;
+            novo.cor = _matchCorCadastro(ext.cor) || ext.cor;
             if (!novo.revestimento) {
               const revAutoR = _detectarRevestimentoPorCor(ext.cor);
               if (revAutoR) novo.revestimento = revAutoR;
@@ -3209,8 +3261,8 @@ const Orcamento = (() => {
           novo.fixoSegueModelo = 'nao';
         }
         if (ext.cor) {
-          if ('corExterna' in novo) novo.corExterna = ext.cor;
-          if ('corInterna' in novo) novo.corInterna = ext.cor;
+          if ('corExterna' in novo) novo.corExterna = _matchCorCadastro(ext.cor) || ext.cor;
+          if ('corInterna' in novo) novo.corInterna = _matchCorCadastro(ext.cor) || ext.cor;
           if ('revestimento' in novo && !novo.revestimento) {
             const revAuto = _detectarRevestimentoPorCor(ext.cor);
             if (revAuto) novo.revestimento = revAuto;
