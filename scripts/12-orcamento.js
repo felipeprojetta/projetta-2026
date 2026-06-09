@@ -1293,8 +1293,15 @@ const Orcamento = (() => {
   // apenas fallback de leitura (pre-migracao / antes do 1o sync).
   // _snapSalvo guarda o JSON do ultimo estado persistido de cada negocio,
   // pra que saveAll grave APENAS o que realmente mudou (nunca os 154 juntos).
+  // _snapSalvo: JSON do ultimo estado persistido de cada negocio (diff p/ gravar so o que muda).
+  // _cacheNeg: cache EM MEMORIA do array (referencia ESTAVEL). Restaura a semantica
+  //   antiga em que loadAll() reflete mutacoes feitas em memoria (criarVersao faz
+  //   push e depois atualizarVersao precisa enxergar) e evita reprocessar as 154
+  //   linhas a cada render (lentidao). Invalidado SO quando outro usuario altera
+  //   um orcamento (db:change remoto) — ai o proximo loadAll reconstroi do banco.
   let _snapSalvo = {};
-  function loadAll() {
+  let _cacheNeg = null;
+  function _reconstruirNeg() {
     var negocios = [];
     try {
       var mapa = store.list('neg_') || {};   // { 'neg_xxx': negObj } do cache local (vem do syncFromCloud)
@@ -1308,13 +1315,26 @@ const Orcamento = (() => {
       var legado = store.get('negocios');
       if (Array.isArray(legado) && legado.length) negocios = legado.slice();
     }
-    // Snapshot pra diff incremental no saveAll.
     _snapSalvo = {};
     negocios.forEach(function(n) {
       if (n && n.id) { try { _snapSalvo[n.id] = JSON.stringify(n); } catch (_) {} }
     });
+    _cacheNeg = negocios;
     return negocios;
   }
+  function loadAll() {
+    if (_cacheNeg === null) return _reconstruirNeg();
+    return _cacheNeg;
+  }
+  // Quando OUTRO usuario altera/inclui/remove um orcamento, o sync remoto emite
+  // db:change com remote:true -> invalida o cache pra reconstruir com o dado fresco.
+  try {
+    if (store.subscribe) {
+      store.subscribe(function(payload) {
+        if (payload && payload.remote) _cacheNeg = null;
+      });
+    }
+  } catch (_) {}
   function saveAll(negocios) {
     if (!Array.isArray(negocios)) return;
     // Felipe sessao 37: grava SO os negocios que mudaram, cada um na sua
@@ -1332,6 +1352,7 @@ const Orcamento = (() => {
       }
     });
     try { store.set('schema_version', SCHEMA_VERSION); } catch (_) {}
+    _cacheNeg = negocios;   // mantem a referencia em memoria (loadAll reflete mutacoes)
     // SEGURANCA ANTI-PERDA: saveAll NUNCA apaga linhas que sumiram do array.
     // Se um loadAll vier parcial (sync incompleto), nada e' deletado por engano.
     // Exclusao de negocio e' explicita, via deletarNegocio() -> store.remove().
@@ -1381,7 +1402,10 @@ const Orcamento = (() => {
           add++;
         }
       });
-      if (add > 0) console.log('[Orcamento] pullNegociosDaNuvem: +' + add + ' orcamento(s) baixado(s) da nuvem.');
+      if (add > 0) {
+        _cacheNeg = null;   // reconstroi incluindo os baixados
+        console.log('[Orcamento] pullNegociosDaNuvem: +' + add + ' orcamento(s) baixado(s) da nuvem.');
+      }
       return add > 0;
     } catch (e) {
       console.warn('[Orcamento] pullNegociosDaNuvem falhou:', e && e.message);
@@ -2506,6 +2530,7 @@ const Orcamento = (() => {
     // (localStorage + Supabase). Nao depende de saveAll (que nunca apaga).
     try { store.remove(negocioId); } catch (_) {}
     delete _snapSalvo[negocioId];
+    _cacheNeg = null;   // reconstroi sem o negocio removido
   }
 
   /**
