@@ -139,7 +139,7 @@
 
         <!-- Bloco 4: Banner de validade + emissao -->
         <div class="rel-header-validade">
-          <span class="rel-header-validade-emissao">${tr('Emitido por','Issued by')} ${escapeHtml(window.Auth?.usuarioAtual?.()?.nome || 'Sistema')}
+          <span class="rel-header-validade-emissao">${tr('Emitido por','Issued by')} ${escapeHtml(window.Auth?.currentUser?.()?.username || 'Sistema')}
             ${tr('em','on')} ${dataEmissao}, ${tr('as','at')} ${horaEmissao}</span>
           <span class="rel-header-validade-prazo">${tr('Validade','Validity')}: ${validade} ${tr('dias uteis','business days')}</span>
         </div>
