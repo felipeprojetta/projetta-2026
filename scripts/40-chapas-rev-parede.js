@@ -33,6 +33,9 @@ window.ChapasRevParede = (function () {
   'use strict';
 
   const LARGURA_CHAPA_BASE = 1500;  // mm — chapa padrão (ACM/HPL/Wood)
+  // Felipe (sessao final-25): SEMPRE se perde 10mm de cada lado da chapa, mesmo
+  // sem refilado -> faixa nao-refilada e' 1480 (nao 1500). Refilado (REF) e' maior.
+  const PERDA_LADO = 10;
 
   /**
    * Lê a variável REF (refilado) do storage. Default 20.
@@ -177,7 +180,7 @@ window.ChapasRevParede = (function () {
       const comRefilado = (p.com_refilado != null ? p.com_refilado : 'sim') !== 'nao';
       const larguraMaxima = comRefilado
         ? (LARGURA_CHAPA_BASE - 2 * REF)
-        : LARGURA_CHAPA_BASE;
+        : (LARGURA_CHAPA_BASE - 2 * PERDA_LADO);
       const divisao = p.divisao_largura || 'maxima';
 
       if (divisao === 'igual') {

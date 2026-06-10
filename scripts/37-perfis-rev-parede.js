@@ -72,8 +72,9 @@ const PerfisRevParede = (() => {
         }
       } catch (_) {}
       const LARG_CHAPA_BASE = 1500;
+      const PERDA_LADO = 10; // Felipe: sempre perde 10mm/lado, mesmo sem refilado -> 1480
       const comRefilado = item.com_refilado !== 'nao';
-      const larguraMaxima = comRefilado ? (LARG_CHAPA_BASE - 2*REF) : LARG_CHAPA_BASE;
+      const larguraMaxima = comRefilado ? (LARG_CHAPA_BASE - 2*REF) : (LARG_CHAPA_BASE - 2*PERDA_LADO);
       const divisao = item.divisao_largura || 'maxima';
       if (divisao === 'igual') {
         return Math.max(1, Math.ceil(L / larguraMaxima));

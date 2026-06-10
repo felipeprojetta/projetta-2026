@@ -4851,9 +4851,13 @@ const Orcamento = (() => {
   function renderRevAutomatico(item) {
     const REF = (window.Storage?.scope?.('cadastros').get('regras_variaveis_chapas')?.REF) || 20;
     const LARGURA_CHAPA = 1500;
+    // Felipe (sessao final-25): SEMPRE se perde 10mm de cada lado da chapa,
+    // mesmo SEM refilado. Entao a faixa cheia nao-refilada e' 1480 (nao 1500).
+    // Refilado (REF=20/lado) e' uma perda maior e separada -> 1460.
+    const PERDA_LADO = 10;
 
     function renderUmaParede(p, i) {
-      const larguraMax = (p.com_refilado === 'sim') ? (LARGURA_CHAPA - 2 * REF) : LARGURA_CHAPA;
+      const larguraMax = (p.com_refilado === 'sim') ? (LARGURA_CHAPA - 2 * REF) : (LARGURA_CHAPA - 2 * PERDA_LADO);
       const L = Number(p.largura_total) || 0;
       let hint;
       if (!L) {
@@ -5147,7 +5151,8 @@ const Orcamento = (() => {
         const p = item.paredes[idx];
         const REF = (window.Storage?.scope?.('cadastros').get('regras_variaveis_chapas')?.REF) || 20;
         const LARGURA_CHAPA = 1500;
-        const larguraMax = (p.com_refilado === 'sim') ? (LARGURA_CHAPA - 2 * REF) : LARGURA_CHAPA;
+        const PERDA_LADO = 10; // Felipe: perda padrao 10mm/lado mesmo sem refilado
+        const larguraMax = (p.com_refilado === 'sim') ? (LARGURA_CHAPA - 2 * REF) : (LARGURA_CHAPA - 2 * PERDA_LADO);
         const L = Number(p.largura_total) || 0;
         let hint;
         if (!L) {
