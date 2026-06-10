@@ -63,6 +63,11 @@ const Modelos = (() => {
   };
   let dirty = false;
   let loaded = false;
+  // Felipe (sessao final-25): garante 1 refresh dos modelos INTERNOS direto
+  // do Supabase por sessao (mesma garantia que os externos ja' tinham). Sem
+  // isso o cache local podia ficar com os internos do seed (sem img_1f) e a
+  // proposta da porta interna mostrava placeholder em vez da imagem do modelo.
+  let _internosCloudRefreshed = false;
   let saveTimer;
 
   function newId() { return 'm_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
@@ -70,7 +75,11 @@ const Modelos = (() => {
   // Felipe sessao 2026-05: Quando o cache local tem modelos sem URLs mas
   // o Supabase tem, busca direto do servidor e atualiza.
   // Garantia extra: nao depende do CadastrosAutosync ter rodado direito.
-  async function fetchModelosFromSupabaseDirect() {
+  async function fetchModelosFromSupabaseDirect(chaveKv) {
+    // Felipe (sessao final-25): parametrizado pra servir tanto 'modelos_lista'
+    // (externos, default) quanto 'modelos_internos_lista' (internos). Sem
+    // argumento mantem o comportamento antigo (externos).
+    var chave = chaveKv || 'modelos_lista';
     try {
       // Felipe sessao 33: usa o banco ATIVO (SP) via window.Database, nao
       // mais o hardcode do banco antigo (plmliavuwlgpwaizfeds). E a tabela
@@ -81,7 +90,7 @@ const Modelos = (() => {
       var SUPABASE_KEY = (window.Database && window.Database.SUPABASE_KEY)
         || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hcW1hd29maW1tZnhleWZtY21wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMTUzOTEsImV4cCI6MjA5NDc5MTM5MX0.7NNp2SynjxSVSyBvbh4Jm5TFbaybYnny-HzaKUPefrc';
       // Cache-buster: Safari iPhone cacheia GETs - garante versao fresca
-      var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.cadastros&key=eq.modelos_lista&select=valor&_=' + Date.now();
+      var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.cadastros&key=eq.' + chave + '&select=valor&_=' + Date.now();
       var res = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
@@ -153,6 +162,25 @@ const Modelos = (() => {
       state.modelosInt = listaInt || [];
     }
     loaded = true;
+
+    // Felipe (sessao final-25): refresh dos INTERNOS direto do Supabase, 1x por
+    // sessao, em background. Espelha a garantia que os externos ja' tinham
+    // (fetchModelosFromSupabaseDirect no render). Atualiza state + store
+    // (write-through pula upload se valor igual). Conserta a proposta da porta
+    // interna que vinha sem a imagem do modelo (img_1f stale/ausente no cache).
+    if (!dirty && !_internosCloudRefreshed) {
+      _internosCloudRefreshed = true;
+      fetchModelosFromSupabaseDirect('modelos_internos_lista').then(function (serv) {
+        if (!serv || !Array.isArray(serv) || !serv.length) return;
+        if (JSON.stringify(state.modelosInt) === JSON.stringify(serv)) return;
+        state.modelosInt = serv;
+        try { store.set('modelos_internos_lista', serv); } catch (_) {}
+        console.log('[modelos] internos atualizados do Supabase: ' + serv.length);
+      }).catch(function (e) {
+        console.warn('[modelos] refresh internos falhou:', e);
+        _internosCloudRefreshed = false; // permite nova tentativa
+      });
+    }
   }
 
   function save() {
