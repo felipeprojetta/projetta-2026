@@ -1474,6 +1474,94 @@ const Orcamento = (() => {
   }
 
   // ============================================================
+  // Felipe (sessao final-25): ALERTA de cor SEM PRECO.
+  // Algumas cores ACM (ex: Pro132 Brushed, Pro31T Brushed Anodizado) sao
+  // cadastradas SEM preco (preco 0 em todos os tamanhos). Quando o usuario
+  // ESCOLHE uma dessas no campo de cor, mostramos um aviso embaixo do campo
+  // (e destaca a borda). Nao bloqueia — so' avisa.
+  // ============================================================
+  const _SEL_CORES_PRECO =
+    'input[data-field="corExterna"],input[data-field="corInterna"],' +
+    'input[data-field="corCava"],input[data-field="cor"]';
+
+  function _codigoSuperficie(d) {
+    const m = String(d || '').toUpperCase().match(/^\s*([A-Z]+\d[A-Z0-9]*)/);
+    return m ? m[1] : '';
+  }
+
+  // true SOMENTE quando a cor existe no cadastro mas NENHUM tamanho tem preco.
+  function _corCadastradaSemPreco(corStr) {
+    try {
+      const raw = String(corStr || '').trim();
+      if (!raw) return false;
+      const lista = Storage.scope('cadastros').get('superficies_lista') || [];
+      if (!lista.length) return false;
+      const cod = _codigoSuperficie(raw);
+      let matches = cod ? lista.filter(s => _codigoSuperficie(s.descricao) === cod) : [];
+      if (!matches.length) {
+        // fallback por nome curto (sem sufixo de tamanho)
+        const canon = (d) => String(d || '').toUpperCase()
+          .replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, '')
+          .replace(/[^A-Z0-9]/g, '');
+        const alvo = canon(raw);
+        if (alvo.length >= 4) matches = lista.filter(s => canon(s.descricao) === alvo);
+      }
+      if (!matches.length) return false;            // nao cadastrada -> nao alerta
+      return !matches.some(s => (Number(s.preco) || 0) > 0);  // sem preco em todos
+    } catch (_) { return false; }
+  }
+
+  function _toggleAvisoCorSemPreco(inp) {
+    if (!inp || !inp.parentElement) return;
+    const sem = _corCadastradaSemPreco(inp.value);
+    let aviso = inp.parentElement.querySelector(':scope > .orc-cor-sem-preco-aviso');
+    if (sem) {
+      if (!aviso) {
+        aviso = document.createElement('div');
+        aviso.className = 'orc-cor-sem-preco-aviso';
+        aviso.textContent = '⚠ Cor sem preço cadastrado — preencha o preço em Cadastro › Superfícies';
+        inp.insertAdjacentElement('afterend', aviso);
+      }
+      inp.classList.add('orc-cor-sem-preco-input');
+    } else {
+      if (aviso) aviso.remove();
+      inp.classList.remove('orc-cor-sem-preco-input');
+    }
+  }
+
+  function _scanAvisosCorSemPreco(root) {
+    try { (root || document).querySelectorAll(_SEL_CORES_PRECO).forEach(_toggleAvisoCorSemPreco); }
+    catch (_) {}
+  }
+
+  function _initAvisoCorSemPreco() {
+    if (window.__orcAvisoCorSemPrecoBound) return;
+    window.__orcAvisoCorSemPrecoBound = true;
+    const onEv = (e) => {
+      const t = e.target;
+      if (t && t.matches && t.matches(_SEL_CORES_PRECO)) _toggleAvisoCorSemPreco(t);
+    };
+    document.addEventListener('change', onEv, true);
+    document.addEventListener('input',  onEv, true);
+    _scanAvisosCorSemPreco(document);
+    // Cores ja' escolhidas quando o form (re)renderiza tambem ganham o aviso
+    try {
+      new MutationObserver((muts) => {
+        for (const m of muts) for (const n of m.addedNodes) {
+          if (n.nodeType !== 1) continue;
+          if (n.matches && n.matches(_SEL_CORES_PRECO)) _toggleAvisoCorSemPreco(n);
+          else if (n.querySelectorAll) _scanAvisosCorSemPreco(n);
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    } catch (_) {}
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _initAvisoCorSemPreco);
+  } else {
+    _initAvisoCorSemPreco();
+  }
+
+  // ============================================================
   //                       API PUBLICA
   // ============================================================
 
