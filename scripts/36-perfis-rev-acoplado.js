@@ -252,12 +252,17 @@ var PerfisRevAcoplado = (function() {
     // com cortes encaixados DENTRO do quadro.
     // PA-GUA411 e PA-GUA413 vao como acessorios (em metros) em
     // 28-acessorios-porta-externa.js.
-    var ehLateralVidro = (
-      String(item.posicao || '').toLowerCase() === 'lateral'
-      && String(item.revestimento || '').toLowerCase() === 'vidro'
-    );
+    // Felipe (sessao atual): VIDRO vale pra LATERAL **e** SUPERIOR. Antes so'
+    // posicao='lateral' entrava aqui; o fixo SUPERIOR em vidro caia na logica
+    // estrutural (gerava Travessa Vertical / Puxador Embutido e NAO gerava os
+    // perfis PF do vidro). As formulas abaixo usam as folgas que o usuario
+    // preenche por posicao (FGLD/FGLE/FGSup) — lateral: 10/0/10; superior:
+    // 10/10/0, lado que encosta na porta = 0 — entao valem pras DUAS posicoes.
+    // Confirmado contra o caso lateral real: horizontal = L-FGLD-FGLE-2*TUB1,
+    // vertical = (ALTURA-FGSup)-2*TUB1.
+    var ehFixoVidro = String(item.revestimento || '').toLowerCase() === 'vidro';
 
-    if (ehLateralVidro) {
+    if (ehFixoVidro) {
       // Felipe: 'no fixo lateral teremos somente UMA folga lateral
       // de 10mm e nao 20'. Como o sistema tem 2 campos (Dir/Esq),
       // usa a SOMA — Felipe preenche 10/0 ou 0/10 conforme o lado
@@ -532,11 +537,11 @@ var PerfisRevAcoplado = (function() {
     // elimine tudo.' Fixo Lateral c/ Vidro NAO tem chapas vindo do reuso
     // do motor da porta (Tampa Maior, Cava etc). Gera apenas as 2 pecas
     // ACM proprias: Fita Acabamento do PF + Revestimento do Tubo.
-    var ehLateralVidro = (
-      String(item.posicao || '').toLowerCase() === 'lateral'
-      && String(item.revestimento || '').toLowerCase() === 'vidro'
-    );
-    if (ehLateralVidro) return gerarPecasACMLatVidro(item, lado);
+    // Felipe (sessao atual): vidro vale pra lateral E superior (ver gerarCortes).
+    // As pecas ACM (Fita Acabamento do PF + Revestimento do Tubo) usam so' L/H
+    // (perimetro H+100 e L+100), sem premissa de posicao — generalizam.
+    var ehFixoVidro = String(item.revestimento || '').toLowerCase() === 'vidro';
+    if (ehFixoVidro) return gerarPecasACMLatVidro(item, lado);
 
     // Felipe (sessao 18): fixo lateral LISA NAO reutiliza motor da porta.
     // Felipe: 'fixo lateral chapas tbm tudo errado, coloquei chapa lisa,

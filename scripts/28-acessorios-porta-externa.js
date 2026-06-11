@@ -941,12 +941,13 @@ const AcessoriosPortaExterna = (() => {
     // borracha) cadastradas em scripts/25-acessorios.js — viram
     // ACESSORIOS aqui, nao perfis de corte.
     //
-    // Aplicado SO em: fixo_acoplado + posicao=lateral + revestimento=vidro.
+    // Aplicado em: fixo_acoplado + revestimento=vidro (LATERAL ou SUPERIOR).
+    // Felipe (sessao atual): antes so' lateral; superior em vidro tambem leva
+    // as borrachas (perimetro L*2+H*2 e' position-agnostic).
     // Os perfis de aluminio do mesmo caso (PA-PF-104, PA-PF-051) sao
     // tratados em 36-perfis-rev-acoplado.js (gerarCortes), nao aqui.
     if (
       item.tipo === 'fixo_acoplado'
-      && String(item.posicao || '').toLowerCase() === 'lateral'
       && String(item.revestimento || '').toLowerCase() === 'vidro'
     ) {
       const fL = Number(item.largura) || 0;
@@ -977,7 +978,7 @@ const AcessoriosPortaExterna = (() => {
             total: precoUn * totalMCeil,
             categoria: 'Vedações',
             aplicacao: 'fab',
-            observacao: `Fixo Lateral Vidro: perim ${fL}×${fH}mm × ${qtdItem} = ${totalM.toFixed(2)}m → ${totalMCeil}m (arredondado pra cima)`
+            observacao: `Fixo Vidro (${String(item.posicao||'').toLowerCase()==='lateral'?'lateral':'superior'}): perim ${fL}×${fH}mm × ${qtdItem} = ${totalM.toFixed(2)}m → ${totalMCeil}m (arredondado pra cima)`
               + (acess ? '' : ' · CADASTRAR EM ACESSORIOS'),
           });
         });

@@ -5985,18 +5985,22 @@ const Orcamento = (() => {
           // - Superior + Vidro                             -> NAO mostra
           //   (vidro puro, sem chapa de revestimento)
           if (!item.revestimento) return '';
-          const ehLatVidro = item.posicao === 'lateral' && item.revestimento === 'Vidro';
-          if (item.revestimento === 'Vidro' && !ehLatVidro) return '';
-          // Quando Lateral+Vidro, forca filtro pra categoria 'acm' e label 'ACM'.
+          // Felipe (sessao atual): VIDRO (lateral OU superior) mostra cor ACM
+          // (Fita Acabamento do PF + Revestimento do Tubo). Antes so' lateral
+          // mostrava; superior+vidro era tratado como 'vidro puro' (errado) —
+          // sem PF e sem cor ACM. Agora os dois pegam o mesmo acabamento.
+          const ehFixoVidro = item.revestimento === 'Vidro';
+          const posTxt = String(item.posicao || '').toLowerCase() === 'lateral' ? 'Lateral' : 'Superior';
+          // Quando Vidro, forca filtro pra categoria 'acm' e label 'ACM'.
           // Nos outros casos, usa o revestimento do item.
-          const revFiltro = ehLatVidro ? 'ACM 4mm' : item.revestimento;
-          const labelMat  = ehLatVidro ? 'ACM' : item.revestimento;
+          const revFiltro = ehFixoVidro ? 'ACM 4mm' : item.revestimento;
+          const labelMat  = ehFixoVidro ? 'ACM' : item.revestimento;
           return `
         <div class="orc-section">
-          <div class="orc-section-title">Acabamento${ehLatVidro ? ' (Chapa ACM do Fixo Lateral)' : ''}</div>
-          ${ehLatVidro ? `
+          <div class="orc-section-title">Acabamento${ehFixoVidro ? ' (Chapa ACM do Fixo ' + posTxt + ')' : ''}</div>
+          ${ehFixoVidro ? `
           <p style="font-size:12px;color:var(--text-muted);margin:0 0 8px 0;">
-            Cores das peças ACM que vao no fixo lateral com vidro
+            Cores das peças ACM que vao no fixo ${posTxt.toLowerCase()} com vidro
             (Fita Acabamento do PF + Revestimento do Tubo).
           </p>
           ` : ''}
