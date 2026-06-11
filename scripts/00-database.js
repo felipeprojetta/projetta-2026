@@ -404,6 +404,29 @@ const Database = (() => {
       var localNegIds = new Set();
       localValue.forEach(function(neg) { if (neg && neg.id) localNegIds.add(neg.id); });
 
+      // Felipe (sessao atual): mapa leadId -> etapa (best-effort do Storage
+      // local). Usado pra decidir se uma versao protegida (cura 2) deve voltar:
+      // so' volta se o orcamento ja' foi ENVIADO (lead em orcamento-enviado/
+      // negociacao/fechado). Antes da trava nova, qualquer versao APROVADA
+      // voltava — o que impedia deletar versao de orcamento ainda nao enviado.
+      // Se nao der pra ler a etapa, default = NAO forca (respeita o tombstone);
+      // a trava no banco continua sendo a rede de seguranca dos enviados.
+      var etapaPorLead = {};
+      try {
+        if (window.Storage && window.Storage.scope) {
+          var _leads = window.Storage.scope('crm').get('leads') || [];
+          if (Array.isArray(_leads)) {
+            _leads.forEach(function(ld) {
+              if (ld && ld.id) etapaPorLead[ld.id] = String(ld.etapa || '');
+            });
+          }
+        }
+      } catch (_eL) {}
+      function _leadEnviado(neg) {
+        var e = etapaPorLead[neg && neg.leadId];
+        return e === 'orcamento-enviado' || e === 'negociacao' || e === 'fechado';
+      }
+
       // Clona local pra modificar em segurança
       var resultado = JSON.parse(JSON.stringify(localValue));
       var versoesPreservadas = 0;
@@ -429,13 +452,14 @@ const Database = (() => {
           if (localVerIds.has(verId)) return;
           var info = cloudInfo.versoesMap[verId];
           var _vc = (info && info.ver) || {};
-          // Felipe (sessao atual): versoes ENVIADAS/APROVADAS sempre voltam,
-          // mesmo se estiverem no tombstone — "o que foi enviado pro card tem
-          // que permanecer; pra mudar, cria nova versao". So' drafts comuns
-          // respeitam o tombstone (delecao intencional de rascunho).
-          var _enviada = ((_vc.status === 'fechada') || _vc.aprovadoEm)
+          // Felipe (sessao atual): versao volta de baixo do tombstone SO' se o
+          // orcamento ja' foi ENVIADO (lead em orcamento-enviado/negociacao/
+          // fechado) E a versao e' aprovada/no-card. Orcamento ainda nao
+          // enviado: respeita o tombstone (pode deletar/editar versao a vontade).
+          var _enviada = _leadEnviado(neg)
+                         && ((_vc.status === 'fechada') || _vc.aprovadoEm)
                          && _vc.enviadoParaCard !== false;
-          if (deletadasLocal.has(verId) && !_enviada) return;  // tombstone so' p/ drafts
+          if (deletadasLocal.has(verId) && !_enviada) return;  // tombstone vale p/ nao-enviados
           // Acha opcao correspondente no local
           var opc = (neg.opcoes || []).find(function(o) { return o.id === info.opcaoId; });
           if (!opc && neg.opcoes && neg.opcoes.length > 0) opc = neg.opcoes[0]; // fallback opcao A
