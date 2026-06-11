@@ -3967,6 +3967,7 @@ ${secoesHtml}
             ${state.filtros.representante ? `<button class="btn btn-ghost btn-sm crm-btn-email-rep" id="crm-btn-email-rep" title="Envia relatorio pelo Outlook integrado (pega email do contato cadastrado do representante)">📧 Enviar por Email</button>` : ''}
             <button class="btn btn-ghost btn-sm" id="crm-btn-import">⤓ Importar planilha</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-export">⬇ Exportar Excel</button>
+            <button class="btn btn-ghost btn-sm" id="crm-btn-relatorio-coluna" title="Gera um Excel com os leads agrupados por coluna do kanban (Negociacao, Fechado, Orcamento Enviado, Perdido...), com subtotais por coluna. Respeita os filtros ativos.">📊 Relatorio por Coluna</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-modelo" title="Baixa modelo Excel em branco com todos os campos para preencher e reimportar">📋 Modelo Excel</button>
             <input type="file" id="crm-import-file" accept=".xlsx,.xls,.csv" style="display:none" />
             <button class="crm-btn-new" id="crm-btn-new-lead">+ Novo Lead</button>
@@ -4173,6 +4174,7 @@ ${secoesHtml}
 
       // R16: Importar/Exportar Excel
       container.querySelector('#crm-btn-export')?.addEventListener('click', exportarLeadsXLSX);
+      container.querySelector('#crm-btn-relatorio-coluna')?.addEventListener('click', gerarRelatorioPorColuna);
       container.querySelector('#crm-btn-modelo')?.addEventListener('click', exportarTemplateXLSX);
       // Felipe sessao 34: Relatorio do Representante (PDF via print do navegador)
       container.querySelector('#crm-btn-relatorio-rep')?.addEventListener('click', () => {
@@ -5044,6 +5046,92 @@ ${secoesHtml}
      * preenche varias linhas e reimporta. Pedido textual: "crm nao esta
      * exportando excel de modelo para em importar novamente".
      */
+    /**
+     * Felipe (sessao atual): "relatorio por coluna" — Excel com os leads
+     * agrupados por coluna do kanban (Negociacao, Fechado, Orcamento Enviado,
+     * Perdido...), com subtotais por coluna e total geral. Respeita os filtros
+     * ativos (aplicarFiltros). Valores Original/Com Desconto vem do
+     * resumoParaCardCRM (mesmos do card); fallback p/ l.valor quando nao ha
+     * orcamento. So' leitura — nao altera nada.
+     */
+    function gerarRelatorioPorColuna() {
+      if (!window.Universal || !window.Universal.exportXLSX) {
+        alert('Modulo de exportacao nao disponivel. Recarregue a pagina.');
+        return;
+      }
+      const leads = aplicarFiltros(state.leads);
+
+      function repDoLead(l) {
+        const fup = l.representante_followup || '';
+        if (!fup) return { nome: '', comissao: '' };
+        const reps = (window.Representantes && typeof window.Representantes.listar === 'function')
+          ? window.Representantes.listar() : [];
+        const rep = reps.find(r => String(r.followup || '').trim() === fup);
+        if (rep) return {
+          nome: rep.razao_social || fup,
+          comissao: ((Number(rep.comissao_maxima) || 0) * 100).toFixed(1).replace(/\.0$/, '') + '%',
+        };
+        if (fup === 'PROJETTA') return { nome: 'PROJETTA (venda interna)', comissao: '0%' };
+        return { nome: fup, comissao: '' };
+      }
+
+      const headers = ['Coluna','Cliente','Reserva','AGP','Cidade/UF','Representante','Comissao',
+                       'Modelo','Cor','Valor Original','Valor Com Desconto','Data'];
+      const rows = [];
+      let gN = 0, gOrig = 0, gDesc = 0;
+
+      ETAPAS.forEach(et => {
+        const leadsCol = leads.filter(l => l.etapa === et.id);
+        if (!leadsCol.length) return;  // pula coluna vazia
+        let sOrig = 0, sDesc = 0;
+        rows.push(['═══ ' + String(et.label).toUpperCase() + ' ═══','','','','','','','','','','','']);
+        leadsCol.forEach(l => {
+          const resumo = (window.Orcamento && typeof window.Orcamento.resumoParaCardCRM === 'function')
+            ? window.Orcamento.resumoParaCardCRM(l.id) : null;
+          const original = (resumo && Number(resumo.precoProposta) > 0)
+            ? Number(resumo.precoProposta) : (Number(l.valor) || 0);
+          const comDesc = (resumo && Number(resumo.valor) > 0)
+            ? Number(resumo.valor) : (Number(l.valor) || 0);
+          const rep = repDoLead(l);
+          const modelo = (resumo && resumo.modelo) || l.modelo_porta || '';
+          const cor = (resumo && (resumo.corExterna || resumo.corInterna))
+            || l.cor_externa || l.cor_interna || '';
+          rows.push([
+            et.label,
+            l.cliente || '',
+            l.reserva || '',
+            l.numeroAGP || '',
+            [l.cidade, l.estado].filter(Boolean).join(' / '),
+            rep.nome,
+            rep.comissao,
+            modelo,
+            cor,
+            original,
+            comDesc,
+            l.data || l.data_reserva || '',
+          ]);
+          sOrig += original; sDesc += comDesc;
+        });
+        rows.push(['','','','','','','','','SUBTOTAL ' + et.label + ' (' + leadsCol.length + ' leads):',
+                   sOrig, sDesc, '']);
+        rows.push(['','','','','','','','','','','','']);
+        gN += leadsCol.length; gOrig += sOrig; gDesc += sDesc;
+      });
+
+      if (!rows.length) {
+        alert('Nenhum lead nos filtros atuais pra gerar o relatorio.');
+        return;
+      }
+      rows.push(['','','','','','','','','TOTAL GERAL (' + gN + ' leads):', gOrig, gDesc, '']);
+
+      const hoje = new Date().toISOString().slice(0, 10);
+      window.Universal.exportXLSX({
+        headers, rows,
+        sheetName: 'Relatorio por Coluna',
+        fileName: 'crm_relatorio_por_coluna_' + hoje,
+      });
+    }
+
     function exportarTemplateXLSX() {
       const headers = [
         'ID','Cliente','Telefone','Email',
