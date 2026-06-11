@@ -16968,9 +16968,19 @@ const Orcamento = (() => {
       // Felipe sessao 12: 'se a chapa for maior, demonstre destaque qual
       // chapa e para ajuste'. Banner agora mostra destaque vermelho com
       // titulo grande + lista das pecas problemáticas + sugestoes acionaveis.
-      // Coleta TODAS as pecas que nao cabem (de qq resultado) - sao as
-      // mesmas em todas as chapas. Pega uma amostra do 1º resultado.
-      const pecasProblema = (resultados[0] && resultados[0].pecasNaoCouberam) || [];
+      // Felipe (sessao atual): antes amostrava resultados[0] (a chapa-mae
+      // MENOR), entao listava pecas que so' nao cabem na chapa pequena (ex.:
+      // puxador 1094x5919 nao cabe em 1500x5000, mas cabe em 6000/7000/8000)
+      // — culpava a peca errada e confundia o usuario. Agora amostra a MELHOR
+      // chapa (a que deixa MENOS pecas de fora; desempate pela de maior area):
+      // assim o banner nomeia so' as pecas que nao cabem em NENHUMA chapa
+      // disponivel, que e' o verdadeiro motivo do bloqueio.
+      const resultadoAmostra = resultados.slice().sort((a, b) => {
+        const da = (a.pecasNaoCouberam.length - b.pecasNaoCouberam.length);
+        if (da !== 0) return da;
+        return (b.chapaMae.largura * b.chapaMae.altura) - (a.chapaMae.largura * a.chapaMae.altura);
+      })[0] || resultados[0];
+      const pecasProblema = (resultadoAmostra && resultadoAmostra.pecasNaoCouberam) || [];
       const dedupProblema = [];
       const seenLabels = new Set();
       pecasProblema.forEach(p => {
