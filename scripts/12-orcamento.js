@@ -6165,6 +6165,23 @@ const Orcamento = (() => {
           </div>
         </div>
 
+        ${(() => {
+          // Felipe (sessao atual): porta interna tambem renderiza os campos do
+          // modelo escolhido. Ex: modelo 23 (Classica com Molduras) -> molduras
+          // (tipoMoldura, quantidadeMolduras, distancia da borda, perfilMoldura).
+          // Reusa o MESMO render da porta externa (renderCamposPorModeloEspecifico).
+          // So' aparece se o modelo tiver campos em CAMPOS_POR_MODELO.
+          const numMod = Number(item.modeloNumero);
+          const campos = CAMPOS_POR_MODELO[numMod];
+          if (!campos || !campos.length) return '';
+          const nomeMod = (modelosInt.find(m => Number(m.numero) === numMod) || {}).nome || '';
+          return `
+        <div class="orc-section orc-section-modelo-vars">
+          <div class="orc-section-title">Caracteristicas do Modelo ${numMod}${nomeMod ? ' — ' + escapeHtml(nomeMod) : ''}</div>
+          ${renderCamposPorModeloEspecifico(item, numMod)}
+        </div>`;
+        })()}
+
         <div class="orc-section">
           <div class="orc-section-title">Folgas (mm)</div>
           <p style="font-size:12px; color: var(--text-muted); margin: 0 0 8px 0;">
