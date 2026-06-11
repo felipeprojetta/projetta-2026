@@ -230,10 +230,20 @@
       // do representante que precisa pre-encher coord/gerente em copia.
       var ccNovo = (modoNovo && Array.isArray(opts.cc)) ? opts.cc.filter(Boolean) : [];
       var headerTitulo = modoNovo ? '📧 Novo Email' : '📧 Responder Email';
+      // Felipe (sessao atual): no modoNovo o Cc agora e' um campo editavel
+      // (input) pre-preenchido com opts.cc, pra permitir acrescentar/remover
+      // pessoas em copia. So' renderiza quando ha cc pre-definido (ex.: o
+      // relatorio do representante manda felipe@ sempre) - assim outros usos
+      // do modoNovo sem cc (ex.: kanban email cliente) ficam inalterados.
       var paraLinha = modoNovo
         ? '<div class="ec-subject"><b>Para:</b> ' + escapeHtml(to) + '</div>'
           + (ccNovo.length
-              ? '<div class="ec-subject"><b>Cc:</b> ' + escapeHtml(ccNovo.join(', ')) + '</div>'
+              ? '<div class="ec-subject"><b>Cc:</b> '
+                + '<input type="text" id="ec-cc-novo-input" value="' + escapeHtml(ccNovo.join(', ')) + '"'
+                + ' placeholder="emails em copia, separados por virgula"'
+                + ' style="margin-left:6px;padding:3px 6px;font-size:12px;font-family:inherit;'
+                + 'border:1px solid #ccc;border-radius:4px;min-width:280px;width:60%;box-sizing:border-box;" />'
+                + '</div>'
               : '')
         : '';
 
@@ -526,9 +536,20 @@
             };
           });
           if (modoNovo) {
+            // Felipe (sessao atual): le o campo Cc editavel (se existir) pra
+            // capturar pessoas acrescentadas/removidas. Sem o input (cc vazio),
+            // cai no ccNovo original - comportamento inalterado.
+            var ccFinalNovo = ccNovo;
+            var ccInputEl = overlay.querySelector('#ec-cc-novo-input');
+            if (ccInputEl) {
+              ccFinalNovo = String(ccInputEl.value || '')
+                .split(/[,;]+/)
+                .map(function(s) { return s.trim(); })
+                .filter(Boolean);
+            }
             await window.outlookSendMail({
               to: [to],
-              cc: ccNovo,  // Felipe sessao 34: array vazio ou emails de copia
+              cc: ccFinalNovo,
               subject: subject,
               body: bodyAtual,
               bodyType: 'HTML',

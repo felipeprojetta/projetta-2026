@@ -3244,10 +3244,12 @@ ${secoesHtml}
         console.log('[relatorio-email] Info extras (nao tenho email cadastrado): ' + infoExtra.join(' | '));
       }
 
-      // Abre composer do Outlook integrado
+      // Abre composer do Outlook integrado.
+      // Felipe (sessao atual): felipe@projettaaluminio.com SEMPRE em copia por
+      // padrao; o campo Cc no composer e' editavel pra acrescentar mais pessoas.
       window.OutlookComposer.open({
         to: emailRep,
-        cc: [],  // vazio - Felipe edita se quiser
+        cc: ['felipe@projettaaluminio.com'],  // sempre em copia (editavel no composer)
         subject: emailSubject,
         bodyHtml: bodyHtml,
         attachments: [],
