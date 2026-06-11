@@ -3504,6 +3504,14 @@ const Orcamento = (() => {
         (item.distanciaBorda1aMoldura === undefined || item.distanciaBorda1aMoldura === '')) {
       item.distanciaBorda1aMoldura = item.distanciaBordaMoldura;
     }
+    // Felipe (sessao atual): porta interna CLASSICA (modelo 23) e' sempre
+    // Aluminio Macico nas 2 faces. Forca o revestimento p/ AM — assim as cores
+    // AM aparecem no form e o motor de perfis/chapas gera os boiseries. Nao
+    // mexe em nenhuma outra parte da estrutura normal da porta interna.
+    if (item.tipo === 'porta_interna' && Number(item.modeloNumero) === 23) {
+      if (item.revestimentoExterno !== 'Aluminio Macico 2mm') item.revestimentoExterno = 'Aluminio Macico 2mm';
+      if (item.revestimentoInterno !== 'Aluminio Macico 2mm') item.revestimentoInterno = 'Aluminio Macico 2mm';
+    }
     return item;
   }
   function normalizarItensVersao(versao) {
@@ -6085,7 +6093,13 @@ const Orcamento = (() => {
           // 3) Superficies + revestimento
           const cadInt = Storage.scope('cadastros');
           const superficiesInt = cadInt.get('superficies_lista') || [];
-          const revestimentosInt = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro'];
+          // Felipe (sessao atual): porta interna CLASSICA (modelo 23) so' em
+          // Aluminio Macico — sem ACM/HPL/Vidro. Mantem todo o resto da
+          // estrutura normal da porta interna; muda so' as opcoes de revestimento.
+          const _ehClassicaPI = Number(item.modeloNumero) === 23;
+          const revestimentosInt = _ehClassicaPI
+            ? ['Aluminio Macico 2mm']
+            : ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro'];
           function filtrarCoresPI(rev) {
             let lista = superficiesInt;
             if (rev) {
@@ -6113,8 +6127,8 @@ const Orcamento = (() => {
             });
             return dedupPI;
           }
-          const coresExtPI = filtrarCoresPI(item.revestimentoExterno);
-          const coresIntPI = filtrarCoresPI(item.revestimentoInterno);
+          const coresExtPI = filtrarCoresPI(_ehClassicaPI ? 'Aluminio Macico 2mm' : item.revestimentoExterno);
+          const coresIntPI = filtrarCoresPI(_ehClassicaPI ? 'Aluminio Macico 2mm' : item.revestimentoInterno);
 
           // Modo da fechadura
           const modoFech = item.fechaduraModo || 'conjunto'; // default conjunto
