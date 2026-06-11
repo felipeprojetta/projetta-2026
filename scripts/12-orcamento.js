@@ -1663,6 +1663,32 @@ const Orcamento = (() => {
     (negocio.opcoes || []).forEach(o => {
       (o.versoes || []).forEach(v => {
         const ehImutavelParaCard = v.status === 'fechada' || !!v.aprovadoEm;
+        // Valor base: valorAprovado (setado ao aprovar) ou total (legado).
+        let _valor         = Number(v.valorAprovado) || Number(v.total) || 0;
+        let _precoProposta = Number(v.precoProposta) || Number(v.valorAprovado) || 0;
+        // Felipe (sessao atual): draft NAO aprovado aparecia como "sem valor"
+        // no modal/card mesmo tendo orcamento calculado (ex.: V2 do Antonio
+        // Santiago, enviada ao cliente). O valor NAO foi perdido — so' nao era
+        // exibido pq valorAprovado/total ficam zerados ate aprovar. Calcula
+        // on-the-fly a partir de subFab+subInst+parametros, com o MESMO DRE da
+        // proposta/painel (calcularDRE: pTab=original, pFatReal=com desconto).
+        // 100% display — NAO grava nada no negocio.
+        if (_valor <= 0) {
+          const _subFab  = Number(v.subFab)  || 0;
+          const _subInst = Number(v.subInst) || 0;
+          if ((_subFab + _subInst) > 0) {
+            try {
+              const _p = Object.assign({}, PARAMS_DEFAULT, v.parametros || {});
+              const _dre = calcularDRE(_subFab, _subInst, _p);
+              if (_dre && isFinite(_dre.pFatReal) && _dre.pFatReal > 0) {
+                _valor = _dre.pFatReal;
+                if (_precoProposta <= 0 && isFinite(_dre.pTab) && _dre.pTab > 0) {
+                  _precoProposta = _dre.pTab;
+                }
+              }
+            } catch (e) { /* sem dados suficientes -> mantem 0 (sem valor) */ }
+          }
+        }
         versoesFlat.push({
           id: v.id,
           numero: v.numero,
@@ -1670,8 +1696,8 @@ const Orcamento = (() => {
           aprovadoEm: v.aprovadoEm,                      // novo: card precisa saber
           enviadoParaCard: v.enviadoParaCard,            // Felipe sessao 34: filtra "aprovacao local"
           ehImutavelParaCard,                            // novo: marca pra ordenacao/filter
-          valor: Number(v.valorAprovado) || Number(v.total) || 0,
-          precoProposta: Number(v.precoProposta) || Number(v.valorAprovado) || 0,
+          valor: _valor,
+          precoProposta: _precoProposta,
           criadoEm: v.criadoEm,
           opcaoLetra: o.letra,
           opcaoId: o.id,
