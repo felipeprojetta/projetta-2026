@@ -294,8 +294,11 @@
       btn.addEventListener('click', () => {
         const versaoId = btn.dataset.versaoId;
         if (!versaoId) return;
-        carregarVersaoNaAbaOrcamento(leadId, versaoId);
+        // Felipe (sessao atual): fecha o modal ANTES de navegar, pra que o
+        // render do orcamento rode com o modal ja' fora do DOM (evita a 1a
+        // render cair no orcamento anterior - bug 'preciso clicar 2x').
         fecharModal('orcdocs-modal-versoes');
+        carregarVersaoNaAbaOrcamento(leadId, versaoId);
       });
     });
 
@@ -338,12 +341,29 @@
   }
 
   function carregarVersaoNaAbaOrcamento(leadId, versaoId) {
-    if (typeof Storage !== 'undefined' && Storage.scope) {
-      Storage.scope('app').set('orcamento_lead_ativo', leadId);
-      if (versaoId) Storage.scope('app').set('orcamento_versao_ativa', versaoId);
+    // Felipe (sessao atual): bug 'clico em Abrir Orcamento e abre o orcamento
+    // ANTERIOR, preciso clicar 2x'. A cadeia (signal -> render ->
+    // inicializarSessao) e' sincrona e correta, mas a 1a render disparava no
+    // contexto do clique do modal e as vezes caia no lead/versao anteriores.
+    // O signal orcamento_versao_ativa e' one-shot (consumido na 1a render),
+    // o que torna isso fragil. FIX: re-grava os signals e re-afirma a
+    // navegacao no proximo frame. Idempotente — o modal so' abre com versoes
+    // existentes, entao re-renderizar nao cria nem altera nada; so' garante
+    // que a aba carregue o lead+versao certos de primeira.
+    function aplicarSignalsENavegar() {
+      if (typeof Storage !== 'undefined' && Storage.scope) {
+        Storage.scope('app').set('orcamento_lead_ativo', leadId);
+        if (versaoId) Storage.scope('app').set('orcamento_versao_ativa', versaoId);
+      }
+      if (typeof App !== 'undefined' && App.navigateTo) {
+        App.navigateTo('orcamento', 'item');
+      }
     }
-    if (typeof App !== 'undefined' && App.navigateTo) {
-      App.navigateTo('orcamento', 'item');
+    aplicarSignalsENavegar();
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(aplicarSignalsENavegar);
+    } else {
+      setTimeout(aplicarSignalsENavegar, 0);
     }
   }
 
