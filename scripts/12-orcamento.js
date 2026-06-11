@@ -16154,9 +16154,14 @@ const Orcamento = (() => {
           const preco_m2 = Number(sup.preco) || 0;
           const subtotal = m2_total * preco_m2;
           const corChave = `Vidro — ${sup.descricao}`;
+          // Felipe (sessao atual): mostra a MEDIDA (L×A) que gerou o m².
+          // Antes so' aparecia a metragem quadrada na coluna Qtd. O caso
+          // 'vidro por chapa' ja' mostrava a medida; o m² nao.
+          const medidaVidroTxt = (qtd > 1 ? qtd + '× ' : '')
+            + Math.round(L_mm) + '×' + Math.round(H_mm) + 'mm';
           linhas.push({
             cor: corChave,
-            descricao: `${sup.descricao} [m²]`,
+            descricao: `${sup.descricao} [m²] — ${medidaVidroTxt}`,
             largura: L_mm,
             altura: H_mm,
             precoUnit: preco_m2,
