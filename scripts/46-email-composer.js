@@ -225,26 +225,36 @@
       //   reply-all:    tem msgId, sem toEmails (modo legado, sem CC custom)
       //   novo:         tem 'to', sem msgId (cria email novo)
       var modoNovo = !msgId && !!to;
-      // Felipe sessao 34: modoNovo agora aceita opts.cc (array de emails) -
-      // mostra linha "Cc:" estatica abaixo do Para. Usado pelo relatorio
-      // do representante que precisa pre-encher coord/gerente em copia.
+      // Felipe sessao 34: modoNovo aceita opts.cc (array de emails de copia).
       var ccNovo = (modoNovo && Array.isArray(opts.cc)) ? opts.cc.filter(Boolean) : [];
+      // Felipe (sessao atual): opts.ccFixo = emails SEMPRE em copia, travados
+      // (mostrados com cadeado, sem como remover na UI). Garantidos no envio
+      // mesmo se o campo editavel for alterado. Usado pelo relatorio do
+      // representante pra manter felipe@ sempre em copia.
+      var ccFixoNovo = (modoNovo && Array.isArray(opts.ccFixo)) ? opts.ccFixo.filter(Boolean) : [];
       var headerTitulo = modoNovo ? '📧 Novo Email' : '📧 Responder Email';
-      // Felipe (sessao atual): no modoNovo o Cc agora e' um campo editavel
-      // (input) pre-preenchido com opts.cc, pra permitir acrescentar/remover
-      // pessoas em copia. So' renderiza quando ha cc pre-definido (ex.: o
-      // relatorio do representante manda felipe@ sempre) - assim outros usos
-      // do modoNovo sem cc (ex.: kanban email cliente) ficam inalterados.
+      // Linha do Cc fixo (travado): so' exibe, nao da pra editar/remover.
+      var ccFixoLinha = (modoNovo && ccFixoNovo.length)
+        ? '<div class="ec-subject"><b>Cc (fixo):</b> '
+          + '<span style="margin-left:6px;font-size:12px;color:#4b5563;background:#f3f4f6;'
+          + 'padding:2px 8px;border-radius:4px;">'
+          + escapeHtml(ccFixoNovo.join(', ')) + ' &#128274;</span>'
+          + '</div>'
+        : '';
+      // Campo editavel pra acrescentar mais pessoas em copia. Aparece quando
+      // ha cc pre-definido OU cc fixo (assim sempre da' pra adicionar gente no
+      // relatorio). Sem cc nenhum (ex.: kanban email cliente) nao renderiza.
+      var ccEditLinha = (modoNovo && (ccNovo.length || ccFixoNovo.length))
+        ? '<div class="ec-subject"><b>' + (ccFixoNovo.length ? 'Cc (adicionar):' : 'Cc:') + '</b> '
+          + '<input type="text" id="ec-cc-novo-input" value="' + escapeHtml(ccNovo.join(', ')) + '"'
+          + ' placeholder="emails em copia, separados por virgula"'
+          + ' style="margin-left:6px;padding:3px 6px;font-size:12px;font-family:inherit;'
+          + 'border:1px solid #ccc;border-radius:4px;min-width:280px;width:60%;box-sizing:border-box;" />'
+          + '</div>'
+        : '';
       var paraLinha = modoNovo
         ? '<div class="ec-subject"><b>Para:</b> ' + escapeHtml(to) + '</div>'
-          + (ccNovo.length
-              ? '<div class="ec-subject"><b>Cc:</b> '
-                + '<input type="text" id="ec-cc-novo-input" value="' + escapeHtml(ccNovo.join(', ')) + '"'
-                + ' placeholder="emails em copia, separados por virgula"'
-                + ' style="margin-left:6px;padding:3px 6px;font-size:12px;font-family:inherit;'
-                + 'border:1px solid #ccc;border-radius:4px;min-width:280px;width:60%;box-sizing:border-box;" />'
-                + '</div>'
-              : '')
+          + ccFixoLinha + ccEditLinha
         : '';
 
       // Linhas de chips TO/CC quando modoReplyCustom
@@ -536,17 +546,24 @@
             };
           });
           if (modoNovo) {
-            // Felipe (sessao atual): le o campo Cc editavel (se existir) pra
-            // capturar pessoas acrescentadas/removidas. Sem o input (cc vazio),
-            // cai no ccNovo original - comportamento inalterado.
-            var ccFinalNovo = ccNovo;
+            // Felipe (sessao atual): le o campo Cc editavel (pessoas extras) e
+            // SEMPRE prefixa o ccFixo (felipe@ no relatorio). Dedupe case-
+            // insensitive, fixo primeiro. Sem input nem fixo, cc fica [] -
+            // comportamento inalterado (ex.: kanban email cliente).
+            var ccDigitado = ccNovo;
             var ccInputEl = overlay.querySelector('#ec-cc-novo-input');
             if (ccInputEl) {
-              ccFinalNovo = String(ccInputEl.value || '')
+              ccDigitado = String(ccInputEl.value || '')
                 .split(/[,;]+/)
                 .map(function(s) { return s.trim(); })
                 .filter(Boolean);
             }
+            var ccFinalNovo = [];
+            var ccVistos = {};
+            ccFixoNovo.concat(ccDigitado).forEach(function(e) {
+              var k = e.toLowerCase();
+              if (!ccVistos[k]) { ccVistos[k] = 1; ccFinalNovo.push(e); }
+            });
             await window.outlookSendMail({
               to: [to],
               cc: ccFinalNovo,

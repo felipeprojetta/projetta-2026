@@ -3245,11 +3245,13 @@ ${secoesHtml}
       }
 
       // Abre composer do Outlook integrado.
-      // Felipe (sessao atual): felipe@projettaaluminio.com SEMPRE em copia por
-      // padrao; o campo Cc no composer e' editavel pra acrescentar mais pessoas.
+      // Felipe (sessao atual): felipe@projettaaluminio.com SEMPRE em copia,
+      // travado (ccFixo) - nao da' pra remover na UI e e' garantido no envio.
+      // O campo Cc editavel (cc) comeca vazio pra acrescentar mais pessoas.
       window.OutlookComposer.open({
         to: emailRep,
-        cc: ['felipe@projettaaluminio.com'],  // sempre em copia (editavel no composer)
+        cc: [],  // pessoas extras (editavel no composer)
+        ccFixo: ['felipe@projettaaluminio.com'],  // sempre em copia, travado
         subject: emailSubject,
         bodyHtml: bodyHtml,
         attachments: [],
