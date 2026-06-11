@@ -365,11 +365,26 @@ const Database = (() => {
     if (!Array.isArray(localValue)) return localValue;
     try {
       var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.orcamentos&key=eq.negocios&select=valor';
-      var res = await fetch(url, { headers: sbHeaders(false) });
-      if (!res.ok) return localValue;
-      var rows = await res.json();
-      if (!Array.isArray(rows) || rows.length === 0) return localValue;
-      var cloudValue = rows[0].valor;
+      // Felipe (sessao atual): CURA do furo "merge cai pra local stale quando a
+      // nuvem falha" — causa raiz da perda da V1 do Antonio. Antes, qualquer
+      // hiccup no fetch (res nao-ok / vazio / erro) abortava a protecao e
+      // enviava o local; se stale, derrubava versoes. Agora tenta ate 3x antes
+      // de desistir, reduzindo muito a chance de cair no fallback desprotegido.
+      // (A trava no banco e' a rede de seguranca final caso ainda assim caia.)
+      var cloudValue = null;
+      for (var _tent = 0; _tent < 3; _tent++) {
+        try {
+          var res = await fetch(url, { headers: sbHeaders(false) });
+          if (res.ok) {
+            var rows = await res.json();
+            if (Array.isArray(rows) && rows.length > 0 && Array.isArray(rows[0].valor)) {
+              cloudValue = rows[0].valor;
+              break;
+            }
+          }
+        } catch (_fe) { /* tenta de novo */ }
+        if (_tent < 2) { await new Promise(function(r){ setTimeout(r, 300); }); }
+      }
       if (!Array.isArray(cloudValue)) return localValue;
 
       // Index cloud: pra cada negocio.id, mapeia versoes_por_id e opcao_de_cada_versao
@@ -412,8 +427,15 @@ const Database = (() => {
         });
         Object.keys(cloudInfo.versoesMap).forEach(function(verId) {
           if (localVerIds.has(verId)) return;
-          if (deletadasLocal.has(verId)) return;  // pula versoes deletadas (tombstone)
           var info = cloudInfo.versoesMap[verId];
+          var _vc = (info && info.ver) || {};
+          // Felipe (sessao atual): versoes ENVIADAS/APROVADAS sempre voltam,
+          // mesmo se estiverem no tombstone — "o que foi enviado pro card tem
+          // que permanecer; pra mudar, cria nova versao". So' drafts comuns
+          // respeitam o tombstone (delecao intencional de rascunho).
+          var _enviada = ((_vc.status === 'fechada') || _vc.aprovadoEm)
+                         && _vc.enviadoParaCard !== false;
+          if (deletadasLocal.has(verId) && !_enviada) return;  // tombstone so' p/ drafts
           // Acha opcao correspondente no local
           var opc = (neg.opcoes || []).find(function(o) { return o.id === info.opcaoId; });
           if (!opc && neg.opcoes && neg.opcoes.length > 0) opc = neg.opcoes[0]; // fallback opcao A
