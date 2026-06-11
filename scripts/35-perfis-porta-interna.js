@@ -172,6 +172,51 @@ const PerfisPortaInterna = (() => {
       _add(cortes, 'PA-ALISARINT', compAlisarVer, 2 * qtdPortas, 'Alisar vertical (lateral)', 'portal');
     }
 
+    // ===== BOISERIE (PA-PERFILBOISERIE) — MODELO 23 "Classica com Molduras" =====
+    // Felipe (sessao atual): mesma logica/configuracao do modelo 23 da PORTA
+    // EXTERNA (31-perfis-porta-externa.js, bloco ehMod23AM ~660-737). O que MUDA:
+    // as medidas saem da TAMPA da porta interna (chapa frontal do 38b), e o
+    // boiserie vai nas 2 FACES (externa e interna), que tem medidas DIFERENTES:
+    //   tampa externa: L = vao - folgas - 38,5 - 38,5 ; A = vao - fgSup - 38,5 - 12
+    //   tampa interna: L = vao - folgas - 26,5 - 26,5 ; A = vao - fgSup - 26,5 - 12
+    // (mesmos descontos do 38b-chapas-porta-interna.js — fonte da verdade da tampa)
+    //
+    // Qtd de boiseries (bandas) = quantidadeMolduras (1 ou 2). Cada banda = 2
+    // horizontais + 2 verticais por face. Inset da borda = distanciaBorda1aMoldura
+    // (C29, default 150). Para 2 bandas usa a mesma divisao da externa
+    // (banda topo ~1048; banda baixo o resto) — constante 1048 herdada do
+    // desenho do modelo 23. Mantem toda a estrutura normal da porta interna.
+    if (Number(item.modeloNumero) === 23) {
+      const COD_BOIS = (item.perfilMoldura
+        || (window.PerfisCore && window.PerfisCore.COD_BOISERIE)
+        || 'PA-PERFILBOISERIE');
+      const C29 = _toNum(item.distanciaBorda1aMoldura) || 150;
+      const qtdBois = Math.max(1, parseInt(item.quantidadeMolduras, 10) || 1);
+
+      const gerarBoiserieFace = (tampaL, tampaA, faceLabel) => {
+        if (tampaL <= 0 || tampaA <= 0) return;
+        const horiz = tampaL - 2 * C29;
+        if (qtdBois >= 2) {
+          // 2 bandas — igual modelo 23 externa (VERT_1 topo / VERT_2 resto)
+          const VERT_1 = 1048 - (C29 / 2) - C29;
+          const VERT_2 = tampaA - 3 * C29 - VERT_1;
+          if (horiz  > 0) _add(cortes, COD_BOIS, horiz,  4 * qtdPortas, `Boiserie Horizontal (${faceLabel})`, 'folha');
+          if (VERT_1 > 0) _add(cortes, COD_BOIS, VERT_1, 2 * qtdPortas, `Boiserie Vertical 1 (${faceLabel})`, 'folha');
+          if (VERT_2 > 0) _add(cortes, COD_BOIS, VERT_2, 2 * qtdPortas, `Boiserie Vertical 2 (${faceLabel})`, 'folha');
+        } else {
+          // 1 banda — 1 quadro unico
+          const vert = tampaA - 2 * C29;
+          if (horiz > 0) _add(cortes, COD_BOIS, horiz, 2 * qtdPortas, `Boiserie Horizontal (${faceLabel})`, 'folha');
+          if (vert  > 0) _add(cortes, COD_BOIS, vert,  2 * qtdPortas, `Boiserie Vertical (${faceLabel})`, 'folha');
+        }
+      };
+
+      // Face EXTERNA da porta interna (tampa -77 / -50,5)
+      gerarBoiserieFace(larguraVao - descontoLarg - 38.5 - 38.5, alturaVao - fgSup - 38.5 - 12, 'face externa');
+      // Face INTERNA da porta interna (tampa -53 / -38,5)
+      gerarBoiserieFace(larguraVao - descontoLarg - 26.5 - 26.5, alturaVao - fgSup - 26.5 - 12, 'face interna');
+    }
+
     return cortes;
   }
 
