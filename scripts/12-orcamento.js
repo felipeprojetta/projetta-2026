@@ -19435,6 +19435,118 @@ const Orcamento = (() => {
   }
 
   /**
+   * Felipe (sessao atual): painel read-only de HORAS pro "Gerar Documentos".
+   * NAO reusa renderFabInstTab (tab ao vivo), pois aquele auto-preenche e
+   * PERSISTE valores na versao ao abrir — corromperia o snapshot. Aqui so'
+   * calcula via calcularFab (funcao PURA) e renderiza. Mostra horas por
+   * etapa (com colunas por item se multi), custo de mao de obra e os
+   * insumos/materia prima — espelhando o conteudo do tab Custo Fab/Inst.
+   */
+  function renderRelHoras(versao) {
+    const fmtMoney = (n) => 'R$ ' + Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtH = (n) => (Math.round((Number(n) || 0) * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+
+    const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
+    fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
+    const rFab = calcularFab(fab, versao.itens, versao);
+
+    // Mesma lista/ordem de itens do calcularFab (pra casar indices das colunas)
+    const itensFab = (versao.itens || [])
+      .filter(i => i && (i.tipo === 'porta_externa' || i.tipo === 'revestimento_parede'))
+      .concat((versao.itens || []).filter(i => i && i.tipo === 'porta_interna'))
+      .concat((versao.itens || []).filter(i => i && i.tipo === 'fixo_acoplado'));
+    const nItens = itensFab.length;
+    const multi = nItens >= 2;
+
+    const dimDe = (it, idx) => {
+      if (it.tipo === 'revestimento_parede') {
+        const paredes = Array.isArray(it.paredes) ? it.paredes : [];
+        const p = paredes.find(pp => Number(pp.largura_total) > 0 && Number(pp.altura_total) > 0);
+        if (p) return `${Number(p.largura_total)}×${Number(p.altura_total)}`;
+        if (it.largura_total && it.altura_total) return `${Number(it.largura_total)}×${Number(it.altura_total)}`;
+        return 'Rev. parede';
+      }
+      return (it.largura && it.altura) ? `${it.largura}×${it.altura}` : `Item ${idx + 1}`;
+    };
+
+    const thItens = multi
+      ? itensFab.map((it, idx) => `<th class="num" style="font-size:11px;">It ${idx + 1}<br><small style="font-weight:400;opacity:0.7;">${escapeHtml(dimDe(it, idx))}</small></th>`).join('')
+      : '';
+
+    const linhasEtapas = (rFab.detalhes || []).map(d => {
+      const tdItens = multi
+        ? itensFab.map((_, idx) => {
+            const h = (d.horasPorItem && d.horasPorItem[idx] != null) ? d.horasPorItem[idx] : 0;
+            return `<td class="num">${fmtH(h)}</td>`;
+          }).join('')
+        : '';
+      return `<tr><td>${escapeHtml(d.label)}</td>${tdItens}<td class="num"><b>${fmtH(d.horas)}</b></td></tr>`;
+    }).join('');
+
+    const vazioItens = multi ? `<td colspan="${nItens}"></td>` : '';
+
+    const mp = [
+      ['Perfis', rFab.total_perfis],
+      ['Pintura', rFab.total_pintura],
+      ['Acessorios', rFab.total_acessorios],
+      ['Fechadura Digital', rFab.total_fechadura_digital],
+      ['Revestimento / Chapas', rFab.total_revestimento],
+      ['Extras', rFab.total_extras],
+    ].filter(row => Number(row[1]) > 0)
+     .map(row => `<tr><td>${row[0]}</td><td class="num">${fmtMoney(row[1])}</td></tr>`).join('');
+
+    return `
+      <div class="rep-card" style="max-width: 760px; margin: 0 0 16px 0;">
+        <div class="rep-card-head">
+          <div class="rep-card-titulo">PROJETTA <span>by WEIKU</span></div>
+          <div class="rep-card-sub">Horas de Fabricacao — Versao ${versao.numero}</div>
+        </div>
+
+        <div class="rep-card-id">
+          <div class="rep-id-row">
+            <span class="rep-id-label">Operarios:</span><span class="rep-id-val">${escapeHtml(String(rFab.n_operarios || 0))}</span>
+            <span class="rep-id-label">Custo/hora:</span><span class="rep-id-val">${fmtMoney(rFab.custo_hora)}</span>
+            <span class="rep-id-label">Itens:</span><span class="rep-id-val">${nItens}</span>
+          </div>
+        </div>
+
+        <div class="rep-m2">
+          <div class="rep-m2-titulo">HORAS POR ETAPA</div>
+          <table class="rep-m2-tabela">
+            <thead>
+              <tr><th style="text-align:left;">Etapa</th>${thItens}<th class="num">Horas</th></tr>
+            </thead>
+            <tbody>
+              ${linhasEtapas}
+              <tr style="border-top:2px solid var(--azul-escuro);"><td><b>Total horas/operario</b></td>${vazioItens}<td class="num"><b>${fmtH(rFab.horas_etapas)}</b></td></tr>
+              <tr><td>Total horas (× ${rFab.n_operarios || 0} op.)</td>${vazioItens}<td class="num">${fmtH(rFab.total_horas)}h</td></tr>
+              <tr><td><b>Custo Mao de Obra</b></td>${vazioItens}<td class="num"><b>${fmtMoney(rFab.subtotal_horas)}</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        ${mp ? `
+        <div class="rep-m2">
+          <div class="rep-m2-titulo">MATERIA PRIMA / INSUMOS</div>
+          <table class="rep-m2-tabela">
+            <tbody>
+              ${mp}
+              <tr style="border-top:2px solid var(--azul-escuro);"><td><b>Soma insumos</b></td><td class="num"><b>${fmtMoney(rFab.total_insumos)}</b></td></tr>
+            </tbody>
+          </table>
+        </div>` : ''}
+
+        <div class="rep-precos">
+          <div class="rep-preco-bloco rep-preco-tabela">
+            <div class="rep-preco-label">TOTAL FABRICACAO (MO + INSUMOS)</div>
+            <div class="rep-preco-valor">${fmtMoney(rFab.total)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
    * Felipe (sessao 2026-08): "permita exportar mas dessa vez em png".
    * Felipe (sessao 2026-08 v2): "esta imprimindo toda lateral quero
    * somente o quadro dos relatorios". Estrategia agora:
@@ -20377,6 +20489,25 @@ const Orcamento = (() => {
       // (resumo por cor + tabela detalhada + disposicao das pecas), sem
       // efeito colateral. Mostra o status das chapas no momento do orcamento.
       html = renderRelChapas(d.versao);
+    } else if (subAba === 'horas') {
+      // Felipe (sessao atual): PNG das Horas no "Gerar Documentos".
+      // renderRelHoras usa calcularFab (PURO) — nao persiste nada.
+      html = renderRelHoras(d.versao);
+    } else if (subAba === 'acessorios') {
+      // Felipe (sessao atual): PNG do Levantamento de Acessorios.
+      // renderLevAcessoriosTab e' leitura pura (nao persiste). Renderiza
+      // num container temporario com a versao certa fixada e remove a barra
+      // de acoes do wizard antes de capturar. Restaura UI.versaoAtivaId.
+      const _versaoAntes = UI.versaoAtivaId;
+      const tmp = document.createElement('div');
+      try {
+        UI.versaoAtivaId = versaoId;
+        renderLevAcessoriosTab(tmp);
+        tmp.querySelectorAll('.orc-wizard-actions').forEach(el => el.remove());
+      } finally {
+        UI.versaoAtivaId = _versaoAntes;
+      }
+      html = tmp.innerHTML;
     } else {
       throw new Error('subAba invalida: ' + subAba);
     }
@@ -20390,7 +20521,9 @@ const Orcamento = (() => {
           tituloDoc: subAba === 'comercial' ? 'Painel Comercial' :
                      subAba === 'resultado-porta' ? 'Resultado por Porta' :
                      subAba === 'dre' ? 'DRE Resumida' :
-                     subAba === 'chapas' ? 'Chapas / Disposicao' : 'Resumo da Obra',
+                     subAba === 'chapas' ? 'Chapas / Disposicao' :
+                     subAba === 'horas' ? 'Horas de Fabricacao' :
+                     subAba === 'acessorios' ? 'Levantamento de Acessorios' : 'Resumo da Obra',
         })
       : '';
 

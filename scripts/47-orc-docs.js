@@ -562,6 +562,8 @@
           <div data-step="dre" style="opacity:0.4;">⌛ DRE Resumida (PNG)</div>
           <div data-step="obra" style="opacity:0.4;">⌛ Resumo da Obra (PNG)</div>
           <div data-step="chapas" style="opacity:0.4;">⌛ Chapas / Disposicao (PNG)</div>
+          <div data-step="horas" style="opacity:0.4;">⌛ Horas de Fabricacao (PNG)</div>
+          <div data-step="acessorios" style="opacity:0.4;">⌛ Levantamento de Acessorios (PNG)</div>
           <div data-step="proposta-comercial" style="opacity:0.4;">⌛ Proposta Comercial (PDF cliente)</div>
         </div>
         <div style="margin-top: 14px; font-size: 11px; color: #6b7280;">
@@ -586,6 +588,8 @@
       { key: 'dre',             tipo: 'DRE Resumida'     },
       { key: 'obra',            tipo: 'Resumo Da Obra'   },
       { key: 'chapas',          tipo: 'Chapas'           },
+      { key: 'horas',           tipo: 'Horas Fabricacao' },
+      { key: 'acessorios',      tipo: 'Acessorios'       },
     ];
     setStep('prep', 'ok');
     for (const { key, tipo } of subAbas) {
