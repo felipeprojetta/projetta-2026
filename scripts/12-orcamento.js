@@ -14883,7 +14883,20 @@ const Orcamento = (() => {
     if (fixosCnt) cntsTxt.push(`${fixosCnt} fixo${fixosCnt > 1 ? 's' : ''}`);
     if (revsCnt)  cntsTxt.push(`${revsCnt} revestimento${revsCnt > 1 ? 's' : ''} de parede`);
 
+    // Felipe (sessao atual): "esse cabecalho falta em Levantamento de
+    // Superficies" — adiciona o cabecalho padronizado da empresa fixo no topo.
+    const _leadSup = lerLeadAtivo() || {};
+    const _headerSupHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
+      ? window.Empresa.montarHeaderRelatorio({
+          lead: _leadSup,
+          tituloRelatorio: 'Levantamento de Superficies',
+          numeroDocumento: `${(r.opcao?.letra || 'A')} - ${versao.numero}`,
+          validade: 15,
+        })
+      : '';
+
     container.innerHTML = `
+      ${_headerSupHtml}
       <div class="orc-lev-sup-banner-recalc" style="display:none;
            position:sticky;top:0;z-index:10;background:#fef3c7;
            border:1px solid #f59e0b;border-radius:6px;padding:10px 14px;
@@ -20574,10 +20587,23 @@ const Orcamento = (() => {
         </details>`;
     }
 
+    // Felipe (sessao atual): "esse cabecalho falta em Levantamento de
+    // Acessorios" — adiciona o cabecalho padronizado da empresa (igual as
+    // outras abas) fixo no topo.
+    const _leadAcc = lerLeadAtivo() || {};
+    const _opcAcc = obterVersao(versao.id)?.opcao;
+    const _headerAccHtml = (window.Empresa && window.Empresa.montarHeaderRelatorio)
+      ? window.Empresa.montarHeaderRelatorio({
+          lead: _leadAcc,
+          tituloRelatorio: 'Levantamento de Acessorios',
+          numeroDocumento: `${(_opcAcc?.letra || 'A')} - ${versao.numero}`,
+          validade: 15,
+        })
+      : '';
+
     container.innerHTML = `
+      ${_headerAccHtml}
       ${bannerCaracteristicasItens(versao)}
-      ${itens.length >= 2 ? `<div class="info-banner orc-banner-aviso">
-        <span class="t-strong">Levantamento de Acessorios — Multi-Item</span><br>
         <b>${itens.length}</b> tipo(s) de Porta Externa, totalizando <b>${totalUnidades}</b> unidade(s).
         Quantidade de cada acessorio e' multiplicada pela qtd do item.
       </div>` : ''}
