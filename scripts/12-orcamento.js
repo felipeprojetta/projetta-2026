@@ -20684,6 +20684,10 @@ const Orcamento = (() => {
       z-index: -1; font-family: inherit;
     `;
     host.innerHTML = `${headerEmpresaHtml}<div class="rel-pane">${html}</div>`;
+    // Felipe (sessao atual): os blocos por item (Acessorios) sao <details>
+    // colapsados por padrao — o PNG saia so' com o cabecalho "▶ Item N".
+    // Forca abrir TODOS os <details> pra o relatorio mostrar o conteudo.
+    host.querySelectorAll('details').forEach(d => d.setAttribute('open', ''));
     document.body.appendChild(host);
     return host;
   }
