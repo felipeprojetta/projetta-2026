@@ -3525,17 +3525,13 @@
                 // o numero ('146448 - cliente') sem palavra 'reserva'.
                 var num12 = String(lead.numeroReserva).trim();
                 var emails = [];
-                var tentativas12 = [
-                  'subject:"reserva ' + num12 + '"',
-                  'subject:' + num12,
-                  '"' + num12 + '"',
-                ];
-                for (var iT = 0; iT < tentativas12.length && emails.length === 0; iT++) {
-                  try {
-                    const inboxT = await window.outlookListInbox({ top: 50, search: tentativas12[iT] });
-                    emails = (inboxT && inboxT.emails) || [];
-                  } catch (errT) { console.warn('[CRM email] tentativa falhou:', errT); }
-                }
+                // Felipe (sessao atual): outlookListInbox JA envolve o termo em
+                // aspas ($search="<num>"). Passar 'subject:...'/'"NUM"' gerava
+                // aspas duplas malformadas e nao achava. Passa o numero puro.
+                try {
+                  const inboxT = await window.outlookListInbox({ top: 50, search: num12 });
+                  emails = (inboxT && inboxT.emails) || [];
+                } catch (errT) { console.warn('[Kanban email] busca falhou:', errT); }
                 if (!emails.length) {
                   alert('Email com reserva ' + lead.numeroReserva + ' nao encontrado no inbox');
                   btnEmail.textContent = '📧 Enviar Proposta';

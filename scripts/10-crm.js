@@ -4468,17 +4468,17 @@ ${secoesHtml}
                 // o numero ('146448 - cliente') sem palavra 'reserva'.
                 var num12 = String(lead.numeroReserva).trim();
                 var emails = [];
-                var tentativas12 = [
-                  'subject:"reserva ' + num12 + '"',
-                  'subject:' + num12,
-                  '"' + num12 + '"',
-                ];
-                for (var iT = 0; iT < tentativas12.length && emails.length === 0; iT++) {
-                  try {
-                    const inboxT = await window.outlookListInbox({ top: 50, search: tentativas12[iT] });
-                    emails = (inboxT && inboxT.emails) || [];
-                  } catch (errT) { console.warn('[CRM email] tentativa falhou:', errT); }
-                }
+                // Felipe (sessao atual): outlookListInbox JA envolve o termo
+                // em aspas ($search="<num>"), buscando em assunto E corpo, em
+                // todas as pastas. Antes o card passava termos pre-formatados
+                // ('subject:"reserva NUM"', '"NUM"') que viravam aspas duplas
+                // malformadas ($search=""NUM"") e nao achavam nada — por isso a
+                // tela de integracao achava o email e o card dizia "nao
+                // encontrado". Agora passa o numero puro, igual a integracao.
+                try {
+                  const inboxT = await window.outlookListInbox({ top: 50, search: num12 });
+                  emails = (inboxT && inboxT.emails) || [];
+                } catch (errT) { console.warn('[CRM email] busca falhou:', errT); }
                 if (!emails.length) {
                   alert('Email com reserva ' + lead.numeroReserva + ' nao encontrado no inbox');
                   btnEmail.textContent = '📧 Enviar Proposta';

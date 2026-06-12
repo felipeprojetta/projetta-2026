@@ -708,11 +708,11 @@
       // Agora tenta varios formatos comuns ate achar.
       var num = String(numeroReserva).trim();
       var emails = [];
-      var tentativas = [
-        'subject:"reserva ' + num + '"',  // 1. classico: 'Reserva 146448' (Weiku)
-        'subject:' + num,                 // 2. so o numero no subject (caso Felipe)
-        '"' + num + '"',                  // 3. ampla: numero em qq lugar do email (corpo, anexo, etc)
-      ];
+      // Felipe (sessao atual): outlookListInbox JA envolve o termo em aspas
+      // ($search="<num>", busca assunto+corpo em todas as pastas). Passar
+      // 'subject:...'/'"NUM"' gerava aspas duplas malformadas ($search=""NUM"")
+      // e nao achava nada. Passa o numero puro, igual a tela de integracao.
+      var tentativas = [ num ];
       for (var i = 0; i < tentativas.length && emails.length === 0; i++) {
         try {
           var inbox = await window.outlookListInbox({
@@ -728,7 +728,7 @@
         }
       }
       if (!emails.length) {
-        return { ok: false, erro: 'Email com reserva ' + num + ' nao encontrado no inbox.\n(Procurei por "reserva ' + num + '", "' + num + '" e ampla. Tente reabrir Email > Sync e clique de novo.)' };
+        return { ok: false, erro: 'Email com reserva ' + num + ' nao encontrado no inbox.\n(Procurei por "' + num + '" em assunto e corpo. Tente reabrir Email > Sync e clique de novo.)' };
       }
       // Pega o mais recente (primeiro do array, ja vem ordenado desc)
       var msgId = emails[0].id;
