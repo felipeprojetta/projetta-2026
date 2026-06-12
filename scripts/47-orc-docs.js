@@ -561,6 +561,7 @@
           <div data-step="resultado-porta" style="opacity:0.4;">⌛ Resultado por Porta (PNG)</div>
           <div data-step="dre" style="opacity:0.4;">⌛ DRE Resumida (PNG)</div>
           <div data-step="obra" style="opacity:0.4;">⌛ Resumo da Obra (PNG)</div>
+          <div data-step="chapas" style="opacity:0.4;">⌛ Chapas / Disposicao (PNG)</div>
           <div data-step="proposta-comercial" style="opacity:0.4;">⌛ Proposta Comercial (PDF cliente)</div>
         </div>
         <div style="margin-top: 14px; font-size: 11px; color: #6b7280;">
@@ -584,6 +585,7 @@
       { key: 'resultado-porta', tipo: 'Resultado Porta'  },
       { key: 'dre',             tipo: 'DRE Resumida'     },
       { key: 'obra',            tipo: 'Resumo Da Obra'   },
+      { key: 'chapas',          tipo: 'Chapas'           },
     ];
     setStep('prep', 'ok');
     for (const { key, tipo } of subAbas) {

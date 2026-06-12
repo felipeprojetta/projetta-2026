@@ -20371,6 +20371,12 @@ const Orcamento = (() => {
       html = renderRelDRE(d.versao, d.dre, d.params, d.fmtMoney, d.fmtPct);
     } else if (subAba === 'obra') {
       html = renderRelObra(d.versao, d.dre, d.fmtMoney);
+    } else if (subAba === 'chapas') {
+      // Felipe (sessao atual): PNG das chapas no "Gerar Documentos".
+      // renderRelChapas e' leitura pura de versao.chapasSelecionadas
+      // (resumo por cor + tabela detalhada + disposicao das pecas), sem
+      // efeito colateral. Mostra o status das chapas no momento do orcamento.
+      html = renderRelChapas(d.versao);
     } else {
       throw new Error('subAba invalida: ' + subAba);
     }
@@ -20383,7 +20389,8 @@ const Orcamento = (() => {
           lead: d.lead, numeroDoc, dataDoc: nowIso(),
           tituloDoc: subAba === 'comercial' ? 'Painel Comercial' :
                      subAba === 'resultado-porta' ? 'Resultado por Porta' :
-                     subAba === 'dre' ? 'DRE Resumida' : 'Resumo da Obra',
+                     subAba === 'dre' ? 'DRE Resumida' :
+                     subAba === 'chapas' ? 'Chapas / Disposicao' : 'Resumo da Obra',
         })
       : '';
 
