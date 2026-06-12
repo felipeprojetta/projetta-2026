@@ -2725,6 +2725,11 @@ const Orcamento = (() => {
     delete alvo.valorAprovado;
     delete alvo.precoProposta;
     delete alvo.enviadoParaCard;
+    // Felipe (sessao atual): Revisar deve liberar TUDO. Remove tambem a trava
+    // de envio (enviadaEm) e a fotografia congelada (dre_congelado), senao
+    // versaoEhImutavel continuaria true e a tela ficaria read-only.
+    delete alvo.enviadaEm;
+    delete alvo.dre_congelado;
     // Reverte status fechada -> draft
     if (alvo.status === 'fechada') {
       alvo.status = 'draft';
@@ -4135,14 +4140,20 @@ const Orcamento = (() => {
   function render(container, tabId) {
     const aba = tabId || 'item';
 
-    // Felipe sessao 12 (2a vez): 'nao gostei disso tire esse bloqueio'.
-    // Congelamento via CSS .is-orc-readonly REMOVIDO. Banner 'Modo Memorial'
-    // continua aparecendo como AVISO VISUAL nao-bloqueante, mas Felipe pode
-    // editar campos livremente em qualquer versao. Versoes com status='fechada'
-    // ainda dao erro tecnico em atualizarVersao (linha 1262) - intencional
-    // pra preservar historico apos Nova Versao.
+    // Felipe (sessao atual): "depois de enviado deve ficar travado para nao
+    // alterar nada, somente visualizar. Se eu clicar em Revisar deve deixar
+    // alterar tudo; se eu so' abrir deve estar tudo somente leitura."
+    // Abrir Orcamento carrega a versao como esta' -> se imutavel (enviada/
+    // aprovada/fechada), aplica .is-orc-readonly (CSS trava inputs/botoes de
+    // edicao, mantendo navegacao/export/relatorios). Revisar chama
+    // destravarVersao -> versao deixa de ser imutavel -> volta editavel.
     inicializarSessao();
-    container.classList.remove('is-orc-readonly');
+    const _vAtual = obterVersao(UI.versaoAtivaId)?.versao;
+    if (_vAtual && versaoEhImutavel(_vAtual)) {
+      container.classList.add('is-orc-readonly');
+    } else {
+      container.classList.remove('is-orc-readonly');
+    }
 
     if (aba === 'item')             return renderItemTab(container);
     if (aba === 'fab-inst')         return renderFabInstTab(container);
@@ -8307,7 +8318,7 @@ const Orcamento = (() => {
       <div class="orc-banner" style="background:#fff7ed;border:1px solid #f59e0b;">
         <div class="orc-banner-info" style="color:#7c2d12;font-weight:600;">
           🔒 Orcamento ${versao.status === 'fechada' ? 'fechado' : (versao.enviadaEm ? 'enviado' : 'aprovado')} — <b>travado</b>. Os valores estao congelados (foto do envio) e nao recalculam.
-          Para alterar, crie uma <b>Nova Versao</b>.
+          Para alterar, clique em <b>Revisar</b> (libera a edicao) ou crie uma <b>Nova Versao</b>.
         </div>
       </div>` : ''}
       <div class="orc-banner">
