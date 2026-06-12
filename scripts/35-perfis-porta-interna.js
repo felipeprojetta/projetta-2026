@@ -191,7 +191,14 @@ const PerfisPortaInterna = (() => {
         || (window.PerfisCore && window.PerfisCore.COD_BOISERIE)
         || 'PA-PERFILBOISERIE');
       const C29 = _toNum(item.distanciaBorda1aMoldura) || 150;
-      const qtdBois = Math.max(1, parseInt(item.quantidadeMolduras, 10) || 1);
+      // Felipe (sessao atual): "Padrao" (ou vazio) = layout classico de 2
+      // molduras/bandas, IGUAL a porta externa modelo 23 (4 horizontais + 4
+      // verticais por face). Antes o codigo so olhava quantidadeMolduras, que
+      // vinha vazia -> caia em 1 banda (2+2) -> qtd errada. So 'Divisoes Iguais'
+      // / 'Personalizado' usam a quantidade de molduras escolhida no form.
+      const tipoMold = String(item.tipoMoldura || '').trim();
+      const ehPadrao = (tipoMold === 'Padrao' || tipoMold === '');
+      const qtdBois = ehPadrao ? 2 : Math.max(1, parseInt(item.quantidadeMolduras, 10) || 1);
 
       const gerarBoiserieFace = (tampaL, tampaA, faceLabel) => {
         if (tampaL <= 0 || tampaA <= 0) return;
