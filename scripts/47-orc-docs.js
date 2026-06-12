@@ -564,6 +564,7 @@
           <div data-step="chapas" style="opacity:0.4;">⌛ Chapas / Disposicao (PNG)</div>
           <div data-step="perfis" style="opacity:0.4;">⌛ Perfis / Aproveitamento de Barras (PNG)</div>
           <div data-step="horas" style="opacity:0.4;">⌛ Horas de Fabricacao (PNG)</div>
+          <div data-step="instalacao" style="opacity:0.4;">⌛ Custo de Instalacao (PNG)</div>
           <div data-step="acessorios" style="opacity:0.4;">⌛ Levantamento de Acessorios (PNG)</div>
           <div data-step="proposta-comercial" style="opacity:0.4;">⌛ Proposta Comercial (PDF cliente)</div>
         </div>
@@ -591,6 +592,7 @@
       { key: 'chapas',          tipo: 'Chapas'           },
       { key: 'perfis',          tipo: 'Perfis'           },
       { key: 'horas',           tipo: 'Horas Fabricacao' },
+      { key: 'instalacao',      tipo: 'Instalacao'       },
       { key: 'acessorios',      tipo: 'Acessorios'       },
     ];
     setStep('prep', 'ok');

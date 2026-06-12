@@ -19856,6 +19856,92 @@ const Orcamento = (() => {
   }
 
   // ============================================================
+  //                      RELATORIO: CUSTO DE INSTALACAO (puro)
+  // ============================================================
+  /**
+   * Felipe (sessao atual): "nao tem os custos de instalacao" no Gerar
+   * Documentos. Render PURO do Resumo de Instalacao (mesma formula da aba
+   * Custo Fab/Inst): calcularInst NAO persiste nada. Espelha o bloco
+   * "Resumo Instalacao" da renderFabInstTab.
+   */
+  function renderRelInstalacao(versao) {
+    if (!versao) return '<div class="info-banner">Sem versao.</div>';
+    const inst = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
+    // Auto-popula altura do MAIOR item (gatilho de andaime > 3m) — igual sync.
+    const alturas = (versao.itens || []).map(it => Number(it.altura) || 0).filter(v => v > 0);
+    if (alturas.length > 0) inst.altura_porta_mm = Math.max(...alturas);
+    const rInst = calcularInst(inst, versao.itens || []);
+    const fmtMoney = (v) => `R$ ${fmtBR(Number(v) || 0)}`;
+
+    const linha = (label, valor) => {
+      const v = (valor === null || valor === undefined)
+        ? '<span class="orc-fi-traco">—</span>'
+        : `R$ ${fmtBR(Number(valor) || 0)}`;
+      return `<div class="orc-fi-resumo-row"><span>${label}</span><span>${v}</span></div>`;
+    };
+
+    let resumoLinhas = '';
+    if (inst.sem_instalacao) {
+      resumoLinhas = '';
+    } else {
+      const ehManual = (inst.modo === 'terceiros' || inst.modo === 'internacional');
+      const labelModo = inst.modo === 'internacional' ? 'Projetta Internacional' : 'Terceiros';
+      const linhas = [];
+      if (ehManual) {
+        if (inst.modo === 'internacional' && rInst.intl_viagem && !rInst.intl_manual) {
+          const vg = rInst.intl_viagem;
+          linhas.push(`<div class="orc-fi-resumo-row"><span>Pessoas / Dias / Obras</span><span>${vg.pessoas} × ${vg.dias} × ${vg.nInst}</span></div>`);
+          linhas.push(linha('Passagens UDI -> GRU',     vg.itens.passagens_udi_gru));
+          linhas.push(linha('Passagens GRU -> Destino', vg.itens.passagens_gru_dest));
+          linhas.push(linha('Hotel',                    vg.itens.hotel));
+          linhas.push(linha('Carro',                    vg.itens.carro));
+          linhas.push(linha('Alimentacao',              vg.itens.alimentacao));
+          linhas.push(linha('Seguro saude',             vg.itens.seguro));
+          linhas.push(linha('Mao de obra Projetta',     vg.itens.mao_obra));
+        } else {
+          linhas.push(linha(`Instalacao (${labelModo}) — valor`, rInst.inst_terceiros_valor));
+          linhas.push(linha(`Frete / transporte (${labelModo})`, rInst.inst_terceiros_transp));
+        }
+      } else {
+        linhas.push(`<div class="orc-fi-resumo-row"><span>Total dias</span><span>${rInst.diasTotal} dia${rInst.diasTotal !== 1 ? 's' : ''}</span></div>`);
+        linhas.push(linha(`Salarios da equipe (${rInst.diasTotal} d × ${Number(inst.n_pessoas) || 0} p × R$ ${fmtBR(Number(inst.diaria_pessoa) || 0)})`, rInst.salarios));
+        linhas.push(linha(`Diesel ((km + 50) × 0,875 × 2 × ${Number(inst.n_carros) || 0} carro${Number(inst.n_carros) === 1 ? '' : 's'})`, rInst.diesel));
+        linhas.push(linha(`Hotel (${rInst.noites} noite${rInst.noites !== 1 ? 's' : ''} × R$ ${fmtBR(Number(inst.diaria_hotel) || 0)} × ${rInst.quartos} quarto${rInst.quartos !== 1 ? 's' : ''})`, rInst.hotel));
+        linhas.push(linha(`Alimentacao (${rInst.diasTotal} d × ${Number(inst.n_pessoas) || 0} p × R$ ${fmtBR(Number(inst.alimentacao_dia) || 0)})`, rInst.alimentacao));
+        linhas.push(linha('Andaime (auto — altura > 3 m)', rInst.andaime));
+        linhas.push(linha('Munk / caminhao', rInst.munk));
+        linhas.push(linha('Pedagio (ida + volta)', rInst.pedagio));
+      }
+      resumoLinhas = linhas.join('');
+    }
+
+    // Mini-grid de contexto (distancia, dias, pessoas, carros)
+    const ctx = `
+      <div class="orc-fi-resumo" style="margin-bottom:12px;">
+        <div class="orc-fi-resumo-titulo">Parametros</div>
+        <div class="orc-fi-resumo-row"><span>Distancia (km)</span><span>${fmtBR(Number(inst.distancia_km) || 0)}</span></div>
+        <div class="orc-fi-resumo-row"><span>Dias de instalacao</span><span>${Number(inst.dias_instalacao) || 0}</span></div>
+        <div class="orc-fi-resumo-row"><span>Pessoas</span><span>${Number(inst.n_pessoas) || 0}</span></div>
+        <div class="orc-fi-resumo-row"><span>Carros</span><span>${Number(inst.n_carros) || 0}</span></div>
+      </div>`;
+
+    return `
+      ${bannerCaracteristicasItens(versao)}
+      <div class="orc-section-card">
+        <div class="orc-section-title">Custo de Instalacao</div>
+        ${ctx}
+        <div class="orc-fi-resumo">
+          <div class="orc-fi-resumo-titulo">Resumo Instalacao</div>
+          ${resumoLinhas}
+          <div class="orc-fi-resumo-row orc-fi-total-final">
+            <span>Total Instalacao</span>
+            <span>${fmtMoney(rInst.total)}</span>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ============================================================
   //                      ABA: LEVANTAMENTO DE ACESSORIOS
   // ============================================================
   /**
@@ -20643,6 +20729,10 @@ const Orcamento = (() => {
       // Felipe (sessao atual): PNG das Horas no "Gerar Documentos".
       // renderRelHoras usa calcularFab (PURO) — nao persiste nada.
       html = renderRelHoras(d.versao);
+    } else if (subAba === 'instalacao') {
+      // Felipe (sessao atual): PNG do Custo de Instalacao.
+      // renderRelInstalacao usa calcularInst (PURO) — nao persiste nada.
+      html = renderRelInstalacao(d.versao);
     } else if (subAba === 'acessorios') {
       // Felipe (sessao atual): PNG do Levantamento de Acessorios.
       // renderLevAcessoriosTab e' leitura pura (nao persiste). Renderiza
@@ -20692,6 +20782,7 @@ const Orcamento = (() => {
                      subAba === 'dre' ? 'DRE Resumida' :
                      subAba === 'chapas' ? 'Chapas / Disposicao' :
                      subAba === 'horas' ? 'Horas de Fabricacao' :
+                     subAba === 'instalacao' ? 'Custo de Instalacao' :
                      subAba === 'perfis' ? 'Perfis / Aproveitamento de Barras' :
                      subAba === 'acessorios' ? 'Levantamento de Acessorios' : 'Resumo da Obra',
         })
