@@ -1095,10 +1095,23 @@ const ChapasPortaExterna = (() => {
           largura: ctx => (ctx.larguraQuadro1F - 1) + 2*ctx.REF,
           comp: ctx => ctx.dBFH + ctx.REF,
           ext: 2, int: 2, categoria: 'porta' },
+        // Friso horizontal 1F: divide a 1500 da borda quando passa de 1500
+        // (largura util da chapa). Pedaco 1 = 1500, pedaco 2 = resto. O FRISO
+        // VERTICAL entra no corte (a 1500 da borda) e passa a ser contabilizado.
         { id: 'friso_horizontal', label: 'Friso Horizontal',
-          largura: ctx => ctx.larguraQuadro1F,
+          largura: ctx => Math.min(ctx.larguraQuadro1F, 1500),
           comp: ctx => ctx.eF + 100,
           ext: 1, int: 1, categoria: 'porta' },
+        { id: 'friso_horizontal_2', label: 'Friso Horizontal 2',
+          largura: ctx => Math.max(0, ctx.larguraQuadro1F - 1500),
+          comp: ctx => ctx.eF + 100,
+          ext: ctx => ctx.larguraQuadro1F > 1500 ? 1 : 0,
+          int: ctx => ctx.larguraQuadro1F > 1500 ? 1 : 0, categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => ctx.eF + 100,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => ctx.larguraQuadro1F > 1500 ? 1 : 0,
+          int: ctx => ctx.larguraQuadro1F > 1500 ? 1 : 0, categoria: 'porta' },
       ],
       '2F': [
         // Felipe (sessao 18): mod 12 NAO tem CAVA nem TAMPA_DA_CAVA.
@@ -1114,11 +1127,22 @@ const ChapasPortaExterna = (() => {
           largura: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - 1,
           comp: ctx => ctx.alturaQuadro - 2*ctx.dBFH - 2*ctx.eF + 2*ctx.REF - 1,
           ext: 0, int: 1, categoria: 'porta' },
-        // Friso horizontal 2F: largura = larguraQuadro2F + 50
+        // Friso horizontal 2F: divide a 1500 da borda quando passa de 1500.
+        // Pedaco 1 = 1500, pedaco 2 = resto. O FRISO VERTICAL entra no corte.
         { id: 'friso_horizontal', label: 'Friso Horizontal',
-          largura: ctx => ctx.larguraQuadro2F + 50,
+          largura: ctx => Math.min(ctx.larguraQuadro2F + 50, 1500),
           comp: ctx => ctx.eF + 100,
           ext: 1, int: 1, categoria: 'porta' },
+        { id: 'friso_horizontal_2', label: 'Friso Horizontal 2',
+          largura: ctx => Math.max(0, (ctx.larguraQuadro2F + 50) - 1500),
+          comp: ctx => ctx.eF + 100,
+          ext: ctx => (ctx.larguraQuadro2F + 50) > 1500 ? 1 : 0,
+          int: ctx => (ctx.larguraQuadro2F + 50) > 1500 ? 1 : 0, categoria: 'porta' },
+        { id: 'friso_vertical', label: 'Friso Vertical',
+          largura: ctx => ctx.eF + 100,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => (ctx.larguraQuadro2F + 50) > 1500 ? 1 : 0,
+          int: ctx => (ctx.larguraQuadro2F + 50) > 1500 ? 1 : 0, categoria: 'porta' },
         // 3 TAMPA_MAIOR_FRISO_VERTICAL extras (so 2F): igual TM01/02/03 mas comp = dBFH + REF
         { id: 'tm01_friso_vert', label: 'Tampa Maior 01 - Friso Vert.',
           largura: ctx => ctx.larguraQuadro2F/2 + 10.5 + 2*ctx.REF - 1,
