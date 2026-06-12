@@ -11486,7 +11486,7 @@ const Orcamento = (() => {
 
     // === AUTO-SALVA no fab.total_perfis e fab.total_pintura ===
     // Se o usuario nao editou manualmente esses campos (auto-fill).
-    if (versao && versao.status !== 'fechada') {
+    if (versao && !versaoEhImutavel(versao)) {
       const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
       fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
       const novoTPerfis  = Math.round(result.custoPerfis  * 100) / 100;
@@ -20658,6 +20658,25 @@ const Orcamento = (() => {
         UI.versaoAtivaId = _versaoAntes;
       }
       html = tmp.innerHTML;
+    } else if (subAba === 'perfis') {
+      // Felipe (sessao atual): PNG do "Aproveitamento de Barras" (Relacao de
+      // Barras). Renderiza renderLevPerfisTab offscreen na sub-aba planificador
+      // e extrai so' o .lvp-wrap (cards + tabela), sem o cabecalho/subtabs
+      // duplicados (o header da empresa e' adicionado abaixo por este host).
+      const _vAntes = UI.versaoAtivaId;
+      const _subAntes = UI.subLevPerfis;
+      const tmpP = document.createElement('div');
+      try {
+        UI.versaoAtivaId = versaoId;
+        UI.subLevPerfis = 'planificador';
+        renderLevPerfisTab(tmpP);
+      } finally {
+        UI.versaoAtivaId = _vAntes;
+        UI.subLevPerfis = _subAntes;
+      }
+      const wrap = tmpP.querySelector('#lvp-content .lvp-wrap');
+      html = (bannerCaracteristicasItens(d.versao) || '') +
+             (wrap ? wrap.outerHTML : '<div class="info-banner">Sem dados de perfis nesta versao.</div>');
     } else {
       throw new Error('subAba invalida: ' + subAba);
     }
@@ -20673,6 +20692,7 @@ const Orcamento = (() => {
                      subAba === 'dre' ? 'DRE Resumida' :
                      subAba === 'chapas' ? 'Chapas / Disposicao' :
                      subAba === 'horas' ? 'Horas de Fabricacao' :
+                     subAba === 'perfis' ? 'Perfis / Aproveitamento de Barras' :
                      subAba === 'acessorios' ? 'Levantamento de Acessorios' : 'Resumo da Obra',
         })
       : '';
