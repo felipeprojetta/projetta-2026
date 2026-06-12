@@ -2121,6 +2121,9 @@ const Orcamento = (() => {
             delete v.valorAprovado;
             delete v.precoProposta;
             delete v.enviadoParaCard;
+            // Felipe (sessao atual): nova versao nasce DESTRAVADA (editavel).
+            delete v.enviadaEm;
+            delete v.dre_congelado;
             saveAll(negocios);
             break;
           }
@@ -2182,7 +2185,7 @@ const Orcamento = (() => {
     // por isso o toggle "Valor unico final / Valor por item" NAO salvava
     // (atualizarVersao descartava o campo silenciosamente) e o botao
     // parecia nao funcionar.
-    const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas', 'dre_congelado', 'modoValorProposta'];
+    const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas', 'dre_congelado', 'modoValorProposta', 'enviadaEm'];
     camposPermitidos.forEach(k => {
       if (k in dadosNovos) alvo[k] = dadosNovos[k];
     });
@@ -2302,6 +2305,75 @@ const Orcamento = (() => {
       return { versaoId: alvoVersao.id, negocioId: negocio.id };
     } catch (e) {
       console.warn('[orcamento] fecharVersaoAprovadaDoLead falhou:', e.message);
+      return null;
+    }
+  }
+
+  /**
+   * Felipe (sessao atual): "apos enviar por email, ou arrastar para coluna
+   * enviado nao se pode alterar; a unica maneira e' fazendo nova versao".
+   * Paralelo do fecharVersaoAprovadaDoLead, mas pra ENVIO (nao fechamento):
+   * carimba enviadaEm na versao ativa do negocio e captura dre_congelado
+   * (a foto do valor enviado). versaoEhImutavel passa a retornar true ->
+   * recalculo congelado + edicao bloqueada. Nova Versao destrava (cria
+   * versao limpa).
+   *
+   * Alvo: versao com aprovadoEm mais recente; senao a versao mais recente
+   * (criadoEm) que tenha valor (subFab+subInst>0). Idempotente: se a versao
+   * ja' e' imutavel, nao mexe.
+   *
+   * @param {string} leadId
+   * @returns {{versaoId, negocioId}|null}
+   */
+  function congelarVersaoEnviadaDoLead(leadId) {
+    if (!leadId) return null;
+    try {
+      const negocios = loadAll();
+      const idx = negocios.findIndex(n => n.leadId === leadId);
+      if (idx < 0) return null;
+      const negocio = negocios[idx];
+
+      let alvo = null;
+      let maisRecente = '';
+      (negocio.opcoes || []).forEach(o => {
+        (o.versoes || []).forEach(v => {
+          if (!v) return;
+          const temValor = (Number(v.subFab) || 0) + (Number(v.subInst) || 0) > 0;
+          if (!temValor) return;
+          // prioridade: aprovadoEm; senao criadoEm. Versao mais recente vence.
+          const ts = String(v.aprovadoEm || v.criadoEm || '');
+          if (ts >= maisRecente) { maisRecente = ts; alvo = v; }
+        });
+      });
+
+      if (!alvo) {
+        console.info('[orcamento] congelarVersaoEnviadaDoLead: lead', leadId, 'sem versao com valor — nada a congelar');
+        return null;
+      }
+      // Ja' imutavel (fechada/aprovada/enviada)? Garante so' o dre_congelado.
+      if (!alvo.enviadaEm && alvo.status !== 'fechada') {
+        alvo.enviadaEm = nowIso();
+      }
+      if (!alvo.dre_congelado) {
+        const subFab  = Number(alvo.subFab)  || 0;
+        const subInst = Number(alvo.subInst) || 0;
+        const paramsAtual = Object.assign({}, PARAMS_DEFAULT, alvo.parametros || {});
+        const dreCalc = calcularDRE(subFab, subInst, paramsAtual);
+        alvo.dre_congelado = {
+          congeladoEm: nowIso(), subFab, subInst,
+          custoFab: alvo.custoFab || null, custoInst: alvo.custoInst || null,
+          parametros: paramsAtual,
+          custo: dreCalc.custo, pFat: dreCalc.pFat, pTab: dreCalc.pTab,
+          pFatReal: dreCalc.pFatReal, markupPct: dreCalc.markupPct,
+          valorAprovado: Number(alvo.valorAprovado) || 0,
+          precoProposta: Number(alvo.precoProposta) || 0,
+        };
+      }
+      saveAll(negocios);
+      console.info('[orcamento] 🔒 congelarVersaoEnviadaDoLead: versao', alvo.numero, 'do lead', leadId, 'travada (enviada)');
+      return { versaoId: alvo.id, negocioId: negocio.id };
+    } catch (e) {
+      console.warn('[orcamento] congelarVersaoEnviadaDoLead falhou:', e.message);
       return null;
     }
   }
@@ -7604,6 +7676,11 @@ const Orcamento = (() => {
     if (!versao) return false;
     if (versao.status === 'fechada') return true;
     if (versao.aprovadoEm) return true;
+    // Felipe (sessao atual): "apos enviar por email, ou arrastar para coluna
+    // enviado nao se pode alterar; a unica maneira e' fazendo nova versao".
+    // enviadaEm e' carimbado por congelarVersoesDoLead (chamado no envio de
+    // email e no arrasto pra coluna Enviado). Trava recalculo + edicao.
+    if (versao.enviadaEm) return true;
     return false;
   }
 
@@ -8009,6 +8086,9 @@ const Orcamento = (() => {
     }
     const negocio = obterNegocio(UI.negocioAtivoId);
     const opcao  = obterVersao(UI.versaoAtivaId).opcao;
+    // Felipe (sessao atual): versao enviada/aprovada/fechada NAO auto-recalcula
+    // nem persiste insumos (perfis/pintura/acessorios) ao abrir — congelado.
+    const _imutavel = versaoEhImutavel(versao);
 
     const fab  = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
     fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
@@ -8064,7 +8144,7 @@ const Orcamento = (() => {
     } catch (e) { /* fallback silencioso */ }
     // Persiste o auto-preenchimento na versao pra que o usuario veja
     // os valores no proximo render e o calculo use valores reais.
-    if (_autoPreenchido) {
+    if (_autoPreenchido && !_imutavel) {
       try {
         atualizarVersao(versao.id, {
           custoFab:  Object.assign({}, versao.custoFab || {}, fab),
@@ -8098,8 +8178,8 @@ const Orcamento = (() => {
           if (rPerfis && rPerfis.result) {
             const cp = Math.round((rPerfis.result.custoPerfis  || 0) * 100) / 100;
             const ct = Math.round((rPerfis.result.custoPintura || 0) * 100) / 100;
-            if (cp > 0) fab.total_perfis = cp;
-            if (ct > 0) fab.total_pintura = ct;
+            if (!_imutavel && cp > 0) fab.total_perfis = cp;
+            if (!_imutavel && ct > 0) fab.total_pintura = ct;
           }
         }
       }
@@ -8182,18 +8262,18 @@ const Orcamento = (() => {
         // Felipe (sessao 09): atualiza total_acessorios APENAS se motor
         // retornou valor > 0. Se motor retorna 0 (ex: cadastros nao carregados),
         // PRESERVA valor existente pra nao destruir dados.
-        if (totalAcess > 0) {
+        if (totalAcess > 0 && !_imutavel) {
           fab.total_acessorios = totalAcess;
         }
         // Fechadura digital: atualiza se motor retornou algo OU se havia valor
         // e agora e 0 (usuario removeu a fechadura). Mas só se cadastros carregados.
         const valorDigitalAntigo = Number(fab.total_fechadura_digital) || 0;
         const cadCarregado = cadAcess && cadAcess.length > 0;
-        if (cadCarregado && Math.abs(valorDigitalAntigo - totalDigital) > 0.01) {
+        if (!_imutavel && cadCarregado && Math.abs(valorDigitalAntigo - totalDigital) > 0.01) {
           fab.total_fechadura_digital = totalDigital > 0 ? totalDigital : '';
         }
-        // Persiste custoFab + recalcula subFab
-        {
+        // Persiste custoFab + recalcula subFab (so' em versao editavel)
+        if (!_imutavel) {
           const rFab = calcularFab(fab, versao.itens, versao);
           atualizarVersao(versao.id, {
             custoFab: Object.assign({}, versao.custoFab || {}, fab),
@@ -8223,6 +8303,13 @@ const Orcamento = (() => {
     container.innerHTML = `
       ${headerFiHtml}
       ${bannerCaracteristicasItens(versao)}
+      ${_imutavel ? `
+      <div class="orc-banner" style="background:#fff7ed;border:1px solid #f59e0b;">
+        <div class="orc-banner-info" style="color:#7c2d12;font-weight:600;">
+          🔒 Orcamento ${versao.status === 'fechada' ? 'fechado' : (versao.enviadaEm ? 'enviado' : 'aprovado')} — <b>travado</b>. Os valores estao congelados (foto do envio) e nao recalculam.
+          Para alterar, crie uma <b>Nova Versao</b>.
+        </div>
+      </div>` : ''}
       <div class="orc-banner">
         <div class="orc-banner-info">
           <span class="t-strong">Custo Fab/Inst</span>
@@ -9226,7 +9313,7 @@ const Orcamento = (() => {
         const r = obterVersao(UI.versaoAtivaId);
         if (!r || !r.versao) return;
         const versao = r.versao;
-        if (versao.status === 'fechada') return;
+        if (versaoEhImutavel(versao)) return;  // travado: enviado/aprovado/fechado
 
         const field = el.dataset.field;
         const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
@@ -9348,7 +9435,7 @@ const Orcamento = (() => {
         const r = obterVersao(UI.versaoAtivaId);
         if (!r || !r.versao) return;
         const versao = r.versao;
-        if (versao.status === 'fechada') return;
+        if (versaoEhImutavel(versao)) return;  // travado: enviado/aprovado/fechado
         const campo = link.dataset.fabReset;
         const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
         fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
@@ -9375,7 +9462,7 @@ const Orcamento = (() => {
         const r = obterVersao(UI.versaoAtivaId);
         if (!r || !r.versao) return;
         const versao = r.versao;
-        if (versao.status === 'fechada') return;
+        if (versaoEhImutavel(versao)) return;  // travado: enviado/aprovado/fechado
         const fab  = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
         fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
         const inst = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
@@ -9413,6 +9500,11 @@ const Orcamento = (() => {
    * zerariam os valores reais (BUG CRITICO historico).
    */
   function _sincronizarSubFabInst(versao) {
+    // Felipe (sessao atual): versao imutavel (fechada/aprovada/ENVIADA) NAO
+    // recalcula nem persiste — usa o subFab/subInst congelado no envio. Sem
+    // isso, reabrir um orcamento enviado recalculava com os cadastros atuais
+    // e o valor do DRE divergia do que ja' foi pro card/cliente.
+    if (versaoEhImutavel(versao)) return;
     try {
       const fabDre  = Object.assign({}, FAB_DEFAULT, versao.custoFab  || {});
       fabDre.etapas = Object.assign({}, FAB_DEFAULT.etapas, fabDre.etapas || {});
@@ -9589,7 +9681,7 @@ const Orcamento = (() => {
     let r;
     let ehFotografiaImutavel = false;
     let fotoCongeladoEm = null;
-    if (versao.status === 'fechada' && versao.dre_congelado) {
+    if (versaoEhImutavel(versao) && versao.dre_congelado) {
       const dc = versao.dre_congelado;
       // Recalcula com INPUTS CONGELADOS — mesma formula, dados antigos
       r = calcularDRE(dc.subFab, dc.subInst, dc.parametros);
@@ -10641,7 +10733,7 @@ const Orcamento = (() => {
       // CUSTOS permanecem CONGELADOS (dc.subFab/subInst/custoFab/custoInst
       // intactos) — so' a MARGEM muda. Essa e' a definicao do 'ajustar
       // margem em fechada': renegociar valor sem refazer o orcamento.
-      if (versao.status === 'fechada' && versao.dre_congelado) {
+      if (versaoEhImutavel(versao) && versao.dre_congelado) {
         const dcAtual = versao.dre_congelado;
         const dreNovo = calcularDRE(dcAtual.subFab, dcAtual.subInst, paramsNovos);
         dadosUpdate.dre_congelado = Object.assign({}, dcAtual, {
@@ -10679,7 +10771,7 @@ const Orcamento = (() => {
       // Felipe sessao 34: em fechada, recalcula a 'fotografia' tambem (custos
       // congelados, margem volta pra 15%). valorAprovado vira o pFatReal
       // calculado (= preco que sairia com lucro_alvo=15%).
-      if (versao.status === 'fechada' && versao.dre_congelado) {
+      if (versaoEhImutavel(versao) && versao.dre_congelado) {
         const dcAtual = versao.dre_congelado;
         const dreNovo = calcularDRE(dcAtual.subFab, dcAtual.subInst, params);
         dadosUpdate.dre_congelado = Object.assign({}, dcAtual, {
@@ -20800,6 +20892,7 @@ const Orcamento = (() => {
     atualizarVersao,
     fecharVersao,
     fecharVersaoAprovadaDoLead,
+    congelarVersaoEnviadaDoLead,
     destravarVersaoFechadaDoLead,
     destravarVersao,
     deletarVersao,
