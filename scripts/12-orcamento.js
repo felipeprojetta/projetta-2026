@@ -20604,6 +20604,8 @@ const Orcamento = (() => {
     container.innerHTML = `
       ${_headerAccHtml}
       ${bannerCaracteristicasItens(versao)}
+      ${itens.length >= 2 ? `<div class="info-banner orc-banner-aviso">
+        <span class="t-strong">Levantamento de Acessorios — Multi-Item</span><br>
         <b>${itens.length}</b> tipo(s) de Porta Externa, totalizando <b>${totalUnidades}</b> unidade(s).
         Quantidade de cada acessorio e' multiplicada pela qtd do item.
       </div>` : ''}
