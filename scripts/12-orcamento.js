@@ -546,6 +546,26 @@ const Orcamento = (() => {
    * Calcula custo total de fabricacao a partir do schema.
    */
   /**
+   * Felipe (sessao atual): "permita alterar manual os valores mesmo quando
+   * vem do calculo, e mostre que foi alterado". Camada de OVERRIDE manual.
+   * Os campos de insumo (perfis/pintura/acessorios/fech.digital/revestimento)
+   * sao auto-preenchidos pelos levantamentos em VARIOS pontos. Em vez de
+   * guardar cada auto-write, guardamos o valor manual em fab.manuais[campo].
+   * A leitura EFETIVA prefere o manual; o auto continua escrevendo fab[campo]
+   * (vira o baseline pra quando o usuario limpar o override). Extras fica
+   * fora (ja' e' 100% manual).
+   */
+  var CAMPOS_FAB_OVERRIDE = ['total_perfis', 'total_pintura', 'total_acessorios', 'total_fechadura_digital', 'total_revestimento'];
+  function fabTemOverride(fab, campo) {
+    var m = fab && fab.manuais;
+    return !!(m && m[campo] != null && m[campo] !== '');
+  }
+  function fabValorEfetivo(fab, campo) {
+    if (fabTemOverride(fab, campo)) return Number(fab.manuais[campo]) || 0;
+    return Number(fab && fab[campo]) || 0;
+  }
+
+  /**
    * Calcula custo de fabricacao a partir das regras Felipe aplicadas a cada
    * item porta_externa da versao. Soma a contribuicao de cada item por etapa.
    *
@@ -561,13 +581,13 @@ const Orcamento = (() => {
     const r_h    = Number(f.custo_hora)  || 0;
     // 5 componentes separados (Felipe pediu) — somam pra compor o total
     // Felipe (sessao 2026-05): adicionado total_revestimento (chapas).
-    const tPerfis      = Number(f.total_perfis)       || 0;
-    const tPintura     = Number(f.total_pintura)      || 0;
-    const tAcessorios  = Number(f.total_acessorios)   || 0;
-    const tRevestiment = Number(f.total_revestimento) || 0;
+    const tPerfis      = fabValorEfetivo(f, 'total_perfis');
+    const tPintura     = fabValorEfetivo(f, 'total_pintura');
+    const tAcessorios  = fabValorEfetivo(f, 'total_acessorios');
+    const tRevestiment = fabValorEfetivo(f, 'total_revestimento');
     const tExtras      = Number(f.total_extras)       || 0;
     // Felipe (sessao 31): fechadura digital em campo proprio
-    const tFechDigital = Number(f.total_fechadura_digital) || 0;
+    const tFechDigital = fabValorEfetivo(f, 'total_fechadura_digital');
     const tInsumos     = tPerfis + tPintura + tAcessorios + tRevestiment + tExtras + tFechDigital;
 
     // Soma horas calculadas das regras pra cada etapa (todos os itens porta_externa).
@@ -1045,11 +1065,11 @@ const Orcamento = (() => {
 
     // 1. Decompoe o custo de fabricacao em componentes (vem do custoFab).
     const fab = versao.custoFab || {};
-    const tPerfis      = Number(fab.total_perfis)            || 0;
-    const tPintura     = Number(fab.total_pintura)           || 0;
-    const tAcessorios  = Number(fab.total_acessorios)        || 0;
-    const tFechDig     = Number(fab.total_fechadura_digital) || 0;
-    const tRevest      = Number(fab.total_revestimento)      || 0;
+    const tPerfis      = fabValorEfetivo(fab, 'total_perfis');
+    const tPintura     = fabValorEfetivo(fab, 'total_pintura');
+    const tAcessorios  = fabValorEfetivo(fab, 'total_acessorios');
+    const tFechDig     = fabValorEfetivo(fab, 'total_fechadura_digital');
+    const tRevest      = fabValorEfetivo(fab, 'total_revestimento');
     const tExtras      = Number(fab.total_extras)            || 0;
     const subFabTotal  = Number(versao.subFab)  || 0;
     const subInstTotal = internacional ? 0 : (Number(versao.subInst) || 0);
@@ -7959,6 +7979,27 @@ const Orcamento = (() => {
     });
   }
 
+  /**
+   * Felipe (sessao atual): render de um campo de insumo do Custo Fab/Inst
+   * com suporte a OVERRIDE manual. Mostra o valor efetivo (manual se houver,
+   * senao o auto), e quando ha override: badge "MANUAL", borda laranja e
+   * link "voltar ao auto" (data-fab-reset). Assim Felipe ve que foi alterado.
+   */
+  function _campoFabConfigHtml(fab, campo, label, helpAuto) {
+    var ov = fabTemOverride(fab, campo);
+    var val = ov ? fab.manuais[campo] : (fab ? fab[campo] : '');
+    var help = ov
+      ? '<span class="orc-fi-help" style="color:#c2410c;font-weight:600;">✏ alterado manual · <a href="#" data-fab-reset="' + campo + '" style="color:#0078d4;text-decoration:underline;">↺ voltar ao auto</a></span>'
+      : '<span class="orc-fi-help">' + helpAuto + '</span>';
+    var badge = ov ? ' <span style="background:#fed7aa;color:#7c2d12;font-size:9px;padding:1px 4px;border-radius:3px;vertical-align:middle;font-weight:700;">MANUAL</span>' : '';
+    var inputStyle = ov ? ' style="border-color:#f97316;background:#fff7ed;"' : '';
+    return '<div class="orc-field orc-fi-w-money' + (ov ? ' orc-fi-manual' : '') + '">'
+      + '<label>' + label + badge + '</label>'
+      + '<input type="text" data-field="' + campo + '" data-fab="1" value="' + escapeHtml(fmtBROrEmpty(val)) + '"' + inputStyle + ' />'
+      + help
+      + '</div>';
+  }
+
   function renderFabInstTab(container) {
     inicializarSessao();
     const versao = obterVersao(UI.versaoAtivaId).versao;
@@ -8199,35 +8240,15 @@ const Orcamento = (() => {
         <div class="orc-section-title">Custo Horas de Fabricacao e Materia Prima</div>
 
         <div class="orc-fi-fab-config">
-          <div class="orc-field orc-fi-w-money">
-            <label>Perfis (R$)</label>
-            <input type="text" data-field="total_perfis" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_perfis))}" />
-            <span class="orc-fi-help">vira auto do Lev. Perfis</span>
-          </div>
-          <div class="orc-field orc-fi-w-money">
-            <label>Pintura (R$)</label>
-            <input type="text" data-field="total_pintura" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_pintura))}" />
-            <span class="orc-fi-help">vira auto do Lev. Perfis</span>
-          </div>
-          <div class="orc-field orc-fi-w-money">
-            <label>Acessorios (R$)</label>
-            <input type="text" data-field="total_acessorios" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_acessorios))}" />
-            <span class="orc-fi-help">vira auto do Lev. Acessorios</span>
-          </div>
+          ${_campoFabConfigHtml(fab, 'total_perfis', 'Perfis (R$)', 'vira auto do Lev. Perfis')}
+          ${_campoFabConfigHtml(fab, 'total_pintura', 'Pintura (R$)', 'vira auto do Lev. Perfis')}
+          ${_campoFabConfigHtml(fab, 'total_acessorios', 'Acessorios (R$)', 'vira auto do Lev. Acessorios')}
           <!-- Felipe (sessao 31): fechadura digital separada dos acessorios -->
-          <div class="orc-field orc-fi-w-money">
-            <label>Fechadura Digital (R$)</label>
-            <input type="text" data-field="total_fechadura_digital" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_fechadura_digital))}" />
-            <span class="orc-fi-help">auto do Lev. Acessorios (digital)</span>
-          </div>
+          ${_campoFabConfigHtml(fab, 'total_fechadura_digital', 'Fechadura Digital (R$)', 'auto do Lev. Acessorios (digital)')}
           <!-- Felipe (sessao 2026-05): novo campo Revestimento, entre
                Acessorios e Extras. Manual ou automatico (futuro: vira
                auto quando o motor de chapas estiver pronto). -->
-          <div class="orc-field orc-fi-w-money">
-            <label>Revestimento (R$)</label>
-            <input type="text" data-field="total_revestimento" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_revestimento))}" />
-            <span class="orc-fi-help">chapas / superficies (auto futuro)</span>
-          </div>
+          ${_campoFabConfigHtml(fab, 'total_revestimento', 'Revestimento (R$)', 'chapas / superficies (auto futuro)')}
           <div class="orc-field orc-fi-w-money">
             <label>Extras (R$)</label>
             <input type="text" data-field="total_extras" data-fab="1" value="${escapeHtml(fmtBROrEmpty(fab.total_extras))}" />
@@ -9266,7 +9287,21 @@ const Orcamento = (() => {
           }
           fab.etapas[eid] = ent;
         } else if (el.dataset.fab) {
-          fab[field] = parseBR(el.value) || 0;
+          // Felipe (sessao atual): campos de insumo auto-preenchidos guardam
+          // o valor editado em fab.manuais[campo] (override). Vazio = remove
+          // o override (volta ao auto). Os demais campos (ex: extras) seguem
+          // direto em fab[campo].
+          if (CAMPOS_FAB_OVERRIDE.indexOf(field) >= 0) {
+            const rawFab = String(el.value || '').trim();
+            if (!fab.manuais) fab.manuais = {};
+            if (rawFab === '') {
+              delete fab.manuais[field];           // volta pro automatico
+            } else {
+              fab.manuais[field] = parseBR(rawFab) || 0;
+            }
+          } else {
+            fab[field] = parseBR(el.value) || 0;
+          }
         } else if (el.dataset.inst) {
           if (el.type === 'checkbox') {
             inst[field] = el.checked;
@@ -9301,6 +9336,29 @@ const Orcamento = (() => {
         } catch (e) {
           console.warn('[orcamento] erro ao salvar fab/inst:', e.message);
         }
+        renderFabInstTab(container);
+      });
+    });
+
+    // Felipe (sessao atual): link "voltar ao auto" — remove o override
+    // manual do campo de insumo e re-renderiza (volta a puxar do levantamento).
+    container.querySelectorAll('[data-fab-reset]').forEach(link => {
+      link.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const r = obterVersao(UI.versaoAtivaId);
+        if (!r || !r.versao) return;
+        const versao = r.versao;
+        if (versao.status === 'fechada') return;
+        const campo = link.dataset.fabReset;
+        const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
+        fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
+        if (fab.manuais) delete fab.manuais[campo];
+        const inst = Object.assign({}, INST_DEFAULT, versao.custoInst || {});
+        const rFab  = calcularFab(fab, versao.itens, versao);
+        const rInst = calcularInst(inst, versao.itens);
+        try {
+          atualizarVersao(versao.id, { custoFab: fab, custoInst: inst, subFab: rFab.total, subInst: rInst.total });
+        } catch (e) { console.warn('[orcamento] erro ao resetar override fab:', e.message); }
         renderFabInstTab(container);
       });
     });
@@ -18984,12 +19042,12 @@ const Orcamento = (() => {
 
     const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
 
-    const custoPerfis    = Number(fab.total_perfis)      || 0;
-    const custoPintura   = Number(fab.total_pintura)     || 0;
-    const custoAcess     = Number(fab.total_acessorios)  || 0;
-    const custoChapas    = Number(fab.total_revestimento)|| 0;
+    const custoPerfis    = fabValorEfetivo(fab, 'total_perfis');
+    const custoPintura   = fabValorEfetivo(fab, 'total_pintura');
+    const custoAcess     = fabValorEfetivo(fab, 'total_acessorios');
+    const custoChapas    = fabValorEfetivo(fab, 'total_revestimento');
     const custoExtras    = Number(fab.total_extras)      || 0;
-    const custoFechDig   = Number(fab.total_fechadura_digital) || 0;
+    const custoFechDig   = fabValorEfetivo(fab, 'total_fechadura_digital');
 
     // FIX 2026-05-04 (AGP004647): mao de obra vinha 0h porque as etapas
     // foram renomeadas (quadro->folha_porta, conf_bem->conf_embalagem) mas
