@@ -223,7 +223,13 @@ const AcessoriosPortaExterna = (() => {
       if (codMaq) pushLinha(codMaq, 1, 'Maquina/Fechadura', '');
       const codMac = String(item.macanetaInternaCodigo || '').trim();
       if (codMac) pushLinha(codMac, 1, 'Macaneta', 'com rosetas integradas');
-      const codCil = String(item.cilindroInternaCodigo || '').trim();
+      // Felipe (sessao atual): cilindro deriva do "tipo de comodo".
+      // Antes lia so cilindroInternaCodigo, que ficava vazio em itens onde o
+      // usuario nao tocou no campo -> porta sem cilindro (bug: 900 sem cilindro,
+      // 800 com). Agora, se o codigo estiver vazio, deriva do usoComodoInterno:
+      // banheiro -> CH/BT (PA-CILEBHNTJNF); comum (default) -> CH/CH (PA-CILEXINTJNF).
+      let codCil = String(item.cilindroInternaCodigo || '').trim();
+      if (!codCil) codCil = (item.usoComodoInterno === 'banheiro') ? 'PA-CILEBHNTJNF' : 'PA-CILEXINTJNF';
       if (codCil) pushLinha(codCil, 1, 'Cilindro', '');
     } else {
       // Modo conjunto (default)
