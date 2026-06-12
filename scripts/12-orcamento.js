@@ -14019,6 +14019,17 @@ const Orcamento = (() => {
       }
       return n;
     }
+    // Felipe (sessao atual): porta pode ter modelo diferente em cada face.
+    // Helper pra montar o nome "N — Nome" de um numero de modelo qualquer.
+    function _nomeModeloNum(num) {
+      const n = Number(num) || 0;
+      if (!n) return '—';
+      let info = null;
+      if (window.Modelos && typeof window.Modelos.listar === 'function') {
+        info = window.Modelos.listar().find(m => Number(m.numero) === n);
+      }
+      return info ? `${n} — ${_traduzirNomeModelo(info.nome)}` : `${internacional ? 'Model' : 'Modelo'} ${n}`;
+    }
     const modeloNome = modeloInfo
       ? `${item.modeloNumero} — ${_traduzirNomeModelo(modeloInfo.nome)}`
       : (item.modeloNumero ? `${internacional ? 'Model' : 'Modelo'} ${item.modeloNumero}` : '—');
@@ -14121,7 +14132,18 @@ const Orcamento = (() => {
             <div class="rel-prop-item-linha"><span class="lbl">${tr('Area Porta','Door Area')}:</span> <span>${fmtBR(areaM2)} m²</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">${tr('SISTEMA','SYSTEM')}:</span> <span>${escapeHtml(sistemaFmt)}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">${tr('NUMERO DE FOLHAS','NUMBER OF LEAVES')}:</span> <span>${nFolhas} ${tr('FOLHA','LEAF')}${nFolhas > 1 ? (internacional ? 'S' : 'S') : ''}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">${tr('MODELO','MODEL')}:</span> <span>${escapeHtml(modeloNome)}</span></div>
+            ${(() => {
+              // Felipe (sessao atual): quando a face interna tem modelo
+              // diferente da externa, mostra os 2 (qual no externo, qual no
+              // interno). Senao, uma linha unica de MODELO.
+              const mExt = Number(item.modeloExterno) || Number(item.modeloNumero) || 0;
+              const mInt = Number(item.modeloInterno) || Number(item.modeloNumero) || 0;
+              if (mExt && mInt && mExt !== mInt) {
+                return `<div class="rel-prop-item-linha"><span class="lbl">${tr('MODELO EXTERNO','EXTERIOR MODEL')}:</span> <span>${escapeHtml(_nomeModeloNum(mExt))}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('MODELO INTERNO','INTERIOR MODEL')}:</span> <span>${escapeHtml(_nomeModeloNum(mInt))}</span></div>`;
+              }
+              return `<div class="rel-prop-item-linha"><span class="lbl">${tr('MODELO','MODEL')}:</span> <span>${escapeHtml(modeloNome)}</span></div>`;
+            })()}
             <div class="rel-prop-item-linha"><span class="lbl">${tr('FECHADURA MECANICA','MECHANICAL LOCK')}:</span> <span>${escapeHtml(item.fechaduraMecanica || '—')}</span></div>
           </div>
           ${bannerFechDigital}
