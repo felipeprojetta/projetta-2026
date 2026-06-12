@@ -3607,7 +3607,11 @@ const Orcamento = (() => {
       fechaduraInternaCor: '',
       maquinaInternaCodigo: '',    // usado no modo PERSONALIZADO (familia Fechadura Mecanica)
       macanetaInternaCodigo: '',   // usado em PERSONALIZADO (familia Macanetas)
-      cilindroInternaCodigo: '',   // usado em PERSONALIZADO (familia Cilindros)
+      // Felipe (sessao atual): porta interna pergunta "tipo de comodo" e deriva
+      // o cilindro: comum = chave/chave (CH/CH, PA-CILEXINTJNF); banheiro =
+      // chave/botao (CH/BT, PA-CILEBHNTJNF). Default = comum.
+      usoComodoInterno: 'comum',
+      cilindroInternaCodigo: 'PA-CILEXINTJNF',   // derivado de usoComodoInterno (PERSONALIZADO)
       dobradicaCor: '',
       // Felipe sessao 33: painel superior (fixo em cima da porta).
       //   temPainelSuperior: 'nao' (default) | 'sim'
@@ -5162,6 +5166,11 @@ const Orcamento = (() => {
           // (proximo render recalcula a cor com base no novo codigo)
           item.fechaduraInternaCodigo = v;
           if (!v) item.fechaduraInternaCor = '';
+        } else if (field === 'usoComodoInterno') {
+          // Felipe (sessao atual): tipo de comodo deriva o cilindro da porta
+          // interna. Banheiro -> CH/BT (PA-CILEBHNTJNF); Comum -> CH/CH (PA-CILEXINTJNF).
+          item.usoComodoInterno = v;
+          item.cilindroInternaCodigo = (v === 'banheiro') ? 'PA-CILEBHNTJNF' : 'PA-CILEXINTJNF';
         } else if (field === 'largura_total' || field === 'altura_total') {
           item[field] = parseFloat(v.replace(',', '.')) || 0;
         } else if (field === 'espacamentoRipas') {
@@ -5178,7 +5187,7 @@ const Orcamento = (() => {
              'temEstrutura', 'estilo',
              // Felipe sessao 31 porta_interna: trocas que afetam o layout do form
              'revestimentoExterno', 'revestimentoInterno',
-             'fechaduraModo', 'fechaduraInternaCodigo',
+             'fechaduraModo', 'fechaduraInternaCodigo', 'usoComodoInterno',
              // Felipe sessao 33: painel superior aparece/some os campos de medidas
              'temPainelSuperior'].includes(field)) {
           reRender();
@@ -6396,10 +6405,10 @@ const Orcamento = (() => {
                 </select>
               </div>
               <div class="orc-field" style="grid-column: span 4;">
-                <label>Cilindro</label>
-                <select data-field="cilindroInternaCodigo" ${semCilindros ? 'disabled' : ''}>
-                  <option value=""></option>
-                  ${cilindros.map(c => `<option value="${escapeHtml(c.codigo)}" ${item.cilindroInternaCodigo === c.codigo ? 'selected' : ''}>${escapeHtml(c.codigo)} — ${escapeHtml(c.descricao)}</option>`).join('')}
+                <label>Tipo de comodo <span class="orc-hint-auto">define o cilindro</span></label>
+                <select data-field="usoComodoInterno">
+                  <option value="comum" ${(item.usoComodoInterno || 'comum') === 'comum' ? 'selected' : ''}>Comodo comum — chave/chave (CH/CH)</option>
+                  <option value="banheiro" ${item.usoComodoInterno === 'banheiro' ? 'selected' : ''}>Banheiro — chave/botao (CH/BT)</option>
                 </select>
               </div>
             </div>
