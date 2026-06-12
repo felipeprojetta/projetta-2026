@@ -6073,7 +6073,15 @@ const Orcamento = (() => {
           })();
           const fechHafele = _todosAcessorios.filter(a => /^PA-FECHINT 911\.80/.test(a.codigo || ''));
           const dobInvInt  = _todosAcessorios.filter(a => /^PA-DOBINVINT/.test(a.codigo || ''));
+          // Felipe (sessao atual): PORTA INTERNA nao usa KESO em NADA
+          // (nem maquina, nem cilindro, nem macaneta). Exclui qualquer item
+          // KESO das listas da porta interna. A porta EXTERNA continua usando
+          // KESO normalmente (este filtro e' local ao form da interna).
+          const _ehKesoPI = (a) => (
+            String(a.codigo || '') + ' ' + String(a.descricao || '') + ' ' + String(a.fornecedor || '')
+          ).toUpperCase().indexOf('KESO') >= 0;
           const macanetas  = _todosAcessorios.filter(a => {
+            if (_ehKesoPI(a)) return false;
             const fam = String(a.familia || '').toUpperCase();
             return fam.indexOf('MACANETA') >= 0 || fam.indexOf('MAÇANETA') >= 0;
           });
@@ -6082,10 +6090,12 @@ const Orcamento = (() => {
           // Kits Hafele (PA-FECHINT 911.*) tem familia "Fechaduras Internas"
           // e SO aparecem no modo conjunto — sao excluidos das maquinas.
           const maquinas  = _todosAcessorios.filter(a => {
+            if (_ehKesoPI(a)) return false;
             const fam = String(a.familia || '').toUpperCase();
             return fam.indexOf('FECHADURA MEC') >= 0;
           });
           const cilindros = _todosAcessorios.filter(a => {
+            if (_ehKesoPI(a)) return false;
             const fam = String(a.familia || '').toUpperCase();
             return fam.indexOf('CILINDRO') >= 0;
           });
