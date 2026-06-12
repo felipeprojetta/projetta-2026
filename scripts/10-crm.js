@@ -2163,9 +2163,17 @@
               }
             } catch (e) { console.warn('[crm] destravar versao fechada falhou:', e); }
           }
+          // Felipe (sessao atual): ao mover pra "Orcamento Enviado" (ou
+          // Negociacao), congela a versao enviada (enviadaEm + dre_congelado).
+          if (etapaAntiga !== etapaNova &&
+              (etapaNova === 'orcamento-enviado' || etapaNova === 'negociacao')) {
+            try {
+              if (window.Orcamento && window.Orcamento.congelarVersaoEnviadaDoLead) {
+                window.Orcamento.congelarVersaoEnviadaDoLead(lead.id);
+              }
+            } catch (e) { console.warn('[crm] congelar versao enviada falhou:', e); }
+          }
           lead.etapa = etapaNova;
-
-          // Felipe (do doc): sync bidirecional. Quando edito tel/cidade/etc
           // num card do CRM, deve refletir em Clientes (vista derivada ja
           // releria). Mas tambem deve sincronizar com OUTROS leads do mesmo
           // cliente (mesmo nome) e com o independente se houver.
@@ -4664,6 +4672,13 @@ ${secoesHtml}
                     const leadAtual = state.leads.find(l => l.id === lead.id);
                     if (leadAtual && ['orcamento-pronto', 'orcamento-aprovado'].includes(leadAtual.etapa)) {
                       leadAtual.etapa = 'orcamento-enviado';
+                      // Felipe (sessao atual): ao enviar por email, congela a
+                      // versao enviada (enviadaEm + dre_congelado). Trava valores.
+                      try {
+                        if (window.Orcamento && window.Orcamento.congelarVersaoEnviadaDoLead) {
+                          window.Orcamento.congelarVersaoEnviadaDoLead(leadAtual.id);
+                        }
+                      } catch (e) { console.warn('[crm] congelar versao enviada (email) falhou:', e); }
                       save();
                       render(container);
                     }
@@ -4984,6 +4999,17 @@ ${secoesHtml}
                 window.Orcamento.destravarVersaoFechadaDoLead(lead.id);
               }
             } catch (e) { console.warn('[crm] destravar versao fechada falhou:', e); }
+          }
+          // Felipe (sessao atual): ao arrastar pra "Orcamento Enviado" (ou
+          // Negociacao), congela a versao enviada — valores travam (enviadaEm
+          // + dre_congelado). So' Nova Versao destrava. Best-effort.
+          if (lead.etapa !== novaEtapa &&
+              (novaEtapa === 'orcamento-enviado' || novaEtapa === 'negociacao')) {
+            try {
+              if (window.Orcamento && window.Orcamento.congelarVersaoEnviadaDoLead) {
+                window.Orcamento.congelarVersaoEnviadaDoLead(lead.id);
+              }
+            } catch (e) { console.warn('[crm] congelar versao enviada falhou:', e); }
           }
           lead.etapa = novaEtapa;
           save();

@@ -3686,6 +3686,13 @@
                     const leadAtual = state.leads.find(l => l.id === lead.id);
                     if (leadAtual && ['orcamento-pronto', 'orcamento-aprovado'].includes(leadAtual.etapa)) {
                       leadAtual.etapa = 'orcamento-enviado';
+                      // Felipe (sessao atual): ao enviar por email, congela a
+                      // versao enviada (enviadaEm + dre_congelado). Trava valores.
+                      try {
+                        if (window.Orcamento && window.Orcamento.congelarVersaoEnviadaDoLead) {
+                          window.Orcamento.congelarVersaoEnviadaDoLead(leadAtual.id);
+                        }
+                      } catch (e) { console.warn('[kanban] congelar versao enviada (email) falhou:', e); }
                       save();
                       render(container);
                     }
