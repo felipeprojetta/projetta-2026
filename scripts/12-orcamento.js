@@ -6089,10 +6089,13 @@ const Orcamento = (() => {
           // separadas (familia exata no cadastro de acessorios).
           // Kits Hafele (PA-FECHINT 911.*) tem familia "Fechaduras Internas"
           // e SO aparecem no modo conjunto — sao excluidos das maquinas.
+          // Felipe (sessao atual): criou a familia "Fechadura Porta Interna"
+          // no cadastro de acessorios. A maquina/fechadura da porta interna
+          // traz SOMENTE itens dessa familia (nao mais "Fechadura Mecanica",
+          // que era cheia de KESO e esvaziava a lista ao filtrar KESO).
           const maquinas  = _todosAcessorios.filter(a => {
-            if (_ehKesoPI(a)) return false;
             const fam = String(a.familia || '').toUpperCase();
-            return fam.indexOf('FECHADURA MEC') >= 0;
+            return fam.indexOf('FECHADURA PORTA INTERNA') >= 0;
           });
           const cilindros = _todosAcessorios.filter(a => {
             if (_ehKesoPI(a)) return false;
