@@ -1236,6 +1236,29 @@ const Database = (() => {
         if (!Array.isArray(rows) || rows.length === 0) return;
         var changed = false;
         var chavesAlteradas = [];
+        // Felipe (sessao atual): "Paula coloca cliente tem que aparecer
+        // automaticamente pra mim". O realtime gravava direto no localStorage
+        // sem tratar quota — quando o localStorage estourava (~10MB), o
+        // setItem do lead novo falhava SILENCIOSO, a tela travava no dado
+        // velho (ex: 143 leads em vez de 162) e so' um F5 resolvia (o boot
+        // limpa backups antes de gravar). Agora o polling tambem limpa
+        // backups locais (recuperaveis do Supabase) e tenta de novo, e uma
+        // falha numa chave NAO aborta as demais.
+        function _limparBackupsLocaisRT() {
+          var n = 0;
+          try {
+            for (var i = localStorage.length - 1; i >= 0; i--) {
+              var k = localStorage.key(i);
+              if (!k) continue;
+              if (k.indexOf(PREFIX + 'backup_diario') === 0 ||
+                  k.indexOf(PREFIX + 'backup_manual') === 0 ||
+                  k.indexOf(PREFIX + 'orcamentos:neg_') === 0) {
+                try { localStorage.removeItem(k); n++; } catch (_) {}
+              }
+            }
+          } catch (_) {}
+          return n;
+        }
         rows.forEach(function(r) {
           // Felipe (sessao 09): NUNCA sincronizar SESSAO via realtime.
           // Felipe sessao 12: 'users' agora sincroniza (cadastros novos
@@ -1250,16 +1273,30 @@ const Database = (() => {
             console.log('[DB] 🛡 Realtime IGNOROU stale: ' + r.scope + '/' + r.key + ' (write local mais novo)');
             return;
           }
-          var lsKey = PREFIX + r.scope + ':' + r.key;
-          var localRaw = localStorage.getItem(lsKey);
-          var remoteVal = JSON.stringify(r.valor);
-          if (localRaw !== remoteVal) {
-            localStorage.setItem(lsKey, remoteVal);
-            // Felipe sessao 2026-08-02: flag remote:true permite modulos
-            // distinguirem 'mudei eu' vs 'outro usuario mudou'.
-            Events.emit('db:change', { scope: r.scope, key: r.key, value: r.valor, remote: true });
-            changed = true;
-            chavesAlteradas.push(r.scope + '/' + r.key);
+          try {
+            var lsKey = PREFIX + r.scope + ':' + r.key;
+            var localRaw = localStorage.getItem(lsKey);
+            var remoteVal = JSON.stringify(r.valor);
+            if (localRaw !== remoteVal) {
+              try {
+                localStorage.setItem(lsKey, remoteVal);
+              } catch (eQuota) {
+                // Quota cheia: limpa backups LOCAIS e tenta de novo. Se ainda
+                // falhar, cai no catch do row (segue com as outras chaves).
+                var lib = _limparBackupsLocaisRT();
+                console.warn('[DB] 🔄 realtime: quota cheia gravando ' + r.scope + '/' + r.key
+                  + ' — liberou ' + lib + ' chaves de backup local e retentou');
+                localStorage.setItem(lsKey, remoteVal);
+              }
+              // Felipe sessao 2026-08-02: flag remote:true permite modulos
+              // distinguirem 'mudei eu' vs 'outro usuario mudou'.
+              Events.emit('db:change', { scope: r.scope, key: r.key, value: r.valor, remote: true });
+              changed = true;
+              chavesAlteradas.push(r.scope + '/' + r.key);
+            }
+          } catch (eRow) {
+            console.warn('[DB] realtime: falha ao aplicar ' + r.scope + '/' + r.key
+              + ' (segue com as demais):', eRow && eRow.message);
           }
         });
         _lastSync = rows[0].updated_at;
