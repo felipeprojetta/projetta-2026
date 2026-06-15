@@ -435,9 +435,21 @@
     var rows = lista.map(function (d) {
       var primeiro = (d.nome || '').split(' ')[0] || '';
       var mp = matchProjetta(d);
-      var projTd = mp
-        ? '<span class="wkv-tag casa" title="Projetta: ' + esc(mp.cliente || mp.nome || '') + (mp.numeroAGP ? ' (AGP ' + esc(mp.numeroAGP) + ')' : '') + ' \u2014 etapa: ' + esc(mp.etapa || '') + '">\u2713 ' + esc(stageCurto(mp.etapa)) + '</span>'
-        : '<span class="wkv-loc" style="color:#9ca3af">\u2014</span>';
+      var projTd;
+      if (mp) {
+        // Felipe sessao 37: quando casa com orcamento Projetta, mostra o
+        // AGP + reserva da Projetta DIRETO na coluna (antes so' no tooltip).
+        var mpRes = String(mp.numeroReserva || '').replace(/\D/g, '');
+        var meta = [];
+        if (mp.numeroAGP) meta.push(esc(mp.numeroAGP));
+        if (mpRes) meta.push('Res ' + esc(mpRes));
+        var metaHtml = meta.length
+          ? '<div class="wkv-loc" style="margin-top:3px;font-size:11px;color:#475569">' + meta.join(' \u00b7 ') + '</div>'
+          : '';
+        projTd = '<span class="wkv-tag casa" title="Projetta: ' + esc(mp.cliente || mp.nome || '') + (mp.numeroAGP ? ' (AGP ' + esc(mp.numeroAGP) + ')' : '') + ' \u2014 etapa: ' + esc(mp.etapa || '') + '">\u2713 ' + esc(stageCurto(mp.etapa)) + '</span>' + metaHtml;
+      } else {
+        projTd = '<span class="wkv-loc" style="color:#9ca3af">\u2014</span>';
+      }
       var txt = encodeURIComponent(msg.replace(/\{nome\}/g, primeiro));
       var wa = temWa(d)
         ? '<a class="wkv-ico wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(d.wa) + '?text=' + txt + '" title="WhatsApp">\u2706</a>'
@@ -476,9 +488,13 @@
   // ---- export CSV -------------------------------------------------
   function exportarCSV() {
     var lista = aplicarFiltro().sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
-    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email'];
+    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa'];
     var linhas = lista.map(function (d) {
-      return [d.r, d.nome, d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email]
+      var mp = matchProjetta(d);
+      var pAgp = mp ? (mp.numeroAGP || '') : '';
+      var pRes = mp ? String(mp.numeroReserva || '').replace(/\D/g, '') : '';
+      var pEt  = mp ? stageCurto(mp.etapa) : '';
+      return [d.r, d.nome, d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt]
         .map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';');
     });
     var csv = '\ufeff' + [cols.join(';')].concat(linhas).join('\r\n');
