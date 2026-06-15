@@ -1053,6 +1053,21 @@ const Database = (() => {
       }
 
       // PASSO 1: grava CORE (negocios, leads, cadastros, etc) — prioridade maxima
+      // Felipe (sessao atual): bug "143 vs 162 leads". O localStorage vive perto
+      // da quota (~10MB) e a imagem base64 dos modelos (cadastros/modelos_lista,
+      // ~1.87MB) gravava ANTES do crm/leads — enchia a quota e o lead novo da
+      // Paula nao cabia, ficando stale. Fix: grava os CRITICOS pequenos primeiro
+      // (crm/leads, orcamentos/negocios), e os blobs gigantes (modelos) por ULTIMO.
+      // Sem eviccao: so' reordena. Se o blob nao couber no fim, degrada o cache
+      // de imagens (recuperavel do cloud) em vez de perder o lead novo.
+      function _prioridadeCore(r) {
+        if (r.scope === 'crm' && r.key === 'leads') return 0;
+        if (r.scope === 'orcamentos' && r.key === 'negocios') return 1;
+        if (r.scope === 'kanban-producao' && r.key === 'leads') return 2;
+        if (r.scope === 'cadastros' && (r.key === 'modelos_lista' || r.key === 'modelos_internos_lista')) return 9;
+        return 5;
+      }
+      rowsCore.sort(function(a, b) { return _prioridadeCore(a) - _prioridadeCore(b); });
       rowsCore.forEach(function(r) { if (_gravarUmaRow(r)) count++; });
 
       // Felipe sessao 32: PASSO 2 (backups locais) DESATIVADO. Backups
