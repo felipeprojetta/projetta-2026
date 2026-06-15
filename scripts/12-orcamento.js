@@ -7683,14 +7683,25 @@ const Orcamento = (() => {
    * mesmo sem ter sido formalmente "fechada". Pra alterar algo,
    * tem que criar nova versao.
    */
-  function versaoEhImutavel(versao) {
+  function versaoEhImutavel(versao, etapaArg) {
     if (!versao) return false;
+    // Felipe sessao 37: a TRAVA SEGUE A COLUNA DO CRM. Em 'fazer-orcamento',
+    // 'orcamento-pronto' e 'qualificacao' o orcamento fica SEMPRE editavel —
+    // mesmo com aprovadoEm carimbado. (aprovadoEm e' setado pra QUALQUER
+    // orcamento cujo valor sobe pro CRM, inclusive em 'pronto', entao NAO
+    // serve de sinal de trava — era isso que travava 'pronto' indevidamente.)
+    // So' trava de 'enviado' pra frente (enviado/negociacao/fechado).
+    let etapa = etapaArg;
+    if (etapa == null) { const L = lerLeadAtivo(); etapa = L ? L.etapa : ''; }
+    const ETAPAS_EDITAVEIS = ['fazer-orcamento', 'orcamento-pronto', 'qualificacao'];
+    if (etapa && ETAPAS_EDITAVEIS.indexOf(etapa) >= 0) return false;
+    // Demais etapas (enviado/negociacao/fechado/perdido) OU etapa desconhecida:
+    // regra por carimbo. Uma versao NOVA (sem carimbo) continua editavel — e'
+    // isso que viabiliza '+ Nova Versao' e 'Revisar' mesmo num lead enviado.
     if (versao.status === 'fechada') return true;
     if (versao.aprovadoEm) return true;
-    // Felipe (sessao atual): "apos enviar por email, ou arrastar para coluna
-    // enviado nao se pode alterar; a unica maneira e' fazendo nova versao".
-    // enviadaEm e' carimbado por congelarVersoesDoLead (chamado no envio de
-    // email e no arrasto pra coluna Enviado). Trava recalculo + edicao.
+    // enviadaEm e' carimbado por congelarVersaoEnviadaDoLead (envio de email
+    // e arrasto pra coluna Enviado). Trava recalculo + edicao.
     if (versao.enviadaEm) return true;
     return false;
   }
