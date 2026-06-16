@@ -1271,12 +1271,51 @@ const Orcamento = (() => {
 
     // 5. Instalacao proporcional ao SubFab de cada item (Felipe: "divida
     // proporcional ao custo de cada uma"). Internacional nao entra aqui.
+    // EXCECAO (Felipe): o MUNK (guindaste) vai 100% na PORTA MAIOR (maior
+    // area L×A) — nao rateia, senao "vaza" pra porta menor e atrapalha a
+    // distribuicao. O resto da instalacao continua proporcional ao subFab.
     const subFabSomado = subFabPorIdx.reduce((s, v) => s + v, 0);
+
+    // Munk incluso no subInstTotal: recupera o MESMO valor que entrou no
+    // calculo (calcularInst().munk). Internacional nao tem munk (subInst=0).
+    let munkTotal = 0;
+    if (!internacional) {
+      try { munkTotal = Number((calcularInst(versao.custoInst, itens) || {}).munk) || 0; }
+      catch (_) { munkTotal = 0; }
+    }
+    munkTotal = Math.max(0, Math.min(munkTotal, subInstTotal));
+    const subInstSemMunk = Math.max(0, subInstTotal - munkTotal);
+
+    // Indice da porta de MAIOR area unitaria (L×A). So' procura se ha munk.
+    let idxMunk = -1;
+    if (munkTotal > 0 && itens.length) {
+      let maiorArea = -Infinity;
+      itens.forEach((it, idx) => {
+        let area = 0;
+        if (it && it.tipo === 'revestimento_parede') {
+          const paredes = Array.isArray(it.paredes) ? it.paredes : [];
+          if (paredes.length) {
+            paredes.forEach(p => {
+              const w = Number(p.largura_total) || 0, h = Number(p.altura_total) || 0;
+              if (w > 0 && h > 0) area += (w / 1000) * (h / 1000);
+            });
+          } else {
+            area = ((Number(it.largura_total) || 0) / 1000) * ((Number(it.altura_total) || 0) / 1000);
+          }
+        } else {
+          area = ((Number(it.largura) || 0) / 1000) * ((Number(it.altura) || 0) / 1000);
+        }
+        if (area > maiorArea) { maiorArea = area; idxMunk = idx; }
+      });
+    }
+
     const subInstPorIdx = itens.map((_, idx) => {
       const propFab = subFabSomado > 0
         ? (subFabPorIdx[idx] / subFabSomado)
         : (1 / itens.length);
-      return subInstTotal * propFab;
+      let v = subInstSemMunk * propFab;
+      if (idx === idxMunk) v += munkTotal;
+      return v;
     });
 
     // 6. DRE por item — mesmos parametros, custos diferentes
