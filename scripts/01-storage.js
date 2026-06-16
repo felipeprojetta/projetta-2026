@@ -182,6 +182,23 @@ const Storage = (() => {
   }
 
   return {
+    // Felipe sessao 27: aplica mudanca vinda do realtime polling DENTRO do
+    // _memCache (e ajusta dirty), em vez de o polling gravar so' no localStorage
+    // cru. Garante que Storage.get() devolva o valor remoto recem-sincronizado
+    // mesmo quando a chave estava dirty por quota (imagens base64 dos modelos).
+    // Bug resolvido: Paula salva 3 versoes, banco tem as 3, Felipe so' via 1.
+    _applyRemote(scopeName, k, value) {
+      const mk = _memKey(scopeName, k);
+      _memCache.set(mk, value);
+      try {
+        localStorage.setItem(PREFIX + scopeName + ':' + k, JSON.stringify(value));
+        _dirtyKeys.delete(mk);   // localStorage e memCache em sincronia
+      } catch (_) {
+        // localStorage cheio: memCache tem a verdade remota. Marca dirty pra
+        // get() devolver o memCache (e NAO o localStorage stale).
+        _dirtyKeys.add(mk);
+      }
+    },
     scope(scopeName) {
       return {
         get(k, fallback = null) {

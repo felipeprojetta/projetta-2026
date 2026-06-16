@@ -1293,15 +1293,31 @@ const Database = (() => {
             var localRaw = localStorage.getItem(lsKey);
             var remoteVal = JSON.stringify(r.valor);
             if (localRaw !== remoteVal) {
-              try {
-                localStorage.setItem(lsKey, remoteVal);
-              } catch (eQuota) {
-                // Quota cheia: limpa backups LOCAIS e tenta de novo. Se ainda
-                // falhar, cai no catch do row (segue com as outras chaves).
-                var lib = _limparBackupsLocaisRT();
-                console.warn('[DB] 🔄 realtime: quota cheia gravando ' + r.scope + '/' + r.key
-                  + ' — liberou ' + lib + ' chaves de backup local e retentou');
-                localStorage.setItem(lsKey, remoteVal);
+              // Felipe sessao 27: aplica via Storage._applyRemote -> atualiza o
+              // _memCache (e ajusta o dirty) em vez de gravar so' no localStorage
+              // cru. Sem isso, se orcamentos:negocios estava dirty (quota cheia
+              // das imagens base64 dos modelos), o Storage.get() devolvia o
+              // memCache velho e a tela ignorava este sync — ex: Paula salva 3
+              // versoes, banco tem as 3, mas o Felipe so' via 1.
+              if (typeof Storage !== 'undefined' && Storage._applyRemote) {
+                Storage._applyRemote(r.scope, r.key, r.valor);
+                if (localStorage.getItem(lsKey) !== remoteVal) {
+                  // cache em disco nao coube: libera backups locais
+                  // (recuperaveis do Supabase) e reaplica. O memCache ja tem a
+                  // verdade independente do localStorage.
+                  var lib = _limparBackupsLocaisRT();
+                  console.warn('[DB] 🔄 realtime: quota cheia em ' + r.scope + '/' + r.key
+                    + ' — liberou ' + lib + ' backups locais (memCache mantem a verdade)');
+                  Storage._applyRemote(r.scope, r.key, r.valor);
+                }
+              } else {
+                // fallback defensivo: Storage indisponivel -> comportamento antigo
+                try {
+                  localStorage.setItem(lsKey, remoteVal);
+                } catch (eQuota) {
+                  _limparBackupsLocaisRT();
+                  try { localStorage.setItem(lsKey, remoteVal); } catch (_) {}
+                }
               }
               // Felipe sessao 2026-08-02: flag remote:true permite modulos
               // distinguirem 'mudei eu' vs 'outro usuario mudou'.
