@@ -48,6 +48,29 @@ function normalizarNumero(raw) {
   return n;
 }
 
+// ---- log do enviado no inbox (v7.wpp_mensagens) — best-effort ----
+// Registra cada mensagem enviada pra ela aparecer na thread do inbox.
+// Usa a anon key (publica, mesma do front). Nunca derruba o envio.
+const SB_URL  = process.env.WPP_SUPABASE_URL  || 'https://maqmawofimmfxeyfmcmp.supabase.co';
+const SB_ANON = process.env.WPP_SUPABASE_ANON || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hcW1hd29maW1tZnhleWZtY21wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMTUzOTEsImV4cCI6MjA5NDc5MTM5MX0.7NNp2SynjxSVSyBvbh4Jm5TFbaybYnny-HzaKUPefrc';
+
+async function logOutbound(reg) {
+  try {
+    await fetch(SB_URL + '/rest/v1/wpp_mensagens', {
+      method: 'POST',
+      headers: {
+        'apikey': SB_ANON,
+        'Authorization': 'Bearer ' + SB_ANON,
+        'Content-Type': 'application/json',
+        'Content-Profile': 'v7',
+        'Accept-Profile': 'v7',
+        'Prefer': 'resolution=ignore-duplicates,return=minimal',
+      },
+      body: JSON.stringify(reg),
+    });
+  } catch (_) { /* logar nunca pode derrubar o envio */ }
+}
+
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') return resp(204, {});
   if (event.httpMethod !== 'POST') return resp(405, { ok: false, error: 'Use POST' });
@@ -118,6 +141,22 @@ exports.handler = async function (event) {
       return resp(r.status, { ok: false, to: to, error: (data && data.error) || data || ('HTTP ' + r.status) });
     }
     const id = data && data.messages && data.messages[0] && data.messages[0].id;
+    // Registra no inbox (best-effort): aparece na thread como mensagem 'out'.
+    var logInfo = (body.log && typeof body.log === 'object') ? body.log : {};
+    var textoOut = body.text
+      ? String(body.text)
+      : ('[modelo] ' + ((body.template && body.template.name) || ''));
+    await logOutbound({
+      telefone: to,
+      nome: logInfo.nome || null,
+      direcao: 'out',
+      tipo: body.text ? 'text' : 'template',
+      texto: textoOut,
+      wamid: id || null,
+      ts: new Date().toISOString(),
+      lead_id: logInfo.lead_id || null,
+      status: 'sent',
+    });
     return resp(200, { ok: true, to: to, id: id || null, raw: data });
   } catch (e) {
     return resp(502, { ok: false, to: to, error: 'Falha ao chamar a Graph API: ' + (e && e.message) });

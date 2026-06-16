@@ -611,7 +611,8 @@
       var payload = {
         secret: WPP_SECRET,
         to: String(d.wa),
-        template: { name: WPP_TPL, language: WPP_LANG, variables: [_primeiroNome(d)] }
+        template: { name: WPP_TPL, language: WPP_LANG, variables: [_primeiroNome(d)] },
+        log: { nome: d.nome || '' }
       };
       fetch(WPP_FN, {
         method: 'POST',
