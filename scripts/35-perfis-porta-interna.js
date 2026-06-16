@@ -199,10 +199,23 @@ const PerfisPortaInterna = (() => {
       const tipoMold = String(item.tipoMoldura || '').trim();
       const ehPadrao = (tipoMold === 'Padrao' || tipoMold === '');
       const qtdBois = ehPadrao ? 2 : Math.max(1, parseInt(item.quantidadeMolduras, 10) || 1);
+      // Felipe sessao atual: config "Divisoes Iguais" — N molduras de ALTURA
+      // igual. Altura util da face = tampaA - (N+1)*C29 (2 bordas + (N-1) vaos
+      // internos, todos = C29), dividida por N. So' muda a VERTICAL (qtd 2N e
+      // medida igual); horizontal mantem comprimento (tampaL-2*C29), muda qtd.
+      const ehDivIguais = (tipoMold === 'Divisoes Iguais');
+      const nDiv = Math.max(1, parseInt(item.numDivisoesIguais, 10) || 0);
 
       const gerarBoiserieFace = (tampaL, tampaA, faceLabel) => {
         if (tampaL <= 0 || tampaA <= 0) return;
         const horiz = tampaL - 2 * C29;
+        if (ehDivIguais) {
+          if (nDiv < 1) return; // sem N escolhido ainda, nao gera boiserie
+          const vertIgual = (tampaA - (nDiv + 1) * C29) / nDiv;
+          if (horiz     > 0) _add(cortes, COD_BOIS, horiz,     2 * nDiv * qtdPortas, `Boiserie Horizontal (${faceLabel})`, 'folha');
+          if (vertIgual > 0) _add(cortes, COD_BOIS, vertIgual, 2 * nDiv * qtdPortas, `Boiserie Vertical (${faceLabel})`, 'folha');
+          return;
+        }
         if (qtdBois >= 2) {
           // 2 bandas — igual modelo 23 externa (VERT_1 topo / VERT_2 resto)
           const VERT_1 = 1048 - (C29 / 2) - C29;
