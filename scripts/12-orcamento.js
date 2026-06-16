@@ -2141,6 +2141,17 @@ const Orcamento = (() => {
    * Use isto durante a edicao do orcamento; quando user salvar definitivo,
    * chame fecharVersao() pra travar.
    */
+  // Felipe sessao 27: detecta se uma lista de itens tem conteudo real (alguma
+  // dimensao preenchida). Usado pela blindagem anti-wipe de versao aprovada.
+  function _itensTemConteudoReal(itens) {
+    if (!Array.isArray(itens) || itens.length === 0) return false;
+    return itens.some(function (it) {
+      if (!it) return false;
+      var campos = [it.altura, it.largura, it.larguraParede, it.alturaParede];
+      return campos.some(function (x) { return x != null && String(x).trim() !== ''; });
+    });
+  }
+
   function atualizarVersao(versaoId, dadosNovos, opts) {
     const negocios = loadAll();
     let alvo = null;
@@ -2168,6 +2179,27 @@ const Orcamento = (() => {
     }
     if (alvo.status === 'fechada' && !(opts && opts.permitirFechada)) {
       throw new Error('atualizarVersao: versao fechada eh imutavel — crie nova versao com criarVersao()');
+    }
+    // Felipe sessao 27: BLINDAGEM ANTI-WIPE de estrutura aprovada.
+    // Bug real (Robert Milla AGP004675): a versao tinha aprovadoEm +
+    // enviadoParaCard + 4 itens reais (R$ 280k); um atualizarVersao com
+    // { itens: [item em branco] } gravou 1 item vazio por cima e ao reabrir o
+    // orcamento aparecia "tudo zerado". O check de 'fechada' acima nao pega
+    // esse caso porque o Felipe APROVA SEM FECHAR (versao fica draft com
+    // aprovadoEm). Regra: numa versao ja' aprovada/enviada/fechada, NAO deixa
+    // um update trocar itens com conteudo real por itens vazios/em branco.
+    // Edicoes legitimas (com dimensoes) passam normal; revisao real usa
+    // criarVersao (nova versao). Escape explicito: opts.permitirZerarItens.
+    if ('itens' in dadosNovos
+        && (alvo.aprovadoEm || alvo.valorAprovado || alvo.enviadoParaCard || alvo.status === 'fechada')
+        && _itensTemConteudoReal(alvo.itens)
+        && !_itensTemConteudoReal(dadosNovos.itens)
+        && !(opts && opts.permitirZerarItens)) {
+      console.warn('[atualizarVersao] 🛡 BLOQUEADO wipe de itens em versao protegida (id=' + versaoId
+        + '): mantidos ' + (alvo.itens || []).length + ' item(ns) real(is); ignorado update vazio com '
+        + ((dadosNovos.itens || []).length) + ' item(ns) em branco.');
+      dadosNovos = Object.assign({}, dadosNovos);
+      delete dadosNovos.itens;
     }
     // campos permitidos de atualizar
     // Felipe (sessao 2026-05): adicionado 'chapasSelecionadas' — antes
