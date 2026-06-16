@@ -2473,6 +2473,56 @@ const Orcamento = (() => {
    *   - Se a versao deletada e' a ATIVA, troca pra outra antes
    *   - Se a opcao fica vazia, mantem (nao apaga opcao automaticamente)
    */
+  /**
+   * Felipe sessao 27: define qual VERSAO esta "valendo" no card do CRM (e que
+   * vai pra soma do DRE), sem precisar reabrir/re-aprovar o orcamento. Marca a
+   * versao escolhida como a UNICA enviadoParaCard=true do negocio e empurra o
+   * valor dela pro lead. Usado pelo botao "Usar no card" do modal de versoes.
+   */
+  function definirVersaoValendo(leadId, versaoId) {
+    const negocios = loadAll();
+    let alvo = null, negAlvo = null;
+    for (const n of negocios) {
+      if (n.leadId !== leadId) continue;
+      for (const o of (n.opcoes || [])) {
+        const v = (o.versoes || []).find(v => v.id === versaoId);
+        if (v) { alvo = v; negAlvo = n; break; }
+      }
+      if (negAlvo) break;
+    }
+    if (!alvo || !negAlvo) {
+      throw new Error('definirVersaoValendo: versao nao encontrada (lead=' + leadId + ', versao=' + versaoId + ')');
+    }
+    const valor = Number(alvo.valorAprovado != null ? alvo.valorAprovado : alvo.precoProposta) || 0;
+    if (!(valor > 0)) {
+      throw new Error('definirVersaoValendo: a versao escolhida nao tem valor aprovado');
+    }
+    // So' a versao escolhida fica no card; as demais saem (enviadoParaCard=false).
+    // resumoParaCardCRM filtra por enviadoParaCard!==false, entao a escolhida vence.
+    (negAlvo.opcoes || []).forEach(o => (o.versoes || []).forEach(v => {
+      v.enviadoParaCard = (v.id === versaoId);
+    }));
+    saveAll(negocios);
+    // Empurra o valor da versao escolhida pro lead do CRM (card + soma do DRE).
+    try {
+      const leads = Storage.scope('crm').get('leads') || [];
+      const lead = leads.find(l => l.id === leadId);
+      if (lead) {
+        lead.valor = valor;
+        if (alvo.precoProposta != null) lead.precoProposta = Number(alvo.precoProposta) || lead.precoProposta;
+        lead.orcadoEm = alvo.aprovadoEm || nowIso();
+        Storage.scope('crm').set('leads', leads);
+      }
+    } catch (e) {
+      console.warn('[orcamento] definirVersaoValendo: falha ao atualizar lead:', e && e.message);
+    }
+    try {
+      if (typeof Events !== 'undefined') Events.emit('crm:reload');
+      if (window.Crm && typeof window.Crm.forceReload === 'function') window.Crm.forceReload(null);
+    } catch (_) {}
+    return alvo;
+  }
+
   function deletarVersao(versaoId) {
     const negocios = loadAll();
     let achou = false;
@@ -21093,6 +21143,7 @@ const Orcamento = (() => {
     destravarVersaoFechadaDoLead,
     destravarVersao,
     deletarVersao,
+    definirVersaoValendo,
     deletarNegocio,
     // Felipe (sessao 2026-11): geracao de Blobs pra OrcDocs
     gerarRelatorioPNGBlob,

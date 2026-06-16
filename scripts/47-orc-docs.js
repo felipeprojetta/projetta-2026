@@ -166,7 +166,32 @@
     const fmtBR = window.fmtBR || (n => Number(n || 0).toFixed(2));
     const fmtData = window.fmtData || (s => s ? new Date(s).toLocaleDateString('pt-BR') : '');
 
+    // Felipe sessao 27: valor que esta valendo no card hoje (pra marcar qual
+    // versao e' a "no card" vs oferecer o botao "usar no card" nas outras).
+    var _valorCardAtual = null;
+    try {
+      var _leadsTmp = (window.Storage && Storage.scope && Storage.scope('crm').get('leads')) || [];
+      var _leadTmp = _leadsTmp.find(function (l) { return l && l.id === leadId; });
+      if (_leadTmp) _valorCardAtual = Number(_leadTmp.valor) || null;
+    } catch (_) {}
+
     const linhas = resumo.versoes.map((v) => {
+      const ehAtualNoCard = (_valorCardAtual != null && v.valor > 0
+        && Math.abs(Number(v.valor) - _valorCardAtual) < 0.01);
+      const btnValendo = (v.valor > 0)
+        ? (ehAtualNoCard
+            ? `<span title="Valor que esta valendo no card do CRM (vai pra soma do DRE)" style="
+                 display:flex; align-items:center; border-left:1px solid #e5e7eb;
+                 padding:0 12px; color:#16a34a; font-size:11px; font-weight:700; white-space:nowrap;">&#10003; no card</span>`
+            : `<button type="button" class="orcdocs-versao-valendo"
+                 data-versao-id="${v.id}" data-numero="${v.numero}"
+                 title="Usar este valor no card do CRM (vai pra soma do DRE)"
+                 style="background:transparent; border:none; border-left:1px solid #e5e7eb;
+                        padding:0 12px; cursor:pointer; color:#2563eb; font-size:11px;
+                        font-weight:700; white-space:nowrap;"
+                 onmouseover="this.style.background='#eff6ff'"
+                 onmouseout="this.style.background='transparent'">&#9733; usar no card</button>`)
+        : '';
       const tag = v.ehImutavelParaCard
         ? '<span style="background:#16a34a;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">APROVADA</span>'
         : '<span style="background:#94a3b8;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">draft</span>';
@@ -195,6 +220,7 @@
               ${valor}
             </div>
           </button>
+          ${btnValendo}
           <button type="button" class="orcdocs-versao-deletar"
                   data-versao-id="${v.id}" data-numero="${v.numero}" data-aprovada="${v.ehImutavelParaCard ? '1' : '0'}"
                   title="Deletar Versão ${v.numero}"
@@ -335,6 +361,36 @@
         } catch (err) {
           console.error('[OrcDocs] erro ao deletar versão:', err);
           alert('Falha ao deletar: ' + (err.message || err));
+        }
+      });
+    });
+
+    // Felipe sessao 27: botao "usar no card" — define qual versao esta valendo
+    // (valor que vai pro card do CRM e pra soma do DRE). Reusa
+    // Orcamento.definirVersaoValendo, sem reabrir/re-aprovar o orcamento.
+    document.querySelectorAll('#orcdocs-modal-versoes .orcdocs-versao-valendo').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const versaoId = btn.dataset.versaoId;
+        if (!versaoId) return;
+        try {
+          if (!window.Orcamento || typeof window.Orcamento.definirVersaoValendo !== 'function') {
+            alert('Função indisponível. Recarregue a página (Ctrl+Shift+R).');
+            return;
+          }
+          window.Orcamento.definirVersaoValendo(leadId, versaoId);
+          try {
+            if (typeof Events !== 'undefined') Events.emit('crm:reload');
+            if (window.Crm && typeof window.Crm.forceReload === 'function') {
+              window.Crm.forceReload(null);
+            }
+          } catch (_) {}
+          fecharModal('orcdocs-modal-versoes');
+          // Reabre o modal pra refletir qual versao ficou no card
+          setTimeout(() => abrirVersoesModal(leadId), 100);
+        } catch (err) {
+          console.error('[OrcDocs] erro ao definir versão valendo:', err);
+          alert('Falha: ' + (err.message || err));
         }
       });
     });
