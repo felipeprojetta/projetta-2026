@@ -408,6 +408,12 @@ const Orcamento = (() => {
     // Munk (manual)
     munk_caminhao: '',
 
+    // Felipe: dias de instalacao POR ITEM (rateia salarios/hotel/alimentacao
+    // na proposta proporcional aos dias de cada porta). {idx: dias}. Vazio =
+    // rateia proporcional ao custo de fab (como antes). So' afeta a divisao
+    // na proposta — NAO muda o total da instalacao.
+    diasPorItem: {},
+
     // Pedagio (manual; auto se vazio)
     pedagio_manual: null,
 
@@ -1269,22 +1275,35 @@ const Orcamento = (() => {
       (maoObraPorIdx[idx]   || 0)
     );
 
-    // 5. Instalacao proporcional ao SubFab de cada item (Felipe: "divida
-    // proporcional ao custo de cada uma"). Internacional nao entra aqui.
-    // EXCECAO (Felipe): o MUNK (guindaste) vai 100% na PORTA MAIOR (maior
-    // area L×A) — nao rateia, senao "vaza" pra porta menor e atrapalha a
-    // distribuicao. O resto da instalacao continua proporcional ao subFab.
+    // 5. Instalacao distribuida por COMPONENTE (Felipe). subInstTotal e'
+    // decomposto e cada parte vai por um criterio diferente; a SOMA dos
+    // pedacos por item = subInstTotal => total do orcamento inalterado.
+    //   a) DIAS (salarios + hotel + alimentacao) -> proporcional aos DIAS
+    //      POR ITEM (custoInst.diasPorItem). Vazio = cai no rateio por subFab.
+    //   b) MUNK (guindaste) -> 100% na PORTA MAIOR (maior area L×A).
+    //   c) RESTO (diesel + andaime + pedagio + lump terceiros/intl) ->
+    //      proporcional ao subFab de cada item (como antes).
+    // Internacional: subInst=0, todos os pedacos 0.
     const subFabSomado = subFabPorIdx.reduce((s, v) => s + v, 0);
 
-    // Munk incluso no subInstTotal: recupera o MESMO valor que entrou no
-    // calculo (calcularInst().munk). Internacional nao tem munk (subInst=0).
-    let munkTotal = 0;
+    // Componentes do subInst (mesmo calculo que gerou subInstTotal).
+    let rInstComp = {};
     if (!internacional) {
-      try { munkTotal = Number((calcularInst(versao.custoInst, itens) || {}).munk) || 0; }
-      catch (_) { munkTotal = 0; }
+      try { rInstComp = calcularInst(versao.custoInst, itens) || {}; }
+      catch (_) { rInstComp = {}; }
     }
-    munkTotal = Math.max(0, Math.min(munkTotal, subInstTotal));
-    const subInstSemMunk = Math.max(0, subInstTotal - munkTotal);
+    let munkTotal = Math.max(0, Math.min(Number(rInstComp.munk) || 0, subInstTotal));
+    let diasComp = (Number(rInstComp.salarios) || 0)
+                 + (Number(rInstComp.hotel) || 0)
+                 + (Number(rInstComp.alimentacao) || 0);
+    diasComp = Math.max(0, Math.min(diasComp, subInstTotal - munkTotal));
+    const restoComp = Math.max(0, subInstTotal - munkTotal - diasComp);
+
+    // Pesos de DIAS por item (custoInst.diasPorItem). Soma 0 => fallback subFab.
+    const diasPI = (versao.custoInst && versao.custoInst.diasPorItem) || {};
+    const diasPorIdx = itens.map((_, idx) => Number(diasPI[idx]) || 0);
+    const somaDias = diasPorIdx.reduce((s, v) => s + v, 0);
+    const usaDias = somaDias > 0;
 
     // Indice da porta de MAIOR area unitaria (L×A). So' procura se ha munk.
     let idxMunk = -1;
@@ -1313,7 +1332,8 @@ const Orcamento = (() => {
       const propFab = subFabSomado > 0
         ? (subFabPorIdx[idx] / subFabSomado)
         : (1 / itens.length);
-      let v = subInstSemMunk * propFab;
+      const propDias = usaDias ? (diasPorIdx[idx] / somaDias) : propFab;
+      let v = (restoComp * propFab) + (diasComp * propDias);
       if (idx === idxMunk) v += munkTotal;
       return v;
     });
@@ -9201,6 +9221,28 @@ const Orcamento = (() => {
             </div>
           </div>
 
+          ${(versao.itens && versao.itens.length >= 2) ? `
+          <div class="orc-fi-inst-grid" style="margin-top:-2px;">
+            <div class="orc-field" style="flex:1 1 100%;">
+              <label>Dias por item <small style="color:#9a3412;font-weight:500;">(rateia salarios / hotel / alimentacao na proposta)</small></label>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+                ${versao.itens.map((it, idx) => {
+                  const dpi = (inst.diasPorItem && inst.diasPorItem[idx] != null && inst.diasPorItem[idx] !== '') ? String(inst.diasPorItem[idx]) : '';
+                  let Li = 0, Ai = 0;
+                  if (it && it.tipo === 'revestimento_parede') { Li = Number(it.largura_total) || 0; Ai = Number(it.altura_total) || 0; }
+                  else { Li = Number(it.largura) || 0; Ai = Number(it.altura) || 0; }
+                  const dim = (Li && Ai) ? `${Li}×${Ai}` : `item ${idx + 1}`;
+                  return `<div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;color:#6b7280;font-weight:600;">P${idx + 1} · ${dim}</span>
+                    <input type="text" data-field="dias_por_item" data-inst="1" data-dias-idx="${idx}" value="${escapeHtml(dpi)}" placeholder="auto" title="Dias de trabalho dessa porta. Vazio = rateia proporcional ao custo de fab. Aceita expressao: 3+2." style="width:90px;${dpi !== '' ? 'background:#fef3c7;border-color:#d97706;color:#78350f;font-weight:600;' : ''}" />
+                  </div>`;
+                }).join('')}
+              </div>
+              <span class="orc-fi-help">vazio = rateia proporcional ao custo de fab (como hoje)</span>
+            </div>
+          </div>
+          ` : ''}
+
           <div class="orc-fi-bloco orc-fi-bloco-destaque">
             <div class="orc-fi-bloco-label">Total dias</div>
             <div class="orc-fi-bloco-detalhe">deslocamento + instalacao</div>
@@ -9542,7 +9584,22 @@ const Orcamento = (() => {
             fab[field] = parseBR(el.value) || 0;
           }
         } else if (el.dataset.inst) {
-          if (el.type === 'checkbox') {
+          if (el.dataset.diasIdx != null) {
+            // Felipe: dias de instalacao POR ITEM. Salva em custoInst.diasPorItem[idx].
+            // Clona pra nao mutar o INST_DEFAULT.diasPorItem (referencia compartilhada).
+            const idx = String(el.dataset.diasIdx);
+            const raw = String(el.value || '').trim();
+            const baseDpi = (versao.custoInst && versao.custoInst.diasPorItem && typeof versao.custoInst.diasPorItem === 'object')
+              ? versao.custoInst.diasPorItem : {};
+            inst.diasPorItem = Object.assign({}, baseDpi);
+            if (raw === '') {
+              delete inst.diasPorItem[idx];
+            } else {
+              const num = parseBRExpr(raw);
+              inst.diasPorItem[idx] = num;
+              if (/[+\-*/]/.test(raw.replace(/^-/, '')) && num > 0) el.value = String(num).replace('.', ',');
+            }
+          } else if (el.type === 'checkbox') {
             inst[field] = el.checked;
           } else if (el.type === 'radio') {
             // toggle modo projetta/terceiros
