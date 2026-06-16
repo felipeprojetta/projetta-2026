@@ -451,15 +451,14 @@ const Database = (() => {
         Object.keys(cloudInfo.versoesMap).forEach(function(verId) {
           if (localVerIds.has(verId)) return;
           var info = cloudInfo.versoesMap[verId];
-          var _vc = (info && info.ver) || {};
-          // Felipe (sessao atual): versao volta de baixo do tombstone SO' se o
-          // orcamento ja' foi ENVIADO (lead em orcamento-enviado/negociacao/
-          // fechado) E a versao e' aprovada/no-card. Orcamento ainda nao
-          // enviado: respeita o tombstone (pode deletar/editar versao a vontade).
-          var _enviada = _leadEnviado(neg)
-                         && ((_vc.status === 'fechada') || _vc.aprovadoEm)
-                         && _vc.enviadoParaCard !== false;
-          if (deletadasLocal.has(verId) && !_enviada) return;  // tombstone vale p/ nao-enviados
+          // Felipe sessao 27: o tombstone (_versoesDeletadas) e' setado APENAS
+          // em delete EXPLICITO do usuario (deletarVersao, com dupla confirmacao
+          // pra versao aprovada), entao SEMPRE prevalece — inclusive versao
+          // aprovada/enviada. Antes uma excecao (_enviada) re-injetava versoes
+          // aprovadas: a V2 errada do Hermine (lead em negociacao) voltava toda
+          // hora apesar do delete. Versoes que o local apenas nao tem (stale,
+          // SEM tombstone) continuam sendo re-adicionadas normalmente.
+          if (deletadasLocal.has(verId)) return;
           // Acha opcao correspondente no local
           var opc = (neg.opcoes || []).find(function(o) { return o.id === info.opcaoId; });
           if (!opc && neg.opcoes && neg.opcoes.length > 0) opc = neg.opcoes[0]; // fallback opcao A
