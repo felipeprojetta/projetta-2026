@@ -813,12 +813,26 @@ const Orcamento = (() => {
     const temOverride = overrideRaw !== null && overrideRaw !== '' && overrideRaw !== undefined && !Number.isNaN(Number(overrideRaw));
     const deslocamentoDias = temOverride ? (Number(overrideRaw) || 0) : deslocamentoPorKm(km);
 
+    // Felipe: se ha 'dias por item' preenchido, a SOMA deles e' os dias de
+    // instalacao (cada porta tem seus dias de trabalho; install total = soma).
+    // Precedencia: soma por item > campo global manual > auto.
+    const diasPI = (i.diasPorItem && typeof i.diasPorItem === 'object') ? i.diasPorItem : {};
+    const somaDiasItem = Object.keys(diasPI)
+      .reduce((s, k) => s + (Number(diasPI[k]) || 0), 0);
+
     // Felipe sessao 34: dias_instalacao tambem usa auto quando vazio
     const diasRaw = i.dias_instalacao;
-    const diasInst = (diasRaw != null && diasRaw !== '' && Number.isFinite(Number(diasRaw)) && Number(diasRaw) > 0)
-      ? Number(diasRaw)
-      : (auto.dias || 0);
-    const diasOverride = (diasRaw != null && diasRaw !== '' && Number(diasRaw) > 0 && Number(diasRaw) !== auto.dias);
+    let diasInst, diasOverride, diasInst_dePorItem = false;
+    if (somaDiasItem > 0) {
+      diasInst = somaDiasItem;
+      diasOverride = true;
+      diasInst_dePorItem = true;
+    } else {
+      diasInst = (diasRaw != null && diasRaw !== '' && Number.isFinite(Number(diasRaw)) && Number(diasRaw) > 0)
+        ? Number(diasRaw)
+        : (auto.dias || 0);
+      diasOverride = (diasRaw != null && diasRaw !== '' && Number(diasRaw) > 0 && Number(diasRaw) !== auto.dias);
+    }
 
     const diasTotal = deslocamentoDias + diasInst;
 
@@ -935,6 +949,7 @@ const Orcamento = (() => {
       diasInst_auto:  auto.dias,
       pessoas_auto:   auto.pessoas,
       diasInst_override: diasOverride,
+      diasInst_dePorItem,
       pessoas_override:  pessoasOverride,
       motivo_auto:    auto.motivo,
       noites,
@@ -9217,7 +9232,7 @@ const Orcamento = (() => {
             <div class="orc-field orc-fi-w-num">
               <label>Dias de instalacao ${rInst.diasInst_auto ? `<small style="color:#9a3412;font-weight:500;">(auto: ${rInst.diasInst_auto})</small>` : ''}</label>
               <input type="text" data-field="dias_instalacao" data-inst="1" value="${((inst.dias_instalacao) === '' || (inst.dias_instalacao) === null || (inst.dias_instalacao) === undefined || Number(inst.dias_instalacao) === 0) ? '' : escapeHtml(String(inst.dias_instalacao))}" placeholder="${rInst.diasInst_auto || ''}" title="${rInst.motivo_auto ? 'Automatico: ' + rInst.motivo_auto + '. Vazio = usa o automatico.' : 'somente dias de trabalho no local'}" style="${rInst.diasInst_override ? 'background:#fef3c7;border-color:#d97706;color:#78350f;font-weight:600;' : ''}" />
-              <span class="orc-fi-help">somente dias de trabalho no local${rInst.diasInst_override ? ' · <b style="color:#d97706;">MANUAL</b>' : ''}</span>
+              <span class="orc-fi-help">${rInst.diasInst_dePorItem ? `usando <b style="color:#d97706;">dias por item</b> (${rInst.diasInst} dia${rInst.diasInst === 1 ? '' : 's'} de instalacao)` : ('somente dias de trabalho no local' + (rInst.diasInst_override ? ' · <b style="color:#d97706;">MANUAL</b>' : ''))}</span>
             </div>
           </div>
 
@@ -9238,7 +9253,7 @@ const Orcamento = (() => {
                   </div>`;
                 }).join('')}
               </div>
-              <span class="orc-fi-help">vazio = rateia proporcional ao custo de fab (como hoje)</span>
+              <span class="orc-fi-help">${(() => { const s = versao.itens.reduce((a, _, i) => a + (Number((inst.diasPorItem || {})[i]) || 0), 0); return s > 0 ? `instalacao = soma = <b style="color:#d97706;">${s} dia${s === 1 ? '' : 's'}</b> (+ deslocamento no total)` : 'vazio = rateia proporcional ao custo de fab (como hoje)'; })()}</span>
             </div>
           </div>
           ` : ''}
