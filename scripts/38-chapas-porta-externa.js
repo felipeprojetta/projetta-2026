@@ -517,9 +517,14 @@ const ChapasPortaExterna = (() => {
     const espac = ctx.espacRipas || 30;
     const denom = 60 + espac;
     if (denom === 0) return 0;
+    // Felipe sessao 27: base do RIPADO TOTAL = largura do QUADRO (limite das
+    // pecas), nao a largura da porta. Ex quadro 915 -> ceil(915/90)=11 por face
+    // (antes usava ctx.L=1060 -> 12, dando 24 no total em vez de 22). A regra
+    // "cada face conta o seu modelo" ja' e' tratada pela selecao de TABELA por
+    // lado (TABELA[modeloDoLado]). Parcial mantido como estava (door-based).
     const numerador = ctx.tipoRipado === 'parcial'
       ? (ctx.L - ctx.dBC - ctx.tamCava - ctx.dBC)
-      : ctx.L;
+      : ctx.larguraQuadro;
     return Math.ceil(numerador / denom);
   }
 

@@ -598,15 +598,37 @@ const PerfisPortaExterna = (() => {
     //
     // Aplica em modelos 8 e 15 (Ripado). Quantidade total = qtdRipas
     // × nFolhas × pedacosDeCadaTipo.
-    if (modelo === 8 || modelo === 15) {
+    // Felipe sessao 27: RIPAS calculadas POR FACE.
+    //  - Cada face (externa/interna) entra com ripas SO se o modelo daquela
+    //    face for ripado (8 ou 15). Mesmo modelo nos 2 lados -> 2 faces (vira
+    //    o dobro). 08 fora / 15 dentro -> cada face conta. Face nao-ripada -> 0.
+    //    (Felipe: "nao e questao de dobrar, e questao de dentro e fora ter
+    //    modelo com ripa".) ANTES contava so' 1 face (qtdRipas * nFolhas) e
+    //    so' rodava se o modelo externo fosse ripado.
+    //  - Base de cada face = largura do QUADRO (mesma fonte das chapas), nao a
+    //    largura da porta. Ex quadro 915 -> ceil(915/90)=11 por face.
+    //    Parcial mantido door-based (geometria atual preservada).
+    const _modExt = parseInt(String(item.modeloExterno || item.modeloNumero || '').replace(/\D/g, ''), 10) || 0;
+    const _modInt = parseInt(String(item.modeloInterno || item.modeloNumero || '').replace(/\D/g, ''), 10) || 0;
+    const _ehRipado = function (m) { return m === 8 || m === 15; };
+    const _facesRipadas = (_ehRipado(_modExt) ? 1 : 0) + (_ehRipado(_modInt) ? 1 : 0);
+    if (_facesRipadas > 0) {
       const espacRipas = parseFloat(String(item.espacRipas || 30).replace(',', '.')) || 30;
       const tipoRipado = item.tipoRipado || 'total';
       const denom = 60 + espacRipas;
+      // largura base = QUADRO (consistente com 38-chapas-porta-externa.js)
+      let larguraQuadroRipa = 0;
+      if (window.ChapasPortaExterna && window.ChapasPortaExterna.calcularQuadro) {
+        const _q = window.ChapasPortaExterna.calcularQuadro(item);
+        if (_q) larguraQuadroRipa = (nFolhas === 2) ? _q.larguraQuadro2F : _q.larguraQuadro1F;
+      }
+      if (!larguraQuadroRipa) larguraQuadroRipa = L; // fallback defensivo
       const numerador = (tipoRipado === 'parcial')
-        ? (L - FGLD_eff - v.tamCava - FGLE_eff)
-        : L;
-      const qtdRipas = denom > 0 ? Math.ceil(numerador / denom) : 0;
-      const totalRipas = qtdRipas * nFolhas;
+        ? (L - FGLD_eff - v.tamCava - FGLE_eff)   // parcial: mantido door-based
+        : larguraQuadroRipa;                       // total: base do quadro
+      const qtdRipasFace = denom > 0 ? Math.ceil(numerador / denom) : 0;
+      // total = ripas por face × nº de faces ripadas × nº de folhas
+      const totalRipas = qtdRipasFace * _facesRipadas * nFolhas;
       if (totalRipas > 0 && A > 0) {
         if (A < 2000) {
           // Ripa baixa: 1 pedaco unico cortado em A
