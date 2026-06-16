@@ -3667,7 +3667,7 @@ const Orcamento = (() => {
     const camposNovos = ['distanciaBordaFrisoHorizontal1', 'distanciaBordaFrisoHorizontal2',
                           'espessuraFriso', 'quantidadeFrisos', 'larguraRipas',
                           'tipoRipado', 'espacamentoRipas',
-                          'tipoMoldura', 'quantidadeMolduras',
+                          'tipoMoldura', 'quantidadeMolduras', 'numDivisoesIguais',
                           'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura',
                           'perfilMoldura',
                           // Felipe (sessao 2026-05): corCava — em modelos
@@ -3985,7 +3985,8 @@ const Orcamento = (() => {
       tipoRipado: '',                 // Modelos 08,15  ('Total' / 'Parcial')
       espacamentoRipas: '',           // Modelos 08,15
       tipoMoldura: '',                // Modelo 23 ('Padrao' / 'Divisoes Iguais' / 'Personalizado')
-      quantidadeMolduras: '',         // Modelo 23 ('1' / '2' / '3')
+      quantidadeMolduras: '',         // Modelo 23 ('1' / '2' / '3') — config Padrao/Personalizado
+      numDivisoesIguais: '',          // Modelo 23 — config 'Divisoes Iguais' (campo livre: N molduras iguais)
       // Felipe (do doc): distancias progressivas conforme qtde de molduras
       distanciaBorda1aMoldura: '',    // Modelo 23 — sempre se qtde >= 1
       distancia1a2aMoldura: '',       // Modelo 23 — so' se qtde >= 2
@@ -4051,6 +4052,7 @@ const Orcamento = (() => {
     // sao progressivas conforme quantidade de molduras (1, 2 ou 3).
     tipoMoldura:                { label: 'Configuracao da moldura', tipo: 'select', opcoes: ['', 'Padrao', 'Divisoes Iguais', 'Personalizado'] },
     quantidadeMolduras:         { label: 'Quantidade de molduras', tipo: 'select', opcoes: ['', '1', '2', '3'] },
+    numDivisoesIguais:          { label: 'Quantidade de divisões', tipo: 'number', min: 1, step: 1 },
     distanciaBorda1aMoldura:    { label: 'Distancia da borda a 1a moldura (mm)', tipo: 'number', min: 0, step: 1 },
     distancia1a2aMoldura:       { label: 'Distancia da 1a a 2a moldura (mm)', tipo: 'number', min: 0, step: 1 },
     distancia2a3aMoldura:       { label: 'Distancia da 2a a 3a moldura (mm)', tipo: 'number', min: 0, step: 1 },
@@ -4097,7 +4099,7 @@ const Orcamento = (() => {
     15: ['tipoRipado', 'espacamentoRipas'],
     16: ['quantidadeFrisos', 'espessuraFriso'],
     22: ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'quantidadeFrisos'],
-    23: ['tipoMoldura', 'quantidadeMolduras', 'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura', 'perfilMoldura'],
+    23: ['tipoMoldura', 'quantidadeMolduras', 'numDivisoesIguais', 'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura', 'perfilMoldura'],
     24: ['tamanhoCava'],
     // Felipe (sessao 18): Mod 25 = "Puxador Externo + ripado vertical sem
     // elevacao". Base mod 10 (liso) + frisos verticais que FATIAM a tampa
@@ -4131,14 +4133,21 @@ const Orcamento = (() => {
    */
   function campoModeloVisivel(chave, item) {
     const qtdMolduras = parseInt(item.quantidadeMolduras, 10) || 0;
+    const ehDivIguais = String(item.tipoMoldura || '').trim() === 'Divisoes Iguais';
+    // Felipe sessao atual: em "Divisoes Iguais" o input passa a ser
+    // "Quantidade de divisoes" (campo livre) no lugar de "Quantidade de
+    // molduras". As distancias internas (1a-2a, 2a-3a) somem porque a
+    // divisao e' igual (calculada); mantem so' a distancia da borda.
+    if (chave === 'quantidadeMolduras') return !ehDivIguais;
+    if (chave === 'numDivisoesIguais')  return ehDivIguais;
     // Felipe: distancias da moldura sao progressivas
     //   qtde 0 (nao escolhido) -> nada
     //   qtde 1 -> so distanciaBorda1aMoldura
     //   qtde 2 -> + distancia1a2aMoldura
     //   qtde 3 -> + distancia2a3aMoldura
-    if (chave === 'distanciaBorda1aMoldura') return qtdMolduras >= 1;
-    if (chave === 'distancia1a2aMoldura')    return qtdMolduras >= 2;
-    if (chave === 'distancia2a3aMoldura')    return qtdMolduras >= 3;
+    if (chave === 'distanciaBorda1aMoldura') return ehDivIguais || qtdMolduras >= 1;
+    if (chave === 'distancia1a2aMoldura')    return !ehDivIguais && qtdMolduras >= 2;
+    if (chave === 'distancia2a3aMoldura')    return !ehDivIguais && qtdMolduras >= 3;
     // Felipe (do doc - msg modelo 23 divisoes iguais): "Quantas divisoes"
     // so' aparece se Configuracao da moldura = "Divisoes Iguais"
     // Felipe sessao 35: campo "Quantas divisoes" ELIMINADO. Quando a config
