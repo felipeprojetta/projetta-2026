@@ -180,6 +180,16 @@ const Database = (() => {
     } catch(_) { return false; }
   }
 
+  // Felipe sessao 34: houve escrita local nesta chave dentro da janela de
+  // protecao? (independe do timestamp remoto). Usado pra blindar o blob de
+  // orcamentos enquanto o usuario edita — ver guard no realtime.
+  function _temWriteLocalRecente(scope, key) {
+    var combo = scope + '/' + key;
+    var localTs = _localWriteTs[combo];
+    if (!localTs) return false;
+    return (Date.now() - localTs.getTime()) <= LOCAL_WRITE_PROTECT_MS;
+  }
+
   // Felipe sessao 12 (3a sobrescrita da Andressa): MERGE protetor pra
   // auth/users. Antes de sobrescrever, busca versao cloud. Se cloud tem
   // mais usuarios que local, faz uniao por username (cloud ganha em
@@ -1287,6 +1297,21 @@ const Database = (() => {
           // crm_kpis_order). NUNCA aplicar via realtime — senao o orcamento que a
           // Paula abre no PC dela cai na tela do Felipe. Cada maquina independente.
           if (r.scope === 'app') return;
+          // Felipe sessao 34: ANTI-WIPE do orcamento em edicao. O blob
+          // orcamentos/negocios e' UM array com TODOS os orcamentos. Num
+          // ambiente multiusuario, quando a Paula salva o blob dela (sem o
+          // campo que o Felipe acabou de digitar) com timestamp MAIS NOVO, a
+          // protecao anti-stale abaixo (que so' pega remoto mais VELHO) deixa
+          // passar e o realtime apagava o campo na tela do Felipe. Regra: se
+          // houve escrita local recente no blob de negocios (usuario editando),
+          // NAO aplica o remoto por cima. A edicao local sobe e faz merge no
+          // cloud (mergeProtegido_negocios no upload); ao expirar a janela o
+          // realtime volta a aplicar o cloud ja' correto.
+          if (r.scope === 'orcamentos' && r.key === 'negocios'
+              && _temWriteLocalRecente(r.scope, r.key)) {
+            console.log('[DB] 🛡 Realtime PROTEGEU orcamentos/negocios (edicao local recente)');
+            return;
+          }
           // Felipe sessao 13: PROTECAO ANTI-STALE. Se acabamos de fazer
           // set() local pra esta chave (janela de 30s), e o registro
           // remoto e' MAIS VELHO que nosso write, IGNORA — caso contrario
