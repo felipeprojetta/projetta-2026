@@ -5501,6 +5501,8 @@ const Orcamento = (() => {
              'fechaduraModo', 'fechaduraInternaCodigo', 'usoComodoInterno',
              // Felipe sessao 34: alterna campos giro/correr no form
              'tipoAbertura',
+             // Felipe sessao 34: troca o desenho da correr conforme folhas/acabamento
+             'nFolhasCorrer', 'acabamentoCorrer',
              // Felipe sessao 33: painel superior aparece/some os campos de medidas
              'temPainelSuperior'].includes(field)) {
           reRender();
@@ -6533,6 +6535,26 @@ const Orcamento = (() => {
                 </select>
               </div>
             </div>
+            ${(() => {
+              // Felipe sessao 34: desenho pertinente da correr. Acabamento
+              // 'liso' -> modelo interno Lisa; 'classico' -> Classica. Imagem
+              // por nº de folhas: img_correr_{1..4}f cadastrada em Cadastros →
+              // Modelos → Internas.
+              let _des = null;
+              try {
+                if (window.Modelos && window.Modelos.listarInternas) {
+                  const _li = window.Modelos.listarInternas();
+                  const _re = (item.acabamentoCorrer === 'classico') ? /classic/i : /lisa/i;
+                  const _m = _li.find(x => _re.test(String(x.nome || '')));
+                  if (_m) _des = _m['img_correr_' + (Number(item.nFolhasCorrer) || 1) + 'f'] || null;
+                }
+              } catch (_) {}
+              const _ac = item.acabamentoCorrer === 'classico' ? 'classica' : 'lisa';
+              const _nf = Number(item.nFolhasCorrer) || 1;
+              return _des
+                ? `<div class="orc-form-row" style="margin-top:10px;"><div class="orc-field" style="grid-column: span 8;"><div style="border:1px solid var(--line);border-radius:8px;padding:8px;display:inline-block;background:#fff;"><img src="${_des}" alt="Correr ${_ac} ${_nf}f" style="max-height:240px;max-width:100%;display:block;" /></div></div></div>`
+                : `<div class="orc-form-row" style="margin-top:10px;"><div class="orc-field" style="grid-column: span 8;"><div style="font-size:12px;color:#9a3412;font-style:italic;">Sem desenho cadastrado para correr ${_ac} ${_nf} folha${_nf > 1 ? 's' : ''}. Cadastre em Cadastros → Modelos → Internas.</div></div></div>`;
+            })()}
           ` : ''}
         </div>
 

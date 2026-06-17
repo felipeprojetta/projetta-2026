@@ -217,9 +217,20 @@ const Modelos = (() => {
     }
   }
 
-  function renderImg(modelo, tipo /* '1f' ou '2f' */) {
-    const folhasLabel = tipo === '1f' ? '1 FOLHA' : '2 FOLHAS';
-    const campo = tipo === '1f' ? 'img_1f' : 'img_2f';
+  // Felipe sessao 34: helpers de campo/label por tipo de slot. Suporta os
+  // slots de GIRO ('1f','2f') e os de CORRER ('correr_1f'..'correr_4f').
+  function _campoImg(tipo) { return 'img_' + tipo; }   // '1f'->img_1f, 'correr_2f'->img_correr_2f
+  function _campoDim(tipo) { return 'dim_' + tipo; }
+  function _labelImg(tipo) {
+    var map = { '1f': '1 FOLHA', '2f': '2 FOLHAS',
+                'correr_1f': 'CORRER 1 FOLHA', 'correr_2f': 'CORRER 2 FOLHAS',
+                'correr_3f': 'CORRER 3 FOLHAS', 'correr_4f': 'CORRER 4 FOLHAS' };
+    return map[tipo] || tipo;
+  }
+
+  function renderImg(modelo, tipo /* '1f','2f','correr_1f'.. */) {
+    const folhasLabel = _labelImg(tipo);
+    const campo = _campoImg(tipo);
     const img = modelo[campo];
 
     if (img) {
@@ -250,6 +261,20 @@ const Modelos = (() => {
   }
 
   function renderCard(modelo) {
+    // Felipe sessao 34: nos modelos INTERNOS, alem do giro (1f/2f), mostra os
+    // slots de CORRER por nº de folhas (1 a 4). Liso usa o modelo Lisa;
+    // Classico usa o modelo Classica — o orcamento puxa img_correr_{n}f.
+    const ehInterna = state.subAba === 'internas';
+    const correrBloco = ehInterna ? `
+        <div class="mod-card-correr" style="grid-column:1 / -1; display:flex; flex-direction:column; gap:8px; border-top:1px dashed var(--line); padding-top:12px; margin-top:4px;">
+          <div style="font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--laranja);">CORRER (DESLIZANTE) — desenhos por nº de folhas</div>
+          <div style="display:flex; gap:14px; flex-wrap:wrap;">
+            ${renderImg(modelo, 'correr_1f')}
+            ${renderImg(modelo, 'correr_2f')}
+            ${renderImg(modelo, 'correr_3f')}
+            ${renderImg(modelo, 'correr_4f')}
+          </div>
+        </div>` : '';
     return `
       <div class="mod-card" data-id="${modelo.id}">
         <input class="mod-card-num-input" type="number" min="1" data-field="numero" data-id="${modelo.id}" value="${String(modelo.numero).padStart(2, '0')}" />
@@ -261,6 +286,7 @@ const Modelos = (() => {
         <div class="mod-card-actions">
           <button class="row-delete" data-action="delete" data-id="${modelo.id}" title="Excluir modelo">×</button>
         </div>
+        ${correrBloco}
       </div>
     `;
   }
@@ -473,8 +499,8 @@ const Modelos = (() => {
   function handleUpload(modelo, tipo, container) {
     pickImageFile(function(file) {
       compressImage(file, 800, 0.85).then(async function(result) {
-        const campo = tipo === '1f' ? 'img_1f' : 'img_2f';
-        const dimCampo = tipo === '1f' ? 'dim_1f' : 'dim_2f';
+        const campo = _campoImg(tipo);
+        const dimCampo = _campoDim(tipo);
         // Mostra preview imediato (base64) enquanto faz upload
         modelo[campo] = result.dataUrl;
         modelo[dimCampo] = result.width + 'x' + result.height;
@@ -544,10 +570,10 @@ const Modelos = (() => {
         const id = btn.dataset.id;
         const m = listaAtual().find(x => x.id === id);
         if (!m) return;
-        const folhasLabel = tipo === '1f' ? '1 folha' : '2 folhas';
+        const folhasLabel = _labelImg(tipo).toLowerCase();
         if (!confirm('Remover a imagem de ' + folhasLabel + ' do modelo "' + m.nome + '"?')) return;
-        const campo = tipo === '1f' ? 'img_1f' : 'img_2f';
-        const dimCampo = tipo === '1f' ? 'dim_1f' : 'dim_2f';
+        const campo = _campoImg(tipo);
+        const dimCampo = _campoDim(tipo);
         m[campo] = null;
         m[dimCampo] = null;
         markDirty();
