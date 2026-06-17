@@ -114,6 +114,19 @@ const PerfisPortaInterna = (() => {
         // 2800mm, senao 3. Total = qtd/folha x nFolhas.
         const qtdTravH = alturaVao > 2800 ? 3 : 2;
         _add(cortes, 'PA-46X46X1.5', larguraFolha, qtdTravH * nFolhas * qtdPortas, 'Travessa horizontal');
+        // ===== ESTRUTURA ACIMA DO TRILHO + BATENTE (Felipe sessao 34) =====
+        // Tubo 76x38 que vai acima do trilho de correr da Rometal:
+        //   comprimento = (largura_vao + 70) x 2. 1 un por porta.
+        const compTuboTrilho = (larguraVao + 70) * 2;
+        _add(cortes, 'PA-76X38X1.98', compTuboTrilho, 1 * qtdPortas, 'Tubo sobre o trilho (76x38)', 'portal');
+        // Cantoneira 38x38x2 acompanhando o tubo (MESMO comprimento). 1 un.
+        // OBS: cantoneira 38x38x2 ainda NAO existe no cadastro de perfis ->
+        // codigo provisorio. Cadastrar em Cadastros -> Perfis pra puxar preco.
+        _add(cortes, 'PA-CANT-38X38X2', compTuboTrilho, 1 * qtdPortas, 'Cantoneira 38x38x2 (sobre trilho)', 'portal');
+        // Tubo do batente: 2x 51x25, comprimento = altura_vao + 200
+        // (+ altura do painel fixo superior, se houver).
+        const compBatenteCorrer = alturaVao + 200 + (painelOk ? painelSupAlt : 0);
+        _add(cortes, 'PA-51X25X2.0', compBatenteCorrer, 2 * qtdPortas, 'Tubo batente correr (51x25)', 'portal');
       }
       return cortes;
     }

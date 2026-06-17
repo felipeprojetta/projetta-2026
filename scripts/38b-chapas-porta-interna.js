@@ -167,6 +167,38 @@ const ChapasPortaInterna = (() => {
               podeRotacionar: false,
             });
           }
+          // ===== ACM ANTETEN (arremate da jamba) DA CORRER (Felipe sessao 34)
+          // Tira de ACM com desenvolvido = 84 + 60 + 84 = 228mm de largura;
+          // comprimento = altura_vao + 200 (+ altura do painel fixo se houver).
+          // 2 pecas (uma por lado da jamba).
+          const compAnteten = alturaVao + 200 + (painelOk ? painelSupAlt : 0);
+          pecas.push({
+            label:          'ACM anteten (correr)',
+            descricao:      'ACM anteten (correr)',
+            largura:        228,
+            altura:         _round1(compAnteten),
+            qtd:            2 * qtdPortas,
+            cor:            String(item.corExterna || '').trim(),
+            categoria:      'portal',
+            podeRotacionar: false,
+          });
+          // ===== ACM ARREMATE DO FIXO SUPERIOR (Felipe sessao 34) =====
+          // So' quando ha' painel fixo. Tira de ACM (largura 228 = 84+60+84,
+          // igual o anteten) com desenvolvido = largura_fixo x 2 + altura_fixo
+          // + 200. PECA ADICIONAL ao painel (face) ja' existente acima.
+          if (painelOk) {
+            const compFixoArremate = painelSupLarg * 2 + painelSupAlt + 200;
+            pecas.push({
+              label:          'ACM arremate fixo superior (correr)',
+              descricao:      'ACM arremate fixo superior (correr)',
+              largura:        228,
+              altura:         _round1(compFixoArremate),
+              qtd:            1 * qtdPortas,
+              cor:            String(item.corExterna || '').trim(),
+              categoria:      'portal',
+              podeRotacionar: false,
+            });
+          }
         } else if (lado === 'interno') {
           pecas.push({
             label:          'Chapa folha correr (interna)',
