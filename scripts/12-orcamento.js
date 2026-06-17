@@ -3868,6 +3868,7 @@ const Orcamento = (() => {
       tipoAbertura: 'giro',
       nFolhasCorrer: 1,          // 1 a 4 folhas (so' quando tipoAbertura='correr')
       acabamentoCorrer: 'liso',  // 'liso' | 'classico' (so' quando tipoAbertura='correr')
+      puxadorCorrer: 'por_conta_cliente',  // Felipe sessao 34: puxador da correr; default por conta do cliente; opcoes da familia "...correr..."
       largura: '',
       altura: '',
       // Felipe sessao 31: largura da parede (espessura) — campo
@@ -6532,6 +6533,21 @@ const Orcamento = (() => {
                 <select data-field="acabamentoCorrer">
                   <option value="liso" ${(item.acabamentoCorrer || 'liso') === 'liso' ? 'selected' : ''}>Liso</option>
                   <option value="classico" ${item.acabamentoCorrer === 'classico' ? 'selected' : ''}>Classico</option>
+                </select>
+              </div>
+            </div>
+            <div class="orc-form-row" style="margin-top:8px;">
+              <div class="orc-field" style="grid-column: span 8;">
+                <label>Puxador <span style="font-weight:400;color:#9a3412;">(família "Porta de Correr Interna")</span></label>
+                <select data-field="puxadorCorrer">
+                  <option value="por_conta_cliente" ${(item.puxadorCorrer || 'por_conta_cliente') === 'por_conta_cliente' ? 'selected' : ''}>Por conta do cliente</option>
+                  ${_todosAcessorios
+                    .filter(a => String(a.familia || '').toUpperCase().indexOf('CORRER') >= 0)
+                    .map(a => {
+                      const _cod = String(a.codigo || '');
+                      const _desc = String(a.descricao || _cod);
+                      return `<option value="${escapeHtml(_cod)}" ${item.puxadorCorrer === _cod ? 'selected' : ''}>${escapeHtml(_desc)}</option>`;
+                    }).join('')}
                 </select>
               </div>
             </div>
@@ -14888,9 +14904,20 @@ const Orcamento = (() => {
       const _comodo = item.usoComodoInterno === 'banheiro'
         ? tr('Banheiro — chave/borboleta','Bathroom — key/thumbturn')
         : tr('Comum — chave/chave','Standard — key/key');
+      // Puxador: default "por conta do cliente"; senao busca a descricao do
+      // acessorio escolhido (familia "...correr...") pelo codigo.
+      let _puxadorTxt = tr('Por conta do cliente','By client');
+      if (item.puxadorCorrer && item.puxadorCorrer !== 'por_conta_cliente') {
+        try {
+          const _acc = (window.Storage ? Storage.scope('cadastros').get('acessorios_lista') : null) || [];
+          const _p = _acc.find(a => String(a.codigo || '') === String(item.puxadorCorrer));
+          _puxadorTxt = _p ? String(_p.descricao || _p.codigo) : String(item.puxadorCorrer);
+        } catch (_) {}
+      }
       blocoFechadura =
         `<div class="rel-prop-item-linha"><span class="lbl">${tr('FECHADURA','LOCK')}:</span> <span>${tr('Bico de Papagaio','Hook lock')}</span></div>` +
-        `<div class="rel-prop-item-linha"><span class="lbl">${tr('CILINDRO','CYLINDER')}:</span> <span>${_comodo}</span></div>`;
+        `<div class="rel-prop-item-linha"><span class="lbl">${tr('CILINDRO','CYLINDER')}:</span> <span>${_comodo}</span></div>` +
+        `<div class="rel-prop-item-linha"><span class="lbl">${tr('PUXADOR','HANDLE')}:</span> <span>${escapeHtml(_puxadorTxt)}</span></div>`;
     } else if (modoFech === 'conjunto') {
       const cod = item.fechaduraInternaCodigo || '';
       const corF = item.fechaduraInternaCor || '';
