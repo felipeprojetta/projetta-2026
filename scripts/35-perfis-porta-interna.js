@@ -86,6 +86,33 @@ const PerfisPortaInterna = (() => {
 
     const cortes = {};
 
+    // ===== PORTA DE CORRER (Felipe sessao 34) =====
+    // A folha de correr NAO usa nenhum perfil do giro (batente/folha/click/
+    // travessa/alisar). So' o quadro PA-VEDAINT. Por isso retorna aqui.
+    // Spec Felipe (sessao 28):
+    //   - Perfil unico = PA-VEDAINT, 2 verticais (altura) + 2 horizontais
+    //     (largura) por folha -> quadro completo.
+    //   - 1 folha:  largura = largura_vao + 70 ; altura = altura_vao + 30
+    //     (ex.: vao 900x2100 -> folha 970x2130).
+    //   - n folhas: largura de CADA folha = (largura_vao + 70) / n + 50
+    //     (50 de transpasse por folha) ; altura = altura_vao + 30 (igual).
+    //   - quantidade total = cortes de 1 folha x n folhas.
+    //   - NAO usa folgas (fglEsq/fglDir/fgSup) — medida e' vao + sobras fixas.
+    // (acabamento 'classico' = + boiserie, igual giro modelo 23 — entra em
+    //  commit proprio junto com os campos de moldura da correr.)
+    if (item.tipoAbertura === 'correr') {
+      const nFolhas = Math.min(4, Math.max(1, Number(item.nFolhasCorrer) || 1));
+      const larguraFolha = nFolhas === 1
+        ? (larguraVao + 70)
+        : ((larguraVao + 70) / nFolhas + 50);
+      const alturaFolha = alturaVao + 30;
+      if (larguraFolha > 0 && alturaFolha > 0) {
+        _add(cortes, 'PA-VEDAINT', larguraFolha, 2 * nFolhas * qtdPortas, 'Folha correr horizontal');
+        _add(cortes, 'PA-VEDAINT', alturaFolha,  2 * nFolhas * qtdPortas, 'Folha correr vertical');
+      }
+      return cortes;
+    }
+
     // ===== BATENTE (PA-BATENTEINT) — PORTAL =====
     // Felipe sessao 31 (correcao): batente envolve o vao POR FORA, com
     // overlap de 21,5 nas pontas onde encosta nos verticais.
