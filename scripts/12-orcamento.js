@@ -5486,6 +5486,31 @@ const Orcamento = (() => {
           reRender();
         }
       });
+      // Felipe sessao 34: persiste o valor JA' no 'input' (sem re-render), pra
+      // nao perder a alteracao quando o usuario escolhe a cor (datalist) e
+      // clica Recalcular/outro botao ANTES do 'change' disparar (que so' roda
+      // no blur). O 'change' segue com a logica especial (zera cor ao trocar
+      // revestimento, deriva cilindro) + re-render. Pulamos os campos <select>
+      // e os de logica especial — eles disparam 'change' na hora e o input-
+      // persist atrapalharia o 'zera cor' (que compara antigo vs novo).
+      el.addEventListener('input', () => {
+        const field = el.dataset.field;
+        if (['revestimento', 'revestimentoExterno', 'revestimentoInterno',
+             'fechaduraInternaCodigo', 'usoComodoInterno', 'tipoAbertura',
+             'temPainelSuperior', 'fechaduraModo'].includes(field)) return;
+        const root = getRoot();
+        if (!root) return;
+        const item = root.item;
+        if (field === 'quantidade') {
+          item.quantidade = Math.max(1, parseInt(el.value, 10) || 1);
+        } else if (field === 'largura_total' || field === 'altura_total') {
+          item[field] = parseFloat(el.value.replace(',', '.')) || 0;
+        } else {
+          item[field] = el.value;
+        }
+        persistir(root);
+        if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+      });
     });
 
     // Campos de pecas (modo manual)
