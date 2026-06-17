@@ -897,7 +897,7 @@ const Database = (() => {
       // no PC do Felipe e nao conseguia logar do PC dela.
       // 'session', 'session_user', 'last_login' continuam locais (per-device).
       var NEVER_SYNC_KEYS = ['session', 'session_user', 'last_login'];
-      var NEVER_SYNC_SCOPES = ['auth_session']; // 'auth' continua liberado pra users
+      var NEVER_SYNC_SCOPES = ['auth_session', 'app']; // 'app' = navegacao local por navegador (Felipe sessao 34); 'auth' continua liberado pra users
       // Felipe sessao 32: PARTICIONAMENTO + AUTO-LIMPEZA DE QUOTA
       // BUG anterior: try/catch engolia QuotaExceededError silenciosamente.
       // localStorage estourava (10MB cheio de backup_diario/manual) e
@@ -1177,7 +1177,11 @@ const Database = (() => {
       // Felipe sessao 13: marca timestamp local pra proteger contra
       // overwrite por realtime polling com dados stale do Supabase.
       _registrarWriteLocal(scope, key);
-      sbUpsert(scope, key, value);
+      // Felipe sessao 34: scope 'app' = navegacao LOCAL por navegador
+      // (orcamento_lead_ativo, orcamento_versao_ativa, orcamento_repopular_do_lead,
+      // crm_kpis_order). NAO vai pro Supabase — senao abrir orcamento num PC
+      // reflete na tela de outro usuario. Cada maquina trabalha independente.
+      if (scope !== 'app') sbUpsert(scope, key, value);
       Events.emit('db:change', { scope: scope, key: key, value: value });
       return value;
     },
@@ -1278,6 +1282,11 @@ const Database = (() => {
           // Felipe sessao 12: 'users' agora sincroniza (cadastros novos
           // precisam propagar entre maquinas - bug Andressa).
           if (r.key === 'session' || r.key === 'session_user' || r.key === 'last_login') return;
+          // Felipe sessao 34: scope 'app' = navegacao LOCAL por navegador
+          // (orcamento_lead_ativo, orcamento_versao_ativa, orcamento_repopular_do_lead,
+          // crm_kpis_order). NUNCA aplicar via realtime — senao o orcamento que a
+          // Paula abre no PC dela cai na tela do Felipe. Cada maquina independente.
+          if (r.scope === 'app') return;
           // Felipe sessao 13: PROTECAO ANTI-STALE. Se acabamos de fazer
           // set() local pra esta chave (janela de 30s), e o registro
           // remoto e' MAIS VELHO que nosso write, IGNORA — caso contrario
