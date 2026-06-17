@@ -6515,7 +6515,7 @@ const Orcamento = (() => {
           </div>
         </div>
 
-        ${(() => {
+        ${_ehCorrer ? '' : (() => {
           // Felipe (sessao atual): porta interna tambem renderiza os campos do
           // modelo escolhido. Ex: modelo 23 (Classica com Molduras) -> molduras
           // (tipoMoldura, quantidadeMolduras, distancia da borda, perfilMoldura).
@@ -6667,6 +6667,7 @@ const Orcamento = (() => {
 
         <div class="orc-section">
           <div class="orc-section-title">Fechadura</div>
+          ${_ehCorrer ? '' : `
           <div class="orc-form-row">
             <div class="orc-field" style="grid-column: span 6;">
               <label>Modo</label>
@@ -6681,9 +6682,23 @@ const Orcamento = (() => {
                 </label>
               </div>
             </div>
-          </div>
+          </div>`}
 
-          ${modoFech === 'conjunto' ? `
+          ${_ehCorrer ? `
+            <div class="orc-form-row" style="margin-top:8px;">
+              <div class="orc-field" style="grid-column: span 6;">
+                <label>Fechadura <span class="orc-hint-auto">fixa da porta de correr</span></label>
+                <input type="text" value="Bico de Papagaio — FECH-CORRER-BICOPAPAGAIO-JNF" readonly style="background:#f5f5f5;" />
+              </div>
+              <div class="orc-field" style="grid-column: span 6;">
+                <label>Tipo de comodo <span class="orc-hint-auto">define o cilindro</span></label>
+                <select data-field="usoComodoInterno">
+                  <option value="comum" ${(item.usoComodoInterno || 'comum') === 'comum' ? 'selected' : ''}>Comodo comum — chave/chave (CH/CH)</option>
+                  <option value="banheiro" ${item.usoComodoInterno === 'banheiro' ? 'selected' : ''}>Banheiro — chave/botao (CH/BT)</option>
+                </select>
+              </div>
+            </div>
+          ` : modoFech === 'conjunto' ? `
             <div class="orc-form-row" style="margin-top:8px;">
               <div class="orc-field" style="grid-column: span 6;">
                 <label>Conjunto Hafele</label>
@@ -6743,7 +6758,7 @@ const Orcamento = (() => {
           `}
         </div>
 
-        <div class="orc-section">
+        <div class="orc-section" style="${_ehCorrer ? 'display:none' : ''}">
           <div class="orc-section-title">Dobradica oculta</div>
           <div class="orc-form-row">
             <div class="orc-field" style="grid-column: span 6;">
@@ -6758,7 +6773,7 @@ const Orcamento = (() => {
           </div>
         </div>
 
-        <div class="orc-section" style="background:#fffbeb; border:1px solid #fcd34d; border-radius:6px; padding:12px; margin-top:12px;">
+        <div class="orc-section" style="${_ehCorrer ? 'display:none;' : ''}background:#fffbeb; border:1px solid #fcd34d; border-radius:6px; padding:12px; margin-top:12px;">
           <div class="orc-section-title" style="color:#92400e;">⚠ Modulo em construcao</div>
           <p style="font-size:13px; color: #92400e; margin:6px 0 0;">
             Porta interna: formulario completo. Motor de cortes ja' tem o BATENTE
