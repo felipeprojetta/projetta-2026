@@ -106,6 +106,51 @@ const ChapasPortaInterna = (() => {
             categoria:      'porta',
             podeRotacionar: false,
           });
+          // ===== ALISAR EM L (Felipe sessao 34) =====
+          // comp = altura_vao + 30 (sem painel fixo) OU altura_vao + 30 +
+          // altura do painel fixo (temPainelSuperior='sim'). Largura = 20+50+50
+          // = 120. Quantidade = 4 pecas. Cor: externa (a confirmar).
+          const _corAlisar = String(item.corExterna || '').trim();
+          const compAlisarL = alturaVao + 30 + (temPainelSup ? painelSupAlt : 0);
+          if (compAlisarL > 0) {
+            pecas.push({
+              label:          'Alisar em L (correr)',
+              descricao:      'Alisar em L (correr)',
+              largura:        120,
+              altura:         _round1(compAlisarL),
+              qtd:            4 * qtdPortas,
+              cor:            _corAlisar,
+              categoria:      'portal',
+              podeRotacionar: false,
+            });
+          }
+          // ===== TAMPAS DOS ALISARES (Felipe sessao 34) =====
+          // largura = espessura da parede + 20 + 20. 2 pc verticais com
+          // altura_vao + 30 ; 1 pc horizontal (topo) com largura_vao + 30.
+          const espParede = _toNum(item.larguraParede);
+          const larguraTampaAlisar = espParede + 20 + 20;
+          if (espParede > 0) {
+            pecas.push({
+              label:          'Tampa do alisar (vertical)',
+              descricao:      'Tampa do alisar (vertical)',
+              largura:        _round1(larguraTampaAlisar),
+              altura:         _round1(alturaVao + 30),
+              qtd:            2 * qtdPortas,
+              cor:            _corAlisar,
+              categoria:      'portal',
+              podeRotacionar: false,
+            });
+            pecas.push({
+              label:          'Tampa do alisar (horizontal)',
+              descricao:      'Tampa do alisar (horizontal)',
+              largura:        _round1(larguraTampaAlisar),
+              altura:         _round1(larguraVao + 30),
+              qtd:            1 * qtdPortas,
+              cor:            _corAlisar,
+              categoria:      'portal',
+              podeRotacionar: false,
+            });
+          }
         } else if (lado === 'interno') {
           pecas.push({
             label:          'Chapa folha correr (interna)',
