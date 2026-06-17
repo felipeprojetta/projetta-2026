@@ -1195,6 +1195,16 @@ const Orcamento = (() => {
       if (cadAcess.length && window.AcessoriosPortaExterna
           && typeof window.AcessoriosPortaExterna.calcularAcessoriosPorItem === 'function') {
         itens.forEach((it, idx) => {
+          // Felipe sessao 34: porta de correr tem ferragem fixa propria que
+          // ENTRA no custo (fechadura bico papagaio + cilindro + roldana por
+          // folha + trilho por largura). Giro interna segue 0 (inalterado).
+          if (it && it.tipo === 'porta_interna' && it.tipoAbertura === 'correr') {
+            let cIt = 0;
+            (montarFerragemCorrer(it, cadAcess) || []).forEach(l => { cIt += Number(l.total) || 0; });
+            acessPorIdx[idx] = cIt; fechDigPorIdx[idx] = 0;
+            acessTotalReal += cIt;
+            return;
+          }
           if (!it || it.tipo !== 'porta_externa') {
             acessPorIdx[idx] = 0; fechDigPorIdx[idx] = 0; return;
           }
@@ -20241,6 +20251,53 @@ const Orcamento = (() => {
    * Regras vindas do PDF acess.pdf + complementos do Felipe (sessao
    * 2026-08). Documentadas em REGRAS_ACESSORIOS.md.
    */
+
+  /**
+   * Felipe sessao 34: ferragem FIXA da porta de correr (tipoAbertura='correr').
+   * Nao passa pelo motor da porta externa. Retorna linhas no MESMO formato que
+   * calcularAcessoriosPorItem ({qtd, codigo, descricao, categoria, preco_un,
+   * total, aplicacao, observacao}). Quantidades (confirmadas pelo Felipe):
+   *   - Fechadura Bico de Papagaio (FECH-CORRER-BICOPAPAGAIO-JNF): 1 por porta
+   *   - Cilindro por comodo: 1 por porta (banheiro=PA-CILEBHNTJNF Ch/Bt,
+   *     senao PA-CILEXINTJNF Ch/Ch)
+   *   - Roldana/Kit RO-82 (PA-ROLDCORRERRO82): 1 kit POR FOLHA
+   *   - Trilho RM003 (PA-TRILHORM003, barra 2m): cobre o vao inteiro ->
+   *     nro de barras = teto(largura_vao / 2000)
+   */
+  function montarFerragemCorrer(item, cadAcess) {
+    const lista = Array.isArray(cadAcess) ? cadAcess : [];
+    const acha = (cod) => lista.find(a => String(a.codigo || '').toUpperCase() === String(cod).toUpperCase()) || null;
+    const linhas = [];
+    const qtdPortas = Math.max(1, Number(item.quantidade) || 1);
+    const nFolhas = Math.min(4, Math.max(1, Number(item.nFolhasCorrer) || 1));
+    const larguraVao = parseFloat(String(item.largura == null ? '' : item.largura).replace(',', '.')) || 0;
+
+    const push = (cod, qtd, categoriaFallback) => {
+      if (!(qtd > 0)) return;
+      const a = acha(cod);
+      const preco = a ? (parseFloat(String(a.preco).replace(',', '.')) || 0) : 0;
+      linhas.push({
+        qtd:        qtd,
+        codigo:     cod,
+        descricao:  a ? (a.descricao || cod) : (cod + ' (nao cadastrado)'),
+        categoria:  a ? (a.familia || categoriaFallback) : categoriaFallback,
+        preco_un:   preco,
+        total:      preco * qtd,
+        aplicacao:  'fab',
+        observacao: '',
+      });
+    };
+
+    push('FECH-CORRER-BICOPAPAGAIO-JNF', qtdPortas, 'Fechadura Porta Interna');
+    const codCil = (item.usoComodoInterno === 'banheiro') ? 'PA-CILEBHNTJNF' : 'PA-CILEXINTJNF';
+    push(codCil, qtdPortas, 'Cilindros');
+    push('PA-ROLDCORRERRO82', nFolhas * qtdPortas, 'Porta De Correr');
+    const barras = larguraVao > 0 ? Math.ceil(larguraVao / 2000) : 0;
+    push('PA-TRILHORM003', barras * qtdPortas, 'Porta De Correr');
+
+    return linhas;
+  }
+
   function renderLevAcessoriosTab(container) {
     inicializarSessao();
     const r = obterVersao(UI.versaoAtivaId);
@@ -20470,9 +20527,13 @@ const Orcamento = (() => {
       // (combinacao versao + idx) que ambos lados usam.
       const cacheKey = `${versao.id || 'v?'}:${idx}`;
       item._cacheKey = cacheKey;
-      const linhas = window.AcessoriosPortaExterna.calcularAcessoriosPorItem(
-        item, cadAcess, { pesoFolhaTotal, pesoFolhaPerfis, pesoFolhaChapas }
-      );
+      // Felipe sessao 34: porta de correr usa ferragem fixa propria (nao passa
+      // pelo motor da externa). Giro/externa seguem pelo motor de sempre.
+      const linhas = (item.tipo === 'porta_interna' && item.tipoAbertura === 'correr')
+        ? montarFerragemCorrer(item, cadAcess)
+        : window.AcessoriosPortaExterna.calcularAcessoriosPorItem(
+            item, cadAcess, { pesoFolhaTotal, pesoFolhaPerfis, pesoFolhaChapas }
+          );
       // Felipe (sessao 30): "separar fechadura digital do resto dos
       // outros acessorios". 3 grupos agora:
       //   - Fab    (aplicacao=fab, sem digital)
