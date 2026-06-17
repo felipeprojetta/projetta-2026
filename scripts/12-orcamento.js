@@ -6513,9 +6513,6 @@ const Orcamento = (() => {
                 </select>
               </div>
             </div>
-            <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:10px;margin:8px 0 0;font-size:13px;color:#92400e;">
-              ⚠ Porta de correr: campo liberado. A ferragem fixa (fechadura bico de papagaio, roldana Rometal RO-82, trilho RM003) e o calculo de perfis (PA-VEDAINT) / chapa serao ligados no proximo commit.
-            </div>
           ` : ''}
         </div>
 
@@ -14376,6 +14373,12 @@ const Orcamento = (() => {
     if (window.Modelos && typeof window.Modelos.listar === 'function') {
       modelosLista = window.Modelos.listar();
     }
+    // Felipe sessao 34: porta interna usa a lista INTERNA (modelo 1 = Lisa).
+    // Sem isso o resumo mostrava 'Modelo 1 — Cava' (lista externa) na interna.
+    let modelosListaInt = [];
+    if (window.Modelos && typeof window.Modelos.listarInternas === 'function') {
+      modelosListaInt = window.Modelos.listarInternas();
+    }
     const linhas = itens.map((item, idx) => {
       const numero = idx + 1;
       const tipo = obterDescricaoItem(item);
@@ -14401,7 +14404,8 @@ const Orcamento = (() => {
       const medidas = (lar && alt) ? `${lar} × ${alt} mm` : '—';
       let modeloLabel = '—';
       if (item.modeloNumero) {
-        const m = modelosLista.find(x => Number(x.numero) === Number(item.modeloNumero));
+        const lista = item.tipo === 'porta_interna' ? modelosListaInt : modelosLista;
+        const m = lista.find(x => Number(x.numero) === Number(item.modeloNumero));
         modeloLabel = m ? `Modelo ${item.modeloNumero} — ${m.nome}` : `Modelo ${item.modeloNumero}`;
       }
       const folhas = item.nFolhas ? `${item.nFolhas} folha${Number(item.nFolhas) > 1 ? 's' : ''}` : '';
