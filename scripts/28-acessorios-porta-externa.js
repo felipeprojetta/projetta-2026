@@ -260,6 +260,59 @@ const AcessoriosPortaExterna = (() => {
     const larguraVaoPI = _toNumPI(item.largura);
     const alturaVaoPI  = _toNumPI(item.altura);
 
+    // ===== TRILHO SUPERIOR ROMETAL (PA-TRILHORM003) — somente CORRER =====
+    // Felipe sessao 34: trilho da Rometal, vendido por BARRA (acessorio).
+    //   - comprimento do trilho POR FOLHA = (largura_vao + 70) x 2
+    //   - 1 trilho por folha (nFolhasCorrer): 2 folhas -> 2 trilhos, etc.
+    //   - barras cadastradas: 3m (PA-TRILHORM003-3M) e 2m (PA-TRILHORM003).
+    //     MAXIMO 3m por barra (6m ainda nao cadastrado). Cobre o comprimento
+    //     com a combinacao de MENOR CUSTO (emenda quando passa de 3m). Preco
+    //     vem do cadastro (nunca fixo no codigo).
+    if (item.tipoAbertura === 'correr' && larguraVaoPI > 0) {
+      // menor custo cobrindo Lmm com barras de 3m (b3) e/ou 2m (b2)
+      const _coberturaTrilho = function (Lmm, b3, b2) {
+        if (Lmm <= 0) return { n3: 0, n2: 0, total: 0, custo: 0 };
+        const len3 = b3 ? b3.len : 0, p3 = b3 ? (Number(b3.preco) || 0) : Infinity;
+        const len2 = b2 ? b2.len : 0, p2 = b2 ? (Number(b2.preco) || 0) : Infinity;
+        const max3 = b3 ? Math.ceil(Lmm / len3) + 1 : 0;
+        const max2 = b2 ? Math.ceil(Lmm / len2) + 1 : 0;
+        let best = null;
+        for (let n3 = 0; n3 <= max3; n3++) {
+          for (let n2 = 0; n2 <= max2; n2++) {
+            if (n3 === 0 && n2 === 0) continue;
+            const total = n3 * len3 + n2 * len2;
+            if (total < Lmm) continue;
+            const custo = n3 * p3 + n2 * p2;
+            if (!best || custo < best.custo
+                || (custo === best.custo && total < best.total)) {
+              best = { n3, n2, total, custo };
+            }
+          }
+        }
+        return best || { n3: 0, n2: 0, total: 0, custo: 0 };
+      };
+
+      const nFolhasC   = Math.max(1, Math.min(4, Number(item.nFolhasCorrer) || 1));
+      const compTrilho = (larguraVaoPI + 70) * 2;   // mm, por folha
+      const b3a = buscarAcessorio(cadastroAcessorios, 'PA-TRILHORM003-3M');
+      const b2a = buscarAcessorio(cadastroAcessorios, 'PA-TRILHORM003');
+      const opt3 = b3a ? { cod: b3a.codigo, len: 3000, preco: Number(b3a.preco) || 0 } : null;
+      const opt2 = b2a ? { cod: b2a.codigo, len: 2000, preco: Number(b2a.preco) || 0 } : null;
+
+      if (!opt3 && !opt2) {
+        // nenhuma barra cadastrada -> sinaliza pendencia (1 por folha)
+        pushLinha('PA-TRILHORM003', 1 * nFolhasC, 'Trilho',
+          'Trilho ' + Math.round(compTrilho) + 'mm/folha · CADASTRAR BARRAS DO TRILHO');
+      } else {
+        const cob = _coberturaTrilho(compTrilho, opt3, opt2);
+        const obs = 'Trilho ' + Math.round(compTrilho) + 'mm/folha × ' + nFolhasC
+          + ' folha(s) · cobertura: '
+          + (cob.n3 ? cob.n3 + '×3m ' : '') + (cob.n2 ? cob.n2 + '×2m' : '');
+        if (opt3 && cob.n3 > 0) pushLinha(opt3.cod, cob.n3 * nFolhasC, 'Trilho', obs);
+        if (opt2 && cob.n2 > 0) pushLinha(opt2.cod, cob.n2 * nFolhasC, 'Trilho', obs);
+      }
+    }
+
     // 3b) Felipe sessao 35: VEDA PORTA interna — 1 unidade por porta.
     //     Tamanho escolhido pela medida do CLICK FOLHA HORIZONTAL (mesma
     //     formula de 35-perfis-porta-interna):
