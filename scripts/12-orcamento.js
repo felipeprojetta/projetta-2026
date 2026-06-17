@@ -3832,6 +3832,12 @@ const Orcamento = (() => {
     if (tipo === 'porta_interna') return {
       tipo: 'porta_interna',
       quantidade: 1,
+      // Felipe sessao 34: tipo de abertura GIRO (atual, intocado) ou CORRER (deslizante).
+      // Default 'giro' = comportamento identico ao anterior. Correr usa motor/ferragem
+      // proprios (PA-VEDAINT, trilho/roldana Rometal, fechadura bico de papagaio).
+      tipoAbertura: 'giro',
+      nFolhasCorrer: 1,          // 1 a 4 folhas (so' quando tipoAbertura='correr')
+      acabamentoCorrer: 'liso',  // 'liso' | 'classico' (so' quando tipoAbertura='correr')
       largura: '',
       altura: '',
       // Felipe sessao 31: largura da parede (espessura) — campo
@@ -5456,6 +5462,8 @@ const Orcamento = (() => {
              // Felipe sessao 31 porta_interna: trocas que afetam o layout do form
              'revestimentoExterno', 'revestimentoInterno',
              'fechaduraModo', 'fechaduraInternaCodigo', 'usoComodoInterno',
+             // Felipe sessao 34: alterna campos giro/correr no form
+             'tipoAbertura',
              // Felipe sessao 33: painel superior aparece/some os campos de medidas
              'temPainelSuperior'].includes(field)) {
           reRender();
@@ -6426,7 +6434,49 @@ const Orcamento = (() => {
           const semMaquinas  = maquinas.length === 0;
           const semCilindros = cilindros.length === 0;
 
+          // Felipe sessao 34: GIRO (default, atual) x CORRER (deslizante).
+          const _tipoAbertura = item.tipoAbertura || 'giro';
+          const _ehCorrer = _tipoAbertura === 'correr';
+
           return `
+        <div class="orc-section">
+          <div class="orc-section-title">Tipo de abertura</div>
+          <div class="orc-form-row">
+            <div class="orc-field" style="grid-column: span 8;">
+              <div style="display:flex;gap:16px;padding-top:6px;">
+                <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;">
+                  <input type="radio" name="tipoAbertura_${item.id || 'pi'}" data-field="tipoAbertura" value="giro" ${!_ehCorrer ? 'checked' : ''} />
+                  Giro (de abrir)
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;">
+                  <input type="radio" name="tipoAbertura_${item.id || 'pi'}" data-field="tipoAbertura" value="correr" ${_ehCorrer ? 'checked' : ''} />
+                  Correr (deslizante)
+                </label>
+              </div>
+            </div>
+          </div>
+          ${_ehCorrer ? `
+            <div class="orc-form-row" style="margin-top:8px;">
+              <div class="orc-field" style="grid-column: span 3;">
+                <label>N° de folhas</label>
+                <select data-field="nFolhasCorrer">
+                  ${[1,2,3,4].map(n => `<option value="${n}" ${String(item.nFolhasCorrer || 1) === String(n) ? 'selected' : ''}>${n} folha${n > 1 ? 's' : ''}</option>`).join('')}
+                </select>
+              </div>
+              <div class="orc-field" style="grid-column: span 3;">
+                <label>Acabamento</label>
+                <select data-field="acabamentoCorrer">
+                  <option value="liso" ${(item.acabamentoCorrer || 'liso') === 'liso' ? 'selected' : ''}>Liso</option>
+                  <option value="classico" ${item.acabamentoCorrer === 'classico' ? 'selected' : ''}>Classico</option>
+                </select>
+              </div>
+            </div>
+            <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:10px;margin:8px 0 0;font-size:13px;color:#92400e;">
+              ⚠ Porta de correr: campo liberado. A ferragem fixa (fechadura bico de papagaio, roldana Rometal RO-82, trilho RM003) e o calculo de perfis (PA-VEDAINT) / chapa serao ligados no proximo commit.
+            </div>
+          ` : ''}
+        </div>
+
         <div class="orc-section">
           <div class="orc-section-title">Dimensoes</div>
           <div class="orc-form-row">
