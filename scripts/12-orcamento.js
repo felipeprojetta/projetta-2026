@@ -4268,8 +4268,15 @@ const Orcamento = (() => {
    */
   function renderCamposPorModeloEspecifico(item, numModelo) {
     const num = Number(numModelo);
-    const campos = CAMPOS_POR_MODELO[num];
+    let campos = CAMPOS_POR_MODELO[num];
     if (!campos || !campos.length) return '';
+    // Felipe sessao 34: porta interna NAO tem nenhum modelo com cava — os campos
+    // de cava (puxador embutido: distanciaBordaCava/tamanhoCava) so' valem pra
+    // porta externa. Remove quando o item for porta_interna (externa mantem).
+    if (item && item.tipo === 'porta_interna') {
+      campos = campos.filter(c => c !== 'distanciaBordaCava' && c !== 'tamanhoCava');
+      if (!campos.length) return '';
+    }
     const inputs = campos
       .filter(chave => campoModeloVisivel(chave, item))
       .map(chave => {
@@ -6522,13 +6529,13 @@ const Orcamento = (() => {
           // Reusa o MESMO render da porta externa (renderCamposPorModeloEspecifico).
           // So' aparece se o modelo tiver campos em CAMPOS_POR_MODELO.
           const numMod = Number(item.modeloNumero);
-          const campos = CAMPOS_POR_MODELO[numMod];
-          if (!campos || !campos.length) return '';
+          const camposHtml = renderCamposPorModeloEspecifico(item, numMod);
+          if (!camposHtml) return '';
           const nomeMod = (modelosInt.find(m => Number(m.numero) === numMod) || {}).nome || '';
           return `
         <div class="orc-section orc-section-modelo-vars">
           <div class="orc-section-title">Caracteristicas do Modelo ${numMod}${nomeMod ? ' — ' + escapeHtml(nomeMod) : ''}</div>
-          ${renderCamposPorModeloEspecifico(item, numMod)}
+          ${camposHtml}
         </div>`;
         })()}
 
