@@ -134,13 +134,13 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== BATENTE (PA-BATENTEINT) — PORTAL =====
-    // Felipe sessao 31 (correcao): batente envolve o vao POR FORA, com
-    // overlap de 21,5 nas pontas onde encosta nos verticais.
-    //   - 1 horizontal (topo): largura_vao + 21,5 + 21,5
-    //   - 2 verticais (lateral): altura_vao + 21,5 (so' overlap no topo,
-    //     base toca no chao)
+    // Felipe sessao 31 (correcao): batente envolve o vao POR FORA.
+    // Felipe sessao 34: horizontal (topo) passa a usar overlap 31,5 nas pontas;
+    // vertical MANTEM 21,5 (so' overlap no topo, base toca no chao).
+    //   - 1 horizontal (topo): largura_vao + 31,5 + 31,5
+    //   - 2 verticais (lateral): altura_vao + 21,5
     // NAO usa folgas (fglEsq/fglDir/fgSup) - medida e' o vao + sobras.
-    const compBatHor = larguraVao + 21.5 + 21.5;
+    const compBatHor = larguraVao + 31.5 + 31.5;
     const compBatVer = alturaVao  + 21.5;
     if (compBatHor > 0) {
       _add(cortes, 'PA-BATENTEINT', compBatHor, 1 * qtdPortas, 'Batente horizontal (topo)', 'portal');
@@ -187,6 +187,15 @@ const PerfisPortaInterna = (() => {
       _add(cortes, 'PA-CLICKFLHINT', compClickFlhVer, 2 * qtdPortas, 'Click da folha vertical');
     }
 
+    // ===== VEDACAO DA FOLHA (PA-VEDAINT) — FOLHA =====
+    // Felipe sessao 34: perfil que faltava na porta interna de GIRO.
+    // Mesma medida do Click da folha horizontal (topo); 1 un por folha.
+    // (engine de giro = 1 folha por porta -> qtd = 1 x qtdPortas)
+    //   - comp = largura - (fglEsq+fglDir) - 24,5 - 24,5  (== compClickFlhHor)
+    if (compClickFlhHor > 0) {
+      _add(cortes, 'PA-VEDAINT', compClickFlhHor, 1 * qtdPortas, 'Vedacao da folha horizontal (topo)');
+    }
+
     // ===== TRAVESSAS VERTICAIS (PA-38X38X1.58) — FOLHA =====
     // Felipe sessao 31: 'travessas verticais — medida largura vao - folga
     // direita - folga esquerda - 108,5 - 108,5.'
@@ -201,16 +210,17 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== ALISAR (PA-ALISARINT) — PORTAL (perfil de aluminio) =====
-    // Felipe sessao 31: 'fomula e laruga +33,5 +33,5 para perfil uma peca e
-    // altura + 33,5 2 pecas esse sim fica em perfis'.
-    //   - 1 horizontal (topo):  largura_vao + 33,5 + 33,5
+    // Felipe sessao 31: alisar e' perfil (1 horizontal + 2 verticais).
+    // Felipe sessao 34: horizontal (topo) passa a +21,5 +21,5; vertical
+    // MANTEM +33,5.
+    //   - 1 horizontal (topo):  largura_vao + 21,5 + 21,5
     //   - 2 verticais (lateral): altura_vao  + 33,5
     // NAO usa folgas (medida = vao + sobras). Perfil envolve o vao externamente.
     // (Nao confundir com o 'alisar chapa' do 38b-chapas-porta-interna.js, que
     // sao 4 tiras 59,5 x (vao+100) entrando como chapas decorativas externas.)
     // Felipe sessao 33: com painel superior, o vertical engloba porta+painel
     // num bloco so' (igual ja' faz na chapa) — altura += painelSupAlt.
-    const compAlisarHor = larguraVao + 33.5 + 33.5;
+    const compAlisarHor = larguraVao + 21.5 + 21.5;
     const compAlisarVer = alturaVao + (painelOk ? painelSupAlt : 0) + 33.5;
     if (compAlisarHor > 0) {
       _add(cortes, 'PA-ALISARINT', compAlisarHor, 1 * qtdPortas, 'Alisar horizontal (topo)', 'portal');
