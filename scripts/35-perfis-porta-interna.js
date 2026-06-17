@@ -109,11 +109,11 @@ const PerfisPortaInterna = (() => {
       if (larguraFolha > 0 && alturaFolha > 0) {
         _add(cortes, 'PA-VEDAINT', larguraFolha, 2 * nFolhas * qtdPortas, 'Folha correr horizontal');
         _add(cortes, 'PA-VEDAINT', alturaFolha,  2 * nFolhas * qtdPortas, 'Folha correr vertical');
-        // Travessas horizontais PA-46X46X1.5 (Felipe sessao 34): comprimento =
-        // largura da folha (cheia). Quantidade POR FOLHA = 2 se altura_vao <=
-        // 2800mm, senao 3. Total = qtd/folha x nFolhas.
+        // Travessas horizontais (Felipe sessao 34): tubo 38x38 (PA-38X38X1.58).
+        // comprimento = largura da folha. Quantidade POR FOLHA = 2 se
+        // altura_vao <= 2800mm, senao 3. Total = qtd/folha x nFolhas.
         const qtdTravH = alturaVao > 2800 ? 3 : 2;
-        _add(cortes, 'PA-46X46X1.5', larguraFolha, qtdTravH * nFolhas * qtdPortas, 'Travessa horizontal');
+        _add(cortes, 'PA-38X38X1.58', larguraFolha, qtdTravH * nFolhas * qtdPortas, 'Travessa horizontal');
         // ===== ESTRUTURA ACIMA DO TRILHO + BATENTE (Felipe sessao 34) =====
         // Tubo 76x38 que vai acima do trilho de correr da Rometal:
         //   comprimento = (largura_vao + 70) x 2. 1 un por porta.
@@ -187,17 +187,17 @@ const PerfisPortaInterna = (() => {
       _add(cortes, 'PA-CLICKFLHINT', compClickFlhVer, 2 * qtdPortas, 'Click da folha vertical');
     }
 
-    // ===== TRAVESSAS VERTICAIS (PA-46X46X1.5) — FOLHA =====
-    // Felipe sessao 31: 'coloquye agora as travessas verticais e o tubo 46x46
-    // medida largura vao - folga direita - folga esquerda - 108,5 - 108,5.
-    // teremos 2 travessas para altura ate 2.2 mts acima disso considere 3
-    // travessas'.
+    // ===== TRAVESSAS VERTICAIS (PA-38X38X1.58) — FOLHA =====
+    // Felipe sessao 31: 'travessas verticais — medida largura vao - folga
+    // direita - folga esquerda - 108,5 - 108,5.'
+    // Felipe sessao 34: tubo 38x38 (PA-38X38X1.58) e regra UNIFICADA com a
+    // correr — 2 travessas ate 2800mm, 3 acima (antes era 2200).
     //   - comp = largura_vao - fglEsq - fglDir - 108,5 - 108,5
-    //   - qtd  = 2 se altura_vao <= 2200mm; 3 se > 2200mm
+    //   - qtd  = 2 se altura_vao <= 2800mm; 3 se > 2800mm
     const compTrav = larguraVao - descontoLarg - 108.5 - 108.5;
-    const qtdTrav  = alturaVao > 2200 ? 3 : 2;
+    const qtdTrav  = alturaVao > 2800 ? 3 : 2;
     if (compTrav > 0) {
-      _add(cortes, 'PA-46X46X1.5', compTrav, qtdTrav * qtdPortas, 'Travessa vertical');
+      _add(cortes, 'PA-38X38X1.58', compTrav, qtdTrav * qtdPortas, 'Travessa vertical');
     }
 
     // ===== ALISAR (PA-ALISARINT) — PORTAL (perfil de aluminio) =====
