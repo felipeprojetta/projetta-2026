@@ -14385,7 +14385,11 @@ const Orcamento = (() => {
         ? `${tr('PORTA EXTERNA','EXTERIOR DOOR')} (${abertura})`
         : tr('PORTA EXTERNA','EXTERIOR DOOR');
     }
-    if (item.tipo === 'porta_interna') return tr('PORTA INTERNA','INTERIOR DOOR');
+    if (item.tipo === 'porta_interna') {
+      return item.tipoAbertura === 'correr'
+        ? tr('PORTA INTERNA (Correr)','INTERIOR DOOR (Sliding)')
+        : tr('PORTA INTERNA','INTERIOR DOOR');
+    }
     if (item.tipo === 'fixo_acoplado') {
       let base = tr('FIXO ACOPLADO A PORTA','COUPLED FIXED PANEL');
       const pos = String(item.posicao || '').toLowerCase();
@@ -14457,7 +14461,10 @@ const Orcamento = (() => {
         const m = lista.find(x => Number(x.numero) === Number(item.modeloNumero));
         modeloLabel = m ? `Modelo ${item.modeloNumero} — ${m.nome}` : `Modelo ${item.modeloNumero}`;
       }
-      const folhas = item.nFolhas ? `${item.nFolhas} folha${Number(item.nFolhas) > 1 ? 's' : ''}` : '';
+      const _nfResumo = item.tipoAbertura === 'correr'
+        ? (Number(item.nFolhasCorrer) || 1)
+        : Number(item.nFolhas);
+      const folhas = _nfResumo ? `${_nfResumo} folha${_nfResumo > 1 ? 's' : ''}` : '';
       const qtd = Number(item.quantidade) || 1;
       // Monta a linha com as caracteristicas-chave
       const partes = [
@@ -14827,11 +14834,26 @@ const Orcamento = (() => {
       const listaInt = window.Modelos.listarInternas();
       modeloInfo = listaInt.find(m => Number(m.numero) === Number(item.modeloNumero));
     }
-    const modeloNome = modeloInfo
-      ? `${item.modeloNumero} — ${modeloInfo.nome}`
-      : (item.modeloNumero ? `${tr('Modelo','Model')} ${item.modeloNumero}` : '—');
-    // Modelo interno normalmente nao tem imagem — usa img_1f so' se existir.
-    const imgSrc = (modeloInfo && modeloInfo.img_1f) ? modeloInfo.img_1f : null;
+    // Felipe sessao 34: PORTA DE CORRER na proposta tem desenho e caracteristicas
+    // PROPRIAS (NAO de giro). O desenho vem por acabamento (liso->Lisa,
+    // classico->Classica) e por nº de folhas (img_correr_{n}f).
+    const _ehCorrer = item.tipoAbertura === 'correr';
+    const _nFolhasCorrer = Math.min(4, Math.max(1, Number(item.nFolhasCorrer) || 1));
+    let modeloInfoCorrer = null;
+    if (_ehCorrer && window.Modelos && typeof window.Modelos.listarInternas === 'function') {
+      const _li = window.Modelos.listarInternas();
+      const _re = (item.acabamentoCorrer === 'classico') ? /classic/i : /lisa/i;
+      modeloInfoCorrer = _li.find(x => _re.test(String(x.nome || ''))) || null;
+    }
+    const modeloNome = _ehCorrer
+      ? (modeloInfoCorrer ? modeloInfoCorrer.nome : (item.acabamentoCorrer === 'classico' ? tr('Clássica','Classic') : 'Lisa'))
+      : (modeloInfo
+          ? `${item.modeloNumero} — ${modeloInfo.nome}`
+          : (item.modeloNumero ? `${tr('Modelo','Model')} ${item.modeloNumero}` : '—'));
+    // Imagem: correr usa img_correr_{n}f do modelo (Lisa/Classica); giro usa img_1f.
+    const imgSrc = _ehCorrer
+      ? ((modeloInfoCorrer && modeloInfoCorrer['img_correr_' + _nFolhasCorrer + 'f']) || null)
+      : ((modeloInfo && modeloInfo.img_1f) ? modeloInfo.img_1f : null);
 
     const lar = parseBR(item.largura) || 0;
     const alt = parseBR(item.altura)  || 0;
@@ -14860,7 +14882,16 @@ const Orcamento = (() => {
     // Fechadura — modo conjunto (kit Hafele) ou personalizado
     const modoFech = item.fechaduraModo || 'conjunto';
     let blocoFechadura = '';
-    if (modoFech === 'conjunto') {
+    if (_ehCorrer) {
+      // Felipe sessao 34: correr tem fechadura FIXA Bico de Papagaio +
+      // cilindro pelo tipo de comodo (banheiro = chave/borboleta; comum = chave/chave).
+      const _comodo = item.usoComodoInterno === 'banheiro'
+        ? tr('Banheiro — chave/borboleta','Bathroom — key/thumbturn')
+        : tr('Comum — chave/chave','Standard — key/key');
+      blocoFechadura =
+        `<div class="rel-prop-item-linha"><span class="lbl">${tr('FECHADURA','LOCK')}:</span> <span>${tr('Bico de Papagaio','Hook lock')}</span></div>` +
+        `<div class="rel-prop-item-linha"><span class="lbl">${tr('CILINDRO','CYLINDER')}:</span> <span>${_comodo}</span></div>`;
+    } else if (modoFech === 'conjunto') {
       const cod = item.fechaduraInternaCodigo || '';
       const corF = item.fechaduraInternaCor || '';
       blocoFechadura = cod
@@ -14893,13 +14924,17 @@ const Orcamento = (() => {
           </div>
         </div>
         <div class="rel-prop-item-info">
-          <div class="rel-prop-item-titulo">${_tituloBadge}${tr('PORTA INTERNA PROJETTA BY WEIKU','PROJETTA INTERIOR DOOR BY WEIKU')}</div>
+          <div class="rel-prop-item-titulo">${_tituloBadge}${_ehCorrer ? tr('PORTA INTERNA DE CORRER PROJETTA BY WEIKU','PROJETTA SLIDING INTERIOR DOOR BY WEIKU') : tr('PORTA INTERNA PROJETTA BY WEIKU','PROJETTA INTERIOR DOOR BY WEIKU')}</div>
           <div class="rel-prop-item-linhas">
             <div class="rel-prop-item-linha"><span class="lbl">${tr('Qtd','Qty')}:</span> <span>${Number(item.quantidade) || 1}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">${tr('L','W')}:</span> <span>${lar}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">H:</span> <span>${alt}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">${tr('Area Porta','Door Area')}:</span> <span>${fmtBR(areaM2)} m²</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">${tr('SISTEMA','SYSTEM')}:</span> <span>${escapeHtml(sistemaFmt)}</span></div>
+            ${_ehCorrer
+              ? `<div class="rel-prop-item-linha"><span class="lbl">${tr('TIPO','TYPE')}:</span> <span>${tr('Correr (deslizante)','Sliding')}</span></div>
+                 <div class="rel-prop-item-linha"><span class="lbl">${tr('Nº DE FOLHAS','LEAVES')}:</span> <span>${_nFolhasCorrer}</span></div>
+                 <div class="rel-prop-item-linha"><span class="lbl">${tr('ACABAMENTO','FINISH')}:</span> <span>${item.acabamentoCorrer === 'classico' ? tr('Clássico','Classic') : tr('Liso','Plain')}</span></div>`
+              : `<div class="rel-prop-item-linha"><span class="lbl">${tr('SISTEMA','SYSTEM')}:</span> <span>${escapeHtml(sistemaFmt)}</span></div>`}
             <div class="rel-prop-item-linha"><span class="lbl">${tr('MODELO','MODEL')}:</span> <span>${escapeHtml(modeloNome)}</span></div>
             ${(() => {
               // Felipe sessao 33: mostra painel superior na proposta com
