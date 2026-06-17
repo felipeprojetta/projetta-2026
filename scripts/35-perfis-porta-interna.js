@@ -109,6 +109,11 @@ const PerfisPortaInterna = (() => {
       if (larguraFolha > 0 && alturaFolha > 0) {
         _add(cortes, 'PA-VEDAINT', larguraFolha, 2 * nFolhas * qtdPortas, 'Folha correr horizontal');
         _add(cortes, 'PA-VEDAINT', alturaFolha,  2 * nFolhas * qtdPortas, 'Folha correr vertical');
+        // Travessas horizontais PA-46X46X1.5 (Felipe sessao 34): comprimento =
+        // largura da folha (cheia). Quantidade POR FOLHA = 2 se altura_vao <=
+        // 2800mm, senao 3. Total = qtd/folha x nFolhas.
+        const qtdTravH = alturaVao > 2800 ? 3 : 2;
+        _add(cortes, 'PA-46X46X1.5', larguraFolha, qtdTravH * nFolhas * qtdPortas, 'Travessa horizontal');
       }
       return cortes;
     }
