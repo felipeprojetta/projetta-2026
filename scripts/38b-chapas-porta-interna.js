@@ -151,6 +151,22 @@ const ChapasPortaInterna = (() => {
               podeRotacionar: false,
             });
           }
+          // ===== PAINEL FIXO SUPERIOR (Felipe sessao 34) =====
+          // Quando ha' painel fixo: chapa = largura_fixo x altura_fixo.
+          // 1 face externa aqui + 1 face interna no lado 'interno' = 2 un.
+          // (dentro e fora). Largura usa painelSupLargura (ou vao se vazio).
+          if (painelOk) {
+            pecas.push({
+              label:          'Chapa painel fixo superior (externa)',
+              descricao:      'Chapa painel fixo superior (externa)',
+              largura:        _round1(painelSupLarg),
+              altura:         _round1(painelSupAlt),
+              qtd:            1 * qtdPortas,
+              cor:            String(item.corExterna || '').trim(),
+              categoria:      'porta',
+              podeRotacionar: false,
+            });
+          }
         } else if (lado === 'interno') {
           pecas.push({
             label:          'Chapa folha correr (interna)',
@@ -162,6 +178,18 @@ const ChapasPortaInterna = (() => {
             categoria:      'porta',
             podeRotacionar: false,
           });
+          if (painelOk) {
+            pecas.push({
+              label:          'Chapa painel fixo superior (interna)',
+              descricao:      'Chapa painel fixo superior (interna)',
+              largura:        _round1(painelSupLarg),
+              altura:         _round1(painelSupAlt),
+              qtd:            1 * qtdPortas,
+              cor:            String(item.corInterna || '').trim(),
+              categoria:      'porta',
+              podeRotacionar: false,
+            });
+          }
         }
       }
       return pecas;
