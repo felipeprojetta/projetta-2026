@@ -97,8 +97,8 @@ const ChapasPortaInterna = (() => {
       if (larguraFolha > 0 && alturaFolha > 0) {
         if (lado === 'externo') {
           pecas.push({
-            label:          'Chapa folha correr (externa)',
-            descricao:      'Chapa folha correr (externa)',
+            label:          'Chapa folha correr',
+            descricao:      'Chapa folha correr',
             largura:        _round1(larguraFolha),
             altura:         _round1(alturaFolha),
             qtd:            nFolhas * qtdPortas,
@@ -108,15 +108,16 @@ const ChapasPortaInterna = (() => {
           });
           // ===== ALISAR EM L (Felipe sessao 34) =====
           // comp = altura_vao + 30 (sem painel fixo) OU altura_vao + 30 +
-          // altura do painel fixo (temPainelSuperior='sim'). Largura = 20+50+50
-          // = 120. Quantidade = 4 pecas. Cor: externa (a confirmar).
+          // altura do painel fixo (temPainelSuperior='sim').
+          // Felipe sessao 34: largura = 60 + 50 + refilado 20 = 130.
+          // Quantidade = 4 pecas. Cor: externa.
           const _corAlisar = String(item.corExterna || '').trim();
           const compAlisarL = alturaVao + 30 + (temPainelSup ? painelSupAlt : 0);
           if (compAlisarL > 0) {
             pecas.push({
               label:          'Alisar em L (correr)',
               descricao:      'Alisar em L (correr)',
-              largura:        120,
+              largura:        130,
               altura:         _round1(compAlisarL),
               qtd:            4 * qtdPortas,
               cor:            _corAlisar,
@@ -157,8 +158,8 @@ const ChapasPortaInterna = (() => {
           // (dentro e fora). Largura usa painelSupLargura (ou vao se vazio).
           if (painelOk) {
             pecas.push({
-              label:          'Chapa painel fixo superior (externa)',
-              descricao:      'Chapa painel fixo superior (externa)',
+              label:          'Chapa painel fixo superior',
+              descricao:      'Chapa painel fixo superior',
               largura:        _round1(painelSupLarg),
               altura:         _round1(painelSupAlt),
               qtd:            1 * qtdPortas,
@@ -167,14 +168,14 @@ const ChapasPortaInterna = (() => {
               podeRotacionar: false,
             });
           }
-          // ===== ACM ANTETEN (arremate da jamba) DA CORRER (Felipe sessao 34)
+          // ===== ACM BATENTE (arremate da jamba) DA CORRER (Felipe sessao 34)
           // Tira de ACM com desenvolvido = 84 + 60 + 84 = 228mm de largura;
           // comprimento = altura_vao + 200 (+ altura do painel fixo se houver).
           // 2 pecas (uma por lado da jamba).
           const compAnteten = alturaVao + 200 + (painelOk ? painelSupAlt : 0);
           pecas.push({
-            label:          'ACM anteten (correr)',
-            descricao:      'ACM anteten (correr)',
+            label:          'ACM batente (correr)',
+            descricao:      'ACM batente (correr)',
             largura:        228,
             altura:         _round1(compAnteten),
             qtd:            2 * qtdPortas,
@@ -201,8 +202,8 @@ const ChapasPortaInterna = (() => {
           }
         } else if (lado === 'interno') {
           pecas.push({
-            label:          'Chapa folha correr (interna)',
-            descricao:      'Chapa folha correr (interna)',
+            label:          'Chapa folha correr',
+            descricao:      'Chapa folha correr',
             largura:        _round1(larguraFolha),
             altura:         _round1(alturaFolha),
             qtd:            nFolhas * qtdPortas,
@@ -212,8 +213,8 @@ const ChapasPortaInterna = (() => {
           });
           if (painelOk) {
             pecas.push({
-              label:          'Chapa painel fixo superior (interna)',
-              descricao:      'Chapa painel fixo superior (interna)',
+              label:          'Chapa painel fixo superior',
+              descricao:      'Chapa painel fixo superior',
               largura:        _round1(painelSupLarg),
               altura:         _round1(painelSupAlt),
               qtd:            1 * qtdPortas,
