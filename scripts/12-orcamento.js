@@ -656,6 +656,26 @@ const Orcamento = (() => {
     }
 
     portas.forEach((it, idx) => {
+      // Felipe sessao 34: PORTA INTERNA — sempre lisa (nao existe modelo
+      // interno com cava). Horas FIXAS por porta x quantidade:
+      //   Portal 3h · Folha 3h · Colagem 3h · Conferencia 1h.
+      //   Corte e Usinagem = 0 (Felipe nao citou). Vale giro E correr.
+      // Celula vazia na tabela usa esse auto; digitar um valor sobrescreve.
+      if (it.tipo === 'porta_interna') {
+        const q = Math.max(1, Number(it.quantidade) || 1);
+        const hPortal = 3 * q, hFolha = 3 * q, hColag = 3 * q, hConf = 1 * q;
+        horasAuto.portal         += hPortal;
+        horasAuto.folha_porta    += hFolha;
+        horasAuto.colagem        += hColag;
+        horasAuto.conf_embalagem += hConf;
+        horasAutoPorItem.portal[idx]         = hPortal;
+        horasAutoPorItem.folha_porta[idx]    = hFolha;
+        horasAutoPorItem.colagem[idx]        = hColag;
+        horasAutoPorItem.conf_embalagem[idx] = hConf;
+        horasAutoPorItem.corte_usinagem[idx] = 0;
+        diasColagem = Math.max(diasColagem, hColag / HORAS_POR_DIA);
+        return;
+      }
       if (it.tipo !== 'porta_externa') return;
       // Felipe sessao 34: chapas reais por item (do Lev Superficies) tem
       // prioridade sobre item.qtdChapas. Se passado em fab.chapasReaisPorItem
@@ -9638,7 +9658,14 @@ const Orcamento = (() => {
           // 'horas-item' (por item, Felipe sessao 28).
           const eid = el.dataset.fabEtapa;
           const sub = el.dataset.fabSub || 'dias';
-          const ent = fab.etapas[eid] || {};
+          // Felipe sessao 34 (BUG "coloco valor num lugar e acrescenta/apaga
+          // de outro"): fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, ...)
+          // faz as etapas ausentes apontarem pra OBJETO COMPARTILHADO do
+          // FAB_DEFAULT. Mutar ent.horasPorItem mutava o default global e o
+          // valor vazava pra outros itens/etapas/versoes. Fix: clona ent E
+          // horasPorItem antes de qualquer mutacao.
+          const ent = Object.assign({}, fab.etapas[eid] || {});
+          ent.horasPorItem = Object.assign({}, ent.horasPorItem || {});
           if (sub === 'dias') {
             ent.dias = parseBR(el.value) || 0;
             // Quando user mexe em dias, limpa o override de horas
