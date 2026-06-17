@@ -119,12 +119,11 @@ const PerfisPortaInterna = (() => {
         //   comprimento = (largura_vao + 70) x 2. 1 un por porta.
         const compTuboTrilho = (larguraVao + 70) * 2;
         _add(cortes, 'PA-76X38X1.98', compTuboTrilho, 1 * qtdPortas, 'Tubo sobre o trilho (76x38)', 'portal');
-        // Cantoneira 38x38x2 acompanhando o tubo (MESMO comprimento). 1 un.
+        // Cantoneira 30x30x2 acompanhando o tubo (MESMO comprimento). 1 un.
         // Felipe sessao 34: SOMENTE quando ha' painel fixo superior.
-        // OBS: cantoneira 38x38x2 ainda NAO existe no cadastro de perfis ->
-        // codigo provisorio. Cadastrar em Cadastros -> Perfis pra puxar preco.
+        // Codigo PA-CANT-30X30X2.0 (existente no cadastro).
         if (painelOk) {
-          _add(cortes, 'PA-CANT-38X38X2', compTuboTrilho, 1 * qtdPortas, 'Cantoneira 38x38x2 (sobre trilho)', 'portal');
+          _add(cortes, 'PA-CANT-30X30X2.0', compTuboTrilho, 1 * qtdPortas, 'Cantoneira 30x30x2 (sobre trilho)', 'portal');
         }
         // Tubo do batente: 2x 51x25, comprimento = altura_vao + 200
         // (+ altura do painel fixo superior, se houver).
