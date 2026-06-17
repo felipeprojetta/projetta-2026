@@ -125,10 +125,10 @@ const PerfisPortaInterna = (() => {
         if (painelOk) {
           _add(cortes, 'PA-CANT-30X30X2.0', compTuboTrilho, 1 * qtdPortas, 'Cantoneira 30x30x2 (sobre trilho)', 'portal');
         }
-        // Tubo do batente: 2x 51x25, comprimento = altura_vao + 200
-        // (+ altura do painel fixo superior, se houver).
+        // Tubo do batente: 2x 76x25 (PA-76X25X2.0), comprimento = altura_vao
+        // + 200 (+ altura do painel fixo superior, se houver).
         const compBatenteCorrer = alturaVao + 200 + (painelOk ? painelSupAlt : 0);
-        _add(cortes, 'PA-51X25X2.0', compBatenteCorrer, 2 * qtdPortas, 'Tubo batente correr (51x25)', 'portal');
+        _add(cortes, 'PA-76X25X2.0', compBatenteCorrer, 2 * qtdPortas, 'Tubo batente correr (76x25)', 'portal');
       }
       return cortes;
     }
