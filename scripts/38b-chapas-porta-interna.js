@@ -82,6 +82,46 @@ const ChapasPortaInterna = (() => {
 
     const pecas = [];
 
+    // ===== PORTA DE CORRER (Felipe sessao 34) =====
+    // 2 chapas por folha (1 face externa + 1 face interna), nas MESMAS medidas
+    // da folha (igual ao perfil PA-VEDAINT): largura = vao+70 / altura = vao+30
+    // (1 folha); multi-folha largura = (vao+70)/n + 50. Tampa lisa, sem recortes.
+    // A externa sai no lado='externo' e a interna no lado='interno' (o pipeline
+    // ja itera os dois lados). Classico (boiserie) entra em commit proprio.
+    if (item.tipoAbertura === 'correr') {
+      const nFolhas = Math.min(4, Math.max(1, Number(item.nFolhasCorrer) || 1));
+      const larguraFolha = nFolhas === 1
+        ? (larguraVao + 70)
+        : ((larguraVao + 70) / nFolhas + 50);
+      const alturaFolha = alturaVao + 30;
+      if (larguraFolha > 0 && alturaFolha > 0) {
+        if (lado === 'externo') {
+          pecas.push({
+            label:          'Chapa folha correr (externa)',
+            descricao:      'Chapa folha correr (externa)',
+            largura:        _round1(larguraFolha),
+            altura:         _round1(alturaFolha),
+            qtd:            nFolhas * qtdPortas,
+            cor:            String(item.corExterna || '').trim(),
+            categoria:      'porta',
+            podeRotacionar: false,
+          });
+        } else if (lado === 'interno') {
+          pecas.push({
+            label:          'Chapa folha correr (interna)',
+            descricao:      'Chapa folha correr (interna)',
+            largura:        _round1(larguraFolha),
+            altura:         _round1(alturaFolha),
+            qtd:            nFolhas * qtdPortas,
+            cor:            String(item.corInterna || '').trim(),
+            categoria:      'porta',
+            podeRotacionar: false,
+          });
+        }
+      }
+      return pecas;
+    }
+
     if (lado === 'externo') {
       // Chapa frontal externa: recortes -38,5 -38,5 (largura) e -38,5 -12 (altura)
       const L = larguraVao - fglEsq - fglDir - 38.5 - 38.5;
