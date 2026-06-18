@@ -188,26 +188,23 @@ var PerfisRevAcoplado = (function() {
         qtdRipasPre = denomPre > 0 ? Math.ceil(numeradorPre / denomPre) : 0;
       }
     }
-    // Felipe sessao 33: comprimento da ripa segue regra de altura (base 2m +
-    // extras de 600mm a cada 1200mm acima de 2000).
+    // Felipe sessao 39: comprimento da ripa = base 2m + ciclo de 500 ar + 500
+    // tubo (NOVO PADRAO — antes era 600 ar + 600 tubo). Periodo do ciclo =
+    // 1000mm (500 ar + 500 tubo). O que sobrar do ultimo ciclo divide por 2
+    // (metade ar + metade tubo) e vira um pedaco extra, mesma qtd da base.
     if (qtdRipasPre > 0 && ALTURA > 0) {
       if (ALTURA < 2000) {
         addPreEst('PA-51X12X1.58', Math.round(ALTURA), qtdRipasPre,
           'Tubo Interno das Ripas (corte ' + Math.round(ALTURA) + 'mm)');
       } else {
-        var p600pre = Math.floor((ALTURA - 2000) / 1200);
+        var p500pre = Math.floor((ALTURA - 2000) / 1000);
         addPreEst('PA-51X12X1.58', 2000, qtdRipasPre,
           'Tubo Interno das Ripas (base 2m)');
-        if (p600pre > 0) {
-          addPreEst('PA-51X12X1.58', 600, p600pre * qtdRipasPre,
-            'Tubo Interno das Ripas (extra 600mm)');
+        if (p500pre > 0) {
+          addPreEst('PA-51X12X1.58', 500, p500pre * qtdRipasPre,
+            'Tubo Interno das Ripas (extra 500mm)');
         }
-        // Felipe sessao 39: o que sobra acima do ultimo pedaco NAO pode ficar
-        // vazio (ex A=3000: base 2000 deixava 1000mm sem tubo). Pega o resto,
-        // divide por 2 (metade ar + metade tubo, mesmo padrao do ciclo 600+600)
-        // e coloca UM pedaco de tubo desse tamanho, mesma qtd da base.
-        //   A=3000: resto 1000 -> pedaco de 500 (qty = base).
-        var restoPre = (ALTURA - 2000) - p600pre * 1200;
+        var restoPre = (ALTURA - 2000) - p500pre * 1000;
         var pedacoMetadePre = Math.round(restoPre / 2);
         if (pedacoMetadePre > 0) {
           addPreEst('PA-51X12X1.58', pedacoMetadePre, qtdRipasPre,
