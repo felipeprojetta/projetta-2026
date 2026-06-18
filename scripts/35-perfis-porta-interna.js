@@ -296,7 +296,8 @@ const PerfisPortaInterna = (() => {
 
   function descricaoItem(item) {
     const dim = `${item.largura || '?'}×${item.altura || '?'}mm`;
-    return `Porta Interna, ${dim}`;
+    const qtd = Math.max(1, parseInt(item.quantidade, 10) || 1);
+    return `Porta Interna, ${qtd} un · ${dim}`;
   }
 
   return { gerarCortes, descricaoItem };

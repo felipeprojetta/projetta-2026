@@ -822,7 +822,8 @@ var PerfisRevAcoplado = (function() {
     if (!ehFixoValido(item)) return 'Fixo Acoplado, ?x?mm';
     var lados = item.lados === '2lados' ? '2 lados' : '1 lado';
     var extra = item.temEstrutura === 'nao' ? ' - so chapas' : '';
-    return 'Fixo Acoplado, ' + item.largura + 'x' + item.altura + 'mm (' + lados + extra + ')';
+    var qtd = Math.max(1, parseInt(item.quantidade, 10) || 1);
+    return 'Fixo Acoplado, ' + qtd + ' un · ' + item.largura + 'x' + item.altura + 'mm (' + lados + extra + ')';
   }
 
   return {
