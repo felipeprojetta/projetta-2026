@@ -430,7 +430,7 @@ const AcessoriosPortaExterna = (() => {
       });
     }
 
-    if (larguraVaoPI > 0 && alturaVaoPI > 0) {
+    if (item.tipoAbertura !== 'correr' && larguraVaoPI > 0 && alturaVaoPI > 0) {
       const fglEsqPI = _toNumPI(item.fglEsq != null && item.fglEsq !== '' ? item.fglEsq : 5);
       const fglDirPI = _toNumPI(item.fglDir != null && item.fglDir !== '' ? item.fglDir : 5);
       const fgSupPI  = _toNumPI(item.fgSup  != null && item.fgSup  !== '' ? item.fgSup  : 5);
@@ -664,6 +664,105 @@ const AcessoriosPortaExterna = (() => {
           tubosHIGHTACK_fab: 0,
           breakdown: _breakdownPI.slice(),
           ts: Date.now(),
+        };
+      } catch (e) { /* nao crit */ }
+    }
+
+    // ===== CORRER: Fita Dupla Face (FD19) + Silicone 995, POR QUANTIDADE de
+    //       peca (Felipe sessao 39). A correr tem pecas proprias (chapa folha,
+    //       alisar em L, tampas), entao nao usa o calculo de giro acima.
+    //   1) Perimetro de CADA chapa folha (ext+int, x nFolhas): FD19 + 995 (2L+2A)
+    //   2) Travessas (so' 995): comp x 2 x nTravessas
+    //   3) Alisar em L (x4): FD19 2x comp + 995 2x comp
+    //   4) Tampa alisar vertical (x2, so' com parede): FD19 2x comp + 995 2x comp
+    if (item.tipoAbertura === 'correr' && larguraVaoPI > 0 && alturaVaoPI > 0) {
+      const nFolhasC      = Math.max(1, Math.min(4, Number(item.nFolhasCorrer) || 1));
+      const larguraFolhaC = nFolhasC === 1 ? (larguraVaoPI + 70) : ((larguraVaoPI + 70) / nFolhasC + 50);
+      const alturaFolhaC  = alturaVaoPI + 30;                       // chapa folha (38b)
+      const temPainelC    = item.temPainelSuperior === 'sim';
+      const painelAltC    = temPainelC ? _toNumPI(item.painelSupAltura) : 0;
+      const compAlisarLC  = alturaVaoPI + 30 + painelAltC;          // alisar em L (38b)
+      const compTampaVC   = alturaVaoPI + 30;                       // tampa alisar vertical (38b)
+      const espParedeC    = _toNumPI(item.larguraParede);
+      const compTravC     = larguraFolhaC - 70 - 70;                // travessa (35-perfis)
+      const qtdTravHC     = alturaVaoPI > 2800 ? 3 : 2;
+      const nTravessasC   = qtdTravHC * nFolhasC;
+
+      let msTuboC = 12, fd19RoloC = 20;
+      try {
+        if (window.Regras && typeof window.Regras.getRendimentos === 'function') {
+          const r = window.Regras.getRendimentos();
+          if (r && Number(r.ms_tubo)   > 0) msTuboC   = Number(r.ms_tubo);
+          if (r && Number(r.fd19_rolo) > 0) fd19RoloC = Number(r.fd19_rolo);
+        }
+      } catch (_) {}
+
+      let mFD19C = 0, m995C = 0;
+      const bdFD19C = [], bd995C = [];
+
+      // 1) Perimetro de cada chapa folha (ext + int) x nFolhas
+      const perimFolhaMm   = 2 * larguraFolhaC + 2 * alturaFolhaC;
+      const qtdChapasFolha = 2 * nFolhasC * qtdPortas;              // 2 faces
+      if (perimFolhaMm > 0) {
+        const m = (perimFolhaMm * qtdChapasFolha) / 1000;
+        mFD19C += m; m995C += m;
+        const txt = qtdChapasFolha + ' chapas folha × perim ' + Math.round(perimFolhaMm) + 'mm = ' + m.toFixed(2) + 'm';
+        bdFD19C.push(txt); bd995C.push(txt);
+      }
+      // 2) Travessas (so' 995): comp x 2 x nTravessas
+      if (compTravC > 0) {
+        const nTrav = nTravessasC * qtdPortas;
+        const m = (compTravC * 2 * nTrav) / 1000;
+        m995C += m;
+        bd995C.push(nTrav + ' travessas × 2 × ' + Math.round(compTravC) + 'mm = ' + m.toFixed(2) + 'm');
+      }
+      // 3) Alisar em L (x4): FD19 2x comp + 995 2x comp
+      if (compAlisarLC > 0) {
+        const m = (2 * compAlisarLC * 4 * qtdPortas) / 1000;
+        mFD19C += m; m995C += m;
+        const txt = '4 alisar L × 2 × ' + Math.round(compAlisarLC) + 'mm = ' + m.toFixed(2) + 'm';
+        bdFD19C.push(txt); bd995C.push(txt);
+      }
+      // 4) Tampa alisar vertical (x2, so' com parede): FD19 2x + 995 2x
+      if (espParedeC > 0 && compTampaVC > 0) {
+        const m = (2 * compTampaVC * 2 * qtdPortas) / 1000;
+        mFD19C += m; m995C += m;
+        const txt = '2 tampa vert × 2 × ' + Math.round(compTampaVC) + 'mm = ' + m.toFixed(2) + 'm';
+        bdFD19C.push(txt); bd995C.push(txt);
+      }
+
+      // emite 995
+      if (m995C > 0) {
+        const tubos = Math.ceil(m995C / msTuboC);
+        const acess = buscarAcessorio(cadastroAcessorios, 'PA-DOWSIL 995');
+        const obs = m995C.toFixed(1) + 'm / ' + msTuboC + 'm por tubo = ' + tubos + ' tubo(s) — ' + bd995C.join(' + ');
+        linhas.push(acess
+          ? { codigo: acess.codigo, descricao: acess.descricao || 'Silicone Estrutural 995', familia: acess.familia || 'Selantes', qtd: tubos, unidade: 'un', preco_un: Number(acess.preco) || 0, total: (Number(acess.preco) || 0) * tubos, categoria: 'Selantes', aplicacao: 'fab', observacao: obs }
+          : { codigo: 'PA-DOWSIL 995', descricao: '(nao cadastrado)', familia: '', qtd: tubos, unidade: 'un', preco_un: 0, total: 0, categoria: 'Selantes', aplicacao: 'fab', observacao: m995C.toFixed(1) + 'm necessarios · CADASTRAR EM ACESSORIOS' });
+      }
+      // emite FD19
+      if (mFD19C > 0) {
+        const rolos = Math.ceil(mFD19C / fd19RoloC);
+        const acess = buscarAcessorio(cadastroAcessorios, 'PA-FITDF 19X20X1.0');
+        const obs = mFD19C.toFixed(1) + 'm / ' + fd19RoloC + 'm por rolo = ' + rolos + ' rolo(s) — ' + bdFD19C.join(' + ');
+        linhas.push(acess
+          ? { codigo: acess.codigo, descricao: acess.descricao || 'Fita Dupla Face 19mm', familia: acess.familia || 'Fita Dupla Face', qtd: rolos, unidade: 'un', preco_un: Number(acess.preco) || 0, total: (Number(acess.preco) || 0) * rolos, categoria: 'Fita Dupla Face', aplicacao: 'fab', observacao: obs }
+          : { codigo: 'PA-FITDF 19X20X1.0', descricao: '(nao cadastrado)', familia: '', qtd: rolos, unidade: 'un', preco_un: 0, total: 0, categoria: 'Fita Dupla Face', aplicacao: 'fab', observacao: mFD19C.toFixed(1) + 'm necessarios · CADASTRAR EM ACESSORIOS' });
+      }
+
+      // cache pro demonstrativo (renderBreakdownInline)
+      try {
+        window._fitaSiliconeBreakdownCache = window._fitaSiliconeBreakdownCache || {};
+        const ckey = item._cacheKey || item.id || ('item_' + Date.now());
+        window._fitaSiliconeBreakdownCache[ckey] = {
+          itemId: item.id, cacheKey: ckey, itemTipo: item.tipo,
+          itemDim: { L: larguraVaoPI, H: alturaVaoPI, nFolhas: nFolhasC, qtdPortas: qtdPortas },
+          totais: { mFD19: mFD19C, mFD12: 0, mMS: m995C, mCPS: 0, mFD19_obra: 0, mFD12_obra: 0, mHIGHTACK: 0, mHIGHTACK_fab: 0 },
+          rendimentos: { fd19_rolo: fd19RoloC, fd12_rolo: 20, ms_tubo: msTuboC, cps_sache: msTuboC, hightack_tubo: 8 },
+          rolosFD19: mFD19C > 0 ? Math.ceil(mFD19C / fd19RoloC) : 0, rolosFD12: 0,
+          tubosMS: m995C > 0 ? Math.ceil(m995C / msTuboC) : 0, sachesCPS: 0,
+          rolosFD19_obra: 0, rolosFD12_obra: 0, tubosHIGHTACK: 0, tubosHIGHTACK_fab: 0,
+          breakdown: [], ts: Date.now(),
         };
       } catch (e) { /* nao crit */ }
     }
