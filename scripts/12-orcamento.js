@@ -2388,6 +2388,9 @@ const Orcamento = (() => {
         // Valor contratual (oficial) — o que cliente paga de fato
         valorAprovado:  Number(alvo.valorAprovado)  || 0,
         precoProposta:  Number(alvo.precoProposta)  || 0,
+        // Felipe: dolar do momento do envio — frete em USD nao pode reconverter
+        // com a taxa de hoje. Congela junto pra a foto ficar fiel.
+        taxaUsd:        (window.Cambio && window.Cambio.taxaAtual()) || 0,
       };
     }
     saveAll(negocios);
@@ -2503,6 +2506,7 @@ const Orcamento = (() => {
           pFatReal: dreCalc.pFatReal, markupPct: dreCalc.markupPct,
           valorAprovado: Number(alvo.valorAprovado) || 0,
           precoProposta: Number(alvo.precoProposta) || 0,
+          taxaUsd: (window.Cambio && window.Cambio.taxaAtual()) || 0,
         };
       }
       saveAll(negocios);
@@ -3015,6 +3019,33 @@ const Orcamento = (() => {
 
   function limparLeadAtivo() {
     try { Storage.scope('app').set('orcamento_lead_ativo', null); } catch (e) {}
+  }
+
+  /**
+   * Taxa USD "efetiva" pra EXIBICAO nos paineis de custo/frete/DRE.
+   * Felipe: versao aprovada/enviada = foto fiel do momento do envio — NADA
+   * recalcula depois (nem o dolar). So' Revisar destrava.
+   * - Versao IMUTAVEL (aprovada/enviada/fechada): usa a taxa CONGELADA salva
+   *   no envio (dre_congelado.taxaUsd; senao a do breakdownInternacional que o
+   *   card ja' usa). Assim o frete em USD (terrestre/maritimo) reconverte com o
+   *   MESMO dolar do envio e o painel bate com o card.
+   * - Versao em EDICAO/draft: usa a taxa ATUAL (orcamento novo precisa do dolar
+   *   de hoje). Comportamento identico ao de antes — zero regressao.
+   * Fallback sempre pra taxaAtual quando nao acha congelada (legado sem dado).
+   */
+  function taxaUsdEfetiva(versao) {
+    const atual = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+    try {
+      if (versao && typeof versaoEhImutavel === 'function' && versaoEhImutavel(versao)) {
+        const dc = versao.dre_congelado;
+        if (dc && Number(dc.taxaUsd) > 0) return Number(dc.taxaUsd);
+        const lead = lerLeadAtivo();
+        if (lead && lead.breakdownInternacional && Number(lead.breakdownInternacional.taxaUsd) > 0) {
+          return Number(lead.breakdownInternacional.taxaUsd);
+        }
+      }
+    } catch (e) {}
+    return atual;
   }
 
   /**
@@ -9077,7 +9108,7 @@ const Orcamento = (() => {
             const viagem = calcularCustosViagemInternacional(v);
             const lucroInst = Number(v.lucro_alvo_instalacao);
             const lucroInstFinal = isNaN(lucroInst) ? 10 : lucroInst;
-            const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+            const taxa = taxaUsdEfetiva(versao);
             const precoInstFinal = viagem.total * (1 + lucroInstFinal / 100);
             return `
               <!-- Felipe sessao 31: Margem propria da instalacao (10% default, pode zerar).
@@ -9213,12 +9244,12 @@ const Orcamento = (() => {
               <div style="background:#ecfdf5; border:2px solid #34d399; border-radius:6px; padding:12px;">
                 <div style="font-size:11px; font-weight:700; color:#065f46; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
                   📊 Calculo Automatico (${viagem.pessoas}p · ${viagem.dias}d instal. + ${viagem.diasViagem}d viagem = ${viagem.totalDiasFora}d fora · ${viagem.nInst} instal.) ${(() => {
-                    const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+                    const taxa = taxaUsdEfetiva(versao);
                     return taxa > 0 ? `<span style="font-size:10px; font-weight:500; color:#888;">· USD ${taxa.toFixed(4)} (PTAX)</span>` : '<span style="font-size:10px; font-weight:500; color:#dc2626;">· ⚠️ taxa USD nao configurada</span>';
                   })()}
                 </div>
                 ${(() => {
-                  const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+                  const taxa = taxaUsdEfetiva(versao);
                   const fmtBR = v => v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
                   const fmtUsd = v => taxa > 0 ? `<span style="color:#0c5485; margin-left:6px; font-size:11px;">(USD ${(v / taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})})</span>` : '';
                   const linhaResumo = (label, calc, total) => `
@@ -9263,7 +9294,7 @@ const Orcamento = (() => {
                   <span style="text-align:right;">
                     R$ ${viagem.total.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}
                     ${(() => {
-                      const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+                      const taxa = taxaUsdEfetiva(versao);
                       return taxa > 0 ? `<div style="font-size:12px; color:#0c5485; font-weight:600;">USD ${(viagem.total / taxa).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>` : '';
                     })()}
                   </span>
@@ -9548,7 +9579,7 @@ const Orcamento = (() => {
         // Em internacional mostra R$ em destaque + USD em linha menor abaixo.
         const leadTot = lerLeadAtivo();
         const internacionalTot = leadTot && leadTot.destinoTipo === 'internacional';
-        const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+        const taxa = taxaUsdEfetiva(versao);
         const usd = internacionalTot && taxa > 0;
         // fmtV retorna HTML com R$ em destaque + USD logo abaixo (so' internacional).
         // Nacional continua so R$.
@@ -10439,7 +10470,7 @@ const Orcamento = (() => {
         ${(() => {
           const lead = lerLeadAtivo();
           if (!lead || lead.destinoTipo !== 'internacional') return '';
-          const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
+          const taxa = taxaUsdEfetiva(versao);
           if (!taxa) {
             return `
               <div class="orc-section" style="margin-top:18px; padding:14px; background:#fff3cd; border:1px solid #ffc107; border-radius:8px;">
