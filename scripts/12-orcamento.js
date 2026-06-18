@@ -20457,6 +20457,23 @@ const Orcamento = (() => {
     const barras = larguraVao > 0 ? Math.ceil(larguraVao / 2000) : 0;
     push('PA-TRILHORM003', barras * qtdPortas, 'Porta De Correr');
 
+    // Felipe sessao 39 (fix): consumiveis (Fita Dupla Face FD19 + Silicone 995 +
+    // HighTack) sao calculados no motor 28-acessorios (bloco correr de
+    // _gerarAcessoriosPortaInterna) mas nao apareciam na correr, que so usava a
+    // ferragem fixa acima. Anexa SO os 3 prefixos (hardware fica aqui; cada linha
+    // ja vem com aplicacao correta: fab pra FD19/995, obra pra HighTack).
+    try {
+      if (window.AcessoriosPortaExterna
+          && typeof window.AcessoriosPortaExterna.calcularAcessoriosPorItem === 'function') {
+        const todas = window.AcessoriosPortaExterna.calcularAcessoriosPorItem(item, lista) || [];
+        todas.forEach(l => {
+          if (/^PA-FITDF|^PA-DOWSIL|^PA-HIGHTACK/.test(String(l.codigo || '').toUpperCase())) {
+            linhas.push(l);
+          }
+        });
+      }
+    } catch (_) {}
+
     return linhas;
   }
 
