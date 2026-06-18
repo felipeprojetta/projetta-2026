@@ -106,6 +106,62 @@
     } catch (_) {}
   }
 
+  // ---- controle manual de prospeccao (Felipe sessao 39) ----------
+  // Por reserva (em weiku/envios, compartilhado na nuvem): enviado?,
+  // quem enviou (Felipe/Thays), e se o cliente retornou. Compat com o
+  // formato antigo da API (status:'sent' vira enviado:true).
+  function _normSt(e) {
+    if (!e || typeof e !== 'object') return null;
+    return {
+      enviado: (e.enviado === true) || (e.status === 'sent'),
+      por: e.por || '',
+      enviadoTs: e.enviadoTs || e.ts || null,
+      retornou: e.retornou === true,
+      retornouTs: e.retornouTs || null
+    };
+  }
+  function marcarStatus(r, patch) {
+    try {
+      var m = getEnvios();
+      var cur = _normSt(m[r]) || { enviado: false, por: '', enviadoTs: null, retornou: false, retornouTs: null };
+      for (var k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) cur[k] = patch[k]; }
+      m[r] = cur;
+      Storage.scope(SCOPE).set('envios', m); // upsert -> Supabase (compartilhado Felipe/Thays)
+    } catch (_) {}
+  }
+  // Default de "quem enviou": o usuario logado, se for Felipe ou Thays.
+  function _currentUserName() {
+    try {
+      var u = (window.Auth && Auth.currentUser) ? Auth.currentUser() : null;
+      var n = u ? String(u.name || u.username || '') : '';
+      var low = n.toLowerCase();
+      if (low.indexOf('felipe') >= 0) return 'Felipe';
+      if (low.indexOf('thays') >= 0 || low.indexOf('thais') >= 0) return 'Thays';
+      return '';
+    } catch (_) { return ''; }
+  }
+  function cellStatusHTML(r, raw) {
+    var s = _normSt(raw) || { enviado: false, por: '', retornou: false };
+    var envCls = 'wkv-st wkv-st-env' + (s.enviado ? ' on' : '');
+    var retCls = 'wkv-st wkv-st-ret' + (s.retornou ? ' on' : '');
+    var sel = '<select class="wkv-st-por" data-r="' + esc(r) + '" title="Quem enviou a mensagem">'
+      + '<option value=""' + (!s.por ? ' selected' : '') + '>quem?</option>'
+      + '<option value="Felipe"' + (s.por === 'Felipe' ? ' selected' : '') + '>Felipe</option>'
+      + '<option value="Thays"' + (s.por === 'Thays' ? ' selected' : '') + '>Thays</option>'
+      + '</select>';
+    return '<div class="wkv-stwrap">'
+      + '<div class="wkv-strow">'
+      + '<button class="' + envCls + '" data-r="' + esc(r) + '" title="Marcar que a mensagem ja foi enviada">' + (s.enviado ? '\u2713 Enviado' : 'Enviado') + '</button>'
+      + sel
+      + '</div>'
+      + '<button class="' + retCls + '" data-r="' + esc(r) + '" title="Marcar que o cliente respondeu">' + (s.retornou ? '\u21a9 Retornou' : 'Retornou') + '</button>'
+      + '</div>';
+  }
+  function _refreshStatusCell(el, r) {
+    var td = el.closest ? el.closest('.wkv-stcell') : null;
+    if (td) td.innerHTML = cellStatusHTML(r, getEnvios()[r]);
+  }
+
   // ---- cruzamento com CRM Projetta (Felipe sessao 35) -------------
   // Cruza cada reserva Weiku com os leads do CRM Projetta por RESERVA
   // ou por NOME (tokens — a reserva muda entre os sistemas quando o
@@ -347,6 +403,13 @@
       '.wkv-ico.mail{color:var(--wkv-amb);border-color:#f3dcc0}.wkv-ico.mail:hover{background:var(--wkv-amb);color:#fff}',
       '.wkv-ico.dis{opacity:.3;pointer-events:none}',
       '.wkv-rmv{background:none;border:none;color:var(--wkv-cinza);cursor:pointer;font-size:13px}.wkv-rmv:hover{color:#c0392b}',
+      '.wkv-stwrap{display:flex;flex-direction:column;gap:4px;align-items:center}',
+      '.wkv-strow{display:flex;gap:4px;align-items:center;justify-content:center}',
+      '.wkv-st{font:inherit;font-size:11px;font-weight:600;padding:3px 9px;border:1px solid var(--wkv-linha);border-radius:999px;background:#fff;color:var(--wkv-cinza2);cursor:pointer;white-space:nowrap;line-height:1.4}',
+      '.wkv-st:hover{border-color:var(--wkv-teal);color:var(--wkv-teal)}',
+      '.wkv-st-env.on{background:#dcfce7;border-color:#16a34a;color:#15803d}.wkv-st-env.on:hover{color:#15803d}',
+      '.wkv-st-ret.on{background:#dbeafe;border-color:#2563eb;color:#1d4ed8}.wkv-st-ret.on:hover{color:#1d4ed8}',
+      '.wkv-st-por{font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;color:var(--wkv-tinta);cursor:pointer}',
       '.wkv-foot{font-size:12px;color:var(--wkv-cinza);margin-top:14px;line-height:1.6;background:#fff;border:1px dashed var(--wkv-linha);border-radius:10px;padding:13px 16px}',
       '.wkv-foot b{color:var(--wkv-amb)}',
       '.wkv-empty{text-align:center;padding:54px 20px;color:var(--wkv-cinza)}',
@@ -406,6 +469,7 @@
       + '        <th data-s="data" style="text-align:center">Fechamento</th>'
       + '        <th data-s="rep">Representante</th>'
       + '        <th style="text-align:center">Projetta</th>'
+      + '        <th style="text-align:center">Prospec\u00e7\u00e3o</th>'
       + '        <th style="text-align:center">Contato</th>'
       + '      </tr></thead><tbody id="wkv-tb"></tbody>'
       + '    </table></div>'
@@ -451,6 +515,7 @@
     if ($('wkv-t-soma')) $('wkv-t-soma').textContent = fmtMoeda(soma);
 
     var msg = ui.msg;
+    var envios = getEnvios();
     var rows = lista.map(function (d) {
       var primeiro = (d.nome || '').split(' ')[0] || '';
       var mp = matchProjetta(d);
@@ -489,13 +554,14 @@
         + '<td style="text-align:center" class="wkv-loc">' + esc(d.data || '\u2014') + '</td>'
         + '<td class="wkv-loc">' + esc(d.rep || '\u2014') + '</td>'
         + '<td style="text-align:center">' + projTd + '</td>'
+        + '<td class="wkv-stcell" data-r="' + esc(d.r) + '" style="text-align:center">' + cellStatusHTML(d.r, envios[d.r]) + '</td>'
         + '<td style="text-align:center;white-space:nowrap">' + wa + ' ' + ml
         + ' <button class="wkv-rmv" data-r="' + esc(d.r) + '" title="Remover (opt-out)">\u2715</button></td>'
         + '</tr>';
     }).join('');
 
     var tb = $('wkv-tb');
-    if (tb) tb.innerHTML = rows || '<tr><td colspan="10" style="text-align:center;padding:40px;color:#6b7280">Nenhum cliente nesse filtro.</td></tr>';
+    if (tb) tb.innerHTML = rows || '<tr><td colspan="11" style="text-align:center;padding:40px;color:#6b7280">Nenhum cliente nesse filtro.</td></tr>';
 
     // indicadores de ordenacao
     container.querySelectorAll('thead th[data-s]').forEach(function (th) {
@@ -507,13 +573,15 @@
   // ---- export CSV -------------------------------------------------
   function exportarCSV() {
     var lista = aplicarFiltro().sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
-    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa'];
+    var envios = getEnvios();
+    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa', 'Msg Enviada', 'Enviada Por', 'Cliente Retornou'];
     var linhas = lista.map(function (d) {
       var mp = matchProjetta(d);
       var pAgp = mp ? (mp.numeroAGP || '') : '';
       var pRes = mp ? String(mp.numeroReserva || '').replace(/\D/g, '') : '';
       var pEt  = mp ? stageCurto(mp.etapa) : '';
-      return [d.r, d.nome, d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt]
+      var st = _normSt(envios[d.r]) || { enviado: false, por: '', retornou: false };
+      return [d.r, d.nome, d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? 'Sim' : 'Nao'), st.por, (st.retornou ? 'Sim' : 'Nao')]
         .map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';');
     });
     var csv = '\ufeff' + [cols.join(';')].concat(linhas).join('\r\n');
@@ -580,6 +648,29 @@
     // delegacao pro botao de opt-out (tbody re-renderiza)
     var tb = $('wkv-tb');
     if (tb) tb.addEventListener('click', function (ev) {
+      // marcar/desmarcar "Enviado"
+      var envBtn = ev.target.closest('.wkv-st-env');
+      if (envBtn) {
+        var re = envBtn.getAttribute('data-r');
+        var ce = _normSt(getEnvios()[re]);
+        var on = !(ce && ce.enviado);
+        var patch = { enviado: on, enviadoTs: on ? Date.now() : null };
+        if (on && (!ce || !ce.por)) { var u = _currentUserName(); if (u) patch.por = u; }
+        marcarStatus(re, patch);
+        _refreshStatusCell(envBtn, re);
+        return;
+      }
+      // marcar/desmarcar "Retornou"
+      var retBtn = ev.target.closest('.wkv-st-ret');
+      if (retBtn) {
+        var rr = retBtn.getAttribute('data-r');
+        var cr = _normSt(getEnvios()[rr]);
+        var on2 = !(cr && cr.retornou);
+        marcarStatus(rr, { retornou: on2, retornouTs: on2 ? Date.now() : null });
+        _refreshStatusCell(retBtn, rr);
+        return;
+      }
+      // remover (opt-out)
       var btn = ev.target.closest('.wkv-rmv');
       if (!btn) return;
       var r = btn.getAttribute('data-r');
@@ -587,6 +678,18 @@
         marcarOptout(r);
         renderTabela(container);
       }
+    });
+    // quem enviou (Felipe/Thays) — escolher o nome ja conta como enviado
+    if (tb) tb.addEventListener('change', function (ev) {
+      var sel = ev.target.closest('.wkv-st-por');
+      if (!sel) return;
+      var r = sel.getAttribute('data-r');
+      var val = sel.value;
+      var cur = _normSt(getEnvios()[r]);
+      var patch = { por: val };
+      if (val && (!cur || !cur.enviado)) { patch.enviado = true; patch.enviadoTs = Date.now(); }
+      marcarStatus(r, patch);
+      _refreshStatusCell(sel, r);
     });
   }
 
