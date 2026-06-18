@@ -777,6 +777,16 @@ var PerfisRevAcoplado = (function() {
     add('Tampa Maior',     largTampa, altTampa, 1);
     add('Fita Acabamento', largFita,  altFita,  2);
 
+    // Felipe sessao 39: fixo lateral RIPADO tem TAMBEM as chapas das RIPAS
+    // (alem da Tampa Maior). Largura da ripa = 94mm (13+4+51+9+13+4, mesma
+    // peca da porta ripada); comprimento = altura do fixo; qtd por face =
+    // ceil((largura+100)/90). Esta funcao roda por face (ext/interno), entao
+    // gera nRipas por face -> revestido 2 lados dobra naturalmente.
+    if (String(item.tipoLateral || '').toLowerCase() === 'ripado') {
+      var nRipasFace = Math.ceil((L + 100) / 90);
+      add('Ripas', 13 + 4 + 51 + 9 + 13 + 4, H, nRipasFace);
+    }
+
     return pecas;
   }
 
