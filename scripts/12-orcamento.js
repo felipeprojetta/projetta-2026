@@ -18272,6 +18272,17 @@ const Orcamento = (() => {
       if (!segueModelo || !window._versaoAtivaParaFixo) return null;
       const v = window._versaoAtivaParaFixo;
       if (!v.itens) return null;
+      // Felipe sessao 39: fixo herda do item ANTERIOR (porta adjacente),
+      // nao da primeira porta da versao. Varre pra tras a partir do fixo;
+      // fallback: primeira porta_externa (comportamento antigo).
+      if (item && item.id) {
+        const idx = v.itens.findIndex(it => it && it.id === item.id);
+        if (idx > 0) {
+          for (let j = idx - 1; j >= 0; j--) {
+            if (v.itens[j] && v.itens[j].tipo === 'porta_externa') return v.itens[j];
+          }
+        }
+      }
       return v.itens.find(it => it && it.tipo === 'porta_externa') || null;
     })();
     const corExt = (segueModelo && portaPrincipal && portaPrincipal.corExterna)

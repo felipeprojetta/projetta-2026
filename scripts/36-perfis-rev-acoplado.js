@@ -46,7 +46,7 @@ var PerfisRevAcoplado = (function() {
     var k = 'PA006';
     // 1) Sempre tenta deduzir da porta principal (autoritative)
     try {
-      var porta = obterPortaPrincipal();
+      var porta = obterPortaPrincipal(item);
       if (porta) {
         var h = parseFloat(String(porta.altura || '').replace(',', '.')) || 0;
         if (h > 0) k = (h < 4000) ? 'PA006' : 'PA007';
@@ -60,14 +60,29 @@ var PerfisRevAcoplado = (function() {
     return SIS[k] || SIS.PA006;
   }
 
-  // Le porta principal do orcamento (item anterior ao fixo)
-  function obterPortaPrincipal() {
+  // Le a porta de referencia do fixo. Felipe sessao 39: o fixo acoplado herda
+  // PA + bloco de perfis (e modelo/chapas) da porta a que esta ACOPLADO = a
+  // porta do ITEM ANTERIOR (adjacente, varrendo pra tras a partir do fixo),
+  // nao mais a primeira porta_externa da versao. Fallback: primeira
+  // porta_externa (comportamento antigo) quando nao da pra localizar o fixo.
+  function obterPortaPrincipal(itemFixo) {
     try {
       var v = window._versaoAtivaParaFixo;
-      if (v && v.itens) {
-        for (var i = 0; i < v.itens.length; i++) {
-          if (v.itens[i] && v.itens[i].tipo === 'porta_externa') return v.itens[i];
+      if (!v || !v.itens) return null;
+      if (itemFixo && itemFixo.id) {
+        var idx = -1;
+        for (var k = 0; k < v.itens.length; k++) {
+          if (v.itens[k] && v.itens[k].id === itemFixo.id) { idx = k; break; }
         }
+        if (idx > 0) {
+          for (var j = idx - 1; j >= 0; j--) {
+            if (v.itens[j] && v.itens[j].tipo === 'porta_externa') return v.itens[j];
+          }
+        }
+      }
+      // Fallback: primeira porta_externa da versao
+      for (var i = 0; i < v.itens.length; i++) {
+        if (v.itens[i] && v.itens[i].tipo === 'porta_externa') return v.itens[i];
       }
     } catch (_) {}
     return null;
@@ -131,7 +146,7 @@ var PerfisRevAcoplado = (function() {
                                    (item.tipoLateral === 'ripado' ||
                                     item.tipoLateral === 'moldura');
     var segueModelo = item.fixoSegueModelo === 'sim' || ehLateralRipadoOuMoldura;
-    var portaPreCheck = segueModelo ? obterPortaPrincipal() : null;
+    var portaPreCheck = segueModelo ? obterPortaPrincipal(item) : null;
 
     var cortesPreEstrutura = {};
     function addPreEst(codigo, comp, qty, label) {
@@ -326,7 +341,7 @@ var PerfisRevAcoplado = (function() {
                                     item.tipoLateral === 'moldura');
     var segueModelo = !ehLateralLisa &&
                       (item.fixoSegueModelo === 'sim' || ehLateralRipadoOuMoldura);
-    var porta = segueModelo ? obterPortaPrincipal() : null;
+    var porta = segueModelo ? obterPortaPrincipal(item) : null;
 
     // TRAVESSA VERTICAL (76x38 / 101x51)
     // Planilha: "MESMA QTD DA TRAVESSA QUE TIVER NA PORTA"
@@ -422,7 +437,7 @@ var PerfisRevAcoplado = (function() {
                                    (item.tipoLateral === 'ripado' ||
                                     item.tipoLateral === 'moldura');
     var segueModelo = item.fixoSegueModelo === 'sim' || ehLateralRipadoOuMoldura;
-    var porta = segueModelo ? obterPortaPrincipal() : null;
+    var porta = segueModelo ? obterPortaPrincipal(item) : null;
     var fonte = porta || item;
     // Felipe sessao 31: deriva sistema correto via getSis (autoritative pela
     // porta principal). Antes usava item.sistema direto que podia estar
