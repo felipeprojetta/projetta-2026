@@ -23,19 +23,6 @@
   var SCOPE = 'weiku';
   var CSS_ID = 'wkv-styles';
 
-  // ---- WhatsApp Cloud API (Felipe sessao 38) ----------------------
-  // Disparo em lote via funcao serverless (netlify/functions/whatsapp-send).
-  // O token do WhatsApp fica nas env vars do Netlify; aqui vai so o segredo
-  // de gate. LIMITACAO v1: o segredo fica visivel no JS do cliente (gate
-  // fraco). Hardening (auth por sessao/Origin) fica pra um proximo commit.
-  var WPP_FN      = '/.netlify/functions/whatsapp-send';
-  var WPP_SECRET  = 'projetta-zap-2026-x9k2';
-  var WPP_TPL     = 'prospeccao_projetta'; // template aprovado (Marketing, pt_BR, {{1}}=primeiro nome)
-  var WPP_LANG    = 'pt_BR';
-  var WPP_DELAY   = 5000;  // ms entre envios (ritmo anti-bloqueio)
-  var WPP_MAX_RUN = 180;   // teto por disparo (tier inicial Meta ~250 conversas/24h)
-  var _wppParar   = false; // flag de cancelamento do lote em andamento
-
   // ---- estado da tela (memoria, por sessao de render) -------------
   var ui = {
     busca: '',
@@ -335,10 +322,6 @@
       '.wkv-btn{border:none;border-radius:8px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}',
       '.wkv-btn-tinta{background:var(--wkv-tinta);color:#fff}.wkv-btn-tinta:hover{background:var(--wkv-tinta2)}',
       '.wkv-btn-out{background:#fff;color:var(--wkv-tinta);border:1px solid var(--wkv-linha)}.wkv-btn-out:hover{border-color:var(--wkv-teal);color:var(--wkv-teal)}',
-      '.wkv-btn-zap{background:#25D366;color:#fff}.wkv-btn-zap:hover{background:#1faf53}',
-      '.wkv-apiprog{margin-top:14px;padding:11px 14px;border:1px solid var(--wkv-linha);border-radius:10px;background:#f8fafc;font-size:13px;color:var(--wkv-tinta)}',
-      '.wkv-apiprog .wkv-apirow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-weight:600}',
-      '.wkv-apiprog .wkv-apimsg{margin-top:5px;font-size:12px;color:var(--wkv-cinza2);font-weight:400}',
       '.wkv-tmpl textarea{width:100%;min-height:70px;padding:11px 13px;border:1px solid var(--wkv-linha);border-radius:8px;font:inherit;resize:vertical;background:#fafbfc}',
       '.wkv-hint{font-size:11px;color:var(--wkv-cinza);margin-top:6px}',
       '.wkv-hint code{background:var(--wkv-amb-bg);color:var(--wkv-amb);padding:1px 6px;border-radius:4px;font-weight:600}',
@@ -406,10 +389,8 @@
       + '      <button class="wkv-btn wkv-btn-out" id="wkv-reset">\u21ba Limpar filtros</button>'
       + '      <button class="wkv-btn wkv-btn-tinta" id="wkv-export">\u2b07 Exportar lista filtrada (CSV)</button>'
       + '      <button class="wkv-btn wkv-btn-out" id="wkv-import-btn">\u2b06 Importar/atualizar base (CSV)</button>'
-      + '      <button class="wkv-btn wkv-btn-zap" id="wkv-api-send" title="Dispara o template aprovado pela API oficial do WhatsApp, respeitando opt-out, quem ja recebeu e quem ja esta na Projetta">\ud83d\udcf2 Enviar prospec\u00e7\u00e3o via API (lote)</button>'
       + '      <input type="file" id="wkv-file" accept=".csv,text/csv" style="display:none">'
       + '    </div>'
-      + '    <div id="wkv-api-prog" class="wkv-apiprog" style="display:none"></div>'
       + '  </div>'
       + '  <div class="wkv-panel"><h3>Mensagem de WhatsApp</h3>'
       + '    <div class="wkv-tmpl"><textarea id="wkv-msg">' + esc(ui.msg) + '</textarea>'
@@ -542,111 +523,6 @@
     document.body.appendChild(a); a.click(); a.remove();
   }
 
-  // ---- disparo em lote via WhatsApp Cloud API (Felipe sessao 38) --
-  function _primeiroNome(d) {
-    var n = String(d.nome || '').trim().split(/\s+/)[0] || '';
-    // Title case simples pro nome nao sair TODO MAIUSCULO no zap
-    return n ? n.charAt(0).toUpperCase() + n.slice(1).toLowerCase() : 'tudo bem';
-  }
-
-  function dispararLote(container) {
-    var $ = function (id) { return container.querySelector('#' + id); };
-    var prog = $('wkv-api-prog');
-    var lista = aplicarFiltro();           // ja exclui opt-out + aplica filtros
-    var enviados = getEnvios();
-    var semWa = 0, jaEnv = 0, naProj = 0;
-    var alvos = lista.filter(function (d) {
-      if (!temWa(d)) { semWa++; return false; }
-      if (enviados[d.r]) { jaEnv++; return false; }
-      if (matchProjetta(d)) { naProj++; return false; } // ja esta no funil da Projetta
-      return true;
-    });
-    if (!alvos.length) {
-      window.alert('Nenhum alvo novo no filtro atual.\n\n'
-        + 'Sem WhatsApp: ' + semWa + '\nJa receberam: ' + jaEnv + '\nJa estao na Projetta: ' + naProj);
-      return;
-    }
-    var lote = alvos.slice(0, WPP_MAX_RUN);
-    var msg = 'Disparar prospeccao via WhatsApp API para ' + lote.length + ' cliente(s)?\n\n'
-      + 'Template: ' + WPP_TPL + ' (' + WPP_LANG + ')\n'
-      + 'Ritmo: 1 a cada ' + (WPP_DELAY / 1000) + 's  (teto ' + WPP_MAX_RUN + ' por disparo)\n\n'
-      + 'Pulados neste filtro:\n'
-      + '  - sem WhatsApp: ' + semWa + '\n'
-      + '  - ja receberam: ' + jaEnv + '\n'
-      + '  - ja na Projetta: ' + naProj
-      + (alvos.length > lote.length ? ('\n\n' + (alvos.length - lote.length) + ' alem do teto ficam pro proximo disparo.') : '');
-    if (!window.confirm(msg)) return;
-
-    _wppParar = false;
-    var ok = 0, fail = 0, i = 0, falhas = [];
-    if (prog) prog.style.display = 'block';
-
-    function pinta(extra) {
-      if (!prog) return;
-      prog.innerHTML =
-        '<div class="wkv-apirow">\ud83d\udce4 ' + i + '/' + lote.length
-        + ' &nbsp;\u2705 ' + ok + ' &nbsp;\u274c ' + fail
-        + ' <button class="wkv-btn wkv-btn-out" id="wkv-api-stop" style="padding:4px 10px;margin-left:8px">Parar</button></div>'
-        + (extra ? '<div class="wkv-apimsg">' + esc(extra) + '</div>' : '');
-      var sb = prog.querySelector('#wkv-api-stop');
-      if (sb) sb.addEventListener('click', function () { _wppParar = true; });
-    }
-
-    function fim() {
-      if (prog) {
-        prog.innerHTML = '<div class="wkv-apirow">' + (_wppParar ? '\u23f9\ufe0f Disparo interrompido.' : '\u2714\ufe0f Disparo finalizado.')
-          + ' &nbsp;\u2705 ' + ok + ' enviados &nbsp;\u274c ' + fail + ' falhas</div>'
-          + (falhas.length ? '<div class="wkv-apimsg">Falhas: ' + esc(falhas.slice(0, 6).join(' | ')) + (falhas.length > 6 ? ' \u2026' : '') + '</div>' : '');
-      }
-      renderTabela(container); // quem recebeu agora conta como "ja enviado" no proximo lote
-      window.alert((_wppParar ? 'Disparo interrompido.' : 'Disparo finalizado.')
-        + '\n\nEnviados OK: ' + ok + '\nFalhas: ' + fail
-        + (falhas.length ? ('\n\nPrimeiras falhas:\n' + falhas.slice(0, 5).join('\n')) : ''));
-    }
-
-    function passo() {
-      if (_wppParar || i >= lote.length) return fim();
-      var d = lote[i];
-      pinta('Enviando para ' + (d.nome || ('reserva ' + d.r)) + ' \u2026');
-      var payload = {
-        secret: WPP_SECRET,
-        to: String(d.wa),
-        template: { name: WPP_TPL, language: WPP_LANG, variables: [_primeiroNome(d)] },
-        log: { nome: d.nome || '' }
-      };
-      fetch(WPP_FN, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-        .then(function (r) {
-          return r.json().catch(function () { return {}; }).then(function (j) { return { status: r.status, j: j }; });
-        })
-        .then(function (res) {
-          if (res.status === 200 && res.j && res.j.ok) {
-            ok++;
-            marcarEnvio(d.r, { ts: Date.now(), wamid: (res.j.id || null), nome: d.nome || '', status: 'sent' });
-          } else {
-            fail++;
-            var er = (res.j && res.j.error)
-              ? (typeof res.j.error === 'string' ? res.j.error : (res.j.error.message || JSON.stringify(res.j.error)))
-              : ('HTTP ' + res.status);
-            falhas.push((d.nome || d.r) + ': ' + er);
-          }
-        })
-        .catch(function (e) { fail++; falhas.push((d.nome || d.r) + ': ' + (e && e.message)); })
-        .then(function () {
-          i++;
-          pinta();
-          if (_wppParar || i >= lote.length) return fim();
-          setTimeout(passo, WPP_DELAY);
-        });
-    }
-
-    pinta();
-    passo();
-  }
-
   // ---- bind eventos (uma vez por render) --------------------------
   function bindEventos(container) {
     var $ = function (id) { return container.querySelector('#' + id); };
@@ -691,8 +567,6 @@
     var exp = $('wkv-export');
     if (exp) exp.addEventListener('click', exportarCSV);
 
-    var apiBtn = $('wkv-api-send');
-    if (apiBtn) apiBtn.addEventListener('click', function () { dispararLote(container); });
 
     container.querySelectorAll('thead th[data-s]').forEach(function (th) {
       th.addEventListener('click', function () {

@@ -92,11 +92,6 @@ const App = (() => {
       subtitle: 'Prospeccao de alto padrao a partir das reservas Weiku fechadas (grupo Weiku/Projetta).',
       breadcrumb: 'Integracoes · Weiku',
     },
-    whatsapp: {
-      title: 'WhatsApp',
-      subtitle: 'Caixa de entrada do numero oficial — conversas e respostas dentro do sistema.',
-      breadcrumb: 'Integracoes · WhatsApp',
-    },
     config: {
       title: 'Configuracoes',
       subtitle: 'Informacoes do sistema e manutencao do storage local.',

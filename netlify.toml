@@ -14,12 +14,6 @@
   command = "TIMESTAMP=$(date +%s) && sed -i \"s|?v=[0-9]*|?v=$TIMESTAMP|g\" index.html && echo \"Build cache-bust timestamp: $TIMESTAMP\""
   publish = "."
 
-# Felipe sessao 37: Netlify Functions (WhatsApp Cloud API). Codigo server-side,
-# token do WhatsApp nas env vars do Netlify (nunca no navegador).
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
-
 [[headers]]
   for = "/index.html"
   [headers.values]

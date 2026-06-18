@@ -300,20 +300,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }, 800);
 
-  // Registrar módulo WhatsApp (inbox — conversas do numero oficial)
-  setTimeout(function() {
-    if (!App.register) return;
-    App.register('whatsapp', {
-      render: function(container) {
-        if (window.WhatsAppInbox) {
-          window.WhatsAppInbox.render(container);
-        } else {
-          container.innerHTML = '<div class="info-banner">Modulo WhatsApp carregando...</div>';
-          setTimeout(function() {
-            if (window.WhatsAppInbox) window.WhatsAppInbox.render(container);
-          }, 1500);
-        }
-      }
-    });
-  }, 800);
 });
