@@ -9,22 +9,22 @@
  * Felipe sessao 31 — Regras das chapas frontais:
  *   Chapa frontal EXTERNA (lado='externo'):
  *     L = largura_vao - fglEsq - fglDir - 38,5 - 38,5
- *     A = altura_vao  - fgSup           - 38,5 - 12
+ *     A = altura_vao  - fgSup           - 38,5 - 9,5
  *   Chapa frontal INTERNA (lado='interno'):
  *     L = largura_vao - fglEsq - fglDir - 26,5 - 26,5
- *     A = altura_vao  - fgSup           - 26,5 - 12
+ *     A = altura_vao  - fgSup           - 26,5 - 9,5
  *
  *   Folgas unificadas (fglEsq/fglDir/fgSup) com fallback 5 (igual motor de perfis).
  *
  * ESTADO ATUAL (sessao 31):
  *   [x] Chapa frontal externa (38,5)
  *   [x] Chapa frontal interna (26,5)
- *   [x] Alisar (chapa) — 59,5 x (vao+100), 2 vert + 1 hor por lado da parede
+ *   [x] Alisar (chapa) — 57 x (vao+100), 2 vert + 1 hor por lado da parede
  *                        (categoria='portal', cor da face correspondente)
  *   [x] Complemento alisar — UM conjunto so' (nao espelha):
- *         2 verticais   (larguraParede-47) x altura_vao
- *         1 horizontal  (larguraParede-47) x largura_vao
- *       So' sai quando item.larguraParede > 47. Cor=corInterna.
+ *         2 verticais   (larguraParede-44) x (altura_vao+100)
+ *         1 horizontal  (larguraParede-44) x (largura_vao+100)
+ *       So' sai quando item.larguraParede > 44. Cor=corInterna.
  *
  * Felipe sessao 31: TODAS as pecas saem com podeRotacionar=false por
  * padrao. As pecas tem orientacao definida (vertical vs horizontal) e
@@ -229,9 +229,9 @@ const ChapasPortaInterna = (() => {
     }
 
     if (lado === 'externo') {
-      // Chapa frontal externa: recortes -38,5 -38,5 (largura) e -38,5 -12 (altura)
+      // Chapa frontal externa: recortes -38,5 -38,5 (largura) e -38,5 -9,5 (altura)
       const L = larguraVao - fglEsq - fglDir - 38.5 - 38.5;
-      const A = alturaVao  - fgSup           - 38.5 - 12;
+      const A = alturaVao  - fgSup           - 38.5 - 9.5;
       if (L > 0 && A > 0) {
         pecas.push({
           label:          'Chapa frontal externa',
@@ -263,7 +263,7 @@ const ChapasPortaInterna = (() => {
       }
 
       // Felipe sessao 31: ALISAR (chapa) — 2 vert + 1 hor por lado.
-      // Cada lado: 2 verticais (59,5 × A+100) + 1 horizontal (59,5 × L+100).
+      // Cada lado: 2 verticais (57 × A+100) + 1 horizontal (57 × L+100).
       // Felipe sessao 33: com painel superior, o vertical engloba
       // porta+painel — altura += painelSupAlt.
       if (alturaVao > 0) {
@@ -271,7 +271,7 @@ const ChapasPortaInterna = (() => {
         pecas.push({
           label:          'Alisar chapa exterior vertical',
           descricao:      'Alisar chapa exterior vertical',
-          largura:        59.5,
+          largura:        57,
           altura:         _round1(altAlisarVertExt),
           qtd:            2 * qtdPortas,
           cor:            String(item.corExterna || '').trim(),
@@ -283,7 +283,7 @@ const ChapasPortaInterna = (() => {
         pecas.push({
           label:          'Alisar chapa exterior horizontal',
           descricao:      'Alisar chapa exterior horizontal',
-          largura:        59.5,
+          largura:        57,
           altura:         _round1(larguraVao + 100),
           qtd:            1 * qtdPortas,
           cor:            String(item.corExterna || '').trim(),
@@ -292,9 +292,9 @@ const ChapasPortaInterna = (() => {
         });
       }
     } else if (lado === 'interno') {
-      // Chapa frontal interna: recortes -26,5 -26,5 (largura) e -26,5 -12 (altura)
+      // Chapa frontal interna: recortes -26,5 -26,5 (largura) e -26,5 -9,5 (altura)
       const L = larguraVao - fglEsq - fglDir - 26.5 - 26.5;
-      const A = alturaVao  - fgSup           - 26.5 - 12;
+      const A = alturaVao  - fgSup           - 26.5 - 9.5;
       if (L > 0 && A > 0) {
         pecas.push({
           label:          'Chapa frontal interna',
@@ -331,7 +331,7 @@ const ChapasPortaInterna = (() => {
         pecas.push({
           label:          'Alisar chapa interior vertical',
           descricao:      'Alisar chapa interior vertical',
-          largura:        59.5,
+          largura:        57,
           altura:         _round1(altAlisarVertInt),
           qtd:            2 * qtdPortas,
           cor:            String(item.corInterna || '').trim(),
@@ -343,7 +343,7 @@ const ChapasPortaInterna = (() => {
         pecas.push({
           label:          'Alisar chapa interior horizontal',
           descricao:      'Alisar chapa interior horizontal',
-          largura:        59.5,
+          largura:        57,
           altura:         _round1(larguraVao + 100),
           qtd:            1 * qtdPortas,
           cor:            String(item.corInterna || '').trim(),
@@ -356,20 +356,20 @@ const ChapasPortaInterna = (() => {
       // (NAO espelha ext/int, diferente do alisar normal). 3 pecas por
       // porta: 2 verticais + 1 horizontal. Largura = espessura da parede
       // - 47mm. Outras dimensoes seguem o vao.
-      //   Vertical:   (larguraParede - 47) x altura_vao    -> qtd 2
-      //   Horizontal: (larguraParede - 47) x largura_vao   -> qtd 1
+      //   Vertical:   (larguraParede - 44) x (altura_vao+100)    -> qtd 2
+      //   Horizontal: (larguraParede - 44) x (largura_vao+100)   -> qtd 1
       // Felipe pediu cor INTERNA. Renderizado no lado='interno' pra
       // nao duplicar (pipeline ja itera externo+interno). Se a parede
       // nao tiver valor (vazio/0/<=47), as pecas nao saem.
       const larguraParede = _toNum(item.larguraParede);
-      const compLarg = larguraParede - 47;
+      const compLarg = larguraParede - 44;
       if (compLarg > 0) {
         if (alturaVao > 0) {
           pecas.push({
             label:          'Complemento alisar vertical',
             descricao:      'Complemento alisar vertical',
             largura:        _round1(compLarg),
-            altura:         _round1(alturaVao),
+            altura:         _round1(alturaVao + 100),
             qtd:            2 * qtdPortas,
             cor:            String(item.corInterna || '').trim(),
             categoria:      'portal',
@@ -381,7 +381,7 @@ const ChapasPortaInterna = (() => {
             label:          'Complemento alisar horizontal',
             descricao:      'Complemento alisar horizontal',
             largura:        _round1(compLarg),
-            altura:         _round1(larguraVao),
+            altura:         _round1(larguraVao + 100),
             qtd:            1 * qtdPortas,
             cor:            String(item.corInterna || '').trim(),
             categoria:      'portal',
