@@ -668,13 +668,13 @@ const AcessoriosPortaExterna = (() => {
       } catch (e) { /* nao crit */ }
     }
 
-    // ===== CORRER: Fita Dupla Face (FD19) + Silicone 995, POR QUANTIDADE de
-    //       peca (Felipe sessao 39). A correr tem pecas proprias (chapa folha,
-    //       alisar em L, tampas), entao nao usa o calculo de giro acima.
-    //   1) Perimetro de CADA chapa folha (ext+int, x nFolhas): FD19 + 995 (2L+2A)
-    //   2) Travessas (so' 995): comp x 2 x nTravessas
-    //   3) Alisar em L (x4): FD19 2x comp + 995 2x comp
-    //   4) Tampa alisar vertical (x2, so' com parede): FD19 2x comp + 995 2x comp
+    // ===== CORRER: consumiveis POR QUANTIDADE de peca (Felipe sessao 39).
+    //   FAB  (fita dupla face + silicone estrutural):
+    //     - Perimetro de CADA chapa folha (ext+int, x nFolhas): FD19 + 995 (2L+2A)
+    //     - Travessas: 995 (comp x 2 x nTravessas)
+    //   OBRA (HighTack = instalacao, 2x comprimento x quantidade):
+    //     - Alisar em L (x4), Tampa alisar vertical (x2) e horizontal (x1),
+    //       ACM batente (x2), Tampa do fixo superior (x1, so com painel).
     if (item.tipoAbertura === 'correr' && larguraVaoPI > 0 && alturaVaoPI > 0) {
       const nFolhasC      = Math.max(1, Math.min(4, Number(item.nFolhasCorrer) || 1));
       const larguraFolhaC = nFolhasC === 1 ? (larguraVaoPI + 70) : ((larguraVaoPI + 70) / nFolhasC + 50);
@@ -716,19 +716,22 @@ const AcessoriosPortaExterna = (() => {
         m995C += m;
         bd995C.push(nTrav + ' travessas × 2 × ' + Math.round(compTravC) + 'mm = ' + m.toFixed(2) + 'm');
       }
-      // 3) Alisar em L (x4): FD19 2x comp + 995 2x comp
-      if (compAlisarLC > 0) {
-        const m = (2 * compAlisarLC * 4 * qtdPortas) / 1000;
-        mFD19C += m; m995C += m;
-        const txt = '4 alisar L × 2 × ' + Math.round(compAlisarLC) + 'mm = ' + m.toFixed(2) + 'm';
-        bdFD19C.push(txt); bd995C.push(txt);
+      // OBRA: HighTack (2x comprimento x quantidade) nas pecas de montagem.
+      let mHTC = 0; const bdHTC = [];
+      function _ht(comp, qtd, nome) {
+        if (comp > 0 && qtd > 0) {
+          const m = (2 * comp * qtd * qtdPortas) / 1000;
+          mHTC += m;
+          bdHTC.push(qtd + ' ' + nome + ' × 2 × ' + Math.round(comp) + 'mm = ' + m.toFixed(2) + 'm');
+        }
       }
-      // 4) Tampa alisar vertical (x2, so' com parede): FD19 2x + 995 2x
-      if (espParedeC > 0 && compTampaVC > 0) {
-        const m = (2 * compTampaVC * 2 * qtdPortas) / 1000;
-        mFD19C += m; m995C += m;
-        const txt = '2 tampa vert × 2 × ' + Math.round(compTampaVC) + 'mm = ' + m.toFixed(2) + 'm';
-        bdFD19C.push(txt); bd995C.push(txt);
+      _ht(compAlisarLC, 4, 'alisar L');
+      if (espParedeC > 0) _ht(compTampaVC, 2, 'tampa vert');
+      if (espParedeC > 0) _ht(larguraVaoPI + 30, 1, 'tampa horiz');
+      _ht(alturaVaoPI + 200 + painelAltC, 2, 'ACM batente');
+      if (painelAltC > 0) {
+        const painelLargC = (_toNumPI(item.painelSupLargura) > 0) ? _toNumPI(item.painelSupLargura) : larguraVaoPI;
+        _ht(painelLargC * 2 + painelAltC + 200, 1, 'tampa fixo sup');
       }
 
       // emite 995
@@ -749,6 +752,17 @@ const AcessoriosPortaExterna = (() => {
           ? { codigo: acess.codigo, descricao: acess.descricao || 'Fita Dupla Face 19mm', familia: acess.familia || 'Fita Dupla Face', qtd: rolos, unidade: 'un', preco_un: Number(acess.preco) || 0, total: (Number(acess.preco) || 0) * rolos, categoria: 'Fita Dupla Face', aplicacao: 'fab', observacao: obs }
           : { codigo: 'PA-FITDF 19X20X1.0', descricao: '(nao cadastrado)', familia: '', qtd: rolos, unidade: 'un', preco_un: 0, total: 0, categoria: 'Fita Dupla Face', aplicacao: 'fab', observacao: mFD19C.toFixed(1) + 'm necessarios · CADASTRAR EM ACESSORIOS' });
       }
+      // emite HighTack (instalacao -> aplicacao 'obra')
+      let htTuboC = 8;
+      try { if (window.Regras && typeof window.Regras.getRendimentos === 'function') { const r = window.Regras.getRendimentos(); if (r && Number(r.hightack_tubo) > 0) htTuboC = Number(r.hightack_tubo); } } catch (_) {}
+      if (mHTC > 0) {
+        const tubos = Math.ceil(mHTC / htTuboC);
+        const acess = buscarAcessorio(cadastroAcessorios, 'PA-HIGHTACK BR');
+        const obs = mHTC.toFixed(1) + 'm / ' + htTuboC + 'm por tubo = ' + tubos + ' tubo(s) — ' + bdHTC.join(' + ');
+        linhas.push(acess
+          ? { codigo: acess.codigo, descricao: acess.descricao || 'HighTack Branco', familia: acess.familia || 'Selantes', qtd: tubos, unidade: 'un', preco_un: Number(acess.preco) || 0, total: (Number(acess.preco) || 0) * tubos, categoria: 'Selantes', aplicacao: 'obra', observacao: obs }
+          : { codigo: 'PA-HIGHTACK BR', descricao: '(nao cadastrado)', familia: '', qtd: tubos, unidade: 'un', preco_un: 0, total: 0, categoria: 'Selantes', aplicacao: 'obra', observacao: mHTC.toFixed(1) + 'm necessarios · CADASTRAR EM ACESSORIOS' });
+      }
 
       // cache pro demonstrativo (renderBreakdownInline)
       try {
@@ -757,11 +771,11 @@ const AcessoriosPortaExterna = (() => {
         window._fitaSiliconeBreakdownCache[ckey] = {
           itemId: item.id, cacheKey: ckey, itemTipo: item.tipo,
           itemDim: { L: larguraVaoPI, H: alturaVaoPI, nFolhas: nFolhasC, qtdPortas: qtdPortas },
-          totais: { mFD19: mFD19C, mFD12: 0, mMS: m995C, mCPS: 0, mFD19_obra: 0, mFD12_obra: 0, mHIGHTACK: 0, mHIGHTACK_fab: 0 },
-          rendimentos: { fd19_rolo: fd19RoloC, fd12_rolo: 20, ms_tubo: msTuboC, cps_sache: msTuboC, hightack_tubo: 8 },
+          totais: { mFD19: mFD19C, mFD12: 0, mMS: m995C, mCPS: 0, mFD19_obra: 0, mFD12_obra: 0, mHIGHTACK: mHTC, mHIGHTACK_fab: 0 },
+          rendimentos: { fd19_rolo: fd19RoloC, fd12_rolo: 20, ms_tubo: msTuboC, cps_sache: msTuboC, hightack_tubo: htTuboC },
           rolosFD19: mFD19C > 0 ? Math.ceil(mFD19C / fd19RoloC) : 0, rolosFD12: 0,
           tubosMS: m995C > 0 ? Math.ceil(m995C / msTuboC) : 0, sachesCPS: 0,
-          rolosFD19_obra: 0, rolosFD12_obra: 0, tubosHIGHTACK: 0, tubosHIGHTACK_fab: 0,
+          rolosFD19_obra: 0, rolosFD12_obra: 0, tubosHIGHTACK: mHTC > 0 ? Math.ceil(mHTC / htTuboC) : 0, tubosHIGHTACK_fab: 0,
           breakdown: [], ts: Date.now(),
         };
       } catch (e) { /* nao crit */ }
