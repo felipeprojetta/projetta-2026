@@ -105,15 +105,17 @@ const PerfisPortaInterna = (() => {
       const larguraFolha = nFolhas === 1
         ? (larguraVao + 70)
         : ((larguraVao + 70) / nFolhas + 50);
-      const alturaFolha = alturaVao + 30;
+      const alturaFolha = alturaVao + 20;
       if (larguraFolha > 0 && alturaFolha > 0) {
         _add(cortes, 'PA-VEDAINT', larguraFolha, 2 * nFolhas * qtdPortas, 'Folha correr horizontal');
         _add(cortes, 'PA-VEDAINT', alturaFolha,  2 * nFolhas * qtdPortas, 'Folha correr vertical');
         // Travessas horizontais (Felipe sessao 34): tubo 38x38 (PA-38X38X1.58).
-        // comprimento = largura da folha. Quantidade POR FOLHA = 2 se
+        // Felipe sessao 39: perfil INTERNO, recuado 70 de cada lado da folha
+        // -> comprimento = larguraFolha - 70 - 70. Quantidade POR FOLHA = 2 se
         // altura_vao <= 2800mm, senao 3. Total = qtd/folha x nFolhas.
         const qtdTravH = alturaVao > 2800 ? 3 : 2;
-        _add(cortes, 'PA-38X38X1.58', larguraFolha, qtdTravH * nFolhas * qtdPortas, 'Travessa horizontal');
+        const compTravH = larguraFolha - 70 - 70;
+        _add(cortes, 'PA-38X38X1.58', compTravH, qtdTravH * nFolhas * qtdPortas, 'Travessa horizontal');
         // ===== ESTRUTURA ACIMA DO TRILHO + BATENTE (Felipe sessao 34) =====
         // Tubo 76x38 que vai acima do trilho de correr da Rometal:
         //   comprimento = (largura_vao + 70) x 2. 1 un por porta.
