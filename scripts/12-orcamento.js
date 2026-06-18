@@ -7598,7 +7598,7 @@ const Orcamento = (() => {
 
         try {
           // Recalcula Fab pq mudancas em altura/modelo/folhas/chapas/cor afetam horas
-          const camposAfetamFab = ['altura', 'modeloNumero', 'nFolhas', 'qtdChapas', 'corInterna', 'corExterna', 'quantidade'];
+          const camposAfetamFab = ['altura', 'modeloNumero', 'nFolhas', 'nFolhasCorrer', 'tipoAbertura', 'acabamentoCorrer', 'qtdChapas', 'corInterna', 'corExterna', 'quantidade'];
           if (camposAfetamFab.includes(field)) {
             const fab = Object.assign({}, FAB_DEFAULT, versao.custoFab || {});
             fab.etapas = Object.assign({}, FAB_DEFAULT.etapas, fab.etapas || {});
@@ -7625,7 +7625,7 @@ const Orcamento = (() => {
         // tambem (pra mostrar/esconder perfilMoldura). Mudar tipoMoldura
         // (pra mostrar quantasDivisoes quando = Divisoes Iguais). Mudar
         // tem_alisar (pra esconder largura_alisar/espessura_parede).
-        const camposGatilho = ['largura', 'altura', 'modeloNumero', 'modeloExterno', 'modeloInterno', 'revestimento', 'fechaduraDigital', 'quantidadeMolduras', 'tipoMoldura', 'tem_alisar', 'possuiItensExtras'];
+        const camposGatilho = ['largura', 'altura', 'modeloNumero', 'modeloExterno', 'modeloInterno', 'revestimento', 'fechaduraDigital', 'quantidadeMolduras', 'tipoMoldura', 'tem_alisar', 'possuiItensExtras', 'nFolhasCorrer', 'tipoAbertura', 'acabamentoCorrer'];
         const camposComRegraRender = ['sistema', 'fechaduraMecanica', 'cilindro'];
         if (camposGatilho.includes(field) || camposComRegraRender.includes(field)) {
           renderItemTab(container);
