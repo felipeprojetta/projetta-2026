@@ -346,8 +346,12 @@ var PerfisRevAcoplado = (function() {
     // Planilha: "MANUAL" — default 0, usuario edita no Lev. Perfis
 
     // CAVA 38x38 + CANTONEIRA 30x30
-    // Planilha: "MESMA QTD QUE TIVER NA PORTA"
-    var qtdCv = segueModelo ? qtdCavaPorta(porta) : 0;
+    // Felipe sessao 39: fixo acoplado NUNCA tem cava (puxador embutido) — e'
+    // painel fixo, sem pegador. Antes, lateral ripado/moldura e superior
+    // herdavam a cava da porta via segueModelo (Tubo/Cantoneira Puxador
+    // Embutido). Forcado 0; o restante do modelo (ripas/travessas/frisos)
+    // continua sendo replicado normalmente.
+    var qtdCv = 0;
     if (qtdCv > 0) {
       add(COD_CAVA,       compCava,     qtdCv,     'Tubo Puxador Embutido');
       add(COD_CANTONEIRA, compTravVert, qtdCv * 2, 'Cantoneira Puxador Embutido');
@@ -483,8 +487,12 @@ var PerfisRevAcoplado = (function() {
       corChapaAM_Ext: corChapaAM_Ext,
       corChapaAM_Int: corChapaAM_Int,
       revestimento: item.revestimento || '',
-      tamanhoCava:                   segueModelo && porta ? (Number(porta.tamanhoCava) || 0)                   : 0,
-      distanciaBordaCava:            segueModelo && porta ? (Number(porta.distanciaBordaCava) || 0)            : 0,
+      // Felipe sessao 39: fixo acoplado NUNCA tem cava (puxador embutido).
+      // Zera tamanho/borda da cava pra a Tampa Maior sair dimensionada sem
+      // recorte de cava (cheia/lisa). As pecas da cava-pegador (cava, l_da_cava,
+      // tampa_da_cava, tampa_borda_cava) sao descartadas no loop de gerarPecasChapa.
+      tamanhoCava:                   0,
+      distanciaBordaCava:            0,
       quantidadeFrisos:              segueModelo && porta ? (Number(porta.quantidadeFrisos) || 0)              : 0,
       espessuraFriso:                segueModelo && porta ? (Number(porta.espessuraFriso) || 0)                : 0,
       distanciaBordaFrisoVertical:   segueModelo && porta ? (Number(porta.distanciaBordaFrisoVertical) || 0)   : 0,
@@ -618,6 +626,12 @@ var PerfisRevAcoplado = (function() {
       var result = [];
       for (var i = 0; i < raw.length; i++) {
         var p = raw[i];
+        // Felipe sessao 39: fixo nunca tem cava (puxador embutido). Descarta
+        // SO as pecas da cava-pegador. NAO inclui 'tampa_maior_cava', que e' a
+        // Tampa Maior principal do painel (mantida; ja sai sem recorte porque
+        // tamanhoCava=0 no item virtual).
+        if (p.id === 'cava' || p.id === 'l_da_cava'
+            || p.id === 'tampa_da_cava' || p.id === 'tampa_borda_cava') continue;
         if (p.categoria === 'porta') {
           if (IDS_PORTA_EXCLUIR[p.id]) continue;
         } else if (p.categoria === 'portal') {
