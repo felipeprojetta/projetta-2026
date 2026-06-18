@@ -212,11 +212,14 @@ const ChapasPortaInterna = (() => {
             podeRotacionar: false,
           });
           if (painelOk) {
+            // Felipe sessao 39: tampa do fixo superior. Lado EXTERNO fica
+            // largura x altura (acima, inalterado); lado INTERNO e' a tampa
+            // envelopada -> (largura x 2 + 100) x (altura + 100). So' correr.
             pecas.push({
               label:          'Chapa painel fixo superior',
               descricao:      'Chapa painel fixo superior',
-              largura:        _round1(painelSupLarg),
-              altura:         _round1(painelSupAlt),
+              largura:        _round1(painelSupLarg * 2 + 100),
+              altura:         _round1(painelSupAlt + 100),
               qtd:            1 * qtdPortas,
               cor:            String(item.corInterna || '').trim(),
               categoria:      'porta',
