@@ -443,53 +443,97 @@
       return;
     }
     todasVersoes.sort((a, b) => String(b.criadoEm || '').localeCompare(String(a.criadoEm || '')));
-    const versaoAtual = todasVersoes[0];
     const fmtBR = window.fmtBR || (n => Number(n || 0).toFixed(2));
+    const fmtData = (s) => { try { return s ? new Date(s).toLocaleDateString('pt-BR') : ''; } catch (_) { return ''; } };
 
-    abrirModal({
-      id: 'orcdocs-modal-revisar',
-      titulo: '⚠️ Revisar versão — Atenção',
-      body: `
-        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px;
-                    padding: 12px 14px; margin-bottom: 14px; font-size: 13px; color: #78350f;">
-          <strong>Tem certeza?</strong><br>
-          A revisão vai <strong>sobrescrever a Versão ${versaoAtual.numero}</strong>
-          ${versaoAtual.aprovadoEm ? '<strong>(que está APROVADA)</strong>' : '(que está em draft)'}.
-          <br><br>
-          ${versaoAtual.valorAprovado ? `Valor atual: <strong>R$ ${fmtBR(versaoAtual.valorAprovado)}</strong>` : ''}
-          <br>
-          Se quiser preservar o histórico, use <strong>+ Nova Versão</strong> ao invés.
-        </div>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
-          <button type="button" id="orcdocs-revisar-cancelar" style="
-            padding: 8px 14px; background: #f3f4f6; border: 1px solid #d1d5db;
-            border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;
-          ">Cancelar</button>
-          <button type="button" id="orcdocs-revisar-confirmar" style="
-            padding: 8px 14px; background: #f59e0b; color: #fff; border: none;
-            border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 700;
-          ">Sim, revisar e sobrescrever</button>
-        </div>
-      `,
-    });
-
-    document.getElementById('orcdocs-revisar-cancelar')?.addEventListener('click', () => {
+    // Felipe sessao 39: REVISAR abre a versao escolhida com TUDO igual (todos
+    // os calculos) liberado pra edicao (destrava + carrega). Sobrescreve essa
+    // versao ao salvar. Para preservar historico, usa + Nova Versao.
+    function revisarVersao(v) {
       fecharModal('orcdocs-modal-revisar');
-    });
-    document.getElementById('orcdocs-revisar-confirmar')?.addEventListener('click', () => {
-      fecharModal('orcdocs-modal-revisar');
-      // Felipe sessao 2026-08: "apos aprovar v1 nao pode alterar mais nada,
-      // somente se eu apertar botao revisar". Ao confirmar Revisar,
-      // DESTRAVA a versao removendo flags de aprovacao. lead.valor no card
-      // permanece intacto ate o usuario reaprovar.
       try {
         if (window.Orcamento && typeof window.Orcamento.destravarVersao === 'function') {
-          window.Orcamento.destravarVersao(versaoAtual.id);
+          window.Orcamento.destravarVersao(v.id);
         }
       } catch (e) {
         console.warn('[OrcDocs] destravarVersao falhou:', e);
       }
-      carregarVersaoNaAbaOrcamento(leadId, versaoAtual.id);
+      carregarVersaoNaAbaOrcamento(leadId, v.id);
+    }
+
+    // 1 versao: confirma direto (sobrescreve a unica que existe).
+    if (todasVersoes.length === 1) {
+      const versaoAtual = todasVersoes[0];
+      abrirModal({
+        id: 'orcdocs-modal-revisar',
+        titulo: '⚠️ Revisar versão — Atenção',
+        body: `
+          <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px;
+                      padding: 12px 14px; margin-bottom: 14px; font-size: 13px; color: #78350f;">
+            <strong>Tem certeza?</strong><br>
+            A revisão vai <strong>sobrescrever a Versão ${versaoAtual.numero}</strong>
+            ${versaoAtual.aprovadoEm ? '<strong>(que está APROVADA)</strong>' : '(que está em draft)'}.
+            Abre tudo igual (todos os cálculos) liberado pra edição.
+            <br><br>
+            ${versaoAtual.valorAprovado ? `Valor atual: <strong>R$ ${fmtBR(versaoAtual.valorAprovado)}</strong><br>` : ''}
+            Se quiser preservar o histórico, use <strong>+ Nova Versão</strong> ao invés.
+          </div>
+          <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button type="button" id="orcdocs-revisar-cancelar" style="
+              padding: 8px 14px; background: #f3f4f6; border: 1px solid #d1d5db;
+              border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;
+            ">Cancelar</button>
+            <button type="button" id="orcdocs-revisar-confirmar" style="
+              padding: 8px 14px; background: #f59e0b; color: #fff; border: none;
+              border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 700;
+            ">Sim, revisar e sobrescrever</button>
+          </div>
+        `,
+      });
+      document.getElementById('orcdocs-revisar-cancelar')?.addEventListener('click', () => fecharModal('orcdocs-modal-revisar'));
+      document.getElementById('orcdocs-revisar-confirmar')?.addEventListener('click', () => revisarVersao(versaoAtual));
+      return;
+    }
+
+    // 2+ versoes: pergunta EM CIMA DE QUAL versao sera a revisao.
+    const opcoesHtml = todasVersoes.map(v => `
+      <button type="button" class="orcdocs-revisar-opt" data-versao-id="${v.id}" style="
+        display: block; width: 100%; text-align: left; margin-bottom: 8px;
+        padding: 10px 12px; background: #fff; border: 1px solid #d1d5db;
+        border-radius: 6px; cursor: pointer; font-size: 13px; color: #1f2937;
+      ">
+        <strong>Versão ${v.numero}</strong>
+        ${v.aprovadoEm ? '<span style="color:#059669;font-weight:700;"> ✓ aprovada</span>' : '<span style="color:#6b7280;"> · draft</span>'}
+        ${(v.valorAprovado || v.valor) ? ` · R$ ${fmtBR(v.valorAprovado || v.valor)}` : ''}
+        ${v.criadoEm ? ` · ${fmtData(v.criadoEm)}` : ''}
+      </button>`).join('');
+
+    abrirModal({
+      id: 'orcdocs-modal-revisar',
+      titulo: '📝 Revisar — em cima de qual versão?',
+      body: `
+        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px;
+                    padding: 10px 12px; margin-bottom: 12px; font-size: 12.5px; color: #78350f;">
+          A versão escolhida abre com <strong>tudo igual (todos os cálculos)</strong>
+          liberado pra edição e será <strong>sobrescrita</strong> ao salvar.
+          Pra preservar o histórico, use <strong>+ Nova Versão</strong>.
+        </div>
+        ${opcoesHtml}
+        <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
+          <button type="button" id="orcdocs-revisar-cancelar" style="
+            padding: 8px 14px; background: #f3f4f6; border: 1px solid #d1d5db;
+            border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;
+          ">Cancelar</button>
+        </div>
+      `,
+    });
+    document.getElementById('orcdocs-revisar-cancelar')?.addEventListener('click', () => fecharModal('orcdocs-modal-revisar'));
+    document.querySelectorAll('.orcdocs-revisar-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const vid = btn.getAttribute('data-versao-id');
+        const v = todasVersoes.find(x => x.id === vid);
+        if (v) revisarVersao(v);
+      });
     });
   }
 
