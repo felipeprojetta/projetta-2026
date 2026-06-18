@@ -202,6 +202,17 @@ var PerfisRevAcoplado = (function() {
           addPreEst('PA-51X12X1.58', 600, p600pre * qtdRipasPre,
             'Tubo Interno das Ripas (extra 600mm)');
         }
+        // Felipe sessao 39: o que sobra acima do ultimo pedaco NAO pode ficar
+        // vazio (ex A=3000: base 2000 deixava 1000mm sem tubo). Pega o resto,
+        // divide por 2 (metade ar + metade tubo, mesmo padrao do ciclo 600+600)
+        // e coloca UM pedaco de tubo desse tamanho, mesma qtd da base.
+        //   A=3000: resto 1000 -> pedaco de 500 (qty = base).
+        var restoPre = (ALTURA - 2000) - p600pre * 1200;
+        var pedacoMetadePre = Math.round(restoPre / 2);
+        if (pedacoMetadePre > 0) {
+          addPreEst('PA-51X12X1.58', pedacoMetadePre, qtdRipasPre,
+            'Tubo Interno das Ripas (extra ' + pedacoMetadePre + 'mm)');
+        }
       }
     }
 
