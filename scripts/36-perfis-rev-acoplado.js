@@ -69,18 +69,25 @@ var PerfisRevAcoplado = (function() {
     try {
       var v = window._versaoAtivaParaFixo;
       if (!v || !v.itens) return null;
-      if (itemFixo && itemFixo.id) {
-        var idx = -1;
+      var idx = -1;
+      // 1) indice explicito anexado pelo loop de calculo (mais confiavel —
+      //    itens nem sempre tem 'id', entao nao da pra confiar so' no id).
+      if (itemFixo && typeof itemFixo._fixoIdxNaVersao === 'number') {
+        idx = itemFixo._fixoIdxNaVersao;
+      }
+      // 2) por id, se nao veio indice
+      if (idx < 0 && itemFixo && itemFixo.id) {
         for (var k = 0; k < v.itens.length; k++) {
           if (v.itens[k] && v.itens[k].id === itemFixo.id) { idx = k; break; }
         }
-        if (idx > 0) {
-          for (var j = idx - 1; j >= 0; j--) {
-            if (v.itens[j] && v.itens[j].tipo === 'porta_externa') return v.itens[j];
-          }
+      }
+      // varre PRA TRAS a partir do fixo ate a porta_externa mais proxima
+      if (idx > 0) {
+        for (var j = idx - 1; j >= 0; j--) {
+          if (v.itens[j] && v.itens[j].tipo === 'porta_externa') return v.itens[j];
         }
       }
-      // Fallback: primeira porta_externa da versao
+      // Fallback: primeira porta_externa da versao (comportamento antigo)
       for (var i = 0; i < v.itens.length; i++) {
         if (v.itens[i] && v.itens[i].tipo === 'porta_externa') return v.itens[i];
       }

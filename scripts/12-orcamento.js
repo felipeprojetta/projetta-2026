@@ -11789,7 +11789,7 @@ const Orcamento = (() => {
       // sem mudar a interface dele (motor recebe o item, nao o cadastro inteiro).
       const numModelo = parseInt(String(item.modeloNumero || '').replace(/\D/g, ''), 10) || 0;
       const modeloAtual = modelos.find(m => Number(m.numero) === numModelo);
-      const itemEnriquecido = { ...item, modeloNome: modeloAtual?.nome || '' };
+      const itemEnriquecido = { ...item, modeloNome: modeloAtual?.nome || '', _fixoIdxNaVersao: idx };
       let cortes = motor.gerarCortes(itemEnriquecido) || {};
 
       // Felipe (sessao 27 fix): aplica overrides + remove excluidas
@@ -18255,36 +18255,38 @@ const Orcamento = (() => {
         </div>`;
     }
 
-    const sis = String(item.sistema || 'PA006').toUpperCase();
-    const familiaLabel = sis === 'PA007' ? 'PA-007F (familia 101)' : 'PA-006F (familia 76)';
-    const lados2 = item.lados === '2lados';
-
-    let pecasExt = aplicarRotacionaOverrides(Motor.gerarPecasChapa(item, 'externo') || [], item);
-    let pecasInt = lados2 ? aplicarRotacionaOverrides(Motor.gerarPecasChapa(item, 'interno') || [], item) : [];
-    pecasExt = aplicarSuperficiesOverrides(pecasExt, item);
-    if (lados2) pecasInt = aplicarSuperficiesOverrides(pecasInt, item);
-
-    // Felipe sessao 12: cor efetiva — herda da porta principal quando
-    // fixoSegueModelo='sim' E item nao tem cor propria. Antes lia
-    // item.corExterna direto e mostrava 'cor: —' + peso 0.
-    const segueModelo = item.fixoSegueModelo === 'sim';
-    const portaPrincipal = (() => {
-      if (!segueModelo || !window._versaoAtivaParaFixo) return null;
+    // Felipe sessao 39: porta de REFERENCIA do fixo = item ANTERIOR (varre pra
+    // tras a partir do indice do fixo; fallback primeira porta). Mesma logica do
+    // motor. Usada pra derivar PA (PA006/PA007), perfis e cor das chapas.
+    const _portaRefFixo = (() => {
       const v = window._versaoAtivaParaFixo;
-      if (!v.itens) return null;
-      // Felipe sessao 39: fixo herda do item ANTERIOR (porta adjacente),
-      // nao da primeira porta da versao. Varre pra tras a partir do fixo;
-      // fallback: primeira porta_externa (comportamento antigo).
-      if (item && item.id) {
-        const idx = v.itens.findIndex(it => it && it.id === item.id);
-        if (idx > 0) {
-          for (let j = idx - 1; j >= 0; j--) {
-            if (v.itens[j] && v.itens[j].tipo === 'porta_externa') return v.itens[j];
-          }
+      if (!v || !v.itens) return null;
+      if (idx > 0) {
+        for (let j = idx - 1; j >= 0; j--) {
+          if (v.itens[j] && v.itens[j].tipo === 'porta_externa') return v.itens[j];
         }
       }
       return v.itens.find(it => it && it.tipo === 'porta_externa') || null;
     })();
+    // Item com indice anexado pro motor de chapas resolver a porta certa.
+    const itemComIdx = { ...item, _fixoIdxNaVersao: idx };
+
+    const _hPortaRef = _portaRefFixo ? (parseFloat(String(_portaRefFixo.altura || '').replace(',', '.')) || 0) : 0;
+    const sis = _hPortaRef > 0
+      ? (_hPortaRef < 4000 ? 'PA006' : 'PA007')
+      : String(item.sistema || 'PA006').toUpperCase();
+    const familiaLabel = sis === 'PA007' ? 'PA-007F (familia 101)' : 'PA-006F (familia 76)';
+    const lados2 = item.lados === '2lados';
+
+    let pecasExt = aplicarRotacionaOverrides(Motor.gerarPecasChapa(itemComIdx, 'externo') || [], item);
+    let pecasInt = lados2 ? aplicarRotacionaOverrides(Motor.gerarPecasChapa(itemComIdx, 'interno') || [], item) : [];
+    pecasExt = aplicarSuperficiesOverrides(pecasExt, item);
+    if (lados2) pecasInt = aplicarSuperficiesOverrides(pecasInt, item);
+
+    // Felipe sessao 12: cor efetiva — herda da porta principal quando
+    // fixoSegueModelo='sim' E item nao tem cor propria.
+    const segueModelo = item.fixoSegueModelo === 'sim';
+    const portaPrincipal = segueModelo ? _portaRefFixo : null;
     const corExt = (segueModelo && portaPrincipal && portaPrincipal.corExterna)
       ? String(portaPrincipal.corExterna).trim()
       : String(item.corExterna || '').trim();
