@@ -551,30 +551,82 @@
       alert('Esse lead ainda nao tem orcamento. Clique em "Montar Orcamento" primeiro.');
       return;
     }
-    const opcao = (negocio.opcoes || [])[0];
-    if (!opcao) {
-      alert('Esse orcamento nao tem opcoes ainda. Crie uma versao em "Montar Orcamento" primeiro.');
+    const todasVersoes = [];
+    (negocio.opcoes || []).forEach(o => (o.versoes || []).forEach(v => {
+      todasVersoes.push({ ...v, opcaoId: o.id });
+    }));
+    if (todasVersoes.length === 0) {
+      alert('Esse orcamento nao tem nenhuma versao ainda. Crie uma em "Montar Orcamento" primeiro.');
       return;
     }
-    // Felipe sessao 2026-08: pega a ultima versao como BASE pro modo
-    // 'reset-calculos' (mantem caracteristicas da porta, zera calculos).
-    const ultimaVersao = (opcao.versoes || []).slice(-1)[0];
-    if (!ultimaVersao) {
-      alert('Esse orcamento nao tem nenhuma versao ainda.');
-      return;
+    todasVersoes.sort((a, b) => String(b.criadoEm || '').localeCompare(String(a.criadoEm || '')));
+    const fmtBR = window.fmtBR || (n => Number(n || 0).toFixed(2));
+    const fmtData = (s) => { try { return s ? new Date(s).toLocaleDateString('pt-BR') : ''; } catch (_) { return ''; } };
+
+    // Felipe sessao 39: Nova Versao = COPIA editavel da versao BASE escolhida
+    // (replica TUDO, todos os calculos). A base fica intacta como historico;
+    // a nova versao abre destravada pra edicao. Modo 'copiar' duplica a base;
+    // destravarVersao limpa flags de aprovacao e marca calcDirty.
+    function gerarDe(base) {
+      fecharModal('orcdocs-modal-novaversao');
+      try {
+        const nova = window.Orcamento.criarNovaVersao(base.id, 'copiar');
+        try {
+          if (window.Orcamento && typeof window.Orcamento.destravarVersao === 'function') {
+            window.Orcamento.destravarVersao(nova.id);
+          }
+        } catch (_) {}
+        toast(`Versão ${nova.numero} criada — cópia editável da Versão ${base.numero}.`, 'sucesso');
+        carregarVersaoNaAbaOrcamento(leadId, nova.id);
+      } catch (e) {
+        console.error('[OrcDocs] criarNovaVersao falhou:', e);
+        alert('Erro ao criar nova versao: ' + (e.message || e));
+      }
     }
-    try {
-      // Felipe sessao 2026-08: usa modo 'reset-calculos' em vez de criarVersao
-      // direto. Mantem aba Caracteristicas da Porta intacta (largura, altura,
-      // modelo, cor, alisar, revestimento, etc) e zera DRE/calculos/custos/
-      // aprovacao. Versao anterior fica fechada como historico.
-      const nova = window.Orcamento.criarNovaVersao(ultimaVersao.id, 'reset-calculos');
-      toast(`Versão ${nova.numero} criada — caracteristicas mantidas, calculos zerados.`, 'sucesso');
-      carregarVersaoNaAbaOrcamento(leadId, nova.id);
-    } catch (e) {
-      console.error('[OrcDocs] criarNovaVersao falhou:', e);
-      alert('Erro ao criar nova versao: ' + (e.message || e));
-    }
+
+    // 1 versao: gera direto a partir dela (nao ha o que escolher).
+    if (todasVersoes.length === 1) { gerarDe(todasVersoes[0]); return; }
+
+    // 2+ versoes: pergunta A PARTIR DE QUAL versao criar a nova.
+    const opcoesHtml = todasVersoes.map(v => `
+      <button type="button" class="orcdocs-nova-opt" data-versao-id="${v.id}" style="
+        display: block; width: 100%; text-align: left; margin-bottom: 8px;
+        padding: 10px 12px; background: #fff; border: 1px solid #d1d5db;
+        border-radius: 6px; cursor: pointer; font-size: 13px; color: #1f2937;
+      ">
+        <strong>Versão ${v.numero}</strong>
+        ${v.aprovadoEm ? '<span style="color:#059669;font-weight:700;"> ✓ aprovada</span>' : '<span style="color:#6b7280;"> · draft</span>'}
+        ${(v.valorAprovado || v.valor) ? ` · R$ ${fmtBR(v.valorAprovado || v.valor)}` : ''}
+        ${v.criadoEm ? ` · ${fmtData(v.criadoEm)}` : ''}
+      </button>`).join('');
+
+    abrirModal({
+      id: 'orcdocs-modal-novaversao',
+      titulo: '➕ Nova Versão — a partir de qual versão?',
+      body: `
+        <div style="background: #ecfdf5; border: 1px solid #34d399; border-radius: 6px;
+                    padding: 10px 12px; margin-bottom: 12px; font-size: 12.5px; color: #065f46;">
+          A nova versão é uma <strong>cópia editável</strong> da versão escolhida
+          (tudo igual, todos os cálculos). A versão base <strong>fica intacta</strong>
+          no histórico.
+        </div>
+        ${opcoesHtml}
+        <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
+          <button type="button" id="orcdocs-nova-cancelar" style="
+            padding: 8px 14px; background: #f3f4f6; border: 1px solid #d1d5db;
+            border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;
+          ">Cancelar</button>
+        </div>
+      `,
+    });
+    document.getElementById('orcdocs-nova-cancelar')?.addEventListener('click', () => fecharModal('orcdocs-modal-novaversao'));
+    document.querySelectorAll('.orcdocs-nova-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const vid = btn.getAttribute('data-versao-id');
+        const v = todasVersoes.find(x => x.id === vid);
+        if (v) gerarDe(v);
+      });
+    });
   }
 
   // -------------------------------------------------------------------
