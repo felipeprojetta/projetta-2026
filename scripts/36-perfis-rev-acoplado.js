@@ -576,9 +576,13 @@ var PerfisRevAcoplado = (function() {
     // Tampa Borda Cava, Fitas — tudo do mod 1 (cava). Agora gera
     // apenas Tampa + Fita Acabamento. Ripado/Moldura/Superior NAO
     // sao afetados (continuam reusando motor da porta).
-    var ehLateralLisa = String(item.posicao || '').toLowerCase() === 'lateral' &&
-                        (item.tipoLateral === 'lisa' || !item.tipoLateral);
-    if (ehLateralLisa) {
+    // Felipe sessao 39: fixo LATERAL (lisa, ripado OU moldura) NAO reutiliza o
+    // motor de chapas da porta — nao tem cava (cava so' no superior). Sempre
+    // chapa simples: (largura+100) x (altura+100), 1 peca/lado ou 2 se revestido
+    // 2 lados + fita de acabamento. Ripado/moldura: a "ripa" e' estrutura (Tubo
+    // Interno das Ripas, nos perfis); a chapa de revestimento e' a mesma inteira.
+    var ehLateral = String(item.posicao || '').toLowerCase() === 'lateral';
+    if (ehLateral) {
       var ladosL = item.lados === '2lados' ? 2 : 1;
       if (ladosL === 1 && lado === 'interno') return [];
       return gerarPecasFixoLateralLisa(item, lado);
@@ -738,8 +742,12 @@ var PerfisRevAcoplado = (function() {
       : String(item.corInterna || '').trim();
     var corComPrefixo = corLado || 'ACM';
 
-    var largTampa = L - FGLD - FGLE + 100 + REF;
-    var altTampa  = H - FGSup;
+    // Felipe sessao 39: chapa do fixo lateral = (largura+100) x (altura+100).
+    // 1 peca por face (1 lado -> 1; revestido 2 lados -> 2, pois esta funcao
+    // e' chamada por face e a chamada 'interno' so' passa quando lados=2).
+    var largTampa = L + 100;
+    var altTampa  = H + 100;
+    // Fita de acabamento: 2 unidades por face, largura 50+REF, altura H+100.
     var largFita  = 50 + REF;
     var altFita   = H + 100;
 
@@ -765,16 +773,9 @@ var PerfisRevAcoplado = (function() {
       });
     }
 
-    // Felipe (sessao 18, refinamento):
-    //   - Largura tampa: + REF (era so' "+ 100", agora "+ 100 + REF").
-    //     Pra REF=20: L - folgas + 120.
-    //   - Fita Acabamento: 1 por face (era 2). Felipe: '2x fixo se for
-    //     revestimento 2 lados e 1 por fixo caso seja somente um lado'.
-    //     Como esta funcao e' chamada por face (externo/interno) e ja'
-    //     bloqueamos chamada interno quando lados=1, basta gerar 1 fita
-    //     por chamada → total 1 (1 lado) ou 2 (2 lados).
+    // Felipe sessao 39: chapa (1 por face) + fita de acabamento (2 por face).
     add('Tampa Maior',     largTampa, altTampa, 1);
-    add('Fita Acabamento', largFita,  altFita,  1);
+    add('Fita Acabamento', largFita,  altFita,  2);
 
     return pecas;
   }
