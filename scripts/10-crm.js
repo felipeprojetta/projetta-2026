@@ -47,7 +47,7 @@
       'Sri Lanka','Sudan','Suriname','Sweden','Switzerland','Syria','Taiwan','Tajikistan',
       'Tanzania','Thailand','Timor-Leste','Togo','Tonga','Trinidad and Tobago','Tunisia',
       'Turkey','Turkmenistan','Tuvalu','Uganda','Ukraine','United Arab Emirates','United Kingdom',
-      'United States','Uruguay','Uzbekistan','Vanuatu','Vatican City','Venezuela','Vietnam',
+      'United States','United States ( Puerto Rico )','Uruguay','Uzbekistan','Vanuatu','Vatican City','Venezuela','Vietnam',
       'Yemen','Zambia','Zimbabwe',
     ];
 
