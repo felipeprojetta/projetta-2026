@@ -134,14 +134,11 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== BATENTE (PA-BATENTEINT) — PORTAL =====
-    // Felipe sessao 31 (correcao): batente envolve o vao POR FORA.
-    // Felipe sessao 34: horizontal (topo) passa a usar overlap 31,5 nas pontas;
-    // vertical MANTEM 21,5 (so' overlap no topo, base toca no chao).
-    //   - 1 horizontal (topo): largura_vao + 31,5 + 31,5
-    //   - 2 verticais (lateral): altura_vao + 21,5
-    // NAO usa folgas (fglEsq/fglDir/fgSup) - medida e' o vao + sobras.
-    const compBatHor = larguraVao + 31.5 + 31.5;
-    const compBatVer = alturaVao  + 21.5;
+    // Felipe sessao 39: usa folgas + overlap 38.
+    //   - 1 horizontal (topo):   largura - (fglEsq+fglDir) + 38 + 38
+    //   - 2 verticais (lateral): altura  - fgSup            + 38
+    const compBatHor = larguraVao - descontoLarg + 38 + 38;
+    const compBatVer = alturaVao  - descontoAlt  + 38;
     if (compBatHor > 0) {
       _add(cortes, 'PA-BATENTEINT', compBatHor, 1 * qtdPortas, 'Batente horizontal (topo)', 'portal');
     }
@@ -150,10 +147,11 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== CLICK DO BATENTE (PA-CLICKBTINT) — PORTAL =====
-    //   - 1 horizontal: largura - (fglEsq+fglDir) - 11 - 11
-    //   - 2 verticais : altura  - fgSup           - 11
-    const compClickBatHor = larguraVao - descontoLarg - 11 - 11;
-    const compClickBatVer = alturaVao  - descontoAlt  - 11;
+    // Felipe sessao 39: recorte 22 (era 11).
+    //   - 1 horizontal: largura - (fglEsq+fglDir) - 22 - 22
+    //   - 2 verticais : altura  - fgSup           - 22
+    const compClickBatHor = larguraVao - descontoLarg - 22 - 22;
+    const compClickBatVer = alturaVao  - descontoAlt  - 22;
     if (compClickBatHor > 0) {
       _add(cortes, 'PA-CLICKBTINT', compClickBatHor, 1 * qtdPortas, 'Click batente horizontal (topo)', 'portal');
     }
@@ -162,10 +160,11 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== FOLHA (PA-FLHINT) — FOLHA =====
-    //   - 1 horizontal (topo): largura - (fglEsq+fglDir) - 26 - 26
-    //   - 2 verticais (lateral): altura - fgSup - 26 - 10
-    const compFlhHor = larguraVao - descontoLarg - 26 - 26;
-    const compFlhVer = alturaVao  - descontoAlt  - 26 - 10;
+    // Felipe sessao 39: recorte 26,5 (era 26); vertical -9,5 (era -10).
+    //   - 1 horizontal (topo):   largura - (fglEsq+fglDir) - 26,5 - 26,5
+    //   - 2 verticais (lateral): altura  - fgSup           - 26,5 - 9,5
+    const compFlhHor = larguraVao - descontoLarg - 26.5 - 26.5;
+    const compFlhVer = alturaVao  - descontoAlt  - 26.5 - 9.5;
     if (compFlhHor > 0) {
       _add(cortes, 'PA-FLHINT', compFlhHor, 1 * qtdPortas, 'Folha horizontal (topo)');
     }
@@ -174,12 +173,12 @@ const PerfisPortaInterna = (() => {
     }
 
     // ===== CLICK DA FOLHA (PA-CLICKFLHINT) — FOLHA =====
-    // Felipe sessao 31 (correcao): 'nao e -26 e 24,5 para clickflhint'.
-    // Click folha tem recortes proprios (24,5), DIFERENTES da folha (26).
-    //   - 1 horizontal (topo):    largura - (fglEsq+fglDir) - 24,5 - 24,5
-    //   - 2 verticais (lateral):  altura  - fgSup           - 24,5 - 10
-    const compClickFlhHor = larguraVao - descontoLarg - 24.5 - 24.5;
-    const compClickFlhVer = alturaVao  - descontoAlt  - 24.5 - 10;
+    // Click folha tem recortes proprios, DIFERENTES da folha.
+    // Felipe sessao 39: recorte 25 (era 24,5); vertical -9,5 (era -10).
+    //   - 1 horizontal (topo):    largura - (fglEsq+fglDir) - 25 - 25
+    //   - 2 verticais (lateral):  altura  - fgSup           - 25 - 9,5
+    const compClickFlhHor = larguraVao - descontoLarg - 25 - 25;
+    const compClickFlhVer = alturaVao  - descontoAlt  - 25 - 9.5;
     if (compClickFlhHor > 0) {
       _add(cortes, 'PA-CLICKFLHINT', compClickFlhHor, 1 * qtdPortas, 'Click da folha horizontal (topo)');
     }
@@ -191,7 +190,7 @@ const PerfisPortaInterna = (() => {
     // Felipe sessao 34: perfil que faltava na porta interna de GIRO.
     // Mesma medida do Click da folha horizontal (topo); 1 un por folha.
     // (engine de giro = 1 folha por porta -> qtd = 1 x qtdPortas)
-    //   - comp = largura - (fglEsq+fglDir) - 24,5 - 24,5  (== compClickFlhHor)
+    //   - comp = largura - (fglEsq+fglDir) - 25 - 25  (== compClickFlhHor)
     if (compClickFlhHor > 0) {
       _add(cortes, 'PA-VEDAINT', compClickFlhHor, 1 * qtdPortas, 'Vedacao da folha horizontal (topo)');
     }
@@ -211,17 +210,15 @@ const PerfisPortaInterna = (() => {
 
     // ===== ALISAR (PA-ALISARINT) — PORTAL (perfil de aluminio) =====
     // Felipe sessao 31: alisar e' perfil (1 horizontal + 2 verticais).
-    // Felipe sessao 34: horizontal (topo) passa a +21,5 +21,5; vertical
-    // MANTEM +33,5.
-    //   - 1 horizontal (topo):  largura_vao + 21,5 + 21,5
-    //   - 2 verticais (lateral): altura_vao  + 33,5
-    // NAO usa folgas (medida = vao + sobras). Perfil envolve o vao externamente.
+    // Felipe sessao 39: usa folgas + overlap 26.
+    //   - 1 horizontal (topo):   largura - (fglEsq+fglDir) + 26 + 26
+    //   - 2 verticais (lateral): altura  - fgSup            + 26
     // (Nao confundir com o 'alisar chapa' do 38b-chapas-porta-interna.js, que
     // sao 4 tiras 59,5 x (vao+100) entrando como chapas decorativas externas.)
     // Felipe sessao 33: com painel superior, o vertical engloba porta+painel
     // num bloco so' (igual ja' faz na chapa) — altura += painelSupAlt.
-    const compAlisarHor = larguraVao + 21.5 + 21.5;
-    const compAlisarVer = alturaVao + (painelOk ? painelSupAlt : 0) + 33.5;
+    const compAlisarHor = larguraVao - descontoLarg + 26 + 26;
+    const compAlisarVer = alturaVao - descontoAlt + (painelOk ? painelSupAlt : 0) + 26;
     if (compAlisarHor > 0) {
       _add(cortes, 'PA-ALISARINT', compAlisarHor, 1 * qtdPortas, 'Alisar horizontal (topo)', 'portal');
     }
