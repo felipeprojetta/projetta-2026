@@ -2765,9 +2765,9 @@
         total: aggFechado[nome].total,
         count: aggFechado[nome].count,
       }));
-      const porValor   = todos.slice().sort((a, b) => b.total - a.total).slice(0, 5);
-      const porQtd     = todos.slice().sort((a, b) => b.count - a.count).slice(0, 5);
-      const porValorFechado = todosFechado.slice().sort((a, b) => b.total - a.total).slice(0, 5);
+      const porValor   = todos.slice().sort((a, b) => b.total - a.total).slice(0, 10);
+      const porQtd     = todos.slice().sort((a, b) => b.count - a.count).slice(0, 10);
+      const porValorFechado = todosFechado.slice().sort((a, b) => b.total - a.total).slice(0, 10);
       return { porValor, porQtd, porValorFechado };
     }
 
@@ -3891,7 +3891,7 @@ ${secoesHtml}
         // sem representante_followup) entra como 'Showroom'.
         'top-rep-valor': `
           <div class="crm-kpi crm-kpi-top crm-kpi-top-valor" data-kpi-id="top-rep-valor" draggable="true">
-            <div class="crm-kpi-lbl">Top 5 Representantes <small style="color:#9a3412;font-weight:500;">(por valor)</small></div>
+            <div class="crm-kpi-lbl">Top 10 Representantes <small style="color:#9a3412;font-weight:500;">(por valor)</small></div>
             <div class="crm-kpi-top-lista">
               ${topReps.porValor.length === 0
                 ? '<div class="crm-kpi-top-vazio">sem dados</div>'
@@ -3909,7 +3909,7 @@ ${secoesHtml}
           </div>`,
         'top-rep-qtd': `
           <div class="crm-kpi crm-kpi-top crm-kpi-top-qtd" data-kpi-id="top-rep-qtd" draggable="true">
-            <div class="crm-kpi-lbl">Top 5 Representantes <small style="color:#9a3412;font-weight:500;">(por quantidade)</small></div>
+            <div class="crm-kpi-lbl">Top 10 Representantes <small style="color:#9a3412;font-weight:500;">(por quantidade)</small></div>
             <div class="crm-kpi-top-lista">
               ${topReps.porQtd.length === 0
                 ? '<div class="crm-kpi-top-vazio">sem dados</div>'
@@ -3930,7 +3930,7 @@ ${secoesHtml}
         // em-aberto+fechado). Mostra valor + qtd na mesma linha.
         'top-rep-fechado': `
           <div class="crm-kpi crm-kpi-top crm-kpi-top-fechado" data-kpi-id="top-rep-fechado" draggable="true">
-            <div class="crm-kpi-lbl">Top 5 Representantes <small style="color:#9a3412;font-weight:500;">(s\u00f3 fechados)</small></div>
+            <div class="crm-kpi-lbl">Top 10 Representantes <small style="color:#9a3412;font-weight:500;">(s\u00f3 fechados)</small></div>
             <div class="crm-kpi-top-lista">
               ${topReps.porValorFechado.length === 0
                 ? '<div class="crm-kpi-top-vazio">sem fechados no ano</div>'
