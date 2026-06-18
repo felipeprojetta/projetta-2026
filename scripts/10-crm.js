@@ -2637,6 +2637,15 @@
      * Soma valores dos leads `fechado` cuja `fechadoEm` cai no periodo.
      * `leadsBase` ja' deve vir filtrado (se houver filtros aplicados).
      */
+    // Felipe sessao 39: prorrogacao do fechamento de MAIO/2026 ate 16/06.
+    // O mes fiscal Projetta vai de 16 a 15, entao 16/06 cairia em JUNHO.
+    // Por causa da prorrogacao, AGP abaixo fechou 16/06 mas conta como MAIO/2026.
+    // Override pontual por numeroAGP: forca o mes fiscal contabil SEM mexer no
+    // fechadoEm real (16/06 segue exibido no card/modal). {mes} base 1 (5=maio).
+    // Reversivel: basta remover a entrada. So afeta o KPI "Fechado no mes"
+    // (anual e rankings sao por ano, e 16/06/2026 ja e' 2026 de qualquer jeito).
+    const FECHAMENTO_OVERRIDE = { 'AGP004156': { ano: 2026, mes: 5 } };
+
     function somarFechadosNoPeriodo(leadsBase, ano, mes) {
       const { ini, fim } = periodoFechamento(ano, mes);
       let total = 0;
@@ -2644,6 +2653,20 @@
       leadsBase.forEach(l => {
         if (l.etapa !== 'fechado') return;
         if (!l.fechadoEm) return;
+        // Override de mes fiscal (prorrogacao). Lead com override conta SO no
+        // periodo override e ignora a janela do fechadoEm — evita contar
+        // tambem no mes natural (junho).
+        const ov = FECHAMENTO_OVERRIDE[String(l.numeroAGP || '').toUpperCase().trim()];
+        if (ov) {
+          const casa = (mes == null)
+            ? (Number(ano) === ov.ano)
+            : (Number(ano) === ov.ano && Number(mes) === ov.mes);
+          if (casa) {
+            total += Number(l.valor) || 0;
+            count++;
+          }
+          return;
+        }
         const d = new Date(l.fechadoEm + 'T00:00:00');
         if (isNaN(d.getTime())) return;
         if (d >= ini && d < fim) {
