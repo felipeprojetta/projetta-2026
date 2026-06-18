@@ -3331,18 +3331,20 @@ ${secoesHtml}
                  <label>AGP:</label>
                  <input type="text" data-action="edit-agp" data-lead-id="${l.id}" value="${escapeHtml(l.numeroAGP || '')}" placeholder="" />
                </div>`
-               // Felipe sessao 39: ATP SEMPRE visivel. Com ATP -> destaque
-               // (verde/negrito). Sem ATP -> campo VERMELHO sinalizando que
-               // falta informar. Editavel inline (data-action edit-atp) pra
-               // poder alterar/preencher direto no card.
-               + `<div class="crm-card-agp-field crm-card-atp-field ${atpNum ? 'tem-atp' : 'sem-atp'}">
-                    <label>ATP:</label>
-                    <input type="text" data-action="edit-atp" data-lead-id="${l.id}"
-                           value="${escapeHtml(atpNum)}" placeholder="SEM ATP — informar"
-                           style="${atpNum
-                             ? 'background:#ECFDF5;border:1px solid #34D399;color:#065F46;font-weight:700;'
-                             : 'background:#FEF2F2;border:1px solid #EF4444;color:#B91C1C;font-weight:700;'}" />
-                  </div>`
+               // Felipe sessao 39: campo ATP so' aparece DEPOIS de fechado
+               // (etapa 'fechado'). Antes disso (orcamento/negociacao) nao mostra.
+               // Fechado com ATP -> verde/negrito; fechado SEM ATP -> vermelho
+               // sinalizando que falta informar. Editavel inline (edit-atp).
+               + (l.etapa === 'fechado'
+                   ? `<div class="crm-card-agp-field crm-card-atp-field ${atpNum ? 'tem-atp' : 'sem-atp'}">
+                        <label>ATP:</label>
+                        <input type="text" data-action="edit-atp" data-lead-id="${l.id}"
+                               value="${escapeHtml(atpNum)}" placeholder="SEM ATP — informar"
+                               style="${atpNum
+                                 ? 'background:#ECFDF5;border:1px solid #34D399;color:#065F46;font-weight:700;'
+                                 : 'background:#FEF2F2;border:1px solid #EF4444;color:#B91C1C;font-weight:700;'}" />
+                      </div>`
+                   : '')
             : '';
 
           // Felipe: caracteristicas do produto (Modelo / N folhas / Cor /
