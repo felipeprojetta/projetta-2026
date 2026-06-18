@@ -149,10 +149,12 @@ var PerfisRevAcoplado = (function() {
     var ALTURA  = Number(item.altura)  || 0;
     var qtdItem = Math.max(1, parseInt(item.quantidade, 10) || 1);
 
-    var ehLateralRipadoOuMoldura = item.posicao === 'lateral' &&
-                                   (item.tipoLateral === 'ripado' ||
-                                    item.tipoLateral === 'moldura');
-    var segueModelo = item.fixoSegueModelo === 'sim' || ehLateralRipadoOuMoldura;
+    // Felipe sessao 39: fixo LATERAL nunca replica a porta (regra propria).
+    // Replicar so' acontece no SUPERIOR com fixoSegueModelo='sim' (vai em cima
+    // da porta). lados2 = revestido nos 2 lados (dobra ripas/chapas).
+    var ehLateral = item.posicao === 'lateral';
+    var lados2 = item.lados === '2lados';
+    var segueModelo = !ehLateral && item.fixoSegueModelo === 'sim';
     var portaPreCheck = segueModelo ? obterPortaPrincipal(item) : null;
 
     var cortesPreEstrutura = {};
@@ -162,7 +164,16 @@ var PerfisRevAcoplado = (function() {
       cortesPreEstrutura[codigo].push({ comp: Math.round(comp), qty: qty * qtdItem, label: label });
     }
 
-    if (segueModelo && portaPreCheck && LARGURA > 0 && ALTURA > 0) {
+    // Felipe sessao 39: qtd de RIPAS (Tubo Interno das Ripas).
+    //  - LATERAL ripado: regra PROPRIA pela largura do FIXO ->
+    //      ceil((largura + 100) / 90), x2 se revestido 2 lados. Independe
+    //      totalmente da porta.
+    //  - SUPERIOR (segueModelo): herda a regra do ripado da porta (mod 8/15).
+    var qtdRipasPre = 0;
+    var ehLateralRipadoPre = ehLateral && item.tipoLateral === 'ripado';
+    if (ehLateralRipadoPre && LARGURA > 0 && ALTURA > 0) {
+      qtdRipasPre = Math.ceil((LARGURA + 100) / 90) * (lados2 ? 2 : 1);
+    } else if (segueModelo && portaPreCheck && LARGURA > 0 && ALTURA > 0) {
       var modeloFixoPre = Number(portaPreCheck.modeloNumero) || 1;
       if (modeloFixoPre === 8 || modeloFixoPre === 15) {
         var espacRipasPre = parseFloat(String(portaPreCheck.espacamentoRipas || portaPreCheck.espacRipas || 30).replace(',', '.')) || 30;
@@ -174,29 +185,22 @@ var PerfisRevAcoplado = (function() {
         var numeradorPre = (tipoRipadoPre === 'parcial')
           ? (LARGURA - FGLD_pre - tamCavaPortaPre - FGLE_pre)
           : LARGURA;
-        var qtdRipasPre = denomPre > 0 ? Math.ceil(numeradorPre / denomPre) : 0;
-        // Felipe sessao 33: o Tubo Interno das Ripas no Fixo Acoplado
-        // deve seguir a MESMA regra do ripado da porta (31-perfis linha
-        // ~497): base de 2000mm + pedacos extras de 600mm a cada 1200mm
-        // de altura acima de 2000. Antes o fixo acoplado usava pedacos
-        // fixos de 500mm (Math.floor(ALTURA/1000)) — regra diferente,
-        // o corte saia errado.
-        //   A < 2000 : 1 corte unico no tamanho A
-        //   A >= 2000: 1x base 2000mm + floor((A-2000)/1200)x 600mm
-        // A = ALTURA da ripa do fixo acoplado.
-        if (qtdRipasPre > 0 && ALTURA > 0) {
-          if (ALTURA < 2000) {
-            addPreEst('PA-51X12X1.58', Math.round(ALTURA), qtdRipasPre,
-              'Tubo Interno das Ripas (corte ' + Math.round(ALTURA) + 'mm)');
-          } else {
-            var p600pre = Math.floor((ALTURA - 2000) / 1200);
-            addPreEst('PA-51X12X1.58', 2000, qtdRipasPre,
-              'Tubo Interno das Ripas (base 2m)');
-            if (p600pre > 0) {
-              addPreEst('PA-51X12X1.58', 600, p600pre * qtdRipasPre,
-                'Tubo Interno das Ripas (extra 600mm)');
-            }
-          }
+        qtdRipasPre = denomPre > 0 ? Math.ceil(numeradorPre / denomPre) : 0;
+      }
+    }
+    // Felipe sessao 33: comprimento da ripa segue regra de altura (base 2m +
+    // extras de 600mm a cada 1200mm acima de 2000).
+    if (qtdRipasPre > 0 && ALTURA > 0) {
+      if (ALTURA < 2000) {
+        addPreEst('PA-51X12X1.58', Math.round(ALTURA), qtdRipasPre,
+          'Tubo Interno das Ripas (corte ' + Math.round(ALTURA) + 'mm)');
+      } else {
+        var p600pre = Math.floor((ALTURA - 2000) / 1200);
+        addPreEst('PA-51X12X1.58', 2000, qtdRipasPre,
+          'Tubo Interno das Ripas (base 2m)');
+        if (p600pre > 0) {
+          addPreEst('PA-51X12X1.58', 600, p600pre * qtdRipasPre,
+            'Tubo Interno das Ripas (extra 600mm)');
         }
       }
     }
@@ -341,18 +345,22 @@ var PerfisRevAcoplado = (function() {
     // 400x2750mm lisa estava gerando Tubo Cava, Cantoneira Cava e
     // Travessa Vertical herdados da porta. A travessa vertical local
     // (regra propria) e' adicionada depois do bloco da cava.
-    var ehLateralLisa = item.posicao === 'lateral' &&
-                        (item.tipoLateral === 'lisa' || !item.tipoLateral);
-    var ehLateralRipadoOuMoldura = item.posicao === 'lateral' &&
-                                   (item.tipoLateral === 'ripado' ||
-                                    item.tipoLateral === 'moldura');
-    var segueModelo = !ehLateralLisa &&
-                      (item.fixoSegueModelo === 'sim' || ehLateralRipadoOuMoldura);
+    // Felipe sessao 39: LATERAL nunca herda da porta. 'porta' so' resolve no
+    // SUPERIOR (segueModelo). Travessa/friso verticais do lateral vem de regra
+    // propria (largura do fixo).
     var porta = segueModelo ? obterPortaPrincipal(item) : null;
 
     // TRAVESSA VERTICAL (76x38 / 101x51)
-    // Planilha: "MESMA QTD DA TRAVESSA QUE TIVER NA PORTA"
-    var qtdTV = segueModelo ? qtdTravVertPorta(porta) : 0;
+    //  - SUPERIOR (segueModelo): "mesma qtd da travessa que tiver na porta".
+    //  - LATERAL: regra propria pela largura do PERFIL LARGURA (compLargura):
+    //      > 2500 -> 2 ; > 1200 -> 1 ; senao 0. NAO copia da porta.
+    var qtdTV = 0;
+    if (ehLateral) {
+      if (compLargura > 2500)      qtdTV = 2;
+      else if (compLargura > 1200) qtdTV = 1;
+    } else if (segueModelo) {
+      qtdTV = qtdTravVertPorta(porta);
+    }
     if (qtdTV > 0) {
       add(s.perfil, compTravVert, qtdTV, 'Travessa Vertical');
     }
@@ -379,26 +387,9 @@ var PerfisRevAcoplado = (function() {
       add(COD_CANTONEIRA, compTravVert, qtdCv * 2, 'Cantoneira Puxador Embutido');
     }
 
-    // Felipe (sessao 18): Fixo lateral LISA tem travessa vertical
-    // PROPRIA (nao herda da porta). Felipe (refinamento): regra baseada
-    // na largura do PERFIL LARGURA (PA-76X38X1.98 = compLargura), NAO
-    // em VEDA da porta. Limites tambem diferentes da porta:
-    //   compLargura > 2500 → 2 travessas
-    //   compLargura > 1200 → 1 travessa
-    //   compLargura <= 1200 → 0
-    // compLargura = LARGURA - FGLD - FGLE - 2*TUB1 (= medida real do
-    // perfil PA-76X38X1.98 dentro do quadro, igual compTravHor).
-    // Caso real Felipe: fixo lateral 400x2750mm lisa fam 76 →
-    // compLargura = 400-10-10-76 = 304 → 0 travessas (antes: 4
-    // herdadas da porta indevidamente).
-    if (ehLateralLisa) {
-      var bonusTV = 0;
-      if (compLargura > 2500)      bonusTV = 2;
-      else if (compLargura > 1200) bonusTV = 1;
-      if (bonusTV > 0) {
-        add(s.perfil, compTravVert, bonusTV, 'Travessa Vertical');
-      }
-    }
+    // Felipe sessao 39: travessa vertical do lateral ja' foi tratada acima
+    // (regra propria por compLargura, pra todos os tipos de lateral). Bloco
+    // duplicado do lateral lisa removido.
 
     // Felipe sessao 2026-05-10: 'Tubo Interno das Ripas' ja' foi gerado
     // no inicio (bloco pre-estrutura) - aplicavel mesmo sem estrutura.
