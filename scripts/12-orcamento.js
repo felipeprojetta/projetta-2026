@@ -462,7 +462,7 @@ const Orcamento = (() => {
     carro_dia:          850,    // R$/dia (aluguel de carro no destino)
     alimentacao_pdia:   300,    // R$/pessoa/dia
     seguro_pessoa:      300,    // R$/pessoa
-    mao_obra_dia:       500,    // R$/dia (mao de obra Projetta)
+    mao_obra_dia:       1300,   // R$/dia (mao de obra Projetta) — Felipe sessao 39
   };
 
   /**
