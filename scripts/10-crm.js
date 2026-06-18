@@ -3331,12 +3331,18 @@ ${secoesHtml}
                  <label>AGP:</label>
                  <input type="text" data-action="edit-agp" data-lead-id="${l.id}" value="${escapeHtml(l.numeroAGP || '')}" placeholder="" />
                </div>`
-               + (atpNum
-                 ? `<div class="crm-card-agp-field crm-card-atp-field">
-                      <label>ATP:</label>
-                      <input type="text" value="${escapeHtml(atpNum)}" readonly style="background:#F2F4F8;cursor:default;color:var(--text-muted);" />
-                    </div>`
-                 : '')
+               // Felipe sessao 39: ATP SEMPRE visivel. Com ATP -> destaque
+               // (verde/negrito). Sem ATP -> campo VERMELHO sinalizando que
+               // falta informar. Editavel inline (data-action edit-atp) pra
+               // poder alterar/preencher direto no card.
+               + `<div class="crm-card-agp-field crm-card-atp-field ${atpNum ? 'tem-atp' : 'sem-atp'}">
+                    <label>ATP:</label>
+                    <input type="text" data-action="edit-atp" data-lead-id="${l.id}"
+                           value="${escapeHtml(atpNum)}" placeholder="SEM ATP — informar"
+                           style="${atpNum
+                             ? 'background:#ECFDF5;border:1px solid #34D399;color:#065F46;font-weight:700;'
+                             : 'background:#FEF2F2;border:1px solid #EF4444;color:#B91C1C;font-weight:700;'}" />
+                  </div>`
             : '';
 
           // Felipe: caracteristicas do produto (Modelo / N folhas / Cor /
@@ -4280,7 +4286,8 @@ ${secoesHtml}
           // Bloqueia click so' se houve drag nos ultimos 200ms.
           if (card._lastDragEnd && (Date.now() - card._lastDragEnd) < 200) return;
           // Se clicou no input AGP, nao abre modal — deixa editar
-          if (e.target.matches('[data-action="edit-agp"]')) {
+          if (e.target.matches('[data-action="edit-agp"]')
+              || e.target.matches('[data-action="edit-atp"]')) {
             e.stopPropagation();
             return;
           }
@@ -4867,6 +4874,20 @@ ${secoesHtml}
             save();
           });
           // Impede que keystrokes no input acionem drag
+          inp.addEventListener('mousedown', (e) => e.stopPropagation());
+        });
+
+        // Felipe sessao 39: Input ATP no card — salva em lead.atp.numeroAtp
+        // ao perder foco. Espelha o AGP. Init lead.atp se ausente.
+        card.querySelectorAll('[data-action="edit-atp"]').forEach(inp => {
+          inp.addEventListener('change', () => {
+            const leadId = inp.dataset.leadId;
+            const lead = state.leads.find(l => l.id === leadId);
+            if (!lead) return;
+            if (!lead.atp) lead.atp = {};
+            lead.atp.numeroAtp = inp.value.trim();
+            save();
+          });
           inp.addEventListener('mousedown', (e) => e.stopPropagation());
         });
 
