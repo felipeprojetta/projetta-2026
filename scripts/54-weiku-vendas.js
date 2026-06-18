@@ -162,6 +162,122 @@
     if (td) td.innerHTML = cellStatusHTML(r, getEnvios()[r]);
   }
 
+  // ---- vinculo manual com a Projetta (Felipe sessao 39) ----------
+  // Quando o auto-match nao reconhece (cliente que ja fechou mas a
+  // reserva Weiku nao bate com o AGP no CRM), o usuario cola o AGP.
+  // Mapa weiku/vinculos {numReserva:{agp,etapa,cliente,res,ts,por}},
+  // compartilhado na nuvem.
+  function getVinculos() {
+    try { if (!window.Storage) return {}; var m = Storage.scope(SCOPE).get('vinculos', {}); return (m && typeof m === 'object') ? m : {}; } catch (_) { return {}; }
+  }
+  function setVinculo(r, obj) { try { var m = getVinculos(); m[r] = obj; Storage.scope(SCOPE).set('vinculos', m); } catch (_) {} }
+  function removerVinculo(r) { try { var m = getVinculos(); delete m[r]; Storage.scope(SCOPE).set('vinculos', m); } catch (_) {} }
+  function _findByAgp(agp) {
+    var dig = String(agp || '').replace(/\D/g, ''); if (!dig) return null;
+    var n = parseInt(dig, 10); if (!n) return null;
+    var ls = _getCrmLeads();
+    for (var i = 0; i < ls.length; i++) {
+      var d2 = String(ls[i].numeroAGP || '').replace(/\D/g, '');
+      if (d2 && parseInt(d2, 10) === n) return ls[i];
+    }
+    return null;
+  }
+  // Auto-match primeiro; se nao houver, cai pro vinculo manual.
+  function resolveProjetta(d) {
+    var mp = matchProjetta(d);
+    if (mp) return { tipo: 'auto', agp: mp.numeroAGP || '', res: String(mp.numeroReserva || '').replace(/\D/g, ''), etapa: mp.etapa || '', cliente: mp.cliente || mp.nome || '' };
+    var v = getVinculos()[d.r];
+    if (v && v.agp) return { tipo: 'manual', agp: v.agp, res: v.res || '', etapa: v.etapa || '', cliente: v.cliente || '' };
+    return null;
+  }
+  function cellProjettaHTML(d) {
+    var p = resolveProjetta(d);
+    if (p && p.tipo === 'auto') {
+      var meta = [];
+      if (p.agp) meta.push(esc(p.agp));
+      if (p.res) meta.push('Res ' + esc(p.res));
+      var metaHtml = meta.length ? '<div class="wkv-loc" style="margin-top:3px;font-size:11px;color:#475569">' + meta.join(' \u00b7 ') + '</div>' : '';
+      return '<span class="wkv-tag casa" title="Projetta: ' + esc(p.cliente) + (p.agp ? ' (AGP ' + esc(p.agp) + ')' : '') + ' \u2014 etapa: ' + esc(p.etapa) + '">\u2713 ' + esc(stageCurto(p.etapa)) + '</span>' + metaHtml;
+    }
+    if (p && p.tipo === 'manual') {
+      return '<span class="wkv-tag casa" title="Vinculo manual com a Projetta">\ud83d\udd17 ' + (p.etapa ? esc(stageCurto(p.etapa)) : 'Vinculado') + '</span>'
+        + '<div class="wkv-loc" style="margin-top:3px;font-size:11px;color:#475569">' + esc(p.agp) + ' <button class="wkv-vinc-edit" data-r="' + esc(d.r) + '" title="Editar / remover vinculo">\u270e</button></div>';
+    }
+    return '<span class="wkv-loc" style="color:#9ca3af">\u2014</span><div style="margin-top:3px"><button class="wkv-vinc-add" data-r="' + esc(d.r) + '" title="Vincular esta reserva a um AGP da Projetta">+ vincular AGP</button></div>';
+  }
+  // Pergunta o AGP, tenta achar no CRM (pra puxar etapa/cliente) e grava.
+  // Retorna true se mudou algo (pra atualizar a celula).
+  function vincularAGP(r, atual) {
+    var inp = window.prompt('AGP da Projetta para esta reserva (ex.: AGP004646).\nDeixe em branco para remover o vinculo.', atual || '');
+    if (inp === null) return false; // cancelou
+    var agp = String(inp).trim();
+    if (!agp) { removerVinculo(r); return true; }
+    var lead = _findByAgp(agp);
+    var obj = { agp: lead ? (lead.numeroAGP || agp) : agp, ts: Date.now(), por: _currentUserName() };
+    if (lead) { obj.etapa = lead.etapa || ''; obj.cliente = lead.cliente || lead.nome || ''; obj.res = String(lead.numeroReserva || '').replace(/\D/g, ''); }
+    setVinculo(r, obj);
+    if (!lead) {
+      try { window.alert('Vinculado a ' + obj.agp + '.\n\nObs: esse AGP nao foi encontrado no CRM agora (digitacao ou lead ainda nao sincronizado). O vinculo fica salvo do mesmo jeito.'); } catch (_) {}
+    }
+    return true;
+  }
+
+  // ---- detalhe do cliente (clique no nome) ------------------------
+  function _resById(r) {
+    var a = getReservas();
+    for (var i = 0; i < a.length; i++) { if (String(a[i].r) === String(r)) return a[i]; }
+    return null;
+  }
+  function _escClose(ev) { if (ev.key === 'Escape') fecharDetalhe(); }
+  function fecharDetalhe() {
+    var m = document.getElementById('wkv-modal');
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+    document.removeEventListener('keydown', _escClose);
+  }
+  function abrirDetalhe(r) {
+    var d = _resById(r); if (!d) return;
+    fecharDetalhe();
+    var st = _normSt(getEnvios()[d.r]) || { enviado: false, por: '', retornou: false };
+    function row(lab, val) { return '<div class="wkv-drow"><span class="wkv-dlab">' + esc(lab) + '</span><span class="wkv-dval">' + (val == null || val === '' ? '\u2014' : val) + '</span></div>'; }
+    var waBtn = temWa(d) ? ' <a class="wkv-mbtn" target="_blank" rel="noopener" href="https://wa.me/' + esc(d.wa) + '">Abrir WhatsApp</a>' : '';
+    var fone = (d.tel ? esc(d.tel) : '\u2014') + (d.wa ? ' <span class="wkv-loc">(' + esc(d.wa) + ')</span>' : '') + waBtn;
+    var stTxt = (st.enviado ? ('\u2713 Enviada' + (st.por ? (' por ' + esc(st.por)) : '')) : 'N\u00e3o enviada') + ' \u00b7 ' + (st.retornou ? 'cliente retornou' : 'sem retorno');
+    var body = ''
+      + row('Nome', esc(d.nome))
+      + row('N\u00ba Reserva', esc(d.r))
+      + row('Cidade', esc(d.cidade) + (d.uf ? (' \u00b7 ' + esc(d.uf)) : ''))
+      + row('Tipo de constru\u00e7\u00e3o', esc(d.tipo))
+      + row('N\u00ba Pavimentos', esc(d.pav))
+      + row('Qtd Esquadrias', esc(d.esq))
+      + row('Valor Aprovado', fmtMoeda(d.v))
+      + row('Representante', esc(d.rep))
+      + row('Data Or\u00e7amento', esc(d.data))
+      + row('WhatsApp / Telefone', fone)
+      + row('E-mail', d.email ? ('<a href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>') : '')
+      + row('Projetta', '<span class="wkv-dprojcell" data-r="' + esc(d.r) + '">' + cellProjettaHTML(d) + '</span>')
+      + row('Prospec\u00e7\u00e3o', esc(stTxt));
+    var ov = document.createElement('div');
+    ov.id = 'wkv-modal'; ov.className = 'wkv-ovl';
+    ov.innerHTML = '<div class="wkv-modal"><div class="wkv-mhead"><b>' + esc(d.nome || ('Reserva ' + d.r)) + '</b><button class="wkv-mclose" title="Fechar">\u2715</button></div>'
+      + '<div class="wkv-mbody">' + body + '</div>'
+      + '<div class="wkv-mfoot">Dados conforme a planilha Weiku importada (CPF/RG e endere\u00e7o n\u00e3o s\u00e3o importados).</div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function (ev) {
+      if (ev.target === ov) { fecharDetalhe(); return; }
+      if (ev.target.closest('.wkv-mclose')) { fecharDetalhe(); return; }
+      var vinc = ev.target.closest('.wkv-vinc-add') || ev.target.closest('.wkv-vinc-edit');
+      if (vinc) {
+        var cur = (getVinculos()[d.r] || {}).agp || '';
+        if (vincularAGP(d.r, cur)) {
+          var nd = _resById(d.r) || d;
+          var cell = ov.querySelector('.wkv-dprojcell'); if (cell) cell.innerHTML = cellProjettaHTML(nd);
+          var tcell = document.querySelector('.wkv-projcell[data-r="' + d.r + '"]'); if (tcell) tcell.innerHTML = cellProjettaHTML(nd);
+        }
+      }
+    });
+    document.addEventListener('keydown', _escClose);
+  }
+
   // ---- cruzamento com CRM Projetta (Felipe sessao 35) -------------
   // Cruza cada reserva Weiku com os leads do CRM Projetta por RESERVA
   // ou por NOME (tokens — a reserva muda entre os sistemas quando o
@@ -410,6 +526,23 @@
       '.wkv-st-env.on{background:#dcfce7;border-color:#16a34a;color:#15803d}.wkv-st-env.on:hover{color:#15803d}',
       '.wkv-st-ret.on{background:#dbeafe;border-color:#2563eb;color:#1d4ed8}.wkv-st-ret.on:hover{color:#1d4ed8}',
       '.wkv-st-por{font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;color:var(--wkv-tinta);cursor:pointer}',
+      '.wkv-open{background:none;border:none;padding:0;font:inherit;cursor:pointer;text-align:left;color:inherit}',
+      '.wkv-open:hover{color:var(--wkv-teal);text-decoration:underline}',
+      '.wkv-fone{font-size:11px;color:var(--wkv-cinza2);margin-top:3px;font-variant-numeric:tabular-nums}',
+      '.wkv-vinc-add,.wkv-vinc-edit{background:none;border:1px dashed var(--wkv-linha);border-radius:6px;font:inherit;font-size:11px;padding:1px 7px;cursor:pointer;color:var(--wkv-teal)}',
+      '.wkv-vinc-add:hover,.wkv-vinc-edit:hover{border-color:var(--wkv-teal);background:#f0fdfa}',
+      '.wkv-ovl{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}',
+      '.wkv-modal{background:#fff;border-radius:14px;max-width:540px;width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden}',
+      '.wkv-mhead{display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid var(--wkv-linha);background:var(--wkv-tinta);color:#fff}',
+      '.wkv-mhead b{font-size:16px}',
+      '.wkv-mclose{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1;padding:0 4px}',
+      '.wkv-mbody{padding:6px 20px;overflow:auto}',
+      '.wkv-drow{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid #f1f5f9}',
+      '.wkv-drow:last-child{border-bottom:none}',
+      '.wkv-dlab{flex:0 0 150px;color:var(--wkv-cinza2);font-size:13px}',
+      '.wkv-dval{flex:1;color:var(--wkv-tinta);font-size:13px;font-weight:600;word-break:break-word}',
+      '.wkv-mfoot{padding:11px 20px;border-top:1px solid var(--wkv-linha);font-size:11px;color:var(--wkv-cinza2);background:#f8fafc}',
+      '.wkv-mbtn{display:inline-block;background:#25D366;color:#fff;border-radius:6px;padding:2px 9px;font-size:11px;font-weight:600;text-decoration:none;margin-left:6px}.wkv-mbtn:hover{background:#1faf53}',
       '.wkv-foot{font-size:12px;color:var(--wkv-cinza);margin-top:14px;line-height:1.6;background:#fff;border:1px dashed var(--wkv-linha);border-radius:10px;padding:13px 16px}',
       '.wkv-foot b{color:var(--wkv-amb)}',
       '.wkv-empty{text-align:center;padding:54px 20px;color:var(--wkv-cinza)}',
@@ -518,22 +651,7 @@
     var envios = getEnvios();
     var rows = lista.map(function (d) {
       var primeiro = (d.nome || '').split(' ')[0] || '';
-      var mp = matchProjetta(d);
-      var projTd;
-      if (mp) {
-        // Felipe sessao 37: quando casa com orcamento Projetta, mostra o
-        // AGP + reserva da Projetta DIRETO na coluna (antes so' no tooltip).
-        var mpRes = String(mp.numeroReserva || '').replace(/\D/g, '');
-        var meta = [];
-        if (mp.numeroAGP) meta.push(esc(mp.numeroAGP));
-        if (mpRes) meta.push('Res ' + esc(mpRes));
-        var metaHtml = meta.length
-          ? '<div class="wkv-loc" style="margin-top:3px;font-size:11px;color:#475569">' + meta.join(' \u00b7 ') + '</div>'
-          : '';
-        projTd = '<span class="wkv-tag casa" title="Projetta: ' + esc(mp.cliente || mp.nome || '') + (mp.numeroAGP ? ' (AGP ' + esc(mp.numeroAGP) + ')' : '') + ' \u2014 etapa: ' + esc(mp.etapa || '') + '">\u2713 ' + esc(stageCurto(mp.etapa)) + '</span>' + metaHtml;
-      } else {
-        projTd = '<span class="wkv-loc" style="color:#9ca3af">\u2014</span>';
-      }
+      var projHTML = cellProjettaHTML(d);
       var txt = encodeURIComponent(msg.replace(/\{nome\}/g, primeiro));
       var wa = temWa(d)
         ? '<a class="wkv-ico wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(d.wa) + '?text=' + txt + '" title="WhatsApp">\u2706</a>'
@@ -545,7 +663,7 @@
         : (/casa/.test((d.tipo || '').toLowerCase()) ? '<span class="wkv-tag casa">casa</span>'
           : '<span class="wkv-tag outro">' + esc(d.tipo || '\u2014') + '</span>');
       return '<tr>'
-        + '<td><div class="wkv-nome">' + esc(d.nome || '\u2014') + '</div><div class="wkv-loc">Reserva ' + esc(d.r) + '</div></td>'
+        + '<td><button class="wkv-open wkv-nome" data-r="' + esc(d.r) + '" title="Ver todos os dados da planilha">' + esc(d.nome || '\u2014') + '</button><div class="wkv-loc">Reserva ' + esc(d.r) + '</div></td>'
         + '<td class="wkv-loc">' + esc(d.cidade || '\u2014') + (d.uf ? ' \u00b7 ' + esc(d.uf) : '') + '</td>'
         + '<td>' + tag + '</td>'
         + '<td style="text-align:center" class="wkv-num">' + (d.pav || '\u2014') + '</td>'
@@ -553,10 +671,12 @@
         + '<td class="wkv-vlr wkv-num">' + fmtMoeda(d.v) + '</td>'
         + '<td style="text-align:center" class="wkv-loc">' + esc(d.data || '\u2014') + '</td>'
         + '<td class="wkv-loc">' + esc(d.rep || '\u2014') + '</td>'
-        + '<td style="text-align:center">' + projTd + '</td>'
+        + '<td class="wkv-projcell" data-r="' + esc(d.r) + '" style="text-align:center">' + projHTML + '</td>'
         + '<td class="wkv-stcell" data-r="' + esc(d.r) + '" style="text-align:center">' + cellStatusHTML(d.r, envios[d.r]) + '</td>'
         + '<td style="text-align:center;white-space:nowrap">' + wa + ' ' + ml
-        + ' <button class="wkv-rmv" data-r="' + esc(d.r) + '" title="Remover (opt-out)">\u2715</button></td>'
+        + ' <button class="wkv-rmv" data-r="' + esc(d.r) + '" title="Remover (opt-out)">\u2715</button>'
+        + (d.tel ? '<div class="wkv-fone">' + esc(d.tel) + '</div>' : '')
+        + '</td>'
         + '</tr>';
     }).join('');
 
@@ -576,10 +696,10 @@
     var envios = getEnvios();
     var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa', 'Msg Enviada', 'Enviada Por', 'Cliente Retornou'];
     var linhas = lista.map(function (d) {
-      var mp = matchProjetta(d);
-      var pAgp = mp ? (mp.numeroAGP || '') : '';
-      var pRes = mp ? String(mp.numeroReserva || '').replace(/\D/g, '') : '';
-      var pEt  = mp ? stageCurto(mp.etapa) : '';
+      var p = resolveProjetta(d);
+      var pAgp = p ? p.agp : '';
+      var pRes = p ? p.res : '';
+      var pEt  = p ? stageCurto(p.etapa) : '';
       var st = _normSt(envios[d.r]) || { enviado: false, por: '', retornou: false };
       return [d.r, d.nome, d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? 'Sim' : 'Nao'), st.por, (st.retornou ? 'Sim' : 'Nao')]
         .map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';');
@@ -648,6 +768,20 @@
     // delegacao pro botao de opt-out (tbody re-renderiza)
     var tb = $('wkv-tb');
     if (tb) tb.addEventListener('click', function (ev) {
+      // abrir detalhes (clique no nome do cliente)
+      var openBtn = ev.target.closest('.wkv-open');
+      if (openBtn) { abrirDetalhe(openBtn.getAttribute('data-r')); return; }
+      // vincular / editar AGP da Projetta (quando o auto-match nao reconheceu)
+      var vincBtn = ev.target.closest('.wkv-vinc-add') || ev.target.closest('.wkv-vinc-edit');
+      if (vincBtn) {
+        var rv = vincBtn.getAttribute('data-r');
+        var cur = (getVinculos()[rv] || {}).agp || '';
+        if (vincularAGP(rv, cur)) {
+          var pcell = vincBtn.closest('.wkv-projcell');
+          if (pcell) pcell.innerHTML = cellProjettaHTML(_resById(rv) || { r: rv });
+        }
+        return;
+      }
       // marcar/desmarcar "Enviado"
       var envBtn = ev.target.closest('.wkv-st-env');
       if (envBtn) {
