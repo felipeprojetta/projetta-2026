@@ -161,8 +161,26 @@ function createSaveButton(opts) {
   return btn;
 }
 
+// ---------- largura da chapa-mae conforme a cor ----------
+// Felipe: chapas ALUSENSE vem com 1250mm de largura (vem escrito no campo da
+// cor). As demais (Pro/Weg/Ezy/Black Door/Aluminio Maciço) sao 1500mm.
+// Sempre se perde 10mm de cada lado -> largura UTIL = base - 2*perda.
+//   - chapa normal: 1500 - 20 = 1480
+//   - chapa alusense: 1250 - 20 = 1230
+// Helper central usado pelos motores de chapa (38 porta externa, 40 rev parede,
+// e 36 fixo superior via delegacao ao 38).
+function larguraBaseChapa(cor) {
+  return /alusense/i.test(String(cor || '')) ? 1250 : 1500;
+}
+function larguraUtilChapa(cor, perdaPorLado) {
+  var p = (perdaPorLado == null) ? 10 : (Number(perdaPorLado) || 0);
+  return larguraBaseChapa(cor) - 2 * p;
+}
+
 // Expoe os helpers universais em window para uso por outros modulos
 if (typeof window !== 'undefined') {
+  window.larguraBaseChapa = larguraBaseChapa;
+  window.larguraUtilChapa = larguraUtilChapa;
   window.fmtBR = fmtBR;
   window.fmtBROrEmpty = fmtBROrEmpty;
   window.fmtNum = fmtNum;

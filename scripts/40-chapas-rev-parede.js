@@ -178,9 +178,13 @@ window.ChapasRevParede = (function () {
 
       // ========= CHAPA DE FUNDO (sempre, igual modo lisa) =========
       const comRefilado = (p.com_refilado != null ? p.com_refilado : 'sim') !== 'nao';
+      // Felipe: base da chapa depende da cor — Alusense 1250, demais 1500.
+      const baseChapa = (typeof window !== 'undefined' && window.larguraBaseChapa)
+        ? window.larguraBaseChapa(item.cor)
+        : LARGURA_CHAPA_BASE;
       const larguraMaxima = comRefilado
-        ? (LARGURA_CHAPA_BASE - 2 * REF)
-        : (LARGURA_CHAPA_BASE - 2 * PERDA_LADO);
+        ? (baseChapa - 2 * REF)
+        : (baseChapa - 2 * PERDA_LADO);
       const divisao = p.divisao_largura || 'maxima';
 
       if (divisao === 'igual') {

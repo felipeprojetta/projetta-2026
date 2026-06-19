@@ -2019,7 +2019,11 @@ const ChapasPortaExterna = (() => {
    * tampa_maior_cava 1643×2732 nao gerando complemento, so' 2F estava OK].
    */
   function _splitTampaMaior01Ripado(peca, modelo, out) {
-    const LIMITE_TAMPA = 1480;
+    // Felipe: limite = largura util da chapa. Normal 1480 (1500-10/lado);
+    // Alusense 1230 (1250-10/lado), detectada pela cor da peca.
+    const LIMITE_TAMPA = (typeof window !== 'undefined' && window.larguraUtilChapa)
+      ? window.larguraUtilChapa(peca.cor, 10)
+      : 1480;
     if (modelo !== 8 && modelo !== 15) return false;
     // Felipe sessao 34: tampa principal do ripado em 1F e' 'tampa_maior_cava',
     // em 2F e' 'tampa_maior_01'. Ambos batem na mesma regra.
