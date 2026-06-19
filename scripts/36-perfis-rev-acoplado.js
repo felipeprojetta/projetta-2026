@@ -782,7 +782,19 @@ var PerfisRevAcoplado = (function() {
     }
 
     // Felipe sessao 39: chapa (1 por face) + fita de acabamento (2 por face).
-    add('Tampa Maior',     largTampa, altTampa, 1);
+    // Felipe sessao 40: quando a lateral e' RIPADA e a Tampa Maior passa do
+    // limite da chapa (1480 normal / 1230 alusense, detectado pela cor), divide
+    // em Tampa Maior (no limite) + Tampa Complemento (o resto) — igual modelo
+    // 8/15 e revestimento de parede. Lisa/moldura seguem inteiras (inalterado).
+    var ehRipadoLat = String(item.tipoLateral || '').toLowerCase() === 'ripado';
+    var limiteTampaLat = (typeof window !== 'undefined' && window.larguraUtilChapa)
+      ? window.larguraUtilChapa(corComPrefixo, 10) : 1480;
+    if (ehRipadoLat && largTampa > limiteTampaLat) {
+      add('Tampa Maior',       limiteTampaLat,             altTampa, 1);
+      add('Tampa Complemento', largTampa - limiteTampaLat, altTampa, 1);
+    } else {
+      add('Tampa Maior', largTampa, altTampa, 1);
+    }
     add('Fita Acabamento', largFita,  altFita,  2);
 
     // Felipe sessao 39: fixo lateral RIPADO tem TAMBEM as chapas das RIPAS
