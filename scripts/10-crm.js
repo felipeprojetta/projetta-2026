@@ -3575,10 +3575,13 @@ ${secoesHtml}
                   <button class="crm-orcdocs-btn" data-action="nova-versao" data-lead-id="${l.id}" title="Cria Versao N+1 mantendo as anteriores">
                     <span class="icon">➕</span><span>Nova Versão</span>
                   </button>
-                  <button class="crm-orcdocs-btn is-primary" data-action="gerar-documentos" data-lead-id="${l.id}" title="Gera PDF Proposta + 4 PNGs">
+                  `}
+                  <!-- Felipe sessao 40: Gerar Documentos (PNGs + PDF proposta) e'
+                       leitura pura — liberado em QUALQUER etapa/coluna, inclusive
+                       fechado/perdido (antes sumia junto com Revisar/Nova). -->
+                  <button class="crm-orcdocs-btn is-primary" data-action="gerar-documentos" data-lead-id="${l.id}" title="Gera PDF Proposta + PNGs">
                     <span class="icon">📄</span><span>Gerar Documentos</span>
                   </button>
-                  `}
                   <div class="crm-orcdocs-btn-secundarios">
                     <button class="crm-card-btn-wpp" data-action="whatsapp" data-lead-id="${l.id}" title="Enviar via WhatsApp" style="background:rgba(37,211,102,0.45);color:#1a5276;border:none;padding:6px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">💬 WhatsApp</button>
                     ${l.numeroReserva ? `<button class="crm-card-btn-email" data-action="enviar-proposta" data-lead-id="${l.id}" title="Responder email da reserva" style="background:rgba(0,120,212,0.4);color:#1a5276;border:none;padding:6px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📧 Email</button>` : ''}

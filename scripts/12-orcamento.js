@@ -10706,11 +10706,22 @@ const Orcamento = (() => {
                   </div>
                 </div>
               </div>
-              <button type="button" class="orc-aprovacao-btn ${podeAprovar ? '' : 'is-disabled'}"
-                      id="orc-btn-aprovar" ${podeAprovar ? '' : 'disabled'}
-                      title="${podeAprovar ? 'Aprovar e empurrar pro CRM' : 'Calcule o orcamento primeiro'}">
-                ✓ Aprovar ${(Number(versao.numero) || 1) > 1 ? 'Versao ' + versao.numero : 'Orcamento'}
-              </button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" class="orc-aprovacao-btn ${podeAprovar ? '' : 'is-disabled'}"
+                        id="orc-btn-aprovar" ${podeAprovar ? '' : 'disabled'}
+                        title="${podeAprovar ? 'Aprovar e empurrar pro CRM' : 'Calcule o orcamento primeiro'}">
+                  ✓ Aprovar ${(Number(versao.numero) || 1) > 1 ? 'Versao ' + versao.numero : 'Orcamento'}
+                </button>
+                ${podeAprovar ? `
+                <!-- Felipe sessao 40: Gerar Documentos liberado tambem ANTES de
+                     aprovar (PNGs + PDF sao leitura pura). Antes so' aparecia no
+                     card de "Orcamento Aprovado". -->
+                <button type="button" id="orc-btn-gerar-documentos"
+                        title="Gerar PDF Proposta + PNGs e abrir email"
+                        style="background:#16a34a;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:700;">
+                  📄 Gerar Documentos
+                </button>` : ''}
+              </div>
             </div>
           `;
         })()}
