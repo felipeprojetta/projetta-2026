@@ -3971,6 +3971,19 @@ ${secoesHtml}
       KPI_DEFAULT_ORDER.forEach(id => { if (!ordemKpis.includes(id)) ordemKpis.push(id); });
       const kpisHtml = ordemKpis.map(id => KPI_BLOCKS[id]).join('');
 
+      // Felipe sessao 40: preserva o scroll das colunas (e o scroll horizontal
+      // do board) atraves do re-render. Sem isso, o polling do realtime
+      // (db:realtime-sync, a cada poucos segundos) reconstroi o innerHTML e o
+      // scroll voltava pro topo enquanto o usuario estava rolando os leads.
+      var _scrollPrev = {};
+      try {
+        container.querySelectorAll('.crm-column-body[data-etapa]').forEach(function (b) {
+          if (b.scrollTop > 0) _scrollPrev[b.getAttribute('data-etapa')] = b.scrollTop;
+        });
+        var _kbPrev = container.querySelector('.crm-kanban');
+        if (_kbPrev && _kbPrev.scrollLeft > 0) _scrollPrev.__kanbanLeft = _kbPrev.scrollLeft;
+      } catch (_) {}
+
       container.innerHTML = `
         <!-- Linha superior: KPIs (reordenaveis) + Toggle vista + Acoes -->
         <div class="crm-header-row">
@@ -4070,6 +4083,19 @@ ${secoesHtml}
         <div id="crm-modal-mount"></div>
       `;
       bindEvents(container);
+      // Felipe sessao 40: restaura o scroll capturado antes do re-render,
+      // pra rolagem dos leads nao "pular pro topo" a cada polling/realtime.
+      try {
+        Object.keys(_scrollPrev).forEach(function (et) {
+          if (et === '__kanbanLeft') return;
+          var b = container.querySelector('.crm-column-body[data-etapa="' + et + '"]');
+          if (b) b.scrollTop = _scrollPrev[et];
+        });
+        if (_scrollPrev.__kanbanLeft != null) {
+          var _kb = container.querySelector('.crm-kanban');
+          if (_kb) _kb.scrollLeft = _scrollPrev.__kanbanLeft;
+        }
+      } catch (_) {}
     }
 
     function bindEvents(container) {
