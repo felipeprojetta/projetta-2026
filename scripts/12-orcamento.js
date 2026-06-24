@@ -7850,6 +7850,7 @@ const Orcamento = (() => {
             const faltam = ['largura', 'altura', 'nFolhas', 'modeloExterno', 'modeloInterno', 'sistema',
                             'fechaduraMecanica', 'cilindro', 'corInterna', 'corExterna']
               .filter(c => {
+                if (c === 'cilindro' && fechaduraDispensaCilindro(it)) return false;
                 const v = it[c];
                 return v === null || v === undefined || String(v).trim() === '';
               });
@@ -8287,13 +8288,21 @@ const Orcamento = (() => {
     if (itens.length === 0) return true;
     return itens.some(item => itemEstaIncompleto(item));
   }
+  // Felipe sessao 40: fechadura digital de embutir Barcelona II / Emteco NAO
+  // usa cilindro (a regra em aplicarRegrasAuto ja zera item.cilindro). Logo o
+  // cilindro nao pode ser exigido na validacao, senao trava o recalculo com
+  // "faltam cilindro". Mesma deteccao usada nas regras (emtecoBarII).
+  function fechaduraDispensaCilindro(item) {
+    return /emteco|barcelona/i.test((item && item.fechaduraDigital) || '');
+  }
   function itemEstaIncompleto(item) {
     if (!item || !item.tipo) return true;
     if (item.tipo !== 'porta_externa') return false; // outros tipos nao bloqueiam (ainda)
     // Felipe sessao 35: um lado pode estar SEM modelo. Nesse caso a cor
     // daquele lado nao e' exigida (nao ha revestimento pra calcular).
     const camposObr = ['largura', 'altura', 'nFolhas', 'modeloNumero',
-                        'sistema', 'fechaduraMecanica', 'cilindro'];
+                        'sistema', 'fechaduraMecanica'];
+    if (!fechaduraDispensaCilindro(item)) camposObr.push('cilindro');
     if (!item._semModeloExterno) camposObr.push('corExterna');
     if (!item._semModeloInterno) camposObr.push('corInterna');
     for (const c of camposObr) {
@@ -8327,6 +8336,7 @@ const Orcamento = (() => {
           if (!item._semModeloInterno) obrig.push('corInterna');
           const faltam = obrig
             .filter(c => {
+              if (c === 'cilindro' && fechaduraDispensaCilindro(item)) return false;
               const v = item[c];
               return v === null || v === undefined || String(v).trim() === '';
             });
