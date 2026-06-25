@@ -14144,6 +14144,14 @@ const Orcamento = (() => {
         alt = parseBR(item.altura)  || 0;
         medidasStr = `${lar} × ${alt}`;
       }
+      // Felipe sessao 40: proposta INTERNACIONAL mostra a medida tambem em
+      // pes e polegadas (igual ao desenho tecnico), mantendo o mm.
+      // Ex: "1524 × 2743 mm (5'-0" × 9'-0")". Nao aplica em "Variado".
+      if (internacional && lar > 0 && alt > 0 && medidasStr !== 'Variado'
+          && typeof window !== 'undefined' && window.mmParaPesPolegadas) {
+        medidasStr = `${lar} × ${alt} mm (` + window.mmParaPesPolegadas(lar)
+                   + ' × ' + window.mmParaPesPolegadas(alt) + ')';
+      }
       const qtd = Number(item.quantidade) || 1;
       const descricaoItem = obterDescricaoItem(item, internacional);
       // Valor por item — se nao temos calculado (fallback), mostra "—"
@@ -14736,8 +14744,8 @@ const Orcamento = (() => {
                sem espacos largos, alinhado a esquerda. R04. -->
           <div class="rel-prop-item-linhas">
             <div class="rel-prop-item-linha"><span class="lbl">${tr('Qtd','Qty')}:</span> <span>${Number(item.quantidade) || 1}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">${tr('L','W')}:</span> <span>${lar}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">H:</span> <span>${alt}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('L','W')}:</span> <span>${lar}${(internacional && lar > 0 && window.mmParaPesPolegadas) ? ' mm (' + window.mmParaPesPolegadas(lar) + ')' : ''}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">H:</span> <span>${alt}${(internacional && alt > 0 && window.mmParaPesPolegadas) ? ' mm (' + window.mmParaPesPolegadas(alt) + ')' : ''}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">${tr('Area Porta','Door Area')}:</span> <span>${fmtBR(areaM2)} m²</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">${tr('SISTEMA','SYSTEM')}:</span> <span>${escapeHtml(sistemaFmt)}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">${tr('NUMERO DE FOLHAS','NUMBER OF LEAVES')}:</span> <span>${nFolhas} ${tr('FOLHA','LEAF')}${nFolhas > 1 ? (internacional ? 'S' : 'S') : ''}</span></div>
@@ -15006,8 +15014,8 @@ const Orcamento = (() => {
           <div class="rel-prop-item-titulo">${_tituloBadge}${_ehCorrer ? tr('PORTA INTERNA DE CORRER PROJETTA BY WEIKU','PROJETTA SLIDING INTERIOR DOOR BY WEIKU') : tr('PORTA INTERNA PROJETTA BY WEIKU','PROJETTA INTERIOR DOOR BY WEIKU')}</div>
           <div class="rel-prop-item-linhas">
             <div class="rel-prop-item-linha"><span class="lbl">${tr('Qtd','Qty')}:</span> <span>${Number(item.quantidade) || 1}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">${tr('L','W')}:</span> <span>${lar}</span></div>
-            <div class="rel-prop-item-linha"><span class="lbl">H:</span> <span>${alt}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('L','W')}:</span> <span>${lar}${(internacional && lar > 0 && window.mmParaPesPolegadas) ? ' mm (' + window.mmParaPesPolegadas(lar) + ')' : ''}</span></div>
+            <div class="rel-prop-item-linha"><span class="lbl">H:</span> <span>${alt}${(internacional && alt > 0 && window.mmParaPesPolegadas) ? ' mm (' + window.mmParaPesPolegadas(alt) + ')' : ''}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">${tr('Area Porta','Door Area')}:</span> <span>${fmtBR(areaM2)} m²</span></div>
             ${_ehCorrer
               ? `<div class="rel-prop-item-linha"><span class="lbl">${tr('TIPO','TYPE')}:</span> <span>${tr('Correr (deslizante)','Sliding')}</span></div>

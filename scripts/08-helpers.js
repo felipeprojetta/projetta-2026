@@ -177,10 +177,25 @@ function larguraUtilChapa(cor, perdaPorLado) {
   return larguraBaseChapa(cor) - 2 * p;
 }
 
+// ---------- conversao mm -> pes e polegadas (proposta internacional) ----------
+// Felipe: na proposta internacional, alem do mm, mostrar a medida tambem em
+// pes e polegadas no mesmo padrao do desenho tecnico (ex: 1524mm -> 5'-0";
+// 2743mm -> 9'-0"; 3861mm -> 12'-8"). Arredonda pra polegada inteira, como no
+// desenho. 1 polegada = 25,4mm; 1 pe = 12 polegadas.
+function mmParaPesPolegadas(mm) {
+  var n = Number(mm) || 0;
+  if (n <= 0) return '';
+  var totalPol = Math.round(n / 25.4);
+  var pes = Math.floor(totalPol / 12);
+  var pol = totalPol % 12;
+  return pes + "'-" + pol + '"';
+}
+
 // Expoe os helpers universais em window para uso por outros modulos
 if (typeof window !== 'undefined') {
   window.larguraBaseChapa = larguraBaseChapa;
   window.larguraUtilChapa = larguraUtilChapa;
+  window.mmParaPesPolegadas = mmParaPesPolegadas;
   window.fmtBR = fmtBR;
   window.fmtBROrEmpty = fmtBROrEmpty;
   window.fmtNum = fmtNum;
