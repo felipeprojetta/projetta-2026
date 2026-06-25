@@ -10429,7 +10429,7 @@ const Orcamento = (() => {
             const terrUsd  = Number(leadFr.freteTerrestreUsd) || 0;
             const marUsd   = Number(leadFr.freteMaritimoUsd)  || 0;
             const valorCargaUsd = r.pFatReal / taxaDRE;
-            const seguroUsd = itc.seguroMaritimo ? Math.max(35, valorCargaUsd * 0.005 * 1.10) : 0;
+            const seguroUsd = itc.seguroMaritimo ? ((window.FreteTarifas && window.FreteTarifas.calcularSeguro) ? window.FreteTarifas.calcularSeguro(valorCargaUsd) : Math.max(35, valorCargaUsd * 0.005 * 1.10)) : 0;
             const freteIntlUsd = caixaUsd
                                + (itc.freteTerrestre ? terrUsd  : 0)
                                + (itc.freteMaritimo  ? marUsd   : 0)
@@ -10511,7 +10511,7 @@ const Orcamento = (() => {
 
           // Valor da carga (preco do produto, em BRL → converte pra USD)
           const valorCargaUsd = r.pFatReal / taxa;
-          const seguroUsd = itc.seguroMaritimo ? Math.max(35, valorCargaUsd * 0.005 * 1.10) : 0;
+          const seguroUsd = itc.seguroMaritimo ? ((window.FreteTarifas && window.FreteTarifas.calcularSeguro) ? window.FreteTarifas.calcularSeguro(valorCargaUsd) : Math.max(35, valorCargaUsd * 0.005 * 1.10)) : 0;
 
           // Decide o que entra conforme incoterm
           const inclui = {
@@ -10573,7 +10573,10 @@ const Orcamento = (() => {
               )}
               ${linha('🚛 Frete terrestre Uberlandia → Santos', terrUsd, inclui.terrestre)}
               ${linha('🚢 Frete maritimo ' + (lead.freteModal || 'LCL'), marUsd, inclui.maritimo)}
-              ${linha('🛡️ Seguro maritimo (0,5% × valor × 110%)', seguroUsd, inclui.seguro)}
+              ${(() => {
+                const _si = (window.FreteTarifas && window.FreteTarifas.seguroInfo) ? window.FreteTarifas.seguroInfo() : { percentual: 0.5, cobertura: 1.10 };
+                return linha('🛡️ Seguro maritimo (' + _si.percentual + '% × valor × ' + Math.round(_si.cobertura * 100) + '%)', seguroUsd, inclui.seguro);
+              })()}
               ${instSepBrl > 0 ? linha('🔧 Instalacao (cobrada separado, margem ' + (instSepDRE ? instSepDRE.lucroPct : 10) + '%)', instSepBrl / taxa, true) : ''}
               <div style="margin-top:12px; padding:12px 14px; background:#0c5485; color:#fff; border-radius:6px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
@@ -10944,7 +10947,7 @@ const Orcamento = (() => {
             const terrUsd  = Number(leadAprov.freteTerrestreUsd) || 0;
             const marUsd   = Number(leadAprov.freteMaritimoUsd)  || 0;
             const valorCargaUsd = precoPortaFinal / taxa;
-            const seguroUsd = itc.seguroMaritimo ? Math.max(35, valorCargaUsd * 0.005 * 1.10) : 0;
+            const seguroUsd = itc.seguroMaritimo ? ((window.FreteTarifas && window.FreteTarifas.calcularSeguro) ? window.FreteTarifas.calcularSeguro(valorCargaUsd) : Math.max(35, valorCargaUsd * 0.005 * 1.10)) : 0;
             caixaBrl     = caixaUsd * taxa;
             terrestreBrl = (itc.freteTerrestre ? terrUsd : 0) * taxa;
             maritimoBrl  = (itc.freteMaritimo  ? marUsd  : 0) * taxa;
@@ -14296,7 +14299,7 @@ const Orcamento = (() => {
             const terrUsd  = Number(lead.freteTerrestreUsd) || 0;
             const marUsd   = Number(lead.freteMaritimoUsd)  || 0;
             const valorUsd = totalGeral / taxa;
-            const seguroUsd = itc.seguroMaritimo ? Math.max(35, valorUsd * 0.005 * 1.10) : 0;
+            const seguroUsd = itc.seguroMaritimo ? ((window.FreteTarifas && window.FreteTarifas.calcularSeguro) ? window.FreteTarifas.calcularSeguro(valorUsd) : Math.max(35, valorUsd * 0.005 * 1.10)) : 0;
             const incluir = {
               caixa:     true,
               terrestre: itc.freteTerrestre,
@@ -14350,7 +14353,10 @@ const Orcamento = (() => {
                     )}
                     ${linha('🚛 Inland freight Uberlandia → Santos', terrUsd, incluir.terrestre)}
                     ${linha('🚢 Ocean freight ' + (lead.freteModal || 'LCL'), marUsd, incluir.maritimo)}
-                    ${linha('🛡️ Marine insurance (0.5% × value × 110%)', seguroUsd, incluir.seguro)}
+                    ${(() => {
+                      const _si = (window.FreteTarifas && window.FreteTarifas.seguroInfo) ? window.FreteTarifas.seguroInfo() : { percentual: 0.5, cobertura: 1.10 };
+                      return linha('🛡️ Marine insurance (' + _si.percentual + '% × value × ' + Math.round(_si.cobertura * 100) + '%)', seguroUsd, incluir.seguro);
+                    })()}
                     ${temInstalacao ? linha('🔧 Installation, travel & lodging (' + pessoasInst + ' tech · ' + diasInst + ' days)', instUsd, true) : ''}
                   </tbody>
                 </table>

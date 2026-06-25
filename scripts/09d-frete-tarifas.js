@@ -355,6 +355,31 @@ const FreteTarifas = (() => {
   }
 
   /**
+   * Felipe sessao 40: SEGURO le o CADASTRO (aba Frete Internacional > Seguro),
+   * nao mais 0,5%/110% hardcoded. Formula: max(minimo, valor × (perc/100) × cob).
+   * percentual em % (ex 0.5 = 0,5%); cobertura = multiplicador (ex 1.10 = 110%).
+   * Valores explicitos sao respeitados (inclusive cobertura 0); so cai no
+   * default quando o campo nao e' um numero finito (NaN/null/undefined).
+   */
+  function seguroInfo() {
+    const t = _cache || DEFAULTS;
+    const s = (t && t.seguro) ? t.seguro : DEFAULTS.seguro;
+    const perc = Number(s.percentual);
+    const cob  = Number(s.cobertura);
+    const min  = Number(s.minimo_usd);
+    return {
+      percentual: isFinite(perc) ? perc : Number(DEFAULTS.seguro.percentual),
+      cobertura:  isFinite(cob)  ? cob  : Number(DEFAULTS.seguro.cobertura),
+      minimo_usd: isFinite(min)  ? min  : Number(DEFAULTS.seguro.minimo_usd),
+    };
+  }
+  function calcularSeguro(valorCargaUsd) {
+    const val = Math.max(0, Number(valorCargaUsd) || 0);
+    const s = seguroInfo();
+    return Math.max(s.minimo_usd, val * (s.percentual / 100) * s.cobertura);
+  }
+
+  /**
    * Felipe sessao 36: decide a EMBALAGEM de transporte conforme a largura
    * da porta.
    *   - Largura <= 2,40 m: caixa de madeira fumigada normal (USD = m³ × 100).
@@ -402,6 +427,7 @@ const FreteTarifas = (() => {
     DEFAULTS,
     carregar, salvar, defaults, regioes,
     calcularLCL, calcularCaixa, calcularFreteTerrestre, calcularEmbalagem,
+    calcularSeguro, seguroInfo,
     _getCache: () => _cache || DEFAULTS,
   };
 })();
