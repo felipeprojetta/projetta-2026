@@ -1537,10 +1537,29 @@ const Orcamento = (() => {
       const local = loadAll();
       const idsLocais = new Set(local.map(n => n && n.id).filter(Boolean));
       const faltantes = cloud.filter(n => n && n.id && !idsLocais.has(n.id));
-      if (!faltantes.length) return false;
-      saveAll(local.concat(faltantes));
+      // Felipe sessao 41: alem de baixar negocios FALTANTES, ATUALIZA negocios
+      // que ja existem localmente QUANDO a copia da nuvem e' ESTRITAMENTE mais
+      // recente (atualizadoEm). Guard rigido: se o local for igual ou mais novo,
+      // NAO toca (preserva edicao local ainda nao sincronizada). Sem isso o pull
+      // era so' aditivo e correcoes feitas direto no banco (ex: recuperacao de
+      // versao que colidia em numero) nunca chegavam a quem ja tinha o negocio.
+      const cloudPorId = new Map();
+      cloud.forEach(n => { if (n && n.id) cloudPorId.set(n.id, n); });
+      let nAtualizados = 0;
+      const base = local.map(nl => {
+        if (!nl || !nl.id) return nl;
+        const nc = cloudPorId.get(nl.id);
+        if (!nc) return nl;
+        const tc = String(nc.atualizadoEm || '');
+        const tl = String(nl.atualizadoEm || '');
+        if (tc && tc > tl) { nAtualizados++; return nc; }  // nuvem estritamente mais recente
+        return nl;
+      });
+      if (!faltantes.length && !nAtualizados) return false;
+      saveAll(base.concat(faltantes));
       console.log('[Orcamento] pullNegociosDaNuvem: +' + faltantes.length
-        + ' negocio(s) baixado(s) da nuvem (total local agora: ' + (local.length + faltantes.length) + ')');
+        + ' baixado(s), ' + nAtualizados + ' atualizado(s) da nuvem (total local: '
+        + (base.length + faltantes.length) + ')');
       return true;
     } catch (e) {
       console.warn('[Orcamento] pullNegociosDaNuvem falhou:', e && e.message);
