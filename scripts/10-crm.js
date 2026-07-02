@@ -3514,9 +3514,9 @@ ${secoesHtml}
           const obsNegociacaoField = `
             <div class="crm-card-obsneg">
               <label class="crm-card-obsneg-lbl">📝 Observações</label>
-              <textarea data-action="edit-obs-neg" data-lead-id="${l.id}" rows="2"
+              <textarea data-action="edit-obs-neg" data-lead-id="${l.id}" rows="4"
                 placeholder="Ex: cliente aguarda até tal data..."
-                style="width:100%;box-sizing:border-box;background:#FFF4E6;border:1px solid #FDBA74;border-radius:6px;padding:6px 8px;margin-top:2px;font-size:11px;color:#7C2D12;resize:vertical;font-family:inherit;">${escapeHtml(l.obsNegociacao || '')}</textarea>
+                style="width:100%;box-sizing:border-box;background:#FFF4E6;border:1px solid #FDBA74;border-radius:6px;padding:6px 8px;margin-top:2px;font-size:11px;color:#7C2D12;resize:vertical;font-family:inherit;min-height:64px;">${escapeHtml(l.obsNegociacao || '')}</textarea>
             </div>`;
 
           return `
