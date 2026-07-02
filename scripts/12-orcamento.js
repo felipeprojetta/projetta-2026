@@ -504,7 +504,9 @@ const Orcamento = (() => {
     };
     // Felipe sessao 31: derivado da estrutura da viagem (4 dias de viagem
     // ida+volta, -2 dias dentro do carro/aviao).
-    const DIAS_VIAGEM = 4;
+    // Felipe sessao 41: dias de viagem agora EDITAVEL (campo intl_dias_viagem).
+    // Fallback 4 (= 2 ida + 2 volta) -> orcamentos antigos nao mudam.
+    const DIAS_VIAGEM = Number(inst.intl_dias_viagem) || 4;
     const totalDiasFora = dias + DIAS_VIAGEM;
     const diasComDespesas = Math.max(0, totalDiasFora - 2);
     const itens = {
@@ -9165,7 +9167,7 @@ const Orcamento = (() => {
                 <div style="font-size:11px; font-weight:600; color:#0c5485; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
                   👥 Equipe & Duracao
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px;">
                   <div class="orc-field">
                     <label>Pessoas</label>
                     <input type="number" min="1" max="6" step="1" data-field="intl_pessoas" data-inst="1" value="${v.intl_pessoas || 3}" style="width:100%; box-sizing:border-box;" />
@@ -9174,7 +9176,12 @@ const Orcamento = (() => {
                   <div class="orc-field">
                     <label>Dias de instalacao</label>
                     <input type="number" min="0" max="60" step="1" data-field="intl_dias" data-inst="1" value="${v.intl_dias || 4}" style="width:100%; box-sizing:border-box;" />
-                    <span class="orc-fi-help">trabalho efetivo (+4d viagem)</span>
+                    <span class="orc-fi-help">trabalho efetivo (+viagem)</span>
+                  </div>
+                  <div class="orc-field">
+                    <label>Dias de viagem</label>
+                    <input type="number" min="0" max="20" step="1" data-field="intl_dias_viagem" data-inst="1" value="${v.intl_dias_viagem || 4}" style="width:100%; box-sizing:border-box;" />
+                    <span class="orc-fi-help">ida + volta (padrao 4)</span>
                   </div>
                   <div class="orc-field">
                     <label>Qtd. instalacoes</label>
@@ -9183,8 +9190,8 @@ const Orcamento = (() => {
                   </div>
                 </div>
                 <div style="margin-top:8px; padding:6px 10px; background:#fff; border-left:3px solid #0c5485; font-size:11px; color:#0c5485; line-height:1.4;">
-                  <b>📅 Estrutura da viagem:</b> 4 dias de deslocamento (1 UDI→GRU · 1 GRU→destino · ida+volta) + N dias de instalacao.
-                  Hotel/Carro/Alimentacao usam <b>(N + 2) dias</b> — descontados 2 dias dentro do carro/aviao.
+                  <b>📅 Estrutura da viagem:</b> ${Number(v.intl_dias_viagem) || 4} dias de deslocamento (ida+volta) + N dias de instalacao.
+                  Hotel/Carro/Alimentacao usam <b>(N + ${Math.max(0, (Number(v.intl_dias_viagem) || 4) - 2)}) dias</b> — descontados 2 dias dentro do carro/aviao.
                 </div>
               </div>
 
