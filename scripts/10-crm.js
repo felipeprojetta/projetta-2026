@@ -3368,6 +3368,7 @@ ${secoesHtml}
             <div class="crm-card-produto">
               ${resumo.modelo  ? `<div class="crm-card-prod-row"><span class="crm-card-prod-lbl">Modelo:</span> ${escapeHtml(resumo.modelo)}</div>` : ''}
               ${resumo.nFolhas ? `<div class="crm-card-prod-row"><span class="crm-card-prod-lbl">Folhas:</span> ${escapeHtml(resumo.nFolhas)}</div>` : ''}
+              ${(resumo.largura && resumo.altura) ? `<div class="crm-card-prod-row"><span class="crm-card-prod-lbl">Medidas:</span> ${escapeHtml(resumo.largura)}×${escapeHtml(resumo.altura)} mm</div>` : ''}
               ${corPrefere    ? `<div class="crm-card-prod-row"><span class="crm-card-prod-lbl">Cor:</span> ${escapeHtml(corPrefere)}</div>` : ''}
             </div>` : '';
 

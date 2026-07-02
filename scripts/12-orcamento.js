@@ -1938,6 +1938,9 @@ const Orcamento = (() => {
       margemLiquidaPct: margemLiquidaPct,
       modelo: item0.modeloNumero || item0.modelo || '',
       nFolhas: item0.nFolhas ? `${item0.nFolhas} folha${String(item0.nFolhas) === '1' ? '' : 's'}` : '',
+      // Felipe sessao 41: largura x altura do 1o item exibidas no card do CRM
+      largura: item0.largura || '',
+      altura:  item0.altura  || '',
       corInterna: item0.corInterna || '',
       corExterna: item0.corExterna || '',
       versoes: versoesFlat,
