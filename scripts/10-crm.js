@@ -3453,6 +3453,18 @@ ${secoesHtml}
             `;
           }
 
+          // Felipe sessao 41: campo de observacao da NEGOCIACAO. Aparece
+          // SO' quando o lead esta na etapa 'negociacao'. Editavel inline no
+          // proprio card (sem abrir o lead) — ex: "cliente aguarda ate tal
+          // data". Fundo laranja claro. Salva em lead.obsNegociacao (blur).
+          const obsNegociacaoField = (l.etapa === 'negociacao') ? `
+            <div class="crm-card-obsneg">
+              <label class="crm-card-obsneg-lbl">📝 Observações da negociação</label>
+              <textarea data-action="edit-obs-neg" data-lead-id="${l.id}" rows="2"
+                placeholder="Ex: cliente aguarda até tal data..."
+                style="width:100%;box-sizing:border-box;background:#FFF4E6;border:1px solid #FDBA74;border-radius:6px;padding:6px 8px;margin-top:2px;font-size:11px;color:#7C2D12;resize:vertical;font-family:inherit;">${escapeHtml(l.obsNegociacao || '')}</textarea>
+            </div>` : '';
+
           return `
           <div class="crm-card" draggable="true" data-id="${l.id}">
             <div class="crm-card-titulo">${escapeHtml(l.cliente || '(sem nome)')}</div>
@@ -3463,6 +3475,7 @@ ${secoesHtml}
             ${agpField}
             ${blocoProduto}
             ${blocoLocal}
+            ${obsNegociacaoField}
             ${(() => {
               // Felipe (do doc): em Qualificacao e Fazer Orcamento NAO se
               // sabe o preco ainda, entao NAO mostra valor. So' a partir de
@@ -4920,6 +4933,23 @@ ${secoesHtml}
             lead.atp.numeroAtp = inp.value.trim();
             save();
           });
+          inp.addEventListener('mousedown', (e) => e.stopPropagation());
+        });
+
+        // Felipe sessao 41: textarea de observacao da NEGOCIACAO no card.
+        // Salva em lead.obsNegociacao ao sair do campo (change/blur). Nao
+        // salva por tecla pra nao re-renderizar o board no meio da digitacao.
+        card.querySelectorAll('[data-action="edit-obs-neg"]').forEach(inp => {
+          const salvarObs = () => {
+            const leadId = inp.dataset.leadId;
+            const lead = state.leads.find(l => l.id === leadId);
+            if (!lead) return;
+            if (lead.obsNegociacao === inp.value) return;
+            lead.obsNegociacao = inp.value;
+            save();
+          };
+          inp.addEventListener('change', salvarObs);
+          inp.addEventListener('blur', salvarObs);
           inp.addEventListener('mousedown', (e) => e.stopPropagation());
         });
 
