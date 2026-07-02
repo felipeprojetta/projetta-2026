@@ -4191,6 +4191,11 @@ const Orcamento = (() => {
     distanciaBordaFrisoHorizontal2: { label: 'Distancia da borda ao friso horizontal 2 (mm)', tipo: 'number', min: 0, step: 1 },
     espessuraFriso:             { label: 'Espessura do friso (mm)', tipo: 'number', min: 0, step: 1 },
     quantidadeFrisos:           { label: 'Quantidade de frisos', tipo: 'number', min: 0, step: 1 },
+    // Felipe sessao 41: MODELO 18 — pergunta se o friso e' em aco inox ou na
+    // cor da porta. Decide o acrescimo de chapas (cor da porta = +3 · aco inox
+    // = +2, via addChapasModeloPorPorta). Quando 'Aço inox', Felipe adiciona a
+    // chapa de aco inox manualmente no Aproveitamento (ja' cadastrada em Superficies).
+    frisoTipo:                  { label: 'Friso', tipo: 'select', opcoes: ['', 'Na cor da porta', 'Aço inox'] },
     larguraRipas:               { label: 'Largura das ripas (mm)', tipo: 'number', min: 0, step: 1 },
     tipoRipado:                 { label: 'Ripado', tipo: 'select', opcoes: ['', 'Total', 'Parcial'] },
     espacamentoRipas:           { label: 'Espacamento entre ripas (mm)', tipo: 'number', min: 0, step: 1 },
@@ -4249,6 +4254,10 @@ const Orcamento = (() => {
     // MESMOS campos (qtd de frisos horizontais + espessura). Sem isso,
     // ctx.qtdFrisos fica indefinido e o calculo de chapas do 17 quebra.
     17: ['quantidadeFrisos', 'espessuraFriso'],
+    // Felipe sessao 41: modelo 18 = motor de chapas do 10 (liso) + pergunta de
+    // friso. So' esse campo (o friso e' decorativo; nao tem cava nem frisos
+    // dimensionais — afeta apenas o acrescimo de chapas e a chapa de inox).
+    18: ['frisoTipo'],
     22: ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'quantidadeFrisos'],
     23: ['tipoMoldura', 'quantidadeMolduras', 'numDivisoesIguais', 'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura', 'perfilMoldura'],
     24: ['tamanhoCava'],
@@ -16835,7 +16844,10 @@ const Orcamento = (() => {
   function addChapasModeloPorPorta(item) {
     const m = Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) || 0;
     if (m === 17) return 2;
-    // if (m === 18) return String(item.frisoTipo) === 'inox' ? 2 : 3; // Fase 2
+    // Felipe sessao 41: modelo 18 — friso na cor da porta = +3 chapas/porta;
+    // friso em aco inox = +2 (a chapa de inox em si Felipe lanca manual).
+    // Default (campo vazio) = na cor da porta (+3), caso mais comum.
+    if (m === 18) return item.frisoTipo === 'Aço inox' ? 2 : 3;
     return 0;
   }
 
