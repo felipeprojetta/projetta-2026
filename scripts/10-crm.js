@@ -3453,17 +3453,19 @@ ${secoesHtml}
             `;
           }
 
-          // Felipe sessao 41: campo de observacao da NEGOCIACAO. Aparece
-          // SO' quando o lead esta na etapa 'negociacao'. Editavel inline no
+          // Felipe sessao 41: campo de observacao do lead. Editavel inline no
           // proprio card (sem abrir o lead) — ex: "cliente aguarda ate tal
           // data". Fundo laranja claro. Salva em lead.obsNegociacao (blur).
-          const obsNegociacaoField = (l.etapa === 'negociacao') ? `
+          // Felipe sessao 41 (ajuste): aparece em TODAS as etapas (antes era
+          // so' em 'negociacao'). Campo interno mantido como obsNegociacao
+          // pra nao perder observacoes ja' salvas.
+          const obsNegociacaoField = `
             <div class="crm-card-obsneg">
-              <label class="crm-card-obsneg-lbl">📝 Observações da negociação</label>
+              <label class="crm-card-obsneg-lbl">📝 Observações</label>
               <textarea data-action="edit-obs-neg" data-lead-id="${l.id}" rows="2"
                 placeholder="Ex: cliente aguarda até tal data..."
                 style="width:100%;box-sizing:border-box;background:#FFF4E6;border:1px solid #FDBA74;border-radius:6px;padding:6px 8px;margin-top:2px;font-size:11px;color:#7C2D12;resize:vertical;font-family:inherit;">${escapeHtml(l.obsNegociacao || '')}</textarea>
-            </div>` : '';
+            </div>`;
 
           return `
           <div class="crm-card" draggable="true" data-id="${l.id}">
