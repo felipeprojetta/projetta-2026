@@ -1792,6 +1792,14 @@ const ChapasPortaExterna = (() => {
   // Alias de leitura: a TABELA e' apenas consultada, nunca mutada em runtime.
   TABELA[17] = TABELA[16];
 
+  // Felipe sessao 41: MODELO 18 usa o motor de chapas do MODELO 10 (porta
+  // LISA). Diferente do 17, o 18 NAO depende de qtdFrisos (o 10 e' liso), entao
+  // nao precisa dos campos de friso normais. O 18 tem uma pergunta PROPRIA
+  // (friso em aco inox ou na cor da porta) que decide o acrescimo de chapas
+  // (+3 na cor / +2 no inox) e a chapa de aco inox — tratados no 12-orcamento,
+  // nao aqui. Alias de leitura (TABELA read-only).
+  TABELA[18] = TABELA[10];
+
   function gerarPecasChapa(item, lado) {
     if (!item || item.tipo !== 'porta_externa') return [];
     if (lado !== 'externo' && lado !== 'interno') {
