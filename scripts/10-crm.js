@@ -3545,7 +3545,15 @@ ${secoesHtml}
               // adiciona 3a linha "Cliente Paga" pra deixar claro.
               const escondeValor = (l.etapa === 'qualificacao' || l.etapa === 'fazer-orcamento');
               if (escondeValor) return '';
-              const valorFinal = (resumo && resumo.hasVersaoFechada) ? resumo.valor : (Number(l.valor) || 0);
+              // Felipe sessao 41: override MANUAL do valor. Se l.valorCalcBackup
+              // existe, o valor foi editado a mao no card -> exibe l.valor (o
+              // manual) e guarda o calculado no backup pra o botao "voltar".
+              // Sem override -> valor calculado normal (resumo.valor ou l.valor).
+              const _ovValorAtivo = (l.valorCalcBackup != null && l.valorCalcBackup !== '');
+              const _valorCalc = (resumo && resumo.hasVersaoFechada)
+                ? resumo.valor
+                : (_ovValorAtivo ? (Number(l.valorCalcBackup) || 0) : (Number(l.valor) || 0));
+              const valorFinal = _ovValorAtivo ? (Number(l.valor) || 0) : _valorCalc;
               const precoProposta = (resumo && resumo.hasVersaoFechada)
                 ? resumo.precoProposta
                 : (Number(l.precoProposta) || 0);
@@ -3583,6 +3591,23 @@ ${secoesHtml}
               // (Preco Proposta + Com desconto + Cliente Paga) sendo
               // que linhas 2 e 3 eram o MESMO valor — redundante.
               // Agora mostra 2 linhas: Original (riscado) + Com Desconto.
+              // Felipe sessao 41: valor final EDITAVEL inline (edit-valor) +
+              // botao ↺ pra voltar ao calculado quando ha override manual.
+              const _valInputHtml =
+                `<span class="crm-card-valor crm-card-valor-editwrap">R$ `
+                + `<input type="text" data-action="edit-valor" data-lead-id="${l.id}" `
+                +   `data-valor-calc="${_valorCalc}" value="${fmtBR(valorFinal)}" `
+                +   `title="Editar valor manualmente (clique e digite)" `
+                +   `style="width:120px;text-align:right;font:inherit;font-weight:700;color:inherit;border:1px dashed #CBD5E1;border-radius:4px;padding:1px 4px;background:#fff;" />`
+                + (_ovValorAtivo
+                    ? `<button type="button" data-action="reset-valor" data-lead-id="${l.id}" `
+                      + `data-valor-calc="${_valorCalc}" title="Voltar ao valor calculado: R$ ${fmtBR(_valorCalc)}" `
+                      + `style="margin-left:4px;border:none;background:#FEF3C7;color:#B45309;border-radius:4px;cursor:pointer;font-size:12px;padding:1px 6px;">↺</button>`
+                    : '')
+                + `</span>`
+                + (_ovValorAtivo
+                    ? `<div style="font-size:10px;color:#B45309;margin-top:2px;">✏️ manual · calculado R$ ${fmtBR(_valorCalc)}</div>`
+                    : '');
               if (precoProposta > 0 && Math.abs(precoProposta - valorFinal) > 0.01) {
                 return `
                   <div class="crm-card-valor-bloco">
@@ -3592,12 +3617,12 @@ ${secoesHtml}
                     </div>
                     <div class="crm-card-valor-row crm-card-valor-row-final">
                       <span class="crm-card-valor-label">Com Desconto:</span>
-                      <span class="crm-card-valor">R$ ${fmtBR(valorFinal)}</span>
+                      ${_valInputHtml}
                     </div>
                   </div>`;
               }
               // Sem desconto (ou valor unico) — mostra 1 so'
-              return `<div class="crm-card-valor">R$ ${fmtBR(valorFinal)}</div>`;
+              return `<div class="crm-card-valor-bloco">${_valInputHtml}</div>`;
             })()}
             <div class="crm-card-meta">
               <span class="crm-card-data">${fmtData(l.data)}</span>
@@ -4387,7 +4412,9 @@ ${secoesHtml}
           // Se clicou no input AGP, nao abre modal — deixa editar
           if (e.target.matches('[data-action="edit-agp"]')
               || e.target.matches('[data-action="edit-atp"]')
-              || e.target.matches('[data-action="edit-obs-neg"]')) {
+              || e.target.matches('[data-action="edit-obs-neg"]')
+              || e.target.matches('[data-action="edit-valor"]')
+              || e.target.matches('[data-action="reset-valor"]')) {
             e.stopPropagation();
             return;
           }
@@ -5006,6 +5033,50 @@ ${secoesHtml}
           inp.addEventListener('change', salvarObs);
           inp.addEventListener('blur', salvarObs);
           inp.addEventListener('mousedown', (e) => e.stopPropagation());
+        });
+
+        // Felipe sessao 41: edicao MANUAL do valor no card. Ao editar,
+        // guarda o valor CALCULADO em lead.valorCalcBackup (so' na 1a vez)
+        // pra o botao ↺ poder restaurar, e grava lead.valor (usado pelo
+        // pipeline em todos os KPIs/totais — reflete automaticamente).
+        card.querySelectorAll('[data-action="edit-valor"]').forEach(inp => {
+          inp.addEventListener('change', () => {
+            const leadId = inp.dataset.leadId;
+            const lead = state.leads.find(l => l.id === leadId);
+            if (!lead) return;
+            const novo = parseFloat(String(inp.value).replace(/\./g, '').replace(',', '.'));
+            if (!Number.isFinite(novo) || novo < 0) { render(container); return; }
+            // Guarda o calculado (backup) so' na primeira edicao manual.
+            if (lead.valorCalcBackup == null || lead.valorCalcBackup === '') {
+              const calc = parseFloat(inp.dataset.valorCalc);
+              lead.valorCalcBackup = Number.isFinite(calc) ? calc : (Number(lead.valor) || 0);
+            }
+            if ((Number(lead.valor) || 0) === novo) return;
+            lead.valor = novo;
+            save();
+            render(container);
+          });
+          inp.addEventListener('mousedown', (e) => e.stopPropagation());
+        });
+
+        // Felipe sessao 41: botao ↺ — volta ao valor CALCULADO e remove o
+        // override manual (limpa lead.valorCalcBackup).
+        card.querySelectorAll('[data-action="reset-valor"]').forEach(btn => {
+          btn.addEventListener('mousedown', (e) => e.stopPropagation());
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const leadId = btn.dataset.leadId;
+            const lead = state.leads.find(l => l.id === leadId);
+            if (!lead) return;
+            const calc = parseFloat(btn.dataset.valorCalc);
+            const alvo = Number.isFinite(calc) ? calc
+              : ((lead.valorCalcBackup != null && lead.valorCalcBackup !== '')
+                  ? (Number(lead.valorCalcBackup) || 0) : (Number(lead.valor) || 0));
+            lead.valor = alvo;
+            delete lead.valorCalcBackup;
+            save();
+            render(container);
+          });
         });
 
         // Felipe: dropdown de versoes — ao escolher uma versao, abre o
