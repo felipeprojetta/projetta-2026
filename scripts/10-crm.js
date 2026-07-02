@@ -4332,7 +4332,8 @@ ${secoesHtml}
           if (card._lastDragEnd && (Date.now() - card._lastDragEnd) < 200) return;
           // Se clicou no input AGP, nao abre modal — deixa editar
           if (e.target.matches('[data-action="edit-agp"]')
-              || e.target.matches('[data-action="edit-atp"]')) {
+              || e.target.matches('[data-action="edit-atp"]')
+              || e.target.matches('[data-action="edit-obs-neg"]')) {
             e.stopPropagation();
             return;
           }
