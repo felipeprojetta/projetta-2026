@@ -4245,6 +4245,10 @@ const Orcamento = (() => {
     14: ['distanciaBordaFrisoVertical', 'espessuraFriso', 'larguraRipas', 'quantidadeFrisos'],
     15: ['tipoRipado', 'espacamentoRipas'],
     16: ['quantidadeFrisos', 'espessuraFriso'],
+    // Felipe sessao 41: modelo 17 = motor de chapas do 16, entao pede os
+    // MESMOS campos (qtd de frisos horizontais + espessura). Sem isso,
+    // ctx.qtdFrisos fica indefinido e o calculo de chapas do 17 quebra.
+    17: ['quantidadeFrisos', 'espessuraFriso'],
     22: ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'quantidadeFrisos'],
     23: ['tipoMoldura', 'quantidadeMolduras', 'numDivisoesIguais', 'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura', 'perfilMoldura'],
     24: ['tamanhoCava'],

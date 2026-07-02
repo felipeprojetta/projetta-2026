@@ -1782,13 +1782,15 @@ const ChapasPortaExterna = (() => {
     },
   };
 
-  // Felipe sessao 41: MODELO 17 = MODELO 10 (Puxador Externo Lisa) na geracao
-  // de chapas. O modelo 17 nao tinha entrada propria na TABELA (gerava ZERO
-  // chapas — era o bug relatado). Como o 17 ja e' tratado como liso no resto
-  // do sistema (nao esta em CAMPOS_POR_MODELO nem em MODELOS_COM_CAVA/FRISO),
-  // aponta pras MESMAS pecas do modelo 10 — cobre 1F (porta pivotante) e 2F.
+  // Felipe sessao 41 (CORRIGIDO): o MODELO 17 usa o motor de chapas do
+  // MODELO 16 (Puxador Externo + N Frisos Horizontais) — nao do 10. O 17 nao
+  // tinha entrada propria na TABELA (gerava zero chapas). Usa as MESMAS pecas
+  // do 16, que dependem de ctx.qtdFrisos — por isso o 17 tambem recebe os
+  // campos de friso via CAMPOS_POR_MODELO[17] (12-orcamento.js).
+  // O acrescimo de +2 chapas do modelo 17 e' aplicado no CALCULO de quantidade,
+  // nao aqui (a TABELA so' define as pecas).
   // Alias de leitura: a TABELA e' apenas consultada, nunca mutada em runtime.
-  TABELA[17] = TABELA[10];
+  TABELA[17] = TABELA[16];
 
   function gerarPecasChapa(item, lado) {
     if (!item || item.tipo !== 'porta_externa') return [];
