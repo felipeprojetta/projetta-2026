@@ -1781,6 +1781,15 @@ const ChapasPortaExterna = (() => {
       ],
     },
   };
+
+  // Felipe sessao 41: MODELO 17 = MODELO 10 (Puxador Externo Lisa) na geracao
+  // de chapas. O modelo 17 nao tinha entrada propria na TABELA (gerava ZERO
+  // chapas — era o bug relatado). Como o 17 ja e' tratado como liso no resto
+  // do sistema (nao esta em CAMPOS_POR_MODELO nem em MODELOS_COM_CAVA/FRISO),
+  // aponta pras MESMAS pecas do modelo 10 — cobre 1F (porta pivotante) e 2F.
+  // Alias de leitura: a TABELA e' apenas consultada, nunca mutada em runtime.
+  TABELA[17] = TABELA[10];
+
   function gerarPecasChapa(item, lado) {
     if (!item || item.tipo !== 'porta_externa') return [];
     if (lado !== 'externo' && lado !== 'interno') {
