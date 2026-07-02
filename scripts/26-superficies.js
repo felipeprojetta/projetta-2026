@@ -305,6 +305,17 @@ const Superficies = (() => {
   ];
   for (var __h = 0; __h < SEED_HPL.length; __h++) SEED_SUPERFICIES.push(SEED_HPL[__h]);
 
+  // Felipe sessao 41: CHAPA DE ACO INOX 0,5mm — usada como revestimento de
+  // friso no MODELO 18 quando o friso for em aco inox. Cobranca por CHAPA
+  // inteira (R$1500); a QUANTIDADE e' inserida MANUALMENTE por Felipe no
+  // Aproveitamento de Chapas (sem regra automatica). Categoria propria
+  // 'aco_inox' (nova aba, ao lado de ACM/HPL/Vidro/Aluminio Macico).
+  // Peso ~4 kg/m2 (inox 0,5mm x ~8000 kg/m3). Cobranca 'chapa' = por chapa inteira.
+  const SEED_INOX = [
+    {"descricao":"CHAPA ACO INOX 0,5MM - 1200 x 3000","preco":1500,"categoria":"aco_inox","peso_kg_m2":4,"largura":1200,"altura":3000,"cobranca":"chapa"}
+  ];
+  for (var __i = 0; __i < SEED_INOX.length; __i++) SEED_SUPERFICIES.push(SEED_INOX[__i]);
+
   const state = {
     superficies: [],
     busca: '',
@@ -619,6 +630,34 @@ const Superficies = (() => {
       }
     }
 
+    // Felipe sessao 41: CHAPA DE ACO INOX — mesmo merge-por-descricao idempotente
+    // do HPL/Aluminio Maciço acima. Respeita tombstones, sem flag. Garante que a
+    // chapa de aco inox (revestimento de friso do modelo 18) apareca em clientes
+    // que ja tem a lista populada, sem mexer no banco manualmente.
+    {
+      const inoxSeed = SEED_SUPERFICIES.filter(s =>
+        /ACO\s+INOX/i.test(s.descricao || '')
+      ).map(normalize);
+      if (inoxSeed.length > 0) {
+        const normDesc = (s) => String(s || '').toUpperCase().replace(/\s+/g, ' ').trim();
+        const existentes = new Set(state.superficies.map(s => normDesc(s.descricao)));
+        let tombstones = new Set();
+        try {
+          const tombs = store.get('superficies_lista__deleted');
+          if (Array.isArray(tombs)) tombstones = new Set(tombs.map(t => normDesc(t)));
+        } catch(_){}
+        const faltantes = inoxSeed.filter(s => {
+          const d = normDesc(s.descricao);
+          return !existentes.has(d) && !tombstones.has(d);
+        });
+        if (faltantes.length > 0) {
+          state.superficies = state.superficies.concat(faltantes);
+          store.set('superficies_lista', state.superficies);
+          console.log('[Superficies] Aco Inox adicionada: ' + faltantes.length);
+        }
+      }
+    }
+
     // Felipe (sessao 30): MIGRACAO IDEMPOTENTE — adiciona prefixo "EZY COLOR"
     // em todas as chapas de aluminio macico ANTIGAS (sem WEG no nome), seguindo
     // o mesmo padrao das WEG. Roda 1x (flag ezy_color_v1_migrated_2026_05_14).
@@ -845,6 +884,7 @@ const Superficies = (() => {
     if (/chapa\s*alumin[ií]o|alumin[ií]o\s*maci[cç]o/i.test(d)) return 'aluminio_macico';
     if (/\bhpl\b/i.test(d)) return 'hpl';
     if (/vidro/i.test(d)) return 'vidro';
+    if (/inox/i.test(d)) return 'aco_inox';
     return 'acm';  // default — a maioria
   }
 
@@ -854,6 +894,7 @@ const Superficies = (() => {
     { id: 'hpl',              label: 'HPL' },
     { id: 'vidro',            label: 'Vidro' },
     { id: 'aluminio_macico',  label: 'Aluminio Macico' },
+    { id: 'aco_inox',         label: 'Aço Inox' },
   ];
 
   function setBtnSalvarEstado(isDirty) {
