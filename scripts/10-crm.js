@@ -1496,13 +1496,28 @@
       function atualizarTotalFrete() {
         const totalEl = container.querySelector('#crm-frete-total-valor');
         if (!totalEl) return;
-        const terr = Number(modalState.freteTerrestreUsd) || 0;
-        const mar  = Number(modalState.freteMaritimoUsd)  || 0;
+        // Felipe sessao 41: respeita o Incoterm. No FOB (e outros que nao
+        // cobrem frete maritimo/terrestre) o componente NAO entra no total —
+        // mesma regra que o motor (12-orcamento) ja aplica no orcamento.
+        const inc = window.Incoterms ? window.Incoterms.byCodigo(modalState.freteIncoterm) : null;
+        const usaTerr = inc ? !!inc.freteTerrestre : true;
+        const usaMar  = inc ? !!inc.freteMaritimo  : true;
+        const terr = usaTerr ? (Number(modalState.freteTerrestreUsd) || 0) : 0;
+        const mar  = usaMar  ? (Number(modalState.freteMaritimoUsd)  || 0) : 0;
         const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
         const usd = terr + mar;
+        const excl = [];
+        if (inc && !usaTerr) excl.push('terrestre');
+        if (inc && !usaMar)  excl.push('marítimo');
+        const nota = excl.length
+          ? ' <span style="font-weight:normal;font-size:11px;color:#888;">(' + escapeHtml(modalState.freteIncoterm || '') + ': ' + excl.join(' e ') + ' por conta do comprador)</span>'
+          : '';
         if (usd > 0) {
-          totalEl.textContent = 'USD ' + usd.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })
-            + (taxa > 0 ? ' (R$ ' + (usd * taxa).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ')' : '');
+          totalEl.innerHTML = 'USD ' + usd.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })
+            + (taxa > 0 ? ' (R$ ' + (usd * taxa).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ')' : '')
+            + nota;
+        } else if (nota) {
+          totalEl.innerHTML = 'USD 0,00' + nota;
         } else {
           totalEl.textContent = '—';
         }
@@ -1548,6 +1563,10 @@
         if (el) el.addEventListener('change', () => {
           atualizarAlertaContainer();
           if (!modalState.freteMaritimoManual) calcularFreteMaritimoAuto();
+          // Felipe sessao 41: recalcula o total respeitando o novo Incoterm
+          // (ex: FOB tira o maritimo). Cobre o caso de maritimo manual, em que
+          // calcularFreteMaritimoAuto nao roda.
+          atualizarTotalFrete();
         });
       });
 
