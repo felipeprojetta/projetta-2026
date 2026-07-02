@@ -244,6 +244,8 @@
       caixaAltura: '',      // mm
       caixaEspessura: '',   // mm
       caixaComprimento: '', // mm
+      // Felipe sessao 41: custo da caixa em USD manual (vazio = automatico m3 x 100)
+      caixaCustoUsdManual: '',
       // Felipe sessao 31: flag por campo. true = Felipe digitou manualmente
       // (destaca em amarelo). false/undefined = veio do calc automatico.
       caixaAlturaManual: false,
@@ -274,6 +276,7 @@
         destinoPais: '',
         caixaAltura: '', caixaEspessura: '', caixaComprimento: '',
         caixaAlturaManual: false, caixaEspessuraManual: false, caixaComprimentoManual: false,
+        caixaCustoUsdManual: '',
         freteIncoterm: 'FOB', freteModal: 'LCL', freteContainer: '40HC',
         freteRegiao: 'america_norte_eua',
         freteMaritimoUsd: '', freteTerrestreUsd: '',
@@ -313,6 +316,7 @@
         caixaAlturaManual:      !!lead.caixaAlturaManual,
         caixaEspessuraManual:   !!lead.caixaEspessuraManual,
         caixaComprimentoManual: !!lead.caixaComprimentoManual,
+        caixaCustoUsdManual:    lead.caixaCustoUsdManual || '',
         freteIncoterm:        lead.freteIncoterm        || 'FOB',
         freteModal:           lead.freteModal           || 'LCL',
         freteContainer:       lead.freteContainer       || '40HC',
@@ -846,6 +850,12 @@
                 <div id="crm-caixa-m3" style="margin-top:8px; font-size:13px; color:#666;">
                   Volume: <strong id="crm-caixa-m3-valor">—</strong> &nbsp; · &nbsp; Custo (USD 100/m³): <strong id="crm-caixa-custo-valor">—</strong>
                 </div>
+                <!-- Felipe sessao 41: override manual do custo da caixa em USD.
+                     Vazio = automatico (volume x 100). Preenchido = usa esse valor. -->
+                <div style="margin-top:8px;">
+                  <label style="font-size:11px; color:#8a6912; font-weight:600; display:block; margin-bottom:2px;">💵 Custo da caixa em USD (manual)</label>
+                  <input type="number" min="0" step="0.01" id="crm-caixa-custo-manual" data-field="caixaCustoUsdManual" value="${escapeHtml(m.caixaCustoUsdManual || '')}" placeholder="vazio = automatico (volume × 100)" style="width:100%; box-sizing:border-box;" />
+                </div>
               </div>
 
               <!-- Felipe sessao 31: bloco FRETE INTERNACIONAL.
@@ -1256,11 +1266,19 @@
           valorEl.textContent = m3.toFixed(3) + ' m³';
           valorEl.style.color = '#1f7a3a';
           if (custoEl) {
-            const usd = m3 * 100;
+            const usdAuto = m3 * 100;
+            const manual = Number(modalState.caixaCustoUsdManual) || 0;
+            const usd = manual > 0 ? manual : usdAuto;
             const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
             const brl = taxa > 0 ? usd * taxa : 0;
-            custoEl.textContent = 'USD ' + usd.toFixed(2)
-              + (taxa > 0 ? ' (R$ ' + brl.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ')' : '');
+            const brlTxt = taxa > 0 ? ' (R$ ' + brl.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ')' : '';
+            if (manual > 0) {
+              // Felipe sessao 41: override manual em destaque + auto pra comparar
+              custoEl.innerHTML = '<span style="color:#b45309;">MANUAL: USD ' + usd.toFixed(2) + brlTxt + '</span>'
+                + ' <span style="color:#999; font-weight:normal; font-size:11px;">· auto: USD ' + usdAuto.toFixed(2) + '</span>';
+            } else {
+              custoEl.textContent = 'USD ' + usd.toFixed(2) + brlTxt;
+            }
             custoEl.style.color = '#1f7a3a';
           }
         } else {
@@ -1282,6 +1300,14 @@
         });
       });
 
+      // Felipe sessao 41: input de custo USD manual da caixa. O data-field
+      // generico ja salva em modalState.caixaCustoUsdManual; aqui so' dispara
+      // o recalc do display pra mostrar MANUAL/auto na hora.
+      const inpCustoManual = container.querySelector('#crm-caixa-custo-manual');
+      if (inpCustoManual) {
+        inpCustoManual.addEventListener('input', () => { recalcCaixaVolume(); });
+      }
+
       // Botao "voltar ao automatico": zera as flags manuais e recalcula
       const btnResetCaixa = container.querySelector('#crm-caixa-reset');
       if (btnResetCaixa) {
@@ -1289,6 +1315,10 @@
           modalState.caixaAlturaManual = false;
           modalState.caixaEspessuraManual = false;
           modalState.caixaComprimentoManual = false;
+          // Felipe sessao 41: reset tambem limpa o custo USD manual da caixa
+          modalState.caixaCustoUsdManual = '';
+          const inpCM = container.querySelector('#crm-caixa-custo-manual');
+          if (inpCM) inpCM.value = '';
           aplicarAutoCaixa();
         });
       }
@@ -2085,6 +2115,8 @@
           lead.caixaAlturaManual      = m.destinoTipo === 'internacional' ? !!m.caixaAlturaManual      : false;
           lead.caixaEspessuraManual   = m.destinoTipo === 'internacional' ? !!m.caixaEspessuraManual   : false;
           lead.caixaComprimentoManual = m.destinoTipo === 'internacional' ? !!m.caixaComprimentoManual : false;
+          // Felipe sessao 41: custo USD manual da caixa (so' internacional; vazio = auto)
+          lead.caixaCustoUsdManual = m.destinoTipo === 'internacional' ? (String(m.caixaCustoUsdManual || '').trim()) : '';
           // Felipe sessao 31: frete internacional (so' internacional)
           if (m.destinoTipo === 'internacional') {
             lead.freteIncoterm        = String(m.freteIncoterm || 'FOB').toUpperCase();
@@ -2231,6 +2263,7 @@
             caixaAlturaManual:      m.destinoTipo === 'internacional' ? !!m.caixaAlturaManual      : false,
             caixaEspessuraManual:   m.destinoTipo === 'internacional' ? !!m.caixaEspessuraManual   : false,
             caixaComprimentoManual: m.destinoTipo === 'internacional' ? !!m.caixaComprimentoManual : false,
+            caixaCustoUsdManual:    m.destinoTipo === 'internacional' ? (String(m.caixaCustoUsdManual || '').trim()) : '',
             freteIncoterm:        m.destinoTipo === 'internacional' ? String(m.freteIncoterm || 'FOB').toUpperCase() : '',
             freteModal:           m.destinoTipo === 'internacional' ? String(m.freteModal || 'LCL').toUpperCase() : '',
             freteContainer:       m.destinoTipo === 'internacional' ? String(m.freteContainer || '40HC') : '',

@@ -10433,9 +10433,14 @@ const Orcamento = (() => {
             const m3 = (a * e * c) / 1e9;
             const _vEmbF = (typeof obterVersao === 'function' && typeof UI !== 'undefined') ? obterVersao(UI.versaoAtivaId) : null;
             const _lmaxF = Math.max(0, ...(((_vEmbF && _vEmbF.versao && _vEmbF.versao.itens) || [])).map(it => Number(it.largura) || 0));
-            const caixaUsd = (window.FreteTarifas && window.FreteTarifas.calcularEmbalagem)
-              ? window.FreteTarifas.calcularEmbalagem(m3, _lmaxF, taxaDRE).usd
-              : (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
+            // Felipe sessao 41: custo USD manual no lead SUBSTITUI o calculo
+            // automatico da embalagem (caixa/estrutura). Vazio = automatico.
+            const _caixaManualA = Number(leadFr.caixaCustoUsdManual) || 0;
+            const caixaUsd = _caixaManualA > 0
+              ? _caixaManualA
+              : ((window.FreteTarifas && window.FreteTarifas.calcularEmbalagem)
+                  ? window.FreteTarifas.calcularEmbalagem(m3, _lmaxF, taxaDRE).usd
+                  : (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100));
             const terrUsd  = Number(leadFr.freteTerrestreUsd) || 0;
             const marUsd   = Number(leadFr.freteMaritimoUsd)  || 0;
             const valorCargaUsd = r.pFatReal / taxaDRE;
@@ -10515,7 +10520,9 @@ const Orcamento = (() => {
           const _emb = (window.FreteTarifas && window.FreteTarifas.calcularEmbalagem)
             ? window.FreteTarifas.calcularEmbalagem(m3, _larguraMaxMm, taxa)
             : { tipo: 'caixa', usd: (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100) };
-          const caixaUsd = _emb.usd;
+          // Felipe sessao 41: custo USD manual da caixa sobrepoe o automatico.
+          const _caixaManualB = Number(lead.caixaCustoUsdManual) || 0;
+          const caixaUsd = _caixaManualB > 0 ? _caixaManualB : _emb.usd;
           const terrUsd  = Number(lead.freteTerrestreUsd) || 0;
           const marUsd   = Number(lead.freteMaritimoUsd)  || 0;
 
