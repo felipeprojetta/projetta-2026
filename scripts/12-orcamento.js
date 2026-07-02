@@ -16570,6 +16570,21 @@ const Orcamento = (() => {
       return bloco;
     }).join('');
 
+    // Felipe sessao 41: reflete no numero grande do resumo (totaisGerais) o
+    // MESMO acrescimo de chapas por modelo que ja' entra no custo — via helper
+    // addChapasModeloPorPorta (fonte unica). Assim o total exibido bate com o
+    // que e' cobrado (ex: modelo 17 mostra 5 -> 7).
+    try {
+      const _itensResumo = (((obterVersao(UI.versaoAtivaId) || {}).versao || {}).itens) || [];
+      let _chapasExtra = 0;
+      _itensResumo.forEach(it => {
+        if (!it || it.tipo !== 'porta_externa') return;
+        const q = Math.max(1, Number(it.quantidade) || 1);
+        _chapasExtra += addChapasModeloPorPorta(it) * q;
+      });
+      totaisGerais.numChapas += _chapasExtra;
+    } catch (e) { /* nao quebra o resumo */ }
+
     // Felipe (sessao 2026-05): TABELA detalhada de revestimento por cor.
     // Felipe pediu: "ali resumo quero preco unitatio de cada chapa x
     // quantidade por cor — entao se tem 3 cores tem 3 linhas com preco
@@ -16811,6 +16826,19 @@ const Orcamento = (() => {
    *   2. Resumo Total da aba Lev. Superficies (tabela 1 linha por cor)
    *   3. Sincronizacao quando o usuario abre Custo Fab/Inst
    */
+  // Felipe sessao 41: REGRA UNICA de chapas extras por modelo (cobranca fixa
+  // alem do nesting). Retorna quantas chapas UMA porta desse modelo adiciona
+  // (por unidade). Centraliza a regra pra o custo (computeRevestimentoPorCor)
+  // e a quantidade exibida no resumo usarem a MESMA fonte.
+  //   Modelo 17 = +2 chapas/porta.
+  //   Modelo 18 (Fase 2) = friso na cor da porta +3 · friso em aco inox +2.
+  function addChapasModeloPorPorta(item) {
+    const m = Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) || 0;
+    if (m === 17) return 2;
+    // if (m === 18) return String(item.frisoTipo) === 'inox' ? 2 : 3; // Fase 2
+    return 0;
+  }
+
   function computeRevestimentoPorCor(versao, pecasPorCor, todasSuperficies) {
     const linhas = [];
     let total = 0;
@@ -16991,6 +17019,49 @@ const Orcamento = (() => {
       });
     } catch (e) {
       console.error('[computeRevestimentoPorCor vidros] erro:', e);
+    }
+
+    // Felipe sessao 41: ACRESCIMO FIXO de chapas por MODELO, cobrado ALEM do
+    // que o aproveitamento (nesting) calcula. Regra: modelo 17 = +2 chapas por
+    // porta (× quantidade do item). Cada chapa extra e' cobrada pelo preco
+    // unitario da chapa da COR da porta; se essa cor nao tiver preco, usa a
+    // media das chapas do orcamento. NAO altera nesting/peso — e' so' cobranca.
+    // Em try/catch pra nunca derrubar o custo de revestimento.
+    // (Modelo 18 sera' somado aqui quando a pergunta de friso for implementada:
+    //  friso na cor da porta = +3, friso em aco inox = +2.)
+    try {
+      const itensAcr = (versao && versao.itens) || [];
+      const precoPorCor = {};
+      let somaPreco = 0, nPreco = 0;
+      linhas.forEach(l => {
+        const p = Number(l.precoUnit) || 0;
+        if (l.cor && p > 0 && precoPorCor[l.cor] == null) precoPorCor[l.cor] = p;
+        if (p > 0) { somaPreco += p; nPreco++; }
+      });
+      const precoMedio = nPreco > 0 ? somaPreco / nPreco : 0;
+      itensAcr.forEach(it => {
+        if (!it || it.tipo !== 'porta_externa') return;
+        const addPorPorta = addChapasModeloPorPorta(it);
+        if (addPorPorta <= 0) return;
+        const modelo = Number(it.modeloExterno || it.modeloInterno || it.modeloNumero) || 0;
+        const q = Math.max(1, Number(it.quantidade) || 1);
+        const nExtra = addPorPorta * q;
+        const cor = String(it.corExterna || it.corInterna || '').trim();
+        const pUnit = (cor && precoPorCor[cor] > 0) ? precoPorCor[cor] : precoMedio;
+        if (pUnit > 0) {
+          const subtotal = nExtra * pUnit;
+          linhas.push({
+            cor: cor || ('modelo ' + modelo),
+            descricao: 'Acrescimo modelo ' + modelo + ' (+' + addPorPorta + ' chapa' + (addPorPorta > 1 ? 's' : '') + '/porta)',
+            largura: 0, altura: 0,
+            precoUnit: pUnit, qtd: nExtra, subtotal: subtotal,
+            fonte: 'acrescimo_modelo',
+          });
+          total += subtotal;
+        }
+      });
+    } catch (e) {
+      console.error('[computeRevestimentoPorCor acrescimo modelo] erro:', e);
     }
 
     return { linhas, total };
