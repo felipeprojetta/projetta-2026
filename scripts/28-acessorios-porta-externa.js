@@ -1023,10 +1023,17 @@ const AcessoriosPortaExterna = (() => {
     const pesoTotalItem    = Number(opts.pesoFolhaTotal)  || 0;
     const pesoPerfisTotal  = Number(opts.pesoFolhaPerfis) || 0;
     const pesoChapasTotal  = Number(opts.pesoFolhaChapas) || 0;
-    // Peso por folha: divide pelo numero de folhas
-    const pesoFolha    = nFolhas > 0 ? pesoTotalItem   / nFolhas : pesoTotalItem;
-    const pesoPerfis   = nFolhas > 0 ? pesoPerfisTotal / nFolhas : pesoPerfisTotal;
-    const pesoChapas   = nFolhas > 0 ? pesoChapasTotal / nFolhas : pesoChapasTotal;
+    // Peso POR FOLHA: divide pelo numero de folhas E pela quantidade de portas.
+    // Felipe sessao 41: calcularPesoFolhaItem retorna o peso do ITEM INTEIRO — os
+    // cortes de perfis/chapas ja multiplicam por qtdPortas (ex: 8 portas) e por
+    // nFolhas. Cada pivo segura UMA folha de UMA porta, entao a decisao 350/600
+    // usa o peso de uma unica folha = total / (nFolhas × qtdPortas). Antes so'
+    // dividia por nFolhas -> com 8 portas o peso somava as 8 e escolhia 600kg.
+    // Com 1 porta (qtdPortas=1) o resultado e' identico ao anterior.
+    const _divFolha    = (nFolhas > 0 ? nFolhas : 1) * qtdPortas;
+    const pesoFolha    = pesoTotalItem   / _divFolha;
+    const pesoPerfis   = pesoPerfisTotal / _divFolha;
+    const pesoChapas   = pesoChapasTotal / _divFolha;
     // Decomposicao na observacao (so' se temos os componentes)
     const decomp = (pesoPerfis > 0 || pesoChapas > 0)
       ? `perfis ${pesoPerfis.toFixed(1)}kg + chapas ${pesoChapas.toFixed(1)}kg = ${pesoFolha.toFixed(1)}kg/folha`
