@@ -1902,13 +1902,16 @@ const AcessoriosPortaExterna = (() => {
       // comportamento legado (add multiplica). As 8 conversoes finais
       // (FD19/FD12/MS/HIGHTACK/HIGHTACK_fab/HIGHTACK_obra/FD19_obra
       // /FD12_obra/CPS) usam addAbsoluto.
-      const ehFixoAcoplado = item.tipo === 'fixo_acoplado';
+      // Felipe sessao 41: addAbsoluto emite a quantidade absoluta de
+      // fita/silicone (rolos/tubos), pois os metros ja incluem qtdPortas.
       function addAbsoluto(codigo, qtdAbs, categoria, aplicacao, observacao) {
-        if (!ehFixoAcoplado) {
-          // Item nao-fixo: comportamento legado (add multiplica por qtdPortas)
-          return add(codigo, qtdAbs, categoria, aplicacao, observacao);
-        }
-        // Fixo acoplado: qtdAbs ja' eh total absoluto, nao multiplica
+        // Felipe sessao 41 (BUG qtd>1): qtdAbs (rolos/tubos de fita/silicone) JA
+        // e' o total absoluto — vem de metros que ja incluem a quantidade de
+        // portas (chapas: qtd*qtdItem no 38-chapas; perfis: qty do corte). Isso
+        // vale pra fixo acoplado E porta externa. Antes so' o fixo bypassava; a
+        // porta externa caia no add() e a fita/silicone saiam × qtdPortas (ex.: 8
+        // portas davam ~120 rolos em vez de 18). Agora NUNCA multiplica.
+        // Com qtd=1 o resultado e' identico ao add (× 1) — sem regressao.
         if (!codigo) return;
         const acess = buscarAcessorio(cadastroAcessorios, codigo);
         if (!acess) {
