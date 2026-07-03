@@ -166,6 +166,21 @@
       store.set('view', state.view);
     }
 
+    // Felipe sessao 41: normaliza a observacao do card pra "sentence case" —
+    // 1a letra maiuscula + maiuscula apos ponto final (. ! ?). Se o texto veio
+    // predominantemente em CAIXA ALTA (colado), baixa pra minusculo antes de
+    // capitalizar; se o usuario digitou normal, preserva o case (nao estraga
+    // nomes proprios/siglas). Uso EXCLUSIVO do campo de observacao do card.
+    function _sentenceCaseObs(txt) {
+      if (!txt || typeof txt !== 'string') return txt || '';
+      const letras = txt.replace(/[^A-Za-zÀ-ÿ]/g, '');
+      const maiusc = txt.replace(/[^A-ZÀ-Ý]/g, '').length;
+      const ehCaps = letras.length >= 4 && (maiusc / letras.length) > 0.6;
+      let s = ehCaps ? txt.toLowerCase() : txt;
+      s = s.replace(/(^\s*|[.!?]+\s+)([a-zà-ÿ])/g, (m, sep, ch) => sep + ch.toUpperCase());
+      return s;
+    }
+
     // Felipe (sessao 31): AGP automatico.
     // Ultimo: AGP004645. Proximo: AGP004646, etc.
     // Escaneia todos os leads pra achar o maior numero e incrementar.
@@ -5026,8 +5041,11 @@ ${secoesHtml}
             const leadId = inp.dataset.leadId;
             const lead = state.leads.find(l => l.id === leadId);
             if (!lead) return;
-            if (lead.obsNegociacao === inp.value) return;
-            lead.obsNegociacao = inp.value;
+            // Felipe sessao 41: normaliza pra sentence case ao sair do campo.
+            const norm = _sentenceCaseObs(inp.value);
+            if (inp.value !== norm) inp.value = norm;
+            if (lead.obsNegociacao === norm) return;
+            lead.obsNegociacao = norm;
             save();
           };
           inp.addEventListener('change', salvarObs);
