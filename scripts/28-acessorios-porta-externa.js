@@ -1753,8 +1753,14 @@ const AcessoriosPortaExterna = (() => {
             const qtd = Number(p.qtd)     || 0;
             if (!lar || !alt || !qtd) return;
             const lblLow = String(p.label || '').toLowerCase().trim();
-            const compM  = (alt * qtd * qtdPortas) / 1000;            // comprimento (altura) em metros
-            const perimM = ((lar + alt) * 2 * qtd * qtdPortas) / 1000; // perimetro em metros
+            // Felipe sessao 41 (BUG FIX qtd>1): 'ele ja calcula pela quantidade
+            // de chapas, entao nao e' pra multiplicar por N unidades'. O qtd
+            // vindo de ChapasPortaExterna.gerarPecasChapa JA inclui item.quantidade
+            // (38-chapas linha 1981: qtd = qtyFace * qtdItem). Multiplicar por
+            // qtdPortas aqui dobrava a conta (metros × N). Removido o × qtdPortas.
+            // Com 1 porta (qtdPortas=1) o resultado e' identico ao anterior.
+            const compM  = (alt * qtd) / 1000;            // comprimento (altura) em metros
+            const perimM = ((lar + alt) * 2 * qtd) / 1000; // perimetro em metros
 
             if (lblLow === 'alisar altura')        return aplicarRegra('alisar_altura',  compM, `${p.label||'Alisar Altura'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
             if (lblLow === 'alisar largura')       return aplicarRegra('alisar_largura', compM, `${p.label||'Alisar Largura'} ${alt}mm × ${qtd}un (${compM.toFixed(2)}m)`);
@@ -1765,7 +1771,7 @@ const AcessoriosPortaExterna = (() => {
             if (lblLow === 'fita acabamento largura') {
               // Felipe (sessao 09): comprimento = largura da porta + 100mm
               // Antes usava alt (altura da peça = H portal) — ERRADO.
-              const compLarg = ((L + 100) * qtd * qtdPortas) / 1000;
+              const compLarg = ((L + 100) * qtd) / 1000;
               return aplicarRegra('fita_acab_largura', compLarg, `${p.label} (L+100)=${L + 100}mm × ${qtd}un (${compLarg.toFixed(2)}m)`);
             }
             // Cava: motor de chapas ja' gera qtd dobrada quando 2F ou cava dupla,
@@ -1787,7 +1793,7 @@ const AcessoriosPortaExterna = (() => {
             // quando as molduras estiverem nas chapas de acm'.
             //
             // 1×FD19 + 1×FD12 no comprimento total da moldura
-            // (compM = alt × qtd × qtdPortas / 1000).
+            // (compM = alt × qtd / 1000 — qtd ja inclui a quantidade de portas).
             // Cobre todas as variantes:
             //   'Moldura Horizontal 1/2/3'
             //   'Moldura Vertical 1/2'
