@@ -377,6 +377,15 @@
   opacity: 1 !important;
   cursor: pointer;
 }
+/* Felipe sessao 41: Gerar Documentos (PDF proposta + PNGs) liberado mesmo
+   com o orcamento ENVIADO/imutavel — e' reimpressao/leitura pura, o handler
+   so' chama OrcDocs.gerarDocumentos e NAO altera o orcamento. Todo o resto
+   (Re-aprovar, Ajustar Margem, Resetar, inputs) continua travado. */
+.is-orc-readonly #orc-btn-gerar-documentos {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
 /* Banner explicativo aparece em TODAS as abas quando versao imutavel */
 .is-orc-readonly::before {
   content: "📜 Modo Memorial — versao APROVADA/FECHADA, somente leitura. Use '+ Nova Versao' pra editar. Relatorios e exportacao ficam liberados.";
