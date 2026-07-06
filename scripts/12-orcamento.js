@@ -14717,10 +14717,20 @@ const Orcamento = (() => {
     const areaM2 = (lar / 1000) * (alt / 1000);
 
     // Felipe (do doc): banners de alertas — alisar, fechadura, cilindro
-    const temAlisar = (item.tem_alisar || 'Sim') === 'Sim';
-    const bannerAlisar = temAlisar
-      ? `<div class="rel-prop-banner-alisar is-sim">${tr('ALISAR','Architrave')}: <b>${tr('SIM — COM ALISAR','YES — WITH ARCHITRAVE')}</b> (${tr('largura','width')} ${item.largura_alisar || 100}mm · ${tr('parede','wall')} ${item.espessura_parede || 250}mm)</div>`
-      : `<div class="rel-prop-banner-alisar is-nao">${tr('ALISAR','Architrave')}: <b>${tr('NAO — SEM ALISAR','NO — WITHOUT ARCHITRAVE')}</b></div>`;
+    // Felipe sessao 42 (BUG FIX): a proposta usava tem_alisar==='Sim' (binario),
+    // entao 'Externo' e 'Interno' (que TEM alisar de 1 lado) saiam como
+    // "SEM ALISAR". O calculo das chapas (38-chapas: temAlisarExt/Int) ja
+    // distingue os 4 valores; aqui era so' a exibicao. Agora o banner mostra a
+    // opcao escolhida no campo, consistente com o calculo.
+    const _alisarVal = item.tem_alisar || 'Sim';
+    const _alisarLbl = {
+      'Sim':     tr('Externo + Interno (dois lados)', 'External + Internal (both sides)'),
+      'Externo': tr('Somente Externo (um lado)',      'External only (one side)'),
+      'Interno': tr('Somente Interno (um lado)',      'Internal only (one side)')
+    }[_alisarVal] || tr('Externo + Interno (dois lados)', 'External + Internal (both sides)');
+    const bannerAlisar = (_alisarVal !== 'Nao')
+      ? `<div class="rel-prop-banner-alisar is-sim">${tr('ALISAR','Architrave')}: <b>${_alisarLbl}</b> (${tr('largura','width')} ${item.largura_alisar || 100}mm · ${tr('parede','wall')} ${item.espessura_parede || 250}mm)</div>`
+      : `<div class="rel-prop-banner-alisar is-nao">${tr('ALISAR','Architrave')}: <b>${tr('SEM ALISAR','WITHOUT ARCHITRAVE')}</b></div>`;
 
     const temFechDigital = item.fechaduraDigital && item.fechaduraDigital !== 'Nao se aplica' && item.fechaduraDigital !== '';
     const bannerFechDigital = temFechDigital
@@ -15005,10 +15015,17 @@ const Orcamento = (() => {
       : '—';
 
     // Alisar — banner (igual porta externa)
-    const temAlisar = (item.tem_alisar || 'Sim') === 'Sim';
-    const bannerAlisar = temAlisar
-      ? `<div class="rel-prop-banner-alisar is-sim">${tr('ALISAR','Architrave')}: <b>${tr('SIM — COM ALISAR','YES — WITH ARCHITRAVE')}</b></div>`
-      : `<div class="rel-prop-banner-alisar is-nao">${tr('ALISAR','Architrave')}: <b>${tr('NAO — SEM ALISAR','NO — WITHOUT ARCHITRAVE')}</b></div>`;
+    // Felipe sessao 42 (BUG FIX): mostra a opcao escolhida (Externo/Interno/
+    // dois lados), nao mais so' SIM/NAO. Ver bloco da porta externa acima.
+    const _alisarVal2 = item.tem_alisar || 'Sim';
+    const _alisarLbl2 = {
+      'Sim':     tr('Externo + Interno (dois lados)', 'External + Internal (both sides)'),
+      'Externo': tr('Somente Externo (um lado)',      'External only (one side)'),
+      'Interno': tr('Somente Interno (um lado)',      'Internal only (one side)')
+    }[_alisarVal2] || tr('Externo + Interno (dois lados)', 'External + Internal (both sides)');
+    const bannerAlisar = (_alisarVal2 !== 'Nao')
+      ? `<div class="rel-prop-banner-alisar is-sim">${tr('ALISAR','Architrave')}: <b>${_alisarLbl2}</b></div>`
+      : `<div class="rel-prop-banner-alisar is-nao">${tr('ALISAR','Architrave')}: <b>${tr('SEM ALISAR','WITHOUT ARCHITRAVE')}</b></div>`;
 
     // Fechadura — modo conjunto (kit Hafele) ou personalizado
     const modoFech = item.fechaduraModo || 'conjunto';
