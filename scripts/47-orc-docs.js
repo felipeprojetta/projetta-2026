@@ -793,6 +793,62 @@
   }
 
   // -------------------------------------------------------------------
+  // Felipe sessao 42 (FEATURE): gera os 2 documentos comerciais (Proposta
+  // Comercial PDF + Painel Comercial PNG) e retorna como ANEXOS base64 pro
+  // e-mail, SEM baixar. Reaproveita a MESMA API do Orcamento que
+  // gerarDocumentos usa. NAO altera gerarDocumentos (que segue gerando e
+  // baixando os 11 arquivos). Em caso de erro retorna o que conseguiu (ou
+  // []), pra o modal de e-mail abrir mesmo assim (sem travar o envio).
+  // -------------------------------------------------------------------
+  function _blobParaAnexo(blob, nome, contentType) {
+    return new Promise(function (resolve, reject) {
+      try {
+        var reader = new FileReader();
+        reader.onloadend = function () {
+          // result = "data:tipo;base64,XXXX" -> remove o prefixo
+          var b64 = String(reader.result || '').split(',')[1] || '';
+          resolve({ name: nome, contentType: contentType, contentBytes: b64, tamanho: blob.size || 0 });
+        };
+        reader.onerror = function () { reject(reader.error || new Error('FileReader falhou')); };
+        reader.readAsDataURL(blob);
+      } catch (e) { reject(e); }
+    });
+  }
+
+  async function gerarAnexosParaEmail(leadId) {
+    var anexos = [];
+    var lead = obterLead(leadId);
+    if (!lead) { console.warn('[OrcDocs] gerarAnexosParaEmail: lead nao encontrado'); return anexos; }
+    var versaoResumo = obterVersaoMaisRelevante(leadId);
+    if (!versaoResumo) { console.warn('[OrcDocs] gerarAnexosParaEmail: lead sem versao salva'); return anexos; }
+    var versaoId = versaoResumo.id;
+    if (!window.Orcamento ||
+        typeof window.Orcamento.gerarRelatorioPNGBlob !== 'function' ||
+        typeof window.Orcamento.gerarPropostaComercialPDFBlob !== 'function') {
+      console.warn('[OrcDocs] gerarAnexosParaEmail: API do Orcamento incompleta');
+      return anexos;
+    }
+    // 1) Proposta Comercial (PDF) — documento principal
+    try {
+      var blobPdf = await window.Orcamento.gerarPropostaComercialPDFBlob(versaoId);
+      if (blobPdf) {
+        var nomePdf = formatNomeArquivo(lead, 'Proposta Comercial', versaoResumo.numero) + '.pdf';
+        anexos.push(await _blobParaAnexo(blobPdf, nomePdf, 'application/pdf'));
+      }
+    } catch (e) { console.error('[OrcDocs] anexo Proposta Comercial falhou:', e); }
+    // 2) Painel Comercial (PNG)
+    try {
+      var blobPng = await window.Orcamento.gerarRelatorioPNGBlob(versaoId, 'comercial');
+      if (blobPng) {
+        var nomePng = formatNomeArquivo(lead, 'Painel Comercial', versaoResumo.numero) + '.png';
+        anexos.push(await _blobParaAnexo(blobPng, nomePng, 'image/png'));
+      }
+    } catch (e) { console.error('[OrcDocs] anexo Painel Comercial falhou:', e); }
+    console.log('[OrcDocs] gerarAnexosParaEmail: ' + anexos.length + ' anexo(s) gerado(s)');
+    return anexos;
+  }
+
+  // -------------------------------------------------------------------
   // Public API
   // -------------------------------------------------------------------
   window.OrcDocs = {
@@ -804,6 +860,7 @@
     revisarVersaoComConfirma,
     criarNovaVersao,
     gerarDocumentos,
+    gerarAnexosParaEmail,
     carregarVersaoNaAbaOrcamento,
     toast,
   };

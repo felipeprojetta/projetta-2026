@@ -208,6 +208,10 @@
       var subject     = opts.subject || (msgId ? 'Responder email' : 'Novo email');
       var bodyHtml    = opts.bodyHtml || '';
       var attachments = (opts.attachments || []).slice();  // copia
+      // Felipe sessao 42: provider opcional que GERA anexos ao abrir o modal
+      // (ex.: Proposta PDF + Painel PNG via OrcDocs.gerarAnexosParaEmail).
+      // Se ausente, o modal se comporta exatamente como antes (retrocompativel).
+      var attachmentsProvider = (typeof opts.attachmentsProvider === 'function') ? opts.attachmentsProvider : null;
       var onSent      = opts.onSent   || function() {};
       var onCancel    = opts.onCancel || function() {};
       // Felipe sessao 12: 'sempre vamos responder em cima do ultimo correto
@@ -458,6 +462,26 @@
       }
       renderizarAnexos();
 
+      // Felipe sessao 42: se veio um attachmentsProvider, gera os anexos
+      // automaticos (assincrono) ao abrir. Mostra "gerando..." enquanto isso e
+      // re-renderiza quando chegam. Falha e' silenciosa (log + segue sem os
+      // anexos automaticos; o usuario ainda pode anexar manualmente).
+      if (attachmentsProvider) {
+        var _phGerando = document.createElement('div');
+        _phGerando.style.cssText = 'font-size:11px;color:#0078d4;font-style:italic;margin-bottom:6px;';
+        _phGerando.textContent = '⏳ Gerando anexos (Proposta + Painel)...';
+        anexosLista.insertBefore(_phGerando, anexosLista.firstChild);
+        Promise.resolve()
+          .then(function () { return attachmentsProvider(); })
+          .then(function (atts) {
+            (atts || []).forEach(function (a) { if (a && a.contentBytes) attachments.push(a); });
+            renderizarAnexos();
+          })
+          .catch(function (e) {
+            console.error('[email-composer] attachmentsProvider falhou:', e);
+            renderizarAnexos();  // remove o placeholder; segue sem anexos automaticos
+          });
+      }
       // ---- Anexar arquivo ----
       anexarInput.addEventListener('change', async function() {
         var files = Array.from(anexarInput.files || []);

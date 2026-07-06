@@ -4864,6 +4864,9 @@ ${secoesHtml}
                       subject: subjectCliente,
                       bodyHtml: bodyClienteHtml,
                       attachments: [],
+                      // Felipe sessao 42: anexa automaticamente Proposta Comercial (PDF)
+                      // + Painel Comercial (PNG) ao abrir o modal (sem baixar).
+                      attachmentsProvider: function () { return window.OrcDocs.gerarAnexosParaEmail(lead.id); },
                       onSent: function() {
                         btnEmail.textContent = '✅ Enviado!';
                         btnEmail.style.background = '#2e7d32';
@@ -4974,6 +4977,9 @@ ${secoesHtml}
                       subject: subjectRep,
                       bodyHtml: bodyRep,
                       attachments: [],
+                      // Felipe sessao 42: anexa automaticamente Proposta Comercial (PDF)
+                      // + Painel Comercial (PNG) ao abrir o modal (sem baixar).
+                      attachmentsProvider: function () { return window.OrcDocs.gerarAnexosParaEmail(lead.id); },
                       toEmails: toFinal,                 // Felipe sessao 12
                       ccEmails: ccFinal,                 // Felipe sessao 12
                       onSent: function() {
