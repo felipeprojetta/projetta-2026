@@ -613,7 +613,18 @@ const PerfisPortaExterna = (() => {
     const _ehRipado = function (m) { return m === 8 || m === 15; };
     const _facesRipadas = (_ehRipado(_modExt) ? 1 : 0) + (_ehRipado(_modInt) ? 1 : 0);
     if (_facesRipadas > 0) {
-      const espacRipas = parseFloat(String(item.espacRipas || 30).replace(',', '.')) || 30;
+      // Felipe sessao 42 (BUG FIX modelos 8/15): o formulario do item salva o
+      // espacamento no campo 'espacamentoRipas' (12-orcamento.js:
+      // data-field="espacamentoRipas"), mas aqui lia-se 'espacRipas' (nome
+      // diferente, nunca preenchido) -> caia sempre no default 30 e o
+      // denominador ficava fixo em 90 (60+30), ignorando o valor digitado.
+      // Agora le espacamentoRipas (com fallback ao nome antigo por seguranca).
+      // Com espacamento 30 (default) o resultado e' identico ao anterior
+      // (denom 90) -> sem regressao pra quem usa o padrao.
+      const espacRipas = parseFloat(String(
+        item.espacamentoRipas != null ? item.espacamentoRipas
+        : (item.espacRipas != null ? item.espacRipas : 30)
+      ).replace(',', '.')) || 30;
       const tipoRipado = item.tipoRipado || 'total';
       const denom = 60 + espacRipas;
       // largura base = QUADRO (consistente com 38-chapas-porta-externa.js)
