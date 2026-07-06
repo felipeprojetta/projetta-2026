@@ -828,22 +828,33 @@
       console.warn('[OrcDocs] gerarAnexosParaEmail: API do Orcamento incompleta');
       return anexos;
     }
-    // 1) Proposta Comercial (PDF) — documento principal
+    // ORDEM IMPORTA (Felipe sessao 42 - fix): gerar o PNG ANTES do PDF, igual
+    // o gerarDocumentos faz. O PNG (gerarRelatorioPNGBlob) "aquece" o estado da
+    // versao, as libs (html2canvas) e o render; sem isso o PDF gerado a frio
+    // (renderPropostaTab) as vezes nao acha as .rel-prop-pagina e falha. Por
+    // isso antes so' vinha o PNG. Agora: PNG -> respiro -> PDF.
+    // 1) Painel Comercial (PNG)
     try {
-      var blobPdf = await window.Orcamento.gerarPropostaComercialPDFBlob(versaoId);
-      if (blobPdf) {
-        var nomePdf = formatNomeArquivo(lead, 'Proposta Comercial', versaoResumo.numero) + '.pdf';
-        anexos.push(await _blobParaAnexo(blobPdf, nomePdf, 'application/pdf'));
-      }
-    } catch (e) { console.error('[OrcDocs] anexo Proposta Comercial falhou:', e); }
-    // 2) Painel Comercial (PNG)
-    try {
+      console.log('[OrcDocs] anexo: gerando Painel Comercial (PNG)...');
       var blobPng = await window.Orcamento.gerarRelatorioPNGBlob(versaoId, 'comercial');
       if (blobPng) {
         var nomePng = formatNomeArquivo(lead, 'Painel Comercial', versaoResumo.numero) + '.png';
         anexos.push(await _blobParaAnexo(blobPng, nomePng, 'image/png'));
-      }
+        console.log('[OrcDocs] anexo Painel Comercial OK (' + blobPng.size + ' bytes)');
+      } else { console.warn('[OrcDocs] Painel Comercial: blob vazio'); }
     } catch (e) { console.error('[OrcDocs] anexo Painel Comercial falhou:', e); }
+    // respiro entre as duas geracoes (mesma pratica do gerarDocumentos)
+    await new Promise(function (r) { setTimeout(r, 400); });
+    // 2) Proposta Comercial (PDF) — documento principal
+    try {
+      console.log('[OrcDocs] anexo: gerando Proposta Comercial (PDF)...');
+      var blobPdf = await window.Orcamento.gerarPropostaComercialPDFBlob(versaoId);
+      if (blobPdf) {
+        var nomePdf = formatNomeArquivo(lead, 'Proposta Comercial', versaoResumo.numero) + '.pdf';
+        anexos.push(await _blobParaAnexo(blobPdf, nomePdf, 'application/pdf'));
+        console.log('[OrcDocs] anexo Proposta Comercial OK (' + blobPdf.size + ' bytes)');
+      } else { console.warn('[OrcDocs] Proposta Comercial: blob vazio'); }
+    } catch (e) { console.error('[OrcDocs] anexo Proposta Comercial falhou:', e); }
     console.log('[OrcDocs] gerarAnexosParaEmail: ' + anexos.length + ' anexo(s) gerado(s)');
     return anexos;
   }

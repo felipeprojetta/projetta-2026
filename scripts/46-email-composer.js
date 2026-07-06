@@ -452,7 +452,25 @@
             + '<span style="font-size:14px">📄</span>'
             + '<span class="ec-anexo-nome">' + escapeHtml(att.name) + '</span>'
             + '<span class="ec-anexo-tam">' + fmtTamanho(att.tamanho || 0) + '</span>'
+            + '<button class="ec-anexo-abrir" type="button" title="Abrir para conferir" style="background:none;border:none;color:#0078d4;cursor:pointer;font-size:13px;padding:0 6px;">👁</button>'
             + '<button class="ec-anexo-rm" type="button" title="Remover">×</button>';
+          // Felipe sessao 42: abrir o anexo em nova aba pra conferir ANTES de enviar
+          var _btnAbrir = item.querySelector('.ec-anexo-abrir');
+          if (_btnAbrir) _btnAbrir.addEventListener('click', function() {
+            try {
+              if (!att.contentBytes) { alert('Anexo ainda sem conteudo (aguarde gerar).'); return; }
+              var bin = atob(att.contentBytes);
+              var buf = new Uint8Array(bin.length);
+              for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+              var blob = new Blob([buf], { type: att.contentType || 'application/octet-stream' });
+              var url = URL.createObjectURL(blob);
+              window.open(url, '_blank');
+              setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+            } catch (e) {
+              console.error('[email-composer] abrir anexo falhou:', e);
+              alert('Nao foi possivel abrir o anexo.');
+            }
+          });
           item.querySelector('.ec-anexo-rm').addEventListener('click', function() {
             attachments.splice(idx, 1);
             renderizarAnexos();
