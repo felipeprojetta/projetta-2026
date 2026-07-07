@@ -529,6 +529,17 @@ const ChapasPortaExterna = (() => {
   }
 
   // ------------------------------------------------------------------
+  // Felipe: dimensoes do VIDRO CENTRAL (Modelo 26) — fonte unica no motor
+  // de perfis (31). largura = travessa horizontal, altura = travessa
+  // vertical. Fallback {0,0} se o modulo nao estiver carregado (peca some).
+  // ------------------------------------------------------------------
+  function _dimVidroCentral(ctx) {
+    var pe = window.PerfisPortaExterna;
+    if (!pe || typeof pe.dimensoesVidroCentral !== 'function') return { largura: 0, altura: 0 };
+    return pe.dimensoesVidroCentral(ctx.item || {}) || { largura: 0, altura: 0 };
+  }
+
+  // ------------------------------------------------------------------
   // TABELA DE PEÇAS POR MODELO
   // ------------------------------------------------------------------
   const TABELA = {
@@ -1758,26 +1769,26 @@ const ChapasPortaExterna = (() => {
     // com peca central de categoria 'porta' + materialEspecial='VIDRO'.
     // ===================================================================
     26: {
+      // Felipe: Modelo 26 (Puxador Externo + Vidro Central) = copia do Mod 10
+      // POREM sem as tampas maiores (removidas: 1F = 2 unidades / 2F = 3
+      // medidas = 4 unidades) e com o VIDRO CENTRAL no lugar.
+      //   largura do vidro = comprimento da Travessa Horizontal
+      //   altura  do vidro = comprimento da Travessa Vertical  (dims vindas
+      //   do motor de perfis via _dimVidroCentral — fonte unica)
+      //   1 vidro (1 folha) / 2 vidros (2 folhas)
+      // Cor/tipo do vidro = item.tipoVidroCentral (resolvido em materializar).
+      // PECAS ACM ao redor do vidro: Felipe envia depois (entram aqui).
       '1F': [
-        // STUB: igual mod 10 ate' Felipe mandar a planilha.
-        { id: 'tampa_maior_cava', label: 'Tampa Maior do Puxador Embutido',
-          largura: F.tampa_maior_1f_largura_lisa, comp: ctx => ctx.alturaQuadro,
-          ext: 1, int: 1, categoria: 'porta' },
+        { id: 'vidro_central', label: 'Vidro Central',
+          largura: ctx => _dimVidroCentral(ctx).largura,
+          comp:    ctx => _dimVidroCentral(ctx).altura,
+          ext: 1, int: 0, categoria: 'vidro', ehVidroCentral: true },
       ],
       '2F': [
-        // STUB: igual mod 10 ate' Felipe mandar a planilha.
-        { id: 'tampa_maior_01', label: 'Tampa Maior 01',
-          largura: ctx => (ctx.larguraQuadro2F)/2 + 10.5 + 2*ctx.REF - 1,
-          comp: ctx => ctx.alturaQuadro,
-          ext: 1, int: 0, categoria: 'porta' },
-        { id: 'tampa_maior_02', label: 'Tampa Maior 02',
-          largura: ctx => (ctx.larguraQuadro2F - 1)/2 + 2*ctx.REF - 27 - 1,
-          comp: ctx => ctx.alturaQuadro,
-          ext: 1, int: 1, categoria: 'porta' },
-        { id: 'tampa_maior_03', label: 'Tampa Maior 03',
-          largura: ctx => (ctx.larguraQuadro2F - 1)/2 + 2*ctx.REF - 28 - 1,
-          comp: ctx => ctx.alturaQuadro,
-          ext: 0, int: 1, categoria: 'porta' },
+        { id: 'vidro_central', label: 'Vidro Central',
+          largura: ctx => _dimVidroCentral(ctx).largura,
+          comp:    ctx => _dimVidroCentral(ctx).altura,
+          ext: 2, int: 0, categoria: 'vidro', ehVidroCentral: true },
       ],
     },
   };
@@ -1890,6 +1901,12 @@ const ChapasPortaExterna = (() => {
 
       let corResolvida = (def.ehDaCava && ctx.corCava) ? ctx.corCava : corDoLado;
       let categoria = def.categoria || 'porta';
+      // Felipe: VIDRO CENTRAL (Mod 26) usa o tipo/cor escolhido no campo
+      // tipoVidroCentral (cadastro Superficies > Vidros), nao a cor das
+      // faces ACM. Guarda por categoria='vidro' -> nao afeta outros modelos.
+      if (def.ehVidroCentral || categoria === 'vidro') {
+        corResolvida = String((ctx.item && ctx.item.tipoVidroCentral) || '').trim() || corResolvida;
+      }
       // Felipe sessao 13: PRESERVA categoria original (porta/portal/etc).
       // Antes, pecas AM viravam categoria='aluminio_macico' — Felipe pediu
       // pra manter porta/portal e usar a flag materialEspecial pra rastrear.
