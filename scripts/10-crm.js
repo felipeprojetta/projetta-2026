@@ -1167,18 +1167,27 @@
       // do card com o mouse.
       container.querySelector('#crm-modal-close')?.addEventListener('click', () => fecharModal(container));
       container.querySelector('#crm-btn-cancel')?.addEventListener('click', () => fecharModal(container));
-      // Felipe: DUPLICAR lead. Copia os dados do CARD (cliente, contato,
-      // endereco, representante, destino, valor, etapa, observacoes) — que
-      // ja' estao no modalState — e vira "Criar Lead". NAO copia os itens do
-      // orcamento (itens_extras zerado). Reserva pode ser a mesma (mantida);
-      // AGP fica em branco pra Felipe preencher o novo. Nenhuma escrita aqui:
-      // o lead so' e' criado quando ele clicar "Criar Lead".
+      // Felipe: DUPLICAR lead. Copia SO' os dados do cliente/comerciais do
+      // card (cliente, contato, endereco, representante, destino, obs) e o
+      // numero da RESERVA (pode ser a mesma). Todo o RESTO fica VAZIO: AGP em
+      // branco (Felipe preenche), valor zerado, porta principal e itens do
+      // orcamento limpos, etapa volta pro inicio. Vira "Criar Lead" -> ao
+      // salvar cria lead NOVO, sem tocar no original. Nenhuma escrita aqui.
       container.querySelector('#crm-btn-duplicar')?.addEventListener('click', () => {
         modalState.editandoId = null;   // vira modo "Criar Lead" (novo id no save)
-        modalState.numeroAGP = '';      // Felipe preenche o AGP novo (diferente)
-        modalState.itens_extras = [];   // NAO copia itens do orcamento
         modalState.modo = 'manual';     // edicao manual, sem busca por reserva
+        modalState.numeroAGP = '';      // Felipe preenche o AGP novo (diferente)
         // numeroReserva MANTIDA de proposito (pode ser a mesma).
+        // --- resto VAZIO (novo orcamento do zero) ---
+        modalState.valor = '';                    // valor zerado
+        modalState.etapa = 'fazer-orcamento';     // volta pro inicio do funil
+        modalState.itens_extras = [];             // sem itens do orcamento
+        modalState.porta_largura = '';            // porta principal (Item 1) limpa
+        modalState.porta_altura = '';
+        modalState.porta_modelo = '';
+        modalState.porta_cor = '';
+        modalState.porta_fechadura_digital = '';
+        modalState.porta_quantidade = 1;
         reRenderModal(container);
         const campoAgp = container.querySelector('[data-field="numeroAGP"]');
         if (campoAgp) { campoAgp.focus(); campoAgp.scrollIntoView({ block: 'center' }); }
