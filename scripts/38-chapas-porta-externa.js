@@ -540,11 +540,13 @@ const ChapasPortaExterna = (() => {
     }
     return pe.dimensoesBaseMod26(ctx.item || {}) || { paf: 0, travHorizontal: 0, travVertical: 0 };
   }
-  // Moldura em volta da porta: 'padrao' usa as medidas fixas; 'medida' usa
-  // o valor digitado (molduraMedidaMod26). Retorna o M (>0) ou null (padrao).
+  // Moldura em volta da porta: 'Padrão' usa as medidas fixas; 'Medida' usa
+  // o valor digitado (molduraMedidaMod26). Aceita o valor do select ('Medida')
+  // ou interno ('medida'). Retorna o M (>0) ou null (padrao).
   function _molduraMedidaMod26(ctx) {
     var it = ctx.item || {};
-    if (String(it.molduraMod26 || 'padrao') !== 'medida') return null;
+    var modo = String(it.molduraMod26 || '').toLowerCase();
+    if (modo.indexOf('medida') === -1) return null;
     var m = parseFloat(String(it.molduraMedidaMod26 || '').replace(',', '.'));
     return (Number.isFinite(m) && m > 0) ? m : null;
   }

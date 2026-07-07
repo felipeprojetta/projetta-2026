@@ -4215,6 +4215,11 @@ const Orcamento = (() => {
       // externa.js quando a planilha do mod 26 for cadastrada).
       tipoVidroCentral: '',
       bordaVidroCentral: '',
+      // Felipe: Moldura de ACM em volta da porta (Mod 26). 'Padrão' usa
+      // medidas fixas; 'Medida' usa molduraMedidaMod26 (mm) pra recalcular as
+      // larguras das pecas de moldura (ver 38-chapas-porta-externa.js).
+      molduraMod26: 'Padrão',
+      molduraMedidaMod26: '',
       // Felipe sessao 14: folgas vem POPULADAS do cadastro Regras >
       // Variaveis (FGLD/FGLE/FGA). Usuario pode editar caso queira
       // override por item.
@@ -4288,6 +4293,10 @@ const Orcamento = (() => {
     tipoVidroCentral:           { label: 'Tipo de vidro central', tipo: 'select',
                                   opcoes: ['', '__VIDROS_CADASTRO__'] },
     bordaVidroCentral:          { label: 'Espessura da borda do vidro (mm)', tipo: 'number', min: 0, step: 1 },
+    // Felipe: Moldura de ACM em volta da porta (Mod 26). 'Padrão' = medidas
+    // fixas; 'Medida' = usuario digita e as pecas de moldura sao recalculadas.
+    molduraMod26:               { label: 'Moldura em volta da porta', tipo: 'select', opcoes: ['Padrão', 'Medida'] },
+    molduraMedidaMod26:         { label: 'Medida da moldura (mm) — se "Medida"', tipo: 'number', min: 0, step: 1 },
   };
 
   // Mapeamento modelo → array de campos. As chaves sao numeros do modelo
@@ -4337,7 +4346,7 @@ const Orcamento = (() => {
     // a definir quando Felipe mandar a planilha — por enquanto cai no
     // fallback de mod 10 (peca lisa). UI pergunta tipo de vidro (do cadastro
     // Superficies>Vidros) e espessura da borda.
-    26: ['tipoVidroCentral', 'bordaVidroCentral'],
+    26: ['tipoVidroCentral', 'bordaVidroCentral', 'molduraMod26', 'molduraMedidaMod26'],
   };
 
   /**
