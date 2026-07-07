@@ -718,6 +718,12 @@
       const botaoRepuxar = (editando && m.numeroReserva)
         ? `<button class="crm-btn-cancel" id="crm-btn-repuxar" title="Re-puxar dados desta reserva do Weiku/Outlook" style="color:#c2410c;border-color:#fed7aa;">🔄 Re-puxar Weiku</button>`
         : '';
+      // Felipe: botao Duplicar — copia TODOS os dados do lead (inclusive itens)
+      // e abre em modo "Criar Lead" com o AGP em branco pra preencher. Mesmo
+      // cliente, AGP diferente. So' aparece em edicao.
+      const botaoDuplicar = editando
+        ? `<button class="crm-btn-cancel" id="crm-btn-duplicar" title="Duplicar: copia todos os dados e voce preenche um novo AGP" style="color:#0e7490;border-color:#a5d8e6;">📋 Duplicar</button>`
+        : '';
       return `
         <div class="crm-modal-overlay" id="crm-modal-overlay">
           <div class="crm-modal" role="dialog" aria-modal="true">
@@ -1112,6 +1118,7 @@
             <div class="crm-modal-footer">
               ${botaoExcluir}
               ${botaoRepuxar}
+              ${botaoDuplicar}
               <div style="flex:1;"></div>
               <button class="crm-btn-cancel" id="crm-btn-cancel">Cancelar</button>
               <button class="crm-btn-primary" id="crm-btn-create">${labelBotao}</button>
@@ -1160,6 +1167,22 @@
       // do card com o mouse.
       container.querySelector('#crm-modal-close')?.addEventListener('click', () => fecharModal(container));
       container.querySelector('#crm-btn-cancel')?.addEventListener('click', () => fecharModal(container));
+      // Felipe: DUPLICAR lead. Copia os dados do CARD (cliente, contato,
+      // endereco, representante, destino, valor, etapa, observacoes) — que
+      // ja' estao no modalState — e vira "Criar Lead". NAO copia os itens do
+      // orcamento (itens_extras zerado). Reserva pode ser a mesma (mantida);
+      // AGP fica em branco pra Felipe preencher o novo. Nenhuma escrita aqui:
+      // o lead so' e' criado quando ele clicar "Criar Lead".
+      container.querySelector('#crm-btn-duplicar')?.addEventListener('click', () => {
+        modalState.editandoId = null;   // vira modo "Criar Lead" (novo id no save)
+        modalState.numeroAGP = '';      // Felipe preenche o AGP novo (diferente)
+        modalState.itens_extras = [];   // NAO copia itens do orcamento
+        modalState.modo = 'manual';     // edicao manual, sem busca por reserva
+        // numeroReserva MANTIDA de proposito (pode ser a mesma).
+        reRenderModal(container);
+        const campoAgp = container.querySelector('[data-field="numeroAGP"]');
+        if (campoAgp) { campoAgp.focus(); campoAgp.scrollIntoView({ block: 'center' }); }
+      });
       // overlay click: REMOVIDO de proposito.
 
       // Tabs (modo) - so' botoes com data-modo (criar lead: Por Reserva / Manual)
