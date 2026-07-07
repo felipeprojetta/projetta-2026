@@ -1997,8 +1997,27 @@ const Orcamento = (() => {
     };
   }
 
+  // Felipe sessao 42: conta itens PREENCHIDOS (largura/altura/modelo) de um
+  // negocio. Usado pra desempatar quando ha' negocio DUPLICADO no mesmo lead
+  // (Felipe e Paula criaram cada um o seu sem sync) — abrir o mais completo.
+  function _completudeNegocio(n) {
+    let score = 0;
+    ((n && n.opcoes) || []).forEach(o => ((o.versoes) || []).forEach(v => {
+      ((v.itens) || []).forEach(it => {
+        if (it && (String(it.largura || '').trim() || String(it.altura || '').trim() || String(it.modeloExterno || '').trim())) score++;
+      });
+    }));
+    return score;
+  }
   function obterNegocioPorLeadId(leadId) {
-    return loadAll().find(n => n.leadId === leadId) || null;
+    const doLead = loadAll().filter(n => n && n.leadId === leadId);
+    if (!doLead.length) return null;
+    if (doLead.length === 1) return doLead[0];
+    // Negocio DUPLICADO no mesmo lead (2 usuarios criaram sem sync). Antes o
+    // 'find' pegava o 1o — as vezes o vazio — e o orcamento abria em branco
+    // apesar da Paula ter preenchido. Agora escolhe o MAIS COMPLETO.
+    return doLead.reduce((melhor, atual) =>
+      _completudeNegocio(atual) > _completudeNegocio(melhor) ? atual : melhor, doLead[0]);
   }
   function obterNegocio(negocioId) {
     return loadAll().find(n => n.id === negocioId) || null;
