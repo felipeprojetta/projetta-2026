@@ -1552,7 +1552,36 @@ const Orcamento = (() => {
         if (!nc) return nl;
         const tc = String(nc.atualizadoEm || '');
         const tl = String(nl.atualizadoEm || '');
-        if (tc && tc > tl) { nAtualizados++; return nc; }  // nuvem estritamente mais recente
+        if (tc && tc > tl) {
+          // Felipe sessao 42 (FIX PERDA DE DADOS — 'V2 sumiu ao dar F5'): quando
+          // a nuvem e' estritamente mais recente, ela vira a BASE, MAS as versoes
+          // que so' existem no LOCAL (ex: V2 recem-criada/definida que ainda nao
+          // sincronizou) sao PRESERVADAS. Antes fazia 'return nc' (trocava o
+          // negocio inteiro) e a V2 local era descartada. Respeita o tombstone
+          // (_versoesDeletadas) da nuvem pra NAO ressuscitar versao deletada de
+          // proposito. Uniao por id de versao — nada duplica.
+          nAtualizados++;
+          try {
+            const merged = JSON.parse(JSON.stringify(nc));
+            const tomb = new Set(Array.isArray(merged._versoesDeletadas) ? merged._versoesDeletadas : []);
+            const idsNuvem = new Set();
+            (merged.opcoes || []).forEach(o => (o.versoes || []).forEach(v => { if (v && v.id) idsNuvem.add(v.id); }));
+            (nl.opcoes || []).forEach(ol => {
+              (ol.versoes || []).forEach(vl => {
+                if (!vl || !vl.id || idsNuvem.has(vl.id) || tomb.has(vl.id)) return;
+                let oc = (merged.opcoes || []).find(o => o.id === ol.id);
+                if (!oc) { oc = Object.assign({}, ol, { versoes: [] }); (merged.opcoes = merged.opcoes || []).push(oc); }
+                oc.versoes = oc.versoes || [];
+                oc.versoes.push(JSON.parse(JSON.stringify(vl)));
+                console.log('[Orcamento] pull: versao local preservada no merge:', vl.id, '(negocio ' + nl.id + ')');
+              });
+            });
+            return merged;
+          } catch (e) {
+            console.warn('[Orcamento] pull merge de versoes falhou, usando nuvem:', e && e.message);
+            return nc;
+          }
+        }
         return nl;
       });
       if (!faltantes.length && !nAtualizados) return false;
