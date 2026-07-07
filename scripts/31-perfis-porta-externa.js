@@ -319,25 +319,24 @@ const PerfisPortaExterna = (() => {
   }
 
   // ---------------------------------------------------------
-  // Felipe: DIMENSOES DO VIDRO CENTRAL (Modelo 26)
+  // Felipe: DIMENSOES-BASE DO MODELO 26 (Puxador Externo + Vidro Central)
   // ---------------------------------------------------------
   /**
-   * Fonte UNICA das medidas do vidro central do Mod 26. Espelha EXATAMENTE
-   * as formulas de gerarCortes:
-   *   largura do vidro = comprimento da TRAVESSA HORIZONTAL (LARG_INT_FOLHA)
-   *   altura  do vidro = comprimento da TRAVESSA VERTICAL   (TRAV_VERT)
-   * Chamada pelo motor de chapas (38-chapas-porta-externa.js) pra dimensionar
-   * a peca de vidro — se a formula da travessa mudar, o vidro acompanha.
-   * @param {object} item porta_externa (altura, largura, nFolhas, fglDir/Esq/
-   *   fgSup, itensExtras)
-   * @returns {{largura:number, altura:number}} em mm (0 se invalido)
+   * Fonte UNICA das 3 medidas-base usadas pelas pecas do Mod 26 (vidro
+   * central + molduras de ACM). Espelha EXATAMENTE as formulas de gerarCortes:
+   *   paf           = altura da folha (PA_F)
+   *   travHorizontal = comprimento da TRAVESSA HORIZONTAL (LARG_INT_FOLHA)
+   *   travVertical   = comprimento da TRAVESSA VERTICAL   (TRAV_VERT)
+   * Se qualquer uma dessas formulas mudar em gerarCortes, atualizar aqui.
+   * @returns {{paf:number, travHorizontal:number, travVertical:number}} mm
    */
-  function dimensoesVidroCentral(item) {
-    if (!item) return { largura: 0, altura: 0 };
+  function dimensoesBaseMod26(item) {
+    const zero = { paf: 0, travHorizontal: 0, travVertical: 0 };
+    if (!item) return zero;
     const A = parseFloat(String(item.altura  || '').replace(',', '.')) || 0;
     const L = parseFloat(String(item.largura || '').replace(',', '.')) || 0;
     const nFolhas = Math.max(1, parseInt(item.nFolhas, 10) || 1);
-    if (A <= 0 || L <= 0) return { largura: 0, altura: 0 };
+    if (A <= 0 || L <= 0) return zero;
     // Familia: mesma regra de gerarCortes (Mola Aerea forca 101; senao altura).
     let temMola = false;
     if (Array.isArray(item.itensExtras) && item.itensExtras.length > 0) {
@@ -353,16 +352,24 @@ const PerfisPortaExterna = (() => {
     const FGLD = _toNum(item.fglDir, v.FGLD);
     const FGLE = _toNum(item.fglEsq, v.FGLE);
     const FGA  = _toNum(item.fgSup,  v.FGA);
-    // largura = LARG_INT_FOLHA (comprimento da Travessa Horizontal)
-    const largura = (nFolhas === 2)
+    const paf = A - FGA - v.TUBLPORTAL - v.ESPPIV + v.TRANSPIV;
+    const travHorizontal = (nFolhas === 2)
       ? (L - FGLD - FGLE - 171.7 - 171.5 - 235) / 2
       :  L - FGLD - FGLE - 171.7 - 171.5;
-    // altura = TRAV_VERT (comprimento da Travessa Vertical)
-    const altura = A - FGA - v.TUBLPORTAL - v.ESPPIV - v.VEDPT * 2 - v.TUBLPORTA * 2;
-    return {
-      largura: Math.max(0, Math.round(largura * 100) / 100),
-      altura:  Math.max(0, Math.round(altura  * 100) / 100),
-    };
+    const travVertical = A - FGA - v.TUBLPORTAL - v.ESPPIV - v.VEDPT * 2 - v.TUBLPORTA * 2;
+    const r = x => Math.max(0, Math.round(x * 100) / 100);
+    return { paf: r(paf), travHorizontal: r(travHorizontal), travVertical: r(travVertical) };
+  }
+
+  /**
+   * Dimensoes do VIDRO CENTRAL do Mod 26 (wrapper de dimensoesBaseMod26):
+   *   largura do vidro = travessa horizontal
+   *   altura  do vidro = travessa vertical
+   * @returns {{largura:number, altura:number}} em mm (0 se invalido)
+   */
+  function dimensoesVidroCentral(item) {
+    const d = dimensoesBaseMod26(item);
+    return { largura: d.travHorizontal, altura: d.travVertical };
   }
 
   // ---------------------------------------------------------
@@ -855,6 +862,7 @@ const PerfisPortaExterna = (() => {
     temCavaDupla,
     travessasHorizontais,
     travessasVerticais,
+    dimensoesBaseMod26,
     dimensoesVidroCentral,
     boiserieCusto,
     gerarCortes,

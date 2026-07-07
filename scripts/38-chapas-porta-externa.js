@@ -529,14 +529,24 @@ const ChapasPortaExterna = (() => {
   }
 
   // ------------------------------------------------------------------
-  // Felipe: dimensoes do VIDRO CENTRAL (Modelo 26) — fonte unica no motor
-  // de perfis (31). largura = travessa horizontal, altura = travessa
-  // vertical. Fallback {0,0} se o modulo nao estiver carregado (peca some).
+  // Felipe: helpers do MODELO 26 (Puxador Externo + Vidro Central).
+  // Dimensoes-base (paf, travHorizontal, travVertical) vem do motor de
+  // perfis (31) — fonte unica. Fallback {0,0,0} se nao carregado.
   // ------------------------------------------------------------------
-  function _dimVidroCentral(ctx) {
+  function _dimBaseMod26(ctx) {
     var pe = window.PerfisPortaExterna;
-    if (!pe || typeof pe.dimensoesVidroCentral !== 'function') return { largura: 0, altura: 0 };
-    return pe.dimensoesVidroCentral(ctx.item || {}) || { largura: 0, altura: 0 };
+    if (!pe || typeof pe.dimensoesBaseMod26 !== 'function') {
+      return { paf: 0, travHorizontal: 0, travVertical: 0 };
+    }
+    return pe.dimensoesBaseMod26(ctx.item || {}) || { paf: 0, travHorizontal: 0, travVertical: 0 };
+  }
+  // Moldura em volta da porta: 'padrao' usa as medidas fixas; 'medida' usa
+  // o valor digitado (molduraMedidaMod26). Retorna o M (>0) ou null (padrao).
+  function _molduraMedidaMod26(ctx) {
+    var it = ctx.item || {};
+    if (String(it.molduraMod26 || 'padrao') !== 'medida') return null;
+    var m = parseFloat(String(it.molduraMedidaMod26 || '').replace(',', '.'));
+    return (Number.isFinite(m) && m > 0) ? m : null;
   }
 
   // ------------------------------------------------------------------
@@ -1769,26 +1779,73 @@ const ChapasPortaExterna = (() => {
     // com peca central de categoria 'porta' + materialEspecial='VIDRO'.
     // ===================================================================
     26: {
-      // Felipe: Modelo 26 (Puxador Externo + Vidro Central) = copia do Mod 10
-      // POREM sem as tampas maiores (removidas: 1F = 2 unidades / 2F = 3
-      // medidas = 4 unidades) e com o VIDRO CENTRAL no lugar.
-      //   largura do vidro = comprimento da Travessa Horizontal
-      //   altura  do vidro = comprimento da Travessa Vertical  (dims vindas
-      //   do motor de perfis via _dimVidroCentral — fonte unica)
-      //   1 vidro (1 folha) / 2 vidros (2 folhas)
-      // Cor/tipo do vidro = item.tipoVidroCentral (resolvido em materializar).
-      // PECAS ACM ao redor do vidro: Felipe envia depois (entram aqui).
+      // Felipe: Modelo 26 (Puxador Externo + Vidro Central) = Mod 10 SEM
+      // tampas maiores + VIDRO CENTRAL + MOLDURA de ACM em volta.
+      //
+      // VIDRO: largura=travessa horizontal, altura=travessa vertical (dims do
+      //   motor de perfis via _dimBaseMod26). 1 vidro/folha. cor=tipoVidroCentral.
+      //
+      // MOLDURA ACM (por FACE — ext e int, pra permitir cor diferente
+      //   dentro/fora). Quantidades POR FACE; 2 folhas = dobro (blocos 1F/2F).
+      //   Larguras: modo PADRAO usa medidas fixas; modo MEDIDA (M do campo
+      //   molduraMedidaMod26) troca as larguras. REF = refilado (ctx.REF).
+      //     lat1: (M||148) + 2*REF                 pela ALTURA DO PAF     — 2/face
+      //     lat2: (M!=null? M-38 : 110) + 2*REF     pela ALTURA DO PAF     — 2/face
+      //     h:    (M!=null? M-28 : 124) + REF       pela TRAVESSA HORIZ.   — 4/face
+      //     v:    (M!=null? M-28 : 124) + REF       pela TRAVESSA VERT.    — 4/face
+      //     f161: 161 + REF (nao muda com a moldura) pela TRAVESSA HORIZ.  — 4/face
+      //   (74+50 = 124; M-78+50 = M-28)
       '1F': [
         { id: 'vidro_central', label: 'Vidro Central',
-          largura: ctx => _dimVidroCentral(ctx).largura,
-          comp:    ctx => _dimVidroCentral(ctx).altura,
+          largura: ctx => _dimBaseMod26(ctx).travHorizontal,
+          comp:    ctx => _dimBaseMod26(ctx).travVertical,
           ext: 1, int: 0, categoria: 'vidro', ehVidroCentral: true },
+        { id: 'acm_moldura_lat1', label: 'Moldura ACM Lateral 1',
+          largura: ctx => (_molduraMedidaMod26(ctx) != null ? _molduraMedidaMod26(ctx) : 148) + 2*ctx.REF,
+          comp:    ctx => _dimBaseMod26(ctx).paf,
+          ext: 2, int: 2, categoria: 'porta' },
+        { id: 'acm_moldura_lat2', label: 'Moldura ACM Lateral 2',
+          largura: ctx => { var M=_molduraMedidaMod26(ctx); return (M!=null ? M-38 : 110) + 2*ctx.REF; },
+          comp:    ctx => _dimBaseMod26(ctx).paf,
+          ext: 2, int: 2, categoria: 'porta' },
+        { id: 'acm_moldura_h', label: 'Moldura ACM Horizontal',
+          largura: ctx => { var M=_molduraMedidaMod26(ctx); return (M!=null ? M-28 : 124) + ctx.REF; },
+          comp:    ctx => _dimBaseMod26(ctx).travHorizontal,
+          ext: 4, int: 4, categoria: 'porta' },
+        { id: 'acm_moldura_v', label: 'Moldura ACM Vertical',
+          largura: ctx => { var M=_molduraMedidaMod26(ctx); return (M!=null ? M-28 : 124) + ctx.REF; },
+          comp:    ctx => _dimBaseMod26(ctx).travVertical,
+          ext: 4, int: 4, categoria: 'porta' },
+        { id: 'acm_moldura_f161', label: 'Moldura ACM Friso',
+          largura: ctx => 161 + ctx.REF,
+          comp:    ctx => _dimBaseMod26(ctx).travHorizontal,
+          ext: 4, int: 4, categoria: 'porta' },
       ],
       '2F': [
         { id: 'vidro_central', label: 'Vidro Central',
-          largura: ctx => _dimVidroCentral(ctx).largura,
-          comp:    ctx => _dimVidroCentral(ctx).altura,
+          largura: ctx => _dimBaseMod26(ctx).travHorizontal,
+          comp:    ctx => _dimBaseMod26(ctx).travVertical,
           ext: 2, int: 0, categoria: 'vidro', ehVidroCentral: true },
+        { id: 'acm_moldura_lat1', label: 'Moldura ACM Lateral 1',
+          largura: ctx => (_molduraMedidaMod26(ctx) != null ? _molduraMedidaMod26(ctx) : 148) + 2*ctx.REF,
+          comp:    ctx => _dimBaseMod26(ctx).paf,
+          ext: 4, int: 4, categoria: 'porta' },
+        { id: 'acm_moldura_lat2', label: 'Moldura ACM Lateral 2',
+          largura: ctx => { var M=_molduraMedidaMod26(ctx); return (M!=null ? M-38 : 110) + 2*ctx.REF; },
+          comp:    ctx => _dimBaseMod26(ctx).paf,
+          ext: 4, int: 4, categoria: 'porta' },
+        { id: 'acm_moldura_h', label: 'Moldura ACM Horizontal',
+          largura: ctx => { var M=_molduraMedidaMod26(ctx); return (M!=null ? M-28 : 124) + ctx.REF; },
+          comp:    ctx => _dimBaseMod26(ctx).travHorizontal,
+          ext: 8, int: 8, categoria: 'porta' },
+        { id: 'acm_moldura_v', label: 'Moldura ACM Vertical',
+          largura: ctx => { var M=_molduraMedidaMod26(ctx); return (M!=null ? M-28 : 124) + ctx.REF; },
+          comp:    ctx => _dimBaseMod26(ctx).travVertical,
+          ext: 8, int: 8, categoria: 'porta' },
+        { id: 'acm_moldura_f161', label: 'Moldura ACM Friso',
+          largura: ctx => 161 + ctx.REF,
+          comp:    ctx => _dimBaseMod26(ctx).travHorizontal,
+          ext: 8, int: 8, categoria: 'porta' },
       ],
     },
   };
