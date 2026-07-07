@@ -13784,13 +13784,21 @@ const Orcamento = (() => {
    * Esta versao implementa a estrutura completa baseada no PDF que o
    * Felipe enviou (Proposta_1777651977765.pdf).
    */
-  function renderPropostaTab(container) {
+  function renderPropostaTab(container, opts) {
+    opts = opts || {};
     inicializarSessao();
     const versao = obterVersao(UI.versaoAtivaId).versao;
 
-    // Bloqueio: mesma regra do DRE — itens completos + Fab/Inst com valor
+    // Bloqueio: mesma regra do DRE — itens completos + Fab/Inst com valor.
+    // Felipe: esse bloqueio e' protecao de UX da ABA interativa (nao mostrar
+    // proposta incompleta na TELA). Ao gerar o PDF da Proposta pro EMAIL/anexo
+    // (opts.paraDocumento=true), a versao ja' foi aprovada/enviada e tem os
+    // dados congelados — igual ao Painel Comercial (PNG), que renderiza puro
+    // (renderRelComercial). Sem essa flag, o PDF caia no early-return e NAO
+    // gerava as .rel-prop-pagina -> gerarPropostaComercialPDFBlob falhava e o
+    // email vinha SO com o PNG. Com a flag, o PDF gera igual ao PNG.
     const motivoBloqueio = precisaCalcular(versao, 'dre');
-    if (motivoBloqueio) {
+    if (motivoBloqueio && !opts.paraDocumento) {
       return renderPrecisaCalcular(container, versao, motivoBloqueio, 'Proposta Comercial');
     }
 
@@ -21799,7 +21807,11 @@ const Orcamento = (() => {
       // 5. Seta UI pra versao alvo e renderiza renderPropostaTab dentro do host
       UI.versaoAtivaId  = versaoId;
       UI.negocioAtivoId = negocioId;
-      renderPropostaTab(host);
+      // Felipe: paraDocumento=true pula o bloqueio 'precisa calcular' (protecao
+      // de UX da aba). Gera o PDF da versao aprovada/enviada com dados
+      // congelados, igual ao Painel Comercial PNG. Sem isso, versao calcDirty/
+      // incompleta caia no early-return e o PDF nao saia no email.
+      renderPropostaTab(host, { paraDocumento: true });
 
       // 6. Aguarda fontes/imagens (banners, modelos de porta) renderizarem
       await new Promise(rs => setTimeout(rs, 350));
