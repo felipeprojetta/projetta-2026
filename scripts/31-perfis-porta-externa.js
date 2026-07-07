@@ -287,6 +287,10 @@ const PerfisPortaExterna = (() => {
     // obrigatoria pra fixar o puxador, independente de tamanho ou cava.
     // Se o calculo normal deu 0, forca pra 1.
     if (modelo === 23 && qtyTotal === 0) qtyTotal = 1;
+    // Felipe: Modelo 26 (Puxador Externo + Vidro Central) NAO tem travessa
+    // vertical — o VIDRO CENTRAL ocupa o lugar dela. Zera sempre, para
+    // qualquer largura/altura/nFolhas. (Nao afeta nenhum outro modelo.)
+    if (modelo === 26) qtyTotal = 0;
     // qtyPerFolha mantido p/ compat — nao tem mais sentido literal
     const qtyPerFolha = travCavaPorFolha;
 
