@@ -2523,6 +2523,21 @@
           deletados.push(modalState.editandoId);
           localStorage.setItem('projetta_leads_deletados', JSON.stringify(deletados));
         } catch(_){}
+        // Felipe sessao 42: tombstone COMPARTILHADO na nuvem (crm/leads__deleted).
+        // Necessario agora que crm/leads usa merge protegido (00-database): sem
+        // isso o merge traria o lead de volta pros OUTROS usuarios (Paula) que
+        // nao tem o delete no localStorage local. mergeProtegido_lista filtra
+        // por essa chave. Best-effort — nao trava o delete se falhar.
+        try {
+          if (window.Storage && window.Storage.scope) {
+            var tomb = window.Storage.scope('crm').get('leads__deleted');
+            if (!Array.isArray(tomb)) tomb = [];
+            if (tomb.indexOf(modalState.editandoId) < 0) {
+              tomb.push(modalState.editandoId);
+              window.Storage.scope('crm').set('leads__deleted', tomb);
+            }
+          }
+        } catch (e) { console.warn('[CRM] tombstone nuvem falhou:', e && e.message); }
         save();
         fecharModal(container);
         render(container);

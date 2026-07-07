@@ -361,6 +361,8 @@ const Database = (() => {
   function _chavePerfil(p)     { return p && p.codigo    ? String(p.codigo).trim().toUpperCase() : null; }
   function _chaveModelo(m)     { return m && m.numero != null ? String(m.numero) : null; }
   function _chaveRep(r)        { return r && r.followup ? String(r.followup).trim() : null; }
+  // Felipe sessao 42: chave natural do lead pro merge protegido = id unico.
+  function _chaveLead(l)       { return l && l.id ? String(l.id) : null; }
 
   // Felipe sessao 12: merge protetor pra orcamentos/negocios. Resolve
   // bug critico onde "V2 sumia" — cliente velho com 1 versao em cache
@@ -656,6 +658,18 @@ const Database = (() => {
       else if (scope === 'orcamentos' && key === 'negocios') {
         valorFinal = await mergeProtegido_negocios(value);
         if (Array.isArray(valorFinal) && Array.isArray(value) && valorFinal.length >= value.length) {
+          try { localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(valorFinal)); } catch(_){}
+        }
+      }
+      // Felipe sessao 42: merge protegido pra crm/leads. Resolve leads criados
+      // pela Paula sumindo quando o Felipe salva (era last-write-wins do array
+      // inteiro). Une por l.id: preserva leads que so' existem na nuvem (criados
+      // por OUTRO usuario) em vez de apaga-los. Respeita o tombstone da nuvem
+      // 'leads__deleted' (mergeProtegido_lista le key+'__deleted') pra NAO
+      // ressuscitar lead deletado de proposito. Mesma protecao dos negocios.
+      else if (scope === 'crm' && key === 'leads') {
+        valorFinal = await mergeProtegido_lista(scope, key, value, _chaveLead);
+        if (Array.isArray(valorFinal) && Array.isArray(value) && valorFinal.length > value.length) {
           try { localStorage.setItem(PREFIX + scope + ':' + key, JSON.stringify(valorFinal)); } catch(_){}
         }
       }
