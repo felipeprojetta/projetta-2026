@@ -932,9 +932,18 @@ const Database = (() => {
       // (sao copias - source-of-truth e' o Supabase) e tenta de novo.
 
       function _ehChaveBackupLocal(scope, key) {
-        return scope === 'backup_diario'
-            || scope === 'backup_manual'
-            || (typeof key === 'string' && (key.indexOf('backup_diario') === 0 || key.indexOf('backup_manual') === 0));
+        var s = typeof scope === 'string' ? scope : '';
+        var k = typeof key === 'string' ? key : '';
+        // Felipe sessao 42: forensic-* / forensics / backup_* vivem SO' no
+        // Supabase (source of truth). Baixa-los pro localStorage enchia a quota
+        // e travava a gravacao de crm:leads/negocios (dados novos como o lead da
+        // Paula nao apareciam). Trata todos como backup -> nao vao pro cache.
+        return s === 'backup_diario'
+            || s === 'backup_manual'
+            || s.indexOf('forensic') === 0
+            || s.indexOf('backup_') === 0
+            || k.indexOf('backup_diario') === 0
+            || k.indexOf('backup_manual') === 0;
       }
 
       function _limparBackupsLocais() {
@@ -944,7 +953,9 @@ const Database = (() => {
             var k = localStorage.key(i);
             if (!k) continue;
             if (k.indexOf(PREFIX + 'backup_diario') === 0
-             || k.indexOf(PREFIX + 'backup_manual') === 0) {
+             || k.indexOf(PREFIX + 'backup_manual') === 0
+             || k.indexOf(PREFIX + 'forensic') === 0
+             || k.indexOf(PREFIX + 'backup_') === 0) {
               bytes += (localStorage.getItem(k) || '').length;
               localStorage.removeItem(k);
               liberados++;
