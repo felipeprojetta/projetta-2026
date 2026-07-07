@@ -18685,6 +18685,12 @@ const Orcamento = (() => {
     // Sort estavel (V8 desde 2018): pecas com mesmo _ordem mantem
     // ordem de insercao.
     arr.sort((a, b) => {
+      // Felipe: VIDRO CENTRAL (Mod 26) sempre por ULTIMO, separado das
+      // chapas de ACM (nao misturado). Demais pecas mantem a ordem da
+      // planilha (_ordem). So afeta a EXIBICAO — nesting usa outro caminho.
+      const vA = a.ehVidroCentral ? 1 : 0;
+      const vB = b.ehVidroCentral ? 1 : 0;
+      if (vA !== vB) return vA - vB;
       const oA = (typeof a._ordem === 'number') ? a._ordem : 999;
       const oB = (typeof b._ordem === 'number') ? b._ordem : 999;
       return oA - oB;
