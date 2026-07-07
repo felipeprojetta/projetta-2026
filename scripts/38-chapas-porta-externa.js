@@ -2060,6 +2060,9 @@ const ChapasPortaExterna = (() => {
         lado:    ctx.lado,
         ehDaCava: !!def.ehDaCava,
         categoria: categoria,
+        // Felipe: marca o VIDRO CENTRAL do Mod 26 pra o Lev. Superficies
+        // tira-lo do nesting geral (custo dele e' por m2/chapa proprio).
+        ehVidroCentral: !!def.ehVidroCentral,
         modelo,
         // Felipe sessao 13: _ordem preserva indice na lista pecasDef
         // (ordem da planilha). Usado por unificarPecas em 12-orcamento.js

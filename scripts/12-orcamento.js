@@ -16602,6 +16602,11 @@ const Orcamento = (() => {
    * Helper que agrupa peça no objeto `grupos` por cor.
    */
   function agrupar(grupos, peca, origemIdx, item) {
+    // Felipe: VIDRO CENTRAL (Mod 26) NAO entra no nesting geral de chapas.
+    // Seu custo e' tratado a parte em computeRevestimentoPorCor (por m2 =
+    // area da peca; ou por chapa via nesting de vidro proprio). Sem isso
+    // haveria dupla contagem (nesting geral + logica de vidro).
+    if (peca && peca.ehVidroCentral) return;
     const cor = peca.cor || '(sem cor)';
     if (!grupos[cor]) grupos[cor] = [];
     grupos[cor].push(Object.assign({}, peca, {
@@ -17036,11 +17041,32 @@ const Orcamento = (() => {
       };
       itens.forEach(item => {
         if (!item) return;
-        // Por enquanto so' fixo_acoplado tem campo vidroDescricao. Quando
-        // outros tipos ganharem, basta ampliar a condicao.
-        if (item.tipo !== 'fixo_acoplado') return;
-        if (String(item.revestimento || '').toLowerCase() !== 'vidro') return;
-        const desc = String(item.vidroDescricao || '').trim();
+        // Felipe: resolve o vidro do item conforme o tipo. Mesma logica de
+        // cobranca (m2 x chapa) pros dois casos:
+        //   - fixo_acoplado revestimento='vidro' -> vidro do fixo (L×H do item)
+        //   - porta_externa Mod 26 -> VIDRO CENTRAL (area da peca: travessa
+        //     horizontal × travessa vertical, × nº de folhas)
+        let desc = '';
+        let L_mm = 0, H_mm = 0, qtd = 1;
+        if (item.tipo === 'fixo_acoplado'
+            && String(item.revestimento || '').toLowerCase() === 'vidro') {
+          desc = String(item.vidroDescricao || '').trim();
+          L_mm = parseFloat(String(item.largura || '').replace(',', '.')) || 0;
+          H_mm = parseFloat(String(item.altura  || '').replace(',', '.')) || 0;
+          qtd  = Math.max(1, Number(item.quantidade) || 1);
+        } else if (item.tipo === 'porta_externa'
+                   && Number(item.modeloExterno) === 26) {
+          desc = String(item.tipoVidroCentral || '').trim();
+          // dimensoes do vidro central via motor de perfis (fonte unica)
+          const dimV = (window.PerfisPortaExterna
+                        && window.PerfisPortaExterna.dimensoesBaseMod26)
+            ? window.PerfisPortaExterna.dimensoesBaseMod26(item) : null;
+          if (dimV) { L_mm = dimV.travHorizontal; H_mm = dimV.travVertical; }
+          const nFolhasV = (Number(item.nFolhas) === 2) ? 2 : 1; // 1 vidro/folha
+          qtd = Math.max(1, Number(item.quantidade) || 1) * nFolhasV;
+        } else {
+          return;
+        }
         if (!desc) return;
         // Acha superficie pela descricao (case-insensitive)
         const sup = sups.find(s =>
@@ -17048,9 +17074,6 @@ const Orcamento = (() => {
         );
         if (!sup) return;
         const cobranca = String(sup.cobranca || 'm2').toLowerCase();
-        const L_mm = parseFloat(String(item.largura || '').replace(',', '.')) || 0;
-        const H_mm = parseFloat(String(item.altura  || '').replace(',', '.')) || 0;
-        const qtd  = Math.max(1, Number(item.quantidade) || 1);
         if (L_mm <= 0 || H_mm <= 0) return;
         if (cobranca === 'm2') {
           const m2_unit  = (L_mm * H_mm) / 1_000_000;
