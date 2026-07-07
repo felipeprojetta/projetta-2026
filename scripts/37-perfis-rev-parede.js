@@ -59,9 +59,11 @@ const PerfisRevParede = (() => {
   // Conta n de faixas de chapa pra calcular emendas.
   // Modo automatico: replica a logica do motor de chapas.
   // Modo manual: usa pecas.length (cada peca = 1 faixa lado a lado).
-  function nFaixasChapa(item) {
+  function nFaixasChapa(item, parede) {
     if (item.modo === 'automatico') {
-      const L = Number(item.largura_total) || 0;
+      // Felipe: modo multi-parede -> usa dados da parede quando fornecida,
+      // com fallback pro item (compatibilidade com chamada de 1 arg).
+      const L = Number((parede && parede.largura_total) || item.largura_total) || 0;
       if (!L) return 1;
       // Le REF do storage (mesma logica do 40-chapas-rev-parede.js)
       let REF = 20;
@@ -73,9 +75,10 @@ const PerfisRevParede = (() => {
       } catch (_) {}
       const LARG_CHAPA_BASE = 1500;
       const PERDA_LADO = 10; // Felipe: sempre perde 10mm/lado, mesmo sem refilado -> 1480
-      const comRefilado = item.com_refilado !== 'nao';
+      const refVal = (parede && parede.com_refilado != null) ? parede.com_refilado : item.com_refilado;
+      const comRefilado = refVal !== 'nao';
       const larguraMaxima = comRefilado ? (LARG_CHAPA_BASE - 2*REF) : (LARG_CHAPA_BASE - 2*PERDA_LADO);
-      const divisao = item.divisao_largura || 'maxima';
+      const divisao = (parede && parede.divisao_largura) || item.divisao_largura || 'maxima';
       if (divisao === 'igual') {
         return Math.max(1, Math.ceil(L / larguraMaxima));
       }
@@ -212,12 +215,26 @@ const PerfisRevParede = (() => {
     const tubo = String(item.tuboEstrutura || '').trim();
     if (!tubo || !TUBOS_VALIDOS.includes(tubo)) return {};
 
-    const { L, H } = inferirDimensoes(item);
-    if (!L || !H) return {};
+    // Felipe: BUG estrutura so calculava a 1a parede. Agora resolve a
+    // lista de paredes (mesma logica do motor de chapas / das ripas) e
+    // itera todas, multiplicando por quantidade de paredes identicas.
+    let paredesEst = Array.isArray(item.paredes)
+      ? item.paredes.filter(p => p && (Number(p.largura_total) > 0 || Number(p.altura_total) > 0))
+      : [];
+    if (paredesEst.length === 0) {
+      // Fallback legado: 1 parede a partir de largura_total/altura_total
+      // (inferirDimensoes cobre tb modo manual que soma as pecas).
+      const dim = inferirDimensoes(item);
+      paredesEst = [{
+        largura_total:   dim.L,
+        altura_total:    dim.H,
+        quantidade:      Math.max(1, Number(item.quantidade) || 1),
+        divisao_largura: item.divisao_largura,
+        com_refilado:    item.com_refilado,
+      }];
+    }
 
     const medidaMaior = medidaMaiorDoTubo(tubo);
-    const emendas = Math.max(0, nFaixasChapa(item) - 1);
-    const qtdTravessas = Math.floor(H / 1000);
 
     const cortes = {};
     cortes[tubo] = [];
@@ -247,21 +264,30 @@ const PerfisRevParede = (() => {
       }
     }
 
-    // 1. VERTICAIS (laterais esq + dir + emendas)
-    //    comp = altura, qty = 2 + emendas
-    const qtdVerticais = 2 + emendas;
-    add(H, qtdVerticais, 'Vertical (lateral)');
+    paredesEst.forEach((p, paredeIdx) => {
+      const L = Number(p.largura_total) || 0;
+      const H = Number(p.altura_total)  || 0;
+      if (!L || !H) return;
+      const qtdParede = Math.max(1, Number(p.quantidade) || 1);
+      const sufixo = paredesEst.length > 1 ? ` — Parede ${paredeIdx + 1}` : '';
+      const emendas = Math.max(0, nFaixasChapa(item, p) - 1);
+      const qtdTravessas = Math.floor(H / 1000);
 
-    // 2. HORIZONTAIS BORDAS (1 cima + 1 baixo)
-    //    comp = largura inteira, qty = 2
-    add(L, 2, 'Horizontal (topo/base)');
+      // 1. VERTICAIS (laterais esq + dir + emendas)
+      //    comp = altura, qty = (2 + emendas) x paredes identicas
+      add(H, (2 + emendas) * qtdParede, 'Vertical (lateral)' + sufixo);
 
-    // 3. TRAVESSAS HORIZONTAIS (intermediarias)
-    //    comp = largura - 2 x medida_maior, qty = floor(altura/1000)
-    if (qtdTravessas > 0 && medidaMaior > 0) {
-      const compTravessa = L - 2 * medidaMaior;
-      add(compTravessa, qtdTravessas, 'Travessa horizontal');
-    }
+      // 2. HORIZONTAIS BORDAS (1 cima + 1 baixo)
+      //    comp = largura inteira, qty = 2 x paredes identicas
+      add(L, 2 * qtdParede, 'Horizontal (topo/base)' + sufixo);
+
+      // 3. TRAVESSAS HORIZONTAIS (intermediarias)
+      //    comp = largura - 2 x medida_maior, qty = floor(altura/1000) x paredes
+      if (qtdTravessas > 0 && medidaMaior > 0) {
+        const compTravessa = L - 2 * medidaMaior;
+        add(compTravessa, qtdTravessas * qtdParede, 'Travessa horizontal' + sufixo);
+      }
+    });
 
     if (cortes[tubo].length === 0) {
       // Felipe sessao 18: se ripada + temEstrutura=sim mas estrutura
