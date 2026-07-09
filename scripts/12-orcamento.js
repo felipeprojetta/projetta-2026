@@ -3093,6 +3093,14 @@ const Orcamento = (() => {
     try { Storage.scope('app').set('orcamento_lead_ativo', null); } catch (e) {}
   }
 
+  // Felipe: expoe se o lead ATIVO tem destino internacional. Usado pelo motor
+  // de perfis (31) como fallback pra forcar o bloco PA-007 (fam 101) quando o
+  // item nao foi enriquecido com o flag `internacional`.
+  function leadAtivoEhInternacional() {
+    const l = lerLeadAtivo();
+    return !!(l && String(l.destinoTipo || '').toLowerCase() === 'internacional');
+  }
+
   /**
    * Taxa USD "efetiva" pra EXIBICAO nos paineis de custo/frete/DRE.
    * Felipe: versao aprovada/enviada = foto fiel do momento do envio — NADA
@@ -11579,7 +11587,7 @@ const Orcamento = (() => {
         const modelos = (window.Storage ? Storage.scope('cadastros').get('modelos_lista') : null) || [];
         const numModelo = parseInt(String(item.modeloNumero || '').replace(/\D/g, ''), 10) || 0;
         const modeloAtual = modelos.find(m => Number(m.numero) === numModelo);
-        const itemEnriquecido = Object.assign({}, item, { modeloNome: (modeloAtual && modeloAtual.nome) || '' });
+        const itemEnriquecido = Object.assign({}, item, { modeloNome: (modeloAtual && modeloAtual.nome) || '', internacional: leadAtivoEhInternacional() });
         _cortes = motor.gerarCortes(itemEnriquecido) || {};
         for (const cod in _cortes) {
           const cad = (perfisCadastro && perfisCadastro[cod]) || {};
@@ -11727,7 +11735,7 @@ const Orcamento = (() => {
       const modelos = (window.Storage ? Storage.scope('cadastros').get('modelos_lista') : null) || [];
       const numModelo = parseInt(String(item.modeloNumero || '').replace(/\D/g, ''), 10) || 0;
       const modeloAtual = modelos.find(m => Number(m.numero) === numModelo);
-      const itemEnriq = Object.assign({}, item, { modeloNome: (modeloAtual && modeloAtual.nome) || '' });
+      const itemEnriq = Object.assign({}, item, { modeloNome: (modeloAtual && modeloAtual.nome) || '', internacional: leadAtivoEhInternacional() });
       const cortes = motor.gerarCortes(itemEnriq) || {};
       console.group('PERFIS');
       console.table(Object.keys(cortes).flatMap(cod => {
@@ -11950,7 +11958,7 @@ const Orcamento = (() => {
       // sem mudar a interface dele (motor recebe o item, nao o cadastro inteiro).
       const numModelo = parseInt(String(item.modeloNumero || '').replace(/\D/g, ''), 10) || 0;
       const modeloAtual = modelos.find(m => Number(m.numero) === numModelo);
-      const itemEnriquecido = { ...item, modeloNome: modeloAtual?.nome || '', _fixoIdxNaVersao: idx };
+      const itemEnriquecido = { ...item, modeloNome: modeloAtual?.nome || '', _fixoIdxNaVersao: idx, internacional: leadAtivoEhInternacional() };
       let cortes = motor.gerarCortes(itemEnriquecido) || {};
 
       // Felipe (sessao 27 fix): aplica overrides + remove excluidas
@@ -21850,6 +21858,8 @@ const Orcamento = (() => {
     criarNegocio,
     obterNegocioPorLeadId,
     resumoParaCardCRM,
+    // Felipe: usado pelo motor de perfis (31) pra forcar PA-007 no internacional
+    leadAtivoEhInternacional,
     // Felipe sessao 35: pull aditivo de negocios da nuvem (ver definicao
     // perto de saveAll). Usado pelo CRM ao abrir o board pra trazer
     // orcamentos construidos em outras maquinas (ex: Paula).

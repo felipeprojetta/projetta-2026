@@ -330,6 +330,25 @@ const PerfisPortaExterna = (() => {
    * Se qualquer uma dessas formulas mudar em gerarCortes, atualizar aqui.
    * @returns {{paf:number, travHorizontal:number, travVertical:number}} mm
    */
+  // ---------------------------------------------------------
+  // Felipe: destino INTERNACIONAL forca o bloco PA-007 (fam 101)
+  // independente da altura (regra nova, alem do >=4000mm e da Mola Aerea).
+  // Fonte 1: item.internacional (injetado pelo 12-orcamento no enriquecimento
+  // do item, a partir de lead.destinoTipo). Fonte 2 (fallback): lead ativo via
+  // window.Orcamento.leadAtivoEhInternacional() — cobre chamadas onde o item
+  // nao foi enriquecido.
+  // ---------------------------------------------------------
+  function _itemEhInternacional(item) {
+    if (item && item.internacional === true) return true;
+    if (item && String(item.destinoTipo || '').toLowerCase() === 'internacional') return true;
+    try {
+      if (window.Orcamento && typeof window.Orcamento.leadAtivoEhInternacional === 'function') {
+        return !!window.Orcamento.leadAtivoEhInternacional();
+      }
+    } catch (_) {}
+    return false;
+  }
+
   function dimensoesBaseMod26(item) {
     const zero = { paf: 0, travHorizontal: 0, travVertical: 0 };
     if (!item) return zero;
@@ -342,7 +361,7 @@ const PerfisPortaExterna = (() => {
     if (Array.isArray(item.itensExtras) && item.itensExtras.length > 0) {
       temMola = item.itensExtras.some(c => /MOLA/i.test(String(c || '')));
     }
-    const fam = temMola ? '101' : ((A < 4000) ? '76' : '101');
+    const fam = (temMola || _itemEhInternacional(item)) ? '101' : ((A < 4000) ? '76' : '101');
     const v = getVarsFam()[fam];
     const _toNum = (raw, fb) => {
       if (raw === '' || raw === null || raw === undefined) return fb;
@@ -415,7 +434,7 @@ const PerfisPortaExterna = (() => {
         return /MOLA/i.test(String(cod || ''));
       });
     }
-    const fam = _temMolaAerea ? '101' : ((A < 4000) ? '76' : '101');
+    const fam = (_temMolaAerea || _itemEhInternacional(item)) ? '101' : ((A < 4000) ? '76' : '101');
     const VARS_FAM_ATIVAS = getVarsFam();
     const v   = VARS_FAM_ATIVAS[fam];
     const cod = COD_FAM[fam];
