@@ -846,6 +846,29 @@ const PerfisPortaExterna = (() => {
       }
     }
 
+    // Felipe: MODELO 26 — tubo de reforco atras da moldura, TQ-006
+    // (PA-19X19X1.6, 19.05x19.05x1.6). Por FOLHA: 4 x travessa vertical +
+    // 4 x travessa horizontal (dims do vidro/moldura via dimensoesBaseMod26).
+    // Multiplicador pela moldura em volta da porta:
+    //   Padrao                       -> x1  (4/folha)
+    //   Medida (maior que padrao) < 165 -> x2  (8/folha)
+    //   Medida entre 165 e 200          -> x3  (12/folha)
+    if (modelo === 26) {
+      const dimT = dimensoesBaseMod26(item);
+      if (dimT.travHorizontal > 0 && dimT.travVertical > 0) {
+        let _molM = null;
+        if (String(item.molduraMod26 || '').toLowerCase().indexOf('medida') !== -1) {
+          const _m = parseFloat(String(item.molduraMedidaMod26 || '').replace(',', '.'));
+          if (Number.isFinite(_m) && _m > 0) _molM = _m;
+        }
+        let _mult = 1;
+        if (_molM != null) _mult = (_molM > 165) ? 3 : 2;
+        const _qTubo = 4 * nFolhas * _mult;
+        add('PA-19X19X1.6', dimT.travVertical,   _qTubo, 'Tubo Moldura Vertical (TQ-006)');
+        add('PA-19X19X1.6', dimT.travHorizontal, _qTubo, 'Tubo Moldura Horizontal (TQ-006)');
+      }
+    }
+
     return cortes;
   }
 

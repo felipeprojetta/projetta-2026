@@ -4404,6 +4404,12 @@ const Orcamento = (() => {
       const rev = String(item.revestimento || '').toLowerCase();
       return /aluminio.*macico/.test(rev) && /2\s*mm/.test(rev);
     }
+    // Felipe: 'Medida da moldura' (Mod 26) so' aparece quando a "Moldura em
+    // volta da porta" = 'Medida'. No modo Padrao a medida ja' e' fixa, entao
+    // o campo fica escondido.
+    if (chave === 'molduraMedidaMod26') {
+      return String(item.molduraMod26 || '').toLowerCase().indexOf('medida') !== -1;
+    }
     return true;
   }
 
