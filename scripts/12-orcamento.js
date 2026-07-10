@@ -6386,6 +6386,10 @@ const Orcamento = (() => {
                   const h = parseFloat(String(porta.altura || '').replace(',', '.')) || 0;
                   if (h > 0) sysAuto = h < 4000 ? 'PA006' : 'PA007';
                 }
+                // Felipe: destino INTERNACIONAL forca PA007 independente da
+                // altura (espelha a porta externa). Fixo acoplado a porta
+                // internacional usa o mesmo conjunto PA007.
+                if (leadAtivoEhInternacional()) sysAuto = 'PA007';
               } catch (_) {}
               // Se inferiu da porta, atualiza item.sistema (mantem
               // sincronizado pro motor de calculo). Se ja estava no
@@ -6396,8 +6400,9 @@ const Orcamento = (() => {
               }
               const sysAtual = item.sistema || 'PA006';
               const lockedAuto = !!sysAuto;
+              const _ehIntlFixo = leadAtivoEhInternacional();
               const helpTxt = lockedAuto
-                ? `<span style="font-size:10px; color: var(--cinza-medio, #8c92a0); font-weight:400;"> · auto da porta (alt ${sysAuto === 'PA006' ? '<' : '≥'} 4000mm)</span>`
+                ? `<span style="font-size:10px; color: var(--cinza-medio, #8c92a0); font-weight:400;"> · auto da porta (${_ehIntlFixo ? 'internacional' : (sysAuto === 'PA006' ? 'alt < 4000mm' : 'alt ≥ 4000mm')})</span>`
                 : '';
               return `
             <div class="orc-field">

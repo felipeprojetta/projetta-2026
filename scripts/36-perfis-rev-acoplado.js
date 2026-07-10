@@ -42,6 +42,26 @@ var PerfisRevAcoplado = (function() {
   // principal SEMPRE (autoritative), igual o helper faz no render.
   // Regra: alt da porta >= 4000mm -> PA007 (perfis 101x51 / cantos 101x101)
   //        senao                  -> PA006 (perfis 76x38 / cantos 76x76)
+  // Felipe: destino INTERNACIONAL forca PA007 (fam 101) no fixo acoplado,
+  // independente da altura — espelha a regra da porta externa (31). Um fixo
+  // acoplado a uma porta internacional usa o mesmo conjunto da porta.
+  // Fontes: flag no proprio fixo, na porta principal, ou (fallback) lead ativo.
+  function _ehInternacionalFixo(item) {
+    if (item && item.internacional === true) return true;
+    if (item && String(item.destinoTipo || '').toLowerCase() === 'internacional') return true;
+    try {
+      var porta = obterPortaPrincipal(item);
+      if (porta && (porta.internacional === true ||
+          String(porta.destinoTipo || '').toLowerCase() === 'internacional')) return true;
+    } catch (_) {}
+    try {
+      if (window.Orcamento && typeof window.Orcamento.leadAtivoEhInternacional === 'function') {
+        return !!window.Orcamento.leadAtivoEhInternacional();
+      }
+    } catch (_) {}
+    return false;
+  }
+
   function getSis(item) {
     var k = 'PA006';
     // 1) Sempre tenta deduzir da porta principal (autoritative)
@@ -57,6 +77,8 @@ var PerfisRevAcoplado = (function() {
     } catch (_) {
       if (item && item.sistema) k = String(item.sistema).toUpperCase();
     }
+    // 3) Internacional forca PA007 sempre (independente da altura)
+    if (_ehInternacionalFixo(item)) k = 'PA007';
     return SIS[k] || SIS.PA006;
   }
 
