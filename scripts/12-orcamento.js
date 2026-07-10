@@ -4342,6 +4342,7 @@ const Orcamento = (() => {
     // friso. So' esse campo (o friso e' decorativo; nao tem cava nem frisos
     // dimensionais — afeta apenas o acrescimo de chapas e a chapa de inox).
     18: ['frisoTipo'],
+    19: ['frisoTipo'],
     22: ['distanciaBordaCava', 'tamanhoCava', 'distanciaBordaFrisoVertical', 'espessuraFriso', 'quantidadeFrisos'],
     23: ['tipoMoldura', 'quantidadeMolduras', 'numDivisoesIguais', 'distanciaBorda1aMoldura', 'distancia1a2aMoldura', 'distancia2a3aMoldura', 'perfilMoldura'],
     24: ['tamanhoCava'],
@@ -16966,7 +16967,8 @@ const Orcamento = (() => {
     // Felipe sessao 41: modelo 18 — friso na cor da porta = +3 chapas/porta;
     // friso em aco inox = +2 (a chapa de inox em si Felipe lanca manual).
     // Default (campo vazio) = na cor da porta (+3), caso mais comum.
-    if (m === 18) return item.frisoTipo === 'Aço inox' ? 2 : 3;
+    // Modelo 19 (Cava + Friso Geometricos) usa a MESMA regra (mesmos frisos).
+    if (m === 18 || m === 19) return item.frisoTipo === 'Aço inox' ? 2 : 3;
     return 0;
   }
 

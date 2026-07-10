@@ -1870,6 +1870,13 @@ const ChapasPortaExterna = (() => {
   // nao aqui. Alias de leitura (TABELA read-only).
   TABELA[18] = TABELA[10];
 
+  // Felipe: MODELO 19 (Cava + Friso Geometricos) = mesmas chapas do MODELO 1
+  // (Cava), igual o 18 usa as do 10. Os frisos geometricos NAO viram pecas
+  // aqui — geram +chapas (cor da porta +3 / aco inox +2, igual o 18) tratado
+  // no 12-orcamento (addChapasModeloPorPorta), + chapa de inox manual. Alias
+  // de leitura (TABELA read-only).
+  TABELA[19] = TABELA[1];
+
   function gerarPecasChapa(item, lado) {
     if (!item || item.tipo !== 'porta_externa') return [];
     if (lado !== 'externo' && lado !== 'interno') {
