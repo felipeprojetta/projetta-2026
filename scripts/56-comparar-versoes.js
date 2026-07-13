@@ -265,24 +265,57 @@ const CompararVersoes = (() => {
         body += '</tr>';
       });
 
-      // Fab / Inst / Preco final do item
+      // Fab / Inst / Preco final do item. Felipe sessao 37: 'TRAGA
+      // DETALHADA A INSTALACAO' — instalacao abre em Dias (salarios+
+      // hotel+alimentacao), Munk (guindaste, 100% porta maior) e Demais
+      // (diesel/andaime/pedagio/terceiros), com a soma em seguida.
       const linhasTot = [
-        ['subFab',  '= Custo Fabricação'],
-        ['subInst', 'Instalação (rateada)'],
-        ['custo',   '= Custo total item'],
-        ['precoFinal', 'Preço final item (c/ DRE)'],
+        ['subFab',  '= Custo Fabricação', 'total'],
+        ['instDias',  'Instal. — Dias (salários/hotel/alim.)', 'det'],
+        ['instMunk',  'Instal. — Munk (guindaste)', 'det'],
+        ['instResto', 'Instal. — Demais (diesel/andaime/etc)', 'det'],
+        ['subInst', '= Instalação total (rateada)', 'total'],
+        ['custo',   '= Custo total item', 'total'],
+        ['precoFinal', 'Preço final item (c/ DRE)', 'total'],
       ];
-      linhasTot.forEach(([k, label]) => {
-        const vals = cols.map(c => { const pi = (c.vp.porItem || [])[idx]; return pi ? pi[k] : null; });
+      linhasTot.forEach(([k, label, estilo]) => {
+        const vals = cols.map(c => {
+          const pi = (c.vp.porItem || [])[idx];
+          if (!pi) return null;
+          return (estilo === 'det') ? (pi._detalhe ? pi._detalhe[k] : 0) : pi[k];
+        });
         if (vals.every(v => !v)) return;
-        body += `<tr class="cmpv-linha-total"><td>${esc(label)}</td>`;
+        body += `<tr class="${estilo === 'total' ? 'cmpv-linha-total' : ''}"><td>${esc(label)}</td>`;
         vals.forEach(v => { body += `<td>${v == null ? '—' : 'R$ ' + fmt(v)}</td>`; });
         if (mostrarDelta) body += `<td>${celDelta(vals[0], vals[1])}</td>`;
         body += '</tr>';
       });
 
-      // Pesos do rateio (horas / m² / kg) — pra entender POR QUE rateou assim
-      const pesos = [['horas', 'Horas', 'h'], ['m2', 'm² (rateio chapas)', 'm²'], ['kgLiq', 'Kg líq (rateio perfis)', 'kg']];
+      // Pesos do rateio. Felipe sessao 37: 'DETALHE ESSAS HORAS, NAO
+      // TRAGA SOMENTE O TOTAL' — horas abrem POR ETAPA de fabricacao.
+      const ETAPAS_H = [
+        ['portal',         'Horas — Portal'],
+        ['folha_porta',    'Horas — Folha da porta'],
+        ['colagem',        'Horas — Colagem'],
+        ['corte_usinagem', 'Horas — Corte e Usinagem'],
+        ['conf_embalagem', 'Horas — Conf. e Embalagem'],
+      ];
+      ETAPAS_H.forEach(([eid, label]) => {
+        const vals = cols.map(c => {
+          const pi = (c.vp.porItem || [])[idx];
+          const he = pi && pi._detalhe && pi._detalhe.horasEtapas;
+          return he ? (Number(he[eid]) || 0) : null;
+        });
+        if (vals.every(v => !v)) return;
+        body += `<tr><td style="color:#64748b">${esc(label)}</td>`;
+        vals.forEach(v => { body += `<td style="color:#64748b">${v == null ? '—' : fmtInt(v) + ' h'}</td>`; });
+        if (mostrarDelta) {
+          const d = (Number(vals[1]) || 0) - (Number(vals[0]) || 0);
+          body += `<td style="color:#64748b">${Math.abs(d) < 0.05 ? '—' : (d > 0 ? '+' : '−') + fmtInt(Math.abs(d)) + ' h'}</td>`;
+        }
+        body += '</tr>';
+      });
+      const pesos = [['horas', '= Horas total', 'h'], ['m2', 'm² (rateio chapas)', 'm²'], ['kgLiq', 'Kg líq (rateio perfis)', 'kg']];
       pesos.forEach(([k, label, un]) => {
         const vals = cols.map(c => { const pi = (c.vp.porItem || [])[idx]; return pi && pi._detalhe ? pi._detalhe[k] : null; });
         if (vals.every(v => !v)) return;

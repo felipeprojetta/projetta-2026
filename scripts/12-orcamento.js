@@ -1132,6 +1132,12 @@ const Orcamento = (() => {
       .concat((itens || []).filter(i => i && i.tipo === 'porta_interna'))
       .concat((itens || []).filter(i => i && i.tipo === 'fixo_acoplado'));
     const horasPorIdx = {};
+    // Felipe sessao 37 (painel Comparar Versoes): alem do TOTAL, guarda o
+    // detalhe POR ETAPA por item — mesma base que compoe horasPorIdx
+    // (externa = regras automaticas; interna/fixo/rev = horas manuais do
+    // Custo Fab). Exposto em _detalhe.horasEtapas. Aditivo: nenhum
+    // consumidor existente le esse campo.
+    const horasEtapasPorIdx = {};
     let horasTotal = 0;
     itens.forEach((it, idx) => {
       if (it && it.tipo === 'porta_externa') {
@@ -1139,21 +1145,34 @@ const Orcamento = (() => {
         horasPorIdx[idx] = (h.portal || 0) + (h.quadro || 0) +
                            (h.corte_usinagem || 0) + (h.colagem || 0) +
                            (h.conf_bem || 0);
+        horasEtapasPorIdx[idx] = {
+          portal: h.portal || 0,
+          folha_porta: h.quadro || 0,
+          corte_usinagem: h.corte_usinagem || 0,
+          colagem: h.colagem || 0,
+          conf_embalagem: h.conf_bem || 0,
+        };
       } else if (it && (it.tipo === 'revestimento_parede' || it.tipo === 'porta_interna' || it.tipo === 'fixo_acoplado')) {
         // Soma horas manuais salvas em fab.etapas[<etapa>].horasPorItem[idxFiltrado]
         // (rev_parede e porta_interna nao tem regra automatica — Felipe sessao 35)
         const idxFiltrado = itensFiltradosFab.indexOf(it);
         const etapas = (fab && fab.etapas) || {};
         let totalH = 0;
+        const detEtapas = {};
         if (idxFiltrado >= 0) {
           Object.keys(etapas).forEach(eid => {
             const v = ((etapas[eid] || {}).horasPorItem || {})[String(idxFiltrado)];
-            if (v != null && v !== '' && Number.isFinite(Number(v))) totalH += Number(v);
+            if (v != null && v !== '' && Number.isFinite(Number(v))) {
+              totalH += Number(v);
+              detEtapas[eid] = (detEtapas[eid] || 0) + Number(v);
+            }
           });
         }
         horasPorIdx[idx] = totalH;
+        horasEtapasPorIdx[idx] = detEtapas;
       } else {
         horasPorIdx[idx] = 0;
+        horasEtapasPorIdx[idx] = {};
       }
       horasTotal += horasPorIdx[idx];
     });
@@ -1439,14 +1458,19 @@ const Orcamento = (() => {
       });
     }
 
+    // Felipe sessao 37 (painel Comparar Versoes): guarda o DETALHE da
+    // instalacao por item (dias / munk / resto) em paralelo a soma.
+    const instDetPorIdx = {};
     const subInstPorIdx = itens.map((_, idx) => {
       const propFab = subFabSomado > 0
         ? (subFabPorIdx[idx] / subFabSomado)
         : (1 / itens.length);
       const propDias = usaDias ? (diasPorIdx[idx] / somaDias) : propFab;
-      let v = (restoComp * propFab) + (diasComp * propDias);
-      if (idx === idxMunk) v += munkTotal;
-      return v;
+      const pDias  = diasComp * propDias;
+      const pResto = restoComp * propFab;
+      const pMunk  = (idx === idxMunk) ? munkTotal : 0;
+      instDetPorIdx[idx] = { dias: pDias, munk: pMunk, resto: pResto };
+      return pDias + pResto + pMunk;
     });
 
     // 6. DRE por item — mesmos parametros, custos diferentes
@@ -1475,6 +1499,11 @@ const Orcamento = (() => {
           kgLiq:     kgLiqPorIdx[idx]     || 0,
           m2:        m2PorIdx[idx]        || 0,
           horas:     horasPorIdx[idx]     || 0,
+          // Felipe sessao 37 (painel Comparar Versoes): detalhes novos
+          horasEtapas: horasEtapasPorIdx[idx] || {},
+          instDias:  (instDetPorIdx[idx] || {}).dias  || 0,
+          instMunk:  (instDetPorIdx[idx] || {}).munk  || 0,
+          instResto: (instDetPorIdx[idx] || {}).resto || 0,
         },
       };
     });
