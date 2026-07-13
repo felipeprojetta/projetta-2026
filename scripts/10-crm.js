@@ -3634,6 +3634,7 @@ ${secoesHtml}
                     </div>` : '';
                 return `
                   <div class="crm-card-valor-bloco crm-card-valor-bloco-intl">
+                    <div class="crm-card-pais-badge" title="Pais de destino">🌎 ${escapeHtml((l.destinoPais || 'Internacional').toUpperCase())}</div>
                     <div class="crm-card-bk-titulo">🌍 ${bk.incoterm || 'CIF'} — desdobramento</div>
                     ${linha('Porta', bk.porta)}
                     ${linha('Caixa fumigada', bk.caixa)}
