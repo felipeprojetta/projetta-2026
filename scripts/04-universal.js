@@ -474,6 +474,28 @@
         }
       }
 
+      // Felipe: fallback pro campo de AÇO INOX. O datalist as vezes chega vazio
+      // (timing/escopo do template) e o combo mostrava 'Nenhuma opcao' mesmo
+      // com chapas cadastradas. Aqui, se o input e' de cor inox e nao veio
+      // nenhuma opcao, busca as chapas de aco inox DIRETO do cadastro global.
+      try {
+        const _df = input.getAttribute('data-field') || '';
+        if (opts.length === 0 && /corChapaInox/i.test(_df) &&
+            typeof window !== 'undefined' && window.Storage && window.Storage.scope) {
+          const _sup = window.Storage.scope('cadastros').get('superficies_lista') || [];
+          const _vistas = {};
+          _sup.filter(s => {
+            const cat = String(s.categoria || '').toLowerCase();
+            const desc = String(s.descricao || '').toLowerCase();
+            if (cat.includes('aluminio') || cat.includes('macico')) return false;
+            return cat.includes('inox') || /a[çc]o\s*inox/.test(desc);
+          }).forEach(s => {
+            let d = String(s.descricao || '').replace(/\s*-\s*\d+\s*[xX]\s*\d+.*$/, '').trim();
+            if (d && !_vistas[d]) { _vistas[d] = 1; opts.push(d); }
+          });
+        }
+      } catch (_) {}
+
       // Wrapper relativo
       const wrap = document.createElement('span');
       wrap.className = 'cmbx-wrap';
