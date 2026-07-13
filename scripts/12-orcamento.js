@@ -6118,6 +6118,13 @@ const Orcamento = (() => {
     const ehMod23AM = (_modNumPort === 23) && /aluminio.*macico/.test(_revLow) && /2\s*mm/.test(_revLow);
     const superficiesAM  = ehMod23AM ? filtrarSuperficies('Aluminio Macico 2mm') : [];
     const superficiesACM = ehMod23AM ? filtrarSuperficies('ACM 4mm')             : [];
+    // Felipe: ACO INOX (qualquer modelo) — cores acima (corExterna/Interna)
+    // viram a chapa ACM (resto das pecas); campos abaixo = chapa de aco inox
+    // (tampa maior + fitas de acabamento). Espelha o Mod 23 + AM.
+    const ehInoxRev = /inox/.test(_revLow);
+    const superficiesInox = ehInoxRev
+      ? (superficies || []).filter(s => String(s.categoria || '').toLowerCase() === 'aco_inox' || /inox/i.test(String(s.descricao || '')))
+      : [];
 
     const ehUSA = false;  // Etapa 5 vai plugar com lead.destinoPais === 'United States'
     const mostraPlusUm = ehUSA && largura > 2400;
@@ -7282,6 +7289,30 @@ const Orcamento = (() => {
                          placeholder="" title="${escapeHtml(item.corChapaAM_Int || '')}" />
                 </div>
               ` : ''}
+              ${ehInoxRev ? `
+                <div class="orc-cor-am-aviso" style="margin:8px 0;padding:8px 10px;background:#fff7e8;border-left:3px solid #d97706;border-radius:4px;font-size:12px;color:#7c3a00;">
+                  <b>Aço Inox:</b> as cores acima (Externa/Interna) são da
+                  <b>chapa ACM</b> — o restante das peças. Preencha abaixo a
+                  cor da <b>chapa de aço inox</b>, usada na <b>tampa maior</b>
+                  e nas <b>fitas de acabamento</b> (Maior, Menor e Largura).
+                </div>
+                <div class="orc-field orc-f-cor">
+                  <label>Cor Inox Externa</label>
+                  <input type="text" list="orc-superficies-list-inox" data-field="corChapaInox_Ext"
+                         value="${escapeHtml(item.corChapaInox_Ext || '')}"
+                         placeholder="" title="${escapeHtml(item.corChapaInox_Ext || '')}" />
+                </div>
+                <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-inox-ext-int"
+                        title="Copia a Cor Inox Externa para a Cor Inox Interna">
+                  ↓ Copiar Inox Externo → Inox Interno
+                </button>
+                <div class="orc-field orc-f-cor">
+                  <label>Cor Inox Interna</label>
+                  <input type="text" list="orc-superficies-list-inox" data-field="corChapaInox_Int"
+                         value="${escapeHtml(item.corChapaInox_Int || '')}"
+                         placeholder="" title="${escapeHtml(item.corChapaInox_Int || '')}" />
+                </div>
+              ` : ''}
             </div>
             <datalist id="orc-superficies-list">
               ${(() => {
@@ -7299,6 +7330,19 @@ const Orcamento = (() => {
             </datalist>
             ${ehMod23AM ? `
             <!-- Felipe sessao 13: datalists separados pro Mod23+AM. -->
+            <datalist id="orc-superficies-list-inox">
+              ${(() => {
+                const vistas = new Set();
+                const opts = [];
+                superficiesInox.forEach(s => {
+                  const limpo = nomeCurtoSuperficie(s.descricao);
+                  if (!limpo || vistas.has(limpo)) return;
+                  vistas.add(limpo);
+                  opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                });
+                return opts.join('');
+              })()}
+            </datalist>
             <datalist id="orc-superficies-list-am">
               ${(() => {
                 const vistas = new Set();
@@ -7648,7 +7692,8 @@ const Orcamento = (() => {
         // Campos rastreados: revestimento, corExterna, corInterna,
         // corCava, corChapaAM_Ext, corChapaAM_Int.
         const CAMPOS_SYNC = ['revestimento', 'corExterna', 'corInterna',
-                             'corCava', 'corChapaAM_Ext', 'corChapaAM_Int'];
+                             'corCava', 'corChapaAM_Ext', 'corChapaAM_Int',
+                             'corChapaInox_Ext', 'corChapaInox_Int'];
         if (CAMPOS_SYNC.includes(field)) {
           if (item.tipo === 'fixo_acoplado' && item.__syncPortaIdx != null) {
             // A) User editou um fixo - perde sync (decisao deliberada do user)
@@ -7864,6 +7909,19 @@ const Orcamento = (() => {
 
     // Felipe sessao 13: copiar Cor AM Externa -> Cor AM Interna
     // (pareado com as cores ACM acima quando Mod23 + Aluminio Macico).
+    container.querySelector('#orc-btn-copiar-cor-inox-ext-int')?.addEventListener('click', () => {
+      const inpExt = container.querySelector('input[data-field="corChapaInox_Ext"]');
+      const inpInt = container.querySelector('input[data-field="corChapaInox_Int"]');
+      if (!inpExt || !inpInt) return;
+      const valExt = inpExt.value || '';
+      if (!valExt.trim()) {
+        alert('Selecione primeiro a Cor Inox Externa, depois copie pra Inox Interna.');
+        return;
+      }
+      inpInt.value = valExt;
+      inpInt.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
     container.querySelector('#orc-btn-copiar-cor-am-ext-int')?.addEventListener('click', () => {
       const inpExt = container.querySelector('input[data-field="corChapaAM_Ext"]');
       const inpInt = container.querySelector('input[data-field="corChapaAM_Int"]');
