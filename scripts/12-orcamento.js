@@ -7334,7 +7334,14 @@ const Orcamento = (() => {
               ${(() => {
                 const vistas = new Set();
                 const opts = [];
-                superficiesInox.forEach(s => {
+                // Felipe: le direto do cadastro e filtra SO' categoria aco_inox
+                // (nao pega chapas AM que tem 'Inox' no nome de cor).
+                let _supsInox = [];
+                try {
+                  const _todas = (typeof cad !== 'undefined' && cad.get) ? (cad.get('superficies_lista') || []) : (superficies || []);
+                  _supsInox = (_todas || []).filter(s => String(s.categoria || '').toLowerCase() === 'aco_inox');
+                } catch (_) { _supsInox = []; }
+                _supsInox.forEach(s => {
                   const limpo = nomeCurtoSuperficie(s.descricao);
                   if (!limpo || vistas.has(limpo)) return;
                   vistas.add(limpo);
