@@ -3504,6 +3504,7 @@ const Orcamento = (() => {
         if (cat === 'acm')              return 'ACM 4mm';
         if (cat === 'hpl')              return 'HPL 4mm';
         if (cat === 'aluminio_macico')  return 'Aluminio Macico 2mm';
+        if (cat === 'aco_inox')         return 'Aço Inox';
         if (cat === 'vidro')            return 'Vidro';
         return '';
       } catch (e) {
@@ -4757,7 +4758,7 @@ const Orcamento = (() => {
     }
     const coresFiltradas = filtrarCoresRev(item.revestimento);
 
-    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro'];
+    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Aço Inox', 'Vidro'];
 
     function tagsLeadHtml() {
       if (!UI.leadAtivo) return '';
@@ -6141,7 +6142,7 @@ const Orcamento = (() => {
     ];
 
     // Revestimentos fixos
-    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro'];
+    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Aço Inox', 'Vidro'];
 
     // Helpers de markup
     const opt = (v, sel, lbl) => `<option value="${escapeHtml(v)}" ${v === sel ? 'selected' : ''}>${escapeHtml(lbl != null ? lbl : v)}</option>`;
@@ -6613,7 +6614,7 @@ const Orcamento = (() => {
           const _ehClassicaPI = Number(item.modeloNumero) === 23;
           const revestimentosInt = _ehClassicaPI
             ? ['Aluminio Macico 2mm']
-            : ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Vidro'];
+            : ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Aço Inox', 'Vidro'];
           function filtrarCoresPI(rev) {
             let lista = superficiesInt;
             if (rev) {

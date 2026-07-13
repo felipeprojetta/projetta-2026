@@ -1932,6 +1932,11 @@ const ChapasPortaExterna = (() => {
     const ehAluminioMacico = ehMod23
       && /aluminio.*macico/.test(rev)
       && /2\s*mm/.test(rev);
+    // Felipe: revestimento ACO INOX — vale pra QUALQUER modelo (nao so' mod 23
+    // como o AM). Pecas que viram inox: Tampa Maior (+ o complemento gerado
+    // quando estoura a chapa, que herda) e as Fitas de Acabamento (Maior/
+    // Menor/Largura). Todo o resto segue ACM.
+    const ehInox = /inox/.test(rev);
 
     for (let _idx = 0; _idx < pecasDef.length; _idx++) {
       const def = pecasDef[_idx];
@@ -1996,6 +2001,14 @@ const ChapasPortaExterna = (() => {
       else if (ehAluminioMacico && ehFitaAcab)                   ehPecaAM = true;
       else if (ehAluminioMacico && labelComecaTampa)             ehPecaAM = true;
 
+      // Felipe: PECA EM ACO INOX — so' Tampa Maior (o complemento que estoura
+      // a chapa herda, e' a mesma peca partida) e as Fitas de Acabamento.
+      // NAO pega Tampa Borda nem Tampa da Cava (essas ficam ACM). Vale pra
+      // qualquer modelo quando revestimento = Aco Inox.
+      const soTampaMaior = /^tampa\s+maior\b/.test(lblLow);
+      let ehPecaInox = false;
+      if (ehInox && (soTampaMaior || ehFitaAcab)) ehPecaInox = true;
+
       if (ehPecaAM) {
         // Felipe sessao 13: peca AM usa cor da CHAPA AM (campo separado
         // corChapaAM_Ext/Int), nao a corExterna/corInterna que e' chapa ACM.
@@ -2036,6 +2049,20 @@ const ChapasPortaExterna = (() => {
         // categoria MANTEM def.categoria (porta/portal) — Felipe: 'mantenha
         // o que e porta e portal isso voce tirou'.
       }
+      if (ehPecaInox) {
+        // Felipe: peca de inox usa a COR DO INOX escolhida (corChapaInox_Ext/
+        // Int, do cadastro Superficies > Aco Inox). Prefixo "Aço Inox —" separa
+        // a chapa-mae de inox no aproveitamento (custo automatico pela chapa
+        // inox). Se a cor do inox nao foi escolhida, cai na cor da face.
+        const corInoxLado = ctx.lado === 'externo'
+          ? String(ctx.item?.corChapaInox_Ext || '').trim()
+          : String(ctx.item?.corChapaInox_Int || '').trim();
+        const corInoxAlt = corInoxLado
+          || String(ctx.item?.corChapaInox_Ext || '').trim()
+          || String(ctx.item?.corChapaInox_Int || '').trim()
+          || corDoLado || '';
+        corResolvida = corInoxAlt ? `Aço Inox — ${corInoxAlt}` : 'Aço Inox';
+      }
       // Felipe sessao 14: REMOVIDO prefixo "ACM —" das pecas nao-AM em
       // Mod23+AM. O prefixo separava do AM (que ja tem prefixo proprio
       // "Aluminio Macico —"), mas tambem QUEBRAVA o agrupamento com pecas
@@ -2071,7 +2098,7 @@ const ChapasPortaExterna = (() => {
         // pra preservar a sequencia exata da planilha (nao reordenar
         // por categoria que misturava AM no fim).
         _ordem: _idx,
-        materialEspecial: ehPecaAM ? 'AM' : null,
+        materialEspecial: ehPecaInox ? 'INOX' : (ehPecaAM ? 'AM' : null),
         observacao: def.observacao || '',
       };
 
