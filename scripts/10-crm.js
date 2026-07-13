@@ -3635,6 +3635,8 @@ ${secoesHtml}
                 return `
                   <div class="crm-card-valor-bloco crm-card-valor-bloco-intl">
                     <div class="crm-card-pais-badge" title="Pais de destino">🌎 ${escapeHtml((l.destinoPais || 'Internacional').toUpperCase())}</div>
+                    ${(Number(bk.taxaUsd) > 0 && Number(bk.total) > 0) ? `
+                    <div class="crm-card-pais-usd" title="Total em dolares (taxa USD ${Number(bk.taxaUsd).toFixed(4)})">USD ${(bk.total / bk.taxaUsd).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : ''}
                     <div class="crm-card-bk-titulo">🌍 ${bk.incoterm || 'CIF'} — desdobramento</div>
                     ${linha('Porta', bk.porta)}
                     ${linha('Caixa fumigada', bk.caixa)}

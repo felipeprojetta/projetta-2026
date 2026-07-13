@@ -310,6 +310,15 @@
   margin-bottom: 6px;
   text-transform: uppercase;
 }
+/* Felipe sessao 37: 'ABAIXO DO PAIS QUERO VALOR TOTAL EM DOLARES' —
+   total do desdobramento convertido pela taxa salva na aprovacao. */
+.crm-card-pais-usd {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f4c81;
+  margin: -2px 0 6px 2px;
+  letter-spacing: 0.02em;
+}
 .crm-card-actions {
   margin-top: 8px;
   padding-top: 8px;
