@@ -18514,10 +18514,22 @@ const Orcamento = (() => {
       // Felipe sessao 2026-08: adiciona pecas manuais extras (apenas 1x na
       // visualizacao unificada).
       pecasUnificadas = adicionarPecasManuaisExtras(pecasUnificadas, item);
-      tabelasHtml = renderTabelaPecas(
-        'Externo + Interno (cor unica)',
-        pecasUnificadas, modeloExt, corExt, todasSuperficies, idx
-      );
+      // Felipe: quando ha' pecas de ACO INOX (tampa maior + fitas), separa
+      // num grupo proprio (com a cor da chapa inox) — o resto fica no grupo
+      // ACM (cor da porta). Assim fica claro o que e' inox e o que e' ACM.
+      const _pecasInox = pecasUnificadas.filter(p => p && p.materialEspecial === 'INOX');
+      const _pecasResto = pecasUnificadas.filter(p => !p || p.materialEspecial !== 'INOX');
+      if (_pecasInox.length > 0) {
+        const _corInoxGrp = (_pecasInox[0] && _pecasInox[0].cor) || 'Aço Inox';
+        tabelasHtml =
+          renderTabelaPecas('Externo + Interno — ACM', _pecasResto, modeloExt, corExt, todasSuperficies, idx) +
+          renderTabelaPecas('Aço Inox — tampa maior + fitas de acabamento', _pecasInox, modeloExt, _corInoxGrp, todasSuperficies, idx);
+      } else {
+        tabelasHtml = renderTabelaPecas(
+          'Externo + Interno (cor unica)',
+          pecasUnificadas, modeloExt, corExt, todasSuperficies, idx
+        );
+      }
     } else {
       // Cores diferentes: 2 tabelas separadas como antes
       // Pecas manuais extras vao no Externo (Felipe pode duplicar manualmente
