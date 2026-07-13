@@ -15013,6 +15013,9 @@ const Orcamento = (() => {
               return `
                 <div class="rel-prop-item-linha"><span class="lbl">${tr('COR CHAPA EXTERNA','EXTERIOR SHEET COLOR')}:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
                 <div class="rel-prop-item-linha"><span class="lbl">${tr('COR CHAPA INTERNA','INTERIOR SHEET COLOR')}:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
+                ${(String(item.revestimento || '').toLowerCase().includes('inox') && (item.corChapaInox_Ext || item.corChapaInox_Int)) ? `
+                <div class="rel-prop-item-linha"><span class="lbl">${tr('CHAPA AÇO INOX','STAINLESS STEEL SHEET')}:</span> <span>${escapeHtml(item.corChapaInox_Ext || item.corChapaInox_Int || '—')}</span></div>
+                ` : ''}
               `;
             })()}
             <div class="rel-prop-item-linha"><span class="lbl">${tr('CILINDRO','CYLINDER')}:</span> <span>${escapeHtml(item.cilindro || '—')}</span></div>
