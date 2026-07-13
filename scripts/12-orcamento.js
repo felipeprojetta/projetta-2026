@@ -1284,10 +1284,74 @@ const Orcamento = (() => {
       ? distribuir(tPintura, kgLiqPorIdx, kgLiqTotal)
       : distribuir(tPintura, horasPorIdx, horasTotal);
 
-    // Chapas -> m² (fallback horas)
-    const chapasPorIdx = usaM2
-      ? distribuir(tRevest, m2PorIdx, m2Total)
-      : distribuir(tRevest, horasPorIdx, horasTotal);
+    // Chapas -> CONSUMO REAL por item (Felipe sessao 37: 'CHAPA DE ACO INOX
+    // VAI SOMENTE NA PORTA ENTAO NAO DEVE SER RATEADA COM O FIXO').
+    // Antes: distribuir(tRevest, m2PorIdx) — m² BRUTO do item, cego ao
+    // material. Caso Conrado V5: porta virou inox (chapa R$6.000) e o fixo
+    // (32% do m²) absorveu ~R$8,5k de chapa inox que ele nao usa.
+    // Agora: computeRevestimentoPorCor anota cada linha (chapa por cor,
+    // vidro m², vidro chapa, acrescimo modelo) com _pesoPorItemIdx =
+    // consumo real por item (m² de pecas daquela cor / vidro do item /
+    // porta do modelo). Cada linha e' distribuida pelos proprios pesos e
+    // o resultado e' ESCALADO pra somar exatamente tRevest (respeita
+    // override manual do Custo Fab; total da versao INALTERADO — so' a
+    // distribuicao entre itens muda).
+    // FALLBACK (motores de chapa nao carregados, orcamento sem pecas,
+    // ou erro): comportamento antigo (m² bruto; sem m², horas).
+    let chapasPorIdx = null;
+    try {
+      if (tRevest > 0) {
+        const pecasPC = coletarPecasPorCor(itens);
+        const temPecas = pecasPC && Object.keys(pecasPC).length > 0;
+        const temVidro = itens.some(i => i && (
+          (i.tipo === 'fixo_acoplado' && String(i.revestimento || '').toLowerCase() === 'vidro')
+          || (i.tipo === 'porta_externa' && Number(i.modeloExterno) === 26)));
+        if (temPecas || temVidro) {
+          const todasSup = (window.Superficies && window.Superficies.listar && window.Superficies.listar())
+            || (window.Storage && window.Storage.scope && window.Storage.scope('cadastros').get('superficies_lista'))
+            || [];
+          const rev = computeRevestimentoPorCor(versao, pecasPC || {}, todasSup);
+          if (rev && Array.isArray(rev.linhas) && rev.linhas.length && rev.total > 0) {
+            const raw = itens.map(() => 0);
+            rev.linhas.forEach(l => {
+              const sub = Number(l.subtotal) || 0;
+              if (!sub) return;
+              const pesos = l._pesoPorItemIdx || null;
+              let somaPesos = 0;
+              if (pesos) Object.keys(pesos).forEach(k => { somaPesos += Number(pesos[k]) || 0; });
+              if (pesos && somaPesos > 0) {
+                Object.keys(pesos).forEach(k => {
+                  const i = Number(k);
+                  if (i >= 0 && i < raw.length) {
+                    raw[i] += sub * ((Number(pesos[k]) || 0) / somaPesos);
+                  }
+                });
+              } else {
+                // Linha sem dono identificavel: cai no rateio antigo (m² bruto)
+                itens.forEach((_, i) => {
+                  raw[i] += sub * (m2Total > 0 ? (m2PorIdx[i] / m2Total) : (1 / itens.length));
+                });
+              }
+            });
+            const somaRaw = raw.reduce((s, v) => s + v, 0);
+            if (somaRaw > 0) {
+              const escala = tRevest / somaRaw;
+              chapasPorIdx = raw.map(v => v * escala);
+            }
+          }
+        }
+      } else {
+        chapasPorIdx = itens.map(() => 0);
+      }
+    } catch (e) {
+      console.warn('[Proposta] rateio de chapas por consumo falhou — usando fallback por m²:', e);
+      chapasPorIdx = null;
+    }
+    if (!chapasPorIdx) {
+      chapasPorIdx = usaM2
+        ? distribuir(tRevest, m2PorIdx, m2Total)
+        : distribuir(tRevest, horasPorIdx, horasTotal);
+    }
 
     // Acessorios -> motor por item (fallback horas com o TOTAL do custoFab)
     // Se motor rodou OK mas o total dele difere do tAcessorios (ex: edicao
@@ -17065,6 +17129,20 @@ const Orcamento = (() => {
     const sel = (versao && versao.chapasSelecionadas) || {};
     const cores = Object.keys(pecasPorCor || {});
     cores.forEach(cor => {
+      // Felipe sessao 37: 'CHAPA DE ACO INOX VAI SOMENTE NA PORTA ENTAO NAO
+      // DEVE SER RATEADA COM O FIXO'. Cada linha ganha _pesoPorItemIdx =
+      // m² das pecas DESTA COR por item (via origemItemIdx do agrupar).
+      // calcularValoresProposta usa esses pesos pra distribuir o custo de
+      // chapa so' entre quem realmente consome aquela chapa. Campo _* e'
+      // ignorado pelos renderers (aditivo, sem efeito visual).
+      const _pesoIdx = {};
+      (pecasPorCor[cor] || []).forEach(p => {
+        const i = p.origemItemIdx;
+        if (i == null) return;
+        const a = ((Number(p.largura) || 0) * (Number(p.altura) || 0)
+                   * Math.max(1, Number(p.qtd) || 1)) / 1000000;
+        if (a > 0) _pesoIdx[i] = (_pesoIdx[i] || 0) + a;
+      });
       if (sel[cor]) {
         // Usuario selecionou explicitamente esta chapa
         const c = sel[cor];
@@ -17080,6 +17158,7 @@ const Orcamento = (() => {
           qtd,
           subtotal,
           fonte: 'selecionada',
+          _pesoPorItemIdx: _pesoIdx,
         });
         total += subtotal;
       } else {
@@ -17098,6 +17177,7 @@ const Orcamento = (() => {
             qtd,
             subtotal,
             fonte: 'auto',
+            _pesoPorItemIdx: _pesoIdx,
           });
           total += subtotal;
         }
@@ -17149,7 +17229,7 @@ const Orcamento = (() => {
         });
         return { chapas: Math.max(1, sheets.length), semCabe: semCabe };
       };
-      itens.forEach(item => {
+      itens.forEach((item, _idxItemVidro) => {
         if (!item) return;
         // Felipe: resolve o vidro do item conforme o tipo. Mesma logica de
         // cobranca (m2 x chapa) pros dois casos:
@@ -17206,6 +17286,8 @@ const Orcamento = (() => {
             subtotal,
             fonte: 'vidro_m2',
             unidade: 'm²',
+            // Felipe sessao 37: vidro e' 100% do item que tem o vidro
+            _pesoPorItemIdx: (() => { const o = {}; o[_idxItemVidro] = 1; return o; })(),
           });
           total += subtotal;
         } else if (cobranca === 'chapa') {
@@ -17219,7 +17301,7 @@ const Orcamento = (() => {
           if (!vidroChapaAgg[corChave]) {
             vidroChapaAgg[corChave] = { sup, L_chapa, H_chapa, preco: Number(sup.preco) || 0, panes: [] };
           }
-          vidroChapaAgg[corChave].panes.push({ w: L_mm, h: H_mm, qty: qtd });
+          vidroChapaAgg[corChave].panes.push({ w: L_mm, h: H_mm, qty: qtd, itemIdx: _idxItemVidro });
         }
       });
       // Felipe sessao 35: nesta os vidros por chapa (aproveitamento real) e
@@ -17252,6 +17334,17 @@ const Orcamento = (() => {
           subtotal: subtotal,
           fonte: 'vidro_chapa',
           unidade: 'chapa',
+          // Felipe sessao 37: distribui o custo do nesting de vidro
+          // proporcional a AREA dos vidros de cada item nessa cor.
+          _pesoPorItemIdx: (() => {
+            const o = {};
+            ag.panes.forEach(function (p) {
+              if (p.itemIdx == null) return;
+              const a = (Number(p.w) || 0) * (Number(p.h) || 0) * Math.max(1, p.qty | 0);
+              if (a > 0) o[p.itemIdx] = (o[p.itemIdx] || 0) + a;
+            });
+            return o;
+          })(),
         });
         total += subtotal;
       });
@@ -17277,7 +17370,7 @@ const Orcamento = (() => {
         if (p > 0) { somaPreco += p; nPreco++; }
       });
       const precoMedio = nPreco > 0 ? somaPreco / nPreco : 0;
-      itensAcr.forEach(it => {
+      itensAcr.forEach((it, _idxAcr) => {
         if (!it || it.tipo !== 'porta_externa') return;
         const addPorPorta = addChapasModeloPorPorta(it);
         if (addPorPorta <= 0) return;
@@ -17294,6 +17387,8 @@ const Orcamento = (() => {
             largura: 0, altura: 0,
             precoUnit: pUnit, qtd: nExtra, subtotal: subtotal,
             fonte: 'acrescimo_modelo',
+            // Felipe sessao 37: acrescimo de chapas do modelo e' 100% da porta dona
+            _pesoPorItemIdx: (() => { const o = {}; o[_idxAcr] = 1; return o; })(),
           });
           total += subtotal;
         }
