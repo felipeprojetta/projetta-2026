@@ -22000,6 +22000,25 @@ const Orcamento = (() => {
     // se V1 estiver aprovada e V2 em draft, retorna V1. OrcDocs deve
     // preferir a versao ATIVA aberta (mesma que gera o PDF), caindo
     // pra resumoParaCardCRM so' como fallback.
+    // Felipe sessao 37: usado SO' pelo painel Comparar Versoes
+    // (scripts/56-comparar-versoes.js). Roda o MESMO rateio da tabela de
+    // distribuicao por item (calcularValoresProposta) pra uma versao
+    // qualquer, devolvendo porItem[] com _detalhe (perfis/pintura/chapas/
+    // acess/fechDig/extras/maoObra/kgLiq/m2/horas). Nao altera nada:
+    // leitura pura. Espelha o call site da tabela (params = DEFAULT +
+    // versao.parametros; internacional = lead ativo com destinoTipo intl).
+    valoresPropostaDaVersao: function(versaoId) {
+      const r = obterVersao(versaoId);
+      if (!r || !r.versao) return null;
+      const params = Object.assign({}, PARAMS_DEFAULT, r.versao.parametros || {});
+      let intl = false;
+      try {
+        const leadDist = lerLeadAtivo();
+        intl = !!(leadDist && leadDist.destinoTipo === 'internacional');
+      } catch (_) {}
+      const vp = calcularValoresProposta(r.versao, params, intl);
+      return { vp, versao: r.versao, opcao: r.opcao, negocio: r.negocio, internacional: intl };
+    },
     obterVersaoAtivaParaDocs: function(leadId) {
       try {
         // Se ha versao ativa no UI, valida que pertence ao lead
