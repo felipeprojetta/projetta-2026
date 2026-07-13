@@ -578,6 +578,37 @@ const Database = (() => {
                      'por cache stale (cloud tinha ' + cloudValue.length +
                      ' negocios, local tinha ' + localValue.length + ')');
       }
+      // Felipe sessao 37 (FIX DEFINITIVO quota): o local acumulava
+      // precos_snapshot PESADOS em versoes DRAFT antigas (10.7MB local
+      // vs 6.3MB cloud — a nuvem ja' foi aliviada, o merge por uniao
+      // nunca aliviava o local). Regra ja' estabelecida na base
+      // (saveAll/limparSnapshotsDrafts, sessao 2026-09): draft NAO
+      // precisa de snapshot completo — regenera no recalculo; FECHADA
+      // preserva (historico imutavel). Aplica a mesma regra no
+      // resultado do merge, o ponto por onde TODO negocios passa antes
+      // de ir pro localStorage/cloud. Zero perda de dado alem do que
+      // limparSnapshotsDrafts ja' faz por design.
+      var _aliviados = 0;
+      try {
+        resultado.forEach(function(neg) {
+          ((neg && neg.opcoes) || []).forEach(function(o) {
+            ((o && o.versoes) || []).forEach(function(v) {
+              if (v && v.status !== 'fechada' && v.precos_snapshot
+                  && (v.precos_snapshot.acessorios || v.precos_snapshot.perfis)) {
+                v.precos_snapshot = {
+                  pendente: true,
+                  tiradoEm: v.precos_snapshot.tiradoEm || new Date().toISOString()
+                };
+                _aliviados++;
+              }
+            });
+          });
+        });
+      } catch(_alE) {}
+      if (_aliviados > 0) {
+        console.warn('[DB] mergeProtegido_negocios: aliviados ' + _aliviados +
+                     ' snapshot(s) pesado(s) de drafts (fechadas preservadas).');
+      }
       return resultado;
     } catch(e) {
       console.warn('[DB] mergeProtegido_negocios falhou — enviando local:', e.message);
