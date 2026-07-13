@@ -84,9 +84,9 @@ const CompararVersoes = (() => {
     const st = document.createElement('style');
     st.id = 'cmpv-css';
     st.textContent = `
-.cmpv-btn-abrir{margin-left:10px;padding:2px 10px;font-size:12px;border:1px solid rgba(255,255,255,.45);
-  border-radius:6px;background:transparent;color:inherit;cursor:pointer;vertical-align:middle}
-.cmpv-btn-abrir:hover{background:rgba(255,255,255,.12)}
+.cmpv-btn-abrir{margin-left:auto;padding:4px 12px;font-size:12px;font-weight:600;border:1px solid #c46b20;
+  border-radius:6px;background:#fff;color:#c46b20;cursor:pointer;vertical-align:middle;white-space:nowrap}
+.cmpv-btn-abrir:hover{background:#c46b20;color:#fff}
 .cmpv-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9500;display:flex;
   align-items:flex-start;justify-content:center;padding:4vh 16px;overflow:auto}
 .cmpv-modal{background:#fff;border-radius:12px;max-width:1100px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35);
