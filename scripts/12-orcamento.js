@@ -7334,16 +7334,25 @@ const Orcamento = (() => {
               ${(() => {
                 const vistas = new Set();
                 const opts = [];
-                // Felipe: usa a MESMA fonte do AM (variavel superficies do
-                // escopo, que tem TODAS as categorias) e filtra so' aco_inox.
-                (superficies || [])
-                  .filter(s => String(s.categoria || '').toLowerCase() === 'aco_inox')
-                  .forEach(s => {
-                    const limpo = nomeCurtoSuperficie(s.descricao);
-                    if (!limpo || vistas.has(limpo)) return;
-                    vistas.add(limpo);
-                    opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
-                  });
+                // Felipe: le do Storage global (sempre disponivel) e filtra
+                // aco inox de forma tolerante — pega categoria aco_inox (com
+                // variacoes de acento) OU descricao 'aço inox'/'aco inox',
+                // EXCLUINDO aluminio macico (que tem 'Inox' no nome de cor).
+                let _todas = [];
+                try { _todas = Storage.scope('cadastros').get('superficies_lista') || []; }
+                catch (_) { try { _todas = superficies || []; } catch (__) { _todas = []; } }
+                _todas.filter(s => {
+                  const cat = String(s.categoria || '').toLowerCase();
+                  const desc = String(s.descricao || '').toLowerCase();
+                  if (cat.includes('aluminio') || cat.includes('macico')) return false;
+                  if (cat.replace(/[^a-z]/g, '').includes('acoinox') || cat.includes('inox')) return true;
+                  return /a[çc]o\s*inox/.test(desc);
+                }).forEach(s => {
+                  const limpo = nomeCurtoSuperficie(s.descricao);
+                  if (!limpo || vistas.has(limpo)) return;
+                  vistas.add(limpo);
+                  opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                });
                 return opts.join('');
               })()}
             </datalist>
