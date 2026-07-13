@@ -11238,9 +11238,19 @@ const Orcamento = (() => {
             const m3 = (a * e * c) / 1e9;
             const _vEmbA = (typeof obterVersao === 'function' && typeof UI !== 'undefined') ? obterVersao(UI.versaoAtivaId) : null;
             const _lmaxA = Math.max(0, ...(((_vEmbA && _vEmbA.versao && _vEmbA.versao.itens) || [])).map(it => Number(it.largura) || 0));
-            const caixaUsd = (window.FreteTarifas && window.FreteTarifas.calcularEmbalagem)
-              ? window.FreteTarifas.calcularEmbalagem(m3, _lmaxA, taxa).usd
-              : (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100);
+            // Felipe sessao 37: 'pq mostra 225 na aprovacao e na parte azul
+            // 226?' — o painel DRE (sessao 41) respeita o custo USD MANUAL
+            // da caixa (lead.caixaCustoUsdManual substitui o automatico),
+            // mas a aprovacao recalculava sempre o automatico. Com caixa
+            // manual USD 1.200 vs auto USD 900 (taxa 5), o CRM recebia
+            // R$ 1.500 a menos que o painel. Mesma regra aqui: manual > 0
+            // SUBSTITUI o calculo automatico da embalagem.
+            const _caixaManualAp = Number(leadAprov.caixaCustoUsdManual) || 0;
+            const caixaUsd = _caixaManualAp > 0
+              ? _caixaManualAp
+              : ((window.FreteTarifas && window.FreteTarifas.calcularEmbalagem)
+                  ? window.FreteTarifas.calcularEmbalagem(m3, _lmaxA, taxa).usd
+                  : (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100));
             const terrUsd  = Number(leadAprov.freteTerrestreUsd) || 0;
             const marUsd   = Number(leadAprov.freteMaritimoUsd)  || 0;
             const valorCargaUsd = precoPortaFinal / taxa;
@@ -14600,7 +14610,11 @@ const Orcamento = (() => {
             const emb = (window.FreteTarifas && window.FreteTarifas.calcularEmbalagem)
               ? window.FreteTarifas.calcularEmbalagem(m3, larguraMaxMm, taxa)
               : { tipo: 'caixa', usd: (window.FreteTarifas ? window.FreteTarifas.calcularCaixa(m3) : m3 * 100), labelEn: 'Fumigated wood crate' };
-            const caixaUsd = emb.usd;
+            // Felipe sessao 37: custo USD manual do lead SUBSTITUI o
+            // automatico tambem na proposta (mesma regra do painel DRE e da
+            // aprovacao — fonte unica, sem divergencia painel x PDF x CRM).
+            const _caixaManualP = Number(lead.caixaCustoUsdManual) || 0;
+            const caixaUsd = _caixaManualP > 0 ? _caixaManualP : emb.usd;
             const terrUsd  = Number(lead.freteTerrestreUsd) || 0;
             const marUsd   = Number(lead.freteMaritimoUsd)  || 0;
             const valorUsd = totalGeral / taxa;
