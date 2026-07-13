@@ -376,19 +376,35 @@ const CompararVersoes = (() => {
       }
     } catch (e) { console.warn('[cmpv] abrir:', e); }
     if (!ref || !ref.negocio) { alert('Abra um orçamento primeiro pra comparar versões.'); return; }
+    abrirModalDoNegocio(ref.negocio, ref.opcao ? (ref.opcao.letra || 'A') : 'A');
+  }
 
-    negocioAtual = ref.negocio;
+  // Felipe sessao 37: entrada pelo CARD do CRM (botao ⇆ Comparar).
+  // Resolve o negocio na hora do clique (nunca cacheia — card pode ter
+  // ganhado versao nova desde a injecao do botao).
+  function abrirPorLead(leadId) {
+    injetarCss();
+    if (!window.Orcamento) { alert('Módulo Orçamento não carregado.'); return; }
+    let neg = null;
+    try { neg = window.Orcamento.obterNegocioPorLeadId(leadId); } catch (e) { console.warn('[cmpv]', e); }
+    if (!neg) { alert('Este lead ainda não tem orçamento.'); return; }
+    const op = (neg.opcoes || [])[0] || null;
+    abrirModalDoNegocio(neg, op ? (op.letra || 'A') : 'A');
+  }
+
+  function abrirModalDoNegocio(negocio, letraAtiva) {
+    injetarCss();
+    negocioAtual = negocio;
     const versoes = listarVersoesDoNegocio(negocioAtual);
     if (versoes.length < 2) { alert('Este negócio só tem 1 versão — nada pra comparar ainda.'); return; }
 
-    // Default: as 2 ultimas versoes da opcao da versao ativa
-    const letraAtiva = ref.opcao ? (ref.opcao.letra || 'A') : 'A';
-    const daOpcao = versoes.filter(v => v.letra === letraAtiva);
+    // Default: as 2 ultimas versoes da opcao ativa
+    const daOpcao = versoes.filter(v => v.letra === (letraAtiva || 'A'));
     const pool = daOpcao.length >= 2 ? daOpcao : versoes;
     selecionadas = pool.slice(-2).map(v => v.id);
 
     fechar(); // garante 1 modal so'
-    negocioAtual = ref.negocio; // fechar() zera; restaura
+    negocioAtual = negocio; // fechar() zera; restaura
 
     overlayEl = document.createElement('div');
     overlayEl.className = 'cmpv-overlay';
@@ -439,10 +455,10 @@ const CompararVersoes = (() => {
   // MutationObserver: zero edicao no HTML do 12-orcamento.js.
   // ------------------------------------------------------------------
   function injetarBotoes(root) {
-    const banners = (root || document).querySelectorAll
-      ? (root || document).querySelectorAll('.orc-banner:not(.cmpv-com-botao)')
-      : [];
-    banners.forEach(b => {
+    const escopo = (root || document);
+    if (!escopo.querySelectorAll) return;
+    // 1) Banner do orcamento
+    escopo.querySelectorAll('.orc-banner:not(.cmpv-com-botao)').forEach(b => {
       b.classList.add('cmpv-com-botao');
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -450,6 +466,35 @@ const CompararVersoes = (() => {
       btn.textContent = '⇆ Comparar versões';
       btn.addEventListener('click', (e) => { e.stopPropagation(); abrir(); });
       b.appendChild(btn);
+    });
+    // 2) Felipe sessao 37: card do CRM ('preciso apertar F12 toda vez?').
+    // Nos cards com orcamento (.crm-card-actions.is-orcdocs), adiciona o
+    // botao ⇆ Comparar quando o negocio do lead tem 2+ versoes. Usa a
+    // MESMA classe .crm-orcdocs-btn dos vizinhos (estilo consistente,
+    // zero CSS novo no 11-crm.css). leadId vem do data-lead-id dos
+    // botoes existentes; negocio e' resolvido de novo NO CLIQUE.
+    escopo.querySelectorAll('.crm-card-actions.is-orcdocs:not(.cmpv-crm-ok)').forEach(area => {
+      area.classList.add('cmpv-crm-ok');
+      const refBtn = area.querySelector('[data-lead-id]');
+      const leadId = refBtn && refBtn.getAttribute('data-lead-id');
+      if (!leadId || !window.Orcamento) return;
+      let totalVersoes = 0;
+      try {
+        const neg = window.Orcamento.obterNegocioPorLeadId(leadId);
+        ((neg && neg.opcoes) || []).forEach(o => { totalVersoes += (o.versoes || []).length; });
+      } catch (_) {}
+      if (totalVersoes < 2) return;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'crm-orcdocs-btn cmpv-btn-crm';
+      btn.title = 'Comparar versões do orçamento (custos lado a lado)';
+      btn.innerHTML = '<span class="icon">⇆</span><span>Comparar</span>';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        abrirPorLead(leadId);
+      });
+      area.appendChild(btn);
     });
   }
   function iniciarObserver() {
@@ -464,7 +509,7 @@ const CompararVersoes = (() => {
     iniciarObserver();
   }
 
-  return { abrir };
+  return { abrir, abrirPorLead };
 })();
 
 window.CompararVersoes = CompararVersoes;
