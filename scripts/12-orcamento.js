@@ -7334,19 +7334,16 @@ const Orcamento = (() => {
               ${(() => {
                 const vistas = new Set();
                 const opts = [];
-                // Felipe: le direto do cadastro e filtra SO' categoria aco_inox
-                // (nao pega chapas AM que tem 'Inox' no nome de cor).
-                let _supsInox = [];
-                try {
-                  const _todas = (typeof cad !== 'undefined' && cad.get) ? (cad.get('superficies_lista') || []) : (superficies || []);
-                  _supsInox = (_todas || []).filter(s => String(s.categoria || '').toLowerCase() === 'aco_inox');
-                } catch (_) { _supsInox = []; }
-                _supsInox.forEach(s => {
-                  const limpo = nomeCurtoSuperficie(s.descricao);
-                  if (!limpo || vistas.has(limpo)) return;
-                  vistas.add(limpo);
-                  opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
-                });
+                // Felipe: usa a MESMA fonte do AM (variavel superficies do
+                // escopo, que tem TODAS as categorias) e filtra so' aco_inox.
+                (superficies || [])
+                  .filter(s => String(s.categoria || '').toLowerCase() === 'aco_inox')
+                  .forEach(s => {
+                    const limpo = nomeCurtoSuperficie(s.descricao);
+                    if (!limpo || vistas.has(limpo)) return;
+                    vistas.add(limpo);
+                    opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                  });
                 return opts.join('');
               })()}
             </datalist>
