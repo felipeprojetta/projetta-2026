@@ -161,6 +161,12 @@ const Storage = (() => {
   // Felipe sessao 2026-08-02 V2: agora consulta Permissoes.podeEditarChave
   // (granular) - permite que admin libere acessos pontuais por usuario.
   function _isPermissaoBlocked(scopeName, k) {
+    // Felipe: trava de permissao DESATIVADA temporariamente — ambos os
+    // usuarios ficam livres pra editar cadastros (inclusive fotos de modelos)
+    // enquanto NAO existe a tela pra configurar "o que cada um pode mexer".
+    // Pra RELIGAR a trava depois: basta remover o `return false;` abaixo — toda
+    // a logica de admin/permissao granular continua intacta.
+    return false;
     try {
       if (scopeName !== 'cadastros') return false; // so' bloqueia cadastros
       if (typeof Auth === 'undefined') return false;
