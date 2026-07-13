@@ -80,6 +80,7 @@ const Storage = (() => {
           if (k.indexOf(PREFIX + 'backup_diario:') === 0
               || k.indexOf(PREFIX + 'backup_manual:') === 0
               || k.indexOf(':forensic_') !== -1
+              || k.indexOf('forensic') !== -1          // Felipe sessao 37: leads__forensic_* etc (key-level)
               || /:.*backup_20\d{2}/.test(k)            // backup_2026*
               || /_backup_sessao\d+/.test(k)            // _backup_sessao13/14
               || /__pre_/.test(k)) {                    // __pre_ezy_color etc

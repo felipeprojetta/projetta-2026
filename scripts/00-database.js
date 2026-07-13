@@ -938,12 +938,24 @@ const Database = (() => {
         // Supabase (source of truth). Baixa-los pro localStorage enchia a quota
         // e travava a gravacao de crm:leads/negocios (dados novos como o lead da
         // Paula nao apareciam). Trata todos como backup -> nao vao pro cache.
+        // Felipe sessao 37 (FIX DEFINITIVO quota): os padroes antigos so'
+        // cobriam forensic como SCOPE. Chaves forense no NOME DA KEY
+        // (crm/leads__forensic_*, orcamentos/negocios__forensic_*,
+        // cadastros/superficies_lista__pre_ezy_color,
+        // cadastros/superficies_lista_backup_sessao14_AM) escapavam do
+        // filtro, eram re-baixadas a CADA sync e estouravam a quota
+        // ('Quota localStorage excedida. Chave CRITICA: ...'). Convencao:
+        // qualquer key contendo 'forensic', '__pre_' ou '_backup_sessao'
+        // e' seguro/snapshot -> Supabase-only, nunca cache local.
         return s === 'backup_diario'
             || s === 'backup_manual'
             || s.indexOf('forensic') === 0
             || s.indexOf('backup_') === 0
             || k.indexOf('backup_diario') === 0
-            || k.indexOf('backup_manual') === 0;
+            || k.indexOf('backup_manual') === 0
+            || k.indexOf('forensic') !== -1
+            || k.indexOf('__pre_') !== -1
+            || k.indexOf('_backup_sessao') !== -1;
       }
 
       function _limparBackupsLocais() {
@@ -955,7 +967,14 @@ const Database = (() => {
             if (k.indexOf(PREFIX + 'backup_diario') === 0
              || k.indexOf(PREFIX + 'backup_manual') === 0
              || k.indexOf(PREFIX + 'forensic') === 0
-             || k.indexOf(PREFIX + 'backup_') === 0) {
+             || k.indexOf(PREFIX + 'backup_') === 0
+             // Felipe sessao 37: padroes key-level (leads__forensic_*,
+             // *__pre_*, *_backup_sessao*) — mesmos do _ehChaveBackupLocal.
+             // Guardado com PREFIX pra nunca tocar chave fora do projetta:*.
+             || (k.indexOf(PREFIX) === 0 && (
+                    k.indexOf('forensic') !== -1
+                 || k.indexOf('__pre_') !== -1
+                 || k.indexOf('_backup_sessao') !== -1))) {
               bytes += (localStorage.getItem(k) || '').length;
               localStorage.removeItem(k);
               liberados++;
