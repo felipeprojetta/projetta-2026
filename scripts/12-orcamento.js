@@ -6065,7 +6065,7 @@ const Orcamento = (() => {
 
     const ehCava = /\bcava\b/i.test(nomeModelo);
     const ehFriso = /friso/i.test(nomeModelo);
-    const mostraCor = ['ACM 4mm', 'Aluminio Macico 2mm', 'HPL 4mm', 'Vidro'].includes(item.revestimento);
+    const mostraCor = ['ACM 4mm', 'Aluminio Macico 2mm', 'HPL 4mm', 'Aço Inox', 'Vidro'].includes(item.revestimento);
 
     // Filtra superficies por revestimento usando a categoria canonica
     // do cadastro (ACM/HPL/Vidro/Aluminio Macico). A funcao auto e' compartilhada.
