@@ -498,7 +498,11 @@ var PerfisRevAcoplado = (function() {
     var tublportal = TUBLPORTAL_BY_FAM[fam] || 38;
     var alturaEfetiva = Number(item.altura) + tublportal + REF_CHAPA;
 
-    var modeloNum = segueModelo && porta ? Number(porta.modeloNumero) || 1 : Number(item.modeloNumero) || 1;
+    // Felipe sessao 37: modelo da porta resolvido tolerante (itens novos
+    // usam modeloExterno; legados modeloNumero). Antes 'porta.modeloNumero'
+    // vinha undefined e TODO modelo colapsava pro fallback 1 — o fixo nao
+    // acompanhava o modelo real da porta.
+    var modeloNum = segueModelo && porta ? (_modeloNumPorta(porta) || 1) : Number(item.modeloNumero) || 1;
     var modeloNome = segueModelo && porta ? String(porta.modeloNome || '') : 'Liso';
 
     // Felipe sessao 12: cor herdada da porta quando segueModelo, com
@@ -553,12 +557,16 @@ var PerfisRevAcoplado = (function() {
       corChapaAM_Ext: corChapaAM_Ext,
       corChapaAM_Int: corChapaAM_Int,
       revestimento: item.revestimento || '',
-      // Felipe sessao 39: fixo acoplado NUNCA tem cava (puxador embutido).
-      // Zera tamanho/borda da cava pra a Tampa Maior sair dimensionada sem
-      // recorte de cava (cheia/lisa). As pecas da cava-pegador (cava, l_da_cava,
-      // tampa_da_cava, tampa_borda_cava) sao descartadas no loop de gerarPecasChapa.
-      tamanhoCava:                   0,
-      distanciaBordaCava:            0,
+      // Felipe sessao 39: fixo LATERAL nao tem cava (sem pegador).
+      // Felipe sessao 37 (BUG Hamilton H — 'as chapas tambem estao erradas,
+      // nao estao acompanhando o modelo da porta'): o SUPERIOR que segue o
+      // modelo HERDA a cava da porta — Tampa Maior COM recorte + pecas da
+      // cava (cava/l_da_cava/tampa_da_cava/tampa_borda_cava mantidas no
+      // loop de gerarPecasChapa). Lateral continua 0 (regra 39 mantida).
+      tamanhoCava:                   (segueModelo && porta && String(item.posicao || '').toLowerCase() === 'superior')
+                                       ? (porta.tamanhoCava != null ? porta.tamanhoCava : 0) : 0,
+      distanciaBordaCava:            (segueModelo && porta && String(item.posicao || '').toLowerCase() === 'superior')
+                                       ? (Number(porta.distanciaBordaCava) || 0) : 0,
       quantidadeFrisos:              segueModelo && porta ? (Number(porta.quantidadeFrisos) || 0)              : 0,
       espessuraFriso:                segueModelo && porta ? (Number(porta.espessuraFriso) || 0)                : 0,
       distanciaBordaFrisoVertical:   segueModelo && porta ? (Number(porta.distanciaBordaFrisoVertical) || 0)   : 0,
@@ -700,8 +708,13 @@ var PerfisRevAcoplado = (function() {
         // SO as pecas da cava-pegador. NAO inclui 'tampa_maior_cava', que e' a
         // Tampa Maior principal do painel (mantida; ja sai sem recorte porque
         // tamanhoCava=0 no item virtual).
-        if (p.id === 'cava' || p.id === 'l_da_cava'
-            || p.id === 'tampa_da_cava' || p.id === 'tampa_borda_cava') continue;
+        // Felipe sessao 39: fixo LATERAL nunca tem cava — descarta as pecas
+        // da cava-pegador. Felipe sessao 37: SUPERIOR seguindo modelo HERDA
+        // o desenho da cava da porta — pecas mantidas (par com os perfis
+        // Tubo 38x38 + Cantoneira 30x30 herdados no gerarCortes).
+        var _ehSuperiorSegue = ehSuperior && item.fixoSegueModelo === 'sim';
+        if (!_ehSuperiorSegue && (p.id === 'cava' || p.id === 'l_da_cava'
+            || p.id === 'tampa_da_cava' || p.id === 'tampa_borda_cava')) continue;
         if (p.categoria === 'porta') {
           if (IDS_PORTA_EXCLUIR[p.id]) continue;
         } else if (p.categoria === 'portal') {
@@ -709,7 +722,10 @@ var PerfisRevAcoplado = (function() {
         } else {
           continue; // outras categorias nao vao pro fixo
         }
-        if (p.id === 'cava' && compChapaCava > 0) {
+        // Felipe sessao 12: chapa da CAVA do fixo segue compTravVert
+        // (ALTURA - 2*TUB1). Sessao 37: o L da Cava corre junto com a
+        // cava verticalmente — mesmo override de altura.
+        if ((p.id === 'cava' || p.id === 'l_da_cava') && compChapaCava > 0) {
           p = Object.assign({}, p, { altura: Math.round(compChapaCava * 100) / 100 });
         }
         // Override altura tampa/friso no fixo SUPERIOR
