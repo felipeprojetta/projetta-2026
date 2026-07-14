@@ -134,13 +134,22 @@ var PerfisRevAcoplado = (function() {
     } catch (_) { return 0; }
   }
 
+  // Felipe sessao 37: resolve o numero do modelo da porta de forma
+  // tolerante — itens novos usam modeloExterno, legados modeloNumero.
+  function _modeloNumPorta(porta) {
+    if (!porta) return 0;
+    var me = porta.modeloExterno;
+    if (me != null && me !== '') return Number(me) || 0;
+    return Number(porta.modeloNumero) || 0;
+  }
+
   // Qtd cava da porta (0, 2 ou 4)
   function qtdCavaPorta(porta) {
     if (!porta) return 0;
     try {
       var motor = window.PerfisPortaExterna || {};
       var nome = String(porta.modeloNome || '');
-      var num  = Number(porta.modeloNumero) || 0;
+      var num  = _modeloNumPorta(porta);
       if (motor.temCava && !motor.temCava(nome, num)) return 0;
       if (!motor.temCava) return 0;
       var ehDupla = motor.temCavaDupla ? motor.temCavaDupla(nome, num) : false;
@@ -149,8 +158,20 @@ var PerfisRevAcoplado = (function() {
   }
 
   // Qtd friso vertical da porta
+  // Felipe sessao 37 (BUG Hamilton H, AGP004291): porta modelo 1 (Cava,
+  // SEM friso vertical) tinha quantidadeFrisos=5 sobrando no item
+  // (resquicio de troca de modelo) e o fixo superior herdava 5 frisos
+  // fantasmas. Agora so' herda se o MODELO da porta realmente tem friso
+  // vertical (MODELOS_COM_FRISO_VERTICAL do motor da porta: 2,4,5,7,
+  // 11,13,14,22,25). Motor ausente = 0 (mesmo padrao dos outros helpers).
   function qtdFrisoVertPorta(porta) {
-    return Number(porta && porta.quantidadeFrisos) || 0;
+    if (!porta) return 0;
+    try {
+      var motor = window.PerfisPortaExterna || {};
+      if (!motor.temFrisoVertical) return 0;
+      if (!motor.temFrisoVertical(_modeloNumPorta(porta))) return 0;
+    } catch (_) { return 0; }
+    return Number(porta.quantidadeFrisos) || 0;
   }
 
   // ═══════════════════════════════════════════════════
@@ -406,12 +427,14 @@ var PerfisRevAcoplado = (function() {
     // Planilha: "MANUAL" — default 0, usuario edita no Lev. Perfis
 
     // CAVA 38x38 + CANTONEIRA 30x30
-    // Felipe sessao 39: fixo acoplado NUNCA tem cava (puxador embutido) — e'
-    // painel fixo, sem pegador. Antes, lateral ripado/moldura e superior
-    // herdavam a cava da porta via segueModelo (Tubo/Cantoneira Puxador
-    // Embutido). Forcado 0; o restante do modelo (ripas/travessas/frisos)
-    // continua sendo replicado normalmente.
-    var qtdCv = 0;
+    // Felipe sessao 39: fixo acoplado nao tem cava FUNCIONAL (pegador).
+    // Felipe sessao 37 (BUG Hamilton H): 'foi colocado que seria igual
+    // modelo da porta, que e cava, e nao veio os perfis da cava, como
+    // tubo 38x38, cantoneira 30x30'. O SUPERIOR que segue o modelo
+    // replica o DESENHO da cava da porta (estetica continua em cima) —
+    // volta a herdar Tubo + Cantoneira. LATERAL continua NUNCA herdando
+    // (regra da sessao 39 mantida pro lateral).
+    var qtdCv = (!ehLateral && segueModelo) ? qtdCavaPorta(porta) : 0;
     if (qtdCv > 0) {
       add(COD_CAVA,       compCava,     qtdCv,     'Tubo Puxador Embutido');
       add(COD_CANTONEIRA, compTravVert, qtdCv * 2, 'Cantoneira Puxador Embutido');

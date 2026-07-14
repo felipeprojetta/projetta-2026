@@ -902,6 +902,10 @@ const PerfisPortaExterna = (() => {
 
     temCava,
     temCavaDupla,
+    // Felipe sessao 37: exposto pro fixo acoplado (36) validar se o modelo
+    // da porta TEM friso vertical antes de herdar quantidadeFrisos.
+    temFrisoVertical: function (num) { return MODELOS_COM_FRISO_VERTICAL.has(Number(num) || 0); },
+    MODELOS_COM_FRISO_VERTICAL,
     travessasHorizontais,
     travessasVerticais,
     dimensoesBaseMod26,
