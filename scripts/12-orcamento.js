@@ -17144,6 +17144,15 @@ const Orcamento = (() => {
     }).filter(v => Number(v.largura) > 0 && Number(v.altura) > 0);
     if (!variantes.length) return null;
 
+    // Felipe sessao 37: 'Aco Inox — no motor de corte NAO considere a
+    // perca de 10mm de cada lado; pode considerar a chapa inteira com a
+    // medida do cadastro'. Detecta inox pela categoria/descricao das
+    // variantes da cor (ou pela propria cor) e zera o refile de borda
+    // (APARAR: 0). Demais materiais: config normal do cadastro.
+    const _ehChapaInoxNest = (variantes || []).some(v =>
+        String(v.categoria || '').toLowerCase().replace(/[^a-z]/g, '').includes('acoinox')
+        || /a[çc]o\s*inox/i.test(String(v.descricao || '')))
+      || /a[çc]o\s*inox/i.test(String(cor || ''));
     const resultados = window.ChapasAproveitamento.compararConfiguracoes(
       pecas,
       variantes.map(v => ({
@@ -17152,7 +17161,8 @@ const Orcamento = (() => {
         altura:    Number(v.altura),
         preco:     Number(v.preco) || 0,
         peso_kg_m2: Number(v.peso_kg_m2) || 0,
-      }))
+      })),
+      _ehChapaInoxNest ? { APARAR: 0 } : undefined
     );
     // Felipe (sessao 2026-05): pega a melhor pela flag isMelhor
     // (ordem natural por dimensao mantida).
@@ -18123,6 +18133,12 @@ const Orcamento = (() => {
     }
 
     // Roda o algoritmo nos tamanhos disponiveis
+    // Felipe sessao 37: Aco Inox nesting SEM refile de borda (APARAR: 0)
+    // — chapa inteira com a medida do cadastro. Mesma regra do compute.
+    const _ehChapaInoxNestUI = (variantes || []).some(v =>
+        String(v.categoria || '').toLowerCase().replace(/[^a-z]/g, '').includes('acoinox')
+        || /a[çc]o\s*inox/i.test(String(v.descricao || '')))
+      || /a[çc]o\s*inox/i.test(String(cor || ''));
     const resultados = window.ChapasAproveitamento.compararConfiguracoes(
       pecas,
       variantes.map(v => ({
@@ -18131,7 +18147,8 @@ const Orcamento = (() => {
         altura:    Number(v.altura),
         preco:     Number(v.preco) || 0,
         peso_kg_m2: Number(v.peso_kg_m2) || 0,
-      }))
+      })),
+      _ehChapaInoxNestUI ? { APARAR: 0 } : undefined
     );
 
     // Felipe (sessao 2026-05): mantem a ORDEM NATURAL das chapas

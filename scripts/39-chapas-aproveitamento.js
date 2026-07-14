@@ -1490,7 +1490,7 @@ window.ChapasAproveitamento = (function () {
   // com agrupamento por categoria/altura. Isso simula o que o
   // MaxCut faz na pratica — nao e' IA, e' heuristica multi-start.
   // ============================================================
-  function aproveitar(pecas, chapaLarg, chapaAlt, contadorInicial) {
+  function aproveitar(pecas, chapaLarg, chapaAlt, contadorInicial, cfgOverride) {
     if (!Array.isArray(pecas) || !pecas.length) {
       return {
         chapas: [], numChapas: 0, pecasNaoCouberam: [],
@@ -1498,7 +1498,10 @@ window.ChapasAproveitamento = (function () {
         proxContador: contadorInicial || 100,
       };
     }
-    const cfg = getConfig();
+    // Felipe sessao 37: 5o parametro OPCIONAL cfgOverride permite o caller
+    // sobrescrever config pontualmente (ex: Aco Inox -> APARAR: 0, chapa
+    // inteira sem refile de borda). Sem override = comportamento identico.
+    const cfg = Object.assign(getConfig(), cfgOverride || {});
     const exp = expandirPecas(pecas, contadorInicial || 100);
     const expandidas = exp.expandidas;
 
@@ -2145,7 +2148,7 @@ window.ChapasAproveitamento = (function () {
     return gruposOrdenados.flat();
   }
 
-  function compararConfiguracoes(pecas, chapasMaeDisponiveis) {
+  function compararConfiguracoes(pecas, chapasMaeDisponiveis, cfgOverride) {
     if (!Array.isArray(chapasMaeDisponiveis) || !chapasMaeDisponiveis.length) {
       return [];
     }
@@ -2165,7 +2168,7 @@ window.ChapasAproveitamento = (function () {
 
     const resultados = chapasOrdenadas.map(chapa => {
       try {
-        const r = aproveitar(pecas, chapa.largura, chapa.altura, 100);
+        const r = aproveitar(pecas, chapa.largura, chapa.altura, 100, cfgOverride);
         const precoUnit = Number(chapa.preco) || 0;
         const custoTotal = r.numChapas * precoUnit;
         return {
