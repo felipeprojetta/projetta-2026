@@ -6209,12 +6209,15 @@ const Orcamento = (() => {
     const _modNumPort = Number(item.modeloExterno || item.modeloInterno || item.modeloNumero) || 0;
     const _revLow = String(item.revestimento || '').toLowerCase();
     const ehMod23AM = (_modNumPort === 23) && /aluminio.*macico/.test(_revLow) && /2\s*mm/.test(_revLow);
-    const superficiesAM  = ehMod23AM ? filtrarSuperficies('Aluminio Macico 2mm') : [];
-    const superficiesACM = ehMod23AM ? filtrarSuperficies('ACM 4mm')             : [];
-    // Felipe: ACO INOX (qualquer modelo) — cores acima (corExterna/Interna)
-    // viram a chapa ACM (resto das pecas); campos abaixo = chapa de aco inox
-    // (tampa maior + fitas de acabamento). Espelha o Mod 23 + AM.
+    // Felipe sessao 13: ACO INOX (qualquer modelo) — cores acima
+    // (corExterna/Interna) viram a chapa ACM (resto das pecas); campos
+    // abaixo = chapa de aco inox. Espelha o Mod 23 + AM.
+    // Felipe sessao 37: 'so traga os itens que estiverem no cadastro na
+    // aba acm' — a lista ACM tambem e' montada quando revestimento e'
+    // inox (antes so' Mod23+AM), pros campos Cor Externa/Interna ACM.
     const ehInoxRev = /inox/.test(_revLow);
+    const superficiesAM  = ehMod23AM ? filtrarSuperficies('Aluminio Macico 2mm') : [];
+    const superficiesACM = (ehMod23AM || ehInoxRev) ? filtrarSuperficies('ACM 4mm') : [];
     const superficiesInox = ehInoxRev
       ? (superficies || []).filter(s => String(s.categoria || '').toLowerCase() === 'aco_inox' || /inox/i.test(String(s.descricao || '')))
       : [];
@@ -7337,16 +7340,16 @@ const Orcamento = (() => {
                  entre Cor Interna e Cor da Cava. -->
             <div class="orc-cor-stack">
               <div class="orc-field orc-f-cor">
-                <label>${ehMod23AM ? 'Cor ACM Externa' : 'Cor Externa'}</label>
-                <input type="text" list="${ehMod23AM ? 'orc-superficies-list-acm' : 'orc-superficies-list'}" data-field="corExterna" value="${escapeHtml(item.corExterna)}" placeholder="" title="${escapeHtml(item.corExterna)}" />
+                <label>${ehMod23AM ? 'Cor ACM Externa' : (ehInoxRev ? 'Cor Externa ACM' : 'Cor Externa')}</label>
+                <input type="text" list="${(ehMod23AM || ehInoxRev) ? 'orc-superficies-list-acm' : 'orc-superficies-list'}" data-field="corExterna" value="${escapeHtml(item.corExterna)}" placeholder="" title="${escapeHtml(item.corExterna)}" />
               </div>
               <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-ext-int"
                       title="Copia a Cor Externa para a Cor Interna (caso sejam iguais)">
                 ↓ Copiar Externo → Interno
               </button>
               <div class="orc-field orc-f-cor">
-                <label>${ehMod23AM ? 'Cor ACM Interna' : 'Cor Interna'}</label>
-                <input type="text" list="${ehMod23AM ? 'orc-superficies-list-acm' : 'orc-superficies-list'}" data-field="corInterna" value="${escapeHtml(item.corInterna)}" placeholder="" title="${escapeHtml(item.corInterna)}" />
+                <label>${ehMod23AM ? 'Cor ACM Interna' : (ehInoxRev ? 'Cor Interna ACM' : 'Cor Interna')}</label>
+                <input type="text" list="${(ehMod23AM || ehInoxRev) ? 'orc-superficies-list-acm' : 'orc-superficies-list'}" data-field="corInterna" value="${escapeHtml(item.corInterna)}" placeholder="" title="${escapeHtml(item.corInterna)}" />
               </div>
               ${modeloTemCava(item.modeloExterno || item.modeloNumero) ? `
               <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-ext-cava"
@@ -7421,8 +7424,10 @@ const Orcamento = (() => {
                 return opts.join('');
               })()}
             </datalist>
-            ${ehMod23AM ? `
+            ${(ehMod23AM || ehInoxRev) ? `
             <!-- Felipe sessao 13: datalists separados pro Mod23+AM. -->
+            <!-- Felipe sessao 37: tambem renderizados pro Aco Inox (campos
+                 Cor Externa/Interna ACM usam -acm; Cor Inox usa -inox). -->
             <datalist id="orc-superficies-list-inox">
               ${(() => {
                 const vistas = new Set();
@@ -8012,6 +8017,40 @@ const Orcamento = (() => {
       inpCava.value = valExt;
       inpCava.dispatchEvent(new Event('change', { bubbles: true }));
     });
+
+    // Felipe sessao 37: 'nao permita puxar cores que nao esteja na aba do
+    // campo escolhido'. Campos de cor com datalist restrito (ACM / AM /
+    // Inox / lista filtrada pelo revestimento) so' aceitam valores que
+    // EXISTEM naquela lista. Valor digitado fora da aba -> alerta + limpa
+    // (o dispatch de 'input' zera o item[field] pelo handler existente).
+    // Fonte unica: valida contra as <option> do proprio datalist que o
+    // campo aponta — o mesmo filtro que monta a lista e' o que valida.
+    (function _bindValidacaoCorNaAba() {
+      const CAMPOS_COR = ['corExterna', 'corInterna', 'corCava',
+                          'corChapaAM_Ext', 'corChapaAM_Int',
+                          'corChapaInox_Ext', 'corChapaInox_Int'];
+      CAMPOS_COR.forEach(f => {
+        const inp = container.querySelector('input[data-field="' + f + '"]');
+        if (!inp) return;
+        inp.addEventListener('change', () => {
+          const listId = inp.getAttribute('list');
+          if (!listId) return;
+          const dl = container.querySelector('#' + listId) || document.getElementById(listId);
+          if (!dl) return;
+          const opts = Array.from(dl.querySelectorAll('option')).map(o => (o.value || '').trim());
+          if (!opts.length) return; // lista vazia (cadastro nao carregado) — nao trava o fluxo
+          const val = (inp.value || '').trim();
+          if (!val) return;
+          const ok = opts.some(o => o.toLowerCase() === val.toLowerCase());
+          if (!ok) {
+            alert('A cor "' + val + '" não está no cadastro dessa aba.\nEscolha uma opção da lista.');
+            inp.value = '';
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+            inp.focus();
+          }
+        });
+      });
+    })();
 
     // Felipe sessao 13: copiar Cor AM Externa -> Cor AM Interna
     // (pareado com as cores ACM acima quando Mod23 + Aluminio Macico).
