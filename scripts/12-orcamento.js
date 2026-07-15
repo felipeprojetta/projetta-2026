@@ -63,7 +63,8 @@ const Orcamento = (() => {
     com_rep:     0,   // sem rep nacional na exportacao
     com_rt:      0,   // sem RT/arquiteto
     com_gest:    0,   // sem gestao interna
-    lucro_alvo: 45,   // lucro alvo Felipe definiu
+    lucro_alvo: 35,   // Felipe sessao 37: 'quando for internacional inicie
+                      // com 35%' (antes 45, definido na sessao 31)
     markup_desc: 0,   // sem markup de desconto na exportacao
     desconto:    0,   // sem desconto negociado
   };
@@ -10349,6 +10350,35 @@ const Orcamento = (() => {
       }
     }
 
+    // Felipe sessao 37: 'para portas acima de 5 mts de altura coloque lucro
+    // alvo 20%'. NACIONAL com alguma porta externa de altura > 5000mm inicia
+    // com lucro_alvo 20 (default normal continua 15). So' aplica se o
+    // lucro_alvo NUNCA foi salvo/editado nessa versao (e' um valor INICIAL —
+    // Felipe pode editar livremente depois; flag evita reaplicar).
+    // Internacional nao entra aqui (regra propria: inicia com 35).
+    {
+      const paramsSalvos5m = versao.parametros || {};
+      const leadAuto5m = lerLeadAtivo();
+      const ehIntl5m = leadAuto5m && leadAuto5m.destinoTipo === 'internacional';
+      const temPortaAlta = (versao.itens || []).some(it =>
+        it && it.tipo === 'porta_externa' && Number(it.altura) > 5000);
+      const lucroNuncaSalvo = paramsSalvos5m.lucro_alvo === undefined
+        || paramsSalvos5m.lucro_alvo === null || paramsSalvos5m.lucro_alvo === '';
+      const jaAplicou5m = paramsSalvos5m._lucro5m_aplicado === true;
+      if (!ehIntl5m && temPortaAlta && lucroNuncaSalvo && !jaAplicou5m) {
+        params.lucro_alvo = 20;
+        const novosSalvos5m = Object.assign({}, paramsSalvos5m, {
+          lucro_alvo: 20,
+          _lucro5m_aplicado: true,
+        });
+        try {
+          atualizarVersao(versao.id, { parametros: novosSalvos5m });
+        } catch (e) {
+          console.warn('[DRE] auto-aplicacao lucro 20% (porta >5m) falhou:', e);
+        }
+      }
+    }
+
     // Lookup representante ANTES de calcular DRE
     let repInfoDre = null;
     try {
@@ -10599,7 +10629,9 @@ const Orcamento = (() => {
               Number(params.com_gest)    === 0 &&
               Number(params.markup_desc) === 0 &&
               Number(params.desconto)    === 0 &&
-              Number(params.lucro_alvo)  === 45;
+              // Felipe sessao 37: default intl novo = 35; 45 = versoes da
+              // regra antiga (sessao 31) — badge reconhece as duas.
+              (Number(params.lucro_alvo) === 35 || Number(params.lucro_alvo) === 45);
             return ehInternacional
               ? `<span style="font-size:11px; color:#0c5485; background:#eff8ff; padding:4px 10px; border-radius:4px; font-weight:600;">🌍 INTERNACIONAL — defaults aplicados</span>`
               : `<button type="button" id="orc-dre-aplicar-intl" style="font-size:11px; color:#fff; background:#0c5485; border:none; padding:6px 12px; border-radius:5px; cursor:pointer; font-weight:600;">🌍 Aplicar defaults Internacional</button>`;
