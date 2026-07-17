@@ -570,8 +570,23 @@
       + '      <div class="wkv-fld"><label>Valor maximo (R$)</label><input id="wkv-f-vmax" type="number" placeholder="sem limite" value="' + (ui.vmax == null ? '' : ui.vmax) + '"></div>'
       + '      <div class="wkv-fld"><label>Max. pavimentos</label><input id="wkv-f-pav" type="number" placeholder="qualquer" min="1"></div>'
       + '      <div class="wkv-fld"><label>Ano fechamento</label><select id="wkv-f-ano"><option value="">Todos</option>'
-      +          '<option value="2025"' + (ui.ano === '2025' ? ' selected' : '') + '>2025</option>'
-      +          '<option value="2026"' + (ui.ano === '2026' ? ' selected' : '') + '>2026</option></select></div>'
+      // Felipe sessao 37: 'queria filtrar por mes e por ano' — anos gerados
+      // dos DADOS reais (antes hardcoded 2025/2026; a prova de 2027+).
+      +          (function () {
+                   var anos = {};
+                   try {
+                     getReservas().forEach(function (d) {
+                       var a = dataAnoMes(d.data).ano;
+                       if (a) anos[a] = 1;
+                     });
+                   } catch (_) {}
+                   var lista = Object.keys(anos).sort();
+                   if (!lista.length) lista = ['2025', '2026'];
+                   return lista.map(function (a) {
+                     return '<option value="' + a + '"' + (ui.ano === a ? ' selected' : '') + '>' + a + '</option>';
+                   }).join('');
+                 })()
+      +          '</select></div>'
       + '      <div class="wkv-fld"><label>Mes</label><select id="wkv-f-mes"><option value="">Todos</option>'
       +          ['01 Jan','02 Fev','03 Mar','04 Abr','05 Mai','06 Jun','07 Jul','08 Ago','09 Set','10 Out','11 Nov','12 Dez'].map(function (m) { var n = m.slice(0, 2); return '<option value="' + n + '"' + (ui.mes === n ? ' selected' : '') + '>' + m + '</option>'; }).join('')
       +          '</select></div>'
