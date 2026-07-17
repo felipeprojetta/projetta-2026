@@ -443,10 +443,43 @@
         var regs = limparCSV(rows);
         if (!regs.length) { window.alert('Nenhum registro valido no CSV. Confira se e o arquivo certo.'); return; }
         if (!window.Storage) { window.alert('Storage indisponivel.'); return; }
-        if (!window.confirm('Importar ' + regs.length + ' reservas Weiku?\n\nCPF/RG NAO serao salvos. Isso substitui a base atual da aba WEIKU (o opt-out e mantido).')) return;
-        Storage.scope(SCOPE).set('reservas', regs);
-        _cloudReservas = regs; // mostra a base completa na hora (sem truncar no localStorage)
-        window.alert(regs.length + ' reservas importadas com sucesso.\nSincronizando com o Supabase em segundo plano.');
+        // Felipe sessao 37: 'como faremos para puxar as reservas de
+        // 01/06/2026 ate hoje?' — export PARCIAL da intranet nao pode
+        // apagar a base. Se ja existe base, oferece MESCLAR (novo CSV
+        // adiciona/atualiza pelo numero da reserva; o que nao esta no
+        // CSV permanece) ou SUBSTITUIR (comportamento antigo).
+        var atuais = [];
+        try { atuais = getReservas() || []; } catch (_) {}
+        var regsFinal = regs;
+        var modoTxt = 'importadas (base nova)';
+        if (atuais.length) {
+          var mesclar = window.confirm(
+            'A base atual tem ' + atuais.length + ' reservas e o CSV tem ' + regs.length + '.\n\n' +
+            'OK = MESCLAR (recomendado pra export parcial, ex: so junho/julho):\n' +
+            '  adiciona as novas e atualiza as existentes pelo numero da reserva;\n' +
+            '  o que nao esta no CSV permanece como esta.\n\n' +
+            'Cancelar = escolher SUBSTITUIR a base inteira.');
+          if (mesclar) {
+            var byR = {};
+            atuais.forEach(function (d) { if (d && d.r) byR[d.r] = d; });
+            var novas = 0, atualizadas = 0;
+            regs.forEach(function (d) {
+              if (!d || !d.r) return;
+              if (byR[d.r]) atualizadas++; else novas++;
+              byR[d.r] = d; // CSV novo vence
+            });
+            regsFinal = Object.keys(byR).map(function (k) { return byR[k]; });
+            modoTxt = 'mescladas (' + novas + ' novas, ' + atualizadas + ' atualizadas, total ' + regsFinal.length + ')';
+          } else {
+            if (!window.confirm('SUBSTITUIR a base inteira? (' + atuais.length + ' -> ' + regs.length + ' reservas)\n\nCPF/RG NAO serao salvos. O opt-out e mantido.')) return;
+            modoTxt = 'importadas (base substituida)';
+          }
+        } else {
+          if (!window.confirm('Importar ' + regs.length + ' reservas Weiku?\n\nCPF/RG NAO serao salvos. O opt-out e mantido.')) return;
+        }
+        Storage.scope(SCOPE).set('reservas', regsFinal);
+        _cloudReservas = regsFinal; // mostra a base completa na hora (sem truncar no localStorage)
+        window.alert(regsFinal.length + ' reservas na base — ' + modoTxt + '.\nSincronizando com o Supabase em segundo plano.');
         render(container);
       } catch (err) {
         console.error('[weiku-vendas] erro ao importar CSV', err);
