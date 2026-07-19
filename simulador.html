@@ -221,6 +221,19 @@ function calc(L,A){
   const V=Number(window.__Vloc||40);
   const qDem=0.613*Math.pow(V*0.95,2)*1.1;
   const fsV=vento/qDem;
+  // força no reverso mais carregado (muda com o LOCAL): q · trib(FW/2) · vão máx
+  const fRev=qDem*(FW/2000)*(vaoMax/1000)/1000;      // kN
+  // REFORÇOS AUTOMÁTICOS quando FS<1,5:
+  //  A) +1 ferrolho central no maior vão -> novo vão máx e nova capacidade
+  const spans=[R1, f.D, FH-R2];
+  // ferrolho no meio de CADA vão maior que o espaçamento dos reversos
+  const spans2=spans.flatMap(s=> s>f.D+50 ? [s/2,s/2] : [s]);
+  const nFer=spans2.length-spans.length;
+  const vaoMax2=Math.max(...spans2);
+  const vento2=8*SIG*W_PAF/(trib*vaoMax2*vaoMax2)*1e6;
+  //  B) montante reforçado: tubo 101x51 soldado interno -> W 48+16=64 cm³
+  const vento3=vento*64/48;
+  const vento4=vento2*64/48;
   const cob=(Math.min(f.v1,FH-60)-f.v0)/FH;
   const jaq=FH>5500?4:2;
   // parafusos do portal: Zona A = 2/lado · Zona B = passo 300 no corpo (descontando zona A de 600)
@@ -244,7 +257,7 @@ function calc(L,A){
   const torqAb=200*(FW/1000)*(FH/1000)*eG;        // N·m — rajada 200 Pa com porta ABERTA
   const pinTau=(fLat*9.81)/(Math.PI*15*15);       // MPa — cisalh. pino Ø30 inox 304 (adm 82)
   const pinOk=pinTau<=82;
-  return {PA_F,LARG,TV,VEDA,FW,FH,th,tv,per,cha,enc,sub,piv,R1,R2,vaoMax,vento,cob,jaq,f,zonaB,dRec,fLat,fLat273,idMin,idMax,dOk,dForca,FADM,envOk,parG,torqAb,pinTau,pinOk,qDem,fsV,V};
+  return {PA_F,LARG,TV,VEDA,FW,FH,th,tv,per,cha,enc,sub,piv,R1,R2,vaoMax,vento,cob,jaq,f,zonaB,dRec,fLat,fLat273,idMin,idMax,dOk,dForca,FADM,envOk,parG,torqAb,pinTau,pinOk,qDem,fsV,V,fRev,vaoMax2,vento2,vento3,vento4,nFer};
 }
 
 function desenhar(c,L,A){
@@ -344,10 +357,18 @@ function upd(){
   kRev.textContent=`${fmt(c.R1)} / ${fmt(c.R2)}`;
   kKeso.textContent=(100*c.cob).toFixed(0)+'%';
   document.querySelector('#cardTrava h2').textContent='Travamento & vento — '+c.f.nome+' + 2 reversos';
-  vLoc.innerHTML=`Demanda do local (V=${c.V} m/s): <b>${fmt(c.qDem)} Pa</b> · capacidade ${fmt(Math.round(c.vento/50)*50)} Pa → `+
+  let sol='';
+  if(c.fsV<1.5){
+    const op=[];
+    if(c.vento2/c.qDem>=1.5) op.push(`+${Math.max(1,c.nFer)} FERROLHO(S) manual(is) nos vãos grandes (novo vão máx. ${fmt(c.vaoMax2)}) → ${fmt(Math.round(c.vento2/50)*50)} Pa, FS ${(c.vento2/c.qDem).toFixed(1)} ✓`);
+    if(c.vento3/c.qDem>=1.5) op.push(`MONTANTE REFORÇADO (tubo 101x51 soldado interno, W 64 cm³) → ${fmt(Math.round(c.vento3/50)*50)} Pa, FS ${(c.vento3/c.qDem).toFixed(1)} ✓`);
+    if(!op.length) op.push(`FERROLHO + MONTANTE REFORÇADO → ${fmt(Math.round(c.vento4/50)*50)} Pa, FS ${(c.vento4/c.qDem).toFixed(1)} ${c.vento4/c.qDem>=1.5?'✓':'— consultar engenharia'}`);
+    sol=`<br><b>SOLUÇÃO:</b> `+op[0];
+  }
+  vLoc.innerHTML=`Demanda do local (V=${c.V} m/s): <b>${fmt(c.qDem)} Pa</b> · capacidade ${fmt(Math.round(c.vento/50)*50)} Pa · força no reverso crítico <b>${c.fRev.toFixed(1)} kN</b> → `+
     (c.fsV>=1.5?`<b style="color:#0F6E56">APROVADO — FS ${c.fsV.toFixed(1)}</b>`:
-     c.fsV>=1.0?`<b style="color:#8a5a1a">NO LIMITE — FS ${c.fsV.toFixed(1)} (avaliar reforço)</b>`:
-     `<b style="color:#A32D2D">REPROVADO — reforçar (FS ${c.fsV.toFixed(2)})</b>`);
+     c.fsV>=1.0?`<b style="color:#8a5a1a">NO LIMITE — FS ${c.fsV.toFixed(1)}</b>`:
+     `<b style="color:#A32D2D">REPROVADO — FS ${c.fsV.toFixed(2)}</b>`)+sol;
   mJaq.innerHTML=`Reversos: par com espaçamento fixo de <b>${fmt(c.f.D)}</b> (DXF), centralizado → vãos ${fmt(c.R1)} / ${fmt(c.f.D)} / ${fmt(c.FH-c.R2)} (máx. ${fmt(c.vaoMax)}).`
     +(c.f.real?'':' <b style="color:#A32D2D">12P: posições estimadas — aguardando DXF.</b>')
     +`<br>Ponto 1 na verga: <b>${c.jaq}x jaqueta e cone 5/16</b> `+(c.jaq===4?'em linha, passo 120 + barra ALU 2"x1/4"x420':'+ barra ALU 2"x1/4"');
