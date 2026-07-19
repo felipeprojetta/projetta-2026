@@ -134,7 +134,7 @@
       </div>
       <div class="mini" id="vLoc" style="font-size:12.5px;border-top:1px dashed var(--linha);padding-top:6px;"></div>
       <div class="mini" id="mJaq"></div>
-      <div class="mini">REGRA DA FECHADURA (o maior varão que cabe a partir de 1020 do chão): folha ≥ 6,6 m → 24 pinos (varão 6 m) · ≥ 5,3 m → 16 pinos (varão 4 m) · abaixo → 12 pinos (varão 2 m).</div>
+      <div class="mini">REGRA DA FECHADURA (o maior varão que cabe a partir de 1020 do chão): folha ≥ 6,6 m → 24 pinos (varão 6 m) · ≥ 5,3 m → 16 pinos (varão 4 m) · abaixo → 12 pinos (varão 2 m). VEDA-PORTA AUTOMÁTICO superior e inferior: DE SÉRIE em todas as portas, qualquer região.</div>
     </div>
 
     <div class="card">
@@ -370,7 +370,7 @@ function upd(){
     if(!op.length) op.push(`FERROLHO + MONTANTE REFORÇADO → ${fmt(Math.round(c.vento4/50)*50)} Pa, FS ${(c.vento4/c.qDem).toFixed(1)} ${c.vento4/c.qDem>=1.5?'✓':'— consultar engenharia'}`);
     sol=`<br><b>SOLUÇÃO:</b> `+op[0];
   }
-  vLoc.innerHTML=(c.noa?`<b>NOA:</b> DP alvo ±${(c.vento/1.5/47.88).toFixed(0)} psf (ensaio ±1,5x) · veda automático sup+inf ✓ · sanduíche ACM 4 + lã de rocha + travessas + ACM 4 (míssil: validar em ensaio TAS 201)<br>`:'')+`Demanda do local (V=${c.V} m/s): <b>${fmt(c.qDem)} Pa</b> · capacidade ${fmt(Math.round(c.vento/50)*50)} Pa · força no reverso crítico <b>${c.fRev.toFixed(1)} kN</b> → `+
+  vLoc.innerHTML=(c.noa?`<b>NOA:</b> DP alvo ±${(c.vento/1.5/47.88).toFixed(0)} psf (ensaio ±1,5x) · sanduíche ACM 4 + lã de rocha + travessas + ACM 4 (míssil: validar em ensaio TAS 201)<br>`:'')+`Demanda do local (V=${c.V} m/s): <b>${fmt(c.qDem)} Pa</b> · capacidade ${fmt(Math.round(c.vento/50)*50)} Pa · força no reverso crítico <b>${c.fRev.toFixed(1)} kN</b> → `+
     (c.fsV>=1.5?`<b style="color:#0F6E56">APROVADO — FS ${c.fsV.toFixed(1)}</b>`:
      c.fsV>=1.0?`<b style="color:#8a5a1a">NO LIMITE — FS ${c.fsV.toFixed(1)}</b>`:
      `<b style="color:#A32D2D">REPROVADO — FS ${c.fsV.toFixed(2)}</b>`)+sol;
