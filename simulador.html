@@ -78,6 +78,21 @@
         <label>Altura do vão <output id="oA">7.000 mm</output></label>
         <input type="range" id="sA" min="4000" max="8000" step="10" value="7000">
       </div>
+      <div class="ctl">
+        <label>Local da obra (vento de projeto)</label>
+        <select id="sLoc" style="width:100%;padding:8px;border:1px solid var(--linha);border-radius:6px;font-size:13px;background:#fff;">
+          <option value="30">Brasil — Região 1 (até 30 m/s: N/NE interior)</option>
+          <option value="35">Brasil — Região 2 (35 m/s: MG/ES/BA sul, Manaus)</option>
+          <option value="40" selected>Brasil — Região 3 (40 m/s: SP/RJ/GO/MS)</option>
+          <option value="45">Brasil — Região 4 (45 m/s: PR/SC/MS sul)</option>
+          <option value="50">Brasil — Região 5 (50 m/s: RS, litoral sul)</option>
+          <option value="48.5">EUA — Flórida interior (ASCE 7 ~140 mph)</option>
+          <option value="62.3">EUA — Flórida HVHZ / Miami-Dade (~180 mph)</option>
+          <option value="0">Outro país — velocidade manual (m/s):</option>
+        </select>
+        <input type="number" id="sVman" value="40" min="20" max="90" step="1"
+          style="display:none;margin-top:6px;width:120px;padding:7px;border:1px solid var(--linha);border-radius:6px;">
+      </div>
       <div class="aviso" id="avFam">Altura &lt; 4.000: o sistema usa a família PA006 (76x38) — este simulador cobre a família 101.</div>
     </div>
 
@@ -113,6 +128,7 @@
         <div class="kpi"><b id="kRev">—</b><span>reversos</span></div>
         <div class="kpi"><b id="kKeso">—</b><span>varão cobre</span></div>
       </div>
+      <div class="mini" id="vLoc" style="font-size:12.5px;border-top:1px dashed var(--linha);padding-top:6px;"></div>
       <div class="mini" id="mJaq"></div>
       <div class="mini">REGRA DA FECHADURA (o maior varão que cabe a partir de 1020 do chão): folha ≥ 6,6 m → 24 pinos (varão 6 m) · ≥ 5,3 m → 16 pinos (varão 4 m) · abaixo → 12 pinos (varão 2 m).</div>
     </div>
@@ -200,7 +216,11 @@ function calc(L,A){
   // VENTO pela SEÇÃO REAL do montante PA007F: Wy=48,0 cm³ (integração do DXF) ·
   // σ_adm 6063-T5 = 65 MPa (110/1,35 com reserva p/ HAZ da solda laser nos nós — EC9)
   const W_PAF=48000, SIG=65, trib=FW/2;
-  const vento=8*SIG*W_PAF/(trib*vaoMax*vaoMax)*1e6;   // Pa
+  const vento=8*SIG*W_PAF/(trib*vaoMax*vaoMax)*1e6;   // Pa (CAPACIDADE)
+  // DEMANDA do local: q = 0,613·(V·S2)²·Cp — S1=S3=1, S2=0,95, Cp fachada 1,1 (estimativa NBR 6123/ASCE)
+  const V=Number(window.__Vloc||40);
+  const qDem=0.613*Math.pow(V*0.95,2)*1.1;
+  const fsV=vento/qDem;
   const cob=(Math.min(f.v1,FH-60)-f.v0)/FH;
   const jaq=FH>5500?4:2;
   // parafusos do portal: Zona A = 2/lado · Zona B = passo 300 no corpo (descontando zona A de 600)
@@ -224,7 +244,7 @@ function calc(L,A){
   const torqAb=200*(FW/1000)*(FH/1000)*eG;        // N·m — rajada 200 Pa com porta ABERTA
   const pinTau=(fLat*9.81)/(Math.PI*15*15);       // MPa — cisalh. pino Ø30 inox 304 (adm 82)
   const pinOk=pinTau<=82;
-  return {PA_F,LARG,TV,VEDA,FW,FH,th,tv,per,cha,enc,sub,piv,R1,R2,vaoMax,vento,cob,jaq,f,zonaB,dRec,fLat,fLat273,idMin,idMax,dOk,dForca,FADM,envOk,parG,torqAb,pinTau,pinOk};
+  return {PA_F,LARG,TV,VEDA,FW,FH,th,tv,per,cha,enc,sub,piv,R1,R2,vaoMax,vento,cob,jaq,f,zonaB,dRec,fLat,fLat273,idMin,idMax,dOk,dForca,FADM,envOk,parG,torqAb,pinTau,pinOk,qDem,fsV,V};
 }
 
 function desenhar(c,L,A){
@@ -324,6 +344,10 @@ function upd(){
   kRev.textContent=`${fmt(c.R1)} / ${fmt(c.R2)}`;
   kKeso.textContent=(100*c.cob).toFixed(0)+'%';
   document.querySelector('#cardTrava h2').textContent='Travamento & vento — '+c.f.nome+' + 2 reversos';
+  vLoc.innerHTML=`Demanda do local (V=${c.V} m/s): <b>${fmt(c.qDem)} Pa</b> · capacidade ${fmt(Math.round(c.vento/50)*50)} Pa → `+
+    (c.fsV>=1.5?`<b style="color:#0F6E56">APROVADO — FS ${c.fsV.toFixed(1)}</b>`:
+     c.fsV>=1.0?`<b style="color:#8a5a1a">NO LIMITE — FS ${c.fsV.toFixed(1)} (avaliar reforço)</b>`:
+     `<b style="color:#A32D2D">REPROVADO — reforçar (FS ${c.fsV.toFixed(2)})</b>`);
   mJaq.innerHTML=`Reversos: par com espaçamento fixo de <b>${fmt(c.f.D)}</b> (DXF), centralizado → vãos ${fmt(c.R1)} / ${fmt(c.f.D)} / ${fmt(c.FH-c.R2)} (máx. ${fmt(c.vaoMax)}).`
     +(c.f.real?'':' <b style="color:#A32D2D">12P: posições estimadas — aguardando DXF.</b>')
     +`<br>Ponto 1 na verga: <b>${c.jaq}x jaqueta e cone 5/16</b> `+(c.jaq===4?'em linha, passo 120 + barra ALU 2"x1/4"x420':'+ barra ALU 2"x1/4"');
@@ -346,7 +370,11 @@ function upd(){
 }
 document.getElementById('sL').addEventListener('input',upd);
 document.getElementById('sA').addEventListener('input',upd);
-upd();
+const selLoc=document.getElementById('sLoc'), vMan=document.getElementById('sVman');
+function setV(){ const v=Number(selLoc.value); vMan.style.display=v?'none':'inline-block';
+  window.__Vloc = v || Number(vMan.value)||40; upd(); }
+selLoc.addEventListener('change',setV); vMan.addEventListener('input',setV);
+window.__Vloc=40; upd();
 </script>
 </body>
 </html>
