@@ -543,6 +543,34 @@ function memorial(c){
     }
   }
   const anOK=an.okG&&an.okC&&an.okB&&an.okO;
+  // ---- VI. PIVÔ NA FOLHA — 4x DIN 7991 M8 A2 no PA007V (parede 4 mm) + contra-chapa interna 6 mm ----
+  function pivoFolha(nP,sP,tCC){
+    // nP parafusos em padrão quadrado sP×sP mm · contra-chapa alumínio tCC mm (rosca na contra-chapa)
+    const eOff=35;                                  // braço do eixo do pivô até a face de fixação (mm)
+    const Wn=c.piv*9.81, Fl=c.fLat*9.81;            // N — peso e força lateral no pivô
+    const Vres=Math.hypot(Wn,Fl), vScrew=Vres/nP;   // cisalhamento por parafuso
+    const Mn=Math.hypot(Fl*eOff, Wn*eOff)/1000;     // N·m — momento do braço (SRSS dos 2 eixos)
+    const nRow=nP/2;
+    const tScrew=Mn*1000/(nRow*sP);                 // N — tração nos parafusos da fila externa
+    const As=36.6, FtAdm=220*As, FvAdm=145*As;      // M8 A2-70: adm 220/145 MPa sobre As
+    const tauAl=39;                                 // MPa — cisalhamento adm 6063-T5 (0,6·65)
+    const strip4=Math.PI*8*4*tauAl;                 // arrancamento SÓ na parede 4 mm
+    const stripCC=Math.PI*8*tCC*tauAl;              // arrancamento na contra-chapa (rosca nela)
+    const bear=8*4*2*65;                            // esmagamento parede 4 mm (adm 2·σ)
+    const inter=Math.pow(vScrew/Math.min(FvAdm,bear),2)+Math.pow(tScrew/Math.min(FtAdm,stripCC),2);
+    return {nP,sP,tCC,eOff,Wn,Fl,Vres,vScrew,Mn,tScrew,FtAdm,FvAdm,strip4,stripCC,bear,inter,
+      okV:vScrew<=Math.min(FvAdm,bear), okT:tScrew<=Math.min(FtAdm,stripCC), okI:inter<=1,
+      ng4:tScrew>strip4};
+  }
+  let pf=pivoFolha(4,60,6), pfFix=null;
+  if(!(pf.okV&&pf.okT&&pf.okI)){
+    const cand=[];
+    for(const nP of [4,6]) for(const tCC of [6,8,10]) for(const sP of [60,80]){
+      const t=pivoFolha(nP,sP,tCC); if(t.okV&&t.okT&&t.okI) cand.push(t);
+    }
+    pfFix = cand.find(t=>t.inter<=0.85) || cand[0] || null;  // prefere folga; senão a 1ª que passa
+  }
+  const pfOK=pf.okV&&pf.okT&&pf.okI;
   el.innerHTML=`
   <div class="mem"><h3>I · Wind Load — ASCE 7 C&C (Wall Zone 5, 10 sf)</h3>
     <table><tr><th>Grandeza</th><th>Valor</th><th>Referência Eastern</th></tr>
@@ -590,8 +618,18 @@ function memorial(c){
     ${anFix?`<div class="mini"><b>SOLUÇÃO CALCULADA (padrão do simulador):</b> embutir hef ${anFix.hef}" · distância de borda Ca1 ${anFix.Ca1}" · armadura suplementar No.4 + estribos ≤4" cruzando o prisma (ψc,V 1,4 · φ 0,75) → φVcb ${fmt(anFix.phiVcb)} / φVcone ${fmt(anFix.phiVcone)} ≥ Vu ${fmt(anFix.Vu)} lbs ✓</div>`:''}
     ${!anOK&&!anFix?'<div class="mini"><b>Nenhuma combinação padrão atende — consultar engenharia (aumentar grupo de ancoragem / chumbador passante).</b></div>':''}
   </div>
+  <div class="mem"><h3>VI · Pivô na folha — ${pf.nP}× DIN 7991 M8 A2 no PA007V (parede 4 mm) ${vd(pfOK)}</h3>
+    <div class="mini">Fixação que faltava analisar: corpo do pivô parafusado na folha através do montante <b>PA007V (parede 4 mm)</b>, com <b>contra-chapa interna ${pf.tCC} mm</b> roscada (conforme DET — parafuso escareado atravessa a parede e rosqueia na contra-chapa). Cargas: peso da folha ${fmt(c.piv)} kg + força lateral no pivô ${fmt(c.fLat)} kgf, braço do eixo e=${pf.eOff} mm, padrão ${pf.sP}×${pf.sP} mm.</div>
+    <table><tr><th>Verificação</th><th>Demanda</th><th>Capacidade</th><th></th></tr>
+    <tr><td>Cisalhamento/parafuso <span class="fEq">V=√(W²+Flat²)/${pf.nP}</span></td><td>${(pf.vScrew/1000).toFixed(2)} kN</td><td>mín(paraf. ${(pf.FvAdm/1000).toFixed(1)} · esmag. parede ${(pf.bear/1000).toFixed(1)}) kN</td><td>${vd(pf.okV)}</td></tr>
+    <tr><td>Tração fila externa <span class="fEq">T=M/(n·s)</span>, M=${pf.Mn.toFixed(0)} N·m</td><td>${(pf.tScrew/1000).toFixed(2)} kN</td><td>mín(paraf. ${(pf.FtAdm/1000).toFixed(1)} · rosca c/ contra-chapa ${(pf.stripCC/1000).toFixed(1)}) kN</td><td>${vd(pf.okT)}</td></tr>
+    <tr><td>Arrancamento SÓ na parede 4 mm <span class="fEq">π·d·t·τ</span></td><td>${(pf.tScrew/1000).toFixed(2)} kN</td><td>${(pf.strip4/1000).toFixed(1)} kN</td><td>${pf.ng4?'<span class="vNG">N.G. — contra-chapa OBRIGATÓRIA</span>':vd(true)}</td></tr>
+    <tr><td>Interação <span class="fEq">(V/Va)²+(T/Ta)²</span></td><td colspan="2">${pf.inter.toFixed(2)} ≤ 1,00</td><td>${vd(pf.okI)}</td></tr></table>
+    ${pfFix?`<div class="mini"><b>SOLUÇÃO CALCULADA:</b> ${pfFix.nP}× M8 · padrão ${pfFix.sP}×${pfFix.sP} · contra-chapa ${pfFix.tCC} mm → interação ${pfFix.inter.toFixed(2)} ✓</div>`:''}
+    ${!pfOK&&!pfFix?'<div class="mini"><b>Nenhuma combinação padrão atende — subir para M10 / contra-chapa aço — consultar engenharia.</b></div>':''}
+  </div>
   <div class="mem"><h3>Conclusão (equivalente ao Calculation Statement)</h3>
-    <div class="mini">${(UC<=1&&defl<=dLim&&teReq<=teReal&&fbMac<=admMac&&(anOK||!!anFix))
+    <div class="mini">${(UC<=1&&defl<=dLim&&teReq<=teReal&&fbMac<=admMac&&(anOK||!!anFix)&&(pfOK||!!pfFix))
       ?'<b style="color:#0F6E56">Estrutura da porta ATENDE aos critérios do memorial</b> (com os reforços indicados, quando listados). Pacote pronto para revisão e assinatura de um PE local — mesmo caminho de aprovação sem NOA usado no Job 25-0816.'
       :'<b style="color:#A32D2D">Há verificações N.G. sem solução padrão</b> — revisar dimensões/local antes de enviar ao PE.'}
      Nota honesta: coeficientes de fachada e a tabela C&C são a estimativa calibrada da linha; o PE do projeto confirma os valores finais para o site específico.</div>
