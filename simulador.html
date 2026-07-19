@@ -392,22 +392,23 @@ function svgDiagramas(c,w,UC){
       ${inner}
       <text x="118" y="${H+12}" font-size="8.2" fill="#555" text-anchor="middle">${foot}</text></svg>`;
   }
-  // níveis das travessas (rungs) + geometria do pórtico
-  const lv=[0]; for(let k=1;k<=c.th;k++) lv.push(FH*k/(c.th+1)); lv.push(FH);
-  const stiles=[0, FW/2, FW];
+  // níveis das travessas (rungs) + geometria do pórtico — QUANTIDADES REAIS DO MOTOR
+  const lv=[0]; for(let k=1;k<=c.th;k++) lv.push(FH*k/(c.th+1)); lv.push(FH);   // th trav. horiz. + topo/base
+  const stiles=[0]; for(let k=1;k<=c.tv;k++) stiles.push(FW*k/(c.tv+1)); stiles.push(FW); // 2 montantes + tv trav. vert.
+  const isMont=x=>x===0||x===FW;
   const ln=(a,b,col,wd,dash)=>`<line x1="${PX(...a)}" y1="${PY(...a)}" x2="${PX(...b)}" y2="${PY(...b)}" stroke="${col}" stroke-width="${wd}"${dash?` stroke-dasharray="${dash}"`:''}/>`;
   function portico(col='#8a8a86',wd=1.1,colV){
     let g='';
-    stiles.forEach(x=>{ g+=ln([x,0,0],[x,FH,0],colV||col,wd+0.9); });
+    stiles.forEach(x=>{ g+=ln([x,0,0],[x,FH,0],colV||col, isMont(x)?wd+0.9:wd*0.8); });
     lv.forEach(y=>{ g+=ln([0,y,0],[FW,y,0],col,wd); });
     return g;
   }
   // membros "renderizados" (tubos): parte superior clara p/ efeito 3D como no SK-2
   function portico3D(){
     const t=44; let g='';
-    stiles.forEach(x=>{
-      g+=`<polygon points="${P(x,0,0)} ${P(x,FH,0)} ${P(x+t,FH,t)} ${P(x+t,0,t)}" fill="#d8d8d4" stroke="#7c7c78" stroke-width=".6"/>`;
-      g+=`<polygon points="${P(x,0,0)} ${P(x,FH,0)} ${P(x,FH,-t)} ${P(x,0,-t)}" fill="#bdbdb8" stroke="#7c7c78" stroke-width=".6"/>`;
+    stiles.forEach(x=>{ const tt=isMont(x)?t:t*0.62;
+      g+=`<polygon points="${P(x,0,0)} ${P(x,FH,0)} ${P(x+tt,FH,tt)} ${P(x+tt,0,tt)}" fill="#d8d8d4" stroke="#7c7c78" stroke-width=".6"/>`;
+      g+=`<polygon points="${P(x,0,0)} ${P(x,FH,0)} ${P(x,FH,-tt)} ${P(x,0,-tt)}" fill="#bdbdb8" stroke="#7c7c78" stroke-width=".6"/>`;
     });
     lv.forEach(y=>{
       g+=`<polygon points="${P(0,y,0)} ${P(FW,y,0)} ${P(FW,y+t,t)} ${P(0,y+t,t)}" fill="#cfcfca" stroke="#7c7c78" stroke-width=".6"/>`;
@@ -420,7 +421,7 @@ function svgDiagramas(c,w,UC){
   const hatch=`<g stroke="#1a9a50" stroke-width="1">${[0,3,6,9].map(d=>`<line x1="${PX(FW,0,0)-6+d}" y1="${PY(FW,0,0)+7}" x2="${PX(FW,0,0)-2+d}" y2="${PY(FW,0,0)+2}"/>`).join('')}</g>`;
   // ---- SK-1/2 · MODELO (pórtico isométrico renderizado) ----
   const svgM=frame('MODELO 3D (SK-1/SK-2)', portico3D()+nodes+hatch,
-    `${stiles.length} montantes + ${lv.length} travessas · apoios REV/KESO no montante x=FW`);
+    `2 montantes + ${c.tv} trav. vert. + ${c.th} trav. horiz. (+topo/base) · apoios REV/KESO em x=FW`);
   // ---- SK-3/4 · CARGAS WL (setas roxas em -Z distribuídas) ----
   let arr=''; const na=10, zi=FW*0.5;
   for(let i=0;i<=na;i++){ const y=FH*i/na;
