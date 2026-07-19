@@ -95,7 +95,7 @@
       </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin:4px 0 2px;">
         <input type="checkbox" id="chkNOA" style="width:18px;height:18px;accent-color:var(--azul);">
-        MODO EXPORT / NOA Miami-Dade (chapa aço galv. 0,8 p/ míssil + dropseal)
+        MODO EXPORT / NOA Miami-Dade (Flórida)
       </label>
       <div class="aviso" id="avFam">Altura &lt; 4.000: o sistema usa a família PA006 (76x38) — este simulador cobre a família 101.</div>
     </div>
@@ -117,7 +117,6 @@
       <div class="lin"><span>Perfis da folha</span><b id="pPer"></b></div>
       <div class="lin"><span>Chapas ACM (2 faces × 7,6 kg/m²)</span><b id="pCha"></b></div>
       <div class="lin"><span>Enchimento travessas (100 mm × 6 kg/m²)</span><b id="pEnc"></b></div>
-      <div class="lin" id="linAco" style="display:none;"><span>Chapa aço galv. 0,8 — míssil TAS 201 (isolada do ALU)</span><b id="pAco"></b></div>
       <div class="lin tot"><span>Subtotal real</span><b id="pSub"></b></div>
       <div class="lin tot"><span>× 1,10 → dimensiona o pivô</span><b id="pPiv"></b></div>
       <div style="margin-top:8px; display:flex; align-items:center; gap:10px;">
@@ -212,8 +211,7 @@ function calc(L,A){
   const tv=2+(VEDA>2500?2:(VEDA>1500?1:0));
   const per=(2*PA_F*5.15+2*LARG*2.69+2*VEDA*2.39+tv*TV*1.61+th*LARG*1.61)/1000;
   const noa=!!window.__NOA;
-  const acoKg=noa? (FW/1000)*(FH/1000)*6.3 : 0;   // chapa galv 0,8 face externa (TAS 201)
-  const cha=2*(FW/1000)*(FH/1000)*7.6 + acoKg;
+  const cha=2*(FW/1000)*(FH/1000)*7.6;
   const enc=0.1*((tv*TV+th*LARG)/1000)*6;
   const sub=per+cha+enc, piv=sub*1.10;
   const f=escolherFech(FH);
@@ -264,7 +262,7 @@ function calc(L,A){
   const torqAb=200*(FW/1000)*(FH/1000)*eG;        // N·m — rajada 200 Pa com porta ABERTA
   const pinTau=(fLat*9.81)/(Math.PI*15*15);       // MPa — cisalh. pino Ø30 inox 304 (adm 82)
   const pinOk=pinTau<=82;
-  return {PA_F,LARG,TV,VEDA,FW,FH,th,tv,per,cha,enc,sub,piv,R1,R2,vaoMax,vento,cob,jaq,f,zonaB,dRec,fLat,fLat273,idMin,idMax,dOk,dForca,FADM,envOk,parG,torqAb,pinTau,pinOk,qDem,fsV,V,fRev,vaoMax2,vento2,vento3,vento4,nFer,noa,acoKg};
+  return {PA_F,LARG,TV,VEDA,FW,FH,th,tv,per,cha,enc,sub,piv,R1,R2,vaoMax,vento,cob,jaq,f,zonaB,dRec,fLat,fLat273,idMin,idMax,dOk,dForca,FADM,envOk,parG,torqAb,pinTau,pinOk,qDem,fsV,V,fRev,vaoMax2,vento2,vento3,vento4,nFer,noa};
 }
 
 function desenhar(c,L,A){
@@ -355,8 +353,6 @@ function upd(){
   pPer.textContent=f1(c.per)+' kg';
   pCha.textContent=f1(c.cha)+' kg';
   pEnc.textContent=f1(c.enc)+' kg';
-  document.getElementById('linAco').style.display=c.noa?'flex':'none';
-  if(c.noa) pAco.textContent=f1(c.acoKg)+' kg';
   pSub.textContent=f1(c.sub)+' kg';
   pPiv.textContent=f1(c.piv)+' kg';
   const b=document.getElementById('badgePivo');
@@ -374,7 +370,7 @@ function upd(){
     if(!op.length) op.push(`FERROLHO + MONTANTE REFORÇADO → ${fmt(Math.round(c.vento4/50)*50)} Pa, FS ${(c.vento4/c.qDem).toFixed(1)} ${c.vento4/c.qDem>=1.5?'✓':'— consultar engenharia'}`);
     sol=`<br><b>SOLUÇÃO:</b> `+op[0];
   }
-  vLoc.innerHTML=(c.noa?`<b>NOA:</b> DP alvo ±${(c.vento/1.5/47.88).toFixed(0)} psf (ensaio ±1,5x) · veda automático sup+inf ✓ · aço 0,8 face ext ✓<br>`:'')+`Demanda do local (V=${c.V} m/s): <b>${fmt(c.qDem)} Pa</b> · capacidade ${fmt(Math.round(c.vento/50)*50)} Pa · força no reverso crítico <b>${c.fRev.toFixed(1)} kN</b> → `+
+  vLoc.innerHTML=(c.noa?`<b>NOA:</b> DP alvo ±${(c.vento/1.5/47.88).toFixed(0)} psf (ensaio ±1,5x) · veda automático sup+inf ✓ · sanduíche ACM 4 + lã de rocha + travessas + ACM 4 (míssil: validar em ensaio TAS 201)<br>`:'')+`Demanda do local (V=${c.V} m/s): <b>${fmt(c.qDem)} Pa</b> · capacidade ${fmt(Math.round(c.vento/50)*50)} Pa · força no reverso crítico <b>${c.fRev.toFixed(1)} kN</b> → `+
     (c.fsV>=1.5?`<b style="color:#0F6E56">APROVADO — FS ${c.fsV.toFixed(1)}</b>`:
      c.fsV>=1.0?`<b style="color:#8a5a1a">NO LIMITE — FS ${c.fsV.toFixed(1)}</b>`:
      `<b style="color:#A32D2D">REPROVADO — FS ${c.fsV.toFixed(2)}</b>`)+sol;
