@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projetta · Simulador da Porta Pivotante</title>
+<style>
+  :root{
+    --azul:#1f3a5f; --verde:#0F6E56; --verde2:#1D9E75; --terra:#A32D2D;
+    --papel:#fdfdfc; --linha:#d8d5cf; --tinta:#22211f; --cinza:#6b6963;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Segoe UI',system-ui,sans-serif; background:#ecebe7; color:var(--tinta);}
+  header{background:var(--azul); color:#fff; padding:14px 22px; display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px;}
+  header h1{font-size:17px; font-weight:700; letter-spacing:.4px;}
+  header span{font-size:12px; opacity:.75;}
+  .wrap{display:grid; grid-template-columns:minmax(300px,44%) 1fr; gap:16px; padding:16px; max-width:1200px; margin:0 auto;}
+  @media(max-width:820px){.wrap{grid-template-columns:1fr;}}
+  .card{background:var(--papel); border:1px solid var(--linha); border-radius:8px; padding:14px 16px;}
+  .card h2{font-size:11px; text-transform:uppercase; letter-spacing:1.2px; color:var(--azul); margin-bottom:10px; border-bottom:2px solid var(--azul); padding-bottom:5px;}
+  /* controles */
+  .ctl{margin-bottom:14px;}
+  .ctl label{display:flex; justify-content:space-between; font-size:13px; font-weight:600; margin-bottom:4px;}
+  .ctl label output{font-variant-numeric:tabular-nums; color:var(--azul); font-size:15px;}
+  input[type=range]{width:100%; accent-color:var(--azul); height:26px;}
+  .grade{display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; font-size:12.5px;}
+  .grade div b{font-variant-numeric:tabular-nums;}
+  .lin{display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px dashed var(--linha); font-size:13px;}
+  .lin b{font-variant-numeric:tabular-nums;}
+  .tot{border-bottom:none; font-size:14px; font-weight:700; color:var(--azul); padding-top:6px;}
+  .badge{display:inline-block; padding:3px 12px; border-radius:20px; color:#fff; font-weight:700; font-size:13px;}
+  .b600{background:var(--terra);} .b350{background:var(--verde);}
+  .mini{font-size:11px; color:var(--cinza); margin-top:6px; line-height:1.5;}
+  .kpis{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px;}
+  .kpi{background:#f2f4f7; border:1px solid var(--linha); border-radius:6px; padding:8px; text-align:center;}
+  .kpi b{display:block; font-size:16px; color:var(--azul); font-variant-numeric:tabular-nums;}
+  .kpi span{font-size:10px; text-transform:uppercase; letter-spacing:.6px; color:var(--cinza);}
+  svg{width:100%; height:auto; display:block;}
+  .aviso{background:#fbf1ec; border:1px solid #e3c4b4; color:#7a3a1a; border-radius:6px; padding:8px 10px; font-size:12px; margin-top:8px; display:none;}
+</style>
+</head>
+<body>
+<header>
+  <h1>SIMULADOR · PORTA PIVOTANTE — família PA007 (101x51)</h1>
+  <span>fórmulas REGRAS_PERFIS + motor oficial de peso (perfis + chapas + enchimento × 1,10)</span>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h2>Elevação (ao vivo)</h2>
+    <svg id="des" viewBox="0 0 320 900" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <div class="card">
+      <h2>Vão (entrada do sistema)</h2>
+      <div class="ctl">
+        <label>Largura do vão <output id="oL">2.000 mm</output></label>
+        <input type="range" id="sL" min="1200" max="3000" step="10" value="2000">
+      </div>
+      <div class="ctl">
+        <label>Altura do vão <output id="oA">7.000 mm</output></label>
+        <input type="range" id="sA" min="4000" max="8000" step="10" value="7000">
+      </div>
+      <div class="aviso" id="avFam">Altura &lt; 4.000: o sistema usa a família PA006 (76x38) — este simulador cobre a família 101.</div>
+    </div>
+
+    <div class="card">
+      <h2>Cortes (fórmulas do sistema)</h2>
+      <div class="grade">
+        <div>Folha: <b id="cFolha"></b></div>
+        <div>PA_F (montante): <b id="cPAF"></b></div>
+        <div>LARG_INT (trav. horiz.): <b id="cLARG"></b></div>
+        <div>TRAV_VERT: <b id="cTV"></b></div>
+        <div>VEDA (PA007V): <b id="cVEDA"></b></div>
+        <div>Travessas: <b id="cQtd"></b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Peso (motor oficial)</h2>
+      <div class="lin"><span>Perfis da folha</span><b id="pPer"></b></div>
+      <div class="lin"><span>Chapas ACM (2 faces × 7,6 kg/m²)</span><b id="pCha"></b></div>
+      <div class="lin"><span>Enchimento travessas (100 mm × 6 kg/m²)</span><b id="pEnc"></b></div>
+      <div class="lin tot"><span>Subtotal real</span><b id="pSub"></b></div>
+      <div class="lin tot"><span>× 1,10 → dimensiona o pivô</span><b id="pPiv"></b></div>
+      <div style="margin-top:8px; display:flex; align-items:center; gap:10px;">
+        <span class="badge" id="badgePivo">—</span>
+        <span style="font-size:12.5px;" id="utilPivo"></span>
+      </div>
+    </div>
+
+    <div class="card" id="cardTrava">
+      <h2>Travamento &amp; vento</h2>
+      <div class="kpis">
+        <div class="kpi"><b id="kVento">—</b><span>vento (Pa)</span></div>
+        <div class="kpi"><b id="kRev">—</b><span>reversos</span></div>
+        <div class="kpi"><b id="kKeso">—</b><span>varão cobre</span></div>
+      </div>
+      <div class="mini" id="mJaq"></div>
+      <div class="mini">REGRA DA FECHADURA (o maior varão que cabe a partir de 1020 do chão): folha ≥ 6,6 m → 24 pinos (varão 6 m) · ≥ 5,3 m → 16 pinos (varão 4 m) · abaixo → 12 pinos (varão 2 m).</div>
+    </div>
+
+    <div class="card">
+      <h2>Fixação do portal (DET 1)</h2>
+      <div class="lin"><span>Zona A — topo das ombreiras (A1 jaqueta / A2 química)</span><b id="fixA"></b></div>
+      <div class="lin"><span>Zona B — corpo, passo 300</span><b id="fixB"></b></div>
+      <div class="lin"><span>Ponto 1 — verga (DET 3)</span><b id="fixV"></b></div>
+      <div class="mini">Zona B = 2 × ⌈(A − 600) / 300⌉ · substrato define A1 ou A2 ponto a ponto (teste do furo piloto Ø6).</div>
+    </div>
+
+    <div class="card">
+      <h2>Eixo do pivô (posição na folha)</h2>
+      <div class="lin"><span>EIXO RECOMENDADO para esta folha</span><b id="pvRec"></b></div>
+      <div class="lin"><span>Exigência pela FORÇA (P·L/2 ÷ F adm. do conjunto)</span><b id="pvForca"></b></div>
+      <div class="lin"><span>Faixa geométrica (mín. 150 · L/10 a L/7)</span><b id="pvFaixa"></b></div>
+      <div class="lin"><span>Força lateral no conjunto (P×L/2 ÷ d)</span><b id="pvFlat"></b></div>
+      <div style="margin-top:6px;"><span class="badge" id="pvStatus">—</span></div>
+      <div class="mini">EIXO = maior entre: 150 mín. · L/10 · exigência da força lateral (peso e largura) · padrão 273 (folha ≤ 2,11 m) ou L/7. A ALTURA entra pelo peso (motor oficial). Teto prático 450 mm.</div>
+    </div>
+
+    <div class="card">
+      <h2>Cargas &amp; verificações (seção real + inox 304)</h2>
+      <div class="lin"><span>Reação vertical no pivô inferior</span><b id="cgV"></b></div>
+      <div class="lin"><span>Par horizontal topo/base (gravidade, P·e/H)</span><b id="cgPar"></b></div>
+      <div class="lin"><span>Torque de rajada c/ porta ABERTA (200 Pa)</span><b id="cgTorq"></b></div>
+      <div class="lin"><span>Pino do pivô Ø30 inox 304 — cisalhamento</span><b id="cgPin"></b></div>
+      <div class="mini">Vento do montante calculado pela SEÇÃO REAL do PA007F (W=48,0 cm³, integração do DXF) com σ adm. 65 MPa — 6063-T5 c/ reserva p/ a ZONA AFETADA da solda laser nos nós (Eurocode 9). Alojamento do pino medido no 3D: Ø38.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PIN24=[601,637,822,860,1542,1579,1703,1739,2484,2521,2645,2681,3426,3463,3587,3623,4332,4369,4493,4530,4644,4680,5471,5507,5631,5668,6344,6380,6504,6541];
+// 16P: posições do DXF (base 794) deslocadas p/ montagem com 1º pino a 1020 do chão (+226)
+const PIN16=[794.2,831.2,955.2,991.1,1590,1625.7,1811.2,1848.9,2607.2,2644.2,2768.2,2804.1,3549.2,3586.2,3710.2,3746.1,4455.2,4492.2,4616.2,4652.1].map(p=>Math.round(p+226));
+const seq=(a,b,n)=>Array.from({length:n},(_,i)=>a+(b-a)*i/(n-1));
+const FECH=[
+  {nome:'KESO 24 PINOS', min:6600, pins:PIN24, v0:957,  v1:6571, D:1884, real:true},
+  {nome:'KESO 16 PINOS', min:5300, pins:PIN16, v0:1020, v1:4910, D:2788, real:true},
+  {nome:'KESO 12 PINOS', min:0,    pins:seq(1020,3020,12), v0:1020, v1:3020, D:1500, real:false},
+];
+const escolherFech=FH=>FECH.find(f=>FH>=f.min);
+const fmt=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:0});
+const f1=n=>n.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+
+function calc(L,A){
+  const PA_F=A-80.8, LARG=L-363.2, TV=A-362, VEDA=LARG+220;
+  const FW=VEDA+46, FH=PA_F;
+  const th=Math.floor(A/1000);
+  const tv=2+(VEDA>2500?2:(VEDA>1500?1:0));
+  const per=(2*PA_F*5.15+2*LARG*2.69+2*VEDA*2.39+tv*TV*1.61+th*LARG*1.61)/1000;
+  const cha=2*(FW/1000)*(FH/1000)*7.6;
+  const enc=0.1*((tv*TV+th*LARG)/1000)*6;
+  const sub=per+cha+enc, piv=sub*1.10;
+  const f=escolherFech(FH);
+  // reversos: par com espaçamento FIXO da fechadura (DXF), conjunto CENTRALIZADO p/ equilibrar vãos
+  const R1=Math.round((FH-f.D)/2), R2=R1+f.D;
+  const vaoMax=Math.max(R1,f.D,FH-R2);
+  // VENTO pela SEÇÃO REAL do montante PA007F: Wy=48,0 cm³ (integração do DXF) ·
+  // σ_adm 6063-T5 = 65 MPa (110/1,35 com reserva p/ HAZ da solda laser nos nós — EC9)
+  const W_PAF=48000, SIG=65, trib=FW/2;
+  const vento=8*SIG*W_PAF/(trib*vaoMax*vaoMax)*1e6;   // Pa
+  const cob=(Math.min(f.v1,FH-60)-f.v0)/FH;
+  const jaq=FH>5500?4:2;
+  // parafusos do portal: Zona A = 2/lado · Zona B = passo 300 no corpo (descontando zona A de 600)
+  const zonaB=2*Math.ceil((A-600)/300);
+  // pivô — eixo calculado por LARGURA + ALTURA (via peso) + PESO:
+  //   F_ADM por conjunto (calibrada no envelope validado da linha): 350kg->1300 kgf · 600kg->2230 kgf
+  //   d = MAIOR entre: 150 (mín) · L/10 · P·(L/2)/F_ADM (força) · padrão 273 (ou L/7 se folha>2,11 m)
+  const idMin=Math.max(150,FW/10), idMax=FW/7;
+  const FADM = piv>350 ? 2230 : 1300;
+  const dForca = piv*(FW/2)/FADM;
+  const dBase  = FW<=2110 ? 273 : FW/7;
+  const _raw = Math.max(150, FW/10, dForca, dBase);
+  const dRec = Math.min(450, Math.abs(_raw-273)<4 ? 273 : Math.round(_raw/5)*5);
+  const fLat=piv*(FW/2)/dRec;               // kgf com o eixo recomendado
+  const fLat273=piv*(FW/2)/273;
+  const envOk = fLat <= FADM;
+  const dOk=(dRec===273);
+  // REAÇÕES E VERIFICAÇÕES (estática + inox 304):
+  const eG=(FW/2-dRec)/1000;                       // excentricidade do CG (m)
+  const parG=piv*9.81*eG/(FH/1000);               // N — par horizontal topo/base por gravidade
+  const torqAb=200*(FW/1000)*(FH/1000)*eG;        // N·m — rajada 200 Pa com porta ABERTA
+  const pinTau=(fLat*9.81)/(Math.PI*15*15);       // MPa — cisalh. pino Ø30 inox 304 (adm 82)
+  const pinOk=pinTau<=82;
+  return {PA_F,LARG,TV,VEDA,FW,FH,th,tv,per,cha,enc,sub,piv,R1,R2,vaoMax,vento,cob,jaq,f,zonaB,dRec,fLat,fLat273,idMin,idMax,dOk,dForca,FADM,envOk,parG,torqAb,pinTau,pinOk};
+}
+
+function desenhar(c,L,A){
+  const s=0.1;                      // mm -> unidades svg
+  const W=c.FW*s, H=c.FH*s;
+  const x0=60, yTopo=40, y0=yTopo+H;   // y cresce p/ baixo
+  const X1=x0+W;
+  const Y=v=>y0-v*s;                // altura na folha -> y svg
+  let g='';
+  const vb=`0 0 ${x0+W+70} ${y0+50}`;
+  // paredes/verga/piso
+  g+=`<rect x="${x0-24}" y="${yTopo-26}" width="${W+48}" height="24" fill="#f3f2ee" stroke="#999"/>`;
+  g+=`<rect x="${x0-24}" y="${yTopo-2}" width="12" height="${H+18}" fill="#f3f2ee" stroke="#999"/>`;
+  g+=`<rect x="${X1+12}" y="${yTopo-2}" width="12" height="${H+18}" fill="#f3f2ee" stroke="#999"/>`;
+  g+=`<rect x="${x0-24}" y="${y0+8}" width="${W+48}" height="10" fill="#e3e1db" stroke="#999"/>`;
+  // portal (tubos laterais + verga)
+  g+=`<rect x="${x0-11}" y="${yTopo}" width="10" height="${H+8}" fill="#d3e0ef" stroke="#1f3a5f" stroke-width="1"/>`;
+  g+=`<rect x="${X1+1}" y="${yTopo}" width="10" height="${H+8}" fill="#d3e0ef" stroke="#1f3a5f" stroke-width="1"/>`;
+  g+=`<rect x="${x0}" y="${yTopo-8}" width="${W}" height="6" fill="#c2d2e6" stroke="#1f3a5f"/>`;
+  // FIXAÇÃO DO PORTAL nas ombreiras — Zona A (topo 600, vermelho) + Zona B (passo 300, pontos)
+  [x0-6, X1+6].forEach(cx=>{
+    g+=`<rect x="${cx-7}" y="${Y(c.FH)-2}" width="14" height="${600*s+4}" fill="none" stroke="#A32D2D" stroke-width="1.4" stroke-dasharray="5 3"/>`;
+    [c.FH-160, c.FH-440].forEach(p=>{
+      g+=`<circle cx="${cx}" cy="${Y(p)}" r="3.4" fill="#A32D2D" stroke="#fff" stroke-width=".8"/>`;
+    });
+    for(let p=150; p<=c.FH-680; p+=300){
+      g+=`<circle cx="${cx}" cy="${Y(p)}" r="2.6" fill="#3a3a38" stroke="#fff" stroke-width=".7"/>`;
+    }
+  });
+  // folha
+  g+=`<rect x="${x0}" y="${yTopo}" width="${W}" height="${H}" fill="#eef3fa" stroke="#1f3a5f" stroke-width="1.4"/>`;
+  g+=`<rect x="${x0}" y="${yTopo}" width="10" height="${H}" fill="#dbe6f2" stroke="#8aa">`+`</rect>`;
+  g+=`<rect x="${X1-10}" y="${yTopo}" width="10" height="${H}" fill="#dbe6f2" stroke="#8aa"/>`;
+  // travessas verticais
+  for(let k=1;k<=c.tv;k++){
+    const xv=x0+10+(W-20)*k/(c.tv+1);
+    g+=`<rect x="${xv-2.5}" y="${yTopo+6}" width="5" height="${H-12}" fill="none" stroke="#4a7fb5"/>`;
+  }
+  // travessas horizontais
+  for(let k=1;k<=c.th;k++){
+    const yv=yTopo+H*k/(c.th+1);
+    g+=`<rect x="${x0+10}" y="${yv-2.5}" width="${W-20}" height="5" fill="none" stroke="#4a7fb5"/>`;
+  }
+  // varão + pinos da fechadura SELECIONADA — barra cobre do 1º ao último pino visível
+  const vis=c.f.pins.filter(p=>p<c.FH-60);
+  const b0=Math.min(c.f.v0,(vis[0]??c.f.v0)-25);
+  const b1=Math.min(Math.max(c.f.v1,(vis[vis.length-1]??c.f.v1)+25), c.FH-60);
+  g+=`<rect x="${x0+2}" y="${Y(b1)}" width="4.5" height="${(b1-b0)*s}" fill="#1D9E75" stroke="#0F6E56"/>`;
+  vis.forEach(p=>{
+    g+=`<line x1="${x0-2}" y1="${Y(p)}" x2="${x0+9}" y2="${Y(p)}" stroke="#0F6E56" stroke-width="1.6"/>`;
+  });
+  g+=`<text x="${x0-8}" y="${Y((b0+b1)/2)}" font-size="10" fill="#0F6E56" text-anchor="middle" transform="rotate(-90 ${x0-8} ${Y((b0+b1)/2)})">${c.f.nome}</text>`;
+  // reversos
+  [c.R1,c.R2].forEach(r=>{
+    g+=`<line x1="${x0+7}" y1="${Y(r)}" x2="${X1-4}" y2="${Y(r)}" stroke="#0F6E56" stroke-width="2.2" stroke-dasharray="7 4"/>`;
+    g+=`<rect x="${X1-4}" y="${Y(r)-4}" width="9" height="8" fill="#0F6E56" stroke="#052"/>`;
+    g+=`<circle cx="${X1+11}" cy="${Y(r)}" r="3.4" fill="#A32D2D" stroke="#fff"/>`;
+  });
+  // eixo do pivô + jaquetas
+  const axx=X1-(c.dRec/10);
+  g+=`<line x1="${axx}" y1="${yTopo-14}" x2="${axx}" y2="${y0+14}" stroke="#555" stroke-dasharray="8 4 2 4"/>`;
+  const pos=c.jaq===4?[-18,-6,6,18]:[-8,8];
+  pos.forEach(d=>{
+    g+=`<rect x="${axx+d-2.2}" y="${yTopo-9}" width="4.4" height="8" fill="#9fb0c4" stroke="#1f3a5f" stroke-width=".7"/>`;
+  });
+  g+=`<rect x="${axx-13}" y="${yTopo-2}" width="26" height="5" fill="#8a5a3a" stroke="#333"/>`;
+  g+=`<rect x="${axx-13}" y="${y0-4}" width="26" height="6" fill="#8a5a3a" stroke="#333"/>`;
+  // cotas
+  g+=`<text x="${x0+W/2}" y="${y0+34}" font-size="13" text-anchor="middle" fill="#1f3a5f" font-weight="700">FOLHA ${fmt(c.FW)} x ${fmt(c.FH)}</text>`;
+  g+=`<text x="${x0+W/2}" y="${yTopo-32}" font-size="11" text-anchor="middle" fill="#555">vão ${fmt(L)} x ${fmt(A)}</text>`;
+  const dsvg=document.getElementById('des');
+  dsvg.setAttribute('viewBox',vb);
+  dsvg.innerHTML=g;
+}
+
+function upd(){
+  const L=+document.getElementById('sL').value, A=+document.getElementById('sA').value;
+  document.getElementById('oL').textContent=fmt(L)+' mm';
+  document.getElementById('oA').textContent=fmt(A)+' mm';
+  document.getElementById('avFam').style.display=A<4000?'block':'none';
+  const c=calc(L,A);
+  cFolha.textContent=`${fmt(c.FW)} x ${fmt(c.FH)}`;
+  cPAF.textContent=`${f1(c.PA_F)} ×2`;
+  cLARG.textContent=`${f1(c.LARG)} ×${c.th+2>c.th?c.th:''}${''}`; cLARG.textContent=`${f1(c.LARG)}`;
+  cTV.textContent=`${f1(c.TV)} ×${c.tv}`;
+  cVEDA.textContent=`${f1(c.VEDA)} ×2`;
+  cQtd.textContent=`${c.tv} vert. + ${c.th} horiz.`;
+  pPer.textContent=f1(c.per)+' kg';
+  pCha.textContent=f1(c.cha)+' kg';
+  pEnc.textContent=f1(c.enc)+' kg';
+  pSub.textContent=f1(c.sub)+' kg';
+  pPiv.textContent=f1(c.piv)+' kg';
+  const b=document.getElementById('badgePivo');
+  if(c.piv>350){b.textContent='PA-PIVOT 600 KG'; b.className='badge b600'; utilPivo.textContent=`utilização ${(100*c.piv/600).toFixed(0)}% do conjunto 600`; }
+  else {b.textContent='PA-PIVOT 350 KG'; b.className='badge b350'; utilPivo.textContent=`utilização ${(100*c.piv/350).toFixed(0)}% do conjunto 350`; }
+  kVento.textContent='~'+fmt(Math.round(c.vento/50)*50);
+  kRev.textContent=`${fmt(c.R1)} / ${fmt(c.R2)}`;
+  kKeso.textContent=(100*c.cob).toFixed(0)+'%';
+  document.querySelector('#cardTrava h2').textContent='Travamento & vento — '+c.f.nome+' + 2 reversos';
+  mJaq.innerHTML=`Reversos: par com espaçamento fixo de <b>${fmt(c.f.D)}</b> (DXF), centralizado → vãos ${fmt(c.R1)} / ${fmt(c.f.D)} / ${fmt(c.FH-c.R2)} (máx. ${fmt(c.vaoMax)}).`
+    +(c.f.real?'':' <b style="color:#A32D2D">12P: posições estimadas — aguardando DXF.</b>')
+    +`<br>Ponto 1 na verga: <b>${c.jaq}x jaqueta e cone 5/16</b> `+(c.jaq===4?'em linha, passo 120 + barra ALU 2"x1/4"x420':'+ barra ALU 2"x1/4"');
+  fixA.textContent='4 pontos (2/lado)';
+  fixB.textContent=`${c.zonaB} conj. soberba 8x100 + DuoPower`;
+  fixV.textContent=`${c.jaq}x jaqueta 5/16 + parafuso 5/16 UNC`;
+  pvRec.textContent=fmt(c.dRec)+' mm da borda';
+  pvForca.textContent=`≥ ${fmt(c.dForca)} mm`;
+  pvFaixa.textContent=`${fmt(c.idMin)} – ${fmt(c.idMax)} mm`;
+  pvFlat.textContent=`${fmt(c.fLat)} kgf = ${(100*c.fLat/c.FADM).toFixed(0)}% da F adm. (${fmt(c.FADM)})`;
+  cgV.textContent=fmt(c.piv)+' kgf';
+  cgPar.textContent=fmt(c.parG/9.81)+' kgf ('+(c.parG/1000).toFixed(2)+' kN)';
+  cgTorq.textContent=fmt(c.torqAb)+' N·m — prever batente/trava';
+  cgPin.textContent=c.pinTau.toFixed(1)+' MPa / 82 adm '+(c.pinOk?'✓':'✗');
+  const pv=document.getElementById('pvStatus');
+  if(!c.envOk){pv.textContent=`ACIMA DO ENVELOPE do conjunto — consultar fornecedor do pivô`; pv.className='badge b600';}
+  else if(c.dOk){pv.textContent='PADRÃO DA LINHA: 273 mm ✓'; pv.className='badge b350';}
+  else {pv.textContent=`MOVER EIXO p/ ${fmt(c.dRec)} mm (a 273: ${fmt(c.fLat273)} kgf)`; pv.className='badge b600';}
+  desenhar(c,L,A);
+}
+document.getElementById('sL').addEventListener('input',upd);
+document.getElementById('sA').addEventListener('input',upd);
+upd();
+</script>
+</body>
+</html>
