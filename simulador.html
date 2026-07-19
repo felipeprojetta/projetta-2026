@@ -36,6 +36,14 @@
   .kpi b{display:block; font-size:16px; color:var(--azul); font-variant-numeric:tabular-nums;}
   .kpi span{font-size:10px; text-transform:uppercase; letter-spacing:.6px; color:var(--cinza);}
   svg{width:100%; height:auto; display:block;}
+  nav{display:flex; gap:6px; padding:10px 16px 0; max-width:1200px; margin:0 auto; flex-wrap:wrap;}
+  nav button{border:1px solid var(--linha); background:var(--papel); padding:8px 14px; border-radius:8px 8px 0 0;
+    font-size:12.5px; font-weight:600; color:var(--cinza); cursor:pointer;}
+  nav button.on{background:var(--azul); color:#fff; border-color:var(--azul);}
+  .pag{display:none;} .pag.on{display:block;}
+  .prancha{max-width:1000px; margin:16px auto; padding:0 16px;}
+  .prancha img{width:100%; border:1px solid var(--linha); border-radius:8px; background:#fff;}
+  .prancha .mini{margin:8px 2px;}
   .aviso{background:#fbf1ec; border:1px solid #e3c4b4; color:#7a3a1a; border-radius:6px; padding:8px 10px; font-size:12px; margin-top:8px; display:none;}
 </style>
 </head>
@@ -45,6 +53,14 @@
   <span>fórmulas REGRAS_PERFIS + motor oficial de peso (perfis + chapas + enchimento × 1,10)</span>
 </header>
 
+<nav>
+  <button class="on" data-p="p1">SIMULADOR</button>
+  <button data-p="p2">DET 1 · PORTAL</button>
+  <button data-p="p3">DET 3 · PIVÔ SUPERIOR</button>
+  <button data-p="p4">DET 2 · PIVÔ PISO</button>
+</nav>
+
+<div class="pag on" id="p1">
 <div class="wrap">
   <div class="card">
     <h2>Elevação (ao vivo)</h2>
@@ -129,6 +145,30 @@
     </div>
   </div>
 </div>
+</div>
+
+<div class="pag" id="p2"><div class="prancha">
+  <img src="det1.png" alt="DET 1 — Fixação do portal" onerror="this.outerHTML='<div class=aviso style=display:block>Prancha carrega no site publicado (seu-dominio/simulador.html).</div>'">
+  <div class="mini">DET 1 (rev. H) — Zona A: A1 concreto (jaqueta) / A2 bloco (química + camisa) · Zona B: soberba + bucha, passo 300.</div>
+</div></div>
+
+<div class="pag" id="p3"><div class="prancha">
+  <img src="det3.png" alt="DET 3 — Pivô superior" onerror="this.outerHTML='<div class=aviso style=display:block>Prancha carrega no site publicado (seu-dominio/simulador.html).</div>'">
+  <div class="mini">DET 3 (rev. Q) — jaqueta e cone na verga (qtde por regra: 2x ≤5,5 m · 4x passo 120 acima) · rivnut ALU + barra 2"x1/4".</div>
+</div></div>
+
+<div class="pag" id="p4"><div class="prancha">
+  <img src="det2.png" alt="DET 2 — Pivô do piso" onerror="this.outerHTML='<div class=aviso style=display:block>Prancha carrega no site publicado (seu-dominio/simulador.html).</div>'">
+  <div class="mini">DET 2 (rev. F) — camisa de rosca interna M8 química, DIN 7991 faceado, sem graute, desmontável.</div>
+</div></div>
+
+<script>
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.pag').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); document.getElementById(b.dataset.p).classList.add('on');
+}));
+</script>
 
 <script>
 const PIN24=[601,637,822,860,1542,1579,1703,1739,2484,2521,2645,2681,3426,3463,3587,3623,4332,4369,4493,4530,4644,4680,5471,5507,5631,5668,6344,6380,6504,6541];
