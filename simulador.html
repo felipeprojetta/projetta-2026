@@ -571,6 +571,69 @@ function memorial(c){
     pfFix = cand.find(t=>t.inter<=0.85) || cand[0] || null;  // prefere folga; senão a 1ª que passa
   }
   const pfOK=pf.okV&&pf.okT&&pf.okI;
+  // ---- detalhe gráfico da fixação pivô→folha (estilo prancha DET) ----
+  function svgPivoFolha(p){
+    const HH=250, k=2.6;                     // escala px/mm
+    const xw=128;                            // face externa da parede
+    const wall=4*k, cc=p.tCC*k;
+    // CORTE: pivô à esquerda, parede+contra-chapa à direita
+    const eixoX=xw-p.eOff*k*0.9;
+    const yC=HH/2;
+    const par=(y)=>`
+      <rect x="${xw-2}" y="${y-2.4}" width="${wall+cc+8}" height="4.8" fill="#e8e8e4" stroke="none"/>
+      <path d="M ${xw} ${y-4.6} L ${xw+9} ${y} L ${xw} ${y+4.6} Z" fill="#5a5a56"/>
+      <rect x="${xw+9}" y="${y-1.7}" width="${wall+cc-4}" height="3.4" fill="#5a5a56"/>
+      <g stroke="#5a5a56" stroke-width=".7">${[0,1,2,3].map(i=>`<line x1="${xw+9+i*(wall+cc-6)/3}" y1="${y-2.6}" x2="${xw+11+i*(wall+cc-6)/3}" y2="${y+2.6}"/>`).join('')}</g>`;
+    const corte=`<svg viewBox="0 0 236 ${HH+16}" style="background:#fff;border:1px solid var(--linha);border-radius:6px;flex:1 1 190px;max-width:236px;">
+      <text x="8" y="15" font-size="9.3" fill="#1f3a5f" font-weight="700">DET · PIVÔ NA FOLHA — CORTE</text>
+      <!-- parede PA007V 4mm (hachura) -->
+      <rect x="${xw}" y="34" width="${wall}" height="${HH-58}" fill="#cdd8e8" stroke="#1f3a5f" stroke-width="1"/>
+      <g stroke="#7a90b0" stroke-width=".6">${Array.from({length:16},(_,i)=>`<line x1="${xw}" y1="${40+i*(HH-70)/15}" x2="${xw+wall}" y2="${34+i*(HH-70)/15}"/>`).join('')}</g>
+      <!-- contra-chapa interna -->
+      <rect x="${xw+wall}" y="${yC-46}" width="${cc}" height="92" fill="#f0d9a8" stroke="#8a6a20" stroke-width="1"/>
+      <!-- corpo do pivô + eixo -->
+      <rect x="${eixoX-8}" y="${yC-34}" width="${xw-eixoX+6}" height="68" fill="#dbe6f2" stroke="#1f3a5f" stroke-width="1"/>
+      <line x1="${eixoX}" y1="26" x2="${eixoX}" y2="${HH-14}" stroke="#555" stroke-dasharray="8 4 2 4" stroke-width="1"/>
+      <circle cx="${eixoX}" cy="${yC}" r="4.5" fill="none" stroke="#333" stroke-width="1.2"/>
+      <!-- 2 parafusos DIN 7991 escareados -->
+      ${par(yC-24)}${par(yC+24)}
+      <!-- cotas -->
+      <line x1="${xw}" y1="${HH-16}" x2="${xw+wall}" y2="${HH-16}" stroke="#A32D2D" stroke-width="1"/>
+      <text x="${xw+wall/2}" y="${HH-4}" font-size="8" fill="#A32D2D" text-anchor="middle">4</text>
+      <line x1="${xw+wall}" y1="${HH-16}" x2="${xw+wall+cc}" y2="${HH-16}" stroke="#8a6a20" stroke-width="1"/>
+      <text x="${xw+wall+cc/2}" y="${HH-4}" font-size="8" fill="#8a6a20" text-anchor="middle">${p.tCC}</text>
+      <line x1="${eixoX}" y1="34" x2="${xw}" y2="34" stroke="#555" stroke-width=".8"/>
+      <text x="${(eixoX+xw)/2}" y="30" font-size="8" fill="#555" text-anchor="middle">e=${p.eOff}</text>
+      <!-- forças -->
+      <line x1="${eixoX}" y1="${yC}" x2="${eixoX}" y2="${yC+38}" stroke="#A32D2D" stroke-width="1.6" marker-end="url(#arrF)"/>
+      <text x="${eixoX-4}" y="${yC+34}" font-size="8.4" fill="#A32D2D" text-anchor="end">W=${fmt(c.piv)} kg</text>
+      <line x1="${eixoX}" y1="${yC}" x2="${eixoX-40}" y2="${yC}" stroke="#0F6E56" stroke-width="1.6" marker-end="url(#arrF)"/>
+      <text x="${eixoX-6}" y="${yC-6}" font-size="8.4" fill="#0F6E56" text-anchor="end">Flat=${fmt(c.fLat)} kgf</text>
+      <defs><marker id="arrF" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="context-stroke"/></marker></defs>
+      <text x="${xw+wall+cc+6}" y="${yC-38}" font-size="7.6" fill="#8a6a20">contra-chapa ${p.tCC} mm (rosca)</text>
+      <text x="${xw-3}" y="${HH-24}" font-size="7.6" fill="#1f3a5f" text-anchor="end">PA007V parede 4 mm</text>
+      <text x="118" y="${HH+12}" font-size="8.2" fill="#555" text-anchor="middle">DIN 7991 M8 A2 escareado — cabeça faceada na parede, rosca na contra-chapa</text></svg>`;
+    // VISTA FRONTAL: padrão de furos
+    const nRow=p.nP/2, sPx=p.sP*1.1, gx=118, gy=HH/2+6;
+    let furos='', rows=[];
+    for(let r=0;r<nRow;r++){ rows.push(gy-(nRow-1)*sPx/2+r*sPx); }
+    rows.forEach((y,r)=>{ [-1,1].forEach(sg=>{
+      furos+=`<circle cx="${gx+sg*sPx/2}" cy="${y}" r="6" fill="#fff" stroke="#1f3a5f" stroke-width="1.2"/>
+        <circle cx="${gx+sg*sPx/2}" cy="${y}" r="2" fill="#1f3a5f"/>`; }); });
+    const frontal=`<svg viewBox="0 0 236 ${HH+16}" style="background:#fff;border:1px solid var(--linha);border-radius:6px;flex:1 1 190px;max-width:236px;">
+      <text x="8" y="15" font-size="9.3" fill="#1f3a5f" font-weight="700">DET · PADRÃO DE FUROS — ${p.nP}× M8</text>
+      <rect x="${gx-sPx/2-22}" y="${rows[0]-26}" width="${sPx+44}" height="${rows[rows.length-1]-rows[0]+52}" fill="#eef3fa" stroke="#1f3a5f" stroke-width="1.2" rx="4"/>
+      <line x1="${gx}" y1="${rows[0]-32}" x2="${gx}" y2="${rows[rows.length-1]+32}" stroke="#555" stroke-dasharray="8 4 2 4" stroke-width=".9"/>
+      ${furos}
+      <line x1="${gx-sPx/2}" y1="${rows[rows.length-1]+18}" x2="${gx+sPx/2}" y2="${rows[rows.length-1]+18}" stroke="#A32D2D" stroke-width="1"/>
+      <text x="${gx}" y="${rows[rows.length-1]+29}" font-size="8" fill="#A32D2D" text-anchor="middle">${p.sP}</text>
+      ${nRow>1?`<line x1="${gx+sPx/2+14}" y1="${rows[0]}" x2="${gx+sPx/2+14}" y2="${rows[1]}" stroke="#A32D2D" stroke-width="1"/>
+      <text x="${gx+sPx/2+18}" y="${(rows[0]+rows[1])/2+3}" font-size="8" fill="#A32D2D">${p.sP}</text>`:''}
+      <line x1="${gx-sPx/2-30}" y1="${rows[0]}" x2="${gx-sPx/2-4}" y2="${rows[0]}" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrF)"/>
+      <text x="${gx-sPx/2-30}" y="${rows[0]-6}" font-size="7.6" fill="#0F6E56">fila tracionada (T=${(p.tScrew/1000).toFixed(2)} kN/paraf.)</text>
+      <text x="118" y="${HH+12}" font-size="8.2" fill="#555" text-anchor="middle">placa do pivô no PA007V — padrão ${p.sP}×${p.sP} mm · contra-chapa ${p.tCC} mm por trás</text></svg>`;
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0 4px;">${corte}${frontal}</div>`;
+  }
   el.innerHTML=`
   <div class="mem"><h3>I · Wind Load — ASCE 7 C&C (Wall Zone 5, 10 sf)</h3>
     <table><tr><th>Grandeza</th><th>Valor</th><th>Referência Eastern</th></tr>
@@ -620,6 +683,7 @@ function memorial(c){
   </div>
   <div class="mem"><h3>VI · Pivô na folha — ${pf.nP}× DIN 7991 M8 A2 no PA007V (parede 4 mm) ${vd(pfOK)}</h3>
     <div class="mini">Fixação que faltava analisar: corpo do pivô parafusado na folha através do montante <b>PA007V (parede 4 mm)</b>, com <b>contra-chapa interna ${pf.tCC} mm</b> roscada (conforme DET — parafuso escareado atravessa a parede e rosqueia na contra-chapa). Cargas: peso da folha ${fmt(c.piv)} kg + força lateral no pivô ${fmt(c.fLat)} kgf, braço do eixo e=${pf.eOff} mm, padrão ${pf.sP}×${pf.sP} mm.</div>
+    ${svgPivoFolha(pfFix||pf)}
     <table><tr><th>Verificação</th><th>Demanda</th><th>Capacidade</th><th></th></tr>
     <tr><td>Cisalhamento/parafuso <span class="fEq">V=√(W²+Flat²)/${pf.nP}</span></td><td>${(pf.vScrew/1000).toFixed(2)} kN</td><td>mín(paraf. ${(pf.FvAdm/1000).toFixed(1)} · esmag. parede ${(pf.bear/1000).toFixed(1)}) kN</td><td>${vd(pf.okV)}</td></tr>
     <tr><td>Tração fila externa <span class="fEq">T=M/(n·s)</span>, M=${pf.Mn.toFixed(0)} N·m</td><td>${(pf.tScrew/1000).toFixed(2)} kN</td><td>mín(paraf. ${(pf.FtAdm/1000).toFixed(1)} · rosca c/ contra-chapa ${(pf.stripCC/1000).toFixed(1)}) kN</td><td>${vd(pf.okT)}</td></tr>
