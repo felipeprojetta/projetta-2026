@@ -362,80 +362,124 @@ const f2d=n=>n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDi
 const vd=ok=>ok?'<span class="vOK">OK</span>':'<span class="vNG">N.G.</span>';
 // --- diagramas SVG estilo RISA-3D (SK-1..SK-11 do pacote Eastern) ---
 function svgDiagramas(c,w,UC){
-  const FH=c.FH, sup=[0,c.R1,c.R2,FH];
+  // ===== vista ISOMÉTRICA estilo RISA-3D (como nas pranchas SK do pacote Eastern) =====
+  const FH=c.FH, FW=c.FW, sup=[0,c.R1,c.R2,FH];
   const spans=[c.R1, c.f.D, FH-c.R2];
-  const H=330, mT=26, mB=30, sy=(H-mT-mB)/FH, bx=58, amp=118;
-  const Y=v=>H-mB+ -0 - v*sy + 0; const YY=v=>H-mB-(v*sy);
+  const H=340, s=(H-84)/FH;                       // escala mundo->tela
+  const ampZ=FW*0.55;                             // amplitude dos diagramas no eixo Z (mm mundo)
+  const c30=0.866, s30=0.5;
+  const X0=118, Y0=H-26;
+  // perspectiva leve como no RISA: o topo abre ~12% (colunas divergem p/ cima, igual às SK)
+  const persp=y=>1+((y/FH)-0.5)*0.14;
+  const PX=(x,y,z)=>X0+((x - z) - FW/2)*c30*s*persp(y);
+  const PY=(x,y,z)=>Y0 - y*s - (x + z)*s30*s;
+  const P=(x,y,z)=>`${PX(x,y,z).toFixed(1)},${PY(x,y,z).toFixed(1)}`;
   const Vmax=w*Math.max(...spans)/2, Mmax=w*Math.pow(Math.max(...spans),2)/8;
   const EI=69900*48000*50.5;
   const dmax=5*w*Math.pow(Math.max(...spans),4)/(384*EI);
   const kft=(w/14.5939).toFixed(3);
+  // cubinho de eixos igual ao canto das pranchas SK
+  const cube=`<g transform="translate(16,22)"><rect x="-11" y="-11" width="34" height="34" fill="none" stroke="#888" stroke-width=".7"/>
+    <path d="M0,0 L8,-4 L8,-12 L0,-8 Z" fill="#f3d24a" stroke="#555" stroke-width=".6"/>
+    <path d="M0,0 L-8,-4 L-8,-12 L0,-8 Z" fill="#ddd" stroke="#555" stroke-width=".6"/>
+    <path d="M0,-8 L8,-12 L0,-16 L-8,-12 Z" fill="#eee" stroke="#555" stroke-width=".6"/>
+    <line x1="0" y1="-16" x2="0" y2="-23" stroke="#333" stroke-width=".8"/><text x="2" y="-18" font-size="6.5" fill="#333">Y</text>
+    <line x1="8" y1="-4" x2="14" y2="-1" stroke="#333" stroke-width=".8"/><text x="14" y="4" font-size="6.5" fill="#333">X</text>
+    <line x1="-8" y1="-4" x2="-14" y2="-1" stroke="#333" stroke-width=".8"/><text x="-19" y="4" font-size="6.5" fill="#333">Z</text></g>`;
   function frame(title,inner,foot){
-    return `<svg viewBox="0 0 235 ${H+18}" style="background:#fff;border:1px solid var(--linha);border-radius:6px;flex:1 1 180px;max-width:235px;">
-      <text x="8" y="15" font-size="9.5" fill="#1f3a5f" font-weight="700">${title}</text>
+    return `<svg viewBox="0 0 236 ${H+18}" style="background:#fff;border:1px solid var(--linha);border-radius:6px;flex:1 1 190px;max-width:236px;">
+      <text x="42" y="15" font-size="9.3" fill="#1f3a5f" font-weight="700">${title}</text>${cube}
       ${inner}
-      <text x="118" y="${H+12}" font-size="8.4" fill="#555" text-anchor="middle">${foot}</text></svg>`;
+      <text x="118" y="${H+12}" font-size="8.2" fill="#555" text-anchor="middle">${foot}</text></svg>`;
   }
-  const beam=(col='#444',wd=2.4)=>`<line x1="${bx}" y1="${YY(0)}" x2="${bx}" y2="${YY(FH)}" stroke="${col}" stroke-width="${wd}"/>`;
-  const nodes=sup.map((s,i)=>`<line x1="${bx-9}" y1="${YY(s)}" x2="${bx+9}" y2="${YY(s)}" stroke="#0F6E56" stroke-width="2"/>
-    <circle cx="${bx}" cy="${YY(s)}" r="2.4" fill="#0F6E56"/>
-    <text x="${bx-13}" y="${YY(s)+3}" font-size="8" fill="#2a8a5e" text-anchor="end">N${i+1}</text>`).join('');
-  const apoios=['piso/fech.','REV 1','REV 2','veda/topo'];
-  const tags=sup.map((s,i)=>`<text x="${bx+13}" y="${YY(s)+3}" font-size="7.4" fill="#777">${apoios[i]} · ${fmt(s)}</text>`).join('');
-  // SK-1/2 · modelo
-  const svgM=frame('MODELO · MONTANTE CRÍTICO', beam()+nodes+tags,
-    `PA007F · trib ${fmt(c.FW/2)} mm · apoios: reversos + linha KESO`);
-  // SK-3/4 · cargas WL
-  let arr='', na=12;
-  for(let i=0;i<=na;i++){ const yv=FH*i/na;
-    arr+=`<line x1="${bx+44}" y1="${YY(yv)}" x2="${bx+12}" y2="${YY(yv)}" stroke="#8b3fa8" stroke-width="1.1" marker-end="url(#arrW)"/>`; }
-  const svgL=frame('CARGAS · BLC WL (C&C)',
-    `<defs><marker id="arrW" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#8b3fa8"/></marker></defs>
-     ${beam()}${nodes}
-     <line x1="${bx+44}" y1="${YY(0)}" x2="${bx+44}" y2="${YY(FH)}" stroke="#8b3fa8" stroke-width="1.2"/>${arr}
-     <text x="${bx+50}" y="${YY(FH/2)-4}" font-size="8.6" fill="#8b3fa8">w = ${f2d(w)} N/mm</text>
-     <text x="${bx+50}" y="${YY(FH/2)+7}" font-size="8.6" fill="#8b3fa8">(${kft} k/ft)</text>`,
-    `Loads: WL — sucção ASD aplicada na faixa tributária`);
-  // SK-7/8 · cortante (serrote linear por vão, apoiado-apoiado)
-  let shp='';
-  for(let s=0;s<3;s++){ const a=sup[s], b=sup[s+1], L=b-a;
-    const x1=bx+(w*L/2)/Vmax*amp, x2=bx-(w*L/2)/Vmax*amp;
-    shp+=`<polygon points="${bx},${YY(a)} ${x1},${YY(a)} ${x2},${YY(b)} ${bx},${YY(b)}" fill="#9fd0ae" fill-opacity=".75" stroke="#2a8a5e" stroke-width=".9"/>`; }
-  const svgV=frame('CORTANTE · Vz (LC WL)', shp+beam('#666',1.6)+nodes+
-    `<text x="${bx+amp-6}" y="${YY(sup[1]+8)}" font-size="8.6" fill="#1f6e46" font-weight="700">${(Vmax/1000).toFixed(2)} kN</text>`,
+  // níveis das travessas (rungs) + geometria do pórtico
+  const lv=[0]; for(let k=1;k<=c.th;k++) lv.push(FH*k/(c.th+1)); lv.push(FH);
+  const stiles=[0, FW/2, FW];
+  const ln=(a,b,col,wd,dash)=>`<line x1="${PX(...a)}" y1="${PY(...a)}" x2="${PX(...b)}" y2="${PY(...b)}" stroke="${col}" stroke-width="${wd}"${dash?` stroke-dasharray="${dash}"`:''}/>`;
+  function portico(col='#8a8a86',wd=1.1,colV){
+    let g='';
+    stiles.forEach(x=>{ g+=ln([x,0,0],[x,FH,0],colV||col,wd+0.9); });
+    lv.forEach(y=>{ g+=ln([0,y,0],[FW,y,0],col,wd); });
+    return g;
+  }
+  // membros "renderizados" (tubos): parte superior clara p/ efeito 3D como no SK-2
+  function portico3D(){
+    const t=44; let g='';
+    stiles.forEach(x=>{
+      g+=`<polygon points="${P(x,0,0)} ${P(x,FH,0)} ${P(x+t,FH,t)} ${P(x+t,0,t)}" fill="#d8d8d4" stroke="#7c7c78" stroke-width=".6"/>`;
+      g+=`<polygon points="${P(x,0,0)} ${P(x,FH,0)} ${P(x,FH,-t)} ${P(x,0,-t)}" fill="#bdbdb8" stroke="#7c7c78" stroke-width=".6"/>`;
+    });
+    lv.forEach(y=>{
+      g+=`<polygon points="${P(0,y,0)} ${P(FW,y,0)} ${P(FW,y+t,t)} ${P(0,y+t,t)}" fill="#cfcfca" stroke="#7c7c78" stroke-width=".6"/>`;
+    });
+    return g;
+  }
+  // nós verdes N1.. como no RISA (apoios do montante crítico x=FW)
+  const nodes=sup.map((y,i)=>`<circle cx="${PX(FW,y,0)}" cy="${PY(FW,y,0)}" r="2.2" fill="#1a9a50"/>
+      <text x="${PX(FW,y,0)+5}" y="${PY(FW,y,0)+3}" font-size="7.6" fill="#1a9a50">N${i+1}</text>`).join('');
+  const hatch=`<g stroke="#1a9a50" stroke-width="1">${[0,3,6,9].map(d=>`<line x1="${PX(FW,0,0)-6+d}" y1="${PY(FW,0,0)+7}" x2="${PX(FW,0,0)-2+d}" y2="${PY(FW,0,0)+2}"/>`).join('')}</g>`;
+  // ---- SK-1/2 · MODELO (pórtico isométrico renderizado) ----
+  const svgM=frame('MODELO 3D (SK-1/SK-2)', portico3D()+nodes+hatch,
+    `${stiles.length} montantes + ${lv.length} travessas · apoios REV/KESO no montante x=FW`);
+  // ---- SK-3/4 · CARGAS WL (setas roxas em -Z distribuídas) ----
+  let arr=''; const na=10, zi=FW*0.5;
+  for(let i=0;i<=na;i++){ const y=FH*i/na;
+    [0,FW].forEach(x=>{ arr+=`<line x1="${PX(x,y,zi)}" y1="${PY(x,y,zi)}" x2="${PX(x,y,60)}" y2="${PY(x,y,60)}" stroke="#8b3fa8" stroke-width="1" marker-end="url(#arrI)"/>`; });
+  }
+  const svgL=frame('CARGAS · BLC WL (SK-4)',
+    `<defs><marker id="arrI" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#8b3fa8"/></marker></defs>
+     ${portico('#9a9a96',0.9)}
+     ${ln([0,0,zi],[0,FH,zi],'#8b3fa8',0.9)}${ln([FW,0,zi],[FW,FH,zi],'#8b3fa8',0.9)}${arr}
+     <text x="${PX(0,FH*0.72,zi)-4}" y="${PY(0,FH*0.72,zi)-6}" font-size="8.2" fill="#8b3fa8" text-anchor="end">-${kft} k/ft</text>
+     <text x="${PX(FW,FH*0.28,zi)+6}" y="${PY(FW,FH*0.28,zi)}" font-size="8.2" fill="#8b3fa8">w=${f2d(w)} N/mm</text>`,
+    `Loads: BLC WL — sucção C&C na faixa tributária (setas em −Z)`);
+  // helper: diagrama plotado em Z sobre o montante crítico (x=FW), como SK-8/SK-9
+  function diagZ(fn,peak,fill,stroke){
+    let g='';
+    for(let sp=0;sp<3;sp++){ const a=sup[sp], b=sup[sp+1], L=b-a;
+      let pts=P(FW,a,0);
+      for(let i=1;i<16;i++){ const t=L*i/16;
+        pts+=' '+P(FW, a+t, fn(t,L)/peak*ampZ); }
+      pts+=' '+P(FW,b,0);
+      g+=`<polygon points="${pts}" fill="${fill}" fill-opacity=".78" stroke="${stroke}" stroke-width=".9"/>`; }
+    return g;
+  }
+  // ---- SK-8 · CORTANTE Vz (serrote) ----
+  const svgV=frame('CORTANTE Vz (SK-8)',
+    portico('#a5a5a0',0.8)+diagZ((t,L)=>w*(L/2-t),Vmax,'#9fd0ae','#2a8a5e')+ln([FW,0,0],[FW,FH,0],'#555',1.6)+nodes+
+    `<text x="${PX(FW,sup[1],ampZ)+4}" y="${PY(FW,sup[1],ampZ)}" font-size="8.4" fill="#1f6e46" font-weight="700">${(Vmax/1000).toFixed(2)} kN</text>`,
     `Member z Shear Forces — máx ${(Vmax/1000).toFixed(2)} kN (${(Vmax/4448.2).toFixed(2)} kips)`);
-  // SK-9/10 · momento (parábola por vão)
-  let mom='';
-  for(let s=0;s<3;s++){ const a=sup[s], b=sup[s+1], L=b-a; let pts=`${bx},${YY(a)}`;
-    for(let i=1;i<14;i++){ const t=L*i/14, M=w*t*(L-t)/2;
-      pts+=` ${bx+M/Mmax*amp},${YY(a+t)}`; }
-    pts+=` ${bx},${YY(b)}`;
-    mom+=`<polygon points="${pts}" fill="#b9c4e6" fill-opacity=".8" stroke="#4a5fa8" stroke-width=".9"/>`; }
-  const svgB=frame('MOMENTO · My (LC WL)', mom+beam('#666',1.6)+nodes+
-    `<text x="${bx+amp-4}" y="${YY((sup[0]+sup[1])/2)+3}" font-size="8.6" fill="#3a4f98" font-weight="700">${(Mmax/1e6).toFixed(2)} kN·m</text>`,
+  // ---- SK-9 · MOMENTO My (parábolas) ----
+  const svgB=frame('MOMENTO My (SK-9)',
+    portico('#a5a5a0',0.8)+diagZ((t,L)=>w*t*(L-t)/2,Mmax,'#b9c4e6','#4a5fa8')+ln([FW,0,0],[FW,FH,0],'#555',1.6)+nodes+
+    `<text x="${PX(FW,(sup[0]+sup[1])/2,ampZ)+4}" y="${PY(FW,(sup[0]+sup[1])/2,ampZ)}" font-size="8.4" fill="#3a4f98" font-weight="700">${(Mmax/1e6).toFixed(2)} kN·m</text>`,
     `Member y Bending Moments — máx ${(Mmax/1e6).toFixed(2)} kN·m (${(Mmax/1.3558e6).toFixed(2)} kip-ft)`);
-  // deformada (SK Node Displacements)
+  // ---- deformada (Node Displacements) ----
   let def='';
-  for(let s=0;s<3;s++){ const a=sup[s], b=sup[s+1], L=b-a; let pts=`${bx},${YY(a)}`;
-    for(let i=1;i<14;i++){ const t=L*i/14, d=w*t*(L**3-2*L*t*t+t**3)/(24*EI);
-      pts+=` ${bx+d/dmax*amp*0.8},${YY(a+t)}`; }
-    pts+=` ${bx},${YY(b)}`;
-    def+=`<polyline points="${pts}" fill="none" stroke="#b06a2c" stroke-width="1.6" stroke-dasharray="4 3"/>`; }
-  const svgD=frame('DEFORMADA (WL)', def+beam('#bbb',1.4)+nodes+
-    `<text x="${bx+amp*0.8-2}" y="${YY(Math.max(...spans)/2+sup[0])+3}" font-size="8.6" fill="#b06a2c" font-weight="700">δ ${f1(dmax)} mm</text>`,
+  for(let sp=0;sp<3;sp++){ const a=sup[sp], b=sup[sp+1], L=b-a;
+    let pts=P(FW,a,0);
+    for(let i=1;i<16;i++){ const t=L*i/16, d=w*t*(L**3-2*L*t*t+t**3)/(24*EI);
+      pts+=' '+P(FW, a+t, d/dmax*ampZ*0.8); }
+    pts+=' '+P(FW,b,0);
+    def+=`<polyline points="${pts}" fill="none" stroke="#b06a2c" stroke-width="1.5" stroke-dasharray="4 3"/>`; }
+  const svgD=frame('DEFORMADA (WL)',
+    portico('#c4c4c0',0.8)+def+ln([FW,0,0],[FW,FH,0],'#999',1.2)+nodes+
+    `<text x="${PX(FW,Math.max(...spans)/2+sup[0],ampZ*0.8)+4}" y="${PY(FW,Math.max(...spans)/2+sup[0],ampZ*0.8)}" font-size="8.4" fill="#b06a2c" font-weight="700">δ ${f1(dmax)} mm</text>`,
     `Node Displacements — limite L/175 = ${f1(Math.max(...spans)/175)} mm`);
-  // SK-11 · code check
+  // ---- SK-11 · CODE CHECK (pórtico colorido + legenda idêntica) ----
   const cor=UC>1?'#e02020':UC>0.9?'#e020c0':UC>0.75?'#20c020':UC>0.5?'#20d0d0':'#5b7fb5';
   const leg=[['#000','No Calc'],['#e02020','> 1.0'],['#e020c0','.90-1.0'],['#20c020','.75-.90'],['#20d0d0','.50-.75'],['#5b7fb5','0-.50']];
-  const svgC=frame('CODE CHECK (LC WL)',
-    `<line x1="${bx}" y1="${YY(0)}" x2="${bx}" y2="${YY(FH)}" stroke="${cor}" stroke-width="4"/>${nodes}
-     <text x="${bx+14}" y="${YY(FH/2)}" font-size="10" fill="${cor}" font-weight="700" transform="rotate(90 ${bx+14} ${YY(FH/2)})">${UC.toFixed(2)}</text>
-     <g>${leg.map((l,i)=>`<rect x="150" y="${26+i*13}" width="10" height="9" fill="${l[0]}"/><text x="164" y="${34+i*13}" font-size="7.6" fill="#333">${l[1]}</text>`).join('')}
-     <rect x="146" y="20" width="84" height="${leg.length*13+14}" fill="none" stroke="#999"/>
-     <text x="150" y="${26+leg.length*13+8}" font-size="7.2" fill="#333">Member Code Checks</text></g>`,
-    `AISC/ADM style — UC máx ${UC.toFixed(2)} ${UC<=1?'✓':'✗'}`);
+  const ang=Math.atan2(PY(FW,FH,0)-PY(FW,0,0), PX(FW,FH,0)-PX(FW,0,0))*180/Math.PI;
+  const cx=PX(FW,FH*0.42,0), cy=PY(FW,FH*0.42,0);
+  const svgC=frame('CODE CHECK (SK-11)',
+    portico('#5b7fb5',1.1,'#5b7fb5')+ln([FW,0,0],[FW,FH,0],cor,3.4)+nodes+
+    `<text x="${cx}" y="${cy}" font-size="9.5" fill="${cor}" font-weight="700" transform="rotate(${ang.toFixed(0)} ${cx} ${cy})" dy="-4">${UC.toFixed(2)}</text>
+     <g><rect x="152" y="26" width="80" height="${leg.length*13+16}" fill="#fff" stroke="#999"/>
+     <text x="156" y="36" font-size="7" fill="#333">Code Check (WL)</text>
+     ${leg.map((l,i)=>`<rect x="156" y="${40+i*13}" width="10" height="9" fill="${l[0]}"/><text x="170" y="${48+i*13}" font-size="7.4" fill="#333">${l[1]}</text>`).join('')}</g>`,
+    `Member Code Checks Displayed — UC máx ${UC.toFixed(2)} ${UC<=1?'✓':'✗'}`);
   return `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0 4px;">${svgM}${svgL}${svgV}${svgB}${svgD}${svgC}</div>
-  <div class="mini" style="text-align:center;">Diagramas equivalentes às pranchas SK-1…SK-11 do pacote Eastern (RISA-3D) — gerados do modelo de 3 vãos do montante crítico (apoiado nos reversos + extremos travados pela ferragem).</div>`;
+  <div class="mini" style="text-align:center;">Pranchas em vista isométrica (projeção 30°) equivalentes às SK-1…SK-11 do RISA-3D — pórtico completo (${stiles.length} montantes + travessas) com diagramas plotados no eixo Z do montante crítico.</div>`;
 }
 function memorial(c){
   const el=document.getElementById('memBody'); if(!el) return;
