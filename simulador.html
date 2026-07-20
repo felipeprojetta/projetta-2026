@@ -479,14 +479,14 @@ function svgDiagramas(c,w,UC){
   for(let sp=0;sp<spansK.length;sp++){ const aK=supK[sp], bK=supK[sp+1], L=bK-aK; if(L<=1) continue;
     let pts=P(0,aK,0);
     for(let i=1;i<12;i++){ const t=L*i/12, d=w*t*(L**3-2*L*t*t+t**3)/(24*EI);
-      pts+=' '+P(0, aK+t, d/denD*ampZ*0.8); }
+      pts+=' '+P(0, aK+t, -d/denD*ampZ*0.8); }
     pts+=' '+P(0,bK,0);
     defK+=`<polyline points="${pts}" fill="none" stroke="#2a8a5e" stroke-width="1.4" stroke-dasharray="4 3"/>`; }
   // balanços (cantilever c/ carga uniforme, engastado no pino extremo): δ(t)=w·t²(t²+6L²−4Lt)/24EI
   const bal=(y0,dir,L)=>{ if(L<=1) return '';
     let pts=P(0,y0,0);
     for(let i=1;i<=12;i++){ const t=L*i/12, d=w*t*t*(t*t+6*L*L-4*L*t)/(24*EI);
-      pts+=' '+P(0, y0+dir*t, d/denD*ampZ*0.8); }
+      pts+=' '+P(0, y0+dir*t, -d/denD*ampZ*0.8); }
     return `<polyline points="${pts}" fill="none" stroke="#c23b3b" stroke-width="1.5" stroke-dasharray="4 3"/>`; };
   defK+=bal(supK[supK.length-1],1,balSup)+bal(supK[0],-1,balInf);
   const nodesK=supK.map(p=>`<circle cx="${PX(0,p,0).toFixed(1)}" cy="${PY(0,p,0).toFixed(1)}" r="2" fill="#1f6e46"/>`).join('');
@@ -495,7 +495,7 @@ function svgDiagramas(c,w,UC){
     portico('#c4c4c0',0.8)
     +defK+ln([0,0,0],[0,FH,0],'#999',1.2)+nodesK
     +def+ln([FW,0,0],[FW,FH,0],'#999',1.2)+nodes+
-    `<text x="${PX(0,FH*0.62,0)-6}" y="${PY(0,FH*0.62,0)}" font-size="8.2" fill="#1f6e46" font-weight="700" text-anchor="end">δ ${dmaxK<0.05?'&lt;0,1':f1(dmaxK)} mm</text>
+    `<text x="${PX(0,FH*0.62,-ampZ*0.45)}" y="${PY(0,FH*0.62,-ampZ*0.45)}" font-size="8.2" fill="${dmaxK>dmax?'#c23b3b':'#1f6e46'}" font-weight="700">δ ${dmaxK<0.05?'&lt;0,1':f1(dmaxK)} mm</text>
      <text x="${PX(0,FH*0.94,0)-6}" y="${PY(0,FH*0.94,0)}" font-size="7.4" fill="#1f6e46" text-anchor="end">${supK.length-2} pinos</text>
      <text x="${PX(FW,Math.max(...spans)/2+sup[0],ampZ*0.8)+4}" y="${PY(FW,Math.max(...spans)/2+sup[0],ampZ*0.8)}" font-size="8.4" fill="#b06a2c" font-weight="700">δ ${f1(dmax)} mm</text>
      <text x="${PX(FW,FH*0.97,0)+5}" y="${PY(FW,FH*0.97,0)}" font-size="7.4" fill="#b06a2c">pivô</text>`,
