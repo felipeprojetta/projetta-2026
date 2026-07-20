@@ -463,11 +463,7 @@ function svgDiagramas(c,w,UC){
       pts+=' '+P(FW, a+t, d/dmax*ampZ*0.8); }
     pts+=' '+P(FW,b,0);
     def+=`<polyline points="${pts}" fill="none" stroke="#b06a2c" stroke-width="1.5" stroke-dasharray="4 3"/>`; }
-  const svgD=frame('DEFORMADA (WL) · LADO PIVÔ',
-    portico('#c4c4c0',0.8)+def+ln([FW,0,0],[FW,FH,0],'#999',1.2)+nodes+
-    `<text x="${PX(FW,Math.max(...spans)/2+sup[0],ampZ*0.8)+4}" y="${PY(FW,Math.max(...spans)/2+sup[0],ampZ*0.8)}" font-size="8.4" fill="#b06a2c" font-weight="700">δ ${f1(dmax)} mm</text>`,
-    `Node Displacements — limite L/175 = ${f1(Math.max(...spans)/175)} mm`);
-  // ---- deformada LADO PINOS (linha KESO engatada no portal) ----
+  // ---- lado PINOS (linha KESO engatada no portal) — montante ESQUERDO (x=0) ----
   const gruposK=[]; (c.f.pins||[]).slice().sort((x,y)=>x-y).forEach(p=>{const g=gruposK[gruposK.length-1]; if(g&&p-g[g.length-1]<100) g.push(p); else gruposK.push([p]);});
   const supK=[0,...gruposK.map(g=>g.reduce((x,y)=>x+y,0)/g.length).filter(p=>p>0&&p<FH),FH];
   const spansK=supK.slice(1).map((p,i)=>p-supK[i]);
@@ -475,16 +471,22 @@ function svgDiagramas(c,w,UC){
   const dmaxK=5*w*Math.pow(vaoK,4)/(384*EI);
   let defK='';
   for(let sp=0;sp<spansK.length;sp++){ const aK=supK[sp], bK=supK[sp+1], L=bK-aK; if(L<=1) continue;
-    let pts=P(FW,aK,0);
+    let pts=P(0,aK,0);
     for(let i=1;i<12;i++){ const t=L*i/12, d=w*t*(L**3-2*L*t*t+t**3)/(24*EI);
-      pts+=' '+P(FW, aK+t, d/dmax*ampZ*0.8); }
-    pts+=' '+P(FW,bK,0);
+      pts+=' '+P(0, aK+t, d/dmax*ampZ*0.8); }
+    pts+=' '+P(0,bK,0);
     defK+=`<polyline points="${pts}" fill="none" stroke="#2a8a5e" stroke-width="1.4" stroke-dasharray="4 3"/>`; }
-  const nodesK=supK.map(p=>`<circle cx="${PX(FW,p,0).toFixed(1)}" cy="${PY(FW,p,0).toFixed(1)}" r="2" fill="#1f6e46"/>`).join('');
-  const svgDK=frame('DEFORMADA · LADO PINOS',
-    portico('#c4c4c0',0.8)+defK+ln([FW,0,0],[FW,FH,0],'#999',1.2)+nodesK+
-    `<text x="${PX(FW,FH*0.5,ampZ*0.35)+4}" y="${PY(FW,FH*0.5,ampZ*0.35)}" font-size="8.4" fill="#1f6e46" font-weight="700">δ ${dmaxK<0.05?'&lt;0,1':f1(dmaxK)} mm</text>`,
-    `${c.f.nome}: ${supK.length-2} apoios engatados — vão máx ${fmt(vaoK)} · limite L/175 = ${f1(vaoK/175)} mm`);
+  const nodesK=supK.map(p=>`<circle cx="${PX(0,p,0).toFixed(1)}" cy="${PY(0,p,0).toFixed(1)}" r="2" fill="#1f6e46"/>`).join('');
+  // ---- card ÚNICO: pinos no montante esquerdo × pivô no direito ----
+  const svgD=frame('DEFORMADA (WL) — PINOS × PIVÔ',
+    portico('#c4c4c0',0.8)
+    +defK+ln([0,0,0],[0,FH,0],'#999',1.2)+nodesK
+    +def+ln([FW,0,0],[FW,FH,0],'#999',1.2)+nodes+
+    `<text x="${PX(0,FH*0.62,0)-6}" y="${PY(0,FH*0.62,0)}" font-size="8.2" fill="#1f6e46" font-weight="700" text-anchor="end">δ ${dmaxK<0.05?'&lt;0,1':f1(dmaxK)} mm</text>
+     <text x="${PX(0,FH*0.94,0)-6}" y="${PY(0,FH*0.94,0)}" font-size="7.4" fill="#1f6e46" text-anchor="end">${supK.length-2} pinos</text>
+     <text x="${PX(FW,Math.max(...spans)/2+sup[0],ampZ*0.8)+4}" y="${PY(FW,Math.max(...spans)/2+sup[0],ampZ*0.8)}" font-size="8.4" fill="#b06a2c" font-weight="700">δ ${f1(dmax)} mm</text>
+     <text x="${PX(FW,FH*0.97,0)+5}" y="${PY(FW,FH*0.97,0)}" font-size="7.4" fill="#b06a2c">pivô</text>`,
+    `${c.f.nome} (esq): vão máx ${fmt(vaoK)}, δ ${dmaxK<0.05?'&lt;0,1':f1(dmaxK)} — pivô (dir): δ ${f1(dmax)} · L/175 = ${f1(Math.max(...spans)/175)} mm`);
   // ---- SK-11 · CODE CHECK (pórtico colorido + legenda idêntica) ----
   const cor=UC>1?'#e02020':UC>0.9?'#e020c0':UC>0.75?'#20c020':UC>0.5?'#20d0d0':'#5b7fb5';
   const leg=[['#000','No Calc'],['#e02020','> 1.0'],['#e020c0','.90-1.0'],['#20c020','.75-.90'],['#20d0d0','.50-.75'],['#5b7fb5','0-.50']];
@@ -497,7 +499,7 @@ function svgDiagramas(c,w,UC){
      <text x="156" y="36" font-size="7" fill="#333">Code Check (WL)</text>
      ${leg.map((l,i)=>`<rect x="156" y="${40+i*13}" width="10" height="9" fill="${l[0]}"/><text x="170" y="${48+i*13}" font-size="7.4" fill="#333">${l[1]}</text>`).join('')}</g>`,
     `Member Code Checks Displayed — UC máx ${UC.toFixed(2)} ${UC<=1?'✓':'✗'}`);
-  return `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0 4px;">${svgM}${svgL}${svgV}${svgB}${svgD}${svgDK}${svgC}</div>
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0 4px;">${svgM}${svgL}${svgV}${svgB}${svgD}${svgC}</div>
   <div class="mini" style="text-align:center;">Pranchas em vista isométrica (projeção 30°) equivalentes às SK-1…SK-11 do RISA-3D — pórtico completo (${stiles.length} montantes + travessas) com diagramas plotados no eixo Z do montante crítico.</div>`;
 }
 function memorial(c){
