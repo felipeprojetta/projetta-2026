@@ -218,7 +218,7 @@ const PIN12=[1020.0,1041.0,1062.0,1083.0,1854.8,1875.8,1896.8,1917.8,2796.3,2817
 const FECH=[
   {nome:'KESO 24 PINOS', min:6600, pins:PIN24, v0:957,  v1:6571, D:1884, real:true},
   {nome:'KESO 16 PINOS', min:5300, pins:PIN16, v0:1020, v1:4910, D:2788, real:true},
-  {nome:'KESO 12 PINOS', min:0,    pins:PIN12, v0:1020, v1:2859, D:2030, rev0:933, rev1:2963, real:true},  // saídas do varão no DXF (4399,7/6429,7 − off 3467,15)
+  {nome:'KESO 12 PINOS', min:0,    pins:PIN12, v0:1020, v1:2859, D:941, rev0:1946, rev1:2887, real:true},  // reversos saem das caixas 2 e 3 (hastes do DXF: 5413,1/6354,6 − off 3467,15)
 ];
 const escolherFech=FH=>FECH.find(f=>FH>=f.min);
 const fmt=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:0});
