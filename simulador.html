@@ -218,7 +218,7 @@ const PIN12=[1020.0,1041.0,1062.0,1083.0,1854.8,1875.8,1896.8,1917.8,2796.3,2817
 const FECH=[
   {nome:'KESO 24 PINOS', min:6600, pins:PIN24, v0:957,  v1:6571, D:1884, real:true},
   {nome:'KESO 16 PINOS', min:5300, pins:PIN16, v0:1020, v1:4910, D:2788, real:true},
-  {nome:'KESO 12 PINOS', min:0,    pins:PIN12, v0:1020, v1:2859, D:1500, real:true},
+  {nome:'KESO 12 PINOS', min:0,    pins:PIN12, v0:1020, v1:2859, D:2030, rev0:933, rev1:2963, real:true},  // saídas do varão no DXF (4399,7/6429,7 − off 3467,15)
 ];
 const escolherFech=FH=>FECH.find(f=>FH>=f.min);
 const fmt=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:0});
@@ -236,7 +236,7 @@ function calc(L,A){
   const sub=per+cha+enc, piv=sub*1.10;
   const f=escolherFech(FH);
   // reversos: par com espaçamento FIXO da fechadura (DXF), conjunto CENTRALIZADO p/ equilibrar vãos
-  const R1=Math.round((FH-f.D)/2), R2=R1+f.D;
+  const R1=f.rev0??Math.round((FH-f.D)/2), R2=f.rev1??(R1+f.D);   // rev0/rev1: saídas FIXAS do varão (DXF); senão par centralizado
   const vaoMax=Math.max(R1,f.D,FH-R2);
   // VENTO pela SEÇÃO REAL do montante PA007F: Wy=48,0 cm³ (integração do DXF) ·
   // σ_adm 6063-T5 = 65 MPa (110/1,35 com reserva p/ HAZ da solda laser nos nós — EC9)
