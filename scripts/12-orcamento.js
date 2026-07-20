@@ -5729,6 +5729,18 @@ const Orcamento = (() => {
         } else if (field === 'espacamentoRipas') {
           // Felipe sessao 18: campo numerico (default 30mm)
           item.espacamentoRipas = parseFloat(String(v).replace(',', '.')) || 30;
+        } else if (field === 'altura' && item.tipo === 'porta_interna') {
+          // Felipe s37: limite de fabricacao da porta interna = 3500mm.
+          // Acima disso: avisa, limpa o campo e NAO salva (nao calcula).
+          const altPI = parseFloat(String(v).replace(/\./g, '').replace(',', '.')) || 0;
+          if (altPI > 3500) {
+            alert('PORTA INTERNA: altura maxima de fabricacao e 3.500 mm (3,5 m).\nValor informado: ' + v + ' mm — nao sera calculado.');
+            el.value = '';
+            item.altura = '';
+            try { el.focus(); } catch (_) {}
+          } else {
+            item.altura = v;
+          }
         } else {
           item[field] = v;
         }
