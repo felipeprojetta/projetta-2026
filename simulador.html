@@ -463,10 +463,28 @@ function svgDiagramas(c,w,UC){
       pts+=' '+P(FW, a+t, d/dmax*ampZ*0.8); }
     pts+=' '+P(FW,b,0);
     def+=`<polyline points="${pts}" fill="none" stroke="#b06a2c" stroke-width="1.5" stroke-dasharray="4 3"/>`; }
-  const svgD=frame('DEFORMADA (WL)',
+  const svgD=frame('DEFORMADA (WL) · LADO PIVÔ',
     portico('#c4c4c0',0.8)+def+ln([FW,0,0],[FW,FH,0],'#999',1.2)+nodes+
     `<text x="${PX(FW,Math.max(...spans)/2+sup[0],ampZ*0.8)+4}" y="${PY(FW,Math.max(...spans)/2+sup[0],ampZ*0.8)}" font-size="8.4" fill="#b06a2c" font-weight="700">δ ${f1(dmax)} mm</text>`,
     `Node Displacements — limite L/175 = ${f1(Math.max(...spans)/175)} mm`);
+  // ---- deformada LADO PINOS (linha KESO engatada no portal) ----
+  const gruposK=[]; (c.f.pins||[]).slice().sort((x,y)=>x-y).forEach(p=>{const g=gruposK[gruposK.length-1]; if(g&&p-g[g.length-1]<100) g.push(p); else gruposK.push([p]);});
+  const supK=[0,...gruposK.map(g=>g.reduce((x,y)=>x+y,0)/g.length).filter(p=>p>0&&p<FH),FH];
+  const spansK=supK.slice(1).map((p,i)=>p-supK[i]);
+  const vaoK=Math.max(...spansK);
+  const dmaxK=5*w*Math.pow(vaoK,4)/(384*EI);
+  let defK='';
+  for(let sp=0;sp<spansK.length;sp++){ const aK=supK[sp], bK=supK[sp+1], L=bK-aK; if(L<=1) continue;
+    let pts=P(FW,aK,0);
+    for(let i=1;i<12;i++){ const t=L*i/12, d=w*t*(L**3-2*L*t*t+t**3)/(24*EI);
+      pts+=' '+P(FW, aK+t, d/dmax*ampZ*0.8); }
+    pts+=' '+P(FW,bK,0);
+    defK+=`<polyline points="${pts}" fill="none" stroke="#2a8a5e" stroke-width="1.4" stroke-dasharray="4 3"/>`; }
+  const nodesK=supK.map(p=>`<circle cx="${PX(FW,p,0).toFixed(1)}" cy="${PY(FW,p,0).toFixed(1)}" r="2" fill="#1f6e46"/>`).join('');
+  const svgDK=frame('DEFORMADA · LADO PINOS',
+    portico('#c4c4c0',0.8)+defK+ln([FW,0,0],[FW,FH,0],'#999',1.2)+nodesK+
+    `<text x="${PX(FW,FH*0.5,ampZ*0.35)+4}" y="${PY(FW,FH*0.5,ampZ*0.35)}" font-size="8.4" fill="#1f6e46" font-weight="700">δ ${dmaxK<0.05?'&lt;0,1':f1(dmaxK)} mm</text>`,
+    `${c.f.nome}: ${supK.length-2} apoios engatados — vão máx ${fmt(vaoK)} · limite L/175 = ${f1(vaoK/175)} mm`);
   // ---- SK-11 · CODE CHECK (pórtico colorido + legenda idêntica) ----
   const cor=UC>1?'#e02020':UC>0.9?'#e020c0':UC>0.75?'#20c020':UC>0.5?'#20d0d0':'#5b7fb5';
   const leg=[['#000','No Calc'],['#e02020','> 1.0'],['#e020c0','.90-1.0'],['#20c020','.75-.90'],['#20d0d0','.50-.75'],['#5b7fb5','0-.50']];
@@ -479,7 +497,7 @@ function svgDiagramas(c,w,UC){
      <text x="156" y="36" font-size="7" fill="#333">Code Check (WL)</text>
      ${leg.map((l,i)=>`<rect x="156" y="${40+i*13}" width="10" height="9" fill="${l[0]}"/><text x="170" y="${48+i*13}" font-size="7.4" fill="#333">${l[1]}</text>`).join('')}</g>`,
     `Member Code Checks Displayed — UC máx ${UC.toFixed(2)} ${UC<=1?'✓':'✗'}`);
-  return `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0 4px;">${svgM}${svgL}${svgV}${svgB}${svgD}${svgC}</div>
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0 4px;">${svgM}${svgL}${svgV}${svgB}${svgD}${svgDK}${svgC}</div>
   <div class="mini" style="text-align:center;">Pranchas em vista isométrica (projeção 30°) equivalentes às SK-1…SK-11 do RISA-3D — pórtico completo (${stiles.length} montantes + travessas) com diagramas plotados no eixo Z do montante crítico.</div>`;
 }
 function memorial(c){
@@ -497,6 +515,12 @@ function memorial(c){
   const fb=M/48000, UC=fb/65;
   const I_PAF=48000*50.5, E_AL=69900;
   const defl=5*w*Math.pow(vao,4)/(384*E_AL*I_PAF), dLim=vao/175;
+  // lado da fechadura: linha de pinos engatados no portal = apoios contínuos
+  const gK=[]; (c.f.pins||[]).slice().sort((x,y)=>x-y).forEach(p=>{const g=gK[gK.length-1]; if(g&&p-g[g.length-1]<100) g.push(p); else gK.push([p]);});
+  const supKm=[0,...gK.map(g=>g.reduce((x,y)=>x+y,0)/g.length).filter(p=>p>0&&p<c.FH),c.FH];
+  const vaoKm=Math.max(...supKm.slice(1).map((p,i)=>p-supKm[i]));
+  const deflK=5*w*Math.pow(vaoKm,4)/(384*E_AL*I_PAF), dLimK=vaoKm/175;
+  const fbK=(w*vaoKm*vaoKm/8)/48000, UCK=fbK/65;
   const spans=[c.R1, c.f.D, c.FH-c.R2];
   const rx=[w*spans[0]/2, w*(spans[0]+spans[1])/2, w*(spans[1]+spans[2])/2, w*spans[2]/2].map(v=>v/1000); // kN
   let ucFix='';
@@ -594,11 +618,13 @@ function memorial(c){
     <tr><td><b>Demanda governante do memorial</b></td><td><b>${fmt(q)} Pa</b></td><td>maior das duas</td></tr></table>
   </div>
   <div class="mem"><h3>II · Entry Door Analysis — montante crítico PA007F ${vd(UC<=1&&defl<=dLim)}</h3>
-    <div class="mini">Modelo de pórtico estilo RISA-3D: montante do lado da fechadura, apoios nos 2 reversos + linha KESO, faixa tributária FW/2. Folha ${fmt(c.FW)}×${fmt(c.FH)}.</div>
+    <div class="mini">Modelo de pórtico estilo RISA-3D — dois montantes comparados: <b>lado do pivô</b> (apoios: pivôs + 2 reversos) vs <b>lado dos pinos</b> (linha ${c.f.nome} engatada no portal). Faixa tributária FW/2. Folha ${fmt(c.FW)}×${fmt(c.FH)}.</div>
     ${svgDiagramas(c,w,UC)}
     <table><tr><th>Verificação</th><th>Demanda</th><th>Capacidade</th><th>UC</th></tr>
     <tr><td>Flexão: <span class="fEq">M = w·L²/8</span>, w=${f2d(w)} N/mm, L=${fmt(vao)}</td><td>fb = ${f1(fb)} MPa</td><td>σadm 65 MPa (6063-T5/1,35)</td><td><b>${UC.toFixed(2)}</b> ${vd(UC<=1)}</td></tr>
-    <tr><td>Flecha: <span class="fEq">δ = 5wL⁴/384EI</span>, I=${fmt(I_PAF/1e4)} cm⁴</td><td>${f1(defl)} mm</td><td>L/175 = ${f1(dLim)} mm</td><td>${(defl/dLim).toFixed(2)} ${vd(defl<=dLim)}</td></tr></table>
+    <tr><td>Flecha LADO PIVÔ: <span class="fEq">δ = 5wL⁴/384EI</span>, L=${fmt(vao)}, I=${fmt(I_PAF/1e4)} cm⁴</td><td>${f1(defl)} mm</td><td>L/175 = ${f1(dLim)} mm</td><td>${(defl/dLim).toFixed(2)} ${vd(defl<=dLim)}</td></tr>
+    <tr><td>Flecha LADO PINOS (${c.f.nome}): vão máx ${fmt(vaoKm)} entre apoios engatados</td><td>${deflK<0.05?'&lt;0,1':f1(deflK)} mm</td><td>L/175 = ${f1(dLimK)} mm</td><td>${(deflK/dLimK).toFixed(2)} ${vd(deflK<=dLimK)}</td></tr>
+    <tr><td>Comparativo entre lados</td><td colspan="3">δ pivô ${f1(defl)} mm vs δ pinos ${deflK<0.05?'&lt;0,1':f1(deflK)} mm — lado do pivô deforma <b>${deflK>0.001?fmt(defl/deflK):'&gt;1000'}×</b> mais (flexão pinos: UC ${UCK.toFixed(2)} ${vd(UCK<=1)})</td></tr></table>
     <table><tr><th>Reações (equiv. "Node Reactions" SK)</th><th>kN</th></tr>
     <tr><td>Extremo superior (linha veda/fechadura)</td><td>${rx[0].toFixed(2)}</td></tr>
     <tr><td>Reverso superior (${fmt(c.R2)} do piso)</td><td>${rx[2].toFixed(2)}</td></tr>
