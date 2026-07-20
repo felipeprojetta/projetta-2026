@@ -240,12 +240,16 @@ const AcessoriosPortaExterna = (() => {
       }
     }
 
-    // 3) Dobradicas — 3 unidades, variante mais cara do prefixo PA-DOBINVINT.
-    //    Cor declarada pelo user vai no observacao.
+    // 3) Dobradicas — qtd por ALTURA (Felipe s37):
+    //    ate 2500mm -> 3 · 2501 a 3000mm -> 4 · acima de 3000mm -> 5
+    //    (limite de fabricacao da porta interna: 3500mm).
+    //    _toNumPI e' function declaration (hoisted), ok usar aqui.
     const dobAcess = maxPrecoByPrefix(cadastroAcessorios, 'PA-DOBINVINT');
     if (dobAcess) {
+      const alturaDobPI = _toNumPI(item.altura);
+      const qtdDob = alturaDobPI > 3000 ? 5 : (alturaDobPI > 2500 ? 4 : 3);
       const cor = String(item.dobradicaCor || '').trim();
-      pushLinha(dobAcess.codigo, 3, 'Dobradica', cor ? ('Cor: ' + cor) : '');
+      pushLinha(dobAcess.codigo, qtdDob, 'Dobradica', cor ? ('Cor: ' + cor) : '');
     }
 
     // Felipe sessao 31: helpers de geometria reusados pelos consumiveis abaixo
