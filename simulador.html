@@ -216,8 +216,8 @@ const seq=(a,b,n)=>Array.from({length:n},(_,i)=>a+(b-a)*i/(n-1));
 // 12P: posições do DXF Drawing1 (3 estações × 4 pinos, passo 21) — 1º pino a 1020 do chão
 const PIN12=[1020.0,1041.0,1062.0,1083.0,1854.8,1875.8,1896.8,1917.8,2796.3,2817.3,2838.3,2859.3];
 const FECH=[
-  {nome:'KESO 24 PINOS', min:6600, pins:PIN24, v0:957,  v1:6571, D:1884, real:true},
-  {nome:'KESO 16 PINOS', min:5300, pins:PIN16, v0:1020, v1:4910, D:2788, real:true},
+  {nome:'KESO 24 PINOS', min:6600, pins:PIN24, v0:957,  v1:6571, D:1884, rev0:1625, rev1:3509, real:true},  // hastes do DXF 24+2 (1683,3/3567,3 − off 57,9)
+  {nome:'KESO 16 PINOS', min:5300, pins:PIN16, v0:1020, v1:4910, D:2788, rev0:2041, rev1:4829, real:true},  // hastes do DXF 16P cópia A (1802,9/4590,7 + off 238)
   {nome:'KESO 12 PINOS', min:0,    pins:PIN12, v0:1020, v1:2859, D:941, rev0:1946, rev1:2887, real:true},  // reversos saem das caixas 2 e 3 (hastes do DXF: 5413,1/6354,6 − off 3467,15)
 ];
 const escolherFech=FH=>FECH.find(f=>FH>=f.min);
