@@ -38,7 +38,7 @@
     soComWa: false,
     sortKey: 'v',
     sortAsc: false,
-    msg: 'Ola {nome}, tudo bem? Aqui e da Projetta. Vi que voce esta com um projeto de esquadrias em andamento e nos trabalhamos com portas e solucoes em aluminio de alto padrao que combinam com o seu projeto. Posso te enviar algumas referencias?'
+    msg: 'Ola {nome}, tudo bem? Parabens pela escolha das esquadrias Weiku do Brasil - voce fechou com o que existe de melhor no mercado! Aqui e da Projetta Aluminio, empresa do mesmo grupo da Weiku. Um projeto desse nivel merece uma entrada a altura: fabricamos portas pivotantes em aluminio de alto padrao, sob medida, com o mesmo rigor de qualidade das suas esquadrias. Posso te enviar algumas referencias de portas que vao coroar o seu projeto?'
   };
 
   // ---- acesso a dados (Supabase via Storage) ----------------------
