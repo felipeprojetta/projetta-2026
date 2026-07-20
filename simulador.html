@@ -195,7 +195,7 @@
 <div class="pag" id="p5"><div class="prancha" style="max-width:900px;">
   <div class="card" style="margin-bottom:14px;">
     <h2>MEMORIAL DE CÁLCULO — APROVAÇÃO SEM NOA (Rational Analysis · Florida Building Code)</h2>
-    <div class="mini">Metodologia espelhada no pacote <b>Eastern Engineering Group · Job 25-0816</b> (Akai Estates Lot-15 Front Door, Southwest Ranches FL — porta aprovada por cálculo assinado por PE, sem NOA). Normas: FBC 8ª ed. 2023 · ASCE 7-22 · Aluminum Design Manual 2020 · AISC 360-16 (ref.) · ACI 318-19. Índice idêntico ao deles: <b>I. Wind Load · II. Entry Door Analysis · III. Weld Check · IV. Cladding Design · V. Bottom Closing System</b>. Os valores abaixo recalculam ao vivo com as dimensões e o local escolhidos na aba SIMULADOR (perfil PA007F Wy 48 cm³ · 6063-T5).</div>
+    <div class="mini">Metodologia de rational analysis para aprovação de porta pivotante por cálculo assinado por PE, sem NOA. Normas: FBC 8ª ed. 2023 · ASCE 7-22 · Aluminum Design Manual 2020 · AISC 360-16 (ref.) · ACI 318-19. Índice idêntico ao deles: <b>I. Wind Load · II. Entry Door Analysis · III. Weld Check · IV. Cladding Design · V. Bottom Closing System</b>. Os valores abaixo recalculam ao vivo com as dimensões e o local escolhidos na aba SIMULADOR (perfil PA007F Wy 48 cm³ · 6063-T5).</div>
   </div>
   <div id="memBody"></div>
 </div></div>
@@ -356,13 +356,13 @@ function desenhar(c,L,A){
   dsvg.innerHTML=g;
 }
 
-// ===== MEMORIAL FBC (sem NOA) — replica a cadeia de cálculo Eastern Eng. Group Job 25-0816 =====
+// ===== MEMORIAL FBC (sem NOA) — cadeia de cálculo por rational analysis =====
 const PSF=47.880259;                      // Pa por psf
 const f2d=n=>n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const vd=ok=>ok?'<span class="vOK">OK</span>':'<span class="vNG">N.G.</span>';
-// --- diagramas SVG estilo RISA-3D (SK-1..SK-11 do pacote Eastern) ---
+// --- diagramas SVG estilo RISA-3D (pranchas SK-1..SK-11) ---
 function svgDiagramas(c,w,UC){
-  // ===== vista ISOMÉTRICA estilo RISA-3D (como nas pranchas SK do pacote Eastern) =====
+  // ===== vista ISOMÉTRICA estilo RISA-3D (pranchas SK) =====
   const FH=c.FH, FW=c.FW, sup=[0,c.R1,c.R2,FH];
   const spans=[c.R1, c.f.D, FH-c.R2];
   const H=340, s=(H-84)/FH;                       // escala mundo->tela
@@ -484,7 +484,7 @@ function svgDiagramas(c,w,UC){
 }
 function memorial(c){
   const el=document.getElementById('memBody'); if(!el) return;
-  // ---- I. WIND LOAD (ASCE 7 C&C — tabela do EOR Eastern: Wall Zone 5, 10 sf, 87,0 psf @ Vult 170 mph; ASD x0,6 = 52,2 psf) ----
+  // ---- I. WIND LOAD (ASCE 7 C&C — Wall Zone 5, 10 sf, 87,0 psf @ Vult 170 mph; ASD x0,6 = 52,2 psf) ----
   const Vult_ms=c.V/Math.sqrt(0.6);                 // V armazenado é ASD-equivalente -> ultimate
   const Vult_mph=Vult_ms*2.23694;
   const pUlt=87.0*Math.pow(Vult_mph/170,2);         // psf, sucção Wall Zone 5 escalada por V²
@@ -507,17 +507,17 @@ function memorial(c){
        :UC3<=1?`montante reforçado W 64 cm³ (tubo 101x51 soldado interno) → UC ${UC3.toFixed(2)} ✓`
        :`ferrolho + montante W 64 → UC ${(UC2*48/64).toFixed(2)}`)+`</div>`;
   }
-  // ---- III. WELD CHECK (formato Eastern: Fv=0,3·Fu; aqui Fu = 6063-T5 zona afetada pela solda, ADM 2020) ----
+  // ---- III. WELD CHECK (Fv=0,3·Fu; Fu = 6063-T5 zona afetada pela solda, ADM 2020) ----
   const FuW=117, FvW=0.3*FuW;                       // MPa
   const perim=2*(101+51);                           // mm — solda laser perimetral no nó montante×travessa
   const Vweld=Math.max(rx[1],rx[2])*1000;           // N — reação do reverso mais carregado
   const teReq=Vweld/(perim*FvW), teReal=1.5;
-  // ---- IV. CLADDING DESIGN (rational analysis igual à folha "WORST CASE SCENARIO" da Eastern) ----
+  // ---- IV. CLADDING DESIGN (rational analysis — worst case scenario) ----
   const Lc=Math.min(c.FW/(c.tv+1), c.FH/(c.th+1)); // maior faixa livre entre travessas (mm)
   const Mc=q*Math.pow(Lc/1000,2)/8*1000;           // N·mm por metro de faixa
   const fbMac=Mc/2667, admMac=60;                  // alumínio maciço 4 mm: S=t²/6·1000=2667 mm³/m
   const fbACM=Mc/1542, admACM=45;                  // ACM 4 (peles 0,5): S=1000·(4³−3³)/(6·4)=1542 mm³/m
-  // ---- V. BOTTOM CLOSING SYSTEM (ancoragem do pivô de piso — equações idênticas às da Eastern, ACI 318-19) ----
+  // ---- V. BOTTOM CLOSING SYSTEM (ancoragem do pivô de piso — ACI 318-19) ----
   const LB=2.2046;
   const P=c.fLat*LB, Pv=c.piv*LB, Mact=P*1.0;      // lbs, momento com braço 1" (carga na face da laje)
   function anchor(hef,Ca1,psi,phi){
@@ -586,7 +586,7 @@ function memorial(c){
   
   el.innerHTML=`
   <div class="mem"><h3>I · Wind Load — ASCE 7 C&C (Wall Zone 5, 10 sf)</h3>
-    <table><tr><th>Grandeza</th><th>Valor</th><th>Referência Eastern</th></tr>
+    <table><tr><th>Grandeza</th><th>Valor</th><th>Referência</th></tr>
     <tr><td>V ultimate (3-s gust)</td><td><b>${fmt(Vult_mph)} mph</b> (${f1(Vult_ms)} m/s)</td><td>170 mph</td></tr>
     <tr><td>Sucção Wall Zone 5 (ultimate)</td><td><b>${f1(pUlt)} psf</b></td><td>87,0 psf</td></tr>
     <tr><td>ASD: <span class="fEq">p × 0,6</span></td><td><b>${f1(pAsd)} psf = ${fmt(pAsdPa)} Pa</b></td><td>87,0×0,6 = 52,2 psf</td></tr>
@@ -594,7 +594,7 @@ function memorial(c){
     <tr><td><b>Demanda governante do memorial</b></td><td><b>${fmt(q)} Pa</b></td><td>maior das duas</td></tr></table>
   </div>
   <div class="mem"><h3>II · Entry Door Analysis — montante crítico PA007F ${vd(UC<=1&&defl<=dLim)}</h3>
-    <div class="mini">Modelo análogo ao pórtico RISA-3D da Eastern: montante do lado da fechadura, apoios nos 2 reversos + linha KESO, faixa tributária FW/2. Folha ${fmt(c.FW)}×${fmt(c.FH)}.</div>
+    <div class="mini">Modelo de pórtico estilo RISA-3D: montante do lado da fechadura, apoios nos 2 reversos + linha KESO, faixa tributária FW/2. Folha ${fmt(c.FW)}×${fmt(c.FH)}.</div>
     ${svgDiagramas(c,w,UC)}
     <table><tr><th>Verificação</th><th>Demanda</th><th>Capacidade</th><th>UC</th></tr>
     <tr><td>Flexão: <span class="fEq">M = w·L²/8</span>, w=${f2d(w)} N/mm, L=${fmt(vao)}</td><td>fb = ${f1(fb)} MPa</td><td>σadm 65 MPa (6063-T5/1,35)</td><td><b>${UC.toFixed(2)}</b> ${vd(UC<=1)}</td></tr>
@@ -607,7 +607,7 @@ function memorial(c){
     <tr><td>Peso próprio (vertical, pivôs)</td><td>${f1(c.piv*9.81/1000)} (${fmt(c.piv)} kg)</td></tr></table>${ucFix}
   </div>
   <div class="mem"><h3>III · Weld Check — nós montante × travessa ${vd(teReq<=teReal)}</h3>
-    <div class="mini">Formato Eastern (<span class="fEq">Fv = 0,3·Fu</span>) com Fu da zona afetada da solda laser 6063-T5 (ADM 2020): Fu=${FuW} MPa → Fv=${f1(FvW)} MPa. Cisalhante de projeto = reação do reverso crítico.</div>
+    <div class="mini">Critério <span class="fEq">Fv = 0,3·Fu</span> com Fu da zona afetada da solda laser 6063-T5 (ADM 2020): Fu=${FuW} MPa → Fv=${f1(FvW)} MPa. Cisalhante de projeto = reação do reverso crítico.</div>
     <table><tr><th>Grandeza</th><th>Valor</th></tr>
     <tr><td>V_weld</td><td>${(Vweld/1000).toFixed(2)} kN</td></tr>
     <tr><td>Perímetro soldado (101×51)</td><td>${perim} mm</td></tr>
@@ -615,13 +615,13 @@ function memorial(c){
     <tr><td>Garganta efetiva (solda laser contínua)</td><td>${teReal.toFixed(2)} mm ${vd(teReq<=teReal)}</td></tr></table>
   </div>
   <div class="mem"><h3>IV · Cladding Design — rational analysis ${vd(fbMac<=admMac)}</h3>
-    <div class="mini">Igual à folha "WORST CASE SCENARIO" da Eastern (chapa 1/8", Fb A36): faixa de 1 m entre travessas, <span class="fEq">M = q·L²/8</span>, L = ${fmt(Lc)} mm (maior vão livre entre travessas: ${c.tv} vert. + ${c.th} horiz.).</div>
+    <div class="mini">Worst case scenario (chapa 1/8", Fb A36): faixa de 1 m entre travessas, <span class="fEq">M = q·L²/8</span>, L = ${fmt(Lc)} mm (maior vão livre entre travessas: ${c.tv} vert. + ${c.th} horiz.).</div>
     <table><tr><th>Face</th><th>S (mm³/m)</th><th>fb</th><th>Fb adm</th><th></th></tr>
     <tr><td>Alumínio maciço 4 mm</td><td>2.667</td><td>${f1(fbMac)} MPa</td><td>${admMac} MPa</td><td>${vd(fbMac<=admMac)}</td></tr>
     <tr><td>ACM 4 mm (peles 0,5)</td><td>1.542</td><td>${f1(fbACM)} MPa</td><td>${admACM} MPa</td><td>${vd(fbACM<=admACM)}</td></tr></table>
   </div>
   <div class="mem"><h3>V · Bottom Closing System — ancoragem do pivô de piso no concreto ${vd(anOK)}</h3>
-    <div class="mini">Equações idênticas às da Eastern (validadas ao centavo contra o PDF: a=1,1269 · P2=2.473,64 · φVcb=4.221,80 · φVcone=4.684,42). Carga horizontal = força lateral no pivô (${fmt(c.fLat)} kgf) · vertical = peso da folha · braço 1". Base: chapa 4"×4", bolsão grout 6"×6" f'c 10.000 psi, laje f'c 3.000 psi, hef ${an.hef}", Ca1 ${an.Ca1}".</div>
+    <div class="mini">Equações ACI 318-19 (validadas ao centavo: a=1,1269 · P2=2.473,64 · φVcb=4.221,80 · φVcone=4.684,42). Carga horizontal = força lateral no pivô (${fmt(c.fLat)} kgf) · vertical = peso da folha · braço 1". Base: chapa 4"×4", bolsão grout 6"×6" f'c 10.000 psi, laje f'c 3.000 psi, hef ${an.hef}", Ca1 ${an.Ca1}".</div>
     <table><tr><th>Etapa (ACI 318-19)</th><th>Demanda</th><th>Capacidade</th><th></th></tr>
     <tr><td>Arm effect: a=${an.a.toFixed(2)}" · P2=${fmt(an.P2)} lbs · P1=${fmt(an.P1)} lbs · Vu=1,6·máx=${fmt(an.Vu)} lbs</td><td colspan="2">P=${fmt(P)} lbs · Pv=${fmt(Pv)} lbs · M=${fmt(Mact)} lb-in</td><td></td></tr>
     <tr><td>Bearing pino→grout</td><td>${fmt(Math.max(an.f1g,an.f2g))} psi</td><td>Fp ${fmt(an.Fpg)} psi</td><td>${vd(an.okG)}</td></tr>
@@ -634,7 +634,7 @@ function memorial(c){
   ${secVI}
   <div class="mem"><h3>Conclusão (equivalente ao Calculation Statement)</h3>
     <div class="mini">${(UC<=1&&defl<=dLim&&teReq<=teReal&&fbMac<=admMac&&(anOK||!!anFix)&&(pfOK||!!pfFix))
-      ?'<b style="color:#0F6E56">Estrutura da porta ATENDE aos critérios do memorial</b> (com os reforços indicados, quando listados). Pacote pronto para revisão e assinatura de um PE local — mesmo caminho de aprovação sem NOA usado no Job 25-0816.'
+      ?'<b style="color:#0F6E56">Estrutura da porta ATENDE aos critérios do memorial</b> (com os reforços indicados, quando listados). Pacote pronto para revisão e assinatura de um PE local — caminho de aprovação sem NOA por rational analysis.'
       :'<b style="color:#A32D2D">Há verificações N.G. sem solução padrão</b> — revisar dimensões/local antes de enviar ao PE.'}
      Nota honesta: coeficientes de fachada e a tabela C&C são a estimativa calibrada da linha; o PE do projeto confirma os valores finais para o site específico.</div>
   </div>`;
