@@ -6229,8 +6229,11 @@ const Orcamento = (() => {
     // aba acm' — a lista ACM tambem e' montada quando revestimento e'
     // inox (antes so' Mod23+AM), pros campos Cor Externa/Interna ACM.
     const ehInoxRev = /inox/.test(_revLow);
+    // Felipe s37 CORSTONE: espelha o Aco Inox — tampa maior vira Corstone
+    // (vidro por m²), fitas e resto ACM. Cores Ext/Int = chapa ACM.
+    const ehCorstoneRev = /corstone/.test(_revLow);
     const superficiesAM  = ehMod23AM ? filtrarSuperficies('Aluminio Macico 2mm') : [];
-    const superficiesACM = (ehMod23AM || ehInoxRev) ? filtrarSuperficies('ACM 4mm') : [];
+    const superficiesACM = (ehMod23AM || ehInoxRev || ehCorstoneRev) ? filtrarSuperficies('ACM 4mm') : [];
     const superficiesInox = ehInoxRev
       ? (superficies || []).filter(s => String(s.categoria || '').toLowerCase() === 'aco_inox' || /inox/i.test(String(s.descricao || '')))
       : [];
@@ -6258,7 +6261,7 @@ const Orcamento = (() => {
     ];
 
     // Revestimentos fixos
-    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Aço Inox', 'Vidro'];
+    const revestimentos = ['ACM 4mm', 'HPL 4mm', 'Aluminio Macico 2mm', 'Aço Inox', 'CORSTONE', 'Vidro'];  // Felipe s37: CORSTONE
 
     // Helpers de markup
     const opt = (v, sel, lbl) => `<option value="${escapeHtml(v)}" ${v === sel ? 'selected' : ''}>${escapeHtml(lbl != null ? lbl : v)}</option>`;
@@ -7353,16 +7356,16 @@ const Orcamento = (() => {
                  entre Cor Interna e Cor da Cava. -->
             <div class="orc-cor-stack">
               <div class="orc-field orc-f-cor">
-                <label>${ehMod23AM ? 'Cor ACM Externa' : (ehInoxRev ? 'Cor Externa ACM' : 'Cor Externa')}</label>
-                <input type="text" list="${(ehMod23AM || ehInoxRev) ? 'orc-superficies-list-acm' : 'orc-superficies-list'}" data-field="corExterna" value="${escapeHtml(item.corExterna)}" placeholder="" title="${escapeHtml(item.corExterna)}" />
+                <label>${ehMod23AM ? 'Cor ACM Externa' : ((ehInoxRev || ehCorstoneRev) ? 'Cor Externa ACM' : 'Cor Externa')}</label>
+                <input type="text" list="${(ehMod23AM || ehInoxRev || ehCorstoneRev) ? 'orc-superficies-list-acm' : 'orc-superficies-list'}" data-field="corExterna" value="${escapeHtml(item.corExterna)}" placeholder="" title="${escapeHtml(item.corExterna)}" />
               </div>
               <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-ext-int"
                       title="Copia a Cor Externa para a Cor Interna (caso sejam iguais)">
                 ↓ Copiar Externo → Interno
               </button>
               <div class="orc-field orc-f-cor">
-                <label>${ehMod23AM ? 'Cor ACM Interna' : (ehInoxRev ? 'Cor Interna ACM' : 'Cor Interna')}</label>
-                <input type="text" list="${(ehMod23AM || ehInoxRev) ? 'orc-superficies-list-acm' : 'orc-superficies-list'}" data-field="corInterna" value="${escapeHtml(item.corInterna)}" placeholder="" title="${escapeHtml(item.corInterna)}" />
+                <label>${ehMod23AM ? 'Cor ACM Interna' : ((ehInoxRev || ehCorstoneRev) ? 'Cor Interna ACM' : 'Cor Interna')}</label>
+                <input type="text" list="${(ehMod23AM || ehInoxRev || ehCorstoneRev) ? 'orc-superficies-list-acm' : 'orc-superficies-list'}" data-field="corInterna" value="${escapeHtml(item.corInterna)}" placeholder="" title="${escapeHtml(item.corInterna)}" />
               </div>
               ${modeloTemCava(item.modeloExterno || item.modeloNumero) ? `
               <button type="button" class="orc-btn-copiar-stack" id="orc-btn-copiar-cor-ext-cava"
@@ -7422,6 +7425,33 @@ const Orcamento = (() => {
                          placeholder="" title="${escapeHtml(item.corChapaInox_Int || '')}" />
                 </div>
               ` : ''}
+              ${ehCorstoneRev ? `
+                <div class="orc-cor-am-aviso" style="margin:8px 0;padding:8px 10px;background:#eef6ff;border-left:3px solid #2563eb;border-radius:4px;font-size:12px;color:#1e3a8a;">
+                  <b>CORSTONE:</b> as cores acima (Externa/Interna) são da
+                  <b>chapa ACM</b> — o restante das peças, incluindo as fitas
+                  de acabamento. A <b>tampa maior</b> vira Corstone, cobrado
+                  <b>por m²</b> pelo cadastro Superfícies (vidros).
+                </div>
+                <div class="orc-field orc-f-cor">
+                  <label>Corstone Externo</label>
+                  <input type="text" list="orc-superficies-list-corstone" data-field="corChapaCorstone_Ext"
+                         value="${escapeHtml(item.corChapaCorstone_Ext || '')}"
+                         placeholder="" title="${escapeHtml(item.corChapaCorstone_Ext || '')}" />
+                </div>
+                <div class="orc-field orc-f-cor">
+                  <label>Corstone Interno</label>
+                  <input type="text" list="orc-superficies-list-corstone" data-field="corChapaCorstone_Int"
+                         value="${escapeHtml(item.corChapaCorstone_Int || '')}"
+                         placeholder="" title="${escapeHtml(item.corChapaCorstone_Int || '')}" />
+                </div>
+                <div class="orc-field">
+                  <label>Retroiluminado (LED)?</label>
+                  <select data-field="corstoneRetro">
+                    ${opt('nao', item.corstoneRetro || 'nao', 'Não')}
+                    ${opt('sim', item.corstoneRetro, 'Sim — LED R$ 1.600/m² (mesma medida do Corstone)')}
+                  </select>
+                </div>
+              ` : ''}
             </div>
             <datalist id="orc-superficies-list">
               ${(() => {
@@ -7437,7 +7467,7 @@ const Orcamento = (() => {
                 return opts.join('');
               })()}
             </datalist>
-            ${(ehMod23AM || ehInoxRev) ? `
+            ${(ehMod23AM || ehInoxRev || ehCorstoneRev) ? `
             <!-- Felipe sessao 13: datalists separados pro Mod23+AM. -->
             <!-- Felipe sessao 37: tambem renderizados pro Aco Inox (campos
                  Cor Externa/Interna ACM usam -acm; Cor Inox usa -inox). -->
@@ -7459,6 +7489,22 @@ const Orcamento = (() => {
                   if (cat.replace(/[^a-z]/g, '').includes('acoinox') || cat.includes('inox')) return true;
                   return /a[çc]o\s*inox/.test(desc);
                 }).forEach(s => {
+                  const limpo = nomeCurtoSuperficie(s.descricao);
+                  if (!limpo || vistas.has(limpo)) return;
+                  vistas.add(limpo);
+                  opts.push(`<option value="${escapeHtml(limpo)}"></option>`);
+                });
+                return opts.join('');
+              })()}
+            </datalist>
+            <datalist id="orc-superficies-list-corstone">
+              ${(() => {
+                const vistas = new Set();
+                const opts = [];
+                let _todas = [];
+                try { _todas = Storage.scope('cadastros').get('superficies_lista') || []; }
+                catch (_) { try { _todas = superficies || []; } catch (__) { _todas = []; } }
+                _todas.filter(s => /corstone/i.test(String(s.descricao || ''))).forEach(s => {
                   const limpo = nomeCurtoSuperficie(s.descricao);
                   if (!limpo || vistas.has(limpo)) return;
                   vistas.add(limpo);
@@ -7817,7 +7863,8 @@ const Orcamento = (() => {
         // corCava, corChapaAM_Ext, corChapaAM_Int.
         const CAMPOS_SYNC = ['revestimento', 'corExterna', 'corInterna',
                              'corCava', 'corChapaAM_Ext', 'corChapaAM_Int',
-                             'corChapaInox_Ext', 'corChapaInox_Int'];
+                             'corChapaInox_Ext', 'corChapaInox_Int',
+                             'corChapaCorstone_Ext', 'corChapaCorstone_Int'];  // Felipe s37 CORSTONE
         if (CAMPOS_SYNC.includes(field)) {
           if (item.tipo === 'fixo_acoplado' && item.__syncPortaIdx != null) {
             // A) User editou um fixo - perde sync (decisao deliberada do user)
@@ -8041,7 +8088,8 @@ const Orcamento = (() => {
     (function _bindValidacaoCorNaAba() {
       const CAMPOS_COR = ['corExterna', 'corInterna', 'corCava',
                           'corChapaAM_Ext', 'corChapaAM_Int',
-                          'corChapaInox_Ext', 'corChapaInox_Int'];
+                          'corChapaInox_Ext', 'corChapaInox_Int',
+                          'corChapaCorstone_Ext', 'corChapaCorstone_Int'];  // Felipe s37 CORSTONE
       CAMPOS_COR.forEach(f => {
         const inp = container.querySelector('input[data-field="' + f + '"]');
         if (!inp) return;
@@ -16959,6 +17007,40 @@ const Orcamento = (() => {
     const _chapasSelMap = (_versaoPraSelecao && _versaoPraSelecao.chapasSelecionadas) || {};
 
     const blocos = cores.map(cor => {
+      // Felipe s37 CORSTONE: grupo por m² — card informativo proprio,
+      // sem nesting nem chapas-mae (espelha o custeio do compute).
+      if (/^corstone\s*[—-]/i.test(String(cor || ''))) {
+        const pecasC = pecasPorCor[cor] || [];
+        let m2C = 0;
+        const medidasC = pecasC.map(p => {
+          const q = Math.max(1, Number(p.qtd) || 1);
+          m2C += ((Number(p.largura) || 0) * (Number(p.altura) || 0) * q) / 1000000;
+          return (q > 1 ? q + '× ' : '') + Math.round(Number(p.largura) || 0)
+            + '×' + Math.round(Number(p.altura) || 0) + 'mm';
+        }).join(', ');
+        const descC = String(cor).replace(/^corstone\s*[—-]\s*/i, '').trim();
+        const _nC = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const supC = todasSuperficies.find(s =>
+            _nC(nomeCurtoSuperficie(s.descricao)) === _nC(descC) || _nC(s.descricao) === _nC(descC))
+          || todasSuperficies.find(s => /corstone/i.test(String(s.descricao || '')));
+        const precoM2C = supC ? (Number(supC.preco) || 0) : 0;
+        const custoC = m2C * precoM2C;
+        totaisGerais.custoTotal += custoC;
+        return `
+          <div class="orc-aprov-cor">
+            <div class="orc-aprov-cor-titulo">${escapeHtml(cor)}</div>
+            <p class="orc-hint-text">
+              <b>Cobrado por m²</b> (sem nesting): ${pecasC.length} peca(s) — ${escapeHtml(medidasC)}
+              = <b>${m2C.toFixed(3)} m²</b> × R$ ${precoM2C.toFixed(2)}/m²
+              = <b>R$ ${custoC.toFixed(2)}</b>
+              ${supC ? ' · cadastro: ' + escapeHtml(supC.descricao) : ' · ⚠ Corstone nao achado no cadastro Superficies'}
+            </p>
+            <p class="orc-hint-text" style="color:#7c3a00;">
+              Retroiluminado? O LED (R$ 1.600/m², mesma medida) e' somado no
+              custo automatico quando o campo do item esta "Sim".
+            </p>
+          </div>`;
+      }
       const bloco = renderBlocoCor(cor, pecasPorCor[cor], todasSuperficies, _chapasSelMap[cor] || null);
       const dadosTotal = calcularDadosTotaisCor(pecasPorCor[cor], todasSuperficies);
       if (dadosTotal) {
@@ -17279,6 +17361,67 @@ const Orcamento = (() => {
                    * Math.max(1, Number(p.qtd) || 1)) / 1000000;
         if (a > 0) _pesoIdx[i] = (_pesoIdx[i] || 0) + a;
       });
+      // Felipe s37 CORSTONE: grupo 'Corstone — *' NAO nesta — cobra por m²
+      // (area das tampas × preco do cadastro Superficies, R$/m²).
+      // Retroiluminado (item.corstoneRetro==='sim'): + LED R$ 1.600/m² na
+      // MESMA area do Corstone daquele item (decisao Felipe s37).
+      if (/^corstone\s*[—-]/i.test(String(cor || ''))) {
+        const descCorstone = String(cor).replace(/^corstone\s*[—-]\s*/i, '').trim();
+        const _normC = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const supC = (todasSuperficies || []).find(s =>
+            _normC(nomeCurtoSuperficie(s.descricao)) === _normC(descCorstone)
+            || _normC(s.descricao) === _normC(descCorstone))
+          || (todasSuperficies || []).find(s => /corstone/i.test(String(s.descricao || '')));
+        const precoM2C = supC ? (Number(supC.preco) || 0) : 0;
+        let m2TotalC = 0;
+        (pecasPorCor[cor] || []).forEach(p => {
+          m2TotalC += ((Number(p.largura) || 0) * (Number(p.altura) || 0)
+                       * Math.max(1, Number(p.qtd) || 1)) / 1000000;
+        });
+        if (m2TotalC > 0) {
+          const subC = m2TotalC * precoM2C;
+          linhas.push({
+            cor,
+            descricao: (supC ? supC.descricao : (descCorstone || 'Corstone')) + ' [m²]',
+            largura: 0, altura: 0,
+            precoUnit: precoM2C,
+            qtd: m2TotalC,
+            subtotal: subC,
+            fonte: 'corstone_m2',
+            unidade: 'm²',
+            _pesoPorItemIdx: _pesoIdx,
+          });
+          total += subC;
+          // LED por ITEM: soma so' o m² dos itens com corstoneRetro='sim'
+          const LED_RETRO_PRECO_M2 = 1600;
+          const _itensV = (versao && versao.itens) || [];
+          let m2Led = 0;
+          const _pesoLed = {};
+          Object.keys(_pesoIdx).forEach(k => {
+            const it = _itensV[k];
+            if (it && String(it.corstoneRetro || '') === 'sim') {
+              m2Led += _pesoIdx[k];
+              _pesoLed[k] = _pesoIdx[k];
+            }
+          });
+          if (m2Led > 0) {
+            const subLed = m2Led * LED_RETRO_PRECO_M2;
+            linhas.push({
+              cor,
+              descricao: 'LED Retroiluminacao Corstone [m²]',
+              largura: 0, altura: 0,
+              precoUnit: LED_RETRO_PRECO_M2,
+              qtd: m2Led,
+              subtotal: subLed,
+              fonte: 'corstone_led_m2',
+              unidade: 'm²',
+              _pesoPorItemIdx: _pesoLed,
+            });
+            total += subLed;
+          }
+        }
+        return;  // nao cai no nesting (sel/auto)
+      }
       if (sel[cor]) {
         // Usuario selecionou explicitamente esta chapa
         const c = sel[cor];

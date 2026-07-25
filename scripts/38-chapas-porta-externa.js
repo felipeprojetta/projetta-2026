@@ -2009,6 +2009,14 @@ const ChapasPortaExterna = (() => {
       let ehPecaInox = false;
       if (ehInox && (soTampaMaior || ehFitaAcab)) ehPecaInox = true;
 
+      // Felipe s37 CORSTONE: SO' a Tampa Maior vira Corstone (fitas de
+      // acabamento FICAM ACM — decisao Felipe). Cobrado por m² (nao nesta):
+      // o computeRevestimentoPorCor desvia grupos 'Corstone — *' pro
+      // custeio por area (cadastro Superficies categoria vidro).
+      const ehCorstone = /corstone/.test(rev);
+      let ehPecaCorstone = false;
+      if (ehCorstone && soTampaMaior) ehPecaCorstone = true;
+
       if (ehPecaAM) {
         // Felipe sessao 13: peca AM usa cor da CHAPA AM (campo separado
         // corChapaAM_Ext/Int), nao a corExterna/corInterna que e' chapa ACM.
@@ -2062,6 +2070,19 @@ const ChapasPortaExterna = (() => {
           || String(ctx.item?.corChapaInox_Int || '').trim()
           || corDoLado || '';
         corResolvida = corInoxAlt ? `Aço Inox — ${corInoxAlt}` : 'Aço Inox';
+      }
+      if (ehPecaCorstone) {
+        // Felipe s37: peca Corstone usa o material escolhido no campo
+        // corChapaCorstone_Ext/Int (cadastro Superficies > Vidros, filtro
+        // 'corstone'). Prefixo "Corstone — " separa o grupo, que o custeio
+        // cobra por m² (sem nesting). Fallback cruzado como no inox.
+        const corCorLado = ctx.lado === 'externo'
+          ? String(ctx.item?.corChapaCorstone_Ext || '').trim()
+          : String(ctx.item?.corChapaCorstone_Int || '').trim();
+        const corCorAlt = corCorLado
+          || String(ctx.item?.corChapaCorstone_Ext || '').trim()
+          || String(ctx.item?.corChapaCorstone_Int || '').trim();
+        corResolvida = corCorAlt ? `Corstone — ${corCorAlt}` : 'Corstone — Corstone';
       }
       // Felipe sessao 14: REMOVIDO prefixo "ACM —" das pecas nao-AM em
       // Mod23+AM. O prefixo separava do AM (que ja tem prefixo proprio
