@@ -986,6 +986,14 @@ const Database = (() => {
             || k.indexOf('backup_manual') === 0
             || k.indexOf('forensic') !== -1
             || k.indexOf('__pre_') !== -1
+            // Felipe s37 (quota): arquivo historico de precos congelados.
+            // Chegou a 2.27MB no navegador do Felipe e era re-baixado a
+            // CADA sync, estourando a quota e fazendo gravacoes de leads/
+            // orcamentos se perderem. O proprio codigo documenta que o
+            // snapshot e' "apenas ESCRITO, nunca LIDO" (reserva da Etapa 3):
+            // nao ha' leitura em tela, entao nao precisa de cache local.
+            // Continua integral no Supabase.
+            || k.indexOf('precos_snapshots_arquivo') !== -1
             || k.indexOf('_backup_sessao') !== -1;
       }
 

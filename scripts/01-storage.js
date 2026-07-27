@@ -90,7 +90,12 @@ const Storage = (() => {
               // segurando os leads novos de fora. NAO inclui weiku:reservas
               // (essa a aba Weiku usa de verdade).
               || /:(detalhes_paginas|detalhes_api|conferencia_robo|pasta1_conf)$/.test(k)
-              || /:excel_(conf|full)_/.test(k)) {
+              || /:excel_(conf|full)_/.test(k)
+              // Felipe s37 (quota): historico de precos congelados — 2.27MB
+              // no navegador do Felipe. Supabase-only (ver 00-database.js):
+              // nunca e' lido em tela, so' escrito. Limpa o que ja' ficou
+              // preso no local de sessoes anteriores.
+              || k.indexOf('precos_snapshots_arquivo') !== -1) {
             ehLixo = true;
           }
         } else if (k === 'projetta_crm_v1') {
