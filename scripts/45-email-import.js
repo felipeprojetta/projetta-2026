@@ -119,6 +119,43 @@
   }
 
   // ───────────────────────────────────────────────────────────────────
+  // FALLBACK — dados do ASSUNTO quando a API Weiku nao tem a reserva
+  // ───────────────────────────────────────────────────────────────────
+  /**
+   * Felipe s37: a API /v2/api/reservas/reserva/{n} da Weiku SO' expoe
+   * reservas que ja tem orcamento. Reserva nova (status "Reserva sem
+   * Orcamento" na intranet) devolve [] e o import travava inteiro —
+   * mesmo com o email trazendo os dados no assunto.
+   *
+   * Padrao do assunto Weiku:
+   *   "RESERVA 148323 - Valdemar Antonio de Carvalho - Ourinhos-SP"
+   *    ^ numero          ^ cliente                     ^ cidade-UF
+   *
+   * Retorna { nome_cliente, cidade, estado } ou null se nao casar.
+   */
+  function extrairDadosDoAssunto(email) {
+    var assunto = String((email && email.subject) || '').replace(/\s+/g, ' ').trim();
+    if (!assunto) return null;
+    // tira prefixos de encaminhamento
+    assunto = assunto.replace(/^((re|fwd?|enc)\s*:\s*)+/i, '').trim();
+    // depois do numero da reserva: "- CLIENTE - CIDADE-UF"
+    // separador exige ESPACOS ao redor: cidade pode ter hifen colado
+    // ("Ourinhos-SP"), que nao pode ser confundido com o separador.
+    var m = assunto.match(/\d{4,8}\s*[-–—]\s*(.+)\s+[-–—]\s+(.+)$/);
+    if (!m) return null;
+    var nome  = (m[1] || '').trim();
+    var local = (m[2] || '').trim();
+    if (!nome) return null;
+    // "Ourinhos-SP" | "Ourinhos/SP" | "Ourinhos SP"
+    var mloc = local.match(/^(.*?)[\s\-\/]+([A-Za-z]{2})\.?$/);
+    return {
+      nome_cliente: nome,
+      cidade: mloc ? (mloc[1] || '').trim() : local,
+      estado: mloc ? mloc[2].toUpperCase() : '',
+    };
+  }
+
+  // ───────────────────────────────────────────────────────────────────
   // ANEXOS — busca o primeiro PDF do email
   // ───────────────────────────────────────────────────────────────────
   /**
@@ -498,10 +535,37 @@
       }
 
       // 4. Busca dados Weiku
+      //    Felipe s37: a API so' expoe reservas COM orcamento. Reserva
+      //    nova ("Reserva sem Orcamento") volta [] — antes isso abortava
+      //    o import. Agora cai no fallback do assunto do email e segue,
+      //    avisando de onde vieram os dados.
       if (!window.WeikuClient) throw new Error('WeikuClient nao carregado');
-      var dadosWeiku = await window.WeikuClient.buscarReserva(reserva);
+      var dadosWeiku = null;
+      var origemDados = 'api';
+      try {
+        dadosWeiku = await window.WeikuClient.buscarReserva(reserva);
+      } catch (eApi) {
+        dadosWeiku = null;
+      }
       if (!dadosWeiku || !dadosWeiku.nome_cliente) {
-        throw new Error('Reserva ' + reserva + ' nao encontrada na intranet Weiku.');
+        var doAssunto = extrairDadosDoAssunto(email);
+        if (doAssunto && doAssunto.nome_cliente) {
+          dadosWeiku = {
+            nome_cliente: doAssunto.nome_cliente,
+            cidade: doAssunto.cidade || '',
+            estado: doAssunto.estado || '',
+            telefone: '', cep: '', email: '',
+            representante: '', followup: '',
+            codigo_agp: '', reserva: reserva, tipo: '', data_reserva: '',
+          };
+          origemDados = 'email';
+          setStatus('⚠ Reserva ' + reserva + ' ainda sem orcamento na Weiku (API nao retorna). '
+                    + 'Usando dados do assunto do email: ' + dadosWeiku.nome_cliente + '.', '#9a3412');
+        } else {
+          throw new Error('Reserva ' + reserva + ' nao encontrada na API Weiku e o assunto do '
+                          + 'email nao tem o padrao "RESERVA 000000 - CLIENTE - CIDADE-UF". '
+                          + 'Confira o assunto ou cadastre o lead manualmente.');
+        }
       }
 
       // 4.1 Felipe sessao 2026-08: Weiku retorna so CEP. Faz lookup
