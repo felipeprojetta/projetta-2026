@@ -118,6 +118,10 @@
       kpiAno: (new Date()).getFullYear(),
       kpiMesAno: (new Date()).getFullYear(),
       kpiMes: (new Date()).getMonth() + 1,  // 1-12
+      // Felipe s37: quando true, o Kanban/Lista mostra SOMENTE os leads
+      // fechados dentro do mes fiscal selecionado no KPI "Fechado no Mes".
+      // Serve pra ver quais cards geraram aquele numero.
+      filtroFechadosDoMes: false,
     };
     let loaded = false;
 
@@ -2635,7 +2639,21 @@
       const buscaNorm = (f.busca || '').trim().toLowerCase();
       const has = (s) => String(s || '').toLowerCase().includes(buscaNorm);
 
+      // Felipe s37: filtro "ver os fechados do mes". Usa EXATAMENTE a mesma
+      // regra do KPI (periodoFechamento = mes fiscal 16->15), pra tela e
+      // numero nunca discordarem.
+      let iniMes = null, fimMes = null;
+      if (state.filtroFechadosDoMes) {
+        const p = periodoFechamento(state.kpiMesAno, state.kpiMes);
+        iniMes = p.ini; fimMes = p.fim;
+      }
+
       return leads.filter(l => {
+        if (state.filtroFechadosDoMes) {
+          if (l.etapa !== 'fechado' || !l.fechadoEm) return false;
+          const d = new Date(l.fechadoEm + 'T00:00:00');
+          if (isNaN(d.getTime()) || d < iniMes || d >= fimMes) return false;
+        }
         // Busca livre: cliente, AGP, reserva
         if (buscaNorm && !(has(l.cliente) || has(l.numeroAGP) || has(l.numeroReserva))) {
           return false;
@@ -4036,6 +4054,12 @@ ${secoesHtml}
               </select>
               <span class="crm-kpi-count">${kpiMes.count} ${kpiMes.count === 1 ? 'lead' : 'leads'}</span>
             </div>
+            ${kpiMes.count > 0 ? `
+              <button type="button" class="crm-kpi-btn-filtro${state.filtroFechadosDoMes ? ' ativo' : ''}"
+                      data-acao="filtrar-fechados-mes"
+                      title="${state.filtroFechadosDoMes ? 'Voltar a mostrar todos os leads' : 'Mostrar no Kanban somente os ' + kpiMes.count + ' fechados deste mes'}">
+                ${state.filtroFechadosDoMes ? '✕ Mostrar todos' : '👁 Ver os ' + kpiMes.count + ' fechados'}
+              </button>` : ''}
           </div>`,
         'em-aberto': `
           <div class="crm-kpi crm-kpi-em-aberto" data-kpi-id="em-aberto" draggable="true">
@@ -4283,6 +4307,15 @@ ${secoesHtml}
       });
       container.querySelector('.crm-kpi-select[data-kpi="mes"]')?.addEventListener('change', (e) => {
         state.kpiMes = parseInt(e.target.value, 10) || (new Date()).getMonth() + 1;
+        render(container);
+      });
+      // Felipe s37: botao "Ver os N fechados" — liga/desliga o filtro que
+      // deixa no Kanban somente os leads que formaram o KPI do mes.
+      // Trocar mes/ano com o filtro ligado ja' atualiza a lista sozinho,
+      // porque aplicarFiltros le state.kpiMes/kpiMesAno na hora.
+      container.querySelector('[data-acao="filtrar-fechados-mes"]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        state.filtroFechadosDoMes = !state.filtroFechadosDoMes;
         render(container);
       });
 

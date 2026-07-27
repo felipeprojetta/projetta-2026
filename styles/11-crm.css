@@ -1095,6 +1095,28 @@
   color: var(--text-muted);
 }
 
+/* Felipe s37: botao "Ver os N fechados" no KPI Fechado no Mes.
+   Filtra o Kanban pra mostrar so' os cards que formaram aquele numero. */
+.crm-kpi-btn-filtro {
+  margin-top: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  border: 1px solid var(--laranja);
+  border-radius: var(--radius-sm);
+  background: var(--branco);
+  color: var(--laranja);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.crm-kpi-btn-filtro:hover { background: var(--laranja); color: var(--branco); }
+.crm-kpi-btn-filtro.ativo { background: var(--laranja); color: var(--branco); }
+.crm-kpi-btn-filtro.ativo:hover { filter: brightness(.92); }
+.crm-kpi-btn-filtro:focus-visible { outline: 2px solid var(--azul-escuro); outline-offset: 1px; }
+
 /* Bloco direita: toggle de vista + acoes */
 .crm-header-actions {
   display: flex;
