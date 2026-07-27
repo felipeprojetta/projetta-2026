@@ -501,6 +501,10 @@ const Modelos = (() => {
       compressImage(file, 800, 0.85).then(async function(result) {
         const campo = _campoImg(tipo);
         const dimCampo = _campoDim(tipo);
+        // Felipe s37: guarda o valor anterior. Se o upload falhar, VOLTA
+        // pra ele em vez de deixar base64 gravado no cadastro.
+        const _valorAnterior = modelo[campo];
+        const _dimAnterior   = modelo[dimCampo];
         // Mostra preview imediato (base64) enquanto faz upload
         modelo[campo] = result.dataUrl;
         modelo[dimCampo] = result.width + 'x' + result.height;
@@ -517,9 +521,17 @@ const Modelos = (() => {
           markDirty();
           render(container);
         } catch (err) {
+          // Felipe s37 [BUG]: antes o base64 do preview ficava no modelo e
+          // era salvo (markDirty). Cada falha de upload devolvia ~100KB de
+          // base64 pro cadastro — foi assim que modelos_lista chegou a
+          // 1.87MB e estourou o localStorage de todo mundo. Agora reverte.
+          modelo[campo]    = _valorAnterior;
+          modelo[dimCampo] = _dimAnterior;
           delete modelo._uploading;
           render(container);
-          alert('Erro ao enviar imagem para o servidor: ' + err.message + '\n\nA imagem foi salva localmente. Tente novamente quando tiver internet.');
+          alert('Erro ao enviar a imagem para o servidor: ' + err.message
+                + '\n\nA imagem NAO foi salva (a anterior foi mantida).'
+                + '\nConfira a internet e tente de novo.');
           markDirty();
         }
       }).catch(function(err) {
