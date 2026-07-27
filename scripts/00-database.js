@@ -1106,7 +1106,20 @@ const Database = (() => {
           }
         }
         try {
-          localStorage.setItem(lsKey, JSON.stringify(valorSb));
+          var _serial = JSON.stringify(valorSb);
+          // Felipe s37 — MODO BITRIX: chave pesada NAO vai pro disco.
+          // Vai direto pro memCache do Storage. O boot ja' espera este
+          // sync terminar antes de renderizar (99-boot.js: await
+          // syncFromCloud -> App.init), entao a tela sempre le dado
+          // fresco do servidor. Assim o teto de 5MB do navegador deixa
+          // de ser o teto do sistema, e gravacao de lead/orcamento nunca
+          // mais e' derrubada por causa de uma chave gigante.
+          if (typeof Storage !== 'undefined' && Storage._pesadaDemais
+              && Storage._pesadaDemais(_serial)) {
+            Storage._guardarSoNaMemoria(r.scope, r.key, valorSb);
+            return true;
+          }
+          localStorage.setItem(lsKey, _serial);
           return true;
         } catch(e) {
           if (_ehErroDeQuota(e) && !jaLimpouBackups) {

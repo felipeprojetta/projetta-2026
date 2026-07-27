@@ -194,6 +194,36 @@ const Storage = (() => {
     } catch (_) {}
   }
 
+  // ============================================================
+  // Felipe s37 — INVERSAO DA FONTE DE VERDADE ("modo Bitrix")
+  // ============================================================
+  // ANTES: o navegador GUARDAVA os dados (localStorage) e o Supabase
+  // recebia copia. O teto de 5MB do Chrome virava teto do sistema —
+  // e quando estourava, gravacao de lead/orcamento se perdia calada.
+  //
+  // AGORA: Supabase e' a fonte. Dados pesados ficam em MEMORIA durante
+  // a sessao (populados pelo syncFromCloud, que o boot ja' espera antes
+  // de renderizar) e NUNCA ocupam o localStorage. O localStorage guarda
+  // so' o que e' pequeno e/ou local (sessao, preferencias, chaves leves).
+  //
+  // Por que por TAMANHO e nao por lista fixa: qualquer chave que cresca
+  // demais sai do disco automaticamente, sem precisar de manutencao.
+  // Chave leve continua cacheada (abre rapido, funciona offline).
+  const MAX_CACHE_LOCAL_BYTES = 300 * 1024;   // 300KB por chave
+
+  function _pesadaDemaisParaLocal(serializado) {
+    return typeof serializado === 'string' && serializado.length > MAX_CACHE_LOCAL_BYTES;
+  }
+
+  // Guarda em RAM e garante que a chave NAO ocupe localStorage.
+  // Marca dirty pra que get() sirva o memCache (e nunca um disco stale).
+  function _guardarSoNaMemoria(scopeName, k, value) {
+    const mk = _memKey(scopeName, k);
+    _memCache.set(mk, value);
+    _dirtyKeys.add(mk);
+    try { localStorage.removeItem(PREFIX + scopeName + ':' + k); } catch (_) {}
+  }
+
   // Whitelist de chaves/scopes seguras (mesmo do Database)
   // que podem ser escritas mesmo em read-only.
   function _isReadOnlyBlocked(scopeName, k) {
@@ -250,6 +280,11 @@ const Storage = (() => {
     // gravacao vinda do SYNC falhar por quota (caminho por onde chegam
     // os leads criados pela Paula/Thays). Idempotente: 1x por sessao.
     _avisarQuota: _avisarQuotaNaTela,
+    // Felipe s37 (modo Bitrix): usado pelo syncFromCloud pra decidir se a
+    // chave vinda do Supabase entra no disco ou fica so' em RAM.
+    _pesadaDemais: _pesadaDemaisParaLocal,
+    _guardarSoNaMemoria: _guardarSoNaMemoria,
+    _limiteCacheLocal: MAX_CACHE_LOCAL_BYTES,
     // Felipe sessao 27: aplica mudanca vinda do realtime polling DENTRO do
     // _memCache (e ajusta dirty), em vez de o polling gravar so' no localStorage
     // cru. Garante que Storage.get() devolva o valor remoto recem-sincronizado
@@ -258,8 +293,12 @@ const Storage = (() => {
     _applyRemote(scopeName, k, value) {
       const mk = _memKey(scopeName, k);
       _memCache.set(mk, value);
+      // Felipe s37 (modo Bitrix): pesada -> so' RAM, nao ocupa disco.
+      let _ser = null;
+      try { _ser = JSON.stringify(value); } catch (_) { _ser = null; }
+      if (_pesadaDemaisParaLocal(_ser)) { _guardarSoNaMemoria(scopeName, k, value); return; }
       try {
-        localStorage.setItem(PREFIX + scopeName + ':' + k, JSON.stringify(value));
+        localStorage.setItem(PREFIX + scopeName + ':' + k, _ser !== null ? _ser : JSON.stringify(value));
         _dirtyKeys.delete(mk);   // localStorage e memCache em sincronia
       } catch (_) {
         // localStorage cheio: memCache tem a verdade remota. Marca dirty pra
@@ -341,8 +380,17 @@ const Storage = (() => {
           // quota -> marca dirty (memCache mais novo que localStorage stale).
           const mk = _memKey(scopeName, k);
           _memCache.set(mk, value);
+          // Felipe s37 (modo Bitrix): chave pesada NAO vai pro disco.
+          // Fica em RAM nesta sessao e no Supabase pra sempre. Evita o
+          // ciclo "tenta gravar 2MB -> estoura quota -> derruba a
+          // gravacao do lead junto".
+          let _serial = null;
+          try { _serial = JSON.stringify(value); } catch (_) { _serial = null; }
+          if (_pesadaDemaisParaLocal(_serial)) {
+            _guardarSoNaMemoria(scopeName, k, value);
+          } else {
           try {
-            localStorage.setItem(PREFIX + scopeName + ':' + k, JSON.stringify(value));
+            localStorage.setItem(PREFIX + scopeName + ':' + k, _serial !== null ? _serial : JSON.stringify(value));
             _dirtyKeys.delete(mk);
           } catch (lsErr) {
             if (lsErr && (lsErr.name === 'QuotaExceededError' || /quota/i.test(lsErr.message || ''))) {
@@ -370,6 +418,7 @@ const Storage = (() => {
               console.warn('[Storage] localStorage.setItem falhou (nao-quota):', lsErr);
             }
           }
+          }  // fim do else (chave leve -> cacheia em disco)
           // Sync pro Supabase em background (via Database sbUpsert interno)
           // Felipe (sessao 18): registra timestamp local ANTES do upsert
           // pra ativar protecao anti-stale (evita realtime polling
