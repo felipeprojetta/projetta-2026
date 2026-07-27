@@ -2532,7 +2532,28 @@ const Orcamento = (() => {
     // versao e' fechada (imutavel), tira o snapshot pesado pra
     // preservar precos historicos.
     if (!alvo.precos_snapshot || alvo.precos_snapshot.pendente) {
-      alvo.precos_snapshot = snapshotPrecosCompleto();
+      // Felipe s37 (quota): o snapshot completo copia o cadastro INTEIRO
+      // (~130KB por versao). 19 versoes fechadas = 2.3MB dentro de
+      // 'negocios', que sozinho estourava os 5MB do localStorage e fazia
+      // leads/orcamentos novos sumirem da tela.
+      // Agora o historico vai pra chave PROPRIA (orcamentos/
+      // precos_snapshots_arquivo, mapa versaoId -> snapshot) e a versao
+      // guarda so' o marcador. O historico continua integral, apenas
+      // fora do payload que trafega em toda gravacao de negocios.
+      const _snapCompleto = snapshotPrecosCompleto();
+      let _arquivado = false;
+      try {
+        const _st = Storage.scope('orcamentos');
+        const _arq = _st.get('precos_snapshots_arquivo') || {};
+        _arq[alvo.id] = _snapCompleto;
+        _st.set('precos_snapshots_arquivo', _arq);
+        _arquivado = true;
+      } catch (e) {
+        console.warn('[Orcamento] nao consegui arquivar precos_snapshot — mantendo inline:', e);
+      }
+      alvo.precos_snapshot = _arquivado
+        ? { arquivado: true, tiradoEm: nowIso(), ref: alvo.id }
+        : _snapCompleto;   // fallback: comportamento antigo, nunca perde o dado
     }
     // Felipe (sessao 32): "depois de fechado, nao se deve permitir alterar
     // nada, nem deve puxar valores atualizados dos cadastros. Deve ser a
