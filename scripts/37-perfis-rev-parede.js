@@ -130,9 +130,16 @@ const PerfisRevParede = (() => {
         ? item.paredes.filter(p => p && (Number(p.largura_total) > 0 || Number(p.altura_total) > 0))
         : [];
       if (paredes.length === 0) {
+        // Felipe s37 [BUG]: aqui lia-se item.largura_total/altura_total
+        // direto. No MODO MANUAL esses campos ficam vazios (as medidas
+        // estao em item.pecas[]), entao L=0/H=0 e o forEach abaixo saia'
+        // sem gerar tubo nenhum — ripado manual nao soltava perfil.
+        // inferirDimensoes cobre o modo manual somando as pecas, igual
+        // o bloco de ESTRUTURA ja' fazia.
+        const dimR = inferirDimensoes(item);
         paredes = [{
-          largura_total: item.largura_total,
-          altura_total:  item.altura_total,
+          largura_total: dimR.L,
+          altura_total:  dimR.H,
           quantidade:    Math.max(1, Number(item.quantidade) || 1),
         }];
       }

@@ -114,19 +114,50 @@ window.ChapasRevParede = (function () {
 
   /**
    * Modo MANUAL: gera 1 peça por linha do item.pecas[].
+   *
+   * Felipe s37 [BUG]: no modo manual com estilo=ripada saia' SO' a chapa
+   * de fundo — as ripas (94×H) so' eram geradas no modo automatico.
+   * Agora cada peca manual e' tratada como um painel: a peca continua
+   * sendo a chapa de fundo e as ripas sao acrescentadas POR CIMA dela,
+   * com a mesma regra do automatico:
+   *   qtdRipas = ceil(largura / (60 + espacamento))
+   *   ripa = chapa aberta 94mm × altura da peca
    */
   function gerarPecasManual(item) {
     const pecas = item.pecas || [];
-    return pecas
+    const ehRipada = String(item.estilo || '').toLowerCase() === 'ripada';
+    const espacRipas = parseFloat(String(item.espacamentoRipas != null ? item.espacamentoRipas : 30).replace(',', '.')) || 30;
+    const out = [];
+    pecas
       .filter(p => Number(p.largura) > 0 && Number(p.altura) > 0)
-      .map((p, i) => ({
-        id: `rev_parede_manual_${i + 1}`,
-        label: `Peça ${i + 1}`,
-        largura: Number(p.largura),
-        altura: Number(p.altura),
-        qtd: Math.max(1, Number(p.quantidade) || 1),
-        observacao: 'modo manual',
-      }));
+      .forEach((p, i) => {
+        const L = Number(p.largura);
+        const H = Number(p.altura);
+        const q = Math.max(1, Number(p.quantidade) || 1);
+        out.push({
+          id: `rev_parede_manual_${i + 1}`,
+          label: `Peça ${i + 1}`,
+          largura: L,
+          altura: H,
+          qtd: q,
+          observacao: 'modo manual' + (ehRipada ? ' — chapa de fundo' : ''),
+        });
+        if (ehRipada) {
+          const denom = 60 + espacRipas;
+          const qtdRipas = denom > 0 ? Math.ceil(L / denom) : 0;
+          if (qtdRipas > 0) {
+            out.push({
+              id: `rev_parede_manual_${i + 1}_ripas`,
+              label: `Ripa (94×${H}mm) — Peça ${i + 1}`,
+              largura: 94,   // mesma chapa aberta do modo automatico
+              altura: H,
+              qtd: qtdRipas * q,
+              observacao: `ripada — chapa aberta 94mm (60 visivel + dobras), espacamento ${espacRipas}mm — Peça ${i + 1}`,
+            });
+          }
+        }
+      });
+    return out;
   }
 
   /**
