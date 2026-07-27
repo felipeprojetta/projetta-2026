@@ -111,7 +111,7 @@
     </div>
 
     <div class="card">
-      <h2>Cortes (fórmulas do sistema)</h2>
+      <h2>Cortes (fórmulas do sistema)</h2><button onclick="gerarDXF()" style="float:right;margin-top:-30px;background:#1f3550;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;">⬇ GERAR DXF</button>
       <div class="grade">
         <div>Folha: <b id="cFolha"></b></div>
         <div>PA_F (montante): <b id="cPAF"></b></div>
@@ -694,7 +694,7 @@ function upd(){
   document.getElementById('oL').textContent=fmt(L)+' mm';
   document.getElementById('oA').textContent=fmt(A)+' mm';
   document.getElementById('avFam').style.display=A<4000?'block':'none';
-  const c=calc(L,A);
+  const c=calc(L,A); window.__C=c; window.__VAO={L,A};
   cFolha.textContent=`${fmt(c.FW)} x ${fmt(c.FH)}`;
   cPAF.textContent=`${f1(c.PA_F)} ×2`;
   cLARG.textContent=`${f1(c.LARG)} ×${c.th+2>c.th?c.th:''}${''}`; cLARG.textContent=`${f1(c.LARG)}`;
@@ -754,6 +754,53 @@ function setV(){ const v=Number(selLoc.value); vMan.style.display=v?'none':'inli
 selLoc.addEventListener('change',setV); vMan.addEventListener('input',setV);
 document.getElementById('chkNOA').addEventListener('change',e=>{window.__NOA=e.target.checked; upd();});
 window.__Vloc=40; upd();
+
+// ===== GERADOR DXF — elevação paramétrica nas camadas do CAD (R12 ASCII) =====
+function gerarDXF(){
+  const c=window.__C, V=window.__VAO; if(!c||!V){alert('Mova um controle primeiro.');return;}
+  const E=[];
+  const ln=(la,x1,y1,x2,y2)=>E.push('0','LINE','8',la,'10',x1.toFixed(1),'20',y1.toFixed(1),'11',x2.toFixed(1),'21',y2.toFixed(1));
+  const rect=(la,x,y,w,hh)=>{ln(la,x,y,x+w,y);ln(la,x+w,y,x+w,y+hh);ln(la,x+w,y+hh,x,y+hh);ln(la,x,y+hh,x,y);};
+  const cir=(la,x,y,r)=>E.push('0','CIRCLE','8',la,'10',x.toFixed(1),'20',y.toFixed(1),'40',r.toFixed(1));
+  const txt=(la,x,y,hh,t)=>E.push('0','TEXT','8',la,'10',x.toFixed(1),'20',y.toFixed(1),'40',hh.toFixed(1),'1',t);
+  const L=V.L, A=V.A, FW=c.FW, FH=c.FH;
+  const fx=(L-FW)/2, fy=9;                      // folha centrada, folga piso 9
+  // VÃO / alvenaria
+  ln('ALVENARIA',-200,0,L+200,0); rect('ALVENARIA',-200,0,200,A+200); rect('ALVENARIA',L,0,200,A+200); ln('ALVENARIA',-200,A+200,L+200,A+200);
+  // PORTAL
+  rect('PA007P',0,0,69.5,A); rect('PA007P',L-69.5,0,69.5,A); rect('PERFIS',69.5,A-50.8,L-139,50.8);
+  // FOLHA — montantes PA007F
+  rect('PA007F',fx,fy,133,FH); rect('PA007F',fx+FW-133,fy,133,FH);
+  // travessas topo/base: PA007V 35 + banda PERFIS 101,6
+  rect('PA007V',fx,fy,FW,35); rect('PERFIS',fx,fy+35,FW,101.6);
+  rect('PA007V',fx,fy+FH-35,FW,35); rect('PERFIS',fx,fy+FH-136.6,FW,101.6);
+  // travessas intermediárias (regra do motor: FH·k/(th+1) e FW·k/(tv+1))
+  for(let k=1;k<=c.th;k++){const yv=fy+FH*k/(c.th+1); rect('PERFIS',fx+133,yv-17.5,FW-266,35);}
+  for(let k=1;k<=c.tv;k++){const xv=fx+FW*k/(c.tv+1); rect('PERFIS',xv-25.4,fy+136.6,50.8,FH-273.2);}
+  // FECHADURA no montante esquerdo
+  const xf=fx+10;
+  rect('FERRAGENS',xf,fy+c.f.v0-25,9,(c.f.v1-c.f.v0)+50);
+  (c.f.pins||[]).forEach(p=>cir('FERRAGENS',xf+4.5,fy+p,4.5));
+  // REVERSOS: hastes até o montante do pivô + ferrolho 30×30
+  [c.R1,c.R2].forEach(r=>{ln('FERRAGENS',xf+9,fy+r,fx+FW-40,fy+r); rect('FERRAGENS',fx+FW-40,fy+r-15,30,30);});
+  // PIVÔS (eixo a 80 da borda direita)
+  const xp=fx+FW-80;
+  cir('FERRAGENS',xp,fy+15,15); cir('FERRAGENS',xp,fy+FH-15,15);
+  ln('LINHA DE CENTRO',xp,-150,xp,A+150);
+  // QUOTAS (textos)
+  txt('QUOTAS',0,A+260,60,`VAO ${L.toFixed(0)} x ${A.toFixed(0)}`);
+  txt('QUOTAS',0,A+340,45,`FOLHA ${FW.toFixed(0)} x ${FH.toFixed(0)} — ${c.f.nome} — trav ${c.tv}v+${c.th}h`);
+  txt('QUOTAS',xf-380,fy+c.R1,35,`REV1 ${c.R1}`); txt('QUOTAS',xf-380,fy+c.R2,35,`REV2 ${c.R2}`);
+  // ---- monta DXF R12: TABLES(LAYER) + ENTITIES ----
+  const lys=[['ALVENARIA',8],['PA007P',3],['PA007F',5],['PA007V',1],['PERFIS',30],['FERRAGENS',6],['LINHA DE CENTRO',4],['QUOTAS',2]];
+  let d='0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n'+lys.length+'\n';
+  lys.forEach(([n,col])=>{d+='0\nLAYER\n2\n'+n+'\n70\n0\n62\n'+col+'\n6\nCONTINUOUS\n';});
+  d+='0\nENDTAB\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n'+E.join('\n')+'\n0\nENDSEC\n0\nEOF\n';
+  const blob=new Blob([d],{type:'application/dxf'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`PA007_${L.toFixed(0)}x${A.toFixed(0)}_${c.f.nome.replace(/\s/g,'')}.dxf`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
 </script>
 </body>
 </html>
