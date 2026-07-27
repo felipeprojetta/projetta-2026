@@ -83,7 +83,14 @@ const Storage = (() => {
               || k.indexOf('forensic') !== -1          // Felipe sessao 37: leads__forensic_* etc (key-level)
               || /:.*backup_20\d{2}/.test(k)            // backup_2026*
               || /_backup_sessao\d+/.test(k)            // _backup_sessao13/14
-              || /__pre_/.test(k)) {                    // __pre_ezy_color etc
+              || /__pre_/.test(k)                       // __pre_ezy_color etc
+              // Felipe s37 (quota): staging da extracao/conferencia Weiku.
+              // Sao 100% redundantes — vivem no Supabase e NENHUMA tela le
+              // do local. Chegavam a ocupar ~0.5MB no navegador do Felipe,
+              // segurando os leads novos de fora. NAO inclui weiku:reservas
+              // (essa a aba Weiku usa de verdade).
+              || /:(detalhes_paginas|detalhes_api|conferencia_robo|pasta1_conf)$/.test(k)
+              || /:excel_(conf|full)_/.test(k)) {
             ehLixo = true;
           }
         } else if (k === 'projetta_crm_v1') {
@@ -121,8 +128,12 @@ const Storage = (() => {
         totalBytes += (k.length + (localStorage.getItem(k) || '').length) * 2;
       }
       var totalMB = totalBytes / 1024 / 1024;
-      // Quota tipica de localStorage e' 5-10MB. Acima de 7MB ja' e' risco.
-      var QUOTA_ALVO_MB = 7;
+      // Felipe s37: era 7MB. Diagnostico real no navegador do Felipe:
+      // 9.6MB nessa escala (bytes UTF-16) = ~96% do teto do Chrome, e os
+      // leads novos da Paula/Thays simplesmente NAO gravavam (quota).
+      // Baixado pra 4MB (~40% do teto) pra limpeza rodar MUITO antes de
+      // chegar perto do limite, com folga pra crescer entre sessoes.
+      var QUOTA_ALVO_MB = 4;
       if (totalMB > QUOTA_ALVO_MB) {
         console.warn('[Storage] 🚨 localStorage usando ' + totalMB.toFixed(2)
           + 'MB (alvo: <' + QUOTA_ALVO_MB + 'MB). Rodando limpeza preventiva...');
@@ -136,6 +147,47 @@ const Storage = (() => {
       console.warn('[Storage] limpeza boot falhou (ignorando):', e.message);
     }
   })();
+
+  // Felipe s37: AVISO VISIVEL DE QUOTA.
+  // Antes a falha por quota so' ia pro console — o usuario nunca via.
+  // Consequencia real: o navegador do Felipe ficou meses preso em 254
+  // leads enquanto o banco tinha 285, e ninguem percebeu.
+  //
+  // Regras deste aviso (pra NUNCA sobrecarregar):
+  //   - dispara no maximo 1x por sessao (flag de modulo, nao re-renderiza)
+  //   - HTML puro, sem dependencia de framework/tela carregada
+  //   - se o DOM ainda nao existe, agenda pro DOMContentLoaded e sai
+  //   - qualquer erro aqui e' engolido: NUNCA pode quebrar um save
+  var _avisoQuotaMostrado = false;
+  function _avisarQuotaNaTela() {
+    if (_avisoQuotaMostrado) return;
+    _avisoQuotaMostrado = true;
+    try {
+      var montar = function () {
+        try {
+          if (!document || !document.body) return;
+          if (document.getElementById('projetta-aviso-quota')) return;
+          var d = document.createElement('div');
+          d.id = 'projetta-aviso-quota';
+          d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;'
+            + 'background:#b91c1c;color:#fff;padding:10px 46px 10px 16px;'
+            + 'font:600 13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;'
+            + 'box-shadow:0 2px 8px rgba(0,0,0,.3);';
+          d.innerHTML = '⚠️ <b>Memoria do navegador cheia.</b> '
+            + 'Dados novos (leads, orcamentos) podem NAO aparecer nesta tela ate' + ' liberar espaco. '
+            + 'Nada foi perdido — o servidor esta' + ' correto. '
+            + 'Recarregue a pagina; se o aviso voltar, avise o Felipe.'
+            + '<span id="projetta-aviso-quota-x" style="position:absolute;right:14px;top:8px;'
+            + 'cursor:pointer;font-size:20px;line-height:1;padding:0 4px;">&times;</span>';
+          document.body.appendChild(d);
+          var x = document.getElementById('projetta-aviso-quota-x');
+          if (x) x.onclick = function () { try { d.remove(); } catch (_) {} };
+        } catch (_) {}
+      };
+      if (document && document.body) montar();
+      else if (document) document.addEventListener('DOMContentLoaded', montar, { once: true });
+    } catch (_) {}
+  }
 
   // Whitelist de chaves/scopes seguras (mesmo do Database)
   // que podem ser escritas mesmo em read-only.
@@ -189,6 +241,10 @@ const Storage = (() => {
   }
 
   return {
+    // Felipe s37: exposto pro 00-database.js avisar na tela quando a
+    // gravacao vinda do SYNC falhar por quota (caminho por onde chegam
+    // os leads criados pela Paula/Thays). Idempotente: 1x por sessao.
+    _avisarQuota: _avisarQuotaNaTela,
     // Felipe sessao 27: aplica mudanca vinda do realtime polling DENTRO do
     // _memCache (e ajusta dirty), em vez de o polling gravar so' no localStorage
     // cru. Garante que Storage.get() devolva o valor remoto recem-sincronizado
@@ -300,6 +356,10 @@ const Storage = (() => {
               if (!recuperou) {
                 _dirtyKeys.add(mk);
                 console.warn('[Storage] ⚠️ localStorage quota cheia (mesmo apos cleanup) — usando cache em memoria. Supabase permanece source-of-truth.', scopeName + '/' + k);
+                // Felipe s37: alem do console, AVISA NA TELA (1x por sessao).
+                // Sem isso a falha e' invisivel e o usuario fica vendo dados
+                // velhos sem saber.
+                _avisarQuotaNaTela();
               }
             } else {
               console.warn('[Storage] localStorage.setItem falhou (nao-quota):', lsErr);

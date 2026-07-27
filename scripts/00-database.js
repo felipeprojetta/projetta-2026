@@ -1255,6 +1255,9 @@ const Database = (() => {
       } catch (lsErr) {
         if (lsErr && (lsErr.name === 'QuotaExceededError' || /quota/i.test(lsErr.message || ''))) {
           console.warn('[DB] ⚠️ localStorage quota cheia — pulando cache local. Supabase permanece source-of-truth.', scope + '/' + key);
+          // Felipe s37: avisa NA TELA (1x/sessao). Sem isso a falha e'
+          // invisivel e o usuario fica vendo dados velhos sem saber.
+          try { if (typeof Storage !== 'undefined' && Storage._avisarQuota) Storage._avisarQuota(); } catch (_) {}
         } else {
           console.warn('[DB] localStorage.setItem falhou (nao-quota):', lsErr);
         }
@@ -1416,6 +1419,10 @@ const Database = (() => {
                   var lib = _limparBackupsLocaisRT();
                   console.warn('[DB] 🔄 realtime: quota cheia em ' + r.scope + '/' + r.key
                     + ' — liberou ' + lib + ' backups locais (memCache mantem a verdade)');
+                  // Felipe s37: este e' o caminho por onde chegam os leads
+                  // criados pela Paula/Thays. Quota aqui = Felipe nao ve os
+                  // leads novos. Avisa na tela (1x/sessao).
+                  try { if (Storage._avisarQuota) Storage._avisarQuota(); } catch (_) {}
                   Storage._applyRemote(r.scope, r.key, r.valor);
                 }
               } else {
