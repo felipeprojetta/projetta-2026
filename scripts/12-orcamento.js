@@ -2124,6 +2124,48 @@ const Orcamento = (() => {
   }
 
   /**
+   * Felipe s37 — TOMBSTONE DE ITEM REMOVIDO.
+   *
+   * "estou deletando item 2, quando coloco recalcular ele volta;
+   *  se eu deletar e' pra deletar de uma vez."
+   *
+   * Os itens_extras do lead (cadastrados no CRM) sao re-injetados no
+   * orcamento a cada abertura/recalculo. Sem marcar o que o usuario
+   * apagou, o item ressuscitava sempre. A trava anterior
+   * (UI._suprimirRepopulacaoLead) era so' de memoria — Recalcular
+   * refazia o ciclo e ela nao valia mais.
+   *
+   * Agora a VERSAO guarda _itensRemovidos (array de chaves), que persiste
+   * e e' respeitado pela repopulacao. Mesma ideia dos tombstones de lead
+   * e versao que o sistema ja' usa.
+   *
+   * A chave e' a mesma usada pela repopulacao (tipo|largura|altura), pra
+   * casar exatamente o item que voltaria.
+   */
+  function chaveItemTombstone(it) {
+    if (!it) return '';
+    const lar = it.tipo === 'revestimento_parede' ? (it.largura_total || '') : (it.largura || '');
+    const alt = it.tipo === 'revestimento_parede' ? (it.altura_total  || '') : (it.altura  || '');
+    return [it.tipo, lar, alt].join('|');
+  }
+
+  /** Acrescenta o item ao tombstone da versao (sem duplicar). */
+  function marcarItemRemovido(versao, item) {
+    try {
+      if (!versao || !item) return null;
+      const chave = chaveItemTombstone(item);
+      if (!chave || chave.charAt(0) === '|') return null;   // item sem tipo: nao marca
+      const atual = Array.isArray(versao._itensRemovidos) ? versao._itensRemovidos.slice() : [];
+      if (atual.indexOf(chave) === -1) atual.push(chave);
+      // Teto defensivo: nao deixa a lista crescer sem limite.
+      return atual.length > 200 ? atual.slice(-200) : atual;
+    } catch (e) {
+      console.warn('[orcamento] marcarItemRemovido falhou:', e);
+      return null;
+    }
+  }
+
+  /**
    * Felipe sessao 37 — PTAX DE FECHAMENTO (internacional).
    *
    * "eu fecho em dollar e recebo em reais... quando realmente fecha pegamos
@@ -2622,7 +2664,7 @@ const Orcamento = (() => {
     // por isso o toggle "Valor unico final / Valor por item" NAO salvava
     // (atualizarVersao descartava o campo silenciosamente) e o botao
     // parecia nao funcionar.
-    const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas', 'dre_congelado', 'modoValorProposta', 'enviadaEm'];
+    const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas', 'dre_congelado', 'modoValorProposta', 'enviadaEm', '_itensRemovidos'];
     camposPermitidos.forEach(k => {
       if (k in dadosNovos) alvo[k] = dadosNovos[k];
     });
@@ -3987,6 +4029,17 @@ const Orcamento = (() => {
         const altChave = it.tipo === 'revestimento_parede' ? (it.altura_total  || '') : (it.altura  || '');
         return [it.tipo, larChave, altChave].join('|');
       };
+      // Felipe s37: TOMBSTONE DE ITEM DELETADO.
+      // "estou deletando item 2, quando coloco recalcular ele volta;
+      //  se eu deletar e' pra deletar de uma vez."
+      // Os itens_extras do lead eram re-injetados a CADA abertura/recalculo,
+      // ressuscitando o que o usuario tinha apagado. A trava que existia
+      // (UI._suprimirRepopulacaoLead) vive so' em memoria — Recalcular
+      // refazia o ciclo e ela nao valia mais.
+      // Agora a versao guarda _itensRemovidos (lista de chaveItem), que
+      // persiste junto com a versao e e' respeitada aqui. Mesmo padrao dos
+      // tombstones de lead/versao ja' usados no sistema.
+      const removidos = new Set(versaoAlvo._itensRemovidos || []);
       const setExistente = new Set(itensJa.map(chaveItem));
       const novosItens = [];
       lead.itens_extras.forEach(ext => {
@@ -4012,7 +4065,7 @@ const Orcamento = (() => {
               if (revAutoR) novo.revestimento = revAutoR;
             }
           }
-          if (!setExistente.has(chaveItem(novo))) {
+          if (!setExistente.has(chaveItem(novo)) && !removidos.has(chaveItem(novo))) {
             novosItens.push(novo);
             setExistente.add(chaveItem(novo));
           }
@@ -4041,8 +4094,9 @@ const Orcamento = (() => {
         if (tipoOrc === 'porta_externa') {
           try { aplicarRegrasAutoItem(novo); } catch(_){}
         }
-        // So adiciona se nao tem item igual (heuristica simples)
-        if (!setExistente.has(chaveItem(novo))) {
+        // So adiciona se nao tem item igual (heuristica simples) e se o
+        // usuario nao apagou esse item de proposito (tombstone).
+        if (!setExistente.has(chaveItem(novo)) && !removidos.has(chaveItem(novo))) {
           novosItens.push(novo);
           setExistente.add(chaveItem(novo));
         }
@@ -5659,8 +5713,12 @@ const Orcamento = (() => {
         if (idx < 0 || idx >= lista.length) return;
         const tipoLabel = labelTipo(lista[idx].tipo) || 'item';
         if (!confirm(`Remover este ${tipoLabel}?`)) return;
+        // Felipe s37: tombstone antes de remover (ver marcarItemRemovido).
+        const _tombR = marcarItemRemovido(versao, lista[idx]);
         lista.splice(idx, 1);
-        atualizarVersao(versao.id, { itens: lista });
+        atualizarVersao(versao.id, _tombR
+          ? { itens: lista, _itensRemovidos: _tombR }
+          : { itens: lista });
         if (UI.itemSelecionadoIdx >= lista.length) UI.itemSelecionadoIdx = Math.max(0, lista.length - 1);
         renderItemTab(container);
       });
@@ -6197,13 +6255,22 @@ const Orcamento = (() => {
         // assim renderItemTab cai automaticamente em renderEscolhaTipo.
         if (lista.length <= 1) {
           const itemReset = { ...lista[0], tipo: '' };
-          atualizarVersao(versao.id, { itens: [itemReset] });
+          const _tomb1 = marcarItemRemovido(versao, lista[0]);
+          atualizarVersao(versao.id, _tomb1
+            ? { itens: [itemReset], _itensRemovidos: _tomb1 }
+            : { itens: [itemReset] });
           UI.itemSelecionadoIdx = 0;
           renderItemTab(container);
           return;
         }
         const novaLista = lista.filter((_, i) => i !== idx);
-        atualizarVersao(versao.id, { itens: novaLista });
+        // Felipe s37: marca o item como removido DE PROPOSITO, senao a
+        // repopulacao a partir dos itens_extras do lead o traz de volta
+        // no proximo Recalcular.
+        const _tomb = marcarItemRemovido(versao, lista[idx]);
+        atualizarVersao(versao.id, _tomb
+          ? { itens: novaLista, _itensRemovidos: _tomb }
+          : { itens: novaLista });
         if (UI.itemSelecionadoIdx >= novaLista.length) UI.itemSelecionadoIdx = novaLista.length - 1;
         renderItemTab(container);
       });
@@ -8497,13 +8564,22 @@ const Orcamento = (() => {
         // assim renderItemTab cai automaticamente em renderEscolhaTipo.
         if (lista.length <= 1) {
           const itemReset = { ...lista[0], tipo: '' };
-          atualizarVersao(versao.id, { itens: [itemReset] });
+          const _tomb1 = marcarItemRemovido(versao, lista[0]);
+          atualizarVersao(versao.id, _tomb1
+            ? { itens: [itemReset], _itensRemovidos: _tomb1 }
+            : { itens: [itemReset] });
           UI.itemSelecionadoIdx = 0;
           renderItemTab(container);
           return;
         }
         const novaLista = lista.filter((_, i) => i !== idx);
-        atualizarVersao(versao.id, { itens: novaLista });
+        // Felipe s37: marca o item como removido DE PROPOSITO, senao a
+        // repopulacao a partir dos itens_extras do lead o traz de volta
+        // no proximo Recalcular.
+        const _tomb = marcarItemRemovido(versao, lista[idx]);
+        atualizarVersao(versao.id, _tomb
+          ? { itens: novaLista, _itensRemovidos: _tomb }
+          : { itens: novaLista });
         if (UI.itemSelecionadoIdx >= novaLista.length) UI.itemSelecionadoIdx = novaLista.length - 1;
         renderItemTab(container);
       });
