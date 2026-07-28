@@ -357,6 +357,32 @@ const ChapasPortaExterna = (() => {
     // lado. base ACM (com REF) = mold_J9 + 2*REF.
     _mod23TM_baseACM: ctx => F.mold_J9(ctx) + 2*ctx.REF,
     _mod23TM_split:   ctx => !F._ehMod23AM(ctx) && (F._mod23TM_baseACM(ctx) > 1480),
+
+    // Felipe sessao 37: MESMA REGRA NO 2 FOLHAS. "faca a mesma regra so'
+    // que para cada tampa, temos 3 tampas com medidas diferentes, porem
+    // 1 tampa e' x2 entao o complemento tbm deve ser x2".
+    //
+    // No 2F o Mod 23 tem TRES Tampas Maiores com larguras diferentes
+    // (caso real AGP004823 Wellington: 1896 / 1858 / 1820, C29=250).
+    // A regra do 1F (sessao 35) nunca foi replicada aqui — por isso as
+    // tampas saiam acima de 1480 sem dividir.
+    //
+    // Cada tampa e' avaliada PELA SUA PROPRIA largura: a que passar de
+    // 1480 perde 2*C29 e ganha Complemento; a que couber fica intacta.
+    // O Complemento acompanha a QUANTIDADE da tampa de origem — a TM02
+    // e' ext:1+int:1 (x2), entao o complemento dela tambem e' x2.
+    // Sao 2 tiras por tampa (uma de cada lado), igual ao 1F.
+    //
+    // AM fica de fora (larguras diferentes, sem REF), igual ao 1F.
+    _tm2f_base_01: ctx => F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1
+                        - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+    _tm2f_base_02: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28
+                        - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+    _tm2f_base_03: ctx => F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38
+                        - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+    _tm2f_split: (ctx, base) => !F._ehMod23AM(ctx) && (base > 1480),
+    /* largura final da tampa: divide so' se ela mesma passar de 1480 */
+    _tm2f_larg: (ctx, base) => F._tm2f_split(ctx, base) ? (base - 2*F._C29(ctx)) : base,
     mold_horiz_1F: ctx => {
       const J9 = F.mold_J9(ctx);
       const C29 = F._C29(ctx);
@@ -1584,27 +1610,49 @@ const ChapasPortaExterna = (() => {
           // Felipe (sessao 13, planilha 01/04/2026): AM usa +15.5 em vez de +10.5+2*REF-1.
           largura: ctx => F._ehMod23AM(ctx)
             ? F.tm_base_2f(ctx) + 15.5 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos
-            : F.tm_base_2f(ctx) + 10.5 + 2*ctx.REF - 1 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+            : F._tm2f_larg(ctx, F._tm2f_base_01(ctx)),
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 0, categoria: 'porta' },
+        // Felipe s37: complemento da TM01 — acompanha a qtd dela (ext:1,int:0),
+        // 2 tiras (uma por lado). Largura = C29 + 2*REF, igual ao 1F.
+        { id: 'tampa_maior_01_complemento', label: 'Complemento Tampa Maior 01',
+          largura: ctx => F._C29(ctx) + 2*ctx.REF,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => F._tm2f_split(ctx, F._tm2f_base_01(ctx)) ? 2 : 0,
+          int: 0, categoria: 'porta' },
         { id: 'tampa_maior_02', label: 'Tampa Maior 02',
           // Planilha mod 23 ACM: (E2-1-C7*2-C8*2)/2+C15+C15-28-C20*C22-C21*C22
           // Planilha mod 23 AM:  (E2-C7*2-C8*2)/2-27.5-C20*C22-C21*C22
           // Felipe (sessao 13, planilha 01/04/2026): AM usa tm_base_2f (sem -1) e -27.5.
           largura: ctx => F._ehMod23AM(ctx)
             ? F.tm_base_2f(ctx) - 27.5 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos
-            : F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+            : F._tm2f_larg(ctx, F._tm2f_base_02(ctx)),
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
+        // Felipe s37: complemento da TM02. Esta tampa e' x2 (ext:1+int:1),
+        // entao o complemento tambem sai x2 — 2 tiras em CADA face.
+        { id: 'tampa_maior_02_complemento', label: 'Complemento Tampa Maior 02',
+          largura: ctx => F._C29(ctx) + 2*ctx.REF,
+          comp: ctx => ctx.alturaQuadro,
+          ext: ctx => F._tm2f_split(ctx, F._tm2f_base_02(ctx)) ? 2 : 0,
+          int: ctx => F._tm2f_split(ctx, F._tm2f_base_02(ctx)) ? 2 : 0,
+          categoria: 'porta' },
         { id: 'tampa_maior_03', label: 'Tampa Maior 03',
           // Planilha mod 23 ACM: (E2-1-C7*2-C8*2)/2+C15+C15-28-38-C20*C22-C21*C22
           // Planilha mod 23 AM:  (E2-C7*2-C8*2)/2-27.5-43-C20*C22-C21*C22
           // Felipe (sessao 13, planilha 01/04/2026): AM usa tm_base_2f (sem -1), -27.5 e -43.
           largura: ctx => F._ehMod23AM(ctx)
             ? F.tm_base_2f(ctx) - 27.5 - 43 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos
-            : F.tm_base_2f_menos1(ctx) + 2*ctx.REF - 28 - 38 - ctx.dBFV*ctx.qtdFrisos - ctx.eF*ctx.qtdFrisos,
+            : F._tm2f_larg(ctx, F._tm2f_base_03(ctx)),
           comp: ctx => ctx.alturaQuadro,
           ext: 0, int: 1, categoria: 'porta' },
+        // Felipe s37: complemento da TM03 — acompanha a qtd dela (ext:0,int:1).
+        { id: 'tampa_maior_03_complemento', label: 'Complemento Tampa Maior 03',
+          largura: ctx => F._C29(ctx) + 2*ctx.REF,
+          comp: ctx => ctx.alturaQuadro,
+          ext: 0,
+          int: ctx => F._tm2f_split(ctx, F._tm2f_base_03(ctx)) ? 2 : 0,
+          categoria: 'porta' },
         { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
           // Planilha mod 23: C20+(C15*2)-1, qty=C22*2
           // Felipe sessao 12: 'qtd=0 nao gera'. Quando qtdFrisos=0 (AM tipico).
