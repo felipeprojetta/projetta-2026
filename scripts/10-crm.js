@@ -3497,6 +3497,20 @@ ${secoesHtml}
           const destinoLabel = l.destinoTipo === 'internacional'
             ? (l.destinoPais ? `🌎 ${escapeHtml(l.destinoPais)}` : '🌎 Internacional')
             : '';
+          // Felipe s37: o pais aparecia DUAS vezes no card — uma no topo do
+          // bloco internacional (crm-card-pais-badge) e outra aqui no rodape.
+          // Quando o bloco existe, o rodape nao repete.
+          const _bkIntl = l.breakdownInternacional;
+          const _temBlocoIntl = !!(_bkIntl && Number(_bkIntl.total) > 0);
+          // Felipe s37: mostrar no card qual PTAX foi usada no fechamento.
+          const _ptaxUsada = _bkIntl && Number(_bkIntl.ptaxFechamento) > 0
+            ? Number(_bkIntl.ptaxFechamento) : 0;
+          const _ptaxLabel = _ptaxUsada
+            ? `<span class="crm-card-destino" title="Cotacao do dolar usada no fechamento`
+              + (Number(_bkIntl.taxaUsdOriginal) > 0
+                  ? ` (orcamento foi a ${Number(_bkIntl.taxaUsdOriginal).toFixed(4)})` : '')
+              + `">💵 PTAX ${_ptaxUsada.toFixed(4)}</span>`
+            : '';
           // Botao "Montar Orcamento" so aparece a partir da etapa "Fazer Orcamento"
           // Felipe sessao 18: 'quando vai pra fechado no crm some a opcao de
           // abrir orcamento e rever o que orcamentos. deixe pelo menos o
@@ -3722,6 +3736,8 @@ ${secoesHtml}
                     <div class="crm-card-pais-badge" title="Pais de destino">🌎 ${escapeHtml((l.destinoPais || 'Internacional').toUpperCase())}</div>
                     ${(Number(bk.taxaUsd) > 0 && Number(bk.total) > 0) ? `
                     <div class="crm-card-pais-usd" title="Total em dolares (taxa USD ${Number(bk.taxaUsd).toFixed(4)})">USD ${(bk.total / bk.taxaUsd).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : ''}
+                    ${Number(bk.ptaxFechamento) > 0 ? `
+                    <div style="font-size:11px;color:#0369a1;margin:2px 0 4px;" title="Cotacao usada na conversao pra reais no fechamento">💵 PTAX fechamento: <b>${Number(bk.ptaxFechamento).toFixed(4)}</b>${Number(bk.taxaUsdOriginal) > 0 ? ` <span style="color:#64748b;">(orcamento: ${Number(bk.taxaUsdOriginal).toFixed(4)})</span>` : ''}</div>` : ''}
                     <div class="crm-card-bk-titulo">🌍 ${bk.incoterm || 'CIF'} — desdobramento</div>
                     ${linha('Porta', bk.porta)}
                     ${linha('Caixa fumigada', bk.caixa)}
@@ -3776,7 +3792,8 @@ ${secoesHtml}
             })()}
             <div class="crm-card-meta">
               <span class="crm-card-data">${fmtData(l.data)}</span>
-              ${destinoLabel ? `<span class="crm-card-destino">${destinoLabel}</span>` : ''}
+              ${(destinoLabel && !_temBlocoIntl) ? `<span class="crm-card-destino">${destinoLabel}</span>` : ''}
+              ${_ptaxLabel}
             </div>
             ${fechadoEmLabel}
             ${margemFechadaLabel}

@@ -2207,7 +2207,7 @@ const Orcamento = (() => {
     bk.usdContrato = usd;   // USD do contrato, ja arredondado a centavo
 
     lead.valor = bk.total;
-    if (Number(lead.precoProposta) > 0) lead.precoProposta = c2(lead.precoProposta * fator);
+    if (Number(lead.precoProposta) > 0) lead.precoProposta = c2(lead.precoProposta * fatorPartes);
     Storage.scope('crm').set('leads', leads);
 
     // 2) Reescala a versao IMUTAVEL que manda no card (senao a tela nao muda).
@@ -2219,7 +2219,9 @@ const Orcamento = (() => {
       if (neg) {
         const flat = [];
         (neg.opcoes || []).forEach(op => (op.versoes || []).forEach(v => {
-          if (versaoEhImutavel(v) && v.enviadoParaCard !== false) flat.push(v);
+          // mesma regra do resumoParaCardCRM (ehImutavelParaCard):
+          var imutavel = v.status === 'fechada' || !!v.aprovadoEm;
+          if (imutavel && v.enviadoParaCard !== false) flat.push(v);
         }));
         if (flat.length) {
           const alvo = flat.reduce((maior, v) => {
@@ -2228,8 +2230,8 @@ const Orcamento = (() => {
             return dV.localeCompare(dM) > 0 ? v : maior;
           });
           if (!(Number(alvo.taxaUsdOriginal) > 0)) alvo.taxaUsdOriginal = taxaAnterior;
-          if (Number(alvo.valorAprovado) > 0)  alvo.valorAprovado  = c2(alvo.valorAprovado * fator);
-          if (Number(alvo.precoProposta) > 0)  alvo.precoProposta  = c2(alvo.precoProposta * fator);
+          if (Number(alvo.valorAprovado) > 0)  alvo.valorAprovado  = c2(alvo.valorAprovado * fatorPartes);
+          if (Number(alvo.precoProposta) > 0)  alvo.precoProposta  = c2(alvo.precoProposta * fatorPartes);
           alvo.ptaxFechamento = ptax;
           alvo.ptaxAplicadaEm = nowIso();
           // dre_congelado (custos) fica INTACTO de proposito.
