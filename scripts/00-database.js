@@ -900,15 +900,34 @@ const Database = (() => {
       var timer = setTimeout(function() { controller.abort(); }, 30000);
       var res;
       try {
-        // Felipe sessao 32: filtro de scope REMOVIDO. PostgREST tava
-        // retornando 4xx por causa do '*' no not.like, ou alguma quirk
-        // da versao. Volta a baixar tudo e filtra no cliente (mais lento
-        // mas funcional). Anti-cache de backups e' aplicado em rowsBackup
-        // depois.
-        res = await fetch(SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor&order=scope,key', {
+        // Felipe s37 (FIX DEFINITIVO do "Offline toda hora"): o sync baixava
+        // a TABELA INTEIRA — 779 linhas, 167MB — a cada chamada, porque o
+        // filtro por scope tinha sido removido (PostgREST devolvia 4xx com
+        // '*' no not.like) e a filtragem virou client-side. O Postgres
+        // cancelava por statement_timeout e voltava
+        // {"code":"57014","message":"canceling statement due to..."} -> tela
+        // Offline, gravacoes presas na fila, Felipe perdendo trabalho.
+        //
+        // 163MB dos 167MB eram backup/forense que o navegador NUNCA le.
+        // Agora le da VIEW v7.kv_store_sync, que ja' exclui isso no servidor
+        // (78 linhas, 3,6MB). Sem depender de sintaxe de wildcard do
+        // PostgREST: a regra mora no banco.
+        //
+        // Fallback: se a view nao existir (banco antigo / migracao nao
+        // aplicada), cai na tabela como antes — nunca deixa de sincronizar.
+        var _fonte = '/rest/v1/kv_store_sync?select=scope,key,valor&order=scope,key';
+        res = await fetch(SUPABASE_URL + _fonte, {
           headers: sbHeaders(false),
           signal: controller.signal,
         });
+        if (!res.ok && (res.status === 404 || res.status === 400)) {
+          console.warn('[DB] view kv_store_sync indisponivel (' + res.status
+            + ') — caindo na tabela completa.');
+          res = await fetch(SUPABASE_URL + '/rest/v1/kv_store?select=scope,key,valor&order=scope,key', {
+            headers: sbHeaders(false),
+            signal: controller.signal,
+          });
+        }
       } finally {
         clearTimeout(timer);
       }
