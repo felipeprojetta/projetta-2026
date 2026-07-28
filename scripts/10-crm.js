@@ -2779,7 +2779,7 @@
         const d = new Date(l.fechadoEm + 'T00:00:00');
         if (isNaN(d.getTime())) return;
         if (d >= ini && d < fim) {
-          total += Number(l.valor) || 0;
+          total += valorOficialDoLead(l);   // Felipe s37: fonte unica = DRE
           count++;
         }
       });
@@ -2816,7 +2816,7 @@
         const d = new Date(String(dataRef));
         if (isNaN(d.getTime())) return;
         if (d.getFullYear() === anoNum) {
-          total += Number(l.valor) || 0;
+          total += valorOficialDoLead(l);   // Felipe s37: fonte unica = DRE
           count++;
         }
       });
@@ -3412,7 +3412,49 @@ ${secoesHtml}
       return anos;
     }
 
+    // ================================================================
+    // Felipe s37 — FONTE UNICA DO VALOR (regra: "so' pode ter o valor
+    // do DRE").
+    // ================================================================
+    // Antes existiam DUAS fontes pro mesmo numero: o campo l.valor
+    // gravado no lead (que alimentava o total laranja no topo da coluna
+    // e os KPIs) e o valor do orcamento (exibido como "Com Desconto" no
+    // card). Quando a gravacao do l.valor falhava ou alguem arredondava
+    // na mao, o card exibia 85.870,00 em cima e 85.867,90 embaixo — dois
+    // valores pro mesmo fechamento.
+    // Agora: havendo orcamento aprovado, o DRE manda em TODO lugar
+    // (card, total da coluna, KPIs). l.valor so' e' usado como fallback
+    // pra lead sem orcamento aprovado.
+    let _cacheResumoCRM = new Map();
+    function limparCacheResumo() { _cacheResumoCRM = new Map(); }
+    function resumoDoLead(leadId) {
+      if (_cacheResumoCRM.has(leadId)) return _cacheResumoCRM.get(leadId);
+      let r = null;
+      try {
+        r = (window.Orcamento && window.Orcamento.resumoParaCardCRM)
+          ? window.Orcamento.resumoParaCardCRM(leadId) : null;
+      } catch (_) { r = null; }
+      _cacheResumoCRM.set(leadId, r);
+      return r;
+    }
+    /** Valor oficial do lead: DRE aprovado > override manual > l.valor. */
+    function valorOficialDoLead(l) {
+      if (!l) return 0;
+      // Override manual explicito (l.valorCalcBackup preenchido pelo
+      // botao de editar valor no card) continua tendo prioridade —
+      // e' uma decisao consciente do usuario.
+      if (l.valorCalcBackup != null && l.valorCalcBackup !== '') {
+        return Number(l.valor) || 0;
+      }
+      const r = resumoDoLead(l.id);
+      if (r && r.hasVersaoFechada && Number(r.valor) > 0) return Number(r.valor);
+      return Number(l.valor) || 0;
+    }
+
     function renderKanban() {
+      // Felipe s37: zera o cache de resumo a cada render, pra refletir
+      // orcamento recem-aprovado sem precisar recarregar a pagina.
+      limparCacheResumo();
       // Aplica filtros antes de montar as colunas
       const leadsFiltrados = aplicarFiltros(state.leads);
       const cols = ETAPAS.map(et => {
@@ -3421,17 +3463,13 @@ ${secoesHtml}
         // existe ainda, entao o total da coluna nao tem sentido. Esconde
         // nessas 2 colunas.
         const escondeTotal = (et.id === 'qualificacao' || et.id === 'fazer-orcamento');
-        // Felipe sessao 31 (reversao): TOTAL usa l.valor direto pra
-        // bater com o Excel do Felipe (R$ 3.416.138,17 = soma dos
-        // 'VLR NOVO' do Excel). 'crm nao esta batendo com meu excel
-        // valor total 3.416.138,17 procure aonde esta problema'.
-        // Tentativa anterior usava resumo.valor (com desconto) mas isso
-        // dava R$ 3.381.189,33 — fonte de verdade do Felipe e' o Excel.
-        // Card individual continua mostrando 'Com Desconto: R$ X'
-        // como informacao extra, mas o TOTAL eh o original (l.valor).
+        // Felipe s37: TOTAL da coluna usa valorOficialDoLead — mesma
+        // fonte do card (DRE aprovado). Antes usava l.valor cru, o que
+        // fazia o topo da coluna e o card exibirem numeros diferentes
+        // pro mesmo lead (85.870,00 x 85.867,90).
         const totalCol = escondeTotal
           ? null
-          : leadsCol.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+          : leadsCol.reduce((s, l) => s + valorOficialDoLead(l), 0);
         const cards = leadsCol.map(l => {
           const destinoLabel = l.destinoTipo === 'internacional'
             ? (l.destinoPais ? `🌎 ${escapeHtml(l.destinoPais)}` : '🌎 Internacional')
@@ -4013,7 +4051,7 @@ ${secoesHtml}
         // verdade do Felipe e' o Excel. Card individual continua
         // mostrando 'Com Desconto' como info extra, mas o TOTAL eh
         // o original (l.valor).
-        total: leadsEmAberto.reduce((s, l) => s + (Number(l.valor) || 0), 0),
+        total: leadsEmAberto.reduce((s, l) => s + valorOficialDoLead(l), 0),  // Felipe s37: DRE
         count: leadsEmAberto.length,
       };
 
