@@ -2122,6 +2122,133 @@ const Orcamento = (() => {
   function obterNegocio(negocioId) {
     return loadAll().find(n => n.id === negocioId) || null;
   }
+
+  /**
+   * Felipe sessao 37 — PTAX DE FECHAMENTO (internacional).
+   *
+   * "eu fecho em dollar e recebo em reais... quando realmente fecha pegamos
+   *  media ultimos 3 meses, entao esse 55 mil dolares do A&A tem que ser
+   *  55 mil x 5,06 em vez de 5,0 que foi a cotacao"
+   *
+   * O CONTRATO EM DOLAR NAO MUDA. O que muda e' quantos reais ele vira.
+   * Caso real que motivou: A&A Development, USD 55.000,03. Orcamento fechou
+   * o dolar em 4,90 -> R$ 269.500,16 no card. A gerencial usou PTAX 5,06 ->
+   * R$ 278.300,15. Os R$ 8.799,99 de divergencia eram exatamente isso.
+   *
+   * POR QUE MEXE NA VERSAO E NAO SO' NO lead.valor:
+   * depois de fechado, o card do CRM le o valor de resumoParaCardCRM, que
+   * devolve o valorAprovado da VERSAO IMUTAVEL — nao do lead.valor. Mexer
+   * so' no lead nao mudaria nada na tela. Entao reescala a versao que manda
+   * no card.
+   *
+   * O QUE **NAO** MEXE: dre_congelado (os custos). Felipe: "os custos sao os
+   * mesmos, a unica coisa que altera e' que estamos vendendo em dolar".
+   * A fotografia de custo continua intacta; so' o preco de venda em R$ e'
+   * reconvertido. taxaUsdOriginal fica guardada pra auditoria e pra permitir
+   * reaplicar outra PTAX depois sem erro acumulado.
+   *
+   * @param {string} leadId
+   * @param {number} novaPtax  cotacao a aplicar (ex 5.06)
+   * @returns {{ok:boolean, usd:number, taxaAnterior:number, ptax:number,
+   *            valorAntes:number, valorDepois:number, motivo?:string}}
+   */
+  function aplicarPtaxFechamento(leadId, novaPtax) {
+    const ptax = Number(novaPtax) || 0;
+    if (!(ptax > 0)) return { ok: false, motivo: 'PTAX invalida' };
+
+    const leads = Storage.scope('crm').get('leads') || [];
+    const lead = leads.find(l => l && l.id === leadId);
+    if (!lead) return { ok: false, motivo: 'lead nao encontrado' };
+
+    const bk = lead.breakdownInternacional;
+    const taxaAnterior = bk ? Number(bk.taxaUsd) || 0 : 0;
+    if (!bk || !(taxaAnterior > 0) || !(Number(bk.total) > 0)) {
+      return { ok: false, motivo: 'lead nao e internacional (sem breakdown/taxa)' };
+    }
+
+    const c2 = v => Math.round((Number(v) || 0) * 100) / 100;
+    const valorAntes = c2(bk.total);
+
+    // O dolar do CONTRATO e' a verdade — e contrato tem centavo, entao
+    // arredonda o USD ANTES de multiplicar. Sem isso o resultado erra
+    // centavos: A&A da 278.300,17 com o USD cru (55000.0326...) e
+    // 278.300,15 com o USD do contrato (55.000,03) — este ultimo e' o
+    // que a gerencial usa e o que o cliente assinou.
+    // usdContrato guardado na 1a aplicacao pra reaplicar outra PTAX
+    // depois sem acumular erro de arredondamento.
+    const usd = Number(bk.usdContrato) > 0
+      ? Number(bk.usdContrato)
+      : c2(bk.total / taxaAnterior);
+
+    // 1) Reescala o breakdown do card. Cada componente e' o mesmo valor em
+    //    dolar, so' reconvertido. O TOTAL manda (USD x PTAX); o residuo de
+    //    arredondamento das partes vai pra maior delas, pra soma das linhas
+    //    exibidas bater com o total exibido.
+    const novoTotal = c2(usd * ptax);
+    const partes = ['porta', 'caixa', 'freteTerrestre', 'freteMaritimo', 'seguro', 'instalacao'];
+    const fatorPartes = bk.total > 0 ? (novoTotal / bk.total) : 1;
+    let somaPartes = 0, maiorK = null, maiorV = -1;
+    partes.forEach(k => {
+      if (!(Number(bk[k]) > 0)) return;
+      bk[k] = c2(bk[k] * fatorPartes);
+      somaPartes = c2(somaPartes + bk[k]);
+      if (bk[k] > maiorV) { maiorV = bk[k]; maiorK = k; }
+    });
+    if (maiorK && somaPartes !== novoTotal) {
+      bk[maiorK] = c2(bk[maiorK] + (novoTotal - somaPartes));
+    }
+    bk.total = novoTotal;
+    // Guarda a taxa ORIGINAL do orcamento so' na primeira aplicacao, pra
+    // reaplicacao futura partir sempre da origem (sem erro acumulado).
+    if (!(Number(bk.taxaUsdOriginal) > 0)) bk.taxaUsdOriginal = taxaAnterior;
+    bk.taxaUsd = ptax;
+    bk.ptaxFechamento = ptax;
+    bk.ptaxAplicadaEm = nowIso();
+    bk.usdContrato = usd;   // USD do contrato, ja arredondado a centavo
+
+    lead.valor = bk.total;
+    if (Number(lead.precoProposta) > 0) lead.precoProposta = c2(lead.precoProposta * fator);
+    Storage.scope('crm').set('leads', leads);
+
+    // 2) Reescala a versao IMUTAVEL que manda no card (senao a tela nao muda).
+    //    Mesma regra de escolha do resumoParaCardCRM: ultima imutavel que foi
+    //    enviada pro card.
+    try {
+      const negocios = loadAll();
+      const neg = negocios.find(n => n && n.leadId === leadId);
+      if (neg) {
+        const flat = [];
+        (neg.opcoes || []).forEach(op => (op.versoes || []).forEach(v => {
+          if (versaoEhImutavel(v) && v.enviadoParaCard !== false) flat.push(v);
+        }));
+        if (flat.length) {
+          const alvo = flat.reduce((maior, v) => {
+            const dM = String(maior.aprovadoEm || maior.criadoEm || '');
+            const dV = String(v.aprovadoEm || v.criadoEm || '');
+            return dV.localeCompare(dM) > 0 ? v : maior;
+          });
+          if (!(Number(alvo.taxaUsdOriginal) > 0)) alvo.taxaUsdOriginal = taxaAnterior;
+          if (Number(alvo.valorAprovado) > 0)  alvo.valorAprovado  = c2(alvo.valorAprovado * fator);
+          if (Number(alvo.precoProposta) > 0)  alvo.precoProposta  = c2(alvo.precoProposta * fator);
+          alvo.ptaxFechamento = ptax;
+          alvo.ptaxAplicadaEm = nowIso();
+          // dre_congelado (custos) fica INTACTO de proposito.
+          saveAll(negocios);
+        }
+      }
+    } catch (e) {
+      console.warn('[orcamento] aplicarPtaxFechamento: versao nao atualizada:', e);
+    }
+
+    return { ok: true, usd: c2(usd), taxaAnterior: taxaAnterior, ptax: ptax,
+             valorAntes: valorAntes, valorDepois: bk.total };
+  }
+
+  /** Lead e' internacional pro efeito da PTAX? (tem breakdown com taxa) */
+  function ehInternacionalComTaxa(lead) {
+    const bk = lead && lead.breakdownInternacional;
+    return !!(bk && Number(bk.taxaUsd) > 0 && Number(bk.total) > 0);
+  }
   function obterOpcao(opcaoId) {
     for (const n of loadAll()) {
       const o = (n.opcoes || []).find(o => o.id === opcaoId);
@@ -22439,6 +22566,8 @@ const Orcamento = (() => {
     criarNegocio,
     obterNegocioPorLeadId,
     resumoParaCardCRM,
+    aplicarPtaxFechamento,      // Felipe s37: PTAX de fechamento (internacional)
+    ehInternacionalComTaxa,
     // Felipe: usado pelo motor de perfis (31) pra forcar PA-007 no internacional
     leadAtivoEhInternacional,
     // Felipe sessao 35: pull aditivo de negocios da nuvem (ver definicao

@@ -2244,7 +2244,7 @@
             save();
             fecharModal(container);
             render(container);
-            abrirModalDataFechamento(container, dataDefault, (dataConfirmada) => {
+            abrirModalDataFechamento(container, dataDefault, (dataConfirmada, ptax) => {
               if (!dataConfirmada) return;  // cancelou — fica na etapa antiga
               lead.etapa = 'fechado';
               lead.fechadoEm = dataConfirmada;
@@ -2255,8 +2255,11 @@
                 }
               } catch (e) { console.warn('[crm] fechar versao aprovada falhou:', e); }
               save();
+              // Felipe s37: PTAX DEPOIS de congelar a versao — aplicarPtax
+              // reescala justamente a versao imutavel que manda no card.
+              aplicarPtaxSeInternacional(lead, ptax);
               render(container);
-            });
+            }, lead);
             return;
           }
           if (etapaAntiga === 'fechado' && etapaNova !== 'fechado') {
@@ -3960,9 +3963,77 @@ ${secoesHtml}
       });
     }
 
-    function abrirModalDataFechamento(container, dataDefault, onConfirm) {
+    /**
+     * Felipe s37: aplica a PTAX de fechamento no lead internacional.
+     * Chamada DEPOIS de fecharVersaoAprovadaDoLead — a funcao do motor
+     * reescala a versao imutavel, que e' de onde o card le o valor.
+     * No-op silencioso pra lead nacional (ptax null).
+     */
+    function aplicarPtaxSeInternacional(lead, ptax) {
+      if (!lead || !(Number(ptax) > 0)) return;
+      try {
+        if (!window.Orcamento || !window.Orcamento.aplicarPtaxFechamento) return;
+        const r = window.Orcamento.aplicarPtaxFechamento(lead.id, Number(ptax));
+        if (!r || !r.ok) {
+          if (r && r.motivo && r.motivo.indexOf('nao e internacional') === -1) {
+            console.warn('[crm] PTAX nao aplicada:', r.motivo);
+          }
+          return;
+        }
+        // Recarrega o lead do store — o motor gravou direto la'.
+        load();
+        console.log('[crm] PTAX aplicada:', 'USD', r.usd, 'x', r.ptax,
+          '=> R$', r.valorDepois, '(antes R$', r.valorAntes, 'a', r.taxaAnterior + ')');
+      } catch (e) {
+        console.warn('[crm] aplicarPtaxSeInternacional falhou:', e);
+      }
+    }
+
+    /**
+     * Modal de data de fechamento. Se o lead for INTERNACIONAL, pede tambem
+     * a PTAX do fechamento.
+     *
+     * Felipe sessao 37: "eu fecho em dollar e recebo em reais... quando
+     * realmente fecha pegamos media dos ultimos 3 meses". O contrato em USD
+     * nao muda; muda quantos reais ele vira. Caso real: A&A USD 55.000,03
+     * orcado a 4,90 (R$ 269.500,16) mas fechado a 5,06 (R$ 278.300,15).
+     *
+     * onConfirm(data, ptaxOuNull)
+     */
+    function abrirModalDataFechamento(container, dataDefault, onConfirm, leadIntl) {
       const mount = container.querySelector('#crm-modal-mount');
       if (!mount) return;
+
+      const bk = leadIntl && leadIntl.breakdownInternacional;
+      const ehIntl = !!(bk && Number(bk.taxaUsd) > 0 && Number(bk.total) > 0);
+      // USD do contrato: parte SEMPRE da taxa original do orcamento, pra
+      // reaplicar PTAX sem acumular erro de arredondamento.
+      const taxaBase = ehIntl ? (Number(bk.taxaUsdOriginal) > 0
+        ? Number(bk.taxaUsdOriginal) : Number(bk.taxaUsd)) : 0;
+      const usd = ehIntl ? (bk.total / Number(bk.taxaUsd)) : 0;
+      const ptaxSugerida = ehIntl
+        ? (Number(bk.ptaxFechamento) > 0 ? Number(bk.ptaxFechamento)
+            : ((window.Cambio && Cambio.taxaAtual()) || Number(bk.taxaUsd)))
+        : 0;
+
+      const blocoPtax = !ehIntl ? '' : `
+              <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
+                <div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;">
+                  🌎 <b>${escapeHtml((leadIntl.destinoPais || 'Internacional').toUpperCase())}</b>
+                  — contrato em dolar: <b>USD ${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                </div>
+                <label style="display:block;font-size:11px;color:var(--text-muted);letter-spacing:0.04em;margin-bottom:6px;">
+                  PTAX do fechamento (cotacao do dolar)
+                </label>
+                <input type="number" id="crm-fech-ptax" step="0.0001" min="0"
+                  value="${ptaxSugerida ? ptaxSugerida.toFixed(4) : ''}"
+                  style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font-body);" />
+                <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
+                  Cotacao usada no orcamento: <b>${Number(bk.taxaUsd).toFixed(4)}</b>
+                </div>
+                <div id="crm-fech-previa" style="margin-top:10px;padding:10px 12px;background:var(--bg-soft,#f8fafc);border-radius:var(--radius-sm);font-size:13px;"></div>
+              </div>`;
+
       mount.innerHTML = `
         <div class="crm-modal-overlay" id="crm-fech-overlay">
           <div class="crm-modal crm-modal-compact" role="dialog" aria-modal="true">
@@ -3976,6 +4047,7 @@ ${secoesHtml}
               </p>
               <label style="display:block;font-size:11px;color:var(--text-muted);letter-spacing:0.04em;margin-bottom:6px;">Data</label>
               <input type="date" id="crm-fech-input" value="${escapeHtml(dataDefault)}" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font-body);" />
+              ${blocoPtax}
             </div>
             <div class="crm-modal-actions" style="display:flex;justify-content:flex-end;gap:8px;padding:14px 24px;border-top:1px solid var(--line);">
               <button class="btn btn-ghost btn-sm" id="crm-fech-cancel-2">Cancelar</button>
@@ -3984,12 +4056,35 @@ ${secoesHtml}
           </div>
         </div>
       `;
-      const fechar = (data) => {
+      const fechar = (data, ptax) => {
         mount.innerHTML = '';
-        if (typeof onConfirm === 'function') onConfirm(data);
+        if (typeof onConfirm === 'function') onConfirm(data, ptax);
       };
       mount.querySelector('#crm-fech-cancel')?.addEventListener('click', () => fechar(null));
       mount.querySelector('#crm-fech-cancel-2')?.addEventListener('click', () => fechar(null));
+
+      // Previa ao vivo: mostra quanto o contrato em USD vira em reais
+      // com a PTAX digitada, e o delta contra o valor atual do card.
+      const atualizarPrevia = () => {
+        const el = mount.querySelector('#crm-fech-previa');
+        const inp = mount.querySelector('#crm-fech-ptax');
+        if (!el || !inp) return;
+        const p = parseFloat(String(inp.value).replace(',', '.'));
+        if (!(p > 0)) { el.innerHTML = '<span style="color:var(--text-muted);">Informe a PTAX.</span>'; return; }
+        const novo = Math.round(usd * p * 100) / 100;
+        const delta = Math.round((novo - Number(bk.total)) * 100) / 100;
+        const cor = delta > 0 ? '#15803d' : (delta < 0 ? '#b91c1c' : 'var(--text-soft)');
+        el.innerHTML = `Valor em reais: <b>R$ ${fmtBR(novo)}</b>`
+          + `<div style="font-size:11px;color:${cor};margin-top:3px;">`
+          + (delta === 0 ? 'igual ao valor atual do card'
+              : `${delta > 0 ? '+' : ''}R$ ${fmtBR(delta)} em relacao ao card (R$ ${fmtBR(bk.total)})`)
+          + '</div>';
+      };
+      if (ehIntl) {
+        mount.querySelector('#crm-fech-ptax')?.addEventListener('input', atualizarPrevia);
+        atualizarPrevia();
+      }
+
       // Felipe: NAO fecha mais por click no overlay (so X / Cancelar / Confirmar).
       mount.querySelector('#crm-fech-ok')?.addEventListener('click', () => {
         const inp = mount.querySelector('#crm-fech-input');
@@ -3998,7 +4093,17 @@ ${secoesHtml}
           alert('Informe uma data valida.');
           return;
         }
-        fechar(data);
+        let ptax = null;
+        if (ehIntl) {
+          const pin = mount.querySelector('#crm-fech-ptax');
+          ptax = parseFloat(String(pin ? pin.value : '').replace(',', '.'));
+          if (!(ptax > 0)) {
+            alert('Informe a PTAX do fechamento (cotacao do dolar).');
+            pin?.focus();
+            return;
+          }
+        }
+        fechar(data, ptax);
       });
       // Foca o input
       setTimeout(() => { mount.querySelector('#crm-fech-input')?.focus(); }, 50);
@@ -5365,7 +5470,7 @@ ${secoesHtml}
           if (novaEtapa === 'fechado') {
             const hoje = (new Date()).toISOString().slice(0, 10);
             const dataDefault = lead.fechadoEm || hoje;
-            abrirModalDataFechamento(container, dataDefault, (dataConfirmada) => {
+            abrirModalDataFechamento(container, dataDefault, (dataConfirmada, ptax) => {
               if (!dataConfirmada) return;  // cancelou
               lead.etapa = 'fechado';
               lead.fechadoEm = dataConfirmada;
@@ -5376,8 +5481,11 @@ ${secoesHtml}
                 }
               } catch (e) { console.warn('[crm] fechar versao aprovada falhou:', e); }
               save();
+              // Felipe s37: PTAX DEPOIS de congelar a versao — aplicarPtax
+              // reescala justamente a versao imutavel que manda no card.
+              aplicarPtaxSeInternacional(lead, ptax);
               render(container);
-            });
+            }, lead);
             return;
           }
 
