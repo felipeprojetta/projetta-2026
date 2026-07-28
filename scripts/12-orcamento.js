@@ -2166,6 +2166,77 @@ const Orcamento = (() => {
   }
 
   /**
+   * Felipe s37 — APAGA A ORIGEM, nao so' a copia.
+   *
+   * "que merda, ate agora nao consigo simplesmente deletar um item que
+   *  ao recalcular volta o mesmo."
+   *
+   * O item vive em DOIS lugares: na versao do orcamento E nos
+   * itens_extras do lead (cadastrados no card do CRM). Apagar so' do
+   * orcamento deixava a origem intacta, e qualquer repopulacao — que
+   * roda em toda inicializarSessao, ou seja, a cada render — trazia o
+   * item de volta. O tombstone por versao ajudava, mas so' naquela
+   * versao e so' depois da tela recarregar com o codigo novo.
+   *
+   * Agora deletar apaga TAMBEM a entrada correspondente em
+   * lead.itens_extras. Sem origem, nao ha o que ressuscitar — em
+   * nenhuma versao, com ou sem tombstone, com codigo novo ou velho na
+   * proxima abertura.
+   *
+   * Casa pela mesma regra do sync (tipo + largura + altura, ignorando
+   * cor), pra apagar exatamente a entrada que voltaria.
+   *
+   * @returns {boolean} true se removeu algo do lead
+   */
+  function removerItemDoLead(item) {
+    try {
+      if (!item || !item.tipo) return false;
+      const lead = UI.leadAtivo;
+      const leadId = lead && lead.id;
+      if (!leadId) return false;
+
+      const ORC_TO_CRM = {
+        'porta_externa':       'porta_externa',
+        'porta_interna':       'porta_interna',
+        'fixo_acoplado':       'rev_acoplado_porta',
+        'revestimento_parede': 'rev_parede',
+      };
+      const tipoCrm = ORC_TO_CRM[item.tipo];
+      if (!tipoCrm) return false;
+
+      const larItem = item.tipo === 'revestimento_parede'
+        ? (item.largura_total || '') : (item.largura || '');
+      const altItem = item.tipo === 'revestimento_parede'
+        ? (item.altura_total  || '') : (item.altura  || '');
+
+      const leads = Storage.scope('crm').get('leads') || [];
+      const idx = leads.findIndex(l => l && l.id === leadId);
+      if (idx < 0) return false;
+      const extras = Array.isArray(leads[idx].itens_extras) ? leads[idx].itens_extras : [];
+      if (!extras.length) return false;
+
+      const restantes = extras.filter(ext => {
+        if (ext.tipo !== tipoCrm) return true;
+        return !(String(ext.largura || '') === String(larItem)
+              && String(ext.altura  || '') === String(altItem));
+      });
+      if (restantes.length === extras.length) return false;   // nada casou
+
+      leads[idx].itens_extras = restantes;
+      Storage.scope('crm').set('leads', leads);
+      // mantem o lead em memoria coerente, senao a repopulacao desta
+      // mesma sessao ainda enxerga o item antigo
+      if (UI.leadAtivo && UI.leadAtivo.id === leadId) UI.leadAtivo.itens_extras = restantes;
+      console.info('[orcamento] item removido tambem dos itens_extras do lead',
+        leadId, '(' + tipoCrm, larItem + 'x' + altItem + ')');
+      return true;
+    } catch (e) {
+      console.warn('[orcamento] removerItemDoLead falhou:', e);
+      return false;
+    }
+  }
+
+  /**
    * Felipe sessao 37 — PTAX DE FECHAMENTO (internacional).
    *
    * "eu fecho em dollar e recebo em reais... quando realmente fecha pegamos
@@ -5715,6 +5786,7 @@ const Orcamento = (() => {
         if (!confirm(`Remover este ${tipoLabel}?`)) return;
         // Felipe s37: tombstone antes de remover (ver marcarItemRemovido).
         const _tombR = marcarItemRemovido(versao, lista[idx]);
+        removerItemDoLead(lista[idx]);   // Felipe s37: apaga a ORIGEM tambem
         lista.splice(idx, 1);
         atualizarVersao(versao.id, _tombR
           ? { itens: lista, _itensRemovidos: _tombR }
@@ -6256,6 +6328,7 @@ const Orcamento = (() => {
         if (lista.length <= 1) {
           const itemReset = { ...lista[0], tipo: '' };
           const _tomb1 = marcarItemRemovido(versao, lista[0]);
+          removerItemDoLead(lista[0]);   // Felipe s37: apaga a ORIGEM tambem
           atualizarVersao(versao.id, _tomb1
             ? { itens: [itemReset], _itensRemovidos: _tomb1 }
             : { itens: [itemReset] });
@@ -6268,6 +6341,7 @@ const Orcamento = (() => {
         // repopulacao a partir dos itens_extras do lead o traz de volta
         // no proximo Recalcular.
         const _tomb = marcarItemRemovido(versao, lista[idx]);
+        removerItemDoLead(lista[idx]);   // Felipe s37: apaga a ORIGEM tambem
         atualizarVersao(versao.id, _tomb
           ? { itens: novaLista, _itensRemovidos: _tomb }
           : { itens: novaLista });
@@ -8565,6 +8639,7 @@ const Orcamento = (() => {
         if (lista.length <= 1) {
           const itemReset = { ...lista[0], tipo: '' };
           const _tomb1 = marcarItemRemovido(versao, lista[0]);
+          removerItemDoLead(lista[0]);   // Felipe s37: apaga a ORIGEM tambem
           atualizarVersao(versao.id, _tomb1
             ? { itens: [itemReset], _itensRemovidos: _tomb1 }
             : { itens: [itemReset] });
@@ -8577,6 +8652,7 @@ const Orcamento = (() => {
         // repopulacao a partir dos itens_extras do lead o traz de volta
         // no proximo Recalcular.
         const _tomb = marcarItemRemovido(versao, lista[idx]);
+        removerItemDoLead(lista[idx]);   // Felipe s37: apaga a ORIGEM tambem
         atualizarVersao(versao.id, _tomb
           ? { itens: novaLista, _itensRemovidos: _tomb }
           : { itens: novaLista });
@@ -22647,9 +22723,10 @@ const Orcamento = (() => {
     // Felipe s37: marcador de versao do JS carregado. Serve pra saber
     // NA HORA se o navegador esta com o codigo novo ou com cache velho,
     // em vez de ficar adivinhando por sintoma.
-    __build: '20260728-tombstone-item',
+    __build: '20260728-delete-origem',
     chaveItemTombstone,
     marcarItemRemovido,
+    removerItemDoLead,
     aplicarPtaxFechamento,      // Felipe s37: PTAX de fechamento (internacional)
     ehInternacionalComTaxa,
     // Felipe: usado pelo motor de perfis (31) pra forcar PA-007 no internacional
