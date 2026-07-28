@@ -4182,6 +4182,7 @@ ${secoesHtml}
             <button class="btn btn-ghost btn-sm" id="crm-btn-import">⤓ Importar planilha</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-export">⬇ Exportar Excel</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-relatorio-coluna" title="Gera um Excel com os leads agrupados por coluna do kanban (Negociacao, Fechado, Orcamento Enviado, Perdido...), com subtotais por coluna. Respeita os filtros ativos.">📊 Relatorio por Coluna</button>
+            <button class="btn btn-ghost btn-sm" id="crm-btn-relatorio-fechamentos" title="Excel com os fechamentos de cada mes, do menor pro maior valor, separados entre Nacional e Internacional, com total de cada mes e somatorio do ano. Periodo: dia 16 ao dia 15 do mes seguinte (mesmo criterio do card Fechado no Mes).">🏁 Fechamentos por Mes</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-modelo" title="Baixa modelo Excel em branco com todos os campos para preencher e reimportar">📋 Modelo Excel</button>
             <input type="file" id="crm-import-file" accept=".xlsx,.xls,.csv" style="display:none" />
             <button class="crm-btn-new" id="crm-btn-new-lead">+ Novo Lead</button>
@@ -4411,6 +4412,11 @@ ${secoesHtml}
       // R16: Importar/Exportar Excel
       container.querySelector('#crm-btn-export')?.addEventListener('click', exportarLeadsXLSX);
       container.querySelector('#crm-btn-relatorio-coluna')?.addEventListener('click', gerarRelatorioPorColuna);
+      // Felipe s37: relatorio de fechamentos por mes (modulo 57, isolado)
+      container.querySelector('#crm-btn-relatorio-fechamentos')?.addEventListener('click', function () {
+        if (window.RelatorioFechamentos) window.RelatorioFechamentos.abrir();
+        else alert('Modulo de relatorio nao carregado. Recarregue a pagina.');
+      });
       container.querySelector('#crm-btn-modelo')?.addEventListener('click', exportarTemplateXLSX);
       // Felipe sessao 34: Relatorio do Representante (PDF via print do navegador)
       container.querySelector('#crm-btn-relatorio-rep')?.addEventListener('click', () => {
