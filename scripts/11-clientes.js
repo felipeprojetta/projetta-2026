@@ -452,8 +452,10 @@
         .forEach(sel => { const el = container.querySelector(sel); if (el) el.value = ''; });
     }
 
-    // Cria um cliente novo como um lead inicial no CRM (etapa qualificacao, valor 0).
+    // Cria um cliente novo como um lead inicial no CRM (valor 0).
     // Clientes sao derivados de leads, entao adicionar cliente = adicionar lead.
+    // Felipe s37: coluna 'qualificacao' removida do kanban — lead novo
+    // nasce em 'fazer-orcamento' senao ficaria invisivel no CRM.
     function criarClienteComoLead(dados) {
       const leads = crmStore.get('leads') || [];
       const hoje = new Date().toISOString().slice(0, 10);
@@ -466,7 +468,7 @@
         estado: dados.estado || '',
         representante: dados.representante || '',
         cep: '',
-        etapa: 'qualificacao',
+        etapa: 'fazer-orcamento',
         valor: 0,
         data: hoje,
       });

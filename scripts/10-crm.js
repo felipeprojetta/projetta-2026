@@ -52,7 +52,14 @@
     ];
 
     const ETAPAS = [
-      { id: 'qualificacao',        label: 'Qualificacao',        color: '#94A3B8' },
+      // Felipe s37: 'elimine a coluna qualificacao' (primeira coluna, antes
+      // de Fazer Orcamento). Validado banco antes: 0 leads em 'qualificacao'.
+      // Lead novo agora nasce direto em 'fazer-orcamento' (mesmo conceito
+      // do fluxo Duplicar, que ja usava fazer-orcamento como inicio do funil).
+      // Comparacoes defensivas com 'qualificacao' em 12-orcamento.js,
+      // 16-kanban-producao.js e 11-clientes.js ficam — protegem lead legado
+      // importado com a etapa antiga (cai gracioso, sem quebrar).
+      // { id: 'qualificacao',        label: 'Qualificacao',        color: '#94A3B8' },
       { id: 'fazer-orcamento',     label: 'Fazer Orcamento',     color: '#3B82F6' },
       { id: 'orcamento-pronto',    label: 'Orcamento Pronto',    color: '#8B5CF6' },
       // Felipe sessao 34: 'ELIMINE ESSE ORCAMENTO APROVADO DO CRM' - coluna
@@ -83,8 +90,8 @@
     // ou ao sync trazer de volta. NUNCA mais escreve dummies sozinho.
     // ============================================================
     const SEED_LEADS = [
-      { id: 'lead_01', cliente: 'Maria Silva',      valor: 25000, etapa: 'qualificacao',      data: '2026-04-22' },
-      { id: 'lead_02', cliente: 'Joao Santos',      valor: 80000, etapa: 'qualificacao',      data: '2026-04-23' },
+      { id: 'lead_01', cliente: 'Maria Silva',      valor: 25000, etapa: 'fazer-orcamento',   data: '2026-04-22' },
+      { id: 'lead_02', cliente: 'Joao Santos',      valor: 80000, etapa: 'fazer-orcamento',   data: '2026-04-23' },
       { id: 'lead_03', cliente: 'Ana Costa',        valor: 18500, etapa: 'fazer-orcamento',   data: '2026-04-19' },
       { id: 'lead_04', cliente: 'Pedro Lima',       valor: 12000, etapa: 'orcamento-pronto',  data: '2026-04-15' },
       { id: 'lead_05', cliente: 'Carla Mendes',     valor: 32000, etapa: 'orcamento-enviado', data: '2026-04-12' },
@@ -255,7 +262,7 @@
       representante: '',  // razao social (auto via lookup do followup)
       representante_followup: '',  // followup digitado pelo user
       representante_contato: '',  // nome do contato principal (auto)
-      valor: '', etapa: 'qualificacao',
+      valor: '', etapa: 'fazer-orcamento',
       destinoTipo: 'nacional',
       destinoPais: '',
       // Felipe sessao 31: caixa de madeira fumigada (1 caixa/orcamento)
@@ -290,7 +297,7 @@
         representante: '',
         representante_followup: '',
         representante_contato: '',
-        valor: '', etapa: 'qualificacao',
+        valor: '', etapa: 'fazer-orcamento',
         destinoTipo: 'nacional',
         destinoPais: '',
         caixaAltura: '', caixaEspessura: '', caixaComprimento: '',
@@ -325,7 +332,7 @@
         data_reserva: lead.data_reserva || '',
         // R01: valor SEMPRE com 2 casas decimais formato BR (ex: 80.000,00)
         valor: lead.valor != null ? fmtBR(lead.valor) : '',
-        etapa: lead.etapa || 'qualificacao',
+        etapa: lead.etapa || 'fazer-orcamento',
         fechadoEm: lead.fechadoEm || '',
         destinoTipo: lead.destinoTipo || 'nacional',
         destinoPais: lead.destinoPais || '',
@@ -5428,7 +5435,7 @@ ${secoesHtml}
         l.cor_interna || '',
         l.cor_externa || '',
         Number(l.valor) || 0,
-        l.etapa || 'qualificacao',
+        l.etapa || 'fazer-orcamento',
         l.data || '',
         l.followup || '',
       ]);
@@ -5545,7 +5552,7 @@ ${secoesHtml}
         '', 'Joao da Silva', '(34) 99999-9999', 'joao@email.com',
         '38400-000', 'Uberlandia', 'MG',
         '1300', '5000', 'Modelo 1', 'Wood Sucupira', 'Acabamento Externo',
-        '0', 'qualificacao', '', '',
+        '0', 'fazer-orcamento', '', '',
       ]];
       if (window.Universal && window.Universal.exportXLSX) {
         window.Universal.exportXLSX({
@@ -5610,7 +5617,7 @@ ${secoesHtml}
             cor_interna:   get(row, 'cor_interna'),
             cor_externa:   get(row, 'cor_externa'),
             valor:         getNum(row, 'valor'),
-            etapa:         get(row, 'etapa') || 'qualificacao',
+            etapa:         get(row, 'etapa') || 'fazer-orcamento',
             data:          get(row, 'data'),
             followup:      get(row, 'followup'),
           };
