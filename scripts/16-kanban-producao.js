@@ -2334,6 +2334,10 @@
           var deletados = JSON.parse(localStorage.getItem('kprod_cards_deletados') || '[]');
           deletados.push(cardIdDeletado);
           if (crmIdDoLead) deletados.push('crm:' + crmIdDoLead);
+          // Felipe s37: mesma correcao do CRM — a lista crescia sem limite.
+          // Dedup + 500 mais recentes.
+          deletados = deletados.filter(function (v, i, a) { return a.indexOf(v) === i; });
+          if (deletados.length > 500) deletados = deletados.slice(-500);
           localStorage.setItem('kprod_cards_deletados', JSON.stringify(deletados));
         } catch(_){}
         save();

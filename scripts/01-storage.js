@@ -230,18 +230,31 @@ const Storage = (() => {
         totalBytes += (k.length + (localStorage.getItem(k) || '').length) * 2;
       }
       var totalMB = totalBytes / 1024 / 1024;
-      // Felipe s37: era 7MB. Diagnostico real no navegador do Felipe:
-      // 9.6MB nessa escala (bytes UTF-16) = ~96% do teto do Chrome, e os
-      // leads novos da Paula/Thays simplesmente NAO gravavam (quota).
-      // Baixado pra 4MB (~40% do teto) pra limpeza rodar MUITO antes de
-      // chegar perto do limite, com folga pra crescer entre sessoes.
-      var QUOTA_ALVO_MB = 4;
+      // Felipe s37: com dado de negocio fora do disco, o localStorage passa
+      // a guardar so' sessao/login/rota/preferencias — algo em torno de
+      // centenas de KB. Se passar de 1MB e' porque alguma chave nova esta
+      // vazando pro disco: limpa e registra, pra nunca mais chegar perto do
+      // teto de 5MB do Chrome ("nao quero mais esse negocio de espaco 5mb
+      // todo santo dia excedendo e travando").
+      var QUOTA_ALVO_MB = 1;
       if (totalMB > QUOTA_ALVO_MB) {
-        console.warn('[Storage] 🚨 localStorage usando ' + totalMB.toFixed(2)
-          + 'MB (alvo: <' + QUOTA_ALVO_MB + 'MB). Rodando limpeza preventiva...');
+        console.warn('[Storage] localStorage em ' + totalMB.toFixed(2)
+          + 'MB (esperado <' + QUOTA_ALVO_MB + 'MB). Limpando...');
         var removidos = _tentarLiberarEspaco();
-        if (removidos === 0) {
-          console.warn('[Storage] ⚠️ Nada pra limpar, mas espaco apertado. PKCE e outros saves podem falhar.');
+        // Lista o que sobrou grande, pra achar o vazamento rapido.
+        try {
+          var maiores = [];
+          for (var j = 0; j < localStorage.length; j++) {
+            var kk = localStorage.key(j);
+            var vv = localStorage.getItem(kk) || '';
+            if (vv.length > 50 * 1024) maiores.push(kk + ' (' + (vv.length / 1024).toFixed(0) + 'KB)');
+          }
+          if (maiores.length) {
+            console.warn('[Storage] chaves grandes no disco: ' + maiores.join(', '));
+          }
+        } catch (_) {}
+        if (removidos === 0 && totalMB > 3) {
+          console.warn('[Storage] espaco apertado e nada pra limpar — avise o Felipe.');
         }
       }
     } catch(e) {

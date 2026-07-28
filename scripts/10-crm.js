@@ -2567,6 +2567,14 @@
         try {
           var deletados = JSON.parse(localStorage.getItem('projetta_leads_deletados') || '[]');
           deletados.push(modalState.editandoId);
+          // Felipe s37: esta lista crescia PRA SEMPRE (cada delete somava, nada
+          // removia) — o tipo de coisa que vai enchendo o navegador em silencio.
+          // Dedup + guarda so' os 500 mais recentes. O tombstone que vale de
+          // verdade e' o da nuvem (crm/leads__deleted, logo abaixo); este aqui
+          // e' so' uma trava local pro sync desta maquina, e 500 cobre com
+          // folga qualquer janela de sync.
+          deletados = deletados.filter(function (v, i, a) { return a.indexOf(v) === i; });
+          if (deletados.length > 500) deletados = deletados.slice(-500);
           localStorage.setItem('projetta_leads_deletados', JSON.stringify(deletados));
         } catch(_){}
         // Felipe sessao 42: tombstone COMPARTILHADO na nuvem (crm/leads__deleted).
