@@ -481,7 +481,28 @@ const WeikuClient = (() => {
       return normalizarContrato(raw);
     } catch (e) {
       if (e.name === 'TypeError' && e.message.includes('fetch')) {
-        throw new Error('Erro de rede ou CORS: API ATP em hub.weiku.com.br nao respondeu. Verifique se CORS esta liberado pra projetta-2026.netlify.app — reporte ao Ruan (TI Weiku).');
+        // Felipe s37: a mensagem antiga culpava CORS sempre — e mandava
+        // cobrar a coisa errada do TI. Agora faz um teste no-cors: esse
+        // modo IGNORA CORS, entao se ele tambem falhar o servidor e' que
+        // esta fora do ar (DNS nao resolve / conexao recusada).
+        // Diagnosticado em 27/07/26: hub.weiku.com.br fora do ar enquanto
+        // intranet.weiku.com.br respondia normal.
+        let hostVivo = false;
+        try {
+          await fetch(config.apiUrlContrato, { mode: 'no-cors', cache: 'no-store' });
+          hostVivo = true;   // resposta opaca = servidor respondeu
+        } catch (_) { hostVivo = false; }
+        if (hostVivo) {
+          throw new Error('CORS bloqueado: o servidor hub.weiku.com.br respondeu, '
+            + 'mas nao autoriza chamadas de projetta-2026.netlify.app.\n\n'
+            + 'Peca ao Ruan (TI Weiku) pra liberar o dominio no CORS da API.');
+        }
+        throw new Error('Servidor hub.weiku.com.br FORA DO AR.\n\n'
+          + 'Nao e problema do Projetta nem de CORS: o servidor da API de ATP '
+          + 'nao esta respondendo (DNS ou servico caido). A intranet.weiku.com.br '
+          + 'pode continuar funcionando normal — sao servidores diferentes.\n\n'
+          + 'Avise o Ruan (TI Weiku) que o hub esta fora. '
+          + 'Enquanto isso, da' + ' pra preencher os dados do ATP a mao.');
       }
       throw e;
     }
