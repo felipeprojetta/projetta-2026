@@ -119,6 +119,77 @@ const Storage = (() => {
     return removidos;
   }
 
+  /**
+   * Felipe s37 — VARREDURA POR TAMANHO (fix definitivo do "Memoria cheia").
+   *
+   * A inversao de fonte de verdade manda pra RAM toda chave acima de
+   * MAX_CACHE_LOCAL_BYTES. So' que ela so' tira a chave do disco NA HORA
+   * DE GRAVAR (_guardarSoNaMemoria). Chave grande que ja' estava no
+   * localStorage de ANTES da inversao, e que ninguem regravou, fica presa
+   * la' pra sempre — e o _tentarLiberarEspaco nao a remove porque so'
+   * conhece padroes de lixo (forensic, backup_, __pre_...).
+   *
+   * Diagnostico real: orcamentos:negocios = 2,2MB de JSON. localStorage
+   * conta em UTF-16, entao ocupa ~4,4MB — sozinho quase o teto de 5MB do
+   * Chrome. Somado a weiku:reservas e crm:leads, estourava. Resultado: o
+   * banner vermelho na tela do Felipe e gravacoes se perdendo (a PTAX do
+   * A&A nao persistiu por causa disto).
+   *
+   * Esta varredura remove do disco QUALQUER chave acima do teto. E' por
+   * tamanho, entao se auto-mantem: chave que crescer sai sozinha, sem
+   * ninguem precisar atualizar lista.
+   *
+   * SEGURANCA — o que NUNCA e' removido:
+   *   - a fila de escritas offline (unico lugar onde vive: seria perda real)
+   *   - scopes locais que nao existem no Supabase (auth_session, app, ui)
+   *   - chaves de sessao/login
+   * O resto tem o Supabase como fonte e e' repovoado pelo syncFromCloud,
+   * que o boot ja' espera antes de renderizar.
+   */
+  // Teto de cache local por chave. Declarado AQUI (e nao junto do bloco da
+  // inversao, mais abaixo) porque a varredura de boot roda antes daquele
+  // ponto do arquivo — com const la' embaixo dava ReferenceError de TDZ e a
+  // varredura falhava calada dentro do try/catch.
+  const MAX_CACHE_LOCAL_BYTES = 300 * 1024;   // 300KB por chave
+
+  function _varrerChavesGrandesDoDisco() {
+    var removidos = 0, bytes = 0;
+    var PROTEGIDOS_SCOPE = ['auth_session', 'app', 'ui', 'auth', 'session', 'debug'];
+    var PROTEGIDOS_SUFIXO = ['session', 'session_user', 'last_login', 'auth_token', 'user_prefs'];
+    try {
+      var alvo = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (!k || k.indexOf(PREFIX) !== 0) continue;
+        // fila de escritas offline: NUNCA remover (nao existe no Supabase)
+        if (k.indexOf('_sync_fila_pendentes') !== -1) continue;
+        var resto = k.slice(PREFIX.length);
+        var sep = resto.indexOf(':');
+        var scopeK = sep >= 0 ? resto.slice(0, sep) : '';
+        var keyK = sep >= 0 ? resto.slice(sep + 1) : resto;
+        if (PROTEGIDOS_SCOPE.indexOf(scopeK) >= 0) continue;
+        if (PROTEGIDOS_SUFIXO.indexOf(keyK) >= 0) continue;
+        var v = localStorage.getItem(k) || '';
+        if (v.length > MAX_CACHE_LOCAL_BYTES) {
+          alvo.push(k);
+          bytes += (k.length + v.length) * 2;
+        }
+      }
+      alvo.forEach(function (k) {
+        try { localStorage.removeItem(k); removidos++; } catch (_) {}
+      });
+      if (removidos > 0) {
+        console.warn('[Storage] 🧹 Varredura por tamanho: ' + removidos
+          + ' chave(s) grande(s) removida(s) do disco, ~' + (bytes / 1024 / 1024).toFixed(2)
+          + 'MB liberados. Elas vivem em RAM + Supabase (repovoadas pelo syncFromCloud).');
+        console.warn('[Storage]   removidas: ' + alvo.join(', '));
+      }
+    } catch (e) {
+      console.warn('[Storage] varredura por tamanho falhou (ignorando):', e.message);
+    }
+    return removidos;
+  }
+
   // Felipe sessao 34: LIMPEZA PROATIVA NO BOOT. Em vez de esperar
   // QuotaExceeded acontecer (que ai' o erro chega em ponto critico tipo
   // PKCE verifier do login), limpa o lixo conhecido JA' no carregamento
@@ -126,6 +197,14 @@ const Storage = (() => {
   // se passou disso.
   (function _limpezaBootProativa() {
     try {
+      // Felipe s37: PRIMEIRO a varredura por tamanho. Roda SEMPRE, nao
+      // so' quando a quota ja' esta apertada — chave grande no disco e'
+      // violacao da politica (RAM + Supabase), entao sai independente do
+      // quanto sobrou de espaco. E' o que faltava pro banner vermelho
+      // parar de voltar: antes so' se limpava lixo de padrao conhecido,
+      // e as chaves grandes legitimas ficavam presas.
+      _varrerChavesGrandesDoDisco();
+
       // Mede quota usada
       var totalBytes = 0;
       for (var i = 0; i < localStorage.length; i++) {
@@ -209,7 +288,8 @@ const Storage = (() => {
   // Por que por TAMANHO e nao por lista fixa: qualquer chave que cresca
   // demais sai do disco automaticamente, sem precisar de manutencao.
   // Chave leve continua cacheada (abre rapido, funciona offline).
-  const MAX_CACHE_LOCAL_BYTES = 300 * 1024;   // 300KB por chave
+  // (MAX_CACHE_LOCAL_BYTES declarado la' em cima — a varredura de boot
+  //  precisa dele ANTES deste ponto do arquivo.)
 
   function _pesadaDemaisParaLocal(serializado) {
     return typeof serializado === 'string' && serializado.length > MAX_CACHE_LOCAL_BYTES;
