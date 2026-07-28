@@ -152,6 +152,22 @@ const Storage = (() => {
   // varredura falhava calada dentro do try/catch.
   const MAX_CACHE_LOCAL_BYTES = 300 * 1024;   // 300KB por chave
 
+  const SCOPES_LOCAIS = ['auth_session', 'app', 'ui', 'auth', 'session', 'debug'];
+  const KEYS_LOCAIS = [
+    'session', 'session_user', 'last_login', 'last_route', 'ui_state',
+    'auth_token', 'user_prefs',
+    // flags de seed: sao booleanos locais, nao dado de negocio
+    'acessorios_seeded', 'modelos_seeded', 'perfis_seeded',
+    'superficies_seeded', 'representantes_seeded', 'cores_seeded',
+  ];
+
+  /** A chave pode morar no disco do navegador? */
+  function _podeFicarNoDisco(scopeName, k) {
+    if (SCOPES_LOCAIS.indexOf(scopeName) >= 0) return true;
+    if (KEYS_LOCAIS.indexOf(k) >= 0) return true;
+    return false;   // dado de negocio: RAM + Supabase, nunca disco
+  }
+
   function _varrerChavesGrandesDoDisco() {
     var removidos = 0, bytes = 0;
     var PROTEGIDOS_SCOPE = ['auth_session', 'app', 'ui', 'auth', 'session', 'debug'];
@@ -170,7 +186,9 @@ const Storage = (() => {
         if (PROTEGIDOS_SCOPE.indexOf(scopeK) >= 0) continue;
         if (PROTEGIDOS_SUFIXO.indexOf(keyK) >= 0) continue;
         var v = localStorage.getItem(k) || '';
-        if (v.length > MAX_CACHE_LOCAL_BYTES) {
+        // Politica: dado de negocio nao mora no disco (qualquer tamanho).
+        // Fallback por tamanho pra chave local que tenha inchado.
+        if (!_podeFicarNoDisco(scopeK, keyK) || v.length > MAX_CACHE_LOCAL_BYTES) {
           alvo.push(k);
           bytes += (k.length + v.length) * 2;
         }
@@ -244,6 +262,16 @@ const Storage = (() => {
   //   - qualquer erro aqui e' engolido: NUNCA pode quebrar um save
   var _avisoQuotaMostrado = false;
   function _avisarQuotaNaTela() {
+    // Felipe s37: DESLIGADO. O banner vermelho "Memoria do navegador cheia"
+    // nao aparece mais. Ele fazia sentido quando o dado de negocio morava no
+    // localStorage: quota cheia = usuario vendo dado velho, e precisava saber.
+    // Agora dado de negocio nunca toca o disco (RAM + Supabase, repovoado pelo
+    // syncFromCloud antes de renderizar), entao a tela SEMPRE reflete o
+    // servidor e o aviso so' assustaria sem haver acao possivel.
+    // A funcao continua aqui, exportada e chamavel — se um dia a politica
+    // mudar, basta remover o return abaixo pra religar o banner.
+    console.warn('[Storage] aviso de quota suprimido (dado de negocio nao usa disco).');
+    return;
     if (_avisoQuotaMostrado) return;
     _avisoQuotaMostrado = true;
     try {
@@ -291,7 +319,41 @@ const Storage = (() => {
   // (MAX_CACHE_LOCAL_BYTES declarado la' em cima — a varredura de boot
   //  precisa dele ANTES deste ponto do arquivo.)
 
-  function _pesadaDemaisParaLocal(serializado) {
+  // ============================================================
+  // Felipe s37 — NAVEGADOR NAO GUARDA DADO
+  // ============================================================
+  // "quero isso igual um sistema de verdade que roda na nuvem,
+  //  nao depende de cache de navegador"
+  //
+  // ANTES: qualquer chave abaixo de 300KB ia pro localStorage. Isso
+  // mantinha o navegador como LUGAR DE GUARDAR DADO — e por isso existia
+  // teto, aviso de "memoria cheia" e gravacao que se perdia calada
+  // (a PTAX do A&A nao persistiu por isso).
+  //
+  // AGORA a regra e' por NATUREZA da chave, nao por tamanho:
+  //   - dado de negocio (leads, orcamentos, cadastros, weiku...) NUNCA
+  //     toca o disco. Vive em RAM durante a sessao (populado pelo
+  //     syncFromCloud, que o boot ja' espera antes de renderizar) e no
+  //     Supabase pra sempre. Fonte de verdade unica: o servidor.
+  //   - so' fica no disco o que e' do PROPRIO navegador e nao existe no
+  //     servidor: sessao, login, rota atual, preferencias de tela, flags
+  //     de seed. Tudo isso e' minusculo — o localStorage nunca mais
+  //     chega perto do teto, entao o aviso vermelho deixa de existir.
+  //
+  // Consequencia aceita: sem conexao o sistema nao abre com os dados
+  // (igual Bitrix/Salesforce). Escritas feitas offline continuam
+  // protegidas pela fila _sync_fila_pendentes.
+  // (SCOPES_LOCAIS / KEYS_LOCAIS / _podeFicarNoDisco declarados la' em cima —
+  //  a varredura de boot precisa deles antes deste ponto do arquivo.)
+
+
+  /**
+   * Decide se a chave fica FORA do disco.
+   * scopeName/k opcionais: sem eles cai na regra antiga (so' tamanho),
+   * pra nao quebrar chamador que ainda nao passa o scope.
+   */
+  function _pesadaDemaisParaLocal(serializado, scopeName, k) {
+    if (typeof scopeName === 'string') return !_podeFicarNoDisco(scopeName, k);
     return typeof serializado === 'string' && serializado.length > MAX_CACHE_LOCAL_BYTES;
   }
 
@@ -376,7 +438,7 @@ const Storage = (() => {
       // Felipe s37 (modo Bitrix): pesada -> so' RAM, nao ocupa disco.
       let _ser = null;
       try { _ser = JSON.stringify(value); } catch (_) { _ser = null; }
-      if (_pesadaDemaisParaLocal(_ser)) { _guardarSoNaMemoria(scopeName, k, value); return; }
+      if (_pesadaDemaisParaLocal(_ser, scopeName, k)) { _guardarSoNaMemoria(scopeName, k, value); return; }
       try {
         localStorage.setItem(PREFIX + scopeName + ':' + k, _ser !== null ? _ser : JSON.stringify(value));
         _dirtyKeys.delete(mk);   // localStorage e memCache em sincronia
@@ -466,7 +528,7 @@ const Storage = (() => {
           // gravacao do lead junto".
           let _serial = null;
           try { _serial = JSON.stringify(value); } catch (_) { _serial = null; }
-          if (_pesadaDemaisParaLocal(_serial)) {
+          if (_pesadaDemaisParaLocal(_serial, scopeName, k)) {
             _guardarSoNaMemoria(scopeName, k, value);
           } else {
           try {
@@ -488,11 +550,16 @@ const Storage = (() => {
               }
               if (!recuperou) {
                 _dirtyKeys.add(mk);
-                console.warn('[Storage] ⚠️ localStorage quota cheia (mesmo apos cleanup) — usando cache em memoria. Supabase permanece source-of-truth.', scopeName + '/' + k);
-                // Felipe s37: alem do console, AVISA NA TELA (1x por sessao).
-                // Sem isso a falha e' invisivel e o usuario fica vendo dados
-                // velhos sem saber.
-                _avisarQuotaNaTela();
+                console.warn('[Storage] localStorage quota cheia — chave servida da RAM. Supabase permanece source-of-truth.', scopeName + '/' + k);
+                // Felipe s37: o BANNER VERMELHO na tela foi REMOVIDO.
+                // Ele existia porque dado de negocio morava no disco e a
+                // falha de quota significava "voce esta vendo dado velho".
+                // Agora dado de negocio nunca vai pro disco (RAM+Supabase),
+                // entao chegar aqui so' pode ser chave LOCAL pequena
+                // (sessao/preferencia) — nao ha' risco de dado velho em tela
+                // e nao ha' nada que o usuario possa fazer a respeito.
+                // Assustar o usuario com banner sem acao possivel e' pior
+                // que registrar no console pro Felipe ver se precisar.
               }
             } else {
               console.warn('[Storage] localStorage.setItem falhou (nao-quota):', lsErr);

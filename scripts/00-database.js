@@ -1115,7 +1115,7 @@ const Database = (() => {
           // de ser o teto do sistema, e gravacao de lead/orcamento nunca
           // mais e' derrubada por causa de uma chave gigante.
           if (typeof Storage !== 'undefined' && Storage._pesadaDemais
-              && Storage._pesadaDemais(_serial)) {
+              && Storage._pesadaDemais(_serial, r.scope, r.key)) {
             Storage._guardarSoNaMemoria(r.scope, r.key, valorSb);
             return true;
           }
