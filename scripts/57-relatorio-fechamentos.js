@@ -1,19 +1,21 @@
 /* ============================================================
-   57 — RELATORIO DE FECHAMENTOS POR MES
+   57 — RELATORIO DE CLIENTES FECHADOS
    ============================================================
-   Felipe s37. Relatorio pedido: fechamentos de cada mes, do MENOR
-   pro MAIOR valor, com total por mes, separacao NACIONAL x
-   INTERNACIONAL e somatorio do ano.
+   Felipe s37. Pedido: "pela data que colocamos que foi fechamento
+   e o valor, separe por mes, so' isso. Me de dados do AGP e da
+   outra aba ATP para conferirmos".
 
-   Regra de periodo: MES FISCAL PROJETTA (dia 16 do mes corrente ate
-   o dia 15 do mes seguinte) — o MESMO criterio do KPI "Fechado no
-   Mes" do CRM. Assim o total de cada mes aqui bate exatamente com o
-   card, sem ninguem precisar conferir a mao.
+   Regra de periodo: MES CIVIL puro (01 a 31), pela DATA DE
+   FECHAMENTO digitada no card (lead.fechadoEm).
+   NAO usa mes fiscal (16->15) — foi justamente o criterio que
+   gerava discussao ("cada hora o pessoal fala que mes e'"), e por
+   isso o KPI "Fechado no Mes" foi removido do CRM.
 
-   Modulo isolado: nao altera nenhum motor de calculo nem o 10-crm.
-   Le os leads de Storage.scope('crm').get('leads') e exporta via
-   window.Universal.exportXLSX (mesmo caminho do "Relatorio por
-   Coluna" que ja' existe).
+   Traz lado a lado os dados do CRM (AGP) e da aba ATP (contrato),
+   pra conferencia. CPF/RG NUNCA entram no relatorio.
+
+   Modulo isolado: nao altera motor de calculo nem o 10-crm alem
+   do botao que o chama.
    ============================================================ */
 window.RelatorioFechamentos = (function () {
   'use strict';
@@ -21,42 +23,74 @@ window.RelatorioFechamentos = (function () {
   const MESES = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
                  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-  /**
-   * Mes fiscal Projetta: 16/MM ate 15/(MM+1).
-   * Identico ao periodoFechamento() do 10-crm.js — replicado aqui
-   * de proposito pra manter o modulo isolado (sem dependencia de
-   * funcao privada de outro arquivo).
-   */
-  function periodoFiscal(ano, mes) {
-    const ini = new Date(ano, mes - 1, 16);
-    const fim = new Date(mes === 12 ? ano + 1 : ano, mes === 12 ? 0 : mes, 16);
-    return { ini, fim };
-  }
-
-  function ehInternacional(lead) {
-    return String(lead && lead.destinoTipo || '').toLowerCase() === 'internacional';
-  }
-
-  function valorDe(lead) {
-    return Number(lead && lead.valor) || 0;
-  }
-
   function dataFechamento(lead) {
     if (!lead || !lead.fechadoEm) return null;
     const d = new Date(String(lead.fechadoEm) + 'T00:00:00');
     return isNaN(d.getTime()) ? null : d;
   }
 
-  /** Leads fechados dentro do mes fiscal, ordenados do MENOR pro MAIOR. */
-  function fechadosDoMes(leads, ano, mes) {
-    const { ini, fim } = periodoFiscal(ano, mes);
-    return leads
-      .filter(l => l && l.etapa === 'fechado')
-      .filter(l => { const d = dataFechamento(l); return d && d >= ini && d < fim; })
-      .sort((a, b) => valorDe(a) - valorDe(b));
+  function ehInternacional(lead) {
+    return String(lead && lead.destinoTipo || '').toLowerCase() === 'internacional';
   }
 
-  /** Anos que tem algum fechamento (pro seletor). */
+  /**
+   * Valor oficial = o do DRE aprovado (mesma fonte do card do CRM).
+   * Cai pro lead.valor so' quando nao ha orcamento aprovado.
+   */
+  function valorDe(lead) {
+    if (!lead) return 0;
+    if (lead.valorCalcBackup != null && lead.valorCalcBackup !== '') {
+      return Number(lead.valor) || 0;
+    }
+    try {
+      const r = (window.Orcamento && window.Orcamento.resumoParaCardCRM)
+        ? window.Orcamento.resumoParaCardCRM(lead.id) : null;
+      if (r && r.hasVersaoFechada && Number(r.valor) > 0) return Number(r.valor);
+    } catch (_) {}
+    return Number(lead.valor) || 0;
+  }
+
+  function atpDe(lead) {
+    const a = (lead && lead.atp && typeof lead.atp === 'object') ? lead.atp : {};
+    return {
+      numero: a.numeroAtp || '',
+      nome: [a.nomeContrato, a.sobrenomeContrato].filter(Boolean).join(' '),
+      assinatura: a.dataAssinaturaContrato || '',
+      prazo: a.prazoEntrega || '',
+      previsao: a.previsaoMedicao || '',
+      cidade: [a.cidadeEntrega, a.estadoEntrega].filter(Boolean).join(' / '),
+      cep: a.cepEntrega || '',
+      email: a.emailContrato || a.emailNfe || '',
+      reserva: a.numeroReserva || '',
+    };
+  }
+
+  function lerLeads() {
+    try { return (window.Storage && Storage.scope('crm').get('leads')) || []; }
+    catch (_) { return []; }
+  }
+
+  /** Todos os fechados do ano, agrupados por mes civil da data de fechamento. */
+  function porMes(leads, ano) {
+    const meses = {};
+    leads.forEach(l => {
+      if (!l || l.etapa !== 'fechado') return;
+      const d = dataFechamento(l);
+      if (!d || d.getFullYear() !== Number(ano)) return;
+      const m = d.getMonth() + 1;
+      (meses[m] = meses[m] || []).push(l);
+    });
+    // dentro de cada mes: por data de fechamento, depois por valor
+    Object.keys(meses).forEach(m => {
+      meses[m].sort((a, b) => {
+        const da = String(a.fechadoEm || ''), db = String(b.fechadoEm || '');
+        if (da !== db) return da < db ? -1 : 1;
+        return valorDe(a) - valorDe(b);
+      });
+    });
+    return meses;
+  }
+
   function anosDisponiveis(leads) {
     const anos = new Set();
     leads.forEach(l => {
@@ -68,113 +102,65 @@ window.RelatorioFechamentos = (function () {
     return Array.from(anos).sort((a, b) => b - a);
   }
 
-  function linhaLead(lead) {
-    return [
-      lead.cliente || '',
-      lead.numeroAGP || '',
-      lead.numeroReserva || lead.reserva || '',
-      lead.representante_followup || lead.representante || '',
-      [lead.cidade, lead.estado].filter(Boolean).join(' / '),
-      lead.fechadoEm || '',
-      valorDe(lead),
-    ];
+  function brData(iso) {
+    if (!iso) return '';
+    const p = String(iso).slice(0, 10).split('-');
+    return p.length === 3 ? (p[2] + '/' + p[1] + '/' + p[0]) : String(iso);
   }
 
-  /**
-   * Monta as linhas do relatorio de um ano inteiro.
-   * Retorna { rows, totalAno, totalNac, totalInt, qtd }.
-   */
   function montarLinhas(leads, ano) {
+    const meses = porMes(leads, ano);
     const rows = [];
-    let totalAno = 0, totalNac = 0, totalInt = 0, qtdAno = 0;
-    const resumoMeses = [];
+    let totalAno = 0, qtdAno = 0, nacAno = 0, intAno = 0;
+    const resumo = [];
 
     for (let m = 1; m <= 12; m++) {
-      const doMes = fechadosDoMes(leads, ano, m);
-      if (!doMes.length) continue;
+      const doMes = meses[m];
+      if (!doMes || !doMes.length) continue;
+      let somaMes = 0, nacMes = 0, intMes = 0;
 
-      const nac = doMes.filter(l => !ehInternacional(l));
-      const int = doMes.filter(l => ehInternacional(l));
-      const somaNac = nac.reduce((a, l) => a + valorDe(l), 0);
-      const somaInt = int.reduce((a, l) => a + valorDe(l), 0);
-      const somaMes = somaNac + somaInt;
+      rows.push(['', '', '', '', '', '', '', '', '', '']);
+      rows.push([MESES[m - 1].toUpperCase() + ' / ' + ano, '', '', '', '', '', '', '', '', '']);
 
-      const { ini, fim } = periodoFiscal(ano, m);
-      const rotuloPeriodo = ini.toLocaleDateString('pt-BR') + ' a '
-        + new Date(fim.getTime() - 86400000).toLocaleDateString('pt-BR');
+      doMes.forEach(l => {
+        const v = valorDe(l);
+        const a = atpDe(l);
+        somaMes += v;
+        if (ehInternacional(l)) intMes += v; else nacMes += v;
+        rows.push([
+          brData(l.fechadoEm),                                  // Data fechamento
+          l.cliente || '',                                      // Cliente
+          l.numeroAGP || '',                                    // AGP (CRM)
+          a.numero,                                             // ATP (aba contrato)
+          l.numeroReserva || l.reserva || a.reserva || '',      // Reserva
+          l.representante_followup || l.representante || '',    // Representante
+          [l.cidade, l.estado].filter(Boolean).join(' / ') || a.cidade,
+          ehInternacional(l) ? 'INTERNACIONAL' : 'Nacional',
+          brData(a.assinatura),                                 // Assinatura contrato (ATP)
+          v,                                                    // Valor
+        ]);
+      });
 
-      rows.push(['', '', '', '', '', '', '']);
-      rows.push([MESES[m - 1].toUpperCase() + ' / ' + ano + '  (' + rotuloPeriodo + ')',
-                 '', '', '', '', '', '']);
+      rows.push(['', 'TOTAL ' + MESES[m - 1].toUpperCase()
+                 + ' (' + doMes.length + ' clientes)', '', '', '', '',
+                 'Nacional: ' + nacMes.toFixed(2),
+                 intMes > 0 ? 'Internacional: ' + intMes.toFixed(2) : '', '', somaMes]);
 
-      if (nac.length) {
-        rows.push(['  NACIONAL', '', '', '', '', '', '']);
-        nac.forEach(l => rows.push(linhaLead(l)));
-        rows.push(['  Subtotal NACIONAL (' + nac.length + ')', '', '', '', '', '', somaNac]);
-      }
-      if (int.length) {
-        rows.push(['  INTERNACIONAL', '', '', '', '', '', '']);
-        int.forEach(l => rows.push(linhaLead(l)));
-        rows.push(['  Subtotal INTERNACIONAL (' + int.length + ')', '', '', '', '', '', somaInt]);
-      }
-      rows.push(['TOTAL ' + MESES[m - 1].toUpperCase() + ' (' + doMes.length + ' fechamentos)',
-                 '', '', '', '', '', somaMes]);
-
-      resumoMeses.push({ mes: MESES[m - 1], qtd: doMes.length, nac: somaNac, int: somaInt, total: somaMes });
-      totalAno += somaMes; totalNac += somaNac; totalInt += somaInt; qtdAno += doMes.length;
+      resumo.push({ mes: MESES[m - 1], qtd: doMes.length, nac: nacMes, int: intMes, total: somaMes });
+      totalAno += somaMes; qtdAno += doMes.length; nacAno += nacMes; intAno += intMes;
     }
 
-    // Resumo final do ano
-    // Felipe s37: o relatorio agrupa por MES FISCAL (16->15), igual ao card
-    // "Fechado no Mes". Mas o card "Fechado no Ano" soma o ANO CIVIL
-    // (01/01 a 31/12). Os dois totais sao legitimos e podem diferir — um
-    // fechamento de 05/01/2026, por exemplo, e' Dezembro/2025 no fiscal e
-    // 2026 no civil. Mostro OS DOIS aqui pra ninguem precisar caçar
-    // diferenca depois.
-    const iniCivil = new Date(ano, 0, 1);
-    const fimCivil = new Date(ano + 1, 0, 1);
-    let totalCivil = 0, qtdCivil = 0, civilNac = 0, civilInt = 0;
-    leads.forEach(l => {
-      if (!l || l.etapa !== 'fechado') return;
-      const d = dataFechamento(l);
-      if (!d || d < iniCivil || d >= fimCivil) return;
-      const v = valorDe(l);
-      totalCivil += v; qtdCivil++;
-      if (ehInternacional(l)) civilInt += v; else civilNac += v;
+    rows.push(['', '', '', '', '', '', '', '', '', '']);
+    rows.push(['RESUMO ' + ano, '', '', '', '', '', '', '', '', '']);
+    rows.push(['Mes', 'Clientes', '', '', '', '', 'Nacional', 'Internacional', '', 'Total do mes']);
+    resumo.forEach(r => {
+      rows.push([r.mes, r.qtd, '', '', '', '', r.nac, r.int, '', r.total]);
     });
+    rows.push(['TOTAL DO ANO', qtdAno, '', '', '', '', nacAno, intAno, '', totalAno]);
 
-    rows.push(['', '', '', '', '', '', '']);
-    rows.push(['RESUMO DO ANO ' + ano, '', '', '', '', '', '']);
-    rows.push(['Mes (mes fiscal: dia 16 ao dia 15 do mes seguinte)', '', '', '',
-               'Nacional', 'Internacional', 'Total do mes']);
-    resumoMeses.forEach(r => {
-      rows.push([r.mes + ' (' + r.qtd + ')', '', '', '', r.nac, r.int, r.total]);
-    });
-    rows.push(['TOTAL NACIONAL', '', '', '', '', '', totalNac]);
-    rows.push(['TOTAL INTERNACIONAL', '', '', '', '', '', totalInt]);
-    rows.push(['TOTAL DO ANO — soma dos meses fiscais (' + qtdAno + ' fechamentos)',
-               '', '', '', '', '', totalAno]);
-    rows.push(['', '', '', '', '', '', '']);
-    rows.push(['CONFERENCIA COM O CARD DO CRM', '', '', '', '', '', '']);
-    rows.push(['TOTAL ANO CIVIL 01/01 a 31/12 (' + qtdCivil + ') — e este que aparece'
-               + ' no card "Fechado no Ano"', '', '', '', civilNac, civilInt, totalCivil]);
-    if (Math.abs(totalCivil - totalAno) >= 0.01) {
-      rows.push(['Diferenca fiscal x civil (fechamentos entre 01 e 15 de janeiro contam'
-                 + ' como dezembro do ano anterior no criterio fiscal)',
-                 '', '', '', '', '', totalCivil - totalAno]);
-    }
-
-    return { rows, totalAno, totalNac, totalInt, qtd: qtdAno, resumoMeses,
-             totalCivil, qtdCivil };
+    return { rows, totalAno, qtdAno, nacAno, intAno, resumo };
   }
 
-  /** Le os leads do Storage (fonte unica — mesma do CRM). */
-  function lerLeads() {
-    try { return (window.Storage && Storage.scope('crm').get('leads')) || []; }
-    catch (_) { return []; }
-  }
-
-  /** Gera e baixa o Excel do ano informado. */
   function gerar(ano) {
     const leads = lerLeads();
     if (!leads.length) {
@@ -183,46 +169,38 @@ window.RelatorioFechamentos = (function () {
     }
     const anoAlvo = Number(ano) || (new Date()).getFullYear();
     const r = montarLinhas(leads, anoAlvo);
-    if (!r.qtd) {
-      alert('Nenhum fechamento encontrado em ' + anoAlvo + '.');
-      return;
-    }
-    const headers = ['Cliente', 'AGP', 'Reserva', 'Representante',
-                     'Cidade / UF', 'Data fechamento', 'Valor'];
+    if (!r.qtdAno) { alert('Nenhum cliente fechado em ' + anoAlvo + '.'); return; }
     if (!window.Universal || !window.Universal.exportXLSX) {
       alert('Exportador nao carregado. Recarregue a pagina.');
       return;
     }
     window.Universal.exportXLSX({
-      headers,
+      headers: ['Data fechamento', 'Cliente', 'AGP', 'ATP', 'Reserva',
+                'Representante', 'Cidade / UF', 'Destino',
+                'Assinatura contrato', 'Valor'],
       rows: r.rows,
-      sheetName: 'Fechamentos ' + anoAlvo,
-      fileName: 'projetta_fechamentos_' + anoAlvo,
+      sheetName: 'Clientes Fechados ' + anoAlvo,
+      fileName: 'projetta_clientes_fechados_' + anoAlvo,
     });
   }
 
-  /** Abre um seletor simples de ano e gera. */
   function abrir() {
     const leads = lerLeads();
     const anos = anosDisponiveis(leads);
     const atual = (new Date()).getFullYear();
     const sugestao = anos.indexOf(atual) >= 0 ? atual : anos[0];
     const resp = window.prompt(
-      'RELATORIO DE FECHAMENTOS POR MES\n\n'
-      + 'Gera um Excel com os fechamentos de cada mes (do menor pro maior valor),\n'
-      + 'separados entre NACIONAL e INTERNACIONAL, com total de cada mes e do ano.\n\n'
-      + 'Periodo de cada mes: dia 16 ao dia 15 do mes seguinte (mes fiscal Projetta,\n'
-      + 'o mesmo criterio do card "Fechado no Mes").\n\n'
+      'RELATORIO DE CLIENTES FECHADOS\n\n'
+      + 'Excel com os clientes fechados separados por mes, pela DATA DE\n'
+      + 'FECHAMENTO do card (mes civil, dia 01 ao ultimo dia do mes).\n'
+      + 'Traz AGP (CRM) e ATP (aba contrato) lado a lado pra conferencia.\n\n'
       + 'Anos com fechamento: ' + anos.join(', ') + '\n\n'
       + 'Digite o ano:', String(sugestao));
-    if (resp === null) return;              // cancelou
+    if (resp === null) return;
     const ano = parseInt(String(resp).trim(), 10);
-    if (!ano || ano < 2000 || ano > 2100) {
-      alert('Ano invalido: ' + resp);
-      return;
-    }
+    if (!ano || ano < 2000 || ano > 2100) { alert('Ano invalido: ' + resp); return; }
     gerar(ano);
   }
 
-  return { abrir, gerar, montarLinhas, fechadosDoMes, periodoFiscal, anosDisponiveis };
+  return { abrir, gerar, montarLinhas, porMes, anosDisponiveis, valorDe, atpDe };
 })();

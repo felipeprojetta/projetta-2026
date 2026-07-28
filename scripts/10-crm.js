@@ -4178,7 +4178,14 @@ ${secoesHtml}
             </div>
           </div>`,
       };
-      const KPI_DEFAULT_ORDER = ['ano', 'mes', 'em-aberto', 'gerado', 'top-rep-valor', 'top-rep-qtd', 'top-rep-fechado'];
+      // Felipe s37: KPI 'Fechado no Mes' REMOVIDO. Ele usava mes fiscal
+      // (16->15) e vivia gerando discussao de "que mes e' esse?" — cada um
+      // entendia um periodo. Fechamento por mes agora sai so' no relatorio
+      // "Clientes Fechados", que usa a DATA DE FECHAMENTO em mes civil.
+      // O bloco 'mes' segue definido em KPI_BLOCKS (nao quebra ordem salva
+      // antiga), mas e' filtrado da exibicao logo abaixo.
+      const KPI_DEFAULT_ORDER = ['ano', 'em-aberto', 'gerado', 'top-rep-valor', 'top-rep-qtd', 'top-rep-fechado'];
+      const KPI_REMOVIDOS = ['mes'];
       const _appStore = Storage.scope('app');
       const ordemSalva = _appStore.get('crm_kpis_order');
       // Felipe sessao 33: era 'length === 3' (hardcoded). Com a entrada do
@@ -4189,6 +4196,9 @@ ${secoesHtml}
         : KPI_DEFAULT_ORDER.slice();
       // Garante que todos os KPIs aparecem (caso storage tenha lista incompleta)
       KPI_DEFAULT_ORDER.forEach(id => { if (!ordemKpis.includes(id)) ordemKpis.push(id); });
+      // Felipe s37: remove os descontinuados mesmo se estiverem na ordem
+      // salva no navegador de quem ja' usava o sistema.
+      ordemKpis = ordemKpis.filter(id => KPI_REMOVIDOS.indexOf(id) < 0);
       const kpisHtml = ordemKpis.map(id => KPI_BLOCKS[id]).join('');
 
       // Felipe sessao 40: preserva o scroll das colunas (e o scroll horizontal
@@ -4220,7 +4230,7 @@ ${secoesHtml}
             <button class="btn btn-ghost btn-sm" id="crm-btn-import">⤓ Importar planilha</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-export">⬇ Exportar Excel</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-relatorio-coluna" title="Gera um Excel com os leads agrupados por coluna do kanban (Negociacao, Fechado, Orcamento Enviado, Perdido...), com subtotais por coluna. Respeita os filtros ativos.">📊 Relatorio por Coluna</button>
-            <button class="btn btn-ghost btn-sm" id="crm-btn-relatorio-fechamentos" title="Excel com os fechamentos de cada mes, do menor pro maior valor, separados entre Nacional e Internacional, com total de cada mes e somatorio do ano. Periodo: dia 16 ao dia 15 do mes seguinte (mesmo criterio do card Fechado no Mes).">🏁 Fechamentos por Mes</button>
+            <button class="btn btn-ghost btn-sm" id="crm-btn-relatorio-fechamentos" title="Excel com os clientes fechados separados por mes, pela DATA DE FECHAMENTO do card (mes civil: dia 01 ao ultimo dia). Traz AGP (CRM) e ATP (aba contrato) lado a lado pra conferencia, com total de cada mes, separacao Nacional/Internacional e total do ano.">🏁 Relatorio Clientes Fechados</button>
             <button class="btn btn-ghost btn-sm" id="crm-btn-modelo" title="Baixa modelo Excel em branco com todos os campos para preencher e reimportar">📋 Modelo Excel</button>
             <input type="file" id="crm-import-file" accept=".xlsx,.xls,.csv" style="display:none" />
             <button class="crm-btn-new" id="crm-btn-new-lead">+ Novo Lead</button>
