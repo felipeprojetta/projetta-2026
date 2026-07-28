@@ -4767,6 +4767,26 @@ ${secoesHtml}
           if (btnGerarDoc) {
             e.stopPropagation();
             const leadId = btnGerarDoc.dataset.leadId;
+            // Felipe s37: "a partir do momento que movimenta para orcamento
+            // enviado nao pode recalcular nada, a nao ser que eu clique em
+            // revisao ou gere uma nova versao."
+            //
+            // GERAR DOCUMENTO E' O MOMENTO EM QUE O NUMERO SAI DA EMPRESA.
+            // Antes, este botao NAO congelava: so' o arrasto pra Enviado/
+            // Negociacao e o envio por email (e este ultimo so' se o lead
+            // estivesse em 'orcamento-pronto'). Resultado real (Tissot
+            // AGP003906): PDF gerado em 10/06 com R$ 94.820,46 / 75.856,37,
+            // versao seguiu draft recalculando, a tabela de precos subiu, e
+            // quando enfim congelou (28/07) gravou 70.183,69 — um valor que
+            // nunca foi enviado a ninguem.
+            //
+            // Congela ANTES de gerar, pra fotografia bater exatamente com o
+            // que sai no PDF. Idempotente: se ja' e' imutavel, nao mexe.
+            try {
+              if (window.Orcamento && window.Orcamento.congelarVersaoEnviadaDoLead) {
+                window.Orcamento.congelarVersaoEnviadaDoLead(leadId);
+              }
+            } catch (err) { console.warn('[crm] congelar versao ao gerar documentos falhou:', err); }
             if (leadId && window.OrcDocs) window.OrcDocs.gerarDocumentos(leadId);
             return;
           }
@@ -5104,15 +5124,21 @@ ${secoesHtml}
                     //    Re-busca o lead da fonte de verdade pra evitar 'cópias' antigas.
                     const negs = (typeof loadAll === 'function') ? loadAll() : null;
                     const leadAtual = state.leads.find(l => l.id === lead.id);
-                    if (leadAtual && ['orcamento-pronto', 'orcamento-aprovado'].includes(leadAtual.etapa)) {
-                      leadAtual.etapa = 'orcamento-enviado';
-                      // Felipe (sessao atual): ao enviar por email, congela a
-                      // versao enviada (enviadaEm + dre_congelado). Trava valores.
+                    // Felipe s37: CONGELA SEMPRE que o orcamento e' enviado por
+                    // email, independente da etapa. Antes o congelamento estava
+                    // DENTRO do if de mudanca de etapa: lead que ja' estava em
+                    // 'orcamento-enviado' ou 'negociacao' recebia email novo e
+                    // NAO congelava — a versao seguia recalculando com a tabela
+                    // de precos do dia. Enviar e' enviar: o numero saiu.
+                    if (leadAtual) {
                       try {
                         if (window.Orcamento && window.Orcamento.congelarVersaoEnviadaDoLead) {
                           window.Orcamento.congelarVersaoEnviadaDoLead(leadAtual.id);
                         }
                       } catch (e) { console.warn('[crm] congelar versao enviada (email) falhou:', e); }
+                    }
+                    if (leadAtual && ['orcamento-pronto', 'orcamento-aprovado'].includes(leadAtual.etapa)) {
+                      leadAtual.etapa = 'orcamento-enviado';
                       save();
                       render(container);
                     }
