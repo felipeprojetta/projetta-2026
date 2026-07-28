@@ -3440,15 +3440,20 @@ ${secoesHtml}
     /** Valor oficial do lead: DRE aprovado > override manual > l.valor. */
     function valorOficialDoLead(l) {
       if (!l) return 0;
+      // Felipe s37 (casas decimais): o DRE devolve valores com fracao
+      // ABAIXO do centavo (ex 85867.9042). O card exibe arredondado mas a
+      // soma usava o cru — 8 centavos de drift no total do ano vs planilha.
+      // Arredonda pra centavo AQUI, na fonte, pra soma == soma do exibido.
+      const cents = v => Math.round((Number(v) || 0) * 100) / 100;
       // Override manual explicito (l.valorCalcBackup preenchido pelo
       // botao de editar valor no card) continua tendo prioridade —
       // e' uma decisao consciente do usuario.
       if (l.valorCalcBackup != null && l.valorCalcBackup !== '') {
-        return Number(l.valor) || 0;
+        return cents(l.valor);
       }
       const r = resumoDoLead(l.id);
-      if (r && r.hasVersaoFechada && Number(r.valor) > 0) return Number(r.valor);
-      return Number(l.valor) || 0;
+      if (r && r.hasVersaoFechada && Number(r.valor) > 0) return cents(r.valor);
+      return cents(l.valor);
     }
 
     function renderKanban() {

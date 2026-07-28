@@ -38,16 +38,20 @@ window.RelatorioFechamentos = (function () {
    * Cai pro lead.valor so' quando nao ha orcamento aprovado.
    */
   function valorDe(lead) {
+    // Felipe s37 (casas decimais): arredonda pra centavo na fonte —
+    // DRE devolve fracao abaixo do centavo e a soma crua driftava
+    // 0,08 vs a planilha (que soma linha ja arredondada).
+    const cents = v => Math.round((Number(v) || 0) * 100) / 100;
     if (!lead) return 0;
     if (lead.valorCalcBackup != null && lead.valorCalcBackup !== '') {
-      return Number(lead.valor) || 0;
+      return cents(lead.valor);
     }
     try {
       const r = (window.Orcamento && window.Orcamento.resumoParaCardCRM)
         ? window.Orcamento.resumoParaCardCRM(lead.id) : null;
-      if (r && r.hasVersaoFechada && Number(r.valor) > 0) return Number(r.valor);
+      if (r && r.hasVersaoFechada && Number(r.valor) > 0) return cents(r.valor);
     } catch (_) {}
-    return Number(lead.valor) || 0;
+    return cents(lead.valor);
   }
 
   function atpDe(lead) {
