@@ -22644,6 +22644,12 @@ const Orcamento = (() => {
     criarNegocio,
     obterNegocioPorLeadId,
     resumoParaCardCRM,
+    // Felipe s37: marcador de versao do JS carregado. Serve pra saber
+    // NA HORA se o navegador esta com o codigo novo ou com cache velho,
+    // em vez de ficar adivinhando por sintoma.
+    __build: '20260728-tombstone-item',
+    chaveItemTombstone,
+    marcarItemRemovido,
     aplicarPtaxFechamento,      // Felipe s37: PTAX de fechamento (internacional)
     ehInternacionalComTaxa,
     // Felipe: usado pelo motor de perfis (31) pra forcar PA-007 no internacional
