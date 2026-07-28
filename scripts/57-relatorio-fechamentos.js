@@ -113,6 +113,10 @@ window.RelatorioFechamentos = (function () {
   }
 
   function montarLinhas(leads, ano) {
+    // Felipe s37 (casas decimais): toda celula NUMERICA do Excel sai em
+    // CENTAVO exato. Somas de floats 2-casas carregam residuo binario
+    // (32651736.269999996) e o Excel mostra as casas todas na celula.
+    const c2 = v => Math.round((Number(v) || 0) * 100) / 100;
     const meses = porMes(leads, ano);
     const rows = [];
     let totalAno = 0, qtdAno = 0, nacAno = 0, intAno = 0;
@@ -148,7 +152,7 @@ window.RelatorioFechamentos = (function () {
       rows.push(['', 'TOTAL ' + MESES[m - 1].toUpperCase()
                  + ' (' + doMes.length + ' clientes)', '', '', '', '',
                  'Nacional: ' + nacMes.toFixed(2),
-                 intMes > 0 ? 'Internacional: ' + intMes.toFixed(2) : '', '', somaMes]);
+                 intMes > 0 ? 'Internacional: ' + intMes.toFixed(2) : '', '', c2(somaMes)]);
 
       resumo.push({ mes: MESES[m - 1], qtd: doMes.length, nac: nacMes, int: intMes, total: somaMes });
       totalAno += somaMes; qtdAno += doMes.length; nacAno += nacMes; intAno += intMes;
@@ -158,9 +162,9 @@ window.RelatorioFechamentos = (function () {
     rows.push(['RESUMO ' + ano, '', '', '', '', '', '', '', '', '']);
     rows.push(['Mes', 'Clientes', '', '', '', '', 'Nacional', 'Internacional', '', 'Total do mes']);
     resumo.forEach(r => {
-      rows.push([r.mes, r.qtd, '', '', '', '', r.nac, r.int, '', r.total]);
+      rows.push([r.mes, r.qtd, '', '', '', '', c2(r.nac), c2(r.int), '', c2(r.total)]);
     });
-    rows.push(['TOTAL DO ANO', qtdAno, '', '', '', '', nacAno, intAno, '', totalAno]);
+    rows.push(['TOTAL DO ANO', qtdAno, '', '', '', '', c2(nacAno), c2(intAno), '', c2(totalAno)]);
 
     return { rows, totalAno, qtdAno, nacAno, intAno, resumo };
   }

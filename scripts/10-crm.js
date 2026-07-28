@@ -3680,13 +3680,19 @@ ${secoesHtml}
               // manual) e guarda o calculado no backup pra o botao "voltar".
               // Sem override -> valor calculado normal (resumo.valor ou l.valor).
               const _ovValorAtivo = (l.valorCalcBackup != null && l.valorCalcBackup !== '');
-              const _valorCalc = (resumo && resumo.hasVersaoFechada)
+              // Felipe s37 (casas decimais): TODO valor do card em CENTAVO.
+              // resumo.valor vem do DRE com fracao abaixo do centavo
+              // (85867.9042) e vazava pro data-valor-calc, pro botao de
+              // reset (que gravava o cru em lead.valor) e dai pros exports
+              // Excel, onde a celula mostra 4+ casas.
+              const _c2 = v => Math.round((Number(v) || 0) * 100) / 100;
+              const _valorCalc = _c2((resumo && resumo.hasVersaoFechada)
                 ? resumo.valor
-                : (_ovValorAtivo ? (Number(l.valorCalcBackup) || 0) : (Number(l.valor) || 0));
-              const valorFinal = _ovValorAtivo ? (Number(l.valor) || 0) : _valorCalc;
-              const precoProposta = (resumo && resumo.hasVersaoFechada)
+                : (_ovValorAtivo ? (Number(l.valorCalcBackup) || 0) : (Number(l.valor) || 0)));
+              const valorFinal = _ovValorAtivo ? _c2(l.valor) : _valorCalc;
+              const precoProposta = _c2((resumo && resumo.hasVersaoFechada)
                 ? resumo.precoProposta
-                : (Number(l.precoProposta) || 0);
+                : (Number(l.precoProposta) || 0));
 
               // Felipe sessao 31: 'deve ir valor total da proposta, pro
               // card e somar no pipline, mas deixe separado valor de
@@ -5217,12 +5223,15 @@ ${secoesHtml}
             const leadId = inp.dataset.leadId;
             const lead = state.leads.find(l => l.id === leadId);
             if (!lead) return;
-            const novo = parseFloat(String(inp.value).replace(/\./g, '').replace(',', '.'));
+            const novo = Math.round(parseFloat(String(inp.value).replace(/\./g, '').replace(',', '.')) * 100) / 100;
             if (!Number.isFinite(novo) || novo < 0) { render(container); return; }
             // Guarda o calculado (backup) so' na primeira edicao manual.
+            // Felipe s37: backup tambem em centavo (2 casas).
             if (lead.valorCalcBackup == null || lead.valorCalcBackup === '') {
               const calc = parseFloat(inp.dataset.valorCalc);
-              lead.valorCalcBackup = Number.isFinite(calc) ? calc : (Number(lead.valor) || 0);
+              lead.valorCalcBackup = Number.isFinite(calc)
+                ? Math.round(calc * 100) / 100
+                : Math.round((Number(lead.valor) || 0) * 100) / 100;
             }
             if ((Number(lead.valor) || 0) === novo) return;
             lead.valor = novo;
@@ -5245,7 +5254,9 @@ ${secoesHtml}
             const alvo = Number.isFinite(calc) ? calc
               : ((lead.valorCalcBackup != null && lead.valorCalcBackup !== '')
                   ? (Number(lead.valorCalcBackup) || 0) : (Number(lead.valor) || 0));
-            lead.valor = alvo;
+            // Felipe s37: grava em CENTAVO — antes o cru do DRE (4+ casas)
+            // entrava em lead.valor e vazava pros exports Excel.
+            lead.valor = Math.round(alvo * 100) / 100;
             delete lead.valorCalcBackup;
             save();
             render(container);
@@ -5434,7 +5445,7 @@ ${secoesHtml}
         l.modelo_porta || '',
         l.cor_interna || '',
         l.cor_externa || '',
-        Number(l.valor) || 0,
+        Math.round((Number(l.valor) || 0) * 100) / 100,   // Felipe s37: celula Excel em 2 casas
         l.etapa || 'fazer-orcamento',
         l.data || '',
         l.followup || '',
