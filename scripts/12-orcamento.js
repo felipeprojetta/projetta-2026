@@ -2960,8 +2960,15 @@ const Orcamento = (() => {
    *   opts.breakdownIntl  {{porta,frete,caixa,seguro,instalacao,total}} valores em R$
    */
   function aprovarOrcamento(versaoId, valorFaturamento, precoPropostaSemDesconto, opts) {
-    const valor = Number(valorFaturamento) || 0;
-    const precoProposta = Number(precoPropostaSemDesconto) || valor;  // fallback: usa o mesmo valor
+    // Felipe s37 (casas decimais): TODO valor monetario persiste em CENTAVO.
+    // O DRE devolve pFatReal com fracao abaixo do centavo (ex 135039.41905)
+    // que entrava cru em valorAprovado/lead.valor — a planilha do Felipe soma
+    // valores de 2 casas e o CRM somava os crus, dando drift de R$0,08 no
+    // total do ano. Banco ja foi saneado (66 leads arredondados em 27/07);
+    // este round evita recontaminacao a cada nova aprovacao.
+    const _c2 = v => Math.round((Number(v) || 0) * 100) / 100;
+    const valor = _c2(valorFaturamento);
+    const precoProposta = _c2(precoPropostaSemDesconto) || valor;  // fallback: usa o mesmo valor
     if (valor <= 0) {
       throw new Error('aprovarOrcamento: valor invalido (' + valor + ')');
     }
