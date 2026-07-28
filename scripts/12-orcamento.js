@@ -10566,6 +10566,42 @@ const Orcamento = (() => {
       }
       ehFotografiaImutavel = true;
       fotoCongeladoEm = dc.congeladoEm;
+    } else if (versaoEhImutavel(versao) && Number(versao.valorAprovado) > 0) {
+      // Felipe s37 — VALOR APROVADO MANDA (caso Jessica Rubia AGP004720).
+      //
+      // Problema: dre_congelado so' e' criado no FECHAMENTO. Versao apenas
+      // aprovada/enviada nao tinha fotografia — e o subFab/subInst dela pode
+      // ter sido recalculado e gravado por cima DEPOIS da aprovacao, porque
+      // a etapa 'orcamento-pronto' libera recalculo (ver versaoEhImutavel).
+      // Resultado real: aprovado/enviado ao cliente por R$ 89.672,28 e o DRE
+      // reaberto exibia R$ 104.629,69 — custo de 42.390,80 virou 49.461,31.
+      //
+      // Regra do Felipe: "se foi enviado fica travado todo valor e historico;
+      // so' existe revisao que grava em cima ou nova versao".
+      //
+      // Como: reconstroi o custo QUE GERA o valor aprovado (custo = vAprov/fF)
+      // e escala subFab/subInst proporcionalmente. Assim TODAS as linhas do
+      // DRE voltam a ser as da aprovacao e ficam coerentes entre si —
+      // em vez de exibir um numero que nunca foi pro cliente.
+      const vAprovOk = Number(versao.valorAprovado);
+      const rTmp = calcularDRE(subFab, subInstParaDRE, params);
+      const custoAlvo = (Number(rTmp.fF) > 0) ? (vAprovOk / Number(rTmp.fF)) : 0;
+      const ovh = 1 + (Number(params.overhead) || 0) / 100;
+      const baseAtual = (Number(subFab) || 0) + (Number(subInstParaDRE) || 0);
+      const baseAlvo = ovh > 0 ? (custoAlvo / ovh) : 0;
+      if (custoAlvo > 0 && baseAtual > 0 && baseAlvo > 0) {
+        const fatorEsc = baseAlvo / baseAtual;
+        r = calcularDRE((Number(subFab) || 0) * fatorEsc,
+                        (Number(subInstParaDRE) || 0) * fatorEsc, params);
+        r.pFatReal = vAprovOk;                       // o que o cliente paga
+        if (Number(versao.precoProposta) > 0) {
+          r.pTab = Number(versao.precoProposta);     // o "Original" da proposta
+        }
+        ehFotografiaImutavel = true;
+        fotoCongeladoEm = versao.aprovadoEm || versao.enviadaEm || null;
+      } else {
+        r = rTmp;
+      }
     } else {
       r = calcularDRE(subFab, subInstParaDRE, params);
     }
@@ -10828,46 +10864,32 @@ const Orcamento = (() => {
             <span class="orc-dre-valor">${fmtBR(r.markupPct)} %</span>
           </div>
           ${(() => {
-            // Felipe s37 — TRAVA DE VALOR APROVADO.
-            // Problema real (AGP004720 Jessica Rubia): versao aprovada em
-            // 08/06 por R$ 89.672,28; ao reabrir o DRE em 27/07 a tela
-            // mostrava R$ 104.629,69, porque o DRE SEMPRE recalcula com a
-            // tabela de precos de HOJE (o precos_snapshot existe mas nunca
-            // foi lido — ver nota em snapshotPrecosLeve). Resultado: o mesmo
-            // orcamento aprovado exibia 3 numeros diferentes e ninguem sabia
-            // qual valia.
-            // Agora: se a versao esta' aprovada, o valor APROVADO aparece em
-            // destaque como o que vale, e a diferenca pro recalculo de hoje
-            // e' explicada em vez de silenciosa.
+            // Felipe s37 — selo do VALOR APROVADO.
+            // Com a reconstrucao acima (custo derivado do valorAprovado), as
+            // linhas do DRE JA' sao as da aprovacao. Este selo so' confirma
+            // isso na tela, pra ninguem mais ficar na duvida de qual numero
+            // vale (caso Jessica Rubia: 3 numeros diferentes na mesma tela).
             const vAprov = Number(versao && versao.valorAprovado) || 0;
             if (!vAprov) return '';
             const pAprov = Number(versao.precoProposta) || 0;
-            const difer  = (Number(r.pFatReal) || 0) - vAprov;
-            const temDif = Math.abs(difer) >= 0.01;
             const dataAp = versao.aprovadoEm
               ? new Date(versao.aprovadoEm).toLocaleDateString('pt-BR') : '—';
+            const travado = versaoEhImutavel(versao);
             return `
-              <div class="orc-dre-aprovado${temDif ? ' tem-diferenca' : ''}">
+              <div class="orc-dre-aprovado${travado ? '' : ' tem-diferenca'}">
                 <div class="orc-dre-aprovado-tit">
-                  🔒 VALOR APROVADO ${dataAp !== '—' ? 'EM ' + dataAp : ''} — É ESTE QUE VALE
+                  ${travado ? '🔒' : '⚠️'} VALOR APROVADO ${dataAp !== '—' ? 'EM ' + dataAp : ''}
+                  ${travado ? '— TRAVADO' : '— VERSAO AINDA EDITAVEL'}
                 </div>
                 <div class="orc-dre-aprovado-nums">
                   <span>Original <b>${fmtMoeda(pAprov)}</b></span>
                   <span>Com Desconto <b>${fmtMoeda(vAprov)}</b></span>
                 </div>
-                ${temDif ? `
-                  <div class="orc-dre-aprovado-obs">
-                    Os números acima foram recalculados agora com a tabela de preços
-                    de hoje e dão <b>${fmtMoeda(r.pFatReal)}</b> —
-                    ${difer > 0 ? 'R$ ' + fmtBR(Math.abs(difer)) + ' a mais'
-                                : 'R$ ' + fmtBR(Math.abs(difer)) + ' a menos'}
-                    que o aprovado, porque os preços mudaram desde então.
-                    <b>O card e a proposta usam o valor aprovado.</b>
-                    Para repassar o preço novo ao cliente, crie uma <b>Nova Versão</b>.
-                  </div>` : `
-                  <div class="orc-dre-aprovado-obs ok">
-                    ✓ O recálculo de hoje bate com o valor aprovado.
-                  </div>`}
+                <div class="orc-dre-aprovado-obs${travado ? ' ok' : ''}">
+                  ${travado
+                    ? '✓ Os valores acima sao os desta aprovacao. Abrir o orcamento NAO recalcula nada. Para mudar o preco: <b>Revisar</b> (grava por cima) ou <b>Nova Versao</b>.'
+                    : 'Esta versao ainda esta editavel (lead em Fazer Orcamento / Orcamento Pronto), entao o DRE recalcula com os cadastros atuais. Ao enviar, os valores travam.'}
+                </div>
               </div>`;
           })()}
         </div>
