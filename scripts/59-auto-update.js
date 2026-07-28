@@ -157,10 +157,19 @@
     setInterval(_verificar, INTERVALO_MS);
     // checa tambem quando a aba volta pro foco (caso comum: Felipe volta
     // pro sistema depois de eu ter publicado uma correcao)
+    // visibilitychange e focus disparam JUNTOS quando a aba volta —
+    // sem debounce isso roda a verificacao 2x seguidas.
+    var _ultimaChecagem = 0;
+    function _verificarComDebounce() {
+      var agora = Date.now();
+      if (agora - _ultimaChecagem < 5000) return;
+      _ultimaChecagem = agora;
+      _verificar();
+    }
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') _verificar();
+      if (document.visibilityState === 'visible') _verificarComDebounce();
     });
-    window.addEventListener('focus', _verificar);
+    window.addEventListener('focus', _verificarComDebounce);
     // primeira checagem 20s apos o boot (deixa o sistema carregar antes)
     setTimeout(_verificar, 20000);
   }

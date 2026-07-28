@@ -283,7 +283,13 @@ const Storage = (() => {
     // servidor e o aviso so' assustaria sem haver acao possivel.
     // A funcao continua aqui, exportada e chamavel — se um dia a politica
     // mudar, basta remover o return abaixo pra religar o banner.
-    console.warn('[Storage] aviso de quota suprimido (dado de negocio nao usa disco).');
+    // Felipe s37: loga UMA vez por sessao. Antes repetia a cada gravacao
+    // de chave grande e poluia o console (print do Felipe: dezenas de
+    // linhas iguais). O aviso na tela segue desligado.
+    if (!_avisoQuotaMostrado) {
+      _avisoQuotaMostrado = true;
+      console.warn('[Storage] aviso de quota na tela esta desligado — dado de negocio vive em RAM+Supabase, nao no disco.');
+    }
     return;
     if (_avisoQuotaMostrado) return;
     _avisoQuotaMostrado = true;

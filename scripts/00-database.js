@@ -1452,12 +1452,27 @@ const Database = (() => {
               // versoes, banco tem as 3, mas o Felipe so' via 1.
               if (typeof Storage !== 'undefined' && Storage._applyRemote) {
                 Storage._applyRemote(r.scope, r.key, r.valor);
-                if (localStorage.getItem(lsKey) !== remoteVal) {
+                // Felipe s37: NAO confundir "politica" com "quota cheia".
+                // Desde que dado de negocio vive em RAM+Supabase, a chave
+                // DE PROPOSITO nao fica no localStorage — entao o getItem
+                // abaixo sempre daria diferente e o codigo concluia
+                // "quota cheia", spammando o console, rodando limpeza
+                // inutil e reaplicando o valor em dobro a cada polling.
+                // (Print do Felipe: dezenas de "realtime: quota cheia em
+                //  orcamentos/schema_version — liberou 0 backups locais".)
+                // So' checa quota nas chaves que REALMENTE deveriam estar
+                // no disco.
+                var _naoVaiProDisco = false;
+                try {
+                  _naoVaiProDisco = !!(Storage._pesadaDemais
+                    && Storage._pesadaDemais(remoteVal, r.scope, r.key));
+                } catch (_) {}
+                if (!_naoVaiProDisco && localStorage.getItem(lsKey) !== remoteVal) {
                   // cache em disco nao coube: libera backups locais
                   // (recuperaveis do Supabase) e reaplica. O memCache ja tem a
                   // verdade independente do localStorage.
                   var lib = _limparBackupsLocaisRT();
-                  console.warn('[DB] 🔄 realtime: quota cheia em ' + r.scope + '/' + r.key
+                  console.warn('[DB] realtime: quota cheia em ' + r.scope + '/' + r.key
                     + ' — liberou ' + lib + ' backups locais (memCache mantem a verdade)');
                   // Felipe s37: este e' o caminho por onde chegam os leads
                   // criados pela Paula/Thays. Quota aqui = Felipe nao ve os
