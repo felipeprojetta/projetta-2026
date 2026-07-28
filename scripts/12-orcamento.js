@@ -10827,6 +10827,49 @@ const Orcamento = (() => {
             <span class="orc-dre-formula">(pTab / custo − 1) × 100</span>
             <span class="orc-dre-valor">${fmtBR(r.markupPct)} %</span>
           </div>
+          ${(() => {
+            // Felipe s37 — TRAVA DE VALOR APROVADO.
+            // Problema real (AGP004720 Jessica Rubia): versao aprovada em
+            // 08/06 por R$ 89.672,28; ao reabrir o DRE em 27/07 a tela
+            // mostrava R$ 104.629,69, porque o DRE SEMPRE recalcula com a
+            // tabela de precos de HOJE (o precos_snapshot existe mas nunca
+            // foi lido — ver nota em snapshotPrecosLeve). Resultado: o mesmo
+            // orcamento aprovado exibia 3 numeros diferentes e ninguem sabia
+            // qual valia.
+            // Agora: se a versao esta' aprovada, o valor APROVADO aparece em
+            // destaque como o que vale, e a diferenca pro recalculo de hoje
+            // e' explicada em vez de silenciosa.
+            const vAprov = Number(versao && versao.valorAprovado) || 0;
+            if (!vAprov) return '';
+            const pAprov = Number(versao.precoProposta) || 0;
+            const difer  = (Number(r.pFatReal) || 0) - vAprov;
+            const temDif = Math.abs(difer) >= 0.01;
+            const dataAp = versao.aprovadoEm
+              ? new Date(versao.aprovadoEm).toLocaleDateString('pt-BR') : '—';
+            return `
+              <div class="orc-dre-aprovado${temDif ? ' tem-diferenca' : ''}">
+                <div class="orc-dre-aprovado-tit">
+                  🔒 VALOR APROVADO ${dataAp !== '—' ? 'EM ' + dataAp : ''} — É ESTE QUE VALE
+                </div>
+                <div class="orc-dre-aprovado-nums">
+                  <span>Original <b>${fmtMoeda(pAprov)}</b></span>
+                  <span>Com Desconto <b>${fmtMoeda(vAprov)}</b></span>
+                </div>
+                ${temDif ? `
+                  <div class="orc-dre-aprovado-obs">
+                    Os números acima foram recalculados agora com a tabela de preços
+                    de hoje e dão <b>${fmtMoeda(r.pFatReal)}</b> —
+                    ${difer > 0 ? 'R$ ' + fmtBR(Math.abs(difer)) + ' a mais'
+                                : 'R$ ' + fmtBR(Math.abs(difer)) + ' a menos'}
+                    que o aprovado, porque os preços mudaram desde então.
+                    <b>O card e a proposta usam o valor aprovado.</b>
+                    Para repassar o preço novo ao cliente, crie uma <b>Nova Versão</b>.
+                  </div>` : `
+                  <div class="orc-dre-aprovado-obs ok">
+                    ✓ O recálculo de hoje bate com o valor aprovado.
+                  </div>`}
+              </div>`;
+          })()}
         </div>
       </div>
 

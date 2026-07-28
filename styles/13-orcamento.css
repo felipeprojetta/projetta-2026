@@ -3394,3 +3394,43 @@
   border-color: #f59e0b !important;
   background: #fffbeb;
 }
+
+/* Felipe s37 — TRAVA DE VALOR APROVADO no DRE.
+   Caso Jessica Rubia (AGP004720): versao aprovada por R$ 89.672,28 mostrava
+   R$ 104.629,69 ao reabrir, porque o DRE recalcula com a tabela de hoje.
+   Este bloco deixa explicito qual valor vale e explica a diferenca. */
+.orc-dre-aprovado {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 2px solid var(--verde, #1a7f4b);
+  border-radius: var(--radius-sm, 4px);
+  background: #f0f9f4;
+}
+.orc-dre-aprovado.tem-diferenca {
+  border-color: #b45309;
+  background: #fffbeb;
+}
+.orc-dre-aprovado-tit {
+  font-family: var(--font-body, sans-serif);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: #14532d;
+  margin-bottom: 8px;
+}
+.orc-dre-aprovado.tem-diferenca .orc-dre-aprovado-tit { color: #7c2d12; }
+.orc-dre-aprovado-nums {
+  display: flex;
+  gap: 26px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--azul-escuro, #14304a);
+}
+.orc-dre-aprovado-nums b { font-size: 15px; }
+.orc-dre-aprovado-obs {
+  margin-top: 8px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #7c2d12;
+}
+.orc-dre-aprovado-obs.ok { color: #14532d; }
