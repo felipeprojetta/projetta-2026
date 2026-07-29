@@ -1496,7 +1496,12 @@ const Orcamento = (() => {
         subInst:   subInstPorIdx[idx],
         custo:     dreItem.custo,
         precoFinal,
+        // Felipe s37: preco COM DESCONTO por item, pra tabela Distribuicao
+        // por Item mostrar as duas colunas (tabela e o que o cliente paga).
+        // pFatReal = pTab x (1 - desconto), ja' calculado pelo calcularDRE.
+        precoFinalDesc: Number(dreItem.pFatReal) || 0,
         valorUn:   qtd > 0 ? precoFinal / qtd : 0,
+        valorUnDesc: qtd > 0 ? (Number(dreItem.pFatReal) || 0) / qtd : 0,
         // Detalhe pra debug / tooltip futuro
         _detalhe: {
           perfis:    perfisPorIdx[idx]    || 0,
@@ -1519,8 +1524,9 @@ const Orcamento = (() => {
     });
 
     const totalGeral = porItem.reduce((s, x) => s + x.precoFinal, 0);
+    const totalGeralDesc = porItem.reduce((s, x) => s + (x.precoFinalDesc || 0), 0);
 
-    return { porItem, totalGeral };
+    return { porItem, totalGeral, totalGeralDesc };
   }
 
 
@@ -9844,7 +9850,8 @@ const Orcamento = (() => {
               <td class="num">R$ ${fmtBR(v.subFab)}</td>
               <td class="num">${fmtBR(pctFab)} %</td>
               ${ehInternacionalDist ? '' : `<td class="num">R$ ${fmtBR(v.subInst)}</td>`}
-              <td class="num"><b>R$ ${fmtBR(v.precoFinal)}</b></td>
+              <td class="num">R$ ${fmtBR(v.precoFinal)}</td>
+              <td class="num"><b style="color:#b45309;">R$ ${fmtBR(v.precoFinalDesc != null ? v.precoFinalDesc : v.precoFinal)}</b></td>
             </tr>`;
         }).join('');
         return `
@@ -9855,8 +9862,9 @@ const Orcamento = (() => {
               ${ehInternacionalDist
                 ? 'Em internacional, instalacao e\' cobrada separado (nao distribuida).'
                 : 'Custo de <b>Instalacao</b> dividido proporcional ao subFab de cada item (item maior = mais participacao no frete/montagem).'}
-              Preco Final ja' aplica o markup do DRE — esses valores aparecem
-              na proposta comercial em "Valor (un.)" e "Valor Total".
+              <b>Preco Final (pTab)</b> e' o preco de tabela (markup do DRE).
+              <b>Com Desconto</b> e' o que o cliente paga de fato, ja' aplicado
+              o desconto do DRE — e' este que aparece na proposta comercial.
             </p>
             <div class="orc-fi-distrib-wrap">
               <table class="orc-fi-distrib-tabela">
@@ -9870,6 +9878,7 @@ const Orcamento = (() => {
                     <th class="num">% Fab</th>
                     ${ehInternacionalDist ? '' : '<th class="num">Custo Inst</th>'}
                     <th class="num">Preco Final (pTab)</th>
+                    <th class="num">Com Desconto</th>
                   </tr>
                 </thead>
                 <tbody>${linhas}</tbody>
@@ -9880,6 +9889,7 @@ const Orcamento = (() => {
                     <td class="num">100,00 %</td>
                     ${ehInternacionalDist ? '' : `<td class="num"><b>R$ ${fmtBR(vp.porItem.reduce((s, x) => s + x.subInst, 0))}</b></td>`}
                     <td class="num"><b>R$ ${fmtBR(vp.totalGeral)}</b></td>
+                    <td class="num"><b style="color:#b45309;">R$ ${fmtBR(vp.totalGeralDesc != null ? vp.totalGeralDesc : vp.totalGeral)}</b></td>
                   </tr>
                 </tfoot>
               </table>
