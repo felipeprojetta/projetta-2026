@@ -15796,6 +15796,32 @@ const Orcamento = (() => {
     }
   }
 
+  /**
+   * Felipe s37: lista os ITENS EXTRAS marcados, pra aparecerem na proposta.
+   * Usado pelos cards de porta externa e porta interna.
+   */
+  function bannerItensExtrasProposta(item) {
+    try {
+      const sel = Array.isArray(item && item.itensExtras) ? item.itensExtras : [];
+      if (!sel.length) return '';
+      const cad = (typeof Storage !== 'undefined' && Storage.scope)
+        ? (Storage.scope('cadastros').get('acessorios_lista') || []) : [];
+      const porCod = {};
+      cad.forEach(a => { if (a && a.codigo) porCod[String(a.codigo).trim()] = a; });
+      const nomes = [], vistos = {};
+      sel.forEach(c => {
+        const k = String(c || '').trim();
+        if (!k || vistos[k]) return;
+        vistos[k] = true;
+        const a = porCod[k];
+        nomes.push(a && a.descricao ? String(a.descricao) : k);
+      });
+      if (!nomes.length) return '';
+      return '<div class="rel-prop-banner-alisar is-sim" style="margin-top:6px;">'
+        + 'ITENS INCLUSOS: <b>' + escapeHtml(nomes.join(' · ')) + '</b></div>';
+    } catch (e) { return ''; }
+  }
+
   function blocoPrecoCardProposta(item, idx, versao) {
     // Felipe s37 — BLOCO DESLIGADO.
     // Este bloco (preco dentro do card do item) foi pedido pelo Felipe e
@@ -15974,6 +16000,7 @@ const Orcamento = (() => {
     const bannerAlisar = (_alisarVal !== 'Nao')
       ? `<div class="rel-prop-banner-alisar is-sim">${tr('ALISAR','Architrave')}: <b>${_alisarLbl}</b> (${tr('largura','width')} ${item.largura_alisar || 100}mm · ${tr('parede','wall')} ${item.espessura_parede || 250}mm)</div>`
       : `<div class="rel-prop-banner-alisar is-nao">${tr('ALISAR','Architrave')}: <b>${tr('SEM ALISAR','WITHOUT ARCHITRAVE')}</b></div>`;
+
 
     const temFechDigital = item.fechaduraDigital && item.fechaduraDigital !== 'Nao se aplica' && item.fechaduraDigital !== '';
     const bannerFechDigital = temFechDigital
@@ -16190,6 +16217,7 @@ const Orcamento = (() => {
             return `<div class="rel-prop-item-linhas rel-prop-item-modelo-vars">${linhas}${notaPintura}</div>`;
           })()}
           ${bannerAlisar}
+          ${bannerItensExtrasProposta(item)}
           ${item.observacao && String(item.observacao).trim() ? `<div class="rel-prop-banner-observacao" style="margin-top:8px;padding:10px 12px;background:#fef3c7;border:1px solid #f59e0b;border-left:4px solid #d97706;border-radius:4px;font-size:12px;color:#78350f;"><div style="font-weight:700;font-size:11px;letter-spacing:0.05em;margin-bottom:4px;color:#92400e;">${tr('OBSERVACOES','NOTES')}:</div><div style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</div></div>` : ''}
           ${blocoPrecoCardProposta(item, idx, versao)}
         </div>
@@ -16357,6 +16385,7 @@ const Orcamento = (() => {
             })()}
           </div>
           ${bannerAlisar}
+          ${bannerItensExtrasProposta(item)}
           <div class="rel-prop-item-linhas">
             <div class="rel-prop-item-linha"><span class="lbl">${tr('COR FACE EXTERNA','EXTERIOR FACE COLOR')}:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
             <div class="rel-prop-item-linha"><span class="lbl">${tr('COR FACE INTERNA','INTERIOR FACE COLOR')}:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
