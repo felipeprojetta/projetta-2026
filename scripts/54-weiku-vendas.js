@@ -676,13 +676,46 @@
   function renderTabela(container) {
     _projIdx = null; // recarrega leads do CRM a cada render
     var lista = aplicarFiltro();
-    var k = ui.sortKey;
-    lista.sort(function (a, b) {
+    // Felipe s37: ORDENACAO EM CAMADAS. "quero fazer ali filtro por camada,
+    // primeiro por data depois por valor."
+    // Antes ordenava por UMA coluna so': clicar em Valor perdia a ordem de
+    // data, e clicar em Data deixava os valores embaralhados dentro do
+    // mesmo dia. Agora a coluna clicada e' a camada PRINCIPAL e as demais
+    // entram como desempate, na ordem em que foram clicadas.
+    // ui.sortLayers = [{k:'dt', asc:false}, {k:'v', asc:false}, ...]
+    var camadas = (ui.sortLayers && ui.sortLayers.length)
+      ? ui.sortLayers
+      : [{ k: ui.sortKey, asc: ui.sortAsc }];
+    function _cmp(a, b, k, asc) {
       var x = a[k], y = b[k];
-      if (typeof x === 'string') { x = x.toLowerCase(); y = (y || '').toLowerCase(); }
-      else { x = x || 0; y = y || 0; }
-      return (x < y ? -1 : x > y ? 1 : 0) * (ui.sortAsc ? 1 : -1);
+      if (typeof x === 'string' || typeof y === 'string') {
+        x = String(x == null ? '' : x).toLowerCase();
+        y = String(y == null ? '' : y).toLowerCase();
+      } else { x = x || 0; y = y || 0; }
+      return (x < y ? -1 : x > y ? 1 : 0) * (asc ? 1 : -1);
+    }
+    lista.sort(function (a, b) {
+      for (var i = 0; i < camadas.length; i++) {
+        var r = _cmp(a, b, camadas[i].k, camadas[i].asc);
+        if (r !== 0) return r;
+      }
+      return 0;
     });
+
+    // Felipe s37: mostra a ORDEM das camadas no cabecalho (1, 2, 3) com a
+    // seta de cada uma, senao nao da' pra saber o que esta ordenando o que.
+    try {
+      container.querySelectorAll('thead th[data-s]').forEach(function (th) {
+        var kk = th.getAttribute('data-s');
+        var pos = camadas.findIndex(function (c) { return c.k === kk; });
+        var base = th.textContent.replace(/\s*[▲▼]\s*\d*$/, '').trim();
+        th.title = 'Clique pra ordenar. SHIFT+clique adiciona uma camada '
+                 + '(ex: Fechamento e depois Valor).';
+        th.textContent = pos < 0 ? base
+          : base + ' ' + (camadas[pos].asc ? '▲' : '▼')
+                 + (camadas.length > 1 ? String(pos + 1) : '');
+      });
+    } catch (_) {}
 
     var soma = lista.reduce(function (s, d) { return s + (d.v || 0); }, 0);
     var comWa = lista.filter(temWa).length;
@@ -807,8 +840,27 @@
     container.querySelectorAll('thead th[data-s]').forEach(function (th) {
       th.addEventListener('click', function () {
         var k = th.getAttribute('data-s');
-        if (ui.sortKey === k) ui.sortAsc = !ui.sortAsc;
-        else { ui.sortKey = k; ui.sortAsc = (k === 'nome' || k === 'cidade' || k === 'uf' || k === 'rep'); }
+        var textoAsc = (k === 'nome' || k === 'cidade' || k === 'uf' || k === 'rep');
+        if (!Array.isArray(ui.sortLayers)) ui.sortLayers = [];
+        // Felipe s37: CLIQUE NORMAL troca a ordenacao (comportamento antigo).
+        // CLIQUE COM SHIFT ADICIONA uma camada — "primeiro por data, depois
+        // por valor": clica em Fechamento, depois Shift+clique em Valor.
+        if (event && event.shiftKey) {
+          var ja = ui.sortLayers.findIndex(function (c) { return c.k === k; });
+          if (ja >= 0) ui.sortLayers[ja].asc = !ui.sortLayers[ja].asc;
+          else ui.sortLayers.push({ k: k, asc: textoAsc });
+          // teto de 3 camadas: alem disso nao muda nada na pratica
+          if (ui.sortLayers.length > 3) ui.sortLayers = ui.sortLayers.slice(-3);
+        } else {
+          if (ui.sortKey === k) ui.sortAsc = !ui.sortAsc;
+          else { ui.sortKey = k; ui.sortAsc = textoAsc; }
+          ui.sortLayers = [{ k: ui.sortKey, asc: ui.sortAsc }];
+        }
+        // mantem sortKey/sortAsc em sincronia com a 1a camada (setinha do th)
+        if (ui.sortLayers.length) {
+          ui.sortKey = ui.sortLayers[0].k;
+          ui.sortAsc = ui.sortLayers[0].asc;
+        }
         renderTabela(container);
       });
     });
