@@ -36,6 +36,7 @@
     mes: '',
     excluiPredio: false,
     soComWa: false,
+    ocultaComprou: true,   // Felipe s37: some quem ja' comprou (default ligado)
     sortKey: 'v',
     sortAsc: false,
     msg: 'Ola {nome}, tudo bem? Falo em nome da Projetta Aluminio, empresa do grupo Weiku do Brasil. Como fazemos parte do mesmo grupo, o contrato das suas esquadrias Weiku consta em nosso sistema. Nosso objetivo e assegurar que os clientes do grupo conhecam tambem as portas de entrada de alto padrao fabricadas pela Projetta - sob medida, no mesmo nivel de qualidade das esquadrias. Antes de avancar, gostariamos de confirmar: o representante que conduziu seu atendimento chegou a apresentar as portas da Projetta ou elaborar algum orcamento?'
@@ -117,13 +118,19 @@
       por: e.por || '',
       enviadoTs: e.enviadoTs || e.ts || null,
       retornou: e.retornou === true,
-      retornouTs: e.retornouTs || null
+      retornouTs: e.retornouTs || null,
+      // Felipe s37: "coloque ali um botao tbm ja' comprou manual — pode
+      // ter algum cliente antigo que nao esta no sistema que ja' comprou".
+      // O vinculo com AGP so' cobre quem virou lead na Projetta; cliente
+      // antigo que comprou fora do CRM ficava sendo prospectado a toa.
+      jaComprou: e.jaComprou === true,
+      jaComprouTs: e.jaComprouTs || null
     };
   }
   function marcarStatus(r, patch) {
     try {
       var m = getEnvios();
-      var cur = _normSt(m[r]) || { enviado: false, por: '', enviadoTs: null, retornou: false, retornouTs: null };
+      var cur = _normSt(m[r]) || { enviado: false, por: '', enviadoTs: null, retornou: false, retornouTs: null, jaComprou: false, jaComprouTs: null };
       for (var k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) cur[k] = patch[k]; }
       m[r] = cur;
       Storage.scope(SCOPE).set('envios', m); // upsert -> Supabase (compartilhado Felipe/Thays)
@@ -141,9 +148,10 @@
     } catch (_) { return ''; }
   }
   function cellStatusHTML(r, raw) {
-    var s = _normSt(raw) || { enviado: false, por: '', retornou: false };
+    var s = _normSt(raw) || { enviado: false, por: '', retornou: false, jaComprou: false };
     var envCls = 'wkv-st wkv-st-env' + (s.enviado ? ' on' : '');
     var retCls = 'wkv-st wkv-st-ret' + (s.retornou ? ' on' : '');
+    var cmpCls = 'wkv-st wkv-st-cmp' + (s.jaComprou ? ' on' : '');
     var sel = '<select class="wkv-st-por" data-r="' + esc(r) + '" title="Quem enviou a mensagem">'
       + '<option value=""' + (!s.por ? ' selected' : '') + '>quem?</option>'
       + '<option value="Felipe"' + (s.por === 'Felipe' ? ' selected' : '') + '>Felipe</option>'
@@ -155,6 +163,7 @@
       + sel
       + '</div>'
       + '<button class="' + retCls + '" data-r="' + esc(r) + '" title="Marcar que o cliente respondeu">' + (s.retornou ? '\u21a9 Retornou' : 'Retornou') + '</button>'
+      + '<button class="' + cmpCls + '" data-r="' + esc(r) + '" title="Cliente antigo que ja comprou da Projetta fora do CRM. Marcado, sai da prospeccao.">' + (s.jaComprou ? '\u2714 Ja comprou' : 'Ja comprou') + '</button>'
       + '</div>';
   }
   function _refreshStatusCell(el, r) {
@@ -356,6 +365,11 @@
       if (ui.cidade && d.cidade !== ui.cidade) return false;
       if (ui.rep && d.rep !== ui.rep) return false;
       if (ui.soComWa && !temWa(d)) return false;
+      // Felipe s37: cliente marcado como 'ja comprou' sai da prospeccao.
+      if (ui.ocultaComprou) {
+        var _st = _normSt(getEnvios()[d.reserva]);
+        if (_st && _st.jaComprou) return false;
+      }
       if (ui.ano || ui.mes) {
         var dm = dataAnoMes(d.data);
         if (ui.ano && dm.ano !== ui.ano) return false;
@@ -558,6 +572,7 @@
       '.wkv-st:hover{border-color:var(--wkv-teal);color:var(--wkv-teal)}',
       '.wkv-st-env.on{background:#dcfce7;border-color:#16a34a;color:#15803d}.wkv-st-env.on:hover{color:#15803d}',
       '.wkv-st-ret.on{background:#dbeafe;border-color:#2563eb;color:#1d4ed8}.wkv-st-ret.on:hover{color:#1d4ed8}',
+      '.wkv-st-cmp.on{background:#0f3f5f;border-color:#0f3f5f;color:#fff;font-weight:600}.wkv-st-cmp.on:hover{color:#fff}',
       '.wkv-st-por{font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;color:var(--wkv-tinta);cursor:pointer}',
       '.wkv-open{background:none;border:none;padding:0;font:inherit;cursor:pointer;text-align:left;color:inherit}',
       '.wkv-open:hover{color:var(--wkv-teal);text-decoration:underline}',
@@ -628,6 +643,7 @@
       + '      <div class="wkv-fld"><label>Representante</label><select id="wkv-f-rep"><option value="">Todos</option>' + reps.map(function (r) { return '<option>' + esc(r) + '</option>'; }).join('') + '</select></div>'
       + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-npredio"' + (ui.excluiPredio ? ' checked' : '') + '> Excluir predios</label>'
       + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-comwa"' + (ui.soComWa ? ' checked' : '') + '> So com WhatsApp</label>'
+      + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-comprou"' + (ui.ocultaComprou ? ' checked' : '') + '> Ocultar quem ja comprou</label>'
       + '    </div>'
       + '    <div class="wkv-acoes">'
       + '      <button class="wkv-btn wkv-btn-out" id="wkv-reset">\u21ba Limpar filtros</button>'
@@ -808,6 +824,7 @@
       ui.mes = $('wkv-f-mes') ? $('wkv-f-mes').value : '';
       ui.excluiPredio = $('wkv-f-npredio').checked;
       ui.soComWa = $('wkv-f-comwa').checked;
+      if ($('wkv-f-comprou')) ui.ocultaComprou = $('wkv-f-comprou').checked;
       ui.msg = $('wkv-msg').value;
       renderTabela(container);
     }
@@ -824,7 +841,7 @@
       ui.busca = ''; ui.vmin = null; ui.vmax = null; ui.pavMax = null; ui.uf = ''; ui.rep = '';
       ui.cidade = '';
       ui.ano = ''; ui.mes = '';
-      ui.excluiPredio = false; ui.soComWa = false;
+      ui.excluiPredio = false; ui.soComWa = false; ui.ocultaComprou = true;
       $('wkv-f-busca').value = ''; $('wkv-f-vmin').value = ''; $('wkv-f-vmax').value = '';
       $('wkv-f-pav').value = ''; $('wkv-f-uf').value = ''; $('wkv-f-rep').value = '';
       if ($('wkv-f-cidade')) $('wkv-f-cidade').value = '';
@@ -902,6 +919,17 @@
         var on2 = !(cr && cr.retornou);
         marcarStatus(rr, { retornou: on2, retornouTs: on2 ? Date.now() : null });
         _refreshStatusCell(retBtn, rr);
+        return;
+      }
+      // Felipe s37: "ja comprou" manual — cliente antigo que comprou da
+      // Projetta fora do CRM. Marca e sai da prospeccao.
+      var cmpBtn = ev.target.closest('.wkv-st-cmp');
+      if (cmpBtn) {
+        var rc = cmpBtn.getAttribute('data-r');
+        var cc = _normSt(getEnvios()[rc]);
+        var on3 = !(cc && cc.jaComprou);
+        marcarStatus(rc, { jaComprou: on3, jaComprouTs: on3 ? Date.now() : null });
+        _refreshStatusCell(cmpBtn, rc);
         return;
       }
       // remover (opt-out)
