@@ -8968,6 +8968,15 @@ const Orcamento = (() => {
     // checkar('fab.total_extras', 'Extras (chapas/livres)', fab.total_extras, 'Fabricacao');
 
     // ---- Instalacao (depende do modo) ----
+    // Felipe s37: SEM INSTALACAO nao cobra NADA de instalacao.
+    // "quando colocar marcado ali sem instalacao nao necessita dessa trava
+    //  perguntando se e' zerado, uma vez que nao tem instalacao."
+    // Antes o bloco so' olhava o MODO (projetta/terceiros) e ignorava o
+    // check 'sem_instalacao' — entao o orcamento pedia distancia em km,
+    // dias, hotel e alimentacao de uma instalacao que nao existe, e o
+    // usuario tinha que marcar cada campo como "item zerado" pra destravar
+    // a DRE. Zero aqui e' o valor CORRETO, nao um esquecimento.
+    if (inst.sem_instalacao) return pend;
     const ehTerceiros = (inst.modo === 'terceiros' || inst.modo === 'internacional');
     if (ehTerceiros) {
       checkar('inst.inst_terceiros_valor',  'Valor da instalacao',    inst.inst_terceiros_valor,  'Instalacao');
