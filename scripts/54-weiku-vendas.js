@@ -111,6 +111,23 @@
   // Por reserva (em weiku/envios, compartilhado na nuvem): enviado?,
   // quem enviou (Felipe/Thays), e se o cliente retornou. Compat com o
   // formato antigo da API (status:'sent' vira enviado:true).
+  /**
+   * Felipe s37: converte data pra chave ordenavel (aaaammdd).
+   * Aceita dd/mm/aaaa, aaaa-mm-dd e Date. Vazio vai pro fim.
+   */
+  function _dataOrdenavel(v) {
+    if (!v) return 0;
+    if (v instanceof Date) {
+      return v.getFullYear() * 10000 + (v.getMonth() + 1) * 100 + v.getDate();
+    }
+    var t = String(v).trim();
+    var m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})/);          // dd/mm/aaaa
+    if (m) return Number(m[3]) * 10000 + Number(m[2]) * 100 + Number(m[1]);
+    m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);                  // aaaa-mm-dd
+    if (m) return Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]);
+    return 0;
+  }
+
   function _normSt(e) {
     if (!e || typeof e !== 'object') return null;
     return {
@@ -704,6 +721,15 @@
       : [{ k: ui.sortKey, asc: ui.sortAsc }];
     function _cmp(a, b, k, asc) {
       var x = a[k], y = b[k];
+      // Felipe s37: DATA nao pode ser comparada como TEXTO. O campo vem
+      // em dd/mm/aaaa, entao a comparacao alfabetica ordenava pelo DIA
+      // primeiro, depois mes, depois ano — por isso a lista misturava
+      // 2026, 2025 e 2026 de novo (31/03/2026 vinha antes de 31/01/2025
+      // porque '03' > '01'). Converte pra aaaammdd antes de comparar.
+      if (k === 'data') {
+        x = _dataOrdenavel(x); y = _dataOrdenavel(y);
+        return (x < y ? -1 : x > y ? 1 : 0) * (asc ? 1 : -1);
+      }
       if (typeof x === 'string' || typeof y === 'string') {
         x = String(x == null ? '' : x).toLowerCase();
         y = String(y == null ? '' : y).toLowerCase();
