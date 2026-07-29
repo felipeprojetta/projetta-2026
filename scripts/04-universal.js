@@ -378,6 +378,17 @@
         ws['!cols'] = headers.map(h => ({ wch: Math.max(10, String(h || '').length + 4) }));
       }
 
+      // Felipe s37: cabecalho CONGELADO por padrao e filtro automatico
+      // opcional. Em relatorio longo (o por coluna passa de 250 linhas)
+      // rolar e perder o nome das colunas e' o que mais atrapalha.
+      if (opts.congelarCabecalho !== false) {
+        ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
+      }
+      if (opts.filtroAutomatico) {
+        ws['!autofilter'] = { ref: XLSX.utils.encode_range({
+          s: { r: 0, c: 0 }, e: { r: numRows - 1, c: numCols - 1 } }) };
+      }
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
       const today = new Date().toISOString().slice(0,10);

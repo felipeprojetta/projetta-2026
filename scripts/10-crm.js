@@ -5730,6 +5730,7 @@ ${secoesHtml}
         sheetName: 'Relatorio por Coluna',
         fileName: 'crm_relatorio_por_coluna_' + hoje,
         colWidths: [20, 38, 12, 16, 24, 26, 11, 9, 42, 17, 19, 12],
+        filtroAutomatico: true,
       });
     }
 
