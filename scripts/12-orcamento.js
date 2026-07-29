@@ -11712,6 +11712,23 @@ const Orcamento = (() => {
                      style="width:100%;padding:10px 14px;font-size:18px;font-weight:700;color:#7c2d12;border:2px solid #fbbf24;border-radius:6px;background:#fff;font-variant-numeric:tabular-nums;"
                      value="${(r.pFatReal && r.pFatReal > 0) ? fmtBR(r.pFatReal) : ''}" />
             </div>
+            <div style="flex:1;min-width:200px;">
+              <label style="display:block;font-size:11px;color:#78350f;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">
+                Valor Original (R$) — preco de tabela
+              </label>
+              <!-- Felipe s37: "me de aqui para ajustar o valor final mas
+                   tambem o valor original". Antes so' dava pra digitar o
+                   que o cliente paga; o de tabela era derivado por dentro
+                   (pTab = final / (1 - desconto)) e nao dava pra fixar.
+                   Agora os dois campos existem e sao equivalentes: digitar
+                   em um calcula o outro na hora, pelo mesmo desconto do
+                   DRE. Preenche o que for mais natural pra negociacao. -->
+              <input type="text" id="orc-input-valor-manual-orig"
+                     placeholder="Ex: 280.052,10"
+                     style="width:100%;padding:10px 14px;font-size:18px;font-weight:700;color:#78350f;border:2px solid #d97706;border-radius:6px;background:#fff;font-variant-numeric:tabular-nums;"
+                     value="${(r.pTab && r.pTab > 0) ? fmtBR(r.pTab) : ''}" />
+              <div style="font-size:10px;color:#92400e;margin-top:3px;">desconto ${fmtBR(Number((versaoAtiva() && versaoAtiva().parametros && versaoAtiva().parametros.desconto) || 20))} % aplicado sobre este</div>
+            </div>
             ${ehInternacionalDRE && taxaDRE > 0 ? `
             <div style="flex:1;min-width:200px;">
               <label style="display:block;font-size:11px;color:#0c5485;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;">
@@ -12194,6 +12211,31 @@ const Orcamento = (() => {
         }
       });
     }
+
+    // Felipe s37: sincroniza Valor Original <-> Valor Final pelo desconto
+    // do DRE. Digitar em qualquer um dos dois preenche o outro na hora, pra
+    // o usuario ver os dois numeros antes de clicar em Ajustar Margem.
+    (function () {
+      var inpFin  = container.querySelector('#orc-input-valor-manual');
+      var inpOrig = container.querySelector('#orc-input-valor-manual-orig');
+      if (!inpFin || !inpOrig) return;
+      function _descAtual() {
+        var v = versaoAtiva();
+        var p = Object.assign({}, PARAMS_DEFAULT, (v && v.parametros) || {});
+        var d = (Number(p.desconto) || 0) / 100;
+        return (d >= 1 ? 0 : d);   // desconto de 100% deixaria divisao por zero
+      }
+      inpOrig.addEventListener('input', function () {
+        var orig = parseBR(inpOrig.value || '');
+        if (!(orig > 0)) return;
+        inpFin.value = fmtBR(orig * (1 - _descAtual()));
+      });
+      inpFin.addEventListener('input', function () {
+        var fin = parseBR(inpFin.value || '');
+        if (!(fin > 0)) return;
+        inpOrig.value = fmtBR(fin / Math.max(0.01, 1 - _descAtual()));
+      });
+    })();
 
     container.querySelector('#orc-btn-aplicar-valor-manual')?.addEventListener('click', () => {
       const versao = versaoAtiva();
