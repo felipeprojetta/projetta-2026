@@ -15722,8 +15722,21 @@ const Orcamento = (() => {
       const v = vp && vp.porItem && vp.porItem[idx];
       if (!v || !(Number(v.precoFinal) > 0)) return '';
       const qtd = Math.max(1, Number(v.qtd) || 1);
-      const usarDesc = Number(v.precoFinalDesc) > 0;
-      const total = usarDesc ? Number(v.precoFinalDesc) : Number(v.precoFinal);
+      // Felipe s37 (FIX): usa o MESMO valor da tabela de itens da proposta.
+      // "valor unitario esta R$ 21.542,47 x 13 bate o valor total do DRE;
+      //  me diga de onde voce tirou o valor de 15 mil unitario e depois
+      //  204 mil" — ele estava certo: o card mostrava R$ 15.720,48 x 13 =
+      // R$ 204.366,23 enquanto a tabela logo abaixo, na MESMA proposta,
+      // mostrava R$ 21.542,47 x 13 = R$ 280.052,10 (que bate com o pTab
+      // do DRE). Dois numeros diferentes pro mesmo item, na mesma pagina,
+      // na frente do cliente.
+      // CAUSA: o bloco usava precoFinalDesc (com desconto) e a tabela usa
+      // precoFinal (tabela) — bases diferentes. E o precoFinalDesc ainda
+      // vinha errado: 280.052,10 com 20% da 224.041,68, nao 204.366,23.
+      // Ate entender de onde sai esse desvio, o card passa a usar
+      // EXATAMENTE precoFinal, a mesma fonte da tabela — assim os dois nao
+      // tem como divergir.
+      const total = Number(v.precoFinal);
       // internacional = destino do LEAD (mesma regra do resto da proposta)
       let intl = false;
       try {
