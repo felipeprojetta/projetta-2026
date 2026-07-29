@@ -7910,9 +7910,15 @@ const Orcamento = (() => {
           const acessoriosFull = (typeof Storage !== 'undefined' && Storage.scope)
             ? (Storage.scope('cadastros').get('acessorios_lista') || [])
             : [];
-          const itensExtrasCat = acessoriosFull.filter(a =>
-            /^itens\s*extras$/i.test(String(a.familia || '').trim())
-          );
+          // Felipe s37: a familia certa e' "Acessorios Extras" (nao
+          // "Itens Extras", que era o chute da sessao 32 e nunca existiu
+          // no cadastro). Aceita as duas grafias e ignora acento/caixa,
+          // pra nao depender de como foi digitado no cadastro.
+          const itensExtrasCat = acessoriosFull.filter(a => {
+            const fam = String(a.familia || '').trim()
+              .normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            return fam === 'acessorios extras' || fam === 'itens extras';
+          });
           const possui = !!item.possuiItensExtras;
           const selecionados = Array.isArray(item.itensExtras) ? item.itensExtras : [];
           return `
@@ -8992,8 +8998,16 @@ const Orcamento = (() => {
     if (!lista.length) return vazio;   // cadastro nao carregou: nao mexe
 
     const porCodigo = {};
+    // Felipe s37: so' entram acessorios da familia "Acessorios Extras".
+    // Sem esse filtro, um codigo que trocasse de familia no cadastro
+    // continuaria somando no campo Extras silenciosamente.
+    const _ehExtra = (fam) => {
+      const f = String(fam || '').trim()
+        .normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      return f === 'acessorios extras' || f === 'itens extras';
+    };
     lista.forEach(a => {
-      if (a && a.codigo) porCodigo[String(a.codigo).trim()] = a;
+      if (a && a.codigo && _ehExtra(a.familia)) porCodigo[String(a.codigo).trim()] = a;
     });
 
     let total = 0, qtd = 0;
