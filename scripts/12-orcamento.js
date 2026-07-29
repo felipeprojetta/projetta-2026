@@ -8001,21 +8001,25 @@ const Orcamento = (() => {
               .normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
             return fam === 'acessorios extras' || fam === 'itens extras';
           });
-          const possui = !!item.possuiItensExtras;
+          // Felipe s37: lista SEMPRE visivel. Antes ficava atras de um
+          // checkbox cujo rotulo, quando desmarcado, dizia "Nao se aplica"
+          // — dava a impressao de que MARCAR era declarar que nao tem
+          // extras, quando era o contrario. Felipe: "item extra ainda nao
+          // aparece o campo para escolher os itens".
+          // Agora os acessorios da familia "Acessorios Extras" aparecem
+          // direto; marcar um ja' e' o ato de incluir. O flag
+          // possuiItensExtras passa a ser DERIVADO (tem selecao = tem
+          // extras), mantido por compatibilidade com quem le esse campo.
           const selecionados = Array.isArray(item.itensExtras) ? item.itensExtras : [];
+          const possui = true;
           return `
         <div class="orc-section" id="orc-field-itens-extras">
           <div class="orc-section-title">Itens Extras</div>
-          <div class="orc-form-row">
-            <div class="orc-field" style="flex: 0 0 auto;">
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight: normal;">
-                <input type="checkbox" data-field="possuiItensExtras"
-                       ${possui ? 'checked' : ''}
-                       style="margin:0; width:16px; height:16px; cursor:pointer;" />
-                <span>${possui ? 'Selecionar itens extras abaixo:' : 'Nao se aplica'}</span>
-              </label>
-            </div>
-          </div>
+          <p style="font-size:12px; color: var(--text-muted); margin: 4px 0 0 0;">
+            Marque os itens que entram neste orcamento. O valor vai direto pro
+            campo <b>Extras (R$)</b> do Custo de Fabricacao.
+            ${selecionados.length ? `<b style="color:#0f3f5f;">${selecionados.length} selecionado(s)</b>` : ''}
+          </p>
           ${possui ? (
             itensExtrasCat.length === 0
               ? `<p style="font-size:12px; color: var(--text-muted); margin: 8px 0 0 0;">
@@ -8408,8 +8412,14 @@ const Orcamento = (() => {
         } else if (!chk.checked && pos !== -1) {
           item.itensExtras.splice(pos, 1);
         }
+        // Felipe s37: mantem o flag coerente com a selecao. Ele nao tem
+        // mais checkbox proprio na tela, entao passa a ser DERIVADO — e'
+        // lido por outros pontos do sistema, nao da' pra so' abandonar.
+        item.possuiItensExtras = item.itensExtras.length > 0;
+        // Marca pra recalcular: o valor tem que descer pro campo
+        // Extras (R$) do Custo Fab, senao o usuario marca e nao ve efeito.
         try {
-          atualizarVersao(versao.id, { itens: versao.itens });
+          atualizarVersao(versao.id, { itens: versao.itens, calcDirty: true });
           if (window.OrcamentoWizard && typeof window.OrcamentoWizard.resetar === 'function') {
             window.OrcamentoWizard.resetar();
           }
@@ -9104,7 +9114,10 @@ const Orcamento = (() => {
     let total = 0, qtd = 0;
     const detalhe = [];
     versao.itens.forEach((it, idx) => {
-      if (!it || !it.possuiItensExtras) return;           // 'Nao se aplica'
+      // Felipe s37: nao depende mais de possuiItensExtras — o checkbox
+      // "Nao se aplica" foi removido da tela (rotulo invertido, confundia).
+      // O que vale e' a SELECAO: marcou o item, entra no custo.
+      if (!it) return;
       const sel = Array.isArray(it.itensExtras) ? it.itensExtras : [];
       const jaVistos = {};
       sel.forEach(cod => {
