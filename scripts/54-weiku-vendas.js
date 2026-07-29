@@ -617,6 +617,8 @@
       '.wkv-st-env.on{background:#dcfce7;border-color:#16a34a;color:#15803d}.wkv-st-env.on:hover{color:#15803d}',
       '.wkv-st-ret.on{background:#dbeafe;border-color:#2563eb;color:#1d4ed8}.wkv-st-ret.on:hover{color:#1d4ed8}',
       '.wkv-st-cmp.on{background:#0f3f5f;border-color:#0f3f5f;color:#fff;font-weight:600}.wkv-st-cmp.on:hover{color:#fff}',
+      '.wkv-tbusca{margin-left:auto;padding:6px 10px;border:1px solid var(--wkv-linha);border-radius:7px;font:inherit;font-size:13px;min-width:230px}',
+      '.wkv-tbar{display:flex;align-items:center;gap:12px}',
       '.wkv-st-swa{font-size:10px;line-height:1.25;white-space:normal;text-align:left}',
       '.wkv-st-swa.on{background:#fee2e2;border-color:#dc2626;color:#b91c1c;font-weight:600}.wkv-st-swa.on:hover{color:#b91c1c}',
       '.wkv-st-por{font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;color:var(--wkv-tinta);cursor:pointer}',
@@ -659,7 +661,7 @@
       + '  </div>'
       + '  <div class="wkv-panel"><h3>Filtro inteligente</h3>'
       + '    <div class="wkv-filtros">'
-      + '      <div class="wkv-fld"><label>Buscar nome / cidade</label><input id="wkv-f-busca" placeholder="ex: Joinville..."></div>'
+      + '      <div class="wkv-fld"><label>Buscar nome / cidade</label><input id="wkv-f-busca" placeholder="nome do cliente ou cidade"></div>'
       + '      <div class="wkv-fld"><label>Valor minimo (R$)</label><input id="wkv-f-vmin" type="number" value="' + (ui.vmin == null ? '' : ui.vmin) + '" step="10000" placeholder="sem minimo"></div>'
       + '      <div class="wkv-fld"><label>Valor maximo (R$)</label><input id="wkv-f-vmax" type="number" placeholder="sem limite" value="' + (ui.vmax == null ? '' : ui.vmax) + '"></div>'
       + '      <div class="wkv-fld"><label>Max. pavimentos</label><input id="wkv-f-pav" type="number" placeholder="qualquer" min="1"></div>'
@@ -703,7 +705,14 @@
       + '      <div class="wkv-hint">Use <code>{nome}</code> para inserir o primeiro nome do cliente automaticamente no link.</div></div>'
       + '  </div>'
       + '  <div class="wkv-tablewrap">'
-      + '    <div class="wkv-tbar"><div class="wkv-cnt"><b id="wkv-t-cnt">0</b> clientes \u00b7 <span class="wkv-num" id="wkv-t-soma">R$ 0,00</span></div></div>'
+      + '    <div class="wkv-tbar"><div class="wkv-cnt"><b id="wkv-t-cnt">0</b> clientes \u00b7 <span class="wkv-num" id="wkv-t-soma">R$ 0,00</span></div>'
+      // Felipe s37: busca por nome AQUI, junto da tabela. Ja' existia no
+      // Filtro Inteligente la' em cima, mas com placeholder "ex: Joinville"
+      // — parecia so' de cidade, e com a tabela rolada pra baixo o campo
+      // ficava fora da tela. Este e o de cima sao o MESMO filtro (ui.busca),
+      // sincronizados nos dois sentidos.
+      + '      <input id="wkv-t-busca" class="wkv-tbusca" placeholder="\ud83d\udd0d Buscar cliente..." value="' + esc(ui.busca || '') + '">'
+      + '    </div>'
       + '    <div class="wkv-scroll"><table>'
       + '      <thead><tr>'
       + '        <th data-s="nome">Cliente</th><th data-s="uf">Local</th><th data-s="tipo">Tipo</th>'
@@ -869,8 +878,31 @@
   function bindEventos(container) {
     var $ = function (id) { return container.querySelector('#' + id); };
 
+    // Felipe s37: busca da tabela — digita e filtra, sem precisar subir
+    // ate o Filtro Inteligente. Escreve no mesmo ui.busca.
+    (function () {
+      var tb = container.querySelector('#wkv-t-busca');
+      if (!tb) return;
+      var deb = null;
+      tb.addEventListener('input', function () {
+        clearTimeout(deb);
+        deb = setTimeout(function () {
+          ui.busca = tb.value;
+          var topo = container.querySelector('#wkv-f-busca');
+          if (topo) topo.value = ui.busca;
+          renderTabela(container);
+          var novo = container.querySelector('#wkv-t-busca');
+          if (novo && novo !== tb) { novo.value = ui.busca; novo.focus(); }
+        }, 250);
+      });
+    })();
+
     function pull() {
       ui.busca = $('wkv-f-busca').value;
+      // Felipe s37: mantem o campo de busca da TABELA em sincronia com o
+      // do Filtro Inteligente — sao o mesmo filtro, so' que em dois
+      // lugares (um no topo, outro colado na tabela).
+      if ($('wkv-t-busca')) $('wkv-t-busca').value = ui.busca;
       ui.vmin = $('wkv-f-vmin').value === '' ? null : parseFloat($('wkv-f-vmin').value);
       ui.vmax = $('wkv-f-vmax').value === '' ? null : parseFloat($('wkv-f-vmax').value);
       ui.pavMax = $('wkv-f-pav').value === '' ? null : parseInt($('wkv-f-pav').value, 10);
