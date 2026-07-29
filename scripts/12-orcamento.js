@@ -21165,8 +21165,47 @@ const Orcamento = (() => {
     const custoMaoObra = totalHoras * numOp * custoHora;
 
     const subInstTotal = Number(versao.subInst) || 0;
-    const subFabTotal  = Number(versao.subFab)  || 0;
+
+    // Felipe s37: LINHA TEM QUE SOMAR O TOTAL.
+    // "pq valores sao os mesmo porem somatorio deu diferente, voce nao
+    //  sabe somar?" — ele estava certo: as linhas somavam R$ 28.603,10 e
+    //  o 'Custo Total da Obra' dizia R$ 29.263,10 (R$ 660,00 sem linha).
+    //
+    // CAUSA: o TOTAL vinha de versao.subFab (valor gravado no calculo) e as
+    // LINHAS eram recalculadas aqui por um caminho proprio — em especial a
+    // mao de obra, somada de fab.etapas. Se a versao foi gravada com horas
+    // diferentes das que esta leitura reconstroi, os dois divergem sem
+    // nenhum aviso. No caso: subFab guardou 33h e a linha exibia 30h,
+    // exatamente os R$ 660,00 (3h x 2 op. x R$ 110).
+    //
+    // FIX: usa calcularFab — a MESMA funcao que produz o subFab — como
+    // fonte das linhas E do total. Assim linha e total nunca mais podem
+    // divergir: sao o mesmo calculo.
+    let _fabCalc = null;
+    try { _fabCalc = calcularFab(fab, itens, versao); } catch (_) {}
+    const subFabTotal = _fabCalc && Number(_fabCalc.total) > 0
+      ? Number(_fabCalc.total)
+      : (Number(versao.subFab) || 0);
     const custoTotalFab = subFabTotal + subInstTotal;
+
+    // Linhas do detalhamento — da MESMA fonte do total (ver acima).
+    // Fallback pros valores lidos do fab quando calcularFab falhar.
+    const _L = _fabCalc ? {
+      perfis:      Number(_fabCalc.total_perfis) || 0,
+      pintura:     Number(_fabCalc.total_pintura) || 0,
+      chapas:      Number(_fabCalc.total_revestimento) || 0,
+      componentes: (Number(_fabCalc.total_acessorios) || 0)
+                 + (Number(_fabCalc.total_extras) || 0)
+                 + (Number(_fabCalc.total_fechadura_digital) || 0),
+      maoObra:     Number(_fabCalc.subtotal_horas) || 0,
+      horas:       custoHora > 0 && numOp > 0
+                     ? (Number(_fabCalc.subtotal_horas) || 0) / (custoHora * numOp)
+                     : totalHoras,
+    } : {
+      perfis: custoPerfis, pintura: custoPintura, chapas: custoChapas,
+      componentes: custoAcess + custoExtras + custoFechDig,
+      maoObra: custoMaoObra, horas: totalHoras,
+    };
 
     // Felipe (sessao 2026-08): "resumo da obra nao ficou mesmo estilo
     // dos outros". Refeito usando rep-card (mesma estrutura do Painel
@@ -21202,11 +21241,11 @@ const Orcamento = (() => {
           <table class="rep-m2-tabela">
             <tbody>
               <tr><td>🚪 Esquadrias</td><td class="num">${m2Total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m² · ${numPortas} porta(s)</td></tr>
-              <tr><td>📏 Perfis de Aluminio</td><td class="num">${fmtMoney(custoPerfis)}</td></tr>
-              ${custoPintura > 0 ? `<tr><td>🎨 Pintura dos Perfis</td><td class="num">${fmtMoney(custoPintura)}</td></tr>` : ''}
-              <tr><td>🟫 Chapas / Revestimento</td><td class="num">${fmtMoney(custoChapas)}</td></tr>
-              <tr><td>🔩 Componentes (acessorios + fechaduras)</td><td class="num">${fmtMoney(custoAcess + custoExtras + custoFechDig)}</td></tr>
-              <tr><td>👷 Mao de Obra (${(Math.round(totalHoras*10)/10).toLocaleString('pt-BR')}h × ${numOp} op. × ${fmtMoney(custoHora)}/h)</td><td class="num">${fmtMoney(custoMaoObra)}</td></tr>
+              <tr><td>📏 Perfis de Aluminio</td><td class="num">${fmtMoney(_L.perfis)}</td></tr>
+              ${_L.pintura > 0 ? `<tr><td>🎨 Pintura dos Perfis</td><td class="num">${fmtMoney(_L.pintura)}</td></tr>` : ''}
+              <tr><td>🟫 Chapas / Revestimento</td><td class="num">${fmtMoney(_L.chapas)}</td></tr>
+              <tr><td>🔩 Componentes (acessorios + fechaduras)</td><td class="num">${fmtMoney(_L.componentes)}</td></tr>
+              <tr><td>👷 Mao de Obra (${(Math.round(_L.horas*10)/10).toLocaleString('pt-BR')}h × ${numOp} op. × ${fmtMoney(custoHora)}/h)</td><td class="num">${fmtMoney(_L.maoObra)}</td></tr>
               <tr><td>🚛 Instalacao</td><td class="num">${fmtMoney(subInstTotal)}</td></tr>
               <tr style="border-top: 2px solid var(--azul-escuro);"><td><span class="t-strong">Custo Total da Obra</span></td><td class="num"><span class="t-strong">${fmtMoney(custoTotalFab)}</span></td></tr>
             </tbody>
