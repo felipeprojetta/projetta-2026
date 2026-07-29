@@ -9948,12 +9948,17 @@ const Orcamento = (() => {
               <td>${escapeHtml(med)}</td>
               <td class="num">R$ ${fmtBR(v.qtd > 0 ? v.subFab / v.qtd : v.subFab)}</td>
               ${ehInternacionalDist ? '' : `<td class="num">R$ ${fmtBR(v.qtd > 0 ? v.subInst / v.qtd : v.subInst)}</td>`}
+              <td class="num"><b>R$ ${fmtBR(v.qtd > 0
+                  ? ((v.subFab + (ehInternacionalDist ? 0 : v.subInst)) / v.qtd)
+                  : (v.subFab + (ehInternacionalDist ? 0 : v.subInst)))}</b></td>
               <td class="num">${v.qtd}</td>
               <td class="num">R$ ${fmtBR(v.subFab)}</td>
               <td class="num">${fmtBR(pctFab)} %</td>
               ${ehInternacionalDist ? '' : `<td class="num">R$ ${fmtBR(v.subInst)}</td>`}
-              <td class="num">R$ ${fmtBR(v.precoFinal)}</td>
-              <td class="num"><b style="color:#b45309;">R$ ${fmtBR(v.precoFinalDesc != null ? v.precoFinalDesc : v.precoFinal)}</b></td>
+              <td class="num">R$ ${fmtBR(v.precoFinal)}
+                ${v.qtd > 1 ? `<div style="font-size:10px;color:#94a3b8;font-weight:400;">un. R$ ${fmtBR(v.precoFinal / v.qtd)}</div>` : ''}</td>
+              <td class="num"><b style="color:#b45309;">R$ ${fmtBR(v.precoFinalDesc != null ? v.precoFinalDesc : v.precoFinal)}</b>
+                ${v.qtd > 1 ? `<div style="font-size:10px;color:#d6a45f;font-weight:400;">un. R$ ${fmtBR((v.precoFinalDesc != null ? v.precoFinalDesc : v.precoFinal) / v.qtd)}</div>` : ''}</td>
             </tr>
             ${(() => {
               // Felipe s37: LINHA DE DETALHE do Custo Fab por componente.
@@ -9975,7 +9980,7 @@ const Orcamento = (() => {
                 ['Mao de obra', d.maoObra],
               ].filter(x => Number(x[1]) > 0);
               if (!linha.length) return '';
-              const colspan = ehInternacionalDist ? 9 : 11;
+              const colspan = ehInternacionalDist ? 10 : 12;
               return `
             <tr class="orc-fi-distrib-detalhe">
               <td></td>
@@ -10007,6 +10012,7 @@ const Orcamento = (() => {
                     <th>Medidas</th>
                     <th class="num">Custo Fab (un.)</th>
                     ${ehInternacionalDist ? '' : '<th class="num">Custo Inst (un.)</th>'}
+                    <th class="num">Custo Total (un.)</th>
                     <th class="num">Qtd</th>
                     <th class="num">Custo Fab</th>
                     <th class="num">% Fab</th>
@@ -10018,7 +10024,7 @@ const Orcamento = (() => {
                 <tbody>${linhas}</tbody>
                 <tfoot>
                   <tr class="orc-fi-distrib-total">
-                    <td colspan="${ehInternacionalDist ? 5 : 6}"><b>Total</b></td>
+                    <td colspan="${ehInternacionalDist ? 6 : 7}"><b>Total</b></td>
                     <td class="num"><b>R$ ${fmtBR(subFabSum)}</b></td>
                     <td class="num">100,00 %</td>
                     ${ehInternacionalDist ? '' : `<td class="num"><b>R$ ${fmtBR(vp.porItem.reduce((s, x) => s + x.subInst, 0))}</b></td>`}
