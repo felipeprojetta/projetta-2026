@@ -418,7 +418,25 @@
         if (ui.ano && dm.ano !== ui.ano) return false;
         if (ui.mes && dm.mes !== ui.mes) return false;
       }
-      if (busca && ((d.nome || '') + ' ' + (d.cidade || '')).toLowerCase().indexOf(busca) < 0) return false;
+      // Felipe s37: busca tambem por TELEFONE e RESERVA. "ou preciso
+      // pesquisar pelo nome ou pelo telefone, ai acho ele e atualizo
+      // respostas" — quando o cliente responde no WhatsApp, o que se tem
+      // em maos e' o numero, nao o nome. Antes so' casava nome e cidade.
+      // Telefone compara so' os DIGITOS, entao acha com ou sem mascara:
+      // "65984262946", "(65) 98426-2946" e "984262946" chegam no mesmo.
+      if (busca) {
+        var _txt = ((d.nome || '') + ' ' + (d.cidade || '') + ' '
+                  + (d.email || '') + ' ' + (d.r || '')).toLowerCase();
+        var _achouTexto = _txt.indexOf(busca) >= 0;
+        var _achouFone = false;
+        var _buscaDig = String(busca).replace(/\D/g, '');
+        if (_buscaDig.length >= 4) {
+          var _fones = [d.wa, d.tel, d.telefone, d.celular]
+            .filter(Boolean).join(' ').replace(/\D/g, '');
+          _achouFone = _fones.indexOf(_buscaDig) >= 0;
+        }
+        if (!_achouTexto && !_achouFone) return false;
+      }
       return true;
     });
   }
@@ -661,7 +679,7 @@
       + '  </div>'
       + '  <div class="wkv-panel"><h3>Filtro inteligente</h3>'
       + '    <div class="wkv-filtros">'
-      + '      <div class="wkv-fld"><label>Buscar nome / cidade</label><input id="wkv-f-busca" placeholder="nome do cliente ou cidade"></div>'
+      + '      <div class="wkv-fld"><label>Buscar nome / cidade</label><input id="wkv-f-busca" placeholder="nome, telefone, cidade ou reserva"></div>'
       + '      <div class="wkv-fld"><label>Valor minimo (R$)</label><input id="wkv-f-vmin" type="number" value="' + (ui.vmin == null ? '' : ui.vmin) + '" step="10000" placeholder="sem minimo"></div>'
       + '      <div class="wkv-fld"><label>Valor maximo (R$)</label><input id="wkv-f-vmax" type="number" placeholder="sem limite" value="' + (ui.vmax == null ? '' : ui.vmax) + '"></div>'
       + '      <div class="wkv-fld"><label>Max. pavimentos</label><input id="wkv-f-pav" type="number" placeholder="qualquer" min="1"></div>'
@@ -711,7 +729,7 @@
       // — parecia so' de cidade, e com a tabela rolada pra baixo o campo
       // ficava fora da tela. Este e o de cima sao o MESMO filtro (ui.busca),
       // sincronizados nos dois sentidos.
-      + '      <input id="wkv-t-busca" class="wkv-tbusca" placeholder="\ud83d\udd0d Buscar cliente..." value="' + esc(ui.busca || '') + '">'
+      + '      <input id="wkv-t-busca" class="wkv-tbusca" placeholder="\ud83d\udd0d Buscar por nome ou telefone..." value="' + esc(ui.busca || '') + '">'
       + '    </div>'
       + '    <div class="wkv-scroll"><table>'
       + '      <thead><tr>'
