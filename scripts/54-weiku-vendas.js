@@ -269,7 +269,7 @@
     var fone = (d.tel ? esc(d.tel) : '\u2014') + (d.wa ? ' <span class="wkv-loc">(' + esc(d.wa) + ')</span>' : '') + waBtn;
     var stTxt = (st.enviado ? ('\u2713 Enviada' + (st.por ? (' por ' + esc(st.por)) : '')) : 'N\u00e3o enviada') + ' \u00b7 ' + (st.retornou ? 'cliente retornou' : 'sem retorno');
     var body = ''
-      + row('Nome', esc(d.nome))
+      + row('Nome', esc(tituloCase(d.nome)))
       + row('N\u00ba Reserva', esc(d.r))
       + row('Cidade', esc(d.cidade) + (d.uf ? (' \u00b7 ' + esc(d.uf)) : ''))
       + row('Tipo de constru\u00e7\u00e3o', esc(d.tipo))
@@ -284,7 +284,7 @@
       + row('Prospec\u00e7\u00e3o', esc(stTxt));
     var ov = document.createElement('div');
     ov.id = 'wkv-modal'; ov.className = 'wkv-ovl';
-    ov.innerHTML = '<div class="wkv-modal"><div class="wkv-mhead"><b>' + esc(d.nome || ('Reserva ' + d.r)) + '</b><button class="wkv-mclose" title="Fechar">\u2715</button></div>'
+    ov.innerHTML = '<div class="wkv-modal"><div class="wkv-mhead"><b>' + esc(tituloCase(d.nome) || ('Reserva ' + d.r)) + '</b><button class="wkv-mclose" title="Fechar">\u2715</button></div>'
       + '<div class="wkv-mbody">' + body + '</div>'
       + '<div class="wkv-mfoot">Dados conforme a planilha Weiku importada (CPF/RG e endere\u00e7o n\u00e3o s\u00e3o importados).</div></div>';
     document.body.appendChild(ov);
@@ -773,7 +773,9 @@
     var msg = ui.msg;
     var envios = getEnvios();
     var rows = lista.map(function (d) {
-      var primeiro = (d.nome || '').split(' ')[0] || '';
+      // Felipe s37: primeiro nome tambem padronizado, senao a mensagem
+      // do WhatsApp sai 'Ola ADEMIR' gritando com o cliente.
+      var primeiro = (tituloCase(d.nome) || '').split(' ')[0] || '';
       var projHTML = cellProjettaHTML(d);
       var txt = encodeURIComponent(msg.replace(/\{nome\}/g, primeiro));
       var wa = temWa(d)
@@ -786,7 +788,7 @@
         : (/casa/.test((d.tipo || '').toLowerCase()) ? '<span class="wkv-tag casa">casa</span>'
           : '<span class="wkv-tag outro">' + esc(d.tipo || '\u2014') + '</span>');
       return '<tr>'
-        + '<td><button class="wkv-open wkv-nome" data-r="' + esc(d.r) + '" title="Ver todos os dados da planilha">' + esc(d.nome || '\u2014') + '</button><div class="wkv-loc">Reserva ' + esc(d.r) + '</div></td>'
+        + '<td><button class="wkv-open wkv-nome" data-r="' + esc(d.r) + '" title="Ver todos os dados da planilha">' + esc(tituloCase(d.nome) || '\u2014') + '</button><div class="wkv-loc">Reserva ' + esc(d.r) + '</div></td>'
         + '<td class="wkv-loc">' + esc(d.cidade || '\u2014') + (d.uf ? ' \u00b7 ' + esc(d.uf) : '') + '</td>'
         + '<td>' + tag + '</td>'
         + '<td style="text-align:center" class="wkv-num">' + (d.pav || '\u2014') + '</td>'
@@ -824,7 +826,7 @@
       var pRes = p ? p.res : '';
       var pEt  = p ? stageCurto(p.etapa) : '';
       var st = _normSt(envios[d.r]) || { enviado: false, por: '', retornou: false };
-      return [d.r, d.nome, d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? 'Sim' : 'Nao'), st.por, (st.retornou ? 'Sim' : 'Nao')]
+      return [d.r, tituloCase(d.nome), d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? "Sim" : "Nao"), st.por, (st.retornou ? "Sim" : "Nao")]
         .map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';');
     });
     var csv = '\ufeff' + [cols.join(';')].concat(linhas).join('\r\n');
