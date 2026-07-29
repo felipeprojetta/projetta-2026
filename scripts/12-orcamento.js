@@ -2606,7 +2606,20 @@ const Orcamento = (() => {
       criadoPor: userAtual(),
       observacao: '',
       itens: base ? JSON.parse(JSON.stringify(base.itens || [])) : [],
-      precos_snapshot: snapshotPrecosAtual(),
+      // Felipe s37: HERDA a foto de precos da base. "eu quero exatamente a
+      // copia da mesma versao, so' que desbloqueada pra fazer alteracoes...
+      // nao tem como eu fazer uma copia pra fazer uma nova versao, apertar
+      // recalcular e sair um preco diferente."
+      // Antes tirava uma foto NOVA da tabela de precos. Se o cadastro mudou
+      // desde a versao de origem (caso real: perfil de aluminio +36% desde
+      // maio), a copia recalculava com os precos de HOJE e o valor nascia
+      // diferente do original — mesmo com todos os outros campos clonados.
+      // Agora a copia nasce com os MESMOS precos da base: Recalcular
+      // devolve o mesmo numero. Versao SEM base (orcamento novo) continua
+      // tirando foto atual, como sempre.
+      precos_snapshot: base?.precos_snapshot
+        ? JSON.parse(JSON.stringify(base.precos_snapshot))
+        : snapshotPrecosAtual(),
       // Clona subFab/subInst/parametros da base se existir, senão default
       subFab: base?.subFab || 0,
       subInst: base?.subInst || 0,
