@@ -5702,11 +5702,34 @@ ${secoesHtml}
       }
       rows.push(['','','','','','','','','TOTAL GERAL (' + gN + ' leads):', gOrig, gDesc, '']);
 
+      // Felipe s37: "consegue me enviar configurado? valores com R$,
+      // algumas cores, mais bonito no Excel?"
+      // Passa a usar exportXLSXAvancado, que aceita formato POR CELULA.
+      // O que da' pra fazer com a SheetJS que o sistema usa: formato de
+      // MOEDA de verdade (a celula vira numero formatado como R$, entao
+      // soma e filtra no Excel — antes ia numero cru sem formato) e
+      // largura de coluna por conteudo. Cor de fundo/fonte exigiria a
+      // versao paga da biblioteca, entao o destaque de secao e subtotal
+      // fica por conta do texto (═══ TITULO ═══ e SUBTOTAL/TOTAL GERAL).
+      const FMT_MOEDA = '"R$ "#,##0.00';
+      const FMT_PCT   = '0%';
+      const rowsFmt = rows.map(r => r.map((cel, ci) => {
+        // colunas 9 e 10 = Valor Original / Valor Com Desconto
+        if ((ci === 9 || ci === 10) && typeof cel === 'number' && cel !== 0) {
+          return { v: cel, t: 'n', z: FMT_MOEDA };
+        }
+        // coluna 6 = Comissao (vem como '6%' ou numero)
+        if (ci === 6 && typeof cel === 'number' && cel > 0) {
+          return { v: cel > 1 ? cel / 100 : cel, t: 'n', z: FMT_PCT };
+        }
+        return cel;
+      }));
       const hoje = new Date().toISOString().slice(0, 10);
-      window.Universal.exportXLSX({
-        headers, rows,
+      window.Universal.exportXLSXAvancado({
+        headers, rows: rowsFmt,
         sheetName: 'Relatorio por Coluna',
         fileName: 'crm_relatorio_por_coluna_' + hoje,
+        colWidths: [20, 38, 12, 16, 24, 26, 11, 9, 42, 17, 19, 12],
       });
     }
 
