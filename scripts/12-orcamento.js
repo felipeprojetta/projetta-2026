@@ -9573,17 +9573,23 @@ const Orcamento = (() => {
         // Agora soma o preco dos itens marcados EM TODOS os itens da
         // versao e joga em fab.total_extras, do mesmo jeito que os
         // acessorios alimentam total_acessorios.
-        try {
-          const _extras = calcularTotalItensExtras(versao, cadAcess);
-          // So' escreve se houver selecao OU se havia valor vindo daqui
-          // e o usuario desmarcou tudo (ai zera). Valor digitado a mao
-          // sem nenhuma selecao e' PRESERVADO.
-          const _tinhaSelecao = !!(versao._extrasDeSelecao);
-          if (!_imutavel && (_extras.qtd > 0 || _tinhaSelecao)) {
-            fab.total_extras = _extras.total > 0 ? _extras.total : '';
-            versao._extrasDeSelecao = _extras.qtd > 0;
-          }
-        } catch (e) { console.warn('[orcamento] total de itens extras falhou:', e); }
+        // Felipe s37: NAO escreve mais em total_extras. "quando colocar os
+        // itens extras, tire desse local, pois ja' se esta somando o valor
+        // la em acessorios."
+        // Os itens da familia "Acessorios Extras" sao acessorios do
+        // cadastro como qualquer outro — o motor de acessorios ja' os
+        // captura e eles entram no campo Acessorios (R$). Escrever tambem
+        // em Extras (R$) contava o mesmo valor DUAS VEZES no Soma insumos.
+        // O campo Extras volta a ser exclusivamente manual (livres/outros),
+        // como o proprio rotulo da tela diz.
+        // calcularTotalItensExtras continua exportado — serve pra conferir
+        // quanto foi selecionado, sem alimentar custo.
+        if (!_imutavel && versao._extrasDeSelecao) {
+          // limpa residuo de versao que gravou Extras na versao anterior
+          // deste comportamento, senao o valor ficaria somando pra sempre.
+          fab.total_extras = '';
+          versao._extrasDeSelecao = false;
+        }
 
         // Persiste custoFab + recalcula subFab (so' em versao editavel)
         if (!_imutavel) {
