@@ -9946,6 +9946,8 @@ const Orcamento = (() => {
               <td class="num">${String(v.idx + 1).padStart(2, '0')}</td>
               <td>${escapeHtml(desc)}</td>
               <td>${escapeHtml(med)}</td>
+              <td class="num">R$ ${fmtBR(v.qtd > 0 ? v.subFab / v.qtd : v.subFab)}</td>
+              ${ehInternacionalDist ? '' : `<td class="num">R$ ${fmtBR(v.qtd > 0 ? v.subInst / v.qtd : v.subInst)}</td>`}
               <td class="num">${v.qtd}</td>
               <td class="num">R$ ${fmtBR(v.subFab)}</td>
               <td class="num">${fmtBR(pctFab)} %</td>
@@ -9973,16 +9975,13 @@ const Orcamento = (() => {
                 ['Mao de obra', d.maoObra],
               ].filter(x => Number(x[1]) > 0);
               if (!linha.length) return '';
-              const colspan = ehInternacionalDist ? 8 : 9;
-              const porPorta = v.qtd > 0 ? (v.subFab / v.qtd) : v.subFab;
+              const colspan = ehInternacionalDist ? 9 : 11;
               return `
             <tr class="orc-fi-distrib-detalhe">
               <td></td>
               <td colspan="${colspan - 1}" style="padding:2px 8px 8px; font-size:11px; color:#64748b;">
                 ${linha.map(x => `<span style="margin-right:14px;">${x[0]}: <b style="color:#334155;">R$ ${fmtBR(x[1])}</b></span>`).join('')}
-                <span style="margin-left:6px; padding:1px 6px; background:#f1f5f9; border-radius:3px;">
-                  custo fab por unidade: <b style="color:#334155;">R$ ${fmtBR(porPorta)}</b>
-                </span>
+
               </td>
             </tr>`;
             })()}`;
@@ -10006,6 +10005,8 @@ const Orcamento = (() => {
                     <th class="num">Item</th>
                     <th>Descricao</th>
                     <th>Medidas</th>
+                    <th class="num">Custo Fab (un.)</th>
+                    ${ehInternacionalDist ? '' : '<th class="num">Custo Inst (un.)</th>'}
                     <th class="num">Qtd</th>
                     <th class="num">Custo Fab</th>
                     <th class="num">% Fab</th>
@@ -10017,7 +10018,7 @@ const Orcamento = (() => {
                 <tbody>${linhas}</tbody>
                 <tfoot>
                   <tr class="orc-fi-distrib-total">
-                    <td colspan="4"><b>Total</b></td>
+                    <td colspan="${ehInternacionalDist ? 5 : 6}"><b>Total</b></td>
                     <td class="num"><b>R$ ${fmtBR(subFabSum)}</b></td>
                     <td class="num">100,00 %</td>
                     ${ehInternacionalDist ? '' : `<td class="num"><b>R$ ${fmtBR(vp.porItem.reduce((s, x) => s + x.subInst, 0))}</b></td>`}
