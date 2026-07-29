@@ -15765,6 +15765,28 @@ const Orcamento = (() => {
   }
 
   function blocoPrecoCardProposta(item, idx, versao) {
+    // Felipe s37 — BLOCO DESLIGADO.
+    // Este bloco (preco dentro do card do item) foi pedido pelo Felipe e
+    // introduzido no commit 70799f9. Errou TRES vezes no mesmo dia:
+    //   1. usava precoFinalDesc (com desconto) enquanto a tabela usa
+    //      precoFinal (cheio) — commit 2e4c61a
+    //   2. cache memoizado servia valor velho — commit 38bae98
+    //   3. mesmo sem cache e usando precoFinal, seguiu divergindo:
+    //      card R$ 23.321,18 contra R$ 26.760,40 da tabela na MESMA
+    //      proposta (AGP004797_INT V1)
+    // Consequencia real: 3 propostas foram enviadas a clientes com preco
+    // errado — mais baixo que o correto.
+    // Desligado ate a causa ser entendida. O preco continua saindo na
+    // TABELA de itens da proposta, que nunca esteve errada, e no rodape.
+    // Pra reativar depois do diagnostico: remover o return abaixo.
+    // SUSPEITA A INVESTIGAR: calcularValoresProposta parece devolver
+    // resultado diferente conforme o estado em que e' chamada (ela le
+    // fab._meta.acessPorItem / kgLiqPorItem, que sao populados por outros
+    // renders). A tabela chama uma vez no topo do renderPropostaTab; o
+    // card chamava de novo, por item, possivelmente com _meta em outro
+    // estado. Investigar por que duas chamadas com a MESMA versao dao
+    // numeros diferentes — isso afeta qualquer consumidor, nao so' o card.
+    return '';
     try {
       if (String(versao && versao.modoValorProposta) === 'unico') return '';
       const vp = _vpDaVersao(versao);
