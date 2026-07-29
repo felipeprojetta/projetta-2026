@@ -9861,7 +9861,40 @@ const Orcamento = (() => {
               ${ehInternacionalDist ? '' : `<td class="num">R$ ${fmtBR(v.subInst)}</td>`}
               <td class="num">R$ ${fmtBR(v.precoFinal)}</td>
               <td class="num"><b style="color:#b45309;">R$ ${fmtBR(v.precoFinalDesc != null ? v.precoFinalDesc : v.precoFinal)}</b></td>
+            </tr>
+            ${(() => {
+              // Felipe s37: LINHA DE DETALHE do Custo Fab por componente.
+              // Motivo: no orcamento do Felipe Balzan o item 02 (2 portas
+              // 900x2100 correr) ficou com R$ 10.687/porta enquanto a MESMA
+              // porta isolada da R$ 6.304 e a media do orcamento e' R$ 5.872.
+              // Perfis (kg) e mao de obra (horas) nao explicam — mas o motor
+              // ja' calcula cada componente por item em _detalhe e NUNCA
+              // exibia, entao so' dava pra deduzir por eliminacao.
+              // Agora mostra: da' pra ver na hora QUAL componente infla.
+              const d = v._detalhe || {};
+              const linha = [
+                ['Perfis',      d.perfis],
+                ['Pintura',     d.pintura],
+                ['Acessorios',  d.acess],
+                ['Fech.digital',d.fechDig],
+                ['Chapas',      d.chapas],
+                ['Extras',      d.extras],
+                ['Mao de obra', d.maoObra],
+              ].filter(x => Number(x[1]) > 0);
+              if (!linha.length) return '';
+              const colspan = ehInternacionalDist ? 8 : 9;
+              const porPorta = v.qtd > 0 ? (v.subFab / v.qtd) : v.subFab;
+              return `
+            <tr class="orc-fi-distrib-detalhe">
+              <td></td>
+              <td colspan="${colspan - 1}" style="padding:2px 8px 8px; font-size:11px; color:#64748b;">
+                ${linha.map(x => `<span style="margin-right:14px;">${x[0]}: <b style="color:#334155;">R$ ${fmtBR(x[1])}</b></span>`).join('')}
+                <span style="margin-left:6px; padding:1px 6px; background:#f1f5f9; border-radius:3px;">
+                  custo fab por unidade: <b style="color:#334155;">R$ ${fmtBR(porPorta)}</b>
+                </span>
+              </td>
             </tr>`;
+            })()}`;
         }).join('');
         return `
           <div class="orc-section-card">
