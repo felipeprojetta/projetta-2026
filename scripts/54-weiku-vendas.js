@@ -128,6 +128,20 @@
     return 0;
   }
 
+  /**
+   * Felipe s37: tem WhatsApp DE VERDADE = tem numero E ninguem marcou que
+   * o numero nao existe no WhatsApp. O temWa() original so' olha se ha
+   * telefone; este considera tambem a confirmacao manual de quem tentou.
+   */
+  function temWaReal(d) {
+    if (!temWa(d)) return false;
+    try {
+      var st = _normSt(getEnvios()[d.r]);
+      if (st && st.semWa) return false;
+    } catch (_) {}
+    return true;
+  }
+
   function _normSt(e) {
     if (!e || typeof e !== 'object') return null;
     return {
@@ -141,13 +155,20 @@
       // O vinculo com AGP so' cobre quem virou lead na Projetta; cliente
       // antigo que comprou fora do CRM ficava sendo prospectado a toa.
       jaComprou: e.jaComprou === true,
-      jaComprouTs: e.jaComprouTs || null
+      jaComprouTs: e.jaComprouTs || null,
+      // Felipe s37: "alguns numeros nao tem whatsapp, preciso informar
+      // isso tbm". O sistema so' sabia se EXISTE telefone, nao se aquele
+      // numero tem conta no WhatsApp — so' descobria ao tentar mandar e
+      // levar o "nao esta no WhatsApp". Sem registrar, a pessoa tentava
+      // de novo dias depois.
+      semWa: e.semWa === true,
+      semWaTs: e.semWaTs || null
     };
   }
   function marcarStatus(r, patch) {
     try {
       var m = getEnvios();
-      var cur = _normSt(m[r]) || { enviado: false, por: '', enviadoTs: null, retornou: false, retornouTs: null, jaComprou: false, jaComprouTs: null };
+      var cur = _normSt(m[r]) || { enviado: false, por: '', enviadoTs: null, retornou: false, retornouTs: null, jaComprou: false, jaComprouTs: null, semWa: false, semWaTs: null };
       for (var k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) cur[k] = patch[k]; }
       m[r] = cur;
       Storage.scope(SCOPE).set('envios', m); // upsert -> Supabase (compartilhado Felipe/Thays)
@@ -165,10 +186,11 @@
     } catch (_) { return ''; }
   }
   function cellStatusHTML(r, raw) {
-    var s = _normSt(raw) || { enviado: false, por: '', retornou: false, jaComprou: false };
+    var s = _normSt(raw) || { enviado: false, por: '', retornou: false, jaComprou: false, semWa: false };
     var envCls = 'wkv-st wkv-st-env' + (s.enviado ? ' on' : '');
     var retCls = 'wkv-st wkv-st-ret' + (s.retornou ? ' on' : '');
     var cmpCls = 'wkv-st wkv-st-cmp' + (s.jaComprou ? ' on' : '');
+    var swaCls = 'wkv-st wkv-st-swa' + (s.semWa ? ' on' : '');
     var sel = '<select class="wkv-st-por" data-r="' + esc(r) + '" title="Quem enviou a mensagem">'
       + '<option value=""' + (!s.por ? ' selected' : '') + '>quem?</option>'
       + '<option value="Felipe"' + (s.por === 'Felipe' ? ' selected' : '') + '>Felipe</option>'
@@ -181,6 +203,7 @@
       + '</div>'
       + '<button class="' + retCls + '" data-r="' + esc(r) + '" title="Marcar que o cliente respondeu">' + (s.retornou ? '\u21a9 Retornou' : 'Retornou') + '</button>'
       + '<button class="' + cmpCls + '" data-r="' + esc(r) + '" title="Cliente antigo que ja comprou da Projetta fora do CRM. Marcado, sai da prospeccao.">' + (s.jaComprou ? '\u2714 Ja comprou' : 'Ja comprou') + '</button>'
+      + '<button class="' + swaCls + '" data-r="' + esc(r) + '" title="O numero nao tem conta no WhatsApp. Marcado, sai da prospeccao por WhatsApp (use email).">' + (s.semWa ? '\u2718 Sem WhatsApp' : 'Sem WhatsApp') + '</button>'
       + '</div>';
   }
   function _refreshStatusCell(el, r) {
@@ -381,7 +404,10 @@
       if (ui.uf && d.uf !== ui.uf) return false;
       if (ui.cidade && d.cidade !== ui.cidade) return false;
       if (ui.rep && d.rep !== ui.rep) return false;
-      if (ui.soComWa && !temWa(d)) return false;
+      // Felipe s37: "So com WhatsApp" agora respeita a marcacao manual —
+      // numero que a pessoa confirmou nao ter conta deixa de contar como
+      // "com WhatsApp", senao ele voltava na lista todo dia.
+      if (ui.soComWa && !temWaReal(d)) return false;
       // Felipe s37: cliente marcado como 'ja comprou' sai da prospeccao.
       if (ui.ocultaComprou) {
         var _st = _normSt(getEnvios()[d.reserva]);
@@ -590,6 +616,7 @@
       '.wkv-st-env.on{background:#dcfce7;border-color:#16a34a;color:#15803d}.wkv-st-env.on:hover{color:#15803d}',
       '.wkv-st-ret.on{background:#dbeafe;border-color:#2563eb;color:#1d4ed8}.wkv-st-ret.on:hover{color:#1d4ed8}',
       '.wkv-st-cmp.on{background:#0f3f5f;border-color:#0f3f5f;color:#fff;font-weight:600}.wkv-st-cmp.on:hover{color:#fff}',
+      '.wkv-st-swa.on{background:#fee2e2;border-color:#dc2626;color:#b91c1c;text-decoration:line-through}.wkv-st-swa.on:hover{color:#b91c1c}',
       '.wkv-st-por{font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;color:var(--wkv-tinta);cursor:pointer}',
       '.wkv-open{background:none;border:none;padding:0;font:inherit;cursor:pointer;text-align:left;color:inherit}',
       '.wkv-open:hover{color:var(--wkv-teal);text-decoration:underline}',
@@ -760,7 +787,7 @@
     } catch (_) {}
 
     var soma = lista.reduce(function (s, d) { return s + (d.v || 0); }, 0);
-    var comWa = lista.filter(temWa).length;
+    var comWa = lista.filter(temWaReal).length;
     var $ = function (id) { return container.querySelector('#' + id); };
 
     if ($('wkv-k-cnt')) $('wkv-k-cnt').textContent = lista.length;
@@ -958,6 +985,16 @@
         var on3 = !(cc && cc.jaComprou);
         marcarStatus(rc, { jaComprou: on3, jaComprouTs: on3 ? Date.now() : null });
         _refreshStatusCell(cmpBtn, rc);
+        return;
+      }
+      // Felipe s37: numero sem conta no WhatsApp.
+      var swaBtn = ev.target.closest('.wkv-st-swa');
+      if (swaBtn) {
+        var rw = swaBtn.getAttribute('data-r');
+        var cw = _normSt(getEnvios()[rw]);
+        var on4 = !(cw && cw.semWa);
+        marcarStatus(rw, { semWa: on4, semWaTs: on4 ? Date.now() : null });
+        _refreshStatusCell(swaBtn, rw);
         return;
       }
       // remover (opt-out)
