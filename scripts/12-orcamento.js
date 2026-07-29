@@ -15210,15 +15210,16 @@ const Orcamento = (() => {
       // quando ha observacao preenchida.
       const obsItem = item.observacao && String(item.observacao).trim();
       const linhaObservacao = obsItem
-        ? `<tr class="rel-prop-tabela-obs-row"><td colspan="${mostraValorPorItem ? 5 : 4}" style="padding:6px 10px;background:#fef3c7;border-left:4px solid #d97706;font-size:11px;color:#78350f;"><strong style="font-size:10px;letter-spacing:0.04em;">${tr('OBS','NOTE')}:</strong> <span style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</span></td></tr>`
+        ? `<tr class="rel-prop-tabela-obs-row"><td colspan="${mostraValorPorItem ? 6 : 4}" style="padding:6px 10px;background:#fef3c7;border-left:4px solid #d97706;font-size:11px;color:#78350f;"><strong style="font-size:10px;letter-spacing:0.04em;">${tr('OBS','NOTE')}:</strong> <span style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</span></td></tr>`
         : '';
       return `
         <tr>
           <td class="rel-prop-tabela-num">${String(idx + 1).padStart(2, '0')}</td>
           <td>${escapeHtml(descricaoItem)}</td>
           <td>${escapeHtml(medidasStr)}</td>
+          ${mostraValorPorItem ? `<td class="num">${valorUnStr}</td>` : ''}
           <td class="num">${qtd}</td>
-          ${mostraValorPorItem ? `<td class="num">${valorTotStr}</td>` : ''}
+          ${mostraValorPorItem ? `<td class="num"><b>${valorTotStr}</b></td>` : ''}
         </tr>
         ${linhaObservacao}
       `;
@@ -15268,8 +15269,13 @@ const Orcamento = (() => {
                 <th class="rel-prop-tabela-num">${tr('Item','Item')}</th>
                 <th>${tr('Descricao','Description')}</th>
                 <th>${tr('Medidas','Dimensions')}</th>
+                ${mostraValorPorItem ? `<th class="num">${tr('Valor (un.)','Unit price')}</th>` : ''}
                 <th class="num">${tr('Qtd','Qty')}</th>
-                <!-- Felipe sessao 33: removida coluna 'Valor (un.)' a pedido.
+                <!-- Felipe s37: coluna 'Valor (un.)' DE VOLTA, a pedido:
+                     "me de preco unitario, depois quantidade e depois preco
+                     total". Ordem da tabela agora: Valor (un.) -> Qtd ->
+                     Valor Total. Foi removida na sessao 33 e reativada agora.
+                     Historico da remocao da sessao 33:
                      Mostra so' o Valor Total — preco unitario nao aparece
                      mais na tabela final da proposta.
                      Quando modoValorProposta='unico' (>1 item), tambem
