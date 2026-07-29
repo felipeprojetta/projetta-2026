@@ -14967,6 +14967,21 @@ const Orcamento = (() => {
     // retornam '' (nao geram card proprio). Antes contava 2 itens (porta +
     // fixo) e ia pra modo multi-pagina (tabela isolada na pag 2 = espaco
     // em branco enorme). Agora conta so cards visiveis.
+    // Felipe s37: calcula os valores ANTES de montar os cards, com os
+    // MESMOS argumentos que a tabela usa mais abaixo (versao, params,
+    // internacional). Os cards sao montados primeiro no fluxo, entao sem
+    // isso a variavel ainda estaria vazia e o card recalcularia sozinho —
+    // que foi exatamente a origem das divergencias de hoje.
+    try {
+      _vpDaTabelaProposta = calcularValoresProposta(
+        versao,
+        Object.assign({}, PARAMS_DEFAULT, versao.parametros || {}),
+        internacional
+      );
+    } catch (e) {
+      _vpDaTabelaProposta = null;
+      console.warn('[proposta] valores por item indisponiveis:', e);
+    }
     const cardsListRaw = itens.map((item, idx) => renderCardItemProposta(item, idx, versao));
     const cardsList = cardsListRaw.filter(c => c && c.trim());
     // Divide em chunks
@@ -15238,9 +15253,22 @@ const Orcamento = (() => {
     //   subInst por item: proporcional ao subFab de cada item
     //   precoFinal por item = pTab (preco com markup, antes do desconto)
     //   valorUn = precoFinal / item.quantidade
-    const valoresProposta = calcularValoresProposta(versao, params, internacional);
+    // Felipe s37: reaproveita o objeto ja' calculado no topo (mesmos
+    // argumentos). Um calculo so' por render = card e tabela sempre iguais.
+    const valoresProposta = _vpDaTabelaProposta
+      || calcularValoresProposta(versao, params, internacional);
     const valoresPorIdx = {};
     valoresProposta.porItem.forEach(v => { valoresPorIdx[v.idx] = v; });
+    // Felipe s37: o CARD do item passa a usar EXATAMENTE este resultado.
+    // "eu preciso do preco no card, so' que preciso do preco correto, e e'
+    //  so' voce pegar o preco que sai e pronto" — exato.
+    // A CAUSA das 3 divergencias de hoje era esta: a tabela chama
+    // calcularValoresProposta(versao, params, internacional) e eu chamava
+    // calcularValoresProposta(versao), SEM params e SEM o flag de
+    // internacional. Argumentos diferentes, resultado diferente — dai o
+    // card mostrar R$ 23.321,18 onde a tabela mostrava R$ 26.760,40.
+    // Agora nao ha segundo calculo: o card le daqui.
+    _vpDaTabelaProposta = valoresProposta;
 
     // Felipe sessao 33: modo de exibicao da tabela final (escolhido no DRE).
     // 'proporcional' (default): mostra Valor Total por item.
@@ -15742,8 +15770,12 @@ const Orcamento = (() => {
    *  - internacional mostra em USD pela taxa da versao
    *  - unitario so' aparece quando a quantidade e' maior que 1
    */
+  // Preenchido pelo renderPropostaTab com o MESMO objeto que monta a
+  // tabela de itens. O card so' le — nunca recalcula.
+  var _vpDaTabelaProposta = null;
   function _vpDaVersao(versao) {
     try {
+      if (_vpDaTabelaProposta) return _vpDaTabelaProposta;
       if (!versao) return null;
       // Felipe s37 (2o FIX do mesmo bloco): SEM CACHE.
       // "item 1 - 23 mil / segunda imagem item 1 - 26 mil? qual seu
@@ -15778,15 +15810,16 @@ const Orcamento = (() => {
     // errado — mais baixo que o correto.
     // Desligado ate a causa ser entendida. O preco continua saindo na
     // TABELA de itens da proposta, que nunca esteve errada, e no rodape.
-    // Pra reativar depois do diagnostico: remover o return abaixo.
+    // RELIGADO (Felipe s37): a causa era chamar calcularValoresProposta
+    // com argumentos diferentes dos que a tabela usa. Agora o card le o
+    // MESMO objeto que a tabela montou (_vpDaTabelaProposta), entao nao
+    // ha como divergir — e' literalmente o numero que sai na tabela.
     // SUSPEITA A INVESTIGAR: calcularValoresProposta parece devolver
     // resultado diferente conforme o estado em que e' chamada (ela le
     // fab._meta.acessPorItem / kgLiqPorItem, que sao populados por outros
     // renders). A tabela chama uma vez no topo do renderPropostaTab; o
     // card chamava de novo, por item, possivelmente com _meta em outro
     // estado. Investigar por que duas chamadas com a MESMA versao dao
-    // numeros diferentes — isso afeta qualquer consumidor, nao so' o card.
-    return '';
     try {
       if (String(versao && versao.modoValorProposta) === 'unico') return '';
       const vp = _vpDaVersao(versao);
