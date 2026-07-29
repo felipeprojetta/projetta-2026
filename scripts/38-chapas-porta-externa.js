@@ -303,6 +303,22 @@ const ChapasPortaExterna = (() => {
       const rev = String(ctx.item?.revestimento || '').toLowerCase();
       return /aluminio.*macico/.test(rev) && /2\s*mm/.test(rev);
     },
+    /**
+     * Felipe s37 — MOLDURA E' DE PERFIL, nao de chapa.
+     * Vale em dois casos do modelo 23:
+     *   - Aluminio Macico 2mm (ja' era assim: _ehMod23AM)
+     *   - ACM com "Tipo de moldura (perfil)" escolhido no form
+     * Nos dois, o 31-perfis-porta-externa gera os cortes de Boiserie e o
+     * 30-perfis-core precifica por barra — entao a moldura NAO pode sair
+     * tambem como peca de chapa, senao o custo conta em dobro.
+     * Campo vazio ('—') com ACM = comportamento de sempre.
+     */
+    _molduraEhPerfil: ctx => {
+      if (F._ehMod23AM(ctx)) return true;
+      const mNum = Number(ctx.modeloAtual) || 0;
+      if (mNum !== 23) return false;
+      return !!String(ctx.item?.perfilMoldura || '').trim();
+    },
     // _refExtra(ctx) retorna 2*REF normalmente, ou 0 quando modelo 23 + AM.
     _refExtra: ctx => F._ehMod23AM(ctx) ? 0 : (2 * ctx.REF),
     fit_acab_me:  ctx => 36.5 + F._refExtra(ctx),
@@ -433,10 +449,11 @@ const ChapasPortaExterna = (() => {
     mold_dec_3: ctx => 2 * (Number(ctx.dist12Mold) || 0)
                        + 2 * (Number(ctx.dist23Mold) || 0),
     // Helper qty: retorna qtdBase se item tem >= N molduras, senao 0.
-    // Sempre 0 em Mod 23 AM (la' viram perfis Boiserie em 31-perfis).
+    // Zero quando a moldura e' de PERFIL — Mod 23 AM, ou ACM com perfil
+    // escolhido (Felipe s37). Nos dois casos vira Boiserie em 31-perfis.
     mold_qty: function(n, qtdBase) {
       return ctx => {
-        if (F._ehMod23AM(ctx)) return 0;
+        if (F._molduraEhPerfil(ctx)) return 0;
         return (Number(ctx.qtdMolduras) || 1) >= n ? qtdBase : 0;
       };
     },

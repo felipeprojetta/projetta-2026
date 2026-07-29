@@ -769,11 +769,23 @@ const PerfisPortaExterna = (() => {
     // como pecas de chapa quando ehAluminioMacico=true — entao nao tem
     // duplicacao. Aqui a regra fecha o ciclo.
     // ====================================================================
-    const ehMod23AM = (modelo === 23)
-      && /aluminio.*macico/i.test(String(item.revestimento || ''))
-      && /2\s*mm/i.test(String(item.revestimento || ''));
+    // Felipe s37: o MESMO calculo passa a valer quando o revestimento e' ACM
+    // mas o usuario escolheu um perfil no campo "Tipo de moldura (perfil)".
+    // "ja temos o calculo do boiserie na porta externa modelo 23 pronto, e'
+    //  so' jogar o calculo que ja tem para modelo 23 quando e' aluminio
+    //  macico" — exatamente isso: nenhuma formula nova, so' a condicao.
+    // Regra do Felipe: escolheu boiserie -> entra perfil e sai o ACM;
+    // deixou em '—' -> mantem as molduras de ACM como sempre.
+    const _revItem = String(item.revestimento || '');
+    const _ehAM = /aluminio.*macico/i.test(_revItem) && /2\s*mm/i.test(_revItem);
+    const _temPerfilMoldura = !!String(item.perfilMoldura || '').trim();
+    const ehMod23AM = (modelo === 23) && (_ehAM || _temPerfilMoldura);
     if (ehMod23AM) {
-      const COD_BOIS = (window.PerfisCore && window.PerfisCore.COD_BOISERIE) || 'PA-PERFILBOISERIE';
+      // Felipe s37: usa o perfil que o usuario escolheu no form; cai no
+      // padrao quando vazio (caso do aluminio macico, que nao usa o campo).
+      const COD_BOIS = String(item.perfilMoldura || '').trim()
+        || (window.PerfisCore && window.PerfisCore.COD_BOISERIE)
+        || 'PA-PERFILBOISERIE';
 
       // Felipe sessao 12: usa calcularQuadro do motor de chapas pra
       // garantir consistencia (mesma fonte de verdade) - evita duplicar
