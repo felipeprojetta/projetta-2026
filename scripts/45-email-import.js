@@ -573,12 +573,25 @@
       if (!window.WeikuClient) throw new Error('WeikuClient nao carregado');
       var dadosWeiku = null;
       var origemDados = 'api';
+      var erroApi = '';
       try {
         dadosWeiku = await window.WeikuClient.buscarReserva(reserva);
       } catch (eApi) {
-        dadosWeiku = null;
+        // Felipe sessao 38: ANTES este catch era `{ dadosWeiku = null; }` —
+        // o erro da API era jogado no lixo sem log nenhum. Resultado: toda
+        // falha virava a mesma mensagem gentrica "nao encontrada na API",
+        // fosse 500, timeout, CORS, token vencido ou reserva realmente
+        // ausente. Ninguem tinha como saber a diferenca, e a suposicao
+        // "a API so' expoe reserva com orcamento" nunca foi confirmada.
+        // Agora o motivo REAL aparece no console e na tela.
+        erroApi = (eApi && eApi.message) ? String(eApi.message) : String(eApi);
+        console.warn('[email-import] API Weiku falhou na reserva ' + reserva + ':', erroApi, eApi);
       }
       if (!dadosWeiku || !dadosWeiku.nome_cliente) {
+        if (!erroApi) {
+          erroApi = 'a API respondeu, mas sem nome de cliente';
+          console.warn('[email-import] API Weiku respondeu vazia na reserva ' + reserva + ':', dadosWeiku);
+        }
         var doAssunto = extrairDadosDoAssunto(email);
         if (doAssunto && doAssunto.nome_cliente) {
           dadosWeiku = {
@@ -590,15 +603,15 @@
             codigo_agp: '', reserva: reserva, tipo: '', data_reserva: '',
           };
           origemDados = 'email';
-          setStatus('⚠ Reserva ' + reserva + ' ainda sem orcamento na Weiku (API nao retorna). '
-                    + 'Usando dados do assunto do email: ' + dadosWeiku.nome_cliente + '.'
-                    + (dadosWeiku.cidade ? '' : ' Cidade/UF nao vieram no assunto — completar no lead.'),
+          setStatus('⚠ Nao consegui os dados da reserva ' + reserva + ' na intranet ('
+                    + erroApi + '). Usando o nome do assunto do email: ' + dadosWeiku.nome_cliente + '.'
+                    + (dadosWeiku.cidade ? '' : ' Cidade/UF/CEP nao vieram — completar no lead.'),
                     '#9a3412');
         } else {
-          throw new Error('Reserva ' + reserva + ' nao encontrada na API Weiku (a API so expoe '
-                          + 'reserva que ja tem orcamento) e o assunto do email nao traz o nome '
-                          + 'do cliente depois do numero ("RESERVA 000000 - CLIENTE"). '
-                          + 'Confira o assunto ou cadastre o lead manualmente.');
+          throw new Error('Reserva ' + reserva + ': a intranet nao devolveu os dados ('
+                          + erroApi + ') e o assunto do email nao traz o nome do cliente depois '
+                          + 'do numero ("RESERVA 000000 - CLIENTE"). Veja o console (F12) pro '
+                          + 'erro completo da API.');
         }
       }
 
