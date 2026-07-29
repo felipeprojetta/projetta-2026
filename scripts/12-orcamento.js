@@ -2613,9 +2613,39 @@ const Orcamento = (() => {
       custoFab: base?.custoFab ? JSON.parse(JSON.stringify(base.custoFab)) : _fabDefaultsComCadastro(),
       custoInst: base?.custoInst ? JSON.parse(JSON.stringify(base.custoInst)) : _instDefaultsComCadastro(),
       parametros: Object.assign({}, PARAMS_DEFAULT, base?.parametros || {}),
-      subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
-      total: 0,
+      // Felipe s37 — NOVA VERSAO E' COPIA FIEL. "uma revisao, ou uma nova
+      // versao, e' uma copia da versao anterior, nao pode ficar nada pra
+      // tras... o problema e' que voce nao seleciona as chapas iguais, tem
+      // que eu clicar e selecionar; e como a chapa nao esta clicada, as
+      // horas da chapa ficam zeradas."
+      // Estes campos NAO eram clonados e por isso a copia nascia diferente:
+      //  - chapasSelecionadas: a escolha de chapa-mae por cor (qual das
+      //    opcoes de 6000/7000/8000mm foi marcada). Sem ela o custo de
+      //    revestimento e as horas de Corte e Usinagem nascem ZERADOS, e o
+      //    valor final nao bate com a versao de origem.
+      //  - _zerosIntencionais: os campos que o usuario ja' confirmou como
+      //    zero de proposito. Sem eles a nova versao volta a travar
+      //    pedindo confirmacao de coisa ja' respondida.
+      //  - modoValorProposta: como a proposta exibe os valores.
+      //  - _itensRemovidos: tombstone dos itens apagados de proposito,
+      //    senao a repopulacao do lead os traz de volta na copia.
+      chapasSelecionadas: base?.chapasSelecionadas
+        ? JSON.parse(JSON.stringify(base.chapasSelecionadas)) : undefined,
+      _zerosIntencionais: base?._zerosIntencionais
+        ? JSON.parse(JSON.stringify(base._zerosIntencionais)) : undefined,
+      modoValorProposta: base?.modoValorProposta,
+      _itensRemovidos: Array.isArray(base?._itensRemovidos)
+        ? base._itensRemovidos.slice() : undefined,
+      subtotais: base?.subtotais
+        ? JSON.parse(JSON.stringify(base.subtotais))
+        : { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
+      total: Number(base?.total) || 0,
     };
+    // Remove as chaves que ficaram undefined (base sem o campo), pra nao
+    // gravar lixo no JSON da versao.
+    Object.keys(novaVersao).forEach(k => {
+      if (novaVersao[k] === undefined) delete novaVersao[k];
+    });
     opcao.versoes.push(novaVersao);
     saveAll(negocios);
     return novaVersao;
