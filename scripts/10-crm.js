@@ -5653,7 +5653,7 @@ ${secoesHtml}
         return { nome: fup, comissao: '' };
       }
 
-      const headers = ['Coluna','Cliente','Reserva','AGP','Cidade/UF','Representante','Comissao',
+      const headers = ['Coluna','Cliente','Reserva','AGP','Cidade/UF ou Pais','Representante','Comissao',
                        'Modelo','Cor','Valor Original','Valor Com Desconto','Data'];
       const rows = [];
       let gN = 0, gOrig = 0, gDesc = 0;
@@ -5679,7 +5679,13 @@ ${secoesHtml}
             l.cliente || '',
             l.reserva || '',
             l.numeroAGP || '',
-            [l.cidade, l.estado].filter(Boolean).join(' / '),
+            // Felipe s37: internacional nao tem cidade/UF preenchidos —
+            // a coluna saia vazia (AGPI003265, AGPI003270, Arjen Homes...).
+            // Mostra o PAIS de destino no lugar. Se o lead internacional
+            // tiver cidade preenchida, mostra 'Cidade / Pais'.
+            (l.destinoTipo === 'internacional'
+              ? [l.cidade, (l.destinoPais || 'Internacional')].filter(Boolean).join(' / ')
+              : [l.cidade, l.estado].filter(Boolean).join(' / ')),
             rep.nome,
             rep.comissao,
             modelo,
