@@ -37,8 +37,14 @@
     excluiPredio: false,
     soComWa: false,
     ocultaComprou: true,   // Felipe s37: some quem ja' comprou (default ligado)
-    sortKey: 'v',
+    // Felipe s37: "ja inicie sempre por esse filtro, primeiro data depois
+    // valor" — a tela ja' abre com a ordenacao em 2 camadas pronta, em vez
+    // de exigir clicar em Fechamento e dar Shift+clique em Valor toda vez.
+    // Fechamento (mais recente primeiro) e, dentro de cada data, o maior
+    // valor primeiro — que e' a ordem util pra decidir quem prospectar.
+    sortKey: 'data',
     sortAsc: false,
+    sortLayers: [{ k: 'data', asc: false }, { k: 'v', asc: false }],
     msg: 'Ola {nome}, tudo bem? Falo em nome da Projetta Aluminio, empresa do grupo Weiku do Brasil. Como fazemos parte do mesmo grupo, o contrato das suas esquadrias Weiku consta em nosso sistema. Nosso objetivo e assegurar que os clientes do grupo conhecam tambem as portas de entrada de alto padrao fabricadas pela Projetta - sob medida, no mesmo nivel de qualidade das esquadrias. Antes de avancar, gostariamos de confirmar: o representante que conduziu seu atendimento chegou a apresentar as portas da Projetta ou elaborar algum orcamento?'
   };
 
@@ -637,6 +643,8 @@
       '.wkv-st-cmp.on{background:#0f3f5f;border-color:#0f3f5f;color:#fff;font-weight:600}.wkv-st-cmp.on:hover{color:#fff}',
       '.wkv-tbusca{margin-left:auto;padding:6px 10px;border:1px solid var(--wkv-linha);border-radius:7px;font:inherit;font-size:13px;min-width:230px}',
       '.wkv-tbar{display:flex;align-items:center;gap:12px}',
+      '.wkv-btn-ordpad{padding:6px 12px;border:1px solid var(--wkv-linha);border-radius:7px;background:#fff;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}',
+      '.wkv-btn-ordpad:hover{background:#f8fafc}',
       '.wkv-st-swa{font-size:10px;line-height:1.25;white-space:normal;text-align:left}',
       '.wkv-st-swa.on{background:#fee2e2;border-color:#dc2626;color:#b91c1c;font-weight:600}.wkv-st-swa.on:hover{color:#b91c1c}',
       '.wkv-st-por{font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;color:var(--wkv-tinta);cursor:pointer}',
@@ -730,6 +738,9 @@
       // ficava fora da tela. Este e o de cima sao o MESMO filtro (ui.busca),
       // sincronizados nos dois sentidos.
       + '      <input id="wkv-t-busca" class="wkv-tbusca" placeholder="\ud83d\udd0d Buscar por nome ou telefone..." value="' + esc(ui.busca || '') + '">'
+      // Felipe s37: volta pra ordenacao padrao (data + valor) depois de
+      // ter ordenado de outro jeito, sem precisar refazer os 2 cliques.
+      + '      <button id="wkv-t-ordpad" class="wkv-btn-ordpad" title="Volta pra ordenacao padrao: Fechamento (mais recente) e, dentro da data, maior valor primeiro.">\u21ba Ordem padrao</button>'
       + '    </div>'
       + '    <div class="wkv-scroll"><table>'
       + '      <thead><tr>'
@@ -896,6 +907,17 @@
   function bindEventos(container) {
     var $ = function (id) { return container.querySelector('#' + id); };
 
+    // Felipe s37: volta a ordenacao padrao (data + valor).
+    (function () {
+      var bo = container.querySelector('#wkv-t-ordpad');
+      if (!bo) return;
+      bo.addEventListener('click', function () {
+        ui.sortLayers = [{ k: 'data', asc: false }, { k: 'v', asc: false }];
+        ui.sortKey = 'data'; ui.sortAsc = false;
+        renderTabela(container);
+      });
+    })();
+
     // Felipe s37: busca da tabela — digita e filtra, sem precisar subir
     // ate o Filtro Inteligente. Escreve no mesmo ui.busca.
     (function () {
@@ -949,6 +971,9 @@
       ui.cidade = '';
       ui.ano = ''; ui.mes = '';
       ui.excluiPredio = false; ui.soComWa = false; ui.ocultaComprou = true;
+      // Felipe s37: Limpar filtros tambem devolve a ordenacao padrao.
+      ui.sortLayers = [{ k: 'data', asc: false }, { k: 'v', asc: false }];
+      ui.sortKey = 'data'; ui.sortAsc = false;
       $('wkv-f-busca').value = ''; $('wkv-f-vmin').value = ''; $('wkv-f-vmax').value = '';
       $('wkv-f-pav').value = ''; $('wkv-f-uf').value = ''; $('wkv-f-rep').value = '';
       if ($('wkv-f-cidade')) $('wkv-f-cidade').value = '';
