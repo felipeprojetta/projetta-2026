@@ -1178,6 +1178,42 @@ const Orcamento = (() => {
             }
           });
         }
+        // Felipe s37: HORA VAZIA = HORA AUTOMATICA.
+        // "item 1 sao 9 horas x 2 pessoas = 18, e como sao 110 por hora
+        //  da 1.980 de mao de obra, e voce colocou R$ 3.291,85."
+        //
+        // O BUG: este bloco so' somava as celulas DIGITADAS A MAO
+        // (fab.etapas[*].horasPorItem). Celula vazia usa a hora AUTOMATICA
+        // na tabela e entra no "Total de horas" da tela, mas ficava de fora
+        // de horasPorIdx — que e' o peso do rateio de mao de obra.
+        // Caso Balzan: a tela mostra 9,18,56,11,78,9,10,11 (=202h), mas o
+        // peso usado era 2,4,6,1,8,2,3,1 (=27) — so' o Portal dos itens de
+        // correr e o Corte/Usinagem, que foram os unicos digitados. Por isso
+        // o item 1 recebeu R$ 3.291,85 em vez de R$ 1.980,00.
+        //
+        // Agora, quando NENHUMA hora foi digitada pro item, cai nas regras
+        // automaticas (porta interna: portal 1h correr / 3h giro, folha 3h,
+        // colagem 3h, conferencia 1h — tudo x qtd), que e' exatamente o que
+        // a tabela exibe. Digitou alguma? A digitada manda, como antes.
+        // POR ETAPA: a celula vazia usa o automatico DAQUELA etapa. Nao
+        // adianta checar "nenhuma hora digitada" — no caso Balzan o Felipe
+        // digitou so' Corte/Usinagem (e o Portal dos correr), entao havia
+        // valor e o automatico nunca entrava; folha, colagem e conferencia
+        // ficavam valendo 0 no peso mesmo aparecendo na tela.
+        if (it.tipo === 'porta_interna') {
+          const _q = Math.max(1, Number(it.quantidade) || 1);
+          const _ehCorrer = String(it.tipoAbertura || '').toLowerCase() === 'correr';
+          const _auto = {
+            portal:         (_ehCorrer ? 1 : 3) * _q,
+            folha_porta:    3 * _q,
+            colagem:        3 * _q,
+            conf_embalagem: 1 * _q,
+          };
+          Object.keys(_auto).forEach(k => {
+            if (detEtapas[k] != null) return;      // digitada: manda
+            if (_auto[k] > 0) { totalH += _auto[k]; detEtapas[k] = _auto[k]; }
+          });
+        }
         horasPorIdx[idx] = totalH;
         horasEtapasPorIdx[idx] = detEtapas;
       } else {
