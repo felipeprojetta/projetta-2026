@@ -785,6 +785,19 @@ const AcessoriosPortaExterna = (() => {
       } catch (e) { /* nao crit */ }
     }
 
+    // PORTAL — Bucha + Parafuso (Felipe s37).
+    // "porta interna esta faltando parafuso e bucha; use o mesmo da porta
+    //  externa: bucha 8 e o parafuso M6, de 30 em 30 cm."
+    // Mesma regra do item 15 da porta externa: ceil(altura/300) x 2 lados,
+    // aplicacao 'obra' (e' fixacao no vao, nao fabricacao). O portal existe
+    // na porta interna igual, entao a fixacao estava simplesmente faltando
+    // no levantamento — cada porta saia sem bucha e sem parafuso.
+    if (alturaVaoPI > 0) {
+      const qtyFix = Math.ceil(alturaVaoPI / 300) * 2;   // x 2 lados
+      pushLinha('PA-BUCHA 08',      qtyFix, 'Buchas',    'ceil(' + alturaVaoPI + '/300) x 2 lados');
+      pushLinha('PA-PAR SOB M6X65', qtyFix, 'Parafusos', 'ceil(' + alturaVaoPI + '/300) x 2 lados');
+    }
+
     return linhas;
   }
 
