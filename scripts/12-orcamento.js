@@ -15667,6 +15667,72 @@ const Orcamento = (() => {
    *   - REVESTIMENTO DE PAREDE gera card sem imagem, mostrando so' as
    *     variaveis do item.
    */
+  /**
+   * Felipe s37 — bloco de PRECO dentro do card do item na proposta.
+   * "coloque preco unitario e total tbm nas imagem, assim cliente pode ver
+   *  na imagem, e depois um quadro resumido como esta em baixo."
+   *
+   * O card mostrava so' as caracteristicas (medidas, cor, fechadura...);
+   * o preco so' aparecia na tabela-resumo do fim. Agora aparece nos dois:
+   * no card, junto da imagem que o cliente esta olhando, e no resumo.
+   *
+   * Respeita as MESMAS regras da tabela:
+   *  - modoValorProposta='unico' esconde valor por item (so' o total geral)
+   *  - internacional mostra em USD pela taxa da versao
+   *  - unitario so' aparece quando a quantidade e' maior que 1
+   */
+  var _vpCachePorVersao = {};
+  function _vpDaVersao(versao) {
+    try {
+      if (!versao || !versao.id) return null;
+      const chave = versao.id + '|' + (versao.calculadoEm || '') + '|' + (versao.subFab || 0);
+      if (_vpCachePorVersao.__k === chave) return _vpCachePorVersao.__v;
+      const vp = calcularValoresProposta(versao);
+      _vpCachePorVersao = { __k: chave, __v: vp };
+      return vp;
+    } catch (e) {
+      console.warn('[proposta] valores por item indisponiveis no card:', e);
+      return null;
+    }
+  }
+
+  function blocoPrecoCardProposta(item, idx, versao) {
+    try {
+      if (String(versao && versao.modoValorProposta) === 'unico') return '';
+      const vp = _vpDaVersao(versao);
+      const v = vp && vp.porItem && vp.porItem[idx];
+      if (!v || !(Number(v.precoFinal) > 0)) return '';
+      const qtd = Math.max(1, Number(v.qtd) || 1);
+      const usarDesc = Number(v.precoFinalDesc) > 0;
+      const total = usarDesc ? Number(v.precoFinalDesc) : Number(v.precoFinal);
+      // internacional = destino do LEAD (mesma regra do resto da proposta)
+      let intl = false;
+      try {
+        const _l = lerLeadAtivo();
+        intl = !!(_l && _l.destinoTipo === 'internacional');
+      } catch (_) {}
+      const taxa = intl ? (taxaUsdEfetiva(versao) || 0) : 0;
+      const money = n => (intl && taxa > 0)
+        ? 'USD ' + Number(n / taxa).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : 'R$ ' + fmtBR(n);
+      return `
+        <div class="rel-prop-card-preco" style="margin-top:10px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #0f3f5f;border-radius:4px;">
+          ${qtd > 1 ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#475569;margin-bottom:4px;">
+            <span>Valor unitario</span><span>${money(total / qtd)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#475569;margin-bottom:4px;">
+            <span>Quantidade</span><span>${qtd}</span>
+          </div>` : ''}
+          <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;color:#0f3f5f;">
+            <span>${qtd > 1 ? 'Valor total' : 'Valor'}</span><span>${money(total)}</span>
+          </div>
+        </div>`;
+    } catch (e) {
+      console.warn('[proposta] bloco de preco do card falhou:', e);
+      return '';
+    }
+  }
+
   function renderCardItemProposta(item, idx, versao) {
     // Felipe sessao 2026-08: fixo acoplado nao gera card visual proprio.
     // 'E UM ITEM UNICO COM A PORTA - SOMENTE DESCRICAO E PRECO FICA
@@ -15989,6 +16055,7 @@ const Orcamento = (() => {
           })()}
           ${bannerAlisar}
           ${item.observacao && String(item.observacao).trim() ? `<div class="rel-prop-banner-observacao" style="margin-top:8px;padding:10px 12px;background:#fef3c7;border:1px solid #f59e0b;border-left:4px solid #d97706;border-radius:4px;font-size:12px;color:#78350f;"><div style="font-weight:700;font-size:11px;letter-spacing:0.05em;margin-bottom:4px;color:#92400e;">${tr('OBSERVACOES','NOTES')}:</div><div style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</div></div>` : ''}
+          ${blocoPrecoCardProposta(item, idx, versao)}
         </div>
       </div>
     `;
@@ -16161,6 +16228,7 @@ const Orcamento = (() => {
             ${item.dobradicaCor ? `<div class="rel-prop-item-linha"><span class="lbl">${tr('DOBRADICA','HINGE')}:</span> <span>${escapeHtml(item.dobradicaCor)}</span></div>` : ''}
           </div>
           ${item.observacao && String(item.observacao).trim() ? `<div class="rel-prop-banner-observacao" style="margin-top:8px;padding:10px 12px;background:#fef3c7;border:1px solid #f59e0b;border-left:4px solid #d97706;border-radius:4px;font-size:12px;color:#78350f;"><div style="font-weight:700;font-size:11px;letter-spacing:0.05em;margin-bottom:4px;color:#92400e;">${tr('OBSERVACOES','NOTES')}:</div><div style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</div></div>` : ''}
+          ${blocoPrecoCardProposta(item, idx, versao)}
         </div>
       </div>
     `;
@@ -16261,6 +16329,7 @@ const Orcamento = (() => {
           </div>
           ${blocoPecas}
           ${item.observacao && String(item.observacao).trim() ? `<div class="rel-prop-banner-observacao" style="margin-top:8px;padding:10px 12px;background:#fef3c7;border:1px solid #f59e0b;border-left:4px solid #d97706;border-radius:4px;font-size:12px;color:#78350f;"><div style="font-weight:700;font-size:11px;letter-spacing:0.05em;margin-bottom:4px;color:#92400e;">OBSERVACOES:</div><div style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</div></div>` : ''}
+          ${blocoPrecoCardProposta(item, idx, versao)}
         </div>
       </div>
     `;
