@@ -15742,15 +15742,22 @@ const Orcamento = (() => {
    *  - internacional mostra em USD pela taxa da versao
    *  - unitario so' aparece quando a quantidade e' maior que 1
    */
-  var _vpCachePorVersao = {};
   function _vpDaVersao(versao) {
     try {
-      if (!versao || !versao.id) return null;
-      const chave = versao.id + '|' + (versao.calculadoEm || '') + '|' + (versao.subFab || 0);
-      if (_vpCachePorVersao.__k === chave) return _vpCachePorVersao.__v;
-      const vp = calcularValoresProposta(versao);
-      _vpCachePorVersao = { __k: chave, __v: vp };
-      return vp;
+      if (!versao) return null;
+      // Felipe s37 (2o FIX do mesmo bloco): SEM CACHE.
+      // "item 1 - 23 mil / segunda imagem item 1 - 26 mil? qual seu
+      //  problema, o correto e' 26, sempre na proposta preco cheio sem
+      //  desconto" — ele esta certo. O card mostrava R$ 23.321,18 e a
+      // tabela da MESMA proposta R$ 26.760,40.
+      // CAUSA: eu tinha memoizado o calculo por (versao.id + calculadoEm +
+      // subFab) pra nao repetir a cada card. Essa chave NAO captura tudo
+      // que muda o resultado (parametros do DRE, desconto, custoInst,
+      // acessorios...), entao o cache servia numero velho enquanto a
+      // tabela — que chama calcularValoresProposta direto — mostrava o
+      // atual. Economia de calculo nao vale numero errado na proposta do
+      // cliente: agora calcula fresh, exatamente como a tabela.
+      return calcularValoresProposta(versao);
     } catch (e) {
       console.warn('[proposta] valores por item indisponiveis no card:', e);
       return null;
