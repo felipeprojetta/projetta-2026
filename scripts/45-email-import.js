@@ -142,17 +142,48 @@
     // separador exige ESPACOS ao redor: cidade pode ter hifen colado
     // ("Ourinhos-SP"), que nao pode ser confundido com o separador.
     var m = assunto.match(/\d{4,8}\s*[-–—]\s*(.+)\s+[-–—]\s+(.+)$/);
-    if (!m) return null;
-    var nome  = (m[1] || '').trim();
-    var local = (m[2] || '').trim();
-    if (!nome) return null;
-    // "Ourinhos-SP" | "Ourinhos/SP" | "Ourinhos SP"
-    var mloc = local.match(/^(.*?)[\s\-\/]+([A-Za-z]{2})\.?$/);
-    return {
-      nome_cliente: nome,
-      cidade: mloc ? (mloc[1] || '').trim() : local,
-      estado: mloc ? mloc[2].toUpperCase() : '',
-    };
+    if (m) {
+      var nome  = (m[1] || '').trim();
+      var local = (m[2] || '').trim();
+      if (nomeDeClientePlausivel(nome)) {
+        // "Ourinhos-SP" | "Ourinhos/SP" | "Ourinhos SP"
+        var mloc = local.match(/^(.*?)[\s\-\/]+([A-Za-z]{2})\.?$/);
+        return {
+          nome_cliente: nome,
+          cidade: mloc ? (mloc[1] || '').trim() : local,
+          estado: mloc ? mloc[2].toUpperCase() : '',
+        };
+      }
+    }
+    // Felipe sessao 38: CIDADE-UF passa a ser OPCIONAL.
+    // Reserva lancada pelo representante via Bitrix24 chega com assunto
+    // curto: "Res 148363 - Celso e Ana Claudia Zucatelli" — numero e
+    // cliente, sem cidade. O regex acima exige DOIS separadores, devolvia
+    // null e o import inteiro abortava mesmo tendo o nome ali na frente.
+    // Agora, sem cidade, importa com nome e deixa cidade/estado em branco
+    // (o CEP da intranet ou o proprio Felipe completam depois).
+    var m2 = assunto.match(/\d{4,8}\s*[-–—:]\s*(.+)$/);
+    if (m2) {
+      var nome2 = (m2[1] || '').trim();
+      if (nomeDeClientePlausivel(nome2)) {
+        return { nome_cliente: nome2, cidade: '', estado: '' };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Guarda do fallback de assunto: evita criar lead chamado "Favor orcar"
+   * ou "URGENTE". Nome tem que ter corpo de nome, nao de recado.
+   */
+  function nomeDeClientePlausivel(nome) {
+    var n = String(nome || '').trim();
+    if (n.length < 3) return false;
+    if (/^\d+$/.test(n)) return false;                  // so' numero
+    if (!/[A-Za-zÀ-ÿ]{3}/.test(n)) return false;        // sem palavra de verdade
+    var generico = /^(favor\s*or[cç]ar|or[cç]amento|urgente|sem\s*t[ií]tulo|segue|anexo|bom\s*dia|boa\s*tarde|boa\s*noite|prezados?|nova\s*reserva|reserva)$/i;
+    if (generico.test(n)) return false;
+    return true;
   }
 
   // ───────────────────────────────────────────────────────────────────
@@ -560,10 +591,13 @@
           };
           origemDados = 'email';
           setStatus('⚠ Reserva ' + reserva + ' ainda sem orcamento na Weiku (API nao retorna). '
-                    + 'Usando dados do assunto do email: ' + dadosWeiku.nome_cliente + '.', '#9a3412');
+                    + 'Usando dados do assunto do email: ' + dadosWeiku.nome_cliente + '.'
+                    + (dadosWeiku.cidade ? '' : ' Cidade/UF nao vieram no assunto — completar no lead.'),
+                    '#9a3412');
         } else {
-          throw new Error('Reserva ' + reserva + ' nao encontrada na API Weiku e o assunto do '
-                          + 'email nao tem o padrao "RESERVA 000000 - CLIENTE - CIDADE-UF". '
+          throw new Error('Reserva ' + reserva + ' nao encontrada na API Weiku (a API so expoe '
+                          + 'reserva que ja tem orcamento) e o assunto do email nao traz o nome '
+                          + 'do cliente depois do numero ("RESERVA 000000 - CLIENTE"). '
                           + 'Confira o assunto ou cadastre o lead manualmente.');
         }
       }
