@@ -2735,7 +2735,7 @@ const Orcamento = (() => {
     // por isso o toggle "Valor unico final / Valor por item" NAO salvava
     // (atualizarVersao descartava o campo silenciosamente) e o botao
     // parecia nao funcionar.
-    const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas', 'dre_congelado', 'modoValorProposta', 'enviadaEm', '_itensRemovidos'];
+    const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas', 'dre_congelado', 'modoValorProposta', 'enviadaEm', '_itensRemovidos', '_extrasDeSelecao'];
     camposPermitidos.forEach(k => {
       if (k in dadosNovos) alvo[k] = dadosNovos[k];
     });
@@ -8934,7 +8934,17 @@ const Orcamento = (() => {
     checkar('fab.total_perfis',    'Total Perfis',              fab.total_perfis,    'Fabricacao');
     checkar('fab.total_pintura',   'Total Pintura',             fab.total_pintura,   'Fabricacao');
     checkar('fab.total_acessorios','Total Acessorios',          fab.total_acessorios,'Fabricacao');
-    checkar('fab.total_extras',    'Extras (chapas/livres)',    fab.total_extras,    'Fabricacao');
+    // Felipe s37: EXTRAS NAO TRAVA MAIS quando zerado.
+    // "hoje toda vez em baixo quando ele esta zerado trava e pergunta se
+    //  realmente esta zerado, pode tirar essa trava; tire somente a trava
+    //  do item extra."
+    // Faz sentido: Extras e' um campo OPCIONAL por natureza — a maioria
+    // dos orcamentos nao tem item extra nenhum, entao zero e' o valor
+    // NORMAL, nao um furo de preenchimento. Perguntar toda vez so' gerava
+    // clique extra. Os demais campos (perfis, pintura, acessorios, mao de
+    // obra, instalacao) continuam sendo checados, porque ali zero
+    // realmente indica algo esquecido.
+    // checkar('fab.total_extras', 'Extras (chapas/livres)', fab.total_extras, 'Fabricacao');
 
     // ---- Instalacao (depende do modo) ----
     const ehTerceiros = (inst.modo === 'terceiros' || inst.modo === 'internacional');
@@ -8952,6 +8962,60 @@ const Orcamento = (() => {
       checkar('inst.alimentacao_dia', 'Alimentacao (R$/pax/dia)', inst.alimentacao_dia, 'Instalacao');
     }
     return pend;
+  }
+
+  /**
+   * Felipe s37 — soma o preco dos ITENS EXTRAS marcados na aba
+   * Caracteristicas do Item, pra alimentar o campo "Extras (R$)" do
+   * Custo de Fabricacao.
+   *
+   * A selecao vive em item.itensExtras (array de codigos do cadastro de
+   * acessorios com familia = "Itens Extras"), ligada pelo checkbox
+   * "Selecionar itens extras abaixo".
+   *
+   * Soma TODOS os itens da versao — se a porta e o fixo tiverem extras
+   * marcados, os dois contam. Codigo repetido no mesmo item conta uma
+   * vez; em itens diferentes, conta por item (sao pecas distintas).
+   *
+   * @param {object} versao
+   * @param {Array}  cadAcess  cadastro de acessorios (evita reler)
+   * @returns {{total:number, qtd:number, detalhe:Array}}
+   */
+  function calcularTotalItensExtras(versao, cadAcess) {
+    const vazio = { total: 0, qtd: 0, detalhe: [] };
+    if (!versao || !Array.isArray(versao.itens)) return vazio;
+    let lista = cadAcess;
+    if (!Array.isArray(lista) || !lista.length) {
+      try { lista = Storage.scope('cadastros').get('acessorios_lista') || []; }
+      catch (_) { lista = []; }
+    }
+    if (!lista.length) return vazio;   // cadastro nao carregou: nao mexe
+
+    const porCodigo = {};
+    lista.forEach(a => {
+      if (a && a.codigo) porCodigo[String(a.codigo).trim()] = a;
+    });
+
+    let total = 0, qtd = 0;
+    const detalhe = [];
+    versao.itens.forEach((it, idx) => {
+      if (!it || !it.possuiItensExtras) return;           // 'Nao se aplica'
+      const sel = Array.isArray(it.itensExtras) ? it.itensExtras : [];
+      const jaVistos = {};
+      sel.forEach(cod => {
+        const chave = String(cod || '').trim();
+        if (!chave || jaVistos[chave]) return;
+        jaVistos[chave] = true;
+        const acc = porCodigo[chave];
+        if (!acc) return;                                  // codigo sumiu do cadastro
+        const preco = Number(acc.preco) || 0;
+        if (preco <= 0) return;
+        total += preco;
+        qtd++;
+        detalhe.push({ itemIdx: idx, codigo: chave, descricao: acc.descricao || '', preco });
+      });
+    });
+    return { total: Math.round(total * 100) / 100, qtd, detalhe };
   }
 
   /**
@@ -9356,6 +9420,29 @@ const Orcamento = (() => {
         if (!_imutavel && cadCarregado && Math.abs(valorDigitalAntigo - totalDigital) > 0.01) {
           fab.total_fechadura_digital = totalDigital > 0 ? totalDigital : '';
         }
+        // Felipe s37: ITENS EXTRAS -> campo Extras (R$).
+        // "nesse campo de itens extras deixe ali um lugar onde eu posso
+        //  clicar e escolher os itens extras... ai esse item voce vai
+        //  jogar o valor la no campo extras."
+        // A UI de selecao ja' existia desde a sessao 32 (checkboxes com
+        // familia='Itens Extras' do cadastro de acessorios), mas a
+        // integracao com o custo nunca foi feita — o comentario de la'
+        // dizia "integracao no commit seguinte" e ficou pra tras.
+        // Agora soma o preco dos itens marcados EM TODOS os itens da
+        // versao e joga em fab.total_extras, do mesmo jeito que os
+        // acessorios alimentam total_acessorios.
+        try {
+          const _extras = calcularTotalItensExtras(versao, cadAcess);
+          // So' escreve se houver selecao OU se havia valor vindo daqui
+          // e o usuario desmarcou tudo (ai zera). Valor digitado a mao
+          // sem nenhuma selecao e' PRESERVADO.
+          const _tinhaSelecao = !!(versao._extrasDeSelecao);
+          if (!_imutavel && (_extras.qtd > 0 || _tinhaSelecao)) {
+            fab.total_extras = _extras.total > 0 ? _extras.total : '';
+            versao._extrasDeSelecao = _extras.qtd > 0;
+          }
+        } catch (e) { console.warn('[orcamento] total de itens extras falhou:', e); }
+
         // Persiste custoFab + recalcula subFab (so' em versao editavel)
         if (!_imutavel) {
           const rFab = calcularFab(fab, versao.itens, versao);
@@ -22723,10 +22810,11 @@ const Orcamento = (() => {
     // Felipe s37: marcador de versao do JS carregado. Serve pra saber
     // NA HORA se o navegador esta com o codigo novo ou com cache velho,
     // em vez de ficar adivinhando por sintoma.
-    __build: '20260728-delete-origem',
+    __build: '20260729-itens-extras',
     chaveItemTombstone,
     marcarItemRemovido,
     removerItemDoLead,
+    calcularTotalItensExtras,
     aplicarPtaxFechamento,      // Felipe s37: PTAX de fechamento (internacional)
     ehInternacionalComTaxa,
     // Felipe: usado pelo motor de perfis (31) pra forcar PA-007 no internacional
