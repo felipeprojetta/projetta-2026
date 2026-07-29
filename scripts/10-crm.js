@@ -747,6 +747,9 @@
               ${tabsAgpAtpHtml}
               <div class="crm-aba-agp-content" style="${abaAtual === 'atp' ? 'display:none;' : ''}">
               ${searchSection}
+              <div class="crm-form-row cols-1" style="margin-top:-4px;">
+                <button type="button" class="btn btn-ghost btn-sm" style="width:auto;align-self:flex-start;font-size:12px;" title="Cola o bloco da tela de reserva da intranet e preenche cliente, email, CEP, cidade, UF e follow up" onclick="window.ColarReservaIntranet && window.ColarReservaIntranet.abrir()">📋 Colar da Intranet</button>
+              </div>
               <div class="crm-form-row cols-3">
                 <div class="crm-field">
                   <label>Nome do Cliente</label>
