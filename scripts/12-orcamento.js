@@ -23044,6 +23044,26 @@ const Orcamento = (() => {
     // 2. Salva UI atual e seta pra essa versao temporariamente
     const UIversaoOrig  = UI.versaoAtivaId;
     const UInegocioOrig = UI.negocioAtivoId;
+    // Felipe s37 — PROPOSTA VAZIA QUANDO GERADA PELO EMAIL.
+    // "abrindo a versao sai completa; pelo botao do email vem sem ser
+    //  completa" — reproduzido 2x no AGP003478 V2: capa, mapa, observacoes
+    // e rodape saiam, mas Obra, Cliente, Cidade, Reserva, Representante e
+    // TODOS os itens vinham vazios.
+    // CAUSA: esta funcao preparava UI.versaoAtivaId e UI.negocioAtivoId,
+    // mas o renderPropostaTab le o lead por lerLeadAtivo(), que NAO olha a
+    // UI — le a chave app/orcamento_lead_ativo do Storage. Gerando pela
+    // versao aberta a chave ja' aponta pro lead certo; gerando pelo email
+    // (Orcamento fechado) ela esta vazia ou aponta pra outro lead.
+    // FIX: aponta a chave pro lead DESTA versao e restaura no finally.
+    const _leadIdDaVersao = r.negocio && r.negocio.leadId;
+    let _leadAtivoOrig = null, _trocouLead = false;
+    try {
+      _leadAtivoOrig = Storage.scope('app').get('orcamento_lead_ativo') || null;
+      if (_leadIdDaVersao && _leadAtivoOrig !== _leadIdDaVersao) {
+        Storage.scope('app').set('orcamento_lead_ativo', _leadIdDaVersao);
+        _trocouLead = true;
+      }
+    } catch (e) { console.warn('[orcamento] PDF: nao consegui fixar o lead ativo:', e); }
 
     let host = null;
     try {
@@ -23101,6 +23121,11 @@ const Orcamento = (() => {
     } finally {
       // 9. SEMPRE restaura UI e limpa host (mesmo em erro)
       if (host && host.parentNode) host.parentNode.removeChild(host);
+      // Felipe s37: restaura tambem o lead ativo (ver fix no topo).
+      if (_trocouLead) {
+        try { Storage.scope('app').set('orcamento_lead_ativo', _leadAtivoOrig); }
+        catch (e) { console.warn('[orcamento] PDF: falha ao restaurar lead ativo:', e); }
+      }
       UI.versaoAtivaId  = UIversaoOrig;
       UI.negocioAtivoId = UInegocioOrig;
     }
