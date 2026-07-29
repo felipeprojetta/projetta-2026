@@ -598,35 +598,37 @@ function memorial(c){
     const Mn=Math.hypot(Fl*eOff, Wn*eOff)/1000;     // N·m — momento do braço (SRSS dos 2 eixos)
     const nRow=nP/2;
     const tScrew=Mn*1000/(nRow*sP);                 // N — tração nos parafusos da fila externa
-    const As=36.6, FtAdm=220*As, FvAdm=145*As;      // M8 A2-70: adm 220/145 MPa sobre As
+    // 6,3×50 DIN 7982 A2 (soberba): núcleo Ø4,4 → As≈15,2 mm²; adm A2 220/145 MPa
+    const As=15.2, FtAdm=220*As, FvAdm=145*As;
     const tauAl=39;                                 // MPa — cisalhamento adm 6063-T5 (0,6·65)
-    const strip4=Math.PI*8*4*tauAl;                 // arrancamento SÓ na parede 4 mm
-    const stripCC=Math.PI*8*tCC*tauAl;              // arrancamento na contra-chapa (rosca nela)
-    const bear=8*4*2*65;                            // esmagamento parede 4 mm (adm 2·σ)
+    // tCC aqui = espessura ROSCADA efetiva: 3 paredes de 2 mm, desconto de rosca interrompida → 4 mm efetivos
+    const strip4=Math.PI*6.3*2*tauAl;               // arrancamento SÓ na 1ª parede 2 mm (sem tubo interno)
+    const stripCC=Math.PI*6.3*tCC*tauAl;            // arrancamento nas paredes efetivas (2+2, interrompida)
+    const bear=6.3*2*3*2*65;                        // esmagamento nas 3 paredes de 2 mm (adm 2·σ)
     const inter=Math.pow(vScrew/Math.min(FvAdm,bear),2)+Math.pow(tScrew/Math.min(FtAdm,stripCC),2);
     return {nP,sP,tCC,eOff,Wn,Fl,Vres,vScrew,Mn,tScrew,FtAdm,FvAdm,strip4,stripCC,bear,inter,
       okV:vScrew<=Math.min(FvAdm,bear), okT:tScrew<=Math.min(FtAdm,stripCC), okI:inter<=1,
       ng4:tScrew>strip4};
   }
-  let pf=pivoFolha(4,60,6), pfFix=null;
+  let pf=pivoFolha(6,60,4), pfFix=null;             // 6 parafusos, filas a 60, 4 mm de rosca efetiva (3 paredes)
   if(!(pf.okV&&pf.okT&&pf.okI)){
     const cand=[];
-    for(const nP of [4,6]) for(const tCC of [6,8,10]) for(const sP of [60,80]){
+    for(const nP of [6,8]) for(const tCC of [4,6]) for(const sP of [60,80]){
       const t=pivoFolha(nP,sP,tCC); if(t.okV&&t.okT&&t.okI) cand.push(t);
     }
     pfFix = cand.find(t=>t.inter<=0.85) || cand[0] || null;  // prefere folga; senão a 1ª que passa
   }
   const pfOK=pf.okV&&pf.okT&&pf.okI;
   const secVI=`
-  <div class="mem"><h3>VI · Pivô na folha — ${pf.nP}× DIN 7991 M8 A2 no PA007V (parede 4 mm) ${vd(pfOK)}</h3>
-    <div class="mini">Fixação do <b>copo do pivô embutido por baixo no PA007V (parede 4 mm)</b>: flange com DIN 7991 M8 <b>verticais</b> atravessando a parede e roscando na <b>contra-chapa ${pf.tCC} mm por cima</b>, dentro da cavidade (ver prancha DET 4). Cargas: peso da folha ${fmt(c.piv)} kg + força lateral no pivô ${fmt(c.fLat)} kgf, braço do eixo e=${pf.eOff} mm, padrão ${pf.sP}×${pf.sP} mm.</div>
+  <div class="mem"><h3>VI · Pivô na folha — ${pf.nP}× auto-atarraxante 6,3×50 DIN 7982 A2 · 3 paredes ${vd(pfOK)}</h3>
+    <div class="mini">Fixação do pivô (superior e inferior da folha, e tubo do batente): <b>${pf.nP}× DIN 7982 6,3×50 A2</b> (${pf.nP/2} por lado) atravessando <b>3 paredes de 2 mm</b> — tubo 101×51×2 + tubo interno 51×12×2 (enrijecedor + rosca). Rosca soberba direto no alumínio, <b>${pf.tCC} mm de fios efetivos</b> (desconto de rosca interrompida entre paredes). Cargas: peso da folha ${fmt(c.piv)} kg + força lateral ${fmt(c.fLat)} kgf, braço e=${pf.eOff} mm, filas a ${pf.sP} mm. <b>Execução:</b> tubo interno travado e encostado, furo piloto Ø5,5 atravessando as 3 paredes numa passada, parafusadeira com embreagem, Loctite 243.</div>
     <table><tr><th>Verificação</th><th>Demanda</th><th>Capacidade</th><th></th></tr>
     <tr><td>Cisalhamento/parafuso <span class="fEq">V=√(W²+Flat²)/${pf.nP}</span></td><td>${(pf.vScrew/1000).toFixed(2)} kN</td><td>mín(paraf. ${(pf.FvAdm/1000).toFixed(1)} · esmag. parede ${(pf.bear/1000).toFixed(1)}) kN</td><td>${vd(pf.okV)}</td></tr>
-    <tr><td>Tração fila externa <span class="fEq">T=M/(n·s)</span>, M=${pf.Mn.toFixed(0)} N·m</td><td>${(pf.tScrew/1000).toFixed(2)} kN</td><td>mín(paraf. ${(pf.FtAdm/1000).toFixed(1)} · rosca c/ contra-chapa ${(pf.stripCC/1000).toFixed(1)}) kN</td><td>${vd(pf.okT)}</td></tr>
-    <tr><td>Arrancamento SÓ na parede 4 mm <span class="fEq">π·d·t·τ</span></td><td>${(pf.tScrew/1000).toFixed(2)} kN</td><td>${(pf.strip4/1000).toFixed(1)} kN</td><td>${pf.ng4?'<span class="vNG">N.G. — contra-chapa OBRIGATÓRIA</span>':vd(true)}</td></tr>
+    <tr><td>Tração fila externa <span class="fEq">T=M/(n·s)</span>, M=${pf.Mn.toFixed(0)} N·m</td><td>${(pf.tScrew/1000).toFixed(2)} kN</td><td>mín(paraf. ${(pf.FtAdm/1000).toFixed(1)} · arranc. 3 paredes ${(pf.stripCC/1000).toFixed(1)}) kN</td><td>${vd(pf.okT)}</td></tr>
+    <tr><td>Arrancamento SÓ na 1ª parede 2 mm <span class="fEq">π·d·t·τ</span></td><td>${(pf.tScrew/1000).toFixed(2)} kN</td><td>${(pf.strip4/1000).toFixed(1)} kN</td><td>${pf.ng4?'<span class="vNG">N.G. — tubo interno 51×12 OBRIGATÓRIO</span>':vd(true)}</td></tr>
     <tr><td>Interação <span class="fEq">(V/Va)²+(T/Ta)²</span></td><td colspan="2">${pf.inter.toFixed(2)} ≤ 1,00</td><td>${vd(pf.okI)}</td></tr></table>
-    ${pfFix?`<div class="mini"><b>SOLUÇÃO CALCULADA:</b> ${pfFix.nP}× M8 · padrão ${pfFix.sP}×${pfFix.sP} · contra-chapa ${pfFix.tCC} mm → interação ${pfFix.inter.toFixed(2)} ✓</div>`:''}
-    ${!pfOK&&!pfFix?'<div class="mini"><b>Nenhuma combinação padrão atende — subir para M10 / contra-chapa aço — consultar engenharia.</b></div>':''}
+    ${pfFix?`<div class="mini"><b>SOLUÇÃO CALCULADA:</b> ${pfFix.nP}× 6,3×50 · filas a ${pfFix.sP} mm · ${pfFix.tCC} mm de fios efetivos → interação ${pfFix.inter.toFixed(2)} ✓</div>`:''}
+    ${!pfOK&&!pfFix?'<div class="mini"><b>Nenhuma combinação padrão atende — voltar para M6 métrico com tubo roscado em conjunto ou barra chata 1/4″ — consultar engenharia.</b></div>':''}
   </div>
   `;
   
