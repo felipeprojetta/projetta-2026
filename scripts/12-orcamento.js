@@ -666,7 +666,16 @@ const Orcamento = (() => {
       // Celula vazia na tabela usa esse auto; digitar um valor sobrescreve.
       if (it.tipo === 'porta_interna') {
         const q = Math.max(1, Number(it.quantidade) || 1);
-        const hPortal = 3 * q, hFolha = 3 * q, hColag = 3 * q, hConf = 1 * q;
+        // Felipe s37: PORTAL depende do sistema de abertura.
+        // "quando for porta de correr nas horas, o portal considere 1 hora
+        //  por porta; na de giro esta 3 horas por porta."
+        // Antes era 3h fixo pros dois, e o Felipe corrigia na mao toda vez
+        // (as celulas amarelas da tabela sao esses overrides). Porta de
+        // correr nao tem portal montado do mesmo jeito — leva trilho, e' bem
+        // menos trabalho. Folha, colagem e conferencia seguem iguais.
+        const ehCorrer = String(it.tipoAbertura || '').toLowerCase() === 'correr';
+        const hPortal = (ehCorrer ? 1 : 3) * q;
+        const hFolha = 3 * q, hColag = 3 * q, hConf = 1 * q;
         horasAuto.portal         += hPortal;
         horasAuto.folha_porta    += hFolha;
         horasAuto.colagem        += hColag;
