@@ -203,7 +203,7 @@
       + '</div>'
       + '<button class="' + retCls + '" data-r="' + esc(r) + '" title="Marcar que o cliente respondeu">' + (s.retornou ? '\u21a9 Retornou' : 'Retornou') + '</button>'
       + '<button class="' + cmpCls + '" data-r="' + esc(r) + '" title="Cliente antigo que ja comprou da Projetta fora do CRM. Marcado, sai da prospeccao.">' + (s.jaComprou ? '\u2714 Ja comprou' : 'Ja comprou') + '</button>'
-      + '<button class="' + swaCls + '" data-r="' + esc(r) + '" title="O numero nao tem conta no WhatsApp. Marcado, sai da prospeccao por WhatsApp (use email).">' + (s.semWa ? '\u2718 Sem WhatsApp' : 'Sem WhatsApp') + '</button>'
+      + '<button class="' + swaCls + '" data-r="' + esc(r) + '" title="Este numero nao esta cadastrado no WhatsApp. Marcado, sai da prospeccao por WhatsApp (use email).">' + (s.semWa ? '\u2718 Numero nao cadastrado no WhatsApp' : 'Numero nao cadastrado no WhatsApp') + '</button>'
       + '</div>';
   }
   function _refreshStatusCell(el, r) {
@@ -616,7 +616,8 @@
       '.wkv-st-env.on{background:#dcfce7;border-color:#16a34a;color:#15803d}.wkv-st-env.on:hover{color:#15803d}',
       '.wkv-st-ret.on{background:#dbeafe;border-color:#2563eb;color:#1d4ed8}.wkv-st-ret.on:hover{color:#1d4ed8}',
       '.wkv-st-cmp.on{background:#0f3f5f;border-color:#0f3f5f;color:#fff;font-weight:600}.wkv-st-cmp.on:hover{color:#fff}',
-      '.wkv-st-swa.on{background:#fee2e2;border-color:#dc2626;color:#b91c1c;text-decoration:line-through}.wkv-st-swa.on:hover{color:#b91c1c}',
+      '.wkv-st-swa{font-size:10px;line-height:1.25;white-space:normal;text-align:left}',
+      '.wkv-st-swa.on{background:#fee2e2;border-color:#dc2626;color:#b91c1c;font-weight:600}.wkv-st-swa.on:hover{color:#b91c1c}',
       '.wkv-st-por{font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;color:var(--wkv-tinta);cursor:pointer}',
       '.wkv-open{background:none;border:none;padding:0;font:inherit;cursor:pointer;text-align:left;color:inherit}',
       '.wkv-open:hover{color:var(--wkv-teal);text-decoration:underline}',
