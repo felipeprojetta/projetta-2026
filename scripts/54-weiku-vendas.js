@@ -605,6 +605,7 @@
       '.wkv-tag.casa{background:#e7f5ee;color:#0f766e}.wkv-tag.predio{background:#fde8e8;color:#c0392b}.wkv-tag.outro{background:#eef0f3;color:#6b7280}',
       '.wkv-vlr{font-weight:700;color:var(--wkv-tinta);text-align:right;white-space:nowrap}',
       '.wkv-ico{width:30px;height:30px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;border:1px solid var(--wkv-linha);background:#fff;cursor:pointer}',
+      '.wkv-ico.wkv-mail{border:none;cursor:pointer;font:inherit}',
       '.wkv-ico.wa{color:#25D366;border-color:#cdebd6}.wkv-ico.wa:hover{background:#25D366;color:#fff}',
       '.wkv-ico.mail{color:var(--wkv-amb);border-color:#f3dcc0}.wkv-ico.mail:hover{background:var(--wkv-amb);color:#fff}',
       '.wkv-ico.dis{opacity:.3;pointer-events:none}',
@@ -810,7 +811,7 @@
         ? '<a class="wkv-ico wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(d.wa) + '?text=' + txt + '" title="WhatsApp">\u2706</a>'
         : '<span class="wkv-ico wa dis">\u2706</span>';
       var ml = (d.email && d.email.indexOf('@') > 0)
-        ? '<a class="wkv-ico mail" href="mailto:' + esc(d.email) + '" title="' + esc(d.email) + '">\u2709</a>'
+        ? '<button class="wkv-ico mail wkv-mail" data-r="' + esc(d.r) + '" title="Escrever email pra ' + esc(d.email) + '">\u2709</button>'
         : '<span class="wkv-ico mail dis">\u2709</span>';
       var tag = ehPredio(d) ? '<span class="wkv-tag predio">' + esc(d.tipo || 'predio') + '</span>'
         : (/casa/.test((d.tipo || '').toLowerCase()) ? '<span class="wkv-tag casa">casa</span>'
@@ -986,6 +987,36 @@
         var on3 = !(cc && cc.jaComprou);
         marcarStatus(rc, { jaComprou: on3, jaComprouTs: on3 ? Date.now() : null });
         _refreshStatusCell(cmpBtn, rc);
+        return;
+      }
+      // Felipe s37: EMAIL pelo compositor interno. "tentei enviar email
+      // mas nada aconteceu" — era um link mailto:, que depende de ter um
+      // programa de email configurado no computador; sem isso o clique
+      // nao faz nada. Agora abre o mesmo OutlookComposer usado pra
+      // mandar a proposta, com a mensagem de prospeccao ja' preenchida.
+      var mailBtn = ev.target.closest('.wkv-mail');
+      if (mailBtn) {
+        var rm = mailBtn.getAttribute('data-r');
+        var dm = (getReservas() || []).find(function (x) { return String(x.r) === String(rm); });
+        if (!dm || !dm.email) { alert('Esse contato nao tem email cadastrado.'); return; }
+        if (!window.OutlookComposer || typeof window.OutlookComposer.open !== 'function') {
+          alert('Compositor de email nao carregou. Recarregue a pagina.');
+          return;
+        }
+        var primeiroM = (tituloCase(dm.nome) || '').split(' ')[0] || '';
+        var corpoM = String(ui.msg || '').replace(/\{nome\}/g, primeiroM);
+        window.OutlookComposer.open({
+          to: dm.email,
+          subject: 'Projetta Aluminio — portas de entrada de alto padrao',
+          bodyHtml: '<p>' + corpoM.replace(/\n/g, '<br>') + '</p>',
+          attachments: [],
+          onSent: function () {
+            // marca como enviado, igual ao fluxo do WhatsApp
+            marcarStatus(rm, { enviado: true, enviadoTs: Date.now(),
+                               por: _currentUserName() || '' });
+            _refreshStatusCell(mailBtn, rm);
+          }
+        });
         return;
       }
       // Felipe s37: numero sem conta no WhatsApp.
