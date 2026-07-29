@@ -1385,15 +1385,46 @@ const Orcamento = (() => {
     // Acessorios -> motor por item (fallback horas com o TOTAL do custoFab)
     // Se motor rodou OK mas o total dele difere do tAcessorios (ex: edicao
     // manual no Custo Fab/Inst), escalona pra bater com o total persistido.
-    let acessPorIdxFinal;
-    if (acessOk && acessTotalReal > 0) {
+    // Felipe s37 — ACESSORIO NAO SE RATEIA. Usa o custo LEVANTADO do item.
+    // "O ERRO ESTA NOS ACESSORIOS, NAO SE DEVE RATEAR, E SIM PEGAR O CUSTO
+    //  QUE FOI LEVANTADO — veja item um custo real 1.182 e voce distribui
+    //  5.633,13."
+    //
+    // O QUE ESTAVA ERRADO: acessPorIdx so' era preenchido pra porta_externa
+    // e pra porta_interna DE CORRER (ferragem propria). Porta interna de
+    // GIRO caia no `if (it.tipo !== 'porta_externa') { acessPorIdx = 0 }`.
+    // Ai a escala (tAcessorios / acessTotalReal) jogava o total INTEIRO do
+    // Levantamento em cima dos poucos itens com valor. Caso Balzan: os
+    // R$ 26.867 foram parar so' nos 4 itens de correr (item 01 recebeu
+    // R$ 5.633 quando o real era R$ 1.182) e as 14 portas de giro ficaram
+    // com ZERO acessorio.
+    //
+    // AGORA: le fab._meta.acessPorItem, gravado pelo MESMO loop que monta o
+    // Levantamento de Acessorios — cobre todos os tipos e e' exatamente o
+    // numero que aparece na tela por item. Sem escala, sem rateio.
+    let acessPorIdxFinal, fechDigPorIdxFinal;
+    const _acessMeta = (fab._meta && fab._meta.acessPorItem) || null;
+    const _digMeta   = (fab._meta && fab._meta.fechDigPorItem) || null;
+    const _somaMeta  = _acessMeta
+      ? itens.reduce((s, _, i) => s + (Number(_acessMeta[i]) || 0), 0) : 0;
+    if (_acessMeta && _somaMeta > 0) {
+      // Valor real por item. Se o Felipe sobrescreveu o campo Acessorios a
+      // mao no Custo Fab, escala proporcional pra respeitar o override —
+      // mas a PROPORCAO entre itens continua sendo a real.
+      const escalaOverride = tAcessorios > 0 ? (tAcessorios / _somaMeta) : 1;
+      acessPorIdxFinal = itens.map((_, idx) => (Number(_acessMeta[idx]) || 0) * escalaOverride);
+    } else if (acessOk && acessTotalReal > 0) {
       const escala = tAcessorios > 0 ? (tAcessorios / acessTotalReal) : 1;
       acessPorIdxFinal = itens.map((_, idx) => (acessPorIdx[idx] || 0) * escala);
     } else {
       acessPorIdxFinal = distribuir(tAcessorios, horasPorIdx, horasTotal);
     }
-    let fechDigPorIdxFinal;
-    if (acessOk && fechDigTotalReal > 0) {
+    const _somaDig = _digMeta
+      ? itens.reduce((s, _, i) => s + (Number(_digMeta[i]) || 0), 0) : 0;
+    if (_digMeta && _somaDig > 0) {
+      const escalaD = tFechDig > 0 ? (tFechDig / _somaDig) : 1;
+      fechDigPorIdxFinal = itens.map((_, idx) => (Number(_digMeta[idx]) || 0) * escalaD);
+    } else if (acessOk && fechDigTotalReal > 0) {
       const escala = tFechDig > 0 ? (tFechDig / fechDigTotalReal) : 1;
       fechDigPorIdxFinal = itens.map((_, idx) => (fechDigPorIdx[idx] || 0) * escala);
     } else {
@@ -9398,7 +9429,9 @@ const Orcamento = (() => {
           ? construirCadastroPerfis() : {};
         let totalAcess = 0;
         let totalDigital = 0;
-        (versao.itens || []).forEach(item => {
+        // Felipe s37: cache do custo REAL de acessorios por item.
+        const _acessPorItemCache = {}, _fechDigPorItemCache = {};
+        (versao.itens || []).forEach((item, idxItem) => {
           // Felipe sessao 31: filtro alinhado com o motor 28-acessorios-porta-
           // externa.js, que ja' processa porta_interna, fixo_acoplado,
           // revestimento_parede e pergolado. Antes filtrava SO' porta_externa
@@ -9430,19 +9463,32 @@ const Orcamento = (() => {
           // tedee keso emteco qualquer uma'. Fix: checar digital PRIMEIRO
           // (vai sempre pro totalDigital, qualquer aplicacao), depois
           // filtrar 'fab' pro resto. Mesma logica do Lev. Acessorios.
+          // Felipe s37: guarda o custo REAL de acessorios DESTE item.
+          // "O ERRO ESTA NOS ACESSORIOS, NAO SE DEVE RATEAR, E SIM PEGAR O
+          //  CUSTO QUE FOI LEVANTADO — veja item um custo real 1.182 e voce
+          //  distribui 5.633,13."
+          // Este loop ja' calculava o valor certo de CADA item (e' o mesmo
+          // numero que aparece no Levantamento de Acessorios), mas so'
+          // somava tudo num total. Agora tambem grava por item, pra
+          // calcularValoresProposta usar o REAL em vez de ratear.
+          let _acessItem = 0, _digItem = 0;
           linhas.forEach(l => {
             // 1) Fechadura Digital sempre vai pro campo proprio,
             //    INDEPENDENTE da aplicacao (qualquer marca: Tedee,
             //    Emteco, Philips, Nuki, etc).
             if (String(l.categoria || '').toLowerCase().includes('fechadura digital')) {
               totalDigital += Number(l.total) || 0;
+              _digItem += Number(l.total) || 0;
               return;
             }
             // 2) Felipe (sessao 09): TODOS os acessorios (fab + obra)
             //    entram no campo Acessorios. Antes so' 'fab' entrava
             //    e 'obra' (R$ 983) ficava perdido sem somar em nada.
             totalAcess += Number(l.total) || 0;
+            _acessItem += Number(l.total) || 0;
           });
+          _acessPorItemCache[idxItem] = _acessItem;
+          _fechDigPorItemCache[idxItem] = _digItem;
         });
 
         // Felipe (sessao 09): atualiza total_acessorios APENAS se motor
@@ -9450,6 +9496,15 @@ const Orcamento = (() => {
         // PRESERVA valor existente pra nao destruir dados.
         if (totalAcess > 0 && !_imutavel) {
           fab.total_acessorios = totalAcess;
+        }
+        // Felipe s37: guarda o custo real por item em _meta, do mesmo jeito
+        // que kgLiqPorItem. E' o que calcularValoresProposta vai usar pra
+        // NAO ratear acessorios.
+        if (!_imutavel && Object.keys(_acessPorItemCache).length) {
+          fab._meta = Object.assign({}, fab._meta || {}, {
+            acessPorItem: _acessPorItemCache,
+            fechDigPorItem: _fechDigPorItemCache,
+          });
         }
         // Fechadura digital: atualiza se motor retornou algo OU se havia valor
         // e agora e 0 (usuario removeu a fechadura). Mas só se cadastros carregados.
