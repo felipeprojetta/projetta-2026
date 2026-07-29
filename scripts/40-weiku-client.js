@@ -38,6 +38,37 @@ const WeikuClient = (() => {
     // Homologacao: https://homologacao.weiku.com.br/v2/api/reservas/reserva/{numero}
     // Producao:    https://intranet.weiku.com.br/v2/api/reservas/reserva/{numero}
     // CORS liberado pra projetta-2026.netlify.app
+    //
+    // ═══ MEDIDO EM 29/07/2026 (sessao 38), nao e' suposicao ═══
+    // Rodei fetch direto do dominio do sistema, reserva por reserva:
+    //
+    //   RESERVA   ORCAMENTO?   RESPOSTA DA API
+    //   148333    sim          HTTP 200, 221 bytes  -> dados completos
+    //   148344    sim          HTTP 200, 220 bytes  -> dados completos
+    //   148354    sim          HTTP 200, 217 bytes  -> dados completos
+    //   146507    sim          HTTP 200, 268 bytes  -> dados completos
+    //   148323    NAO          HTTP 200,   2 bytes  -> []
+    //   148363    NAO          HTTP 200,   2 bytes  -> []
+    //
+    // CONCLUSAO: a API SO' devolve reserva que ja tem orcamento. Nao e'
+    // CORS, nao e' instabilidade, nao e' atraso de sincronizacao —
+    // reserva RECENTE com orcamento (1483xx) responde na hora. Sempre
+    // responde HTTP 200; o vazio vem no corpo, como [].
+    //
+    // Campos quando responde (todos preenchidos no teste):
+    //   reserva, codigo, cliente, telefone, email, cep, representante,
+    //   followup, tipo
+    // E' por isso que o CEP "sempre puxou pela intranet": o fluxo normal
+    // busca a reserva DEPOIS do orcamento. Reserva nova, importada do
+    // email antes de existir orcamento, e' o unico caso que cai no vazio.
+    //
+    // A TELA da intranet (confirmacaoreservas/resultado-busca.php), que
+    // MOSTRA esses dados mesmo sem orcamento, foi testada tambem: fetch
+    // GET e POST com credentials:'include' -> TypeError (bloqueado).
+    // O CORS foi liberado apenas nesta rota de API, nao no servidor todo.
+    // Logo NAO existe caminho automatico pelo navegador. Alternativas:
+    //   (a) Weiku expor reserva sem orcamento nesta rota  <- ideal
+    //   (b) 58-colar-reserva-intranet.js — Ctrl+C na tela, Ctrl+V no lead
     apiUrl: 'https://intranet.weiku.com.br/v2/api/reservas/reserva/',
     // Felipe sessao 34: endpoint NOVO de ATP/contrato liberado pelo Ruan
     // (TI Weiku) em 29/05/2026. Antes era URL especulativa
