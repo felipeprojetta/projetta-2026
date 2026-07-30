@@ -683,7 +683,57 @@
         if (!ok) throw new Error('Falha ao criar lead no CRM');
       }
 
-      // 7. Atualiza/anexa dados do PDF no lead (recem-criado ou existente)
+      // 6b. Felipe sessao 38: "quando importamos o lead pelo sistema ele ja
+      //     puxa de qual email veio, entao ao clicar em enviar email ja
+      //     deveria puxar o email".
+      //     Ele esta certo — e ate agora o sistema LIA o email (remetente,
+      //     to, cc, id da conversa) so' pra achar a reserva e o PDF, e
+      //     DESCARTAVA tudo. O lead nascia sem nenhuma pista de origem, e
+      //     na hora de responder o sistema tinha que sair procurando a
+      //     thread no Outlook de novo pelo numero da reserva no assunto —
+      //     quando o assunto nao batia, ficava sem destinatario nenhum.
+      //     Agora os enderecos ficam gravados no proprio lead.
+      try {
+        var leadsOrig = Storage.scope('crm').get('leads') || [];
+        var alvoOrig = leadsOrig.find(function(l){ return String(l.numeroReserva) === String(reserva); });
+        if (alvoOrig) {
+          var vistos = {};
+          var enderecos = [];
+          function juntar(addr) {
+            var a = String(addr || '').trim();
+            if (!a) return;
+            var low = a.toLowerCase();
+            // REGRA PERMANENTE (Felipe s38): no-reply do Bitrix24 nunca
+            // entra em copia — e' o disparador dos emails de reserva,
+            // responder pra ele nao chega em ninguem.
+            if (low.indexOf('no-reply@weiku.bitrix24.com.br') >= 0) return;
+            if (low.indexOf('noreply') === 0 || low.indexOf('no-reply') === 0) return;
+            if (vistos[low]) return;
+            vistos[low] = 1;
+            enderecos.push(a);
+          }
+          var deAddr = email && email.from && email.from.emailAddress && email.from.emailAddress.address;
+          juntar(deAddr);
+          [email.toRecipients, email.ccRecipients].forEach(function(arr){
+            if (!Array.isArray(arr)) return;
+            arr.forEach(function(r){
+              juntar(r && r.emailAddress && r.emailAddress.address);
+            });
+          });
+          if (deAddr) alvoOrig.emailOrigemFrom = String(deAddr).trim();
+          if (enderecos.length) alvoOrig.emailsOrigem = enderecos;
+          if (msgId) alvoOrig.msgIdOrigem = msgId;
+          if (email && email.conversationId) alvoOrig.conversationIdOrigem = email.conversationId;
+          alvoOrig.emailOrigemEm = new Date().toISOString();
+          Storage.scope('crm').set('leads', leadsOrig);
+          console.log('[email-import] origem do email gravada no lead:', enderecos);
+        }
+      } catch (eOrig) {
+        // nunca derruba o import por causa disso
+        console.warn('[email-import] nao consegui gravar a origem do email:', eOrig);
+      }
+
+
       if (dadosPDF.porta_largura || dadosPDF.porta_altura || dadosPDF.porta_modelo
           || dadosPDF.porta_cor || dadosPDF.porta_fechadura_digital) {
         var leadsAtuais = Storage.scope('crm').get('leads') || [];

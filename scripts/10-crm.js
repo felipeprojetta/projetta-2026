@@ -5252,6 +5252,23 @@ ${secoesHtml}
                       extrairEnderecos(em.ccRecipients);
                     });
 
+                    // Felipe sessao 38: "quando importamos o lead pelo
+                    // sistema ele ja puxa de qual email veio, entao ao
+                    // clicar em enviar email ja deveria puxar o email".
+                    // O 45-email-import agora GRAVA no lead os enderecos
+                    // do email que originou a importacao (emailsOrigem).
+                    // Usamos como COMPLEMENTO da varredura da thread: se a
+                    // busca no Outlook nao achar a conversa (assunto fora
+                    // do padrao, email arquivado, thread quebrada), os
+                    // enderecos de origem seguram o envio sozinhos. O
+                    // adicionarEmail ja' deduplica, entao repetir nao faz
+                    // mal. Vale so' pra lead importado depois deste deploy.
+                    try {
+                      const _orig = Array.isArray(l.emailsOrigem) ? l.emailsOrigem : [];
+                      _orig.forEach(adicionarEmail);
+                      if (l.emailOrigemFrom) adicionarEmail(l.emailOrigemFrom);
+                    } catch (_e) {}
+
                     // Remove o proprio usuario (Felipe) - nao tem sentido
                     // mandar pra ele mesmo
                     let meuEmail = '';
@@ -5283,6 +5300,11 @@ ${secoesHtml}
                       const elower = e.toLowerCase();
                       if (toLower.includes(elower)) return;
                       if (elower === meuEmail) return;
+                      // Felipe s38 (regra permanente): o no-reply do
+                      // Bitrix24 e' quem DISPARA os emails de reserva, e
+                      // aparece no from/cc de quase toda thread. Responder
+                      // pra ele nao chega em ninguem e so' polui a copia.
+                      if (elower.indexOf('no-reply@weiku.bitrix24.com.br') >= 0) return;
                       ccFinal.push(e);
                     });
 
