@@ -119,12 +119,16 @@ const FreteTarifas = (() => {
     // -------------------------------------------------------------
     // 5. SEGURO MARITIMO (% sobre valor da carga)
     // Para incoterms CIF / CIP / DAP / DPU / DDP
+    // Felipe sessao 38: padrao atualizado pra apolice vigente —
+    // percentual 0.5 -> 0.35, cobertura 1.10 -> 1 (sem o acrescimo de
+    // 110% da ICC) e minimo 35 -> 70 USD por embarque. Formula segue
+    // a mesma: max(minimo, valor_carga x percentual x cobertura).
     // -------------------------------------------------------------
     seguro: {
-      percentual:  0.5,                          // 0.5% do valor da carga
-      cobertura:   1.10,                         // ICC clause A: 110% (CIP/DAP+) ou ICC clause C: 110% (CIF)
-      minimo_usd:  35,                           // valor minimo da apolice
-      label:       'Seguro Maritimo (% sobre valor × 1.10)',
+      percentual:  0.35,                         // 0.35% do valor da carga
+      cobertura:   1,                            // sem acrescimo de cobertura (era 1.10 ICC)
+      minimo_usd:  70,                           // valor minimo da apolice por embarque
+      label:       'Seguro Maritimo (% sobre valor da carga)',
     },
 
     // -------------------------------------------------------------
