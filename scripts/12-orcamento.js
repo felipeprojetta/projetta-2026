@@ -215,6 +215,20 @@ const Orcamento = (() => {
 
   /**
    * REGRA 4 — Colagem, em DIAS (horas = dias × 9 × qtd).
+   *
+   *   ── MODELO 23: tabela PROPRIA (Felipe, sessao 38) ──
+   *   Valores ABSOLUTOS, definidos por folhas + altura. Nao passam pela
+   *   regra geral abaixo: nao levam o -1 de lisa e NAO multiplicam por 2
+   *   quando sao 2 folhas (o numero de 2 folhas ja' vem fechado).
+   *     1 folha  ≤ 4000 → 4 dias   |  > 4000 → 5 dias
+   *     2 folhas ≤ 4000 → 6 dias   |  > 4000 → 8 dias
+   *   Felipe falou "ate 6 mts", e confirmou que acima de 6 m mantem o
+   *   mesmo numero da faixa (5 com 1 folha, 8 com 2) — por isso a faixa
+   *   de cima nao tem teto.
+   *   Alusense continua somando +1 dia de secagem por cima (confirmado):
+   *   e' tempo fisico de secagem da chapa, independe do modelo.
+   *
+   *   ── DEMAIS MODELOS (regra geral, inalterada) ──
    *   PORTA CAVA   ≤ 2800 → 2 dias | ≤ 4000 → 3 dias | > 4000 → 4 dias
    *   PORTA LISA   = cava - 1 dia (mín 2)
    *   PORTA RIPADO = +1 dia até 4m, +2 dias acima de 4m (acumula)
@@ -224,8 +238,20 @@ const Orcamento = (() => {
    *   Se 2 folhas: ×2.
    *   × qtd de portas.
    */
+  const MODELO_COLAGEM_PROPRIA = 23;
+
   function regraColagem(altura, modeloNumero, nFolhas, qtdPortas, isAlusense) {
     if (!altura || !modeloNumero || !qtdPortas) return { dias: 0, horas: 0 };
+
+    // Modelo 23 tem tabela propria e sai antes da regra geral.
+    if (Number(modeloNumero) === MODELO_COLAGEM_PROPRIA) {
+      const duasFolhas = Number(nFolhas) === 2;
+      let dias23 = (altura <= 4000)
+        ? (duasFolhas ? 6 : 4)
+        : (duasFolhas ? 8 : 5);
+      if (isAlusense) dias23 += 1;
+      return { dias: dias23, horas: dias23 * HORAS_POR_DIA * qtdPortas };
+    }
 
     let dias;
     if (altura <= 2800)      dias = 2;
