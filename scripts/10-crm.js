@@ -2978,7 +2978,13 @@
       let coordenadorNome = '';
       try {
         const reps = (Storage.scope('cadastros').get('representantes_lista') || []);
-        const r = reps.find(x => String(x.followup || '').trim() === String(repKey).trim());
+        // Felipe s38: comparacao passou a IGNORAR MAIUSCULA/MINUSCULA.
+        // O lead vem com o followup escrito como a Weiku manda e o
+        // cadastro com a grafia de quem cadastrou — 'SP_Lyra' no lead
+        // nunca casava com 'SP_LYRA' no cadastro, e o relatorio saia
+        // sem o email (vendas82@weiku.com.br) mesmo estando la'.
+        const _chaveRep = String(repKey || '').trim().toUpperCase();
+        const r = reps.find(x => String(x.followup || '').trim().toUpperCase() === _chaveRep);
         if (r) {
           gerenteNome = String(r.gerente || '').trim();
           coordenadorNome = String(r.coordenador || '').trim();
@@ -3269,7 +3275,13 @@ Equipe Comercial Projetta`;
       let coordenadorNome = '';
       try {
         const reps = (Storage.scope('cadastros').get('representantes_lista') || []);
-        const r = reps.find(x => String(x.followup || '').trim() === String(repKey).trim());
+        // Felipe s38: comparacao passou a IGNORAR MAIUSCULA/MINUSCULA.
+        // O lead vem com o followup escrito como a Weiku manda e o
+        // cadastro com a grafia de quem cadastrou — 'SP_Lyra' no lead
+        // nunca casava com 'SP_LYRA' no cadastro, e o relatorio saia
+        // sem o email (vendas82@weiku.com.br) mesmo estando la'.
+        const _chaveRep = String(repKey || '').trim().toUpperCase();
+        const r = reps.find(x => String(x.followup || '').trim().toUpperCase() === _chaveRep);
         if (r) {
           gerenteNome = String(r.gerente || '').trim();
           coordenadorNome = String(r.coordenador || '').trim();
