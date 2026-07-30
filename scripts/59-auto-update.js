@@ -131,15 +131,29 @@
       if (!remota || !_versaoLocal) return;
       if (remota === _versaoLocal) return;
       // Deploy novo detectado.
-      if (!_seguroRecarregar()) {
-        log('versao nova (' + remota + ') disponivel, mas ha trabalho em '
-          + 'andamento — recarrega no proximo ciclo.');
-        return;
+      //
+      // Felipe sessao 38: "antes esperava eu clicar para atualizar, agora
+      // esta atualizando sozinho, so atualiza se eu clicar nessa mensagem".
+      // Este modulo dava location.reload() direto aqui — e como ele checa a
+      // cada 20s contra os 60s do 55-version-check, quase sempre ganhava a
+      // corrida e a pagina recarregava ANTES do banner azul aparecer. O
+      // usuario perdia o controle do momento do reload.
+      //
+      // Agora este modulo so' AVISA. Quem recarrega e' o clique no banner.
+      // A checagem _seguroRecarregar deixou de gatear o aviso de proposito:
+      // ela existia pra evitar reload no meio de uma edicao, e sem reload
+      // automatico mostrar o aviso e' inofensivo — segurar o banner so'
+      // atrasaria a informacao. A funcao continua exportada pra quem quiser.
+      _recarregando = true;  // trava o ciclo: o aviso ja' esta na tela
+      log('versao nova detectada (' + _versaoLocal + ' -> ' + remota + '). '
+        + 'Mostrando aviso — recarrega somente no clique do usuario.');
+      if (window.VersionCheck && typeof window.VersionCheck.mostrarBanner === 'function') {
+        window.VersionCheck.mostrarBanner();
+      } else {
+        // 55-version-check ausente: nao inventa reload, so' registra. O
+        // proprio 55 mostraria o banner no ciclo dele de 60s.
+        log('VersionCheck indisponivel — nenhum banner mostrado, nenhum reload feito.');
       }
-      _recarregando = true;
-      log('versao nova detectada (' + _versaoLocal + ' -> ' + remota + '). Recarregando...');
-      // reload sem cache
-      location.reload();
     } catch (e) {
       _falhasSeguidas++;
       // offline / servidor fora: silencia depois de algumas tentativas

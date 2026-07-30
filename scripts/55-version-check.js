@@ -96,6 +96,15 @@
     window.addEventListener('focus', checar);
   }
 
+  // Felipe sessao 38: exposto pra que o 59-auto-update, que detecta deploy
+  // novo mais rapido (20s contra 60s daqui), possa PEDIR o banner em vez de
+  // recarregar a pagina sozinho. O banner e' unico (guarda _bannerEl acima),
+  // entao chamar de dois lugares nao duplica.
+  window.VersionCheck = {
+    mostrarBanner: mostrarBannerNovaVersao,
+    checarAgora:   checar,
+  };
+
   // Aguarda boot terminar pra nao concorrer com sync inicial
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
