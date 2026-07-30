@@ -2914,6 +2914,45 @@ const Orcamento = (() => {
     camposPermitidos.forEach(k => {
       if (k in dadosNovos) alvo[k] = dadosNovos[k];
     });
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Felipe sessao 38 — TRAVA FINAL DO ITEM DELETADO.
+    // "ate agora com esse bug do revestimento nao consigo deletar ele,
+    //  ele sai e ao recalcular ele volta"
+    //
+    // A sessao 37 ja' tinha atacado isso por DOIS lados: tombstone
+    // (_itensRemovidos) e apagar a origem em lead.itens_extras. Mesmo
+    // assim o item voltava — no caso do Vanderley Viza (AGP004826) o
+    // itens_extras do lead estava VAZIO e o item continuava
+    // ressuscitando, ou seja, existe pelo menos mais um caminho de
+    // reinjecao que nao foi mapeado.
+    //
+    // Em vez de continuar caçando cada caminho, a trava passa a valer no
+    // UNICO ponto por onde toda escrita de versao obrigatoriamente passa.
+    // Se um item esta marcado como removido, ele NAO entra — nao importa
+    // quem tentou gravar, de qual render, de qual repopulacao.
+    //
+    // Re-adicionar o mesmo item continua possivel: o "+ Adicionar item"
+    // limpa do tombstone todas as chaves daquele TIPO antes de inserir
+    // (ver handler do #orc-item-add), entao o usuario pode apagar um
+    // revestimento 3100x6550 e cadastrar outro igual depois.
+    // ═══════════════════════════════════════════════════════════════════
+    if ('itens' in dadosNovos && Array.isArray(alvo.itens) && alvo.itens.length) {
+      const _tomb = Array.isArray(alvo._itensRemovidos) ? alvo._itensRemovidos : [];
+      if (_tomb.length) {
+        const _proibidas = new Set(_tomb);
+        const _antes = alvo.itens.length;
+        alvo.itens = alvo.itens.filter(it => {
+          // item sem tipo (placeholder da tela de escolha) nunca e' barrado
+          if (!it || !it.tipo) return true;
+          return !_proibidas.has(chaveItemTombstone(it));
+        });
+        if (alvo.itens.length !== _antes) {
+          console.info('[atualizarVersao] bloqueada reinjecao de item deletado:',
+            _antes - alvo.itens.length, 'item(ns) barrado(s) pelo tombstone', _tomb);
+        }
+      }
+    }
     // Felipe (R-fluxo Calcular/Recalcular): qualquer mudanca em `itens`
     // marca a versao como suja — outras abas (DRE, Lev. Perfis, Custo
     // Fab/Inst, Padroes de Cortes) ficam bloqueadas ate o usuario apertar
@@ -5976,7 +6015,13 @@ const Orcamento = (() => {
       const versao = versaoAtiva();
       if (!versao) return;
       const novaLista = [...(versao.itens || []), novoItem(tipo, versao)];
-      atualizarVersao(versao.id, { itens: novaLista });
+      // Felipe s38: adicionar item DESFAZ o tombstone daquele tipo. Sem
+      // isso, quem apagasse um revestimento 3100x6550 e depois quisesse
+      // cadastrar outro igual seria barrado pela trava do atualizarVersao
+      // no momento em que digitasse as mesmas medidas.
+      const _tombLimpo = (Array.isArray(versao._itensRemovidos) ? versao._itensRemovidos : [])
+        .filter(ch => String(ch).split('|')[0] !== tipo);
+      atualizarVersao(versao.id, { itens: novaLista, _itensRemovidos: _tombLimpo });
       UI.itemSelecionadoIdx = novaLista.length - 1;
       renderItemTab(container);
     });
