@@ -221,6 +221,40 @@
     function escapeHtml(s) {
       return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
+
+    /**
+     * Felipe sessao 38 — SLA de 3 dias UTEIS pra enviar o orcamento.
+     * Conta quantos dias uteis se passaram entre a data do lead e HOJE,
+     * pulando sabado (6) e domingo (0). O proprio dia da entrada nao conta:
+     * um lead que chegou hoje esta com 0 dias uteis.
+     *
+     * Le a data como LOCAL, montando ano/mes/dia na mao. new Date('2026-07-14')
+     * seria interpretado como UTC e, no fuso do Brasil, voltaria pro dia 13 —
+     * o alerta dispararia um dia antes da hora.
+     *
+     * NAO considera feriado: nao existe tabela de feriados no sistema, e
+     * chutar feriado nacional erraria os municipais/estaduais. Na pratica o
+     * alerta pode aparecer 1 dia antes numa semana com feriado.
+     *
+     * @returns {number|null} dias uteis decorridos, ou null se a data e' invalida
+     */
+    function diasUteisDesde(dataIso) {
+      const [y, m, d] = String(dataIso || '').split('-').map(Number);
+      if (!y || !m || !d) return null;
+      const ini = new Date(y, m - 1, d);
+      if (isNaN(ini.getTime())) return null;
+      const hoje = new Date();
+      const fim = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+      if (fim <= ini) return 0;
+      let uteis = 0;
+      const cur = new Date(ini.getTime());
+      while (cur < fim) {
+        cur.setDate(cur.getDate() + 1);
+        const dow = cur.getDay();
+        if (dow !== 0 && dow !== 6) uteis++;
+      }
+      return uteis;
+    }
     function etapaPorId(id) { return ETAPAS.find(e => e.id === id) || ETAPAS[0]; }
 
 
@@ -3681,6 +3715,38 @@ ${secoesHtml}
           // Felipe sessao 41 (ajuste): aparece em TODAS as etapas (antes era
           // so' em 'negociacao'). Campo interno mantido como obsNegociacao
           // pra nao perder observacoes ja' salvas.
+          // ═══════════════════════════════════════════════════════════
+          // Felipe sessao 38 — ALERTA DE SLA DE ORCAMENTO.
+          // "Nos temos tres dias pra enviar o orcamento. Entao se dentro
+          //  de tres dias nao for movido pra enviado, voce tem que criar
+          //  um alerta grande ali falando que esta em atraso."
+          // Felipe confirmou: 3 dias UTEIS (nao conta sabado e domingo).
+          //
+          // Base de contagem: lead.data — e' a data que o proprio card ja'
+          // mostra com o icone de calendario, e a unica preenchida de
+          // verdade (criadoEm e dataReserva estao nulos em todos os leads).
+          //
+          // So' alerta em quem ainda NAO enviou: fazer-orcamento e
+          // orcamento-pronto. A partir de orcamento-enviado o prazo foi
+          // cumprido, e negociacao/fechado/perdido nao fazem sentido.
+          // ═══════════════════════════════════════════════════════════
+          const alertaSlaField = (() => {
+            const ETAPAS_SLA = ['fazer-orcamento', 'orcamento-pronto'];
+            if (!l.data || !ETAPAS_SLA.includes(l.etapa)) return '';
+            const uteis = diasUteisDesde(l.data);
+            if (uteis === null || uteis <= 3) return '';
+            const atraso = uteis - 3;
+            return `
+            <div style="background:#DC2626;color:#fff;border-radius:6px;padding:8px 10px;margin:6px 0;
+                        font-size:12px;font-weight:700;line-height:1.35;text-align:center;
+                        box-shadow:0 2px 6px rgba(220,38,38,.35);">
+              ⚠ ORÇAMENTO EM ATRASO<br>
+              <span style="font-weight:600;font-size:11px;">
+                ${uteis} dias úteis sem enviar · ${atraso} ${atraso === 1 ? 'dia' : 'dias'} além do prazo
+              </span>
+            </div>`;
+          })();
+
           const obsNegociacaoField = `
             <div class="crm-card-obsneg">
               <label class="crm-card-obsneg-lbl">📝 Observações</label>
@@ -3692,6 +3758,7 @@ ${secoesHtml}
           return `
           <div class="crm-card" draggable="true" data-id="${l.id}">
             <div class="crm-card-titulo">${escapeHtml(l.cliente || '(sem nome)')}</div>
+            ${alertaSlaField}
             ${reservaLabel ? `<div class="crm-card-numeros">${reservaLabel}</div>` : ''}
             ${l.data ? `<div class="crm-card-contato" style="font-size:11px;color:var(--text-muted);">📅 ${escapeHtml(fmtData(l.data))}</div>` : ''}
             ${l.telefone ? `<div class="crm-card-contato">📞 ${escapeHtml(l.telefone)}</div>` : ''}
