@@ -3760,7 +3760,15 @@ ${secoesHtml}
             <div class="crm-card-titulo">${escapeHtml(l.cliente || '(sem nome)')}</div>
             ${alertaSlaField}
             ${reservaLabel ? `<div class="crm-card-numeros">${reservaLabel}</div>` : ''}
-            ${l.data ? `<div class="crm-card-contato" style="font-size:11px;color:var(--text-muted);">📅 ${escapeHtml(fmtData(l.data))}</div>` : ''}
+            <div class="crm-card-contato" style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:5px;">
+              📅 <input type="date" data-action="edit-data" data-lead-id="${l.id}"
+                    value="${escapeHtml(l.data || '')}"
+                    title="Data de entrada do lead — e' dela que sai a contagem dos 3 dias uteis"
+                    style="font-size:11px;color:var(--text-muted);border:1px solid transparent;border-radius:4px;
+                           background:transparent;padding:1px 3px;font-family:inherit;cursor:pointer;"
+                    onmouseover="this.style.borderColor='var(--line,#e5e7eb)'"
+                    onmouseout="this.style.borderColor='transparent'" />
+            </div>
             ${l.telefone ? `<div class="crm-card-contato">📞 ${escapeHtml(l.telefone)}</div>` : ''}
             ${l.email ? `<div class="crm-card-contato">✉ ${escapeHtml(l.email)}</div>` : ''}
             ${agpField}
@@ -4793,6 +4801,7 @@ ${secoesHtml}
           if (card._lastDragEnd && (Date.now() - card._lastDragEnd) < 200) return;
           // Se clicou no input AGP, nao abre modal — deixa editar
           if (e.target.matches('[data-action="edit-agp"]')
+              || e.target.matches('[data-action="edit-data"]')
               || e.target.matches('[data-action="edit-atp"]')
               || e.target.matches('[data-action="edit-obs-neg"]')
               || e.target.matches('[data-action="edit-valor"]')
@@ -5437,6 +5446,23 @@ ${secoesHtml}
             save();
           });
           // Impede que keystrokes no input acionem drag
+          inp.addEventListener('mousedown', (e) => e.stopPropagation());
+        });
+
+        // Felipe sessao 38: data de entrada editavel no card. E' a base da
+        // contagem dos 3 dias uteis do alerta de atraso, entao precisa ser
+        // corrigivel — lead importado de email herda a data do email, que
+        // nem sempre e' a data real de entrada.
+        card.querySelectorAll('[data-action="edit-data"]').forEach(inp => {
+          inp.addEventListener('change', () => {
+            const leadId = inp.dataset.leadId;
+            const lead = state.leads.find(l => l.id === leadId);
+            if (!lead) return;
+            const nova = String(inp.value || '').trim();   // vem YYYY-MM-DD
+            if (lead.data === nova) return;
+            lead.data = nova;
+            save();   // re-render: o alerta de atraso recalcula na hora
+          });
           inp.addEventListener('mousedown', (e) => e.stopPropagation());
         });
 
