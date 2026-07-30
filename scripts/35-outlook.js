@@ -180,6 +180,15 @@
   };
 
   /* Processa callback do OAuth (chamado no load se houver ?code= na URL). */
+  // Felipe sessao 38: trava de execucao unica. O INIT deste modulo agenda
+  // _handleAuthCallback por DOIS caminhos, e quando readyState ja' esta
+  // 'interactive' os dois valem (interactive = DOMContentLoaded AINDA nao
+  // disparou), entao a funcao rodava DUAS VEZES em paralelo com o mesmo
+  // code. O Azure so' aceita um resgate por code e a segunda chamada
+  // voltava AADSTS54005 "Authorization code was already redeemed" — o
+  // login chegava a funcionar e o alerta de erro aparecia por cima.
+  var _callbackConsumido = false;
+
   async function _handleAuthCallback(){
     var params = new URLSearchParams(window.location.search);
     var code = params.get('code');
@@ -196,6 +205,17 @@
     }
 
     if(!code) return; // Nao e callback
+
+    if(_callbackConsumido){
+      _log('callback ja consumido nesta pagina - ignorando chamada duplicada');
+      return;
+    }
+    _callbackConsumido = true;
+
+    // Tira o ?code= da URL AGORA, antes de qualquer await. Assim um F5 no
+    // meio do processo nao tenta resgatar o mesmo code de novo (o code ja'
+    // foi lido pra variavel acima, entao limpar aqui nao perde nada).
+    window.history.replaceState({}, document.title, window.location.pathname);
 
     // Felipe sessao 34: leitura em sessionStorage (fallback localStorage
     // pra retrocompat caso usuario ainda tenha verifier antigo gravado la').
@@ -243,8 +263,7 @@
       try { localStorage.removeItem(SS_PKCE_VERIFIER); } catch(_) {}
       try { localStorage.removeItem(SS_STATE); } catch(_) {}
 
-      // Limpar URL (remover ?code=...)
-      window.history.replaceState({}, document.title, window.location.pathname);
+      // URL ja' foi limpa la' em cima, antes da troca do code.
 
       // Buscar dados do usuario
       await _fetchUserInfo();
@@ -1068,8 +1087,13 @@
     setTimeout(_handleAuthCallback, 500);
   });
 
-  // Tambem tenta processar imediatamente caso DOMContentLoaded ja disparou
-  if(document.readyState === 'complete' || document.readyState === 'interactive'){
+  // Felipe sessao 38: aqui era `=== 'complete' || === 'interactive'`, e o
+  // 'interactive' e' justamente o estado em que o DOMContentLoaded AINDA
+  // VAI disparar — ou seja, os dois caminhos agendavam e o callback rodava
+  // duas vezes com o mesmo code (AADSTS54005). So' faz sentido disparar
+  // aqui quando o load ja' terminou por completo e o listener acima nunca
+  // vai ser chamado. A trava _callbackConsumido cobre o resto.
+  if(document.readyState === 'complete'){
     setTimeout(_handleAuthCallback, 500);
   }
 
