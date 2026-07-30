@@ -3308,28 +3308,62 @@ const Orcamento = (() => {
           achou = true;
 
           if (totalNoNegocio <= 1) {
-            // Era a ultima — cria versao vazia nova na mesma opcao
-            const novaVersao = {
-              id: uid('ver'),
-              numero: 1,
-              status: 'draft',
-              criadoEm: nowIso(),
-              criadoPor: userAtual(),
-              observacao: '',
-              itens: [],
-              precos_snapshot: snapshotPrecosAtual(),
-              subFab: 0,
-              subInst: 0,
-              custoFab:  Object.assign({}, FAB_DEFAULT,  { etapas: Object.assign({}, FAB_DEFAULT.etapas) }),
-              custoInst: Object.assign({}, INST_DEFAULT),
-              parametros: paramsDefaultParaLead(),
-              subtotais: { acessorios: 0, superficies: 0, perfis: 0, frete: 0, comissao: 0 },
-              total: 0,
-            };
-            o.versoes.push(novaVersao);
-            UI.versaoAtivaId = novaVersao.id;
-            UI.opcaoAtivaId  = o.id;
-          } else if (UI.versaoAtivaId === versaoId) {
+            // ═══════════════════════════════════════════════════════════
+            // Felipe sessao 38: "nao esta apagando essa versao em
+            // rascunho, quando colocar para deletar quero que delete tudo"
+            //
+            // Ate' aqui, deletar a ULTIMA versao removia a versao e criava
+            // uma VAZIA no lugar (reset da sessao 12). Na tela o efeito era
+            // indistinguivel de nao ter apagado nada: sumia a "Versao 1
+            // draft" e aparecia outra "Versao 1 draft" igualzinha, na mesma
+            // data. Agora deletar a ultima apaga o NEGOCIO INTEIRO.
+            //
+            // Precisa de tombstone PROPRIO, separado do _versoesDeletadas:
+            // aquele mora DENTRO do negocio e sumiria junto com ele. E o
+            // passo 2 do mergeProtegido_negocios re-adiciona negocio
+            // inteiro que existe no cloud e nao existe no local — sem uma
+            // lista externa, o negocio voltava no primeiro sync.
+            // ═══════════════════════════════════════════════════════════
+            const _leadDoNegocio = n.leadId || null;
+            try {
+              const _delKey = 'negocios_deletados';
+              let _del = Storage.scope('orcamentos').get(_delKey) || [];
+              if (!Array.isArray(_del)) _del = [];
+              if (!_del.includes(n.id)) _del.push(n.id);
+              // capa a lista pra nao crescer sem fim (mesmo criterio das
+              // listas de deletados do CRM/kanban)
+              if (_del.length > 500) _del = _del.slice(-500);
+              Storage.scope('orcamentos').set(_delKey, _del);
+            } catch (eTomb) {
+              console.warn('[orcamento] falha ao gravar tombstone de negocio:', eTomb);
+            }
+            const _idxNeg = negocios.indexOf(n);
+            if (_idxNeg >= 0) negocios.splice(_idxNeg, 1);
+            achou = true;
+            UI.versaoAtivaId = null;
+            UI.opcaoAtivaId  = null;
+            // o bloco de limpeza do lead mais abaixo varre os negocios que
+            // SOBRARAM; como este acabou de sumir da lista, ele nunca seria
+            // encontrado e o card ficaria com preco orfao. Zera aqui.
+            try {
+              if (_leadDoNegocio) {
+                const _leads = Storage.scope('crm').get('leads') || [];
+                const _ld = _leads.find(l => l.id === _leadDoNegocio);
+                if (_ld) {
+                  _ld.valor = 0;
+                  _ld.precoProposta = 0;
+                  if (_ld.etapa === 'orcamento-pronto' || _ld.etapa === 'orcamento-aprovado') {
+                    _ld.etapa = 'fazer-orcamento';
+                  }
+                  Storage.scope('crm').set('leads', _leads);
+                }
+              }
+            } catch (eLead) {
+              console.warn('[orcamento] falha ao limpar lead do negocio deletado:', eLead);
+            }
+            break;
+          }
+          if (UI.versaoAtivaId === versaoId) {
             // Versao deletada era a ativa, mas ainda ha outras — ativa outra
             for (const op of (n.opcoes || [])) {
               if (op.versoes && op.versoes.length) {

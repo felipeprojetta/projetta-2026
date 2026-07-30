@@ -563,14 +563,35 @@ const Database = (() => {
                      'Cache stale local foi corrigido com dados do Supabase.');
       }
 
+      // Felipe sessao 38: TOMBSTONE DE NEGOCIO INTEIRO.
+      // Deletar a ultima versao passou a apagar o negocio todo (antes
+      // recriava uma versao vazia no lugar, e na tela parecia que o delete
+      // nao funcionava). Como o passo 2 abaixo re-adiciona qualquer negocio
+      // que exista no cloud e nao exista no local, sem esta lista o negocio
+      // deletado voltava inteiro no primeiro sync. A lista mora FORA do
+      // negocio de proposito — dentro dele sumiria junto.
+      var negociosDeletados = new Set();
+      try {
+        if (window.Storage && window.Storage.scope) {
+          var _nd = window.Storage.scope('orcamentos').get('negocios_deletados');
+          if (Array.isArray(_nd)) _nd.forEach(function(id) { negociosDeletados.add(id); });
+        }
+      } catch (_eND) {}
+
       // 2. Pra cada negocio CLOUD que nao esta no local, adiciona inteiro
+      var negociosBloqueados = 0;
       cloudValue.forEach(function(neg) {
         if (!neg || !neg.id) return;
+        if (negociosDeletados.has(neg.id)) { negociosBloqueados++; return; }
         if (!localNegIds.has(neg.id)) {
           resultado.push(JSON.parse(JSON.stringify(neg)));
           negociosPreservados++;
         }
       });
+      if (negociosBloqueados > 0) {
+        console.info('[DB] mergeProtegido_negocios: ' + negociosBloqueados +
+                     ' negocio(s) deletado(s) pelo usuario NAO foram re-injetados do cloud.');
+      }
 
       if (versoesPreservadas > 0 || negociosPreservados > 0) {
         console.warn('[DB] mergeProtegido_negocios: preservou ' + versoesPreservadas +
