@@ -168,13 +168,19 @@
       // levar o "nao esta no WhatsApp". Sem registrar, a pessoa tentava
       // de novo dias depois.
       semWa: e.semWa === true,
-      semWaTs: e.semWaTs || null
+      semWaTs: e.semWaTs || null,
+      // Felipe s38: "coloque botao sem retorno". Antes so' dava pra marcar
+      // que o cliente RESPONDEU — quem nao respondeu ficava igual a quem
+      // ainda nem foi contatado, e nao dava pra separar "enviei e nao
+      // voltou" de "ainda nao enviei". E' exclusivo com retornou.
+      semRetorno: e.semRetorno === true,
+      semRetornoTs: e.semRetornoTs || null
     };
   }
   function marcarStatus(r, patch) {
     try {
       var m = getEnvios();
-      var cur = _normSt(m[r]) || { enviado: false, por: '', enviadoTs: null, retornou: false, retornouTs: null, jaComprou: false, jaComprouTs: null, semWa: false, semWaTs: null };
+      var cur = _normSt(m[r]) || { enviado: false, por: '', enviadoTs: null, retornou: false, retornouTs: null, jaComprou: false, jaComprouTs: null, semWa: false, semWaTs: null, semRetorno: false, semRetornoTs: null };
       for (var k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) cur[k] = patch[k]; }
       m[r] = cur;
       Storage.scope(SCOPE).set('envios', m); // upsert -> Supabase (compartilhado Felipe/Thays)
@@ -192,11 +198,12 @@
     } catch (_) { return ''; }
   }
   function cellStatusHTML(r, raw) {
-    var s = _normSt(raw) || { enviado: false, por: '', retornou: false, jaComprou: false, semWa: false };
+    var s = _normSt(raw) || { enviado: false, por: '', retornou: false, jaComprou: false, semWa: false, semRetorno: false };
     var envCls = 'wkv-st wkv-st-env' + (s.enviado ? ' on' : '');
     var retCls = 'wkv-st wkv-st-ret' + (s.retornou ? ' on' : '');
     var cmpCls = 'wkv-st wkv-st-cmp' + (s.jaComprou ? ' on' : '');
     var swaCls = 'wkv-st wkv-st-swa' + (s.semWa ? ' on' : '');
+    var srtCls = 'wkv-st wkv-st-srt' + (s.semRetorno ? ' on' : '');
     var sel = '<select class="wkv-st-por" data-r="' + esc(r) + '" title="Quem enviou a mensagem">'
       + '<option value=""' + (!s.por ? ' selected' : '') + '>quem?</option>'
       + '<option value="Felipe"' + (s.por === 'Felipe' ? ' selected' : '') + '>Felipe</option>'
@@ -208,6 +215,7 @@
       + sel
       + '</div>'
       + '<button class="' + retCls + '" data-r="' + esc(r) + '" title="Marcar que o cliente respondeu">' + (s.retornou ? '\u21a9 Retornou' : 'Retornou') + '</button>'
+      + '<button class="' + srtCls + '" data-r="' + esc(r) + '" title="Mensagem enviada e o cliente nao respondeu. Serve pra separar quem nao voltou de quem ainda nao foi contatado.">' + (s.semRetorno ? '\u2205 Sem retorno' : 'Sem retorno') + '</button>'
       + '<button class="' + cmpCls + '" data-r="' + esc(r) + '" title="Cliente antigo que ja comprou da Projetta fora do CRM. Marcado, sai da prospeccao.">' + (s.jaComprou ? '\u2714 Ja comprou' : 'Ja comprou') + '</button>'
       + '<button class="' + swaCls + '" data-r="' + esc(r) + '" title="Este numero nao esta cadastrado no WhatsApp. Marcado, sai da prospeccao por WhatsApp (use email).">' + (s.semWa ? '\u2718 Numero nao cadastrado no WhatsApp' : 'Numero nao cadastrado no WhatsApp') + '</button>'
       + '</div>';
@@ -645,6 +653,7 @@
       '.wkv-tbar{display:flex;align-items:center;gap:12px}',
       '.wkv-btn-ordpad{padding:6px 12px;border:1px solid var(--wkv-linha);border-radius:7px;background:#fff;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}',
       '.wkv-btn-ordpad:hover{background:#f8fafc}',
+      '.wkv-st-srt.on{background:#f1f5f9;border-color:#64748b;color:#334155;font-weight:600}.wkv-st-srt.on:hover{color:#334155}',
       '.wkv-st-swa{font-size:10px;line-height:1.25;white-space:normal;text-align:left}',
       '.wkv-st-swa.on{background:#fee2e2;border-color:#dc2626;color:#b91c1c;font-weight:600}.wkv-st-swa.on:hover{color:#b91c1c}',
       '.wkv-st-por{font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;color:var(--wkv-tinta);cursor:pointer}',
@@ -886,14 +895,14 @@
   function exportarCSV() {
     var lista = aplicarFiltro().sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
     var envios = getEnvios();
-    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa', 'Msg Enviada', 'Enviada Por', 'Cliente Retornou'];
+    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa', 'Msg Enviada', 'Enviada Por', 'Cliente Retornou', 'Sem Retorno'];
     var linhas = lista.map(function (d) {
       var p = resolveProjetta(d);
       var pAgp = p ? p.agp : '';
       var pRes = p ? p.res : '';
       var pEt  = p ? stageCurto(p.etapa) : '';
       var st = _normSt(envios[d.r]) || { enviado: false, por: '', retornou: false };
-      return [d.r, tituloCase(d.nome), d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? "Sim" : "Nao"), st.por, (st.retornou ? "Sim" : "Nao")]
+      return [d.r, tituloCase(d.nome), d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? "Sim" : "Nao"), st.por, (st.retornou ? "Sim" : "Nao"), (st.semRetorno ? "Sim" : "Nao")]
         .map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';');
     });
     var csv = '\ufeff' + [cols.join(';')].concat(linhas).join('\r\n');
@@ -1049,8 +1058,25 @@
         var rr = retBtn.getAttribute('data-r');
         var cr = _normSt(getEnvios()[rr]);
         var on2 = !(cr && cr.retornou);
-        marcarStatus(rr, { retornou: on2, retornouTs: on2 ? Date.now() : null });
+        // ligar "Retornou" desliga "Sem retorno": os dois juntos seriam
+        // um estado contraditorio.
+        marcarStatus(rr, { retornou: on2, retornouTs: on2 ? Date.now() : null,
+                           semRetorno: on2 ? false : (cr ? cr.semRetorno : false),
+                           semRetornoTs: on2 ? null : (cr ? cr.semRetornoTs : null) });
         _refreshStatusCell(retBtn, rr);
+        return;
+      }
+      // Felipe s38: "Sem retorno" — enviou e o cliente nao respondeu.
+      var srtBtn = ev.target.closest('.wkv-st-srt');
+      if (srtBtn) {
+        var rs = srtBtn.getAttribute('data-r');
+        var cs = _normSt(getEnvios()[rs]);
+        var on5 = !(cs && cs.semRetorno);
+        // exclusivo com "Retornou", pelo mesmo motivo do bloco acima
+        marcarStatus(rs, { semRetorno: on5, semRetornoTs: on5 ? Date.now() : null,
+                           retornou: on5 ? false : (cs ? cs.retornou : false),
+                           retornouTs: on5 ? null : (cs ? cs.retornouTs : null) });
+        _refreshStatusCell(srtBtn, rs);
         return;
       }
       // Felipe s37: "ja comprou" manual — cliente antigo que comprou da
