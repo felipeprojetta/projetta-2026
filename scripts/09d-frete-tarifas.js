@@ -260,8 +260,17 @@ const FreteTarifas = (() => {
       });
     }
 
+    // Felipe sessao 38: "no fob considere apenas o custom clearance".
+    // No FOB a Projetta entrega A BORDO, mas quem contrata o embarque e'
+    // o comprador — entao THC, Loading Fee, X-Ray, Origin Equipment,
+    // B/L Fee, VGM e Handling ficam por conta dele. Do lado da Projetta
+    // sobra so' o desembaraco de exportacao. Sem isso o orcamento FOB
+    // carregava ~USD 644 de custo que nao e' nosso.
+    const _soCustomsClearance = (_inc === 'FOB');
+
     // (2) Origem variaveis por m³
     Object.keys(t.origem_variaveis || {}).forEach(k => {
+      if (_soCustomsClearance && k !== 'customs_clearance') return;
       const it = t.origem_variaveis[k];
       itens.push({
         codigo: k, grupo: 'origem_variaveis',
@@ -273,6 +282,7 @@ const FreteTarifas = (() => {
 
     // (3) Origem fixos por embarque
     Object.keys(t.origem_fixos || {}).forEach(k => {
+      if (_soCustomsClearance && k !== 'customs_clearance') return;
       const it = t.origem_fixos[k];
       itens.push({
         codigo: k, grupo: 'origem_fixos',
@@ -283,7 +293,11 @@ const FreteTarifas = (() => {
     });
 
     // (4) Condicionais conforme opcoes
-    const cond = t.condicionais || {};
+    // No FOB nao entram: AMS/ENS/CDD Filing, ISPS, BAF, PSS, Overlength e
+    // Overweight sao encargos do EMBARQUE, cobrados no B/L de quem contrata
+    // o frete — e no FOB quem contrata e' o comprador. Fica so' o customs
+    // clearance, tratado nos blocos (2) e (3).
+    const cond = _soCustomsClearance ? {} : (t.condicionais || {});
     if (opcoes.eua && cond.ams_filing) {
       itens.push({
         codigo: 'ams_filing', grupo: 'condicionais',
