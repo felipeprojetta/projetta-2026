@@ -586,13 +586,13 @@ function memorial(c){
     const Mn=Math.hypot(Fl*eOff, Wn*eOff)/1000;     // N·m — momento do braço (SRSS dos 2 eixos)
     const nRow=nP/2;
     const tScrew=Mn*1000/(nRow*sP);                 // N — tração nos parafusos da fila externa
-    // 6,3×38 DIN 7982 A2 (soberba): núcleo Ø4,4 → As≈15,2 mm²; adm A2 220/145 MPa
-    const As=15.2, FtAdm=220*As, FvAdm=145*As;
+    // 5,5×25 DIN 7982 A2 (soberba): núcleo Ø3,8 → As≈11,0 mm²; adm A2 220/145 MPa
+    const As=11.0, FtAdm=220*As, FvAdm=145*As;
     const tauAl=39;                                 // MPa — cisalhamento adm 6063-T5 (0,6·65)
     // tCC = espessura roscada CONTÍNUA: parede 2 + barra chata 1/4" SOLDADA (sangria) = 8,35 mm
-    const strip4=Math.PI*6.3*2*tauAl;               // arrancamento SÓ na parede 2 mm (sem a barra)
-    const stripCC=Math.PI*6.3*tCC*tauAl;            // arrancamento na rosca contínua parede+barra
-    const bear=6.3*tCC*2*65;                        // esmagamento na espessura total (adm 2·σ)
+    const strip4=Math.PI*5.5*2*tauAl;               // arrancamento SÓ na parede 2 mm (sem a barra)
+    const stripCC=Math.PI*5.5*tCC*tauAl;            // arrancamento na rosca contínua parede+barra
+    const bear=5.5*tCC*2*65;                        // esmagamento na espessura total (adm 2·σ)
     const inter=Math.pow(vScrew/Math.min(FvAdm,bear),2)+Math.pow(tScrew/Math.min(FtAdm,stripCC),2);
     return {nP,sP,tCC,eOff,Wn,Fl,Vres,vScrew,Mn,tScrew,FtAdm,FvAdm,strip4,stripCC,bear,inter,
       okV:vScrew<=Math.min(FvAdm,bear), okT:tScrew<=Math.min(FtAdm,stripCC), okI:inter<=1,
@@ -608,14 +608,14 @@ function memorial(c){
   }
   const pfOK=pf.okV&&pf.okT&&pf.okI;
   const secVI=`
-  <div class="mem"><h3>VI · Pivô superior × tubo do portal 4″×2″ — ${pf.nP}× 6,3×38 DIN 7982 A2 na barra soldada ${vd(pfOK)}</h3>
-    <div class="mini">Fixação da peça fixa do pivô superior no <b>tubo do portal 4″×2″×2 (101,6×50,8)</b>: <b>${pf.nP}× DIN 7982 6,3×38 A2</b> (${pf.nP/2} por lado) atravessando a parede 2 mm e a <b>BARRA CHATA ALU 1/4″×1.1/2″ SOLDADA por sangria</b> no perfil — rosca <b>contínua</b>, sem interrupção. Rosca soberba direto no alumínio, <b>${pf.tCC} mm contínuos</b> (2 + 6,35). Cargas: peso da folha ${fmt(c.piv)} kg + força lateral ${fmt(c.fLat)} kgf, braço e=${pf.eOff} mm, filas a ${pf.sP} mm. <b>Execução:</b> soldar a barra por sangria ANTES da furação; furo piloto Ø5,5 atravessando parede+barra numa passada; parafusadeira com embreagem; Loctite 243.</div>
+  <div class="mem"><h3>VI · Pivô superior × tubo do portal 4″×2″ — ${pf.nP}× 5,5×25 DIN 7982 A2 na barra soldada ${vd(pfOK)}</h3>
+    <div class="mini">Fixação da peça fixa do pivô superior no <b>tubo do portal 4″×2″×2 (101,6×50,8)</b>: <b>${pf.nP}× DIN 7982 5,5×25 A2</b> (cabeça dk 10,8 — escareado raso no pivô) (${pf.nP/2} por lado) atravessando a parede 2 mm e a <b>BARRA CHATA ALU 1/4″×1.1/2″ SOLDADA por sangria</b> no perfil — rosca <b>contínua</b>, sem interrupção. Rosca soberba direto no alumínio, <b>${pf.tCC} mm contínuos</b> (2 + 6,35). Cargas: peso da folha ${fmt(c.piv)} kg + força lateral ${fmt(c.fLat)} kgf, braço e=${pf.eOff} mm, filas a ${pf.sP} mm. <b>Execução:</b> soldar a barra por sangria ANTES da furação; furo piloto Ø4,7 atravessando parede+barra numa passada; parafusadeira com embreagem; Loctite 243.</div>
     <table><tr><th>Verificação</th><th>Demanda</th><th>Capacidade</th><th></th></tr>
     <tr><td>Cisalhamento/parafuso <span class="fEq">V=√(W²+Flat²)/${pf.nP}</span></td><td>${(pf.vScrew/1000).toFixed(2)} kN</td><td>mín(paraf. ${(pf.FvAdm/1000).toFixed(1)} · esmag. parede ${(pf.bear/1000).toFixed(1)}) kN</td><td>${vd(pf.okV)}</td></tr>
     <tr><td>Tração fila externa <span class="fEq">T=M/(n·s)</span>, M=${pf.Mn.toFixed(0)} N·m</td><td>${(pf.tScrew/1000).toFixed(2)} kN</td><td>mín(paraf. ${(pf.FtAdm/1000).toFixed(1)} · arranc. parede+barra ${(pf.stripCC/1000).toFixed(1)}) kN</td><td>${vd(pf.okT)}</td></tr>
     <tr><td>Arrancamento SÓ na parede 2 mm <span class="fEq">π·d·t·τ</span></td><td>${(pf.tScrew/1000).toFixed(2)} kN</td><td>${(pf.strip4/1000).toFixed(1)} kN</td><td>${pf.ng4?'<span class="vNG">N.G. — barra chata soldada OBRIGATÓRIA</span>':vd(true)}</td></tr>
     <tr><td>Interação <span class="fEq">(V/Va)²+(T/Ta)²</span></td><td colspan="2">${pf.inter.toFixed(2)} ≤ 1,00</td><td>${vd(pf.okI)}</td></tr></table>
-    ${pfFix?`<div class="mini"><b>SOLUÇÃO CALCULADA:</b> ${pfFix.nP}× 6,3×38 · filas a ${pfFix.sP} mm · rosca contínua ${pfFix.tCC} mm → interação ${pfFix.inter.toFixed(2)} ✓</div>`:''}
+    ${pfFix?`<div class="mini"><b>SOLUÇÃO CALCULADA:</b> ${pfFix.nP}× 5,5×25 · filas a ${pfFix.sP} mm · rosca contínua ${pfFix.tCC} mm → interação ${pfFix.inter.toFixed(2)} ✓</div>`:''}
     ${!pfOK&&!pfFix?'<div class="mini"><b>Nenhuma combinação padrão atende — subir a barra para 3/8″ ou usar M6 métrico roscado na barra — consultar engenharia.</b></div>':''}
   </div>
   `;
