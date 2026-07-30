@@ -613,7 +613,6 @@ function memorial(c){
     <table><tr><th>Verificação</th><th>Demanda</th><th>Capacidade</th><th></th></tr>
     <tr><td>Cisalhamento/parafuso <span class="fEq">V=√(W²+Flat²)/${pf.nP}</span></td><td>${(pf.vScrew/1000).toFixed(2)} kN</td><td>mín(paraf. ${(pf.FvAdm/1000).toFixed(1)} · esmag. parede ${(pf.bear/1000).toFixed(1)}) kN</td><td>${vd(pf.okV)}</td></tr>
     <tr><td>Tração fila externa <span class="fEq">T=M/(n·s)</span>, M=${pf.Mn.toFixed(0)} N·m</td><td>${(pf.tScrew/1000).toFixed(2)} kN</td><td>mín(paraf. ${(pf.FtAdm/1000).toFixed(1)} · arranc. parede+barra ${(pf.stripCC/1000).toFixed(1)}) kN</td><td>${vd(pf.okT)}</td></tr>
-    <tr><td>Arrancamento SÓ na parede 2 mm <span class="fEq">π·d·t·τ</span></td><td>${(pf.tScrew/1000).toFixed(2)} kN</td><td>${(pf.strip4/1000).toFixed(1)} kN</td><td>${pf.ng4?'<span class="vNG">N.G. — barra chata soldada OBRIGATÓRIA</span>':vd(true)}</td></tr>
     <tr><td>Interação <span class="fEq">(V/Va)²+(T/Ta)²</span></td><td colspan="2">${pf.inter.toFixed(2)} ≤ 1,00</td><td>${vd(pf.okI)}</td></tr></table>
     ${pfFix?`<div class="mini"><b>SOLUÇÃO CALCULADA:</b> ${pfFix.nP}× 5,5×25 · filas a ${pfFix.sP} mm · rosca contínua ${pfFix.tCC} mm → interação ${pfFix.inter.toFixed(2)} ✓</div>`:''}
     ${!pfOK&&!pfFix?'<div class="mini"><b>Nenhuma combinação padrão atende — subir a barra para 3/8″ ou usar M6 métrico roscado na barra — consultar engenharia.</b></div>':''}
