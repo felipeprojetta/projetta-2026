@@ -69,16 +69,40 @@ const Orcamento = (() => {
     desconto:    0,   // sem desconto negociado
   };
 
+  // Felipe sessao 38: quando o Representante (Follow Up) e' PROJETTA, a
+  // venda e' INTERNA — nao existe representante externo levando comissao
+  // cheia, nao existe RT/arquiteto e nao existe comissao de gestao. Sobra
+  // 1% de comissao (venda interna) e o lucro alvo sobe de 15 pra 20%.
+  // Overhead, impostos, markup e desconto seguem iguais ao nacional.
+  const PARAMS_DEFAULT_PROJETTA = {
+    overhead:    5,   // igual nacional
+    impostos:    18,  // PIS+COFINS+ISS+ICMS, igual nacional
+    com_rep:     1,   // venda interna: 1% (nacional padrao e' 6%)
+    com_rt:      0,   // sem RT/arquiteto
+    com_gest:    0,   // sem gestao interna
+    lucro_alvo: 20,   // sobe de 15 pra 20%
+    markup_desc: 20,  // com RT=0 a regra auto ja' daria 20
+    desconto:    20,  // idem
+  };
+
   /**
    * Retorna o conjunto de defaults apropriado:
    * - Internacional se o lead ativo for internacional
+   * - PROJETTA (venda interna) se o follow up for PROJETTA
    * - Nacional padrao caso contrario
+   *
+   * PRECEDENCIA: internacional vence PROJETTA. Um lead de exportacao
+   * atendido pela propria Projetta continua com imposto 0 e lucro 35 —
+   * as regras de exportacao sao fiscais e valem acima de quem vendeu.
    */
   function paramsDefaultParaLead() {
     try {
       const lead = (typeof lerLeadAtivo === 'function') ? lerLeadAtivo() : null;
       if (lead && lead.destinoTipo === 'internacional') {
         return Object.assign({}, PARAMS_DEFAULT_INTERNACIONAL);
+      }
+      if (lead && String(lead.representante_followup || '').trim().toUpperCase() === 'PROJETTA') {
+        return Object.assign({}, PARAMS_DEFAULT_PROJETTA);
       }
     } catch (e) { /* fallback abaixo */ }
     return Object.assign({}, PARAMS_DEFAULT);
