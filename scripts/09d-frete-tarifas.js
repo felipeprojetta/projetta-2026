@@ -67,27 +67,37 @@ const FreteTarifas = (() => {
     // -------------------------------------------------------------
     // 3. OCEAN FREIGHT — base por m³ POR REGIAO (USD/m³)
     // Baseado nas 4 cotacoes reais TPLProvider + indices Freightos 2026.
-    // Felipe edita conforme rota.
+    // Felipe edita conforme rota — e o botao "Restaurar padrao" da tela
+    // Regras & Logicas > Frete Internacional volta EXATAMENTE pra estes
+    // numeros.
+    //
+    // Felipe sessao 38: estes 18 valores estavam TODOS em 0. Como e' o
+    // default, quem nunca salvou a tela de tarifas calculava frete
+    // maritimo ZERO no lead internacional — e o "Restaurar padrao"
+    // rezerava tudo de novo. Valores restabelecidos conforme a tela do
+    // Felipe: 300 nas Americas/Europa/Africa do Norte, 450 na Africa
+    // Subsaariana/Africa do Sul/Oriente Medio, 550 na Asia, 350 na
+    // Oceania.
     // -------------------------------------------------------------
     ocean_freight_por_regiao: {
-      america_sul:        { valor: 0, label: 'America do Sul',         exemplos: 'Buenos Aires, Montevideo, Lima' },
-      america_central:    { valor: 0, label: 'America Central/Caribe', exemplos: 'Panama, Costa Rica, R. Dominicana' },
-      america_norte_eua:  { valor: 0, label: 'America do Norte (EUA)', exemplos: 'Houston, NY, LA, Miami' },
-      america_norte_can:  { valor: 0, label: 'America do Norte (CA)',  exemplos: 'Montreal, Toronto, Vancouver' },
-      america_norte_mex:  { valor: 0, label: 'America do Norte (MX)',  exemplos: 'Veracruz, Manzanillo' },
-      caribe:             { valor: 0, label: 'Caribe',                 exemplos: 'San Juan PR, Kingston, Bridgetown' },
-      europa_ocidental:   { valor: 0, label: 'Europa Ocidental',       exemplos: 'Rotterdam, Hamburg, Le Havre' },
-      europa_oriental:    { valor: 0, label: 'Europa Oriental',        exemplos: 'Gdansk, Constanta' },
-      mediterraneo:       { valor: 0, label: 'Mediterraneo',           exemplos: 'Barcelona, Genova, Pireus' },
-      reino_unido:        { valor: 0, label: 'Reino Unido/Irlanda',    exemplos: 'Felixstowe, Southampton, Dublin' },
-      africa_norte:       { valor: 0, label: 'Africa do Norte',        exemplos: 'Casablanca, Alexandria' },
-      africa_subsaariana: { valor: 0, label: 'Africa Subsaariana',     exemplos: 'Lagos, Mombasa, Durban' },
-      africa_do_sul:      { valor: 0, label: 'Africa do Sul',          exemplos: 'Cape Town, Durban' },
-      oriente_medio:      { valor: 0, label: 'Oriente Medio',          exemplos: 'Dubai, Jeddah, Doha' },
-      asia_leste:         { valor: 0, label: 'Asia (Leste)',           exemplos: 'Shanghai, Hong Kong, Tokyo, Busan' },
-      sudeste_asiatico:   { valor: 0, label: 'Sudeste Asiatico',       exemplos: 'Singapura, Bangkok, Ho Chi Minh' },
-      asia_sul:           { valor: 0, label: 'Asia do Sul',            exemplos: 'Mumbai, Chennai, Karachi' },
-      oceania:            { valor: 0, label: 'Oceania',                exemplos: 'Sydney, Melbourne, Auckland' },
+      america_sul:        { valor: 300, label: 'America do Sul',         exemplos: 'Buenos Aires, Montevideo, Lima' },
+      america_central:    { valor: 300, label: 'America Central/Caribe', exemplos: 'Panama, Costa Rica, R. Dominicana' },
+      america_norte_eua:  { valor: 300, label: 'America do Norte (EUA)', exemplos: 'Houston, NY, LA, Miami' },
+      america_norte_can:  { valor: 300, label: 'America do Norte (CA)',  exemplos: 'Montreal, Toronto, Vancouver' },
+      america_norte_mex:  { valor: 300, label: 'America do Norte (MX)',  exemplos: 'Veracruz, Manzanillo' },
+      caribe:             { valor: 300, label: 'Caribe',                 exemplos: 'San Juan PR, Kingston, Bridgetown' },
+      europa_ocidental:   { valor: 300, label: 'Europa Ocidental',       exemplos: 'Rotterdam, Hamburg, Le Havre' },
+      europa_oriental:    { valor: 300, label: 'Europa Oriental',        exemplos: 'Gdansk, Constanta' },
+      mediterraneo:       { valor: 300, label: 'Mediterraneo',           exemplos: 'Barcelona, Genova, Pireus' },
+      reino_unido:        { valor: 300, label: 'Reino Unido/Irlanda',    exemplos: 'Felixstowe, Southampton, Dublin' },
+      africa_norte:       { valor: 300, label: 'Africa do Norte',        exemplos: 'Casablanca, Alexandria' },
+      africa_subsaariana: { valor: 450, label: 'Africa Subsaariana',     exemplos: 'Lagos, Mombasa, Durban' },
+      africa_do_sul:      { valor: 450, label: 'Africa do Sul',          exemplos: 'Cape Town, Durban' },
+      oriente_medio:      { valor: 450, label: 'Oriente Medio',          exemplos: 'Dubai, Jeddah, Doha' },
+      asia_leste:         { valor: 550, label: 'Asia (Leste)',           exemplos: 'Shanghai, Hong Kong, Tokyo, Busan' },
+      sudeste_asiatico:   { valor: 550, label: 'Sudeste Asiatico',       exemplos: 'Singapura, Bangkok, Ho Chi Minh' },
+      asia_sul:           { valor: 550, label: 'Asia do Sul',            exemplos: 'Mumbai, Chennai, Karachi' },
+      oceania:            { valor: 350, label: 'Oceania',                exemplos: 'Sydney, Melbourne, Auckland' },
     },
 
     // -------------------------------------------------------------
