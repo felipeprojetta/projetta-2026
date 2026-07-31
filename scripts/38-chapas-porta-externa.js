@@ -1087,12 +1087,15 @@ const ChapasPortaExterna = (() => {
                           + 2 * ctx.REF,
           comp: ctx => ctx.alturaQuadro,
           ext: 1, int: 1, categoria: 'porta' },
-        // TAMPA_BORDA_FRISO_VERTICAL (planilha F8): C20 + C15*2 - 1
-        // qty = C22 (qtdFrisos), 1 externo / 1 interno.
+        // TAMPA_BORDA_FRISO_VERTICAL — Felipe sessao 38:
+        // "TAMPA BORDA FRISO VERTICAL E SOMENTE 2, NAO 6".
+        // Era ext/int = qtdFrisos, entao com 3 frisos saia 3+3 = 6 pecas.
+        // E' UMA por face, independente de quantos frisos o modelo tem:
+        // a tampa fecha a BORDA do conjunto de frisos, nao cada friso.
         { id: 'tampa_borda_friso_vertical', label: 'Tampa Borda Friso Vertical',
           largura: ctx => ctx.dBFV + 2 * ctx.REF - 1,
           comp: ctx => ctx.alturaQuadro,
-          ext: ctx => ctx.qtdFrisos, int: ctx => ctx.qtdFrisos,
+          ext: 1, int: 1,
           categoria: 'porta' },
         // RIPAS (planilha F9): C23 + C15*2 = larguraRipas + 2*REF.
         // qty = C22-1 (qtdFrisos - 1). SO CHAPA, sem perfil.
@@ -1102,11 +1105,27 @@ const ChapasPortaExterna = (() => {
           ext: ctx => Math.max(0, ctx.qtdFrisos - 1),
           int: ctx => Math.max(0, ctx.qtdFrisos - 1),
           categoria: 'porta' },
-        // FRISO (planilha F10): 100 + C21. qty = C22*2 (qtdFrisos*2).
+        // FRISO VERTICAL — Felipe sessao 38, DOIS acertos:
+        //
+        // 1) QUANTIDADE: "O FRISO VERTICAL SERA 2 E NAO 12".
+        //    Era qtdFrisos*2 por face, ou seja 3*2 + 3*2 = 12 com 3 frisos.
+        //    E' UMA peca por face — a peca ja' contempla o conjunto inteiro
+        //    de frisos, e por isso a largura passou a depender de qtdFrisos
+        //    (item 2 abaixo). Manter os dois seria contar o mesmo material
+        //    duas vezes.
+        //
+        // 2) LARGURA: formula do Felipe —
+        //    qtdFrisos x espessuraFriso + larguraRipas x (qtdFrisos-1) + 100
+        //    Era 100 + espessuraFriso, que ignorava tanto a quantidade de
+        //    frisos quanto as ripas entre eles. Com os valores do print
+        //    (3 frisos, espessura 10, ripas 50):
+        //      3*10 + 50*2 + 100 = 230 mm   (antes dava 110 mm)
         { id: 'friso_vertical', label: 'Friso Vertical',
-          largura: ctx => 100 + ctx.eF,
+          largura: ctx => ctx.eF * ctx.qtdFrisos
+                        + ctx.larguraRipas * Math.max(0, ctx.qtdFrisos - 1)
+                        + 100,
           comp: ctx => ctx.alturaQuadro,
-          ext: ctx => ctx.qtdFrisos * 2, int: ctx => ctx.qtdFrisos * 2,
+          ext: 1, int: 1,
           categoria: 'porta' },
       ],
       // Felipe pediu SOMENTE 1 folha. 2F sem pecas -> motor retorna []
