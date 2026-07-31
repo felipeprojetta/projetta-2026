@@ -182,13 +182,17 @@
       //   Ja comprou   -> respondeu, mas resolveu com outro
       //   Sem interesse-> respondeu e nao quer   <-- este
       semInteresse: e.semInteresse === true,
-      semInteresseTs: e.semInteresseTs || null
+      semInteresseTs: e.semInteresseTs || null,
+      // Felipe s38: anotacao livre por cliente. Fica no MESMO registro do
+      // status (scope weiku/envios), entao sincroniza entre Felipe e Thays
+      // igual aos botoes, sem precisar de chave nova.
+      obs: (typeof e.obs === 'string') ? e.obs : ''
     };
   }
   function marcarStatus(r, patch) {
     try {
       var m = getEnvios();
-      var cur = _normSt(m[r]) || { enviado: false, por: '', enviadoTs: null, retornou: false, retornouTs: null, jaComprou: false, jaComprouTs: null, semWa: false, semWaTs: null, semRetorno: false, semRetornoTs: null, semInteresse: false, semInteresseTs: null };
+      var cur = _normSt(m[r]) || { enviado: false, por: '', enviadoTs: null, retornou: false, retornouTs: null, jaComprou: false, jaComprouTs: null, semWa: false, semWaTs: null, semRetorno: false, semRetornoTs: null, semInteresse: false, semInteresseTs: null, obs: '' };
       for (var k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) cur[k] = patch[k]; }
       m[r] = cur;
       Storage.scope(SCOPE).set('envios', m); // upsert -> Supabase (compartilhado Felipe/Thays)
@@ -630,7 +634,7 @@
     var s = document.createElement('style');
     s.id = CSS_ID;
     s.textContent = [
-      '.wkv-app{--wkv-tinta:#003144;--wkv-tinta2:#0a4256;--wkv-teal:#0f766e;--wkv-amb:#c47012;--wkv-amb-bg:#FFF4E6;--wkv-linha:#E4E8EE;--wkv-cinza:#6b7280;--wkv-cinza2:#4a5160;max-width:1320px;margin:0 auto;padding:4px 6px 50px;font-size:14px}',
+      '.wkv-app{--wkv-tinta:#003144;--wkv-tinta2:#0a4256;--wkv-teal:#0f766e;--wkv-amb:#c47012;--wkv-amb-bg:#FFF4E6;--wkv-linha:#E4E8EE;--wkv-cinza:#6b7280;--wkv-cinza2:#4a5160;max-width:min(2100px,98vw);margin:0 auto;padding:4px 6px 50px;font-size:14px}',
       '.wkv-app .wkv-num{font-variant-numeric:tabular-nums}',
       '.wkv-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:6px 0 16px}',
       '.wkv-kpi{background:#fff;border:1px solid var(--wkv-linha);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden}',
@@ -691,6 +695,10 @@
       '.wkv-st-srt.on{background:#475569;border-color:#334155;color:#fff;font-weight:700}.wkv-st-srt.on:hover{color:#fff;background:#334155}',
       '.wkv-st-sin.on{background:#b45309;border-color:#92400e;color:#fff;font-weight:700}.wkv-st-sin.on:hover{color:#fff;background:#92400e}',
       '.wkv-tstatus{margin-left:8px;padding:6px 8px;border:1px solid var(--line,#e5e7eb);border-radius:6px;font-size:12.5px;font-family:inherit;background:#fff;cursor:pointer}',
+      '.wkv-obscell{min-width:190px;vertical-align:middle}',
+      '.wkv-obs{width:100%;min-width:180px;box-sizing:border-box;border:1px solid var(--wkv-linha);border-radius:6px;padding:5px 7px;font-size:12px;font-family:inherit;color:#4a5160;resize:vertical;background:#FFFDF8}',
+      '.wkv-obs:focus{outline:none;border-color:var(--wkv-amb);background:#fff}',
+      '.wkv-obs.salvo{border-color:#15803d;background:#f0fdf4}',
       '.wkv-tstatus:focus{outline:none;border-color:#0f2c4c}',
       '.wkv-st-swa{font-size:10px;line-height:1.25;white-space:normal;text-align:left}',
       '.wkv-st-swa.on{background:#fee2e2;border-color:#dc2626;color:#b91c1c;font-weight:600}.wkv-st-swa.on:hover{color:#b91c1c}',
@@ -818,6 +826,7 @@
       + '        <th style="text-align:center">Projetta</th>'
       + '        <th style="text-align:center">Prospec\u00e7\u00e3o</th>'
       + '        <th style="text-align:center">Contato</th>'
+      + '        <th style="text-align:center">Observa\\u00e7\\u00f5es</th>'
       + '      </tr></thead><tbody id="wkv-tb"></tbody>'
       + '    </table></div>'
       + '  </div>'
@@ -935,11 +944,17 @@
         + ' <button class="wkv-rmv" data-r="' + esc(d.r) + '" title="Remover (opt-out)">\u2715</button>'
         + (d.tel ? '<div class="wkv-fone">' + esc(d.tel) + '</div>' : '')
         + '</td>'
+        // Felipe s38: coluna de observacoes, ultima a direita.
+        + '<td class="wkv-obscell">'
+        +   '<textarea class="wkv-obs" data-r="' + esc(d.r) + '" rows="2"'
+        +     ' title="Anotacao livre sobre este cliente. Salva sozinho e aparece pra todo mundo.">'
+        +     esc((envios[d.r] && envios[d.r].obs) || '') + '</textarea>'
+        + '</td>'
         + '</tr>';
     }).join('');
 
     var tb = $('wkv-tb');
-    if (tb) tb.innerHTML = rows || '<tr><td colspan="11" style="text-align:center;padding:40px;color:#6b7280">Nenhum cliente nesse filtro.</td></tr>';
+    if (tb) tb.innerHTML = rows || '<tr><td colspan="12" style="text-align:center;padding:40px;color:#6b7280">Nenhum cliente nesse filtro.</td></tr>';
 
     // indicadores de ordenacao
     container.querySelectorAll('thead th[data-s]').forEach(function (th) {
@@ -952,14 +967,14 @@
   function exportarCSV() {
     var lista = aplicarFiltro().sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
     var envios = getEnvios();
-    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa', 'Msg Enviada', 'Enviada Por', 'Cliente Retornou', 'Sem Retorno', 'Sem Interesse'];
+    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa', 'Msg Enviada', 'Enviada Por', 'Cliente Retornou', 'Sem Retorno', 'Sem Interesse', 'Observacoes'];
     var linhas = lista.map(function (d) {
       var p = resolveProjetta(d);
       var pAgp = p ? p.agp : '';
       var pRes = p ? p.res : '';
       var pEt  = p ? stageCurto(p.etapa) : '';
       var st = _normSt(envios[d.r]) || { enviado: false, por: '', retornou: false };
-      return [d.r, tituloCase(d.nome), d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? "Sim" : "Nao"), st.por, (st.retornou ? "Sim" : "Nao"), (st.semRetorno ? "Sim" : "Nao"), (st.semInteresse ? "Sim" : "Nao")]
+      return [d.r, tituloCase(d.nome), d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? "Sim" : "Nao"), st.por, (st.retornou ? "Sim" : "Nao"), (st.semRetorno ? "Sim" : "Nao"), (st.semInteresse ? "Sim" : "Nao"), (st.obs || "")]
         .map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';');
     });
     var csv = '\ufeff' + [cols.join(';')].concat(linhas).join('\r\n');
@@ -982,6 +997,33 @@
         ui.sortKey = 'data'; ui.sortAsc = false;
         renderTabela(container);
       });
+    })();
+
+    // Felipe s38: observacoes por cliente. Salva com debounce enquanto
+    // digita (nao no blur), porque a tabela re-renderiza sozinha em varias
+    // acoes — se dependesse do blur, a anotacao se perderia calada. O
+    // listener e' delegado no container: as linhas sao recriadas a cada
+    // render e um listener por textarea seria perdido junto.
+    (function () {
+      var debObs = {};
+      container.addEventListener('input', function (ev) {
+        var ta = ev.target;
+        if (!ta || !ta.classList || !ta.classList.contains('wkv-obs')) return;
+        var r = ta.getAttribute('data-r');
+        if (!r) return;
+        clearTimeout(debObs[r]);
+        debObs[r] = setTimeout(function () {
+          marcarStatus(r, { obs: ta.value });
+          ta.classList.add('salvo');
+          setTimeout(function () { ta.classList.remove('salvo'); }, 900);
+        }, 500);
+      });
+      // digitar na observacao nao pode disparar o clique dos botoes da linha
+      container.addEventListener('click', function (ev) {
+        if (ev.target && ev.target.classList && ev.target.classList.contains('wkv-obs')) {
+          ev.stopPropagation();
+        }
+      }, true);
     })();
 
     // Felipe s38: filtro por status da prospeccao.
