@@ -16509,9 +16509,27 @@ const Orcamento = (() => {
       'Externo': tr('Somente Externo (um lado)',      'External only (one side)'),
       'Interno': tr('Somente Interno (um lado)',      'Internal only (one side)')
     }[_alisarVal2] || tr('Externo + Interno (dois lados)', 'External + Internal (both sides)');
+    // Felipe sessao 38: "QUANDO TIVER PAINEL SUPERIOR, COLOQUE A INFORMACAO
+    // QUE TEM, E A MEDIDA DA ALTURA DO PAINEL NESSA PARTE VERDE JUNTO COM
+    // O ALISAR". O painel superior saia numa linha cinza solta no meio das
+    // caracteristicas; agora entra na faixa de destaque, do lado do alisar,
+    // com a ALTURA em evidencia — que e' a medida que o cliente precisa
+    // conferir (a largura acompanha a da porta na maioria dos casos).
+    // Anexado nos DOIS estados do banner: porta sem alisar mas com painel
+    // continua mostrando o painel.
+    const _painelSupSuf = (() => {
+      if (item.temPainelSuperior !== 'sim') return '';
+      const pAlt = Number(item.painelSupAltura) || 0;
+      const pLargRaw = Number(item.painelSupLargura) || 0;
+      const pLarg = pLargRaw > 0 ? pLargRaw : (Number(item.largura) || 0);
+      const rot = tr('COM PAINEL SUPERIOR', 'WITH UPPER PANEL');
+      if (pAlt <= 0) return ` · <b>${rot}</b>`;
+      const medida = (pLarg > 0) ? ` (${pLarg} × ${pAlt} mm)` : '';
+      return ` · <b>${rot}</b>: ${tr('altura','height')} <b>${pAlt} mm</b>${medida}`;
+    })();
     const bannerAlisar = (_alisarVal2 !== 'Nao')
-      ? `<div class="rel-prop-banner-alisar is-sim">${tr('ALISAR','Architrave')}: <b>${_alisarLbl2}</b></div>`
-      : `<div class="rel-prop-banner-alisar is-nao">${tr('ALISAR','Architrave')}: <b>${tr('SEM ALISAR','WITHOUT ARCHITRAVE')}</b></div>`;
+      ? `<div class="rel-prop-banner-alisar is-sim">${tr('ALISAR','Architrave')}: <b>${_alisarLbl2}</b>${_painelSupSuf}</div>`
+      : `<div class="rel-prop-banner-alisar is-nao">${tr('ALISAR','Architrave')}: <b>${tr('SEM ALISAR','WITHOUT ARCHITRAVE')}</b>${_painelSupSuf}</div>`;
 
     // Fechadura — modo conjunto (kit Hafele) ou personalizado
     const modoFech = item.fechaduraModo || 'conjunto';
@@ -16581,19 +16599,9 @@ const Orcamento = (() => {
                  <div class="rel-prop-item-linha"><span class="lbl">${tr('ACABAMENTO','FINISH')}:</span> <span>${item.acabamentoCorrer === 'classico' ? tr('Clássico','Classic') : tr('Liso','Plain')}</span></div>`
               : `<div class="rel-prop-item-linha"><span class="lbl">${tr('SISTEMA','SYSTEM')}:</span> <span>${escapeHtml(sistemaFmt)}</span></div>`}
             <div class="rel-prop-item-linha"><span class="lbl">${tr('MODELO','MODEL')}:</span> <span>${escapeHtml(modeloNome)}</span></div>
-            ${(() => {
-              // Felipe sessao 33: mostra painel superior na proposta com
-              // suas medidas. Largura: se painelSupLargura vazio, usa
-              // largura da porta (mesma logica do motor de chapas).
-              if (item.temPainelSuperior !== 'sim') return '';
-              const pAlt  = Number(item.painelSupAltura) || 0;
-              const pLargRaw = Number(item.painelSupLargura) || 0;
-              const pLarg = pLargRaw > 0 ? pLargRaw : (Number(item.largura) || 0);
-              if (pAlt <= 0 || pLarg <= 0) {
-                return `<div class="rel-prop-item-linha"><span class="lbl">${tr('PAINEL SUPERIOR','UPPER PANEL')}:</span> <span>${tr('SIM','YES')}</span></div>`;
-              }
-              return `<div class="rel-prop-item-linha"><span class="lbl">${tr('PAINEL SUPERIOR','UPPER PANEL')}:</span> <span>${pLarg} × ${pAlt} mm</span></div>`;
-            })()}
+            ${/* Felipe s38: a linha do PAINEL SUPERIOR saiu daqui e foi
+                  pro banner verde do alisar, logo abaixo — manter as duas
+                  deixaria a mesma informacao repetida no item. */ ''}
           </div>
           ${bannerAlisar}
           ${bannerItensExtrasProposta(item)}
