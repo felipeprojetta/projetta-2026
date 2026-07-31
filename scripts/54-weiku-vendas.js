@@ -437,6 +437,31 @@
         var _st = _normSt(getEnvios()[d.reserva]);
         if (_st && _st.jaComprou) return false;
       }
+      // Felipe s38: "CRIE UM FILTRO PARA EU BUSCAR, ENTRE ENVIADO,
+      // RETORNOU, SEM RETORNO ETC". Filtra pelo status da prospeccao.
+      // Os estados NEGADOS (nao enviado / nao retornou) sao tao uteis
+      // quanto os positivos: e' com eles que se monta a fila de quem
+      // ainda precisa ser trabalhado.
+      if (ui.status) {
+        var _s = _normSt(getEnvios()[d.reserva]) || {};
+        var _ok;
+        switch (ui.status) {
+          case 'enviado':       _ok = !!_s.enviado;      break;
+          case 'nao_enviado':   _ok = !_s.enviado;       break;
+          case 'retornou':      _ok = !!_s.retornou;     break;
+          case 'sem_retorno':   _ok = !!_s.semRetorno;   break;
+          case 'sem_interesse': _ok = !!_s.semInteresse; break;
+          case 'ja_comprou':    _ok = !!_s.jaComprou;    break;
+          case 'sem_wa':        _ok = !!_s.semWa;        break;
+          // enviado ha tempo e ainda sem nenhum desfecho anotado — a
+          // fila real de follow up, que era o dado mais dificil de achar
+          case 'aguardando':    _ok = !!_s.enviado && !_s.retornou
+                                      && !_s.semRetorno && !_s.semInteresse
+                                      && !_s.jaComprou; break;
+          default:              _ok = true;
+        }
+        if (!_ok) return false;
+      }
       if (ui.ano || ui.mes) {
         var dm = dataAnoMes(d.data);
         if (ui.ano && dm.ano !== ui.ano) return false;
@@ -665,6 +690,8 @@
       '.wkv-btn-ordpad:hover{background:#f8fafc}',
       '.wkv-st-srt.on{background:#475569;border-color:#334155;color:#fff;font-weight:700}.wkv-st-srt.on:hover{color:#fff;background:#334155}',
       '.wkv-st-sin.on{background:#b45309;border-color:#92400e;color:#fff;font-weight:700}.wkv-st-sin.on:hover{color:#fff;background:#92400e}',
+      '.wkv-tstatus{margin-left:8px;padding:6px 8px;border:1px solid var(--line,#e5e7eb);border-radius:6px;font-size:12.5px;font-family:inherit;background:#fff;cursor:pointer}',
+      '.wkv-tstatus:focus{outline:none;border-color:#0f2c4c}',
       '.wkv-st-swa{font-size:10px;line-height:1.25;white-space:normal;text-align:left}',
       '.wkv-st-swa.on{background:#fee2e2;border-color:#dc2626;color:#b91c1c;font-weight:600}.wkv-st-swa.on:hover{color:#b91c1c}',
       '.wkv-st-por{font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;color:var(--wkv-tinta);cursor:pointer}',
@@ -758,6 +785,25 @@
       // ficava fora da tela. Este e o de cima sao o MESMO filtro (ui.busca),
       // sincronizados nos dois sentidos.
       + '      <input id="wkv-t-busca" class="wkv-tbusca" placeholder="\ud83d\udd0d Buscar por nome ou telefone..." value="' + esc(ui.busca || '') + '">'
+      // Felipe s38: filtro por status da prospeccao, ao lado da busca.
+      + '      <select id="wkv-t-status" class="wkv-tstatus" title="Filtra pelo status da prospeccao">'
+      + (function () {
+          var opts = [
+            ['',              'Todos os status'],
+            ['aguardando',    'Aguardando resposta'],
+            ['nao_enviado',   'Ainda nao enviado'],
+            ['enviado',       'Enviado'],
+            ['retornou',      'Retornou'],
+            ['sem_retorno',   'Sem retorno'],
+            ['sem_interesse', 'Sem interesse'],
+            ['ja_comprou',    'Ja comprou'],
+            ['sem_wa',        'Sem WhatsApp'],
+          ];
+          return opts.map(function (o) {
+            return '<option value="' + o[0] + '"' + ((ui.status || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+          }).join('');
+        })()
+      + '      </select>'
       // Felipe s37: volta pra ordenacao padrao (data + valor) depois de
       // ter ordenado de outro jeito, sem precisar refazer os 2 cliques.
       + '      <button id="wkv-t-ordpad" class="wkv-btn-ordpad" title="Volta pra ordenacao padrao: Fechamento (mais recente) e, dentro da data, maior valor primeiro.">\u21ba Ordem padrao</button>'
@@ -935,6 +981,19 @@
         ui.sortLayers = [{ k: 'data', asc: false }, { k: 'v', asc: false }];
         ui.sortKey = 'data'; ui.sortAsc = false;
         renderTabela(container);
+      });
+    })();
+
+    // Felipe s38: filtro por status da prospeccao.
+    (function () {
+      var sel = container.querySelector('#wkv-t-status');
+      if (!sel) return;
+      sel.addEventListener('change', function () {
+        ui.status = sel.value || '';
+        renderTabela(container);
+        // devolve o foco pro select, que e' recriado no render
+        var novo = container.querySelector('#wkv-t-status');
+        if (novo && novo !== sel) { novo.value = ui.status; novo.focus(); }
       });
     })();
 
