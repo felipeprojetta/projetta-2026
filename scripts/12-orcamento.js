@@ -11199,6 +11199,45 @@ const Orcamento = (() => {
       }
     }
 
+    // Felipe sessao 38: 'QUANDO FOR PORTAS INTERNAS SEJA DE CORRER OU DE
+    // GIRO COLOQUE A MARGEM 20%'. Orcamento de porta interna inicia com
+    // lucro_alvo 20 em vez dos 15 do nacional. Vale pras duas aberturas
+    // (correr e giro), entao a deteccao e' pelo TIPO do item e ignora
+    // tipoAbertura de proposito.
+    //
+    // Exige que TODOS os itens sejam porta interna. Num orcamento misto
+    // — porta externa + interna no mesmo AGP — o item caro e' a externa,
+    // e forcar 20% ali mudaria o preco de uma coisa que o Felipe nao
+    // pediu. Misto continua com a regra normal.
+    //
+    // Mesmo padrao da regra dos 5 metros logo acima: e' valor INICIAL,
+    // so' aplica se o lucro_alvo nunca foi salvo nessa versao, marca flag
+    // pra nao reaplicar, e o Felipe edita livremente depois.
+    // Internacional nao entra (regra propria: inicia com 35).
+    {
+      const paramsSalvosPI = versao.parametros || {};
+      const leadAutoPI = lerLeadAtivo();
+      const ehIntlPI = leadAutoPI && leadAutoPI.destinoTipo === 'internacional';
+      const itensPI = (versao.itens || []).filter(it => it && it.tipo);
+      const soPortaInterna = itensPI.length > 0
+        && itensPI.every(it => it.tipo === 'porta_interna');
+      const lucroNuncaSalvoPI = paramsSalvosPI.lucro_alvo === undefined
+        || paramsSalvosPI.lucro_alvo === null || paramsSalvosPI.lucro_alvo === '';
+      const jaAplicouPI = paramsSalvosPI._lucroInterna_aplicado === true;
+      if (!ehIntlPI && soPortaInterna && lucroNuncaSalvoPI && !jaAplicouPI) {
+        params.lucro_alvo = 20;
+        const novosSalvosPI = Object.assign({}, paramsSalvosPI, {
+          lucro_alvo: 20,
+          _lucroInterna_aplicado: true,
+        });
+        try {
+          atualizarVersao(versao.id, { parametros: novosSalvosPI });
+        } catch (e) {
+          console.warn('[DRE] auto-aplicacao lucro 20% (porta interna) falhou:', e);
+        }
+      }
+    }
+
     // Lookup representante ANTES de calcular DRE
     let repInfoDre = null;
     try {
