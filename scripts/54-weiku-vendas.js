@@ -48,6 +48,23 @@
     msg: 'Ola {nome}, tudo bem? Falo em nome da Projetta Aluminio, empresa do grupo Weiku do Brasil. Como fazemos parte do mesmo grupo, o contrato das suas esquadrias Weiku consta em nosso sistema. Nosso objetivo e assegurar que os clientes do grupo conhecam tambem as portas de entrada de alto padrao fabricadas pela Projetta - sob medida, no mesmo nivel de qualidade das esquadrias. Antes de avancar, gostariamos de confirmar: o representante que conduziu seu atendimento chegou a apresentar as portas da Projetta ou elaborar algum orcamento?'
   };
 
+  // Felipe s38: "coloque um botao de salvar, quando eu alterar a mensagem
+  // padrao". Ate agora a mensagem vivia SO' em ui.msg, na memoria da aba:
+  // qualquer edicao sumia no F5 e voltava esse texto de fabrica, sem
+  // aviso. Agora ela e' persistida em weiku/msg_padrao, entao vale pra
+  // Felipe e Thays e sobrevive a recarregar.
+  var MSG_FABRICA = ui.msg;
+
+  function carregarMsgSalva() {
+    try {
+      var salva = Storage.scope(SCOPE).get('msg_padrao');
+      if (typeof salva === 'string' && salva.trim()) ui.msg = salva;
+    } catch (_) {}
+  }
+  function salvarMsgPadrao(txt) {
+    Storage.scope(SCOPE).set('msg_padrao', String(txt || ''));
+  }
+
   // ---- acesso a dados (Supabase via Storage) ----------------------
   // Felipe sessao 35: localStorage tem limite e truncava a base (>1000
   // reservas davam ~763). Agora puxamos DIRETO da nuvem (kv_store) e
@@ -655,7 +672,14 @@
       '.wkv-btn{border:none;border-radius:8px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}',
       '.wkv-btn-tinta{background:var(--wkv-tinta);color:#fff}.wkv-btn-tinta:hover{background:var(--wkv-tinta2)}',
       '.wkv-btn-out{background:#fff;color:var(--wkv-tinta);border:1px solid var(--wkv-linha)}.wkv-btn-out:hover{border-color:var(--wkv-teal);color:var(--wkv-teal)}',
-      '.wkv-tmpl textarea{width:100%;min-height:70px;padding:11px 13px;border:1px solid var(--wkv-linha);border-radius:8px;font:inherit;resize:vertical;background:#fafbfc}',
+      '.wkv-tmpl textarea{width:100%;min-height:230px;padding:11px 13px;border:1px solid var(--wkv-linha);border-radius:8px;font:inherit;line-height:1.5;resize:vertical;background:#fafbfc}',
+      '.wkv-msgbar{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}',
+      '.wkv-btn-salvamsg{padding:7px 16px;border:none;border-radius:6px;background:var(--wkv-tinta);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}',
+      '.wkv-btn-salvamsg:hover{background:var(--wkv-tinta2)}',
+      '.wkv-btn-msgfab{padding:7px 12px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;color:#6b7280}',
+      '.wkv-msgstatus{font-size:12.5px;font-weight:600}',
+      '.wkv-msgstatus.ok{color:#15803d}',
+      '.wkv-msgstatus.alterada{color:#b45309}',
       '.wkv-hint{font-size:11px;color:var(--wkv-cinza);margin-top:6px}',
       '.wkv-hint code{background:var(--wkv-amb-bg);color:var(--wkv-amb);padding:1px 6px;border-radius:4px;font-weight:600}',
       '.wkv-tablewrap{background:#fff;border:1px solid var(--wkv-linha);border-radius:14px;overflow:hidden}',
@@ -783,6 +807,11 @@
       + '  </div>'
       + '  <div class="wkv-panel"><h3>Mensagem de WhatsApp</h3>'
       + '    <div class="wkv-tmpl"><textarea id="wkv-msg">' + esc(ui.msg) + '</textarea>'
+      + '      <div class="wkv-msgbar">'
+      + '        <button id="wkv-msg-salvar" class="wkv-btn-salvamsg">\ud83d\udcbe Salvar mensagem</button>'
+      + '        <button id="wkv-msg-fabrica" class="wkv-btn-msgfab" title="Volta ao texto original do sistema. Nao salva sozinho — confira e clique em Salvar.">\u21ba Texto original</button>'
+      + '        <span id="wkv-msg-status" class="wkv-msgstatus"></span>'
+      + '      </div>'
       + '      <div class="wkv-hint">Use <code>{nome}</code> para inserir o primeiro nome do cliente automaticamente no link.</div></div>'
       + '  </div>'
       + '  <div class="wkv-tablewrap">'
@@ -996,6 +1025,46 @@
         ui.sortLayers = [{ k: 'data', asc: false }, { k: 'v', asc: false }];
         ui.sortKey = 'data'; ui.sortAsc = false;
         renderTabela(container);
+      });
+    })();
+
+    // Felipe s38: salvar a mensagem padrao de WhatsApp.
+    (function () {
+      var ta   = container.querySelector('#wkv-msg');
+      var btn  = container.querySelector('#wkv-msg-salvar');
+      var bfab = container.querySelector('#wkv-msg-fabrica');
+      var lbl  = container.querySelector('#wkv-msg-status');
+      if (!ta || !btn) return;
+
+      function dizer(txt, cls) {
+        if (!lbl) return;
+        lbl.textContent = txt;
+        lbl.className = 'wkv-msgstatus' + (cls ? ' ' + cls : '');
+      }
+      // marca "nao salva" enquanto edita, pra ninguem sair da tela achando
+      // que gravou (era exatamente o que acontecia antes: editava e perdia)
+      ta.addEventListener('input', function () {
+        var salva = '';
+        try { salva = Storage.scope(SCOPE).get('msg_padrao') || ''; } catch (_) {}
+        dizer(ta.value === salva ? '' : 'alteracoes nao salvas', 'alterada');
+      });
+
+      btn.addEventListener('click', function () {
+        try {
+          salvarMsgPadrao(ta.value);
+          ui.msg = ta.value;
+          dizer('\u2713 mensagem salva', 'ok');
+          setTimeout(function () { dizer('', ''); }, 2500);
+        } catch (e) {
+          dizer('erro ao salvar: ' + (e && e.message ? e.message : e), 'alterada');
+        }
+      });
+
+      if (bfab) bfab.addEventListener('click', function () {
+        ta.value = MSG_FABRICA;
+        ui.msg = MSG_FABRICA;
+        dizer('texto original restaurado \u2014 clique em Salvar pra valer', 'alterada');
+        ta.focus();
       });
     })();
 
@@ -1300,6 +1369,9 @@
     renderTabela(container);
   }
   function render(container) {
+    // Felipe s38: le a mensagem padrao salva ANTES de desenhar, senao a
+    // tela abriria com o texto de fabrica e so' trocaria depois.
+    carregarMsgSalva();
     _draw(container);
     pullCloud(container); // puxa a base completa da nuvem e redesenha quando chegar
   }
