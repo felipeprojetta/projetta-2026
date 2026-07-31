@@ -173,8 +173,14 @@ const AcessoriosPortaExterna = (() => {
     const linhas = [];
     const qtdPortas = Math.max(1, Number(item.quantidade) || 1);
 
-    function pushLinha(codigo, qtdUnit, categoria, observacao) {
+    // Felipe s38: 5o parametro OPCIONAL `aplicacao`. Default 'fab' mantem
+    // exatamente o comportamento de antes pra todas as chamadas existentes;
+    // so' a espuma expansiva passa 'obra', porque e' consumo de instalacao
+    // e nao de fabricacao (mesma classificacao que ela ja' tem na porta
+    // externa).
+    function pushLinha(codigo, qtdUnit, categoria, observacao, aplicacao) {
       if (!codigo) return;
+      const _apl = aplicacao || 'fab';
       const acess = buscarAcessorio(cadastroAcessorios, codigo);
       const qtdTotal = qtdUnit * qtdPortas;
       if (!acess) {
@@ -187,7 +193,7 @@ const AcessoriosPortaExterna = (() => {
           preco_un: 0,
           total: 0,
           categoria,
-          aplicacao: 'fab',
+          aplicacao: _apl,
           observacao: (observacao || '') + ' · CADASTRAR EM ACESSORIOS',
         });
         return;
@@ -202,7 +208,7 @@ const AcessoriosPortaExterna = (() => {
         preco_un: precoUn,
         total: precoUn * qtdTotal,
         categoria,
-        aplicacao: 'fab',
+        aplicacao: _apl,
         observacao: observacao || '',
       });
     }
@@ -796,6 +802,23 @@ const AcessoriosPortaExterna = (() => {
       const qtyFix = Math.ceil(alturaVaoPI / 300) * 2;   // x 2 lados
       pushLinha('PA-BUCHA 08',      qtyFix, 'Buchas',    'ceil(' + alturaVaoPI + '/300) x 2 lados');
       pushLinha('PA-PAR SOB M6X65', qtyFix, 'Parafusos', 'ceil(' + alturaVaoPI + '/300) x 2 lados');
+    }
+
+    // ESPUMA EXPANSIVA — Felipe sessao 38.
+    // "NAS PORTAS INTERNAS DE GIRO CONSIDERE 1 ESPUMA EXPANSIVA POR PORTA".
+    // 1 tubo por porta; o pushLinha ja' multiplica por item.quantidade,
+    // entao 3 portas de giro no mesmo item saem com 3 tubos.
+    //
+    // SO' GIRO: porta de correr nao leva. A de giro tem portal chumbado no
+    // vao e a espuma preenche a folga do batente; a de correr trabalha com
+    // trilho e nao tem esse preenchimento. Mesma logica que ja' separa as
+    // duas nas horas de fabricacao (portal 3h giro / 1h correr).
+    //
+    // Aplicacao 'obra': e' consumo de instalacao, nao de fabricacao —
+    // acompanha bucha e parafuso do portal aqui em cima.
+    const _aberturaPI = String(item.tipoAbertura || '').trim().toLowerCase();
+    if (_aberturaPI === 'giro') {
+      pushLinha('PA-ESPUMA EXP GUN', 1, 'Selantes', '1 por porta de giro', 'obra');
     }
 
     return linhas;
