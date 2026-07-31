@@ -174,13 +174,21 @@
       // ainda nem foi contatado, e nao dava pra separar "enviei e nao
       // voltou" de "ainda nao enviei". E' exclusivo com retornou.
       semRetorno: e.semRetorno === true,
-      semRetornoTs: e.semRetornoTs || null
+      semRetornoTs: e.semRetornoTs || null,
+      // Felipe s38: cliente respondeu e RECUSOU. Fecha o quarto desfecho
+      // possivel da prospeccao, que ate agora nao tinha onde ser anotado:
+      //   Retornou     -> respondeu, conversa em aberto
+      //   Sem retorno  -> nao respondeu
+      //   Ja comprou   -> respondeu, mas resolveu com outro
+      //   Sem interesse-> respondeu e nao quer   <-- este
+      semInteresse: e.semInteresse === true,
+      semInteresseTs: e.semInteresseTs || null
     };
   }
   function marcarStatus(r, patch) {
     try {
       var m = getEnvios();
-      var cur = _normSt(m[r]) || { enviado: false, por: '', enviadoTs: null, retornou: false, retornouTs: null, jaComprou: false, jaComprouTs: null, semWa: false, semWaTs: null, semRetorno: false, semRetornoTs: null };
+      var cur = _normSt(m[r]) || { enviado: false, por: '', enviadoTs: null, retornou: false, retornouTs: null, jaComprou: false, jaComprouTs: null, semWa: false, semWaTs: null, semRetorno: false, semRetornoTs: null, semInteresse: false, semInteresseTs: null };
       for (var k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) cur[k] = patch[k]; }
       m[r] = cur;
       Storage.scope(SCOPE).set('envios', m); // upsert -> Supabase (compartilhado Felipe/Thays)
@@ -198,12 +206,13 @@
     } catch (_) { return ''; }
   }
   function cellStatusHTML(r, raw) {
-    var s = _normSt(raw) || { enviado: false, por: '', retornou: false, jaComprou: false, semWa: false, semRetorno: false };
+    var s = _normSt(raw) || { enviado: false, por: '', retornou: false, jaComprou: false, semWa: false, semRetorno: false, semInteresse: false };
     var envCls = 'wkv-st wkv-st-env' + (s.enviado ? ' on' : '');
     var retCls = 'wkv-st wkv-st-ret' + (s.retornou ? ' on' : '');
     var cmpCls = 'wkv-st wkv-st-cmp' + (s.jaComprou ? ' on' : '');
     var swaCls = 'wkv-st wkv-st-swa' + (s.semWa ? ' on' : '');
     var srtCls = 'wkv-st wkv-st-srt' + (s.semRetorno ? ' on' : '');
+    var sinCls = 'wkv-st wkv-st-sin' + (s.semInteresse ? ' on' : '');
     var sel = '<select class="wkv-st-por" data-r="' + esc(r) + '" title="Quem enviou a mensagem">'
       + '<option value=""' + (!s.por ? ' selected' : '') + '>quem?</option>'
       + '<option value="Felipe"' + (s.por === 'Felipe' ? ' selected' : '') + '>Felipe</option>'
@@ -216,6 +225,7 @@
       + '</div>'
       + '<button class="' + retCls + '" data-r="' + esc(r) + '" title="Marcar que o cliente respondeu">' + (s.retornou ? '\u21a9 Retornou' : 'Retornou') + '</button>'
       + '<button class="' + srtCls + '" data-r="' + esc(r) + '" title="Mensagem enviada e o cliente nao respondeu. Serve pra separar quem nao voltou de quem ainda nao foi contatado.">' + (s.semRetorno ? '\u2205 Sem retorno' : 'Sem retorno') + '</button>'
+      + '<button class="' + sinCls + '" data-r="' + esc(r) + '" title="Cliente respondeu e recusou — nao tem interesse na proposta.">' + (s.semInteresse ? '\u2716 Sem interesse' : 'Sem interesse') + '</button>'
       + '<button class="' + cmpCls + '" data-r="' + esc(r) + '" title="Cliente antigo que ja comprou da Projetta fora do CRM. Marcado, sai da prospeccao.">' + (s.jaComprou ? '\u2714 Ja comprou' : 'Ja comprou') + '</button>'
       + '<button class="' + swaCls + '" data-r="' + esc(r) + '" title="Este numero nao esta cadastrado no WhatsApp. Marcado, sai da prospeccao por WhatsApp (use email).">' + (s.semWa ? '\u2718 Numero nao cadastrado no WhatsApp' : 'Numero nao cadastrado no WhatsApp') + '</button>'
       + '</div>';
@@ -654,6 +664,7 @@
       '.wkv-btn-ordpad{padding:6px 12px;border:1px solid var(--wkv-linha);border-radius:7px;background:#fff;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}',
       '.wkv-btn-ordpad:hover{background:#f8fafc}',
       '.wkv-st-srt.on{background:#475569;border-color:#334155;color:#fff;font-weight:700}.wkv-st-srt.on:hover{color:#fff;background:#334155}',
+      '.wkv-st-sin.on{background:#b45309;border-color:#92400e;color:#fff;font-weight:700}.wkv-st-sin.on:hover{color:#fff;background:#92400e}',
       '.wkv-st-swa{font-size:10px;line-height:1.25;white-space:normal;text-align:left}',
       '.wkv-st-swa.on{background:#fee2e2;border-color:#dc2626;color:#b91c1c;font-weight:600}.wkv-st-swa.on:hover{color:#b91c1c}',
       '.wkv-st-por{font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;color:var(--wkv-tinta);cursor:pointer}',
@@ -895,14 +906,14 @@
   function exportarCSV() {
     var lista = aplicarFiltro().sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
     var envios = getEnvios();
-    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa', 'Msg Enviada', 'Enviada Por', 'Cliente Retornou', 'Sem Retorno'];
+    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa', 'Msg Enviada', 'Enviada Por', 'Cliente Retornou', 'Sem Retorno', 'Sem Interesse'];
     var linhas = lista.map(function (d) {
       var p = resolveProjetta(d);
       var pAgp = p ? p.agp : '';
       var pRes = p ? p.res : '';
       var pEt  = p ? stageCurto(p.etapa) : '';
       var st = _normSt(envios[d.r]) || { enviado: false, por: '', retornou: false };
-      return [d.r, tituloCase(d.nome), d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? "Sim" : "Nao"), st.por, (st.retornou ? "Sim" : "Nao"), (st.semRetorno ? "Sim" : "Nao")]
+      return [d.r, tituloCase(d.nome), d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? "Sim" : "Nao"), st.por, (st.retornou ? "Sim" : "Nao"), (st.semRetorno ? "Sim" : "Nao"), (st.semInteresse ? "Sim" : "Nao")]
         .map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';');
     });
     var csv = '\ufeff' + [cols.join(';')].concat(linhas).join('\r\n');
@@ -1066,6 +1077,24 @@
         _refreshStatusCell(retBtn, rr);
         return;
       }
+      // Felipe s38: "Sem interesse" — o cliente RESPONDEU e recusou.
+      var sinBtn = ev.target.closest('.wkv-st-sin');
+      if (sinBtn) {
+        var ri = sinBtn.getAttribute('data-r');
+        var ci = _normSt(getEnvios()[ri]);
+        var on6 = !(ci && ci.semInteresse);
+        // Exclusivo com "Sem retorno": pra dar negativa o cliente
+        // precisou responder, entao os dois juntos se contradizem.
+        // Com "Retornou" NAO e' exclusivo de proposito — retornou conta o
+        // CONTATO (houve resposta) e sem interesse conta o DESFECHO
+        // (a resposta foi nao). Os dois acesos e' o estado correto de quem
+        // respondeu recusando.
+        marcarStatus(ri, { semInteresse: on6, semInteresseTs: on6 ? Date.now() : null,
+                           semRetorno: on6 ? false : (ci ? ci.semRetorno : false),
+                           semRetornoTs: on6 ? null : (ci ? ci.semRetornoTs : null) });
+        _refreshStatusCell(sinBtn, ri);
+        return;
+      }
       // Felipe s38: "Sem retorno" — enviou e o cliente nao respondeu.
       var srtBtn = ev.target.closest('.wkv-st-srt');
       if (srtBtn) {
@@ -1075,7 +1104,10 @@
         // exclusivo com "Retornou", pelo mesmo motivo do bloco acima
         marcarStatus(rs, { semRetorno: on5, semRetornoTs: on5 ? Date.now() : null,
                            retornou: on5 ? false : (cs ? cs.retornou : false),
-                           retornouTs: on5 ? null : (cs ? cs.retornouTs : null) });
+                           retornouTs: on5 ? null : (cs ? cs.retornouTs : null),
+                           // quem nao respondeu nao pode ter dado negativa
+                           semInteresse: on5 ? false : (cs ? cs.semInteresse : false),
+                           semInteresseTs: on5 ? null : (cs ? cs.semInteresseTs : null) });
         _refreshStatusCell(srtBtn, rs);
         return;
       }
