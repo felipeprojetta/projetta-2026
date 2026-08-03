@@ -89,8 +89,15 @@ const Modelos = (() => {
         || 'https://maqmawofimmfxeyfmcmp.supabase.co';
       var SUPABASE_KEY = (window.Database && window.Database.SUPABASE_KEY)
         || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hcW1hd29maW1tZnhleWZtY21wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMTUzOTEsImV4cCI6MjA5NDc5MTM5MX0.7NNp2SynjxSVSyBvbh4Jm5TFbaybYnny-HzaKUPefrc';
-      // Cache-buster: Safari iPhone cacheia GETs - garante versao fresca
-      var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.cadastros&key=eq.' + chave + '&select=valor&_=' + Date.now();
+      // Felipe sessao 42: o cache-buster '&_=' + Date.now() derrubava a
+      // chamada com HTTP 400. O PostgREST trata TODO parametro de query
+      // como filtro de coluna, entao o '_' virava um filtro invalido:
+      //   PGRST100 - failed to parse filter (1785790962690)
+      // Medido lado a lado: com o buster 400, sem ele 200.
+      // O frescor continua garantido sem ele — ja' existe cache:'no-store'
+      // no fetch e o header Cache-Control: no-cache logo abaixo, que e' o
+      // jeito correto de resolver o cache do Safari no iPhone.
+      var url = SUPABASE_URL + '/rest/v1/kv_store?scope=eq.cadastros&key=eq.' + chave + '&select=valor';
       var res = await fetch(url, {
         method: 'GET',
         cache: 'no-store',
