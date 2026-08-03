@@ -6756,7 +6756,16 @@ const Orcamento = (() => {
 
     const ehCava = /\bcava\b/i.test(nomeModelo);
     const ehFriso = /friso/i.test(nomeModelo);
-    const mostraCor = ['ACM 4mm', 'Aluminio Macico 2mm', 'HPL 4mm', 'Aço Inox', 'Vidro'].includes(item.revestimento);
+    // Felipe sessao 42: CORSTONE faltava nesta lista. Quando o revestimento
+    // era CORSTONE o mostraCor dava FALSE, e o bloco inteiro de cores nem
+    // chegava a ser renderizado — levando junto os campos proprios do
+    // Corstone (Corstone Externo/Interno e Retroiluminado), que moram
+    // DENTRO desse mesmo bloco. Na tela a secao Acabamento pulava do
+    // seletor de Revestimento direto pra Sistema, e o Calcular acusava
+    // "faltam corInterna, corExterna" sem ter onde preencher.
+    // O revestimento foi adicionado na s37 (lista `revestimentos`, motor de
+    // chapas, tampa maior por m²), mas esta lista de exibicao ficou pra tras.
+    const mostraCor = ['ACM 4mm', 'Aluminio Macico 2mm', 'HPL 4mm', 'Aço Inox', 'CORSTONE', 'Vidro'].includes(item.revestimento);
 
     // Filtra superficies por revestimento usando a categoria canonica
     // do cadastro (ACM/HPL/Vidro/Aluminio Macico). A funcao auto e' compartilhada.
