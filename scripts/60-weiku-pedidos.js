@@ -31,7 +31,7 @@
   var ui = {
     busca: '', uf: '', cidade: '', etapa: '', responsavel: '',
     vmin: '', vmax: '', comTel: false, comReserva: false,
-    soPerdidos: false, projetta: '', comprou: '', status: '',
+    soPerdidos: false, projetta: '', comprou: '', status: '', comValor: false,
     // Felipe s42: "deixe o filtro primeiro sempre o mais novo e segundo
     // filtro pelo valor igual nos fechados weiku". Ordenacao em CAMADAS,
     // mesma logica do 54-weiku-vendas: a coluna clicada vira a camada
@@ -147,6 +147,12 @@
       var v = Number(d.valor) || 0;
       if (vmin && v < vmin) return false;
       if (vmax && v > vmax) return false;
+      // Felipe s42: "deixe um botao para eliminar os sem valores".
+      // No funil, 2.457 dos 4.263 cards estao com valor zerado — sao
+      // negocios que nunca chegaram a ser orcados. Pra priorizar
+      // abordagem, o valor da esquadria e' o melhor indicador de porte
+      // da obra que existe nessa base.
+      if (ui.comValor && !(Number(d.valor) > 0)) return false;
       if (ui.comTel && !d.tel) return false;
       if (ui.comReserva && !d.reserva) return false;
       if (ui.soPerdidos && ETAPAS_PERDIDAS.indexOf(d.etapa) < 0) return false;
@@ -267,6 +273,7 @@
       + '      <input id="wkp-vmin" class="wkp-inp" placeholder="valor min" value="' + esc(ui.vmin) + '" style="width:110px">'
       + '      <input id="wkp-vmax" class="wkp-inp" placeholder="valor max" value="' + esc(ui.vmax) + '" style="width:110px">'
       + '      <label class="wkp-chk"><input type="checkbox" id="wkp-tel"' + (ui.comTel ? ' checked' : '') + '> So com telefone</label>'
+      + '      <label class="wkp-chk wkp-preset' + (ui.comValor ? ' on' : '') + '"><input type="checkbox" id="wkp-val"' + (ui.comValor ? ' checked' : '') + '> \ud83d\udcb0 So com valor</label>'
       + '      <label class="wkp-chk"><input type="checkbox" id="wkp-res"' + (ui.comReserva ? ' checked' : '') + '> So com reserva</label>'
       + '    </div>'
       + '    <div class="wkp-filtros" style="margin-top:10px">'
@@ -530,7 +537,7 @@
     if (lp) lp.addEventListener('click', function () {
       ui.busca = ''; ui.uf = ''; ui.cidade = ''; ui.etapa = ''; ui.responsavel = '';
       ui.vmin = ''; ui.vmax = ''; ui.comTel = false; ui.comReserva = false;
-      ui.soPerdidos = false; ui.projetta = ''; ui.comprou = ''; ui.status = '';
+      ui.soPerdidos = false; ui.projetta = ''; ui.comprou = ''; ui.status = ''; ui.comValor = false;
       ui.camadas = [{ k: 'dtCriacao', asc: false }, { k: 'valor', asc: false }];
       ui.ordem = 'dtCriacao'; ui.dir = 'desc'; reset();
     });
@@ -554,6 +561,8 @@
     if (csv) csv.addEventListener('click', function () { exportarCSV(ordenar(filtrar(_dados))); });
 
     // presets do Felipe s42
+    var pv=$('wkp-val');
+    if(pv) pv.addEventListener('change', function(){ ui.comValor=pv.checked; reset(); });
     var pe=$('wkp-perd');
     if(pe) pe.addEventListener('change', function(){ ui.soPerdidos=pe.checked; reset(); });
     var pj=$('wkp-proj');
@@ -717,8 +726,14 @@
       '.wkp-tab tbody tr:hover{background:#FFFBF5}',
       '.wkp-sub{font-size:11px;color:#6b7280;margin-top:2px}',
       '.wkp-vazio{color:#b45309;font-size:11.5px}',
+      // Felipe s42: "ao clicar esse botao estao sumindo pq fundo e azul".
+      // O .wkp-chk ja' definia color:#4a5160 e vencia por especificidade
+      // igual + ordem, entao o texto ficava cinza-escuro sobre azul-escuro.
+      // Aqui o seletor duplo .wkp-chk.wkp-preset.on garante a vitoria, e o
+      // input tambem ganha filtro pra o quadradinho nao sumir.
       '.wkp-preset{border:1px solid var(--l);border-radius:20px;padding:5px 12px;background:#fff}',
-      '.wkp-preset.on{background:#0f2c4c;border-color:#0f2c4c;color:#fff;font-weight:600}',
+      '.wkp-chk.wkp-preset.on{background:#0f2c4c;border-color:#0f2c4c;color:#fff;font-weight:700}',
+      '.wkp-chk.wkp-preset.on input{accent-color:#fff}',
       '.wkp-msgta{width:100%;min-height:120px;padding:11px 13px;border:1px solid var(--l);border-radius:8px;font:inherit;line-height:1.5;resize:vertical;background:#fafbfc;box-sizing:border-box}',
       '.wkp-msgst{font-size:12.5px;font-weight:600}.wkp-msgst.ok{color:#15803d}.wkp-msgst.alt{color:#b45309}',
       '.wkp-hint{font-size:12px;color:#6b7280;margin-top:6px}',
