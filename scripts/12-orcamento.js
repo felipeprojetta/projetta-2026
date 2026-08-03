@@ -18240,15 +18240,24 @@ const Orcamento = (() => {
             ${revPorCor.linhas.map(l => `
               <tr class="${l.fonte === 'selecionada' ? 'orc-aprov-rev-sel' : ((l.fonte === 'vidro_m2' || l.fonte === 'vidro_chapa') ? 'orc-aprov-rev-vidro' : 'orc-aprov-rev-auto')}">
                 <td>${escapeHtml(l.cor)}</td>
-                <td class="orc-aprov-rev-desc">${escapeHtml(l.descricao)}</td>
-                <td class="num">${fmtBR(l.precoUnit)}${l.fonte === 'vidro_m2' ? '<span style="font-size:10px;color:#666;"> /m²</span>' : ''}</td>
+                <td class="orc-aprov-rev-desc">${escapeHtml(l.descricao)}${
+                  /* Felipe s43: 'me mostre as medidas que esta considerando pra
+                     chegar nesse preco e m2'. Corstone cobra area liquida das
+                     pecas (Tampa Maior, os 2 lados) — entao a tabela agora
+                     mostra QUAIS pecas entraram na conta, logo abaixo do nome
+                     da chapa. So' pras linhas por m² de Corstone. */
+                  l.medidas
+                    ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">${l.nPecas} peça(s): ${escapeHtml(l.medidas)}</div>`
+                    : ''
+                }</td>
+                <td class="num">${fmtBR(l.precoUnit)}${(l.fonte === 'vidro_m2' || l.unidade === 'm²') ? '<span style="font-size:10px;color:#666;"> /m²</span>' : ''}</td>
                 <td class="num">${
-                  l.fonte === 'vidro_m2'
+                  (l.fonte === 'vidro_m2' || l.unidade === 'm²')
                     ? fmtBR(l.qtd) + ' m²'
                     : `<input type="number" min="0" step="0.5" value="${l.qtd}" data-aprov-rev-qtd="${escapeHtml(l.cor)}" style="width:60px;text-align:right;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px;font:inherit;" title="Editar quantidade de chapas (ex: 1.5 = 1 chapa e meia)">`
                 }</td>
                 <td class="num"><b>${fmtBR(l.subtotal)}</b></td>
-                <td class="orc-aprov-rev-fonte">${l.fonte === 'selecionada' ? '✓ selecionada' : (l.fonte === 'vidro_m2' ? '🔷 vidro m²' : (l.fonte === 'vidro_chapa' ? '🔲 vidro (aproveitamento)' : 'auto (melhor)'))}</td>
+                <td class="orc-aprov-rev-fonte">${l.fonte === 'selecionada' ? '✓ selecionada' : (l.fonte === 'corstone_m2' ? '📐 Corstone por m²' : (l.fonte === 'corstone_led_m2' ? '💡 LED por m²' : (l.fonte === 'vidro_m2' ? '🔷 vidro m²' : (l.fonte === 'vidro_chapa' ? '🔲 vidro (aproveitamento)' : 'auto (melhor)'))))}</td>
               </tr>
             `).join('')}
             <tr class="orc-aprov-rev-total">
@@ -18516,9 +18525,19 @@ const Orcamento = (() => {
           || (todasSuperficies || []).find(s => /corstone/i.test(String(s.descricao || '')));
         const precoM2C = supC ? (Number(supC.preco) || 0) : 0;
         let m2TotalC = 0;
+        // Felipe s43: guarda TAMBEM as medidas peca a peca (e as dos itens
+        // com retro, separadas) pra a tabela poder mostrar de onde saiu o
+        // m². Campo aditivo: quem nao usa ignora.
+        const _medidasC = [];
+        const _medidasLed = [];
         (pecasPorCor[cor] || []).forEach(p => {
-          m2TotalC += ((Number(p.largura) || 0) * (Number(p.altura) || 0)
-                       * Math.max(1, Number(p.qtd) || 1)) / 1000000;
+          const _q = Math.max(1, Number(p.qtd) || 1);
+          m2TotalC += ((Number(p.largura) || 0) * (Number(p.altura) || 0) * _q) / 1000000;
+          const _txt = (_q > 1 ? _q + '× ' : '')
+            + Math.round(Number(p.largura) || 0) + '×' + Math.round(Number(p.altura) || 0) + 'mm';
+          _medidasC.push(_txt);
+          const _itP = ((versao && versao.itens) || [])[p.origemItemIdx];
+          if (_itP && String(_itP.corstoneRetro || '') === 'sim') _medidasLed.push(_txt);
         });
         if (m2TotalC > 0) {
           const subC = m2TotalC * precoM2C;
@@ -18531,6 +18550,8 @@ const Orcamento = (() => {
             subtotal: subC,
             fonte: 'corstone_m2',
             unidade: 'm²',
+            medidas: _medidasC.join(', '),   // Felipe s43
+            nPecas: (pecasPorCor[cor] || []).length,
             _pesoPorItemIdx: _pesoIdx,
           });
           total += subC;
@@ -18557,6 +18578,8 @@ const Orcamento = (() => {
               subtotal: subLed,
               fonte: 'corstone_led_m2',
               unidade: 'm²',
+              medidas: _medidasLed.join(', '),  // Felipe s43
+              nPecas: _medidasLed.length,
               _pesoPorItemIdx: _pesoLed,
             });
             total += subLed;
