@@ -305,13 +305,13 @@
       + '      <input id="wkp-vmin" class="wkp-inp" placeholder="valor min" value="' + esc(ui.vmin) + '" style="width:110px">'
       + '      <input id="wkp-vmax" class="wkp-inp" placeholder="valor max" value="' + esc(ui.vmax) + '" style="width:110px">'
       + '      <label class="wkp-chk"><input type="checkbox" id="wkp-tel"' + (ui.comTel ? ' checked' : '') + '> So com telefone</label>'
-      + '      <label class="wkp-chk wkp-preset' + (ui.comValor ? ' on' : '') + '"><input type="checkbox" id="wkp-val"' + (ui.comValor ? ' checked' : '') + '> \ud83d\udcb0 So com valor</label>'
+      +        chkPreset('wkp-val', ui.comValor, '\ud83d\udcb0 So com valor', 'Esconde os cards com valor zerado')
       + '      <label class="wkp-chk" title="Clientes que pediram pra sair da prospeccao (LGPD)"><input type="checkbox" id="wkp-opt"' + (ui.verOptOut ? ' checked' : '') + '> Ver removidos (' + Object.keys(getOptOut()).length + ')</label>'
       + '      <label class="wkp-chk"><input type="checkbox" id="wkp-res"' + (ui.comReserva ? ' checked' : '') + '> So com reserva</label>'
       + '    </div>'
       + '    <div class="wkp-filtros" style="margin-top:10px">'
       +        selStatus()
-      + '      <label class="wkp-chk wkp-preset' + (ui.soPerdidos ? ' on' : '') + '"><input type="checkbox" id="wkp-perd"' + (ui.soPerdidos ? ' checked' : '') + '> \ud83c\udfaf So PERDIDOS na Weiku</label>'
+      +        chkPreset('wkp-perd', ui.soPerdidos, '\ud83c\udfaf So PERDIDOS na Weiku', 'Filtra as 10 etapas de perda do funil de uma vez')
       + '      <select id="wkp-comprou" class="wkp-sel" style="min-width:200px">'
       +        [['','\u2014 ja comprou \u2014'],['ocultar','Ocultar quem ja comprou'],['so','\u2713 SO os que ja compraram']]
              .map(function(o){ return '<option value="'+o[0]+'"'+(ui.comprou===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
@@ -460,6 +460,26 @@
       if (ev.target === ov || ev.target.closest('.wkp-mclose')) fecharDetalhe();
     });
     document.addEventListener('keydown', _escClose);
+  }
+
+  /* Felipe s42: o texto do preset continuava sumindo no fundo azul mesmo
+     depois do fix de especificidade. A causa: o <style> do modulo e'
+     injetado UMA vez por carregamento de pagina (_cssOk), entao a aba que
+     ja' estava aberta seguia com a folha antiga em memoria — nenhum
+     reload normal troca isso. Em vez de depender de novo do CSS externo,
+     o preset passou a levar estilo INLINE, que ganha de qualquer folha,
+     antiga ou nova, sem precisar de hard refresh. */
+  function chkPreset(id, ligado, rotulo, titulo) {
+    var base = 'display:flex;align-items:center;gap:6px;font-size:12.5px;'
+             + 'border-radius:20px;padding:5px 12px;cursor:pointer;'
+             + 'border:1px solid ' + (ligado ? '#0f2c4c' : 'var(--l,#E4E8EE)') + ';'
+             + 'background:' + (ligado ? '#0f2c4c' : '#fff') + ';'
+             + 'color:' + (ligado ? '#fff' : '#4a5160') + ';'
+             + 'font-weight:' + (ligado ? '700' : '400') + ';';
+    return '<label style="' + base + '"' + (titulo ? ' title="' + esc(titulo) + '"' : '') + '>'
+      + '<input type="checkbox" id="' + id + '"' + (ligado ? ' checked' : '')
+      +   ' style="accent-color:' + (ligado ? '#fff' : '#0f2c4c') + '"> '
+      + rotulo + '</label>';
   }
 
   function selStatus() {
