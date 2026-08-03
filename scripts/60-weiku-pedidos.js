@@ -32,6 +32,7 @@
     busca: '', uf: '', cidade: '', etapa: '', responsavel: '',
     vmin: '', vmax: '', comTel: false, comReserva: false,
     soPerdidos: false, projetta: '', comprou: '', status: '', comValor: false,
+    verOptOut: false,
     // Felipe s42: "deixe o filtro primeiro sempre o mais novo e segundo
     // filtro pelo valor igual nos fechados weiku". Ordenacao em CAMADAS,
     // mesma logica do 54-weiku-vendas: a coluna clicada vira a camada
@@ -52,10 +53,28 @@
     'Prazo de Entrega','Prazo de Pagamento','Problema de Crédito','Obra adiada/cancelada',
     'Limitação Técnica (Acabamento, Cor)','Alteração de Projeto','Demora no Orçamento'];
 
-  var MSG_FABRICA = 'Ola {nome}, tudo bem? Falo em nome da Projetta Aluminio, '
-    + 'empresa do grupo Weiku do Brasil. Vi que voce chegou a orcar esquadrias conosco. '
-    + 'Alem das esquadrias, fabricamos portas de entrada pivotantes de alto padrao, '
-    + 'sob medida. Posso te enviar algumas referencias?';
+  // ═══════════════════════════════════════════════════════════════════
+  // MENSAGEM PADRAO — texto revisado pra LGPD (Felipe, sessao 42)
+  // ───────────────────────────────────────────────────────────────────
+  // Felipe levantou o risco: "estamos pegando os dados dos clientes da
+  // Weiku e enviando mensagem... o cliente nao pode achar que a Weiku
+  // esta enviando dados dele pra Projetta".
+  //
+  // Base legal: Projetta e Weiku sao o MESMO grupo economico, entao o
+  // compartilhamento pra oferta de produto correlato a quem ja demonstrou
+  // interesse se apoia em LEGITIMO INTERESSE (LGPD art. 7o, IX) — nao
+  // exige consentimento previo, mas EXIGE transparencia e opt-out facil.
+  //
+  // O texto anterior dizia "o contrato das suas esquadrias Weiku consta
+  // em nosso sistema", que soa como vazamento e era o maior risco.
+  // A regra que este texto segue: pode revelar que EXISTE um cadastro,
+  // nunca o CONTEUDO dele.
+  //
+  // NUNCA incluir na mensagem, mesmo tendo o dado na tela: valor do
+  // orcamento, motivo da perda, nome do representante, metragem da obra
+  // ou endereco.
+  // ═══════════════════════════════════════════════════════════════════
+  var MSG_FABRICA = 'Ola {nome}, tudo bem? Aqui e da Projetta, empresa do grupo Weiku do Brasil \u2014 o mesmo grupo com quem voce conversou recentemente sobre esquadrias de aluminio. Alem das esquadrias, o grupo tambem fabrica portas de entrada pivotantes sob medida, que e a linha da Projetta. Como seu contato esta cadastrado aqui no grupo, aproveitei para me apresentar. Posso te enviar nosso catalogo? Se nao tiver interesse, e so me avisar que retiramos seu contato do nosso banco de dados.';
 
   var _cruz = null;   // mapa reserva/telefone -> orcamento Projetta
   function cruzamento() {
@@ -73,6 +92,14 @@
     var t = String(d.tel || '').replace(/\D/g, '');
     if (t.length >= 10 && c['T' + t.slice(-9)]) return c['T' + t.slice(-9)];
     return null;
+  }
+  function getOptOut() {
+    try { return window.Storage.scope(SCOPE).get('optout') || {}; } catch (e) { return {}; }
+  }
+  function setOptOut(id, obj) {
+    var m = getOptOut();
+    if (obj) m[id] = obj; else delete m[id];
+    window.Storage.scope(SCOPE).set('optout', m);
   }
   function getEnvios() {
     try { return window.Storage.scope(SCOPE).get('envios') || {}; } catch (e) { return {}; }
@@ -152,6 +179,11 @@
       // negocios que nunca chegaram a ser orcados. Pra priorizar
       // abordagem, o valor da esquadria e' o melhor indicador de porte
       // da obra que existe nessa base.
+      // LGPD: quem pediu pra sair nao aparece mais, a nao ser que o
+      // Felipe marque "ver removidos" pra auditar.
+      var _opt = getOptOut()[d.id];
+      if (ui.verOptOut) { if (!_opt) return false; }
+      else if (_opt) return false;
       if (ui.comValor && !(Number(d.valor) > 0)) return false;
       if (ui.comTel && !d.tel) return false;
       if (ui.comReserva && !d.reserva) return false;
@@ -274,6 +306,7 @@
       + '      <input id="wkp-vmax" class="wkp-inp" placeholder="valor max" value="' + esc(ui.vmax) + '" style="width:110px">'
       + '      <label class="wkp-chk"><input type="checkbox" id="wkp-tel"' + (ui.comTel ? ' checked' : '') + '> So com telefone</label>'
       + '      <label class="wkp-chk wkp-preset' + (ui.comValor ? ' on' : '') + '"><input type="checkbox" id="wkp-val"' + (ui.comValor ? ' checked' : '') + '> \ud83d\udcb0 So com valor</label>'
+      + '      <label class="wkp-chk" title="Clientes que pediram pra sair da prospeccao (LGPD)"><input type="checkbox" id="wkp-opt"' + (ui.verOptOut ? ' checked' : '') + '> Ver removidos (' + Object.keys(getOptOut()).length + ')</label>'
       + '      <label class="wkp-chk"><input type="checkbox" id="wkp-res"' + (ui.comReserva ? ' checked' : '') + '> So com reserva</label>'
       + '    </div>'
       + '    <div class="wkp-filtros" style="margin-top:10px">'
@@ -477,7 +510,12 @@
     var ml = (d.email && d.email.indexOf('@') > 0)
       ? '<button class="wkp-ico mail wkp-mail" data-id="' + esc(d.id) + '" title="Escrever email pra ' + esc(d.email) + '">\u2709</button>'
       : '<span class="wkp-ico mail dis" title="sem email">\u2709</span>';
-    return '<div style="white-space:nowrap">' + wa + ' ' + ml + '</div>'
+    // Felipe s42 / LGPD: a mensagem promete "e so me avisar que retiramos
+    // seu contato do nosso banco de dados". Sem um jeito de cumprir isso,
+    // a promessa e' vazia e vira o proprio risco. Botao de opt-out, com
+    // registro de data e de quem removeu.
+    var rmv = '<button class="wkp-rmv" data-id="' + esc(d.id) + '" title="Cliente pediu pra sair (LGPD) — remove da lista de prospeccao">\u2715</button>';
+    return '<div style="white-space:nowrap">' + wa + ' ' + ml + ' ' + rmv + '</div>'
       + (d.tel ? '<div class="wkp-sub">' + esc(d.tel) + '</div>' : '')
       + (d.email ? '<div class="wkp-sub">' + esc(String(d.email).slice(0, 28)) + '</div>' : '');
   }
@@ -561,6 +599,8 @@
     if (csv) csv.addEventListener('click', function () { exportarCSV(ordenar(filtrar(_dados))); });
 
     // presets do Felipe s42
+    var po=$('wkp-opt');
+    if(po) po.addEventListener('change', function(){ ui.verOptOut=po.checked; reset(); });
     var pv=$('wkp-val');
     if(pv) pv.addEventListener('change', function(){ ui.comValor=pv.checked; reset(); });
     var pe=$('wkp-perd');
@@ -624,6 +664,20 @@
           attachments: [],
           onSent: function(){ marcarStatus(id,{enviado:true,enviadoTs:Date.now(),por:_userName()}); refresh(id); }
         });
+        return;
+      }
+      // opt-out LGPD
+      alvo = ev.target.closest && ev.target.closest('.wkp-rmv');
+      if (alvo) {
+        var rid = alvo.getAttribute('data-id');
+        var rd = _dados.find(function(x){ return String(x.id)===String(rid); });
+        var nome = rd ? (rd.titulo || rd.nome || rid) : rid;
+        if (!confirm('Remover ' + nome + ' da lista de prospeccao?\n\n'
+          + 'Use quando o cliente pedir pra nao receber mais contato (LGPD).\n'
+          + 'Fica registrado quem removeu e quando, e da pra rever depois '
+          + 'marcando "ver removidos".')) return;
+        setOptOut(rid, { em: new Date().toISOString(), por: _userName() || '' });
+        render(container);
         return;
       }
       // botoes de status
@@ -758,6 +812,7 @@
       '.wkp-ico.wa{color:#25D366;border-color:#cdebd6}.wkp-ico.wa:hover{background:#25D366;color:#fff}',
       '.wkp-ico.mail{color:#c47012;border-color:#f3dcc0;font:inherit}.wkp-ico.mail:hover{background:#c47012;color:#fff}',
       '.wkp-ico.dis{opacity:.3;pointer-events:none}',
+      '.wkp-rmv{background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;padding:0 3px}.wkp-rmv:hover{color:#c0392b}',
       '.wkp-nome{font:inherit;font-weight:700;color:#003144;background:none;border:none;padding:0;cursor:pointer;text-align:left}',
       '.wkp-nome:hover{color:#c47012;text-decoration:underline}',
       '.wkp-ovl{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}',

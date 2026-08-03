@@ -54,7 +54,7 @@
     sortKey: 'data',
     sortAsc: false,
     sortLayers: [{ k: 'data', asc: false }, { k: 'v', asc: false }],
-    msg: 'Ola {nome}, tudo bem? Falo em nome da Projetta Aluminio, empresa do grupo Weiku do Brasil. Como fazemos parte do mesmo grupo, o contrato das suas esquadrias Weiku consta em nosso sistema. Nosso objetivo e assegurar que os clientes do grupo conhecam tambem as portas de entrada de alto padrao fabricadas pela Projetta - sob medida, no mesmo nivel de qualidade das esquadrias. Antes de avancar, gostariamos de confirmar: o representante que conduziu seu atendimento chegou a apresentar as portas da Projetta ou elaborar algum orcamento?'
+    msg: 'Ola {nome}, tudo bem? Aqui e da Projetta, empresa do grupo Weiku do Brasil \u2014 o mesmo grupo com quem voce conversou recentemente sobre esquadrias de aluminio. Alem das esquadrias, o grupo tambem fabrica portas de entrada pivotantes sob medida, que e a linha da Projetta. Como seu contato esta cadastrado aqui no grupo, aproveitei para me apresentar. Posso te enviar nosso catalogo? Se nao tiver interesse, e so me avisar que retiramos seu contato do nosso banco de dados.'
   };
 
   // Felipe s38: "coloque um botao de salvar, quando eu alterar a mensagem
