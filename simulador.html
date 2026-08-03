@@ -838,6 +838,8 @@ function gerarDXF(){
           <option value="pir">PIR / poliisocianurato</option>
         </select>
       </label>
+      <label>Espaçamento entre travessas (mm) <input id="tTrav" type="number" value="772" step="1"></label>
+      <label>UR interna de projeto (%) <input id="tUr" type="number" value="60" step="1"></label>
       <label>Cantoneiras externas atravessando o XPS (un.)
         <input id="tCant" type="number" value="2" step="1"></label>
       <label>Material da cantoneira
@@ -944,12 +946,14 @@ function tRecomenda(p){
 
 function tRender(){
   var ci=TCLIMA[+document.getElementById('tCidade').value];
-  var p={te:ci.tn, ur:ci.ur, mercado:document.getElementById('tMercado').value,
+  var urIn=+document.getElementById('tUr').value;
+  var p={te:ci.tn, ur:(urIn>0?urIn:ci.ur), trav:+document.getElementById('tTrav').value, mercado:document.getElementById('tMercado').value,
          larg:+document.getElementById('tLarg').value, alt:+document.getElementById('tAlt').value,
          quad:+document.getElementById('tQuad').value, frac:+document.getElementById('tFrac').value,
          xps:+document.getElementById('tXps').value, cav:document.getElementById('tCav').value,
          cant:+document.getElementById('tCant').value, matcant:document.getElementById('tMatCant').value};
   var r=tCalc(p), rec=tRecomenda(p);
+  document.getElementById('tUr').placeholder=ci.ur;
   var dFrio = ci.tn<=0 ? "SEVERA" : (ci.tn<=8 ? "MODERADA" : "desprezível");
   var dCalor= ci.tx>=40 ? "SEVERA" : (ci.tx>=35 ? "MODERADA" : "baixa");
   var regime = "exigência de FRIO <b>"+dFrio+"</b> · exigência de CALOR <b>"+dCalor+"</b>";
@@ -961,10 +965,14 @@ function tRender(){
 
   var ok=function(b){return b?"<span style='color:#137333'>✓</span>":"<span style='color:#c5221f'>✗</span>";};
   var alerta="";
-  if((p.cav==="rocha32"||p.cav==="rocha64") && ci.tn<10)
-    alerta += "<div class='aviso' style='display:block;border-color:#c5221f'><b>BLOQUEIO — lã de rocha em clima frio.</b> A face fria da cavidade fica a "+r.Tcav.toFixed(1)+" °C contra orvalho de "+r.Torv.toFixed(1)+" °C. Fibra aberta condensa e retém a água; o ACM veda o vapor nas duas faces e o painel não seca. Use material de célula fechada.</div>";
-  if(p.cav==="rocha32" && p.alt>2500)
-    alerta += "<div class='aviso' style='display:block'><b>Densidade insuficiente.</b> Lã de 32 kg/m³ assenta em cavidade vertical de "+(p.alt/1000).toFixed(2)+" m e abre vazio no topo. Mínimo 64 kg/m³ hidrofugada em painel rígido.</div>";
+  var aberta=(p.cav==="rocha32"||p.cav==="rocha64"||p.cav==="vazia");
+  if(aberta && p.cav!=="vazia" && r.Tcav <= r.Torv)
+    alerta += "<div class='aviso' style='display:block;border-color:#c5221f'><b>BLOQUEIO — condensação na lã de rocha.</b> Face fria da cavidade a "+r.Tcav.toFixed(1)+" °C contra orvalho de "+r.Torv.toFixed(1)+" °C (Ti 20 °C, UR "+p.ur+"%). Fibra aberta condensa e retém a água; o ACM veda o vapor nas duas faces e o painel não seca. Trocar por material de célula fechada.</div>";
+  else if(aberta && p.cav!=="vazia" && r.Tcav <= r.Torv+2)
+    alerta += "<div class='aviso' style='display:block'><b>Margem insuficiente.</b> Face fria a "+r.Tcav.toFixed(1)+" °C contra orvalho de "+r.Torv.toFixed(1)+" °C — menos de 2 K. Aumentar o XPS externo ou trocar o material da cavidade.</div>";
+  var sig=32*9.81*(p.trav/1000);
+  if(p.cav==="rocha32" && p.trav>1500)
+    alerta += "<div class='aviso' style='display:block'><b>Verificar assentamento.</b> Compartimento livre de "+(p.trav/1000).toFixed(2)+" m gera "+(sig/1000).toFixed(2)+" kPa de compressão por peso próprio na lã de 32 kg/m³. Acima de 1,5 m sem travessa, especificar ≥64 kg/m³ ou apoio intermediário.</div>";
   if(p.alt>3000)
     alerta += "<div class='aviso' style='display:block'><b>Junta de dilatação obrigatória.</b> Folha com "+(p.alt/1000).toFixed(2)+" m: o ACM externo contrai "+(24e-6*(20-ci.tn)*p.alt).toFixed(1)+" mm em relação ao quadro. Fixação deve permitir corrida (furo oblongo / ponto fixo único por painel).</div>";
   if(ci.tx>=38)
@@ -990,6 +998,13 @@ function tRender(){
    "<tr><td>por empeno</td><td align=right>"+(rec.eEmp?rec.eEmp+" mm":"—")+"</td></tr>"+
    "<tr style='font-weight:700;border-top:2px solid #333'><td>ESPECIFICAR</td><td align=right>"+(rec.eRec?("XPS "+rec.eRec+" mm"):"consultar")+"</td></tr>"+
    "</table>"+
+   "<h2 style='margin-top:14px'>Custo do preenchimento da cavidade</h2>"+
+   "<table style='width:100%;border-collapse:collapse'>"+
+   "<tr><td>Área de cavidade da folha</td><td align=right>"+(r.A*(1-p.frac/100)).toFixed(2)+" m²</td></tr>"+
+   "<tr><td>Lã de rocha 32 (2×51 mm)</td><td align=right>R$ "+(23.56*r.A*(1-p.frac/100)).toFixed(2)+"</td></tr>"+
+   "<tr><td>XPS (2×50 mm)</td><td align=right>R$ "+(160.11*r.A*(1-p.frac/100)).toFixed(2)+"</td></tr>"+
+   "<tr style='font-weight:700'><td>Diferença por porta</td><td align=right>R$ "+(136.55*r.A*(1-p.frac/100)).toFixed(2)+"</td></tr>"+
+   "</table><div class='aviso' style='display:block'>Preços de nota: lã R$ 11,78/m²·51 mm (jun/2026) · XPS R$ 80,06/m²·50 mm (set/2023). <b>XPS custa 6,9× mais por milímetro.</b> Recotar antes de virar planilha.</div>"+
    "<div class='aviso' style='display:block;margin-top:10px'>Cavidade sempre em material de <b>célula fechada</b>. O ψ das cantoneiras (0,050 W/m·K alumínio · 0,012 poliamida) vem de modelo 2D de diferenças finitas; para memorial assinado exige verificação conforme <b>EN ISO 10211</b>. O portal não está incluído neste cálculo e é a maior ponte térmica do conjunto.</div>";
 }
 
@@ -998,7 +1013,7 @@ function tRender(){
   if(!s) return;
   for(var i=0;i<TCLIMA.length;i++){var o=document.createElement('option');o.value=i;o.textContent=TCLIMA[i].c;s.appendChild(o);}
   s.value=3;
-  var ids=['tCidade','tMercado','tLarg','tAlt','tQuad','tFrac','tXps','tCav','tCant','tMatCant'];
+  var ids=['tCidade','tMercado','tLarg','tAlt','tQuad','tFrac','tXps','tCav','tCant','tMatCant','tTrav','tUr'];
   for(var j=0;j<ids.length;j++){
     var el=document.getElementById(ids[j]);
     if(el){el.addEventListener('change',tRender);el.addEventListener('input',tRender);}
