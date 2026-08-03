@@ -322,10 +322,12 @@
       return '<button class="wkp-st ' + cls + (on ? ' on' : '') + '" data-id="' + esc(d.id) + '">'
            + (on ? lblOn : lbl) + '</button>';
     }
+    // mesma estrutura dos fechados: linha do Enviado + quem enviou, e os
+    // demais empilhados embaixo
     return '<div class="wkp-stwrap">'
       + '<div class="wkp-stlinha">'
       +   b('env', s.enviado, 'Enviado', '\u2713 Enviado')
-      +   (s.enviado && s.por ? '<span class="wkp-por">' + esc(s.por) + '</span>' : '')
+      +   (s.enviado && s.por ? '<span class="wkp-por">' + esc(String(s.por).split(' ')[0]) + '</span>' : '')
       + '</div>'
       + b('ret', s.retornou, 'Retornou', '\u21a9 Retornou')
       + b('srt', s.semRetorno, 'Sem retorno', '\u2205 Sem retorno')
@@ -578,19 +580,24 @@
       '.wkp-perd{background:#FEE2E2;color:#b91c1c;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}',
       '.wkp-semorc{color:#15803d;font-size:11.5px;font-weight:600}',
       '.wkp-comorc{font-size:11.5px;color:#b45309}',
-      '.wkp-stwrap{display:flex;flex-direction:column;gap:3px;align-items:stretch;min-width:132px}',
-      '.wkp-stlinha{display:flex;gap:4px;align-items:center}',
-      '.wkp-st{padding:3px 8px;border:1px solid var(--l);background:#fff;border-radius:12px;font-size:10.5px;cursor:pointer;font-family:inherit;white-space:nowrap}',
-      '.wkp-st:hover{background:#f8fafc}',
-      '.wkp-st.env.on{background:#dcfce7;border-color:#15803d;color:#15803d;font-weight:700}',
-      '.wkp-st.ret.on{background:#dbeafe;border-color:#1d4ed8;color:#1d4ed8;font-weight:700}',
-      '.wkp-st.srt.on{background:#475569;border-color:#334155;color:#fff;font-weight:700}',
-      '.wkp-st.sin.on{background:#b45309;border-color:#92400e;color:#fff;font-weight:700}',
-      '.wkp-st.cmp.on{background:#0f2c4c;border-color:#0f2c4c;color:#fff;font-weight:700}',
-      '.wkp-por{font-size:10px;color:#6b7280}',
-      '.wkp-ico{display:inline-block;width:26px;height:26px;line-height:24px;text-align:center;border:1px solid var(--l);border-radius:6px;text-decoration:none;font-size:14px;cursor:pointer;background:#fff}',
-      '.wkp-ico.wa{color:#15803d}.wkp-ico.mail{color:#b45309}',
-      '.wkp-ico.dis{opacity:.3;cursor:default}',
+      // Felipe s42: "deixe igual nos fechados weiku mesmo tamanho mesmo
+      // padrao" — CSS copiado LITERALMENTE do 54-weiku-vendas (.wkv-st),
+      // so' trocando o prefixo. Mesmo raio 999px, mesmo padding 3px 9px,
+      // mesma fonte 11px/600, mesmas cores de cada estado.
+      '.wkp-stwrap{display:flex;flex-direction:column;gap:4px;align-items:center}',
+      '.wkp-stlinha{display:flex;gap:4px;align-items:center;justify-content:center}',
+      '.wkp-st{font:inherit;font-size:11px;font-weight:600;padding:3px 9px;border:1px solid var(--l);border-radius:999px;background:#fff;color:#4a5160;cursor:pointer;white-space:nowrap;line-height:1.4}',
+      '.wkp-st:hover{border-color:#0f766e;color:#0f766e}',
+      '.wkp-st.env.on{background:#dcfce7;border-color:#16a34a;color:#15803d}.wkp-st.env.on:hover{color:#15803d}',
+      '.wkp-st.ret.on{background:#dbeafe;border-color:#2563eb;color:#1d4ed8}.wkp-st.ret.on:hover{color:#1d4ed8}',
+      '.wkp-st.srt.on{background:#475569;border-color:#334155;color:#fff;font-weight:700}.wkp-st.srt.on:hover{color:#fff;background:#334155}',
+      '.wkp-st.sin.on{background:#b45309;border-color:#92400e;color:#fff;font-weight:700}.wkp-st.sin.on:hover{color:#fff;background:#92400e}',
+      '.wkp-st.cmp.on{background:#0f3f5f;border-color:#0f3f5f;color:#fff;font-weight:600}.wkp-st.cmp.on:hover{color:#fff}',
+      '.wkp-por{font:inherit;font-size:11px;color:#4a5160;padding:2px 6px;border:1px solid var(--l);border-radius:6px;background:#fff}',
+      '.wkp-ico{width:30px;height:30px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;border:1px solid var(--l);background:#fff;cursor:pointer}',
+      '.wkp-ico.wa{color:#25D366;border-color:#cdebd6}.wkp-ico.wa:hover{background:#25D366;color:#fff}',
+      '.wkp-ico.mail{color:#c47012;border-color:#f3dcc0;font:inherit}.wkp-ico.mail:hover{background:#c47012;color:#fff}',
+      '.wkp-ico.dis{opacity:.3;pointer-events:none}',
       '@media(max-width:900px){.wkp-kpis{grid-template-columns:repeat(2,1fr)}}'
     ].join('\n');
     document.head.appendChild(s);
