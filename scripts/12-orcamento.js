@@ -2911,6 +2911,9 @@ const Orcamento = (() => {
     // (atualizarVersao descartava o campo silenciosamente) e o botao
     // parecia nao funcionar.
     const camposPermitidos = ['itens', 'observacao', 'subtotais', 'total', 'subFab', 'subInst', 'custoFab', 'custoInst', 'parametros', 'calculadoEm', 'calcDirty', 'wizardEtapaMaxima', '_zerosIntencionais', 'aprovadoEm', 'aprovadoPor', 'valorAprovado', 'chapasSelecionadas', 'dre_congelado', 'modoValorProposta', 'enviadaEm', '_itensRemovidos', '_extrasDeSelecao'];
+    // Felipe s42: guarda a lista de itens ANTES de sobrescrever, pra a
+    // trava logo abaixo conseguir distinguir edicao de reinjecao.
+    const _itensAntesDoSet = Array.isArray(alvo.itens) ? alvo.itens.slice() : [];
     camposPermitidos.forEach(k => {
       if (k in dadosNovos) alvo[k] = dadosNovos[k];
     });
@@ -2937,14 +2940,44 @@ const Orcamento = (() => {
     // (ver handler do #orc-item-add), entao o usuario pode apagar um
     // revestimento 3100x6550 e cadastrar outro igual depois.
     // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════
+    // Felipe sessao 42 — CORRECAO DE BUG QUE EU MESMO CRIEI (commit
+    // 20b7df2). "sistema nao deixa acrescentar mais itens, quando coloco
+    // novo item 6 comeco a configurar ele some do nada".
+    //
+    // A trava de reinjecao filtrava QUALQUER item cuja chave estivesse no
+    // tombstone. So' que a chave e' tipo|largura|altura, e o usuario
+    // DIGITA essas medidas depois de criar o item. No caso do Felipe o
+    // tombstone tinha 'porta_interna|700|2300'; ele criava o item 6 e, no
+    // instante em que digitava 700 e 2300, a chave batia e o item era
+    // APAGADO no meio da digitacao. Da' pra reproduzir com qualquer
+    // medida que ja' tenha sido deletada antes naquela versao.
+    //
+    // A trava so' deve valer contra REINJECAO — item que reaparece sozinho
+    // sem o usuario ter pedido. Item que o usuario acabou de adicionar e
+    // esta editando nao pode ser tocado. Distinguimos assim:
+    //   - a reinjecao SEMPRE aumenta (ou mantem) a contagem de itens em
+    //     relacao ao que estava salvo, trazendo de volta um item extra;
+    //   - a edicao normal mexe no CONTEUDO de um item que ja' existia,
+    //     sem aumentar a lista.
+    // Entao: se a lista nova NAO cresceu, nao ha reinjecao possivel e a
+    // trava nem roda. Se cresceu, barra apenas os itens EXCEDENTES cuja
+    // chave esta no tombstone.
+    // ═══════════════════════════════════════════════════════════════
     if ('itens' in dadosNovos && Array.isArray(alvo.itens) && alvo.itens.length) {
       const _tomb = Array.isArray(alvo._itensRemovidos) ? alvo._itensRemovidos : [];
-      if (_tomb.length) {
+      const _qtdAntiga = Array.isArray(_itensAntesDoSet) ? _itensAntesDoSet.length : 0;
+      const _cresceu = alvo.itens.length > _qtdAntiga;
+      if (_tomb.length && _cresceu) {
         const _proibidas = new Set(_tomb);
+        // ids que ja' estavam na versao antes deste set: sao intocaveis,
+        // porque nao vieram de reinjecao — o usuario esta editando eles.
+        const _idsAntigos = new Set((_itensAntesDoSet || [])
+          .map(it => it && it._uid).filter(Boolean));
         const _antes = alvo.itens.length;
         alvo.itens = alvo.itens.filter(it => {
-          // item sem tipo (placeholder da tela de escolha) nunca e' barrado
-          if (!it || !it.tipo) return true;
+          if (!it || !it.tipo) return true;              // placeholder
+          if (it._uid && _idsAntigos.has(it._uid)) return true;  // ja' existia
           return !_proibidas.has(chaveItemTombstone(it));
         });
         if (alvo.itens.length !== _antes) {
