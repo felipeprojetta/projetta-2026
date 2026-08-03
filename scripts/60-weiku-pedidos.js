@@ -74,7 +74,7 @@
   // orcamento, motivo da perda, nome do representante, metragem da obra
   // ou endereco.
   // ═══════════════════════════════════════════════════════════════════
-  var MSG_FABRICA = 'Ola {nome}, tudo bem? Aqui e da Projetta, empresa do grupo Weiku do Brasil \u2014 o mesmo grupo com quem voce conversou recentemente sobre esquadrias de aluminio. Alem das esquadrias, o grupo tambem fabrica portas de entrada pivotantes sob medida, que e a linha da Projetta. Como seu contato esta cadastrado aqui no grupo, aproveitei para me apresentar. Posso te enviar nosso catalogo? Se nao tiver interesse, e so me avisar que retiramos seu contato do nosso banco de dados.';
+  var MSG_FABRICA = 'Ol\u00e1 {nome}, tudo bem?\n\nAqui \u00e9 da Projetta, empresa do grupo Weiku do Brasil \u2014 o mesmo grupo com quem voc\u00ea conversou recentemente sobre esquadrias de alum\u00ednio.\n\nAl\u00e9m das esquadrias, o grupo tamb\u00e9m fabrica portas de entrada pivotantes sob medida, que \u00e9 a linha da Projetta. Como seu contato est\u00e1 cadastrado aqui no grupo, aproveitei para me apresentar.\n\nPosso te enviar nosso cat\u00e1logo?\n\nSe n\u00e3o tiver interesse, \u00e9 s\u00f3 me avisar que retiramos seu contato do nosso banco de dados.';
 
   var _cruz = null;   // mapa reserva/telefone -> orcamento Projetta
   function cruzamento() {
