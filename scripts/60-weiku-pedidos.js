@@ -313,6 +313,95 @@
     var seta = ui.ordem === campo ? (ui.dir === 'asc' ? ' \u25b2' : ' \u25bc') : '';
     return '<th data-s="' + campo + '">' + esc(rot) + seta + '</th>';
   }
+  /* ═══ MODAL DE DETALHE — Felipe s42 ═══
+     "nos fechados weiku ao clicar no nome abre um campo com todos os
+     dados, faca o mesmo para os perdidos". Mesma estrutura e mesmo CSS
+     do abrirDetalhe() do 54-weiku-vendas, com os campos deste funil.
+     Aqui vale a pena: o card do Bitrix tem 33 campos e a tabela mostra
+     11, entao o modal e' o unico lugar que expoe arquiteto, urgencia,
+     temperatura, motivo de perda, tipo de obra e AT. */
+  function _escClose(ev) { if (ev.key === 'Escape') fecharDetalhe(); }
+  function fecharDetalhe() {
+    var m = document.getElementById('wkp-modal');
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+    document.removeEventListener('keydown', _escClose);
+  }
+  function abrirDetalhe(id) {
+    var d = (_dados || []).find(function (x) { return String(x.id) === String(id); });
+    if (!d) return;
+    fecharDetalhe();
+    var st = getEnvios()[d.id] || {};
+    var o = orcProjetta(d);
+    function row(lab, val) {
+      if (val == null || val === '') return '';
+      return '<div class="wkp-drow"><span class="wkp-dlab">' + esc(lab) + '</span>'
+           + '<span class="wkp-dval">' + val + '</span></div>';
+    }
+    var tel = telLimpo(d);
+    var fone = d.tel
+      ? esc(d.tel) + (tel ? ' <a class="wkp-mbtn" target="_blank" rel="noopener" href="https://wa.me/' + tel + '">Abrir WhatsApp</a>' : '')
+      : '';
+    var stTxt = (st.enviado ? ('\u2713 Enviada' + (st.por ? ' por ' + esc(st.por) : '')) : 'Nao enviada')
+      + (st.retornou ? ' \u00b7 cliente retornou' : '')
+      + (st.semRetorno ? ' \u00b7 sem retorno' : '')
+      + (st.semInteresse ? ' \u00b7 sem interesse' : '')
+      + (st.jaComprou ? ' \u00b7 ja comprou' : '');
+    var perdida = ETAPAS_PERDIDAS.indexOf(d.etapa) >= 0;
+    var projetta = o
+      ? '<b>' + esc(o.agp || 'orcado') + '</b> \u00b7 ' + esc(o.etapa || '')
+        + (Number(o.valor) ? ' \u00b7 R$ ' + brl(o.valor) : '')
+      : '<span class="wkp-semorc">sem orcamento na Projetta</span>';
+
+    var body = ''
+      + row('Nome', esc(d.titulo || d.nome))
+      + row('Contato', esc([d.nome, d.sobrenome].filter(Boolean).join(' ')))
+      + row('Etapa no funil', (perdida ? '<span class="wkp-perd">' + esc(d.etapa) + '</span>' : esc(d.etapa)))
+      + row('Responsavel', esc(d.responsavel))
+      + row('Endereco da Obra', esc(d.endereco))
+      + row('Cidade', esc(d.cidade) + (d.uf ? ' \u00b7 ' + esc(d.uf) : ''))
+      + row('Metragem da Obra', d.m2 ? esc(d.m2) + ' m\u00b2' : '')
+      + row('Tipo de Construcao', esc(d.tipoConstrucao))
+      + row('Tipo de Obra', esc(d.tipoObra))
+      + row('Etapa da Obra', esc(d.etapaObra))
+      + row('Casa em Condominio', esc(d.condominio))
+      + row('Valor do Negocio (Weiku)', Number(d.valor) ? 'R$ ' + brl(d.valor) : '')
+      + row('Produtos', esc(d.produtos))
+      + row('Tipo de Cliente', esc(d.tipoCliente))
+      + row('Temperatura', esc(d.temperatura))
+      + row('Urgencia', esc(d.urgencia))
+      + row('Possui Arquiteto', esc(d.possuiArq))
+      + row('Nome do Arquiteto', esc(d.arquiteto))
+      + row('Cliente Internacional', esc(d.internacional))
+      + row('Motivo de Perda', esc(d.motivoPerda))
+      + row('Orcamento via', esc(d.orcamentoVia))
+      + row('Ha Orcamentista', esc(d.haOrcamentista))
+      + row('WhatsApp / Telefone', fone)
+      + row('E-mail', d.email ? '<a href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>' : '')
+      + row('Data de Criacao', esc(d.dtCriacao))
+      + row('Data Prevista Orcamento', esc(d.dtOrcamento))
+      + row('Data de Fechamento', esc(d.dtFechamento))
+      + row('N\u00ba Reserva', esc(d.reserva))
+      + row('Numero AG', esc(d.ag))
+      + row('Numero AT', esc(d.at))
+      + row('ID no Bitrix24', esc(d.id))
+      + row('Projetta', projetta)
+      + row('Prospeccao', esc(stTxt));
+
+    var ov = document.createElement('div');
+    ov.id = 'wkp-modal'; ov.className = 'wkp-ovl';
+    ov.innerHTML = '<div class="wkp-modal">'
+      + '<div class="wkp-mhead"><b>' + esc(d.titulo || d.nome || ('Pedido ' + d.id)) + '</b>'
+      +   '<button class="wkp-mclose" title="Fechar">\u2715</button></div>'
+      + '<div class="wkp-mbody">' + body + '</div>'
+      + '<div class="wkp-mfoot">Dados do card no Bitrix24 (funil de negocios). Campos vazios no card nao aparecem aqui.</div>'
+      + '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function (ev) {
+      if (ev.target === ov || ev.target.closest('.wkp-mclose')) fecharDetalhe();
+    });
+    document.addEventListener('keydown', _escClose);
+  }
+
   function selStatus() {
     var opts = [['','Todos os status'],['aguardando','Aguardando resposta'],
       ['nao_enviado','Ainda nao enviado'],['enviado','Enviado'],['retornou','Retornou'],
@@ -370,7 +459,8 @@
     var local = [d.cidade, d.uf].filter(Boolean).join(' \u00b7 ');
     var perdida = ETAPAS_PERDIDAS.indexOf(d.etapa) >= 0;
     return '<tr>'
-      + '<td><b>' + esc(d.titulo || d.nome || '(sem nome)') + '</b>'
+      + '<td><button class="wkp-nome" data-id="' + esc(d.id) + '" title="Ver todos os dados do card">'
+      +   esc(d.titulo || d.nome || '(sem nome)') + '</button>'
       +   (d.endereco ? '<div class="wkp-sub">' + esc(String(d.endereco).slice(0, 60)) + '</div>' : '')
       + '</td>'
       + '<td>' + esc(local || '\u2014') + '</td>'
@@ -470,6 +560,9 @@
     // botoes de prospeccao + WhatsApp + email (delegado: linhas sao recriadas)
     container.addEventListener('click', function(ev){
       var alvo;
+      // clique no nome abre o detalhe
+      var nm = ev.target.closest && ev.target.closest('.wkp-nome');
+      if (nm) { abrirDetalhe(nm.getAttribute('data-id')); return; }
       function refresh(id){
         var td = container.querySelector('.wkp-stcell[data-id="'+id+'"]');
         var d = _dados.find(function(x){ return String(x.id)===String(id); });
@@ -627,6 +720,18 @@
       '.wkp-ico.wa{color:#25D366;border-color:#cdebd6}.wkp-ico.wa:hover{background:#25D366;color:#fff}',
       '.wkp-ico.mail{color:#c47012;border-color:#f3dcc0;font:inherit}.wkp-ico.mail:hover{background:#c47012;color:#fff}',
       '.wkp-ico.dis{opacity:.3;pointer-events:none}',
+      '.wkp-nome{font:inherit;font-weight:700;color:#003144;background:none;border:none;padding:0;cursor:pointer;text-align:left}',
+      '.wkp-nome:hover{color:#c47012;text-decoration:underline}',
+      '.wkp-ovl{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}',
+      '.wkp-modal{background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden}',
+      '.wkp-mhead{display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid var(--l);background:#003144;color:#fff}',
+      '.wkp-mclose{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1;padding:0 4px}',
+      '.wkp-mbody{padding:6px 20px;overflow:auto}',
+      '.wkp-drow{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid #f1f5f9}',
+      '.wkp-dlab{flex:0 0 165px;color:#4a5160;font-size:13px}',
+      '.wkp-dval{flex:1;color:#003144;font-size:13px;font-weight:600;word-break:break-word}',
+      '.wkp-mfoot{padding:11px 20px;border-top:1px solid var(--l);font-size:11px;color:#4a5160;background:#f8fafc}',
+      '.wkp-mbtn{display:inline-block;background:#25D366;color:#fff;border-radius:6px;padding:2px 9px;font-size:11px;font-weight:600;text-decoration:none;margin-left:6px}.wkp-mbtn:hover{background:#1faf53}',
       '@media(max-width:900px){.wkp-kpis{grid-template-columns:repeat(2,1fr)}}'
     ].join('\n');
     document.head.appendChild(s);
