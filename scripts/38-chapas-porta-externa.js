@@ -2177,12 +2177,22 @@ const ChapasPortaExterna = (() => {
       // Pecas AM continuam prefixadas (chapa-mae diferente). Pecas ACM
       // ficam com cor pura -> agrupam com tudo.
 
+      // Felipe s43: peca de CORSTONE nasce com a medida SECA (sem REF).
+      // O REF (2×20mm na largura) e' a DOBRA do ACM sobre as bordas da
+      // porta — chapa fina que envelopa. Corstone e' pedra de 8mm: e'
+      // cortada na medida liquida e assentada, nao dobra. Ajustando aqui
+      // na origem, todo mundo que consome a peca (tabela do Lev.
+      // Superficies, peso, custeio por m² e DXF) ve o MESMO numero, sem
+      // cada consumidor ter que lembrar de descontar o refilo.
+      const largFinal = ehPecaCorstone ? largSemRef : larg;
+      const compFinal = ehPecaCorstone ? compSemRef : comp;
+
       const pecaBase = {
         id: def.id,
         label: def.label,
         labelCompleto: `${def.label} — ${ctx.lado === 'externo' ? 'Externo' : 'Interno'}${corResolvida ? ` (${corResolvida})` : ''}`,
-        largura: Math.round(larg * 100) / 100,
-        altura:  Math.round(comp * 100) / 100,
+        largura: Math.round(largFinal * 100) / 100,
+        altura:  Math.round(compFinal * 100) / 100,
         // Felipe sessao 14: medidas SECAS (sem REF) — pra exibir ao lado
         // da medida com refilado no Lev. Superficies. Se larguraSemRef ===
         // largura, peca nao tem REF nessa dimensao.
@@ -2203,7 +2213,10 @@ const ChapasPortaExterna = (() => {
         // pra preservar a sequencia exata da planilha (nao reordenar
         // por categoria que misturava AM no fim).
         _ordem: _idx,
-        materialEspecial: ehPecaInox ? 'INOX' : (ehPecaAM ? 'AM' : null),
+        // Felipe s43: CORSTONE entra aqui pra a coluna Material do Lev.
+        // Superficies parar de mostrar 'ACM' numa peca que e' de pedra.
+        materialEspecial: ehPecaCorstone ? 'CORSTONE'
+                          : (ehPecaInox ? 'INOX' : (ehPecaAM ? 'AM' : null)),
         observacao: def.observacao || '',
       };
 

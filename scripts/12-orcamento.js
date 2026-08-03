@@ -20450,14 +20450,17 @@ const Orcamento = (() => {
   //   HPL   -> "HPL — base"                  materialEspecial = 'HPL'
   // Se a chapa-mae do material/cor nao existir no cadastro, peso = 0
   // (REGRA OURO: nunca puxa peso que nao sabe).
-  const MATERIAIS_PECA = ['ACM', 'AM', 'VIDRO', 'HPL', 'INOX'];
-  const _PREFIXO_MATERIAL = { AM: 'Aluminio Macico — ', VIDRO: 'Vidro — ', HPL: 'HPL — ', INOX: 'Aço Inox — ' };
+  // Felipe s43: CORSTONE incluido — o motor ja' marcava a peca com a cor
+  // 'Corstone — <material>', mas sem entrada aqui o materialDaPeca caia no
+  // default e a coluna Material mostrava ACM numa peca de pedra.
+  const MATERIAIS_PECA = ['ACM', 'AM', 'VIDRO', 'HPL', 'INOX', 'CORSTONE'];
+  const _PREFIXO_MATERIAL = { AM: 'Aluminio Macico — ', VIDRO: 'Vidro — ', HPL: 'HPL — ', INOX: 'Aço Inox — ', CORSTONE: 'Corstone — ' };
 
   // Remove qualquer prefixo de material da cor -> devolve a cor base pura.
   function _corBaseSemMaterial(cor) {
     let c = String(cor || '').trim();
     // "Aluminio Macico — X" | "Vidro - X" | "HPL — X" | "Aço Inox — X" -> X
-    c = c.replace(/^\s*(alumin[ií]o\s*maci[cç]o|vidro|hpl|a[çc]o\s*inox)\s*[—\-–]\s*/i, '');
+    c = c.replace(/^\s*(alumin[ií]o\s*maci[cç]o|vidro|hpl|a[çc]o\s*inox|corstone)\s*[—\-–]\s*/i, '');
     // caso generico sem cor: "Aluminio Macico" puro -> vazio
     c = c.replace(/^\s*alumin[ií]o\s*maci[cç]o\s*$/i, '');
     return c.trim();
@@ -20466,7 +20469,10 @@ const Orcamento = (() => {
   // Le o material atual de uma peca (a partir de materialEspecial).
   function materialDaPeca(p) {
     const me = p && p.materialEspecial;
-    if (me === 'AM' || me === 'VIDRO' || me === 'HPL' || me === 'INOX') return me;
+    if (me === 'AM' || me === 'VIDRO' || me === 'HPL' || me === 'INOX' || me === 'CORSTONE') return me;
+    // Retrocompat: peca gravada antes da s43 nao tem materialEspecial, mas
+    // a cor ja' vinha prefixada pelo motor — reconhece por ela.
+    if (/^\s*corstone\s*[—\-–]/i.test(String((p && p.cor) || ''))) return 'CORSTONE';
     return 'ACM';
   }
 
@@ -21103,7 +21109,7 @@ const Orcamento = (() => {
       // Mesma chave de edicao das outras colunas (chaveDim) + classe
       // .orc-lev-sup-input-edit -> entra no fluxo "pendente -> Salvar".
       const _matAtual = materialDaPeca(p);
-      const _LBL_MAT = { ACM: 'ACM', AM: 'ALU', VIDRO: 'Vidro', HPL: 'HPL', INOX: 'INOX' };
+      const _LBL_MAT = { ACM: 'ACM', AM: 'ALU', VIDRO: 'Vidro', HPL: 'HPL', INOX: 'INOX', CORSTONE: 'CorStone' };
       const _optsMaterial = MATERIAIS_PECA.map(m =>
         `<option value="${m}" ${_matAtual === m ? 'selected' : ''}>${_LBL_MAT[m] || m}</option>`
       ).join('');
