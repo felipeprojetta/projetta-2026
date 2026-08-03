@@ -166,6 +166,12 @@ const PerfisPortaExterna = (() => {
   //   PA-CANT-30X30X2.0 → PA-CANT-30X30X2.0  (Felipe sessao 2026-05: padronizado com hífen igual ao cadastro)
   //   PA-38X12X1.58 → PA-25X12X1.58  (travCava, perfil pequeno do cadastro)
   // ---------------------------------------------------------
+  // Felipe s43: CANTONEIRA DA BORDA DO CORSTONE. Igual nas duas familias
+  // (76 e 101), por isso fica fora do COD_FAM. Codigo conferido no cadastro
+  // de Perfis: 'Perfil De Aluminio Cant 16 X 31 X 1.3 - Ct209', 0,17 kg/m,
+  // barra 6m — e' a 16×32 nominal (31,75 real).
+  const COD_CANT_CORSTONE = 'PA-CANT-16X31X1.3';
+
   const COD_FAM = {
     '76': {
       perfAlt:    'PA-PA006F',           // PERFIL ALTURA — sufixo -6M/-7M/-8M
@@ -557,6 +563,15 @@ const PerfisPortaExterna = (() => {
     }
 
     add(cod.perfAlt + sufixoBarra(PA_F),         PA_F,            2 * nFolhas,    'Altura Folha');
+    // Felipe s43: 'Corstone nas bordas iremos usar cantoneira 16x32, ai sao
+    // 4 pecas pela altura do PA006F'. So' entra quando o revestimento e'
+    // Corstone: a pedra de 8mm nao dobra sobre a borda como o ACM (por isso
+    // ela tambem nao leva refilo), entao a borda exposta e' arrematada por
+    // cantoneira. 4 por FOLHA (decisao Felipe) = 2 bordas × 2 faces, no
+    // mesmo comprimento do PA-006F.
+    if (/corstone/i.test(String(item.revestimento || ''))) {
+      add(COD_CANT_CORSTONE,                     PA_F,            4 * nFolhas,    'Cantoneira Borda Corstone');
+    }
     add(cod.altPortal + sufixoBarra(ALT_PORTAL), ALT_PORTAL,      2,              'Altura Portal');
     add(cod.traPortal,                            TRA_PORTAL_COMP, qtdTraPortal,   'Travessa Portal');
     add(cod.travHor,                              LAR_PORTAL,      1,              'Largura Portal');
