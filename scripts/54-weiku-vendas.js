@@ -37,6 +37,10 @@
     excluiPredio: false,
     soComWa: false,
     ocultaComprou: true,   // Felipe s37: some quem ja' comprou (default ligado)
+    // Felipe s42: "coloque ai um filtro com orcamento projetta, pra saber
+    // dos pedidos e dos fechados weiku quais ja tem orcamento projetta".
+    // '' = todos | 'com' = so' quem ja' tem AGP | 'sem' = so' quem nao tem.
+    projetta: '',
     // Felipe s37: "ja inicie sempre por esse filtro, primeiro data depois
     // valor" — a tela ja' abre com a ordenacao em 2 camadas pronta, em vez
     // de exigir clicar em Fechamento e dar Shift+clique em Valor toda vez.
@@ -458,6 +462,14 @@
         var _st = _normSt(getEnvios()[d.reserva]);
         if (_st && _st.jaComprou) return false;
       }
+      // Felipe s42: filtro por orcamento na Projetta. Usa o mesmo
+      // resolveProjetta que ja' pinta a coluna Projetta, entao cobre
+      // tanto o auto-match por reserva quanto o vinculo manual de AGP.
+      if (ui.projetta) {
+        var _p = resolveProjetta(d);
+        if (ui.projetta === 'com' && !_p) return false;
+        if (ui.projetta === 'sem' && _p) return false;
+      }
       // Felipe s38: "CRIE UM FILTRO PARA EU BUSCAR, ENTRE ENVIADO,
       // RETORNOU, SEM RETORNO ETC". Filtra pelo status da prospeccao.
       // Os estados NEGADOS (nao enviado / nao retornou) sao tao uteis
@@ -797,6 +809,10 @@
       + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-npredio"' + (ui.excluiPredio ? ' checked' : '') + '> Excluir predios</label>'
       + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-comwa"' + (ui.soComWa ? ' checked' : '') + '> So com WhatsApp</label>'
       + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-comprou"' + (ui.ocultaComprou ? ' checked' : '') + '> Ocultar quem ja comprou</label>'
+      + '      <div class="wkv-fld"><label>Orcamento Projetta</label><select id="wkv-f-proj">'
+      +        [['','Todos'],['com','\u2713 Ja tem orcamento'],['sem','Sem orcamento']]
+             .map(function(o){ return '<option value="'+o[0]+'"'+((ui.projetta||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
+      + '      </select></div>'
       + '    </div>'
       + '    <div class="wkv-acoes">'
       + '      <button class="wkv-btn wkv-btn-out" id="wkv-reset">\u21ba Limpar filtros</button>'
@@ -1144,6 +1160,7 @@
       ui.excluiPredio = $('wkv-f-npredio').checked;
       ui.soComWa = $('wkv-f-comwa').checked;
       if ($('wkv-f-comprou')) ui.ocultaComprou = $('wkv-f-comprou').checked;
+      if ($('wkv-f-proj')) ui.projetta = $('wkv-f-proj').value;
       ui.msg = $('wkv-msg').value;
       renderTabela(container);
     }
@@ -1151,7 +1168,7 @@
     ['wkv-f-busca', 'wkv-f-vmin', 'wkv-f-vmax', 'wkv-f-pav', 'wkv-msg'].forEach(function (id) {
       var e = $(id); if (e) e.addEventListener('input', pull);
     });
-    ['wkv-f-uf', 'wkv-f-cidade', 'wkv-f-rep', 'wkv-f-ano', 'wkv-f-mes', 'wkv-f-npredio', 'wkv-f-comwa'].forEach(function (id) {
+    ['wkv-f-uf', 'wkv-f-cidade', 'wkv-f-rep', 'wkv-f-ano', 'wkv-f-mes', 'wkv-f-npredio', 'wkv-f-comwa', 'wkv-f-proj'].forEach(function (id) {
       var e = $(id); if (e) e.addEventListener('change', pull);
     });
 
@@ -1160,7 +1177,7 @@
       ui.busca = ''; ui.vmin = null; ui.vmax = null; ui.pavMax = null; ui.uf = ''; ui.rep = '';
       ui.cidade = '';
       ui.ano = ''; ui.mes = '';
-      ui.excluiPredio = false; ui.soComWa = false; ui.ocultaComprou = true;
+      ui.excluiPredio = false; ui.soComWa = false; ui.ocultaComprou = true; ui.projetta = '';
       // Felipe s37: Limpar filtros tambem devolve a ordenacao padrao.
       ui.sortLayers = [{ k: 'data', asc: false }, { k: 'v', asc: false }];
       ui.sortKey = 'data'; ui.sortAsc = false;

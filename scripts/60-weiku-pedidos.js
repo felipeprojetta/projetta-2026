@@ -31,7 +31,7 @@
   var ui = {
     busca: '', uf: '', cidade: '', etapa: '', responsavel: '',
     vmin: '', vmax: '', comTel: false, comReserva: false,
-    soPerdidos: false, semOrcamento: false, status: '',
+    soPerdidos: false, projetta: '', status: '',
     // Felipe s42: "deixe o filtro primeiro sempre o mais novo e segundo
     // filtro pelo valor igual nos fechados weiku". Ordenacao em CAMADAS,
     // mesma logica do 54-weiku-vendas: a coluna clicada vira a camada
@@ -150,7 +150,11 @@
       if (ui.comTel && !d.tel) return false;
       if (ui.comReserva && !d.reserva) return false;
       if (ui.soPerdidos && ETAPAS_PERDIDAS.indexOf(d.etapa) < 0) return false;
-      if (ui.semOrcamento && orcProjetta(d)) return false;
+      // Felipe s42: filtro de 3 estados — todos / so' quem JA tem orcamento
+      // na Projetta / so' quem NAO tem. Antes era checkbox e so' dava pra
+      // ver o "nao tem".
+      if (ui.projetta === 'sem' && orcProjetta(d)) return false;
+      if (ui.projetta === 'com' && !orcProjetta(d)) return false;
       if (ui.status) {
         var s = getEnvios()[d.id] || {};
         var ok;
@@ -240,7 +244,7 @@
       +      kpi('Pedidos no filtro', filtrados.length.toLocaleString('pt-BR'), todos.length + ' no total')
       +      kpi('Valor no filtro', 'R$ ' + brl(totalValor), '')
       +      kpi('Com telefone', comTel.toLocaleString('pt-BR'), 'de ' + filtrados.length)
-      +      kpi('Com reserva', comRes.toLocaleString('pt-BR'), 'ja viraram reserva')
+      +      kpi('Ja orcados Projetta', filtrados.filter(function(d){ return !!orcProjetta(d); }).length.toLocaleString('pt-BR'), 'de ' + filtrados.length + ' no filtro')
       + '  </div>'
 
       + '  <div class="wkp-card">'
@@ -259,7 +263,10 @@
       + '    <div class="wkp-filtros" style="margin-top:10px">'
       +        selStatus()
       + '      <label class="wkp-chk wkp-preset' + (ui.soPerdidos ? ' on' : '') + '"><input type="checkbox" id="wkp-perd"' + (ui.soPerdidos ? ' checked' : '') + '> \ud83c\udfaf So PERDIDOS na Weiku</label>'
-      + '      <label class="wkp-chk wkp-preset' + (ui.semOrcamento ? ' on' : '') + '"><input type="checkbox" id="wkp-semorc"' + (ui.semOrcamento ? ' checked' : '') + '> Sem orcamento na Projetta</label>'
+      + '      <select id="wkp-proj" class="wkp-sel" style="min-width:210px">'
+      +        [['','\u2014 orcamento Projetta \u2014'],['com','\u2713 JA tem orcamento Projetta'],['sem','Sem orcamento na Projetta']]
+             .map(function(o){ return '<option value="'+o[0]+'"'+(ui.projetta===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
+      + '      </select>'
       + '    </div>'
       + '    <div class="wkp-acoes">'
       + '      <button id="wkp-limpar" class="wkp-btn">\u21ba Limpar filtros</button>'
@@ -510,7 +517,7 @@
     if (lp) lp.addEventListener('click', function () {
       ui.busca = ''; ui.uf = ''; ui.cidade = ''; ui.etapa = ''; ui.responsavel = '';
       ui.vmin = ''; ui.vmax = ''; ui.comTel = false; ui.comReserva = false;
-      ui.soPerdidos = false; ui.semOrcamento = false; ui.status = '';
+      ui.soPerdidos = false; ui.projetta = ''; ui.status = '';
       ui.camadas = [{ k: 'dtCriacao', asc: false }, { k: 'valor', asc: false }];
       ui.ordem = 'dtCriacao'; ui.dir = 'desc'; reset();
     });
@@ -534,9 +541,10 @@
     if (csv) csv.addEventListener('click', function () { exportarCSV(ordenar(filtrar(_dados))); });
 
     // presets do Felipe s42
-    [['wkp-perd','soPerdidos'],['wkp-semorc','semOrcamento']].forEach(function(p){
-      var el=$(p[0]); if(el) el.addEventListener('change', function(){ ui[p[1]]=el.checked; reset(); });
-    });
+    var pe=$('wkp-perd');
+    if(pe) pe.addEventListener('change', function(){ ui.soPerdidos=pe.checked; reset(); });
+    var pj=$('wkp-proj');
+    if(pj) pj.addEventListener('change', function(){ ui.projetta=pj.value; reset(); });
     var st=$('wkp-status');
     if(st) st.addEventListener('change', function(){ ui.status=st.value; reset(); });
 
