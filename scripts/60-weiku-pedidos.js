@@ -31,7 +31,7 @@
   var ui = {
     busca: '', uf: '', cidade: '', etapa: '', responsavel: '',
     vmin: '', vmax: '', comTel: false, comReserva: false,
-    soPerdidos: false, projetta: '', status: '',
+    soPerdidos: false, projetta: '', comprou: '', status: '',
     // Felipe s42: "deixe o filtro primeiro sempre o mais novo e segundo
     // filtro pelo valor igual nos fechados weiku". Ordenacao em CAMADAS,
     // mesma logica do 54-weiku-vendas: a coluna clicada vira a camada
@@ -153,6 +153,15 @@
       // Felipe s42: filtro de 3 estados — todos / so' quem JA tem orcamento
       // na Projetta / so' quem NAO tem. Antes era checkbox e so' dava pra
       // ver o "nao tem".
+      // Felipe s42: mesmo filtro de 3 estados da aba Fechados.
+      // Aqui o default e' '' (mostra todos), porque no funil o "ja
+      // comprou" e' marcacao manual da prospeccao e comeca tudo vazio —
+      // ocultar por padrao esconderia zero linhas e so' confundiria.
+      if (ui.comprou) {
+        var _jc = !!(getEnvios()[d.id] || {}).jaComprou;
+        if (ui.comprou === 'ocultar' && _jc) return false;
+        if (ui.comprou === 'so' && !_jc) return false;
+      }
       if (ui.projetta === 'sem' && orcProjetta(d)) return false;
       if (ui.projetta === 'com' && !orcProjetta(d)) return false;
       if (ui.status) {
@@ -263,6 +272,10 @@
       + '    <div class="wkp-filtros" style="margin-top:10px">'
       +        selStatus()
       + '      <label class="wkp-chk wkp-preset' + (ui.soPerdidos ? ' on' : '') + '"><input type="checkbox" id="wkp-perd"' + (ui.soPerdidos ? ' checked' : '') + '> \ud83c\udfaf So PERDIDOS na Weiku</label>'
+      + '      <select id="wkp-comprou" class="wkp-sel" style="min-width:200px">'
+      +        [['','\u2014 ja comprou \u2014'],['ocultar','Ocultar quem ja comprou'],['so','\u2713 SO os que ja compraram']]
+             .map(function(o){ return '<option value="'+o[0]+'"'+(ui.comprou===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
+      + '      </select>'
       + '      <select id="wkp-proj" class="wkp-sel" style="min-width:210px">'
       +        [['','\u2014 orcamento Projetta \u2014'],['com','\u2713 JA tem orcamento Projetta'],['sem','Sem orcamento na Projetta']]
              .map(function(o){ return '<option value="'+o[0]+'"'+(ui.projetta===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
@@ -517,7 +530,7 @@
     if (lp) lp.addEventListener('click', function () {
       ui.busca = ''; ui.uf = ''; ui.cidade = ''; ui.etapa = ''; ui.responsavel = '';
       ui.vmin = ''; ui.vmax = ''; ui.comTel = false; ui.comReserva = false;
-      ui.soPerdidos = false; ui.projetta = ''; ui.status = '';
+      ui.soPerdidos = false; ui.projetta = ''; ui.comprou = ''; ui.status = '';
       ui.camadas = [{ k: 'dtCriacao', asc: false }, { k: 'valor', asc: false }];
       ui.ordem = 'dtCriacao'; ui.dir = 'desc'; reset();
     });
@@ -545,6 +558,8 @@
     if(pe) pe.addEventListener('change', function(){ ui.soPerdidos=pe.checked; reset(); });
     var pj=$('wkp-proj');
     if(pj) pj.addEventListener('change', function(){ ui.projetta=pj.value; reset(); });
+    var pc=$('wkp-comprou');
+    if(pc) pc.addEventListener('change', function(){ ui.comprou=pc.value; reset(); });
     var st=$('wkp-status');
     if(st) st.addEventListener('change', function(){ ui.status=st.value; reset(); });
 

@@ -36,7 +36,12 @@
     mes: '',
     excluiPredio: false,
     soComWa: false,
-    ocultaComprou: true,   // Felipe s37: some quem ja' comprou (default ligado)
+    // Felipe s42: "ocultar quem ja comprou e mostrar somente os que ja
+    // compraram" — virou 3 estados. 'ocultar' (default, o de sempre) |
+    // '' todos | 'so' mostra SO' quem comprou, pra conferir a carteira
+    // convertida. O ocultaComprou booleano da s37 continua existindo
+    // derivado deste campo, pra nao quebrar nada que ja' o lia.
+    comprou: 'ocultar',
     // Felipe s42: "coloque ai um filtro com orcamento projetta, pra saber
     // dos pedidos e dos fechados weiku quais ja tem orcamento projetta".
     // '' = todos | 'com' = so' quem ja' tem AGP | 'sem' = so' quem nao tem.
@@ -458,9 +463,11 @@
       // "com WhatsApp", senao ele voltava na lista todo dia.
       if (ui.soComWa && !temWaReal(d)) return false;
       // Felipe s37: cliente marcado como 'ja comprou' sai da prospeccao.
-      if (ui.ocultaComprou) {
+      if (ui.comprou) {
         var _st = _normSt(getEnvios()[d.reserva]);
-        if (_st && _st.jaComprou) return false;
+        var _jc = !!(_st && _st.jaComprou);
+        if (ui.comprou === 'ocultar' && _jc) return false;
+        if (ui.comprou === 'so' && !_jc) return false;
       }
       // Felipe s42: filtro por orcamento na Projetta. Usa o mesmo
       // resolveProjetta que ja' pinta a coluna Projetta, entao cobre
@@ -808,7 +815,10 @@
       + '      <div class="wkv-fld"><label>Representante</label><select id="wkv-f-rep"><option value="">Todos</option>' + reps.map(function (r) { return '<option>' + esc(r) + '</option>'; }).join('') + '</select></div>'
       + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-npredio"' + (ui.excluiPredio ? ' checked' : '') + '> Excluir predios</label>'
       + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-comwa"' + (ui.soComWa ? ' checked' : '') + '> So com WhatsApp</label>'
-      + '      <label class="wkv-chk"><input type="checkbox" id="wkv-f-comprou"' + (ui.ocultaComprou ? ' checked' : '') + '> Ocultar quem ja comprou</label>'
+      + '      <div class="wkv-fld"><label>Ja comprou</label><select id="wkv-f-comprou">'
+      +        [['ocultar','Ocultar quem ja comprou'],['','Mostrar todos'],['so','\u2713 SO os que ja compraram']]
+             .map(function(o){ return '<option value="'+o[0]+'"'+((ui.comprou||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
+      + '      </select></div>'
       + '      <div class="wkv-fld"><label>Orcamento Projetta</label><select id="wkv-f-proj">'
       +        [['','Todos'],['com','\u2713 Ja tem orcamento'],['sem','Sem orcamento']]
              .map(function(o){ return '<option value="'+o[0]+'"'+((ui.projetta||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
@@ -1159,7 +1169,7 @@
       ui.mes = $('wkv-f-mes') ? $('wkv-f-mes').value : '';
       ui.excluiPredio = $('wkv-f-npredio').checked;
       ui.soComWa = $('wkv-f-comwa').checked;
-      if ($('wkv-f-comprou')) ui.ocultaComprou = $('wkv-f-comprou').checked;
+      if ($('wkv-f-comprou')) { ui.comprou = $('wkv-f-comprou').value; ui.ocultaComprou = (ui.comprou === 'ocultar'); }
       if ($('wkv-f-proj')) ui.projetta = $('wkv-f-proj').value;
       ui.msg = $('wkv-msg').value;
       renderTabela(container);
@@ -1168,7 +1178,7 @@
     ['wkv-f-busca', 'wkv-f-vmin', 'wkv-f-vmax', 'wkv-f-pav', 'wkv-msg'].forEach(function (id) {
       var e = $(id); if (e) e.addEventListener('input', pull);
     });
-    ['wkv-f-uf', 'wkv-f-cidade', 'wkv-f-rep', 'wkv-f-ano', 'wkv-f-mes', 'wkv-f-npredio', 'wkv-f-comwa', 'wkv-f-proj'].forEach(function (id) {
+    ['wkv-f-uf', 'wkv-f-cidade', 'wkv-f-rep', 'wkv-f-ano', 'wkv-f-mes', 'wkv-f-npredio', 'wkv-f-comwa', 'wkv-f-proj', 'wkv-f-comprou'].forEach(function (id) {
       var e = $(id); if (e) e.addEventListener('change', pull);
     });
 
@@ -1177,7 +1187,7 @@
       ui.busca = ''; ui.vmin = null; ui.vmax = null; ui.pavMax = null; ui.uf = ''; ui.rep = '';
       ui.cidade = '';
       ui.ano = ''; ui.mes = '';
-      ui.excluiPredio = false; ui.soComWa = false; ui.ocultaComprou = true; ui.projetta = '';
+      ui.excluiPredio = false; ui.soComWa = false; ui.comprou = 'ocultar'; ui.ocultaComprou = true; ui.projetta = '';
       // Felipe s37: Limpar filtros tambem devolve a ordenacao padrao.
       ui.sortLayers = [{ k: 'data', asc: false }, { k: 'v', asc: false }];
       ui.sortKey = 'data'; ui.sortAsc = false;
