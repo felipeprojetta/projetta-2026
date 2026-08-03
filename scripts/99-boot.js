@@ -286,15 +286,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Registrar módulo Weiku (prospeccao alto padrao a partir das reservas Weiku)
   setTimeout(function() {
     if (!App.register) return;
+    // Felipe sessao 42: Weiku virou DUAS abas.
+    //   'fechados' (default) -> 54-weiku-vendas, reservas ja' fechadas
+    //   'pedidos'            -> 60-weiku-pedidos, funil do Bitrix24
+    // Sem aba definida cai em 'fechados', que era o comportamento antigo —
+    // link velho e F5 continuam abrindo o que o Felipe ja' conhece.
     App.register('weiku', {
-      render: function(container) {
-        if (window.WeikuVendas) {
-          window.WeikuVendas.render(container);
-        } else {
+      render: function(container, tab) {
+        var aba = tab || 'fechados';
+        function esperar(nome, fn) {
+          if (window[nome]) { fn(); return; }
           container.innerHTML = '<div class="info-banner">Modulo Weiku carregando...</div>';
-          setTimeout(function() {
-            if (window.WeikuVendas) window.WeikuVendas.render(container);
-          }, 1500);
+          setTimeout(function() { if (window[nome]) fn(); }, 1500);
+        }
+        if (aba === 'pedidos') {
+          esperar('WeikuPedidos', function() { window.WeikuPedidos.render(container); });
+        } else {
+          esperar('WeikuVendas', function() { window.WeikuVendas.render(container); });
         }
       }
     });

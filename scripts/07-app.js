@@ -89,8 +89,16 @@ const App = (() => {
     },
     weiku: {
       title: 'Weiku',
-      subtitle: 'Prospeccao de alto padrao a partir das reservas Weiku fechadas (grupo Weiku/Projetta).',
+      subtitle: 'Prospeccao a partir da base Weiku — pedidos fechados e funil comercial.',
       breadcrumb: 'Integracoes · Weiku',
+      // Felipe sessao 42: duas bases DIFERENTES sob o mesmo menu.
+      //   Fechados = reservas ja' fechadas (intranet, 1.205) — quem ja' comprou
+      //   Pedidos  = funil do Bitrix24 (4.263) — pipeline inteiro, a maioria
+      //              ainda nao virou reserva
+      tabs: [
+        { id: 'fechados', label: '\u2713 Pedidos Fechados' },
+        { id: 'pedidos',  label: '\u25f4 Pedidos (funil)' },
+      ],
     },
     config: {
       title: 'Configuracoes',

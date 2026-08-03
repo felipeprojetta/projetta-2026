@@ -855,7 +855,7 @@
       + '        <th style="text-align:center">Projetta</th>'
       + '        <th style="text-align:center">Prospec\u00e7\u00e3o</th>'
       + '        <th style="text-align:center">Contato</th>'
-      + '        <th style="text-align:center">Observa\\u00e7\\u00f5es</th>'
+      + '        <th style="text-align:center">Observa\u00e7\u00f5es</th>'
       + '      </tr></thead><tbody id="wkv-tb"></tbody>'
       + '    </table></div>'
       + '  </div>'
