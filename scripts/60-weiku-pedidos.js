@@ -31,9 +31,68 @@
   var ui = {
     busca: '', uf: '', cidade: '', etapa: '', responsavel: '',
     vmin: '', vmax: '', comTel: false, comReserva: false,
+    soPerdidos: false, semOrcamento: false, status: '',
     ordem: 'dtCriacao', dir: 'desc', pagina: 0,
+    msg: '',
   };
   var POR_PAGINA = 100;
+
+  /* Felipe s42: "eu queria somente os perdidos weiku, pois os novos ou os
+     que ainda nao perdeu representantes deveriam estar atendendo".
+     Etapas de PERDA do funil — cliente que a Weiku ja' nao vai converter,
+     entao a Projetta pode abordar sem atropelar o representante. */
+  var ETAPAS_PERDIDAS = ['Inativo pós Orçamento','Preço Alto 1º Linha','Preço Alto 2º Linha',
+    'Prazo de Entrega','Prazo de Pagamento','Problema de Crédito','Obra adiada/cancelada',
+    'Limitação Técnica (Acabamento, Cor)','Alteração de Projeto','Demora no Orçamento'];
+
+  var MSG_FABRICA = 'Ola {nome}, tudo bem? Falo em nome da Projetta Aluminio, '
+    + 'empresa do grupo Weiku do Brasil. Vi que voce chegou a orcar esquadrias conosco. '
+    + 'Alem das esquadrias, fabricamos portas de entrada pivotantes de alto padrao, '
+    + 'sob medida. Posso te enviar algumas referencias?';
+
+  var _cruz = null;   // mapa reserva/telefone -> orcamento Projetta
+  function cruzamento() {
+    if (_cruz) return _cruz;
+    try { _cruz = window.Storage.scope(SCOPE).get('cruzamento_crm') || {}; }
+    catch (e) { _cruz = {}; }
+    return _cruz;
+  }
+  /* Devolve o orcamento da Projetta desse cliente, se existir.
+     Cruza por RESERVA primeiro (chave forte) e depois pelos 9 ultimos
+     digitos do telefone — o 9o digito e o DDI variam entre as bases. */
+  function orcProjetta(d) {
+    var c = cruzamento();
+    if (d.reserva && c['R' + d.reserva]) return c['R' + d.reserva];
+    var t = String(d.tel || '').replace(/\D/g, '');
+    if (t.length >= 10 && c['T' + t.slice(-9)]) return c['T' + t.slice(-9)];
+    return null;
+  }
+  function getEnvios() {
+    try { return window.Storage.scope(SCOPE).get('envios') || {}; } catch (e) { return {}; }
+  }
+  function marcarStatus(id, patch) {
+    var m = getEnvios();
+    var cur = m[id] || { enviado: false, por: '', retornou: false, semRetorno: false,
+                         semInteresse: false, jaComprou: false, obs: '' };
+    for (var k in patch) cur[k] = patch[k];
+    m[id] = cur;
+    window.Storage.scope(SCOPE).set('envios', m);
+    return cur;
+  }
+  function _userName() {
+    try { var u = window.Auth && Auth.currentUser && Auth.currentUser(); return u ? (u.nome || u.usuario || '') : ''; }
+    catch (e) { return ''; }
+  }
+  function primeiroNome(d) {
+    var n = String(d.nome || d.titulo || '').trim().split(/\s+/)[0] || '';
+    return n ? n.charAt(0).toUpperCase() + n.slice(1).toLowerCase() : '';
+  }
+  function telLimpo(d) {
+    var t = String(d.tel || '').replace(/\D/g, '');
+    if (!t) return '';
+    if (t.length <= 11) t = '55' + t;
+    return t;
+  }
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -57,6 +116,10 @@
       } catch (e) { /* fatia ausente nao derruba o resto */ }
     }
     _dados = out;
+    try {
+      var salva = window.Storage.scope(SCOPE).get('msg_padrao');
+      ui.msg = (typeof salva === 'string' && salva.trim()) ? salva : MSG_FABRICA;
+    } catch (e) { ui.msg = MSG_FABRICA; }
     return out;
   }
 
@@ -79,6 +142,24 @@
       if (vmax && v > vmax) return false;
       if (ui.comTel && !d.tel) return false;
       if (ui.comReserva && !d.reserva) return false;
+      if (ui.soPerdidos && ETAPAS_PERDIDAS.indexOf(d.etapa) < 0) return false;
+      if (ui.semOrcamento && orcProjetta(d)) return false;
+      if (ui.status) {
+        var s = getEnvios()[d.id] || {};
+        var ok;
+        switch (ui.status) {
+          case 'enviado':       ok = !!s.enviado; break;
+          case 'nao_enviado':   ok = !s.enviado; break;
+          case 'retornou':      ok = !!s.retornou; break;
+          case 'sem_retorno':   ok = !!s.semRetorno; break;
+          case 'sem_interesse': ok = !!s.semInteresse; break;
+          case 'ja_comprou':    ok = !!s.jaComprou; break;
+          case 'aguardando':    ok = !!s.enviado && !s.retornou && !s.semRetorno
+                                     && !s.semInteresse && !s.jaComprou; break;
+          default: ok = true;
+        }
+        if (!ok) return false;
+      }
       return true;
     });
   }
@@ -160,10 +241,26 @@
       + '      <label class="wkp-chk"><input type="checkbox" id="wkp-tel"' + (ui.comTel ? ' checked' : '') + '> So com telefone</label>'
       + '      <label class="wkp-chk"><input type="checkbox" id="wkp-res"' + (ui.comReserva ? ' checked' : '') + '> So com reserva</label>'
       + '    </div>'
+      + '    <div class="wkp-filtros" style="margin-top:10px">'
+      +        selStatus()
+      + '      <label class="wkp-chk wkp-preset' + (ui.soPerdidos ? ' on' : '') + '"><input type="checkbox" id="wkp-perd"' + (ui.soPerdidos ? ' checked' : '') + '> \ud83c\udfaf So PERDIDOS na Weiku</label>'
+      + '      <label class="wkp-chk wkp-preset' + (ui.semOrcamento ? ' on' : '') + '"><input type="checkbox" id="wkp-semorc"' + (ui.semOrcamento ? ' checked' : '') + '> Sem orcamento na Projetta</label>'
+      + '    </div>'
       + '    <div class="wkp-acoes">'
       + '      <button id="wkp-limpar" class="wkp-btn">\u21ba Limpar filtros</button>'
       + '      <button id="wkp-csv" class="wkp-btn wkp-btn-p">\u2193 Exportar lista filtrada (CSV)</button>'
       + '    </div>'
+      + '  </div>'
+
+      + '  <div class="wkp-card">'
+      + '    <div class="wkp-tit">\u25c6 MENSAGEM DE WHATSAPP / EMAIL</div>'
+      + '    <textarea id="wkp-msg" class="wkp-msgta">' + esc(ui.msg || MSG_FABRICA) + '</textarea>'
+      + '    <div class="wkp-acoes" style="margin-top:8px;align-items:center">'
+      + '      <button id="wkp-msgsalvar" class="wkp-btn wkp-btn-p">\ud83d\udcbe Salvar mensagem</button>'
+      + '      <button id="wkp-msgfab" class="wkp-btn">\u21ba Texto original</button>'
+      + '      <span id="wkp-msgst" class="wkp-msgst"></span>'
+      + '    </div>'
+      + '    <div class="wkp-hint">Use <code>{nome}</code> pro primeiro nome do cliente.</div>'
       + '  </div>'
 
       + '  <div class="wkp-card wkp-nopad">'
@@ -176,12 +273,13 @@
       + '      </span>'
       + '    </div>'
       + '    <div class="wkp-scroll"><table class="wkp-tab"><thead><tr>'
-      +        th('Cliente', 'titulo') + th('Local', 'cidade') + th('Contato', 'tel')
+      +        th('Cliente', 'titulo') + th('Local', 'cidade')
       +        th('Obra (m\u00b2)', 'm2') + th('Etapa', 'etapa') + th('Responsavel', 'responsavel')
-      +        th('Valor', 'valor') + th('Criado', 'dtCriacao') + th('Reserva / AG', 'reserva')
+      +        th('Valor Weiku', 'valor') + th('Criado', 'dtCriacao') + th('Reserva / AG', 'reserva')
+      + '<th>Projetta</th><th>Prospeccao</th><th>Contato</th>'
       + '    </tr></thead><tbody>'
       +        (pagina.length ? pagina.map(linha).join('')
-             : '<tr><td colspan="9" style="text-align:center;padding:40px;color:#6b7280">Nenhum pedido nesse filtro.</td></tr>')
+             : '<tr><td colspan="11" style="text-align:center;padding:40px;color:#6b7280">Nenhum pedido nesse filtro.</td></tr>')
       + '    </tbody></table></div>'
       + '  </div>'
       + '</div>';
@@ -199,22 +297,75 @@
     var seta = ui.ordem === campo ? (ui.dir === 'asc' ? ' \u25b2' : ' \u25bc') : '';
     return '<th data-s="' + campo + '">' + esc(rot) + seta + '</th>';
   }
+  function selStatus() {
+    var opts = [['','Todos os status'],['aguardando','Aguardando resposta'],
+      ['nao_enviado','Ainda nao enviado'],['enviado','Enviado'],['retornou','Retornou'],
+      ['sem_retorno','Sem retorno'],['sem_interesse','Sem interesse'],['ja_comprou','Ja comprou']];
+    return '<select id="wkp-status" class="wkp-sel" style="min-width:180px">'
+      + opts.map(function(o){ return '<option value="'+o[0]+'"'+(ui.status===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
+      + '</select>';
+  }
+
+  /* Coluna PROJETTA: o cruzamento que o Felipe pediu — "faca o cruzamento
+     pra ver se esses tem ou nao ja orcamento conosco". */
+  function cellProjetta(d) {
+    var o = orcProjetta(d);
+    if (!o) return '<span class="wkp-semorc">sem orcamento</span>';
+    var v = Number(o.valor) || 0;
+    return '<div class="wkp-comorc"><b>' + esc(o.agp || 'orcado') + '</b>'
+         + '<div class="wkp-sub">' + esc(o.etapa || '') + (v ? ' \u00b7 R$ ' + brl(v) : '') + '</div></div>';
+  }
+
+  function cellStatus(d) {
+    var s = getEnvios()[d.id] || {};
+    function b(cls, on, lbl, lblOn) {
+      return '<button class="wkp-st ' + cls + (on ? ' on' : '') + '" data-id="' + esc(d.id) + '">'
+           + (on ? lblOn : lbl) + '</button>';
+    }
+    return '<div class="wkp-stwrap">'
+      + '<div class="wkp-stlinha">'
+      +   b('env', s.enviado, 'Enviado', '\u2713 Enviado')
+      +   (s.enviado && s.por ? '<span class="wkp-por">' + esc(s.por) + '</span>' : '')
+      + '</div>'
+      + b('ret', s.retornou, 'Retornou', '\u21a9 Retornou')
+      + b('srt', s.semRetorno, 'Sem retorno', '\u2205 Sem retorno')
+      + b('sin', s.semInteresse, 'Sem interesse', '\u2716 Sem interesse')
+      + b('cmp', s.jaComprou, 'Ja comprou', '\u2713 Ja comprou')
+      + '</div>';
+  }
+
+  function cellContato(d) {
+    var tel = telLimpo(d);
+    var txt = encodeURIComponent(String(ui.msg || MSG_FABRICA).replace(/\{nome\}/g, primeiroNome(d)));
+    var wa = tel
+      ? '<a class="wkp-ico wa" target="_blank" rel="noopener" data-id="' + esc(d.id) + '" href="https://wa.me/' + tel + '?text=' + txt + '" title="WhatsApp">\u2706</a>'
+      : '<span class="wkp-ico wa dis" title="sem telefone">\u2706</span>';
+    var ml = (d.email && d.email.indexOf('@') > 0)
+      ? '<button class="wkp-ico mail wkp-mail" data-id="' + esc(d.id) + '" title="Escrever email pra ' + esc(d.email) + '">\u2709</button>'
+      : '<span class="wkp-ico mail dis" title="sem email">\u2709</span>';
+    return '<div style="white-space:nowrap">' + wa + ' ' + ml + '</div>'
+      + (d.tel ? '<div class="wkp-sub">' + esc(d.tel) + '</div>' : '')
+      + (d.email ? '<div class="wkp-sub">' + esc(String(d.email).slice(0, 28)) + '</div>' : '');
+  }
+
   function linha(d) {
     var local = [d.cidade, d.uf].filter(Boolean).join(' \u00b7 ');
+    var perdida = ETAPAS_PERDIDAS.indexOf(d.etapa) >= 0;
     return '<tr>'
       + '<td><b>' + esc(d.titulo || d.nome || '(sem nome)') + '</b>'
-      +   (d.endereco ? '<div class="wkp-sub">' + esc(String(d.endereco).slice(0, 70)) + '</div>' : '')
+      +   (d.endereco ? '<div class="wkp-sub">' + esc(String(d.endereco).slice(0, 60)) + '</div>' : '')
       + '</td>'
       + '<td>' + esc(local || '\u2014') + '</td>'
-      + '<td>' + (d.tel ? esc(d.tel) : '<span class="wkp-vazio">sem telefone</span>')
-      +   (d.email ? '<div class="wkp-sub">' + esc(d.email) + '</div>' : '') + '</td>'
       + '<td style="text-align:center">' + (d.m2 ? esc(d.m2) : '\u2014') + '</td>'
-      + '<td>' + esc(d.etapa || '\u2014') + '</td>'
+      + '<td>' + (perdida ? '<span class="wkp-perd">' + esc(d.etapa) + '</span>' : esc(d.etapa || '\u2014')) + '</td>'
       + '<td>' + esc(d.responsavel || '\u2014') + '</td>'
       + '<td style="text-align:right"><b>' + (Number(d.valor) ? 'R$ ' + brl(d.valor) : '\u2014') + '</b></td>'
       + '<td style="text-align:center">' + esc(d.dtCriacao || '\u2014') + '</td>'
       + '<td>' + (d.reserva ? 'Res ' + esc(d.reserva) : '\u2014')
       +   (d.ag ? '<div class="wkp-sub">' + esc(d.ag) + '</div>' : '') + '</td>'
+      + '<td>' + cellProjetta(d) + '</td>'
+      + '<td class="wkp-stcell" data-id="' + esc(d.id) + '">' + cellStatus(d) + '</td>'
+      + '<td style="text-align:center">' + cellContato(d) + '</td>'
       + '</tr>';
   }
 
@@ -260,6 +411,87 @@
     });
     var csv = $('wkp-csv');
     if (csv) csv.addEventListener('click', function () { exportarCSV(ordenar(filtrar(_dados))); });
+
+    // presets do Felipe s42
+    [['wkp-perd','soPerdidos'],['wkp-semorc','semOrcamento']].forEach(function(p){
+      var el=$(p[0]); if(el) el.addEventListener('change', function(){ ui[p[1]]=el.checked; reset(); });
+    });
+    var st=$('wkp-status');
+    if(st) st.addEventListener('change', function(){ ui.status=st.value; reset(); });
+
+    // mensagem padrao (mesma logica dos fechados: salva de verdade)
+    (function(){
+      var ta=$('wkp-msg'), bs=$('wkp-msgsalvar'), bf=$('wkp-msgfab'), lb=$('wkp-msgst');
+      if(!ta||!bs) return;
+      function diz(t,c){ if(lb){ lb.textContent=t; lb.className='wkp-msgst'+(c?' '+c:''); } }
+      ta.addEventListener('input', function(){ ui.msg=ta.value; diz('alteracoes nao salvas','alt'); });
+      bs.addEventListener('click', function(){
+        try { window.Storage.scope(SCOPE).set('msg_padrao', ta.value); ui.msg=ta.value;
+              diz('\u2713 mensagem salva','ok'); setTimeout(function(){diz('','');},2500); }
+        catch(e){ diz('erro ao salvar','alt'); }
+      });
+      if(bf) bf.addEventListener('click', function(){
+        ta.value=MSG_FABRICA; ui.msg=MSG_FABRICA;
+        diz('texto original restaurado \u2014 clique em Salvar','alt'); ta.focus();
+      });
+    })();
+
+    // botoes de prospeccao + WhatsApp + email (delegado: linhas sao recriadas)
+    container.addEventListener('click', function(ev){
+      var alvo;
+      function refresh(id){
+        var td = container.querySelector('.wkp-stcell[data-id="'+id+'"]');
+        var d = _dados.find(function(x){ return String(x.id)===String(id); });
+        if (td && d) td.innerHTML = cellStatus(d);
+      }
+      // WhatsApp: abre o link e ja' marca como enviado
+      alvo = ev.target.closest && ev.target.closest('a.wkp-ico.wa');
+      if (alvo && alvo.dataset.id) {
+        marcarStatus(alvo.dataset.id, { enviado:true, enviadoTs:Date.now(), por:_userName() });
+        setTimeout(function(){ refresh(alvo.dataset.id); }, 100);
+        return;
+      }
+      // Email pelo compositor interno (mailto: nao funciona sem cliente configurado)
+      alvo = ev.target.closest && ev.target.closest('.wkp-mail');
+      if (alvo) {
+        var id = alvo.getAttribute('data-id');
+        var d = _dados.find(function(x){ return String(x.id)===String(id); });
+        if (!d || !d.email) { alert('Esse contato nao tem email.'); return; }
+        if (!window.OutlookComposer || typeof window.OutlookComposer.open!=='function') {
+          alert('Compositor de email nao carregou. Recarregue a pagina.'); return;
+        }
+        var corpo = String(ui.msg||MSG_FABRICA).replace(/\{nome\}/g, primeiroNome(d));
+        window.OutlookComposer.open({
+          to: d.email,
+          subject: 'Projetta Aluminio \u2014 portas de entrada de alto padrao',
+          bodyHtml: '<p>'+corpo.replace(/\n/g,'<br>')+'</p>',
+          attachments: [],
+          onSent: function(){ marcarStatus(id,{enviado:true,enviadoTs:Date.now(),por:_userName()}); refresh(id); }
+        });
+        return;
+      }
+      // botoes de status
+      var mapa = [['.wkp-st.env','enviado'],['.wkp-st.ret','retornou'],['.wkp-st.srt','semRetorno'],
+                  ['.wkp-st.sin','semInteresse'],['.wkp-st.cmp','jaComprou']];
+      for (var i=0;i<mapa.length;i++){
+        var b = ev.target.closest && ev.target.closest(mapa[i][0]);
+        if (!b) continue;
+        var bid = b.getAttribute('data-id');
+        var campo = mapa[i][1];
+        var atual = getEnvios()[bid] || {};
+        var on = !atual[campo];
+        var patch = {}; patch[campo] = on;
+        patch[campo+'Ts'] = on ? Date.now() : null;
+        if (campo==='enviado' && on) patch.por = _userName();
+        // exclusividades: retornou x sem retorno; sem retorno x sem interesse
+        if (campo==='retornou' && on) { patch.semRetorno=false; }
+        if (campo==='semRetorno' && on) { patch.retornou=false; patch.semInteresse=false; }
+        if (campo==='semInteresse' && on) { patch.semRetorno=false; }
+        marcarStatus(bid, patch);
+        refresh(bid);
+        return;
+      }
+    });
   }
 
   function exportarCSV(lista) {
@@ -275,13 +507,28 @@
       ['motivoPerda', 'Motivo de Perda']];
     var q = function (s) { return '"' + String(s == null ? '' : s).replace(/"/g, '""').replace(/[\r\n]+/g, ' ') + '"'; };
     var linhas = lista.map(function (d) {
-      return cols.map(function (c) {
+      var base = cols.map(function (c) {
         var v = d[c[0]];
         if (c[0] === 'valor') return String((Number(v) || 0).toFixed(2)).replace('.', ',');
         return q(v);
-      }).join(';');
+      });
+      // Felipe s42: cruzamento e prospeccao tambem vao pro CSV
+      var o = orcProjetta(d), s = getEnvios()[d.id] || {};
+      base.push(q(o ? (o.agp || 'orcado') : 'SEM ORCAMENTO'));
+      base.push(q(o ? (o.etapa || '') : ''));
+      base.push(o ? String((Number(o.valor)||0).toFixed(2)).replace('.', ',') : '');
+      base.push(q(s.enviado ? 'Sim' : 'Nao'));
+      base.push(q(s.por || ''));
+      base.push(q(s.retornou ? 'Sim' : 'Nao'));
+      base.push(q(s.semRetorno ? 'Sim' : 'Nao'));
+      base.push(q(s.semInteresse ? 'Sim' : 'Nao'));
+      base.push(q(s.jaComprou ? 'Sim' : 'Nao'));
+      return base.join(';');
     });
-    var csv = '\uFEFF' + cols.map(function (c) { return q(c[1]); }).join(';') + '\n' + linhas.join('\n');
+    var head = cols.map(function (c) { return q(c[1]); })
+      .concat(['Projetta AGP','Projetta Etapa','Projetta Valor','Msg Enviada','Enviada Por',
+               'Retornou','Sem Retorno','Sem Interesse','Ja Comprou'].map(q));
+    var csv = '\uFEFF' + head.join(';') + '\n' + linhas.join('\n');
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -323,6 +570,27 @@
       '.wkp-tab tbody tr:hover{background:#FFFBF5}',
       '.wkp-sub{font-size:11px;color:#6b7280;margin-top:2px}',
       '.wkp-vazio{color:#b45309;font-size:11.5px}',
+      '.wkp-preset{border:1px solid var(--l);border-radius:20px;padding:5px 12px;background:#fff}',
+      '.wkp-preset.on{background:#0f2c4c;border-color:#0f2c4c;color:#fff;font-weight:600}',
+      '.wkp-msgta{width:100%;min-height:120px;padding:11px 13px;border:1px solid var(--l);border-radius:8px;font:inherit;line-height:1.5;resize:vertical;background:#fafbfc;box-sizing:border-box}',
+      '.wkp-msgst{font-size:12.5px;font-weight:600}.wkp-msgst.ok{color:#15803d}.wkp-msgst.alt{color:#b45309}',
+      '.wkp-hint{font-size:12px;color:#6b7280;margin-top:6px}',
+      '.wkp-perd{background:#FEE2E2;color:#b91c1c;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}',
+      '.wkp-semorc{color:#15803d;font-size:11.5px;font-weight:600}',
+      '.wkp-comorc{font-size:11.5px;color:#b45309}',
+      '.wkp-stwrap{display:flex;flex-direction:column;gap:3px;align-items:stretch;min-width:132px}',
+      '.wkp-stlinha{display:flex;gap:4px;align-items:center}',
+      '.wkp-st{padding:3px 8px;border:1px solid var(--l);background:#fff;border-radius:12px;font-size:10.5px;cursor:pointer;font-family:inherit;white-space:nowrap}',
+      '.wkp-st:hover{background:#f8fafc}',
+      '.wkp-st.env.on{background:#dcfce7;border-color:#15803d;color:#15803d;font-weight:700}',
+      '.wkp-st.ret.on{background:#dbeafe;border-color:#1d4ed8;color:#1d4ed8;font-weight:700}',
+      '.wkp-st.srt.on{background:#475569;border-color:#334155;color:#fff;font-weight:700}',
+      '.wkp-st.sin.on{background:#b45309;border-color:#92400e;color:#fff;font-weight:700}',
+      '.wkp-st.cmp.on{background:#0f2c4c;border-color:#0f2c4c;color:#fff;font-weight:700}',
+      '.wkp-por{font-size:10px;color:#6b7280}',
+      '.wkp-ico{display:inline-block;width:26px;height:26px;line-height:24px;text-align:center;border:1px solid var(--l);border-radius:6px;text-decoration:none;font-size:14px;cursor:pointer;background:#fff}',
+      '.wkp-ico.wa{color:#15803d}.wkp-ico.mail{color:#b45309}',
+      '.wkp-ico.dis{opacity:.3;cursor:default}',
       '@media(max-width:900px){.wkp-kpis{grid-template-columns:repeat(2,1fr)}}'
     ].join('\n');
     document.head.appendChild(s);
