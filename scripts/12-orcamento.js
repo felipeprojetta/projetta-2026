@@ -23644,6 +23644,55 @@ const Orcamento = (() => {
         return !!(v && versaoEhImutavel(v));
       } catch(_) { return false; }
     },
+    // Felipe s43: AUDITORIA CORSTONE — mostra peca a peca as medidas que
+    // formam o m² cobrado nas linhas 'Corstone' da tabela 'Custo por cor'.
+    // LEITURA PURA: nao grava nada, so' reconstroi o MESMO caminho da tela
+    // (coletarPecasPorCor -> grupos 'Corstone — *' -> soma largura×altura×qtd
+    // / 1e6), pra conferir de onde saiu o m² sem depender de print.
+    // Uso no console: Orcamento.auditarCorstone()
+    auditarCorstone: function(versaoId) {
+      const r = obterVersao(versaoId || (UI && UI.versaoAtivaId));
+      if (!r || !r.versao) { console.warn('[corstone] sem versao ativa'); return null; }
+      const itens = (r.versao.itens || []).filter(it => it && it.tipo);
+      const pecasPorCor = coletarPecasPorCor(itens);
+      const sup = (window.Superficies?.listar?.())
+        || (window.Storage?.scope?.('cadastros').get('superficies_lista'))
+        || [];
+      const linhas = [];
+      let m2Geral = 0;
+      Object.keys(pecasPorCor)
+        .filter(cor => /^corstone\s*[—-]/i.test(String(cor || '')))
+        .forEach(cor => {
+          (pecasPorCor[cor] || []).forEach(p => {
+            const q = Math.max(1, Number(p.qtd) || 1);
+            const m2 = ((Number(p.largura) || 0) * (Number(p.altura) || 0) * q) / 1000000;
+            m2Geral += m2;
+            const it = itens[p.origemItemIdx] || {};
+            linhas.push({
+              cor,
+              item: (p.origemItemIdx != null ? ('#' + (p.origemItemIdx + 1)) : '?')
+                    + ' ' + (it.modelo || it.tipo || ''),
+              peca: p.label || p.id,
+              lado: p.lado,
+              largura: p.largura,
+              altura: p.altura,
+              qtd: q,
+              m2: Number(m2.toFixed(4)),
+              retro: String(it.corstoneRetro || 'nao'),
+            });
+          });
+        });
+      if (!linhas.length) { console.warn('[corstone] nenhuma peca Corstone nesta versao'); return null; }
+      console.table(linhas);
+      const m2Led = linhas.filter(l => l.retro === 'sim').reduce((a, l) => a + l.m2, 0);
+      console.log('m² Corstone:', m2Geral.toFixed(4), '| m² com LED retro:', m2Led.toFixed(4));
+      return {
+        linhas,
+        m2Total: m2Geral,
+        m2Led,
+        superficies: sup.filter(s => /corstone/i.test(String(s.descricao || ''))),
+      };
+    },
     // Felipe (sessao 2026-09): manutencao de storage on-demand.
     // Uso no console: Orcamento.manutencao.relatorio()  ou  .limparSnapshotsDrafts()
     manutencao: {
