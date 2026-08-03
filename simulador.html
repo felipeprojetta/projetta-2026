@@ -66,6 +66,7 @@
   <button class="on" data-p="p1">SIMULADOR</button>
   <button data-p="p2">DET 1 · PORTAL</button>
         <button data-p="p5">MEMORIAL FBC · SEM NOA</button>
+  <button data-p="p6">TÉRMICA</button>
 </nav>
 
 <div class="pag on" id="p1">
@@ -796,6 +797,215 @@ function gerarDXF(){
   a.download=`PA007_${L.toFixed(0)}x${A.toFixed(0)}_${c.f.nome.replace(/\s/g,'')}.dxf`;
   a.click(); URL.revokeObjectURL(a.href);
 }
+</script>
+<div class="pag" id="p6"><div class="wrap" style="max-width:1200px;">
+
+  <div class="card">
+    <h2>1 · Localização da obra</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <label>Cidade / região
+        <select id="tCidade"></select>
+      </label>
+      <label>Mercado / norma alvo
+        <select id="tMercado">
+          <option value="fbc">FBC · Flórida (U ≤ 3,69 W/m²K)</option>
+          <option value="nbr">NBR 15575 · Brasil (sem limite p/ porta)</option>
+          <option value="ph" selected>Alto desempenho · Passivhaus (U ≤ 0,80)</option>
+          <option value="ph06">Passivhaus clima frio (U ≤ 0,60)</option>
+        </select>
+      </label>
+    </div>
+    <div id="tClima" class="aviso" style="display:block;margin-top:10px"></div>
+  </div>
+
+  <div class="card">
+    <h2>2 · Composição da folha</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <label>Largura da folha (mm) <input id="tLarg" type="number" value="1939" step="1"></label>
+      <label>Altura da folha (mm) <input id="tAlt" type="number" value="5994" step="1"></label>
+      <label>Profundidade do quadro (mm) <input id="tQuad" type="number" value="101.6" step="0.1"></label>
+      <label>Fração de quadro (%) <input id="tFrac" type="number" value="33" step="1"></label>
+      <label>Espessura do XPS externo (mm)
+        <select id="tXps"><option>20</option><option>30</option><option>40</option><option>50</option><option>60</option><option>80</option></select>
+      </label>
+      <label>Material da cavidade
+        <select id="tCav">
+          <option value="vazia">Vazia (ar parado)</option>
+          <option value="rocha32">Lã de rocha 32 kg/m³</option>
+          <option value="rocha64">Lã de rocha 64 kg/m³ hidrofugada</option>
+          <option value="eps">EPS</option>
+          <option value="xps" selected>XPS cortado justo</option>
+          <option value="pir">PIR / poliisocianurato</option>
+        </select>
+      </label>
+      <label>Cantoneiras externas atravessando o XPS (un.)
+        <input id="tCant" type="number" value="2" step="1"></label>
+      <label>Material da cantoneira
+        <select id="tMatCant">
+          <option value="al">Alumínio 6063</option>
+          <option value="inox">Inox 304</option>
+          <option value="pa66">PA66-GF25 (poliamida)</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div class="card" id="tOut"></div>
+
+</div></div>
+
+<script>
+/* ===================== MOTOR TÉRMICO · PROJETTA CJ =====================
+   Critérios: (1) condensação intersticial  (2) transmitância alvo
+              (3) empeno térmico            (4) limite de serviço do XPS
+   Base climática indicativa — substituir por INMET/ASHRAE no memorial.
+   ====================================================================== */
+var TCLIMA = [
+ {c:"São Joaquim · SC",         z:1, tn:-6, tx:29, ur:60},
+ {c:"Gramado / Canela · RS",    z:1, tn:-4, tx:32, ur:60},
+ {c:"Campos do Jordão · SP",    z:1, tn:-4, tx:30, ur:60},
+ {c:"Curitiba · PR",            z:1, tn:-2, tx:34, ur:60},
+ {c:"Porto Alegre · RS",        z:2, tn: 1, tx:39, ur:60},
+ {c:"São Paulo · SP",           z:3, tn: 6, tx:36, ur:60},
+ {c:"Belo Horizonte · MG",      z:3, tn: 9, tx:36, ur:55},
+ {c:"Uberlândia · MG",          z:4, tn: 9, tx:37, ur:55},
+ {c:"Brasília · DF",            z:4, tn: 8, tx:34, ur:50},
+ {c:"Santos · SP",              z:5, tn:12, tx:38, ur:75},
+ {c:"Rio de Janeiro · RJ",      z:8, tn:13, tx:42, ur:70},
+ {c:"Cuiabá · MT",              z:7, tn:12, tx:43, ur:50},
+ {c:"Salvador · BA",            z:8, tn:18, tx:36, ur:75},
+ {c:"Fortaleza · CE",           z:8, tn:20, tx:36, ur:75},
+ {c:"Manaus · AM",              z:8, tn:20, tx:38, ur:80},
+ {c:"Miami · FL (HVHZ)",        z:0, tn: 4, tx:36, ur:75},
+ {c:"Orlando · FL",             z:0, tn:-2, tx:37, ur:70},
+ {c:"New York · NY",            z:0, tn:-12,tx:35, ur:55},
+ {c:"Chicago · IL",             z:0, tn:-20,tx:35, ur:50},
+ {c:"Denver / Aspen · CO",      z:0, tn:-25,tx:32, ur:45},
+ {c:"Toronto · CA",             z:0, tn:-20,tx:33, ur:50},
+ {c:"Lisboa · PT",              z:0, tn: 3, tx:37, ur:65},
+ {c:"Madrid · ES",              z:0, tn:-3, tx:40, ur:50},
+ {c:"Dubai · AE",               z:0, tn:12, tx:48, ur:60},
+ {c:"Doha · QA",                z:0, tn: 8, tx:50, ur:55}
+];
+var TLAM = {vazia:null, rocha32:0.042, rocha64:0.038, eps:0.037, xps:0.029, pir:0.022};
+var TPSI = {al:0.0504, inox:0.0481, pa66:0.0124};
+var TALVO= {fbc:3.69, nbr:99, ph:0.80, ph06:0.60};
+
+function tOrvalho(T,RH){var a=17.27,b=237.7;var g=(a*T)/(b+T)+Math.log(RH/100);return (b*g)/(a-g);}
+function tRtubo(h_m){var e=0.004;var Rser=2*e/160+0.18;var Rper=(Math.PI*h_m/2)/(160*2*e);return 1/(1/Rser+1/Rper);}
+
+function tCalc(p){
+  var Rsi=0.13, Rse=0.04, R_ACM=0.0097;
+  var hq=p.quad/1000, Rt=tRtubo(hq);
+  var Rx=(p.xps/1000)/0.029;
+  var lamC=TLAM[p.cav];
+  var Rc=(lamC===null)?0.18:(hq/lamC);
+  var Uq=1/(Rsi+Rse+2*R_ACM+Rt+Rx);
+  var Uc=1/(Rsi+Rse+2*R_ACM+Rc+Rx);
+  var f=p.frac/100;
+  var Ub=f*Uq+(1-f)*Uc;
+  var A=(p.larg/1000)*(p.alt/1000);
+  var Lc=p.cant*(p.alt/1000);
+  var dU=TPSI[p.matcant]*Lc/A;
+  var U=Ub+dU;
+  // temperaturas
+  var Ti=20, Te=p.te, dT=Ti-Te;
+  var Rin=Rsi+R_ACM+Rc, Rtot=Rin+Rx+R_ACM+Rse;
+  var Tcav=Ti-dT*Rin/Rtot;                 // face fria da cavidade
+  var Tsi=Ti-dT*(Rsi/(Rsi+Rse+2*R_ACM+Rt+Rx));   // superfície interna sobre o quadro
+  var Torv=tOrvalho(Ti,p.ur);
+  var fRsi=(Tsi-Te)/dT;
+  // empeno
+  var q=Uq*dT, dTt=q*Rt, k=23.4e-6*dTt/hq, flecha=k*Math.pow(p.alt/1000,2)/8*1000;
+  return {U:U,Ub:Ub,dU:dU,Uq:Uq,Uc:Uc,A:A,Tcav:Tcav,Tsi:Tsi,Torv:Torv,fRsi:fRsi,flecha:flecha,Lc:Lc,lamC:lamC};
+}
+
+function tRecomenda(p){
+  var serie=[20,30,40,50,60,80], eCond=null, eU=null, eF=null;
+  for(var i=0;i<serie.length;i++){
+    var q=JSON.parse(JSON.stringify(p)); q.xps=serie[i];
+    var r=tCalc(q);
+    var aberta=(p.cav==="vazia"||p.cav==="rocha32"||p.cav==="rocha64");
+    if(eCond===null && (!aberta || r.Tcav > r.Torv+2)) eCond=serie[i];
+    if(eU===null && r.U <= TALVO[p.mercado]) eU=serie[i];
+    if(eF===null && r.fRsi >= 0.70) eF=serie[i];
+  }
+  var eEmp=null;
+  for(var j=0;j<serie.length;j++){
+    var q2=JSON.parse(JSON.stringify(p)); q2.xps=serie[j];
+    var r2=tCalc(q2);
+    if(eEmp===null && r2.flecha <= (p.alt/500)) eEmp=serie[j];
+  }
+  var cand=[eCond,eU,eEmp,eF,30].filter(function(x){return x!==null;});
+  var eRec = cand.length? Math.max.apply(null,cand) : null;
+  var aberta=(p.cav==="vazia"||p.cav==="rocha32"||p.cav==="rocha64");
+  return {eCond:eCond,eU:eU,eEmp:eEmp,eF:eF,eRec:eRec,aberta:aberta};
+}
+
+function tRender(){
+  var ci=TCLIMA[+document.getElementById('tCidade').value];
+  var p={te:ci.tn, ur:ci.ur, mercado:document.getElementById('tMercado').value,
+         larg:+document.getElementById('tLarg').value, alt:+document.getElementById('tAlt').value,
+         quad:+document.getElementById('tQuad').value, frac:+document.getElementById('tFrac').value,
+         xps:+document.getElementById('tXps').value, cav:document.getElementById('tCav').value,
+         cant:+document.getElementById('tCant').value, matcant:document.getElementById('tMatCant').value};
+  var r=tCalc(p), rec=tRecomenda(p);
+  var dFrio = ci.tn<=0 ? "SEVERA" : (ci.tn<=8 ? "MODERADA" : "desprezível");
+  var dCalor= ci.tx>=40 ? "SEVERA" : (ci.tx>=35 ? "MODERADA" : "baixa");
+  var regime = "exigência de FRIO <b>"+dFrio+"</b> · exigência de CALOR <b>"+dCalor+"</b>";
+
+  document.getElementById('tClima').innerHTML =
+    "<b>"+ci.c+"</b> — "+regime+(ci.z?(" · zona bioclimática NBR 15220 nº "+ci.z):"")+
+    "<br>Mínima de projeto <b>"+ci.tn+" °C</b> · Máxima de projeto <b>"+ci.tx+" °C</b> · UR interna adotada "+ci.ur+"%"+
+    "<br><i>Valores indicativos. Para memorial assinado, substituir por normal climatológica INMET ou ASHRAE Fundamentals do local.</i>";
+
+  var ok=function(b){return b?"<span style='color:#137333'>✓</span>":"<span style='color:#c5221f'>✗</span>";};
+  var alerta="";
+  if((p.cav==="rocha32"||p.cav==="rocha64") && ci.tn<10)
+    alerta += "<div class='aviso' style='display:block;border-color:#c5221f'><b>BLOQUEIO — lã de rocha em clima frio.</b> A face fria da cavidade fica a "+r.Tcav.toFixed(1)+" °C contra orvalho de "+r.Torv.toFixed(1)+" °C. Fibra aberta condensa e retém a água; o ACM veda o vapor nas duas faces e o painel não seca. Use material de célula fechada.</div>";
+  if(p.cav==="rocha32" && p.alt>2500)
+    alerta += "<div class='aviso' style='display:block'><b>Densidade insuficiente.</b> Lã de 32 kg/m³ assenta em cavidade vertical de "+(p.alt/1000).toFixed(2)+" m e abre vazio no topo. Mínimo 64 kg/m³ hidrofugada em painel rígido.</div>";
+  if(p.alt>3000)
+    alerta += "<div class='aviso' style='display:block'><b>Junta de dilatação obrigatória.</b> Folha com "+(p.alt/1000).toFixed(2)+" m: o ACM externo contrai "+(24e-6*(20-ci.tn)*p.alt).toFixed(1)+" mm em relação ao quadro. Fixação deve permitir corrida (furo oblongo / ponto fixo único por painel).</div>";
+  if(ci.tx>=38)
+    alerta += "<div class='aviso' style='display:block'><b>Verificar regime de calor.</b> Máxima de "+ci.tx+" °C: a face do ACM escuro pode superar os <b>75 °C</b> de temperatura de serviço do XPS. Exige cor clara (absortância ≤0,45) ou câmara de ar ventilada atrás do ACM.</div>";
+
+  document.getElementById('tOut').innerHTML =
+   "<h2>3 · Resultado</h2>"+alerta+
+   "<table style='width:100%;border-collapse:collapse'>"+
+   "<tr><td>U do quadro</td><td align=right>"+r.Uq.toFixed(3)+" W/m²K</td></tr>"+
+   "<tr><td>U do campo</td><td align=right>"+r.Uc.toFixed(3)+" W/m²K</td></tr>"+
+   "<tr><td>Pontes das cantoneiras ("+r.Lc.toFixed(2)+" m)</td><td align=right>+"+r.dU.toFixed(3)+"</td></tr>"+
+   "<tr style='font-weight:700;border-top:2px solid #333'><td>U DA FOLHA</td><td align=right>"+r.U.toFixed(3)+" W/m²K &nbsp; ("+(r.U*0.1761).toFixed(3)+" Btu)</td></tr>"+
+   "<tr><td>Alvo do mercado</td><td align=right>"+(TALVO[p.mercado]>90?"—":TALVO[p.mercado]+" W/m²K")+" "+ok(r.U<=TALVO[p.mercado])+"</td></tr>"+
+   "<tr><td>Face fria da cavidade / orvalho</td><td align=right>"+r.Tcav.toFixed(1)+" °C / "+r.Torv.toFixed(1)+" °C "+ok(r.Tcav>r.Torv)+"</td></tr>"+
+   "<tr><td>Superfície interna (fRsi ≥ 0,70)</td><td align=right>"+r.Tsi.toFixed(1)+" °C · fRsi "+r.fRsi.toFixed(3)+" "+ok(r.fRsi>=0.70)+"</td></tr>"+
+   "<tr><td>Empeno térmico (limite L/500 = "+(p.alt/500).toFixed(1)+" mm)</td><td align=right>"+r.flecha.toFixed(2)+" mm "+ok(r.flecha<=p.alt/500)+"</td></tr>"+
+   "</table>"+
+   "<h2 style='margin-top:14px'>Espessura de XPS recomendada</h2>"+
+   "<table style='width:100%;border-collapse:collapse'>"+
+   "<tr><td>por condensação (folga 2 K)</td><td align=right>"+(rec.aberta?(rec.eCond?rec.eCond+" mm":"<b style='color:#c5221f'>NENHUMA espessura resolve — trocar material da cavidade</b>"):"não aplicável (célula fechada)")+"</td></tr>"+
+   "<tr><td>por fator de temperatura fRsi ≥ 0,70</td><td align=right>"+(rec.eF?rec.eF+" mm":"não atende na série")+"</td></tr>"+
+   "<tr><td>por transmitância alvo</td><td align=right>"+(rec.eU?rec.eU+" mm":"não atende na série")+"</td></tr>"+
+   "<tr><td>por empeno</td><td align=right>"+(rec.eEmp?rec.eEmp+" mm":"—")+"</td></tr>"+
+   "<tr style='font-weight:700;border-top:2px solid #333'><td>ESPECIFICAR</td><td align=right>"+(rec.eRec?("XPS "+rec.eRec+" mm"):"consultar")+"</td></tr>"+
+   "</table>"+
+   "<div class='aviso' style='display:block;margin-top:10px'>Cavidade sempre em material de <b>célula fechada</b>. O ψ das cantoneiras (0,050 W/m·K alumínio · 0,012 poliamida) vem de modelo 2D de diferenças finitas; para memorial assinado exige verificação conforme <b>EN ISO 10211</b>. O portal não está incluído neste cálculo e é a maior ponte térmica do conjunto.</div>";
+}
+
+(function(){
+  var s=document.getElementById('tCidade');
+  if(!s) return;
+  for(var i=0;i<TCLIMA.length;i++){var o=document.createElement('option');o.value=i;o.textContent=TCLIMA[i].c;s.appendChild(o);}
+  s.value=3;
+  var ids=['tCidade','tMercado','tLarg','tAlt','tQuad','tFrac','tXps','tCav','tCant','tMatCant'];
+  for(var j=0;j<ids.length;j++){
+    var el=document.getElementById(ids[j]);
+    if(el){el.addEventListener('change',tRender);el.addEventListener('input',tRender);}
+  }
+  tRender();
+})();
+
 </script>
 </body>
 </html>
