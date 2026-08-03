@@ -7938,7 +7938,14 @@ const Orcamento = (() => {
               <label>Revestimento</label>
               <select data-field="revestimento">
                 <option value=""></option>
-                ${revestimentos.map(r => opt(r, item.revestimento)).join('')}
+                ${/* Felipe s42: "pode escrever CorStone em vez de tudo
+                      maiusculo no campo". Trocado so' o ROTULO; o VALOR
+                      gravado continua 'CORSTONE'. Mexer no valor quebraria
+                      os itens ja' salvos: o mostraCor e o motor de chapas
+                      comparam a string exata, e um item antigo com
+                      'CORSTONE' pararia de exibir os campos de cor
+                      outra vez — foi exatamente o bug de agora ha pouco. */''}
+                ${revestimentos.map(r => opt(r, item.revestimento, r === 'CORSTONE' ? 'CorStone' : null)).join('')}
               </select>
             </div>
             ${mostraCor ? `
@@ -8021,7 +8028,7 @@ const Orcamento = (() => {
               ` : ''}
               ${ehCorstoneRev ? `
                 <div class="orc-cor-am-aviso" style="margin:8px 0;padding:8px 10px;background:#eef6ff;border-left:3px solid #2563eb;border-radius:4px;font-size:12px;color:#1e3a8a;">
-                  <b>CORSTONE:</b> as cores acima (Externa/Interna) são da
+                  <b>CorStone:</b> as cores acima (Externa/Interna) são da
                   <b>chapa ACM</b> — o restante das peças, incluindo as fitas
                   de acabamento. A <b>tampa maior</b> vira Corstone, cobrado
                   <b>por m²</b> pelo cadastro Superfícies (vidros).
