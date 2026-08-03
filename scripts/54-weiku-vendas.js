@@ -240,14 +240,17 @@
     var envCls = 'wkv-st wkv-st-env' + (s.enviado ? ' on' : '');
     var retCls = 'wkv-st wkv-st-ret' + (s.retornou ? ' on' : '');
     var cmpCls = 'wkv-st wkv-st-cmp' + (s.jaComprou ? ' on' : '');
-    var swaCls = 'wkv-st wkv-st-swa' + (s.semWa ? ' on' : '');
     var srtCls = 'wkv-st wkv-st-srt' + (s.semRetorno ? ' on' : '');
     var sinCls = 'wkv-st wkv-st-sin' + (s.semInteresse ? ' on' : '');
-    var sel = '<select class="wkv-st-por" data-r="' + esc(r) + '" title="Quem enviou a mensagem">'
-      + '<option value=""' + (!s.por ? ' selected' : '') + '>quem?</option>'
-      + '<option value="Felipe"' + (s.por === 'Felipe' ? ' selected' : '') + '>Felipe</option>'
-      + '<option value="Thays"' + (s.por === 'Thays' ? ' selected' : '') + '>Thays</option>'
-      + '</select>';
+    // Felipe s42: "retire esse quem, quero os dois igual a segunda imagem".
+    // O seletor manual saiu. A informacao de QUEM enviou nao se perde: o
+    // botao Enviado ja' carimba o usuario logado (_currentUserName), e o
+    // nome aparece como etiqueta discreta ao lado, mesmo padrao da aba
+    // Pedidos. Registro que ja' existe em envios[].por continua sendo
+    // exibido normalmente.
+    var sel = s.por
+      ? '<span class="wkv-por">' + esc(String(s.por).split(' ')[0]) + '</span>'
+      : '';
     return '<div class="wkv-stwrap">'
       + '<div class="wkv-strow">'
       + '<button class="' + envCls + '" data-r="' + esc(r) + '" title="Marcar que a mensagem ja foi enviada">' + (s.enviado ? '\u2713 Enviado' : 'Enviado') + '</button>'
@@ -257,7 +260,12 @@
       + '<button class="' + srtCls + '" data-r="' + esc(r) + '" title="Mensagem enviada e o cliente nao respondeu. Serve pra separar quem nao voltou de quem ainda nao foi contatado.">' + (s.semRetorno ? '\u2205 Sem retorno' : 'Sem retorno') + '</button>'
       + '<button class="' + sinCls + '" data-r="' + esc(r) + '" title="Cliente respondeu e recusou — nao tem interesse na proposta.">' + (s.semInteresse ? '\u2716 Sem interesse' : 'Sem interesse') + '</button>'
       + '<button class="' + cmpCls + '" data-r="' + esc(r) + '" title="Cliente antigo que ja comprou da Projetta fora do CRM. Marcado, sai da prospeccao.">' + (s.jaComprou ? '\u2714 Ja comprou' : 'Ja comprou') + '</button>'
-      + '<button class="' + swaCls + '" data-r="' + esc(r) + '" title="Este numero nao esta cadastrado no WhatsApp. Marcado, sai da prospeccao por WhatsApp (use email).">' + (s.semWa ? '\u2718 Numero nao cadastrado no WhatsApp' : 'Numero nao cadastrado no WhatsApp') + '</button>'
+      // Felipe s42: "retire esse vermelho". O botao 'Numero nao cadastrado
+      // no WhatsApp' saiu da tela — era o unico com fundo vermelho e
+      // quebrava o padrao visual das outras pilulas. O campo semWa
+      // CONTINUA no modelo, no filtro por status e no export: quem ja'
+      // marcou nao perde a marcacao, e o filtro 'Sem WhatsApp' segue
+      // funcionando. So' deixou de ter botao pra marcar na tabela.
       + '</div>';
   }
   function _refreshStatusCell(el, r) {
@@ -725,6 +733,7 @@
       '.wkv-ico.dis{opacity:.3;pointer-events:none}',
       '.wkv-rmv{background:none;border:none;color:var(--wkv-cinza);cursor:pointer;font-size:13px}.wkv-rmv:hover{color:#c0392b}',
       '.wkv-stwrap{display:flex;flex-direction:column;gap:4px;align-items:center}',
+      '.wkv-por{font:inherit;font-size:11px;color:#4a5160;padding:2px 7px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;white-space:nowrap}',
       '.wkv-strow{display:flex;gap:4px;align-items:center;justify-content:center}',
       '.wkv-st{font:inherit;font-size:11px;font-weight:600;padding:3px 9px;border:1px solid var(--wkv-linha);border-radius:999px;background:#fff;color:var(--wkv-cinza2);cursor:pointer;white-space:nowrap;line-height:1.4}',
       '.wkv-st:hover{border-color:var(--wkv-teal);color:var(--wkv-teal)}',
@@ -745,7 +754,6 @@
       '.wkv-tstatus:focus{outline:none;border-color:#0f2c4c}',
       '.wkv-st-swa{font-size:10px;line-height:1.25;white-space:normal;text-align:left}',
       '.wkv-st-swa.on{background:#fee2e2;border-color:#dc2626;color:#b91c1c;font-weight:600}.wkv-st-swa.on:hover{color:#b91c1c}',
-      '.wkv-st-por{font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;color:var(--wkv-tinta);cursor:pointer}',
       '.wkv-open{background:none;border:none;padding:0;font:inherit;cursor:pointer;text-align:left;color:inherit}',
       '.wkv-open:hover{color:var(--wkv-teal);text-decoration:underline}',
       '.wkv-fone{font-size:11px;color:var(--wkv-cinza2);margin-top:3px;font-variant-numeric:tabular-nums}',
@@ -1368,18 +1376,9 @@
         renderTabela(container);
       }
     });
-    // quem enviou (Felipe/Thays) — escolher o nome ja conta como enviado
-    if (tb) tb.addEventListener('change', function (ev) {
-      var sel = ev.target.closest('.wkv-st-por');
-      if (!sel) return;
-      var r = sel.getAttribute('data-r');
-      var val = sel.value;
-      var cur = _normSt(getEnvios()[r]);
-      var patch = { por: val };
-      if (val && (!cur || !cur.enviado)) { patch.enviado = true; patch.enviadoTs = Date.now(); }
-      marcarStatus(r, patch);
-      _refreshStatusCell(sel, r);
-    });
+    // Felipe s42: handler do seletor 'quem?' removido junto com o campo.
+    // Quem enviou passa a ser carimbado automaticamente pelo botao
+    // Enviado, com o usuario logado.
   }
 
   // ---- render principal -------------------------------------------
