@@ -18154,11 +18154,13 @@ const Orcamento = (() => {
       if (/^corstone\s*[—-]/i.test(String(cor || ''))) {
         const pecasC = pecasPorCor[cor] || [];
         let m2C = 0;
+        // Felipe s43: medida SECA (sem REF) — mesma regra do custeio.
         const medidasC = pecasC.map(p => {
           const q = Math.max(1, Number(p.qtd) || 1);
-          m2C += ((Number(p.largura) || 0) * (Number(p.altura) || 0) * q) / 1000000;
-          return (q > 1 ? q + '× ' : '') + Math.round(Number(p.largura) || 0)
-            + '×' + Math.round(Number(p.altura) || 0) + 'mm';
+          const lg = Number(p.larguraSemRef) || Number(p.largura) || 0;
+          const al = Number(p.alturaSemRef)  || Number(p.altura)  || 0;
+          m2C += (lg * al * q) / 1000000;
+          return (q > 1 ? q + '× ' : '') + Math.round(lg) + '×' + Math.round(al) + 'mm';
         }).join(', ');
         const descC = String(cor).replace(/^corstone\s*[—-]\s*/i, '').trim();
         const _nC = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -18532,9 +18534,16 @@ const Orcamento = (() => {
         const _medidasLed = [];
         (pecasPorCor[cor] || []).forEach(p => {
           const _q = Math.max(1, Number(p.qtd) || 1);
-          m2TotalC += ((Number(p.largura) || 0) * (Number(p.altura) || 0) * _q) / 1000000;
+          // Felipe s43: Corstone cobra a medida SECA (sem REF). O motor de
+          // chapas soma 2×REF=40mm na largura da Tampa Maior porque o ACM
+          // DOBRA sobre as bordas; Corstone e' pedra de 8mm, nao dobra —
+          // corta na medida liquida. larguraSemRef/alturaSemRef ja' vem
+          // anotado em cada peca pelo 38-chapas-porta-externa.js.
+          const _lg = Number(p.larguraSemRef) || Number(p.largura) || 0;
+          const _al = Number(p.alturaSemRef)  || Number(p.altura)  || 0;
+          m2TotalC += (_lg * _al * _q) / 1000000;
           const _txt = (_q > 1 ? _q + '× ' : '')
-            + Math.round(Number(p.largura) || 0) + '×' + Math.round(Number(p.altura) || 0) + 'mm';
+            + Math.round(_lg) + '×' + Math.round(_al) + 'mm';
           _medidasC.push(_txt);
           const _itP = ((versao && versao.itens) || [])[p.origemItemIdx];
           if (_itP && String(_itP.corstoneRetro || '') === 'sim') _medidasLed.push(_txt);
@@ -23688,7 +23697,9 @@ const Orcamento = (() => {
         .forEach(cor => {
           (pecasPorCor[cor] || []).forEach(p => {
             const q = Math.max(1, Number(p.qtd) || 1);
-            const m2 = ((Number(p.largura) || 0) * (Number(p.altura) || 0) * q) / 1000000;
+            const lg = Number(p.larguraSemRef) || Number(p.largura) || 0;
+            const al = Number(p.alturaSemRef)  || Number(p.altura)  || 0;
+            const m2 = (lg * al * q) / 1000000;
             m2Geral += m2;
             const it = itens[p.origemItemIdx] || {};
             linhas.push({
@@ -23697,10 +23708,14 @@ const Orcamento = (() => {
                     + ' ' + (it.modelo || it.tipo || ''),
               peca: p.label || p.id,
               lado: p.lado,
-              largura: p.largura,
-              altura: p.altura,
+              largura: lg,
+              altura: al,
               qtd: q,
               m2: Number(m2.toFixed(4)),
+              // Felipe s43: as duas colunas abaixo sao a medida COM refilo,
+              // que e' a usada pelas chapas de ACM — so' pra conferencia.
+              larg_c_ref: p.largura,
+              alt_c_ref: p.altura,
               retro: String(it.corstoneRetro || 'nao'),
             });
           });
