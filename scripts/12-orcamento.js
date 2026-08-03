@@ -16377,6 +16377,29 @@ const Orcamento = (() => {
                   <div class="rel-prop-item-linha"><span class="lbl">${tr('CHAPA AM INTERNA','AM SHEET INTERIOR')}:</span> <span>${escapeHtml(item.corChapaAM_Int || '—')}</span></div>
                 `;
               }
+              // Felipe s43: 'AQUI DEVE APARECER SOMENTE A COR DO CORSTONE'.
+              // Quando o revestimento e' Corstone, a face que o cliente ve e'
+              // a pedra — as cores ACM (corExterna/corInterna) sao dos
+              // acabamentos laterais e da tampa da cava, informacao interna de
+              // fabricacao que na proposta so' confunde ('Black Door' numa
+              // porta de Corstone parece erro de orcamento). Entao as duas
+              // linhas de chapa ACM dao lugar a cor do Corstone. Se as duas
+              // faces tiverem o mesmo material, sai UMA linha so'.
+              // Guarda: se nenhuma cor de Corstone foi preenchida, cai no
+              // comportamento antigo — proposta nunca fica sem linha de cor.
+              const _corstoneExt = String(item.corChapaCorstone_Ext || '').trim();
+              const _corstoneInt = String(item.corChapaCorstone_Int || '').trim();
+              if (/corstone/.test(rev) && (_corstoneExt || _corstoneInt)) {
+                const _e = _corstoneExt || _corstoneInt;
+                const _i = _corstoneInt || _corstoneExt;
+                if (_e === _i) {
+                  return `
+                <div class="rel-prop-item-linha"><span class="lbl">${tr('CORSTONE','CORSTONE')}:</span> <span>${escapeHtml(_e)}</span></div>`;
+                }
+                return `
+                <div class="rel-prop-item-linha"><span class="lbl">${tr('CORSTONE EXTERNO','EXTERIOR CORSTONE')}:</span> <span>${escapeHtml(_e)}</span></div>
+                <div class="rel-prop-item-linha"><span class="lbl">${tr('CORSTONE INTERNO','INTERIOR CORSTONE')}:</span> <span>${escapeHtml(_i)}</span></div>`;
+              }
               return `
                 <div class="rel-prop-item-linha"><span class="lbl">${tr('COR CHAPA EXTERNA','EXTERIOR SHEET COLOR')}:</span> <span>${escapeHtml(item.corExterna || '—')}</span></div>
                 <div class="rel-prop-item-linha"><span class="lbl">${tr('COR CHAPA INTERNA','INTERIOR SHEET COLOR')}:</span> <span>${escapeHtml(item.corInterna || '—')}</span></div>
