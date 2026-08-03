@@ -32,6 +32,13 @@
     busca: '', uf: '', cidade: '', etapa: '', responsavel: '',
     vmin: '', vmax: '', comTel: false, comReserva: false,
     soPerdidos: false, semOrcamento: false, status: '',
+    // Felipe s42: "deixe o filtro primeiro sempre o mais novo e segundo
+    // filtro pelo valor igual nos fechados weiku". Ordenacao em CAMADAS,
+    // mesma logica do 54-weiku-vendas: a coluna clicada vira a camada
+    // principal e as demais viram desempate. Sem isso, clicar em Valor
+    // perdia a ordem de data e clicar em Data embaralhava os valores
+    // dentro do mesmo dia.
+    camadas: [{ k: 'dtCriacao', asc: false }, { k: 'valor', asc: false }],
     ordem: 'dtCriacao', dir: 'desc', pagina: 0,
     msg: '',
   };
@@ -164,22 +171,30 @@
     });
   }
 
+  function _dataOrd(s) {
+    var m = String(s || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    return m ? m[3] + m[2] + m[1] : '';
+  }
   function ordenar(lista) {
-    var c = ui.ordem, dir = ui.dir === 'asc' ? 1 : -1;
+    var camadas = (ui.camadas && ui.camadas.length)
+      ? ui.camadas : [{ k: ui.ordem, asc: ui.dir === 'asc' }];
+    function cmp(a, b, k, asc) {
+      var x = a[k], y = b[k];
+      if (k === 'dtCriacao' || k === 'dtOrcamento' || k === 'dtFechamento') {
+        x = _dataOrd(x); y = _dataOrd(y);
+        return (x < y ? -1 : x > y ? 1 : 0) * (asc ? 1 : -1);
+      }
+      if (k === 'valor' || k === 'm2') {
+        return ((Number(x) || 0) - (Number(y) || 0)) * (asc ? 1 : -1);
+      }
+      return String(x || '').localeCompare(String(y || ''), 'pt-BR') * (asc ? 1 : -1);
+    }
     return lista.slice().sort(function (a, b) {
-      var va = a[c], vb = b[c];
-      if (c === 'valor' || c === 'm2') {
-        return ((Number(va) || 0) - (Number(vb) || 0)) * dir;
+      for (var i = 0; i < camadas.length; i++) {
+        var r = cmp(a, b, camadas[i].k, camadas[i].asc);
+        if (r !== 0) return r;
       }
-      if (c === 'dtCriacao' || c === 'dtOrcamento' || c === 'dtFechamento') {
-        // dd/mm/aaaa -> aaaammdd pra comparar como texto
-        var f = function (s) {
-          var m = String(s || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
-          return m ? m[3] + m[2] + m[1] : '';
-        };
-        return String(f(va)).localeCompare(String(f(vb))) * dir;
-      }
-      return String(va || '').localeCompare(String(vb || ''), 'pt-BR') * dir;
+      return 0;
     });
   }
 
@@ -249,6 +264,7 @@
       + '    <div class="wkp-acoes">'
       + '      <button id="wkp-limpar" class="wkp-btn">\u21ba Limpar filtros</button>'
       + '      <button id="wkp-csv" class="wkp-btn wkp-btn-p">\u2193 Exportar lista filtrada (CSV)</button>'
+      + '      <button id="wkp-ordpad" class="wkp-btn" title="Volta pra ordenacao padrao: mais novo primeiro e, dentro da mesma data, maior valor primeiro.">\u21ba Ordem padrao</button>'
       + '    </div>'
       + '  </div>'
 
@@ -395,10 +411,18 @@
       var el = $(p[0]);
       if (el) el.addEventListener('change', function () { ui[p[1]] = el.checked; reset(); });
     });
+    var op = $('wkp-ordpad');
+    if (op) op.addEventListener('click', function () {
+      ui.camadas = [{ k: 'dtCriacao', asc: false }, { k: 'valor', asc: false }];
+      ui.ordem = 'dtCriacao'; ui.dir = 'desc'; reset();
+    });
     var lp = $('wkp-limpar');
     if (lp) lp.addEventListener('click', function () {
       ui.busca = ''; ui.uf = ''; ui.cidade = ''; ui.etapa = ''; ui.responsavel = '';
-      ui.vmin = ''; ui.vmax = ''; ui.comTel = false; ui.comReserva = false; reset();
+      ui.vmin = ''; ui.vmax = ''; ui.comTel = false; ui.comReserva = false;
+      ui.soPerdidos = false; ui.semOrcamento = false; ui.status = '';
+      ui.camadas = [{ k: 'dtCriacao', asc: false }, { k: 'valor', asc: false }];
+      ui.ordem = 'dtCriacao'; ui.dir = 'desc'; reset();
     });
     var ant = $('wkp-ant'), prox = $('wkp-prox');
     if (ant) ant.addEventListener('click', function () { if (ui.pagina > 0) { ui.pagina--; render(container); } });
@@ -406,8 +430,13 @@
     container.querySelectorAll('th[data-s]').forEach(function (th) {
       th.addEventListener('click', function () {
         var c = th.getAttribute('data-s');
-        if (ui.ordem === c) ui.dir = ui.dir === 'asc' ? 'desc' : 'asc';
-        else { ui.ordem = c; ui.dir = (c === 'valor' || c === 'm2' || c.indexOf('dt') === 0) ? 'desc' : 'asc'; }
+        var asc;
+        if (ui.ordem === c) { asc = !(ui.dir === 'asc'); }
+        else { asc = !(c === 'valor' || c === 'm2' || c.indexOf('dt') === 0); }
+        ui.ordem = c; ui.dir = asc ? 'asc' : 'desc';
+        // coluna clicada vira a camada principal; as anteriores viram desempate
+        var resto = (ui.camadas || []).filter(function (l) { return l.k !== c; });
+        ui.camadas = [{ k: c, asc: asc }].concat(resto).slice(0, 3);
         reset();
       });
     });
