@@ -1353,9 +1353,9 @@ var PERFIS = [
    A:2019, Ix:21.46, Iy:115.1, Wx:12.11, Wy:27.49, rx:10.31, ry:23.88, peso:5.451,
    uso:"Montante vertical e travessa da folha da linha 006. Perfil tubular com câmara para encaixe."},
   {id:"PA006F", nome:"PA006F · Folha 006", desig:'PA006F', tipo:"Perfil de folha",
-   w:70.2, h:84.0, forma:"poly", pts:[[70.2,84],[70.2,0],[0,0],[0,84]], cor:"#f0b46a",
-   A:5897, Ix:346.73, Iy:242.16, Wx:82.56, Wy:68.99, rx:24.25, ry:20.26, peso:15.921,
-   uso:"Perfil principal da folha da linha 006 (corpo + rebaixo para o revestimento). Área composta aproximada — folha fragmentada no DXF."},
+   w:76.2, h:133.0, forma:"poly", pts:[[1.5,89],[0,89],[0,89.7],[0.3,90],[18.5,90],[18.5,105.7],[18.8,106],[25,106],[25.3,105.7],[25.3,102],[50.3,102],[50.3,105.7],[50.6,106],[71.7,106],[71.7,124.9],[69,124.9],[68.7,125.2],[68.7,126.85],[69.7,126.85],[69.7,125.9],[71,125.9],[71,132],[69.7,132],[69.7,131.05],[68.7,131.05],[68.7,132.7],[69,133],[75.9,133],[76.2,132.7],[76.2,132],[74.7,132],[74.7,112],[76.2,112],[76.2,90],[76.2,90],[76.2,0],[0,0],[0,69],[1.5,69]], cor:"#f0b46a",
+   A:7755, Ix:712.62, Iy:371.06, Wx:87.35, Wy:93.19, rx:30.31, ry:21.87, peso:20.937,
+   uso:"Perfil principal da folha da linha 006 (corpo + rebaixo do revestimento no topo). Seção completa do DXF."},
   {id:"PA006P", nome:"PA006P · Portal / batente 006", desig:'PA006P', tipo:"Perfil de portal",
    w:76.2, h:69.5, forma:"poly", pts:[[71.03,62.41],[69.73,62.41],[69.73,63.36],[68.73,63.36],[68.73,61.71],[69.03,61.41],[71.43,61.41],[71.73,61.11],[71.73,42.81],[71.43,42.51],[48.13,42.51],[47.83,42.21],[47.83,38.51],[18.8,38.51],[18.5,38.21],[18.5,26.81],[18.2,26.51],[0.3,26.51],[0,26.21],[0,25.01],[1.5,25.01],[1.5,10.01],[0,10.01],[0,6.81],[0.3,6.51],[7.21,6.51],[7.51,6.81],[7.83,6.51],[14.72,6.51],[15.02,6.21],[15.05,2.31],[14.75,2.01],[0.33,2.01],[0.03,1.71],[0.03,0.3],[0.33,0],[75.93,0],[76.23,0.3],[76.23,1.71],[75.93,2.01],[61.53,2.01],[61.23,2.31],[61.23,6.21],[61.53,6.51],[75.93,6.51],[76.23,6.81],[76.23,48.51],[74.73,48.51],[74.73,68.51],[76.23,68.51],[76.23,69.21],[75.93,69.51],[69.03,69.51],[68.73,69.21],[68.73,67.56],[69.73,67.56],[69.73,68.51],[71.03,68.51]], cor:"#9ccc9c",
    A:2773, Ix:48.11, Iy:120.24, Wx:9.96, Wy:27.95, rx:13.17, ry:20.82, peso:7.487,
@@ -1446,7 +1446,7 @@ window.PerfisRender = function(){
       '</div>'+
     '</div>';
   });
-  html+='<div class="card" style="font-size:12px;color:#888;font-style:italic">Perfis PA006/PA007: designações e geometria do desenho do fabricante (Tecnoperfil, arquivo Drawing1.dxf). Seção desenhada a partir da polilinha real do DXF; propriedades (A, I, W, r, peso) calculadas por integração do contorno para alumínio 6063‑T5 (E = 69 GPa · ρ = 2700 kg/m³). Quadro externo e perfil da chapa: perfis comerciais, cálculo geométrico. PA006F: seção composta (folha fragmentada no DXF), área aproximada.</div>';
+  html+='<div class="card" style="font-size:12px;color:#888;font-style:italic">Perfis PA006/PA007: designações e geometria do desenho do fabricante (Tecnoperfil, arquivo Drawing1.dxf). Seção desenhada a partir da polilinha real do DXF; propriedades (A, I, W, r, peso) calculadas por integração do contorno para alumínio 6063‑T5 (E = 69 GPa · ρ = 2700 kg/m³). Quadro externo e perfil da chapa: perfis comerciais, cálculo geométrico.</div>';
   el.innerHTML=html;
 };
 
@@ -2041,6 +2041,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-34</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-35</div>
 </body>
 </html>
