@@ -216,7 +216,30 @@
   }
 
   function renderDiagrama(corpo, dados) {
+    if (!dados || !dados.geo || !dados.geo.nodes || !dados.geo.nodes.length) {
+      corpo.innerHTML = '<div class="info-banner">Fluxo sem nós para desenhar. ' +
+        'Verifique o sync (Ctrl+Shift+R).</div>';
+      return;
+    }
+    // bbox defensivo: se geo_128 nao trouxe bbox (ou apos inserir/mover no
+    // editor), calcula a partir dos nos com coordenada.
     var bb = dados.geo.bbox;
+    var comXY = dados.geo.nodes.filter(function (n) { return n.x != null; });
+    if (!bb || bb.maxX == null || !comXY.length) {
+      if (!comXY.length) {
+        corpo.innerHTML = '<div class="info-banner">Os nós deste fluxo não ' +
+          'têm coordenadas para desenhar.</div>';
+        return;
+      }
+      bb = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+      comXY.forEach(function (n) {
+        bb.minX = Math.min(bb.minX, n.x);
+        bb.minY = Math.min(bb.minY, n.y);
+        bb.maxX = Math.max(bb.maxX, n.x + (n.w || 100));
+        bb.maxY = Math.max(bb.maxY, n.y + (n.h || 80));
+      });
+      dados.geo.bbox = bb;
+    }
     var pad = 40;
     var W = (bb.maxX - bb.minX) + pad * 2;
     var H = (bb.maxY - bb.minY) + pad * 2;
@@ -292,11 +315,13 @@
 
     var toggle = corpo.querySelector('#wf-edit-toggle');
     if (toggle) toggle.addEventListener('click', function () {
-      if (window.WorkflowEditor) {
-        window.WorkflowEditor.editavel = !window.WorkflowEditor.editavel;
-        ui.selId = null;
-        renderDiagrama(corpo, carregar() || dados);
+      if (!window.WorkflowEditor) {
+        alert('O editor (64-workflow-editor.js) não carregou. Recarregue com Ctrl+Shift+R.');
+        return;
       }
+      window.WorkflowEditor.editavel = !window.WorkflowEditor.editavel;
+      ui.selId = null;
+      renderDiagrama(corpo, carregar() || dados);
     });
 
     function abrirPainel(id) {
@@ -340,12 +365,12 @@
       if (tipo) patch.tipoTarefa = tipo.value;
       if (prazo) patch.prazoHoras = prazo.value === '' ? '' : Number(prazo.value);
       WE.salvarNo(id, patch);
-      renderDiagrama(corpo, carregar());
+      renderDiagrama(corpo, carregar() || dados);
     });
     var del = painel.querySelector('#wfe-del');
     if (del) del.addEventListener('click', function () {
       if (confirm('Excluir esta etapa? As setas serão costuradas.')) {
-        WE.deletarNo(id); ui.selId = null; renderDiagrama(corpo, carregar());
+        WE.deletarNo(id); ui.selId = null; renderDiagrama(corpo, carregar() || dados);
       }
     });
     painel.querySelectorAll('[data-ins]').forEach(function (b) {
@@ -354,7 +379,7 @@
         var t = tipo === 'tarefa' ? 'userTask' : tipo;
         var novoId = WE.inserirNo(id, t);
         if (novoId) ui.selId = novoId;
-        renderDiagrama(corpo, carregar());
+        renderDiagrama(corpo, carregar() || dados);
       });
     });
   }
