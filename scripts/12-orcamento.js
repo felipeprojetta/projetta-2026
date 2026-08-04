@@ -2303,8 +2303,10 @@ const Orcamento = (() => {
    */
   function chaveItemTombstone(it) {
     if (!it) return '';
-    const lar = it.tipo === 'revestimento_parede' ? (it.largura_total || '') : (it.largura || '');
-    const alt = it.tipo === 'revestimento_parede' ? (it.altura_total  || '') : (it.altura  || '');
+    // pergolado e revestimento_parede guardam medida em largura_total/altura_total
+    const usaTotal = it.tipo === 'revestimento_parede' || it.tipo === 'pergolado';
+    const lar = usaTotal ? (it.largura_total || '') : (it.largura || '');
+    const alt = usaTotal ? (it.altura_total  || '') : (it.altura  || '');
     return [it.tipo, lar, alt].join('|');
   }
 
