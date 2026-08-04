@@ -107,7 +107,7 @@
       <div class="ctl">
         <label>Onde a porta vai ser instalada</label>
         <div style="display:flex;gap:16px;margin:6px 0 8px;font-size:13px">
-          <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="lcReg" id="lcBR" checked> Brasil</label>
+          <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="lcReg" id="lcBR"> Brasil</label>
           <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="lcReg" id="lcIN"> Internacional</label>
         </div>
         <div style="position:relative;margin-bottom:8px">
@@ -846,11 +846,14 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
   function el(i){return document.getElementById(i);}
   function opts(sel,arr,txt){sel.innerHTML='';for(var i=0;i<arr.length;i++){var o=document.createElement('option');o.value=i;o.textContent=txt(arr[i],i);sel.appendChild(o);}}
   function atual(){
+    if(!el('lcBR').checked && !el('lcIN').checked) return null;
     if(el('lcBR').checked){
-      var uf=el('lcUF').value, L=BR[uf], i=+el('lcCid').value||0, c=L[i]||L[0];
+      var uf=el('lcUF').value; if(!uf || !BR[uf]) return null;
+      var L=BR[uf], i=+el('lcCid').value||0, c=L[i]||L[0];
       return {nome:c[0]+" · "+uf, uf:uf, tmin:c[1], tmax:c[2], reg:c[3], V:VR[c[3]], noa:false, br:true, src:(c[4]===undefined?2:c[4])};
     }
-    var pa=el('lcPais').value, es=el('lcEst').value, M=(IN[pa]||{})[es]||[];
+    var pa=el('lcPais').value; if(!pa || !IN[pa]) return null;
+    var es=el('lcEst').value, M=(IN[pa]||{})[es]||[];
     var j=+el('lcLoc').value||0, e=M[j]||M[0];
     if(!e) return {nome:pa, uf:null, tmin:0, tmax:30, reg:null, V:45, noa:false, br:false, src:0};
     var rot = (es===pa) ? (e[0]+" · "+pa) : (e[0]+" · "+es+" · "+pa);
@@ -876,10 +879,17 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
   }
   window.__locSelo=selo;
   function pinta(){
-    var br=el('lcBR').checked;
+    var br=el('lcBR').checked, inn=el('lcIN').checked;
     el('lcBoxBR').style.display=br?'grid':'none';
-    el('lcBoxIN').style.display=br?'none':'grid';
+    el('lcBoxIN').style.display=inn?'grid':'none';
     var a=atual();
+    if(!a){
+      window.__LOCAL=null; window.__Vloc=undefined; window.__NOA=false;
+      el('lcInfo').innerHTML="<div style='color:#888;font-size:13px'>Selecione <b>Brasil</b> ou <b>Internacional</b> e escolha a cidade — ou digite no campo de busca acima.</div>";
+      if(window.upd) window.upd();
+      if(window.tRender) window.tRender();
+      return;
+    }
     window.__LOCAL=a; window.__Vloc=a.V; window.__NOA=a.noa;
     var reg = a.br ? ("NBR 6123 · Região "+a.reg) : "ASCE 7 / local";
     el('lcInfo').innerHTML=
@@ -972,15 +982,21 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
     if(!el('lcUF')) return;
     var ufs=Object.keys(BR).sort();
     var su=el('lcUF'); su.innerHTML='';
+    var oph=document.createElement('option'); oph.value=''; oph.textContent='— UF —'; su.appendChild(oph);
     for(var z=0;z<ufs.length;z++){var ou=document.createElement('option');ou.value=ufs[z];ou.textContent=ufs[z];su.appendChild(ou);}
-    su.value='MG';
-    el('lcUF').onchange=function(){opts(el('lcCid'),BR[el('lcUF').value],function(c){return c[0];});pinta();};
-    opts(el('lcCid'),BR['MG'],function(c){return c[0];});
+    su.value='';
+    el('lcUF').onchange=function(){
+      var u=el('lcUF').value;
+      if(!u){ el('lcCid').innerHTML='<option value="">— cidade —</option>'; pinta(); return; }
+      opts(el('lcCid'),BR[u],function(c){return c[0];});pinta();
+    };
+    el('lcCid').innerHTML='<option value="">— escolha a UF —</option>';
     var PAD="United States";
     var ps=Object.keys(IN).sort(function(a,b){return a===PAD?-1:(b===PAD?1:a.localeCompare(b));});
     var sp=el('lcPais'); sp.innerHTML='';
     for(var i=0;i<ps.length;i++){var o=document.createElement('option');o.value=ps[i];o.textContent=ps[i];sp.appendChild(o);}
-    sp.value=PAD;
+    var opp=document.createElement('option'); opp.value=''; opp.textContent='— país —'; sp.insertBefore(opp,sp.firstChild);
+    sp.value='';
     /* paises sem subdivisao usam um grupo unico com o nome do proprio pais:
        nesse caso o select do meio some para nao poluir a barra */
     function enchEst(pais,estIni){
@@ -994,9 +1010,12 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
       enchCid(pais,se.value);
     }
     function enchCid(pais,est){ opts(el('lcLoc'),(IN[pais]||{})[est]||[],function(c){return c[0];}); }
-    sp.onchange=function(){enchEst(sp.value);pinta();};
+    sp.onchange=function(){
+      if(!sp.value){ el('lcEst').innerHTML=''; el('lcLoc').innerHTML='<option value="">— cidade —</option>'; pinta(); return; }
+      enchEst(sp.value);pinta();
+    };
     el('lcEst').onchange=function(){enchCid(sp.value,el('lcEst').value);pinta();};
-    enchEst(PAD,"Florida");
+    el('lcEst').innerHTML=''; el('lcLoc').innerHTML='<option value="">— cidade —</option>';
     ['lcBR','lcIN','lcCid','lcLoc'].forEach(function(k){var e=el(k); if(e) e.onchange=pinta;});
     pinta();
   }
