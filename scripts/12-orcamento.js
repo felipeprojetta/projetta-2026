@@ -13408,7 +13408,13 @@ const Orcamento = (() => {
       }
       cortes = cortesAjustados;
 
-      const temRegra = Object.keys(cortes).length > 0;
+      // Felipe s43: um item pode nao ter regra (sem medidas) mas ter perfil
+      // MANUAL adicionado. Nesse caso ele NAO e' vazio — precisa somar no
+      // peso e no aproveitamento. Detecta se ha extras manuais deste item.
+      const temExtraManual = (extras || []).some(ex =>
+        (ex.itemIdx || 1) === itemIdx && String(ex.codigo || '').trim());
+
+      const temRegra = Object.keys(cortes).length > 0 || temExtraManual;
       // Agrega no cortesPorCodigo global pra Planificador rodar FFD
       for (const cod in cortes) {
         if (!cortesPorCodigo[cod]) cortesPorCodigo[cod] = [];
@@ -13426,6 +13432,9 @@ const Orcamento = (() => {
     // Felipe (sessao 27 fix): adiciona linhas EXTRAS (manuais) ao
     // cortesPorCodigo global. Cada extra tem itemIdx, codigo, descricao
     // (label), comp, qty, kgM, barLen.
+    // Felipe (sessao 27 fix): adiciona linhas EXTRAS (manuais) ao
+    // cortesPorCodigo global pra o aproveitamento (nesting) incluir os
+    // perfis manuais — inclusive os de itens sem regra (vazios).
     extras.forEach(ex => {
       const cod = String(ex.codigo || '').trim();
       if (!cod) return;
@@ -13971,7 +13980,7 @@ const Orcamento = (() => {
       // manuais (forcaSecao === 'fixo') — quando Felipe definir as fórmulas
       // do fixo, o motor passa a popular automaticamente.
       const linhasFolha  = linhasVisiveis
-        .filter(l => l.forcaSecao ? l.forcaSecao === 'folha' : !ehLinhaPortal(l.descricao))
+        .filter(l => l.forcaSecao ? (l.forcaSecao === 'folha' || l.forcaSecao === 'manual') : !ehLinhaPortal(l.descricao))
         .map((l, i) => ({ ...l, pos: i + 1 }));
       const linhasPortal = linhasVisiveis
         .filter(l => l.forcaSecao ? l.forcaSecao === 'portal' : ehLinhaPortal(l.descricao))
