@@ -11734,6 +11734,36 @@ const Orcamento = (() => {
             <span class="orc-dre-valor">${fmtMoeda(r.pFatReal)}</span>
           </div>
           ${(() => {
+            // Felipe s43: valor/m² no DRE (facilita conferir sem ir no Relatorio).
+            // Mesma formula do Painel Comercial: area total da versao, e o
+            // "so porta" desconta a fracao da instalacao.
+            const itensM2 = versao.itens || [];
+            const areaTotM2 = itensM2.reduce((s, it) => {
+              const ehRev = it.tipo === 'revestimento_parede';
+              const lar = ehRev ? (parseBR(it.largura_total) || parseBR(it.largura) || 0) : (parseBR(it.largura) || 0);
+              const alt = ehRev ? (parseBR(it.altura_total)  || parseBR(it.altura)  || 0) : (parseBR(it.altura)  || 0);
+              const qtd = Number(it.quantidade) || 1;
+              return s + (lar / 1000) * (alt / 1000) * qtd;
+            }, 0);
+            if (!areaTotM2) return '';
+            const subTotM2 = (Number(subFab) || 0) + (Number(subInstParaDRE) || 0);
+            const ratioInstM2 = subTotM2 > 0 ? (Number(subInstParaDRE) || 0) / subTotM2 : 0;
+            const fatM2Inst = (Number(r.pFatReal) || 0) / areaTotM2;
+            const fatM2Porta = fatM2Inst * (1 - ratioInstM2);
+            const baixo = fatM2Porta < 8000;
+            return `
+              <div class="orc-dre-row">
+                <span class="orc-dre-label">Com Desconto/m² porta+inst</span>
+                <span class="orc-dre-formula">preco real / ${areaTotM2.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} m²</span>
+                <span class="orc-dre-valor">${fmtMoeda(fatM2Inst)}/m²</span>
+              </div>
+              <div class="orc-dre-row">
+                <span class="orc-dre-label">Com Desconto/m² <b>só porta</b></span>
+                <span class="orc-dre-formula">porta+inst × (1 − ${(ratioInstM2*100).toFixed(0)}% inst)</span>
+                <span class="orc-dre-valor" style="${baixo ? 'color:#dc2626;font-weight:700;' : ''}">${fmtMoeda(fatM2Porta)}/m²</span>
+              </div>`;
+          })()}
+          ${(() => {
             // Felipe s43: ALERTA no DRE — porta ALTA (>5000mm) com valor/m²
             // "so porta" (com desconto) abaixo de R$ 8.000/m². Sinaliza
             // margem baixa demais pra uma porta desse porte.
