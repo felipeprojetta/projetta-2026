@@ -3827,7 +3827,16 @@ ${secoesHtml}
               // existe, o valor foi editado a mao no card -> exibe l.valor (o
               // manual) e guarda o calculado no backup pra o botao "voltar".
               // Sem override -> valor calculado normal (resumo.valor ou l.valor).
-              const _ovValorAtivo = (l.valorCalcBackup != null && l.valorCalcBackup !== '');
+              // Felipe s43: na coluna Entrada Manual o valor pode ser digitado
+              // a mao (orcamento antigo, negocio que veio por fora), MAS se
+              // depois um orcamento for aprovado o calculado vence — decisao
+              // do Felipe: 'sempre que fizer orcamento e aprovar ai leva valor
+              // aprovado para card'. Nas outras colunas o comportamento da
+              // s41 continua igual (manual manda ate' o botao ↺).
+              const _ehEntradaManual = (l.etapa === 'entrada-manual');
+              const _temAprovado = !!(resumo && resumo.hasVersaoFechada);
+              const _ovValorAtivo = (l.valorCalcBackup != null && l.valorCalcBackup !== '')
+                && !(_ehEntradaManual && _temAprovado);
               // Felipe s37 (casas decimais): TODO valor do card em CENTAVO.
               // resumo.valor vem do DRE com fracao abaixo do centavo
               // (85867.9042) e vazava pro data-valor-calc, pro botao de
@@ -3897,6 +3906,38 @@ ${secoesHtml}
                 + (_ovValorAtivo
                     ? `<div style="font-size:10px;color:#B45309;margin-top:2px;">✏️ manual · calculado R$ ${fmtBR(_valorCalc)}</div>`
                     : '');
+              // Felipe s43: 'deixe campo ali de valor original e com desconto
+              // sempre aberto para eu colocar manual mesmo sem calcular, pode
+              // ser que tenha algum orcamento antigo que queira somente dar
+              // entrada nesse lead'. Na Entrada Manual os DOIS campos aparecem
+              // sempre, mesmo zerados — nas outras colunas o 'Original' so'
+              // aparece quando ha desconto de verdade, como antes.
+              if (_ehEntradaManual) {
+                const _estiloInp = 'width:110px;text-align:right;font:inherit;border:1px dashed #CBD5E1;'
+                  + 'border-radius:4px;padding:1px 4px;background:#fff;';
+                const _origHtml = _temAprovado
+                  ? `<span class="crm-card-valor-tabela">R$ ${fmtBR(precoProposta)}</span>`
+                  : `<span class="crm-card-valor-tabela">R$ <input type="text" `
+                    + `data-action="edit-preco-proposta" data-lead-id="${l.id}" `
+                    + `value="${precoProposta > 0 ? fmtBR(precoProposta) : ''}" placeholder="0,00" `
+                    + `title="Valor original — digite manualmente" style="${_estiloInp}" /></span>`;
+                return `
+                  <div class="crm-card-valor-bloco">
+                    <div class="crm-card-valor-row">
+                      <span class="crm-card-valor-label">Original:</span>
+                      ${_origHtml}
+                    </div>
+                    <div class="crm-card-valor-row crm-card-valor-row-final">
+                      <span class="crm-card-valor-label">Com Desconto:</span>
+                      ${_valInputHtml}
+                    </div>
+                    <div style="font-size:10px;color:${_temAprovado ? '#0369a1' : '#64748b'};margin-top:3px;">
+                      ${_temAprovado
+                        ? '✓ valor do orcamento aprovado (manda sobre o manual)'
+                        : '✏️ entrada manual · nao soma nos totais do CRM'}
+                    </div>
+                  </div>`;
+              }
               if (precoProposta > 0 && Math.abs(precoProposta - valorFinal) > 0.01) {
                 return `
                   <div class="crm-card-valor-bloco">
@@ -4840,6 +4881,7 @@ ${secoesHtml}
               || e.target.matches('[data-action="edit-atp"]')
               || e.target.matches('[data-action="edit-obs-neg"]')
               || e.target.matches('[data-action="edit-valor"]')
+              || e.target.matches('[data-action="edit-preco-proposta"]')
               || e.target.matches('[data-action="reset-valor"]')) {
             e.stopPropagation();
             return;
@@ -5560,6 +5602,28 @@ ${secoesHtml}
             render(container);
           });
           inp.addEventListener('mousedown', (e) => e.stopPropagation());
+        });
+
+        // Felipe s43: campo 'Original' editavel na coluna Entrada Manual.
+        // Grava direto em lead.precoProposta (mesmo campo que o orcamento
+        // preenche quando ha versao fechada), entao quando o orcamento for
+        // aprovado o valor calculado simplesmente passa a ter prioridade no
+        // render — sem migracao nem campo paralelo.
+        card.querySelectorAll('[data-action="edit-preco-proposta"]').forEach(inp => {
+          inp.addEventListener('mousedown', (e) => e.stopPropagation());
+          inp.addEventListener('change', () => {
+            const leadId = inp.dataset.leadId;
+            const lead = state.leads.find(l => l.id === leadId);
+            if (!lead) return;
+            const txt = String(inp.value).trim();
+            if (txt === '') { delete lead.precoProposta; save(); render(container); return; }
+            const novo = Math.round(parseFloat(txt.replace(/\./g, '').replace(',', '.')) * 100) / 100;
+            if (!Number.isFinite(novo) || novo < 0) { render(container); return; }
+            if ((Number(lead.precoProposta) || 0) === novo) return;
+            lead.precoProposta = novo;
+            save();
+            render(container);
+          });
         });
 
         // Felipe sessao 41: botao ↺ — volta ao valor CALCULADO e remove o
