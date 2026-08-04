@@ -1078,7 +1078,7 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaInv" checked> Inverno (interna 20 °C · externa = mínima)</label>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaVer"> Verão sol-ar (interna 23 °C · face ACM preto)</label>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#7a3db8"><input type="checkbox" id="feaTaglio"> Simular taglio térmico no tubo <span style="font-size:11px;font-weight:400;color:#888">(poliamida 24 mm nas almas — conceito Oikos)</span></label>
-      <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#0b6e4f"><input type="checkbox" id="feaReal" checked> Seção REAL de obra <span style="font-size:11px;font-weight:400;color:#888">(CROQUI A-A + perfil PA007F da matriz TECNO · XPS 30 de série · ignora isolante/taglio acima)</span></label>
+      <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#0b6e4f"><input type="checkbox" id="feaReal" checked> Seção REAL de obra <span style="font-size:11px;font-weight:400;color:#888">(CROQUI A-A + perfil PA007F da matriz TECNO · isolante conforme a linha de produto do card 3 · ignora taglio acima)</span></label>
     </div>
     <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;justify-content:center">
       <canvas id="feaCv" width="700" height="1020" style="flex:0 0 auto;width:100%;max-width:460px;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
@@ -1464,7 +1464,8 @@ function montarReal(p){
     while(c--) g[k++]=v;
   }
   var lCav=(p.mCav==='ar')?0.56:LAMF[p.mCav];
-  var LM={1:ALU,2:0.412,3:LAMF.xps,4:lCav,5:0.20,6:0.026};
+  /* projeto SEM isolante externo: mesmo CAD, faixa do XPS preenchida pelo miolo */
+  var LM={1:ALU,2:0.412,3:(p.semXps?lCav:LAMF.xps),4:lCav,5:0.20,6:0.026};
   var lam=new Float64Array(nx*ny);
   for(var j=0;j<ny;j++)for(var ii=0;ii<nx;ii++){
     if(j<nyA){ lam[j*nx+ii]=0.72; continue; }          // alvenaria
@@ -1550,7 +1551,9 @@ window.tFeaRender=function(){
   var rl=document.getElementById('feaReal'); rl=!!(rl&&rl.checked);
   if(rl) tg=false;
   var Te=inv?st.loc.tmin:st.rec.sa, Ti=inv?20:23;
-  var pp={}; for(var kx in st.p) pp[kx]=st.p[kx]; pp.taglio=tg;
+  /* segue a LINHA DE PRODUTO do card 3: XPS na secao real so' se o projeto recomenda XPS */
+  var semXps=!(st.rec.eExt>0 && st.rec.mExt==='xps');
+  var pp={}; for(var kx in st.p) pp[kx]=st.p[kx]; pp.taglio=tg; pp.semXps=semXps;
   var g=rl?montarReal(pp):montar(pp), r=resolver(g,Te,Ti);
   var lo=Math.min(Te,Ti), hi2=Math.max(Te,Ti);
   var ctx=cv.getContext('2d'), W=cv.width, Hh=cv.height;
@@ -1613,7 +1616,7 @@ window.tFeaRender=function(){
   ctx.fillText('INTERIOR',ox+g.nx*escX+42,oy+14); ctx.fillText(Ti.toFixed(0)+' °C',ox+g.nx*escX+42,oy+30);
   ctx.font='11px sans-serif'; ctx.fillStyle='#222';
   ctx.fillText('JUNÇÃO FOLHA ↔ PORTAL — PLANTA',ox+g.nx*escX/2,oy-28);
-  ctx.fillText(rl?'seção REAL de obra (DXF ATP000316 · XPS 30)':'corte horizontal na ombreira',ox+g.nx*escX/2,oy-14);
+  ctx.fillText(rl?('seção REAL de obra (DXF ATP000316'+(semXps?' · sem isolante externo':' · XPS 30')+')'):'corte horizontal na ombreira',ox+g.nx*escX/2,oy-14);
   ctx.fillText('ALVENARIA',ox+g.nx*escX/2,py(g.alv/2)+3);
   ctx.fillText('PORTAL tubo 4″×2″×2'+(tg?' · TAGLIO':''),ox+g.nx*escX/2,py(g.yA1+g.tw/2)+3);
   ctx.fillText('fresta '+g.gap+' mm + vedação',ox+g.nx*escX/2,py(g.yP1+g.gap/2)+3);
@@ -1644,10 +1647,11 @@ window.tFeaRender=function(){
     ctx.fillText('ALVENARIA',ox+g.nx*escX/2,py(g.alv/2)+3);
     ctx.fillText('PORTAL PA007P',ox+g.nx*escX/2,py(g.alv+42)+3);
     ctx.fillText('montante PA007F',ox+g.nx*escX/2,py(g.alv+138)+3);
-    ctx.save();ctx.translate(px(12),py(g.alv+300));ctx.rotate(-Math.PI/2);ctx.fillText('XPS 30',0,3);ctx.restore();
+    var nmCav=(st.p.mCav==='eps'?'EPS':'lã de rocha');
+    ctx.save();ctx.translate(px(12),py(g.alv+300));ctx.rotate(-Math.PI/2);ctx.fillText(semXps?('miolo · '+nmCav):'XPS 30',0,3);ctx.restore();
     ctx.save();ctx.translate(px(g.real.H-28),py(g.alv+310));ctx.rotate(-Math.PI/2);ctx.fillText('miolo até a pele interna',0,3);ctx.restore();
     ctx.save();ctx.translate(ox+g.nx*escX/2,py(g.alv+330));ctx.rotate(-Math.PI/2);
-    ctx.fillText('miolo · '+ (st.p.mCav==='eps'?'EPS':'lã de rocha')+' entre XPS',0,4);ctx.restore();
+    ctx.fillText('miolo · '+nmCav+(semXps?' até a pele externa':' entre XPS'),0,4);ctx.restore();
   }
   /* CHAMADAS de temperatura com linha de chamada, nas duas faces */
   function jDe(mm){return Math.min(g.ny-1,Math.max(0,Math.round(mm/DX)));}
@@ -1692,7 +1696,7 @@ window.tFeaRender=function(){
   if(tg){ var p0={}; for(var kz in pp) p0[kz]=pp[kz]; p0.taglio=false; rBase=resolver(montar(p0),Te,Ti); }
   var OIK=1.0;   // Oikos SYNUA 3TT, pivotante grande com taglio termico: U=1,0 de serie
   var out='<table style="width:100%;border-collapse:collapse">'+
-   '<tr><td>U da porta na junção'+(rl?' — seção REAL de obra (XPS 30 de série)':' — portal + fresta + borda da folha')+'</td><td align=right><b>'+r.U.toFixed(3)+' W/m²K</b></td></tr>'+
+   '<tr><td>U da porta na junção'+(rl?(' — seção REAL de obra ('+(semXps?'sem isolante externo':'XPS 30 de série')+')'):' — portal + fresta + borda da folha')+'</td><td align=right><b>'+r.U.toFixed(3)+' W/m²K</b></td></tr>'+
    (tg&&rBase?('<tr><td style="color:#7a3db8">— mesmo corte sem taglio térmico</td><td align=right style="color:#7a3db8">'+rBase.U.toFixed(3)+' W/m²K → ganho '+((1-r.U/rBase.U)*100).toFixed(0)+'%</td></tr>'):'')+
    '<tr><td>Referência de mercado — Oikos SYNUA 3TT (pivotante c/ taglio)</td><td align=right>'+OIK.toFixed(2)+' W/m²K '+(r.U<=OIK?'<span style="color:#137333;font-weight:700">✓ no nível</span>':'<span style="color:#b06000;font-weight:700">acima</span>')+'</td></tr>'+
    '<tr><td>Superfície interna — ponto crítico (portal/alma)</td><td align=right><b>'+pior.toFixed(1)+' °C</b>'+(tg&&rBase?(' <span style="color:#7a3db8;font-size:12px">(era '+rBase.pior.t.toFixed(1)+')</span>'):'')+'</td></tr>'+
@@ -1706,6 +1710,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-10</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-11</div>
 </body>
 </html>
