@@ -707,7 +707,13 @@ function memorial(c){
 
 function upd(){
   const L=+document.getElementById('sL').value, A=+document.getElementById('sA').value;
-  const imp=function(mm){return (mm/25.4).toFixed(1).replace('.',',')+'″ · '+(mm/304.8).toFixed(2).replace('.',',')+' ft';};
+  const imp=function(mm){
+    var h=Math.round(mm/25.4*2);            // meia polegada
+    var ft=Math.floor(h/24); h-=ft*24;
+    var pol=Math.floor(h/2), meia=h%2;
+    return ft+"'-"+pol+(meia?' 1/2':'')+'"';
+  };
+  window.__ftin=imp;
   document.getElementById('oL').textContent=imp(L);
   document.getElementById('oA').textContent=imp(A);
   ['nL','nA'].forEach(function(id,ix){
@@ -716,7 +722,7 @@ function upd(){
   });
   document.getElementById('avFam').style.display=A<4000?'block':'none';
   const c=calc(L,A); window.__C=c; window.__VAO={L,A};
-  cFolha.textContent=`${fmt(c.FW)} x ${fmt(c.FH)} mm · ${(c.FW/25.4).toFixed(1)}″ x ${(c.FH/25.4).toFixed(1)}″ · ${(c.FW/304.8).toFixed(2)} x ${(c.FH/304.8).toFixed(2)} ft`;
+  cFolha.textContent=`${fmt(c.FW)} x ${fmt(c.FH)} mm (${window.__ftin(c.FW)} x ${window.__ftin(c.FH)})`;
   cPAF.textContent=`${f1(c.PA_F)} ×2`;
   cLARG.textContent=`${f1(c.LARG)} ×${c.th+2>c.th?c.th:''}${''}`; cLARG.textContent=`${f1(c.LARG)}`;
   cTV.textContent=`${f1(c.TV)} ×${c.tv}`;
