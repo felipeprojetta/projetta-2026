@@ -48,6 +48,11 @@
     #lcBoxIN{grid-template-columns:1fr !important;}
   }
   .prancha{max-width:1000px; margin:16px auto; padding:0 16px;}
+  @media print{
+    nav, #btnPrint, #vBuild, header{display:none !important;}
+    body{background:#fff;}
+    .card{border:none; padding:8px 0; break-inside:avoid;}
+  }
   .prancha img{width:100%; border:1px solid var(--linha); border-radius:8px; background:#fff;}
   .prancha .mini{margin:8px 2px;}
   .aviso{background:#fbf1ec; border:1px solid #e3c4b4; color:#7a3a1a; border-radius:6px; padding:8px 10px; font-size:12px; margin-top:8px; display:none;}
@@ -77,6 +82,9 @@
 </nav>
 
 <div class="pag on" id="p1">
+<div style="max-width:1200px;margin:10px auto 0;padding:0 16px;text-align:right">
+  <button id="btnPrint" onclick="window.print()" style="border:1px solid var(--linha);background:var(--papel);padding:7px 16px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--cinza);cursor:pointer">🖨 Imprimir</button>
+</div>
 <div class="wrap">
   <div class="card">
     <h2>Elevação (ao vivo)</h2>
@@ -1051,8 +1059,8 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
 
 </div>
 
-<!-- MAPA FEA: FORA do grid de 2 colunas — container próprio, largura total da página -->
-<div style="padding:0 16px 16px;">
+<!-- MAPA FEA: fora do grid de 2 colunas, mas na MESMA largura de conteudo das outras abas -->
+<div style="max-width:1180px;margin:0 auto;padding:0 16px 16px;">
   <div class="card" id="tFeaCard" style="width:100%;box-sizing:border-box;">
     <h2>6 · Mapa de temperaturas — FEA 2D <span style="font-size:12px;font-weight:400;color:#666">(diferenças finitas, corte horizontal no montante do quadro)</span></h2>
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
@@ -1696,6 +1704,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-6</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-7</div>
 </body>
 </html>
