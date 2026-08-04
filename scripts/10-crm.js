@@ -67,7 +67,7 @@
       // ate' ter orcamento feito e aprovado, mas fica FORA de todo total do
       // CRM enquanto estiver nessa coluna. Serve pra dar entrada em orcamento
       // antigo / negocio que veio por fora sem sujar o pipeline oficial.
-      { id: 'entrada-manual',      label: 'Ag. Informacoes',    color: '#64748B' },
+      { id: 'entrada-manual',      label: 'Ag. Informacoes',    label2: 'Entrada Manual', color: '#64748B' },
       { id: 'fazer-orcamento',     label: 'Fazer Orcamento',     color: '#3B82F6' },
       { id: 'orcamento-pronto',    label: 'Orcamento Pronto',    color: '#8B5CF6' },
       // Felipe sessao 34: 'ELIMINE ESSE ORCAMENTO APROVADO DO CRM' - coluna
@@ -4034,7 +4034,7 @@ ${secoesHtml}
               <div class="crm-column-title-row">
                 <div class="crm-column-title">
                   <span class="crm-column-dot" style="background:${et.color};"></span>
-                  ${et.label}
+                  <span>${et.label}${et.label2 ? `<br><small class="crm-column-sub">${et.label2}</small>` : ''}</span>
                 </div>
                 <span class="crm-column-count">${leadsCol.length}</span>
               </div>

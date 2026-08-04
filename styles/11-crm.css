@@ -97,6 +97,12 @@
   align-items: center;
   gap: 8px;
 }
+.crm-column-sub {
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
 .crm-column-dot {
   width: 8px;
   height: 8px;
