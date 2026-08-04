@@ -1061,8 +1061,8 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
       <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#7a3db8"><input type="checkbox" id="feaTaglio"> Simular taglio térmico no tubo <span style="font-size:11px;font-weight:400;color:#888">(poliamida 24 mm nas almas — conceito Oikos)</span></label>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#0b6e4f"><input type="checkbox" id="feaReal" checked> Seção REAL de obra <span style="font-size:11px;font-weight:400;color:#888">(CROQUI A-A + perfil PA007F da matriz TECNO · XPS 30 de série · ignora isolante/taglio acima)</span></label>
     </div>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
-      <canvas id="feaCv" width="700" height="1020" style="flex:1 1 520px;min-width:0;width:100%;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;justify-content:center">
+      <canvas id="feaCv" width="700" height="1020" style="flex:0 0 auto;width:auto;max-width:100%;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
       <div id="feaLeg" style="flex:0 0 200px;min-width:160px;font-size:12px"></div>
     </div>
     <div id="feaOut" style="margin-top:10px;font-size:13px"></div>
@@ -1531,17 +1531,7 @@ function corRampa(f){                                 // azul -> ciano -> verde 
 window.tFeaRender=function(){
   var st=window.__tFEA; if(!st) return;
   var cv=document.getElementById('feaCv'); if(!cv) return;
-  /* card full-width: a resolucao do desenho segue a largura REAL disponivel no card.
-     z=1,15 = fator com que o CSS reamplia o canvas depois (tipografia legivel). */
-  (function(){
-    var card=document.getElementById('tFeaCard'), z=1.15;
-    var w=card?card.clientWidth:0;
-    if(!w){ var vw=document.documentElement.clientWidth||1200; w=vw-64; }
-    var disp=w-32-216;                                   // padding do card + legenda + gap
-    if(disp<560) disp=w-32;                              // legenda quebrou pra baixo
-    var alvo=Math.round(Math.max(560,Math.min(2400,disp))/z);
-    if(Math.abs(cv.width-alvo)>8) cv.width=alvo;         // so' redimensiona quando muda de fato
-  })();
+  if(cv.width!==700) cv.width=700;                       // proporcao fixa do desenho: 700x1020
   var inv=document.getElementById('feaInv').checked;
   var tg=document.getElementById('feaTaglio'); tg=!!(tg&&tg.checked);
   var rl=document.getElementById('feaReal'); rl=!!(rl&&rl.checked);
@@ -1699,17 +1689,10 @@ window.tFeaRender=function(){
   document.getElementById('feaOut').innerHTML=out;
 };
 ['feaInv','feaVer','feaTaglio','feaReal'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',function(){window.tFeaRender();});});
-window.addEventListener('resize',function(){            // largura do desenho segue a janela
-  clearTimeout(window.__feaRz);
-  window.__feaRz=setTimeout(function(){ if(window.__tFEA&&window.tFeaRender) window.tFeaRender(); },180);
-});
-/* ao ABRIR a aba TERMICA o card ganha largura de verdade (antes clientWidth=0) — remede e redesenha */
-(function(){var bt=document.querySelector('nav button[data-p="p6"]');
-  if(bt) bt.addEventListener('click',function(){ setTimeout(function(){ if(window.__tFEA&&window.tFeaRender) window.tFeaRender(); },0); });})();
 if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-3</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-4</div>
 </body>
 </html>
