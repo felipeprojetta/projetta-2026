@@ -94,7 +94,6 @@
         <button data-p="p5">MEMORIAL FBC · SEM NOA</button>
   <button data-p="p6">TÉRMICA</button>
   <button data-p="p8">MEMÓRIA TÉRMICA</button>
-  <button data-p="p9">PERFIS</button>
   <button data-p="p10">COMPONENTES</button>
 </nav>
 
@@ -239,7 +238,6 @@ document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()
   document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
   document.querySelectorAll('.pag').forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); document.getElementById(b.dataset.p).classList.add('on');
-  if(b.dataset.p==='p9' && window.PerfisRender) PerfisRender(null);
   if(b.dataset.p==='p10' && window.ComponentesRender) ComponentesRender(null);
 }));
 </script>
@@ -1104,24 +1102,10 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
   <div id="memTerm"></div>
 </div></div>
 
-<div class="pag" id="p9"><div style="max-width:1180px;margin:0 auto;padding:16px;">
-  <div class="card" style="background:#f1f6fb;border-left:4px solid #1a73e8">
-    <h2 style="margin-top:0">Perfis do quadro estrutural</h2>
-    <div style="font-size:13px;color:#444">Todos os perfis do sistema (prancha STRUCTURE_GUIDE). Clique num perfil no desenho para destacá-lo. Propriedades de seção calculadas para alumínio 6063‑T5 (E = 69 GPa · ρ = 2700 kg/m³).</div>
-  </div>
-  <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
-    <div style="flex:1 1 380px;min-width:320px">
-      <div class="card"><div id="perfil3d"></div></div>
-    </div>
-    <div style="flex:1 1 480px;min-width:340px" id="perfilFichas"></div>
-  </div>
-  <div class="card" id="perfilResumo"></div>
-</div></div>
-
 <div class="pag" id="p10"><div style="max-width:1180px;margin:0 auto;padding:16px;">
   <div class="card" style="background:#f1f6fb;border-left:4px solid #1a73e8">
     <h2 style="margin-top:0">Componentes do sistema</h2>
-    <div style="font-size:13px;color:#444">Ficha de todos os materiais e ferragens (datasheet TECHNICAL_SPECIFICATIONS). Clique num componente para ver as propriedades completas.</div>
+    <div style="font-size:13px;color:#444">Ficha de todos os materiais e ferragens do sistema. As especificações vêm dos fabricantes/normas oficiais de cada item (indicadas em cada ficha). Clique num componente.</div>
   </div>
   <div id="compChips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"></div>
   <div id="compDetalhe"></div>
@@ -1292,29 +1276,37 @@ function desenhoReal(rec,p,r,tmin,tmax,U){
 /* ---------- ABA COMPONENTES: datasheet do sistema ---------- */
 var COMPONENTES = [
   {id:"estr", ico:"▦", nome:"Estrutura interna", sub:"Alumínio 6063‑T5", cor:"#8ab4d8",
-   desc:"Quadro estrutural da folha em liga 6063‑T5, extrudada e envelhecida (têmpera T5). Alta resistência mecânica, ótima resistência à corrosão e estabilidade dimensional.",
-   props:[["Liga","AA 6063‑T5 (endurecida por precipitação)"],["Tensão de escoamento","≥ 110 MPa"],["Tensão de ruptura","≥ 160 MPa"],["Módulo de elasticidade","69 GPa"],["Dureza Brinell","55–70 HB"],["Densidade","2,70 g/cm³"],["Dilatação térmica","23,4 µm/m·°C"],["Condutividade térmica","200–210 W/m·K"],["Norma","ASTM B221 · EN 755"]]},
+   desc:"Quadro estrutural da folha em liga 6063‑T5, extrudada e envelhecida (têmpera T5). Perfil arquitetônico padrão para esquadrias — boa relação resistência/peso, ótima extrudabilidade e resistência à corrosão.",
+   fonte:"Valores da liga: The Aluminum Association / ASM (norma ASTM B221).",
+   props:[["Liga / têmpera","AA 6063‑T5"],["Limite de escoamento","145 MPa (típico)"],["Limite de resistência","185 MPa (típico)"],["Alongamento","≈ 12%"],["Módulo de elasticidade","68,9 GPa"],["Dureza Brinell","60 HB (típico)"],["Densidade","2,70 g/cm³"],["Dilatação térmica","23,4 µm/m·°C"],["Condutividade térmica","209 W/m·K"],["Norma de extrusão","ASTM B221 · EN 755"]]},
   {id:"acm", ico:"▤", nome:"Revestimento ACM", sub:"4 mm · PVDF", cor:"#c8d4dc",
-   desc:"Alumínio composto: duas lâminas de alumínio 0,5 mm sobre núcleo termoplástico, face externa em pintura PVDF (Kynar). Núcleo em resina mineral retardante de chamas.",
-   props:[["Espessura total","4 mm (2× lâmina 0,5 mm + núcleo)"],["Pintura externa","PVDF 70% Heavy Duty ~20 µm"],["Tensão de ruptura","≥ 175 MPa"],["Escoamento","≥ 160 MPa"],["Módulo","69 GPa"],["Densidade","2,70 g/cm³"],["Núcleo","resina mineral FR (Classe conforme espec.)"],["Cor / estabilidade","estável a UV e variação térmica"]]},
+   desc:"Alumínio composto: duas lâminas de alumínio 0,5 mm sobre núcleo de polietileno (ou mineral FR), face externa em pintura PVDF (fluoreto de polivinilideno). Espessura total 4 mm.",
+   fonte:"Faixas típicas de painel ACM/PVDF de fabricantes (ex. Alucobond/Alubond); confirmar na ficha do lote fornecido.",
+   props:[["Espessura total","4 mm"],["Lâminas de alumínio","2 × 0,50 mm (liga 3105/5005)"],["Pintura externa","PVDF (Kynar 500®) 2–3 camadas"],["Núcleo","PE ou mineral FR (retardante de chama)"],["Peso","≈ 5,5–7,6 kg/m² (conforme núcleo)"],["Rigidez à flexão (E·I)","0,240 kN·m²/m típico"],["Estabilidade de cor","ΔE ≤ 5 em 10 anos (garantia PVDF)"],["Reação ao fogo","A2/B conforme núcleo (EN 13501‑1)"]]},
   {id:"pivo", ico:"⊙", nome:"Sistema de pivô", sub:"Inox AISI 304", cor:"#b8c4cc",
-   desc:"Pivô premium em aço inox austenítico AISI 304 (EN 1.4301). Operação silenciosa, alta capacidade de carga e reversibilidade para portas de grande formato (3,5 a 8 m de altura).",
-   props:[["Material","Aço inox austenítico AISI 304 / EN 1.4301"],["Composição","~18% Cr · ~8% Ni"],["Escoamento","205–215 MPa"],["Ruptura","515–750 MPa"],["Módulo","193 GPa"],["Dureza","150–200 HB"],["Cisalhamento","~290 MPa"],["Carga — padrão","100–180 kg"],["Carga — heavy‑duty","200–350+ kg"],["Carga — oversized","até 500 kg (eng. sob medida)"]]},
-  {id:"vedInf", ico:"▁", nome:"Vedação inferior automática", sub:"Prima Ferragens · drop‑down", cor:"#9ccc9c",
-   desc:"Guilhotina automática que desce ao fechar a porta, comprimindo a barra de silicone/EPDM contra o piso sem atrito nem ruído. Nivelamento esquerda‑direita independente, compensa piso irregular.",
-   props:[["Corpo","alumínio extrudado"],["Barra de vedação","silicone alta densidade ou EPDM"],["Acionamento","mecanismo inox"],["Molas","aço temperado"],["Altura de vedação","8–20 mm (conforme modelo)"],["Isolamento acústico","até 38 dB de redução"],["Durabilidade","> 200.000 ciclos"]]},
+   desc:"Pivô estrutural em aço inox austenítico AISI 304 (EN 1.4301) — corpo do sistema de pivotamento da folha. Operação silenciosa e alta capacidade de carga para portas de grande formato.",
+   fonte:"Propriedades do material: norma AISI 304 / EN 1.4301 (ASM). Capacidade de carga do conjunto: projeto Projetta.",
+   props:[["Material","Aço inox austenítico AISI 304 / EN 1.4301"],["Composição","≈ 18% Cr · 8% Ni"],["Limite de escoamento (0,2%)","≥ 205 MPa"],["Limite de resistência","515–720 MPa"],["Módulo de elasticidade","193–200 GPa"],["Dureza","≤ 201 HB"],["Alongamento","≥ 40%"],["Acabamento","escovado ou polido"]]},
+  {id:"vedInf", ico:"▁", nome:"Vedação inferior automática", sub:"Guilhotina drop‑down", cor:"#9ccc9c",
+   desc:"Guilhotina automática que desce ao fechar a porta, comprimindo a barra de silicone/EPDM contra o piso sem atrito nem ruído. Fornecedor a confirmar (Prima Ferragens ou equivalente).",
+   fonte:"Faixas típicas de guilhotinas automáticas de mercado (ex. Athmer, Comaglio); pendente ficha do fornecedor definitivo.",
+   props:[["Corpo","alumínio extrudado"],["Barra de vedação","silicone ou EPDM"],["Acionamento","pino lateral, mecanismo interno"],["Curso de vedação típico","10–20 mm"],["Comprimentos","até ≈ 1200 mm por barra"],["Isolamento acústico","até ≈ 40 dB (conforme conjunto de porta)"],["Nota","valores a confirmar na ficha oficial do fornecedor"]]},
   {id:"qlon", ico:"◗", nome:"Vedação perimetral Q‑LON", sub:"QL 48800 · Schlegel", cor:"#f0b46a",
-   desc:"Weatherseal de espuma PU com película PE, na fresta folha↔portal. Menor condutividade do mercado. Ver aba TÉRMICA para o cálculo da junção.",
-   props:[["Referência","QL 48800 (T‑slot Tipo A 5,3 mm)"],["Núcleo","espuma de poliuretano (PU)"],["Película","polietileno (PE), UV‑estável"],["Reforço","fio de fibra de vidro / PP"],["Condutividade","0,041 W/m·K (ift Rosenheim, EN 12667)"],["Serviço","−60 a +70 °C"],["Folga de vedação","2,5–7,0 mm"],["Compressão de trabalho","30–50%"],["Garantia","10 anos"]]},
-  {id:"keso", ico:"🔑", nome:"Fechadura mecânica KESO", sub:"12 pinos · Suíça", cor:"#d0a0a0",
-   desc:"Cilindro mecânico de alta segurança de 12 pinos em múltiplas fileiras. Anti‑furo, anti‑bumping, anti‑manipulação, chave de perfil patenteado com duplicação restrita.",
-   props:[["Marca","KESO (Suíça)"],["Cilindro","12 pinos, multi‑fileira"],["Material","aço temperado + latão"],["Controle de chave","perfil patenteado, cópia restrita"],["Certificação","EN 1303 · classes VdS"],["Durabilidade","100.000+ ciclos"]]},
-  {id:"tedee", ico:"⧉", nome:"Fechadura smart Tedee Pro", sub:"Motorizada · BLE/Wi‑Fi", cor:"#a0b0d0",
-   desc:"Fechadura eletrônica ultracompacta com motor de precisão e integração por app. Travamento/destravamento automático, criptografia AES ponta a ponta.",
-   props:[["Carcaça","alumínio anodizado / inox"],["Motor","DC de precisão, silencioso"],["Bateria","Li‑Ion 3000 mAh, USB‑C"],["Autonomia","10–12 meses"],["Conectividade","Bluetooth 5.0 · Wi‑Fi (bridge)"],["Torque","até 2,2 Nm"],["Ruído","< 30 dB no ciclo"],["Durabilidade","100.000+ ciclos"]]},
-  {id:"philips", ico:"⊞", nome:"Fechadura smart Philips EasyKey 9300", sub:"Biométrica · 6 modos", cor:"#b0b0b8",
-   desc:"Fechadura biométrica premium com 6 modos de abertura, verificação dupla, detecção de incêndio (destrava em emergência) e painel touch iluminado.",
-   props:[["Carcaça","alumínio + vidro temperado"],["Sensor","biométrico semicondutor"],["Trava","aço reforçado"],["Modos de abertura","digital · PIN · RFID · app · chave · código temporário"],["Capacidade","100–200 digitais · 100 PINs · 100 RFID"],["Alimentação","8× AA + power bank USB (emergência)"],["Autonomia","10–12 meses"],["Espessura de porta","38–120 mm"],["Operação","−20 a +60 °C"]]}
+   desc:"Weatherseal de espuma PU com película PE, na fresta folha↔portal. Menor condutividade térmica entre os weatherseals de mercado. Ver aba TÉRMICA para o cálculo da junção.",
+   fonte:"Catálogo oficial Schlegel Q‑Lon (América Latina) + relatório ift Rosenheim.",
+   props:[["Referência","QL 48800 (encaixe em T, Tipo A 5,3 mm)"],["Núcleo","espuma de poliuretano (PU)"],["Película","polietileno (PE), UV‑estável"],["Reforço","fio de fibra de vidro / PP"],["Condutividade térmica","0,041 W/m·K (ift Rosenheim, EN 12667)"],["Faixa de serviço","−60 a +70 °C"],["Largura da fenda","3,2 mm · sulco 2,3 mm"],["Folga de vedação","2,5–7,0 mm"],["Recuperação (alumínio)","99%"],["Garantia","10 anos"]]},
+  {id:"keso", ico:"🔑", nome:"Fechadura mecânica KESO", sub:"Cilindro de alta segurança · Suíça", cor:"#d0a0a0",
+   desc:"Cilindro mecânico KESO de alta segurança fabricado na Suíça (ASSA ABLOY). As linhas topo (F1 / 8000 Ω²) usam pinos em três eixos independentes com proteção ativa de cópia, anti‑furo e anti‑bumping.",
+   fonte:"KESO AG / ASSA ABLOY — dados públicos das linhas F1 e 8000 Ω².",
+   props:[["Marca","KESO (Suíça · ASSA ABLOY)"],["Linha F1","12 pinos em 3 fileiras / 3 eixos"],["Linha 8000 Ω²","até 15 pinos + 3 fileiras de contrapistões"],["Pinos de travamento","aço temperado HRC 60"],["Corpo do cilindro","latão · barra de reforço em aço‑níquel"],["Proteção","anti‑furo, anti‑bumping, anti‑extração"],["Controle de chave","perfil patenteado, cópia com cartão"],["Certificação","DIN 18252 · EN 1303:2015 · VdS"],["Resistência à torção (F1)","≥ 15 N·m"]]},
+  {id:"tedee", ico:"⧉", nome:"Fechadura smart Tedee PRO", sub:"Motorizada · BLE 5.0", cor:"#a0b0d0",
+   desc:"Fechadura eletrônica ultracompacta (Ø 45 mm) em alumínio, com motor de precisão e app. Travamento/destravamento automático, auto‑unlock por proximidade e função pull‑spring. iF Design Award 2021.",
+   fonte:"tedee.com — página oficial do produto Tedee PRO e datasheet.",
+   props:[["Carcaça","alumínio · Ø 45 mm · ≈ 196 g"],["Motor","DC de precisão, silencioso"],["Bateria","LiPo recarregável 3000 mAh"],["Autonomia","6–14 meses (8 usos/dia)"],["Carga","cabo magnético USB"],["Conectividade","Bluetooth BLE 5.0 2,4 GHz + Wi‑Fi (Bridge)"],["Segurança","TLS 1.3 · chaves assimétricas · cert. AV‑Test"],["Integrações","Apple HomeKit, Home Assistant, etc."],["Instalação","cilindro Tedee‑ready ou adaptador (euro)"]]},
+  {id:"philips", ico:"⊞", nome:"Fechadura smart Philips EasyKey 9300", sub:"Biométrica push‑pull", cor:"#b0b0b8",
+   desc:"Fechadura biométrica push‑pull com sensor de digital integrado ao puxador. Mortise automática (deadbolt sai sozinho ao fechar), fake‑PIN anti‑espiada e gateway IoT opcional para acesso remoto.",
+   fonte:"Philips EasyKey — ficha oficial do 9300 e manual do usuário.",
+   props:[["Formato","push‑pull, mortise automática"],["Sensor","biométrico no puxador"],["Modos de abertura","digital · PIN · cartão RFID · app/Wi‑Fi · chave mecânica · PIN temporário"],["Segurança","dupla verificação · fake‑PIN anti‑espiada"],["Bloqueio","3 min após 5 tentativas erradas"],["Alarmes","arrombamento, violação, bateria fraca"],["Alimentação","pilhas alcalinas + power bank USB (emergência)"],["Espessura de porta","38–120 mm"],["Umidade de operação","15–93% UR"],["Conectividade","Bluetooth · Wi‑Fi (gateway opcional)"]]}
 ];
 
 window.ComponentesRender = function(sel){
@@ -1334,124 +1326,10 @@ window.ComponentesRender = function(sel){
     '<table style="width:100%;border-collapse:collapse;font-size:13px">'+
       C.props.map(function(p,i){return '<tr style="border-bottom:1px solid #eee"><td style="padding:5px 0;color:#555;width:42%">'+p[0]+'</td><td align=right style="font-weight:600">'+p[1]+'</td></tr>';}).join('')+
     '</table>'+
+    (C.fonte?'<div style="font-size:11.5px;color:#999;margin-top:8px;font-style:italic">Fonte: '+C.fonte+'</div>':'')+
     (C.id==='pivo'?'<div style="font-size:12px;color:#777;margin-top:10px;border-top:1px solid #eee;padding-top:8px">Nota de projeto: para o pivô superior do modelo 600 kg, o AISI 304 não é adequado como gaiola de esferas (não tempera) — a solução adotada é bucha de bronze grafitado flangeada. O corpo estrutural do pivô segue em inox 304.</div>':'')+
     (C.id==='qlon'?'<div style="font-size:12px;color:#777;margin-top:10px;border-top:1px solid #eee;padding-top:8px">A câmara fechada entre os 2 Q‑LON é modelada na aba TÉRMICA (ISO 6946, não‑ventilada).</div>':'')+
   '</div>';
-};
-
-/* ---------- ABA PERFIS: dados + render 3D + fichas ---------- */
-var PERFIS = [
-  {id:"quadro", nome:"Quadro externo", desig:'4"×4"×1/4"', dim:"101,6 × 101,6 × 6,35 mm",
-   tipo:"Tubo quadrado", mat:"Alumínio 6063‑T5", cor:"#8ab4d8",
-   A:2419, Ix:3.675e6, Iy:3.675e6, Wx:72334, Wy:72334, peso:6.532,
-   uso:"Contorno da folha. Recebe os pivôs (carga 400–800 kg) e fecha o perímetro. É o perfil mais rígido do conjunto."},
-  {id:"reforco", nome:"Reforço H/V", desig:'4"×2"×1/8"', dim:"101,6 × 50,8 × 3,175 mm",
-   tipo:"Tubo retangular", mat:"Alumínio 6063‑T5", cor:"#f0b46a",
-   A:927, Ix:1.239e6, Iy:4.128e5, Wx:24386, Wy:16254, peso:2.504,
-   uso:"Travessas horizontais e montantes verticais internos. Montado com a alma de 101,6 mm na direção da flexão (eixo forte)."},
-  {id:"cant", nome:"Cantoneira de união", desig:'L 1.1/2"×1.1/2"×1/8"', dim:"38,1 × 38,1 × 3,175 mm",
-   tipo:"Cantoneira abas iguais", mat:"Alumínio 6063‑T5", cor:"#9ccc9c",
-   A:232, Ix:3.237e4, Iy:3.237e4, Wx:1181, Wy:1181, peso:0.626,
-   uso:"Une os perfis nos encontros (T e cantos) com parafusos autobrocantes inox 416 Ø4,2×19 mm. Sem solda em nenhum ponto."},
-  {id:"chapa", nome:"Perfil da chapa", desig:'35×35 #1,5', dim:"35 × 35 × 1,5 mm (dobra L)",
-   tipo:"Perfil dobrado", mat:"Alumínio 1,5 mm", cor:"#c8d4dc",
-   A:105, Ix:null, Iy:null, Wx:null, Wy:null, peso:0.284,
-   uso:"Suporte de borda da chapa ACM e da vedação inferior automática. Trabalha como enrijecedor de pele, não estrutural."},
-  {id:"batente", nome:"Batente (portal)", desig:'Perfil especial Projetta', dim:"105,8 × 85,1 mm (env.)",
-   tipo:"Perfil exclusivo", mat:"Alumínio 6063‑T5 · e≈2,0 mm", cor:"#b0a0d0",
-   A:null, Ix:null, Iy:null, Wx:null, Wy:null, peso:null,
-   uso:"Marco fixo (PA007P). Fixado à alvenaria/estrutura de aço por parafusos Ø8×100 mm. Aloja os 2 Q‑LON QL 48800 da vedação. Geometria proprietária — propriedades sob consulta ao setor técnico."}
-];
-
-window.PerfisRender = function(sel){
-  var svg = document.getElementById('perfil3d');
-  var fic = document.getElementById('perfilFichas');
-  var res = document.getElementById('perfilResumo');
-  if(!svg) return;
-  // -------- render isometrico do quadro --------
-  // projecao iso simples: x' = (x - z)*cos30 ; y' = y + (x + z)*sin30
-  var c30=Math.cos(Math.PI/6), s30=Math.sin(Math.PI/6);
-  function iso(x,y,z){ return [ (x - z)*c30, y + (x + z)*s30 ]; }
-  function poly(pts,fill,stroke,extra){
-    var d = pts.map(function(p,i){var q=iso(p[0],p[1],p[2]);return (i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1);}).join(' ')+' Z';
-    return '<path d="'+d+'" fill="'+fill+'" stroke="'+(stroke||'#456')+'" stroke-width="0.7" stroke-linejoin="round"'+(extra||'')+'/>';
-  }
-  // barra prismatica: face frontal + topo + lateral, com cor por perfil
-  function barra(x0,y0,z0, dx,dy,dz, base, hl){
-    function sh(hex,f){ // escurece/clareia
-      var n=parseInt(hex.slice(1),16), r=(n>>16)&255,g=(n>>8)&255,b=n&255;
-      r=Math.round(r*f);g=Math.round(g*f);b=Math.round(b*f);
-      return 'rgb('+r+','+g+','+b+')';
-    }
-    var o = hl?' opacity="1"':' opacity="0.9"';
-    var frente=[[x0,y0,z0+dz],[x0+dx,y0,z0+dz],[x0+dx,y0+dy,z0+dz],[x0,y0+dy,z0+dz]];
-    var topo  =[[x0,y0+dy,z0],[x0+dx,y0+dy,z0],[x0+dx,y0+dy,z0+dz],[x0,y0+dy,z0+dz]];
-    var lado  =[[x0+dx,y0,z0],[x0+dx,y0+dy,z0],[x0+dx,y0+dy,z0+dz],[x0+dx,y0,z0+dz]];
-    return poly(frente,sh(base,1.0),hl?'#111':'#567',o)+poly(topo,sh(base,0.78),hl?'#111':'#567',o)+poly(lado,sh(base,0.6),hl?'#111':'#567',o);
-  }
-  // dimensoes esquematicas da folha (mm reduzidos p/ desenho)
-  var W=150, H=430, q=12, r=7; // largura, altura, esp. quadro, esp. reforco (visuais)
-  var parts=[];
-  var cQuadro = PERFIS[0].cor, cRef = PERFIS[1].cor, cCant = PERFIS[2].cor;
-  var hlQ = sel==='quadro', hlR = sel==='reforco', hlC = sel==='cant';
-  // 4 lados do quadro (contorno) — dz = profundidade do perfil
-  var dep=q;
-  parts.push(barra(0,0,0, q,H,dep, cQuadro, hlQ));        // montante esq
-  parts.push(barra(W-q,0,0, q,H,dep, cQuadro, hlQ));      // montante dir
-  parts.push(barra(0,H-q,0, W,q,dep, cQuadro, hlQ));      // travessa topo
-  parts.push(barra(0,0,0, W,q,dep, cQuadro, hlQ));        // travessa base
-  // travessas horizontais internas (reforço)
-  for(var i=1;i<=4;i++){ var yy=H*i/5; parts.push(barra(q,yy,dep*0.2, W-2*q,r,dep*0.7, cRef, hlR)); }
-  // montantes verticais internos (reforço)
-  for(var j=1;j<=2;j++){ var xx=q+(W-2*q)*j/3; parts.push(barra(xx,q,dep*0.2, r,H-2*q,dep*0.7, cRef, hlR)); }
-  // cantoneiras nos cantos (pequenas)
-  var cc=[[q,q],[W-2*q,q],[q,H-2*q],[W-2*q,H-2*q]];
-  cc.forEach(function(p){ parts.push(barra(p[0],p[1],dep*0.9, 10,10,4, cCant, hlC)); });
-  // ordenar por profundidade (pintor): desenha z maior primeiro
-  var vb='-140 -30 460 560';
-  svg.innerHTML='<svg viewBox="'+vb+'" style="width:100%;height:auto;max-height:520px" xmlns="http://www.w3.org/2000/svg">'+
-    parts.join('')+
-    '<text x="10" y="'+(H+70)+'" font-size="15" fill="#555" transform="rotate(30 10 '+(H+70)+')">quadro '+PERFIS[0].desig+'</text>'+
-    '</svg>'+
-    '<div style="font-size:12px;color:#777;margin-top:6px;text-align:center">Vista isométrica esquemática — 4 lados do quadro externo, travessas e montantes de reforço, cantoneiras de canto. Não em escala.</div>';
-
-  // -------- fichas --------
-  function fmt(v,d){ return (v===null||v===undefined)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}); }
-  var html='';
-  PERFIS.forEach(function(P){
-    var on = sel===P.id;
-    html+='<div class="card" onclick="PerfisRender(\''+P.id+'\')" style="cursor:pointer;margin-bottom:10px;border-left:5px solid '+P.cor+(on?';box-shadow:0 0 0 2px '+P.cor:'')+'">'+
-      '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'+
-        '<b style="font-size:15px">'+P.nome+'</b>'+
-        '<span style="font-family:ui-monospace,monospace;font-size:13px;color:#1a73e8">'+P.desig+'</span>'+
-        '<span style="font-size:12px;color:#888">'+P.tipo+'</span></div>'+
-      '<div style="font-size:12px;color:#666;margin:4px 0">'+P.dim+' · '+P.mat+'</div>'+
-      '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px">'+
-        '<tr><td>Área da seção</td><td align=right>'+fmt(P.A,0)+' mm²</td>'+
-            '<td style="padding-left:14px">Peso linear</td><td align=right><b>'+fmt(P.peso,3)+' kg/m</b></td></tr>'+
-        '<tr><td>I<sub>x</sub> (eixo forte)</td><td align=right>'+(P.Ix?fmt(P.Ix/1e4,2)+' cm⁴':'—')+'</td>'+
-            '<td style="padding-left:14px">W<sub>x</sub></td><td align=right>'+(P.Wx?fmt(P.Wx/1e3,2)+' cm³':'—')+'</td></tr>'+
-        '<tr><td>I<sub>y</sub> (eixo fraco)</td><td align=right>'+(P.Iy?fmt(P.Iy/1e4,2)+' cm⁴':'—')+'</td>'+
-            '<td style="padding-left:14px">W<sub>y</sub></td><td align=right>'+(P.Wy?fmt(P.Wy/1e3,2)+' cm³':'—')+'</td></tr>'+
-      '</table>'+
-      '<div style="font-size:12px;color:#555;margin-top:6px">'+P.uso+'</div>'+
-    '</div>';
-  });
-  fic.innerHTML=html;
-
-  // -------- resumo / peso da folha --------
-  // contagem aproximada para uma folha padrao (do desenho): perimetro quadro + 4 travessas + 2 montantes
-  var Lq = (2*(1.939+5.994)); // m de quadro (perimetro tipico folha 1939x5994)
-  var Lref = (4*1.939 + 2*5.994);
-  var pQuadro = Lq*PERFIS[0].peso, pRef = Lref*PERFIS[1].peso;
-  res.innerHTML='<h3 style="margin-top:0">Peso estrutural aproximado — folha 1939 × 5994 mm</h3>'+
-    '<table style="width:100%;border-collapse:collapse;font-size:13px">'+
-    '<tr style="border-bottom:1px solid #ddd"><th align=left>Perfil</th><th align=right>Comprimento</th><th align=right>Peso</th></tr>'+
-    '<tr><td>Quadro externo (perímetro)</td><td align=right>'+fmt(Lq,2)+' m</td><td align=right>'+fmt(pQuadro,1)+' kg</td></tr>'+
-    '<tr><td>Reforços (4 travessas + 2 montantes)</td><td align=right>'+fmt(Lref,2)+' m</td><td align=right>'+fmt(pRef,1)+' kg</td></tr>'+
-    '<tr style="font-weight:700;border-top:2px solid #333"><td>Total do esqueleto de alumínio</td><td></td><td align=right>'+fmt(pQuadro+pRef,1)+' kg</td></tr>'+
-    '</table>'+
-    '<div style="font-size:12px;color:#777;margin-top:6px">Só o esqueleto estrutural (sem chapas ACM, isolante, vidros e ferragens). Comprimentos derivados do vão padrão; ajuste conforme o projeto.</div>';
 };
 
 /* ---------- MEMÓRIA DE CÁLCULO TÉRMICA (passo a passo, ao vivo) ---------- */
@@ -2045,6 +1923,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-31</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-32</div>
 </body>
 </html>
