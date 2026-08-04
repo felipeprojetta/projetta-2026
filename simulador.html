@@ -1356,7 +1356,7 @@ function tRender(){
     "ACM 4 mm interno\n"+
     "Tiras de ACM a cada 600 mm · FURO OBLONGO · ponto fixo único ao centro\n"+
     "Parafusos inox a cada "+p.par+" mm, ancorados no montante\n"+
-    "Vedação: 2× Q-LON QL 4870 (T-slot Tipo A, λ 0,041 W/mK ift Rosenheim) na fresta — câmara fechada\n\n"+
+    "Vedação: 2× Q-LON QL 48800 (T-slot Tipo A 5,3 mm · folga 2,5–7,0 mm · λ 0,041 W/mK ift Rosenheim) na fresta — câmara fechada\n\n"+
     "Espessura da folha ≈ "+esp.toFixed(1)+" mm    U = "+r.U.toFixed(3)+" W/m²K ("+(r.U*0.1761).toFixed(3)+" Btu)"+
     "</pre>";
 
@@ -1461,7 +1461,7 @@ function montarReal(p){
   /* Secao rasterizada do DXF de obra (CROQUI A-A, caso com XPS 30 de serie).
      Dados: nL=230 colunas ao longo da largura (2 mm), nT=77 linhas na espessura.
      Codigos: 1 ALU · 2 ACM · 3 XPS · 4 miolo · 5 cavidade de ar fechada ·
-     6 camara folha<->portal fechada pelos 2 Q-LON QL 4870. Alvenaria de 100 mm prefixada. */
+     6 camara folha<->portal fechada pelos 2 Q-LON QL 48800. Alvenaria de 100 mm prefixada. */
   var R=window.__SECAO_REAL, alv=100;
   var nx=R.nT, nyD=R.nL, nyA=Math.round(alv/R.DX), ny=nyA+nyD;
   var g=new Float64Array(R.nT*R.nL);           // decodifica RLE (varre i=comprimento, j=espessura)
@@ -1474,7 +1474,7 @@ function montarReal(p){
   }
   var lCav=(p.mCav==='ar')?0.56:LAMF[p.mCav];
   /* projeto SEM isolante externo: mesmo CAD, faixa do XPS preenchida pelo miolo */
-  /* 6 = camara folha<->portal FECHADA pelos 2 Q-LON QL 4870 (Schlegel, T-slot Tipo A 5,3mm, alu): cavidade nao-ventilada ISO 6946
+  /* 6 = camara folha<->portal FECHADA pelos 2 Q-LON QL 48800 (Schlegel, T-slot Tipo A 5,3mm, alu): cavidade nao-ventilada ISO 6946
      (R~0,16 m2K/W p/ ~15 mm => lambda-eq 0,09, convec+radiacao inclusas).
      O 0,026 anterior (ar parado, so conducao) superestimava o isolamento da fresta.
      3 = faixa de isolante do CAD: material REAL da recomendacao (xps/pir) ou miolo. */
@@ -1660,7 +1660,7 @@ window.tFeaRender=function(){
     ctx.fillStyle='#222';ctx.font='11px sans-serif';ctx.textAlign='center';
     ctx.fillText('ALVENARIA',ox+g.nx*escX/2,py(g.alv/2)+3);
     ctx.fillText('PORTAL PA007P',ox+g.nx*escX/2,py(g.alv+42)+3);
-    ctx.fillText('fresta · 2× Q-LON QL 4870 · câmara fechada',ox+g.nx*escX/2,py(g.alv+96)+3);
+    ctx.fillText('fresta · 2× Q-LON QL 48800 · câmara fechada',ox+g.nx*escX/2,py(g.alv+96)+3);
     ctx.fillText('montante PA007F',ox+g.nx*escX/2,py(g.alv+138)+3);
     var nmCav=(st.p.mCav==='eps'?'EPS':'lã de rocha');
     ctx.save();ctx.translate(px(12),py(g.alv+300));ctx.rotate(-Math.PI/2);ctx.fillText(semXps?('miolo · '+nmCav):(extReal.toUpperCase()+' 30'),0,3);ctx.restore();
@@ -1702,7 +1702,7 @@ window.tFeaRender=function(){
     var tv=lo+passo*b2, c2=corRampa((tv-lo)/(hi2-lo));
     li+='<div style="display:flex;align-items:center;gap:8px;margin:2px 0"><span style="width:26px;height:14px;border-radius:3px;background:rgb('+c2[0]+','+c2[1]+','+c2[2]+')"></span>'+tv.toFixed(1)+' °C</div>';
   }
-  leg.innerHTML='<b>Isotermas</b>'+li+'<div style="margin-top:8px;color:#666">malha '+DX+' mm · junção completa<br>Rsi 0,13 · Rse 0,04 m²K/W<br>fresta folha↔portal: câmara fechada<br>por 2× Q-LON QL 4870 (ISO 6946 · R 0,16)</div>';
+  leg.innerHTML='<b>Isotermas</b>'+li+'<div style="margin-top:8px;color:#666">malha '+DX+' mm · junção completa<br>Rsi 0,13 · Rse 0,04 m²K/W<br>fresta folha↔portal: câmara fechada<br>por 2× Q-LON QL 48800 (ISO 6946 · R 0,16)</div>';
   // resultados
   var to=orv2(Ti,st.ur), pior=r.pior.t;
   var okc = inv ? (pior>to+1) : true;
@@ -1720,7 +1720,7 @@ window.tFeaRender=function(){
        nao na pele exposta ao sol */
      var jF=jDe(g.alv+95), rec2=Math.max(1,Math.round(10/DX));
      var tQe=r.T[jF*g.nx+rec2], tQi=r.T[jF*g.nx+g.nx-1-rec2], tQ=Math.max(tQe,tQi);
-     return '<tr><td>Q-LON QL 4870 na fresta (kerf ext/int) — serviço −60…+70 °C</td><td align=right>'+tQe.toFixed(1)+' / '+tQi.toFixed(1)+' °C '+(tQ<=70?'<span style="color:#137333;font-weight:700">✓</span>':'<span style="color:#c5221f;font-weight:700">✗ acima do serviço — restringir absortância (cor clara) ou vedação externa de silicone</span>')+'</td></tr>';})()+
+     return '<tr><td>Q-LON QL 48800 na fresta (kerf ext/int) — serviço −60…+70 °C</td><td align=right>'+tQe.toFixed(1)+' / '+tQi.toFixed(1)+' °C '+(tQ<=70?'<span style="color:#137333;font-weight:700">✓</span>':'<span style="color:#c5221f;font-weight:700">✗ acima do serviço — restringir absortância (cor clara) ou vedação externa de silicone</span>')+'</td></tr>';})()+
    '</table>'+
    '<div style="margin-top:6px;font-size:11.5px;color:#888">Mesmo método do THERM (condução 2D em regime permanente). A faixa fria/quente no portal e no montante é a ponte térmica do alumínio — é ela que o isolante externo corta.</div>';
   document.getElementById('feaOut').innerHTML=out;
@@ -1730,6 +1730,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-24</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-25</div>
 </body>
 </html>
