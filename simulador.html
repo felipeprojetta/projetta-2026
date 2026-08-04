@@ -95,6 +95,7 @@
   <button data-p="p6">TÉRMICA</button>
   <button data-p="p8">MEMÓRIA TÉRMICA</button>
   <button data-p="p9">PERFIS</button>
+  <button data-p="p10">COMPONENTES</button>
 </nav>
 
 <div class="pag on" id="p1">
@@ -239,6 +240,7 @@ document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()
   document.querySelectorAll('.pag').forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); document.getElementById(b.dataset.p).classList.add('on');
   if(b.dataset.p==='p9' && window.PerfisRender) PerfisRender(null);
+  if(b.dataset.p==='p10' && window.ComponentesRender) ComponentesRender(null);
 }));
 </script>
 
@@ -1116,6 +1118,15 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
   <div class="card" id="perfilResumo"></div>
 </div></div>
 
+<div class="pag" id="p10"><div style="max-width:1180px;margin:0 auto;padding:16px;">
+  <div class="card" style="background:#f1f6fb;border-left:4px solid #1a73e8">
+    <h2 style="margin-top:0">Componentes do sistema</h2>
+    <div style="font-size:13px;color:#444">Ficha de todos os materiais e ferragens (datasheet TECHNICAL_SPECIFICATIONS). Clique num componente para ver as propriedades completas.</div>
+  </div>
+  <div id="compChips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"></div>
+  <div id="compDetalhe"></div>
+</div></div>
+
 <script>
 window.__TBRold={"AC": [["Rio Branco", 15, 38], ["Cruzeiro do Sul", 16, 37], ["Sena Madureira", 15, 38], ["Tarauacá", 15, 37]], "AL": [["Maceió", 18, 35], ["Arapiraca", 16, 36], ["Palmeira dos Índios", 15, 36], ["Penedo", 17, 37]], "AP": [["Macapá", 21, 36], ["Santana", 21, 36], ["Oiapoque", 21, 35], ["Laranjal do Jari", 21, 36]], "AM": [["Manaus", 20, 38], ["Parintins", 21, 37], ["Itacoatiara", 21, 37], ["Tefé", 20, 37], ["Tabatinga", 20, 36]], "BA": [["Salvador", 18, 36], ["Feira de Santana", 15, 37], ["Vitória da Conquista", 8, 32], ["Barreiras", 13, 39], ["Ilhéus", 17, 34], ["Juazeiro", 16, 42], ["Porto Seguro", 16, 35], ["Lençóis", 13, 35], ["Camaçari", 18, 36]], "CE": [["Fortaleza", 20, 36], ["Juazeiro do Norte", 17, 38], ["Sobral", 19, 39], ["Crato", 16, 36], ["Quixadá", 18, 39]], "DF": [["Brasília", 8, 34], ["Planaltina", 8, 34], ["Gama", 9, 34]], "ES": [["Vitória", 15, 38], ["Cachoeiro de Itapemirim", 12, 39], ["Linhares", 15, 38], ["Domingos Martins", 7, 32], ["Guarapari", 16, 37], ["Colatina", 14, 40]], "GO": [["Goiânia", 10, 38], ["Anápolis", 9, 35], ["Rio Verde", 9, 37], ["Catalão", 8, 35], ["Caldas Novas", 11, 38], ["Luziânia", 9, 35], ["Itumbiara", 10, 38]], "MA": [["São Luís", 21, 35], ["Imperatriz", 18, 39], ["Caxias", 18, 39], ["Balsas", 17, 39], ["Timon", 18, 40]], "MT": [["Cuiabá", 12, 43], ["Rondonópolis", 11, 40], ["Sinop", 15, 39], ["Barra do Garças", 12, 41], ["Tangará da Serra", 12, 39]], "MS": [["Campo Grande", 6, 38], ["Dourados", 4, 38], ["Corumbá", 9, 41], ["Três Lagoas", 6, 40], ["Ponta Porã", 3, 36]], "MG": [["Belo Horizonte", 9, 36], ["Uberlândia", 9, 37], ["Juiz de Fora", 6, 36], ["Poços de Caldas", 3, 32], ["Montes Claros", 11, 38], ["Barbacena", 2, 31], ["Uberaba", 8, 37], ["Governador Valadares", 12, 40], ["Diamantina", 5, 31], ["Ouro Preto", 4, 31], ["Varginha", 4, 34], ["Ipatinga", 12, 39], ["Divinópolis", 7, 35], ["Araxá", 5, 33], ["Teófilo Otoni", 12, 40], ["Patos de Minas", 6, 34]], "PA": [["Belém", 21, 35], ["Santarém", 21, 37], ["Marabá", 19, 39], ["Altamira", 20, 38], ["Castanhal", 21, 36], ["Parauapebas", 19, 38]], "PB": [["João Pessoa", 19, 34], ["Campina Grande", 15, 34], ["Patos", 17, 40], ["Sousa", 17, 40]], "PR": [["Curitiba", -2, 34], ["Londrina", 3, 38], ["Maringá", 3, 38], ["Ponta Grossa", -3, 33], ["Foz do Iguaçu", 0, 39], ["Guarapuava", -5, 32], ["Cascavel", 0, 36], ["Paranaguá", 5, 36], ["Pato Branco", -2, 35], ["Campo Mourão", 1, 37], ["União da Vitória", -4, 34], ["Palmas", -6, 31]], "PE": [["Recife", 19, 34], ["Caruaru", 14, 34], ["Petrolina", 16, 42], ["Garanhuns", 10, 32], ["Olinda", 19, 34], ["Serra Talhada", 16, 41]], "PI": [["Teresina", 18, 41], ["Parnaíba", 20, 38], ["Picos", 17, 41], ["Floriano", 18, 42]], "RJ": [["Rio de Janeiro", 13, 42], ["Petrópolis", 5, 33], ["Campos dos Goytacazes", 12, 40], ["Nova Friburgo", 3, 31], ["Angra dos Reis", 14, 38], ["Búzios", 15, 36], ["Niterói", 14, 40], ["Teresópolis", 4, 32], ["Volta Redonda", 9, 39], ["Cabo Frio", 14, 36], ["Resende", 7, 38]], "RN": [["Natal", 19, 34], ["Mossoró", 19, 40], ["Caicó", 18, 41], ["Currais Novos", 17, 38]], "RS": [["Porto Alegre", 1, 39], ["Caxias do Sul", -3, 33], ["Gramado", -4, 32], ["Canela", -4, 32], ["Pelotas", 0, 37], ["Santa Maria", -1, 39], ["Bagé", -4, 38], ["Passo Fundo", -4, 34], ["Vacaria", -6, 32], ["Rio Grande", 1, 36], ["Santo Ângelo", -2, 39], ["Uruguaiana", -3, 41], ["São Francisco de Paula", -7, 31], ["Erechim", -4, 35], ["Santa Cruz do Sul", -2, 38], ["Novo Hamburgo", 0, 38]], "RO": [["Porto Velho", 15, 38], ["Ji-Paraná", 13, 38], ["Vilhena", 8, 36], ["Ariquemes", 14, 38]], "RR": [["Boa Vista", 20, 38], ["Rorainópolis", 20, 37], ["Caracaraí", 20, 38]], "SC": [["Florianópolis", 5, 38], ["Joinville", 5, 37], ["Blumenau", 3, 39], ["Chapecó", -3, 38], ["Criciúma", 2, 36], ["Lages", -6, 33], ["São Joaquim", -8, 30], ["Balneário Camboriú", 6, 37], ["Itajaí", 5, 38], ["Jaraguá do Sul", 3, 38], ["Caçador", -5, 35], ["São Miguel do Oeste", -3, 37], ["Curitibanos", -6, 33], ["Rio do Sul", 1, 38]], "SP": [["São Paulo", 6, 36], ["Campinas", 6, 37], ["Santos", 12, 38], ["Ribeirão Preto", 8, 39], ["São José dos Campos", 5, 36], ["Sorocaba", 3, 36], ["Campos do Jordão", -6, 29], ["São Carlos", 4, 35], ["Bauru", 6, 39], ["Presidente Prudente", 5, 40], ["Ubatuba", 12, 38], ["Guarulhos", 6, 36], ["São José do Rio Preto", 8, 41], ["Piracicaba", 6, 38], ["Jundiaí", 5, 36], ["Taubaté", 4, 37], ["Araraquara", 6, 38], ["Franca", 4, 35], ["Itapeva", 1, 34], ["Registro", 8, 37], ["Bragança Paulista", 4, 35]], "SE": [["Aracaju", 19, 35], ["Itabaiana", 17, 36], ["Lagarto", 17, 37], ["Estância", 18, 36]], "TO": [["Palmas", 17, 40], ["Araguaína", 17, 40], ["Gurupi", 16, 40], ["Porto Nacional", 17, 41]]};
 window.__TINTold=[["Afeganistão", "Cabul", -15, 38], ["África do Sul", "Joanesburgo", 1, 35], ["Alemanha", "Berlim", -14, 37], ["Angola", "Luanda", 17, 33], ["Arábia Saudita", "Riade", 3, 50], ["Argélia", "Argel", 4, 44], ["Argentina", "Buenos Aires", -2, 40], ["Armênia", "Yerevan", -15, 40], ["Austrália", "Sydney", 4, 45], ["Áustria", "Viena", -15, 37], ["Azerbaijão", "Baku", -4, 40], ["Bahamas", "Nassau", 14, 34], ["Bahrein", "Manama", 9, 45], ["Bangladesh", "Dacca", 8, 40], ["Barbados", "Bridgetown", 20, 33], ["Bélgica", "Bruxelas", -10, 36], ["Bolívia", "La Paz", -3, 22], ["Bósnia", "Sarajevo", -16, 38], ["Botsuana", "Gaborone", 0, 40], ["Bulgária", "Sófia", -16, 38], ["Camboja", "Phnom Penh", 18, 39], ["Canadá", "Toronto", -20, 35], ["Canadá", "Montreal", -25, 34], ["Canadá", "Vancouver", -5, 32], ["Canadá", "Calgary", -30, 33], ["Cazaquistão", "Astana", -33, 35], ["Chile", "Santiago", -3, 37], ["China", "Pequim", -12, 40], ["China", "Xangai", -4, 39], ["Chipre", "Nicósia", 1, 44], ["Cingapura", "Cingapura", 23, 35], ["Colômbia", "Bogotá", 4, 25], ["Coreia do Sul", "Seul", -14, 37], ["Costa Rica", "San José", 13, 32], ["Croácia", "Zagreb", -14, 38], ["Cuba", "Havana", 13, 35], ["Dinamarca", "Copenhague", -12, 33], ["Egito", "Cairo", 5, 45], ["Emirados Árabes", "Dubai", 10, 48], ["Emirados Árabes", "Abu Dhabi", 10, 49], ["Equador", "Quito", 7, 25], ["Escócia", "Edimburgo", -8, 30], ["Eslováquia", "Bratislava", -15, 37], ["Eslovênia", "Liubliana", -16, 36], ["Espanha", "Madri", -6, 42], ["Espanha", "Barcelona", 0, 38], ["Estados Unidos", "Miami", 4, 36], ["Estados Unidos", "Nova York", -14, 37], ["Estados Unidos", "Chicago", -22, 38], ["Estados Unidos", "Los Angeles", 6, 40], ["Estados Unidos", "Denver", -24, 37], ["Estados Unidos", "Houston", -4, 39], ["Estados Unidos", "Boston", -18, 36], ["Estados Unidos", "Seattle", -6, 34], ["Estados Unidos", "Phoenix", 2, 48], ["Estados Unidos", "Las Vegas", -2, 47], ["Estônia", "Tallinn", -24, 33], ["Etiópia", "Adis Abeba", 5, 28], ["Filipinas", "Manila", 18, 37], ["Finlândia", "Helsinque", -28, 32], ["França", "Paris", -12, 40], ["França", "Nice", -2, 37], ["Gana", "Acra", 19, 35], ["Geórgia", "Tbilisi", -12, 40], ["Grécia", "Atenas", -3, 44], ["Guatemala", "Cidade da Guatemala", 9, 32], ["Holanda", "Amsterdã", -13, 36], ["Honduras", "Tegucigalpa", 10, 35], ["Hong Kong", "Hong Kong", 5, 36], ["Hungria", "Budapeste", -16, 39], ["Iêmen", "Sanaa", 0, 32], ["Índia", "Nova Délhi", 3, 46], ["Índia", "Mumbai", 13, 40], ["Indonésia", "Jacarta", 20, 36], ["Irã", "Teerã", -8, 42], ["Iraque", "Bagdá", 1, 50], ["Irlanda", "Dublin", -8, 29], ["Islândia", "Reykjavik", -16, 22], ["Israel", "Tel Aviv", 4, 41], ["Itália", "Roma", -3, 40], ["Itália", "Milão", -11, 38], ["Jamaica", "Kingston", 17, 35], ["Japão", "Tóquio", -4, 38], ["Jordânia", "Amã", -3, 42], ["Kuwait", "Cidade do Kuwait", 4, 52], ["Letônia", "Riga", -25, 34], ["Líbano", "Beirute", 5, 37], ["Líbia", "Trípoli", 3, 46], ["Lituânia", "Vilnius", -27, 35], ["Luxemburgo", "Luxemburgo", -14, 37], ["Malásia", "Kuala Lumpur", 21, 37], ["Marrocos", "Casablanca", 2, 42], ["México", "Cidade do México", 0, 32], ["México", "Cancún", 12, 37], ["Moçambique", "Maputo", 6, 40], ["Mongólia", "Ulan Bator", -40, 35], ["Nigéria", "Lagos", 18, 35], ["Noruega", "Oslo", -22, 33], ["Nova Zelândia", "Auckland", 0, 30], ["Omã", "Mascate", 11, 48], ["Panamá", "Cidade do Panamá", 20, 36], ["Paraguai", "Assunção", 0, 42], ["Peru", "Lima", 12, 31], ["Polônia", "Varsóvia", -22, 36], ["Portugal", "Lisboa", 1, 41], ["Portugal", "Porto", -2, 38], ["Qatar", "Doha", 7, 50], ["Quênia", "Nairóbi", 8, 30], ["Reino Unido", "Londres", -9, 38], ["República Checa", "Praga", -17, 37], ["República Dominicana", "Santo Domingo", 17, 35], ["Romênia", "Bucareste", -20, 41], ["Rússia", "Moscou", -30, 37], ["Rússia", "São Petersburgo", -29, 35], ["Sérvia", "Belgrado", -15, 42], ["Suécia", "Estocolmo", -22, 34], ["Suíça", "Zurique", -16, 37], ["Tailândia", "Bangkok", 15, 40], ["Taiwan", "Taipé", 4, 38], ["Tunísia", "Túnis", 1, 45], ["Turquia", "Istambul", -8, 40], ["Turquia", "Ancara", -20, 40], ["Ucrânia", "Kiev", -27, 37], ["Uruguai", "Montevidéu", -3, 40], ["Uzbequistão", "Tashkent", -20, 42], ["Venezuela", "Caracas", 13, 34], ["Vietnã", "Hanói", 5, 41], ["Zimbábue", "Harare", 2, 35]];
@@ -1277,6 +1288,56 @@ function desenhoReal(rec,p,r,tmin,tmax,U){
   s+='</svg>';
   return s;
 }
+
+/* ---------- ABA COMPONENTES: datasheet do sistema ---------- */
+var COMPONENTES = [
+  {id:"estr", ico:"▦", nome:"Estrutura interna", sub:"Alumínio 6063‑T5", cor:"#8ab4d8",
+   desc:"Quadro estrutural da folha em liga 6063‑T5, extrudada e envelhecida (têmpera T5). Alta resistência mecânica, ótima resistência à corrosão e estabilidade dimensional.",
+   props:[["Liga","AA 6063‑T5 (endurecida por precipitação)"],["Tensão de escoamento","≥ 110 MPa"],["Tensão de ruptura","≥ 160 MPa"],["Módulo de elasticidade","69 GPa"],["Dureza Brinell","55–70 HB"],["Densidade","2,70 g/cm³"],["Dilatação térmica","23,4 µm/m·°C"],["Condutividade térmica","200–210 W/m·K"],["Norma","ASTM B221 · EN 755"]]},
+  {id:"acm", ico:"▤", nome:"Revestimento ACM", sub:"4 mm · PVDF", cor:"#c8d4dc",
+   desc:"Alumínio composto: duas lâminas de alumínio 0,5 mm sobre núcleo termoplástico, face externa em pintura PVDF (Kynar). Núcleo em resina mineral retardante de chamas.",
+   props:[["Espessura total","4 mm (2× lâmina 0,5 mm + núcleo)"],["Pintura externa","PVDF 70% Heavy Duty ~20 µm"],["Tensão de ruptura","≥ 175 MPa"],["Escoamento","≥ 160 MPa"],["Módulo","69 GPa"],["Densidade","2,70 g/cm³"],["Núcleo","resina mineral FR (Classe conforme espec.)"],["Cor / estabilidade","estável a UV e variação térmica"]]},
+  {id:"pivo", ico:"⊙", nome:"Sistema de pivô", sub:"Inox AISI 304", cor:"#b8c4cc",
+   desc:"Pivô premium em aço inox austenítico AISI 304 (EN 1.4301). Operação silenciosa, alta capacidade de carga e reversibilidade para portas de grande formato (3,5 a 8 m de altura).",
+   props:[["Material","Aço inox austenítico AISI 304 / EN 1.4301"],["Composição","~18% Cr · ~8% Ni"],["Escoamento","205–215 MPa"],["Ruptura","515–750 MPa"],["Módulo","193 GPa"],["Dureza","150–200 HB"],["Cisalhamento","~290 MPa"],["Carga — padrão","100–180 kg"],["Carga — heavy‑duty","200–350+ kg"],["Carga — oversized","até 500 kg (eng. sob medida)"]]},
+  {id:"vedInf", ico:"▁", nome:"Vedação inferior automática", sub:"Prima Ferragens · drop‑down", cor:"#9ccc9c",
+   desc:"Guilhotina automática que desce ao fechar a porta, comprimindo a barra de silicone/EPDM contra o piso sem atrito nem ruído. Nivelamento esquerda‑direita independente, compensa piso irregular.",
+   props:[["Corpo","alumínio extrudado"],["Barra de vedação","silicone alta densidade ou EPDM"],["Acionamento","mecanismo inox"],["Molas","aço temperado"],["Altura de vedação","8–20 mm (conforme modelo)"],["Isolamento acústico","até 38 dB de redução"],["Durabilidade","> 200.000 ciclos"]]},
+  {id:"qlon", ico:"◗", nome:"Vedação perimetral Q‑LON", sub:"QL 48800 · Schlegel", cor:"#f0b46a",
+   desc:"Weatherseal de espuma PU com película PE, na fresta folha↔portal. Menor condutividade do mercado. Ver aba TÉRMICA para o cálculo da junção.",
+   props:[["Referência","QL 48800 (T‑slot Tipo A 5,3 mm)"],["Núcleo","espuma de poliuretano (PU)"],["Película","polietileno (PE), UV‑estável"],["Reforço","fio de fibra de vidro / PP"],["Condutividade","0,041 W/m·K (ift Rosenheim, EN 12667)"],["Serviço","−60 a +70 °C"],["Folga de vedação","2,5–7,0 mm"],["Compressão de trabalho","30–50%"],["Garantia","10 anos"]]},
+  {id:"keso", ico:"🔑", nome:"Fechadura mecânica KESO", sub:"12 pinos · Suíça", cor:"#d0a0a0",
+   desc:"Cilindro mecânico de alta segurança de 12 pinos em múltiplas fileiras. Anti‑furo, anti‑bumping, anti‑manipulação, chave de perfil patenteado com duplicação restrita.",
+   props:[["Marca","KESO (Suíça)"],["Cilindro","12 pinos, multi‑fileira"],["Material","aço temperado + latão"],["Controle de chave","perfil patenteado, cópia restrita"],["Certificação","EN 1303 · classes VdS"],["Durabilidade","100.000+ ciclos"]]},
+  {id:"tedee", ico:"⧉", nome:"Fechadura smart Tedee Pro", sub:"Motorizada · BLE/Wi‑Fi", cor:"#a0b0d0",
+   desc:"Fechadura eletrônica ultracompacta com motor de precisão e integração por app. Travamento/destravamento automático, criptografia AES ponta a ponta.",
+   props:[["Carcaça","alumínio anodizado / inox"],["Motor","DC de precisão, silencioso"],["Bateria","Li‑Ion 3000 mAh, USB‑C"],["Autonomia","10–12 meses"],["Conectividade","Bluetooth 5.0 · Wi‑Fi (bridge)"],["Torque","até 2,2 Nm"],["Ruído","< 30 dB no ciclo"],["Durabilidade","100.000+ ciclos"]]},
+  {id:"philips", ico:"⊞", nome:"Fechadura smart Philips EasyKey 9300", sub:"Biométrica · 6 modos", cor:"#b0b0b8",
+   desc:"Fechadura biométrica premium com 6 modos de abertura, verificação dupla, detecção de incêndio (destrava em emergência) e painel touch iluminado.",
+   props:[["Carcaça","alumínio + vidro temperado"],["Sensor","biométrico semicondutor"],["Trava","aço reforçado"],["Modos de abertura","digital · PIN · RFID · app · chave · código temporário"],["Capacidade","100–200 digitais · 100 PINs · 100 RFID"],["Alimentação","8× AA + power bank USB (emergência)"],["Autonomia","10–12 meses"],["Espessura de porta","38–120 mm"],["Operação","−20 a +60 °C"]]}
+];
+
+window.ComponentesRender = function(sel){
+  var chips = document.getElementById('compChips');
+  var det = document.getElementById('compDetalhe');
+  if(!chips) return;
+  if(!sel) sel = COMPONENTES[0].id;
+  chips.innerHTML = COMPONENTES.map(function(C){
+    var on = C.id===sel;
+    return '<button onclick="ComponentesRender(\''+C.id+'\')" style="cursor:pointer;border:1px solid '+(on?C.cor:'#ddd')+';background:'+(on?C.cor:'#fff')+';color:'+(on?'#111':'#444')+';border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:600;'+(on?'box-shadow:0 1px 4px rgba(0,0,0,.15)':'')+'">'+C.ico+' '+C.nome+'</button>';
+  }).join('');
+  var C = COMPONENTES.filter(function(x){return x.id===sel;})[0];
+  det.innerHTML = '<div class="card" style="border-left:5px solid '+C.cor+'">'+
+    '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-size:22px">'+C.ico+'</span>'+
+      '<b style="font-size:17px">'+C.nome+'</b><span style="font-size:13px;color:#1a73e8;font-family:ui-monospace,monospace">'+C.sub+'</span></div>'+
+    '<div style="font-size:13px;color:#555;margin:8px 0 12px">'+C.desc+'</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:13px">'+
+      C.props.map(function(p,i){return '<tr style="border-bottom:1px solid #eee"><td style="padding:5px 0;color:#555;width:42%">'+p[0]+'</td><td align=right style="font-weight:600">'+p[1]+'</td></tr>';}).join('')+
+    '</table>'+
+    (C.id==='pivo'?'<div style="font-size:12px;color:#777;margin-top:10px;border-top:1px solid #eee;padding-top:8px">Nota de projeto: para o pivô superior do modelo 600 kg, o AISI 304 não é adequado como gaiola de esferas (não tempera) — a solução adotada é bucha de bronze grafitado flangeada. O corpo estrutural do pivô segue em inox 304.</div>':'')+
+    (C.id==='qlon'?'<div style="font-size:12px;color:#777;margin-top:10px;border-top:1px solid #eee;padding-top:8px">A câmara fechada entre os 2 Q‑LON é modelada na aba TÉRMICA (ISO 6946, não‑ventilada).</div>':'')+
+  '</div>';
+};
 
 /* ---------- ABA PERFIS: dados + render 3D + fichas ---------- */
 var PERFIS = [
@@ -1984,6 +2045,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-30</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-31</div>
 </body>
 </html>
