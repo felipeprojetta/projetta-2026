@@ -1116,7 +1116,7 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
 <div class="pag" id="p11"><div style="max-width:1180px;margin:0 auto;padding:16px;">
   <div class="card" style="background:#f1f6fb;border-left:4px solid #1a73e8">
     <h2 style="margin-top:0">Perfis do quadro — seção em corte</h2>
-    <div style="font-size:13px;color:#444">Seção transversal real (em escala) de cada perfil, com momento de inércia, módulo resistente, área, peso e raio de giração. Perfis fornecidos pela Tecnoperfil; propriedades calculadas a partir das cotas nominais para alumínio 6063‑T5.</div>
+    <div style="font-size:13px;color:#444">Seção transversal real (em escala) de cada perfil, com momento de inércia, módulo resistente, área, peso e raio de giração. Perfis PA006/PA007 extraídos do desenho do fabricante (DXF Tecnoperfil); propriedades por integração do contorno, alumínio 6063‑T5.</div>
   </div>
   <div id="perfisLista"></div>
 </div></div>
@@ -1345,17 +1345,33 @@ window.ComponentesRender = function(sel){
 /* ---------- ABA PERFIS: seção em corte + propriedades ---------- */
 var PERFIS = [
   {id:"quadro", nome:"Quadro externo", desig:'4"×4"×1/4"', tipo:"Tubo quadrado",
-   b:101.6, h:101.6, t:6.35, forma:"tubo", cor:"#8ab4d8",
+   b:101.6, h:101.6, t:6.35, forma:"tubo", cor:"#b8c4cc",
    A:2419, Ix:367.45, Iy:367.45, Wx:72.33, Wy:72.33, rx:38.97, ry:38.97, peso:6.532,
-   uso:"Contorno da folha; recebe os pivôs (carga 400–800 kg) e fecha o perímetro. É o perfil mais rígido do conjunto."},
-  {id:"reforco", nome:"Reforço H/V", desig:'4"×2"×1/8"', tipo:"Tubo retangular",
-   b:50.8, h:101.6, t:3.175, forma:"tubo", cor:"#f0b46a",
-   A:927, Ix:123.88, Iy:41.28, Wx:24.39, Wy:16.25, rx:36.55, ry:21.10, peso:2.504,
-   uso:"Travessas horizontais e montantes verticais internos. Montado com a alma de 101,6 mm na direção da flexão (eixo forte)."},
-  {id:"cant", nome:"Cantoneira de união", desig:'L 1.1/2"×1.1/2"×1/8"', tipo:"Cantoneira abas iguais",
-   b:38.1, h:38.1, t:3.175, forma:"cant", yb:10.70, cor:"#9ccc9c",
-   A:232, Ix:3.24, Iy:3.24, Wx:1.18, Wy:1.18, rx:11.82, ry:11.82, peso:0.626,
-   uso:"Une os perfis nos encontros (T e cantos) com parafusos autobrocantes inox 416 Ø4,2×19 mm. Sem solda em nenhum ponto."},
+   uso:"Contorno externo do quadro estrutural (tubo comercial). Recebe os pivôs e fecha o perímetro. É o perfil mais rígido do conjunto."},
+  {id:"PA006V", nome:"PA006V · Vertical / travessa 006", desig:'PA006V', tipo:"Perfil de folha",
+   w:76.2, h:35.0, forma:"poly", pts:[[20.2,3],[20.2,0],[16.2,0],[12.21,0],[0,0],[0,35],[36.2,35],[76.2,35],[76.2,0],[36.2,0],[36.2,33],[28.51,33],[28.21,33.3],[27.91,33],[16.2,33],[16.2,3]], cor:"#8ab4d8",
+   A:2019, Ix:21.46, Iy:115.1, Wx:12.11, Wy:27.49, rx:10.31, ry:23.88, peso:5.451,
+   uso:"Montante vertical e travessa da folha da linha 006. Perfil tubular com câmara para encaixe."},
+  {id:"PA006F", nome:"PA006F · Folha 006", desig:'PA006F', tipo:"Perfil de folha",
+   w:70.2, h:84.0, forma:"poly", pts:[[70.2,84],[70.2,0],[0,0],[0,84]], cor:"#f0b46a",
+   A:5897, Ix:346.73, Iy:242.16, Wx:82.56, Wy:68.99, rx:24.25, ry:20.26, peso:15.921,
+   uso:"Perfil principal da folha da linha 006 (corpo + rebaixo para o revestimento). Área composta aproximada — folha fragmentada no DXF."},
+  {id:"PA006P", nome:"PA006P · Portal / batente 006", desig:'PA006P', tipo:"Perfil de portal",
+   w:76.2, h:69.5, forma:"poly", pts:[[71.03,62.41],[69.73,62.41],[69.73,63.36],[68.73,63.36],[68.73,61.71],[69.03,61.41],[71.43,61.41],[71.73,61.11],[71.73,42.81],[71.43,42.51],[48.13,42.51],[47.83,42.21],[47.83,38.51],[18.8,38.51],[18.5,38.21],[18.5,26.81],[18.2,26.51],[0.3,26.51],[0,26.21],[0,25.01],[1.5,25.01],[1.5,10.01],[0,10.01],[0,6.81],[0.3,6.51],[7.21,6.51],[7.51,6.81],[7.83,6.51],[14.72,6.51],[15.02,6.21],[15.05,2.31],[14.75,2.01],[0.33,2.01],[0.03,1.71],[0.03,0.3],[0.33,0],[75.93,0],[76.23,0.3],[76.23,1.71],[75.93,2.01],[61.53,2.01],[61.23,2.31],[61.23,6.21],[61.53,6.51],[75.93,6.51],[76.23,6.81],[76.23,48.51],[74.73,48.51],[74.73,68.51],[76.23,68.51],[76.23,69.21],[75.93,69.51],[69.03,69.51],[68.73,69.21],[68.73,67.56],[69.73,67.56],[69.73,68.51],[71.03,68.51]], cor:"#9ccc9c",
+   A:2773, Ix:48.11, Iy:120.24, Wx:9.96, Wy:27.95, rx:13.17, ry:20.82, peso:7.487,
+   uso:"Marco fixo (batente) da linha 006. Perfil escalonado que aloja a vedação e recebe a fixação na alvenaria."},
+  {id:"PA007V", nome:"PA007V · Vertical / travessa 007", desig:'PA007V', tipo:"Perfil de folha",
+   w:101.6, h:35.0, forma:"poly", pts:[[35.6,4],[35.6,0],[31.6,0],[0,0],[0,35],[51.6,35],[101.6,35],[101.6,0],[51.6,0],[51.6,32.5],[31.6,32.5],[31.6,4]], cor:"#7fb0e0",
+   A:2922, Ix:30.85, Iy:297.59, Wx:17.44, Wy:56.41, rx:10.28, ry:31.91, peso:7.889,
+   uso:"Montante vertical e travessa da folha da linha 007. Largura 101,6 mm — maior rigidez no eixo forte."},
+  {id:"PA007F", nome:"PA007F · Folha 007", desig:'PA007F', tipo:"Perfil de folha",
+   w:101.6, h:133.0, forma:"poly", pts:[[101.6,132],[100.1,132],[100.1,112],[101.6,112],[101.6,90],[101.6,90],[101.6,0.3],[101.3,0],[0.3,0],[0,0.3],[0,69],[1.5,69],[1.5,89],[0,89],[0,89.7],[0.3,90],[18.2,90],[18.5,90.3],[18.5,105.7],[18.8,106],[37.7,106],[38,105.7],[38,102.3],[38.3,102],[50.2,102],[50.5,101.7],[50.8,102],[62.7,102],[63,102.3],[63,105.7],[63.3,106],[96.8,106],[97.1,106.3],[97.1,124.6],[96.8,124.9],[94.4,124.9],[94.1,125.2],[94.1,126.85],[95.1,126.85],[95.1,125.9],[96.4,125.9],[96.4,132],[95.1,132],[95.1,131.05],[94.1,131.05],[94.1,132.7],[94.4,133],[101.3,133],[101.6,132.7]], cor:"#e0a45a",
+   A:10447, Ix:965.24, Iy:886.63, Wx:118.91, Wy:168.57, rx:30.40, ry:29.13, peso:28.207,
+   uso:"Perfil principal da folha da linha 007 — o de maior seção do conjunto. Câmara grande + rebaixo do revestimento no topo."},
+  {id:"PA007P", nome:"PA007P · Portal / batente 007", desig:'PA007P', tipo:"Perfil de portal",
+   w:101.6, h:69.5, forma:"poly", pts:[[14.75,3.01],[15.05,3.31],[15.02,7.21],[14.72,7.51],[7.95,7.51],[7.65,7.81],[7.35,7.51],[0.3,7.51],[0,7.81],[0,10.01],[1.5,10.01],[1.5,25.01],[0,25.01],[0,26.21],[0.3,26.51],[18.5,26.51],[18.5,42.21],[18.8,42.51],[47.53,42.51],[47.83,42.81],[47.83,46.21],[48.13,46.51],[96.83,46.51],[97.13,46.81],[97.13,61.11],[96.83,61.41],[94.43,61.41],[94.13,61.71],[94.13,63.36],[95.13,63.36],[95.13,62.41],[96.43,62.41],[96.43,68.51],[95.13,68.51],[95.13,67.56],[94.13,67.56],[94.13,69.21],[94.43,69.51],[101.33,69.51],[101.63,69.21],[101.63,68.51],[100.13,68.51],[100.13,48.51],[101.33,48.51],[101.63,48.21],[101.63,7.81],[101.33,7.51],[86.93,7.51],[86.63,7.21],[86.63,3.31],[86.93,3.01],[101.33,3.01],[101.63,2.71],[101.63,0.3],[101.33,0],[0.33,0],[0.03,0.3],[0.03,2.71],[0.33,3.01]], cor:"#8cc48c",
+   A:4167, Ix:78.85, Iy:313.07, Wx:16.89, Wy:55.65, rx:13.76, ry:27.41, peso:11.251,
+   uso:"Marco fixo (batente) da linha 007. Perfil escalonado; aloja a vedação Q‑LON e recebe os parafusos Ø8×100 na estrutura."},
   {id:"chapa", nome:"Perfil da chapa", desig:'35×35 #1,5', tipo:"Perfil dobrado (L)",
    b:35, h:35, t:1.5, forma:"cant", yb:9.31, cor:"#c8d4dc",
    A:103, Ix:1.26, Iy:1.26, Wx:0.49, Wy:0.49, rx:11.06, ry:11.06, peso:0.277,
@@ -1369,30 +1385,36 @@ window.PerfisRender = function(){
 
   // desenha a seção em corte, em escala, dentro de um viewBox de 130x130 (mm reais)
   function corte(P){
-    var W=130, pad=14, esc=(W-2*pad)/Math.max(P.b,P.h);
-    var bw=P.b*esc, hh=P.h*esc, tt=Math.max(P.t*esc,1.4);
+    var W=130, pad=16, esc=(W-2*pad)/Math.max(P.b||P.w,P.h);
+    var bw=(P.b||P.w)*esc, hh=P.h*esc, tt=Math.max((P.t||2)*esc,1.4);
     var x0=(W-bw)/2, y0=(W-hh)/2;
     var g='';
-    // hachura diagonal p/ material
     g+='<defs><pattern id="hc_'+P.id+'" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">'+
        '<line x1="0" y1="0" x2="0" y2="4" stroke="'+P.cor+'" stroke-width="1.1"/></pattern></defs>';
-    if(P.forma==="tubo"){
-      // anel: retangulo externo menos interno (evenodd)
+    if(P.forma==="poly"){
+      // polígono real do DXF: escala e inverte Y (DXF sobe, SVG desce)
+      var d='';
+      P.pts.forEach(function(pt,i){
+        var X=x0+pt[0]*esc, Y=y0+(P.h-pt[1])*esc;
+        d+=(i?'L':'M')+X.toFixed(2)+' '+Y.toFixed(2)+' ';
+      });
+      d+='Z';
+      g+='<path fill="url(#hc_'+P.id+')" stroke="#456" stroke-width="1.2" stroke-linejoin="round" d="'+d+'"/>';
+    } else if(P.forma==="tubo"){
       var ix=x0+tt, iy=y0+tt, iw=bw-2*tt, ih=hh-2*tt;
       g+='<path fill-rule="evenodd" fill="url(#hc_'+P.id+')" stroke="#456" stroke-width="1.3" d="'+
          'M'+x0+' '+y0+' h'+bw+' v'+hh+' h'+(-bw)+' Z '+
          'M'+ix+' '+iy+' h'+iw+' v'+ih+' h'+(-iw)+' Z"/>';
     } else {
-      // cantoneira: duas abas (L). aba vertical + aba horizontal
       g+='<path fill="url(#hc_'+P.id+')" stroke="#456" stroke-width="1.3" d="'+
          'M'+x0+' '+y0+' h'+tt+' v'+(hh-tt)+' h'+(bw-tt)+' v'+tt+' h'+(-bw)+' Z"/>';
     }
-    // cotas
+    // cotas externas (largura e altura do bbox)
     g+='<line x1="'+x0+'" y1="'+(y0-6)+'" x2="'+(x0+bw)+'" y2="'+(y0-6)+'" stroke="#888" stroke-width="0.6" marker-start="url(#ar)" marker-end="url(#ar)"/>';
-    g+='<text x="'+(x0+bw/2)+'" y="'+(y0-9)+'" font-size="7" fill="#666" text-anchor="middle">'+f(P.b,1)+'</text>';
+    g+='<text x="'+(x0+bw/2)+'" y="'+(y0-9)+'" font-size="7" fill="#666" text-anchor="middle">'+f(P.b||P.w,1)+'</text>';
     g+='<line x1="'+(x0-6)+'" y1="'+y0+'" x2="'+(x0-6)+'" y2="'+(y0+hh)+'" stroke="#888" stroke-width="0.6"/>';
     g+='<text x="'+(x0-8)+'" y="'+(y0+hh/2)+'" font-size="7" fill="#666" text-anchor="middle" transform="rotate(-90 '+(x0-8)+' '+(y0+hh/2)+')">'+f(P.h,1)+'</text>';
-    g+='<text x="'+(x0+bw-2)+'" y="'+(y0+hh+9)+'" font-size="6.5" fill="#999" text-anchor="end">e='+f(P.t,3)+' mm</text>';
+    if(P.t) g+='<text x="'+(x0+bw-2)+'" y="'+(y0+hh+9)+'" font-size="6.5" fill="#999" text-anchor="end">e='+f(P.t,3)+' mm</text>';
     return '<svg viewBox="0 0 '+W+' '+W+'" style="width:100%;max-width:190px;height:auto">'+
       '<defs><marker id="ar" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M1 3 L5 1 L5 5 Z" fill="#888"/></marker></defs>'+g+'</svg>';
   }
@@ -1409,7 +1431,7 @@ window.PerfisRender = function(){
           '<b style="font-size:15px">'+P.nome+'</b>'+
           '<span style="font-family:ui-monospace,monospace;font-size:13px;color:#1a73e8">'+P.desig+'</span>'+
           '<span style="font-size:12px;color:#888">'+P.tipo+'</span></div>'+
-        '<div style="font-size:12px;color:#666;margin:3px 0 8px">'+f(P.b,1)+' × '+f(P.h,1)+' × '+f(P.t,3)+' mm · alumínio 6063‑T5</div>'+
+        '<div style="font-size:12px;color:#666;margin:3px 0 8px">'+f(P.b||P.w,1)+' × '+f(P.h,1)+(P.t?' × '+f(P.t,3):'')+' mm · alumínio 6063‑T5</div>'+
         '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
           '<tr><td style="padding:3px 0;color:#555">Área da seção</td><td align=right style="font-weight:600">'+f(P.A,0)+' mm²</td>'+
               '<td style="padding-left:16px;color:#555">Peso linear</td><td align=right style="font-weight:700">'+f(P.peso,3)+' kg/m</td></tr>'+
@@ -1424,7 +1446,7 @@ window.PerfisRender = function(){
       '</div>'+
     '</div>';
   });
-  html+='<div class="card" style="font-size:12px;color:#888;font-style:italic">Perfis: Tecnoperfil Alumínio (designações comerciais). Propriedades de seção (I, W, r, área, peso) calculadas a partir das cotas nominais — E = 69 GPa · ρ = 2700 kg/m³. A cantoneira usa o eixo baricentrico paralelo às abas.</div>';
+  html+='<div class="card" style="font-size:12px;color:#888;font-style:italic">Perfis PA006/PA007: designações e geometria do desenho do fabricante (Tecnoperfil, arquivo Drawing1.dxf). Seção desenhada a partir da polilinha real do DXF; propriedades (A, I, W, r, peso) calculadas por integração do contorno para alumínio 6063‑T5 (E = 69 GPa · ρ = 2700 kg/m³). Quadro externo e perfil da chapa: perfis comerciais, cálculo geométrico. PA006F: seção composta (folha fragmentada no DXF), área aproximada.</div>';
   el.innerHTML=html;
 };
 
@@ -2019,6 +2041,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-33</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-34</div>
 </body>
 </html>
