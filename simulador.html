@@ -50,7 +50,7 @@
   .prancha{max-width:1000px; margin:16px auto; padding:0 16px;}
   @media print{
     @page{size:A4; margin:10mm;}
-    nav, #btnPrint, #vBuild, header{display:none !important;}
+    nav, #btnPrint, #vBuild, header, #feaCtl{display:none !important;}
     body{background:#fff;}
     /* TODAS as abas saem na impressao, cada uma comecando em folha nova */
     .pag{display:block !important; page-break-after:always;}
@@ -59,7 +59,10 @@
     .wrap{grid-template-columns:1fr !important; max-width:100% !important; padding:0 !important;}
     .prancha{max-width:100% !important; padding:0 !important;}
     .card{border:none; padding:6px 0; break-inside:avoid;}
-    svg, canvas, img{max-width:100% !important; height:auto !important;}
+    /* nenhum desenho pode estourar a folha: o SVG da elevacao (viewBox 320x900) com
+       max-width:100% virava ~534mm de altura = 2 paginas quase em branco */
+    svg, canvas, img{max-width:100% !important; max-height:240mm !important;
+      width:auto !important; height:auto !important;}
   }
   .prancha img{width:100%; border:1px solid var(--linha); border-radius:8px; background:#fff;}
   .prancha .mini{margin:8px 2px;}
@@ -1071,7 +1074,7 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
 <div style="max-width:1180px;margin:0 auto;padding:0 16px 16px;">
   <div class="card" id="tFeaCard" style="width:100%;box-sizing:border-box;">
     <h2>5 · Mapa de temperaturas — FEA 2D <span style="font-size:12px;font-weight:400;color:#666">(diferenças finitas, corte horizontal no montante do quadro)</span></h2>
-    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+    <div id="feaCtl" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaInv" checked> Inverno (interna 20 °C · externa = mínima)</label>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaVer"> Verão sol-ar (interna 23 °C · face ACM preto)</label>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#7a3db8"><input type="checkbox" id="feaTaglio"> Simular taglio térmico no tubo <span style="font-size:11px;font-weight:400;color:#888">(poliamida 24 mm nas almas — conceito Oikos)</span></label>
@@ -1703,6 +1706,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-9</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-10</div>
 </body>
 </html>
