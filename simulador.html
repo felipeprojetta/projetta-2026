@@ -41,6 +41,12 @@
     font-size:12.5px; font-weight:600; color:var(--cinza); cursor:pointer;}
   nav button.on{background:var(--azul); color:#fff; border-color:var(--azul);}
   .pag{display:none;} .pag.on{display:block;}
+  @media(max-width:820px){
+    nav{padding:8px 8px 0; gap:4px;}
+    nav button{padding:8px 10px; font-size:11.5px;}
+    .g4{grid-template-columns:1fr 1fr !important;}
+    #lcBoxIN{grid-template-columns:1fr !important;}
+  }
   .prancha{max-width:1000px; margin:16px auto; padding:0 16px;}
   .prancha img{width:100%; border:1px solid var(--linha); border-radius:8px; background:#fff;}
   .prancha .mini{margin:8px 2px;}
@@ -103,6 +109,7 @@
           <select id="lcLoc" style="padding:8px;border:1px solid var(--linha);border-radius:6px;font-size:13px;background:#fff"></select>
         </div>
         <div id="lcInfo" style="margin-top:10px;padding:10px;background:#f6f8fa;border-radius:6px"></div>
+      </div>
       <div class="aviso" id="avFam">Altura &lt; 4.000: o sistema usa a família PA006 (76x38) — este simulador cobre a família 101.</div>
     </div>
 
@@ -859,7 +866,7 @@ window.TINT={"Estados Unidos": [["Alabama", -12, 38, 58, 0], ["Alasca", -35, 29,
   <div class="card">
     <h2>2 · Dimensões da folha</h2>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><input type="checkbox" id="tSync" checked> <b>Usar as dimensões do SIMULADOR</b> <span style="font-size:11px;color:#777">(largura, altura e fração de quadro vêm do vão da aba 1)</span></label>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+    <div class="g4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
       <label>Largura da folha (mm) <input id="tLarg" type="number" value="1939"></label>
       <label>Altura da folha (mm) <input id="tAlt" type="number" value="5994"></label>
       <label>Quadro PA007F (mm) <input id="tQuad" type="number" value="101.6" step="0.1"></label>
