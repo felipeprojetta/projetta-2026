@@ -16224,7 +16224,7 @@ const Orcamento = (() => {
     // Felipe sessao 2026-08: revestimento de parede tem card sem imagem,
     // so' com as variaveis (cor da peca, dimensoes, area, estrutura, etc).
     if (item.tipo === 'revestimento_parede') {
-      return renderCardItemPropostaRevestimento(item, idx, versao);
+      return renderCardItemPropostaRevestimento(item, idx, versao, internacional);
     }
 
     // Felipe sessao 33: porta INTERNA tem card proprio. O card generico
@@ -16746,7 +16746,22 @@ const Orcamento = (() => {
    * Variaveis exibidas: Qtd, L_total, H_total, Area, Estrutura, Tubo,
    * Modo, e lista de pecas (largura/altura/cor por peca, se houver).
    */
-  function renderCardItemPropostaRevestimento(item, idx, versao) {
+  function renderCardItemPropostaRevestimento(item, idx, versao, internacional) {
+    const tr = (pt, en) => internacional ? en : pt;
+    // Felipe s43: 'precisa ir o modelo do fixo, liso, classico, ripado?'.
+    // O card do revestimento de parede mostrava so' Qtd / estrutura / medidas
+    // — nao dizia NADA sobre o acabamento, que e' justamente o que o cliente
+    // esta comprando. Estilo, revestimento e cor ja' estavam preenchidos no
+    // item, so' nao chegavam na proposta.
+    const _estiloMap = {
+      lisa:     tr('Lisa','Plain'),
+      ripada:   tr('Ripada','Slatted'),
+      classica: tr('Clássica','Classic'),
+    };
+    const _estiloTxt = _estiloMap[String(item.estilo || '').toLowerCase()] || '';
+    const _espacTxt = (String(item.estilo || '').toLowerCase() === 'ripada' && Number(item.espacamentoRipas) > 0)
+      ? ` · ${tr('espaçamento','spacing')} ${Number(item.espacamentoRipas)} mm`
+      : '';
     const lar = parseBR(item.largura_total) || 0;
     const alt = parseBR(item.altura_total) || 0;
     const areaM2 = (lar / 1000) * (alt / 1000);
@@ -16828,8 +16843,11 @@ const Orcamento = (() => {
               : `${lar ? `<div class="rel-prop-item-linha"><span class="lbl">L total:</span> <span>${lar} mm</span></div>` : ''}
             ${alt ? `<div class="rel-prop-item-linha"><span class="lbl">H total:</span> <span>${alt} mm</span></div>` : ''}
             ${(lar && alt) ? `<div class="rel-prop-item-linha"><span class="lbl">Area:</span> <span>${fmtBR(areaM2)} m²</span></div>` : ''}`}
-            <div class="rel-prop-item-linha"><span class="lbl">TEM ESTRUTURA:</span> <span>${temEstr ? 'SIM' : 'NAO'}</span></div>
-            ${temEstr ? `<div class="rel-prop-item-linha"><span class="lbl">TUBO DA ESTRUTURA:</span> <span>${tubo}</span></div>` : ''}
+            ${_estiloTxt ? `<div class="rel-prop-item-linha"><span class="lbl">${tr('ACABAMENTO','FINISH')}:</span> <span>${escapeHtml(_estiloTxt)}${_espacTxt}</span></div>` : ''}
+            ${item.revestimento ? `<div class="rel-prop-item-linha"><span class="lbl">${tr('REVESTIMENTO','CLADDING')}:</span> <span>${escapeHtml(String(item.revestimento))}</span></div>` : ''}
+            ${item.cor ? `<div class="rel-prop-item-linha"><span class="lbl">${tr('COR','COLOR')}:</span> <span>${escapeHtml(String(item.cor))}</span></div>` : ''}
+            <div class="rel-prop-item-linha"><span class="lbl">${tr('TEM ESTRUTURA','STRUCTURE')}:</span> <span>${temEstr ? tr('SIM','YES') : tr('NAO','NO')}</span></div>
+            ${temEstr ? `<div class="rel-prop-item-linha"><span class="lbl">${tr('TUBO DA ESTRUTURA','STRUCTURE TUBE')}:</span> <span>${tubo}</span></div>` : ''}
           </div>
           ${blocoPecas}
           ${item.observacao && String(item.observacao).trim() ? `<div class="rel-prop-banner-observacao" style="margin-top:8px;padding:10px 12px;background:#fef3c7;border:1px solid #f59e0b;border-left:4px solid #d97706;border-radius:4px;font-size:12px;color:#78350f;"><div style="font-weight:700;font-size:11px;letter-spacing:0.05em;margin-bottom:4px;color:#92400e;">OBSERVACOES:</div><div style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</div></div>` : ''}
