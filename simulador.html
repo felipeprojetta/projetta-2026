@@ -921,7 +921,16 @@ function calc(p){
 }
 function Tcav(p,r,Ti,Te){var Rin=Rsi+R_ACM+r.Rc;return Ti-(Ti-Te)*Rin/(Rin+r.Rx+R_ACM+Rse);}
 function Tsi(p,r,Ti,Te){return Ti-r.Uq*(Ti-Te)*Rsi;}
-function empeno(p,r,Ti,Te){var dT=r.Uq*Math.abs(Te-Ti)*r.Rt;return 23.4e-6*dT/(p.quad/1000)*Math.pow(p.alt/1000,2)/8*1000;}
+function vaoFlex(p){
+  // A folha e' uma grelha SOLDADA: todos os perfis curvam com a MESMA curvatura,
+  // entao a grelha nao impede a curvatura global — quem limita a FLECHA sao os
+  // pontos onde a folha e' presa ao portal: pivos + reversos + pinos da fechadura.
+  var C=window.__C;
+  var vv=(C&&C.vaoMax)?C.vaoMax:p.alt;      // vao vertical entre reversos (do simulador)
+  var vh=p.larg;                            // largura: presa no lado do pivo e no lado da fechadura
+  return Math.max(vv,vh)/1000;
+}
+function empeno(p,r,Ti,Te){var dT=r.Uq*Math.abs(Te-Ti)*r.Rt;var L=vaoFlex(p);return 23.4e-6*dT/(p.quad/1000)*L*L/8*1000;}
 
 var LIM_EMP=5.0;   // flecha maxima ABSOLUTA (curso util da vedacao), qualquer altura de folha
 function recomenda(base,tmin,tmax,ur){
@@ -932,7 +941,9 @@ function recomenda(base,tmin,tmax,ur){
   // 1) precisa de isolante externo?
   var p0=JSON.parse(JSON.stringify(base)); p0.eExt=0; p0.mExt="xps"; p0.mCav="psr32";
   var r0=calc(p0);
-  var precisa = (frio!=="BAIXA") || (empeno(p0,r0,Ti_ver,sa) > LIM_EMP) || (Tsi(p0,r0,Ti_inv,tmin) < orv(Ti_inv,ur));
+  var Tsi0=Tsi(p0,r0,Ti_inv,tmin), to0=orv(Ti_inv,ur);
+  var precisa = (empeno(p0,r0,Ti_ver,sa) > LIM_EMP) || (Tsi0 < to0+1);
+  var motivoP = (Tsi0<to0+1) ? "condensação na superfície interna" : ((empeno(p0,r0,Ti_ver,sa)>LIM_EMP)?"empeno acima de 5 mm":"");
   // 2) material externo pelo limite de servico com ACM preto
   var mExt = (sa>TSERV.xps) ? "pir" : "xps";
   var eExt = precisa?30:0;
@@ -951,7 +962,7 @@ function recomenda(base,tmin,tmax,ur){
   var tc=Tcav(pt,rt,Ti_inv,tmin), to=orv(Ti_inv,ur);
   var mCav="psr32", margem=false;
   if(tc < to){ mCav="eps"; } else if(tc < to+2){ margem=true; }
-  return {frio:frio,calor:calor,sa:sa,eExt:eExt,mExt:mExt,mCav:mCav,precisa:precisa,tcav:tc,torv:to,margem:margem};
+  return {frio:frio,calor:calor,sa:sa,eExt:eExt,mExt:mExt,mCav:mCav,precisa:precisa,tcav:tc,torv:to,margem:margem,motivoP:motivoP};
 }
 
 /* ---------- desenho do corte ---------- */
@@ -1031,7 +1042,7 @@ function tRender(){
   var r=calc(p);
   var linha = rec.eExt===0 ? "PADRÃO" : (rec.calor==="SEVERA" ? "CALOR EXTREMO" : (rec.frio!=="BAIXA" ? "FRIO" : "CALOR"));
   var cor = linha==="PADRÃO"?"#5f6368":(linha==="FRIO"?"#1a73e8":"#c5221f");
-  var motivo = rec.eExt===0?"nenhum isolante externo necessário":(rec.calor==="SEVERA"?"exigido pelo calor extremo":(rec.frio!=="BAIXA"?"exigido pelo frio / condensação":"exigido pelo calor / empeno"));
+  var motivo = rec.eExt===0?"nenhum isolante externo necessário":("exigido por "+rec.motivoP);
 
   document.getElementById('tClima').innerHTML =
     "<div style='font-size:16px;font-weight:700'>"+loc.nome+(loc.reg?" · vento região "+loc.reg+" ("+loc.V+" m/s)":(loc.V?" · vento "+loc.V+" m/s":""))+(loc.noa?" · <span style=\'color:#c5221f\'>NOA/HVHZ</span>":"")+"</div>"+
@@ -1071,6 +1082,8 @@ function tRender(){
   if(rec.mCav==="psr32" && rec.tcav<rec.torv) av+="<div class='aviso' style='display:block;border-color:#c5221f'><b>Risco de condensação no miolo.</b> Cavidade a "+rec.tcav.toFixed(1)+" °C contra orvalho de "+rec.torv.toFixed(1)+" °C. Trocar por material de célula fechada.</div>";
   if(emp>lim) av+="<div class='aviso' style='display:block;border-color:#c5221f'><b>Empeno acima do limite.</b> "+emp.toFixed(1)+" mm contra L/500 = "+lim.toFixed(1)+" mm. Aumentar o isolante externo.</div>";
   if(p.alt>3000) av+="<div class='aviso' style='display:block'><b>Furo oblongo obrigatório.</b> O ACM dilata "+(24e-6*(rec.sa-25)*p.alt).toFixed(1)+" mm; rasgo de até "+(5.5+2*24e-6*(rec.sa-25)*p.alt/2+2).toFixed(0)+" mm nas extremidades.</div>";
+  var TsiV=Tsi(p,r,23,rec.sa);
+  if(TsiV>26) av+="<div class='aviso' style='display:block'><b>Conforto radiante.</b> Superfície interna do quadro a "+TsiV.toFixed(1)+" °C no verão (limite usual 26 °C) e carga de "+(r.U*r.A*(rec.sa-23)).toFixed(0)+" W. Não é falha — é o custo de não ter isolante externo. Isolante de 30 mm levaria a "+"~"+(23+(1/(0.13+0.04+0.0194+0.0729+0.030/0.029))*(rec.sa-23)*0.13).toFixed(1)+" °C.</div>";
   if(+document.getElementById('tTrav').value>1500) av+="<div class='aviso' style='display:block'><b>Verificar assentamento do miolo.</b> Vão livre entre travessas acima de 1,5 m.</div>";
 
   document.getElementById('tOut').innerHTML="<h2>5 · Verificações</h2>"+av+
@@ -1080,7 +1093,7 @@ function tRender(){
    "<tr style='font-weight:700;border-top:2px solid #333'><td>U DA FOLHA</td><td align=right>"+r.U.toFixed(3)+" W/m²K</td></tr>"+
    "<tr><td>Superfície interna no inverno · fRsi ≥ 0,70</td><td align=right>"+Tsi_i.toFixed(1)+" °C · "+fR.toFixed(3)+" "+ok(fR>=0.70)+"</td></tr>"+
    "<tr><td>Miolo no inverno / orvalho</td><td align=right>"+rec.tcav.toFixed(1)+" / "+rec.torv.toFixed(1)+" °C "+ok(rec.mCav!=="psr32"||rec.tcav>rec.torv)+"</td></tr>"+
-   "<tr><td>Empeno no verão (máx. 5,0 mm · curso da vedação)</td><td align=right>"+emp.toFixed(2)+" mm "+ok(emp<=lim)+"</td></tr>"+
+   "<tr><td>Empeno no verão · vão de flexão "+(vaoFlex(p)*1000).toFixed(0)+" mm (máx. 5,0 mm)</td><td align=right>"+emp.toFixed(2)+" mm "+ok(emp<=lim)+"</td></tr>"+
    "<tr><td>Limite de serviço do isolante externo</td><td align=right>"+(rec.eExt?TSERV[rec.mExt]+" °C vs "+rec.sa.toFixed(0)+" °C "+ok(rec.sa<=TSERV[rec.mExt]):"—")+"</td></tr>"+
    "<tr><td>Carga térmica de verão</td><td align=right>"+(r.U*r.A*(rec.sa-23)).toFixed(0)+" W</td></tr>"+
    "</table>";
