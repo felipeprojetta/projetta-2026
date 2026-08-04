@@ -1067,10 +1067,8 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
       <label>Altura da folha (mm) <input id="tAlt" type="number" value="5994"></label>
       <label>Quadro PA007F (mm) <input id="tQuad" type="number" value="101.6" step="0.1"></label>
       <label>Fração de quadro (%) <input id="tFrac" type="number" value="33"></label>
-      <label>Espaç. parafusos (mm) <input id="tPar" type="number" value="400"></label>
       <label>Espaç. travessas (mm) <input id="tTrav" type="number" value="772"></label>
       <label>UR interna (%) <input id="tUr" type="number" value="60"></label>
-      <label>Cantoneiras externas <input id="tCant" type="number" value="2"></label>
     </div>
   </div>
 
@@ -1143,9 +1141,9 @@ function calc(p){
   var Rc=(p.mCav==="ar")?0.18:(hq/LAM[p.mCav]);
   var f=p.frac/100, A=(p.larg/1000)*(p.alt/1000);
   var Uq=1/(Rsi+Rse+2*R_ACM+Rt+Rx), Uc=1/(Rsi+Rse+2*R_ACM+Rc+Rx);
-  var nPar=1000000/(p.par*p.par);
-  var dUp=p.eExt>0?(0.8*16*nPar*(Math.PI*5.5*5.5/4/1000000)/(p.eExt/1000)):0;
-  var dUc=p.eExt>0?(0.0504*p.cant*(p.alt/1000)/A):0;
+  // Estrutura 100% soldada: sem parafusos nem cantoneiras de união atravessando o isolante.
+  // A ponte térmica é o próprio quadro de alumínio contínuo (já no termo f·Uq).
+  var nPar=0, dUp=0, dUc=0;
   var U=f*Uq+(1-f)*Uc+dUp+dUc;
   return {U:U,Uq:Uq,Uc:Uc,Rt:Rt,Rx:Rx,Rc:Rc,A:A,dUp:dUp,dUc:dUc,nPar:nPar};
 }
@@ -1511,17 +1509,17 @@ window.memTermRender=function(p,r,rec,loc,ur){
     "U<sub>q</sub> = "+f(r.Uq)+" · U<sub>c</sub> = "+f(r.Uc)+" W/m²K",
     "Quadro (com o tubo de alumínio) e campo (só miolo) calculados separado — o quadro é a ponte térmica.");
 
-  s+=passo("5","Pontes de fixação (parafusos + cantoneiras)",
-    "n<sub>par</sub> = 10⁶ / e<sub>par</sub>²   ·   ΔU somado ao U",
-    "n<sub>par</sub> = 10⁶ / "+p.par+"² = "+f(r.nPar,1)+" par/m²<br>ΔU<sub>par</sub> = "+f(r.dUp,4)+" · ΔU<sub>cant</sub> = "+f(r.dUc,4),
-    "+"+f(r.dUp+r.dUc,4)+" W/m²K",
-    "Só há ponte de fixação quando existe isolante externo atravessado pelos parafusos. Sem isolante, ΔU = 0.");
+  s+=passo("5","Pontes de fixação — estrutura soldada",
+    "sem parafuso nem cantoneira atravessando o isolante",
+    "ΔU<sub>par</sub> = 0 · ΔU<sub>cant</sub> = 0 (união dos perfis 100% soldada)",
+    "+0,0000 W/m²K",
+    "A folha é uma grelha de alumínio toda soldada — não há parafusos nem cantoneiras de união criando ponte pontual. A ponte térmica da folha é o próprio quadro de alumínio contínuo, já contabilizado no termo f·U<sub>q</sub> do passo 6.");
 
   s+=passo("6","U DA FOLHA (ponderado por área)",
     "U = f·U<sub>q</sub> + (1−f)·U<sub>c</sub> + ΔU<sub>pontes</sub>",
     "U = "+f(fr,2)+"·"+f(r.Uq)+" + "+f(1-fr,2)+"·"+f(r.Uc)+" + "+f(r.dUp+r.dUc,4),
     "<span style='font-size:15px'>"+f(r.U)+" W/m²K</span>  ("+f(r.U*0.1761,3)+" Btu/h·ft²·°F)",
-    "f = fração de quadro = "+p.frac+"%. Média ponderada entre as áreas de quadro e de campo, mais as pontes.");
+    "f = fração de quadro = "+p.frac+"%. Média ponderada entre as áreas de quadro e de campo. ΔU<sub>pontes</sub> = 0: estrutura soldada, sem parafuso ou cantoneira de união.");
 
   s+=passo("7","Superfície interna no inverno · fator de temperatura fR<sub>si</sub>",
     "T<sub>si</sub> = T<sub>i</sub> − U<sub>q</sub>·(T<sub>i</sub>−T<sub>e</sub>)·R<sub>si</sub>   ·   fR<sub>si</sub> = (T<sub>si</sub>−T<sub>e</sub>)/(T<sub>i</sub>−T<sub>e</sub>)",
@@ -1639,7 +1637,7 @@ function tRender(){
   }
   var base={larg:+document.getElementById('tLarg').value, alt:+document.getElementById('tAlt').value,
             quad:+document.getElementById('tQuad').value, frac:+document.getElementById('tFrac').value,
-            par:+document.getElementById('tPar').value, cant:+document.getElementById('tCant').value,
+            par:0, cant:0,
             eExt:0, mExt:"xps", mCav:"psr32"};
   var rec=recomenda(base,loc.tmin,loc.tmax,ur);
   var p=JSON.parse(JSON.stringify(base)); p.eExt=rec.eExt; p.mExt=rec.mExt; p.mCav=rec.mCav;
@@ -1691,7 +1689,6 @@ function tRender(){
   document.getElementById('tOut').innerHTML="<h2>4 · Verificações</h2>"+av+
    "<table style='width:100%;border-collapse:collapse;font-size:14px'>"+
    "<tr><td>U do quadro / do campo</td><td align=right>"+r.Uq.toFixed(3)+" / "+r.Uc.toFixed(3)+"</td></tr>"+
-   "<tr><td>Pontes: parafusos ("+r.nPar.toFixed(1)+"/m²) + cantoneiras</td><td align=right>+"+(r.dUp+r.dUc).toFixed(3)+"</td></tr>"+
    "<tr style='font-weight:700;border-top:2px solid #333'><td>U DA FOLHA</td><td align=right>"+r.U.toFixed(3)+" W/m²K</td></tr>"+
    "<tr><td>Superfície interna no inverno · fRsi ≥ 0,70</td><td align=right>"+Tsi_i.toFixed(1)+" °C · "+fR.toFixed(3)+" "+ok(fR>=0.70)+"</td></tr>"+
    "<tr><td>Miolo no inverno / orvalho</td><td align=right>"+rec.tcav.toFixed(1)+" / "+rec.torv.toFixed(1)+" °C "+ok(rec.mCav!=="psr32"||rec.tcav>rec.torv)+"</td></tr>"+
@@ -1706,7 +1703,7 @@ function tRender(){
 (function(){
   if(!document.getElementById('tOut')) return;
   tRender();
-  var ids=['tLarg','tAlt','tQuad','tFrac','tPar','tTrav','tUr','tCant','tSync'];
+  var ids=['tLarg','tAlt','tQuad','tFrac','tTrav','tUr','tSync'];
   window.tRender=tRender;
   ['sL','sA'].forEach(function(k){var e=document.getElementById(k);
     if(e){e.addEventListener('input',function(){setTimeout(tRender,0);});e.addEventListener('change',function(){setTimeout(tRender,0);});}});
@@ -2041,6 +2038,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-35</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-36</div>
 </body>
 </html>
