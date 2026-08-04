@@ -1142,8 +1142,14 @@ function recomenda(base,tmin,tmax,ur){
   var p0=JSON.parse(JSON.stringify(base)); p0.eExt=0; p0.mExt="xps"; p0.mCav="psr32";
   var r0=calc(p0);
   var Tsi0=Tsi(p0,r0,Ti_inv,tmin), to0=orv(Ti_inv,ur);
-  var precisa = (empeno(p0,r0,Ti_ver,sa) > LIM_EMP) || (Tsi0 < to0+1);
-  var motivoP = (Tsi0<to0+1) ? "condensação na superfície interna" : ((empeno(p0,r0,Ti_ver,sa)>LIM_EMP)?"empeno acima de 5 mm":"");
+  /* 3o gatilho: sem isolante externo o miolo encosta na pele quente — se a face sol-ar
+     passa do limite de servico do EPS (80 C), o isolante externo vira OBRIGATORIO para
+     proteger o miolo (Doha 87 C etc). Nao muda nada no Brasil: pior caso Cuiaba 79,8 C. */
+  var quenteMiolo = sa > TSERV.eps;
+  var precisa = (empeno(p0,r0,Ti_ver,sa) > LIM_EMP) || (Tsi0 < to0+1) || quenteMiolo;
+  var motivoP = (Tsi0<to0+1) ? "condensação na superfície interna"
+    : ((empeno(p0,r0,Ti_ver,sa)>LIM_EMP) ? "empeno acima de 5 mm"
+    : (quenteMiolo ? ("face sol-ar "+sa.toFixed(0)+" °C acima do serviço do miolo EPS (80 °C)") : ""));
   // 2) material externo pelo limite de servico com ACM preto
   var mExt = (sa>TSERV.xps) ? "pir" : "xps";
   var eExt = precisa?30:0;
@@ -1712,6 +1718,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-16</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-17</div>
 </body>
 </html>
