@@ -1258,32 +1258,42 @@ var ALU=160, DX=2;                     // mm por celula
 function orv2(T,RH){var a=17.27,b=237.7;var g=(a*T)/(b+T)+Math.log(RH/100);return (b*g)/(a-g);}
 
 function montar(p){
-  var eACM=4, eExt=p.eExt||0, tubo=p.quad, twall=4, tw=50.8, H=400;
+  /* JUNCAO FOLHA <-> PORTAL, como o mapa da SYNUA no catalogo Oikos:
+     y = 0..50,8       tubo do PORTAL 4"x2" parede 2 (memorial secao VI)
+     y = 50,8..60,8    FRESTA de ar 10 mm (FGLE do DXF parametrico) c/ vedacao
+     y = 60,8..111,6   montante da FOLHA PA007F 101,6x50,8 parede 4
+     y = 111,6..460    miolo da folha                                        */
+  var eACM=4, eExt=p.eExt||0, tubo=p.quad, twF=4, twP=2, tw=50.8, gap=10, H=460;
   var nx=Math.round((eACM+eExt+tubo+eACM)/DX), ny=Math.round(H/DX);
   var lam=new Float64Array(nx*ny);
   var lACM=0.004/0.0097;               // lambda equivalente do ACM (R=0,0097)
   var lCav=(p.mCav==='ar')?(tubo/1000/0.18):LAMF[p.mCav];
-  var lAr=( (tubo-2*twall)/1000 )/0.18; // ar parado dentro do tubo
+  var lAr=( (tubo-2*twF)/1000 )/0.18;  // ar parado dentro dos tubos
+  var lFre=(gap/1000)/0.15;            // fresta 10 mm vedada: cavidade de ar (R=0,15)
+  var lArL=0.026;                      // ar livre ao lado do portal (so conducao, conservador)
   var lExt=eExt>0?LAMF[p.mExt]:0;
-  var x0=eACM, x1=eACM+eExt, x2=x1+tubo, y0=0, y1=tw;   // montante na BORDA da folha (planta real)
+  var x0=eACM, x1=eACM+eExt, x2=x1+tubo;
+  var yP1=tw, yG1=tw+gap, yF1=tw+gap+tw;   // fim do portal / da fresta / do tubo da folha
+  function tuboV(x,y,yA,yB,twall,tagOn){   // material dentro de um tubo generico
+    var xt=x-x1, borda = xt<twall||xt>=tubo-twall||y<yA+twall||y>=yB-twall;
+    var tag = tagOn && xt>tubo/2-12 && xt<=tubo/2+12;
+    return borda?(tag?0.25:ALU):lAr;
+  }
   for(var j=0;j<ny;j++)for(var i=0;i<nx;i++){
     var x=(i+0.5)*DX, y=(j+0.5)*DX, v;
-    if(x<x0 || x>=x2) v=lACM;                       // peles de ACM
-    else if(x<x1) v=lExt;                            // isolante externo
-    else{                                            // faixa do tubo
-      var noTubo=(y>=y0&&y<y1);
-      if(!noTubo) v=lCav;                            // miolo
-      else{
-        var xt=x-x1, borda = xt<twall||xt>=tubo-twall||y<y0+twall||y>=y1-twall;
-        /* taglio termico: barra de poliamida (lambda 0,25) de 24 mm cortando as
-           ALMAS do tubo a meia profundidade — o conceito Oikos/esquadria europeia */
-        var tag = p.taglio && xt>tubo/2-12 && xt<=tubo/2+12;
-        v=borda?(tag?0.25:ALU):lAr;                  // parede alu / poliamida / ar interno
-      }
+    var noX=(x>=x1&&x<x2);
+    if(y<yP1){                                       // faixa do PORTAL
+      v = noX ? tuboV(x,y,0,yP1,twP,p.taglio) : lArL;   // fora do tubo: ar livre
+    }else if(y<yG1){                                 // FRESTA
+      v = noX ? lFre : lArL;
+    }else{                                           // FOLHA
+      if(x<x0 || x>=x2) v=lACM;                      // peles de ACM
+      else if(x<x1) v=lExt;                          // isolante externo
+      else v = (y<yF1) ? tuboV(x,y,yG1,yF1,twF,p.taglio) : lCav;
     }
     lam[j*nx+i]=v;
   }
-  return {lam:lam,nx:nx,ny:ny,x1:x1,x2:x2,y0:y0,y1:y1,eExt:eExt,tubo:tubo};
+  return {lam:lam,nx:nx,ny:ny,x1:x1,x2:x2,yP1:yP1,yG1:yG1,yF1:yF1,eExt:eExt,tubo:tubo,tw:tw,gap:gap,H:H};
 }
 function resolver(g,Te,Ti){
   /* Solucao DIRETA do sistema 5-pontos (simetrico definido positivo) por
@@ -1375,39 +1385,48 @@ window.tFeaRender=function(){
     ctx.fillRect(ox+i2d*escX,oy+j2d*escY,escX+0.6,escY+0.6);
   }
   var px=function(mm){return ox+mm/DX*escX;}, py=function(mm){return oy+mm/DX*escY;};
-  // contornos de material (planta)
+  // contornos de material (planta da juncao)
   ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1.4;
-  ctx.strokeRect(px(0),py(0),g.nx*escX,g.ny*escY);            // folha
-  // peles de ACM
-  ctx.beginPath();ctx.moveTo(px(4),py(0));ctx.lineTo(px(4),py(400));
-  ctx.moveTo(px(g.x2),py(0));ctx.lineTo(px(g.x2),py(400));ctx.stroke();
-  if(g.eExt>0){ctx.beginPath();ctx.moveTo(px(g.x1),py(0));ctx.lineTo(px(g.x1),py(400));ctx.stroke();}
-  // tubo do quadro na borda (paredes)
-  ctx.lineWidth=2; ctx.strokeRect(px(g.x1),py(0),g.tubo/DX*escX,50.8/DX*escY);
-  ctx.lineWidth=1; ctx.strokeRect(px(g.x1+4),py(4),(g.tubo-8)/DX*escX,(50.8-8)/DX*escY);
+  // PORTAL: tubo 4"x2" parede 2
+  ctx.lineWidth=2; ctx.strokeRect(px(g.x1),py(0),g.tubo/DX*escX,g.tw/DX*escY);
+  ctx.lineWidth=1; ctx.strokeRect(px(g.x1+2),py(2),(g.tubo-4)/DX*escX,(g.tw-4)/DX*escY);
+  // FRESTA (tracejada)
+  ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(px(g.x1),py(g.yP1));ctx.lineTo(px(g.x2),py(g.yP1));
+  ctx.moveTo(px(g.x1),py(g.yG1));ctx.lineTo(px(g.x2),py(g.yG1));ctx.stroke();ctx.setLineDash([]);
+  // FOLHA: contorno, peles ACM e tubo parede 4
+  ctx.strokeStyle='rgba(0,0,0,.6)';
+  ctx.strokeRect(px(0),py(g.yG1),g.nx*escX,(g.H-g.yG1-DX)/DX*escY);
+  ctx.beginPath();ctx.moveTo(px(4),py(g.yG1));ctx.lineTo(px(4),py(g.H));
+  ctx.moveTo(px(g.x2),py(g.yG1));ctx.lineTo(px(g.x2),py(g.H));ctx.stroke();
+  if(g.eExt>0){ctx.beginPath();ctx.moveTo(px(g.x1),py(g.yG1));ctx.lineTo(px(g.x1),py(g.H));ctx.stroke();}
+  ctx.lineWidth=2; ctx.strokeRect(px(g.x1),py(g.yG1),g.tubo/DX*escX,g.tw/DX*escY);
+  ctx.lineWidth=1; ctx.strokeRect(px(g.x1+4),py(g.yG1+4),(g.tubo-8)/DX*escX,(g.tw-8)/DX*escY);
   if(tg){ctx.strokeStyle='#7a3db8';ctx.setLineDash([5,3]);ctx.lineWidth=2;
-    ctx.strokeRect(px(g.x1+st.p.quad/2-12),py(0),24/DX*escX,50.8/DX*escY);
+    ctx.strokeRect(px(g.x1+st.p.quad/2-12),py(0),24/DX*escX,g.tw/DX*escY);
+    ctx.strokeRect(px(g.x1+st.p.quad/2-12),py(g.yG1),24/DX*escX,g.tw/DX*escY);
     ctx.setLineDash([]);ctx.lineWidth=1;}
   // rotulos
   ctx.fillStyle='#333'; ctx.font='700 12px sans-serif'; ctx.textAlign='center';
   ctx.fillText('EXTERIOR',ox-42,oy+14); ctx.fillText(Te.toFixed(0)+' °C',ox-42,oy+30);
   ctx.fillText('INTERIOR',ox+g.nx*escX+42,oy+14); ctx.fillText(Ti.toFixed(0)+' °C',ox+g.nx*escX+42,oy+30);
   ctx.font='11px sans-serif'; ctx.fillStyle='#222';
-  ctx.fillText('BORDA DA FOLHA — PLANTA',ox+g.nx*escX/2,oy-28);
-  ctx.fillText('montante PA007F '+st.p.quad.toFixed(1)+' mm'+(tg?' · TAGLIO':''),ox+g.nx*escX/2,oy-12);
-  ctx.save();ctx.translate(ox+g.nx*escX/2,py(230));ctx.rotate(-Math.PI/2);
+  ctx.fillText('JUNÇÃO FOLHA ↔ PORTAL — PLANTA',ox+g.nx*escX/2,oy-28);
+  ctx.fillText('PORTAL tubo 4″×2″×2'+(tg?' · TAGLIO':''),ox+g.nx*escX/2,oy-12);
+  ctx.fillText('fresta '+g.gap+' mm + vedação',ox+g.nx*escX/2,py(g.yP1+g.gap/2)+3);
+  ctx.fillText('montante PA007F '+st.p.quad.toFixed(1)+' mm'+(tg?' · TAGLIO':''),ox+g.nx*escX/2,py(g.yG1+g.tw/2)+3);
+  ctx.save();ctx.translate(ox+g.nx*escX/2,py(300));ctx.rotate(-Math.PI/2);
   ctx.fillText('miolo · '+ (st.p.mCav==='eps'?'EPS':'lã de rocha'),0,4);ctx.restore();
-  ctx.save();ctx.translate(px(2),py(200));ctx.rotate(-Math.PI/2);ctx.fillText('ACM 4',0,3);ctx.restore();
-  ctx.save();ctx.translate(px(g.x2+2),py(200));ctx.rotate(-Math.PI/2);ctx.fillText('ACM 4',0,3);ctx.restore();
-  if(g.eExt>0){ctx.save();ctx.translate(px(4+g.eExt/2),py(220));ctx.rotate(-Math.PI/2);ctx.fillText(st.p.mExt.toUpperCase()+' '+g.eExt,0,3);ctx.restore();}
+  ctx.save();ctx.translate(px(2),py(280));ctx.rotate(-Math.PI/2);ctx.fillText('ACM 4',0,3);ctx.restore();
+  ctx.save();ctx.translate(px(g.x2+2),py(280));ctx.rotate(-Math.PI/2);ctx.fillText('ACM 4',0,3);ctx.restore();
+  if(g.eExt>0){ctx.save();ctx.translate(px(4+g.eExt/2),py(300));ctx.rotate(-Math.PI/2);ctx.fillText(st.p.mExt.toUpperCase()+' '+g.eExt,0,3);ctx.restore();}
   // marcador do ponto critico na face interna
-  var yp=oy+(r.pior.j+0.5)*escY, xp=ox+g.nx*escX;
-  ctx.fillStyle='#c5221f'; ctx.beginPath(); ctx.arc(xp,yp,4,0,6.2832); ctx.fill();
+  var yp=oy+(r.pior.j+0.5)*escY, xp2=ox+g.nx*escX;
+  ctx.fillStyle='#c5221f'; ctx.beginPath(); ctx.arc(xp2,yp,4,0,6.2832); ctx.fill();
   ctx.font='700 11px sans-serif'; ctx.textAlign='left';
-  ctx.fillText(r.pior.t.toFixed(1)+' °C',xp+8,yp+4);
-  ctx.textAlign='center';
-  ctx.fillStyle='#888'; ctx.font='10px sans-serif';
-  ctx.fillText('espessura ampliada p/ leitura · comprimento 400 mm em escala',ox+g.nx*escX/2,oy+g.ny*escY+16);
+  ctx.fillText(r.pior.t.toFixed(1)+' °C',xp2+8,yp+4);
+  ctx.textAlign='center'; ctx.fillStyle='#888'; ctx.font='10px sans-serif';
+  ctx.fillText('espessura ampliada p/ leitura · comprimento 460 mm em escala',ox+g.ny*0+g.nx*escX/2,oy+g.ny*escY+16);
   ctx.textAlign='start';
   // legenda
   var leg=document.getElementById('feaLeg'), passo=(hi2-lo)/6, li='';
@@ -1424,13 +1443,13 @@ window.tFeaRender=function(){
   if(tg){ var p0={}; for(var kz in pp) p0[kz]=pp[kz]; p0.taglio=false; rBase=resolver(montar(p0),Te,Ti); }
   var OIK=1.0;   // Oikos SYNUA 3TT, pivotante grande com taglio termico: U=1,0 de serie
   var out='<table style="width:100%;border-collapse:collapse">'+
-   '<tr><td>U da célula modelada (quadro + miolo adjacente)</td><td align=right><b>'+r.U.toFixed(3)+' W/m²K</b></td></tr>'+
+   '<tr><td>U do conjunto — borda da folha + fresta + portal</td><td align=right><b>'+r.U.toFixed(3)+' W/m²K</b></td></tr>'+
    (tg&&rBase?('<tr><td style="color:#7a3db8">— mesmo corte sem taglio térmico</td><td align=right style="color:#7a3db8">'+rBase.U.toFixed(3)+' W/m²K → ganho '+((1-r.U/rBase.U)*100).toFixed(0)+'%</td></tr>'):'')+
    '<tr><td>Referência de mercado — Oikos SYNUA 3TT (pivotante c/ taglio)</td><td align=right>'+OIK.toFixed(2)+' W/m²K '+(r.U<=OIK?'<span style="color:#137333;font-weight:700">✓ no nível</span>':'<span style="color:#b06000;font-weight:700">acima</span>')+'</td></tr>'+
-   '<tr><td>Superfície interna — ponto crítico (na alma do tubo)</td><td align=right><b>'+pior.toFixed(1)+' °C</b>'+(tg&&rBase?(' <span style="color:#7a3db8;font-size:12px">(era '+rBase.pior.t.toFixed(1)+')</span>'):'')+'</td></tr>'+
+   '<tr><td>Superfície interna — ponto crítico (portal/alma)</td><td align=right><b>'+pior.toFixed(1)+' °C</b>'+(tg&&rBase?(' <span style="color:#7a3db8;font-size:12px">(era '+rBase.pior.t.toFixed(1)+')</span>'):'')+'</td></tr>'+
    (inv?('<tr><td>Ponto de orvalho a '+st.ur+'% UR</td><td align=right>'+to.toFixed(1)+' °C '+(okc?'<span style="color:#137333;font-weight:700">✓ sem condensação</span>':'<span style="color:#c5221f;font-weight:700">✗ CONDENSA na ponte térmica</span>')+'</td></tr>'):'')+
    '</table>'+
-   '<div style="margin-top:6px;font-size:11.5px;color:#888">Mesmo método do THERM (condução 2D em regime permanente). A faixa fria/quente colada ao tubo é a ponte térmica do alumínio — é ela que o taglio térmico ou o isolante externo cortam.</div>';
+   '<div style="margin-top:6px;font-size:11.5px;color:#888">Mesmo método do THERM (condução 2D em regime permanente). A faixa fria/quente no portal e no montante é a ponte térmica do alumínio — é ela que o taglio térmico ou o isolante externo cortam.</div>';
   document.getElementById('feaOut').innerHTML=out;
 };
 ['feaInv','feaVer','feaTaglio'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',function(){window.tFeaRender();});});
