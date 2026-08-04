@@ -13749,7 +13749,8 @@ const Orcamento = (() => {
     // (vazio). Mostra o que ja' foi adicionado manualmente, editavel, com
     // botao remover. Reusa extras + perfisCadastro do escopo.
     function linhasManuaisVazias(itemIdx, secao) {
-      const meus = (extras || []).filter(e =>
+      const _ext = getAjustes().extras || [];
+      const meus = _ext.filter(e =>
         (e.itemIdx || 1) === itemIdx && (e.secao || 'manual') === secao);
       if (!meus.length) return '';
       return meus.map(e => {
