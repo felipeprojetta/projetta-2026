@@ -77,7 +77,24 @@
     });
     // start event
     var start = flow.nodes.find(function (n) { return n.t === 'startEvent'; });
-    _grafo = { flow: flow, porId: porId, saidas: saidas, entradas: entradas, start: start };
+    // eventos de LINK (LSxx throw -> LCxx catch), o que liga os "blocos".
+    // Aprendido na Universidade Zeev: evento de mensagem e' so' e-mail;
+    // quem salta entre partes distantes do processo e' o evento de link,
+    // pareado pelo NUMERO (LS10<->LC10). Monta saltoLink: idThrow -> idCatch.
+    var saltoLink = {};
+    var throws = {}, catches = {};
+    flow.nodes.forEach(function (n) {
+      var m = (n.n || '').match(/^L([SC])(\d+)/i);
+      if (!m) return;
+      var num = m[2];
+      if (m[1].toUpperCase() === 'S') throws[num] = n.id;
+      else catches[num] = n.id;
+    });
+    Object.keys(throws).forEach(function (num) {
+      if (catches[num]) saltoLink[throws[num]] = catches[num];
+    });
+    _grafo = { flow: flow, porId: porId, saidas: saidas, entradas: entradas,
+      start: start, saltoLink: saltoLink };
     return _grafo;
   }
 
@@ -145,15 +162,15 @@
     var cond = (f.n || '').trim();
     if (!cond) return true; // fluxo incondicional
     var alvo = cond.toLowerCase();
+    // valores dos campos + o ULTIMO BOTAO DE ACAO clicado (fonte de
+    // condicao do Zeev: "testar se clicou Aprovar/Rejeitar").
     var valores = Object.keys(dados || {}).map(function (k) {
       return String(dados[k] || '').trim().toLowerCase();
     });
     // 1) match EXATO primeiro (o correto para gateway exclusivo).
     //    Evita que "Nacional" case dentro de "Internacional".
     if (valores.some(function (v) { return v === alvo; })) return true;
-    // 2) fallback tolerante SO' quando nao houve match exato em lugar
-    //    nenhum: aceita conter, exigindo que a condicao seja "palavra
-    //    inteira" no valor (delimitada por borda) para nao vazar prefixo.
+    // 2) fallback tolerante: condicao como palavra inteira no valor.
     var reBorda = new RegExp('(^|[^a-z0-9\\u00c0-\\u017f])' +
       alvo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
       '([^a-z0-9\\u00c0-\\u017f]|$)', 'i');
@@ -161,8 +178,15 @@
   }
 
   // se o destino ja' e' tarefa, retorna ele; se e' gateway/evento
-  // intermediario, atravessa ate' a proxima tarefa/fim (evita criar
-  // "tarefa" pra gateway). Protege contra loop com visitados.
+  // intermediario, atravessa ate' a proxima tarefa/fim. Fiel ao Zeev:
+  //  - EVENTO DE LINK (LSxx throw): salta pro LCxx catch de mesmo numero
+  //    e continua dali (o que liga os "blocos" do processo).
+  //  - GATEWAY EXCLUSIVO: segue as saidas cuja condicao bate; se NENHUMA
+  //    bater, segue o caminho DEFAULT (evita travar, como manda o Zeev).
+  //  - GATEWAY PARALELO/INCLUSIVO divergente: ativa todas as saidas que
+  //    batem (paralelo = todas, sem filtro).
+  //  - EVENTO DE MENSAGEM (MGSxx): so' e-mail; atravessa sem criar tarefa.
+  // Protege contra loop com visitados.
   function expandirAteTarefa(g, node, dados, visitados) {
     visitados = visitados || {};
     if (visitados[node.id]) return [];
@@ -170,14 +194,32 @@
     if (node.t === 'userTask' || node.t === 'task' || node.t === 'endEvent') {
       return [node];
     }
-    // gateway ou evento intermediario: segue as saidas que batem
+    // salto de link: throw LSxx -> catch LCxx (continua a partir do catch)
+    if (g.saltoLink[node.id]) {
+      var catchNode = g.porId[g.saltoLink[node.id]];
+      if (catchNode) return expandirAteTarefa(g, catchNode, dados, visitados);
+    }
+    var outs = (g.saidas[node.id] || []);
+    var ehExclusivo = node.t === 'exclusiveGateway';
     var out = [];
-    (g.saidas[node.id] || []).forEach(function (f) {
+    var algumBateu = false;
+    outs.forEach(function (f) {
       if (condicaoBate(f, dados)) {
+        algumBateu = true;
         var d = g.porId[f.t];
         if (d) out = out.concat(expandirAteTarefa(g, d, dados, visitados));
       }
     });
+    // caminho DEFAULT do exclusivo: se nenhuma condicao bateu, segue o
+    // fluxo marcado como padrao (ou, na falta, o primeiro sem condicao,
+    // ou o primeiro de todos) — regra do Zeev pra nao travar.
+    if (ehExclusivo && !algumBateu && outs.length) {
+      var def = outs.find(function (f) { return f.default || f.isDefault; })
+        || outs.find(function (f) { return !(f.n || '').trim(); })
+        || outs[0];
+      var dd = g.porId[def.t];
+      if (dd) out = out.concat(expandirAteTarefa(g, dd, dados, visitados));
+    }
     return out;
   }
 
