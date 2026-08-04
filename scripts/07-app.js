@@ -100,11 +100,6 @@ const App = (() => {
         { id: 'pedidos',  label: '\u25f4 Pedidos (funil)' },
       ],
     },
-    workflow: {
-      title: 'Workflow',
-      subtitle: 'Fluxo de processo espelhado do Zeev (2026) — etapas, decisoes e campos.',
-      breadcrumb: 'Operacional · Workflow',
-    },
     config: {
       title: 'Configuracoes',
       subtitle: 'Informacoes do sistema e manutencao do storage local.',
