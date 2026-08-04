@@ -1263,7 +1263,7 @@ function montar(p){
      y = 50,8..60,8    FRESTA de ar 10 mm (FGLE do DXF parametrico) c/ vedacao
      y = 60,8..111,6   montante da FOLHA PA007F 101,6x50,8 parede 4
      y = 111,6..460    miolo da folha                                        */
-  var eACM=4, eExt=p.eExt||0, tubo=p.quad, twF=4, twP=2, tw=50.8, gap=10, H=460;
+  var eACM=4, eExt=p.eExt||0, tubo=p.quad, twF=4, twP=2, tw=50.8, gap=10, alv=100, H=alv+tw+gap+tw+250;
   var nx=Math.round((eACM+eExt+tubo+eACM)/DX), ny=Math.round(H/DX);
   var lam=new Float64Array(nx*ny);
   var lACM=0.004/0.0097;               // lambda equivalente do ACM (R=0,0097)
@@ -1273,7 +1273,8 @@ function montar(p){
   var lArL=0.026;                      // ar livre ao lado do portal (so conducao, conservador)
   var lExt=eExt>0?LAMF[p.mExt]:0;
   var x0=eACM, x1=eACM+eExt, x2=x1+tubo;
-  var yP1=tw, yG1=tw+gap, yF1=tw+gap+tw;   // fim do portal / da fresta / do tubo da folha
+  var lAlv=0.72;                            // alvenaria/argamassa
+  var yA1=alv, yP1=alv+tw, yG1=yP1+gap, yF1=yG1+tw;  // fim alvenaria/portal/fresta/tubo folha
   function tuboV(x,y,yA,yB,twall,tagOn){   // material dentro de um tubo generico
     var xt=x-x1, borda = xt<twall||xt>=tubo-twall||y<yA+twall||y>=yB-twall;
     var tag = tagOn && xt>tubo/2-12 && xt<=tubo/2+12;
@@ -1282,8 +1283,9 @@ function montar(p){
   for(var j=0;j<ny;j++)for(var i=0;i<nx;i++){
     var x=(i+0.5)*DX, y=(j+0.5)*DX, v;
     var noX=(x>=x1&&x<x2);
-    if(y<yP1){                                       // faixa do PORTAL
-      v = noX ? tuboV(x,y,0,yP1,twP,p.taglio) : lArL;   // fora do tubo: ar livre
+    if(y<yA1){ v=lAlv; }                              // ALVENARIA (ombreira)
+    else if(y<yP1){                                   // faixa do PORTAL
+      v = noX ? tuboV(x,y,yA1,yP1,twP,p.taglio) : lArL;  // fora do tubo: ar livre
     }else if(y<yG1){                                 // FRESTA
       v = noX ? lFre : lArL;
     }else{                                           // FOLHA
@@ -1293,7 +1295,7 @@ function montar(p){
     }
     lam[j*nx+i]=v;
   }
-  return {lam:lam,nx:nx,ny:ny,x1:x1,x2:x2,yP1:yP1,yG1:yG1,yF1:yF1,eExt:eExt,tubo:tubo,tw:tw,gap:gap,H:H};
+  return {lam:lam,nx:nx,ny:ny,x1:x1,x2:x2,yA1:yA1,yP1:yP1,yG1:yG1,yF1:yF1,eExt:eExt,tubo:tubo,tw:tw,gap:gap,alv:alv,H:H};
 }
 function resolver(g,Te,Ti){
   /* Solucao DIRETA do sistema 5-pontos (simetrico definido positivo) por
@@ -1339,20 +1341,23 @@ function resolver(g,Te,Ti){
     for(var t3=1;t3<=Math.min(bw,n-1-q3);t3++) sm3-=B[(q3+t3)*W+t3]*T[q3+t3];
     T[q3]=sm3;
   }
+  var jA=Math.round((g.yA1||0)/(DX));      // 1a linha da PORTA (depois da alvenaria)
   var qFlux=0;
-  for(var j2=0;j2<ny;j2++){
+  for(var j2=jA;j2<ny;j2++){
     var k2=j2*nx+nx-1, K2=1/(0.13+d/(2*lam[k2]));
     qFlux+=K2*(T[k2]-Ti)*d;
   }
-  var U=qFlux/((Te-Ti)*(ny*d));
-  var si=[], pior=null;
+  var U=qFlux/((Te-Ti)*((ny-jA)*d));
+  var si=[], se=[], pior=null;
   for(var j3=0;j3<ny;j3++){
     var k3=j3*nx+nx-1, K3=1/(0.13+d/(2*lam[k3]));
     var Ts=Ti+K3*0.13*(T[k3]-Ti);
     si.push(Ts);
-    if(pior===null || (Te<Ti?Ts<pior.t:Ts>pior.t)) pior={t:Ts,j:j3};
+    var k4=j3*nx, K4=1/(0.04+d/(2*lam[k4]));
+    se.push(Te+K4*0.04*(T[k4]-Te));
+    if(j3>=jA && (pior===null || (Te<Ti?Ts<pior.t:Ts>pior.t))) pior={t:Ts,j:j3};
   }
-  return {T:T,U:Math.abs(U),si:si,pior:pior,it:0};
+  return {T:T,U:Math.abs(U),si:si,se:se,pior:pior,it:0};
 }
 function corRampa(f){                                 // azul -> ciano -> verde -> amarelo -> vermelho
   f=Math.max(0,Math.min(1,f));
@@ -1376,20 +1381,36 @@ window.tFeaRender=function(){
   var mgL=84, mgR=84, mgT=46, mgB=26;
   var escX=(W-mgL-mgR)/g.nx, escY=(Hh-mgT-mgB)/g.ny;
   var ox=mgL, oy=mgT;
-  var NB=18;
+  /* campo continuo de cor */
+  var NL=14;                                             // n. de isotermas
+  function fT(i2,j2){return (r.T[j2*g.nx+i2]-lo)/(hi2-lo);}
   for(var j2d=0;j2d<g.ny;j2d++)for(var i2d=0;i2d<g.nx;i2d++){
-    var f=(r.T[j2d*g.nx+i2d]-lo)/(hi2-lo);
-    f=Math.round(f*NB)/NB;
-    var c=corRampa(f);
+    var c=corRampa(fT(i2d,j2d));
     ctx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')';
     ctx.fillRect(ox+i2d*escX,oy+j2d*escY,escX+0.6,escY+0.6);
   }
+  /* ISOTERMAS: linha fina onde o nivel muda (estilo THERM/catalogo) */
+  ctx.fillStyle='rgba(40,40,40,.55)';
+  for(var jc2=0;jc2<g.ny;jc2++)for(var ic2=0;ic2<g.nx;ic2++){
+    var b0=Math.floor(fT(ic2,jc2)*NL);
+    if(ic2<g.nx-1 && Math.floor(fT(ic2+1,jc2)*NL)!==b0)
+      ctx.fillRect(ox+(ic2+1)*escX-0.5,oy+jc2*escY,1,escY+0.6);
+    if(jc2<g.ny-1 && Math.floor(fT(ic2,jc2+1)*NL)!==b0)
+      ctx.fillRect(ox+ic2*escX,oy+(jc2+1)*escY-0.5,escX+0.6,1);
+  }
+  /* ALVENARIA: pontilhado estilo prancha */
+  ctx.fillStyle='rgba(0,0,0,.35)';
+  for(var hy=3;hy<g.alv/DX;hy+=4)for(var hx=((hy%8)?1:3);hx<g.nx;hx+=5)
+    ctx.fillRect(ox+hx*escX,oy+hy*escY,1.4,1.4);
   var px=function(mm){return ox+mm/DX*escX;}, py=function(mm){return oy+mm/DX*escY;};
   // contornos de material (planta da juncao)
   ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1.4;
+  // ALVENARIA
+  ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1.4;
+  ctx.strokeRect(px(0),py(0),g.nx*escX,g.alv/DX*escY);
   // PORTAL: tubo 4"x2" parede 2
-  ctx.lineWidth=2; ctx.strokeRect(px(g.x1),py(0),g.tubo/DX*escX,g.tw/DX*escY);
-  ctx.lineWidth=1; ctx.strokeRect(px(g.x1+2),py(2),(g.tubo-4)/DX*escX,(g.tw-4)/DX*escY);
+  ctx.lineWidth=2; ctx.strokeRect(px(g.x1),py(g.yA1),g.tubo/DX*escX,g.tw/DX*escY);
+  ctx.lineWidth=1; ctx.strokeRect(px(g.x1+2),py(g.yA1+2),(g.tubo-4)/DX*escX,(g.tw-4)/DX*escY);
   // FRESTA (tracejada)
   ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.setLineDash([3,3]);
   ctx.beginPath();ctx.moveTo(px(g.x1),py(g.yP1));ctx.lineTo(px(g.x2),py(g.yP1));
@@ -1403,7 +1424,7 @@ window.tFeaRender=function(){
   ctx.lineWidth=2; ctx.strokeRect(px(g.x1),py(g.yG1),g.tubo/DX*escX,g.tw/DX*escY);
   ctx.lineWidth=1; ctx.strokeRect(px(g.x1+4),py(g.yG1+4),(g.tubo-8)/DX*escX,(g.tw-8)/DX*escY);
   if(tg){ctx.strokeStyle='#7a3db8';ctx.setLineDash([5,3]);ctx.lineWidth=2;
-    ctx.strokeRect(px(g.x1+st.p.quad/2-12),py(0),24/DX*escX,g.tw/DX*escY);
+    ctx.strokeRect(px(g.x1+st.p.quad/2-12),py(g.yA1),24/DX*escX,g.tw/DX*escY);
     ctx.strokeRect(px(g.x1+st.p.quad/2-12),py(g.yG1),24/DX*escX,g.tw/DX*escY);
     ctx.setLineDash([]);ctx.lineWidth=1;}
   // rotulos
@@ -1412,7 +1433,9 @@ window.tFeaRender=function(){
   ctx.fillText('INTERIOR',ox+g.nx*escX+42,oy+14); ctx.fillText(Ti.toFixed(0)+' °C',ox+g.nx*escX+42,oy+30);
   ctx.font='11px sans-serif'; ctx.fillStyle='#222';
   ctx.fillText('JUNÇÃO FOLHA ↔ PORTAL — PLANTA',ox+g.nx*escX/2,oy-28);
-  ctx.fillText('PORTAL tubo 4″×2″×2'+(tg?' · TAGLIO':''),ox+g.nx*escX/2,oy-12);
+  ctx.fillText('corte horizontal na ombreira',ox+g.nx*escX/2,oy-14);
+  ctx.fillText('ALVENARIA',ox+g.nx*escX/2,py(g.alv/2)+3);
+  ctx.fillText('PORTAL tubo 4″×2″×2'+(tg?' · TAGLIO':''),ox+g.nx*escX/2,py(g.yA1+g.tw/2)+3);
   ctx.fillText('fresta '+g.gap+' mm + vedação',ox+g.nx*escX/2,py(g.yP1+g.gap/2)+3);
   ctx.fillText('montante PA007F '+st.p.quad.toFixed(1)+' mm'+(tg?' · TAGLIO':''),ox+g.nx*escX/2,py(g.yG1+g.tw/2)+3);
   ctx.save();ctx.translate(ox+g.nx*escX/2,py(300));ctx.rotate(-Math.PI/2);
@@ -1420,13 +1443,32 @@ window.tFeaRender=function(){
   ctx.save();ctx.translate(px(2),py(280));ctx.rotate(-Math.PI/2);ctx.fillText('ACM 4',0,3);ctx.restore();
   ctx.save();ctx.translate(px(g.x2+2),py(280));ctx.rotate(-Math.PI/2);ctx.fillText('ACM 4',0,3);ctx.restore();
   if(g.eExt>0){ctx.save();ctx.translate(px(4+g.eExt/2),py(300));ctx.rotate(-Math.PI/2);ctx.fillText(st.p.mExt.toUpperCase()+' '+g.eExt,0,3);ctx.restore();}
-  // marcador do ponto critico na face interna
-  var yp=oy+(r.pior.j+0.5)*escY, xp2=ox+g.nx*escX;
-  ctx.fillStyle='#c5221f'; ctx.beginPath(); ctx.arc(xp2,yp,4,0,6.2832); ctx.fill();
-  ctx.font='700 11px sans-serif'; ctx.textAlign='left';
-  ctx.fillText(r.pior.t.toFixed(1)+' °C',xp2+8,yp+4);
+  /* CHAMADAS de temperatura com linha de chamada, nas duas faces */
+  function jDe(mm){return Math.min(g.ny-1,Math.max(0,Math.round(mm/DX)));}
+  function chama(lado,mm,destaca){
+    var j=jDe(mm), t=(lado==='i'?r.si[j]:r.se[j]);
+    var yv=oy+(j+0.5)*escY;
+    var xs=(lado==='i')?ox+g.nx*escX:ox;
+    var xt=(lado==='i')?xs+30:xs-30;
+    ctx.strokeStyle=destaca?'#c5221f':'rgba(60,60,60,.7)'; ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(xs,yv);ctx.lineTo(xt,yv);ctx.stroke();
+    ctx.font=(destaca?'700 ':'')+'10.5px sans-serif';
+    ctx.textAlign=(lado==='i')?'left':'right';
+    ctx.lineWidth=3; ctx.strokeStyle='#fff';
+    ctx.strokeText(t.toFixed(1)+' °C',xt+(lado==='i'?3:-3),yv+3.5);
+    ctx.fillStyle=destaca?'#c5221f':'#222';
+    ctx.fillText(t.toFixed(1)+' °C',xt+(lado==='i'?3:-3),yv+3.5);
+    if(destaca){ctx.fillStyle='#c5221f';ctx.beginPath();ctx.arc(xs,yv,3.5,0,6.2832);ctx.fill();}
+  }
+  var pts=[g.alv*0.45, g.yA1+g.tw/2, g.yP1+g.gap/2, g.yG1+g.tw/2, g.yF1+120, g.H-40];
+  for(var pi=0;pi<pts.length;pi++){
+    var jj2=jDe(pts[pi]);
+    chama('i',pts[pi], Math.abs(jj2-r.pior.j)<=3);
+    if(pi!==2) chama('e',pts[pi],false);          // fresta so' do lado interno
+  }
+  if(pts.every(function(m){return Math.abs(jDe(m)-r.pior.j)>3;})) chama('i',(r.pior.j+0.5)*DX,true);
   ctx.textAlign='center'; ctx.fillStyle='#888'; ctx.font='10px sans-serif';
-  ctx.fillText('espessura ampliada p/ leitura · comprimento 460 mm em escala',ox+g.ny*0+g.nx*escX/2,oy+g.ny*escY+16);
+  ctx.fillText('espessura ampliada p/ leitura · comprimento em escala · fresta 10 mm do DXF paramétrico',ox+g.ny*0+g.nx*escX/2,oy+g.ny*escY+16);
   ctx.textAlign='start';
   // legenda
   var leg=document.getElementById('feaLeg'), passo=(hi2-lo)/6, li='';
@@ -1434,7 +1476,7 @@ window.tFeaRender=function(){
     var tv=lo+passo*b2, c2=corRampa((tv-lo)/(hi2-lo));
     li+='<div style="display:flex;align-items:center;gap:8px;margin:2px 0"><span style="width:26px;height:14px;border-radius:3px;background:rgb('+c2[0]+','+c2[1]+','+c2[2]+')"></span>'+tv.toFixed(1)+' °C</div>';
   }
-  leg.innerHTML='<b>Isotermas</b>'+li+'<div style="margin-top:8px;color:#666">malha '+DX+' mm · célula 300 mm<br>Rsi 0,13 · Rse 0,04 m²K/W</div>';
+  leg.innerHTML='<b>Isotermas</b>'+li+'<div style="margin-top:8px;color:#666">malha '+DX+' mm · junção completa<br>Rsi 0,13 · Rse 0,04 m²K/W</div>';
   // resultados
   var to=orv2(Ti,st.ur), pior=r.pior.t;
   var okc = inv ? (pior>to+1) : true;
@@ -1443,7 +1485,7 @@ window.tFeaRender=function(){
   if(tg){ var p0={}; for(var kz in pp) p0[kz]=pp[kz]; p0.taglio=false; rBase=resolver(montar(p0),Te,Ti); }
   var OIK=1.0;   // Oikos SYNUA 3TT, pivotante grande com taglio termico: U=1,0 de serie
   var out='<table style="width:100%;border-collapse:collapse">'+
-   '<tr><td>U do conjunto — borda da folha + fresta + portal</td><td align=right><b>'+r.U.toFixed(3)+' W/m²K</b></td></tr>'+
+   '<tr><td>U da porta na junção — portal + fresta + borda da folha</td><td align=right><b>'+r.U.toFixed(3)+' W/m²K</b></td></tr>'+
    (tg&&rBase?('<tr><td style="color:#7a3db8">— mesmo corte sem taglio térmico</td><td align=right style="color:#7a3db8">'+rBase.U.toFixed(3)+' W/m²K → ganho '+((1-r.U/rBase.U)*100).toFixed(0)+'%</td></tr>'):'')+
    '<tr><td>Referência de mercado — Oikos SYNUA 3TT (pivotante c/ taglio)</td><td align=right>'+OIK.toFixed(2)+' W/m²K '+(r.U<=OIK?'<span style="color:#137333;font-weight:700">✓ no nível</span>':'<span style="color:#b06000;font-weight:700">acima</span>')+'</td></tr>'+
    '<tr><td>Superfície interna — ponto crítico (portal/alma)</td><td align=right><b>'+pior.toFixed(1)+' °C</b>'+(tg&&rBase?(' <span style="color:#7a3db8;font-size:12px">(era '+rBase.pior.t.toFixed(1)+')</span>'):'')+'</td></tr>'+
