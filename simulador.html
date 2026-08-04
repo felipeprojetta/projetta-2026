@@ -877,7 +877,7 @@ function recomenda(base,tmin,tmax,ur){
   var r0=calc(p0);
   var precisa = (frio!=="BAIXA") || (empeno(p0,r0,Ti_ver,sa) > p0.alt/500) || (Tsi(p0,r0,Ti_inv,tmin) < orv(Ti_inv,ur));
   // 2) material externo pelo limite de servico com ACM preto
-  var mExt = (sa>70) ? "pir" : "xps";   // 70 C = envelope do ensaio DS(70,90); acima disso, PIR
+  var mExt = (sa>TSERV.xps) ? "pir" : "xps";
   var eExt = precisa?30:0;
   // 3) material do miolo: fechado se a cavidade cair abaixo do orvalho no inverno
   var pt=JSON.parse(JSON.stringify(base)); pt.eExt=eExt; pt.mExt=mExt; pt.mCav="psr32";
@@ -990,6 +990,7 @@ function tRender(){
   var Tsi_i=Tsi(p,r,20,loc.tmin), fR=(Tsi_i-loc.tmin)/(20-loc.tmin);
   var emp=empeno(p,r,23,rec.sa), lim=p.alt/500;
   var av="";
+  if(rec.mExt==="xps" && rec.sa>70) av+="<div class='aviso' style='display:block'><b>Fora do envelope de ensaio.</b> Face do ACM preto a "+rec.sa.toFixed(0)+" °C. O XPS aguenta 75 °C de serviço, mas a estabilidade dimensional só é declarada em DS(70,90) — ensaio a 70 °C. Pedir declaração do fabricante a "+rec.sa.toFixed(0)+" °C, restringir a absortância a 0,55 ou usar PIR.</div>";
   if(rec.mExt==="xps" && rec.sa>75) av+="<div class='aviso' style='display:block;border-color:#c5221f'><b>Cor restrita.</b> Face do ACM preto a "+rec.sa.toFixed(0)+" °C excede os 75 °C do XPS. Limitar absortância a 0,55 ou usar PIR.</div>";
   if(rec.margem) av+="<div class='aviso' style='display:block'><b>Margem apertada no miolo.</b> Cavidade a "+rec.tcav.toFixed(1)+" °C contra orvalho de "+rec.torv.toFixed(1)+" °C — menos de 2 K. Selar o perímetro da folha; considerar EPS se a obra for úmida.</div>";
   if(rec.mCav==="psr32" && rec.tcav<rec.torv) av+="<div class='aviso' style='display:block;border-color:#c5221f'><b>Risco de condensação no miolo.</b> Cavidade a "+rec.tcav.toFixed(1)+" °C contra orvalho de "+rec.torv.toFixed(1)+" °C. Trocar por material de célula fechada.</div>";
