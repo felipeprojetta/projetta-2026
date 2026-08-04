@@ -86,7 +86,6 @@
   <button data-p="p2">DET 1 · PORTAL</button>
         <button data-p="p5">MEMORIAL FBC · SEM NOA</button>
   <button data-p="p6">TÉRMICA</button>
-  <button data-p="p7">ESPECIFICAÇÃO</button>
 </nav>
 
 <div class="pag on" id="p1">
@@ -1063,6 +1062,7 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
     </div>
   </div>
 
+  <div class="card" id="tSpec"></div>
   <div class="card" id="tOut"></div>
 
 </div>
@@ -1070,7 +1070,7 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
 <!-- MAPA FEA: fora do grid de 2 colunas, mas na MESMA largura de conteudo das outras abas -->
 <div style="max-width:1180px;margin:0 auto;padding:0 16px 16px;">
   <div class="card" id="tFeaCard" style="width:100%;box-sizing:border-box;">
-    <h2>6 · Mapa de temperaturas — FEA 2D <span style="font-size:12px;font-weight:400;color:#666">(diferenças finitas, corte horizontal no montante do quadro)</span></h2>
+    <h2>5 · Mapa de temperaturas — FEA 2D <span style="font-size:12px;font-weight:400;color:#666">(diferenças finitas, corte horizontal no montante do quadro)</span></h2>
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaInv" checked> Inverno (interna 20 °C · externa = mínima)</label>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaVer"> Verão sol-ar (interna 23 °C · face ACM preto)</label>
@@ -1085,12 +1085,6 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
   </div>
 </div>
 </div>
-
-<div class="pag" id="p7"><div class="wrap" style="max-width:1180px;">
-  <div class="card" id="tHead7" style="background:#f1f6fb;border-left:4px solid #1a73e8;grid-column:1 / -1;align-self:start"></div>
-  <div class="card" id="tSpec"></div>
-  <div class="card" id="tDes"></div>
-</div></div>
 
 <script>
 window.__TBRold={"AC": [["Rio Branco", 15, 38], ["Cruzeiro do Sul", 16, 37], ["Sena Madureira", 15, 38], ["Tarauacá", 15, 37]], "AL": [["Maceió", 18, 35], ["Arapiraca", 16, 36], ["Palmeira dos Índios", 15, 36], ["Penedo", 17, 37]], "AP": [["Macapá", 21, 36], ["Santana", 21, 36], ["Oiapoque", 21, 35], ["Laranjal do Jari", 21, 36]], "AM": [["Manaus", 20, 38], ["Parintins", 21, 37], ["Itacoatiara", 21, 37], ["Tefé", 20, 37], ["Tabatinga", 20, 36]], "BA": [["Salvador", 18, 36], ["Feira de Santana", 15, 37], ["Vitória da Conquista", 8, 32], ["Barreiras", 13, 39], ["Ilhéus", 17, 34], ["Juazeiro", 16, 42], ["Porto Seguro", 16, 35], ["Lençóis", 13, 35], ["Camaçari", 18, 36]], "CE": [["Fortaleza", 20, 36], ["Juazeiro do Norte", 17, 38], ["Sobral", 19, 39], ["Crato", 16, 36], ["Quixadá", 18, 39]], "DF": [["Brasília", 8, 34], ["Planaltina", 8, 34], ["Gama", 9, 34]], "ES": [["Vitória", 15, 38], ["Cachoeiro de Itapemirim", 12, 39], ["Linhares", 15, 38], ["Domingos Martins", 7, 32], ["Guarapari", 16, 37], ["Colatina", 14, 40]], "GO": [["Goiânia", 10, 38], ["Anápolis", 9, 35], ["Rio Verde", 9, 37], ["Catalão", 8, 35], ["Caldas Novas", 11, 38], ["Luziânia", 9, 35], ["Itumbiara", 10, 38]], "MA": [["São Luís", 21, 35], ["Imperatriz", 18, 39], ["Caxias", 18, 39], ["Balsas", 17, 39], ["Timon", 18, 40]], "MT": [["Cuiabá", 12, 43], ["Rondonópolis", 11, 40], ["Sinop", 15, 39], ["Barra do Garças", 12, 41], ["Tangará da Serra", 12, 39]], "MS": [["Campo Grande", 6, 38], ["Dourados", 4, 38], ["Corumbá", 9, 41], ["Três Lagoas", 6, 40], ["Ponta Porã", 3, 36]], "MG": [["Belo Horizonte", 9, 36], ["Uberlândia", 9, 37], ["Juiz de Fora", 6, 36], ["Poços de Caldas", 3, 32], ["Montes Claros", 11, 38], ["Barbacena", 2, 31], ["Uberaba", 8, 37], ["Governador Valadares", 12, 40], ["Diamantina", 5, 31], ["Ouro Preto", 4, 31], ["Varginha", 4, 34], ["Ipatinga", 12, 39], ["Divinópolis", 7, 35], ["Araxá", 5, 33], ["Teófilo Otoni", 12, 40], ["Patos de Minas", 6, 34]], "PA": [["Belém", 21, 35], ["Santarém", 21, 37], ["Marabá", 19, 39], ["Altamira", 20, 38], ["Castanhal", 21, 36], ["Parauapebas", 19, 38]], "PB": [["João Pessoa", 19, 34], ["Campina Grande", 15, 34], ["Patos", 17, 40], ["Sousa", 17, 40]], "PR": [["Curitiba", -2, 34], ["Londrina", 3, 38], ["Maringá", 3, 38], ["Ponta Grossa", -3, 33], ["Foz do Iguaçu", 0, 39], ["Guarapuava", -5, 32], ["Cascavel", 0, 36], ["Paranaguá", 5, 36], ["Pato Branco", -2, 35], ["Campo Mourão", 1, 37], ["União da Vitória", -4, 34], ["Palmas", -6, 31]], "PE": [["Recife", 19, 34], ["Caruaru", 14, 34], ["Petrolina", 16, 42], ["Garanhuns", 10, 32], ["Olinda", 19, 34], ["Serra Talhada", 16, 41]], "PI": [["Teresina", 18, 41], ["Parnaíba", 20, 38], ["Picos", 17, 41], ["Floriano", 18, 42]], "RJ": [["Rio de Janeiro", 13, 42], ["Petrópolis", 5, 33], ["Campos dos Goytacazes", 12, 40], ["Nova Friburgo", 3, 31], ["Angra dos Reis", 14, 38], ["Búzios", 15, 36], ["Niterói", 14, 40], ["Teresópolis", 4, 32], ["Volta Redonda", 9, 39], ["Cabo Frio", 14, 36], ["Resende", 7, 38]], "RN": [["Natal", 19, 34], ["Mossoró", 19, 40], ["Caicó", 18, 41], ["Currais Novos", 17, 38]], "RS": [["Porto Alegre", 1, 39], ["Caxias do Sul", -3, 33], ["Gramado", -4, 32], ["Canela", -4, 32], ["Pelotas", 0, 37], ["Santa Maria", -1, 39], ["Bagé", -4, 38], ["Passo Fundo", -4, 34], ["Vacaria", -6, 32], ["Rio Grande", 1, 36], ["Santo Ângelo", -2, 39], ["Uruguaiana", -3, 41], ["São Francisco de Paula", -7, 31], ["Erechim", -4, 35], ["Santa Cruz do Sul", -2, 38], ["Novo Hamburgo", 0, 38]], "RO": [["Porto Velho", 15, 38], ["Ji-Paraná", 13, 38], ["Vilhena", 8, 36], ["Ariquemes", 14, 38]], "RR": [["Boa Vista", 20, 38], ["Rorainópolis", 20, 37], ["Caracaraí", 20, 38]], "SC": [["Florianópolis", 5, 38], ["Joinville", 5, 37], ["Blumenau", 3, 39], ["Chapecó", -3, 38], ["Criciúma", 2, 36], ["Lages", -6, 33], ["São Joaquim", -8, 30], ["Balneário Camboriú", 6, 37], ["Itajaí", 5, 38], ["Jaraguá do Sul", 3, 38], ["Caçador", -5, 35], ["São Miguel do Oeste", -3, 37], ["Curitibanos", -6, 33], ["Rio do Sul", 1, 38]], "SP": [["São Paulo", 6, 36], ["Campinas", 6, 37], ["Santos", 12, 38], ["Ribeirão Preto", 8, 39], ["São José dos Campos", 5, 36], ["Sorocaba", 3, 36], ["Campos do Jordão", -6, 29], ["São Carlos", 4, 35], ["Bauru", 6, 39], ["Presidente Prudente", 5, 40], ["Ubatuba", 12, 38], ["Guarulhos", 6, 36], ["São José do Rio Preto", 8, 41], ["Piracicaba", 6, 38], ["Jundiaí", 5, 36], ["Taubaté", 4, 37], ["Araraquara", 6, 38], ["Franca", 4, 35], ["Itapeva", 1, 34], ["Registro", 8, 37], ["Bragança Paulista", 4, 35]], "SE": [["Aracaju", 19, 35], ["Itabaiana", 17, 36], ["Lagarto", 17, 37], ["Estância", 18, 36]], "TO": [["Palmas", 17, 40], ["Araguaína", 17, 40], ["Gurupi", 16, 40], ["Porto Nacional", 17, 41]]};
@@ -1354,10 +1348,7 @@ function tRender(){
     "Espessura da folha ≈ "+esp.toFixed(1)+" mm    U = "+r.U.toFixed(3)+" W/m²K ("+(r.U*0.1761).toFixed(3)+" Btu)"+
     "</pre>";
 
-  document.getElementById('tDes').innerHTML="<h2>4 · Corte</h2>"+desenho(rec,p,r,loc.tmin,loc.tmax,r.U);
-  var h7=document.getElementById('tHead7');
-  if(h7) h7.innerHTML="<b>"+loc.nome+"</b> · mín "+loc.tmin+" °C · máx "+loc.tmax+" °C · folha "+p.larg+" × "+p.alt+" mm"+
-    " <span style='float:right;font-size:12px;color:#666'>alterar na aba TÉRMICA</span>";
+  /* aba ESPECIFICACAO removida (s45): tSpec vive na TERMICA; desenho()/desenhoReal() ficam inertes p/ religar */
 
   var ok=function(b){return b?"<span style='color:#137333;font-weight:700'>✓</span>":"<span style='color:#c5221f;font-weight:700'>✗</span>";};
   var Tsi_i=Tsi(p,r,20,loc.tmin), fR=(Tsi_i-loc.tmin)/(20-loc.tmin);
@@ -1373,7 +1364,7 @@ function tRender(){
   if(TsiV>26) av+="<div class='aviso' style='display:block'><b>Conforto radiante.</b> Superfície interna do quadro a "+TsiV.toFixed(1)+" °C no verão (limite usual 26 °C) e carga de "+(r.U*r.A*(rec.sa-23)).toFixed(0)+" W. Não é falha — é o custo de não ter isolante externo. Isolante de 30 mm levaria a "+"~"+(23+(1/(0.13+0.04+0.0194+0.0729+0.030/0.029))*(rec.sa-23)*0.13).toFixed(1)+" °C.</div>";
   if(+document.getElementById('tTrav').value>1500) av+="<div class='aviso' style='display:block'><b>Verificar assentamento do miolo.</b> Vão livre entre travessas acima de 1,5 m.</div>";
 
-  document.getElementById('tOut').innerHTML="<h2>5 · Verificações</h2>"+av+
+  document.getElementById('tOut').innerHTML="<h2>4 · Verificações</h2>"+av+
    "<table style='width:100%;border-collapse:collapse;font-size:14px'>"+
    "<tr><td>U do quadro / do campo</td><td align=right>"+r.Uq.toFixed(3)+" / "+r.Uc.toFixed(3)+"</td></tr>"+
    "<tr><td>Pontes: parafusos ("+r.nPar.toFixed(1)+"/m²) + cantoneiras</td><td align=right>+"+(r.dUp+r.dUc).toFixed(3)+"</td></tr>"+
@@ -1712,6 +1703,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-8</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-9</div>
 </body>
 </html>
