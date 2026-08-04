@@ -283,6 +283,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }, 800);
 
+  // Registrar módulo Workflow (espelho do fluxo Zeev 2026 — Felipe s43)
+  setTimeout(function() {
+    if (!App.register) return;
+    App.register('workflow', {
+      render: function(container) {
+        if (window.Workflow) { window.Workflow.render(container); return; }
+        container.innerHTML = '<div class="info-banner">Modulo Workflow carregando...</div>';
+        setTimeout(function() {
+          if (window.Workflow) window.Workflow.render(container);
+        }, 1500);
+      }
+    });
+  }, 800);
+
   // Registrar módulo Weiku (prospeccao alto padrao a partir das reservas Weiku)
   setTimeout(function() {
     if (!App.register) return;
