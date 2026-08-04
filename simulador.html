@@ -1081,7 +1081,6 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
     <div id="feaCtl" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaInv" checked> Inverno (interna 20 °C · externa = mínima)</label>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaVer"> Verão sol-ar (interna 23 °C · face ACM preto)</label>
-      <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#0b6e4f"><input type="checkbox" id="feaReal" checked> Seção REAL de obra <span style="font-size:11px;font-weight:400;color:#888">(CROQUI A-A + perfil PA007F da matriz TECNO · isolante conforme a linha de produto do card 3)</span></label>
     </div>
     <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;justify-content:center">
       <canvas id="feaCv" width="700" height="1020" style="flex:0 0 auto;width:100%;max-width:460px;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
@@ -1551,7 +1550,7 @@ window.tFeaRender=function(){
   if(cv.width!==700) cv.width=700;                       // proporcao fixa do desenho: 700x1020
   var inv=document.getElementById('feaInv').checked;
   var tg=document.getElementById('feaTaglio'); tg=!!(tg&&tg.checked);
-  var rl=document.getElementById('feaReal'); rl=!!(rl&&rl.checked);
+  var rl=true;                                          // SEMPRE a secao real com nossos perfis (Felipe s45: tubo retangular generico nao existe); montar() fica inerte
   if(rl) tg=false;
   var Te=inv?st.loc.tmin:st.rec.sa, Ti=inv?20:23;
   /* segue a LINHA DE PRODUTO do card 3: XPS na secao real so' se o projeto recomenda XPS */
@@ -1708,11 +1707,11 @@ window.tFeaRender=function(){
    '<div style="margin-top:6px;font-size:11.5px;color:#888">Mesmo método do THERM (condução 2D em regime permanente). A faixa fria/quente no portal e no montante é a ponte térmica do alumínio — é ela que o isolante externo corta.</div>';
   document.getElementById('feaOut').innerHTML=out;
 };
-['feaInv','feaVer','feaReal'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',function(){window.tFeaRender();});});
+['feaInv','feaVer'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',function(){window.tFeaRender();});});
 if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-14</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-15</div>
 </body>
 </html>
