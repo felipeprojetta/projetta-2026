@@ -1346,7 +1346,7 @@ function tRender(){
     "<pre style='background:#f6f8fa;padding:14px;border-radius:6px;font-size:12.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;overflow:visible;margin:0'>"+
     "ACM 4 mm · lâminas 0,50 mm na face externa (NBR 15446)\n"+
     (rec.eExt>0 ? (NOME[rec.mExt]+" "+rec.eExt+" mm contínuo · juntas seladas\n") : "sem isolante externo\n")+
-    "PA007F "+p.quad+" mm · miolo: "+NOME[rec.mCav]+" 100 mm\n"+
+    "PA007F "+p.quad+" mm · miolo: "+NOME[rec.mCav]+" 100 mm"+(rec.mCav==='eps'?" · 20 kg/m³ (2F retardante · λ 0,037 · serviço 80 °C)":"")+"\n"+
     "ACM 4 mm interno\n"+
     "Tiras de ACM a cada 600 mm · FURO OBLONGO · ponto fixo único ao centro\n"+
     "Parafusos inox a cada "+p.par+" mm, ancorados no montante\n\n"+
@@ -1712,6 +1712,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-15</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-16</div>
 </body>
 </html>
