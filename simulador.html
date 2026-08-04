@@ -87,12 +87,22 @@
     <div class="card">
       <h2>Vão (entrada do sistema)</h2>
       <div class="ctl">
-        <label>Largura do vão <output id="oL">2.000 mm</output></label>
-        <input type="range" id="sL" min="1200" max="3000" step="10" value="2000">
+        <label>Largura do vão
+          <span style="display:flex;align-items:center;gap:8px">
+            <input type="number" id="nL" min="1200" max="3000" step="10" value="1200"
+              style="width:88px;padding:5px 8px;border:1px solid var(--linha);border-radius:6px;font-size:13px;font-weight:700;text-align:right"> mm
+            <output id="oL" style="font-weight:400;color:#666;font-size:12px"></output>
+          </span></label>
+        <input type="range" id="sL" min="1200" max="3000" step="10" value="1200">
       </div>
       <div class="ctl">
-        <label>Altura do vão <output id="oA">7.000 mm</output></label>
-        <input type="range" id="sA" min="4000" max="8000" step="10" value="7000">
+        <label>Altura do vão
+          <span style="display:flex;align-items:center;gap:8px">
+            <input type="number" id="nA" min="4000" max="8000" step="10" value="4000"
+              style="width:88px;padding:5px 8px;border:1px solid var(--linha);border-radius:6px;font-size:13px;font-weight:700;text-align:right"> mm
+            <output id="oA" style="font-weight:400;color:#666;font-size:12px"></output>
+          </span></label>
+        <input type="range" id="sA" min="4000" max="8000" step="10" value="4000">
       </div>
       <div class="ctl">
         <label>Onde a porta vai ser instalada</label>
@@ -697,11 +707,16 @@ function memorial(c){
 
 function upd(){
   const L=+document.getElementById('sL').value, A=+document.getElementById('sA').value;
-  document.getElementById('oL').textContent=fmt(L)+' mm';
-  document.getElementById('oA').textContent=fmt(A)+' mm';
+  const imp=function(mm){return (mm/25.4).toFixed(1).replace('.',',')+'″ · '+(mm/304.8).toFixed(2).replace('.',',')+' ft';};
+  document.getElementById('oL').textContent=imp(L);
+  document.getElementById('oA').textContent=imp(A);
+  ['nL','nA'].forEach(function(id,ix){
+    var e=document.getElementById(id);
+    if(e && document.activeElement!==e) e.value=(ix?A:L);
+  });
   document.getElementById('avFam').style.display=A<4000?'block':'none';
   const c=calc(L,A); window.__C=c; window.__VAO={L,A};
-  cFolha.textContent=`${fmt(c.FW)} x ${fmt(c.FH)}`;
+  cFolha.textContent=`${fmt(c.FW)} x ${fmt(c.FH)} mm · ${(c.FW/25.4).toFixed(1)}″ x ${(c.FH/25.4).toFixed(1)}″ · ${(c.FW/304.8).toFixed(2)} x ${(c.FH/304.8).toFixed(2)} ft`;
   cPAF.textContent=`${f1(c.PA_F)} ×2`;
   cLARG.textContent=`${f1(c.LARG)} ×${c.th+2>c.th?c.th:''}${''}`; cLARG.textContent=`${f1(c.LARG)}`;
   cTV.textContent=`${f1(c.TV)} ×${c.tv}`;
@@ -754,6 +769,18 @@ function upd(){
 }
 document.getElementById('sL').addEventListener('input',upd);
 document.getElementById('sA').addEventListener('input',upd);
+[['nL','sL'],['nA','sA']].forEach(function(par){
+  var n=document.getElementById(par[0]), sl=document.getElementById(par[1]);
+  if(!n||!sl) return;
+  n.addEventListener('input',function(){
+    var v=+n.value;
+    if(isFinite(v) && v>=+sl.min && v<=+sl.max){ sl.value=v; upd(); }
+  });
+  n.addEventListener('change',function(){
+    var v=Math.max(+sl.min,Math.min(+sl.max,+n.value||+sl.min));
+    n.value=v; sl.value=v; upd();
+  });
+});
 window.upd=upd; window.__Vloc=40; upd();
 
 // ===== GERADOR DXF — elevação paramétrica nas camadas do CAD (R12 ASCII) =====
