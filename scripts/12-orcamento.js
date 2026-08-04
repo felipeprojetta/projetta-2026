@@ -14237,6 +14237,27 @@ const Orcamento = (() => {
       });
     }
 
+    // Felipe s43: campos manuais dos itens VAZIOS. Anexa o combobox com as
+    // opcoes de perfil EXPLICITAS (codigo e descricao), pra o filtro
+    // "contains" funcionar mesmo se o attachCombobox automatico do boot
+    // pegar o input antes do datalist estar pronto. Digitar "101" busca
+    // todos os perfis que contem 101.
+    if (window.Universal && typeof window.Universal.attachCombobox === 'function') {
+      let _lp = [];
+      try { _lp = (window.Perfis && window.Perfis.listar) ? (window.Perfis.listar() || []) : []; }
+      catch (_e) { _lp = []; }
+      const _cods  = _lp.map(p => String(p.codigo || '').toUpperCase().trim()).filter(Boolean);
+      const _descs = _lp.map(p => String(p.descricao || '').trim()).filter(Boolean);
+      mount.querySelectorAll('tr.lvp-row-add-inline[data-secao="manual"]').forEach(tr => {
+        const ic = tr.querySelector('.lvp-add-codigo');
+        const id = tr.querySelector('.lvp-add-descricao');
+        try {
+          if (ic && ic.dataset.cmbxApplied !== '1') window.Universal.attachCombobox(ic, _cods);
+          if (id && id.dataset.cmbxApplied !== '1') window.Universal.attachCombobox(id, _descs);
+        } catch (e) { console.warn('[lev-perfis] combobox manual falhou:', e); }
+      });
+    }
+
     // R13 — bind: excluir linha (X overlay)
     mount.querySelectorAll('.lvp-row-delete').forEach(btn => {
       btn.addEventListener('click', (e) => {
