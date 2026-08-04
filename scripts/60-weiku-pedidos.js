@@ -107,7 +107,7 @@
   function marcarStatus(id, patch) {
     var m = getEnvios();
     var cur = m[id] || { enviado: false, por: '', retornou: false, semRetorno: false,
-                         semInteresse: false, semWhats: false, jaOrcadoProjetta: false, jaComprouProjetta: false, jaComprouOutra: false, obs: '' };
+                         semInteresse: false, demonstrouInteresse: false, semWhats: false, jaOrcadoProjetta: false, jaComprouProjetta: false, jaComprouOutra: false, obs: '' };
     for (var k in patch) cur[k] = patch[k];
     m[id] = cur;
     window.Storage.scope(SCOPE).set('envios', m);
@@ -211,6 +211,7 @@
           case 'retornou':      ok = !!s.retornou; break;
           case 'sem_retorno':   ok = !!s.semRetorno; break;
           case 'sem_interesse': ok = !!s.semInteresse; break;
+          case 'demonstrou': ok = !!s.demonstrouInteresse; break;
           case 'ja_comprou':    ok = !!(s.jaComprouProjetta || s.jaComprouOutra || s.jaComprou); break;
           case 'comprou_projetta': ok = !!s.jaComprouProjetta; break;
           case 'comprou_outra': ok = !!s.jaComprouOutra; break;
@@ -409,6 +410,7 @@
     var stTxt = (st.enviado ? ('\u2713 Enviada' + (st.por ? ' por ' + esc(st.por) : '')) : 'Nao enviada')
       + (st.retornou ? ' \u00b7 cliente retornou' : '')
       + (st.semRetorno ? ' \u00b7 sem retorno' : '')
+      + (st.demonstrouInteresse ? ' \u00b7 demonstrou interesse' : '')
       + (st.semInteresse ? ' \u00b7 sem interesse' : '')
       + (st.jaComprouProjetta ? ' \u00b7 comprou Projetta' : '')
       + (st.jaComprouOutra ? ' \u00b7 comprou outra' : '')
@@ -511,7 +513,7 @@
   function selStatus() {
     var opts = [['','Todos os status'],['aguardando','Aguardando resposta'],
       ['nao_enviado','Ainda nao enviado'],['enviado','Enviado'],['retornou','Retornou'],
-      ['sem_retorno','Sem retorno'],['sem_interesse','Sem interesse'],
+      ['sem_retorno','Sem retorno'],['demonstrou','\u2605 Demonstrou interesse'],['sem_interesse','Sem interesse'],
       ['ja_comprou','Ja comprou (qualquer)'],['comprou_projetta','\u2713 Comprou Projetta'],['comprou_outra','\u2713 Comprou outra'],
       ['orcado_projetta','\u2713 Ja orcado Projetta'],['sem_whats','Sem WhatsApp']];
     return '<select id="wkp-status" class="wkp-sel" style="min-width:180px">'
@@ -544,6 +546,7 @@
       + '</div>'
       + '<div class="wkp-stgrid">'
       +   b('ret', s.retornou, 'Retornou', '\u21a9 Retornou')
+      +   b('dem', s.demonstrouInteresse, 'Demonstrou interesse', '\u2605 Demonstrou interesse')
       +   b('srt', s.semRetorno, 'Sem retorno', '\u2205 Sem retorno')
       +   b('sin', s.semInteresse, 'Sem interesse', '\u2716 Sem interesse')
       +   b('swa', s.semWhats, 'Sem WhatsApp', '\u2298 Sem WhatsApp')
@@ -745,7 +748,7 @@
       }
       // botoes de status
       var mapa = [['.wkp-st.env','enviado'],['.wkp-st.ret','retornou'],['.wkp-st.srt','semRetorno'],
-                  ['.wkp-st.sin','semInteresse'],['.wkp-st.swa','semWhats'],['.wkp-st.orc','jaOrcadoProjetta'],
+                  ['.wkp-st.sin','semInteresse'],['.wkp-st.dem','demonstrouInteresse'],['.wkp-st.swa','semWhats'],['.wkp-st.orc','jaOrcadoProjetta'],
                   ['.wkp-st.cmpp','jaComprouProjetta'],['.wkp-st.cmpo','jaComprouOutra']];
       for (var i=0;i<mapa.length;i++){
         var b = ev.target.closest && ev.target.closest(mapa[i][0]);
@@ -760,7 +763,8 @@
         // exclusividades: retornou x sem retorno; sem retorno x sem interesse
         if (campo==='retornou' && on) { patch.semRetorno=false; }
         if (campo==='semRetorno' && on) { patch.retornou=false; patch.semInteresse=false; }
-        if (campo==='semInteresse' && on) { patch.semRetorno=false; }
+        if (campo==='semInteresse' && on) { patch.semRetorno=false; patch.demonstrouInteresse=false; }
+        if (campo==='demonstrouInteresse' && on) { patch.semInteresse=false; }
         // ja comprou Projetta x outra empresa: mutuamente exclusivos
         if (campo==='jaComprouProjetta' && on) { patch.jaComprouOutra=false; }
         if (campo==='jaComprouOutra' && on) { patch.jaComprouProjetta=false; }
@@ -798,6 +802,7 @@
       base.push(q(s.por || ''));
       base.push(q(s.retornou ? 'Sim' : 'Nao'));
       base.push(q(s.semRetorno ? 'Sim' : 'Nao'));
+      base.push(q(s.demonstrouInteresse ? 'Sim' : 'Nao'));
       base.push(q(s.semInteresse ? 'Sim' : 'Nao'));
       base.push(q(s.semWhats ? 'Sim' : 'Nao'));
       base.push(q(s.jaOrcadoProjetta ? 'Sim' : 'Nao'));
@@ -807,7 +812,7 @@
     });
     var head = cols.map(function (c) { return q(c[1]); })
       .concat(['Projetta AGP','Projetta Etapa','Projetta Valor','Msg Enviada','Enviada Por',
-               'Retornou','Sem Retorno','Sem Interesse','Sem WhatsApp','Ja Orcado Projetta','Comprou Projetta','Comprou Outra'].map(q));
+               'Retornou','Sem Retorno','Demonstrou Interesse','Sem Interesse','Sem WhatsApp','Ja Orcado Projetta','Comprou Projetta','Comprou Outra'].map(q));
     var csv = '\uFEFF' + head.join(';') + '\n' + linhas.join('\n');
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     var a = document.createElement('a');
@@ -876,6 +881,7 @@
       '.wkp-st:hover{border-color:#0f766e;color:#0f766e}',
       '.wkp-st.env.on{background:#dcfce7;border-color:#16a34a;color:#15803d}.wkp-st.env.on:hover{color:#15803d}',
       '.wkp-st.ret.on{background:#dbeafe;border-color:#2563eb;color:#1d4ed8}.wkp-st.ret.on:hover{color:#1d4ed8}',
+      '.wkp-st.dem.on{background:#16a34a;border-color:#15803d;color:#fff;font-weight:700}.wkp-st.dem.on:hover{color:#fff;background:#15803d}',
       '.wkp-st.srt.on{background:#475569;border-color:#334155;color:#fff;font-weight:700}.wkp-st.srt.on:hover{color:#fff;background:#334155}',
       '.wkp-st.sin.on{background:#b45309;border-color:#92400e;color:#fff;font-weight:700}.wkp-st.sin.on:hover{color:#fff;background:#92400e}',
       '.wkp-st.swa.on{background:#64748b;border-color:#475569;color:#fff;font-weight:600}.wkp-st.swa.on:hover{color:#fff}',
