@@ -288,7 +288,7 @@
     },
 
     // conclui uma tarefa e anda o fluxo
-    concluir: function (tarefaId, porLogin, patchDados) {
+    concluir: function (tarefaId, porLogin, patchDados, botao) {
       var g = grafo();
       if (!g) throw new Error('fluxo nao carregado');
       var tarefas = instGet('tarefas', []);
@@ -301,8 +301,13 @@
       if (solic && patchDados) {
         Object.keys(patchDados).forEach(function (k) { solic.dados[k] = patchDados[k]; });
       }
+      // BOTAO DE ACAO: no Zeev o botao clicado (Aprovar/Rejeitar/Concluido/
+      // custom) roteia o gateway seguinte. Injeta como valor pra
+      // condicaoBate decidir a saida do gateway.
+      if (solic && botao) solic.dados._ultimoBotao = botao;
       // fecha a tarefa
       t.status = 'concluida';
+      t.acaoBotao = botao || null;
       t.concluidoEm = new Date().toISOString();
       t.concluidoPor = porLogin || (_sess() ? _sess().username : null);
       // anda o fluxo a partir do node
@@ -346,6 +351,64 @@
     tarefas: function () { return instGet('tarefas', []); },
     solicitacao: function (id) {
       return instGet('solicitacoes', []).find(function (s) { return s.id === id; });
+    },
+
+    // botoes de acao de uma tarefa (fiel ao Zeev). Sem config explicita,
+    // deduz pelo tipo: se o nome/aplicativo sugere aprovacao usa
+    // Aprovar/Rejeitar; senao Concluido/Nao concluido. tipo pode vir do
+    // node (t.tipoTarefa) quando extraido do Zeev.
+    botoesDaTarefa: function (tarefaId) {
+      var t = instGet('tarefas', []).find(function (x) { return x.id === tarefaId; });
+      var ehAprovacao = t && (/aprova|liber|aprovacao/i.test(t.nome || '') ||
+        t.tipoTarefa === 'aprovacao');
+      if (ehAprovacao) {
+        return [
+          { texto: 'Aprovar', acao: 'Aprovado', tipo: 'positivo', valida: true },
+          { texto: 'Rejeitar', acao: 'Rejeitado', tipo: 'negativo', justifica: true }
+        ];
+      }
+      return [
+        { texto: 'Concluído', acao: 'Concluido', tipo: 'positivo', valida: true },
+        { texto: 'Não concluído', acao: 'NaoConcluido', tipo: 'negativo', justifica: true }
+      ];
+    },
+
+    // DEVOLVER: retorna a solicitacao a uma tarefa passada (reabre ela e
+    // fecha a atual). Fiel ao Zeev ("devolver a um ponto passado").
+    devolver: function (tarefaId, codDestino, porLogin, justificativa) {
+      var tarefas = instGet('tarefas', []);
+      var t = tarefas.find(function (x) { return x.id === tarefaId; });
+      if (!t) throw new Error('tarefa nao encontrada');
+      var solics = instGet('solicitacoes', []);
+      var solic = solics.find(function (s) { return s.id === t.solicitacaoId; });
+      // acha a ultima tarefa concluida com o codigo destino nessa solic
+      var destino = tarefas.filter(function (x) {
+        return x.solicitacaoId === t.solicitacaoId && x.codTarefa === codDestino;
+      }).pop();
+      t.status = 'concluida';
+      t.concluidoEm = new Date().toISOString();
+      t.concluidoPor = porLogin || (_sess() ? _sess().username : null);
+      t.devolvidaPara = codDestino;
+      var nova = null;
+      if (destino) {
+        nova = {
+          id: uid('tsk'), solicitacaoId: t.solicitacaoId, nodeId: destino.nodeId,
+          nome: destino.nome, codTarefa: destino.codTarefa,
+          responsavelNome: destino.responsavelNome,
+          responsavelLogin: destino.responsavelLogin,
+          status: 'aberta', criadoEm: new Date().toISOString(),
+          concluidoEm: null, concluidoPor: null, reaberta: true
+        };
+      }
+      if (solic) {
+        solic.status = 'em_andamento';
+        solic.historico.push({ em: t.concluidoEm, evento: 'devolvida',
+          por: t.concluidoPor, detalhe: t.nome + ' → devolvida para ' + codDestino +
+            (justificativa ? (' (' + justificativa + ')') : '') });
+      }
+      instSet('solicitacoes', solics);
+      instSet('tarefas', nova ? tarefas.concat([nova]) : tarefas);
+      return { devolvida: t, reaberta: nova };
     },
 
     // mapa usuario Projetta -> nome Zeev (para roteamento da fila)
@@ -397,7 +460,7 @@
       instSet('tarefas', instGet('tarefas', []).concat([primeira]));
       return { solicitacao: solic, tarefa: primeira };
     },
-    concluirTrilha: function (tarefaId, porLogin, patchDados) {
+    concluirTrilha: function (tarefaId, porLogin, patchDados, botao) {
       var trilha = defGet('trilha_teste_t44');
       var tarefas = instGet('tarefas', []);
       var t = tarefas.find(function (x) { return x.id === tarefaId; });
