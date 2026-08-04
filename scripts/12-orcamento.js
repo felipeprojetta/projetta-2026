@@ -6231,6 +6231,12 @@ const Orcamento = (() => {
   /**
    * Bind de eventos do form do revestimento de parede.
    */
+  // Felipe s43: estado do gravador com debounce (ver bindItemRevParedeEvents).
+  // Fica no escopo do modulo porque o container e' recriado a cada render e o
+  // listener global de 'pointerdown' precisa ser registrado UMA vez so'.
+  let _revParedeFlushAtivo = null;
+  let _revParedeFlushGlobalBound = false;
+
   function bindItemRevParedeEvents(container) {
     // Felipe (sessao 2026-06 — BUG FIX CRITICO): Storage.get faz JSON.parse
     // a cada chamada -> obterVersao() retorna CLONE NOVO toda vez. O bug:
@@ -6254,6 +6260,42 @@ const Orcamento = (() => {
     function persistir(root) {
       atualizarVersao(root.versao.id, { itens: root.versao.itens });
     }
+    // Felipe s43: 'revestimento de parede quando esta colocando a cor esta
+    // travando escolher, coloca primeira letra trava deixe digitar'.
+    // CAUSA RAIZ: o handler de 'input' (criado na s34) chamava persistir() A
+    // CADA TECLA. persistir -> atualizarVersao -> loadAll() + saveAll(), que
+    // le, clona e serializa TODOS os negocios (JSON na casa de MB) e ainda
+    // enfileira a gravacao no Supabase. Uma letra digitada custava isso
+    // inteiro, entao o campo engasgava ja' na primeira tecla — pior no campo
+    // Cor, que e' input+datalist e SO' funciona digitando.
+    // FIX: a gravacao passa a ser AGENDADA (debounce 350ms) em vez de sincrona
+    // por tecla. Como o motivo de existir o 'input' era nao perder o valor
+    // quando o usuario clica em Recalcular/Salvar sem sair do campo, o debounce
+    // vem com tres descargas imediatas: blur do campo, pointerdown em qualquer
+    // lugar (roda ANTES do click do botao) e beforeunload. Nada de perder
+    // digitacao, sem gravar por tecla.
+    let _persistTimer = null;
+    let _persistPendente = null;
+    function flushPersist() {
+      if (_persistTimer) { clearTimeout(_persistTimer); _persistTimer = null; }
+      const fn = _persistPendente;
+      _persistPendente = null;
+      if (fn) { try { fn(); } catch (e) { console.warn('[rev-parede] flush falhou', e); } }
+    }
+    function agendarPersist(fn) {
+      _persistPendente = fn;
+      if (_persistTimer) clearTimeout(_persistTimer);
+      _persistTimer = setTimeout(flushPersist, 350);
+    }
+    _revParedeFlushAtivo = flushPersist;
+    if (!_revParedeFlushGlobalBound) {
+      _revParedeFlushGlobalBound = true;
+      const _flushGlobal = () => { try { _revParedeFlushAtivo && _revParedeFlushAtivo(); } catch (_) {} };
+      // capture=true: descarrega antes de qualquer handler de click do botao.
+      document.addEventListener('pointerdown', _flushGlobal, true);
+      window.addEventListener('beforeunload', _flushGlobal);
+    }
+
     function reRender() {
       const r = obterVersao(UI.versaoAtivaId);
       if (r?.versao) {
@@ -6358,9 +6400,15 @@ const Orcamento = (() => {
         } else {
           item[field] = el.value;
         }
-        persistir(root);
-        if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+        // Felipe s43: agendado, nao mais sincrono a cada tecla (ver acima).
+        agendarPersist(() => {
+          persistir(root);
+          if (window.OrcamentoWizard?.resetar) window.OrcamentoWizard.resetar();
+        });
       });
+      // Sair do campo grava na hora — trocar de campo nao deixa gravacao
+      // pendurada no debounce.
+      el.addEventListener('blur', flushPersist);
     });
 
     // Campos de pecas (modo manual)
