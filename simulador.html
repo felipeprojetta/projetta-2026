@@ -41,15 +41,11 @@
     font-size:12.5px; font-weight:600; color:var(--cinza); cursor:pointer;}
   nav button.on{background:var(--azul); color:#fff; border-color:var(--azul);}
   .pag{display:none;} .pag.on{display:block;}
-  /* MAPA FEA: sai do grid de 2 colunas do .wrap e ocupa a largura inteira da pagina */
-  #tFeaCard{grid-column:1 / -1; width:calc(100vw - 24px); max-width:calc(100vw - 24px);
-    margin-left:calc(50% - 50vw + 12px);}
   @media(max-width:820px){
     nav{padding:8px 8px 0; gap:4px;}
     nav button{padding:8px 10px; font-size:11.5px;}
     .g4{grid-template-columns:1fr 1fr !important;}
     #lcBoxIN{grid-template-columns:1fr !important;}
-    #tFeaCard{width:auto; max-width:none; margin-left:0;}
   }
   .prancha{max-width:1000px; margin:16px auto; padding:0 16px;}
   .prancha img{width:100%; border:1px solid var(--linha); border-radius:8px; background:#fff;}
@@ -1056,7 +1052,11 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
   </div>
   <div class="card" id="tOut"></div>
 
-  <div class="card" id="tFeaCard">
+</div>
+
+<!-- MAPA FEA: FORA do grid de 2 colunas — container próprio, largura total da página -->
+<div style="padding:0 16px 16px;">
+  <div class="card" id="tFeaCard" style="width:100%;box-sizing:border-box;">
     <h2>6 · Mapa de temperaturas — FEA 2D <span style="font-size:12px;font-weight:400;color:#666">(diferenças finitas, corte horizontal no montante do quadro)</span></h2>
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaInv" checked> Inverno (interna 20 °C · externa = mínima)</label>
@@ -1070,8 +1070,8 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
     </div>
     <div id="feaOut" style="margin-top:10px;font-size:13px"></div>
   </div>
-
-</div></div>
+</div>
+</div>
 
 <div class="pag" id="p7"><div class="wrap" style="max-width:1560px;">
   <div class="card" id="tHead7" style="background:#f1f6fb;border-left:4px solid #1a73e8"></div>
@@ -1534,14 +1534,16 @@ function corRampa(f){                                 // azul -> ciano -> verde 
 window.tFeaRender=function(){
   var st=window.__tFEA; if(!st) return;
   var cv=document.getElementById('feaCv'); if(!cv) return;
-  /* o card e' full-bleed: a largura do desenho acompanha a pagina.
-     desconta 12px de folga + 16px de padding do card de cada lado + 200 da legenda + 16 do gap.
-     z=1,15 e' o fator com que o CSS amplia o canvas depois — mantem a tipografia do desenho legivel. */
+  /* card full-width: a resolucao do desenho segue a largura REAL disponivel no card.
+     z=1,15 = fator com que o CSS reamplia o canvas depois (tipografia legivel). */
   (function(){
-    var vw=document.documentElement.clientWidth||1200, z=1.15;
-    var disp=(vw>820)?(vw-24-32-216):(vw-32);
+    var card=document.getElementById('tFeaCard'), z=1.15;
+    var w=card?card.clientWidth:0;
+    if(!w){ var vw=document.documentElement.clientWidth||1200; w=vw-64; }
+    var disp=w-32-216;                                   // padding do card + legenda + gap
+    if(disp<560) disp=w-32;                              // legenda quebrou pra baixo
     var alvo=Math.round(Math.max(560,Math.min(2400,disp))/z);
-    if(Math.abs(cv.width-alvo)>8) cv.width=alvo;      // so' redimensiona quando muda de fato
+    if(Math.abs(cv.width-alvo)>8) cv.width=alvo;         // so' redimensiona quando muda de fato
   })();
   var inv=document.getElementById('feaInv').checked;
   var tg=document.getElementById('feaTaglio'); tg=!!(tg&&tg.checked);
@@ -1704,6 +1706,9 @@ window.addEventListener('resize',function(){            // largura do desenho se
   clearTimeout(window.__feaRz);
   window.__feaRz=setTimeout(function(){ if(window.__tFEA&&window.tFeaRender) window.tFeaRender(); },180);
 });
+/* ao ABRIR a aba TERMICA o card ganha largura de verdade (antes clientWidth=0) — remede e redesenha */
+(function(){var bt=document.querySelector('nav button[data-p="p6"]');
+  if(bt) bt.addEventListener('click',function(){ setTimeout(function(){ if(window.__tFEA&&window.tFeaRender) window.tFeaRender(); },0); });})();
 if(window.__tFEA) window.tFeaRender();
 })();
 </script>
