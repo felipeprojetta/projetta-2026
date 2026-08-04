@@ -11733,6 +11733,47 @@ const Orcamento = (() => {
             <span class="orc-dre-formula">pTab × (1 − desconto)</span>
             <span class="orc-dre-valor">${fmtMoeda(r.pFatReal)}</span>
           </div>
+          ${(() => {
+            // Felipe s43: ALERTA no DRE — porta ALTA (>5000mm) com valor/m²
+            // "so porta" (com desconto) abaixo de R$ 8.000/m². Sinaliza
+            // margem baixa demais pra uma porta desse porte.
+            const LIMIAR_ALT = 5000;   // mm
+            const LIMIAR_M2  = 8000;   // R$/m²
+            const itensDre = versao.itens || [];
+            // altura maxima entre as portas externas
+            let altMax = 0;
+            itensDre.forEach(it => {
+              if (it.tipo !== 'porta_externa') return;
+              const alt = parseFloat(String(it.altura || '').replace(',', '.')) || 0;
+              if (alt > altMax) altMax = alt;
+            });
+            if (altMax <= LIMIAR_ALT) return '';
+            // valor/m² so porta com desconto (mesma formula do Painel Comercial)
+            const areaTot = itensDre.reduce((s, it) => {
+              const ehRev = it.tipo === 'revestimento_parede';
+              const lar = ehRev ? (parseBR(it.largura_total) || parseBR(it.largura) || 0) : (parseBR(it.largura) || 0);
+              const alt = ehRev ? (parseBR(it.altura_total)  || parseBR(it.altura)  || 0) : (parseBR(it.altura)  || 0);
+              const qtd = Number(it.quantidade) || 1;
+              return s + (lar / 1000) * (alt / 1000) * qtd;
+            }, 0);
+            const subTot = (Number(subFab) || 0) + (Number(subInstParaDRE) || 0);
+            const ratioInstA = subTot > 0 ? (Number(subInstParaDRE) || 0) / subTot : 0;
+            const m2BaseA = areaTot || 1;
+            const fatM2SoPorta = ((Number(r.pFatReal) || 0) / m2BaseA) * (1 - ratioInstA);
+            if (fatM2SoPorta >= LIMIAR_M2) return '';
+            return `
+              <div style="margin:10px 0;padding:12px 14px;border-radius:8px;border:2px solid #dc2626;background:#fef2f2;">
+                <div style="font-weight:700;color:#b91c1c;font-size:13px;margin-bottom:4px;">
+                  ⚠️ ATENCAO — porta alta com valor/m² baixo
+                </div>
+                <div style="font-size:12.5px;color:#7f1d1d;line-height:1.5;">
+                  Esta versao tem porta de <b>${(altMax/1000).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} m</b> de altura
+                  e o <b>Com Desconto/m² só porta</b> ficou em
+                  <b>${fmtMoeda(fatM2SoPorta)}/m²</b>, abaixo de <b>R$ 8.000/m²</b>.
+                  Reveja o desconto ou o preco antes de aprovar.
+                </div>
+              </div>`;
+          })()}
           <div class="orc-dre-row">
             <span class="orc-dre-label">Markup visual</span>
             <span class="orc-dre-formula">(pTab / custo − 1) × 100</span>
