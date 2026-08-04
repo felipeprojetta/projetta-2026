@@ -67,6 +67,7 @@
   <button data-p="p2">DET 1 · PORTAL</button>
         <button data-p="p5">MEMORIAL FBC · SEM NOA</button>
   <button data-p="p6">TÉRMICA</button>
+  <button data-p="p7">ESPECIFICAÇÃO</button>
 </nav>
 
 <div class="pag on" id="p1">
@@ -831,12 +832,17 @@ function gerarDXF(){
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:14px;align-items:start" id="tGrid">
-    <div class="card" id="tSpec" style="margin:0"></div>
-    <div class="card" id="tDes" style="margin:0"></div>
+  <div class="card" style="background:#f1f6fb;border-left:4px solid #1a73e8">
+    A composição recomendada e o corte estão na aba <b>ESPECIFICAÇÃO</b>.
   </div>
   <div class="card" id="tOut"></div>
 
+</div></div>
+
+<div class="pag" id="p7"><div class="wrap" style="max-width:1180px;">
+  <div class="card" id="tHead7" style="background:#f1f6fb;border-left:4px solid #1a73e8"></div>
+  <div class="card" id="tSpec"></div>
+  <div class="card" id="tDes"></div>
 </div></div>
 
 <script>
@@ -1018,6 +1024,9 @@ function tRender(){
     "</pre>";
 
   document.getElementById('tDes').innerHTML="<h2>4 · Corte</h2>"+desenho(rec,p,r,loc.tmin,loc.tmax,r.U);
+  var h7=document.getElementById('tHead7');
+  if(h7) h7.innerHTML="<b>"+loc.nome+"</b> · mín "+loc.tmin+" °C · máx "+loc.tmax+" °C · folha "+p.larg+" × "+p.alt+" mm"+
+    " <span style='float:right;font-size:12px;color:#666'>alterar na aba TÉRMICA</span>";
 
   var ok=function(b){return b?"<span style='color:#137333;font-weight:700'>✓</span>":"<span style='color:#c5221f;font-weight:700'>✗</span>";};
   var Tsi_i=Tsi(p,r,20,loc.tmin), fR=(Tsi_i-loc.tmin)/(20-loc.tmin);
