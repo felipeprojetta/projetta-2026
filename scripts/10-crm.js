@@ -60,6 +60,14 @@
       // 16-kanban-producao.js e 11-clientes.js ficam — protegem lead legado
       // importado com a etapa antiga (cai gracioso, sem quebrar).
       // { id: 'qualificacao',        label: 'Qualificacao',        color: '#94A3B8' },
+      // Felipe s43: 'coloque uma coluna antes de fazer orcamento chamada
+      // Entrada manual, aonde quando fizermos uma entrada manual sem reserva
+      // ela ira para la (...) mas ele nao contabilizara no CRM ate ser
+      // arrastado para enviado'. E' uma sala de espera: o lead existe, pode
+      // ate' ter orcamento feito e aprovado, mas fica FORA de todo total do
+      // CRM enquanto estiver nessa coluna. Serve pra dar entrada em orcamento
+      // antigo / negocio que veio por fora sem sujar o pipeline oficial.
+      { id: 'entrada-manual',      label: 'Entrada Manual',      color: '#64748B' },
       { id: 'fazer-orcamento',     label: 'Fazer Orcamento',     color: '#3B82F6' },
       { id: 'orcamento-pronto',    label: 'Orcamento Pronto',    color: '#8B5CF6' },
       // Felipe sessao 34: 'ELIMINE ESSE ORCAMENTO APROVADO DO CRM' - coluna
@@ -75,6 +83,13 @@
       { id: 'fechado',             label: 'Fechado',              color: '#10B981' },
       { id: 'perdido',             label: 'Perdido',              color: '#EF4444' },
     ];
+
+    // Felipe s43: etapa que NAO entra em nenhum total do CRM. Fica separada
+    // de ETAPAS_SEM_VALOR_VISIVEL de proposito: ali o motivo e' 'ainda nao
+    // tem preco'; aqui o lead PODE ter valor (inclusive digitado a mao) e
+    // mesmo assim nao pode somar. Sair da coluna (arrastar pra Enviado, por
+    // exemplo) ja' faz o lead entrar nos totais normalmente, sem mais nada.
+    const ETAPAS_FORA_DOS_TOTAIS = ['entrada-manual'];
 
     // Felipe sessao 18.URGENTE 2026-05-14: SEED_LEADS DESATIVADO.
     // ============================================================
@@ -1245,7 +1260,20 @@
       // Tabs (modo) - so' botoes com data-modo (criar lead: Por Reserva / Manual)
       container.querySelectorAll('.crm-modal-tab[data-modo]').forEach(btn => {
         btn.addEventListener('click', () => {
+          const modoAnterior = modalState.modo;
           modalState.modo = btn.dataset.modo;
+          // Felipe s43: 'quando fizermos uma entrada manual sem reserva ela
+          // ira para la'. Trocar pra aba Manual ja' deixa a Etapa inicial em
+          // 'Entrada Manual'; voltar pra Por Reserva devolve o default antigo.
+          // So' mexe se o usuario ainda nao escolheu outra etapa a mao — o
+          // select continua livre pra ele sobrescrever.
+          if (!modalState.editandoId && modalState.modo !== modoAnterior) {
+            if (modalState.modo === 'manual' && modalState.etapa === 'fazer-orcamento') {
+              modalState.etapa = 'entrada-manual';
+            } else if (modalState.modo === 'reserva' && modalState.etapa === 'entrada-manual') {
+              modalState.etapa = 'fazer-orcamento';
+            }
+          }
           reRenderModal(container);
         });
       });
@@ -2911,6 +2939,9 @@
       }
 
       leadsBase.forEach(l => {
+        // Felipe s43: Entrada Manual fica fora do ranking tambem — se nao
+        // conta no total do CRM, nao pode inflar o numero do representante.
+        if (ETAPAS_FORA_DOS_TOTAIS.includes(l.etapa)) return;
         // Em Aberto (etapas com valor visivel, exceto fechado/perdido/etc.)
         if (!ETAPAS_SEM_VALOR_VISIVEL.includes(l.etapa)) {
           addEm(agg, chaveRep(l), Number(l.valor) || 0);
@@ -3566,7 +3597,9 @@ ${secoesHtml}
           // botao para abrir o orcamento'. Adiciona 'fechado' à lista mas
           // com flag pra mostrar SO o botao Abrir Orcamento (Revisar/Nova
           // Versao/Gerar Documentos nao fazem sentido apos fechamento).
-          const etapasComBotao = ['fazer-orcamento', 'orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'fechado', 'perdido'];
+          // Felipe s43: 'podemos fazer orcamento ali' — Entrada Manual tem os
+          // mesmos botoes de orcamento do fazer-orcamento.
+          const etapasComBotao = ['entrada-manual', 'fazer-orcamento', 'orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'fechado', 'perdido'];
           const mostraBtnOrc = etapasComBotao.includes(l.etapa);
           // Felipe sessao 18: fechado mostra SO o botao Abrir Orcamento.
           // Felipe sessao 36: card 'perdido' tambem deve mostrar o botao de
@@ -4279,6 +4312,8 @@ ${secoesHtml}
       const ETAPAS_SEM_VALOR_VISIVEL = ['qualificacao', 'fazer-orcamento', 'fechado', 'perdido'];
       const leadsEmAberto = leadsFiltrados.filter(l => {
         if (ETAPAS_SEM_VALOR_VISIVEL.includes(l.etapa)) return false;
+        // Felipe s43: Entrada Manual nao soma em Em Aberto.
+        if (ETAPAS_FORA_DOS_TOTAIS.includes(l.etapa)) return false;
         return true;
       });
       const kpiEmAberto = {
