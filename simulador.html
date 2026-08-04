@@ -1008,7 +1008,7 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
       <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#7a3db8"><input type="checkbox" id="feaTaglio"> Simular taglio térmico no tubo <span style="font-size:11px;font-weight:400;color:#888">(poliamida 24 mm nas almas — conceito Oikos)</span></label>
     </div>
     <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
-      <canvas id="feaCv" width="720" height="420" style="max-width:100%;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
+      <canvas id="feaCv" width="460" height="700" style="max-width:100%;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
       <div id="feaLeg" style="min-width:160px;font-size:12px"></div>
     </div>
     <div id="feaOut" style="margin-top:10px;font-size:13px"></div>
@@ -1258,14 +1258,14 @@ var ALU=160, DX=2;                     // mm por celula
 function orv2(T,RH){var a=17.27,b=237.7;var g=(a*T)/(b+T)+Math.log(RH/100);return (b*g)/(a-g);}
 
 function montar(p){
-  var eACM=4, eExt=p.eExt||0, tubo=p.quad, twall=4, tw=50.8, H=300;
+  var eACM=4, eExt=p.eExt||0, tubo=p.quad, twall=4, tw=50.8, H=400;
   var nx=Math.round((eACM+eExt+tubo+eACM)/DX), ny=Math.round(H/DX);
   var lam=new Float64Array(nx*ny);
   var lACM=0.004/0.0097;               // lambda equivalente do ACM (R=0,0097)
   var lCav=(p.mCav==='ar')?(tubo/1000/0.18):LAMF[p.mCav];
   var lAr=( (tubo-2*twall)/1000 )/0.18; // ar parado dentro do tubo
   var lExt=eExt>0?LAMF[p.mExt]:0;
-  var x0=eACM, x1=eACM+eExt, x2=x1+tubo, y0=(H-tw)/2, y1=(H+tw)/2;
+  var x0=eACM, x1=eACM+eExt, x2=x1+tubo, y0=0, y1=tw;   // montante na BORDA da folha (planta real)
   for(var j=0;j<ny;j++)for(var i=0;i<nx;i++){
     var x=(i+0.5)*DX, y=(j+0.5)*DX, v;
     if(x<x0 || x>=x2) v=lACM;                       // peles de ACM
@@ -1361,32 +1361,54 @@ window.tFeaRender=function(){
   var lo=Math.min(Te,Ti), hi2=Math.max(Te,Ti);
   var ctx=cv.getContext('2d'), W=cv.width, Hh=cv.height;
   ctx.clearRect(0,0,W,Hh);
-  var esc=Math.min((W-140)/g.nx,(Hh-40)/g.ny), ox=90, oy=(Hh-g.ny*esc)/2;
-  var NB=18;                                          // bandas -> aparencia de isotermas
-  for(var j=0;j<g.ny;j++)for(var i=0;i<g.nx;i++){
-    var f=(r.T[j*g.nx+i]-lo)/(hi2-lo);
+  /* PLANTA do montante de borda: espessura na HORIZONTAL (ampliada p/ leitura),
+     comprimento da folha na VERTICAL, tubo no topo = borda da folha */
+  var mgL=84, mgR=84, mgT=46, mgB=26;
+  var escX=(W-mgL-mgR)/g.nx, escY=(Hh-mgT-mgB)/g.ny;
+  var ox=mgL, oy=mgT;
+  var NB=18;
+  for(var j2d=0;j2d<g.ny;j2d++)for(var i2d=0;i2d<g.nx;i2d++){
+    var f=(r.T[j2d*g.nx+i2d]-lo)/(hi2-lo);
     f=Math.round(f*NB)/NB;
     var c=corRampa(f);
     ctx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')';
-    ctx.fillRect(ox+i*esc,oy+j*esc,esc+0.6,esc+0.6);
+    ctx.fillRect(ox+i2d*escX,oy+j2d*escY,escX+0.6,escY+0.6);
   }
-  // contornos dos materiais
-  ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.lineWidth=1;
-  var px=function(mm){return ox+mm/DX*esc;}, py=function(mm){return oy+mm/DX*esc;};
-  ctx.strokeRect(px(0),py(0),g.nx*esc,g.ny*esc);
-  ctx.strokeRect(px(g.x1),py(g.y0),(g.tubo)/DX*esc,50.8/DX*esc);
-  if(g.eExt>0){ctx.beginPath();ctx.moveTo(px(g.x1),py(0));ctx.lineTo(px(g.x1),py(300));ctx.stroke();}
-  ctx.beginPath();ctx.moveTo(px(4),py(0));ctx.lineTo(px(4),py(300));
-  ctx.moveTo(px(g.x2),py(0));ctx.lineTo(px(g.x2),py(300));ctx.stroke();
-  ctx.fillStyle='#333'; ctx.font='11px sans-serif';
-  ctx.save();ctx.translate(ox-58,oy+g.ny*esc/2);ctx.rotate(-Math.PI/2);
-  ctx.textAlign='center';ctx.fillText('EXTERIOR  '+Te.toFixed(0)+' °C',0,0);ctx.restore();
-  ctx.save();ctx.translate(ox+g.nx*esc+40,oy+g.ny*esc/2);ctx.rotate(Math.PI/2);
-  ctx.textAlign='center';ctx.fillText('INTERIOR  '+Ti.toFixed(0)+' °C',0,0);ctx.restore();
-  ctx.fillText('tubo PA007F '+st.p.quad.toFixed(1)+' mm'+(tg?' · TAGLIO TÉRMICO':''),px(g.x1)+4,py(g.y0)-4);
-  if(tg){ctx.strokeStyle='#7a3db8';ctx.setLineDash([4,3]);
-    ctx.strokeRect(px(g.x1+st.p.quad/2-12),py(g.y0),24/DX*esc,50.8/DX*esc);
-    ctx.setLineDash([]);}
+  var px=function(mm){return ox+mm/DX*escX;}, py=function(mm){return oy+mm/DX*escY;};
+  // contornos de material (planta)
+  ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1.4;
+  ctx.strokeRect(px(0),py(0),g.nx*escX,g.ny*escY);            // folha
+  // peles de ACM
+  ctx.beginPath();ctx.moveTo(px(4),py(0));ctx.lineTo(px(4),py(400));
+  ctx.moveTo(px(g.x2),py(0));ctx.lineTo(px(g.x2),py(400));ctx.stroke();
+  if(g.eExt>0){ctx.beginPath();ctx.moveTo(px(g.x1),py(0));ctx.lineTo(px(g.x1),py(400));ctx.stroke();}
+  // tubo do quadro na borda (paredes)
+  ctx.lineWidth=2; ctx.strokeRect(px(g.x1),py(0),g.tubo/DX*escX,50.8/DX*escY);
+  ctx.lineWidth=1; ctx.strokeRect(px(g.x1+4),py(4),(g.tubo-8)/DX*escX,(50.8-8)/DX*escY);
+  if(tg){ctx.strokeStyle='#7a3db8';ctx.setLineDash([5,3]);ctx.lineWidth=2;
+    ctx.strokeRect(px(g.x1+st.p.quad/2-12),py(0),24/DX*escX,50.8/DX*escY);
+    ctx.setLineDash([]);ctx.lineWidth=1;}
+  // rotulos
+  ctx.fillStyle='#333'; ctx.font='700 12px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('EXTERIOR',ox-42,oy+14); ctx.fillText(Te.toFixed(0)+' °C',ox-42,oy+30);
+  ctx.fillText('INTERIOR',ox+g.nx*escX+42,oy+14); ctx.fillText(Ti.toFixed(0)+' °C',ox+g.nx*escX+42,oy+30);
+  ctx.font='11px sans-serif'; ctx.fillStyle='#222';
+  ctx.fillText('BORDA DA FOLHA — PLANTA',ox+g.nx*escX/2,oy-28);
+  ctx.fillText('montante PA007F '+st.p.quad.toFixed(1)+' mm'+(tg?' · TAGLIO':''),ox+g.nx*escX/2,oy-12);
+  ctx.save();ctx.translate(ox+g.nx*escX/2,py(230));ctx.rotate(-Math.PI/2);
+  ctx.fillText('miolo · '+ (st.p.mCav==='eps'?'EPS':'lã de rocha'),0,4);ctx.restore();
+  ctx.save();ctx.translate(px(2),py(200));ctx.rotate(-Math.PI/2);ctx.fillText('ACM 4',0,3);ctx.restore();
+  ctx.save();ctx.translate(px(g.x2+2),py(200));ctx.rotate(-Math.PI/2);ctx.fillText('ACM 4',0,3);ctx.restore();
+  if(g.eExt>0){ctx.save();ctx.translate(px(4+g.eExt/2),py(220));ctx.rotate(-Math.PI/2);ctx.fillText(st.p.mExt.toUpperCase()+' '+g.eExt,0,3);ctx.restore();}
+  // marcador do ponto critico na face interna
+  var yp=oy+(r.pior.j+0.5)*escY, xp=ox+g.nx*escX;
+  ctx.fillStyle='#c5221f'; ctx.beginPath(); ctx.arc(xp,yp,4,0,6.2832); ctx.fill();
+  ctx.font='700 11px sans-serif'; ctx.textAlign='left';
+  ctx.fillText(r.pior.t.toFixed(1)+' °C',xp+8,yp+4);
+  ctx.textAlign='center';
+  ctx.fillStyle='#888'; ctx.font='10px sans-serif';
+  ctx.fillText('espessura ampliada p/ leitura · comprimento 400 mm em escala',ox+g.nx*escX/2,oy+g.ny*escY+16);
+  ctx.textAlign='start';
   // legenda
   var leg=document.getElementById('feaLeg'), passo=(hi2-lo)/6, li='';
   for(var b2=6;b2>=0;b2--){
