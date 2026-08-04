@@ -13814,6 +13814,23 @@ const Orcamento = (() => {
         const idxV = b.itemIdx;
         const dlC = `lvp-perfis-dlist-cod-${idxV}-manual`;
         const dlD = `lvp-perfis-dlist-desc-${idxV}-manual`;
+        // Felipe s43: popula as datalists AQUI mesmo (com os perfis
+        // cadastrados), pra o autocomplete funcionar no campo manual dos
+        // itens vazios sem depender do bind das secoes normais.
+        let _listaP = [];
+        try {
+          if (window.Perfis && typeof window.Perfis.listar === 'function') {
+            _listaP = window.Perfis.listar() || [];
+          }
+        } catch (_e) { _listaP = []; }
+        const _optsCod = _listaP.map(p => {
+          const c = String(p.codigo || '').toUpperCase().trim();
+          return c ? `<option value="${escapeHtml(c)}"></option>` : '';
+        }).join('');
+        const _optsDesc = _listaP.map(p => {
+          const d = String(p.descricao || '').trim();
+          return d ? `<option value="${escapeHtml(d)}"></option>` : '';
+        }).join('');
         const tabelaManual = `
           <table class="lvp-table" style="margin-top:10px;">
             <thead>
@@ -13829,12 +13846,12 @@ const Orcamento = (() => {
                 <td class="lvp-cod">
                   <input type="text" list="${dlC}" class="lvp-add-codigo"
                          data-item-idx="${idxV}" data-secao="manual" placeholder="Codigo..." />
-                  <datalist id="${dlC}"></datalist>
+                  <datalist id="${dlC}">${_optsCod}</datalist>
                 </td>
                 <td>
                   <input type="text" list="${dlD}" class="lvp-add-descricao"
                          data-item-idx="${idxV}" data-secao="manual" placeholder="Descricao..." />
-                  <datalist id="${dlD}"></datalist>
+                  <datalist id="${dlD}">${_optsDesc}</datalist>
                 </td>
                 <td class="lvp-add-lh-cell">—</td>
                 <td class="num"><input type="number" min="1" step="1" class="lvp-add-tamanho"
