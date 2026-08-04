@@ -59,6 +59,10 @@
     .wrap{grid-template-columns:1fr !important; max-width:100% !important; padding:0 !important;}
     .prancha{max-width:100% !important; padding:0 !important;}
     .card{border:none; padding:6px 0; break-inside:avoid;}
+    /* titulo nunca fica sozinho no pe da folha; secao do memorial sai inteira; linha de tabela nao parte */
+    .mem{break-inside:avoid;}
+    h1,h2,h3{break-after:avoid-page; page-break-after:avoid;}
+    tr{break-inside:avoid;}
     /* nenhum desenho pode estourar a folha: o SVG da elevacao (viewBox 320x900) com
        max-width:100% virava ~534mm de altura = 2 paginas quase em branco */
     svg, canvas, img{max-width:100% !important; max-height:240mm !important;
@@ -1709,6 +1713,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-12</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-13</div>
 </body>
 </html>
