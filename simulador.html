@@ -1070,8 +1070,8 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
 </div>
 </div>
 
-<div class="pag" id="p7"><div class="wrap" style="max-width:1560px;">
-  <div class="card" id="tHead7" style="background:#f1f6fb;border-left:4px solid #1a73e8"></div>
+<div class="pag" id="p7"><div class="wrap" style="max-width:1180px;">
+  <div class="card" id="tHead7" style="background:#f1f6fb;border-left:4px solid #1a73e8;grid-column:1 / -1;align-self:start"></div>
   <div class="card" id="tSpec"></div>
   <div class="card" id="tDes"></div>
 </div></div>
@@ -1234,7 +1234,10 @@ function desenhoReal(rec,p,r,tmin,tmax,U){
 
 /* ---------- desenho do corte ---------- */
 function desenho(rec,p,r,tmin,tmax,U){
-  if(window.__SECAO_REAL){ return desenhoReal(rec,p,r,tmin,tmax,U); }
+  /* a SECAO REAL e' o DXF de obra rasterizado COM XPS 30 embutido no desenho.
+     So' vale quando o projeto recomendado usa mesmo XPS externo; sem isolante
+     (ou com outro material) o corte segue o PARAMETRICO, que acompanha rec. */
+  if(window.__SECAO_REAL && rec.eExt>0 && rec.mExt==='xps'){ return desenhoReal(rec,p,r,tmin,tmax,U); }
   var X0=210, X1=700, Y0=140, H=190;
   var cam=[];
   cam.push({n:"ACM 4 mm · lâmina 0,50",e:4,c:"#2f3640"});
@@ -1693,6 +1696,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-4</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-5</div>
 </body>
 </html>
