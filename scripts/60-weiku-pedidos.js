@@ -657,13 +657,23 @@
     })();
 
     // botoes de prospeccao + WhatsApp + email (delegado: linhas sao recriadas)
+    // IMPORTANTE: registrar o listener UMA vez por container. render() roda
+    // toda vez que muda filtro/pagina/ordem; sem esta trava, os handlers
+    // ACUMULAVAM e cada clique disparava N vezes -> marcava e desmarcava
+    // (toggle duplo) -> "nada acontecia". Bug do botao Retornou et al.
+    if (container._wkpClickLigado) return;
+    container._wkpClickLigado = true;
     container.addEventListener('click', function(ev){
       var alvo;
       // clique no nome abre o detalhe
       var nm = ev.target.closest && ev.target.closest('.wkp-nome');
       if (nm) { abrirDetalhe(nm.getAttribute('data-id')); return; }
       function refresh(id){
-        var td = container.querySelector('.wkp-stcell[data-id="'+id+'"]');
+        var td = null;
+        var todas = container.querySelectorAll('.wkp-stcell');
+        for (var j=0;j<todas.length;j++){
+          if (String(todas[j].getAttribute('data-id'))===String(id)) { td = todas[j]; break; }
+        }
         var d = _dados.find(function(x){ return String(x.id)===String(id); });
         if (td && d) td.innerHTML = cellStatus(d);
       }
