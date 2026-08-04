@@ -49,9 +49,17 @@
   }
   .prancha{max-width:1000px; margin:16px auto; padding:0 16px;}
   @media print{
+    @page{size:A4; margin:10mm;}
     nav, #btnPrint, #vBuild, header{display:none !important;}
     body{background:#fff;}
-    .card{border:none; padding:8px 0; break-inside:avoid;}
+    /* TODAS as abas saem na impressao, cada uma comecando em folha nova */
+    .pag{display:block !important; page-break-after:always;}
+    .pag:last-of-type{page-break-after:auto;}
+    /* A4 e' estreito: grid vira coluna unica e ocupa a folha toda */
+    .wrap{grid-template-columns:1fr !important; max-width:100% !important; padding:0 !important;}
+    .prancha{max-width:100% !important; padding:0 !important;}
+    .card{border:none; padding:6px 0; break-inside:avoid;}
+    svg, canvas, img{max-width:100% !important; height:auto !important;}
   }
   .prancha img{width:100%; border:1px solid var(--linha); border-radius:8px; background:#fff;}
   .prancha .mini{margin:8px 2px;}
@@ -1070,7 +1078,7 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
       <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#0b6e4f"><input type="checkbox" id="feaReal" checked> Seção REAL de obra <span style="font-size:11px;font-weight:400;color:#888">(CROQUI A-A + perfil PA007F da matriz TECNO · XPS 30 de série · ignora isolante/taglio acima)</span></label>
     </div>
     <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;justify-content:center">
-      <canvas id="feaCv" width="700" height="1020" style="flex:0 0 auto;width:auto;max-width:100%;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
+      <canvas id="feaCv" width="700" height="1020" style="flex:0 0 auto;width:100%;max-width:460px;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
       <div id="feaLeg" style="flex:0 0 200px;min-width:160px;font-size:12px"></div>
     </div>
     <div id="feaOut" style="margin-top:10px;font-size:13px"></div>
@@ -1704,6 +1712,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-7</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-8</div>
 </body>
 </html>
