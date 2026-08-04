@@ -95,6 +95,7 @@
   <button data-p="p6">TÉRMICA</button>
   <button data-p="p8">MEMÓRIA TÉRMICA</button>
   <button data-p="p10">COMPONENTES</button>
+  <button data-p="p11">PERFIS</button>
 </nav>
 
 <div class="pag on" id="p1">
@@ -239,6 +240,7 @@ document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()
   document.querySelectorAll('.pag').forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); document.getElementById(b.dataset.p).classList.add('on');
   if(b.dataset.p==='p10' && window.ComponentesRender) ComponentesRender(null);
+  if(b.dataset.p==='p11' && window.PerfisRender) PerfisRender(null);
 }));
 </script>
 
@@ -1111,6 +1113,14 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
   <div id="compDetalhe"></div>
 </div></div>
 
+<div class="pag" id="p11"><div style="max-width:1180px;margin:0 auto;padding:16px;">
+  <div class="card" style="background:#f1f6fb;border-left:4px solid #1a73e8">
+    <h2 style="margin-top:0">Perfis do quadro — seção em corte</h2>
+    <div style="font-size:13px;color:#444">Seção transversal real (em escala) de cada perfil, com momento de inércia, módulo resistente, área, peso e raio de giração. Perfis fornecidos pela Tecnoperfil; propriedades calculadas a partir das cotas nominais para alumínio 6063‑T5.</div>
+  </div>
+  <div id="perfisLista"></div>
+</div></div>
+
 <script>
 window.__TBRold={"AC": [["Rio Branco", 15, 38], ["Cruzeiro do Sul", 16, 37], ["Sena Madureira", 15, 38], ["Tarauacá", 15, 37]], "AL": [["Maceió", 18, 35], ["Arapiraca", 16, 36], ["Palmeira dos Índios", 15, 36], ["Penedo", 17, 37]], "AP": [["Macapá", 21, 36], ["Santana", 21, 36], ["Oiapoque", 21, 35], ["Laranjal do Jari", 21, 36]], "AM": [["Manaus", 20, 38], ["Parintins", 21, 37], ["Itacoatiara", 21, 37], ["Tefé", 20, 37], ["Tabatinga", 20, 36]], "BA": [["Salvador", 18, 36], ["Feira de Santana", 15, 37], ["Vitória da Conquista", 8, 32], ["Barreiras", 13, 39], ["Ilhéus", 17, 34], ["Juazeiro", 16, 42], ["Porto Seguro", 16, 35], ["Lençóis", 13, 35], ["Camaçari", 18, 36]], "CE": [["Fortaleza", 20, 36], ["Juazeiro do Norte", 17, 38], ["Sobral", 19, 39], ["Crato", 16, 36], ["Quixadá", 18, 39]], "DF": [["Brasília", 8, 34], ["Planaltina", 8, 34], ["Gama", 9, 34]], "ES": [["Vitória", 15, 38], ["Cachoeiro de Itapemirim", 12, 39], ["Linhares", 15, 38], ["Domingos Martins", 7, 32], ["Guarapari", 16, 37], ["Colatina", 14, 40]], "GO": [["Goiânia", 10, 38], ["Anápolis", 9, 35], ["Rio Verde", 9, 37], ["Catalão", 8, 35], ["Caldas Novas", 11, 38], ["Luziânia", 9, 35], ["Itumbiara", 10, 38]], "MA": [["São Luís", 21, 35], ["Imperatriz", 18, 39], ["Caxias", 18, 39], ["Balsas", 17, 39], ["Timon", 18, 40]], "MT": [["Cuiabá", 12, 43], ["Rondonópolis", 11, 40], ["Sinop", 15, 39], ["Barra do Garças", 12, 41], ["Tangará da Serra", 12, 39]], "MS": [["Campo Grande", 6, 38], ["Dourados", 4, 38], ["Corumbá", 9, 41], ["Três Lagoas", 6, 40], ["Ponta Porã", 3, 36]], "MG": [["Belo Horizonte", 9, 36], ["Uberlândia", 9, 37], ["Juiz de Fora", 6, 36], ["Poços de Caldas", 3, 32], ["Montes Claros", 11, 38], ["Barbacena", 2, 31], ["Uberaba", 8, 37], ["Governador Valadares", 12, 40], ["Diamantina", 5, 31], ["Ouro Preto", 4, 31], ["Varginha", 4, 34], ["Ipatinga", 12, 39], ["Divinópolis", 7, 35], ["Araxá", 5, 33], ["Teófilo Otoni", 12, 40], ["Patos de Minas", 6, 34]], "PA": [["Belém", 21, 35], ["Santarém", 21, 37], ["Marabá", 19, 39], ["Altamira", 20, 38], ["Castanhal", 21, 36], ["Parauapebas", 19, 38]], "PB": [["João Pessoa", 19, 34], ["Campina Grande", 15, 34], ["Patos", 17, 40], ["Sousa", 17, 40]], "PR": [["Curitiba", -2, 34], ["Londrina", 3, 38], ["Maringá", 3, 38], ["Ponta Grossa", -3, 33], ["Foz do Iguaçu", 0, 39], ["Guarapuava", -5, 32], ["Cascavel", 0, 36], ["Paranaguá", 5, 36], ["Pato Branco", -2, 35], ["Campo Mourão", 1, 37], ["União da Vitória", -4, 34], ["Palmas", -6, 31]], "PE": [["Recife", 19, 34], ["Caruaru", 14, 34], ["Petrolina", 16, 42], ["Garanhuns", 10, 32], ["Olinda", 19, 34], ["Serra Talhada", 16, 41]], "PI": [["Teresina", 18, 41], ["Parnaíba", 20, 38], ["Picos", 17, 41], ["Floriano", 18, 42]], "RJ": [["Rio de Janeiro", 13, 42], ["Petrópolis", 5, 33], ["Campos dos Goytacazes", 12, 40], ["Nova Friburgo", 3, 31], ["Angra dos Reis", 14, 38], ["Búzios", 15, 36], ["Niterói", 14, 40], ["Teresópolis", 4, 32], ["Volta Redonda", 9, 39], ["Cabo Frio", 14, 36], ["Resende", 7, 38]], "RN": [["Natal", 19, 34], ["Mossoró", 19, 40], ["Caicó", 18, 41], ["Currais Novos", 17, 38]], "RS": [["Porto Alegre", 1, 39], ["Caxias do Sul", -3, 33], ["Gramado", -4, 32], ["Canela", -4, 32], ["Pelotas", 0, 37], ["Santa Maria", -1, 39], ["Bagé", -4, 38], ["Passo Fundo", -4, 34], ["Vacaria", -6, 32], ["Rio Grande", 1, 36], ["Santo Ângelo", -2, 39], ["Uruguaiana", -3, 41], ["São Francisco de Paula", -7, 31], ["Erechim", -4, 35], ["Santa Cruz do Sul", -2, 38], ["Novo Hamburgo", 0, 38]], "RO": [["Porto Velho", 15, 38], ["Ji-Paraná", 13, 38], ["Vilhena", 8, 36], ["Ariquemes", 14, 38]], "RR": [["Boa Vista", 20, 38], ["Rorainópolis", 20, 37], ["Caracaraí", 20, 38]], "SC": [["Florianópolis", 5, 38], ["Joinville", 5, 37], ["Blumenau", 3, 39], ["Chapecó", -3, 38], ["Criciúma", 2, 36], ["Lages", -6, 33], ["São Joaquim", -8, 30], ["Balneário Camboriú", 6, 37], ["Itajaí", 5, 38], ["Jaraguá do Sul", 3, 38], ["Caçador", -5, 35], ["São Miguel do Oeste", -3, 37], ["Curitibanos", -6, 33], ["Rio do Sul", 1, 38]], "SP": [["São Paulo", 6, 36], ["Campinas", 6, 37], ["Santos", 12, 38], ["Ribeirão Preto", 8, 39], ["São José dos Campos", 5, 36], ["Sorocaba", 3, 36], ["Campos do Jordão", -6, 29], ["São Carlos", 4, 35], ["Bauru", 6, 39], ["Presidente Prudente", 5, 40], ["Ubatuba", 12, 38], ["Guarulhos", 6, 36], ["São José do Rio Preto", 8, 41], ["Piracicaba", 6, 38], ["Jundiaí", 5, 36], ["Taubaté", 4, 37], ["Araraquara", 6, 38], ["Franca", 4, 35], ["Itapeva", 1, 34], ["Registro", 8, 37], ["Bragança Paulista", 4, 35]], "SE": [["Aracaju", 19, 35], ["Itabaiana", 17, 36], ["Lagarto", 17, 37], ["Estância", 18, 36]], "TO": [["Palmas", 17, 40], ["Araguaína", 17, 40], ["Gurupi", 16, 40], ["Porto Nacional", 17, 41]]};
 window.__TINTold=[["Afeganistão", "Cabul", -15, 38], ["África do Sul", "Joanesburgo", 1, 35], ["Alemanha", "Berlim", -14, 37], ["Angola", "Luanda", 17, 33], ["Arábia Saudita", "Riade", 3, 50], ["Argélia", "Argel", 4, 44], ["Argentina", "Buenos Aires", -2, 40], ["Armênia", "Yerevan", -15, 40], ["Austrália", "Sydney", 4, 45], ["Áustria", "Viena", -15, 37], ["Azerbaijão", "Baku", -4, 40], ["Bahamas", "Nassau", 14, 34], ["Bahrein", "Manama", 9, 45], ["Bangladesh", "Dacca", 8, 40], ["Barbados", "Bridgetown", 20, 33], ["Bélgica", "Bruxelas", -10, 36], ["Bolívia", "La Paz", -3, 22], ["Bósnia", "Sarajevo", -16, 38], ["Botsuana", "Gaborone", 0, 40], ["Bulgária", "Sófia", -16, 38], ["Camboja", "Phnom Penh", 18, 39], ["Canadá", "Toronto", -20, 35], ["Canadá", "Montreal", -25, 34], ["Canadá", "Vancouver", -5, 32], ["Canadá", "Calgary", -30, 33], ["Cazaquistão", "Astana", -33, 35], ["Chile", "Santiago", -3, 37], ["China", "Pequim", -12, 40], ["China", "Xangai", -4, 39], ["Chipre", "Nicósia", 1, 44], ["Cingapura", "Cingapura", 23, 35], ["Colômbia", "Bogotá", 4, 25], ["Coreia do Sul", "Seul", -14, 37], ["Costa Rica", "San José", 13, 32], ["Croácia", "Zagreb", -14, 38], ["Cuba", "Havana", 13, 35], ["Dinamarca", "Copenhague", -12, 33], ["Egito", "Cairo", 5, 45], ["Emirados Árabes", "Dubai", 10, 48], ["Emirados Árabes", "Abu Dhabi", 10, 49], ["Equador", "Quito", 7, 25], ["Escócia", "Edimburgo", -8, 30], ["Eslováquia", "Bratislava", -15, 37], ["Eslovênia", "Liubliana", -16, 36], ["Espanha", "Madri", -6, 42], ["Espanha", "Barcelona", 0, 38], ["Estados Unidos", "Miami", 4, 36], ["Estados Unidos", "Nova York", -14, 37], ["Estados Unidos", "Chicago", -22, 38], ["Estados Unidos", "Los Angeles", 6, 40], ["Estados Unidos", "Denver", -24, 37], ["Estados Unidos", "Houston", -4, 39], ["Estados Unidos", "Boston", -18, 36], ["Estados Unidos", "Seattle", -6, 34], ["Estados Unidos", "Phoenix", 2, 48], ["Estados Unidos", "Las Vegas", -2, 47], ["Estônia", "Tallinn", -24, 33], ["Etiópia", "Adis Abeba", 5, 28], ["Filipinas", "Manila", 18, 37], ["Finlândia", "Helsinque", -28, 32], ["França", "Paris", -12, 40], ["França", "Nice", -2, 37], ["Gana", "Acra", 19, 35], ["Geórgia", "Tbilisi", -12, 40], ["Grécia", "Atenas", -3, 44], ["Guatemala", "Cidade da Guatemala", 9, 32], ["Holanda", "Amsterdã", -13, 36], ["Honduras", "Tegucigalpa", 10, 35], ["Hong Kong", "Hong Kong", 5, 36], ["Hungria", "Budapeste", -16, 39], ["Iêmen", "Sanaa", 0, 32], ["Índia", "Nova Délhi", 3, 46], ["Índia", "Mumbai", 13, 40], ["Indonésia", "Jacarta", 20, 36], ["Irã", "Teerã", -8, 42], ["Iraque", "Bagdá", 1, 50], ["Irlanda", "Dublin", -8, 29], ["Islândia", "Reykjavik", -16, 22], ["Israel", "Tel Aviv", 4, 41], ["Itália", "Roma", -3, 40], ["Itália", "Milão", -11, 38], ["Jamaica", "Kingston", 17, 35], ["Japão", "Tóquio", -4, 38], ["Jordânia", "Amã", -3, 42], ["Kuwait", "Cidade do Kuwait", 4, 52], ["Letônia", "Riga", -25, 34], ["Líbano", "Beirute", 5, 37], ["Líbia", "Trípoli", 3, 46], ["Lituânia", "Vilnius", -27, 35], ["Luxemburgo", "Luxemburgo", -14, 37], ["Malásia", "Kuala Lumpur", 21, 37], ["Marrocos", "Casablanca", 2, 42], ["México", "Cidade do México", 0, 32], ["México", "Cancún", 12, 37], ["Moçambique", "Maputo", 6, 40], ["Mongólia", "Ulan Bator", -40, 35], ["Nigéria", "Lagos", 18, 35], ["Noruega", "Oslo", -22, 33], ["Nova Zelândia", "Auckland", 0, 30], ["Omã", "Mascate", 11, 48], ["Panamá", "Cidade do Panamá", 20, 36], ["Paraguai", "Assunção", 0, 42], ["Peru", "Lima", 12, 31], ["Polônia", "Varsóvia", -22, 36], ["Portugal", "Lisboa", 1, 41], ["Portugal", "Porto", -2, 38], ["Qatar", "Doha", 7, 50], ["Quênia", "Nairóbi", 8, 30], ["Reino Unido", "Londres", -9, 38], ["República Checa", "Praga", -17, 37], ["República Dominicana", "Santo Domingo", 17, 35], ["Romênia", "Bucareste", -20, 41], ["Rússia", "Moscou", -30, 37], ["Rússia", "São Petersburgo", -29, 35], ["Sérvia", "Belgrado", -15, 42], ["Suécia", "Estocolmo", -22, 34], ["Suíça", "Zurique", -16, 37], ["Tailândia", "Bangkok", 15, 40], ["Taiwan", "Taipé", 4, 38], ["Tunísia", "Túnis", 1, 45], ["Turquia", "Istambul", -8, 40], ["Turquia", "Ancara", -20, 40], ["Ucrânia", "Kiev", -27, 37], ["Uruguai", "Montevidéu", -3, 40], ["Uzbequistão", "Tashkent", -20, 42], ["Venezuela", "Caracas", 13, 34], ["Vietnã", "Hanói", 5, 41], ["Zimbábue", "Harare", 2, 35]];
@@ -1330,6 +1340,92 @@ window.ComponentesRender = function(sel){
     (C.id==='pivo'?'<div style="font-size:12px;color:#777;margin-top:10px;border-top:1px solid #eee;padding-top:8px">Nota de projeto: para o pivô superior do modelo 600 kg, o AISI 304 não é adequado como gaiola de esferas (não tempera) — a solução adotada é bucha de bronze grafitado flangeada. O corpo estrutural do pivô segue em inox 304.</div>':'')+
     (C.id==='qlon'?'<div style="font-size:12px;color:#777;margin-top:10px;border-top:1px solid #eee;padding-top:8px">A câmara fechada entre os 2 Q‑LON é modelada na aba TÉRMICA (ISO 6946, não‑ventilada).</div>':'')+
   '</div>';
+};
+
+/* ---------- ABA PERFIS: seção em corte + propriedades ---------- */
+var PERFIS = [
+  {id:"quadro", nome:"Quadro externo", desig:'4"×4"×1/4"', tipo:"Tubo quadrado",
+   b:101.6, h:101.6, t:6.35, forma:"tubo", cor:"#8ab4d8",
+   A:2419, Ix:367.45, Iy:367.45, Wx:72.33, Wy:72.33, rx:38.97, ry:38.97, peso:6.532,
+   uso:"Contorno da folha; recebe os pivôs (carga 400–800 kg) e fecha o perímetro. É o perfil mais rígido do conjunto."},
+  {id:"reforco", nome:"Reforço H/V", desig:'4"×2"×1/8"', tipo:"Tubo retangular",
+   b:50.8, h:101.6, t:3.175, forma:"tubo", cor:"#f0b46a",
+   A:927, Ix:123.88, Iy:41.28, Wx:24.39, Wy:16.25, rx:36.55, ry:21.10, peso:2.504,
+   uso:"Travessas horizontais e montantes verticais internos. Montado com a alma de 101,6 mm na direção da flexão (eixo forte)."},
+  {id:"cant", nome:"Cantoneira de união", desig:'L 1.1/2"×1.1/2"×1/8"', tipo:"Cantoneira abas iguais",
+   b:38.1, h:38.1, t:3.175, forma:"cant", yb:10.70, cor:"#9ccc9c",
+   A:232, Ix:3.24, Iy:3.24, Wx:1.18, Wy:1.18, rx:11.82, ry:11.82, peso:0.626,
+   uso:"Une os perfis nos encontros (T e cantos) com parafusos autobrocantes inox 416 Ø4,2×19 mm. Sem solda em nenhum ponto."},
+  {id:"chapa", nome:"Perfil da chapa", desig:'35×35 #1,5', tipo:"Perfil dobrado (L)",
+   b:35, h:35, t:1.5, forma:"cant", yb:9.31, cor:"#c8d4dc",
+   A:103, Ix:1.26, Iy:1.26, Wx:0.49, Wy:0.49, rx:11.06, ry:11.06, peso:0.277,
+   uso:"Suporte de borda da chapa ACM e da vedação inferior automática. Trabalha como enrijecedor de pele, não estrutural."}
+];
+
+window.PerfisRender = function(){
+  var el = document.getElementById('perfisLista');
+  if(!el) return;
+  var f = function(v,d){ return (v===null||v===undefined)?'—':Number(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}); };
+
+  // desenha a seção em corte, em escala, dentro de um viewBox de 130x130 (mm reais)
+  function corte(P){
+    var W=130, pad=14, esc=(W-2*pad)/Math.max(P.b,P.h);
+    var bw=P.b*esc, hh=P.h*esc, tt=Math.max(P.t*esc,1.4);
+    var x0=(W-bw)/2, y0=(W-hh)/2;
+    var g='';
+    // hachura diagonal p/ material
+    g+='<defs><pattern id="hc_'+P.id+'" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">'+
+       '<line x1="0" y1="0" x2="0" y2="4" stroke="'+P.cor+'" stroke-width="1.1"/></pattern></defs>';
+    if(P.forma==="tubo"){
+      // anel: retangulo externo menos interno (evenodd)
+      var ix=x0+tt, iy=y0+tt, iw=bw-2*tt, ih=hh-2*tt;
+      g+='<path fill-rule="evenodd" fill="url(#hc_'+P.id+')" stroke="#456" stroke-width="1.3" d="'+
+         'M'+x0+' '+y0+' h'+bw+' v'+hh+' h'+(-bw)+' Z '+
+         'M'+ix+' '+iy+' h'+iw+' v'+ih+' h'+(-iw)+' Z"/>';
+    } else {
+      // cantoneira: duas abas (L). aba vertical + aba horizontal
+      g+='<path fill="url(#hc_'+P.id+')" stroke="#456" stroke-width="1.3" d="'+
+         'M'+x0+' '+y0+' h'+tt+' v'+(hh-tt)+' h'+(bw-tt)+' v'+tt+' h'+(-bw)+' Z"/>';
+    }
+    // cotas
+    g+='<line x1="'+x0+'" y1="'+(y0-6)+'" x2="'+(x0+bw)+'" y2="'+(y0-6)+'" stroke="#888" stroke-width="0.6" marker-start="url(#ar)" marker-end="url(#ar)"/>';
+    g+='<text x="'+(x0+bw/2)+'" y="'+(y0-9)+'" font-size="7" fill="#666" text-anchor="middle">'+f(P.b,1)+'</text>';
+    g+='<line x1="'+(x0-6)+'" y1="'+y0+'" x2="'+(x0-6)+'" y2="'+(y0+hh)+'" stroke="#888" stroke-width="0.6"/>';
+    g+='<text x="'+(x0-8)+'" y="'+(y0+hh/2)+'" font-size="7" fill="#666" text-anchor="middle" transform="rotate(-90 '+(x0-8)+' '+(y0+hh/2)+')">'+f(P.h,1)+'</text>';
+    g+='<text x="'+(x0+bw-2)+'" y="'+(y0+hh+9)+'" font-size="6.5" fill="#999" text-anchor="end">e='+f(P.t,3)+' mm</text>';
+    return '<svg viewBox="0 0 '+W+' '+W+'" style="width:100%;max-width:190px;height:auto">'+
+      '<defs><marker id="ar" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M1 3 L5 1 L5 5 Z" fill="#888"/></marker></defs>'+g+'</svg>';
+  }
+
+  var html='';
+  PERFIS.forEach(function(P){
+    html+='<div class="card" style="border-left:5px solid '+P.cor+';margin-bottom:14px;display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">'+
+      '<div style="flex:0 0 200px;text-align:center">'+
+        '<div style="font-size:11px;color:#888;margin-bottom:2px">seção em corte (escala)</div>'+
+        corte(P)+
+      '</div>'+
+      '<div style="flex:1 1 420px;min-width:300px">'+
+        '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'+
+          '<b style="font-size:15px">'+P.nome+'</b>'+
+          '<span style="font-family:ui-monospace,monospace;font-size:13px;color:#1a73e8">'+P.desig+'</span>'+
+          '<span style="font-size:12px;color:#888">'+P.tipo+'</span></div>'+
+        '<div style="font-size:12px;color:#666;margin:3px 0 8px">'+f(P.b,1)+' × '+f(P.h,1)+' × '+f(P.t,3)+' mm · alumínio 6063‑T5</div>'+
+        '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
+          '<tr><td style="padding:3px 0;color:#555">Área da seção</td><td align=right style="font-weight:600">'+f(P.A,0)+' mm²</td>'+
+              '<td style="padding-left:16px;color:#555">Peso linear</td><td align=right style="font-weight:700">'+f(P.peso,3)+' kg/m</td></tr>'+
+          '<tr><td style="color:#555">I<sub>x</sub> (eixo forte)</td><td align=right style="font-weight:600">'+f(P.Ix,2)+' cm⁴</td>'+
+              '<td style="padding-left:16px;color:#555">W<sub>x</sub></td><td align=right style="font-weight:600">'+f(P.Wx,2)+' cm³</td></tr>'+
+          '<tr><td style="color:#555">I<sub>y</sub> (eixo fraco)</td><td align=right style="font-weight:600">'+f(P.Iy,2)+' cm⁴</td>'+
+              '<td style="padding-left:16px;color:#555">W<sub>y</sub></td><td align=right style="font-weight:600">'+f(P.Wy,2)+' cm³</td></tr>'+
+          '<tr><td style="color:#555">Raio de giração r<sub>x</sub></td><td align=right style="font-weight:600">'+f(P.rx,2)+' mm</td>'+
+              '<td style="padding-left:16px;color:#555">r<sub>y</sub></td><td align=right style="font-weight:600">'+f(P.ry,2)+' mm</td></tr>'+
+        '</table>'+
+        '<div style="font-size:12px;color:#555;margin-top:8px">'+P.uso+'</div>'+
+      '</div>'+
+    '</div>';
+  });
+  html+='<div class="card" style="font-size:12px;color:#888;font-style:italic">Perfis: Tecnoperfil Alumínio (designações comerciais). Propriedades de seção (I, W, r, área, peso) calculadas a partir das cotas nominais — E = 69 GPa · ρ = 2700 kg/m³. A cantoneira usa o eixo baricentrico paralelo às abas.</div>';
+  el.innerHTML=html;
 };
 
 /* ---------- MEMÓRIA DE CÁLCULO TÉRMICA (passo a passo, ao vivo) ---------- */
@@ -1923,6 +2019,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-32</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-33</div>
 </body>
 </html>
