@@ -454,17 +454,36 @@
       + row('Projetta', projetta)
       + row('Prospeccao', esc(stTxt));
 
+    // campo Observacoes editavel (salva no envios[id].obs)
+    var obsAtual = st.obs || '';
+    var obsBloco = '<div class="wkp-dobs">'
+      + '<div class="wkp-dobs-lab">Observações</div>'
+      + '<textarea class="wkp-dobs-ta" id="wkp-obs-ta" placeholder="Anote aqui o que foi conversado, combinados, retorno do cliente...">' + esc(obsAtual) + '</textarea>'
+      + '<div class="wkp-dobs-acoes">'
+      +   '<button class="wkp-dobs-salvar" id="wkp-obs-salvar" data-id="' + esc(d.id) + '">Salvar observação</button>'
+      +   '<span class="wkp-dobs-status" id="wkp-obs-status"></span>'
+      + '</div></div>';
+
     var ov = document.createElement('div');
     ov.id = 'wkp-modal'; ov.className = 'wkp-ovl';
     ov.innerHTML = '<div class="wkp-modal">'
       + '<div class="wkp-mhead"><b>' + esc(d.titulo || d.nome || ('Pedido ' + d.id)) + '</b>'
       +   '<button class="wkp-mclose" title="Fechar">\u2715</button></div>'
-      + '<div class="wkp-mbody">' + body + '</div>'
+      + '<div class="wkp-mbody">' + body + obsBloco + '</div>'
       + '<div class="wkp-mfoot">Dados do card no Bitrix24 (funil de negocios). Campos vazios no card nao aparecem aqui.</div>'
       + '</div>';
     document.body.appendChild(ov);
     ov.addEventListener('click', function (ev) {
       if (ev.target === ov || ev.target.closest('.wkp-mclose')) fecharDetalhe();
+    });
+    // salvar observacao
+    var btnObs = ov.querySelector('#wkp-obs-salvar');
+    if (btnObs) btnObs.addEventListener('click', function () {
+      var ta = ov.querySelector('#wkp-obs-ta');
+      var stat = ov.querySelector('#wkp-obs-status');
+      marcarStatus(d.id, { obs: ta.value, obsTs: Date.now(), obsPor: _userName() });
+      if (stat) { stat.textContent = '\\u2713 salvo'; stat.style.color = '#16a34a';
+        setTimeout(function () { if (stat) stat.textContent = ''; }, 2500); }
     });
     document.addEventListener('keydown', _escClose);
   }
@@ -880,6 +899,14 @@
       '.wkp-dlab{flex:0 0 165px;color:#4a5160;font-size:13px}',
       '.wkp-dval{flex:1;color:#003144;font-size:13px;font-weight:600;word-break:break-word}',
       '.wkp-mfoot{padding:11px 20px;border-top:1px solid var(--l);font-size:11px;color:#4a5160;background:#f8fafc}',
+      '.wkp-dobs{margin-top:14px;padding-top:14px;border-top:2px solid var(--l)}',
+      '.wkp-dobs-lab{font-weight:700;font-size:13px;color:#0f2c4c;margin-bottom:6px}',
+      '.wkp-dobs-ta{width:100%;min-height:80px;box-sizing:border-box;border:1px solid var(--l);border-radius:8px;padding:10px;font:inherit;font-size:13px;resize:vertical}',
+      '.wkp-dobs-ta:focus{outline:none;border-color:#0f2c4c}',
+      '.wkp-dobs-acoes{display:flex;align-items:center;gap:10px;margin-top:8px}',
+      '.wkp-dobs-salvar{background:#0f2c4c;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600}',
+      '.wkp-dobs-salvar:hover{background:#16385f}',
+      '.wkp-dobs-status{font-size:12px;font-weight:600}',
       '.wkp-mbtn{display:inline-block;background:#25D366;color:#fff;border-radius:6px;padding:2px 9px;font-size:11px;font-weight:600;text-decoration:none;margin-left:6px}.wkp-mbtn:hover{background:#1faf53}',
       '@media(max-width:900px){.wkp-kpis{grid-template-columns:repeat(2,1fr)}}'
     ].join('\n');
