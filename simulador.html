@@ -923,6 +923,7 @@ function Tcav(p,r,Ti,Te){var Rin=Rsi+R_ACM+r.Rc;return Ti-(Ti-Te)*Rin/(Rin+r.Rx+
 function Tsi(p,r,Ti,Te){return Ti-r.Uq*(Ti-Te)*Rsi;}
 function empeno(p,r,Ti,Te){var dT=r.Uq*Math.abs(Te-Ti)*r.Rt;return 23.4e-6*dT/(p.quad/1000)*Math.pow(p.alt/1000,2)/8*1000;}
 
+var LIM_EMP=5.0;   // flecha maxima ABSOLUTA (curso util da vedacao), qualquer altura de folha
 function recomenda(base,tmin,tmax,ur){
   var Ti_inv=20, Ti_ver=23;
   var sa=solAr(tmax,0.92);
@@ -931,10 +932,19 @@ function recomenda(base,tmin,tmax,ur){
   // 1) precisa de isolante externo?
   var p0=JSON.parse(JSON.stringify(base)); p0.eExt=0; p0.mExt="xps"; p0.mCav="psr32";
   var r0=calc(p0);
-  var precisa = (frio!=="BAIXA") || (empeno(p0,r0,Ti_ver,sa) > p0.alt/500) || (Tsi(p0,r0,Ti_inv,tmin) < orv(Ti_inv,ur));
+  var precisa = (frio!=="BAIXA") || (empeno(p0,r0,Ti_ver,sa) > LIM_EMP) || (Tsi(p0,r0,Ti_inv,tmin) < orv(Ti_inv,ur));
   // 2) material externo pelo limite de servico com ACM preto
   var mExt = (sa>TSERV.xps) ? "pir" : "xps";
   var eExt = precisa?30:0;
+  // 3) escalada: se 30 mm ainda nao segurar os 5 mm, sobe para 40 e depois 50 (limite fisico do batente)
+  if(eExt>0){
+    var esp=[30,40,50];
+    for(var q=0;q<esp.length;q++){
+      var pe=JSON.parse(JSON.stringify(base)); pe.eExt=esp[q]; pe.mExt=mExt; pe.mCav="psr32";
+      if(empeno(pe,calc(pe),Ti_ver,sa) <= LIM_EMP){ eExt=esp[q]; break; }
+      eExt=esp[q];
+    }
+  }
   // 3) material do miolo: fechado se a cavidade cair abaixo do orvalho no inverno
   var pt=JSON.parse(JSON.stringify(base)); pt.eExt=eExt; pt.mExt=mExt; pt.mCav="psr32";
   var rt=calc(pt);
@@ -1053,7 +1063,7 @@ function tRender(){
 
   var ok=function(b){return b?"<span style='color:#137333;font-weight:700'>✓</span>":"<span style='color:#c5221f;font-weight:700'>✗</span>";};
   var Tsi_i=Tsi(p,r,20,loc.tmin), fR=(Tsi_i-loc.tmin)/(20-loc.tmin);
-  var emp=empeno(p,r,23,rec.sa), lim=p.alt/500;
+  var emp=empeno(p,r,23,rec.sa), lim=LIM_EMP;
   var av="";
   if(rec.mExt==="xps" && rec.sa>70) av+="<div class='aviso' style='display:block'><b>Fora do envelope de ensaio.</b> Face do ACM preto a "+rec.sa.toFixed(0)+" °C. O XPS aguenta 75 °C de serviço, mas a estabilidade dimensional só é declarada em DS(70,90) — ensaio a 70 °C. Pedir declaração do fabricante a "+rec.sa.toFixed(0)+" °C, restringir a absortância a 0,55 ou usar PIR.</div>";
   if(rec.mExt==="xps" && rec.sa>75) av+="<div class='aviso' style='display:block;border-color:#c5221f'><b>Cor restrita.</b> Face do ACM preto a "+rec.sa.toFixed(0)+" °C excede os 75 °C do XPS. Limitar absortância a 0,55 ou usar PIR.</div>";
@@ -1070,7 +1080,7 @@ function tRender(){
    "<tr style='font-weight:700;border-top:2px solid #333'><td>U DA FOLHA</td><td align=right>"+r.U.toFixed(3)+" W/m²K</td></tr>"+
    "<tr><td>Superfície interna no inverno · fRsi ≥ 0,70</td><td align=right>"+Tsi_i.toFixed(1)+" °C · "+fR.toFixed(3)+" "+ok(fR>=0.70)+"</td></tr>"+
    "<tr><td>Miolo no inverno / orvalho</td><td align=right>"+rec.tcav.toFixed(1)+" / "+rec.torv.toFixed(1)+" °C "+ok(rec.mCav!=="psr32"||rec.tcav>rec.torv)+"</td></tr>"+
-   "<tr><td>Empeno no verão (L/500 = "+lim.toFixed(1)+" mm)</td><td align=right>"+emp.toFixed(2)+" mm "+ok(emp<=lim)+"</td></tr>"+
+   "<tr><td>Empeno no verão (máx. 5,0 mm · curso da vedação)</td><td align=right>"+emp.toFixed(2)+" mm "+ok(emp<=lim)+"</td></tr>"+
    "<tr><td>Limite de serviço do isolante externo</td><td align=right>"+(rec.eExt?TSERV[rec.mExt]+" °C vs "+rec.sa.toFixed(0)+" °C "+ok(rec.sa<=TSERV[rec.mExt]):"—")+"</td></tr>"+
    "<tr><td>Carga térmica de verão</td><td align=right>"+(r.U*r.A*(rec.sa-23)).toFixed(0)+" W</td></tr>"+
    "</table>";
@@ -1083,7 +1093,7 @@ function tRender(){
   ['sL','sA'].forEach(function(k){var e=document.getElementById(k);
     if(e){e.addEventListener('input',function(){setTimeout(tRender,0);});e.addEventListener('change',function(){setTimeout(tRender,0);});}});
   for(var m=0;m<ids.length;m++){var el=document.getElementById(ids[m]);
-    if(el){el.addEventListener('change',function(){tLoc();tRender();});el.addEventListener('input',tRender);}}
+    if(el){el.addEventListener('change',tRender);el.addEventListener('input',tRender);}}
 })();
 
 })();
