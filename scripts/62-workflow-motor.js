@@ -67,7 +67,9 @@
   var _grafo = null;
   function grafo() {
     if (_grafo) return _grafo;
-    var flow = defGet('flow_128');
+    // Fonte da verdade do desenho e' geo_128 (editavel pelo editor, tem
+    // coords + nodes + flows). Fallback pra flow_128 (extracao original).
+    var flow = defGet('geo_128') || defGet('flow_128');
     if (!flow || !flow.nodes) return null;
     var porId = {}, saidas = {}, entradas = {};
     flow.nodes.forEach(function (n) { porId[n.id] = n; });
@@ -423,6 +425,8 @@
       instSet('prazos_sla', tab);
       return tab;
     },
+    // invalida o cache do grafo (chamar apos o editor salvar geo_128)
+    recarregarGrafo: function () { _grafo = null; return grafo(); },
 
     // botoes de acao de uma tarefa (fiel ao Zeev). Sem config explicita,
     // deduz pelo tipo: se o nome/aplicativo sugere aprovacao usa

@@ -271,9 +271,15 @@
       return '<g class="' + cls + '" data-node="' + esc(n.id) + '">' + body + '</g>';
     }).join('');
 
+    var ed = window.WorkflowEditor && window.WorkflowEditor.editavel;
     corpo.innerHTML =
       '<div class="wf-diag-wrap">' +
-      '<div class="wf-diag-hint">Arraste pra mover · role pra rolar · clique numa etapa</div>' +
+      '<div class="wf-diag-hint">' +
+      (ed ? 'Modo edição: clique numa etapa pra editar, inserir ou excluir'
+          : 'Arraste pra mover · role pra rolar · clique numa etapa') +
+      ' <button class="wf-edit-toggle' + (ed ? ' on' : '') + '" id="wf-edit-toggle">' +
+      (ed ? '🔓 Editando (clique pra bloquear)' : '✏️ Editar fluxo') + '</button>' +
+      '</div>' +
       '<div class="wf-diag-scroll" id="wf-diag-scroll">' +
       '<svg id="wf-svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
       '" xmlns="http://www.w3.org/2000/svg">' +
@@ -284,6 +290,25 @@
       '<div class="wf-diag-painel" id="wf-diag-painel"></div>' +
       '</div>';
 
+    var toggle = corpo.querySelector('#wf-edit-toggle');
+    if (toggle) toggle.addEventListener('click', function () {
+      if (window.WorkflowEditor) {
+        window.WorkflowEditor.editavel = !window.WorkflowEditor.editavel;
+        ui.selId = null;
+        renderDiagrama(corpo, carregar() || dados);
+      }
+    });
+
+    function abrirPainel(id) {
+      var painel = corpo.querySelector('#wf-diag-painel');
+      if (ed && window.WorkflowEditor) {
+        painel.innerHTML = window.WorkflowEditor.painelEdicao(id);
+        ligarEdicao(corpo, id);
+      } else {
+        painel.innerHTML = painelNo(dados, id);
+      }
+    }
+
     var svg = corpo.querySelector('#wf-svg');
     svg.querySelectorAll('[data-node]').forEach(function (g) {
       g.addEventListener('click', function () {
@@ -293,12 +318,45 @@
           x.classList.remove('sel');
         });
         g.classList.add('sel');
-        corpo.querySelector('#wf-diag-painel').innerHTML = painelNo(dados, id);
+        abrirPainel(id);
       });
     });
-    if (ui.selId) {
-      corpo.querySelector('#wf-diag-painel').innerHTML = painelNo(dados, ui.selId);
-    }
+    if (ui.selId) abrirPainel(ui.selId);
+  }
+
+  // liga os botoes do painel de EDICAO (salvar, excluir, inserir)
+  function ligarEdicao(corpo, id) {
+    var painel = corpo.querySelector('#wf-diag-painel');
+    var WE = window.WorkflowEditor;
+    var salvar = painel.querySelector('#wfe-salvar');
+    if (salvar) salvar.addEventListener('click', function () {
+      var patch = {};
+      var nome = painel.querySelector('#wfe-nome');
+      var resp = painel.querySelector('#wfe-resp');
+      var tipo = painel.querySelector('#wfe-tipo');
+      var prazo = painel.querySelector('#wfe-prazo');
+      if (nome) patch.nome = nome.value.trim();
+      if (resp) patch.responsavel = resp.value.trim();
+      if (tipo) patch.tipoTarefa = tipo.value;
+      if (prazo) patch.prazoHoras = prazo.value === '' ? '' : Number(prazo.value);
+      WE.salvarNo(id, patch);
+      renderDiagrama(corpo, carregar());
+    });
+    var del = painel.querySelector('#wfe-del');
+    if (del) del.addEventListener('click', function () {
+      if (confirm('Excluir esta etapa? As setas serão costuradas.')) {
+        WE.deletarNo(id); ui.selId = null; renderDiagrama(corpo, carregar());
+      }
+    });
+    painel.querySelectorAll('[data-ins]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var tipo = b.getAttribute('data-ins');
+        var t = tipo === 'tarefa' ? 'userTask' : tipo;
+        var novoId = WE.inserirNo(id, t);
+        if (novoId) ui.selId = novoId;
+        renderDiagrama(corpo, carregar());
+      });
+    });
   }
 
   function caminhoReto(dados, f) {
@@ -548,6 +606,19 @@
       '.wf-diag-painel{position:absolute;top:28px;right:12px;width:320px;max-height:66vh;overflow:auto;' +
       'background:#fff;border:1px solid #1a2b4a;border-radius:10px;padding:12px;box-shadow:0 6px 24px #0002}' +
       '.wf-diag-painel:empty{display:none}' +
+      '.wf-edit-toggle{margin-left:10px;border:1px solid #c7d2fe;background:#eef2ff;color:#3730a3;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px}' +
+      '.wf-edit-toggle.on{background:#dcfce7;border-color:#86efac;color:#166534}' +
+      '.wfe-painel{display:flex;flex-direction:column;gap:4px}' +
+      '.wfe-p-tipo{font-size:11px;text-transform:uppercase;color:#6366f1;font-weight:700;margin-bottom:4px}' +
+      '.wfe-l{font-size:11px;color:#555;margin-top:6px}' +
+      '.wfe-in{padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box}' +
+      '.wfe-acoes{display:flex;gap:6px;margin-top:12px}' +
+      '.wfe-btn{border:1px solid #ccc;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px}' +
+      '.wfe-btn-ok{background:#16a34a;color:#fff;border-color:#16a34a;font-weight:600}' +
+      '.wfe-btn-del{background:#fff;color:#dc2626;border-color:#fecaca}' +
+      '.wfe-pad{margin-top:14px;padding-top:12px;border-top:1px dashed #e5e7eb}' +
+      '.wfe-pad-h{font-size:11px;color:#888;margin-bottom:6px}' +
+      '.wf-mudo{color:#999;font-size:12px}' +
       '.wf-pn-titulo{font-weight:700;font-size:13px}' +
       '.wf-pn-tipo{font-size:11px;color:#888;margin-bottom:8px}' +
       '.wf-pn-sec{font-size:12px;margin-bottom:6px;line-height:1.4}';
