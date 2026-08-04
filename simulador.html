@@ -1077,8 +1077,7 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
     <div id="feaCtl" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaInv" checked> Inverno (interna 20 °C · externa = mínima)</label>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaVer"> Verão sol-ar (interna 23 °C · face ACM preto)</label>
-      <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#7a3db8"><input type="checkbox" id="feaTaglio"> Simular taglio térmico no tubo <span style="font-size:11px;font-weight:400;color:#888">(poliamida 24 mm nas almas — conceito Oikos)</span></label>
-      <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#0b6e4f"><input type="checkbox" id="feaReal" checked> Seção REAL de obra <span style="font-size:11px;font-weight:400;color:#888">(CROQUI A-A + perfil PA007F da matriz TECNO · isolante conforme a linha de produto do card 3 · ignora taglio acima)</span></label>
+      <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#0b6e4f"><input type="checkbox" id="feaReal" checked> Seção REAL de obra <span style="font-size:11px;font-weight:400;color:#888">(CROQUI A-A + perfil PA007F da matriz TECNO · isolante conforme a linha de produto do card 3)</span></label>
     </div>
     <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;justify-content:center">
       <canvas id="feaCv" width="700" height="1020" style="flex:0 0 auto;width:100%;max-width:460px;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
@@ -1702,14 +1701,14 @@ window.tFeaRender=function(){
    '<tr><td>Superfície interna — ponto crítico (portal/alma)</td><td align=right><b>'+pior.toFixed(1)+' °C</b>'+(tg&&rBase?(' <span style="color:#7a3db8;font-size:12px">(era '+rBase.pior.t.toFixed(1)+')</span>'):'')+'</td></tr>'+
    (inv?('<tr><td>Ponto de orvalho a '+st.ur+'% UR</td><td align=right>'+to.toFixed(1)+' °C '+(okc?'<span style="color:#137333;font-weight:700">✓ sem condensação</span>':'<span style="color:#c5221f;font-weight:700">✗ CONDENSA na ponte térmica</span>')+'</td></tr>'):'')+
    '</table>'+
-   '<div style="margin-top:6px;font-size:11.5px;color:#888">Mesmo método do THERM (condução 2D em regime permanente). A faixa fria/quente no portal e no montante é a ponte térmica do alumínio — é ela que o taglio térmico ou o isolante externo cortam.</div>';
+   '<div style="margin-top:6px;font-size:11.5px;color:#888">Mesmo método do THERM (condução 2D em regime permanente). A faixa fria/quente no portal e no montante é a ponte térmica do alumínio — é ela que o isolante externo corta.</div>';
   document.getElementById('feaOut').innerHTML=out;
 };
-['feaInv','feaVer','feaTaglio','feaReal'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',function(){window.tFeaRender();});});
+['feaInv','feaVer','feaReal'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',function(){window.tFeaRender();});});
 if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-11</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-12</div>
 </body>
 </html>
