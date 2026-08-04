@@ -1660,6 +1660,7 @@ window.tFeaRender=function(){
     ctx.fillStyle='#222';ctx.font='11px sans-serif';ctx.textAlign='center';
     ctx.fillText('ALVENARIA',ox+g.nx*escX/2,py(g.alv/2)+3);
     ctx.fillText('PORTAL PA007P',ox+g.nx*escX/2,py(g.alv+42)+3);
+    ctx.fillText('fresta · 2× Q-LON 4880 · câmara fechada',ox+g.nx*escX/2,py(g.alv+96)+3);
     ctx.fillText('montante PA007F',ox+g.nx*escX/2,py(g.alv+138)+3);
     var nmCav=(st.p.mCav==='eps'?'EPS':'lã de rocha');
     ctx.save();ctx.translate(px(12),py(g.alv+300));ctx.rotate(-Math.PI/2);ctx.fillText(semXps?('miolo · '+nmCav):(extReal.toUpperCase()+' 30'),0,3);ctx.restore();
@@ -1724,6 +1725,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-20</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-21</div>
 </body>
 </html>
