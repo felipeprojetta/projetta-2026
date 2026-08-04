@@ -203,13 +203,17 @@
     var m = motor();
     var login = loginAtual();
     if (ui.tarefaAberta) { painelTarefa(corpo, container, ui.tarefaAberta); return; }
-    var minhas = m.tarefasDe(login);
+    var minhas = m.filaOrdenada(login);
     var semDono = m.tarefasSemDono();
+    var pct = m.percentualNoPrazo(login);
 
     var h = '';
-    // barra "% dentro do prazo" (aqui todas no prazo — sem SLA real ainda)
-    h += '<div class="wt-sla"><div class="wt-sla-num">100%</div>' +
-      '<div class="wt-sla-bar"><div class="wt-sla-fill"></div></div>' +
+    // barra "% dentro do prazo" real
+    var corBar = pct >= 100 ? '#16a34a' : (pct >= 60 ? '#d97706' : '#dc2626');
+    h += '<div class="wt-sla"><div class="wt-sla-num" style="color:' + corBar + '">' +
+      pct + '%</div>' +
+      '<div class="wt-sla-bar"><div class="wt-sla-fill" style="width:' + pct +
+      '%;background:' + corBar + '"></div></div>' +
       '<div class="wt-sla-lbl">tarefas dentro do prazo</div></div>';
     h += '<div class="wt-contador">' + minhas.length + ' / ' + minhas.length +
       ' tarefas pendentes de ' + esc(nomeDe(login)) + '</div>';
@@ -252,8 +256,14 @@
     return h + '</tbody></table>';
   }
 
-  // SLA ainda nao configurado por etapa -> mostra "no prazo"
-  function prazoTxt() { return '<span class="wt-noprazo">no prazo</span>'; }
+  // SLA real: mostra restante/atraso, vermelho se atrasada
+  function prazoTxt(t) {
+    var m = motor();
+    var s = m.statusPrazo(t);
+    if (s.restanteTxt === 'sem prazo') return '<span class="wt-noprazo">—</span>';
+    var cls = s.atrasada ? 'wt-atrasada' : 'wt-noprazo';
+    return '<span class="' + cls + '">' + esc(s.restanteTxt) + '</span>';
+  }
 
   /* painel de execucao de uma tarefa */
   function painelTarefa(corpo, container, tid) {
@@ -369,6 +379,7 @@
       '.wt-tabela td{padding:10px;border-bottom:1px solid #f0f0f0;vertical-align:top}' +
       '.wt-linha{cursor:pointer}.wt-linha:hover{background:#f7f9ff}' +
       '.wt-noprazo{color:#16a34a;font-size:12px}' +
+      '.wt-atrasada{color:#dc2626;font-size:12px;font-weight:600}' +
       '.wt-vazio{color:#999;font-size:13px;padding:16px 0}' +
       '.wt-alerta-h{color:#b45309;font-size:13px;margin:16px 0 8px;font-weight:600}' +
       '.wt-voltar{background:none;border:none;color:#2563eb;cursor:pointer;font-size:13px;padding:6px 0;margin-bottom:8px}' +

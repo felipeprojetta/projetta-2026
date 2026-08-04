@@ -230,6 +230,27 @@
       Math.random().toString(36).slice(2, 7);
   }
 
+  /* ── PRAZO / SLA por etapa ──────────────────────────────────────
+     Cada etapa pode ter um prazo em horas. No Zeev o SLA fica na secao
+     "Responsaveis e prazos" de cada tarefa (a maioria das etapas do
+     Projetta estava sem SLA). Aqui o prazo e' CONFIGURAVEL por codigo de
+     tarefa em workflow/prazos_sla (key -> horas), com um default. A partir
+     do prazo, calcula-se expiraEm = criadoEm + horas. A UI usa isso pro
+     "Expira em", pra marcar atrasadas e ordenar a fila. */
+  var PRAZO_DEFAULT_H = 24; // 1 dia util (default sensato)
+
+  function prazoDaTarefa(cod) {
+    var tab = instGet('prazos_sla', null);
+    if (tab && cod && tab[cod] != null) return Number(tab[cod]);
+    if (tab && tab._default != null) return Number(tab._default);
+    return PRAZO_DEFAULT_H;
+  }
+  function calcExpira(criadoEmISO, horas) {
+    var d = new Date(criadoEmISO);
+    d.setTime(d.getTime() + (horas || PRAZO_DEFAULT_H) * 3600 * 1000);
+    return d.toISOString();
+  }
+
   function criarTarefa(solic, node) {
     var resp = respDoNode(node);
     var nomeResp = resp ? resp.nome : null;
@@ -238,16 +259,21 @@
       resp.bruto.some(function (r) { return /Solicitante/i.test(r); });
     var login = brutoTemSolic ? solic.criadoPor : loginDoResponsavel(nomeResp);
     if (brutoTemSolic && !nomeResp) nomeResp = solic.criadoPorNome || 'Solicitante';
+    var criadoEm = new Date().toISOString();
+    var cod = codDe(node.n);
+    var prazoH = prazoDaTarefa(cod);
     return {
       id: uid('tsk'),
       solicitacaoId: solic.id,
       nodeId: node.id,
       nome: node.n || node.id,
-      codTarefa: codDe(node.n),
+      codTarefa: cod,
       responsavelNome: nomeResp || '(nao mapeado)',
       responsavelLogin: login || null,
       status: 'aberta',
-      criadoEm: new Date().toISOString(),
+      prazoHoras: prazoH,
+      expiraEm: calcExpira(criadoEm, prazoH),
+      criadoEm: criadoEm,
       concluidoEm: null,
       concluidoPor: null
     };
@@ -351,6 +377,51 @@
     tarefas: function () { return instGet('tarefas', []); },
     solicitacao: function (id) {
       return instGet('solicitacoes', []).find(function (s) { return s.id === id; });
+    },
+
+    // ── SLA / prazo ────────────────────────────────────────────────
+    // status do prazo de uma tarefa: {atrasada, restanteMs, restanteTxt}
+    statusPrazo: function (t) {
+      if (!t || !t.expiraEm) return { atrasada: false, restanteTxt: 'sem prazo' };
+      var ms = new Date(t.expiraEm).getTime() - Date.now();
+      var atrasada = ms < 0;
+      var abs = Math.abs(ms);
+      var h = Math.floor(abs / 3600000);
+      var min = Math.floor((abs % 3600000) / 60000);
+      var txt = (h >= 24 ? (Math.floor(h / 24) + 'd ' + (h % 24) + 'h') : (h + 'h ' + min + 'm'));
+      return { atrasada: atrasada, restanteMs: ms,
+        restanteTxt: (atrasada ? 'atrasada ' + txt : 'faltam ' + txt),
+        expiraEm: t.expiraEm };
+    },
+    // fila de um login ordenada por expiracao crescente (Zeev: as que
+    // expiram antes / ja expiradas primeiro)
+    filaOrdenada: function (login) {
+      var self = this;
+      return instGet('tarefas', [])
+        .filter(function (t) { return t.status === 'aberta' && t.responsavelLogin === login; })
+        .sort(function (a, b) {
+          return new Date(a.expiraEm || 0) - new Date(b.expiraEm || 0);
+        });
+    },
+    // % das tarefas abertas (opcionalmente de um login) dentro do prazo
+    percentualNoPrazo: function (login) {
+      var abertas = instGet('tarefas', []).filter(function (t) {
+        return t.status === 'aberta' && (!login || t.responsavelLogin === login);
+      });
+      if (!abertas.length) return 100;
+      var noPrazo = abertas.filter(function (t) {
+        return !t.expiraEm || new Date(t.expiraEm).getTime() >= Date.now();
+      }).length;
+      return Math.round((noPrazo / abertas.length) * 100);
+    },
+    // config de prazos (horas) por codigo de tarefa; '_default' geral
+    getPrazos: function () { return instGet('prazos_sla', {}); },
+    setPrazo: function (cod, horas) {
+      var tab = instGet('prazos_sla', {});
+      if (horas == null || horas === '') delete tab[cod];
+      else tab[cod] = Number(horas);
+      instSet('prazos_sla', tab);
+      return tab;
     },
 
     // botoes de acao de uma tarefa (fiel ao Zeev). Sem config explicita,
@@ -498,11 +569,15 @@
     var ehSolic = /Solicitante/i.test(nomeResp);
     var login = ehSolic ? solic.criadoPor : loginDoResponsavel(nomeResp);
     if (ehSolic) nomeResp = solic.criadoPorNome || 'Solicitante';
+    var criadoEm = new Date().toISOString();
+    var prazoH = prazoDaTarefa(etapa.cod);
     return {
       id: uid('tsk'), solicitacaoId: solic.id, nodeId: etapa.id,
       nome: etapa.nome, codTarefa: etapa.cod,
       responsavelNome: nomeResp, responsavelLogin: login || null,
-      status: 'aberta', criadoEm: new Date().toISOString(),
+      status: 'aberta',
+      prazoHoras: prazoH, expiraEm: calcExpira(criadoEm, prazoH),
+      criadoEm: criadoEm,
       concluidoEm: null, concluidoPor: null
     };
   }
