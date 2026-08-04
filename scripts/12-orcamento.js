@@ -725,7 +725,14 @@ const Orcamento = (() => {
         // menos trabalho. Folha, colagem e conferencia seguem iguais.
         const ehCorrer = String(it.tipoAbertura || '').toLowerCase() === 'correr';
         const hPortal = (ehCorrer ? 1 : 3) * q;
-        const hFolha = 3 * q, hColag = 3 * q, hConf = 1 * q;
+        // Felipe s43: FOLHA e' 3h POR FOLHA. Antes era 3*q (ignorava o nº de
+        // folhas). Agora: 3h x nFolhas x quantidade. Ex Item 5: correr 3 folhas
+        // x qtd 2 = 3x3x2 = 18h (antes dava 6h). Giro usa nFolhas (1-2),
+        // correr usa nFolhasCorrer (1-4).
+        const nFolhasItem = ehCorrer
+          ? Math.max(1, Number(it.nFolhasCorrer) || 1)
+          : Math.max(1, Number(it.nFolhas) || 1);
+        const hFolha = 3 * nFolhasItem * q, hColag = 3 * q, hConf = 1 * q;
         horasAuto.portal         += hPortal;
         horasAuto.folha_porta    += hFolha;
         horasAuto.colagem        += hColag;
