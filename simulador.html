@@ -1460,7 +1460,7 @@ function montarReal(p){
   /* Secao rasterizada do DXF de obra (CROQUI A-A, caso com XPS 30 de serie).
      Dados: nL=230 colunas ao longo da largura (2 mm), nT=77 linhas na espessura.
      Codigos: 1 ALU · 2 ACM · 3 XPS · 4 miolo · 5 cavidade de ar fechada ·
-     6 ar semi-aberto do lado do portal. Alvenaria de 100 mm prefixada. */
+     6 camara folha<->portal fechada pelos 2 Q-LON. Alvenaria de 100 mm prefixada. */
   var R=window.__SECAO_REAL, alv=100;
   var nx=R.nT, nyD=R.nL, nyA=Math.round(alv/R.DX), ny=nyA+nyD;
   var g=new Float64Array(R.nT*R.nL);           // decodifica RLE (varre i=comprimento, j=espessura)
@@ -1473,7 +1473,11 @@ function montarReal(p){
   }
   var lCav=(p.mCav==='ar')?0.56:LAMF[p.mCav];
   /* projeto SEM isolante externo: mesmo CAD, faixa do XPS preenchida pelo miolo */
-  var LM={1:ALU,2:0.412,3:(p.semXps?lCav:LAMF.xps),4:lCav,5:0.20,6:0.026};
+  /* 6 = camara folha<->portal FECHADA pelos 2 Q-LON: cavidade nao-ventilada ISO 6946
+     (R~0,16 m2K/W p/ ~15 mm => lambda-eq 0,09, convec+radiacao inclusas).
+     O 0,026 anterior (ar parado, so conducao) superestimava o isolamento da fresta.
+     3 = faixa de isolante do CAD: material REAL da recomendacao (xps/pir) ou miolo. */
+  var LM={1:ALU,2:0.412,3:(p.extReal?LAMF[p.extReal]:lCav),4:lCav,5:0.20,6:0.09};
   var lam=new Float64Array(nx*ny);
   for(var j=0;j<ny;j++)for(var ii=0;ii<nx;ii++){
     if(j<nyA){ lam[j*nx+ii]=0.72; continue; }          // alvenaria
@@ -1559,9 +1563,10 @@ window.tFeaRender=function(){
   var rl=true;                                          // SEMPRE a secao real com nossos perfis (Felipe s45: tubo retangular generico nao existe); montar() fica inerte
   if(rl) tg=false;
   var Te=inv?st.loc.tmin:st.rec.sa, Ti=inv?20:23;
-  /* segue a LINHA DE PRODUTO do card 3: XPS na secao real so' se o projeto recomenda XPS */
-  var semXps=!(st.rec.eExt>0 && st.rec.mExt==='xps');
-  var pp={}; for(var kx in st.p) pp[kx]=st.p[kx]; pp.taglio=tg; pp.semXps=semXps;
+  /* segue a LINHA DE PRODUTO do card 3: a faixa de isolante do CAD recebe o material
+     REAL da recomendacao (XPS ou PIR, na espessura de 30 do DXF); sem isolante => miolo */
+  var extReal=(st.rec.eExt>0)?st.rec.mExt:null, semXps=!extReal;
+  var pp={}; for(var kx in st.p) pp[kx]=st.p[kx]; pp.taglio=tg; pp.extReal=extReal;
   var g=rl?montarReal(pp):montar(pp), r=resolver(g,Te,Ti);
   var lo=Math.min(Te,Ti), hi2=Math.max(Te,Ti);
   var ctx=cv.getContext('2d'), W=cv.width, Hh=cv.height;
@@ -1624,7 +1629,7 @@ window.tFeaRender=function(){
   ctx.fillText('INTERIOR',ox+g.nx*escX+42,oy+14); ctx.fillText(Ti.toFixed(0)+' °C',ox+g.nx*escX+42,oy+30);
   ctx.font='11px sans-serif'; ctx.fillStyle='#222';
   ctx.fillText('JUNÇÃO FOLHA ↔ PORTAL — PLANTA',ox+g.nx*escX/2,oy-28);
-  ctx.fillText(rl?('seção REAL de obra (DXF ATP000316'+(semXps?' · sem isolante externo':' · XPS 30')+')'):'corte horizontal na ombreira',ox+g.nx*escX/2,oy-14);
+  ctx.fillText(rl?('seção REAL de obra (DXF ATP000316'+(semXps?' · sem isolante externo':' · '+extReal.toUpperCase()+' 30')+')'):'corte horizontal na ombreira',ox+g.nx*escX/2,oy-14);
   ctx.fillText('ALVENARIA',ox+g.nx*escX/2,py(g.alv/2)+3);
   ctx.fillText('PORTAL tubo 4″×2″×2'+(tg?' · TAGLIO':''),ox+g.nx*escX/2,py(g.yA1+g.tw/2)+3);
   ctx.fillText('fresta '+g.gap+' mm + vedação',ox+g.nx*escX/2,py(g.yP1+g.gap/2)+3);
@@ -1656,10 +1661,10 @@ window.tFeaRender=function(){
     ctx.fillText('PORTAL PA007P',ox+g.nx*escX/2,py(g.alv+42)+3);
     ctx.fillText('montante PA007F',ox+g.nx*escX/2,py(g.alv+138)+3);
     var nmCav=(st.p.mCav==='eps'?'EPS':'lã de rocha');
-    ctx.save();ctx.translate(px(12),py(g.alv+300));ctx.rotate(-Math.PI/2);ctx.fillText(semXps?('miolo · '+nmCav):'XPS 30',0,3);ctx.restore();
+    ctx.save();ctx.translate(px(12),py(g.alv+300));ctx.rotate(-Math.PI/2);ctx.fillText(semXps?('miolo · '+nmCav):(extReal.toUpperCase()+' 30'),0,3);ctx.restore();
     ctx.save();ctx.translate(px(g.real.H-28),py(g.alv+310));ctx.rotate(-Math.PI/2);ctx.fillText('miolo até a pele interna',0,3);ctx.restore();
     ctx.save();ctx.translate(ox+g.nx*escX/2,py(g.alv+330));ctx.rotate(-Math.PI/2);
-    ctx.fillText('miolo · '+nmCav+(semXps?' até a pele externa':' entre XPS'),0,4);ctx.restore();
+    ctx.fillText('miolo · '+nmCav+(semXps?' até a pele externa':(' entre '+extReal.toUpperCase())),0,4);ctx.restore();
   }
   /* CHAMADAS de temperatura com linha de chamada, nas duas faces */
   function jDe(mm){return Math.min(g.ny-1,Math.max(0,Math.round(mm/DX)));}
@@ -1695,7 +1700,7 @@ window.tFeaRender=function(){
     var tv=lo+passo*b2, c2=corRampa((tv-lo)/(hi2-lo));
     li+='<div style="display:flex;align-items:center;gap:8px;margin:2px 0"><span style="width:26px;height:14px;border-radius:3px;background:rgb('+c2[0]+','+c2[1]+','+c2[2]+')"></span>'+tv.toFixed(1)+' °C</div>';
   }
-  leg.innerHTML='<b>Isotermas</b>'+li+'<div style="margin-top:8px;color:#666">malha '+DX+' mm · junção completa<br>Rsi 0,13 · Rse 0,04 m²K/W</div>';
+  leg.innerHTML='<b>Isotermas</b>'+li+'<div style="margin-top:8px;color:#666">malha '+DX+' mm · junção completa<br>Rsi 0,13 · Rse 0,04 m²K/W<br>fresta folha↔portal: câmara fechada<br>por 2× Q-LON (ISO 6946 · R 0,16)</div>';
   // resultados
   var to=orv2(Ti,st.ur), pior=r.pior.t;
   var okc = inv ? (pior>to+1) : true;
@@ -1704,7 +1709,7 @@ window.tFeaRender=function(){
   if(tg){ var p0={}; for(var kz in pp) p0[kz]=pp[kz]; p0.taglio=false; rBase=resolver(montar(p0),Te,Ti); }
   var OIK=1.0;   // Oikos SYNUA 3TT, pivotante grande com taglio termico: U=1,0 de serie
   var out='<table style="width:100%;border-collapse:collapse">'+
-   '<tr><td>U da porta na junção'+(rl?(' — seção REAL de obra ('+(semXps?'sem isolante externo':'XPS 30 de série')+')'):' — portal + fresta + borda da folha')+'</td><td align=right><b>'+r.U.toFixed(3)+' W/m²K</b></td></tr>'+
+   '<tr><td>U da porta na junção'+(rl?(' — seção REAL de obra ('+(semXps?'sem isolante externo':extReal.toUpperCase()+' 30 contínuo')+')'):' — portal + fresta + borda da folha')+'</td><td align=right><b>'+r.U.toFixed(3)+' W/m²K</b></td></tr>'+
    (tg&&rBase?('<tr><td style="color:#7a3db8">— mesmo corte sem taglio térmico</td><td align=right style="color:#7a3db8">'+rBase.U.toFixed(3)+' W/m²K → ganho '+((1-r.U/rBase.U)*100).toFixed(0)+'%</td></tr>'):'')+
    '<tr><td>Referência de mercado — Oikos SYNUA 3TT (pivotante c/ taglio)</td><td align=right>'+OIK.toFixed(2)+' W/m²K '+(r.U<=OIK?'<span style="color:#137333;font-weight:700">✓ no nível</span>':'<span style="color:#b06000;font-weight:700">acima</span>')+'</td></tr>'+
    '<tr><td>Superfície interna — ponto crítico (portal/alma)</td><td align=right><b>'+pior.toFixed(1)+' °C</b>'+(tg&&rBase?(' <span style="color:#7a3db8;font-size:12px">(era '+rBase.pior.t.toFixed(1)+')</span>'):'')+'</td></tr>'+
@@ -1718,6 +1723,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-17</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-19</div>
 </body>
 </html>
