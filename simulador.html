@@ -1097,8 +1097,92 @@ function recomenda(base,tmin,tmax,ur){
   return {frio:frio,calor:calor,sa:sa,eExt:eExt,mExt:mExt,mCav:mCav,precisa:precisa,tcav:tc,torv:to,margem:margem,motivoP:motivoP};
 }
 
+
+/* ---------- corte REAL de obra (rasterizado do DXF) ---------- */
+function desenhoReal(rec,p,r,tmin,tmax,U){
+  var R=window.__SECAO_REAL;
+  // decodifica RLE -> g[i*nT+j] (i=comprimento, j=espessura; j=0 = EXTERIOR)
+  var g=new Uint8Array(R.nL*R.nT), k=0, q=0;
+  while(q<R.rle.length){var v=+R.rle[q];q++;var c=parseInt(R.rle.substr(q,2),16);q+=2;while(c--)g[k++]=v;}
+  var CORES={1:"#9aa2ab",2:"#2f3640",3:COR_M.xps,4:COR_M[rec.mCav],5:"#f2f5f8",6:"#e8ecef"};
+  var DX0=64, esc=(880-DX0)/R.W, DY0=118, Hpx=R.H*esc;
+  function sx(mm){return DX0+mm*esc;}
+  function sy(mm){return DY0+(R.H-mm)*esc;}   // EXTERIOR (j=0) embaixo
+  var s='<svg viewBox="0 0 920 720" style="width:100%;height:auto;display:block;font-family:inherit">';
+  s+='<rect width="920" height="720" fill="#fff"/>';
+  s+='<text x="20" y="34" font-size="22" font-weight="700" fill="#111">CORTE HORIZONTAL — SEÇÃO REAL DE OBRA</text>';
+  s+='<text x="20" y="58" font-size="15" fill="#777">vista superior rasterizada do DXF (ATP c/ XPS 30) · espessura '+R.H.toFixed(1)+' mm · janela '+R.W.toFixed(0)+' mm da ombreira ao miolo</text>';
+  // preenchimento por corridas verticais (por coluna)
+  for(var i=0;i<R.nL;i++){
+    var j=0;
+    while(j<R.nT){
+      var v0=g[i*R.nT+j], j1=j;
+      while(j1+1<R.nT && g[i*R.nT+j1+1]===v0) j1++;
+      s+='<rect x="'+sx(i*R.DX).toFixed(1)+'" y="'+sy((j1+1)*R.DX).toFixed(1)+'" width="'+(R.DX*esc+0.4).toFixed(2)+'" height="'+((j1-j+1)*R.DX*esc+0.4).toFixed(2)+'" fill="'+CORES[v0]+'"/>';
+      j=j1+1;
+    }
+  }
+  // contornos verdadeiros do DXF
+  for(var d2=0;d2<R.draw.length;d2++){
+    var sg=R.draw[d2];
+    s+='<line x1="'+sx(sg[1]).toFixed(1)+'" y1="'+sy(sg[2]).toFixed(1)+'" x2="'+sx(sg[3]).toFixed(1)+'" y2="'+sy(sg[4]).toFixed(1)+'" stroke="#14181c" stroke-width="'+(sg[0]===1?1.0:0.7)+'"/>';
+  }
+  s+='<rect x="'+DX0+'" y="'+DY0+'" width="'+(880-DX0)+'" height="'+Hpx.toFixed(1)+'" fill="none" stroke="#222" stroke-width="1.5"/>';
+  // EXTERIOR/INTERIOR
+  s+='<text x="'+(DX0-10)+'" y="'+(DY0+Hpx-4)+'" font-size="15" font-weight="700" fill="#c5221f" text-anchor="end" transform="rotate(-90 '+(DX0-10)+' '+(DY0+Hpx-4)+')">EXTERIOR</text>';
+  s+='<text x="'+(DX0-10)+'" y="'+(DY0+86)+'" font-size="15" font-weight="700" fill="#1a73e8" text-anchor="end" transform="rotate(-90 '+(DX0-10)+' '+(DY0+86)+')">INTERIOR</text>';
+  // cota da espessura
+  var XD=888;
+  s+='<line x1="'+XD+'" y1="'+DY0+'" x2="'+XD+'" y2="'+(DY0+Hpx)+'" stroke="#333" stroke-width="1.3"/>';
+  s+='<line x1="'+(XD-6)+'" y1="'+DY0+'" x2="'+(XD+6)+'" y2="'+DY0+'" stroke="#333" stroke-width="1.3"/>';
+  s+='<line x1="'+(XD-6)+'" y1="'+(DY0+Hpx)+'" x2="'+(XD+6)+'" y2="'+(DY0+Hpx)+'" stroke="#333" stroke-width="1.3"/>';
+  s+='<text x="'+(XD+2)+'" y="'+(DY0+Hpx/2)+'" font-size="15" font-weight="700" fill="#111" transform="rotate(-90 '+(XD+2)+' '+(DY0+Hpx/2)+')" text-anchor="middle">'+R.H.toFixed(1)+' mm</text>';
+  // baloes
+  function bal(n,mx,my,tx,ty){
+    s+='<line x1="'+sx(mx)+'" y1="'+sy(my)+'" x2="'+tx+'" y2="'+ty+'" stroke="#444" stroke-width="1"/>';
+    s+='<circle cx="'+tx+'" cy="'+ty+'" r="13" fill="#111"/>';
+    s+='<text x="'+tx+'" y="'+(ty+5)+'" font-size="14" fill="#fff" text-anchor="middle" font-weight="700">'+n+'</text>';
+  }
+  bal(1,300,2,  sx(300),DY0+Hpx+26);      // ACM externo
+  bal(2,340,12, sx(360),DY0+Hpx+26);      // XPS 30
+  bal(3,145,80, sx(145),DY0-24);          // PA007F
+  bal(4,32,95,  sx(32), DY0-24);          // PA007P
+  bal(5,330,55, sx(330),DY0-24);          // miolo
+  bal(6,430,128,sx(430),DY0-24);          // chapa+cavidade
+  bal(7,60,150, sx(70), DY0+Hpx+26);      // fita/acabamento na fresta
+  // temperaturas e U (mesmo motor do card)
+  var Tv=Tsi(p,r,23,rec.sa), Ti=Tsi(p,r,20,tmin);
+  // U do PAINEL pela secao real (coluna corrente do miolo, i=205)
+  var LM={1:160,2:0.412,3:0.029,4:LAM[rec.mCav]||0.042,5:0.20,6:0.026};
+  var Rp=0.04+0.13, ic=205;
+  for(var jj=0;jj<R.nT;jj++) Rp+=(R.DX/1000)/LM[g[ic*R.nT+jj]];
+  var Up=1/Rp;
+  var YT=DY0+Hpx+58;
+  s+='<text x="'+DX0+'" y="'+YT+'" font-size="24" font-weight="700" fill="#c5221f">'+rec.sa.toFixed(0)+' °C</text>';
+  s+='<text x="'+DX0+'" y="'+(YT+20)+'" font-size="13" fill="#888">face ACM preto (sol-ar) · verão '+tmax+' °C · inverno '+tmin+' °C</text>';
+  s+='<text x="440" y="'+YT+'" font-size="24" font-weight="700" fill="#1a73e8">'+Ti.toFixed(1)+' °C</text>';
+  s+='<text x="440" y="'+(YT+20)+'" font-size="13" fill="'+(Ti>rec.torv?"#137333":"#c5221f")+'">sup. interna · orvalho '+rec.torv.toFixed(1)+' °C</text>';
+  s+='<text x="672" y="'+YT+'" font-size="22" font-weight="700" fill="#111">U painel = '+Up.toFixed(3)+'</text>';
+  s+='<text x="672" y="'+(YT+20)+'" font-size="13" fill="#888">W/m²K seção real · com montante: '+U.toFixed(3)+'</text>';
+  // legenda
+  var LEG=[["ACM 4 mm · lâmina 0,50 externa","#2f3640"],["XPS 30 mm CONTÍNUO de série",COR_M.xps],
+    ["montante PA007F 101,6 mm (do DXF)","#9aa2ab"],["PORTAL PA007P na ombreira","#9aa2ab"],
+    ["miolo · "+NOME[rec.mCav],COR_M[rec.mCav]],["chapa ACM intermediária + cavidade","#f2f5f8"],
+    ["fita ACM de acabamento na fresta","#2f3640"]];
+  var YL=YT+48;
+  for(var li=0;li<LEG.length;li++){
+    var yy=YL+li*29;
+    s+='<circle cx="34" cy="'+(yy-5)+'" r="12" fill="#111"/><text x="34" y="'+yy+'" font-size="13" fill="#fff" text-anchor="middle" font-weight="700">'+(li+1)+'</text>';
+    s+='<rect x="54" y="'+(yy-16)+'" width="24" height="20" fill="'+LEG[li][1]+'" stroke="#222"/>';
+    s+='<text x="88" y="'+yy+'" font-size="15" fill="#222">'+LEG[li][0]+'</text>';
+  }
+  s+='</svg>';
+  return s;
+}
+
 /* ---------- desenho do corte ---------- */
 function desenho(rec,p,r,tmin,tmax,U){
+  if(window.__SECAO_REAL){ return desenhoReal(rec,p,r,tmin,tmax,U); }
   var X0=210, X1=700, Y0=140, H=190;
   var cam=[];
   cam.push({n:"ACM 4 mm · lâmina 0,50",e:4,c:"#2f3640"});
