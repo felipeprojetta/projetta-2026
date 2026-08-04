@@ -13745,6 +13745,36 @@ const Orcamento = (() => {
       }
     });
 
+    // Felipe s43: linhas manuais (extras) de um item que NAO tem regra
+    // (vazio). Mostra o que ja' foi adicionado manualmente, editavel, com
+    // botao remover. Reusa extras + perfisCadastro do escopo.
+    function linhasManuaisVazias(itemIdx, secao) {
+      const meus = (extras || []).filter(e =>
+        (e.itemIdx || 1) === itemIdx && (e.secao || 'manual') === secao);
+      if (!meus.length) return '';
+      return meus.map(e => {
+        const cad = perfisCadastro[String(e.codigo || '').trim()] || {};
+        const kgM = cad.kgPorMetro || 0;
+        const comp = Number(e.comp) || 0, qty = Number(e.qty) || 0;
+        const peso = (comp / 1000) * kgM * qty;
+        return `
+          <tr data-manual="1" data-extra-id="${escapeHtml(e.id)}">
+            <td class="lvp-pos">·</td>
+            <td class="lvp-cod">${escapeHtml(e.codigo || '')}</td>
+            <td>${escapeHtml(e.descricao || '')} <span class="lvp-manual-tag">manual</span></td>
+            <td>—</td>
+            <td class="num">${Math.round(comp)}</td>
+            <td class="num">${qty}</td>
+            <td class="num">${kgM ? kgM.toFixed(3) : '—'}</td>
+            <td class="num">${peso ? peso.toFixed(2) : '—'}</td>
+            <td class="lvp-obs">
+              <button type="button" class="lvp-row-delete" data-extra-id="${escapeHtml(e.id)}"
+                      title="Remover perfil manual">✕</button>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
     function blocoItemHtml(b) {
       if (!b.temRegra) {
         const tipoLabel = labelTipo(b.item?.tipo) || 'item';
@@ -13776,6 +13806,50 @@ const Orcamento = (() => {
         } else {
           motivo = `Motor de calculo de "${tipoLabel}" ainda nao foi implementado.`;
         }
+        // Felipe s43: mesmo sem medidas, deixa a tabela editavel pra
+        // ACRESCENTAR PERFIL MANUAL. Antes so' mostrava o aviso. A linha
+        // "+ Adicionar" (secao 'manual') grava em lev_ajustes.extras igual
+        // as manuais dos itens normais, e sao somadas no peso do item.
+        const idxV = b.itemIdx;
+        const dlC = `lvp-perfis-dlist-cod-${idxV}-manual`;
+        const dlD = `lvp-perfis-dlist-desc-${idxV}-manual`;
+        const tabelaManual = `
+          <table class="lvp-table" style="margin-top:10px;">
+            <thead>
+              <tr><th>Pos.</th><th>Codigo</th><th>Descricao</th><th>L/H</th>
+              <th class="num">Tamanho</th><th class="num">Qtd</th>
+              <th class="num">kg/m</th><th class="num">Peso kg</th><th>Obs.</th></tr>
+            </thead>
+            <tbody>
+              <tr class="lvp-grupo"><td colspan="9">MANUAL — Perfis de Corte</td></tr>
+              ${linhasManuaisVazias(idxV, 'manual')}
+              <tr class="lvp-row-add-inline" data-item-idx="${idxV}" data-secao="manual">
+                <td class="lvp-pos">＋</td>
+                <td class="lvp-cod">
+                  <input type="text" list="${dlC}" class="lvp-add-codigo"
+                         data-item-idx="${idxV}" data-secao="manual" placeholder="Codigo..." />
+                  <datalist id="${dlC}"></datalist>
+                </td>
+                <td>
+                  <input type="text" list="${dlD}" class="lvp-add-descricao"
+                         data-item-idx="${idxV}" data-secao="manual" placeholder="Descricao..." />
+                  <datalist id="${dlD}"></datalist>
+                </td>
+                <td class="lvp-add-lh-cell">—</td>
+                <td class="num"><input type="number" min="1" step="1" class="lvp-add-tamanho"
+                       data-item-idx="${idxV}" data-secao="manual" placeholder="mm" /></td>
+                <td class="num"><input type="number" min="1" step="1" class="lvp-add-qtd"
+                       data-item-idx="${idxV}" data-secao="manual" placeholder="qtd" /></td>
+                <td class="num lvp-add-kgm-cell">—</td>
+                <td class="num lvp-add-pesokg-cell">—</td>
+                <td class="lvp-obs">
+                  <button type="button" class="lvp-btn-add-confirm"
+                          data-item-idx="${idxV}" data-secao="manual"
+                          title="Adicionar perfil manual">+ Adicionar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>`;
         return `
           <details class="lvp-item-bloco lvp-item-collapse" data-item-idx="${b.itemIdx}">
             <summary class="lvp-item-summary">
@@ -13788,6 +13862,7 @@ const Orcamento = (() => {
               ⚠ ${escapeHtml(motivo)}
               ${acaoExtra}
             </div>
+            ${tabelaManual}
           </details>`;
       }
 
