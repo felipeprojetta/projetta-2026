@@ -13753,6 +13753,15 @@ const Orcamento = (() => {
         });
       }
     });
+    // Felipe s43: os extras manuais nao estao em b.cortes (ficam de fora pra
+    // nao duplicar no aproveitamento), entao soma eles AQUI no total do topo
+    // — igual ja acontece no peso por item e no aproveitamento.
+    (extras || []).forEach(ex => {
+      const cad = perfisCadastro[String(ex.codigo || '').trim()] || {};
+      const comp = Number(ex.comp) || 0, qty = Number(ex.qty) || 0;
+      kgLiqTotalGlobal += (comp / 1000) * (cad.kgPorMetro || 0) * qty;
+      totalCortes += qty;
+    });
 
     // Felipe s43: linhas manuais (extras) de um item que NAO tem regra
     // (vazio). Mostra o que ja' foi adicionado manualmente, editavel, com
