@@ -1000,6 +1000,19 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
   </div>
   <div class="card" id="tOut"></div>
 
+  <div class="card" id="tFeaCard">
+    <h2>6 · Mapa de temperaturas — FEA 2D <span style="font-size:12px;font-weight:400;color:#666">(diferenças finitas, corte horizontal no montante do quadro)</span></h2>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaInv" checked> Inverno (interna 20 °C · externa = mínima)</label>
+      <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaVer"> Verão sol-ar (interna 23 °C · face ACM preto)</label>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+      <canvas id="feaCv" width="720" height="420" style="max-width:100%;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
+      <div id="feaLeg" style="min-width:160px;font-size:12px"></div>
+    </div>
+    <div id="feaOut" style="margin-top:10px;font-size:13px"></div>
+  </div>
+
 </div></div>
 
 <div class="pag" id="p7"><div class="wrap" style="max-width:1560px;">
@@ -1214,6 +1227,8 @@ function tRender(){
    "<tr><td>Limite de serviço do isolante externo</td><td align=right>"+(rec.eExt?TSERV[rec.mExt]+" °C vs "+rec.sa.toFixed(0)+" °C "+ok(rec.sa<=TSERV[rec.mExt]):"—")+"</td></tr>"+
    "<tr><td>Carga térmica de verão</td><td align=right>"+(r.U*r.A*(rec.sa-23)).toFixed(0)+" W</td></tr>"+
    "</table>";
+  window.__tFEA={p:p,rec:rec,loc:loc,ur:ur};
+  if(window.tFeaRender) setTimeout(window.tFeaRender,0);
 }
 (function(){
   if(!document.getElementById('tOut')) return;
@@ -1228,5 +1243,163 @@ function tRender(){
 
 })();
 </script>
+<script>
+/* ============ FEA TERMICO 2D — corte horizontal no montante do quadro ============
+   Diferencas finitas, regime permanente, malha 2 mm, SOR.
+   Dominio (x = espessura da folha, y = ao longo da largura, celula de 300 mm):
+     ACM 4 | [isolante externo] | tubo alu 101,6 x 50,8 parede 4 (ao centro,
+     miolo isolante acima/abaixo) | ACM 4
+   Contorno: convectivo Rse=0,04 externo, Rsi=0,13 interno; topo/base adiabaticos
+   (simetria da celula). Mesmos materiais e resistencias do motor 1D. */
+(function(){
+var LAMF={xps:0.029, pir:0.022, eps:0.037, psr32:0.042, psr64:0.037};
+var ALU=160, DX=2;                     // mm por celula
+function orv2(T,RH){var a=17.27,b=237.7;var g=(a*T)/(b+T)+Math.log(RH/100);return (b*g)/(a-g);}
+
+function montar(p){
+  var eACM=4, eExt=p.eExt||0, tubo=p.quad, twall=4, tw=50.8, H=300;
+  var nx=Math.round((eACM+eExt+tubo+eACM)/DX), ny=Math.round(H/DX);
+  var lam=new Float64Array(nx*ny);
+  var lACM=0.004/0.0097;               // lambda equivalente do ACM (R=0,0097)
+  var lCav=(p.mCav==='ar')?(tubo/1000/0.18):LAMF[p.mCav];
+  var lAr=( (tubo-2*twall)/1000 )/0.18; // ar parado dentro do tubo
+  var lExt=eExt>0?LAMF[p.mExt]:0;
+  var x0=eACM, x1=eACM+eExt, x2=x1+tubo, y0=(H-tw)/2, y1=(H+tw)/2;
+  for(var j=0;j<ny;j++)for(var i=0;i<nx;i++){
+    var x=(i+0.5)*DX, y=(j+0.5)*DX, v;
+    if(x<x0 || x>=x2) v=lACM;                       // peles de ACM
+    else if(x<x1) v=lExt;                            // isolante externo
+    else{                                            // faixa do tubo
+      var noTubo=(y>=y0&&y<y1);
+      if(!noTubo) v=lCav;                            // miolo
+      else{
+        var xt=x-x1, borda = xt<twall||xt>=tubo-twall||y<y0+twall||y>=y1-twall;
+        v=borda?ALU:lAr;                             // parede alu / ar interno
+      }
+    }
+    lam[j*nx+i]=v;
+  }
+  return {lam:lam,nx:nx,ny:ny,x1:x1,x2:x2,y0:y0,y1:y1,eExt:eExt,tubo:tubo};
+}
+function resolver(g,Te,Ti){
+  /* Solucao DIRETA do sistema 5-pontos (simetrico definido positivo) por
+     LDL^T em banda (largura nx). Exato: o resultado nao depende de criterio
+     de convergencia — foi o que matou o SOR aqui (contraste alu/isolante
+     4000:1 exigia 76 mil iteracoes para U estabilizar). */
+  var nx=g.nx,ny=g.ny,lam=g.lam,d=DX/1000,n=nx*ny,bw=nx,W=bw+1;
+  var B=new Float64Array(n*W);   // B[i*W+off] = A[i][i-off] (banda inferior, off 0..bw)
+  var b=new Float64Array(n);
+  function kh(a,c){return 2*a*c/(a+c);}
+  for(var jj=0;jj<ny;jj++)for(var ii=0;ii<nx;ii++){
+    var k=jj*nx+ii,l=lam[k],diag=0,K;
+    if(ii>0){K=kh(l,lam[k-1])/d; diag+=K; B[k*W+1]=-K;}
+    else    {K=1/(0.04+d/(2*l)); diag+=K; b[k]+=K*Te;}
+    if(ii<nx-1){K=kh(l,lam[k+1])/d; diag+=K;}
+    else    {K=1/(0.13+d/(2*l)); diag+=K; b[k]+=K*Ti;}
+    if(jj>0){K=kh(l,lam[k-nx])/d; diag+=K; B[k*W+bw]=-K;}
+    if(jj<ny-1){K=kh(l,lam[k+nx])/d; diag+=K;}
+    B[k*W]=diag;
+  }
+  var D=new Float64Array(n);
+  for(var jc=0;jc<n;jc++){
+    var kmin=Math.max(0,jc-bw), s0=B[jc*W];
+    for(var kq=kmin;kq<jc;kq++){var L1=B[jc*W+(jc-kq)]; s0-=L1*L1*D[kq];}
+    D[jc]=s0;
+    var imax=Math.min(n-1,jc+bw);
+    for(var ir=jc+1;ir<=imax;ir++){
+      var sv=B[ir*W+(ir-jc)];
+      var k0=Math.max(0,ir-bw); if(k0<kmin)k0=kmin;
+      for(var kq2=k0;kq2<jc;kq2++) sv-=B[ir*W+(ir-kq2)]*B[jc*W+(jc-kq2)]*D[kq2];
+      B[ir*W+(ir-jc)]=sv/D[jc];
+    }
+  }
+  var T=new Float64Array(n);
+  for(var q1=0;q1<n;q1++){
+    var sm1=b[q1];
+    for(var t1=1;t1<=Math.min(bw,q1);t1++) sm1-=B[q1*W+t1]*T[q1-t1];
+    T[q1]=sm1;
+  }
+  for(var q2=0;q2<n;q2++) T[q2]/=D[q2];
+  for(var q3=n-1;q3>=0;q3--){
+    var sm3=T[q3];
+    for(var t3=1;t3<=Math.min(bw,n-1-q3);t3++) sm3-=B[(q3+t3)*W+t3]*T[q3+t3];
+    T[q3]=sm3;
+  }
+  var qFlux=0;
+  for(var j2=0;j2<ny;j2++){
+    var k2=j2*nx+nx-1, K2=1/(0.13+d/(2*lam[k2]));
+    qFlux+=K2*(T[k2]-Ti)*d;
+  }
+  var U=qFlux/((Te-Ti)*(ny*d));
+  var si=[], pior=null;
+  for(var j3=0;j3<ny;j3++){
+    var k3=j3*nx+nx-1, K3=1/(0.13+d/(2*lam[k3]));
+    var Ts=Ti+K3*0.13*(T[k3]-Ti);
+    si.push(Ts);
+    if(pior===null || (Te<Ti?Ts<pior.t:Ts>pior.t)) pior={t:Ts,j:j3};
+  }
+  return {T:T,U:Math.abs(U),si:si,pior:pior,it:0};
+}
+function corRampa(f){                                 // azul -> ciano -> verde -> amarelo -> vermelho
+  f=Math.max(0,Math.min(1,f));
+  var P=[[13,71,161],[2,136,209],[0,172,120],[251,192,45],[198,40,40]];
+  var t=f*(P.length-1), a=Math.floor(t), b=Math.min(a+1,P.length-1), u=t-a;
+  return [Math.round(P[a][0]+(P[b][0]-P[a][0])*u),Math.round(P[a][1]+(P[b][1]-P[a][1])*u),Math.round(P[a][2]+(P[b][2]-P[a][2])*u)];
+}
+window.tFeaRender=function(){
+  var st=window.__tFEA; if(!st) return;
+  var cv=document.getElementById('feaCv'); if(!cv) return;
+  var inv=document.getElementById('feaInv').checked;
+  var Te=inv?st.loc.tmin:st.rec.sa, Ti=inv?20:23;
+  var g=montar(st.p), r=resolver(g,Te,Ti);
+  var lo=Math.min(Te,Ti), hi2=Math.max(Te,Ti);
+  var ctx=cv.getContext('2d'), W=cv.width, Hh=cv.height;
+  ctx.clearRect(0,0,W,Hh);
+  var esc=Math.min((W-140)/g.nx,(Hh-40)/g.ny), ox=90, oy=(Hh-g.ny*esc)/2;
+  var NB=18;                                          // bandas -> aparencia de isotermas
+  for(var j=0;j<g.ny;j++)for(var i=0;i<g.nx;i++){
+    var f=(r.T[j*g.nx+i]-lo)/(hi2-lo);
+    f=Math.round(f*NB)/NB;
+    var c=corRampa(f);
+    ctx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')';
+    ctx.fillRect(ox+i*esc,oy+j*esc,esc+0.6,esc+0.6);
+  }
+  // contornos dos materiais
+  ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.lineWidth=1;
+  var px=function(mm){return ox+mm/DX*esc;}, py=function(mm){return oy+mm/DX*esc;};
+  ctx.strokeRect(px(0),py(0),g.nx*esc,g.ny*esc);
+  ctx.strokeRect(px(g.x1),py(g.y0),(g.tubo)/DX*esc,50.8/DX*esc);
+  if(g.eExt>0){ctx.beginPath();ctx.moveTo(px(g.x1),py(0));ctx.lineTo(px(g.x1),py(300));ctx.stroke();}
+  ctx.beginPath();ctx.moveTo(px(4),py(0));ctx.lineTo(px(4),py(300));
+  ctx.moveTo(px(g.x2),py(0));ctx.lineTo(px(g.x2),py(300));ctx.stroke();
+  ctx.fillStyle='#333'; ctx.font='11px sans-serif';
+  ctx.save();ctx.translate(ox-58,oy+g.ny*esc/2);ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center';ctx.fillText('EXTERIOR  '+Te.toFixed(0)+' °C',0,0);ctx.restore();
+  ctx.save();ctx.translate(ox+g.nx*esc+40,oy+g.ny*esc/2);ctx.rotate(Math.PI/2);
+  ctx.textAlign='center';ctx.fillText('INTERIOR  '+Ti.toFixed(0)+' °C',0,0);ctx.restore();
+  ctx.fillText('tubo PA007F '+st.p.quad.toFixed(1)+' mm',px(g.x1)+4,py(g.y0)-4);
+  // legenda
+  var leg=document.getElementById('feaLeg'), passo=(hi2-lo)/6, li='';
+  for(var b2=6;b2>=0;b2--){
+    var tv=lo+passo*b2, c2=corRampa((tv-lo)/(hi2-lo));
+    li+='<div style="display:flex;align-items:center;gap:8px;margin:2px 0"><span style="width:26px;height:14px;border-radius:3px;background:rgb('+c2[0]+','+c2[1]+','+c2[2]+')"></span>'+tv.toFixed(1)+' °C</div>';
+  }
+  leg.innerHTML='<b>Isotermas</b>'+li+'<div style="margin-top:8px;color:#666">malha '+DX+' mm · célula 300 mm<br>Rsi 0,13 · Rse 0,04 m²K/W</div>';
+  // resultados
+  var to=orv2(Ti,st.ur), pior=r.pior.t;
+  var okc = inv ? (pior>to+1) : true;
+  var out='<table style="width:100%;border-collapse:collapse">'+
+   '<tr><td>U da célula modelada (quadro + miolo adjacente)</td><td align=right><b>'+r.U.toFixed(3)+' W/m²K</b></td></tr>'+
+   '<tr><td>Superfície interna — ponto crítico (na alma do tubo)</td><td align=right><b>'+pior.toFixed(1)+' °C</b></td></tr>'+
+   (inv?('<tr><td>Ponto de orvalho a '+st.ur+'% UR</td><td align=right>'+to.toFixed(1)+' °C '+(okc?'<span style="color:#137333;font-weight:700">✓ sem condensação</span>':'<span style="color:#c5221f;font-weight:700">✗ CONDENSA na ponte térmica</span>')+'</td></tr>'):'')+
+   '</table>'+
+   '<div style="margin-top:6px;font-size:11.5px;color:#888">Mesmo método do THERM (condução 2D em regime permanente). A faixa fria/quente colada ao tubo é a ponte térmica do alumínio — é ela que o isolante externo corta.</div>';
+  document.getElementById('feaOut').innerHTML=out;
+};
+['feaInv','feaVer'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',function(){window.tFeaRender();});});
+if(window.__tFEA) window.tFeaRender();
+})();
+</script>
+
 </body>
 </html>
