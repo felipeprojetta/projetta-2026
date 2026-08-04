@@ -1347,8 +1347,8 @@ function tRender(){
   var Tsi_i=Tsi(p,r,20,loc.tmin), fR=(Tsi_i-loc.tmin)/(20-loc.tmin);
   var emp=empeno(p,r,23,rec.sa), lim=LIM_EMP;
   var av="";
-  if(rec.mExt==="xps" && rec.sa>70) av+="<div class='aviso' style='display:block'><b>Fora do envelope de ensaio.</b> Face do ACM preto a "+rec.sa.toFixed(0)+" °C. O XPS aguenta 75 °C de serviço, mas a estabilidade dimensional só é declarada em DS(70,90) — ensaio a 70 °C. Pedir declaração do fabricante a "+rec.sa.toFixed(0)+" °C, restringir a absortância a 0,55 ou usar PIR.</div>";
-  if(rec.mExt==="xps" && rec.sa>75) av+="<div class='aviso' style='display:block;border-color:#c5221f'><b>Cor restrita.</b> Face do ACM preto a "+rec.sa.toFixed(0)+" °C excede os 75 °C do XPS. Limitar absortância a 0,55 ou usar PIR.</div>";
+  if(rec.eExt>0 && rec.mExt==="xps" && rec.sa>70) av+="<div class='aviso' style='display:block'><b>Fora do envelope de ensaio.</b> Face do ACM preto a "+rec.sa.toFixed(0)+" °C. O XPS aguenta 75 °C de serviço, mas a estabilidade dimensional só é declarada em DS(70,90) — ensaio a 70 °C. Pedir declaração do fabricante a "+rec.sa.toFixed(0)+" °C, restringir a absortância a 0,55 ou usar PIR.</div>";
+  if(rec.eExt>0 && rec.mExt==="xps" && rec.sa>75) av+="<div class='aviso' style='display:block;border-color:#c5221f'><b>Cor restrita.</b> Face do ACM preto a "+rec.sa.toFixed(0)+" °C excede os 75 °C do XPS. Limitar absortância a 0,55 ou usar PIR.</div>";
   if(rec.margem) av+="<div class='aviso' style='display:block'><b>Margem apertada no miolo.</b> Cavidade a "+rec.tcav.toFixed(1)+" °C contra orvalho de "+rec.torv.toFixed(1)+" °C — menos de 2 K. Selar o perímetro da folha; considerar EPS se a obra for úmida.</div>";
   if(rec.mCav==="psr32" && rec.tcav<rec.torv) av+="<div class='aviso' style='display:block;border-color:#c5221f'><b>Risco de condensação no miolo.</b> Cavidade a "+rec.tcav.toFixed(1)+" °C contra orvalho de "+rec.torv.toFixed(1)+" °C. Trocar por material de célula fechada.</div>";
   if(emp>lim) av+="<div class='aviso' style='display:block;border-color:#c5221f'><b>Empeno acima do limite.</b> "+emp.toFixed(1)+" mm contra L/500 = "+lim.toFixed(1)+" mm. Aumentar o isolante externo.</div>";
@@ -1365,7 +1365,7 @@ function tRender(){
    "<tr><td>Superfície interna no inverno · fRsi ≥ 0,70</td><td align=right>"+Tsi_i.toFixed(1)+" °C · "+fR.toFixed(3)+" "+ok(fR>=0.70)+"</td></tr>"+
    "<tr><td>Miolo no inverno / orvalho</td><td align=right>"+rec.tcav.toFixed(1)+" / "+rec.torv.toFixed(1)+" °C "+ok(rec.mCav!=="psr32"||rec.tcav>rec.torv)+"</td></tr>"+
    "<tr><td>Empeno no verão · vão de flexão "+(vaoFlex(p)*1000).toFixed(0)+" mm (máx. 5,0 mm)</td><td align=right>"+emp.toFixed(2)+" mm "+ok(emp<=lim)+"</td></tr>"+
-   "<tr><td>Limite de serviço do isolante externo</td><td align=right>"+(rec.eExt?TSERV[rec.mExt]+" °C vs "+rec.sa.toFixed(0)+" °C "+ok(rec.sa<=TSERV[rec.mExt]):"—")+"</td></tr>"+
+   (rec.eExt>0?"<tr><td>Limite de serviço do isolante externo</td><td align=right>"+TSERV[rec.mExt]+" °C vs "+rec.sa.toFixed(0)+" °C "+ok(rec.sa<=TSERV[rec.mExt])+"</td></tr>":"")+
    "<tr><td>Carga térmica de verão</td><td align=right>"+(r.U*r.A*(rec.sa-23)).toFixed(0)+" W</td></tr>"+
    "</table>";
   window.__tFEA={p:p,rec:rec,loc:loc,ur:ur};
@@ -1696,6 +1696,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-5</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-6</div>
 </body>
 </html>
