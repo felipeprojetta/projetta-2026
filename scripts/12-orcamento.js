@@ -767,6 +767,26 @@ const Orcamento = (() => {
       diasColagem = Math.max(diasColagem, h.colagem_dias || 0);
     });
 
+    // Felipe s43: COLAGEM nunca menos que 3 dias = 27h (piso). Aplica no
+    // total automatico; a diferenca ate 27h e' distribuida proporcionalmente
+    // entre os itens que ja' tem colagem (pra soma por item continuar batendo
+    // com o total). So' o AUTO ganha piso — override manual por item continua
+    // mandando (a pessoa pode digitar menos se quiser).
+    var COLAGEM_MIN_H = 27;
+    if ((horasAuto.colagem || 0) > 0 && horasAuto.colagem < COLAGEM_MIN_H) {
+      var faltam = COLAGEM_MIN_H - horasAuto.colagem;
+      var idxsColag = Object.keys(horasAutoPorItem.colagem || {})
+        .filter(function (k) { return Number(horasAutoPorItem.colagem[k]) > 0; });
+      var baseTotal = idxsColag.reduce(function (s, k) {
+        return s + Number(horasAutoPorItem.colagem[k]); }, 0) || 1;
+      idxsColag.forEach(function (k) {
+        var frac = Number(horasAutoPorItem.colagem[k]) / baseTotal;
+        horasAutoPorItem.colagem[k] = Number(horasAutoPorItem.colagem[k]) + faltam * frac;
+      });
+      horasAuto.colagem = COLAGEM_MIN_H;
+      diasColagem = Math.max(diasColagem, COLAGEM_MIN_H / HORAS_POR_DIA);
+    }
+
     // Felipe sessao 34: NOVA logica - "automatize as horas, mas eu posso
     // alterar manual; se alterar manual destaque visualmente"
     //
