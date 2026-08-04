@@ -6118,9 +6118,25 @@ ${secoesHtml}
           var mount = container.querySelector('#crm-modal-mount');
           return !!(mount && mount.children && mount.children.length > 0);
         }
+        // Felipe s43: nao re-renderizar o board enquanto o usuario esta
+        // digitando num campo INLINE do card (textarea de Observacoes, valor
+        // Original, AGP, etc). O polling do realtime (db:realtime-sync)
+        // reconstroi o innerHTML e recriava o textarea do zero, matando o que
+        // estava sendo digitado + o foco. So' o modal era protegido antes;
+        // os campos inline do card ficavam sem protecao. Bug do campo Obs
+        // na coluna Ag. Informacoes.
+        function digitandoNoCard(cont) {
+          var a = document.activeElement;
+          if (!a) return false;
+          var tag = (a.tagName || '').toUpperCase();
+          if (tag !== 'TEXTAREA' && tag !== 'INPUT' && tag !== 'SELECT') return false;
+          // so' adia se o campo focado esta DENTRO do board do CRM
+          return !!(cont && cont.contains && cont.contains(a));
+        }
         Events.on('db:realtime-sync', function() {
           if (window.App && window.App.state && window.App.state.currentModule !== 'crm') return;
           if (modalAberto()) return; // adia ate fechar modal
+          if (digitandoNoCard(container)) return; // adia enquanto digita inline no card
           Crm.forceReload(container);
         });
         Events.on('crm:reload', function() {
@@ -6131,6 +6147,7 @@ ${secoesHtml}
           var deveRenderizar = (window.App && window.App.state &&
                                 window.App.state.currentModule === 'crm');
           if (modalAberto()) return; // mesma protecao
+          if (digitandoNoCard(container)) return; // adia enquanto digita inline no card
           Crm.forceReload(deveRenderizar ? container : null);
         });
       }
