@@ -41,11 +41,15 @@
     font-size:12.5px; font-weight:600; color:var(--cinza); cursor:pointer;}
   nav button.on{background:var(--azul); color:#fff; border-color:var(--azul);}
   .pag{display:none;} .pag.on{display:block;}
+  /* MAPA FEA: sai do grid de 2 colunas do .wrap e ocupa a largura inteira da pagina */
+  #tFeaCard{grid-column:1 / -1; width:calc(100vw - 24px); max-width:calc(100vw - 24px);
+    margin-left:calc(50% - 50vw + 12px);}
   @media(max-width:820px){
     nav{padding:8px 8px 0; gap:4px;}
     nav button{padding:8px 10px; font-size:11.5px;}
     .g4{grid-template-columns:1fr 1fr !important;}
     #lcBoxIN{grid-template-columns:1fr !important;}
+    #tFeaCard{width:auto; max-width:none; margin-left:0;}
   }
   .prancha{max-width:1000px; margin:16px auto; padding:0 16px;}
   .prancha img{width:100%; border:1px solid var(--linha); border-radius:8px; background:#fff;}
@@ -1061,8 +1065,8 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
       <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:#0b6e4f"><input type="checkbox" id="feaReal" checked> Seção REAL de obra <span style="font-size:11px;font-weight:400;color:#888">(CROQUI A-A + perfil PA007F da matriz TECNO · XPS 30 de série · ignora isolante/taglio acima)</span></label>
     </div>
     <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
-      <canvas id="feaCv" width="700" height="1020" style="width:100%;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
-      <div id="feaLeg" style="min-width:160px;font-size:12px"></div>
+      <canvas id="feaCv" width="700" height="1020" style="flex:1 1 520px;min-width:0;width:100%;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
+      <div id="feaLeg" style="flex:0 0 200px;min-width:160px;font-size:12px"></div>
     </div>
     <div id="feaOut" style="margin-top:10px;font-size:13px"></div>
   </div>
@@ -1530,6 +1534,15 @@ function corRampa(f){                                 // azul -> ciano -> verde 
 window.tFeaRender=function(){
   var st=window.__tFEA; if(!st) return;
   var cv=document.getElementById('feaCv'); if(!cv) return;
+  /* o card e' full-bleed: a largura do desenho acompanha a pagina.
+     desconta 12px de folga + 16px de padding do card de cada lado + 200 da legenda + 16 do gap.
+     z=1,15 e' o fator com que o CSS amplia o canvas depois — mantem a tipografia do desenho legivel. */
+  (function(){
+    var vw=document.documentElement.clientWidth||1200, z=1.15;
+    var disp=(vw>820)?(vw-24-32-216):(vw-32);
+    var alvo=Math.round(Math.max(560,Math.min(2400,disp))/z);
+    if(Math.abs(cv.width-alvo)>8) cv.width=alvo;      // so' redimensiona quando muda de fato
+  })();
   var inv=document.getElementById('feaInv').checked;
   var tg=document.getElementById('feaTaglio'); tg=!!(tg&&tg.checked);
   var rl=document.getElementById('feaReal'); rl=!!(rl&&rl.checked);
@@ -1687,6 +1700,10 @@ window.tFeaRender=function(){
   document.getElementById('feaOut').innerHTML=out;
 };
 ['feaInv','feaVer','feaTaglio','feaReal'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',function(){window.tFeaRender();});});
+window.addEventListener('resize',function(){            // largura do desenho segue a janela
+  clearTimeout(window.__feaRz);
+  window.__feaRz=setTimeout(function(){ if(window.__tFEA&&window.tFeaRender) window.tFeaRender(); },180);
+});
 if(window.__tFEA) window.tFeaRender();
 })();
 </script>
