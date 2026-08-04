@@ -56,6 +56,12 @@
     window.Storage.scope(SCOPE_INST).set(key, val);
   }
 
+  // sessao atual (robusto: Auth pode nao existir em teste/boot)
+  function _sess() {
+    try { return window.Auth && window.Auth.currentUser ? window.Auth.currentUser() : null; }
+    catch (e) { return null; }
+  }
+
   /* ── grafo do fluxo (a partir de flow_128) ─────────────────────── */
 
   var _grafo = null;
@@ -220,8 +226,8 @@
         protocolo: 'WF-' + String(seq).padStart(5, '0'),
         dados: dados || {},
         status: 'em_andamento',
-        criadoPor: criadoPor || (window.Auth && Auth.currentUser() ? Auth.currentUser().username : 'desconhecido'),
-        criadoPorNome: criadoPorNome || (window.Auth && Auth.currentUser() ? Auth.currentUser().name : ''),
+        criadoPor: criadoPor || (_sess() ? _sess().username : 'desconhecido'),
+        criadoPorNome: criadoPorNome || (_sess() ? _sess().name : ''),
         criadoEm: new Date().toISOString(),
         historico: []
       };
@@ -256,7 +262,7 @@
       // fecha a tarefa
       t.status = 'concluida';
       t.concluidoEm = new Date().toISOString();
-      t.concluidoPor = porLogin || (window.Auth && Auth.currentUser() ? Auth.currentUser().username : null);
+      t.concluidoPor = porLogin || (_sess() ? _sess().username : null);
       // anda o fluxo a partir do node
       var node = g.porId[t.nodeId];
       var proximos = node ? proximosNodes(g, node, solic ? solic.dados : {}) : [];
@@ -317,8 +323,84 @@
       });
       if (mudou) instSet('tarefas', tarefas);
       return m;
+    },
+
+    /* ─── MODO TRILHA (linear T01→T44 para teste) ─────────────────
+       Felipe s43: o fluxo Zeev e' fragmentado em 14 blocos ligados por
+       mensagens; a T44 nao sai por seta direta do T01. Para testar do
+       inicio ate' a T44, roda-se a SEQUENCIA LINEAR real gravada em
+       zeev/trilha_teste_t44 (T01,T02...T44, cada uma com responsavel).
+       Aqui as tarefas andam 1 a 1, na ordem, sem gateway. */
+    abrirTrilha: function (dados, criadoPor, criadoPorNome) {
+      var trilha = defGet('trilha_teste_t44');
+      if (!trilha || !trilha.etapas || !trilha.etapas.length)
+        throw new Error('trilha nao carregada (zeev/trilha_teste_t44)');
+      var solics = instGet('solicitacoes', []);
+      var seq = solics.length + 1;
+      var sess = _sess();
+      var solic = {
+        id: uid('sol'), numero: seq,
+        protocolo: 'WF-' + String(seq).padStart(5, '0'),
+        modo: 'trilha', trilhaPos: 0,
+        dados: dados || {}, status: 'em_andamento',
+        criadoPor: criadoPor || (sess ? sess.username : 'desconhecido'),
+        criadoPorNome: criadoPorNome || (sess ? sess.name : ''),
+        criadoEm: new Date().toISOString(), historico: []
+      };
+      var primeira = _tarefaDaEtapa(solic, trilha.etapas[0]);
+      solic.historico.push({ em: solic.criadoEm, evento: 'aberta',
+        por: solic.criadoPorNome, detalhe: 'trilha T01→T44 iniciada' });
+      solics.push(solic);
+      instSet('solicitacoes', solics);
+      instSet('tarefas', instGet('tarefas', []).concat([primeira]));
+      return { solicitacao: solic, tarefa: primeira };
+    },
+    concluirTrilha: function (tarefaId, porLogin, patchDados) {
+      var trilha = defGet('trilha_teste_t44');
+      var tarefas = instGet('tarefas', []);
+      var t = tarefas.find(function (x) { return x.id === tarefaId; });
+      if (!t) throw new Error('tarefa nao encontrada');
+      if (t.status === 'concluida') return { jaConcluida: true };
+      var solics = instGet('solicitacoes', []);
+      var solic = solics.find(function (s) { return s.id === t.solicitacaoId; });
+      if (solic && patchDados) Object.keys(patchDados).forEach(function (k) {
+        solic.dados[k] = patchDados[k];
+      });
+      t.status = 'concluida';
+      t.concluidoEm = new Date().toISOString();
+      t.concluidoPor = porLogin || (_sess() ? _sess().username : null);
+      var nova = null;
+      var pos = (solic ? solic.trilhaPos : 0) + 1;
+      if (solic && trilha && pos < trilha.etapas.length) {
+        solic.trilhaPos = pos;
+        nova = _tarefaDaEtapa(solic, trilha.etapas[pos]);
+        solic.historico.push({ em: t.concluidoEm, evento: 'tarefa_concluida',
+          por: t.concluidoPor, detalhe: t.nome + ' → ' + nova.nome });
+      } else if (solic) {
+        solic.status = 'concluida';
+        solic.historico.push({ em: t.concluidoEm, evento: 'concluida',
+          por: t.concluidoPor, detalhe: t.nome + ' (fim da trilha)' });
+      }
+      instSet('solicitacoes', solics);
+      instSet('tarefas', nova ? tarefas.concat([nova]) : tarefas);
+      return { tarefaConcluida: t, novaTarefa: nova, fim: !nova };
     }
   };
+
+  // cria uma tarefa a partir de uma etapa da trilha (cod/id/nome/resp)
+  function _tarefaDaEtapa(solic, etapa) {
+    var nomeResp = (etapa.resp && etapa.resp[0]) || '(nao mapeado)';
+    var ehSolic = /Solicitante/i.test(nomeResp);
+    var login = ehSolic ? solic.criadoPor : loginDoResponsavel(nomeResp);
+    if (ehSolic) nomeResp = solic.criadoPorNome || 'Solicitante';
+    return {
+      id: uid('tsk'), solicitacaoId: solic.id, nodeId: etapa.id,
+      nome: etapa.nome, codTarefa: etapa.cod,
+      responsavelNome: nomeResp, responsavelLogin: login || null,
+      status: 'aberta', criadoEm: new Date().toISOString(),
+      concluidoEm: null, concluidoPor: null
+    };
+  }
 
   window.Workflow = window.Workflow || {};
   window.Workflow.motor = motor;

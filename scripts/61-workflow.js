@@ -39,7 +39,7 @@
   'use strict';
 
   var SCOPE = 'zeev';
-  var ui = { visao: 'diagrama', busca: '', selId: null, zoom: null, panX: 0, panY: 0 };
+  var ui = { visao: 'tarefas', busca: '', selId: null, zoom: null, panX: 0, panY: 0 };
 
   /* ── dados ─────────────────────────────────────────────────────── */
 
@@ -138,6 +138,7 @@
       kpi(comResp, 'com resp.') +
       '</div>';
     html += '<div class="wf-abas">' +
+      aba('tarefas', 'Tarefas') +
       aba('diagrama', 'Diagrama') + aba('etapas', 'Etapas') +
       aba('gateways', 'Decisoes') + aba('equipe', 'Equipe') +
       aba('form', 'Formulario') + '</div>';
@@ -177,6 +178,18 @@
 
   function renderCorpo(container, dados) {
     var corpo = container.querySelector('#wf-corpo');
+    var busca = container.querySelector('#wf-busca');
+    // aba Tarefas = UI de execucao (motor). Esconde a busca (nao se aplica).
+    if (ui.visao === 'tarefas') {
+      if (busca) busca.style.display = 'none';
+      if (window.Workflow && window.Workflow.uiTarefas) {
+        window.Workflow.uiTarefas.render(corpo);
+      } else {
+        corpo.innerHTML = '<div class="info-banner">UI de tarefas carregando...</div>';
+      }
+      return;
+    }
+    if (busca) busca.style.display = '';
     if (ui.visao === 'diagrama') { renderDiagrama(corpo, dados); return; }
     if (ui.visao === 'gateways') corpo.innerHTML = htmlGateways(dados);
     else if (ui.visao === 'equipe') corpo.innerHTML = htmlEquipe(dados);
