@@ -54,7 +54,7 @@
     sortKey: 'data',
     sortAsc: false,
     sortLayers: [{ k: 'data', asc: false }, { k: 'v', asc: false }],
-    msg: 'Ol\u00e1 {nome}, tudo bem?\n\nSou da Projetta, empresa do grupo Weiku do Brasil \u2014 o mesmo grupo com quem voc\u00ea j\u00e1 conversou sobre esquadrias de alum\u00ednio.\n\nAl\u00e9m das esquadrias, o grupo fabrica portas de entrada pivotantes sob medida, que \u00e9 a linha da Projetta. Seu contato est\u00e1 cadastrado aqui no grupo e por isso estou entrando em contato.\n\nPosso te enviar nosso cat\u00e1logo?\n\nSe preferir n\u00e3o receber, \u00e9 s\u00f3 avisar que retiramos seu contato do nosso banco de dados.'
+    msg: 'Ol\u00e1, {nome}! Tudo bem?\n\nAqui \u00e9 a Thays, do Grupo Weiku. Vi que voc\u00ea j\u00e1 conversou com nosso time sobre esquadrias de alum\u00ednio e por isso estou entrando em contato.\n\nAl\u00e9m da Weiku, o grupo conta com a Projetta, especializada em portas de entrada pivotantes de alto padr\u00e3o, feitas sob medida.\n\nPosso te enviar nosso cat\u00e1logo?\n\nSe n\u00e3o tiver interesse, \u00e9 s\u00f3 avisar que retiro seu contato da nossa lista.'
   };
 
   // Felipe s38: "coloque um botao de salvar, quando eu alterar a mensagem
