@@ -1716,6 +1716,11 @@ window.tFeaRender=function(){
    '<tr><td>Referência de mercado — Oikos SYNUA 3TT (pivotante c/ taglio)</td><td align=right>'+OIK.toFixed(2)+' W/m²K '+(r.U<=OIK?'<span style="color:#137333;font-weight:700">✓ no nível</span>':'<span style="color:#b06000;font-weight:700">acima</span>')+'</td></tr>'+
    '<tr><td>Superfície interna — ponto crítico (portal/alma)</td><td align=right><b>'+pior.toFixed(1)+' °C</b>'+(tg&&rBase?(' <span style="color:#7a3db8;font-size:12px">(era '+rBase.pior.t.toFixed(1)+')</span>'):'')+'</td></tr>'+
    (inv?('<tr><td>Ponto de orvalho a '+st.ur+'% UR</td><td align=right>'+to.toFixed(1)+' °C '+(okc?'<span style="color:#137333;font-weight:700">✓ sem condensação</span>':'<span style="color:#c5221f;font-weight:700">✗ CONDENSA na ponte térmica</span>')+'</td></tr>'):'')+
+   (function(){/* Q-Lon fica EMBUTIDO no kerf, ~10 mm recuado de cada face — sonda o FEA la',
+       nao na pele exposta ao sol */
+     var jF=jDe(g.alv+95), rec2=Math.max(1,Math.round(10/DX));
+     var tQe=r.T[jF*g.nx+rec2], tQi=r.T[jF*g.nx+g.nx-1-rec2], tQ=Math.max(tQe,tQi);
+     return '<tr><td>Q-LON 4880 na fresta (kerf ext/int) — serviço −60…+70 °C</td><td align=right>'+tQe.toFixed(1)+' / '+tQi.toFixed(1)+' °C '+(tQ<=70?'<span style="color:#137333;font-weight:700">✓</span>':'<span style="color:#c5221f;font-weight:700">✗ acima do serviço — restringir absortância (cor clara) ou vedação externa de silicone</span>')+'</td></tr>';})()+
    '</table>'+
    '<div style="margin-top:6px;font-size:11.5px;color:#888">Mesmo método do THERM (condução 2D em regime permanente). A faixa fria/quente no portal e no montante é a ponte térmica do alumínio — é ela que o isolante externo corta.</div>';
   document.getElementById('feaOut').innerHTML=out;
@@ -1725,6 +1730,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-21</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-23</div>
 </body>
 </html>
