@@ -15648,10 +15648,21 @@ const Orcamento = (() => {
       // Felipe sessao 34: linha extra com a OBSERVACAO do item, logo abaixo
       // da linha do item, no mesmo destaque amarelo do banner. Aparece so
       // quando ha observacao preenchida.
+      //
+      // Felipe s43: 'essa observacao nao precisa esta no resumo esta
+      // duplicado'. A mesma observacao ja' sai no banner amarelo DENTRO do
+      // card do item, logo acima na proposta — repetir na tabela final fazia
+      // o cliente ler duas vezes o mesmo texto ('Está incluso a
+      // desinstalacao / Caminhao munk por conta do cliente') com poucos
+      // centimetros de distancia. A tabela final e' resumo: item, descricao,
+      // medidas, qtd e valor. Mantido o codigo que monta a linha, so'
+      // desligado — pra religar, e' so' trocar a linha abaixo por
+      // 'const linhaObservacao = _linhaObservacaoResumo;'.
       const obsItem = item.observacao && String(item.observacao).trim();
-      const linhaObservacao = obsItem
+      const _linhaObservacaoResumo = obsItem
         ? `<tr class="rel-prop-tabela-obs-row"><td colspan="${mostraValorPorItem ? 6 : 4}" style="padding:6px 10px;background:#fef3c7;border-left:4px solid #d97706;font-size:11px;color:#78350f;"><strong style="font-size:10px;letter-spacing:0.04em;">${tr('OBS','NOTE')}:</strong> <span style="white-space:pre-wrap;">${escapeHtml(String(item.observacao).trim())}</span></td></tr>`
         : '';
+      const linhaObservacao = '';
       return `
         <tr>
           <td class="rel-prop-tabela-num">${String(idx + 1).padStart(2, '0')}</td>
