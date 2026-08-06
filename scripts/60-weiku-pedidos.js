@@ -31,7 +31,7 @@
   var ui = {
     busca: '', uf: '', cidade: '', etapa: '', responsavel: '',
     vmin: '', vmax: '', comTel: false, comReserva: false,
-    soPerdidos: false, projetta: '', comprou: '', status: '', comValor: false,
+    soPerdidos: false, projetta: '', comprou: '', status: '', status2: '', status3: '', comValor: false,
     verOptOut: false,
     // Felipe s42: "deixe o filtro primeiro sempre o mais novo e segundo
     // filtro pelo valor igual nos fechados weiku". Ordenacao em CAMADAS,
@@ -202,27 +202,33 @@
       }
       if (ui.projetta === 'sem' && orcProjetta(d)) return false;
       if (ui.projetta === 'com' && !orcProjetta(d)) return false;
-      if (ui.status) {
-        var s = getEnvios()[d.id] || {};
-        var ok;
-        switch (ui.status) {
-          case 'enviado':       ok = !!s.enviado; break;
-          case 'nao_enviado':   ok = !s.enviado; break;
-          case 'retornou':      ok = !!s.retornou; break;
-          case 'sem_retorno':   ok = !!s.semRetorno; break;
-          case 'sem_interesse': ok = !!s.semInteresse; break;
-          case 'demonstrou': ok = !!s.demonstrouInteresse; break;
-          case 'ja_comprou':    ok = !!(s.jaComprouProjetta || s.jaComprouOutra || s.jaComprou); break;
-          case 'comprou_projetta': ok = !!s.jaComprouProjetta; break;
-          case 'comprou_outra': ok = !!s.jaComprouOutra; break;
-          case 'orcado_projetta': ok = !!s.jaOrcadoProjetta; break;
-          case 'sem_whats': ok = !!s.semWhats; break;
-          case 'aguardando':    ok = !!s.enviado && !s.retornou && !s.semRetorno
-                                     && !s.semInteresse && !s.jaComprouProjetta
-                                     && !s.jaComprouOutra && !s.jaComprou; break;
-          default: ok = true;
+      // Felipe s43: TRES filtros de status combinados (AND). Cada um filtra
+      // um status; marcando 3, mostra so' quem bate nos 3 ao mesmo tempo.
+      if (ui.status || ui.status2 || ui.status3) {
+        var _s = getEnvios()[d.id] || {};
+        function statusBate(valor) {
+          if (!valor) return true; // filtro vazio nao restringe
+          switch (valor) {
+            case 'enviado':          return !!_s.enviado;
+            case 'nao_enviado':      return !_s.enviado;
+            case 'retornou':         return !!_s.retornou;
+            case 'sem_retorno':      return !!_s.semRetorno;
+            case 'demonstrou':       return !!_s.demonstrouInteresse;
+            case 'sem_interesse':    return !!_s.semInteresse;
+            case 'ja_comprou':       return !!(_s.jaComprouProjetta || _s.jaComprouOutra || _s.jaComprou);
+            case 'comprou_projetta': return !!_s.jaComprouProjetta;
+            case 'comprou_outra':    return !!_s.jaComprouOutra;
+            case 'orcado_projetta':  return !!_s.jaOrcadoProjetta;
+            case 'sem_whats':        return !!_s.semWhats;
+            case 'aguardando':       return !!_s.enviado && !_s.retornou && !_s.semRetorno
+                                          && !_s.semInteresse && !_s.jaComprouProjetta
+                                          && !_s.jaComprouOutra && !_s.jaComprou;
+            default: return true;
+          }
         }
-        if (!ok) return false;
+        if (!statusBate(ui.status))  return false;
+        if (!statusBate(ui.status2)) return false;
+        if (!statusBate(ui.status3)) return false;
       }
       return true;
     });
@@ -316,7 +322,9 @@
       + '      <label class="wkp-chk"><input type="checkbox" id="wkp-res"' + (ui.comReserva ? ' checked' : '') + '> So com reserva</label>'
       + '    </div>'
       + '    <div class="wkp-filtros" style="margin-top:10px">'
-      +        selStatus()
+      +        selStatus('wkp-status', ui.status)
+      +        selStatus('wkp-status2', ui.status2)
+      +        selStatus('wkp-status3', ui.status3)
       +        chkPreset('wkp-perd', ui.soPerdidos, '\ud83c\udfaf So PERDIDOS na Weiku', 'Filtra as 10 etapas de perda do funil de uma vez')
       + '      <select id="wkp-comprou" class="wkp-sel" style="min-width:200px">'
       +        [['','\u2014 ja comprou \u2014'],['ocultar','Ocultar quem ja comprou'],['so','\u2713 SO os que ja compraram']]
@@ -498,26 +506,28 @@
      o preset passou a levar estilo INLINE, que ganha de qualquer folha,
      antiga ou nova, sem precisar de hard refresh. */
   function chkPreset(id, ligado, rotulo, titulo) {
+    var cls = 'wkp-chk wkp-preset' + (ligado ? ' on' : '');
     var base = 'display:flex;align-items:center;gap:6px;font-size:12.5px;'
              + 'border-radius:20px;padding:5px 12px;cursor:pointer;'
              + 'border:1px solid ' + (ligado ? '#0f2c4c' : 'var(--l,#E4E8EE)') + ';'
              + 'background:' + (ligado ? '#0f2c4c' : '#fff') + ';'
              + 'color:' + (ligado ? '#fff' : '#4a5160') + ';'
              + 'font-weight:' + (ligado ? '700' : '400') + ';';
-    return '<label style="' + base + '"' + (titulo ? ' title="' + esc(titulo) + '"' : '') + '>'
+    return '<label class="' + cls + '" style="' + base + '"' + (titulo ? ' title="' + esc(titulo) + '"' : '') + '>'
       + '<input type="checkbox" id="' + id + '"' + (ligado ? ' checked' : '')
       +   ' style="accent-color:' + (ligado ? '#fff' : '#0f2c4c') + '"> '
-      + rotulo + '</label>';
+      + '<span style="color:' + (ligado ? '#fff' : '#4a5160') + ';">' + rotulo + '</span></label>';
   }
 
-  function selStatus() {
+  function selStatus(id, valorAtual) {
+    id = id || 'wkp-status'; valorAtual = valorAtual || '';
     var opts = [['','Todos os status'],['aguardando','Aguardando resposta'],
       ['nao_enviado','Ainda nao enviado'],['enviado','Enviado'],['retornou','Retornou'],
       ['sem_retorno','Sem retorno'],['demonstrou','\u2605 Demonstrou interesse'],['sem_interesse','Sem interesse'],
       ['ja_comprou','Ja comprou (qualquer)'],['comprou_projetta','\u2713 Comprou Projetta'],['comprou_outra','\u2713 Comprou outra'],
       ['orcado_projetta','\u2713 Ja orcado Projetta'],['sem_whats','Sem WhatsApp']];
-    return '<select id="wkp-status" class="wkp-sel" style="min-width:180px">'
-      + opts.map(function(o){ return '<option value="'+o[0]+'"'+(ui.status===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
+    return '<select id="'+id+'" class="wkp-sel" style="min-width:180px">'
+      + opts.map(function(o){ return '<option value="'+o[0]+'"'+(valorAtual===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
       + '</select>';
   }
 
@@ -631,7 +641,7 @@
     if (lp) lp.addEventListener('click', function () {
       ui.busca = ''; ui.uf = ''; ui.cidade = ''; ui.etapa = ''; ui.responsavel = '';
       ui.vmin = ''; ui.vmax = ''; ui.comTel = false; ui.comReserva = false;
-      ui.soPerdidos = false; ui.projetta = ''; ui.comprou = ''; ui.status = ''; ui.comValor = false;
+      ui.soPerdidos = false; ui.projetta = ''; ui.comprou = ''; ui.status = ''; ui.status2 = ''; ui.status3 = ''; ui.comValor = false;
       ui.camadas = [{ k: 'dtCriacao', asc: false }, { k: 'valor', asc: false }];
       ui.ordem = 'dtCriacao'; ui.dir = 'desc'; reset();
     });
@@ -667,6 +677,10 @@
     if(pc) pc.addEventListener('change', function(){ ui.comprou=pc.value; reset(); });
     var st=$('wkp-status');
     if(st) st.addEventListener('change', function(){ ui.status=st.value; reset(); });
+    var st2=$('wkp-status2');
+    if(st2) st2.addEventListener('change', function(){ ui.status2=st2.value; reset(); });
+    var st3=$('wkp-status3');
+    if(st3) st3.addEventListener('change', function(){ ui.status3=st3.value; reset(); });
 
     // mensagem padrao (mesma logica dos fechados: salva de verdade)
     (function(){
