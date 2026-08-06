@@ -413,7 +413,7 @@
     }
     var tel = telLimpo(d);
     var fone = d.tel
-      ? esc(d.tel) + (tel ? ' <a class="wkp-mbtn" target="_blank" rel="noopener" href="https://wa.me/' + tel + '">Abrir WhatsApp</a>' : '')
+      ? esc(fmtTel(d.tel)) + (tel ? ' <a class="wkp-mbtn" target="_blank" rel="noopener" href="https://wa.me/' + tel + '">Abrir WhatsApp</a>' : '')
       : '';
     var stTxt = (st.enviado ? ('\u2713 Enviada' + (st.por ? ' por ' + esc(st.por) : '')) : 'Nao enviada')
       + (st.retornou ? ' \u00b7 cliente retornou' : '')
@@ -505,6 +505,30 @@
      reload normal troca isso. Em vez de depender de novo do CSS externo,
      o preset passou a levar estilo INLINE, que ganha de qualquer folha,
      antiga ou nova, sem precisar de hard refresh. */
+  function fmtTel(raw) {
+    var t = String(raw || '').replace(/\D/g, '');
+    if (!t) return String(raw || '');
+    // remove DDI 55 se vier na frente (12 ou 13 digitos totais)
+    if (t.length > 11 && t.indexOf('55') === 0) t = t.slice(2);
+    if (t.length === 11) {
+      // celular: DD 9XXXX-XXXX
+      return t.slice(0, 2) + ' ' + t.slice(2, 7) + '-' + t.slice(7);
+    }
+    if (t.length === 10) {
+      // fixo: DD XXXX-XXXX
+      return t.slice(0, 2) + ' ' + t.slice(2, 6) + '-' + t.slice(6);
+    }
+    if (t.length === 9) {
+      // sem DDD, celular: XXXXX-XXXX
+      return t.slice(0, 5) + '-' + t.slice(5);
+    }
+    if (t.length === 8) {
+      // sem DDD, fixo: XXXX-XXXX
+      return t.slice(0, 4) + '-' + t.slice(4);
+    }
+    return String(raw || ''); // formato inesperado: devolve como veio
+  }
+
   function chkPreset(id, ligado, rotulo, titulo) {
     var cls = 'wkp-chk wkp-preset' + (ligado ? ' on' : '');
     var base = 'display:flex;align-items:center;gap:6px;font-size:12.5px;'
@@ -582,7 +606,7 @@
     // registro de data e de quem removeu.
     var rmv = '<button class="wkp-rmv" data-id="' + esc(d.id) + '" title="Cliente pediu pra sair (LGPD) — remove da lista de prospeccao">\u2715</button>';
     return '<div style="white-space:nowrap">' + wa + ' ' + ml + ' ' + rmv + '</div>'
-      + (d.tel ? '<div class="wkp-sub">' + esc(d.tel) + '</div>' : '')
+      + (d.tel ? '<div class="wkp-sub">' + esc(fmtTel(d.tel)) + '</div>' : '')
       + (d.email ? '<div class="wkp-sub">' + esc(String(d.email).slice(0, 28)) + '</div>' : '');
   }
 
