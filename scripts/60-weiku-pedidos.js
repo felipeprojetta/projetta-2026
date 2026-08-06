@@ -511,12 +511,12 @@
     // remove DDI 55 se vier na frente (12 ou 13 digitos totais)
     if (t.length > 11 && t.indexOf('55') === 0) t = t.slice(2);
     if (t.length === 11) {
-      // celular: DD 9XXXX-XXXX
-      return t.slice(0, 2) + ' ' + t.slice(2, 7) + '-' + t.slice(7);
+      // celular: (DD) 9XXXX-XXXX
+      return '(' + t.slice(0, 2) + ') ' + t.slice(2, 7) + '-' + t.slice(7);
     }
     if (t.length === 10) {
-      // fixo: DD XXXX-XXXX
-      return t.slice(0, 2) + ' ' + t.slice(2, 6) + '-' + t.slice(6);
+      // fixo: (DD) XXXX-XXXX
+      return '(' + t.slice(0, 2) + ') ' + t.slice(2, 6) + '-' + t.slice(6);
     }
     if (t.length === 9) {
       // sem DDD, celular: XXXXX-XXXX
