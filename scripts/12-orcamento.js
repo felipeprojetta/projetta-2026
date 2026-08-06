@@ -1422,9 +1422,30 @@ const Orcamento = (() => {
     const perfisPorIdx = usaPesoKgLiq
       ? distribuir(tPerfis, kgLiqPorIdx, kgLiqTotal)
       : distribuir(tPerfis, horasPorIdx, horasTotal);
-    const pinturaPorIdx = usaPesoKgLiq
-      ? distribuir(tPintura, kgLiqPorIdx, kgLiqTotal)
-      : distribuir(tPintura, horasPorIdx, horasTotal);
+    // Felipe sessao 44: PINTURA por CONSUMO REAL, nao por kg total.
+    // A tinta so' incide nos perfis BNF/Tecnoperfil (com precoKgPintura
+    // no cadastro). Ratear pela massa total cobrava tinta de item que nao
+    // tem perfil pintado — no AGP004739 o revestimento de parede (258 kg
+    // de tubo BRUTO, zero pintado) levaria 70% da pintura da porta.
+    // Mesmo principio ja' usado nas chapas (sessao 37). Se o cache nao
+    // existir (orcamento antigo, sem passar pela aba Custo Fab), cai no
+    // criterio anterior — nada quebra.
+    const pintCache = (fab._meta && fab._meta.pintPorItem) || null;
+    const pintPorIdx = {};
+    let pintTotal = 0;
+    if (pintCache) {
+      itens.forEach((it, idx) => {
+        const v = Number(pintCache[idx]) || 0;
+        pintPorIdx[idx] = v;
+        pintTotal += v;
+      });
+    }
+    const usaPesoPintura = pintTotal > 0;
+    const pinturaPorIdx = usaPesoPintura
+      ? distribuir(tPintura, pintPorIdx, pintTotal)
+      : (usaPesoKgLiq
+        ? distribuir(tPintura, kgLiqPorIdx, kgLiqTotal)
+        : distribuir(tPintura, horasPorIdx, horasTotal));
 
     // Chapas -> CONSUMO REAL por item (Felipe sessao 37: 'CHAPA DE ACO INOX
     // VAI SOMENTE NA PORTA ENTAO NAO DEVE SER RATEADA COM O FIXO').
@@ -13463,6 +13484,7 @@ const Orcamento = (() => {
     // Sem isso, calcularValoresProposta nao tem como saber qual porta
     // pesa mais e cai no fallback antigo (proporcional a horas).
     const kgLiqPorItem = {};
+    const pintPorItem  = {};
     blocosPorItem.forEach((bloco, idx) => {
       const cortesIt = {};
       for (const cod in (bloco.cortes || {})) {
@@ -13470,15 +13492,44 @@ const Orcamento = (() => {
           cortesIt[cod] = bloco.cortes[cod].map(c => ({ ...c }));
         }
       }
+      // Felipe sessao 44 — CAUSA RAIZ do rateio errado de perfis:
+      // as linhas EXTRAS (perfis adicionados na mao pelo "+ Adicionar")
+      // so' entravam no cortesPorCodigo GLOBAL, nunca no bloco.cortes do
+      // item. Como o peso por item era lido so' do bloco.cortes, um item
+      // cujos perfis sao TODOS manuais ficava com kgLiq = 0 e o custo
+      // dele era rateado pros outros itens — na pratica a porta externa
+      // absorvia o perfil do revestimento de parede (AGP004739: item 3
+      // com 258,24 kg contava como 0, e os 258 kg caiam no item 1).
+      // Aqui os extras deste item entram no calculo do peso dele.
+      // Sem risco de contagem dupla: bloco.cortes nunca contem extras.
+      (extras || []).forEach(ex => {
+        const cod = String(ex.codigo || '').trim();
+        if (!cod) return;
+        if ((ex.itemIdx || 1) !== bloco.itemIdx) return;
+        const comp = Number(ex.comp) || 0;
+        const qty  = Number(ex.qty)  || 0;
+        if (comp <= 0 || qty <= 0) return;
+        if (!cortesIt[cod]) cortesIt[cod] = [];
+        cortesIt[cod].push({ comp, qty, label: ex.descricao || '' });
+      });
       if (Object.keys(cortesIt).length === 0) {
         kgLiqPorItem[idx] = 0;
+        pintPorItem[idx]  = 0;
         return;
       }
       try {
         const rIt = window.PerfisCore.calcularPorCodigo(cortesIt, perfisCadastro);
         kgLiqPorItem[idx] = Math.round((rIt.kgLiqTotal || 0) * 100) / 100;
+        // Felipe sessao 44: peso de PINTURA real do item. A pintura so'
+        // incide nos perfis BNF/Tecnoperfil (os que tem precoKgPintura no
+        // cadastro), entao ratear pintura por kg TOTAL joga tinta em item
+        // que nao pinta nada — mesmo vicio do inox vazando pro fixo
+        // (sessao 37). custoPintura vem por codigo do PerfisCore, entao
+        // aqui ja' sai o consumo real daquele item.
+        pintPorItem[idx] = Math.round((rIt.custoPintura || 0) * 100) / 100;
       } catch (_) {
         kgLiqPorItem[idx] = 0;
+        pintPorItem[idx] = 0;
       }
     });
 
@@ -13493,16 +13544,18 @@ const Orcamento = (() => {
                  || (Math.abs((Number(fab.total_pintura) || 0) - novoTPintura) > 0.01);
       // Felipe sessao 33: salva o cache de kgLiq tambem.
       const metaAntigo = (fab._meta && fab._meta.kgLiqPorItem) || {};
-      const metaMudou = JSON.stringify(metaAntigo) !== JSON.stringify(kgLiqPorItem);
+      const pintAntigo = (fab._meta && fab._meta.pintPorItem) || {};
+      const metaMudou = JSON.stringify(metaAntigo) !== JSON.stringify(kgLiqPorItem)
+                     || JSON.stringify(pintAntigo) !== JSON.stringify(pintPorItem);
       if (mudou || metaMudou) {
         fab.total_perfis  = novoTPerfis;
         fab.total_pintura = novoTPintura;
-        fab._meta = Object.assign({}, fab._meta || {}, { kgLiqPorItem });
+        fab._meta = Object.assign({}, fab._meta || {}, { kgLiqPorItem, pintPorItem });
         atualizarVersao(UI.versaoAtivaId, { custoFab: fab });
       }
     }
 
-    return { result, blocosPorItem, totalBarras, perda, aprovGeral, perfisCadastro, kgLiqPorItem };
+    return { result, blocosPorItem, totalBarras, perda, aprovGeral, perfisCadastro, kgLiqPorItem, pintPorItem };
   }
 
   function renderLevPerfisTab(container) {
