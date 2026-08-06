@@ -1085,11 +1085,13 @@ window.TINT={"United States":{"Virginia":[["Alexandria",-13,38,54,0,0],["Annanda
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaInv" checked> Inverno (interna 20 °C · externa = mínima)</label>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="radio" name="feaCaso" id="feaVer"> Verão sol-ar (interna 23 °C · cor mais escura, α 0,92)</label>
     </div>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;justify-content:center">
-      <canvas id="feaCv" width="700" height="1020" style="flex:0 0 auto;width:100%;max-width:460px;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
-      <div id="feaLeg" style="flex:0 0 200px;min-width:160px;font-size:12px"></div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+      <canvas id="feaCv" width="430" height="1020" style="flex:0 0 auto;width:auto;max-width:100%;max-height:660px;height:auto;border:1px solid var(--linha);border-radius:6px;background:#fff"></canvas>
+      <div style="flex:1 1 340px;min-width:280px;display:flex;flex-direction:column;gap:14px">
+        <div id="feaLeg" style="font-size:12px"></div>
+        <div id="feaOut" style="font-size:13px;border-top:1px solid var(--linha);padding-top:12px"></div>
+      </div>
     </div>
-    <div id="feaOut" style="margin-top:10px;font-size:13px"></div>
   </div>
 </div>
 </div>
@@ -1877,7 +1879,7 @@ function corRampa(f){                                 // azul -> ciano -> verde 
 window.tFeaRender=function(){
   var st=window.__tFEA; if(!st) return;
   var cv=document.getElementById('feaCv'); if(!cv) return;
-  if(cv.width!==700) cv.width=700;                       // proporcao fixa do desenho: 700x1020
+  if(cv.height!==1020) cv.height=1020;                   // altura fixa; a LARGURA sai da escala real
   var inv=document.getElementById('feaInv').checked;
   var tg=document.getElementById('feaTaglio'); tg=!!(tg&&tg.checked);
   var rl=true;                                          // SEMPRE a secao real com nossos perfis (Felipe s45: tubo retangular generico nao existe); montar() fica inerte
@@ -1889,12 +1891,17 @@ window.tFeaRender=function(){
   var pp={}; for(var kx in st.p) pp[kx]=st.p[kx]; pp.taglio=tg; pp.extReal=extReal;
   var g=rl?montarReal(pp):montar(pp), r=resolver(g,Te,Ti);
   var lo=Math.min(Te,Ti), hi2=Math.max(Te,Ti);
+  /* ESCALA ÚNICA (1:1 em X e Y): o desenho sai na PROPORÇÃO REAL da seção.
+     A altura manda; a largura do canvas é dimensionada pela mesma escala. */
+  var mgL=84, mgR=84, mgT=46, mgB=26;
+  var esc=(cv.height-mgT-mgB)/g.ny;
+  var wNec=Math.round(g.nx*esc+mgL+mgR);
+  if(cv.width!==wNec) cv.width=wNec;                      // (redimensionar limpa o canvas — feito antes do ctx)
   var ctx=cv.getContext('2d'), W=cv.width, Hh=cv.height;
   ctx.clearRect(0,0,W,Hh);
-  /* PLANTA do montante de borda: espessura na HORIZONTAL (ampliada p/ leitura),
+  /* PLANTA do montante de borda: espessura na HORIZONTAL,
      comprimento da folha na VERTICAL, tubo no topo = borda da folha */
-  var mgL=84, mgR=84, mgT=46, mgB=26;
-  var escX=(W-mgL-mgR)/g.nx, escY=(Hh-mgT-mgB)/g.ny;
+  var escX=esc, escY=esc;
   var ox=mgL, oy=mgT;
   /* campo continuo de cor */
   var NL=14;                                             // n. de isotermas
@@ -2013,7 +2020,7 @@ window.tFeaRender=function(){
   }
   if(pts.every(function(m){return Math.abs(jDe(m)-r.pior.j)>3;})) chama('i',(r.pior.j+0.5)*DX,true);
   ctx.textAlign='center'; ctx.fillStyle='#888'; ctx.font='10px sans-serif';
-  ctx.fillText(rl?'espessura ampliada p/ leitura · geometria rasterizada do DXF de obra (2 mm)':'espessura ampliada p/ leitura · comprimento em escala · fresta 10 mm do DXF paramétrico',ox+g.ny*0+g.nx*escX/2,oy+g.ny*escY+16);
+  ctx.fillText(rl?'escala real 1:1 · geometria rasterizada do DXF de obra (malha 2 mm)':'escala real 1:1 · fresta 10 mm do DXF paramétrico',ox+g.nx*escX/2,oy+g.ny*escY+16);
   ctx.textAlign='start';
   // legenda
   var leg=document.getElementById('feaLeg'), passo=(hi2-lo)/6, li='';
@@ -2047,6 +2054,6 @@ if(window.__tFEA) window.tFeaRender();
 })();
 </script>
 
-<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-38</div>
+<div id="vBuild" style="position:fixed;right:6px;bottom:4px;font-size:10px;color:#b6b3ab;z-index:9;pointer-events:none">build s45-39</div>
 </body>
 </html>
