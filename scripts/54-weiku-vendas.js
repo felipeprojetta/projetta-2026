@@ -408,6 +408,16 @@
     });
     _projIdx={ byRes:byRes, list:list };
   }
+  // Felipe s43: alem do CRM, consulta o mapa da planilha ORCAMENTOS 2026
+  // (scope weiku_pedidos / cruzamento_crm — chaves R<reserva> e N<nome>),
+  // que inclui os orcamentos feitos FORA do sistema. So' leitura.
+  var _planIdx = null;
+  function _getMapaPlanilha(){
+    if (_planIdx) return _planIdx;
+    try { _planIdx = Storage.scope('weiku_pedidos').get('cruzamento_crm') || {}; }
+    catch(_){ _planIdx = {}; }
+    return _planIdx;
+  }
   function matchProjetta(d){
     if(!_projIdx) _buildProjIdx();
     var r=String(d.r||'').replace(/\D/g,'');
@@ -419,7 +429,25 @@
         if(pt.length>=2 && (_psub(pt,wt)||_psub(wt,pt))) return _projIdx.list[i].l;
       }
     }
+    // fallback: mapa da planilha (orcamentos feitos fora do sistema tambem)
+    var mp = _getMapaPlanilha();
+    if(r && mp['R'+r]) return _planToLead(mp['R'+r]);
+    var nn = _pnorm(d.nome||'');
+    if(nn && nn.length>=5 && mp['N'+nn]) return _planToLead(mp['N'+nn]);
     return null;
+  }
+  // adapta a entrada da planilha pro formato que resolveProjetta espera ler
+  // (numeroAGP, numeroReserva, etapa, cliente).
+  function _planToLead(o){
+    if(!o) return null;
+    return {
+      numeroAGP: o.agp || '',
+      numeroReserva: '',
+      etapa: o.etapa || 'orcado',
+      cliente: '',
+      _fontePlanilha: true, _sistema: o.sistema || '', _rep: o.rep || '',
+      _valor: Number(o.valor)||0,
+    };
   }
   function stageCurto(e){
     var m={'fazer-orcamento':'A orçar','orcamento-pronto':'Orç. pronto','orcamento-enviado':'Orç. enviado','negociacao':'Negociação','fechado':'Fechado','perdido':'Perdido'};
