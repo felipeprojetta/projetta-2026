@@ -24,6 +24,125 @@ const Auth = (() => {
       .map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // Felipe sessao 44: PBKDF2 — NIVEL 2 DE SEGURANCA
+  //
+  // CAUSA RAIZ do problema anterior: o esquema da sessao 18 (SHA-256 +
+  // SENHA_SALT fixo) tem duas falhas que se somam:
+  //   1) o salt e' FIXO e esta publicado no JS publico — da pra montar
+  //      uma tabela de lookup unica que serve pra todos os usuarios;
+  //   2) SHA-256 e' rapido de proposito — uma GPU testa bilhoes de
+  //      chutes por segundo, entao senha curta cai em segundos.
+  //
+  // PBKDF2 corrige os dois: salt ALEATORIO POR USUARIO (cada senha
+  // exige um ataque proprio, tabela pre-computada nao serve) e 210.000
+  // iteracoes (cada chute fica ~210 mil vezes mais caro). E' nativo do
+  // navegador via SubtleCrypto — nenhuma biblioteca nova, nenhuma
+  // dependencia externa adicionada ao sistema.
+  //
+  // COMPATIBILIDADE: nada quebra. conferirSenha() aceita os 3 esquemas
+  // (PBKDF2, SHA-256 legado, texto puro legado) e o login MIGRA sozinho
+  // pro PBKDF2 na primeira entrada. Ninguem precisa resetar senha.
+  // ══════════════════════════════════════════════════════════════════
+  const PBKDF2_ITER = 210000;   // OWASP 2023 p/ PBKDF2-HMAC-SHA256
+  const PBKDF2_SALT_BYTES = 16;
+  const PBKDF2_HASH_BITS = 256;
+  const SENHA_MIN_CHARS = 12;
+
+  function bytesParaHex(bytes) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function hexParaBytes(hex) {
+    const s = String(hex || '');
+    const out = new Uint8Array(Math.floor(s.length / 2));
+    for (let i = 0; i < out.length; i++) out[i] = parseInt(s.substr(i * 2, 2), 16);
+    return out;
+  }
+
+  function novoSaltHex() {
+    const salt = new Uint8Array(PBKDF2_SALT_BYTES);
+    crypto.getRandomValues(salt);
+    return bytesParaHex(salt);
+  }
+
+  async function derivarPBKDF2(senhaTexto, saltHex, iteracoes) {
+    const enc = new TextEncoder();
+    const chave = await crypto.subtle.importKey(
+      'raw', enc.encode(String(senhaTexto || '')), 'PBKDF2', false, ['deriveBits']
+    );
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: hexParaBytes(saltHex), iterations: iteracoes, hash: 'SHA-256' },
+      chave, PBKDF2_HASH_BITS
+    );
+    return bytesParaHex(new Uint8Array(bits));
+  }
+
+  // Formato guardado (string autodescritiva, permite subir as iteracoes
+  // no futuro sem invalidar as senhas ja gravadas):
+  //   pbkdf2$sha256$<iteracoes>$<saltHex>$<hashHex>
+  async function gerarRegistroSenha(senhaTexto) {
+    const saltHex = novoSaltHex();
+    const hashHex = await derivarPBKDF2(senhaTexto, saltHex, PBKDF2_ITER);
+    return ['pbkdf2', 'sha256', PBKDF2_ITER, saltHex, hashHex].join('$');
+  }
+
+  function lerRegistroSenha(registro) {
+    const p = String(registro || '').split('$');
+    if (p.length !== 5 || p[0] !== 'pbkdf2' || p[1] !== 'sha256') return null;
+    const iter = parseInt(p[2], 10);
+    if (!iter || iter < 1) return null;
+    return { iter, saltHex: p[3], hashHex: p[4] };
+  }
+
+  // Comparacao em tempo constante: nao vaza, pelo tempo de resposta,
+  // quantos caracteres do hash o atacante ja acertou.
+  function comparaSeguro(a, b) {
+    const x = String(a || ''), y = String(b || '');
+    if (x.length !== y.length) return false;
+    let dif = 0;
+    for (let i = 0; i < x.length; i++) dif |= x.charCodeAt(i) ^ y.charCodeAt(i);
+    return dif === 0;
+  }
+
+  // Confere a senha nos 3 esquemas. Retorna { ok, migrar }.
+  // migrar=true significa "autenticou por esquema antigo" — o login
+  // reescreve em PBKDF2 logo em seguida.
+  async function conferirSenha(u, senhaDigitada) {
+    if (!u) return { ok: false, migrar: false };
+    // Esquema ATUAL: PBKDF2 com salt proprio
+    if (u.passwordPBKDF2) {
+      const reg = lerRegistroSenha(u.passwordPBKDF2);
+      if (!reg) {
+        console.warn('[Auth] registro PBKDF2 corrompido para', u.username);
+        return { ok: false, migrar: false };
+      }
+      const calc = await derivarPBKDF2(senhaDigitada, reg.saltHex, reg.iter);
+      return { ok: comparaSeguro(calc, reg.hashHex), migrar: false };
+    }
+    // LEGADO 1 (sessao 18): SHA-256 + salt fixo
+    if (u.passwordHash) {
+      const h = await hashSenha(senhaDigitada);
+      return { ok: comparaSeguro(h, u.passwordHash), migrar: true };
+    }
+    // LEGADO 2 (pre sessao 18): texto puro
+    if (u.password) {
+      return { ok: comparaSeguro(u.password, senhaDigitada), migrar: true };
+    }
+    return { ok: false, migrar: false };
+  }
+
+  // Regra de forca de senha. Usada por addUser e changePassword.
+  // Nao se aplica a senhas ja existentes (ninguem fica trancado fora).
+  function validarForcaSenha(senha) {
+    const s = String(senha || '');
+    if (s.length < SENHA_MIN_CHARS) {
+      return 'A senha precisa ter pelo menos ' + SENHA_MIN_CHARS +
+             ' caracteres. Senhas curtas sao descobertas por tentativa em segundos.';
+    }
+    return null;
+  }
+
   function nowDateBR() {
     const d = new Date();
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
@@ -52,32 +171,32 @@ const Auth = (() => {
     // Weiku) achar a senha '12345' do felipe.projetta no codigo
     // publico em segundos. Limpa qualquer copia local com senha
     // texto puro e forca aplicar a nova senha (hash) imediatamente.
-    if (!store.get('migracao_seguranca_v18_done')) {
+    // Felipe sessao 44: a parte que SUBSTITUIA o felipe.projetta pelo
+    // defaultUsers() foi DESATIVADA — justificativa tecnica:
+    // ela comparava felipe.passwordHash com um hash hardcoded e, se
+    // desse diferente, trocava o usuario inteiro e derrubava a sessao.
+    // Com o esquema PBKDF2 o campo passwordHash deixa de existir, entao
+    // a comparacao daria SEMPRE diferente: em todo navegador limpo a
+    // senha real do Felipe seria substituida pelo hash antigo e ele
+    // ficaria trancado fora do proprio sistema ate o sync do cloud
+    // corrigir. A migracao ja cumpriu o papel dela — o banco foi
+    // conferido em 05/08/2026 e nao ha mais senha em texto puro.
+    //
+    // MANTIDA a limpeza de texto puro, que e' regra permanente. Unica
+    // mudanca: so' apaga o campo 'password' quando JA existe um hash no
+    // usuario. Antes apagava sempre, o que deixava sem nenhuma senha
+    // valida quem so' tinha texto puro. Hoje nao e' mais necessario
+    // trancar ninguem: o proprio login migra o esquema antigo sozinho.
+    {
       const users = store.get('users') || [];
-      const felipeIdx = users.findIndex(u => u && u.username === 'felipe.projetta');
-      if (felipeIdx >= 0) {
-        const felipe = users[felipeIdx];
-        // Se tem password texto puro OU se hash nao bate com o novo,
-        // substitui pelo defaultUsers (que ja tem o hash novo).
-        if (felipe.password || felipe.passwordHash !== defaultUsers()[0].passwordHash) {
-          users[felipeIdx] = defaultUsers()[0];
-          store.set('users', users);
-          // Forca re-login: sessao atual pode ter sido feita com senha
-          // antiga, derruba ela pra exigir nova autenticacao
-          store.remove('session');
-        }
-      }
-      // Limpa password texto puro de TODOS os outros usuarios tambem
-      // (eles vao ter que pedir pra Felipe resetar via 'Alterar Senha')
       let needsResave = false;
       users.forEach(u => {
-        if (u && u.password) {
+        if (u && u.password && (u.passwordPBKDF2 || u.passwordHash)) {
           delete u.password;
           needsResave = true;
         }
       });
       if (needsResave) store.set('users', users);
-      store.set('migracao_seguranca_v18_done', true);
     }
 
     // Migracao 1x: substitui o admin/admin antigo (ou lista vazia)
@@ -171,22 +290,24 @@ const Auth = (() => {
       const users = store.get('users') || [];
       const u = users.find(x => x.username === username);
       if (!u) return null;
-      const hashDigitado = await hashSenha(password);
-      let autenticou = false;
-      // Caso 1: usuario ja tem passwordHash (esquema novo)
-      if (u.passwordHash && u.passwordHash === hashDigitado) {
-        autenticou = true;
+      // Felipe sessao 44: conferirSenha cobre os 3 esquemas (PBKDF2,
+      // SHA-256 legado, texto puro legado) — ver bloco PBKDF2 no topo.
+      const r = await conferirSenha(u, password);
+      if (!r.ok) return null;
+      // Migracao automatica e silenciosa pro esquema atual. O usuario
+      // continua usando a MESMA senha; so' a forma de guardar muda.
+      // Se falhar, o login segue normal (nao trancar ninguem fora).
+      if (r.migrar) {
+        try {
+          u.passwordPBKDF2 = await gerarRegistroSenha(password);
+          delete u.passwordHash;
+          delete u.password;
+          store.set('users', users);
+          console.info('[Auth] senha de "' + username + '" migrada para PBKDF2.');
+        } catch (e) {
+          console.warn('[Auth] falha ao migrar senha para PBKDF2:', e);
+        }
       }
-      // Caso 2: usuario legado com password em texto - migra
-      // (Felipe sessao 18 - migrar usuarios antigos sem forcar reset)
-      if (!autenticou && u.password && u.password === password) {
-        autenticou = true;
-        // Migra: troca password texto puro por hash
-        u.passwordHash = hashDigitado;
-        delete u.password;
-        store.set('users', users);
-      }
-      if (!autenticou) return null;
       const session = { username: u.username, name: u.name, role: u.role, loggedAt: Date.now() };
       store.set('session', session);
       return session;
@@ -262,10 +383,13 @@ const Auth = (() => {
       const password = (input.password || '').trim();
       if (!username || !password) return { ok: false, error: 'Usuario e senha sao obrigatorios.' };
       if (users.some(u => u.username === username)) return { ok: false, error: 'Ja existe um usuario com esse nome.' };
-      const passwordHash = await hashSenha(password);
+      // Felipe sessao 44: usuario NOVO ja nasce no esquema forte.
+      const erroForca = validarForcaSenha(password);
+      if (erroForca) return { ok: false, error: erroForca };
+      const passwordPBKDF2 = await gerarRegistroSenha(password);
       users.push({
         username,
-        passwordHash,
+        passwordPBKDF2,
         name: input.name || username,
         role: input.role === 'admin' ? 'admin' : 'user',
         fixed: false,
@@ -310,8 +434,12 @@ const Auth = (() => {
       const users = store.get('users') || [];
       const u = users.find(x => x.username === username);
       if (!u) return { ok: false, error: 'Usuario nao encontrado.' };
-      u.passwordHash = await hashSenha(newPwd);
-      // Limpa password texto puro legado se existir
+      // Felipe sessao 44: toda senha trocada ja sai no esquema forte.
+      const erroForca = validarForcaSenha(newPwd);
+      if (erroForca) return { ok: false, error: erroForca };
+      u.passwordPBKDF2 = await gerarRegistroSenha(newPwd);
+      // Limpa os esquemas legados pra nao sobrar caminho fraco de login
+      if (u.passwordHash) delete u.passwordHash;
       if (u.password) delete u.password;
       store.set('users', users);
       return { ok: true };
