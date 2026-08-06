@@ -83,14 +83,27 @@
     catch (e) { _cruz = {}; }
     return _cruz;
   }
+  // normaliza nome pra cruzamento: sem acento, so' A-Z0-9 e espaco, upper.
+  // Precisa casar com o norm_nome usado ao gerar o mapa da planilha.
+  function _normNome(n) {
+    if (!n) return '';
+    var s = String(n).normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+    s = s.replace(/[^a-zA-Z0-9 ]/g, ' ').toUpperCase();
+    return s.replace(/\s+/g, ' ').trim();
+  }
   /* Devolve o orcamento da Projetta desse cliente, se existir.
-     Cruza por RESERVA primeiro (chave forte) e depois pelos 9 ultimos
-     digitos do telefone — o 9o digito e o DDI variam entre as bases. */
+     Cruza por RESERVA (forte), telefone (9 ultimos digitos) e por ultimo
+     pelo NOME normalizado. Felipe s43: alem do funil, o mapa agora inclui
+     os orcamentos da planilha ORCAMENTOS 2026 (chaves R e N). Obs: o AGP da
+     Projetta NAO cruza com o d.ag do Weiku (sao numeros diferentes: AG do
+     Weiku vs AGP da Projetta), por isso o cruzamento por AGP nao entra. */
   function orcProjetta(d) {
     var c = cruzamento();
     if (d.reserva && c['R' + d.reserva]) return c['R' + d.reserva];
     var t = String(d.tel || '').replace(/\D/g, '');
     if (t.length >= 10 && c['T' + t.slice(-9)]) return c['T' + t.slice(-9)];
+    var nn = _normNome(d.nome || d.titulo || '');
+    if (nn && nn.length >= 5 && c['N' + nn]) return c['N' + nn];
     return null;
   }
   function getOptOut() {
