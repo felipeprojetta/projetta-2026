@@ -186,7 +186,31 @@
       if (b) {
         var alvo = [d.titulo, d.nome, d.sobrenome, d.email, d.tel, d.cidade,
                     d.reserva, d.ag, d.endereco].join(' ').toLowerCase();
-        if (alvo.indexOf(b) < 0) return false;
+        var achouTexto = alvo.indexOf(b) >= 0;
+        // Felipe s44: "dificuldade de achar numeros pelo filtro, fala que
+        // nao existe, mas se colocarmos os 4 primeiros ou os 4 ultimos acha".
+        // CAUSA: o telefone vem do Bitrix SEM mascara (+5534997251803).
+        // Buscar "9725-1803" nao casava porque o hifen nao existe no dado —
+        // so' pedaco solto ("9725" ou "1803") funcionava. Comparando so' os
+        // DIGITOS dos dois lados, acha com ou sem mascara, com ou sem DDD e
+        // com ou sem +55. Mesma regra que a aba Fechados ja usava.
+        var achouFone = false;
+        var bDig = b.replace(/\D/g, '');
+        if (bDig.length >= 4) {
+          var fones = [d.tel, d.telefone, d.celular, d.wa]
+            .filter(Boolean).join(' ').replace(/\D/g, '');
+          achouFone = fones.indexOf(bDig) >= 0;
+          // Felipe s44: o nono digito entra e sai dependendo de onde o
+          // numero foi copiado (o WhatsApp mostra um jeito, o Bitrix
+          // gravou outro). Com 8+ digitos, casa pelo NUCLEO do numero —
+          // os 8 ultimos, que nao mudam. Assim "34 9725-1803" acha o
+          // cadastro "+5534997251803" e vice-versa. 8 digitos e' especifico
+          // o bastante pra nao trazer cliente errado.
+          if (!achouFone && bDig.length >= 8) {
+            achouFone = fones.indexOf(bDig.slice(-8)) >= 0;
+          }
+        }
+        if (!achouTexto && !achouFone) return false;
       }
       if (ui.uf && d.uf !== ui.uf) return false;
       if (ui.cidade && d.cidade !== ui.cidade) return false;

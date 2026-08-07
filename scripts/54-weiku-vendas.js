@@ -635,6 +635,11 @@
           var _fones = [d.wa, d.tel, d.telefone, d.celular]
             .filter(Boolean).join(' ').replace(/\D/g, '');
           _achouFone = _fones.indexOf(_buscaDig) >= 0;
+          // Felipe s44: mesma regra da aba funil — casa pelo nucleo de 8
+          // digitos, pra achar com ou sem o nono digito e com ou sem DDD.
+          if (!_achouFone && _buscaDig.length >= 8) {
+            _achouFone = _fones.indexOf(_buscaDig.slice(-8)) >= 0;
+          }
         }
         if (!_achouTexto && !_achouFone) return false;
       }
