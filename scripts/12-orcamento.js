@@ -5623,7 +5623,7 @@ const Orcamento = (() => {
               <label>Revestimento</label>
               <select data-field="revestimento">
                 <option value=""></option>
-                ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+                ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(rotuloRevestimento(r))}</option>`).join('')}
               </select>
             </div>
             ${item.estilo === 'ripada' ? `
@@ -5970,7 +5970,7 @@ const Orcamento = (() => {
               <label>Revestimento</label>
               <select data-field-pergo="revestimento">
                 <option value=""></option>
-                ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+                ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(rotuloRevestimento(r))}</option>`).join('')}
               </select>
             </div>
             <div class="orc-field orc-f-revestimento">
@@ -6958,7 +6958,19 @@ const Orcamento = (() => {
     }
     // Remove sufixo " - 1500 x 5000", " -1500 X 6000", " - 1500 X8000" etc.
     // Aceita variacoes de espacos, x/X, e separadores.
-    function nomeCurtoSuperficie(desc) {
+    /* Felipe s44: "deixe cor stone padronizado igual o outro".
+     O VALOR gravado no item continua sendo 'CORSTONE' — mexer nele
+     quebraria os orcamentos ja salvos, porque o motor de chapas e as
+     regras de exibicao de cor comparam a string exata (foi o bug da s42).
+     Aqui muda so' o ROTULO na tela. Ponto unico: a porta externa tinha
+     ganhado o tratamento na s42 com um if solto no meio do map, e os
+     outros 3 selects (fixo acoplado, revestimento de parede e pergolado)
+     ficaram de fora — seguiam mostrando CORSTONE em caixa alta. */
+  function rotuloRevestimento(r) {
+    return String(r || '').toUpperCase().trim() === 'CORSTONE' ? 'CorStone' : r;
+  }
+
+  function nomeCurtoSuperficie(desc) {
       if (!desc) return '';
       return String(desc)
         .replace(/\s*[-–]\s*\d{3,4}\s*[xX×]\s*\d{3,4}\s*$/, '')
@@ -7199,7 +7211,7 @@ const Orcamento = (() => {
               <label>Revestimento</label>
               <select data-field="revestimento">
                 <option value=""></option>
-                ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+                ${revestimentos.map(r => `<option value="${escapeHtml(r)}" ${item.revestimento === r ? 'selected' : ''}>${escapeHtml(rotuloRevestimento(r))}</option>`).join('')}
               </select>
             </div>
             ${item.revestimento === 'Vidro' ? `
@@ -7376,7 +7388,7 @@ const Orcamento = (() => {
           // Quando Vidro, forca filtro pra categoria 'acm' e label 'ACM'.
           // Nos outros casos, usa o revestimento do item.
           const revFiltro = ehFixoVidro ? 'ACM 4mm' : item.revestimento;
-          const labelMat  = ehFixoVidro ? 'ACM' : item.revestimento;
+          const labelMat  = ehFixoVidro ? 'ACM' : rotuloRevestimento(item.revestimento);
           return `
         <div class="orc-section">
           <div class="orc-section-title">Acabamento${ehFixoVidro ? ' (Chapa ACM do Fixo ' + posTxt + ')' : ''}</div>
@@ -8104,7 +8116,7 @@ const Orcamento = (() => {
                       comparam a string exata, e um item antigo com
                       'CORSTONE' pararia de exibir os campos de cor
                       outra vez — foi exatamente o bug de agora ha pouco. */''}
-                ${revestimentos.map(r => opt(r, item.revestimento, r === 'CORSTONE' ? 'CorStone' : null)).join('')}
+                ${revestimentos.map(r => opt(r, item.revestimento, rotuloRevestimento(r))).join('')}
               </select>
             </div>
             ${mostraCor ? `
