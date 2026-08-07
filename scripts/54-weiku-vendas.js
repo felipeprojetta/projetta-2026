@@ -36,6 +36,12 @@
     mes: '',
     excluiPredio: false,
     soComWa: false,
+    // Felipe s44: "deixe ambas as abas 100% igual com todos os filtros
+    // iguais, a correta e' leads weiku (funil), faca ficar igual em
+    // pedidos fechados". Estes 3 vieram de la:
+    foraPadrao: '',   // '' todos | 'ocultar' elimina | 'so' isola
+    comValor: false,  // esconde reserva com valor aprovado zerado
+    verOptOut: false, // ve quem pediu pra sair da prospeccao (LGPD)
     // Felipe s42: "ocultar quem ja comprou e mostrar somente os que ja
     // compraram" — virou 3 estados. 'ocultar' (default, o de sempre) |
     // '' todos | 'so' mostra SO' quem comprou, pra conferir a carteira
@@ -537,7 +543,11 @@
     var pavMax = (ui.pavMax == null ? Infinity : ui.pavMax);
     var busca = (ui.busca || '').toLowerCase().trim();
     return getReservas().filter(function (d) {
-      if (optout[d.r]) return false;
+      // Felipe s44: mesma logica da aba funil — quem pediu pra sair some
+      // da lista, a nao ser que "Ver removidos" esteja marcado, e ai a
+      // tela mostra SO' eles pra auditar.
+      if (ui.verOptOut) { if (!optout[d.r]) return false; }
+      else if (optout[d.r]) return false;
       if ((d.v || 0) < vmin || (d.v || 0) > vmax) return false;
       if (ui.excluiPredio && ehPredio(d)) return false;
       if ((d.pav || 0) > pavMax) return false;
@@ -548,6 +558,13 @@
       // numero que a pessoa confirmou nao ter conta deixa de contar como
       // "com WhatsApp", senao ele voltava na lista todo dia.
       if (ui.soComWa && !temWaReal(d)) return false;
+      // Felipe s44: mesmas regras da aba funil
+      if (ui.comValor && !(Number(d.v) > 0)) return false;
+      if (ui.foraPadrao) {
+        var _fp = !!(_normSt(getEnvios()[d.r]) || {}).foraPadrao;
+        if (ui.foraPadrao === 'ocultar' && _fp) return false;
+        if (ui.foraPadrao === 'so' && !_fp) return false;
+      }
       // Felipe s37: cliente marcado como 'ja comprou' sai da prospeccao.
       if (ui.comprou) {
         var _st = _normSt(getEnvios()[d.reserva]);
@@ -930,6 +947,12 @@
       +        [['ocultar','Ocultar quem ja comprou'],['','Mostrar todos'],['so','\u2713 SO os que ja compraram']]
              .map(function(o){ return '<option value="'+o[0]+'"'+((ui.comprou||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
       + '      </select></div>'
+      + '      <div class="wkv-fld"><label>Fora de padrao</label><select id="wkv-f-fpad">'
+      +        [['','Todos'],['ocultar','\ud83d\udeab Eliminar fora de padrao'],['so','\u26a0 SO os fora de padrao']]
+             .map(function(o){ return '<option value="'+o[0]+'"'+((ui.foraPadrao||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
+      + '      </select></div>'
+      + '      <label class="wkv-chk" title="Esconde as reservas com valor aprovado zerado"><input type="checkbox" id="wkv-f-comvalor"' + (ui.comValor ? ' checked' : '') + '> \ud83d\udcb0 So com valor</label>'
+      + '      <label class="wkv-chk" title="Clientes que pediram pra sair da prospeccao (LGPD)"><input type="checkbox" id="wkv-f-optout"' + (ui.verOptOut ? ' checked' : '') + '> Ver removidos</label>'
       + '      <div class="wkv-fld"><label>Orcamento Projetta</label><select id="wkv-f-proj">'
       +        [['','Todos'],['com','\u2713 Ja tem orcamento'],['sem','Sem orcamento']]
              .map(function(o){ return '<option value="'+o[0]+'"'+((ui.projetta||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
@@ -1262,6 +1285,10 @@
       ui.soComWa = $('wkv-f-comwa').checked;
       if ($('wkv-f-comprou')) { ui.comprou = $('wkv-f-comprou').value; ui.ocultaComprou = (ui.comprou === 'ocultar'); }
       if ($('wkv-f-proj')) ui.projetta = $('wkv-f-proj').value;
+      // Felipe s44: filtros equiparados com a aba funil
+      if ($('wkv-f-fpad')) ui.foraPadrao = $('wkv-f-fpad').value;
+      if ($('wkv-f-comvalor')) ui.comValor = $('wkv-f-comvalor').checked;
+      if ($('wkv-f-optout')) ui.verOptOut = $('wkv-f-optout').checked;
       ui.msg = $('wkv-msg').value;
       renderTabela(container);
     }
@@ -1269,7 +1296,8 @@
     ['wkv-f-busca', 'wkv-f-vmin', 'wkv-f-vmax', 'wkv-f-pav', 'wkv-msg'].forEach(function (id) {
       var e = $(id); if (e) e.addEventListener('input', pull);
     });
-    ['wkv-f-uf', 'wkv-f-cidade', 'wkv-f-rep', 'wkv-f-ano', 'wkv-f-mes', 'wkv-f-npredio', 'wkv-f-comwa', 'wkv-f-proj', 'wkv-f-comprou'].forEach(function (id) {
+    ['wkv-f-uf', 'wkv-f-cidade', 'wkv-f-rep', 'wkv-f-ano', 'wkv-f-mes', 'wkv-f-npredio', 'wkv-f-comwa', 'wkv-f-proj', 'wkv-f-comprou',
+     'wkv-f-fpad', 'wkv-f-comvalor', 'wkv-f-optout'].forEach(function (id) {
       var e = $(id); if (e) e.addEventListener('change', pull);
     });
 
@@ -1279,6 +1307,7 @@
       ui.cidade = '';
       ui.ano = ''; ui.mes = '';
       ui.excluiPredio = false; ui.soComWa = false; ui.comprou = 'ocultar'; ui.ocultaComprou = true; ui.projetta = '';
+      ui.foraPadrao = ''; ui.comValor = false; ui.verOptOut = false;
       // Felipe s37: Limpar filtros tambem devolve a ordenacao padrao.
       ui.sortLayers = [{ k: 'data', asc: false }, { k: 'v', asc: false }];
       ui.sortKey = 'data'; ui.sortAsc = false;

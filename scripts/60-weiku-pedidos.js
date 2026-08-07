@@ -36,6 +36,10 @@
     // card do Bitrix). Base: 3.547 Residencia, 265 Apartamento, 165 Predio,
     // 156 vazio, 98 Escritorio, 17 Clinica/Hospital, 15 Industria.
     construcao: '',
+    // Felipe s44: "coloque filtro eliminar fora de padrao". 3 estados,
+    // igual ao "ja comprou": '' todos | 'ocultar' tira os marcados |
+    // 'so' mostra so' eles, pra revisar o que foi descartado.
+    foraPadrao: '',
     verOptOut: false,
     // Felipe s42: "deixe o filtro primeiro sempre o mais novo e segundo
     // filtro pelo valor igual nos fechados weiku". Ordenacao em CAMADAS,
@@ -226,6 +230,12 @@
       // Aqui o default e' '' (mostra todos), porque no funil o "ja
       // comprou" e' marcacao manual da prospeccao e comeca tudo vazio —
       // ocultar por padrao esconderia zero linhas e so' confundiria.
+      // Felipe s44: eliminar / isolar os marcados como fora de padrao
+      if (ui.foraPadrao) {
+        var _fp = !!(getEnvios()[d.id] || {}).foraPadrao;
+        if (ui.foraPadrao === 'ocultar' && _fp) return false;
+        if (ui.foraPadrao === 'so' && !_fp) return false;
+      }
       if (ui.comprou) {
         var _e = getEnvios()[d.id] || {}; var _jc = !!(_e.jaComprouProjetta || _e.jaComprouOutra || _e.jaComprou);
         if (ui.comprou === 'ocultar' && _jc) return false;
@@ -366,6 +376,10 @@
       +        [['','\u2014 construcao \u2014'],['sem-predio','\ud83d\udeab Sem predios'],['so-casa','\ud83c\udfe0 So residencias']]
              .concat(opcoesDe(todos, 'tipoConstrucao').map(function(t){ return [t, t]; }))
              .map(function(o){ return '<option value="'+esc(o[0])+'"'+(ui.construcao===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'; }).join('')
+      + '      </select>'
+      + '      <select id="wkp-fpad" class="wkp-sel" style="min-width:210px" title="Obra ou esquadria fora do padrao que a Projetta fabrica">'
+      +        [['','\u2014 fora de padrao \u2014'],['ocultar','\ud83d\udeab Eliminar fora de padrao'],['so','\u26a0 SO os fora de padrao']]
+             .map(function(o){ return '<option value="'+o[0]+'"'+(ui.foraPadrao===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
       + '      </select>'
       + '      <select id="wkp-comprou" class="wkp-sel" style="min-width:200px">'
       +        [['','\u2014 ja comprou \u2014'],['ocultar','Ocultar quem ja comprou'],['so','\u2713 SO os que ja compraram']]
@@ -714,7 +728,7 @@
       ui.busca = ''; ui.uf = ''; ui.cidade = ''; ui.etapa = ''; ui.responsavel = '';
       ui.vmin = ''; ui.vmax = ''; ui.comTel = false; ui.comReserva = false;
       ui.soPerdidos = false; ui.projetta = ''; ui.comprou = ''; ui.status = ''; ui.status2 = ''; ui.status3 = ''; ui.comValor = false;
-      ui.construcao = '';
+      ui.construcao = ''; ui.foraPadrao = '';
       ui.camadas = [{ k: 'dtCriacao', asc: false }, { k: 'valor', asc: false }];
       ui.ordem = 'dtCriacao'; ui.dir = 'desc'; reset();
     });
@@ -746,6 +760,8 @@
     if(pe) pe.addEventListener('change', function(){ ui.soPerdidos=pe.checked; reset(); });
     var pj=$('wkp-proj');
     if(pj) pj.addEventListener('change', function(){ ui.projetta=pj.value; reset(); });
+    var fp=$('wkp-fpad');
+    if(fp) fp.addEventListener('change', function(){ ui.foraPadrao=fp.value; reset(); });
     var pc=$('wkp-comprou');
     if(pc) pc.addEventListener('change', function(){ ui.comprou=pc.value; reset(); });
     var st=$('wkp-status');
