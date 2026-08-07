@@ -6911,14 +6911,34 @@ const Orcamento = (() => {
     function filtrarSuperficies(rev) {
       let lista = superficies;
       if (rev) {
-        const cat = (rev === 'Aluminio Macico 2mm') ? 'aluminio_macico'
-                  : (rev === 'ACM 4mm')             ? 'acm'
-                  : (rev === 'HPL 4mm')             ? 'hpl'
-                  : (rev === 'Vidro') ? 'vidro'
-                  : null;
-        if (cat) {
-          const auto = window.Superficies?.categoriaAuto || (() => 'acm');
-          lista = (superficies || []).filter(s => (s.categoria || auto(s.descricao)) === cat);
+        // Felipe s44: "quando e fixo acoplado e coloco corstone nao esta
+        // puxando somente o corstone".
+        // CAUSA RAIZ: a lista de revestimentos tem 6 opcoes (ACM, HPL,
+        // Aluminio Macico, Aço Inox, CORSTONE, Vidro) mas este de/para so'
+        // conhecia 4. 'CORSTONE' e 'Aço Inox' caiam em cat=null e, sem
+        // categoria, a funcao devolvia a lista INTEIRA — por isso apareciam
+        // as cores ACM (Wood Carvalho, Alusense...) num campo rotulado
+        // "Cor CORSTONE Externa".
+        // Comparacao normalizada (maiuscula/minuscula e acento) porque o
+        // mesmo material aparece escrito como 'CORSTONE', 'Corstone' e
+        // 'CorStone' em pontos diferentes do sistema.
+        const _norm = String(rev).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+        // Corstone nao tem categoria propria no cadastro: e' lancado dentro
+        // de 'vidro' (cobrado por m²). Casa pelo nome, mesma regra que a
+        // porta externa ja' usava no datalist orc-superficies-list-corstone.
+        if (_norm === 'CORSTONE') {
+          lista = (superficies || []).filter(s => /corstone/i.test(String(s.descricao || '')));
+        } else {
+          const cat = (rev === 'Aluminio Macico 2mm') ? 'aluminio_macico'
+                    : (rev === 'ACM 4mm')             ? 'acm'
+                    : (rev === 'HPL 4mm')             ? 'hpl'
+                    : (rev === 'Vidro') ? 'vidro'
+                    : (_norm === 'ACO INOX' || _norm === 'INOX') ? 'aco_inox'
+                    : null;
+          if (cat) {
+            const auto = window.Superficies?.categoriaAuto || (() => 'acm');
+            lista = (superficies || []).filter(s => (s.categoria || auto(s.descricao)) === cat);
+          }
         }
       }
       // Felipe: a descricao nao deve mostrar a medida da chapa.
