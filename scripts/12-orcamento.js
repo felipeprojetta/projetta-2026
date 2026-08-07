@@ -1586,10 +1586,18 @@ const Orcamento = (() => {
       // Valor real por item. Se o Felipe sobrescreveu o campo Acessorios a
       // mao no Custo Fab, escala proporcional pra respeitar o override —
       // mas a PROPORCAO entre itens continua sendo a real.
-      const escalaOverride = tAcessorios > 0 ? (tAcessorios / _somaMeta) : 1;
+      //
+      // Felipe s44 — CAUSA RAIZ das "2 propostas com valores diferentes":
+      // quando o total efetivo e' ZERO (componente removido da versao), a
+      // escala CAIA NO FALLBACK 1 e o cache _meta continuava valendo, como
+      // se o custo ainda existisse. O rodape (que le versao.subFab) ficava
+      // certo e o card/tabela (que le este calculo) ficava com o valor da
+      // versao anterior. O _meta e' so' o DETALHAMENTO do total: se o total
+      // e' 0, cada item tem que ser 0.
+      const escalaOverride = tAcessorios > 0 ? (tAcessorios / _somaMeta) : 0;
       acessPorIdxFinal = itens.map((_, idx) => (Number(_acessMeta[idx]) || 0) * escalaOverride);
     } else if (acessOk && acessTotalReal > 0) {
-      const escala = tAcessorios > 0 ? (tAcessorios / acessTotalReal) : 1;
+      const escala = tAcessorios > 0 ? (tAcessorios / acessTotalReal) : 0;
       acessPorIdxFinal = itens.map((_, idx) => (acessPorIdx[idx] || 0) * escala);
     } else {
       acessPorIdxFinal = distribuir(tAcessorios, horasPorIdx, horasTotal);
@@ -1597,10 +1605,15 @@ const Orcamento = (() => {
     const _somaDig = _digMeta
       ? itens.reduce((s, _, i) => s + (Number(_digMeta[i]) || 0), 0) : 0;
     if (_digMeta && _somaDig > 0) {
-      const escalaD = tFechDig > 0 ? (tFechDig / _somaDig) : 1;
+      // Felipe s44: mesmo fix. Foi ESTE que estourou no AGP004883 — a V2
+      // saiu sem Tedee (total_fechadura_digital removido do custoFab), mas
+      // o _meta.fechDigPorItem herdado da V1 seguia com R$ 3.451,85. O card
+      // somava esse custo fantasma e mostrava R$ 84.896,02 (o preco da V1)
+      // enquanto o Total Orcamento mostrava os R$ 75.680,98 corretos.
+      const escalaD = tFechDig > 0 ? (tFechDig / _somaDig) : 0;
       fechDigPorIdxFinal = itens.map((_, idx) => (Number(_digMeta[idx]) || 0) * escalaD);
     } else if (acessOk && fechDigTotalReal > 0) {
-      const escala = tFechDig > 0 ? (tFechDig / fechDigTotalReal) : 1;
+      const escala = tFechDig > 0 ? (tFechDig / fechDigTotalReal) : 0;
       fechDigPorIdxFinal = itens.map((_, idx) => (fechDigPorIdx[idx] || 0) * escala);
     } else {
       fechDigPorIdxFinal = distribuir(tFechDig, horasPorIdx, horasTotal);
