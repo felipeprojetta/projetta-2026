@@ -898,6 +898,46 @@ const Orcamento = (() => {
     const altura   = Number(i.altura_porta_mm)  || 0;
     const peso     = Number(i.peso_bruto_kg)    || 0;
 
+    // ══════════════════════════════════════════════════════════════
+    // Felipe sessao 44: ALERTA DE TRANSPORTE — carretinha nao leva
+    // peca acima de 2,40 m de largura; nesse caso tem que cotar
+    // caminhao munk. O alerta que ja' existia olhava so' PESO
+    // (> 500 kg) e deixava passar porta larga e leve.
+    //
+    // O que viaja e' a PECA MONTADA, nao o vao:
+    //   porta  -> a peca e' a FOLHA = largura / nFolhas
+    //             (porta de 2,8 m em 2 folhas = 1,4 m por folha, cabe)
+    //   demais -> a peca e' o painel inteiro = largura do item
+    // ══════════════════════════════════════════════════════════════
+    const LIMITE_CARRETINHA_MM = 2400;
+    const transporte_itens = [];
+    let transporte_maiorMm = 0;
+    (Array.isArray(itens) ? itens : []).forEach((it, idx) => {
+      if (!it || !it.tipo) return;
+      const larg = parseFloat(String(it.largura || '').replace(',', '.')) || 0;
+      if (larg <= 0) return;
+      const ehPorta = String(it.tipo).indexOf('porta') === 0;
+      const nF = Math.max(1, Number(it.nFolhas) || 1);
+      const larguraPeca = ehPorta ? (larg / nF) : larg;
+      if (larguraPeca > transporte_maiorMm) transporte_maiorMm = larguraPeca;
+      if (larguraPeca > LIMITE_CARRETINHA_MM) {
+        transporte_itens.push({
+          idx: idx + 1,
+          tipo: it.tipo,
+          larguraItem: larg,
+          nFolhas: ehPorta ? nF : 1,
+          larguraPeca: Math.round(larguraPeca),
+        });
+      }
+    });
+    const transporte_alerta = transporte_itens.length > 0;
+    const transporte = {
+      alerta: transporte_alerta,
+      limite_mm: LIMITE_CARRETINHA_MM,
+      maior_mm: Math.round(transporte_maiorMm),
+      itens: transporte_itens,
+    };
+
     // Felipe sessao 34: pessoas e dias_instalacao agora tem AUTO baseado
     // nos itens. Campo vazio = usa auto. Campo preenchido = manual.
     // regrasInstalacaoAuto retorna {dias, pessoas, motivo} baseado em:
@@ -953,7 +993,7 @@ const Orcamento = (() => {
         sem_instalacao: true,
         deslocamentoDias: 0, diasInst: 0, diasTotal: 0,
         salarios: null, diesel: null, hotel: null, alimentacao: null,
-        andaime: null, munk: null, munk_alerta: false, pedagio: null,
+        andaime: null, munk: null, munk_alerta: false, transporte, pedagio: null,
         noites: null, quartos: null,
         inst_terceiros_valor: 0, inst_terceiros_transp: 0,
         total: 0,
@@ -970,7 +1010,7 @@ const Orcamento = (() => {
         return {
           modo: i.modo, deslocamentoDias, diasInst, diasTotal,
           salarios: null, diesel: null, hotel: null, alimentacao: null,
-          andaime: null, munk: null, munk_alerta: false, pedagio: null,
+          andaime: null, munk: null, munk_alerta: false, transporte, pedagio: null,
           noites: null, quartos: null,
           inst_terceiros_valor: valor, inst_terceiros_transp: transp,
           total: valor + transp, intl_manual: true,
@@ -986,7 +1026,7 @@ const Orcamento = (() => {
         hotel:       viagem.itens.hotel,
         alimentacao: viagem.itens.alimentacao,
         andaime:     null,
-        munk:        null, munk_alerta: false,
+        munk:        null, munk_alerta: false, transporte,
         pedagio:     null,
         noites:      null, quartos: null,
         inst_terceiros_valor:  0,
@@ -1008,7 +1048,7 @@ const Orcamento = (() => {
         diasInst,
         diasTotal,
         salarios:    null, diesel: null, hotel: null, alimentacao: null,
-        andaime:     null, munk: null, munk_alerta: false, pedagio: null,
+        andaime:     null, munk: null, munk_alerta: false, transporte, pedagio: null,
         noites:      null, quartos: null,
         inst_terceiros_valor:  valor,
         inst_terceiros_transp: transp,
@@ -1070,6 +1110,7 @@ const Orcamento = (() => {
       andaime,
       munk,
       munk_alerta,
+      transporte,
       pedagio,
       total,
     };
@@ -10707,6 +10748,29 @@ const Orcamento = (() => {
             <div class="orc-fi-alerta orc-fi-alerta-info">
               <span class="t-strong">Andaime incluido — R$ 550,00.</span>
               Porta com altura acima de 3,0 m — custo de andaime adicionado automaticamente ao custo de instalacao.
+            </div>
+          ` : ''}
+
+          ${rInst.transporte && rInst.transporte.alerta ? `
+            <div style="background:#FEF2F2; border:3px solid #DC2626; border-radius:8px; padding:16px 18px; margin:14px 0; box-shadow:0 2px 8px rgba(220,38,38,0.18);">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <span style="font-size:26px; line-height:1;">🚨</span>
+                <span style="font-size:16px; font-weight:800; color:#991B1B; text-transform:uppercase; letter-spacing:0.4px;">
+                  Nao cabe na carretinha — cotar caminhao munk
+                </span>
+              </div>
+              <div style="font-size:13px; color:#7F1D1D; line-height:1.6;">
+                Peca com mais de <b>${(rInst.transporte.limite_mm / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m</b> de largura nao entra na carretinha.
+                O transporte tem que ser feito de <b>caminhao munk</b> — cote com o transportador e lance o valor no campo
+                <b>Munk / caminhao (R$)</b> aqui embaixo, senao o custo fica de fora do orcamento.
+              </div>
+              <div style="margin-top:10px; background:#fff; border-radius:6px; padding:10px 12px;">
+                ${rInst.transporte.itens.map(t => `
+                  <div style="font-size:12px; color:#7F1D1D; padding:3px 0;">
+                    <b>Item ${t.idx}</b> — largura ${fmtBR(t.larguraItem)} mm${t.nFolhas > 1 ? ` em ${t.nFolhas} folhas` : ''}
+                    → peca de <b style="color:#DC2626;">${fmtBR(t.larguraPeca)} mm</b>
+                  </div>`).join('')}
+              </div>
             </div>
           ` : ''}
 
