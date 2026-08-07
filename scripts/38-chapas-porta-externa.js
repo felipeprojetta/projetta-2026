@@ -2093,13 +2093,23 @@ const ChapasPortaExterna = (() => {
       let ehPecaInox = false;
       if (ehInox && (soTampaMaior || ehFitaAcab)) ehPecaInox = true;
 
-      // Felipe s37 CORSTONE: SO' a Tampa Maior vira Corstone (fitas de
-      // acabamento FICAM ACM — decisao Felipe). Cobrado por m² (nao nesta):
-      // o computeRevestimentoPorCor desvia grupos 'Corstone — *' pro
-      // custeio por area (cadastro Superficies categoria vidro).
+      // Felipe s44: "quando eu colocar CorStone, TODAS as tampas tem que
+      // ser CorStone... tanto para a porta quanto para o fixo".
+      // Antes so' a Tampa Maior virava Corstone (decisao da s37) e o resto
+      // — Tampa Borda Friso Vertical, Tampa Friso Horizontal, Tampa Menor,
+      // Complemento da Tampa Maior... — continuava ACM. Na tela ficava a
+      // Tampa Maior em Corstone e a linha de baixo em ACM, na mesma porta.
+      // Agora QUALQUER peca com "tampa" no nome vira Corstone. Pega tambem
+      // "Complemento Tampa Maior", que e' a propria tampa partida quando
+      // estoura a chapa — ficar em material diferente seria incoerente.
+      // O rev vem de ctx.item.revestimento, que o fixo acoplado tambem
+      // preenche (36-perfis-rev-acoplado, item virtual), entao a regra vale
+      // para porta e fixo sem precisar de codigo separado.
+      // FITAS de acabamento seguem ACM, como o Felipe definiu na s37.
+      const ehTampa = /tampa/.test(lblLow);
       const ehCorstone = /corstone/.test(rev);
       let ehPecaCorstone = false;
-      if (ehCorstone && soTampaMaior) ehPecaCorstone = true;
+      if (ehCorstone && ehTampa) ehPecaCorstone = true;
 
       if (ehPecaAM) {
         // Felipe sessao 13: peca AM usa cor da CHAPA AM (campo separado
