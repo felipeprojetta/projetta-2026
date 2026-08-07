@@ -368,10 +368,21 @@ const FreteTarifas = (() => {
    * Felipe: '100 dolares por m3'.
    */
   function calcularCaixa(m3) {
-    const t = _cache || DEFAULTS;
     const cbm = Math.max(0, Number(m3) || 0);
-    const preco = (t.caixa_fumigada && t.caixa_fumigada.preco_usd_m3) || 100;
-    return cbm * preco;
+    return cbm * precoCaixaM3();
+  }
+
+  /**
+   * Preco vigente da caixa fumigada, em USD por m³.
+   * Felipe s44: exposto separado do calculo porque a tela do CRM precisa
+   * MOSTRAR o preco no rotulo ("Custo (USD 110/m³)"), nao so' aplicar.
+   * Antes o CRM tinha 100 cravado no codigo e o cadastro nao surtia efeito
+   * ali. Fonte unica: frete/tarifas.caixa_fumigada.preco_usd_m3.
+   */
+  function precoCaixaM3() {
+    const t = _cache || DEFAULTS;
+    const p = Number(t.caixa_fumigada && t.caixa_fumigada.preco_usd_m3);
+    return (p > 0) ? p : 100;
   }
 
   /**
@@ -454,7 +465,7 @@ const FreteTarifas = (() => {
   return {
     DEFAULTS,
     carregar, salvar, defaults, regioes,
-    calcularLCL, calcularCaixa, calcularFreteTerrestre, calcularEmbalagem,
+    calcularLCL, calcularCaixa, precoCaixaM3, calcularFreteTerrestre, calcularEmbalagem,
     calcularSeguro, seguroInfo,
     _getCache: () => _cache || DEFAULTS,
   };

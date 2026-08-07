@@ -937,13 +937,13 @@
                   </div>
                 </div>
                 <div id="crm-caixa-m3" style="margin-top:8px; font-size:13px; color:#666;">
-                  Volume: <strong id="crm-caixa-m3-valor">—</strong> &nbsp; · &nbsp; Custo (USD 100/m³): <strong id="crm-caixa-custo-valor">—</strong>
+                  Volume: <strong id="crm-caixa-m3-valor">—</strong> &nbsp; · &nbsp; Custo (<span id="crm-caixa-preco-m3">USD 100</span>/m³): <strong id="crm-caixa-custo-valor">—</strong>
                 </div>
                 <!-- Felipe sessao 41: override manual do custo da caixa em USD.
                      Vazio = automatico (volume x 100). Preenchido = usa esse valor. -->
                 <div style="margin-top:8px;">
                   <label style="font-size:11px; color:#8a6912; font-weight:600; display:block; margin-bottom:2px;">💵 Custo da caixa em USD (manual)</label>
-                  <input type="number" min="0" step="0.01" id="crm-caixa-custo-manual" data-field="caixaCustoUsdManual" value="${escapeHtml(m.caixaCustoUsdManual || '')}" placeholder="vazio = automatico (volume × 100)" style="width:100%; box-sizing:border-box;" />
+                  <input type="number" min="0" step="0.01" id="crm-caixa-custo-manual" data-field="caixaCustoUsdManual" value="${escapeHtml(m.caixaCustoUsdManual || '')}" placeholder="vazio = automatico (volume × preco do cadastro)" style="width:100%; box-sizing:border-box;" />
                 </div>
               </div>
 
@@ -1386,6 +1386,12 @@
         const valorEl = container.querySelector('#crm-caixa-m3-valor');
         const custoEl = container.querySelector('#crm-caixa-custo-valor');
         if (!valorEl) return;
+        // Felipe s44: o rotulo tambem sai do cadastro, senao continuaria
+        // escrito "USD 100/m³" na tela mesmo cobrando outro valor.
+        const precoEl = container.querySelector('#crm-caixa-preco-m3');
+        if (precoEl && window.FreteTarifas && typeof window.FreteTarifas.precoCaixaM3 === 'function') {
+          precoEl.textContent = 'USD ' + window.FreteTarifas.precoCaixaM3();
+        }
         const a = Number(modalState.caixaAltura) || 0;
         const e = Number(modalState.caixaEspessura) || 0;
         const c = Number(modalState.caixaComprimento) || 0;
@@ -1394,7 +1400,21 @@
           valorEl.textContent = m3.toFixed(3) + ' m³';
           valorEl.style.color = '#1f7a3a';
           if (custoEl) {
-            const usdAuto = m3 * 100;
+            // Felipe s44: "estou alterando dentro de cadastro regras caixa
+            // para 110 o m3 mas nao esta atualizando".
+            // CAUSA RAIZ: o preco estava FIXO em 100 aqui. O cadastro
+            // (Regras e Logicas > Frete Internacional > Caixa Fumigada)
+            // grava em frete/tarifas.caixa_fumigada.preco_usd_m3, e o
+            // modulo de Orcamento ja lia esse valor via
+            // FreteTarifas.calcularCaixa() — so' esta tela do CRM ficou
+            // com o numero cravado no codigo, entao o cadastro nao surtia
+            // efeito nenhum aqui.
+            const precoM3 = (window.FreteTarifas && typeof window.FreteTarifas.precoCaixaM3 === 'function')
+              ? window.FreteTarifas.precoCaixaM3()
+              : 100;
+            const usdAuto = (window.FreteTarifas && typeof window.FreteTarifas.calcularCaixa === 'function')
+              ? window.FreteTarifas.calcularCaixa(m3)
+              : m3 * precoM3;
             const manual = Number(modalState.caixaCustoUsdManual) || 0;
             const usd = manual > 0 ? manual : usdAuto;
             const taxa = (window.Cambio && window.Cambio.taxaAtual()) || 0;
