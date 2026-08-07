@@ -383,12 +383,44 @@
       + row('E-mail', d.email ? ('<a href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>') : '')
       + row('Projetta', '<span class="wkv-dprojcell" data-r="' + esc(d.r) + '">' + cellProjettaHTML(d) + '</span>')
       + row('Prospec\u00e7\u00e3o', esc(stTxt));
+    // Felipe s44: "nos fechados deixe campo de observacao dentro do card
+    // igual na aba funil". A observacao ja existia, mas so na coluna da
+    // TABELA — quem abria o card do cliente pra ver os dados nao via nem
+    // conseguia anotar o que foi conversado sem fechar tudo.
+    // Mesmo campo (envios[r].obs), mesmo layout do 60-weiku-pedidos.
+    var obsAtual = st.obs || '';
+    var obsBloco = '<div class="wkv-dobs">'
+      + '<div class="wkv-dobs-lab">Observa\u00e7\u00f5es</div>'
+      + '<textarea class="wkv-dobs-ta" id="wkv-obs-ta" placeholder="Anote aqui o que foi conversado, combinados, retorno do cliente...">' + esc(obsAtual) + '</textarea>'
+      + '<div class="wkv-dobs-acoes">'
+      +   '<button class="wkv-dobs-salvar" id="wkv-obs-salvar" data-r="' + esc(d.r) + '">Salvar observa\u00e7\u00e3o</button>'
+      +   '<span class="wkv-dobs-status" id="wkv-obs-status"></span>'
+      + '</div></div>';
     var ov = document.createElement('div');
     ov.id = 'wkv-modal'; ov.className = 'wkv-ovl';
     ov.innerHTML = '<div class="wkv-modal"><div class="wkv-mhead"><b>' + esc(tituloCase(d.nome) || ('Reserva ' + d.r)) + '</b><button class="wkv-mclose" title="Fechar">\u2715</button></div>'
-      + '<div class="wkv-mbody">' + body + '</div>'
+      + '<div class="wkv-mbody">' + body + obsBloco + '</div>'
       + '<div class="wkv-mfoot">Dados conforme a planilha Weiku importada (CPF/RG e endere\u00e7o n\u00e3o s\u00e3o importados).</div></div>';
     document.body.appendChild(ov);
+    // salvar observacao do card
+    var btnObs = ov.querySelector('#wkv-obs-salvar');
+    if (btnObs) btnObs.addEventListener('click', function () {
+      var ta = ov.querySelector('#wkv-obs-ta');
+      var stat = ov.querySelector('#wkv-obs-status');
+      if (!ta) return;
+      marcarStatus(d.r, { obs: ta.value, obsTs: Date.now(), obsPor: _currentUserName() });
+      // mantem a textarea da TABELA em sincronia: sem isso, a coluna
+      // continuaria mostrando o texto antigo ate recarregar a pagina, e o
+      // proximo autosave da tabela sobrescreveria o que acabou de ser
+      // salvo aqui.
+      var taTab = document.querySelector('textarea.wkv-obs[data-r="' + d.r + '"]');
+      if (taTab) { taTab.value = ta.value; taTab.classList.add('salvo'); }
+      if (stat) {
+        stat.textContent = '\u2713 salvo';
+        stat.style.color = '#16a34a';
+        setTimeout(function () { if (stat) stat.textContent = ''; }, 2500);
+      }
+    });
     ov.addEventListener('click', function (ev) {
       if (ev.target === ov) { fecharDetalhe(); return; }
       if (ev.target.closest('.wkv-mclose')) { fecharDetalhe(); return; }
@@ -808,6 +840,15 @@
       '.wkv-st-srt.on{background:#475569;border-color:#334155;color:#fff;font-weight:700}.wkv-st-srt.on:hover{color:#fff;background:#334155}',
       '.wkv-st-sin.on{background:#b45309;border-color:#92400e;color:#fff;font-weight:700}.wkv-st-sin.on:hover{color:#fff;background:#92400e}',
       '.wkv-tstatus{margin-left:8px;padding:6px 8px;border:1px solid var(--line,#e5e7eb);border-radius:6px;font-size:12.5px;font-family:inherit;background:#fff;cursor:pointer}',
+      // Felipe s44: observacao dentro do card, mesmo visual do funil
+      '.wkv-dobs{margin-top:14px;padding-top:14px;border-top:2px solid var(--wkv-linha)}',
+      '.wkv-dobs-lab{font-weight:700;font-size:13px;color:var(--wkv-tinta);margin-bottom:6px}',
+      '.wkv-dobs-ta{width:100%;min-height:80px;box-sizing:border-box;border:1px solid var(--wkv-linha);border-radius:8px;padding:10px;font:inherit;font-size:13px;resize:vertical;background:#FFFDF8}',
+      '.wkv-dobs-ta:focus{outline:none;border-color:var(--wkv-amb);background:#fff}',
+      '.wkv-dobs-acoes{display:flex;align-items:center;gap:10px;margin-top:8px}',
+      '.wkv-dobs-salvar{background:var(--wkv-tinta);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600}',
+      '.wkv-dobs-salvar:hover{opacity:.9}',
+      '.wkv-dobs-status{font-size:12px;font-weight:600}',
       '.wkv-obscell{min-width:190px;vertical-align:middle}',
       '.wkv-obs{width:100%;min-width:180px;box-sizing:border-box;border:1px solid var(--wkv-linha);border-radius:6px;padding:5px 7px;font-size:12px;font-family:inherit;color:#4a5160;resize:vertical;background:#FFFDF8}',
       '.wkv-obs:focus{outline:none;border-color:var(--wkv-amb);background:#fff}',
