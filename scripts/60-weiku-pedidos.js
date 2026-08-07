@@ -32,6 +32,10 @@
     busca: '', uf: '', cidade: '', etapa: '', responsavel: '',
     vmin: '', vmax: '', comTel: false, comReserva: false,
     soPerdidos: false, projetta: '', comprou: '', status: '', status2: '', status3: '', comValor: false,
+    // Felipe s44: filtro por tipo de construcao (campo tipoConstrucao do
+    // card do Bitrix). Base: 3.547 Residencia, 265 Apartamento, 165 Predio,
+    // 156 vazio, 98 Escritorio, 17 Clinica/Hospital, 15 Industria.
+    construcao: '',
     verOptOut: false,
     // Felipe s42: "deixe o filtro primeiro sempre o mais novo e segundo
     // filtro pelo valor igual nos fechados weiku". Ordenacao em CAMADAS,
@@ -201,6 +205,20 @@
       if (ui.comTel && !d.tel) return false;
       if (ui.comReserva && !d.reserva) return false;
       if (ui.soPerdidos && ETAPAS_PERDIDAS.indexOf(d.etapa) < 0) return false;
+      // Felipe s44: "faca um filtro para eliminar predios". Predio (e
+      // apartamento, escritorio, clinica, industria) e' obra coletiva /
+      // comercial — nao e' o publico de porta pivotante de entrada.
+      // 'sem-predio'  -> tira so' Predio
+      // 'so-casa'     -> deixa so' Residencia (corta todo o resto)
+      // <tipo exato>  -> mostra so' aquele tipo
+      if (ui.construcao) {
+        var _tc = String(d.tipoConstrucao || '').trim();
+        if (ui.construcao === 'sem-predio') {
+          if (_tc === 'Pr\u00e9dio') return false;
+        } else if (ui.construcao === 'so-casa') {
+          if (_tc !== 'Resid\u00eancia') return false;
+        } else if (_tc !== ui.construcao) return false;
+      }
       // Felipe s42: filtro de 3 estados — todos / so' quem JA tem orcamento
       // na Projetta / so' quem NAO tem. Antes era checkbox e so' dava pra
       // ver o "nao tem".
@@ -339,6 +357,11 @@
       +        selStatus('wkp-status2', ui.status2)
       +        selStatus('wkp-status3', ui.status3)
       +        chkPreset('wkp-perd', ui.soPerdidos, '\ud83c\udfaf So PERDIDOS na Weiku', 'Filtra as 10 etapas de perda do funil de uma vez')
+      + '      <select id="wkp-constr" class="wkp-sel" style="min-width:210px" title="Predio/apartamento/escritorio sao obra coletiva ou comercial - nao sao publico de porta pivotante de entrada">'
+      +        [['','\u2014 construcao \u2014'],['sem-predio','\ud83d\udeab Sem predios'],['so-casa','\ud83c\udfe0 So residencias']]
+             .concat(opcoesDe(todos, 'tipoConstrucao').map(function(t){ return [t, t]; }))
+             .map(function(o){ return '<option value="'+esc(o[0])+'"'+(ui.construcao===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'; }).join('')
+      + '      </select>'
       + '      <select id="wkp-comprou" class="wkp-sel" style="min-width:200px">'
       +        [['','\u2014 ja comprou \u2014'],['ocultar','Ocultar quem ja comprou'],['so','\u2713 SO os que ja compraram']]
              .map(function(o){ return '<option value="'+o[0]+'"'+(ui.comprou===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
@@ -656,7 +679,8 @@
         var n = $('wkp-busca'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
       }, 350);
     });
-    [['wkp-uf', 'uf'], ['wkp-cidade', 'cidade'], ['wkp-etapa', 'etapa'], ['wkp-resp', 'responsavel']]
+    [['wkp-uf', 'uf'], ['wkp-cidade', 'cidade'], ['wkp-etapa', 'etapa'], ['wkp-resp', 'responsavel'],
+     ['wkp-constr', 'construcao']]
       .forEach(function (p) {
         var el = $(p[0]);
         if (el) el.addEventListener('change', function () { ui[p[1]] = el.value; reset(); });
@@ -679,6 +703,7 @@
       ui.busca = ''; ui.uf = ''; ui.cidade = ''; ui.etapa = ''; ui.responsavel = '';
       ui.vmin = ''; ui.vmax = ''; ui.comTel = false; ui.comReserva = false;
       ui.soPerdidos = false; ui.projetta = ''; ui.comprou = ''; ui.status = ''; ui.status2 = ''; ui.status3 = ''; ui.comValor = false;
+      ui.construcao = '';
       ui.camadas = [{ k: 'dtCriacao', asc: false }, { k: 'valor', asc: false }];
       ui.ordem = 'dtCriacao'; ui.dir = 'desc'; reset();
     });
