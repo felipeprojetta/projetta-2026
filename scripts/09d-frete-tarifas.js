@@ -153,25 +153,56 @@ const FreteTarifas = (() => {
 
   // Cache em memoria das tarifas atuais (defaults + overrides do storage)
   let _cache = null;
+  let _cacheDeSaved = false;   // true = o cache veio de dado REAL do storage
+
+  /**
+   * Le o salvo do store autoritativo. Retorna null se ainda nao ha nada.
+   */
+  function _lerSalvo() {
+    try {
+      if (typeof Storage !== 'undefined' && Storage.scope) {
+        return Storage.scope(STORAGE_SCOPE).get(STORAGE_KEY, null) || null;
+      }
+    } catch (e) { /* store ainda nao subiu */ }
+    return null;
+  }
+
+  /**
+   * Tarifas vigentes. TODA leitura do modulo passa por aqui.
+   *
+   * Felipe s44: "estou alterando para 110 a caixa em regras, mas sempre que
+   * reinicia o sistema ele volta para 100".
+   * CAUSA RAIZ: no boot o modulo chamava carregar() de imediato. Nesse
+   * instante o syncFromCloud ainda nao trouxe o scope 'frete' do Supabase,
+   * entao saved vinha null, o cache era preenchido com DEFAULTS (100) e o
+   * `if (_cache) return _cache` do carregar() impedia qualquer releitura.
+   * Quando o 110 finalmente chegava do banco, ninguem mais consultava — o
+   * valor certo ficava no storage e o sistema seguia cobrando 100.
+   * O salvar() nunca teve problema: o 110 estava gravado no Supabase.
+   *
+   * FIX: enquanto o cache for so' DEFAULTS, cada leitura tenta de novo o
+   * storage. Assim que o sync popula o scope, a proxima leitura ja pega o
+   * valor real e passa a servir do cache. Sem laco, sem timer, sem depender
+   * da ordem de carregamento dos modulos.
+   */
+  function _tarifas() {
+    if (_cache && _cacheDeSaved) return _cache;
+    const saved = _lerSalvo();
+    if (saved) {
+      _cache = mesclar(DEFAULTS, saved);
+      _cacheDeSaved = true;
+      return _cache;
+    }
+    if (!_cache) _cache = mesclar(DEFAULTS, null);
+    return _cache;
+  }
 
   /**
    * Carrega tarifas do kv_store (scope 'frete', key 'tarifas') e mescla
    * com defaults. Valores no storage tem prioridade.
    */
   async function carregar() {
-    if (_cache) return _cache;
-    let saved = null;
-    try {
-      // Felipe sessao 36: bug — usava window.store (inexistente), entao
-      // NUNCA lia o salvo e sempre caia no DEFAULT. O store autoritativo
-      // (que grava no Supabase e sobrevive ao syncFromCloud) e' o
-      // Storage.scope(...). Mesmo bug ja' corrigido antes no 12-orcamento.
-      if (typeof Storage !== 'undefined' && Storage.scope) {
-        saved = Storage.scope(STORAGE_SCOPE).get(STORAGE_KEY, null);
-      }
-    } catch (e) { /* sem store ainda, usa defaults */ }
-    _cache = mesclar(DEFAULTS, saved);
-    return _cache;
+    return _tarifas();
   }
 
   /**
@@ -180,6 +211,7 @@ const FreteTarifas = (() => {
    */
   async function salvar(tarifas) {
     _cache = mesclar(DEFAULTS, tarifas);
+    _cacheDeSaved = true;   // Felipe s44: valor editado pelo usuario e' definitivo
     // Felipe sessao 36: grava no store autoritativo (Storage.scope ->
     // Supabase kv_store scope 'frete'). Antes usava window.store
     // (inexistente) e nao salvava nada — por isso "sempre voltava".
@@ -229,7 +261,7 @@ const FreteTarifas = (() => {
    */
   function calcularLCL(m3, regiao, opcoes) {
     opcoes = opcoes || {};
-    const t = _cache || DEFAULTS;
+    const t = _tarifas();   // Felipe s44: revalida contra o storage
     const cbm = Math.max(0, Number(m3) || 0);
     const itens = [];
 
@@ -380,7 +412,7 @@ const FreteTarifas = (() => {
    * ali. Fonte unica: frete/tarifas.caixa_fumigada.preco_usd_m3.
    */
   function precoCaixaM3() {
-    const t = _cache || DEFAULTS;
+    const t = _tarifas();   // Felipe s44: revalida contra o storage
     const p = Number(t.caixa_fumigada && t.caixa_fumigada.preco_usd_m3);
     return (p > 0) ? p : 100;
   }
@@ -389,7 +421,7 @@ const FreteTarifas = (() => {
    * Frete terrestre Uberlandia -> Santos (USD).
    */
   function calcularFreteTerrestre() {
-    const t = _cache || DEFAULTS;
+    const t = _tarifas();   // Felipe s44: revalida contra o storage
     return (t.frete_terrestre && t.frete_terrestre.uberlandia_santos_usd) || 1800;
   }
 
@@ -401,7 +433,7 @@ const FreteTarifas = (() => {
    * default quando o campo nao e' um numero finito (NaN/null/undefined).
    */
   function seguroInfo() {
-    const t = _cache || DEFAULTS;
+    const t = _tarifas();   // Felipe s44: revalida contra o storage
     const s = (t && t.seguro) ? t.seguro : DEFAULTS.seguro;
     const perc = Number(s.percentual);
     const cob  = Number(s.cobertura);
@@ -457,7 +489,9 @@ const FreteTarifas = (() => {
 
   // Carrega de imediato em browser (assincrono, mas defaults ficam disponiveis)
   if (typeof window !== 'undefined') {
-    carregar().catch(() => { /* ja tem fallback _cache=DEFAULTS na proxima leitura */ });
+    // Felipe s44: nao trava mais nada. Se o sync ainda nao trouxe o scope
+    // 'frete', _tarifas() tenta de novo na proxima leitura.
+    carregar().catch(() => {});
   } else {
     _cache = JSON.parse(JSON.stringify(DEFAULTS)); // node env
   }
@@ -467,7 +501,7 @@ const FreteTarifas = (() => {
     carregar, salvar, defaults, regioes,
     calcularLCL, calcularCaixa, precoCaixaM3, calcularFreteTerrestre, calcularEmbalagem,
     calcularSeguro, seguroInfo,
-    _getCache: () => _cache || DEFAULTS,
+    _getCache: () => _tarifas(),
   };
 })();
 
