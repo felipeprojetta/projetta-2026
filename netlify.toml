@@ -13,6 +13,10 @@
 [build]
   command = "TIMESTAMP=$(date +%s) && sed -i \"s|?v=[0-9]*|?v=$TIMESTAMP|g\" index.html && echo \"Build cache-bust timestamp: $TIMESTAMP\""
   publish = "."
+  # Felipe s44: diretorio das funcoes de servidor. Primeira delas e' o
+  # whatsapp-webhook, que recebe as conversas da Meta. Sem esta linha o
+  # Netlify ignora a pasta e a URL /.netlify/functions/... da 404.
+  functions = "netlify/functions"
 
 [[headers]]
   for = "/index.html"
