@@ -350,7 +350,7 @@
     fecharDetalhe();
     var st = _normSt(getEnvios()[d.r]) || { enviado: false, por: '', retornou: false };
     function row(lab, val) { return '<div class="wkv-drow"><span class="wkv-dlab">' + esc(lab) + '</span><span class="wkv-dval">' + (val == null || val === '' ? '\u2014' : val) + '</span></div>'; }
-    var waBtn = temWa(d) ? ' <a class="wkv-mbtn" target="_blank" rel="noopener" href="https://wa.me/' + esc(d.wa) + '">Abrir WhatsApp</a>' : '';
+    var waBtn = temWa(d) ? ' <a class="wkv-mbtn wkv-wa-marca" target="_blank" rel="noopener" data-r="' + esc(d.r) + '" href="https://wa.me/' + esc(d.wa) + '">Abrir WhatsApp</a>' : '';
     var fone = (d.tel ? esc(d.tel) : '\u2014') + (d.wa ? ' <span class="wkv-loc">(' + esc(d.wa) + ')</span>' : '') + waBtn;
     var stTxt = (st.enviado ? ('\u2713 Enviada' + (st.por ? (' por ' + esc(st.por)) : '')) : 'N\u00e3o enviada') + ' \u00b7 ' + (st.retornou ? 'cliente retornou' : 'sem retorno');
     var body = ''
@@ -1012,7 +1012,7 @@
       var projHTML = cellProjettaHTML(d);
       var txt = encodeURIComponent(msg.replace(/\{nome\}/g, primeiro));
       var wa = temWa(d)
-        ? '<a class="wkv-ico wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(d.wa) + '?text=' + txt + '" title="WhatsApp">\u2706</a>'
+        ? '<a class="wkv-ico wa" target="_blank" rel="noopener" data-r="' + esc(d.r) + '" href="https://wa.me/' + esc(d.wa) + '?text=' + txt + '" title="WhatsApp">\u2706</a>'
         : '<span class="wkv-ico wa dis">\u2706</span>';
       var ml = (d.email && d.email.indexOf('@') > 0)
         ? '<button class="wkv-ico mail wkv-mail" data-r="' + esc(d.r) + '" title="Escrever email pra ' + esc(d.email) + '">\u2709</button>'
@@ -1285,6 +1285,30 @@
         return;
       }
       // marcar/desmarcar "Enviado"
+      // Felipe s44: clicar no WhatsApp ja' marca "Enviado" sozinho, igual
+      // ja' funcionava na aba Pedidos (funil). Antes o usuario abria a
+      // conversa e precisava lembrar de voltar e clicar em Enviado - na
+      // pratica a marcacao ficava pra tras e o mesmo cliente era abordado
+      // duas vezes.
+      // So' LIGA, nunca desliga: se ja' estava enviado, reabrir a conversa
+      // nao pode apagar a marcacao nem trocar quem enviou. O botao Enviado
+      // continua sendo o jeito de desmarcar na mao.
+      var waLink = ev.target.closest('a.wkv-ico.wa[data-r], a.wkv-wa-marca[data-r]');
+      if (waLink) {
+        var rw = waLink.getAttribute('data-r');
+        var cw = _normSt(getEnvios()[rw]);
+        if (!(cw && cw.enviado)) {
+          var pw = { enviado: true, enviadoTs: Date.now() };
+          if (!cw || !cw.por) { var uw = _currentUserName(); if (uw) pw.por = uw; }
+          marcarStatus(rw, pw);
+          // deixa o link abrir primeiro; so' entao redesenha a celula
+          setTimeout(function () {
+            var cel = document.querySelector('.wkv-stcell[data-r="' + rw + '"]');
+            if (cel) cel.innerHTML = cellStatusHTML(rw, getEnvios()[rw]);
+          }, 100);
+        }
+        return;
+      }
       var envBtn = ev.target.closest('.wkv-st-env');
       if (envBtn) {
         var re = envBtn.getAttribute('data-r');
