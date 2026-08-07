@@ -409,12 +409,6 @@
       var stat = ov.querySelector('#wkv-obs-status');
       if (!ta) return;
       marcarStatus(d.r, { obs: ta.value, obsTs: Date.now(), obsPor: _currentUserName() });
-      // mantem a textarea da TABELA em sincronia: sem isso, a coluna
-      // continuaria mostrando o texto antigo ate recarregar a pagina, e o
-      // proximo autosave da tabela sobrescreveria o que acabou de ser
-      // salvo aqui.
-      var taTab = document.querySelector('textarea.wkv-obs[data-r="' + d.r + '"]');
-      if (taTab) { taTab.value = ta.value; taTab.classList.add('salvo'); }
       if (stat) {
         stat.textContent = '\u2713 salvo';
         stat.style.color = '#16a34a';
@@ -849,10 +843,6 @@
       '.wkv-dobs-salvar{background:var(--wkv-tinta);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600}',
       '.wkv-dobs-salvar:hover{opacity:.9}',
       '.wkv-dobs-status{font-size:12px;font-weight:600}',
-      '.wkv-obscell{min-width:190px;vertical-align:middle}',
-      '.wkv-obs{width:100%;min-width:180px;box-sizing:border-box;border:1px solid var(--wkv-linha);border-radius:6px;padding:5px 7px;font-size:12px;font-family:inherit;color:#4a5160;resize:vertical;background:#FFFDF8}',
-      '.wkv-obs:focus{outline:none;border-color:var(--wkv-amb);background:#fff}',
-      '.wkv-obs.salvo{border-color:#15803d;background:#f0fdf4}',
       '.wkv-tstatus:focus{outline:none;border-color:#0f2c4c}',
       '.wkv-st-swa{font-size:10px;line-height:1.25;white-space:normal;text-align:left}',
       '.wkv-st-swa.on{background:#fee2e2;border-color:#dc2626;color:#b91c1c;font-weight:600}.wkv-st-swa.on:hover{color:#b91c1c}',
@@ -994,7 +984,6 @@
       + '        <th style="text-align:center">Projetta</th>'
       + '        <th style="text-align:center">Prospec\u00e7\u00e3o</th>'
       + '        <th style="text-align:center">Contato</th>'
-      + '        <th style="text-align:center">Observa\u00e7\u00f5es</th>'
       + '      </tr></thead><tbody id="wkv-tb"></tbody>'
       + '    </table></div>'
       + '  </div>'
@@ -1112,12 +1101,11 @@
         + ' <button class="wkv-rmv" data-r="' + esc(d.r) + '" title="Remover (opt-out)">\u2715</button>'
         + (d.tel ? '<div class="wkv-fone">' + esc(d.tel) + '</div>' : '')
         + '</td>'
-        // Felipe s38: coluna de observacoes, ultima a direita.
-        + '<td class="wkv-obscell">'
-        +   '<textarea class="wkv-obs" data-r="' + esc(d.r) + '" rows="2"'
-        +     ' title="Anotacao livre sobre este cliente. Salva sozinho e aparece pra todo mundo.">'
-        +     esc((envios[d.r] && envios[d.r].obs) || '') + '</textarea>'
-        + '</td>'
+        // Felipe s44: a coluna de Observacoes saiu da tabela. A anotacao
+        // agora vive DENTRO do card do cliente (bloco .wkv-dobs em
+        // abrirDetalhe), igual a aba funil. Na tabela ela ocupava uma
+        // coluna larga em todas as linhas so' pra ficar quase sempre
+        // vazia. O DADO e' o mesmo (envios[r].obs) e continua no export.
         + '</tr>';
     }).join('');
 
@@ -1207,32 +1195,10 @@
       });
     })();
 
-    // Felipe s38: observacoes por cliente. Salva com debounce enquanto
-    // digita (nao no blur), porque a tabela re-renderiza sozinha em varias
-    // acoes — se dependesse do blur, a anotacao se perderia calada. O
-    // listener e' delegado no container: as linhas sao recriadas a cada
-    // render e um listener por textarea seria perdido junto.
-    (function () {
-      var debObs = {};
-      container.addEventListener('input', function (ev) {
-        var ta = ev.target;
-        if (!ta || !ta.classList || !ta.classList.contains('wkv-obs')) return;
-        var r = ta.getAttribute('data-r');
-        if (!r) return;
-        clearTimeout(debObs[r]);
-        debObs[r] = setTimeout(function () {
-          marcarStatus(r, { obs: ta.value });
-          ta.classList.add('salvo');
-          setTimeout(function () { ta.classList.remove('salvo'); }, 900);
-        }, 500);
-      });
-      // digitar na observacao nao pode disparar o clique dos botoes da linha
-      container.addEventListener('click', function (ev) {
-        if (ev.target && ev.target.classList && ev.target.classList.contains('wkv-obs')) {
-          ev.stopPropagation();
-        }
-      }, true);
-    })();
+    // Felipe s44: o autosave da textarea da TABELA foi removido junto com
+    // a coluna - sem elemento .wkv-obs na tela ele nunca dispararia. A
+    // gravacao da observacao agora e' pelo botao "Salvar observacao" do
+    // card (abrirDetalhe).
 
     // Felipe s38: filtro por status da prospeccao.
     (function () {
