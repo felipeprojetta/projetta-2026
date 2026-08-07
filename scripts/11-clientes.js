@@ -226,6 +226,7 @@
         'orcamento-aprovado': 'Orcamento Aprovado',
         'orcamento-enviado': 'Orcamento Enviado',
         'negociacao': 'Negociacao',
+        'super-quente': '🔥 Super Quente',
         'fechado': 'Fechado',
         'perdido': 'Perdido',
       };

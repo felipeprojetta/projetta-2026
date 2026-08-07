@@ -80,6 +80,11 @@
       // { id: 'orcamento-aprovado',  label: 'Orcamento Aprovado',  color: '#06B6D4' },
       { id: 'orcamento-enviado',   label: 'Orcamento Enviado',   color: '#F59E0B' },
       { id: 'negociacao',          label: 'Negociacao',           color: '#EAB308' },
+      // Felipe sessao 44: etapa entre Negociacao e Fechado pro lead que
+      // esta quente de verdade (cliente decidindo, so' falta assinar).
+      // Herda TODAS as regras de Negociacao: entra nos totais, no Valor
+      // Gerado, nos relatorios de representante e congela a versao.
+      { id: 'super-quente',        label: '🔥 Super Quente',      color: '#F97316' },
       { id: 'fechado',             label: 'Fechado',              color: '#10B981' },
       { id: 'perdido',             label: 'Perdido',              color: '#EF4444' },
     ];
@@ -1024,7 +1029,7 @@
                 // etapa for orcamento-pronto+, o valor real vem do DRE
                 // via botao "Aprovar Orcamento" (que empurra pro lead).
                 const editando = m.editandoId !== null;
-                const etapaPermiteValor = ['orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'fechado'].includes(m.etapa);
+                const etapaPermiteValor = ['orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'super-quente', 'fechado'].includes(m.etapa);
                 const mostrarValor = editando && etapaPermiteValor;
                 return `
                 <div class="crm-form-row${mostrarValor ? '' : ' cols-1'}">
@@ -2343,7 +2348,7 @@
           // Felipe (sessao atual): ao mover pra "Orcamento Enviado" (ou
           // Negociacao), congela a versao enviada (enviadaEm + dre_congelado).
           if (etapaAntiga !== etapaNova &&
-              (etapaNova === 'orcamento-enviado' || etapaNova === 'negociacao')) {
+              (etapaNova === 'orcamento-enviado' || etapaNova === 'negociacao' || etapaNova === 'super-quente')) {
             try {
               if (window.Orcamento && window.Orcamento.congelarVersaoEnviadaDoLead) {
                 window.Orcamento.congelarVersaoEnviadaDoLead(lead.id);
@@ -2886,7 +2891,7 @@
     function somarGeradoNoAno(leadsBase, ano) {
       // Felipe sessao 35: perdidos TAMBEM contam — fazem parte dos orcamentos
       // gerados (e dos leads) no ano, mesmo perdidos.
-      const ETAPAS_GERADO = ['orcamento-enviado', 'negociacao', 'fechado', 'perdido'];
+      const ETAPAS_GERADO = ['orcamento-enviado', 'negociacao', 'super-quente', 'fechado', 'perdido'];
       const anoNum = Number(ano);
       let total = 0;
       let count = 0;
@@ -3016,6 +3021,7 @@
         { id: 'orcamento-pronto', label: 'Orcamento Pronto',          cor: '#8B5CF6' },
         { id: 'orcamento-enviado',label: 'Orcamento Enviado',         cor: '#F59E0B' },
         { id: 'negociacao',       label: 'Em Negociacao',             cor: '#EAB308' },
+        { id: 'super-quente',     label: '🔥 Super Quente',            cor: '#F97316' },
       ];
 
       // Filtra leads do rep selecionado nas etapas em aberto
@@ -3322,6 +3328,7 @@ Equipe Comercial Projetta`;
         { id: 'orcamento-pronto', label: 'Orcamento Pronto',          cor: '#8B5CF6' },
         { id: 'orcamento-enviado',label: 'Orcamento Enviado',         cor: '#F59E0B' },
         { id: 'negociacao',       label: 'Em Negociacao',             cor: '#EAB308' },
+        { id: 'super-quente',     label: '🔥 Super Quente',            cor: '#F97316' },
       ];
       const leadsRep = state.leads.filter(l =>
         (l.representante_followup || '') === repKey
@@ -3599,7 +3606,7 @@ ${secoesHtml}
           // Versao/Gerar Documentos nao fazem sentido apos fechamento).
           // Felipe s43: 'podemos fazer orcamento ali' — Entrada Manual tem os
           // mesmos botoes de orcamento do fazer-orcamento.
-          const etapasComBotao = ['entrada-manual', 'fazer-orcamento', 'orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'fechado', 'perdido'];
+          const etapasComBotao = ['entrada-manual', 'fazer-orcamento', 'orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'super-quente', 'fechado', 'perdido'];
           const mostraBtnOrc = etapasComBotao.includes(l.etapa);
           // Felipe sessao 18: fechado mostra SO o botao Abrir Orcamento.
           // Felipe sessao 36: card 'perdido' tambem deve mostrar o botao de
@@ -5785,7 +5792,7 @@ ${secoesHtml}
           // Negociacao), congela a versao enviada — valores travam (enviadaEm
           // + dre_congelado). So' Nova Versao destrava. Best-effort.
           if (lead.etapa !== novaEtapa &&
-              (novaEtapa === 'orcamento-enviado' || novaEtapa === 'negociacao')) {
+              (novaEtapa === 'orcamento-enviado' || novaEtapa === 'negociacao' || novaEtapa === 'super-quente')) {
             try {
               if (window.Orcamento && window.Orcamento.congelarVersaoEnviadaDoLead) {
                 window.Orcamento.congelarVersaoEnviadaDoLead(lead.id);

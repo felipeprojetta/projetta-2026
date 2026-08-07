@@ -436,7 +436,7 @@ const Database = (() => {
       } catch (_eL) {}
       function _leadEnviado(neg) {
         var e = etapaPorLead[neg && neg.leadId];
-        return e === 'orcamento-enviado' || e === 'negociacao' || e === 'fechado';
+        return e === 'orcamento-enviado' || e === 'negociacao' || e === 'super-quente' || e === 'fechado';
       }
 
       // Clona local pra modificar em segurança

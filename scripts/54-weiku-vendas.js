@@ -450,7 +450,7 @@
     };
   }
   function stageCurto(e){
-    var m={'fazer-orcamento':'A orçar','orcamento-pronto':'Orç. pronto','orcamento-enviado':'Orç. enviado','negociacao':'Negociação','fechado':'Fechado','perdido':'Perdido'};
+    var m={'fazer-orcamento':'A orçar','orcamento-pronto':'Orç. pronto','orcamento-enviado':'Orç. enviado','negociacao':'Negociação','super-quente':'🔥 Super quente','fechado':'Fechado','perdido':'Perdido'};
     return m[e]||e||'\u2713';
   }
 

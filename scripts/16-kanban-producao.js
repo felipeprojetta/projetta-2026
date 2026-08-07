@@ -1231,7 +1231,7 @@
                 // etapa for orcamento-pronto+, o valor real vem do DRE
                 // via botao "Aprovar Orcamento" (que empurra pro lead).
                 const editando = m.editandoId !== null;
-                const etapaPermiteValor = ['orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'fechado'].includes(m.etapa);
+                const etapaPermiteValor = ['orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'super-quente', 'fechado'].includes(m.etapa);
                 const mostrarValor = editando && etapaPermiteValor;
                 return `
                 <div class="kprod-form-row${mostrarValor ? '' : ' cols-1'}">
@@ -2546,7 +2546,7 @@
             ? (l.destinoPais ? `🌎 ${escapeHtml(l.destinoPais)}` : '🌎 Internacional')
             : '';
           // Botao "Montar Orcamento" so aparece a partir da etapa "Fazer Orcamento"
-          const etapasComBotao = ['fazer-orcamento', 'orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao'];
+          const etapasComBotao = ['fazer-orcamento', 'orcamento-pronto', 'orcamento-aprovado', 'orcamento-enviado', 'negociacao', 'super-quente'];
           const mostraBtnOrc = etapasComBotao.includes(l.etapa);
           // Reserva: sempre que existir, em qualquer etapa
           const reservaLabel = l.numeroReserva
