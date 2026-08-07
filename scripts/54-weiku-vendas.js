@@ -211,6 +211,12 @@
       jaComprouProjettaTs: e.jaComprouProjettaTs || e.jaComprouTs || null,
       jaComprouOutra: e.jaComprouOutra === true,
       jaComprouOutraTs: e.jaComprouOutraTs || null,
+      // Felipe s44: "coloque o campo fora de padrao nas duas abas".
+      // Obra/esquadria que nao se encaixa no que a Projetta fabrica.
+      // Separado de "sem interesse", que e' recusa do CLIENTE — aqui quem
+      // descarta e' a Projetta.
+      foraPadrao: e.foraPadrao === true,
+      foraPadraoTs: e.foraPadraoTs || null,
       // Felipe s38: "coloque botao sem retorno". Antes so' dava pra marcar
       // que o cliente RESPONDEU — quem nao respondeu ficava igual a quem
       // ainda nem foi contatado, e nao dava pra separar "enviei e nao
@@ -254,7 +260,8 @@
   function cellStatusHTML(r, raw) {
     var s = _normSt(raw) || { enviado: false, por: '', retornou: false, semRetorno: false,
       semInteresse: false, semWa: false, demonstrouInteresse: false,
-      jaOrcadoProjetta: false, jaComprouProjetta: false, jaComprouOutra: false };
+      jaOrcadoProjetta: false, jaComprouProjetta: false, jaComprouOutra: false,
+      foraPadrao: false };
     // Felipe s44: estrutura identica a da aba Pedidos (funil) — linha do
     // Enviado com o nome de quem enviou, e os 8 demais em grade 2x4.
     function b(cls, on, lbl, lblOn, titulo) {
@@ -280,6 +287,7 @@
       +   b('orc',  s.jaOrcadoProjetta,    'Ja orcado Projetta', '\u2713 Orcado Projetta', 'Ja existe orcamento da Projetta pra esse cliente')
       +   b('cmpp', s.jaComprouProjetta,   'Ja comprou Projetta', '\u2714 Comprou Projetta', 'Cliente que ja comprou da Projetta. Marcado, sai da prospeccao.')
       +   b('cmpo', s.jaComprouOutra,      'Ja comprou outra', '\u2714 Comprou outra', 'Ja comprou porta de outra marca — perdeu a janela de venda.')
+      +   b('fpad', s.foraPadrao,          'Fora de padrao', '\u26a0 Fora de padrao', 'Obra ou esquadria fora do padrao que a Projetta fabrica. Sai da fila de prospeccao.')
       + '</div>'
       + '</div>';
   }
@@ -571,6 +579,7 @@
           case 'sem_interesse': _ok = !!_s.semInteresse; break;
           case 'ja_comprou':    _ok = !!_s.jaComprouProjetta; break;
           case 'comprou_outra': _ok = !!_s.jaComprouOutra;    break;
+          case 'fora_padrao':   _ok = !!_s.foraPadrao;         break;
           case 'demonstrou':    _ok = !!_s.demonstrouInteresse; break;
           case 'ja_orcado':     _ok = !!_s.jaOrcadoProjetta;  break;
           case 'sem_wa':        _ok = !!_s.semWa;        break;
@@ -582,7 +591,8 @@
           case 'aguardando':    _ok = !!_s.enviado && !_s.retornou
                                       && !_s.semRetorno && !_s.semInteresse
                                       && !_s.demonstrouInteresse
-                                      && !_s.jaComprouProjetta && !_s.jaComprouOutra; break;
+                                      && !_s.jaComprouProjetta && !_s.jaComprouOutra
+                                      && !_s.foraPadrao; break;
           default:              _ok = true;
         }
         if (!_ok) return false;
@@ -825,6 +835,7 @@
       '.wkv-st-orc.on{background:#6d28d9;border-color:#5b21b6;color:#fff;font-weight:600}.wkv-st-orc.on:hover{color:#fff}',
       '.wkv-st-cmpp.on{background:#0f3f5f;border-color:#0f3f5f;color:#fff;font-weight:600}.wkv-st-cmpp.on:hover{color:#fff}',
       '.wkv-st-cmpo.on{background:#7c2d12;border-color:#7c2d12;color:#fff;font-weight:600}.wkv-st-cmpo.on:hover{color:#fff}',
+      '.wkv-st-fpad.on{background:#b45309;border-color:#92400e;color:#fff;font-weight:700}.wkv-st-fpad.on:hover{color:#fff;background:#92400e}',
       '.wkv-st-ret.on{background:#dbeafe;border-color:#2563eb;color:#1d4ed8}.wkv-st-ret.on:hover{color:#1d4ed8}',
       '.wkv-st-cmp.on{background:#0f3f5f;border-color:#0f3f5f;color:#fff;font-weight:600}.wkv-st-cmp.on:hover{color:#fff}',
       '.wkv-tbusca{margin-left:auto;padding:6px 10px;border:1px solid var(--wkv-linha);border-radius:7px;font:inherit;font-size:13px;min-width:230px}',
@@ -963,6 +974,7 @@
             ['ja_orcado',     'Ja orcado Projetta'],
             ['ja_comprou',    'Ja comprou Projetta'],
             ['comprou_outra', 'Ja comprou outra'],
+            ['fora_padrao',   '\u26a0 Fora de padrao'],
             ['sem_wa',        'Sem WhatsApp'],
           ];
           return opts.map(function (o) {
@@ -1123,14 +1135,14 @@
   function exportarCSV() {
     var lista = aplicarFiltro().sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
     var envios = getEnvios();
-    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa', 'Msg Enviada', 'Enviada Por', 'Cliente Retornou', 'Sem Retorno', 'Sem Interesse', 'Observacoes'];
+    var cols = ['Reserva', 'Nome', 'Cidade', 'UF', 'Tipo', 'Pavimentos', 'Esquadrias', 'Valor Aprovado', 'Representante', 'Data Orcamento', 'WhatsApp', 'Email', 'Projetta AGP', 'Projetta Reserva', 'Projetta Etapa', 'Msg Enviada', 'Enviada Por', 'Cliente Retornou', 'Sem Retorno', 'Sem Interesse', 'Fora de Padrao', 'Observacoes'];
     var linhas = lista.map(function (d) {
       var p = resolveProjetta(d);
       var pAgp = p ? p.agp : '';
       var pRes = p ? p.res : '';
       var pEt  = p ? stageCurto(p.etapa) : '';
       var st = _normSt(envios[d.r]) || { enviado: false, por: '', retornou: false };
-      return [d.r, tituloCase(d.nome), d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? "Sim" : "Nao"), st.por, (st.retornou ? "Sim" : "Nao"), (st.semRetorno ? "Sim" : "Nao"), (st.semInteresse ? "Sim" : "Nao"), (st.obs || "")]
+      return [d.r, tituloCase(d.nome), d.cidade, d.uf, d.tipo, d.pav, d.esq, d.v, d.rep, d.data, d.wa, d.email, pAgp, pRes, pEt, (st.enviado ? "Sim" : "Nao"), st.por, (st.retornou ? "Sim" : "Nao"), (st.semRetorno ? "Sim" : "Nao"), (st.semInteresse ? "Sim" : "Nao"), (st.foraPadrao ? "Sim" : "Nao"), (st.obs || "")]
         .map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';');
     });
     var csv = '\ufeff' + [cols.join(';')].concat(linhas).join('\r\n');
@@ -1422,6 +1434,7 @@
         ['.wkv-st-orc',  'jaOrcadoProjetta',    'jaOrcadoProjettaTs'],
         ['.wkv-st-cmpp', 'jaComprouProjetta',   'jaComprouProjettaTs'],
         ['.wkv-st-cmpo', 'jaComprouOutra',      'jaComprouOutraTs'],
+        ['.wkv-st-fpad', 'foraPadrao',          'foraPadraoTs'],
       ];
       for (var _i = 0; _i < _mapaSt.length; _i++) {
         var _btn = ev.target.closest(_mapaSt[_i][0]);

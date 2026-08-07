@@ -124,7 +124,7 @@
   function marcarStatus(id, patch) {
     var m = getEnvios();
     var cur = m[id] || { enviado: false, por: '', retornou: false, semRetorno: false,
-                         semInteresse: false, demonstrouInteresse: false, semWhats: false, jaOrcadoProjetta: false, jaComprouProjetta: false, jaComprouOutra: false, obs: '' };
+                         semInteresse: false, demonstrouInteresse: false, semWhats: false, jaOrcadoProjetta: false, jaComprouProjetta: false, jaComprouOutra: false, foraPadrao: false, obs: '' };
     for (var k in patch) cur[k] = patch[k];
     m[id] = cur;
     window.Storage.scope(SCOPE).set('envios', m);
@@ -251,9 +251,14 @@
             case 'comprou_outra':    return !!_s.jaComprouOutra;
             case 'orcado_projetta':  return !!_s.jaOrcadoProjetta;
             case 'sem_whats':        return !!_s.semWhats;
+            case 'fora_padrao':      return !!_s.foraPadrao;
+            // Felipe s44: fora de padrao tambem e' desfecho — sai da fila
+            // de follow up, senao continuaria aparecendo como "aguardando
+            // resposta" pra sempre.
             case 'aguardando':       return !!_s.enviado && !_s.retornou && !_s.semRetorno
                                           && !_s.semInteresse && !_s.jaComprouProjetta
-                                          && !_s.jaComprouOutra && !_s.jaComprou;
+                                          && !_s.jaComprouOutra && !_s.jaComprou
+                                          && !_s.foraPadrao;
             default: return true;
           }
         }
@@ -585,7 +590,8 @@
       ['nao_enviado','Ainda nao enviado'],['enviado','Enviado'],['retornou','Retornou'],
       ['sem_retorno','Sem retorno'],['demonstrou','\u2605 Demonstrou interesse'],['sem_interesse','Sem interesse'],
       ['ja_comprou','Ja comprou (qualquer)'],['comprou_projetta','\u2713 Comprou Projetta'],['comprou_outra','\u2713 Comprou outra'],
-      ['orcado_projetta','\u2713 Ja orcado Projetta'],['sem_whats','Sem WhatsApp']];
+      ['orcado_projetta','\u2713 Ja orcado Projetta'],['sem_whats','Sem WhatsApp'],
+      ['fora_padrao','\u26a0 Fora de padrao']];
     return '<select id="'+id+'" class="wkp-sel" style="min-width:180px">'
       + opts.map(function(o){ return '<option value="'+o[0]+'"'+(valorAtual===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')
       + '</select>';
@@ -623,6 +629,11 @@
       +   b('orc', s.jaOrcadoProjetta, 'Ja orcado Projetta', '\u2713 Orcado Projetta')
       +   b('cmpp', s.jaComprouProjetta, 'Ja comprou Projetta', '\u2713 Comprou Projetta')
       +   b('cmpo', s.jaComprouOutra, 'Ja comprou outra', '\u2713 Comprou outra')
+      // Felipe s44: "coloque o campo fora de padrao nas duas abas".
+      //   obra/esquadria que nao se encaixa no que a Projetta fabrica —
+      //   serve pra tirar da fila de prospeccao sem confundir com
+      //   "sem interesse" (que e' recusa do cliente).
+      +   b('fpad', s.foraPadrao, 'Fora de padrao', '\u26a0 Fora de padrao')
       + '</div>'
       + '</div>';
   }
@@ -825,7 +836,8 @@
       // botoes de status
       var mapa = [['.wkp-st.env','enviado'],['.wkp-st.ret','retornou'],['.wkp-st.srt','semRetorno'],
                   ['.wkp-st.sin','semInteresse'],['.wkp-st.dem','demonstrouInteresse'],['.wkp-st.swa','semWhats'],['.wkp-st.orc','jaOrcadoProjetta'],
-                  ['.wkp-st.cmpp','jaComprouProjetta'],['.wkp-st.cmpo','jaComprouOutra']];
+                  ['.wkp-st.cmpp','jaComprouProjetta'],['.wkp-st.cmpo','jaComprouOutra'],
+                  ['.wkp-st.fpad','foraPadrao']];
       for (var i=0;i<mapa.length;i++){
         var b = ev.target.closest && ev.target.closest(mapa[i][0]);
         if (!b) continue;
@@ -964,6 +976,9 @@
       '.wkp-st.orc.on{background:#6d28d9;border-color:#5b21b6;color:#fff;font-weight:600}.wkp-st.orc.on:hover{color:#fff}',
       '.wkp-st.cmpp.on{background:#0f3f5f;border-color:#0f3f5f;color:#fff;font-weight:600}.wkp-st.cmpp.on:hover{color:#fff}',
       '.wkp-st.cmpo.on{background:#7c2d12;border-color:#7c2d12;color:#fff;font-weight:600}.wkp-st.cmpo.on:hover{color:#fff}',
+      // Felipe s44: fora de padrao — ambar, pra nao confundir com os
+      // desfechos de venda (azul/verde) nem com as recusas (marrom/cinza)
+      '.wkp-st.fpad.on{background:#b45309;border-color:#92400e;color:#fff;font-weight:700}.wkp-st.fpad.on:hover{color:#fff;background:#92400e}',
       '.wkp-por{font:inherit;font-size:11px;color:#4a5160;padding:2px 6px;border:1px solid var(--l);border-radius:6px;background:#fff}',
       '.wkp-ico{width:30px;height:30px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;border:1px solid var(--l);background:#fff;cursor:pointer}',
       '.wkp-ico.wa{color:#25D366;border-color:#cdebd6}.wkp-ico.wa:hover{background:#25D366;color:#fff}',
