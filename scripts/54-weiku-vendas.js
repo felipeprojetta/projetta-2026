@@ -195,6 +195,22 @@
       // de novo dias depois.
       semWa: e.semWa === true,
       semWaTs: e.semWaTs || null,
+      // Felipe s44: "nao esta igual" — os Fechados tinham 5 botoes e o
+      // funil 9. Estes 4 vieram da aba Pedidos pra as duas telas ficarem
+      // iguais. Registro antigo simplesmente nao tem os campos e cai em
+      // false, sem quebrar nada.
+      demonstrouInteresse: e.demonstrouInteresse === true,
+      demonstrouInteresseTs: e.demonstrouInteresseTs || null,
+      jaOrcadoProjetta: e.jaOrcadoProjetta === true,
+      jaOrcadoProjettaTs: e.jaOrcadoProjettaTs || null,
+      // "Ja comprou" era um botao so'. Agora separa Projetta de outra
+      // marca. COMPATIBILIDADE: quem ja tinha o antigo jaComprou marcado
+      // aparece como "Ja comprou Projetta" ligado — era esse o sentido
+      // do botao original ("ja comprou da Projetta fora do CRM").
+      jaComprouProjetta: (e.jaComprouProjetta === true) || (e.jaComprou === true),
+      jaComprouProjettaTs: e.jaComprouProjettaTs || e.jaComprouTs || null,
+      jaComprouOutra: e.jaComprouOutra === true,
+      jaComprouOutraTs: e.jaComprouOutraTs || null,
       // Felipe s38: "coloque botao sem retorno". Antes so' dava pra marcar
       // que o cliente RESPONDEU — quem nao respondeu ficava igual a quem
       // ainda nem foi contatado, e nao dava pra separar "enviei e nao
@@ -236,38 +252,38 @@
     } catch (_) { return ''; }
   }
   function cellStatusHTML(r, raw) {
-    var s = _normSt(raw) || { enviado: false, por: '', retornou: false, jaComprou: false, semWa: false, semRetorno: false, semInteresse: false };
-    var envCls = 'wkv-st wkv-st-env' + (s.enviado ? ' on' : '');
-    var retCls = 'wkv-st wkv-st-ret' + (s.retornou ? ' on' : '');
-    var cmpCls = 'wkv-st wkv-st-cmp' + (s.jaComprou ? ' on' : '');
-    var srtCls = 'wkv-st wkv-st-srt' + (s.semRetorno ? ' on' : '');
-    var sinCls = 'wkv-st wkv-st-sin' + (s.semInteresse ? ' on' : '');
-    // Felipe s42: "retire esse quem, quero os dois igual a segunda imagem".
-    // O seletor manual saiu. A informacao de QUEM enviou nao se perde: o
-    // botao Enviado ja' carimba o usuario logado (_currentUserName), e o
-    // nome aparece como etiqueta discreta ao lado, mesmo padrao da aba
-    // Pedidos. Registro que ja' existe em envios[].por continua sendo
-    // exibido normalmente.
+    var s = _normSt(raw) || { enviado: false, por: '', retornou: false, semRetorno: false,
+      semInteresse: false, semWa: false, demonstrouInteresse: false,
+      jaOrcadoProjetta: false, jaComprouProjetta: false, jaComprouOutra: false };
+    // Felipe s44: estrutura identica a da aba Pedidos (funil) — linha do
+    // Enviado com o nome de quem enviou, e os 8 demais em grade 2x4.
+    function b(cls, on, lbl, lblOn, titulo) {
+      return '<button class="wkv-st wkv-st-' + cls + (on ? ' on' : '') + '"'
+           + ' data-r="' + esc(r) + '"'
+           + (titulo ? ' title="' + esc(titulo) + '"' : '') + '>'
+           + (on ? lblOn : lbl) + '</button>';
+    }
     var sel = s.por
       ? '<span class="wkv-por">' + esc(String(s.por).split(' ')[0]) + '</span>'
       : '';
     return '<div class="wkv-stwrap">'
       + '<div class="wkv-strow">'
-      + '<button class="' + envCls + '" data-r="' + esc(r) + '" title="Marcar que a mensagem ja foi enviada">' + (s.enviado ? '\u2713 Enviado' : 'Enviado') + '</button>'
-      + sel
+      +   b('env', s.enviado, 'Enviado', '\u2713 Enviado', 'Marcar que a mensagem ja foi enviada')
+      +   sel
       + '</div>'
-      + '<button class="' + retCls + '" data-r="' + esc(r) + '" title="Marcar que o cliente respondeu">' + (s.retornou ? '\u21a9 Retornou' : 'Retornou') + '</button>'
-      + '<button class="' + srtCls + '" data-r="' + esc(r) + '" title="Mensagem enviada e o cliente nao respondeu. Serve pra separar quem nao voltou de quem ainda nao foi contatado.">' + (s.semRetorno ? '\u2205 Sem retorno' : 'Sem retorno') + '</button>'
-      + '<button class="' + sinCls + '" data-r="' + esc(r) + '" title="Cliente respondeu e recusou — nao tem interesse na proposta.">' + (s.semInteresse ? '\u2716 Sem interesse' : 'Sem interesse') + '</button>'
-      + '<button class="' + cmpCls + '" data-r="' + esc(r) + '" title="Cliente antigo que ja comprou da Projetta fora do CRM. Marcado, sai da prospeccao.">' + (s.jaComprou ? '\u2714 Ja comprou' : 'Ja comprou') + '</button>'
-      // Felipe s42: "retire esse vermelho". O botao 'Numero nao cadastrado
-      // no WhatsApp' saiu da tela — era o unico com fundo vermelho e
-      // quebrava o padrao visual das outras pilulas. O campo semWa
-      // CONTINUA no modelo, no filtro por status e no export: quem ja'
-      // marcou nao perde a marcacao, e o filtro 'Sem WhatsApp' segue
-      // funcionando. So' deixou de ter botao pra marcar na tabela.
+      + '<div class="wkv-stgrid">'
+      +   b('ret',  s.retornou,            'Retornou', '\u21a9 Retornou', 'Cliente respondeu, conversa em aberto')
+      +   b('dem',  s.demonstrouInteresse, 'Demonstrou interesse', '\u2605 Demonstrou interesse', 'Respondeu e demonstrou interesse real na proposta')
+      +   b('srt',  s.semRetorno,          'Sem retorno', '\u2205 Sem retorno', 'Mensagem enviada e o cliente nao respondeu')
+      +   b('sin',  s.semInteresse,        'Sem interesse', '\u2716 Sem interesse', 'Cliente respondeu e recusou')
+      +   b('swa',  s.semWa,               'Sem WhatsApp', '\u2298 Sem WhatsApp', 'O numero nao tem conta no WhatsApp')
+      +   b('orc',  s.jaOrcadoProjetta,    'Ja orcado Projetta', '\u2713 Orcado Projetta', 'Ja existe orcamento da Projetta pra esse cliente')
+      +   b('cmpp', s.jaComprouProjetta,   'Ja comprou Projetta', '\u2714 Comprou Projetta', 'Cliente que ja comprou da Projetta. Marcado, sai da prospeccao.')
+      +   b('cmpo', s.jaComprouOutra,      'Ja comprou outra', '\u2714 Comprou outra', 'Ja comprou porta de outra marca — perdeu a janela de venda.')
+      + '</div>'
       + '</div>';
   }
+
   function _refreshStatusCell(el, r) {
     var td = el.closest ? el.closest('.wkv-stcell') : null;
     if (td) td.innerHTML = cellStatusHTML(r, getEnvios()[r]);
@@ -527,13 +543,20 @@
           case 'retornou':      _ok = !!_s.retornou;     break;
           case 'sem_retorno':   _ok = !!_s.semRetorno;   break;
           case 'sem_interesse': _ok = !!_s.semInteresse; break;
-          case 'ja_comprou':    _ok = !!_s.jaComprou;    break;
+          case 'ja_comprou':    _ok = !!_s.jaComprouProjetta; break;
+          case 'comprou_outra': _ok = !!_s.jaComprouOutra;    break;
+          case 'demonstrou':    _ok = !!_s.demonstrouInteresse; break;
+          case 'ja_orcado':     _ok = !!_s.jaOrcadoProjetta;  break;
           case 'sem_wa':        _ok = !!_s.semWa;        break;
           // enviado ha tempo e ainda sem nenhum desfecho anotado — a
           // fila real de follow up, que era o dado mais dificil de achar
+          // Felipe s44: os desfechos novos tambem tiram o cliente da fila
+          // de follow up — se ja demonstrou interesse ou ja comprou de
+          // outra marca, nao esta mais "aguardando resposta".
           case 'aguardando':    _ok = !!_s.enviado && !_s.retornou
                                       && !_s.semRetorno && !_s.semInteresse
-                                      && !_s.jaComprou; break;
+                                      && !_s.demonstrouInteresse
+                                      && !_s.jaComprouProjetta && !_s.jaComprouOutra; break;
           default:              _ok = true;
         }
         if (!_ok) return false;
@@ -763,9 +786,19 @@
       '.wkv-stwrap{display:flex;flex-direction:column;gap:4px;align-items:center}',
       '.wkv-por{font:inherit;font-size:11px;color:#4a5160;padding:2px 7px;border:1px solid var(--wkv-linha);border-radius:6px;background:#fff;white-space:nowrap}',
       '.wkv-strow{display:flex;gap:4px;align-items:center;justify-content:center}',
+      // Felipe s44: grade 2 colunas igual a aba Pedidos (funil)
+      '.wkv-stgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px;justify-items:stretch;width:100%}',
+      '.wkv-stgrid .wkv-st{width:100%;text-align:center}',
       '.wkv-st{font:inherit;font-size:11px;font-weight:600;padding:3px 9px;border:1px solid var(--wkv-linha);border-radius:999px;background:#fff;color:var(--wkv-cinza2);cursor:pointer;white-space:nowrap;line-height:1.4}',
       '.wkv-st:hover{border-color:var(--wkv-teal);color:var(--wkv-teal)}',
       '.wkv-st-env.on{background:#dcfce7;border-color:#16a34a;color:#15803d}.wkv-st-env.on:hover{color:#15803d}',
+      // Felipe s44: cores identicas as da aba Pedidos, pra mesma marcacao
+      // ter a mesma cor nas duas telas
+      '.wkv-st-dem.on{background:#16a34a;border-color:#15803d;color:#fff;font-weight:700}.wkv-st-dem.on:hover{color:#fff;background:#15803d}',
+      '.wkv-st-swa.on{background:#64748b;border-color:#475569;color:#fff;font-weight:600}.wkv-st-swa.on:hover{color:#fff}',
+      '.wkv-st-orc.on{background:#6d28d9;border-color:#5b21b6;color:#fff;font-weight:600}.wkv-st-orc.on:hover{color:#fff}',
+      '.wkv-st-cmpp.on{background:#0f3f5f;border-color:#0f3f5f;color:#fff;font-weight:600}.wkv-st-cmpp.on:hover{color:#fff}',
+      '.wkv-st-cmpo.on{background:#7c2d12;border-color:#7c2d12;color:#fff;font-weight:600}.wkv-st-cmpo.on:hover{color:#fff}',
       '.wkv-st-ret.on{background:#dbeafe;border-color:#2563eb;color:#1d4ed8}.wkv-st-ret.on:hover{color:#1d4ed8}',
       '.wkv-st-cmp.on{background:#0f3f5f;border-color:#0f3f5f;color:#fff;font-weight:600}.wkv-st-cmp.on:hover{color:#fff}',
       '.wkv-tbusca{margin-left:auto;padding:6px 10px;border:1px solid var(--wkv-linha);border-radius:7px;font:inherit;font-size:13px;min-width:230px}',
@@ -895,7 +928,10 @@
             ['retornou',      'Retornou'],
             ['sem_retorno',   'Sem retorno'],
             ['sem_interesse', 'Sem interesse'],
-            ['ja_comprou',    'Ja comprou'],
+            ['demonstrou',    'Demonstrou interesse'],
+            ['ja_orcado',     'Ja orcado Projetta'],
+            ['ja_comprou',    'Ja comprou Projetta'],
+            ['comprou_outra', 'Ja comprou outra'],
             ['sem_wa',        'Sem WhatsApp'],
           ];
           return opts.map(function (o) {
@@ -1368,15 +1404,37 @@
         _refreshStatusCell(srtBtn, rs);
         return;
       }
-      // Felipe s37: "ja comprou" manual — cliente antigo que comprou da
-      // Projetta fora do CRM. Marca e sai da prospeccao.
-      var cmpBtn = ev.target.closest('.wkv-st-cmp');
-      if (cmpBtn) {
-        var rc = cmpBtn.getAttribute('data-r');
-        var cc = _normSt(getEnvios()[rc]);
-        var on3 = !(cc && cc.jaComprou);
-        marcarStatus(rc, { jaComprou: on3, jaComprouTs: on3 ? Date.now() : null });
-        _refreshStatusCell(cmpBtn, rc);
+      // Felipe s44: os 4 botoes que vieram do funil (Demonstrou interesse,
+      // Sem WhatsApp, Ja orcado Projetta, Ja comprou outra) + o "Ja comprou"
+      // que virou "Ja comprou Projetta". Um mapa so', mesma mecanica de
+      // liga/desliga com carimbo de hora — antes cada botao tinha o seu
+      // bloco repetido.
+      var _mapaSt = [
+        ['.wkv-st-dem',  'demonstrouInteresse', 'demonstrouInteresseTs'],
+        ['.wkv-st-swa',  'semWa',               'semWaTs'],
+        ['.wkv-st-orc',  'jaOrcadoProjetta',    'jaOrcadoProjettaTs'],
+        ['.wkv-st-cmpp', 'jaComprouProjetta',   'jaComprouProjettaTs'],
+        ['.wkv-st-cmpo', 'jaComprouOutra',      'jaComprouOutraTs'],
+      ];
+      for (var _i = 0; _i < _mapaSt.length; _i++) {
+        var _btn = ev.target.closest(_mapaSt[_i][0]);
+        if (!_btn) continue;
+        var _r = _btn.getAttribute('data-r');
+        var _cur = _normSt(getEnvios()[_r]);
+        var _campo = _mapaSt[_i][1];
+        var _on = !(_cur && _cur[_campo]);
+        var _patch = {};
+        _patch[_campo] = _on;
+        _patch[_mapaSt[_i][2]] = _on ? Date.now() : null;
+        // "Ja comprou Projetta" mantem o campo antigo jaComprou em sincronia:
+        // o filtro por status, o export CSV e os registros ja gravados
+        // continuam usando ele. Sem isso, marcar aqui sumiria do filtro.
+        if (_campo === 'jaComprouProjetta') {
+          _patch.jaComprou = _on;
+          _patch.jaComprouTs = _on ? Date.now() : null;
+        }
+        marcarStatus(_r, _patch);
+        _refreshStatusCell(_btn, _r);
         return;
       }
       // Felipe s37: EMAIL pelo compositor interno. "tentei enviar email
