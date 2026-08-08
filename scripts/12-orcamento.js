@@ -6979,6 +6979,29 @@ const Orcamento = (() => {
      ganhado o tratamento na s42 com um if solto no meio do map, e os
      outros 3 selects (fixo acoplado, revestimento de parede e pergolado)
      ficaram de fora — seguiam mostrando CORSTONE em caixa alta. */
+  /* Felipe s44 — FOB e o customs clearance.
+     No FOB o campo freteMaritimoUsd NAO carrega frete maritimo: o calculo
+     do 09d-frete-tarifas (desde a s38) devolve so' o CUSTOMS CLEARANCE de
+     exportacao, porque THC/B/L/X-Ray/Handling sao do comprador. Como o
+     vendedor entrega A BORDO, esse desembaraco e' obrigacao dele e tem que
+     entrar no preco. O flag itc.freteMaritimo e' false no FOB (correto pro
+     frete em si) e por isso o valor vinha sendo CORTADO do total.
+     Ponto unico usado pelo DRE, pela aprovacao (valor que vai pro CRM) e
+     pela proposta impressa — os 3 tem que concordar, senao volta o
+     problema de "2 valores diferentes na proposta". */
+  function fobSoClearance(incoterm, marUsd) {
+    return String(incoterm || '').toUpperCase() === 'FOB' && (Number(marUsd) || 0) > 0;
+  }
+  function maritimoEntraNoPreco(itc, incoterm, marUsd) {
+    if (itc && itc.freteMaritimo) return true;
+    return fobSoClearance(incoterm, marUsd);
+  }
+  function rotuloFreteMaritimo(incoterm, marUsd, modal) {
+    return fobSoClearance(incoterm, marUsd)
+      ? '\ud83d\udccb Customs Clearance (desembaraco de exportacao)'
+      : '\ud83d\udea2 Frete maritimo ' + (modal || 'LCL');
+  }
+
   function rotuloRevestimento(r) {
     return String(r || '').toUpperCase().trim() === 'CORSTONE' ? 'CorStone' : r;
   }
@@ -12049,7 +12072,7 @@ const Orcamento = (() => {
             const seguroUsd = itc.seguroMaritimo ? ((window.FreteTarifas && window.FreteTarifas.calcularSeguro) ? window.FreteTarifas.calcularSeguro(valorCargaUsd) : Math.max(35, valorCargaUsd * 0.005 * 1.10)) : 0;
             const freteIntlUsd = caixaUsd
                                + (itc.freteTerrestre ? terrUsd  : 0)
-                               + (itc.freteMaritimo  ? marUsd   : 0)
+                               + (maritimoEntraNoPreco(itc, leadFr.freteIncoterm, marUsd) ? marUsd : 0)
                                + (itc.seguroMaritimo ? seguroUsd: 0);
             freteIntlBrl = freteIntlUsd * taxaDRE;
           }
@@ -12153,8 +12176,15 @@ const Orcamento = (() => {
             </div>
           `;
 
+          // Felipe s44: no FOB o valor que vem em marUsd nao e' frete
+          // maritimo — e' so' o customs clearance de EXPORTACAO (o calculo
+          // do 09d ja' filtra isso desde a s38). Como o vendedor entrega a
+          // bordo, esse desembaraco e' obrigacao dele e TEM que somar no
+          // preco. Antes caia no inclui.maritimo=false e ficava de fora,
+          // com a Projetta bancando o custo calado.
+          const _entraMaritimo = maritimoEntraNoPreco(itc, incoterm, marUsd);
           const totalFreteUsd = (inclui.terrestre ? terrUsd : 0)
-                              + (inclui.maritimo  ? marUsd  : 0)
+                              + (_entraMaritimo   ? marUsd  : 0)
                               + (inclui.caixa     ? caixaUsd: 0)
                               + (inclui.seguro    ? seguroUsd:0);
           // Felipe sessao 31: 'passe o valor maior claro para a parte de
@@ -12191,7 +12221,25 @@ const Orcamento = (() => {
                 caixaUsd, inclui.caixa
               )}
               ${linha('🚛 Frete terrestre Uberlandia → Santos', terrUsd, inclui.terrestre)}
-              ${linha('🚢 Frete maritimo ' + (lead.freteModal || 'LCL'), marUsd, inclui.maritimo)}
+              ${(() => {
+                // Felipe s44: "quando for FOB tem ali esse 110 que e' o
+                // clearance, ele nao esta sendo contabilizado na proposta
+                // final, ele fica cortado ali. Quando for FOB mude ali
+                // descricao Ocean Freight e coloque Clearance 110 e
+                // considere no preco".
+                //
+                // CAUSA: no FOB o calculo (09d, s38) ja' devolve SO' o
+                // customs clearance de exportacao — THC, B/L, X-Ray etc
+                // ficam com o comprador. Mas esta linha continuava rotulada
+                // "Frete maritimo" e usava inclui.maritimo, que e' false no
+                // FOB. Resultado: os USD 110 apareciam RISCADOS e ficavam
+                // de fora do CLIENTE PAGA — a Projetta absorvia o custo.
+                //
+                // No FOB o vendedor entrega A BORDO, entao o desembaraco de
+                // EXPORTACAO e' obrigacao dele: tem que entrar no preco.
+                return linha(rotuloFreteMaritimo(incoterm, marUsd, lead.freteModal),
+                             marUsd, maritimoEntraNoPreco(itc, incoterm, marUsd));
+              })()}
               ${(() => {
                 const _si = (window.FreteTarifas && window.FreteTarifas.seguroInfo) ? window.FreteTarifas.seguroInfo() : { percentual: 0.5, cobertura: 1.10 };
                 return linha('🛡️ Seguro maritimo (' + _si.percentual + '% × valor × ' + Math.round(_si.cobertura * 100) + '%)', seguroUsd, inclui.seguro);
@@ -12596,7 +12644,7 @@ const Orcamento = (() => {
             const seguroUsd = itc.seguroMaritimo ? ((window.FreteTarifas && window.FreteTarifas.calcularSeguro) ? window.FreteTarifas.calcularSeguro(valorCargaUsd) : Math.max(35, valorCargaUsd * 0.005 * 1.10)) : 0;
             caixaBrl     = caixaUsd * taxa;
             terrestreBrl = (itc.freteTerrestre ? terrUsd : 0) * taxa;
-            maritimoBrl  = (itc.freteMaritimo  ? marUsd  : 0) * taxa;
+            maritimoBrl  = (maritimoEntraNoPreco(itc, leadAprov.freteIncoterm, marUsd) ? marUsd : 0) * taxa;
             seguroBrl    = (itc.seguroMaritimo ? seguroUsd: 0) * taxa;
             freteBrl     = caixaBrl + terrestreBrl + maritimoBrl + seguroBrl;
           }
@@ -16195,7 +16243,7 @@ const Orcamento = (() => {
             const incluir = {
               caixa:     true,
               terrestre: itc.freteTerrestre,
-              maritimo:  itc.freteMaritimo,
+              maritimo:  maritimoEntraNoPreco(itc, lead.freteIncoterm, marUsd),
               seguro:    itc.seguroMaritimo,
             };
             // Felipe sessao 31: instalacao internacional separada DENTRO do
